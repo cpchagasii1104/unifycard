@@ -2849,3 +2849,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (Lição: o teste que importa é o real — o mock provou o caminho, mas só a ViaCEP real confirmou que o contrato traz
   IBGE e que o cache parcial da BrasilAPI cedeu. enriched=3 desta vez É city resolvido, diferente do enriched=3
   state-only da F-GEO-2b. A coleira de IBGE no provider transformou "enriquecido" honesto em cidade canônica.)
+
+### F-GEO-3 — core.service lê city/UF por FK canônica, sem blob ✅ (2026-06-02) — frente Location/Geo
+- Backend-only, 3 arquivos (location.types.ts + location.repository.ts + core.service.ts). HEAD origem b9b1bb53.
+  Zero frontend/PJ/Companies/financeiro/migration/cleanup blob/API externa/actor_active_location/neighborhood.
+- Novo PrimaryResidenceGeo + findPrimaryResidenceGeoByOwner (colunas explícitas, LEFT JOIN states/cities:
+  s.abbreviation, c.name, c.external_code). core.service monta city=cities.name e state=states.abbreviation da FK;
+  blob só fallback transitório quando FK NULL (evita regressão até F4). Bairro segue residual via blob (neighborhoods=0).
+  findPrimaryAddressByOwner/getResidence (Opção A) intocados.
+- Prova de ouro (runtime, sem DML): actor b682724c com metadata.address=NULL → reader retorna city=Curitiba/state=PR
+  → origem FK inequívoca (não há blob para enriquecer). actor 494642e5 → FK Curitiba/PR + neighborhood "Sítio Cercado"
+  do blob. DB inalterado (addr_city=3, addr_state=3, blob 1, neighborhoods 0, aal 1). Gates typecheck0; critical_new=0/
+  348. Probes não commitados. DT-PERSONAL-ADDRESS OPEN (mitigação parcial). Próximo: decidir neighborhood → F4 → F5.
+  (Lição: a prova mais forte não foi mutar dado — foi achar o ator cujo blob já era NULL. Se a cidade aparece sem blob,
+  ela só pode vir da FK. Estado real bem escolhido > probe destrutivo. Meio andaime removido: cidade/UF canônicas,
+  bairro ainda pendurado no blob — honesto e explícito, não varrido pra baixo do tapete.)

@@ -17,6 +17,7 @@ import type {
   AddressRole,
   AddressAssignment,
   CachedCepResolution,
+  PrimaryResidenceGeo,
 } from './location.types';
 
 class LocationRepository {
@@ -534,6 +535,44 @@ class LocationRepository {
         a.updated_at AS "updatedAt"
       FROM address_assignments aa
       JOIN addresses a ON a.address_id = aa.address_id
+      WHERE aa.owner_type = $1
+        AND aa.owner_id = $2
+        AND aa.role = $3
+        AND aa.is_primary = TRUE
+        AND aa.valid_until_at IS NULL
+      ORDER BY aa.valid_from_at DESC
+      LIMIT 1
+      `,
+      [ownerType, ownerId, role]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  /**
+   * F-GEO-3 (DECISION-0074/0077): residência primária vigente do owner COM city/state resolvidos
+   * por FK canônica (LEFT JOIN states/cities). Colunas explícitas (sem SELECT *). Bairro NÃO entra
+   * (catálogo vazio; bairro segue residual via blob). Usado pelo core.service para exibir cidade/UF
+   * canônicas sem depender do blob.
+   */
+  async findPrimaryResidenceGeoByOwner(
+    ownerType: AddressOwnerType,
+    ownerId: string,
+    role: AddressRole
+  ): Promise<PrimaryResidenceGeo | null> {
+    const result = await pool.query<PrimaryResidenceGeo>(
+      `
+      SELECT
+        a.address_id AS "addressId",
+        a.postal_code AS "postalCode",
+        a.street, a.number, a.complement,
+        s.abbreviation AS "stateAbbreviation",
+        s.name AS "stateName",
+        c.name AS "cityName",
+        c.external_code AS "cityExternalCode"
+      FROM address_assignments aa
+      JOIN addresses a ON a.address_id = aa.address_id
+      LEFT JOIN states s ON s.state_id = a.state_id
+      LEFT JOIN cities c ON c.city_id = a.city_id
       WHERE aa.owner_type = $1
         AND aa.owner_id = $2
         AND aa.role = $3

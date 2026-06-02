@@ -10623,3 +10623,27 @@ Gates pós-execução (código intocado): actor-writer OK; bank-ledger OK; regre
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN** (não fechar). Com `city_id` real preenchido, o próximo
 corte **F-GEO-3** fica desbloqueado: core lê cidade/UF por FK (catálogo), sem depender do blob. **Bairro ainda é
 residual via blob** (neighborhoods=0) — outra frente. PJ fora desta instância.
+
+---
+
+## F-GEO-3 — core.service lê city/UF por FK canônica (sem blob para cidade/UF) ✅ (2026-06-02) — frente Location/Geo
+
+HEAD origem `b9b1bb53`. **Backend-only, 3 arquivos** (`location.types.ts` + `location.repository.ts` + `core.service.ts`).
+Zero frontend/PJ/Companies/financeiro/migration/cleanup blob/API externa/actor_active_location/neighborhood.
+
+**O que mudou:** novo tipo `PrimaryResidenceGeo` (projeção de leitura) + método de repository
+`findPrimaryResidenceGeoByOwner` (colunas explícitas, `LEFT JOIN states/cities`). `core.service` monta o endereço PF
+com **`city = cities.name`** e **`state = states.abbreviation`** vindos da **FK canônica**; o blob só entra como
+**fallback transitório** quando a FK ainda é NULL (CEP-âncora sem enriquecimento) — evita regressão até o cleanup (F4).
+**Bairro segue residual via blob** (`neighborhoods=0`). `findPrimaryAddressByOwner`/`getResidence` (Opção A) intocados.
+
+**Provas (runtime, sem DML):** actor `b682724c` com **`metadata.address=NULL`** → reader retorna **city=Curitiba /
+state=PR** (origem FK inequívoca — não há blob); actor `494642e5` → city=Curitiba/state=PR (FK) + `neighborhood="Sítio
+Cercado"` (blob residual). `findPrimaryResidenceGeoByOwner` → `stateAbbreviation='PR'`, `cityName='Curitiba'`,
+`cityExternalCode='4106902'`. DB inalterado: addr_city=3, addr_state=3, blob_address=1, neighborhoods=0, aal=1.
+Gates: typecheck0; actor-writer/bank-ledger OK; regression PASSOU (348); arch critical_new=0/total=20/warning_new=1
+(:334 pré-existente). Probes descartáveis (não commitados).
+
+**O que ainda vem do blob:** **bairro/neighborhood** (catálogo vazio) e o fallback de city/UF **só** quando a FK é NULL.
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN** (mitigação parcial). Próximo: **decidir política de
+neighborhood/bairro** antes do **F4** (cleanup `profiles.metadata.address`) → **F5** selo. PJ fora desta instância.

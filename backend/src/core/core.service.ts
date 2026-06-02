@@ -8,8 +8,10 @@ import { profilePhysicalService } from './profile/profile-physical.service';
 // F4 (DECISION-0069): interesses do getCompleteProfile vêm do C1 actor-first/concept-first (helper de
 // leitura), não mais do físico legado (que retorna []). Lifestyle/Health continuam no fluxo legado.
 import { profileC1DeclarationsReadService } from './profile/profile-c1-declarations-read.service';
-// F1 (DECISION-0074): endereço civil PF preferido do Location Core (residência canônica), com
-// enriquecimento transitório de city/state/neighborhood do blob preservado e fallback ao blob.
+// F1 (DECISION-0074): endereço civil PF preferido do Location Core (residência canônica).
+// F-GEO-3 (DECISION-0077): city/UF agora vêm da FK canônica (states/cities); o blob só enriquece
+// city/UF como fallback transitório quando a FK ainda não foi enriquecida. Bairro segue residual via
+// blob (catálogo de neighborhoods vazio). Cleanup total do blob fica para o F4.
 import { locationRepository } from './location/location.repository';
 // F4 Lifestyle (DECISION-0071): physical_profile.lifestyle vem do SSOT actor-first (lifestyleService), não
 // mais do blob legado. Resolve actor user via resolveUserActorId (DECISION-0069). sexualOrientation fora.
@@ -486,19 +488,25 @@ export class CoreService {
         try {
           const resActorId = await profileC1DeclarationsReadService.resolveUserActorId(tenantId, userId);
           if (resActorId) {
-            const canonical = await locationRepository.findPrimaryAddressByOwner('profile', resActorId, 'RESIDENCE');
+            // F-GEO-3: lê a residência com city/UF resolvidos por FK canônica (states/cities).
+            const canonical = await locationRepository.findPrimaryResidenceGeoByOwner('profile', resActorId, 'RESIDENCE');
             if (canonical) {
               const blob = (addressInDb && typeof addressInDb === 'object') ? addressInDb : {};
+              // F-GEO-3: city/UF vêm da FK canônica quando enriquecidas; o blob só entra como fallback
+              // transitório enquanto a FK ainda for NULL (endereço CEP-âncora sem enriquecimento) — evita
+              // regressão de exibição até o cleanup (F4). Quando a FK existe, o blob NÃO é usado p/ city/UF.
+              const cityCanonical = canonical.cityName;       // cities.name
+              const stateCanonical = canonical.stateAbbreviation; // states.abbreviation (ex.: 'PR')
               profile.addresses = [{
-                address_id: canonical.id,
+                address_id: canonical.addressId,
                 cep: canonical.postalCode || null,
                 address: canonical.street || null,
                 address_number: canonical.number || null,
                 complement: canonical.complement || null,
-                // Location Core não armazena city/state/neighborhood (Opção A) → enriquecimento transitório do blob (removido no F4)
+                // Bairro segue residual via blob (catálogo de neighborhoods vazio); sai no F4.
                 neighborhood: blob.neighborhood || null,
-                city: blob.city || null,
-                state: blob.state || null,
+                city: cityCanonical || blob.city || null,
+                state: stateCanonical || blob.state || null,
                 country: 'BR',
                 is_primary: true,
               }];

@@ -149,6 +149,24 @@ export interface NeighborhoodRow {
 
 
 /**
+ * F-GEO-3 (DECISION-0074/0077): residência primária vigente com city/state resolvidos por FK
+ * canônica (states/cities). Projeção de LEITURA para readers (ex.: core.service) exibirem
+ * cidade/UF sem depender do blob. NÃO inclui bairro (catálogo de neighborhoods vazio — bairro
+ * segue residual via blob nesta fase). NÃO inclui lat/lng (privacidade).
+ */
+export interface PrimaryResidenceGeo {
+  addressId: string;
+  postalCode: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  stateAbbreviation: string | null; // ex.: 'PR' (states.abbreviation; null se city/state não enriquecidos)
+  stateName: string | null;         // ex.: 'Paraná'
+  cityName: string | null;          // ex.: 'Curitiba' (cities.name)
+  cityExternalCode: string | null;  // IBGE (cities.external_code)
+}
+
+/**
  * F-GEO-1b (DECISION-0078): linha de cache de resolução de CEP (insumo técnico, NÃO SSOT).
  * NÃO inclui lat/lng (privacidade — coords de CEP não são cacheadas).
  */
