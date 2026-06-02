@@ -555,9 +555,9 @@ class LocationRepository {
 
   /**
    * F-GEO-3 (DECISION-0074/0077): residência primária vigente do owner COM city/state resolvidos
-   * por FK canônica (LEFT JOIN states/cities). Colunas explícitas (sem SELECT *). Bairro NÃO entra
-   * (catálogo vazio; bairro segue residual via blob). Usado pelo core.service para exibir cidade/UF
-   * canônicas sem depender do blob.
+   * por FK canônica (LEFT JOIN states/cities). Colunas explícitas (sem SELECT *). F-GEO-4a: passa a
+   * incluir `neighborhood_display_text` (bairro de exibição controlado, NÃO FK). Usado pelo core.service
+   * para exibir cidade/UF canônicas sem depender do blob.
    */
   async findPrimaryResidenceGeoByOwner(
     ownerType: AddressOwnerType,
@@ -590,6 +590,26 @@ class LocationRepository {
       [ownerType, ownerId, role]
     );
     return result.rows[0] ?? null;
+  }
+
+  /**
+   * F-GEO-4b (DECISION-0079): grava o bairro de exibição controlado (`neighborhood_display_text`) em um
+   * `addresses`. Texto livre de exibição (NÃO FK, NÃO SSOT territorial). Retorna a linha atualizada.
+   * A decisão de sobrescrever/preservar (idempotência, conflito) é do caller (script de backfill).
+   */
+  async updateAddressNeighborhoodDisplayText(
+    addressId: string,
+    neighborhoodDisplayText: string | null
+  ): Promise<number> {
+    const result = await pool.query(
+      `
+      UPDATE addresses
+      SET neighborhood_display_text = $2, updated_at = now()
+      WHERE address_id = $1
+      `,
+      [addressId, neighborhoodDisplayText]
+    );
+    return result.rowCount ?? 0;
   }
 
   /**

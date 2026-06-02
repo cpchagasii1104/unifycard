@@ -2893,3 +2893,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (Lição: prateleira antes da mudança. Criar a coluna + write/read paths SEM migrar valor nem mexer no leitor torna
   cada fatia seguinte trivial e reversível: 4a cria, 4b move, 4c troca a fonte de leitura, 4d joga a caixa velha fora.
   Default null no INSERT = a coluna existe mas nada muda de comportamento — risco zero numa fatia que toca schema.)
+
+### F-GEO-4b — migração do bairro do blob → neighborhood_display_text ✅ (2026-06-02) — frente Location/Geo
+- Script idempotente + repo mínimo (backfill-neighborhood-display-text.ts novo + location.repository.ts). HEAD origem
+  b755761b. Zero frontend/PJ/Companies/financeiro/API externa/geocoding/neighborhood FK/cleanup blob/aal/city/state/source.
+- Script (não migration, casa com assignment profile/RESIDENCE): profile com metadata.address.neighborhood não-vazio
+  → user-actor (actor_type='user') → residência primária vigente → grava addresses.neighborhood_display_text.
+  Regras: trim; vazio→skip; já igual→skip (idempotente); canônico≠blob (ambos não-vazios)→CONFLITO reportado, não
+  sobrescreve; só preenche quando canônico NULL. Repo: updateAddressNeighborhoodDisplayText. core.service intocado (4c).
+- Provas (DB): run {scanned:1,migrated:1,skipped:0,conflicts:0}; re-run {migrated:0,skipped:1} (idempotente);
+  caef7b1c (residência do actor 494642e5) → "Sítio Cercado"; blob preservado (profiles?'address'=1); addr_neigh_text
+  0→1; neighborhoods 0; neighborhood_id não usado; assignments 3. Gates typecheck0; critical_new=0/349. Probe
+  descartável não commitado (o script de backfill É commitado). DT OPEN. Próximo: F-GEO-4c → 4d → F-GEO-5.
+  (Lição: migração de UM registro merece a mesma disciplina de mil — resolver via assignment canônico, não por
+  tenant/user solto; a regra "não sobrescreve cego" é barata agora e cara de não ter quando o universo crescer.
+  Idempotência provada por re-run real, não por leitura do código.)

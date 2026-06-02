@@ -10693,3 +10693,27 @@ critical_new=0/total=20/warning_new=1 (:334 pré-existente). Probe descartável 
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Prateleira pronta e vazia. Próximo: **F-GEO-4b**
 migrar `metadata.address.neighborhood` → `addresses.neighborhood_display_text` → **F-GEO-4c** (core lê da coluna) →
 **F-GEO-4d** (cleanup blob) → **F-GEO-5** (selo/CLOSE). PJ fora desta instância.
+
+---
+
+## F-GEO-4b — migração do bairro do blob → `neighborhood_display_text` ✅ (2026-06-02) — frente Location/Geo
+
+HEAD origem `b755761b`. **Script idempotente + repo mínimo** (1 script novo + `location.repository.ts`). Zero
+frontend/PJ/Companies/financeiro/API externa/geocoding/neighborhood FK/cleanup blob/actor_active_location/city/state/source.
+
+**Script `backfill-neighborhood-display-text.ts`** (não migration — dado vem de blob de perfil e casa com
+assignment profile/RESIDENCE): para cada profile com `metadata.address.neighborhood` não-vazio → resolve user-actor
+(`actor_type='user'`, tenant+user) → residência primária vigente (`findPrimaryResidenceGeoByOwner`) → grava
+`addresses.neighborhood_display_text`. Regras: trim; vazio→skip; **já igual→skip** (idempotente); **canônico ≠ blob
+(ambos não-vazios)→CONFLITO reportado, NÃO sobrescreve**; só preenche quando canônico é NULL. Repo: novo
+`updateAddressNeighborhoodDisplayText`. **core.service NÃO alterado** (F-GEO-4c fará a leitura).
+
+**Provas (DB):** run `{scanned:1,migrated:1,skipped:0,conflicts:0}`; re-run `{scanned:1,migrated:0,skipped:1,
+conflicts:0}` (**idempotente**); address `caef7b1c` (residência primária do actor `494642e5`, CEP 81920410) →
+`neighborhood_display_text="Sítio Cercado"`; **blob preservado** (`profiles ? 'address'`=1, valor intacto);
+`addr_neigh_text` 0→1; `neighborhoods`=0; `neighborhood_id` não usado; assignments inalterados (3). Gates: typecheck0;
+actor-writer/bank-ledger OK; regression PASSOU (349); arch critical_new=0/total=20/warning_new=1 (:334 pré-existente).
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** "Sítio Cercado" está na prateleira nova; a caixa
+velha (blob) ainda existe. Próximo: **F-GEO-4c** (core.service lê bairro de `neighborhood_display_text`, não do blob)
+→ **F-GEO-4d** (cleanup `metadata.address`) → **F-GEO-5** (selo/CLOSE). PJ fora desta instância.
