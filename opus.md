@@ -2411,3 +2411,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   sem global_users.metadata. Gates: back+front typecheck0; actor-writer/bank-ledger/regression OK; arch
   critical_new=0/total=20. Endpoint legado /profile/physical ainda aceita lifestyle (estrada velha até F5). Fila:
   F4 readers/completude (core 388/765→SSOT; remover sexualOrientation do contrato legado).
+
+### F4 — CORE READERS/COMPLETUDE → LIFESTYLE SSOT ✅ (2026-06-01)
+- core.service.getCompleteProfile lê Lifestyle do SSOT. Só core.service.ts. HEAD origem 18333872. Zero frontend/
+  migration/cleanup-blob/profile-physical.service/social-targeting/Health/Learning-Interest/Profissional/Agenda/
+  financeiro. DT OPEN.
+- physical_profile.lifestyle vem de lifestyleService.getLifestyle (resolve actor user via resolveUserActorId;
+  sem actor→{drinks:null,smokes:null,relationshipStatus:null} controlado, sem 500), não mais do blob.
+  getPhysicalProfile mantido só p/ preferences/sharedHealthData. sexualOrientation REMOVIDO do tipo
+  CompleteProfile.physical_profile.lifestyle e do score de completude (conta presença de atributo do SSOT).
+- Provas runtime (probe direto): A sem SSOT→lifestyle nulo sem sexualOrientation, completude física 0; B com
+  SSOT consentido→lifestyle preenchido, completude 0→5, keys drinks/smokes/relationshipStatus (sem
+  sexualOrientation); C no-actor→physical_profile null sem 500; blob metadata.lifestyle INTOCADO. Greps: core sem
+  physicalProfile.lifestyle; sexualOrientation só comentário; profile-physical/social-targeting sem diff. Gates:
+  typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20. Blob e legado vivos até F5.
+  Fila: F5 cleanup blob (profile-physical para de gravar/ler metadata.lifestyle; micro-decisão backfill).

@@ -9973,3 +9973,29 @@ usa client lifestyle, não envia lifestyle ao legado, sexualOrientation só em c
 **Endpoint legado `/profile/physical` ainda aceita lifestyle** (estrada velha viva até F5; o frontend vivo só
 não alimenta mais). **Fila:** **F4** readers/completude (`core.service` 388 leitura + 765 completude → SSOT;
 remover sexualOrientation do contrato legado).
+
+---
+
+## F4 — CORE READERS/COMPLETUDE → LIFESTYLE SSOT ✅ (2026-06-01)
+
+`core.service.getCompleteProfile` lê Lifestyle do SSOT. HEAD origem `18333872`. **Só** `core.service.ts`; zero
+frontend/migration/cleanup-blob/`profile-physical.service`/social-targeting/Health(501)/Learning-Interest/
+Profissional/Agenda/financeiro. **DT OPEN.**
+
+**Mudança:** `physical_profile.lifestyle` deixou de vir do blob (`physicalProfile.lifestyle`) e passou a vir de
+`lifestyleService.getLifestyle` — resolve actor 'user' via `resolveUserActorId` (DECISION-0069); sem actor →
+`{drinks:null,smokes:null,relationshipStatus:null}` controlado (sem 500). `getPhysicalProfile` **mantido só**
+p/ preferences/sharedHealthData (legado/health). **`sexualOrientation` REMOVIDO** do tipo
+`CompleteProfile.physical_profile.lifestyle` e do **score de completude** (conta presença de atributo do SSOT).
+
+**Provas runtime (probe direto):** A sem SSOT → lifestyle nulo, **sem key `sexualOrientation`**, completude
+física baseline (0); B com SSOT (relationship_status/drinks/smokes consentidos) → lifestyle preenchido,
+completude física **0→5**, keys = drinks/smokes/relationshipStatus (**sem sexualOrientation**); C no-actor →
+physical_profile null, **sem 500**; **blob `metadata.lifestyle` INTOCADO** (2 rows). Greps: core sem
+`physicalProfile.lifestyle`; `sexualOrientation` só em comentário; `profile-physical.service`/`social-targeting`
+sem diff. Gates: typecheck0; actor-writer/bank-ledger/regression OK (345); arch `critical_new=0`,
+`critical_total=20`.
+
+**Endpoint legado e blob seguem vivos até F5.** **Fila:** **F5** cleanup do blob (`profile-physical.service`
+para de gravar/ler `metadata.lifestyle`; micro-decisão de backfill; NÃO confundir lifestyle sensível com
+sharedHealthData/preferences) → **F6** selo + CLOSE.

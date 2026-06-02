@@ -8,6 +8,9 @@ import { profilePhysicalService } from './profile/profile-physical.service';
 // F4 (DECISION-0069): interesses do getCompleteProfile vêm do C1 actor-first/concept-first (helper de
 // leitura), não mais do físico legado (que retorna []). Lifestyle/Health continuam no fluxo legado.
 import { profileC1DeclarationsReadService } from './profile/profile-c1-declarations-read.service';
+// F4 Lifestyle (DECISION-0071): physical_profile.lifestyle vem do SSOT actor-first (lifestyleService), não
+// mais do blob legado. Resolve actor user via resolveUserActorId (DECISION-0069). sexualOrientation fora.
+import { lifestyleService } from './profile/lifestyle/lifestyle.service';
 import { profileEducationService } from './profile/profile-education.service';
 import { identityService } from './identity/identity.service';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
@@ -49,7 +52,6 @@ export interface CompleteProfile {
       drinks: string | null;
       smokes: string | null;
       relationshipStatus: string | null;
-      sexualOrientation: string | null;
     };
     preferences: Record<string, any>;
   } | null;
@@ -398,18 +400,32 @@ export class CoreService {
           categoryName: i.categoryName ?? '',
           categoryPath: i.categoryPath ?? [],
         }));
+
+        // Lifestyle do SSOT actor-first (DECISION-0071/F4), NÃO mais do blob. Resolve actor 'user'; sem
+        // actor → vazio controlado. sexualOrientation NÃO existe no SSOT. visibility private (self).
+        const lifestyleActorId = await profileC1DeclarationsReadService.resolveUserActorId(tenantId, userId);
+        const lifestyleOut: { drinks: string | null; smokes: string | null; relationshipStatus: string | null } = {
+          drinks: null,
+          smokes: null,
+          relationshipStatus: null,
+        };
+        if (lifestyleActorId) {
+          const ls = await lifestyleService.getLifestyle(tenantId, lifestyleActorId);
+          for (const a of ls.attributes) {
+            if (!a.isActive) continue;
+            if (a.attributeKey === 'relationship_status') lifestyleOut.relationshipStatus = a.attributeValue;
+            else if (a.attributeKey === 'drinks') lifestyleOut.drinks = a.attributeValue;
+            else if (a.attributeKey === 'smokes') lifestyleOut.smokes = a.attributeValue;
+          }
+        }
+
         if (physicalProfile) {
           // Extrair dados de saúde compartilhados (altura, peso, peso ideal) se existirem
           const sharedHealthData = physicalProfile.metadata?.sharedHealthData;
 
           profile.physical_profile = {
             interests: c1Interests,
-            lifestyle: physicalProfile.lifestyle || {
-              drinks: null,
-              smokes: null,
-              relationshipStatus: null,
-              sexualOrientation: null,
-            },
+            lifestyle: lifestyleOut,
             preferences: {
               ...(physicalProfile.preferences || {}),
               ...(sharedHealthData ? {
@@ -761,8 +777,9 @@ export class CoreService {
       physicalScore += 10;
     }
     if (completeProfile.physical_profile?.lifestyle) {
+      // Completude conta presença de atributo Lifestyle ATIVO do SSOT (F4); sexualOrientation NÃO conta mais.
       const lifestyle = completeProfile.physical_profile.lifestyle;
-      if (lifestyle.drinks || lifestyle.smokes || lifestyle.relationshipStatus || lifestyle.sexualOrientation) {
+      if (lifestyle.drinks || lifestyle.smokes || lifestyle.relationshipStatus) {
         physicalScore += 5;
       }
     }
