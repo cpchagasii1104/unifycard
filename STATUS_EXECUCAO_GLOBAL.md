@@ -10405,3 +10405,28 @@ total=20. Backend typecheck dispensado (backend não tocado).
 
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Fila: **F3** readers/core sem depender do blob
 (remover enriquecimento transitório) → **F4** cleanup `profiles.metadata.address` → **F5** selo + CLOSE.
+
+---
+
+## D2 — POLÍTICA DE ENRIQUECIMENTO GEOGRÁFICO PF (DECISION-0076) ✅ (2026-06-02) — DOCS-ONLY
+
+HEAD origem `5e098a25`. Docs-only: zero código/runtime/migration/frontend/backend/PJ/Companies/CPF/gender/
+financeiro/cleanup blob. Novo `docs/02_decisions/DECISION_0076_PROFILE_ADDRESS_GEO_ENRICHMENT_POLICY.md` +
+DECISIONS_LOG + DT_LOG + este STATUS + opus.
+
+**Achados (read-only):** `addresses` não tem coluna textual de city/state/neighborhood (só FK nullable); **sem
+resolver CEP→geo/geocoding** no backend (CEP-autofill é frontend, não persiste FK; BrasilAPI só p/ CNPJ);
+catálogo só capitais (`states`=27, `cities`=27, `neighborhoods`=0) → Curitiba resolve, casos gerais não.
+
+**Decisão (Opção A):** manter o **enriquecimento transitório do blob no reader** (`core.service`) até existir
+estratégia canônica (CEP/catálogo/geocoding). Location Core segue SSOT (CEP-âncora + FK nullable + lat/lng).
+`profiles.metadata.address` = fallback transitório de exibição (não mais destino de escrita). **F3 (reader sem
+blob) e F4 (cleanup) BLOQUEADOS** até ao menos uma pré-condição: (a) resolver CEP/geocoding; (b) FK resolvida com
+segurança (catálogo completo + bairros); (c) UI aceitar sem city/state/neighborhood; (d) decisão explícita de
+perda. **F-GEO** (resolver CEP/catálogo/geocoding) = frente futura **compartilhável PF/PJ**, fora desta instância.
+
+**Fronteira PJ:** já registrada em **DECISION-0075 §7** + DT_LOG (city/state textual não-canônico em `addresses`;
+CEP-âncora). Gates docs-only verdes (critical_new=0/total=20).
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Próximo corte NÃO é F3 — é **F-GEO** (frente
+própria/compartilhável) ou outra direção do Perfil PF. PJ permanece fora desta instância.

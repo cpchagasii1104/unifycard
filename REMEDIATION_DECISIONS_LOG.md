@@ -6246,3 +6246,41 @@ CLOSE da DT. Nova `DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` (OPEN). Docs-only;
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0076 — Política de enriquecimento geográfico (city/state/neighborhood) do endereço civil PF
+
+**Status:** RATIFICADA — POLÍTICA/MODELAGEM (D2), DOCS-ONLY; implementação não autorizada (2026-06-02).
+**Decisor:** Clayton (Opção A). **Commit âncora:** HEAD origem `5e098a25`.
+**Documento canônico:** `docs/02_decisions/DECISION_0076_PROFILE_ADDRESS_GEO_ENRICHMENT_POLICY.md`.
+**Subordinada a:** DECISION-0074, DECISION-0020/0021, SSOT_REGISTRY. **Vinculada a:**
+`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` (OPEN), DECISION-0075 §7. **Escopo:** SOMENTE PF; PJ fora.
+
+### Contexto
+
+Pós F1/F2: endereço civil PF gravado no Location Core (CEP-âncora; city/state/neighborhood NULL); frontend não
+escreve mais no blob; `core.service` ainda **enriquece** city/state/neighborhood do **blob preservado** (não
+regredir exibição). Achados que travam o corte: `addresses` sem coluna textual de city/state/neighborhood (só
+FK nullable); **sem resolver CEP→geo / geocoding** no backend; catálogo só capitais (cities=27, neighborhoods=0)
+→ Curitiba resolve, casos gerais não.
+
+### Decisão (Opção A)
+
+**Manter o enriquecimento transitório do blob no reader** até existir estratégia canônica de enriquecimento
+(CEP/catálogo/geocoding). Location Core continua SSOT (postal_code/street/number/complement + FK nullable +
+lat/lng). `profiles.metadata.address` deixa de ser destino de escrita (F2) mas **permanece fallback transitório
+de exibição** de city/state/neighborhood. **Cleanup do blob (F4) BLOQUEADO** até ao menos UMA pré-condição:
+(a) resolver CEP/geocoding canônico; (b) FK city/state/neighborhood resolvida com segurança (catálogo completo +
+bairros); (c) UI aceitar exibição sem city/state/neighborhood; (d) decisão explícita de perda. Vetos: FK frágil;
+coluna textual em addresses; cortar blob antes de pré-condição; tocar PJ/CPF/gender/financeiro; implementar aqui.
+
+### Consequências
+
+**F3 (readers/core sem blob) NÃO é o próximo corte automático** — depende de F-GEO (frente futura **compartilhável
+PF/PJ**: resolver CEP/catálogo/geocoding). Fronteira PJ já registrada em DECISION-0075 §7 + DT_LOG. Docs-only;
+gates verdes; critical_new=0. DT permanece OPEN.
+
+### Superada por
+
+(em aberto — decisão vigente)

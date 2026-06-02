@@ -2696,3 +2696,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   atualizado; blob metadata.address NÃO criado/atualizado (false→false). Greps: sem metadata.address em
   Profile.tsx; usa putResidenceAddress. Gates OK; critical_new=0/total=20. DT-PERSONAL-ADDRESS OPEN. Fila: F3
   readers sem blob (remover enriquecimento transitório) → F4 cleanup → F5 selo+CLOSE.
+
+### D2 — POLÍTICA DE ENRIQUECIMENTO GEOGRÁFICO PF (DECISION-0076) ✅ DOCS-ONLY (2026-06-02)
+- HEAD origem 5e098a25. Docs-only: zero código/runtime/migration/frontend/backend/PJ/Companies/CPF/gender/
+  financeiro/cleanup blob. Novo DECISION_0076_PROFILE_ADDRESS_GEO_ENRICHMENT_POLICY.md + DECISIONS_LOG + DT_LOG +
+  STATUS + opus.
+- Achados read-only: addresses sem coluna textual city/state/neighborhood (só FK nullable); SEM resolver CEP→geo/
+  geocoding no backend (CEP-autofill é frontend, não persiste FK; BrasilAPI só CNPJ); catálogo só capitais
+  (states=27, cities=27, neighborhoods=0) → Curitiba resolve, casos gerais não.
+- Decisão Opção A: manter enriquecimento transitório do blob no reader (core.service) até estratégia canônica
+  (CEP/catálogo/geocoding). Location Core segue SSOT (CEP-âncora + FK nullable + lat/lng); metadata.address =
+  fallback transitório de exibição. F3 (reader sem blob) e F4 (cleanup) BLOQUEADOS até pré-condição: (a) resolver
+  CEP/geocoding; (b) FK resolvida com segurança (catálogo completo+bairros); (c) UI aceitar sem city/state/
+  neighborhood; (d) decisão explícita de perda. F-GEO (resolver CEP/catálogo/geocoding) = frente futura
+  COMPARTILHÁVEL PF/PJ, fora desta instância.
+- Fronteira PJ já em DECISION-0075 §7 + DT_LOG. Gates docs-only verdes (critical_new=0/total=20). Próximo corte NÃO
+  é F3 — é F-GEO (frente própria) ou outra direção do Perfil PF. PJ fora desta instância. (Lição: não arrancar o
+  andaime — reader ainda usa o blob p/ não perder cidade/UF/bairro; cleanup só após estratégia geográfica.)
