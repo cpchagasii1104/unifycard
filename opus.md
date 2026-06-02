@@ -2729,3 +2729,26 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (critical_new=0/total=20). DT-PERSONAL-ADDRESS OPEN. Frente endereço PF correta e governada (blob=andaime
   documentado). Próximo: F-GEO-1 (implementação, compartilhável PF/PJ — provável outra instância) OU dívida menor
   PF (gender). PJ fora desta instância.
+
+### F-GEO-1a — INFRA GEO COMPARTILHÁVEL (resolver CEP/UF/cidade) ✅ (2026-06-02) — frente Location/Geo
+- Backend-only, 4 arquivos (novos: core/location/cep-provider.ts + geo-enrichment.service.ts; M:
+  location.repository.ts + profile-residence-address.service.ts). HEAD origem 85be6903. Frente Location/Geo
+  (compartilhável PF/PJ), não PJ/Perfil. Zero frontend/migration/schema/PJ/Companies/financeiro/cleanup blob/API
+  externa nos testes.
+- Port CepProvider + BrasilApiCepProvider (fetch nativo + AbortController; IBGE só se vier) + NullCepProvider
+  (DEFAULT, sem rede) + MockCepProvider (testes) + getDefaultCepProvider env-gated (CEP_PROVIDER=brasilapi).
+  geo-enrichment.service (resolvePostalCode/enrichAddress, FAIL-OPEN). Repo: findCityByExternalCode/
+  createCityFromExternal/updateAddressGeo (colunas explícitas; name_normalized gerada não inserida).
+- Estratégia B+D+C: state_id por UF; cidade por IBGE (reusa/cria sob demanda); sem IBGE → state-only (sem match
+  frágil); NÃO cria neighborhood (residual via blob); NÃO persiste lat/lng (privacidade — coarse via centroide de
+  cidade/FK; coords de CEP do provider ignoradas). Hook PF best-effort/fail-open em setResidence (default Null=
+  no-op até CEP_PROVIDER opt-in; nunca bloqueia gravação).
+- Provas (probe MockCepProvider, sem rede, teardown): reuso capital (Curitiba IBGE 4106902, source=CEP_RESOLVED);
+  cria sob demanda (Foz não-capital); idempotente (re-run não duplica); sem IBGE → state-only city null; CEP
+  desconhecido + provider-throw → fail-open; neighborhoods 0→0; teardown restaurou (cities 27, addresses null).
+  Gates: typecheck0; actor-writer/bank-ledger/regression OK (347); critical_new=0/total=20. Probe NÃO commitado.
+- DT-PERSONAL-ADDRESS OPEN. Fila: F-GEO-1b (cache persistente cep_resolution_cache + script backfill 3 addresses)
+  → F-GEO-2/F3 (core lê city/state do catálogo, sem blob) → F4 cleanup metadata.address (depende de decisão de
+  neighborhood) → F5 selo+CLOSE. PJ fora desta instância; usa o mesmo resolver quando rodar. (Lição: privacidade —
+  não persistir coords de CEP do provider no endereço; geo coarse só via centroide de cidade. Provider default
+  Null garante gate/teste sem rede; real só com opt-in env.)

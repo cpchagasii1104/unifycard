@@ -570,6 +570,72 @@ class LocationRepository {
     );
     return result.rowCount ?? 0;
   }
+
+  /**
+   * F-GEO-1a (DECISION-0077): busca cidade pelo `external_code` (IBGE). Reuso no import sob demanda.
+   */
+  async findCityByExternalCode(externalCode: string): Promise<City | null> {
+    const result = await pool.query<{ city_id: string; state_id: string; name: string }>(
+      `
+      SELECT city_id, state_id, name
+      FROM cities
+      WHERE external_code = $1
+      LIMIT 1
+      `,
+      [externalCode]
+    );
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0]!;
+    return { id: row.city_id, stateId: row.state_id, name: row.name };
+  }
+
+  /**
+   * F-GEO-1a (DECISION-0077): cria cidade SOB DEMANDA a partir de dado externo (IBGE).
+   * `name_normalized` é coluna GERADA — não inserir. `lat`/`lng` opcionais (centroide; NÃO coordenada
+   * precisa de residência). Idempotência fica a cargo do chamador (findCityByExternalCode antes).
+   */
+  async createCityFromExternal(input: {
+    stateId: string;
+    name: string;
+    externalCode: string;
+    lat?: number | null;
+    lng?: number | null;
+  }): Promise<City> {
+    const result = await pool.query<{ city_id: string; state_id: string; name: string }>(
+      `
+      INSERT INTO cities (state_id, name, external_code, lat, lng)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING city_id, state_id, name
+      `,
+      [input.stateId, input.name, input.externalCode, input.lat ?? null, input.lng ?? null]
+    );
+    const row = result.rows[0]!;
+    return { id: row.city_id, stateId: row.state_id, name: row.name };
+  }
+
+  /**
+   * F-GEO-1a (DECISION-0077): enriquece um `addresses` com FK de localização resolvida.
+   * Atualiza apenas state_id/city_id/source (+ is_geocoded/geocoded_at se houver geo coarse). NÃO grava
+   * lat/lng de residência (privacidade — geo coarse vem do centroide da cidade via FK). Colunas explícitas.
+   */
+  async updateAddressGeo(
+    addressId: string,
+    input: { stateId?: string | null; cityId?: string | null; source?: string }
+  ): Promise<number> {
+    const fields: string[] = [];
+    const params: any[] = [];
+    let i = 1;
+    if (input.stateId !== undefined) { fields.push(`state_id = $${i++}`); params.push(input.stateId); }
+    if (input.cityId !== undefined) { fields.push(`city_id = $${i++}`); params.push(input.cityId); }
+    if (input.source !== undefined) { fields.push(`source = $${i++}`); params.push(input.source); }
+    if (fields.length === 0) return 0;
+    params.push(addressId);
+    const result = await pool.query(
+      `UPDATE addresses SET ${fields.join(', ')}, updated_at = now() WHERE address_id = $${i}`,
+      params
+    );
+    return result.rowCount ?? 0;
+  }
 }
 
 export const locationRepository = new LocationRepository();

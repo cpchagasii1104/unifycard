@@ -10453,3 +10453,34 @@ nem assumir city/UF textual canônica (DECISION-0075 §7); usa o mesmo F-GEO. Ga
 **Frente endereço PF está correta e governada** (blob = andaime documentado, não gambiarra). Próximo corte:
 **F-GEO-1** (implementação, frente compartilhável PF/PJ — provável outra instância/sessão) **OU** pausar endereço
 PF aqui e atacar dívida menor do Perfil PF (ex.: `gender` em metadata). PJ fora desta instância.
+
+---
+
+## F-GEO-1a — INFRA GEO COMPARTILHÁVEL (resolver CEP/UF/cidade) ✅ (2026-06-02) — frente Location/Geo
+
+HEAD origem `85be6903`. **Backend-only, 4 arquivos** (novos: `core/location/cep-provider.ts` +
+`core/location/geo-enrichment.service.ts`; M: `location.repository.ts` + `profile-residence-address.service.ts`).
+Frente **Location/Geo** (compartilhável PF/PJ), **não** PJ/Perfil. Zero frontend/migration/schema/PJ/Companies/
+financeiro/cleanup blob/API externa nos testes.
+
+**Port + provider:** `CepProvider` (interface) + `BrasilApiCepProvider` (fetch nativo + AbortController timeout;
+IBGE só se vier; senão null) + `NullCepProvider` (**default, sem rede**) + `MockCepProvider` (testes) +
+`getDefaultCepProvider()` (env-gated `CEP_PROVIDER=brasilapi`). **Service:** `geo-enrichment.service`
+(`resolvePostalCode`/`enrichAddress`, **fail-open**). **Repo:** `findCityByExternalCode`/`createCityFromExternal`/
+`updateAddressGeo` (colunas explícitas; `name_normalized` gerada não inserida).
+
+**Estratégia B+D+C:** state_id por UF; cidade por IBGE (reusa/cria sob demanda); **sem IBGE → state-only** (sem
+match frágil); **não cria neighborhood** (residual via blob); **não persiste lat/lng** (privacidade — geo coarse
+via centroide de cidade/FK). **Hook PF best-effort/fail-open** em `setResidence` (default Null = no-op até
+`CEP_PROVIDER` opt-in; NUNCA bloqueia gravação).
+
+**Provas (probe MockCepProvider, sem rede, com teardown):** reuso de capital (Curitiba IBGE 4106902,
+source=CEP_RESOLVED); cria cidade sob demanda (Foz não-capital); **idempotente** (re-run não duplica); sem IBGE →
+state-only (city null); CEP desconhecido e provider-throw → **fail-open**; `neighborhoods` 0→0; teardown restaurou
+(cities 27, addresses null). Gates: backend typecheck0; actor-writer/bank-ledger/regression OK (347); arch
+critical_new=0/total=20.
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Fila: **F-GEO-1b** (cache persistente
+`cep_resolution_cache` + script backfill dos 3 addresses DEV) → **F-GEO-2/F3** (core lê city/state do catálogo,
+sem blob) → **F4** cleanup `metadata.address` (depende de decisão de neighborhood) → **F5** selo+CLOSE. PJ fora
+desta instância; usa o mesmo resolver quando a frente PJ rodar.

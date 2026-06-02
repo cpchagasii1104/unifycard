@@ -12,6 +12,7 @@
 // 🔴 PF apenas. NÃO toca Companies/PJ/company address.
 
 import { locationRepository } from '@core/location/location.repository';
+import { geoEnrichmentService } from '@core/location/geo-enrichment.service';
 import { profileC1DeclarationsReadService } from './profile-c1-declarations-read.service';
 import { BadRequestError, NotFoundError } from '@core/errors';
 
@@ -125,6 +126,15 @@ class ProfileResidenceAddressService {
     );
 
     await locationRepository.assignAddress(created.id, 'profile', actorId, 'RESIDENCE', true);
+
+    // F-GEO-1a (DECISION-0077): enriquecimento best-effort de state_id/city_id a partir do CEP.
+    // fail-open: se o provider não estiver configurado (default Null) ou falhar, o endereço permanece
+    // CEP-âncora — NUNCA bloqueia a gravação. Não persiste lat/lng (privacidade).
+    try {
+      await geoEnrichmentService.enrichAddress(created.id, cep);
+    } catch {
+      // best-effort; ignorar.
+    }
 
     const dto = await this.getResidence(tenantId, userId);
     if (!dto) {
