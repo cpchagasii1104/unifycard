@@ -9,9 +9,10 @@ import { profilePhysicalService } from './profile/profile-physical.service';
 // leitura), não mais do físico legado (que retorna []). Lifestyle/Health continuam no fluxo legado.
 import { profileC1DeclarationsReadService } from './profile/profile-c1-declarations-read.service';
 // F1 (DECISION-0074): endereço civil PF preferido do Location Core (residência canônica).
-// F-GEO-3 (DECISION-0077): city/UF agora vêm da FK canônica (states/cities); o blob só enriquece
-// city/UF como fallback transitório quando a FK ainda não foi enriquecida. Bairro segue residual via
-// blob (catálogo de neighborhoods vazio). Cleanup total do blob fica para o F4.
+// F-GEO-3 (DECISION-0077): city/UF vêm da FK canônica (states/cities); o blob só enriquece city/UF como
+// fallback transitório quando a FK ainda não foi enriquecida.
+// F-GEO-4c (DECISION-0079): bairro vem de addresses.neighborhood_display_text (texto de exibição controlado);
+// blob só fallback enquanto a coluna for NULL. Cleanup total do blob fica para o F-GEO-4d.
 import { locationRepository } from './location/location.repository';
 // F4 Lifestyle (DECISION-0071): physical_profile.lifestyle vem do SSOT actor-first (lifestyleService), não
 // mais do blob legado. Resolve actor user via resolveUserActorId (DECISION-0069). sexualOrientation fora.
@@ -497,14 +498,17 @@ export class CoreService {
               // regressão de exibição até o cleanup (F4). Quando a FK existe, o blob NÃO é usado p/ city/UF.
               const cityCanonical = canonical.cityName;       // cities.name
               const stateCanonical = canonical.stateAbbreviation; // states.abbreviation (ex.: 'PR')
+              // F-GEO-4c: bairro vem do Location Core (addresses.neighborhood_display_text, texto de exibição
+              // controlado — DECISION-0079). O blob só entra como fallback transitório quando a coluna ainda é
+              // NULL (registros não migrados pela F-GEO-4b) — sai no F-GEO-4d (cleanup do blob).
+              const neighborhoodCanonical = canonical.neighborhoodDisplayText; // addresses.neighborhood_display_text
               profile.addresses = [{
                 address_id: canonical.addressId,
                 cep: canonical.postalCode || null,
                 address: canonical.street || null,
                 address_number: canonical.number || null,
                 complement: canonical.complement || null,
-                // Bairro segue residual via blob (catálogo de neighborhoods vazio); sai no F4.
-                neighborhood: blob.neighborhood || null,
+                neighborhood: neighborhoodCanonical || blob.neighborhood || null,
                 city: cityCanonical || blob.city || null,
                 state: stateCanonical || blob.state || null,
                 country: 'BR',

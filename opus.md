@@ -2908,3 +2908,17 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (Lição: migração de UM registro merece a mesma disciplina de mil — resolver via assignment canônico, não por
   tenant/user solto; a regra "não sobrescreve cego" é barata agora e cara de não ter quando o universo crescer.
   Idempotência provada por re-run real, não por leitura do código.)
+
+### F-GEO-4c — core.service lê bairro de neighborhood_display_text ✅ (2026-06-02) — frente Location/Geo
+- Backend-only, 1 arquivo (core.service.ts). HEAD origem 46a6be9d. Zero frontend/PJ/Companies/financeiro/API externa/
+  migration/cleanup blob/neighborhood FK/aal/city/state/source.
+- neighborhood = canonical.neighborhoodDisplayText || blob.neighborhood || null. Bairro vem do Location Core (coluna
+  texto de exibição controlado); blob só fallback enquanto coluna NULL (sai no 4d). City/UF seguem FK (F-GEO-3). Repo
+  intocado (findPrimaryResidenceGeoByOwner já expunha a coluna desde 4a).
+- Provas (runtime): 494642e5 → city=Curitiba/state=PR + neighborhood="Sítio Cercado" (read-first da coluna); b682724c
+  → neighborhood=null. DB inalterado (addr_neigh_text 1, blob 1, neighborhoods 0, aal 1). Gates typecheck0; critical_new=0/349.
+  Nota honesta: coluna e blob têm o mesmo valor hoje → saída idêntica; a troca de fonte é provada por código + coluna
+  populada na 4b, não por divergência observável. DT OPEN. Próximo: F-GEO-4d (cleanup blob — corte perigoso) → F-GEO-5.
+  (Lição: o leitor agora não precisa do blob para NENHUM campo do endereço PF. Esse é o pré-requisito real do cleanup:
+  não "o dado foi copiado" e sim "o leitor parou de depender da origem velha". Só depois disso apagar é seguro. Quando
+  fonte nova e velha coincidem, seja honesto que a prova é estrutural, não visual — não invente diferença que não existe.)

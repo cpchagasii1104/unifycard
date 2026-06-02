@@ -10717,3 +10717,27 @@ actor-writer/bank-ledger OK; regression PASSOU (349); arch critical_new=0/total=
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** "Sítio Cercado" está na prateleira nova; a caixa
 velha (blob) ainda existe. Próximo: **F-GEO-4c** (core.service lê bairro de `neighborhood_display_text`, não do blob)
 → **F-GEO-4d** (cleanup `metadata.address`) → **F-GEO-5** (selo/CLOSE). PJ fora desta instância.
+
+---
+
+## F-GEO-4c — core.service lê bairro de `neighborhood_display_text` ✅ (2026-06-02) — frente Location/Geo
+
+HEAD origem `46a6be9d`. **Backend-only, 1 arquivo** (`core.service.ts`). Zero
+frontend/PJ/Companies/financeiro/API externa/migration/cleanup blob/neighborhood FK/actor_active_location/city/state/source.
+
+**Mudança:** na montagem do endereço PF, `neighborhood = canonical.neighborhoodDisplayText || blob.neighborhood ||
+null` — bairro vem do Location Core (`addresses.neighborhood_display_text`, texto de exibição controlado — DECISION-0079);
+o blob só entra como fallback transitório enquanto a coluna for NULL (registros não migrados) — sai no F-GEO-4d.
+City/UF seguem da FK (F-GEO-3, inalterados). Repo intocado (`findPrimaryResidenceGeoByOwner` já expunha a coluna
+desde F-GEO-4a).
+
+**Provas (runtime, sem DML):** actor `494642e5` → city=Curitiba/state=PR (FK) + **neighborhood="Sítio Cercado"**
+(read-first da coluna); actor `b682724c` → neighborhood=null (coluna+blob null). DB inalterado: `addr_neigh_text`=1,
+`blob_address`=1 (preservado), `neighborhoods`=0, `aal`=1. **Nota honesta:** coluna e blob hoje contêm o mesmo valor
+→ saída visual idêntica; a troca de fonte é estabelecida pelo código (coluna read-first) + coluna populada na F-GEO-4b.
+Gates: typecheck0; actor-writer/bank-ledger OK; regression PASSOU (349); arch critical_new=0/total=20/warning_new=1
+(:334 pré-existente).
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** O leitor não precisa mais do blob para nenhum campo
+do endereço PF (CEP/rua/número/complemento + UF + cidade + bairro todos canônicos). **Próximo é o corte perigoso e
+final: F-GEO-4d (cleanup `profiles.metadata.address`)** → **F-GEO-5** (selo/CLOSE). PJ fora desta instância.
