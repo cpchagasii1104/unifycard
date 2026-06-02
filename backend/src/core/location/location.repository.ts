@@ -16,6 +16,7 @@ import type {
   AddressOwnerType,
   AddressRole,
   AddressAssignment,
+  CachedCepResolution,
 } from './location.types';
 
 class LocationRepository {
@@ -635,6 +636,82 @@ class LocationRepository {
       params
     );
     return result.rowCount ?? 0;
+  }
+
+  // ── F-GEO-1b (DECISION-0078): cache de resolução de CEP (insumo técnico, NÃO SSOT) ──────────────
+
+  /** Busca uma resolução de CEP no cache (vigente: expires_at NULL ou futuro). null = miss. */
+  async findCepResolutionByPostalCode(postalCode: string): Promise<CachedCepResolution | null> {
+    const result = await pool.query<CachedCepResolution>(
+      `
+      SELECT
+        postal_code AS "postalCode",
+        provider,
+        state_code AS "stateCode",
+        city_name AS "cityName",
+        city_external_code AS "cityExternalCode",
+        neighborhood_name AS "neighborhoodName",
+        street,
+        source
+      FROM cep_resolution_cache
+      WHERE postal_code = $1
+        AND (expires_at IS NULL OR expires_at > now())
+      LIMIT 1
+      `,
+      [postalCode]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  /** Insere/atualiza a resolução de CEP no cache. NÃO grava payload bruto nem lat/lng. */
+  async upsertCepResolution(input: {
+    postalCode: string;
+    provider: string;
+    stateCode?: string | null;
+    cityName?: string | null;
+    cityExternalCode?: string | null;
+    neighborhoodName?: string | null;
+    street?: string | null;
+    source: string;
+    rawResponseHash?: string | null;
+    ttlDays?: number;
+  }): Promise<void> {
+    const ttl = input.ttlDays ?? 180;
+    await pool.query(
+      `
+      INSERT INTO cep_resolution_cache (
+        postal_code, provider, state_code, city_name, city_external_code,
+        neighborhood_name, street, source, resolved_at, expires_at, raw_response_hash
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, now(), now() + ($9 || ' days')::interval, $10
+      )
+      ON CONFLICT (postal_code) DO UPDATE SET
+        provider = EXCLUDED.provider,
+        state_code = EXCLUDED.state_code,
+        city_name = EXCLUDED.city_name,
+        city_external_code = EXCLUDED.city_external_code,
+        neighborhood_name = EXCLUDED.neighborhood_name,
+        street = EXCLUDED.street,
+        source = EXCLUDED.source,
+        resolved_at = now(),
+        expires_at = EXCLUDED.expires_at,
+        raw_response_hash = EXCLUDED.raw_response_hash,
+        updated_at = now()
+      `,
+      [
+        input.postalCode,
+        input.provider,
+        input.stateCode ?? null,
+        input.cityName ?? null,
+        input.cityExternalCode ?? null,
+        input.neighborhoodName ?? null,
+        input.street ?? null,
+        input.source,
+        String(ttl),
+        input.rawResponseHash ?? null,
+      ]
+    );
   }
 }
 

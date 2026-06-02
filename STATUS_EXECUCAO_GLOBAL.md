@@ -10506,3 +10506,28 @@ Gates docs-only verdes (critical_new=0/total=20).
 
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Próximo: **F-GEO-1b** (implementação: migration
 cache + script backfill + repo/service cache-first). PJ fora desta instância.
+
+---
+
+## F-GEO-1b — CACHE CEP + SERVICE CACHE-FIRST + BACKFILL ✅ (2026-06-02) — frente Location/Geo
+
+HEAD origem `1433cfdf`. **Backend-only, 5 arquivos** (novos: migration `20260601200000_create_cep_resolution_cache.sql`
++ `scripts/backfill-geo-enrichment.ts`; M: `location.repository.ts` + `location.types.ts` + `geo-enrichment.service.ts`).
+Zero frontend/PJ/Companies/financeiro/cleanup blob/API externa nos testes; migration sem internet.
+
+**Cache:** tabela `cep_resolution_cache` (postal_code UNIQUE + CHECK 8 díg.; provider/state_code/city_name/
+city_external_code/neighborhood_name/street/source/resolved_at/expires_at/raw_response_hash; **sem raw payload,
+sem lat/lng**; `schema_migrations` 347→348). Repo: `findCepResolutionByPostalCode`/`upsertCepResolution` (TTL 180d,
+ON CONFLICT). **Service cache-first:** `resolvePostalCode` consulta cache → provider em miss → grava cache
+(`raw_response_hash`=sha256 de conteúdo, não payload; coords nunca cacheadas; fail-open). **Script:**
+`backfill-geo-enrichment.ts` (`runBackfill`, idempotente; provider default Null = sem rede no gate; mock injetável).
+
+**Provas (probe Mock, sem rede, teardown):** run1 scanned=3/enriched=3 (provider 3 miss, cache 3; A1/A2 state+city,
+A3 state-only sem IBGE, Foz criada sob demanda); **run2 cache-hit (provider 0 chamadas, Foz não duplica, cache 3)**;
+`raw_response_hash`=sha256; neighborhoods 0→0; actor_active_location intocado; teardown restaurou (cities 27, cache 0).
+Gates: backend typecheck0; actor-writer/bank-ledger/regression OK (348); arch critical_new=0/total=20.
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Fila: **F-GEO-2** (rodar `backfill-geo-enrichment`
+com `CEP_PROVIDER=brasilapi` — execução manual/env, NÃO no CI — para enriquecer os 3 addresses DEV) → **F-GEO-3**
+(core lê city/state do catálogo, sem blob) → **F4** cleanup `metadata.address` (depende de decisão de neighborhood)
+→ **F5** selo+CLOSE. PJ fora desta instância; usa o mesmo resolver/cache.

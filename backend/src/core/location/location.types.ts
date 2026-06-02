@@ -147,3 +147,18 @@ export interface NeighborhoodRow {
 
 
 
+
+/**
+ * F-GEO-1b (DECISION-0078): linha de cache de resolução de CEP (insumo técnico, NÃO SSOT).
+ * NÃO inclui lat/lng (privacidade — coords de CEP não são cacheadas).
+ */
+export interface CachedCepResolution {
+  postalCode: string;
+  provider: string;
+  stateCode: string | null;
+  cityName: string | null;
+  cityExternalCode: string | null;
+  neighborhoodName: string | null;
+  street: string | null;
+  source: string;
+}

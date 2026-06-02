@@ -11,8 +11,9 @@
 //    residência). Geo coarse = centroide da cidade via FK city_id. Coordenadas do provider são ignoradas aqui.
 // 🔴 NÃO cria neighborhood (catálogo=0; bairro é residual via blob). NÃO toca actor_active_location.
 
+import { createHash } from 'crypto';
 import { locationRepository } from './location.repository';
-import { getDefaultCepProvider, normalizePostalCode, type CepProvider } from './cep-provider';
+import { getDefaultCepProvider, normalizePostalCode, type CepProvider, type CepResolution } from './cep-provider';
 
 export interface EnrichAddressResult {
   enriched: boolean;
@@ -29,15 +30,64 @@ export class GeoEnrichmentService {
     this.provider = provider;
   }
 
-  /** Resolução PURA do CEP (sem escrita). null se inválido/não resolvido. */
-  async resolvePostalCode(postalCode: string) {
+  /**
+   * Resolve o CEP CACHE-FIRST (DECISION-0078): consulta `cep_resolution_cache` antes do provider; em miss,
+   * chama o provider e grava no cache (sem payload bruto, sem lat/lng). fail-open. NÃO escreve em `addresses`.
+   */
+  async resolvePostalCode(postalCode: string): Promise<CepResolution | null> {
     const cep = normalizePostalCode(postalCode);
     if (!cep) return null;
+
+    // 1) cache-first
     try {
-      return await this.provider.resolvePostalCode(cep);
+      const cached = await locationRepository.findCepResolutionByPostalCode(cep);
+      if (cached && cached.stateCode && cached.cityName) {
+        return {
+          postalCode: cep,
+          stateCode: cached.stateCode,
+          cityName: cached.cityName,
+          cityExternalCode: cached.cityExternalCode,
+          neighborhoodName: cached.neighborhoodName,
+          street: cached.street,
+          lat: null, // coords nunca são cacheadas (privacidade)
+          lng: null,
+          source: (cached.provider as CepResolution['source']) ?? 'MOCK',
+        };
+      }
+    } catch {
+      // cache indisponível → segue para provider (não bloqueia).
+    }
+
+    // 2) provider (miss)
+    let resolution: CepResolution | null = null;
+    try {
+      resolution = await this.provider.resolvePostalCode(cep);
     } catch {
       return null; // fail-open
     }
+    if (!resolution) return null;
+
+    // 3) grava no cache (sem raw payload, sem lat/lng). best-effort.
+    try {
+      const hash = createHash('sha256')
+        .update(`${resolution.stateCode}|${resolution.cityName}|${resolution.cityExternalCode ?? ''}`)
+        .digest('hex');
+      await locationRepository.upsertCepResolution({
+        postalCode: cep,
+        provider: resolution.source,
+        stateCode: resolution.stateCode,
+        cityName: resolution.cityName,
+        cityExternalCode: resolution.cityExternalCode ?? null,
+        neighborhoodName: resolution.neighborhoodName ?? null,
+        street: resolution.street ?? null,
+        source: 'CEP_RESOLVED',
+        rawResponseHash: hash,
+      });
+    } catch {
+      // cache write best-effort; não bloqueia.
+    }
+
+    return resolution;
   }
 
   /**

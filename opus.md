@@ -2769,3 +2769,21 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   cache-first). PJ fora desta instância. (Padrão: API externa em produção exige regra antes do código —
   cache-first + fail-open + sem-rede-no-CI + provider env-gated; "primeiro assina a regra, depois bota o robô a
   bater CEP".)
+
+### F-GEO-1b — CACHE CEP + SERVICE CACHE-FIRST + BACKFILL ✅ (2026-06-02) — frente Location/Geo
+- Backend-only, 5 arquivos (novos: migration 20260601200000_create_cep_resolution_cache + scripts/backfill-geo-
+  enrichment.ts; M: location.repository + location.types + geo-enrichment.service). HEAD origem 1433cfdf. Zero
+  frontend/PJ/Companies/financeiro/cleanup blob/API externa nos testes; migration sem internet.
+- Cache cep_resolution_cache (postal_code UNIQUE+CHECK 8díg; provider/state_code/city_name/city_external_code/
+  neighborhood_name/street/source/resolved_at/expires_at/raw_response_hash; SEM raw payload, SEM lat/lng;
+  schema_migrations 347→348). Repo findCepResolutionByPostalCode/upsertCepResolution (TTL 180d, ON CONFLICT).
+  Service resolvePostalCode CACHE-FIRST (cache→provider→grava cache; hash sha256 de conteúdo não payload; coords
+  nunca cacheadas; fail-open). Script backfill-geo-enrichment.ts (runBackfill, idempotente; provider default Null
+  = sem rede no gate; mock injetável; CLI guard por argv[1] — ESM).
+- Provas (probe Mock, sem rede, teardown): run1 scanned=3/enriched=3 (provider 3 miss, cache 3; A1/A2 state+city,
+  A3 state-only sem IBGE, Foz criada sob demanda); run2 CACHE-HIT (provider 0 chamadas, Foz não duplica, cache 3);
+  raw_response_hash sha256; neighborhoods 0→0; actor_active_location intocado; teardown (cities 27, cache 0). P4
+  retornou enriched:true porque o CEP já estava no cache (cache-first curto-circuitou o provider-throw) — comportamento
+  correto; fail-open do provider coberto pelo try/catch + F-GEO-1a. Gates: typecheck0; critical_new=0/total=348.
+  Probes NÃO commitados. DT-PERSONAL-ADDRESS OPEN. Fila: F-GEO-2 (rodar backfill com CEP_PROVIDER=brasilapi manual/
+  env, não CI) → F-GEO-3 (core sem blob) → F4 cleanup (depende neighborhood) → F5 selo. PJ fora; usa o mesmo cache.
