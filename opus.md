@@ -2922,3 +2922,22 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (Lição: o leitor agora não precisa do blob para NENHUM campo do endereço PF. Esse é o pré-requisito real do cleanup:
   não "o dado foi copiado" e sim "o leitor parou de depender da origem velha". Só depois disso apagar é seguro. Quando
   fonte nova e velha coincidem, seja honesto que a prova é estrutural, não visual — não invente diferença que não existe.)
+
+### F-GEO-4d — cleanup seguro de profiles.metadata.address ✅ (2026-06-02) — frente Location/Geo
+- Migration + docs (sem backend code). HEAD origem 347116b5. Zero frontend/PJ/Companies/financeiro/CPF/gender/API
+  externa/actor_active_location/neighborhood FK/alteração de Location Core.
+- Migration 20260602130000 (forward-only/idempotente): GUARD fail-closed aborta se profile com metadata.address sem
+  residência canônica profile/RESIDENCE (join verificado profile→actor 'user'→owner_id=actor_id); UPDATE metadata =
+  metadata - 'address' (SÓ a subchave); verificação-pós aborta se sobrar.
+- Pré-check: profiles_with_blob=1, orphans=0 (guard passa); único blob (d93ac7fa "Sítio Cercado") totalmente
+  espelhado. Grep classificado: único reader vivo = core.service (fallback morto pós-4c); resto logs/scripts/teste/PJ
+  falso-positivo. Nenhum writer vivo recria (profile.service grava input.metadata por merge; frontend F2 não envia address).
+- Provas pós: profiles?'address'=0; metadata null=0; alvo manteve 5 chaves (gender='male' preservado, só address
+  removido); Location Core intacto (res_assign 2, cep/city/state 3, neigh_text 1, neighborhoods 0, aal 1). Runtime
+  com BLOB REMOVIDO: GET/core retorna endereço completo (UUID caef7b1c, cep, rua/número, Curitiba/PR, "Sítio Cercado")
+  100% Location Core, zero regressão. Gates typecheck0; critical_new=0/350. Probes descartáveis não commitados.
+  DT OPEN (fecha no F-GEO-5). Endereço civil PF = 100% SSOT Location Core; blob extinto.
+  (Lição: cleanup destrutivo se faz com GUARD DENTRO da migration, não só no pré-check da bancada — a rede de segurança
+  tem que viajar com o DML, porque a próxima vez que rodar pode ser noutro banco/universo. Contar peça por peça
+  (orphans=0) ANTES, remover só a subchave (metadata - 'address', nunca o JSONB), e provar runtime com a caixa JÁ
+  jogada fora — não com ela ainda na mesa. A prova que vale é a de depois de apagar, não a de antes.)

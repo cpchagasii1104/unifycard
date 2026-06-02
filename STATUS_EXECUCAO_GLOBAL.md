@@ -10741,3 +10741,30 @@ Gates: typecheck0; actor-writer/bank-ledger OK; regression PASSOU (349); arch cr
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** O leitor não precisa mais do blob para nenhum campo
 do endereço PF (CEP/rua/número/complemento + UF + cidade + bairro todos canônicos). **Próximo é o corte perigoso e
 final: F-GEO-4d (cleanup `profiles.metadata.address`)** → **F-GEO-5** (selo/CLOSE). PJ fora desta instância.
+
+---
+
+## F-GEO-4d — cleanup seguro de `profiles.metadata.address` ✅ (2026-06-02) — frente Location/Geo
+
+HEAD origem `347116b5`. **Migration + docs** (sem backend code). Zero
+frontend/PJ/Companies/financeiro/CPF/gender/API externa/actor_active_location/neighborhood FK/alteração de Location Core.
+
+**Migration `20260602130000_cleanup_profile_metadata_address.sql`** (forward-only/idempotente): **GUARD
+fail-closed** aborta se houver profile com `metadata.address` SEM residência canônica profile/RESIDENCE vigente
+(join verificado profile→actor `actor_type='user'`→`owner_id=actor_id`); `UPDATE ... SET metadata = metadata -
+'address'` (**só a subchave**, nunca o JSONB inteiro); verificação-pós aborta se sobrar.
+
+**Pré-check (read-only):** `profiles_with_blob_address`=1, **`orphans=0`** (guard passa); o único blob (`d93ac7fa`,
+"Sítio Cercado") totalmente espelhado no Location Core. Grep de dependência classificado: único reader vivo =
+`core.service` (fallback morto pós-4c); demais = logs/scripts/teste/comentário/PJ-input (falso positivo). Nenhum
+writer vivo recria o blob.
+
+**Provas pós:** DB — `profiles ? 'address'`=**0**, `metadata IS NULL`=0, profile alvo manteve **5 chaves**
+(`gender='male'`, onboarding_*, personal_data_locked_* — só `address` removido); Location Core intacto (res_assign=2,
+addr_cep/city/state=3, neigh_text=1, neighborhoods=0, aal=1). Runtime (**blob removido**) — GET/core profile retorna
+endereço completo (address_id UUID caef7b1c, cep 81920410, rua/número, city=Curitiba, state=PR, neighborhood="Sítio
+Cercado") **100% do Location Core, zero regressão**. Gates: typecheck0; actor-writer/bank-ledger OK; regression PASSOU
+(350); arch critical_new=0/total=20/warning_new=1 (:334 pré-existente).
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN** (fechamento no **F-GEO-5** selo). O endereço civil PF
+é agora 100% SSOT do Location Core; o blob não existe mais. PJ fora desta instância.
