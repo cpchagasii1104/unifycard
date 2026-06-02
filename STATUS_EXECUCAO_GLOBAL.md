@@ -10862,3 +10862,27 @@ OK; regression PASSOU (351); arch critical_new=0/total=20/warning_new=1 (:334 pr
 **`DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` permanece OPEN.** Frontend NÃO tocado (contrato `metadata.gender`
 preservado por espelho) → **F3 provavelmente dispensável**. Próximo: **F4** (cleanup `profiles.metadata.gender` com
 guard fail-closed) → **F5** (selo/CLOSE).
+
+---
+
+## F4 GENDER — cleanup de `profiles.metadata.gender` ✅ (2026-06-02) — frente gender
+
+HEAD origem `444d6c33`. **Migration + docs** (sem backend code). Zero frontend/PJ/CPF/endereço/Health/Lifestyle/
+social-targeting code/financeiro; lock/onboarding inalterados. F3 (frontend) **dispensado** (contrato preservado por espelho).
+
+**Migration `20260602150000_cleanup_profile_metadata_gender.sql`** (forward-only/idempotente): **3 guards fail-closed**
+(blob.gender sem global espelhado / conflito blob≠global / órfão sem global resolvível) + `UPDATE ... SET metadata =
+metadata - 'gender'` (só a subchave) + verificação-pós. Join verificado `profiles → users(tenant_id,id=user_id) →
+global_users.global_user_id`.
+
+**Pré-check (read-only):** `blob_gender`=1, `blob_without_global`=0, `conflict`=0 (guard passa); único blob (`d93ac7fa`,
+`male`) espelhado em global `male`. **Provas pós:** DB — `profiles ? 'gender'`=**0**, `metadata IS NULL`=0, profile
+alvo manteve **4 chaves** (onboarding_*, personal_data_locked_* — só `gender` removido), `global_users.gender='male'`
+preservado, `metadata ? 'address'`=0, re-run do cleanup afeta **0 linhas** (idempotente). Runtime (**blob removido**) —
+`getCompleteProfile` retorna `metadata.gender='male'` (espelho) + `identity_status=COMPLETE`, sem depender do blob.
+Gates: typecheck0; actor-writer/bank-ledger OK; regression PASSOU (352); arch critical_new=0/total=20/warning_new=1
+(:334 pré-existente).
+
+**`DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` permanece OPEN** (fechamento no **F5** selo). gender civil é agora 100%
+SSOT do Identity (`global_users.gender`); o blob não tem mais gender. Aba Pessoal: **endereço e gender fora do blob**.
+Próximo: **F5** (selo + CLOSE). Resíduo maior da aba Pessoal = **CPF** (DECISION-0062, fiscal — frente própria com capacete).

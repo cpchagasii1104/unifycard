@@ -3011,3 +3011,19 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   montado, então os consumidores (incl. social-targeting) não sabem que a fonte mudou — contrato de saída idêntico.
   Espelhar canônico → metadata.gender preservou o frontend SEM tocá-lo. Prova de strip por not-mutating: input 'female'
   num campo já 'male' que fica 'male' nos DOIS lugares prova ao mesmo tempo o lock E o strip, sem corromper DEV.)
+
+### F4 GENDER — cleanup de profiles.metadata.gender ✅ (2026-06-02) — frente gender
+- Migration + docs (sem backend code). HEAD origem 444d6c33. Zero frontend/PJ/CPF/endereço/Health/Lifestyle/
+  social-targeting code/financeiro; lock/onboarding inalterados. F3 (frontend) dispensado (contrato preservado por espelho).
+- Migration 20260602150000 (forward-only/idempotente): 3 guards fail-closed (blob sem global / conflito / órfão) +
+  UPDATE metadata - 'gender' (só subchave) + verificação-pós. Join verificado profiles → users(tenant_id,id=user_id)
+  → global_users.global_user_id.
+- Pré-check: blob_gender=1, blob_without_global=0, conflict=0 (guard passa). Provas pós: profiles?'gender'=0; metadata
+  null=0; alvo manteve 4 chaves (gender removido); global_users.gender='male' preservado; address=0; re-run 0 linhas.
+  Runtime (blob removido): getCompleteProfile metadata.gender='male' (espelho) + identity_status=COMPLETE. Gates
+  typecheck0; critical_new=0/352. Probes descartáveis não commitados. DT OPEN (fecha no F5).
+- Aba Pessoal: endereço E gender fora do blob. Próximo F5 selo; resíduo maior = CPF (DECISION-0062, fiscal).
+  (Lição: o cleanup de gender foi o gêmeo do cleanup de endereço — mesmo molde (guard dentro do DML, só a subchave,
+  prova runtime com a caixa já fora). Mas a prova de ouro mudou de natureza: no endereço foi o ator com blob NULL; aqui
+  foi o ESPELHO — blob deletado e metadata.gender ainda aparece porque o core.service monta de global_users. Quando o
+  reader já espelha o canônico, o cleanup é anticlímax — e é exatamente assim que se quer um delete destrutivo: chato.)
