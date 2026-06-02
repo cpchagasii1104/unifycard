@@ -10445,11 +10445,29 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
   `specific`→janelas/overrides). B2 (recorrência nativa) fica como futuro. Doc:
   `docs/02_decisions/DECISION_0072_AGENDA_AVAILABILITY_B1_MATERIALIZATION.md`. **DT permanece OPEN** (decisão
   tomada; implementação pendente).
-- **Resolução prevista:** **F0 ✅ (DECISION-0072 B1)** → **F1** backend materializador seguro (actor-first via
-  `actionContext.actorId`; sem schema novo; protege bookings) → **F2** frontend (write canônico + corrigir
-  read-back) → **F3** cleanup do `updateProfessionalProfile({availability})` morto → **F4** testes + selo +
-  CLOSE da DT. Ordem: backend seguro antes do frontend; sem `DELETE` em massa de availability. `/profile/
-  professional` segue 501 (não reativar); sem segundo SSOT temporal; financeiro fora.
+- **Mitigação parcial (F1 backend materializador, 2026-06-01):** **materializador seguro CRIADO** — novo
+  `backend/src/core/availability/weekly-template-materializer.service.ts` + rota `PUT /availability/weekly-
+  template` (em `unified-availability.routes.ts`). Materializa a grade semanal declarativa em **janelas
+  concretas no SSOT `availability`** (`availability_type='recurring'`; `specific`→`'fixed'`), actor-first
+  (`ownerId = actionContext.actorId`, ignora ownerId do cliente), **timezone IANA obrigatória** (luxon,
+  rejeita inválida com 400, sem fallback silencioso), **horizonte finito 8 semanas** (clamp 8–12). **Diff
+  incremental**: cria faltantes, mantém equivalentes, **reativa** pausadas idênticas, e **retira soft**
+  (`status='paused'`, **NUNCA DELETE**) só janelas-template órfãs **sem booking/participant ativo** — janela
+  com compromisso vivo é **protegida** e reportada. **Marcador de procedência** `metadata.source=
+  'profile_weekly_template'` (chave ≠ `schedule` — guard só bloqueia `schedule`; legal e necessário ao diff;
+  NÃO persiste o blob de schedule). **Achado/fix colateral:** off-by-one pré-existente em
+  `unified-availability.repository.ts::updateAvailability` (`paramIndex += 2` deslocava o WHERE → param de
+  availabilityId não-referenciado → 42P18) que quebrava **TODO** update de availability (inclusive `PUT /:id`
+  vivo); corrigido (índices 1-based reais). Provado runtime (probe): materializa 8 janelas/8sem; re-run
+  idempotente (created=0/kept=8); troca de grade retira 7 órfãs soft + **protege a janela com booking**
+  (segue active); `specific` válido cria janela, inválido rejeita; tz inválida → 400; `schedules`/
+  `schedule_slots` intocados (0→0). **Sem frontend/migration/schema/professional/metadata.schedule/financeiro.**
+  Gates verdes (typecheck0; critical_new=0/total=20). **DT permanece OPEN** (frontend ainda escreve no 501).
+- **Resolução prevista:** **F0 ✅ (DECISION-0072 B1)** → **F1 ✅ (backend materializador + rota + fix repo)** →
+  **F2** frontend (ProfileAgenda → `PUT /availability/weekly-template`; corrigir read-back `setSchedule({})`)
+  → **F3** cleanup do `updateProfessionalProfile({availability})` morto → **F4** testes + selo + CLOSE da DT.
+  Ordem: backend seguro antes do frontend; sem `DELETE` em massa. `/profile/professional` segue 501; sem
+  segundo SSOT temporal; financeiro fora.
 
 ---
 

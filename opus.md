@@ -2481,3 +2481,23 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   verdes (346; critical_new=0/total=20). Zero código/migration/schema/financeiro. Fila: F1 backend
   materializador seguro → F2 frontend (write + read-back) → F3 cleanup updateProfessionalProfile morto → F4
   selo+CLOSE. Ordem: backend antes do frontend; SEM DELETE em massa de availability.
+
+### F1 — AGENDA BACKEND MATERIALIZADOR SEMANAL ✅ (2026-06-01)
+- Backend-only. HEAD origem 3eb65faa. 3 arquivos: novo weekly-template-materializer.service.ts + rota PUT
+  /availability/weekly-template + fix repo updateAvailability. Zero frontend/migration/schema/professional/
+  lifestyle/health/learning/financeiro/schedules/schedule_slots.
+- Materializa grade semanal → janelas concretas no SSOT availability (availability_type='recurring';
+  specific→'fixed'). Actor-first (ownerId=actionContext.actorId). Timezone IANA obrigatória (luxon; 400 se
+  inválida; sem fallback silencioso). Horizonte finito 8 semanas (clamp 8-12). Diff incremental: cria/mantém/
+  reativa pausadas idênticas/retira SOFT (status=paused, NUNCA DELETE) só órfãs sem booking/participant —
+  janela com compromisso vivo PROTEGIDA. Marcador metadata.source='profile_weekly_template' (≠ chave schedule
+  vetada; guard só bloqueia 'schedule'; legal e necessário ao diff; não persiste blob).
+- FIX COLATERAL (bug pré-existente, mesmo domínio): off-by-one em repository.updateAvailability (paramIndex+=2
+  deslocava WHERE → param availabilityId não-referenciado → 42P18) quebrava TODO update de availability
+  (inclusive PUT /:id vivo). Corrigido (índices 1-based reais). F1 dependia de updateAvailability (retire/
+  reactivate) → correção estrutural evidente no domínio, low-risk, reportada. Lição: tracei o off-by-one
+  reproduzindo a query isolada (funcionou) vs runtime (falhou) → diferença era o índice gerado, não o dado.
+- Provas (probe c/ teardown): P1 8 janelas/8sem; P2 idempotente (0/8); P3 retira 7 órfãs soft + protege janela
+  com booking (active), 0 DELETE; P4 specific válido cria / inválido rejeita; P5 tz inválida 400; P6 schedules/
+  schedule_slots 0→0. Gates verdes (typecheck0; critical_new=0/total=20). Probe NÃO commitado (faz DELETE; dev-
+  only). Frontend ainda no 501 → DT-AGENDA OPEN. Fila: F2 frontend (write canônico + read-back) → F3 → F4.

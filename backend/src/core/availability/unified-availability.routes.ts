@@ -7,6 +7,8 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { unifiedAvailabilityService } from './unified-availability.service';
+import { weeklyTemplateMaterializerService } from './weekly-template-materializer.service';
+import { BadRequestError } from '@core/errors';
 import { z } from 'zod';
 import rateLimit from '@fastify/rate-limit';
 import {
@@ -58,6 +60,17 @@ const checkInSchema = z.object({
 
 const checkOutSchema = z.object({
   metadata: z.record(z.any()).optional(),
+});
+
+// F1 (DECISION-0072 B1): contrato de entrada do materializador semanal.
+// `schedule` é INPUT DECLARATIVO (grade semanal) — materializado em janelas concretas, NÃO persistido
+// como blob. `timezone` IANA obrigatória (sem fallback silencioso). `horizonWeeks` clamp 8..12.
+// `ownerType` restrito a user/page (actor humano/página); `ownerId` NÃO entra aqui (vem do actionContext).
+const weeklyTemplateSchema = z.object({
+  schedule: z.record(z.array(z.string())),
+  timezone: z.string().min(1),
+  horizonWeeks: z.number().int().min(8).max(12).optional(),
+  ownerType: z.enum([AvailabilityOwnerType.USER, AvailabilityOwnerType.PAGE]).optional(),
 });
 
 const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
@@ -354,6 +367,49 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
+
+  /**
+   * PUT /availability/weekly-template
+   * F1 (DECISION-0072 B1): materializa a grade semanal declarativa em janelas CONCRETAS no SSOT
+   * `availability`. ownerId é SEMPRE o actor do contexto (actor-first) — cliente não escolhe owner.
+   * 🔴 BLINDAGEM: grava só em `availability` (via service canônico). Sem schedules/schedule_slots,
+   *    sem professional, sem metadata.schedule. Diff incremental booking-safe; retirada é soft.
+   */
+  fastify.put<{
+    Body: z.infer<typeof weeklyTemplateSchema>;
+  }>('/weekly-template', async (req, reply) => {
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+    if (!req.tenant || !req.tenant.id) {
+      return reply.status(400).send({ error: 'Tenant not found' });
+    }
+
+    const parsed = weeklyTemplateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: 'Invalid request body',
+        details: parsed.error.errors,
+      });
+    }
+
+    try {
+      const result = await weeklyTemplateMaterializerService.materialize(req.tenant.id, {
+        schedule: parsed.data.schedule,
+        timezone: parsed.data.timezone,
+        horizonWeeks: parsed.data.horizonWeeks,
+        ownerType: parsed.data.ownerType ?? AvailabilityOwnerType.USER,
+        ownerId: req.actionContext.actorId, // actor-first: ownerId vem do contexto, nunca do cliente
+      });
+      return reply.status(200).send({ ok: true, data: result });
+    } catch (error: any) {
+      if (error instanceof BadRequestError) {
+        return reply.status(400).send({ ok: false, error: error.message });
+      }
+      fastify.log.error(error);
+      return reply.status(error.statusCode || 500).send({ ok: false, error: error.message });
+    }
+  });
 
   /**
    * POST /availability/bookings

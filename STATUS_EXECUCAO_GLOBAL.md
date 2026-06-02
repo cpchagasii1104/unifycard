@@ -10080,3 +10080,36 @@ verdes (346; arch critical_new=0/total=20). Zero código/runtime/migration/schem
 
 **Fila:** F1 backend materializador seguro → F2 frontend (write canônico + read-back) → F3 cleanup do
 `updateProfessionalProfile` morto → F4 testes+selo+CLOSE. Ordem: backend antes do frontend; sem DELETE em massa.
+
+---
+
+## F1 — AGENDA BACKEND MATERIALIZADOR SEMANAL → unified_availability ✅ (2026-06-01)
+
+Backend-only. HEAD origem `3eb65faa`. 3 arquivos: novo `weekly-template-materializer.service.ts` + rota
+`PUT /availability/weekly-template` (`unified-availability.routes.ts`) + fix em `unified-availability.repository.ts`.
+Zero frontend/migration/schema/professional/lifestyle/health/learning/financeiro/schedules/schedule_slots.
+
+**Materializador (DECISION-0072 B1):** grade semanal declarativa → janelas **concretas** no SSOT `availability`
+(`availability_type='recurring'`; `specific`→`'fixed'`). Actor-first (`ownerId=actionContext.actorId`, ignora
+ownerId do cliente). **Timezone IANA obrigatória** (luxon; rejeita inválida 400; sem fallback silencioso).
+**Horizonte finito 8 semanas** (clamp 8–12). **Diff incremental**: cria faltantes / mantém equivalentes /
+reativa pausadas idênticas / **retira soft** (`status='paused'`, **nunca DELETE**) só órfãs **sem booking/
+participant** — janela com compromisso vivo é **protegida**. **Marcador de procedência** `metadata.source=
+'profile_weekly_template'` (≠ chave `schedule` vetada — guard só bloqueia `schedule`; legal e necessário ao
+diff; **não persiste o blob de schedule**).
+
+**Fix colateral (bug pré-existente):** off-by-one em `repository.updateAvailability` (`paramIndex += 2`
+deslocava o WHERE → param de availabilityId não-referenciado → Postgres 42P18) **quebrava TODO update de
+availability, inclusive `PUT /:id` vivo**. Corrigido com índices 1-based reais. Descoberto porque F1 depende
+de `updateAvailability` (retire/reactivate).
+
+**Provas runtime (probe interno, actor DEV, com teardown):** P1 materializa 8 janelas/8sem (type=recurring,
+tz, source); P2 re-run **idempotente** (created=0/kept=8, sem dup); P3 troca de grade → **retira 7 órfãs soft**
++ **protege a janela com booking** (segue active), 0 DELETE; P4 `specific` válido cria janela, `BADFORMAT`/
+fim<início **rejeitados**; P5 tz inválida → **BadRequestError**; P6 `schedules`/`schedule_slots` **0→0
+intocados**; teardown limpo. Gates: typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/
+total=20.
+
+**Frontend ainda escreve no 501** (ProfileAgenda intocado). **DT-AGENDA permanece OPEN.** Fila: F2 frontend
+(ProfileAgenda → `PUT /availability/weekly-template` + corrigir read-back `setSchedule({})`) → F3 cleanup do
+`updateProfessionalProfile` morto → F4 selo+CLOSE.

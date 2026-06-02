@@ -254,15 +254,21 @@ class UnifiedAvailabilityRepository {
       return existing;
     }
 
+    // 🔴 FIX (F1/DECISION-0072): off-by-one de índice de parâmetro. O `paramIndex += 2` deslocava o
+    // WHERE para `$(N+1)/$(N+2)` enquanto availabilityId/tenantId ficavam em `$N/$(N+1)` → o param de
+    // availabilityId virava NÃO-referenciado e o Postgres não inferia seu tipo (42P18), quebrando TODO
+    // update de availability (inclusive PUT /:id vivo). Indexamos pelos índices reais (1-based) dos
+    // valores recém-empilhados.
     params.push(availabilityId, tenantId);
-    paramIndex += 2;
+    const idIndex = params.length - 1; // posição 1-based de availabilityId
+    const tenantIndex = params.length; // posição 1-based de tenantId
 
     const row = await runQueryWithTenant<UnifiedAvailabilityRow>(
       tenantId,
       `
       UPDATE availability
       SET ${fields.join(', ')}, updated_at = now()
-      WHERE availability_id = $${paramIndex - 1} AND tenant_id = $${paramIndex}
+      WHERE availability_id = $${idIndex} AND tenant_id = $${tenantIndex}
       RETURNING *
       `,
       params
