@@ -10836,3 +10836,29 @@ actor-writer/bank-ledger OK; regression PASSOU (351); arch critical_new=0/total=
 (writers `auth.service`/`profileService.upsertProfile` gravam a coluna e strip do metadata, espelhando CPF; readers
 `core.service`/`profile.service`/`identity.routes` sourceiam da coluna; reconciliar `other`) → **F3** → **F4** (cleanup
 blob) → **F5** (selo/CLOSE).
+
+---
+
+## F2 GENDER — writers/readers → Identity SSOT (`global_users.gender`) ✅ (2026-06-02) — frente gender
+
+HEAD origem `fa3c7bf8`. **Backend-only, 5 arquivos** (identity.types/service/routes + profile.service + core.service).
+Zero frontend/PJ/CPF/endereço/Health/Lifestyle/social-targeting code/financeiro/cleanup blob. Regra de lock/onboarding
+**preservada** (só muda o LOCAL).
+
+**Writers:** `profileService.upsertProfile` extrai `gender` (enum male|female|other), **stripa do blob** (como cpf/
+birthdate) e grava `global_users.gender` via novo **`identityService.setUserGenderIfAbsent`** (`UPDATE ... WHERE gender
+IS NULL` = **set-once/lock** no Identity SSOT). `auth.service` (cadastro) **delega** a `upsertProfile` (sem mudança).
+**Readers:** `core.service` monta `personal_profile` com `gu.gender` e **espelha em `metadata.gender`** (objeto montado
+canônico → `identity_status`/score/**social-targeting** sem o blob); `hasGender` aceita `other` (reconcilia
+inconsistência). `profile.service` completude/validação e `identity.routes` passthrough sourceiam o canônico (fallback
+transitório ao blob até F4).
+
+**Provas (runtime):** READER `getCompleteProfile` → `metadata.gender='male'`, `identity_status=COMPLETE` (espelho, sem
+blob); LOCK `setUserGenderIfAbsent('female')`→false / inválido→false (gu fica `male`); WRITER `upsertProfile({gender:
+'female'})` → blob fica `male` e global fica `male` (input ignorado em ambos = strip + lock); social-targeting lê o
+campo espelhado; blob preservado (`metadata ? 'gender'`=1, `address`=0). Gates: typecheck0; actor-writer/bank-ledger
+OK; regression PASSOU (351); arch critical_new=0/total=20/warning_new=1 (:334 pré-existente).
+
+**`DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` permanece OPEN.** Frontend NÃO tocado (contrato `metadata.gender`
+preservado por espelho) → **F3 provavelmente dispensável**. Próximo: **F4** (cleanup `profiles.metadata.gender` com
+guard fail-closed) → **F5** (selo/CLOSE).

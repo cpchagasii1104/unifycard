@@ -7,6 +7,8 @@ export interface GlobalUser {
   fullName: string | null;
   avatarUrl: string | null;
   birthdate: Date | null;
+  // F2 GENDER (DECISION-0080): atributo civil/identity-core (male|female|other). SSOT = global_users.gender.
+  gender: string | null;
   metadata: Record<string, any>;
 }
 
@@ -17,6 +19,7 @@ export interface GlobalUserRow {
   full_name: string | null;
   avatar_url: string | null;
   birthdate: Date | string | null; // PostgreSQL pode retornar como string YYYY-MM-DD
+  gender: string | null;
   metadata: Record<string, any>;
 }
 

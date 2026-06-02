@@ -2991,3 +2991,23 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   conflito e ambiguidade intra-blob. O 4º guard (mesmo global_user com gêneros divergentes em tenants distintos) não
   custa nada hoje e é exatamente o que estoura silencioso quando o universo cresce. Provar idempotência re-rodando o
   UPDATE (0 linhas) e a CHECK rejeitando inválido por transação revertida — sem mudança persistente — é a prova que vale.)
+
+### F2 GENDER — writers/readers → Identity SSOT (global_users.gender) ✅ (2026-06-02) — frente gender
+- Backend-only, 5 arquivos (identity.types/service/routes + profile.service + core.service). HEAD origem fa3c7bf8.
+  Zero frontend/PJ/CPF/endereço/Health/Lifestyle/social-targeting code/financeiro/cleanup blob. Lock/onboarding preservados.
+- identity.service: getGlobalIdentity seleciona gender; novo setUserGenderIfAbsent (UPDATE WHERE gender IS NULL =
+  set-once/lock, valida enum). profile.service.upsertProfile: extrai gender (male|female|other), STRIPA do blob (como
+  cpf/birthdate), grava global_users via setUserGenderIfAbsent; readers (completude/validação) sourceiam globalUser.gender
+  (fallback blob até F4). core.service: query monta personal_profile com gu.gender e ESPELHA em metadata.gender (objeto
+  montado canônico → identity_status/score/social-targeting sem blob); hasGender aceita 'other'. identity.routes:
+  passthrough espelha global.gender. auth.service intocado (delega a upsertProfile).
+- Provas runtime: READER getCompleteProfile metadata.gender='male'/identity_status=COMPLETE (espelho); LOCK
+  setUserGenderIfAbsent('female')→false/inválido→false (gu fica male); WRITER upsertProfile({gender:'female'}) → blob
+  male + global male (input ignorado = strip+lock); social-targeting lê espelho; blob preservado (gender 1, address 0).
+  Gates typecheck0; critical_new=0/351. Frontend não tocado (contrato metadata.gender preservado por espelho) → F3
+  provavelmente dispensável. Próximo: F4 cleanup blob → F5.
+  (Lição: "troca a fonte, não muda a regra" se materializa em DUAS coisas: o WRITE vira set-once (WHERE gender IS NULL)
+  que É o lock — não reescrevi a máquina de lock, deleguei a imutabilidade ao SQL; e o READ vira ESPELHO no objeto
+  montado, então os consumidores (incl. social-targeting) não sabem que a fonte mudou — contrato de saída idêntico.
+  Espelhar canônico → metadata.gender preservou o frontend SEM tocá-lo. Prova de strip por not-mutating: input 'female'
+  num campo já 'male' que fica 'male' nos DOIS lugares prova ao mesmo tempo o lock E o strip, sem corromper DEV.)

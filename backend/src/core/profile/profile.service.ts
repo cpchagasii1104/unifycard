@@ -249,6 +249,15 @@ class ProfileService {
       }
     }
 
+    // F2 GENDER (DECISION-0080): extrair gender do payload — NÃO mora em metadata; vai para o
+    // Identity SSOT (global_users.gender), espelhando o tratamento do CPF. Enum male|female|other.
+    let genderToSave: string | null = null;
+    if (input.metadata && typeof input.metadata === 'object') {
+      const gv = (input.metadata as any).gender;
+      const g = typeof gv === 'string' ? gv.trim() : '';
+      if (g === 'male' || g === 'female' || g === 'other') genderToSave = g;
+    }
+
     // Sanitizar metadata: remover imutáveis e dados sensíveis
     let metadataWithoutImmutables: Record<string, any> | undefined = undefined;
     if (input.metadata !== undefined && input.metadata !== null && typeof input.metadata === 'object') {
@@ -262,11 +271,10 @@ class ProfileService {
       }
       delete (metadataWithoutImmutables as any).birthdate;
 
-      // 🔧 FIX (first personal save locks identity fields): Se dados estão bloqueados, não permite alterar gender
-      const existingGender = existingMetadata?.gender;
-      if (personalDataLocked && (existingGender === 'male' || existingGender === 'female')) {
-        (metadataWithoutImmutables as any).gender = existingGender;
-      }
+      // F2 GENDER (DECISION-0080): gender nunca mais é persistido no blob (vai para global_users.gender).
+      // O lock/imutabilidade migra para o Identity SSOT via setUserGenderIfAbsent (set-once) — a regra é
+      // preservada, só muda o LOCAL. Strip aqui antes do merge, como cpf/birthdate.
+      delete (metadataWithoutImmutables as any).gender;
 
       // Compat: se não existe coluna, manter o flag em metadata
       if (!confirmedColumn && existingProfile) {
@@ -311,18 +319,20 @@ class ProfileService {
       const { identityService } = await import('@core/identity/identity.service');
       let hasFullName = false;
       let hasBirthdate = false;
-      
+      let genderCanonical: string | null = null; // F2 GENDER: gender do Identity SSOT (global_users.gender)
+
       try {
         const userLink = await runQueryWithTenant<{ global_user_id: string }>(
           tenantId,
           `SELECT global_user_id FROM users WHERE id = $1 LIMIT 1`,
           [userId]
         );
-        
+
         if (userLink?.global_user_id) {
           const globalUser = await identityService.getGlobalIdentity(userLink.global_user_id);
           hasFullName = !!(globalUser?.fullName && globalUser.fullName.trim().length > 0);
           hasBirthdate = !!(globalUser?.birthdate);
+          genderCanonical = globalUser?.gender ?? null;
         }
       } catch (err) {
         // Se não conseguir verificar, não seta onboarding
@@ -335,8 +345,9 @@ class ProfileService {
         hasFullName = true;
       }
       
-      // Verificar gender no profile atual (após merge) - pode estar sendo salvo agora
-      const finalGender = mergedMetadata?.gender || existingMetadata?.gender;
+      // F2 GENDER (DECISION-0080): gender vem do Identity SSOT (global_users.gender), não do blob.
+      // Considera o valor recém-salvo nesta operação (genderToSave) ou o canônico já persistido.
+      const finalGender = genderToSave || genderCanonical || existingMetadata?.gender;
       const hasGender = finalGender === 'male' || finalGender === 'female' || finalGender === 'other';
       
       // Se todos os dados obrigatórios existem, marcar onboarding como concluído
@@ -495,6 +506,25 @@ class ProfileService {
       }
     }
 
+    // F2 GENDER (DECISION-0080): gender vai para o Identity SSOT (global_users.gender), set-once.
+    // NÃO grava no blob (já stripado acima). setUserGenderIfAbsent preserva a imutabilidade (WHERE gender IS NULL).
+    if (genderToSave) {
+      try {
+        const { identityService } = await import('@core/identity/identity.service');
+        const userLink = await runQueryWithTenant<{ global_user_id: string }>(
+          tenantId,
+          `SELECT global_user_id FROM users WHERE id = $1 LIMIT 1`,
+          [userId]
+        );
+        if (userLink?.global_user_id) {
+          await identityService.setUserGenderIfAbsent(userLink.global_user_id, genderToSave);
+        }
+      } catch (err) {
+        // Não quebra o update do profile por falha não-crítica de gender.
+        console.error('[ProfileService] Erro ao salvar gender em global_users (nao critico):', err instanceof Error ? err.message : String(err));
+      }
+    }
+
     return this.toProfile(row);
   }
 
@@ -523,8 +553,10 @@ class ProfileService {
     if (!globalUser?.birthdate) errors.push('Data de nascimento');
 
     const existingProfile = await this.getProfile(tenantId, userId);
-    const gender = existingProfile?.metadata?.gender;
-    if (!gender || (gender !== 'male' && gender !== 'female')) errors.push('Gênero');
+    // F2 GENDER (DECISION-0080): gender canônico vem de global_users.gender (Identity SSOT);
+    // blob é fallback transitório até o cleanup (F4). Enum male|female|other.
+    const gender = globalUser?.gender || existingProfile?.metadata?.gender;
+    if (!gender || (gender !== 'male' && gender !== 'female' && gender !== 'other')) errors.push('Gênero');
 
     if (errors.length > 0) {
       const error: any = new Error(

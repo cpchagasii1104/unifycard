@@ -242,6 +242,7 @@ export class CoreService {
           metadata: any;
           cpf: string | null;
           birthdate: Date | string | null;
+          gender: string | null;
           profile_personal_confirmed: boolean | null;
         }>(
           tenantId,
@@ -252,6 +253,7 @@ export class CoreService {
             p.metadata,
             up.cpf,
             gu.birthdate,
+            gu.gender,
             (
               COALESCE(p.is_profile_personal_confirmed, false)
               OR COALESCE((p.metadata->>'profile_personal_confirmed')::boolean, false)
@@ -297,13 +299,22 @@ export class CoreService {
             hasAddress: !!row.metadata?.address,
           });
           
+          // F2 GENDER (DECISION-0080): gender canônico vem de global_users.gender (Identity SSOT).
+          // Espelha no objeto montado (metadata.gender) para os consumidores que leem dali
+          // (identity_status, social-targeting demographics) SEM depender do blob. Blob é fallback
+          // transitório até o cleanup (F4). Troca de FONTE, não de contrato de saída.
+          const baseMetadata = (row.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+          const mirroredMetadata = row.gender
+            ? { ...baseMetadata, gender: row.gender }
+            : baseMetadata;
+
           profile.personal_profile = {
             // Preservar valores de profiles (null é válido, não fazer fallback)
             fullName: row.full_name ?? null,
             phone: row.phone ?? null,
-            // metadata SEMPRE vem de profiles, nunca de identity
+            // metadata SEMPRE vem de profiles; gender espelhado do Identity SSOT (F2/DECISION-0080)
             // metadata NUNCA contém CPF (regra de negócio)
-            metadata: row.metadata || {},
+            metadata: mirroredMetadata,
             referralCode: referralCode,
             cpf: finalCpf, // ← FONTE ÚNICA: user_profiles
             birthdate,
@@ -719,9 +730,10 @@ export class CoreService {
         console.warn('Erro ao buscar birthdate para identity_status:', err);
       }
 
-      // Buscar gender de metadata
+      // F2 GENDER (DECISION-0080): gender vem do espelho canônico (global_users.gender → metadata.gender).
+      // Enum canônico male|female|other (reconcilia a inconsistência que antes honrava só male/female).
       const gender = profile.personal_profile?.metadata?.gender;
-      const hasGender = !!(gender && (gender === 'male' || gender === 'female'));
+      const hasGender = !!(gender && (gender === 'male' || gender === 'female' || gender === 'other'));
 
       // INSTRUMENTAÇÃO: Logar antes de calcular identity_status
       console.error('[IDENTITY_STATUS_DEBUG]', JSON.stringify({

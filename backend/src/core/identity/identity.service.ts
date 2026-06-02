@@ -88,6 +88,7 @@ class IdentityService {
       fullName: row.full_name,
       avatarUrl: row.avatar_url,
       birthdate,
+      gender: row.gender ?? null,
       metadata: row.metadata || {},
     };
   }
@@ -361,7 +362,7 @@ class IdentityService {
     // 🔴 CORREÇÃO: Buscar registro único (global_user_id é PRIMARY KEY)
     const result = await pool.query<GlobalUserRow>(
       `
-        SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata
+        SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, gender, metadata
         FROM global_users
         WHERE global_user_id = $1
       `,
@@ -385,6 +386,25 @@ class IdentityService {
     });
 
     return this.toGlobalUser(result.rows[0]);
+  }
+
+  /**
+   * F2 GENDER (DECISION-0080): grava `global_users.gender` apenas se ainda AUSENTE (set-once).
+   * O `WHERE gender IS NULL` materializa o lock/imutabilidade: o primeiro valor fica; tentativas
+   * posteriores de alterar são NO-OP (não lançam) — mesma regra de negócio de hoje, só muda o local.
+   * Valida o enum canônico (male|female|other). Valor inválido/ausente → no-op silencioso.
+   * Retorna true se gravou agora, false se já existia (ou input inválido).
+   */
+  async setUserGenderIfAbsent(globalUserId: string, gender: string | null | undefined): Promise<boolean> {
+    const g = typeof gender === 'string' ? gender.trim() : '';
+    if (g !== 'male' && g !== 'female' && g !== 'other') return false;
+    const result = await pool.query(
+      `UPDATE global_users
+       SET gender = $2, updated_at = now()
+       WHERE global_user_id = $1 AND gender IS NULL`,
+      [globalUserId, g]
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
   /**
@@ -671,7 +691,7 @@ class IdentityService {
     // 🔴 CRÍTICO: Buscar ANTES do UPDATE para comparar
     // 🔴 CORREÇÃO: ORDER BY updatedAt DESC para garantir registro mais recente
     const beforeUpdate = await pool.query<GlobalUserRow>(
-      `SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata FROM global_users WHERE global_user_id = $1 ORDER BY updated_at DESC LIMIT 1`,
+      `SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, gender, metadata FROM global_users WHERE global_user_id = $1 ORDER BY updated_at DESC LIMIT 1`,
       [globalUserId]
     );
     console.log('[IdentityService] 🔍 ANTES UPDATE - Estado atual no banco:', {
@@ -686,7 +706,7 @@ class IdentityService {
       UPDATE global_users
       SET ${updateFieldsWithPlaceholders.join(', ')}
       WHERE global_user_id = $${updateValues.length}
-      RETURNING global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata, txid_current() as txid
+      RETURNING global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, gender, metadata, txid_current() as txid
     `;
     
     console.log('[IdentityService] 🔍 DIAGNÓSTICO: Executando UPDATE', {
@@ -758,7 +778,7 @@ class IdentityService {
     // 🔴 INSTRUMENTAÇÃO: Logar txid no GET após UPDATE
     const verifyResult = await pool.query<GlobalUserRow & { txid: string }>(
       `
-        SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata, txid_current() as txid
+        SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, gender, metadata, txid_current() as txid
         FROM global_users
         WHERE global_user_id = $1
         ORDER BY updated_at DESC

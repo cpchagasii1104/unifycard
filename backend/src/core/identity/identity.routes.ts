@@ -97,11 +97,12 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
                 full_name: string | null;
                 birthdate: Date | null;
                 avatar_url: string | null;
+                gender: string | null;
                 metadata: any;
                 gu_created_at: Date;
                 gu_updated_at: Date;
               }>(
-                `SELECT global_user_id, full_name, birthdate, avatar_url, metadata,
+                `SELECT global_user_id, full_name, birthdate, avatar_url, gender, metadata,
                         created_at AS gu_created_at, updated_at AS gu_updated_at
                  FROM global_users
                  WHERE global_user_id = $1
@@ -130,6 +131,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
               fullName: globalUserData?.full_name || null,
               birthdate: globalUserData?.birthdate || null,
               avatarUrl: globalUserData?.avatar_url || null,
+              gender: globalUserData?.gender ?? null, // F2 GENDER (DECISION-0080)
               metadata: globalUserData?.metadata || {},
               createdAt: globalUserData?.gu_created_at != null ? (typeof globalUserData.gu_created_at === 'string' ? globalUserData.gu_created_at : (globalUserData.gu_created_at as Date).toISOString()) : (typeof localUser.created_at === 'string' ? localUser.created_at : (localUser.created_at as Date).toISOString()),
               updatedAt: globalUserData?.gu_updated_at != null ? (typeof globalUserData.gu_updated_at === 'string' ? globalUserData.gu_updated_at : (globalUserData.gu_updated_at as Date).toISOString()) : (typeof localUser.created_at === 'string' ? localUser.created_at : (localUser.created_at as Date).toISOString()),
@@ -200,9 +202,14 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       const profilePersonalConfirmed = userProfile ? userProfile.profilePersonalConfirmed : false;
       const canEditPersonalData = userProfile ? userProfile.canEditPersonalData : true;
       
-      // 🔴 CORREÇÃO: Garantir que profile.metadata inclui gender se existir no profile
-      // O gender pode estar no profile.metadata (salvo no cadastro)
-      const profileMetadata = userProfile?.metadata || {};
+      // F2 GENDER (DECISION-0080): gender canônico vem de global_users.gender (profile.global.gender).
+      // Espelha no metadata exposto ao frontend (que ainda espera metadata.gender), SEM depender do blob —
+      // novos usuários não têm gender no blob. Blob é fallback transitório até o cleanup (F4).
+      const canonicalGender = (profile as any)?.global?.gender ?? null;
+      const baseProfileMetadata = userProfile?.metadata || {};
+      const profileMetadata = canonicalGender
+        ? { ...baseProfileMetadata, gender: canonicalGender }
+        : baseProfileMetadata;
       
       const serializedProfile = {
         ...profile,
