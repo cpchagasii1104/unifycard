@@ -10484,3 +10484,25 @@ critical_new=0/total=20.
 `cep_resolution_cache` + script backfill dos 3 addresses DEV) → **F-GEO-2/F3** (core lê city/state do catálogo,
 sem blob) → **F4** cleanup `metadata.address` (depende de decisão de neighborhood) → **F5** selo+CLOSE. PJ fora
 desta instância; usa o mesmo resolver quando a frente PJ rodar.
+
+---
+
+## D-GEO-1b — POLÍTICA DE CACHE/BACKFILL/PROVIDER CEP (DECISION-0078) ✅ (2026-06-02) — DOCS-ONLY
+
+HEAD origem `30e46ba9`. Docs-only: zero código/runtime/migration/frontend/backend/API externa/DML/PJ/Companies/
+financeiro/cleanup blob. Novo `docs/02_decisions/DECISION_0078_GEO_CEP_CACHE_BACKFILL_POLICY.md` + DECISIONS_LOG
++ DT_LOG + este STATUS + opus.
+
+**Escolha:** F-GEO-1b cria **cache persistente `cep_resolution_cache`** (postal_code UNIQUE + state_code/city_name/
+city_external_code/neighborhood_name/street/source/resolved_at/expires_at; sem raw completo; sem coord precisa;
+cache = insumo, não SSOT) + **script/job idempotente de backfill** (não migration; cache-first; `postal_code NOT
+NULL` + `state_id/city_id NULL`; atualiza state_id/city_id/source; cria city por IBGE sob demanda; sem
+neighborhood/lat-lng preciso/actor_active_location/cleanup blob). **Provider:** BrasilAPI preferido (IBGE); ViaCEP
+fallback; **sem real nos gates** (só via env `CEP_PROVIDER`; timeout + fail-open).
+
+**Impacto:** F-GEO-1b/F-GEO-2 enriquecem os 3 addresses DEV (state_id/city_id) → desbloqueia F-GEO-3 (core lê
+city/state do catálogo, sem blob). **PJ:** usa o mesmo resolver/cache; não cria paralelo (DECISION-0075 §7/0077).
+Gates docs-only verdes (critical_new=0/total=20).
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Próximo: **F-GEO-1b** (implementação: migration
+cache + script backfill + repo/service cache-first). PJ fora desta instância.

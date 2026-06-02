@@ -6328,3 +6328,47 @@ close). Docs-only; gates verdes; critical_new=0. DT permanece OPEN.
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0078 — Política de cache/backfill/provider real de CEP (F-GEO-1b)
+
+**Status:** RATIFICADA — OPERACIONAL (D-GEO-1b), DOCS-ONLY; implementação não autorizada (2026-06-02).
+**Decisor:** Clayton. **Commit âncora:** HEAD origem `30e46ba9`.
+**Documento canônico:** `docs/02_decisions/DECISION_0078_GEO_CEP_CACHE_BACKFILL_POLICY.md`.
+**Subordinada a:** DECISION-0077/0076/0074/0020/0021, SSOT_REGISTRY, LGPD. **Vinculada a:**
+`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` (OPEN). **Escopo:** Location/Geo (compartilhável PF/PJ); NÃO toca PJ.
+
+### Contexto
+
+F-GEO-1a (commit `30e46ba9`) entregou infra geo compartilhável (port CepProvider env-gated; geo-enrichment.service
+fail-open; repo find/create city + updateAddressGeo). Provider real é env-gated; gates/testes sem rede. Faltam:
+cache persistente (`cep_resolution_cache` ausente) + backfill dos addresses existentes (3 DEV com CEP, state/city
+NULL).
+
+### Escolha
+
+F-GEO-1b cria **cache persistente de resolução de CEP** + **script/job idempotente de enrichment** dos addresses
+existentes, cache-first, usando a infra 1a. **Sem API externa em migration; sem rede no CI.**
+
+### Cache + Provider + Backfill
+
+**Cache** `cep_resolution_cache` (postal_code UNIQUE, provider, state_code, city_name, city_external_code,
+neighborhood_name, street, source, resolved_at, expires_at; `raw_response_hash` opcional). Vetos: raw completo;
+coord precisa de residência; cache como SSOT. **Provider:** BrasilAPI preferido (IBGE); ViaCEP fallback; sem real
+nos gates; só via env; timeout + fail-open. **Backfill:** script (não migration), idempotente, `postal_code NOT
+NULL` + `state_id/city_id NULL`, cache-first, atualiza state_id/city_id/source, cria city por IBGE sob demanda;
+sem neighborhood/lat-lng preciso/actor_active_location/cleanup blob.
+
+### PF/PJ + Sequência + Vetos
+
+PF: com state_id/city_id, core poderá parar de depender do blob (F-GEO-3). PJ usa o mesmo resolver/cache (não
+implementa aqui; DECISION-0075 §7/0077). Sequência: D-GEO-1b (esta) → F-GEO-1b (migration cache + script + repo/
+service cache-first) → F-GEO-2 (enrich) → F-GEO-3 (core sem blob) → F-GEO-4 (bairro + cleanup metadata.address)
+→ F-GEO-5 (selo/close). Vetos: API externa em migration; rede no CI; resolver/cache PJ paralelo; city/state texto
+em addresses; match frágil sem external_code; raw completo/coord precisa no cache; limpar blob; geocoding preciso
+de residência sem decisão LGPD; implementar aqui. Docs-only; gates verdes; critical_new=0. DT permanece OPEN.
+
+### Superada por
+
+(em aberto — decisão vigente)

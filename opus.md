@@ -2752,3 +2752,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   neighborhood) → F5 selo+CLOSE. PJ fora desta instância; usa o mesmo resolver quando rodar. (Lição: privacidade —
   não persistir coords de CEP do provider no endereço; geo coarse só via centroide de cidade. Provider default
   Null garante gate/teste sem rede; real só com opt-in env.)
+
+### D-GEO-1b — POLÍTICA CACHE/BACKFILL/PROVIDER CEP (DECISION-0078) ✅ DOCS-ONLY (2026-06-02)
+- HEAD origem 30e46ba9. Docs-only: zero código/runtime/migration/frontend/backend/API externa/DML/PJ/Companies/
+  financeiro/cleanup blob. Novo DECISION_0078_GEO_CEP_CACHE_BACKFILL_POLICY.md + DECISIONS_LOG + DT_LOG + STATUS +
+  opus.
+- Escolha: F-GEO-1b cria cache persistente cep_resolution_cache (postal_code UNIQUE + state_code/city_name/
+  city_external_code/neighborhood_name/street/source/resolved_at/expires_at; sem raw completo; sem coord precisa;
+  cache=insumo, não SSOT) + script/job idempotente de backfill (NÃO migration; cache-first; postal_code NOT NULL +
+  state_id/city_id NULL; atualiza state_id/city_id/source; cria city por IBGE sob demanda; sem neighborhood/lat-lng
+  preciso/actor_active_location/cleanup blob). Provider: BrasilAPI preferido (IBGE); ViaCEP fallback; sem real nos
+  gates (só via env; timeout+fail-open).
+- Impacto: F-GEO-1b/2 enriquecem os 3 addresses DEV → desbloqueia F-GEO-3 (core lê city/state do catálogo, sem
+  blob). PJ usa o mesmo resolver/cache; não cria paralelo. Gates docs-only verdes (critical_new=0/total=20).
+  DT-PERSONAL-ADDRESS OPEN. Próximo: F-GEO-1b (implementação: migration cache + script backfill + repo/service
+  cache-first). PJ fora desta instância. (Padrão: API externa em produção exige regra antes do código —
+  cache-first + fail-open + sem-rede-no-CI + provider env-gated; "primeiro assina a regra, depois bota o robô a
+  bater CEP".)
