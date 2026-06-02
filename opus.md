@@ -2533,3 +2533,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   updateProfessionalProfile só comentário, availability?: zero em categories.ts, ProfileAgenda usa endpoint
   temporal. Gates: actor-writer/bank-ledger/regression OK; critical_new=0/total=20. DT-AGENDA OPEN. Fila: F4
   selo SELO_AGENDA_UNIFIED_AVAILABILITY.md + CLOSE.
+
+### F4 — SELO AGENDA + CLOSE DA DT ✅ DOCS-ONLY (2026-06-01)
+- Frente Agenda/TEMPO CONCLUÍDA E SELADA. HEAD origem e2e93573. Docs-only: zero código/runtime/frontend/backend/
+  migration/schema/financeiro/availability-service-routes/ProfileAgenda. 4 arquivos: novo
+  docs/02_decisions/SELO_AGENDA_UNIFIED_AVAILABILITY.md + DT_LOG (CLOSE) + STATUS + opus.
+- Selo consolida DECISION-0072 B1 → F1 (materializador PUT /availability/weekly-template + fix off-by-one repo)
+  → F2 (frontend endpoint temporal + read-back SSOT) → F3 (remoção client morto updateProfessionalProfile).
+  Cadeia: 3eb65faa/29de8ef0/20ac9756/e2e93573. Estado final, invariantes, provas, resíduos.
+- DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT → CLOSED. Agenda escreve/lê do SSOT unified_availability; grade
+  semanal materializada (B1); /profile/professional morto sem caller; nada em metadata.schedule/schedules/
+  schedule_slots. Gates docs-only: actor-writer/bank-ledger/regression OK (346); arch critical_new=0/total=20.
+  Typecheck não rodado (nenhum código). Resíduos→frentes próprias: B2 recorrência nativa, C63 schedules legado,
+  getProfessionalProfile leitura legada, cleanup cosmético. Próximo corte (com mapa): Educação decision/read-
+  only OU PJ actor-context. (Padrão consolidado das frentes Perfil: política/decisão → schema/backend → frontend
+  → cleanup → selo+CLOSE; readers backend migram à parte; nunca fechar DT antes do selo.)

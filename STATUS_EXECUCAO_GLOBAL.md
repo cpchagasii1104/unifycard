@@ -10164,3 +10164,30 @@ do 501 (não sugere caminho morto).
 writer/bank-ledger/regression OK; arch critical_new=0/total=20.
 
 **DT-AGENDA permanece OPEN.** Fila: **F4** testes + selo `SELO_AGENDA_UNIFIED_AVAILABILITY.md` + **CLOSE** da DT.
+
+---
+
+## F4 — SELO AGENDA / UNIFIED_AVAILABILITY + CLOSE DA DT ✅ (2026-06-01) — DOCS-ONLY
+
+Frente Agenda/TEMPO **CONCLUÍDA E SELADA**. HEAD origem `e2e93573`. **Docs-only**: zero código/runtime/frontend/
+backend/migration/schema/financeiro/availability-service-routes/ProfileAgenda. 4 arquivos: novo
+`docs/02_decisions/SELO_AGENDA_UNIFIED_AVAILABILITY.md` + `REMEDIATION_DT_LOG.md` (CLOSE) + este STATUS + `opus.md`.
+
+**Selo** consolida DECISION-0072 B1 → F1 (backend materializador `PUT /availability/weekly-template` + fix off-by-
+one do repo) → F2 (frontend ProfileAgenda → endpoint temporal + read-back do SSOT) → F3 (remoção do client morto
+`updateProfessionalProfile`): estado final material, cadeia de commits (`3eb65faa`/`29de8ef0`/`20ac9756`/
+`e2e93573`), invariantes, provas materiais por fatia, estado da DT e resíduos.
+
+**`DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT` → CLOSED** (ref. selo). Agenda escreve/lê do SSOT
+`unified_availability`; grade semanal materializada em janelas concretas (B1); `/profile/professional` morto e
+sem caller; nada em `metadata.schedule`/`schedules`/`schedule_slots`.
+
+**Gates docs-only:** actor-writer §4.8.1 OK · bank-ledger §4.6 OK · regression-guards OK (346) · arch --strict
+`critical_new=0`, `critical_total=20`. Typecheck **não rodado** (nenhum código tocado).
+
+**Resíduos = frentes próprias:** B2 (recorrência nativa, se produto exigir) · C63 (write-paths legados
+schedules/schedule_slots) · leitura legada `getProfessionalProfile` · cleanup cosmético.
+
+**Próximas frentes recomendadas:** (1) Educação — decision/read-only (event-sourced vs categoria órfã + AI
+expansion); (2) Pessoa Jurídica — actor-context; (3) cleanup cosmético morto; (4) C63 schedules/schedule_slots;
+(5) Health governado futuro **somente** com nova decisão. Escolher o próximo corte com mapa: Educação ou PJ.

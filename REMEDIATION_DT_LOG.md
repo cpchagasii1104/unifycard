@@ -10413,7 +10413,8 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT
 
-- **Status:** OPEN (2026-06-01)
+- **Status:** **CLOSED (2026-06-01)** — selada por [`docs/02_decisions/SELO_AGENDA_UNIFIED_AVAILABILITY.md`](docs/02_decisions/SELO_AGENDA_UNIFIED_AVAILABILITY.md). Frente concluída: DECISION-0072 B1 → F1 (backend materializador `PUT /availability/weekly-template` + fix off-by-one do repo) → F2 (frontend ProfileAgenda → endpoint temporal + read-back do SSOT) → F3 (remoção do client morto `updateProfessionalProfile`). Agenda escreve/lê do SSOT `unified_availability`; grade semanal materializada em janelas concretas (B1); `/profile/professional` morto e sem caller; nada em `metadata.schedule`/`schedules`/`schedule_slots`. Resíduos = frentes próprias: B2 (recorrência nativa, se o produto exigir), C63 (write-paths legados schedules/schedule_slots), leitura legada `getProfessionalProfile`. *(Histórico OPEN preservado abaixo.)*
+- **Status histórico:** OPEN (2026-06-01)
 - **Origem:** pós-selo A3.2 / auditoria da aba Profissional C1 (`SELO_A3_2_PROFISSIONAL_C1.md`).
 - **Vinculada a:** A3.2 (aba Profissional legado → C1); camada TEMPO/C3 (Agenda / Unified Availability).
 - **Contexto:** a aba Profissional foi migrada para o substrato C1 actor-first (`/profile/professional/c1`)
@@ -10492,11 +10493,11 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
   usa `putWeeklyAvailabilityTemplate`. **Zero backend/migration/schema/financeiro/schedules/professional-backend.**
   Gates: frontend typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20. **DT
   permanece OPEN** (resta F4 selo/close).
-- **Resolução prevista:** **F0 ✅ (DECISION-0072 B1)** → **F1 ✅ (backend materializador + rota + fix repo)** →
-  **F2 ✅ (frontend ProfileAgenda → endpoint temporal + read-back do SSOT)** → **F3 ✅ (cleanup do client legado
-  `updateProfessionalProfile`)** → **F4** testes + selo `SELO_AGENDA_UNIFIED_AVAILABILITY.md` + **CLOSE** da DT.
-  Ordem: backend seguro antes do frontend; sem `DELETE` em massa. `/profile/professional` segue 501; sem
-  segundo SSOT temporal; financeiro fora.
+- **Resolução:** **F0 ✅ (DECISION-0072 B1)** → **F1 ✅ (backend materializador + rota + fix repo)** → **F2 ✅
+  (frontend ProfileAgenda → endpoint temporal + read-back do SSOT)** → **F3 ✅ (cleanup do client legado
+  `updateProfessionalProfile`)** → **F4 ✅ (selo `SELO_AGENDA_UNIFIED_AVAILABILITY.md` + CLOSE da DT, docs-only)**.
+  Frente **CONCLUÍDA**. Ordem respeitada: backend seguro antes do frontend; sem `DELETE` em massa; `/profile/
+  professional` morto; sem segundo SSOT temporal; financeiro fora.
 
 ---
 
