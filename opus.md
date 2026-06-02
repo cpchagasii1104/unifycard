@@ -2566,3 +2566,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   schema/financeiro. Fila: F1 neutralizar órfão morto → F2 vocabulário/event types → F3 selo. (Lição: a aba estava
   mais limpa que o esperado; o risco real era linguagem/autoridade, não schema — DECISION antes de código evitou
   apagar órfão por reflexo.)
+
+### F1 — EDUCAÇÃO: NEUTRALIZAÇÃO DO ÓRFÃO MORTO ✅ (2026-06-01)
+- git rm de 4 arquivos mortos (categoria 1 §4-A): backend profile-education-companies.{routes,service}.ts +
+  frontend EducationSection.{tsx,css}. HEAD origem 0fe5e694. Classificação: zero callers/imports no repo, não
+  registrado, tabelas user_education/user_companies AUSENTES, padrão anti-canônico (global_user_id+category-as-
+  identity+createCategoryWithAI) superado por 0069/0070/0073 → NÃO _orphans/ (anti-canônico superado, git
+  preserva). Tipos exportados sem consumo externo.
+- Paciente vivo INTACTO (zero diff): profile-education.{routes,service,types}.ts, ProfileEducation.tsx,
+  api/education.ts; /profile/education + /education/events registrados; event_log intocado. createCategoryWithAI
+  vivo (categories.service) não tocado. DB user_education/user_companies continua AUSENTE.
+- Provas: órfão zero referências pós-remoção; back+front typecheck0; gates OK; critical_new=0/total=20. Zero
+  migration/schema/financeiro/Learning/Professional/Agenda/Lifestyle/Health. AI-category DT segue DEFERRED (só
+  perdeu o caller morto de Educação/Empresa; resíduo vivo é Profissional). DT-EDUCATION-DECLARATION-CREDENTIAL-
+  VOCABULARY OPEN. Fila: F2 reservar/rebaixar vocabulário credencial → F3 selo. (Disciplina: classifiquei §4-A +
+  provei zero-caller + DB ausente ANTES de rm; caminho vivo não recebeu diff.)

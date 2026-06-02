@@ -10215,3 +10215,28 @@ Zero código/runtime/migration/schema/financeiro.
 
 **Fila Educação:** F1 neutralizar órfão morto → F2 ajustar vocabulário/UI/event types → F3 selo. Alternativa de
 corte maior: PJ actor-context.
+
+---
+
+## F1 — EDUCAÇÃO: NEUTRALIZAÇÃO DO ÓRFÃO MORTO ✅ (2026-06-01)
+
+Faxina de cadáver. HEAD origem `0fe5e694`. **`git rm` de 4 arquivos mortos** (categoria 1 §4-A): backend
+`profile-education-companies.{routes,service}.ts` + frontend `EducationSection.{tsx,css}`. Classificação:
+zero callers/imports em todo o repo, não registrados em rota, tabelas `user_education`/`user_companies`
+AUSENTES, padrão anti-canônico (global_user_id-keyed + category-as-identity + createCategoryWithAI) superado
+por DECISION-0069/0070/0073 → não-candidato a `_orphans/` (git preserva histórico). Tipos exportados sem
+consumo externo.
+
+**Paciente vivo INTACTO (zero diff):** `profile-education.{routes,service,types}.ts`, `ProfileEducation.tsx`,
+`api/education.ts`; `/profile/education` + `/education/events` seguem registrados; `event_log` intocado.
+`createCategoryWithAI` vivo (em `categories.service`) não tocado. **DB `user_education`/`user_companies`
+continua AUSENTE** (nada criado).
+
+**Provas:** órfão = zero referências no repo pós-remoção; back+front typecheck0; gates actor-writer/bank-ledger/
+regression OK; arch critical_new=0/total=20. **Zero migration/schema/financeiro/Learning/Professional/Agenda/
+Lifestyle/Health.** `DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION` segue DEFERRED (só perdeu o caller
+morto de Educação/Empresa; resíduo vivo é Profissional).
+
+**`DT-EDUCATION-DECLARATION-CREDENTIAL-VOCABULARY` permanece OPEN.** Fila: **F2** reservar/rebaixar o vocabulário
+de credencial (`validada_institucionalmente`/`confirmada`/`contestada`/`validator`/`evidence`) na UI/contrato →
+**F3** selo Educação.
