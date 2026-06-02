@@ -10812,3 +10812,27 @@ expondo gender (preserva social-targeting).
 `global_users.gender` + backfill) → F2 (writers/readers → coluna) → F3 (frontend/contratos) → F4 (cleanup
 `metadata.gender` com guard) → F5 (selo/CLOSE). Gates docs-only: actor-writer/bank-ledger OK; regression PASSOU (350);
 arch critical_new=0/total=20/warning_new=1 (:334 pré-existente). Doc: `docs/02_decisions/DECISION_0080_PROFILE_GENDER_IDENTITY_SSOT.md`.
+
+---
+
+## F1 GENDER — `global_users.gender` + backfill ✅ (2026-06-02) — frente gender → Identity SSOT
+
+HEAD origem `41c353ee`. **Migration + docs** (sem backend code). Zero frontend/PJ/CPF/endereço/Health/Lifestyle/
+social-targeting code/financeiro/cleanup blob/lock-onboarding/reader-writer.
+
+**Migration `20260602140000_add_global_users_gender.sql`** (forward-only/idempotente): `ADD COLUMN IF NOT EXISTS
+global_users.gender TEXT` + CHECK nomeado `chk_global_users_gender` (`NULL OR male|female|other`) + COMMENT;
+**backfill fail-closed** com 3 guards (valor inválido / conflito blob≠coluna / gênero ambíguo entre profiles do mesmo
+global_user) + `UPDATE ... WHERE gender IS NULL` (idempotente). Mapeamento `profiles → users(tenant_id,id=user_id) →
+global_user_id`.
+
+**Provas (DB, migration aplicada — 351 migrations):** coluna `text`/nullable=YES; constraint existe;
+`global_users.gender='male'` ×1 (backfill); **blob preservado** (`metadata ? 'gender'`=1, `address`=0); re-run do
+backfill afeta **0 linhas** (idempotente); valor inválido **rejeitado** pela CHECK (código 23514, transação revertida).
+core.service/profile.service/identity.service/frontend/social-targeting **intocados** (troca de fonte = F2). Gates:
+actor-writer/bank-ledger OK; regression PASSOU (351); arch critical_new=0/total=20/warning_new=1 (:334 pré-existente).
+
+**`DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` permanece OPEN.** Gaveta canônica criada e populada. Próximo: **F2**
+(writers `auth.service`/`profileService.upsertProfile` gravam a coluna e strip do metadata, espelhando CPF; readers
+`core.service`/`profile.service`/`identity.routes` sourceiam da coluna; reconciliar `other`) → **F3** → **F4** (cleanup
+blob) → **F5** (selo/CLOSE).

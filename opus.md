@@ -2974,3 +2974,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   SIMETRIA já existente no schema — global_users guardava 3 dos 4 campos civis; o 4º só estava perdido. Não inventar
   casa nova quando o SSOT já existe e os irmãos do dado já moram lá. E decisão antes de código mesmo num campo
   "pequeno", porque encosta em IDENTIDADE + lock + targeting — três eixos que não se mexe no improviso.)
+
+### F1 GENDER — global_users.gender + backfill ✅ (2026-06-02) — frente gender → Identity SSOT
+- Migration + docs (sem backend code). HEAD origem 41c353ee. Zero frontend/PJ/CPF/endereço/Health/Lifestyle/
+  social-targeting code/financeiro/cleanup blob/lock-onboarding/reader-writer.
+- Migration 20260602140000 (forward-only/idempotente): ADD COLUMN IF NOT EXISTS global_users.gender TEXT + CHECK
+  nomeado chk_global_users_gender (NULL OR male|female|other) + COMMENT; backfill fail-closed com 3 guards (valor
+  inválido / conflito blob≠coluna / gênero ambíguo entre profiles do mesmo global_user) + UPDATE WHERE gender IS NULL.
+  Mapeamento profiles → users(tenant_id,id=user_id) → global_user_id.
+- Provas (DB, 351 migrations): coluna text/nullable; constraint existe; global_users.gender='male' x1 (backfill);
+  blob preservado (metadata?'gender'=1, address=0); re-run backfill 0 linhas (idempotente); valor inválido rejeitado
+  (CHECK 23514, transação revertida). Reader/writer intocados (F2). Gates: critical_new=0/351. Probes descartáveis
+  não commitados. DT OPEN. Próximo: F2 (writers/readers → coluna, strip metadata espelhando CPF, reconciliar 'other')
+  → F3 → F4 (cleanup blob) → F5.
+  (Lição: backfill fail-closed merece os MESMOS guards de uma migração de mil linhas mesmo com 1 registro — invalido,
+  conflito e ambiguidade intra-blob. O 4º guard (mesmo global_user com gêneros divergentes em tenants distintos) não
+  custa nada hoje e é exatamente o que estoura silencioso quando o universo cresce. Provar idempotência re-rodando o
+  UPDATE (0 linhas) e a CHECK rejeitando inválido por transação revertida — sem mudança persistente — é a prova que vale.)
