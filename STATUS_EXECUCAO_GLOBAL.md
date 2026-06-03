@@ -1,3 +1,17 @@
+## 2026-06-03 — Runbook de KYC do piloto MVP-A (caminho auditado, docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `0ae43ab4`. Docs-only (runbook + STATUS/opus); zero runtime/Bank/frontend/mock/migration.
+
+**Decisão tática:** os endpoints admin de KYC **já bastam** → criado **RUNBOOK** (não script): `docs/03_execution_log/20260603_MVP_A_PILOT_KYC_RUNBOOK.md`.
+
+**Caminho legítimo confirmado (FRENTE C2, todos `requireRole(['admin'])`):** `POST /identity/submit-validation` → `GET /identity/admin/validation-queue` → `PATCH /identity/admin/validation-requests/:id/review {decision:'approved'}`. `reviewIdentityValidation` é **atômico**: UPDATE identities (kyc_status='approved', kyc_level) + UPDATE request (reviewed_by, decision_reason, timestamps) — **auditoria preservada**. Tabela `identity_validation_requests`.
+
+**Provado empiricamente** (DB efêmera `unificard_smoke_mvp_a_kyc_setup_*`, server isolado, `unificard_dev` intocada, DB dropada): probe temporário chamou os **serviços reais** (não UPDATE cru) → BEFORE pending → submit → review → **AFTER approved/complete + AUDIT (reviewer/submitter/reason)** → PROBE_RESULT=PASS. Probe **removido** (não versionado).
+
+**Regra dura registrada:** UPDATE cru em identities é só-teste (proibido no piloto); aprovação deve passar pelo fluxo auditado; runbook NÃO cria UI pública de KYC (frente futura). **MVP-A exige comprador KYC-cleared.** Sem DECISION/DT nova. Próximo: executor de UX do MVP-A.
+
+---
+
 ## 2026-06-03 — MVP-A E2E interno PROVADO empiricamente (comprador KYC-cleared) — só teste
 
 **Branch:** `rescue-structural` · **HEAD origem:** `525fab34`. Edição restrita a **teste** + STATUS/opus (zero runtime/Bank/gate/migration).

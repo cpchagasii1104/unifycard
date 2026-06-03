@@ -6,7 +6,15 @@
 
 ---
 
-## Sessão 2026-06-03 (cont.2) — MVP-A E2E interno PROVADO (comprador KYC-cleared, só teste)
+## Sessão 2026-06-03 (cont.3) — Runbook KYC do piloto MVP-A (caminho auditado, docs-only)
+
+Defini o procedimento de pré-aprovação de KYC do piloto fechado **pelo caminho real auditado** — não UPDATE cru. Decisão tática: endpoints admin já bastam → **RUNBOOK** (não script): `docs/03_execution_log/20260603_MVP_A_PILOT_KYC_RUNBOOK.md`.
+
+**Caminho (FRENTE C2, requireRole admin):** POST /identity/submit-validation → GET /identity/admin/validation-queue → PATCH /identity/admin/validation-requests/:id/review {decision:'approved'}. `reviewIdentityValidation` atômico: identities.kyc_status='approved'+kyc_level + request (reviewed_by/decision_reason/timestamps). Audit em `identity_validation_requests`.
+
+**Provei empiricamente** (DB efêmera + server isolado, probe temporário chamando os SERVIÇOS reais, depois removido): pending → submit → review → **approved/complete + AUDIT completa (reviewer/submitter/reason)** = PROBE_RESULT=PASS. unificard_dev intocada; DB dropada; probe não versionado.
+
+Regra: UPDATE cru em identities = só-teste (q3); piloto usa o fluxo auditado; gate KYC intacto; runbook ≠ UI pública de KYC (frente futura). Recarga/mock: não há na UI (carteira interna). Commit docs-only (runbook+STATUS+opus). Próximo: executor de UX do MVP-A (ocultar cascas + /extrato + copy de checkout).
 
 Provei empiricamente o fluxo interno do MVP-A em **DB efêmera** (server isolado :3000, `unificard_dev` intocada). Adaptei **só o teste** `q3-e2e-v3-fundacional.ts`: adicionei **P3b** que dá KYC ao comprador no **campo real** `identities.kyc_status='approved'` (como `validate-pipeline-e2e-transversal.ts`). **O gate KYC NÃO foi burlado** — segue ativo e passa por mérito. Resultado: **14/14 PASS**.
 - F10 ✅ (reserve/fee/regional_fund/escrow via ensurePlatformAccounts em tenant limpo).
