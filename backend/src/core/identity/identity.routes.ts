@@ -1234,6 +1234,121 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // ============================================================
+  // F2-A KYB PJ (DECISION-0086): writer auditado da identidade fiscal PJ.
+  //   Tabela: fiscal_identity_kyb_requests (migration 20260603130000)
+  //   Service: fiscal-identity-kyb.service.ts (PJ-cêntrico; NUNCA toca identities PF/kyc_status).
+  //   Fonte da verificação PJ = fiscal_identities.kyb_status. Transições: pending->approved/rejected.
+  //   Operador (autoridade) = req.actionContext.actorId (actor humano) — NÃO user_id.
+  //   Documentos = F2-B; gate authority = F2-C (fora desta frente).
+  // ============================================================
+
+  /**
+   * POST /identity/pj/kyb/requests
+   * Cria pedido KYB (status='pending') para uma identidade fiscal PJ. requireRole(['admin']).
+   */
+  fastify.post<{
+    Body: { fiscalIdentityId: string; reason?: string };
+  }>('/pj/kyb/requests', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    // Operador resolvido de forma canônica (actor humano). NÃO usar user_id como substituto.
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório (actor do operador ausente)' });
+    }
+    const { fiscalIdentityId, reason } = req.body ?? ({} as { fiscalIdentityId?: string; reason?: string });
+    if (!fiscalIdentityId || typeof fiscalIdentityId !== 'string') {
+      return reply.status(400).send({ ok: false, message: 'Body.fiscalIdentityId é obrigatório' });
+    }
+    try {
+      const { fiscalIdentityKybService } = await import('@core/identity/fiscal-identity-kyb.service');
+      const result = await fiscalIdentityKybService.submitFiscalKybRequest(
+        fiscalIdentityId,
+        req.actionContext.actorId,
+        reason,
+      );
+      fastify.log.info({
+        kybRequestId: result.kybRequestId,
+        fiscalIdentityId: result.fiscalIdentityId,
+        submittedByActorId: result.submittedByActorId,
+      }, '📝 F2-A: pedido KYB PJ criado');
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao submeter KYB PJ');
+      const message = error instanceof Error ? error.message : 'Erro ao submeter KYB PJ';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
+
+  /**
+   * GET /identity/pj/kyb/admin/queue
+   * Lista pedidos KYB; query.status opcional. requireRole(['admin']).
+   */
+  fastify.get<{
+    Querystring: { status?: string };
+  }>('/pj/kyb/admin/queue', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    try {
+      const { fiscalIdentityKybService } = await import('@core/identity/fiscal-identity-kyb.service');
+      const queue = await fiscalIdentityKybService.getFiscalKybQueue(req.query.status);
+      return reply.send({ ok: true, data: queue });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao listar fila KYB PJ');
+      const message = error instanceof Error ? error.message : 'Erro ao listar fila KYB PJ';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
+
+  /**
+   * PATCH /identity/pj/kyb/admin/requests/:requestId/review
+   * Admin decide pending → approved/rejected. Atômico (UPDATE request + UPDATE fiscal_identities).
+   * requireRole(['admin']).
+   */
+  fastify.patch<{
+    Params: { requestId: string };
+    Body: { decision: 'approved' | 'rejected'; reason: string };
+  }>('/pj/kyb/admin/requests/:requestId/review', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório (actor do operador ausente)' });
+    }
+    const { decision, reason } = req.body ?? ({} as { decision?: 'approved' | 'rejected'; reason?: string });
+    if (decision !== 'approved' && decision !== 'rejected') {
+      return reply.status(400).send({ ok: false, message: "Body.decision deve ser 'approved' ou 'rejected'" });
+    }
+    if (!reason || typeof reason !== 'string' || reason.trim() === '') {
+      return reply.status(400).send({ ok: false, message: 'Body.reason é obrigatório (auditoria da decisão)' });
+    }
+    try {
+      const { fiscalIdentityKybService } = await import('@core/identity/fiscal-identity-kyb.service');
+      const result = await fiscalIdentityKybService.reviewFiscalKybRequest(
+        req.params.requestId,
+        decision,
+        reason,
+        req.actionContext.actorId,
+      );
+      fastify.log.info({
+        kybRequestId: result.kybRequestId,
+        fiscalIdentityId: result.fiscalIdentityId,
+        decision: result.status,
+        reviewedByActorId: result.reviewedByActorId,
+      }, `✅ F2-A: KYB PJ ${result.status}`);
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao revisar KYB PJ');
+      const message = error instanceof Error ? error.message : 'Erro ao revisar KYB PJ';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
+
   // Registrar rotas de residence como sub-rotas
   // A rota GET /identity/residence está definida em residence.routes.ts
   await fastify.register(residenceRoutes, { prefix: '/residence' });

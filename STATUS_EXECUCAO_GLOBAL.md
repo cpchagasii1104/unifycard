@@ -1,3 +1,24 @@
+## 2026-06-03 — F2-A KYB PJ IMPLEMENTADA: writer auditado da identidade fiscal (código+migration)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `766e6fcd`. Migration única + service + rotas + teste efêmero + docs. **Zero** Bank/ledger/KYC-PF/`identities`/gate/documentos/`company_validation_requests`/frontend; `unificard_dev` intocada.
+
+**Materializa a DECISION-0086 (F2-A):**
+- **Migration `20260603130000`:** `fiscal_identity_kyb_requests` (GLOBAL, sem tenant) — `kyb_request_id` PK, `fiscal_identity_id` (FK→fiscal_identities CASCADE), `status` (CHECK pending/approved/rejected), `submitted_by_actor_id`/`reviewed_by_actor_id` (FK actors(id)), CHECK auditoria-no-final (status≠pending ⇒ reviewer+reviewed_at+reason), **partial unique** 1-pending por fiscal_identity, índices. Sem metadata/documentos/global_user_id/company_id.
+- **Service `core/identity/fiscal-identity-kyb.service.ts`:** `submitFiscalKybRequest` (guard fiscal pending + 1-pending), `reviewFiscalKybRequest` (**atômico**: UPDATE request + UPDATE `fiscal_identities.kyb_status` no mesmo client, FOR UPDATE, rollback total; reason obrigatório), `getFiscalKybQueue`. Keyed por `fiscal_identity_id`; auditoria `*_actor_id`; **nunca toca `identities` PF**.
+- **Rotas `/identity/pj/kyb/*`** (`requests` POST, `admin/queue` GET, `admin/requests/:id/review` PATCH): `requireRole(['admin'])`; operador resolvido por `req.actionContext.actorId` (actor humano), **não** user_id.
+
+**Teste efêmero (`validate-pipeline-e2e-pj-kyb-writer`, 16/16 verde):** migration; submit/duplicado; approve/reject (kyb_status na fonte + auditoria); review não-pending; fiscal inexistente; reviewer inexistente; **atomicidade** (rollback entre updates); **CHECK** auditoria-no-final; identities PF intacta; zero Bank; **company_status NÃO mexido**; queue. DB efêmera (`unificard_kyb_*`) dropada.
+
+**Gates:** typecheck 0 · actor-writer §4.8.1 OK (não toquei o writer; só escrevi `fiscal_identities`/request) · bank-ledger §4.6 OK · regression-guards OK (354 migr) · architecture --strict exit 0 (critical_new=0).
+
+**DTs:** `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` PARTIALLY MITIGATED (nota: writer implementado; **documentos = F2-B**). `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` OPEN (nota: writer vivo, `reviewCompanyValidation` intocado → **segunda-verdade agora possível em runtime**; reconciliação fica para fatia própria, mais urgente pós-F2-C).
+
+**Acoplamento código↔banco (igual F1):** migration `20260603130000` está no repo mas **não aplicada em `unificard_dev`** (só efêmera). As rotas KYB são admin-only (fora do hot path), então não quebram fluxo comum — mas para runtime local completo a migration precisa ser aplicada pelo runner canônico quando você liberar.
+
+**PRÓXIMA ETAPA:** F2-B (documentos PJ `fiscal_identity_documents`) → F2-C (gate `evaluateKybLayer` lendo `kyb_status`) → reconciliação company_status. PJ comercial bloqueada até F2-C.
+
+---
+
 ## 2026-06-03 — DECISION-0086: F2-A KYB PJ promulgada — writer auditado da identidade fiscal (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `8929379e`. **Docs-only**; zero código/schema/migration/Bank/runtime. Autoriza a fase seguinte (implementação F2-A), **não a executa**.

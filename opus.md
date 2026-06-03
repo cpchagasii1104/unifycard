@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.12) — F2-A KYB PJ IMPLEMENTADA (writer auditado)
+
+Implementei a F2-A (envelope executor). Migration `20260603130000` (`fiscal_identity_kyb_requests`, global, FK→fiscal_identities/actors(id), CHECK status+auditoria-no-final, partial-unique 1-pending). Service `core/identity/fiscal-identity-kyb.service.ts` espelhando identity-validation mas keyed fiscal_identity_id, review atômico (UPDATE request + UPDATE fiscal_identities.kyb_status mesmo client, FOR UPDATE, rollback), reason obrigatório. Rotas `/identity/pj/kyb/*` (requireRole admin; operador = req.actionContext.actorId, NÃO user_id) adicionadas em identity.routes.ts.
+
+Simplificação vs F1: fiscal_identities + request são global sem RLS → review atômico **sem set_config** (no nó RLS só actors, que não escrevo aqui). FK actors(id) (actor_id==id, resolvido na F1).
+
+Teste novo `validate-pipeline-e2e-pj-kyb-writer.ts` + orquestrador `run-pj-kyb-writer-ephemeral.ps1` (DB `unificard_kyb_*`). 16/16: migration, submit/dup, approve/reject (fonte+auditoria), guards (não-pending/fiscal-inexistente/reviewer-inexistente), atomicidade (rollback entre updates), CHECK auditoria-no-final, identities PF intacta, zero Bank, company_status NÃO mexido, queue. Criei fiscal identities diretas por SQL (driblando MAX_PROVISIONAL); 1 createCompany só para o cenário company_status.
+
+Gates: typecheck 0; actor-writer OK; bank-ledger OK; regression-guards OK (354); arch --strict exit 0. unificard_dev intocada (kyb_table=f). DTs: KYC-DOCUMENTS nota implementação (PARTIALLY, docs=F2-B); COMPANY-STATUS-KYB-SECOND-TRUTH nota (writer vivo, reviewCompanyValidation intocado → segunda-verdade agora possível em runtime). **Acoplamento código↔banco igual F1:** migration não aplicada em unificard_dev (rotas KYB admin-only, fora do hot path — menos urgente que F1). **Próximo:** F2-B documentos / F2-C gate / reconciliação. Commit por caminho explícito.
+
+---
+
 ## Sessão 2026-06-03 (cont.11) — DECISION-0086: F2-A KYB PJ promulgada (writer auditado)
 
 Após READ-ONLY F2 (reancoragem + levantamento) + insumo no chat, Clayton ratificou com 4 martelos e disparou envelope executor docs-only. Promulguei `DECISION_0086_PJ_KYB_AUDITED_WRITER.md` (próximo livre = 0086).
