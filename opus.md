@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.11) — DECISION-0086: F2-A KYB PJ promulgada (writer auditado)
+
+Após READ-ONLY F2 (reancoragem + levantamento) + insumo no chat, Clayton ratificou com 4 martelos e disparou envelope executor docs-only. Promulguei `DECISION_0086_PJ_KYB_AUDITED_WRITER.md` (próximo livre = 0086).
+
+Achados do read-only que mandaram: (1) o gate `authority-decision` já ignora page-actor no KYC (`KYC_NOT_APPLICABLE_ACTOR_TYPE`) → PJ hoje opera sem gate de identidade → seam exato p/ camada KYB futura (F2-C). (2) `reviewCompanyValidation` valida `companies.company_status='VERIFIED'` (projeção), não a fonte fiscal → risco de segunda verdade. (3) `fiscal_documents` é NF-e marketplace, NÃO documento KYB → lacuna real (F2-B).
+
+Decisões F2-A: fonte = `fiscal_identities.kyb_status`; writer global novo (espelho identity-validation, keyed fiscal_identity_id, nunca toca identities PF); request `fiscal_identity_kyb_requests`; transições pending→approved/rejected (under_review/suspended/closed FORA); auditoria `*_actor_id`; review atômico role-gated. Documentos=F2-B, gate=F2-C. Martelos de Clayton: nome request confirmado; F2-A NÃO reconcilia company_status (vira DT); under_review fora.
+
+DTs: `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` nota F2-A (PARTIALLY MITIGATED — writer decidido, docs F2-B); **criei** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN). **Observação registrada:** `DT-PJ-TRANSFER-OWNERSHIP-MISSING` está SEM heading `##` no DT_LOG — malformação **pré-existente** ao 8929379e (verifiquei via git show), NÃO toquei (fora de escopo). Docs-only; commit por caminho explícito. **Próximo:** implementação F2-A (migration request + serviço + testes) ou desenho F2-B, conforme Clayton.
+
+---
+
 ## Sessão 2026-06-03 (cont.10) — F1: casa fiscal PJ materializada + nascimento fiscal-first
 
 Implementei a F1 da DECISION-0085 (envelope executor). Migration `20260603120000`: cria `fiscal_identities` (GLOBAL) — cnpj VARCHAR(14) UNIQUE global + CHECK 14, kyb_status enxuto (5 estados), auditoria `*_actor_id` FK→actors(id) (resolvi: actors tem `id` PK e `actor_id`; TODAS as FKs do schema referenciam actors(id); actor_id==id), CHECK auditoria-no-approved; sem kyb_level/metadata/legal_name/company_id. Adiciona companies.fiscal_identity_id (FK, nullable, índice) + COMMENTs.

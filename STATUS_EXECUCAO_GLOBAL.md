@@ -1,3 +1,21 @@
+## 2026-06-03 — DECISION-0086: F2-A KYB PJ promulgada — writer auditado da identidade fiscal (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `8929379e`. **Docs-only**; zero código/schema/migration/Bank/runtime. Autoriza a fase seguinte (implementação F2-A), **não a executa**.
+
+**Promulgada (F2-A, deriva da D2-técnica/0085 + F1):**
+- **Fonte da verdade KYB = `fiscal_identities.kyb_status`** (não `companies.company_status`/`is_verified`, não `company_validation_requests`, não `identities.kyc_status`, não blob).
+- **Writer KYB novo, global, auditado** (espelho `identity-validation`, sem misturar PF/PJ), keyed por `fiscal_identity_id`.
+- **Tabela de request: `fiscal_identity_kyb_requests`** (global, keyed fiscal_identity_id; não é SSOT fiscal, não é documento, não é company_validation_requests).
+- **Fluxo F2-A enxuto:** submit/queue/review/approve/reject; transições **`pending→approved`** e **`pending→rejected`**. **Fora:** `under_review`, `suspended`, `closed`, resubmit.
+- **Auditoria por `*_actor_id`** (submitted_by/reviewed_by); `user_id` só auxiliar. Review **atômico** (UPDATE request + UPDATE kyb_status + auditoria; rollback total; sem DML cru); role-gated.
+- **Fora da F2-A:** documentos (F2-B, ancorado em fiscal_identity_id, sem blob) · gate authority `evaluateKybLayer` (F2-C) · reconciliação company_status. **PJ comercial segue bloqueada por decisão de projeto até a F2-C.**
+
+**DTs:** `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` PARTIALLY MITIGATED (nota F2-A: writer decidido; docs=F2-B). **Criada** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN — reviewCompanyValidation escreve company_status='VERIFIED' enquanto kyb_status é a fonte; reconciliação pós-F2-A). _(Observação: `DT-PJ-TRANSFER-OWNERSHIP-MISSING` está sem heading `##` no DT_LOG — malformação **pré-existente** ao commit `8929379e`, não tocada nesta sessão.)_
+
+**PRÓXIMA ETAPA:** implementação F2-A (migration `fiscal_identity_kyb_requests` + serviço submit/review atômico + testes efêmeros) → F2-B (documentos) → F2-C (gate).
+
+---
+
 ## 2026-06-03 — F1 PJ FISCAL IDENTITY: casa fiscal PJ materializada + nascimento fiscal-first (código+migration)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `583d1edb`. Migration única + código mínimo + teste efêmero + docs. **Zero** Bank/ledger/KYC-gate/mock/frontend/MVP-A; **`identities` PF intocada**; `unificard_dev` intocada.

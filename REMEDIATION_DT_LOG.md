@@ -10783,6 +10783,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Mitigação atual:** nenhuma (docs-only). `company_validation_requests` reusável como base do fluxo de aprovação.
 - **Resolução prevista:** desenho de schema de documentos PJ (tipo, status de verificação, referência de arquivo) + fluxo de aprovação (D3), em migration única.
 - **Atualização (D2-TÉCNICA — `DECISION-0085`, 2026-06-03):** **direção de writer fixada** — modelo **híbrido** (reserva pending no nascimento transacional + aprovação KYB depois via writer auditado espelhando `identity-validation`); `company_validation_requests` = **workflow/espelho**, **não** SSOT fiscal; KYB PJ ≠ KYC PF. A 0085 **decidiu explicitamente NÃO** colocar `metadata jsonb` nem documentos na tabela canônica `fiscal_identities` (tabela canônica não é gaveta). **DT permanece OPEN:** o **SSOT estruturado de documentos PJ** (tipo/verificação/armazenamento) segue **não desenhado** — fica para D3/fase posterior, não resolvido pela 0085.
+- **Atualização (F2-A — `DECISION-0086`, 2026-06-03):** o **writer KYB auditado** foi promulgado (workflow global `fiscal_identity_kyb_requests`, transição `pending→approved/rejected` sobre `fiscal_identities.kyb_status`, atômico, role-gated). **DT permanece PARTIALLY MITIGATED:** o writer existe em desenho, mas o **SSOT de documentos PJ** (contrato social/cartão CNPJ/procuração — tipo/verificação/`file_reference`/append-only, ancorado em `fiscal_identity_id`, **sem blob**) é explicitamente **F2-B**, não entregue na F2-A. Proibido usar `company_validation_requests.metadata` como depósito documental definitivo.
 
 - **Status:** OPEN (2026-06-02)
 - **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY`.
@@ -10791,6 +10792,16 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** transferência informal apaga rastreabilidade; impossível ancorar responsabilidade transitória.
 - **Mitigação atual:** nenhuma (docs-only).
 - **Resolução prevista:** evento append-only de transferência (company_id, from_actor, to_actor, aprovação) que muda responsável e dispara a responsabilidade transitória (D5), em migration única.
+
+## DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** `DECISION-0086` (F2-A KYB writer) — risco reconhecido na promulgação.
+- **Vinculada a:** `DECISION-0086`, `DECISION-0085`, `fiscal_identities.kyb_status`, `company_validation_requests`, `companies.company_status`/`is_verified`, `core/companies/companies.service.ts` (`reviewCompanyValidation`).
+- **Contexto:** `reviewCompanyValidation` hoje, ao aprovar via `company_validation_requests`, escreve `companies.company_status='VERIFIED'` + `is_verified=true` (a PROJEÇÃO). A `DECISION-0086` promulgou **`fiscal_identities.kyb_status`** como **FONTE** da verificação PJ. As duas escritas coexistem.
+- **Risco:** **segunda verdade** — empresa `company_status='VERIFIED'` com `kyb_status='pending'` (ou o inverso). Leitores/gate podem consultar a fonte errada; `company_status` pode dar percepção de "verificada" sem KYB approved.
+- **Mitigação atual:** nenhuma no código (F2-A é docs-only e **NÃO reconcilia** `reviewCompanyValidation` — DECISION-0086 §3.8). A 0086 apenas **declara** `kyb_status` como fonte.
+- **Resolução prevista (pós-F2-A):** `company_status`/`is_verified` viram **projeção/compatibilidade** de `kyb_status`, **ou** o fluxo `company-validation` é redirecionado/aposentado para o papel fiscal. Fatia própria, com migration/código + testes. **Não fechar** enquanto a divergência puder ocorrer em runtime.
 
 ## DT-PJ-TRANSITIONAL-RESPONSIBILITY-MISSING
 
