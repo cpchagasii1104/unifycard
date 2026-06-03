@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.9) — DECISION-0085: D2 TÉCNICA promulgada (casa fiscal PJ fiscal_identities)
+
+Após READ-ONLY final D2 + insumo (rascunho no chat), Clayton ratificou com refinamentos e disparou envelope executor docs-only. Promulguei `DECISION_0085_PJ_FISCAL_IDENTITY_TECHNICAL_DESIGN.md` (próximo livre confirmado = 0085). Concedi o nome: `fiscal_identities` (não `organizational_identities` — arquiteto: "organizational" é aberto demais, vira saco de gatos; fiscal_identities diz o que é, escopo PJ/CNPJ).
+
+Decisões fixadas: VARCHAR(14) NOT NULL + UNIQUE global + CHECK 14, DV na borda; FK Opção 2 (companies.fiscal_identity_id desde pending, direção única, fiscal sem company_id); **sequência fiscal-first** no withTransaction (fiscal→companies→company_users→page-actor; CNPJ duplicado explode no passo 1 → rollback total); companies.cnpj = projeção unidirecional (createCompany deixa de ser fonte de cnpj); writer híbrido (reserva-na-tx + KYB auditado espelhando identity-validation).
+
+Refinamentos de Clayton vs meu rascunho: lifecycle kyb_status ENXUTO a 5 estados (pending/approved/rejected/suspended/closed; under_review/needs_more_info = workflow; blocked fora; transferência=evento); **kyb_level adiado**; **metadata jsonb FORA** da tabela canônica (não é gaveta); auditoria com **sufixo explícito** (*_actor_id vs *_user_id, escolha na migration — nada ambíguo). Razão social = projeção companies.company_name (não reviver legal_name). Schema-alvo é conceitual, não SQL executável.
+
+DTs: 3 PJ DTs com nota D2-técnica, mantidas OPEN (substrato ainda ausente do schema; CANONICAL-HOME deixou de estar indefinida mas continua não-materializada). IDENTITY-PRECEDENCE-NORM-GAP inalterada (PARTIALLY MITIGATED, não fechar). Docs-only; zero migration/código/schema. Commit por caminho explícito. **Próximo:** migration única → código (passo 1 fiscal-first) → gates → D3-técnica. PJ comercial bloqueada.
+
+---
+
 ## Sessão 2026-06-03 (cont.8) — F-ATOMIC-COMPANY-BIRTH: nascimento PJ transacional (código)
 
 Executei o pré-requisito da D2 (DECISION-0075 §9.2) com aval explícito de Clayton p/ editar o writer soberano de actors. **Achado que encolheu a obra:** o repo já tinha `withTransaction` (transaction.helper) e um molde transacional de actor (`findOrCreateGroupActor`). Era religação, não fundação.

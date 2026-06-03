@@ -10759,6 +10759,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Resolução prevista:** promulgar a norma de identidade fiscal de PJ (norma antes de schema) e então a casa canônica (A `companies.cnpj` / B `identities` / C ambos com precedência), em migration única coerente.
 - **Atualização (D1 — `DECISION-0082`, 2026-06-02):** **precedência DECIDIDA.** Caminho **C** — fonte canônica = **camada própria de identidade fiscal de PJ** (não `identities`, que é pessoa-cêntrico); `companies.cnpj` = **projeção operacional protegida**; operação por **vínculo CPF autorizado** (nunca login compartilhado). **DT permanece OPEN:** a precedência foi promulgada, mas a **estrutura técnica** (materialização da camada própria, UNIQUE/CHECK/FK/índice) é **D2/desenho técnico pendente** — ver `DT-PJ-CNPJ-UNIQUE-CHECK-MISSING`.
 - **Atualização (D2 — `DECISION-0084`, 2026-06-03):** **casa/precedência promulgada de PRINCÍPIO** — casa fiscal PJ **própria, canônica e global**; CNPJ único no sistema; `companies.cnpj` projeção subordinada; precedência identidade fiscal PJ > projeção. **DT permanece OPEN:** o **substrato técnico** (nome de tabela, colunas, UNIQUE/CHECK/FK, índice, writer) segue **pendente do desenho técnico da D2** — esta DT cobre o substrato; **não** criar DT gêmea de "fiscal-identity-substrate".
+- **Atualização (D2-TÉCNICA — `DECISION-0085`, 2026-06-03):** **desenho técnico fixado.** Nome canônico promulgado = **`fiscal_identities`** (escopo PJ/CNPJ; GLOBAL sem tenant; espelho `global_users`); schema-alvo, FK `companies.fiscal_identity_id` (Opção 2, direção única), sequência fiscal-first no `withTransaction`, writer híbrido e lifecycle `kyb_status` definidos. **DT permanece OPEN:** o substrato **ainda não está materializado em schema** (migration/código = fase seguinte, não executada na 0085). A "casa canônica" deixou de estar **indefinida** (agora totalmente desenhada), mas continua **ausente do schema** até a migration única.
 
 ## DT-PJ-CNPJ-UNIQUE-CHECK-MISSING
 
@@ -10770,6 +10771,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Mitigação atual:** nenhuma correção (docs-only). Registrado para a migration única.
 - **Resolução prevista:** após casa canônica (D1), aplicar UNIQUE forte + CHECK 14 díg + validação de dígito verificador na borda; escopo de unicidade (global vs tenant) é decisão de Clayton (D2).
 - **Atualização (D2 — `DECISION-0084`, 2026-06-03):** D2 promulgou **CNPJ único GLOBAL** na casa fiscal canônica (precedente `global_users.cpf` UNIQUE global). `companies.cnpj` será tratado como **projeção subordinada** no desenho técnico da D2 (UNIQUE/CHECK na FONTE canônica, não na projeção). **DT permanece OPEN:** enforce ainda é desenho técnico/migration. Esta DT cobre o enforce; **não** criar DT gêmea de "companies-cnpj-no-enforce".
+- **Atualização (D2-TÉCNICA — `DECISION-0085`, 2026-06-03):** enforce **desenhado**: `fiscal_identities.cnpj` `VARCHAR(14)` `NOT NULL` + **UNIQUE global** + **CHECK length=14** na **FONTE** (não na projeção `companies.cnpj`); dígito verificador na **borda** (reusar `companies.service.validateCNPJ`). **DT permanece OPEN:** as constraints são **schema-alvo conceitual** na 0085 — aplicação real é migration (fase seguinte).
 
 ## DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING
 
@@ -10780,8 +10782,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** documentos em jsonb solto; sem trilha estruturada de verificação; aprovação manual sem substrato de evidência.
 - **Mitigação atual:** nenhuma (docs-only). `company_validation_requests` reusável como base do fluxo de aprovação.
 - **Resolução prevista:** desenho de schema de documentos PJ (tipo, status de verificação, referência de arquivo) + fluxo de aprovação (D3), em migration única.
-
-## DT-PJ-TRANSFER-OWNERSHIP-MISSING
+- **Atualização (D2-TÉCNICA — `DECISION-0085`, 2026-06-03):** **direção de writer fixada** — modelo **híbrido** (reserva pending no nascimento transacional + aprovação KYB depois via writer auditado espelhando `identity-validation`); `company_validation_requests` = **workflow/espelho**, **não** SSOT fiscal; KYB PJ ≠ KYC PF. A 0085 **decidiu explicitamente NÃO** colocar `metadata jsonb` nem documentos na tabela canônica `fiscal_identities` (tabela canônica não é gaveta). **DT permanece OPEN:** o **SSOT estruturado de documentos PJ** (tipo/verificação/armazenamento) segue **não desenhado** — fica para D3/fase posterior, não resolvido pela 0085.
 
 - **Status:** OPEN (2026-06-02)
 - **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY`.

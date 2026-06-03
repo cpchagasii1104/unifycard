@@ -1,3 +1,23 @@
+## 2026-06-03 — DECISION-0085: D2 TÉCNICA promulgada — casa fiscal PJ `fiscal_identities` (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `8d5ee22c`. **Docs-only**; zero migration/código/schema/Bank/runtime. Autoriza a fase seguinte (migration+código), **não a executa**.
+
+**Promulgada (D2-técnica, deriva da D2-princípio/0084 + fundação F-ATOMIC `8d5ee22c`):**
+- **Nome:** `fiscal_identities` (escopo **PJ/CNPJ**, GLOBAL sem tenant; não substitui `identities` PF, não é actor/authority, não modela grupos/projetos).
+- **CNPJ:** `VARCHAR(14)` NOT NULL + **UNIQUE global** (espelho `global_users.cpf`) + CHECK 14; DV na **borda**.
+- **FK (Opção 2):** `companies.fiscal_identity_id` presente desde pending; direção única (fiscal não carrega company_id).
+- **Sequência fiscal-first no `withTransaction`:** 1 fiscal_identities (cnpj reservado, kyb_status=pending) → 2 companies → 3 company_users → 4 page-actor → 5 metadata → COMMIT. CNPJ duplicado explode no passo 1 → rollback total, zero órfão.
+- **`companies.cnpj` = projeção** unidirecional fonte→projeção (createCompany deixa de ser fonte autônoma de cnpj).
+- **Lifecycle `kyb_status` enxuto:** pending/approved/rejected/suspended/closed (`under_review`/`needs_more_info` = workflow; `blocked` fora; transferência = evento, não status).
+- **Writer híbrido:** reserva pending na tx + aprovação KYB depois (auditado, espelho `identity-validation`); `company_validation_requests` = workflow, não SSOT fiscal; KYB PJ ≠ KYC PF.
+- **FORA (decisão explícita):** `kyb_level` adiado; **sem `metadata jsonb`** na tabela canônica; razão social = projeção `companies.company_name` (não reviver `legal_name`); auditoria com **sufixo explícito** (`*_actor_id` vs `*_user_id`, escolha na migration); histórico append-only/evento posterior; imutabilidade CNPJ por borda+teste.
+
+**DTs:** `DT-PJ-CNPJ-CANONICAL-HOME-MISSING` (nota D2-técnica — nome/desenho fixados, substrato ainda ausente do schema → OPEN), `DT-PJ-CNPJ-UNIQUE-CHECK-MISSING` (UNIQUE global+CHECK desenhados na fonte → OPEN), `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` (writer híbrido fixado; SSOT de documentos segue não-desenhado → OPEN). `DT-PJ-IDENTITY-PRECEDENCE-NORM-GAP` inalterada (PARTIALLY MITIGATED). Sem DT nova/duplicada.
+
+**PRÓXIMA ETAPA:** migration única (`fiscal_identities` + `companies.fiscal_identity_id` + constraints) → código (passo 1 fiscal-first no `withTransaction` + writer KYB + projeção `companies.cnpj`) → gates/testes (estender harness F-ATOMIC) → D3-técnica. PJ comercial segue bloqueada.
+
+---
+
 ## 2026-06-03 — F-ATOMIC-COMPANY-BIRTH: nascimento PJ transacional (código + teste efêmero)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `51010092`. **Código** (núcleo do nascimento PJ) + teste efêmero. **Zero** Bank/ledger/KYC/mock/frontend/migration/schema. Pré-requisito ativo da D2 técnica (DECISION-0075 §9.2) — **fechado**.
