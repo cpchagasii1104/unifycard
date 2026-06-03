@@ -1,3 +1,22 @@
+## 2026-06-02 — DECISION-0081: M0 da Pessoa Jurídica promulgada (identidade fiscal própria, não-soberana) + 9 DTs (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `f7d15a8a` · working tree limpo.
+**Frente:** `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` — fatia de **promulgação da decisão-mãe (M0)**. Docs-only, **zero código/migration/banco**. Continuação do C0 (abaixo).
+
+**M0 PROMULGADA por Clayton:** *Pessoa Jurídica/empresa no Unificard é **identidade fiscal própria, mas não autoridade soberana**.* Empresa tem CNPJ/KYC/documentos/histórico/reputação/continuidade próprios e sobrevive à troca de dono (histórico pertence ao CNPJ, não ao CPF do momento); mas **nunca age sozinha** — toda ação fecha em CPF/actor humano responsável. CNPJ nunca substitui CPF como raiz.
+
+**Diretriz verbalizada (pendente de desenho técnico) — PROTEÇÃO ANTIFRAUDE EQUILIBRADA:** o sistema **sinaliza-e-revisa**, não bloqueia-automático; sinal de risco é insumo para **decisão humana**, não sentença; quarentena/bloqueio de pessoa real passa por **revisão humana** de equipe própria (operador é actor com autoridade limitada/auditável, trilha rastreável, fecha em CPF). **Falso positivo é dano.** Alvo = proteger o ecossistema interno (não substitui Receita/polícia/Judiciário).
+
+**Registrado (docs-only):**
+- `docs/02_decisions/DECISION_0081_PJ_FISCAL_IDENTITY_AND_RESPONSIBILITY.md` (M0 + diretrizes derivadas verbalizadas, separadas; não implementa).
+- 9 DTs OPEN novas em `REMEDIATION_DT_LOG.md`: `DT-PJ-CNPJ-CANONICAL-HOME-MISSING`, `DT-PJ-CNPJ-UNIQUE-CHECK-MISSING`, `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING`, `DT-PJ-TRANSFER-OWNERSHIP-MISSING`, `DT-PJ-TRANSITIONAL-RESPONSIBILITY-MISSING`, `DT-PJ-ANTI-LARANJA-CORRELATION-MISSING`, `DT-PJ-TRANSVERSAL-RISK-SIGNALS-MISSING`, `DT-RISK-HUMAN-OPERATIONS-SUBSTRATE-MISSING` (transversal), `DT-RISK-FALSE-POSITIVE-SAFEGUARD-MISSING` (transversal). + `DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT` reafirmada (não duplicada).
+
+**Derivadas (D1–D7) PENDENTES de promulgação/desenho** — incl. lacuna normativa de precedência de identidade fiscal de PJ (IDENTITY_SSOT_PRECEDENCE é pessoa-cêntrico). **Implementação BLOQUEADA.** Numeração: próximo livre era 0081 (série 0064–0080 contínua).
+
+**Próxima etapa:** consolidação Opus/ChatGPT + desenho técnico das derivadas (norma antes de schema). NÃO implementar.
+
+---
+
 ## 2026-06-02 — PJ C0 consolidado em desenho institucional (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `c6325a47` · working tree limpo.

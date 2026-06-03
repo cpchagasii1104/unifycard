@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-02 (cont.2) — DECISION-0081: M0 da PJ promulgada (docs-only)
+
+Após prova read-only de CNPJ + desenho fechado das 7 peças, Clayton **promulgou a M0**: *PJ é identidade fiscal própria, mas não autoridade soberana* — empresa tem CNPJ/KYC/histórico/continuidade próprios, sobrevive à troca de dono, mas toda ação fecha em CPF (CNPJ nunca substitui CPF como raiz). Registrei docs-only: `DECISION_0081_PJ_FISCAL_IDENTITY_AND_RESPONSIBILITY.md` + 9 DTs OPEN.
+
+**Diretriz antifraude EQUILIBRADA (verbalizada, pendente de desenho):** sinalizar-e-revisar > bloquear-automático; sinal é insumo p/ decisão HUMANA; operador é actor com autoridade limitada/auditável, trilha rastreável, fecha em CPF; **falso positivo é dano**. Duas DTs transversais nasceram daqui (`DT-RISK-HUMAN-OPERATIONS-SUBSTRATE-MISSING`, `DT-RISK-FALSE-POSITIVE-SAFEGUARD-MISSING`) — aplicam-se a todo actor de risco, não só PJ.
+
+**Prova factual reconfirmada:** companies.cnpj sem UNIQUE/CHECK/FK/KYC; identities aceita cnpj (CHECK 14) mas dead-code; substrato vivo = company_validation_requests/actor_delegations/atl_blocked_actors/economic_identities; AUSENTE = actor_relationships/risk_signals/transferência/5-anos/operação-humana-de-risco. **Lacuna normativa:** IDENTITY_SSOT_PRECEDENCE existe mas é pessoa-cêntrico — identidade fiscal de PJ ainda não normada (norma antes de schema).
+
+**Numeração:** série DECISION docs vai 0064–0080 contínua; usei **0081**. REMEDIATION_DECISIONS_LOG é série paralela (~0059) — não toquei.
+
+**Derivadas D1–D7 + migration ÚNICA = pendentes.** Implementação BLOQUEADA. Próximo: consolidação Opus/ChatGPT → promulgação das derivadas → desenho técnico → migration única → código.
+
+---
+
 ## Sessão 2026-06-02 (cont.) — PJ C0 consolidado em desenho institucional (docs-only)
 
 Pós-pouso da frente PF (DECISION-0074/0076 endereço PF→Location Core, 0080 gender, CPF F4 core lê identities.tax_id; **CPF F5 ainda pendente — NÃO tocar**), branch limpo (HEAD `c6325a47`). Retomei PJ em READ-ONLY/C0 e **consolidei o mapa em documento versionado**: `docs/02_decisions/DESENHO_PJ_C0_MAPA_SSOT_E_BLOQUEIOS.md` (DESENHO, não DECISION numerada).

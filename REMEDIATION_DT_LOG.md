@@ -10743,3 +10743,97 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** preço sem precedência canônica → checkout/PDV/oferta/marketplace podem ler fontes diferentes (`product_prices` base × `product_offers` override × `products.price_cents` legado) e divergir. `products.price_cents` nullable legado é resíduo morto candidato a leitura acidental.
 - **Mitigação atual:** **bloquear acoplamento de PJ comercial** a preço até mapear a precedência real de leitura/escrita em runtime. Nada tocado (docs-only).
 - **Resolução prevista:** **frente read-only própria de preço comercial** — rastrear quem lê/escreve cada `price_cents` em runtime (checkout/venda/oferta), decidir **precedência canônica** (qual tabela manda) e, se necessário, normalizar/aposentar resíduo (`products.price_cents` legado) e casca (`tenant_concept_offerings` sem writer). Depois disso, decisão de precedência + eventual cleanup, em fatia própria com ratificação.
+
+---
+
+## DT-PJ-CNPJ-CANONICAL-HOME-MISSING
+
+- **Status:** OPEN (2026-06-02)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (prova read-only de CNPJ + desenho fechado das 7 peças).
+- **Vinculada a:** `DECISION-0081` (M0), `IDENTITY_SSOT_PRECEDENCE.md`.
+- **Contexto:** CNPJ existe em `companies.cnpj` (vivo) e `identities` aceita `tax_id_type='cnpj'` (CHECK 14 díg) mas é dead-code para PJ; **não há casa canônica nem fonte de precedência implementada** para a identidade fiscal da empresa. `IDENTITY_SSOT_PRECEDENCE` é pessoa-cêntrico (`global_user_id`) e não normatiza identidade fiscal de PJ.
+- **Risco:** sem casa canônica, CNPJ permanece atributo solto fora do KYC/authority; construir PJ sem isso gera dupla verdade fiscal.
+- **Mitigação atual:** `DECISION-0081` promulga a M0 (empresa = identidade fiscal própria, não-soberana); a casa canônica (D1) é derivada pendente de promulgação. Nada tocado.
+- **Resolução prevista:** promulgar a norma de identidade fiscal de PJ (norma antes de schema) e então a casa canônica (A `companies.cnpj` / B `identities` / C ambos com precedência), em migration única coerente.
+
+## DT-PJ-CNPJ-UNIQUE-CHECK-MISSING
+
+- **Status:** OPEN (2026-06-02)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (verificação `pg_constraint`/`pg_indexes`).
+- **Vinculada a:** `DECISION-0081`, `DT-PJ-CNPJ-CANONICAL-HOME-MISSING`.
+- **Contexto:** `companies.cnpj` é text nullable **sem UNIQUE, sem CHECK de 14 dígitos, sem índice, sem FK**. Validação no fluxo vivo é só de formato (não dígito verificador) e duplicidade só por `(tenant_id, global_user_id, cnpj)` — schema **permite o mesmo CNPJ em empresas distintas por CPFs distintos**.
+- **Risco:** duplicidade de CNPJ; mesma PJ representada várias vezes; base inconsistente para KYC/transferência/risco.
+- **Mitigação atual:** nenhuma correção (docs-only). Registrado para a migration única.
+- **Resolução prevista:** após casa canônica (D1), aplicar UNIQUE forte + CHECK 14 díg + validação de dígito verificador na borda; escopo de unicidade (global vs tenant) é decisão de Clayton (D2).
+
+## DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING
+
+- **Status:** OPEN (2026-06-02)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY`.
+- **Vinculada a:** `DECISION-0081` (§5.1).
+- **Contexto:** documentos PJ obrigatórios (enviados na criação, analisados manualmente) **não têm SSOT estruturado**. `company_validation_requests` existe (submit→review→decisão, `metadata` jsonb) mas **não é SSOT de documento** (sem tipo/verificação/armazenamento canônicos).
+- **Risco:** documentos em jsonb solto; sem trilha estruturada de verificação; aprovação manual sem substrato de evidência.
+- **Mitigação atual:** nenhuma (docs-only). `company_validation_requests` reusável como base do fluxo de aprovação.
+- **Resolução prevista:** desenho de schema de documentos PJ (tipo, status de verificação, referência de arquivo) + fluxo de aprovação (D3), em migration única.
+
+## DT-PJ-TRANSFER-OWNERSHIP-MISSING
+
+- **Status:** OPEN (2026-06-02)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY`.
+- **Vinculada a:** `DECISION-0081` (§5.2).
+- **Contexto:** **não há processo formal** de venda/transferência de empresa. A M0 exige que a empresa sobreviva à troca de dono sem apagar histórico — hoje sem substrato (só troca de `company_users`/`responsible_actor_id` sem evento formal).
+- **Risco:** transferência informal apaga rastreabilidade; impossível ancorar responsabilidade transitória.
+- **Mitigação atual:** nenhuma (docs-only).
+- **Resolução prevista:** evento append-only de transferência (company_id, from_actor, to_actor, aprovação) que muda responsável e dispara a responsabilidade transitória (D5), em migration única.
+
+## DT-PJ-TRANSITIONAL-RESPONSIBILITY-MISSING
+
+- **Status:** OPEN (2026-06-02)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY`.
+- **Vinculada a:** `DECISION-0081` (§5.2).
+- **Contexto:** **não há substrato** para responsabilidade transitória do CPF anterior pós-venda. Clayton **verbalizou prazo inicial de 5 anos**, mas schema/eventos e promulgação derivada específica **dependem de desenho**.
+- **Risco:** vendedor escapa de responsabilidade; antifraude perde a cauda temporal do CPF anterior.
+- **Mitigação atual:** nenhuma (docs-only). Prazo de 5 anos é verbalização, não promulgação de schema.
+- **Resolução prevista:** registro temporal append-only (responsavel_actor_id, company_id, valid_from, valid_until, motivo=venda), ancorado na identidade canônica; prazo final a promulgar (D4).
+
+## DT-PJ-ANTI-LARANJA-CORRELATION-MISSING
+
+- **Status:** OPEN (2026-06-02)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY`.
+- **Vinculada a:** `DECISION-0081` (§5.3), `AUTHORITY_LAW Art.7/Art.9`, `DT-RISK-FALSE-POSITIVE-SAFEGUARD-MISSING`.
+- **Contexto:** **não há grafo CPF↔CNPJ↔CPF** para correlação anti-laranja. `actor_relationships` não existe. O princípio (evasão/herança de ATL por associação) está normado, mas sem materialização.
+- **Risco:** laranjas operam sem correlação; OU, se mal desenhado, falso positivo pune legítimo.
+- **Mitigação atual:** nenhuma (docs-only). **Observação:** correlação é detecção/sinal; **consequência sobre pessoa real exige revisão humana** (§5.3).
+- **Resolução prevista:** grafo de correlação de identidade (tipo, motivo) como **insumo de sinal**, nunca sentença automática (D6), em migration única.
+
+## DT-PJ-TRANSVERSAL-RISK-SIGNALS-MISSING
+
+- **Status:** OPEN (2026-06-02)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY`.
+- **Vinculada a:** `DECISION-0081` (§5.3/§5.4), `DT-RISK-HUMAN-OPERATIONS-SUBSTRATE-MISSING`.
+- **Contexto:** **não há motor/sinais transversais de risco** entre módulos. `economic_identities` (trust_score_bps por actor) é embrião; `risk_signals` não existe. Risco deve ser transversal (bank/marketplace/entrega/agenda/eventos/social).
+- **Risco:** risco fragmentado por módulo; golpe atravessa módulos sem visão unificada.
+- **Mitigação atual:** nenhuma (docs-only). **Observação:** sinais alimentam **revisão humana**, não bloqueio automático.
+- **Resolução prevista:** substrato de sinais de risco transversal (subject_actor_id, source_module, signal_type, severity), lido pelos módulos como insumo de revisão (D7), em migration única.
+
+## DT-RISK-HUMAN-OPERATIONS-SUBSTRATE-MISSING
+
+- **Status:** OPEN (2026-06-02)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (diretriz antifraude equilibrada de Clayton).
+- **Vinculada a:** `DECISION-0081` (§5.3), `AUTHORITY_LAW`.
+- **Contexto:** **não há substrato transversal para funções de operação humana de risco/validação**: papéis de funcionário/equipe do sistema, autoridade **limitada e auditável** do operador, **trilha de decisão rastreável** (quem decidiu, quando, com base em quê, qual consequência), suporte a consulta de fontes externas. **Esta DT é TRANSVERSAL** (nasce em PJ mas aplica-se a todo actor de risco: CPF, CNPJ, entregador, vendedor, prestador, evento, marketplace, banco). É a peça que materializa **"o sistema sinaliza, o humano decide"**. **A autoridade do operador fecha em CPF/actor humano.**
+- **Risco:** sem operação humana auditável, ou o sistema bloqueia-automático (injusto) ou não age (ingênuo); e decisões de risco sem trilha violam rastreabilidade (`AUTHORITY_LAW`).
+- **Mitigação atual:** nenhuma (docs-only).
+- **Resolução prevista:** substrato de operação humana de risco (papel de operador como actor com autoridade limitada/auditável + trilha de decisão), transversal, em frente própria coordenada com a migration única de PJ.
+
+## DT-RISK-FALSE-POSITIVE-SAFEGUARD-MISSING
+
+- **Status:** OPEN (2026-06-02)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (diretriz antifraude equilibrada de Clayton).
+- **Vinculada a:** `DECISION-0081` (§5.3), `DT-PJ-ANTI-LARANJA-CORRELATION-MISSING`, `DT-PJ-TRANSVERSAL-RISK-SIGNALS-MISSING`.
+- **Contexto:** **não há salvaguarda transversal explícita contra falso positivo**: preferência arquitetural por **sinalizar-e-revisar** sobre **bloquear-automático**, recurso/contestação de decisão, proteção do legítimo. **Esta DT é TRANSVERSAL** (nasce em PJ mas aplica-se a todo actor de risco).
+- **Risco:** **falso positivo é dano.** Plataformas que barram inocentes por métrica automática criam injustiça sistêmica — o Unificard deve evitar esse extremo.
+- **Mitigação atual:** nenhuma (docs-only). Princípio promulgado em `DECISION-0081 §5.3`.
+- **Resolução prevista:** invariante arquitetural (preferir sinalizar-e-revisar; sem consequência automática sobre pessoa real) + mecanismo de recurso/contestação, transversal a todos os motores de risco.
+
+> **DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT** — já registrada (ver entrada existente, Fase 3B.3, 2026-05-29): `company-canonical` usa `document_number`/`legal_name` inexistentes no schema vivo. Reafirmada e **vinculada a `DECISION-0081`** (caminho paralelo a aposentar/corrigir no desenho de nascimento PJ). NÃO duplicada.
