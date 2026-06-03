@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.) — Mapa de escopo MVP-A por eventos (docs-only)
+
+Clayton decidiu o **MVP-A**: provar recirculação econômica com o vivo — **Eventos + Carteira + Split + Fundo Regional + Social básico**. Fora (segunda onda): maquininha/comércio físico/PDV/marketplace produtos/rides/delivery/PJ comercial completa. Registrei `docs/03_execution_log/20260603_MVP_A_SCOPE_MAP.md` (mapa de escopo, NÃO DECISION; local dentro do §6.1).
+
+Fronteira financeira: pagamento real = eventos/ingressos (evento→Bank→bank_ledger→bank_splits→fundo regional). Serviço/agenda = não-financeiro ou MVP-A.1 após prova E2E. **mockUnifyCardCharge = bloqueador de produção** (existe em core/checkout/CheckoutService.ts).
+
+**Honestidade ancorada no repo:** SSOT financeiro (bank_*) + substrato de pagamento/split de evento (core/events/event-payment-execution.service.ts, event-split-declarative.service.ts, modules/bank/bank-split-engine.service.ts, modules/events/ticket.service.ts) CONFIRMADOS por arquivo; cadeia E2E-produção = bloqueador a confirmar (não afirmei verificado). DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION = **CLOSED** (DT_LOG:924, F10). Gates confirmados por nome real no package.json. P2P = substrato em bank-transaction.service (E2E a confirmar). Relatórios Map A/B/C = insumo de sessão, não arquivo.
+
+Docs-only; zero código/schema; nenhuma DT nova. Próximo: frente read-only de verificação E2E evento→Bank→split→fundo + auditoria de mock.
+
+---
+
 ## Sessão 2026-06-03 — DECISION-0083: D3 vínculo autorizado + risco enterprise (docs-only)
 
 Clayton promulgou **D3** (deriva da M0/D1): nenhum CPF opera/representa/valida/fiscaliza/responde por PJ **sem vínculo formal autorizado** (rastreável/escopado/temporal/revogável/auditável); **senha compartilhada nunca autoriza**; **responder≠operar≠representar≠validar/fiscalizar**. + **camada enterprise de risco**: sistema sinaliza, humano autorizado julga, trilha audita; falso positivo é dano; algoritmo não condena sozinho; operador é actor com autoridade limitada/auditável; governança superior julga abuso de operador.

@@ -1,3 +1,18 @@
+## 2026-06-03 — Mapa de escopo MVP-A (recirculação por eventos) registrado (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `662d152a` · working tree limpo.
+**Decisão de Clayton:** o **MVP-A** prova a recirculação econômica com o que já está vivo — **Eventos + Carteira + Split + Fundo Regional + Social básico**. Maquininha/comércio físico/PDV/marketplace de produtos/rides/delivery/PJ comercial completa = **segunda onda**.
+
+**Registrado (docs-only):** `docs/03_execution_log/20260603_MVP_A_SCOPE_MAP.md` (mapa de escopo, **NÃO DECISION normativa**; local dentro do §6.1 gravável do protocolo).
+
+**Fronteira financeira:** pagamento real do MVP-A = **eventos/ingressos** (`evento→Bank→bank_ledger→bank_splits→fundo regional/social`). Serviços/agenda = **não-financeiro ou MVP-A.1** após prova E2E. **`mockUnifyCardCharge` = bloqueador de produção** (confirmado em `core/checkout/CheckoutService.ts`).
+
+**Trava de honestidade aplicada:** SSOT financeiro (bank_ledger/transactions/splits) e substrato de pagamento/split de evento CONFIRMADOS por arquivo; a cadeia E2E-produção completa = **bloqueador a confirmar** (não afirmada como verificada). `DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION` = **CLOSED** (F10) → bloqueio vira "confirmar convergência em ambiente limpo". Gates confirmados: validate:actor-writer-boundaries / bank-ledger-boundaries / regression-guards / architecture:strict. Relatórios "Map A/B/C" tratados como insumo de sessão, não arquivo.
+
+**Sessão docs-only; zero código/schema/migration; nenhuma DT nova.** Próximo passo: frente read-only de verificação E2E evento→Bank→split→fundo (mock + wiring real).
+
+---
+
 ## 2026-06-03 — DECISION-0083: D3 promulgada — vínculo autorizado + risco enterprise PJ (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `7b2baad1` · working tree limpo.
