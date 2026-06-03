@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 — DECISION-0083: D3 vínculo autorizado + risco enterprise (docs-only)
+
+Clayton promulgou **D3** (deriva da M0/D1): nenhum CPF opera/representa/valida/fiscaliza/responde por PJ **sem vínculo formal autorizado** (rastreável/escopado/temporal/revogável/auditável); **senha compartilhada nunca autoriza**; **responder≠operar≠representar≠validar/fiscalizar**. + **camada enterprise de risco**: sistema sinaliza, humano autorizado julga, trilha audita; falso positivo é dano; algoritmo não condena sozinho; operador é actor com autoridade limitada/auditável; governança superior julga abuso de operador.
+
+D3 = PRINCÍPIO. **NÃO** fixa modelo A/B/C, enum, schema, company_users×actor_delegations, motor de risco, backoffice, operador, correspondente nem biometria — tudo derivada futura. Registrei `DECISION_0083_PJ_AUTHORIZED_LINKS_ENTERPRISE_RISK_PRINCIPLE.md` + 3 DTs OPEN (`DT-PJ-AUTHORIZED-LINKS-SUBSTRATE-MISSING`, `DT-PJ-CREDENTIAL-SHARING-RISK-GUARD-MISSING`, `DT-RISK-ENTERPRISE-CASE-REVIEW-SUBSTRATE-MISSING` transversal). 6 DTs existentes referenciadas.
+
+Substrato vivo (reconfirmado): company_users (membership/role grosso, CHECK owner|admin|staff|contractor|member), actor_delegations (delegação escopada/temporal/revogável, scopes_json/expires_at/revoked_at), company_validation_requests, atl_blocked_actors, economic_identities, event_log. AUSENTE: substrato governado D3, operador/correspondente, grafo anti-laranja, risk_signals, backoffice de casos. **AUTHORITY_PRECEDENCE.md NÃO existe** em docs/01_normative/ (usei AUTHORITY_LAW).
+
+Numeração 0083 (série contínua). Ordem: D3-princípio✅ → estrutura técnica D3 (A/B/C) → D2 → D5 → D4 → D6 → D7 → validação forte LGPD-first → migration única → código. Implementação BLOQUEADA.
+
+---
+
 ## Sessão 2026-06-02 (cont.3) — DECISION-0082: D1 casa canônica do CNPJ (docs-only)
 
 Clayton promulgou **D1** (1ª derivada da M0): a identidade fiscal do CNPJ é canônica em **camada PRÓPRIA de identidade fiscal de PJ** (não `identities`, que é pessoa-cêntrico); **`companies.cnpj` = projeção operacional protegida** (não fonte soberana); operação **por vínculo CPF autorizado, nunca login compartilhado**. = caminho C do desenho C0, mas com fonte = camada própria de PJ. Razão: empresa tem ciclo de vida próprio (transferência/sócios/procuradores/histórico que sobrevive ao dono). Registrei `DECISION_0082_PJ_CNPJ_CANONICAL_HOME.md`; atualizei `DT-PJ-CNPJ-CANONICAL-HOME-MISSING` (precedência decidida, estrutura=D2 pendente, OPEN). **Nenhuma DT nova.**

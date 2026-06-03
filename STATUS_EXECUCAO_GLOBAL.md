@@ -1,3 +1,16 @@
+## 2026-06-03 — DECISION-0083: D3 promulgada — vínculo autorizado + risco enterprise PJ (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `7b2baad1` · working tree limpo.
+**Frente:** `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` — fatia de **promulgação da D3** (derivada da M0/DECISION-0081 e D1/DECISION-0082). Docs-only, **zero código/migration/banco**.
+
+**D3 PROMULGADA por Clayton (PRINCÍPIO, não estrutura):** nenhum CPF opera/representa/valida/fiscaliza/responde por PJ/CNPJ **sem vínculo formal autorizado** (rastreável, escopado, temporal, revogável, auditável); **senha compartilhada nunca autoriza**; cada CPF age com a própria identidade; **responder ≠ operar ≠ representar ≠ validar/fiscalizar** (naturezas diferentes). Camada **enterprise de risco**: o sistema **sinaliza**, o **humano autorizado julga**, a **trilha audita** — consequências reais sobre pessoas/empresas dependem de revisão humana por operadores/governança auditáveis; **falso positivo é dano**; algoritmo não condena sozinho.
+
+**Registrado (docs-only):** `docs/02_decisions/DECISION_0083_PJ_AUTHORIZED_LINKS_ENTERPRISE_RISK_PRINCIPLE.md`. 3 DTs OPEN novas: `DT-PJ-AUTHORIZED-LINKS-SUBSTRATE-MISSING`, `DT-PJ-CREDENTIAL-SHARING-RISK-GUARD-MISSING`, `DT-RISK-ENTERPRISE-CASE-REVIEW-SUBSTRATE-MISSING` (transversal). 6 DTs existentes referenciadas. **AUTHORITY_PRECEDENCE.md NÃO encontrado** em docs/01_normative/ — base = AUTHORITY_LAW (sem inventar norma).
+
+**Estrutura técnica A/B/C, enum de tipos, company_users×actor_delegations, operador, correspondente, biometria, risk engine e backoffice = PENDENTES/derivadas futuras. Implementação BLOQUEADA.** Numeração: 0083 (série 0064–0082 contínua). **Próxima etapa:** consolidação Opus/ChatGPT + estrutura técnica da D3 / D2 / D5 conforme prioridade.
+
+---
+
 ## 2026-06-02 — DECISION-0082: D1 promulgada — casa canônica do CNPJ (identidade fiscal própria PJ) (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `1b768037` · working tree limpo.

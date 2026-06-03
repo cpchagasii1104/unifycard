@@ -10838,3 +10838,35 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Resolução prevista:** invariante arquitetural (preferir sinalizar-e-revisar; sem consequência automática sobre pessoa real) + mecanismo de recurso/contestação, transversal a todos os motores de risco.
 
 > **DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT** — já registrada (ver entrada existente, Fase 3B.3, 2026-05-29): `company-canonical` usa `document_number`/`legal_name` inexistentes no schema vivo. Reafirmada e **vinculada a `DECISION-0081`** (caminho paralelo a aposentar/corrigir no desenho de nascimento PJ). NÃO duplicada.
+
+---
+
+## DT-PJ-AUTHORIZED-LINKS-SUBSTRATE-MISSING
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (D3 — princípio do vínculo autorizado).
+- **Vinculada a:** `DECISION-0083` (D3), `DECISION-0082` (D1).
+- **Contexto:** **não há substrato específico e completo** para vínculos **autorizados, formais, escopados, temporais, revogáveis e auditáveis** entre CPF/actor humano e PJ/CNPJ, cobrindo **responder, operar, representar, validar e fiscalizar**. `company_users` é associação/membership grosso (role + can_manage_*, sem escopo fino/expires_at/revoked_at); `actor_delegations` é genérico (scopes_json/expires_at/revoked_at/status, sem `type`/nature governado nem ligação à política D3). Falta a **estrutura governada da D3**.
+- **Risco:** sem substrato governado, o vínculo CPF↔CNPJ fica entre uma camada grossa (company_users) e uma genérica (actor_delegations), sem distinção de natureza (responder/operar/representar/validar) — abre brecha para autorização ambígua e enfraquece anti-laranja/auditoria.
+- **Mitigação atual:** `DECISION-0083` promulga o **princípio** (D3); a **estrutura técnica** (modelo A/B/C, enum de tipos, convergência×coexistência company_users↔actor_delegations) é derivada pendente. Nada tocado (docs-only).
+- **Resolução prevista:** promulgação da estrutura técnica da D3 (A/B/C + types governados + decisão company_users×actor_delegations), depois materialização em migration única coerente. Recomendação técnica registrada no desenho: híbrido type+scopes ancorado em `actor_delegations` + `company_users` como membership (não vinculante).
+
+## DT-PJ-CREDENTIAL-SHARING-RISK-GUARD-MISSING
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (D3 §6).
+- **Vinculada a:** `DECISION-0083` (D3), `DT-RISK-ENTERPRISE-CASE-REVIEW-SUBSTRATE-MISSING`.
+- **Contexto:** **não há política/materialização explícita** para tratar **compartilhamento de login/senha como anti-padrão e sinal de risco**, impedindo que credencial compartilhada seja confundida com autorização legítima. A D3 promulga "senha compartilhada nunca autoriza", mas o sistema não detecta/sinaliza o compartilhamento.
+- **Risco:** credencial compartilhada usada como "autorização" de fato; burla do princípio D3; vetor de laranja (um CPF opera várias empresas via senha de terceiros sem vínculo formal).
+- **Mitigação atual:** nenhuma (docs-only). Princípio promulgado em `DECISION-0083`.
+- **Resolução prevista:** detecção/sinalização de compartilhamento de credencial como **sinal de risco** (não bloqueio automático — alimenta revisão humana, ver `DECISION-0083 §7`), e reforço de que cada CPF age com a própria identidade. Mecanismo em D7/camada enterprise.
+
+## DT-RISK-ENTERPRISE-CASE-REVIEW-SUBSTRATE-MISSING
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (D3 §7 — camada enterprise de risco).
+- **Vinculada a:** `DECISION-0083` (D3), `DT-RISK-HUMAN-OPERATIONS-SUBSTRATE-MISSING`, `DT-RISK-FALSE-POSITIVE-SAFEGUARD-MISSING`, `DT-PJ-TRANSVERSAL-RISK-SIGNALS-MISSING`.
+- **Contexto:** **não há substrato enterprise consolidado** para casos de risco, **evidências, filas de análise, operadores responsáveis, decisão humana, revisão por governança superior, SLA, trilha de julgamento e salvaguarda contra falso positivo**. Sinais de risco precisam alimentar **revisão humana auditável**, não bloqueio automático. Existem embriões (`event_log`, `company_validation_requests.reviewed_by_user_id`, `economic_identities`, `atl_blocked_actors`) mas não um backoffice de casos. `risk-command-center`/`policy-engine` podem ser cascas — não assumir maturidade sem prova.
+- **Risco:** sem casa de casos/evidências/SLA/trilha, o "sistema sinaliza, humano julga" não tem onde acontecer de forma auditável → ou vira bloqueio automático (falso positivo/injustiça) ou inação (golpe opera).
+- **Mitigação atual:** nenhuma (docs-only). Princípio promulgado em `DECISION-0083 §7` ("o sistema sinaliza; o humano autorizado julga; a trilha audita"). **Esta DT é TRANSVERSAL** (todo actor de risco, não só PJ).
+- **Resolução prevista:** desenho de backoffice enterprise de risco (casos, evidências com origem/data/fonte/contexto/trilha, filas, operador como actor com autoridade limitada/auditável, decisão+revisão superior, SLA, recurso/contestação) — frente própria coordenada com D6/D7. **Métrica de risco nunca como sentença bruta.**
