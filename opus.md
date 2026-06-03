@@ -6,6 +6,21 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.2) — MVP-A E2E interno PROVADO (comprador KYC-cleared, só teste)
+
+Provei empiricamente o fluxo interno do MVP-A em **DB efêmera** (server isolado :3000, `unificard_dev` intocada). Adaptei **só o teste** `q3-e2e-v3-fundacional.ts`: adicionei **P3b** que dá KYC ao comprador no **campo real** `identities.kyc_status='approved'` (como `validate-pipeline-e2e-transversal.ts`). **O gate KYC NÃO foi burlado** — segue ativo e passa por mérito. Resultado: **14/14 PASS**.
+- F10 ✅ (reserve/fee/regional_fund/escrow via ensurePlatformAccounts em tenant limpo).
+- event_ticket → Bank → bank_ledger (net=0) → bank_splits(4): **7000/300/1000/1700=10000**; **regional_fund=1000 → system:regional_fund:<tenant> (linha real)**.
+- Comprador kyc_status=approved antes do débito; organizador segue pending (gate é debit-side).
+
+**Causa do bloqueio anterior (P9 500):** `KYC_PENDING_BLOCKS_FINANCIAL` (authority-decision.service: camada KYC bloqueia débito de actor pending) — compliance funcionando, smoke era anterior ao gate. **Achado:** MVP-A interno EXIGE comprador KYC-cleared → amarra à frente de identidade. **mockUnifyCardCharge segue bloqueador de produção pública** (smoke é movimento interno, não captura externa).
+
+**Gates verdes:** typecheck 0, actor-writer/bank-ledger boundaries OK, regression-guards OK (352 migr), architecture:strict exit 0 (1 warning novo em OUTRO arquivo, não meu). Commit = teste + STATUS + opus, caminho explícito. Sem DECISION/DT nova.
+
+**Aprendizado de harness:** q3 é E2E HTTP hardcoded em localhost:3000 → exige server de pé; readiness via log "Server listening" (não /dev/tcp, flaky no git-bash); env-override seguro (pool lê DATABASE_URL no import; dotenv sem override); migrate.ts tem guard EXPECTED_DATABASE_NAME; sempre DB efêmera com trap-drop.
+
+---
+
 ## Sessão 2026-06-03 (cont.) — Mapa de escopo MVP-A por eventos (docs-only)
 
 Clayton decidiu o **MVP-A**: provar recirculação econômica com o vivo — **Eventos + Carteira + Split + Fundo Regional + Social básico**. Fora (segunda onda): maquininha/comércio físico/PDV/marketplace produtos/rides/delivery/PJ comercial completa. Registrei `docs/03_execution_log/20260603_MVP_A_SCOPE_MAP.md` (mapa de escopo, NÃO DECISION; local dentro do §6.1).

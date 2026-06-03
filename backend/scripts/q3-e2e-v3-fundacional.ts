@@ -141,6 +141,30 @@ async function main() {
   if (!actorIdB) fail('P3 — actorIdB', `actor não encontrado para userIdB=${userIdB}`);
   pass('P3 — actorIds resolvidos', `A=${actorIdA.slice(0, 8)} B=${actorIdB.slice(0, 8)}`);
 
+  // ── P3b: KYC-clear o comprador (Attendee B) pelo caminho legítimo ─────────
+  // O gate de compliance (authority-decision.service → camada KYC) BLOQUEIA o lado-débito de
+  // actor com identities.kyc_status='pending' (KYC_PENDING_BLOCKS_FINANCIAL). Em produção, só
+  // compra quem passou KYC. Aqui aprovamos o comprador no MESMO campo/valor do modelo vivo
+  // (identities.kyc_status='approved' — único valor de PASS no CHECK), espelhando o setup já
+  // usado por validate-pipeline-e2e-transversal.ts:150. O gate NÃO é tocado/removido/mockado:
+  // permanece ATIVO e passa por MÉRITO (KYC_OK:approved). É precondição de teste, não bypass.
+  console.log('[P3b] KYC-clear comprador (Attendee B) via identities.kyc_status=approved (gate segue ativo)...');
+  const guRowB = await pool.query<{ global_user_id: string }>(
+    `SELECT global_user_id FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
+    [tenantId, userIdB]
+  );
+  const globalUserIdB = guRowB.rows[0]?.global_user_id;
+  if (!globalUserIdB) fail('P3b — global_user_id B', `não encontrado para userIdB=${userIdB}`);
+  const kycUpd = await pool.query<{ kyc_status: string }>(
+    `UPDATE identities SET kyc_status = 'approved', kyc_level = 'complete', updated_at = now()
+       WHERE global_user_id = $1 RETURNING kyc_status`,
+    [globalUserIdB]
+  );
+  if (kycUpd.rows[0]?.kyc_status !== 'approved') {
+    fail('P3b — KYC-clear B', `kyc_status não ficou approved: ${JSON.stringify(kycUpd.rows[0])}`);
+  }
+  pass('P3b — Attendee B KYC-cleared (identities.kyc_status=approved; gate ativo, passa por mérito)', `gu=${globalUserIdB.slice(0, 8)}`);
+
   // ── P4: ensurePlatformAccounts (lifecycle accounts) ───────────────────────
   console.log('[P4] ensurePlatformAccounts (cria contas lifecycle do tenant)...');
   await bankAccountService.ensurePlatformAccounts(tenantId, 'BRL');

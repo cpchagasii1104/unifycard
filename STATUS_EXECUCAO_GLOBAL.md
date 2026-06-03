@@ -1,3 +1,19 @@
+## 2026-06-03 — MVP-A E2E interno PROVADO empiricamente (comprador KYC-cleared) — só teste
+
+**Branch:** `rescue-structural` · **HEAD origem:** `525fab34`. Edição restrita a **teste** + STATUS/opus (zero runtime/Bank/gate/migration).
+
+**Prova empírica (DB efêmera `unificard_smoke_mvp_a_kyc_*`, server isolado :3000, `unificard_dev` INTOCADA):** `q3-e2e-v3-fundacional.ts` **14/14 PASS** após adicionar **P3b** (KYC-clear do comprador pelo campo real `identities.kyc_status='approved'` — espelhando `validate-pipeline-e2e-transversal.ts`; **o gate de compliance NÃO foi tocado/removido/mockado — segue ativo e passou por MÉRITO** `KYC_OK:approved`).
+- F10 confirmada (ensurePlatformAccounts cria reserve/fee/regional_fund/escrow em tenant limpo).
+- event_ticket → Bank → `bank_transactions` → `bank_ledger` (double-entry net=0) → `bank_splits` (4) → **`regional_fund`=1000 → conta real `system:regional_fund:<tenant>`**.
+- Splits canônicos: **organizer 7000 / fee 300 / regional_fund 1000 / reserve 1700 = 10000**.
+- Comprador `identities.kyc_status=approved/complete` ANTES do débito (organizador segue `pending` → gate é debit-side).
+
+**Achado institucional:** **MVP-A interno exige comprador KYC-cleared** — transacionar ingresso amarra-se à frente de identidade/KYC. O smoke prova **movimento INTERNO** (carteira pré-financiada), **NÃO captura externa real**: **`mockUnifyCardCharge` segue bloqueador de produção pública.**
+
+**Gates:** typecheck 0 · actor-writer-boundaries OK · bank-ledger-boundaries OK · regression-guards OK (352 migrations) · architecture:strict exit 0 (critical_new=0; 1 warning NOVO em outro arquivo, não no q3). DB efêmera dropada, porta livre, zero órfão. **Não criei DECISION/DT.**
+
+---
+
 ## 2026-06-03 — Mapa de escopo MVP-A (recirculação por eventos) registrado (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `662d152a` · working tree limpo.
