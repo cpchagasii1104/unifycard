@@ -4,9 +4,10 @@
 import { randomUUID } from 'crypto';
 import { CompanyStatus } from '@unificard/contracts';
 import { pool } from '@core/database/pool';
-import { ensurePageActor, ensureUserActor } from '@modules/identity/actor-writer.service';
+import { ensurePageActor, ensurePageActorTx, ensureUserActor } from '@modules/identity/actor-writer.service';
 import { isTestOverrideUser } from '../../utils/isTestOverrideUser';
 import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
+import { withTransaction } from '@core/database/transaction.helper';
 import { HttpError } from '@core/errors/http-error';
 import { locationRepository } from '@core/location/location.repository';
 import type { CreateAddressInput } from '@core/location/location.types';
@@ -437,45 +438,135 @@ class CompaniesService {
       metadata.service_categories = input.serviceCategories;
     }
 
-    // Criar empresa
-    const companyResult = await pool.query<{
-      company_id: string;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      `
-      INSERT INTO companies (
-        tenant_id, global_user_id, cnpj, company_name, trade_name,
-        status, is_verified, company_status
-      )
-      VALUES (
-        $1, $2, $3, $4, $5,
-        $6, $7, $8
-      )
-      RETURNING company_id, created_at, updated_at
-      `,
-      [
-        finalTenantId,
-        globalUserId,
-        formattedCNPJ,
-        companyName,
-        tradeName || null,
-        'active',
-        isVerified, // Verificado se conseguiu buscar da Receita Federal
-        companyStatus, // Status do cadastro
-      ]
+    // ── PRÉ-TX — user-actor do criador (idempotente, FORA da transação) ──────────
+    // Identity-before-actor (DECISION-0062 / §7): ensureUserActor exige identity preexistente
+    // e usa conexão própria (NÃO compõe transação). Falha aqui = nascimento nem inicia.
+    if (!userId) {
+      throw new Error('userId é obrigatório para criar actors da empresa após o cadastro.');
+    }
+    const creatorActor = await ensureUserActor(finalTenantId, userId);
+
+    // Permissões + SOFT-BLOCK (validação que pode LANÇAR) — PRÉ-TX, antes de abrir transação.
+    const defaultPermissions = {
+      canManageCompany: input.permissions?.canManageCompany ?? (input.role === 'owner'),
+      canManageFinancial: input.permissions?.canManageFinancial ?? (input.role === 'owner' || input.role === 'director'),
+      canManageEmployees: input.permissions?.canManageEmployees ?? (input.role === 'owner' || input.role === 'director' || input.role === 'manager'),
+      canViewReports: input.permissions?.canViewReports ?? true,
+      canManageServices: input.permissions?.canManageServices ?? (input.role === 'owner' || input.role === 'director' || input.role === 'manager'),
+    };
+
+    const { softBlockService } = await import('@core/authorization/soft-block.service');
+    softBlockService.validateFlags(
+      {
+        can_manage_company: defaultPermissions.canManageCompany,
+        can_manage_financial: defaultPermissions.canManageFinancial,
+        can_manage_employees: defaultPermissions.canManageEmployees,
+        can_manage_services: defaultPermissions.canManageServices,
+      },
+      {
+        tenantId: finalTenantId,
+        userId: userId || undefined,
+        requestId: undefined, // TODO: extrair de request se disponível
+      }
     );
+    softBlockService.validateCompanyRole(input.role, {
+      tenantId: finalTenantId,
+      userId: userId || undefined,
+      requestId: undefined,
+    });
 
-    const companyId = companyResult.rows[0].company_id;
+    // ── NÚCLEO TRANSACIONAL (F-ATOMIC-COMPANY-BIRTH / DECISION-0075 §9.2) ─────────
+    // companies + company_users + page-actor numa ÚNICA transação. SEM cleanup
+    // compensatório por DELETE: qualquer falha entre os passos → ROLLBACK total, zero órfão.
+    // A escrita em `actors` permanece na camada actor-writer (ensurePageActorTx), só usando o
+    // client desta transação (writer soberano §4.8). Endereço/domains/preferences saem para
+    // pós-commit (não-críticos; nunca derrubam o núcleo já committado).
+    const { companyId, companyUserId } = await withTransaction(finalTenantId, async (client) => {
+      // Tenant context DENTRO da tx (RLS de `actors`). Prova empírica (set_config local=true
+      // após BEGIN): sobrevive na transação e reverte no COMMIT (não vaza p/ conexão do pool).
+      await client.query("SELECT set_config('app.current_tenant', $1, true)", [finalTenantId]);
 
+      const companyRes = await client.query(
+        `
+        INSERT INTO companies (
+          tenant_id, global_user_id, cnpj, company_name, trade_name,
+          status, is_verified, company_status
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING company_id
+        `,
+        [
+          finalTenantId,
+          globalUserId,
+          formattedCNPJ,
+          companyName,
+          tradeName || null,
+          'active',
+          isVerified,    // Verificado se conseguiu buscar da Receita Federal
+          companyStatus, // Status do cadastro (PROVISIONAL/pending — não-operacional)
+        ]
+      );
+      const newCompanyId = companyRes.rows[0].company_id as string;
+
+      const userRes = await client.query(
+        `
+        INSERT INTO company_users (
+          tenant_id, company_id, global_user_id, role, role_description,
+          can_manage_company, can_manage_financial, can_manage_employees,
+          can_view_reports, can_manage_services,
+          is_active, is_primary, metadata
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        RETURNING id AS company_user_id
+        `,
+        [
+          finalTenantId,
+          newCompanyId,
+          globalUserId,
+          input.role,
+          input.roleDescription || null,
+          defaultPermissions.canManageCompany,
+          defaultPermissions.canManageFinancial,
+          defaultPermissions.canManageEmployees,
+          defaultPermissions.canViewReports,
+          defaultPermissions.canManageServices,
+          true,
+          input.isPrimary ?? false,
+          JSON.stringify({}),
+        ]
+      );
+
+      // Page-actor OBRIGATÓRIO (empresa não existe sem actor §4.8.2), na MESMA transação, via
+      // writer soberano. Nasce pending/não-operacional (DECISION-0075 §9 / Opção B): o page-actor
+      // existe mas NÃO habilita operação por si só. responsible_actor_id = actor humano do criador.
+      const pageActor = await ensurePageActorTx(client, finalTenantId, newCompanyId, creatorActor.actor_id);
+
+      // metadata/onboarding no page-actor (mesma tx) — EMPRESA_NASCIMENTO_CANONICO §1/§4/§7/§8.
+      if (Object.keys(metadata).length > 0) {
+        await client.query(
+          `UPDATE actors
+             SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('onboarding', $2::jsonb),
+                 updated_at = NOW()
+           WHERE actor_id = $1::uuid AND tenant_id = $3::uuid`,
+          [pageActor.actor_id, JSON.stringify(metadata), finalTenantId]
+        );
+      }
+
+      return {
+        companyId: newCompanyId,
+        companyUserId: userRes.rows[0].company_user_id as string,
+      };
+    });
+
+    // ── PÓS-COMMIT — não-crítico: NUNCA derruba o núcleo já committado ───────────
+    // 1) Endereço (opcional/enriquecimento). createAddressAndAssign é ATÔMICO (address +
+    //    assignment numa tx própria): se falhar, a company permanece válida SEM endereço
+    //    (estado válido) e NÃO sobra assignment órfão. Provado em teste (F-ATOMIC-COMPANY-BIRTH).
     if (address.cep || address.country) {
-      let createdAddressId: string | undefined;
-
       try {
         const country = await locationRepository.findCountryByCode(address.country || 'BR');
-
         if (!country) {
-          console.warn('[CompaniesService] Pais nao encontrado no catalogo de localizacao; mantendo endereco legacy:', {
+          console.warn('[CompaniesService] Pais nao encontrado no catalogo de localizacao; empresa sem endereco canonico:', {
             tenantId: finalTenantId,
             companyId,
             countryCode: address.country || 'BR',
@@ -496,15 +587,10 @@ class CompaniesService {
             lng: null,
           };
 
-          const createdAddress = await locationRepository.createAddress(addressInput, finalTenantId);
-          createdAddressId = createdAddress.id;
-
-          await locationRepository.assignAddress(
-            createdAddress.id,
-            'company',
-            companyId,
-            'HQ',
-            true
+          const { address: createdAddress } = await locationRepository.createAddressAndAssign(
+            addressInput,
+            finalTenantId,
+            { ownerType: 'company', ownerId: companyId, role: 'HQ', isPrimary: true }
           );
 
           await runQueryWithTenant(
@@ -518,21 +604,19 @@ class CompaniesService {
           );
         }
       } catch (err) {
-        console.warn('[CompaniesService] Falha na integracao canonica de endereco (continuando com legacy):', {
+        // Pós-commit: falha de endereço NÃO reverte o núcleo (company válida sem endereço).
+        console.warn('[CompaniesService] Endereco pos-commit falhou (nucleo intacto, company sem endereco):', {
           tenantId: finalTenantId,
           companyId,
-          addressId: createdAddressId,
-          assignmentAttempted: createdAddressId ? true : false,
           error: err instanceof Error ? err.message : String(err),
         });
       }
     }
 
-    // Criar domínios da empresa (obrigatório: pelo menos 1)
-    const domains = input.domains && input.domains.length > 0 
-      ? input.domains 
+    // 2) Domínios — pós-commit, idempotente, tolerante a tabela ausente; não-crítico.
+    const domains = input.domains && input.domains.length > 0
+      ? input.domains
       : ['market']; // Default: market para compatibilidade
-    
     try {
       for (const domain of domains) {
         await pool.query(
@@ -546,163 +630,16 @@ class CompaniesService {
         );
       }
     } catch (err: any) {
-      if (err?.code === '42P01') {
-        console.warn('[CompaniesService] company_domains ausente; seguindo sem vinculo de dominio legacy:', {
-          tenantId: finalTenantId,
-          companyId,
-        });
-      } else {
-        throw err;
-      }
-    }
-
-    // Criar relacionamento usuário-empresa
-    const defaultPermissions = {
-      canManageCompany: input.permissions?.canManageCompany ?? (input.role === 'owner'),
-      canManageFinancial: input.permissions?.canManageFinancial ?? (input.role === 'owner' || input.role === 'director'),
-      canManageEmployees: input.permissions?.canManageEmployees ?? (input.role === 'owner' || input.role === 'director' || input.role === 'manager'),
-      canViewReports: input.permissions?.canViewReports ?? true,
-      canManageServices: input.permissions?.canManageServices ?? (input.role === 'owner' || input.role === 'director' || input.role === 'manager'),
-    };
-
-    // 🔀 SOFT-BLOCK (Fase 3): Validar flags de poder antes do INSERT
-    const { softBlockService } = await import('@core/authorization/soft-block.service');
-    softBlockService.validateFlags(
-      {
-        can_manage_company: defaultPermissions.canManageCompany,
-        can_manage_financial: defaultPermissions.canManageFinancial,
-        can_manage_employees: defaultPermissions.canManageEmployees,
-        can_manage_services: defaultPermissions.canManageServices,
-      },
-      {
+      // Pós-commit não-crítico: nunca derruba o núcleo (nem 42P01 nem outro erro).
+      console.warn('[CompaniesService] company_domains pos-commit falhou (nao-critico, nucleo intacto):', {
         tenantId: finalTenantId,
-        userId: userId || undefined,
-        requestId: undefined, // TODO: extrair de request se disponível
-      }
-    );
-
-    // 🔀 SOFT-BLOCK (Fase 3): Validar role de company antes do INSERT
-    softBlockService.validateCompanyRole(input.role, {
-      tenantId: finalTenantId,
-      userId: userId || undefined,
-      requestId: undefined,
-    });
-
-    const userResult = await pool.query<{
-      company_user_id: string;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      `
-      INSERT INTO company_users (
-        tenant_id, company_id, global_user_id, role, role_description,
-        can_manage_company, can_manage_financial, can_manage_employees,
-        can_view_reports, can_manage_services,
-        is_active, is_primary, metadata
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING id AS company_user_id, created_at, updated_at
-      `,
-      [
-        finalTenantId,
         companyId,
-        globalUserId,
-        input.role,
-        input.roleDescription || null,
-        defaultPermissions.canManageCompany,
-        defaultPermissions.canManageFinancial,
-        defaultPermissions.canManageEmployees,
-        defaultPermissions.canViewReports,
-        defaultPermissions.canManageServices,
-        true,
-        input.isPrimary ?? false,
-        JSON.stringify({}),
-      ]
-    );
-
-    // 🔴 CRÍTICO: Criar actor do tipo 'page' OBRIGATORIAMENTE após criar empresa
-    // Empresa NÃO pode existir sem actor
-    // Se falhar, fazer rollback da criação da empresa
-    // tenantId já foi resolvido no início do método
-    if (!finalTenantId) {
-      // Se não conseguir resolver tenantId, fazer rollback
-      await pool.query(
-        `DELETE FROM companies WHERE company_id = $1::uuid`,
-        [companyId]
-      );
-      await pool.query(
-        `DELETE FROM company_users WHERE company_id = $1::uuid`,
-        [companyId]
-      );
-      try {
-        await pool.query(
-          `DELETE FROM company_domains WHERE company_id = $1::uuid`,
-          [companyId]
-        );
-      } catch (cleanupErr: any) {
-        if (cleanupErr?.code !== '42P01') {
-          throw cleanupErr;
-        }
-      }
-      throw new Error('Não foi possível determinar tenant_id. Empresa não foi criada.');
+        code: err?.code,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
-    try {
-      if (!userId) {
-        throw new Error('userId é obrigatório para criar actors da empresa após o cadastro.');
-      }
-      const creatorActor = await ensureUserActor(finalTenantId, userId);
-      const pageActor = await ensurePageActor(finalTenantId, companyId, creatorActor.actor_id);
-
-      // EMPRESA_NASCIMENTO_CANONICO: estado de onboarding vive no Actor (que age), NÃO em companies
-      // (registro institucional inerte — §1/§4/§7/§8). Opção 4 da DT-ONBOARDING-METADATA-STORAGE-DECISION.
-      // Namespace `onboarding` isola do vocabulário pré-existente em actors.metadata (bio/category/company_name).
-      // Dentro do try → rollback existente cobre se este UPDATE falhar.
-      if (Object.keys(metadata).length > 0) {
-        await runQueryWithTenant(
-          finalTenantId,
-          `UPDATE actors
-             SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('onboarding', $2::jsonb),
-                 updated_at = NOW()
-           WHERE actor_id = $1::uuid AND tenant_id = $3::uuid`,
-          [pageActor.actor_id, JSON.stringify(metadata), finalTenantId]
-        );
-      }
-    } catch (err) {
-      // 🔴 ROLLBACK: Se criação do actor falhar, reverter criação da empresa
-      console.error('[CompaniesService] Erro ao criar actor para empresa (fazendo rollback):', err);
-      
-      // Deletar empresa criada
-      await pool.query(
-        `DELETE FROM companies WHERE company_id = $1::uuid`,
-        [companyId]
-      );
-      
-      // Deletar company_users criado
-      await pool.query(
-        `DELETE FROM company_users WHERE company_id = $1::uuid`,
-        [companyId]
-      );
-      
-      // Deletar company_domains criados
-      try {
-        await pool.query(
-          `DELETE FROM company_domains WHERE company_id = $1::uuid`,
-          [companyId]
-        );
-      } catch (cleanupErr: any) {
-        if (cleanupErr?.code !== '42P01') {
-          throw cleanupErr;
-        }
-      }
-      
-      throw new Error(
-        `Falha ao criar actor para empresa. Empresa não foi criada. ` +
-        `Erro: ${err instanceof Error ? err.message : 'Erro desconhecido'}`
-      );
-    }
-
-    // Criar preferências de oportunidade (estrutura mínima, sem matching automático)
+    // 3) Preferências de oportunidade — pós-commit, idempotente, tolerante a tabela ausente.
     try {
       await pool.query(
         `
@@ -721,7 +658,7 @@ class CompaniesService {
 
     // Buscar empresa completa
     const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
-    const companyUser = await this.getCompanyUserById(userResult.rows[0].company_user_id, globalUserId, finalTenantId);
+    const companyUser = await this.getCompanyUserById(companyUserId, globalUserId, finalTenantId);
 
     if (!company || !companyUser) {
       throw new Error('Erro ao criar empresa');

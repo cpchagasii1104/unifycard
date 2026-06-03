@@ -1,3 +1,23 @@
+## 2026-06-03 — F-ATOMIC-COMPANY-BIRTH: nascimento PJ transacional (código + teste efêmero)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `51010092`. **Código** (núcleo do nascimento PJ) + teste efêmero. **Zero** Bank/ledger/KYC/mock/frontend/migration/schema. Pré-requisito ativo da D2 técnica (DECISION-0075 §9.2) — **fechado**.
+
+**O que ficou transacional:** núcleo `companies + company_users + page-actor` numa **única** `withTransaction` (`@core/database/transaction.helper`). **Removido** o cleanup compensatório por DELETE. Qualquer falha entre os passos → **ROLLBACK total, zero órfão**.
+
+**Page-actor transacional (writer soberano, aval explícito de Clayton):** nova variante `findOrCreatePageActorTx(client, …)` em `actor.repository.ts` (espelha o molde de `findOrCreateGroupActor`), exposta por `ensurePageActorTx` em `actor-writer.service.ts` e no port `ActorRepositoryPort` (+`TxQueryClient` estrutural, sem acoplar core a `pg`) e no adapter. A escrita em `actors` permanece **dentro** da camada actor-writer; `companies.service` só empresta o client da tx. Page-actor nasce **pending/não-operacional** (B).
+
+**Pré-TX:** `ensureUserActor` do criador (idempotente, identity-before-actor). **Pós-commit (não-crítico):** endereço via `createAddressAndAssign` (atômico — falha não deixa órfão), domains, preferences — nunca derrubam o núcleo já committado.
+
+**Tenant context/RLS:** `actors` é a única tabela RLS do nascimento; prova empírica (`set_config('app.current_tenant', …, true)` **após BEGIN**) — sobrevive na tx e não vaza pós-commit. DEV conecta como superuser (bypassa RLS); o reassert garante produção (role não-super).
+
+**Teste:** `backend/src/scripts/validate-pipeline-e2e-atomic-company-birth.ts` + orquestrador `scripts/run-atomic-company-birth-ephemeral.ps1` (cria DB efêmera `unificard_atomic_birth_*`, migra FULL, roda, **dropa**; guard duro anti-`unificard_dev`; `unificard_dev` intocada). **14/14 verdes**: happy (PROVISIONAL+company_user+page-actor c/ responsible), rollback total nos 3 pontos, tenant-context+no-leak, endereço pós-commit (válido grava / falha atômica sem órfão / company válida sem endereço), tolerância a domains/preferences ausentes, zero Bank.
+
+**Gates:** typecheck 0 · `validate:actor-writer-boundaries` OK §4.8.1 · `validate:bank-ledger-boundaries` OK §4.6 · `validate:regression-guards` OK (financial+sql-lint+migrations 352) · `architecture --strict` exit 0 (`critical_new=0`; 1 warning novo é de arquivo **não tocado** — drift de baseline alheio).
+
+**DTs:** `DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP` → **CLOSED**; `DT-COMPANY-BIRTH-PAGE-ACTOR-DRIFT` → **CLOSED** (condição "desde que transacional" satisfeita). **PRÓXIMA ETAPA:** D2 técnica acopla a casa fiscal PJ (pending + CNPJ reservado) **no passo 3 do mesmo `withTransaction`**. Invariante cumprido: nascimento antes de tabela; **atomicidade antes de casa fiscal**.
+
+---
+
 ## 2026-06-03 — DECISION-0075 §9: nascimento PJ reconciliado — Opção B promulgada por Clayton (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `ba41cc29`. Docs-only; **zero código/schema/migration/banco**.

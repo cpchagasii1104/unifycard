@@ -5,7 +5,7 @@
  * Implementa interface do core usando repository real do module.
  */
 
-import type { ActorRepositoryPort } from '@core/social/ports';
+import type { ActorRepositoryPort, TxQueryClient } from '@core/social/ports';
 import { actorRepository as realRepository } from '../actor.repository';
 
 export class ActorRepositoryAdapter implements ActorRepositoryPort {
@@ -31,6 +31,20 @@ export class ActorRepositoryAdapter implements ActorRepositoryPort {
     responsibleActorId: string
   ) {
     return realRepository.findOrCreatePageActor(
+      tenantId,
+      companyId,
+      responsibleActorId
+    );
+  }
+
+  async findOrCreatePageActorTx(
+    client: TxQueryClient,
+    tenantId: string,
+    companyId: string,
+    responsibleActorId: string
+  ) {
+    return realRepository.findOrCreatePageActorTx(
+      client,
       tenantId,
       companyId,
       responsibleActorId

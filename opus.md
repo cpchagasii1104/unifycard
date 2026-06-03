@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.8) — F-ATOMIC-COMPANY-BIRTH: nascimento PJ transacional (código)
+
+Executei o pré-requisito da D2 (DECISION-0075 §9.2) com aval explícito de Clayton p/ editar o writer soberano de actors. **Achado que encolheu a obra:** o repo já tinha `withTransaction` (transaction.helper) e um molde transacional de actor (`findOrCreateGroupActor`). Era religação, não fundação.
+
+Mudanças (5 arquivos código): port `ActorRepositoryPort` ganhou `TxQueryClient` (estrutural, sem acoplar core a pg) + `findOrCreatePageActorTx`; impl no `actor.repository.ts` (espelha page-actor sobre o client da tx); adapter delega; `ensurePageActorTx` no `actor-writer.service.ts`; `createCompany` refatorado — núcleo (companies+company_users+page-actor+metadata) numa `withTransaction`, **sem cleanup compensatório por DELETE**; endereço (via `createAddressAndAssign` atômico)/domains/preferences → pós-commit; `ensureUserActor` do criador pré-tx (identity-before-actor). Page-actor nasce pending/não-operacional (B).
+
+**Nó RLS resolvido empiricamente:** só `actors` tem RLS no nascimento; conexão DEV é superuser (bypassa RLS — por isso group-actor funciona sem reassert). `getClientWithTenant` faz `set_config(local=true)` ANTES do BEGIN; no node-pg cada query é round-trip → reverte. Solução: reassert `set_config('app.current_tenant',$1,true)` como 1ª instrução DENTRO da tx (provado: sobrevive na tx, não vaza pós-commit). NÃO mexi em `transaction.helper` (zero blast radius).
+
+Teste efêmero `validate-pipeline-e2e-atomic-company-birth.ts` + `scripts/run-atomic-company-birth-ephemeral.ps1` (cria/migra-FULL/roda/dropa DB `unificard_atomic_birth_*`; guard duro anti-unificard_dev; seed canônico via tenantService/authService.register/ensureUserActor/rbac). **14/14**: happy, rollback total nos 3 pontos, tenant-context+no-leak, endereço (válido/falha-atômica-sem-órfão/válida-sem-endereço), tolerância domains/prefs ausentes, zero Bank. Correção do Clayton aplicada: "órfão impossível" virou TESTE (FK país inválido força falha → zero address/assignment órfão).
+
+Gates: typecheck 0; actor-writer §4.8.1 OK; bank-ledger §4.6 OK; regression-guards OK; arch --strict exit 0 (critical_new=0; 1 warning novo é de arquivo não-tocado). DTs `DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP` e `DT-COMPANY-BIRTH-PAGE-ACTOR-DRIFT` → **CLOSED**. Commit por caminho explícito. **Próximo:** D2 técnica — casa fiscal PJ entra no passo 3 do MESMO withTransaction.
+
+---
+
 ## Sessão 2026-06-03 (cont.7) — DECISION-0075 §9: nascimento PJ reconciliado (Opção B promulgada)
 
 Levantei READ-ONLY o terreno da D2 técnica (casa fiscal PJ) — relatório no chat. Achado que mandou no movimento: **D2 técnica não fecha enquanto a 0075 estiver em FREEZE A/B**. Fui ao disco (não à memória de que tínhamos discutido B): 0075 dizia "A/B PENDENTE de Clayton". Espelhos confirmados: `global_users.cpf UNIQUE global` (precedente p/ CNPJ global), `identities` pessoa-cêntrica (não serve PJ), `companies.cnpj` projeção fraca (text nullable, 0 enforce, 0 dados), `company-canonical` quebrado (colunas-fantasma legal_name/document_number), `identity-validation.service` = espelho-ouro de writer auditado (submit→review→approve atômico), DEV zerado p/ PJ (0 companies/users/cnpj). Nomenclatura: cnpj/tax_id = VARCHAR(14) (disco usa text — drift); actor_organizational = PJ nunca soberano.

@@ -1,6 +1,7 @@
 // src/modules/social/actor.repository.ts
 import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import type { ActorTypeDb } from '@core/social/actor-type';
+import type { TxQueryClient } from '@core/social/ports/actor-repository.port';
 
 export interface ActorRow {
   actor_id: string;
@@ -320,6 +321,69 @@ export class ActorRepository {
     }
 
     return newActor;
+  }
+
+  /**
+   * Variante client-aware/transacional de findOrCreatePageActor (F-ATOMIC-COMPANY-BIRTH,
+   * DECISION-0075 §9.2). Usa o `client` da transação do caller — a escrita do page-actor
+   * é ATÔMICA junto com companies + company_users (sem cleanup compensatório). NÃO abre/
+   * commita transação e NÃO seta tenant context (responsabilidade do caller, dentro do
+   * BEGIN — RLS de actors). Mesma semântica do não-transacional: âncora humana
+   * (responsible_actor_id §4.8.2), idempotência por uq_actors_company_page, page-actor
+   * nasce sem habilitar operação por si só (estado pending vive em companies/onboarding).
+   */
+  async findOrCreatePageActorTx(
+    client: TxQueryClient,
+    tenantId: string,
+    companyId: string,
+    responsibleActorId: string
+  ): Promise<ActorRow> {
+    const existing = await client.query(
+      `SELECT * FROM actors
+        WHERE tenant_id = $1 AND company_id = $2 AND actor_type = 'page'
+        LIMIT 1`,
+      [tenantId, companyId]
+    );
+    if (existing.rows[0]) {
+      const cur = existing.rows[0] as ActorRow;
+      const needsAnchor =
+        cur.responsible_actor_id == null &&
+        responsibleActorId &&
+        String(responsibleActorId).length > 0;
+      if (needsAnchor) {
+        const patched = await client.query(
+          `UPDATE actors
+              SET responsible_actor_id = $3, updated_at = now()
+            WHERE tenant_id = $1 AND actor_id = $2 AND responsible_actor_id IS NULL
+            RETURNING *`,
+          [tenantId, cur.actor_id, responsibleActorId]
+        );
+        return (patched.rows[0] as ActorRow) || cur;
+      }
+      return cur;
+    }
+
+    const company = await client.query(
+      `SELECT company_name, trade_name FROM companies WHERE company_id = $1 LIMIT 1`,
+      [companyId]
+    );
+    if (!company.rows[0]) {
+      throw new Error('Empresa não encontrada');
+    }
+    const displayName = company.rows[0].trade_name || company.rows[0].company_name;
+
+    const inserted = await client.query(
+      `INSERT INTO actors (
+         tenant_id, actor_type, company_id, display_name, slug, responsible_actor_id
+       )
+       VALUES ($1, 'page', $2, $3, $4, $5)
+       RETURNING *`,
+      [tenantId, companyId, displayName, `page-${companyId.substring(0, 8)}`, responsibleActorId]
+    );
+    if (!inserted.rows[0]) {
+      throw new Error('Erro ao criar actor');
+    }
+    return inserted.rows[0] as ActorRow;
   }
 
   /**

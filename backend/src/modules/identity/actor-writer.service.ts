@@ -8,6 +8,7 @@
  * acoplamento semântico com social a resolver em RFC futura.
  */
 import { socialPortsRegistry } from '@core/social/ports-registry';
+import type { TxQueryClient } from '@core/social/ports';
 
 /**
  * Garante que existe um actor humano para este userId.
@@ -32,6 +33,23 @@ export async function ensurePageActor(
 ) {
   const repo = socialPortsRegistry.getActorRepository();
   return repo.findOrCreatePageActor(tenantId, companyId, responsibleActorId);
+}
+
+/**
+ * Variante transacional de ensurePageActor (F-ATOMIC-COMPANY-BIRTH / DECISION-0075 §9.2).
+ * Cria o page-actor usando o `client` da transação do caller — escrita atômica junto com
+ * companies + company_users, sem cleanup compensatório. A escrita em `actors` permanece
+ * dentro da camada actor-writer/repository (writer soberano §4.8); o caller só empresta a
+ * transação. NÃO abre/commita transação; o tenant context deve estar ativo no client (RLS).
+ */
+export async function ensurePageActorTx(
+  client: TxQueryClient,
+  tenantId: string,
+  companyId: string,
+  responsibleActorId: string
+) {
+  const repo = socialPortsRegistry.getActorRepository();
+  return repo.findOrCreatePageActorTx(client, tenantId, companyId, responsibleActorId);
 }
 
 /**

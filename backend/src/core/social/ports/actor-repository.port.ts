@@ -29,12 +29,35 @@ export interface ActorRow {
   updated_at: string | Date;
 }
 
+/**
+ * Cliente transacional MÍNIMO (estrutural) — um `PoolClient` (pg) o satisfaz sem
+ * que o port (core) precise importar `pg`. Usado pelas variantes `*Tx` que compõem
+ * a escrita de actor dentro de uma transação aberta pelo caller (ex.: nascimento PJ
+ * transacional, F-ATOMIC-COMPANY-BIRTH / DECISION-0075 §9.2). O caller é dono do
+ * BEGIN/COMMIT e do tenant context; estas variantes NUNCA abrem/fecham transação.
+ */
+export interface TxQueryClient {
+  query(queryText: string, values?: any[]): Promise<{ rows: any[]; rowCount: number | null }>;
+}
+
 export interface ActorRepositoryPort {
   findById(tenantId: string, actorId: string): Promise<ActorRow | null>;
   findByUserId(tenantId: string, userId: string): Promise<ActorRow | null>;
   findByCompanyId(tenantId: string, companyId: string): Promise<ActorRow | null>;
   findOrCreateUserActor(tenantId: string, userId: string): Promise<ActorRow>;
   findOrCreatePageActor(
+    tenantId: string,
+    companyId: string,
+    responsibleActorId: string
+  ): Promise<ActorRow>;
+  /**
+   * Variante client-aware/transacional de `findOrCreatePageActor`: usa o `client` da
+   * transação do caller (mesma tx → atomicidade do núcleo company+company_users+page-actor).
+   * NÃO abre/commita transação. Assume tenant context já ativo no `client` (RLS de `actors`).
+   * Espelha o molde transacional de `findOrCreateGroupActor`.
+   */
+  findOrCreatePageActorTx(
+    client: TxQueryClient,
     tenantId: string,
     companyId: string,
     responsibleActorId: string
