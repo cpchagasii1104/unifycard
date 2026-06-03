@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.7) — DECISION-0075 §9: nascimento PJ reconciliado (Opção B promulgada)
+
+Levantei READ-ONLY o terreno da D2 técnica (casa fiscal PJ) — relatório no chat. Achado que mandou no movimento: **D2 técnica não fecha enquanto a 0075 estiver em FREEZE A/B**. Fui ao disco (não à memória de que tínhamos discutido B): 0075 dizia "A/B PENDENTE de Clayton". Espelhos confirmados: `global_users.cpf UNIQUE global` (precedente p/ CNPJ global), `identities` pessoa-cêntrica (não serve PJ), `companies.cnpj` projeção fraca (text nullable, 0 enforce, 0 dados), `company-canonical` quebrado (colunas-fantasma legal_name/document_number), `identity-validation.service` = espelho-ouro de writer auditado (submit→review→approve atômico), DEV zerado p/ PJ (0 companies/users/cnpj). Nomenclatura: cnpj/tax_id = VARCHAR(14) (disco usa text — drift); actor_organizational = PJ nunca soberano.
+
+Caminho 1 (ChatGPT+Clayton): rascunhei a 0075-B como **insumo no chat**, Clayton ratificou com 4 ajustes (veículo = emenda §9 na própria 0075, não DECISION-0085; "promulgada como decisão de nascimento PJ" não "direção"; DT sem status inventado → PARTIALLY MITIGATED; frase-trava vermelha). **Ratificação tripla completa → executei** (02_decisions é gravável; sem trava §6.1).
+
+Emendei `DECISION_0075` (§9 Reconciliação — B promulgada; + ponteiros no header/§4 preservando histórico do freeze). **B:** empresa/page-actor/identidade fiscal PJ nascem no início **pending/bloqueado/não-operacional**; KYB libera operação não cria existência; CNPJ reservável desde o pendente sem operação pública/financeira; não soberania (fecha em CPF). 🔴 **Custo ATIVO:** atomicidade de createCompany/full-birth vira **pré-requisito** — TRAVA: "B não autoriza implementar casa fiscal PJ no Momento 1 enquanto createCompany/full-birth não for transacional". `createCompany:254-731` hoje é não-transacional (DELETEs compensatórios :676-697).
+
+DTs: `DT-COMPANY-BIRTH-PAGE-ACTOR-DRIFT` → PARTIALLY MITIGATED (direção resolvida, execução pendente). `DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP` → promovida a pré-requisito ATIVO da D2 técnica. Commit docs-only (0075 + DT_LOG + STATUS + opus, add por caminho explícito). **Próximo:** atomicidade do nascimento (pré-requisito) ANTES do desenho técnico da D2. Invariante: nascimento antes de tabela; atomicidade antes de casa fiscal.
+
+---
+
 ## Sessão 2026-06-03 (cont.6) — Emenda normativa: precedência PJ em IDENTITY_SSOT_PRECEDENCE (aval Clayton)
 
 Clayton deu **aval explícito** (específico/limitado/consciente) para eu emendar `docs/01_normative/IDENTITY_SSOT_PRECEDENCE.md` — 01_normative é normalmente somente-leitura (`00_AGENT_PROTOCOL §6.1`); na rodada anterior PAREI e reportei a proibição, e Clayton então autorizou. Incorporei a precedência de PJ já promulgada na **DECISION-0084**: nova seção "Identidade fiscal de Pessoa Jurídica (PJ)" com a frase-âncora "DECISION-0084 promulga a precedência da identidade fiscal PJ; este documento incorpora essa precedência à hierarquia operacional de identidades". PF inalterado (`identities` segue PF); PJ casa própria/canônica/global, CNPJ é a verdade; `companies.cnpj` projeção subordinada (em conflito vence a identidade fiscal PJ); continuidade na transferência; não-soberania (fecha em CPF); nome/colunas/constraints/FK/writer NÃO fixados. **Não** é decisão nova — só reflexo da 0084. Não tratar como precedente amplo p/ editar 01_normative.

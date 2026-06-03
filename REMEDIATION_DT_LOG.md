@@ -10716,7 +10716,8 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-COMPANY-BIRTH-PAGE-ACTOR-DRIFT
 
-- **Status:** OPEN (2026-06-02)
+- **Status:** PARTIALLY MITIGATED (2026-06-03) — **direção A/B resolvida** (Opção B, `DECISION-0075 §9`); **execução pendente**. _(antes: OPEN 2026-06-02)_
+- **Nota D0075-B (2026-06-03):** A/B reconciliado — vence **B**. Page-actor no Momento 1 **é permitido como pendente/não-operacional**, **desde que** o nascimento seja transacional (ver `DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP`, agora pré-requisito ATIVO). A dúvida filosófica fechou; resta a execução (nascimento transacional + casa fiscal PJ pendente).
 - **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (paralelas A/B/C + checagem cirúrgica). Pendência já sinalizada antes em `REMEDIATION_DT_LOG.md` (~linha 1310: "DECISION arquitetural formal sobre qual filosofia — 'nascimento canônico sem actor' vs 'criação full com rollback' — é soberana").
 - **Vinculada a:** `DECISION-0075`, `DESENHO_FASE_3B_EMPRESA_DOIS_MOMENTOS.md §2/§3/§7`, `EMPRESA_NASCIMENTO_CANONICO §4`.
 - **Contexto:** O runtime cria page-actor (`actor_type='page'`) **no Momento 1** do nascimento da empresa — `backend/src/core/companies/companies.service.ts:654-655` (`ensureUserActor` + `ensurePageActor`), writer em `backend/src/modules/social/actor.repository.ts:243-323`. O desenho ratificado previa empresa **inerte no Momento 1, sem page-actor operacional** (`DESENHO_FASE_3B §2`), com page-actor só no Momento 2 (`§3`). `EMPRESA_NASCIMENTO_CANONICO §4` reforça que criar empresa não implica criar Actor. O próprio `DESENHO_FASE_3B §7` documentou o drift.
@@ -10726,7 +10727,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP
 
-- **Status:** OPEN (2026-06-02)
+- **Status:** OPEN (2026-06-02) — **promovida 2026-06-03 a PRÉ-REQUISITO ATIVO da D2 técnica** (`DECISION-0075 §9` promulgou Opção B; a atomicidade deixa de ser condicional "se B vencer" e passa a bloquear o nascimento da casa fiscal PJ no Momento 1).
 - **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (leitura do código vivo de `createCompany`).
 - **Vinculada a:** `DECISION-0075`, `DT-COMPANY-BIRTH-PAGE-ACTOR-DRIFT`.
 - **Contexto:** `backend/src/core/companies/companies.service.ts:254-731` (`createCompany`) executa `INSERT companies` (`:441`), `address` (`:499-518`), `company_domains` (`:538`), `INSERT company_users` (`:591`), `ensureUserActor`/`ensurePageActor` (`:654-655`) e `company_opportunity_preferences` (`:707`) como **`pool.query` independentes — sem `BEGIN`/`COMMIT`/client dedicado**. O "rollback" é **compensação manual por `DELETE`s** num `catch` (`:676-697`).

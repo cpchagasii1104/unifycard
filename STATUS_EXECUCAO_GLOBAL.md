@@ -1,3 +1,19 @@
+## 2026-06-03 — DECISION-0075 §9: nascimento PJ reconciliado — Opção B promulgada por Clayton (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `ba41cc29`. Docs-only; **zero código/schema/migration/banco**.
+
+**Reconciliação (emenda in-place na própria 0075, veículo escolhido por Clayton — não DECISION nova):** o FREEZE A/B da DECISION-0075 foi resolvido → **vence a Opção B, promulgada como decisão de nascimento PJ**. A escolha A/B **deixa de estar pendente**; a **implementação continua pendente**.
+
+**B (§9.1):** empresa/PJ nasce no início já com **page-actor + identidade fiscal PJ** em estado **pendente/bloqueado/não-operacional**; **KYB libera operação, não cria existência**; **CNPJ pode ser reservado** desde o pendente, sem operação pública/financeira até aprovação; **não soberania** mantida (fecha em CPF/actor humano, page-actor exige `responsible_actor_id`).
+
+**Custo técnico ATIVO (§9.2 — etiqueta vermelha):** B **torna a atomicidade do nascimento pré-requisito ATIVO**. `createCompany` (`companies.service.ts:254-731`) hoje é não-transacional (DELETEs compensatórios `:676-697`, não desfaz endereço `:499-518`). 🔴 **TRAVA promulgada:** "A escolha B NÃO autoriza implementação imediata da casa fiscal PJ no Momento 1 enquanto createCompany/full-birth não for transacional."
+
+**DTs:** `DT-COMPANY-BIRTH-PAGE-ACTOR-DRIFT` OPEN → **PARTIALLY MITIGATED** (direção resolvida; execução pendente; nota D0075-B). `DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP` permanece OPEN, **promovida a pré-requisito ATIVO da D2 técnica**. PJ comercial segue bloqueada (`DT-COMMERCIAL-PRICE-FEDERATED-SSOT`). Nenhuma DT nova/duplicada.
+
+**Sequência destravada:** atomicidade do nascimento → **D2 técnica** (momento = nascimento pendente) → D3-técnica → D5/D4/D6/D7. **PRÓXIMA ETAPA:** atomicidade de createCompany/full-birth (pré-requisito) **antes** do desenho técnico da casa fiscal PJ. Invariante: identidade antes de autoridade; **nascimento antes de tabela; atomicidade antes de casa fiscal**.
+
+---
+
 ## 2026-06-03 — Emenda normativa: precedência fiscal PJ incorporada a IDENTITY_SSOT_PRECEDENCE (aval explícito de Clayton, docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `91d14055`. Docs-only; **zero código/schema/migration/banco**.
