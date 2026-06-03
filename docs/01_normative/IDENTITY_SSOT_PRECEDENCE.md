@@ -16,6 +16,19 @@
 
 - **`economic_identities`** (e eventos associados) é **derivada**: escopo por `tenant_id` + `actor_id`, limites, guardas — não substitui `identities` nem o Bank.
 
+## Identidade fiscal de Pessoa Jurídica (PJ)
+
+> **Fonte da regra:** `DECISION-0084` / D2 (princípio promulgado por Clayton), derivada de `DECISION-0081` (M0) e `DECISION-0082` (D1); contexto de vínculos em `DECISION-0083` (D3-princípio). **DECISION-0084 promulga a precedência da identidade fiscal PJ; este documento incorpora essa precedência à hierarquia operacional de identidades.** Esta seção **não** cria decisão nova e **não** substitui a DECISION-0084 — apenas a reflete na precedência operacional.
+
+- **Escopo PF inalterado:** `identities` **permanece** a autoridade fiscal/KYC da **pessoa física** por `global_user_id`. A precedência PF acima **não** é reaberta nem alterada por esta seção. PF e PJ são **naturezas distintas em casas distintas** — não competem.
+- **Casa própria, canónica e global (PJ):** a Pessoa Jurídica tem **identidade fiscal própria**, separada da pessoa física. Essa identidade é **canónica** (fonte da verdade do CNPJ) e **global**. O **CNPJ é a verdade** dessa identidade.
+- **Autoridade fiscal/KYC/documental da empresa:** a futura camada fiscal PJ será a autoridade de KYC, documentos, validações, histórico, reputação e continuidade da **empresa/CNPJ** — não `companies` (projeção) nem o actor humano (responsável mutável).
+- **`companies.cnpj` é projeção subordinada:** `companies.cnpj` é **reflexo operacional protegido e subordinado** à identidade fiscal PJ, **nunca** a fonte da verdade.
+- **Precedência (PJ):** em conflito entre a identidade fiscal PJ canónica e `companies.cnpj` ou qualquer reflexo operacional, **vence a identidade fiscal PJ**.
+- **Continuidade na transferência:** transferência/venda da empresa **não** cria nova identidade fiscal e **não** apaga histórico. O que muda são os **vínculos humanos** (quem responde, opera, representa); a identidade fiscal PJ permanece a **âncora estável** do CNPJ, histórico, documentos, validações e reputação.
+- **Não soberania:** a identidade fiscal própria **não** torna a empresa autoridade soberana. Toda ação, decisão, operação ou consequência continua fechando em **CPF/actor humano responsável**, com vínculo formal, rastreável e auditável (coerente com M0 e D3).
+- **Fronteira de desenho:** **nome de tabela, colunas, constraints, FK, writer e migration NÃO estão definidos por esta norma** — ficam para o desenho técnico posterior (D2-técnica), respeitando o schema vivo e a nomenclatura canónica.
+
 ## Ordem de leitura (conflito)
 
 1. **`identities`** — documento / nível KYC.

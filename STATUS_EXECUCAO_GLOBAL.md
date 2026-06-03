@@ -1,3 +1,19 @@
+## 2026-06-03 — Emenda normativa: precedência fiscal PJ incorporada a IDENTITY_SSOT_PRECEDENCE (aval explícito de Clayton, docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `91d14055`. Docs-only; **zero código/schema/migration/banco**.
+
+**Natureza:** emenda **limitada** a `docs/01_normative/IDENTITY_SSOT_PRECEDENCE.md` com **aval explícito de Clayton** (01_normative é normalmente somente-leitura pelo `00_AGENT_PROTOCOL §6.1`; aval específico, consciente, só para refletir a DECISION-0084 — **não** decisão nova, **não** precedente amplo para editar 01_normative).
+
+**Incorporado:** nova seção "Identidade fiscal de Pessoa Jurídica (PJ)" — **fonte da regra = `DECISION-0084` / D2** (frase obrigatória: "DECISION-0084 promulga a precedência da identidade fiscal PJ; este documento incorpora essa precedência à hierarquia operacional de identidades"). Pontos: PF inalterado (`identities` segue PF); PJ tem casa fiscal **própria/canônica/global**, CNPJ é a verdade; **`companies.cnpj` é projeção subordinada** (em conflito vence a identidade fiscal PJ); continuidade na transferência (muda vínculo humano, não a identidade); **não soberania** (fecha em CPF/actor); **nome/colunas/constraints/FK/writer/migration NÃO fixados** (desenho técnico posterior).
+
+**Fonte da decisão:** `DECISION-0084` — esta emenda **não** promulga decisão nova, **não** re-promulga a D2, **não** duplica verdade.
+
+**DT:** `DT-PJ-IDENTITY-PRECEDENCE-NORM-GAP` OPEN → **PARTIALLY MITIGATED** (norma incorporada em IDENTITY_SSOT_PRECEDENCE; falta refletir em `SSOT_REGISTRY` + materializar a casa fiscal PJ). Nenhuma DT nova/duplicada.
+
+**Confirmações:** zero tabela/constraint/FK/writer fixados · só docs · sem backend/src · sem frontend/src · sem migration. **PRÓXIMA ETAPA:** desenho técnico da D2 (casa fiscal PJ).
+
+---
+
 ## 2026-06-03 — DECISION-0084: D2 promulgada — casa fiscal canônica da PJ (princípio, docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `d3de4785`. Docs-only; **zero código/schema/migration/banco**.

@@ -6,6 +6,14 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.6) — Emenda normativa: precedência PJ em IDENTITY_SSOT_PRECEDENCE (aval Clayton)
+
+Clayton deu **aval explícito** (específico/limitado/consciente) para eu emendar `docs/01_normative/IDENTITY_SSOT_PRECEDENCE.md` — 01_normative é normalmente somente-leitura (`00_AGENT_PROTOCOL §6.1`); na rodada anterior PAREI e reportei a proibição, e Clayton então autorizou. Incorporei a precedência de PJ já promulgada na **DECISION-0084**: nova seção "Identidade fiscal de Pessoa Jurídica (PJ)" com a frase-âncora "DECISION-0084 promulga a precedência da identidade fiscal PJ; este documento incorpora essa precedência à hierarquia operacional de identidades". PF inalterado (`identities` segue PF); PJ casa própria/canônica/global, CNPJ é a verdade; `companies.cnpj` projeção subordinada (em conflito vence a identidade fiscal PJ); continuidade na transferência; não-soberania (fecha em CPF); nome/colunas/constraints/FK/writer NÃO fixados. **Não** é decisão nova — só reflexo da 0084. Não tratar como precedente amplo p/ editar 01_normative.
+
+`DT-PJ-IDENTITY-PRECEDENCE-NORM-GAP`: OPEN → **PARTIALLY MITIGATED** (norma incorporada em IDENTITY_SSOT_PRECEDENCE; resta refletir em `SSOT_REGISTRY` + materializar a casa fiscal PJ). Docs-only; zero código/schema/Bank. Commit = IDENTITY_SSOT_PRECEDENCE + DT_LOG + STATUS + opus (add por caminho explícito). Próximo segue igual: **desenho técnico da D2**.
+
+---
+
 ## Sessão 2026-06-03 (cont.5) — DECISION-0084: D2 casa fiscal canônica da PJ (docs-only)
 
 Clayton promulgou **D2** (deriva da M0/D1): PJ tem **identidade fiscal própria/canônica/global**; CNPJ é a verdade e único no sistema; identidade não nasce/morre na troca de dono (transferência muda só vínculos humanos; CNPJ/histórico permanecem); `companies.cnpj` = projeção subordinada (vence a identidade fiscal PJ); não-soberania fecha em CPF. É PRINCÍPIO — **NÃO** batiza tabela, NÃO fixa colunas/constraints/FK, NÃO implementa writer.
