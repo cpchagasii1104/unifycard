@@ -1,3 +1,18 @@
+## 2026-06-03 — UX do piloto MVP-A ajustada (frontend-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `40cbd640`. **Só frontend** (3 arquivos) + STATUS/opus. **Zero backend/Bank/gate/mock/migration.**
+
+**Ajustes (frontend):**
+- **Nav (GlobalSidebar):** filtro `PILOT_HIDDEN_ROUTES` oculta do menu `/marketplace` (Fazer compras), `/services` (Serviços pagos) e `/empresas` (Minhas Empresas + Criar Empresa) — **fora do MVP-A**. Código/rotas preservados; reverter = esvaziar o Set. rides/delivery/votações/impacto seguem como "em breve" (já honestos). CRM não está no nav (sem ação).
+- **/extrato (App.tsx):** stub "Em breve" → `<Navigate to="/banco">` (extrato real vive na WalletPage; sem tela paralela).
+- **EventCheckout:** erro genérico cru → **copy honesta do piloto** ("...sua conta precisa estar verificada e com saldo interno disponível... fale com a equipe Unificard para liberar sua verificação"); erro técnico vai p/ console. "Ver Extrato" pós-compra: `/social/ledger` → `/banco`.
+- **Carteira:** confirmado SEM botão de recarga/cartão/top-up (só saldo + P2P interno) — sem edição; não promete on-ramp externo.
+- **Fundo regional:** piloto usa visão USER (RegionalFundUser + RegionalFundCard + TransactionSplitDetail pós-compra); dashboard admin não está no nav.
+
+**Gates:** frontend typecheck 0 · actor-writer/bank-ledger boundaries OK · regression-guards OK (352 migr) · architecture:strict exit 0 (critical_new=0). q3 E2E inalterado (mudanças só de UI; backend intocado; já 14/14 em 0ae43ab4). KYC piloto segue via runbook auditado. Sem DECISION/DT nova.
+
+---
+
 ## 2026-06-03 — Runbook de KYC do piloto MVP-A (caminho auditado, docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `0ae43ab4`. Docs-only (runbook + STATUS/opus); zero runtime/Bank/frontend/mock/migration.

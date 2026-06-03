@@ -6,7 +6,15 @@
 
 ---
 
-## Sessão 2026-06-03 (cont.3) — Runbook KYC do piloto MVP-A (caminho auditado, docs-only)
+## Sessão 2026-06-03 (cont.4) — UX do piloto MVP-A (frontend-only)
+
+Ajustei a UX para o piloto fechado (Eventos+Carteira+Split+Fundo Regional+Social), **só frontend** (3 arquivos):
+- GlobalSidebar: `PILOT_HIDDEN_ROUTES` (Set) oculta /marketplace, /services, /empresas do nav (fora do MVP; código/rotas preservados; reverter = esvaziar Set). rides/delivery/votações/impacto já "em breve".
+- App.tsx: /extrato stub → `<Navigate to="/banco">` (extrato real = WalletPage).
+- EventCheckout: copy honesta de erro (verificação/saldo interno; sem prometer cartão/auto-verify; erro técnico no console); "Ver Extrato" /social/ledger → /banco.
+- Carteira: sem recarga (só saldo+P2P) — sem edição. Fundo regional: visão USER (não admin).
+
+Gates: FE typecheck 0; actor-writer/bank-ledger OK; regression-guards OK; arch:strict exit 0 (critical_new=0). q3 não re-rodado (mudança só UI; backend intocado; já 14/14). KYC piloto via runbook auditado. Zero Bank/gate/mock/backend/schema. Commit frontend+STATUS+opus. **Próximo:** rodar o piloto (operador pré-aprova KYC pelo runbook) ou hardening (UI de KYC própria, on-ramp real) — frentes futuras.
 
 Defini o procedimento de pré-aprovação de KYC do piloto fechado **pelo caminho real auditado** — não UPDATE cru. Decisão tática: endpoints admin já bastam → **RUNBOOK** (não script): `docs/03_execution_log/20260603_MVP_A_PILOT_KYC_RUNBOOK.md`.
 

@@ -358,7 +358,8 @@ function AppContent() {
           <Route path="banco" element={<WalletPage />} />
           <Route path="bank" element={<WalletPage />} />
           <Route path="unifycard" element={<WalletPage />} />
-          <Route path="extrato" element={<div style={{ padding: '2rem' }}><h1>Extrato</h1><p>Em breve...</p></div>} />
+          {/* [MVP-A piloto] /extrato redireciona para a carteira real (saldo + extrato vivem em WalletPage). Sem tela paralela. */}
+          <Route path="extrato" element={<Navigate to="/banco" replace />} />
           <Route path="fundo-regional" element={<RegionalFundUser />} />
           {/* Compatibilidade */}
           <Route path="wallet" element={<WalletPage />} />

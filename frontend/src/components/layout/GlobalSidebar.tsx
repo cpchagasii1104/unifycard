@@ -89,6 +89,11 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+// [MVP-A piloto fechado] Rotas ocultadas do nav por estarem fora do escopo do piloto
+// (marketplace de produtos, serviços pagos, PJ/empresas). Código e rotas permanecem intactos —
+// apenas não são exibidos no menu. Reverter = esvaziar este Set.
+const PILOT_HIDDEN_ROUTES = new Set<string>(['/marketplace', '/services', '/empresas']);
+
 export default function GlobalSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -132,7 +137,7 @@ export default function GlobalSidebar() {
         {NAV_GROUPS.map((group, gIdx) => (
           <div key={gIdx} className="gs-group">
             {group.title && <div className="gs-group-title">{group.title}</div>}
-            {group.items.map((item) => {
+            {group.items.filter((item) => !PILOT_HIDDEN_ROUTES.has(item.route)).map((item) => {
               const active = isActive(item);
               const priority = isPriority(item);
               return (

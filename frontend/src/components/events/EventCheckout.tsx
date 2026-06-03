@@ -92,9 +92,17 @@ export default function EventCheckout({ event, onClose, onSuccess }: EventChecko
 
       // Não fechar automaticamente - usuário escolhe quando fechar via botões do resumo
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao processar compra');
+      // [MVP-A piloto] O backend hoje devolve um 500 genérico (engole o motivo, ex.: KYC
+      // pendente), então não dá para mapear por code aqui. Copy honesta do piloto, sem prometer
+      // verificação automática nem pagamento externo. O erro técnico fica no console.
+      console.error('[EventCheckout] falha no checkout:', err);
+      setError(
+        'Não foi possível concluir a compra. Para comprar ingressos no piloto, sua conta precisa ' +
+        'estar verificada e com saldo interno disponível. Se você faz parte do piloto, fale com a ' +
+        'equipe Unificard para liberar sua verificação.'
+      );
       setStep('error');
-      showToast('Erro ao comprar ingresso. Tente novamente.', 'error');
+      showToast('Não foi possível concluir a compra.', 'error');
     }
   };
 
@@ -123,7 +131,8 @@ export default function EventCheckout({ event, onClose, onSuccess }: EventChecko
               <button
                 className="event-checkout-action-secondary"
                 onClick={() => {
-                  window.location.href = '/social/ledger';
+                  // [MVP-A piloto] Extrato real = carteira (saldo + transações).
+                  window.location.href = '/banco';
                 }}
               >
                 Ver Extrato
