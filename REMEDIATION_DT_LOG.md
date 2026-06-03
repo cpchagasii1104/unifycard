@@ -10756,6 +10756,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Mitigação atual:** `DECISION-0081` promulga a M0 (empresa = identidade fiscal própria, não-soberana); a casa canônica (D1) é derivada pendente de promulgação. Nada tocado.
 - **Resolução prevista:** promulgar a norma de identidade fiscal de PJ (norma antes de schema) e então a casa canônica (A `companies.cnpj` / B `identities` / C ambos com precedência), em migration única coerente.
 - **Atualização (D1 — `DECISION-0082`, 2026-06-02):** **precedência DECIDIDA.** Caminho **C** — fonte canônica = **camada própria de identidade fiscal de PJ** (não `identities`, que é pessoa-cêntrico); `companies.cnpj` = **projeção operacional protegida**; operação por **vínculo CPF autorizado** (nunca login compartilhado). **DT permanece OPEN:** a precedência foi promulgada, mas a **estrutura técnica** (materialização da camada própria, UNIQUE/CHECK/FK/índice) é **D2/desenho técnico pendente** — ver `DT-PJ-CNPJ-UNIQUE-CHECK-MISSING`.
+- **Atualização (D2 — `DECISION-0084`, 2026-06-03):** **casa/precedência promulgada de PRINCÍPIO** — casa fiscal PJ **própria, canônica e global**; CNPJ único no sistema; `companies.cnpj` projeção subordinada; precedência identidade fiscal PJ > projeção. **DT permanece OPEN:** o **substrato técnico** (nome de tabela, colunas, UNIQUE/CHECK/FK, índice, writer) segue **pendente do desenho técnico da D2** — esta DT cobre o substrato; **não** criar DT gêmea de "fiscal-identity-substrate".
 
 ## DT-PJ-CNPJ-UNIQUE-CHECK-MISSING
 
@@ -10766,6 +10767,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** duplicidade de CNPJ; mesma PJ representada várias vezes; base inconsistente para KYC/transferência/risco.
 - **Mitigação atual:** nenhuma correção (docs-only). Registrado para a migration única.
 - **Resolução prevista:** após casa canônica (D1), aplicar UNIQUE forte + CHECK 14 díg + validação de dígito verificador na borda; escopo de unicidade (global vs tenant) é decisão de Clayton (D2).
+- **Atualização (D2 — `DECISION-0084`, 2026-06-03):** D2 promulgou **CNPJ único GLOBAL** na casa fiscal canônica (precedente `global_users.cpf` UNIQUE global). `companies.cnpj` será tratado como **projeção subordinada** no desenho técnico da D2 (UNIQUE/CHECK na FONTE canônica, não na projeção). **DT permanece OPEN:** enforce ainda é desenho técnico/migration. Esta DT cobre o enforce; **não** criar DT gêmea de "companies-cnpj-no-enforce".
 
 ## DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING
 
@@ -10870,3 +10872,15 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** sem casa de casos/evidências/SLA/trilha, o "sistema sinaliza, humano julga" não tem onde acontecer de forma auditável → ou vira bloqueio automático (falso positivo/injustiça) ou inação (golpe opera).
 - **Mitigação atual:** nenhuma (docs-only). Princípio promulgado em `DECISION-0083 §7` ("o sistema sinaliza; o humano autorizado julga; a trilha audita"). **Esta DT é TRANSVERSAL** (todo actor de risco, não só PJ).
 - **Resolução prevista:** desenho de backoffice enterprise de risco (casos, evidências com origem/data/fonte/contexto/trilha, filas, operador como actor com autoridade limitada/auditável, decisão+revisão superior, SLA, recurso/contestação) — frente própria coordenada com D6/D7. **Métrica de risco nunca como sentença bruta.**
+
+---
+
+## DT-PJ-IDENTITY-PRECEDENCE-NORM-GAP
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** read-only D2 + promulgação `DECISION-0084` (D2 — casa fiscal canônica da PJ).
+- **Vinculada a:** `DECISION-0084` (D2), `DECISION-0082` (D1), `IDENTITY_SSOT_PRECEDENCE.md`.
+- **Contexto:** `IDENTITY_SSOT_PRECEDENCE.md` **existe** mas é **pessoa-cêntrico** — normatiza a precedência fiscal/KYC da PESSOA (`identities` > `actors` > `economic_identities`, por `global_user_id`) e é **silencioso sobre PJ**. A `DECISION-0084` promulgou a precedência de PJ em DECISION (identidade fiscal PJ canônica > projeção `companies.cnpj`), mas essa precedência **ainda não está incorporada à norma canônica** (`IDENTITY_SSOT_PRECEDENCE` e/ou `SSOT_REGISTRY`).
+- **Risco:** camada fiscal PJ nasce (no desenho técnico) sem a regra de precedência **na norma** — futuras IAs/auditorias leriam `IDENTITY_SSOT_PRECEDENCE` (pessoa) e não encontrariam a precedência de PJ; risco de tratar `companies.cnpj` como fonte por omissão normativa (norma antes de schema).
+- **Mitigação atual:** `DECISION-0084` registra a precedência de PJ como decisão; nada tocado em norma/schema (docs-only).
+- **Resolução prevista:** incorporar a precedência de identidade fiscal de PJ à norma canônica (`IDENTITY_SSOT_PRECEDENCE.md` e/ou `SSOT_REGISTRY_UNIFICARD.md`) — **antes** da migration da casa fiscal PJ (norma antes de schema). `identities` (PESSOA) e a casa fiscal PJ são **naturezas distintas em casas distintas**, não competem.

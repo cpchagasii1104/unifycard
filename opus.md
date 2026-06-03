@@ -6,7 +6,15 @@
 
 ---
 
-## Sessão 2026-06-03 (cont.4) — UX do piloto MVP-A (frontend-only)
+## Sessão 2026-06-03 (cont.5) — DECISION-0084: D2 casa fiscal canônica da PJ (docs-only)
+
+Clayton promulgou **D2** (deriva da M0/D1): PJ tem **identidade fiscal própria/canônica/global**; CNPJ é a verdade e único no sistema; identidade não nasce/morre na troca de dono (transferência muda só vínculos humanos; CNPJ/histórico permanecem); `companies.cnpj` = projeção subordinada (vence a identidade fiscal PJ); não-soberania fecha em CPF. É PRINCÍPIO — **NÃO** batiza tabela, NÃO fixa colunas/constraints/FK, NÃO implementa writer.
+
+Registrei `DECISION_0084_PJ_FISCAL_IDENTITY_CANONICAL_HOME.md` (D2.1–D2.8). DTs: atualizei (nota D2) `DT-PJ-CNPJ-CANONICAL-HOME-MISSING` + `DT-PJ-CNPJ-UNIQUE-CHECK-MISSING`; referenciei `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING`; **criei** `DT-PJ-IDENTITY-PRECEDENCE-NORM-GAP` (IDENTITY_SSOT_PRECEDENCE é pessoa-cêntrico; falta a precedência de PJ na norma). **Sem gêmea das DTs da 0081.**
+
+Disco (read-only D2): identities pessoa-cêntrica (global, sem tenant, tax_id NÃO unique), companies.cnpj sem enforce, nenhum substrato fiscal PJ vivo, company-canonical quebrado, **global_users.cpf UNIQUE global = precedente p/ CNPJ único global**. Candidatos de nome: fiscal_identities/tax_identities/organizational_identities (evitar company_identities/legal_entities/pj_identities; proibido reusar identities).
+
+Numeração 0084 (contínua). Próximo: **desenho técnico da D2** (nome/colunas/constraint/FK/writer); D3-técnica só DEPOIS (ancora na identidade fiscal PJ, não na projeção). Implementação bloqueada. Zero código/schema/Bank. Commit = DECISION + DT_LOG + STATUS + opus.
 
 Ajustei a UX para o piloto fechado (Eventos+Carteira+Split+Fundo Regional+Social), **só frontend** (3 arquivos):
 - GlobalSidebar: `PILOT_HIDDEN_ROUTES` (Set) oculta /marketplace, /services, /empresas do nav (fora do MVP; código/rotas preservados; reverter = esvaziar Set). rides/delivery/votações/impacto já "em breve".

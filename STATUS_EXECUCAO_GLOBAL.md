@@ -1,3 +1,19 @@
+## 2026-06-03 — DECISION-0084: D2 promulgada — casa fiscal canônica da PJ (princípio, docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `d3de4785`. Docs-only; **zero código/schema/migration/banco**.
+
+**D2 PROMULGADA por Clayton (PRINCÍPIO, não desenho técnico):** a PJ tem **identidade fiscal própria, separada da pessoa física**; **CNPJ é a verdade e único no sistema**; a identidade **não nasce/morre na troca de responsável** (transferência muda só vínculos humanos; CNPJ/histórico/documentos/reputação permanecem); **`companies.cnpj` é projeção subordinada** (em conflito, vence a identidade fiscal PJ); identidade própria **não** torna a empresa soberana (fecha em CPF). Casa fiscal PJ = **própria, canônica e global**.
+
+**Registrado (docs-only):** `docs/02_decisions/DECISION_0084_PJ_FISCAL_IDENTITY_CANONICAL_HOME.md` (D2.1–D2.8). **NÃO** batiza tabela, **NÃO** fixa colunas/constraints/FK, **NÃO** escolhe nome (candidatos: fiscal_identities/tax_identities/organizational_identities; evitar company_identities/legal_entities/pj_identities; proibido reusar identities), **NÃO** implementa writer.
+
+**DTs:** atualizadas (nota D2) `DT-PJ-CNPJ-CANONICAL-HOME-MISSING` (substrato técnico pendente) e `DT-PJ-CNPJ-UNIQUE-CHECK-MISSING` (CNPJ único GLOBAL; enforce na fonte, companies.cnpj projeção); referenciada `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` (D2.5); **criada** `DT-PJ-IDENTITY-PRECEDENCE-NORM-GAP` (IDENTITY_SSOT_PRECEDENCE é pessoa-cêntrico; falta incorporar a precedência de PJ à norma — norma antes de schema). **Sem DT gêmea das da 0081.**
+
+**Fundamento de disco (read-only D2):** identities pessoa-cêntrica (global, sem tenant, tax_id sem UNIQUE); companies.cnpj sem enforce; nenhum substrato fiscal PJ vivo; company-canonical quebrado; **precedente global_users.cpf UNIQUE global** → CNPJ único global viável.
+
+**PRÓXIMA ETAPA:** consolidação + **DESENHO TÉCNICO DA D2** (nome/colunas/constraints/FK/writer da casa fiscal PJ). **D3-técnica vem DEPOIS, ancorada na identidade fiscal PJ da D2 (identidade antes de autoridade; D3-técnica NÃO precede a D2 técnica).** Implementação bloqueada (MVP-A não inclui PJ comercial). Numeração: 0084 (série contínua).
+
+---
+
 ## 2026-06-03 — UX do piloto MVP-A ajustada (frontend-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `40cbd640`. **Só frontend** (3 arquivos) + STATUS/opus. **Zero backend/Bank/gate/mock/migration.**
