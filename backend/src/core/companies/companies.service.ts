@@ -267,10 +267,11 @@ class CompaniesService {
     // 🔴 Normalizar CNPJ defensivamente: remover formatação (pontos, barras, hífens)
     const normalizedCNPJ = input.cnpj.replace(/\D/g, '');
     
-    // 🔴 Validar APENAS formato do CNPJ (não dígitos verificadores)
-    const formatValidation = this.validateCNPJFormat(normalizedCNPJ);
-    if (!formatValidation.valid) {
-      throw new Error(formatValidation.error || 'CNPJ deve ter 14 dígitos');
+    // DECISION-0085 §4.3: dígito verificador validado na BORDA (função local, sem Receita/GovBR/internet).
+    // Bloqueia antes de reservar a identidade fiscal — nenhuma fiscal_identity nasce com CNPJ inválido.
+    const cnpjValidation = this.validateCNPJ(normalizedCNPJ);
+    if (!cnpjValidation.valid) {
+      throw new Error(cnpjValidation.error || 'CNPJ inválido');
     }
 
     // formattedCNPJ já é apenas números (normalizado acima)
@@ -481,24 +482,40 @@ class CompaniesService {
     // A escrita em `actors` permanece na camada actor-writer (ensurePageActorTx), só usando o
     // client desta transação (writer soberano §4.8). Endereço/domains/preferences saem para
     // pós-commit (não-críticos; nunca derrubam o núcleo já committado).
-    const { companyId, companyUserId } = await withTransaction(finalTenantId, async (client) => {
-      // Tenant context DENTRO da tx (RLS de `actors`). Prova empírica (set_config local=true
-      // após BEGIN): sobrevive na transação e reverte no COMMIT (não vaza p/ conexão do pool).
+    let birthResult: { companyId: string; companyUserId: string; fiscalIdentityId: string };
+    try {
+      birthResult = await withTransaction(finalTenantId, async (client) => {
+      // Tenant context DENTRO da tx (RLS de `actors`). set_config local=true após BEGIN: sobrevive
+      // na transação e reverte no COMMIT (não vaza p/ conexão do pool).
       await client.query("SELECT set_config('app.current_tenant', $1, true)", [finalTenantId]);
+
+      // [FISCAL-FIRST] DECISION-0085 §4.6: reserva a identidade fiscal PJ pending + CNPJ único global
+      // ANTES da company. CNPJ duplicado → UNIQUE global (uq_fiscal_identities_cnpj) explode AQUI,
+      // dentro da tx → ROLLBACK total (fiscal + company + company_users + page-actor): zero órfão,
+      // CNPJ nunca consumido pela metade. `fiscal_identities` é a FONTE da verdade do CNPJ.
+      const fiscalRes = await client.query(
+        `INSERT INTO fiscal_identities (cnpj, kyb_status, created_by_actor_id)
+         VALUES ($1, 'pending', $2::uuid)
+         RETURNING fiscal_identity_id, cnpj`,
+        [formattedCNPJ, creatorActor.actor_id]
+      );
+      const fiscalId = fiscalRes.rows[0].fiscal_identity_id as string;
+      const projectedCnpj = fiscalRes.rows[0].cnpj as string; // companies.cnpj = PROJEÇÃO da fonte fiscal
 
       const companyRes = await client.query(
         `
         INSERT INTO companies (
-          tenant_id, global_user_id, cnpj, company_name, trade_name,
+          tenant_id, global_user_id, fiscal_identity_id, cnpj, company_name, trade_name,
           status, is_verified, company_status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING company_id
         `,
         [
           finalTenantId,
           globalUserId,
-          formattedCNPJ,
+          fiscalId,        // FK Opção 2: companies.fiscal_identity_id presente desde o nascimento pending
+          projectedCnpj,   // projeção de fiscal_identities.cnpj (createCompany NÃO é fonte autônoma)
           companyName,
           tradeName || null,
           'active',
@@ -555,8 +572,17 @@ class CompaniesService {
       return {
         companyId: newCompanyId,
         companyUserId: userRes.rows[0].company_user_id as string,
+        fiscalIdentityId: fiscalId,
       };
     });
+    } catch (err: any) {
+      // CNPJ duplicado na FONTE (uq_fiscal_identities_cnpj) → erro de domínio limpo, sem SQL cru vazando.
+      if (err?.code === '23505' && /uq_fiscal_identities_cnpj/.test(String(err?.constraint ?? err?.message ?? ''))) {
+        throw new Error('CNPJ já cadastrado no sistema: já existe identidade fiscal PJ para este CNPJ.');
+      }
+      throw err;
+    }
+    const { companyId, companyUserId } = birthResult;
 
     // ── PÓS-COMMIT — não-crítico: NUNCA derruba o núcleo já committado ───────────
     // 1) Endereço (opcional/enriquecimento). createAddressAndAssign é ATÔMICO (address +

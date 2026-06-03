@@ -10750,7 +10750,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-CNPJ-CANONICAL-HOME-MISSING
 
-- **Status:** OPEN (2026-06-02)
+- **Status:** CLOSED (2026-06-03) — frente F1 (`F-PJ-FISCAL-IDENTITY-SUBSTRATE`): casa fiscal canônica **`fiscal_identities`** **criada** (migration `20260603120000`), **migrada** e **usada no nascimento** (`createCompany` fiscal-first reserva a identidade fiscal PJ pending antes da company; `companies.cnpj` vira projeção). Provado em DB efêmera (`validate-pipeline-e2e-atomic-company-birth`, 18/18). _(antes: OPEN 2026-06-02 → updates D1/D2/D2-técnica → fechada na materialização F1.)_
 - **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (prova read-only de CNPJ + desenho fechado das 7 peças).
 - **Vinculada a:** `DECISION-0081` (M0), `IDENTITY_SSOT_PRECEDENCE.md`.
 - **Contexto:** CNPJ existe em `companies.cnpj` (vivo) e `identities` aceita `tax_id_type='cnpj'` (CHECK 14 díg) mas é dead-code para PJ; **não há casa canônica nem fonte de precedência implementada** para a identidade fiscal da empresa. `IDENTITY_SSOT_PRECEDENCE` é pessoa-cêntrico (`global_user_id`) e não normatiza identidade fiscal de PJ.
@@ -10763,7 +10763,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-CNPJ-UNIQUE-CHECK-MISSING
 
-- **Status:** OPEN (2026-06-02)
+- **Status:** CLOSED (2026-06-03) — frente F1: **UNIQUE global** (`uq_fiscal_identities_cnpj`) + **CHECK 14 dígitos** (`chk_fiscal_identities_cnpj_14`) **aplicados na FONTE** `fiscal_identities` (migration `20260603120000`) e **testados** (DB efêmera: schema presente + CNPJ duplicado global → rollback total dentro da tx; DV/formato bloqueados na borda). `companies.cnpj` = projeção (não fonte). _(antes: OPEN 2026-06-02.)_
 - **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` (verificação `pg_constraint`/`pg_indexes`).
 - **Vinculada a:** `DECISION-0081`, `DT-PJ-CNPJ-CANONICAL-HOME-MISSING`.
 - **Contexto:** `companies.cnpj` é text nullable **sem UNIQUE, sem CHECK de 14 dígitos, sem índice, sem FK**. Validação no fluxo vivo é só de formato (não dígito verificador) e duplicidade só por `(tenant_id, global_user_id, cnpj)` — schema **permite o mesmo CNPJ em empresas distintas por CPFs distintos**.
@@ -10775,7 +10775,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING
 
-- **Status:** OPEN (2026-06-02)
+- **Status:** PARTIALLY MITIGATED (2026-06-03) — frente F1 materializou a identidade fiscal PJ (`fiscal_identities`) com **campos KYB pending** (`kyb_status`, `reviewed_by_actor_id`, `reviewed_at`, `decision_reason`) e CHECK de auditoria mínima no `approved`. **NÃO fechada:** o **SSOT estruturado de documentos PJ** (tipo/verificação/armazenamento) e o **writer KYB auditado** (approve/reject via workflow) são **F2** — não entregues na F1. _(antes: OPEN 2026-06-02.)_
 - **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY`.
 - **Vinculada a:** `DECISION-0081` (§5.1).
 - **Contexto:** documentos PJ obrigatórios (enviados na criação, analisados manualmente) **não têm SSOT estruturado**. `company_validation_requests` existe (submit→review→decisão, `metadata` jsonb) mas **não é SSOT de documento** (sem tipo/verificação/armazenamento canônicos).

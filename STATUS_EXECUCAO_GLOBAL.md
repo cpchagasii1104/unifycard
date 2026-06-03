@@ -1,3 +1,21 @@
+## 2026-06-03 — F1 PJ FISCAL IDENTITY: casa fiscal PJ materializada + nascimento fiscal-first (código+migration)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `583d1edb`. Migration única + código mínimo + teste efêmero + docs. **Zero** Bank/ledger/KYC-gate/mock/frontend/MVP-A; **`identities` PF intocada**; `unificard_dev` intocada.
+
+**Materializa a DECISION-0085 (D2-técnica), F1:**
+- **Migration `20260603120000`:** cria **`fiscal_identities`** (GLOBAL, sem tenant) — `fiscal_identity_id` PK, `cnpj VARCHAR(14) NOT NULL` + **UNIQUE global** (`uq_fiscal_identities_cnpj`) + **CHECK 14 dígitos**, `kyb_status` (CHECK enxuto pending/approved/rejected/suspended/closed), auditoria `created_by_actor_id`/`reviewed_by_actor_id` (FK `actors(id)` ON DELETE SET NULL) + CHECK auditoria-no-approved, `reviewed_at`/`decision_reason`/timestamps. **Sem** kyb_level/metadata/legal_name/document_number/company_id. Adiciona **`companies.fiscal_identity_id`** (FK→fiscal, nullable p/ compat, índice) + COMMENTs (companies.cnpj = projeção).
+- **Código (`createCompany` fiscal-first):** dentro do `withTransaction` — **1 fiscal_identities (cnpj, kyb_status=pending, created_by_actor_id=criador)** → 2 companies (`fiscal_identity_id`=fiscalId, `cnpj`=projeção) → 3 company_users → 4 page-actor → COMMIT. **DV de CNPJ na borda** (validateCNPJ, sem Receita/internet). CNPJ duplicado → UNIQUE global explode no passo 1 → **rollback total** (remap 23505 → erro de domínio limpo). `companies.cnpj` deixa de ser fonte autônoma.
+
+**Teste efêmero (`validate-pipeline-e2e-atomic-company-birth`, 18/18 verde):** migration aplicada; happy fiscal-first (fiscal pending + FK + projeção + page-actor); duplicado global (2º usuário) → rollback in-tx; rollback total injetando falha após fiscal/company/company_users/page-actor; tenant-context+no-leak; DV inválido e formato inválido bloqueados na borda (zero fiscal); identities PF intacta (0 cnpj); zero Bank. DB efêmera dropada.
+
+**Gates:** typecheck 0 · actor-writer §4.8.1 OK (não mexi no writer, só usei `ensurePageActorTx`) · bank-ledger §4.6 OK · regression-guards OK (353 migrations, numeração única) · architecture --strict exit 0 (critical_new=0; 1 warning é arquivo não-tocado).
+
+**DTs:** `DT-PJ-CNPJ-CANONICAL-HOME-MISSING` → **CLOSED** (casa criada/migrada/usada). `DT-PJ-CNPJ-UNIQUE-CHECK-MISSING` → **CLOSED** (UNIQUE+CHECK na fonte, testados). `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` → **PARTIALLY MITIGATED** (campos KYB pending existem; SSOT documentos + writer KYB = F2). `DT-PJ-IDENTITY-PRECEDENCE-NORM-GAP` inalterada.
+
+**F2 (próxima):** writer KYB auditado (approve/reject espelhando identity-validation) · SSOT de documentos PJ · gate de authority lendo `kyb_status`. Depois: D3-técnica → D5/D4/D6/D7. PJ comercial segue bloqueada.
+
+---
+
 ## 2026-06-03 — DECISION-0085: D2 TÉCNICA promulgada — casa fiscal PJ `fiscal_identities` (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `8d5ee22c`. **Docs-only**; zero migration/código/schema/Bank/runtime. Autoriza a fase seguinte (migration+código), **não a executa**.

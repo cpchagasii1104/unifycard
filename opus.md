@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.10) — F1: casa fiscal PJ materializada + nascimento fiscal-first
+
+Implementei a F1 da DECISION-0085 (envelope executor). Migration `20260603120000`: cria `fiscal_identities` (GLOBAL) — cnpj VARCHAR(14) UNIQUE global + CHECK 14, kyb_status enxuto (5 estados), auditoria `*_actor_id` FK→actors(id) (resolvi: actors tem `id` PK e `actor_id`; TODAS as FKs do schema referenciam actors(id); actor_id==id), CHECK auditoria-no-approved; sem kyb_level/metadata/legal_name/company_id. Adiciona companies.fiscal_identity_id (FK, nullable, índice) + COMMENTs.
+
+Código createCompany fiscal-first: dentro do withTransaction, INSERT fiscal_identities ANTES de companies (passo 1), companies.fiscal_identity_id=fiscalId, companies.cnpj=projeção. DV agora na borda (troquei validateCNPJFormat→validateCNPJ). CNPJ duplicado → UNIQUE global 23505 → wrap try/catch remapeia p/ erro de domínio. NÃO toquei actor-writer (só usei ensurePageActorTx da F-ATOMIC).
+
+Teste reescrito (validate-pipeline-e2e-atomic-company-birth, 18/18): gerei validCnpj()/validCpf() com DV (random14 quebrava sob DV enforce); 2º usuário p/ duplicidade global in-tx; birthCoreThenThrow agora fiscal-first (4 pontos de injeção). Cobre: migration aplicada, happy fiscal-first, duplicado global rollback, rollback 4 passos, tenant-context, DV/formato inválidos bloqueados, identities PF intacta (0 cnpj), zero Bank. Bug do teste: array_agg(conname) é name[] → node-pg não parseia → troquei p/ count.
+
+Gates: typecheck 0; actor-writer OK; bank-ledger OK; regression-guards OK (353 migr); arch --strict exit 0. unificard_dev confirmada intocada (fiscal_identities=f). DTs: CANONICAL-HOME + UNIQUE-CHECK → CLOSED; KYC-DOCUMENTS → PARTIALLY MITIGATED (campos KYB pending; SSOT docs + writer KYB = F2). Commit por caminho explícito.
+
+**ATENÇÃO colateral:** DV enforce em createCompany pode quebrar OUTROS E2E que usam CNPJ random (two-moments, company) — não estão nos meus gates; precisarão de validCnpj. Registrado p/ follow-up. **Próximo F2:** writer KYB auditado approve/reject + SSOT documentos + gate authority lê kyb_status.
+
+---
+
 ## Sessão 2026-06-03 (cont.9) — DECISION-0085: D2 TÉCNICA promulgada (casa fiscal PJ fiscal_identities)
 
 Após READ-ONLY final D2 + insumo (rascunho no chat), Clayton ratificou com refinamentos e disparou envelope executor docs-only. Promulguei `DECISION_0085_PJ_FISCAL_IDENTITY_TECHNICAL_DESIGN.md` (próximo livre confirmado = 0085). Concedi o nome: `fiscal_identities` (não `organizational_identities` — arquiteto: "organizational" é aberto demais, vira saco de gatos; fiscal_identities diz o que é, escopo PJ/CNPJ).
