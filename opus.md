@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-02 (cont.3) — DECISION-0082: D1 casa canônica do CNPJ (docs-only)
+
+Clayton promulgou **D1** (1ª derivada da M0): a identidade fiscal do CNPJ é canônica em **camada PRÓPRIA de identidade fiscal de PJ** (não `identities`, que é pessoa-cêntrico); **`companies.cnpj` = projeção operacional protegida** (não fonte soberana); operação **por vínculo CPF autorizado, nunca login compartilhado**. = caminho C do desenho C0, mas com fonte = camada própria de PJ. Razão: empresa tem ciclo de vida próprio (transferência/sócios/procuradores/histórico que sobrevive ao dono). Registrei `DECISION_0082_PJ_CNPJ_CANONICAL_HOME.md`; atualizei `DT-PJ-CNPJ-CANONICAL-HOME-MISSING` (precedência decidida, estrutura=D2 pendente, OPEN). **Nenhuma DT nova.**
+
+**Guardado p/ D4/D5+Bank (verbalizado, NÃO decidido):** caução de saldo na transferência — reter parte do saldo PESSOAL do vendedor como garantia antifraude, COM travas duras: (a) só com consentimento (nunca forçado/unilateral = sequestro), (b) proporcional + sinal+operador humano (nunca automático), (c) dentro do Bank (Lei 5; nunca saldo_retido paralelo). Viabilidade pende de prova: Bank suporta hold/escrow? É a versão financeira da D4 (amarrar vendedor ao passado).
+
+**D1 NÃO decide:** nome de tabela/UNIQUE/CHECK/FK (=D2), transferência (=D5), 5 anos (=D4), anti-laranja (=D6), validação forte (frente própria LGPD). Ordem: D1✅→D2/D3→D5→D4/D6/D7→validação forte→migration única→código. Numeração 0082 (série contínua). Implementação BLOQUEADA.
+
+---
+
 ## Sessão 2026-06-02 (cont.2) — DECISION-0081: M0 da PJ promulgada (docs-only)
 
 Após prova read-only de CNPJ + desenho fechado das 7 peças, Clayton **promulgou a M0**: *PJ é identidade fiscal própria, mas não autoridade soberana* — empresa tem CNPJ/KYC/histórico/continuidade próprios, sobrevive à troca de dono, mas toda ação fecha em CPF (CNPJ nunca substitui CPF como raiz). Registrei docs-only: `DECISION_0081_PJ_FISCAL_IDENTITY_AND_RESPONSIBILITY.md` + 9 DTs OPEN.

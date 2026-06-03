@@ -10755,6 +10755,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** sem casa canônica, CNPJ permanece atributo solto fora do KYC/authority; construir PJ sem isso gera dupla verdade fiscal.
 - **Mitigação atual:** `DECISION-0081` promulga a M0 (empresa = identidade fiscal própria, não-soberana); a casa canônica (D1) é derivada pendente de promulgação. Nada tocado.
 - **Resolução prevista:** promulgar a norma de identidade fiscal de PJ (norma antes de schema) e então a casa canônica (A `companies.cnpj` / B `identities` / C ambos com precedência), em migration única coerente.
+- **Atualização (D1 — `DECISION-0082`, 2026-06-02):** **precedência DECIDIDA.** Caminho **C** — fonte canônica = **camada própria de identidade fiscal de PJ** (não `identities`, que é pessoa-cêntrico); `companies.cnpj` = **projeção operacional protegida**; operação por **vínculo CPF autorizado** (nunca login compartilhado). **DT permanece OPEN:** a precedência foi promulgada, mas a **estrutura técnica** (materialização da camada própria, UNIQUE/CHECK/FK/índice) é **D2/desenho técnico pendente** — ver `DT-PJ-CNPJ-UNIQUE-CHECK-MISSING`.
 
 ## DT-PJ-CNPJ-UNIQUE-CHECK-MISSING
 

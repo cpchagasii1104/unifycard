@@ -1,3 +1,22 @@
+## 2026-06-02 — DECISION-0082: D1 promulgada — casa canônica do CNPJ (identidade fiscal própria PJ) (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `1b768037` · working tree limpo.
+**Frente:** `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` — fatia de **promulgação da D1** (1ª derivada da M0/DECISION-0081). Docs-only, **zero código/migration/banco**.
+
+**D1 PROMULGADA por Clayton (decisão de PRECEDÊNCIA, não de schema):**
+1. **Onde o CNPJ mora:** identidade fiscal da empresa (CNPJ/KYC/documentos/histórico/reputação/continuidade) é canônica em **camada PRÓPRIA de identidade fiscal de PJ** (natureza distinta da PF).
+2. **`companies.cnpj` é PROJEÇÃO operacional protegida** — não a fonte soberana, não verdade solta.
+3. **Operação por vínculo CPF autorizado** — nunca login/senha compartilhado; cada CPF age com a própria identidade.
+→ Caminho **C** (fonte canônica própria + companies projeta), com a fonte sendo camada própria de PJ (não `identities`, que é pessoa-cêntrico). Razão: empresa tem ciclo de vida/estrutura própria (transferência, sócios, procuradores, histórico que sobrevive ao dono).
+
+**Registrado (docs-only):** `docs/02_decisions/DECISION_0082_PJ_CNPJ_CANONICAL_HOME.md`. `DT-PJ-CNPJ-CANONICAL-HOME-MISSING` atualizada (precedência decidida; estrutura técnica = D2 pendente; permanece OPEN). **Nenhuma DT nova criada.**
+
+**Diretriz VERBALIZADA guardada para D4/D5+Bank (NÃO decidida):** caução/retenção de saldo na transferência (reter parte do saldo PESSOAL do vendedor como garantia antifraude) — com travas: (a) só com consentimento explícito (nunca retenção forçada), (b) proporcional + acionada por sinal+operador humano (nunca automática), (c) dentro do Bank (Lei 5; nunca saldo_retido paralelo). Pendência de viabilidade: o Bank suporta hold/escrow? (prova read-only futura).
+
+**Derivadas D2–D7 + validação forte + migration única = PENDENTES.** Implementação BLOQUEADA. Numeração: 0082 (série 0064–0081 contínua). **Próxima etapa:** consolidação Opus/ChatGPT + promulgação da D3.
+
+---
+
 ## 2026-06-02 — DECISION-0081: M0 da Pessoa Jurídica promulgada (identidade fiscal própria, não-soberana) + 9 DTs (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `f7d15a8a` · working tree limpo.
