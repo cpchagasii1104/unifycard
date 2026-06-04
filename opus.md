@@ -6,6 +6,22 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.23) — PJ VERIFIED WRITERS Fase 2.4 IMPLEMENTADA (reviewCompanyValidation não verifica)
+
+Executei a Fase 2.4 da DECISION-0090 (envelope executor — a mais cirúrgica, toca E2E vivo). Reancorei (HEAD ab2b28bd, rescue-structural, unificard_dev).
+
+Mudança: desabilitei o caminho approved de reviewCompanyValidation (companies.service.ts) → lança HttpError 501 PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED ANTES da transação (request fica pending, nada escrito). Transação virou só-rejeição (removi UPDATE companies VERIFIED + resolve page-actor + audit STRUCTURED_REVIEW). Rejeição segue. MARCO: companies.service.ts está LIMPO de escritas VERIFIED — os 4 writers daquele arquivo neutralizados (2.1-2.4).
+
+E2E vivo ajustado (validate-pipeline-e2e-company.ts): A4 espera approved→disabled + provas (request pending, companies PROVISIONAL/false, sem audit metadata.validation); B1→COMPANY_HAS_PENDING_VALIDATION (request ETAPA 3 segue pending); B3 usa rejected (approved recusado antes do lookup) mantendo guard NOT_REVIEWABLE; B4 espera disabled-error. Tornei o setup idempotente (tenant+RBAC) p/ rodar em efêmera sem DML em dev.
+
+SIDE-FIX flagado: generateCnpjFormat do E2E estava SEM DV válido → ETAPA 2 (createCompany) falhava por "CNPJ inválido (DV incorreto)" — quebrado desde F1 (DV enforcement), INDEPENDENTE da minha mudança. Corrigi o gerador p/ DV oficial; des-quebra o E2E e torna a prova rodável.
+
+Prova: E2E PASS em DB efêmera (run-e2e-company-ephemeral.ps1). Typecheck 0; 4 gates OK (warning_new=1 = c3 pré-existente). Achei também que createCompany loga não-crítico "company_domains/company_opportunity_preferences não existe" no FULL (tabelas opcionais ausentes; tratado, núcleo intacto).
+
+Resta 1 writer vivo de VERIFIED: FASE 12 QR (company-validation.service.ts:270, escreve company_status='VERIFIED'+verifiedAt) — Fase 2.5, exige desenho próprio. DTs: LEGACY-VERIFIED-WRITERS-MULTIPLE (Fase 2.4, resta 1, OPEN); SECOND-TRUTH (OPEN). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase 2.5 — READ-ONLY/DESIGN da FASE 12 QR antes de qualquer código.
+
+---
+
 ## Sessão 2026-06-04 (cont.22) — PJ VERIFIED WRITERS Fase 2.3 IMPLEMENTADA (updateDocumentStatus não verifica)
 
 Executei a Fase 2.3 da DECISION-0090 (envelope executor). Reancorei (HEAD a1635a06, rescue-structural, unificard_dev).

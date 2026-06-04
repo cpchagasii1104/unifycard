@@ -2,7 +2,8 @@
  * G2 — VALIDATE PIPELINE E2E COMPANY (nascimento de empresa, pré-gate financeiro)
  *
  * Encadeia ponta a ponta: cadastro PF -> createCompany -> submitForValidation
- * -> reviewCompanyValidation (approved/transacional). Cada etapa com SELECT
+ * -> reviewCompanyValidation. APROVAÇÃO legada DESABILITADA (DECISION-0090 Fase 2.4):
+ * approved é recusado e NÃO verifica empresa; rejeição segue. Cada etapa com SELECT
  * confirmatório direto no banco. Modo A causal + Modo B falsificações.
  *
  * ESCOPO LIMITADO ao caminho de nascimento de empresa. NÃO estende para
@@ -21,6 +22,8 @@ import { join } from 'path';
 import { pool } from '../core/database/pool';
 import { authService } from '../core/auth/auth.service';
 import { companiesService } from '../core/companies/companies.service';
+import { tenantService } from '../core/tenants/tenant.service';
+import { rbacService } from '../core/rbac/rbac.service';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
@@ -75,9 +78,19 @@ function generateValidCpf(seed: number): string {
   return ten + dv2;
 }
 
-// CNPJ: createCompany valida apenas o formato (14 dígitos), não os DV.
+// CNPJ válido pelo dígito verificador (algoritmo oficial). createCompany enforça DV desde
+// F1/DECISION-0085 (validateCNPJ) — gerador sem DV quebrava a ETAPA 2 independentemente desta fatia.
 function generateCnpjFormat(seed: number): string {
-  return String(seed).padStart(14, '0').slice(-14);
+  const base = String(seed).padStart(12, '0').slice(-12);
+  const calcDv = (nums: string, weights: number[]): number => {
+    let s = 0;
+    for (let i = 0; i < weights.length; i++) s += parseInt(nums[i]!, 10) * weights[i]!;
+    const r = s % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  const dv1 = calcDv(base, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const dv2 = calcDv(base + dv1, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return base + String(dv1) + String(dv2);
 }
 
 const RUN_TAG = Date.now();
@@ -163,6 +176,13 @@ async function main(): Promise<void> {
     socialPortsRegistry.setSocialService(socialServiceAdapter);
     socialPortsRegistry.setEventFeedHandlers(eventFeedHandlersAdapter);
   }
+
+  // Setup idempotente: garante tenant + RBAC. No-op se já existem (ex.: unificard_dev);
+  // habilita rodar em DB efêmera sem tocar dev (DECISION-0090 Fase 2.4 — prova do approved desligado).
+  if ((await pool.query('SELECT id FROM tenants WHERE id=$1', [TENANT_ID])).rowCount === 0) {
+    await tenantService.createTenant({ id: TENANT_ID, name: 'E2E Company Tenant', slug: `e2e-company-${RUN_TAG}` });
+  }
+  await rbacService.seedDefaultRBAC(TENANT_ID);
 
   const cleanupState: CleanupState = { companyIds: [] };
 
@@ -331,111 +351,73 @@ async function main(): Promise<void> {
     );
 
     // ============================================================
-    // ETAPA 4 — reviewCompanyValidation approved (transacional)
+    // ETAPA 4 — reviewCompanyValidation approved DESABILITADO (DECISION-0090 Fase 2.4)
     // ============================================================
-    console.log('--- Etapa 4: reviewCompanyValidation approved (transacional) ---');
-    await companiesService.reviewCompanyValidation(
-      requestId,
-      'approved',
-      'E2E approval reason',
-      ADMIN_USER_ID,
-      TENANT_ID,
+    console.log('--- Etapa 4: reviewCompanyValidation approved DESABILITADO ---');
+    await expectFail(
+      'A4: reviewCompanyValidation(approved) → PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED (aprovação legada desligada)',
+      async () => {
+        await companiesService.reviewCompanyValidation(
+          requestId,
+          'approved',
+          'E2E approval reason',
+          ADMIN_USER_ID,
+          TENANT_ID,
+        );
+      },
+      /PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED/,
     );
 
-    // SELECT 4a: request approved + reviewed_by_user_id + decision_reason.
-    const fr = await pool.query<{
-      status: string;
-      reviewed_by_user_id: string;
-      decision_reason: string;
-      reviewed_at: Date;
-    }>(
-      `SELECT status, reviewed_by_user_id::text AS reviewed_by_user_id, decision_reason, reviewed_at
-         FROM company_validation_requests WHERE id = $1::uuid`,
+    // SELECT 4-prova-req: request continua 'pending' (approved lançou antes de qualquer escrita).
+    const fr = await pool.query<{ status: string; reviewed_at: Date | null }>(
+      `SELECT status, reviewed_at FROM company_validation_requests WHERE id = $1::uuid`,
       [requestId],
     );
-    assertOk('A4a: request approved + reviewed_by_user_id=admin + decision_reason gravado', {
-      ok:
-        !!fr.rows[0] &&
-        fr.rows[0].status === 'approved' &&
-        fr.rows[0].reviewed_by_user_id === ADMIN_USER_ID &&
-        fr.rows[0].decision_reason === 'E2E approval reason',
-      reason: 'request final divergente',
+    assertOk('A4-prova-req: request continua pending (approved nao escreveu)', {
+      ok: !!fr.rows[0] && fr.rows[0].status === 'pending' && fr.rows[0].reviewed_at == null,
+      reason: 'request transicionou indevidamente',
       detail: fr.rows[0],
     });
-    const reqReviewedAt = fr.rows[0]!.reviewed_at;
 
-    // SELECT 4b: companies VERIFIED + is_verified=true.
-    const fc = await pool.query<{
-      company_status: string;
-      is_verified: boolean;
-      updated_at: Date;
-    }>(
-      `SELECT company_status, is_verified, updated_at FROM companies WHERE company_id = $1::uuid`,
+    // SELECT 4-prova-comp: companies continua PROVISIONAL + is_verified=false (NÃO verificada).
+    const fc = await pool.query<{ company_status: string; is_verified: boolean }>(
+      `SELECT company_status, is_verified FROM companies WHERE company_id = $1::uuid`,
       [companyId],
     );
-    assertOk('A4b: companies VERIFIED + is_verified=true', {
-      ok:
-        !!fc.rows[0] &&
-        fc.rows[0].company_status === 'VERIFIED' &&
-        fc.rows[0].is_verified === true,
-      reason: 'companies nao convergiu para VERIFIED',
+    assertOk('A4-prova-comp: companies PROVISIONAL & is_verified=false (nao verificada por fora do KYB)', {
+      ok: !!fc.rows[0] && fc.rows[0].company_status === 'PROVISIONAL' && fc.rows[0].is_verified === false,
+      reason: 'companies foi verificada indevidamente',
       detail: fc.rows[0],
     });
-    const companyUpdatedAt = fc.rows[0]!.updated_at;
 
-    // SELECT 4c: actors.metadata.validation do page actor com 6 campos canônicos.
+    // SELECT 4-prova-actor: page actor SEM audit metadata.validation (nenhuma aprovação gravada).
     const fa = await pool.query<{ validation: any }>(
       `SELECT metadata->'validation' AS validation FROM actors WHERE actor_id = $1::uuid`,
       [pageActorId],
     );
-    const v = fa.rows[0]?.validation;
-    assertOk(
-      'A4c: actors.metadata.validation com 6 campos canonicos (STRUCTURED_REVIEW, ADMIN_REVIEW, validated_at snake_case, reviewer_user_id, request_id, decision_reason)',
-      {
-        ok:
-          !!v &&
-          v.validation_method === 'STRUCTURED_REVIEW' &&
-          v.validated_by === 'ADMIN_REVIEW' &&
-          typeof v.validated_at === 'string' &&
-          v.reviewer_user_id === ADMIN_USER_ID &&
-          v.request_id === requestId &&
-          v.decision_reason === 'E2E approval reason',
-        reason: 'metadata.validation incompleto ou divergente',
-        detail: v,
-      },
-    );
-    const validatedAtIso: string = v.validated_at;
-
-    // SELECT 4d: 3 timestamps coincidem (mesma transação).
-    const t1 = reqReviewedAt.toISOString();
-    const t2 = companyUpdatedAt.toISOString();
-    const t3 = new Date(validatedAtIso).toISOString();
-    assertOk(
-      'A4d: 3 timestamps coincidem (request.reviewed_at = companies.updated_at = actor.validated_at) — atomicidade transacional confirmada',
-      {
-        ok: t1 === t2 && t2 === t3,
-        reason: 'timestamps divergem entre as 3 escritas — nao foi a mesma transacao',
-        detail: { request: t1, company: t2, actor: t3 },
-      },
-    );
+    assertOk('A4-prova-actor: page actor sem metadata.validation (sem audit de aprovacao)', {
+      ok: fa.rows[0]?.validation == null,
+      reason: 'audit de validacao foi gravado indevidamente',
+      detail: fa.rows[0]?.validation,
+    });
 
     // ============================================================
     // MODO B — Falsificações (runtime deve rejeitar)
     // ============================================================
     console.log('\n=== Modo B — Falsificacao ativa ===');
 
-    // B1: submit em company já VERIFIED (a que acabou de aprovar).
+    // B1: company com pending existente (o request de ETAPA 3 segue pending — approved foi recusado).
     await expectFail(
-      'B1: submit em company ja VERIFIED → COMPANY_NOT_IN_PROVISIONAL',
+      'B1: submit em company com pending existente → COMPANY_HAS_PENDING_VALIDATION',
       async () => {
         await companiesService.submitForValidation(
           companyId,
           TENANT_ID,
           userId,
-          'tentativa em verified',
+          'tentativa com pending existente',
         );
       },
-      /COMPANY_NOT_IN_PROVISIONAL/,
+      /COMPANY_HAS_PENDING_VALIDATION/,
     );
 
     // Setup para B2: nova company PROVISIONAL com pending submetido.
@@ -472,14 +454,15 @@ async function main(): Promise<void> {
       /COMPANY_HAS_PENDING_VALIDATION/,
     );
 
-    // B3: review de requestId inexistente.
+    // B3: review(rejected) de requestId inexistente → guard de request não-revisável.
+    //     (approved é recusado ANTES do lookup pela neutralização Fase 2.4 — usa-se rejected p/ testar o guard.)
     const fakeRequestId = '00000000-0000-0000-0000-000000000000';
     await expectFail(
-      'B3: review de requestId inexistente → VALIDATION_REQUEST_NOT_REVIEWABLE',
+      'B3: review(rejected) de requestId inexistente → VALIDATION_REQUEST_NOT_REVIEWABLE',
       async () => {
         await companiesService.reviewCompanyValidation(
           fakeRequestId,
-          'approved',
+          'rejected',
           'fake',
           ADMIN_USER_ID,
           TENANT_ID,
@@ -488,7 +471,7 @@ async function main(): Promise<void> {
       /VALIDATION_REQUEST_NOT_REVIEWABLE/,
     );
 
-    // B4: approve em company SEM page actor -> ROLLBACK atomicidade.
+    // B4: approve em company SEM page actor -> recusado pela neutralização (Fase 2.4).
     const created3 = await companiesService.createCompany(
       globalUserId,
       {
@@ -507,26 +490,27 @@ async function main(): Promise<void> {
       userId,
       'submit para B4',
     );
-    // Remover o page actor para forçar o fail-loud no Step 4 do approved-path.
+    // Remove o page actor (estado degradado). Mesmo assim, approved é recusado ANTES de qualquer
+    // lógica de page actor (DECISION-0090 Fase 2.4) — prova que a recusa não depende do estado.
     await pool.query(
       `DELETE FROM actors WHERE tenant_id = $1::uuid AND company_id = $2::uuid AND actor_type = 'page'`,
       [TENANT_ID, companyId3],
     );
     await expectFail(
-      'B4: approve em company sem page actor → COMPANY_HAS_NO_PAGE_ACTOR (ROLLBACK forcado)',
+      'B4: approve (mesmo sem page actor) → PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED',
       async () => {
         await companiesService.reviewCompanyValidation(
           submitB4.id,
           'approved',
-          'B4 rollback',
+          'B4 disabled',
           ADMIN_USER_ID,
           TENANT_ID,
         );
       },
-      /COMPANY_HAS_NO_PAGE_ACTOR/,
+      /PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED/,
     );
 
-    // SELECT B4-prova: ROLLBACK efetivo - request continua pending, companies continua PROVISIONAL.
+    // SELECT B4-prova: approved recusado - request continua pending, companies continua PROVISIONAL.
     const b4req = await pool.query<{ status: string; reviewed_at: Date | null }>(
       `SELECT status, reviewed_at FROM company_validation_requests WHERE id = $1::uuid`,
       [submitB4.id],
@@ -536,7 +520,7 @@ async function main(): Promise<void> {
       [companyId3],
     );
     assertOk(
-      'B4-prova: ROLLBACK efetivo — request continua pending, companies continua PROVISIONAL',
+      'B4-prova: approved recusado — request continua pending, companies continua PROVISIONAL',
       {
         ok:
           b4req.rows[0]?.status === 'pending' &&
@@ -551,8 +535,8 @@ async function main(): Promise<void> {
     const divider = '======================================================';
     console.log(`\n${divider}`);
     console.log('G2 PIPELINE E2E COMPANY :: PASS');
-    console.log('  Modo A causal: 4 etapas + SELECTs confirmatorios + atomicidade');
-    console.log('  Modo B falsificacoes: 4 rejeitadas + ROLLBACK confirmado');
+    console.log('  Modo A causal: 4 etapas + SELECTs confirmatorios (approved legado DESLIGADO — DECISION-0090 Fase 2.4)');
+    console.log('  Modo B falsificacoes: 4 rejeitadas');
     console.log(`${divider}\n`);
   } finally {
     await cleanup(cleanupState);

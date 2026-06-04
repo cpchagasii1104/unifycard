@@ -1,3 +1,25 @@
+## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.4 IMPLEMENTADA: reviewCompanyValidation não verifica empresa
+
+**Branch:** `rescue-structural` · **HEAD origem:** `ab2b28bd`. Frente `F-PJ-VERIFIED-WRITERS-2.4` (DECISION-0090 §4.5). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-B/F2-C/FASE12/frontend. Os 2 screenshots untracked/intocados.
+
+**Mudança (aprovação legada desligada):**
+- `companies.service.ts`: o caminho `approved` de `reviewCompanyValidation` foi **desabilitado** — lança `HttpError` 501 (code `PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED`) **antes de abrir transação** (request permanece `pending`, nada escrito). A transação virou **só-rejeição** (removidos: UPDATE companies SET VERIFIED/is_verified; resolve page-actor; UPDATE actors.metadata.validation STRUCTURED_REVIEW). **REJEIÇÃO segue** (pending→rejected).
+- **MARCO:** `companies.service.ts` está agora **completamente limpo de escritas `company_status='VERIFIED'`/`is_verified=true`** — os 4 writers daquele arquivo (updateCompany 2.1, adminOverride 2.2, updateDocumentStatus 2.3, reviewCompanyValidation 2.4) neutralizados.
+
+**E2E vivo ajustado (`validate-pipeline-e2e-company.ts`):** A4 agora espera approved→`PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED` + 3 provas (request pending; companies PROVISIONAL/is_verified=false; page actor sem metadata.validation). B1→`COMPANY_HAS_PENDING_VALIDATION` (request de ETAPA 3 segue pending). B3 usa `rejected` (approved é recusado antes do lookup) mantendo o guard `VALIDATION_REQUEST_NOT_REVIEWABLE`. B4 espera o disabled-error. Setup tornado **idempotente** (tenant+RBAC) p/ rodar em efêmera sem tocar dev.
+
+**Side-fix flagado:** `generateCnpjFormat` do E2E corrigido para **DV válido** — estava quebrado **desde a F1** (createCompany passou a enforçar DV via `validateCNPJ`), fazia a ETAPA 2 falhar independentemente desta fatia. Correção des-quebra o E2E e torna a prova rodável.
+
+**Prova:** E2E **PASS** em DB efêmera (`run-e2e-company-ephemeral.ps1`). Typecheck **0**; 4 gates OK (arch --strict exit 0; único `warning_new` é o c3 pré-existente).
+
+**Outros writers:** `updateCompany`/`adminOverride`/`updateDocumentStatus` intocados (já neutralizados); FASE 12 QR intocada.
+
+**DTs:** `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (Fase 2.4 concluída, resta 1, OPEN) · `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (superfície quase zerada, OPEN).
+
+**PRÓXIMA ETAPA:** Fase 2.5 — **FASE 12 QR** (`company-validation.service.ts:270`), **único writer vivo de VERIFIED** restante (escreve `company_status='VERIFIED'`+`verifiedAt`). Exige **READ-ONLY/DESIGN próprio** (evidência KYB / presença física vs trilho humano/LGPD vs aposentar) antes de tocar código. Depois Fase 3 (`verifiedAt` 3º fantasma, schema/lifecycle, dados legados).
+
+---
+
 ## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.3 IMPLEMENTADA: updateDocumentStatus não verifica empresa
 
 **Branch:** `rescue-structural` · **HEAD origem:** `a1635a06`. Frente `F-PJ-VERIFIED-WRITERS-2.3` (DECISION-0090 §4.4). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-B/F2-C/company-validation/FASE12/frontend. Os 2 screenshots untracked/intocados.

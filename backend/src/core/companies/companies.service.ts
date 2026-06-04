@@ -2301,14 +2301,15 @@ class CompaniesService {
   }
 
   /**
-   * reviewCompanyValidation: admin decide pending → approved/rejected.
+   * reviewCompanyValidation: admin revisa um pedido de validação legado.
    *
-   * Atomicidade: o caminho approved encadeia 3 escritas (UPDATE request → UPDATE companies →
-   * UPDATE actors.metadata.validation). Tudo dentro de BEGIN/COMMIT no MESMO client; qualquer
-   * falha (inclusive o fail-loud COMPANY_HAS_NO_PAGE_ACTOR) força ROLLBACK — ou tudo grava,
-   * ou nada grava. RLS continua ativa via set_config('app.current_tenant', ..., true) local.
-   *
-   * §8: tenant explícito em TODOS os WHEREs (inclusive UPDATE companies).
+   * DECISION-0090 Fase 2.4: APROVAÇÃO legada DESABILITADA — `decision='approved'` lança
+   * PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED ANTES de abrir transação (request permanece
+   * 'pending', nada é escrito). Esta função NÃO verifica mais empresa por fora do KYB (não escreve
+   * company_status='VERIFIED'/is_verified nem audit STRUCTURED_REVIEW). Verificação fiscal tem
+   * FONTE ÚNICA (fiscal_identities.kyb_status) e writer próprio (fiscal-identity-kyb.service).
+   * REJEIÇÃO segue funcionando (transição pending→rejected na request; não verifica empresa).
+   * §8: tenant explícito no WHERE.
    */
   async reviewCompanyValidation(
     requestId: string,
@@ -2332,6 +2333,18 @@ class CompaniesService {
     }
     if (decision !== 'approved' && decision !== 'rejected') {
       throw new Error(`reviewCompanyValidation: decision inválida '${decision}' — esperado 'approved' ou 'rejected'`);
+    }
+
+    // DECISION-0090 Fase 2.4: aprovação legada DESABILITADA — não verifica empresa por fora do KYB.
+    // Lança ANTES de abrir transação: a request permanece 'pending' e nada é escrito (companies/
+    // is_verified/audit/kyb_status intactos). Aprovação fiscal deve usar o writer KYB auditado.
+    if (decision === 'approved') {
+      const err = new HttpError(
+        `PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED: Aprovação legada de empresa desabilitada. Use o fluxo KYB auditado. (request=${requestId})`,
+        501
+      );
+      (err as unknown as { code: string }).code = 'PJ_LEGACY_COMPANY_VALIDATION_APPROVAL_DISABLED';
+      throw err;
     }
 
     const client = await pool.connect();
@@ -2364,64 +2377,10 @@ class CompaniesService {
         throw new Error(`VALIDATION_REQUEST_NOT_REVIEWABLE: request ${requestId} não encontrado, fora do tenant, ou não está em status='pending'.`);
       }
 
-      // 2) Se rejected: nada mais a escrever — COMMIT e retorna.
-      if (decision === 'rejected') {
-        await client.query('COMMIT');
-        return {
-          id: updatedRequest.id,
-          companyId: updatedRequest.company_id,
-          status: updatedRequest.status,
-          reviewedAt: updatedRequest.reviewed_at ? updatedRequest.reviewed_at.toISOString() : null,
-          reviewedByUserId: updatedRequest.reviewed_by_user_id,
-          decisionReason: updatedRequest.decision_reason,
-        };
-      }
-
-      // 3) approved: PROVISIONAL → VERIFIED em companies. WHERE com tenant_id explícito (§8).
-      const companyUpdate = await client.query<{ company_id: string; company_status: string }>(
-        `UPDATE companies
-            SET company_status = 'VERIFIED', is_verified = true, updated_at = NOW()
-          WHERE tenant_id = $1::uuid AND company_id = $2::uuid
-          RETURNING company_id, company_status`,
-        [tenantId, updatedRequest.company_id]
-      );
-      if (companyUpdate.rows.length === 0) {
-        throw new Error(`COMPANY_NOT_FOUND_ON_APPROVE: company ${updatedRequest.company_id} desapareceu entre request e approve (race?).`);
-      }
-
-      // 4) Resolve PAGE actor para audit (Fatia A2: tenant explícito, fail-loud).
-      const pageActorResult = await client.query<{ actor_id: string }>(
-        `SELECT actor_id FROM actors
-          WHERE tenant_id = $1::uuid AND company_id = $2::uuid AND actor_type = 'page'
-          LIMIT 1`,
-        [tenantId, updatedRequest.company_id]
-      );
-      const pageActorRow = pageActorResult.rows[0];
-      if (!pageActorRow) {
-        // Fail-loud DENTRO da transação: o catch força ROLLBACK, então a request NÃO fica
-        // approved e companies NÃO fica VERIFIED se o audit não puder ser gravado.
-        throw new Error(`COMPANY_HAS_NO_PAGE_ACTOR: company ${updatedRequest.company_id} não possui page actor (estado degradado pré-§4.8.2). Audit de validação não foi gravado.`);
-      }
-
-      // 5) Audit no namespace 'validation' do page actor. 'STRUCTURED_REVIEW' distingue do
-      //    'ADMIN_OVERRIDE' direto (adminOverrideToVerified). Naming snake_case alinha com vizinhos.
-      await client.query(
-        `UPDATE actors
-            SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('validation', jsonb_build_object(
-                  'validation_method', 'STRUCTURED_REVIEW',
-                  'validated_by', 'ADMIN_REVIEW',
-                  'validated_at', NOW(),
-                  'reviewer_user_id', $2::uuid,
-                  'request_id', $4::uuid,
-                  'decision_reason', $5::text
-                )),
-                updated_at = NOW()
-          WHERE actor_id = $1::uuid AND tenant_id = $3::uuid`,
-        [pageActorRow.actor_id, reviewerUserId, tenantId, updatedRequest.id, reason ?? null]
-      );
-
+      // 2) DECISION-0090 Fase 2.4: só REJEIÇÃO chega aqui (approved lançou antes da transação).
+      //    Nada a verificar — COMMIT e retorna. NÃO escreve companies.company_status/is_verified
+      //    nem audit de validação no page actor.
       await client.query('COMMIT');
-
       return {
         id: updatedRequest.id,
         companyId: updatedRequest.company_id,
