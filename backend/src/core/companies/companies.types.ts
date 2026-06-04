@@ -128,7 +128,9 @@ export interface UpdateCompanyInput {
   contact?: Partial<CompanyContact>;
   activity?: Partial<CompanyActivity>;
   status?: 'active' | 'inactive' | 'suspended' | 'closed';
-  companyStatus?: CompanyStatus;
+  // DECISION-0090 Fase 2.1: `companyStatus` REMOVIDO do input de edição. updateCompany não pode
+  // ser caminho para alterar verificação fiscal (fonte única = fiscal_identities.kyb_status).
+  // Lifecycle/verificação têm writers próprios (KYB auditado); edição comum não toca company_status.
   metadata?: Record<string, any>;
 }
 

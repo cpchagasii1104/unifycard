@@ -1,3 +1,22 @@
+## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.1 IMPLEMENTADA: updateCompany não escreve company_status
+
+**Branch:** `rescue-structural` · **HEAD origem:** `1d2bdb77`. Frente `F-PJ-VERIFIED-WRITERS-2.1` (DECISION-0090 §4.2, primeiro corte de menor risco). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/company-validation/FASE12/frontend. Os 2 screenshots untracked/intocados.
+
+**Mudança (defensivo):**
+- `companies.service.ts`: **removido o branch latente** `if (input.companyStatus !== undefined) { ... company_status = $N ... }` em `updateCompany`.
+- `companies.types.ts`: **removido o campo `companyStatus`** de `UpdateCompanyInput`. `status` operacional (active/inactive/suspended/closed) preservado.
+- `updateCompany` não é mais caminho para verificação fiscal (nem direto, nem latente). Hole HTTP já estava fechado (zod stripava); agora a porta interna também.
+
+**Prova (DB efêmera `validate-pipeline-e2e-pj-updatecompany-no-status`, 7/7, via `run-pj-updatecompany-no-status-ephemeral.ps1`):** `updateCompany({companyName, status, companyStatus:'VERIFIED', isVerified:true} as any)` → companyName/status editados; `company_status` segue PROVISIONAL e `is_verified` segue false (no DTO **e** no banco); kyb read-model intacto; zero Bank. Typecheck 0; 4 gates OK (arch --strict exit 0; único `warning_new` é drift pré-existente do c3, não tocado).
+
+**Outros 4 writers NÃO tocados** (por escopo): `adminOverrideToVerified`, `updateDocumentStatus`, `reviewCompanyValidation`, FASE 12 QR.
+
+**DTs:** `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (Fase 2.1 concluída, OPEN) · `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (superfície reduzida, OPEN).
+
+**PRÓXIMA ETAPA:** Fase 2.2 — `adminOverrideToVerified` (aposentar como verificação direta / redirecionar p/ writer KYB auditado). Depois 2.3 (`updateDocumentStatus`), 2.4 (`reviewCompanyValidation` + E2E), 2.5 (FASE 12 QR — READ-ONLY/DESIGN próprio).
+
+---
+
 ## 2026-06-04 — DECISION-0090: reconciliação dos writers legados de VERIFIED (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `9eb56c30`. **Docs-only**; zero código/schema/migration/rota/DML/Bank/frontend/KYC-PF. Fixa estratégia + ordem de corte; implementação por fatias depois. Os 2 screenshots (`criacao-de-empresa.png`/`fluxo-empresa.png`) untracked/intocados.

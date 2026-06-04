@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.20) — PJ VERIFIED WRITERS Fase 2.1 IMPLEMENTADA (updateCompany no-status)
+
+Executei a Fase 2.1 da DECISION-0090 (envelope executor, primeiro corte de menor risco). Reancorei (HEAD 1d2bdb77, rescue-structural, unificard_dev).
+
+Mudança defensiva: removi (a) o branch latente `if (input.companyStatus !== undefined) { company_status = $N }` em updateCompany (companies.service.ts) e (b) o campo `companyStatus` de UpdateCompanyInput (companies.types.ts). Mantive `status` operacional. Callers verificados antes: updateCompany só é chamado pela rota (parsed.data zod-stripado); nenhum outro caller constrói UpdateCompanyInput com companyStatus → remoção segura. Hole HTTP já estava fechado pelo zod; fechei a porta interna.
+
+Prova: harness efêmero novo `validate-pipeline-e2e-pj-updatecompany-no-status` (7/7) — updateCompany com {companyStatus:'VERIFIED', isVerified:true} cast NÃO altera company_status (segue PROVISIONAL) nem is_verified (false), no DTO e no banco; edição comum (companyName/status) funciona; kyb read-model intacto; zero Bank. Typecheck 0; 4 gates OK (warning_new=1 é o c3 pré-existente, não meu).
+
+Outros 4 writers intocados por escopo (adminOverride, updateDocumentStatus, reviewCompanyValidation, FASE 12). DTs: LEGACY-VERIFIED-WRITERS-MULTIPLE (Fase 2.1 concluída, OPEN); SECOND-TRUTH (superfície reduzida, OPEN). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase 2.2 — adminOverrideToVerified (aposentar/redirecionar p/ KYB writer).
+
+---
+
 ## Sessão 2026-06-04 (cont.19) — DECISION-0090: reconciliação dos writers legados de VERIFIED (docs-only)
 
 Após READ-ONLY Fase 2 (mapeei os 5 escritores legados que ainda gravam company_status='VERIFIED'/is_verified/verifiedAt fora de kyb_status) + Clayton cravando os 7 martelos, despachei envelope docs-only. Promulguei `DECISION_0090_PJ_LEGACY_VERIFIED_WRITERS_RECONCILIATION.md` (0090).

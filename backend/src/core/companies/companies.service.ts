@@ -1483,11 +1483,9 @@ class CompaniesService {
       paramIdx++;
     }
 
-    if (input.companyStatus !== undefined) {
-      updates.push(`company_status = $${paramIdx}`);
-      values.push(input.companyStatus);
-      paramIdx++;
-    }
+    // DECISION-0090 Fase 2.1: branch latente de `company_status` REMOVIDO. updateCompany não escreve
+    // mais company_status por input — verificação fiscal tem fonte única (fiscal_identities.kyb_status)
+    // e writer próprio (KYB auditado). Edição comum permanece; lifecycle via writers dedicados.
 
     if (updates.length === 0) {
       return existing;
