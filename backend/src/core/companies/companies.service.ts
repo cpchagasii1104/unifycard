@@ -2156,19 +2156,12 @@ class CompaniesService {
       [status, JSON.stringify(updatedMetadata), documentId]
     );
 
-    // Se aprovado, atualizar status da empresa para 'VERIFIED'
+    // DECISION-0090 Fase 2.3: documento é EVIDÊNCIA, NÃO verifica a empresa. updateDocumentStatus
+    // atualiza apenas o documento legado (company_documents) — NÃO escreve companies.company_status/
+    // is_verified. Fonte única de verificação PJ = fiscal_identities.kyb_status (writer KYB auditado).
     if (status === 'approved') {
-      await pool.query(
-        `
-        UPDATE companies
-        SET company_status = 'VERIFIED', is_verified = true, updated_at = NOW()
-        WHERE company_id = $1::uuid
-        `,
-        [doc.company_id]
-      );
-
-      // 🔴 AUDITORIA: Log de aprovação
-      console.log('[CompaniesService] ✅ Documento aprovado:', {
+      // 🔴 AUDITORIA: Log de aprovação (apenas do documento)
+      console.log('[CompaniesService] ✅ Documento aprovado (não verifica empresa — DECISION-0090):', {
         documentId,
         companyId: doc.company_id,
         globalUserId: doc.global_user_id,

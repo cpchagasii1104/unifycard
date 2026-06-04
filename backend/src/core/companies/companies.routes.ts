@@ -610,8 +610,9 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
 
       return reply.send({
         ok: true,
-        message: status === 'approved' 
-          ? 'Documento aprovado. Empresa validada.' 
+        // DECISION-0090 Fase 2.3: aprovar documento legado NÃO verifica a empresa.
+        message: status === 'approved'
+          ? 'Documento aprovado.'
           : 'Documento rejeitado.',
         data: result,
       });

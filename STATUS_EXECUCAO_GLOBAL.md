@@ -1,3 +1,23 @@
+## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.3 IMPLEMENTADA: updateDocumentStatus não verifica empresa
+
+**Branch:** `rescue-structural` · **HEAD origem:** `a1635a06`. Frente `F-PJ-VERIFIED-WRITERS-2.3` (DECISION-0090 §4.4). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-B/F2-C/company-validation/FASE12/frontend. Os 2 screenshots untracked/intocados.
+
+**Mudança (documento é evidência, não estado fiscal):**
+- `companies.service.ts`: removido o bloco `if (status==='approved') { UPDATE companies SET company_status='VERIFIED', is_verified=true }` de `updateDocumentStatus`. A função segue atualizando **apenas** o documento legado (`company_documents`: status + metadata) + logs aprovação/rejeição + SELECT/return do status atual (inalterado).
+- `companies.routes.ts`: mensagem da rota `PATCH /companies/admin/documents/:id/status` corrigida ("Documento aprovado. Empresa validada." → "Documento aprovado.") — relato verdadeiro.
+
+**Achado material:** `company_documents` **NÃO existe** em `unificard_dev` (`to_regclass`=null; `CREATE TABLE` só em `migrations_archive/0046_...`, não aplicado). Logo `updateDocumentStatus` já era **runtime-dead** (o `SELECT FROM company_documents` lançaria antes do UPDATE). A remoção em código é defense-in-depth + correção para eventual restauração. Insumo para a futura decisão **convergir/rebaixar `company_documents` vs `fiscal_identity_documents`** (fora desta fatia, por envelope).
+
+**Prova:** typecheck **0** + grep/diff (E2E inviável sem fabricar a tabela = schema/DDL, fora de escopo; precedente Fase 2.1). Grep confirma: `company_status='VERIFIED'`/`is_verified=true` agora só em `reviewCompanyValidation` (Fase 2.4); `updateDocumentStatus` não toca `fiscal_identities`/`fiscal_identity_documents`. 4 gates OK (arch --strict exit 0; único `warning_new` é o c3 pré-existente).
+
+**Outros writers NÃO tocados:** `reviewCompanyValidation`, FASE 12 QR; `adminOverrideToVerified` segue 501; `updateCompany` sem branch latente.
+
+**DTs:** `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (Fase 2.3 concluída, restam 2, OPEN) · `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (superfície menor ainda, OPEN).
+
+**PRÓXIMA ETAPA:** Fase 2.4 — `reviewCompanyValidation` (redirecionar p/ KYB ou aposentar; **ajustar `validate-pipeline-e2e-company.ts` A4b junto**). Depois 2.5 (FASE 12 QR — READ-ONLY/DESIGN próprio). `reviewCompanyValidation` é agora o **único** writer vivo de `company_status='VERIFIED'`/`is_verified=true` em código (linha 2383).
+
+---
+
 ## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.2 IMPLEMENTADA: adminOverrideToVerified desabilitado
 
 **Branch:** `rescue-structural` · **HEAD origem:** `3a6cbdea`. Frente `F-PJ-VERIFIED-WRITERS-2.2` (DECISION-0090 §4.3). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/company-validation/FASE12/frontend. Os 2 screenshots untracked/intocados.

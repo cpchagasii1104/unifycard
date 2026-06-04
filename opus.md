@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.22) — PJ VERIFIED WRITERS Fase 2.3 IMPLEMENTADA (updateDocumentStatus não verifica)
+
+Executei a Fase 2.3 da DECISION-0090 (envelope executor). Reancorei (HEAD a1635a06, rescue-structural, unificard_dev).
+
+Mudança: removi de updateDocumentStatus o bloco `if(approved){ UPDATE companies SET company_status='VERIFIED', is_verified=true }` (companies.service.ts). A função segue atualizando só o documento legado (company_documents: status+metadata) + logs. Corrigi a mensagem da rota PATCH /companies/admin/documents/:id/status ("Empresa validada"→"Documento aprovado.", relato verdadeiro).
+
+ACHADO MATERIAL importante: company_documents NÃO existe em unificard_dev (to_regclass=null; CREATE só em migrations_archive/0046, não aplicado). updateDocumentStatus já era runtime-dead (SELECT FROM company_documents lançaria antes do UPDATE). Remoção em código = defense-in-depth + correção se a tabela voltar. Insumo p/ a futura decisão convergir/rebaixar company_documents vs fiscal_identity_documents (fora desta fatia).
+
+Prova: typecheck 0 + grep/diff (E2E inviável sem fabricar a tabela = schema/DDL fora de escopo; precedente Fase 2.1). Grep confirma: company_status='VERIFIED'/is_verified=true agora só em reviewCompanyValidation (linha 2383); updateDocumentStatus não toca fiscal_*. 4 gates OK (warning_new=1 = c3 pré-existente). Esta fatia NÃO criou test novo (tabela ausente).
+
+Outros writers intocados. reviewCompanyValidation é agora o ÚNICO writer vivo de VERIFIED em código. DTs: LEGACY-VERIFIED-WRITERS-MULTIPLE (Fase 2.3, restam 2, OPEN); SECOND-TRUTH (OPEN). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase 2.4 — reviewCompanyValidation (redirecionar p/ KYB ou aposentar + ajustar E2E company A4b).
+
+---
+
 ## Sessão 2026-06-04 (cont.21) — PJ VERIFIED WRITERS Fase 2.2 IMPLEMENTADA (adminOverride desabilitado)
 
 Executei a Fase 2.2 da DECISION-0090 (envelope executor). Reancorei (HEAD 3a6cbdea, rescue-structural, unificard_dev).
