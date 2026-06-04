@@ -1,3 +1,21 @@
+## 2026-06-04 — DECISION-0090: reconciliação dos writers legados de VERIFIED (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `9eb56c30`. **Docs-only**; zero código/schema/migration/rota/DML/Bank/frontend/KYC-PF. Fixa estratégia + ordem de corte; implementação por fatias depois. Os 2 screenshots (`criacao-de-empresa.png`/`fluxo-empresa.png`) untracked/intocados.
+
+**Promulgada (Fase 2 — neutralização dos 5 escritores legados, deriva de DECISION-0089):**
+- **Regra-mãe:** nenhum writer fora do **writer KYB auditado** pode criar "empresa verificada". Fonte única `kyb_status='approved'`. Proibidos como fonte: `company_status='VERIFIED'`, `is_verified=true`, `verifiedAt`, `company_documents`, `company_validation_requests`, metadata, frontend.
+- **Destino por writer:** `updateCompany` → remover branch latente `companyStatus` (defensivo); `adminOverrideToVerified` → aposentar como verificação direta (override fiscal futuro só via writer KYB auditado); `updateDocumentStatus` → documento é evidência, para de escrever VERIFIED (convergir/rebaixar `company_documents` vs `fiscal_identity_documents`); `reviewCompanyValidation` → redirecionar p/ KYB ou aposentar (ajustar E2E `validate-pipeline-e2e-company` junto); **FASE 12 QR** → vira evidência KYB / prova presencial, **não corta sem desenho próprio**.
+- **3º fantasma `verifiedAt`** entra no escopo (FASE 12 grava verifiedAt, não is_verified). **Role `owner`** sistêmico não verifica fiscalmente (rever `requireRole(['admin','owner'])`). **Dados legados:** `kyb_status` vence; VERIFIED sem kyb approved não é verificada.
+- **Ordem de corte (vinculante):** 2.1 `updateCompany` → 2.2 `adminOverride` → 2.3 `updateDocumentStatus` → 2.4 `reviewCompanyValidation` → 2.5 FASE 12 (desenho próprio) → Fase 3 (schema/lifecycle: company_status/is_verified/verifiedAt + dados legados).
+
+**Achados do read-only registrados:** 5 writers = universo completo (sem 6º); `updateCompany` **não é hole HTTP** (zod stripa companyStatus); FASE 12 é fluxo vivo de presença física/anti-fraude; nenhum dos 5 toca `kyb_status`; E2E company depende de reviewCompanyValidation marcar VERIFIED.
+
+**DTs:** `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (registra DECISION + ordem de corte, OPEN); `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (umbrella, OPEN). **Criadas:** `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` (OPEN) e `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (OPEN).
+
+**PRÓXIMA ETAPA:** executor pequeno **Fase 2.1** — remover branch latente de `updateCompany` (corte de menor risco). Depois 2.2→2.5 + Fase 3. FASE 12 exige READ-ONLY/DESIGN próprio antes de tocar código.
+
+---
+
 ## 2026-06-03 — PJ VERIFICATION DISPLAY (Fase 1, DECISION-0089) IMPLEMENTADA: kyb_status como fonte visual
 
 **Branch:** `rescue-structural` · **HEAD origem:** `bca68684`. Frente `F-PJ-VERIFICATION-DISPLAY` (Fase 1, `DECISION-0089` §4). **Primeira frente que toca FRONTEND.** Zero migration/schema/DML em `unificard_dev`/Bank/identities-PF/gate F2-C/`authority-decision`/company_validation/FASE 12/storage. Os 2 screenshots (`criacao-de-empresa.png`/`fluxo-empresa.png`) untracked/intocados.

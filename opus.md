@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.19) — DECISION-0090: reconciliação dos writers legados de VERIFIED (docs-only)
+
+Após READ-ONLY Fase 2 (mapeei os 5 escritores legados que ainda gravam company_status='VERIFIED'/is_verified/verifiedAt fora de kyb_status) + Clayton cravando os 7 martelos, despachei envelope docs-only. Promulguei `DECISION_0090_PJ_LEGACY_VERIFIED_WRITERS_RECONCILIATION.md` (0090).
+
+Achados do read-only que moldaram: (1) updateCompany NÃO é hole HTTP — zod updateCompanySchema stripa companyStatus; branch no service (:1486) é só risco latente. (2) verifiedAt é 3º fantasma (FASE 12 grava verifiedAt :271, não is_verified). (3) FASE 12 QR é fluxo vivo/sofisticado (JWT 15min, partner_employees, anti-fraude, geo/device, FASE 13) — presença física, não cortar no escuro. (4) validate-pipeline-e2e-company (A4b) depende de reviewCompanyValidation marcar VERIFIED. (5) 5 writers = universo completo, nenhum toca kyb_status. (6) roles: updateDocumentStatus/adminOverride exigem requireRole(['admin','owner']); review/submit ['admin']; FASE 12 e updateCompany auth-only.
+
+Decisões 0090: regra-mãe (só writer KYB auditado verifica); updateCompany remove branch latente (2.1 defensivo); adminOverride aposenta verificação direta (2.2); updateDocumentStatus = evidência não estado (2.3); reviewCompanyValidation redireciona p/ KYB + ajusta E2E (2.4); FASE 12 vira evidência KYB com desenho próprio, não corta sem READ-ONLY (2.5); verifiedAt entra como 3º fantasma; role owner não verifica fiscalmente; dados legados kyb_status vence. Ordem de corte vinculante 2.1→2.5→Fase 3.
+
+DTs: atualizei LEGACY-VERIFIED-WRITERS-MULTIPLE (ordem de corte) e SECOND-TRUTH umbrella (OPEN); criei DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING e DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST (OPEN). Docs-only; commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** executor pequeno Fase 2.1 (remover branch latente de updateCompany — menor risco).
+
+---
+
 ## Sessão 2026-06-03 (cont.18) — PJ VERIFICATION DISPLAY Fase 1 IMPLEMENTADA (kyb_status fonte visual)
 
 Executei a Fase 1 da DECISION-0089 (envelope executor controlado; **primeira frente que tocou FRONTEND**). Reancorei (HEAD bca68684, branch rescue-structural, unificard_dev, migrations F1/F2-A/F2-B aplicadas) antes de editar.
