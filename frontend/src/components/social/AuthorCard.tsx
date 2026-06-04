@@ -79,7 +79,10 @@ export default function AuthorCard({
       products_count: productsCount,
       events_count: eventsCount,
       followers_count: actorData.counts?.followers_count || 0,
-      company_status: companyStatus || null,
+      company_status: companyStatus || null, // lifecycle — NÃO acende "Verificada" (DECISION-0089)
+      // DECISION-0089 Fase 1: verificação deriva de kyb_status. Forward-wire: se/quando o payload
+      // do actor expuser kyb_status, o selo "Verificada" passa a refletir o KYB (até lá, dormente).
+      kyb_status: (actorData as any)?.kyb_status ?? null,
       created_at: undefined, // Actor não tem created_at na interface
       last_activity: actorData.posts?.[0]?.created_at, // Último post como proxy de atividade
     };

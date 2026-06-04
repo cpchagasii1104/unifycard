@@ -1,3 +1,26 @@
+## 2026-06-03 — PJ VERIFICATION DISPLAY (Fase 1, DECISION-0089) IMPLEMENTADA: kyb_status como fonte visual
+
+**Branch:** `rescue-structural` · **HEAD origem:** `bca68684`. Frente `F-PJ-VERIFICATION-DISPLAY` (Fase 1, `DECISION-0089` §4). **Primeira frente que toca FRONTEND.** Zero migration/schema/DML em `unificard_dev`/Bank/identities-PF/gate F2-C/`authority-decision`/company_validation/FASE 12/storage. Os 2 screenshots (`criacao-de-empresa.png`/`fluxo-empresa.png`) untracked/intocados.
+
+**Backend (read-model derivado):**
+- `Company` DTO ganhou `kybStatus: KybVerificationStatus | null` + `isKybApproved: boolean` (tipo `'pending'|'approved'|'rejected'|'suspended'|'closed'`). Fonte: `companies.fiscal_identity_id → fiscal_identities.kyb_status`.
+- 3 caminhos de leitura reapontados (`companies.service.ts`): `mapCompanyRow` (`getCompanyById`) + 2 branches de `listCompanies`, via **LEFT JOIN** `fiscal_identities` (mantido `c.*` pré-existente + coluna explícita `fi.kyb_status` — **sem novo `SELECT *` cru**). `kybStatus=kyb_status`; `isKybApproved=kyb_status==='approved'`; sem fiscal → `null`/false (nunca inferir approved de company_status/is_verified).
+- `companyStatus`/`isVerified` **preservados** no contrato (compat/lifecycle), **não** mais fonte de verificação.
+
+**Frontend (reaponte visual):**
+- `api/companies.ts`: `Company` ganhou `kybStatus?`/`isKybApproved?` + tipo `KybVerificationStatus`.
+- `CompaniesManagerForm.tsx`: blocos verdes `companyStatus==='VERIFIED'` e `'APPROVED'` (variante `status-validated`) **consolidados num único bloco dirigido por `isKybApproved`**. PROVISIONAL/DRAFT/SUSPENDED seguem lifecycle (companyStatus).
+- `trustSignals.ts`: selo "Verificada" de page-actor migrado de `company_status==='VERIFIED'` para `kyb_status==='approved'` (campo novo `kyb_status` no input). "Em validação" segue PROVISIONAL.
+- `AuthorCard.tsx`: forward-wira `kyb_status` ao `ActorTrustData` (dormente até o payload do actor expô-lo — resíduo do payload de actor, fora do escopo de payload de company).
+
+**Prova (DB efêmera `validate-pipeline-e2e-pj-verification-display`, 10/10, via `run-pj-verification-display-ephemeral.ps1`):** approved→approved/true; `company_status='VERIFIED'`+`kyb pending`→pending/false (**não mente**); sem-fiscal→null/false; rejected→rejected/false; companyStatus/isVerified preservados; getCompanyById deriva igual; zero Bank. Backend+frontend typecheck verdes; 4 gates OK (arch --strict exit 0; o único `warning_new` é o drift pré-existente em `validate-pipeline-e2e-c3-...:334`, arquivo não tocado).
+
+**DTs:** `DT-PJ-COMPANY-VERIFICATION-DISPLAY-USES-LEGACY` → **CLOSED**. `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (umbrella) → OPEN (display mitigado; escritores+schema permanecem). `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` → OPEN (5 escritores intocados, Fase 2).
+
+**PRÓXIMA ETAPA:** Fase 2 (neutralizar/redirecionar os 5 escritores legados de VERIFIED + destino da FASE 12 QR) → Fase 3 (separar lifecycle de verificação; company_status; is_verified). Outras frentes OPEN: storage provider, docs pessoa/LGPD, 2ª onda comercial, payload de actor expor kyb_status (acende o selo do trustSignals).
+
+---
+
 ## 2026-06-03 — DECISION-0089: reconciliação da verificação PJ — kyb_status fonte única (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `e4907b00`. **Docs-only**; zero código/schema/migration/frontend/Bank. Fixa regra+sequência; implementação por fatias depois.

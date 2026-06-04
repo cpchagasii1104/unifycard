@@ -3,6 +3,14 @@
 
 import { CompanyStatus, CompanyUserRole } from '@unificard/contracts';
 
+/**
+ * Status de verificação KYB da identidade fiscal (DECISION-0089).
+ * Domínio canônico = CHECK de `fiscal_identities.kyb_status`.
+ * FONTE ÚNICA de "empresa verificada" = `kyb_status='approved'`.
+ * NÃO confundir com `companyStatus`/`isVerified` (lifecycle/legado).
+ */
+export type KybVerificationStatus = 'pending' | 'approved' | 'rejected' | 'suspended' | 'closed';
+
 export interface Company {
   companyId: string;
   globalUserId: string;
@@ -15,8 +23,16 @@ export interface Company {
   activity: CompanyActivity;
   revenueData?: Record<string, any>; // Dados da Receita Federal
   status: 'active' | 'inactive' | 'suspended' | 'closed';
-  companyStatus: CompanyStatus; // Status do cadastro
-  isVerified: boolean;
+  companyStatus: CompanyStatus; // Status do cadastro (lifecycle/onboarding — NÃO é fonte de verificação)
+  isVerified: boolean; // Legado/compatibilidade — NÃO é fonte de verificação (DECISION-0089)
+  /**
+   * DECISION-0089 Fase 1 — read-model derivado de `fiscal_identities.kyb_status`.
+   * FONTE ÚNICA de verificação PJ. `null` quando a empresa não tem identidade fiscal
+   * resolvível (nunca inferir 'approved' a partir de company_status/is_verified).
+   */
+  kybStatus: KybVerificationStatus | null;
+  /** Derivado: `kybStatus === 'approved'`. Único critério de "empresa verificada" no display. */
+  isKybApproved: boolean;
   metadata?: Record<string, any>; // Raio X, análises, etc.
   createdAt: string;
   updatedAt: string;

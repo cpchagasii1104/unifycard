@@ -737,10 +737,13 @@ export default function CompaniesManagerForm({
                   </div>
                 )}
                 
-                {company.companyStatus === 'VERIFIED' && (
+                {/* DECISION-0089 Fase 1: a verificação visual ("empresa verificada") deriva
+                    EXCLUSIVAMENTE de fiscal_identities.kyb_status (isKybApproved). companyStatus
+                    VERIFIED/APPROVED não é mais fonte do selo de verificada. */}
+                {company.isKybApproved && (
                   <div className="status-message status-validated">
-                    <strong>✅ Empresa validada</strong>
-                    <p>Seus dados foram verificados e aprovados.</p>
+                    <strong>✅ Empresa verificada</strong>
+                    <p>Identidade fiscal verificada e aprovada (KYB).</p>
                   </div>
                 )}
 
@@ -751,13 +754,8 @@ export default function CompaniesManagerForm({
                   </div>
                 )}
 
-                {company.companyStatus === 'APPROVED' && (
-                  <div className="status-message status-validated">
-                    <strong>✅ Empresa aprovada</strong>
-                    <p>Empresa com acesso pleno ao sistema.</p>
-                  </div>
-                )}
-
+                {/* DECISION-0089 Fase 1: bloco verde "aprovada" (variante status-validated) removido —
+                    company_status não acende mais selo de verificação. O selo único é isKybApproved acima. */}
                 {company.companyStatus === 'SUSPENDED' && (
                   <div className="status-message status-pending">
                     <strong>🚫 Empresa suspensa</strong>

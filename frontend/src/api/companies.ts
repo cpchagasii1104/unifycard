@@ -7,6 +7,12 @@ import { apiFetch } from './client';
 // Re-export para compatibilidade reversa
 export type { CompanyUserRole, CompanyStatus, CompanyOperationalStatus };
 
+/**
+ * Status de verificação KYB (DECISION-0089) — derivado de `fiscal_identities.kyb_status`.
+ * FONTE ÚNICA de "empresa verificada". `companyStatus`/`isVerified` NÃO são fonte.
+ */
+export type KybVerificationStatus = 'pending' | 'approved' | 'rejected' | 'suspended' | 'closed';
+
 export interface CompanyAddress {
   cep?: string;
   address?: string;
@@ -53,8 +59,12 @@ export interface Company {
   activity: CompanyActivity;
   revenueData?: Record<string, any>;
   status: CompanyOperationalStatus;
-  companyStatus?: CompanyStatus;
-  isVerified: boolean;
+  companyStatus?: CompanyStatus; // lifecycle/onboarding — NÃO é fonte de verificação (DECISION-0089)
+  isVerified: boolean; // legado/compatibilidade — NÃO é fonte de verificação (DECISION-0089)
+  /** DECISION-0089 Fase 1 — FONTE ÚNICA de verificação PJ (derivada de fiscal_identities.kyb_status). */
+  kybStatus?: KybVerificationStatus | null;
+  /** Derivado: `kybStatus === 'approved'`. Único critério visual de "empresa verificada". */
+  isKybApproved?: boolean;
   metadata?: Record<string, any>;
   createdAt: string;
   updatedAt: string;

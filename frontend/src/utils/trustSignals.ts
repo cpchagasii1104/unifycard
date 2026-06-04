@@ -16,7 +16,9 @@ export interface ActorTrustData {
   events_count?: number;
   products_count?: number;
   followers_count?: number;
-  company_status?: string | null;
+  company_status?: string | null; // lifecycle/onboarding — NÃO é fonte de verificação (DECISION-0089)
+  /** DECISION-0089 Fase 1 — FONTE ÚNICA de verificação PJ (fiscal_identities.kyb_status). */
+  kyb_status?: string | null;
   created_at?: string;
   last_activity?: string; // Timestamp da última atividade
   total_impact_cents?: number; // Impacto total gerado
@@ -33,8 +35,9 @@ export function getTrustSignals(actorData: ActorTrustData): TrustSignal[] {
 
   // 1. STATUS ESPECIAL (prioridade alta)
   
-  // Empresa verificada
-  if (actorData.actor_type === 'page' && actorData.company_status === 'VERIFIED') {
+  // Empresa verificada — DECISION-0089 Fase 1: deriva EXCLUSIVAMENTE de kyb_status (KYB),
+  // NUNCA de company_status. Sem kyb_status='approved', o selo não aparece (não mentir).
+  if (actorData.actor_type === 'page' && actorData.kyb_status === 'approved') {
     signals.push({
       type: 'badge',
       label: 'Verificada',

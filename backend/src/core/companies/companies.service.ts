@@ -910,6 +910,7 @@ class CompaniesService {
     status: string;
     company_status: string;
     is_verified: boolean;
+    kyb_status?: string | null;
     metadata: any;
     created_at?: Date;
     updated_at?: Date;
@@ -949,6 +950,9 @@ class CompaniesService {
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
       isVerified: row.is_verified,
+      // DECISION-0089 Fase 1: verificação derivada exclusivamente de fiscal_identities.kyb_status.
+      kybStatus: (row.kyb_status ?? null) as Company['kybStatus'],
+      isKybApproved: row.kyb_status === 'approved',
       metadata: row.metadata || undefined,
       createdAt: toIso(createdRaw),
       updatedAt: toIso(updatedRaw),
@@ -1004,15 +1008,17 @@ class CompaniesService {
         status: string;
         company_status: string;
         is_verified: boolean;
+        kyb_status: string | null;
         metadata: unknown;
         created_at: Date;
         updated_at: Date;
       }>(
         tenantId,
         `
-        SELECT *
-        FROM companies
-        WHERE tenant_id = $1 AND company_id = $2::uuid
+        SELECT c.*, fi.kyb_status
+        FROM companies c
+        LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
+        WHERE c.tenant_id = $1 AND c.company_id = $2::uuid
         LIMIT 1
         `,
         [tenantId, companyId]
@@ -1051,15 +1057,17 @@ class CompaniesService {
       status: string;
       company_status: string;
       is_verified: boolean;
+      kyb_status: string | null;
       metadata: unknown;
       created_at: Date;
       updated_at: Date;
     }>(
       tenantId,
       `
-      SELECT *
-      FROM companies
-      WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
+      SELECT c.*, fi.kyb_status
+      FROM companies c
+      LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
+      WHERE c.tenant_id = $1 AND c.company_id = $2::uuid AND global_user_id = $3::uuid
       LIMIT 1
       `,
       [tenantId, companyId, globalUserId]
@@ -1143,6 +1151,7 @@ class CompaniesService {
       status: string;
       company_status: string;
       is_verified: boolean;
+      kyb_status: string | null;
       metadata: unknown;
       created_at: Date;
       updated_at: Date;
@@ -1164,6 +1173,7 @@ class CompaniesService {
       `
       SELECT
         c.*,
+        fi.kyb_status,
         cu.id AS company_user_id,
         cu.role,
         cu.role_description,
@@ -1179,6 +1189,7 @@ class CompaniesService {
         cu.updated_at as cu_updated_at
       FROM companies c
       LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
+      LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
       WHERE c.tenant_id = $1
       ORDER BY c.created_at DESC
       `,
@@ -1216,6 +1227,8 @@ class CompaniesService {
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
       isVerified: row.is_verified,
+      kybStatus: (row.kyb_status ?? null) as Company['kybStatus'],
+      isKybApproved: row.kyb_status === 'approved',
       metadata: row.metadata ?? undefined,
       createdAt: toIso(row.created_at),
       updatedAt: toIso(row.updated_at),
@@ -1267,6 +1280,7 @@ class CompaniesService {
       status: string;
       company_status: string;
       is_verified: boolean;
+      kyb_status: string | null;
       metadata: unknown;
       created_at: Date;
       updated_at: Date;
@@ -1288,6 +1302,7 @@ class CompaniesService {
       `
       SELECT
         c.*,
+        fi.kyb_status,
         cu.id AS company_user_id,
         cu.role,
         cu.role_description,
@@ -1303,6 +1318,7 @@ class CompaniesService {
         cu.updated_at as cu_updated_at
       FROM companies c
       LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
+      LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
       WHERE c.tenant_id = $1 AND c.global_user_id = $2::uuid
       ORDER BY c.created_at DESC
       `,
@@ -1340,6 +1356,8 @@ class CompaniesService {
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
       isVerified: row.is_verified,
+      kybStatus: (row.kyb_status ?? null) as Company['kybStatus'],
+      isKybApproved: row.kyb_status === 'approved',
       metadata: row.metadata ?? undefined,
       createdAt: toIso(row.created_at),
       updatedAt: toIso(row.updated_at),

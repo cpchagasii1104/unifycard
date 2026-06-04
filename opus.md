@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.18) — PJ VERIFICATION DISPLAY Fase 1 IMPLEMENTADA (kyb_status fonte visual)
+
+Executei a Fase 1 da DECISION-0089 (envelope executor controlado; **primeira frente que tocou FRONTEND**). Reancorei (HEAD bca68684, branch rescue-structural, unificard_dev, migrations F1/F2-A/F2-B aplicadas) antes de editar.
+
+Backend: `Company` DTO ganhou `kybStatus`/`isKybApproved` (tipo `KybVerificationStatus`). 3 caminhos de leitura reapontados em `companies.service.ts` (`mapCompanyRow`/`getCompanyById` + 2 branches `listCompanies`) via LEFT JOIN `fiscal_identities` — mantive `c.*` pré-existente + coluna explícita `fi.kyb_status` (não introduzi SELECT * cru). Derivação: kybStatus=kyb_status, isKybApproved=approved, sem-fiscal→null/false. companyStatus/isVerified preservados (compat).
+
+Frontend: `api/companies.ts` (+campos +tipo); `CompaniesManagerForm` (consolidei os 2 blocos verdes VERIFIED/APPROVED num único `isKybApproved`); `trustSignals.ts` (selo "Verificada" migrado de company_status para kyb_status='approved'); `AuthorCard` forward-wira kyb_status (dormente até o payload do actor expô-lo — resíduo do payload de ACTOR, não do payload de company, fora de escopo).
+
+Prova: harness efêmero novo `validate-pipeline-e2e-pj-verification-display` (10/10) exercitando o caminho REAL (listCompanies/getCompanyById): company_status='VERIFIED'+kyb pending NÃO reporta approved (anti-mentira), sem-fiscal→null, approved→approved, rejected→rejected, compat preservada, zero Bank. Backend+frontend typecheck 0; 4 gates OK (arch --strict exit 0; warning_new=1 é o drift pré-existente do c3, não meu).
+
+DTs: `DT-PJ-COMPANY-VERIFICATION-DISPLAY-USES-LEGACY` → CLOSED. SECOND-TRUTH umbrella OPEN (display mitigado; escritores+schema seguem). LEGACY-VERIFIED-WRITERS-MULTIPLE OPEN (5 escritores intocados por desenho). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase 2 (5 escritores legados + FASE 12) → Fase 3 (schema/lifecycle). Resíduo lateral: payload de actor precisa expor kyb_status p/ acender o selo do trustSignals.
+
+---
+
 ## Sessão 2026-06-03 (cont.17) — DECISION-0089: reconciliação verificação PJ (kyb_status fonte única)
 
 Após READ-ONLY da reconciliação (achado: segunda-verdade vive no DISPLAY/UI, não em permissão — frontend recebe companyStatus/isVerified mas NÃO kyb_status; 5 escritores legados de VERIFIED, não só reviewCompanyValidation; company_status é eixo impuro lifecycle+verificação) + insumo, Clayton ratificou e disparou envelope docs-only. Promulguei `DECISION_0089_PJ_COMPANY_VERIFICATION_RECONCILIATION.md` (0089).
