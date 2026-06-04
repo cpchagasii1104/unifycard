@@ -874,6 +874,26 @@ class CompaniesService {
     }
   }
 
+  /**
+   * Autoridade contextual sobre a empresa (F-PJ-ACTIVATION-ROUTE-WRITE-PAIR).
+   * O writer activateCompanyOperationally NÃO verifica se o chamador pode gerir ESTA
+   * empresa — autoridade contextual vive em company_users, NÃO em roles sistêmicos
+   * (cf. companies.routes §submit-validation). Retorna true se o usuário é membro ativo
+   * com can_manage_company OU role='owner'. Fail-closed: ausência de vínculo → false.
+   */
+  async canManageCompany(tenantId: string, companyId: string, globalUserId: string): Promise<boolean> {
+    const row = await runQueryWithTenant<{ can_manage: boolean }>(
+      tenantId,
+      `SELECT (cu.can_manage_company OR cu.role = 'owner') AS can_manage
+         FROM company_users cu
+        WHERE cu.tenant_id = $1 AND cu.company_id = $2 AND cu.global_user_id = $3::uuid
+          AND cu.is_active = true AND cu.member_status = 'active'
+        LIMIT 1`,
+      [tenantId, companyId, globalUserId]
+    );
+    return row?.can_manage === true;
+  }
+
   private activationError(code: string, message: string, statusCode: number): HttpError {
     const err = new HttpError(`${code}: ${message}`, statusCode);
     (err as unknown as { code: string }).code = code;

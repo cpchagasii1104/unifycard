@@ -1,3 +1,19 @@
+## 2026-06-04 — F-PJ-ACTIVATION-ROUTE-WRITE-PAIR: rota viva de ativação operacional PJ
+
+**Branch:** `rescue-structural` · **HEAD origem:** `9f0b5c43`. Frente `F-PJ-ACTIVATION-ROUTE-WRITE-PAIR` (backend, governada por DECISION-0098). Zero schema/migration/frontend/Bank/KYB/social-gate/profile-progress/company_status/marketplace/tenant_concept_offerings. Os 3 untracked autorais intocados.
+
+**O que entregou:** o writer soberano do par `(primary_company_type_id, primary_concept_id)` — antes ILHA (zero caller vivo) — passou a ter **caminho HTTP vivo e autorizado**: `POST /companies/:companyId/operational-activation` (body `{companyTypeId, conceptId}`) → `activateCompanyOperationally`. **Autoridade contextual:** novo `companiesService.canManageCompany(tenantId, companyId, globalUserId)` consulta `company_users` (membro ativo com `can_manage_company` OU `role='owner'`); falta de autoridade → **403 `COMPANY_OPERATIONAL_ACTIVATION_FORBIDDEN`** (o writer não cobria isso). Erros do writer mapeados 1:1 pelo `statusCode` do `HttpError` (400 não-permitido, 404 not-found, 409 troca pós-ativação). Body validado por zod (uuid); `businessType`/`businessCategory`/`serviceCategories`/`hybrid`/metadata **não** são aceitos na rota.
+
+**Arquivos:** `companies.routes.ts` (rota + schema zod), `companies.service.ts` (`canManageCompany`), `validate-pipeline-e2e-pj-activation-route.ts` (novo, e2e de rota), `scripts/run-pj-activation-route-ephemeral.ps1` (wrapper). Writer `activateCompanyOperationally` **inalterado**.
+
+**Prova:** e2e de rota **15/15** (DB efêmera, app mínimo = stack do protectedScope via `app.inject`, teardown DROP): T1 par válido→200+par gravado+page-actor; T2 idempotente→200 alreadyActive; T3 não-permitido→400; T4 troca→409; T5 membro sem manage→403; T6 não-membro→403; T7 body inválido→400; T8 companyId inválido→400; T9 sem auth→401; T10 `tenant_concept_offerings`=0; T11 actors só user/page. Two-moments: bloco M (schema) 7/7; bloco A abortou na **flakiness pré-existente** do `randomCnpj()` (dígito verificador) — não-regressão (writer provado ponta-a-ponta pela rota). Typecheck backend: só os 2 baseline geo-enrichment. 4 gates OK (warning_new=1 = c3 pré-existente). Descoberta: a rota herda `action-context.plugin` (toda mutação protegida exige `x-action-context`).
+
+**DTs:** `DT-PJ-OPERATIONAL-ACTIVATION-VOCABULARY-DRIFT` → **PARTIALLY MITIGATED / GOVERNED** (rota do par viva; gap = onboarding ainda grava metadata); `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` permanece OPEN; `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` permanece OPEN; `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` permanece CLOSED.
+
+**PRÓXIMA ETAPA:** (1) read-endpoints `company_types` + concepts permitidos por type; (2) onboarding frontend chama a rota do par (para de gravar metadata); (3) `tenant_concept_offerings` writer só em frente própria (tensão tenant×page-actor + risco de publicação automática).
+
+---
+
 ## 2026-06-04 — DECISION-0098: vocabulário de ativação operacional PJ (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `6d5dda34`. Frente `F-PJ-OPERATIONAL-ACTIVATION-VOCAB-DECISION` (docs-only). Zero código/schema/migration/frontend/backend-runtime/Bank/fiscal. Os 3 untracked autorais intocados.

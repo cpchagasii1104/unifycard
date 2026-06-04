@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.45) — F-PJ-ACTIVATION-ROUTE-WRITE-PAIR: rota viva do par
+
+HEAD antes `9f0b5c43` → commit "feat(pj): expose operational activation route". Tirei o par SSOT da condição de ILHA: criei `POST /companies/:companyId/operational-activation` em `companies.routes.ts` chamando o writer inalterado `activateCompanyOperationally`. A lacuna de segurança que o guardião apontou (writer não checa autoridade sobre ESTA empresa) → fechei com `companiesService.canManageCompany` (query `company_users`: ativo + can_manage_company OU role='owner') → 403 `COMPANY_OPERATIONAL_ACTIVATION_FORBIDDEN`. Erros do writer caem pelo `statusCode` do HttpError (400/404/409). Body zod uuid; rota recusa businessType/businessCategory/serviceCategories/hybrid/metadata.
+
+Identidade resolvida: `users.id===users.user_id` (todas as rows dev) → `req.user.userId` (=sub) é o `responsibleUserId` do writer; `req.user.globalUserId` é a chave de `company_users`. e2e de rota efêmero (`validate-pipeline-e2e-pj-activation-route.ts` + wrapper) 15/15 via `app.inject` num app mínimo (sensible+auth+tenant+actionContext+rbac+companiesModule). Seedei chain identity (global_users→identities[kyc_level='none']→users) + par allowed in-test (allowed_concepts NÃO é migration-seeded; company_types/concepts são). **Descoberta importante:** a rota herda `action-context.plugin` — toda mutação protegida exige header `x-action-context` (JSON {actorId,intent,source,scope com tenantId}). Two-moments bloco M 7/7; bloco A flakey por `randomCnpj()` (pré-existente, não toquei — fora de escopo). 4 gates OK.
+
+DT VOCABULARY-DRIFT → PARTIALLY MITIGATED (rota viva; gap = onboarding ainda grava metadata). **Próximo:** read-endpoints company_types+concepts → onboarding chama a rota → (frente própria) tenant_concept_offerings writer + hybrid→trilhos. O código agora TEM como falar o par; falta o onboarding usar.
+
+---
+
 ## Sessão 2026-06-04 (cont.44) — DECISION-0098: vocabulário de ativação operacional PJ (docs-only)
 
 Após auditoria read-only do vocabulário de ativação, despachei envelope docs-only. Promulguei DECISION_0098_PJ_OPERATIONAL_ACTIVATION_VOCABULARY.md (0098). Reancorei (HEAD 6d5dda34).

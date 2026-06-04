@@ -83,6 +83,13 @@ const updateCompanySchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
+// F-PJ-ACTIVATION-ROUTE-WRITE-PAIR: body da ativação operacional. SÓ o par canônico;
+// businessType/businessCategory/serviceCategories/hybrid/metadata NÃO são aceitos aqui.
+const operationalActivationSchema = z.object({
+  companyTypeId: z.string().uuid(),
+  conceptId: z.string().uuid(),
+});
+
 const updateCompanyUserSchema = z.object({
   role: z.enum(['owner', 'partner', 'director', 'manager', 'employee', 'other']).optional(),
   roleDescription: z.string().optional(),
@@ -893,6 +900,81 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.log.error({ err: error }, 'Erro ao revisar pedido de validação');
       const message = error instanceof Error ? error.message : 'Erro ao revisar pedido de validação';
       return reply.status(400).send({ ok: false, message });
+    }
+  });
+
+  // ============================================================
+  // F-PJ-ACTIVATION-ROUTE-WRITE-PAIR (DECISION-0098)
+  //   Caminho vivo e autorizado para a ATIVAÇÃO OPERACIONAL PJ (Momento 2).
+  //   Grava o par soberano (primary_company_type_id, primary_concept_id) via o writer
+  //   activateCompanyOperationally, validado por company_type_allowed_concepts.
+  //   Autoridade: contextual via company_users (NÃO apenas requireRole sistêmico).
+  //   NÃO escreve tenant_concept_offerings; NÃO toca marketplace/hybrid/Bank/KYB.
+  // ============================================================
+
+  /**
+   * POST /companies/:companyId/operational-activation
+   * Body: { companyTypeId: uuid, conceptId: uuid }
+   * Erros do writer mapeados 1:1 pelo statusCode embutido no HttpError;
+   * 403 COMPANY_OPERATIONAL_ACTIVATION_FORBIDDEN para falta de autoridade contextual.
+   */
+  fastify.post<{
+    Params: { companyId: string };
+    Body: { companyTypeId: string; conceptId: string };
+  }>('/:companyId/operational-activation', async (req, reply) => {
+    if (!req.user?.globalUserId || !req.user?.userId) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    }
+
+    const companyId = req.params.companyId;
+    if (!z.string().uuid().safeParse(companyId).success) {
+      return reply.status(400).send({ ok: false, code: 'INVALID_COMPANY_ID', message: 'companyId inválido' });
+    }
+
+    const parsed = operationalActivationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        ok: false,
+        code: 'INVALID_BODY',
+        message: 'companyTypeId e conceptId (uuid) são obrigatórios',
+        errors: parsed.error.flatten(),
+      });
+    }
+
+    // Guard contextual: o chamador precisa ter autoridade de gestão sobre ESTA empresa.
+    const canManage = await companiesService.canManageCompany(req.tenant.id, companyId, req.user.globalUserId);
+    if (!canManage) {
+      return reply.status(403).send({
+        ok: false,
+        code: 'COMPANY_OPERATIONAL_ACTIVATION_FORBIDDEN',
+        message: 'Sem autoridade para ativar operacionalmente esta empresa',
+      });
+    }
+
+    try {
+      const result = await companiesService.activateCompanyOperationally({
+        tenantId: req.tenant.id,
+        companyId,
+        responsibleUserId: req.user.userId,
+        primaryCompanyTypeId: parsed.data.companyTypeId,
+        primaryConceptId: parsed.data.conceptId,
+      });
+      fastify.log.info({
+        companyId,
+        primaryCompanyTypeId: result.primaryCompanyTypeId,
+        primaryConceptId: result.primaryConceptId,
+        alreadyActive: result.alreadyActive,
+      }, '🏢 Ativação operacional PJ (par canônico gravado)');
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+      fastify.log.error({ err: error, companyId, code }, 'Erro na ativação operacional PJ');
+      const message = error instanceof Error ? error.message : 'Erro na ativação operacional';
+      return reply.status(statusCode).send({ ok: false, code, message });
     }
   });
 };
