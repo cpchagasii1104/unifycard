@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.55) — DECISION-0101: quando a placa deve apagar (revogação KYB → cascata)
+
+HEAD antes `e90b3152` → commit "decisions: define PJ KYB revocation publication cascade". Promulguei DECISION-0101 (próximo nº livre; 0100 era o maior) consolidando as 3 auditorias paralelas A/B/C. Regra: KYB approved é gate CONTÍNUO (D1); saída de approved retira publicações ativas + recalcula projeção (D2/D7), por autoridade fiscal/institucional não-do-dono (D4); audit pelo actor humano do reviewer (D5); **SEM system actor hardcoded** — sem humano auditável, fail-closed (D6, veredito Clayton); reaprovação não republica (D3); atomicidade KYB+retirada+projeção (D8); reader filter = defesa-em-profundidade posterior, não substituto (D9); rebuild não filtra KYB (D10); **o writer de saída de approved nem existe** (só pending→approved|rejected) — o ato fiscal vem antes da cascata (D11); bloqueios (D12).
+
+Achado-chave: hoje não há gatilho material — o "botão" approved→rejected/suspended/closed não existe no runtime. Por isso: norma antes de código, e ato fiscal antes de cascata.
+
+DTs: KYB-REVOCATION-PROJECTION → GOVERNED/DECISIONED (não CLOSED). Criei DT-PJ-KYB-APPROVED-REVOCATION-WRITER-MISSING (OPEN) e DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING (OPEN). Docs-only; 4 gates OK; commit por caminho explícito; 3 autorais intocados. **Próximo:** F-PJ-KYB-APPROVED-REVOCATION-WRITER (read-only/desenho do ato fiscal de sair de approved + cascata), depois reader defensivo. Esta sessão decidiu QUANDO a placa apaga; não mexeu no interruptor.
+
+---
+
 ## Sessão 2026-06-04 (cont.54) — F-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD: a vassoura não vira rei
 
 HEAD antes `72376330` → commit "chore(pj): add tenant concept offerings rebuild". Script rebuild-tenant-concept-offerings.ts: reconcilia tco SÓ a partir de ccp.status='active' (regra soberana). dry-run default (0 DML) + --apply explícito + guard EXPECTED_DATABASE_NAME (recusa alvo implícito → ABORT exit 2). Apply (tx única, 3 statements): cria active ausentes / reativa inactive-com-lastro / desativa active-sem-lastro. NUNCA deleta, NUNCA cria inactive nova, NÃO filtra KYB (KYB-revocation é DT própria). Idempotente. Exportei rebuildTenantConceptOfferings({apply}) p/ o e2e; main() só roda se invocado diretamente (guard process.argv).

@@ -11145,8 +11145,8 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-PUBLICATION-OFFERING-KYB-REVOCATION-PROJECTION
 
-- **Status:** OPEN (2026-06-04) — resíduo de `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` (CLOSED).
-- **Origem:** `F-PJ-PUBLICATION-OFFERING-PROJECTION-WRITER` + desenho read-only `F-PJ-PUBLICATION-OFFERING-PROJECTION`.
+- **Status:** GOVERNED / DECISIONED (2026-06-04) — governada por `DECISION-0101`: KYB approved é gate **contínuo**; saída de approved (rejected/suspended/closed) **retira** publicações ativas + recalcula projeção, por autoridade fiscal/institucional (não do dono), auditada pelo **actor humano do reviewer** (sem actor humano → fail-closed; **sem system actor**); reaprovação não republica; reader filter é defesa-em-profundidade posterior; rebuild não filtra KYB. **NÃO CLOSED** — a regra está fixada mas o **writer/transição runtime de saída de approved não existe** (só `pending → approved|rejected` hoje); cascata sem gatilho material. Resíduos viram DTs próprias: `DT-PJ-KYB-APPROVED-REVOCATION-WRITER-MISSING`, `DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING`. _(antes: OPEN 2026-06-04.)_
+- **Origem:** `F-PJ-PUBLICATION-OFFERING-PROJECTION-WRITER` + desenho read-only `F-PJ-PUBLICATION-OFFERING-PROJECTION`; consolidada por auditorias A/B/C + `DECISION-0101`.
 - **Vinculada a:** `company-publications.service.ts`, `company_concept_publications`, `tenant_concept_offerings` (projeção), `fiscal-identity-kyb.service.ts` (writer KYB), `fiscal_identities.kyb_status`, `authority-decision.evaluateKybLayer`.
 - **Contexto:** o publish valida KYB approved no momento do ato; mas se a empresa **perde KYB depois** (approved → rejected/suspended/closed via `fiscal-identity-kyb.service`), a publicação `active` em `company_concept_publications` **permanece** e a projeção `tenant_concept_offerings.is_active` continua `true` — o discovery mostraria oferta sem KYB vigente. Não há evento/trigger de KYB-change que reaja sobre publicações/projeção.
 - **Risco:** oferta publicamente descobrível com KYB revogado (segunda-verdade temporal: KYB-no-ato ≠ KYB-vigente). Baixo volume hoje (0 publicações), mas material quando houver tráfego.
@@ -11162,3 +11162,23 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** discovery mostra ofertas legadas sem lastro soberano em prod até reconciliação.
 - **Mitigação atual:** nenhuma (forward-only). DECISION-0100 D11 governa: reconciliação é frente própria, sem auto-delete.
 - **Resolução prevista (frente própria):** comando/serviço de **rebuild idempotente** que recomputa `tenant_concept_offerings` a partir de `company_concept_publications` (tenant oferta concept SSE ≥1 publicação active), aplicável em prod sob controle. Forward-only/idempotente; fail-closed; sem apagar histórico de publicações. **NÃO executar** antes da palavra de Clayton.
+
+## DT-PJ-KYB-APPROVED-REVOCATION-WRITER-MISSING
+
+- **Status:** OPEN (2026-06-04) — criada por `DECISION-0101` (D11).
+- **Origem:** auditoria A (norma/KYB writer) + `DECISION-0101`.
+- **Vinculada a:** `fiscal-identity-kyb.service.ts` (writer KYB; só `pending → approved|rejected`), `fiscal_identities.kyb_status` (CHECK pending/approved/rejected/suspended/closed), `company-publications.service.ts` (cascata futura), `company_concept_publications`, `tenant_concept_offerings`.
+- **Contexto:** o runtime **não possui writer** para `approved → rejected/suspended/closed` (nem `approved → pending`). Logo a cascata de revogação definida em `DECISION-0101` (retirar publicações ativas + recalcular projeção) **não tem gatilho material** — o "botão" de sair de approved não existe.
+- **Risco:** sem o ato fiscal de saída de approved, a regra de revogação (0101 D2/D7/D8) é inerte; empresas que deveriam perder KYB seguem publicáveis/publicadas.
+- **Mitigação atual:** nenhuma (norma fixada por 0101; runtime ausente). Retração manual (unpublish) com autoridade do dono é o único caminho hoje.
+- **Resolução prevista (frente própria — DESENHO depois writer gated):** desenhar/implementar a transição fiscal `approved → rejected/suspended/closed` com autoridade fiscal + actor humano do reviewer (0101 D4/D5/D6), e então a **cascata** de retirada de publicações + projeção **atômica** (0101 D2/D7/D8). **O ato fiscal vem antes da cascata.** **NÃO executar** antes da palavra de Clayton (DECISION-0101 D11/D12).
+
+## DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING
+
+- **Status:** OPEN (2026-06-04) — criada por `DECISION-0101` (D9).
+- **Origem:** auditoria C (discovery/marketplace) + `DECISION-0101`.
+- **Vinculada a:** `marketplace-contextual.service.ts`/`marketplace-contextual.routes.ts` (`GET /marketplace/contextual`), `tenant-concept-offerings.repository.ts` (`listTenantsOfferingConcept`), `fiscal_identities.kyb_status`.
+- **Contexto:** o reader de discovery lê `tenant_concept_offerings` e **não filtra KYB**. Como defesa-em-profundidade, poderia filtrar `kyb_status='approved'` — mas **sozinho mascararia** publicação `active` inconsistente (DECISION-0101 D9). Só deve vir **depois** do writer de revogação corrigir o SSOT.
+- **Risco:** filtro defensivo prematuro esconderia o problema real (publication active sem KYB) em vez de corrigi-lo no SSOT.
+- **Mitigação atual:** nenhuma (norma fixada por 0101 D9; ordem = SSOT antes do filtro).
+- **Resolução prevista (frente própria — DEPOIS do writer):** após `DT-PJ-KYB-APPROVED-REVOCATION-WRITER-MISSING`, avaliar filtro defensivo KYB approved no reader contextual (JOIN `fiscal_identities`). **NÃO executar** antes da palavra de Clayton (DECISION-0101 D9/D12).

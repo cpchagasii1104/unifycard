@@ -6556,3 +6556,20 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** detalha/executa DECISION-0099 D11 (schema-alvo). Mantém 0099 D2 (writer automático proibido) e D10 (não resolve hybrid).
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0100_PJ_PUBLICATION_OFFERING_SCHEMA_MODEL.md`; HEAD âncora `e5163e60`; `authority-decision.service.ts` (gate KYB), `companies.service.ts` (canManageCompany), `tenant_concept_offerings`, `actors`.
+
+---
+
+### DECISION-0101 — Revogação/perda de KYB approved e cascata sobre publicações PJ
+
+- **Data:** 2026-06-04
+- **Tipo:** arquitetural / governança fiscal / publicação (docs-only)
+- **Contexto:** o publish exige KYB approved no ATO, mas nada reage se a empresa perde KYB depois — `DT-PJ-PUBLICATION-OFFERING-KYB-REVOCATION-PROJECTION`. As 3 auditorias paralelas (A norma/KYB writer, B publication writer/schema, C discovery/marketplace) convergiram: cravar a regra em norma antes de código, e usar o actor humano do reviewer (não system actor).
+- **Opções consideradas:** (1) reader filter primeiro — REJEITADA (mascara publication active inconsistente; SSOT continua errado); (2) system actor (`SYSTEM_ACTOR_ID`) para a retirada — REJEITADA (nasce fantasma com crachá; sem padrão soberano); (3) **DECISION primeiro + actor humano do reviewer + SSOT antes do filtro** — ESCOLHIDA.
+- **Escolha:** Opção 3.
+- **Justificativa:** KYB approved deve ser gate contínuo (não só no ato); a retirada é autoridade fiscal/institucional (não do dono), auditada pelo reviewer humano; sem actor humano → fail-closed; reaprovação não republica; rebuild/reader não substituem a correção do SSOT. O ato fiscal de sair de approved **nem existe** hoje (só pending→approved|rejected) — precisa vir primeiro.
+- **Consequências esperadas:** curto prazo — `KYB-REVOCATION-PROJECTION` vira GOVERNED/DECISIONED; criadas `DT-PJ-KYB-APPROVED-REVOCATION-WRITER-MISSING` e `DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING`. Médio prazo — writer de revogação (ato fiscal + cascata atômica), depois reader defensivo.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Validação prévia:** Clayton (promulgação + veredito: reviewer humano, não system actor); auditorias A/B/C; DECISION-0099/0100.
+- **Supera:** detalha DECISION-0099 (KYB-gate contínuo) e DECISION-0100 (cascata sobre o SSOT + projeção). Mantém 0100 D10 (rebuild não filtra KYB).
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0101_PJ_KYB_REVOCATION_PUBLICATION_CASCADE.md`; HEAD âncora `e90b3152`; `fiscal-identity-kyb.service.ts`, `company-publications.service.ts`, `authority-decision.evaluatePageActorKybApproved`, `rebuild-tenant-concept-offerings.ts`.

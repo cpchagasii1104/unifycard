@@ -1,3 +1,17 @@
+## 2026-06-04 — DECISION-0101: revogação/perda de KYB approved → cascata sobre publicações PJ (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `e90b3152`. Frente `F-PJ-PUBLICATION-OFFERING-KYB-REVOCATION` (docs-only). Zero código/schema/migration/backend-runtime/frontend/KYB-writer/publication-writer/reader/Bank. Os 3 untracked autorais intocados.
+
+**O que fixou (`DECISION_0101_PJ_KYB_REVOCATION_PUBLICATION_CASCADE.md`):** consolida as auditorias A/B/C. **D1** KYB approved = gate CONTÍNUO (não só no ato); **D2** saída de approved (rejected/suspended/closed) RETIRA publicações ativas; **D3** reaprovação NÃO republica (publicar segue ato soberano); **D4** retirada por KYB é sistêmica/institucional, NÃO ação do dono (não depende de can_manage); **D5** audit = actor humano do reviewer (`retired_by_actor_id`, `source='kyb_revocation'`); **D6** SEM `SYSTEM_ACTOR_ID` hardcoded — sem actor humano → fail-closed (system actor = decisão própria); **D7** retirada recalcula projeção (isolamento por empresa); **D8** atomicidade (KYB+retirada+projeção na mesma tx; senão rollback fail-closed); **D9** reader filter = defesa-em-profundidade POSTERIOR, não substituto; **D10** rebuild não filtra KYB (reflete SSOT); **D11** writer de saída de approved NÃO existe (só pending→approved|rejected) — o ato fiscal vem antes da cascata; **D12** bloqueios.
+
+**Ponto crítico (veredito Clayton):** o caminho canônico é o **reviewer humano**, não system actor. E não vamos direto ao writer: primeiro precisa existir o ato fiscal de sair de approved — hoje esse botão nem existe.
+
+**DTs:** `DT-PJ-PUBLICATION-OFFERING-KYB-REVOCATION-PROJECTION` → GOVERNED/DECISIONED (regra fixada; não CLOSED — falta runtime). **Criadas** `DT-PJ-KYB-APPROVED-REVOCATION-WRITER-MISSING` (OPEN — runtime sem writer de saída de approved) e `DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING` (OPEN — filtro defensivo só depois do writer). CLOSED permanecem: SOVEREIGN-SHAPE-MISSING, LEGACY-REBUILD, COMPANY-STATUS-KYB-SECOND-TRUTH. MARKETPLACE-HYBRID OPEN; ONBOARDING-DOMAIN-SELECTION PARTIALLY MITIGATED.
+
+**PRÓXIMA ETAPA (sem execução):** `F-PJ-KYB-APPROVED-REVOCATION-WRITER` read-only/DESENHO — o ato fiscal `approved → rejected/suspended/closed` (autoridade fiscal + reviewer humano) ANTES da cascata; depois reader defensivo. Ortogonal: marketplace hybrid read-only.
+
+---
+
 ## 2026-06-04 — F-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD-SCRIPT: reconciliação idempotente do read-model
 
 **Branch:** `rescue-structural` · **HEAD origem:** `72376330`. Frente `F-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD-SCRIPT` (script/reconciliação, governada por DECISION-0099/0100 D10/D11). Zero schema/migration/frontend; writer publish/unpublish/marketplace-contextual/hybrid/Bank/KYB-writer/onboarding/createCompany/company_status intocados. Os 3 untracked autorais intocados.
