@@ -11110,7 +11110,8 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** sem o writer canônico, a seleção vira string/metadata morta (anti-padrão D5) ou um `hybrid` atômico; a empresa "ativa" sem o par `type+concept` validado contra `company_type_allowed_concepts`.
 - **Mitigação atual (parcial — fluxo ponta-a-ponta vivo + E2E encadeado):** backend = catálogo governado (`F-PJ-ACTIVATION-READ-ENDPOINTS`) + writer/rota do par (`F-PJ-ACTIVATION-ROUTE-WRITE-PAIR`); frontend = `CompanyOnboardingWizard` consome o catálogo (Step 1 = company_type → concept dependente, com loading/error/empty), chama `activateCompanyOperationally`, trata 400/403/409, e grava em `metadata.onboarding` **apenas config de UX** (módulos/papéis/agenda) — `businessType` removido do caminho operacional (`CompanyBusinessType` e o campo do config apagados). `CompanyCreationPage` permanece inerte. **E2E permanente encadeado** (`F-PJ-ONBOARDING-ACTIVATION-FLOW-E2E-PERMANENT`): `validate-pipeline-e2e-pj-onboarding-activation-flow.ts` (22/22, efêmero) prova em UMA execução GET catálogo → escolhe par real (sem hardcode) → POST ativação → `companies.primary_*` persistido + invariantes de não-toque (tco/company_status/fiscal/Bank) + 403/400. `DECISION-0097` fixa o modelo (D5/D6).
 - **Offering automático BLOQUEADO (DECISION-0099, 2026-06-04):** a ideia de o onboarding/ativação escrever `tenant_concept_offerings` automaticamente foi **proibida** — publicação/oferta é ato soberano distinto (company/page-actor-level, gateado por KYB/autoridade, reversível, auditável), governado por `DECISION-0099` e rastreado por `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING`. O resíduo "offering" desta DT deixa de ser "writer derivado do par" e passa a ser frente de publicação própria.
-- **Resolução prevista (frentes seguintes):** eixo A (N0 produtos/serviços/**ambos** via GRAPH) explícito no onboarding; (publicação/oferta migrou para `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` / DECISION-0099); sem fallback/default (`REGRA_CANONICA_CRIACAO_DE_CONTEXT`). **DT permanece OPEN (parcial).** **NÃO executar** eixo-A/offering/marketplace antes da palavra de Clayton (DECISION-0097 §9.1 / D10).
+- **Elegibilidade de domínios governada (DECISION-0102, 2026-06-04):** a auditoria `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY` revelou que o **outro** onboarding (criação via `CompaniesManager`/`DomainSelector.tsx`) oferece **livre escolha por checkbox** de 6 `MarketplaceDomain` (market/services/events/real_estate/vehicles/jobs) — drift "frontend escolhe taxonomia". DECISION-0102 fixou: domínio de atuação é **derivado de CONCEPT + governado pelo backend** (6 camadas: fiscal→identidade→elegível→solicitado→aprovado→em-revisão); CNAE = evidência (não SSOT); Empregos = capability; Imóveis/Veículos = regulados. Resíduos viram DTs próprias (ghost `company_domains`, fork de vocabulário, CNAE não persistido). O `DomainSelector` livre é drift a neutralizar.
+- **Resolução prevista (frentes seguintes):** eixo A (N0 produtos/serviços/**ambos** via GRAPH) explícito no onboarding; neutralizar `DomainSelector`/ghost `company_domains` (`DT-PJ-COMPANY-DOMAINS-GHOST-WRITER`); derivar matriz de elegibilidade; (publicação/oferta já governada por 0099/0101); sem fallback/default (`REGRA_CANONICA_CRIACAO_DE_CONTEXT`). **DT permanece OPEN (parcial).** **NÃO executar** eixo-A/elegibilidade/marketplace antes da palavra de Clayton (DECISION-0097 §9.1 / 0102).
 
 ## DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN
 
@@ -11122,6 +11123,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Mitigação atual:** nenhuma (docs-only). `DECISION-0098` D7 marca `hybrid` **DEPRECATED / TO BE REMOVED** (compat até reconciliação) e D8 proíbe nova lógica decisória baseada nele; D7 proíbe `hybrid` como CONCEPT/company_type/N0/SSOT.
 - **Resolução prevista (frente própria — reconciliação marketplace):** substituir `category='hybrid'` por **combinação explícita de trilhos habilitados** (produtos e/ou serviços), derivada do par/declarações de trilho; consolidar a lógica duplicada; preservar as superfícies vivas durante a transição. **DT permanece OPEN.** **NÃO executar** antes da palavra de Clayton (DECISION-0098 D8/D12).
 - **Nota (DECISION-0099, 2026-06-04):** a governança de publicação/oferta NÃO resolve `hybrid` — são frentes ortogonais. A publicação por concept (DECISION-0099) não depende de `hybrid` atômico; esta DT segue independente.
+- **Nota (DECISION-0102, 2026-06-04):** reforça que `MarketplaceDomain`/marketplace domain NÃO é SSOT; o fork `MarketplaceDomain ↔ concepts.domain` (rastreado em `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK`) deve ser reconciliado em conjunto com a remoção do `hybrid` atômico.
 
 ## DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING
 
@@ -11182,3 +11184,33 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** filtro defensivo prematuro esconderia o problema real (publication active sem KYB) em vez de corrigi-lo no SSOT.
 - **Mitigação atual:** nenhuma (norma fixada por 0101 D9; ordem = SSOT antes do filtro).
 - **Resolução prevista (frente própria — DEPOIS do writer):** após `DT-PJ-KYB-APPROVED-REVOCATION-WRITER-MISSING`, avaliar filtro defensivo KYB approved no reader contextual (JOIN `fiscal_identities`). **NÃO executar** antes da palavra de Clayton (DECISION-0101 D9/D12).
+
+## DT-PJ-COMPANY-DOMAINS-GHOST-WRITER
+
+- **Status:** OPEN (2026-06-04) — criada por `DECISION-0102` (D10).
+- **Origem:** auditoria read-only `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY`.
+- **Vinculada a:** `backend/src/core/companies/companies.service.ts` (`createCompany` → INSERT pós-commit em `company_domains`), `frontend/src/components/company/DomainSelector.tsx`, `frontend/src/api/companies.ts` (`domains`/`MarketplaceDomain`), tabela `company_domains` (AUSENTE).
+- **Contexto:** `createCompany` envia `domains` (default `['market']`) e tenta, **pós-commit**, `INSERT INTO company_domains (...)`. A tabela `company_domains` **não existe** (ausente em migrations e em dev) → o erro 42P01 é **engolido** como "não-crítico". O passo de domínio da UI é **obrigatório (`*`)**, mas o destino é fantasma: nada soberano persiste; a UX mente que salvou.
+- **Risco:** UX mentirosa hoje; se a tabela for criada/religada sem governança, vira **terceira verdade** de atuação concorrente ao par soberano e à `company_concept_publications` (DECISION-0102 D1/D10).
+- **Mitigação atual:** nenhuma (write morto silencioso). DECISION-0102 declara o drift e proíbe religar `DomainSelector` como fonte soberana.
+- **Resolução prevista (frente própria — neutralização):** parar o write morto + neutralizar a livre-escolha do `DomainSelector` (remover/desabilitar ou converter em "solicitação de domínios" governada — D6/D9), sem inventar verdade. **NÃO executar** antes da palavra de Clayton (DECISION-0102 §13).
+
+## DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK
+
+- **Status:** OPEN (2026-06-04) — criada por `DECISION-0102` (D11).
+- **Origem:** auditoria read-only `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY`.
+- **Vinculada a:** `frontend/src/api/companies.ts` (`MarketplaceDomain`), `DomainSelector.tsx`, `concepts.domain` (N0 canônico, 13 valores), `domains` (tabela N0, DECISION-0073), `18_DOMAIN_ONTOLOGY`, `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN`.
+- **Contexto:** `MarketplaceDomain` (6: market/services/events/real_estate/vehicles/jobs) é **hardcoded no frontend** e diverge de `concepts.domain` / N0 canônico (13: produtos-e-comercio, servicos, cultura-lazer-e-eventos, mobilidade-e-logistica, educacao, item-comercial, financeiro-*). **Sem mapeamento** entre as duas taxonomias de "domínio".
+- **Risco:** duas verdades de "domínio" coexistem; religar marketplace/domínios sem reconciliar perpetua a segunda-verdade e o anti-padrão `hybrid`.
+- **Mitigação atual:** nenhuma. DECISION-0102 D11 obriga reconciliar antes de religar marketplace/domínios.
+- **Resolução prevista (frente própria — reconciliação de vocabulário):** mapear `MarketplaceDomain` → N0/concepts/domains canônicos (em conjunto com `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN`); o domínio de discovery deve derivar de CONCEPT, não de enum de frontend. **NÃO executar** antes da palavra de Clayton (DECISION-0102 §13).
+
+## DT-PJ-CNAE-EVIDENCE-NOT-PERSISTED
+
+- **Status:** OPEN (2026-06-04) — criada por `DECISION-0102` (D4).
+- **Origem:** auditoria read-only `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY`.
+- **Vinculada a:** `backend/src/core/companies/companies.service.ts`/`companies.routes.ts` (`fetchCNPJFromRevenue`), `fiscal_identities`, `companies`, `company_type_allowed_concepts`, `concepts`.
+- **Contexto:** a consulta `fetchCNPJFromRevenue` retorna CNAE/atividade principal+secundárias da Receita, mas o dado **não é persistido** em lugar nenhum (nenhuma coluna/tabela CNAE no schema). Logo a evidência fiscal mais forte de ramo real **não está disponível** para governar elegibilidade de domínios.
+- **Risco:** sem CNAE persistido, a derivação de elegibilidade fica restrita a company_type/concept (escolhidos pelo usuário), sem o lastro fiscal independente que distinguiria pedido legítimo de oportunista.
+- **Mitigação atual:** nenhuma (CNAE descartado). DECISION-0102 D2/D4: CNAE é evidência (sugere/reforça), não SSOT semântico.
+- **Resolução prevista (frente própria — persistir evidência):** persistir CNAE/atividade como evidência auditável (coluna/tabela própria, sem auto-mapeamento para concept) que **sugere** company_type/concept e sinaliza pedidos de domínio incompatíveis para revisão (D8). **NÃO executar** auto-mapeamento de CNAE antes da palavra de Clayton (DECISION-0102 §11/§13).

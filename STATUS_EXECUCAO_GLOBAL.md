@@ -1,3 +1,17 @@
+## 2026-06-04 — DECISION-0102: governança de elegibilidade de domínios no onboarding PJ (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `454d74d3`. Frente `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY` (docs-only). Zero código/schema/migration/frontend/backend-runtime/marketplace/publication/KYB/Bank. Os 3 untracked autorais intocados.
+
+**Gatilho:** screenshot de Clayton mostrou a tela "Em quais áreas sua empresa atua?" (`DomainSelector.tsx`, fluxo de criação via `CompaniesManager`) com **livre escolha por checkbox** de 6 `MarketplaceDomain` (market/services/events/real_estate/vehicles/jobs) — frontend escolhendo taxonomia. Auditoria read-only `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY` revelou: write vai para `company_domains` (tabela inexistente → 42P01 engolido pós-commit = **ghost**; campo obrigatório não persiste); CNAE da Receita **descartado**; **fork** `MarketplaceDomain ↔ concepts.domain` N0; nenhuma matriz de elegibilidade (mas derivável de `company_type_allowed_concepts ⋈ concepts.domain`).
+
+**O que fixou (`DECISION_0102_PJ_ONBOARDING_DOMAIN_ELIGIBILITY_GOVERNANCE.md`):** **D1** domínio NÃO é livre escolha (derivado de CONCEPT + governado pelo backend); **D2** CONCEPT = fonte semântica, CNAE/Receita = evidência; **D3** modelo de 6 camadas (fiscal→identidade→elegível→solicitado→aprovado→em-revisão); **D4** evidência fiscal sugere, não aprova; CNAE persistir em frente futura; **D5** elegíveis derivados de concept/company_type/concepts.domain (+GRAPH governado); **D6** solicitar≠aprovar; **D7** aprovado = elegível∩autorizado, publica só após KYB+ato soberano; **D8** incompatível → revisão; **D9** `DomainSelector` livre = drift (remover/desabilitar/converter em "solicitação"); **D10** `company_domains` = ghost (DT própria); **D11** fork de vocabulário reconciliar antes de religar marketplace; **D12** Empregos = capability transversal, não domínio; **D13** Imóveis/Veículos = regulados (não checkbox livre); **D14** exemplos consultoria/restaurante.
+
+**DTs:** `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` PARTIALLY MITIGATED/GOVERNED (+ elegibilidade governada). **Criadas** `DT-PJ-COMPANY-DOMAINS-GHOST-WRITER` (OPEN), `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` (OPEN), `DT-PJ-CNAE-EVIDENCE-NOT-PERSISTED` (OPEN). `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` OPEN (reforçada). CLOSED permanecem: SOVEREIGN-SHAPE-MISSING, LEGACY-REBUILD, COMPANY-STATUS-KYB-SECOND-TRUTH.
+
+**PRÓXIMA ETAPA (sem execução):** `F-PJ-DOMAIN-SELECTOR-NEUTRALIZE` (read-only/desenho → frontend: neutralizar livre-escolha + parar o ghost write) → `F-PJ-CNAE-EVIDENCE-PERSIST` → `F-PJ-DOMAIN-ELIGIBILITY-DERIVATION`. Marketplace-hybrid ortogonal (ligado a D11).
+
+---
+
 ## 2026-06-04 — DECISION-0101: revogação/perda de KYB approved → cascata sobre publicações PJ (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `e90b3152`. Frente `F-PJ-PUBLICATION-OFFERING-KYB-REVOCATION` (docs-only). Zero código/schema/migration/backend-runtime/frontend/KYB-writer/publication-writer/reader/Bank. Os 3 untracked autorais intocados.

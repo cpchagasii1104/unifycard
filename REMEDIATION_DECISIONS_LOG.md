@@ -6573,3 +6573,20 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** detalha DECISION-0099 (KYB-gate contínuo) e DECISION-0100 (cascata sobre o SSOT + projeção). Mantém 0100 D10 (rebuild não filtra KYB).
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0101_PJ_KYB_REVOCATION_PUBLICATION_CASCADE.md`; HEAD âncora `e90b3152`; `fiscal-identity-kyb.service.ts`, `company-publications.service.ts`, `authority-decision.evaluatePageActorKybApproved`, `rebuild-tenant-concept-offerings.ts`.
+
+---
+
+### DECISION-0102 — Governança de elegibilidade de domínios de atuação no onboarding PJ
+
+- **Data:** 2026-06-04
+- **Tipo:** arquitetura / governança de produto / semântica PJ (docs-only)
+- **Contexto:** o fluxo de criação via `CompaniesManager`/`DomainSelector.tsx` oferece **livre escolha por checkbox** de 6 `MarketplaceDomain` (market/services/events/real_estate/vehicles/jobs) — "Uber de ontologia sem volante". Auditoria read-only `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY` revelou: o write vai para `company_domains` (tabela inexistente, 42P01 engolido pós-commit = ghost); CNAE retornado pela Receita mas descartado; fork `MarketplaceDomain ↔ concepts.domain` N0; nenhuma matriz de elegibilidade (mas derivável de `company_type_allowed_concepts ⋈ concepts.domain`).
+- **Opções consideradas:** (1) frontend fix imediato — REJEITADA (ligaria volante a vácuo normativo; ghost remove urgência); (2) criar `company_domains` + religar — REJEITADA (terceira verdade de atuação sem governança); (3) **DECISION docs-only de elegibilidade primeiro** — ESCOLHIDA.
+- **Escolha:** Opção 3.
+- **Justificativa:** domínio de atuação é derivado de CONCEPT + governado pelo backend (frontend não cria taxonomia, Lei 7). Modelo de 6 camadas (fiscal→identidade→elegível→solicitado→aprovado→em-revisão); CNAE = evidência, não SSOT; Empregos = capability; Imóveis/Veículos = regulados. Norma antes de schema/código.
+- **Consequências esperadas:** curto prazo — DomainSelector/ghost declarados drift; criadas DTs `COMPANY-DOMAINS-GHOST-WRITER`, `MARKETPLACE-DOMAIN-VOCABULARY-FORK`, `CNAE-EVIDENCE-NOT-PERSISTED`. Médio prazo — neutralizar DomainSelector → persistir CNAE → derivar matriz de elegibilidade.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Validação prévia:** Clayton (screenshot + veredito "antes de mexer em exposição pública"); auditoria read-only `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY`; DECISION-0098/0099/0100/0101.
+- **Supera:** aprofunda DECISION-0098 (par = SSOT; eixo A N0 × eixo B vertical); ratifica `project_frontend_nunca_cria_verdade` e Lei 7.
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0102_PJ_ONBOARDING_DOMAIN_ELIGIBILITY_GOVERNANCE.md`; HEAD âncora `454d74d3`; `DomainSelector.tsx`, `CompaniesManager.tsx`, `companies.service.ts` (ghost `company_domains` + CNAE descartado), `company_type_allowed_concepts ⋈ concepts.domain`.

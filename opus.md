@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.56) — DECISION-0102: quem pode pedir qual palco (elegibilidade de domínios)
+
+HEAD antes `454d74d3` → commit "decisions: define PJ onboarding domain eligibility". Clayton mandou screenshot da tela "Em quais áreas sua empresa atua?" (DomainSelector.tsx, fluxo CompaniesManager) com livre escolha por checkbox de 6 MarketplaceDomain. Auditei read-only e achei 3 coisas graves: (1) o write vai p/ company_domains que NÃO EXISTE no schema → 42P01 engolido pós-commit = ghost (campo obrigatório que não persiste, UX mentirosa); (2) CNAE da Receita é descartado (não persistido); (3) fork MarketplaceDomain(6) ≠ concepts.domain N0(13), sem mapeamento. Elegibilidade É derivável hoje: company_type_allowed_concepts ⋈ concepts.domain (1 domínio/type).
+
+Promulguei DECISION-0102 (próximo nº livre; 0101 era o maior). D1 domínio não é livre escolha (derivado de CONCEPT, governado backend); D3 modelo 6 camadas (fiscal→identidade→elegível→solicitado→aprovado→em-revisão); D4 CNAE=evidência não SSOT; D9 DomainSelector livre=drift; D10 company_domains=ghost; D11 reconciliar fork antes de religar marketplace; D12 Empregos=capability não domínio; D13 Imóveis/Veículos=regulados. Criei 3 DTs: COMPANY-DOMAINS-GHOST-WRITER, MARKETPLACE-DOMAIN-VOCABULARY-FORK, CNAE-EVIDENCE-NOT-PERSISTED (todas OPEN). Docs-only; 4 gates OK; 3 autorais intocados.
+
+**Próximo:** F-PJ-DOMAIN-SELECTOR-NEUTRALIZE (parar o ghost + neutralizar a livre-escolha) → persistir CNAE → derivar matriz de elegibilidade. Esta frente vem ANTES de mexer em exposição pública/marketplace. Decidi quem pode pedir qual palco; não abri o palco.
+
+---
+
 ## Sessão 2026-06-04 (cont.55) — DECISION-0101: quando a placa deve apagar (revogação KYB → cascata)
 
 HEAD antes `e90b3152` → commit "decisions: define PJ KYB revocation publication cascade". Promulguei DECISION-0101 (próximo nº livre; 0100 era o maior) consolidando as 3 auditorias paralelas A/B/C. Regra: KYB approved é gate CONTÍNUO (D1); saída de approved retira publicações ativas + recalcula projeção (D2/D7), por autoridade fiscal/institucional não-do-dono (D4); audit pelo actor humano do reviewer (D5); **SEM system actor hardcoded** — sem humano auditável, fail-closed (D6, veredito Clayton); reaprovação não republica (D3); atomicidade KYB+retirada+projeção (D8); reader filter = defesa-em-profundidade posterior, não substituto (D9); rebuild não filtra KYB (D10); **o writer de saída de approved nem existe** (só pending→approved|rejected) — o ato fiscal vem antes da cascata (D11); bloqueios (D12).
