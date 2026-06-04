@@ -1,3 +1,23 @@
+## 2026-06-03 — F2-C GATE KYB PJ IMPLEMENTADO: authority financeira (código)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `caf46777`. Edição cirúrgica de `authority-decision.service` + tipo de trace + teste efêmero + docs. **Zero** migration/schema/Bank/identities-PF/company_validation/storage/documentos/frontend; `unificard_dev` não alterado.
+
+**Prova prévia obrigatória (DECISION-0088 §2/§3.9) — APROVADA:** o MVP-A/event_ticket debita **comprador (attendee, user/PF)** ou **escrow/system** — `bank-transaction.service.ts:94` (`requireFinancialRiskClearanceForDebitSide`) avalia o **actor debitante** e **pula `ownerType system/escrow`**; o organizer PJ **recebe** (crédito). **Nenhum page-actor é debitante no MVP-A** → gate liberado.
+
+**Materializa a DECISION-0088 (F2-C):**
+- **Camada `evaluateKybLayer`** em `core/compliance/authority-decision.service.ts` — precedência **ATL→KYC→KYB→GUARDA**. Só `actor_type='page'`; resolve `page→company→companies.fiscal_identity_id→fiscal_identities.kyb_status`. `approved`→pass; pending/rejected/suspended/closed/elo-quebrado→**block**. **Fail-closed** + **strict para dinheiro** (bloqueia mesmo em authority-mode permissive). Reasons: `KYB_NOT_APPLICABLE_ACTOR_TYPE`/`KYB_APPROVED`/`KYB_PENDING_BLOCKS_FINANCIAL`/`KYB_REJECTED_BLOCKS_FINANCIAL`/`KYB_NOT_APPROVED_BLOCKS_FINANCIAL`/`KYB_FISCAL_IDENTITY_MISSING`/`KYB_COMPANY_LINK_MISSING`. Trace ganhou `'KYB'`.
+- Escopo: só `financial_transfer/payment/payout/reversal` (chokepoint). NÃO toca Bank/KYC PF/identities/company_status.
+
+**Teste efêmero (`validate-pipeline-e2e-pj-kyb-gate`, 16/16 verde, AUTHORITY_MODE=permissive p/ isolar KYB):** PF approved passa / pending bloqueia (KYC); PJ pending bloqueia transfer/payment/payout; rejected bloqueia; approved passa; page sem company / company sem fiscal bloqueiam; `company_status='VERIFIED'`+kyb pending **bloqueia** (lê kyb_status); reversal segue regra; user→KYB_NOT_APPLICABLE; permissive não libera PJ; trace tem KYB; zero Bank. DB efêmera (`unificard_kyb_gate_*`) dropada.
+
+**Gates:** typecheck 0 · actor-writer §4.8.1 OK · bank-ledger §4.6 OK · regression-guards OK (355) · architecture --strict exit 0 (critical_new=0).
+
+**DTs:** `DT-PJ-KYB-AUTHORITY-GATE-MISSING` → **CLOSED** (gate vivo+testado). `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` OPEN (gate isolado da segunda-verdade; reconciliação = único resíduo). `DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING`/`DT-PJ-HUMAN-LINK-DOCUMENTS-LGPD-MISSING` OPEN, intocadas.
+
+**Estado da cadeia KYB PJ:** nascimento fiscal-first → KYB writer → documentos (trava aprovação) → **gate financeiro** — **enforcement real**: PJ não aprovada **não move dinheiro** (em runtime strict, ATL também barra PJ sem authority_root). **PRÓXIMA ETAPA:** reconciliação company_status × kyb_status · 2ª onda (operações comerciais não-financeiras) · storage provider · trilho humano/LGPD.
+
+---
+
 ## 2026-06-03 — DECISION-0088: F2-C gate KYB PJ promulgado — authority financeira (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `b3eb499a`. **Docs-only**; zero código/schema/migration/Bank/runtime. Autoriza a implementação F2-C, **não a executa** ("assina a regra, não instala a fechadura").

@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.16) — F2-C GATE KYB PJ IMPLEMENTADO (authority financeira)
+
+Implementei a F2-C (envelope executor, aval p/ editar authority-decision.service). **Prova prévia obrigatória APROVADA primeiro:** rastreei que o MVP-A/event_ticket debita comprador (attendee user/PF) ou escrow/system — bank-transaction.service:94 (requireFinancialRiskClearanceForDebitSide) avalia o debitante e PULA ownerType system/escrow; organizer PJ recebe (crédito). Nenhum page-actor é debitante no MVP-A → liberei o gate.
+
+Mudança: camada `evaluateKybLayer` em authority-decision.service (ATL→KYC→KYB→GUARDA), só actor_type='page', resolve page→company→fiscal_identities.kyb_status, approved=pass, resto=block, fail-closed, strict-para-dinheiro (bloqueia mesmo em permissive — os blocks de page-actor resolvido são incondicionais). Adicionei 'KYB' ao AuthorityLayerTrace.layer. Reasons KYB_*. Só financial_*; não toca Bank/KYC PF/company_status.
+
+Teste novo `validate-pipeline-e2e-pj-kyb-gate.ts` + orquestrador (AUTHORITY_MODE=permissive p/ ISOLAR o KYB — em strict, ATL barra PJ sem authority_root antes do KYB; permissive faz ATL/KYC skip e o KYB bloqueia mesmo assim, provando strict-para-dinheiro). 16/16. Fixtures PJ direto por SQL (driblando createCompany/provisional/DV). Bugs do teste: global_user_id ambíguo (users+actors) → qualifiquei u.; fixture approved violava chk_approved_audit → preenchi reviewer/reviewed_at.
+
+Gates: typecheck 0; actor-writer OK; bank-ledger OK; regression-guards OK (355, sem migration); arch --strict exit 0. F2-C é CÓDIGO-ONLY (sem migration → nada a aplicar em unificard_dev; o gate lê fiscal_identities que já está em DEV). DTs: `DT-PJ-KYB-AUTHORITY-GATE-MISSING` → CLOSED; second-truth OPEN (gate isolado, reconciliação = único resíduo). Commit por caminho explícito. **Cadeia KYB PJ completa: nascimento→writer→documentos→gate (enforcement real).** Próximo: reconciliação company_status / 2ª onda / storage provider / trilho humano.
+
+---
+
 ## Sessão 2026-06-03 (cont.15) — DECISION-0088: F2-C gate KYB PJ promulgado (authority financeira)
 
 Após READ-ONLY F2-C (achado central: chokepoint financeiro ÚNICO = risk-financial-gate → authorityDecisionService ATL→KYC→GUARDA; evaluateKycLayer pula page-actor → PJ move dinheiro sem checagem) + insumo, Clayton ratificou com 7 martelos e disparou envelope docs-only. Promulguei `DECISION_0088_PJ_KYB_AUTHORITY_GATE.md` (0088).

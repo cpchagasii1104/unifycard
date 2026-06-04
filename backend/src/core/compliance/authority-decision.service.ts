@@ -206,6 +206,100 @@ async function evaluateKycLayer(
   }
 }
 
+/**
+ * Camada KYB PJ (F2-C / DECISION-0088): bloqueia operação financeira sensível de page-actor/PJ quando
+ * `fiscal_identities.kyb_status != 'approved'`. Aplica SOMENTE a actor_type='page' (KYC e KYB mutuamente
+ * exclusivos por actor_type). Fonte: page-actor → company → companies.fiscal_identity_id →
+ * fiscal_identities.kyb_status (NUNCA company_status/is_verified/identities). Fail-closed em qualquer elo
+ * quebrado; STRICT para dinheiro de PJ (bloqueia mesmo em authority-mode permissive). NÃO toca Bank/KYC PF.
+ */
+async function evaluateKybLayer(
+  tenantId: string,
+  actorId: string,
+  layers: AuthorityLayerTrace[]
+): Promise<{ block: boolean; reason: string; source: AuthorityDecisionSource } | null> {
+  try {
+    const row = await runQueryWithTenant<{
+      actor_type: string;
+      company_id: string | null;
+      fiscal_identity_id: string | null;
+      kyb_status: string | null;
+    }>(
+      tenantId,
+      `
+      SELECT
+        a.actor_type::text AS actor_type,
+        a.company_id::text AS company_id,
+        c.fiscal_identity_id::text AS fiscal_identity_id,
+        fi.kyb_status::text AS kyb_status
+      FROM actors a
+      LEFT JOIN companies c ON c.company_id = a.company_id AND c.tenant_id = a.tenant_id
+      LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
+      WHERE a.tenant_id = $1 AND a.id = $2::uuid
+      LIMIT 1
+      `,
+      [tenantId, actorId]
+    );
+
+    if (!row) {
+      // Actor não resolvido — KYC já tratou o mesmo actor; aqui espelha (strict block / permissive skip).
+      if (getAuthorityMode() === 'strict') {
+        layers.push({ layer: 'KYB', outcome: 'block', reason: 'ACTOR_NOT_FOUND:STRICT' });
+        return { block: true, reason: 'ACTOR_REQUIRED_STRICT_MODE', source: 'rule' };
+      }
+      layers.push({ layer: 'KYB', outcome: 'skip', reason: 'ACTOR_NOT_FOUND:PERMISSIVE' });
+      return null;
+    }
+
+    // KYB aplica SOMENTE a page-actor/PJ. user/person seguem por KYC (exclusivos por actor_type).
+    if (row.actor_type !== 'page') {
+      layers.push({ layer: 'KYB', outcome: 'skip', reason: 'KYB_NOT_APPLICABLE_ACTOR_TYPE' });
+      return null;
+    }
+
+    // Page-actor/PJ em ação financeira sensível. STRICT para dinheiro (DECISION-0088 §3.6/§3.7):
+    // fail-closed em qualquer elo quebrado e bloqueio se != approved — INDEPENDENTE do authority-mode.
+    if (!row.company_id) {
+      layers.push({ layer: 'KYB', outcome: 'block', reason: 'KYB_COMPANY_LINK_MISSING' });
+      return { block: true, reason: 'KYB_COMPANY_LINK_MISSING', source: 'rule' };
+    }
+    if (!row.fiscal_identity_id) {
+      layers.push({ layer: 'KYB', outcome: 'block', reason: 'KYB_FISCAL_IDENTITY_MISSING' });
+      return { block: true, reason: 'KYB_FISCAL_IDENTITY_MISSING', source: 'rule' };
+    }
+    if (row.kyb_status == null) {
+      layers.push({ layer: 'KYB', outcome: 'block', reason: 'KYB_FISCAL_IDENTITY_MISSING' });
+      return { block: true, reason: 'KYB_FISCAL_IDENTITY_MISSING', source: 'rule' };
+    }
+    if (row.kyb_status === 'approved') {
+      layers.push({ layer: 'KYB', outcome: 'pass', reason: 'KYB_APPROVED' });
+      return null;
+    }
+    if (row.kyb_status === 'rejected') {
+      layers.push({ layer: 'KYB', outcome: 'block', reason: 'KYB_REJECTED_BLOCKS_FINANCIAL' });
+      return { block: true, reason: 'KYB_REJECTED_BLOCKS_FINANCIAL', source: 'rule' };
+    }
+    if (row.kyb_status === 'pending') {
+      layers.push({ layer: 'KYB', outcome: 'block', reason: 'KYB_PENDING_BLOCKS_FINANCIAL' });
+      return { block: true, reason: 'KYB_PENDING_BLOCKS_FINANCIAL', source: 'rule' };
+    }
+    // suspended / closed / qualquer outro status != approved.
+    layers.push({ layer: 'KYB', outcome: 'block', reason: `KYB_NOT_APPROVED_BLOCKS_FINANCIAL:${row.kyb_status}` });
+    return { block: true, reason: 'KYB_NOT_APPROVED_BLOCKS_FINANCIAL', source: 'rule' };
+  } catch (e) {
+    if (isMissingRelation(e)) {
+      // fiscal_identities/companies ausentes (ambiente sem F1/F2). Money de PJ → fail-closed em strict.
+      if (getAuthorityMode() === 'strict') {
+        layers.push({ layer: 'KYB', outcome: 'block', reason: 'KYB_SCHEMA_ABSENT:STRICT' });
+        return { block: true, reason: 'KYB_SCHEMA_REQUIRED_STRICT_MODE', source: 'rule' };
+      }
+      layers.push({ layer: 'KYB', outcome: 'skip', reason: 'KYB_SCHEMA_ABSENT:PERMISSIVE' });
+      return null;
+    }
+    throw e;
+  }
+}
+
 async function evaluateEconomicGuardianship(
   tenantId: string,
   actorId: string,
@@ -438,6 +532,15 @@ export const authorityDecisionService = {
     const kyc = await evaluateKycLayer(tenantId, input.actorId, layers);
     if (kyc?.block) {
       const ev = finalizeEvaluation('block', kyc.reason, kyc.source, 1, false, undefined, layers);
+      await persistAudit(tenantId, input.actorId, input.action, ev);
+      return ev;
+    }
+
+    // F2-C / DECISION-0088: camada KYB PJ (ATL → KYC → KYB → GUARDA). Bloqueia money de page-actor/PJ
+    // sem kyb_status='approved'. Mutuamente exclusiva do KYC por actor_type; strict para dinheiro.
+    const kyb = await evaluateKybLayer(tenantId, input.actorId, layers);
+    if (kyb?.block) {
+      const ev = finalizeEvaluation('block', kyb.reason, kyb.source, 1, false, undefined, layers);
       await persistAudit(tenantId, input.actorId, input.action, ev);
       return ev;
     }

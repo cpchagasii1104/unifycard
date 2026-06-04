@@ -8,7 +8,7 @@ export type AuthorityDecision = 'allow' | 'block' | 'limit';
 export type AuthorityDecisionSource = 'system' | 'manual' | 'rule' | 'AI';
 
 export interface AuthorityLayerTrace {
-  layer: 'ATL' | 'KYC' | 'GUARDA' | 'REST';
+  layer: 'ATL' | 'KYC' | 'KYB' | 'GUARDA' | 'REST';
   outcome: 'pass' | 'block' | 'limit' | 'skip';
   reason: string;
 }
