@@ -1,19 +1,12 @@
 // frontend/src/types/company-onboarding.ts
 // Tipos para o wizard de onboarding de empresa
-
-/**
- * Tipo de empresa (negócio)
- */
-export type CompanyBusinessType =
-  | 'bar'
-  | 'restaurant'
-  | 'nightclub'
-  | 'producer'
-  | 'venue'
-  | 'service_provider'
-  | 'retail'
-  | 'clinic'
-  | 'other';
+//
+// F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR (DECISION-0098): a classificação operacional
+// da empresa (Momento 2) NÃO mora mais aqui. O enum legado `CompanyBusinessType` e o campo
+// `businessType` em metadata foram REMOVIDOS — a verdade é o par soberano
+// (primary_company_type_id, primary_concept_id), gravado pelo backend via
+// POST /companies/:companyId/operational-activation. Este arquivo guarda apenas config de UX
+// (módulos/papéis/agenda), que NÃO é fonte de verdade operacional.
 
 /**
  * Módulos disponíveis para ativação
@@ -45,10 +38,10 @@ export interface CompanyCalendarConfig {
 }
 
 /**
- * Configuração completa de onboarding
+ * Configuração de UX do onboarding (NÃO é verdade operacional — a classificação canônica
+ * é o par (primary_company_type_id, primary_concept_id), gravado pelo backend).
  */
 export interface CompanyOnboardingConfig {
-  businessType: CompanyBusinessType;
   modules: CompanyModules;
   initialRoles: CompanyInitialRoles;
   calendarConfig: CompanyCalendarConfig;

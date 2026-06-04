@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.47) — F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR: a UI escreve o par
+
+HEAD antes `e9fc1b00` → commit "feat(pj): wire onboarding to operational activation pair". Fechei o ciclo: a UI agora escolhe pelo catálogo soberano e grava o par via backend, em vez de cravar businessType em metadata. CompanyOnboardingWizard Step 1 = company_type (GET /companies/operational-activation/company-types) → concept dependente (GET .../:id/concepts), com loading/error/empty. Submit chama activateCompanyOperationally(companyId,{companyTypeId,conceptId}) ANTES de salvar UX; trata 400 NOT_ALLOWED / 403 FORBIDDEN / 409 already-different com mensagens honestas (falha aborta). metadata.onboarding guarda só UX (módulos/papéis/agenda). Removi CompanyBusinessType + campo businessType do config (eram usados SÓ no wizard+types — grep confirmou). CompanyCreationPage (nascimento inerte) intocado.
+
+Infra crítica: apiFetch (frontend/src/api/client.ts) injeta sozinho Authorization+x-tenant-id+x-action-context (actorId vem de unificard_active_actor_id no localStorage — frontend NÃO inventa actorId; precedente Profile C1). Sem infra nova. Frontend typecheck limpo; backend NÃO tocado; 4 gates OK. Greps: businessType só em comentários.
+
+DT ONBOARDING-DOMAIN-SELECTION → PARTIALLY MITIGATED (wizard consome catálogo + chama rota; resíduo = eixo A N0 "ambos" + offering). VOCABULARY-DRIFT segue PARTIALLY MITIGATED (onboarding parou de gravar businessType; resíduo = businessCategory/createCompany + hybrid). **Backend+frontend do par agora COMPLETOS ponta-a-ponta.** Próximo (escolha Clayton): validação E2E UI / tenant_concept_offerings writer (tensão tenant×page-actor) / read-only marketplace hybrid→trilhos / eixo A produtos-serviços-ambos. A UI escolhe pelo catálogo; não escreve ontologia em metadata.
+
+---
+
 ## Sessão 2026-06-04 (cont.46) — F-PJ-ACTIVATION-READ-ENDPOINTS: catálogo do par
 
 HEAD antes `4af65168` → commit "feat(pj): expose operational activation catalogs". Entreguei o cardápio governado p/ o onboarding montar o par: GET `/companies/operational-activation/company-types` e `.../company-types/:companyTypeId/concepts` (allowed = company_type_allowed_concepts ⋈ concepts; expõe slug/domain pois concepts não tem name). Service: listOperationalCompanyTypes + listAllowedConceptsForCompanyType (runQueriesWithTenant retorna T[]; runQueryWithTenant retorna 1 row). Read-only puro, sem DML, sem businessType/hybrid/metadata. 400 INVALID_COMPANY_TYPE_ID, 404 COMPANY_TYPE_NOT_FOUND, 200 [] sem pares.

@@ -325,6 +325,70 @@ export async function updateDocumentStatus(
   return response.json();
 }
 
+// ── F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR (DECISION-0098) ──────────────────────────────
+// Catálogo governado de seleção + rota viva do par. O frontend NÃO inventa concept nem
+// classificação: envia o que o backend expôs (precedente Profile C1). businessType/
+// businessCategory/serviceCategories/hybrid/metadata NÃO são SSOT da ativação.
+
+export interface OperationalCompanyType {
+  companyTypeId: string;
+  slug: string;
+  name: string;
+  defaultDepartmentSlugs: string[];
+  defaultBranchSlugs: string[];
+}
+
+/** `concepts` não tem display name → backend expõe slug/domain. */
+export interface AllowedOperationalConcept {
+  conceptId: string;
+  slug: string;
+  domain: string;
+}
+
+export interface OperationalActivationResponse {
+  companyId: string;
+  pageActorId: string;
+  responsibleActorId: string;
+  primaryCompanyTypeId: string;
+  primaryConceptId: string;
+  alreadyActive: boolean;
+}
+
+/** Catálogo global governado de company_types (seleção do par no Momento 2). */
+export async function getOperationalCompanyTypes(): Promise<OperationalCompanyType[]> {
+  const response = await apiFetch('/companies/operational-activation/company-types');
+  const result = await response.json();
+  return result?.data ?? [];
+}
+
+/** Concepts PERMITIDOS para o company_type (company_type_allowed_concepts ⋈ concepts). */
+export async function getAllowedConceptsForCompanyType(
+  companyTypeId: string
+): Promise<AllowedOperationalConcept[]> {
+  const response = await apiFetch(`/companies/operational-activation/company-types/${companyTypeId}/concepts`);
+  const result = await response.json();
+  return result?.data ?? [];
+}
+
+/**
+ * Ativa operacionalmente a empresa (Momento 2): grava o par soberano
+ * (primary_company_type_id, primary_concept_id). Autoridade contextual é resolvida no backend
+ * (company_users). Não publica a empresa, não cria offering. Erros relevantes (via error.code):
+ * COMPANY_TYPE_CONCEPT_NOT_ALLOWED (400), COMPANY_OPERATIONAL_ACTIVATION_FORBIDDEN (403),
+ * COMPANY_ALREADY_OPERATIONAL_WITH_DIFFERENT_CLASSIFICATION (409).
+ */
+export async function activateCompanyOperationally(
+  companyId: string,
+  body: { companyTypeId: string; conceptId: string }
+): Promise<OperationalActivationResponse> {
+  const response = await apiFetch(`/companies/${companyId}/operational-activation`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  const result = await response.json();
+  return result?.data ?? result;
+}
+
 // DECISION-0096 / Presential UX 2 (higiene): os exports de validação presencial FASE 12 foram
 // REMOVIDOS (requestCompanyValidation, getCompanyValidationHistory + tipos ValidationRequest/
 // CompanyValidation). O fluxo presencial PJ está reservado/desabilitado (backend 501, UI removida).

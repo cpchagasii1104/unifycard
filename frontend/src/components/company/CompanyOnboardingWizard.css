@@ -428,3 +428,14 @@
 
 
 
+
+/* F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR: seleção dependente da atividade (concept). */
+.concept-selection {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.concept-selection h3 {
+  margin-bottom: 12px;
+}

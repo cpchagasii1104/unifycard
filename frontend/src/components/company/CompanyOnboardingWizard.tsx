@@ -1,13 +1,19 @@
 // frontend/src/components/company/CompanyOnboardingWizard.tsx
 // Wizard de onboarding e configuração de empresa
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
-import { updateCompany } from '../../api/companies';
+import {
+  updateCompany,
+  getOperationalCompanyTypes,
+  getAllowedConceptsForCompanyType,
+  activateCompanyOperationally,
+  type OperationalCompanyType,
+  type AllowedOperationalConcept,
+} from '../../api/companies';
 import { showToast } from '../common/Toast';
 import type {
-  CompanyBusinessType,
   CompanyModules,
   CompanyInitialRoles,
   CompanyCalendarConfig,
@@ -36,7 +42,18 @@ export default function CompanyOnboardingWizard({
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Estado do wizard
-  const [businessType, setBusinessType] = useState<CompanyBusinessType | ''>('');
+  // F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR: classificação operacional = par soberano
+  // (companyTypeId, conceptId), vindo do catálogo governado do backend. SEM businessType.
+  const [companyTypes, setCompanyTypes] = useState<OperationalCompanyType[]>([]);
+  const [companyTypesLoading, setCompanyTypesLoading] = useState(true);
+  const [companyTypesError, setCompanyTypesError] = useState<string | null>(null);
+  const [selectedCompanyTypeId, setSelectedCompanyTypeId] = useState<string>('');
+
+  const [concepts, setConcepts] = useState<AllowedOperationalConcept[]>([]);
+  const [conceptsLoading, setConceptsLoading] = useState(false);
+  const [conceptsError, setConceptsError] = useState<string | null>(null);
+  const [selectedConceptId, setSelectedConceptId] = useState<string>('');
+
   const [modules, setModules] = useState<CompanyModules>({
     services: false,
     events: false,
@@ -55,25 +72,60 @@ export default function CompanyOnboardingWizard({
     timezone: 'America/Sao_Paulo',
   });
 
-  const businessTypes: Array<{ value: CompanyBusinessType; label: string; description: string }> = [
-    { value: 'bar', label: 'Bar', description: 'Bar ou pub' },
-    { value: 'restaurant', label: 'Restaurante', description: 'Restaurante ou lanchonete' },
-    { value: 'nightclub', label: 'Casa Noturna', description: 'Boate ou casa noturna' },
-    { value: 'producer', label: 'Produtora', description: 'Produtora de eventos' },
-    { value: 'venue', label: 'Espaço para Eventos', description: 'Espaço para aluguel' },
-    { value: 'service_provider', label: 'Prestador de Serviços', description: 'Serviços diversos' },
-    { value: 'retail', label: 'Comércio', description: 'Loja ou comércio' },
-    { value: 'clinic', label: 'Clínica', description: 'Clínica ou consultório' },
-    { value: 'other', label: 'Outro', description: 'Outro tipo de negócio' },
-  ];
+  // Carrega o catálogo governado de company_types (Momento 2) ao montar.
+  useEffect(() => {
+    let cancelled = false;
+    setCompanyTypesLoading(true);
+    setCompanyTypesError(null);
+    getOperationalCompanyTypes()
+      .then((types) => {
+        if (!cancelled) setCompanyTypes(types);
+      })
+      .catch((err: any) => {
+        if (!cancelled) setCompanyTypesError(err?.message || 'Erro ao carregar tipos de empresa');
+      })
+      .finally(() => {
+        if (!cancelled) setCompanyTypesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Ao escolher o company_type, carrega os concepts PERMITIDOS daquele type (e reseta a escolha).
+  useEffect(() => {
+    if (!selectedCompanyTypeId) {
+      setConcepts([]);
+      setSelectedConceptId('');
+      setConceptsError(null);
+      return;
+    }
+    let cancelled = false;
+    setConceptsLoading(true);
+    setConceptsError(null);
+    setSelectedConceptId('');
+    getAllowedConceptsForCompanyType(selectedCompanyTypeId)
+      .then((list) => {
+        if (!cancelled) setConcepts(list);
+      })
+      .catch((err: any) => {
+        if (!cancelled) setConceptsError(err?.message || 'Erro ao carregar atividades permitidas');
+      })
+      .finally(() => {
+        if (!cancelled) setConceptsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompanyTypeId]);
 
   const handleNext = () => {
     // Validações por etapa
-    if (currentStep === 1 && !businessType) {
-      showToast('Selecione o tipo de negócio', 'error');
+    if (currentStep === 1 && (!selectedCompanyTypeId || !selectedConceptId)) {
+      showToast('Selecione o tipo da empresa e a atividade', 'error');
       return;
     }
-    
+
     if (currentStep === 2 && !modules.services && !modules.events && !modules.calendar) {
       showToast('Selecione pelo menos um módulo', 'error');
       return;
@@ -115,15 +167,39 @@ export default function CompanyOnboardingWizard({
   };
 
   const handleSubmit = async () => {
-    if (!businessType) {
-      showToast('Selecione o tipo de negócio', 'error');
+    if (!selectedCompanyTypeId || !selectedConceptId) {
+      showToast('Selecione o tipo da empresa e a atividade', 'error');
+      setCurrentStep(1);
       return;
     }
 
     setIsSubmitting(true);
     try {
+      // ── Momento 2 — ATIVAÇÃO OPERACIONAL: grava o par soberano no backend ──────
+      // (primary_company_type_id, primary_concept_id). Autoridade contextual e validação
+      // do par são resolvidas no backend. Falha aqui ABORTA — nada de UX é salvo.
+      try {
+        await activateCompanyOperationally(companyId, {
+          companyTypeId: selectedCompanyTypeId,
+          conceptId: selectedConceptId,
+        });
+      } catch (error: any) {
+        const code = error?.code;
+        let msg = error?.message || 'Erro ao ativar a empresa';
+        if (code === 'COMPANY_TYPE_CONCEPT_NOT_ALLOWED') {
+          msg = 'A combinação de tipo de empresa e atividade não é permitida.';
+        } else if (code === 'COMPANY_OPERATIONAL_ACTIVATION_FORBIDDEN') {
+          msg = 'Você não tem autoridade para ativar operacionalmente esta empresa.';
+        } else if (code === 'COMPANY_ALREADY_OPERATIONAL_WITH_DIFFERENT_CLASSIFICATION') {
+          msg = 'Esta empresa já foi ativada com outra classificação.';
+        }
+        showToast(msg, 'error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // ── Config de UX (NÃO é verdade operacional): módulos/papéis/agenda + marcador ──
       const config: CompanyOnboardingConfig = {
-        businessType,
         modules,
         initialRoles,
         calendarConfig,
@@ -131,7 +207,6 @@ export default function CompanyOnboardingWizard({
         completedBy: activeActor?.user_id,
       };
 
-      // Salvar no metadata da empresa
       await updateCompany(companyId, {
         metadata: {
           onboarding: config,
@@ -139,8 +214,8 @@ export default function CompanyOnboardingWizard({
         },
       });
 
-      showToast('Configuração salva com sucesso!', 'success');
-      
+      showToast('Empresa ativada e configuração salva!', 'success');
+
       if (onComplete) {
         onComplete();
       } else {
@@ -172,25 +247,64 @@ export default function CompanyOnboardingWizard({
       </div>
 
       <div className="wizard-content">
-        {/* Etapa 1: Tipo de Empresa */}
+        {/* Etapa 1: Classificação operacional — par soberano (company_type + concept) */}
         {currentStep === 1 && (
           <div className="wizard-step">
-            <h2>Qual o tipo do seu negócio?</h2>
+            <h2>Qual o tipo da sua empresa?</h2>
             <p className="step-description">
-              Isso nos ajuda a configurar os módulos mais adequados para você.
+              Selecione o tipo e a atividade principal. Isso define a classificação operacional
+              canônica da empresa.
             </p>
-            <div className="business-type-grid">
-              {businessTypes.map((type) => (
-                <button
-                  key={type.value}
-                  className={`business-type-card ${businessType === type.value ? 'selected' : ''}`}
-                  onClick={() => setBusinessType(type.value)}
-                >
-                  <h3>{type.label}</h3>
-                  <p>{type.description}</p>
-                </button>
-              ))}
-            </div>
+
+            {companyTypesLoading && <p className="step-description">Carregando tipos…</p>}
+            {companyTypesError && (
+              <p className="step-description" role="alert">{companyTypesError}</p>
+            )}
+            {!companyTypesLoading && !companyTypesError && companyTypes.length === 0 && (
+              <p className="step-description">Nenhum tipo de empresa disponível.</p>
+            )}
+
+            {!companyTypesLoading && !companyTypesError && companyTypes.length > 0 && (
+              <div className="business-type-grid">
+                {companyTypes.map((type) => (
+                  <button
+                    key={type.companyTypeId}
+                    className={`business-type-card ${selectedCompanyTypeId === type.companyTypeId ? 'selected' : ''}`}
+                    onClick={() => setSelectedCompanyTypeId(type.companyTypeId)}
+                  >
+                    <h3>{type.name}</h3>
+                    <p>{type.slug}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {selectedCompanyTypeId && (
+              <div className="concept-selection">
+                <h3>Atividade principal</h3>
+                {conceptsLoading && <p className="step-description">Carregando atividades…</p>}
+                {conceptsError && <p className="step-description" role="alert">{conceptsError}</p>}
+                {!conceptsLoading && !conceptsError && concepts.length === 0 && (
+                  <p className="step-description">
+                    Nenhuma atividade disponível para este tipo. Não é possível ativar a empresa.
+                  </p>
+                )}
+                {!conceptsLoading && !conceptsError && concepts.length > 0 && (
+                  <div className="business-type-grid">
+                    {concepts.map((c) => (
+                      <button
+                        key={c.conceptId}
+                        className={`business-type-card ${selectedConceptId === c.conceptId ? 'selected' : ''}`}
+                        onClick={() => setSelectedConceptId(c.conceptId)}
+                      >
+                        <h3>{c.slug}</h3>
+                        <p>{c.domain}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -403,8 +517,18 @@ export default function CompanyOnboardingWizard({
             </p>
             <div className="summary-section">
               <div className="summary-item">
-                <strong>Tipo de Negócio:</strong>
-                <span>{businessTypes.find((t) => t.value === businessType)?.label}</span>
+                <strong>Tipo da Empresa:</strong>
+                <span>{companyTypes.find((t) => t.companyTypeId === selectedCompanyTypeId)?.name ?? '—'}</span>
+              </div>
+
+              <div className="summary-item">
+                <strong>Atividade:</strong>
+                <span>
+                  {(() => {
+                    const c = concepts.find((x) => x.conceptId === selectedConceptId);
+                    return c ? `${c.slug} (${c.domain})` : '—';
+                  })()}
+                </span>
               </div>
 
               <div className="summary-item">

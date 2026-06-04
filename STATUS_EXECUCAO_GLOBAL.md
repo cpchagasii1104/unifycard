@@ -1,3 +1,21 @@
+## 2026-06-04 — F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR: wizard escreve o par via backend
+
+**Branch:** `rescue-structural` · **HEAD origem:** `e9fc1b00`. Frente `F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR` (frontend, governada por DECISION-0098). Zero backend/schema/migration/marketplace/tenant_concept_offerings/Bank/KYB/social-gate/profile-progress/company_status/StoreOnboardingWizard/createCompany. Os 3 untracked autorais intocados.
+
+**O que entregou:** o onboarding de empresa deixou de gravar `businessType` em metadata como verdade operacional e passou a montar o par soberano via backend. `CompanyOnboardingWizard` Step 1 agora: (1) consome `GET /companies/operational-activation/company-types` (loading/error/empty), (2) ao escolher o type carrega `GET .../company-types/:id/concepts` (dependente, loading/error/empty), (3) o frontend **não inventa concept** — só seleciona o que o backend expôs (precedente Profile C1). No submit chama `POST /companies/:companyId/operational-activation { companyTypeId, conceptId }` ANTES de salvar UX; trata 400 `COMPANY_TYPE_CONCEPT_NOT_ALLOWED`, 403 `COMPANY_OPERATIONAL_ACTIVATION_FORBIDDEN`, 409 already/different com mensagens honestas (falha aborta, não mascara sucesso). `metadata.onboarding` guarda só config de UX (módulos/papéis/agenda) + `onboardingCompleted`. `CompanyCreationPage` (nascimento inerte) intocado.
+
+**Arquivos:** `frontend/src/api/companies.ts` (3 funções + 3 tipos: getOperationalCompanyTypes/getAllowedConceptsForCompanyType/activateCompanyOperationally), `frontend/src/components/company/CompanyOnboardingWizard.tsx` (Step 1 + estado + effects + submit), `frontend/src/components/company/CompanyOnboardingWizard.css` (.concept-selection), `frontend/src/types/company-onboarding.ts` (removidos `CompanyBusinessType` + campo `businessType` do config).
+
+**Action-context/auth:** o client `apiFetch` injeta automaticamente `Authorization` (JWT), `x-tenant-id` e `x-action-context` (montado a partir de `unificard_active_actor_id` no localStorage — actorId NÃO é inventado). Nenhuma infra nova; padrão vivo reutilizado.
+
+**Prova:** frontend typecheck **limpo** (tsc --noEmit, 0 erros). Greps finais: `businessType`/`CompanyBusinessType` só sobrevivem em COMENTÁRIOS (zero uso operacional); wizard consome catálogo + chama `activateCompanyOperationally`; `conceptId` só vem da lista do backend; `CompanyCreationPage` sem nenhuma referência a type/concept (inerte). Backend runtime NÃO tocado. 4 gates OK (warning_new=1 = c3 pré-existente).
+
+**DTs:** `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` → **PARTIALLY MITIGATED/GOVERNED** (wizard consome catálogo + chama rota; resíduo = eixo A N0 "ambos" + offering); `DT-PJ-OPERATIONAL-ACTIVATION-VOCABULARY-DRIFT` permanece PARTIALLY MITIGATED/GOVERNED (+ onboarding parou de gravar businessType; resíduo = businessCategory/createCompany + hybrid); `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` permanece OPEN; `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` permanece CLOSED.
+
+**PRÓXIMA ETAPA:** validação manual/E2E do fluxo UI; depois frente própria `tenant_concept_offerings` writer (tensão tenant×page-actor) e read-only marketplace `hybrid`→trilhos. Eixo A (produtos/serviços/ambos) explícito é desenho próprio.
+
+---
+
 ## 2026-06-04 — F-PJ-ACTIVATION-READ-ENDPOINTS: catálogo governado de seleção do par
 
 **Branch:** `rescue-structural` · **HEAD origem:** `4af65168`. Frente `F-PJ-ACTIVATION-READ-ENDPOINTS` (backend, governada por DECISION-0098). Zero schema/migration/frontend/Bank/KYB/social-gate/profile-progress/company_status/marketplace/tenant_concept_offerings/write-pair. Os 3 untracked autorais intocados.
