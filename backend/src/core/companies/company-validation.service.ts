@@ -1,7 +1,6 @@
 // src/core/companies/company-validation.service.ts
 // Serviço para Validação Presencial com QR + Funcionário Auditável (FASE 12)
 
-import { runQueriesWithTenant } from '@core/database/pool';
 import { CompanyStatus } from '@unificard/contracts';
 import { HttpError } from '@core/errors/http-error';
 
@@ -95,54 +94,10 @@ class CompanyValidationService {
     throw err;
   }
 
-  /**
-   * Busca histórico de validações de uma empresa
-   */
-  async getValidationHistory(
-    tenantId: string,
-    companyId: string
-  ): Promise<CompanyValidation[]> {
-    const result = await runQueriesWithTenant<{
-      id: string;
-      company_id: string;
-      company_status_before: string;
-      company_status_after: string;
-      validation_method: string;
-      validated_by_employee_id: string | null;
-      validated_by_partner_id: string | null;
-      validatedAt: string;
-      geo_lat: number | null;
-      geo_lng: number | null;
-      device_fingerprint: string | null;
-      metadata: Record<string, any> | null;
-    }>(
-      tenantId,
-      `
-      SELECT id, company_id, company_status_before, company_status_after,
-             validation_method, validated_by_employee_id, validated_by_partner_id,
-             validatedAt, geo_lat, geo_lng, device_fingerprint, metadata
-      FROM company_validations
-      WHERE company_id = $1 AND tenant_id = $2
-      ORDER BY validatedAt DESC
-      `,
-      [companyId, tenantId]
-    );
-
-    return (result || []).map((row) => ({
-      id: row.id,
-      company_id: row.company_id,
-      company_status_before: row.company_status_before,
-      company_status_after: row.company_status_after,
-      validation_method: row.validation_method,
-      validated_by_employee_id: row.validated_by_employee_id,
-      validated_by_partner_id: row.validated_by_partner_id,
-      validatedAt: row.validatedAt,
-      geo_lat: row.geo_lat,
-      geo_lng: row.geo_lng,
-      device_fingerprint: row.device_fingerprint,
-      metadata: row.metadata,
-    }));
-  }
+  // DECISION-0096 / Presential UX 2 (higiene): `getValidationHistory` REMOVIDO — a rota
+  // `validation-history` foi removida (órfã) e lia o vestígio `company_validations` (0 linhas,
+  // sem writer vivo). Auditoria de evidência presencial é greenfield futuro
+  // (DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING).
 }
 
 export const companyValidationService = new CompanyValidationService();

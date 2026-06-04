@@ -6,6 +6,24 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.37) — PJ PRESENTIAL UX 2 HIGIENE (limpar a bancada) + DT CLOSED
+
+Clayton escolheu (via AskUserQuestion) Fase UX 2 — higiene, "limpa a bancada antes de abrir frente nova". Executei como envelope controlado. Reancorei (HEAD c93c9886).
+
+Verificação prévia (whole-repo): zero caller vivo para modal/exports/plumbing/CSS/validation-history. Só então deletei.
+
+Mudança — frontend: git rm CompanyValidationModal.tsx/.css; removi requestCompanyValidation/getCompanyValidationHistory + tipos de api/companies.ts; removi state validationModalCompany de useCompaniesState + threading em CompaniesManager + props/destructure em CompaniesManagerForm; removi regra CSS validate-button de CompaniesManager.css. Backend: removi rota validation-history (companies.routes.ts) + método getValidationHistory + import órfão runQueriesWithTenant (company-validation.service.ts). MANTIVE requestValidation (501 PJ_PRESENTIAL_VALIDATION_RESERVED) + validate/in-person (501 tombstone) — não são dead code, são as superfícies honestas.
+
+Decisão: incluí o backend órfão (validation-history) nesta fatia porque Clayton pediu "fecha a DT" — leaving it deixaria resíduo. As rotas 501 ficam (DECISION-0096 manda retornar 501 honesto, não 404).
+
+Prova: typecheck FE 0 + BE escopo 0 (2 geo-enrichment baseline); grep zero ref viva; e2e pj-inperson-disabled 9/9 (501 intacto pós-limpeza); 4 gates OK. DT-PJ-PRESENTIAL-VALIDATION-UX-ORPHANED → CLOSED (sem resíduo vivo; vestígios de schema company_validations/partner_employees e greenfield de evidência vivem em DTs próprias).
+
+ACHADO fora de escopo: apareceu untracked CRIACAO_DE_EMPRESAS.md (23KB, desenho canônico do Clayton sobre criação de empresa, read-first candidato a DECISION, referencia os 2 PNGs). Caracterizei read-only e tratei como os PNGs (não stagear/deletar/editar/commitar). Clayton confirmou esse tratamento.
+
+🏁 Frente presencial PJ ENCERRADA (porta+placa+bancada). Commit por caminho explícito; 3 untracked autorais intocados. **Próximo (escolha do Clayton):** ler CRIACAO_DE_EMPRESAS.md OU Fase 3.3 (schema) OU greenfield evidência presencial.
+
+---
+
 ## Sessão 2026-06-04 (cont.36) — PJ PRESENTIAL UX 1B FRONTEND IMPLEMENTADO (apagar a placa)
 
 Executei a Fase Presential UX 1B (frontend) da DECISION-0096 — agora alçada Claude (papel unificado; a frente 1B antes era "Codex", reatribuída na cont. anterior). Reancorei (HEAD 461f4339, rescue-structural). Primeira fatia de frontend que executo sob o papel unificado.

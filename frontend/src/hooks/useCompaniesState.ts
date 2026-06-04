@@ -19,8 +19,8 @@ export function useCompaniesState() {
   const [isFetchingCNPJ, setIsFetchingCNPJ] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingCompanyId, setUploadingCompanyId] = useState<string | null>(null);
-  const [validationModalCompany, setValidationModalCompany] = useState<{ id: string; name: string } | null>(null);
-  
+  // DECISION-0096 / Presential UX 2: state `validationModalCompany` removido (modal presencial órfão deletado).
+
   const [formData, setFormData] = useState<CreateCompanyInput>({
     cnpj: '',
     role: 'owner',
@@ -56,8 +56,6 @@ export function useCompaniesState() {
     setIsSaving,
     uploadingCompanyId,
     setUploadingCompanyId,
-    validationModalCompany,
-    setValidationModalCompany,
     formData,
     setFormData,
     revenueData,

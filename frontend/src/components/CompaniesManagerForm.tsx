@@ -27,8 +27,6 @@ interface CompaniesManagerFormProps {
   isFetchingCNPJ: boolean;
   isSaving: boolean;
   uploadingCompanyId: string | null;
-  validationModalCompany: { id: string; name: string } | null;
-  setValidationModalCompany: (company: { id: string; name: string } | null) => void;
   formData: CreateCompanyInput;
   setFormData: (data: CreateCompanyInput | ((prev: CreateCompanyInput) => CreateCompanyInput)) => void;
   revenueData: RevenueFederalData | null;
@@ -62,8 +60,6 @@ export default function CompaniesManagerForm({
   isFetchingCNPJ,
   isSaving,
   uploadingCompanyId,
-  validationModalCompany,
-  setValidationModalCompany,
   formData,
   setFormData,
   revenueData,
@@ -815,9 +811,6 @@ export default function CompaniesManagerForm({
         </div>
       )}
 
-      {/* DECISION-0096: modal de validação presencial REMOVIDO da UI viva (FASE 12 reservada/
-          desabilitada). O componente CompanyValidationModal fica órfão para limpeza na UX 2;
-          o state validationModalCompany não é mais setado por nenhuma ação viva. */}
     </div>
   );
 }

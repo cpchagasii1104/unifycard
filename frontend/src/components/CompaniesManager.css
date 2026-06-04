@@ -543,31 +543,7 @@
   transform: none;
 }
 
-.validate-button {
-  padding: 10px 20px;
-  background: #f59e0b;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  min-height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.validate-button:hover {
-  background: #d97706;
-}
-
-.validate-button:active {
-  transform: scale(0.98);
-  background: #b45309;
-}
+/* DECISION-0096 / Presential UX 2: regras `.validate-button` removidas (botão presencial deletado). */
 
 .delete-button {
   background: #e41e3f;
@@ -675,7 +651,6 @@
 
   .open-dashboard-button,
   .delete-button,
-  .validate-button,
   .upload-button-primary {
     width: 100%;
     justify-content: center;

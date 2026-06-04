@@ -1,3 +1,20 @@
+## 2026-06-04 — PJ PRESENTIAL UX 2 (HIGIENE) IMPLEMENTADA: código morto removido + DT CLOSED
+
+**Branch:** `rescue-structural` · **HEAD origem:** `c93c9886`. Frente `F-PJ-PRESENTIAL-VALIDATION-UX-RESERVED` (Presential UX 2, higiene, DECISION-0096; alçada Claude). Zero schema/migration/DML/Bank/KYB/social-gate/profile-progress. 3 untracked autorais do Clayton (`CRIACAO_DE_EMPRESAS.md` + 2 PNGs) intocados.
+
+**Mudança (remoção de todo o código morto presencial):**
+- **Frontend:** `CompanyValidationModal.tsx`/`.css` **deletados** (`git rm`); `requestCompanyValidation`/`getCompanyValidationHistory` + tipos `ValidationRequest`/`CompanyValidation` **removidos** (`api/companies.ts`); state `validationModalCompany` **removido** (`useCompaniesState`); props/threading **removidos** (`CompaniesManager`/`CompaniesManagerForm`); regra CSS `validate-button` **removida** (`CompaniesManager.css`).
+- **Backend:** rota `GET /companies/:id/validation-history` **removida** (`companies.routes.ts`) + método `getValidationHistory` **removido** + import órfão `runQueriesWithTenant` **removido** (`company-validation.service.ts`).
+- **Mantidas (honestas, não residual):** `requestValidation` (501 `PJ_PRESENTIAL_VALIDATION_RESERVED`) e `validate/in-person` (501 tombstone) — rotas seguem montadas retornando 501.
+
+**Prova:** typecheck frontend **0** + backend escopo **0** (2 `geo-enrichment` baseline). Grep: zero referência viva a qualquer símbolo presencial removido. e2e `validate-pipeline-e2e-pj-inperson-disabled` **9/9** (501 honesto intacto pós-limpeza). 4 gates OK (actor-writer/bank-ledger/regression/arch --strict exit 0; `warning_new`=c3 pré-existente).
+
+**🏁 Frente presencial PJ ENCERRADA:** porta trancada (1A) + placa apagada (1B) + bancada limpa (UX 2). `DT-PJ-PRESENTIAL-VALIDATION-UX-ORPHANED` → **CLOSED**.
+
+**PRÓXIMA ETAPA:** frentes independentes — (a) ler `CRIACAO_DE_EMPRESAS.md` (desenho canônico, candidato a DECISION) · (b) **Fase 3.3** (CHECK `company_status` + drop `is_verified` + dados legados) · (c) greenfield evidência presencial KYB (`DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING`).
+
+---
+
 ## 2026-06-04 — PJ PRESENTIAL UX 1B (FRONTEND) IMPLEMENTADO: UI presencial removida
 
 **Branch:** `rescue-structural` · **HEAD origem:** `461f4339`. Frente `F-PJ-PRESENTIAL-VALIDATION-UX-RESERVED` (Presential UX 1B, frontend, DECISION-0096; alçada Claude — papel unificado). Zero backend/schema/migration/DML/Bank/KYB/social-gate/profile-progress. Os 2 screenshots untracked/intocados.

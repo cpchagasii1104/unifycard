@@ -49,8 +49,6 @@ export function CompaniesManager() {
     setIsSaving,
     uploadingCompanyId,
     setUploadingCompanyId,
-    validationModalCompany,
-    setValidationModalCompany,
     formData,
     setFormData,
     revenueData,
@@ -477,8 +475,6 @@ export function CompaniesManager() {
       isFetchingCNPJ={isFetchingCNPJ}
       isSaving={isSaving}
       uploadingCompanyId={uploadingCompanyId}
-      validationModalCompany={validationModalCompany}
-      setValidationModalCompany={setValidationModalCompany}
       formData={formData}
       setFormData={setFormData}
       revenueData={revenueData}

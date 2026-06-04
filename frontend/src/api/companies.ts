@@ -326,45 +326,10 @@ export async function updateDocumentStatus(
   return response.json();
 }
 
-/**
- * FASE 12: Solicita validação presencial e gera QR Code
- */
-export interface ValidationRequest {
-  company_id: string;
-  qr_code_payload: string; // JWT assinado
-  expires_at: string;
-}
-
-export async function requestCompanyValidation(companyId: string): Promise<ValidationRequest> {
-  const response = await apiFetch(`/companies/${companyId}/request-validation`, {
-    method: 'POST',
-    body: JSON.stringify({}),
-  });
-  return response.json();
-}
-
-/**
- * FASE 12: Busca histórico de validações de uma empresa
- */
-export interface CompanyValidation {
-  id: string;
-  company_id: string;
-  company_status_before: string;
-  company_status_after: string;
-  validation_method: string;
-  validated_by_employee_id: string | null;
-  validated_by_partner_id: string | null;
-  validated_at: string;
-  geo_lat: number | null;
-  geo_lng: number | null;
-  device_fingerprint: string | null;
-  metadata: Record<string, any> | null;
-}
-
-export async function getCompanyValidationHistory(companyId: string): Promise<{ validations: CompanyValidation[] }> {
-  const response = await apiFetch(`/companies/${companyId}/validation-history`);
-  return response.json();
-}
+// DECISION-0096 / Presential UX 2 (higiene): os exports de validação presencial FASE 12 foram
+// REMOVIDOS (requestCompanyValidation, getCompanyValidationHistory + tipos ValidationRequest/
+// CompanyValidation). O fluxo presencial PJ está reservado/desabilitado (backend 501, UI removida).
+// A verificação PJ ocorre pelo fluxo KYB/documental.
 
 
 

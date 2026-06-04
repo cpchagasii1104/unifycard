@@ -730,36 +730,11 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(validation);
   });
 
-  /**
-   * GET /companies/:companyId/validation-history
-   * Busca histórico de validações de uma empresa
-   * FASE 12: Auditoria de validações
-   */
-  fastify.get<{
-    Params: { companyId: string };
-  }>('/:companyId/validation-history', async (req, reply) => {
-    if (!req.user) {
-      return reply.status(401).send({ error: 'Não autenticado' });
-    }
-
-    if (!req.tenant) {
-      return reply.status(400).send({ error: 'Tenant não encontrado' });
-    }
-
-    try {
-      const history = await companyValidationService.getValidationHistory(
-        req.tenant.id,
-        req.params.companyId
-      );
-
-      return reply.send({ validations: history });
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao buscar histórico de validações');
-      return reply.status(500).send({
-        error: 'Erro ao buscar histórico de validações',
-      });
-    }
-  });
+  // DECISION-0096 / Presential UX 2 (higiene): rota `GET /companies/:id/validation-history`
+  // REMOVIDA — lia o vestígio `company_validations` (0 linhas, sem writer vivo) e estava órfã
+  // (sem caller frontend após a remoção da UX presencial). Auditoria de evidência presencial é
+  // greenfield futuro (DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING). As rotas request-validation
+  // e validate/in-person seguem montadas, retornando 501 honesto.
 
   /**
    * GET /companies/audit/alerts
