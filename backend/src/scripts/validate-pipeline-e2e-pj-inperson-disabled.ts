@@ -1,14 +1,16 @@
 /**
- * E2E DECISION-0091 Fase 2.5 — validateInPerson (FASE 12 QR) DESABILITADO.
+ * E2E DECISION-0091 Fase 2.5 + DECISION-0096 Presential UX 1A — fluxo presencial PJ DESABILITADO.
  *
  * 🔒 DB EFÊMERA. Guard duro: current_database() === EXPECTED_DATABASE_NAME e NUNCA 'unificard_dev'.
  *    Orquestrado por scripts/run-pj-inperson-disabled-ephemeral.ps1.
  *
- * Prova o caminho REAL (companyValidationService.validateInPerson):
- *   - a chamada LANÇA erro de domínio (code PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED).
+ * Prova o caminho REAL (companyValidationService):
+ *   - validateInPerson LANÇA erro de domínio (code PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED, statusCode 501).
  *   - NÃO escreve company_status (segue 'PROVISIONAL') nem is_verified, no banco.
  *   - NÃO escreve company_validations (0 linhas).
- *   - requestValidation segue funcionando (gera QR/token, não escreve).
+ *   - DECISION-0096: requestValidation TAMBÉM desabilitado — LANÇA HttpError 501 (code
+ *     PJ_PRESENTIAL_VALIDATION_RESERVED) ANTES de gerar qualquer token/QR (nada vaza).
+ *   - statusCode 501 em ambos prova que o error-handler global emite HTTP 501 (não 400).
  *   - zero Bank.
  */
 import 'tsconfig-paths/register';
@@ -84,7 +86,7 @@ async function main(): Promise<void> {
 
   // ═══ validateInPerson deve LANÇAR e não escrever nada ═══
   console.log('\n— validateInPerson (FASE 12) desabilitado —');
-  let threw = false; let code = ''; let msg = '';
+  let threw = false; let code = ''; let msg = ''; let status = 0;
   try {
     await companyValidationService.validateInPerson(TENANT_ID, {
       company_id: companyId,
@@ -95,11 +97,13 @@ async function main(): Promise<void> {
     threw = true;
     code = e?.code ?? '';
     msg = e?.message ?? '';
+    status = e?.statusCode ?? 0;
   }
   record('1 validateInPerson LANÇA erro', threw, `threw=${threw}`);
   record('2 erro tem code PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED',
     code === 'PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED' || /PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED/.test(msg),
     `code=${code} msg=${msg}`);
+  record('2b validateInPerson statusCode 501 (handler global emite 501, não 400)', status === 501, `status=${status}`);
 
   // Confirma no banco que nada foi escrito.
   const dbRow = await pool.query<{ company_status: string; is_verified: boolean }>(
@@ -113,13 +117,20 @@ async function main(): Promise<void> {
   ).then((r) => parseInt(r.rows[0].n, 10)).catch(() => -1);
   record('4 company_validations: 0 linhas (NÃO escreveu)', cvCount === 0, `rows=${cvCount}`);
 
-  // requestValidation segue funcionando (gera token/QR, não escreve).
-  let qrOk = false;
+  // DECISION-0096: requestValidation TAMBÉM desabilitado — LANÇA 501 ANTES de gerar token/QR.
+  let rvThrew = false; let rvCode = ''; let rvStatus = 0; let rvLeakedToken = false;
   try {
     const vr = await companyValidationService.requestValidation(TENANT_ID, companyId);
-    qrOk = typeof vr.qr_code_payload === 'string' && vr.qr_code_payload.length > 0;
-  } catch { qrOk = false; }
-  record('5 requestValidation segue gerando QR (intacto)', qrOk, `qrOk=${qrOk}`);
+    // Não deveria chegar aqui; se chegar, houve vazamento de token/QR órfão.
+    rvLeakedToken = typeof vr?.qr_code_payload === 'string' && vr.qr_code_payload.length > 0;
+  } catch (e: any) {
+    rvThrew = true;
+    rvCode = e?.code ?? '';
+    rvStatus = e?.statusCode ?? 0;
+  }
+  record('5 requestValidation LANÇA e NÃO gera QR órfão', rvThrew && !rvLeakedToken, `threw=${rvThrew} leaked=${rvLeakedToken}`);
+  record('5b requestValidation code PJ_PRESENTIAL_VALIDATION_RESERVED', rvCode === 'PJ_PRESENTIAL_VALIDATION_RESERVED', `code=${rvCode}`);
+  record('5c requestValidation statusCode 501 (não 400)', rvStatus === 501, `status=${rvStatus}`);
 
   const bankAfter = await pool
     .query<{ n: string }>(`SELECT (COALESCE((SELECT count(*) FROM bank_ledger),0)+COALESCE((SELECT count(*) FROM bank_transactions),0))::text n`)

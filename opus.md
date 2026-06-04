@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.35) — PJ PRESENTIAL UX 1A BACKEND IMPLEMENTADO (trancar a porta)
+
+Executei a Fase Presential UX 1A (backend) da DECISION-0096. Reancorei (HEAD 15782205 = c8faed44 + 1 docs-only de reatribuição de papel; rescue-structural, unificard_dev, 355 migrations).
+
+Mudança: requestValidation (company-validation.service.ts) virou fail-fast HTTP 501 (PJ_PRESENTIAL_VALIDATION_RESERVED) ANTES de qualquer query/randomUUID/jwt.sign/token/QR — não gera mais QR órfão. Removi a maquinaria JWT morta (imports jwt/randomUUID/pool; const JWT_SECRET+guard de module-load; VALIDATION_TOKEN_EXPIRES_IN). As rotas request-validation e validate/in-person deixaram de capturar/mascarar — o HttpError(501) propaga ao error-handler global (usa error.statusCode + code canônico §9.5). Antes: o catch genérico rebaixava o 501 do tombstone para HTTP 400. Agora validate/in-person retorna 501, request-validation retorna 501. Removi o log "Empresa validada presencialmente" (inalcançável). JSDocs stale corrigidos. NÃO escreve company_status/is_verified/verifiedAt/kyb_status (grep: só comentário).
+
+Decisão de design: escolhi DEIXAR PROPAGAR (remover o catch) em vez de honrar statusCode no catch local — o handler global já mapeia error.statusCode→HTTP e emite o envelope canônico {error:{code,message},meta}. Mais limpo e idiomático que duplicar lógica no catch.
+
+Prova: atualizei o e2e existente validate-pipeline-e2e-pj-inperson-disabled.ts (era 6/6 provando "requestValidation segue gerando token" — invertido) → agora 9/9: validateInPerson 501+code+statusCode(2b); requestValidation lança e NÃO vaza QR(5) + code PJ_PRESENTIAL_VALIDATION_RESERVED(5b) + statusCode 501(5c); zero Bank. statusCode===501 em ambos prova que o route retorna 501 não 400 (handler global usa error.statusCode). Typecheck escopo 0 (2 erros geo-enrichment = baseline pré-existente, provei por stash em sessão anterior). 4 gates OK (warning_new=1 = c3 pré-existente).
+
+DTs: DT-PJ-PRESENTIAL-VALIDATION-UX-ORPHANED permanece OPEN (backend 1A feito; frontend 1B + Fase UX 2 pendentes — NÃO fechei). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** frontend Presential UX 1B (alçada Claude — papel unificado): esconder botão "Validar presencialmente" + texto PROVISIONAL + CompanyValidationModal + matar promessa VERIFIED. Porta trancada; falta apagar a placa.
+
+---
+
 ## Sessão 2026-06-04 (cont.34) — DECISION-0096: validação presencial PJ reservada / UX desabilitada (docs-only)
 
 Após READ-ONLY Fase 3.2 do QR/UX órfã (a placa luminosa apontando pro beco), despachei envelope docs-only. Promulguei `DECISION_0096_PJ_PRESENTIAL_VALIDATION_UX_RESERVED.md` (0096). Reancorei (HEAD 0945b577, rescue-structural, unificard_dev, 355 migrations).

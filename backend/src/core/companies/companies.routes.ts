@@ -676,19 +676,15 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
 
-    try {
-      const validationRequest = await companyValidationService.requestValidation(
-        req.tenant.id,
-        req.params.companyId
-      );
+    // DECISION-0096: requestValidation está reservado/desabilitado (HttpError 501). NÃO capturar
+    // o erro aqui — deixá-lo propagar ao error-handler global preserva o status 501 + code canônico
+    // (`PJ_PRESENTIAL_VALIDATION_RESERVED`). O catch antigo mascarava o 501 como HTTP 400.
+    const validationRequest = await companyValidationService.requestValidation(
+      req.tenant.id,
+      req.params.companyId
+    );
 
-      return reply.send(validationRequest);
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao solicitar validação');
-      return reply.status(400).send({
-        error: error instanceof Error ? error.message : 'Erro ao solicitar validação',
-      });
-    }
+    return reply.send(validationRequest);
   });
 
   /**
@@ -715,35 +711,23 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
 
-    try {
-      const validation = await companyValidationService.validateInPerson(
-        req.tenant.id,
-        {
-          company_id: req.body.company_id,
-          validation_token: req.body.validation_token,
-          employee_id: req.body.employee_id,
-          partner_id: req.body.partner_id,
-          geo: req.body.geo,
-          device_fingerprint: req.body.device_fingerprint,
-          metadata: req.body.metadata,
-        }
-      );
+    // DECISION-0096/0091: validateInPerson é tombstone (HttpError 501
+    // `PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED`). NÃO capturar — deixar propagar ao error-handler
+    // global preserva o status 501 original. O catch antigo rebaixava o 501 para HTTP 400.
+    const validation = await companyValidationService.validateInPerson(
+      req.tenant.id,
+      {
+        company_id: req.body.company_id,
+        validation_token: req.body.validation_token,
+        employee_id: req.body.employee_id,
+        partner_id: req.body.partner_id,
+        geo: req.body.geo,
+        device_fingerprint: req.body.device_fingerprint,
+        metadata: req.body.metadata,
+      }
+    );
 
-      // Emitir evento interno: company-verified
-      // (Futuro: atualizar cache/permissões via evento)
-      fastify.log.info({
-        company_id: validation.company_id,
-        employee_id: validation.validated_by_employee_id,
-        method: validation.validation_method,
-      }, 'Empresa validada presencialmente');
-
-      return reply.send(validation);
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao validar empresa presencialmente');
-      return reply.status(400).send({
-        error: error instanceof Error ? error.message : 'Erro ao validar empresa presencialmente',
-      });
-    }
+    return reply.send(validation);
   });
 
   /**

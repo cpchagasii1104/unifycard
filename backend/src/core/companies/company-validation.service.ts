@@ -1,19 +1,13 @@
 // src/core/companies/company-validation.service.ts
 // Serviço para Validação Presencial com QR + Funcionário Auditável (FASE 12)
 
-import { randomUUID } from 'crypto';
-import jwt from 'jsonwebtoken';
-import { pool, runQueriesWithTenant } from '@core/database/pool';
+import { runQueriesWithTenant } from '@core/database/pool';
 import { CompanyStatus } from '@unificard/contracts';
 import { HttpError } from '@core/errors/http-error';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required for company validation');
-}
-
-const VALIDATION_TOKEN_EXPIRES_IN = '15m'; // Token expira em 15 minutos
+// DECISION-0096: validação presencial PJ reservada/desabilitada. Este serviço NÃO gera mais
+// token/JWT/QR — a maquinaria de assinatura (jwt, randomUUID, JWT_SECRET, expiração) foi removida
+// porque requestValidation passou a fail-fast com HTTP 501 antes de qualquer geração.
 
 export interface ValidationTokenPayload {
   company_id: string;
@@ -54,61 +48,26 @@ export interface CompanyValidation {
 
 class CompanyValidationService {
   /**
-   * Gera token de validação e QR Code payload
-   * FASE 12: Token JWT curto (15 min) para validação presencial
+   * RESERVADO/DESABILITADO (DECISION-0096). Originalmente gerava token JWT/QR para validação
+   * presencial (FASE 12). Agora lança HttpError 501 (`PJ_PRESENTIAL_VALIDATION_RESERVED`) antes de
+   * qualquer geração — não há consumidor vivo (validateInPerson é tombstone) e o sistema não pode
+   * gerar QR órfão. Reativação exige greenfield (evidência presencial KYB).
    */
   async requestValidation(
-    tenantId: string,
+    _tenantId: string,
     companyId: string
   ): Promise<ValidationRequest> {
-    // Verificar se empresa existe e está PROVISIONAL
-    const companyResult = await pool.query<{
-      company_id: string;
-      company_status: string;
-    }>(`
-      SELECT c.company_id, c.company_status
-      FROM companies c
-      WHERE c.company_id = $1
-        AND c.tenant_id = $2
-      LIMIT 1
-    `, [companyId, tenantId]);
-
-    const company = companyResult.rows;
-
-    if (!company || company.length === 0) {
-      throw new Error('Empresa não encontrada');
-    }
-
-    if (company[0].company_status !== 'PROVISIONAL') {
-      throw new Error('Apenas empresas PROVISIONAL podem solicitar validação presencial');
-    }
-
-    // Gerar token único
-    const token = randomUUID();
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 15); // 15 minutos
-
-    // Criar payload JWT
-    const payload: ValidationTokenPayload = {
-      company_id: companyId,
-      token,
-      expiresAt: expiresAt.toISOString(),
-    };
-
-    // Assinar JWT
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      throw new Error('JWT_SECRET environment variable is required for company validation');
-    }
-    const qrCodePayload = jwt.sign(payload, secret, {
-      expiresIn: VALIDATION_TOKEN_EXPIRES_IN,
-    });
-
-    return {
-      company_id: companyId,
-      qr_code_payload: qrCodePayload,
-      expiresAt: expiresAt.toISOString(),
-    };
+    // DECISION-0096: validação presencial PJ está RESERVADA/DESABILITADA.
+    // Fail-fast com HTTP 501 ANTES de qualquer query, randomUUID, jwt.sign ou geração de
+    // validationToken/QR — não há consumidor vivo (validateInPerson é tombstone) e o sistema não
+    // pode gerar QR órfão. NÃO escreve company_status/is_verified/verifiedAt/kyb_status. A
+    // verificação PJ ocorre pelo fluxo KYB/documental (fiscal_identities.kyb_status). FASE 12 não revive.
+    const err = new HttpError(
+      `PJ_PRESENTIAL_VALIDATION_RESERVED: Validação presencial PJ está reservada/desabilitada (DECISION-0096). A verificação PJ ocorre pelo fluxo KYB/documental. (company=${companyId})`,
+      501
+    );
+    (err as unknown as { code: string }).code = 'PJ_PRESENTIAL_VALIDATION_RESERVED';
+    throw err;
   }
 
   /**
@@ -122,7 +81,7 @@ class CompanyValidationService {
    * (`fiscal_identities.kyb_status`) e writer KYB auditado. Evidência presencial KYB é greenfield
    * futuro (DECISION-0091 §4.4). Lança antes de qualquer leitura/escrita.
    *
-   * `requestValidation`/QR seguem INTACTOS (inertes; só geram token).
+   * `requestValidation`/QR TAMBÉM desabilitados (DECISION-0096): lançam 501 antes de gerar token.
    */
   async validateInPerson(
     _tenantId: string,

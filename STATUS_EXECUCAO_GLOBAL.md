@@ -1,3 +1,20 @@
+## 2026-06-04 — PJ PRESENTIAL UX 1A (BACKEND) IMPLEMENTADO: fluxo presencial legado honesto
+
+**Branch:** `rescue-structural` · **HEAD origem:** `15782205`. Frente `F-PJ-PRESENTIAL-VALIDATION-UX-RESERVED` (Presential UX 1A, backend, DECISION-0096). Zero schema/migration/DML/frontend/Bank/KYB-writer/F2-C/social-gate/profile-progress. Os 2 screenshots untracked/intocados.
+
+**Mudança (backend para de gerar QR órfão + tombstone honesto):**
+- `core/companies/company-validation.service.ts`: `requestValidation` virou **fail-fast HTTP 501** (`PJ_PRESENTIAL_VALIDATION_RESERVED`) **antes** de qualquer query/`randomUUID`/`jwt.sign`/token/QR. Removida a maquinaria JWT morta (imports `jwt`/`randomUUID`/`pool`; const `JWT_SECRET`+guard; `VALIDATION_TOKEN_EXPIRES_IN`). JSDocs stale corrigidos.
+- `core/companies/companies.routes.ts`: as rotas `request-validation` e `validate/in-person` **deixaram de capturar/mascarar** o erro — o `HttpError(501)` propaga ao **error-handler global** (`error.statusCode`→HTTP + code canônico §9.5). Resultado: `validate/in-person` agora retorna **501** (antes 400 por catch genérico); `request-validation` retorna **501** (`PJ_PRESENTIAL_VALIDATION_RESERVED`). Removido o log "Empresa validada presencialmente" (era inalcançável).
+- NÃO escreve `company_status='VERIFIED'`/`is_verified`/`verifiedAt`/`kyb_status` (grep: só comentário). `validation-history` intacto (leitura inerte, fora de escopo).
+
+**Prova:** `validate-pipeline-e2e-pj-inperson-disabled.ts` (**9/9**, DB efêmera, guard contra `unificard_dev`): validateInPerson 501 + code + statusCode; **requestValidation lança e NÃO vaza QR** + code `PJ_PRESENTIAL_VALIDATION_RESERVED` + statusCode 501; banco PROVISIONAL/false; `company_validations` 0 linhas; zero Bank. `statusCode===501` em ambos prova que o handler global emite **HTTP 501, não 400**. Typecheck backend escopo **0** (2 erros remanescentes = `geo-enrichment.service.ts` baseline pré-existente). 4 gates OK (actor-writer/bank-ledger/regression/arch --strict exit 0; único `warning_new` = c3 pré-existente).
+
+**DTs:** `DT-PJ-PRESENTIAL-VALIDATION-UX-ORPHANED` **permanece OPEN** — backend 1A feito; falta **frontend 1B** (esconder botão/modal + matar promessa VERIFIED) e **Fase UX 2** (higiene `validation-history`/exports mortos). `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` OPEN (greenfield).
+
+**PRÓXIMA ETAPA:** **frontend Presential UX 1B** (alçada Claude — papel unificado): esconder o botão "📱 Validar presencialmente" + texto PROVISIONAL + `CompanyValidationModal`, matar a promessa "terá status VERIFIED". A porta está trancada (501); falta apagar a placa.
+
+---
+
 ## 2026-06-04 — DECISION-0096: validação presencial PJ reservada / UX desabilitada (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `0945b577`. Frente `F-PJ-PRESENTIAL-VALIDATION-UX-RESERVED` (família Fase 3.2 — vestígios). **Docs-only**; zero código/schema/migration/frontend/backend/DML/Bank. Fixa regra + ordem; executor pequeno depois. Os 2 screenshots untracked/intocados.
