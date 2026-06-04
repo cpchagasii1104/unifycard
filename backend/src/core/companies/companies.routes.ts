@@ -644,37 +644,19 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ ok: false, message: 'Não autenticado' });
     }
 
-    try {
-      const { companyId } = req.params;
-      
-      const company = await companiesService.adminOverrideToVerified(
-        companyId,
-        req.user.globalUserId,
-        req.tenant?.id as string
-      );
+    // DECISION-0090 Fase 2.2: override legado de verificação PJ DESABILITADO. Não escreve
+    // company_status='VERIFIED'/is_verified/verifiedAt. Verificação fiscal tem fonte única
+    // (fiscal_identities.kyb_status) e writer KYB auditado. Endpoint mantido por compatibilidade.
+    fastify.log.warn({
+      companyId: req.params.companyId,
+      adminGlobalUserId: req.user.globalUserId,
+    }, 'Override legado de verificação PJ recusado (DECISION-0090 Fase 2.2)');
 
-      fastify.log.warn({
-        companyId,
-        adminGlobalUserId: req.user.globalUserId,
-        method: 'ADMIN_OVERRIDE',
-      }, '⚠️ ADMIN OVERRIDE: Empresa marcada como VERIFIED');
-
-      return reply.send({
-        ok: true,
-        /**
-         * EXCEÇÃO INSTITUCIONAL (SPRINT 30)
-         * Motivo: Admin pode marcar empresa como VERIFIED sem passar pelo fluxo normal de validação
-         * Contexto: Necessidade operacional de override manual
-         * Tipo: estrutural
-         */
-        message: 'Empresa marcada como VERIFIED (Admin Override)',
-        data: company,
-      });
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao fazer admin override');
-      const message = error instanceof Error ? error.message : 'Erro ao fazer admin override';
-      return reply.status(400).send({ ok: false, message });
-    }
+    return reply.status(501).send({
+      ok: false,
+      code: 'PJ_LEGACY_VERIFIED_OVERRIDE_DISABLED',
+      message: 'Override legado de verificação PJ desabilitado. Use o fluxo KYB auditado.',
+    });
   });
 
   /**

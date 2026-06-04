@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.21) — PJ VERIFIED WRITERS Fase 2.2 IMPLEMENTADA (adminOverride desabilitado)
+
+Executei a Fase 2.2 da DECISION-0090 (envelope executor). Reancorei (HEAD 3a6cbdea, rescue-structural, unificard_dev).
+
+Mudança: aposentei adminOverrideToVerified como writer direto de VERIFIED. (a) Função endurecida em companies.service.ts → lança HttpError 501 code PJ_LEGACY_VERIFIED_OVERRIDE_DISABLED ANTES de qualquer escrita (tombstone fail-closed; params não-usados prefixados _; protege caller interno). (b) Rota POST /companies/:id/admin/override-verified curto-circuita 501 (auth+role preservados; removi o branch de sucesso enganoso "marcada como VERIFIED"). Preferi aposentar direto (não redirecionar p/ KYB writer ainda, conforme envelope). Verifiquei antes: nenhum caller/teste vivo depende dela (hits eram def/guard/comentário/rota; resto histórico/_backups/99_archive).
+
+Prova: harness efêmero novo validate-pipeline-e2e-pj-adminoverride-disabled (5/5) — lança com code esperado; banco segue PROVISIONAL/false; zero audit validation; zero Bank. Typecheck 0; 4 gates OK (warning_new=1 = c3 pré-existente).
+
+Outros 3 writers intocados (updateDocumentStatus, reviewCompanyValidation, FASE 12). DTs: LEGACY-VERIFIED-WRITERS-MULTIPLE (Fase 2.2 concluída, restam 3, OPEN); SECOND-TRUTH (superfície ainda menor, OPEN). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase 2.3 — updateDocumentStatus (documento=evidência; convergir/rebaixar company_documents vs fiscal_identity_documents).
+
+---
+
 ## Sessão 2026-06-04 (cont.20) — PJ VERIFIED WRITERS Fase 2.1 IMPLEMENTADA (updateCompany no-status)
 
 Executei a Fase 2.1 da DECISION-0090 (envelope executor, primeiro corte de menor risco). Reancorei (HEAD 1d2bdb77, rescue-structural, unificard_dev).

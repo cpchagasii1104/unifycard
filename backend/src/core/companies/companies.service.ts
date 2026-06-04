@@ -2207,87 +2207,27 @@ class CompaniesService {
   }
 
   /**
-   * ADMIN OVERRIDE: Marca empresa como VERIFIED (apenas para testes internos)
-   * ⚠️ ATENÇÃO: Esta função é apenas para testes. Não deve ser usada em produção sem auditoria adequada.
-   * 
-   * @param companyId ID da empresa
-   * @param adminGlobalUserId ID do admin que está fazendo o override
-   * @returns Empresa atualizada
+   * ADMIN OVERRIDE — DESABILITADO (DECISION-0090 Fase 2.2).
+   *
+   * 🔴 Override legado de verificação PJ NEUTRALIZADO. Esta função NÃO escreve mais
+   * `company_status='VERIFIED'` / `is_verified=true` / `verifiedAt`, nem audit de validação.
+   * Verificação fiscal tem FONTE ÚNICA (`fiscal_identities.kyb_status`) e writer próprio
+   * (KYB auditado, `fiscal-identity-kyb.service`); override fiscal futuro deve passar por ele,
+   * com actor, reason e trilha. Lança erro de domínio antes de qualquer escrita.
+   *
+   * Mantida (signature + rota) por compatibilidade de endpoint; sempre falha fail-closed.
    */
   async adminOverrideToVerified(
     companyId: string,
-    adminGlobalUserId: string,
-    tenantId: string
+    _adminGlobalUserId: string,
+    _tenantId: string
   ): Promise<Company> {
-    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
-    // Para admin operando sobre company-alvo, tenant é o do contexto da requisição (req.tenant?.id),
-    // NÃO derivado do globalUserId do admin (que poderia ser duplicado entre tenants).
-    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para adminOverrideToVerified (§8 03_IDENTITY_CANONICA)');
-    }
-    const finalTenantId = tenantId;
-    
-    // Buscar empresa
-    const company = await this.getCompanyById(companyId, adminGlobalUserId, finalTenantId);
-    if (!company) {
-      throw new Error('Empresa não encontrada');
-    }
-
-    // EMPRESA_NASCIMENTO_CANONICO §1/§7: estado/validação vivem no Actor (que age), não em companies
-    // (registro institucional inerte). companies recebe SÓ campos institucionais que existem
-    // (company_status, is_verified, updated_at). O audit de validação vai para actors.metadata.validation
-    // do PAGE actor da empresa (Opção 4 da DT-ONBOARDING-METADATA-STORAGE-DECISION).
-    const result = await pool.query<{
-      company_id: string;
-      company_status: string;
-      updated_at: Date;
-    }>(
-      `
-      UPDATE companies
-      SET
-        company_status = 'VERIFIED',
-        is_verified = true,
-        updated_at = NOW()
-      WHERE company_id = $1::uuid
-      RETURNING company_id, company_status, updated_at
-      `,
-      [companyId]
+    const err = new HttpError(
+      `PJ_LEGACY_VERIFIED_OVERRIDE_DISABLED: Override legado de verificação PJ desabilitado. Use o fluxo KYB auditado. (company=${companyId})`,
+      501
     );
-
-    if (result.rows.length === 0) {
-      throw new Error('Erro ao atualizar status da empresa');
-    }
-
-    // Resolve PAGE actor da empresa para gravar audit de validação (§8 03_IDENTITY_CANONICA:
-    // resolução SEMPRE com tenant_id explícito). Fail-loud se empresa órfã (sem page actor):
-    // estado degradado pré-§4.8.2 merece visibilidade, não silêncio.
-    const pageActorRow = await runQueryWithTenant<{ actor_id: string }>(
-      finalTenantId,
-      `SELECT actor_id FROM actors
-        WHERE tenant_id = $1::uuid AND company_id = $2::uuid AND actor_type = 'page'
-        LIMIT 1`,
-      [finalTenantId, companyId]
-    );
-    if (!pageActorRow) {
-      throw new Error(`COMPANY_HAS_NO_PAGE_ACTOR: company ${companyId} não possui page actor (estado degradado pré-§4.8.2). Audit de validação não foi gravado.`);
-    }
-
-    await runQueryWithTenant(
-      finalTenantId,
-      `UPDATE actors
-         SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('validation', jsonb_build_object(
-               'validation_method', 'ADMIN_OVERRIDE',
-               'validated_by', 'SYSTEM_ADMIN',
-               'validated_at', NOW(),
-               'admin_global_user_id', $2::uuid
-             )),
-             updated_at = NOW()
-       WHERE actor_id = $1::uuid AND tenant_id = $3::uuid`,
-      [pageActorRow.actor_id, adminGlobalUserId, finalTenantId]
-    );
-
-    // Retornar empresa atualizada
-    return await this.getCompanyById(companyId, adminGlobalUserId, finalTenantId) as Company;
+    (err as unknown as { code: string }).code = 'PJ_LEGACY_VERIFIED_OVERRIDE_DISABLED';
+    throw err;
   }
 
   // ============================================================

@@ -1,3 +1,22 @@
+## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.2 IMPLEMENTADA: adminOverrideToVerified desabilitado
+
+**Branch:** `rescue-structural` · **HEAD origem:** `3a6cbdea`. Frente `F-PJ-VERIFIED-WRITERS-2.2` (DECISION-0090 §4.3). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/company-validation/FASE12/frontend. Os 2 screenshots untracked/intocados.
+
+**Mudança (aposentar override legado):**
+- `companies.service.ts`: `adminOverrideToVerified` **endurecida** — lança `HttpError` 501 com code `PJ_LEGACY_VERIFIED_OVERRIDE_DISABLED` **antes de qualquer escrita**. Não escreve mais `company_status='VERIFIED'`/`is_verified=true` nem audit `ADMIN_OVERRIDE`. Signature/JSDoc mantidos (tombstone fail-closed; protege caller interno/futuro).
+- `companies.routes.ts`: `POST /companies/:id/admin/override-verified` curto-circuita para **HTTP 501** (auth + `requireRole(['admin','owner'])` preservados; removido o branch de sucesso enganoso "Empresa marcada como VERIFIED").
+- Nenhum caller/teste vivo dependia da função (hits em código eram def/guard/comentário/rota; resto é histórico/`_backups`/`99_archive`).
+
+**Prova (DB efêmera `validate-pipeline-e2e-pj-adminoverride-disabled`, 5/5, via `run-pj-adminoverride-disabled-ephemeral.ps1`):** chamada lança com code esperado; banco segue `company_status='PROVISIONAL'`/`is_verified=false` (nada escrito); zero audit `validation`; zero Bank. Typecheck 0; 4 gates OK (arch --strict exit 0; único `warning_new` é o c3 pré-existente).
+
+**Outros 3 writers NÃO tocados** (por escopo): `updateDocumentStatus`, `reviewCompanyValidation`, FASE 12 QR.
+
+**DTs:** `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (Fase 2.2 concluída, restam 3, OPEN) · `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (superfície ainda menor, OPEN).
+
+**PRÓXIMA ETAPA:** Fase 2.3 — `updateDocumentStatus` (documento é evidência, não estado; convergir/rebaixar `company_documents` vs `fiscal_identity_documents`). Depois 2.4 (`reviewCompanyValidation` + E2E company), 2.5 (FASE 12 QR — READ-ONLY/DESIGN próprio).
+
+---
+
 ## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.1 IMPLEMENTADA: updateCompany não escreve company_status
 
 **Branch:** `rescue-structural` · **HEAD origem:** `1d2bdb77`. Frente `F-PJ-VERIFIED-WRITERS-2.1` (DECISION-0090 §4.2, primeiro corte de menor risco). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/company-validation/FASE12/frontend. Os 2 screenshots untracked/intocados.
