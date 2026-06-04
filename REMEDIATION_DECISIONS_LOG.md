@@ -6467,3 +6467,26 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+### DECISION-0097 — Nascimento e ativação operacional da empresa PJ (modelo canônico)
+
+- **Data:** 2026-06-04
+- **Tipo:** arquitetural / institucional
+- **ID da violação (se aplicável):** N/A (consolidação institucional; doc em `docs/02_decisions/DECISION_0097_PJ_COMPANY_BIRTH_AND_OPERATIONAL_ACTIVATION.md`)
+- **Contexto:** o desenho autoral de Clayton `CRIACAO_DE_EMPRESAS.md` (fora do git) reconcilia as lentes soberana/ontológica e UX/produto do nascimento de empresa PJ. Faltava institucionalizar o modelo como DECISION soberana, sincronizada com o estado vivo pós-0090–0096.
+- **Opções consideradas:**
+  1. Ir direto para a Fase 3.3 (schema `company_status`/`is_verified`) — REJEITADA: mexer no encanamento antes da planta; a §9.4 do desenho condiciona o shape da 3.3.
+  2. Manter o desenho como artefato autoral sem DECISION — REJEITADA: "decisão fora deste log não existe"; sem norma governante a 3.3 não tem base.
+  3. Promulgar DECISION docs-only consolidando D1–D10 + sincronizando com o disco — ESCOLHIDA.
+- **Escolha:** Opção 3.
+- **Justificativa:** institucionaliza o modelo (dois momentos; KYB como SSOT único; 4 eixos independentes; page-actor como eixo; CONCEPT como identidade; "ambos" = dois trilhos via GRAPH) preservando precedência `norma → schema → código` e `identidade antes de comércio`; ratifica DECISION-0075 Opção B (já no código); corrige 3 claims de snapshot contra o disco; não autoriza execução.
+- **Consequências esperadas:**
+  - Curto prazo: a Fase 3.3 ganha DECISION governante; vocabulário de ativação e domain-selection viram DTs nomeadas (não corrigidas em silêncio).
+  - Médio prazo: execuções (3.3 schema; reconciliação de vocabulário; desenho domain-selection) derivam desta DECISION, cada uma sob nova palavra de Clayton.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Validação prévia:** Clayton (desenho autoral + promulgação); verificação read-only `psql` (esta sessão); cadeia 0075/0089–0096.
+- **Supera:** nenhuma (ratifica DECISION-0075 Opção B; compatível com 0089/0094/0096).
+- **Superada por:** (em aberto — decisão vigente)
+- **Referências:** `docs/02_decisions/DECISION_0097_PJ_COMPANY_BIRTH_AND_OPERATIONAL_ACTIVATION.md`; `CRIACAO_DE_EMPRESAS.md` (autoral, fora do git); `EMPRESA_NASCIMENTO_CANONICO`, `02_ACTORS_SSOT`, `18_DOMAIN_ONTOLOGY`, Lei 5/Lei 7; HEAD âncora `0c4abed2`.

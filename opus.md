@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.38) — DECISION-0097: nascimento/ativação operacional da empresa PJ (docs-only)
+
+Transformei a planta do Clayton (CRIACAO_DE_EMPRESAS.md, untracked autoral) em DECISION institucional, sincronizada com o estado vivo. Reancorei (HEAD 0c4abed2). Bootstrap normativo pesado: li em full CONSTITUICAO, LEIS (Lei5 Bank/Lei7 CONCEPT), EMPRESA_NASCIMENTO_CANONICO, 02_ACTORS_SSOT, PROHIBITED_STRUCTURES, IDENTITY_SSOT_PRECEDENCE, SSOT_EXCLUSIVE_BANK_RULE, REGRA_CRIACAO_DE_CONTEXT, 18_DOMAIN_ONTOLOGY (parcial). Verifiquei claims por psql.
+
+Promulguei DECISION_0097_PJ_COMPANY_BIRTH_AND_OPERATIONAL_ACTIVATION.md. D1 nasce inerte (Momento 1 fiscal-first); D2 ratifica 0075 Opção B (já no código — fecha ambiguidade A/B); D3 verificação=fiscal_identities.kyb_status único; D4 4 eixos independentes (proibido fundir em company_status); D5 produtos/serviços/ambos=seleção N0, "ambos"=dois trilhos via GRAPH não hybrid; D6 par (primary_company_type_id, primary_concept_id), CONCEPT=identidade, sem fallback CONTEXT; D7 page-actor eixo único, descoberta por concept_id; D8 Bank fronteira negativa; D9 correções de snapshot; D10 bloqueios.
+
+D9 (disco vence narrativa — 3 correções ao desenho): (1) migrations fiscais 20260603120000/130000/140000 APLICADAS em unificard_dev (não só efêmera — fiscal_identities + constraints presentes); (2) product_offers tem price_cents BIGINT, NÃO price NUMERIC → claim stale, NÃO criei DT de preço; (3) o desenho não conhecia 0090-0096 → os 5 writers VERIFIED já neutralizados + presencial encerrada → o SECOND-TRUTH residual é SÓ schema, não writer vivo (corrigi a §10.2 do desenho).
+
+DTs: SECOND-TRUTH OPEN agora governada pela 0097 (Fase 3.3 deriva dela). Criei DT-PJ-OPERATIONAL-ACTIVATION-VOCABULARY-DRIFT (businessType×businessCategory×primary_company_type) e DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING. Atualizei REMEDIATION_DECISIONS_LOG (append) + criei execution_log. Commit por caminho explícito; 3 untracked autorais (CRIACAO_DE_EMPRESAS.md + 2 PNGs) NÃO staged/tocados. Gates verdes.
+
+Insight de sequência (Clayton acertou): ler a planta ANTES da Fase 3.3 — a 3.3 é execução da §9.4 do desenho, não precede. **Próximo (escolha do Clayton, sem execução):** Fase 3.3 schema, OU read-only vocabulário ativação, OU desenho domain-selection. Nada começa antes da palavra dele (§9.1-4).
+
+---
+
 ## Sessão 2026-06-04 (cont.37) — PJ PRESENTIAL UX 2 HIGIENE (limpar a bancada) + DT CLOSED
 
 Clayton escolheu (via AskUserQuestion) Fase UX 2 — higiene, "limpa a bancada antes de abrir frente nova". Executei como envelope controlado. Reancorei (HEAD c93c9886).

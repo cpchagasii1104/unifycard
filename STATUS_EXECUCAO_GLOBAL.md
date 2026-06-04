@@ -1,3 +1,17 @@
+## 2026-06-04 — DECISION-0097: nascimento e ativação operacional da empresa PJ (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `0c4abed2`. Frente `F-PJ-COMPANY-BIRTH-CANONICAL` (docs-only). Zero código/schema/migration/frontend/backend-runtime/Bank. Os 3 untracked autorais do Clayton (`CRIACAO_DE_EMPRESAS.md` + 2 PNGs) intocados/fora do git.
+
+**O que fixou (`DECISION_0097_PJ_COMPANY_BIRTH_AND_OPERATIONAL_ACTIVATION.md`):** institucionaliza o desenho autoral `CRIACAO_DE_EMPRESAS.md` sincronizado com o estado vivo pós-0090–0096. **D1** empresa nasce inerte (Momento 1 fiscal-first); **D2** ratifica DECISION-0075 Opção B (já no código); **D3** verificação PJ = `fiscal_identities.kyb_status` (único); `company_status`/`is_verified`/`verifiedAt`/presencial não verificam; **D4** 4 eixos independentes (fiscal/lifecycle/operacional/visibilidade), proibido fundir em `company_status`; **D5** produtos/serviços/ambos = seleção de N0 (`produtos-e-comercio`/`servicos`/dois trilhos via GRAPH), nunca `hybrid` atômico; **D6** ativação = par `(primary_company_type_id, primary_concept_id)`, CONCEPT=identidade, sem fallback de CONTEXT; **D7** page-actor (`actors(id)`) é o eixo operacional único, descoberta por `concept_id`; **D8** Bank fronteira negativa (Lei 5); **D9** correções de snapshot (migrations fiscais APLICADAS em unificard_dev; `product_offers.price_cents BIGINT` não NUMERIC; writers VERIFIED já neutralizados + presencial encerrada); **D10** bloqueios (nada de schema/3.3/wizard/marketplace/Bank).
+
+**Prova normativa (§2.2.2):** lidos em full CONSTITUICAO, LEIS (Lei 5/7), EMPRESA_NASCIMENTO_CANONICO, 02_ACTORS_SSOT, PROHIBITED_STRUCTURES, IDENTITY_SSOT_PRECEDENCE, SSOT_EXCLUSIVE_BANK_RULE, REGRA_CANONICA_CRIACAO_DE_CONTEXT, 18_DOMAIN_ONTOLOGY (parcial); CRIACAO_DE_EMPRESAS (autoral). Verificação `psql`: 3 migrations fiscais aplicadas; `companies` com status duplo + par primary_*; `product_offers.price_cents bigint`. **Ausente:** `SEMANTIC_CATALOG_GOVERNANCE.md` (registrado).
+
+**DTs:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN — agora governada pela 0097 p/ Fase 3.3; resíduo = só schema). **Criadas:** `DT-PJ-OPERATIONAL-ACTIVATION-VOCABULARY-DRIFT` (OPEN), `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` (OPEN). NÃO criada DT de `product_offers.price NUMERIC` (claim refutada pelo disco). Nenhuma DT fechada.
+
+**PRÓXIMA ETAPA (sem execução):** (1) **Fase 3.3** schema desenhada a partir da 0097 (CHECK `company_status` + destino `is_verified` + dados legados, derivando de D3/D4); ou (2) read-only do vocabulário de ativação (`DT-...VOCABULARY-DRIFT`); ou (3) desenho de produtos/serviços/ambos (`DT-...DOMAIN-SELECTION-MISSING`). Nenhuma começa antes da palavra de Clayton (§9.1–4 do desenho).
+
+---
+
 ## 2026-06-04 — PJ PRESENTIAL UX 2 (HIGIENE) IMPLEMENTADA: código morto removido + DT CLOSED
 
 **Branch:** `rescue-structural` · **HEAD origem:** `c93c9886`. Frente `F-PJ-PRESENTIAL-VALIDATION-UX-RESERVED` (Presential UX 2, higiene, DECISION-0096; alçada Claude). Zero schema/migration/DML/Bank/KYB/social-gate/profile-progress. 3 untracked autorais do Clayton (`CRIACAO_DE_EMPRESAS.md` + 2 PNGs) intocados.
