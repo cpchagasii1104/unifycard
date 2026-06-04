@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.44) — DECISION-0098: vocabulário de ativação operacional PJ (docs-only)
+
+Após auditoria read-only do vocabulário de ativação, despachei envelope docs-only. Promulguei DECISION_0098_PJ_OPERATIONAL_ACTIVATION_VOCABULARY.md (0098). Reancorei (HEAD 6d5dda34).
+
+Achado da auditoria: o par SSOT (primary_company_type_id, primary_concept_id) existe/correto/testado (activateCompanyOperationally valida contra company_type_allowed_concepts + CHECK pareado) MAS é ILHA — zero caller vivo, sem rota HTTP. Onboarding vivo fala 4+ dialetos sem projetar no par: businessType (frontend: bar/restaurant/clinic verticais → metadata.onboarding); businessCategory (createCompany: product/service/industry/hub/hybrid → metadata.business_category); marketplace category incl hybrid (decide superfícies, mapCategoryToActorType('hybrid')→'store', lógica duplicada em 2 services); company_types=7 verticais (restaurante/padaria/...) no schema. Dois eixos conflados: domínio N0 grosso × vertical/segmento. tenant_concept_offerings=0 (sem writer); business_templates ausente.
+
+Decisões 0098 (D1-D12): D1 par=SSOT único; D2 validação company_type_allowed_concepts obrigatória sem fallback; D3 separa eixo A (N0 produtos/serviços/ambos) de eixo B (vertical company_types+concept); D4 businessType=vertical/UX legado; D5 businessCategory=domínio grosso legado→metadata; D6 serviceCategories≠CONCEPT; D7 hybrid atômico=anti-padrão DEPRECATED, "ambos"=dois trilhos via GRAPH; D8 marketplace não é SSOT (hybrid→trilhos frente própria, não remover no escuro); D9 tenant_concept_offerings=candidato a oferta (writer futuro deriva do par); D10 onboarding coleta domínio+vertical+concept+trilhos; D11 compat transitória; D12 bloqueios.
+
+DTs: VOCABULARY-DRIFT → GOVERNED/DECISIONED; ONBOARDING-DOMAIN-SELECTION → OPEN-GOVERNED; criei MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN (OPEN); SECOND-TRUTH segue CLOSED. Atualizei DECISIONS_LOG (append) + criei execution_log. Docs-only; 4 gates OK; commit por caminho explícito; 3 untracked autorais intocados. **Próximo (escolha Clayton):** onboarding domain-selection (read-only/desenho primeiro), OU reconciliação marketplace hybrid, OU rota/writer de ativação. Escolhi o dicionário soberano; o código ainda fala dialeto antigo.
+
+---
+
 ## Sessão 2026-06-04 (cont.43) — HIGIENE: verification-display reescrito p/ kyb_status SSOT (pós-3.3)
 
 Executei higiene do teste obsoleto (envelope executor). Reancorei (HEAD d104e647). O verification-display (DECISION-0089 Fase 1, read-model de verificação) quebrava pós-3.3: setup inseria company_status='VERIFIED' (CHECK 23514) + is_verified (dropado, 42703).

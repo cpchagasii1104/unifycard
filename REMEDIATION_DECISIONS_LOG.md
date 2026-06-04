@@ -6505,3 +6505,20 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** nenhuma (sela/complementa a DECISION-0097; não a altera).
 - **Superada por:** (em aberto)
 - **Referências:** `18_DOMAIN_ONTOLOGY_UNIFICARD.md` (949 linhas), `DECISION_0097_PJ_COMPANY_BIRTH_AND_OPERATIONAL_ACTIVATION.md`, HEAD âncora `945b5dc6`.
+
+---
+
+### DECISION-0098 — Vocabulário de ativação operacional PJ (par primary_* como SSOT)
+
+- **Data:** 2026-06-04
+- **Tipo:** arquitetural / institucional
+- **Contexto:** auditoria read-only `F-PJ-OPERATIONAL-ACTIVATION-VOCAB` revelou drift profundo: o par SSOT `(primary_company_type_id, primary_concept_id)` existe e é correto, mas é ILHA (zero caller vivo); o onboarding vivo fala 4+ dialetos (businessType vertical→metadata; businessCategory grosso→metadata; marketplace category incl hybrid→superfícies; company_types verticais no schema), nenhum projetando no par; "hybrid" atômico vivo (anti-padrão D5).
+- **Opções consideradas:** (1) wire onboarding→par direto sem DECISION — REJEITADA (cimenta drift; vocabulário ambíguo); (2) empacotar vocab+onboarding+marketplace numa DECISION/execução só — REJEITADA (escopo grande demais; marketplace tem acoplamento real); (3) DECISION docs-only de vocabulário soberano primeiro, execuções derivadas depois — ESCOLHIDA.
+- **Escolha:** Opção 3.
+- **Justificativa:** o par é a única verdade (DECISION-0097 D5/D6); declarar o dicionário soberano + separar os 2 eixos (N0 × vertical) + marcar hybrid DEPRECATED destrava onboarding/marketplace como frentes próprias sem resolver o marketplace inteiro no escuro. Norma antes de schema/código.
+- **Consequências esperadas:** curto prazo — onboarding e marketplace ganham DECISION governante; hybrid marcado deprecated; DTs nomeadas. Médio prazo — onboarding domain-selection (escreve o par), reconciliação marketplace (hybrid→trilhos), simetria de serviços, cada uma sob nova palavra de Clayton.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Validação prévia:** Clayton (promulgação); auditoria read-only de vocabulário; DECISION-0097 + CRIACAO_DE_EMPRESAS.md §9.1-2.
+- **Supera:** nenhuma (ratifica/detalha DECISION-0097 D5/D6).
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0098_PJ_OPERATIONAL_ACTIVATION_VOCABULARY.md`; HEAD âncora `6d5dda34`; 18_DOMAIN_ONTOLOGY, Lei 7, REGRA_CANONICA_CRIACAO_DE_CONTEXT.

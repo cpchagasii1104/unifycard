@@ -11092,7 +11092,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-OPERATIONAL-ACTIVATION-VOCABULARY-DRIFT
 
-- **Status:** OPEN (2026-06-04)
+- **Status:** GOVERNED / DECISIONED (2026-06-04) — governada por `DECISION-0098`: o par `(primary_company_type_id, primary_concept_id)` é o SSOT da ativação; `businessType`/`businessCategory`/`serviceCategories`/`hybrid` são entrada/legado/projeção (compat transitória). Permanece OPEN-em-execução até o runtime convergir (onboarding projeta no par; marketplace aposenta hybrid). _(antes: OPEN 2026-06-04.)_
 - **Origem:** desenho autoral `CRIACAO_DE_EMPRESAS.md` (§8, §9.2) + `DECISION-0097` (D5).
 - **Vinculada a:** `DECISION-0097` (D5/D6), `companies.primary_company_type_id`/`primary_concept_id`, `company_types`, `company_type_allowed_concepts`, `concepts`, `frontend/.../CompanyOnboardingWizard.tsx` (`businessType`), rota de criação de empresa (`businessCategory`).
 - **Contexto:** o vocabulário de **ativação operacional** da empresa coexiste em **três formas** sem soberano declarado: `businessType` (frontend/entrada UX), `businessCategory` (back/schema de entrada), e o par SSOT **`(primary_company_type_id, primary_concept_id)`** (ativação canônica, Momento 2). `DECISION-0097` fixou que o **SSOT é o par `type+concept`**; `businessType`/`businessCategory` são **legado/UX a reconciliar**, sem autoridade. `businessCategory='hybrid'` como identidade soberana é anti-padrão vetado (achata dois N0 — "ambos" = dois trilhos via GRAPH, D5).
@@ -11102,10 +11102,20 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING
 
-- **Status:** OPEN (2026-06-04)
+- **Status:** OPEN — GOVERNED (2026-06-04) — agora governada por `DECISION-0098` (D9/D10): o onboarding deve coletar domínio N0 (produtos/serviços/ambos) + vertical + concept compatível e escrever o **par** (e `tenant_concept_offerings`) via writer governado, nunca metadata livre. _(antes: OPEN 2026-06-04.)_
 - **Origem:** desenho autoral `CRIACAO_DE_EMPRESAS.md` (§3 Etapa 3, §5) + `DECISION-0097` (D5/D6).
 - **Vinculada a:** `DECISION-0097` (D5/D6), `18_DOMAIN_ONTOLOGY` (N0 `produtos-e-comercio` #4 / `servicos` #5), `19_N1_NAVIGATION`, `company_type`/`concept`, `tenant_concept_offerings`, trilhos Marketplace/Serviços.
 - **Contexto:** a pergunta inicial "produtos / serviços / ambos" é **seleção de domínios N0 operacionais** (`produtos-e-comercio`, `servicos`, ambos = união). Hoje **não há writer no onboarding** que materialize essa seleção sobre N0/`company_type`/`concept`; `tenant_concept_offerings` existe mas é lida só por lookup (relatório — confirmar). Falta o fluxo que projeta a escolha do usuário sobre o par soberano.
 - **Risco:** sem o writer canônico, a seleção vira string/metadata morta (anti-padrão D5) ou um `hybrid` atômico; a empresa "ativa" sem o par `type+concept` validado contra `company_type_allowed_concepts`.
 - **Mitigação atual:** nenhuma (docs-only). `DECISION-0097` fixa o modelo (D5/D6); falta desenho/execução.
 - **Resolução prevista (frente futura — desenho domain-selection):** materializar "produtos/serviços/ambos" sobre N0 → `company_type` → CONCEPT (sem fallback/default — `REGRA_CANONICA_CRIACAO_DE_CONTEXT`); "ambos" = dois trilhos independentes ligados por GRAPH; validar contra `company_type_allowed_concepts`; escritor único no Momento 2. **DT permanece OPEN.** **NÃO executar** antes da palavra de Clayton (DECISION-0097 §9.1 / D10).
+
+## DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN
+
+- **Status:** OPEN (2026-06-04)
+- **Origem:** auditoria read-only `F-PJ-OPERATIONAL-ACTIVATION-VOCAB` + `DECISION-0098` (D7/D8).
+- **Vinculada a:** `DECISION-0098` (D7/D8), `DECISION-0097` (D5), `contracts/marketplace/CompanyOnboarding.contract.ts` (`category` incl `hybrid`), `modules/marketplace/application/services/company-application.service.ts`, `modules/marketplace/domain/company/marketplace-company.service.ts`, `modules/marketplace/application/services/marketplace-orchestration.service.ts` (`mapCategoryToActorType('hybrid')→'store'`), `modules/marketplace/marketplace-categories.types.ts` (`MarketplaceCategoryType='service'|'product'|'hybrid'`), `frontend/src/api/marketplace-categories.ts`.
+- **Contexto:** o marketplace usa `hybrid` como **valor atômico vivo** para decidir superfícies operacionais (produto/store, industry, hub) — anti-padrão vetado por DECISION-0097 D5 (Lei 7 / 18 GRAPH): "ambos" deve ser **dois trilhos** (`produtos-e-comercio` + `servicos`) relacionados por GRAPH, não um nó híbrido. Há **lógica duplicada** em dois services marketplace (`application/services/company-application` e `domain/company/marketplace-company`). `mapCategoryToActorType('hybrid')` colapsa em `'store'` (trata híbrido como produto).
+- **Risco:** `hybrid` atômico achata dois N0 irredutíveis numa string de decisão de superfície; remover "no escuro" quebra `mapCategoryToActorType` + habilitação de superfícies; manter perpetua a segunda-verdade semântica no marketplace.
+- **Mitigação atual:** nenhuma (docs-only). `DECISION-0098` D7 marca `hybrid` **DEPRECATED / TO BE REMOVED** (compat até reconciliação) e D8 proíbe nova lógica decisória baseada nele; D7 proíbe `hybrid` como CONCEPT/company_type/N0/SSOT.
+- **Resolução prevista (frente própria — reconciliação marketplace):** substituir `category='hybrid'` por **combinação explícita de trilhos habilitados** (produtos e/ou serviços), derivada do par/declarações de trilho; consolidar a lógica duplicada; preservar as superfícies vivas durante a transição. **DT permanece OPEN.** **NÃO executar** antes da palavra de Clayton (DECISION-0098 D8/D12).

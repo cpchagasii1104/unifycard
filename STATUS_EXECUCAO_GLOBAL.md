@@ -1,3 +1,17 @@
+## 2026-06-04 — DECISION-0098: vocabulário de ativação operacional PJ (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `6d5dda34`. Frente `F-PJ-OPERATIONAL-ACTIVATION-VOCAB-DECISION` (docs-only). Zero código/schema/migration/frontend/backend-runtime/Bank/fiscal. Os 3 untracked autorais intocados.
+
+**O que fixou (`DECISION_0098_PJ_OPERATIONAL_ACTIVATION_VOCABULARY.md`):** o dicionário soberano da ativação operacional PJ. **D1** par `(primary_company_type_id, primary_concept_id)` = SSOT único do Momento 2 (writer governado; CHECK pareado preservado); **D2** validação obrigatória por `company_type_allowed_concepts`, sem fallback; **D3** separa 2 eixos hoje conflados — A: domínio N0 (produtos-e-comercio/servicos, "ambos"=dois trilhos) × B: vertical/segmento (`company_types`+concept); **D4** `businessType` (frontend) = vertical/UX legado, não-SSOT; **D5** `businessCategory` (createCompany) = domínio grosso legado→metadata, não-fonte; **D6** `serviceCategories` metadata ≠ CONCEPT; **D7** `hybrid` atômico = anti-padrão, DEPRECATED/TO-BE-REMOVED ("ambos"=dois trilhos via GRAPH); **D8** marketplace orchestration não é SSOT (hybrid→trilhos é frente própria, não remover no escuro); **D9** `tenant_concept_offerings` é o candidato a oferta/descoberta (writer futuro deriva do par); **D10** onboarding futuro coleta domínio+vertical+concept+trilhos (nunca só metadata); **D11** compat transitória (leitura decisória nova usa o par); **D12** bloqueios (nada de código/migration/onboarding/hybrid/marketplace/writer/rota/Bank/fiscal/company_status).
+
+**Evidência (auditoria read-only):** par SSOT é ILHA (zero caller vivo de `activateCompanyOperationally`; sem rota de ativação); businessType→metadata.onboarding; businessCategory→metadata.business_category; marketplace category incl hybrid decide superfícies; company_types=7 verticais; tenant_concept_offerings=0; business_templates ausente.
+
+**DTs:** `DT-PJ-OPERATIONAL-ACTIVATION-VOCABULARY-DRIFT` → GOVERNED/DECISIONED (OPEN-em-execução); `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` → OPEN-GOVERNED; **criada** `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` (OPEN). `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` permanece CLOSED.
+
+**PRÓXIMA ETAPA (sem execução):** (1) onboarding domain-selection (read-only/desenho → escreve o par + tenant_concept_offerings + rota de ativação); (2) reconciliação marketplace `hybrid`→trilhos; (3) simetria trilho de serviços. Ordem: norma (esta) → onboarding → marketplace.
+
+---
+
 ## 2026-06-04 — HIGIENE DE TESTE: verification-display alinhado ao kyb_status SSOT (pós-3.3)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `d104e647`. Frente `F-PJ-TEST-HYGIENE` (higiene de teste). Zero runtime/schema/migration/frontend/Bank. Os 3 untracked autorais intocados.
