@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.13) — DECISION-0087: F2-B Documentos PJ promulgada (SSOT documental KYB)
+
+Após READ-ONLY F2-B (greenfield documental confirmado: media é placeholder, fiscal_documents é NF-e/SEFAZ, uploads/groups é imagem local — nenhum SSOT de documento legal) + insumo no chat, Clayton ratificou com 4 martelos e disparou envelope executor docs-only. Promulguei `DECISION_0087_PJ_KYB_DOCUMENTS_SSOT.md` (0087).
+
+Decisões: `fiscal_identity_documents` (GLOBAL, docs DA EMPRESA), âncora fiscal_identity_id, kyb_request_id nullable, file_reference opaco + file_hash (provider FORA), append-only via supersedes_document_id, status submitted/accepted/rejected/superseded (sem pending_review), document_type LITERAIS (obrig cnpj_registration+articles_of_association; cond articles_amendment/business_address_proof/complementary_document; fora power_of_attorney/legal_representative/partner/administrator = trilho humano/LGPD). Mínimo para approved enforçado no reviewFiscalKybRequest (toca writer F2-A só p/ pré-condição — implementação futura). Tese-mãe: documento=evidência, request=processo, kyb_status=resultado, fiscal_identity=âncora.
+
+Martelos Clayton: numeração 0087; mínimo ENFORÇADO (não só registrado); procuração FORA (trilho humano); document_type literais fixados na DECISION (migration usa mesmo CHECK).
+
+DTs: KYC-DOCUMENTS nota F2-B (PARTIALLY MITIGATED — desenho pronto, substrato não existe). Criei `DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING` (OPEN) e `DT-PJ-HUMAN-LINK-DOCUMENTS-LGPD-MISSING` (OPEN). Docs-only; commit por caminho explícito. Malformação DT-TRANSFER-OWNERSHIP segue intocada (fora de escopo). **Próximo:** implementação F2-B (migration documents + service + pré-condição review + testes) ou fatia storage provider, conforme Clayton.
+
+---
+
 ## Sessão 2026-06-03 (cont.12) — F2-A KYB PJ IMPLEMENTADA (writer auditado)
 
 Implementei a F2-A (envelope executor). Migration `20260603130000` (`fiscal_identity_kyb_requests`, global, FK→fiscal_identities/actors(id), CHECK status+auditoria-no-final, partial-unique 1-pending). Service `core/identity/fiscal-identity-kyb.service.ts` espelhando identity-validation mas keyed fiscal_identity_id, review atômico (UPDATE request + UPDATE fiscal_identities.kyb_status mesmo client, FOR UPDATE, rollback), reason obrigatório. Rotas `/identity/pj/kyb/*` (requireRole admin; operador = req.actionContext.actorId, NÃO user_id) adicionadas em identity.routes.ts.

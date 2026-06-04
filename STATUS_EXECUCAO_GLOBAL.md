@@ -1,3 +1,24 @@
+## 2026-06-03 — DECISION-0087: F2-B Documentos PJ promulgada — SSOT documental KYB (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `0dfb849d`. **Docs-only**; zero código/schema/migration/Bank/runtime. Autoriza a implementação F2-B, **não a executa**.
+
+**Promulgada (F2-B, deriva da D2-técnica/0085 + F2-A/0086):**
+- **Tabela: `fiscal_identity_documents`** (GLOBAL). **Escopo: documentos DA EMPRESA** apenas.
+- **Âncora: `fiscal_identity_id`** (documento da empresa sobrevive à transferência). `kyb_request_id` **nullable** (qual review avaliou). `company_id`/CPF/actor = contexto/submissor, não dono.
+- **Arquivo: `file_reference` opaco + `file_hash`** — **sem blob/metadata/base64**. **Provider de storage FORA** (fatia própria).
+- **Append-only** via `supersedes_document_id` (sem sobrescrever/apagar). **Status:** submitted/accepted/rejected/superseded (**sem `pending_review`**).
+- **`document_type` literais:** obrigatórios `cnpj_registration`, `articles_of_association`; condicionais `articles_amendment`, `business_address_proof`, `complementary_document`; **fora** (trilho humano/LGPD) `power_of_attorney`, `legal_representative_document`, `partner_document`, `administrator_document`.
+- **Mínimo para approved:** `reviewFiscalKybRequest(approved)` deve **falhar** sem `cnpj_registration`+`articles_of_association` aceitos — a implementação F2-B toca o writer F2-A **só** para essa pré-condição. (Registrado; não altera runtime até implementar.)
+- **Tese central:** documento=evidência · request=processo · `kyb_status`=resultado · `fiscal_identity`=âncora.
+
+**FORA:** documentos de pessoa (sócio/responsável/procuração — LGPD/vínculo humano) · provider de storage/upload/download/antivírus/retention · gate F2-C · reconciliação company_status · Bank · frontend · implementação.
+
+**DTs:** `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` PARTIALLY MITIGATED (nota F2-B: desenho promulgado; substrato não existe). **Criadas:** `DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING` (OPEN — sem provider real; media placeholder, disco local impróprio) e `DT-PJ-HUMAN-LINK-DOCUMENTS-LGPD-MISSING` (OPEN — docs de pessoa em trilho próprio).
+
+**PRÓXIMA ETAPA:** implementação F2-B (migration `fiscal_identity_documents` + service + pré-condição no review + testes) → storage provider (fatia própria) → F2-C gate → reconciliação. PJ comercial bloqueada até F2-C.
+
+---
+
 ## 2026-06-03 — F2-A KYB PJ IMPLEMENTADA: writer auditado da identidade fiscal (código+migration)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `766e6fcd`. Migration única + service + rotas + teste efêmero + docs. **Zero** Bank/ledger/KYC-PF/`identities`/gate/documentos/`company_validation_requests`/frontend; `unificard_dev` intocada.

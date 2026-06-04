@@ -10785,6 +10785,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Atualização (D2-TÉCNICA — `DECISION-0085`, 2026-06-03):** **direção de writer fixada** — modelo **híbrido** (reserva pending no nascimento transacional + aprovação KYB depois via writer auditado espelhando `identity-validation`); `company_validation_requests` = **workflow/espelho**, **não** SSOT fiscal; KYB PJ ≠ KYC PF. A 0085 **decidiu explicitamente NÃO** colocar `metadata jsonb` nem documentos na tabela canônica `fiscal_identities` (tabela canônica não é gaveta). **DT permanece OPEN:** o **SSOT estruturado de documentos PJ** (tipo/verificação/armazenamento) segue **não desenhado** — fica para D3/fase posterior, não resolvido pela 0085.
 - **Atualização (F2-A — `DECISION-0086`, 2026-06-03):** o **writer KYB auditado** foi promulgado (workflow global `fiscal_identity_kyb_requests`, transição `pending→approved/rejected` sobre `fiscal_identities.kyb_status`, atômico, role-gated). **DT permanece PARTIALLY MITIGATED:** o writer existe em desenho, mas o **SSOT de documentos PJ** (contrato social/cartão CNPJ/procuração — tipo/verificação/`file_reference`/append-only, ancorado em `fiscal_identity_id`, **sem blob**) é explicitamente **F2-B**, não entregue na F2-A. Proibido usar `company_validation_requests.metadata` como depósito documental definitivo.
 - **Atualização (F2-A IMPLEMENTADA, 2026-06-03):** writer KYB **materializado** — migration `20260603130000` (`fiscal_identity_kyb_requests`), serviço `core/identity/fiscal-identity-kyb.service.ts` (submit/queue/review atômico), rotas `/identity/pj/kyb/*` (requireRole admin, operador via actionContext.actorId). Provado em DB efêmera (`validate-pipeline-e2e-pj-kyb-writer`, 16/16). **DT segue PARTIALLY MITIGATED:** **documentos PJ continuam F2-B** (não há substrato de documentos — o writer KYB não os carrega).
+- **Atualização (F2-B DESENHO — `DECISION-0087`, 2026-06-03):** o **SSOT documental KYB foi desenhado e promulgado** — `fiscal_identity_documents` (docs da empresa, âncora `fiscal_identity_id`, `kyb_request_id` nullable, `file_reference` opaco + `file_hash`, append-only via `supersedes_document_id`, status submitted/accepted/rejected/superseded, `document_type` literais fixados, mínimo `cnpj_registration`+`articles_of_association` aceito para approved). **DT segue PARTIALLY MITIGATED:** o **substrato ainda não existe** (migration/serviço = implementação F2-B); provider de storage e docs-de-pessoa têm DTs próprias (ver abaixo). Não fechar até a tabela existir e ser usada.
 
 - **Status:** OPEN (2026-06-02)
 - **Origem:** frente `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY`.
@@ -10793,6 +10794,26 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** transferência informal apaga rastreabilidade; impossível ancorar responsabilidade transitória.
 - **Mitigação atual:** nenhuma (docs-only).
 - **Resolução prevista:** evento append-only de transferência (company_id, from_actor, to_actor, aprovação) que muda responsável e dispara a responsabilidade transitória (D5), em migration única.
+
+## DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** read-only F2-B + `DECISION-0087` (SSOT documental KYB).
+- **Vinculada a:** `DECISION-0087`, `fiscal_identity_documents` (futura), módulo `media`, `group-image.service`.
+- **Contexto:** **não há provider real de armazenamento de documentos legais.** `media` (`modules/media`) é **placeholder** (tabela ausente em DEV, URL fake `storage.example.com`, "em produção usar S3 presign"); `group-image.service` grava **imagem** em **disco local** (`uploads/groups`, webp) — impróprio para documento legal; não há S3/presign real, hash, antivírus, download protegido por role, nem retention.
+- **Risco:** a F2-B promulgou `file_reference` **opaco** (provider-agnóstico) — bom —, mas sem um provider real o documento legal não tem onde morar com segurança/auditoria/LGPD. Escolher provider "de ouvido" (S3 sem desenho, ou disco local como destino final) seria o "boneco de posto" da camada de storage.
+- **Mitigação atual:** nenhuma (docs-only). A 0087 **deliberadamente** deixou provider FORA (`DECISION-0087 §3.8`).
+- **Resolução prevista:** fatia própria de storage — provider · upload · download protegido por role · antivírus · política de hash/mime/limite · retention · expurgo de binário (conciliando append-only de metadado com LGPD). **Não** resolver dentro da migration de `fiscal_identity_documents`.
+
+## DT-PJ-HUMAN-LINK-DOCUMENTS-LGPD-MISSING
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** read-only F2-B + `DECISION-0087` (escopo F2-B = só documentos da empresa).
+- **Vinculada a:** `DECISION-0087 §3.2/§3.12`, `DECISION-0083` (D3 — vínculos), trilho D5 (transferência).
+- **Contexto:** documentos **pessoais** — sócios, responsável legal, administradores, **procuração** (`power_of_attorney`/`legal_representative_document`/`partner_document`/`administrator_document`) — ficaram **fora** da F2-B inicial. São **dado pessoal sensível (LGPD)**, pertencem ao **vínculo humano** (não à identidade fiscal estável) e **mudam na transferência**.
+- **Risco:** se forem enfiados em `fiscal_identity_documents` (substrato da empresa), a tabela nasce fiscal+pessoal ao mesmo tempo ("pato"), acoplando continuidade fiscal a LGPD-de-pessoa; e append-only de documento da empresa colide com direito-ao-esquecimento de pessoa.
+- **Mitigação atual:** nenhuma (docs-only). A 0087 manteve docs-de-pessoa **fora**, em trilho próprio.
+- **Resolução prevista:** substrato próprio de documentos de vínculo humano/representação (ancorado em actor/CPF, com retenção/acesso/expurgo LGPD-first, e ligação à transferência D5/D4). Fatia futura, não resolvida pela 0087.
 
 ## DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH
 
