@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.48) — F-PJ-ONBOARDING-ACTIVATION-FLOW-E2E: prova encadeada permanente
+
+HEAD antes `e0cc89c0` → commit "test(pj): add onboarding activation flow e2e". Transformei a prova partida (read-endpoints + write-pair + seam) em UM teste encadeado: validate-pipeline-e2e-pj-onboarding-activation-flow.ts (22/22) faz GET catálogo → escolhe par REAL via API (sem hardcode de UUID, itera types até achar um com concepts) → POST ativação → asserta companies.primary_* persistido + alreadyActive idempotência + não-toque (company_status/fiscal_identity_id/tenant_concept_offerings=0/bank_transactions/fiscal_identities count) + 403 (owner sem membership numa 2ª empresa) + 400 (body sem conceptId). Reusa o harness app.inject + mintToken + identity-seed das fatias anteriores.
+
+**Bug pego e corrigido na fatia:** companies NÃO tem coluna metadata (1ª run quebrou no SELECT metadata). A rota de ativação toca só primary_*+updated_at; metadata/businessType é preocupação do frontend (coberta por greps). Removi a assertion misplaced. Backend tsc só baseline geo; frontend typecheck limpo; 4 gates OK. Não toquei runtime de produto.
+
+DT ONBOARDING-DOMAIN-SELECTION segue PARTIALLY MITIGATED (agora com E2E encadeado permanente; resíduo = eixo A "ambos" + offering). **Ciclo do par tem agora prova ponta-a-ponta única.** Próximo (escolha Clayton): READ-ONLY tenant_concept_offerings writer (tensão tenant×page-actor) OU READ-ONLY marketplace hybrid→trilhos. Esta fatia transformou prova em teste permanente; não mudou o fluxo.
+
+---
+
 ## Sessão 2026-06-04 (cont.47) — F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR: a UI escreve o par
 
 HEAD antes `e9fc1b00` → commit "feat(pj): wire onboarding to operational activation pair". Fechei o ciclo: a UI agora escolhe pelo catálogo soberano e grava o par via backend, em vez de cravar businessType em metadata. CompanyOnboardingWizard Step 1 = company_type (GET /companies/operational-activation/company-types) → concept dependente (GET .../:id/concepts), com loading/error/empty. Submit chama activateCompanyOperationally(companyId,{companyTypeId,conceptId}) ANTES de salvar UX; trata 400 NOT_ALLOWED / 403 FORBIDDEN / 409 already-different com mensagens honestas (falha aborta). metadata.onboarding guarda só UX (módulos/papéis/agenda). Removi CompanyBusinessType + campo businessType do config (eram usados SÓ no wizard+types — grep confirmou). CompanyCreationPage (nascimento inerte) intocado.

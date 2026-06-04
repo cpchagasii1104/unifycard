@@ -1,3 +1,21 @@
+## 2026-06-04 — F-PJ-ONBOARDING-ACTIVATION-FLOW-E2E-PERMANENT: E2E encadeado do fluxo do par
+
+**Branch:** `rescue-structural` · **HEAD origem:** `e0cc89c0`. Frente `F-PJ-ONBOARDING-ACTIVATION-FLOW-E2E-PERMANENT` (teste/evidência). Zero runtime de produto (backend/frontend/schema/migration), zero Bank/KYB/marketplace/offering. Os 3 untracked autorais intocados.
+
+**O que entregou:** um E2E permanente que prova, em UMA execução, a cadeia que o onboarding exercita — GET catálogo governado → escolhe um par REAL retornado (sem hardcode de UUID) → POST ativação com esse par → `companies.primary_*` persistido + invariantes de não-toque. Antes a prova estava partida em 3 (read-endpoints + write-pair + seam por grep). Agora há um teste único que encadeia catálogo→escolha→rota→banco.
+
+**Arquivos:** `backend/src/scripts/validate-pipeline-e2e-pj-onboarding-activation-flow.ts` (novo), `scripts/run-pj-onboarding-activation-flow-ephemeral.ps1` (novo). Nenhum arquivo de runtime tocado.
+
+**Prova: 22/22** (DB efêmera, migrate FULL, `app.inject` no stack do protectedScope, teardown DROP): (1) GET company-types → 200, sem businessType/businessCategory/serviceCategories/hybrid/metadata; (2/3) escolhe o 1º type COM concepts via API e o 1º concept (sem hardcode), shape {conceptId,slug,domain}, par ∈ company_type_allowed_concepts; (6/8) POST → 200, response primaryCompanyTypeId/primaryConceptId = par escolhido, alreadyActive=false, pageActorId; (9) repetição → alreadyActive=true; (10) companies.primary_* persistidos, company_status inalterado, fiscal_identity_id inalterado, tenant_concept_offerings=0, bank_transactions inalterado, fiscal_identities não escrito; (12) owner sem membership em 2ª empresa → 403 COMPANY_OPERATIONAL_ACTIVATION_FORBIDDEN; (13) body sem conceptId → 400 INVALID_BODY. Backend tsc: só os 2 baseline geo-enrichment (novo teste compila). Frontend typecheck limpo. 4 gates OK (warning_new=1 = c3 pré-existente).
+
+**Correção durante a fatia:** primeira execução falhou ao ler `companies.metadata` — a tabela `companies` NÃO tem coluna metadata (a verdade operacional é o par; metadata/businessType é preocupação do frontend, já coberta por greps). Assertion misplaced removida; a rota toca SÓ primary_*+updated_at, provado pelos demais invariantes.
+
+**DTs:** `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` permanece PARTIALLY MITIGATED/GOVERNED (agora com E2E encadeado permanente; resíduo = eixo A N0 "ambos" + offering); `DT-PJ-OPERATIONAL-ACTIVATION-VOCABULARY-DRIFT` PARTIALLY MITIGATED/GOVERNED; `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` OPEN; `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` CLOSED.
+
+**PRÓXIMA ETAPA:** READ-ONLY `tenant_concept_offerings` (desenho do writer: tensão tenant×page-actor + risco de publicação automática) OU READ-ONLY marketplace `hybrid`→trilhos.
+
+---
+
 ## 2026-06-04 — F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR: wizard escreve o par via backend
 
 **Branch:** `rescue-structural` · **HEAD origem:** `e9fc1b00`. Frente `F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR` (frontend, governada por DECISION-0098). Zero backend/schema/migration/marketplace/tenant_concept_offerings/Bank/KYB/social-gate/profile-progress/company_status/StoreOnboardingWizard/createCompany. Os 3 untracked autorais intocados.
