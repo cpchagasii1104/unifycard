@@ -171,7 +171,7 @@ async function main(): Promise<void> {
       const f = await client.query(`INSERT INTO fiscal_identities (cnpj, kyb_status, created_by_actor_id) VALUES ($1,'pending',$2::uuid) RETURNING fiscal_identity_id`, [cnpj, creatorActorId]);
       const fid = f.rows[0].fiscal_identity_id as string;
       if (after === 'fiscal') throw new Error('INJECT: falha após fiscal_identities');
-      const c = await client.query(`INSERT INTO companies (tenant_id, global_user_id, fiscal_identity_id, cnpj, company_name, status, is_verified, company_status) VALUES ($1,$2,$3,$4,'Rollback Test','active',false,'PROVISIONAL') RETURNING company_id`, [TENANT_ID, globalUserId, fid, cnpj]);
+      const c = await client.query(`INSERT INTO companies (tenant_id, global_user_id, fiscal_identity_id, cnpj, company_name, status, company_status) VALUES ($1,$2,$3,$4,'Rollback Test','active','PROVISIONAL') RETURNING company_id`, [TENANT_ID, globalUserId, fid, cnpj]);
       const cid = c.rows[0].company_id as string;
       if (after === 'company') throw new Error('INJECT: falha após companies');
       await client.query(`INSERT INTO company_users (tenant_id, company_id, global_user_id, role, role_description, can_manage_company, can_manage_financial, can_manage_employees, can_view_reports, can_manage_services, is_active, is_primary, metadata) VALUES ($1,$2,$3,'owner',NULL,true,true,true,true,true,true,false,'{}'::jsonb)`, [TENANT_ID, cid, globalUserId]);

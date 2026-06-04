@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.42) — FASE 3.3-B2: drop de companies.is_verified — DT SECOND-TRUTH CLOSED 🏁
+
+Executei 3.3-B2 (envelope executor). Reancorei (HEAD f1e7d811). Arranquei a coluna órfã companies.is_verified. SEM alias (0093 §4.3).
+
+Migration 20260604130000_drop_companies_is_verified.sql: ALTER TABLE companies DROP COLUMN IF EXISTS is_verified (forward-only/transacional/idempotente). Confirmei por psql que is_verified tinha ZERO deps de schema (sem índice/constraint/view/trigger) antes de dropar. Aplicada via runner canônico → 357 migrations.
+
+Cuidado-chave: a coluna era usada em SQL CRU de 9 scripts e2e (INSERT/SELECT) — não quebra typecheck (SQL string) mas quebraria em runtime pós-drop. Protocolo "não deixar artefato quebrado": ajustei os 8 do domínio companies (atomic-company-birth, company, pj-adminoverride-disabled, pj-capability-kyb, pj-inperson-disabled, pj-social-kyb-gate, pj-updatecompany-no-status, pj-company-status-lifecycle check-8 invertido p/ ausência). Deixei verification-display:99 (obsoleto/runtime-broken desde 3.3-A; envelope manda não reescrever) — flagado.
+
+Prova: criei validate-pipeline-e2e-pj-is-verified-drop 7/7 (coluna ausente; INSERT sem is_verified OK; INSERT com is_verified FALHA 42703 undefined_column; VERIFIED ainda 23514; kyb_status/verified_at corretos). Re-rodei updatecompany-no-status 6/6 e company-status-lifecycle 13/13 pós-drop (confirmam scripts corrigidos). Typecheck escopo 0; frontend NÃO tocado; 4 gates OK.
+
+DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH → CLOSED. Verificação PJ = fiscal_identities.kyb_status única; 2ª-verdade materialmente extinta. Resíduo só cosmético (VERIFIED/APPROVED @deprecated no tipo, bloqueados por CHECK). Commit por caminho explícito; 3 untracked autorais intocados. **Próximo (escolha Clayton):** higiene do teste verification-display obsoleto OU F-PJ-OPERATIONAL-ACTIVATION-VOCAB-DECISION (businessType/businessCategory/hybrid/primary_* — o próximo ninho de arame farpado). A frente company_status/is_verified ACABOU.
+
+---
+
 ## Sessão 2026-06-04 (cont.41) — FASE 3.3-B1: isVerified desacoplado do payload (corta o fio, não arranca a coluna)
 
 Executei 3.3-B1 (envelope executor). Reancorei (HEAD a333de27). Removi is_verified/isVerified de código/payload/tipos no domínio companies, SEM dropar a coluna (B2), SEM aliasar (DECISION-0093 §4.3 proíbe projetar is_verified de kyb_status — confirmei §4.3 lendo a 0093).

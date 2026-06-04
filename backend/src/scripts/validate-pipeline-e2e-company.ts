@@ -277,16 +277,14 @@ async function main(): Promise<void> {
     const cRes = await pool.query<{
       company_id: string;
       company_status: string;
-      is_verified: boolean;
     }>(
-      `SELECT company_id, company_status, is_verified FROM companies WHERE company_id = $1::uuid`,
+      `SELECT company_id, company_status FROM companies WHERE company_id = $1::uuid`,
       [companyId],
     );
-    assertOk('A2a: companies criada PROVISIONAL/is_verified=false', {
+    assertOk('A2a: companies criada PROVISIONAL (is_verified dropado 3.3-B2)', {
       ok:
         !!cRes.rows[0] &&
-        cRes.rows[0].company_status === 'PROVISIONAL' &&
-        cRes.rows[0].is_verified === false,
+        cRes.rows[0].company_status === 'PROVISIONAL',
       reason: 'companies em estado inesperado',
       detail: cRes.rows[0],
     });
@@ -379,13 +377,13 @@ async function main(): Promise<void> {
       detail: fr.rows[0],
     });
 
-    // SELECT 4-prova-comp: companies continua PROVISIONAL + is_verified=false (NÃO verificada).
-    const fc = await pool.query<{ company_status: string; is_verified: boolean }>(
-      `SELECT company_status, is_verified FROM companies WHERE company_id = $1::uuid`,
+    // SELECT 4-prova-comp: companies continua PROVISIONAL (NÃO verificada; is_verified dropado 3.3-B2).
+    const fc = await pool.query<{ company_status: string }>(
+      `SELECT company_status FROM companies WHERE company_id = $1::uuid`,
       [companyId],
     );
-    assertOk('A4-prova-comp: companies PROVISIONAL & is_verified=false (nao verificada por fora do KYB)', {
-      ok: !!fc.rows[0] && fc.rows[0].company_status === 'PROVISIONAL' && fc.rows[0].is_verified === false,
+    assertOk('A4-prova-comp: companies PROVISIONAL (nao verificada por fora do KYB)', {
+      ok: !!fc.rows[0] && fc.rows[0].company_status === 'PROVISIONAL',
       reason: 'companies foi verificada indevidamente',
       detail: fc.rows[0],
     });
@@ -515,8 +513,8 @@ async function main(): Promise<void> {
       `SELECT status, reviewed_at FROM company_validation_requests WHERE id = $1::uuid`,
       [submitB4.id],
     );
-    const b4comp = await pool.query<{ company_status: string; is_verified: boolean }>(
-      `SELECT company_status, is_verified FROM companies WHERE company_id = $1::uuid`,
+    const b4comp = await pool.query<{ company_status: string }>(
+      `SELECT company_status FROM companies WHERE company_id = $1::uuid`,
       [companyId3],
     );
     assertOk(
@@ -525,8 +523,7 @@ async function main(): Promise<void> {
         ok:
           b4req.rows[0]?.status === 'pending' &&
           b4req.rows[0]?.reviewed_at == null &&
-          b4comp.rows[0]?.company_status === 'PROVISIONAL' &&
-          b4comp.rows[0]?.is_verified === false,
+          b4comp.rows[0]?.company_status === 'PROVISIONAL',
         reason: 'ROLLBACK NAO foi efetivo — estado degradado',
         detail: { request: b4req.rows[0], company: b4comp.rows[0] },
       },

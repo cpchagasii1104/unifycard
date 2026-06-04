@@ -92,8 +92,8 @@ async function main(): Promise<void> {
       fid = f.rows[0].fiscal_identity_id;
     }
     const c = await pool.query<{ company_id: string }>(
-      `INSERT INTO companies (tenant_id, global_user_id, company_name, fiscal_identity_id, status, company_status, is_verified)
-       VALUES ($1,$2::uuid,'PJ Social',$3::uuid,'active',$4,false) RETURNING company_id::text`,
+      `INSERT INTO companies (tenant_id, global_user_id, company_name, fiscal_identity_id, status, company_status)
+       VALUES ($1,$2::uuid,'PJ Social',$3::uuid,'active',$4) RETURNING company_id::text`,
       [TENANT_ID, ownerGlobalUserId, fid, companyStatus]);
     const a = await pool.query<{ id: string }>(
       `INSERT INTO actors (tenant_id, actor_type, company_id, display_name, responsible_actor_id)

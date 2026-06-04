@@ -74,8 +74,8 @@ async function main(): Promise<void> {
   const ownerGlobalUserId = ownerRow.rows[0].global_user_id;
 
   const c = await pool.query<{ company_id: string }>(
-    `INSERT INTO companies (tenant_id, global_user_id, company_name, fiscal_identity_id, status, company_status, is_verified)
-     VALUES ($1,$2::uuid,'Razao InPerson',NULL,'active','PROVISIONAL',false) RETURNING company_id::text`,
+    `INSERT INTO companies (tenant_id, global_user_id, company_name, fiscal_identity_id, status, company_status)
+     VALUES ($1,$2::uuid,'Razao InPerson',NULL,'active','PROVISIONAL') RETURNING company_id::text`,
     [TENANT_ID, ownerGlobalUserId]
   );
   const companyId = c.rows[0].company_id;
@@ -106,11 +106,11 @@ async function main(): Promise<void> {
   record('2b validateInPerson statusCode 501 (handler global emite 501, não 400)', status === 501, `status=${status}`);
 
   // Confirma no banco que nada foi escrito.
-  const dbRow = await pool.query<{ company_status: string; is_verified: boolean }>(
-    'SELECT company_status, is_verified FROM companies WHERE company_id=$1::uuid', [companyId]);
-  record('3 banco: company_status=PROVISIONAL & is_verified=false (NÃO escreveu)',
-    dbRow.rows[0].company_status === 'PROVISIONAL' && dbRow.rows[0].is_verified === false,
-    `company_status=${dbRow.rows[0].company_status} is_verified=${dbRow.rows[0].is_verified}`);
+  const dbRow = await pool.query<{ company_status: string }>(
+    'SELECT company_status FROM companies WHERE company_id=$1::uuid', [companyId]);
+  record('3 banco: company_status=PROVISIONAL (NÃO escreveu VERIFIED; is_verified dropado 3.3-B2)',
+    dbRow.rows[0].company_status === 'PROVISIONAL',
+    `company_status=${dbRow.rows[0].company_status}`);
 
   const cvCount = await pool.query<{ n: string }>(
     'SELECT count(*)::text n FROM company_validations WHERE company_id=$1::uuid', [companyId]

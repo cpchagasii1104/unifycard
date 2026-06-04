@@ -1,3 +1,19 @@
+## 2026-06-04 — FASE 3.3-B2 IMPLEMENTADA: drop de companies.is_verified — 🏁 DT SECOND-TRUTH CLOSED
+
+**Branch:** `rescue-structural` · **HEAD origem:** `f1e7d811`. Frente `F-PJ-3.3-B2` (DECISION-0097 D3/D4 + DECISION-0093 §4.3). Schema (drop) + ajuste de scripts. Zero frontend/payload-vivo/company_status/companies.status/fiscal_identities/kyb_status/Bank/KYB-writer/social-gate/profile-progress. Os 3 untracked autorais intocados.
+
+**Mudança:** migration forward-only `20260604130000_drop_companies_is_verified.sql` (`ALTER TABLE companies DROP COLUMN IF EXISTS is_verified`; aplicada via runner canônico → 357 migrations). Zero deps de schema (sem índice/constraint/view/trigger — confirmado psql). **Sem alias** (DECISION-0093 §4.3). 8 scripts e2e do domínio companies ajustados para não referenciar `is_verified` em SQL (INSERTs sem a coluna; SELECTs/asserções só `company_status`; `company-status-lifecycle` check-8 invertido p/ ausência).
+
+**Prova:** novo `validate-pipeline-e2e-pj-is-verified-drop` **7/7** (coluna ausente; verified_at ausente; kyb_status intacto; CHECK lifecycle existe; INSERT sem is_verified OK; referência a is_verified FALHA 42703; VERIFIED ainda bloqueado 23514). Re-rodados pós-drop: `updatecompany-no-status` **6/6**, `company-status-lifecycle` **13/13**. Typecheck backend escopo **0** (2 `geo-enrichment` baseline); frontend NÃO tocado. 4 gates OK (regression 357; warning_new=1 = c3 pré-existente).
+
+**🏁 Frente company_status/is_verified ENCERRADA:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` → **CLOSED**. Verificação PJ = `fiscal_identities.kyb_status` (ÚNICA); 2ª-verdade fiscal materialmente extinta (display + writers + capability + compat + CHECK company_status + isVerified payload + drop da coluna). Resíduo só cosmético (VERIFIED/APPROVED @deprecated no tipo, bloqueados por CHECK).
+
+**Resíduo flagado (fora de B2):** `validate-pipeline-e2e-pj-verification-display.ts` segue obsoleto (insere company_status='VERIFIED' → runtime-broken pós-3.3-A; referencia is_verified dropado). Retirada/reescrita = fatia de higiene de testes própria.
+
+**PRÓXIMA ETAPA (sem execução):** (1) higiene do teste obsoleto `verification-display`; OU (2) **`F-PJ-OPERATIONAL-ACTIVATION-VOCAB-DECISION`** (businessType×businessCategory×hybrid×par `primary_company_type_id`/`primary_concept_id`) — próximo ninho de arame farpado.
+
+---
+
 ## 2026-06-04 — FASE 3.3-B1 IMPLEMENTADA: isVerified desacoplado do payload (sem drop)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `a333de27`. Frente `F-PJ-3.3-B1` (DECISION-0097 D3 + DECISION-0093 §4.3). Código/payload/tipos; SEM migration/drop/schema. Zero Bank/KYB-writer/social-gate/profile-progress/company_status/fiscal_identities. Os 3 untracked autorais intocados.

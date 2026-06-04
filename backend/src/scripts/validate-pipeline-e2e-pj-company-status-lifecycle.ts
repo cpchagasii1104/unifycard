@@ -106,11 +106,11 @@ async function main(): Promise<void> {
     await client.query('ROLLBACK TO SAVEPOINT spn'); // restaura constraint + estado
     await client.query('RELEASE SAVEPOINT spn');
 
-    // 7/8. fiscal_identities.kyb_status intacto + is_verified intocado
+    // 7/8. fiscal_identities.kyb_status intacto + is_verified DROPADO (3.3-B2)
     const kyb = await client.query<{ n: string }>(`SELECT COUNT(*)::text n FROM information_schema.columns WHERE table_name='fiscal_identities' AND column_name='kyb_status'`);
     record('7 fiscal_identities.kyb_status intacto (verificação fiscal)', parseInt(kyb.rows[0].n, 10) === 1);
     const iv = await client.query<{ n: string }>(`SELECT COUNT(*)::text n FROM information_schema.columns WHERE table_name='companies' AND column_name='is_verified'`);
-    record('8 is_verified ainda existe (NÃO tocado nesta fatia)', parseInt(iv.rows[0].n, 10) === 1);
+    record('8 is_verified DROPADO (Fase 3.3-B2 — coluna ausente)', parseInt(iv.rows[0].n, 10) === 0);
 
     await client.query('ROLLBACK'); // nada persiste
   } catch (e) {
