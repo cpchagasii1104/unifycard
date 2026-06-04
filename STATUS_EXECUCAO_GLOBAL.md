@@ -1,3 +1,18 @@
+## 2026-06-03 — DECISION-0089: reconciliação da verificação PJ — kyb_status fonte única (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `e4907b00`. **Docs-only**; zero código/schema/migration/frontend/Bank. Fixa regra+sequência; implementação por fatias depois.
+
+**Promulgada (reconciliação da segunda-verdade `company_status × kyb_status`):**
+- **Fonte única de "empresa verificada" = `fiscal_identities.kyb_status='approved'`.** `company_status`/`is_verified`/`status`/company_validation/metadata **não** são fonte.
+- **Achado do read-only:** a segunda-verdade vive no **display/API/UI** — o frontend recebe `companyStatus`/`isVerified` mas **NÃO recebe `kyb_status`** → UI pode mostrar "VERIFIED" com `kyb pending` (badge mentindo). **NÃO há** segunda-verdade em permissão financeira (o gate F2-C já lê `kyb_status`). E há **5 escritores legados** de `VERIFIED` (não só `reviewCompanyValidation`): `updateDocumentStatus`, `adminOverrideToVerified`, `reviewCompanyValidation`, **FASE 12 (validação presencial QR)**, `updateCompany` (input arbitrário).
+- **Estratégia: Opção D primeiro** — read-model derivado de `kyb_status` p/ API → reapontar a UI → parar de usar companyStatus/isVerified como verificação visual. Depois: Fase 2 (neutralizar/redirecionar os 5 escritores + destino da FASE 12) → Fase 3 (separar lifecycle de verificação; company_status lifecycle-puro/projeção/aposentar; is_verified deprecar). Gate F2-C **inalterado**.
+
+**DTs:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` atualizada (umbrella, OPEN). **Criadas:** `DT-PJ-COMPANY-VERIFICATION-DISPLAY-USES-LEGACY` (Fase 1, OPEN) e `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (Fase 2, OPEN).
+
+**PRÓXIMA ETAPA:** executor Fase 1 (read-model kyb_status na API + reapontar UI — toca frontend). Depois Fase 2/3. Outras frentes OPEN: storage provider, docs de pessoa/LGPD, 2ª onda comercial.
+
+---
+
 ## 2026-06-03 — F2-C GATE KYB PJ IMPLEMENTADO: authority financeira (código)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `caf46777`. Edição cirúrgica de `authority-decision.service` + tipo de trace + teste efêmero + docs. **Zero** migration/schema/Bank/identities-PF/company_validation/storage/documentos/frontend; `unificard_dev` não alterado.

@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.17) — DECISION-0089: reconciliação verificação PJ (kyb_status fonte única)
+
+Após READ-ONLY da reconciliação (achado: segunda-verdade vive no DISPLAY/UI, não em permissão — frontend recebe companyStatus/isVerified mas NÃO kyb_status; 5 escritores legados de VERIFIED, não só reviewCompanyValidation; company_status é eixo impuro lifecycle+verificação) + insumo, Clayton ratificou e disparou envelope docs-only. Promulguei `DECISION_0089_PJ_COMPANY_VERIFICATION_RECONCILIATION.md` (0089).
+
+Decisões: fonte única = fiscal_identities.kyb_status='approved'; company_status/is_verified/status não são fonte; estratégia Opção D primeiro (read-model derivado de kyb_status → API/UI → parar de usar companyStatus/isVerified como verificação); company_status vira lifecycle-legado (não significa KYB aprovado); is_verified legado; 5 escritores legados ficam resíduos (Fase 2); FASE 12 QR presencial vira caminho de evidência p/ KYB ou aposentada (decisão futura); gate F2-C inalterado. Sequência Fase 1 display → Fase 2 writers → Fase 3 schema.
+
+DTs: atualizei umbrella `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN); criei `DT-PJ-COMPANY-VERIFICATION-DISPLAY-USES-LEGACY` (Fase 1) e `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (Fase 2), ambas OPEN. Docs-only; commit por caminho explícito. Os 2 screenshots (criacao-de-empresa.png + fluxo-empresa.png) untracked/intocados. **Próximo:** executor Fase 1 (read-model kyb_status na API + reapontar UI — primeira frente que toca FRONTEND).
+
+---
+
 ## Sessão 2026-06-03 (cont.16) — F2-C GATE KYB PJ IMPLEMENTADO (authority financeira)
 
 Implementei a F2-C (envelope executor, aval p/ editar authority-decision.service). **Prova prévia obrigatória APROVADA primeiro:** rastreei que o MVP-A/event_ticket debita comprador (attendee user/PF) ou escrow/system — bank-transaction.service:94 (requireFinancialRiskClearanceForDebitSide) avalia o debitante e PULA ownerType system/escrow; organizer PJ recebe (crédito). Nenhum page-actor é debitante no MVP-A → liberei o gate.

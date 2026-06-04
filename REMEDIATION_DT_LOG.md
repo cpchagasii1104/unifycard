@@ -10826,6 +10826,26 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Mitigação atual:** nenhuma no código (F2-C é docs-only). `DECISION-0088` fixa o desenho do gate (`evaluateKybLayer`, ATL→KYC→**KYB**→GUARDA; só page-actor; fail-closed; strict para money; lê `kyb_status`).
 - **Resolução prevista:** executor F2-C — adicionar `evaluateKybLayer` em `authority-decision.service` + testes efêmeros (PF intacta, PJ gateada, MVP-A/evento não-afetado). **Pré-condição obrigatória:** provar que operação financeira de PJ debita page-actor e que MVP-A/event_ticket debita actor user (DECISION-0088 §3.9). Não fechar até o gate existir e ser testado.
 
+## DT-PJ-COMPANY-VERIFICATION-DISPLAY-USES-LEGACY
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** read-only reconciliação + `DECISION-0089` (kyb_status fonte única).
+- **Vinculada a:** `DECISION-0089`, `frontend/src/api/companies.ts`, `frontend/src/components/CompaniesManagerForm.tsx`/`CompanyValidationModal.tsx`/`GlobalHeader.tsx`/`EntityHero.tsx`, `core/companies/companies.service.ts` (mapeia is_verified/company_status no payload).
+- **Contexto:** API e UI exibem "empresa verificada" a partir de **`companyStatus`/`isVerified`** (eixo legado). **Frontend NÃO recebe `kyb_status`** (grep em `frontend/src` = vazio). → a UI pode mostrar "VERIFIED" com `kyb_status='pending'` (badge mentindo) e KYB approved **não acende** a UI.
+- **Risco:** percepção de verificação divergente da fonte fiscal; usuário/parceiro confia em badge que o gate financeiro (F2-C) **não** honra. Display mente sobre o enforcement real.
+- **Mitigação atual:** nenhuma (docs-only). `DECISION-0089` fixa kyb_status como fonte da verificação exibida.
+- **Resolução prevista (Fase 1, DECISION-0089 §4):** backend expõe verificação **derivada de `fiscal_identities.kyb_status`** (read-model/campo `kybStatus`/`fiscalVerificationStatus`); frontend reaponta badges/textos "verificada" para esse campo; `companyStatus`/`isVerified` deixam de alimentar a UI de verificação. Toca **frontend** — fatia própria.
+
+## DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** read-only reconciliação + `DECISION-0089`.
+- **Vinculada a:** `DECISION-0089`, `core/companies/companies.service.ts`, `core/companies/company-validation.service.ts`.
+- **Contexto:** **5 caminhos legados** escrevem `company_status='VERIFIED'`/`is_verified=true` **sem tocar `kyb_status`**: `updateDocumentStatus` (:2148); `adminOverrideToVerified` (:2201/:2232); `reviewCompanyValidation` (:2364/:2434); **`company-validation.service` FASE 12 (validação presencial QR + funcionário auditável)** (:270); `updateCompany` (:1469, aceita `company_status` de input arbitrário).
+- **Risco:** cada um cria/mantém estado de "verificação" paralelo à fonte `kyb_status`. Reconciliar só `reviewCompanyValidation` deixaria 4 fantasmas vivos. `updateCompany` permite setar `company_status` arbitrário — superfície de abuso.
+- **Mitigação atual:** nenhuma (docs-only). `DECISION-0089 §3.6/§3.7` declara que esses escritores não são fonte e fixa a direção (redirecionar p/ KYB, aposentar, ou limitar a lifecycle).
+- **Resolução prevista (Fase 2, DECISION-0089):** neutralizar/redirecionar os 5 escritores; impedir `updateCompany` de aceitar `company_status` arbitrário como verificação; **decidir destino da FASE 12 presencial QR** (vira caminho de evidência/fluxo para KYB ou é aposentada). Fatia própria, com testes.
+
 ## DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH
 
 - **Status:** OPEN (2026-06-03)
@@ -10837,6 +10857,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Atualização (F2-A IMPLEMENTADA, 2026-06-03):** o writer KYB que transiciona `fiscal_identities.kyb_status` está **vivo** (migration/serviço/rotas + 16/16 efêmero). O `reviewCompanyValidation` **NÃO foi tocado** (segue marcando `companies.company_status='VERIFIED'`/`is_verified` independentemente do `kyb_status`). **A segunda-verdade agora é possível em runtime** (uma company pode estar `VERIFIED` com `kyb_status='pending'`, e vice-versa). **DT permanece OPEN** — a reconciliação (company_status vira projeção de kyb_status, ou company-validation é redirecionado) é fatia própria; **fica mais urgente** depois da F2-C (gate lê kyb_status, não company_status).
 - **Atualização (F2-C — `DECISION-0088`, 2026-06-03):** a 0088 promulgou que o **gate KYB lê `fiscal_identities.kyb_status` como FONTE, NUNCA `company_status`/`is_verified`** (DECISION-0088 §3.1; teste obrigatório 11: `company_status='VERIFIED'` + `kyb_status='pending'` **bloqueia**). Isso **isola** o gate da segunda-verdade — mas **não a resolve**: `reviewCompanyValidation` ainda escreve `company_status='VERIFIED'` por fora. **DT permanece OPEN** (reconciliação = fatia própria).
 - **Atualização (F2-C IMPLEMENTADA, 2026-06-03):** o gate KYB está **vivo** (`evaluateKybLayer`) e **provado** lendo `kyb_status`, não `company_status` (teste 10/11: `company_status='VERIFIED'` + `kyb pending` → bloqueia). O gate está **isolado** da segunda-verdade. **DT permanece OPEN** — `reviewCompanyValidation` ainda escreve `company_status='VERIFIED'` por fora; a reconciliação (company_status vira projeção, ou o fluxo é redirecionado) segue fatia própria, agora **o único resíduo** desse risco.
+- **Atualização (RECONCILIAÇÃO — `DECISION-0089`, 2026-06-03):** promulgada a reconciliação. **Fonte única = `fiscal_identities.kyb_status='approved'`**; `company_status`/`is_verified`/`status` **não** são fonte de "verificada". **Estratégia: Opção D primeiro** (read-model derivado de kyb_status p/ API/UI → reapontar a UI → parar de usar companyStatus/isVerified como verificação visual), depois limpeza de escritores legados e schema. O read-only ampliou o achado: a segunda-verdade vive no **display/UI** (frontend não recebe `kyb_status`) e há **5 escritores legados** de VERIFIED (não só `reviewCompanyValidation`) — desmembrados nas DTs `DT-PJ-COMPANY-VERIFICATION-DISPLAY-USES-LEGACY` (Fase 1) e `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (Fase 2). **DT umbrella permanece OPEN** até a implementação (Fases 1-3).
 - **Resolução prevista (pós-F2-A):** `company_status`/`is_verified` viram **projeção/compatibilidade** de `kyb_status`, **ou** o fluxo `company-validation` é redirecionado/aposentado para o papel fiscal. Fatia própria, com migration/código + testes. **Não fechar** enquanto a divergência puder ocorrer em runtime.
 
 ## DT-PJ-TRANSITIONAL-RESPONSIBILITY-MISSING
