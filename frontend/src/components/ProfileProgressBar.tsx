@@ -32,7 +32,7 @@ export default function ProfileProgressBar({ className = '', showMessage = true 
       // Fallback zerado com mesmo shape esperado
       setProgress({
         progress: 0,
-        maxProgressWithoutValidation: 80,
+        maxProgressWithoutValidation: 100,
         hasPresentialValidation: false,
         breakdown: {
           personalData: 0,
@@ -65,7 +65,7 @@ export default function ProfileProgressBar({ className = '', showMessage = true 
     // Se ainda assim não houver progress, usar fallback zerado
     const fallbackProgress = {
       progress: 0,
-      maxProgressWithoutValidation: 80,
+      maxProgressWithoutValidation: 100,
       hasPresentialValidation: false,
       breakdown: {
         personalData: 0,
@@ -112,11 +112,6 @@ export default function ProfileProgressBar({ className = '', showMessage = true 
       {showMessage && progress.messages.length > 0 && (
         <div className="profile-progress-message">
           {progress.messages[0]}
-        </div>
-      )}
-      {progress.progress >= progress.maxProgressWithoutValidation && !progress.hasPresentialValidation && (
-        <div className="profile-progress-warning">
-          ⚠️ Para chegar a 100%, valide presencialmente em uma loja parceira
         </div>
       )}
     </div>

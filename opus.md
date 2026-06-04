@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.33) — PROFILE PROGRESS 1 IMPLEMENTADO (remove validação presencial morta do score)
+
+Executei a Fase Profile Progress 1 da DECISION-0095 (envelope executor controlado). Reancorei (HEAD a2ca7f0c, rescue-structural, unificard_dev, 355 migrations).
+
+Mudança em core/core.service.ts calculateProfileProgress: removi o eixo presencial morto (query company_validations in_person/approved, hasPresentialValidation/presentialValidation como score, teto maxProgressWithoutValidation=80 + cap Math.min). Recalibrei os eixos cadastrais PF vivos p/ somar 100: pessoal 50 (fullName/cpf/phone/birthdate/gender 10 cada), profissional 30 (skills/bio 15), físico 20 (interests/lifestyle 10). Educacional/aprendizado seguem 0 (blindagem canônica preservada). Empresas virou INFORMATIVO não-bloqueante (breakdown, FORA do total — PF chega a 100% sem empresa/PJ/KYB). Mensagens presenciais → cadastrais neutras. Score NÃO consulta company_validations/company_status/is_verified/verifiedAt/kyb_status (grep: só comentário). Frontend ProfileProgressBar: removi o warning hardcoded "valide presencialmente em loja parceira"; fallbacks 80→100. Type ProfileProgress INTACTO (compat; campos mortos neutros). Efeito colateral bom: GlobalHeader "Completar meu perfil X%" (progress<100) antes NUNCA sumia (teto 80), agora some no 100.
+
+Decisão de design: companies mantido como informativo (breakdown.companies=10) mas fora do total — satisfaz simultaneamente "PF chega a 100 sem empresa" e "companies não é gate" (DECISION-0095 §4.5). Payload preservado p/ não quebrar frontend/typecheck (preferência compat do envelope). Não usei kyb_status no score (proibido pelo envelope — completude cadastral é eixo puro).
+
+Prova: criei validate-profile-progress-cadastral.ts (16/16) — STUB determinístico de getCompleteProfile+identityService.getIdentityProfile, ZERO DML/DB-write (o banner de conexão do pool é só log de import; nenhuma query roda). Casos: (1) cadastral completo sem empresa/KYB→100, max=100, presencial neutro, msg "Perfil cadastral completo."; (2) +empresa→ainda 100, companies=10 informativo não-somado; (3) parcial→30, msg cadastral; (4) 80 (não travado, caso 1 passa de 80), msg <100 neutra; nenhuma msg presencial em nenhum caso. Typecheck backend escopo 0 (2 erros geo-enrichment.service.ts = BASELINE pré-existente, provei com git stash dos meus 2 arquivos) + frontend 0. 4 gates OK (único warning_new = c3 pré-existente, já no baseline da 3.1-A).
+
+DTs: DT-PJ-PROFILE-COMPLETENESS-USES-DEAD-IN_PERSON_VALIDATION → CLOSED. DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING OPEN (QR/requestValidation/CompanyValidationModal deliberadamente NÃO tocados — greenfield/UX, DECISION-0095 §4.6/§6). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** (opcional) Profile Progress 2 (verificationStatus separado via kyb_status, selo não-percentual); Fase QR/UX (destino do botão/modal); Fase 3.3 (CHECK/drop + dados legados).
+
+---
+
 ## Sessão 2026-06-04 (cont.32) — DECISION-0095: completude cadastral ≠ verificação fiscal (docs-only)
 
 Após READ-ONLY Fase 3.2 (auditoria do score de completude PF que eu mesma flagara em 3.1-A), despachei envelope docs-only. Promulguei `DECISION_0095_PJ_PROFILE_COMPLETENESS_CADASTRAL_NOT_FISCAL.md` (0095). Reancorei (HEAD db00546d, rescue-structural, unificard_dev, 355 migrations).

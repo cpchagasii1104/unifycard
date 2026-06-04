@@ -1,3 +1,20 @@
+## 2026-06-04 — PROFILE PROGRESS 1 IMPLEMENTADO: remove validação presencial morta do progresso
+
+**Branch:** `rescue-structural` · **HEAD origem:** `a2ca7f0c`. Frente `F-PJ-PROFILE-COMPLETENESS-CADASTRAL` (Profile Progress 1, DECISION-0095). Zero migration/schema/DML/Bank/KYB-writer/F2-C/social-gate/FASE12-QR/`company_status`-type/`is_verified`-schema. Os 2 screenshots untracked/intocados.
+
+**Mudança (completude cadastral ≠ verificação fiscal):**
+- `core/core.service.ts` `calculateProfileProgress`: **removido** o eixo presencial morto (query a `company_validations` `in_person/approved`, `hasPresentialValidation`/`presentialValidation` como score, teto `maxProgressWithoutValidation=80` + cap). Eixos cadastrais PF vivos **recalibrados para somar 100** (pessoal 50: fullName/cpf/phone/birthdate/gender 10 cada; profissional 30: skills/bio 15; físico 20: interests/lifestyle 10). Educacional/aprendizado seguem **0** (blindagem). **Empresas** virou **informativo não-bloqueante** (breakdown, fora do total). Mensagens presenciais → cadastrais neutras ("Perfil cadastral completo." / "Complete os dados cadastrais restantes para chegar a 100%"). Score **não consulta** `company_validations`/`company_status`/`is_verified`/`verifiedAt`/`kyb_status`.
+- `frontend/src/components/ProfileProgressBar.tsx`: **removido** o warning hardcoded "⚠️ Para chegar a 100%, valide presencialmente em uma loja parceira"; fallbacks `maxProgressWithoutValidation` 80→100. Payload/type `ProfileProgress` **intacto** (compat; campos mortos neutros).
+- **Efeito colateral positivo:** `GlobalHeader.tsx` mostra "Completar meu perfil X%" enquanto `progress<100` — antes **nunca sumia** (teto 80); agora some quando o cadastral fecha 100%.
+
+**Prova:** `validate-profile-progress-cadastral.ts` (**16/16**, stub determinístico de `getCompleteProfile`+`identityService`, **sem DML/DB-write**): 100% sem empresa/KYB/presencial; `max=100` (sem teto 80); `hasPresentialValidation=false`/`presentialValidation=0` neutros; empresa informativa (`companies=10`) **não somada** (100 com e sem empresa); parcial → mensagem cadastral; nenhuma mensagem presencial. Typecheck **backend escopo 0** (2 erros remanescentes = `geo-enrichment.service.ts` **baseline pré-existente**, provado por stash) + **frontend 0**. 4 gates OK (actor-writer/bank-ledger/regression/arch --strict exit 0; único `warning_new` = c3 pré-existente). Grep: refs a `company_validations`/`kyb_status` no cálculo só em comentário.
+
+**DTs:** `DT-PJ-PROFILE-COMPLETENESS-USES-DEAD-IN_PERSON_VALIDATION` → **CLOSED**. `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` (OPEN — QR/`requestValidation`/`CompanyValidationModal` deliberadamente NÃO tocados, greenfield).
+
+**PRÓXIMA ETAPA:** (opcional) **Profile Progress 2** — eixo separado `verificationStatus` (selo via `kyb_status`, não percentual) se Clayton quiser · **Fase QR/UX** (destino do botão "Validar presencialmente"/modal, DT FASE 12) · **Fase 3.3** (CHECK `company_status` + drop `is_verified` + dados legados).
+
+---
+
 ## 2026-06-04 — DECISION-0095: completude cadastral não é verificação fiscal (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `db00546d`. Frente `F-PJ-PROFILE-COMPLETENESS-CADASTRAL` (família Fase 3.2 — vestígios). **Docs-only**; zero código/schema/migration/frontend/DML/Bank. Fixa semântica + ordem; executor pequeno depois (sem schema). Os 2 screenshots untracked/intocados.

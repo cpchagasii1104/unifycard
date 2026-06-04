@@ -783,8 +783,11 @@ export class CoreService {
 
   /**
    * 🔴 PARTE 3 - BARRA DE PROGRESSO
-   * Calcula o progresso de preenchimento do perfil (0-100%)
-   * Regra: 100% só é atingido com validação presencial aprovada
+   * Calcula o progresso de preenchimento CADASTRAL do perfil (0-100%).
+   * DECISION-0095: completude cadastral ≠ verificação fiscal. Mede só eixos
+   * cadastrais PF vivos (pessoal/profissional/físico, que somam 100). NÃO
+   * consulta company_validations/company_status/is_verified/verifiedAt/
+   * kyb_status, NÃO exige validação presencial, empresa, PJ ou KYB para 100%.
    */
   async calculateProfileProgress(
     tenantId: string,
@@ -805,12 +808,12 @@ export class CoreService {
   }> {
     const completeProfile = await this.getCompleteProfile(tenantId, userId);
     
-    // 1. Dados pessoais básicos (25% do total)
+    // 1. Dados pessoais básicos (50% do total cadastral) — DECISION-0095 (recalibrado)
     let personalDataScore = 0;
-    const personalMax = 25;
-    if (completeProfile.personal_profile?.fullName) personalDataScore += 5;
-    if (completeProfile.personal_profile?.cpf) personalDataScore += 5;
-    if (completeProfile.personal_profile?.phone) personalDataScore += 5;
+    const personalMax = 50;
+    if (completeProfile.personal_profile?.fullName) personalDataScore += 10;
+    if (completeProfile.personal_profile?.cpf) personalDataScore += 10;
+    if (completeProfile.personal_profile?.phone) personalDataScore += 10;
     
     // 🔴 CORREÇÃO: Envolver getIdentityProfile em try/catch para tratar quando global_user não existe
     let globalUser = null;
@@ -821,25 +824,25 @@ export class CoreService {
       // Não lançar exception - progresso pode ser calculado sem birthdate
     }
     
-    if (globalUser?.global?.birthdate) personalDataScore += 5;
-    if (completeProfile.personal_profile?.metadata?.gender) personalDataScore += 5;
+    if (globalUser?.global?.birthdate) personalDataScore += 10;
+    if (completeProfile.personal_profile?.metadata?.gender) personalDataScore += 10;
     const personalData = Math.min(personalDataScore, personalMax);
 
-    // 2. Perfil profissional (20% do total)
+    // 2. Perfil profissional (30% do total cadastral) — DECISION-0095 (recalibrado)
     let professionalScore = 0;
-    const professionalMax = 20;
+    const professionalMax = 30;
     if (completeProfile.professional_profile?.skills && completeProfile.professional_profile.skills.length > 0) {
-      professionalScore += 10;
+      professionalScore += 15;
     }
-    if (completeProfile.professional_profile?.bio) professionalScore += 10;
+    if (completeProfile.professional_profile?.bio) professionalScore += 15;
     const professionalProfile = Math.min(professionalScore, professionalMax);
 
     // 2.5. Perfil educacional - NÃO CONTRIBUI PARA SCORE
     // Educação é apenas informacional, não gera score
 
-    // 3. Perfil físico/interesses (15% do total)
+    // 3. Perfil físico/interesses (20% do total cadastral) — DECISION-0095 (recalibrado)
     let physicalScore = 0;
-    const physicalMax = 15;
+    const physicalMax = 20;
     if (completeProfile.physical_profile?.interests && completeProfile.physical_profile.interests.length > 0) {
       physicalScore += 10;
     }
@@ -847,7 +850,7 @@ export class CoreService {
       // Completude conta presença de atributo Lifestyle ATIVO do SSOT (F4); sexualOrientation NÃO conta mais.
       const lifestyle = completeProfile.physical_profile.lifestyle;
       if (lifestyle.drinks || lifestyle.smokes || lifestyle.relationshipStatus) {
-        physicalScore += 5;
+        physicalScore += 10;
       }
     }
     const physicalProfile = Math.min(physicalScore, physicalMax);
@@ -859,66 +862,40 @@ export class CoreService {
     // Comentário explícito: "Aprendizado é interesse ativo, não completude."
     const learningProfile = 0;
 
-    // 5. Empresas (10% do total)
-    let companiesScore = 0;
-    const companiesMax = 10;
+    // 5. Empresas — INFORMATIVO, NÃO pontua (DECISION-0095 §4.5).
+    // Existência de empresa vinculada é dado cadastral exibível, mas NÃO é
+    // requisito de completude PF: o perfil chega a 100% cadastral sem empresa/
+    // PJ/KYB. Mantido no breakdown por compat de payload; fora do total.
+    let companies = 0;
     if (completeProfile.companies && completeProfile.companies.length > 0) {
-      companiesScore = companiesMax;
-    }
-    const companies = Math.min(companiesScore, companiesMax);
-
-    // 6. Validação presencial (20% do total)
-    // 🔴 REGRA CRÍTICA: Validação presencial é necessária para 100%
-    let presentialValidation = 0;
-    const presentialMax = 20;
-    let hasPresentialValidation = false;
-    
-    // Verificar se há empresa validada presencialmente
-    try {
-      const { pool } = await import('@core/database/pool');
-      if (globalUser?.global?.globalUserId) {
-        const validationResult = await pool.query<{ count: string }>(
-          `
-          SELECT COUNT(*) as count
-          FROM companies c
-          JOIN company_validations cv ON cv.company_id = c.company_id
-          WHERE c.global_user_id = $1
-            AND cv.validation_method = 'in_person'
-            AND cv.status = 'approved'
-          `,
-          [globalUser.global.globalUserId]
-        );
-        
-        const validationCount = parseInt(validationResult.rows[0]?.count || '0', 10);
-        if (validationCount > 0) {
-          presentialValidation = presentialMax;
-          hasPresentialValidation = true;
-        }
-      }
-    } catch (err) {
-      // Ignorar erro - validação presencial não disponível
+      companies = 10;
     }
 
-    // Calcular progresso total
-    // 🔴 BLINDAGEM CANÔNICA: Educação NÃO contribui para score (é apenas informacional)
-    // 🔴 BLINDAGEM CANÔNICA: Aprendizado NÃO contribui para score (é interesse ativo, não completude)
-    // Aprendizado é autodireção e interesse declarado, não representa completude de perfil
-    const totalScore = personalData + professionalProfile + physicalProfile + learningProfile + companies + presentialValidation;
-    
-    // Progresso máximo sem validação presencial: 80%
-    const maxProgressWithoutValidation = 80;
-    const progress = hasPresentialValidation ? totalScore : Math.min(totalScore, maxProgressWithoutValidation);
+    // 6. Validação presencial — REMOVIDA do score (DECISION-0095 §4.2).
+    // A FASE 12 (validateInPerson) está tombstonada (501) e era runtime-dead;
+    // company_validations não tem writer vivo. Completude cadastral ≠ verificação
+    // fiscal. O score NÃO consulta company_validations/company_status/is_verified/
+    // verifiedAt/kyb_status. Campos mantidos no payload por compat (neutros).
+    const presentialValidation = 0;
+    const hasPresentialValidation = false;
 
-    // Mensagens contextuais
+    // Progresso total — SÓ eixos cadastrais PF vivos (somam 100). DECISION-0095.
+    // 🔴 BLINDAGEM CANÔNICA: Educação NÃO contribui (informacional).
+    // 🔴 BLINDAGEM CANÔNICA: Aprendizado NÃO contribui (interesse ativo, não completude).
+    // Empresas NÃO contribui (informativo, não-bloqueante — DECISION-0095 §4.5).
+    const progress = personalData + professionalProfile + physicalProfile + learningProfile;
+
+    // Sem teto artificial: cadastral completo = 100% (DECISION-0095 §4.4).
+    const maxProgressWithoutValidation = 100;
+
+    // Mensagens contextuais (cadastrais; sem validação presencial — DECISION-0095).
     const messages: string[] = [];
     if (progress < 50) {
       messages.push('Complete seu perfil para acessar todos os recursos');
-    } else if (progress < 80) {
-      messages.push('Continue preenchendo seu perfil para desbloquear mais funcionalidades');
     } else if (progress < 100) {
-      messages.push('Para chegar a 100%, valide presencialmente em uma loja parceira');
+      messages.push('Complete os dados cadastrais restantes para chegar a 100%');
     } else {
-      messages.push('Perfil completo! Você tem acesso a todos os recursos');
+      messages.push('Perfil cadastral completo.');
     }
 
     return {
