@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.27) — PJ VERIFICATION Fase 3.0 IMPLEMENTADA (capability + CNPJ-lock via kyb_status)
+
+Executei a Fase 3.0 da DECISION-0092 (envelope executor — o conserto funcional urgente). Reancorei (HEAD 583e68a7, rescue-structural, unificard_dev).
+
+Mudança: corrigi os 2 leitores órfãos que a Fase 2 deixou (gateavam por company_status===VERIFIED/APPROVED, eixo congelado). (a) reputation.service.getPermissions: NÃO usa mais company_status; resolve fiscal_identities.kyb_status server-side (helper privado resolveKybApproved, page→company→fiscal_identity, espelha F2-C, fail-closed); gateia post/vote/project/CTA por kyb_status='approved'. Param companyStatus→_companyStatus (ignorado; conserta o anti-padrão de social-2.0.routes que lia req.query.company_status do cliente). Achei que há DOIS reputation.service: o social (modules/social, alvo) e o de score (@core/reputation, intocado). (b) companies.service CNPJ-lock (updateCompany:1410): de companyStatus===VERIFIED/APPROVED para existing.kybStatus==='approved' (DTO já tinha kybStatus da Fase 1).
+
+Prova: harness novo validate-pipeline-e2e-pj-capability-kyb (7/7) — PJ kyb=approved canPost true (REGRESSÃO SANADA); pending+company_status=VERIFIED canPost false (anti-2ª-verdade); sem-fiscal fail-closed; PF inalterado; CNPJ-lock por KYB. Typecheck 0; 4 gates OK. Grep confirma zero company_status===VERIFIED/APPROVED nos 2 serviços.
+
+DTs: REPUTATION-GATE e CNPJ-LOCK → CLOSED. SECOND-TRUTH (OPEN, resta Fase 3.1-3.3); VERIFIED-AT (OPEN). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase 3.1 (lifecycle/compat de company_status + is_verified — exige migration/DECISION) → 3.2 (vestígios/QR/verifiedAt) → 3.3 (dados legados). A regressão funcional (PJ muda) está fechada.
+
+---
+
 ## Sessão 2026-06-04 (cont.26) — DECISION-0092: Fase 3 PJ (lifecycle/verificação/capability)
 
 Após READ-ONLY Fase 3 + Clayton ratificando, despachei envelope docs-only. Promulguei `DECISION_0092_PJ_LIFECYCLE_VERIFICATION_CLEANUP.md` (0092).

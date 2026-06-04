@@ -1405,12 +1405,13 @@ class CompaniesService {
       throw new Error('Empresa não encontrada');
     }
 
-    // 🔴 PROTEÇÃO: Bloquear alteração de CNPJ se status for VERIFIED ou superior
-    // Regra: Empresas validadas não podem ter CNPJ alterado
-    if (input.cnpj && (existing.companyStatus === 'VERIFIED' || existing.companyStatus === 'APPROVED')) {
+    // 🔴 PROTEÇÃO: Bloquear alteração de CNPJ quando a identidade fiscal já está verificada.
+    // DECISION-0092 Fase 3.0: a imutabilidade do CNPJ ancora na CASA FISCAL (fiscal_identities.kyb_status),
+    // NÃO em company_status (eixo congelado pela Fase 2). O CNPJ é projeção de fiscal_identities.cnpj.
+    if (input.cnpj && existing.kybStatus === 'approved') {
       throw new Error(
-        `CNPJ não pode ser editado. ` +
-        `Empresa está com status "${existing.companyStatus}" e o CNPJ está bloqueado.`
+        `CNPJ não pode ser editado: identidade fiscal já verificada (KYB approved). ` +
+        `O CNPJ vive na casa fiscal (fiscal_identities) e é imutável após aprovação.`
       );
     }
 

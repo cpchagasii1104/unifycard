@@ -1,3 +1,19 @@
+## 2026-06-04 — PJ VERIFICATION Fase 3.0 IMPLEMENTADA: capability + CNPJ-lock via kyb_status (regressão sanada)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `583e68a7`. Frente `F-PJ-VERIFICATION-3.0` (DECISION-0092 §4.2/§4.3). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/FASE12/frontend/QR. Os 2 screenshots untracked/intocados.
+
+**Mudança (corrige a regressão da Fase 2):**
+- `modules/social/reputation.service.ts`: `getPermissions` **não usa mais `company_status === VERIFIED/APPROVED`** para capability de page-actor. Agora **resolve `fiscal_identities.kyb_status` server-side** (novo helper privado `resolveKybApproved`: page→company→fiscal_identity, espelha o gate F2-C, fail-closed) e gateia post/vote/project/CTA por `kyb_status='approved'`. Param `companyStatus`→`_companyStatus` (ignorado; não confia em valor do caller/cliente — conserta o anti-padrão de `social-2.0.routes` que lia `req.query.company_status`). PF/user inalterado.
+- `core/companies/companies.service.ts`: o lock de edição de CNPJ (`updateCompany`) passa de `companyStatus === VERIFIED/APPROVED` para **`existing.kybStatus === 'approved'`** (imutabilidade ancora na casa fiscal; CNPJ é projeção de `fiscal_identities.cnpj`).
+
+**Prova (DB efêmera `validate-pipeline-e2e-pj-capability-kyb`, 7/7, via `run-pj-capability-kyb-ephemeral.ps1`):** (1) PJ kyb=approved → canPost true (**regressão sanada**: PJ volta a postar); (2) PJ kyb=pending + `company_status='VERIFIED'` → canPost false (company_status NÃO libera — anti-2ª-verdade); (3) sem-fiscal → fail-closed; (4) PF → canPost true (inalterado); (5) CNPJ kyb=approved → bloqueado; (6) CNPJ kyb=pending → não bloqueia por KYB/company_status; (7) zero Bank. Typecheck 0; 4 gates OK (arch --strict exit 0; único `warning_new` é o c3 pré-existente).
+
+**DTs:** `DT-PJ-REPUTATION-GATE-USES-LEGACY-COMPANY_STATUS` → **CLOSED**. `DT-PJ-CNPJ-LOCK-USES-LEGACY-COMPANY_STATUS` → **CLOSED**. `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN, resta Fase 3.1-3.3). `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (OPEN, higiene).
+
+**PRÓXIMA ETAPA:** **Fase 3.1** (lifecycle/compat: `company_status` lifecycle-puro/aposentar + CHECK; `is_verified` projeção de `kyb_status`/aposentar — exige migration + DECISION) · **Fase 3.2** (vestígios `company_validations`/`partner_employees`; higiene textual `verifiedAt`; UX do QR — Codex) · **Fase 3.3** (dados legados não-zero).
+
+---
+
 ## 2026-06-04 — DECISION-0092: Fase 3 PJ — lifecycle/verificação/capability (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `467e05c1`. **Docs-only**; zero código/schema/migration/frontend/DML/Bank. Fixa regra + ordem da Fase 3; executor pequeno depois. Os 2 screenshots untracked/intocados.

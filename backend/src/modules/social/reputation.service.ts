@@ -258,7 +258,7 @@ export class ReputationService {
     tenantId: string,
     actorId: string,
     actorType: ActorType,
-    companyStatus?: string
+    _companyStatus?: string // DECISION-0092 Fase 3.0: NÃO é mais fonte de capability (eixo congelado pela Fase 2). Mantido p/ compat de assinatura; IGNORADO.
   ): Promise<ActorPermissions> {
     const reputation = await this.getReputation(tenantId, actorId, actorType);
     const level = reputation?.reputation_level ?? 0;
@@ -268,54 +268,41 @@ export class ReputationService {
     const { actorCapabilitiesService } = await import('./actor-capabilities.service');
     const { ActorCapability } = await import('./actor-capabilities.types');
     const capabilities = actorCapabilitiesService.getCapabilitiesByType(actorType);
-    
+
     const hasPostCapability = capabilities.includes(ActorCapability.POST_CONTENT);
     const hasVoteCapability = capabilities.includes(ActorCapability.VOTE);
     const hasProjectCapability = capabilities.includes(ActorCapability.CREATE_PROJECT);
     const hasCTACapability = capabilities.includes(ActorCapability.CREATE_CTA);
 
-    // Base: permissões por nível (reputação)
-    // 🔴 REGRA: Permissão = Capacidade + Estado (reputação/verificação)
-    // Se não tem capacidade, permissão é false independente de estado
-    const canPost = hasPostCapability && (actorType === 'user' ? true : (companyStatus === 'VERIFIED' || companyStatus === 'APPROVED'));
-    const canVote = hasVoteCapability && level >= 1;
-    const canCreateProject = hasProjectCapability && level >= 2;
-    const canCreateCTA = hasCTACapability && level >= 2;
     const hasExtendedReach = level >= 2;
     const hasAdvancedAccess = level >= 3;
 
-    // Ajustes específicos para PJ (empresas)
+    // DECISION-0092 Fase 3.0: verificação de PJ deriva EXCLUSIVAMENTE de fiscal_identities.kyb_status
+    // (NUNCA company_status/is_verified — eixo congelado pela Fase 2). Resolução server-side (não confia
+    // em valor passado pelo caller/cliente), fail-closed.
     if (actorType === 'page') {
-      /**
-       * EXCEÇÃO INSTITUCIONAL (SPRINT 30)
-       * Motivo: Empresas PROVISIONAL têm restrições especiais (exceção ao modelo padrão de permissões)
-       * Contexto: Regra de negócio específica para status PROVISIONAL
-       * Tipo: estrutural
-       */
-      // Empresas PROVISIONAL não podem postar, votar nem criar projetos
-      if (companyStatus === 'PROVISIONAL') {
-        return {
-          canPost: false, // 🔴 CRÍTICO: PJ PROVISIONAL não pode postar
-          canVote: false,
-          canCreateProject: false,
-          canCreateCTA: false,
-          hasExtendedReach: hasExtendedReach,
-          hasAdvancedAccess: hasAdvancedAccess,
-        };
-      }
+      const isPjApproved = await this.resolveKybApproved(tenantId, actorId);
 
-      // Empresas precisam ser VERIFIED+ para ações sensíveis
-      if (companyStatus !== 'VERIFIED' && companyStatus !== 'APPROVED') {
+      // PJ sem KYB approved (pending/rejected/suspended/closed/sem-fiscal): presença básica permitida,
+      // mas SEM post/vote/project/CTA — capability sensível exige kyb_status='approved'.
+      if (!isPjApproved) {
         return {
-          canPost: false, // 🔴 CRÍTICO: PJ não verificada não pode postar
+          canPost: false,
           canVote: false,
           canCreateProject: false,
           canCreateCTA: false,
-          hasExtendedReach: hasExtendedReach,
-          hasAdvancedAccess: hasAdvancedAccess,
+          hasExtendedReach,
+          hasAdvancedAccess,
         };
       }
     }
+
+    // Base: permissões por nível (reputação). PJ que chega aqui já é kyb_status='approved'.
+    // 🔴 REGRA: Permissão = Capacidade + Estado (reputação/verificação)
+    const canPost = hasPostCapability; // PF sempre; PJ só se approved (garantido pelo guard acima)
+    const canVote = hasVoteCapability && level >= 1;
+    const canCreateProject = hasProjectCapability && level >= 2;
+    const canCreateCTA = hasCTACapability && level >= 2;
 
     return {
       canPost,
@@ -325,6 +312,25 @@ export class ReputationService {
       hasExtendedReach,
       hasAdvancedAccess,
     };
+  }
+
+  /**
+   * DECISION-0092 Fase 3.0: resolve se a PJ do page-actor está com KYB aprovado.
+   * FONTE ÚNICA = fiscal_identities.kyb_status='approved' (page→company→fiscal_identity, espelha o gate F2-C).
+   * Fail-closed: qualquer elo ausente/quebrado → false. NUNCA infere por company_status/is_verified.
+   */
+  private async resolveKybApproved(tenantId: string, actorId: string): Promise<boolean> {
+    const row = await runQueryWithTenant<{ kyb_status: string | null }>(
+      tenantId,
+      `SELECT fi.kyb_status::text AS kyb_status
+         FROM actors a
+         LEFT JOIN companies c ON c.company_id = a.company_id AND c.tenant_id = a.tenant_id
+         LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
+        WHERE a.tenant_id = $1 AND a.id = $2::uuid
+        LIMIT 1`,
+      [tenantId, actorId]
+    );
+    return row?.kyb_status === 'approved';
   }
 }
 
