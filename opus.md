@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.49) — DECISION-0099: publicar ≠ ativar (governança de oferta PJ)
+
+HEAD antes `c72fdd72` → commit "decisions: define PJ publication offering governance". Após o guardião read-only de tenant_concept_offerings, promulguei DECISION-0099 (próximo nº livre confirmado; 0098 era o maior). Fixa: publicação/oferta é ato soberano distinto da ativação. D1 publicar≠ativar; D2 writer automático de oferta na ativação PROIBIDO; D3 granularidade = company/page-actor×concept (não tenant×concept); D4 tco atual = read-model/compat, sem writer novo; D5 publicação pública exige kyb_status='approved'; D6 autoridade company_users+page-actor; D7 reversível; D8 auditável; D9 discovery só de publicações governadas; D10 não resolve hybrid (ortogonal); D11 schema-alvo futuro (company_id/page_actor_id/status/published_at/retired_at/created_by/source — só DESENHAR); D12 bloqueios totais.
+
+Achado-chave da auditoria: tco é tenant×concept (UNIQUE tenant+concept, sem company/actor/audit), lido por marketplace-contextual (GET /marketplace/contextual, cross-tenant, SEM gate KYB) — uma linha publica o tenant inteiro. Automático na ativação = perigoso (sem reversibilidade por empresa, colapsa empresas). Por isso: norma antes de schema/writer (senão a tabela cristaliza a decisão no escuro).
+
+DTs: criei DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING (OPEN); ONBOARDING-DOMAIN-SELECTION segue PARTIALLY MITIGATED (offering automático agora bloqueado); VOCABULARY-DRIFT registra separação ativação/publicação; HYBRID OPEN (ortogonal). Docs-only; 4 gates OK; commit por caminho explícito; 3 autorais intocados. **Próximo (escolha Clayton):** DESENHO read-only do schema/writer de publicação gated, OU read-only marketplace hybrid→trilhos. Esta sessão separa cadastro de outdoor — não pendura placa só porque a porta existe.
+
+---
+
 ## Sessão 2026-06-04 (cont.48) — F-PJ-ONBOARDING-ACTIVATION-FLOW-E2E: prova encadeada permanente
 
 HEAD antes `e0cc89c0` → commit "test(pj): add onboarding activation flow e2e". Transformei a prova partida (read-endpoints + write-pair + seam) em UM teste encadeado: validate-pipeline-e2e-pj-onboarding-activation-flow.ts (22/22) faz GET catálogo → escolhe par REAL via API (sem hardcode de UUID, itera types até achar um com concepts) → POST ativação → asserta companies.primary_* persistido + alreadyActive idempotência + não-toque (company_status/fiscal_identity_id/tenant_concept_offerings=0/bank_transactions/fiscal_identities count) + 403 (owner sem membership numa 2ª empresa) + 400 (body sem conceptId). Reusa o harness app.inject + mintToken + identity-seed das fatias anteriores.

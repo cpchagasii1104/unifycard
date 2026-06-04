@@ -1,3 +1,17 @@
+## 2026-06-04 — DECISION-0099: governança de publicação/oferta PJ (publicar ≠ ativar) — docs-only
+
+**Branch:** `rescue-structural` · **HEAD origem:** `c72fdd72`. Frente `F-PJ-PUBLICATION-OFFERING-DECISION` (docs-only). Zero código/schema/migration/backend-runtime/frontend/Bank/KYB/marketplace/`tenant_concept_offerings`. Os 3 untracked autorais intocados.
+
+**O que fixou (`DECISION_0099_PJ_PUBLICATION_OFFERING_GOVERNANCE.md`):** publicação/oferta da empresa é **ato soberano distinto** da ativação operacional. **D1** publicar ≠ ativar (ativar = o que a empresa É; publicar = se o mundo a encontra por um conceito); **D2** writer automático de oferta na ativação **proibido**; **D3** granularidade correta = company/page-actor×concept (tenant-level só agregação, nunca fonte soberana); **D4** `tenant_concept_offerings(tenant_id,concept_id,is_active)` é read-model/compat de discovery, não shape soberano — sem writer novo até norma+schema corretos; **D5** publicação pública gateada por `fiscal_identities.kyb_status='approved'` (ativação pode existir com KYB pending; publicação não); **D6** autoridade contextual (`company_users` manage + page-actor + responsável humano); **D7** reversível (despublicar uma empresa não apaga oferta de outra); **D8** auditável (quem/quando publicou/despublicou, source); **D9** discovery/matching consome só publicações governadas; **D10** não resolve hybrid (ortogonal); **D11** schema-alvo futuro (company_id/page_actor_id/status/published_at/retired_at/created_by/source) — autorizado a DESENHAR, não implementar; **D12** bloqueios (sem código/migration/writer/alteração de tco/marketplace/hybrid/Bank/KYB/onboarding).
+
+**Evidência (auditoria read-only F-PJ-TENANT-CONCEPT-OFFERINGS):** tco = tenant×concept, sem company/actor/audit; lido por `marketplace-contextual` (`GET /marketplace/contextual`, cross-tenant, sem gate KYB); sem writer; ativação NÃO escreve oferta; automático seria perigoso (publica tenant inteiro, sem reversibilidade por empresa).
+
+**DTs:** **criada** `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` (OPEN); `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` PARTIALLY MITIGATED (offering automático agora bloqueado); `DT-PJ-OPERATIONAL-ACTIVATION-VOCABULARY-DRIFT` PARTIALLY MITIGATED (separação ativação vs publicação); `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` OPEN (ortogonal); `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` CLOSED.
+
+**PRÓXIMA ETAPA (sem execução):** DESENHO técnico (read-only) do schema/writer de publicação company/page-actor×concept gated (KYB/autoridade, reversível, auditável) OU read-only marketplace `hybrid`→trilhos (ortogonal). Ordem: norma (esta) → desenho schema/writer publicação → execução gated.
+
+---
+
 ## 2026-06-04 — F-PJ-ONBOARDING-ACTIVATION-FLOW-E2E-PERMANENT: E2E encadeado do fluxo do par
 
 **Branch:** `rescue-structural` · **HEAD origem:** `e0cc89c0`. Frente `F-PJ-ONBOARDING-ACTIVATION-FLOW-E2E-PERMANENT` (teste/evidência). Zero runtime de produto (backend/frontend/schema/migration), zero Bank/KYB/marketplace/offering. Os 3 untracked autorais intocados.

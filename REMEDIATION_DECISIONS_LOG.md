@@ -6522,3 +6522,20 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** nenhuma (ratifica/detalha DECISION-0097 D5/D6).
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0098_PJ_OPERATIONAL_ACTIVATION_VOCABULARY.md`; HEAD âncora `6d5dda34`; 18_DOMAIN_ONTOLOGY, Lei 7, REGRA_CANONICA_CRIACAO_DE_CONTEXT.
+
+---
+
+### DECISION-0099 — Governança de publicação/oferta da empresa PJ (publicar ≠ ativar)
+
+- **Data:** 2026-06-04
+- **Tipo:** arquitetural / institucional (docs-only)
+- **Contexto:** com a ativação operacional completa e provada ponta-a-ponta (catálogo→UI→rota write-pair→`companies.primary_*`, E2E encadeado 22/22), a frente read-only `F-PJ-TENANT-CONCEPT-OFFERINGS` auditou `tenant_concept_offerings`: shape **tenant×concept** (UNIQUE tenant_id+concept_id), sem company_id/page_actor_id/created_by/source/published_at/retired_at/visibility/audit; lido por `marketplace-contextual` (`GET /marketplace/contextual`, descoberta cross-tenant, **sem gate KYB/capability/page-actor**); **sem writer**; a ativação NÃO escreve oferta.
+- **Opções consideradas:** (1) writer AUTOMÁTICO na ativação — REJEITADA (publica tenant inteiro sem ato soberano, sem KYB, sem reversibilidade por empresa, colapsa empresas); (2) writer manual sobre o shape atual — REJEITADA (tenant×concept não comporta company-level/audit); (3) ajustar schema primeiro — necessária mas insuficiente sem norma; (4) **DECISION de publicação primeiro** (granularidade+autoridade+KYB+lifecycle) — ESCOLHIDA.
+- **Escolha:** Opção 4.
+- **Justificativa:** publicar/descobrir ≠ ativar operacionalmente (EMPRESA_NASCIMENTO §8 inerte; SERVICE_CANONICO visibilidade=ato soberano; Constituição Art. III/IV; DECISION-0097 D3 KYB gateia alcance). O shape/writer não podem ser desenhados sem decidir granularidade (company/page-actor-level) e autoridade — senão a tabela cristaliza a norma no escuro.
+- **Consequências esperadas:** curto prazo — proíbe publicação automática; classifica `tenant_concept_offerings` como read-model legado; cria `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING`. Médio prazo — desenho do shape company/page-actor×concept gated (KYB approved + `company_users` manage + page-actor, reversível, auditável); reader de discovery migra para publicações governadas.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Validação prévia:** Clayton (promulgação); auditoria read-only `F-PJ-TENANT-CONCEPT-OFFERINGS`; DECISION-0097/0098.
+- **Supera:** resolve a ambiguidade de DECISION-0098 D9 (tco "candidato a oferta" → apenas read-model; shape soberano é outro). Ratifica/estende 0097/0098.
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0099_PJ_PUBLICATION_OFFERING_GOVERNANCE.md`; HEAD âncora `c72fdd72`; EMPRESA_NASCIMENTO_CANONICO §8, SERVICE_CANONICO, Constituição Art. III/IV, DECISION-0097 D3/D7.
