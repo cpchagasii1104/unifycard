@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.14) — F2-B KYB DOCUMENTOS PJ IMPLEMENTADA
+
+Implementei a F2-B (envelope executor, com aval explícito p/ editar o writer F2-A só na pré-condição). Migration `20260603140000` (`fiscal_identity_documents`, GLOBAL, âncora fiscal_identity_id, file_reference opaco + file_hash, append-only via supersedes_document_id, CHECK status/type-literais/auditoria-no-final, FK actors(id)). Service `fiscal-identity-document.service.ts`: submit (sem upload)/list/review(accepted/rejected)/supersede (atômico, nova versão + anterior superseded). Rotas `/identity/pj/kyb/documents/*` (requireRole admin, operador actionContext.actorId).
+
+**Trava de aprovação** (edição cirúrgica do writer F2-A): `reviewFiscalKybRequest(approved)` agora exige cnpj_registration+articles_of_association aceitos NA MESMA transação; falta → rollback total (request+kyb_status pending). rejected não exige. Mata o cartório de boca.
+
+Teste novo `validate-pipeline-e2e-pj-kyb-documents.ts` + orquestrador `run-pj-kyb-documents-ephemeral.ps1` (DB `unificard_kyb_docs_*`). 21/21: migration/constraints/índices, sem blob/metadata, submit/list/review/supersede, tipo inválido, CHECK auditoria, docs-de-pessoa rejeitados como tipo, pré-condição (10-14: sem-min falha / só-um falha / ambos passa / rejected passa), rollback mantém pending, identities PF/Bank/companies intactos, queue KYB ok.
+
+Gates: typecheck 0; actor-writer OK; bank-ledger OK; regression-guards OK (355); arch --strict exit 0. unificard_dev intocada (doc_table=f). DTs: `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` → **CLOSED** (SSOT existe/usado/testado); storage-provider + human-link-LGPD + second-truth seguem OPEN. Acoplamento código↔banco igual F1/F2-A (migration não aplicada em DEV; rotas admin-only). Commit por caminho explícito. **Próximo:** storage provider / F2-C gate / reconciliação / trilho humano.
+
+---
+
 ## Sessão 2026-06-03 (cont.13) — DECISION-0087: F2-B Documentos PJ promulgada (SSOT documental KYB)
 
 Após READ-ONLY F2-B (greenfield documental confirmado: media é placeholder, fiscal_documents é NF-e/SEFAZ, uploads/groups é imagem local — nenhum SSOT de documento legal) + insumo no chat, Clayton ratificou com 4 martelos e disparou envelope executor docs-only. Promulguei `DECISION_0087_PJ_KYB_DOCUMENTS_SSOT.md` (0087).

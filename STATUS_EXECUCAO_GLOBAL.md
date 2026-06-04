@@ -1,3 +1,25 @@
+## 2026-06-03 — F2-B KYB DOCUMENTOS PJ IMPLEMENTADA: SSOT documental + trava de aprovação (código+migration)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `88a4e5ee`. Migration única + service + rotas + edição cirúrgica do writer F2-A (só pré-condição) + teste efêmero + docs. **Zero** Bank/identities-PF/company_validation/gate-F2-C/company_status/frontend/storage-provider; `unificard_dev` intocada.
+
+**Materializa a DECISION-0087 (F2-B):**
+- **Migration `20260603140000`:** `fiscal_identity_documents` (GLOBAL) — `document_id` PK, `fiscal_identity_id` (FK→fiscal_identities CASCADE, **âncora**), `kyb_request_id` (FK nullable SET NULL), `document_type` (CHECK 5 literais), `document_status` (CHECK submitted/accepted/rejected/superseded), `file_reference` **opaco** + `file_hash`, `submitted_by`/`reviewed_by_actor_id` (FK actors(id)), `supersedes_document_id` (self-FK, append-only), CHECK auditoria-no-final, 4 índices. Sem metadata/blob/company_id/global_user_id/tenant.
+- **Service `core/identity/fiscal-identity-document.service.ts`:** submit (sem upload — `fileReference` opaco) · list · review (accepted/rejected, reason obrigatório) · supersede (atômico: nova versão submitted + anterior superseded, trilha preservada). Nunca toca `kyb_status`/`identities` PF/Bank.
+- **Trava de aprovação (edição cirúrgica autorizada do writer F2-A):** `reviewFiscalKybRequest(approved)` agora exige, **na mesma transação**, `cnpj_registration`+`articles_of_association` com `document_status='accepted'`; falta qualquer um → erro de domínio + **rollback total** (request e `kyb_status` seguem `pending`). `rejected` não exige documentos. Mata o "cartório de boca".
+- **Rotas `/identity/pj/kyb/documents/*`** (POST submit, GET list, PATCH review, POST supersede): `requireRole(['admin'])`; operador via `actionContext.actorId`.
+
+**Teste efêmero (`validate-pipeline-e2e-pj-kyb-documents`, 21/21 verde):** migration/constraints/índices; sem blob/metadata; submit/list/review/supersede; tipo inválido; CHECK auditoria; docs de pessoa rejeitados como tipo; **pré-condição** (approved sem mínimos falha / só-um falha / ambos passa / rejected passa); rollback mantém pending; identities PF/Bank/companies intactos; queue KYB funciona. DB efêmera (`unificard_kyb_docs_*`) dropada.
+
+**Gates:** typecheck 0 · actor-writer §4.8.1 OK · bank-ledger §4.6 OK · regression-guards OK (355 migr) · architecture --strict exit 0 (critical_new=0).
+
+**DTs:** `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` → **CLOSED** (SSOT existe/usado/testado). `DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING` OPEN (file_reference opaco; provider real = fatia própria). `DT-PJ-HUMAN-LINK-DOCUMENTS-LGPD-MISSING` OPEN (docs de pessoa fora). `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` OPEN (não reconciliado).
+
+**Acoplamento código↔banco (igual F1/F2-A):** migration `20260603140000` no repo, **não aplicada em `unificard_dev`** (só efêmera); rotas admin-only fora do hot path. Aplicação local = passo separado quando liberado.
+
+**PRÓXIMA ETAPA:** storage provider (fatia própria) → F2-C gate `evaluateKybLayer` (lê kyb_status com lastro documental) → reconciliação company_status → trilho humano/LGPD. PJ comercial bloqueada até F2-C.
+
+---
+
 ## 2026-06-03 — DECISION-0087: F2-B Documentos PJ promulgada — SSOT documental KYB (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `0dfb849d`. **Docs-only**; zero código/schema/migration/Bank/runtime. Autoriza a implementação F2-B, **não a executa**.

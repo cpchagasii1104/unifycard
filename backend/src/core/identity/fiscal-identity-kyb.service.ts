@@ -156,6 +156,24 @@ class FiscalIdentityKybService {
         throw new Error(`FISCAL_IDENTITY_NOT_PENDING: kyb_status atual='${fiRes.rows[0].kyb_status}' — review só transiciona de 'pending'.`);
       }
 
+      // (2.5) PRÉ-CONDIÇÃO DOCUMENTAL (F2-B / DECISION-0087 §3.10): aprovar KYB sem documentos
+      //       mínimos aceitos é proibido. Na MESMA transação, exigir cnpj_registration +
+      //       articles_of_association com document_status='accepted'. Falta qualquer um → rollback total
+      //       (request e kyb_status seguem 'pending'). `rejected` NÃO exige documentos.
+      if (decision === 'approved') {
+        const docs = await client.query<{ document_type: string }>(
+          `SELECT DISTINCT document_type FROM fiscal_identity_documents
+            WHERE fiscal_identity_id = $1::uuid AND document_status = 'accepted'
+              AND document_type IN ('cnpj_registration','articles_of_association')`,
+          [fiscalIdentityId],
+        );
+        const have = new Set(docs.rows.map((r) => r.document_type));
+        const missing = ['cnpj_registration', 'articles_of_association'].filter((t) => !have.has(t));
+        if (missing.length > 0) {
+          throw new Error(`KYB_APPROVAL_REQUIRES_DOCUMENTS: faltam documentos aceitos [${missing.join(', ')}] — não é possível aprovar o KYB sem lastro documental mínimo (DECISION-0087 §3.10).`);
+        }
+      }
+
       // (3) UPDATE da request (pending → decision) + auditoria.
       const updReq = await client.query<{
         kyb_request_id: string;

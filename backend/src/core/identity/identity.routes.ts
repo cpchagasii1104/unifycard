@@ -1349,6 +1349,100 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // ============================================================
+  // F2-B KYB DOCUMENTOS PJ (DECISION-0087): SSOT documental KYB da identidade fiscal PJ.
+  //   Tabela: fiscal_identity_documents (migration 20260603140000)
+  //   Service: fiscal-identity-document.service.ts (docs DA EMPRESA; file_reference OPACO, sem upload).
+  //   Operador (autoridade) = req.actionContext.actorId. Documentos de PESSOA = outro trilho.
+  // ============================================================
+
+  /** POST /identity/pj/kyb/documents — registra documento (submitted). requireRole(['admin']). */
+  fastify.post<{
+    Body: { fiscalIdentityId: string; documentType: string; fileReference: string; fileHash?: string; kybRequestId?: string };
+  }>('/pj/kyb/documents', { preHandler: [fastify.requireRole(['admin'])] }, async (req, reply) => {
+    if (!req.user) return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório (actor do operador ausente)' });
+    }
+    const { fiscalIdentityId, documentType, fileReference, fileHash, kybRequestId } = req.body ?? ({} as any);
+    if (!fiscalIdentityId || !documentType || !fileReference) {
+      return reply.status(400).send({ ok: false, message: 'fiscalIdentityId, documentType e fileReference são obrigatórios' });
+    }
+    try {
+      const { fiscalIdentityDocumentService } = await import('@core/identity/fiscal-identity-document.service');
+      const result = await fiscalIdentityDocumentService.submitFiscalIdentityDocument({
+        fiscalIdentityId, documentType, fileReference, submittedByActorId: req.actionContext.actorId,
+        kybRequestId: kybRequestId ?? null, fileHash: fileHash ?? null,
+      });
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao submeter documento KYB PJ');
+      return reply.status(400).send({ ok: false, message: error instanceof Error ? error.message : 'Erro ao submeter documento' });
+    }
+  });
+
+  /** GET /identity/pj/kyb/fiscal-identities/:fiscalIdentityId/documents — lista. requireRole(['admin']). */
+  fastify.get<{ Params: { fiscalIdentityId: string } }>(
+    '/pj/kyb/fiscal-identities/:fiscalIdentityId/documents', { preHandler: [fastify.requireRole(['admin'])] }, async (req, reply) => {
+      try {
+        const { fiscalIdentityDocumentService } = await import('@core/identity/fiscal-identity-document.service');
+        const data = await fiscalIdentityDocumentService.listFiscalIdentityDocuments(req.params.fiscalIdentityId);
+        return reply.send({ ok: true, data });
+      } catch (error) {
+        fastify.log.error({ err: error }, 'Erro ao listar documentos KYB PJ');
+        return reply.status(400).send({ ok: false, message: error instanceof Error ? error.message : 'Erro ao listar documentos' });
+      }
+    });
+
+  /** PATCH /identity/pj/kyb/documents/:documentId/review — accepted/rejected. requireRole(['admin']). */
+  fastify.patch<{
+    Params: { documentId: string };
+    Body: { decision: 'accepted' | 'rejected'; reason: string };
+  }>('/pj/kyb/documents/:documentId/review', { preHandler: [fastify.requireRole(['admin'])] }, async (req, reply) => {
+    if (!req.user) return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório (actor do operador ausente)' });
+    }
+    const { decision, reason } = req.body ?? ({} as any);
+    if (decision !== 'accepted' && decision !== 'rejected') {
+      return reply.status(400).send({ ok: false, message: "Body.decision deve ser 'accepted' ou 'rejected'" });
+    }
+    if (!reason || typeof reason !== 'string' || reason.trim() === '') {
+      return reply.status(400).send({ ok: false, message: 'Body.reason é obrigatório (auditoria)' });
+    }
+    try {
+      const { fiscalIdentityDocumentService } = await import('@core/identity/fiscal-identity-document.service');
+      const result = await fiscalIdentityDocumentService.reviewFiscalIdentityDocument(req.params.documentId, decision, reason, req.actionContext.actorId);
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao revisar documento KYB PJ');
+      return reply.status(400).send({ ok: false, message: error instanceof Error ? error.message : 'Erro ao revisar documento' });
+    }
+  });
+
+  /** POST /identity/pj/kyb/documents/:documentId/supersede — nova versão append-only. requireRole(['admin']). */
+  fastify.post<{
+    Params: { documentId: string };
+    Body: { fileReference: string; fileHash?: string };
+  }>('/pj/kyb/documents/:documentId/supersede', { preHandler: [fastify.requireRole(['admin'])] }, async (req, reply) => {
+    if (!req.user) return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório (actor do operador ausente)' });
+    }
+    const { fileReference, fileHash } = req.body ?? ({} as any);
+    if (!fileReference) {
+      return reply.status(400).send({ ok: false, message: 'Body.fileReference é obrigatório' });
+    }
+    try {
+      const { fiscalIdentityDocumentService } = await import('@core/identity/fiscal-identity-document.service');
+      const result = await fiscalIdentityDocumentService.supersedeFiscalIdentityDocument(req.params.documentId, fileReference, fileHash ?? null, req.actionContext.actorId);
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao supersede documento KYB PJ');
+      return reply.status(400).send({ ok: false, message: error instanceof Error ? error.message : 'Erro ao supersede documento' });
+    }
+  });
+
   // Registrar rotas de residence como sub-rotas
   // A rota GET /identity/residence está definida em residence.routes.ts
   await fastify.register(residenceRoutes, { prefix: '/residence' });
