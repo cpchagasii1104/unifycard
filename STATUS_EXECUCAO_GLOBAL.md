@@ -1,3 +1,19 @@
+## 2026-06-04 — FASE 3.3-A IMPLEMENTADA: company_status preso no lifecycle (CHECK)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `0d866f16`. Frente `F-PJ-3.3-A` (Fase 3.3-A, deriva de DECISION-0097 D3/D4 + SELO). Schema/data-policy + docs. Zero frontend/contrato/Bank/KYB-writer/social-gate/profile-progress/`is_verified`. Os 3 untracked autorais intocados.
+
+**Mudança (schema):** migration forward-only `20260604120000_constrain_company_status_lifecycle.sql` (aplicada via runner canônico; dev companies=0 → 356 migrations). (1) DROP CONSTRAINT IF EXISTS (idempotente); (2) normaliza ghosts `VERIFIED`/`APPROVED` → `ACTIVE` (política dados legados; não finge KYB); (3) **fail-closed** (RAISE EXCEPTION) para valores desconhecidos — sem mapeamento silencioso; (4) `ADD CONSTRAINT chk_companies_company_status_lifecycle CHECK (NULL OR IN DRAFT/PROVISIONAL/ACTIVE/SUSPENDED)`. **VERIFIED/APPROVED bloqueados por schema.** NÃO tocou `companies.status` (CHECK próprio intacto), `is_verified`, `fiscal_identities`, `kyb_status`.
+
+**Decisão de naming:** conjunto lifecycle = estado vivo (contrato `CompanyStatus` DRAFT/PROVISIONAL/SUSPENDED − deprecated VERIFIED/APPROVED + default 'ACTIVE' da coluna). BLOCKED/CLOSED/REJECTED do envelope NÃO estão vivos → fora (menor conjunto compatível). Default da coluna segue 'ACTIVE' (mudar = fora de escopo; createCompany já escreve PROVISIONAL).
+
+**Prova:** `validate-pipeline-e2e-pj-company-status-lifecycle.ts` **13/13** (DB efêmera, guard anti-`unificard_dev`, 1 transação + ROLLBACK): CHECK existe + def correta; permite DRAFT/PROVISIONAL/ACTIVE/SUSPENDED; bloqueia VERIFIED/APPROVED/desconhecido (23514); normalização VERIFIED→ACTIVE funciona; kyb_status intacto; is_verified intocado. Typecheck backend escopo **0** (2 `geo-enrichment` baseline). 4 gates OK (regression 356 migrations; warning_new=1 = c3 pré-existente).
+
+**DTs:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` → **PARTIALLY MITIGATED** (CHECK bloqueia ghosts; resta `is_verified`).
+
+**PRÓXIMA ETAPA (sem execução):** **Fase 3.3-B** (`is_verified` compat/drop após migrar consumidores do payload/contrato/frontend para `isKybApproved`) · OU `F-PJ-OPERATIONAL-ACTIVATION-VOCAB-DECISION` · OU onboarding domain-selection.
+
+---
+
 ## 2026-06-04 — SELO DECISION-0097: prova ontológica integral (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `945b5dc6`. Frente `F-PJ-0097-NORMATIVE-PROOF-SEAL` (docs-only). Zero código/schema/migration/frontend/backend/Bank. Os 3 untracked autorais do Clayton intocados/fora do git.

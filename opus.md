@@ -6,6 +6,22 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.40) — FASE 3.3-A: company_status preso no lifecycle (CHECK)
+
+Executei a Fase 3.3-A da DECISION-0097 (envelope executor controlado) — primeira fatia de SCHEMA da reconciliação company_status. Reancorei (HEAD 0d866f16). HEAD depois do commit muda.
+
+Mudança: migration forward-only 20260604120000_constrain_company_status_lifecycle.sql. (1) DROP CONSTRAINT IF EXISTS (idempotente); (2) normaliza VERIFIED/APPROVED → ACTIVE (política dados legados não-zero, não finge KYB); (3) fail-closed DO/RAISE EXCEPTION para valores desconhecidos (sem mapeamento silencioso); (4) ADD CHECK chk_companies_company_status_lifecycle (NULL OR DRAFT/PROVISIONAL/ACTIVE/SUSPENDED). Bloqueia ghosts VERIFIED/APPROVED por schema. Aplicada via runner canônico (pnpm migrate / src/core/db/migrate.ts) em unificard_dev (companies=0, agora 356 migrations).
+
+Decisão de naming (read-first confirmou): conjunto = contrato CompanyStatus (DRAFT/PROVISIONAL/SUSPENDED) − deprecated (VERIFIED/APPROVED) + default 'ACTIVE' da COLUNA (não está no type mas é a realidade viva — tive que incluir senão CHECK quebraria rows default). BLOCKED/CLOSED/REJECTED do envelope NÃO estão vivos → fora (menor conjunto). Não mudei o default 'ACTIVE' da coluna (fora de escopo; createCompany escreve PROVISIONAL).
+
+NÃO toquei: companies.status (CHECK chk_companies_status intacto), is_verified, fiscal_identities, kyb_status, Bank, frontend, contrato. Confirmei zero writer vivo de VERIFIED (todos comentário/JSDoc) + zero reader decisório antes de migrar.
+
+Prova: validate-pipeline-e2e-pj-company-status-lifecycle.ts 13/13 (DB efêmera, guard anti-dev, 1 transação client dedicado + savepoints + ROLLBACK final — nada persiste). Reescrevi o teste 1x: savepoint via pool.query não funciona (conexões diferentes), troquei p/ client dedicado. Typecheck escopo 0 (2 geo-enrichment baseline). 4 gates OK.
+
+DT: DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH → PARTIALLY MITIGATED (CHECK bloqueia ghosts; resta is_verified). Commit por caminho explícito; 3 untracked autorais intocados. **Próximo (escolha Clayton, sem execução):** Fase 3.3-B (is_verified compat/drop após migrar consumidores p/ isKybApproved) OU vocab-decision OU onboarding-domain-selection. Esta fatia só prendeu company_status no cercado de lifecycle; não virou KYB; não mexeu no boi is_verified.
+
+---
+
 ## Sessão 2026-06-04 (cont.39) — SELO DECISION-0097: prova ontológica integral (docs-only)
 
 Após auditoria GUARDIÃO READ-ONLY que pegou que eu havia lido o 18_DOMAIN_ONTOLOGY só parcial (~120/949) na sessão da 0097, despachei envelope docs-only de selo. Reancorei (HEAD 945b5dc6). Li o 18_ONTOLOGY INTEGRALMENTE no turno read-only anterior (949 linhas) — confirma D5/D6 sem rework.
