@@ -6490,3 +6490,18 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** nenhuma (ratifica DECISION-0075 Opção B; compatível com 0089/0094/0096).
 - **Superada por:** (em aberto — decisão vigente)
 - **Referências:** `docs/02_decisions/DECISION_0097_PJ_COMPANY_BIRTH_AND_OPERATIONAL_ACTIVATION.md`; `CRIACAO_DE_EMPRESAS.md` (autoral, fora do git); `EMPRESA_NASCIMENTO_CANONICO`, `02_ACTORS_SSOT`, `18_DOMAIN_ONTOLOGY`, Lei 5/Lei 7; HEAD âncora `0c4abed2`.
+
+---
+
+### SELO DECISION-0097 — leitura integral da Ontologia (prova normativa fechada)
+
+- **Data:** 2026-06-04
+- **Tipo:** selo documental / retificação de prova (§2.2.2)
+- **Contexto:** a prova da DECISION-0097 (commit `945b5dc6`) declarou honestamente o `18_DOMAIN_ONTOLOGY_UNIFICARD.md` como lido "parcial" (~120/949 linhas). Auditoria read-only posterior leu o documento INTEGRALMENTE (949 linhas).
+- **Resultado:** a leitura integral CONFIRMA e reforça D5/D6 da DECISION-0097 (CONCEPT=identidade; GRAPH=relações; N0/N1/N2/categories≠identidade; produtos-e-comercio #4 / servicos #5 distintos; "ambos"=dois trilhos via GRAPH, não hybrid atômico; construcao #13 condicional não-ativado; canonical_product depende de CONCEPT; anti-patterns alinhados). **Nenhuma mudança substantiva.**
+- **Veredito:** DECISION-0097 APROVADA sem rework. Gap era PROCEDURAL, não substantivo. Execuções derivadas da 0097 (Fase 3.3 etc.) podem prosseguir somente após este selo, em fatias próprias.
+- **Documento:** `docs/02_decisions/SELO_DECISION_0097_ONTOLOGY_FULL_READ.md`.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Supera:** nenhuma (sela/complementa a DECISION-0097; não a altera).
+- **Superada por:** (em aberto)
+- **Referências:** `18_DOMAIN_ONTOLOGY_UNIFICARD.md` (949 linhas), `DECISION_0097_PJ_COMPANY_BIRTH_AND_OPERATIONAL_ACTIVATION.md`, HEAD âncora `945b5dc6`.

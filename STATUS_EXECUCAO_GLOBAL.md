@@ -1,3 +1,17 @@
+## 2026-06-04 — SELO DECISION-0097: prova ontológica integral (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `945b5dc6`. Frente `F-PJ-0097-NORMATIVE-PROOF-SEAL` (docs-only). Zero código/schema/migration/frontend/backend/Bank. Os 3 untracked autorais do Clayton intocados/fora do git.
+
+**O que fez:** fecha o gap **procedural** de prova normativa da DECISION-0097. A prova original declarou o `18_DOMAIN_ONTOLOGY_UNIFICARD.md` como lido "parcial" (~120/949 linhas — honesto, não falsa completude). Auditoria read-only leu o documento **INTEGRALMENTE (949 linhas)** e o selo registra que a leitura **CONFIRMA D5/D6 sem rework substantivo**: CONCEPT=identidade; GRAPH=relações; N0/N1/N2/categories≠identidade; produtos-e-comercio #4 / servicos #5 distintos; "ambos"=dois trilhos via GRAPH (não hybrid atômico); construcao #13 condicional não-ativado; canonical_product depende de CONCEPT; anti-patterns §23 alinhados. **DECISION-0097 NÃO foi alterada** (nenhum erro factual encontrado).
+
+**Veredito:** DECISION-0097 com **prova ontológica integral selada**. Execuções derivadas (Fase 3.3 etc.) podem prosseguir só após este selo, em fatias próprias.
+
+**Arquivos (5, docs-only):** SELO_DECISION_0097_ONTOLOGY_FULL_READ.md + execution_log + REMEDIATION_DECISIONS_LOG + STATUS + opus.
+
+**PRÓXIMA ETAPA (sem execução, à escolha de Clayton):** (1) `F-PJ-3.3-COMPANY-STATUS-SCHEMA-COMPAT` (CHECK em company_status gated em política de dados; is_verified drop após migrar consumidores) — second-truth já isolada; (2) `F-PJ-OPERATIONAL-ACTIVATION-VOCAB-DECISION`; (3) `F-PJ-ONBOARDING-DOMAIN-SELECTION-DESIGN`.
+
+---
+
 ## 2026-06-04 — DECISION-0097: nascimento e ativação operacional da empresa PJ (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `0c4abed2`. Frente `F-PJ-COMPANY-BIRTH-CANONICAL` (docs-only). Zero código/schema/migration/frontend/backend-runtime/Bank. Os 3 untracked autorais do Clayton (`CRIACAO_DE_EMPRESAS.md` + 2 PNGs) intocados/fora do git.

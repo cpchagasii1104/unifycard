@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.39) — SELO DECISION-0097: prova ontológica integral (docs-only)
+
+Após auditoria GUARDIÃO READ-ONLY que pegou que eu havia lido o 18_DOMAIN_ONTOLOGY só parcial (~120/949) na sessão da 0097, despachei envelope docs-only de selo. Reancorei (HEAD 945b5dc6). Li o 18_ONTOLOGY INTEGRALMENTE no turno read-only anterior (949 linhas) — confirma D5/D6 sem rework.
+
+Criei docs/02_decisions/SELO_DECISION_0097_ONTOLOGY_FULL_READ.md + execution_log; atualizei REMEDIATION_DECISIONS_LOG (append) + STATUS + opus. NÃO toquei a DECISION-0097 (nenhum erro factual; full read ratifica). Achados confirmatórios: CONCEPT=identidade (§5/§20); GRAPH=relações enables/requires/part_of/substitutes (§6/§10.3); N0/N1/N2/categories≠identidade (§19-23); produtos-e-comercio #4 / servicos #5 distintos (§7); "ambos"=dois trilhos via GRAPH não hybrid; construcao #13 condicional não-ativado (§8); canonical_product depende de CONCEPT (§5.1.1); anti-patterns §23 alinhados. 18_ONTOLOGY está CONGELADO (§14).
+
+Lição de protocolo: prova §2.2.2 honesta ("parcial") evitou prova falsa, mas doc obrigatório de ontologia merecia full read na hora — selei depois. Gap era PROCEDURAL não substantivo. Gates verdes; docs-only; commit por caminho explícito; 3 untracked autorais (CRIACAO_DE_EMPRESAS.md + 2 PNGs) intocados. **Próximo (escolha Clayton, sem execução):** F-PJ-3.3-COMPANY-STATUS-SCHEMA-COMPAT (second-truth isolada, pronta) OU vocab-decision OU onboarding-domain-selection. Fundação selada; nada construído em cima ainda.
+
+---
+
 ## Sessão 2026-06-04 (cont.38) — DECISION-0097: nascimento/ativação operacional da empresa PJ (docs-only)
 
 Transformei a planta do Clayton (CRIACAO_DE_EMPRESAS.md, untracked autoral) em DECISION institucional, sincronizada com o estado vivo. Reancorei (HEAD 0c4abed2). Bootstrap normativo pesado: li em full CONSTITUICAO, LEIS (Lei5 Bank/Lei7 CONCEPT), EMPRESA_NASCIMENTO_CANONICO, 02_ACTORS_SSOT, PROHIBITED_STRUCTURES, IDENTITY_SSOT_PRECEDENCE, SSOT_EXCLUSIVE_BANK_RULE, REGRA_CRIACAO_DE_CONTEXT, 18_DOMAIN_ONTOLOGY (parcial). Verifiquei claims por psql.
