@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.50) — DECISION-0100: modelo do schema de publicação (company_concept_publications)
+
+HEAD antes `e5163e60` → commit "decisions: define PJ publication offering schema model". Após o guardião read-only do desenho de schema/writer, promulguei DECISION-0100 (próximo nº livre; 0099 era o maior) ratificando as sub-decisões técnicas antes de qualquer migration. D1 Opção 3 (tabela soberana + tco como projeção); D2 nome company_concept_publications; D3 granularidade tenant/company/page_actor/concept; D4 MVP só primary_concept_id (CONCEPT_NOT_ACTIVATED); D5 KYB approved (reusa authority-decision.evaluateKybLayer, 0088/0094); D6 autoridade canManageCompany + page-actor (PUBLICATION_FORBIDDEN); D7 lifecycle active|retired; D8 UNIQUE parcial (company_id,concept_id) WHERE active; D9 audit inline; D10 tco read-model derivado (reader contextual intocado); D11 sem backfill/auto-publish/apagar legado; D12 bloqueios.
+
+Material do desenho: actors PK=id (id===actor_id); o gate KYB de page-actor JÁ existe e é reutilizável (actors→companies.fiscal_identity_id→fiscal_identities.kyb_status='approved', fail-closed); canManageCompany já existe (eu escrevi na fatia da rota). Opção 2 (evoluir tco) rejeitada (UNIQUE tenant×concept impede company-level; ALTER quebra discovery). 
+
+DT SOVEREIGN-SHAPE-MISSING → GOVERNED/DECISIONED (não CLOSED — falta executar). Docs-only; 4 gates OK; commit por caminho explícito; 3 autorais intocados. **Próximo (escolha Clayton):** F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION (schema-only, cria a tabela, sem writer) OU read-only marketplace hybrid (ortogonal). Esta sessão escolheu o molde da placa; não instalou a placa.
+
+---
+
 ## Sessão 2026-06-04 (cont.49) — DECISION-0099: publicar ≠ ativar (governança de oferta PJ)
 
 HEAD antes `c72fdd72` → commit "decisions: define PJ publication offering governance". Após o guardião read-only de tenant_concept_offerings, promulguei DECISION-0099 (próximo nº livre confirmado; 0098 era o maior). Fixa: publicação/oferta é ato soberano distinto da ativação. D1 publicar≠ativar; D2 writer automático de oferta na ativação PROIBIDO; D3 granularidade = company/page-actor×concept (não tenant×concept); D4 tco atual = read-model/compat, sem writer novo; D5 publicação pública exige kyb_status='approved'; D6 autoridade company_users+page-actor; D7 reversível; D8 auditável; D9 discovery só de publicações governadas; D10 não resolve hybrid (ortogonal); D11 schema-alvo futuro (company_id/page_actor_id/status/published_at/retired_at/created_by/source — só DESENHAR); D12 bloqueios totais.

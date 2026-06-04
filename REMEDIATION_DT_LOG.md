@@ -11125,10 +11125,20 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING
 
-- **Status:** OPEN (2026-06-04) — governada por `DECISION-0099`.
-- **Origem:** auditoria read-only `F-PJ-TENANT-CONCEPT-OFFERINGS` + `DECISION-0099` (D3/D4/D11).
+- **Status:** GOVERNED / DECISIONED (2026-06-04) — governada por `DECISION-0099` (norma) + `DECISION-0100` (modelo técnico). O schema-alvo está **decidido**: tabela soberana `company_concept_publications` (company/page-actor×concept), `tenant_concept_offerings` rebaixada a read-model/projeção, MVP publica só `primary_concept_id`, KYB approved + autoridade contextual + page-actor, lifecycle `active|retired`, UNIQUE parcial `(company_id, concept_id) WHERE status='active'`, audit inline. Migration futura **autorizável** (`F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION`). **NÃO CLOSED** — falta executar schema/writer. _(antes: OPEN 2026-06-04.)_
+- **Origem:** auditoria read-only `F-PJ-TENANT-CONCEPT-OFFERINGS` + `DECISION-0099` (D3/D4/D11); desenho read-only `F-PJ-PUBLICATION-OFFERING-SCHEMA-WRITER-DESIGN` + `DECISION-0100`.
 - **Vinculada a:** `DECISION-0099` (toda), `tenant_concept_offerings` (shape atual tenant×concept), `tenant-concept-offerings.repository.ts` (`listTenantsOfferingConcept`), `marketplace-contextual.service.ts`/`marketplace-contextual.routes.ts` (`GET /marketplace/contextual`), `fiscal_identities.kyb_status`, `company_users`, page-actor.
 - **Contexto:** não existe shape/writer soberano para **publicação/oferta de empresa**. O único artefato relacionado é `tenant_concept_offerings(tenant_id, concept_id, is_active)` — **tenant×concept**, sem `company_id`/`page_actor_id`/`created_by`/`source`/`published_at`/`retired_at`/`visibility`/audit; UNIQUE `(tenant_id, concept_id)` colapsa múltiplas empresas do mesmo tenant no mesmo concept. É lido por `marketplace-contextual` (`GET /marketplace/contextual`, descoberta cross-tenant, **sem gate KYB/capability/page-actor**). Não há writer. DECISION-0099 fixou: publicação é ato soberano distinto, **company/page-actor-level**, gateado por KYB approved + autoridade contextual, reversível, auditável.
 - **Risco:** sem o shape soberano, qualquer writer (especialmente automático na ativação) publicaria o tenant inteiro sem ato soberano, sem saber qual empresa publicou, sem reversibilidade por empresa, sem KYB gate e sem auditoria — violando EMPRESA_NASCIMENTO §8 / SERVICE_CANONICO / Constituição Art. III/IV.
 - **Mitigação atual:** **proibição normativa** (DECISION-0099 D2/D12) — writer automático e qualquer writer sobre o shape atual estão bloqueados; `tenant_concept_offerings` permanece read-model/compat (D4), 0 linhas, intocado. A ativação operacional comprovadamente NÃO escreve oferta (3 E2E).
-- **Resolução prevista (frente própria — DESENHO depois schema/writer gated):** desenhar (read-only → DESENHO) o shape company/page-actor×concept com `tenant_id`/`company_id`/`page_actor_id`/`concept_id`/`status`/`visibility`/`published_at`/`retired_at`/`created_by_actor_id`/`retired_by_actor_id`/`source`; depois migration + writer manual gated (KYB approved + `company_users` manage + page-actor), reversível e auditável; migrar o reader de discovery para derivar de publicações governadas (D9). **DT permanece OPEN.** **NÃO executar** schema/writer antes da palavra de Clayton (DECISION-0099 D11/D12).
+- **Modelo ratificado (DECISION-0100, 2026-06-04):** tabela soberana `company_concept_publications`
+  (cols: tenant_id, company_id, page_actor_id→actors(id), concept_id, status active|retired, published_at,
+  retired_at, created_by_actor_id, retired_by_actor_id, source, intent, created_at, updated_at); UNIQUE
+  parcial `(company_id, concept_id) WHERE status='active'`; FK tenant/company/actor/concept; CHECK status
+  + lifecycle. `tenant_concept_offerings` = read-model/projeção derivada (não SSOT, reader contextual intocado).
+  Reuso: gate KYB (`authority-decision.evaluateKybLayer`, DECISION-0088/0094) + autoridade (`canManageCompany`).
+- **Resolução prevista (frentes seguintes):** (1) `F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION` (schema-only,
+  forward-only, sem writer, testes de CHECK/UNIQUE/FK); (2) `F-PJ-PUBLICATION-OFFERING-WRITER` (publish/unpublish
+  gated, idempotente, audit); (3) `F-PJ-PUBLICATION-OFFERING-PROJECTION` (tco como read-model derivado / reader).
+  **DT permanece GOVERNED/DECISIONED (não CLOSED).** **NÃO executar** schema/writer antes da palavra de Clayton
+  (DECISION-0099 D12 / DECISION-0100 D12).

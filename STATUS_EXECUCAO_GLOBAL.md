@@ -1,3 +1,17 @@
+## 2026-06-04 — DECISION-0100: modelo de schema/writer de publicação PJ (company_concept_publications) — docs-only
+
+**Branch:** `rescue-structural` · **HEAD origem:** `e5163e60`. Frente `F-PJ-PUBLICATION-OFFERING-SCHEMA-DECISION` (docs-only). Zero código/schema/migration/runtime/Bank/KYB/marketplace/onboarding/`tenant_concept_offerings`. Os 3 untracked autorais intocados.
+
+**O que fixou (`DECISION_0100_PJ_PUBLICATION_OFFERING_SCHEMA_MODEL.md`):** ratifica o modelo técnico que executará DECISION-0099 D11. **D1** Opção 3 (tabela soberana + tco como projeção); **D2** nome `company_concept_publications`; **D3** granularidade (tenant_id, company_id, page_actor_id, concept_id) — nunca tenant×concept/metadata/hybrid; **D4** MVP publica só `primary_concept_id` (`CONCEPT_NOT_ACTIVATED` se divergir); **D5** KYB approved obrigatório (`KYB_NOT_APPROVED`, fail-closed; reusa gate vivo 0088/0094); **D6** autoridade `company_users` manage/owner + page-actor (`PUBLICATION_FORBIDDEN`; reusa `canManageCompany`); **D7** lifecycle `active|retired` (retired_at coerente); **D8** UNIQUE parcial `(company_id, concept_id) WHERE status='active'`; **D9** audit inline (published_at/retired_at/created_by/retired_by/source/intent); **D10** tco = read-model derivado (reader contextual intocado); **D11** sem backfill/auto-publicação/apagar legado/fail por legado; **D12** bloqueios (sem migration/código/writer/rota/tco/projeção/marketplace/hybrid/onboarding/Bank/KYB writer).
+
+**Base:** desenho read-only `F-PJ-PUBLICATION-OFFERING-SCHEMA-WRITER-DESIGN` (actors PK=id; gate KYB page-actor já vivo em `authority-decision.evaluateKybLayer`; `canManageCompany` já existe; Opção 2 rejeitada).
+
+**DTs:** `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` → **GOVERNED/DECISIONED** (sai de OPEN; schema decidido, migration autorizável; não CLOSED); demais inalteradas (ONBOARDING/VOCAB PARTIALLY MITIGATED, HYBRID OPEN, SECOND-TRUTH CLOSED).
+
+**PRÓXIMA ETAPA (sem execução):** `F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION` (schema-only: cria `company_concept_publications`, forward-only, sem writer, testes CHECK/UNIQUE/FK) OU read-only marketplace `hybrid` (ortogonal). Ordem: schema-migration → writer gated → projeção.
+
+---
+
 ## 2026-06-04 — DECISION-0099: governança de publicação/oferta PJ (publicar ≠ ativar) — docs-only
 
 **Branch:** `rescue-structural` · **HEAD origem:** `c72fdd72`. Frente `F-PJ-PUBLICATION-OFFERING-DECISION` (docs-only). Zero código/schema/migration/backend-runtime/frontend/Bank/KYB/marketplace/`tenant_concept_offerings`. Os 3 untracked autorais intocados.

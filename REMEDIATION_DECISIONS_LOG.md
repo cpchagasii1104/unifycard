@@ -6539,3 +6539,20 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** resolve a ambiguidade de DECISION-0098 D9 (tco "candidato a oferta" → apenas read-model; shape soberano é outro). Ratifica/estende 0097/0098.
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0099_PJ_PUBLICATION_OFFERING_GOVERNANCE.md`; HEAD âncora `c72fdd72`; EMPRESA_NASCIMENTO_CANONICO §8, SERVICE_CANONICO, Constituição Art. III/IV, DECISION-0097 D3/D7.
+
+---
+
+### DECISION-0100 — Modelo de schema/writer de publicação/oferta PJ (company_concept_publications)
+
+- **Data:** 2026-06-04
+- **Tipo:** arquitetural / técnica / schema governance (docs-only)
+- **Contexto:** DECISION-0099 fixou a norma de publicação e autorizou DESENHAR o schema (D11); a frente read-only `F-PJ-PUBLICATION-OFFERING-SCHEMA-WRITER-DESIGN` produziu o desenho e surfou sub-decisões técnicas que a migration cristalizaria no escuro (evoluir tco vs nova tabela; escopo do concept; audit inline vs eventos; linhas legadas; status enum).
+- **Opções consideradas:** (1) evoluir `tenant_concept_offerings` — REJEITADA (UNIQUE tenant×concept impede company-level; nome errado; ALTER quebra discovery); (2) nova tabela sem projeção — incompleta (deixa reader órfão); (3) **nova tabela soberana + tco como projeção derivada** — ESCOLHIDA (não quebra discovery; migration aditiva mínima).
+- **Escolha:** Opção 3.
+- **Justificativa:** ratificar nome/granularidade/escopo/lifecycle/anti-duplicidade/audit/destino-do-read-model ANTES da migration mantém "norma antes de schema" e evita que a tabela decida a arquitetura. Reusa o gate KYB vivo (0088/0094) e a autoridade (`canManageCompany`).
+- **Consequências esperadas:** curto prazo — `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` vira GOVERNED/DECISIONED; migration futura autorizável. Médio prazo — schema-migration (`company_concept_publications`), depois writer gated, depois projeção/reader.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Validação prévia:** Clayton (promulgação); desenho read-only `F-PJ-PUBLICATION-OFFERING-SCHEMA-WRITER-DESIGN`; DECISION-0099.
+- **Supera:** detalha/executa DECISION-0099 D11 (schema-alvo). Mantém 0099 D2 (writer automático proibido) e D10 (não resolve hybrid).
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0100_PJ_PUBLICATION_OFFERING_SCHEMA_MODEL.md`; HEAD âncora `e5163e60`; `authority-decision.service.ts` (gate KYB), `companies.service.ts` (canManageCompany), `tenant_concept_offerings`, `actors`.
