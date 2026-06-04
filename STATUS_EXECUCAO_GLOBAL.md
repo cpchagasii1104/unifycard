@@ -1,3 +1,21 @@
+## 2026-06-04 — DECISION-0095: completude cadastral não é verificação fiscal (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `db00546d`. Frente `F-PJ-PROFILE-COMPLETENESS-CADASTRAL` (família Fase 3.2 — vestígios). **Docs-only**; zero código/schema/migration/frontend/DML/Bank. Fixa semântica + ordem; executor pequeno depois (sem schema). Os 2 screenshots untracked/intocados.
+
+**Achado (auditoria read-only Fase 3.2 — formaliza o resíduo já flagado em 3.1-A):** `core.service.calculateProfileProgress` (completude PF, **display-only**, único consumidor `GET /profile/progress`, nenhum gate) premia **20%** por validação presencial (`company_validations.validation_method='in_person' AND status='approved'`) e **limita o score a 80%** sem ela (`maxProgressWithoutValidation=80`). `company_validations` tem **0 linhas**, schema mínimo de 5 colunas, **nenhum writer vivo** (`validateInPerson` tombstonado 501 + já era runtime-dead) → query roda e retorna 0 → `presentialValidation` permanentemente 0 → **todo perfil PF trava em ≤80%**. O score **não lê** `kyb_status`/`company_status`/`is_verified`/`verifiedAt`. Frontend ainda instrui "valide presencialmente em uma loja parceira" (`ProfileProgressBar:117-121` hardcoded + mensagem backend `:919`). Problema é **semântico**: completude cadastral foi misturada com verificação fiscal/presencial.
+
+**Promulgada (`DECISION-0095`):** **completude cadastral ≠ verificação fiscal.** `profileProgress` mede preenchimento cadastral/declarativo, não validação institucional. Correção futura: remover peso presencial morto (20%); remover teto de 80%; recalibrar eixos cadastrais vivos para 100%; remover mensagens presenciais (backend + warning hardcoded). KYB = **eixo separado** (selo/status, fonte `fiscal_identities.kyb_status`, **não** somado ao percentual). **PF não depende de PJ/KYB** para 100% cadastral. Fonte proibida: `company_validations`/`in_person`/`company_status`/`is_verified`/`verifiedAt`/metadata/frontend. QR/`requestValidation` é **adjacente** (greenfield/UX, DT FASE 12), fora desta decisão.
+
+**Nota de path:** envelope apontou `components/profile/`+`components/companies/`; paths reais = `frontend/src/components/ProfileProgressBar.tsx` e `.../CompanyValidationModal.tsx` (sem subdir). Registrado, não inventado.
+
+**Ordem:** Fase Profile Progress 1 (executor pequeno SEM schema: remove eixo presencial + teto 80% + mensagens; recalibra para 100%; testes 100%-sem-presencial e PF-não-depende-de-PJ) → Fase Profile Progress 2 (opcional: `verificationStatus` separado via `kyb_status`) → Fase QR/UX (destino do botão/modal, DT FASE 12).
+
+**DTs:** `DT-PJ-PROFILE-COMPLETENESS-USES-DEAD-IN_PERSON_VALIDATION` (criada, OPEN) · `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` (atualizada — QR/requestValidation = adjacente/greenfield, não o score; OPEN). Nenhuma DT fechada.
+
+**PRÓXIMA ETAPA:** executor **Fase Profile Progress 1** — remover o eixo presencial morto + teto de 80% + mensagens presenciais de `core.service`/`ProfileProgressBar`, recalibrar para 100% cadastral (sem schema/Bank/migration). Destrava o teto e mata a mentira institucional (display-only, baixo blast radius).
+
+---
+
 ## 2026-06-04 — PJ VERIFICATION Fase 3.1-A IMPLEMENTADA: compat textual (depreca status legados)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `1f25d9be`. Frente `F-PJ-VERIFICATION-3.1-A` (DECISION-0093 §4.2/§4.3/§4.8). **Só textual** — zero schema/migration/DML/campo-removido/lógica/gate/Bank/FASE12. Os 2 screenshots untracked/intocados.

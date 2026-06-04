@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.32) — DECISION-0095: completude cadastral ≠ verificação fiscal (docs-only)
+
+Após READ-ONLY Fase 3.2 (auditoria do score de completude PF que eu mesma flagara em 3.1-A), despachei envelope docs-only. Promulguei `DECISION_0095_PJ_PROFILE_COMPLETENESS_CADASTRAL_NOT_FISCAL.md` (0095). Reancorei (HEAD db00546d, rescue-structural, unificard_dev, 355 migrations).
+
+ACHADO: `core.service.calculateProfileProgress` (completude PF, display-only — único consumidor GET /profile/progress, NENHUM gate) premia 20% por validação presencial (`company_validations.in_person/approved`) e trava o score em 80% sem ela (`maxProgressWithoutValidation=80`). `company_validations` = 0 linhas, schema mínimo 5 colunas (0066), nenhum writer vivo (`validateInPerson` tombstonado 501 + já runtime-dead). Query roda e retorna 0 → presentialValidation permanentemente 0 → TODO perfil PF trava em ≤80%. Score NÃO lê kyb_status/company_status/is_verified/verifiedAt. Frontend ainda instrui "valide presencialmente em loja parceira" (ProfileProgressBar:117-121 hardcoded + msg backend :919). Problema = SEMÂNTICO: completude cadastral misturada com verificação fiscal. Risco extra latente: se company_validations.in_person algum dia for populada por trilho não-fiscal → 100% sem KYB (2ª-verdade); hoje inalcançável.
+
+Decisões 0095: completude cadastral ≠ verificação fiscal; profileProgress mede preenchimento, não validação. Correção futura: remover peso presencial morto + teto 80% + mensagens presenciais; recalibrar eixos vivos p/ 100%. KYB = eixo SEPARADO (selo, fonte fiscal_identities.kyb_status, não somado ao percentual). PF NÃO depende de PJ/KYB p/ 100% cadastral. Fonte proibida: company_validations/in_person/company_status/is_verified/verifiedAt/metadata/frontend. QR/requestValidation = ADJACENTE (greenfield/UX, fica na DT FASE 12), fora desta decisão.
+
+Nota de path (TRAVA): envelope apontou components/profile/+components/companies/; reais = frontend/src/components/ProfileProgressBar.tsx e .../CompanyValidationModal.tsx (sem subdir). Registrei, não inventei.
+
+DTs: criei DT-PJ-PROFILE-COMPLETENESS-USES-DEAD-IN_PERSON_VALIDATION (OPEN); atualizei DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING (QR/requestValidation = adjacente/greenfield, não o score; OPEN). Nenhuma DT fechada por docs-only. Docs-only; commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** executor Fase Profile Progress 1 — remover eixo presencial + teto 80% + mensagens de core.service/ProfileProgressBar, recalibrar p/ 100% (sem schema/Bank/migration). Display-only, baixo blast radius. Depois opcional verificationStatus separado (kyb_status) e destino do QR/UX.
+
+---
+
 ## Sessão 2026-06-04 (cont.31) — PJ VERIFICATION Fase 3.1-A IMPLEMENTADA (compat textual)
 
 Executei a Fase 3.1-A da DECISION-0093 (envelope executor — só textual, "pintar a placa"). Reancorei (HEAD 1f25d9be, rescue-structural, unificard_dev).
