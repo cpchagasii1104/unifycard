@@ -25,8 +25,7 @@ export interface Company {
   status: 'active' | 'inactive' | 'suspended' | 'closed';
   /** Lifecycle/onboarding (DRAFT/PROVISIONAL/ACTIVE/SUSPENDED). NÃO é fonte de verificação; VERIFIED/APPROVED são legados/mortos (DECISION-0092/0093). */
   companyStatus: CompanyStatus;
-  /** @deprecated Legado/compat — NÃO é fonte de verificação. Use `kybStatus`/`isKybApproved` (DECISION-0089/0093). Nasce false; será aposentado na Fase 3.3. */
-  isVerified: boolean;
+  /** DECISION-0093 §4.3 / Fase 3.3-B1: `isVerified` REMOVIDO do DTO (vestígio compat, sem consumidor vivo). Use `kybStatus`/`isKybApproved`. Coluna `companies.is_verified` drop = Fase 3.3-B2. */
   /**
    * DECISION-0089 Fase 1 — read-model derivado de `fiscal_identities.kyb_status`.
    * FONTE ÚNICA de verificação PJ. `null` quando a empresa não tem identidade fiscal

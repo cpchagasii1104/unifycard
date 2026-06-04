@@ -49,7 +49,7 @@ export default function AuthorCard({
   };
 
   // const isCompany = actorType === 'page';
-  // const isVerified = companyStatus === 'VERIFIED';
+  // Fase 3.3-B1: vestígio morto "isVerified = companyStatus==='VERIFIED'" removido (2ª-verdade). Verificação = isKybApproved.
   // const isProvisional = companyStatus === 'PROVISIONAL';
 
   // Contar serviços, produtos e eventos dos posts

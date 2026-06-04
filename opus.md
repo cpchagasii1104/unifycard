@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.41) — FASE 3.3-B1: isVerified desacoplado do payload (corta o fio, não arranca a coluna)
+
+Executei 3.3-B1 (envelope executor). Reancorei (HEAD a333de27). Removi is_verified/isVerified de código/payload/tipos no domínio companies, SEM dropar a coluna (B2), SEM aliasar (DECISION-0093 §4.3 proíbe projetar is_verified de kyb_status — confirmei §4.3 lendo a 0093).
+
+Edições: companies.service.ts (INSERT createCompany sem is_verified — renumerei $9→$8; 5 row-types `is_verified: boolean` + 3 maps `isVerified: row.is_verified` removidos; var local isVerified removida). companies.types.ts (campo isVerified fora do DTO Company). core.service.ts (SELECT c.is_verified + row-type + map removidos). frontend api/companies.ts (campo isVerified fora do tipo). AuthorCard.tsx (comentário morto `isVerified = companyStatus==='VERIFIED'` removido). isKybApproved/kybStatus seguem fonte de display.
+
+Detalhe técnico: usei anchors com \n nas edições de `is_verified: boolean;` para evitar o trap de whitespace-substring (4sp seria substring de 6sp/8sp sem anchor). SELECTs usam `c.*` (não listam is_verified explícito), então bastou limpar row-types+maps; só core.service:708 listava c.is_verified explícito.
+
+2 e2e scripts liam Company.isVerified (removido) → ajustei: updatecompany-no-status (asserção DTO isVerified → confiar no check de banco que já existia); verification-display (bloco "compat preservado" marcado obsoleto + void v/nf/a). RESÍDUO FLAGADO: verification-display insere company_status='VERIFIED' no setup → já quebra em runtime pós-3.3-A (CHECK 23514); é teste da era pré-3.3, retirada/reescrita é fatia de higiene própria (só fiz compilar, não consertei o setup).
+
+Prova: typecheck backend escopo 0 (2 geo-enrichment baseline) + frontend 0; grep zero is_verified/isVerified vivo em companies; e2e updatecompany-no-status 6/6 (createCompany sem is_verified OK; DB is_verified=false; kyb intacto). 4 gates OK. DT SECOND-TRUTH segue PARTIALLY MITIGATED (coluna órfã; B2 fecha). Commit por caminho explícito; 3 untracked autorais intocados. **Próximo (escolha Clayton):** 3.3-B2 drop da coluna (zero deps schema, fecha DT) OU higiene do teste display OU vocab-decision. Cortei o fio do isVerified; a coluna ainda está lá.
+
+---
+
 ## Sessão 2026-06-04 (cont.40) — FASE 3.3-A: company_status preso no lifecycle (CHECK)
 
 Executei a Fase 3.3-A da DECISION-0097 (envelope executor controlado) — primeira fatia de SCHEMA da reconciliação company_status. Reancorei (HEAD 0d866f16). HEAD depois do commit muda.

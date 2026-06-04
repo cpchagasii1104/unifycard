@@ -1,3 +1,19 @@
+## 2026-06-04 — FASE 3.3-B1 IMPLEMENTADA: isVerified desacoplado do payload (sem drop)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `a333de27`. Frente `F-PJ-3.3-B1` (DECISION-0097 D3 + DECISION-0093 §4.3). Código/payload/tipos; SEM migration/drop/schema. Zero Bank/KYB-writer/social-gate/profile-progress/company_status/fiscal_identities. Os 3 untracked autorais intocados.
+
+**Mudança (corta o fio do isVerified; NÃO arranca a coluna):** removido `is_verified`/`isVerified` do domínio companies. Backend: `companies.service.ts` (INSERT createCompany sem is_verified; 5 row-types + 3 maps de payload limpos), `companies.types.ts` (campo `isVerified` fora do DTO `Company`), `core.service.ts` (SELECT/row-type/map sem is_verified). Frontend: `api/companies.ts` (campo `isVerified` fora do tipo), `AuthorCard.tsx` (vestígio morto comentado removido). **NÃO aliasou** isVerified←kyb_status (proibido DECISION-0093 §4.3). `isKybApproved`/`kybStatus` seguem a fonte de display. A coluna `companies.is_verified` ficou **órfã** (drop = B2).
+
+**Prova:** typecheck backend escopo **0** (2 `geo-enrichment` baseline) + frontend **0**. Grep: zero `is_verified`/`isVerified` vivo em companies (só comentário). e2e `updatecompany-no-status` **6/6** (createCompany funciona sem is_verified; banco company_status=PROVISIONAL & is_verified=false; kyb read-model intacto; zero Bank). 4 gates OK (warning_new=1 = c3 pré-existente). Tests da cadeia ajustados (asserção DTO isVerified → nível de banco; bloco "compat preservado" da display-test marcado obsoleto).
+
+**Resíduo flagado (fora de B1):** `validate-pipeline-e2e-pj-verification-display.ts` insere `company_status='VERIFIED'` no setup → quebra em runtime pós-3.3-A (CHECK 23514). Retirada/reescrita = fatia de higiene de testes própria (não tocada aqui além de fazer compilar).
+
+**DTs:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` segue **PARTIALLY MITIGATED** (coluna ainda existe; B2 fecha).
+
+**PRÓXIMA ETAPA (sem execução):** **Fase 3.3-B2** (migration drop de `companies.is_verified` — zero deps de schema; fecha a DT) · OU higiene do teste display obsoleto · OU `F-PJ-OPERATIONAL-ACTIVATION-VOCAB-DECISION`.
+
+---
+
 ## 2026-06-04 — FASE 3.3-A IMPLEMENTADA: company_status preso no lifecycle (CHECK)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `0d866f16`. Frente `F-PJ-3.3-A` (Fase 3.3-A, deriva de DECISION-0097 D3/D4 + SELO). Schema/data-policy + docs. Zero frontend/contrato/Bank/KYB-writer/social-gate/profile-progress/`is_verified`. Os 3 untracked autorais intocados.

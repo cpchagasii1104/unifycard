@@ -136,17 +136,13 @@ async function main(): Promise<void> {
     !!rj && rj.kybStatus === 'rejected' && rj.isKybApproved === false,
     `kybStatus=${rj?.kybStatus} isKybApproved=${rj?.isKybApproved}`);
 
-  // ═══ compatibilidade: companyStatus / isVerified PRESERVADOS ═══
-  console.log('\n— compatibilidade (companyStatus / isVerified preservados) —');
-  record('5 verifiedButPending preserva companyStatus=VERIFIED & isVerified=true',
-    !!v && v.companyStatus === 'VERIFIED' && v.isVerified === true,
-    `companyStatus=${v?.companyStatus} isVerified=${v?.isVerified}`);
-  record('6 noFiscal preserva companyStatus=VERIFIED & isVerified=true',
-    !!nf && nf.companyStatus === 'VERIFIED' && nf.isVerified === true,
-    `companyStatus=${nf?.companyStatus} isVerified=${nf?.isVerified}`);
-  record('7 approved preserva companyStatus=PROVISIONAL & isVerified=false',
-    !!a && a.companyStatus === 'PROVISIONAL' && a.isVerified === false,
-    `companyStatus=${a?.companyStatus} isVerified=${a?.isVerified}`);
+  // ═══ bloco "compat preservado" REMOVIDO (Fase 3.3-B1) ═══
+  // Asseverava que company_status='VERIFIED' + isVerified=true eram preservados no payload.
+  // Obsoleto: Fase 3.3-A bloqueia company_status='VERIFIED' por CHECK e Fase 3.3-B1 removeu
+  // isVerified do DTO. A verificação correta é kybStatus/isKybApproved (asserções acima).
+  // ⚠️ RESÍDUO (fora de B1): o setup deste script ainda insere company_status='VERIFIED', o que
+  //    quebra em runtime pós-3.3-A (CHECK 23514). Retirada/reescrita = fatia de higiene de testes.
+  void v; void nf; void a;
 
   // ═══ getCompanyById (mesmo read-model) ═══
   console.log('\n— getCompanyById (mesma derivação) —');

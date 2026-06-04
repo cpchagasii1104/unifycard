@@ -99,8 +99,8 @@ async function main(): Promise<void> {
     updated.status === 'inactive', `status=${updated.status}`);
   record('3 company_status NÃO virou VERIFIED (segue PROVISIONAL)',
     updated.companyStatus === 'PROVISIONAL', `companyStatus=${updated.companyStatus}`);
-  record('4 is_verified NÃO virou true (segue false)',
-    updated.isVerified === false, `isVerified=${updated.isVerified}`);
+  // Fase 3.3-B1: asserção de DTO `isVerified` removida (campo aposentado do payload). A prova de
+  // que is_verified não virou true segue no nível do BANCO (asserção 5 abaixo).
 
   // Confirma direto no banco (não só no DTO).
   const dbRow = await pool.query<{ company_status: string; is_verified: boolean }>(

@@ -328,7 +328,6 @@ class CompaniesService {
     let activity: CompanyActivity = input.activity || {};
     // Status inicial: PROVISIONAL (permite uso social com limites)
     let companyStatus: CompanyStatus = 'PROVISIONAL';
-    let isVerified = false;
 
     // 🔴 Buscar dados da Receita Federal se solicitado (OPCIONAL - não bloqueia)
     if (input.fetchFromRevenue !== false) {
@@ -376,9 +375,7 @@ class CompaniesService {
 
           // DECISION-0092/0093: company_status é lifecycle/onboarding; a empresa nasce PROVISIONAL.
           // Verificação fiscal NÃO vem daqui — FONTE ÚNICA = fiscal_identities.kyb_status.
-          // is_verified é legado/deprecated (não-fonte), nasce false.
           companyStatus = 'PROVISIONAL';
-          isVerified = false;
         } else {
           // Sem dados da Receita, mas com nome: PROVISIONAL
           companyStatus = 'PROVISIONAL';
@@ -506,9 +503,9 @@ class CompaniesService {
         `
         INSERT INTO companies (
           tenant_id, global_user_id, fiscal_identity_id, cnpj, company_name, trade_name,
-          status, is_verified, company_status
+          status, company_status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING company_id
         `,
         [
@@ -519,7 +516,8 @@ class CompaniesService {
           companyName,
           tradeName || null,
           'active',
-          isVerified,    // Verificado se conseguiu buscar da Receita Federal
+          // DECISION-0093 §4.3 / Fase 3.3-B1: is_verified REMOVIDO do INSERT (vestígio compat).
+          // Verificação PJ = fiscal_identities.kyb_status. A coluna ainda existe (drop = Fase 3.3-B2).
           companyStatus, // Status do cadastro (PROVISIONAL/pending — não-operacional)
         ]
       );
@@ -908,9 +906,7 @@ class CompaniesService {
     secondary_activities: any;
     revenue_data: any;
     status: string;
-    company_status: string;
-    is_verified: boolean;
-    kyb_status?: string | null;
+    company_status: string;    kyb_status?: string | null;
     metadata: any;
     created_at?: Date;
     updated_at?: Date;
@@ -949,7 +945,6 @@ class CompaniesService {
       revenueData: row.revenue_data || undefined,
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
-      isVerified: row.is_verified,
       // DECISION-0089 Fase 1: verificação derivada exclusivamente de fiscal_identities.kyb_status.
       kybStatus: (row.kyb_status ?? null) as Company['kybStatus'],
       isKybApproved: row.kyb_status === 'approved',
@@ -1006,9 +1001,7 @@ class CompaniesService {
         secondary_activities: unknown;
         revenue_data: unknown;
         status: string;
-        company_status: string;
-        is_verified: boolean;
-        kyb_status: string | null;
+        company_status: string;        kyb_status: string | null;
         metadata: unknown;
         created_at: Date;
         updated_at: Date;
@@ -1055,9 +1048,7 @@ class CompaniesService {
       secondary_activities: unknown;
       revenue_data: unknown;
       status: string;
-      company_status: string;
-      is_verified: boolean;
-      kyb_status: string | null;
+      company_status: string;      kyb_status: string | null;
       metadata: unknown;
       created_at: Date;
       updated_at: Date;
@@ -1149,9 +1140,7 @@ class CompaniesService {
       secondary_activities: unknown;
       revenue_data: unknown;
       status: string;
-      company_status: string;
-      is_verified: boolean;
-      kyb_status: string | null;
+      company_status: string;      kyb_status: string | null;
       metadata: unknown;
       created_at: Date;
       updated_at: Date;
@@ -1226,7 +1215,6 @@ class CompaniesService {
       revenueData: row.revenue_data ?? undefined,
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
-      isVerified: row.is_verified,
       kybStatus: (row.kyb_status ?? null) as Company['kybStatus'],
       isKybApproved: row.kyb_status === 'approved',
       metadata: row.metadata ?? undefined,
@@ -1278,9 +1266,7 @@ class CompaniesService {
       secondary_activities: unknown;
       revenue_data: unknown;
       status: string;
-      company_status: string;
-      is_verified: boolean;
-      kyb_status: string | null;
+      company_status: string;      kyb_status: string | null;
       metadata: unknown;
       created_at: Date;
       updated_at: Date;
@@ -1355,7 +1341,6 @@ class CompaniesService {
       revenueData: row.revenue_data ?? undefined,
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
-      isVerified: row.is_verified,
       kybStatus: (row.kyb_status ?? null) as Company['kybStatus'],
       isKybApproved: row.kyb_status === 'approved',
       metadata: row.metadata ?? undefined,

@@ -89,7 +89,6 @@ export interface CompleteProfile {
     company_name: string;
     trade_name: string | null;
     cnpj: string | null;
-    is_verified: boolean;
   }>;
 }
 
@@ -705,7 +704,7 @@ export class CoreService {
         const companies = await runQueriesWithTenant<any>(
           tenantId,
           `
-          SELECT c.company_id, c.company_name, c.trade_name, c.cnpj, c.is_verified
+          SELECT c.company_id, c.company_name, c.trade_name, c.cnpj
           FROM companies c
           INNER JOIN company_users cu ON c.company_id = cu.company_id
           INNER JOIN users u ON cu.global_user_id = u.global_user_id
@@ -719,7 +718,6 @@ export class CoreService {
           company_name: row.company_name,
           trade_name: row.trade_name,
           cnpj: row.cnpj,
-          is_verified: row.is_verified || false,
         }));
       } catch (err) {
         console.error('Erro ao buscar empresas:', err);
