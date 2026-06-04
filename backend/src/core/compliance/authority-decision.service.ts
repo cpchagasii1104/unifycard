@@ -601,4 +601,23 @@ export const authorityDecisionService = {
       throw err;
     }
   },
+
+  /**
+   * KYB FOCADO (DECISION-0100 D5 / publicação PJ): valida SOMENTE a camada KYB de um page-actor —
+   * cadeia page-actor → company → fiscal_identities.kyb_status='approved', fail-closed em cada elo,
+   * SEM impor as camadas ATL/KYC/risco/limite de `evaluateFinancialSensitiveAction` (publicação NÃO é
+   * ação financeira). Reusa `evaluateKybLayer` (single-source do KYB; evita 3ª cópia da cadeia).
+   * Retorna { approved, reason }; NÃO persiste audit financeiro. O caller deve passar um page-actor.
+   */
+  async evaluatePageActorKybApproved(
+    tenantId: string,
+    pageActorId: string
+  ): Promise<{ approved: boolean; reason: string }> {
+    const layers: AuthorityLayerTrace[] = [];
+    const kyb = await evaluateKybLayer(tenantId, pageActorId, layers);
+    if (kyb?.block) {
+      return { approved: false, reason: kyb.reason };
+    }
+    return { approved: true, reason: 'KYB_APPROVED' };
+  },
 };

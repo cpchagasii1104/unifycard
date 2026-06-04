@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.52) — F-PJ-PUBLICATION-OFFERING-WRITER: a placa escrita (sem acender no discovery)
+
+HEAD antes `ac064c01` → commit "feat(pj): add publication offering writer". Implementei o writer de publicação PJ: company-publications.service.ts (publishCompanyConcept/retireCompanyConceptPublication) + POST /companies/:companyId/publications e .../publications/:conceptId/retire. Gates: canManageCompany (403) + empresa operacional primary_* (409 COMPANY_NOT_OPERATIONAL) + concept=primary_concept_id (400 CONCEPT_NOT_ACTIVATED) + page-actor derivado de actors (409 PAGE_ACTOR_MISSING) + KYB approved (409 KYB_NOT_APPROVED). Idempotente; audit inline created_by/retired_by = actor humano via ensureUserActor (backend-side, não do frontend); SELECT FOR UPDATE; UNIQUE parcial rede final. Unpublish sem KYB (retração sempre possível). NÃO toca tenant_concept_offerings (projeção = frente própria).
+
+KYB helper: extraí authorityDecisionService.evaluatePageActorKybApproved que chama só evaluateKybLayer (cadeia page-actor→company→fiscal_identities.kyb_status='approved') — single-source, sem stack financeiro ATL/KYC/risco, sem 3ª cópia. e2e 20/20 (app.inject). Correção: chk_fiscal_identities_approved_audit exige reviewed_by/reviewed_at p/ approved. actor-writer gate OK (uso ensureUserActor, não INSERT actors direto). Backend tsc só baseline geo; 4 gates OK.
+
+DT SOVEREIGN-SHAPE-MISSING → PARTIALLY MITIGATED (schema+writer prontos; NÃO CLOSED — não acende no discovery, falta projeção). **Próximo:** F-PJ-PUBLICATION-OFFERING-PROJECTION (derivar tenant_concept_offerings de publicações active company-level; religar discovery) OU read-only marketplace hybrid. Esta fatia escreveu a placa no cadastro soberano; ainda não acendeu no discovery.
+
+---
+
 ## Sessão 2026-06-04 (cont.51) — F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION: o poste da placa
 
 HEAD antes `7b634bec` → commit "feat(pj): add publication offering schema". Criei a tabela soberana company_concept_publications (migration 20260604140000), aplicada em dev pelo runner canônico (357→358). Granularidade company/page-actor×concept (0100 D2/D3). FK reais do schema vivo: companies(company_id) [NÃO id], tenants(id), actors(id) ×3 (page_actor/created_by/retired_by), concepts(concept_id). CHECK status active|retired + lifecycle + published_at; UNIQUE parcial (company_id,concept_id) WHERE active; índices ativos. ON DELETE default (sem cascade silencioso — lifecycle é retirement, não delete). 0 linhas (sem backfill, 0099 D2/0100 D11). tco intocada (read-model).

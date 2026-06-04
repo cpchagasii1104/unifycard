@@ -1,3 +1,21 @@
+## 2026-06-04 — F-PJ-PUBLICATION-OFFERING-WRITER-NO-PROJECTION: writer publish/unpublish da oferta PJ
+
+**Branch:** `rescue-structural` · **HEAD origem:** `ac064c01`. Frente `F-PJ-PUBLICATION-OFFERING-WRITER-NO-PROJECTION` (backend, governada por DECISION-0099/0100). Zero schema/migration/frontend; `tenant_concept_offerings`/marketplace/hybrid/Bank/KYB-writer/createCompany/company_status/onboarding intocados. Os 3 untracked autorais intocados.
+
+**O que entregou:** a placa escrita no cadastro soberano (não acesa no discovery). Service `company-publications.service.ts` (`publishCompanyConcept`/`retireCompanyConceptPublication`) + rotas `POST /companies/:companyId/publications` (publish) e `POST /companies/:companyId/publications/:conceptId/retire` (unpublish). Body publish `{conceptId, source?, intent?}` (recusa businessType/businessCategory/hybrid/metadata). Gates: autoridade contextual (`companiesService.canManageCompany`, company_users) → 403 PUBLICATION_FORBIDDEN; empresa operacional (primary_* not null) → 409 COMPANY_NOT_OPERATIONAL; concept = `primary_concept_id` (MVP D4) → 400 CONCEPT_NOT_ACTIVATED; page-actor derivado de `actors` → 409 PAGE_ACTOR_MISSING; **KYB approved** → 409 KYB_NOT_APPROVED. Idempotente (publish active existente → alreadyPublished=true; retire sem active → alreadyRetired=true). Audit inline: created_by/retired_by = **actor humano resolvido backend-side** via `ensureUserActor` (não confia em actorId do frontend). Transação com SELECT…FOR UPDATE; UNIQUE parcial como rede final. Unpublish NÃO exige KYB (retração sempre possível com autoridade); isola por empresa.
+
+**KYB helper:** extraído `authorityDecisionService.evaluatePageActorKybApproved(tenantId, pageActorId)` em `authority-decision.service.ts` — reusa a camada interna `evaluateKybLayer` (cadeia page-actor→company→fiscal_identities.kyb_status='approved', fail-closed) SEM o stack financeiro ATL/KYC/risco. Single-source do KYB; sem 3ª cópia da cadeia (sem DT de duplicação).
+
+**Arquivos:** `authority-decision.service.ts` (helper), `company-publications.service.ts` (novo), `companies.routes.ts` (2 rotas + schemas zod), `validate-pipeline-e2e-pj-publication-writer.ts` (novo), `run-pj-publication-writer-ephemeral.ps1` (novo).
+
+**Prova:** e2e **20/20** (DB efêmera, app.inject, teardown DROP): T1 publish válido→200+row active+created_by(humano)+page_actor+concept=primary; T2 idempotente→alreadyPublished+não duplica; T3 KYB pending→409; T4 sem autoridade→403; T5 não-operacional→409; T6 concept divergente→400; T7 sem page-actor→409; T8 retire→retired+retired_at/by; T9 retire idempotente; T10 re-publish pós-retire→nova active+histórico; T11 tco inalterada; T12 Bank intocado; T13 actors só user/page; T14 company_status inalterado. Correção na fatia: `chk_fiscal_identities_approved_audit` exige reviewed_by/reviewed_at p/ kyb='approved' (seed ajustado). Backend tsc: só 2 baseline geo. 4 gates OK (actor-writer OK confirma uso do ensureUserActor sancionado; warning_new=1 = c3 pré-existente).
+
+**DTs:** `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` → **PARTIALLY MITIGATED** (schema+writer prontos; **NÃO CLOSED** — publicação não acende no discovery: falta projeção `tenant_concept_offerings`); `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` OPEN; `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` PARTIALLY MITIGATED/GOVERNED; `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` CLOSED.
+
+**PRÓXIMA ETAPA:** `F-PJ-PUBLICATION-OFFERING-PROJECTION` (read-only/desenho → derivar `tenant_concept_offerings` de publicações active company-level; religar discovery) OU read-only marketplace `hybrid` (ortogonal).
+
+---
+
 ## 2026-06-04 — F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION: tabela soberana company_concept_publications
 
 **Branch:** `rescue-structural` · **HEAD origem:** `7b634bec`. Frente `F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION` (schema-only, governada por DECISION-0099/0100). Zero writer/rota/backend-runtime/frontend; `tenant_concept_offerings`/marketplace/hybrid/companies/fiscal/Bank intocados; sem backfill/dados. Os 3 untracked autorais intocados.

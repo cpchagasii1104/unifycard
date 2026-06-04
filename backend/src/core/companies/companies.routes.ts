@@ -4,6 +4,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import multipart from '@fastify/multipart';
 import { companiesService } from './companies.service';
+import { companyPublicationsService } from './company-publications.service';
 import { companyValidationService } from './company-validation.service';
 import type { CreateCompanyInput, UpdateCompanyInput } from './companies.types';
 import { z } from 'zod';
@@ -89,6 +90,18 @@ const operationalActivationSchema = z.object({
   companyTypeId: z.string().uuid(),
   conceptId: z.string().uuid(),
 });
+
+// F-PJ-PUBLICATION-OFFERING-WRITER: body de publish/retire. SÓ conceptId + source/intent opcionais;
+// businessType/businessCategory/hybrid/metadata NÃO são aceitos.
+const publishConceptSchema = z.object({
+  conceptId: z.string().uuid(),
+  source: z.string().max(64).optional(),
+  intent: z.string().max(256).optional(),
+});
+const retireConceptSchema = z.object({
+  source: z.string().max(64).optional(),
+  intent: z.string().max(256).optional(),
+}).optional();
 
 const updateCompanyUserSchema = z.object({
   role: z.enum(['owner', 'partner', 'director', 'manager', 'employee', 'other']).optional(),
@@ -1034,6 +1047,100 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
       fastify.log.error({ err: error, companyId, code }, 'Erro na ativação operacional PJ');
       const message = error instanceof Error ? error.message : 'Erro na ativação operacional';
+      return reply.status(statusCode).send({ ok: false, code, message });
+    }
+  });
+
+  // ============================================================
+  // F-PJ-PUBLICATION-OFFERING-WRITER (DECISION-0099/0100)
+  //   Publica/despublica a empresa por concept em company_concept_publications (SSOT de oferta).
+  //   Publicar != ativar: grava a placa no cadastro soberano; NÃO acende no discovery (não toca
+  //   tenant_concept_offerings/marketplace nesta fatia). Gates: autoridade contextual (company_users)
+  //   + KYB approved (publish) + empresa operacional + concept=primary_concept_id. Reversível e auditável.
+  // ============================================================
+
+  /**
+   * POST /companies/:companyId/publications
+   * Body: { conceptId: uuid, source?, intent? }. Idempotente (active existente → alreadyPublished=true).
+   */
+  fastify.post<{
+    Params: { companyId: string };
+    Body: { conceptId: string; source?: string; intent?: string };
+  }>('/:companyId/publications', async (req, reply) => {
+    if (!req.user?.globalUserId || !req.user?.userId) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    }
+    const companyId = req.params.companyId;
+    if (!z.string().uuid().safeParse(companyId).success) {
+      return reply.status(400).send({ ok: false, code: 'INVALID_COMPANY_ID', message: 'companyId inválido' });
+    }
+    const parsed = publishConceptSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, code: 'INVALID_BODY', message: 'conceptId (uuid) é obrigatório', errors: parsed.error.flatten() });
+    }
+    try {
+      const data = await companyPublicationsService.publishCompanyConcept({
+        tenantId: req.tenant.id,
+        companyId,
+        responsibleUserId: req.user.userId,
+        globalUserId: req.user.globalUserId,
+        conceptId: parsed.data.conceptId,
+        source: parsed.data.source,
+        intent: parsed.data.intent,
+      });
+      fastify.log.info({ companyId, conceptId: data.conceptId, alreadyPublished: data.alreadyPublished }, '📣 Publicação de oferta PJ');
+      return reply.send({ ok: true, data });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+      fastify.log.error({ err: error, companyId, code }, 'Erro ao publicar oferta PJ');
+      const message = error instanceof Error ? error.message : 'Erro ao publicar oferta';
+      return reply.status(statusCode).send({ ok: false, code, message });
+    }
+  });
+
+  /**
+   * POST /companies/:companyId/publications/:conceptId/retire
+   * Despublica (retira) a publicação active. NÃO exige KYB. Idempotente (sem active → alreadyRetired=true).
+   */
+  fastify.post<{
+    Params: { companyId: string; conceptId: string };
+    Body: { source?: string; intent?: string };
+  }>('/:companyId/publications/:conceptId/retire', async (req, reply) => {
+    if (!req.user?.globalUserId || !req.user?.userId) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    }
+    const { companyId, conceptId } = req.params;
+    if (!z.string().uuid().safeParse(companyId).success) {
+      return reply.status(400).send({ ok: false, code: 'INVALID_COMPANY_ID', message: 'companyId inválido' });
+    }
+    if (!z.string().uuid().safeParse(conceptId).success) {
+      return reply.status(400).send({ ok: false, code: 'INVALID_CONCEPT_ID', message: 'conceptId inválido' });
+    }
+    if (req.body !== undefined && !retireConceptSchema.safeParse(req.body).success) {
+      return reply.status(400).send({ ok: false, code: 'INVALID_BODY', message: 'body inválido' });
+    }
+    try {
+      const data = await companyPublicationsService.retireCompanyConceptPublication({
+        tenantId: req.tenant.id,
+        companyId,
+        responsibleUserId: req.user.userId,
+        globalUserId: req.user.globalUserId,
+        conceptId,
+      });
+      fastify.log.info({ companyId, conceptId, alreadyRetired: data.alreadyRetired }, '📕 Despublicação de oferta PJ');
+      return reply.send({ ok: true, data });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+      fastify.log.error({ err: error, companyId, conceptId, code }, 'Erro ao despublicar oferta PJ');
+      const message = error instanceof Error ? error.message : 'Erro ao despublicar oferta';
       return reply.status(statusCode).send({ ok: false, code, message });
     }
   });
