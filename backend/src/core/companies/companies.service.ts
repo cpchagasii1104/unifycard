@@ -894,6 +894,67 @@ class CompaniesService {
     return row?.can_manage === true;
   }
 
+  /**
+   * Catálogo governado de company_types (F-PJ-ACTIVATION-READ-ENDPOINTS).
+   * Global (sem tenant); alimenta a seleção do par no onboarding. SEM metadata/businessType.
+   */
+  async listOperationalCompanyTypes(tenantId: string): Promise<Array<{
+    companyTypeId: string;
+    slug: string;
+    name: string;
+    defaultDepartmentSlugs: string[];
+    defaultBranchSlugs: string[];
+  }>> {
+    const rows = await runQueriesWithTenant<{
+      id: string;
+      name: string;
+      slug: string;
+      default_department_slugs: string[];
+      default_branch_slugs: string[];
+    }>(
+      tenantId,
+      `SELECT id, name, slug, default_department_slugs, default_branch_slugs
+         FROM company_types
+        ORDER BY name ASC`,
+      []
+    );
+    return rows.map((r) => ({
+      companyTypeId: r.id,
+      slug: r.slug,
+      name: r.name,
+      defaultDepartmentSlugs: r.default_department_slugs ?? [],
+      defaultBranchSlugs: r.default_branch_slugs ?? [],
+    }));
+  }
+
+  /**
+   * Conceitos PERMITIDOS por company_type (company_type_allowed_concepts ⋈ concepts).
+   * `concepts` não tem display name → expõe slug/domain (DECISION-0098: até display name
+   * governado existir). Retorna null se o company_type não existe (→ 404 na rota);
+   * [] se existe mas não tem pares allowed.
+   */
+  async listAllowedConceptsForCompanyType(
+    tenantId: string,
+    companyTypeId: string
+  ): Promise<Array<{ conceptId: string; slug: string; domain: string }> | null> {
+    const type = await runQueryWithTenant<{ id: string }>(
+      tenantId,
+      `SELECT id FROM company_types WHERE id = $1 LIMIT 1`,
+      [companyTypeId]
+    );
+    if (!type) return null;
+    const rows = await runQueriesWithTenant<{ concept_id: string; slug: string; domain: string }>(
+      tenantId,
+      `SELECT c.concept_id, c.slug, c.domain
+         FROM company_type_allowed_concepts a
+         JOIN concepts c ON c.concept_id = a.concept_id
+        WHERE a.company_type_id = $1
+        ORDER BY c.domain ASC, c.slug ASC`,
+      [companyTypeId]
+    );
+    return rows.map((r) => ({ conceptId: r.concept_id, slug: r.slug, domain: r.domain }));
+  }
+
   private activationError(code: string, message: string, statusCode: number): HttpError {
     const err = new HttpError(`${code}: ${message}`, statusCode);
     (err as unknown as { code: string }).code = code;

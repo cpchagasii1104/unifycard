@@ -904,6 +904,66 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // ============================================================
+  // F-PJ-ACTIVATION-READ-ENDPOINTS (DECISION-0098)
+  //   Catálogo governado para o onboarding montar o par (primary_company_type_id,
+  //   primary_concept_id): lista company_types e os concepts PERMITIDOS por type
+  //   (company_type_allowed_concepts ⋈ concepts). Read-only; NÃO grava o par; SEM
+  //   businessType/businessCategory/hybrid/metadata. Rotas estáticas (segmento literal
+  //   'operational-activation') — Fastify prioriza estático sobre ':companyId'.
+  // ============================================================
+
+  /**
+   * GET /companies/operational-activation/company-types
+   * Catálogo global governado de company_types (alimenta a seleção do par).
+   */
+  fastify.get('/operational-activation/company-types', async (req, reply) => {
+    if (!req.user?.globalUserId) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    }
+    try {
+      const data = await companiesService.listOperationalCompanyTypes(req.tenant.id);
+      return reply.send({ ok: true, data });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao listar company_types');
+      return reply.status(500).send({ ok: false, message: 'Erro ao listar company types' });
+    }
+  });
+
+  /**
+   * GET /companies/operational-activation/company-types/:companyTypeId/concepts
+   * Concepts PERMITIDOS para o company_type (company_type_allowed_concepts ⋈ concepts).
+   * 400 INVALID_COMPANY_TYPE_ID (uuid) · 404 COMPANY_TYPE_NOT_FOUND · 200 [] se sem pares.
+   */
+  fastify.get<{ Params: { companyTypeId: string } }>(
+    '/operational-activation/company-types/:companyTypeId/concepts',
+    async (req, reply) => {
+      if (!req.user?.globalUserId) {
+        return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+      }
+      if (!req.tenant) {
+        return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+      }
+      const companyTypeId = req.params.companyTypeId;
+      if (!z.string().uuid().safeParse(companyTypeId).success) {
+        return reply.status(400).send({ ok: false, code: 'INVALID_COMPANY_TYPE_ID', message: 'companyTypeId inválido' });
+      }
+      try {
+        const data = await companiesService.listAllowedConceptsForCompanyType(req.tenant.id, companyTypeId);
+        if (data === null) {
+          return reply.status(404).send({ ok: false, code: 'COMPANY_TYPE_NOT_FOUND', message: 'company_type não encontrado' });
+        }
+        return reply.send({ ok: true, data });
+      } catch (error) {
+        fastify.log.error({ err: error, companyTypeId }, 'Erro ao listar concepts permitidos');
+        return reply.status(500).send({ ok: false, message: 'Erro ao listar concepts permitidos' });
+      }
+    }
+  );
+
+  // ============================================================
   // F-PJ-ACTIVATION-ROUTE-WRITE-PAIR (DECISION-0098)
   //   Caminho vivo e autorizado para a ATIVAÇÃO OPERACIONAL PJ (Momento 2).
   //   Grava o par soberano (primary_company_type_id, primary_concept_id) via o writer

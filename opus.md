@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.46) — F-PJ-ACTIVATION-READ-ENDPOINTS: catálogo do par
+
+HEAD antes `4af65168` → commit "feat(pj): expose operational activation catalogs". Entreguei o cardápio governado p/ o onboarding montar o par: GET `/companies/operational-activation/company-types` e `.../company-types/:companyTypeId/concepts` (allowed = company_type_allowed_concepts ⋈ concepts; expõe slug/domain pois concepts não tem name). Service: listOperationalCompanyTypes + listAllowedConceptsForCompanyType (runQueriesWithTenant retorna T[]; runQueryWithTenant retorna 1 row). Read-only puro, sem DML, sem businessType/hybrid/metadata. 400 INVALID_COMPANY_TYPE_ID, 404 COMPANY_TYPE_NOT_FOUND, 200 [] sem pares.
+
+e2e efêmero 13/13 (app.inject). **Correção factual importante:** company_type_allowed_concepts É migration-seeded (20260416125000_concepts_estabelecimento.sql via INSERT...SELECT) — minha auditoria da fatia anterior dissera "não seedado" por miss de grep literal `INSERT INTO`. Disco venceu narrativa: reescrevi o teste p/ ler os pares vivos + criar um company_type fresco sem pares p/ provar 200 []. Fastify prioriza rota estática ('operational-activation') sobre ':companyId' — sem captura indevida (T6). GET sob protectedScope herda action-context.plugin (exige x-action-context, mesmo em GET). Write-pair re-rodado 15/15. 4 gates OK.
+
+DT VOCABULARY-DRIFT segue PARTIALLY MITIGATED (+catálogo); ONBOARDING-DOMAIN-SELECTION segue OPEN (mitigação parcial: backend pronto, falta wizard). **Próximo:** onboarding frontend consome o catálogo e chama a rota write-pair (frontend não inventa concept — envia o que o backend expôs, precedente ProfileProfessional C1). Backend do par está completo (catálogo + rota); falta a UI.
+
+---
+
 ## Sessão 2026-06-04 (cont.45) — F-PJ-ACTIVATION-ROUTE-WRITE-PAIR: rota viva do par
 
 HEAD antes `9f0b5c43` → commit "feat(pj): expose operational activation route". Tirei o par SSOT da condição de ILHA: criei `POST /companies/:companyId/operational-activation` em `companies.routes.ts` chamando o writer inalterado `activateCompanyOperationally`. A lacuna de segurança que o guardião apontou (writer não checa autoridade sobre ESTA empresa) → fechei com `companiesService.canManageCompany` (query `company_users`: ativo + can_manage_company OU role='owner') → 403 `COMPANY_OPERATIONAL_ACTIVATION_FORBIDDEN`. Erros do writer caem pelo `statusCode` do HttpError (400/404/409). Body zod uuid; rota recusa businessType/businessCategory/serviceCategories/hybrid/metadata.

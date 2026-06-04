@@ -1,3 +1,19 @@
+## 2026-06-04 — F-PJ-ACTIVATION-READ-ENDPOINTS: catálogo governado de seleção do par
+
+**Branch:** `rescue-structural` · **HEAD origem:** `4af65168`. Frente `F-PJ-ACTIVATION-READ-ENDPOINTS` (backend, governada por DECISION-0098). Zero schema/migration/frontend/Bank/KYB/social-gate/profile-progress/company_status/marketplace/tenant_concept_offerings/write-pair. Os 3 untracked autorais intocados.
+
+**O que entregou:** dois read-models que alimentam o onboarding a montar o par `(primary_company_type_id, primary_concept_id)` — **GET `/companies/operational-activation/company-types`** (catálogo global governado: companyTypeId/slug/name/defaultDepartmentSlugs/defaultBranchSlugs) e **GET `/companies/operational-activation/company-types/:companyTypeId/concepts`** (concepts PERMITIDOS = `company_type_allowed_concepts ⋈ concepts`; item conceptId/slug/domain — `concepts` não tem display name, expõe slug/domain). Read-only puro: SEM businessType/businessCategory/serviceCategories/hybrid/metadata; SEM DML; NÃO grava o par; NÃO chama `activateCompanyOperationally`. Erros: 400 `INVALID_COMPANY_TYPE_ID` (uuid), 404 `COMPANY_TYPE_NOT_FOUND`, 200 `[]` se sem pares.
+
+**Arquivos:** `companies.routes.ts` (2 rotas GET estáticas), `companies.service.ts` (`listOperationalCompanyTypes`, `listAllowedConceptsForCompanyType` — `runQueriesWithTenant`, snake→camel, sem SELECT *), `validate-pipeline-e2e-pj-activation-read-endpoints.ts` (novo), `scripts/run-pj-activation-read-endpoints-ephemeral.ps1` (novo).
+
+**Prova:** e2e **13/13** (DB efêmera, `app.inject`, teardown DROP): T1 company-types→200, ≥7, shape, sem chaves legado; T2 concepts(typeWithPairs)→200, set EXATAMENTE = pares soberanos, item conceptId/slug/domain; T3 type sem pares→200 []; T4 não-uuid→400; T5 uuid inexistente→404; T6 rota estática NÃO capturada por `GET /:companyId` (Fastify prioriza estático); T7 sem DML em companies/tco. Write-pair re-rodado **15/15** (sem regressão). Typecheck backend: só os 2 baseline geo-enrichment. 4 gates OK (warning_new=1 = c3 pré-existente). **Correção factual:** `company_type_allowed_concepts` **É migration-seeded** (`20260416125000_concepts_estabelecimento.sql` via `INSERT...SELECT`) — a auditoria read-only da fatia anterior dissera "não seedado" por miss de grep literal; o disco corrigiu a narrativa. Rotas GET sob protectedScope herdam `action-context.plugin` (exigem `x-action-context`).
+
+**DTs:** `DT-PJ-OPERATIONAL-ACTIVATION-VOCABULARY-DRIFT` → PARTIALLY MITIGATED/GOVERNED (agora + catálogo governado exposto; gap = onboarding frontend); `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` permanece OPEN (mitigação parcial: backend fornece catálogo + rota; falta o wizard consumir); `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` permanece OPEN; `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` permanece CLOSED.
+
+**PRÓXIMA ETAPA:** onboarding frontend consome `GET company-types` + `GET .../concepts` (frontend não inventa concept — envia o que o backend expôs) e chama `POST /:companyId/operational-activation`. `tenant_concept_offerings` writer + hybrid→trilhos seguem frentes próprias.
+
+---
+
 ## 2026-06-04 — F-PJ-ACTIVATION-ROUTE-WRITE-PAIR: rota viva de ativação operacional PJ
 
 **Branch:** `rescue-structural` · **HEAD origem:** `9f0b5c43`. Frente `F-PJ-ACTIVATION-ROUTE-WRITE-PAIR` (backend, governada por DECISION-0098). Zero schema/migration/frontend/Bank/KYB/social-gate/profile-progress/company_status/marketplace/tenant_concept_offerings. Os 3 untracked autorais intocados.
