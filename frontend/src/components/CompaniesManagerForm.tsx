@@ -8,7 +8,7 @@ import { IrreversibilityMarker } from '../utils/action-nature';
 import { calculateTemporalState, getTemporalStateText, getAbsenceText } from '../utils/temporal-state';
 import { ContinuityText } from '../utils/closure-continuity';
 import { InstitutionalPulse } from '../utils/institutional-pulse';
-import CompanyValidationModal from './CompanyValidationModal';
+// DECISION-0096: CompanyValidationModal não é mais importado/renderizado (UX presencial reservada).
 import CompanyMembersList from './CompanyMembersList';
 
 interface PhoneData {
@@ -732,8 +732,8 @@ export default function CompaniesManagerForm({
               <div className="company-status-section">
                 {company.companyStatus === 'PROVISIONAL' && (
                   <div className="status-message status-provisional">
-                    <strong>⚠️ Empresa em validação</strong>
-                    <p>Complete a validação presencial para habilitar todas as funcionalidades.</p>
+                    <strong>⚠️ Empresa provisória</strong>
+                    <p>A verificação fiscal da empresa ocorre pelo fluxo KYB/documental. A validação presencial está reservada.</p>
                   </div>
                 )}
                 
@@ -770,18 +770,9 @@ export default function CompaniesManagerForm({
               {/* Ações */}
               <div className="company-actions-section">
                 <div className="company-actions-left">
-                  {/* FASE 12: Botão de validação presencial para PROVISIONAL */}
-                  {company.companyStatus === 'PROVISIONAL' && (
-                    <button
-                      type="button"
-                      onClick={() => setValidationModalCompany({ id: company.companyId, name: company.companyName })}
-                      className="validate-button"
-                      title="Validar empresa presencialmente"
-                    >
-                      📱 Validar presencialmente
-                    </button>
-                  )}
-                  
+                  {/* DECISION-0096: CTA "Validar presencialmente" REMOVIDA — validação presencial PJ
+                      está reservada/desabilitada (backend retorna 501, sem fluxo vivo). A verificação
+                      PJ ocorre pelo fluxo KYB/documental. NÃO reabrir sem greenfield. */}
                   {company.companyStatus !== 'VERIFIED' && company.companyStatus !== 'PROVISIONAL' && company.companyStatus !== 'APPROVED' && (
                     <label className="upload-button-primary">
                       {uploadingCompanyId === company.companyId ? (
@@ -824,22 +815,9 @@ export default function CompaniesManagerForm({
         </div>
       )}
 
-      {/* FASE 12: Modal de validação presencial */}
-      {validationModalCompany && (
-        <CompanyValidationModal
-          companyId={validationModalCompany.id}
-          companyName={validationModalCompany.name}
-          isOpen={!!validationModalCompany}
-          onClose={() => {
-            setValidationModalCompany(null);
-            // Recarregar empresas após validação
-            loadCompanies();
-          }}
-          onValidationRequested={() => {
-            // Opcional: fazer algo quando QR é gerado
-          }}
-        />
-      )}
+      {/* DECISION-0096: modal de validação presencial REMOVIDO da UI viva (FASE 12 reservada/
+          desabilitada). O componente CompanyValidationModal fica órfão para limpeza na UX 2;
+          o state validationModalCompany não é mais setado por nenhuma ação viva. */}
     </div>
   );
 }

@@ -6,6 +6,22 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.36) — PJ PRESENTIAL UX 1B FRONTEND IMPLEMENTADO (apagar a placa)
+
+Executei a Fase Presential UX 1B (frontend) da DECISION-0096 — agora alçada Claude (papel unificado; a frente 1B antes era "Codex", reatribuída na cont. anterior). Reancorei (HEAD 461f4339, rescue-structural). Primeira fatia de frontend que executo sob o papel unificado.
+
+Mudança (só CompaniesManagerForm.tsx): removi o botão "📱 Validar presencialmente" (PROVISIONAL); removi o render do CompanyValidationModal + import (modal não abre por fluxo vivo → promessa "terá status VERIFIED" não é mais exibida); troquei o texto PROVISIONAL falso ("Complete a validação presencial para habilitar todas as funcionalidades") por honesto ("verificação fiscal ocorre pelo fluxo KYB/documental; validação presencial reservada"). NÃO infiro verificação por companyStatus/isVerified. NÃO chamo requestValidation.
+
+Decisão de escopo: deixei o plumbing órfão (state validationModalCompany em useCompaniesState, props em CompaniesManager, modal file CompanyValidationModal.tsx/.css, exports mortos requestCompanyValidation/getCompanyValidationHistory) para UX 2 — noUnusedLocals:false no frontend permite, e o envelope pediu blast radius mínimo nesta fatia. Registrei a lista de higiene UX 2 na DT/STATUS.
+
+Prova: typecheck frontend 0. Grep: "Validar presencialmente" só comentário; CompanyValidationModal sem import/render vivo; requestCompanyValidation SEM caller vivo (único caller = modal órfão não-renderizado); promessa VERIFIED só no modal morto. 4 gates OK (warning_new=1=c3 pré-existente). Zero backend/schema/migration/Bank.
+
+🏁 Porta trancada (1A backend 501) + placa apagada (1B frontend). Fluxo presencial PJ sem caminho vivo ponta-a-ponta. Mentira institucional encerrada.
+
+DTs: DT-PJ-PRESENTIAL-VALIDATION-UX-ORPHANED → PARTIALLY MITIGATED (UI viva + backend honestos; resta só código morto p/ UX 2). NÃO fechei (resíduo morto vivo no codebase). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase UX 2 higiene (deletar modal órfão + exports mortos + plumbing + classe CSS + decidir validation-history). Depois greenfield evidência presencial (outra frente).
+
+---
+
 ## Sessão 2026-06-04 (cont.35) — PJ PRESENTIAL UX 1A BACKEND IMPLEMENTADO (trancar a porta)
 
 Executei a Fase Presential UX 1A (backend) da DECISION-0096. Reancorei (HEAD 15782205 = c8faed44 + 1 docs-only de reatribuição de papel; rescue-structural, unificard_dev, 355 migrations).

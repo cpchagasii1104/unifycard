@@ -1,3 +1,23 @@
+## 2026-06-04 — PJ PRESENTIAL UX 1B (FRONTEND) IMPLEMENTADO: UI presencial removida
+
+**Branch:** `rescue-structural` · **HEAD origem:** `461f4339`. Frente `F-PJ-PRESENTIAL-VALIDATION-UX-RESERVED` (Presential UX 1B, frontend, DECISION-0096; alçada Claude — papel unificado). Zero backend/schema/migration/DML/Bank/KYB/social-gate/profile-progress. Os 2 screenshots untracked/intocados.
+
+**Mudança (apaga a placa — só `CompaniesManagerForm.tsx`):**
+- **Botão "📱 Validar presencialmente"** (empresas PROVISIONAL) **removido** — era a CTA órfã que abria o QR.
+- **Render do `CompanyValidationModal` removido** + import removido → o modal não abre por nenhum fluxo vivo (a promessa "terá status VERIFIED" deixa de ser exibida).
+- **Texto PROVISIONAL falso** ("Complete a validação presencial para habilitar todas as funcionalidades") → mensagem honesta: "A verificação fiscal da empresa ocorre pelo fluxo KYB/documental. A validação presencial está reservada." (header "Empresa em validação"→"Empresa provisória").
+- NÃO infere verificação por `companyStatus`/`isVerified`/`VERIFIED`. NÃO chama `requestValidation`.
+
+**Prova:** typecheck frontend **0**. Grep: "Validar presencialmente" só em comentário; `CompanyValidationModal` sem import/render vivo; **`requestCompanyValidation` sem caller vivo** (único caller = modal órfão não-renderizado); promessa VERIFIED só no modal órfão (nunca exibido). 4 gates OK (actor-writer/bank-ledger/regression/arch --strict exit 0; `warning_new`=c3 pré-existente). `noUnusedLocals:false` → plumbing órfão (state/props) não quebra build (vai p/ UX 2).
+
+**🏁 Porta trancada (1A) + placa apagada (1B):** o fluxo presencial PJ não tem mais caminho vivo — backend retorna 501, frontend não oferece CTA/modal/promessa. A mentira institucional acabou.
+
+**DTs:** `DT-PJ-PRESENTIAL-VALIDATION-UX-ORPHANED` → **PARTIALLY MITIGATED** (UI viva + backend honestos; resta só código morto p/ UX 2). `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` OPEN (greenfield).
+
+**PRÓXIMA ETAPA:** **Fase UX 2 (higiene)** — deletar `CompanyValidationModal.tsx`/`.css`, exports mortos (`requestCompanyValidation`/`getCompanyValidationHistory`), state `validationModalCompany`+plumbing, classe CSS `validate-button`, e decidir destino de `validation-history`. Sem schema/Bank.
+
+---
+
 ## 2026-06-04 — PJ PRESENTIAL UX 1A (BACKEND) IMPLEMENTADO: fluxo presencial legado honesto
 
 **Branch:** `rescue-structural` · **HEAD origem:** `15782205`. Frente `F-PJ-PRESENTIAL-VALIDATION-UX-RESERVED` (Presential UX 1A, backend, DECISION-0096). Zero schema/migration/DML/frontend/Bank/KYB-writer/F2-C/social-gate/profile-progress. Os 2 screenshots untracked/intocados.
