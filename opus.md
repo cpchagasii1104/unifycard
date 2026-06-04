@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.26) — DECISION-0092: Fase 3 PJ (lifecycle/verificação/capability)
+
+Após READ-ONLY Fase 3 + Clayton ratificando, despachei envelope docs-only. Promulguei `DECISION_0092_PJ_LIFECYCLE_VERIFICATION_CLEANUP.md` (0092).
+
+Achado que reordenou a prioridade: a Fase 2 (neutralizar writers) deixou LEITORES ÓRFÃOS de company_status===VERIFIED/APPROVED → REGRESSÃO funcional. reputation.service gateia capability de page-actor (post/vote/project/CTA) nesse eixo congelado → PJ não consegue mais postar. Lock de CNPJ (companies.service:1410) idem. Schema: companies.status é lifecycle limpo (CHECK); company_status impuro (default ACTIVE, SEM CHECK, vocabulário VERIFIED="presencial"=FASE 12); is_verified sem leitor-gate; verifiedAt não é coluna. Vestígios company_validations/partner_employees vazios.
+
+Decisões 0092: 3 eixos separados (lifecycle=companies.status; verificação=fiscal_identities.kyb_status; capability deriva de KYB, nunca company_status). Política produto: PJ pending = presença básica sim, comercial/financeira + post/vote/project/CTA exigem kyb_status='approved' (post-limitado-pending = decisão futura). company_status→lifecycle/compat ou aposentar; is_verified→projeção/aposentar; verifiedAt→higiene; vestígios/QR→Fase 3.2 (QR=UX/Codex); dados legados→3.3. Ordem: 3.0 (urgente: reputation + CNPJ-lock) → 3.1 → 3.2 → 3.3.
+
+DTs: SECOND-TRUTH (Fase 3, OPEN); criei REPUTATION-GATE-USES-LEGACY-COMPANY_STATUS e CNPJ-LOCK-USES-LEGACY-COMPANY_STATUS (OPEN); VERIFIED-AT (higiene, OPEN). Docs-only; commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** executor Fase 3.0 — reputation.service (capability via kyb_status) + CNPJ-lock; testes pending/approved. Destrava a regressão.
+
+---
+
 ## Sessão 2026-06-04 (cont.25) — PJ VERIFIED WRITERS Fase 2.5 IMPLEMENTADA (validateInPerson tombstone) — FASE 2 COMPLETA
 
 Executei a Fase 2.5 da DECISION-0091 (envelope executor — o menor de todos, tombstone num fóssil). Reancorei (HEAD ab3daaa9, rescue-structural, unificard_dev).

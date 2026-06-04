@@ -1,3 +1,22 @@
+## 2026-06-04 — DECISION-0092: Fase 3 PJ — lifecycle/verificação/capability (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `467e05c1`. **Docs-only**; zero código/schema/migration/frontend/DML/Bank. Fixa regra + ordem da Fase 3; executor pequeno depois. Os 2 screenshots untracked/intocados.
+
+**Achado central (read-only Fase 3):** a neutralização dos writers (Fase 2) deixou **leitores órfãos** de `company_status === VERIFIED/APPROVED` → **regressão funcional**:
+- `reputation.service` gateia capability de page-actor (post/vote/project/CTA) por `company_status VERIFIED/APPROVED` (`:280,:288-318`); como ninguém escreve mais isso, **PJ fica travada para postar**;
+- lock de CNPJ (`companies.service:1410`) por `company_status` nunca dispara.
+- Schema vivo: `companies.status` é lifecycle limpo (CHECK active/inactive/suspended/closed); `company_status` é impuro (default ACTIVE, SEM CHECK, vocabulário VERIFIED="presencial"=FASE 12); `is_verified` é flag sem leitor-gate; `verifiedAt` não é coluna (ghost). `company_validations`/`partner_employees` vestigiais vazios.
+
+**Promulgada (`DECISION-0092`):** separação de **3 eixos** — lifecycle (`companies.status`), verificação (`fiscal_identities.kyb_status`), capability (deriva de KYB, **nunca** `company_status`). **Política produto:** PJ pending = presença básica sim, mas comercial/financeira e post/vote/project/CTA exigem `kyb_status='approved'` (post-limitado-pending = decisão futura, não agora). `company_status`→lifecycle/compat ou aposentar (Fase 3.1); `is_verified`→projeção/aposentar; `verifiedAt`→higiene textual; vestígios/QR→Fase 3.2 (QR é UX/Codex); dados legados→Fase 3.3.
+
+**Ordem:** 3.0 (URGENTE — repointar reputation + CNPJ-lock p/ kyb_status; testes pending/approved) → 3.1 (lifecycle/compat + migration/CHECK) → 3.2 (vestígios) → 3.3 (dados legados não-zero).
+
+**DTs:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (Fase 3 registrada, OPEN). **Criadas:** `DT-PJ-REPUTATION-GATE-USES-LEGACY-COMPANY_STATUS` (regressão, OPEN) e `DT-PJ-CNPJ-LOCK-USES-LEGACY-COMPANY_STATUS` (OPEN). `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (higiene Fase 3.2, OPEN). Nenhuma DT fechada.
+
+**PRÓXIMA ETAPA:** executor **Fase 3.0** — repointar `reputation.service` (capability page-actor via `kyb_status`) + corrigir/neutralizar o CNPJ-lock; testes page-actor pending vs approved. É o que **destrava a regressão real**.
+
+---
+
 ## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.5 IMPLEMENTADA: validateInPerson neutralizado — FASE 2 COMPLETA
 
 **Branch:** `rescue-structural` · **HEAD origem:** `ab3daaa9`. Frente `F-PJ-VERIFIED-WRITERS-2.5` (DECISION-0091 §4.2/§4.8). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/frontend/QR/requestValidation. Os 2 screenshots untracked/intocados.
