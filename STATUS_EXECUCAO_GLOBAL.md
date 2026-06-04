@@ -1,3 +1,20 @@
+## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.5 IMPLEMENTADA: validateInPerson neutralizado — FASE 2 COMPLETA
+
+**Branch:** `rescue-structural` · **HEAD origem:** `ab3daaa9`. Frente `F-PJ-VERIFIED-WRITERS-2.5` (DECISION-0091 §4.2/§4.8). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/frontend/QR/requestValidation. Os 2 screenshots untracked/intocados.
+
+**Mudança (tombstone do writer fóssil):**
+- `company-validation.service.ts`: `validateInPerson` virou **tombstone** — lança `HttpError` 501 (code `PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED`) **antes de qualquer leitura/escrita**. Corpo fóssil removido (JWT/partner_employees/anti-fraude/transação/INSERT company_validations/UPDATE companies/FASE 13). Imports órfãos (`authService`, `runTenantTransaction`, `runQueryWithTenant`) removidos; `HttpError` adicionado. **`requestValidation`/QR/`getValidationHistory`/`CompanyValidationModal` INTACTOS.**
+
+**Prova (DB efêmera `validate-pipeline-e2e-pj-inperson-disabled`, 6/6, via `run-pj-inperson-disabled-ephemeral.ps1`):** lança com code esperado; banco segue PROVISIONAL/false (nada escrito); `company_validations` 0 linhas; **`requestValidation` segue gerando QR/token (intacto)**; zero Bank. Typecheck 0; 4 gates OK.
+
+**🏁 MARCO — FASE 2 COMPLETA:** os **5 writers legados de VERIFIED estão neutralizados** (2.1 updateCompany · 2.2 adminOverride · 2.3 updateDocumentStatus · 2.4 reviewCompanyValidation · 2.5 validateInPerson). **Grep confirma ZERO escritas** de `company_status='VERIFIED'`/`is_verified=true`/`verifiedAt` no domínio companies (só comentários/JSDoc; `vehicles.service` é outro domínio). **Nenhum writer — vivo ou fóssil — pode produzir VERIFIED fora de `kyb_status`.** `verifiedAt` (3º fantasma) não tem mais write em código.
+
+**DTs:** `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` → **CLOSED** (5 writers neutralizados). `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN, resta Fase 3) · `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` (OPEN, evidência greenfield) · `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (OPEN, write removido; higiene Fase 3).
+
+**PRÓXIMA ETAPA:** **Fase 3** (separar lifecycle de verificação: destino de `company_status`/`is_verified` como projeção/compat/aposentadoria; remover menções residuais de `verifiedAt`; dados legados em ambiente não-zero) · **greenfields:** evidência presencial KYB, trilho humano/LGPD · **UX (Codex):** destino do `requestValidation`/QR (botão inerte hoje).
+
+---
+
 ## 2026-06-04 — DECISION-0091: destino da FASE 12 QR (writer fóssil de VERIFIED) — docs-only
 
 **Branch:** `rescue-structural` · **HEAD origem:** `d8d72666`. **Docs-only**; zero código/schema/migration/rota/frontend/DML/Bank. Fixa achado + destino; executor cirúrgico depois. Os 2 screenshots untracked/intocados.

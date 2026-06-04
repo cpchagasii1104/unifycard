@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.25) — PJ VERIFIED WRITERS Fase 2.5 IMPLEMENTADA (validateInPerson tombstone) — FASE 2 COMPLETA
+
+Executei a Fase 2.5 da DECISION-0091 (envelope executor — o menor de todos, tombstone num fóssil). Reancorei (HEAD ab3daaa9, rescue-structural, unificard_dev).
+
+Mudança: validateInPerson (FASE 12 QR) virou tombstone — lança HttpError 501 PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED antes de qualquer leitura/escrita. Removi o corpo fóssil inteiro (JWT/partner_employees/anti-fraude/transação/INSERT company_validations/UPDATE companies VERIFIED+verifiedAt/FASE 13) e os imports que ele orfanou (authService, runTenantTransaction, runQueryWithTenant); adicionei HttpError. requestValidation/QR/getValidationHistory/CompanyValidationModal INTACTOS (não toquei — envelope proíbe).
+
+Prova: harness efêmero novo validate-pipeline-e2e-pj-inperson-disabled (6/6) — lança com code; banco PROVISIONAL/false; company_validations 0 linhas; requestValidation segue gerando QR (provei intacto); zero Bank. Typecheck 0; 4 gates OK.
+
+🏁 MARCO: FASE 2 COMPLETA. Os 5 writers legados de VERIFIED neutralizados (2.1-2.5). Grep confirma ZERO escritas de company_status='VERIFIED'/is_verified/verifiedAt no domínio companies (só comentários; vehicles é outro domínio). Nenhum writer vivo ou fóssil produz VERIFIED fora de kyb_status. verifiedAt (3º fantasma) sem write em código.
+
+DTs: DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE → CLOSED (5 writers neutralizados). SECOND-TRUTH (OPEN, resta Fase 3 schema/lifecycle); FASE12-QR-KYB-EVIDENCE (OPEN, evidência greenfield); VERIFIED-AT-THIRD-GHOST (OPEN, write removido, higiene Fase 3). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase 3 (lifecycle/schema: company_status/is_verified/verifiedAt + dados legados) OU greenfields (evidência presencial KYB, trilho humano/LGPD) OU UX do QR (Codex). A frente de cleanup dos writers ACABOU.
+
+---
+
 ## Sessão 2026-06-04 (cont.24) — DECISION-0091: destino da FASE 12 QR (writer fóssil)
 
 Após READ-ONLY/DESIGN da FASE 12 (Fase 2.5) + Clayton ratificando, despachei envelope docs-only. Promulguei `DECISION_0091_PJ_FASE12_QR_DESTINATION.md` (0091).
