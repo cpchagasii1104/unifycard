@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.34) — DECISION-0096: validação presencial PJ reservada / UX desabilitada (docs-only)
+
+Após READ-ONLY Fase 3.2 do QR/UX órfã (a placa luminosa apontando pro beco), despachei envelope docs-only. Promulguei `DECISION_0096_PJ_PRESENTIAL_VALIDATION_UX_RESERVED.md` (0096). Reancorei (HEAD 0945b577, rescue-structural, unificard_dev, 355 migrations).
+
+ACHADO: score já corrigido (Profile Progress 1), mas a UX presencial segue viva e o backend ainda gera QR órfão. Botão "Validar presencialmente" aparece p/ toda empresa PROVISIONAL (nascimento) → CompanyValidationModal → requestValidation gera JWT/QR real → modal PROMETE "sua empresa terá status VERIFIED" (CompanyValidationModal:78) = mentira, pois validate/in-person está tombstonado e a rota ainda MASCARA o 501 como HTTP 400 (catch genérico). validation-history lê company_validations vazia (0 rows, sem writer); getCompanyValidationHistory é export morto. company_validations(5 cols)/partner_employees(4 cols, sem name/active) = vestígios 0 rows; schema rico só em archive/0047. company_validation_requests é fluxo VIVO separado (documental/admin), NÃO alimentado pelo QR. CTA órfã + mentira institucional. Em dev 0 empresas (não aparece), mas estrutural em não-zero.
+
+Decisões 0096: validação presencial FASE 12 RESERVADA/DESABILITADA — não é caminho vivo de verificação/desbloqueio/VERIFIED. UX para de prometer. Backend para de gerar QR órfão (requestValidation→501/410 ou bloqueio) + tombstone honesto (sem mascarar 501→400). Proibido escrever company_status=VERIFIED/is_verified/verifiedAt/kyb_status por este fluxo. Evidência presencial = greenfield (storage/LGPD/document_type/trilho humano). Alçada: frontend/UX=Codex, backend/tombstone=Claude. NÃO reviver FASE 12 (zumbi com QR ainda é zumbi).
+
+DTs: criei DT-PJ-PRESENTIAL-VALIDATION-UX-ORPHANED (OPEN — UX/QR órfã a desabilitar, separei do greenfield); atualizei DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING (só greenfield de evidência presencial pende; OPEN). Nenhuma DT fechada (docs-only). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** executor Fase Presential UX 1 — frontend (Codex) esconde botão/modal/texto + mata promessa VERIFIED; backend (Claude) requestValidation→501/410 + validate/in-person tombstone honesto. Sem schema/Bank/migration. Apagar a placa + trancar a porta.
+
+---
+
 ## Sessão 2026-06-04 (cont.33) — PROFILE PROGRESS 1 IMPLEMENTADO (remove validação presencial morta do score)
 
 Executei a Fase Profile Progress 1 da DECISION-0095 (envelope executor controlado). Reancorei (HEAD a2ca7f0c, rescue-structural, unificard_dev, 355 migrations).

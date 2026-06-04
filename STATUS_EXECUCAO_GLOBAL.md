@@ -1,3 +1,19 @@
+## 2026-06-04 — DECISION-0096: validação presencial PJ reservada / UX desabilitada (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `0945b577`. Frente `F-PJ-PRESENTIAL-VALIDATION-UX-RESERVED` (família Fase 3.2 — vestígios). **Docs-only**; zero código/schema/migration/frontend/backend/DML/Bank. Fixa regra + ordem; executor pequeno depois. Os 2 screenshots untracked/intocados.
+
+**Achado (auditoria read-only Fase 3.2 do QR/UX órfã):** após o tombstone de `validateInPerson` e a remoção do score (Profile Progress 1), a UX presencial **continua acionável** e o backend **ainda gera QR órfão**. Botão "📱 Validar presencialmente" aparece para toda empresa `PROVISIONAL` (estado de nascimento) → `CompanyValidationModal` → `requestValidation` gera JWT/QR real → modal **promete "sua empresa terá status VERIFIED"** (`CompanyValidationModal:78`) — impossível, pois `validate/in-person` está morto (rota ainda **mascara o 501 como HTTP 400**). `validation-history` lê `company_validations` (0 rows, sem writer); export frontend `getCompanyValidationHistory` morto. `company_validations`/`partner_employees` = vestígios mínimos 0 rows; schema rico só em `archive/0047`. `company_validation_requests` é fluxo vivo SEPARADO (documental/admin), não alimentado pelo QR. **CTA órfã + mentira institucional.**
+
+**Promulgada (`DECISION-0096`):** validação presencial FASE 12 **reservada/desabilitada** — não é caminho vivo de verificação/desbloqueio/`VERIFIED`. UX para de prometer VERIFIED/funcionalidades/loja parceira. Backend para de gerar QR órfão (`requestValidation`→501/410 ou bloqueio) e preserva tombstone honesto (sem mascarar 501→400). Proibido escrever `company_status='VERIFIED'`/`is_verified`/`verifiedAt`/`kyb_status` por este fluxo (KYB segue fonte fiscal única). Evidência presencial = **greenfield futuro** (storage/LGPD/document_type). Alçada: frontend/UX coordenado com Codex; backend/tombstone é Claude. **Não reviver FASE 12.**
+
+**Ordem:** Fase Presential UX 1 (frontend-Codex esconde botão/modal/texto + mata promessa VERIFIED; backend-Claude `requestValidation`→501/410 + tombstone honesto) → UX 2 (higiene: `validation-history`, exports mortos, textos) → Greenfield (evidência presencial KYB, nova decisão).
+
+**DTs:** `DT-PJ-PRESENTIAL-VALIDATION-UX-ORPHANED` (criada, OPEN — UX/QR órfã a desabilitar) · `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` (atualizada — só greenfield de evidência presencial pende; OPEN). Nenhuma DT fechada.
+
+**PRÓXIMA ETAPA:** executor **Fase Presential UX 1** — apagar a placa (frontend-Codex) + trancar a porta (backend-Claude `requestValidation`/`validate-in-person`). Sem schema/Bank/migration. Greenfield de evidência adiado.
+
+---
+
 ## 2026-06-04 — PROFILE PROGRESS 1 IMPLEMENTADO: remove validação presencial morta do progresso
 
 **Branch:** `rescue-structural` · **HEAD origem:** `a2ca7f0c`. Frente `F-PJ-PROFILE-COMPLETENESS-CADASTRAL` (Profile Progress 1, DECISION-0095). Zero migration/schema/DML/Bank/KYB-writer/F2-C/social-gate/FASE12-QR/`company_status`-type/`is_verified`-schema. Os 2 screenshots untracked/intocados.
