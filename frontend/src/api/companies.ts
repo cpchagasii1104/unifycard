@@ -59,8 +59,10 @@ export interface Company {
   activity: CompanyActivity;
   revenueData?: Record<string, any>;
   status: CompanyOperationalStatus;
-  companyStatus?: CompanyStatus; // lifecycle/onboarding — NÃO é fonte de verificação (DECISION-0089)
-  isVerified: boolean; // legado/compatibilidade — NÃO é fonte de verificação (DECISION-0089)
+  /** lifecycle/onboarding — NÃO é fonte de verificação; VERIFIED/APPROVED legados/mortos (DECISION-0092/0093). */
+  companyStatus?: CompanyStatus;
+  /** @deprecated legado/compat — NÃO é fonte; use `kybStatus`/`isKybApproved` (DECISION-0089/0093). Será aposentado na Fase 3.3. */
+  isVerified: boolean;
   /** DECISION-0089 Fase 1 — FONTE ÚNICA de verificação PJ (derivada de fiscal_identities.kyb_status). */
   kybStatus?: KybVerificationStatus | null;
   /** Derivado: `kybStatus === 'approved'`. Único critério visual de "empresa verificada". */

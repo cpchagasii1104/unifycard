@@ -6,20 +6,26 @@
  */
 
 /**
- * Status do cadastro de uma empresa.
- * Define o estado do processo de validação.
- * 
- * DRAFT: Criada, invisível (não aparece no sistema)
- * PROVISIONAL: Ativa socialmente, com limites (pode postar, não pode votar/fundos)
- * VERIFIED: Validada presencialmente (acesso completo)
- * APPROVED: Plena (futuro - para casos especiais)
- * SUSPENDED: Bloqueada (fraude detectada, etc)
+ * Status de lifecycle/onboarding de uma empresa (PJ).
+ *
+ * ⚠️ NÃO é fonte de verificação fiscal. A verificação PJ tem FONTE ÚNICA em
+ * `fiscal_identities.kyb_status` (exposta no payload como `kybStatus`/`isKybApproved`).
+ * Ver DECISION-0089/0092/0093.
+ *
+ * DRAFT: Criada, invisível (não aparece no sistema).
+ * PROVISIONAL: Ativa socialmente com limites. Capability social pública (post/voto) e
+ *   operação financeira exigem `kyb_status='approved'` (DECISION-0094 / F2-C), NÃO este status.
+ * SUSPENDED: Bloqueada (fraude detectada, etc).
+ *
+ * @deprecated VERIFIED — valor legado/morto: nenhum writer o produz desde a Fase 2
+ *   (DECISION-0090/0091). NÃO usar como verificação fiscal — use `kyb_status='approved'`.
+ * @deprecated APPROVED — idem VERIFIED (legado/morto, não-fonte).
  */
 export type CompanyStatus =
   | 'DRAFT'         // Criada, invisível
-  | 'PROVISIONAL'   // Ativa socialmente, com limites
-  | 'VERIFIED'      // Validada presencialmente
-  | 'APPROVED'      // Plena (futuro)
+  | 'PROVISIONAL'   // Ativa socialmente, com limites (verificação = kyb_status)
+  | 'VERIFIED'      // @deprecated legado/morto — NÃO é verificação (use kyb_status)
+  | 'APPROVED'      // @deprecated legado/morto — NÃO é verificação (use kyb_status)
   | 'SUSPENDED';    // Bloqueada
 
 /**

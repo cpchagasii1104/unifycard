@@ -1,3 +1,24 @@
+## 2026-06-04 — PJ VERIFICATION Fase 3.1-A IMPLEMENTADA: compat textual (depreca status legados)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `1f25d9be`. Frente `F-PJ-VERIFICATION-3.1-A` (DECISION-0093 §4.2/§4.3/§4.8). **Só textual** — zero schema/migration/DML/campo-removido/lógica/gate/Bank/FASE12. Os 2 screenshots untracked/intocados.
+
+**Mudança (deprecação textual; campos/valores mantidos):**
+- `packages/contracts/src/company.ts`: `CompanyStatus` — `VERIFIED`/`APPROVED` marcados **`@deprecated` legado/morto** (não-removidos); JSDoc reescrito (verificação = `kyb_status`; PROVISIONAL não basta p/ post/voto/dinheiro).
+- `modules/social/actor-capabilities.service.ts`: comentários "apenas se VERIFIED/APPROVED" → "exige kyb_status='approved' (DECISION-0094)".
+- `modules/social/social-votes.service.ts`: mensagem "validação presencial" → "verificação fiscal (KYB)".
+- `core/companies/companies.service.ts`: mensagem limite PROVISIONAL ("validação presencial"→KYB); comentário "VERIFIED só vem de presencial/override"→kyb_status; comentário CNPJ-lock ("company_status='validated'")→kyb_status.
+- `core/companies/companies.types.ts` + `frontend/src/api/companies.ts`: `isVerified` marcado **`@deprecated`** (→ `kybStatus`/`isKybApproved`); `companyStatus` esclarecido lifecycle/VERIFIED-APPROVED-legados.
+
+**Prova:** typecheck backend **0** + frontend **0**; 4 gates OK (arch --strict exit 0; único `warning_new` = c3 pré-existente). Grep confirma: comentários "apenas se VERIFIED/APPROVED" **limpos**; **zero writer vivo** de `company_status='VERIFIED'`/`is_verified=true`/`verifiedAt` no domínio companies (hits restantes = wallet/vehicles, domínios alheios); VERIFIED/APPROVED seguem no tipo como `@deprecated` (não-removidos, correto).
+
+**Resíduos flagados (NÃO tocados — fora de textual/escopo):** `core.service:787-919` (lógica de % de perfil que premia "validação presencial" morta → 100% inatingível; **funcional**, fatia futura) · `companies.service:2478 prepareInPersonValidation` + rotas `/validate/in-person` (FASE 12, DECISION-0091/Fase 3.2) · frontend `CompaniesManagerForm` mensagens presencial (Codex/Fase 3.2).
+
+**DTs:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (3.1-A textual feito; só schema pende, OPEN) · `DT-PJ-IS-VERIFIED-DEPRECATED-COMPAT` (deprecação textual aplicada, OPEN) · `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (zero ref viva de código; só doc histórico, OPEN higiene).
+
+**PRÓXIMA ETAPA:** **Fase 3.2** (vestígios: QR/requestValidation UX-Codex; `company_validations`/`partner_employees`; higiene doc `verifiedAt`; + o resíduo funcional `core.service` profile-progress) · **Fase 3.3** (política dados legados + CHECK `company_status` + drop `is_verified`).
+
+---
+
 ## 2026-06-04 — PJ SOCIAL AUTHORITY KYB GATE IMPLEMENTADO: publish_feed / cast_vote exigem kyb_status
 
 **Branch:** `rescue-structural` · **HEAD origem:** `af4e6cf9`. Frente `F-PJ-SOCIAL-AUTHORITY-KYB-GATE` (Fase Social Gate 1, DECISION-0094). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/FASE12/frontend/`canActAs`-genérico. Os 2 screenshots untracked/intocados.

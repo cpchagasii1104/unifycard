@@ -35,9 +35,9 @@ const ACTOR_CAPABILITIES_MAP: ActorCapabilitiesMap = {
 
   // Pessoa Jurídica (page)
   page: [
-    ActorCapability.POST_CONTENT, // Condicional: apenas se VERIFIED/APPROVED
+    ActorCapability.POST_CONTENT, // Condicional: enforcement exige kyb_status='approved' (DECISION-0094), NÃO company_status
     ActorCapability.COMMENT,
-    ActorCapability.VOTE, // Condicional: apenas se VERIFIED/APPROVED
+    ActorCapability.VOTE, // Condicional: enforcement exige kyb_status='approved' (DECISION-0094), NÃO company_status
     ActorCapability.CREATE_JOB,
     ActorCapability.CREATE_PROJECT,
     ActorCapability.RECEIVE_FUNDS,

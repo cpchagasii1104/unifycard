@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.31) — PJ VERIFICATION Fase 3.1-A IMPLEMENTADA (compat textual)
+
+Executei a Fase 3.1-A da DECISION-0093 (envelope executor — só textual, "pintar a placa"). Reancorei (HEAD 1f25d9be, rescue-structural, unificard_dev).
+
+Mudança (deprecação textual; nada removido, zero schema): contracts CompanyStatus VERIFIED/APPROVED → @deprecated legado/morto + JSDoc reescrito; actor-capabilities comentários "apenas se VERIFIED/APPROVED" → kyb_status; social-votes mensagem "validação presencial" → KYB; companies.service (mensagem limite PROVISIONAL→KYB, comentário VERIFIED→kyb_status, comentário CNPJ-lock→kyb_status); companies.types + frontend api/companies isVerified @deprecated→isKybApproved.
+
+Prova: typecheck backend 0 + frontend 0; 4 gates OK. Grep confirma: comentários "apenas se VERIFIED/APPROVED" limpos; zero writer vivo de VERIFIED/is_verified/verifiedAt no domínio companies (hits = wallet/vehicles, alheios); VERIFIED/APPROVED seguem no tipo @deprecated (não-removidos, correto).
+
+Resíduos FLAGADOS não-tocados (fora de textual): core.service:787-919 (lógica de % de perfil que premia validação presencial morta → 100% inatingível, FUNCIONAL fatia futura); companies.service:2478 prepareInPersonValidation + rotas validate/in-person (FASE 12, Fase 3.2); frontend CompaniesManagerForm mensagens presencial (Codex/3.2).
+
+DTs: SECOND-TRUTH (textual feito, só schema pende, OPEN); IS-VERIFIED-DEPRECATED (deprecação aplicada, OPEN); VERIFIED-AT (zero ref viva de código, só doc, OPEN higiene). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase 3.2 (vestígios/QR/verifiedAt-doc + resíduo funcional core.service) → Fase 3.3 (CHECK/drop + dados legados). A placa está pintada; a marreta (schema) fica para 3.3.
+
+---
+
 ## Sessão 2026-06-04 (cont.30) — PJ SOCIAL AUTHORITY KYB GATE IMPLEMENTADO (publish_feed/cast_vote)
 
 Executei a Fase Social Gate 1 da DECISION-0094 (envelope executor). Reancorei (HEAD af4e6cf9, rescue-structural, unificard_dev).

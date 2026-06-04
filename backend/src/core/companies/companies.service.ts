@@ -314,8 +314,8 @@ class CompaniesService {
 
       if (currentProvisionalCount >= MAX_PROVISIONAL_PER_CPF) {
         throw new Error(
-          `Limite de ${MAX_PROVISIONAL_PER_CPF} empresas em validação atingido. ` +
-          `Complete a validação presencial de uma empresa existente ou aguarde a aprovação antes de cadastrar novas.`
+          `Limite de ${MAX_PROVISIONAL_PER_CPF} empresas em onboarding (PROVISIONAL) atingido. ` +
+          `Conclua a verificação fiscal (KYB) de uma empresa existente ou aguarde antes de cadastrar novas.`
         );
       }
     }
@@ -374,11 +374,11 @@ class CompaniesService {
             }));
           }
 
-          // Se conseguiu buscar da Receita, pode marcar como VERIFIED (mas por padrão fica PROVISIONAL)
-          // VERIFIED só vem de validação presencial ou admin override
-          // Por enquanto, mesmo com dados da Receita, fica PROVISIONAL
+          // DECISION-0092/0093: company_status é lifecycle/onboarding; a empresa nasce PROVISIONAL.
+          // Verificação fiscal NÃO vem daqui — FONTE ÚNICA = fiscal_identities.kyb_status.
+          // is_verified é legado/deprecated (não-fonte), nasce false.
           companyStatus = 'PROVISIONAL';
-          isVerified = false; // isVerified só true em VERIFIED+
+          isVerified = false;
         } else {
           // Sem dados da Receita, mas com nome: PROVISIONAL
           companyStatus = 'PROVISIONAL';
@@ -1384,8 +1384,9 @@ class CompaniesService {
   }
 
   /**
-   * Atualiza empresa
-   * 🔴 Bloqueia edição de CNPJ se company_status = 'validated'
+   * Atualiza empresa.
+   * 🔴 Bloqueia edição de CNPJ se a identidade fiscal já está verificada
+   *    (kyb_status='approved' — DECISION-0092 Fase 3.0). O CNPJ vive na casa fiscal.
    */
   async updateCompany(
     companyId: string,

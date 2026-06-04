@@ -125,7 +125,7 @@ export class SocialVotesService {
           if (actor.actor_type === 'page' && companyStatus === 'PROVISIONAL') {
             return { 
               success: false, 
-              message: 'Empresas em validação não podem votar em votações públicas. Complete a validação presencial para habilitar esta funcionalidade.' 
+              message: 'Empresas ainda não verificadas (KYB) não podem votar em votações públicas. Conclua a verificação fiscal (KYB) da empresa para habilitar esta funcionalidade.'
             };
           }
           return {

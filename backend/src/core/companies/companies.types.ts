@@ -23,8 +23,10 @@ export interface Company {
   activity: CompanyActivity;
   revenueData?: Record<string, any>; // Dados da Receita Federal
   status: 'active' | 'inactive' | 'suspended' | 'closed';
-  companyStatus: CompanyStatus; // Status do cadastro (lifecycle/onboarding — NÃO é fonte de verificação)
-  isVerified: boolean; // Legado/compatibilidade — NÃO é fonte de verificação (DECISION-0089)
+  /** Lifecycle/onboarding (DRAFT/PROVISIONAL/ACTIVE/SUSPENDED). NÃO é fonte de verificação; VERIFIED/APPROVED são legados/mortos (DECISION-0092/0093). */
+  companyStatus: CompanyStatus;
+  /** @deprecated Legado/compat — NÃO é fonte de verificação. Use `kybStatus`/`isKybApproved` (DECISION-0089/0093). Nasce false; será aposentado na Fase 3.3. */
+  isVerified: boolean;
   /**
    * DECISION-0089 Fase 1 — read-model derivado de `fiscal_identities.kyb_status`.
    * FONTE ÚNICA de verificação PJ. `null` quando a empresa não tem identidade fiscal
