@@ -1,3 +1,19 @@
+## 2026-06-04 — DECISION-0093: Fase 3.1 PJ — compat de company_status / is_verified (docs-only, sem migration)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `ff4792e1`. **Docs-only**; zero código/schema/migration/frontend/DML/Bank. Fixa compat/deprecação; executor pequeno depois (sem schema). Os 2 screenshots untracked/intocados.
+
+**Achado (read-only Fase 3.1):** **nenhum leitor vivo gateia por `company_status`/`is_verified` como verificação** (writers só gravam PROVISIONAL/false; cross-module social usa `authorityService` ou ignora o param). `company_status` **ainda tem função real** = lifecycle/onboarding (PROVISIONAL/DRAFT/SUSPENDED — guards de nascimento/submit + UX); `VERIFIED`/`APPROVED` são **valores mortos no write-path** mas vivos no tipo/frontend/dados-legados. `is_verified` é **vestigial** (sem gate; sempre false). `verifiedAt` = ghost (não-coluna). Schema: `company_status TEXT default ACTIVE sem CHECK`; `is_verified BOOLEAN default false`.
+
+**Promulgada (`DECISION-0093`):** **Fase 3.1 = compat/deprecação SEM migration.** `company_status` mantido (lifecycle compat; VERIFIED/APPROVED deprecated, **não remover**); `is_verified` deprecated (**não projetar** de kyb_status — evita 2ª-verdade; aposentar futuro); `verifiedAt` ghost textual (higiene 3.2). **CHECK/drop/normalização de legado → Fase 3.3** (gated em política de dados — ambiente não-zero pode ter VERIFIED/APPROVED; CHECK agora quebraria prod). Regra-mãe: fonte de verificação segue `fiscal_identities.kyb_status='approved'`. **Follow-up:** auditar se `authorityService` (publish_feed/cast_vote) é KYB-aware (a decisão real; `getPermissions` é input).
+
+**Ordem:** 3.1-B (READ-ONLY authority social — **antes** do executor, "primeiro o portão") → 3.1-A (executor compat textual: deprecar VERIFIED/APPROVED no tipo + is_verified + limpar comentários/mensagens stale; zero schema) → 3.2 (vestígios/QR/verifiedAt) → 3.3 (dados legados + migration CHECK/drop).
+
+**DTs:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (Fase 3.1, OPEN) · `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (OPEN). **Criadas:** `DT-PJ-AUTHORITY-SOCIAL-KYB-GATE-UNVERIFIED` (OPEN) e `DT-PJ-IS-VERIFIED-DEPRECATED-COMPAT` (OPEN). Nenhuma DT fechada.
+
+**PRÓXIMA ETAPA (recomendação Clayton):** **READ-ONLY Fase 3.1-B** — auditar `authorityService.canPerformAction('publish_feed'/'cast_vote')` KYB-aware para page-actor (mais crítico que comentário stale: garantir o portão antes de limpar a placa). Depois executor compat 3.1-A.
+
+---
+
 ## 2026-06-04 — PJ VERIFICATION Fase 3.0 IMPLEMENTADA: capability + CNPJ-lock via kyb_status (regressão sanada)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `583e68a7`. Frente `F-PJ-VERIFICATION-3.0` (DECISION-0092 §4.2/§4.3). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/FASE12/frontend/QR. Os 2 screenshots untracked/intocados.

@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.28) — DECISION-0093: Fase 3.1 PJ (compat company_status / is_verified)
+
+Após READ-ONLY Fase 3.1 + Clayton ratificando, despachei envelope docs-only. Promulguei `DECISION_0093_PJ_COMPANY_STATUS_IS_VERIFIED_COMPAT_CLEANUP.md` (0093).
+
+Achado do read-only: nenhum leitor vivo gateia por company_status/is_verified como verificação (writers só PROVISIONAL/false; social usa authorityService ou ignora o param). company_status AINDA tem função real = lifecycle/onboarding (PROVISIONAL/DRAFT/SUSPENDED); VERIFIED/APPROVED mortos no write-path mas vivos no tipo/frontend/dados-legados. is_verified vestigial (sem gate). verifiedAt ghost (não-coluna). company_status TEXT default ACTIVE sem CHECK; is_verified BOOLEAN default false. Achado lateral importante: reputation.getPermissions é "input/métricas não decisão"; a authority real de post/vote é authorityService.canPerformAction(publish_feed/cast_vote) — precisa auditar se é KYB-aware (minha 3.0 corrigiu o input, não necessariamente a decisão).
+
+Decisões 0093: Fase 3.1 = compat/deprecação SEM migration. company_status mantido (lifecycle; VERIFIED/APPROVED deprecated não-remover); is_verified deprecated (NÃO projetar de kyb_status — evita 2ª-verdade; aposentar futuro); verifiedAt ghost textual; CHECK/drop/normalização → Fase 3.3 (gated em política de dados; CHECK agora quebraria prod com legado VERIFIED). Ordem: 3.1-B (READ-ONLY authority social ANTES) → 3.1-A (compat textual) → 3.2 (vestígios) → 3.3 (migration).
+
+DTs: SECOND-TRUTH + VERIFIED-AT (OPEN); criei AUTHORITY-SOCIAL-KYB-GATE-UNVERIFIED e IS-VERIFIED-DEPRECATED-COMPAT (OPEN). Docs-only; commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo (recomendação minha aceita por Clayton):** READ-ONLY Fase 3.1-B (authorityService KYB-aware?) antes do executor compat — primeiro o portão, depois a placa.
+
+---
+
 ## Sessão 2026-06-04 (cont.27) — PJ VERIFICATION Fase 3.0 IMPLEMENTADA (capability + CNPJ-lock via kyb_status)
 
 Executei a Fase 3.0 da DECISION-0092 (envelope executor — o conserto funcional urgente). Reancorei (HEAD 583e68a7, rescue-structural, unificard_dev).
