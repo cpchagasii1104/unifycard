@@ -1,3 +1,22 @@
+## 2026-06-03 — DECISION-0088: F2-C gate KYB PJ promulgado — authority financeira (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `b3eb499a`. **Docs-only**; zero código/schema/migration/Bank/runtime. Autoriza a implementação F2-C, **não a executa** ("assina a regra, não instala a fechadura").
+
+**Promulgada (F2-C, deriva de D3/F2-A/F2-B):**
+- **Buraco fechado em desenho:** hoje `evaluateKycLayer` (authority-decision, chokepoint `risk-financial-gate`) **pula page-actor** → PJ move dinheiro sem checagem. A 0088 adiciona (em desenho) **`evaluateKybLayer`**.
+- **Fonte:** `page-actor → company → companies.fiscal_identity_id → fiscal_identities.kyb_status`. **NUNCA** `company_status`/`is_verified`/`company_validation`/`identities`.
+- **Escopo:** só `financial_transfer`/`financial_payment`/`financial_payout`/`financial_reversal_request` (chokepoint vivo). Produto/oferta/evento PJ = 2ª onda.
+- **Actor:** só `actor_type='page'`; KYC PF segue p/ user/person (mutuamente exclusivos). **Precedência ATL→KYC→KYB→GUARDA.**
+- **Regra:** `kyb_status='approved'` passa; pending/rejected/suspended/closed/fiscal-ausente/link-quebrado → **bloqueia**. **Fail-closed** + **strict para dinheiro** (mesmo authority-mode permissive).
+- **Crédito entra, saída não:** PJ pending pode receber crédito/split, mas não pode sacar/transferir/pagar/payout até approved.
+- **MVP-A/PF intacto:** teste obrigatório futuro — checkout/event_ticket deve debitar actor **user/PF**, não page; se MVP-A usar page-actor como debitante, **PARAR** antes de ligar o gate.
+
+**DTs:** **criada** `DT-PJ-KYB-AUTHORITY-GATE-MISSING` (OPEN — kyb_status existe mas sem enforcement financeiro; page-actor escapa do KYC). `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` atualizada (gate lê `kyb_status`, não `company_status`; isola mas não resolve a segunda-verdade) — OPEN.
+
+**PRÓXIMA ETAPA:** executor F2-C (camada `evaluateKybLayer` + testes efêmeros provando PF intacta/PJ gateada/MVP-A não-afetado) → 2ª onda (operações comerciais não-financeiras) → reconciliação company_status.
+
+---
+
 ## 2026-06-03 — F2-B KYB DOCUMENTOS PJ IMPLEMENTADA: SSOT documental + trava de aprovação (código+migration)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `88a4e5ee`. Migration única + service + rotas + edição cirúrgica do writer F2-A (só pré-condição) + teste efêmero + docs. **Zero** Bank/identities-PF/company_validation/gate-F2-C/company_status/frontend/storage-provider; `unificard_dev` intocada.

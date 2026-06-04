@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-03 (cont.15) — DECISION-0088: F2-C gate KYB PJ promulgado (authority financeira)
+
+Após READ-ONLY F2-C (achado central: chokepoint financeiro ÚNICO = risk-financial-gate → authorityDecisionService ATL→KYC→GUARDA; evaluateKycLayer pula page-actor → PJ move dinheiro sem checagem) + insumo, Clayton ratificou com 7 martelos e disparou envelope docs-only. Promulguei `DECISION_0088_PJ_KYB_AUTHORITY_GATE.md` (0088).
+
+Decisões: gate `evaluateKybLayer` (futuro) lê page→company→fiscal_identities.kyb_status (FONTE, nunca company_status); escopo só financial_* (transfer/payment/payout/reversal); só actor_type='page' (KYC e KYB mutuamente exclusivos); precedência ATL→KYC→KYB→GUARDA; fail-closed; strict para money mesmo em authority-mode permissive; crédito entra mas saída bloqueia até approved; MVP-A/PF deve ser provado intacto (event_ticket debita user, não page — senão PARAR). Códigos candidatos registrados.
+
+Martelos Clayton: escopo só financial_*; fail-closed; strict; crédito-entra-saída-bloqueia; fonte kyb_status; reversal entra; provar MVP-A debita user. Divergência de path anotada (envelope cita core/bank/bank-transaction; real é modules/bank/bank-transaction).
+
+DTs: **criei** `DT-PJ-KYB-AUTHORITY-GATE-MISSING` (OPEN). Atualizei `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (gate lê kyb_status, isola mas não resolve; OPEN). Docs-only; commit por caminho explícito. `criacao-de-empresa.png` segue untracked/intocado. **Próximo:** executor F2-C (1 camada em authority-decision + testes) — provar PF/MVP-A intacto antes de ligar.
+
+---
+
 ## Sessão 2026-06-03 (cont.14) — F2-B KYB DOCUMENTOS PJ IMPLEMENTADA
 
 Implementei a F2-B (envelope executor, com aval explícito p/ editar o writer F2-A só na pré-condição). Migration `20260603140000` (`fiscal_identity_documents`, GLOBAL, âncora fiscal_identity_id, file_reference opaco + file_hash, append-only via supersedes_document_id, CHECK status/type-literais/auditoria-no-final, FK actors(id)). Service `fiscal-identity-document.service.ts`: submit (sem upload)/list/review(accepted/rejected)/supersede (atômico, nova versão + anterior superseded). Rotas `/identity/pj/kyb/documents/*` (requireRole admin, operador actionContext.actorId).

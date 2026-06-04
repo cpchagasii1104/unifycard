@@ -10816,6 +10816,16 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Mitigação atual:** nenhuma (docs-only). A 0087 manteve docs-de-pessoa **fora**, em trilho próprio.
 - **Resolução prevista:** substrato próprio de documentos de vínculo humano/representação (ancorado em actor/CPF, com retenção/acesso/expurgo LGPD-first, e ligação à transferência D5/D4). Fatia futura, não resolvida pela 0087.
 
+## DT-PJ-KYB-AUTHORITY-GATE-MISSING
+
+- **Status:** OPEN (2026-06-03)
+- **Origem:** read-only F2-C + `DECISION-0088` (gate KYB de autoridade financeira).
+- **Vinculada a:** `DECISION-0088`, `core/compliance/authority-decision.service.ts`, `modules/risk-identity/risk-financial-gate.ts`, `fiscal_identities.kyb_status`.
+- **Contexto:** `fiscal_identities.kyb_status` (F2-A) e documentos (F2-B) existem e são enforçados **no review**; mas **falta enforcement na operação financeira**. O gate vivo (`evaluateFinancialSensitiveAction`, ATL→KYC→GUARDA) faz `evaluateKycLayer` aplicar só a `actor_type ∈ {user,person}` — **page-actor/PJ faz skip** (`KYC_NOT_APPLICABLE_ACTOR_TYPE`). Hoje **uma PJ move dinheiro sem checagem de identidade/KYB**.
+- **Risco:** `kyb_status='approved'` é fonte **declarada**, não **enforçada** — PJ pending/rejected pode iniciar `financial_transfer/payment/payout/reversal` (débito) sem bloqueio. PJ comercial só está "bloqueada por decisão de projeto", não por gate.
+- **Mitigação atual:** nenhuma no código (F2-C é docs-only). `DECISION-0088` fixa o desenho do gate (`evaluateKybLayer`, ATL→KYC→**KYB**→GUARDA; só page-actor; fail-closed; strict para money; lê `kyb_status`).
+- **Resolução prevista:** executor F2-C — adicionar `evaluateKybLayer` em `authority-decision.service` + testes efêmeros (PF intacta, PJ gateada, MVP-A/evento não-afetado). **Pré-condição obrigatória:** provar que operação financeira de PJ debita page-actor e que MVP-A/event_ticket debita actor user (DECISION-0088 §3.9). Não fechar até o gate existir e ser testado.
+
 ## DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH
 
 - **Status:** OPEN (2026-06-03)
@@ -10825,6 +10835,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** **segunda verdade** — empresa `company_status='VERIFIED'` com `kyb_status='pending'` (ou o inverso). Leitores/gate podem consultar a fonte errada; `company_status` pode dar percepção de "verificada" sem KYB approved.
 - **Mitigação atual:** nenhuma no código (F2-A é docs-only e **NÃO reconcilia** `reviewCompanyValidation` — DECISION-0086 §3.8). A 0086 apenas **declara** `kyb_status` como fonte.
 - **Atualização (F2-A IMPLEMENTADA, 2026-06-03):** o writer KYB que transiciona `fiscal_identities.kyb_status` está **vivo** (migration/serviço/rotas + 16/16 efêmero). O `reviewCompanyValidation` **NÃO foi tocado** (segue marcando `companies.company_status='VERIFIED'`/`is_verified` independentemente do `kyb_status`). **A segunda-verdade agora é possível em runtime** (uma company pode estar `VERIFIED` com `kyb_status='pending'`, e vice-versa). **DT permanece OPEN** — a reconciliação (company_status vira projeção de kyb_status, ou company-validation é redirecionado) é fatia própria; **fica mais urgente** depois da F2-C (gate lê kyb_status, não company_status).
+- **Atualização (F2-C — `DECISION-0088`, 2026-06-03):** a 0088 promulgou que o **gate KYB lê `fiscal_identities.kyb_status` como FONTE, NUNCA `company_status`/`is_verified`** (DECISION-0088 §3.1; teste obrigatório 11: `company_status='VERIFIED'` + `kyb_status='pending'` **bloqueia**). Isso **isola** o gate da segunda-verdade — mas **não a resolve**: `reviewCompanyValidation` ainda escreve `company_status='VERIFIED'` por fora. **DT permanece OPEN** (reconciliação = fatia própria).
 - **Resolução prevista (pós-F2-A):** `company_status`/`is_verified` viram **projeção/compatibilidade** de `kyb_status`, **ou** o fluxo `company-validation` é redirecionado/aposentado para o papel fiscal. Fatia própria, com migration/código + testes. **Não fechar** enquanto a divergência puder ocorrer em runtime.
 
 ## DT-PJ-TRANSITIONAL-RESPONSIBILITY-MISSING
