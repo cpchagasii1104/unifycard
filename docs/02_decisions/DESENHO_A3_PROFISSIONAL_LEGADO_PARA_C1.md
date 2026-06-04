@@ -60,7 +60,7 @@ todo caminho; sem degradação interna.
 A inferência **nunca** lê atributos de skill (preço, serviços, availability, bio). Logo é trivialmente
 desacoplável.
 
-**Frontend (alçada Codex — diagnóstico read-only):**
+**Frontend (alçada Claude — papel unificado; diagnóstico read-only):**
 - `frontend/src/api/categories.ts:231` `getProfessionalProfile()` → `GET /profile/professional`;
   `:280` `updateProfessionalProfile()` → `PUT /profile/professional`.
 - UI: `frontend/src/components/ProfileProfessional.tsx`; load em `hooks/useProfessionalCategories.ts:97`.
@@ -97,7 +97,7 @@ desacoplável.
   Segue o padrão de degradação já existente em `core.service.ts` (try-catch → parcial). A inferência
   continua intacta porque só usa `professional.count`.
 
-### 4.3 Frontend da aba Profissional → C1 (alçada Codex)
+### 4.3 Frontend da aba Profissional → C1 (alçada Claude — papel unificado)
 - Migrar para o contrato C1 selado; **aceitar a redução de escopo**.
 - **C1 (DENTRO):** `professional_bio` + `concepts[]` com `concept_id`, `skill_level` (1..5),
   `years_experience` (0..80 | null).
@@ -108,8 +108,8 @@ desacoplável.
 - Conceitos chegam como **`concept_id`** (identidade semântica soberana), NÃO como `category_id`.
   `source_category_id`, se usado, é só **breadcrumb / rastro de navegação**.
 
-### 4.4 Coordenação com Codex
-- Codex só entra DEPOIS deste desenho · **escritor único** · frontend **não decide verdade** ·
+### 4.4 Frontend (Claude — papel unificado)
+- O frontend só entra DEPOIS deste desenho · **escritor único** · frontend **não decide verdade** ·
   frontend **não manda `actorId` inventado no body** · usa o contexto/headers/middleware já definidos
   pelo backend (Authorization / x-tenant-id / x-action-context).
 
@@ -143,11 +143,11 @@ posterior (fora deste documento):
   comportamento ratificado (decisão 4.1).
 - `tsc --noEmit` limpo + 4 gates (actor-writer, bank-ledger, regression, architectural
   `critical_new=0`, baseline 20 inalterado) sem regressão.
-- Frontend (Codex): a aba renderiza C1 (bio + concepts) e não persiste campos fora do C1 em
+- Frontend (Claude): a aba renderiza C1 (bio + concepts) e não persiste campos fora do C1 em
   metadata/legado.
 
 ## 8. Fronteira
 
 Backend (desacoplar inference; destino do legado) = alçada Claude. **Frontend (migração da aba) = alçada
-Codex**, só após este desenho. **A3-código permanece NÃO autorizado.** A3 (código) abre só com housekeeping
+Claude (papel unificado desde 2026-06-04)**, só após este desenho. **A3-código permanece NÃO autorizado.** A3 (código) abre só com housekeeping
 final + autorização explícita de Clayton.

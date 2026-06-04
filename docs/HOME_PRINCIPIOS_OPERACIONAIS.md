@@ -6,7 +6,7 @@
 
 ---
 
-Este documento destila o modelo arquitetural da Home Contextual em regras curtas, consumíveis por Codex e por qualquer dev tocando frontend/UX da home. Cada regra tem causalidade material rastreável na memória vinculada.
+Este documento destila o modelo arquitetural da Home Contextual em regras curtas, consumíveis pelo Claude (papel unificado backend + frontend/UX) e por qualquer dev tocando frontend/UX da home. Cada regra tem causalidade material rastreável na memória vinculada.
 
 **Critério de revisão:** uma regra pode ser questionada se uso real puxar. Não é dogma — é princípio com gatilho de revisão. Sem uso material puxando, regra permanece vinculante.
 
@@ -110,7 +110,7 @@ Não maximiza atenção. Não maximiza scroll. Não maximiza retenção opaca.
 
 ---
 
-## Para Codex e devs futuros
+## Para o Claude (frontend) e devs futuros
 
 Antes de adicionar elemento à home, responder:
 1. Que vetor (dos 6) ele representa?

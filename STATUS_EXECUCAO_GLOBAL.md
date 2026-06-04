@@ -4,13 +4,13 @@
 
 **Achado (auditoria read-only Fase 3.2 do QR/UX órfã):** após o tombstone de `validateInPerson` e a remoção do score (Profile Progress 1), a UX presencial **continua acionável** e o backend **ainda gera QR órfão**. Botão "📱 Validar presencialmente" aparece para toda empresa `PROVISIONAL` (estado de nascimento) → `CompanyValidationModal` → `requestValidation` gera JWT/QR real → modal **promete "sua empresa terá status VERIFIED"** (`CompanyValidationModal:78`) — impossível, pois `validate/in-person` está morto (rota ainda **mascara o 501 como HTTP 400**). `validation-history` lê `company_validations` (0 rows, sem writer); export frontend `getCompanyValidationHistory` morto. `company_validations`/`partner_employees` = vestígios mínimos 0 rows; schema rico só em `archive/0047`. `company_validation_requests` é fluxo vivo SEPARADO (documental/admin), não alimentado pelo QR. **CTA órfã + mentira institucional.**
 
-**Promulgada (`DECISION-0096`):** validação presencial FASE 12 **reservada/desabilitada** — não é caminho vivo de verificação/desbloqueio/`VERIFIED`. UX para de prometer VERIFIED/funcionalidades/loja parceira. Backend para de gerar QR órfão (`requestValidation`→501/410 ou bloqueio) e preserva tombstone honesto (sem mascarar 501→400). Proibido escrever `company_status='VERIFIED'`/`is_verified`/`verifiedAt`/`kyb_status` por este fluxo (KYB segue fonte fiscal única). Evidência presencial = **greenfield futuro** (storage/LGPD/document_type). Alçada: frontend/UX coordenado com Codex; backend/tombstone é Claude. **Não reviver FASE 12.**
+**Promulgada (`DECISION-0096`):** validação presencial FASE 12 **reservada/desabilitada** — não é caminho vivo de verificação/desbloqueio/`VERIFIED`. UX para de prometer VERIFIED/funcionalidades/loja parceira. Backend para de gerar QR órfão (`requestValidation`→501/410 ou bloqueio) e preserva tombstone honesto (sem mascarar 501→400). Proibido escrever `company_status='VERIFIED'`/`is_verified`/`verifiedAt`/`kyb_status` por este fluxo (KYB segue fonte fiscal única). Evidência presencial = **greenfield futuro** (storage/LGPD/document_type). Alçada: frontend/UX **e** backend/tombstone são **Claude** (papel unificado desde 2026-06-04). **Não reviver FASE 12.**
 
-**Ordem:** Fase Presential UX 1 (frontend-Codex esconde botão/modal/texto + mata promessa VERIFIED; backend-Claude `requestValidation`→501/410 + tombstone honesto) → UX 2 (higiene: `validation-history`, exports mortos, textos) → Greenfield (evidência presencial KYB, nova decisão).
+**Ordem:** Fase Presential UX 1 (frontend-Claude esconde botão/modal/texto + mata promessa VERIFIED; backend-Claude `requestValidation`→501/410 + tombstone honesto) → UX 2 (higiene: `validation-history`, exports mortos, textos) → Greenfield (evidência presencial KYB, nova decisão).
 
 **DTs:** `DT-PJ-PRESENTIAL-VALIDATION-UX-ORPHANED` (criada, OPEN — UX/QR órfã a desabilitar) · `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` (atualizada — só greenfield de evidência presencial pende; OPEN). Nenhuma DT fechada.
 
-**PRÓXIMA ETAPA:** executor **Fase Presential UX 1** — apagar a placa (frontend-Codex) + trancar a porta (backend-Claude `requestValidation`/`validate-in-person`). Sem schema/Bank/migration. Greenfield de evidência adiado.
+**PRÓXIMA ETAPA:** executor **Fase Presential UX 1** — apagar a placa (frontend-Claude) + trancar a porta (backend-Claude `requestValidation`/`validate-in-person`). Sem schema/Bank/migration. Greenfield de evidência adiado.
 
 ---
 
@@ -62,11 +62,11 @@
 
 **Prova:** typecheck backend **0** + frontend **0**; 4 gates OK (arch --strict exit 0; único `warning_new` = c3 pré-existente). Grep confirma: comentários "apenas se VERIFIED/APPROVED" **limpos**; **zero writer vivo** de `company_status='VERIFIED'`/`is_verified=true`/`verifiedAt` no domínio companies (hits restantes = wallet/vehicles, domínios alheios); VERIFIED/APPROVED seguem no tipo como `@deprecated` (não-removidos, correto).
 
-**Resíduos flagados (NÃO tocados — fora de textual/escopo):** `core.service:787-919` (lógica de % de perfil que premia "validação presencial" morta → 100% inatingível; **funcional**, fatia futura) · `companies.service:2478 prepareInPersonValidation` + rotas `/validate/in-person` (FASE 12, DECISION-0091/Fase 3.2) · frontend `CompaniesManagerForm` mensagens presencial (Codex/Fase 3.2).
+**Resíduos flagados (NÃO tocados — fora de textual/escopo):** `core.service:787-919` (lógica de % de perfil que premia "validação presencial" morta → 100% inatingível; **funcional**, fatia futura) · `companies.service:2478 prepareInPersonValidation` + rotas `/validate/in-person` (FASE 12, DECISION-0091/Fase 3.2) · frontend `CompaniesManagerForm` mensagens presencial (frontend/Fase 3.2).
 
 **DTs:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (3.1-A textual feito; só schema pende, OPEN) · `DT-PJ-IS-VERIFIED-DEPRECATED-COMPAT` (deprecação textual aplicada, OPEN) · `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (zero ref viva de código; só doc histórico, OPEN higiene).
 
-**PRÓXIMA ETAPA:** **Fase 3.2** (vestígios: QR/requestValidation UX-Codex; `company_validations`/`partner_employees`; higiene doc `verifiedAt`; + o resíduo funcional `core.service` profile-progress) · **Fase 3.3** (política dados legados + CHECK `company_status` + drop `is_verified`).
+**PRÓXIMA ETAPA:** **Fase 3.2** (vestígios: QR/requestValidation UX-frontend; `company_validations`/`partner_employees`; higiene doc `verifiedAt`; + o resíduo funcional `core.service` profile-progress) · **Fase 3.3** (política dados legados + CHECK `company_status` + drop `is_verified`).
 
 ---
 
@@ -134,7 +134,7 @@
 
 **DTs:** `DT-PJ-REPUTATION-GATE-USES-LEGACY-COMPANY_STATUS` → **CLOSED**. `DT-PJ-CNPJ-LOCK-USES-LEGACY-COMPANY_STATUS` → **CLOSED**. `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN, resta Fase 3.1-3.3). `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (OPEN, higiene).
 
-**PRÓXIMA ETAPA:** **Fase 3.1** (lifecycle/compat: `company_status` lifecycle-puro/aposentar + CHECK; `is_verified` projeção de `kyb_status`/aposentar — exige migration + DECISION) · **Fase 3.2** (vestígios `company_validations`/`partner_employees`; higiene textual `verifiedAt`; UX do QR — Codex) · **Fase 3.3** (dados legados não-zero).
+**PRÓXIMA ETAPA:** **Fase 3.1** (lifecycle/compat: `company_status` lifecycle-puro/aposentar + CHECK; `is_verified` projeção de `kyb_status`/aposentar — exige migration + DECISION) · **Fase 3.2** (vestígios `company_validations`/`partner_employees`; higiene textual `verifiedAt`; UX do QR — frontend) · **Fase 3.3** (dados legados não-zero).
 
 ---
 
@@ -147,7 +147,7 @@
 - lock de CNPJ (`companies.service:1410`) por `company_status` nunca dispara.
 - Schema vivo: `companies.status` é lifecycle limpo (CHECK active/inactive/suspended/closed); `company_status` é impuro (default ACTIVE, SEM CHECK, vocabulário VERIFIED="presencial"=FASE 12); `is_verified` é flag sem leitor-gate; `verifiedAt` não é coluna (ghost). `company_validations`/`partner_employees` vestigiais vazios.
 
-**Promulgada (`DECISION-0092`):** separação de **3 eixos** — lifecycle (`companies.status`), verificação (`fiscal_identities.kyb_status`), capability (deriva de KYB, **nunca** `company_status`). **Política produto:** PJ pending = presença básica sim, mas comercial/financeira e post/vote/project/CTA exigem `kyb_status='approved'` (post-limitado-pending = decisão futura, não agora). `company_status`→lifecycle/compat ou aposentar (Fase 3.1); `is_verified`→projeção/aposentar; `verifiedAt`→higiene textual; vestígios/QR→Fase 3.2 (QR é UX/Codex); dados legados→Fase 3.3.
+**Promulgada (`DECISION-0092`):** separação de **3 eixos** — lifecycle (`companies.status`), verificação (`fiscal_identities.kyb_status`), capability (deriva de KYB, **nunca** `company_status`). **Política produto:** PJ pending = presença básica sim, mas comercial/financeira e post/vote/project/CTA exigem `kyb_status='approved'` (post-limitado-pending = decisão futura, não agora). `company_status`→lifecycle/compat ou aposentar (Fase 3.1); `is_verified`→projeção/aposentar; `verifiedAt`→higiene textual; vestígios/QR→Fase 3.2 (QR é UX/frontend); dados legados→Fase 3.3.
 
 **Ordem:** 3.0 (URGENTE — repointar reputation + CNPJ-lock p/ kyb_status; testes pending/approved) → 3.1 (lifecycle/compat + migration/CHECK) → 3.2 (vestígios) → 3.3 (dados legados não-zero).
 
@@ -170,7 +170,7 @@
 
 **DTs:** `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` → **CLOSED** (5 writers neutralizados). `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN, resta Fase 3) · `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` (OPEN, evidência greenfield) · `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (OPEN, write removido; higiene Fase 3).
 
-**PRÓXIMA ETAPA:** **Fase 3** (separar lifecycle de verificação: destino de `company_status`/`is_verified` como projeção/compat/aposentadoria; remover menções residuais de `verifiedAt`; dados legados em ambiente não-zero) · **greenfields:** evidência presencial KYB, trilho humano/LGPD · **UX (Codex):** destino do `requestValidation`/QR (botão inerte hoje).
+**PRÓXIMA ETAPA:** **Fase 3** (separar lifecycle de verificação: destino de `company_status`/`is_verified` como projeção/compat/aposentadoria; remover menções residuais de `verifiedAt`; dados legados em ambiente não-zero) · **greenfields:** evidência presencial KYB, trilho humano/LGPD · **UX (frontend):** destino do `requestValidation`/QR (botão inerte hoje).
 
 ---
 
@@ -185,7 +185,7 @@
 - **`verifiedAt` é ghost de CÓDIGO, não coluna**;
 - `requestValidation`/QR segue na UI (`CompanyValidationModal`) mas só gera token (não escreve); `validateInPerson` sem caller no frontend principal.
 
-**Promulgada (`DECISION-0091`):** regra-mãe (FASE 12 nunca verifica fiscalmente; fonte única `kyb_status='approved'`); **destino = neutralizar o writer `validateInPerson`** (executor Fase 2.5 — `PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED`, zero write); **manter `requestValidation`/QR inerte** (remoção/UX é decisão de produto/Codex); **evidência presencial KYB = greenfield futuro** (não cleanup; exigiria emenda DECISION-0087 + migration); `document_type` não ampliado; dados geo/device/employee têm superfície LGPD (trilho próprio futuro); `company_validations`/`partner_employees` vivos são vestígios (reconstrução = feature nova). Executor 2.5 **cirúrgico**: só `validateInPerson`, sem tocar QR/frontend/schema.
+**Promulgada (`DECISION-0091`):** regra-mãe (FASE 12 nunca verifica fiscalmente; fonte única `kyb_status='approved'`); **destino = neutralizar o writer `validateInPerson`** (executor Fase 2.5 — `PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED`, zero write); **manter `requestValidation`/QR inerte** (remoção/UX é decisão de produto/frontend); **evidência presencial KYB = greenfield futuro** (não cleanup; exigiria emenda DECISION-0087 + migration); `document_type` não ampliado; dados geo/device/employee têm superfície LGPD (trilho próprio futuro); `company_validations`/`partner_employees` vivos são vestígios (reconstrução = feature nova). Executor 2.5 **cirúrgico**: só `validateInPerson`, sem tocar QR/frontend/schema.
 
 **DTs:** `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` (achado runtime-dead absorvido, OPEN) · `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (verifiedAt = ghost de código, OPEN) · `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (OPEN até executor 2.5) · `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN). Nenhuma DT criada/fechada.
 

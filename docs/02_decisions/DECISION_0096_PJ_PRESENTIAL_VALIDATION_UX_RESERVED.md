@@ -13,7 +13,7 @@
 
 ## 1. Status
 
-PROMULGADA POR CLAYTON. DOCS-ONLY. Registra a **regra-mãe** (validação presencial FASE 12 reservada/desabilitada, não promete `VERIFIED`), os **fatos materiais** da UX/QR órfã, o **destino** (frontend para de prometer/abrir o fluxo; backend para de gerar QR órfão; tombstone honesto) e a **ordem** (executor pequeno → higiene → greenfield). Não altera schema/frontend/backend/código; implementação é fatia executora própria, coordenada com Codex na superfície visual.
+PROMULGADA POR CLAYTON. DOCS-ONLY. Registra a **regra-mãe** (validação presencial FASE 12 reservada/desabilitada, não promete `VERIFIED`), os **fatos materiais** da UX/QR órfã, o **destino** (frontend para de prometer/abrir o fluxo; backend para de gerar QR órfão; tombstone honesto) e a **ordem** (executor pequeno → higiene → greenfield). Não altera schema/frontend/backend/código; implementação é fatia executora própria do Claude (papel unificado backend + frontend/UX).
 
 ## 2. Fatos materiais a registrar (auditoria read-only Fase 3.2, HEAD `0945b577`)
 
@@ -65,15 +65,15 @@ O botão "Validar presencialmente" e o `CompanyValidationModal` (e o texto PROVI
 Presença física como **evidência KYB** é **greenfield futuro**. Exige **nova decisão**, storage/evidência/LGPD, `document_type`/trilho humano-parceiro próprio — **não** pode ser improvisada nesta limpeza (ver `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING`).
 
 ### 4.8 Alçada
-Frontend/UX deve ser **coordenado com Codex** quando tocar superfície visual (memória de coordenação Claude/Codex). Backend tombstone/rota é **alçada Claude**. **Não reviver a FASE 12.**
+Frontend/UX **e** backend/tombstone/rota são **alçada do Claude** (papel unificado desde 2026-06-04 — o frontend/UX, antes do Codex, foi absorvido pelo Claude). A superfície visual segue a disciplina "frontend projeta verdade resolvida, não cria verdade". **Não reviver a FASE 12.**
 
 ## 5. Ordem de implementação futura (vinculante na sequência)
 
 ```text
 Fase Presential UX 1 — executor pequeno (SEM schema/migration/Bank/KYB-writer):
-  - frontend (Codex): esconder/desabilitar o botão "Validar presencialmente";
-  - frontend (Codex): impedir promessa de VERIFIED (texto do modal / PROVISIONAL);
-  - frontend (Codex): não abrir o QR como caminho vivo;
+  - frontend (Claude): esconder/desabilitar o botão "Validar presencialmente";
+  - frontend (Claude): impedir promessa de VERIFIED (texto do modal / PROVISIONAL);
+  - frontend (Claude): não abrir o QR como caminho vivo;
   - backend (Claude): requestValidation retorna 501/410 honesto OU bloqueia geração de QR órfão;
   - backend (Claude): validate/in-person preserva/corrige o tombstone honesto (sem mascarar 501→400).
 Fase Presential UX 2 — higiene:

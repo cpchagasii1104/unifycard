@@ -50,7 +50,7 @@ A FASE 12 QR **não pode** verificar fiscalmente uma PJ escrevendo `companies.co
 ### 4.3 `requestValidation` e QR — manter inerte
 - **Não remover** `requestValidation`/QR nesta decisão.
 - Manter **inerte** por enquanto (gera token/QR, não escreve verificação).
-- Remoção/redesenho de UX é **decisão de produto/frontend** (Codex), não cleanup de writer.
+- Remoção/redesenho de UX é **decisão de produto/frontend** (alçada Claude — papel unificado desde 2026-06-04), não cleanup de writer.
 - A existência do QR **não** é aprovação fiscal.
 
 ### 4.4 Evidência presencial futura — greenfield

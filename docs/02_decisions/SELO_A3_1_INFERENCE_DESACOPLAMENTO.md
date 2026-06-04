@@ -40,7 +40,7 @@ Opus (executor/relatório) · Clayton (selo, após conferir bruto `git show 526b
 
 ### Fila após o selo
 - **A3.1 backend:** SELADA.
-- **A3.2 frontend/Codex:** próxima — só **prompt/desenho de execução**, NÃO autorizada a código até
+- **A3.2 frontend/Claude (papel unificado):** próxima — só **prompt/desenho de execução**, NÃO autorizada a código até
   aprovação de Clayton. Migrar a aba Profissional para `/profile/professional/c1` seguindo o DESENHO_A3.
 - **Interesses/Aprendizado:** bloqueado.
 - **Financeiro / migration:** bloqueado.

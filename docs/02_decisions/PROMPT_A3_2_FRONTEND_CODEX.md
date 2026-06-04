@@ -1,9 +1,11 @@
-# PROMPT DE EXECUÇÃO A3.2 (FRONTEND / CODEX) — migrar a aba Profissional para o C1
+# PROMPT DE EXECUÇÃO A3.2 (FRONTEND — papel unificado Claude) — migrar a aba Profissional para o C1
 
-> **STATUS: FINAL — autorizado por Clayton para execução pelo Codex**, neste escopo estrito.
+> **NOTA 2026-06-04:** o frontend/UX passou a ser alçada do **Claude** (papel unificado backend + frontend/UX). A regra original "FRONTEND = Codex" foi reatribuída; o SELO A3.2 já registra que a executora `unificard` (Claude) executou esta fatia. Texto mantido como artefato, com o papel ajustado para Claude.
+>
+> **STATUS: FINAL — escopo estrito.**
 > Derivado do DESENHO_A3 PROMULGADO (`c6830926`) + SELO A3.1 (`526b1c6f` / `c3e16365`). Não reabre
-> decisões. **Alçada: FRONTEND = Codex. Claude NÃO executa esta fatia.** Escritor único: só Codex toca
-> `frontend/src`. Pós-execução, Claude faz auditoria do diff + verificação backend (re-sweep C1,
+> decisões. **Alçada: FRONTEND = Claude (papel unificado).** Escritor único: só o frontend (Claude) toca
+> `frontend/src`. Pós-execução, auditoria do diff + verificação backend (re-sweep C1,
 > não-persistência fora do C1).
 
 ## PRÉ-LEITURAS OBRIGATÓRIAS
@@ -40,7 +42,7 @@ git log --oneline -8
   **só a aba Profissional**. Se o blast radius for MAIOR que a aba Profissional → **PARAR e reportar**.
 
 ## CONTRATO C1 — LER NO BACKEND, NÃO ASSUMIR POR MEMÓRIA
-- Codex DEVE ler `backend/src/core/profile/professional-c1/professional-c1.routes.ts` e
+- O frontend (Claude) DEVE ler `backend/src/core/profile/professional-c1/professional-c1.routes.ts` e
   `professional-c1.types.ts` e distinguir:
   - **request body = snake_case**; **response DTO = camelCase** (wrapper `professional_bio` é snake).
 - Mapear a assimetria no ADAPTER do frontend. **NÃO alterar backend.** Não assumir shape.
@@ -65,7 +67,7 @@ git log --oneline -8
 - conceito ALTERADO → `PATCH /c1/concepts/:conceptId`
 - conceito REMOVIDO → `DELETE /c1/concepts/:conceptId`
 - **PATCH vazio é PROIBIDO** (backend responde 400) — evitar no frontend (só PATCH com campo material).
-- **TRAVA:** se o Codex não conseguir calcular com segurança o DIFF entre estado inicial e estado editado
+- **TRAVA:** se não conseguir calcular com segurança o DIFF entre estado inicial e estado editado
   (novo / alterado / removido), **PARAR e reportar**. NÃO inventar PUT-bundle.
 
 ## REDUÇÃO DE ESCOPO — campos fora do C1

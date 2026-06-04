@@ -76,7 +76,7 @@ Os eixos oficiais passam a ser:
 - Eventual remoção/convergência exige **decisão/migration própria** (Fase 3.2).
 
 ### 4.8 QR / `requestValidation`
-- Permanece **decisão de produto/UX** (Codex). **Não é fonte de verificação.**
+- Permanece **decisão de produto/UX** (alçada Claude — papel unificado desde 2026-06-04). **Não é fonte de verificação.**
 - **Não entra** no executor da Fase 3.0.
 
 ## 5. Ordem de implementação futura (vinculante na sequência)
