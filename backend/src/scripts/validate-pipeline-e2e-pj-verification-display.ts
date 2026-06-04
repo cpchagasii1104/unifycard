@@ -6,10 +6,10 @@
  *
  * Prova o caminho REAL (companiesService.listCompanies / getCompanyById):
  *   - fiscal kyb_status='approved'      → kybStatus='approved',  isKybApproved=true
- *   - company_status='VERIFIED' + kyb 'pending' → kybStatus='pending', isKybApproved=false (NÃO mente)
+ *   - company_status='ACTIVE' (lifecycle) + kyb 'pending' → kybStatus='pending', isKybApproved=false (display IGNORA lifecycle)
  *   - sem fiscal_identity               → kybStatus=null,        isKybApproved=false
  *   - fiscal kyb_status='rejected'      → kybStatus='rejected',  isKybApproved=false
- *   - companyStatus / isVerified PRESERVADOS no payload (compatibilidade)
+ *   - pós-3.3: company_status é lifecycle-only (VERIFIED bloqueado por CHECK 3.3-A); is_verified dropado (3.3-B2); verificação = kyb_status
  *   - getCompanyById deriva igual ao listCompanies
  *   - zero Bank.
  */
@@ -81,7 +81,6 @@ async function main(): Promise<void> {
   async function seedCompany(
     kind: 'approved' | 'pending' | 'rejected' | 'no_fiscal',
     companyStatus: string,
-    isVerified: boolean,
   ): Promise<string> {
     let fid: string | null = null;
     if (kind !== 'no_fiscal') {
@@ -96,16 +95,18 @@ async function main(): Promise<void> {
       fid = f.rows[0].fiscal_identity_id;
     }
     const c = await pool.query<{ company_id: string }>(
-      `INSERT INTO companies (tenant_id, global_user_id, company_name, fiscal_identity_id, status, company_status, is_verified)
-       VALUES ($1,$2::uuid,'PJ Verif',$3::uuid,'active',$4,$5) RETURNING company_id::text`,
-      [TENANT_ID, ownerGlobalUserId, fid, companyStatus, isVerified]);
+      `INSERT INTO companies (tenant_id, global_user_id, company_name, fiscal_identity_id, status, company_status)
+       VALUES ($1,$2::uuid,'PJ Verif',$3::uuid,'active',$4) RETURNING company_id::text`,
+      [TENANT_ID, ownerGlobalUserId, fid, companyStatus]);
     return c.rows[0].company_id;
   }
 
-  const idApproved = await seedCompany('approved', 'PROVISIONAL', false);
-  const idVerifiedButPending = await seedCompany('pending', 'VERIFIED', true);
-  const idNoFiscal = await seedCompany('no_fiscal', 'VERIFIED', true);
-  const idRejected = await seedCompany('rejected', 'PROVISIONAL', false);
+  // Pós-3.3: company_status é lifecycle-only. Usamos 'ACTIVE' (lifecycle "mais operacional") com kyb
+  // 'pending' para provar que o read-model IGNORA company_status — verificação só vem de kyb_status.
+  const idApproved = await seedCompany('approved', 'PROVISIONAL');
+  const idActiveButPending = await seedCompany('pending', 'ACTIVE');
+  const idNoFiscal = await seedCompany('no_fiscal', 'ACTIVE');
+  const idRejected = await seedCompany('rejected', 'PROVISIONAL');
 
   const bankBefore = await pool
     .query<{ n: string }>(`SELECT (COALESCE((SELECT count(*) FROM bank_ledger),0)+COALESCE((SELECT count(*) FROM bank_transactions),0))::text n`)
@@ -121,8 +122,8 @@ async function main(): Promise<void> {
     !!a && a.kybStatus === 'approved' && a.isKybApproved === true,
     `kybStatus=${a?.kybStatus} isKybApproved=${a?.isKybApproved}`);
 
-  const v = byId(idVerifiedButPending);
-  record('2 company_status=VERIFIED + kyb pending → kybStatus=pending & isKybApproved=false (NÃO mente)',
+  const v = byId(idActiveButPending);
+  record('2 company_status=ACTIVE (lifecycle) + kyb pending → kybStatus=pending & isKybApproved=false (display IGNORA lifecycle)',
     !!v && v.kybStatus === 'pending' && v.isKybApproved === false,
     `kybStatus=${v?.kybStatus} isKybApproved=${v?.isKybApproved}`);
 
@@ -136,22 +137,14 @@ async function main(): Promise<void> {
     !!rj && rj.kybStatus === 'rejected' && rj.isKybApproved === false,
     `kybStatus=${rj?.kybStatus} isKybApproved=${rj?.isKybApproved}`);
 
-  // ═══ bloco "compat preservado" REMOVIDO (Fase 3.3-B1) ═══
-  // Asseverava que company_status='VERIFIED' + isVerified=true eram preservados no payload.
-  // Obsoleto: Fase 3.3-A bloqueia company_status='VERIFIED' por CHECK e Fase 3.3-B1 removeu
-  // isVerified do DTO. A verificação correta é kybStatus/isKybApproved (asserções acima).
-  // ⚠️ RESÍDUO (fora de B1): o setup deste script ainda insere company_status='VERIFIED', o que
-  //    quebra em runtime pós-3.3-A (CHECK 23514). Retirada/reescrita = fatia de higiene de testes.
-  void v; void nf; void a;
-
   // ═══ getCompanyById (mesmo read-model) ═══
   console.log('\n— getCompanyById (mesma derivação) —');
   const gApproved = await companiesService.getCompanyById(idApproved, ownerGlobalUserId, TENANT_ID);
   record('8 getCompanyById(approved) → kybStatus=approved & isKybApproved=true',
     !!gApproved && gApproved.kybStatus === 'approved' && gApproved.isKybApproved === true,
     `kybStatus=${gApproved?.kybStatus} isKybApproved=${gApproved?.isKybApproved}`);
-  const gVerif = await companiesService.getCompanyById(idVerifiedButPending, ownerGlobalUserId, TENANT_ID);
-  record('9 getCompanyById(VERIFIED+pending) → kybStatus=pending & isKybApproved=false',
+  const gVerif = await companiesService.getCompanyById(idActiveButPending, ownerGlobalUserId, TENANT_ID);
+  record('9 getCompanyById(ACTIVE+pending) → kybStatus=pending & isKybApproved=false',
     !!gVerif && gVerif.kybStatus === 'pending' && gVerif.isKybApproved === false,
     `kybStatus=${gVerif?.kybStatus} isKybApproved=${gVerif?.isKybApproved}`);
 

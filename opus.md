@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.43) — HIGIENE: verification-display reescrito p/ kyb_status SSOT (pós-3.3)
+
+Executei higiene do teste obsoleto (envelope executor). Reancorei (HEAD d104e647). O verification-display (DECISION-0089 Fase 1, read-model de verificação) quebrava pós-3.3: setup inseria company_status='VERIFIED' (CHECK 23514) + is_verified (dropado, 42703).
+
+Escolha OPÇÃO A (reescrever, não remover) — justificativa: o teste prova um invariante VIVO e valioso (listCompanies/getCompanyById derivam kybStatus/isKybApproved de fiscal_identities.kyb_status, IGNORANDO company_status/isVerified) que B1/B2 NÃO cobrem (eles testam schema/payload). Tem wrapper ps1 próprio, não está em gate obrigatório.
+
+Reescrita: seedCompany sem param/coluna is_verified; casos "VERIFIED+pending" → company_status='ACTIVE' (lifecycle válido) + kyb pending; var idVerifiedButPending→idActiveButPending; removi bloco morto "compat preservado" + void v/nf/a (v/nf/a já são usados nos checks 1/2/3). Semântica ficou até melhor: prova que o display ignora QUALQUER company_status, não só 'VERIFIED'.
+
+Prova: reescrito 7/7 (approved→true; ACTIVE+pending→false; sem fiscal→false; rejected→false; getCompanyById idêntico; zero Bank). Única menção VERIFIED no script = comentário. Typecheck escopo 0; frontend não tocado; is-verified-drop 7/7; 4 gates OK. DT SECOND-TRUTH permanece CLOSED (não reabri; era resíduo de teste). Commit por caminho explícito; 3 untracked autorais intocados. **Próximo (escolha Clayton):** F-PJ-OPERATIONAL-ACTIVATION-VOCAB-DECISION em READ-ONLY primeiro (businessType/businessCategory/hybrid/primary_*). Limpei o teste que lembrava a mentira antiga; a verdade nova não mudou.
+
+---
+
 ## Sessão 2026-06-04 (cont.42) — FASE 3.3-B2: drop de companies.is_verified — DT SECOND-TRUTH CLOSED 🏁
 
 Executei 3.3-B2 (envelope executor). Reancorei (HEAD f1e7d811). Arranquei a coluna órfã companies.is_verified. SEM alias (0093 §4.3).

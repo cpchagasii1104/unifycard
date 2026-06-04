@@ -1,3 +1,17 @@
+## 2026-06-04 — HIGIENE DE TESTE: verification-display alinhado ao kyb_status SSOT (pós-3.3)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `d104e647`. Frente `F-PJ-TEST-HYGIENE` (higiene de teste). Zero runtime/schema/migration/frontend/Bank. Os 3 untracked autorais intocados.
+
+**Mudança:** `validate-pipeline-e2e-pj-verification-display.ts` (DECISION-0089 Fase 1 — read-model de verificação) estava obsoleto: o setup inseria `company_status='VERIFIED'` (bloqueado pelo CHECK 3.3-A → 23514) + `is_verified` (dropado na 3.3-B2 → 42703), quebrando em runtime. **Escolha: OPÇÃO A (reescrever)** — o teste prova um invariante VIVO e valioso (read-model deriva de `kyb_status`, IGNORA company_status/isVerified) não coberto por B1/B2. Reescrito: `seedCompany` sem `is_verified`; casos "VERIFIED+pending" → `company_status='ACTIVE'` (lifecycle válido) + kyb pending; removido o bloco morto "compat preservado" + `void`. Semântica até melhor: prova que o display ignora QUALQUER company_status (usa 'ACTIVE'), não só 'VERIFIED'.
+
+**Prova:** teste reescrito **7/7** (DB efêmera): approved→isKybApproved=true; ACTIVE+kyb pending→isKybApproved=false (ignora lifecycle); sem fiscal→false; rejected→false; getCompanyById idêntico; zero Bank. Grep: única menção a VERIFIED no script é comentário. Typecheck backend escopo **0**; frontend não tocado. Re-rodado `is-verified-drop` **7/7**. 4 gates OK (warning_new=1 = c3 pré-existente).
+
+**DTs:** `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` permanece **CLOSED** (não reaberta); o resíduo de teste flagado na B2 está RESOLVIDO.
+
+**PRÓXIMA ETAPA (sem execução):** **`F-PJ-OPERATIONAL-ACTIVATION-VOCAB-DECISION`** em modo READ-ONLY primeiro (blast radius de businessType×businessCategory×hybrid×par `primary_company_type_id`/`primary_concept_id`).
+
+---
+
 ## 2026-06-04 — FASE 3.3-B2 IMPLEMENTADA: drop de companies.is_verified — 🏁 DT SECOND-TRUTH CLOSED
 
 **Branch:** `rescue-structural` · **HEAD origem:** `f1e7d811`. Frente `F-PJ-3.3-B2` (DECISION-0097 D3/D4 + DECISION-0093 §4.3). Schema (drop) + ajuste de scripts. Zero frontend/payload-vivo/company_status/companies.status/fiscal_identities/kyb_status/Bank/KYB-writer/social-gate/profile-progress. Os 3 untracked autorais intocados.
