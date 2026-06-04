@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.54) — F-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD: a vassoura não vira rei
+
+HEAD antes `72376330` → commit "chore(pj): add tenant concept offerings rebuild". Script rebuild-tenant-concept-offerings.ts: reconcilia tco SÓ a partir de ccp.status='active' (regra soberana). dry-run default (0 DML) + --apply explícito + guard EXPECTED_DATABASE_NAME (recusa alvo implícito → ABORT exit 2). Apply (tx única, 3 statements): cria active ausentes / reativa inactive-com-lastro / desativa active-sem-lastro. NUNCA deleta, NUNCA cria inactive nova, NÃO filtra KYB (KYB-revocation é DT própria). Idempotente. Exportei rebuildTenantConceptOfferings({apply}) p/ o e2e; main() só roda se invocado diretamente (guard process.argv).
+
+e2e 11/11 (5 estados A-E: criar/reativar/desativar/já-correto/inactive-mantida): dry-run conta e não altera; apply 1/1/1; nunca deleta (4→5 rows); não cria inactive nova; KYB não filtrado (empresa pending mas ccp active → tco active); idempotência; Bank/actors intocados. Standalone dev dry-run 0/0/0/0/0; guard alvo errado ABORT. Backend tsc só baseline geo; 4 gates OK.
+
+DT-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD → **CLOSED**. Restam: KYB-REVOCATION-PROJECTION (OPEN), MARKETPLACE-HYBRID (OPEN). **Cadeia PJ publicação inteira: norma→modelo→schema→writer→projeção→discovery→reconciliação-de-legado.** Próximo (escolha Clayton): KYB-revocation read-only OU marketplace hybrid read-only. Esta fatia limpou o read-model antigo sem mudar a verdade.
+
+---
+
 ## Sessão 2026-06-04 (cont.53) — F-PJ-PUBLICATION-OFFERING-PROJECTION: a placa acesa no discovery
 
 HEAD antes `21e0beef` → commit "feat(pj): project publication offerings to discovery". O writer de publicação passou a projetar tenant_concept_offerings (read-model derivado, DECISION-0100 D10) na MESMA transação: publish → projectOfferingActive (UPSERT is_active=true ON CONFLICT tenant×concept); unpublish → refreshOfferingAfterRetire (reconta active do tenant+concept: ≥1→true, 0→UPDATE false, sem criar/apagar legado). Falha na projeção rollbacka. tco continua read-model (NÃO SSOT); ccp é origem. Reader marketplace-contextual INTOCADO (efeito indireto: passa a enxergar tenants porque tco foi atualizado).

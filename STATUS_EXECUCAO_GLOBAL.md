@@ -1,3 +1,19 @@
+## 2026-06-04 — F-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD-SCRIPT: reconciliação idempotente do read-model
+
+**Branch:** `rescue-structural` · **HEAD origem:** `72376330`. Frente `F-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD-SCRIPT` (script/reconciliação, governada por DECISION-0099/0100 D10/D11). Zero schema/migration/frontend; writer publish/unpublish/marketplace-contextual/hybrid/Bank/KYB-writer/onboarding/createCompany/company_status intocados. Os 3 untracked autorais intocados.
+
+**O que entregou:** limpa o read-model antigo sem dar trono à vassoura. Script `backend/src/scripts/rebuild-tenant-concept-offerings.ts` reconcilia `tenant_concept_offerings` derivando EXCLUSIVAMENTE de `company_concept_publications.status='active'` (regra soberana: tenant oferece concept SSE ≥1 publicação active). **dry-run por PADRÃO** (zero DML); **`--apply`** explícito (transação única); guard **`EXPECTED_DATABASE_NAME`** == current_database() (recusa alvo implícito → ABORT exit 2). Apply: (1) INSERT active dos pares soberanos ausentes; (2) UPDATE reativa tco inactive com lastro; (3) UPDATE desativa tco active sem lastro (legado/stale). **NUNCA deleta · NUNCA cria inactive nova · NÃO filtra KYB** (KYB-revocation é DT própria). Idempotente. Função `rebuildTenantConceptOfferings({apply})` exportada (testável); `main()` só roda invocado diretamente. Dry-run imprime contagens (criar/reativar/desativar/já-corretas/inactive-mantidas) + sample.
+
+**Arquivos:** `rebuild-tenant-concept-offerings.ts` (novo), `validate-pipeline-e2e-pj-tenant-concept-offerings-rebuild.ts` (novo), `run-pj-tenant-concept-offerings-rebuild-ephemeral.ps1` (novo).
+
+**Prova:** e2e **11/11** (DB efêmera, app NÃO necessário, teardown DROP) sobre 5 estados (A: ccp active sem tco; B: tco inactive+ccp; C: tco active legado sem ccp; D: tco active+ccp; E: tco inactive sem ccp): dry-run conta 1/1/1/1/1 e NÃO altera; apply created=1/reactivated=1/deactivated=1 → A active, B active, C inactive, D active, E inactive; **nunca deleta** (rows 4→5); **não cria inactive nova**; **KYB não filtrado** (A ativa apesar de empresa KYB pending); idempotência (2ª apply 0/0/0); Bank/actors-só-user-page intocados. Standalone em dev: dry-run 0/0/0/0/0 (no-op, exit 0); guard alvo errado → ABORT exit 2. Backend tsc: só 2 baseline geo. 4 gates OK (warning_new=1 = c3 pré-existente).
+
+**DTs:** `DT-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD` → **CLOSED**. `DT-PJ-PUBLICATION-OFFERING-KYB-REVOCATION-PROJECTION` permanece OPEN. `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` permanece CLOSED. `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` OPEN; `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` PARTIALLY MITIGATED/GOVERNED; `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` CLOSED.
+
+**PRÓXIMA ETAPA:** `F-PJ-PUBLICATION-OFFERING-KYB-REVOCATION-READONLY` (desenho: KYB-change retira publicação / reader filtra KYB approved) OU read-only marketplace `hybrid` (ortogonal).
+
+---
+
 ## 2026-06-04 — F-PJ-PUBLICATION-OFFERING-PROJECTION-WRITER: publicação acende no discovery
 
 **Branch:** `rescue-structural` · **HEAD origem:** `21e0beef`. Frente `F-PJ-PUBLICATION-OFFERING-PROJECTION-WRITER` (backend, governada por DECISION-0099/0100 D10). Zero schema/migration/frontend; reader `marketplace-contextual`/hybrid/Bank/KYB-writer/fiscal/onboarding/createCompany/company_status intocados. Os 3 untracked autorais intocados.

@@ -11155,8 +11155,8 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD
 
-- **Status:** OPEN (2026-06-04) — resíduo de `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` (CLOSED).
-- **Origem:** `F-PJ-PUBLICATION-OFFERING-PROJECTION-WRITER` + desenho read-only `F-PJ-PUBLICATION-OFFERING-PROJECTION`.
+- **Status:** **CLOSED (2026-06-04)** — `F-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD-SCRIPT` entregou o script idempotente `backend/src/scripts/rebuild-tenant-concept-offerings.ts`: dry-run por PADRÃO + `--apply` explícito + guard `EXPECTED_DATABASE_NAME` (recusa alvo implícito; testado: alvo errado → ABORT exit 2; alvo certo dry-run em dev → 0/0/0/0/0 no-op); apply em transação única; recomputa tco derivando SÓ de `company_concept_publications.status='active'` (cria active ausente / reativa inactive-com-lastro / desativa active-sem-lastro), NUNCA deleta, NUNCA cria inactive nova, NÃO filtra KYB; idempotente (2ª apply muda 0). e2e `validate-pipeline-e2e-pj-tenant-concept-offerings-rebuild.ts` (11/11, efêmero). _(antes: OPEN 2026-06-04.)_ Reconciliação de prod não-zero agora é operação governada e segura.
+- **Origem:** `F-PJ-PUBLICATION-OFFERING-PROJECTION-WRITER` + desenho read-only `F-PJ-PUBLICATION-OFFERING-PROJECTION` + `F-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD` (auditoria).
 - **Vinculada a:** `tenant_concept_offerings` (read-model), `company_concept_publications` (SSOT), `marketplace-contextual` (reader).
 - **Contexto:** a projeção é **forward** (atualiza tco apenas para os pares tenant+concept tocados por publish/unpublish). Em ambientes **não-zero** (prod/staging), podem existir linhas tco **legadas active** (tenant×concept) **sem publicação soberana** correspondente — que permaneceriam visíveis no discovery sem lastro. Dev = 0 linhas (sem problema); a fatia da projeção, por DECISION-0100 D11, NÃO apaga/backfilla/recomputa legado automaticamente.
 - **Risco:** discovery mostra ofertas legadas sem lastro soberano em prod até reconciliação.
