@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.29) — DECISION-0094: gate KYB na authority social de PJ
+
+Após READ-ONLY Fase 3.1-B (auditoria do portão social) + Clayton ratificando Opção E, despachei envelope docs-only. Promulguei `DECISION_0094_PJ_SOCIAL_AUTHORITY_KYB_GATE.md` (0094).
+
+VEREDITO da auditoria: a authority social real NÃO é KYB-aware. authorityService.canPerformAction (publish_feed/cast_vote) aplica isActorEffectivelyBlocked (quarentena) + delega em authorizationService.canActAs, que decide por ownership/delegation/system (AuthoritySource) — nunca lê kyb_status/company_status/is_verified. Único arquivo com kyb no caminho social/authority/risk é reputation.service (input/display). getPermissions.canPost é consumido só em actor.repository:657 (display). Logo PJ pending com user dono/delegado CONSEGUE postar/votar via API apesar do botão escondido. Gap display×enforcement PRÉ-EXISTENTE (não foi minha 3.0 que criou; a regra "PJ verificada p/ postar" sempre viveu só no display).
+
+Decisões 0094 (Opção E): publish_feed/cast_vote de page-actor/PJ exigem kyb_status='approved' no enforcement; pending/rejected/suspended/closed/sem-fiscal bloqueados (fail-closed); PF/user e grupos inalterados; fonte proibida company_status/is_verified/metadata/frontend/query-param/reputation. Escopo só essas 2 actions. Executor resolve page→company→fiscal_identity→kyb_status server-side reusando resolveKybApproved da 3.0. Paridade display×enforcement. F2-C (money) e voz pública = gates distintos ambos em kyb_status. Ordem: Social Gate 1 (executor) → Gate 2 (higiene) → 3.1-A compat textual (só depois do portão).
+
+DTs: AUTHORITY-SOCIAL-KYB-GATE-UNVERIFIED (veredito NÃO-KYB-aware + decisão registrados, OPEN); SECOND-TRUTH (display OK, enforcement pende, OPEN). Docs-only; commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** executor Fase Social Gate 1 — gate KYB em publish_feed/cast_vote. Portão antes da placa.
+
+---
+
 ## Sessão 2026-06-04 (cont.28) — DECISION-0093: Fase 3.1 PJ (compat company_status / is_verified)
 
 Após READ-ONLY Fase 3.1 + Clayton ratificando, despachei envelope docs-only. Promulguei `DECISION_0093_PJ_COMPANY_STATUS_IS_VERIFIED_COMPAT_CLEANUP.md` (0093).

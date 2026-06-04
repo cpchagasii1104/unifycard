@@ -1,3 +1,19 @@
+## 2026-06-04 — DECISION-0094: gate KYB na authority social de PJ (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `1c01bab9`. **Docs-only**; zero código/schema/migration/frontend/DML/Bank. Fixa regra + ordem; executor pequeno depois. Os 2 screenshots untracked/intocados.
+
+**Veredito (auditoria read-only Fase 3.1-B):** **a authority social real NÃO é KYB-aware.** `authorityService.canPerformAction('publish_feed'/'cast_vote')` aplica quarentena + delega em `authorizationService.canActAs`, que decide por **ownership/delegation/system** — **nunca** lê `fiscal_identities.kyb_status`/`company_status`/`is_verified` (único arquivo com `kyb` no caminho social/authority/risk é `reputation.service`, que é input/display). `getPermissions.canPost` (KYB-aware após 3.0) é consumido só em `actor.repository:657` → **display**, não enforcement. **Conclusão:** PJ KYB-pending com user dono/delegado **consegue publicar/votar** via API (canActAs libera) apesar do botão escondido → **gap display×enforcement** (pré-existente).
+
+**Promulgada (`DECISION-0094`, Opção E):** `publish_feed` e `cast_vote` de **page-actor/PJ exigem `kyb_status='approved'`** no enforcement. Bloqueados: pending/rejected/suspended/closed/sem-fiscal (fail-closed). **PF/user e grupos inalterados.** Fonte proibida: company_status/is_verified/metadata/frontend/query-param/reputation. Escopo só `publish_feed`/`cast_vote` (não toca perfil/criação/QR/financeiro-F2-C/frontend). Executor resolve `page→company→fiscal_identity→kyb_status` server-side, reusando o `resolveKybApproved` da 3.0. Paridade: display (3.0) e enforcement devem concordar. Dinheiro (F2-C) e voz pública = gates distintos, ambos em `kyb_status`.
+
+**Ordem:** Fase Social Gate 1 (executor: gate KYB em publish_feed/cast_vote + testes pending/approved/rejected/no-fiscal/PF) → Social Gate 2 (higiene: helper compartilhado, mensagens stale) → **3.1-A compat textual** (só depois do portão).
+
+**DTs:** `DT-PJ-AUTHORITY-SOCIAL-KYB-GATE-UNVERIFIED` (veredito + decisão registrados, OPEN até executor) · `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (display OK, enforcement social pende, OPEN). Nenhuma DT criada/fechada.
+
+**PRÓXIMA ETAPA:** executor **Fase Social Gate 1** — adicionar gate KYB para page-actor em `publish_feed` e `cast_vote` (server-side, fail-closed, PF inalterado; testes). É o "fechar o portão" antes da placa (3.1-A).
+
+---
+
 ## 2026-06-04 — DECISION-0093: Fase 3.1 PJ — compat de company_status / is_verified (docs-only, sem migration)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `ff4792e1`. **Docs-only**; zero código/schema/migration/frontend/DML/Bank. Fixa compat/deprecação; executor pequeno depois (sem schema). Os 2 screenshots untracked/intocados.
