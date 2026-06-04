@@ -200,8 +200,11 @@ async function main(): Promise<void> {
     const total = Number((await pool.query(`SELECT count(*)::int AS n FROM company_concept_publications WHERE company_id=$1 AND concept_id=$2`, [cPub, primaryConceptId])).rows[0].n);
     record('T10 re-publish após retire → 200 + 1 active + histórico (≥2 linhas)', r10.statusCode === 200 && (await activeCount(cPub)) === 1 && total >= 2, `status=${r10.statusCode} total=${total}`);
 
-    // T11/12/13/14 — não-toque
-    record('T11 tenant_concept_offerings inalterada', Number((await pool.query(`SELECT count(*)::int AS n FROM tenant_concept_offerings`)).rows[0].n) === tcoBefore);
+    // T11/12/13/14 — projeção + não-toque
+    // (Projeção F-PJ-PROJECTION-WRITER: publish/retire agora atualizam tco como read-model derivado.
+    //  Após T10 (cPub re-publicada), tco(tenant, primaryConcept) deve refletir is_active=true.)
+    const tcoRefl = (await pool.query<{ n: string; act: string }>(`SELECT count(*)::text AS n, count(*) FILTER (WHERE is_active)::text AS act FROM tenant_concept_offerings WHERE tenant_id=$1 AND concept_id=$2`, [TENANT_ID, primaryConceptId])).rows[0];
+    record('T11 projeção: tco(tenant,primaryConcept) reflete publicação ativa (1 row, is_active=true)', tcoRefl.n === '1' && tcoRefl.act === '1', `tcoBefore=${tcoBefore} refl=${JSON.stringify(tcoRefl)}`);
     record('T12 Bank intocado (bank_transactions inalterado)', Number((await pool.query(`SELECT count(*)::int AS n FROM bank_transactions`)).rows[0].n) === bankBefore);
     const actorTypes = await pool.query<{ t: string }>(`SELECT DISTINCT actor_type AS t FROM actors`);
     record('T13 actors só user/page (marketplace/hybrid intocado)', actorTypes.rows.every((r) => r.t === 'user' || r.t === 'page'), JSON.stringify(actorTypes.rows.map((r) => r.t)));

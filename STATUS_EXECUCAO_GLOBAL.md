@@ -1,3 +1,19 @@
+## 2026-06-04 — F-PJ-PUBLICATION-OFFERING-PROJECTION-WRITER: publicação acende no discovery
+
+**Branch:** `rescue-structural` · **HEAD origem:** `21e0beef`. Frente `F-PJ-PUBLICATION-OFFERING-PROJECTION-WRITER` (backend, governada por DECISION-0099/0100 D10). Zero schema/migration/frontend; reader `marketplace-contextual`/hybrid/Bank/KYB-writer/fiscal/onboarding/createCompany/company_status intocados. Os 3 untracked autorais intocados.
+
+**O que entregou:** a placa acesa no discovery — a partir do SSOT, sem dar trono ao read-model. O writer `company-publications.service.ts` passou a projetar `tenant_concept_offerings` (read-model derivado, DECISION-0100 D10) na MESMA transação: **publish** → `projectOfferingActive` (UPSERT `(tenant_id, concept_id, is_active=true)` ON CONFLICT, idempotente via UNIQUE tenant×concept); **unpublish** → `refreshOfferingAfterRetire` (reconta publicações active do tenant+concept: ≥1 → is_active=true; nenhuma → UPDATE is_active=false, sem criar/apagar legado). Falha na projeção rollbacka o writer (atomicidade SSOT↔projeção). `tenant_concept_offerings` permanece read-model (NÃO SSOT); `company_concept_publications` é a origem.
+
+**Arquivos:** `company-publications.service.ts` (2 helpers + projeção em publish/retire), `validate-pipeline-e2e-pj-publication-projection.ts` (novo), `run-pj-publication-projection-ephemeral.ps1` (novo), `validate-pipeline-e2e-pj-publication-writer.ts` (T11 ajustado: tco reflete a publicação, não mais "inalterada").
+
+**Prova:** e2e projeção **13/13** (DB efêmera, app.inject, teardown DROP): publish→tco active; idempotente→sem duplicar (count=1); 2 empresas mesmo tenant+concept→tco active; unpublish 1 de 2→continua active; unpublish última→is_active=false (row mantida); re-publish→reativa; KYB pending→409+tco inalterada; **legacy tco (outro concept) intocado**; ccp SSOT origem⇒tco consequência; Bank/actors-só-user-page/company_status não-toque. Writer e2e re-rodado **20/20** (T11 reflete projeção). Backend tsc: só 2 baseline geo. 4 gates OK (warning_new=1 = c3 pré-existente).
+
+**DTs:** `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` → **CLOSED** (shape+writer+projeção entregues; discovery aceso a partir do SSOT). **Criadas** `DT-PJ-PUBLICATION-OFFERING-KYB-REVOCATION-PROJECTION` (OPEN — perda futura de KYB não retira publicação/projeção) e `DT-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD` (OPEN — rebuild idempotente p/ tco legado em prod). `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` OPEN; `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` PARTIALLY MITIGATED/GOVERNED; `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` CLOSED.
+
+**PRÓXIMA ETAPA:** `F-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD` (rebuild idempotente p/ prod não-zero) OU `F-PJ-PUBLICATION-OFFERING-KYB-REVOCATION` (KYB-change retira publicação / reader filtra KYB) OU read-only marketplace `hybrid` (ortogonal).
+
+---
+
 ## 2026-06-04 — F-PJ-PUBLICATION-OFFERING-WRITER-NO-PROJECTION: writer publish/unpublish da oferta PJ
 
 **Branch:** `rescue-structural` · **HEAD origem:** `ac064c01`. Frente `F-PJ-PUBLICATION-OFFERING-WRITER-NO-PROJECTION` (backend, governada por DECISION-0099/0100). Zero schema/migration/frontend; `tenant_concept_offerings`/marketplace/hybrid/Bank/KYB-writer/createCompany/company_status/onboarding intocados. Os 3 untracked autorais intocados.

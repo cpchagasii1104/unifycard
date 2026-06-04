@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.53) — F-PJ-PUBLICATION-OFFERING-PROJECTION: a placa acesa no discovery
+
+HEAD antes `21e0beef` → commit "feat(pj): project publication offerings to discovery". O writer de publicação passou a projetar tenant_concept_offerings (read-model derivado, DECISION-0100 D10) na MESMA transação: publish → projectOfferingActive (UPSERT is_active=true ON CONFLICT tenant×concept); unpublish → refreshOfferingAfterRetire (reconta active do tenant+concept: ≥1→true, 0→UPDATE false, sem criar/apagar legado). Falha na projeção rollbacka. tco continua read-model (NÃO SSOT); ccp é origem. Reader marketplace-contextual INTOCADO (efeito indireto: passa a enxergar tenants porque tco foi atualizado).
+
+e2e projeção 13/13 (incl. 2 empresas mesmo tenant+concept, unpublish-uma-mantém-active, unpublish-última-desativa, legacy tco de outro concept intocado, KYB pending não muda tco). Writer e2e 20/20 (corrigi T11: era "tco inalterada", agora "tco reflete a publicação"). Backend tsc só baseline geo; 4 gates OK.
+
+DTs: **FECHEI** DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING (shape+writer+projeção entregues — escopo central completo). Criei 2 resíduos como frentes próprias: DT-PJ-PUBLICATION-OFFERING-KYB-REVOCATION-PROJECTION (perda futura de KYB não retira publicação; gap temporal) e DT-PJ-TENANT-CONCEPT-OFFERINGS-LEGACY-REBUILD (rebuild idempotente p/ tco legado em prod não-zero). **Cadeia PJ publicação COMPLETA ponta-a-ponta: norma(0099)→modelo(0100)→schema→writer→projeção→discovery.** Próximo (escolha Clayton): legacy-rebuild / KYB-revocation / marketplace hybrid read-only. Esta fatia acendeu a placa no discovery sem dar trono ao read-model.
+
+---
+
 ## Sessão 2026-06-04 (cont.52) — F-PJ-PUBLICATION-OFFERING-WRITER: a placa escrita (sem acender no discovery)
 
 HEAD antes `ac064c01` → commit "feat(pj): add publication offering writer". Implementei o writer de publicação PJ: company-publications.service.ts (publishCompanyConcept/retireCompanyConceptPublication) + POST /companies/:companyId/publications e .../publications/:conceptId/retire. Gates: canManageCompany (403) + empresa operacional primary_* (409 COMPANY_NOT_OPERATIONAL) + concept=primary_concept_id (400 CONCEPT_NOT_ACTIVATED) + page-actor derivado de actors (409 PAGE_ACTOR_MISSING) + KYB approved (409 KYB_NOT_APPROVED). Idempotente; audit inline created_by/retired_by = actor humano via ensureUserActor (backend-side, não do frontend); SELECT FOR UPDATE; UNIQUE parcial rede final. Unpublish sem KYB (retração sempre possível). NÃO toca tenant_concept_offerings (projeção = frente própria).

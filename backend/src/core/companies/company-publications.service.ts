@@ -67,6 +67,41 @@ async function resolvePageActorId(tenantId: string, companyId: string): Promise<
   return pageActor.id;
 }
 
+type TxClient = { query: (sql: string, params?: unknown[]) => Promise<{ rowCount: number | null; rows: unknown[] }> };
+
+/**
+ * Projeção de discovery (DECISION-0100 D10): tenant_concept_offerings é READ-MODEL derivado, NÃO SSOT.
+ * Marca a oferta tenant×concept como ativa quando há publicação soberana active. Idempotente via
+ * UNIQUE(tenant_id, concept_id). Roda DENTRO da transação do writer (atomicidade SSOT↔projeção).
+ */
+async function projectOfferingActive(client: TxClient, tenantId: string, conceptId: string): Promise<void> {
+  await client.query(
+    `INSERT INTO tenant_concept_offerings (tenant_id, concept_id, is_active)
+     VALUES ($1, $2, true)
+     ON CONFLICT (tenant_id, concept_id) DO UPDATE SET is_active = true, updated_at = now()`,
+    [tenantId, conceptId]
+  );
+}
+
+/**
+ * Recalcula a projeção após retirar uma publicação: tenant oferece o concept SSE resta ≥1 publicação
+ * active do mesmo tenant+concept (derivação D10). Desativa via UPDATE (NÃO cria linha inactive nova);
+ * NÃO apaga legado. Roda na mesma transação do retire.
+ */
+async function refreshOfferingAfterRetire(client: TxClient, tenantId: string, conceptId: string): Promise<void> {
+  const remaining = await client.query(
+    `SELECT 1 FROM company_concept_publications
+      WHERE tenant_id = $1 AND concept_id = $2 AND status = 'active' LIMIT 1`,
+    [tenantId, conceptId]
+  );
+  const stillOffered = (remaining.rowCount ?? 0) > 0;
+  await client.query(
+    `UPDATE tenant_concept_offerings SET is_active = $3, updated_at = now()
+      WHERE tenant_id = $1 AND concept_id = $2`,
+    [tenantId, conceptId, stillOffered]
+  );
+}
+
 export const companyPublicationsService = {
   /**
    * Publica a empresa para um concept (MVP: concept === companies.primary_concept_id).
@@ -131,6 +166,8 @@ export const companyPublicationsService = {
         [companyId, conceptId]
       );
       if ((existing.rowCount ?? 0) > 0) {
+        // Projeção idempotente (garante discovery active mesmo no caminho idempotente).
+        await projectOfferingActive(client, tenantId, conceptId);
         await client.query('COMMIT');
         return {
           publicationId: existing.rows[0].id,
@@ -149,6 +186,8 @@ export const companyPublicationsService = {
          RETURNING id, published_at::text AS published_at`,
         [tenantId, companyId, pageActorId, conceptId, humanActor.actor_id, source, intent]
       );
+      // Acende a oferta no discovery (read-model derivado, mesma transação).
+      await projectOfferingActive(client, tenantId, conceptId);
       await client.query('COMMIT');
       return {
         publicationId: ins.rows[0].id,
@@ -216,6 +255,8 @@ export const companyPublicationsService = {
           RETURNING id, retired_at::text AS retired_at`,
         [humanActor.actor_id, active.rows[0].id]
       );
+      // Recalcula a projeção: mantém active se resta outra publicação active do tenant+concept; senão desativa.
+      await refreshOfferingAfterRetire(client, tenantId, conceptId);
       await client.query('COMMIT');
       return {
         publicationId: upd.rows[0].id,
