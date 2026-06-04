@@ -1,3 +1,19 @@
+## 2026-06-04 — F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION: tabela soberana company_concept_publications
+
+**Branch:** `rescue-structural` · **HEAD origem:** `7b634bec`. Frente `F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION` (schema-only, governada por DECISION-0099/0100). Zero writer/rota/backend-runtime/frontend; `tenant_concept_offerings`/marketplace/hybrid/companies/fiscal/Bank intocados; sem backfill/dados. Os 3 untracked autorais intocados.
+
+**O que entregou:** o "poste" da placa pública — a tabela soberana de publicação/oferta PJ. Migration `backend/migrations/20260604140000_create_company_concept_publications.sql` (forward-only/transacional/idempotente, CREATE TABLE IF NOT EXISTS + índices IF NOT EXISTS). Granularidade company/page-actor×concept (DECISION-0100 D2/D3). Cols: tenant_id, company_id, page_actor_id, concept_id, status('active'|'retired'), published_at, retired_at, created_by_actor_id, retired_by_actor_id, source('manual' default), intent, created_at, updated_at. FK: tenant_id→tenants(id), company_id→companies(**company_id**), page_actor_id/created_by_actor_id/retired_by_actor_id→actors(id), concept_id→concepts(concept_id) (ON DELETE default — sem cascade silencioso). CHECK chk_ccp_status + chk_ccp_lifecycle (active⇒retired_at/by NULL; retired⇒retired_at NOT NULL) + chk_ccp_published_at. UNIQUE parcial `uq_ccp_active_company_concept (company_id, concept_id) WHERE status='active'` (anti-duplicidade D8). Índices ativos: tenant×concept, page_actor, company, concept. COMMENTs explicam SSOT de publicação ≠ ativação e tco = read-model.
+
+**Aplicação:** runner canônico `tsx src/core/db/migrate.ts` (EXPECTED_DATABASE_NAME=unificard_dev). Dev **357→358** migrations. Verificado: ccp 6 FKs + 3 CHECKs + UNIQUE-partial-active + 4 índices; **0 linhas** (sem backfill); `tenant_concept_offerings` inalterada (6 cols tenant×concept, 0 linhas).
+
+**Prova:** e2e schema `validate-pipeline-e2e-pj-publication-schema.ts` + wrapper `run-pj-publication-schema-ephemeral.ps1` → **25/25** (DB efêmera, BEGIN/ROLLBACK, teardown DROP): tabela+13 colunas; status active/retired OK; status inválido→23514; lifecycle (active+retired_at→23514, retired sem retired_at→23514); UNIQUE 2ª active→23505; histórico (retired+nova active coexistem); FK company/page_actor/concept inválida→23503; tco inalterada; zero dado persistido. Correções na fatia: chain identity p/ o human actor (chk_actor_requires_identity) + concept distinto p/ isolar FK de page_actor (UNIQUE mascarava). Backend tsc: só 2 baseline geo-enrichment. 4 gates OK (warning_new=1 = c3 pré-existente).
+
+**DTs:** `DT-PJ-PUBLICATION-OFFERING-SOVEREIGN-SHAPE-MISSING` → **PARTIALLY MITIGATED** (tabela criada; falta o writer — **não CLOSED**); `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` OPEN; `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` PARTIALLY MITIGATED/GOVERNED; `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` CLOSED.
+
+**PRÓXIMA ETAPA:** `F-PJ-PUBLICATION-OFFERING-WRITER` (publish/unpublish gated: KYB approved via authority-decision + `canManageCompany` + page-actor; concept = primary_concept_id; idempotente; audit) — recomenda-se READ-ONLY/desenho antes. Ortogonal: read-only marketplace `hybrid`.
+
+---
+
 ## 2026-06-04 — DECISION-0100: modelo de schema/writer de publicação PJ (company_concept_publications) — docs-only
 
 **Branch:** `rescue-structural` · **HEAD origem:** `e5163e60`. Frente `F-PJ-PUBLICATION-OFFERING-SCHEMA-DECISION` (docs-only). Zero código/schema/migration/runtime/Bank/KYB/marketplace/onboarding/`tenant_concept_offerings`. Os 3 untracked autorais intocados.

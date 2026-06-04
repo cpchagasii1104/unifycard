@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.51) — F-PJ-PUBLICATION-OFFERING-SCHEMA-MIGRATION: o poste da placa
+
+HEAD antes `7b634bec` → commit "feat(pj): add publication offering schema". Criei a tabela soberana company_concept_publications (migration 20260604140000), aplicada em dev pelo runner canônico (357→358). Granularidade company/page-actor×concept (0100 D2/D3). FK reais do schema vivo: companies(company_id) [NÃO id], tenants(id), actors(id) ×3 (page_actor/created_by/retired_by), concepts(concept_id). CHECK status active|retired + lifecycle + published_at; UNIQUE parcial (company_id,concept_id) WHERE active; índices ativos. ON DELETE default (sem cascade silencioso — lifecycle é retirement, não delete). 0 linhas (sem backfill, 0099 D2/0100 D11). tco intocada (read-model).
+
+e2e schema 25/25 (efêmero, BEGIN/ROLLBACK): colunas/tipos, CHECK status+lifecycle (23514), UNIQUE 2ª active (23505), histórico retired+active, FK inválidas (23503), tco inalterada, zero persistência. Dois ajustes de fixture: (1) chk_actor_requires_identity exige global_user_id p/ actor 'user' → seedei chain identity; (2) FK de page_actor mascarada pela UNIQUE ativa → usei concept distinto p/ isolar. Backend tsc só baseline geo; 4 gates OK.
+
+DT SOVEREIGN-SHAPE-MISSING → PARTIALLY MITIGATED (tabela existe; falta writer — não CLOSED). **Próximo:** F-PJ-PUBLICATION-OFFERING-WRITER (publish/unpublish gated: reusa authority-decision.evaluateKybLayer p/ KYB approved + canManageCompany + page-actor; concept=primary_concept_id; idempotente; audit inline). Recomendo desenho read-only antes. Ortogonal: read-only marketplace hybrid. Esta fatia cravou o poste; ainda não pendura placa.
+
+---
+
 ## Sessão 2026-06-04 (cont.50) — DECISION-0100: modelo do schema de publicação (company_concept_publications)
 
 HEAD antes `e5163e60` → commit "decisions: define PJ publication offering schema model". Após o guardião read-only do desenho de schema/writer, promulguei DECISION-0100 (próximo nº livre; 0099 era o maior) ratificando as sub-decisões técnicas antes de qualquer migration. D1 Opção 3 (tabela soberana + tco como projeção); D2 nome company_concept_publications; D3 granularidade tenant/company/page_actor/concept; D4 MVP só primary_concept_id (CONCEPT_NOT_ACTIVATED); D5 KYB approved (reusa authority-decision.evaluateKybLayer, 0088/0094); D6 autoridade canManageCompany + page-actor (PUBLICATION_FORBIDDEN); D7 lifecycle active|retired; D8 UNIQUE parcial (company_id,concept_id) WHERE active; D9 audit inline; D10 tco read-model derivado (reader contextual intocado); D11 sem backfill/auto-publish/apagar legado; D12 bloqueios.
