@@ -1,3 +1,22 @@
+## 2026-06-04 — DECISION-0091: destino da FASE 12 QR (writer fóssil de VERIFIED) — docs-only
+
+**Branch:** `rescue-structural` · **HEAD origem:** `d8d72666`. **Docs-only**; zero código/schema/migration/rota/frontend/DML/Bank. Fixa achado + destino; executor cirúrgico depois. Os 2 screenshots untracked/intocados.
+
+**Achado material (read-only/design Fase 2.5):** a FASE 12 QR (`validateInPerson`) — apontada como "último writer vivo de VERIFIED" — é na verdade **fóssil runtime-dead**:
+- escreve contra o schema **rico** de `migrations_archive/0047_company_validations.sql` (**não aplicado**);
+- o `company_validations` **vivo** (`0066:37`) tem só 5 colunas; `partner_employees` vivo não tem `name`/`active`; **`companies.verifiedAt` NÃO EXISTE**;
+- logo INSERT/SELECT/UPDATE lançam "column does not exist" → **não consegue escrever VERIFIED**;
+- **`verifiedAt` é ghost de CÓDIGO, não coluna**;
+- `requestValidation`/QR segue na UI (`CompanyValidationModal`) mas só gera token (não escreve); `validateInPerson` sem caller no frontend principal.
+
+**Promulgada (`DECISION-0091`):** regra-mãe (FASE 12 nunca verifica fiscalmente; fonte única `kyb_status='approved'`); **destino = neutralizar o writer `validateInPerson`** (executor Fase 2.5 — `PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED`, zero write); **manter `requestValidation`/QR inerte** (remoção/UX é decisão de produto/Codex); **evidência presencial KYB = greenfield futuro** (não cleanup; exigiria emenda DECISION-0087 + migration); `document_type` não ampliado; dados geo/device/employee têm superfície LGPD (trilho próprio futuro); `company_validations`/`partner_employees` vivos são vestígios (reconstrução = feature nova). Executor 2.5 **cirúrgico**: só `validateInPerson`, sem tocar QR/frontend/schema.
+
+**DTs:** `DT-PJ-FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING` (achado runtime-dead absorvido, OPEN) · `DT-PJ-VERIFIED-AT-LEGACY-THIRD-GHOST` (verifiedAt = ghost de código, OPEN) · `DT-PJ-LEGACY-VERIFIED-WRITERS-MULTIPLE` (OPEN até executor 2.5) · `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN). Nenhuma DT criada/fechada.
+
+**PRÓXIMA ETAPA:** executor **Fase 2.5** — tombstone em `validateInPerson` (erro claro, zero write). Sem tocar `requestValidation`/QR/frontend. Depois Fase 3 (schema/lifecycle: `company_status`/`is_verified` + remover referência a `verifiedAt` no código).
+
+---
+
 ## 2026-06-04 — PJ VERIFIED WRITERS Fase 2.4 IMPLEMENTADA: reviewCompanyValidation não verifica empresa
 
 **Branch:** `rescue-structural` · **HEAD origem:** `ab2b28bd`. Frente `F-PJ-VERIFIED-WRITERS-2.4` (DECISION-0090 §4.5). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-B/F2-C/FASE12/frontend. Os 2 screenshots untracked/intocados.

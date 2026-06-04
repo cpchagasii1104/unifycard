@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.24) — DECISION-0091: destino da FASE 12 QR (writer fóssil)
+
+Após READ-ONLY/DESIGN da FASE 12 (Fase 2.5) + Clayton ratificando, despachei envelope docs-only. Promulguei `DECISION_0091_PJ_FASE12_QR_DESTINATION.md` (0091).
+
+Achado que mudou o jogo: a FASE 12 (validateInPerson), supostamente "último writer vivo de VERIFIED", é FÓSSIL RUNTIME-DEAD. O código escreve contra schema rico de migrations_archive/0047 (não aplicado); o company_validations vivo (0066:37) tem só 5 colunas; partner_employees vivo não tem name/active; companies.verifiedAt NÃO EXISTE. Logo INSERT/SELECT/UPDATE lançam "column does not exist" — não escreve VERIFIED em runtime. verifiedAt é ghost de CÓDIGO, não coluna. requestValidation/QR vive na UI (CompanyValidationModal) mas só gera token; validateInPerson sem caller no frontend principal.
+
+Decisões 0091: regra-mãe (FASE 12 nunca verifica); destino = neutralizar validateInPerson (executor Fase 2.5, PJ_LEGACY_IN_PERSON_VERIFIED_DISABLED, zero write); manter requestValidation/QR inerte (UX = Codex); evidência presencial KYB = greenfield futuro (não cleanup; exigiria emenda 0087 + migration); document_type não ampliado; geo/device/employee = superfície LGPD (trilho futuro); company_validations/partner_employees vivos = vestígios. Executor 2.5 cirúrgico: só o writer, sem QR/frontend/schema.
+
+DTs: FASE12-QR-KYB-EVIDENCE-DESIGN-MISSING (absorve runtime-dead, OPEN); VERIFIED-AT-LEGACY-THIRD-GHOST (verifiedAt=ghost de código, OPEN); LEGACY-VERIFIED-WRITERS-MULTIPLE + SECOND-TRUTH (OPEN até executor). Não criei DT nova (achado coube na FASE12 existente). Docs-only; commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** executor Fase 2.5 — tombstone em validateInPerson.
+
+---
+
 ## Sessão 2026-06-04 (cont.23) — PJ VERIFIED WRITERS Fase 2.4 IMPLEMENTADA (reviewCompanyValidation não verifica)
 
 Executei a Fase 2.4 da DECISION-0090 (envelope executor — a mais cirúrgica, toca E2E vivo). Reancorei (HEAD ab2b28bd, rescue-structural, unificard_dev).
