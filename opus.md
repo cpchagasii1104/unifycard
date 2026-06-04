@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.30) — PJ SOCIAL AUTHORITY KYB GATE IMPLEMENTADO (publish_feed/cast_vote)
+
+Executei a Fase Social Gate 1 da DECISION-0094 (envelope executor). Reancorei (HEAD af4e6cf9, rescue-structural, unificard_dev).
+
+Mudança: criei helper escopado modules/social/pj-kyb-gate.ts (isPageActorKybApproved: page→company→fiscal_identity→kyb_status, server-side, fail-closed, true só se approved). Gate em social-2.0.service (publish_feed, após canPerformAction, throw HttpError.forbidden se page e !approved) e social-votes.service (cast_vote, após auth, return {success:false} se page e !approved) — ambos ANTES de persistir. PF/user/grupos inalterados (guard actor_type='page'). NÃO toquei canActAs genérico nem F2-C.
+
+Prova: harness novo validate-pipeline-e2e-pj-social-kyb-gate (7/7) testando o helper (núcleo de decisão): approved→true; pending+company_status=VERIFIED→false (anti-2ª-verdade); rejected/suspended→false; sem-fiscal fail-closed; PF helper-false mas gate guarda por page; zero Bank. Fiação por typecheck+diff (fluxo completo de post/voto = seed pesado de post/poll/ownership, fora de proporção; envelope autorizou nível-helper). Typecheck 0; 4 gates OK.
+
+🏁 CONVERGÊNCIA: display(3.0)+enforcement social(Gate1)+F2-C(money)+CNPJ-lock(3.0) todos em fiscal_identities.kyb_status. PJ não-verificada não move dinheiro NEM tem voz pública. Gap display×enforcement FECHADO.
+
+DTs: AUTHORITY-SOCIAL-KYB-GATE-UNVERIFIED → CLOSED. SECOND-TRUTH OPEN (só schema/compat pende; nenhum gate/leitor vivo depende de company_status como verificação). Commit por caminho explícito; 2 screenshots untracked/intocados. **Próximo:** Fase 3.1-A compat textual (agora o portão fechou → pode pintar a placa): deprecar VERIFIED/APPROVED no tipo + is_verified + mensagens stale. Depois 3.3 (CHECK/drop + dados legados).
+
+---
+
 ## Sessão 2026-06-04 (cont.29) — DECISION-0094: gate KYB na authority social de PJ
 
 Após READ-ONLY Fase 3.1-B (auditoria do portão social) + Clayton ratificando Opção E, despachei envelope docs-only. Promulguei `DECISION_0094_PJ_SOCIAL_AUTHORITY_KYB_GATE.md` (0094).

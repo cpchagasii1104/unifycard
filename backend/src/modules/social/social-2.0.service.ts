@@ -725,6 +725,18 @@ export class Social2Service {
       );
     }
 
+    // DECISION-0094 Fase Social Gate 1: page-actor/PJ só publica feed se KYB approved.
+    // O canActAs (acima) é delegation-only e NÃO é KYB-aware — este gate fecha o broadcast
+    // público de PJ não-verificada. Fonte única = fiscal_identities.kyb_status (server-side,
+    // fail-closed). NUNCA company_status/is_verified. PF/user inalterado.
+    if (actor.actor_type === 'page') {
+      const { isPageActorKybApproved, PJ_KYB_SOCIAL_BLOCK_MESSAGE } = await import('./pj-kyb-gate');
+      const kybApproved = await isPageActorKybApproved(tenantId, actor.actor_id);
+      if (!kybApproved) {
+        throw HttpError.forbidden(PJ_KYB_SOCIAL_BLOCK_MESSAGE);
+      }
+    }
+
     // Preparar metadata com groupId e audit fields
     const metadata: Record<string, any> = {};
     if (groupId) {

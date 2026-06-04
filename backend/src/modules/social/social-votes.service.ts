@@ -128,10 +128,22 @@ export class SocialVotesService {
               message: 'Empresas em validação não podem votar em votações públicas. Complete a validação presencial para habilitar esta funcionalidade.' 
             };
           }
-          return { 
-            success: false, 
-            message: auth.reason || 'Você não tem permissão para votar. Continue usando a plataforma para desbloquear esta funcionalidade.' 
+          return {
+            success: false,
+            message: auth.reason || 'Você não tem permissão para votar. Continue usando a plataforma para desbloquear esta funcionalidade.'
           };
+        }
+      }
+
+      // DECISION-0094 Fase Social Gate 1: page-actor/PJ só vota se KYB approved.
+      // O canActAs (acima) é delegation-only e NÃO é KYB-aware — este gate impede voto público
+      // de PJ não-verificada. Fonte única = fiscal_identities.kyb_status (server-side, fail-closed).
+      // NUNCA company_status/is_verified. PF/user inalterado.
+      if (actor.actor_type === 'page') {
+        const { isPageActorKybApproved, PJ_KYB_SOCIAL_BLOCK_MESSAGE } = await import('./pj-kyb-gate');
+        const kybApproved = await isPageActorKybApproved(tenantId, actorId);
+        if (!kybApproved) {
+          return { success: false, message: PJ_KYB_SOCIAL_BLOCK_MESSAGE };
         }
       }
 

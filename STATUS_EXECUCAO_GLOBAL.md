@@ -1,3 +1,23 @@
+## 2026-06-04 — PJ SOCIAL AUTHORITY KYB GATE IMPLEMENTADO: publish_feed / cast_vote exigem kyb_status
+
+**Branch:** `rescue-structural` · **HEAD origem:** `af4e6cf9`. Frente `F-PJ-SOCIAL-AUTHORITY-KYB-GATE` (Fase Social Gate 1, DECISION-0094). Zero migration/schema/DML/Bank/identities-PF/KYB-writer/F2-C/FASE12/frontend/`canActAs`-genérico. Os 2 screenshots untracked/intocados.
+
+**Mudança (fecha o gap display×enforcement):**
+- **Helper novo** `backend/src/modules/social/pj-kyb-gate.ts`: `isPageActorKybApproved(tenantId, actorId)` resolve `page→company→fiscal_identity→kyb_status` server-side, fail-closed; `true` só se `kyb_status='approved'`. + constantes `PJ_KYB_SOCIAL_BLOCK_CODE`/`_MESSAGE`.
+- `social-2.0.service` (`publish_feed`): após `authorityService.canPerformAction` (delegation), **se `actor.actor_type==='page'` e !KYB-approved → `HttpError.forbidden(PJ_KYB_REQUIRED_FOR_SOCIAL_ACTION)`** antes do INSERT.
+- `social-votes.service` (`cast_vote`): após o bloco auth, **se page e !KYB-approved → `{success:false, message}`** antes do INSERT.
+- **PF/user e grupos inalterados** (gate guarda por `actor_type='page'`). `canActAs` genérico **não** tocado.
+
+**Prova (DB efêmera `validate-pipeline-e2e-pj-social-kyb-gate`, 7/7, via `run-pj-social-kyb-gate-ephemeral.ps1`):** núcleo `isPageActorKybApproved` — approved→true; pending+`company_status='VERIFIED'`→false (anti-2ª-verdade); rejected/suspended→false; sem-fiscal→fail-closed; PF→helper false mas gate guarda por page (PF inalterado); zero Bank. Fiação (services chamam só p/ page e bloqueiam) por typecheck + diff (fluxo completo de post/voto exigiria seed pesado de post/poll/ownership — fora de proporção; envelope autoriza prova no nível do helper). Typecheck 0; 4 gates OK.
+
+**🏁 CONVERGÊNCIA TOTAL:** display (Fase 1/3.0) + enforcement social (Gate 1) + gate financeiro (F2-C) + CNPJ-lock (3.0) **todos ancorados em `fiscal_identities.kyb_status`**. Verdade única em todos os portões vivos de verificação PJ. PJ não-verificada não move dinheiro (F2-C) **nem tem voz pública** (publish/vote).
+
+**DTs:** `DT-PJ-AUTHORITY-SOCIAL-KYB-GATE-UNVERIFIED` → **CLOSED**. `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` (OPEN — só schema/compat pende; nenhum gate/leitor vivo depende mais de company_status como verificação).
+
+**PRÓXIMA ETAPA:** **Fase 3.1-A** (compat textual — agora que o portão fechou: deprecar VERIFIED/APPROVED no tipo + is_verified + limpar comentários/mensagens stale; zero schema) · Social Gate 2 (helper compartilhado F2-C/social) · Fase 3.3 (CHECK/drop + dados legados).
+
+---
+
 ## 2026-06-04 — DECISION-0094: gate KYB na authority social de PJ (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `1c01bab9`. **Docs-only**; zero código/schema/migration/frontend/DML/Bank. Fixa regra + ordem; executor pequeno depois. Os 2 screenshots untracked/intocados.
