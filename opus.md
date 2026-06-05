@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.77) — F-PJ-CONCEPT-LABELS-SCHEMA-MIGRATION (eu escritora)
+
+HEAD `debc7e6f` → commit "feat(pj): concept_labels presentation schema". Schema-only (DECISION-0107). Migration 20260605170000_create_concept_labels: tabela GLOBAL (sem tenant_id), id PK uuid_generate_v4 (= o que concepts usa), concept_id FK→concepts, locale default pt-BR, context_key default default, label, short_label null, is_primary default true, source, timestamps. CHECKs btrim>0 (locale/context_key/label/source). partial-unique uq_concept_labels_one_primary (concept_id,locale,context_key) WHERE is_primary (≤1 primária; N alternativas). idx concept + (locale,context_key). concepts SECO (sem display_name). Label=apresentação não identidade (COMMENTs). SEM seed/endpoint/frontend.
+
+Lição da γ APLICADA: apliquei no dev pelo runner canônico (migrate.ts), confirmei 361→362 REGISTRADAS + new_reg=1 (registrada+checksum, zero fantasma) — não psql -f. e2e schema 21/21. \d confirmou tudo. Gates OK (numeração única 362, arch critical_new=0). DT-PJ-CONCEPT-DISPLAY-NAME-MISSING segue GOVERNED (schema entregue, não CLOSED).
+
+**Próximo (espera Clayton):** F-PJ-CONCEPT-LABELS-SEED-MVP (pt-BR curado dos 7) → expose endpoints (JOIN displayName) → wizard (displayName??slug). Ou Trilhos A/B / peixaria.
+
+---
+
 ## Sessão 2026-06-05 (cont.76) — DECISION-0107: display name de concept em concept_labels (docs-only)
 
 HEAD `7725a13f` → commit docs-only. Esteira: eu (Batedora) montei o menu read-only A/B/C de onde mora o display name de concept; Clayton decidiu B (tabela governada concept_labels) e me mandou escrever só a DECISION. Promulguei DECISION-0107: label = apresentação governada localizada, NÃO identidade; concepts fica seco (concept_id/slug/domain, sem display_name); label nunca é chave de identidade; read-model fallback honesto (sem label→null backend, frontend mostra slug). Aterra 18_DOMAIN_ONTOLOGY §5.2.2 (display_names LocalizedName[]). Shape: concept_labels (concept_id FK, locale default pt-BR, context_key, label, short_label, is_primary, source, timestamps; UNIQUE parcial 1-primary). Labels MVP curados dos 7. DT-PJ-CONCEPT-DISPLAY-NAME-MISSING → GOVERNED/DECISIONED (não CLOSED). Achado-chave da auditoria: CompanyOnboardingWizard.tsx:300 renderiza c.slug (slug técnico vaza na UI). Clayton autorizou SÓ a DECISION — não implementar migration ainda.

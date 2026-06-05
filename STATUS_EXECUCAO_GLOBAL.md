@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-CONCEPT-LABELS-SCHEMA-MIGRATION: cria concept_labels (schema-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `debc7e6f`. Frente schema-only (DECISION-0107). **Zero seed/endpoint/frontend/CNAE/Trilhos/Bank/runtime.** Os 7 labels MVP **não** semeados (fatia própria). 3 autorais intocados. _(Esteira: eu escritora, par verifica; lição da γ aplicada — runner canônico, não psql -f.)_
+
+**O que entregou:** o substrato da apresentação governada. Migration forward-only/idempotente `20260605170000_create_concept_labels.sql`: tabela GLOBAL `concept_labels` (sem tenant_id) — `id` PK `uuid_generate_v4()`, `concept_id` **FK→`concepts(concept_id)`**, `locale` (default `'pt-BR'`), `context_key` (default `'default'`), `label`, `short_label` NULL, `is_primary` (default true), `source`, timestamps; CHECKs `chk_cl_*` btrim>0 (locale/context_key/label/source); **partial-unique `uq_concept_labels_one_primary (concept_id, locale, context_key) WHERE is_primary`** (≤1 primária; N alternativas livres); idx `(concept_id)` + idx `(locale, context_key)`. `concepts` permanece **seco** (sem display_name). Label = apresentação, NÃO identidade (COMMENTs cravam: proibido resolver concept por label / WHERE-JOIN de identidade).
+
+**Arquivos:** `backend/migrations/20260605170000_create_concept_labels.sql`, `backend/src/scripts/validate-pipeline-e2e-pj-concept-labels-schema.ts`, `scripts/run-pj-concept-labels-schema-ephemeral.ps1`.
+
+**Prova:** e2e schema efêmero **21/21 verde** (tabela/8 colunas/tipos; FK inválido→23503; 1 primária OK + defaults pt-BR/default/true; 2ª primária mesmo (concept,locale,context)→23505; múltiplas NÃO-primárias OK; CHECKs vazio (locale/context_key/label/source)→23514; `concepts` seco; zero seed; Bank intocado; ROLLBACK zero-resíduo). Aplicada em `unificard_dev` pelo **runner canônico** (`tsx src/core/db/migrate.ts`): **361→362 registradas** (`new_reg=1` — registrada + checksum, **zero fantasma**, lição da γ aplicada); `\d` confirmou PK/FK/4 CHECK/partial-unique/2 idx. Backend tsc só baseline geo. Gates actor-writer/bank-ledger/regression-guards OK (numeração única 362); arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3).
+
+**DTs:** `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING` → GOVERNED/DECISIONED, **schema entregue** (não CLOSED — falta seed MVP + endpoints + frontend).
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-PJ-CONCEPT-LABELS-SEED-MVP` (seed pt-BR curado dos 7) → `...-EXPOSE-ENDPOINTS` (JOIN, displayName, fallback null) → `...-WIZARD` (frontend `displayName ?? slug`).
+
+---
+
 ## 2026-06-05 — DECISION-0107: display name de concept mora em concept_labels (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `7725a13f`. Frente `F-PJ-CONCEPT-DISPLAY-NAME` (docs-only). Zero schema/migration/seed/endpoint/frontend/runtime. 3 autorais intocados. _(Esteira: Batedora montou o menu read-only A/B/C; Clayton decidiu B; eu escrevo a DECISION.)_
