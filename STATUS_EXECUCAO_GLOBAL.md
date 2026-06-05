@@ -1,3 +1,21 @@
+## 2026-06-04 — DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD reconciliada: financeiro-* é viga (RFC C2), item-comercial é o drift real (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `685ad1b5` · working tree limpo (3 autorais). **Docs-only**; zero schema/runtime/frontend/DML/Bank.
+
+**Contexto.** Três auditorias paralelas read-only (`F-CONCEPTS-DOMAIN-LAYER-SEMANTICS-READONLY`: A/Norma, B/Schema, C/Blast) + reconciliação com evidência fresca corrigiram a premissa da DT. O registro inicial tratou as 3 camadas de `concepts.domain` como igualmente problemáticas — **não são.**
+
+**Correções materiais.**
+1. **`financeiro-*` NÃO é drift — é VIGA autorizada.** Ratificado por **RFC C2** (`docs/02_decisions/RFC_C2_seed_concepts_financeiros.md` + rollout + bank-link; seed `20260530507000`). **Load-bearing no Bank:** strings hardcoded em `bank-integration.service.ts:635` e `concept-financial-resolver.service.ts:17-54` (`FINANCIAL_DOMAINS`). Renomear/mover = blast radius no Bank. (A auditoria A errou por não ter lido a RFC C2.)
+2. **`item-comercial` é o drift REAL:** 35 concepts comerciais, **sem RFC própria**, paralelo ao N0 `produtos-e-comercio` (5 concepts); tratado como legado em `concept-resolution-context.ts:3`.
+3. **`domain='unificard'` é INERTE** (0 concepts/0 domains live; branch em `marketplace-contextual:43` não muda comportamento).
+4. **Desacoplamento confirmado:** ativação/publicação/company_type_allowed_concepts/CNAE/MarketplaceDomain decidem por `concept_id`, não por domain.
+
+**Bloqueio refinado.** `MarketplaceDomain → N0` segue bloqueado, mas pelo problema correto: semântica oficial de `concepts.domain` (multi-camada com `financeiro-*` legítimo) + split `item-comercial`(35) vs `produtos-e-comercio`(5). **Regra herdada: não mexer em `financeiro-*` (viga); a decisão real é sobre `item-comercial`.**
+
+**NÃO decidido.** Sem DECISION, sem schema, sem código. Próxima frente: `F-CONCEPTS-DOMAIN-LAYER-SEMANTICS-DECISION-READONLY` — agora com a premissa certa.
+
+---
+
 ## 2026-06-04 — DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD registrada: marketplace-domain mapping BLOQUEADO (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `d3acb4f3` · working tree limpo (3 autorais). **Docs-only**; zero schema/runtime/frontend/DML.

@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.65) — DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD reconciliada (docs-only)
+
+Rodei 3 auditorias paralelas read-only (A/Norma, B/Schema, C/Blast) sobre `concepts.domain` + reconciliei com evidência fresca. **Corrigi a premissa da DT (cont.64):** as 3 camadas NÃO têm o mesmo status.
+- **`financeiro-*` = VIGA autorizada**, não drift. RFC C2 (`docs/02_decisions/RFC_C2_seed_concepts_financeiros.md`) + load-bearing no Bank (`bank-integration.service.ts:635`, `concept-financial-resolver.ts FINANCIAL_DOMAINS`). Renomear = quebra Bank. (Auditoria A errou por não ler a RFC C2.)
+- **`item-comercial` = drift REAL:** 35 concepts, sem RFC, paralelo ao N0 produtos-e-comercio (5); legado em `concept-resolution-context.ts:3`.
+- **`unificard` = branch inerte** (0 rows; C exagerou).
+- Desacoplamento confirmado: ativação/publicação/company_type/CNAE usam concept_id, não domain.
+
+**Lição internalizada (Clayton cobrou):** tenho acesso ao banco/código — parar de hedge, ir verificar direto. Foi o que pegou os 2 erros das auditorias. **Regra: não mexer em `financeiro-*` (viga); a decisão real é `item-comercial`.** Próxima: `F-CONCEPTS-DOMAIN-LAYER-SEMANTICS-DECISION-READONLY` com premissa certa. Sem DECISION/schema/código nesta fatia.
+
+---
+
 ## Sessão 2026-06-04 (cont.64) — DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD (docs-only)
 
 Auditei o fork `MarketplaceDomain` (guardião read-only) → **não decide runtime vivo** (etiqueta/UX; `company_domains` GHOST removido; ativação/publicação decidem por par+concept). Ao mapear, bati na divergência 12 vs 21 e fiz **SELECT live** (`unificard_dev`): `domains`=**21** (12 N0 + 1 condicional `construcao` + 7 `financeiro-*` + 1 `item-comercial`); `concepts`=137; só 13 domínios com concept (8 N0 = shells vazios). **`concepts.domain` sobrecarregado em 3 camadas** (N0 atuação / financeiro / comercial). Split: `produtos-e-comercio`=5 vs `item-comercial`=35 → catálogo comercial real fora do N0. Zero órfãos (problema é semântico, não FK). 7 company_types usam só produtos-e-comercio+servicos.
