@@ -1,3 +1,17 @@
+## 2026-06-05 — Extensão DT catálogo canônico: pré-moldagem por company_type + scope (docs-only, Clayton)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `a6cdf601`. **Docs-only** (zero runtime/schema/seed/Bank/Trilhos). 3 autorais intocados. Clayton autorizou estender a `DT-PJ-CANONICAL-CATALOG-SHARED-ITEMS-NOT-PER-VERTICAL`.
+
+**O que registrou (regra de produto, NÃO implementação):** **formulação canônica** — *"O CNAE sugere a porta; o company_type pré-molda os ramos; o catálogo canônico fornece os itens globais; a empresa ativa seu mix. Não duplicar produto por vertical."* A extensão crava: (1) **pré-moldagem por `company_type`** (`default_department_slugs`/`default_branch_slugs`, já materializado — supermercado nasce com hortifruti/carnes-aves/mercearia/bebidas/limpeza/padaria; hortifruti/açougue isolados reutilizam os MESMOS itens canônicos), é estrutura inicial **não** identidade soberana; (2) **catálogo canônico compartilhado** (item industrializado = único: foto/gtin/brand/attributes 1×; empresa só ativa no mix); (3) **regra de scope** (industrializado tende a `scope='global'`+`tenant_id IS NULL`; tenant-scoped só p/ item próprio/artesanal/justificado; **sem enforcement agora**); (4) **cadeia conceitual** CNAE→company_type→CONCEPT→canonical_products→ativação→projeções; (5) **não implementar agora** (só registro; execução fica p/ Trilhos A/B); (6) **peixaria = decisão pendente** (não inventar slug; supermercado pode precisar de peixaria/pescados, exige palavra explícita de Clayton).
+
+**Arquivos:** `REMEDIATION_DT_LOG.md` (extensão da DT), `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`. Zero código.
+
+**Substrato vivo confirmado (grounding):** `company_types` já tem `default_department_slugs`/`default_branch_slugs` populados nas 7 verticais; `canonical_products` = 35 itens com `gtin`/`images`/`brand`/`attributes`/`concept_id`/**`scope`**/`tenant_id`. A pré-moldagem e o catálogo canônico **já existem** como substrato; o que falta é a frente Trilhos A/B ativar isso governadamente (e o enforcement de scope global).
+
+**PRÓXIMA ETAPA (espera Clayton):** read endpoint de sugestão CNAE→concept · display name de concept · Trilhos A/B (governado pela DT estendida) · decisão peixaria.
+
+---
+
 ## 2026-06-05 — γ VERIFICAÇÃO (par read-only) + reconciliação dev + regra canônica de catálogo (ADENDO Clayton)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `13e81585` · **Papel:** verificadora (read-only sobre o seed γ da instância irmã) + registro da regra de produto do ADENDO Clayton. **Docs-only** (+ reconciliação de estado dev, sem código). 3 autorais intocados.

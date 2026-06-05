@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.74) — Extensão DT catálogo canônico: pré-moldagem + scope (docs-only)
+
+HEAD `a6cdf601` → commit docs-only. Clayton explicou a visão da empresa pré-moldada + catálogo canônico compartilhado e mandou estender a DT-PJ-CANONICAL-CATALOG-SHARED-ITEMS-NOT-PER-VERTICAL. Confirmei no banco vivo que AMBAS as metades já são substrato: company_types tem default_department_slugs/default_branch_slugs populados (supermercado = hortifruti/carnes-aves/mercearia/bebidas/limpeza/padaria); canonical_products = 35 itens com gtin/images/brand/attributes/concept_id/scope/tenant_id. Estendi a DT com 6 pontos: (1) pré-moldagem por company_type = estrutura inicial não identidade soberana; (2) catálogo canônico (item industrializado único, foto 1×); (3) regra de scope (industrializado→global+tenant_id null; tenant-scoped só artesanal/justificado; sem enforcement agora); (4) cadeia CNAE→company_type→CONCEPT→canonical_products→ativação→projeções; (5) não implementar agora; (6) peixaria = decisão pendente (não inventar slug). Formulação canônica: "O CNAE sugere a porta; o company_type pré-molda os ramos; o catálogo canônico fornece os itens globais; a empresa ativa seu mix. Não duplicar produto por vertical." Zero runtime/schema.
+
+Liga com project_ontology (memória): "empresas nascem pré-estruturadas por categoria" + ProductTemplate reusado 1× (existência ontológica vs disponibilidade comercial tenant_products/product_offers). Risco a vigiar nos Trilhos A/B: canonical_products tem tenant_id+scope; industrializado precisa ser scope=global senão volta a duplicação.
+
+**Próximo (espera Clayton):** read endpoint CNAE→concept · display name · Trilhos A/B (governado pela DT estendida) · decisão peixaria. Formato novo do Clayton: info p/ outra IA = bloco copiável único; info p/ ele = marcar **CLAYTON**.
+
+---
+
 ## Sessão 2026-06-05 (cont.73) — γ VERIFICAÇÃO (verificadora) + reconciliação dev + DT catálogo canônico
 
 HEAD `13e81585` (γ seed da instância irmã). Papel: verificadora read-only + ADENDO Clayton. Verifiquei o seed contra o banco vivo: 8 linhas por slug + guard allowed-pair + fail-closed COUNT=8 + idempotente + zero vazamento = APROVADO. **CATCH meu:** o seed estava no dev (8 rows) mas NÃO registrado em schema_migrations (361 arquivos/360 registrados — aplicado via psql -f, não pelo runner canônico). Benigno/self-healing, mas dev não-rastreado. Reconciliei: rodei migrate.ts → aplicou 20260605120000 propriamente (0 rows novos, idempotência provada na prática, gate passou) → dev 360→361. (Mesmo padrão dos catches anteriores: report confiante, banco vivo refina — "gates verdes 361" era contagem de ARQUIVO, não de registrado.)

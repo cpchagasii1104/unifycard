@@ -11324,3 +11324,24 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** se os Trilhos A/B forem implementados criando itens por vertical, surge duplicação de identidade de produto (mesma mercadoria cadastrada N vezes) — fragmentação que viola a Lei de Coerência Sistêmica e a ontologia N0/N1/N2 (ProductTemplate único reutilizado).
 - **Mitigação atual:** nenhuma (regra registrada; Trilhos A/B não implementados). O γ/CNAE seed **já respeita** a regra: a matriz só sugere `concept`/trilho, não cria itens; o header da migration `20260605120000` declara "NÃO abre Trilhos A/B".
 - **Resolução prevista (frente Trilhos A/B):** o catálogo dos Trilhos A/B deve derivar de `canonical_products` (itens canônicos compartilhados, lastro `item-comercial`), com **ativação por empresa** (`tenant_products`/`product_offers`); preço/estoque/disponibilidade como projeção da empresa. **NÃO** criar catálogo por CNAE/vertical. **NÃO executar** Trilhos A/B antes da palavra de Clayton.
+
+### Extensão (Clayton 2026-06-05) — pré-moldagem por company_type + scope + cadeia conceitual
+
+**Formulação canônica:** *"O CNAE sugere a porta; o company_type pré-molda os ramos; o catálogo canônico fornece os itens globais; a empresa ativa seu mix. Não duplicar produto por vertical."*
+
+**1. Pré-moldagem por `company_type` (estrutura inicial, NÃO identidade soberana).**
+   - `company_types` pode trazer ramos/departamentos **default** (`default_department_slugs`/`default_branch_slugs` — já materializado no dev). É a **estrutura operacional inicial** da empresa, **não** identidade semântica soberana (essa é o CONCEPT).
+   - Ex.: **supermercado** nasce com `hortifruti, carnes-aves, mercearia, bebidas, limpeza, padaria-confeitaria`. **Hortifruti isolado** nasce mais estreito, mas **reutiliza os mesmos itens canônicos** que o supermercado ativa no ramo hortifruti. **Açougue isolado** reutiliza os mesmos cortes canônicos que o supermercado ativa no ramo carnes/aves. Bebidas, limpeza, farmácia, padaria seguem a mesma lógica.
+
+**2. Catálogo canônico compartilhado.** Produto repetível/industrializado **não** é cadastrado por vertical. O item canônico é **único** (foto/`images`, `gtin`, `brand`, `attributes`, `concept_id` — uma vez). A empresa só **ativa** o item no seu mix com preço/estoque/disponibilidade/margem/embalagem operacional/publicação **próprios**. A **identidade do produto continua global/canônica**.
+
+**3. Regra de scope (`canonical_products.scope`/`tenant_id`).**
+   - Industrializado/repetível deve **tender a `scope='global'` e `tenant_id IS NULL`** (registrado 1×, compartilhado).
+   - `tenant-scoped` só deve ser aceito para item **próprio/artesanal/local/exclusivo** da empresa, ou caso **explicitamente justificado**.
+   - **Ainda não vira enforcement agora** — fica registrado como regra para os Trilhos A/B.
+
+**4. Separação conceitual (cadeia):** **CNAE** aponta a porta de entrada → **company_type** pré-molda a estrutura operacional (ramos) → **CONCEPT** define a identidade semântica → **`canonical_products`** define o item reutilizável (global) → **tenant/company** ativa o mix → **preço/estoque/oferta/publicação** = projeções operacionais da empresa.
+
+**5. NÃO implementar agora (escopo desta fatia = só registro):** não alterar runtime; não alterar schema; não criar enforcement; não seedar catálogo novo; não mexer em Bank; **não abrir Trilhos A/B** dentro desta fatia. Só registrar a regra em DT/STATUS/opus; a execução fica para a frente Trilhos A/B.
+
+**6. Peixaria — decisão de produto PENDENTE.** **Não** acrescentar ramo "peixaria/pescados" agora; **não inventar slug**. Registrado: supermercado **pode precisar** de ramo peixaria/pescados, mas exige **decisão explícita de Clayton** antes de qualquer seed/runtime.
