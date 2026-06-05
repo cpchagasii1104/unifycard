@@ -6651,3 +6651,19 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** materializa a reconciliação que DECISION-0102 D11 exigia; ratifica 0105 (semântica multi-camada) e 0102 (D12/D13).
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0106_MARKETPLACE_DOMAIN_TO_N0_MAPPING.md`; HEAD âncora `44e44f34`; `MarketplaceDomain`/`concepts.domain`/`domains`, `vehicles.service.ts:17,89`, `report-rides-vehicles-concept-mapping.ts`, `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK`.
+
+### DECISION-0107 — Display name de concept mora em `concept_labels` (apresentação governada, não identidade)
+
+- **Data:** 2026-06-05
+- **Tipo:** arquitetura / ontologia / apresentação (UX) PJ (docs-only)
+- **Contexto:** o read endpoint CNAE→concept e o catálogo de ativação devolvem o **slug técnico**; `CompanyOnboardingWizard.tsx:300` renderiza `c.slug` (usuário vê `varejo-alimentar-especializado-carnes`). Auditoria read-only `F-PJ-CONCEPT-DISPLAY-NAME` (esteira: Batedora montou o menu A/B/C, Clayton decidiu).
+- **Opções consideradas:** (A) coluna `concepts.display_name` — REJEITADA (mistura apresentação na identidade; sem locale; re-migração futura = falso barato); (B) **tabela governada `concept_labels`** — ESCOLHIDA; (C) reutilizar campo existente — N/A (não há campo legível vivo).
+- **Escolha:** Opção B (`concept_labels`).
+- **Justificativa:** CONCEPT continua identidade semântica (Lei 7); slug continua técnico; label é apresentação governada localizada (aterra `18_DOMAIN_ONTOLOGY §5.2.2 display_names`); `concepts` fica seco; label nunca é chave de identidade. Mesma disciplina do "CNAE é sinal, não identidade" (0104).
+- **Shape mínimo aprovado:** `concept_labels` (id, concept_id FK, locale default 'pt-BR', context_key default 'default', label, short_label, is_primary, source, timestamps); UNIQUE parcial 1-primary por (concept_id, locale, context_key).
+- **Consequências:** `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING` → GOVERNED/DECISIONED (não CLOSED — fecha após schema+seed+endpoints+frontend). Sequência futura: schema → seed pt-BR curado (7 MVP) → JOIN nos endpoints (displayName, fallback null) → frontend `displayName ?? slug`.
+- **Responsável:** Claude (executor) sob promulgação de Clayton; menu read-only pela Batedora.
+- **Validação prévia:** Clayton (decisão B + shape mínimo + labels MVP); auditoria read-only `F-PJ-CONCEPT-DISPLAY-NAME` cruzada com banco/código vivos.
+- **Supera:** aterra o `display_names` de `18_DOMAIN_ONTOLOGY §5.2.2`; ratifica Lei 7 + `project_frontend_nunca_cria_verdade`.
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0107_PJ_CONCEPT_DISPLAY_NAME_GOVERNED_LABELS.md`; HEAD âncora `7725a13f`; `concepts` (sem legível), `CompanyOnboardingWizard.tsx:300`, `suggestConceptForCnae`/`listAllowedConceptsForCompanyType`, `18_DOMAIN_ONTOLOGY §5.2.2`.

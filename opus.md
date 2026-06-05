@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.76) — DECISION-0107: display name de concept em concept_labels (docs-only)
+
+HEAD `7725a13f` → commit docs-only. Esteira: eu (Batedora) montei o menu read-only A/B/C de onde mora o display name de concept; Clayton decidiu B (tabela governada concept_labels) e me mandou escrever só a DECISION. Promulguei DECISION-0107: label = apresentação governada localizada, NÃO identidade; concepts fica seco (concept_id/slug/domain, sem display_name); label nunca é chave de identidade; read-model fallback honesto (sem label→null backend, frontend mostra slug). Aterra 18_DOMAIN_ONTOLOGY §5.2.2 (display_names LocalizedName[]). Shape: concept_labels (concept_id FK, locale default pt-BR, context_key, label, short_label, is_primary, source, timestamps; UNIQUE parcial 1-primary). Labels MVP curados dos 7. DT-PJ-CONCEPT-DISPLAY-NAME-MISSING → GOVERNED/DECISIONED (não CLOSED). Achado-chave da auditoria: CompanyOnboardingWizard.tsx:300 renderiza c.slug (slug técnico vaza na UI). Clayton autorizou SÓ a DECISION — não implementar migration ainda.
+
+Sequência futura: schema concept_labels → seed pt-BR 7 → JOIN endpoints (displayName) → frontend displayName??slug. Cada uma fatia própria, espera go do Clayton.
+
+**Próximo (espera Clayton):** F-PJ-CONCEPT-LABELS-SCHEMA-MIGRATION (quando ele liberar) · ou Trilhos A/B · peixaria.
+
+---
+
 ## Sessão 2026-06-05 (cont.75) — F-PJ-CNAE-TO-CONCEPT-SUGGESTION-READ-ENDPOINT (eu escritora)
 
 HEAD `41967c88` → commit "feat(pj): read endpoint CNAE-to-concept suggestion". Clayton serializou (go read endpoint, eu escrevo, par verifica). suggestConceptForCnae em companies.service (read-only, matriz global) + GET /companies/operational-activation/cnae-suggestion?cnae=. Normaliza CNAE (strip não-dígitos→7 dígitos) = fecha a SEAM de formato. Retorna concept slug/id, confidence, source, version, description(rationale), companyType derivado SÓ se 1 type permite (não vira autoridade), displayName=null honesto (concepts sem display name). 400 INVALID_CNAE; 200 data=null sem fallback. Só sugere — não ativa/escreve primary_*/publica/toca canonical_products/Bank. e2e 16/16 (app.inject: máscara=sem-máscara mesma sugestão; 400; null honesto; 8 intactas; zero writes). Gates OK. Sem migration (361). DTs: CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING → CLOSED (schema+seed+endpoint); CNAE-CODE-FORMAT-NORMALIZATION-SEAM → CLOSED (consumidor normaliza).

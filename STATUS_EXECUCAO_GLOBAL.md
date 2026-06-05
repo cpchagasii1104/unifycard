@@ -1,3 +1,17 @@
+## 2026-06-05 — DECISION-0107: display name de concept mora em concept_labels (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `7725a13f`. Frente `F-PJ-CONCEPT-DISPLAY-NAME` (docs-only). Zero schema/migration/seed/endpoint/frontend/runtime. 3 autorais intocados. _(Esteira: Batedora montou o menu read-only A/B/C; Clayton decidiu B; eu escrevo a DECISION.)_
+
+**O que entregou:** promulgou **DECISION-0107** (próximo nº livre; 0106 era o maior). Display name de concept mora em **tabela governada `concept_labels`** (Opção B) — apresentação localizada, **não** identidade. `concepts` fica **seco** (concept_id/slug/domain; **não** ganha `display_name`). Label nunca é chave de identidade (proibido resolver concept por label / WHERE-JOIN de identidade); read-model com **fallback honesto** (sem label → null backend; frontend mostra slug). Aterra o `display_names: LocalizedName[]` de `18_DOMAIN_ONTOLOGY §5.2.2`. **Shape mínimo fixado:** `concept_labels` (id, concept_id FK, locale default 'pt-BR', context_key default 'default', label, short_label, is_primary, source, timestamps; UNIQUE parcial 1-primary por concept/locale/context). **Labels MVP curados** dos 7 (Supermercado/Hortifruti/"Açougue / Varejo de Carnes"/Padaria/Farmácia/"Salão de Beleza / Estética"/Restaurante). Exposição futura por JOIN nos endpoints (`suggestConceptForCnae`, `listAllowedConceptsForCompanyType`). Sem i18n runtime agora (só coluna locale preparada).
+
+**Arquivos:** `docs/02_decisions/DECISION_0107_PJ_CONCEPT_DISPLAY_NAME_GOVERNED_LABELS.md` (novo), `REMEDIATION_DECISIONS_LOG.md`, `REMEDIATION_DT_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`, execution log. Zero código.
+
+**DTs:** `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING` → **GOVERNED / DECISIONED** (casa/shape definidos; **não CLOSED** — fecha após schema+seed+endpoints+frontend, D11/§13).
+
+**SEQUÊNCIA AUTORIZADA (execução futura, fatias separadas):** (1) esta DECISION; (2) `F-PJ-CONCEPT-LABELS-SCHEMA-MIGRATION` (schema-only + e2e); (3) `...-SEED-MVP` (pt-BR curado dos 7); (4) `...-EXPOSE-ENDPOINTS` (JOIN, displayName, fallback null); (5) `...-WIZARD` (frontend `displayName ?? slug`). **Clayton autorizou só a DECISION agora — não implementar migration ainda.**
+
+---
+
 ## 2026-06-05 — F-PJ-CNAE-TO-CONCEPT-SUGGESTION-READ-ENDPOINT: read endpoint CNAE→concept
 
 **Branch:** `rescue-structural` · **HEAD origem:** `41967c88`. Frente read endpoint (backend, governada por DECISION-0104). **Zero migration** (361→361) / activation / publish / canonical_products / Bank / Trilhos / frontend grande. 3 autorais intocados. _(Esteira: eu escritora, par read-only verifica, Clayton serializou "go read endpoint".)_
