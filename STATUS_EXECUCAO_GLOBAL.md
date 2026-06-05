@@ -1,3 +1,19 @@
+## 2026-06-05 — DECISION-0108: governança de produto PJ por categoria/ramo (não por vendor-concept) — docs-only
+
+**Branch:** `rescue-structural` · **HEAD origem:** `28131866`. Frente **docs-only** (promulgação de Clayton, Op-i). **Zero código/schema/migration/seed/guard-fix/Op2/Bank.** Dev segue 363. 3 autorais intocados. _(Esteira: eu escritora; auditoria read-only `F-PJ-PRODUCT-CONCEPT-GUARD` cruzou guard/banco vivos; par verifica.)_
+
+**O que entregou:** crava a norma após o STOP da Op2 — o `product-concept-guard` (`assertProductConceptAllowedForTenant`, em `product.repository.createProduct:102`) **nasceu antes da 0105** (1º commit `14111f7c` 2026-05-04) e **reconflata camadas**: compara `canonical_products.concept_id` (camada **item-comercial**/SKU) × `company_type_allowed_concepts.concept_id` (camada **vendor/atuação**). Por 0105 são camadas distintas → interseção zero → rejeita todo produto industrial com `company_type` setado; só passa pelo bypass com `tenants.company_type_id` NULL (falso-verde). **Decisão:** elegibilidade de produto é governada por **categoria/ramo pré-moldado** (o recorte que o store-onboarding já faz via `findCatalogProductsByCategories`), não por igualdade de concept; `company_type_allowed_concepts` permanece vendor-only; fonte = `companies.primary_company_type_id`. **D9 (nuance Clayton):** NÃO é no-op global — produto ainda passa pelo recorte de categoria/ramo quando há contexto; sem recorte e sem contexto → legado/compat ou fail-closed. "Trocar a régua errada, não desligar a segurança."
+
+**Arquivos:** `docs/02_decisions/DECISION_0108_PJ_PRODUCT_GOVERNANCE_BY_CATEGORY_BRANCH.md` (novo), `REMEDIATION_DT_LOG.md`, `REMEDIATION_DECISIONS_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`, `docs/03_execution_log/20260605_DECISION_0108_PRODUCT_GOVERNANCE.md`. **Markdown apenas.**
+
+**Prova:** docs-only — sem runtime tocado. 4 gates: actor-writer / bank-ledger / regression-guards OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3 baseline). **Migrations 363→363.**
+
+**DTs:** **Criada** `DT-PJ-PRODUCT-CONCEPT-GUARD-PRE-0105-LAYER-CONFLATION` (OPEN) — guard pré-0105 reconflata item-comercial × vendor + lê `tenants.company_type_id`; mitigação prevista = code-only `F-PJ-PRODUCT-CONCEPT-GUARD-LAYER-FIX` (D11). `DT-PJ-STAGE4-COMPANY-TYPE-SOURCE-DISCONNECT` segue PARTIALLY MITIGATED (guard é segundo leitor de tenants).
+
+**PRÓXIMA ETAPA (espera Clayton):** sequência autorizável — (2) `F-PJ-PRODUCT-CONCEPT-GUARD-LAYER-FIX` (code-only) → (3) `F-PJ-STAGE4-TRILHO-A-SUPERMERCADO` (Op2). Op2 só volta após 0108 + guard-fix.
+
+---
+
 ## 2026-06-05 — F-PJ-STAGE4-COMPANY-TYPE-BRIDGE (Op1): liga o Stage 4 na empresa, não no tenant
 
 **Branch:** `rescue-structural` · **HEAD origem:** `adbffb26`. Frente Op1 (ponte Classificação→Stage 4, backend code-only, decisão de Clayton). **Zero migration** (dev 363) / catálogo / seed / product_offers / Trilho B / Bank / popular tenants.company_type_id. 3 autorais intocados. _(Esteira: eu escritora, par verifica.)_
