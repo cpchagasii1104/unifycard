@@ -1,3 +1,21 @@
+## 2026-06-04 — DECISION-0104: governança da matriz CNAE → suggested concept (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `6daecd05`. Frente `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-DECISION` (docs-only). Zero código/schema/migration/seed/endpoint/backend-runtime/frontend/provider/KYB/marketplace/publication/Bank. Os 3 untracked autorais intocados.
+
+**O que entregou:** promulgou **DECISION-0104** (próximo nº livre; 0103 era o maior), consolidando a auditoria read-only `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX`. Fixa que a matriz CNAE→concept é **sinal de sugestão governado, não autoridade**: mapeia `cnae_code` → `suggested_concept_id` (CONCEPT = alvo/SSOT; **não** `MarketplaceDomain`, **não** N0, **não** company_type como identidade — D3); company_type **derivado** via `company_type_allowed_concepts` (D4); multi-candidato (D5); `confidence` com principal pesando mais que secundário (D6); `rationale`/`source`/`version` (D7); `review_status` (D8); **escopo MVP seletivo** — só CNAEs das 7 verticais vivas, **proibido importar CNAE oficial inteiro** (D9); exact-match primeiro (D10); sugestão **`pending`** com aplicação explícita (D11); **autoativação proibida** (D12 — não escreve `primary_*`/`company_concept_publications`/`tenant_concept_offerings`, não chama ativação); wizard pré-seleciona com confirmação, nunca silencioso (D13); consultoria/imóveis/veículos → nenhuma sugestão ou revisão (D14); **Empregos fora** da matriz (D15); alimenta **apenas a camada 1→2** do modelo 6-camadas, **não fecha** elegibilidade de domínios (D16). Ancorada no precedente de sinais semânticos (`RFC_SEMANTIC_SIGNALS_ONBOARDING_BRIDGE` RASCUNHO + `SEMANTIC_CATALOG_GOVERNANCE` — ambos em `02_decisions/`, não `01_normative/`; registrado).
+
+**Substrato vivo registrado (dev, 359 migrations):** 7 company_types (verticais varejo/alimentação/beleza); `company_type_allowed_concepts` = 7 (1:1 type↔concept); 137 concepts em 13 N0 **sem display name**; `concepts.domain` FK→`domains.domain_key` (21 N0); `fiscal_identity_economic_activities` viva (0 linhas); **sem catálogo/seed CNAE** no repo.
+
+**Arquivos:** `docs/02_decisions/DECISION_0104_PJ_CNAE_TO_CONCEPT_SUGGESTION_MATRIX.md` (novo), `docs/03_execution_log/20260604_PJ_CNAE_TO_CONCEPT_SUGGESTION_MATRIX_DECISION.md` (novo), `REMEDIATION_DECISIONS_LOG.md`, `REMEDIATION_DT_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`. **Docs-only** — zero runtime.
+
+**DTs:** `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` → **GOVERNED/DECISIONED** (não CLOSED — falta schema+seed+endpoint). **Criada** `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING` (OPEN). Notas: `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` permanece PARTIALLY/GOVERNED (matriz alimenta só 1→2); `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` permanece OPEN (pré-req de allowed-domains, não bloqueia a matriz). Não reabrir: CNAE-EVIDENCE-NOT-PERSISTED / COMPANY-ACTIVITY-COLUMNS-GHOST / COMPANY-DOMAINS-GHOST-WRITER / COMPANY-STATUS-KYB-SECOND-TRUTH (CLOSED).
+
+**Gates (docs-only):** actor-writer/bank-ledger/regression-guards OK; `validate-architectural-patterns.mjs --strict` exit=0 (`critical_new=0`; `warning_new=1` = c3 `validate-pipeline-e2e-c3-actor-wallet-debit-recovery.ts:334`, baseline pré-existente, fora da fatia).
+
+**PRÓXIMA ETAPA:** `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SCHEMA-MIGRATION` (schema-only: tabela da matriz, sem seed/writer) → `...-SEED-MVP` (7 verticais) → `...-READ-ENDPOINT` → wizard suggestion. Ortogonal: `F-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK-READONLY` (pré-req da camada de domínios elegíveis, não da matriz). **REGRA:** esta sessão decide como o CNAE pode sugerir; não deixa o CNAE escolher.
+
+---
+
 ## 2026-06-04 — F-PJ-CNAE-EVIDENCE-WRITER: liga o aparelho na tomada fiscal (persiste CNAE)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `4fe6e764`. Frente `F-PJ-CNAE-EVIDENCE-WRITER` (backend, governada por DECISION-0103 D2/D3/D5/D7/D8). Zero migration/schema/provider-change/frontend/marketplace/publication/KYB/Bank. Os 3 untracked autorais intocados.

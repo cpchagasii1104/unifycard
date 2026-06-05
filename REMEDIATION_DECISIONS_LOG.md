@@ -6607,3 +6607,18 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** executa o degrau 1 (evidência fiscal) de DECISION-0102; ratifica `fiscal_identities` como casa fiscal (0085/0097 D3) e CONCEPT como SSOT (Lei 7).
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0103_PJ_CNAE_FISCAL_EVIDENCE_MODEL.md`; HEAD âncora `e064c36f`; `companies.service.fetchCNPJFromRevenue`, `fiscal_identities`, `companies` (sem activity), mappers/updateCompany (ghost activity), `migrations_archive`.
+
+### DECISION-0104 — Governança da matriz CNAE → suggested concept (sinal de sugestão, não autoridade)
+
+- **Data:** 2026-06-04
+- **Tipo:** arquitetura / semântica / onboarding PJ (docs-only)
+- **Contexto:** com a evidência CNAE persistida (0103 + schema-migration + writer), falta a matriz que a traduza em sugestão de `concept`. Auditoria read-only `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX` mapeou o substrato vivo (7 company_types; 7 allowed-concepts 1:1; 137 concepts em 13 N0 sem display name; sem catálogo/seed CNAE no repo) e o precedente normativo de sinais semânticos (RFC RASCUNHO + SEMANTIC_CATALOG_GOVERNANCE).
+- **Opções consideradas:** (1) cnae→(type,concept) par — preterida (redundância de type; risco de auto-aplicar par pronto); (2) cnae→prefixo — fallback futuro, não MVP; (3) **cnae→suggested_concept_id, multi-candidato** — ESCOLHIDA; (4) cnae→N0/domain — preterida (grosso; colide com fork); (5) não criar matriz — preterida (evidência subutilizada).
+- **Escolha:** Opção 3 (cnae_code → suggested_concept_id).
+- **Justificativa:** CONCEPT é alvo/SSOT; company_type derivável via `company_type_allowed_concepts`; multi-candidato + confidence (principal>secundário) + rationale/source/version/review; MVP **seletivo** (7 verticais, sem importar CNAE inteiro); sugestão `pending` + aplicação explícita; **autoativação proibida**; Empregos fora; consultoria/imóveis/veículos sem alvo → revisão/nenhuma. Norma antes de schema.
+- **Consequências esperadas:** curto prazo — `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` vira GOVERNED/DECISIONED; criada `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING` (OPEN); notas em `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` (matriz alimenta só camada 1→2) e `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` (não bloqueia a matriz). Médio prazo — schema → seed MVP → read endpoint → wizard suggestion.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Validação prévia:** Clayton (promulgação); auditoria read-only `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX`; DECISION-0102 (D4/6 camadas) + DECISION-0103 (D10).
+- **Supera:** executa a camada de sugestão (1→2) de DECISION-0102 e o D10 de DECISION-0103; ratifica CONCEPT como SSOT (Lei 7), ativação soberana do par (0097/0098) e publicação só após KYB (0099/0100/0101).
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0104_PJ_CNAE_TO_CONCEPT_SUGGESTION_MATRIX.md`; HEAD âncora `6daecd05`; `fiscal_identity_economic_activities`, `concepts`/`company_types`/`company_type_allowed_concepts`, `RFC_SEMANTIC_SIGNALS_ONBOARDING_BRIDGE` (RASCUNHO) / `SEMANTIC_CATALOG_GOVERNANCE`.

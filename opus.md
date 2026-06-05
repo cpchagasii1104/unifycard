@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.62) — DECISION-0104: governança da matriz CNAE → suggested concept
+
+HEAD antes `6daecd05` → commit "decisions: define PJ CNAE to concept suggestion matrix". Docs-only. Após auditoria read-only F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX, promulguei DECISION-0104 (próximo nº livre; 0103 era o maior). Matriz CNAE→concept = sinal de sugestão governado, NÃO autoridade. D1 sinal-não-autoridade; D2 CONCEPT soberano; D3 cnae→suggested_concept_id (não MarketplaceDomain/N0/type); D4 company_type derivado via allowed_concepts; D5 multi-candidato; D6 confidence (principal>secundário); D7 rationale/source/version; D8 review_status; D9 MVP seletivo (só 7 verticais, proibido CNAE inteiro); D10 exact-first; D11 pending; D12 autoativação proibida; D13 wizard pré-seleciona com confirmação; D14 consultoria/imóveis/veículos→nenhuma/revisão; D15 Empregos fora; D16 alimenta só camada 1→2, não fecha elegibilidade.
+
+Achado-chave da auditoria: já existe precedente normativo de sinais — RFC_SEMANTIC_SIGNALS_ONBOARDING_BRIDGE (RASCUNHO) + SEMANTIC_CATALOG_GOVERNANCE (complemento subordinado), AMBOS em docs/02_decisions/ (não 01_normative/ como o envelope listou) — "sinal→sugestão pending→Aplicar; inferência antes; sugestão nasce sozinha, ação nunca; teste de desligamento". CNAE nomeado "sinal" explicitamente. DECISION ancorou nisso (sem elevá-los a norma vigente; RFC é rascunho). Substrato vivo: 7 company_types, 7 allowed (1:1), 137 concepts/13 N0 sem display name, concepts.domain FK→domains.domain_key (21 N0), sem catálogo CNAE no repo.
+
+DTs: CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING → GOVERNED/DECISIONED (não CLOSED). Criada DT-PJ-CONCEPT-DISPLAY-NAME-MISSING (OPEN — concepts sem display name; wizard mostraria slug). Notas em ONBOARDING-DOMAIN-SELECTION-MISSING (matriz só camada 1→2) e MARKETPLACE-DOMAIN-VOCABULARY-FORK (não bloqueia matriz). Docs-only; 4 gates OK (arch critical_new=0, warning_new=1=c3 baseline). 3 autorais intocados.
+
+**Próximo:** F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SCHEMA-MIGRATION (schema-only, tabela da matriz) → seed MVP 7 verticais → read endpoint → wizard. Fork de vocabulário é ortogonal (pré-req da camada de domínios elegíveis, não da matriz). Esta sessão decide como o CNAE sugere; não deixa o CNAE escolher.
+
+---
+
 ## Sessão 2026-06-04 (cont.61) — F-PJ-CNAE-EVIDENCE-WRITER: liga o aparelho na tomada fiscal
 
 HEAD antes `4fe6e764` → commit "feat(pj): persist CNAE fiscal evidence". Liguei o writer (DECISION-0103 D2/D3/D5/D7/D8). A evidência CNAE que fetchCNPJFromRevenue retornava e era descartada agora persiste na casa fiscal. Novo service `core/identity/fiscal-identity-economic-activity.service.ts` (sibling do fiscal-identity-document): persistEconomicActivities normaliza provider→lista (1º principal=primary ≤1 via uq_fiea_one_primary; demais+secundários=false), dedup por cnae_code, descarta vazios, idempotente ON CONFLICT(fiscal,cnae) DO UPDATE. Integrado pós-commit FAIL-OPEN em createCompany (usa birthResult.fiscalIdentityId + revenueData em escopo; source='receita_federal'; fetched_at carimbado na coleta). SEM QSA (D5). NÃO toquei fetch/provider (endpoints/fallback intactos) — source provider-granular deferido. CNAE = evidência, não identidade (não toca par/CONCEPT/domínio).
