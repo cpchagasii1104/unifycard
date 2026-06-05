@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-COMPANY-CANONICAL-RETIRE-FISCAL-FIRST (β.1): aposenta company-canonical front+back
+
+**Branch:** `rescue-structural` · **HEAD origem:** `71f430aa`. Frente β.1 (front+back, decisão de produto de Clayton: **sem CPF-como-empresa**; nascimento PJ é fiscal-first). **Zero migration/schema/Bank/KYB-writer/publication/marketplace/CNAE.** 3 autorais intocados.
+
+**O que entregou:** aposentou o fluxo legado/quebrado `POST /api/companies/canonical` (página + rota morta) sem deixar porta apontando pra parede. **Backend:** removido o registro `companyCanonicalRoutes` em `app.builder.ts` (nota no lugar); **deletados** `company-canonical.routes.ts` + `company-canonical.service.ts` (drift de colunas-fantasma `legal_name`/`document_number`; zero caller além da própria rota). **Frontend:** **deletadas** `CompanyCreationPage.tsx` + `.css` (chamava `/api/companies/canonical`, aceitava CPF-como-empresa, navegava p/ rota inexistente); removido o import em `App.tsx`; as rotas `companies/new` e `empresas/nova` agora **redirecionam** (`<Navigate to="/empresas" replace />`) para o fluxo fiscal-first vivo (`EmpresasPage` → `CompaniesManager` → `POST /companies`/`createCompany`). CPF-como-empresa fica **fora** (frente própria futura se Clayton quiser MEI/autônomo).
+
+**Arquivos:** `backend/src/app.builder.ts` (M), `frontend/src/App.tsx` (M), **deletados** `backend/src/core/companies/company-canonical.routes.ts`, `company-canonical.service.ts`, `frontend/src/pages/CompanyCreationPage.tsx`, `CompanyCreationPage.css`.
+
+**Prova:** grep `company-canonical`/`companies/canonical`/`CompanyCreationPage` em `backend/src` + `frontend/src` = só comentários explicativos (zero caller/import/rota viva); **backend tsc** só os 2 baseline geo; **frontend tsc limpo**; e2e **F-ATOMIC-COMPANY-BIRTH 18/18** (createCompany fiscal-first intacto); gates actor-writer/bank-ledger/regression-guards OK; `validate-architectural-patterns.mjs --strict` exit=0 (`critical_new=0`; `warning_new=1`=c3 baseline).
+
+**DTs:** `DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT` → **CLOSED** (front+back aposentado, provado).
+
+**PRÓXIMA ETAPA:** Fundação (Estágio 1) praticamente fechada (canonical aposentado + revogação KYB viva). Resíduo opcional: `DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING` (reader filter). γ/CNAE bloqueada em fonte oficial (Clayton). Profundidade (Trilhos A/B, display name) depois.
+
+---
+
 ## 2026-06-05 — F-PJ-KYB-APPROVED-REVOCATION-WRITER (β.2): writer de revogação KYB + cascata atômica
 
 **Branch:** `rescue-structural` · **HEAD origem:** `b0ed4af2`. Frente β.2 (code-only, governada por DECISION-0101 D2/D5/D6/D7/D8). **Zero migration** (`kyb_status` já aceitava suspended/closed). Zero frontend/Bank/marketplace/CNAE. 3 autorais intocados. _(Coordenação esteira: spec da Batedora, executado; β.1 segue parada na decisão de produto do Clayton.)_

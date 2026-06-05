@@ -259,9 +259,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     const reportingRoutes = await import('./core/reporting/reporting.routes');
     await app.register(reportingRoutes.default, { prefix: '/reports' });
 
-    // 🔴 Company Canonical Birth - Nascimento Canônico
-    const { default: companyCanonicalRoutes } = await import('./core/companies/company-canonical.routes');
-    await app.register(companyCanonicalRoutes, { prefix: '/api' });
+    // β.1 (2026-06-05): fluxo `company-canonical` APOSENTADO (DECISION-0081/0085 + decisão de produto
+    // de Clayton). Nascimento PJ é fiscal-first (CPF responsável → fiscal_identity/CNPJ → KYB → page-actor),
+    // via createCompany (`POST /companies`). NÃO há mais `POST /api/companies/canonical` (CPF-como-empresa
+    // não é suportado). Rotas/service `company-canonical.*` removidos; frontend redireciona p/ `/empresas`.
     console.log('[BOOT] Reporting Core registrado: /reports');
   } catch (err) {
     console.warn('[BOOT] Aviso: Erro ao registrar Reporting Core (não bloqueante):', err);

@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.70) — F-PJ-COMPANY-CANONICAL-RETIRE-FISCAL-FIRST (β.1): aposenta canonical
+
+HEAD antes `71f430aa` → commit "fix(pj): retire canonical company creation flow". Front+back. Clayton decidiu o produto (sem CPF-como-empresa; fiscal-first). Aposentei o `company-canonical` quebrado: backend removi o registro em app.builder + deletei company-canonical.routes.ts/service.ts (drift colunas-fantasma legal_name/document_number; zero caller além da rota); frontend deletei CompanyCreationPage.tsx/.css (chamava /api/companies/canonical, aceitava CPF-as-company, navegava p/ rota inexistente), tirei o import do App.tsx, e as rotas companies/new + empresas/nova viram `<Navigate to="/empresas" replace />` (fluxo fiscal-first vivo = EmpresasPage→CompaniesManager→POST /companies). "Aposentar o velho sem deixar porta apontando pra parede." Prova: grep canonical/CompanyCreationPage em backend+frontend = só comentários; backend tsc baseline geo; frontend tsc LIMPO; atomic-birth 18/18; gates OK. DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT → CLOSED.
+
+Confirmação da lição do ciclo: a tentativa anterior (backend-only, 2026-06-04) foi revertida porque o acoplamento frontend era por STRING de URL (/api/companies/canonical), não símbolo — agora fechado front+back atômico.
+
+**Próximo:** Fundação (Estágio 1) fechada. Resíduo: KYB-REVOCATION-READER-DEFENSE (opcional). γ/CNAE bloqueada em fonte. Esteira: eu (Batedora) executei β.2+β.1 a pedido do Clayton; instância irmã (Executora) fez DECISION-0106/forward-note.
+
+---
+
 ## Sessão 2026-06-05 (cont.69) — F-PJ-KYB-APPROVED-REVOCATION-WRITER (β.2): revogação KYB + cascata
 
 HEAD antes `b0ed4af2` → commit "feat(pj): KYB approved revocation writer + publication cascade". Code-only (DECISION-0101). Eu (a Batedora desta esteira) executei β.2 — Clayton me passou a execução enquanto β.1 ficou travada na decisão de produto dele. Novo método `revokeFiscalKybApproval` em fiscal-identity-kyb.service: approved→suspended|closed, fail-closed reviewer humano (actor_type=user; sem system/page), só de approved, reason obrigatório, ATÔMICO (flip + cascata 1 tx). Helper exportado tx-aware `retireAllActivePublicationsForCompanyTx` em company-publications.service (retira todas pubs active + recalcula tco via refreshOfferingAfterRetire). Reaprovação não republica. ZERO migration (kyb_status já tinha suspended/closed).

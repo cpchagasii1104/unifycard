@@ -79,7 +79,6 @@ import TabPage from './pages/TabPage'; // SPRINT 92
 import LoyaltyPage from './pages/LoyaltyPage'; // SPRINT 93
 import UnifiedAgendaPage from './pages/UnifiedAgendaPage';
 import CompanyOnboardingPage from './pages/CompanyOnboardingPage';
-import CompanyCreationPage from './pages/CompanyCreationPage';
 import PayoutDashboardPage from './pages/PayoutDashboardPage';
 import PayoutBatchDetailPage from './pages/PayoutBatchDetailPage';
 import InvoiceDashboardPage from './pages/InvoiceDashboardPage';
@@ -284,8 +283,10 @@ function AppContent() {
           <Route path="eventos" element={<EventosPage />} />
           <Route path="perfil" element={<PerfilPage />} />
           <Route path="empresas" element={<EmpresasPage />} />
-          <Route path="companies/new" element={<CompanyCreationPage />} />
-          <Route path="empresas/nova" element={<CompanyCreationPage />} />
+          {/* β.1 (2026-06-05): criação `company-canonical` APOSENTADA — nascimento PJ é fiscal-first
+              (CNPJ + KYB) na tela de Empresas. Rotas legadas redirecionam para o fluxo vivo. */}
+          <Route path="companies/new" element={<Navigate to="/empresas" replace />} />
+          <Route path="empresas/nova" element={<Navigate to="/empresas" replace />} />
           <Route path="events/:id" element={<EventDetailPage />} />
           <Route path="events/new" element={<EventCreationPage />} />
           <Route path="assistant" element={<AssistantPage />} />

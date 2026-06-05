@@ -9936,7 +9936,8 @@ tabela, não há derivação de CONCEPT/company_type/capability. As flags são s
 NÃO deve depender dessas flags.
 **Resolução futura:** D-CONCEPT/D-CONTEXT-RESOLVER decide absorver/derivar/aposentar.
 
-### DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT (OPEN) — Fase 3B.3 (2026-05-29)
+### DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT (CLOSED 2026-06-05 — β.1) — Fase 3B.3 (2026-05-29)
+**CLOSED (2026-06-05) — `F-PJ-COMPANY-CANONICAL-RETIRE-FISCAL-FIRST` (β.1):** aposentadoria FRONT+BACK atômica (decisão de produto de Clayton: sem CPF-como-empresa; nascimento PJ é fiscal-first CPF→fiscal_identity/CNPJ→KYB→page-actor). **Backend:** removido o registro `companyCanonicalRoutes` em `app.builder.ts` (substituído por nota); **deletados** `company-canonical.routes.ts` + `company-canonical.service.ts` (zero caller — só a rota usava o service, só o app.builder usava a rota). **Frontend:** removido o import + a página `CompanyCreationPage.tsx`/`.css` (deletadas); as rotas `companies/new` e `empresas/nova` agora **redirecionam** (`<Navigate to="/empresas" replace />`) para o fluxo fiscal-first vivo (`EmpresasPage`/`CompaniesManager` → `POST /companies`). Prova: grep `company-canonical`/`/api/companies/canonical`/`CompanyCreationPage` em backend/src + frontend/src = só comentários; backend tsc só baseline geo; **frontend tsc limpo**; e2e `F-ATOMIC-COMPANY-BIRTH` **18/18** (fiscal-first intacto); 4 gates OK. Nenhuma porta aponta pra parede. _(antes: OPEN.)_
 **Contexto.** `backend/src/core/companies/company-canonical.service.ts` está montado
 (rota em `app.builder.ts:264`), mas NÃO bate com o schema vivo de `companies`: o INSERT usa
 colunas fantasma (`legal_name`, `document_type`, `document_number`, `country`, `state`) que
