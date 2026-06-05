@@ -1,3 +1,19 @@
+## 2026-06-04 — F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SCHEMA-MIGRATION: cria o quadro de sugestões (schema-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `e6783578`. Frente `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SCHEMA-MIGRATION` (schema-only, governada por DECISION-0104). Zero seed/writer/endpoint/frontend/CNAE-writer/activation/publication/marketplace/Bank. Os 3 untracked autorais intocados.
+
+**O que entregou:** o **quadro** (matriz) GLOBAL de sugestão CNAE→concept. Migration forward-only/idempotente `20260604160000_create_cnae_concept_suggestions.sql`: tabela `cnae_concept_suggestions` com `cnae_code`, `suggested_concept_id` (**FK→`concepts(concept_id)` ON DELETE CASCADE** — CONCEPT é o alvo/SSOT), `confidence`, `rationale`, `source`, `catalog_version`, `review_status` (DEFAULT `'proposed'`), `is_active` (DEFAULT true). CHECKs `chk_ccs_*` (cnae_code/rationale/source/catalog_version não-vazios; `confidence IN (low,medium,high)`; `review_status IN (proposed,approved,retired)`); `uq_ccs_cnae_concept` UNIQUE(cnae_code, suggested_concept_id) (**multi-candidato** por CNAE sem duplicar o par — D5); índices `idx_cnae_concept_suggestions_cnae_code`/`idx_cnae_concept_suggestions_concept` + parcial `idx_ccs_active_approved (cnae_code) WHERE is_active AND review_status='approved'`. COMMENTs cravam: CNAE é sinal/evidência; quadro de sugestão; **não ativa empresa, não substitui CONCEPT, não escreve `primary_*`, não publica, não mapeia MarketplaceDomain**; seed futuro/seletivo. **Cria o quadro; não escreve nenhuma sugestão nele** (0 linhas).
+
+**Arquivos:** `backend/migrations/20260604160000_create_cnae_concept_suggestions.sql` (migration), `backend/src/scripts/validate-pipeline-e2e-pj-cnae-concept-suggestion-schema.ts` (e2e), `scripts/run-pj-cnae-concept-suggestion-schema-ephemeral.ps1` (orquestrador). NÃO tocou companies/fiscal_identities/runtime/frontend/seed.
+
+**Prova:** e2e schema efêmero **27/27 verde** (CREATE→migrate FULL 360→BEGIN/ROLLBACK→DROP): tabela/9 colunas/tipos; FK concept inválido→23503; **N candidatos p/ mesmo CNAE** OK; dup(cnae,concept)→23505; CHECKs vazio (cnae_code/rationale/source/catalog_version)→23514; confidence inválido→23514; review_status inválido→23514; default review_status=proposed; default is_active=true; nenhuma `companies.primary_*` escrita; `company_concept_publications`/`tenant_concept_offerings`/Bank intocados; sem seed; rollback zero-resíduo. Aplicada em `unificard_dev` pelo runner canônico: **359→360**; `\d` confirmou PK/FK-CASCADE/6 CHECK/2 UNIQUE(incl. partial)/3 índices; 0 linhas. Backend tsc só os 2 baseline geo. Gates: actor-writer/bank-ledger/regression-guards OK; `validate-architectural-patterns.mjs --strict` exit=0 (`critical_new=0`; `warning_new=1` = c3 `validate-pipeline-e2e-c3-actor-wallet-debit-recovery.ts:334`, baseline pré-existente, fora da fatia).
+
+**DTs:** `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` → **PARTIALLY MITIGATED / GOVERNED** (schema criado; **não CLOSED** — falta seed MVP + read endpoint). `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING` permanece OPEN.
+
+**PRÓXIMA ETAPA:** `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SEED-MVP` (seed **seletivo/curado** dos CNAEs das 7 verticais — review_status='approved', catalog_version v1; **sem importar CNAE oficial inteiro**) → `...-READ-ENDPOINT` (sugestão read-only, proposta `pending`) → wizard suggestion. Recomendado precedê-lo de um read-only mapeando os CNAEs reais das 7 verticais antes de cravar o seed. **REGRA:** esta fatia cria o quadro; não escreve nenhuma sugestão nele ainda.
+
+---
+
 ## 2026-06-04 — DECISION-0104: governança da matriz CNAE → suggested concept (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `6daecd05`. Frente `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-DECISION` (docs-only). Zero código/schema/migration/seed/endpoint/backend-runtime/frontend/provider/KYB/marketplace/publication/Bank. Os 3 untracked autorais intocados.

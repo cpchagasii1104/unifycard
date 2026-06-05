@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.63) — F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SCHEMA-MIGRATION: cria o quadro
+
+HEAD antes `e6783578` → commit "feat(pj): add CNAE concept suggestion schema". Schema-only (DECISION-0104). Migration `20260604160000_create_cnae_concept_suggestions.sql`: tabela GLOBAL cnae_concept_suggestions (cnae_code, suggested_concept_id FK→concepts(concept_id) ON DELETE CASCADE, confidence, rationale, source, catalog_version, review_status DEFAULT proposed, is_active DEFAULT true). CHECKs btrim>0 (cnae_code/rationale/source/catalog_version) + confidence IN(low,medium,high) + review_status IN(proposed,approved,retired). uq_ccs_cnae_concept UNIQUE(cnae_code,suggested_concept_id) = multi-candidato sem duplicar par. idx cnae_code/concept + parcial (cnae_code) WHERE active AND approved. COMMENTs: CNAE=sinal, não ativa/publica/substitui CONCEPT/escreve primary_*/mapeia MarketplaceDomain. SEM seed/writer/endpoint (quadro vazio).
+
+Bug pego e corrigido: o JSDoc do e2e tinha `primary_*/company_concept_publications` — o `*/` fechava o block comment → TransformError. Troquei por `primary_ · company_concept_publications`. Prova: e2e schema efêmero 27/27 (FK→23503; N candidatos mesmo CNAE; dup→23505; CHECKs vazio→23514; confidence/review_status inválido→23514; defaults proposed/true; companies.primary_*/ccp/tco/Bank intocados; sem seed; rollback limpo). Aplicada em dev: 359→360; \d confirmou PK/FK-CASCADE/6 CHECK/2 UNIQUE(incl partial)/3 idx; 0 linhas. tsc só baseline geo. Gates OK (arch critical_new=0, warning_new=1=c3). DT CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING → PARTIALLY MITIGATED/GOVERNED (falta seed+endpoint).
+
+**Próximo:** F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SEED-MVP (seed seletivo curado dos CNAEs das 7 verticais, review_status approved, v1; proibido CNAE inteiro) — recomendo precedê-lo de read-only mapeando os CNAEs reais das 7 verticais → depois read endpoint → wizard. Quadro criado; nenhuma sugestão escrita nele ainda.
+
+---
+
 ## Sessão 2026-06-04 (cont.62) — DECISION-0104: governança da matriz CNAE → suggested concept
 
 HEAD antes `6daecd05` → commit "decisions: define PJ CNAE to concept suggestion matrix". Docs-only. Após auditoria read-only F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX, promulguei DECISION-0104 (próximo nº livre; 0103 era o maior). Matriz CNAE→concept = sinal de sugestão governado, NÃO autoridade. D1 sinal-não-autoridade; D2 CONCEPT soberano; D3 cnae→suggested_concept_id (não MarketplaceDomain/N0/type); D4 company_type derivado via allowed_concepts; D5 multi-candidato; D6 confidence (principal>secundário); D7 rationale/source/version; D8 review_status; D9 MVP seletivo (só 7 verticais, proibido CNAE inteiro); D10 exact-first; D11 pending; D12 autoativação proibida; D13 wizard pré-seleciona com confirmação; D14 consultoria/imóveis/veículos→nenhuma/revisão; D15 Empregos fora; D16 alimenta só camada 1→2, não fecha elegibilidade.
