@@ -1,3 +1,19 @@
+## 2026-06-04 — F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP: tira o fio desencapado (42703 latente)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `7b62d1cf`. Frente `F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP` (backend, governada por DECISION-0103 D12/D13). Zero schema/migration/CNAE-persistence/provider/frontend/KYB/marketplace/publication/Bank. Os 3 untracked autorais intocados.
+
+**O que entregou:** removeu o fio desencapado — o ghost de colunas de atividade inexistentes em `companies`. `companies.service.ts`: (1) bloco `if (input.activity)` em `updateCompany` REMOVIDO (montava `UPDATE companies SET main_activity_code/main_activity_description/secondary_activities` em colunas inexistentes → **42703 latente eliminado**); (2) os 3 read-mappers (getCompanyById/listCompanies/getCompanyByCnpj) passaram de `activity: { mainActivityCode: row.main_activity_code, …}` → `activity: { secondaryActivities: [] }` (sem ler colunas-ghost); (3) as 5 declarações de row-type das colunas-ghost removidas; (4) a extração morta de CNAE em `createCompany` (que populava um `activity` local nunca persistido) removida. `companies.types.ts`: `activity?` removido de `CreateCompanyInput` e `UpdateCompanyInput`. **NÃO criou colunas** em companies (D13). `Company.activity` (DTO) preservado (retorna vazio). `fetchCNPJFromRevenue` + fallback ReceitaWS/BrasilAPI preservados (prefill de nome/endereço/contato intacto).
+
+**Arquivos:** `backend/src/core/companies/companies.service.ts`, `companies.types.ts`. Frontend NÃO tocado (typecheck não exigiu).
+
+**Prova:** grep `SET main_activity`/`row.main_activity`/`input.activity`/`main_activity_code` (não-comentário) em backend/src = **0**; backend tsc só os 2 baseline geo-enrichment; e2e **F-ATOMIC-COMPANY-BIRTH 18/18** (createCompany intacto, sem 42703); 4 gates OK (warning_new=1 = c3 pré-existente). O 42703 do update é eliminado estruturalmente (o bloco que montava o SQL não existe mais).
+
+**DTs:** `DT-PJ-COMPANY-ACTIVITY-COLUMNS-GHOST` → **CLOSED**. `DT-PJ-CNAE-EVIDENCE-NOT-PERSISTED` permanece GOVERNED/DECISIONED (não CLOSED — falta schema+writer). `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` OPEN. CLOSED permanecem: COMPANY-DOMAINS-GHOST-WRITER, SOVEREIGN-SHAPE-MISSING, LEGACY-REBUILD, COMPANY-STATUS-KYB-SECOND-TRUTH.
+
+**PRÓXIMA ETAPA:** `F-PJ-CNAE-EVIDENCE-SCHEMA-MIGRATION` (cria `fiscal_identity_economic_activities` na casa fiscal, DECISION-0103 D4) → `F-PJ-CNAE-EVIDENCE-WRITER` (persistir do fetch já existente, fail-open, sem QSA).
+
+---
+
 ## 2026-06-04 — DECISION-0103: modelo de persistência de CNAE como evidência fiscal PJ (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `e064c36f`. Frente `F-PJ-CNAE-EVIDENCE-PERSIST` (docs-only). Zero código/schema/migration/backend-runtime/frontend/provider/KYB/marketplace/publication/Bank. Os 3 untracked autorais intocados.

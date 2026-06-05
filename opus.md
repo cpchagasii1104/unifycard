@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.59) — F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP: tira o fio desencapado
+
+HEAD antes `7b62d1cf` → commit "fix(pj): remove ghost company activity columns". Limpei o ghost de atividade em companies.service: (1) removi o bloco if(input.activity) do updateCompany — montava UPDATE companies SET main_activity_code/... em colunas inexistentes (42703 latente eliminado); (2) os 3 read-mappers viraram activity:{secondaryActivities:[]} (sem ler row.main_activity_*); (3) removi as 5 declarações de row-type das colunas-ghost; (4) removi a extração morta de CNAE em createCompany. companies.types: tirei activity? de CreateCompanyInput/UpdateCompanyInput. NÃO criei colunas (D13). Company.activity (DTO) preservado (vazio). fetchCNPJFromRevenue/provider intactos.
+
+Prova: grep SET main_activity/row.main_activity/input.activity em backend/src = 0; backend tsc só baseline geo; F-ATOMIC-COMPANY-BIRTH 18/18 (createCompany intacto); 4 gates OK. Frontend não tocado (typecheck não exigiu). DT-PJ-COMPANY-ACTIVITY-COLUMNS-GHOST → CLOSED. CNAE-EVIDENCE-NOT-PERSISTED segue GOVERNED/DECISIONED.
+
+**Próximo:** F-PJ-CNAE-EVIDENCE-SCHEMA-MIGRATION (cria fiscal_identity_economic_activities na casa fiscal) → writer (persistir do fetch já existente, fail-open, sem QSA). Esta fatia tirou o fio desencapado; não instalou a tomada nova ainda.
+
+---
+
 ## Sessão 2026-06-04 (cont.58) — DECISION-0103: onde guardar a evidência fiscal (CNAE)
 
 HEAD antes `e064c36f` → commit "decisions: define PJ CNAE fiscal evidence model". Após auditoria read-only F-PJ-CNAE-EVIDENCE-PERSIST, promulguei DECISION-0103 (próximo nº livre; 0102 era o maior). Achado: o backend JÁ busca CNAE/natureza (fetchCNPJFromRevenue → ReceitaWS+BrasilAPI, em createCompany + /fetch-cnpj) mas descarta tudo (companies/fiscal_identities sem colunas de atividade). Bônus: ghost latente — companies.service lê/escreve main_activity_code/secondary_activities que não existem → 42703 no update (vestígio arquivado, mesmo padrão do company_domains).

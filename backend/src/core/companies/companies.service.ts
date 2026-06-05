@@ -325,7 +325,8 @@ class CompaniesService {
     let tradeName = input.tradeName;
     let address: CompanyAddress = input.address || {};
     let contact: CompanyContact = input.contact || {};
-    let activity: CompanyActivity = input.activity || {};
+    // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): `activity` local removido — extração de CNAE
+    // não era persistida (companies não tem colunas de atividade). Evidência CNAE irá para a casa fiscal.
     // Status inicial: PROVISIONAL (permite uso social com limites)
     let companyStatus: CompanyStatus = 'PROVISIONAL';
 
@@ -360,18 +361,11 @@ class CompaniesService {
             contact.email = revenueData.email;
           }
 
-          // Preencher atividade
-          if (revenueData.atividade_principal && revenueData.atividade_principal.length > 0) {
-            activity.mainActivityCode = revenueData.atividade_principal[0].code;
-            activity.mainActivityDescription = revenueData.atividade_principal[0].text;
-          }
-
-          if (revenueData.atividades_secundarias) {
-            activity.secondaryActivities = revenueData.atividades_secundarias.map(a => ({
-              code: a.code,
-              description: a.text,
-            }));
-          }
+          // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): a extração de CNAE/atividade da Receita
+          // para um `activity` local foi REMOVIDA — não era persistida (companies sem colunas de atividade;
+          // o update tentava SET main_activity_code = ghost 42703). Evidência CNAE irá para a casa fiscal
+          // (fiscal_identity_economic_activities) em frente própria (DECISION-0103 D2/D4). O fetch da Receita
+          // segue intacto para prefill de nome/endereço/contato.
 
           // DECISION-0092/0093: company_status é lifecycle/onboarding; a empresa nasce PROVISIONAL.
           // Verificação fiscal NÃO vem daqui — FONTE ÚNICA = fiscal_identities.kyb_status.
@@ -961,9 +955,7 @@ class CompaniesService {
     phone: string | null;
     email: string | null;
     website: string | null;
-    main_activity_code: string | null;
-    main_activity_description: string | null;
-    secondary_activities: any;
+    // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): colunas de atividade não existem em companies.
     revenue_data: any;
     status: string;
     company_status: string;    kyb_status?: string | null;
@@ -997,11 +989,9 @@ class CompaniesService {
         email: row.email || undefined,
         website: row.website || undefined,
       },
-      activity: {
-        mainActivityCode: row.main_activity_code || undefined,
-        mainActivityDescription: row.main_activity_description || undefined,
-        secondaryActivities: row.secondary_activities || [],
-      },
+      // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): companies não tem colunas de atividade
+      // (leitura ghost devolvia undefined). Evidência CNAE virá da casa fiscal em frente própria.
+      activity: { secondaryActivities: [] },
       revenueData: row.revenue_data || undefined,
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
@@ -1056,9 +1046,7 @@ class CompaniesService {
         phone: string | null;
         email: string | null;
         website: string | null;
-        main_activity_code: string | null;
-        main_activity_description: string | null;
-        secondary_activities: unknown;
+        // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): colunas de atividade não existem em companies.
         revenue_data: unknown;
         status: string;
         company_status: string;        kyb_status: string | null;
@@ -1103,9 +1091,7 @@ class CompaniesService {
       phone: string | null;
       email: string | null;
       website: string | null;
-      main_activity_code: string | null;
-      main_activity_description: string | null;
-      secondary_activities: unknown;
+      // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): colunas de atividade não existem em companies.
       revenue_data: unknown;
       status: string;
       company_status: string;      kyb_status: string | null;
@@ -1195,9 +1181,7 @@ class CompaniesService {
       phone: string | null;
       email: string | null;
       website: string | null;
-      main_activity_code: string | null;
-      main_activity_description: string | null;
-      secondary_activities: unknown;
+      // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): colunas de atividade não existem em companies.
       revenue_data: unknown;
       status: string;
       company_status: string;      kyb_status: string | null;
@@ -1267,11 +1251,8 @@ class CompaniesService {
         email: row.email ?? undefined,
         website: row.website ?? undefined,
       },
-      activity: {
-        mainActivityCode: row.main_activity_code ?? undefined,
-        mainActivityDescription: row.main_activity_description ?? undefined,
-        secondaryActivities: row.secondary_activities ?? [],
-      },
+      // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): companies sem colunas de atividade (ghost).
+      activity: { secondaryActivities: [] },
       revenueData: row.revenue_data ?? undefined,
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
@@ -1321,9 +1302,7 @@ class CompaniesService {
       phone: string | null;
       email: string | null;
       website: string | null;
-      main_activity_code: string | null;
-      main_activity_description: string | null;
-      secondary_activities: unknown;
+      // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): colunas de atividade não existem em companies.
       revenue_data: unknown;
       status: string;
       company_status: string;      kyb_status: string | null;
@@ -1393,11 +1372,8 @@ class CompaniesService {
         email: row.email ?? undefined,
         website: row.website ?? undefined,
       },
-      activity: {
-        mainActivityCode: row.main_activity_code ?? undefined,
-        mainActivityDescription: row.main_activity_description ?? undefined,
-        secondaryActivities: row.secondary_activities ?? [],
-      },
+      // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): companies sem colunas de atividade (ghost).
+      activity: { secondaryActivities: [] },
       revenueData: row.revenue_data ?? undefined,
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
@@ -1512,11 +1488,9 @@ class CompaniesService {
       if (input.contact.website !== undefined) updates.push(`website = $${paramIdx}`), values.push(input.contact.website || null), paramIdx++;
     }
 
-    if (input.activity) {
-      if (input.activity.mainActivityCode !== undefined) updates.push(`main_activity_code = $${paramIdx}`), values.push(input.activity.mainActivityCode || null), paramIdx++;
-      if (input.activity.mainActivityDescription !== undefined) updates.push(`main_activity_description = $${paramIdx}`), values.push(input.activity.mainActivityDescription || null), paramIdx++;
-      if (input.activity.secondaryActivities !== undefined) updates.push(`secondary_activities = $${paramIdx}`), values.push(JSON.stringify(input.activity.secondaryActivities || [])), paramIdx++;
-    }
+    // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): bloco `input.activity` REMOVIDO — montava
+    // `UPDATE companies SET main_activity_code/main_activity_description/secondary_activities` em colunas
+    // INEXISTENTES (42703 latente). Evidência CNAE não mora em `companies` (vai p/ a casa fiscal — D2/D4).
 
     if (input.status !== undefined) {
       updates.push(`status = $${paramIdx}`);

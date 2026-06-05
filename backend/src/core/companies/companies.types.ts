@@ -107,7 +107,8 @@ export interface CreateCompanyInput {
   tradeName?: string;
   address?: Partial<CompanyAddress>;
   contact?: Partial<CompanyContact>;
-  activity?: Partial<CompanyActivity>;
+  // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): `activity` removido do input — alimentava só
+  // o ghost de colunas inexistentes em companies. Evidência CNAE irá para a casa fiscal (frente própria).
   role: CompanyUserRole;
   roleDescription?: string;
   permissions?: Partial<CompanyPermissions>;
@@ -128,7 +129,8 @@ export interface UpdateCompanyInput {
   registrationDate?: string;
   address?: Partial<CompanyAddress>;
   contact?: Partial<CompanyContact>;
-  activity?: Partial<CompanyActivity>;
+  // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): `activity` removido do input — alimentava só
+  // o ghost de colunas inexistentes em companies. Evidência CNAE irá para a casa fiscal (frente própria).
   status?: 'active' | 'inactive' | 'suspended' | 'closed';
   // DECISION-0090 Fase 2.1: `companyStatus` REMOVIDO do input de edição. updateCompany não pode
   // ser caminho para alterar verificação fiscal (fonte única = fiscal_identities.kyb_status).
