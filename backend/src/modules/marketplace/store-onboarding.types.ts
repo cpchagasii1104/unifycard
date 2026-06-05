@@ -14,7 +14,13 @@ export interface StoreOnboardingSeedCanonicalLine {
 /** Input para criar onboarding de loja */
 export interface StoreOnboardingInput {
   actorId: string; // ID da empresa/loja
-  /** Se omitido e o tenant tiver `company_type_id` com slugs padrão, deriva do tipo de empresa. */
+  /**
+   * PONTE Estágio 4 (DECISION Op1 / Clayton 2026-06-05): a empresa PJ CLASSIFICADA é a fonte do company_type.
+   * Quando presente, o Stage 4 deriva o tipo de `companies.primary_company_type_id` (NÃO de
+   * `tenants.company_type_id`). Sem companyId = path LEGADO/compat (lê tenant). Nunca popular tenants.company_type_id.
+   */
+  companyId?: string;
+  /** Se omitido: com companyId deriva de `companies.primary_company_type_id`; sem companyId, de `tenants.company_type_id` (legado). */
   departmentCategoryId?: string;
   /** Se omitido junto com department, pode ser preenchido pela herança do tipo de empresa. */
   selectedCategoryIds?: string[];

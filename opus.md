@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.81) — F-PJ-STAGE4-COMPANY-TYPE-BRIDGE (Op1, eu escritora) — abre Estágio 4
+
+HEAD `adbffb26` → commit "fix(pj): stage 4 derives company_type from classified company". Op1 (decisão de Clayton: empresa classificada é a fonte, nunca popular tenants.company_type_id). Read-only achou a desconexão: store-onboarding lia tenants.company_type_id; classificação grava companies.primary_company_type_id. Ponte: resolveStage4CompanyTypeId(tenantId, companyId?) em store-onboarding.service — companyId→companies.primary_company_type_id (empresa vence; sem classificação→null sem fallback p/ tenant); sem companyId→tenants (legado/compat). resolveOnboardingCategories + loadTenantOnboardingAuditContext usam a ponte. StoreOnboardingInput + rota ganharam companyId? (contrato mínimo aditivo). NÃO popula tenants. e2e 9/9 (empresa vence tenant=farmacia; legado lê tenant; não-classificada→null; isolamento; zero offers/Bank). Code-only (363). Gates OK. Criada DT-PJ-STAGE4-COMPANY-TYPE-SOURCE-DISCONNECT → PARTIALLY MITIGATED (ponte provada; falta caller vivo passar companyId).
+
+Desenho do Estágio 4 (read-only) achou: NÃO é greenfield — store-onboarding já faz canonical→products→product_offers pré-moldado por default_*_slugs (alinhado à regra do catálogo canônico); availability(32)/canonical_products(35) são os únicos dados reais; resto é casca. Op1 ponte primeiro, depois Op2 Trilho A produtos (supermercado), Op3 serviços depois.
+
+**Próximo (espera Clayton):** Op2 Trilho A MVP (onboarding passa companyId → exerce a ponte → fecha a DT → empresa ativa mix em product_offers). Op3 serviços / peixaria depois.
+
+---
+
 ## Sessão 2026-06-05 (cont.80) — F-PJ-CONCEPT-LABELS-WIZARD-MINIMAL (eu escritora) — FECHA a cadeia
 
 HEAD `0091f6c2` → commit "feat(pj): wizard renders concept displayName with slug fallback". Frontend mínimo (DECISION-0107). CompanyOnboardingWizard.tsx:300: {c.slug} → {c.displayName ?? c.slug}. Tipo AllowedOperationalConcept (api/companies.ts) ganhou displayName?/shortLabel?. Identidade/ativação inalteradas: submit usa selectedConceptId (conceptId), displayName nunca no payload. Frontend tsc limpo. Backend untouched → gates OK, dev 363 (zero migration). DT-PJ-CONCEPT-DISPLAY-NAME-MISSING → CLOSED (schema+seed+endpoints+frontend; UI não mostra mais slug quando há label). Resíduo: só 7 MVP têm label; 130 demais mostram slug por fallback (enriquecimento futuro, não reabre).

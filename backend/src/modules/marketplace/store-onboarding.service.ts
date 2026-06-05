@@ -143,17 +143,40 @@ class StoreOnboardingService {
   }
 
   /**
+   * PONTE Estágio 4 (DECISION Op1 / Clayton 2026-06-05): resolve o company_type da FONTE CORRETA.
+   * Com `companyId` → `companies.primary_company_type_id` (a empresa CLASSIFICADA é a fonte; o tenant NÃO vence;
+   * sem classificação → null, sem fallback p/ tenant — não recriar segunda verdade). Sem `companyId` → path
+   * LEGADO/compat lê `tenants.company_type_id`. NUNCA popular `tenants.company_type_id` para "fazer funcionar".
+   */
+  private async resolveStage4CompanyTypeId(tenantId: string, companyId?: string): Promise<string | null> {
+    if (companyId) {
+      const c = await runQueryWithTenant<{ t: string | null }>(
+        tenantId,
+        `SELECT primary_company_type_id::text AS t FROM companies WHERE company_id = $1 AND tenant_id = $2 LIMIT 1`,
+        [companyId, tenantId]
+      );
+      return c?.t ?? null;
+    }
+    const tenantRow = await runQueryWithTenant<{ t: string | null }>(
+      tenantId,
+      `SELECT company_type_id::text AS t FROM tenants WHERE id = $1 LIMIT 1`,
+      [tenantId]
+    );
+    return tenantRow?.t ?? null;
+  }
+
+  /**
    * Resolve categorias de onboarding a partir do tipo de empresa (`company_types.default_*_slugs`).
-   * Não cria categorias — só resolve IDs de slugs globais existentes.
+   * Não cria categorias — só resolve IDs de slugs globais existentes. Fonte do company_type via
+   * `resolveStage4CompanyTypeId` (empresa classificada vence; tenant é legado).
    */
   private async resolveOnboardingCategories(
-    tenantId: string
+    tenantId: string,
+    companyId?: string
   ): Promise<{ departmentCategoryId: string; selectedCategoryIds: string[] } | null> {
-    const tenantRow = await runQueryWithTenant<{
-      company_type_id: string | null;
-    }>(tenantId, `SELECT company_type_id FROM tenants WHERE id = $1 LIMIT 1`, [tenantId]);
+    const companyTypeId = await this.resolveStage4CompanyTypeId(tenantId, companyId);
 
-    if (!tenantRow?.company_type_id) return null;
+    if (!companyTypeId) return null;
 
     const typeRow = await runQueryWithTenant<{
       default_department_slugs: string[] | null;
@@ -162,7 +185,7 @@ class StoreOnboardingService {
       tenantId,
       `SELECT default_department_slugs, default_branch_slugs
        FROM company_types WHERE id = $1 LIMIT 1`,
-      [tenantRow.company_type_id]
+      [companyTypeId]
     );
 
     if (!typeRow) return null;
@@ -196,10 +219,25 @@ class StoreOnboardingService {
     return { departmentCategoryId, selectedCategoryIds };
   }
 
-  /** Contexto para logs/métricas (não altera decisão de negócio). */
+  /**
+   * Contexto para logs/métricas (não altera decisão de negócio). PONTE: com `companyId`, o company_type e o
+   * concept vêm da empresa CLASSIFICADA (`companies.primary_company_type_id`/`primary_concept_id`); sem
+   * `companyId`, do tenant (legado). Não recria segunda verdade.
+   */
   private async loadTenantOnboardingAuditContext(
-    tenantId: string
+    tenantId: string,
+    companyId?: string
   ): Promise<{ companyTypeId: string | null; conceptIds: string[] }> {
+    if (companyId) {
+      const c = await runQueryWithTenant<{ company_type_id: string | null; concept_id: string | null }>(
+        tenantId,
+        `SELECT primary_company_type_id::text AS company_type_id, primary_concept_id::text AS concept_id
+           FROM companies WHERE company_id = $1 AND tenant_id = $2 LIMIT 1`,
+        [companyId, tenantId]
+      );
+      if (!c) return { companyTypeId: null, conceptIds: [] };
+      return { companyTypeId: c.company_type_id, conceptIds: c.concept_id ? [c.concept_id] : [] };
+    }
     const row = await runQueryWithTenant<{
       company_type_id: string | null;
       concept_ids: string[] | null;
@@ -238,12 +276,13 @@ class StoreOnboardingService {
     createdByUserId?: string,
     logContext?: StoreOnboardingLogContext
   ): Promise<StoreOnboardingResult> {
-    const auditCtx = await this.loadTenantOnboardingAuditContext(tenantId);
+    const auditCtx = await this.loadTenantOnboardingAuditContext(tenantId, input.companyId);
 
     let resolvedInput: StoreOnboardingInput = input;
     let inheritedApplied = false;
     if (!input.departmentCategoryId) {
-      const inherited = await this.resolveOnboardingCategories(tenantId);
+      // PONTE: deriva da empresa classificada (companies.primary_company_type_id) quando há companyId.
+      const inherited = await this.resolveOnboardingCategories(tenantId, input.companyId);
       if (inherited) {
         resolvedInput = {
           ...input,

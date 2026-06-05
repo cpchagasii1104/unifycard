@@ -130,6 +130,8 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{
     Body: {
       actorId: string;
+      /** PONTE Estágio 4: empresa PJ classificada — deriva company_type de companies.primary_company_type_id. */
+      companyId?: string;
       /** Opcional: herdado de `company_types.default_*_slugs` quando omitido (StoreOnboardingInput). */
       departmentCategoryId?: string;
       selectedCategoryIds?: string[];
@@ -151,6 +153,7 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
     async (req, reply) => {
       const bodySchema = z.object({
         actorId: z.string().uuid(),
+        companyId: z.string().uuid().optional(),
         departmentCategoryId: z.string().uuid().optional(),
         selectedCategoryIds: z.array(z.string().uuid()).optional(),
         hasOwnProducts: z.boolean(),
@@ -188,6 +191,9 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
           defaultStock: data.defaultStock,
           metadata: data.metadata,
         };
+        if (data.companyId !== undefined) {
+          input.companyId = data.companyId;
+        }
         if (data.departmentCategoryId !== undefined) {
           input.departmentCategoryId = data.departmentCategoryId;
         }

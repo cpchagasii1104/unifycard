@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-STAGE4-COMPANY-TYPE-BRIDGE (Op1): liga o Stage 4 na empresa, não no tenant
+
+**Branch:** `rescue-structural` · **HEAD origem:** `adbffb26`. Frente Op1 (ponte Classificação→Stage 4, backend code-only, decisão de Clayton). **Zero migration** (dev 363) / catálogo / seed / product_offers / Trilho B / Bank / popular tenants.company_type_id. 3 autorais intocados. _(Esteira: eu escritora, par verifica.)_
+
+**O que entregou:** corrige a desconexão entre Estágio 3 (grava `companies.primary_company_type_id`) e Stage 4 (store-onboarding lia `tenants.company_type_id`). Decisão de Clayton: **a empresa classificada é a fonte**; nunca popular `tenants.company_type_id`. Novo `resolveStage4CompanyTypeId(tenantId, companyId?)` em `store-onboarding.service`: com `companyId` → `companies.primary_company_type_id` (a empresa **vence**; sem classificação → null, **sem fallback p/ tenant**); sem `companyId` → `tenants.company_type_id` (legado/compat preservado). `resolveOnboardingCategories`/`loadTenantOnboardingAuditContext` usam a ponte (audit deriva type+`primary_concept_id` da empresa). `StoreOnboardingInput` + rota POST `/marketplace/store-onboarding` ganharam `companyId?` (mudança de contrato mínima, aditiva). **NÃO popula tenants.company_type_id.**
+
+**Arquivos:** `backend/src/modules/marketplace/store-onboarding.{service,types,routes}.ts`, `backend/src/scripts/validate-pipeline-e2e-pj-stage4-company-type-bridge.ts` (e2e), `scripts/run-pj-stage4-company-type-bridge-ephemeral.ps1`.
+
+**Prova:** e2e efêmero **9/9 verde** (companyId→companies.primary_company_type_id=supermercado; legado sem companyId→tenants(null); **empresa VENCE o tenant** — tenants=farmacia mas resolve supermercado; legado lê tenants=farmacia (compat); audit context type+conceptId da empresa; **não-classificada+companyId→null** sem fallback p/ tenant; isolamento por tenant; zero product_offers/Bank). Backend tsc só baseline geo. Gates actor-writer/bank-ledger/regression-guards OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 363→363** (zero migration).
+
+**DTs:** **Criada** `DT-PJ-STAGE4-COMPANY-TYPE-SOURCE-DISCONNECT` → **PARTIALLY MITIGATED** (ponte construída e provada; **não CLOSED** — falta caller vivo passar `companyId` no fluxo PJ, i.e. o onboarding chamar store-onboarding com a empresa).
+
+**PRÓXIMA ETAPA (espera Clayton):** Op2 — Trilho A MVP produtos (supermercado): onboarding passa `companyId` ao store-onboarding (exerce a ponte ponta a ponta → fecha a DT) + empresa ativa mix (product_offers) a partir de canonical_products. Op3 serviços depois. Peixaria fora.
+
+---
+
 ## 2026-06-05 — F-PJ-CONCEPT-LABELS-WIZARD-MINIMAL: UI renderiza displayName ?? slug (FECHA a DT)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `0091f6c2`. Frente frontend mínima (DECISION-0107 D11.5). **Zero backend/migration/seed/CNAE/Trilhos/Bank/refactor.** Dev segue 363. 3 autorais intocados. _(Esteira: eu escritora, par verifica.)_
