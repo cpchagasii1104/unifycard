@@ -12,6 +12,7 @@ import type {
 } from './store-onboarding.types';
 import { marketplaceCategoriesService } from './marketplace-categories.service';
 import { productCatalogService } from './product-catalog.service';
+import { assertProductCategoryAllowedForCompany } from './product-concept-guard';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import {
   logGovernanceCategoryMissingN1,
@@ -409,6 +410,14 @@ class StoreOnboardingService {
       const salePrice = resolvedInput.defaultSalePrice;
       const hasRealPrice = typeof salePrice === 'number' && Number.isFinite(salePrice) && salePrice >= 0;
       if (!existingOffer && hasRealPrice) {
+        // DECISION-0108 na camada de OFERTA (prateleira): reaplica o recorte por categoria/ramo ANTES de
+        // ativar a `product_offer`. Fecha a fresta do REUSO — quando o `product` já existia no tenant
+        // (`createProduct` pulado), o guard de MATERIALIZAÇÃO não rodou; aqui a empresa só ATIVA na
+        // prateleira itens elegíveis pelos seus ramos. `companyId` presente → fail-closed por categoria
+        // fora do ramo; ausente (PF/legado) → bypass compat (mesma régua do product guard).
+        // Hardening futuro (registrado): derivar company por `merchant_id → actors.company_id` para
+        // caminhos que venham a criar offer sem `companyId`.
+        await assertProductCategoryAllowedForCompany(tenantId, canonical.id, resolvedInput.companyId);
         await this.createProductOffer(tenantId, {
           productId: tenantProductId,
           merchantId: resolvedInput.actorId,

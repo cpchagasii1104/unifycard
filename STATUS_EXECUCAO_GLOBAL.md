@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-PRODUCT-OFFER-ELIGIBILITY-GUARD: a régua do ramo também protege a prateleira (FECHA a DT)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `30096156`. Frente code-only (DECISION-0108 na camada de oferta). **Zero migration** (dev 363) / seed / endpoint novo / writer novo / popular `tenants.company_type_id` / `company_type_allowed_concepts` / `canonical_products` / Bank. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** fecha a fresta achada no Op2 — o guard por categoria/ramo protegia só a **materialização** (`createProduct`); a **ativação comercial** (`product_offers`) não era reverificada. Num tenant compartilhado, quando o `product` já existe (materializado por outra empresa), `getProductByCanonicalId` o **reusa** e `createProduct` é pulado → o guard de materialização não roda → "farmácia ofertaria banana já materializada". Correção: antes de `createProductOffer`, reaplica `assertProductCategoryAllowedForCompany(tenantId, canonical.id, resolvedInput.companyId)` — roda mesmo no reuso. `companyId` presente → **fail-closed** por categoria fora do ramo; ausente (PF/legado) → **bypass compat**. A auditoria confirmou que `store-onboarding.createProductOffer` é o **único writer** de `product_offers` → a fresta fecha hoje sem novo substrato. **Sem DECISION nova** (política decidida na 0108).
+
+**Arquivos:** `backend/src/modules/marketplace/store-onboarding.service.ts` (import + guard antes do offer), `backend/src/scripts/validate-pipeline-e2e-pj-product-offer-eligibility-guard.ts` (e2e), `scripts/run-pj-product-offer-eligibility-guard-ephemeral.ps1`.
+
+**Prova:** e2e efêmero **14/14 verde** — **tenant COMPARTILHADO**: (A) super materializa+oferta banana, preço real 450; **(B prova-chave) farmácia REUSA a banana mas o guard de OFERTA barra (ForbiddenError, zero offer)** e a banana segue materializada (barreira na prateleira, não no depósito); (C) farmácia oferta medicamentos (seu ramo) OK; (D) **PF sem companyId → bypass compat** (oferta criada); (E) sem preço → zero offer; (F) zero `price_cents=0`, zero canônico novo, `allowed_concepts` intocado, `tenants.company_type_id` NULL (empresa é a única autoridade), Bank intocado. Backend tsc só baseline geo. 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 363→363.**
+
+**DTs:** **`DT-PJ-PRODUCT-OFFER-ELIGIBILITY-GUARD-MISSING` → criada + CLOSED** (mesma fatia, provada). Hardening futuro registrado: derivar company por `merchant_id → actors.company_id` para writers futuros sem `companyId`.
+
+**PRÓXIMA ETAPA (espera Clayton):** Op3 (serviços) — Trilho A para `servicos`. Peixaria FORA. _"O depósito tem guarda; agora a prateleira tem segurança no caixa."_
+
+---
+
 ## 2026-06-05 — F-PJ-STAGE4-TRILHO-A-SUPERMERCADO (Op2): caller vivo passa companyId + offer só com preço real (FECHA 2 DTs)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `3a1dabac`. Frente Op2 (Trilho A MVP supermercado, DECISION-0108 + Op1). **Zero migration** (dev 363) / seed / canonical novo / popular `tenants.company_type_id` / item-concepts / Bank. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
