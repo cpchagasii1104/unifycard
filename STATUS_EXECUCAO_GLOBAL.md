@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-KYB-REVOCATION-READER-DEFENSE (#2): filtro defensivo KYB no discovery
+
+**Branch:** `rescue-structural` · **HEAD origem:** `1040130f`. Frente #2 (code-only, governada por DECISION-0101 D9; autorizada por Clayton "go #2"). **Zero schema/migration/Bank/frontend.** 3 autorais intocados. _(Esteira: eu escritora, instância irmã read-only. Catch dela: a DT exigia palavra de Clayton — confirmado e respeitado antes de executar.)_
+
+**O que entregou:** a **defesa-em-profundidade** que faltava após o writer de revogação (β.2). `listTenantsOfferingConcept` (`tenant-concept-offerings.repository.ts`, lido por `GET /marketplace/contextual`) agora exige, além de `tco.is_active`, um `EXISTS` de publicação soberana `active` com `fiscal_identities.kyb_status='approved'` por trás (JOIN `company_concept_publications`→`companies`→`fiscal_identities`). **Cinto-e-suspensório**: NÃO inverte a fonte (tco segue read-model derivado; o writer já corrige o SSOT na revogação); o filtro só impede vazamento no discovery se a projeção ficar **stale**. Contrato do reader preservado (mesmo `TenantOfferingRow[]`).
+
+**Arquivos:** `backend/src/modules/marketplace/tenant-concept-offerings.repository.ts` (query + EXISTS), `backend/src/scripts/validate-pipeline-e2e-pj-kyb-revocation-reader-defense.ts` (e2e), `scripts/run-pj-kyb-revocation-reader-defense-ephemeral.ps1`.
+
+**Prova:** e2e efêmero **6/6 verde** (aprovado+publicado → tenant aparece; após revogação KYB (writer β.2) → some; **tco STALE forçado active sem lastro KYB → reader NÃO vaza, EXISTS barra** — o teste central da defesa; controle positivo aparece (não super-exclui); tco legado sem publicação não aparece). Backend tsc só baseline geo. Gates actor-writer/bank-ledger/regression-guards OK; `validate-architectural-patterns.mjs --strict` exit=0 (`critical_new=0`; `warning_new=1`=c3 baseline). **Migrations 360→360** (zero migration).
+
+**DTs:** `DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING` → **CLOSED**.
+
+**PRÓXIMA ETAPA:** ciclo de revogação KYB **completo** (writer + cascata + reader-defense). Restam: γ/CNAE seed (bloqueado em fonte do Clayton) e profundidade (Trilhos A/B). Espinha PJ fechada ponta-a-ponta.
+
+---
+
 ## 2026-06-05 — F-PJ-COMPANY-CANONICAL-RETIRE-FISCAL-FIRST (β.1): aposenta company-canonical front+back
 
 **Branch:** `rescue-structural` · **HEAD origem:** `71f430aa`. Frente β.1 (front+back, decisão de produto de Clayton: **sem CPF-como-empresa**; nascimento PJ é fiscal-first). **Zero migration/schema/Bank/KYB-writer/publication/marketplace/CNAE.** 3 autorais intocados.

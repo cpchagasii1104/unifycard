@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.71) — F-PJ-KYB-REVOCATION-READER-DEFENSE (#2): filtro defensivo KYB
+
+HEAD antes `1040130f` → commit "feat(pj): KYB-approved defense filter in discovery reader". Code-only (DECISION-0101 D9), autorizado por Clayton ("go #2"). NB da esteira: a instância irmã (verificadora) pegou que eu disse "#2 não precisa de Clayton" — a DT dizia o contrário ("NÃO executar antes da palavra de Clayton"); confirmei na fonte (REMEDIATION_DT_LOG.md:11190) e esperei o go. Bom catch — mesmo padrão do vehicles.
+
+Mudança: `listTenantsOfferingConcept` (tenant-concept-offerings.repository) ganhou EXISTS de publicação active com fiscal_identities.kyb_status='approved' por trás (tco→ccp→companies→fiscal_identities). Cinto-e-suspensório: tco segue read-model; o writer (β.2) já corrige o SSOT; o filtro só barra vazamento se a projeção ficar stale. Zero schema. Prova e2e 6/6 — o teste central: forcei tco.is_active=true sem lastro KYB → reader NÃO vaza (EXISTS barra). Gates OK. DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING → CLOSED.
+
+Ciclo de revogação KYB agora COMPLETO: writer (β.2) + cascata + reader-defense (#2). Espinha PJ fechada ponta-a-ponta.
+
+**Próximo:** γ/CNAE seed (bloqueado em fonte do Clayton) OU profundidade (Trilhos A/B). Esteira: eu escritora, irmã verifica, Clayton serializa.
+
+---
+
 ## Sessão 2026-06-05 (cont.70) — F-PJ-COMPANY-CANONICAL-RETIRE-FISCAL-FIRST (β.1): aposenta canonical
 
 HEAD antes `71f430aa` → commit "fix(pj): retire canonical company creation flow". Front+back. Clayton decidiu o produto (sem CPF-como-empresa; fiscal-first). Aposentei o `company-canonical` quebrado: backend removi o registro em app.builder + deletei company-canonical.routes.ts/service.ts (drift colunas-fantasma legal_name/document_number; zero caller além da rota); frontend deletei CompanyCreationPage.tsx/.css (chamava /api/companies/canonical, aceitava CPF-as-company, navegava p/ rota inexistente), tirei o import do App.tsx, e as rotas companies/new + empresas/nova viram `<Navigate to="/empresas" replace />` (fluxo fiscal-first vivo = EmpresasPage→CompaniesManager→POST /companies). "Aposentar o velho sem deixar porta apontando pra parede." Prova: grep canonical/CompanyCreationPage em backend+frontend = só comentários; backend tsc baseline geo; frontend tsc LIMPO; atomic-birth 18/18; gates OK. DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT → CLOSED.

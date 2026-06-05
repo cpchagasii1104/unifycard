@@ -11181,7 +11181,8 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING
 
-- **Status:** OPEN (2026-06-04) — criada por `DECISION-0101` (D9).
+- **Status:** **CLOSED (2026-06-05)** — após o writer de revogação (β.2) corrigir o SSOT, o filtro defensivo foi implementado (autorizado por Clayton, 0101 D9/D12). `listTenantsOfferingConcept` (`tenant-concept-offerings.repository.ts`) agora exige, além de `tco.is_active`, um `EXISTS` de publicação soberana `active` com `fiscal_identities.kyb_status='approved'` por trás (JOIN `company_concept_publications`→`companies`→`fiscal_identities`). **Cinto-e-suspensório**: NÃO inverte a fonte (tco segue read-model; writer já corrige o SSOT); apenas impede vazamento se a projeção ficar stale. **Zero schema/migration** (só query). Prova: e2e efêmero **6/6 verde** (`validate-pipeline-e2e-pj-kyb-revocation-reader-defense.ts`: aprovado+publicado aparece; após revogação some; **tco STALE forçado active sem lastro KYB → reader NÃO vaza (EXISTS barra)**; controle positivo aparece; tco legado sem publicação não aparece). Backend tsc só baseline geo; 4 gates OK (arch critical_new=0). _(antes: OPEN 2026-06-04.)_
+- **Status anterior:** OPEN (2026-06-04) — criada por `DECISION-0101` (D9).
 - **Origem:** auditoria C (discovery/marketplace) + `DECISION-0101`.
 - **Vinculada a:** `marketplace-contextual.service.ts`/`marketplace-contextual.routes.ts` (`GET /marketplace/contextual`), `tenant-concept-offerings.repository.ts` (`listTenantsOfferingConcept`), `fiscal_identities.kyb_status`.
 - **Contexto:** o reader de discovery lê `tenant_concept_offerings` e **não filtra KYB**. Como defesa-em-profundidade, poderia filtrar `kyb_status='approved'` — mas **sozinho mascararia** publicação `active` inconsistente (DECISION-0101 D9). Só deve vir **depois** do writer de revogação corrigir o SSOT.
