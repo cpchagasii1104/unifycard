@@ -1,3 +1,17 @@
+## 2026-06-04 — DECISION-0103: modelo de persistência de CNAE como evidência fiscal PJ (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `e064c36f`. Frente `F-PJ-CNAE-EVIDENCE-PERSIST` (docs-only). Zero código/schema/migration/backend-runtime/frontend/provider/KYB/marketplace/publication/Bank. Os 3 untracked autorais intocados.
+
+**O que fixou (`DECISION_0103_PJ_CNAE_FISCAL_EVIDENCE_MODEL.md`):** decide ONDE guardar a evidência fiscal, sem gravá-la ainda. **D1** CNAE = evidência fiscal, não identidade semântica; **D2** mora na casa fiscal (`fiscal_identities` + satélites), não em `companies` (projeção); **D3** CNAEs são 1:N (não coluna textual única, não JSONB-verdade); **D4** modelo-alvo: tabela `fiscal_identity_economic_activities` (id, fiscal_identity_id, cnae_code, cnae_description, is_primary, source, fetched_at, timestamps) + opcional colunas 1:1 em fiscal_identities (legal_nature/company_size); **D5** SEM QSA bruto (LGPD); **D6** backend é a fonte de coleta (não confiar no enviado pelo frontend); **D7** source/fetched_at obrigatórios; **D8** fail-open no nascimento; **D9** declarado ≠ fetched; **D10** CNAE sugere, não decide; **D11** elegibilidade vem depois; **D12** ghost `companies.activity` deve ser limpo (não criar colunas em companies); **D13** não reviver colunas arquivadas; **D14** bloqueios.
+
+**Achado material:** backend JÁ busca CNAE/natureza (ReceitaWS+BrasilAPI em createCompany + /fetch-cnpj) mas descarta (sem colunas em companies/fiscal_identities). Ghost latente: `companies.service` lê/escreve `main_activity_code`/`secondary_activities` inexistentes → 42703 no update.
+
+**DTs:** `DT-PJ-CNAE-EVIDENCE-NOT-PERSISTED` → GOVERNED/DECISIONED (modelo definido; não CLOSED — falta schema+writer). **Criadas** `DT-PJ-COMPANY-ACTIVITY-COLUMNS-GHOST` (OPEN) e `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` (OPEN). CLOSED permanecem: COMPANY-DOMAINS-GHOST-WRITER, SOVEREIGN-SHAPE-MISSING, LEGACY-REBUILD, COMPANY-STATUS-KYB-SECOND-TRUTH. OPEN: MARKETPLACE-DOMAIN-VOCABULARY-FORK, MARKETPLACE-HYBRID, ONBOARDING-DOMAIN-SELECTION.
+
+**PRÓXIMA ETAPA (sem execução):** `F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP` (backend, limpar refs mortos → para o 42703 latente) → `F-PJ-CNAE-EVIDENCE-SCHEMA-MIGRATION` → `F-PJ-CNAE-EVIDENCE-WRITER`. Depois matriz CNAE→suggested-concept e elegibilidade (DECISION-0102).
+
+---
+
 ## 2026-06-04 — F-PJ-DOMAIN-SELECTOR-NEUTRALIZE-FRONTBACK: para a mentira da "área de atuação"
 
 **Branch:** `rescue-structural` · **HEAD origem:** `93321e84`. Frente `F-PJ-DOMAIN-SELECTOR-NEUTRALIZE-FRONTBACK` (frontend + backend, governada por DECISION-0102 D9/D10). Zero schema/migration/publication/marketplace/hybrid/KYB/Bank/company_status. Os 3 untracked autorais intocados.

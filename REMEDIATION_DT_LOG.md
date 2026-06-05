@@ -11207,10 +11207,31 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-CNAE-EVIDENCE-NOT-PERSISTED
 
-- **Status:** OPEN (2026-06-04) — criada por `DECISION-0102` (D4).
+- **Status:** GOVERNED / DECISIONED (2026-06-04) — governada por `DECISION-0103`: a evidência CNAE/atividade mora na **casa fiscal** (`fiscal_identities` + satélite 1:N `fiscal_identity_economic_activities` com `source`/`fetched_at`), buscada backend-side, **fail-open** no nascimento, **sem QSA bruto** (LGPD); CNAE é evidência (não SSOT; só sugere). Modelo definido; **NÃO CLOSED** — falta schema + writer (e o ghost-cleanup de `companies.activity`). Resíduos viram DTs próprias (`DT-PJ-COMPANY-ACTIVITY-COLUMNS-GHOST`, `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING`). _(antes: OPEN 2026-06-04.)_
+- **Status anterior:** OPEN (2026-06-04) — criada por `DECISION-0102` (D4).
 - **Origem:** auditoria read-only `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY`.
 - **Vinculada a:** `backend/src/core/companies/companies.service.ts`/`companies.routes.ts` (`fetchCNPJFromRevenue`), `fiscal_identities`, `companies`, `company_type_allowed_concepts`, `concepts`.
 - **Contexto:** a consulta `fetchCNPJFromRevenue` retorna CNAE/atividade principal+secundárias da Receita, mas o dado **não é persistido** em lugar nenhum (nenhuma coluna/tabela CNAE no schema). Logo a evidência fiscal mais forte de ramo real **não está disponível** para governar elegibilidade de domínios.
 - **Risco:** sem CNAE persistido, a derivação de elegibilidade fica restrita a company_type/concept (escolhidos pelo usuário), sem o lastro fiscal independente que distinguiria pedido legítimo de oportunista.
 - **Mitigação atual:** nenhuma (CNAE descartado). DECISION-0102 D2/D4: CNAE é evidência (sugere/reforça), não SSOT semântico.
 - **Resolução prevista (frente própria — persistir evidência):** persistir CNAE/atividade como evidência auditável (coluna/tabela própria, sem auto-mapeamento para concept) que **sugere** company_type/concept e sinaliza pedidos de domínio incompatíveis para revisão (D8). **NÃO executar** auto-mapeamento de CNAE antes da palavra de Clayton (DECISION-0102 §11/§13).
+
+## DT-PJ-COMPANY-ACTIVITY-COLUMNS-GHOST
+
+- **Status:** OPEN (2026-06-04) — criada por `DECISION-0103` (D12), descoberta na auditoria `F-PJ-CNAE-EVIDENCE-PERSIST`.
+- **Origem:** auditoria read-only `F-PJ-CNAE-EVIDENCE-PERSIST` + `DECISION-0103`.
+- **Vinculada a:** `backend/src/core/companies/companies.service.ts` (mappers `getCompanyById`/`listCompanies` lendo `row.main_activity_code`/`main_activity_description`/`secondary_activities`; `updateCompany` escrevendo `UPDATE companies SET main_activity_code=…`), `companies` (colunas AUSENTES), `migrations_archive` (colunas de atividade arquivadas).
+- **Contexto:** `companies` tem 14 colunas e **não possui** `main_activity_code`/`main_activity_description`/`secondary_activities`. Os mappers leem essas colunas → `c.*` devolve undefined (leitura morta, harmless). Mas `updateCompany` monta `UPDATE companies SET main_activity_code=$…` quando recebe `activity` no payload (a rota PUT aceita `activity`) → **42703 (coluna inexistente)** se o caminho for exercido. Vestígio das colunas `companies.activity` arquivadas — mesmo padrão do `company_domains` (DT CLOSED) e do CNAE descartado.
+- **Risco:** PUT /companies/:id com `activity` → 42703 (erro de schema em runtime). Além disso confunde a casa da evidência (CNAE deveria morar na casa fiscal, não em `companies`).
+- **Mitigação atual:** nenhuma (ghost latente). `DECISION-0103` D12/D13 fixou: limpar os refs, NÃO criar as colunas em `companies`.
+- **Resolução prevista (frente própria — `F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP`):** remover as leituras/escritas de `main_activity_code`/`main_activity_description`/`secondary_activities` em `companies.service` (read mappers + update path), parando o 42703 latente; quando houver evidência fiscal (DECISION-0103), o CNAE vem da casa fiscal. **NÃO recriar** colunas em `companies`. **NÃO executar** antes da palavra de Clayton (DECISION-0103 §13).
+
+## DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING
+
+- **Status:** OPEN (2026-06-04) — criada por `DECISION-0103` (D10), posterior à persistência de evidência.
+- **Origem:** auditoria read-only `F-PJ-CNAE-EVIDENCE-PERSIST` + `DECISION-0103`.
+- **Vinculada a:** `fiscal_identity_economic_activities` (futura), `concepts`, `company_types`, `company_type_allowed_concepts`, `DECISION-0102` (elegibilidade), `DECISION-0103`.
+- **Contexto:** não existe matriz CNAE → suggested company_type/concept (nem seed/lista oficial de CNAE no repo). Sem ela, a evidência CNAE persistida não pode SUGERIR candidatos de identidade operacional/elegibilidade.
+- **Risco:** sem a matriz, a evidência fica subutilizada; e há tentação de mapear CNAE→concept como se fosse identidade (anti-padrão D1/D10 — CNAE sugere, não decide).
+- **Mitigação atual:** nenhuma. `DECISION-0103` D10/D11: CNAE sugere candidatos, nunca decide; elegibilidade real vem de CONCEPT/company_type/GRAPH governado.
+- **Resolução prevista (frente própria — posterior ao writer de evidência):** desenhar (read-only → DECISION) a matriz CNAE→suggested concepts/company_types (sugestão governada, não autoridade) e ligá-la ao fluxo de elegibilidade de 6 camadas (DECISION-0102). **NÃO executar** antes da palavra de Clayton (DECISION-0103 §13).

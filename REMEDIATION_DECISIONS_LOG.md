@@ -6590,3 +6590,20 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** aprofunda DECISION-0098 (par = SSOT; eixo A N0 × eixo B vertical); ratifica `project_frontend_nunca_cria_verdade` e Lei 7.
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0102_PJ_ONBOARDING_DOMAIN_ELIGIBILITY_GOVERNANCE.md`; HEAD âncora `454d74d3`; `DomainSelector.tsx`, `CompaniesManager.tsx`, `companies.service.ts` (ghost `company_domains` + CNAE descartado), `company_type_allowed_concepts ⋈ concepts.domain`.
+
+---
+
+### DECISION-0103 — Modelo canônico de persistência de CNAE/atividade econômica como evidência fiscal PJ
+
+- **Data:** 2026-06-04
+- **Tipo:** arquitetura / identidade fiscal / evidência cadastral PJ (docs-only)
+- **Contexto:** o backend já busca CNAE/natureza (`fetchCNPJFromRevenue` → ReceitaWS+BrasilAPI) em `createCompany` + `/fetch-cnpj`, mas **descarta** tudo: `companies`/`fiscal_identities` não têm colunas de atividade. Auditoria read-only `F-PJ-CNAE-EVIDENCE-PERSIST` também achou ghost latente (`companies.service` lê/escreve `main_activity_code`/`secondary_activities` inexistentes → 42703 no update) + risco LGPD (payload bruto com QSA).
+- **Opções consideradas:** (1) colunas em `companies` — REJEITADA (projeção, casa errada; revive ghost); (2) snapshot JSONB bruto — REJEITADA (blob vira SSOT paralelo + QSA/LGPD); (3) **tabela 1:N na casa fiscal + colunas 1:1 em fiscal_identities** — ESCOLHIDA.
+- **Escolha:** Opção 3.
+- **Justificativa:** evidência fiscal mora na casa fiscal (`fiscal_identities`), CNAE é 1:N (tabela `fiscal_identity_economic_activities`), com source/fetched_at, fail-open, sem QSA (LGPD); CNAE é evidência (não SSOT; só sugere). Norma antes de schema.
+- **Consequências esperadas:** curto prazo — `CNAE-EVIDENCE-NOT-PERSISTED` vira GOVERNED/DECISIONED; criadas `DT-PJ-COMPANY-ACTIVITY-COLUMNS-GHOST` e `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING`. Médio prazo — ghost-cleanup → schema-migration → writer → matriz de sugestão → elegibilidade.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Validação prévia:** Clayton (promulgação); auditoria read-only `F-PJ-CNAE-EVIDENCE-PERSIST`; DECISION-0102 (D4).
+- **Supera:** executa o degrau 1 (evidência fiscal) de DECISION-0102; ratifica `fiscal_identities` como casa fiscal (0085/0097 D3) e CONCEPT como SSOT (Lei 7).
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0103_PJ_CNAE_FISCAL_EVIDENCE_MODEL.md`; HEAD âncora `e064c36f`; `companies.service.fetchCNPJFromRevenue`, `fiscal_identities`, `companies` (sem activity), mappers/updateCompany (ghost activity), `migrations_archive`.

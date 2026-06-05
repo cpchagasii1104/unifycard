@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.58) — DECISION-0103: onde guardar a evidência fiscal (CNAE)
+
+HEAD antes `e064c36f` → commit "decisions: define PJ CNAE fiscal evidence model". Após auditoria read-only F-PJ-CNAE-EVIDENCE-PERSIST, promulguei DECISION-0103 (próximo nº livre; 0102 era o maior). Achado: o backend JÁ busca CNAE/natureza (fetchCNPJFromRevenue → ReceitaWS+BrasilAPI, em createCompany + /fetch-cnpj) mas descarta tudo (companies/fiscal_identities sem colunas de atividade). Bônus: ghost latente — companies.service lê/escreve main_activity_code/secondary_activities que não existem → 42703 no update (vestígio arquivado, mesmo padrão do company_domains).
+
+D1 CNAE=evidência não identidade; D2 mora na casa fiscal (fiscal_identities), não em companies (projeção); D3 1:N; D4 tabela fiscal_identity_economic_activities + colunas 1:1 (legal_nature/company_size); D5 SEM QSA bruto (LGPD); D6 backend coleta (não confiar no frontend); D7 source/fetched_at; D8 fail-open; D10 CNAE sugere não decide; D12 limpar ghost companies.activity (não criar colunas). DT CNAE-EVIDENCE-NOT-PERSISTED → GOVERNED/DECISIONED. Criei DT-PJ-COMPANY-ACTIVITY-COLUMNS-GHOST e DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING. Docs-only; 4 gates OK; 3 autorais intocados.
+
+**Próximo:** F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (backend, limpar os refs mortos → para o 42703) → schema-migration → writer (persistir do fetch já existente). Esta sessão decide onde guardar a evidência; não grava a evidência ainda.
+
+---
+
 ## Sessão 2026-06-04 (cont.57) — F-PJ-DOMAIN-SELECTOR-NEUTRALIZE: parar a mentira da área de atuação
 
 HEAD antes `93321e84` → commit "fix(pj): neutralize free domain selector". Neutralizei o DomainSelector livre e o ghost writer de company_domains (DECISION-0102 D9/D10). A seleção de 6 checkboxes era quádruplo-morta: dropada no zod (createCompanySchema não tem domains) → default 'market' → INSERT em company_domains (tabela só no archive 0404) → 42P01 engolido. Frontend: removi DomainSelector do CompaniesManagerForm (troquei por nota informativa), removi validação obrigatória em CompaniesManager, removi domains:['market'] de useCompaniesState, removi domains de CreateCompanyInput (api). Backend: removi o bloco ghost INSERT + default 'market' em createCompany, removi domains de CreateCompanyInput (types). NÃO criei company_domains. Stubs /domains (getCompanyDomains→[]/updateCompanyDomains→echo) deixados inertes.
