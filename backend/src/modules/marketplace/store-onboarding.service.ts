@@ -402,11 +402,17 @@ class StoreOnboardingService {
         resolvedInput.actorId
       );
 
-      if (!existingOffer) {
+      // Op2 (Trilho A): a oferta (preço/estoque/disponibilidade) é PROJEÇÃO operacional da empresa e exige
+      // FONTE REAL de preço (`defaultSalePrice`). `product_offers.price_cents` é NOT NULL — o antigo
+      // `?? 0` FABRICAVA preço-zero quando o merchant não informava preço (etiqueta falsa). Sem preço real,
+      // o produto NASCE NA PRATELEIRA (`products` materializado) SEM oferta — não se inventa preço.
+      const salePrice = resolvedInput.defaultSalePrice;
+      const hasRealPrice = typeof salePrice === 'number' && Number.isFinite(salePrice) && salePrice >= 0;
+      if (!existingOffer && hasRealPrice) {
         await this.createProductOffer(tenantId, {
           productId: tenantProductId,
           merchantId: resolvedInput.actorId,
-          priceCents: Math.round((resolvedInput.defaultSalePrice ?? 0) * 100),
+          priceCents: Math.round(salePrice * 100),
           availableQuantity: resolvedInput.defaultStock ?? null,
           isActive: true,
         });

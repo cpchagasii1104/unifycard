@@ -132,6 +132,9 @@ export default function StoreOnboardingWizard() {
     try {
       const input: StoreOnboardingInput = {
         actorId,
+        // PONTE Estágio 4 (DECISION-0108): projeta a empresa classificada quando se opera como page-actor.
+        // Backend deriva company_type de companies.primary_company_type_id; ausente = legado (tenant).
+        companyId: activeActor?.company_id ?? undefined,
         departmentCategoryId: formData.departmentCategoryId,
         selectedCategoryIds: formData.selectedCategoryIds,
         hasOwnProducts: formData.hasOwnProducts,
@@ -173,6 +176,9 @@ export default function StoreOnboardingWizard() {
     try {
       const input: StoreOnboardingInput = {
         actorId,
+        // PONTE Estágio 4 (DECISION-0108): projeta a empresa classificada quando se opera como page-actor.
+        // Backend deriva company_type de companies.primary_company_type_id; ausente = legado (tenant).
+        companyId: activeActor?.company_id ?? undefined,
         departmentCategoryId: formData.departmentCategoryId,
         selectedCategoryIds: formData.selectedCategoryIds,
         hasOwnProducts: formData.hasOwnProducts,

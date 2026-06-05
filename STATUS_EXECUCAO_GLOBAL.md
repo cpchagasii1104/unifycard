@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-STAGE4-TRILHO-A-SUPERMERCADO (Op2): caller vivo passa companyId + offer só com preço real (FECHA 2 DTs)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `3a1dabac`. Frente Op2 (Trilho A MVP supermercado, DECISION-0108 + Op1). **Zero migration** (dev 363) / seed / canonical novo / popular `tenants.company_type_id` / item-concepts / Bank. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** exercita o caller vivo do Stage 4 ponta a ponta e blinda contra preço fabricado. **(1) companyId end-to-end:** `StoreOnboardingWizard.tsx` projeta `companyId` de `activeActor.company_id` (page-actor de empresa) → rota propaga (Op1) → serviço deriva company_type de `companies.primary_company_type_id` (empresa CLASSIFICADA vence tenant) → guard governa por categoria/ramo (DECISION-0108). Frontend só PROJETA (não cria verdade). **(2) offer só com preço real:** o loop CANONICAL→PRODUCT→OFFER deixava `priceCents = (defaultSalePrice ?? 0) * 100` — **fabricava preço-zero** (`price_cents` é NOT NULL). Agora a oferta exige FONTE REAL (`defaultSalePrice` finito ≥ 0); sem preço, o produto **nasce na prateleira** (`products` materializado) **SEM** `product_offer` — não se inventa etiqueta.
+
+**Arquivos:** `backend/src/modules/marketplace/store-onboarding.service.ts` (gate de preço no offer), `frontend/src/api/store-onboarding.ts` (`companyId?`), `frontend/src/pages/StoreOnboardingWizard.tsx` (projeta `activeActor.company_id`), `backend/src/scripts/validate-pipeline-e2e-pj-stage4-trilho-a-supermercado.ts` (e2e), `scripts/run-pj-stage4-trilho-a-supermercado-ephemeral.ps1`.
+
+**Prova:** e2e efêmero **16/16 verde** — com `tenants.company_type_id=farmácia` DIVERGENTE, o onboarding materializa os **ramos do SUPERMERCADO** (22 canônicos branches) via `companies.primary_company_type_id`; nenhum product fora do recorte; COM `defaultSalePrice=4.5` → 22 offers `price_cents=450` (preço real); SEM preço → 22 products **reusados** (sem duplicar), **ZERO offers**, zero `price_cents=0` no tenant; farmácia (tenant próprio) **NÃO** materializa banana (guard rejeita, ForbiddenError); zero canônico novo; `company_type_allowed_concepts` intocado; `tenants.company_type_id` não populado pelo fluxo; Bank intocado. Backend tsc só baseline geo; **frontend tsc limpo (exit 0)**. 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 363→363.**
+
+**DTs:** **`DT-PJ-STAGE4-COMPANY-TYPE-SOURCE-DISCONNECT` → CLOSED** (caller vivo exercita a ponte ponta a ponta, provado). **`DT-PJ-STORE-ONBOARDING-FABRICATED-ZERO-PRICE-OFFER` → CLOSED** (criada+resolvida nesta fatia: offer só com preço real).
+
+**PRÓXIMA ETAPA (espera Clayton):** Op3 (serviços) — análogo ao Trilho A para `servicos`; ou outra frente PJ. Peixaria continua FORA (decisão de produto pendente).
+
+---
+
 ## 2026-06-05 — F-PJ-PRODUCT-CONCEPT-GUARD-LAYER-FIX: troca a régua errada do guard (FECHA a DT)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `0958d6a3`. Frente **code-only** (DECISION-0108). **Zero migration** (dev 363) / seed / product_offers Op2 / popular `tenants.company_type_id` / item-concepts em `company_type_allowed_concepts` / `canonical_products` / Bank. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_

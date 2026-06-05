@@ -9,6 +9,12 @@ import { apiFetchJson } from './client';
  */
 export interface StoreOnboardingInput {
   actorId: string;
+  /**
+   * PONTE Estágio 4 (DECISION-0108 / Op1): empresa PJ CLASSIFICADA cujo `companies.primary_company_type_id`
+   * pré-molda a loja. Projetado do `activeActor.company_id` quando se opera como page-actor de empresa.
+   * Ausente = path legado (backend lê `tenants.company_type_id`). Frontend só PROJETA — não cria verdade.
+   */
+  companyId?: string;
   departmentCategoryId: string;
   selectedCategoryIds: string[];
   hasOwnProducts: boolean;
