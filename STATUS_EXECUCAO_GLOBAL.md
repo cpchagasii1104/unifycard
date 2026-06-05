@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-CONCEPT-LABELS-SEED-MVP: semeia os 7 labels primários pt-BR
+
+**Branch:** `rescue-structural` · **HEAD origem:** `19057507`. Frente seed (DML governado, DECISION-0107 D10). **Zero endpoint/frontend/CNAE/Trilhos/Bank/alteração em concepts.** 3 autorais intocados. _(Esteira: eu escritora, par verifica; runner canônico.)_
+
+**O que entregou:** os 7 labels primários pt-BR curados das verticais MVP. Migration forward-only/idempotente `20260605180000_seed_concept_labels_mvp.sql`: `INSERT ... SELECT` resolvendo `concept_id` **por slug** (não UUID hardcode) de `concepts`, `ON CONFLICT (concept_id, locale, context_key) WHERE is_primary=true DO UPDATE` (idempotente; atualiza label/short_label/source/updated_at) + **gate fail-closed `COUNT=7`** (aborta se algum slug não resolver — sem seed parcial). Valores fixos: locale='pt-BR', context_key='default', is_primary=true, source='clayton_curated_mvp_2026_06_05'. Labels: **Supermercado · Hortifruti · "Açougue / Varejo de Carnes" (Açougue) · Padaria · Farmácia · "Salão de Beleza / Estética" (Beleza) · Restaurante**. NÃO altera `concepts` (seco). NÃO deriva label do slug automaticamente.
+
+**Arquivos:** `backend/migrations/20260605180000_seed_concept_labels_mvp.sql`, `backend/src/scripts/validate-pipeline-e2e-pj-concept-labels-seed.ts`, `scripts/run-pj-concept-labels-seed-ephemeral.ps1`.
+
+**Prova:** e2e seed efêmero **6/6 verde** (7 primárias pt-BR/default curadas; cada uma resolve o concept correto por slug + label/short_label; **idempotência** — re-aplicar continua 7; índice parcial impede 2ª primária→23505; `concepts` seco; Bank intocado). Aplicada em `unificard_dev` pelo **runner canônico**: **362→363** (`new_reg=1`, registrada, **zero fantasma**); query confirmou 7 labels → concepts corretos por slug. Gates actor-writer/bank-ledger/regression-guards OK (numeração única 363); arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3).
+
+**DTs:** `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING` → GOVERNED, **schema + seed entregues** (não CLOSED — falta endpoints (JOIN displayName) + frontend/wizard).
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-PJ-CONCEPT-LABELS-EXPOSE-ENDPOINTS` (JOIN em `suggestConceptForCnae` + `listAllowedConceptsForCompanyType` → `displayName`, fallback null) → `...-WIZARD` (frontend `displayName ?? slug`).
+
+---
+
 ## 2026-06-05 — F-PJ-CONCEPT-LABELS-SCHEMA-MIGRATION: cria concept_labels (schema-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `debc7e6f`. Frente schema-only (DECISION-0107). **Zero seed/endpoint/frontend/CNAE/Trilhos/Bank/runtime.** Os 7 labels MVP **não** semeados (fatia própria). 3 autorais intocados. _(Esteira: eu escritora, par verifica; lição da γ aplicada — runner canônico, não psql -f.)_

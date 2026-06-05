@@ -6,6 +6,14 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.78) — F-PJ-CONCEPT-LABELS-SEED-MVP (eu escritora)
+
+HEAD `19057507` → commit "feat(pj): seed MVP concept labels (7 verticals, pt-BR)". Seed DML (DECISION-0107 D10). Migration 20260605180000: INSERT...SELECT resolvendo concept_id POR SLUG de concepts (não UUID), ON CONFLICT no índice parcial (idempotente, atualiza label/short_label/source/updated_at), fail-closed COUNT=7. 7 labels pt-BR/default primárias: Supermercado/Hortifruti/Açougue/Padaria/Farmácia/Beleza/Restaurante. source=clayton_curated_mvp_2026_06_05. concepts SECO. e2e seed 6/6 (7 primárias; slug correto; idempotência; partial-unique 23505; seco; Bank). Dev 362→363 runner canônico (registrada, zero fantasma). Gates OK (363, arch critical_new=0). DT-PJ-CONCEPT-DISPLAY-NAME-MISSING: schema+seed entregues, NÃO CLOSED (falta endpoints+wizard).
+
+**Próximo (espera Clayton):** F-PJ-CONCEPT-LABELS-EXPOSE-ENDPOINTS (JOIN displayName em suggestConceptForCnae + listAllowedConceptsForCompanyType, fallback null) → wizard (displayName??slug). Ou Trilhos A/B / peixaria.
+
+---
+
 ## Sessão 2026-06-05 (cont.77) — F-PJ-CONCEPT-LABELS-SCHEMA-MIGRATION (eu escritora)
 
 HEAD `debc7e6f` → commit "feat(pj): concept_labels presentation schema". Schema-only (DECISION-0107). Migration 20260605170000_create_concept_labels: tabela GLOBAL (sem tenant_id), id PK uuid_generate_v4 (= o que concepts usa), concept_id FK→concepts, locale default pt-BR, context_key default default, label, short_label null, is_primary default true, source, timestamps. CHECKs btrim>0 (locale/context_key/label/source). partial-unique uq_concept_labels_one_primary (concept_id,locale,context_key) WHERE is_primary (≤1 primária; N alternativas). idx concept + (locale,context_key). concepts SECO (sem display_name). Label=apresentação não identidade (COMMENTs). SEM seed/endpoint/frontend.
