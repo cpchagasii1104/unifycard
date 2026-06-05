@@ -13,7 +13,7 @@ import type {
   UpdateProductInput,
   ListProductsOptions,
 } from './product-catalog.types';
-import { assertProductConceptAllowedForTenant } from './product-concept-guard';
+import { assertProductCategoryAllowedForCompany } from './product-concept-guard';
 
 /**
  * P0 RFC 0: category_id obrigatório na criação de product (camada aplicação).
@@ -99,7 +99,7 @@ class ProductRepository {
     const categoryId = requireCategoryIdForProductCreate(input.categoryId);
     const canonicalProductId = normalizeCanonicalProductIdForDb(input.canonicalProductId);
 
-    await assertProductConceptAllowedForTenant(tenantId, canonicalProductId);
+    await assertProductCategoryAllowedForCompany(tenantId, canonicalProductId, input.companyId);
 
     try {
       const row = await runQueryWithTenant<ProductRow>(

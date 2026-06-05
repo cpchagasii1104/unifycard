@@ -381,6 +381,9 @@ class StoreOnboardingService {
           description: null,
           categoryId: canonical.categoryId,
           canonicalProductId: canonical.id,
+          // DECISION-0108: empresa CLASSIFICADA governa o recorte por categoria/ramo no guard
+          // (companies.primary_company_type_id; nunca tenants.company_type_id no fluxo PJ novo).
+          companyId: resolvedInput.companyId,
           productType: 'industrial',
           isActive: true,
           metadata: {

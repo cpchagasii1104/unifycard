@@ -139,6 +139,12 @@ export interface CreateProductInput {
   categoryId?: string | null;
   /** Opcional: persiste em `products.canonical_product_id`. */
   canonicalProductId?: string | null;
+  /**
+   * Opcional (DECISION-0108): empresa CLASSIFICADA cujo `primary_company_type_id` governa o recorte
+   * por categoria/ramo do guard. Ausente → legado/compat (guard lê `tenants.company_type_id`).
+   * Não é persistido em `products` — só contextualiza o guard.
+   */
+  companyId?: string | null;
   productType: ProductType;
   isActive?: boolean;
   metadata?: Record<string, any>;

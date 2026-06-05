@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-PRODUCT-CONCEPT-GUARD-LAYER-FIX: troca a régua errada do guard (FECHA a DT)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `0958d6a3`. Frente **code-only** (DECISION-0108). **Zero migration** (dev 363) / seed / product_offers Op2 / popular `tenants.company_type_id` / item-concepts em `company_type_allowed_concepts` / `canonical_products` / Bank. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** corrige o `product-concept-guard` pré-0105 que comparava `canonical_products.concept_id` (item-comercial) × `company_type_allowed_concepts.concept_id` (vendor) — interseção zero, rejeitava todo produto industrial. Guard renomeado `assertProductConceptAllowedForTenant` → **`assertProductCategoryAllowedForCompany(tenantId, canonicalProductId, companyId?)`**: lê `canonical_products.category_id` e valida ∈ ramos pré-moldados do `company_type` (`default_department_slugs`+`default_branch_slugs`→`categories`). Fonte = **`companies.primary_company_type_id`** (empresa CLASSIFICADA vence; `tenants.company_type_id` só legado/compat — corrige o "segundo leitor de tenants"). **NÃO virou no-op global (D9):** com contexto de company/company_type → **fail-closed** por categoria fora do recorte; bypass só nos ramos legado/compat documentados (sem canônico/canônico inexistente/sem categoria/sem company_type/tipo sem ramos). `CreateProductInput` ganhou `companyId?` (aditivo, **não** persistido); `store-onboarding.service:379` passa `resolvedInput.companyId`. `marketplace-templates.service:773` e o smoke não passam canônico → bypass (intocados).
+
+**Arquivos:** `backend/src/modules/marketplace/product-concept-guard.ts` (reescrito), `product.repository.ts` (import+call+companyId), `product-catalog.types.ts` (`companyId?`), `store-onboarding.service.ts:379` (passa companyId), `backend/src/scripts/validate-pipeline-e2e-pj-product-concept-guard-layer-fix.ts` (e2e), `scripts/run-pj-product-concept-guard-layer-fix-ephemeral.ps1`.
+
+**Prova:** e2e efêmero **13/13 verde** — supermercado materializa banana (hortifruti ∈ ramos) + `products` persistido; farmácia REJEITA banana (hortifruti ∉ ramos da farmácia) e não persiste; farmácia materializa analgésico (medicamentos ∈ ramos); **empresa VENCE tenant=supermercado** (companyId=farmácia+banana rejeita); legado sem companyId lê tenant (compat); **guard não compara item×vendor** (banana.concept ∉ vendor allowlist do supermercado, ainda assim passa = régua trocada); bypass templates/não-classificada/canônico-inexistente; zero offers/Bank. Backend tsc só baseline geo. 4 gates: actor-writer/bank-ledger/regression-guards OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 363→363.**
+
+**DTs:** **`DT-PJ-PRODUCT-CONCEPT-GUARD-PRE-0105-LAYER-CONFLATION` → CLOSED** (régua trocada e provada). `DT-PJ-STAGE4-COMPANY-TYPE-SOURCE-DISCONNECT` segue PARTIALLY MITIGATED (sub-problema "segundo leitor de tenants" resolvido; falta caller vivo passar companyId = Op2).
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-PJ-STAGE4-TRILHO-A-SUPERMERCADO` (Op2) — onboarding PJ passa `companyId` ao store-onboarding (exerce a ponte ponta a ponta → fecha a DT-STAGE4) + empresa ativa mix (`product_offers`).
+
+---
+
 ## 2026-06-05 — DECISION-0108: governança de produto PJ por categoria/ramo (não por vendor-concept) — docs-only
 
 **Branch:** `rescue-structural` · **HEAD origem:** `28131866`. Frente **docs-only** (promulgação de Clayton, Op-i). **Zero código/schema/migration/seed/guard-fix/Op2/Bank.** Dev segue 363. 3 autorais intocados. _(Esteira: eu escritora; auditoria read-only `F-PJ-PRODUCT-CONCEPT-GUARD` cruzou guard/banco vivos; par verifica.)_
