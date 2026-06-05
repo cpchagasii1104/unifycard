@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-CONCEPT-LABELS-WIZARD-MINIMAL: UI renderiza displayName ?? slug (FECHA a DT)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `0091f6c2`. Frente frontend mínima (DECISION-0107 D11.5). **Zero backend/migration/seed/CNAE/Trilhos/Bank/refactor.** Dev segue 363. 3 autorais intocados. _(Esteira: eu escritora, par verifica.)_
+
+**O que entregou:** a última fatia da cadeia — a UI para de mostrar slug técnico. `frontend/src/components/company/CompanyOnboardingWizard.tsx:300`: `<h3>{c.slug}</h3>` → `<h3>{c.displayName ?? c.slug}</h3>` (nome legível com **fallback técnico** ao slug). Tipo `AllowedOperationalConcept` (`frontend/src/api/companies.ts`) ganhou `displayName?: string|null` + `shortLabel?: string|null`. **Identidade/ativação inalteradas:** o submit continua usando `selectedConceptId` (conceptId) — `displayName` é só apresentação, nunca vai no payload nem resolve identidade.
+
+**Arquivos:** `frontend/src/components/company/CompanyOnboardingWizard.tsx`, `frontend/src/api/companies.ts` (M). Backend/docs só STATUS/opus/DT/exec-log.
+
+**Prova:** frontend tsc **limpo** (o tipo + o `?? c.slug` typecheck). Backend untouched → gates actor-writer/bank-ledger/regression-guards OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). Dev **363→363** (zero migration). Os 7 concepts MVP renderizam label ("Supermercado", "Açougue / Varejo de Carnes", etc.); concepts sem label → slug por fallback (provado nos endpoints, e2e suggestion 18/18 com `displayName=null` honesto). Submit usa conceptId (flow e2e 22/22 da fatia anterior confirma identidade intacta).
+
+**DTs:** `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING` → **CLOSED** (schema + seed + endpoints + frontend; critério §13 atingido: UI não exibe mais slug quando há label). Resíduo (não reabre): labels só para os 7 MVP — os 130 demais concepts mostram slug por fallback honesto (enriquecimento futuro).
+
+**PRÓXIMA ETAPA (espera Clayton):** Trilhos A/B (Estágio 4, governado pela DT do catálogo canônico) · decisão peixaria · enriquecimento de labels dos demais concepts (opcional). A cadeia de display name de concept está **completa e fechada**.
+
+---
+
 ## 2026-06-05 — F-PJ-CONCEPT-LABELS-EXPOSE-ENDPOINTS: displayName por JOIN nos 2 endpoints
 
 **Branch:** `rescue-structural` · **HEAD origem:** `a4c2c5e2`. Frente backend read-only (DECISION-0107 D9). **Zero migration** (dev segue 363) / seed / frontend / CNAE / Trilhos / Bank / alteração em concepts. 3 autorais intocados. _(Esteira: eu escritora, par verifica.)_

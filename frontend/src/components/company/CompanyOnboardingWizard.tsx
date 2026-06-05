@@ -297,7 +297,9 @@ export default function CompanyOnboardingWizard({
                         className={`business-type-card ${selectedConceptId === c.conceptId ? 'selected' : ''}`}
                         onClick={() => setSelectedConceptId(c.conceptId)}
                       >
-                        <h3>{c.slug}</h3>
+                        {/* DECISION-0107: nome legível (concept_labels) com fallback técnico ao slug.
+                            Identidade/ativação seguem por c.conceptId — displayName é só apresentação. */}
+                        <h3>{c.displayName ?? c.slug}</h3>
                         <p>{c.domain}</p>
                       </button>
                     ))}

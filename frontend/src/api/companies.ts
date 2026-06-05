@@ -339,11 +339,17 @@ export interface OperationalCompanyType {
   defaultBranchSlugs: string[];
 }
 
-/** `concepts` não tem display name → backend expõe slug/domain. */
+/**
+ * Concept permitido para o company_type. `conceptId`/`slug` = identidade técnica/semântica (usados na
+ * ativação). `displayName`/`shortLabel` = apresentação governada (concept_labels, DECISION-0107); podem ser
+ * null quando não há label → a UI faz `displayName ?? slug`. Label NUNCA é identidade.
+ */
 export interface AllowedOperationalConcept {
   conceptId: string;
   slug: string;
   domain: string;
+  displayName?: string | null;
+  shortLabel?: string | null;
 }
 
 export interface OperationalActivationResponse {

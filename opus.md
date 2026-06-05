@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.80) — F-PJ-CONCEPT-LABELS-WIZARD-MINIMAL (eu escritora) — FECHA a cadeia
+
+HEAD `0091f6c2` → commit "feat(pj): wizard renders concept displayName with slug fallback". Frontend mínimo (DECISION-0107). CompanyOnboardingWizard.tsx:300: {c.slug} → {c.displayName ?? c.slug}. Tipo AllowedOperationalConcept (api/companies.ts) ganhou displayName?/shortLabel?. Identidade/ativação inalteradas: submit usa selectedConceptId (conceptId), displayName nunca no payload. Frontend tsc limpo. Backend untouched → gates OK, dev 363 (zero migration). DT-PJ-CONCEPT-DISPLAY-NAME-MISSING → CLOSED (schema+seed+endpoints+frontend; UI não mostra mais slug quando há label). Resíduo: só 7 MVP têm label; 130 demais mostram slug por fallback (enriquecimento futuro, não reabre).
+
+Cadeia de display name de concept COMPLETA: DECISION-0107 → schema concept_labels → seed 7 pt-BR → endpoints (JOIN displayName) → wizard (displayName ?? slug). 5 fatias, esteira limpa (eu escrevo, par verifica, Clayton serializa). Lição da γ mantida em todas as migrations (runner canônico, zero fantasma).
+
+**Próximo (espera Clayton):** Trilhos A/B (Estágio 4, DT do catálogo canônico) · peixaria · enriquecimento de labels (opcional).
+
+---
+
 ## Sessão 2026-06-05 (cont.79) — F-PJ-CONCEPT-LABELS-EXPOSE-ENDPOINTS (eu escritora)
 
 HEAD `a4c2c5e2` → commit "feat(pj): expose concept displayName via concept_labels JOIN". Backend read-only (DECISION-0107 D9). LEFT JOIN concept_labels (primária pt-BR/default) em listAllowedConceptsForCompanyType (+displayName/shortLabel) e suggestConceptForCnae (suggestedConceptDisplayName). Label é projeção — JOIN não usa label em WHERE/ORDER; lookup do concept segue por cnae_code/concept_id/slug. Fallback honesto: sem label→null (frontend fará displayName??slug). Sem migration (363), sem escrita, concepts intocado. e2e suggestion 18/18 (displayName Supermercado/Salão; allowed-concepts displayName+shortLabel; concept sem label→null via insert de teste; máscara=sem-máscara; sem-sugestão null; zero writes). onboarding-flow 22/22 (shape change ok — flow só checa conceptId/slug/domain + ausência de legado, displayName não quebra). Gates OK. DT-PJ-CONCEPT-DISPLAY-NAME-MISSING: schema+seed+endpoints entregues, falta só wizard.
