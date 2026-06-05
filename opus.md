@@ -6,6 +6,14 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.72) — γ: seed MVP matriz CNAE→concept (Executora)
+
+Esteira: eu (Executora) escrevi, par verifica read-only, Clayton serializou (autorizou γ + tabela curada). Seed `20260605120000` = 8 sugestões das 7 verticais (resolução por slug + guard allowed-pair + fail-closed COUNT=8; idempotente). **2 catches na verificação pré-seed** (segui schema, não o spec): confidence é categórica `IN(low,medium,high)` não numérica (0.95/0.85→high/medium); sem coluna cnae_code_normalized/company_type. Usei cnae_code=normalizado; evidência grava formato do provider → **costura** `DT-PJ-CNAE-CODE-FORMAT-NORMALIZATION-SEAM` (consumidor normaliza antes do lookup). Provas 10/10; gates verdes (361). Aplicado em dev (8 linhas). `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` segue PARTIALLY (falta read endpoint).
+
+**Lição reforçada:** verificar schema antes de escrever seed — o spec de Clayton tinha confidence numérica mas o schema (que a 0104 dele mesmo promulgou) é categórica. Seguir a constraint viva, preservar a intenção (primário>secundário). Próximo: read endpoint de sugestão OU display name OU profundidade Trilhos A/B — espera Clayton.
+
+---
+
 ## Sessão 2026-06-05 (cont.71) — F-PJ-KYB-REVOCATION-READER-DEFENSE (#2): filtro defensivo KYB
 
 HEAD antes `1040130f` → commit "feat(pj): KYB-approved defense filter in discovery reader". Code-only (DECISION-0101 D9), autorizado por Clayton ("go #2"). NB da esteira: a instância irmã (verificadora) pegou que eu disse "#2 não precisa de Clayton" — a DT dizia o contrário ("NÃO executar antes da palavra de Clayton"); confirmei na fonte (REMEDIATION_DT_LOG.md:11190) e esperei o go. Bom catch — mesmo padrão do vehicles.

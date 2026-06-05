@@ -1,3 +1,19 @@
+## 2026-06-05 — γ: SEED MVP da matriz CNAE→concept aplicado (tabela curada por Clayton)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `a9d48572` · **Esteira:** Executora (esta) escreve, par verifica read-only, Clayton serializou (autorizou γ + forneceu a tabela curada das 7 verticais). Migration + seed; **zero** activation/publish/offering/Bank/Trilhos.
+
+**Seed (migration `20260605120000_seed_cnae_concept_suggestions_mvp.sql`):** 8 sugestões das 7 verticais vivas — supermercado/hortifruti/açougue/padaria/farmácia/restaurante/salão (+ salão estética `9602502` como secundário). Resolução `suggested_concept_id` **por slug** (não hardcode UUID) + guard allowed-pair + **fail-closed** (gate `COUNT=8`). Idempotente (ON CONFLICT). `review_status='approved'`, `source='clayton_curated_mvp_2026_06_05'`, `catalog_version='2026-06-05-mvp-7-verticals'`.
+
+**Dois descasamentos spec↔schema pegos na verificação pré-seed (segui o schema, preservei a intenção):** (1) `confidence` é **categórica** (`IN(low,medium,high)`), não numérica — os 0.95/0.85 de Clayton mapeados p/ `high`(primário)/`medium`(secundário); (2) não há coluna `cnae_code_normalized` nem `company_type` (correto por 0104). Usei `cnae_code` = **normalizado (dígitos)**; a evidência grava o formato do provider → **costura** registrada em `DT-PJ-CNAE-CODE-FORMAT-NORMALIZATION-SEAM` (consumidor futuro normaliza antes do lookup).
+
+**Provas (10/10):** 7 verticais 1:1 ✓; cada CNAE→suggested_concept_id ✓; sem activation/publish/offering/Bank ✓ (grep); idempotente (2ª aplicação=8) ✓; sem importar CNAE inteiro ✓; sem `primary_*` ✓; 4 gates verdes (361 migrations, numeração única). Aplicado em `unificard_dev` (8 linhas; runner canônico reconcilia — idempotente).
+
+**DTs:** `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` → permanece **PARTIALLY MITIGATED** (seed feito; falta só o **read endpoint**). **Criada** `DT-PJ-CNAE-CODE-FORMAT-NORMALIZATION-SEAM` (OPEN).
+
+**Estágio 3 da PJ quase fechado:** fork (0106) + matriz schema + **seed** ✓. Resíduos: read endpoint de sugestão + display name de concept. **Trilhos A/B (Estágio 4)** seguem bloqueados até desenho próprio.
+
+---
+
 ## 2026-06-05 — F-PJ-KYB-REVOCATION-READER-DEFENSE (#2): filtro defensivo KYB no discovery
 
 **Branch:** `rescue-structural` · **HEAD origem:** `1040130f`. Frente #2 (code-only, governada por DECISION-0101 D9; autorizada por Clayton "go #2"). **Zero schema/migration/Bank/frontend.** 3 autorais intocados. _(Esteira: eu escritora, instância irmã read-only. Catch dela: a DT exigia palavra de Clayton — confirmado e respeitado antes de executar.)_
