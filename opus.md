@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.60) — F-PJ-CNAE-EVIDENCE-SCHEMA-MIGRATION: instala a tomada fiscal
+
+HEAD antes `1484ff1f` → commit "feat(pj): add CNAE fiscal evidence schema". Instalei a tomada fiscal para CNAE (schema-only, DECISION-0103 D2/D3/D4). Migration `20260604150000_create_fiscal_identity_economic_activities.sql`: satélite 1:N ON DELETE CASCADE em fiscal_identities (mora na casa fiscal, não em companies); cnae_code/cnae_description/is_primary/source/fetched_at; CHECKs btrim>0; uq_fiea_fiscal_cnae UNIQUE(fiscal_identity_id,cnae_code); uq_fiea_one_primary partial-unique (≤1 principal); idx fiscal_identity/cnae_code. SEM QSA/dados pessoais (LGPD D5). SEM writer (D14) — persistência do fetchCNPJFromRevenue é frente própria.
+
+Prova: e2e schema efêmero (CREATE→migrate FULL 359→BEGIN/ROLLBACK→DROP) **24/24 verde** — colunas/tipos, FK→23503, 1 principal/N secundários, dup→23505, 2º principal→23505, zero principal OK, CHECKs vazio→23514, fetched_at NULL→23502, sem QSA, companies sem cols atividade, Bank=0, tco/ccp=0, rollback zero-resíduo. Aplicada em dev pelo runner canônico: **358→359**; \d confirmou PK/FK-CASCADE/3 CHECK/2 UNIQUE(incl partial)/2 idx. tsc só baseline geo. Gates actor-writer/bank-ledger/financial-regression/sql-lint/numbering OK; architectural exit-1 = baseline USER_PROFILE_CONTRACT (profile/human-mvp/core.service NÃO tocados — git status confirma só migration+e2e+ps1). Corrigi o bug do teste-16 (query convolutada count??n) p/ query única com alias. DT CNAE-EVIDENCE-NOT-PERSISTED → PARTIALLY MITIGATED/GOVERNED (schema feito; não CLOSED — falta writer).
+
+**Próximo:** F-PJ-CNAE-EVIDENCE-WRITER (persistir do fetchCNPJFromRevenue já existente no nascimento, fail-open, sem QSA, idempotente sobre uq_fiea_*). Depois matriz CNAE→suggested-concept e elegibilidade 6 camadas (DECISION-0102). Tomada instalada; nenhum aparelho ligado nela ainda.
+
+---
+
 ## Sessão 2026-06-04 (cont.59) — F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP: tira o fio desencapado
 
 HEAD antes `7b62d1cf` → commit "fix(pj): remove ghost company activity columns". Limpei o ghost de atividade em companies.service: (1) removi o bloco if(input.activity) do updateCompany — montava UPDATE companies SET main_activity_code/... em colunas inexistentes (42703 latente eliminado); (2) os 3 read-mappers viraram activity:{secondaryActivities:[]} (sem ler row.main_activity_*); (3) removi as 5 declarações de row-type das colunas-ghost; (4) removi a extração morta de CNAE em createCompany. companies.types: tirei activity? de CreateCompanyInput/UpdateCompanyInput. NÃO criei colunas (D13). Company.activity (DTO) preservado (vazio). fetchCNPJFromRevenue/provider intactos.

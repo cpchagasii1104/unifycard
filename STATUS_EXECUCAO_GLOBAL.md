@@ -1,3 +1,19 @@
+## 2026-06-04 — F-PJ-CNAE-EVIDENCE-SCHEMA-MIGRATION: instala a tomada fiscal (schema-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `1484ff1f`. Frente `F-PJ-CNAE-EVIDENCE-SCHEMA-MIGRATION` (schema-only, governada por DECISION-0103 D2/D3/D4). Zero writer/provider/frontend/marketplace/publication/KYB/Bank. Os 3 untracked autorais intocados.
+
+**O que entregou:** a **tomada fiscal** para CNAE como evidência cadastral auditável da PJ. Migration forward-only/idempotente `20260604150000_create_fiscal_identity_economic_activities.sql`: satélite **1:N ancorado em `fiscal_identities(fiscal_identity_id)` ON DELETE CASCADE** (a evidência mora na casa fiscal, nunca em `companies`); colunas `cnae_code`/`cnae_description`/`is_primary`/`source`/`fetched_at` (+ id/created_at/updated_at); CHECKs `chk_fiea_*` (cnae_code/cnae_description/source não-vazios, btrim); `uq_fiea_fiscal_cnae` UNIQUE(fiscal_identity_id, cnae_code) (sem duplicar o mesmo CNAE); `uq_fiea_one_primary` partial-unique WHERE is_primary=true (≤1 principal, N secundários livres); `idx_fiea_fiscal_identity`/`idx_fiea_cnae_code`. **NÃO guarda QSA/sócios/dados pessoais** (LGPD, D5). **Schema-only — sem writer** (D14): a persistência do `fetchCNPJFromRevenue` já existente é frente própria.
+
+**Arquivos:** `backend/migrations/20260604150000_create_fiscal_identity_economic_activities.sql` (migration), `backend/src/scripts/validate-pipeline-e2e-pj-cnae-evidence-schema.ts` (e2e schema efêmero), `scripts/run-pj-cnae-evidence-schema-ephemeral.ps1` (orquestrador efêmero). NÃO tocou `companies`/`fiscal_identities`/runtime/frontend.
+
+**Prova:** e2e schema efêmero (DB criada → migrate FULL 359 → BEGIN/ROLLBACK → DROP) **24/24 verde** (tabela/colunas/tipos; FK inválida→23503; 1 principal/N secundários OK; dup(fiscal,cnae)→23505; 2º principal→23505; zero principal OK; CHECKs vazio→23514; fetched_at NULL→23502; sem QSA; companies sem colunas de atividade; Bank=0; tco/ccp=0; ROLLBACK zero-resíduo). Aplicada em `unificard_dev` pelo runner canônico (EXPECTED_DATABASE_NAME=unificard_dev): **358→359**. `\d` em dev confirmou PK/FK-CASCADE/3 CHECKs/2 UNIQUE(incl. partial)/2 índices. Backend tsc só os 2 baseline `geo-enrichment.service.ts`. Gates actor-writer/bank-ledger/financial-regression/sql-lint/numbering OK; architectural exit-1 = baseline USER_PROFILE_CONTRACT (profile/human-mvp/core.service — NÃO tocados nesta fatia; git status confirma só migration+e2e+ps1 alterados).
+
+**DTs:** `DT-PJ-CNAE-EVIDENCE-NOT-PERSISTED` → **PARTIALLY MITIGATED / GOVERNED** (schema instalado; **NÃO CLOSED** — falta writer). Demais inalteradas: `DT-PJ-COMPANY-ACTIVITY-COLUMNS-GHOST` CLOSED, `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` OPEN.
+
+**PRÓXIMA ETAPA:** `F-PJ-CNAE-EVIDENCE-WRITER` (persistir CNAE/atividade do `fetchCNPJFromRevenue` já existente no nascimento da PJ, fail-open, sem QSA, idempotente sobre `uq_fiea_fiscal_cnae`/`uq_fiea_one_primary`). Depois `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` (matriz CNAE→suggested concept, sugestão governada) e elegibilidade de 6 camadas (DECISION-0102). **REGRA:** esta fatia instalou a tomada; nenhum aparelho ligado nela ainda.
+
+---
+
 ## 2026-06-04 — F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP: tira o fio desencapado (42703 latente)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `7b62d1cf`. Frente `F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP` (backend, governada por DECISION-0103 D12/D13). Zero schema/migration/CNAE-persistence/provider/frontend/KYB/marketplace/publication/Bank. Os 3 untracked autorais intocados.
