@@ -13,7 +13,7 @@
  *   - review ATÔMICO: UPDATE request + UPDATE fiscal_identities numa única transação; rollback total.
  *   - NÃO toca company_validation_requests, company_status/is_verified, Bank, gate, documentos.
  */
-import { pool } from '@core/database/pool';
+import { pool, getClientWithTenant } from '@core/database/pool';
 
 export interface FiscalKybRequest {
   kybRequestId: string;
@@ -233,6 +233,111 @@ class FiscalIdentityKybService {
       } catch {
         // rollback best-effort; erro original prevalece.
       }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * revokeFiscalKybApproval (F-PJ-KYB-APPROVED-REVOCATION-WRITER / DECISION-0101 D2/D5/D6/D7/D8):
+   * transição fiscal de SAÍDA de approved: `approved → suspended | closed`, por AUTORIDADE FISCAL
+   * (reviewer humano), com CASCATA ATÔMICA de retração de publicações + recálculo da projeção.
+   *
+   * Fail-closed: `reviewerActorId` DEVE ser actor humano (`actor_type='user'`); page-actor / SYSTEM /
+   * inexistente = recusa (0101 D5/D6 — sem system actor). Só transiciona de 'approved' (senão erro).
+   * `reason` obrigatório (auditoria). Reaprovação NÃO republica (retired permanece retired). ATÔMICO:
+   * flip de `fiscal_identities.kyb_status` + cascata numa ÚNICA transação (rollback total em qualquer falha).
+   */
+  async revokeFiscalKybApproval(input: {
+    fiscalIdentityId: string;
+    newStatus: 'suspended' | 'closed';
+    reason: string;
+    reviewerActorId: string;
+  }): Promise<{
+    fiscalIdentityId: string;
+    previousStatus: 'approved';
+    newStatus: 'suspended' | 'closed';
+    retiredPublications: number;
+    affectedConcepts: string[];
+  }> {
+    const { fiscalIdentityId, newStatus, reason, reviewerActorId } = input;
+    if (!fiscalIdentityId || typeof fiscalIdentityId !== 'string' || fiscalIdentityId.trim() === '') {
+      throw new Error('revokeFiscalKybApproval: fiscalIdentityId é obrigatório');
+    }
+    if (newStatus !== 'suspended' && newStatus !== 'closed') {
+      throw new Error(`revokeFiscalKybApproval: newStatus inválido '${newStatus}' — esperado 'suspended' ou 'closed'`);
+    }
+    if (!reason || typeof reason !== 'string' || reason.trim() === '') {
+      throw new Error('revokeFiscalKybApproval: reason é obrigatório (auditoria da revogação).');
+    }
+    if (!reviewerActorId || typeof reviewerActorId !== 'string' || reviewerActorId.trim() === '') {
+      throw new Error('revokeFiscalKybApproval: reviewerActorId é obrigatório (actor humano do reviewer).');
+    }
+
+    // Fail-closed (0101 D5/D6): reviewer DEVE ser actor humano. page-actor / SYSTEM / inexistente = recusa.
+    const reviewer = await pool.query<{ actor_type: string }>(
+      `SELECT actor_type FROM actors WHERE id = $1::uuid LIMIT 1`,
+      [reviewerActorId],
+    );
+    if (reviewer.rows.length === 0 || reviewer.rows[0].actor_type !== 'user') {
+      throw new Error('KYB_REVOCATION_REQUIRES_HUMAN_REVIEWER: revogação de KYB exige actor humano (actor_type=user); page-actor/SYSTEM/inexistente recusado (DECISION-0101 D5/D6).');
+    }
+
+    // Elo fiscal → company → tenant (CNPJ único ⇒ ≤1 company). Sem company: flip sem cascata.
+    const comp = await pool.query<{ company_id: string; tenant_id: string }>(
+      `SELECT company_id::text, tenant_id::text FROM companies WHERE fiscal_identity_id = $1::uuid LIMIT 1`,
+      [fiscalIdentityId],
+    );
+    const company = comp.rows[0] ?? null;
+
+    // Tenant context p/ RLS de actors/publicações quando há company; senão client global do pool.
+    const client = company ? await getClientWithTenant(company.tenant_id) : await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Lock + guard: só revoga de 'approved' (0101 D2).
+      const fiRes = await client.query(
+        `SELECT kyb_status FROM fiscal_identities WHERE fiscal_identity_id = $1::uuid FOR UPDATE`,
+        [fiscalIdentityId],
+      );
+      if (fiRes.rows.length === 0) {
+        throw new Error(`FISCAL_IDENTITY_NOT_FOUND: identidade fiscal ${fiscalIdentityId} não existe.`);
+      }
+      const current = (fiRes.rows[0] as { kyb_status: string }).kyb_status;
+      if (current !== 'approved') {
+        throw new Error(`FISCAL_IDENTITY_NOT_APPROVED: kyb_status atual='${current}' — revogação só transiciona de 'approved'.`);
+      }
+
+      // Flip da FONTE com auditoria do reviewer humano.
+      await client.query(
+        `UPDATE fiscal_identities
+            SET kyb_status = $2, reviewed_by_actor_id = $3::uuid, reviewed_at = NOW(),
+                decision_reason = $4, updated_at = NOW()
+          WHERE fiscal_identity_id = $1::uuid AND kyb_status = 'approved'`,
+        [fiscalIdentityId, newStatus, reviewerActorId, reason],
+      );
+
+      // Cascata ATÔMICA (0101 D2/D7/D8): retira publicações active + recalcula projeção, MESMA tx.
+      let retired = 0;
+      let concepts: string[] = [];
+      if (company) {
+        const { retireAllActivePublicationsForCompanyTx } = await import('@core/companies/company-publications.service');
+        const casc = await retireAllActivePublicationsForCompanyTx(client, company.tenant_id, company.company_id, reviewerActorId);
+        retired = casc.retired;
+        concepts = casc.concepts;
+      }
+
+      await client.query('COMMIT');
+      return {
+        fiscalIdentityId,
+        previousStatus: 'approved',
+        newStatus,
+        retiredPublications: retired,
+        affectedConcepts: concepts,
+      };
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch { /* rollback best-effort; erro original prevalece. */ }
       throw err;
     } finally {
       client.release();

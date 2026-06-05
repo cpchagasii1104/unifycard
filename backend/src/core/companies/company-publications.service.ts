@@ -102,6 +102,45 @@ async function refreshOfferingAfterRetire(client: TxClient, tenantId: string, co
   );
 }
 
+/**
+ * F-PJ-KYB-APPROVED-REVOCATION-WRITER (DECISION-0101 D2/D7/D8): retira TODAS as publicações `active`
+ * de uma empresa e recalcula a projeção, na transação JÁ ABERTA do caller (cascata ATÔMICA com o flip
+ * de `kyb_status`). Diferente de `retireCompanyConceptPublication` (por-concept + autoridade do dono +
+ * tx própria): aqui é cascata por AUTORIDADE FISCAL (reviewer humano que revogou o KYB) sobre o conjunto.
+ * NÃO valida autoridade do dono nem KYB (o caller — revogação KYB — já fez o gate fiscal). `retiredByActorId`
+ * = actor humano do reviewer (0101 D5/D6). Roda no client PASSADO; NÃO abre/commita/fecha transação.
+ */
+export async function retireAllActivePublicationsForCompanyTx(
+  client: TxClient,
+  tenantId: string,
+  companyId: string,
+  retiredByActorId: string
+): Promise<{ retired: number; concepts: string[] }> {
+  const active = await client.query(
+    `SELECT id, concept_id FROM company_concept_publications
+      WHERE company_id = $1 AND status = 'active'
+      FOR UPDATE`,
+    [companyId]
+  );
+  const rows = active.rows as Array<{ id: string; concept_id: string }>;
+  if (rows.length === 0) return { retired: 0, concepts: [] };
+
+  for (const r of rows) {
+    await client.query(
+      `UPDATE company_concept_publications
+          SET status = 'retired', retired_at = now(), retired_by_actor_id = $1, updated_at = now()
+        WHERE id = $2`,
+      [retiredByActorId, r.id]
+    );
+  }
+  // Recalcula a projeção por concept distinto (mesma derivação D10 do retire unitário).
+  const concepts = Array.from(new Set(rows.map((r) => r.concept_id)));
+  for (const conceptId of concepts) {
+    await refreshOfferingAfterRetire(client, tenantId, conceptId);
+  }
+  return { retired: rows.length, concepts };
+}
+
 export const companyPublicationsService = {
   /**
    * Publica a empresa para um concept (MVP: concept === companies.primary_concept_id).

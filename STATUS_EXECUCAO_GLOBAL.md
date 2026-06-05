@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-KYB-APPROVED-REVOCATION-WRITER (β.2): writer de revogação KYB + cascata atômica
+
+**Branch:** `rescue-structural` · **HEAD origem:** `b0ed4af2`. Frente β.2 (code-only, governada por DECISION-0101 D2/D5/D6/D7/D8). **Zero migration** (`kyb_status` já aceitava suspended/closed). Zero frontend/Bank/marketplace/CNAE. 3 autorais intocados. _(Coordenação esteira: spec da Batedora, executado; β.1 segue parada na decisão de produto do Clayton.)_
+
+**O que entregou:** o "botão" fiscal de **saída de approved** que faltava (a cascata de 0101 não tinha gatilho). `fiscalIdentityKybService.revokeFiscalKybApproval({fiscalIdentityId, newStatus:'suspended'|'closed', reason, reviewerActorId})`: **fail-closed reviewer humano** (`actor_type='user'`; page-actor/SYSTEM/inexistente recusado — `KYB_REVOCATION_REQUIRES_HUMAN_REVIEWER`); só transiciona de `approved` (senão `FISCAL_IDENTITY_NOT_APPROVED`); `reason` obrigatório; **ATÔMICO** — flip de `fiscal_identities.kyb_status` + cascata numa única transação (rollback total). Cascata via novo helper exportado **tx-aware** `retireAllActivePublicationsForCompanyTx(client, tenantId, companyId, retiredByActorId)` em `company-publications.service.ts`: retira TODAS as publicações `active` da company + recalcula `tenant_concept_offerings` (reusa `refreshOfferingAfterRetire`), no client passado. Reaprovação **não republica**.
+
+**Arquivos:** `backend/src/core/identity/fiscal-identity-kyb.service.ts` (import getClientWithTenant + método revokeFiscalKybApproval), `backend/src/core/companies/company-publications.service.ts` (helper exportado retireAllActivePublicationsForCompanyTx), `backend/src/scripts/validate-pipeline-e2e-pj-kyb-revocation-cascade.ts` (e2e), `scripts/run-pj-kyb-revocation-cascade-ephemeral.ps1`. NÃO tocou KYB review (pending→approved|rejected), publish/retire unitário, schema, frontend.
+
+**Prova:** e2e efêmero **15/15 verde** (approved→suspended retira pub + desativa tco + grava reviewer humano + retiredPublications=1; reviewer page-actor/inexistente recusado sem efeito; pending não revoga (NOT_APPROVED); approved sem company → flip sem cascata sem erro; **atomicidade** por rollback do caller reverte flip+cascata; reaprovação não republica; closed mesmo caminho; Bank intocado — par distinto por empresa isola o tco). Backend tsc só baseline geo. Gates actor-writer/bank-ledger/regression-guards OK; `validate-architectural-patterns.mjs --strict` exit=0 (`critical_new=0`; `warning_new=1` = c3 baseline). Migrations **360→360** (sem nova migration).
+
+**DTs:** `DT-PJ-KYB-APPROVED-REVOCATION-WRITER-MISSING` → **CLOSED**; `DT-PJ-PUBLICATION-OFFERING-KYB-REVOCATION-PROJECTION` → **CLOSED** (cascata tem gatilho). `DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING` → permanece **OPEN** (filtro KYB no reader = defesa-em-profundidade posterior, 0101 D9).
+
+**PRÓXIMA ETAPA:** β.1 (aposentar `company-canonical` front+back) aguardava decisão de produto do Clayton — agora autorizada. Resíduo opcional: `DT-PJ-KYB-REVOCATION-READER-DEFENSE-MISSING` (reader filter). γ/CNAE segue bloqueada em fonte.
+
+---
+
 ## 2026-06-05 — DECISION-0106: mapa `MarketplaceDomain → N0` promulgado, fork fechado (FRENTE α, docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `44e44f34` · working tree limpo (3 autorais). **Docs-only**; zero código/schema/runtime/frontend/DML.

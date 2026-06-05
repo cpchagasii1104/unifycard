@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.69) — F-PJ-KYB-APPROVED-REVOCATION-WRITER (β.2): revogação KYB + cascata
+
+HEAD antes `b0ed4af2` → commit "feat(pj): KYB approved revocation writer + publication cascade". Code-only (DECISION-0101). Eu (a Batedora desta esteira) executei β.2 — Clayton me passou a execução enquanto β.1 ficou travada na decisão de produto dele. Novo método `revokeFiscalKybApproval` em fiscal-identity-kyb.service: approved→suspended|closed, fail-closed reviewer humano (actor_type=user; sem system/page), só de approved, reason obrigatório, ATÔMICO (flip + cascata 1 tx). Helper exportado tx-aware `retireAllActivePublicationsForCompanyTx` em company-publications.service (retira todas pubs active + recalcula tco via refreshOfferingAfterRetire). Reaprovação não republica. ZERO migration (kyb_status já tinha suspended/closed).
+
+Dois bugs no e2e pegos e corrigidos: (1) anti-fraude MAX_PROVISIONAL_PER_CPF=3 → criei 1 owner-user por empresa + reviewer dedicado; (2) tco é tenant×concept compartilhado → dei par DISTINTO por empresa pra isolar a cascata do tco. Prova: e2e 15/15. tsc só baseline geo. Gates OK (arch critical_new=0). DTs: KYB-APPROVED-REVOCATION-WRITER-MISSING → CLOSED; PUBLICATION-OFFERING-KYB-REVOCATION-PROJECTION → CLOSED; KYB-REVOCATION-READER-DEFENSE-MISSING segue OPEN (defesa-em-profundidade posterior, 0101 D9).
+
+**Próximo:** β.1 (aposentar company-canonical front+back) — agora autorizada por Clayton (decisão de produto: sem CPF-as-company; consolidar fiscal-first). γ/CNAE bloqueada em fonte.
+
+---
+
 ## Sessão 2026-06-05 (cont.68) — DECISION-0106: mapa MarketplaceDomain→N0, fork fechado (FRENTE α, esteira)
 
 Trabalho em **esteira** com instância irmã (eu=Executora/escrita, ela=Batedora/read-only, Clayton serializa). FRENTE α = mapear `MarketplaceDomain→N0`. Ela montou o menu; eu verifiquei contra banco vivo e **peguei 1 erro** (ela disse `mobilidade-e-logistica`=rides-abstrato; banco mostra = tipos de veículo carro/moto/van). Ela reconheceu e **trouxe a evidência decisiva**: rides consome esses concepts (`vehicles.service.ts:17,89 concept_id` + `report-rides-vehicles-concept-mapping.ts`) → load-bearing igual financeiro-*. Recomendação virou (b). Eu confirmei. **Clayton ratificou.**
