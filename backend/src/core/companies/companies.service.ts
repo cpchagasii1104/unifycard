@@ -321,6 +321,8 @@ class CompaniesService {
     }
 
     let revenueData: RevenueFederalData | null = null;
+    // F-PJ-CNAE-EVIDENCE-WRITER (DECISION-0103 D7): momento em que a evidência fiscal foi obtida do provider.
+    let revenueFetchedAt: Date | null = null;
     let companyName = input.companyName;
     let tradeName = input.tradeName;
     let address: CompanyAddress = input.address || {};
@@ -334,8 +336,10 @@ class CompaniesService {
     if (input.fetchFromRevenue !== false) {
       try {
         revenueData = await this.fetchCNPJFromRevenue(formattedCNPJ);
-        
+
         if (revenueData) {
+          // F-PJ-CNAE-EVIDENCE-WRITER (DECISION-0103 D7): carimba quando a evidência fiscal foi obtida.
+          revenueFetchedAt = new Date();
           companyName = companyName || revenueData.razao_social;
           tradeName = tradeName || revenueData.nome_fantasia;
           
@@ -651,6 +655,41 @@ class CompaniesService {
     } catch (err) {
       // Não bloquear se tabela não existir ainda (migration pode não ter rodado)
       console.warn('[CompaniesService] Erro ao criar preferências de oportunidade (não bloqueante):', err);
+    }
+
+    // 4) F-PJ-CNAE-EVIDENCE-WRITER (DECISION-0103 D2/D3/D7/D8): persiste a evidência CNAE/atividade econômica
+    //    retornada pelo fetch backend (ReceitaWS/BrasilAPI) na CASA FISCAL (fiscal_identity_economic_activities),
+    //    ancorada em birthResult.fiscalIdentityId. Pós-commit best-effort / FAIL-OPEN (D8): a evidência é
+    //    complementar — falha de coleta/persistência NÃO derruba a empresa já committada. NÃO persiste QSA (D5).
+    //    CNAE é evidência, não identidade (não toca o par/CONCEPT, não autoriza domínio/publicação — D1/D10/D11).
+    const hasActivityEvidence =
+      !!revenueData &&
+      !!revenueFetchedAt &&
+      (((revenueData.atividade_principal?.length ?? 0) > 0) ||
+        ((revenueData.atividades_secundarias?.length ?? 0) > 0));
+    if (hasActivityEvidence && revenueData && revenueFetchedAt) {
+      try {
+        const { fiscalIdentityEconomicActivityService } = await import(
+          '@core/identity/fiscal-identity-economic-activity.service'
+        );
+        await fiscalIdentityEconomicActivityService.persistEconomicActivities({
+          fiscalIdentityId: birthResult.fiscalIdentityId,
+          atividadePrincipal: revenueData.atividade_principal ?? null,
+          atividadesSecundarias: revenueData.atividades_secundarias ?? null,
+          // D7: provider-granular (receitaws/brasilapi) deixado para refresh futuro p/ não tocar o fetch;
+          // 'receita_federal' identifica a origem fiscal da evidência (não-vazio, auditável).
+          source: 'receita_federal',
+          fetchedAt: revenueFetchedAt,
+        });
+      } catch (err) {
+        // Pós-commit fail-open (D8): evidência complementar não reverte o núcleo já committado.
+        console.warn('[CompaniesService] Persistência de evidência CNAE falhou (núcleo intacto, sem CNAE):', {
+          tenantId: finalTenantId,
+          companyId,
+          fiscalIdentityId: birthResult.fiscalIdentityId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     // Buscar empresa completa

@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.61) — F-PJ-CNAE-EVIDENCE-WRITER: liga o aparelho na tomada fiscal
+
+HEAD antes `4fe6e764` → commit "feat(pj): persist CNAE fiscal evidence". Liguei o writer (DECISION-0103 D2/D3/D5/D7/D8). A evidência CNAE que fetchCNPJFromRevenue retornava e era descartada agora persiste na casa fiscal. Novo service `core/identity/fiscal-identity-economic-activity.service.ts` (sibling do fiscal-identity-document): persistEconomicActivities normaliza provider→lista (1º principal=primary ≤1 via uq_fiea_one_primary; demais+secundários=false), dedup por cnae_code, descarta vazios, idempotente ON CONFLICT(fiscal,cnae) DO UPDATE. Integrado pós-commit FAIL-OPEN em createCompany (usa birthResult.fiscalIdentityId + revenueData em escopo; source='receita_federal'; fetched_at carimbado na coleta). SEM QSA (D5). NÃO toquei fetch/provider (endpoints/fallback intactos) — source provider-granular deferido. CNAE = evidência, não identidade (não toca par/CONCEPT/domínio).
+
+Prova: e2e writer efêmero 17/17 (persiste 1 principal+2 secundários; 1 primary; source/fetched_at; FK; idempotência 2× sem dup+update; sem QSA c/ fixture trazendo sócio; fail-open provider-null→empresa nasce zero-CNAE; normalização múltiplos-principais+dedup; companies sem cols atividade; Bank/tco/ccp/KYB intocados; 359 sem nova migration). atomic-birth 18/18 (createCompany ok). tsc só baseline geo. Gates: actor-writer/bank-ledger/regression OK; validate-architectural-patterns.mjs --strict exit=0 critical_new=0 warning_new=1 (=c3 wallet-debit-recovery:334, baseline, fora da fatia). DT-PJ-CNAE-EVIDENCE-NOT-PERSISTED → CLOSED.
+
+Decisão técnica: NÃO toquei fetchCNPJFromRevenue (constraint "não mexer em provider" repetida) — por isso source='receita_federal' genérico, não receitaws/brasilapi. Provider-granular = refresh futuro. Writer pós-commit best-effort (não dentro da tx do núcleo) = fail-open limpo (núcleo já committado nunca cai por evidência).
+
+**Próximo:** F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-READONLY (desenho da matriz CNAE→suggested concept, sugestão governada não autoridade) OU F-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK-READONLY (ortogonal). Aparelho ligado na tomada; não deixa dirigir a empresa.
+
+---
+
 ## Sessão 2026-06-04 (cont.60) — F-PJ-CNAE-EVIDENCE-SCHEMA-MIGRATION: instala a tomada fiscal
 
 HEAD antes `1484ff1f` → commit "feat(pj): add CNAE fiscal evidence schema". Instalei a tomada fiscal para CNAE (schema-only, DECISION-0103 D2/D3/D4). Migration `20260604150000_create_fiscal_identity_economic_activities.sql`: satélite 1:N ON DELETE CASCADE em fiscal_identities (mora na casa fiscal, não em companies); cnae_code/cnae_description/is_primary/source/fetched_at; CHECKs btrim>0; uq_fiea_fiscal_cnae UNIQUE(fiscal_identity_id,cnae_code); uq_fiea_one_primary partial-unique (≤1 principal); idx fiscal_identity/cnae_code. SEM QSA/dados pessoais (LGPD D5). SEM writer (D14) — persistência do fetchCNPJFromRevenue é frente própria.
