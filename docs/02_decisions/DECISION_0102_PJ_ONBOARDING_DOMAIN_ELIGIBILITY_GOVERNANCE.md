@@ -167,3 +167,9 @@ HEAD origem `454d74d3` ("decisions: define PJ KYB revocation publication cascade
 `frontend/src/api/companies.ts` (`MarketplaceDomain`, `domains`), `backend/src/core/companies/companies.service.ts`
 (`createCompany` → ghost `company_domains` pós-commit, `fetchCNPJFromRevenue` descarta CNAE),
 `company_type_allowed_concepts ⋈ concepts.domain` (derivação viva). Auditoria read-only `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY`.
+
+---
+
+## 16. Nota-forward (2026-06-05) — correção descritiva pela DECISION-0105
+
+A DECISION-0105 (`concepts.domain` é dimensão semântica multi-camada) **supera a caracterização descritiva** "13 canônicos" usada em §7 (evidência: "`concepts.domain` N0 (13 canônicos)"). O **NÚMERO 13** está correto como contagem de valores distintos de `concepts.domain`, mas o **RÓTULO "N0 canônicos" é impreciso**: por 0105, desses 13 valores, 7 são `financeiro-*` (autorizados pela RFC C2) e 1 é `item-comercial` — só ~5 são N0 de atuação. A **DECISÃO** desta 0102 (domínio de atuação deriva de CONCEPT + evidência fiscal; modelo de 6 camadas; fork `MarketplaceDomain ↔ concepts.domain` a reconciliar) **permanece integralmente vigente** — só a frase descritiva da contagem foi superada. **NB:** a frase "1 domínio N0 por type" (§7) permanece **CORRETA** — os domínios dos 7 company_types (`produtos-e-comercio`/`servicos`) são N0 de atuação legítimos. Ver DECISION-0105 §3/§4.

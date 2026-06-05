@@ -196,3 +196,9 @@ HEAD origem `6daecd05` ("feat(pj): persist CNAE fiscal evidence"). Substrato viv
 `fiscal_identity_economic_activities` (writer landou; 0 linhas), `company_types` (7), `company_type_allowed_concepts`
 (7 = 1:1), `concepts` (137, 13 N0, sem display name), `concepts.domain` FK → `domains.domain_key` (21 N0). Sem
 catálogo/seed CNAE no repo. Auditoria read-only `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX`.
+
+---
+
+## 16. Nota-forward (2026-06-05) — correção descritiva pela DECISION-0105
+
+A DECISION-0105 (`concepts.domain` é dimensão semântica multi-camada) **supera a caracterização descritiva** "21 N0" e "13 domínios N0" deste documento (§7 itens 5/6 e §15). Os **NÚMEROS** seguem corretos como contagens (21 linhas em `domains`; 13 valores distintos de `concepts.domain` entre os 137 concepts), mas o **RÓTULO "N0" é impreciso**: por 0105, os 21 `domains` = 12 N0 + 1 condicional + 7 `financeiro-*` (RFC C2) + 1 `item-comercial`; e dos 13 valores usados pelos concepts, só ~5 são N0 de atuação. A **DECISÃO** desta 0104 (matriz CNAE→`suggested_concept_id`; CNAE é sinal; consumidor decide por `concept_id`, não por `concepts.domain`) **permanece integralmente vigente** — só a frase descritiva da contagem foi superada. Ver DECISION-0105 §3/§4.
