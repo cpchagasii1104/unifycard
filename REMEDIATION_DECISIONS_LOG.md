@@ -6637,3 +6637,17 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** ratifica CONCEPT como SSOT (Lei 7); reconhece RFC C2 (financeiro-*); fixa premissa correta para o fork de marketplace.
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0105_CONCEPTS_DOMAIN_SEMANTIC_LAYERS.md`; HEAD âncora `970a208d`; `concepts.domain`/`domains`, `canonical_products`, `RFC_C2_seed_concepts_financeiros.md`, `bank-integration.service.ts:635`/`concept-financial-resolver.service.ts`, `DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD`.
+
+### DECISION-0106 — Mapeamento canônico `MarketplaceDomain → N0` (fecha o fork de vocabulário)
+
+- **Data:** 2026-06-05
+- **Tipo:** arquitetura / ontologia / navegação (docs-only)
+- **Contexto:** a 0105 desbloqueou o mapeamento do fork `MarketplaceDomain`(6 rótulos frontend) ↔ N0. FRENTE α (esteira Executora+Batedora): menu verificado contra banco vivo, ratificado por Clayton num pass.
+- **Decisão (mapa α):** `market`→`produtos-e-comercio` (+ `item-comercial`=catálogo/SKU); `services`→`servicos`; `events`→`cultura-lazer-e-eventos`; `jobs`=capability (não domínio, 0102 D12); `real_estate`=regulado-sem-alvo (imóveis ausente); `vehicles`=**regulado-sem-alvo (opção b)** — NÃO mapear `mobilidade-e-logistica` (load-bearing do rides via `vehicles.service.ts:17,89 concept_id`; mapear conflataria vender↔operar veículo).
+- **Justificativa:** `MarketplaceDomain` não é SSOT (rótulo UI); mapear ≠ dar autoridade; identidade segue em CONCEPT (Lei 7). 3 alvos N0 limpos (5/5/11 concepts); 2 regulados sem N0-alvo; 1 capability. Forçar imóveis/veículos num N0 existente injetaria semântica errada (0105).
+- **Consequências:** `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` → GOVERNED/DECISIONED (não CLOSED — resta consumo downstream: allowed domains 0102 D5, DomainSelector derivar de N0, remover `hybrid` atômico). `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` segue OPEN.
+- **Responsável:** Claude (Executora) sob promulgação de Clayton; FRENTE α verificada por Batedora (loop convergente: Executora pegou erro "rides-abstract"; Batedora trouxe evidência load-bearing; Executora confirmou).
+- **Validação prévia:** Clayton (ratificação 5 + decisão vehicles b); menu α (read-only) cruzado com banco vivo.
+- **Supera:** materializa a reconciliação que DECISION-0102 D11 exigia; ratifica 0105 (semântica multi-camada) e 0102 (D12/D13).
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0106_MARKETPLACE_DOMAIN_TO_N0_MAPPING.md`; HEAD âncora `44e44f34`; `MarketplaceDomain`/`concepts.domain`/`domains`, `vehicles.service.ts:17,89`, `report-rides-vehicles-concept-mapping.ts`, `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK`.

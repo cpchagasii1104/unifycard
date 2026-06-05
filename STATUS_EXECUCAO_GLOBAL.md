@@ -1,3 +1,17 @@
+## 2026-06-05 — DECISION-0106: mapa `MarketplaceDomain → N0` promulgado, fork fechado (FRENTE α, docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `44e44f34` · working tree limpo (3 autorais). **Docs-only**; zero código/schema/runtime/frontend/DML.
+
+**FRENTE α (esteira Executora+Batedora, Clayton serializa).** Menu `MarketplaceDomain → N0` montado pela Batedora, verificado pela Executora contra banco vivo, ratificado por Clayton num pass. **Loop convergente:** Executora pegou o erro "rides-abstract" (mobilidade-e-logistica são tipos de veículo, não rides); Batedora trouxe a evidência load-bearing (`vehicles.service.ts:17,89` grava `concept_id`); Executora confirmou. A evidência **virou a recomendação** de (a) para (b).
+
+**Mapa promulgado (DECISION-0106):** `market`→`produtos-e-comercio` (+`item-comercial`=catálogo/SKU); `services`→`servicos`; `events`→`cultura-lazer-e-eventos`; `jobs`=capability (não domínio); `real_estate`=regulado-sem-alvo (imóveis ausente); `vehicles`=**regulado-sem-alvo (b)** — não mapear `mobilidade-e-logistica` (viga do rides; conflataria vender↔operar veículo).
+
+**DT:** `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` → **GOVERNED/DECISIONED** (não CLOSED — resta allowed domains 0102 D5 + DomainSelector derivar de N0 + remover `hybrid`). `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` OPEN.
+
+**Próximo (serializado por Clayton):** β em **série** (nada paralelo editando código) — **β.1** aposentar `company-canonical` front+back atômico (prova do caller vivo `CompanyCreationPage`, substituir por fluxo fiscal-first; não remover backend sozinho); depois **β.2** writer de revogação KYB (`approved→suspended/closed` + cascata 0101) — Batedora entrega spec fechado, execução controlada única. Regras: 1 fatia/1 commit/gates/relatório; se β.1 revelar caller novo→parar/reverter; se β.2 revelar lacuna authority/audit/reviewer→parar/reportar. γ/CNAE bloqueado até fonte curada.
+
+---
+
 ## 2026-06-04 — Fecho de pontas soltas: achado de frontend na DT company-canonical + DT própria de anonimato de votação (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `b3970a47` · working tree limpo (3 autorais). **Docs-only**; zero código/schema/runtime/DML.

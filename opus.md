@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.68) — DECISION-0106: mapa MarketplaceDomain→N0, fork fechado (FRENTE α, esteira)
+
+Trabalho em **esteira** com instância irmã (eu=Executora/escrita, ela=Batedora/read-only, Clayton serializa). FRENTE α = mapear `MarketplaceDomain→N0`. Ela montou o menu; eu verifiquei contra banco vivo e **peguei 1 erro** (ela disse `mobilidade-e-logistica`=rides-abstrato; banco mostra = tipos de veículo carro/moto/van). Ela reconheceu e **trouxe a evidência decisiva**: rides consome esses concepts (`vehicles.service.ts:17,89 concept_id` + `report-rides-vehicles-concept-mapping.ts`) → load-bearing igual financeiro-*. Recomendação virou (b). Eu confirmei. **Clayton ratificou.**
+
+Promulguei **DECISION-0106** (`docs/02_decisions/`, próximo nº): market→produtos-e-comercio(+item-comercial=SKU); services→servicos; events→cultura-lazer-e-eventos; jobs=capability; real_estate/vehicles=regulado-sem-alvo (vehicles NÃO mapeia mobilidade — viga do rides). `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK`→GOVERNED.
+
+**Aprendizado da esteira (Clayton cobrou anti-ping-pong):** subir pra frentes inteiras, não átomos; verificar load-bearing 1x e seguir. Loop duplo pega o que uma sozinha erra (eu: rides≠abstrato; ela: load-bearing→b). **Próximo: β em SÉRIE** (nada paralelo editando código) — β.1 company-canonical front+back (eu), depois β.2 KYB revocation writer (Batedora especifica, eu executo). β é CÓDIGO REAL — re-verificar premissas, parar/reverter se revelar caller novo (β.1) ou lacuna authority (β.2). γ/CNAE bloqueado até fonte.
+
+---
+
 ## Sessão 2026-06-04 (cont.67) — fecho de pontas soltas (docs-only)
 
 Clayton perguntou "cometemos erro não-corrigido?" → **verifiquei (não hedge)** e achei 2 pontas:
