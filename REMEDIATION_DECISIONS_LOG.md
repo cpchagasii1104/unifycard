@@ -6622,3 +6622,18 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** executa a camada de sugestão (1→2) de DECISION-0102 e o D10 de DECISION-0103; ratifica CONCEPT como SSOT (Lei 7), ativação soberana do par (0097/0098) e publicação só após KYB (0099/0100/0101).
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0104_PJ_CNAE_TO_CONCEPT_SUGGESTION_MATRIX.md`; HEAD âncora `6daecd05`; `fiscal_identity_economic_activities`, `concepts`/`company_types`/`company_type_allowed_concepts`, `RFC_SEMANTIC_SIGNALS_ONBOARDING_BRIDGE` (RASCUNHO) / `SEMANTIC_CATALOG_GOVERNANCE`.
+
+### DECISION-0105 — Semântica de `concepts.domain`: dimensão multi-camada legítima (N0 + financeiro RFC C2 + item/SKU)
+
+- **Data:** 2026-06-04
+- **Tipo:** arquitetura / ontologia / semântica (docs-only)
+- **Contexto:** a frente `F-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` bateu na divergência 12 N0 normativos vs 21 `domains` vivos. Reconciliação live (3 auditorias A/Norma + B/Schema + C/Blast) provou que `concepts.domain` carrega 3 naturezas com status DIFERENTES: N0 de atuação; `financeiro-*` (autorizado RFC C2 + load-bearing no Bank); `item-comercial` (item/SKU, 35 concepts, lastro de canonical_products).
+- **Opções consideradas:** (1) documentar multi-camada; (2) legitimar item-comercial como camada própria; (3) absorver item-comercial em produtos-e-comercio — PRETERIDA (conflata mercadoria × tipo de negócio); (4) criar `layer`/`n0_domain` (schema) — adiada; (5) status quo — preterida (DT eterna).
+- **Escolha:** **Opção 1 + Opção 2, sem rename e sem schema.**
+- **Justificativa:** `produtos-e-comercio`=tipo de comércio/vendedor (5 concepts, usado pelos company_types); `item-comercial`=mercadoria/produto/SKU (35 concepts, canonical_products). Absorver conflataria níveis (`banana-prata` não é "tipo de empresa"). `financeiro-*` é viga (RFC C2 + hardcode Bank) — intocável. Semântica antes de estrutura.
+- **Consequências esperadas:** `DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD` → PARTIALLY MITIGATED/GOVERNED (não CLOSED — falta reflexo em 18_DOMAIN_ONTOLOGY). `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` OPEN mas DESBLOQUEADA. financeiro-* e item-comercial deixam de ser tratados como drift. Próximo: mapeamento MarketplaceDomain.
+- **Responsável:** Claude (executor) sob promulgação de Clayton.
+- **Validação prévia:** Clayton (promulgação Opção 1+2); reconciliação `F-CONCEPTS-DOMAIN-LAYER-SEMANTICS-READONLY` (A/B/C); RFC C2 (financeiro-*).
+- **Supera:** ratifica CONCEPT como SSOT (Lei 7); reconhece RFC C2 (financeiro-*); fixa premissa correta para o fork de marketplace.
+- **Superada por:** (em aberto)
+- **Referências:** `docs/02_decisions/DECISION_0105_CONCEPTS_DOMAIN_SEMANTIC_LAYERS.md`; HEAD âncora `970a208d`; `concepts.domain`/`domains`, `canonical_products`, `RFC_C2_seed_concepts_financeiros.md`, `bank-integration.service.ts:635`/`concept-financial-resolver.service.ts`, `DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD`.

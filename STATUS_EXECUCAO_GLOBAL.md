@@ -1,3 +1,21 @@
+## 2026-06-04 — DECISION-0105: semântica de `concepts.domain` promulgada (multi-camada legítima, docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `970a208d` · working tree limpo (3 autorais). **Docs-only**; zero schema/runtime/Bank/marketplace/CNAE/frontend/DML.
+
+**Clayton decidiu** (Opção 1 + Opção 2, sem rename e sem schema): `concepts.domain` é oficialmente uma **dimensão semântica multi-camada legítima**, contendo: (1) N0 de atuação; (2) `financeiro-*` autorizado pela RFC C2; (3) camada de item/SKU comercial (`item-comercial`).
+
+**Pontos promulgados (DECISION-0105):**
+- `financeiro-*` INTOCADO — autorizado (RFC C2) + load-bearing no Bank (`bank-integration.service.ts:635`, `FINANCIAL_DOMAINS`). Não é drift.
+- `item-comercial` LEGITIMADO como camada de item/SKU (35 concepts, lastro de canonical_products). **NÃO** absorvido em `produtos-e-comercio`.
+- `produtos-e-comercio` = tipo de comércio/vendedor (5 concepts, usado pelos company_types); `item-comercial` = mercadoria/SKU. Não conflatar.
+- **Sem** `layer`/`n0_domain`/schema/rename/DML. Distinção é documental, não estrutural (enforcement via `layer` = futuro opcional).
+
+**DTs:** `DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD` → **PARTIALLY MITIGATED / GOVERNED** (não CLOSED — falta reflexo formal em `18_DOMAIN_ONTOLOGY`/RFC). `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` → OPEN mas **DESBLOQUEADA**.
+
+**Próximo passo:** `F-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK-DECISION` — mapear com a semântica correta (`market` → comércio/vendedor com `item-comercial` como catálogo; `services`→servicos; `events`→cultura-lazer-e-eventos; `jobs`→capability; `real_estate`/`vehicles`→regulados). Resíduo: emenda normativa reconhecendo as 3 camadas (fecha a DT).
+
+---
+
 ## 2026-06-04 — DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD reconciliada: financeiro-* é viga (RFC C2), item-comercial é o drift real (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `685ad1b5` · working tree limpo (3 autorais). **Docs-only**; zero schema/runtime/frontend/DML/Bank.

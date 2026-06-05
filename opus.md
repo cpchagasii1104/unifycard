@@ -6,6 +6,17 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.66) — DECISION-0105: semântica de concepts.domain promulgada (docs-only)
+
+Clayton promulgou **Opção 1+2 (sem rename/schema)**: `concepts.domain` é **multi-camada legítima** = N0 atuação + `financeiro-*` (RFC C2) + `item-comercial` (item/SKU). Criei **`docs/02_decisions/DECISION_0105_CONCEPTS_DOMAIN_SEMANTIC_LAYERS.md`** (D1–D10) + entry no `REMEDIATION_DECISIONS_LOG.md` (número 0105; série file-per-decision vai a 0104, log referencia 0099-0104 — fiz ambos).
+- `produtos-e-comercio`=vendedor/tipo-negócio (5); `item-comercial`=mercadoria/SKU (35, canonical_products). NÃO absorver (conflataria níveis).
+- `financeiro-*` intocável (viga RFC C2 + Bank hardcode). Sem layer/n0_domain/DML/rename.
+- DT `DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD` → **PARTIALLY MITIGATED/GOVERNED** (não CLOSED — falta reflexo em 18_DOMAIN_ONTOLOGY). `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` OPEN/DESBLOQUEADA.
+
+**Próximo:** `F-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK-DECISION` (mapear com premissa certa) + emenda normativa das 3 camadas (resíduo fecha DT). Sem schema/runtime.
+
+---
+
 ## Sessão 2026-06-04 (cont.65) — DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD reconciliada (docs-only)
 
 Rodei 3 auditorias paralelas read-only (A/Norma, B/Schema, C/Blast) sobre `concepts.domain` + reconciliei com evidência fresca. **Corrigi a premissa da DT (cont.64):** as 3 camadas NÃO têm o mesmo status.
