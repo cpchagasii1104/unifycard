@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.67) — fecho de pontas soltas (docs-only)
+
+Clayton perguntou "cometemos erro não-corrigido?" → **verifiquei (não hedge)** e achei 2 pontas:
+1. `DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT` não carregava o achado do frontend (caller vivo `CompanyCreationPage.tsx:104` → `/api/companies/canonical`, roteado `App.tsx:287-288`) — descoberto na reversão. **Anotado na DT** (aposentadoria = front+back; auditar por string de URL, não símbolo).
+2. Anonimato de votação (`group_votes.is_anonymous` não-enforçado em `getVotersByOption`) estava só mencionado de passagem → **criei `DT-GROUPS-VOTES-ANONYMITY-NOT-ENFORCED`** (OPEN; decisão de produto + conserto junto com votações).
+
+Confirmei: `DT-GROUPS-VOTES-SCHEMA-DRIFT` está no HEAD (commit `945b5dc6`) — não se perdeu. Tudo docs-only, gates verdes. **Lição reforçada:** quando há acesso, verificar; quando se acha algo material, registrar **no lugar certo (a DT)**, não só no chat/STATUS.
+
+---
+
 ## Sessão 2026-06-04 (cont.66) — DECISION-0105: semântica de concepts.domain promulgada (docs-only)
 
 Clayton promulgou **Opção 1+2 (sem rename/schema)**: `concepts.domain` é **multi-camada legítima** = N0 atuação + `financeiro-*` (RFC C2) + `item-comercial` (item/SKU). Criei **`docs/02_decisions/DECISION_0105_CONCEPTS_DOMAIN_SEMANTIC_LAYERS.md`** (D1–D10) + entry no `REMEDIATION_DECISIONS_LOG.md` (número 0105; série file-per-decision vai a 0104, log referencia 0099-0104 — fiz ambos).

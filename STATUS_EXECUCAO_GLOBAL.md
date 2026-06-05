@@ -1,3 +1,16 @@
+## 2026-06-04 — Fecho de pontas soltas: achado de frontend na DT company-canonical + DT própria de anonimato de votação (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `b3970a47` · working tree limpo (3 autorais). **Docs-only**; zero código/schema/runtime/DML.
+
+**Contexto.** Revisão de fim-de-sessão ("cometemos algum erro não-corrigido?") encontrou duas pontas soltas docs-only. Fechadas nesta fatia.
+
+1. **`DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT` anotada com o achado material do frontend.** A tentativa de aposentadoria backend-only (executada e **revertida** em 2026-06-04) descobriu um **caller de frontend VIVO**: `CompanyCreationPage.tsx:104` → `POST /api/companies/canonical`, página roteada em `App.tsx:287-288` (não comentada). O achado vivia só no histórico do STATUS; agora está **na própria DT**. Regra registrada: aposentadoria correta = fatia **front+back atômica** (não backend-only); auditar por **string da URL**, não por símbolo. DT permanece OPEN.
+2. **`DT-GROUPS-VOTES-ANONYMITY-NOT-ENFORCED` (nova, OPEN).** A coluna `group_votes.is_anonymous` existe mas `getVotersByOption` nunca a lê → admin veria votantes em votação "anônima" (mentira institucional latente; feature dormente). Antes só mencionada de passagem na `DT-GROUPS-VOTES-SCHEMA-DRIFT`; agora tem DT própria. É **decisão de produto de Clayton** + conserto conjunto com as votações.
+
+**Verificação de fim-de-sessão:** `DT-GROUPS-VOTES-SCHEMA-DRIFT` confirmada **presente no HEAD** (commit `945b5dc6`) — não se perdeu. Working tree limpo. Nenhuma outra ponta solta conhecida pendente.
+
+---
+
 ## 2026-06-04 — DECISION-0105: semântica de `concepts.domain` promulgada (multi-camada legítima, docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `970a208d` · working tree limpo (3 autorais). **Docs-only**; zero schema/runtime/Bank/marketplace/CNAE/frontend/DML.
