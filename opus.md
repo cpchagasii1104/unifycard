@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.64) — DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD (docs-only)
+
+Auditei o fork `MarketplaceDomain` (guardião read-only) → **não decide runtime vivo** (etiqueta/UX; `company_domains` GHOST removido; ativação/publicação decidem por par+concept). Ao mapear, bati na divergência 12 vs 21 e fiz **SELECT live** (`unificard_dev`): `domains`=**21** (12 N0 + 1 condicional `construcao` + 7 `financeiro-*` + 1 `item-comercial`); `concepts`=137; só 13 domínios com concept (8 N0 = shells vazios). **`concepts.domain` sobrecarregado em 3 camadas** (N0 atuação / financeiro / comercial). Split: `produtos-e-comercio`=5 vs `item-comercial`=35 → catálogo comercial real fora do N0. Zero órfãos (problema é semântico, não FK). 7 company_types usam só produtos-e-comercio+servicos.
+
+Registrei **`DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD`** (OPEN, docs-only). **Marketplace fork não deve avançar antes da decisão semântica.** Próxima: `F-CONCEPTS-DOMAIN-LAYER-SEMANTICS-DECISION-READONLY` (Clayton decide: multi-camada vs separar n0_domain/semantic_domain/layer). NÃO criei DECISION, NÃO toquei schema/runtime.
+
+**Pendência viva:** `company-canonical` removido e **revertido** (frontend `CompanyCreationPage` ainda chama `/api/companies/canonical` → aposentar é fatia front+back). DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT OPEN.
+
+---
+
 ## Sessão 2026-06-04 (cont.63) — F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SCHEMA-MIGRATION: cria o quadro
 
 HEAD antes `e6783578` → commit "feat(pj): add CNAE concept suggestion schema". Schema-only (DECISION-0104). Migration `20260604160000_create_cnae_concept_suggestions.sql`: tabela GLOBAL cnae_concept_suggestions (cnae_code, suggested_concept_id FK→concepts(concept_id) ON DELETE CASCADE, confidence, rationale, source, catalog_version, review_status DEFAULT proposed, is_active DEFAULT true). CHECKs btrim>0 (cnae_code/rationale/source/catalog_version) + confidence IN(low,medium,high) + review_status IN(proposed,approved,retired). uq_ccs_cnae_concept UNIQUE(cnae_code,suggested_concept_id) = multi-candidato sem duplicar par. idx cnae_code/concept + parcial (cnae_code) WHERE active AND approved. COMMENTs: CNAE=sinal, não ativa/publica/substitui CONCEPT/escreve primary_*/mapeia MarketplaceDomain. SEM seed/writer/endpoint (quadro vazio).

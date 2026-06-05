@@ -1,3 +1,19 @@
+## 2026-06-04 — DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD registrada: marketplace-domain mapping BLOQUEADO (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `d3acb4f3` · working tree limpo (3 autorais). **Docs-only**; zero schema/runtime/frontend/DML.
+
+**Contexto.** A auditoria read-only `F-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` confirmou que `MarketplaceDomain` (6 valores: market/services/events/real_estate/vehicles/jobs) **não decide runtime vivo** — é fork de vocabulário/UX, não SSOT (o consumidor `company_domains` é GHOST já removido por DECISION-0102 D10; ativação e publicação decidem por `company_type`+`concept`). Mas, ao tentar mapear `MarketplaceDomain → N0`, surgiu uma divergência 12 (norma) vs 21 (banco). A reconciliação live (`F-PJ-CANONICAL-DOMAINS-LIVE-RECONCILIATION`, SELECT em `unificard_dev`) revelou um achado **maior** que o fork.
+
+**Achado material (banco vivo).** `domains`=**21** (= 12 N0 + 1 condicional `construcao-e-infraestrutura` + 7 `financeiro-*` + 1 `item-comercial`). `concepts`=137; só **13 domínios têm concept** (8 N0 são shells vazios). `concepts.domain` está **sobrecarregado em 3 camadas**: N0 de atuação + camada financeira (`financeiro-*`) + camada comercial (`item-comercial`). **Split crítico:** `produtos-e-comercio` (N0)=**5** concepts vs `item-comercial`=**35** — o catálogo comercial real vive **fora** do N0. **Zero órfãos** (`concepts.domain ⊆ domains.domain_key`) — o problema é semântico, não referencial. Os 7 company_types usam só `produtos-e-comercio`+`servicos`.
+
+**Registrado (docs-only):** `DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD` (OPEN) no `REMEDIATION_DT_LOG.md`. **Bloqueia:** `F-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK-DECISION`, camada `concept/company_type → allowed domains` (DECISION-0102 D5), qualquer mapeamento `MarketplaceDomain → N0`. **NÃO bloqueia:** CNAE evidence/seed, ativação pelo par, publicação por concept, Bank/KYB. `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` permanece OPEN (agora bloqueada por este achado).
+
+**NÃO decidido nesta fatia.** Não se criou DECISION nem se separou a coluna. Próxima frente: `F-CONCEPTS-DOMAIN-LAYER-SEMANTICS-DECISION-READONLY` (decisão de Clayton: multi-camada vs separar `n0_domain`/`semantic_domain`/`layer`; status de `item-comercial` e `financeiro-*`).
+
+**Nota de processo (fatia anterior).** A remoção de `company-canonical` (executada e depois **revertida**) permanece não-feita: a aposentadoria correta é fatia **front+back** (o frontend `CompanyCreationPage` ainda chama `POST /api/companies/canonical`). `DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT` segue OPEN — mina conhecida, fora desta frente.
+
+---
+
 ## 2026-06-04 — F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SCHEMA-MIGRATION: cria o quadro de sugestões (schema-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `e6783578`. Frente `F-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-SCHEMA-MIGRATION` (schema-only, governada por DECISION-0104). Zero seed/writer/endpoint/frontend/CNAE-writer/activation/publication/marketplace/Bank. Os 3 untracked autorais intocados.
