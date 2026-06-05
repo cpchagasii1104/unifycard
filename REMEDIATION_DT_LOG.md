@@ -11307,3 +11307,20 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** o **read endpoint de sugestão** (futuro), ao traduzir evidência→sugestão, precisa **normalizar o CNAE da evidência** (strip não-dígitos) antes do lookup na matriz; se não normalizar, o match falha silenciosamente (evidência formatada ≠ matriz normalizada). Hoje inofensivo (ambas 0 linhas de cruzamento real; matriz tem 8, evidência 0).
 - **Mitigação atual:** documentada no header da migration `20260605120000`. Nenhuma mudança de runtime (o endpoint ainda não existe).
 - **Resolução prevista (com o read endpoint):** o consumidor normaliza o `cnae_code` da evidência para dígitos antes do lookup; OU padroniza-se o writer da evidência para também normalizar (frente própria). Decidir no desenho do read endpoint de sugestão. **NÃO** mexer no writer da evidência agora.
+
+## DT-PJ-CANONICAL-CATALOG-SHARED-ITEMS-NOT-PER-VERTICAL
+
+- **Status:** OPEN (2026-06-05) — **regra de produto promulgada por Clayton** (ADENDO ao γ/CNAE seed); registrada para a frente dos **Trilhos A/B** (não implementada agora).
+- **Origem:** ADENDO Clayton 2026-06-05 (durante a verificação do γ/CNAE seed).
+- **Vinculada a:** `canonical_products` (catálogo de itens reutilizáveis), `concepts` domínio `item-comercial` (35 SKUs — camada de mercadoria, `DECISION-0105` D4/D7), `tenant_products`/`product_offers` (ativação por empresa — ontologia N0/N1/N2), `cnae_concept_suggestions` (matriz de sugestão, `DECISION-0104`), Trilhos A/B (Estágio 4 do fluxograma de criação PJ).
+- **Regra (formulação curta de Clayton):** *"O CNAE aponta a porta de entrada; o catálogo canônico fornece os itens; a empresa ativa seu mix. Não duplicar identidade de produto por vertical."*
+- **Contexto/separação obrigatória:**
+  1. **CNAE sugere** vertical/concept/trilho operacional (porta de entrada) — é SINAL, não SSOT (`DECISION-0104` D1).
+  2. **Catálogo canônico** (`canonical_products`, lastreado por concepts `item-comercial`) define os **itens repetíveis globais** (banana/maçã/laranja; cortes de carne; bebidas; itens farmacêuticos/panificação quando houver catálogo governado). CONCEPT continua a identidade semântica.
+  3. **Empresa ativa um subconjunto** do catálogo global no seu contexto (mix), via ativação por empresa.
+  4. **Preço, estoque, disponibilidade, embalagem, margem, publicação** = **projeções/ativação da empresa**, NÃO nova identidade de produto.
+- **Anti-padrões vetados (Clayton):** criar catálogo por CNAE; produto duplicado por vertical (ex.: "fruta de supermercado" ≠ "fruta de hortifruti" — PROIBIDO, é a mesma banana canônica); CNAE como SSOT semântico; usar `category`/`slug`/`N1`/`N2` como identidade do produto; misturar γ/CNAE seed com a implementação dos Trilhos A/B; tocar Bank.
+- **Exemplos:** supermercado e hortifruti vendem frutas → **mesmos itens canônicos** (um ativa, o outro também ativa, do mesmo catálogo); açougue e mercado reutilizam cortes canônicos de carnes; restaurante pode usar insumos/produtos canônicos, mas sua **oferta preparada/serviço** segue em **trilho próprio** (Trilho B).
+- **Risco:** se os Trilhos A/B forem implementados criando itens por vertical, surge duplicação de identidade de produto (mesma mercadoria cadastrada N vezes) — fragmentação que viola a Lei de Coerência Sistêmica e a ontologia N0/N1/N2 (ProductTemplate único reutilizado).
+- **Mitigação atual:** nenhuma (regra registrada; Trilhos A/B não implementados). O γ/CNAE seed **já respeita** a regra: a matriz só sugere `concept`/trilho, não cria itens; o header da migration `20260605120000` declara "NÃO abre Trilhos A/B".
+- **Resolução prevista (frente Trilhos A/B):** o catálogo dos Trilhos A/B deve derivar de `canonical_products` (itens canônicos compartilhados, lastro `item-comercial`), com **ativação por empresa** (`tenant_products`/`product_offers`); preço/estoque/disponibilidade como projeção da empresa. **NÃO** criar catálogo por CNAE/vertical. **NÃO executar** Trilhos A/B antes da palavra de Clayton.

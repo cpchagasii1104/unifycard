@@ -1,3 +1,21 @@
+## 2026-06-05 — γ VERIFICAÇÃO (par read-only) + reconciliação dev + regra canônica de catálogo (ADENDO Clayton)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `13e81585` · **Papel:** verificadora (read-only sobre o seed γ da instância irmã) + registro da regra de produto do ADENDO Clayton. **Docs-only** (+ reconciliação de estado dev, sem código). 3 autorais intocados.
+
+**Verificação do γ seed (`13e81585`) — APROVADO:** li `20260605120000_seed_cnae_concept_suggestions_mvp.sql` e o banco vivo. As 8 linhas resolvem por **SLUG** (não UUID), com guarda `EXISTS company_type_allowed_concepts` + gate fail-closed `COUNT=8` (RAISE EXCEPTION). Idempotente (`ON CONFLICT DO NOTHING`). Zero vazamento (só INSERT em `cnae_concept_suggestions`; menções a primary_*/publication/Bank são comentários do-que-NÃO-faz). 8 rows no dev conferem com a tabela curada (confidence categórica high/medium; review_status approved; source `clayton_curated_mvp_2026_06_05`).
+
+**CATCH da verificação (corrigido):** o seed estava **aplicado no dev via `psql -f` mas NÃO registrado em `schema_migrations`** (361 arquivos / 360 registrados; 8 rows presentes). Benigno e self-healing (idempotente + fail-closed), mas dev ficava em estado não-rastreado. **Reconciliado** rodando o runner canônico (`tsx src/core/db/migrate.ts`): aplicou `20260605120000` propriamente (0 rows novos — idempotência **provada na prática**, gate COUNT=8 passou), registrou → dev **360→361**. seed_rows=8.
+
+**ADENDO Clayton — regra de produto registrada:** *"O CNAE aponta a porta de entrada; o catálogo canônico fornece os itens; a empresa ativa seu mix. Não duplicar identidade de produto por vertical."* Criada **`DT-PJ-CANONICAL-CATALOG-SHARED-ITEMS-NOT-PER-VERTICAL`** (OPEN, para a frente Trilhos A/B): itens repetíveis vêm de `canonical_products` (lastro concepts `item-comercial`, DECISION-0105), empresa ativa subconjunto (mix); preço/estoque/disponibilidade = projeção, não nova identidade; PROIBIDO catálogo por CNAE / produto duplicado por vertical. O γ seed já respeita (só sugere concept/trilho, não cria itens).
+
+**Arquivos:** `REMEDIATION_DT_LOG.md` (nova DT), `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`. (Reconciliação dev = ação de estado, sem arquivo.)
+
+**DTs:** `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` segue **PARTIALLY** (seed feito; falta read endpoint). **Criada** `DT-PJ-CANONICAL-CATALOG-SHARED-ITEMS-NOT-PER-VERTICAL` (OPEN). `DT-PJ-CNAE-CODE-FORMAT-NORMALIZATION-SEAM` OPEN (resolver no read endpoint).
+
+**PRÓXIMA ETAPA (espera Clayton):** read endpoint de sugestão CNAE→concept (com a normalização da costura) · display name de concept · Trilhos A/B (governado pela nova DT do catálogo canônico).
+
+---
+
 ## 2026-06-05 — γ: SEED MVP da matriz CNAE→concept aplicado (tabela curada por Clayton)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `a9d48572` · **Esteira:** Executora (esta) escreve, par verifica read-only, Clayton serializou (autorizou γ + forneceu a tabela curada das 7 verticais). Migration + seed; **zero** activation/publish/offering/Bank/Trilhos.

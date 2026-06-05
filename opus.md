@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.73) — γ VERIFICAÇÃO (verificadora) + reconciliação dev + DT catálogo canônico
+
+HEAD `13e81585` (γ seed da instância irmã). Papel: verificadora read-only + ADENDO Clayton. Verifiquei o seed contra o banco vivo: 8 linhas por slug + guard allowed-pair + fail-closed COUNT=8 + idempotente + zero vazamento = APROVADO. **CATCH meu:** o seed estava no dev (8 rows) mas NÃO registrado em schema_migrations (361 arquivos/360 registrados — aplicado via psql -f, não pelo runner canônico). Benigno/self-healing, mas dev não-rastreado. Reconciliei: rodei migrate.ts → aplicou 20260605120000 propriamente (0 rows novos, idempotência provada na prática, gate passou) → dev 360→361. (Mesmo padrão dos catches anteriores: report confiante, banco vivo refina — "gates verdes 361" era contagem de ARQUIVO, não de registrado.)
+
+ADENDO Clayton (regra de produto): "CNAE aponta a porta; catálogo canônico fornece itens; empresa ativa seu mix; não duplicar identidade de produto por vertical." Registrei DT-PJ-CANONICAL-CATALOG-SHARED-ITEMS-NOT-PER-VERTICAL (OPEN, p/ Trilhos A/B): itens vêm de canonical_products (lastro item-comercial, 0105); empresa ativa subconjunto; preço/estoque = projeção; PROIBIDO catálogo por CNAE/produto duplicado por vertical. γ seed já respeita.
+
+**Próximo (espera Clayton):** read endpoint CNAE→concept (com a normalização da costura) · display name de concept · Trilhos A/B (governado pela DT do catálogo canônico).
+
+---
+
 ## Sessão 2026-06-05 (cont.72) — γ: seed MVP matriz CNAE→concept (Executora)
 
 Esteira: eu (Executora) escrevi, par verifica read-only, Clayton serializou (autorizou γ + tabela curada). Seed `20260605120000` = 8 sugestões das 7 verticais (resolução por slug + guard allowed-pair + fail-closed COUNT=8; idempotente). **2 catches na verificação pré-seed** (segui schema, não o spec): confidence é categórica `IN(low,medium,high)` não numérica (0.95/0.85→high/medium); sem coluna cnae_code_normalized/company_type. Usei cnae_code=normalizado; evidência grava formato do provider → **costura** `DT-PJ-CNAE-CODE-FORMAT-NORMALIZATION-SEAM` (consumidor normaliza antes do lookup). Provas 10/10; gates verdes (361). Aplicado em dev (8 linhas). `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` segue PARTIALLY (falta read endpoint).
