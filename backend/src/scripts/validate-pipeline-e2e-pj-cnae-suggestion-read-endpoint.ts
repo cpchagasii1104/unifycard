@@ -115,7 +115,7 @@ async function main(): Promise<void> {
     record('1b sugestão = varejo-alimentar-integrado [high]', sPlain?.suggestedConceptSlug === 'varejo-alimentar-integrado' && sPlain?.confidence === 'high', JSON.stringify(sPlain));
     record('1c normalizedCnaeCode=4711302 + source/version presentes', sPlain?.normalizedCnaeCode === '4711302' && !!sPlain?.source && !!sPlain?.version);
     record('1d companyType derivado com segurança (supermercado)', sPlain?.companyTypeSlug === 'supermercado' && !!sPlain?.companyTypeId);
-    record('1e displayName = null honesto (concepts sem display name)', sPlain?.suggestedConceptDisplayName === null);
+    record('1e displayName = "Supermercado" (JOIN concept_labels)', sPlain?.suggestedConceptDisplayName === 'Supermercado', JSON.stringify(sPlain?.suggestedConceptDisplayName));
 
     // ═══ 2 — com máscara: 4711-3/02 → MESMA sugestão ═══
     const rMask = await get('4711-3/02');
@@ -133,15 +133,44 @@ async function main(): Promise<void> {
     const bNone = rNone.json();
     record('4 válido sem sugestão → 200 data=null (sem fallback)', rNone.statusCode === 200 && bNone?.ok === true && bNone?.data === null, `status=${rNone.statusCode} data=${JSON.stringify(bNone?.data)}`);
 
-    // ═══ 5 — outra vertical: 9602501 → salão (servicos-pessoais-beleza) ═══
+    // ═══ 5 — outra vertical: 9602501 → salão (servicos-pessoais-beleza) + displayName ═══
     const rSalon = await get('9602-5/01');
-    record('5 9602-5/01 (máscara) → salão servicos-pessoais-beleza', rSalon.json()?.data?.suggestedConceptSlug === 'servicos-pessoais-beleza' && rSalon.json()?.data?.companyTypeSlug === 'salao');
+    record('5 9602-5/01 (máscara) → salão + displayName "Salão de Beleza / Estética"',
+      rSalon.json()?.data?.suggestedConceptSlug === 'servicos-pessoais-beleza'
+      && rSalon.json()?.data?.companyTypeSlug === 'salao'
+      && rSalon.json()?.data?.suggestedConceptDisplayName === 'Salão de Beleza / Estética',
+      JSON.stringify(rSalon.json()?.data));
+
+    // ═══ 7 — listAllowedConceptsForCompanyType expõe displayName ═══
+    const rTypes = await app.inject({ method: 'GET', url: '/companies/operational-activation/company-types', headers });
+    const superType = (rTypes.json()?.data ?? []).find((t: any) => t.slug === 'supermercado');
+    const rConcepts = await app.inject({ method: 'GET', url: `/companies/operational-activation/company-types/${superType.companyTypeId}/concepts`, headers });
+    const conceptList: any[] = rConcepts.json()?.data ?? [];
+    const superConcept = conceptList.find((c) => c.slug === 'varejo-alimentar-integrado');
+    record('7 allowed-concepts expõe displayName "Supermercado" (+ shortLabel)',
+      superConcept?.displayName === 'Supermercado' && superConcept?.shortLabel === 'Supermercado',
+      JSON.stringify(superConcept));
+
+    // ═══ 8 — fallback honesto: concept SEM label → displayName null (sem derivar do slug) ═══
+    const unlabeled = (await pool.query<{ c: string }>(
+      `SELECT c.concept_id::text AS c FROM concepts c
+        WHERE NOT EXISTS (SELECT 1 FROM concept_labels cl WHERE cl.concept_id=c.concept_id) LIMIT 1`
+    )).rows[0].c;
+    await pool.query(
+      `INSERT INTO cnae_concept_suggestions (cnae_code, suggested_concept_id, confidence, rationale, source, catalog_version, review_status)
+       VALUES ('1234567', $1::uuid, 'high', 'teste fallback', 'e2e', 'e2e', 'approved')`, [unlabeled]
+    );
+    const rUnlabeled = await get('1234567');
+    record('8 concept sem label → suggestedConceptDisplayName=null (fallback honesto)',
+      rUnlabeled.statusCode === 200 && rUnlabeled.json()?.data?.suggestedConceptDisplayName === null
+      && typeof rUnlabeled.json()?.data?.suggestedConceptId === 'string',
+      JSON.stringify(rUnlabeled.json()?.data));
   } finally {
     await app.close();
   }
 
   // ═══ 6 — invariantes de não-toque ═══
-  record('6a 8 sugestões curadas intactas', Number((await pool.query(`SELECT count(*)::int AS n FROM cnae_concept_suggestions`)).rows[0].n) === seededBefore);
+  record('6a 8 sugestões curadas intactas', Number((await pool.query(`SELECT count(*)::int AS n FROM cnae_concept_suggestions WHERE source='clayton_curated_mvp_2026_06_05'`)).rows[0].n) === seededBefore);
   record('6b nenhuma companies.primary_* escrita', Number((await pool.query(`SELECT count(*)::int AS n FROM companies WHERE primary_company_type_id IS NOT NULL OR primary_concept_id IS NOT NULL`)).rows[0].n) === primaryBefore);
   record('6c company_concept_publications intocado', Number((await pool.query(`SELECT count(*)::int AS n FROM company_concept_publications`)).rows[0].n) === ccpBefore);
   record('6d tenant_concept_offerings intocado', Number((await pool.query(`SELECT count(*)::int AS n FROM tenant_concept_offerings`)).rows[0].n) === tcoBefore);

@@ -6,6 +6,14 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.79) — F-PJ-CONCEPT-LABELS-EXPOSE-ENDPOINTS (eu escritora)
+
+HEAD `a4c2c5e2` → commit "feat(pj): expose concept displayName via concept_labels JOIN". Backend read-only (DECISION-0107 D9). LEFT JOIN concept_labels (primária pt-BR/default) em listAllowedConceptsForCompanyType (+displayName/shortLabel) e suggestConceptForCnae (suggestedConceptDisplayName). Label é projeção — JOIN não usa label em WHERE/ORDER; lookup do concept segue por cnae_code/concept_id/slug. Fallback honesto: sem label→null (frontend fará displayName??slug). Sem migration (363), sem escrita, concepts intocado. e2e suggestion 18/18 (displayName Supermercado/Salão; allowed-concepts displayName+shortLabel; concept sem label→null via insert de teste; máscara=sem-máscara; sem-sugestão null; zero writes). onboarding-flow 22/22 (shape change ok — flow só checa conceptId/slug/domain + ausência de legado, displayName não quebra). Gates OK. DT-PJ-CONCEPT-DISPLAY-NAME-MISSING: schema+seed+endpoints entregues, falta só wizard.
+
+**Próximo (espera Clayton):** F-PJ-CONCEPT-LABELS-WIZARD (CompanyOnboardingWizard.tsx:300 → displayName ?? slug) FECHA a DT. Depois Trilhos A/B / peixaria.
+
+---
+
 ## Sessão 2026-06-05 (cont.78) — F-PJ-CONCEPT-LABELS-SEED-MVP (eu escritora)
 
 HEAD `19057507` → commit "feat(pj): seed MVP concept labels (7 verticals, pt-BR)". Seed DML (DECISION-0107 D10). Migration 20260605180000: INSERT...SELECT resolvendo concept_id POR SLUG de concepts (não UUID), ON CONFLICT no índice parcial (idempotente, atualiza label/short_label/source/updated_at), fail-closed COUNT=7. 7 labels pt-BR/default primárias: Supermercado/Hortifruti/Açougue/Padaria/Farmácia/Beleza/Restaurante. source=clayton_curated_mvp_2026_06_05. concepts SECO. e2e seed 6/6 (7 primárias; slug correto; idempotência; partial-unique 23505; seco; Bank). Dev 362→363 runner canônico (registrada, zero fantasma). Gates OK (363, arch critical_new=0). DT-PJ-CONCEPT-DISPLAY-NAME-MISSING: schema+seed entregues, NÃO CLOSED (falta endpoints+wizard).

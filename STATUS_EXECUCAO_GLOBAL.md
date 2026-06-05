@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-CONCEPT-LABELS-EXPOSE-ENDPOINTS: displayName por JOIN nos 2 endpoints
+
+**Branch:** `rescue-structural` · **HEAD origem:** `a4c2c5e2`. Frente backend read-only (DECISION-0107 D9). **Zero migration** (dev segue 363) / seed / frontend / CNAE / Trilhos / Bank / alteração em concepts. 3 autorais intocados. _(Esteira: eu escritora, par verifica.)_
+
+**O que entregou:** os 2 endpoints agora expõem o nome legível. `listAllowedConceptsForCompanyType` → **`displayName`/`shortLabel`**; `suggestConceptForCnae` → preenche **`suggestedConceptDisplayName`** (antes null hardcoded). Via **LEFT JOIN `concept_labels`** `ON cl.concept_id=c.concept_id AND locale='pt-BR' AND context_key='default' AND is_primary=true`. Label é **apresentação/projeção** — o JOIN **não** usa label em WHERE/ORDER; o lookup do concept segue por `cnae_code`/`concept_id`/`slug` (label nunca é chave de identidade). **Fallback honesto**: sem label → `null` (o frontend fará `displayName ?? slug`). Não auto-deriva label do slug.
+
+**Arquivos:** `backend/src/core/companies/companies.service.ts` (2 métodos: JOIN + DTO), `backend/src/scripts/validate-pipeline-e2e-pj-cnae-suggestion-read-endpoint.ts` (e2e atualizado).
+
+**Prova:** e2e suggestion **18/18 verde** (displayName "Supermercado" no CNAE 4711302; "Salão de Beleza / Estética" no 9602-5/01; allowed-concepts expõe displayName+shortLabel; **concept SEM label → suggestedConceptDisplayName=null** (fallback honesto, sem derivar do slug); máscara=sem-máscara mesma sugestão; 400 inválido; válido-sem-sugestão null; zero escrita primary_*/ccp/tco/concept_labels; Bank intocado). **onboarding-activation-flow 22/22** (shape change não quebrou consumidores). Backend tsc só baseline geo. Gates actor-writer/bank-ledger/regression-guards OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 363→363** (zero migration).
+
+**DTs:** `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING` → GOVERNED, **schema + seed + endpoints entregues** (não CLOSED — falta só o **frontend/wizard `displayName ?? slug`**).
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-PJ-CONCEPT-LABELS-WIZARD` (frontend: `CompanyOnboardingWizard.tsx:300` renderiza `displayName ?? slug` em vez de slug puro) — fecha a DT. Depois: Trilhos A/B / peixaria.
+
+---
+
 ## 2026-06-05 — F-PJ-CONCEPT-LABELS-SEED-MVP: semeia os 7 labels primários pt-BR
 
 **Branch:** `rescue-structural` · **HEAD origem:** `19057507`. Frente seed (DML governado, DECISION-0107 D10). **Zero endpoint/frontend/CNAE/Trilhos/Bank/alteração em concepts.** 3 autorais intocados. _(Esteira: eu escritora, par verifica; runner canônico.)_

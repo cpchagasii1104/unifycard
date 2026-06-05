@@ -941,30 +941,35 @@ class CompaniesService {
 
   /**
    * Conceitos PERMITIDOS por company_type (company_type_allowed_concepts ⋈ concepts).
-   * `concepts` não tem display name → expõe slug/domain (DECISION-0098: até display name
-   * governado existir). Retorna null se o company_type não existe (→ 404 na rota);
+   * F-PJ-CONCEPT-LABELS-EXPOSE-ENDPOINTS (DECISION-0107): expõe `displayName`/`shortLabel` por LEFT JOIN
+   * em `concept_labels` (primária pt-BR/default). `concept_id`/`slug` seguem identidade; o label é
+   * APRESENTAÇÃO (nunca chave de identidade; o JOIN é só projeção). Fallback honesto: sem label → null
+   * (o frontend faz `displayName ?? slug`). Retorna null se o company_type não existe (→ 404 na rota);
    * [] se existe mas não tem pares allowed.
    */
   async listAllowedConceptsForCompanyType(
     tenantId: string,
     companyTypeId: string
-  ): Promise<Array<{ conceptId: string; slug: string; domain: string }> | null> {
+  ): Promise<Array<{ conceptId: string; slug: string; domain: string; displayName: string | null; shortLabel: string | null }> | null> {
     const type = await runQueryWithTenant<{ id: string }>(
       tenantId,
       `SELECT id FROM company_types WHERE id = $1 LIMIT 1`,
       [companyTypeId]
     );
     if (!type) return null;
-    const rows = await runQueriesWithTenant<{ concept_id: string; slug: string; domain: string }>(
+    const rows = await runQueriesWithTenant<{ concept_id: string; slug: string; domain: string; display_name: string | null; short_label: string | null }>(
       tenantId,
-      `SELECT c.concept_id, c.slug, c.domain
+      `SELECT c.concept_id, c.slug, c.domain, cl.label AS display_name, cl.short_label
          FROM company_type_allowed_concepts a
          JOIN concepts c ON c.concept_id = a.concept_id
+         LEFT JOIN concept_labels cl
+           ON cl.concept_id = c.concept_id
+          AND cl.locale = 'pt-BR' AND cl.context_key = 'default' AND cl.is_primary = true
         WHERE a.company_type_id = $1
         ORDER BY c.domain ASC, c.slug ASC`,
       [companyTypeId]
     );
-    return rows.map((r) => ({ conceptId: r.concept_id, slug: r.slug, domain: r.domain }));
+    return rows.map((r) => ({ conceptId: r.concept_id, slug: r.slug, domain: r.domain, displayName: r.display_name ?? null, shortLabel: r.short_label ?? null }));
   }
 
   /**
@@ -1006,15 +1011,22 @@ class CompaniesService {
       cnae_code: string;
       suggested_concept_id: string;
       concept_slug: string;
+      display_name: string | null;
       confidence: string;
       rationale: string;
       source: string;
       catalog_version: string;
     }>(
+      // F-PJ-CONCEPT-LABELS-EXPOSE-ENDPOINTS (DECISION-0107): LEFT JOIN concept_labels (primária pt-BR/default)
+      // → suggestedConceptDisplayName. Label é APRESENTAÇÃO (projeção), nunca chave de identidade: o WHERE/
+      // ORDER seguem por cnae_code/concept_id/slug; o lookup do concept NÃO usa label. Fallback honesto: sem label → null.
       `SELECT s.cnae_code, s.suggested_concept_id::text AS suggested_concept_id, c.slug AS concept_slug,
-              s.confidence, s.rationale, s.source, s.catalog_version
+              cl.label AS display_name, s.confidence, s.rationale, s.source, s.catalog_version
          FROM cnae_concept_suggestions s
          JOIN concepts c ON c.concept_id = s.suggested_concept_id
+         LEFT JOIN concept_labels cl
+           ON cl.concept_id = c.concept_id
+          AND cl.locale = 'pt-BR' AND cl.context_key = 'default' AND cl.is_primary = true
         WHERE s.cnae_code = $1 AND s.is_active = true AND s.review_status = 'approved'
         ORDER BY (CASE s.confidence WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1 END) DESC, c.slug ASC
         LIMIT 1`,
@@ -1044,8 +1056,8 @@ class CompaniesService {
         description: row.rationale,
         suggestedConceptId: row.suggested_concept_id,
         suggestedConceptSlug: row.concept_slug,
-        // Display name não existe no substrato `concepts` (DT-PJ-CONCEPT-DISPLAY-NAME-MISSING) → null honesto.
-        suggestedConceptDisplayName: null,
+        // Display name vem de concept_labels (LEFT JOIN); sem label → null honesto (frontend faz displayName ?? slug).
+        suggestedConceptDisplayName: row.display_name ?? null,
         confidence: row.confidence,
         source: row.source,
         version: row.catalog_version,
