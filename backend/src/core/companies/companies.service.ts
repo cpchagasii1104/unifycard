@@ -967,6 +967,94 @@ class CompaniesService {
     return rows.map((r) => ({ conceptId: r.concept_id, slug: r.slug, domain: r.domain }));
   }
 
+  /**
+   * F-PJ-CNAE-TO-CONCEPT-SUGGESTION-READ-ENDPOINT (DECISION-0104): consulta READ-ONLY de sugestão
+   * CNAE → concept a partir da matriz curada `cnae_concept_suggestions` (seed γ).
+   *
+   * CNAE é SINAL/sugestão (D1): este método SÓ sugere; NÃO ativa empresa, NÃO escreve
+   * companies.primary_company_type_id/primary_concept_id, NÃO publica, NÃO toca canonical_products/Bank.
+   * Normaliza o CNAE (strip não-dígitos → 7 dígitos) — resolve a costura de formato
+   * (DT-PJ-CNAE-CODE-FORMAT-NORMALIZATION-SEAM): a matriz guarda dígitos; a evidência guarda o formato do
+   * provider; o consumidor normaliza antes do lookup. `companyType` derivado com segurança SÓ se exatamente
+   * um company_type permitir o concept (company_type_allowed_concepts) — não vira autoridade. Display name do
+   * concept é LEITURA do substrato (hoje ausente → null; DT-PJ-CONCEPT-DISPLAY-NAME-MISSING), nunca nova fonte.
+   * A matriz é GLOBAL (sem tenant): pool direto.
+   */
+  async suggestConceptForCnae(rawCnae: string): Promise<{
+    valid: boolean;
+    normalizedCnaeCode: string;
+    suggestion: {
+      cnaeCode: string;
+      normalizedCnaeCode: string;
+      description: string;
+      suggestedConceptId: string;
+      suggestedConceptSlug: string;
+      suggestedConceptDisplayName: string | null;
+      confidence: string;
+      source: string;
+      version: string;
+      companyTypeId: string | null;
+      companyTypeSlug: string | null;
+    } | null;
+  }> {
+    const normalized = String(rawCnae ?? '').replace(/\D/g, '');
+    if (!/^\d{7}$/.test(normalized)) {
+      return { valid: false, normalizedCnaeCode: normalized, suggestion: null };
+    }
+
+    const rows = await pool.query<{
+      cnae_code: string;
+      suggested_concept_id: string;
+      concept_slug: string;
+      confidence: string;
+      rationale: string;
+      source: string;
+      catalog_version: string;
+    }>(
+      `SELECT s.cnae_code, s.suggested_concept_id::text AS suggested_concept_id, c.slug AS concept_slug,
+              s.confidence, s.rationale, s.source, s.catalog_version
+         FROM cnae_concept_suggestions s
+         JOIN concepts c ON c.concept_id = s.suggested_concept_id
+        WHERE s.cnae_code = $1 AND s.is_active = true AND s.review_status = 'approved'
+        ORDER BY (CASE s.confidence WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1 END) DESC, c.slug ASC
+        LIMIT 1`,
+      [normalized]
+    );
+    const row = rows.rows[0];
+    if (!row) {
+      return { valid: true, normalizedCnaeCode: normalized, suggestion: null };
+    }
+
+    // Derivação SEGURA de company_type: só se EXATAMENTE um type permite o concept (senão null).
+    const types = await pool.query<{ id: string; slug: string }>(
+      `SELECT ct.id::text AS id, ct.slug
+         FROM company_type_allowed_concepts a
+         JOIN company_types ct ON ct.id = a.company_type_id
+        WHERE a.concept_id = $1::uuid`,
+      [row.suggested_concept_id]
+    );
+    const singleType = types.rows.length === 1 ? types.rows[0] : null;
+
+    return {
+      valid: true,
+      normalizedCnaeCode: normalized,
+      suggestion: {
+        cnaeCode: row.cnae_code,
+        normalizedCnaeCode: normalized,
+        description: row.rationale,
+        suggestedConceptId: row.suggested_concept_id,
+        suggestedConceptSlug: row.concept_slug,
+        // Display name não existe no substrato `concepts` (DT-PJ-CONCEPT-DISPLAY-NAME-MISSING) → null honesto.
+        suggestedConceptDisplayName: null,
+        confidence: row.confidence,
+        source: row.source,
+        version: row.catalog_version,
+        companyTypeId: singleType?.id ?? null,
+        companyTypeSlug: singleType?.slug ?? null,
+      },
+    };
+  }
+
   private activationError(code: string, message: string, statusCode: number): HttpError {
     const err = new HttpError(`${code}: ${message}`, statusCode);
     (err as unknown as { code: string }).code = code;

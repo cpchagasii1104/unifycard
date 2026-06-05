@@ -6,6 +6,14 @@
 
 ---
 
+## Sessão 2026-06-05 (cont.75) — F-PJ-CNAE-TO-CONCEPT-SUGGESTION-READ-ENDPOINT (eu escritora)
+
+HEAD `41967c88` → commit "feat(pj): read endpoint CNAE-to-concept suggestion". Clayton serializou (go read endpoint, eu escrevo, par verifica). suggestConceptForCnae em companies.service (read-only, matriz global) + GET /companies/operational-activation/cnae-suggestion?cnae=. Normaliza CNAE (strip não-dígitos→7 dígitos) = fecha a SEAM de formato. Retorna concept slug/id, confidence, source, version, description(rationale), companyType derivado SÓ se 1 type permite (não vira autoridade), displayName=null honesto (concepts sem display name). 400 INVALID_CNAE; 200 data=null sem fallback. Só sugere — não ativa/escreve primary_*/publica/toca canonical_products/Bank. e2e 16/16 (app.inject: máscara=sem-máscara mesma sugestão; 400; null honesto; 8 intactas; zero writes). Gates OK. Sem migration (361). DTs: CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING → CLOSED (schema+seed+endpoint); CNAE-CODE-FORMAT-NORMALIZATION-SEAM → CLOSED (consumidor normaliza).
+
+Estágio 3 (Classificação) agora funcional ponta a ponta: matriz semeada + consultável. Resíduos: display name de concept, consumo no wizard. **Próximo (espera Clayton):** display name · wizard · Trilhos A/B · peixaria.
+
+---
+
 ## Sessão 2026-06-05 (cont.74) — Extensão DT catálogo canônico: pré-moldagem + scope (docs-only)
 
 HEAD `a6cdf601` → commit docs-only. Clayton explicou a visão da empresa pré-moldada + catálogo canônico compartilhado e mandou estender a DT-PJ-CANONICAL-CATALOG-SHARED-ITEMS-NOT-PER-VERTICAL. Confirmei no banco vivo que AMBAS as metades já são substrato: company_types tem default_department_slugs/default_branch_slugs populados (supermercado = hortifruti/carnes-aves/mercearia/bebidas/limpeza/padaria); canonical_products = 35 itens com gtin/images/brand/attributes/concept_id/scope/tenant_id. Estendi a DT com 6 pontos: (1) pré-moldagem por company_type = estrutura inicial não identidade soberana; (2) catálogo canônico (item industrializado único, foto 1×); (3) regra de scope (industrializado→global+tenant_id null; tenant-scoped só artesanal/justificado; sem enforcement agora); (4) cadeia CNAE→company_type→CONCEPT→canonical_products→ativação→projeções; (5) não implementar agora; (6) peixaria = decisão pendente (não inventar slug). Formulação canônica: "O CNAE sugere a porta; o company_type pré-molda os ramos; o catálogo canônico fornece os itens globais; a empresa ativa seu mix. Não duplicar produto por vertical." Zero runtime/schema.

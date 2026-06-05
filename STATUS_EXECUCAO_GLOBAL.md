@@ -1,3 +1,19 @@
+## 2026-06-05 — F-PJ-CNAE-TO-CONCEPT-SUGGESTION-READ-ENDPOINT: read endpoint CNAE→concept
+
+**Branch:** `rescue-structural` · **HEAD origem:** `41967c88`. Frente read endpoint (backend, governada por DECISION-0104). **Zero migration** (361→361) / activation / publish / canonical_products / Bank / Trilhos / frontend grande. 3 autorais intocados. _(Esteira: eu escritora, par read-only verifica, Clayton serializou "go read endpoint".)_
+
+**O que entregou:** transforma a matriz γ semeada em sugestão consultável. `companiesService.suggestConceptForCnae(rawCnae)` (read-only, matriz GLOBAL) + rota `GET /companies/operational-activation/cnae-suggestion?cnae=<código>`. **Normaliza** o CNAE (strip não-dígitos → valida 7 dígitos) — **fecha a costura** de formato (consumidor normaliza antes do lookup). Consulta `cnae_concept_suggestions` (approved+active, maior confidence) e retorna: `cnaeCode`, `normalizedCnaeCode`, `description` (rationale), `suggestedConceptId/Slug`, `suggestedConceptDisplayName` (**null honesto** — concepts sem display name), `confidence`, `source`, `version`, `companyTypeId/Slug` (**derivado com segurança** — só se exatamente 1 type permite o concept, sem virar autoridade). Contrato: 400 `INVALID_CNAE` (limpo); 200 `data=null` quando válido-sem-sugestão (vazio honesto, **sem fallback**). CNAE só **sugere**: NÃO ativa, NÃO escreve `primary_*`, NÃO publica, NÃO toca canonical_products/Bank.
+
+**Arquivos:** `backend/src/core/companies/companies.service.ts` (método `suggestConceptForCnae`), `companies.routes.ts` (rota GET), `backend/src/scripts/validate-pipeline-e2e-pj-cnae-suggestion-read-endpoint.ts` (e2e), `scripts/run-pj-cnae-suggestion-read-endpoint-ephemeral.ps1`.
+
+**Prova:** e2e efêmero **16/16 verde** (app.inject c/ JWT): sem-máscara `4711302`→supermercado/varejo-alimentar-integrado [high]; **máscara `4711-3/02` → MESMA sugestão** (normalização); inválido `123`/não-numérico → **400 INVALID_CNAE**; válido `9999999` sem sugestão → **200 data=null** (sem fallback); `9602-5/01`→salão; companyType derivado (supermercado/salao); displayName null; 8 curadas intactas; **zero** escrita primary_*/ccp/tco/Bank. Backend tsc só baseline geo. Gates actor-writer/bank-ledger/regression-guards OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 361→361** (sem nova migration). Grep: `suggestConceptForCnae` é SELECT-only (writes em createCompany/activate são pré-existentes, não no caminho da sugestão).
+
+**DTs:** `DT-PJ-CNAE-TO-CONCEPT-SUGGESTION-MATRIX-MISSING` → **CLOSED** (schema+seed+read endpoint completos). `DT-PJ-CNAE-CODE-FORMAT-NORMALIZATION-SEAM` → **CLOSED** (consumidor normaliza). Resíduos = frentes próprias: consumo no wizard (UI), `DT-PJ-CONCEPT-DISPLAY-NAME-MISSING`.
+
+**PRÓXIMA ETAPA (espera Clayton):** display name de concept (pra UI não mostrar slug) · consumo no wizard de onboarding · Trilhos A/B (governados pela DT do catálogo canônico) · decisão peixaria.
+
+---
+
 ## 2026-06-05 — Extensão DT catálogo canônico: pré-moldagem por company_type + scope (docs-only, Clayton)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `a6cdf601`. **Docs-only** (zero runtime/schema/seed/Bank/Trilhos). 3 autorais intocados. Clayton autorizou estender a `DT-PJ-CANONICAL-CATALOG-SHARED-ITEMS-NOT-PER-VERTICAL`.

@@ -976,6 +976,41 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  /**
+   * GET /companies/operational-activation/cnae-suggestion?cnae=<código>
+   * F-PJ-CNAE-TO-CONCEPT-SUGGESTION-READ-ENDPOINT (DECISION-0104): READ-ONLY. Sugere concept a partir
+   * da matriz curada (seed γ). CNAE sugere a PORTA; NÃO ativa, NÃO escreve primary_*, NÃO publica.
+   * Aceita CNAE com/sem máscara (query param normaliza). 400 INVALID_CNAE · 200 { data: suggestion|null }.
+   */
+  fastify.get<{ Querystring: { cnae?: string } }>(
+    '/operational-activation/cnae-suggestion',
+    async (req, reply) => {
+      if (!req.user?.globalUserId) {
+        return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+      }
+      if (!req.tenant) {
+        return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+      }
+      const raw = (req.query.cnae ?? '').toString();
+      try {
+        const result = await companiesService.suggestConceptForCnae(raw);
+        if (!result.valid) {
+          return reply.status(400).send({
+            ok: false,
+            code: 'INVALID_CNAE',
+            message: 'CNAE deve ter 7 dígitos (com ou sem máscara).',
+            normalizedCnaeCode: result.normalizedCnaeCode,
+          });
+        }
+        // 200 mesmo sem sugestão (vazio honesto, sem fallback): data = null.
+        return reply.send({ ok: true, data: result.suggestion });
+      } catch (error) {
+        fastify.log.error({ err: error, cnae: raw }, 'Erro ao sugerir concept por CNAE');
+        return reply.status(500).send({ ok: false, message: 'Erro ao consultar sugestão de CNAE' });
+      }
+    }
+  );
+
   // ============================================================
   // F-PJ-ACTIVATION-ROUTE-WRITE-PAIR (DECISION-0098)
   //   Caminho vivo e autorizado para a ATIVAÇÃO OPERACIONAL PJ (Momento 2).
