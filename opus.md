@@ -6,6 +6,14 @@
 
 ---
 
+## Sessão 2026-06-04 (cont.57) — F-PJ-DOMAIN-SELECTOR-NEUTRALIZE: parar a mentira da área de atuação
+
+HEAD antes `93321e84` → commit "fix(pj): neutralize free domain selector". Neutralizei o DomainSelector livre e o ghost writer de company_domains (DECISION-0102 D9/D10). A seleção de 6 checkboxes era quádruplo-morta: dropada no zod (createCompanySchema não tem domains) → default 'market' → INSERT em company_domains (tabela só no archive 0404) → 42P01 engolido. Frontend: removi DomainSelector do CompaniesManagerForm (troquei por nota informativa), removi validação obrigatória em CompaniesManager, removi domains:['market'] de useCompaniesState, removi domains de CreateCompanyInput (api). Backend: removi o bloco ghost INSERT + default 'market' em createCompany, removi domains de CreateCompanyInput (types). NÃO criei company_domains. Stubs /domains (getCompanyDomains→[]/updateCompanyDomains→echo) deixados inertes.
+
+Prova: grep INSERT INTO company_domains=0; typecheck front (peguei useCompaniesState init) + back (só baseline geo) limpos; F-ATOMIC-COMPANY-BIRTH 18/18 (create sem domains, sem warning); 4 gates OK. DT-PJ-COMPANY-DOMAINS-GHOST-WRITER → CLOSED. ONBOARDING-DOMAIN-SELECTION segue PARTIALLY (mentira removida, elegibilidade real ainda não existe). **Próximo:** F-PJ-CNAE-EVIDENCE-PERSIST-READONLY (persistir CNAE como evidência) → derivar matriz de elegibilidade; OU vocabulary-fork read-only. Esta fatia parou a mentira; não criou a verdade nova ainda.
+
+---
+
 ## Sessão 2026-06-04 (cont.56) — DECISION-0102: quem pode pedir qual palco (elegibilidade de domínios)
 
 HEAD antes `454d74d3` → commit "decisions: define PJ onboarding domain eligibility". Clayton mandou screenshot da tela "Em quais áreas sua empresa atua?" (DomainSelector.tsx, fluxo CompaniesManager) com livre escolha por checkbox de 6 MarketplaceDomain. Auditei read-only e achei 3 coisas graves: (1) o write vai p/ company_domains que NÃO EXISTE no schema → 42P01 engolido pós-commit = ghost (campo obrigatório que não persiste, UX mentirosa); (2) CNAE da Receita é descartado (não persistido); (3) fork MarketplaceDomain(6) ≠ concepts.domain N0(13), sem mapeamento. Elegibilidade É derivável hoje: company_type_allowed_concepts ⋈ concepts.domain (1 domínio/type).

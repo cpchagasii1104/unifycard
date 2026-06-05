@@ -108,7 +108,8 @@ export interface CreateCompanyInput {
   permissions?: Partial<CompanyPermissions>;
   isPrimary?: boolean;
   fetchFromRevenue?: boolean;
-  domains?: MarketplaceDomain[]; // Domínios de atuação (obrigatório: pelo menos 1)
+  // F-PJ-DOMAIN-SELECTOR-NEUTRALIZE (DECISION-0102): `domains` (livre escolha) REMOVIDO do create —
+  // domínio de atuação deriva de CONCEPT + evidência fiscal, governado pelo backend; não é enviado pelo frontend.
 }
 
 export interface UpdateCompanyInput {

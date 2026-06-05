@@ -637,31 +637,10 @@ class CompaniesService {
       }
     }
 
-    // 2) Domínios — pós-commit, idempotente, tolerante a tabela ausente; não-crítico.
-    const domains = input.domains && input.domains.length > 0
-      ? input.domains
-      : ['market']; // Default: market para compatibilidade
-    try {
-      for (const domain of domains) {
-        await pool.query(
-          `
-          INSERT INTO company_domains (company_id, domain, enabled, config)
-          VALUES ($1, $2, true, '{}'::jsonb)
-          ON CONFLICT (company_id, domain) DO UPDATE
-          SET enabled = true, updated_at = NOW()
-          `,
-          [companyId, domain]
-        );
-      }
-    } catch (err: any) {
-      // Pós-commit não-crítico: nunca derruba o núcleo (nem 42P01 nem outro erro).
-      console.warn('[CompaniesService] company_domains pos-commit falhou (nao-critico, nucleo intacto):', {
-        tenantId: finalTenantId,
-        companyId,
-        code: err?.code,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    // 2) F-PJ-DOMAIN-SELECTOR-NEUTRALIZE (DECISION-0102 D9/D10): bloco GHOST de `company_domains` REMOVIDO.
+    //    A escrita era pós-commit numa tabela INEXISTENTE (42P01 engolido), default 'market', livre escolha
+    //    de frontend — drift sem persistência. Domínio de atuação não é livre escolha: deriva de CONCEPT +
+    //    evidência fiscal, governado pelo backend. `input.domains` deixou de ser lido (e foi removido do tipo).
 
     // 3) Preferências de oportunidade — pós-commit, idempotente, tolerante a tabela ausente.
     try {

@@ -1,3 +1,19 @@
+## 2026-06-04 — F-PJ-DOMAIN-SELECTOR-NEUTRALIZE-FRONTBACK: para a mentira da "área de atuação"
+
+**Branch:** `rescue-structural` · **HEAD origem:** `93321e84`. Frente `F-PJ-DOMAIN-SELECTOR-NEUTRALIZE-FRONTBACK` (frontend + backend, governada por DECISION-0102 D9/D10). Zero schema/migration/publication/marketplace/hybrid/KYB/Bank/company_status. Os 3 untracked autorais intocados.
+
+**O que entregou:** parou a UX mentirosa de "Em quais áreas sua empresa atua?" (campo obrigatório, livre, hardcoded, que não persistia — seleção quádruplo-morta: dropada no zod → default 'market' → ghost-INSERT em tabela inexistente → 42P01 engolido). **Frontend:** `CompaniesManagerForm` removeu o `DomainSelector` do create (bloco trocado por nota informativa honesta: "domínios serão sugeridos após análise do ramo e da identidade operacional") + removeu o import; `CompaniesManager` removeu a validação obrigatória de `domains`; `useCompaniesState` removeu `domains:['market']` do estado inicial; `api/companies.ts` removeu `domains` de `CreateCompanyInput` → payload não envia mais `domains`. **Backend:** `companies.service.createCompany` removeu o bloco GHOST pós-commit `INSERT INTO company_domains` + o default `['market']`; `companies.types.ts` removeu `domains` de `CreateCompanyInput`. `company_domains` NÃO criada (vestígio só em `migrations_archive/0404`). Rotas-stub `/domains` (getCompanyDomains→[]/updateCompanyDomains→echo) deixadas inertes.
+
+**Arquivos:** `CompaniesManagerForm.tsx`, `CompaniesManager.tsx`, `useCompaniesState.ts`, `api/companies.ts` (frontend); `companies.service.ts`, `companies.types.ts` (backend).
+
+**Prova:** grep `INSERT INTO company_domains` em backend/src = **0** (ghost removido); `DomainSelector` não renderizado no create; nenhum uso vivo de `domains` no create. Frontend typecheck **limpo** (pegou e corrigi `useCompaniesState` domains init); backend tsc só 2 baseline geo. e2e **F-ATOMIC-COMPANY-BIRTH 18/18** (createCompany funciona sem domains, sem warning engolido). 4 gates OK (warning_new=1 = c3 pré-existente). NÃO criou elegibilidade real, NÃO persistiu CNAE, NÃO mapeou vocabulário, NÃO religou marketplace.
+
+**DTs:** `DT-PJ-COMPANY-DOMAINS-GHOST-WRITER` → **CLOSED** (drift neutralizado front+back; create funciona sem domains). `DT-PJ-ONBOARDING-DOMAIN-SELECTION-MISSING` PARTIALLY MITIGATED/GOVERNED (mentira removida; **elegibilidade real ainda não existe**). `DT-PJ-CNAE-EVIDENCE-NOT-PERSISTED` OPEN; `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` OPEN; `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN` OPEN.
+
+**PRÓXIMA ETAPA:** `F-PJ-CNAE-EVIDENCE-PERSIST-READONLY` (desenho: persistir CNAE/atividade da Receita como evidência auditável) → depois derivar a matriz de elegibilidade. OU `F-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK-READONLY` (ortogonal, antes de religar marketplace).
+
+---
+
 ## 2026-06-04 — DECISION-0102: governança de elegibilidade de domínios no onboarding PJ (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `454d74d3`. Frente `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY` (docs-only). Zero código/schema/migration/frontend/backend-runtime/marketplace/publication/KYB/Bank. Os 3 untracked autorais intocados.

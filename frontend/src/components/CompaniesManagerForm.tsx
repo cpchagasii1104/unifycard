@@ -1,5 +1,4 @@
 import type { Company, CreateCompanyInput, RevenueFederalData, CompanyUserRole } from '../api/companies';
-import DomainSelector from './company/DomainSelector';
 import { formatCNPJ } from '../utils/cnpj';
 import { COUNTRY_CODES, BRAZIL_AREA_CODES, isCellPhone } from '../utils/phone';
 import { validateBrazilianPhone } from '../utils/validation';
@@ -424,24 +423,12 @@ export default function CompaniesManagerForm({
             )}
           </div>
           
-          <DomainSelector
-            selectedDomains={formData.domains || ['market']}
-            onDomainsChange={(domains) => {
-              setFormData({ ...formData, domains });
-              // Limpar erro de domínios quando selecionar
-              if (formErrors.domains) {
-                const newErrors = { ...formErrors };
-                delete newErrors.domains;
-                setFormErrors(newErrors);
-              }
-            }}
-            required={true}
-          />
-          {formErrors.domains && (
-            <span className="field-error" style={{ display: 'block', marginTop: '8px' }}>
-              {formErrors.domains}
-            </span>
-          )}
+          {/* F-PJ-DOMAIN-SELECTOR-NEUTRALIZE (DECISION-0102 D1/D9): a escolha livre de "áreas de atuação"
+              era drift (frontend escolhendo taxonomia) e não persistia (company_domains é ghost). Domínio de
+              atuação não é livre escolha: deriva de CONCEPT + evidência fiscal, governado pelo backend. */}
+          <p className="form-info-note" style={{ marginTop: '8px', color: '#6b7280' }}>
+            Os domínios de atuação serão sugeridos após a análise do ramo e da identidade operacional da empresa.
+          </p>
 
           <div className="form-row" style={{ marginTop: '16px' }}>
             <div className="form-group">

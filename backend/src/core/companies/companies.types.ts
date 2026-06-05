@@ -113,7 +113,8 @@ export interface CreateCompanyInput {
   permissions?: Partial<CompanyPermissions>;
   isPrimary?: boolean;
   fetchFromRevenue?: boolean; // Se true, busca dados da Receita Federal
-  domains?: MarketplaceDomain[]; // Domínios de atuação (obrigatório: pelo menos 1)
+  // F-PJ-DOMAIN-SELECTOR-NEUTRALIZE (DECISION-0102): `domains` (livre escolha) REMOVIDO do input de create —
+  // alimentava só o writer ghost de company_domains (tabela inexistente). Domínio deriva de CONCEPT, governado.
   /** Categoria de negócio (opcional, armazenada em metadata) */
   businessCategory?: string;
   /** Categorias de serviço (opcional, armazenada em metadata) */

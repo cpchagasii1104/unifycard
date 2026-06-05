@@ -25,7 +25,8 @@ export function useCompaniesState() {
     cnpj: '',
     role: 'owner',
     fetchFromRevenue: true,
-    domains: ['market'],
+    // F-PJ-DOMAIN-SELECTOR-NEUTRALIZE (DECISION-0102): `domains` removido do estado de create — domínio de
+    // atuação não é livre escolha do frontend (deriva de CONCEPT + evidência fiscal, governado pelo backend).
   });
   
   const [revenueData, setRevenueData] = useState<RevenueFederalData | null>(null);

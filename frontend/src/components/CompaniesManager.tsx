@@ -269,10 +269,9 @@ export function CompaniesManager() {
       errors.companyName = 'Razão Social é obrigatória';
     }
 
-    // 🔴 Validar domínios (obrigatório: pelo menos 1)
-    if (!formData.domains || formData.domains.length === 0) {
-      errors.domains = 'Selecione pelo menos um domínio de atuação';
-    }
+    // F-PJ-DOMAIN-SELECTOR-NEUTRALIZE (DECISION-0102): domínio de atuação NÃO é livre escolha do frontend
+    // (deriva de CONCEPT + evidência fiscal, governado pelo backend). Validação de `domains` removida —
+    // a criação não trava mais por "área de atuação"; o payload não envia `domains`.
 
     // 🔴 Validar telefones
     if (!validatePhones(phones, setPhoneErrors)) {
