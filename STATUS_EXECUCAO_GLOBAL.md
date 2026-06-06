@@ -1,3 +1,19 @@
+## 2026-06-06 — F-PJ-KYB-DOCUMENTS-USER-SUBMIT: rota user-facing de submit documental KYB (backend, sem migration)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `dec7057a`. Backend (convergência do Pilar 1 KYB). **Zero migration / Bank / frontend / download / review / KYB approval.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** a primeira rota **user-facing** de submissão documental KYB — `POST /companies/:companyId/kyb/documents` — que WIRA autoridade + storage + scan + SSOT. **Ponto crítico de autoridade (veredito B da IA-DECISOES, contra a literalidade do prompt #3):** a autoria é **AUTH-DERIVED** (`req.user.userId → ensureUserActor → submittedByActorId`), **NÃO** `req.actionContext.actorId` (achado: o middleware não valida ownership → spoofável). Fluxo: multipart→buffer → resolve `companyId→fiscal_identity_id` (404/422) → **`canManageCompany`** (403; posse de companyId não basta) → validar **MIME allowlist + magic bytes** (PDF/JPEG/PNG) + vazio/limite → **MalwareScanPort (clean-only)** → **DocumentStoragePort (privado)** → **`submitFiscalIdentityDocument`** (grava `fiscal_identity_documents`, status `submitted`). **Só `clean` grava**; não-clean falha fechado SEM armazenar/gravar. Test seam de DI para scanner/storage (e2e). **Nada** de company_status/kyb_status/Bank/company_documents/download/review/wizard/KYB-approval.
+
+**Arquivos:** `backend/src/core/kyb-documents/{kyb-document-validation.ts,kyb-document-submit.service.ts}`, `backend/src/core/companies/companies.routes.ts` (rota), e2e `validate-pipeline-e2e-pj-kyb-documents-user-submit.ts`.
+
+**Prova:** e2e **19/19** (autoria auth-derived = ensureUserActor · autoridade 403 · fiscal-missing 422 · company 404 · magic/MIME/vazio/limite 400 · scan-infected não-grava 422 · lifecycle/kyb imóveis · estrutural: serviço sem actionContext, usa ensureUserActor, sem company_documents/Bank/status). Sem regressão (storage 17/17, scan 12/12, tombstones 7/7+9/9, cnpj 6/6, lifecycle 7/7, role 4/4, vocab 7/7). Backend tsc 0 (escopo). 4 gates OK; arch `--strict` `critical_new=0`/`warning_new=1`=c3. **Migrations 365→365.**
+
+**DTs:** `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` → **PARTIALLY MITIGATED** (submit backend existe; falta wizard/frontend + admin review UI + providers de produção). Achado `DT-PJ-ACTIONCONTEXT-ACTOR-OWNERSHIP-UNVALIDATED` registrado em memória IA-DT (não-DT-oficial). Storage/scanner de produção seguem OPEN.
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-PJ-KYB-DOCUMENTS-ADMIN-REVIEW-UI` (review admin sobre o SSOT + download protegido — gated por storage/scanner de prod) **ou** a etapa documental no **wizard** (frontend), conforme prioridade. Paralelo seguro: `F-PJ-DELETE-GUARD-BANK-PORT`.
+
+---
+
 ## 2026-06-06 — F-PJ-DOCUMENT-MALWARE-SCAN-PORT: substrato de scan de malware documental KYB (backend, sem migration)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `900bd80b`. Backend code-only (2ª fatia do Pilar 1 KYB). **Zero migration / Bank / frontend / upload / download / review / scanner real.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_

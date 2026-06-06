@@ -427,6 +427,59 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * POST /companies/:companyId/kyb/documents   (F-PJ-KYB-DOCUMENTS-USER-SUBMIT, DECISION-0112 §10 A4)
+   * Submissão documental KYB USER-FACING. Autoria AUTH-DERIVED (req.user.userId → ensureUserActor;
+   * NÃO actionContext.actorId/body — spoofável); autoridade = canManageCompany (posse de companyId não
+   * basta). Fluxo: multipart→buffer → validate(MIME+magic) → MalwareScanPort(clean-only) →
+   * DocumentStoragePort(privado) → submitFiscalIdentityDocument. NÃO toca company_status/kyb_status/Bank.
+   * documentType vem por querystring (?documentType=) ou campo multipart.
+   */
+  fastify.post<{ Params: { companyId: string }; Querystring: { documentType?: string } }>(
+    '/:companyId/kyb/documents',
+    async (req, reply) => {
+      if (!req.user?.globalUserId || !req.user?.userId) {
+        return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+      }
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+      }
+      const companyId = req.params.companyId;
+      if (!z.string().uuid().safeParse(companyId).success) {
+        return reply.status(400).send({ ok: false, code: 'INVALID_COMPANY_ID', message: 'companyId inválido' });
+      }
+      try {
+        const data = await req.file();
+        if (!data) {
+          return reply.status(400).send({ ok: false, code: 'KYB_DOC_FILE_REQUIRED', message: 'Arquivo é obrigatório (multipart).' });
+        }
+        const buffer = await data.toBuffer();
+        const documentType = (
+          req.query?.documentType ?? (data.fields as Record<string, { value?: string }> | undefined)?.documentType?.value ?? ''
+        ).toString();
+
+        const { submitKybDocument } = await import('../kyb-documents/kyb-document-submit.service');
+        const result = await submitKybDocument({
+          tenantId: req.tenant.id,
+          companyId,
+          globalUserId: req.user.globalUserId,
+          userId: req.user.userId,
+          documentType,
+          buffer,
+          mimeType: data.mimetype,
+          originalFilename: data.filename,
+        });
+        return reply.status(201).send({ ok: true, data: result });
+      } catch (error) {
+        const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+        const code = (error as { code?: string }).code;
+        const message = error instanceof Error ? error.message : 'Erro ao submeter documento KYB';
+        if (statusCode >= 500) fastify.log.error({ err: error, companyId }, 'Erro no submit KYB documento');
+        return reply.status(statusCode).send({ ok: false, code, message });
+      }
+    },
+  );
+
+  /**
    * GET /companies/:companyId/documents
    * Lista documentos da empresa
    */
