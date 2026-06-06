@@ -132,6 +132,33 @@
   gap: 1rem;
 }
 
+/* F-PJ-ONBOARDING-MODULES-DERIVED-FROM-CLASSIFICATION: resumo do trilho derivado (não-escolha). */
+.onboarding-track-summary {
+  padding: 1.5rem;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.onboarding-track-summary h3 {
+  margin: 0 0 0.75rem;
+  color: #333;
+}
+
+.onboarding-track-summary ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  color: #333;
+}
+
+.onboarding-track-summary ul li {
+  margin-bottom: 0.35rem;
+}
+
+.onboarding-track-summary .step-description {
+  margin-bottom: 0;
+}
+
 .module-card {
   padding: 1.5rem;
   border: 1px solid #e9ecef;

@@ -1,3 +1,19 @@
+## 2026-06-06 — F-PJ-ONBOARDING-MODULES-DERIVED-FROM-CLASSIFICATION: onboarding deriva o trilho da classificação (frontend-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `3c7ee6e0`. Frente **frontend-only** (decisão de produto Clayton; ratifica `actor-first/context-first`). **Zero backend / migration / Bank / payment / booking / serviços runtime / catálogo / DECISION financeira.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** corrige o resíduo **module-first**. A Etapa 2 do `CompanyOnboardingWizard` mostrava "Quais módulos você quer ativar?" (Serviços/Eventos/Agenda/Financeiro **hardcoded**) ignorando a classificação e **forçando** marcar um módulo irrelevante para avançar (hortifruti não seguia sem marcar "Serviços"). Agora a Etapa 2 é **resumo derivado**: helper `deriveOnboardingTrackFromConceptDomain(domain)` projeta o trilho do `domain` do concept — `produtos-e-comercio` → Produtos/Catálogo/Estoque/Ofertas; `servicos` → Serviços/Agenda (com nota de pagamento/booking bloqueados); `cultura-lazer-e-eventos` → reservado; desconhecido → fallback honesto. Projeção de verdade resolvida (frontend não cria verdade): a operacional segue o **par soberano** (`activateCompanyOperationally`); o gate passou a depender de **derivabilidade**, não de checkbox; **Financeiro deixou de ser checkbox** (Bank é infra). `modules` permanece só como **compat de UX** (derivado, financial=false, não-operacional).
+
+**Arquivos:** `frontend/src/utils/onboarding-track.ts` (novo helper), `frontend/src/components/company/CompanyOnboardingWizard.tsx` (Etapa 2 derivada + gate + remove toggle), `CompanyOnboardingWizard.css` (estilo do resumo).
+
+**Prova:** **frontend tsc exit 0**. Comportamento: hortifruti vê trilho de produto e **avança sem módulo irrelevante**; sem Financeiro como checkbox; salão deriva Serviços+Agenda; submit usa o par soberano; `displayName` só apresentação. **Zero backend tocado** (nenhum consumidor operacional de `metadata.onboarding.modules` — auditado). 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365.**
+
+**DTs:** **`DT-PJ-ONBOARDING-MODULE-FIRST-UX-DRIFT` → CLOSED** (tela agora derivada; residual benigno: metadata `modules` segue como compat não-operacional; restaurante híbrido adiado).
+
+**PRÓXIMA ETAPA (espera Clayton):** retomar a sequência financeira de serviço (`F-SERVICE-KYB-RELEASE-GATE-METHOD-CODE`) **ou** outra frente de produto. Flag financeiro continua OFF.
+
+---
+
 ## 2026-06-06 — DECISION-0111: política fina de serviço (release/timeout/cancel/no-show/disputa/refund/KYB/split) — docs-only
 
 **Branch:** `rescue-structural` · **HEAD origem:** `10812621`. Frente **docs-only** (Clayton cravou os defaults do MVP). **Zero código/runtime/migration/Bank/escrow/release/refund/dispute/worker/rota/frontend; flag continua OFF.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_

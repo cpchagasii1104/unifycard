@@ -19,6 +19,7 @@ import type {
   CompanyCalendarConfig,
   CompanyOnboardingConfig,
 } from '../../types/company-onboarding';
+import { deriveOnboardingTrackFromConceptDomain } from '../../utils/onboarding-track';
 import './CompanyOnboardingWizard.css';
 
 interface CompanyOnboardingWizardProps {
@@ -119,6 +120,18 @@ export default function CompanyOnboardingWizard({
     };
   }, [selectedCompanyTypeId]);
 
+  // F-PJ-ONBOARDING-MODULES-DERIVED-FROM-CLASSIFICATION: o trilho/módulos são DERIVADOS do domínio do
+  // concept classificado (projeção, não escolha). `modules` segue no payload só como compat de UX.
+  const selectedConcept = concepts.find((c) => c.conceptId === selectedConceptId);
+  const selectedTypeName = companyTypes.find((t) => t.companyTypeId === selectedCompanyTypeId)?.name;
+  const onboardingTrack = deriveOnboardingTrackFromConceptDomain(selectedConcept?.domain);
+
+  // Mantém `modules` (compat) refletindo o trilho derivado; financial nunca é operacional.
+  useEffect(() => {
+    const sel = concepts.find((c) => c.conceptId === selectedConceptId);
+    setModules(deriveOnboardingTrackFromConceptDomain(sel?.domain).modules);
+  }, [selectedConceptId, concepts]);
+
   const handleNext = () => {
     // Validações por etapa
     if (currentStep === 1 && (!selectedCompanyTypeId || !selectedConceptId)) {
@@ -126,8 +139,11 @@ export default function CompanyOnboardingWizard({
       return;
     }
 
-    if (currentStep === 2 && !modules.services && !modules.events && !modules.calendar) {
-      showToast('Selecione pelo menos um módulo', 'error');
+    // Etapa 2 agora é o RESUMO DERIVADO da classificação (não escolha de módulo). Só bloqueia se o
+    // domínio não for derivável → volta para confirmar a atividade. NÃO exige módulo irrelevante.
+    if (currentStep === 2 && !onboardingTrack.derivable) {
+      showToast('Não foi possível derivar os módulos desta atividade. Confirme a atividade principal.', 'error');
+      setCurrentStep(1);
       return;
     }
 
@@ -140,13 +156,6 @@ export default function CompanyOnboardingWizard({
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
-  };
-
-  const handleModuleToggle = (module: keyof CompanyModules) => {
-    setModules((prev) => ({
-      ...prev,
-      [module]: !prev[module],
-    }));
   };
 
   const handleRoleToggle = (role: keyof CompanyInitialRoles) => {
@@ -310,74 +319,34 @@ export default function CompanyOnboardingWizard({
           </div>
         )}
 
-        {/* Etapa 2: Módulos */}
+        {/* Etapa 2: Trilho inicial DERIVADO da classificação (F-PJ-ONBOARDING-MODULES-DERIVED-FROM-CLASSIFICATION).
+            Não é mais escolha de módulo genérico — o sistema projeta o trilho do domínio do concept. */}
         {currentStep === 2 && (
           <div className="wizard-step">
-            <h2>Quais módulos você quer ativar?</h2>
-            <p className="step-description">
-              Você pode ativar ou desativar módulos depois, mas vamos começar com o essencial.
-            </p>
-            <div className="modules-list">
-              <div className="module-card">
-                <div className="module-header">
-                  <input
-                    type="checkbox"
-                    id="module-services"
-                    checked={modules.services}
-                    onChange={() => handleModuleToggle('services')}
-                  />
-                  <label htmlFor="module-services">
-                    <h3>Serviços</h3>
-                    <p>Oferecer e gerenciar serviços</p>
-                  </label>
+            <h2>Trilho inicial do seu negócio</h2>
+            {onboardingTrack.derivable ? (
+              <>
+                <p className="step-description">
+                  Derivado da classificação
+                  {selectedConcept ? ` (${selectedConcept.displayName ?? selectedConcept.slug})` : ''}. Confira e siga.
+                </p>
+                <div className="onboarding-track-summary">
+                  <h3>{selectedTypeName ? `Seu ${selectedTypeName} começará com:` : 'Seu negócio começará com:'}</h3>
+                  <ul>
+                    {onboardingTrack.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  {onboardingTrack.note && (
+                    <p className="step-description">{onboardingTrack.note}</p>
+                  )}
                 </div>
-              </div>
-
-              <div className="module-card">
-                <div className="module-header">
-                  <input
-                    type="checkbox"
-                    id="module-events"
-                    checked={modules.events}
-                    onChange={() => handleModuleToggle('events')}
-                  />
-                  <label htmlFor="module-events">
-                    <h3>Eventos</h3>
-                    <p>Criar e gerenciar eventos</p>
-                  </label>
-                </div>
-              </div>
-
-              <div className="module-card">
-                <div className="module-header">
-                  <input
-                    type="checkbox"
-                    id="module-calendar"
-                    checked={modules.calendar}
-                    onChange={() => handleModuleToggle('calendar')}
-                  />
-                  <label htmlFor="module-calendar">
-                    <h3>Agenda</h3>
-                    <p>Gerenciar disponibilidade e agendamentos</p>
-                  </label>
-                </div>
-              </div>
-
-              <div className="module-card">
-                <div className="module-header">
-                  <input
-                    type="checkbox"
-                    id="module-financial"
-                    checked={modules.financial}
-                    onChange={() => handleModuleToggle('financial')}
-                  />
-                  <label htmlFor="module-financial">
-                    <h3>Financeiro (Opcional)</h3>
-                    <p>Gestão financeira e relatórios</p>
-                  </label>
-                </div>
-              </div>
-            </div>
+              </>
+            ) : (
+              <p className="step-description" role="alert">
+                {onboardingTrack.note}
+              </p>
+            )}
           </div>
         )}
 
