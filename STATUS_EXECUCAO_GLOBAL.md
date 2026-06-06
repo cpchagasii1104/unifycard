@@ -1,3 +1,19 @@
+## 2026-06-06 — F-PJ-DOCUMENT-MALWARE-SCAN-PORT: substrato de scan de malware documental KYB (backend, sem migration)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `900bd80b`. Backend code-only (2ª fatia do Pilar 1 KYB). **Zero migration / Bank / frontend / upload / download / review / scanner real.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** o substrato mínimo de varredura de malware (DECISION-0112 §10 A2 — antivírus obrigatório antes de qualquer download/review humano). `core/document-malware-scan/`: **`MalwareScanPort`** (port canônico); **`NoopMalwareScanner`** (dev/test, retorna `clean`, identifica-se como `noop`); **factory `resolveMalwareScanProvider`** com **produção fail-closed** (sem `DOCUMENT_MALWARE_SCANNER_PROVIDER` → `DOCUMENT_MALWARE_SCANNER_REQUIRED`; `noop` proibido em prod; scanner real → `NOT_IMPLEMENTED`; sem fallback permissivo); **policy** `canExposeDocumentToHuman`/`assertDocumentSafeToExpose` (**só `clean` expõe**; `infected`/`unscanned`/`error` bloqueiam). Tipos: `MalwareScanStatus` (clean/infected/unscanned/error). **Nada** de upload/download/review/scanner-real/`fiscal_identity_documents`/`company_status`/`kyb_status`/Bank/migration.
+
+**Arquivos:** `backend/src/core/document-malware-scan/{document-malware-scan.types.ts,document-malware-scan.port.ts,noop-malware-scanner.provider.ts,document-malware-scan.provider.ts,document-malware-scan.policy.ts}`, e2e `validate-pipeline-e2e-pj-document-malware-scan-port.ts`.
+
+**Prova:** e2e **12/12** (dev Noop→clean · policy clean=expõe / infected/unscanned/error=bloqueia · produção sem scanner / com noop = fail-closed · scanner real = NOT_IMPLEMENTED · Noop valida tenant/vazio · assert fail-closed · estrutural: port não toca DB/Bank/SSOT/lifecycle/static/fs/uploads/routes). Sem regressão (storage-port 17/17, upload-tombstone 7/7, readers 9/9, cnpj 6/6, lifecycle 7/7, role 4/4, vocab 7/7). Backend tsc 0 (escopo). 4 gates OK; arch `--strict` `critical_new=0`/`warning_new=1`=c3. **Migrations 365→365.**
+
+**DTs:** `DT-PJ-DOCUMENT-MALWARE-SCAN-MISSING` → **PARTIALLY MITIGATED** (port+noop+fail-closed+policy vivos). `DT-PJ-DOCUMENT-PRODUCTION-MALWARE-SCANNER-MISSING` → **OPEN** (nova; scanner real de prod ausente). `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` / `DT-PJ-DOCUMENT-PRODUCTION-STORAGE-PROVIDER-MISSING` → OPEN.
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-PJ-KYB-DOCUMENTS-USER-SUBMIT` (rota user-facing com autoridade `canManageCompany` + magic-bytes/MIME + scan antes de review; alerta já em IA-DT). Paralelo seguro: `F-PJ-DELETE-GUARD-BANK-PORT`.
+
+---
+
 ## 2026-06-06 — F-PJ-DOCUMENT-STORAGE-PORT: substrato técnico de storage documental KYB (backend, sem migration)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `a312174a`. Backend code-only (1ª fatia do Pilar 1 KYB). **Zero migration / Bank / frontend / upload / wizard / KYB approval.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_
