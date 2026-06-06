@@ -64,9 +64,9 @@ Implementação · migration · provider real (S3/GCS/MinIO/disco-privado como d
 3. **`F-PJ-KYB-DOCUMENTS-ADMIN-REVIEW-UI`** — UI admin sobre `fiscal_identity_documents` (list/review canônicos já existem no backend) + download autorizado/auditado via port.
 4. **`F-PJ-KYB-RELEASE-GATE`** — gate de autoridade que confia em KYB aprovado **com lastro documental** (já gated por docs mínimos no writer).
 
-## 7. Parâmetros de PRODUTO — NÃO promulgados (perguntas ao Clayton)
+## 7. Parâmetros de PRODUTO — **RESOLVIDOS no ADENDO §10 (Clayton, 2026-06-06)**
 
-A arquitetura (D1–D13) está promulgada. **Os itens abaixo dependem de escolha de produto/infra e NÃO são cravados como decisão técnica** — ficam abertos para o Clayton antes da fatia `F-PJ-DOCUMENT-STORAGE-PORT`:
+A arquitetura (D1–D13) foi promulgada na sessão de origem. Os itens abaixo dependiam de escolha de produto/infra e foram deixados abertos; **Clayton os resolveu** — ver **§10 (ADENDO)**. As perguntas originais ficam registradas para arqueologia:
 
 1. **Provider de produção:** qual (S3 / GCS / MinIO self-hosted / outro)? Decisão de infra/deploy — não escolher "de ouvido".
 2. **Antivírus:** obrigatório já no MVP (custo/infra) ou fase posterior? (D11 prevê o lugar; a obrigatoriedade é produto.)
@@ -78,6 +78,23 @@ A arquitetura (D1–D13) está promulgada. **Os itens abaixo dependem de escolha
 - `DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING` → **governada por esta DECISION** (desenho cravado; segue OPEN até a fatia `F-PJ-DOCUMENT-STORAGE-PORT` implementar). Não fechar sem runtime.
 - `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` → **OPEN** (depende do port + porta user-facing).
 - `DT-PJ-HUMAN-LINK-DOCUMENTS-LGPD-MISSING` → **OPEN** (docs de pessoa, outro trilho).
+
+## 10. ADENDO (2026-06-06) — Clayton resolve os parâmetros de §7 (promulgado)
+
+Clayton respondeu os 4 parâmetros de produto. **Agora promulgados** (a arquitetura D1–D13 segue inalterada; isto resolve as escolhas que estavam abertas). Introduz também um **port novo** (MalwareScanPort).
+
+- **A1 — Provider de produção (resolve §7.1):** a norma **não casa com fornecedor**. `DocumentStoragePort` é **S3-compatible / object-storage-compatible** (define **contrato + segurança**, não vendor). Execução: **dev/local** = `LocalPrivateDocumentStorageProvider` (fora de `/uploads/` público); **produção** = provider explícito via **env**; **sem provider em produção = fail-closed**. Fornecedor (S3/GCS cloud gerenciado, ou MinIO self-host) é escolha de deploy posterior — a DECISION não vira propaganda de fornecedor.
+- **A2 — Antivírus (resolve §7.2):** **obrigatório antes de qualquer documento real em produção.** Modelo = **`MalwareScanPort`** (port próprio, **separado** do `DocumentStoragePort`). **dev/teste** = `NoopMalwareScanner`. **produção:** ausência de scanner = **fail-closed**, **OU** o documento fica em **`quarantine`/`unscanned`** — **sem download por humano e sem review final** até passar no scan. Motivo: KYB não pode virar cavalo de Troia (PDF infectado aberto pelo reviewer). → fatia própria `F-PJ-DOCUMENT-MALWARE-SCAN-PORT`.
+- **A3 — Retenção (resolve §7.3):** **não cravar prazo final técnico agora** sem política jurídica/compliance. **Regra de produto MVP:** documento fica retido enquanto a fiscal identity/company estiver em **processo ativo, aprovado, rejeitado, superseded ou sob obrigação de auditoria**. Ao encerrar a finalidade: marcar **`retention_review_required` / `deletion_eligible_at`**, **sem delete automático** até política formal. **Base LGPD:** eliminação após o término do tratamento, com hipóteses de conservação (cumprimento de obrigação legal/regulatória; estudo; transferência a terceiro respeitados requisitos; uso exclusivo do controlador com anonimização quando possível). Retenção é decisão jurídica/produto, **não `if` no service**.
+- **A4 — Porta de submit no MVP (resolve §7.4):** **user-facing submit SIM** — mas **só depois** do storage port + autoridade. **Quem submete:** actor vinculado à empresa com **autoridade operacional** (`companyId → fiscal_identity_id` + `canManageCompany` / authorized link equivalente). **Quem revisa:** admin/reviewer KYB. **Upload NÃO** aprova KYB, **NÃO** muda `company_status`, **NÃO** libera financeiro. **Não** começar só admin/back-office (salvo MVP super manual): para a abertura de empresa funcionar, o **dono/administrador autorizado** precisa conseguir enviar; o admin **revisa**, não é carteiro do usuário.
+
+**Plano de execução futuro (atualizado pelo ADENDO):**
+1. `F-PJ-DOCUMENT-STORAGE-PORT` — `DocumentStoragePort` (S3-compatible) + `LocalPrivateDocumentStorageProvider` (dev, disco privado fora de `/uploads/`) + prod-sem-provider fail-closed + hash/MIME/size/anti-path-traversal + `file_reference` opaco. **Sem upload user-facing, sem wizard, sem KYB approval, sem Bank.** (Eventual coluna `mime_type`/`size_bytes`.)
+2. `F-PJ-DOCUMENT-MALWARE-SCAN-PORT` — `MalwareScanPort` + `NoopMalwareScanner` (dev) + estado `quarantine`/`unscanned` + bloqueio de download/review até scan.
+3. `F-PJ-KYB-DOCUMENTS-USER-SUBMIT` — rota user-facing com gate de autoridade A4.
+4. `F-PJ-KYB-DOCUMENTS-ADMIN-REVIEW-UI` + `F-PJ-KYB-RELEASE-GATE`.
+
+**Novas DTs do ADENDO:** `DT-PJ-DOCUMENT-MALWARE-SCAN-MISSING` (OPEN — governada por esta DECISION; runtime na fatia 2).
 
 ## 9. Superada por
 
