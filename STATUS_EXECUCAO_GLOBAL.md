@@ -1,3 +1,19 @@
+## 2026-06-06 — DECISION-0110: política financeira de serviços — pré-pago+escrow, KYB segura a saída, ledger é verdade (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `2431e375`. Frente **docs-only** (promulgação de Clayton; política financeira antes de runtime). **Zero código/runtime/migration/Bank/escrow/booking/payment/frontend.** Dev segue 365. 3 autorais intocados. _(Esteira: eu escritora; auditoria forense read-only cruzada por mim com DB/código vivos; par verifica.)_
+
+**O que entregou:** crava a política financeira de serviço que o `DECISION-0109` deixou pendente. A auditoria achou **rotas de dinheiro já vivas e sem KYB** (`/services/request/pay` direto; `/services/payments/:id/execute` escrow; `/services/:serviceId/hire` auto-accept) com o código já **opinando** uma política nunca promulgada. **Decisão (D1–D8):** MVP pré-pago **com escrow**; pagamento direto **proibido** no canônico (`payAcceptedRequest` bloqueado/flagado/aposentado); **booking ≠ obrigação financeira**; **release** só com confirmação do cliente ou timeout promulgado (D-money via Bank); cancelamento/disputa/refund precisam de política (refund pós-release = frente própria/DT-PE5); **KYB approved obrigatório para a saída** ao prestador PJ (**entrada em escrow = custódia** sem KYB, mas **não** vira release/saque/saldo-disponível/sinal-de-aprovação; saída sem KYB = fail-closed); **`bank_ledger` SSOT absoluto**; rotas financeiras vivas **declaradas FORA da política até o firewall** (a DECISION **não fecha runtime** — quem fecha é `F-SERVICE-FINANCIAL-FIREWALL-CODE`). "Auth fraca" registrada como **achado a revalidar** no firewall, não conclusão.
+
+**Arquivos:** `docs/02_decisions/DECISION_0110_SERVICE_FINANCIAL_POLICY.md` (novo), `REMEDIATION_DT_LOG.md`, `REMEDIATION_DECISIONS_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`, `docs/03_execution_log/20260606_DECISION_0110_SERVICE_FINANCIAL_POLICY.md`. **Markdown apenas.**
+
+**Prova:** docs-only — runtime intocado. 4 gates: actor-writer / bank-ledger / regression-guards OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365.**
+
+**DTs:** **abertas 6 (OPEN)** — `DT-SERVICE-DIRECT-PAYACCEPTEDREQUEST-LEGACY-BYPASS`, `DT-SERVICE-HIRE-AUTO-ACCEPT-POLICY-BREACH`, `DT-SERVICE-PAYMENT-RELEASE-POLICY-MISSING`, `DT-SERVICE-KYB-RELEASE-GATE-MISSING`, `DT-SERVICE-REFUND-DISPUTE-POLICY-MISSING`, `DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL`. `DT-SERVICE-COMMERCIAL-FLOW-BANK-COUPLED` segue OPEN. **Nenhuma DT financeira fechada.**
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-SERVICE-FINANCIAL-FIREWALL-CODE` — bloquear/flagar **fail-closed** as rotas financeiras vivas (`/services/request/pay`, `/hire` auto-accept, `/execute` sem KYB), revalidando auth/authz de cada rota, até a cadeia canônica estar desenhada/implementada/testada. Restringe, não move dinheiro.
+
+---
+
 ## 2026-06-05 — SELO-SERVICE-SALON-BANK-FREE: marco Bank-free do Trilho B salão SELADO (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD selado:** `8bee2b49`. Selo **docs-only** (sem código/migration/Bank/booking/payment). _(Esteira: eu escritora; par verifica read-only.)_ **Selo:** [`docs/02_decisions/SELO_SERVICE_SALON_BANK_FREE.md`](docs/02_decisions/SELO_SERVICE_SALON_BANK_FREE.md).

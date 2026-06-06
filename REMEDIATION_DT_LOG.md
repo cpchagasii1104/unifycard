@@ -11432,3 +11432,35 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Resolução prevista:** definir como `companyId`/page-actor entra na criação do serviço (análogo à ponte do Trilho A), **após** resolver a taxonomia (`DT-SERVICE-RAMO-TAXONOMY-FORK`). Frente própria, Bank-free; **NÃO** executar agora.
 - **Atualização 2026-06-05:** a **metade de categoria** está endereçada — a ponte `company_type_service_categories` existe e o salão está semeado (5 ramos servicos). Falta a **metade de actor/autoridade**: threading de `companyId`/page-actor na criação de serviço + guard (`services.category_id ∈ servicos ∩ ramos da ponte do company_type da empresa`). Segue **OPEN/PARTIAL**.
 - **Atualização 2026-06-05 (`F-SERVICE-CREATION-CATEGORY-RAMO-GUARD`) → PARTIALLY MITIGATED:** o guard resolve a empresa do serviço pelo **page-actor dono** (`actors.company_id → companies.primary_company_type_id`) e enforce o ramo na criação/atualização. Logo a **autoridade de empresa na criação** está endereçada (empresa-produto/não-classificada rejeitadas; só o page-actor de empresa classificada cria serviço no ramo). **Não CLOSED** — resíduo: não se EXIGE que serviço PJ seja page-actor (PF ainda pode criar serviço pela via compat, por desenho); um enforcement "serviço de empresa só por page-actor" seria fatia própria se Clayton quiser. Provado por e2e 14/14 (proofs 7/8).
+
+## DT-SERVICE-DIRECT-PAYACCEPTEDREQUEST-LEGACY-BYPASS
+
+- **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D2). O caminho legado `payAcceptedRequest` (`services-discovery.service.ts:256`) move dinheiro **direto** cliente→prestador via `createSimpleTransaction`, **sem escrow, sem split, sem payment_intent** — contraria o fluxo canônico (payment request → execution → Bank → escrow → release). Rota viva `POST /services/request/pay` (registrada, prefix `/services`), **sem KYB**; auth a revalidar no firewall.
+- **Risco:** segundo nascimento de obrigação financeira coexistindo com o caminho moderno (escrow); pagamento sem custódia nem split.
+- **Resolução prevista:** `F-SERVICE-FINANCIAL-FIREWALL-CODE` — bloquear/flagar/aposentar (decisão de destino do trilho) **fail-closed** antes de qualquer exposição runtime. **NÃO** executar nesta DECISION.
+
+## DT-SERVICE-HIRE-AUTO-ACCEPT-POLICY-BREACH
+
+- **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D3). `POST /services/:serviceId/hire` (`service-hire.routes.ts:37`) **auto-aceita** a decisão de booking (`:75-79`, `status=ACCEPTED` hardcoded) e segue para pagamento — contraria "decisão de booking é humana explícita, nunca automática" (`service-booking-decision.routes.ts`). Sem KYB; `providerActorId` vem do body (auth a revalidar no firewall).
+- **Risco:** contratação financeira sem aceite humano real do prestador; combinada com auth fraca, fraude de booking.
+- **Resolução prevista:** firewall — bloquear/refazer o auto-aceite fail-closed antes de runtime. **NÃO** executar agora.
+
+## DT-SERVICE-PAYMENT-RELEASE-POLICY-MISSING
+
+- **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D4). Release ao prestador hoje não tem política promulgada (código assume `now()+7d` + buyer confirm); e `releaseFundsToActorWalletForOrder` (`service-order.service.ts:873`, único mover de saída/D-money) **não tem rota nem worker** — só e2e → fundos entrariam no escrow e ficariam **presos** (risco de custódia). Release automático sem política é proibido (D4).
+- **Resolução prevista:** promulgar prazo/regra de release + desenhar o gatilho (confirmação cliente / timeout) passando por Bank/ledger, pós-firewall. **NÃO** executar agora.
+
+## DT-SERVICE-KYB-RELEASE-GATE-MISSING
+
+- **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D6). KYB (`pj-kyb-gate.ts:isPageActorKybApproved`) existe só em ações **sociais**; **ausente** no caminho de pagamento de serviço. Runtime moveria dinheiro PJ sem checagem. Norma (D6): KYB approved **obrigatório para saída/release** ao prestador PJ; **entrada em escrow** pode existir como **custódia** sem KYB, mas **não** autoriza release/saque/saldo-disponível/sinal-de-aprovação; **saída sem KYB approved = fail-closed**.
+- **Resolução prevista:** firewall + cadeia canônica — gate KYB no release (não na custódia). **NÃO** executar agora.
+
+## DT-SERVICE-REFUND-DISPUTE-POLICY-MISSING
+
+- **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D5). Cancelamento pré-execução, no-show, disputa interna e refund de serviço **sem política**; campos existem (`disputed_at`), workflow não. **Refund pós-release = frente própria** (vínculo `DT-PE5`: estornar serviço já liberado drena escrow alheio + deixa wallet indevido).
+- **Resolução prevista:** frentes próprias de política (cancel/dispute/refund) + refund pós-release ligado a recovery/DT-PE5. **NÃO** executar agora.
+
+## DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL
+
+- **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110`. **Confirmado:** payment-request default `currency='FIC'` (`service-payment-request.service.ts:150`) × execução **exige** `BRL` e rejeita (`service-payment-execution.service.ts:462`). Um payment-request com a moeda default seria **rejeitado** na execução (cadeia quebra).
+- **Resolução prevista:** unificar a moeda canônica (BRL no MVP) entre request e execution, na cadeia canônica pós-firewall. **NÃO** executar agora.
