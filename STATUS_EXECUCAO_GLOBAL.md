@@ -1,3 +1,33 @@
+## 2026-06-06 — F-PJ-CNPJ-ON-ENTRY: valida dígito verificador na entrada + erro de duplicidade limpo no campo (frontend-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `f6a5714c`. Frente **frontend-only**. **Zero backend / migration / Bank / schema / regra canônica de CNPJ / rota nova.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** o usuário descobria CNPJ inválido/duplicado só no fim do fluxo (`handleCNPJChange` checava só comprimento 14; erro de duplicidade vinha no banner genérico do submit). Agora `CompaniesManager.tsx`: (1) **na entrada** roda `validateCNPJ` (dígito verificador, mesma regra canônica do backend) — inválido para com erro limpo no campo e **não** consulta a Receita; (2) submit valida dígito (não só comprimento); (3) o `catch` **mapeia** o veredito do backend para o campo — duplicidade → **"Este CNPJ já está cadastrado."** (sem vazar fiscal/tenant), dígito inválido → mensagem no campo. **Projeção, não verdade:** a duplicidade segue resolvida no backend contra a fonte fiscal soberana (`companies` same-user + UNIQUE `uq_fiscal_identities_cnpj` global, fail-closed).
+
+**Arquivos:** `frontend/src/components/CompaniesManager.tsx` (import `validateCNPJ`; on-entry + submit + catch). **Sem backend.**
+
+**Prova:** e2e `validate-pipeline-e2e-pj-cnpj-on-entry-failclosed` **6/6** (E1 inválido rejeitado/nada criado · E2 CPF 11díg. não vira CNPJ/nada criado · E3 válido cria 1 company+1 fiscal_identity · E4 duplicado msg limpa sem duplicar · E5 UNIQUE existe · cleanup intacto). Frontend tsc **0**; backend tsc 0 (escopo). 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365.**
+
+**DTs:** `DT-PJ-CNPJ-DUPLICATE-ON-ENTRY-MISSING` → **CLOSED** (residual benigno: feedback de duplicidade no submit, não a cada tecla — antecipar exigiria rota de check segura; não criada por ser STOP).
+
+**PRÓXIMA ETAPA (ordem Clayton):** 3. cargo/roles dedup · 4. KYB documents SSOT writer/read-only ou design · 5. delete guard via Bank port · 6. KYB release gate financeiro.
+
+---
+
+## 2026-06-06 — F-PJ-LIFECYCLE-DRAFT-TO-PROVISIONAL: empresa nasce DRAFT, finalizar promove DRAFT→PROVISIONAL (code + frontend)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `e7c142f1` · **commit `f6a5714c`**. Caminho 1 (decisão Clayton). **Zero Bank / migration / schema.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** a empresa nascia `PROVISIONAL` no `createCompany`, então marcar como principal **sem finalizar** já a fazia aparecer como cadastrada (reclamação "Reforma Rápida"). Agora: **A** `createCompany` nasce `company_status='DRAFT'` (prefill da Receita não promove); anti-fraude conta `DRAFT+PROVISIONAL`. **B** `activateCompanyOperationally` (Momento 2 / finalizar) promove `DRAFT→PROVISIONAL` no MESMO UPDATE atômico do par soberano (`CASE` só promove DRAFT; não regride; não confere KYB). **C** `CompaniesManagerForm`: DRAFT mostra "Em configuração" + CTA "Continuar configuração" e esconde "Enviar comprovante" (docs pós-finalização). **D** etapa de documentos KYB no wizard → **PAROU** (STOP de substrato: `uploadCompanyDocument` grava `company_documents` legado vs SSOT `fiscal_identity_documents` de DECISION-0087).
+
+**Arquivos:** `backend/src/core/companies/companies.service.ts` (A+B), `frontend/src/components/CompaniesManagerForm.tsx` (C), e2e `validate-pipeline-e2e-pj-lifecycle-draft-to-provisional`.
+
+**Prova:** e2e **7/7** (nasce DRAFT · finaliza→PROVISIONAL · atômico · idempotente não regride · anti-fraude conta DRAFT · cleanup). Backend+frontend tsc 0 (escopo). 4 gates OK; arch exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365.**
+
+**DTs:** `DT-PJ-COMPANY-APPEARS-BEFORE-ONBOARDING-FINALIZED` → **CLOSED**; `DT-PJ-COMPANY-LIFECYCLE-STATUS-CONFLATION` → **PARTIALLY MITIGATED** (residual: upload legado promove DRAFT); `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` → **OPEN** (STOP de substrato — frente própria).
+
+---
+
 ## 2026-06-06 — F-PJ-ONBOARDING-MODULES-DERIVED-FROM-CLASSIFICATION: onboarding deriva o trilho da classificação (frontend-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `3c7ee6e0`. Frente **frontend-only** (decisão de produto Clayton; ratifica `actor-first/context-first`). **Zero backend / migration / Bank / payment / booking / serviços runtime / catálogo / DECISION financeira.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_

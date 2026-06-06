@@ -11,7 +11,7 @@ import {
   type CreateCompanyInput,
   type CompanyUserRole,
 } from '../api/companies';
-import { formatCNPJ, maskCNPJ, cleanCNPJ } from '../utils/cnpj';
+import { formatCNPJ, maskCNPJ, cleanCNPJ, validateCNPJ } from '../utils/cnpj';
 import { useAddressResolver } from '../hooks/useAddressResolver';
 import { useCompaniesState } from '../hooks/useCompaniesState';
 import { useCompaniesData } from '../hooks/useCompaniesData';
@@ -122,9 +122,12 @@ export function CompaniesManager() {
 
     const clean = cleanCNPJ(masked);
     if (clean.length === 14) {
-      // 🔴 Validar APENAS formato (14 dígitos) - não bloquear
-      if (clean.length !== 14) {
-        setFormErrors({ ...formErrors, cnpj: 'CNPJ deve ter 14 dígitos' });
+      // F-PJ-CNPJ-ON-ENTRY: validar dígito verificador NA ENTRADA (mesma regra canônica do backend,
+      // DECISION-0085 §4.3). CNPJ inválido para aqui com erro limpo no campo — não consulta a Receita
+      // (busca seria inútil) e não deixa o usuário descobrir só no submit, no fim do fluxo.
+      const entryValidation = validateCNPJ(masked);
+      if (!entryValidation.valid) {
+        setFormErrors({ ...formErrors, cnpj: entryValidation.error || 'CNPJ inválido' });
         return;
       }
 
@@ -259,10 +262,16 @@ export function CompaniesManager() {
     setError(null);
     setSuccess(null);
 
-    // 🔴 Validações mínimas - apenas formato de CNPJ e nome obrigatório
+    // 🔴 Validações mínimas - CNPJ (formato + dígito verificador) e nome obrigatório
+    // F-PJ-CNPJ-ON-ENTRY: valida o dígito verificador (não só o comprimento) antes de chamar o backend.
     const errors: Record<string, string> = {};
     if (!formData.cnpj || cleanCNPJ(formData.cnpj).length !== 14) {
       errors.cnpj = 'CNPJ deve ter 14 dígitos';
+    } else {
+      const submitValidation = validateCNPJ(formData.cnpj);
+      if (!submitValidation.valid) {
+        errors.cnpj = submitValidation.error || 'CNPJ inválido';
+      }
     }
 
     if (!formData.companyName || formData.companyName.trim().length === 0) {
@@ -337,7 +346,18 @@ export function CompaniesManager() {
         }, 1000);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao cadastrar empresa');
+      // F-PJ-CNPJ-ON-ENTRY: erros de CNPJ (duplicidade na fonte fiscal canônica OU dígito inválido)
+      // viram mensagem LIMPA no campo, não banner genérico no fim. A duplicidade é resolvida pelo
+      // backend contra a fonte fiscal soberana (companies projeção same-user + UNIQUE
+      // uq_fiscal_identities_cnpj global) — o frontend só projeta o veredito, sem vazar a outra empresa.
+      const rawMsg = err instanceof Error ? err.message : 'Erro ao cadastrar empresa';
+      if (/já\s+(está\s+)?cadastrad/i.test(rawMsg)) {
+        setFormErrors({ ...formErrors, cnpj: 'Este CNPJ já está cadastrado.' });
+      } else if (/CNPJ inválido/i.test(rawMsg)) {
+        setFormErrors({ ...formErrors, cnpj: rawMsg });
+      } else {
+        setError(rawMsg);
+      }
     } finally {
       setIsSaving(false);
     }
