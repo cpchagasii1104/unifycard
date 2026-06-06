@@ -1,3 +1,11 @@
+## 2026-06-05 — SELO-SERVICE-SALON-BANK-FREE: marco Bank-free do Trilho B salão SELADO (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD selado:** `8bee2b49`. Selo **docs-only** (sem código/migration/Bank/booking/payment). _(Esteira: eu escritora; par verifica read-only.)_ **Selo:** [`docs/02_decisions/SELO_SERVICE_SALON_BANK_FREE.md`](docs/02_decisions/SELO_SERVICE_SALON_BANK_FREE.md).
+
+**O que selou:** a fundação **Bank-free** do Trilho B (piloto salão), cadeia `8efd82c0`→`407c7fb4`→`446add0d`→`76c5899b`→`8bee2b49`: (1) DECISION-0109 fundação; (2) ponte `company_type_service_categories`; (3) seed salão 5 categorias `domain='servicos'`; (4) guard de criação/edição por categoria/ramo; (5) availability via adapter fino sobre o core. **Estado:** salão cria serviço válido por `domain='servicos'`; serviço tem availability Bank-free; `availability` é o core temporal (sem SSOT paralelo); booking/order/payment **bloqueados** atrás da porta corta-fogo do Bank. **Restaurante adiado; peixaria fora.** **DTs:** `DT-SERVICE-RAMO-TAXONOMY-FORK` **CLOSED**; `DT-SERVICE-AVAILABILITY-ENDPOINT-DISCONNECT` **PARTIALLY MITIGATED** (metade bookings fantasma/bloqueada); `DT-SERVICE-COMMERCIAL-FLOW-BANK-COUPLED` **OPEN**. **Proibições seladas:** nada de booking/payment/escrow/settlement sem frente financeira própria; nada de endpoint fantasma virar SSOT paralelo; nada de Bank por conveniência de UX. **Gates docs-only:** actor-writer / bank-ledger / regression-guards (365) / arch `--strict` `critical_new=0`.
+
+---
+
 ## 2026-06-05 — F-SERVICE-SALON-AVAILABILITY-BANK-FREE: agenda de serviço sobre o core (adapter fino, Bank-free)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `76c5899b`. Frente **code-only** (DECISION-0109, Bank-free). **Zero migration** (dev 365) / seed / booking / order / payment / escrow / settlement / Bank / tabela nova / SSOT paralelo. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
