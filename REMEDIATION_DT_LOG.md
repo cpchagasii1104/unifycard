@@ -10800,7 +10800,8 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING
 
-- **Status:** OPEN (2026-06-03)
+- **Atualização 2026-06-06 (`D-PJ-DOCUMENT-STORAGE-PROVIDER`):** **GOVERNADA por `DECISION-0112`** (desenho canônico do storage documental cravado: port `DocumentStoragePort`, `file_reference` opaco, arquivo bruto fora do banco, autoridade de submit/download separada e auditada, provider local só em dev + fail-closed em prod, MIME/size/hash/anti-path-traversal, retenção com política). **Achado material que a 0112 incorpora:** `uploads/` é servido estático PÚBLICO sem auth (`app.builder.ts`) → documento KYB jamais pode residir lá; `media`/`group-image` são placeholder/imagem-local, não providers. Segue **OPEN** (decisão ≠ runtime) até a fatia `F-PJ-DOCUMENT-STORAGE-PORT` implementar o port. **Não fechar sem provider vivo.** `mime_type`/`size_bytes` ausentes em `fiscal_identity_documents` = adição futura (não nesta DECISION).
+- **Status:** OPEN (2026-06-03) — **DECIDED/GOVERNED (2026-06-06, DECISION-0112)**, runtime pendente.
 - **Origem:** read-only F2-B + `DECISION-0087` (SSOT documental KYB).
 - **Vinculada a:** `DECISION-0087`, `fiscal_identity_documents` (futura), módulo `media`, `group-image.service`.
 - **Contexto:** **não há provider real de armazenamento de documentos legais.** `media` (`modules/media`) é **placeholder** (tabela ausente em DEV, URL fake `storage.example.com`, "em produção usar S3 presign"); `group-image.service` grava **imagem** em **disco local** (`uploads/groups`, webp) — impróprio para documento legal; não há S3/presign real, hash, antivírus, download protegido por role, nem retention.

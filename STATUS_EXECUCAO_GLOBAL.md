@@ -1,3 +1,19 @@
+## 2026-06-06 — DECISION-0112 (D-PJ-DOCUMENT-STORAGE-PROVIDER): desenho canônico do storage documental KYB (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `81fd4d8e`. Frente **docs-only / design-first**. **Zero código / migration / Bank / provider / upload / wizard.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** promulga (docs-only) o **desenho canônico do storage documental KYB/PJ** — o gargalo real que deixou `F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW` PARTIAL/STOPPED. **Achado material central:** `app.builder.ts` serve **`uploads/` como estático PÚBLICO sem auth** → o caminho legado era baixável por URL (vazamento real); `media`=placeholder fake, `group-image`=imagem local — nenhum é provider de documento legal. **D1–D13 (técnica, promulgada):** `file_reference` opaco (nunca path/URL público nem `/uploads/`); arquivo bruto nunca no banco; só metadado mínimo (mime_type/size_bytes = adição futura); provider por **PORT canônico** (`DocumentStoragePort`, precedente `pix-provider.interface`); local só em dev, prod explícito, **ausência em prod = fail-closed**; **upload exige autoridade** (`companyId→fiscal_identity_id` + `canManageCompany`, não posse de ID); **download exige autorização separada e auditável**; documento **não verifica empresa** (não mexe `company_status`/`kyb_status`; KYB só no writer fiscal com gate de docs mínimos); retenção/segurança (MIME/size/hash/anti-path-traversal)/auditoria. **Parâmetros de produto NÃO promulgados** (perguntas ao Clayton): provider de produção; antivírus no MVP?; retenção; porta de submit (dono vs admin).
+
+**Arquivos:** `docs/02_decisions/DECISION_0112_PJ_DOCUMENT_STORAGE_PROVIDER.md` (novo), `REMEDIATION_DECISIONS_LOG.md`, `REMEDIATION_DT_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`, execution log. **Markdown apenas.**
+
+**Prova:** docs-only — runtime intocado. 4 gates: actor-writer / bank-ledger / regression-guards OK (365); arch `--strict` exit 0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365.**
+
+**DTs:** `DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING` → **GOVERNED/DECIDED** (desenho cravado; OPEN até runtime). `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` segue OPEN.
+
+**PRÓXIMA ETAPA (espera Clayton):** responder os 4 parâmetros de produto (§7) → depois `F-PJ-DOCUMENT-STORAGE-PORT` (port + provider local-dev, fail-closed; eventualmente mime/size). Antes de qualquer upload/wizard. Delete-guard / KYB release gate = eixos paralelos não-documentais.
+
+---
+
 ## 2026-06-06 — F-PJ-LEGACY-DOC-READERS-TOMBSTONE (subentrega; `F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW` fica PARTIAL/STOPPED)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `8180a493` · **commit `dd4e202c`**. Code+frontend. **Zero migration / Bank / schema.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
