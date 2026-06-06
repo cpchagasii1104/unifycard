@@ -1,3 +1,19 @@
+## 2026-06-06 — F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW: mata o circuito documental fantasma (readers/admin → 501), SSOT é fiscal_identity_documents
+
+**Branch:** `rescue-structural` · **HEAD origem:** `8180a493`. Code+frontend. **Zero migration / Bank / schema.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** após o tombstone do upload, sobravam os **readers/admin** legados lendo `company_documents` (tabela FANTASMA, inexistente) — dead-on-arrival, com um backoffice (`/validation`) que ainda carregava "aprovar documento = empresa validada". Esta frente **matou o circuito inteiro**: as 4 rotas legadas (`GET /:id/documents`, `GET /:id/documents/:docId/file`, `GET /admin/documents/pending`, `PATCH /admin/documents/:docId/status`) retornam **501 `PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED`**; os 3 métodos de serviço (`listCompanyDocuments`/`listPendingDocuments`/`updateDocumentStatus`) viram throw (corpos ghost removidos, −215 linhas); `CompanyValidationBackoffice` reescrito para mensagem honesta; os 4 helpers de `api/companies.ts` viram stubs que lançam. **READ-FIRST revelou que o SSOT canônico já está vivo** (`fiscal_identity_documents` + `fiscal-identity-document.service.ts` submit/list/review/supersede + gate KYB de docs mínimos), mas **só admin** e com `file_reference` opaco. **STOP reportado:** conectar o wizard ao submit do usuário exige (1) provider de storage e (2) autoridade user-facing — ambos não decididos; fiz a metade segura (matar o fantasma) e não fingi o upload.
+
+**Arquivos:** `backend/src/core/companies/companies.routes.ts` (4 rotas→501), `companies.service.ts` (3 métodos→throw), `frontend/src/components/CompanyValidationBackoffice.tsx` (reescrito), `frontend/src/api/companies.ts` (4 helpers→stub), e2e novo.
+
+**Prova:** e2e `validate-pipeline-e2e-pj-legacy-doc-readers-tombstone` **9/9** (rotas 501; serviços throw; fantasma; SSOT intocado). Sem regressão (cnpj 6/6, lifecycle 7/7, role 4/4, vocab 7/7, upload-tombstone 7/7). tsc 0; 4 gates; arch `--strict` `critical_new=0`/`warning_new=1`=c3. **Migrations 365→365.**
+
+**DTs:** `DT-PJ-LEGACY-COMPANY-DOCUMENTS-READERS-GHOST` → **CLOSED**. `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` → **OPEN** (gated por storage + autoridade user-facing). `DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING` → **OPEN** (pré-requisito da UI canônica).
+
+**PRÓXIMA ETAPA (espera Clayton):** **provider de storage** (destrava a UI canônica) → depois autoridade de submit + wizard documental canônico. Em paralelo: delete guard via Bank port; KYB release gate financeiro.
+
+---
+
 ## 2026-06-06 — F-PJ-LEGACY-DOC-UPLOAD-TOMBSTONE: neutraliza upload legado de documento PJ (501 fail-closed, DECISION-0087)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `21a6aa18`. Frente **code-only** (DECISION-0087). **Zero migration** (dev 365), zero Bank, zero KYB approval, sem wizard documental novo, sem writer canônico novo. _(Esteira: eu escritora; par verifica READ-ONLY.)_

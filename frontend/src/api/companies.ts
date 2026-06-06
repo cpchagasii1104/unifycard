@@ -252,27 +252,22 @@ export async function fetchCNPJFromRevenue(cnpj: string): Promise<{ ok: boolean;
 /**
  * Upload documento da empresa (PDF)
  */
+// F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW (DECISION-0087): os helpers de documento de empresa abaixo
+// (upload/list/pending/status) batiam em `company_documents` (substrato FANTASMA) via rotas legadas
+// agora tombstonadas (501). O SSOT documental KYB é `fiscal_identity_documents` (rotas /identity/pj/kyb/*).
+// Mantidos como stubs que LANÇAM (não constroem mais a request legada) — nenhuma UI viva os chama.
+const LEGACY_DOCS_DISABLED =
+  'PJ_LEGACY_COMPANY_DOCUMENTS_DISABLED: fluxo documental legado de empresa desativado (DECISION-0087). ' +
+  'O SSOT documental KYB é fiscal_identity_documents; a UI canônica depende do provider de storage.';
+
 export async function uploadCompanyDocument(
-  companyId: string,
-  file: File
+  _companyId: string,
+  _file: File
 ): Promise<{ ok: boolean; message?: string; data?: { documentId: string; companyStatus: string } }> {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const response = await apiFetch(`/companies/${companyId}/documents`, {
-    method: 'POST',
-    body: formData,
-    // Não definir Content-Type - o browser define automaticamente com boundary
-    headers: {},
-  });
-
-  return response.json();
+  throw new Error(LEGACY_DOCS_DISABLED);
 }
 
-/**
- * Lista documentos da empresa
- */
-export async function listCompanyDocuments(companyId: string): Promise<Array<{
+export async function listCompanyDocuments(_companyId: string): Promise<Array<{
   documentId: string;
   documentType: string;
   fileName: string;
@@ -283,14 +278,9 @@ export async function listCompanyDocuments(companyId: string): Promise<Array<{
   createdAt: string;
   updatedAt: string;
 }>> {
-  const response = await apiFetch(`/companies/${companyId}/documents`);
-  const result = await response.json();
-  return result.data || [];
+  throw new Error(LEGACY_DOCS_DISABLED);
 }
 
-/**
- * Lista documentos pendentes (ADMIN)
- */
 export async function listPendingDocuments(): Promise<Array<{
   documentId: string;
   companyId: string;
@@ -306,24 +296,15 @@ export async function listPendingDocuments(): Promise<Array<{
   createdAt: string;
   updatedAt: string;
 }>> {
-  const response = await apiFetch('/companies/admin/documents/pending');
-  const result = await response.json();
-  return result.data || [];
+  throw new Error(LEGACY_DOCS_DISABLED);
 }
 
-/**
- * Aprova ou rejeita documento (ADMIN)
- */
 export async function updateDocumentStatus(
-  documentId: string,
-  status: 'approved' | 'rejected',
-  rejectedReason?: string
+  _documentId: string,
+  _status: 'approved' | 'rejected',
+  _rejectedReason?: string
 ): Promise<{ ok: boolean; message?: string; data?: { documentId: string; companyStatus: string } }> {
-  const response = await apiFetch(`/companies/admin/documents/${documentId}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status, rejectedReason }),
-  });
-  return response.json();
+  throw new Error(LEGACY_DOCS_DISABLED);
 }
 
 // ── F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR (DECISION-0098) ──────────────────────────────

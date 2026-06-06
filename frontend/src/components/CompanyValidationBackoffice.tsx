@@ -1,232 +1,44 @@
 // frontend/src/components/CompanyValidationBackoffice.tsx
-// Backoffice simples para validar documentos de empresas
+// F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW (DECISION-0087): backoffice documental legado NEUTRALIZADO.
+//
+// Este backoffice lia `company_documents` (tabela FANTASMA — inexistente no schema vivo) via os endpoints
+// legados `GET /companies/admin/documents/pending` e `PATCH /companies/admin/documents/:id/status`, agora
+// tombstonados (501). Ele também carregava o anti-padrão "aprovar documento = empresa validada" (já vedado
+// por DECISION-0089/0090: verificação PJ deriva só de fiscal_identities.kyb_status, com writer KYB auditado).
+//
+// O SSOT documental KYB é `fiscal_identity_documents` (DECISION-0087), com fluxo canônico ADMIN já vivo em
+// `/identity/pj/kyb/*` (submit/list/review + gate de docs mínimos para aprovar KYB). A UI de revisão admin
+// sobre o SSOT depende do PROVIDER DE STORAGE (download protegido do file_reference opaco) — fatia própria
+// (DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING). Até lá, esta tela apenas explica o estado canônico, sem
+// chamar endpoints legados nem fingir revisão.
 
-import { useState, useEffect } from 'react';
-import {
-  listPendingDocuments,
-  updateDocumentStatus,
-} from '../api/companies';
 import './CompanyValidationBackoffice.css';
 
-interface PendingDocument {
-  documentId: string;
-  companyId: string;
-  globalUserId: string;
-  companyName: string;
-  companyCnpj: string;
-  documentType: string;
-  fileName: string;
-  filePath: string;
-  fileSize: number;
-  mimeType: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export default function CompanyValidationBackoffice() {
-  const [documents, setDocuments] = useState<PendingDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [rejectedReason, setRejectedReason] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    loadPendingDocuments();
-  }, []);
-
-  const loadPendingDocuments = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await listPendingDocuments();
-      setDocuments(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar documentos pendentes');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleApprove = async (documentId: string) => {
-    setProcessingId(documentId);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const result = await updateDocumentStatus(documentId, 'approved');
-      if (result.ok) {
-        setSuccess('Documento aprovado. Empresa validada.');
-        await loadPendingDocuments();
-      } else {
-        setError(result.message || 'Erro ao aprovar documento');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao aprovar documento');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleReject = async (documentId: string) => {
-    const reason = rejectedReason[documentId]?.trim();
-    if (!reason) {
-      setError('Motivo da rejeição é obrigatório');
-      return;
-    }
-
-    setProcessingId(documentId);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const result = await updateDocumentStatus(documentId, 'rejected', reason);
-      if (result.ok) {
-        setSuccess('Documento rejeitado.');
-        setRejectedReason({ ...rejectedReason, [documentId]: '' });
-        await loadPendingDocuments();
-      } else {
-        setError(result.message || 'Erro ao rejeitar documento');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao rejeitar documento');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString('pt-BR');
-  };
-
-  if (isLoading) {
-    return (
-      <div className="validation-backoffice">
-        <div className="loading">Carregando documentos pendentes...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="validation-backoffice">
       <div className="backoffice-header">
-        <h2>📋 Validação de Documentos</h2>
-        <button
-          type="button"
-          onClick={loadPendingDocuments}
-          className="refresh-button"
-        >
-          🔄 Atualizar
-        </button>
+        <h2>📋 Validação de Documentos (KYB)</h2>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
-
-      {documents.length === 0 ? (
-        <div className="empty-state">
-          <p>✅ Nenhum documento pendente no momento.</p>
-        </div>
-      ) : (
-        <div className="documents-list">
-          {documents.map((doc) => (
-            <div key={doc.documentId} className="document-card">
-              <div className="document-header">
-                <div>
-                  <h3>{doc.companyName}</h3>
-                  <p className="company-cnpj">CNPJ: {doc.companyCnpj}</p>
-                  <p className="document-info">
-                    📄 {doc.fileName} ({formatFileSize(doc.fileSize)})
-                  </p>
-                  <p className="document-date">
-                    Enviado em: {formatDate(doc.createdAt)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="document-actions">
-                <a
-                  href={`${import.meta.env.VITE_API_BASE_URL}/companies/${doc.companyId}/documents/${doc.documentId}/file`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="view-button"
-                >
-                  👁️ Ver PDF
-                </a>
-
-                <div className="reject-section">
-                  <input
-                    type="text"
-                    placeholder="Motivo da rejeição (se necessário)"
-                    value={rejectedReason[doc.documentId] || ''}
-                    onChange={(e) =>
-                      setRejectedReason({
-                        ...rejectedReason,
-                        [doc.documentId]: e.target.value,
-                      })
-                    }
-                    className="reject-input"
-                    disabled={processingId === doc.documentId}
-                  />
-                </div>
-
-                <div className="action-buttons">
-                  <button
-                    type="button"
-                    onClick={() => handleApprove(doc.documentId)}
-                    disabled={processingId === doc.documentId}
-                    className="approve-button"
-                  >
-                    {processingId === doc.documentId ? '⏳ Processando...' : '✅ Aprovar'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleReject(doc.documentId)}
-                    disabled={processingId === doc.documentId || !rejectedReason[doc.documentId]?.trim()}
-                    className="reject-button"
-                  >
-                    {processingId === doc.documentId ? '⏳ Processando...' : '❌ Rejeitar'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="empty-state">
+        <p>
+          O backoffice documental legado foi <strong>desativado</strong>. Ele operava sobre um substrato
+          fantasma (<code>company_documents</code>), que não existe no banco.
+        </p>
+        <p>
+          O substrato canônico de documentos KYB é <strong><code>fiscal_identity_documents</code></strong>{' '}
+          (DECISION-0087), ancorado na identidade fiscal da empresa. O fluxo canônico de revisão (admin) já
+          existe em <code>/identity/pj/kyb/*</code> (envio, listagem e aprovação/rejeição auditadas), e a
+          aprovação de KYB exige documentos mínimos aceitos — aprovar um documento <em>não</em> verifica a
+          empresa por si só.
+        </p>
+        <p>
+          A interface de revisão sobre o SSOT depende do <strong>provider de storage</strong> (download
+          protegido do documento), que é uma fatia própria ainda pendente. Esta tela será reconstruída sobre
+          o fluxo canônico quando o storage estiver disponível.
+        </p>
+      </div>
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

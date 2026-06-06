@@ -430,25 +430,19 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /companies/:companyId/documents
    * Lista documentos da empresa
    */
-  fastify.get<{ Params: { companyId: string } }>('/:companyId/documents', async (req, reply) => {
-    if (!req.user?.globalUserId) {
-      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
-    }
-
-    try {
-      const { companyId } = req.params;
-      const documents = await companiesService.listCompanyDocuments(
-        companyId,
-        req.user.globalUserId,
-        req.tenant?.id
-      );
-
-      return reply.send({ ok: true, data: documents });
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao listar documentos');
-      const message = error instanceof Error ? error.message : 'Erro ao listar documentos';
-      return reply.status(400).send({ ok: false, message });
-    }
+  fastify.get<{ Params: { companyId: string } }>('/:companyId/documents', async (_req, reply) => {
+    // F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW (DECISION-0087): reader legado DESATIVADO fail-closed.
+    // Lia de `company_documents` (tabela FANTASMA, inexistente no schema vivo) — dead-on-arrival.
+    // O SSOT documental KYB é `fiscal_identity_documents` (rotas /identity/pj/kyb/*). NÃO reabrir o legado.
+    return reply.status(501).send({
+      ok: false,
+      error: 'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED',
+      code: 'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED',
+      message:
+        'Listagem legada de documentos de empresa desativada (DECISION-0087). O SSOT documental KYB é ' +
+        'fiscal_identity_documents. A UI canônica de documentos depende do provider de storage (fatia própria).',
+      decision: 'DECISION-0087',
+    });
   });
 
   /**
@@ -458,59 +452,19 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get<{ Params: { companyId: string; documentId: string } }>(
     '/:companyId/documents/:documentId/file',
-    async (req, reply) => {
-      if (!req.user?.globalUserId) {
-        return reply.status(401).send({ ok: false, message: 'Não autenticado' });
-      }
-
-      try {
-        const { companyId, documentId } = req.params;
-        
-        // 🔴 SEGURANÇA: Verificar se empresa pertence ao usuário
-        const company = await companiesService.getCompanyById(companyId, req.user.globalUserId);
-        if (!company) {
-          return reply.status(404).send({ ok: false, message: 'Empresa não encontrada' });
-        }
-        
-        // Buscar documento (já valida companyId + globalUserId)
-        const documents = await companiesService.listCompanyDocuments(
-          companyId,
-          req.user.globalUserId,
-          req.tenant?.id
-        );
-
-        const document = documents.find(d => d.documentId === documentId);
-        if (!document) {
-          return reply.status(404).send({ ok: false, message: 'Documento não encontrado' });
-        }
-
-        // Construir caminho completo do arquivo
-        const filePath = path.join(uploadsDir, companyId, document.fileName);
-        
-        if (!fs.existsSync(filePath)) {
-          fastify.log.warn({ filePath, companyId, documentId }, 'Arquivo não encontrado no filesystem');
-          return reply.status(404).send({ ok: false, message: 'Arquivo não encontrado' });
-        }
-
-        // 🔴 AUDITORIA: Log de acesso ao arquivo
-        fastify.log.info({
-          companyId,
-          documentId,
-          globalUserId: req.user.globalUserId,
-          userIp: req.ip || req.headers['x-forwarded-for'] || 'unknown',
-          fileName: document.fileName,
-        }, '📥 Download de documento da empresa');
-
-        // Servir arquivo
-        const fileStream = fs.createReadStream(filePath);
-        reply.type('application/pdf');
-        reply.header('Content-Disposition', `inline; filename="comprovante_${companyId}.pdf"`);
-        return reply.send(fileStream);
-      } catch (error) {
-        fastify.log.error({ err: error }, 'Erro ao servir arquivo');
-        const message = error instanceof Error ? error.message : 'Erro ao servir arquivo';
-        return reply.status(500).send({ ok: false, message });
-      }
+    async (_req, reply) => {
+      // F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW (DECISION-0087): file-server legado DESATIVADO. Servia arquivo
+      // de `uploads/companies/` indexado por `company_documents` (FANTASMA) — dead-on-arrival. O SSOT
+      // documental é `fiscal_identity_documents` (file_reference OPACO); download protegido = fatia de storage.
+      return reply.status(501).send({
+        ok: false,
+        error: 'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED',
+        code: 'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED',
+        message:
+          'Download legado de documento de empresa desativado (DECISION-0087). Documentos KYB usam ' +
+          'fiscal_identity_documents; download protegido depende do provider de storage (fatia própria).',
+        decision: 'DECISION-0087',
+      });
     }
   );
 
@@ -520,15 +474,19 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get('/admin/documents/pending', {
     preHandler: [fastify.requireRole(['admin', 'owner'])],
-  }, async (req, reply) => {
-    try {
-      const documents = await companiesService.listPendingDocuments();
-      return reply.send({ ok: true, data: documents });
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao listar documentos pendentes');
-      const message = error instanceof Error ? error.message : 'Erro ao listar documentos pendentes';
-      return reply.status(500).send({ ok: false, message });
-    }
+  }, async (_req, reply) => {
+    // F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW (DECISION-0087): backoffice legado DESATIVADO. Lia
+    // `company_documents` (FANTASMA) — dead-on-arrival. A revisão documental canônica é admin via
+    // /identity/pj/kyb/* sobre `fiscal_identity_documents` (gate KYB já exige docs mínimos aceitos).
+    return reply.status(501).send({
+      ok: false,
+      error: 'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED',
+      code: 'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED',
+      message:
+        'Backoffice legado de documentos de empresa desativado (DECISION-0087). Revisão documental KYB ' +
+        'canônica = /identity/pj/kyb/* sobre fiscal_identity_documents (admin). UI depende do provider de storage.',
+      decision: 'DECISION-0087',
+    });
   });
 
   /**
@@ -540,52 +498,22 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
     Body: { status: 'approved' | 'rejected'; rejectedReason?: string };
   }>('/admin/documents/:documentId/status', {
     preHandler: [fastify.requireRole(['admin', 'owner'])],
-  }, async (req, reply) => {
-    try {
-      const { documentId } = req.params;
-      const { status, rejectedReason } = req.body;
-
-      if (!status || !['approved', 'rejected'].includes(status)) {
-        return reply.status(400).send({ 
-          ok: false, 
-          message: 'Status deve ser "approved" ou "rejected"' 
-        });
-      }
-
-      if (status === 'rejected' && !rejectedReason) {
-        return reply.status(400).send({ 
-          ok: false, 
-          message: 'Motivo da rejeição é obrigatório' 
-        });
-      }
-
-      const result = await companiesService.updateDocumentStatus(
-        documentId,
-        status,
-        rejectedReason,
-        req.user?.id
-      );
-
-      fastify.log.info({
-        documentId,
-        status,
-        adminUserId: req.user?.id,
-        companyStatus: result.companyStatus,
-      }, `📋 Documento ${status === 'approved' ? 'aprovado' : 'rejeitado'}`);
-
-      return reply.send({
-        ok: true,
-        // DECISION-0090 Fase 2.3: aprovar documento legado NÃO verifica a empresa.
-        message: status === 'approved'
-          ? 'Documento aprovado.'
-          : 'Documento rejeitado.',
-        data: result,
-      });
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao atualizar status do documento');
-      const message = error instanceof Error ? error.message : 'Erro ao atualizar status do documento';
-      return reply.status(400).send({ ok: false, message });
-    }
+  }, async (_req, reply) => {
+    // F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW (DECISION-0087): review/approve legado DESATIVADO. Operava sobre
+    // `company_documents` (FANTASMA) — dead-on-arrival — e carregava o anti-padrão "aprovar documento =
+    // empresa validada" (já neutralizado por 0090). Revisão documental canônica = PATCH
+    // /identity/pj/kyb/documents/:id/review sobre `fiscal_identity_documents`; aprovação KYB tem writer
+    // próprio (fiscal-identity-kyb) com gate de docs mínimos. Upload/review NÃO mexem company_status/kyb_status aqui.
+    return reply.status(501).send({
+      ok: false,
+      error: 'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED',
+      code: 'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED',
+      message:
+        'Revisão legada de documento de empresa desativada (DECISION-0087). Use o fluxo documental fiscal ' +
+        'canônico (/identity/pj/kyb/documents/:id/review sobre fiscal_identity_documents). Aprovar documento ' +
+        'NÃO verifica a empresa; aprovação KYB tem writer próprio com gate documental.',
+      decision: 'DECISION-0087',
+    });
   });
 
   /**

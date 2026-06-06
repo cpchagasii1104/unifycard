@@ -2084,256 +2084,41 @@ class CompaniesService {
   }
 
   /**
-   * Lista documentos da empresa
+   * F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW (DECISION-0087): readers/admin legados DESATIVADOS fail-closed.
+   * listCompanyDocuments / listPendingDocuments / updateDocumentStatus liam/escreviam `company_documents`
+   * (tabela FANTASMA — inexistente no schema vivo) — dead-on-arrival. O SSOT documental KYB é
+   * `fiscal_identity_documents` (fiscal-identity-document.service.ts; rotas /identity/pj/kyb/*). Throw honesto
+   * como PRIMEIRA instrução: nada lê/escreve no fantasma; NÃO promove company_status; NÃO aprova KYB. Não reabrir.
    */
   async listCompanyDocuments(
-    companyId: string,
-    globalUserId: string,
-    tenantId?: string
-  ): Promise<Array<{
-    documentId: string;
-    documentType: string;
-    fileName: string;
-    filePath: string;
-    fileSize: number;
-    mimeType: string;
-    status: string;
-    createdAt: Date;
-    updatedAt: Date;
-  }>> {
-    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
-    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para listCompanyDocuments (§8 03_IDENTITY_CANONICA)');
-    }
-    const finalTenantId = tenantId;
-
-    // Verificar se empresa existe e pertence ao usuário
-    const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
-    if (!company) {
-      throw new Error('Empresa não encontrada');
-    }
-
-    // 🔴 CORREÇÃO: Query COM filtro tenant_id via JOIN com companies
-    const docListRows = await runQueriesWithTenant<{
-      document_id: string;
-      document_type: string;
-      file_name: string;
-      file_path: string;
-      file_size: number;
-      mime_type: string;
-      status: string;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      finalTenantId,
-      `
-      SELECT 
-        cd.document_id,
-        cd.document_type,
-        cd.file_name,
-        cd.file_path,
-        cd.file_size,
-        cd.mime_type,
-        cd.status,
-        cd.created_at,
-        cd.updated_at
-      FROM company_documents cd
-      INNER JOIN companies c ON cd.company_id = c.company_id
-      WHERE cd.company_id = $1::uuid 
-        AND cd.global_user_id = $2::uuid
-        AND c.tenant_id = $3
-      ORDER BY cd.created_at DESC
-      `,
-      [companyId, globalUserId, finalTenantId]
+    _companyId: string,
+    _globalUserId: string,
+    _tenantId?: string
+  ): Promise<Array<{ documentId: string; documentType: string; fileName: string; filePath: string; fileSize: number; mimeType: string; status: string; createdAt: Date; updatedAt: Date }>> {
+    throw new Error(
+      'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED: leitura legada de documentos de empresa desativada ' +
+        '(DECISION-0087). SSOT documental KYB = fiscal_identity_documents.'
     );
-
-    return docListRows.map(row => ({
-      documentId: row.document_id,
-      documentType: row.document_type,
-      fileName: row.file_name,
-      filePath: row.file_path,
-      fileSize: row.file_size,
-      mimeType: row.mime_type,
-      status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
   }
 
-  /**
-   * Lista documentos pendentes (ADMIN - todos os documentos pendentes)
-   */
-  async listPendingDocuments(): Promise<Array<{
-    documentId: string;
-    companyId: string;
-    globalUserId: string;
-    companyName: string;
-    companyCnpj: string;
-    documentType: string;
-    fileName: string;
-    filePath: string;
-    fileSize: number;
-    mimeType: string;
-    status: string;
-    createdAt: Date;
-    updatedAt: Date;
-  }>> {
-    const result = await pool.query<{
-      document_id: string;
-      company_id: string;
-      global_user_id: string;
-      company_name: string;
-      company_cnpj: string;
-      document_type: string;
-      file_name: string;
-      file_path: string;
-      file_size: number;
-      mime_type: string;
-      status: string;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      `
-      SELECT 
-        cd.document_id,
-        cd.company_id,
-        cd.global_user_id,
-        c.company_name,
-        c.cnpj as company_cnpj,
-        cd.document_type,
-        cd.file_name,
-        cd.file_path,
-        cd.file_size,
-        cd.mime_type,
-        cd.status,
-        cd.created_at,
-        cd.updated_at
-      FROM company_documents cd
-      INNER JOIN companies c ON cd.company_id = c.company_id
-      WHERE cd.status = 'pending'
-      ORDER BY cd.created_at ASC
-      `,
-      []
+  async listPendingDocuments(): Promise<Array<{ documentId: string; companyId: string; globalUserId: string; companyName: string; companyCnpj: string; documentType: string; fileName: string; filePath: string; fileSize: number; mimeType: string; status: string; createdAt: Date; updatedAt: Date }>> {
+    throw new Error(
+      'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED: backoffice legado de documentos pendentes desativado ' +
+        '(DECISION-0087). Revisão documental KYB canônica = /identity/pj/kyb/* sobre fiscal_identity_documents.'
     );
-
-    return result.rows.map(row => ({
-      documentId: row.document_id,
-      companyId: row.company_id,
-      globalUserId: row.global_user_id,
-      companyName: row.company_name,
-      companyCnpj: row.company_cnpj,
-      documentType: row.document_type,
-      fileName: row.file_name,
-      filePath: row.file_path,
-      fileSize: row.file_size,
-      mimeType: row.mime_type,
-      status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
   }
 
-  /**
-   * Aprova ou rejeita documento (ADMIN)
-   */
   async updateDocumentStatus(
-    documentId: string,
-    status: 'approved' | 'rejected',
-    rejectedReason?: string,
-    adminUserId?: string
+    _documentId: string,
+    _status: 'approved' | 'rejected',
+    _rejectedReason?: string,
+    _adminUserId?: string
   ): Promise<{ documentId: string; companyStatus: string }> {
-    // Buscar documento
-    const docResult = await pool.query<{
-      document_id: string;
-      company_id: string;
-      global_user_id: string;
-      document_type: string;
-      status: string;
-    }>(
-      `
-      SELECT document_id, company_id, global_user_id, document_type, status
-      FROM company_documents
-      WHERE document_id = $1::uuid
-      LIMIT 1
-      `,
-      [documentId]
+    throw new Error(
+      'PJ_LEGACY_COMPANY_DOCUMENTS_READERS_DISABLED: review/approve legado de documento desativado ' +
+        '(DECISION-0087). Aprovar documento NAO verifica a empresa; revisao canonica = ' +
+        '/identity/pj/kyb/documents/:id/review; aprovacao KYB tem writer proprio com gate documental.'
     );
-
-    if (!docResult.rows[0]) {
-      throw new Error('Documento não encontrado');
-    }
-
-    const doc = docResult.rows[0];
-
-    // Atualizar status do documento com metadata
-    const currentMetadata = await pool.query<{ metadata: any }>(
-      `
-      SELECT metadata FROM company_documents WHERE document_id = $1::uuid
-      `,
-      [documentId]
-    );
-    
-    const existingMetadata = currentMetadata.rows[0]?.metadata || {};
-    const updatedMetadata = {
-      ...existingMetadata,
-      approved_by: adminUserId || null,
-      approvedAt: new Date().toISOString(),
-      ...(status === 'rejected' && rejectedReason ? { rejected_reason: rejectedReason } : {}),
-    };
-
-    await pool.query(
-      `
-      UPDATE company_documents
-      SET 
-        status = $1,
-        metadata = $2::jsonb,
-        updated_at = NOW()
-      WHERE document_id = $3::uuid
-      `,
-      [status, JSON.stringify(updatedMetadata), documentId]
-    );
-
-    // DECISION-0090 Fase 2.3: documento é EVIDÊNCIA, NÃO verifica a empresa. updateDocumentStatus
-    // atualiza apenas o documento legado (company_documents) — NÃO escreve companies.company_status/
-    // is_verified. Fonte única de verificação PJ = fiscal_identities.kyb_status (writer KYB auditado).
-    if (status === 'approved') {
-      // 🔴 AUDITORIA: Log de aprovação (apenas do documento)
-      console.log('[CompaniesService] ✅ Documento aprovado (não verifica empresa — DECISION-0090):', {
-        documentId,
-        companyId: doc.company_id,
-        globalUserId: doc.global_user_id,
-        documentType: doc.document_type,
-        approvedBy: adminUserId || 'unknown',
-        timestamp: new Date().toISOString(),
-      });
-    } else {
-      // 🔴 AUDITORIA: Log de rejeição
-      console.log('[CompaniesService] ❌ Documento rejeitado:', {
-        documentId,
-        companyId: doc.company_id,
-        globalUserId: doc.global_user_id,
-        documentType: doc.document_type,
-        rejectedReason,
-        rejectedBy: adminUserId || 'unknown',
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // Buscar status atualizado da empresa
-    const companyResult = await pool.query<{ company_status: string }>(
-      `
-      SELECT company_status
-      FROM companies
-      WHERE company_id = $1::uuid
-      LIMIT 1
-      `,
-      [doc.company_id]
-    );
-
-    return {
-      documentId,
-      companyStatus: companyResult.rows[0]?.company_status || 'PROVISIONAL',
-    };
   }
 
   /**
