@@ -1,3 +1,19 @@
+## 2026-06-05 — F-SERVICE-TAXONOMY-BRIDGE-SCHEMA-MIGRATION: ponte governada company_type→categoria de serviço (schema-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `8efd82c0`. Frente **schema-only** (DECISION-0109 D3 / ratificação Opção A de Clayton). **Zero seed / runtime / serviço / availability / booking / Bank / frontend / alteração em `services.category_id`/`company_type_allowed_concepts`/`default_*_slugs`.** 3 autorais intocados. _(Esteira: eu escritora; runner canônico, não psql -f.)_
+
+**O que entregou:** cria a tabela-ponte `company_type_service_categories` — a pré-moldagem de **serviço** (`domain='servicos'`) separada da de **produto** (`default_*_slugs`/marketplace). Resolve estruturalmente o fork de taxonomia: o serviço ganha seu próprio dicionário sem repontar slugs de produto nem reusar `company_type_allowed_concepts` (que é atuação/concept, não categoria). Shape: `id` PK, `company_type_id`→`company_types.id`, `service_category_id`→`categories.category_id`, `is_department` (default false), `source` (NOT NULL, não-vazio), timestamps; `uq_ctsc_type_category` (company_type×category); índices em `company_type_id` e `service_category_id`. **Sem CHECK SQL congelando `domain='servicos'`** (evitaria subquery/freeze — feedback_enforcement_vs_decision); invariante documentado em COMMENT, validação fica para seed+guard.
+
+**Arquivos:** `backend/migrations/20260605190000_create_company_type_service_categories.sql` (novo). **Migration apenas.**
+
+**Prova:** aplicada pelo **runner canônico** (`tsx src/core/db/migrate.ts`, EXPECTED_DATABASE_NAME=unificard_dev). Tabela existe; FKs `company_types(id)`/`categories(category_id)` ✓; `uq_ctsc_type_category` **bloqueia par duplicado** (teste transacional rolled-back, 23505); **0 linhas** (sem seed); `company_type_allowed_concepts` (7) e `salao.default_*_slugs` (marketplace-*) **intocados**. **schema_migrations 363→364**, registrada, **files=registered (sem fantasma)**. 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). Nenhum `.ts`/frontend/Bank tocado.
+
+**DTs:** **`DT-SERVICE-RAMO-TAXONOMY-FORK` → PARTIALLY MITIGATED** (estrutura criada; falta seed salão + guard de domínio). As outras 3 DTs de serviço intocadas.
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-SERVICE-TAXONOMY-BRIDGE-SEED-SALON` — 5 linhas (dept `servicos-estetica-bem-estar` + ramos cabeleireiro/barbearia/manicure/estetica-facial). Depois: guard de domínio + companyId na criação de serviço (Bank-free). Booking/payment/Bank seguem bloqueados.
+
+---
+
 ## 2026-06-05 — DECISION-0109: fundação do Trilho B (serviços) — taxonomia própria + Bank-free + availability canônica (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `92b82afb`. Frente **docs-only** (Op3D, promulgação de Clayton). **Zero código/schema/migration/seed/endpoint/Bank/Op3A.** Dev segue 363. 3 autorais intocados. _(Esteira: eu escritora; raio-x read-only `Op3 READ-ONLY Trilho B` cruzou banco/código vivos; par verifica.)_
