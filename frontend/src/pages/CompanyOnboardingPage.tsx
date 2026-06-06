@@ -98,6 +98,8 @@ export default function CompanyOnboardingPage() {
       <CompanyOnboardingWizard
         companyId={company.companyId}
         companyName={company.companyName}
+        initialRole={company.userRole?.role}
+        initialRoleDescription={company.userRole?.roleDescription}
         onComplete={handleComplete}
         onCancel={handleCancel}
       />

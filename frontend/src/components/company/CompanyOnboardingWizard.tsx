@@ -11,6 +11,7 @@ import {
   activateCompanyOperationally,
   type OperationalCompanyType,
   type AllowedOperationalConcept,
+  type CompanyUserRole,
 } from '../../api/companies';
 import { showToast } from '../common/Toast';
 import type {
@@ -25,15 +26,31 @@ import './CompanyOnboardingWizard.css';
 interface CompanyOnboardingWizardProps {
   companyId: string;
   companyName: string;
+  /** F-PJ-ONBOARDING-ROLE-DEDUP: papel FORMAL do chamador, já definido no cadastro (company_users.role).
+   *  O wizard CONFIRMA esse papel — não repergunta. Vem de company.userRole.role (getCompanyById). */
+  initialRole?: CompanyUserRole;
+  initialRoleDescription?: string;
   onComplete?: () => void;
   onCancel?: () => void;
 }
 
 const TOTAL_STEPS = 5;
 
+// F-PJ-ONBOARDING-ROLE-DEDUP: rótulo PT do vínculo formal (mesma fonte do cadastro). Apresentação apenas.
+const COMPANY_ROLE_LABEL: Record<CompanyUserRole, string> = {
+  owner: 'Proprietário',
+  partner: 'Sócio',
+  director: 'Diretor',
+  manager: 'Gerente',
+  employee: 'Funcionário',
+  other: 'Outro',
+};
+
 export default function CompanyOnboardingWizard({
   companyId,
   companyName,
+  initialRole,
+  initialRoleDescription,
   onComplete,
   onCancel,
 }: CompanyOnboardingWizardProps) {
@@ -132,6 +149,26 @@ export default function CompanyOnboardingWizard({
     setModules(deriveOnboardingTrackFromConceptDomain(sel?.domain).modules);
   }, [selectedConceptId, concepts]);
 
+  // F-PJ-ONBOARDING-ROLE-DEDUP: o papel é CONFIRMADO do vínculo formal (company_users, definido no
+  // cadastro), NÃO reperguntado. `formalRoleLabel` é só apresentação.
+  // Defensivo: company_users.role pode carregar vocabulário do banco (owner/admin/staff/contractor/member)
+  // diferente do contrato (owner/partner/...). Se não houver rótulo PT, mostra o valor cru (sem "undefined").
+  const formalRoleLabel = initialRole
+    ? (initialRole === 'other' && initialRoleDescription
+        ? initialRoleDescription
+        : (COMPANY_ROLE_LABEL[initialRole] ?? String(initialRole)))
+    : null;
+
+  // `initialRoles` (owner/manager/staff) permanece no payload APENAS como compat de UX não-operacional —
+  // derivado do papel formal, nunca usado como autoridade (nenhum runtime lê metadata.onboarding.roles).
+  useEffect(() => {
+    setInitialRoles({
+      owner: true, // o responsável pelo cadastro é o owner-equivalente da página da empresa
+      manager: initialRole === 'manager',
+      staff: initialRole === 'employee',
+    });
+  }, [initialRole]);
+
   const handleNext = () => {
     // Validações por etapa
     if (currentStep === 1 && (!selectedCompanyTypeId || !selectedConceptId)) {
@@ -156,14 +193,6 @@ export default function CompanyOnboardingWizard({
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
-  };
-
-  const handleRoleToggle = (role: keyof CompanyInitialRoles) => {
-    if (role === 'owner') return; // Owner não pode ser desativado
-    setInitialRoles((prev) => ({
-      ...prev,
-      [role]: !prev[role],
-    }));
   };
 
   const handleDayToggle = (day: number) => {
@@ -350,59 +379,28 @@ export default function CompanyOnboardingWizard({
           </div>
         )}
 
-        {/* Etapa 3: Papéis */}
+        {/* Etapa 3: Papel — CONFIRMA o vínculo formal definido no cadastro (não repergunta).
+            F-PJ-ONBOARDING-ROLE-DEDUP: o papel é company_users.role (SSOT), projetado por
+            company.userRole; o wizard apenas confirma. A gestão de membros/papéis da equipe é
+            feita depois de finalizar (não é etapa de onboarding). */}
         {currentStep === 3 && (
           <div className="wizard-step">
-            <h2>Quais papéis você quer configurar?</h2>
-            <p className="step-description">
-              Defina os papéis iniciais da sua empresa. Você pode adicionar mais depois.
-            </p>
-            <div className="roles-list">
-              <div className="role-card">
-                <div className="role-header">
-                  <input
-                    type="checkbox"
-                    id="role-owner"
-                    checked={initialRoles.owner}
-                    disabled
-                  />
-                  <label htmlFor="role-owner">
-                    <h3>Owner (Proprietário)</h3>
-                    <p>Acesso total à empresa</p>
-                  </label>
-                </div>
-                <span className="role-badge">Você</span>
-              </div>
-
-              <div className="role-card">
-                <div className="role-header">
-                  <input
-                    type="checkbox"
-                    id="role-manager"
-                    checked={initialRoles.manager}
-                    onChange={() => handleRoleToggle('manager')}
-                  />
-                  <label htmlFor="role-manager">
-                    <h3>Manager (Gerente)</h3>
-                    <p>Gerenciar operações</p>
-                  </label>
-                </div>
-              </div>
-
-              <div className="role-card">
-                <div className="role-header">
-                  <input
-                    type="checkbox"
-                    id="role-staff"
-                    checked={initialRoles.staff}
-                    onChange={() => handleRoleToggle('staff')}
-                  />
-                  <label htmlFor="role-staff">
-                    <h3>Staff (Equipe)</h3>
-                    <p>Acesso operacional básico</p>
-                  </label>
-                </div>
-              </div>
+            <h2>Seu papel nesta empresa</h2>
+            <div className="role-confirmation">
+              {formalRoleLabel ? (
+                <p className="step-description">
+                  Você está configurando esta empresa como <strong>{formalRoleLabel}</strong>.
+                  Esse vínculo foi definido no cadastro e não precisa ser informado de novo.
+                </p>
+              ) : (
+                <p className="step-description">
+                  Você é o responsável por esta empresa (vínculo definido no cadastro).
+                </p>
+              )}
+              <p className="step-description">
+                Os papéis da equipe (gerentes, funcionários, sócios) são gerenciados depois de
+                finalizar a configuração, na área de membros da empresa.
+              </p>
             </div>
           </div>
         )}
@@ -516,11 +514,9 @@ export default function CompanyOnboardingWizard({
               </div>
 
               <div className="summary-item">
-                <strong>Papéis Configurados:</strong>
+                <strong>Seu papel:</strong>
                 <div className="summary-tags">
-                  {initialRoles.owner && <span className="tag">Owner</span>}
-                  {initialRoles.manager && <span className="tag">Manager</span>}
-                  {initialRoles.staff && <span className="tag">Staff</span>}
+                  <span className="tag">{formalRoleLabel ?? 'Responsável'}</span>
                 </div>
               </div>
 

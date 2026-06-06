@@ -1221,7 +1221,9 @@ class CompaniesService {
         return null;
       }
 
-      return this.mapCompanyRow(rows[0]);
+      const companyOverride = this.mapCompanyRow(rows[0]);
+      const userRoleOverride = await this.projectCallerCompanyUser(tenantId, companyId, globalUserId);
+      return userRoleOverride ? ({ ...companyOverride, userRole: userRoleOverride } as Company) : companyOverride;
     }
 
     // Comportamento normal (sem override) - usa runQueryWithTenant para garantir isolamento
@@ -1266,7 +1268,86 @@ class CompaniesService {
       return null;
     }
 
-    return this.mapCompanyRow(rowsNormal[0]);
+    const company = this.mapCompanyRow(rowsNormal[0]);
+    const userRole = await this.projectCallerCompanyUser(tenantId, companyId, globalUserId);
+    return userRole ? ({ ...company, userRole } as Company) : company;
+  }
+
+  /**
+   * F-PJ-ONBOARDING-ROLE-DEDUP: projeta o vínculo FORMAL do chamador (company_users) — o mesmo
+   * shape que listCompanies já entrega. getCompanyById omitia `userRole` embora o tipo Company o
+   * declare e o onboarding precise dele para CONFIRMAR (não repergunta) o papel já definido no
+   * cadastro. Leitura PURA do SSOT company_users: não escreve, não concede autoridade, não cria
+   * vocabulário paralelo. Retorna null se não houver vínculo ativo do chamador (ex.: override de teste).
+   */
+  private async projectCallerCompanyUser(
+    tenantId: string,
+    companyId: string,
+    globalUserId: string
+  ): Promise<CompanyUser | null> {
+    const rows = await runQueriesWithTenant<{
+      company_user_id: string;
+      company_id: string;
+      global_user_id: string;
+      role: string;
+      role_description: string | null;
+      can_manage_company: boolean;
+      can_manage_financial: boolean;
+      can_manage_employees: boolean;
+      can_view_reports: boolean;
+      can_manage_services: boolean;
+      is_active: boolean;
+      is_primary: boolean;
+      cu_metadata: unknown;
+      cu_created_at: Date;
+      cu_updated_at: Date;
+    }>(
+      tenantId,
+      `
+      SELECT
+        cu.id AS company_user_id,
+        cu.company_id,
+        cu.global_user_id,
+        cu.role,
+        cu.role_description,
+        cu.can_manage_company,
+        cu.can_manage_financial,
+        cu.can_manage_employees,
+        cu.can_view_reports,
+        cu.can_manage_services,
+        cu.is_active,
+        cu.is_primary,
+        cu.metadata AS cu_metadata,
+        cu.created_at AS cu_created_at,
+        cu.updated_at AS cu_updated_at
+      FROM company_users cu
+      WHERE cu.tenant_id = $1 AND cu.company_id = $2::uuid AND cu.global_user_id = $3::uuid
+        AND cu.is_active = true
+      LIMIT 1
+      `,
+      [tenantId, companyId, globalUserId]
+    );
+    if (!rows || rows.length === 0 || !rows[0]) return null;
+    const row = rows[0];
+    return {
+      companyUserId: row.company_user_id,
+      companyId: row.company_id,
+      globalUserId: row.global_user_id,
+      role: row.role as CompanyUser['role'],
+      roleDescription: row.role_description ?? undefined,
+      permissions: {
+        canManageCompany: row.can_manage_company,
+        canManageFinancial: row.can_manage_financial,
+        canManageEmployees: row.can_manage_employees,
+        canViewReports: row.can_view_reports,
+        canManageServices: row.can_manage_services,
+      },
+      isActive: row.is_active,
+      isPrimary: row.is_primary,
+      metadata: (row.cu_metadata ?? undefined) as CompanyUser['metadata'],
+      createdAt: row.cu_created_at instanceof Date ? row.cu_created_at.toISOString() : String(row.cu_created_at ?? ''),
+      updatedAt: row.cu_updated_at instanceof Date ? row.cu_updated_at.toISOString() : String(row.cu_updated_at ?? ''),
+    };
   }
 
   /**

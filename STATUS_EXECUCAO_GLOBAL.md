@@ -1,3 +1,19 @@
+## 2026-06-06 — F-PJ-ONBOARDING-ROLE-DEDUP: wizard confirma o papel formal em vez de reperguntar (frontend + projeção backend isolada)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `0e66e1b2`. **Tocou backend** só em projeção de leitura isolada (gap que o tipo já prometia). **Zero migration / Bank / escrita de autoridade.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** o onboarding pedia o papel **duas vezes** — no cadastro (`CompaniesManagerForm` → `company_users.role`, vínculo FORMAL/SSOT) e de novo no wizard (Etapa 3 checkboxes Owner/Manager/Staff → `metadata.onboarding`, rotulado "NÃO é verdade operacional"; **nenhum runtime o lê como autoridade**). Reclamação: "está me perguntando duas vezes se sou dono/gerente". Agora o wizard **CONFIRMA**: Etapa 3 = "Você está configurando esta empresa como **[papel]** … definido no cadastro" + nota de que papéis da equipe são geridos depois; checkboxes e `handleRoleToggle` removidos; Etapa 5 mostra o papel formal. `initialRoles` segue no payload **só como compat** (derivado, não-autoridade). **Backend:** `getCompanyById` passou a projetar `userRole` (vínculo `company_users` do chamador) — o tipo `Company` já o declarava e `listCompanies` já o entregava; `getCompanyById` o omitia. Helper `projectCallerCompanyUser` (leitura pura do SSOT; não escreve, não concede).
+
+**Arquivos:** `backend/src/core/companies/companies.service.ts` (projeção `userRole` em getCompanyById + helper), `frontend/src/components/company/CompanyOnboardingWizard.tsx` (Etapa 3 confirma + label + remove toggles), `frontend/src/pages/CompanyOnboardingPage.tsx` (passa `userRole.role`), e2e novo.
+
+**Prova:** e2e `validate-pipeline-e2e-pj-company-userrole-projection` **4/4** (owner/admin/espelha SSOT/leitura não muta lifecycle). Sem regressão: lifecycle 7/7, CNPJ 6/6. Frontend tsc 0; backend tsc 0 (escopo). 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365.**
+
+**DTs:** `DT-PJ-ONBOARDING-ROLE-DUPLICATE` → **CLOSED**. Achado lateral registrado: `DT-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH` → **OPEN** (contrato `owner/partner/director/manager/employee/other` × CHECK `owner/admin/staff/contractor/member`; só `owner` coincide — `createCompany` com os demais viola o CHECK; frente própria).
+
+**PRÓXIMA ETAPA (ordem Clayton):** 1. KYB documents SSOT writer/read-only ou design; 2. delete guard via Bank port; 3. KYB release gate financeiro. Adicional: reconciliar vocabulário de `company_users.role`.
+
+---
+
 ## 2026-06-06 — F-PJ-CNPJ-ON-ENTRY: valida dígito verificador na entrada + erro de duplicidade limpo no campo (frontend-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `f6a5714c`. Frente **frontend-only**. **Zero backend / migration / Bank / schema / regra canônica de CNPJ / rota nova.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
