@@ -12,6 +12,7 @@ import { actorEffectsService } from '@modules/social/actor-effects.service';
 import { ActorIntent } from '@modules/social/actor-intents.types';
 import { ActorEffect } from '@modules/social/actor-effects.types';
 import { BadRequestError } from '@core/errors';
+import { assertServiceCategoryAllowedForCompany } from './service-category-guard';
 import { AvailabilityOwnerType, UnifiedAvailabilityStatus } from '@core/availability/unified-availability.types';
 import type { Service, CreateServiceInput, UpdateServiceInput } from './services.types';
 import { ServiceStatus } from './services.types';
@@ -55,6 +56,15 @@ class ServicesService {
         throw new BadRequestError(intentValidation.reason || 'Intent inválido para criar serviço');
       }
     }
+
+    // DECISION-0109 (D1/D3/D6): categoria de serviço deve ser domain='servicos' e, se a empresa do
+    // page-actor estiver classificada, pertencer à ponte de ramos do company_type. Fail-closed; Bank-free.
+    await assertServiceCategoryAllowedForCompany(
+      tenantId,
+      input.actorId,
+      input.categoryId,
+      input.serviceType
+    );
 
     // Criar serviço
     const service = await servicesRepository.create(tenantId, {
@@ -135,6 +145,15 @@ class ServicesService {
       // Por enquanto, apenas owner pode atualizar
       throw new BadRequestError('Apenas o dono do actor pode atualizar o serviço');
     }
+
+    // DECISION-0109: se o update troca a categoria, revalida domínio + ramo (service_type efetivo do
+    // input ou do serviço atual). categoryId ausente → guard é no-op (não toca a categoria).
+    await assertServiceCategoryAllowedForCompany(
+      tenantId,
+      currentService.actorId,
+      input.categoryId,
+      input.serviceType ?? currentService.serviceType
+    );
 
     // Atualizar serviço
     const updatedService = await servicesRepository.update(tenantId, serviceId, input);

@@ -1,3 +1,19 @@
+## 2026-06-05 — F-SERVICE-CREATION-CATEGORY-RAMO-GUARD: guard de categoria/ramo na criação de serviço (FECHA a DT do fork)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `446add0d`. Frente **code-only** (DECISION-0109 D1/D3/D6). **Zero migration** (dev 365) / seed / availability / booking / order / payment / Bank / frontend. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** o segurança na porta do serviço. Novo `assertServiceCategoryAllowedForCompany(tenantId, actorId, categoryId, serviceType)` (em `service-category-guard.ts`), aplicado em `services.service.createService` **e** `updateService` (quando troca categoria): exige `categories.domain='servicos'` (D1, universal para `service_type='service'`) e, quando a empresa do **page-actor dono** está classificada, categoria ∈ `company_type_service_categories` do `companies.primary_company_type_id` (D3/D6). Empresa derivada do **actor dono** (page-actor → `actors.company_id` → company) — fonte natural do serviço (não há companyId separado). **Fail-closed:** marketplace → Forbidden; servicos fora da ponte → Forbidden; empresa-produto → Forbidden; empresa não classificada → Forbidden. **Compat:** PF/legado sem company → domínio sim, ramo não (não inventa empresa). Escopo `service_type='service'` (event/job/rental fora de 0109). **Bank-free; zero booking/availability.**
+
+**Arquivos:** `backend/src/modules/services/service-category-guard.ts` (novo), `services.service.ts` (import + guard em create/update). E2E: `validate-pipeline-e2e-service-category-ramo-guard.ts`, `scripts/run-service-category-ramo-guard-ephemeral.ps1`.
+
+**Prova:** e2e efêmero **14/14 verde** — salão cria serviço nas 4 categorias do seu ramo (cabeleireiro/barbearia/manicure/estetica-facial) OK; **marketplace-cabelo rejeitado** (domain≠servicos); **servicos-encanador rejeitado** (fora da ponte do salão); **supermercado rejeitado** (sem ponte de serviço); **empresa não classificada rejeitada**; **PF compat** (servicos OK, marketplace rejeitado); só 5 serviços válidos criados; **zero availability, zero booking, Bank intocado**. Backend tsc só baseline geo. 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365** (zero migration).
+
+**DTs:** **`DT-SERVICE-RAMO-TAXONOMY-FORK` → CLOSED** (schema+seed+guard provados; resíduo benigno: `salao.default_*_slugs` seguem marketplace = premoldagem de produto, concern separado). **`DT-SERVICE-NO-COMPANY-RAMO-BRIDGE` → PARTIALLY MITIGATED** (autoridade de empresa na criação endereçada via page-actor; resíduo: não se exige que serviço PJ seja page-actor). `DT-SERVICE-COMMERCIAL-FLOW-BANK-COUPLED` e `DT-SERVICE-AVAILABILITY-ENDPOINT-DISCONNECT` seguem OPEN.
+
+**PRÓXIMA ETAPA (espera Clayton):** availability básica do salão (Bank-free, core `availability`) — endereçar `DT-SERVICE-AVAILABILITY-ENDPOINT-DISCONNECT` (reconciliar frontend com core). Booking/order/payment/Bank seguem bloqueados.
+
+---
+
 ## 2026-06-05 — F-SERVICE-TAXONOMY-BRIDGE-SEED-SALON: salão ligado às 5 categorias de serviço (seed governado)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `407c7fb4`. Frente **seed/DML governado** (DECISION-0109 D3 / Opção A). **Zero runtime / endpoint / frontend / serviço / availability / booking / Bank / alteração em `default_*_slugs` / `allowed_concepts` / `services.category_id` / categorias existentes.** 3 autorais intocados. _(Esteira: eu escritora; runner canônico.)_
