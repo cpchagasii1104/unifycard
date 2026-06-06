@@ -1,3 +1,19 @@
+## 2026-06-06 — F-SERVICE-FINANCIAL-FIREWALL-CODE: fecha fail-closed as 3 rotas financeiras vivas de serviço (code-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `034a13ef`. Frente **code-only protetiva** (DECISION-0110 D8). **Zero migration** (dev 365) / seed / movimento de dinheiro / booking / release / ledger-splits como feature / frontend. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** o firewall que a 0110 exigia — fecha **fail-closed** as 3 rotas financeiras vivas que a auditoria achou abertas e sem KYB: `POST /services/request/pay`, `POST /services/:serviceId/hire`, `POST /services/payments/:paymentRequestId/execute`. Helper `service-financial-firewall.ts`: flag `SERVICE_FINANCIAL_RUNTIME_ENABLED` **default OFF** (ausente/≠'true' = desligado); `serviceFinancialDisabledBody` retorna erro honesto. Cada rota chama o firewall como **primeira instrução** (antes de auth/lógica) → 403 `SERVICE_FINANCIAL_RUNTIME_DISABLED` com mensagem honesta ("desabilitada por DECISION-0110 até a cadeia canônica; nenhum dinheiro é movido"). **Preserva o código** (não apaga — reabrir é trocar o flag, não reescrever) e **não finge operacional**. Auth/authz de cada rota a **revalidar quando o flag reabrir** (achado 0110 §8). Reaberto só após a cadeia canônica.
+
+**Arquivos:** `backend/src/modules/services/service-financial-firewall.ts` (novo), `service-payment-execution.routes.ts`, `service-hire.routes.ts`, `services-discovery.routes.ts` (firewall na 1ª linha de cada handler). E2E: `validate-pipeline-e2e-service-financial-firewall.ts`, `scripts/run-service-financial-firewall-ephemeral.ps1`.
+
+**Prova:** e2e efêmero **11/11 verde** — flag default OFF → as 3 rotas retornam **403 SERVICE_FINANCIAL_RUNTIME_DISABLED** (via `fastify.inject`, antes de qualquer lógica); flag ON → o firewall **abre** e a rota cai no **próximo guard** (auth/tenant), **sem mover dinheiro** (prova que o firewall é o portão e o código foi preservado); **Bank intocado** (`bank_ledger`+`bank_transactions`=0); zero `service_orders`/`payment_intents`/`service_payment_executions`. Backend tsc só baseline geo. 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365** (zero migration).
+
+**DTs:** **PARTIALLY MITIGATED** → `DT-SERVICE-DIRECT-PAYACCEPTEDREQUEST-LEGACY-BYPASS` (fail-closed; destino do trilho pendente), `DT-SERVICE-HIRE-AUTO-ACCEPT-POLICY-BREACH` (fail-closed; refazer auto-aceite pendente), `DT-SERVICE-COMMERCIAL-FLOW-BANK-COUPLED` (rotas fechadas; cadeia canônica pendente). `DT-SERVICE-KYB-RELEASE-GATE-MISSING` segue OPEN (exposição runtime neutralizada; gate KYB ainda a implementar). `DT-SERVICE-PAYMENT-RELEASE-POLICY-MISSING`/`REFUND-DISPUTE-POLICY-MISSING`/`PAYMENT-CURRENCY-FIC-vs-BRL` seguem OPEN. **Nenhuma DT fechada.**
+
+**PRÓXIMA ETAPA (espera Clayton):** desenho da **cadeia canônica de serviço financeiro** (request→execution→escrow→release com KYB + decisão de release/timeout + moeda BRL), que reabre o flag só após implementada/testada. Refund/disputa = frentes próprias. _Referência à DECISION-0052 (estorno) a tratar quando a frente de refund/disputa avançar._
+
+---
+
 ## 2026-06-06 — DECISION-0110: política financeira de serviços — pré-pago+escrow, KYB segura a saída, ledger é verdade (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `2431e375`. Frente **docs-only** (promulgação de Clayton; política financeira antes de runtime). **Zero código/runtime/migration/Bank/escrow/booking/payment/frontend.** Dev segue 365. 3 autorais intocados. _(Esteira: eu escritora; auditoria forense read-only cruzada por mim com DB/código vivos; par verifica.)_

@@ -11413,6 +11413,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Vinculada a:** `services-discovery.service.ts`, `service-order.service.ts`, `service-payment-execution.service.ts`, `service_orders` (settlement_flow/escrow), `service_discovery_requests.payment_bank_transaction_id`, Bank (`bank_ledger`/`bank_transactions`).
 - **Risco:** qualquer Op3 comercial (booking→order→payment) toca causalidade financeira sem decisão do cofre. Substrato com **0 linhas** (nunca exercido) → fácil construir errado.
 - **Resolução prevista:** **cerca corta-fogo** — primeiras fatias de serviço Bank-free (criação + agenda); booking/order/payment/escrow/settlement ficam atrás de **decisão financeira própria** (frente própria, não esta). **NÃO** tocar `service_orders`/`service_discovery` pay/`service_payment_execution`/Bank até lá.
+- **Atualização 2026-06-06 (`DECISION-0110` + `F-SERVICE-FINANCIAL-FIREWALL-CODE`) → PARTIALLY MITIGATED:** a decisão financeira foi promulgada (0110) e o **firewall** fechou as 3 rotas vivas (`/services/request/pay`, `/hire`, `/payments/:id/execute`) **fail-closed** (flag `SERVICE_FINANCIAL_RUNTIME_ENABLED` default OFF → 403 `SERVICE_FINANCIAL_RUNTIME_DISABLED` antes de qualquer lógica; e2e 11/11 provou zero dinheiro). **Não CLOSED** — falta a **cadeia canônica** (request→execution→escrow→release+KYB) desenhada/implementada/testada antes de reabrir o flag.
 
 ## DT-SERVICE-AVAILABILITY-ENDPOINT-DISCONNECT
 
@@ -11438,12 +11439,14 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D2). O caminho legado `payAcceptedRequest` (`services-discovery.service.ts:256`) move dinheiro **direto** cliente→prestador via `createSimpleTransaction`, **sem escrow, sem split, sem payment_intent** — contraria o fluxo canônico (payment request → execution → Bank → escrow → release). Rota viva `POST /services/request/pay` (registrada, prefix `/services`), **sem KYB**; auth a revalidar no firewall.
 - **Risco:** segundo nascimento de obrigação financeira coexistindo com o caminho moderno (escrow); pagamento sem custódia nem split.
 - **Resolução prevista:** `F-SERVICE-FINANCIAL-FIREWALL-CODE` — bloquear/flagar/aposentar (decisão de destino do trilho) **fail-closed** antes de qualquer exposição runtime. **NÃO** executar nesta DECISION.
+- **Atualização 2026-06-06 (`F-SERVICE-FINANCIAL-FIREWALL-CODE`) → PARTIALLY MITIGATED:** a rota `POST /services/request/pay` está **fail-closed** (firewall, flag default OFF, 403 antes de qualquer lógica; e2e provou zero dinheiro). **Não CLOSED** — o **destino do trilho** (aposentar `payAcceptedRequest` vs ratificar/flagar permanente como caminho não-canônico) segue **decisão pendente**.
 
 ## DT-SERVICE-HIRE-AUTO-ACCEPT-POLICY-BREACH
 
 - **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D3). `POST /services/:serviceId/hire` (`service-hire.routes.ts:37`) **auto-aceita** a decisão de booking (`:75-79`, `status=ACCEPTED` hardcoded) e segue para pagamento — contraria "decisão de booking é humana explícita, nunca automática" (`service-booking-decision.routes.ts`). Sem KYB; `providerActorId` vem do body (auth a revalidar no firewall).
 - **Risco:** contratação financeira sem aceite humano real do prestador; combinada com auth fraca, fraude de booking.
 - **Resolução prevista:** firewall — bloquear/refazer o auto-aceite fail-closed antes de runtime. **NÃO** executar agora.
+- **Atualização 2026-06-06 (`F-SERVICE-FINANCIAL-FIREWALL-CODE`) → PARTIALLY MITIGATED:** `POST /services/:serviceId/hire` está **fail-closed** (firewall, default OFF, 403 antes de criar booking/decisão/pagamento; e2e provou zero dinheiro). **Não CLOSED** — **refazer** o auto-aceite (decisão humana explícita do prestador) é frente própria da cadeia canônica.
 
 ## DT-SERVICE-PAYMENT-RELEASE-POLICY-MISSING
 
@@ -11454,6 +11457,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 - **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D6). KYB (`pj-kyb-gate.ts:isPageActorKybApproved`) existe só em ações **sociais**; **ausente** no caminho de pagamento de serviço. Runtime moveria dinheiro PJ sem checagem. Norma (D6): KYB approved **obrigatório para saída/release** ao prestador PJ; **entrada em escrow** pode existir como **custódia** sem KYB, mas **não** autoriza release/saque/saldo-disponível/sinal-de-aprovação; **saída sem KYB approved = fail-closed**.
 - **Resolução prevista:** firewall + cadeia canônica — gate KYB no release (não na custódia). **NÃO** executar agora.
+- **Atualização 2026-06-06 (`F-SERVICE-FINANCIAL-FIREWALL-CODE`):** a **exposição runtime** está neutralizada — `/services/payments/:id/execute` fail-closed (nenhum dinheiro PJ move sem KYB porque nenhum dinheiro move). Segue **OPEN** — o **gate KYB no release** (a implementação do D6) ainda não existe; será parte da cadeia canônica antes de reabrir o flag.
 
 ## DT-SERVICE-REFUND-DISPUTE-POLICY-MISSING
 

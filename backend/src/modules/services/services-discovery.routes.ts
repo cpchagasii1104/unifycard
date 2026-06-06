@@ -3,6 +3,7 @@ import { z, ZodError } from 'zod';
 import { servicesDiscoveryMetricsService } from './services-discovery-metrics.service';
 import { servicesDiscoveryService } from './services-discovery.service';
 import { AppError } from '@core/errors';
+import { isServiceFinancialRuntimeEnabled, serviceFinancialDisabledBody } from './service-financial-firewall';
 
 const weekdaySchema = z.enum([
   'sunday',
@@ -244,6 +245,11 @@ const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post('/request/pay', async (req, reply) => {
+    // DECISION-0110: pagamento DIRETO legado (sem escrow/split) é proibido no canônico (D2) — fail-closed
+    // (firewall ANTES de qualquer lógica; não move dinheiro). Destino do trilho (aposentar/flagar) é frente própria.
+    if (!isServiceFinancialRuntimeEnabled()) {
+      return reply.status(403).send(serviceFinancialDisabledBody('POST /services/request/pay'));
+    }
     if (!req.actionContext?.actorId) {
       return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }

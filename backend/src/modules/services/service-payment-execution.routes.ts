@@ -5,6 +5,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { servicePaymentExecutionService } from './service-payment-execution.service';
 import { z } from 'zod';
+import { isServiceFinancialRuntimeEnabled, serviceFinancialDisabledBody } from './service-financial-firewall';
 
 const createPaymentSplitSchema = z.object({
   receiverActorId: z.string().uuid({ message: 'receiverActorId é obrigatório' }), // OBRIGATÓRIO
@@ -33,6 +34,10 @@ const servicePaymentExecutionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:paymentRequestId/execute',
     async (req, reply) => {
+      // DECISION-0110: fail-closed até a cadeia canônica (firewall ANTES de qualquer lógica; não move dinheiro).
+      if (!isServiceFinancialRuntimeEnabled()) {
+        return reply.status(403).send(serviceFinancialDisabledBody('POST /services/payments/:paymentRequestId/execute'));
+      }
       if (!req.user || !req.user.userId) {
         return reply.status(401).send({ error: 'Authentication required' });
       }

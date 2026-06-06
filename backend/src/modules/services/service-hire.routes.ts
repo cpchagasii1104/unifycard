@@ -8,6 +8,7 @@ import { serviceBookingDecisionService } from './service-booking-decision.servic
 import { BookingDecisionStatus } from './service-booking-decision.types';
 import { servicePaymentRequestService } from './service-payment-request.service';
 import { servicePaymentExecutionService } from './service-payment-execution.service';
+import { isServiceFinancialRuntimeEnabled, serviceFinancialDisabledBody } from './service-financial-firewall';
 
 /**
  * POST /services/:serviceId/hire
@@ -36,6 +37,11 @@ const serviceHireRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:serviceId/hire',
     async (req, reply) => {
+      // DECISION-0110: fail-closed até a cadeia canônica. O `hire` auto-aceita a decisão (D3) e atinge
+      // pagamento — fica desabilitado (firewall ANTES de qualquer etapa; nenhum booking/decisão/dinheiro).
+      if (!isServiceFinancialRuntimeEnabled()) {
+        return reply.status(403).send(serviceFinancialDisabledBody('POST /services/:serviceId/hire'));
+      }
       const tenantId = req.tenant?.id;
       const userId = req.user?.userId;
 
