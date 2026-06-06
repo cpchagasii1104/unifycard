@@ -1,3 +1,19 @@
+## 2026-06-05 — F-SERVICE-TAXONOMY-BRIDGE-SEED-SALON: salão ligado às 5 categorias de serviço (seed governado)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `407c7fb4`. Frente **seed/DML governado** (DECISION-0109 D3 / Opção A). **Zero runtime / endpoint / frontend / serviço / availability / booking / Bank / alteração em `default_*_slugs` / `allowed_concepts` / `services.category_id` / categorias existentes.** 3 autorais intocados. _(Esteira: eu escritora; runner canônico.)_
+
+**O que entregou:** semeia a ponte `company_type_service_categories` para o piloto **salão** — liga `salao` às suas 5 categorias de serviço (`domain='servicos'`, subárvore de `servicos-estetica-bem-estar`): `servicos-estetica-bem-estar` (`is_department=true`, raiz/departamento) + `servicos-cabeleireiro`/`servicos-barbearia`/`servicos-manicure`/`servicos-estetica-facial` (ramos). `source='clayton_curated_service_bridge_salon_2026_06_05'`. **Fail-closed** (resolve company_type+categorias por slug; RAISE/rollback total se faltar categoria ou domínio ≠ servicos — sem seed parcial) e **idempotente** (ON CONFLICT no par único + verificação final pós-seed: 5 linhas, 1 departamento). **Esta fatia só cria a ponte semântica/categorial do salão — NÃO cria fluxo de serviço.**
+
+**Arquivos:** `backend/migrations/20260605200000_seed_company_type_service_categories_salon.sql` (novo). **Migration apenas.**
+
+**Prova:** aplicada pelo **runner canônico**. **5 linhas** para `salao`, todas `domain='servicos'`; 1 `is_department=true` (`servicos-estetica-bem-estar`) + 4 ramos; `source` uniforme; **idempotente** (re-INSERT inseriu 0, mantém 5). Não-toque: `salao.default_*_slugs` (marketplace-*) intocado; `company_type_allowed_concepts` (7) intocado; `services` (0)/`availability` (32) intocados; nenhuma categoria alterada. **schema_migrations 364→365**, registrada, **files=registered (sem fantasma)**. 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). Nenhum `.ts`/frontend/Bank.
+
+**DTs:** **`DT-SERVICE-RAMO-TAXONOMY-FORK` → GOVERNED / PARTIALLY MITIGATED** (schema+seed prontos; falta guard/runtime de criação de serviço). `DT-SERVICE-NO-COMPANY-RAMO-BRIDGE` → metade de categoria endereçada; segue OPEN/PARTIAL (falta companyId/page-actor + guard).
+
+**PRÓXIMA ETAPA (espera Clayton):** guard de criação de serviço — `services.category_id` deve ser `domain='servicos'` E ∈ ponte do company_type da empresa; companyId/page-actor entra no fluxo; criação+agenda Bank-free. Booking/order/payment/Bank seguem bloqueados.
+
+---
+
 ## 2026-06-05 — F-SERVICE-TAXONOMY-BRIDGE-SCHEMA-MIGRATION: ponte governada company_type→categoria de serviço (schema-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `8efd82c0`. Frente **schema-only** (DECISION-0109 D3 / ratificação Opção A de Clayton). **Zero seed / runtime / serviço / availability / booking / Bank / frontend / alteração em `services.category_id`/`company_type_allowed_concepts`/`default_*_slugs`.** 3 autorais intocados. _(Esteira: eu escritora; runner canônico, não psql -f.)_
