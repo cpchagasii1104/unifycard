@@ -1,3 +1,19 @@
+## 2026-06-05 — F-SERVICE-SALON-AVAILABILITY-BANK-FREE: agenda de serviço sobre o core (adapter fino, Bank-free)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `76c5899b`. Frente **code-only** (DECISION-0109, Bank-free). **Zero migration** (dev 365) / seed / booking / order / payment / escrow / settlement / Bank / tabela nova / SSOT paralelo. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** a agenda do serviço, fechando a metade **availability** do disconnect. Materializa os endpoints que o frontend já chamava (`POST/GET/PUT /services/:serviceId/availability`) como **adapter FINO** que delega ao CORE real `availability` (`owner_type='service'`, `owner_id=service_id`) — **sem SSOT paralelo**. Novos métodos `servicesService.createServiceAvailability`/`listServiceAvailabilities`/`updateServiceAvailability`: escrita exige **dono do serviço** (`service.actorId === callerActorId`), leitura pública; delegam a `unifiedAvailabilityService` (core). Update valida que a availability pertence ao serviço. **Bank-free; sem booking.** `unified_availability` segue como nome de repo (tabela real = `availability`).
+
+**Arquivos:** `backend/src/modules/services/services.service.ts` (3 métodos adapter + import core), `services.routes.ts` (3 rotas finas `/services/:serviceId/availability[/:availabilityId]` + projeção `toServiceAvailability`). E2E: `validate-pipeline-e2e-service-salon-availability-bank-free.ts`, `scripts/run-service-salon-availability-bank-free-ephemeral.ps1`.
+
+**Prova:** e2e efêmero **10/10 verde** — serviço de salão válido (passa guard) → availability via adapter → **linha no core `availability` com owner_type=service, owner_id=service_id**; list delega ao core (mesma availability); **escrita=dono** (actor não-dono → ForbiddenError); supermercado segue barrado pelo guard de categoria; **zero booking, zero service_order, Bank intocado**; 1 linha temporal só no core (sem SSOT paralelo). Backend tsc só baseline geo; **frontend tsc exit 0** (não precisou mudar). 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365** (zero migration).
+
+**DTs:** **`DT-SERVICE-AVAILABILITY-ENDPOINT-DISCONNECT` → PARTIALLY MITIGATED** (metade availability reconciliada via adapter→core; metade bookings segue fantasma, bloqueada por Bank). `DT-SERVICE-COMMERCIAL-FLOW-BANK-COUPLED` segue OPEN (booking/payment/escrow).
+
+**PRÓXIMA ETAPA (espera Clayton):** a partir daqui, booking/order/payment exigem **decisão financeira** (porta corta-fogo do Bank) — `DT-SERVICE-COMMERCIAL-FLOW-BANK-COUPLED`. Nada de booking/Bank sem essa decisão.
+
+---
+
 ## 2026-06-05 — F-SERVICE-CREATION-CATEGORY-RAMO-GUARD: guard de categoria/ramo na criação de serviço (FECHA a DT do fork)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `446add0d`. Frente **code-only** (DECISION-0109 D1/D3/D6). **Zero migration** (dev 365) / seed / availability / booking / order / payment / Bank / frontend. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_

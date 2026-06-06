@@ -11,8 +11,14 @@ import { actorIntentsService } from '@modules/social/actor-intents.service';
 import { actorEffectsService } from '@modules/social/actor-effects.service';
 import { ActorIntent } from '@modules/social/actor-intents.types';
 import { ActorEffect } from '@modules/social/actor-effects.types';
-import { BadRequestError } from '@core/errors';
+import { BadRequestError, ForbiddenError } from '@core/errors';
 import { assertServiceCategoryAllowedForCompany } from './service-category-guard';
+import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
+import type {
+  UnifiedAvailability,
+  CreateUnifiedAvailabilityInput,
+  UpdateUnifiedAvailabilityInput,
+} from '@core/availability/unified-availability.types';
 import { AvailabilityOwnerType, UnifiedAvailabilityStatus } from '@core/availability/unified-availability.types';
 import type { Service, CreateServiceInput, UpdateServiceInput } from './services.types';
 import { ServiceStatus } from './services.types';
@@ -322,6 +328,80 @@ class ServicesService {
 
     // Remover nulls (serviços filtrados por has_availability)
     return enriched.filter((s): s is NonNullable<typeof s> => s !== null);
+  }
+
+  // ============================================================
+  // AGENDA / AVAILABILITY DO SERVIÇO (DECISION-0109 — Bank-free)
+  // Adapter FINO sobre o CORE real `availability` (owner_type='service', owner_id=service_id).
+  // NÃO cria SSOT paralelo; NÃO cria booking; NÃO toca Bank. O core é a verdade temporal.
+  // ============================================================
+
+  /** Carrega o serviço e exige que o caller seja o actor dono (escrita de agenda = dono). */
+  private async requireServiceOwnedByActor(
+    tenantId: string,
+    serviceId: string,
+    callerActorId: string
+  ): Promise<Service> {
+    const service = await servicesRepository.findById(tenantId, serviceId);
+    if (!service) {
+      throw new BadRequestError('Serviço não encontrado');
+    }
+    if (service.actorId !== callerActorId) {
+      throw new ForbiddenError('Apenas o actor dono do serviço pode gerir sua agenda');
+    }
+    return service;
+  }
+
+  /**
+   * Cria disponibilidade para um serviço (delega ao core). Escrita = dono do serviço.
+   * 🔴 Bank-free. NÃO cria booking. owner_type='service', owner_id=serviceId.
+   */
+  async createServiceAvailability(
+    tenantId: string,
+    callerActorId: string,
+    serviceId: string,
+    input: Omit<CreateUnifiedAvailabilityInput, 'ownerType' | 'ownerId'>
+  ): Promise<UnifiedAvailability> {
+    await this.requireServiceOwnedByActor(tenantId, serviceId, callerActorId);
+    return unifiedAvailabilityService.createAvailability(tenantId, callerActorId, {
+      ownerType: AvailabilityOwnerType.SERVICE,
+      ownerId: serviceId,
+      ...input,
+    });
+  }
+
+  /**
+   * Lista disponibilidades de um serviço (delega ao core). Leitura pública (descoberta).
+   */
+  async listServiceAvailabilities(
+    tenantId: string,
+    serviceId: string,
+    filters?: { status?: UnifiedAvailabilityStatus }
+  ): Promise<UnifiedAvailability[]> {
+    return unifiedAvailabilityService.listAvailabilities(tenantId, {
+      ownerType: AvailabilityOwnerType.SERVICE,
+      ownerId: serviceId,
+      status: filters?.status,
+    });
+  }
+
+  /**
+   * Atualiza uma disponibilidade do serviço (delega ao core). Escrita = dono; valida que a
+   * availability pertence ao serviço (owner_type='service', owner_id=serviceId).
+   */
+  async updateServiceAvailability(
+    tenantId: string,
+    callerActorId: string,
+    serviceId: string,
+    availabilityId: string,
+    input: UpdateUnifiedAvailabilityInput
+  ): Promise<UnifiedAvailability> {
+    await this.requireServiceOwnedByActor(tenantId, serviceId, callerActorId);
+    const existing = await unifiedAvailabilityService.getAvailability(tenantId, availabilityId);
+    if (existing.ownerType !== AvailabilityOwnerType.SERVICE || existing.ownerId !== serviceId) {
+      throw new ForbiddenError('Disponibilidade não pertence a este serviço');
+    }
+    return unifiedAvailabilityService.updateAvailability(tenantId, availabilityId, callerActorId, input);
   }
 }
 

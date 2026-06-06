@@ -232,6 +232,150 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  // ============================================================
+  // AGENDA / AVAILABILITY DO SERVIÇO (DECISION-0109 — Bank-free)
+  // Adapter FINO sobre o CORE real `availability` (owner_type='service'). Reconcilia os endpoints
+  // que o frontend já chama (/services/:serviceId/availability) com a verdade temporal do core —
+  // SEM SSOT paralelo, SEM booking, SEM Bank. POST/PUT exigem dono; GET é leitura pública.
+  // ============================================================
+
+  const availabilityCreateSchema = z.object({
+    availabilityType: z.enum(['fixed', 'recurring', 'on_demand']).optional(),
+    status: z.enum(['active', 'paused']).optional(),
+    startDatetime: z.string().min(1),
+    endDatetime: z.string().min(1),
+    timezone: z.string().optional(),
+    capacity: z.number().int().min(0).nullable().optional(),
+    metadata: z.record(z.any()).optional(),
+  });
+  const availabilityUpdateSchema = z.object({
+    availabilityType: z.enum(['fixed', 'recurring', 'on_demand']).optional(),
+    status: z.enum(['active', 'paused']).optional(),
+    startDatetime: z.string().min(1).optional(),
+    endDatetime: z.string().min(1).optional(),
+    timezone: z.string().optional(),
+    capacity: z.number().int().min(0).nullable().optional(),
+    metadata: z.record(z.any()).optional(),
+  });
+  // Projeção honesta para o frontend (ServiceAvailability): id = availabilityId; serviceId = ownerId.
+  const toServiceAvailability = (a: any) => ({
+    id: a.availabilityId,
+    tenantId: a.tenantId,
+    serviceId: a.ownerId,
+    availabilityType: a.availabilityType,
+    status: a.status,
+    startDatetime: a.startDatetime instanceof Date ? a.startDatetime.toISOString() : a.startDatetime,
+    endDatetime: a.endDatetime instanceof Date ? a.endDatetime.toISOString() : a.endDatetime,
+    timezone: a.timezone,
+    capacity: a.capacity ?? null,
+    metadata: a.metadata ?? null,
+    createdAt: a.createdAt,
+    updatedAt: a.updatedAt,
+  });
+
+  /** POST /services/:serviceId/availability — cria agenda do serviço (delega ao core). Dono. */
+  fastify.post<{ Params: { serviceId: string }; Body: z.infer<typeof availabilityCreateSchema> }>(
+    '/:serviceId/availability',
+    async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+      if (!req.tenant || !req.tenant.id) {
+        return reply.status(400).send({ error: 'Tenant not found' });
+      }
+      const parsed = availabilityCreateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'Invalid request body', details: parsed.error.errors });
+      }
+      try {
+        const availability = await servicesService.createServiceAvailability(
+          req.tenant.id,
+          req.actionContext.actorId,
+          req.params.serviceId,
+          {
+            availabilityType: parsed.data.availabilityType as any,
+            status: parsed.data.status as any,
+            startDatetime: new Date(parsed.data.startDatetime),
+            endDatetime: new Date(parsed.data.endDatetime),
+            timezone: parsed.data.timezone,
+            capacity: parsed.data.capacity,
+            metadata: parsed.data.metadata,
+          }
+        );
+        return reply.status(201).send({ ok: true, data: toServiceAvailability(availability) });
+      } catch (error) {
+        fastify.log.error({ err: error }, 'Erro ao criar disponibilidade de serviço');
+        return reply.status(400).send({
+          error: 'Erro ao criar disponibilidade',
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  );
+
+  /** GET /services/:serviceId/availability — lista agenda do serviço (leitura pública, delega ao core). */
+  fastify.get<{ Params: { serviceId: string }; Querystring: { status?: string } }>(
+    '/:serviceId/availability',
+    async (req, reply) => {
+      if (!req.tenant || !req.tenant.id) {
+        return reply.status(400).send({ error: 'Tenant not found' });
+      }
+      try {
+        const list = await servicesService.listServiceAvailabilities(req.tenant.id, req.params.serviceId, {
+          status: req.query.status as any,
+        });
+        return reply.send({ ok: true, data: list.map(toServiceAvailability) });
+      } catch (error) {
+        fastify.log.error({ err: error }, 'Erro ao listar disponibilidades de serviço');
+        return reply.status(400).send({
+          error: 'Erro ao listar disponibilidades',
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  );
+
+  /** PUT /services/:serviceId/availability/:availabilityId — atualiza janela (delega ao core). Dono. */
+  fastify.put<{ Params: { serviceId: string; availabilityId: string }; Body: z.infer<typeof availabilityUpdateSchema> }>(
+    '/:serviceId/availability/:availabilityId',
+    async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+      if (!req.tenant || !req.tenant.id) {
+        return reply.status(400).send({ error: 'Tenant not found' });
+      }
+      const parsed = availabilityUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'Invalid request body', details: parsed.error.errors });
+      }
+      try {
+        const availability = await servicesService.updateServiceAvailability(
+          req.tenant.id,
+          req.actionContext.actorId,
+          req.params.serviceId,
+          req.params.availabilityId,
+          {
+            availabilityType: parsed.data.availabilityType as any,
+            status: parsed.data.status as any,
+            startDatetime: parsed.data.startDatetime ? new Date(parsed.data.startDatetime) : undefined,
+            endDatetime: parsed.data.endDatetime ? new Date(parsed.data.endDatetime) : undefined,
+            timezone: parsed.data.timezone,
+            capacity: parsed.data.capacity,
+            metadata: parsed.data.metadata,
+          }
+        );
+        return reply.send({ ok: true, data: toServiceAvailability(availability) });
+      } catch (error) {
+        fastify.log.error({ err: error }, 'Erro ao atualizar disponibilidade de serviço');
+        return reply.status(400).send({
+          error: 'Erro ao atualizar disponibilidade',
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  );
+
   /**
    * GET /services/discover
    * Descobrir serviços com filtros explícitos
