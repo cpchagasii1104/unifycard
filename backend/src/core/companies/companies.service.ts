@@ -451,12 +451,16 @@ class CompaniesService {
     const creatorActor = await ensureUserActor(finalTenantId, userId);
 
     // Permissões + SOFT-BLOCK (validação que pode LANÇAR) — PRÉ-TX, antes de abrir transação.
+    // F-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH: defaults derivados do vocabulário ALINHADO ao banco
+    // (owner/admin/staff/contractor/member). `owner` e `admin` carregam poder de gestão; staff/
+    // contractor/member não. A autoridade material vive nestes flags can_manage_*, não no rótulo `role`.
+    const isManagerTier = input.role === 'owner' || input.role === 'admin';
     const defaultPermissions = {
       canManageCompany: input.permissions?.canManageCompany ?? (input.role === 'owner'),
-      canManageFinancial: input.permissions?.canManageFinancial ?? (input.role === 'owner' || input.role === 'director'),
-      canManageEmployees: input.permissions?.canManageEmployees ?? (input.role === 'owner' || input.role === 'director' || input.role === 'manager'),
+      canManageFinancial: input.permissions?.canManageFinancial ?? isManagerTier,
+      canManageEmployees: input.permissions?.canManageEmployees ?? isManagerTier,
       canViewReports: input.permissions?.canViewReports ?? true,
-      canManageServices: input.permissions?.canManageServices ?? (input.role === 'owner' || input.role === 'director' || input.role === 'manager'),
+      canManageServices: input.permissions?.canManageServices ?? isManagerTier,
     };
 
     const { softBlockService } = await import('@core/authorization/soft-block.service');

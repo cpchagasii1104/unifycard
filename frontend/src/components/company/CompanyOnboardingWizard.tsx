@@ -36,14 +36,14 @@ interface CompanyOnboardingWizardProps {
 
 const TOTAL_STEPS = 5;
 
-// F-PJ-ONBOARDING-ROLE-DEDUP: rótulo PT do vínculo formal (mesma fonte do cadastro). Apresentação apenas.
+// F-PJ-ONBOARDING-ROLE-DEDUP / F-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH: rótulo PT do vínculo
+// formal. Vocabulário ALINHADO ao banco (chk_company_users_role_valid). Apresentação apenas.
 const COMPANY_ROLE_LABEL: Record<CompanyUserRole, string> = {
   owner: 'Proprietário',
-  partner: 'Sócio',
-  director: 'Diretor',
-  manager: 'Gerente',
-  employee: 'Funcionário',
-  other: 'Outro',
+  admin: 'Administrador',
+  staff: 'Funcionário',
+  contractor: 'Prestador',
+  member: 'Membro',
 };
 
 export default function CompanyOnboardingWizard({
@@ -151,10 +151,12 @@ export default function CompanyOnboardingWizard({
 
   // F-PJ-ONBOARDING-ROLE-DEDUP: o papel é CONFIRMADO do vínculo formal (company_users, definido no
   // cadastro), NÃO reperguntado. `formalRoleLabel` é só apresentação.
-  // Defensivo: company_users.role pode carregar vocabulário do banco (owner/admin/staff/contractor/member)
-  // diferente do contrato (owner/partner/...). Se não houver rótulo PT, mostra o valor cru (sem "undefined").
+  // F-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH: vocabulário do contrato agora == banco
+  // (owner/admin/staff/contractor/member). A nuance livre (ex.: "Sócio", "Diretor") vem de
+  // roleDescription; quando presente em papel não-owner, ela é mais informativa que o rótulo coarse.
+  // Fallback defensivo ao valor cru se algum dado legado trouxer role fora do mapa.
   const formalRoleLabel = initialRole
-    ? (initialRole === 'other' && initialRoleDescription
+    ? (initialRoleDescription && initialRole !== 'owner'
         ? initialRoleDescription
         : (COMPANY_ROLE_LABEL[initialRole] ?? String(initialRole)))
     : null;
@@ -164,8 +166,8 @@ export default function CompanyOnboardingWizard({
   useEffect(() => {
     setInitialRoles({
       owner: true, // o responsável pelo cadastro é o owner-equivalente da página da empresa
-      manager: initialRole === 'manager',
-      staff: initialRole === 'employee',
+      manager: initialRole === 'admin',
+      staff: initialRole === 'staff' || initialRole === 'contractor' || initialRole === 'member',
     });
   }, [initialRole]);
 

@@ -517,23 +517,25 @@ export default function CompaniesManagerForm({
                 onChange={(e) => setFormData({ ...formData, role: e.target.value as CompanyUserRole })}
                 required
               >
-                <option value="owner">Proprietário/Sócio</option>
-                <option value="partner">Sócio</option>
-                <option value="director">Diretor</option>
-                <option value="manager">Gerente</option>
-                <option value="employee">Funcionário</option>
-                <option value="other">Outro</option>
+                {/* F-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH: opções = vocabulário do banco
+                    (chk_company_users_role_valid). Nuance sócio/diretor/gerente vira texto livre
+                    em "Descrição do cargo" (sem fingir autoridade granular que o sistema não governa). */}
+                <option value="owner">Proprietário / Responsável</option>
+                <option value="admin">Administrador (sócio-administrador / diretor)</option>
+                <option value="staff">Funcionário / Equipe</option>
+                <option value="contractor">Prestador / Terceiro</option>
+                <option value="member">Membro</option>
               </select>
             </div>
-            {formData.role === 'other' && (
+            {formData.role !== 'owner' && (
               <div className="form-group">
-                <label htmlFor="roleDescription">Descrição do Cargo</label>
+                <label htmlFor="roleDescription">Descrição do cargo (opcional)</label>
                 <input
                   id="roleDescription"
                   type="text"
                   value={formData.roleDescription || ''}
                   onChange={(e) => setFormData({ ...formData, roleDescription: e.target.value })}
-                  placeholder="Ex: Consultor, Assessor, etc."
+                  placeholder="Ex: Sócio, Diretor, Gerente, Consultor…"
                 />
               </div>
             )}

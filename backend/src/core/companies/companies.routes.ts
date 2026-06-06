@@ -38,7 +38,7 @@ const createCompanySchema = z.object({
       description: z.string(),
     })).optional(),
   }).optional(),
-  role: z.enum(['owner', 'partner', 'director', 'manager', 'employee', 'other']),
+  role: z.enum(['owner', 'admin', 'staff', 'contractor', 'member']),
   roleDescription: z.string().optional(),
   permissions: z.object({
     canManageCompany: z.boolean().optional(),
@@ -104,7 +104,7 @@ const retireConceptSchema = z.object({
 }).optional();
 
 const updateCompanyUserSchema = z.object({
-  role: z.enum(['owner', 'partner', 'director', 'manager', 'employee', 'other']).optional(),
+  role: z.enum(['owner', 'admin', 'staff', 'contractor', 'member']).optional(),
   roleDescription: z.string().optional(),
   permissions: z.object({
     canManageCompany: z.boolean().optional(),

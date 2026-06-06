@@ -1,3 +1,19 @@
+## 2026-06-06 — F-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH: vocabulário de cargo alinhado ao banco (code-only, sem migration)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `ed5ad174`. Code-only (contrato + API + UI + permissões). **Zero migration / Bank / schema.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** fechava buraco na **porta de entrada PJ** — o form/contrato `CompanyUserRole` ofereciam `owner/partner/director/manager/employee/other`, mas o CHECK vivo `chk_company_users_role_valid` só aceita `owner/admin/staff/contractor/member`; criar empresa com qualquer papel ≠ owner **violava o CHECK** (23514). **Opção A (vocabulário ÚNICO = o do banco)**: contrato `CompanyUserRole` → `owner|admin|staff|contractor|member` (dist rebuildado); ambos `z.enum` (create/update) alinhados; permissões derivadas do novo vocab (`isManagerTier=owner||admin` → financial/employees/services; owner → canManageCompany; demais sem manage — autoridade vive em `can_manage_*`, não no rótulo); form com as 5 opções PT + "Descrição do cargo" livre p/ não-owner (captura sócio/diretor sem fingir autoridade); wizard `COMPANY_ROLE_LABEL` alinhado. **Opção C (mexer no CHECK) rejeitada** — banco já tinha vocab funcional (MVP sem migration).
+
+**Arquivos:** `packages/contracts/src/company.ts` (+`dist/company.*`/`index.*` rebuildados), `backend/src/core/companies/companies.routes.ts` (zod), `backend/src/core/companies/companies.service.ts` (permissões), `frontend/src/components/CompaniesManagerForm.tsx` (opções), `frontend/src/components/company/CompanyOnboardingWizard.tsx` (label/derive), e2e novo.
+
+**Prova:** e2e `validate-pipeline-e2e-pj-company-user-role-vocabulary` **7/7** (V1..V5 cada papel grava+projeta+tier; N1 legado `manager` rejeitado/nada criado; cleanup). Sem regressão: projection 4/4, lifecycle 7/7, CNPJ 6/6. Frontend+backend tsc 0 (escopo). 4 gates OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365.**
+
+**DTs:** `DT-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH` → **CLOSED**. Residual de produto (sócio/diretor/procurações como autoridade governada) → frente de authorized links/delegations (`actor_delegations`); por ora `roleDescription` texto livre.
+
+**PRÓXIMA ETAPA (ordem Clayton):** 1. KYB documents SSOT writer/read-only ou design; 2. delete guard via Bank port; 3. KYB release gate financeiro.
+
+---
+
 ## 2026-06-06 — F-PJ-ONBOARDING-ROLE-DEDUP: wizard confirma o papel formal em vez de reperguntar (frontend + projeção backend isolada)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `0e66e1b2`. **Tocou backend** só em projeção de leitura isolada (gap que o tipo já prometia). **Zero migration / Bank / escrita de autoridade.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_

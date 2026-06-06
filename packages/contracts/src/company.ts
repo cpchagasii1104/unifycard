@@ -39,14 +39,23 @@ export type CompanyOperationalStatus =
 
 /**
  * Papel do usuário na empresa.
+ *
+ * F-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH (2026-06-06): este conjunto DEVE ser idêntico ao
+ * CHECK vivo `chk_company_users_role_valid` (migration 20260530541000) — `company_users.role IN
+ * ('owner','admin','staff','contractor','member')`. O vocabulário anterior
+ * (owner/partner/director/manager/employee/other) divergia do banco: só `owner` coincidia, e criar
+ * empresa com qualquer outro violava o CHECK (23514). Vocabulário único = o do banco.
+ *
+ * `role` NÃO é autoridade granular — a autoridade material vive em `company_users.can_manage_*`.
+ * Nuance de produto (sócio/diretor/gerente) é texto livre em `roleDescription` (residual: frente de
+ * authorized links/delegations). Default do banco = 'member'.
  */
 export type CompanyUserRole =
-  | 'owner'        // Proprietário
-  | 'partner'      // Sócio
-  | 'director'     // Diretor
-  | 'manager'      // Gerente
-  | 'employee'     // Funcionário
-  | 'other';       // Outro
+  | 'owner'        // Proprietário / responsável
+  | 'admin'        // Administrador (poder de gestão: sócio-administrador / diretor)
+  | 'staff'        // Funcionário / equipe
+  | 'contractor'   // Prestador / terceiro
+  | 'member';      // Membro
 
 
 
