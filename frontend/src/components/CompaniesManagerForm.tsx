@@ -732,8 +732,8 @@ export default function CompaniesManagerForm({
 
                 {company.companyStatus === 'DRAFT' && (
                   <div className="status-message status-draft">
-                    <strong>📝 Rascunho</strong>
-                    <p>Cadastro ainda não finalizado.</p>
+                    <strong>📝 Em configuração</strong>
+                    <p>Cadastro ainda não finalizado. Esta empresa não está pronta/provisória até você concluir a configuração.</p>
                   </div>
                 )}
 
@@ -753,10 +753,24 @@ export default function CompaniesManagerForm({
               {/* Ações */}
               <div className="company-actions-section">
                 <div className="company-actions-left">
+                  {/* F-PJ-LIFECYCLE-DRAFT-TO-PROVISIONAL: empresa em configuração (DRAFT) não envia
+                      comprovante — finaliza o cadastro primeiro. O CTA leva de volta ao wizard, cujo
+                      submit promove DRAFT → PROVISIONAL (par soberano). Documentos KYB entram no fluxo
+                      pós-finalização (não aqui). */}
+                  {company.companyStatus === 'DRAFT' && (
+                    <button
+                      type="button"
+                      className="upload-button-primary"
+                      onClick={() => navigate(`/empresas/${company.companyId}/onboarding`)}
+                      title="Continuar e finalizar o cadastro desta empresa"
+                    >
+                      📝 Continuar configuração
+                    </button>
+                  )}
                   {/* DECISION-0096: CTA "Validar presencialmente" REMOVIDA — validação presencial PJ
                       está reservada/desabilitada (backend retorna 501, sem fluxo vivo). A verificação
                       PJ ocorre pelo fluxo KYB/documental. NÃO reabrir sem greenfield. */}
-                  {company.companyStatus !== 'VERIFIED' && company.companyStatus !== 'PROVISIONAL' && company.companyStatus !== 'APPROVED' && (
+                  {company.companyStatus !== 'VERIFIED' && company.companyStatus !== 'PROVISIONAL' && company.companyStatus !== 'APPROVED' && company.companyStatus !== 'DRAFT' && (
                     <label className="upload-button-primary">
                       {uploadingCompanyId === company.companyId ? (
                         '⏳ Enviando...'

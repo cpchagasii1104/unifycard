@@ -297,13 +297,17 @@ class CompaniesService {
     const userId = await this.resolveUserIdFromGlobalUserId(globalUserId, finalTenantId);
     if (!userId || !isTestOverrideUser(userId)) {
       // 🔴 CORREÇÃO: ANTI-FRAUDE com filtro tenant_id
+      // F-PJ-LIFECYCLE-DRAFT-TO-PROVISIONAL: o limite de onboarding conta TODOS os estados
+      // pré-verificação (DRAFT = em configuração + PROVISIONAL = provisória pós-finalização),
+      // não só PROVISIONAL. A empresa agora nasce DRAFT; contar só PROVISIONAL deixaria o
+      // anti-fraude cego a rascunhos acumulados.
       const provisionalRows = await runQueriesWithTenant<{ count: string }>(
         finalTenantId,
         `
         SELECT COUNT(*) as count
         FROM companies
-        WHERE tenant_id = $1 AND global_user_id = $2::uuid 
-          AND company_status = 'PROVISIONAL'
+        WHERE tenant_id = $1 AND global_user_id = $2::uuid
+          AND company_status IN ('DRAFT', 'PROVISIONAL')
           AND status != 'suspended'
         `,
         [finalTenantId, globalUserId]
@@ -314,7 +318,7 @@ class CompaniesService {
 
       if (currentProvisionalCount >= MAX_PROVISIONAL_PER_CPF) {
         throw new Error(
-          `Limite de ${MAX_PROVISIONAL_PER_CPF} empresas em onboarding (PROVISIONAL) atingido. ` +
+          `Limite de ${MAX_PROVISIONAL_PER_CPF} empresas em onboarding (rascunho/provisória) atingido. ` +
           `Conclua a verificação fiscal (KYB) de uma empresa existente ou aguarde antes de cadastrar novas.`
         );
       }
@@ -329,8 +333,11 @@ class CompaniesService {
     let contact: CompanyContact = input.contact || {};
     // F-PJ-COMPANY-ACTIVITY-GHOST-CLEANUP (DECISION-0103 D12): `activity` local removido — extração de CNAE
     // não era persistida (companies não tem colunas de atividade). Evidência CNAE irá para a casa fiscal.
-    // Status inicial: PROVISIONAL (permite uso social com limites)
-    let companyStatus: CompanyStatus = 'PROVISIONAL';
+    // F-PJ-LIFECYCLE-DRAFT-TO-PROVISIONAL: a empresa NASCE DRAFT (em configuração).
+    // Só vira PROVISIONAL quando o usuário finaliza o onboarding (activateCompanyOperationally,
+    // Momento 2 — par soberano gravado). Antes disso ela não deve aparecer como cadastrada/pronta.
+    // O fetch da Receita (prefill de nome/endereço) NÃO promove lifecycle.
+    let companyStatus: CompanyStatus = 'DRAFT';
 
     // 🔴 Buscar dados da Receita Federal se solicitado (OPCIONAL - não bloqueia)
     if (input.fetchFromRevenue !== false) {
@@ -371,21 +378,22 @@ class CompaniesService {
           // (fiscal_identity_economic_activities) em frente própria (DECISION-0103 D2/D4). O fetch da Receita
           // segue intacto para prefill de nome/endereço/contato.
 
-          // DECISION-0092/0093: company_status é lifecycle/onboarding; a empresa nasce PROVISIONAL.
+          // DECISION-0092/0093 + F-PJ-LIFECYCLE-DRAFT-TO-PROVISIONAL: company_status é
+          // lifecycle/onboarding; a empresa nasce DRAFT e o prefill da Receita NÃO a promove.
           // Verificação fiscal NÃO vem daqui — FONTE ÚNICA = fiscal_identities.kyb_status.
-          companyStatus = 'PROVISIONAL';
+          companyStatus = 'DRAFT';
         } else {
-          // Sem dados da Receita, mas com nome: PROVISIONAL
-          companyStatus = 'PROVISIONAL';
+          // Sem dados da Receita, mas com nome: continua DRAFT (em configuração).
+          companyStatus = 'DRAFT';
         }
       } catch (err) {
         // 🔴 Erro na busca NÃO bloqueia cadastro
         console.warn('[CompaniesService] Erro ao buscar da Receita (não bloqueante):', err);
-        companyStatus = 'PROVISIONAL';
+        companyStatus = 'DRAFT';
       }
     } else {
-      // Se não tentou buscar, mas tem nome: PROVISIONAL
-      companyStatus = 'PROVISIONAL';
+      // Se não tentou buscar, mas tem nome: continua DRAFT (em configuração).
+      companyStatus = 'DRAFT';
     }
 
     // 🔴 Nome da empresa é obrigatório apenas se não veio da Receita
@@ -855,10 +863,15 @@ class CompaniesService {
         );
       }
 
+      // F-PJ-LIFECYCLE-DRAFT-TO-PROVISIONAL: este é o Momento 2 (finalização do onboarding).
+      // Além de gravar o par soberano, promove DRAFT → PROVISIONAL no MESMO UPDATE atômico.
+      // CASE só promove quando ainda está DRAFT — não regride PROVISIONAL/ACTIVE/SUSPENDED
+      // nem confere verificação (KYB é eixo separado em fiscal_identities.kyb_status).
       await client.query(
         `UPDATE companies
             SET primary_company_type_id = $1,
                 primary_concept_id = $2,
+                company_status = CASE WHEN company_status = 'DRAFT' THEN 'PROVISIONAL' ELSE company_status END,
                 updated_at = now()
           WHERE company_id = $3 AND tenant_id = $4`,
         [primaryCompanyTypeId, primaryConceptId, companyId, tenantId]
