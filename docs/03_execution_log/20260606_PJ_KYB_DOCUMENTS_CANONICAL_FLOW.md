@@ -1,7 +1,9 @@
-# Execução — F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW — code+frontend, sem migration
+# Execução — F-PJ-LEGACY-DOC-READERS-TOMBSTONE (subentrega de F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW) — code+frontend, sem migration
 
-**Data:** 2026-06-06 · **Modo:** EXECUTOR CONTROLADO · **Branch:** `rescue-structural`
+**Data:** 2026-06-06 · **Modo:** EXECUTOR CONTROLADO · **Branch:** `rescue-structural` · **commit:** `dd4e202c`
 **HEAD antes:** `8180a493` · **Decisão:** Clayton — fechar a tubulação documental (matar o circuito fantasma) antes de qualquer UI de upload · **Esteira:** eu (escritora); par verifica.
+
+> **⚠️ Enquadramento (correção Clayton 2026-06-06).** Esta fatia é a **subentrega segura** `F-PJ-LEGACY-DOC-READERS-TOMBSTONE`. A frente-mãe **`F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW` = PARTIAL / STOPPED** — o fluxo canônico de ponta a ponta (usuário→storage→`file_reference`→`fiscal_identity_documents`→admin revisa) **não foi concluído**: foi **bloqueado por STOP legítimo** (faltam storage/provider documental + autoridade de submit user-facing). Aqui só se **limpou o terreno** (matou o circuito fantasma) e se **achou o próximo alicerce obrigatório: storage documental**.
 
 ## Objetivo
 Substituir o circuito documental fantasma (`company_documents`) pelo SSOT canônico (`fiscal_identity_documents`, DECISION-0087), matando os readers/admin legados que sobraram após o tombstone do upload.
