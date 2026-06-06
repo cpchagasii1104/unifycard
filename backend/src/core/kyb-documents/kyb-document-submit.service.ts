@@ -141,7 +141,9 @@ export async function submitKybDocument(
     documentType: doc.documentType,
     documentStatus: doc.documentStatus,
     fileReference: doc.fileReference,
-    fileHash: doc.fileHash,
+    // SHA-256 do conteúdo armazenado (sempre string; doc.fileHash do SSOT é nullable). Resposta honesta
+    // = o hash que acabamos de computar/armazenar (igual ao gravado).
+    fileHash: stored.fileHash,
     mimeType: stored.mimeType,
     sizeBytes: stored.sizeBytes,
   };
