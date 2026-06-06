@@ -11452,6 +11452,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 - **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D4). Release ao prestador hoje não tem política promulgada (código assume `now()+7d` + buyer confirm); e `releaseFundsToActorWalletForOrder` (`service-order.service.ts:873`, único mover de saída/D-money) **não tem rota nem worker** — só e2e → fundos entrariam no escrow e ficariam **presos** (risco de custódia). Release automático sem política é proibido (D4).
 - **Resolução prevista:** promulgar prazo/regra de release + desenhar o gatilho (confirmação cliente / timeout) passando por Bank/ledger, pós-firewall. **NÃO** executar agora.
+- **Atualização 2026-06-06 (`DECISION-0111`) → GOVERNED / DECISIONED:** a **política** está cravada — release por **confirmação do cliente** (D1; prestador sozinho não libera); **timeout de 7 dias corridos** (D2, MVP ajustável), não libera com disputa/KYB-bloqueio/fraude/chargeback/ledger-inconsistente/ordem-inválida; **disputa trava** o release (D3). **Não CLOSED** — falta o **runtime** (gatilho de confirmação/timeout via Bank/ledger). Runtime do timeout = `DT-SERVICE-RELEASE-TIMEOUT-RUNTIME-MISSING`.
 
 ## DT-SERVICE-KYB-RELEASE-GATE-MISSING
 
@@ -11463,8 +11464,21 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 - **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110` (D5). Cancelamento pré-execução, no-show, disputa interna e refund de serviço **sem política**; campos existem (`disputed_at`), workflow não. **Refund pós-release = frente própria** (vínculo `DT-PE5`: estornar serviço já liberado drena escrow alheio + deixa wallet indevido).
 - **Resolução prevista:** frentes próprias de política (cancel/dispute/refund) + refund pós-release ligado a recovery/DT-PE5. **NÃO** executar agora.
+- **Atualização 2026-06-06 (`DECISION-0111`) → GOVERNED / DECISIONED:** política cravada — **cancelamento pré-execução = refund integral do escrow** (D4; pós-execução vira disputa); **no-show** cliente→disputa/manual, prestador→refund integral + registro de falha (D5); **disputa** registra motivo/actor/timestamp/estado, manual no MVP (D3); **refund pré-release sai do escrow** via Bank/ledger (D6, motor `DECISION-0052`); **refund pós-release = recovery/DT-PE5** (D7, base `DECISION-0052`/`0053`). **Não CLOSED** — falta o **runtime** (cancel/dispute/refund/no-show). Runtime de no-show = `DT-SERVICE-NO-SHOW-RUNTIME-MISSING`.
 
 ## DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL
 
 - **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110`. **Confirmado:** payment-request default `currency='FIC'` (`service-payment-request.service.ts:150`) × execução **exige** `BRL` e rejeita (`service-payment-execution.service.ts:462`). Um payment-request com a moeda default seria **rejeitado** na execução (cadeia quebra).
 - **Resolução prevista:** unificar a moeda canônica (BRL no MVP) entre request e execution, na cadeia canônica pós-firewall. **NÃO** executar agora.
+
+## DT-SERVICE-RELEASE-TIMEOUT-RUNTIME-MISSING
+
+- **Status:** OPEN (2026-06-06) — aberta por `DECISION-0111` (D2). A **política** de timeout de release está decidida (7 dias corridos após conclusão/entrega; só elegível sem disputa/KYB-bloqueio/fraude/chargeback/ledger-inconsistente/ordem-inválida; MVP ajustável), mas **não há runtime**: `releaseFundsToActorWalletForOrder` não tem rota nem worker, e `approveExpiredServiceOrderReleases` (`release-expired-service-orders.ts`) é CLI que só move **estado** (não dinheiro). Sem o gatilho de timeout operacional, a custódia ficaria presa.
+- **Vinculada a:** `service-order.service.ts:873`, `release_eligible_at`/`buyer_confirmation_deadline_at`, `disputed_at` (trava), firewall (`SERVICE_FINANCIAL_RUNTIME_ENABLED` OFF), `DT-SERVICE-PAYMENT-RELEASE-POLICY-MISSING`.
+- **Resolução prevista:** implementar o gatilho de release (confirmação = rota; timeout = worker), passando por Bank/ledger, com idempotência por estado — **na mesma fatia** da entrada em escrow (nunca separadas). **NÃO** executar agora; pós KYB-gate-method + E2Es fail-first.
+
+## DT-SERVICE-NO-SHOW-RUNTIME-MISSING
+
+- **Status:** OPEN (2026-06-06) — aberta por `DECISION-0111` (D5). A **política** de no-show está decidida (cliente não comparece → disputa/manual, **sem** release automático; prestador não comparece → refund integral + registro de falha; multa/no-show fee fora do MVP), mas **não há runtime** (sem marcação de no-show, sem fluxo de refund-por-falha-do-prestador, sem abertura de disputa por ausência).
+- **Vinculada a:** `service-order.service.ts`, `disputed_at`, escrow/refund (D6), `DT-SERVICE-REFUND-DISPUTE-POLICY-MISSING`.
+- **Resolução prevista:** runtime de no-show (marcação + caminho disputa/refund) na cadeia canônica, pós-decisões. **NÃO** executar agora.

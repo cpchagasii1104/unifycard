@@ -1,3 +1,19 @@
+## 2026-06-06 — DECISION-0111: política fina de serviço (release/timeout/cancel/no-show/disputa/refund/KYB/split) — docs-only
+
+**Branch:** `rescue-structural` · **HEAD origem:** `10812621`. Frente **docs-only** (Clayton cravou os defaults do MVP). **Zero código/runtime/migration/Bank/escrow/release/refund/dispute/worker/rota/frontend; flag continua OFF.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** fecha a política fina que a 0110 deixou como frentes próprias (D4/D5). **D1–D11 (Clayton):** release por **confirmação do cliente** (prestador sozinho não libera; via Bank/ledger); **timeout 7 dias corridos** MVP (não libera com disputa/KYB-bloqueio/fraude/chargeback/ledger-inconsistente/ordem-inválida); **disputa trava** (manual no MVP); **cancelamento pré-execução = refund integral do escrow** (pós = disputa); **no-show** cliente→disputa/manual, prestador→refund integral+registro; **refund pré-release** sai do escrow via ledger (motor 0052), **pós-release = recovery/DT-PE5** (base 0052/0053); **KYB** custódia sem KYB mas **saída exige KYB approved** (queda de KYB → escrow bloqueado fail-closed); **split** imutável após ledger (alíquotas = decisão operacional pendente); camadas (booking/request/order = não-liquidação; execution+ledger = início da verdade; release = etapa separada); **firewall continua OFF** (não reabre runtime; reabrir só após KYB-gate-method + E2Es fail-first + idempotência + double-entry + escrow hold + release governado + bloqueio refund pós-release sem recovery).
+
+**Arquivos:** `docs/02_decisions/DECISION_0111_SERVICE_RELEASE_CANCEL_DISPUTE_REFUND_POLICY.md` (novo), `REMEDIATION_DT_LOG.md`, `REMEDIATION_DECISIONS_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`, `docs/03_execution_log/20260606_DECISION_0111_SERVICE_RELEASE_CANCEL_DISPUTE_REFUND.md`. **Markdown apenas.**
+
+**Prova:** docs-only — runtime intocado. 4 gates: actor-writer / bank-ledger / regression-guards OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 365→365.**
+
+**DTs:** `DT-SERVICE-PAYMENT-RELEASE-POLICY-MISSING` e `DT-SERVICE-REFUND-DISPUTE-POLICY-MISSING` → **GOVERNED/DECISIONED** (política decidida, não CLOSED — falta runtime). `DT-SERVICE-KYB-RELEASE-GATE-MISSING` segue OPEN. **Abertas:** `DT-SERVICE-RELEASE-TIMEOUT-RUNTIME-MISSING`, `DT-SERVICE-NO-SHOW-RUNTIME-MISSING`. `COMMERCIAL-FLOW`/`DIRECT-PAYACCEPTED`/`HIRE-AUTO-ACCEPT` PARTIALLY MITIGATED; `CURRENCY-FIC-vs-BRL` OPEN. **Nenhuma DT de runtime fechada.**
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-SERVICE-KYB-RELEASE-GATE-METHOD-CODE` — gate KYB **fail-closed dentro do método** de release (não só na rota), aterrando D8; depois E2Es fail-first → cadeia canônica → reabertura do flag. Flag continua OFF.
+
+---
+
 ## 2026-06-06 — F-SERVICE-FINANCIAL-FIREWALL-CODE: fecha fail-closed as 3 rotas financeiras vivas de serviço (code-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `034a13ef`. Frente **code-only protetiva** (DECISION-0110 D8). **Zero migration** (dev 365) / seed / movimento de dinheiro / booking / release / ledger-splits como feature / frontend. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
