@@ -11391,3 +11391,36 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Prova:** e2e efêmero `validate-pipeline-e2e-pj-product-offer-eligibility-guard.ts` **14/14** — **tenant COMPARTILHADO**: super materializa+oferta banana; farmácia (mesmo tenant) REUSA o product mas o guard de OFERTA **barra** (ForbiddenError, zero offer); a banana segue materializada (barreira na prateleira, não no depósito); farmácia oferta medicamentos (seu ramo) OK; **PF sem companyId → bypass compat** (oferta criada); sem preço → zero offer; zero `price_cents=0`; zero canônico novo; `allowed_concepts` intocado; `tenants.company_type_id` NULL (empresa é a única autoridade); Bank intocado. 4 gates OK; dev 363→363.
 - **Hardening futuro (registrado, opcional — NÃO nesta fatia):** derivar a empresa por `merchant_id → actors.company_id` (a empresa REAL do vendedor) para caminhos que venham a criar offer **sem** `companyId` mas com merchant page-actor de empresa. Hoje o único writer já traz `companyId`, então a fresta demonstrada está fechada; a derivação por merchant é defesa-em-profundidade para writers futuros.
 - **Regra (Clayton/ChatGPT):** `tenant≈empresa` **não** é garantia arquitetural. A autoridade comercial é da **empresa/actor**, não do tenant. Produto existir no tenant ≠ toda empresa do tenant poder ofertá-lo.
+
+## DT-SERVICE-RAMO-TAXONOMY-FORK
+
+- **Status:** OPEN (2026-06-05) — aberta por `DECISION-0109` (docs-only). **Fork de taxonomia no Trilho B:** `company_types.default_department_slugs`/`default_branch_slugs` apontam categorias **`domain='marketplace'`** mesmo para serviço (`salao` → `marketplace-servicos-pessoais`/`marketplace-cabelo`/`marketplace-estetica-spa`/`marketplace-barbearia`), enquanto existe uma taxonomia **paralela** `domain='servicos'` (16 categorias: `servicos-cabeleireiro`, `servicos-barbearia`, `servicos-manicure`, `servicos-estetica-bem-estar`…). **Sem bridge** entre as duas. Consequência: a régua de ramo da `DECISION-0108` (que mede categoria de marketplace) **não pode ser reusada em serviços** — checaria a taxonomia errada.
+- **Origem:** raio-x read-only `Op3 READ-ONLY Trilho B` (HEAD `92b82afb`) + `DECISION-0109` D2/D3.
+- **Evidência (dev):** categorias por domínio = 16 `servicos` / 15 `marketplace` / 116 null; `salao` default slugs = `marketplace-*` (domain='marketplace', confirmado); `services.category_id → categories`.
+- **Vinculada a:** `company_types.default_*_slugs`, `categories.metadata.domain`, `services.category_id`, `DECISION-0108` (restrita a produto), `DECISION-0109`.
+- **Risco:** se serviço reusar a pré-moldagem marketplace, classifica-se serviço por taxonomia de produto (semântica errada, drift cristalizado). Se aplicar a régua 0108 sem bridge, fail-closed indevido (interseção vazia).
+- **Resolução prevista (frente própria `F-SERVICE-TAXONOMY-BRIDGE-READONLY`, read-only primeiro):** bridge explícita `company_type` (salão) → categorias `domain='servicos'`. **NÃO** usar slugs marketplace como categoria de serviço. **NÃO executar** antes da palavra de Clayton.
+
+## DT-SERVICE-COMMERCIAL-FLOW-BANK-COUPLED
+
+- **Status:** OPEN (2026-06-05) — aberta por `DECISION-0109` (docs-only). O fluxo comercial de serviço **já atravessa o Bank** em código vivo: `services-discovery.service.ts:256` (`bankTx.createSimpleTransaction`, `payAcceptedRequest`), `service-order.service.ts:1072` (`bankTransactionService.transfer`) + escrow F1 (`settlement_flow`, `buyer_confirmation_deadline_at`, `release_eligible_at`), `service-payment-execution` (bank splits). **Criar serviço** (`POST /services`) é Bank-free; **booking/order/payment não**. Contra a regra "Bank fica fora até decisão explícita".
+- **Origem:** raio-x read-only `Op3 READ-ONLY Trilho B` + `DECISION-0109` D4.
+- **Vinculada a:** `services-discovery.service.ts`, `service-order.service.ts`, `service-payment-execution.service.ts`, `service_orders` (settlement_flow/escrow), `service_discovery_requests.payment_bank_transaction_id`, Bank (`bank_ledger`/`bank_transactions`).
+- **Risco:** qualquer Op3 comercial (booking→order→payment) toca causalidade financeira sem decisão do cofre. Substrato com **0 linhas** (nunca exercido) → fácil construir errado.
+- **Resolução prevista:** **cerca corta-fogo** — primeiras fatias de serviço Bank-free (criação + agenda); booking/order/payment/escrow/settlement ficam atrás de **decisão financeira própria** (frente própria, não esta). **NÃO** tocar `service_orders`/`service_discovery` pay/`service_payment_execution`/Bank até lá.
+
+## DT-SERVICE-AVAILABILITY-ENDPOINT-DISCONNECT
+
+- **Status:** OPEN (2026-06-05) — aberta por `DECISION-0109` (docs-only). O **frontend** (`ServiceAvailabilityPage`, `ServiceBookingsPage`) chama `POST/GET /services/:id/availability` e `/services/:id/bookings` — **endpoints inexistentes** no backend. A availability/booking **real** mora no **core** (`availability`/`bookings`, via `unified-availability.repository`/rotas `/availability`, `/:serviceId/hire`). `unified_availability` **não é tabela** (nome de repo/service); tabela real = `availability` (32 linhas, todas `owner_type='user'`).
+- **Origem:** raio-x read-only `Op3 READ-ONLY Trilho B` + `DECISION-0109` D5.
+- **Vinculada a:** `frontend/src/pages/ServiceAvailabilityPage.tsx`, `ServiceBookingsPage.tsx`, `services.routes.ts` (sem `/availability`|`/bookings`), `core/availability/unified-availability.*`, tabela `availability`/`bookings`.
+- **Risco:** materializar os endpoints fantasma como **SSOT paralelo** de availability criaria segunda verdade temporal (anti-padrão `frontend_nunca_cria_verdade`).
+- **Resolução prevista:** reconciliar o frontend com o **core de availability**; se os caminhos `/services/:id/...` forem mantidos, só como **adapter fino** sobre o core real — **nunca** SSOT paralelo. Frente própria; **NÃO** executar agora.
+
+## DT-SERVICE-NO-COMPANY-RAMO-BRIDGE
+
+- **Status:** OPEN (2026-06-05) — aberta por `DECISION-0109` (docs-only). A criação de serviço (`POST /services` → `services.repository:137`) aceita **qualquer** `actor_id`; **falta a ponte de empresa/ramo** que o Trilho A tem (`companyId → companies.primary_company_type_id → ramo`). `company_id` só aparece *downstream* nos serviços para resolver **conta de Bank** (`services-discovery.service.ts:138`, `service-order.service.ts:1892`, `service-payment-execution` HQ split), **não** para governar elegibilidade. Serviço PJ deveria ser do **page-actor da empresa**, não de user solto.
+- **Origem:** raio-x read-only `Op3 READ-ONLY Trilho B` + `DECISION-0109` D6.
+- **Vinculada a:** `services.routes.ts` (`POST /`), `services.service.createService`, `services.repository:137` (`services.actor_id`), `actors.company_id`, `companies.primary_company_type_id`, `DT-SERVICE-RAMO-TAXONOMY-FORK` (depende da taxonomia resolvida).
+- **Risco:** criar serviço PJ sem governança replica o "company-canonical desconectado" que o Trilho A corrigiu; um user solto poderia abrir serviço de empresa sem ramo/autoridade.
+- **Resolução prevista:** definir como `companyId`/page-actor entra na criação do serviço (análogo à ponte do Trilho A), **após** resolver a taxonomia (`DT-SERVICE-RAMO-TAXONOMY-FORK`). Frente própria, Bank-free; **NÃO** executar agora.

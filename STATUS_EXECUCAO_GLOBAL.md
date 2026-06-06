@@ -1,3 +1,21 @@
+## 2026-06-05 — DECISION-0109: fundação do Trilho B (serviços) — taxonomia própria + Bank-free + availability canônica (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `92b82afb`. Frente **docs-only** (Op3D, promulgação de Clayton). **Zero código/schema/migration/seed/endpoint/Bank/Op3A.** Dev segue 363. 3 autorais intocados. _(Esteira: eu escritora; raio-x read-only `Op3 READ-ONLY Trilho B` cruzou banco/código vivos; par verifica.)_
+
+**O que entregou:** crava a fundação antes de qualquer código no Trilho B. Raio-x achou: substrato **existe mas não foi exercido** (`services`/`bookings`/`service_orders`/`service_discovery_requests`/`service_booking_decisions` = **0 linhas**; só `availability` viva com 32, todas `owner_type='user'`, nenhuma de serviço), `unified_availability` **inexistente** (tabela real = `availability`), **fork de taxonomia** (`company_type.default_*_slugs` aponta `domain='marketplace'` mesmo p/ salão; serviços têm `domain='servicos'` paralelo, sem bridge), **Bank atravessa** booking/order/payment, e **frontend em endpoint-fantasma** (`/services/:id/availability`|`/bookings` inexistentes; real no core). **Decisão (D1–D8):** serviço usa `domain='servicos'`; não reusar a régua 0108 sem bridge; `company_type` pré-molda serviço só com bridge explícita; criação+agenda **Bank-free**; booking/order/payment **bloqueados** até decisão financeira; `availability` (core) é canônica (sem SSOT paralelo); serviço PJ governado por page-actor/empresa; piloto **salão**, restaurante **adiado**.
+
+**Trilho B é REAL mas NÃO EXERCIDO:** scaffold vivo (writers + rotas existem), zero fluxo comercial provado. Primeira implementação futura = **Bank-free** (serviço + availability). Piloto preferido = **salão**; restaurante adiado; peixaria fora.
+
+**Arquivos:** `docs/02_decisions/DECISION_0109_SERVICE_TRACK_B_TAXONOMY_BANKFREE_FOUNDATION.md` (novo), `REMEDIATION_DT_LOG.md`, `REMEDIATION_DECISIONS_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`, `docs/03_execution_log/20260605_DECISION_0109_SERVICE_TRACK_B_FOUNDATION.md`. **Markdown apenas.**
+
+**Prova:** docs-only — runtime intocado. 4 gates: actor-writer / bank-ledger / regression-guards OK; arch `--strict` exit=0 (`critical_new=0`; `warning_new=1`=c3). **Migrations 363→363.**
+
+**DTs:** **abertas 4 (OPEN)** — `DT-SERVICE-RAMO-TAXONOMY-FORK`, `DT-SERVICE-COMMERCIAL-FLOW-BANK-COUPLED`, `DT-SERVICE-AVAILABILITY-ENDPOINT-DISCONNECT`, `DT-SERVICE-NO-COMPANY-RAMO-BRIDGE`.
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-SERVICE-TAXONOMY-BRIDGE-READONLY` (read-only) **ou** `F-SERVICE-SALON-BANK-FREE-MVP-DESIGN` (desenho). Nada de booking/Bank antes das DTs + go.
+
+---
+
 ## 2026-06-05 — F-PJ-PRODUCT-OFFER-ELIGIBILITY-GUARD: a régua do ramo também protege a prateleira (FECHA a DT)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `30096156`. Frente code-only (DECISION-0108 na camada de oferta). **Zero migration** (dev 363) / seed / endpoint novo / writer novo / popular `tenants.company_type_id` / `company_type_allowed_concepts` / `canonical_products` / Bank. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_
