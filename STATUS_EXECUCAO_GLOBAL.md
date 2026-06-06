@@ -1,3 +1,19 @@
+## 2026-06-06 — F-PJ-DOCUMENT-STORAGE-PORT: substrato técnico de storage documental KYB (backend, sem migration)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `a312174a`. Backend code-only (1ª fatia do Pilar 1 KYB). **Zero migration / Bank / frontend / upload / wizard / KYB approval.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** o substrato mínimo e seguro de storage documental (DECISION-0112). `core/document-storage/`: **`DocumentStoragePort`** (port canônico, precedente pix); **`LocalPrivateDocumentStorageProvider`** (dev, grava em `<cwd>/.private/document-storage` — disco PRIVADO **fora de `/uploads`** público; guard recusa baseDir sob uploads); **factory `resolveDocumentStorageProvider`** com **produção fail-closed** (`NODE_ENV=production` sem `DOCUMENT_STORAGE_PROVIDER` → `DOCUMENT_STORAGE_PROVIDER_REQUIRED`; `local` proibido em prod; provider real `NOT_IMPLEMENTED`; sem fallback silencioso). `file_reference` **opaco** (32 hex, não-path, não-derivado-de-filename), **SHA-256**, allowlist MIME (pdf/jpeg/png), limite 10MB, rejeita vazio, **anti-path-traversal** (regex + within-dir). `.gitignore` cobre `backend/.private/` (documento nunca versionado). **Nada** de upload/wizard/review/MalwareScanPort/migration/`fiscal_identity_documents`/`company_status`/`kyb_status`/Bank.
+
+**Arquivos:** `backend/src/core/document-storage/{document-storage.types.ts,document-storage.port.ts,local-private-document-storage.provider.ts,document-storage.provider.ts}`, `.gitignore`, e2e `validate-pipeline-e2e-pj-document-storage-port.ts`.
+
+**Prova:** e2e **17/17** (store em dir privado fora de /uploads · ref opaco · SHA-256/mime/size · MIME/vazio/limite rejeitados · filename `../` não controla path · read recupera · ref inválido/inexistente fail-closed · **produção sem provider fail-closed** · factory dev→Local · estrutural: port não toca DB/Bank/SSOT/lifecycle). Sem regressão (upload-tombstone 7/7, readers 9/9, cnpj 6/6, lifecycle 7/7, role 4/4, vocab 7/7). Backend tsc 0 (escopo). 4 gates OK; arch `--strict` `critical_new=0`/`warning_new=1`=c3. **Migrations 365→365.**
+
+**DTs:** `DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING` → **PARTIALLY MITIGATED** (port+local-dev+fail-closed vivos). `DT-PJ-DOCUMENT-PRODUCTION-STORAGE-PROVIDER-MISSING` → **OPEN** (nova; provider de prod real ausente — prod fail-closed). `DT-PJ-DOCUMENT-MALWARE-SCAN-MISSING` / `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` → OPEN.
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-PJ-DOCUMENT-MALWARE-SCAN-PORT` (antes de qualquer download humano) → `F-PJ-KYB-DOCUMENTS-USER-SUBMIT`. Paralelo seguro: `F-PJ-DELETE-GUARD-BANK-PORT`.
+
+---
+
 ## 2026-06-06 — DECISION-0112 (D-PJ-DOCUMENT-STORAGE-PROVIDER): desenho canônico do storage documental KYB (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `81fd4d8e`. Frente **docs-only / design-first**. **Zero código / migration / Bank / provider / upload / wizard.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_

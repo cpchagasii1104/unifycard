@@ -43,3 +43,7 @@ executei*.md
 
 # Config local de permissoes do Claude Code (override local, nao versionado)
 .claude/settings.local.json
+
+# F-PJ-DOCUMENT-STORAGE-PORT (DECISION-0112): storage documental privado — NUNCA versionar documentos sensíveis
+backend/.private/
+.private/
