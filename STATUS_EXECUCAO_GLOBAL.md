@@ -1,3 +1,17 @@
+## 2026-06-06 — F-PJ-LEGACY-DOC-UPLOAD-TOMBSTONE: neutraliza upload legado de documento PJ (501 fail-closed, DECISION-0087)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `21a6aa18`. Frente **code-only** (DECISION-0087). **Zero migration** (dev 365), zero Bank, zero KYB approval, sem wizard documental novo, sem writer canônico novo. _(Esteira: eu escritora; par verifica READ-ONLY.)_
+
+**Achado material (READ-FIRST):** a tabela `company_documents` **NÃO EXISTE** no schema vivo nem há migration que a crie. O writer legado `uploadCompanyDocument` (rota `POST /companies/:companyId/documents`) gravava nela e promovia `company_status` — caminho **não-SSOT** que só produzia erro de runtime opaco (a promoção vinha *depois* do INSERT, então nem rodava). O SSOT documental KYB é `fiscal_identity_documents` (DECISION-0087), cujo writer/rota canônicos **já existem** (`fiscal-identity-document.service.ts`/`identity.routes.ts`).
+
+**O que entregou (tombstone fail-closed):** (1) rota retorna **501 `PJ_LEGACY_COMPANY_DOCUMENT_UPLOAD_DISABLED`** como 1ª instrução (antes de ler arquivo/disco/service), mensagem honesta apontando o fluxo fiscal; (2) serviço `uploadCompanyDocument` faz **throw** do mesmo código como 1ª instrução (defesa em profundidade); (3) frontend: botão "Enviar comprovante" (CompaniesManagerForm) trocado pela nota "Documentos KYB serão enviados pelo fluxo documental fiscal." Corpo legado morto (referenciava a tabela fantasma) removido — **histórico em git**. NÃO grava, NÃO promove lifecycle, NÃO aprova KYB.
+
+**Prova:** e2e `validate-pipeline-e2e-pj-legacy-doc-upload-tombstone` **7/7** (T1 rota 501 via inject; T2 service throw; T3 company_status segue DRAFT; T4 kyb_status inalterado; T5 fiscal_identity_documents intocado; T6 company_documents fantasma). Regressões: cnpj 6/6 · lifecycle 7/7 · role-projection 4/4 · vocabulary 7/7. Frontend+backend tsc 0 (escopo; geo baseline). 4 gates OK; arch `--strict` `critical_new=0`.
+
+**DTs:** `DT-PJ-LEGACY-COMPANY-DOCUMENT-UPLOAD-USES-NON-SSOT` → **CLOSED**. `DT-PJ-LEGACY-COMPANY-DOCUMENTS-READERS-GHOST` → **OPEN** (achado: list/get/admin-validate ainda referenciam o fantasma — frente do writer canônico). `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` segue **OPEN** (fluxo canônico ainda não está no wizard). **Próxima frente:** writer/UX canônico de `fiscal_identity_documents`.
+
+---
+
 ## 2026-06-06 — F-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH: vocabulário de cargo alinhado ao banco (code-only, sem migration)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `ed5ad174`. Code-only (contrato + API + UI + permissões). **Zero migration / Bank / schema.** Dev 365. 3 autorais intocados. _(Esteira: eu escritora; par verifica.)_

@@ -772,21 +772,14 @@ export default function CompaniesManagerForm({
                   {/* DECISION-0096: CTA "Validar presencialmente" REMOVIDA — validação presencial PJ
                       está reservada/desabilitada (backend retorna 501, sem fluxo vivo). A verificação
                       PJ ocorre pelo fluxo KYB/documental. NÃO reabrir sem greenfield. */}
+                  {/* F-PJ-LEGACY-DOC-UPLOAD-TOMBSTONE (DECISION-0087): o upload legado de comprovante
+                      gravava em `company_documents` (não-SSOT) e foi DESATIVADO (rota retorna 501).
+                      Documentos KYB usam o fluxo documental fiscal (fiscal_identity_documents), frente
+                      própria de writer/UX — não reconectar o botão ao legado. */}
                   {company.companyStatus !== 'VERIFIED' && company.companyStatus !== 'PROVISIONAL' && company.companyStatus !== 'APPROVED' && company.companyStatus !== 'DRAFT' && (
-                    <label className="upload-button-primary">
-                      {uploadingCompanyId === company.companyId ? (
-                        '⏳ Enviando...'
-                      ) : (
-                        '📄 Enviar comprovante (PDF)'
-                      )}
-                      <input
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        style={{ display: 'none' }}
-                        onChange={(e) => handleFileInputChange(company.companyId, e)}
-                        disabled={uploadingCompanyId === company.companyId}
-                      />
-                    </label>
+                    <p className="kyb-docs-note" style={{ fontSize: '0.85em', color: '#666', margin: '4px 0' }}>
+                      📄 Documentos KYB serão enviados pelo fluxo documental fiscal.
+                    </p>
                   )}
                 </div>
                 <div className="company-actions-right">

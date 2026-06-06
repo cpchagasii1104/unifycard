@@ -2070,138 +2070,17 @@ class CompaniesService {
     userIp?: string,
     tenantId?: string
   ): Promise<{ documentId: string; companyStatus: string; fileName: string }> {
-    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
-    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para uploadCompanyDocument (§8 03_IDENTITY_CANONICA)');
-    }
-    const finalTenantId = tenantId;
-
-    // Verificar se empresa existe e pertence ao usuário
-    const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
-    if (!company) {
-      throw new Error('Empresa não encontrada');
-    }
-
-    // 🔴 SEGURANÇA 1: Validar MIME type E extensão
-    const validMimeTypes = ['application/pdf'];
-    const validExtensions = ['.pdf'];
-    const fileExtension = file.filename.toLowerCase().substring(file.filename.lastIndexOf('.'));
-    
-    if (!validMimeTypes.includes(file.mimetype)) {
-      throw new Error(`Tipo de arquivo inválido. Apenas PDF é aceito. Recebido: ${file.mimetype}`);
-    }
-    
-    if (!validExtensions.includes(fileExtension)) {
-      throw new Error(`Extensão inválida. Apenas arquivos .pdf são aceitos. Recebido: ${fileExtension}`);
-    }
-
-    // Validar tamanho (máximo 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      throw new Error('Arquivo muito grande. Tamanho máximo: 10MB');
-    }
-
-    // 🔴 SEGURANÇA 2: Renomear arquivo com UUID (evita conflitos e exposição)
-    const fileExtensionSafe = fileExtension || '.pdf';
-    const uniqueFilename = `${randomUUID()}${fileExtensionSafe}`;
-    
-    // Construir URL relativa do arquivo (com nome seguro)
-    const fileUrl = `/uploads/companies/${companyId}/${uniqueFilename}`;
-    
-    // Nota: O arquivo será salvo no filesystem pelo route handler com este nome único
-
-    // 🔴 CORREÇÃO: Inserir documento no banco COM validação de tenant_id via JOIN
-    // Nota: company_documents não tem tenant_id direto, então validamos via companies
-    const docRows = await runQueriesWithTenant<{ document_id: string }>(
-      finalTenantId,
-      `
-      INSERT INTO company_documents (
-        company_id,
-        global_user_id,
-        document_type,
-        file_name,
-        file_path,
-        file_size,
-        mime_type,
-        status
-      )
-      SELECT $1, $2, $3, $4, $5, $6, $7, 'pending'
-      FROM companies c
-      WHERE c.company_id = $1::uuid 
-        AND c.tenant_id = $8
-        AND c.global_user_id = $2::uuid
-      ON CONFLICT (company_id, document_type, status) 
-      WHERE status = 'pending'
-      DO UPDATE SET
-        file_name = EXCLUDED.file_name,
-        file_path = EXCLUDED.file_path,
-        file_size = EXCLUDED.file_size,
-        mime_type = EXCLUDED.mime_type,
-        updated_at = NOW()
-      RETURNING document_id
-      `,
-      [
-        companyId,
-        globalUserId,
-        documentType,
-        uniqueFilename, // Usar nome único, não o original
-        fileUrl,
-        file.size,
-        file.mimetype,
-        finalTenantId,
-      ]
+    // F-PJ-LEGACY-DOC-UPLOAD-TOMBSTONE (DECISION-0087): writer legado DESATIVADO. O SSOT documental KYB é
+    // `fiscal_identity_documents`; este método gravava em `company_documents` (tabela FANTASMA — inexistente
+    // no schema vivo) e promovia `company_status` (não-SSOT). Throw honesto como PRIMEIRA instrução: não
+    // escreve em nenhuma tabela, não promove lifecycle, não aprova KYB. Documentos KYB usam o fluxo canônico
+    // de fiscal identity documents. NÃO reconectar ao legado. (A rota POST /:companyId/documents já retorna 501.)
+    throw new Error(
+      'PJ_LEGACY_COMPANY_DOCUMENT_UPLOAD_DISABLED: upload legado de documento de empresa desativado ' +
+        '(DECISION-0087). Documentos KYB serão enviados pelo fluxo documental fiscal (fiscal_identity_documents). ' +
+        'Nenhum documento foi gravado e o status da empresa não foi alterado.'
     );
 
-    if (!docRows || docRows.length === 0 || !docRows[0]) {
-      throw new Error('Erro ao salvar documento');
-    }
-
-    // 🔴 AUDITORIA: Registrar log do upload
-    const documentId = docRows[0].document_id;
-    console.log('[CompaniesService] 📄 Upload de documento:', {
-      documentId,
-      companyId,
-      globalUserId,
-      documentType,
-      fileName: uniqueFilename,
-      fileSize: file.size,
-      userIp: userIp || 'unknown',
-      timestamp: new Date().toISOString(),
-    });
-
-    // 🔴 CORREÇÃO: Atualizar status da empresa para 'PROVISIONAL' COM filtro tenant_id
-    const statusUpdateRows = await runQueriesWithTenant<{ company_status: string }>(
-      finalTenantId,
-      `
-      UPDATE companies
-      SET company_status = 'PROVISIONAL', updated_at = NOW()
-      WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
-        AND company_status != 'VERIFIED'
-      RETURNING company_status
-      `,
-      [finalTenantId, companyId, globalUserId]
-    );
-
-    // 🔴 AUDITORIA: Log de mudança de status
-    if (statusUpdateRows && statusUpdateRows.length > 0 && statusUpdateRows[0]) {
-      console.log('[CompaniesService] 📊 Status da empresa alterado:', {
-        companyId,
-        globalUserId,
-        oldStatus: company.companyStatus,
-        newStatus: statusUpdateRows[0].company_status,
-        reason: 'upload_document',
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // Buscar status atualizado
-    const updatedCompany = await this.getCompanyById(companyId, globalUserId, finalTenantId);
-    
-    return {
-      documentId: docRows[0].document_id,
-      companyStatus: updatedCompany?.companyStatus || 'PROVISIONAL',
-      fileName: uniqueFilename,
-    };
   }
 
   /**

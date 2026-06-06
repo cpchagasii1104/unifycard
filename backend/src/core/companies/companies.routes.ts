@@ -408,77 +408,22 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
    * Upload documento da empresa (PDF)
    */
   fastify.post<{ Params: { companyId: string } }>('/:companyId/documents', async (req, reply) => {
-    if (!req.user?.globalUserId) {
-      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
-    }
-
-    try {
-      const { companyId } = req.params;
-      const data = await req.file();
-
-      if (!data) {
-        return reply.status(400).send({ ok: false, message: 'Arquivo não enviado' });
-      }
-
-      // Validar tipo de arquivo
-      if (data.mimetype !== 'application/pdf') {
-        return reply.status(400).send({ ok: false, message: 'Apenas arquivos PDF são aceitos' });
-      }
-
-      // Criar diretório da empresa se não existir
-      const companyDir = path.join(uploadsDir, companyId);
-      if (!fs.existsSync(companyDir)) {
-        fs.mkdirSync(companyDir, { recursive: true });
-      }
-
-      // Salvar arquivo como buffer
-      const buffer = await data.toBuffer();
-
-      // 🔴 Obter IP do usuário para auditoria
-      const userIp = req.ip || 
-                     (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-                     (req.headers['x-real-ip'] as string) ||
-                     'unknown';
-
-      // Upload no banco (service vai gerar UUID e retornar o nome único)
-      const result = await companiesService.uploadCompanyDocument(
-        companyId,
-        req.user.globalUserId,
-        {
-          filename: data.filename, // Nome original (será substituído por UUID no service)
-          filepath: '', // Não usado - service gera novo nome
-          mimetype: data.mimetype,
-          size: buffer.length,
-        },
-        'cnpj_receita',
-        userIp,
-        req.tenant?.id
-      );
-
-      // 🔴 Salvar arquivo com nome único (UUID) retornado pelo service
-      const finalFilepath = path.join(companyDir, result.fileName);
-      fs.writeFileSync(finalFilepath, buffer);
-
-      fastify.log.info({ 
-        companyId, 
-        documentId: result.documentId,
-        fileName: result.fileName,
-        fileSize: buffer.length,
-      }, '📄 Documento da empresa enviado');
-
-      return reply.status(201).send({
-        ok: true,
-        message: 'Comprovante enviado com sucesso. Validação pendente.',
-        data: {
-          documentId: result.documentId,
-          companyStatus: result.companyStatus,
-        },
-      });
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao fazer upload de documento');
-      const message = error instanceof Error ? error.message : 'Erro ao fazer upload de documento';
-      return reply.status(400).send({ ok: false, message });
-    }
+    // F-PJ-LEGACY-DOC-UPLOAD-TOMBSTONE (DECISION-0087): upload legado DESATIVADO fail-closed.
+    // O SSOT documental KYB é `fiscal_identity_documents`; este endpoint gravava em `company_documents`
+    // (tabela FANTASMA — não existe no schema vivo nem há migration que a crie) e promovia `company_status`
+    // — caminho não-SSOT que só produzia erro de runtime. Retorna 501 honesto ANTES de ler o arquivo /
+    // tocar o disco / chamar o service: NÃO grava documento, NÃO promove lifecycle, NÃO aprova KYB.
+    // Documentos KYB usam o fluxo canônico de fiscal identity documents (frente própria de writer/UX).
+    return reply.status(501).send({
+      ok: false,
+      error: 'PJ_LEGACY_COMPANY_DOCUMENT_UPLOAD_DISABLED',
+      code: 'PJ_LEGACY_COMPANY_DOCUMENT_UPLOAD_DISABLED',
+      message:
+        'Upload legado de documento de empresa desativado (DECISION-0087). Documentos KYB serão enviados ' +
+        'pelo fluxo documental fiscal (fiscal identity documents). Nenhum documento foi gravado e o status ' +
+        'da empresa não foi alterado.',
+      decision: 'DECISION-0087',
+    });
   });
 
   /**
