@@ -11535,6 +11535,27 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ---
 
+## DT-MONEY-LATENT-REACTIVATION-TRAP — OPEN (2026-06-07)
+
+- **Status:** **OPEN (2026-06-07)** — aberta a partir do `F-MONEY-LIVE-AUTHORSHIP-MAP` + `DECISION-0114`. Os services do cluster marketplace `unifycard`/`settlement`/`region-account`/`accounts-payable`/`accounts-receivable`/`payment-split`/`payout` são **Proxy stubs reject-all** (`Promise.reject('… migrated to Bank')`) — **LATENTES**: rotas registradas e alcançáveis, mas toda mutação lança antes de tocar tabela. As rotas ainda carregam **autoria spoofável** (`actionContext.actorId` cru) e intenções históricas (ex.: `unifycard.settle` tem TODO de criar ledger entry).
+- **Risco:** **trap de reativação** — religar qualquer um desses repos/serviços **sem** o gate de autoria/autoridade no **mesmo corte** ressuscita instantaneamente a autoria spoofável e/ou pode reabrir caminho ao Bank sem boundary. Hoje o risco é inerte (Proxy-dead), mas é uma mina armada.
+- **Mitigação:** ficam **FORA da `F3.1`** (que cobre só as 3 rotas vivas). Religamento futuro exige **DECISION + gate (`req.user`→`canRepresentActor`/`canManageCompany`/região) + E2E fail-closed no mesmo commit**; nunca religar o repo isolado. Para region/AP-AR, precede ainda a decisão de modelo (DTs abaixo).
+- **Vinculada a:** `DECISION-0114`, `DECISION-0113` (fatia 3), Lei 5 (Bank SSOT), `marketplace/*.service.ts` (Proxies), `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`.
+
+## DT-REGION-FUND-DELEGATION-MODEL-PENDING — OPEN (2026-06-07)
+
+- **Status:** **OPEN (2026-06-07)** — `DECISION-0114 §2.1` cravou a **autoridade inicial** do Fundo Regional no **fundador/criador do sistema** (referido pelo SSOT de identidade/actor existente, sem CPF hardcoded), e que o fundo é da **plataforma**, não de empresa individual. Mas o **modelo de delegação futura** (diretor financeiro / diretoria / conselho / operador financeiro / função equivalente) **ainda não existe**.
+- **Risco:** operação futura do fundo depender de pessoa única ou de delegação **informal/inferida** (vedado por `08_AUTORIDADE_CANONICA`).
+- **Mitigação:** qualquer delegação de autoridade sobre o Fundo Regional exige **frente própria de authority/delegation** (mecanismo explícito), não ad-hoc. Não há gate de região a implementar nesta fatia (region credit/debit/settlement seguem Proxy-dead).
+- **Vinculada a:** `DECISION-0114`, `DECISION-0020` (regiões econômicas), `DT-MONEY-LATENT-REACTIVATION-TRAP`.
+
+## DT-AP-AR-FINANCE-AUTHORITY-MODEL-PENDING — OPEN (2026-06-07)
+
+- **Status:** **OPEN (2026-06-07)** — `DECISION-0114 §2.2` cravou a **autoridade inicial** de AP/AR (latente/Proxy-dead) no **fundador/criador do sistema** enquanto não houver modelo próprio. O **modelo definitivo** ainda precisa de desenho: (a) plataforma/tenant-finance; (b) company-finance; (c) papel delegado (diretor financeiro); (d) híbrido. As tabelas não têm `company_id` (payable=`supplierId`, receivable=`actorId`), então o dono de autoridade não é resolvível hoje.
+- **Risco:** reativar AP/AR sem dono de autoridade claro → autoria spoofável em obrigações/recebíveis (`amount_cents`).
+- **Mitigação:** **não religar AP/AR** nesta fatia; **não** tratar como autorizado por `companyId` implícito nem por `actionContext.actorId`. Reativação futura exige **DECISION de modelo + gate + E2E** (anti-trap).
+- **Vinculada a:** `DECISION-0114`, `DT-MONEY-LATENT-REACTIVATION-TRAP`, `accounts-payable.types`/`accounts-receivable.types` (owner = supplierId/actorId).
+
 ## DT-PJ-EPHEMERAL-FIXTURES-STALE-VS-BASELINE-365 — OPEN (2026-06-07)
 
 - **Status:** **OPEN (2026-06-07)** — descoberta durante `F-RBAC-PLUGIN-BIND-REQ-USER` e `F-AUTHORITY-ESCALATION-GATE`. Alguns e2es **ephemeral** têm fixtures de setup **desalinhados com o baseline de migrations atual (365)** e falham **no próprio setup** (antes de qualquer asserção do SUT) ou numa asserção legada: `validate-pipeline-e2e-pj-kyb-gate`/`pj-social-kyb-gate`/`pj-kyb-writer` quebram em `chk_companies_company_status_lifecycle` (CHECK de `companies` da DECISION-0092/0093 que bloqueia `VERIFIED`/`APPROVED`) ou no gate de **min-docs KYB**; `validate-pipeline-e2e-atomic-company-birth` falha 1/18 numa asserção `1d company PROVISIONAL/pending` (expectativa de `company_status` legada). **NÃO são regressões** das fatias de autoridade — confirmado por `git stash` (falham **idêntico** sem o commit, pois os diffs não tocam `companies`/CHECK/lifecycle/KYB-fiscal).

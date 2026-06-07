@@ -1,3 +1,21 @@
+## 2026-06-07 — F-MONEY-LIVE-AUTHORSHIP-MAP (selado) + DECISION-0114 (autoridade Fundo Regional/AP-AR) — docs-only
+
+**Branch:** `rescue-structural` · **DOCS-ONLY** (zero código/migration/Bank/frontend/runtime; nenhum Proxy religado). Dev 365.
+
+**O que entregou:** o mapa READ-ONLY da fatia 3 (money LIVE) **selado** + a DECISION que destrava o trilho. Achado-chave: **"money LIVE" é bem menor que a premissa** — a maioria dos services marketplace é **Proxy stub reject-all ("migrated to Bank")**, LATENTE; só **3 rotas escrevem dinheiro de fato**: `POST /events/:id/settlement/settle`, `POST /payment-methods` (com `unsetDefaultForActor` cross-actor), `POST /unifycard/methods`. **Bank boundary intacta** (zero SQL `bank_*`; os services migraram p/ o Bank). **DECISION-0114** cravou a **autoridade inicial**: Fundo Regional é da **plataforma** (não empresa), autoridade MVP = **fundador/criador** (resolvido pelo SSOT, sem CPF hardcoded); AP/AR latente idem; delegação futura e reativação de Proxy = frentes próprias com gate+E2E.
+
+**Arquivos (docs):** `docs/02_decisions/DECISION_0114_REGION_FUND_AND_AP_AR_INITIAL_AUTHORITY.md` (novo); `REMEDIATION_DT_LOG.md` (3 DTs OPEN); `REMEDIATION_DECISIONS_LOG.md` (0114); `docs/03_execution_log/20260607_DECISION_0114_MONEY_AUTHORITY.md`.
+
+**F3.1 — LIVE-NOW (futura) fica restrita às 3 rotas vivas;** os Proxies latentes (unifycard/settlement/region/AP-AR/payment-split/payout) seguem **bloqueados** (fora da F3.1) — religar exige gate+E2E no mesmo corte + (region/AP-AR) decisão de modelo.
+
+**Prova:** 4 gates docs-only OK; dev 365; só docs alterados.
+
+**DTs:** abertas `DT-MONEY-LATENT-REACTIVATION-TRAP`, `DT-REGION-FUND-DELEGATION-MODEL-PENDING`, `DT-AP-AR-FINANCE-AUTHORITY-MODEL-PENDING` (OPEN). `DT-ACTIONCONTEXT-…-UNVALIDATED` segue OPEN (fatia 3 = F3.1).
+
+**PRÓXIMA ETAPA (espera go):** `F-MONEY-LIVE-AUTHORSHIP-GATE-F3_1` — gatear as 3 rotas vivas (event-settlement=autoridade-do-evento; payment-method=`canRepresentActor(input.actorId)`; unifycard-method=tenant-admin), com suite financeira + `bank-ledger-boundaries`.
+
+---
+
 ## 2026-06-07 — F-AUTHORITY-ESCALATION-GATE: fecha a fábrica de crachá falso (company-members + organization) (DECISION-0113 fatia 2/6)
 
 **Branch:** `rescue-structural` · **backend** (só 2 arquivos de rota; zero migration/Bank/frontend/middleware/service-logic). Dev 365. _(Esteira: eu escritora; par verifica.)_
