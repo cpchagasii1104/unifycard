@@ -9,9 +9,11 @@ import {
   getOperationalCompanyTypes,
   getAllowedConceptsForCompanyType,
   activateCompanyOperationally,
+  submitCompanyKybDocument,
   type OperationalCompanyType,
   type AllowedOperationalConcept,
   type CompanyUserRole,
+  type KybDocumentType,
 } from '../../api/companies';
 import { showToast } from '../common/Toast';
 import type {
@@ -34,7 +36,14 @@ interface CompanyOnboardingWizardProps {
   onCancel?: () => void;
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
+
+// F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND: documentos mínimos do KYB (release gate exige ambos 'accepted').
+// Apresentação/copy apenas — a verdade documental é do SSOT fiscal_identity_documents (backend).
+const KYB_REQUIRED_DOCS: { type: KybDocumentType; label: string; hint: string }[] = [
+  { type: 'cnpj_registration', label: 'Cartão CNPJ / Comprovante de inscrição', hint: 'Comprovante de inscrição e situação cadastral (Receita).' },
+  { type: 'articles_of_association', label: 'Contrato social / Ato constitutivo', hint: 'Contrato social, requerimento de empresário ou ato constitutivo equivalente.' },
+];
 
 // F-PJ-ONBOARDING-ROLE-DEDUP / F-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH: rótulo PT do vínculo
 // formal. Vocabulário ALINHADO ao banco (chk_company_users_role_valid). Apresentação apenas.
@@ -58,6 +67,12 @@ export default function CompanyOnboardingWizard({
   const { activeActor } = useActiveActor();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND: estado VISUAL do envio documental (não é fonte de verdade —
+  // o SSOT é fiscal_identity_documents no backend). 'sent' = enviado/aguardando análise, NUNCA "aprovado".
+  const [kybUploading, setKybUploading] = useState<KybDocumentType | null>(null);
+  const [kybSent, setKybSent] = useState<Record<string, boolean>>({});
+  const [kybErrors, setKybErrors] = useState<Record<string, string>>({});
   
   // Estado do wizard
   // F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR: classificação operacional = par soberano
@@ -204,6 +219,23 @@ export default function CompanyOnboardingWizard({
         : [...prev.activeDays, day].sort();
       return { ...prev, activeDays: newDays };
     });
+  };
+
+  // F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND: envia 1 documento pela rota canônica. Frontend só anexa o
+  // arquivo; autoria/autoridade/validação/scan são do backend. Sucesso = "enviado/aguardando análise"
+  // (NUNCA "aprovado"). Erro do backend aparece no campo.
+  const handleKybDocUpload = async (documentType: KybDocumentType, file: File | undefined): Promise<void> => {
+    if (!file) return;
+    setKybErrors((prev) => ({ ...prev, [documentType]: '' }));
+    setKybUploading(documentType);
+    try {
+      await submitCompanyKybDocument(companyId, documentType, file);
+      setKybSent((prev) => ({ ...prev, [documentType]: true }));
+    } catch (err) {
+      setKybErrors((prev) => ({ ...prev, [documentType]: err instanceof Error ? err.message : 'Falha no envio do documento.' }));
+    } finally {
+      setKybUploading(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -479,8 +511,49 @@ export default function CompanyOnboardingWizard({
           </div>
         )}
 
-        {/* Etapa 5: Resumo */}
+        {/* Etapa 5: Documentos de verificação (KYB) — envio canônico; NÃO aprova KYB */}
         {currentStep === 5 && (
+          <div className="wizard-step">
+            <h2>Documentos de verificação (KYB)</h2>
+            <p className="step-description">
+              Envie os documentos da empresa para análise. <strong>O envio não aprova a empresa
+              automaticamente</strong> — os documentos serão analisados por um operador, e a empresa só
+              será verificada após a análise.
+            </p>
+            <div className="kyb-docs-list">
+              {KYB_REQUIRED_DOCS.map((doc) => (
+                <div key={doc.type} className="kyb-doc-slot">
+                  <div className="kyb-doc-info">
+                    <strong>{doc.label}</strong>
+                    <p className="step-description">{doc.hint}</p>
+                  </div>
+                  {kybSent[doc.type] ? (
+                    <span className="kyb-doc-status kyb-doc-sent">✅ Enviado — aguardando análise</span>
+                  ) : (
+                    <label className="kyb-doc-upload">
+                      {kybUploading === doc.type ? '⏳ Enviando…' : '📎 Anexar arquivo'}
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                        style={{ display: 'none' }}
+                        disabled={kybUploading !== null}
+                        onChange={(e) => handleKybDocUpload(doc.type, e.target.files?.[0])}
+                      />
+                    </label>
+                  )}
+                  {kybErrors[doc.type] && <span className="field-error">{kybErrors[doc.type]}</span>}
+                </div>
+              ))}
+            </div>
+            <p className="step-description" style={{ marginTop: '0.75rem' }}>
+              Sem os documentos, a verificação (KYB) da empresa fica <strong>pendente</strong>. Você pode
+              continuar e enviar depois.
+            </p>
+          </div>
+        )}
+
+        {/* Etapa 6: Resumo */}
+        {currentStep === 6 && (
           <div className="wizard-step">
             <h2>Resumo da Configuração</h2>
             <p className="step-description">
@@ -528,6 +601,17 @@ export default function CompanyOnboardingWizard({
                   {calendarConfig.defaultStartTime} - {calendarConfig.defaultEndTime}
                   {' '}({calendarConfig.activeDays.length} dias por semana)
                 </span>
+              </div>
+
+              <div className="summary-item">
+                <strong>Documentos (KYB):</strong>
+                <div className="summary-tags">
+                  {KYB_REQUIRED_DOCS.map((doc) => (
+                    <span key={doc.type} className={`tag ${kybSent[doc.type] ? '' : 'tag-empty'}`}>
+                      {doc.label}: {kybSent[doc.type] ? 'enviado (aguardando análise)' : 'pendente'}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 

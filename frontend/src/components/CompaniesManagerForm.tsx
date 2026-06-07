@@ -25,7 +25,6 @@ interface CompaniesManagerFormProps {
   setShowAddForm: (show: boolean) => void;
   isFetchingCNPJ: boolean;
   isSaving: boolean;
-  uploadingCompanyId: string | null;
   formData: CreateCompanyInput;
   setFormData: (data: CreateCompanyInput | ((prev: CreateCompanyInput) => CreateCompanyInput)) => void;
   revenueData: RevenueFederalData | null;
@@ -46,7 +45,6 @@ interface CompaniesManagerFormProps {
   updatePhone: (phoneId: string, field: keyof PhoneData, value: string) => void;
   resetForm: () => void;
   handleDelete: (companyId: string) => void;
-  handleFileInputChange: (companyId: string, e: React.ChangeEvent<HTMLInputElement>) => void;
   loadCompanies: () => void;
   navigate: (path: string) => void;
 }
@@ -58,7 +56,6 @@ export default function CompaniesManagerForm({
   setShowAddForm,
   isFetchingCNPJ,
   isSaving,
-  uploadingCompanyId,
   formData,
   setFormData,
   revenueData,
@@ -79,7 +76,6 @@ export default function CompaniesManagerForm({
   updatePhone,
   resetForm,
   handleDelete,
-  handleFileInputChange,
   loadCompanies,
   navigate,
 }: CompaniesManagerFormProps) {

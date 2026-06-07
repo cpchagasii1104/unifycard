@@ -307,6 +307,32 @@ export async function updateDocumentStatus(
   throw new Error(LEGACY_DOCS_DISABLED);
 }
 
+// ── F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND ──────────────────────────────────────────────────────
+// Client CANÔNICO de submit documental KYB (substitui os helpers legados acima, que LANÇAM).
+// Chama a rota viva POST /companies/:companyId/kyb/documents (multipart). A AUTORIA/AUTORIDADE são
+// resolvidas no backend (ensureUserActor(req.user) + canManageCompany) — o frontend NÃO envia actorId,
+// kyb_status nem company_status; só o arquivo. Validação real (MIME/magic/scan) é do backend; o upload
+// NÃO aprova KYB. documentType vai por querystring (a rota lê req.query.documentType primeiro).
+export type KybDocumentType = 'cnpj_registration' | 'articles_of_association';
+
+export async function submitCompanyKybDocument(
+  companyId: string,
+  documentType: KybDocumentType,
+  file: File,
+): Promise<{ documentId: string; documentType: string; documentStatus: string; mimeType: string; sizeBytes: number }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await apiFetch(
+    `/companies/${companyId}/kyb/documents?documentType=${encodeURIComponent(documentType)}`,
+    { method: 'POST', body: formData, headers: {} },
+  );
+  const json = await response.json().catch(() => ({} as Record<string, unknown>));
+  if (!response.ok || (json as { ok?: boolean }).ok === false) {
+    throw new Error((json as { message?: string }).message || 'Erro ao enviar documento de verificação.');
+  }
+  return (json as { data: { documentId: string; documentType: string; documentStatus: string; mimeType: string; sizeBytes: number } }).data;
+}
+
 // ── F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR (DECISION-0098) ──────────────────────────────
 // Catálogo governado de seleção + rota viva do par. O frontend NÃO inventa concept nem
 // classificação: envia o que o backend expôs (precedente Profile C1). businessType/

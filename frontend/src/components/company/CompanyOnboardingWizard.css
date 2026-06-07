@@ -466,3 +466,13 @@
 .concept-selection h3 {
   margin-bottom: 12px;
 }
+
+/* F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND: etapa documental KYB */
+.kyb-docs-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.kyb-doc-slot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.75rem 1rem; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; }
+.kyb-doc-info { flex: 1 1 60%; min-width: 220px; }
+.kyb-doc-info strong { display: block; }
+.kyb-doc-upload { cursor: pointer; padding: 0.5rem 0.9rem; border: 1px solid #2d6cdf; color: #2d6cdf; border-radius: 6px; font-size: 0.9rem; white-space: nowrap; }
+.kyb-doc-upload:hover { background: #2d6cdf; color: #fff; }
+.kyb-doc-status.kyb-doc-sent { color: #155724; background: #d4edda; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.9rem; white-space: nowrap; }
+.kyb-doc-slot .field-error { flex-basis: 100%; }

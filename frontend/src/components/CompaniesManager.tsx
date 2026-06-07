@@ -7,7 +7,6 @@ import {
   createCompany,
   deleteCompany,
   fetchCNPJFromRevenue,
-  uploadCompanyDocument,
   type CreateCompanyInput,
   type CompanyUserRole,
 } from '../api/companies';
@@ -47,8 +46,6 @@ export function CompaniesManager() {
     setIsFetchingCNPJ,
     isSaving,
     setIsSaving,
-    uploadingCompanyId,
-    setUploadingCompanyId,
     formData,
     setFormData,
     revenueData,
@@ -434,49 +431,6 @@ export function CompaniesManager() {
     }
   };
 
-  const handleUploadDocument = async (companyId: string, file: File) => {
-    setUploadingCompanyId(companyId);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      // Validar tipo de arquivo
-      if (file.type !== 'application/pdf') {
-        setError('Apenas arquivos PDF são aceitos');
-        return;
-      }
-
-      // Validar tamanho (10MB)
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        setError('Arquivo muito grande. Tamanho máximo: 10MB');
-        return;
-      }
-
-      const result = await uploadCompanyDocument(companyId, file);
-      
-      if (result.ok) {
-        setSuccess(result.message || 'Comprovante enviado com sucesso. Validação pendente.');
-        loadCompanies(); // Recarregar para atualizar status
-      } else {
-        setError(result.message || 'Erro ao fazer upload do comprovante');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao fazer upload do comprovante');
-    } finally {
-      setUploadingCompanyId(null);
-    }
-  };
-
-  const handleFileInputChange = (companyId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleUploadDocument(companyId, file);
-    }
-    // Reset input para permitir selecionar o mesmo arquivo novamente
-    e.target.value = '';
-  };
-
   if (isLoading) {
     return (
       <div className="companies-manager">
@@ -493,7 +447,6 @@ export function CompaniesManager() {
       setShowAddForm={setShowAddForm}
       isFetchingCNPJ={isFetchingCNPJ}
       isSaving={isSaving}
-      uploadingCompanyId={uploadingCompanyId}
       formData={formData}
       setFormData={setFormData}
       revenueData={revenueData}
@@ -514,7 +467,6 @@ export function CompaniesManager() {
       updatePhone={updatePhone}
       resetForm={resetForm}
       handleDelete={handleDelete}
-      handleFileInputChange={handleFileInputChange}
       loadCompanies={loadCompanies}
       navigate={navigate}
     />

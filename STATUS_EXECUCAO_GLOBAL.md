@@ -1,3 +1,19 @@
+## 2026-06-07 — F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND: wizard conecta o onboarding ao backend KYB pronto (frontend-only)
+
+**Branch:** `rescue-structural` · **Frontend-only** (nenhum service/runtime/migration/Bank tocado). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** a pessoa autorizada agora **envia os documentos KYB no próprio onboarding**. `CompanyOnboardingWizard` ganhou **Etapa 5 "Documentos de verificação (KYB)"** (TOTAL_STEPS 5→6) que envia `cnpj_registration` (Cartão/Comprovante CNPJ) e `articles_of_association` (Contrato social/ato constitutivo) pela **rota canônica** `POST /companies/:companyId/kyb/documents` (multipart), via novo client `submitCompanyKybDocument` (`api/companies.ts`). **Frontend nunca cria verdade:** só anexa o arquivo — não envia `actorId`/`kyb_status`/`company_status`; autoria (`ensureUserActor(req.user)`, opção B) + autoridade (`canManageCompany`) + validação (MIME/magic) + scan (clean-only) + storage privado + writer SSOT (`fiscal_identity_documents`) são **todos do backend**. Etapa **OPCIONAL** (não bloqueia `Finalizar` — obrigatoriedade é decisão de produto não tomada, STOP respeitado). **Cópia honesta:** "O envio não aprova a empresa automaticamente"; "documentos serão analisados por um operador"; sucesso = "✅ Enviado — aguardando análise"; **nunca** "Empresa aprovada". **Legado tombstonado de vez no frontend:** removidos handlers órfãos `handleUploadDocument`/`handleFileInputChange` (batiam no stub legado `uploadCompanyDocument` → `company_documents` fantasma) de `CompaniesManager.tsx` + plumbing em `CompaniesManagerForm.tsx`; clients legados seguem como stubs que LANÇAM, **sem nenhum consumidor vivo**.
+
+**Arquivos:** `frontend/src/api/companies.ts` (+`submitCompanyKybDocument`), `frontend/src/components/company/CompanyOnboardingWizard.tsx` (+ etapa/estado/handler), `.../CompanyOnboardingWizard.css`, `frontend/src/components/CompaniesManager.tsx` (−legado), `.../CompaniesManagerForm.tsx` (−plumbing legado).
+
+**Prova:** frontend tsc **0**. Backend route inalterada e re-provada `validate-pipeline-e2e-pj-kyb-documents-user-submit` **19/19**. 4 gates OK; arch `--strict` `critical_new=0`/`warning_new=1`=c3. **Migrations 365→365** (zero migration; zero Bank; zero backend runtime).
+
+**DTs:** `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` → **CLOSED** (assunto literal resolvido: a coleta documental KYB agora vive no onboarding, canônica). Resíduos = DTs próprias (NÃO reabrem esta): UI admin de review (frontend nicety); `DT-PJ-DOCUMENT-PRODUCTION-STORAGE-PROVIDER-MISSING` / `DT-PJ-DOCUMENT-PRODUCTION-MALWARE-SCANNER-MISSING` (OPEN); obrigatoriedade da etapa = produto.
+
+**PRÓXIMA ETAPA (espera Clayton):** providers de PRODUÇÃO (storage/scanner) para download real, **ou** UI admin de review (balcão no frontend), **ou** `F-PJ-DELETE-GUARD-BANK-PORT` (paralelo seguro). O **eixo KYB documental PJ — backend completo + coleta no onboarding — está fechado.**
+
+---
+
 ## 2026-06-07 — F-PJ-KYB-RELEASE-GATE: prova do gate de aprovação KYB com lastro documental (backend, prova-only)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `ddb4a0e5`. **Prova-only** (o gate já existia; nenhuma mudança no service). **Zero migration / Bank / código de runtime alterado / frontend.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_
