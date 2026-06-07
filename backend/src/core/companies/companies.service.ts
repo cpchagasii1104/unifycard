@@ -2006,51 +2006,67 @@ class CompaniesService {
       throw new Error('Empresa não encontrada');
     }
 
-    // 🔴 PROTEÇÃO: Verificar se há transações financeiras associadas
-    // Buscar accounts vinculados à empresa (se houver owner_type = 'company')
-    const accounts = await pool.query<{ account_id: string }>(
-      `
-      SELECT account_id
-      FROM accounts
-      WHERE owner_id = $1::uuid AND owner_type = 'company'
-      LIMIT 1
-      `,
-      [companyId]
+    // 🔴 GUARDA FAIL-CLOSED (F-PJ-DELETE-GUARD-BANK-PORT): bloquear exclusão de empresa com vínculo
+    // financeiro MATERIAL. O SSOT financeiro é actor-keyed (bank_accounts.actor_id / bank_ledger;
+    // owner_type ∈ {actor,system,escrow} — NÃO existe 'company'). As tabelas `accounts`/`transactions`
+    // do guard legado são FANTASMAS (inexistentes no schema vivo): o SELECT lançava "relation does not
+    // exist" e a proteção nunca foi exercida. Aqui resolvo os actors da empresa (actors.company_id) e
+    // consulto o Bank READ PORT canônico — SEM SQL direto em bank_*. Bloqueio fail-closed em: saldo≠0,
+    // OU qualquer movimentação, OU erro/indisponibilidade do port. Ausência provável de vínculo
+    // (sem actor, ou actor sem conta/saldo/movimento) → exclusão permitida (preserva a regra atual:
+    // existência de conta vazia não bloqueia; só movimentação/saldo material).
+    const companyActors = await runQueriesWithTenant<{ id: string }>(
+      finalTenantId,
+      `SELECT id::text AS id FROM actors WHERE tenant_id = $1 AND company_id = $2::uuid`,
+      [finalTenantId, companyId]
     );
 
-    if (accounts.rows.length > 0) {
-      // Verificar se há transações envolvendo essas contas
-      const accountIds = accounts.rows.map(a => a.account_id);
-      const transactions = await pool.query<{ count: string }>(
-        `
-        SELECT COUNT(*) as count
-        FROM transactions
-        WHERE from_account = ANY($1::uuid[]) OR to_account = ANY($1::uuid[])
-        `,
-        [accountIds]
-      );
+    if (companyActors.length > 0) {
+      const { bankPortsRegistry } = await import('@core/bank/ports-registry');
+      const readPort = bankPortsRegistry.getBankTransactionRead();
 
-      const txCount = parseInt(transactions.rows[0]?.count || '0', 10);
-      if (txCount > 0) {
-        throw new Error(
-          `Não é possível excluir a empresa. Existem ${txCount} transação(ões) financeira(s) associada(s). ` +
-          `Empresas com histórico financeiro não podem ser excluídas.`
-        );
+      for (const actorRow of companyActors) {
+        let summary: Awaited<ReturnType<typeof readPort.getWalletSummaryByActorId>>;
+        let recentTxs: Awaited<ReturnType<typeof readPort.listRecentTransactionsByActorId>>;
+        try {
+          [summary, recentTxs] = await Promise.all([
+            readPort.getWalletSummaryByActorId(finalTenantId, actorRow.id),
+            readPort.listRecentTransactionsByActorId(finalTenantId, actorRow.id, { limit: 1 }),
+          ]);
+        } catch {
+          // Incerteza no Bank port = fail-closed: não posso PROVAR ausência de vínculo financeiro.
+          throw new Error(
+            'PJ_DELETE_BLOCKED_BANK_UNAVAILABLE: não foi possível verificar o vínculo financeiro da ' +
+              'empresa no Bank (leitura indisponível). Exclusão bloqueada por segurança (fail-closed).'
+          );
+        }
+
+        const hasBalance = summary !== null && Number(summary.balanceCents) !== 0;
+        const hasMovement = recentTxs.length > 0;
+        if (hasBalance || hasMovement) {
+          throw new Error(
+            'PJ_DELETE_BLOCKED_FINANCIAL_LINK: não é possível excluir a empresa — há vínculo financeiro ' +
+              '(saldo e/ou movimentação) no Bank. Empresas com histórico financeiro não podem ser excluídas.'
+          );
+        }
       }
     }
 
-    // 🔴 CORREÇÃO: Se passou todas as verificações, fazer soft delete COM filtro tenant_id
-    const result = await runQueryWithTenant(
+    // Soft delete COM filtro tenant_id + ownership (status operacional 'inactive' — NÃO toca
+    // company_status/KYB/documentos). RETURNING torna o boolean de sucesso confiável:
+    // runQueryWithTenant devolve rows[0], e um UPDATE sem RETURNING voltaria undefined.
+    const deletedRow = await runQueryWithTenant<{ company_id: string }>(
       finalTenantId,
       `
       UPDATE companies
       SET status = 'inactive', updated_at = NOW()
       WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
+      RETURNING company_id
       `,
       [finalTenantId, companyId, globalUserId]
-    ) as { rowCount: number | null };
+    );
 
-    return result.rowCount !== null && result.rowCount > 0;
+    return deletedRow != null;
   }
 
   /**

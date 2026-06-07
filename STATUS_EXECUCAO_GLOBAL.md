@@ -1,3 +1,19 @@
+## 2026-06-07 — F-PJ-DELETE-GUARD-BANK-PORT: guard de exclusão de PJ sobre o Bank read port canônico (backend, sem migration)
+
+**Branch:** `rescue-structural` · **Backend** (sem migration/Bank-write/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** fecha o pilar **"deletar com segurança"** do arco PJ. O guard financeiro de `deleteCompany` consultava tabelas **FANTASMAS** `accounts`/`transactions` (inexistentes — o `SELECT` lançava `42P01` em qualquer exclusão; o guard nunca protegeu). Reescrito sobre o SSOT canônico **actor-keyed**: resolve os actors da empresa (`actors.company_id`) e consulta o **Bank READ PORT** (`getBankTransactionRead` → `getWalletSummaryByActorId` + `listRecentTransactionsByActorId`) — **SEM SQL direto em `bank_*`**. **Bloqueia fail-closed** em saldo≠0 OU movimentação OU erro/indisponibilidade do port; sem vínculo material → permite (preserva a regra atual: conta vazia não bloqueia). Soft-delete agora com `RETURNING` (boolean confiável) e segue só em `companies.status='inactive'` — **NÃO** toca `company_status`/KYB/documentos. READ-FIRST confirmou que o Bank é inteiramente actor-keyed (`owner_type ∈ {actor,system,escrow}`, sem `'company'`), logo os ports actor-keyed cobrem todo o footprint — sem STOP.
+
+**Arquivos:** `backend/src/core/companies/companies.service.ts` (`deleteCompany`), `backend/src/scripts/validate-pipeline-e2e-pj-delete-guard-bank-port.ts` (novo) + docs.
+
+**Prova:** e2e `validate-pipeline-e2e-pj-delete-guard-bank-port` **17/17** (D1 sem-vínculo→permitida+inactive+company_status intocado · D2 saldo→bloqueado · D3 conta vazia→permitida · D4 movimento→bloqueado · D5 port lança→fail-closed · D6 sem actor→permitida · D7 estrutural). Stub do `BankTransactionReadPort` controla o veredito (exercita o resolver real sem fabricar `bank_*`). Backend tsc **0** (fora geo); 4 gates OK (`bank-ledger` OK = guard via port, zero SQL direto; `arch --strict` `critical_new=0`/`warning_new=1`=c3); dev **365**. Sem regressão: userrole 4/4, cnpj 6/6.
+
+**DTs:** `DT-PJ-COMPANY-DELETE-GUARD-PHANTOM-TABLES` → **CLOSED** (aberta+fechada na fatia; o guard fantasma nunca protegeu, agora é canônico fail-closed).
+
+**PRÓXIMA ETAPA (espera Clayton):** arco PJ agora cobre nascer→verificar→operar→**deletar**. Candidatos: auditoria/hardening do `actionContext` (sistêmica, `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`), providers de produção (storage/scanner), ou UI admin de review KYB.
+
+---
+
 ## 2026-06-07 — F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND: wizard conecta o onboarding ao backend KYB pronto (frontend-only)
 
 **Branch:** `rescue-structural` · **Frontend-only** (nenhum service/runtime/migration/Bank tocado). Dev 365. _(Esteira: eu escritora; par verifica.)_
