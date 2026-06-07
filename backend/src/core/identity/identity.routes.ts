@@ -1443,6 +1443,46 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // ── F-PJ-KYB-DOCUMENTS-ADMIN-REVIEW-UI: balcão de análise (fila + download protegido) ──
+  // Review (accepted/rejected) já existe em PATCH /pj/kyb/documents/:documentId/review (só muda
+  // document_status; NÃO toca kyb_status). Aqui entram a FILA e o DOWNLOAD protegido (clean-only).
+
+  /** GET /identity/pj/kyb/documents/pending — fila de análise (documentos 'submitted'). requireRole(['admin']). */
+  fastify.get('/pj/kyb/documents/pending', { preHandler: [fastify.requireRole(['admin'])] }, async (_req, reply) => {
+    try {
+      const { fiscalIdentityDocumentService } = await import('@core/identity/fiscal-identity-document.service');
+      const data = await fiscalIdentityDocumentService.listPendingFiscalIdentityDocuments();
+      return reply.send({ ok: true, data });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao listar fila KYB PJ');
+      return reply.status(400).send({ ok: false, message: error instanceof Error ? error.message : 'Erro ao listar fila' });
+    }
+  });
+
+  /** GET /identity/pj/kyb/documents/:documentId/file — download PROTEGIDO. requireRole(['admin']).
+   *  Lê via DocumentStoragePort, valida hash vs SSOT, RE-ESCANEIA (clean-only) e só então devolve bytes.
+   *  NUNCA expõe path local/URL pública. Produção sem scanner = fail-closed. */
+  fastify.get<{ Params: { documentId: string } }>(
+    '/pj/kyb/documents/:documentId/file',
+    { preHandler: [fastify.requireRole(['admin'])] },
+    async (req, reply) => {
+      try {
+        const { downloadKybDocument } = await import('@core/kyb-documents/kyb-document-download.service');
+        const result = await downloadKybDocument(req.params.documentId, { scanTenantId: req.tenant?.id });
+        reply.header('Content-Disposition', `inline; filename="kyb_${req.params.documentId}"`);
+        reply.header('X-Document-Type', result.documentType);
+        reply.type(result.mimeType);
+        return reply.send(result.buffer);
+      } catch (error) {
+        const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+        const code = (error as { code?: string }).code;
+        const message = error instanceof Error ? error.message : 'Erro ao baixar documento KYB';
+        if (statusCode >= 500) fastify.log.error({ err: error, documentId: req.params.documentId }, 'Erro no download KYB');
+        return reply.status(statusCode).send({ ok: false, code, message });
+      }
+    },
+  );
+
   // Registrar rotas de residence como sub-rotas
   // A rota GET /identity/residence está definida em residence.routes.ts
   await fastify.register(residenceRoutes, { prefix: '/residence' });

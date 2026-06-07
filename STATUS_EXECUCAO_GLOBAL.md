@@ -1,3 +1,19 @@
+## 2026-06-06 — F-PJ-KYB-DOCUMENTS-ADMIN-REVIEW-UI: balcão de análise admin (fila + download protegido), backend, sem migration
+
+**Branch:** `rescue-structural` · **HEAD origem:** `57a145ea`. Backend admin review (fecha o ciclo submit→análise). **Zero migration / Bank / frontend / KYB approval / lifecycle.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** o **balcão de análise** sobre o SSOT `fiscal_identity_documents` — o documento submetido (status `submitted`) agora tem caminho de revisão. (1) **Fila** `GET /identity/pj/kyb/documents/pending` (`listPendingFiscalIdentityDocuments`). (2) **Download PROTEGIDO** `GET /identity/pj/kyb/documents/:documentId/file` (`downloadKybDocument`): lê via `DocumentStoragePort` → **valida hash vs SSOT** (409 se divergir) → **RE-ESCANEIA** via `MalwareScanPort` clean-only (como NÃO há scan persistido, refaz na hora; prod sem scanner = **fail-closed**) → `assertDocumentSafeToExpose` → bytes. **Nunca** path local/URL pública/`/uploads`. (3) **Review** reusa o canônico `PATCH …/review` (accepted/rejected; **só `document_status`**, NÃO toca `kyb_status`/`company_status`). Tudo `requireRole(['admin'])`. **Backend-only** — UI de admin (frontend) seria frente grande (não feita). NÃO aprova KYB; NÃO toca Bank/lifecycle/`company_documents`/migration.
+
+**Arquivos:** `backend/src/core/identity/fiscal-identity-document.service.ts` (+`getFiscalIdentityDocumentById`/`listPendingFiscalIdentityDocuments`), `backend/src/core/kyb-documents/kyb-document-download.service.ts` (novo), `backend/src/core/identity/identity.routes.ts` (rotas pending/file), e2e novo.
+
+**Prova:** e2e `validate-pipeline-e2e-pj-kyb-documents-admin-review` **13/13** (fila · getById · download buffer+mime · **hash divergente 409** · **scan infected 422 sem expor** · review accept/reject só document_status · **kyb_status/company_status imóveis** · estrutural: download service sem kyb/company/Bank/company_documents/uploads + rotas admin-gated). Sem regressão (9 e2es PJ verdes). **tsc real fora de geo = 0** (grep `error TS`, filtro geo só na coluna do arquivo). 4 gates OK; arch `--strict` `critical_new=0`/`warning_new=1`=c3. **Migrations 365→365.**
+
+**DTs:** `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` → segue **PARTIALLY MITIGATED** (submit + balcão backend existem; falta wizard/frontend + release gate). `DT-PJ-DOCUMENT-PRODUCTION-STORAGE-PROVIDER-MISSING` / `-MALWARE-SCANNER-MISSING` → OPEN (download real em prod gated por eles).
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-PJ-KYB-RELEASE-GATE` (aprovação KYB com lastro documental — o writer `reviewFiscalKybRequest` já exige docs mínimos `accepted`) **ou** `F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND`. Paralelo seguro: `F-PJ-DELETE-GUARD-BANK-PORT`.
+
+---
+
 ## 2026-06-06 — F-PJ-KYB-DOCUMENTS-USER-SUBMIT: rota user-facing de submit documental KYB (backend, sem migration)
 
 **Branch:** `rescue-structural` · **HEAD origem:** `dec7057a`. Backend (convergência do Pilar 1 KYB). **Zero migration / Bank / frontend / download / review / KYB approval.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_

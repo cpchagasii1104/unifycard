@@ -121,6 +121,42 @@ class FiscalIdentityDocumentService {
   }
 
   /**
+   * getFiscalIdentityDocumentById: um documento por id (leitura; null se inexistente).
+   * F-PJ-KYB-DOCUMENTS-ADMIN-REVIEW-UI: usado pelo download protegido (resolve file_reference/hash).
+   */
+  async getFiscalIdentityDocumentById(documentId: string): Promise<FiscalIdentityDocument | null> {
+    if (!documentId || typeof documentId !== 'string') {
+      throw new Error('getFiscalIdentityDocumentById: documentId é obrigatório');
+    }
+    const rows = await pool.query(
+      `SELECT document_id, fiscal_identity_id::text, kyb_request_id::text, document_type, document_status,
+              file_reference, file_hash, submitted_by_actor_id::text, reviewed_by_actor_id::text,
+              reviewed_at, decision_reason, supersedes_document_id::text
+         FROM fiscal_identity_documents
+        WHERE document_id = $1::uuid
+        LIMIT 1`,
+      [documentId],
+    );
+    return rows.rows.length ? mapRow(rows.rows[0]) : null;
+  }
+
+  /**
+   * listPendingFiscalIdentityDocuments: fila de análise admin — documentos `submitted` (todas as
+   * identidades fiscais), mais antigos primeiro. Leitura sobre o SSOT (não company_documents).
+   */
+  async listPendingFiscalIdentityDocuments(): Promise<FiscalIdentityDocument[]> {
+    const rows = await pool.query(
+      `SELECT document_id, fiscal_identity_id::text, kyb_request_id::text, document_type, document_status,
+              file_reference, file_hash, submitted_by_actor_id::text, reviewed_by_actor_id::text,
+              reviewed_at, decision_reason, supersedes_document_id::text
+         FROM fiscal_identity_documents
+        WHERE document_status = 'submitted'
+        ORDER BY created_at ASC`,
+    );
+    return rows.rows.map(mapRow);
+  }
+
+  /**
    * reviewFiscalIdentityDocument: admin decide submitted → accepted | rejected (auditado).
    * NÃO altera kyb_status. reason obrigatório (CHECK chk_fidoc_final_audit).
    */
