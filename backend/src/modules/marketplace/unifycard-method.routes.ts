@@ -12,7 +12,13 @@ const unifyCardMethodRoutes = async (fastify: FastifyInstance) => {
    * POST /unifycard/methods
    * Cria método de pagamento UnifyCard
    */
-  fastify.post<{ Body: CreateUnifyCardMethodInput }>('/unifycard/methods', async (req, reply) => {
+  // 🔴 DECISION-0113 fatia 3 (F3.1): criar método/config de adquirência (fees/settlement_days) é
+  // ação tenant/admin-level. Gate admin canônico (rbac.plugin já binda req.user via canRepresentActor
+  // na fatia 1) — usuário comum não configura adquirência. `actionContext.actorId` deixa de ser autoridade.
+  fastify.post<{ Body: CreateUnifyCardMethodInput }>(
+    '/unifycard/methods',
+    { preHandler: [fastify.requireRole(['admin'])] },
+    async (req, reply) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 

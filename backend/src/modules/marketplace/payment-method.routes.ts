@@ -3,6 +3,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { paymentMethodService } from './payment-method.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 import type {
   CreatePaymentMethodInput,
   PaymentMethodFilters,
@@ -23,11 +24,36 @@ const paymentMethodRoutes = async (fastify: FastifyInstance) => {
       throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
+    // 🔴 DECISION-0113 fatia 3 (F3.1): o dono do método é `input.actorId` (body). Provar que o
+    // usuário autenticado PODE representar esse actor ANTES do insert e do unsetDefaultForActor
+    // (que mutaria o default de outro actor). `actionContext.actorId` é hint, não autoridade.
+    const userId = (req as { user?: { id?: string } }).user?.id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.id) para criar método de pagamento' });
+    }
+    const ownerActorId = req.body?.actorId;
+    if (!ownerActorId) {
+      throw new BadRequestError('actorId (dono do método) é obrigatório', ErrorCode.MISSING_ACTOR);
+    }
+    let canOwn = false;
+    try {
+      canOwn = await authorizationService.canRepresentActor(tenantId, userId, ownerActorId);
+    } catch {
+      canOwn = false;
+    }
+    if (!canOwn) {
+      return reply.status(403).send({
+        error: 'Você não pode criar método de pagamento para este actor (DECISION-0113)',
+        code: 'PAYMENT_METHOD_ACTOR_NOT_REPRESENTABLE',
+      });
+    }
+
+    // Autoria server-side: createdBy = actor provado (dono) + principal autenticado, nunca o actorId cru.
     const method = await paymentMethodService.createMethod(
       tenantId,
       req.body,
-      actionContext.actorId,
-      actionContext.actingUserId
+      ownerActorId,
+      userId
     );
 
     return reply.status(201).send(method);

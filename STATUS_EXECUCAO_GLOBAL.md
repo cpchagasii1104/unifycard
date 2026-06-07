@@ -1,3 +1,19 @@
+## 2026-06-07 — F-MONEY-LIVE-AUTHORSHIP-GATE-F3_1: gateia as 3 rotas money vivas (DECISION-0113 fatia 3/6)
+
+**Branch:** `rescue-structural` · **backend** (só 3 arquivos de rota; zero migration/Bank/frontend/middleware/service-logic; nenhum Proxy religado). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** as **3 únicas rotas money vivas** (mapa F-MONEY-LIVE-AUTHORSHIP-MAP) passam a provar autoria/autoridade server-side antes da escrita. (1) `POST /events/:id/settlement/settle` → resolve `events.actor_id` (organizer) + `canRepresentActor(req.user)`; autoria = (organizer, user), não actorId cru; sem organizer → 403. (2) `POST /payment-methods` → `canRepresentActor(req.user, input.actorId)` antes do insert + `unsetDefaultForActor` (cross-actor). (3) `POST /unifycard/methods` → `requireRole(['admin'])` (config adquirência tenant). **Bank boundary intacta** (zero `bank_*`; tabelas comerciais); **nenhum Proxy latente religado**. Sem STOP — autoridade do evento materialmente clara (`events.actor_id`).
+
+**Arquivos:** `event-settlement.routes.ts`, `payment-method.routes.ts`, `unifycard-method.routes.ts` (+gate), `validate-pipeline-e2e-money-live-authorship-f3-1.ts` (novo).
+
+**Prova:** e2e `money-live-authorship-f3-1` **12/12** (A behavioral + B estrutural gate-antes-da-mutação + autoria server-side + C non-touch). Backend tsc **0** (fora geo); 4 gates OK (`bank-ledger` verde); dev **365**. Regressões: fatia 1 (13/13), fatia 2 (16/16), 7 DEV-safe PJ verdes. **Suite financeira** (`verify:simple-tx-double-entry`/`test:financial-*:ci`) = artefato de **ambiente** (DEV sem `reserve` seeded; jest "no tests found") — não-regressão (diff orthogonal; bank-ledger verde), reportado.
+
+**DTs:** `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` → **fatia 3/6 (F3.1) DONE**, segue OPEN (fatias 4–6).
+
+**PRÓXIMA ETAPA (espera go):** fatia 4/6 — money LATENTE (re-activation guard / `DT-MONEY-LATENT-REACTIVATION-TRAP`; region-fund/AP-AR atrás de `DECISION-0114`+DTs) **ou** pular para fatia 5 (plan/identity-config/profile-C1/lifestyle). Depois leitura cross-user.
+
+---
+
 ## 2026-06-07 — F-MONEY-LIVE-AUTHORSHIP-MAP (selado) + DECISION-0114 (autoridade Fundo Regional/AP-AR) — docs-only
 
 **Branch:** `rescue-structural` · **DOCS-ONLY** (zero código/migration/Bank/frontend/runtime; nenhum Proxy religado). Dev 365.
