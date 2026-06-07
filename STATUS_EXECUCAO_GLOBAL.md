@@ -1,3 +1,19 @@
+## 2026-06-07 — F-RBAC-PLUGIN-BIND-REQ-USER (+ canRepresentActor): fecha o amplificador sistêmico de spoofability (DECISION-0113 fatia 1/6)
+
+**Branch:** `rescue-structural` · **backend** (zero migration/Bank/frontend/middleware-central). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** a 1ª fatia de código da remediação do `actionContext` — o **amplificador**. Novo primitivo `authorizationService.canRepresentActor(tenantId, userId, actorId)` (**permission-agnóstico + registry-INDEPENDENTE**): ownership direto / empresa via `canManageCompany` canônico / grupo via `actors.group_id` / registry-bônus / delegação ativa. O `rbac.plugin` (`requireRole`/`requirePermission`/`requireAnyPermission`) agora bindeia `req.user` **antes** do lookup → `requireRole(['admin'])` deixou de ser spoofável (sem req.user→401; não-representável/erro→403 fail-closed). **Achado:** `checkOwnership` (usado por `canActAs`) ignora o dono `role='owner'` — por isso o primitivo usa `canManageCompany`; o gap do `canActAs` é dívida pré-existente própria. `resolveGlobalUserId`/`checkOwnership` fail-closed (desconhecido→deny).
+
+**Arquivos:** `backend/src/core/authorization/authorization.service.ts` (+`canRepresentActor`+2 helpers), `backend/src/plugins/rbac.plugin.ts` (+binding), `backend/src/scripts/validate-pipeline-e2e-rbac-actor-binding.ts` (novo).
+
+**Prova:** e2e `rbac-actor-binding` **13/13** (ownership/spoof/empresa-registry-independente/spoof-empresa/sem-vínculo/delegação ativa+expirada+revogada/fail-closed/estrutural). Backend tsc **0** (fora geo); 4 gates OK (`critical_new=0`); dev **365**. Regressões: 7 DEV-safe verdes (admin-review 13/13, release-gate 10/10, vocab 7/7, projection 4/4, cnpj 6/6, lifecycle 7/7, user-submit 19/19) + ephemeral adminoverride 5/5, revocation-cascade 15/15; 3 ephemeral (kyb-gate/social-kyb-gate/kyb-writer) com falha **pré-existente** de setup (CHECK lifecycle/min-docs), exonerada via `git stash`.
+
+**DTs:** `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` → **fatia 1/6 DONE**, segue **OPEN** (fatias 2–6).
+
+**PRÓXIMA ETAPA (espera go de Clayton):** `F-AUTHORITY-ESCALATION-GATE` — `company-members` + `organization` juntos (fecham o mint de `actor_delegations` escopo `['*']`). Depois: money LIVE → money LATENTE → plan/identity/profile-C1/lifestyle → leitura cross-user.
+
+---
+
 ## 2026-06-07 — DECISION-0113 (D-ACTIONCONTEXT-ACTORID-OWNERSHIP-BINDING): actorId é hint não-soberano; autoridade exige binding com req.user (docs-only)
 
 **Branch:** `rescue-structural` · **DOCS-ONLY** (zero código/migration/Bank/frontend/middleware/rbac runtime). Dev 365. _(Esteira: eu escritora; Clayton promulga.)_

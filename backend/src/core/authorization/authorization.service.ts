@@ -312,6 +312,108 @@ class AuthorizationService {
   }
 
   /**
+   * REPRESENTABILIDADE (DECISION-0113): "este `userId` pode VESTIR este `actorId`?"
+   *
+   * Primitivo **permission-agnóstico** e **registry-INDEPENDENTE**, distinto de `canActAs`
+   * (que mistura representabilidade + autorização de uma `PermissionKey`). O RBAC (`rbac.plugin`)
+   * precisa SÓ desta pergunta antes de decidir role/permission — `actionContext.actorId` é hint
+   * não-soberano; a autoridade real exige que o principal autenticado possa representar o actor.
+   *
+   * Fontes (todas server-side, fail-closed):
+   *  1. ownership direto — `actors.user_id === userId` (user/actor_human/person);
+   *  2. empresa/page-actor — `actors.company_id → company_users` (via `checkOwnership('companies')`,
+   *     **sem** depender de `actor_registry`, que é populado lazy — só em add-member);
+   *  3. grupo — `actors.group_id → groups.owner_actor_id` (via `checkOwnership('groups')`);
+   *  4. registry-bônus — se houver linha em `actor_registry`, `checkOwnership(entityTable,entityId)`
+   *     cobre casos adicionais (ex.: events) quando o registro existir;
+   *  5. delegação ativa — `actor_delegations` (via `findActiveDelegation`, já valida ativa/expira/revoga).
+   *
+   * NÃO decide role/permission/capability. NÃO infere actorId. Retorna apenas true/false.
+   */
+  async canRepresentActor(tenantId: string, userId: string, actorId: string): Promise<boolean> {
+    // Inputs inválidos → fail-closed (deny).
+    if (!tenantId?.trim() || !userId?.trim() || !actorId?.trim()) {
+      return false;
+    }
+
+    const actorRepository = socialPortsRegistry.getActorRepository();
+    const actor = await actorRepository.findById(tenantId, actorId);
+    if (!actor) {
+      return false; // actor inexistente no tenant → deny
+    }
+
+    // 1. Ownership direto (actor humano do próprio user) — registry-independente.
+    if (
+      actor.user_id === userId &&
+      (actor.actor_type === 'user' ||
+        actor.actor_type === 'actor_human' ||
+        actor.actor_type === 'person')
+    ) {
+      return true;
+    }
+
+    // 2. Empresa / page-actor — registry-INDEPENDENTE, via o check CANÔNICO `canManageCompany`
+    //    (`can_manage_company OR role='owner'`), NÃO o `checkOwnership` legado (que só vê
+    //    `is_primary`/`role='admin'` e ignora o dono `role='owner'`). `resolveGlobalUserId` é
+    //    fail-closed: principal desconhecido → null → deny.
+    if (actor.company_id) {
+      const globalUserId = await this.safeResolveGlobalUserId(userId, tenantId);
+      if (globalUserId) {
+        const { companiesService } = await import('@core/companies/companies.service');
+        if (await companiesService.canManageCompany(tenantId, actor.company_id, globalUserId)) {
+          return true;
+        }
+      }
+    }
+
+    // 3. Grupo — registry-INDEPENDENTE (actors.group_id → groups.owner_actor_id).
+    if (actor.group_id && (await this.safeCheckOwnership(tenantId, userId, 'groups', actor.group_id))) {
+      return true;
+    }
+
+    // 4. Registry-bônus: cobre entidades cujo vínculo não vive em coluna do actor (ex.: events),
+    //    quando a linha de registry existir. Não é pré-requisito (2/3 já cobrem empresa/grupo).
+    const registry = await actorRegistryService.findByActorId(tenantId, actorId);
+    if (
+      registry?.entityTable &&
+      registry?.entityId &&
+      (await this.safeCheckOwnership(tenantId, userId, registry.entityTable, registry.entityId))
+    ) {
+      return true;
+    }
+
+    // 5. Delegação ativa (não-expirada/não-revogada — garantido pelo repositório).
+    if (await this.findActiveDelegation(tenantId, userId, actorId)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /** resolveGlobalUserId fail-closed: principal desconhecido/erro → null (deny), nunca propaga. */
+  private async safeResolveGlobalUserId(userId: string, tenantId: string): Promise<string | null> {
+    try {
+      return await resolveGlobalUserId(userId, tenantId);
+    } catch {
+      return null;
+    }
+  }
+
+  /** checkOwnership fail-closed: qualquer erro de resolução → false (deny), nunca propaga. */
+  private async safeCheckOwnership(
+    tenantId: string,
+    userId: string,
+    entityTable: string,
+    entityId: string
+  ): Promise<boolean> {
+    try {
+      return await this.checkOwnership(tenantId, userId, entityTable, entityId);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Se o mapa canónico exige capability em `actor_registry`, falha fechada sem linha ou sem flag `true`.
    */
   private denyIfMissingRequiredRegistryCapability(
