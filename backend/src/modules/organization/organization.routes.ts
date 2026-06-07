@@ -1,11 +1,12 @@
 // backend/src/modules/organization/organization.routes.ts
 // SPRINT 78: Rotas REST para Organization
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { organizationRoleService } from './organization-role.service';
 import { organizationInviteService } from './organization-invite.service';
 import { organizationMemberService } from './organization-member.service';
 import { organizationUnitService } from './organization-unit.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 import type {
   InviteUserInput,
   AcceptInviteInput,
@@ -14,6 +15,35 @@ import type {
 } from './organization.types';
 
 const organizationRoutes = async (fastify: FastifyInstance) => {
+  /**
+   * BINDING DE REPRESENTABILIDADE (DECISION-0113 fatia 2): mutação de convite/membro/role exige que o
+   * `actorId` declarado seja REPRESENTÁVEL pelo `req.user` (`canRepresentActor`). Os checks de
+   * autoridade da organização já existem (`validateCanInvite`/`validateCanManageMembers` = OWNER/ADMIN),
+   * mas eram keyed no `actionContext.actorId` spoofável; este gate prova que o caller veste o actor
+   * antes de o service rodar o check OWNER/ADMIN sobre ele. Fail-closed: sem `req.user`→401; não-representável/erro→403.
+   */
+  async function requireRepresentable(req: FastifyRequest, reply: FastifyReply, actorId: string): Promise<boolean> {
+    const tenantId = req.tenant!.id;
+    const userId = (req as { user?: { id?: string } }).user?.id;
+    if (!userId) {
+      reply.status(401).send({ error: 'Autenticação obrigatória (req.user.id)' });
+      return false;
+    }
+    let ok = false;
+    try {
+      ok = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      reply.status(403).send({
+        error: 'Actor declarado não é representável pelo usuário autenticado (DECISION-0113)',
+        code: 'ORG_ACTOR_NOT_REPRESENTABLE',
+      });
+      return false;
+    }
+    return true;
+  }
   // ============================================================
   // INVITES
   // ============================================================
@@ -30,6 +60,9 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
     if (!actionContext || !actionContext.actorId) {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
+
+    // 🔴 DECISION-0113 fatia 2: provar representabilidade antes do check OWNER/ADMIN (validateCanInvite)
+    if (!(await requireRepresentable(req, reply, actionContext.actorId))) return;
 
     const invite = await organizationInviteService.inviteUser(
       tenantId,
@@ -57,6 +90,9 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
+    // 🔴 DECISION-0113 fatia 2: o aceitante só pode vincular um actor que ele representa (não o de terceiro)
+    if (!(await requireRepresentable(req, reply, req.body.actorId))) return;
+
     const member = await organizationInviteService.acceptInvite(tenantId, {
       token: req.body.token,
       userId: actionContext.actorId,
@@ -78,6 +114,9 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
     if (!actionContext || !actionContext.actorId) {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
+
+    // 🔴 DECISION-0113 fatia 2: provar representabilidade antes do check OWNER/ADMIN (validateCanInvite)
+    if (!(await requireRepresentable(req, reply, actionContext.actorId))) return;
 
     const revokedInvite = await organizationInviteService.revokeInvite(
       tenantId,
@@ -171,6 +210,9 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
+    // 🔴 DECISION-0113 fatia 2: provar representabilidade antes do check OWNER/ADMIN (validateCanManageMembers)
+    if (!(await requireRepresentable(req, reply, actionContext.actorId))) return;
+
     const member = await organizationMemberService.changeRole(
       tenantId,
       req.params.id,
@@ -194,6 +236,9 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
     if (!actionContext || !actionContext.actorId) {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
+
+    // 🔴 DECISION-0113 fatia 2: provar representabilidade antes do check OWNER/ADMIN (validateCanManageMembers)
+    if (!(await requireRepresentable(req, reply, actionContext.actorId))) return;
 
     await organizationMemberService.removeMember(
       tenantId,

@@ -1,3 +1,19 @@
+## 2026-06-07 — F-AUTHORITY-ESCALATION-GATE: fecha a fábrica de crachá falso (company-members + organization) (DECISION-0113 fatia 2/6)
+
+**Branch:** `rescue-structural` · **backend** (só 2 arquivos de rota; zero migration/Bank/frontend/middleware/service-logic). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** as rotas que criam/alteram membros, convites, roles e delegações (mint de `actor_delegations`, inclusive escopo `['*']`) passam a **provar autoridade server-side antes de qualquer mutação**. **company-members** (POST/PUT/DELETE): gate `requireCompanyManage` → `canManageCompany(req.user)`; PUT/DELETE gateiam sobre a empresa REAL do membro (anti-IDOR). Fecha o mint de `['*']` do `createMember` — inalcançável sem gestão da empresa. **organization** (invites create/accept/revoke + members role/remove): gate `requireRepresentable` → `canRepresentActor(req.user, actorId)` **antes** dos checks OWNER/ADMIN já existentes (`validateCanInvite`/`validateCanManageMembers`), que eram keyed no `actionContext.actorId` spoofável. Sem STOP — ambos têm autoridade canônica. Correção ao inventário: organization invites **tinham** gate (`validateCanInvite`), só estava keyed no actorId spoofável.
+
+**Arquivos:** `backend/src/core/companies/company-members.routes.ts` (+gate), `backend/src/modules/organization/organization.routes.ts` (+gate), `backend/src/scripts/validate-pipeline-e2e-authority-escalation-gate.ts` (novo).
+
+**Prova:** e2e `authority-escalation-gate` **16/16** (A behavioral: canManageCompany dono→true/estranho→false + canRepresentActor; B estrutural: gate antes da mutação nas 8 rotas; C: autoridade OWNER/ADMIN intacta + escalação `['*']` gateada). Backend tsc **0** (fora geo); 4 gates OK (`critical_new=0`); dev **365**. Regressões: rbac-actor-binding 13/13 + 7 DEV-safe verdes + company-status-lifecycle 13/13; atomic-company-birth 17/18 (1 **pré-existente**, exonerada via stash).
+
+**DTs:** `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` → **fatia 2/6 DONE** (OPEN; fatias 3–6). Aberta `DT-PJ-EPHEMERAL-FIXTURES-STALE-VS-BASELINE-365` (resíduo separado, não-regressão).
+
+**PRÓXIMA ETAPA (espera go de Clayton):** fatia 3/6 — **money LIVE** (`unifycard` authorize/capture/settle + `settlement`/region + `accounts-payable`/`accounts-receivable` + `payment-method`). Só depois money LATENTE → plan/identity/profile-C1/lifestyle → leitura cross-user.
+
+---
+
 ## 2026-06-07 — F-RBAC-PLUGIN-BIND-REQ-USER (+ canRepresentActor): fecha o amplificador sistêmico de spoofability (DECISION-0113 fatia 1/6)
 
 **Branch:** `rescue-structural` · **backend** (zero migration/Bank/frontend/middleware-central). Dev 365. _(Esteira: eu escritora; par verifica.)_

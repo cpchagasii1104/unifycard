@@ -3,12 +3,50 @@
 // 🔴 BLINDAGEM: Base estrutural, NÃO CRM/ERP completo
 // 🔴 BLINDAGEM: Empresa NÃO pode editar agenda pessoal do funcionário
 
-import { FastifyPluginAsync } from 'fastify';
+import { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { companyMembersService } from './company-members.service';
+import { companiesService } from './companies.service';
+import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { CompanyMemberRole, CompanyMemberStatus } from './company-members.types';
 import { z } from 'zod';
 
 const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
+  /**
+   * GATE DE AUTORIDADE (DECISION-0113 fatia 2): mutação de membro/delegação exige que o **usuário
+   * autenticado** (`req.user`) prove gestão da empresa via `canManageCompany` (canônico:
+   * `can_manage_company OR role='owner'`). `actionContext.actorId` é hint, não autoridade. Gateia
+   * sobre a empresa REAL (parâmetro `companyId` resolvido pelo caller) — fail-closed em ausência de
+   * `req.user`, principal sem global_user_id, ou sem gestão. Retorna true se autorizado (não responde);
+   * false após já ter respondido o erro.
+   */
+  async function requireCompanyManage(req: FastifyRequest, reply: FastifyReply, companyId: string): Promise<boolean> {
+    const tenantId = req.tenant!.id;
+    const userId = (req as { user?: { id?: string } }).user?.id;
+    if (!userId) {
+      reply.status(401).send({ error: 'Autenticação obrigatória (req.user.id) para gerir membros' });
+      return false;
+    }
+    let globalUserId: string | null = null;
+    try {
+      globalUserId = await resolveGlobalUserId(userId, tenantId);
+    } catch {
+      globalUserId = null;
+    }
+    if (!globalUserId) {
+      reply.status(403).send({ error: 'Sem autoridade sobre a empresa (identidade não resolvida)' });
+      return false;
+    }
+    const canManage = await companiesService.canManageCompany(tenantId, companyId, globalUserId);
+    if (!canManage) {
+      reply.status(403).send({
+        error: 'Apenas quem gerencia a empresa pode gerir membros/delegações (DECISION-0113)',
+        code: 'COMPANY_MEMBER_MANAGE_FORBIDDEN',
+      });
+      return false;
+    }
+    return true;
+  }
+
   /**
    * POST /companies/:companyId/members
    * Adicionar membro à empresa
@@ -33,6 +71,9 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
+
+      // 🔴 DECISION-0113 fatia 2: autoridade server-side (req.user gerencia a empresa) antes de criar membro/delegação
+      if (!(await requireCompanyManage(req, reply, req.params.companyId))) return;
 
       // Validar payload
       const parsed = createMemberSchema.safeParse(req.body);
@@ -214,6 +255,10 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔴 DECISION-0113 fatia 2: autoridade sobre a empresa REAL do membro (req.user), não actionContext.actorId
+        const target = await companyMembersService.getMember(req.tenant.id, req.params.memberId);
+        if (!(await requireCompanyManage(req, reply, target.companyId))) return;
+
         const member = await companyMembersService.updateMember(
           req.tenant.id,
           req.params.memberId,
@@ -263,6 +308,10 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // 🔴 DECISION-0113 fatia 2: autoridade sobre a empresa REAL do membro (req.user), não actionContext.actorId
+      const target = await companyMembersService.getMember(req.tenant.id, req.params.memberId);
+      if (!(await requireCompanyManage(req, reply, target.companyId))) return;
+
       await companyMembersService.removeMember(
         req.tenant.id,
         req.params.memberId,
