@@ -1,3 +1,9 @@
+## 2026-06-07 — docs-only: registra ruído da suite financeira no DT de fixtures stale
+
+**DOCS-ONLY** (zero runtime/teste/script/migration). F3.1 (`e6c369fe`) **verificada/fechada**. Registrado em `DT-PJ-EPHEMERAL-FIXTURES-STALE-VS-BASELINE-365` que os ruídos da suite financeira observados na fatia 3 (`verify:simple-tx-double-entry` = `reserve` não-seeded em DEV; `test:financial-*:ci` = "no tests found"/patterns jest stale) são **ambiente/baseline, não regressão** (diff de F3.1 fora do grafo desses testes; `bank-ledger` gate verde) — rastreados para **não virarem verde-fantasma** nem mascararem regressão futura. 4 gates docs-only OK; dev 365.
+
+---
+
 ## 2026-06-07 — F-MONEY-LIVE-AUTHORSHIP-GATE-F3_1: gateia as 3 rotas money vivas (DECISION-0113 fatia 3/6)
 
 **Branch:** `rescue-structural` · **backend** (só 3 arquivos de rota; zero migration/Bank/frontend/middleware/service-logic; nenhum Proxy religado). Dev 365. _(Esteira: eu escritora; par verifica.)_
