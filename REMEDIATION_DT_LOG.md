@@ -11556,6 +11556,39 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Mitigação:** **não religar AP/AR** nesta fatia; **não** tratar como autorizado por `companyId` implícito nem por `actionContext.actorId`. Reativação futura exige **DECISION de modelo + gate + E2E** (anti-trap).
 - **Vinculada a:** `DECISION-0114`, `DT-MONEY-LATENT-REACTIVATION-TRAP`, `accounts-payable.types`/`accounts-receivable.types` (owner = supplierId/actorId).
 
+## DT-PLAN-PUT-PRIVILEGE-SPOOF — OPEN (2026-06-07)
+
+- **Status:** **OPEN (2026-06-07)** — mapeada em `F-PLAN-IDENTITY-PROFILE-LIFESTYLE-AUTHORSHIP-MAP` (fatia 5, READ-ONLY) + verificada de 1ª mão. `PUT /plan` (`core/plan/plan.routes.ts`) tem **duplo-spoof**: (a) avalia o privilégio `is_test`/`role='admin'` consultando `actors WHERE actor_id = $1` com `$1 = req.actionContext.actorId` **declarado/spoofável** (não `req.user`); (b) escreve `UPDATE users SET plan WHERE user_id = <user do actor spoofado>`. `req.user` só é usado no 401. → um usuário comum declara um actorId test/admin, passa o `403` (que lê o privilégio DO actor declarado) e troca o plano **daquele** usuário.
+- **Risco:** alteração de entitlement/billing de terceiro; tanto a **autoridade** quanto o **sujeito** são spoofados num só request.
+- **Mitigação atual:** nenhuma (runtime).
+- **Resolução prevista (F5.1):** **redesenhar o privilégio sobre `req.user`** (avaliar is_test/admin do caller, não do actor declarado) e escrever no plano do **caller**; OU exigir `canRepresentActor(req.user.id, actorId)` antes e avaliar privilégio sobre o actor representado. Não é "só adicionar gate" — a lógica de privilégio está invertida. Sem migration.
+- **Vinculada a:** `DECISION-0113` (fatia 5/F5.1), `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`.
+
+## DT-IDENTITY-CONFIG-ACTOR-SPOOF — OPEN (2026-06-07)
+
+- **Status:** **OPEN (2026-06-07)** — `PUT /identity/configurations` (`core/identity/identity.routes.ts`) escreve `global_users.metadata.userType` (PF/PJ — identidade fiscal/operacional) com sujeito **derivado de `req.actionContext.actorId`** spoofável, **sem** gate de representabilidade (`req.user` só no 401). Cross-user write de atributo de identidade LGPD-relevante.
+- **Risco:** alterar a classificação de identidade (PF/PJ) de outro usuário/actor.
+- **Mitigação atual:** nenhuma (runtime).
+- **Resolução prevista (F5.1):** `canRepresentActor(req.user.id, actorId)` fail-closed antes do write, OU resolver self via `ensureUserActor(req.user)` (userType é identidade do próprio caller). Padrão de referência no arquivo: `POST /identity/confirm-first-access` (usa `req.user.id`). Sem migration.
+- **Vinculada a:** `DECISION-0113` (F5.1), `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`.
+
+## DT-PROFILE-C1-EXISTENCE-ONLY-RESOLVER — OPEN (2026-06-07)
+
+- **Status:** **OPEN (2026-06-07)** — os 3 módulos Profile-C1 (`professional`/`learning`/`interest`, `core/profile/*-c1`) escrevem autodeclarações (bio + concepts) keyed em `actionContext.actorId` spoofável, gateados **só** por um `resolveActorGuarded` **existence-only** (`SELECT id, actor_id FROM actors WHERE actor_id=$2` + invariante `id===actor_id`) — que prova que o actor **existe**, **não** que o `req.user` o representa. Nenhuma rota C1 usa os decorators RBAC (onde vive o binding). Maior risco: `PUT /profile/professional/c1/bio` (texto livre 5000 chars na bio pública de outro actor).
+- **Risco:** fabricar/alterar/aposentar bio, competências, aprendizados e interesses de outro actor (interest polui targeting); GETs vazam dados de qualquer actor.
+- **Mitigação atual:** nenhuma (runtime).
+- **Resolução prevista (F5.2):** incorporar `canRepresentActor(req.user.id, actorId)` **dentro do `resolveActorGuarded`** (threa­dar `req.user.id` da rota), antes de read/write; manter a invariante `id===actor_id` como defesa em profundidade. Cobre reads sensíveis de graça. Sem migration.
+- **Vinculada a:** `DECISION-0113` (F5.2), `SELO_C1_LEARNING_INTEREST`, `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`.
+
+## DT-LIFESTYLE-CONSENT-AUTHORSHIP-UNBOUND — OPEN (2026-06-07)
+
+- **Status:** **OPEN (2026-06-07)** — `lifestyle.routes.ts` PUT/DELETE escreve/retira atributo **sensível (LGPD)** e grava **registro de consentimento** (`consented_at`) + audit usando o `actionContext.actorId` declarado, gateado só por `resolveActorGuarded` existence-only. → um atacante declara o `actorId` da vítima + `consent.accepted:true` e **forja um valor sensível + uma trilha de consentimento** atribuída à vítima (fabrica a base legal LGPD); `performedByActorId` também é forjável.
+- **Confirmação normativa (Clayton/ChatGPT 2026-06-07):** **DECISION-0113 governa a autoria do consentimento de Lifestyle.** Consentimento só pode ser escrito pelo **principal autenticado que pode representar o actor** (`req.user`+`canRepresentActor`), ou por delegação formal futura; **`performedByActorId`/autoria de audit = server-side derivado de `req.user`**, nunca o `actionContext.actorId` cru. **Isto NÃO altera o conteúdo da DECISION-0071** (consentimento explícito/privado/anonimizar permanecem) — apenas aplica a regra de **autoria** da DECISION-0113 ao consentimento. (Registrado como adendo interpretativo no `REMEDIATION_DECISIONS_LOG`, não nova DECISION.)
+- **Risco:** forjar consentimento LGPD (base legal falsa para processar dado sensível alheio) ou anonimizar/apagar dado sensível de terceiro; trilha de audit não confiável.
+- **Mitigação atual:** nenhuma (runtime).
+- **Resolução prevista (F5.3 — fatia própria, por último, cuidado dobrado):** `canRepresentActor(req.user.id, actorId)` fail-closed **antes** de qualquer consent/mutação; `performedByActorId` derivado do actor do `req.user`; gatear também a leitura sensível (private-by-default). Sem migration; sem alterar o conteúdo de consentimento de 0071.
+- **Vinculada a:** `DECISION-0113` (F5.3, autoria) + `DECISION-0071` (conteúdo, intacto), `DT-LIFESTYLE-SENSITIVE-IN-BLOB`, `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`.
+
 ## DT-PJ-EPHEMERAL-FIXTURES-STALE-VS-BASELINE-365 — OPEN (2026-06-07)
 
 - **Status:** **OPEN (2026-06-07)** — descoberta durante `F-RBAC-PLUGIN-BIND-REQ-USER` e `F-AUTHORITY-ESCALATION-GATE`. Alguns e2es **ephemeral** têm fixtures de setup **desalinhados com o baseline de migrations atual (365)** e falham **no próprio setup** (antes de qualquer asserção do SUT) ou numa asserção legada: `validate-pipeline-e2e-pj-kyb-gate`/`pj-social-kyb-gate`/`pj-kyb-writer` quebram em `chk_companies_company_status_lifecycle` (CHECK de `companies` da DECISION-0092/0093 que bloqueia `VERIFIED`/`APPROVED`) ou no gate de **min-docs KYB**; `validate-pipeline-e2e-atomic-company-birth` falha 1/18 numa asserção `1d company PROVISIONAL/pending` (expectativa de `company_status` legada). **NÃO são regressões** das fatias de autoridade — confirmado por `git stash` (falham **idêntico** sem o commit, pois os diffs não tocam `companies`/CHECK/lifecycle/KYB-fiscal).

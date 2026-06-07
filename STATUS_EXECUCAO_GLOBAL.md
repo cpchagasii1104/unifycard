@@ -1,3 +1,9 @@
+## 2026-06-07 — F-PLAN-IDENTITY-PROFILE-LIFESTYLE-AUTHORSHIP-MAP (selado) — docs-only
+
+**DOCS-ONLY** (zero runtime/migration). Mapa READ-ONLY da **fatia 5/6** da DECISION-0113 concluído e selado. Achados (autoria spoofável por `actionContext.actorId`): `PUT /plan` (**duplo-spoof crítico** — privilégio E sujeito do actor declarado), `PUT /identity/configurations` (userType PF/PJ cross-user), Profile-C1 professional/learning/interest (resolver **existence-only**), Lifestyle PUT/DELETE (**consentimento LGPD forjável**). **Fatia 5 subfatiada:** **F5.1** plan + identity-config (plan exige redesign de privilégio sobre `req.user`) → **F5.2** profile-C1 (gate uniforme no `resolveActorGuarded`) → **F5.3** lifestyle (LGPD, por último). **Confirmação normativa:** DECISION-0113 governa a **autoria do consentimento de Lifestyle** (adendo interpretativo no decisions log; não altera DECISION-0071). 4 DTs abertas. 4 gates docs-only OK; dev 365. **Próxima execução = F5.1** (plan + identity-config), não lifestyle.
+
+---
+
 ## 2026-06-07 — docs-only: registra ruído da suite financeira no DT de fixtures stale
 
 **DOCS-ONLY** (zero runtime/teste/script/migration). F3.1 (`e6c369fe`) **verificada/fechada**. Registrado em `DT-PJ-EPHEMERAL-FIXTURES-STALE-VS-BASELINE-365` que os ruídos da suite financeira observados na fatia 3 (`verify:simple-tx-double-entry` = `reserve` não-seeded em DEV; `test:financial-*:ci` = "no tests found"/patterns jest stale) são **ambiente/baseline, não regressão** (diff de F3.1 fora do grafo desses testes; `bank-ledger` gate verde) — rastreados para **não virarem verde-fantasma** nem mascararem regressão futura. 4 gates docs-only OK; dev 365.
