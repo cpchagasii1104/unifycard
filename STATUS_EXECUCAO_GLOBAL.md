@@ -1,3 +1,19 @@
+## 2026-06-07 — F-PJ-KYB-RELEASE-GATE: prova do gate de aprovação KYB com lastro documental (backend, prova-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `ddb4a0e5`. **Prova-only** (o gate já existia; nenhuma mudança no service). **Zero migration / Bank / código de runtime alterado / frontend.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** PROVA end-to-end de que o **release gate KYB** funciona — fecha o motor do Pilar 1. READ-FIRST confirmou que `fiscalIdentityKybService.reviewFiscalKybRequest('approved')` **já exige** lastro documental mínimo: **cnpj_registration + articles_of_association ambos `document_status='accepted'`** na mesma `fiscal_identity_id` (atômico; rollback total se faltar). Aprovação altera **`fiscal_identities.kyb_status`**, **NÃO** `companies.company_status`, **NÃO** Bank, **NÃO** cria ACTIVE. `submitted`/`rejected` não contam como aceito; docs de outra fiscal não contam. `reject` não exige docs. `revokeFiscalKybApproval` (suspend/close + cascata de publicações) **existe** (DT de revogação já CLOSED). Nenhuma linha do service alterada — apenas o e2e que prova o contrato.
+
+**Arquivos:** `backend/src/scripts/validate-pipeline-e2e-pj-kyb-release-gate.ts` (novo) + docs.
+
+**Prova:** e2e `validate-pipeline-e2e-pj-kyb-release-gate` **10/10** (R1 0 docs→falha + kyb pending · R2 só cnpj→falha · R3 cnpj aceito + articles SUBMITTED→falha · R4 ambos aceitos→approve + kyb='approved' · R5 company_status imóvel · R6 só articles→falha · R7 reject sem docs→kyb='rejected' · R8 estrutural: kyb service sem company_status/Bank + revoke existe). Sem regressão (10 e2es PJ verdes). **tsc real fora de geo = 0**. 4 gates OK; arch `--strict` `critical_new=0`/`warning_new=1`=c3. **Migrations 365→365.**
+
+**DTs:** `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING` → **PARTIALLY MITIGATED** (backend KYB documental COMPLETO: submit + balcão + release-gate provados; resta **wizard/frontend** + providers de produção). `DT-PJ-DOCUMENT-PRODUCTION-STORAGE/MALWARE-...` → OPEN.
+
+**PRÓXIMA ETAPA (espera Clayton):** `F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND` (tornar usável pela pessoa — conecta onboarding ao backend pronto) **ou** `F-PJ-DELETE-GUARD-BANK-PORT` (paralelo seguro não-documental). O **eixo backend do KYB documental está fechado** (substrato + submit + análise + gate de aprovação).
+
+---
+
 ## 2026-06-06 — F-PJ-KYB-DOCUMENTS-ADMIN-REVIEW-UI: balcão de análise admin (fila + download protegido), backend, sem migration
 
 **Branch:** `rescue-structural` · **HEAD origem:** `57a145ea`. Backend admin review (fecha o ciclo submit→análise). **Zero migration / Bank / frontend / KYB approval / lifecycle.** Dev 365. 3 autorais + `docs/memorias/` intocados. _(Esteira: eu escritora; par verifica.)_
