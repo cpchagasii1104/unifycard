@@ -1,3 +1,19 @@
+## 2026-06-07 — DECISION-0113 (D-ACTIONCONTEXT-ACTORID-OWNERSHIP-BINDING): actorId é hint não-soberano; autoridade exige binding com req.user (docs-only)
+
+**Branch:** `rescue-structural` · **DOCS-ONLY** (zero código/migration/Bank/frontend/middleware/rbac runtime). Dev 365. _(Esteira: eu escritora; Clayton promulga.)_
+
+**O que entregou:** o cartório institucional que destrava a remediação do gap de autoridade. Após a auditoria READ-ONLY (`F-ACTIONCONTEXT-ACTORID-OWNERSHIP-AUDIT`: 425 ocorrências/63 arquivos; `actionContext.actorId` client-declared/spoofável; `rbac.plugin` rebaixa todo `requireRole(['admin'])` a spoofável), Clayton promulgou **DECISION-0113 (Opção 3 híbrida)**: `actionContext.actorId` é **hint não-soberano**; autoridade soberana exige **`actorId ∈ canActAs(req.user)`** (ownership ou delegação); RBAC passa a bindar `req.user`. **Emendou os contratos** `ACTIONCONTEXT_CONTRACT` (§3.1/§4/§6.2/§6.3) e `RBAC_V2_CONTRACT` (§4/§7.1/§11) — que **mandavam** o design spoofável (banner §0 em cada, texto histórico preservado). Precedência: autoridade > produto. Sem regressão multi-actor (binding é `∈ canActAs`, não `actorId==actor-próprio`).
+
+**Arquivos (docs):** `docs/02_decisions/DECISION_0113_ACTIONCONTEXT_ACTORID_OWNERSHIP_BINDING.md` (novo); `docs/06_technical/authority/ACTIONCONTEXT_CONTRACT.md` + `RBAC_V2_CONTRACT.md` (emenda §0); `REMEDIATION_DT_LOG.md` (inventário da auditoria persistido no DT); `REMEDIATION_DECISIONS_LOG.md` (entrada 0113); `docs/03_execution_log/20260607_DECISION_0113_ACTIONCONTEXT_BINDING.md`.
+
+**Prova:** 4 gates docs-only OK (`actor-writer`/`bank-ledger`/`regression-guards` 365/`arch --strict` `critical_new=0`/`warning_new=1`=c3). Zero código/migration/Bank.
+
+**DTs:** `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` → **GOVERNED/DECIDED** (desenho promulgado + inventário persistido), **segue OPEN** até a remediação por fatias.
+
+**PRÓXIMA ETAPA (autorizada-por-norma, espera go de Clayton):** `F-RBAC-PLUGIN-BIND-REQ-USER` (1ª fatia de código — amplificador sistêmico; re-segura todas as rotas admin incl. KYB), depois `company-members`/`organization` gates → money LIVE → money LATENTE → plan/identity/profile-C1/lifestyle → leitura cross-user.
+
+---
+
 ## 2026-06-07 — F-PJ-DELETE-GUARD-BANK-PORT: guard de exclusão de PJ sobre o Bank read port canônico (backend, sem migration)
 
 **Branch:** `rescue-structural` · **Backend** (sem migration/Bank-write/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_

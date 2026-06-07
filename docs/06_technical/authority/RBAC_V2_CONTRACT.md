@@ -1,8 +1,22 @@
 # RBAC V2 CONTRACT
 Eixo: AUTORIDADE / PERMISSÃO / GOVERNANÇA
-Status: ATIVO (LEI DO SISTEMA)
+Status: ATIVO (LEI DO SISTEMA) — **EMENDADO por DECISION-0113 (2026-06-07)**
 Tipo: CONTRATO TÉCNICO
-Última atualização: 2026-02-06
+Última atualização: 2026-06-07 (emenda DECISION-0113; texto original preservado abaixo)
+
+---
+
+## 0. EMENDA — DECISION-0113 (2026-06-07): RBAC deve bindar o principal autenticado antes de decidir
+
+> **Esta emenda supera, nos pontos específicos, as cláusulas §4, §7.1 e §11 abaixo.** O texto histórico é preservado.
+>
+> A auditoria `F-ACTIONCONTEXT-ACTORID-OWNERSHIP-AUDIT` (HEAD `8db09ceb`) confirmou que `requireRole`/`requirePermission`/`requireAnyPermission` decidem **só** com o `actorId` declarado (`rbac.plugin.ts` → `rbacService.actorHasAnyRole(tenantId, actorId, …)`), **sem `req.user`**. Como o actorId é client-declared/spoofável, **todo `requireRole(['admin'])` é bypassável** por quem declarar um actorId que detenha a role — incluindo as rotas admin de KYB. `DECISION-0113` emenda:
+>
+> 1. **O RBAC PASSA A CONSULTAR `req.user`** para **bindar** o actorId antes de decidir: exige **`actorId ∈ canActAs(req.user)`** (ownership **ou** delegação ativa). §4/§7.1/§11 (que proíbem referenciar `req.user`) ficam **SUPERADAS** neste ponto.
+> 2. **O tripé `actorId+intent+scope` permanece como EXPRESSÃO da decisão** (§2 Princípio-Mãe), mas só é válido sobre um actorId **provado representável** pelo principal autenticado. "actorId" passa a significar "actorId provado representável por `req.user`".
+> 3. **Não reintroduz autoridade implícita:** o binding é uma exigência **explícita** adicional (o principal precisa poder representar o actor), não uma inferência ambiente. Precedência: autoridade > produto; vence a trava mais restritiva.
+>
+> Referência: `docs/02_decisions/DECISION_0113_ACTIONCONTEXT_ACTORID_OWNERSHIP_BINDING.md` · `ACTIONCONTEXT_CONTRACT.md` §0.
 
 ---
 

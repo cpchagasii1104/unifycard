@@ -1,8 +1,23 @@
 # ACTIONCONTEXT CONTRACT
 Eixo: AUTORIDADE / CONTEXTO / DECISÃO
-Status: ATIVO (LEI DO SISTEMA)
+Status: ATIVO (LEI DO SISTEMA) — **EMENDADO por DECISION-0113 (2026-06-07)**
 Tipo: CONTRATO TÉCNICO
-Última atualização: 2026-02-06
+Última atualização: 2026-06-07 (emenda DECISION-0113; texto original preservado abaixo)
+
+---
+
+## 0. EMENDA — DECISION-0113 (2026-06-07): actorId é hint não-soberano; autoridade exige binding com o principal
+
+> **Esta emenda supera, nos pontos específicos, as cláusulas §3.1, §4, §6.2 e §6.3 abaixo.** O texto histórico é preservado.
+>
+> A auditoria `F-ACTIONCONTEXT-ACTORID-OWNERSHIP-AUDIT` (HEAD `8db09ceb`) confirmou que o middleware popula `actorId` de header/body/query **sem** provar que ele pertence ao principal autenticado (`req.user`) — logo o desenho mandado por este contrato é **spoofável** (crachá impresso em casa). `DECISION-0113` (autoridade > produto; precedência restritiva) emenda:
+>
+> 1. **`actionContext.actorId` permanece DECLARADO (não inferido) — mas declarar ≠ autorizar.** O actorId é um **hint operacional não-soberano**: ótimo para intent/source/scope/auditoria, insuficiente como prova de autoria/autoridade.
+> 2. **Autoridade soberana exige `actorId ∈ canActAs(req.user)`** (ownership `actor.user_id===req.user.id` **OU** delegação ativa), provado server-side via `authorizationService.canActAs(tenantId, req.user.id, actorId)` ou gate equivalente (`canManageCompany`, `ensureUserActor(req.user.userId)`+vínculo).
+> 3. **§6.2 (handlers não acessam `req.user`) e §6.3 (RBAC não referencia `req.user`) ficam SUPERADAS:** handlers/serviços de ação sensível **devem** derivar autoria/gate de `req.user`; o RBAC **deve** bindar `req.user` (ver `RBAC_V2_CONTRACT` §0).
+> 4. **A proibição de INFERIR o actorId de `req.user` permanece** — o actor é declarado, não adivinhado. O que muda é: a declaração precisa ser **autorizada** (o principal precisa poder representar o actor). Isso **reforça** a explicitude, não reintroduz autoridade ambiente.
+>
+> Referência: `docs/02_decisions/DECISION_0113_ACTIONCONTEXT_ACTORID_OWNERSHIP_BINDING.md`.
 
 ---
 
