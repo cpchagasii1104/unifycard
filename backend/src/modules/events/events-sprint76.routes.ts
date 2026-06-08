@@ -149,7 +149,10 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     }
     const tenantId = req.tenant.id;
 
-    const filters: any = {};
+    // 🔵 DECISION-0113 F6.5.6b-B1: GET /events é descoberta PÚBLICA → piso server-side obrigatório
+    // (visibility='public' AND status IN ('published','active')). O cliente estreita; o servidor define o piso.
+    // Organizer-representável (ver próprios drafts/private), group, followers e unlisted abrem em B2/B3/B4/canal-5.
+    const filters: any = { discoveryFloor: true };
     if (req.query.organizerActorId) {
       filters.organizerActorId = req.query.organizerActorId;
     }

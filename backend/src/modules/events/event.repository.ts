@@ -199,7 +199,29 @@ class EventRepository {
       paramIndex++;
     }
 
-    if (filters.status) {
+    // 🔵 DECISION-0113 F6.5.6b-B1 — PISO DE DISCOVERY PÚBLICA (deny-first): aplicado SÓ quando o caller de
+    // descoberta pede explicitamente (discoveryFloor=true). Default OFF → callers internos (my-orders) intactos.
+    // Server FORÇA visibility='public' AND status IN ('published','active'); o `status` do cliente só ESTREITA
+    // DENTRO do piso, nunca amplia (draft/declared/etc. → interseção vazia segura). NÃO abre group/followers/
+    // unlisted/private/draft aqui (B2/B3/B4/canal-5). 'declared' fora do piso por decisão Clayton.
+    if (filters.discoveryFloor) {
+      conditions.push(`visibility = 'public'`);
+      const floorStatuses = ['published', 'active'];
+      if (filters.status) {
+        const requested = sprint76StatusToDb(filters.status);
+        if (floorStatuses.includes(requested)) {
+          conditions.push(`status = $${paramIndex}`);
+          params.push(requested);
+          paramIndex++;
+        } else {
+          conditions.push('1 = 0'); // cliente pediu status fora do piso → vazio seguro (não amplia o piso)
+        }
+      } else {
+        conditions.push(`status = ANY($${paramIndex}::text[])`);
+        params.push(floorStatuses);
+        paramIndex++;
+      }
+    } else if (filters.status) {
       conditions.push(`status = $${paramIndex}`);
       params.push(sprint76StatusToDb(filters.status));
       paramIndex++;

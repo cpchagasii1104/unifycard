@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5.6b-B1 EVENTS · PISO DE DISCOVERY PÚBLICA deny-first (DECISION-0113, classe H)
+
+**Branch:** `rescue-structural` · **backend** (3 arquivos + e2e; zero Bank/migration/frontend/canal-5/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: implementar B1 deny-first; cliente estreita, servidor define o piso.)_
+
+**O que entregou:** schema confirmado (visibility ∈ {public,private,unlisted,group,followers}; status ∈ {draft,declared,published,active,ended,cancelled}; ortogonais; default public+draft = a armadilha). Piso server-side: discovery = `visibility='public' AND status IN ('published','active')`. **Estratégia B (param default-off):** `EventFilters.discoveryFloor?` (default OFF → `my-orders` e callers internos **intactos**); `GET /events` passa `discoveryFloor:true`; `status` do cliente só ESTREITA dentro do piso (fora → `1=0` vazio, nunca amplia). `declared` fora por decisão Clayton. group/followers/organizer/unlisted = B2/B3/B4/canal-5 (substrato material existe).
+
+**Arquivos:** `modules/events/event.types.ts`, `event.repository.ts`, `events-sprint76.routes.ts`, `validate-pipeline-e2e-events-visibility-floor-f6-5-6b-1.ts` (novo).
+
+**Prova:** e2e **9/9** com **fixtures REAIS** (5 eventos semeados+limpos, LEFTOVER=0): piso retorna só os 2 public+published/active; draft/private/group NÃO vazam; sem-piso devolve os 5 (my-orders intacto); status=draft→vazio. Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: event-specs 8/8 · impact 7/7 · canal3-money 7/7 · cultural 7/7 · trust 12/12 · x-actor-id 9/9 · rbac 13/13 · money-live 12/12.
+
+**DTs:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` → **PARTIALLY MITIGATED** (B1 deny-first; faltam B2 organizer / B3 group / B4 followers / canal-5). DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** B2 organizer dashboard (canRepresentActor vê próprios drafts) → B3 group → B4 followers → canal-5 (/events/:id) → settlement/RFQ money READ-FIRST → sweep final.
+
+---
+
 ## 2026-06-08 — F6.5.6b-A EVENTS · GATEIA /event-specs?actor_id (A privado) + acha leak de visibility (DECISION-0113)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e novo; zero Bank/migration/frontend/permission). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: gatear SÓ event-specs?actor_id; NÃO tocar GET /events nem visibility.)_

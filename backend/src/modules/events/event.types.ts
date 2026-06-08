@@ -154,6 +154,9 @@ export interface EventFilters {
   startAtTo?: Date | string;
   limit?: number;
   offset?: number;
+  // 🔵 DECISION-0113 F6.5.6b-B1: piso de discovery pública (deny-first). Default OFF (undefined) → callers
+  // internos (ex.: my-orders) inalterados. Só o caminho de descoberta pública (GET /events) passa `true`.
+  discoveryFloor?: boolean;
 }
 
 
