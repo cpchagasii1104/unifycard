@@ -10,7 +10,7 @@
 
 **DTs:** `DT-DIRECT-QUERY-ACTOR-READERS-UNVALIDATED` — correção de over-gate em reporting registrada; payout D/inconclusivo; DT-mãe **OPEN**. R2 congelado.
 
-**Régua:** under-gate vaza; over-gate quebra operação; `view_all_ledger`=autoridade cross-actor (não somar representabilidade); `view_ledger`=escopo (somar). **PRÓXIMA ETAPA:** Yala **reseal** do canal3-money ajustado → depois decidir impact/ledger → F6.5.6b events. **payout espera** READ-FIRST financeiro próprio.
+**Régua:** under-gate vaza; over-gate quebra operação; `view_all_ledger`=autoridade cross-actor (não somar representabilidade); `view_ledger`=escopo (somar). **✅ RESELADO PELA YALA (2026-06-08, `c0e32502`)** — refutação não derrubou; N/A behavioral ratificado (provar ausência de over-gate é estrutural). Selado: invoice=B/escopo · reporting=F-OK admin · bank-http=B. **PRÓXIMA ETAPA (espera GO Clayton):** payout READ-FIRST (mesma régua — execute_payout admin-grade) **OU** decidir impact/ledger **OU** F6.5.6b events. **payout = D/inconclusivo** até READ-FIRST próprio. DT-mãe OPEN. R2 congelado.
 
 ---
 
