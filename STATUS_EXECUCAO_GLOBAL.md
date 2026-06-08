@@ -1,3 +1,19 @@
+## 2026-06-08 — F-SERVICE-ORDER-READ-AUTHORITY-GATE-F6_5_6A: ler ordem comercial só por parte legítima (DECISION-0113 fatia 6.5.6a)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank/migration/frontend/write). Dev 365. _(Esteira: eu escritora; par verifica. Subfatiado: 6.5.6a service-order reads, separado de 6.5.6b events e dos writes.)_
+
+**O que entregou:** os 3 reads de ordem comercial (`GET /service-orders/:id` IDOR; `/:id/financial-terms` IDOR; `/service-orders` lista) devolviam dados por id/filtro arbitrário, sem checar parte. Modelo de parte **já usado pelo write** (`buyer-confirm`: `order.customerActorId === buyerActorId`) → espelhado. Helper `assertOrderParty`: `actionContext.actorId` (representável) deve ser **`customerActorId` OU `workerActorId`** → senão **403 não-leak**. **Lista** exige ≥1 filtro de parte representável (não lista tudo). **Writes intocados** — o READ-FIRST confirmou que reads e writes são handlers separados → o write-spoof fica em `DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF` (não corrigido junto, regra Clayton respeitada).
+
+**Arquivos:** `modules/services/service-order.routes.ts`, `validate-pipeline-e2e-service-order-read-authority-f6-5-6a.ts` (novo).
+
+**Prova:** e2e novo **11/11** (A behavioral primitivo nega cross-user; B `getOrderById(random)→null` (DB real) → caminho não-leak + predicado de parte com valores concretos; **party-lê-ordem-REAL N/A — 0 service_orders em DEV**, reportado; C estrutural gate-antes-da-leitura nos 3 + lista escopada + não-leak 404→403 + writes intocados). Backend tsc **0** (fora geo); 4 gates OK (dev **365**). Núcleo 0113 + F6.5.1–5 intactos (14 regressões verdes).
+
+**DTs:** `DT-OPERATIONAL-READ-ACTORID-UNVALIDATED` OPEN (6.5.6a fechada). DT-mãe OPEN.
+
+**PRÓXIMA ETAPA (espera go):** **F6.5.6b — events** (classificar **público × private × unlisted** ANTES de gatear). Depois 6.5.7 dashboard/reports → 6.5.8 availability/votes/notifications/services → 6.5.9 ERP/marketplace (re-auditar por handler — flag Yala). **R2 congelado.**
+
+---
+
 ## 2026-06-08 — F-COMPANY-MEMBERS-READ-AUTHORITY-GATE-F6_5_5: reads de membros = mesma autoridade dos writes (DECISION-0113 fatia 6.5.5)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero R2/`actor_delegations`/Bank/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_

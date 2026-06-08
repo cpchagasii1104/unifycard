@@ -14,6 +14,46 @@ import type {
 } from './service-order.types';
 
 const serviceOrderRoutes = async (fastify: FastifyInstance) => {
+  // 🔴 DECISION-0113 F6.5.6a (ordem comercial privada): ler uma service-order exige ser PARTE legítima —
+  // `customerActorId` (comprador) ou `workerActorId` (prestador) — e o `req.user` poder REPRESENTAR esse
+  // actor. Espelha a regra que o write já usa (`buyer-confirm`: `order.customerActorId === buyerActorId`).
+  // `:id` na URL é ENDEREÇO, não autorização. fail-closed → 403 não-leak (uniforme com ordem inexistente).
+  // NÃO toca os writes (handlers separados; write-spoof fica em DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF).
+  const assertOrderParty = async (
+    req: any,
+    reply: any,
+    tenantId: string,
+    order: { customerActorId?: string; workerActorId?: string } | null
+  ): Promise<boolean> => {
+    const userId = req.user?.userId as string | undefined;
+    const actorId = req.actionContext?.actorId as string | undefined;
+    if (!userId) {
+      reply.status(401).send({ error: 'Não autenticado' });
+      return false;
+    }
+    if (!actorId) {
+      reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+      return false;
+    }
+    // não-leak: ordem inexistente OU caller não é parte → 403 uniforme (não revela existência).
+    if (!order || (order.customerActorId !== actorId && order.workerActorId !== actorId)) {
+      reply.status(403).send({ error: 'Ordem não acessível' });
+      return false;
+    }
+    let canRepresent = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canRepresent = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      canRepresent = false;
+    }
+    if (!canRepresent) {
+      reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+      return false;
+    }
+    return true;
+  };
+
   /**
    * POST /service-orders/confirm-booking
    * Confirma booking aceito criando Service Order
@@ -103,6 +143,10 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/service-orders', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const query = req.query as any;
+    const userId = (req as any).user?.userId as string | undefined;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
 
     const filters: ServiceOrderFilters = {};
     if (query.serviceId) filters.serviceId = query.serviceId;
@@ -113,6 +157,28 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     if (query.scheduledStartTo) filters.scheduledStartTo = new Date(query.scheduledStartTo);
     if (query.limit) filters.limit = parseInt(query.limit);
     if (query.offset) filters.offset = parseInt(query.offset);
+
+    // 🔴 DECISION-0113 F6.5.6a: a listagem só retorna ordens de uma PARTE que o caller representa. Exige >= 1
+    // filtro de parte (`workerActorId`|`customerActorId`); todo filtro de parte presente deve ser representável
+    // (`canRepresentActor`). Sem isso, qualquer caller listava ordens comerciais alheias / do tenant inteiro.
+    const partyFilters = [filters.workerActorId, filters.customerActorId].filter(Boolean) as string[];
+    if (partyFilters.length === 0) {
+      return reply.status(403).send({
+        error: 'Listagem exige filtrar por workerActorId ou customerActorId que você representa',
+      });
+    }
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    for (const partyId of partyFilters) {
+      let canRepresent = false;
+      try {
+        canRepresent = await authorizationService.canRepresentActor(tenantId, userId, partyId);
+      } catch {
+        canRepresent = false;
+      }
+      if (!canRepresent) {
+        return reply.status(403).send({ error: 'Sem autoridade sobre o actor filtrado' });
+      }
+    }
 
     const orders = await serviceOrderService.listOrders(tenantId, filters);
     return { orders };
@@ -127,9 +193,8 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     const { id } = req.params;
 
     const order = await serviceOrderService.getOrderById(tenantId, id);
-    if (!order) {
-      return reply.status(404).send({ error: 'Ordem não encontrada' });
-    }
+    // 🔴 F6.5.6a: só parte legítima (customer/worker) representável lê a ordem. Ordem inexistente → 403 não-leak.
+    if (!(await assertOrderParty(req, reply, tenantId, order))) return reply;
 
     return order;
   });
@@ -288,6 +353,10 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
 
       try {
+        // 🔴 F6.5.6a: só parte legítima (customer/worker) representável vê os termos financeiros da ordem.
+        const order = await serviceOrderService.getOrderById(tenantId, id);
+        if (!(await assertOrderParty(req, reply, tenantId, order))) return reply;
+
         const terms = await serviceOrderService.getFinancialTerms(tenantId, id);
         return reply.send(terms);
       } catch (error: any) {
