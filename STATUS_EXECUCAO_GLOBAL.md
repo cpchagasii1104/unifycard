@@ -1,3 +1,19 @@
+## 2026-06-07 — F-PLAN-IDENTITY-CONFIG-AUTHORSHIP-GATE-F5_1: plan + identity-config viram self-only (DECISION-0113 fatia 5.1)
+
+**Branch:** `rescue-structural` · **backend** (2 arquivos de rota; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** `PUT /plan` e `PUT /identity/configurations` são operações **self** (o caller age sobre o próprio user) que derivavam o sujeito do `actionContext.actorId` declarado (spoofável). **plan** (crítico — duplo-spoof): privilégio (is_test/admin) E sujeito agora vêm do actor do `req.user` (`findByUserId(req.user.userId)`); sem actor do caller → 403. **identity-config**: `userType` (PF/PJ) gravado sobre `req.user.globalUserId`/`resolveGlobalUserId(req.user.userId)`; dupla resolução spoofável removida. `actionContext.actorId` ignorado para autoridade. **Sem `canRepresentActor`** (são per-user, não agir-como-outro). Padrão self (cf. `confirm-first-access`).
+
+**Arquivos:** `core/plan/plan.routes.ts`, `core/identity/identity.routes.ts` (+self), `validate-pipeline-e2e-pj-plan-identity-config-authorship.ts` (novo).
+
+**Prova:** e2e **9/9** (A self-resolution aponta sempre p/ o caller + contraste com actor alheio; B estrutural sujeito de req.user, não do actorId declarado). Backend tsc **0** (fora geo); 4 gates OK; dev **365**. Sem regressão: creator 9/9, rbac 13/13, escalation 16/16, money 12/12, vocab 7/7, projection 4/4, cnpj 6/6, lifecycle 7/7, user-submit 19/19.
+
+**DTs:** `DT-PLAN-PUT-PRIVILEGE-SPOOF` + `DT-IDENTITY-CONFIG-ACTOR-SPOOF` → **CLOSED**.
+
+**PRÓXIMA ETAPA (espera go):** **F5.2 — profile-C1** (gate `canRepresentActor` no `resolveActorGuarded`); depois **F5.3 — lifestyle** (LGPD, por último); depois **fatia 6** (leitura cross-user) → aí a DT-mãe fecha.
+
+---
+
 ## 2026-06-07 — F-PJ-CREATOR-INITIAL-AUTHORITY-ENFORCED: criador da PJ sempre nasce com governança (Opção B)
 
 **Branch:** `rescue-structural` · **backend** (1 linha de runtime + e2es; zero migration/Bank/frontend/`company_status`/`kyb_status`). Dev 365. _(Esteira: eu escritora; par verifica.)_

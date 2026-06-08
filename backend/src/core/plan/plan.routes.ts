@@ -102,9 +102,18 @@ const planRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório' });
       }
 
-      const actorId = req.actionContext.actorId;
+      // 🔴 DECISION-0113 fatia 5.1 (self-only): o plano é per-user do PRÓPRIO caller. O privilégio
+      // (is_test/admin) e o sujeito do UPDATE derivam do actor do `req.user` autenticado — NÃO do
+      // `actionContext.actorId` declarado (spoofável). Sem isto, um caller comum declara um actorId
+      // test/admin, passa o 403 (que lia o privilégio DO actor declarado) e troca o plano DAQUELE usuário.
+      const { socialPortsRegistry: planSpr } = await import('@core/social/ports-registry');
+      const callerActor = await planSpr.getActorRepository().findByUserId(req.tenant.id, req.user.userId);
+      if (!callerActor) {
+        return reply.status(403).send({ ok: false, message: 'Actor do usuário autenticado não encontrado' });
+      }
+      const actorId = callerActor.actor_id;
 
-      // Verificar se usuário pode alternar (teste ou admin)
+      // Verificar se usuário pode alternar (teste ou admin) — privilégio do CALLER, não do actor declarado
       const userRow = await runQueryWithTenant<{ is_test: boolean | null; role: string | null; user_id: string }>(
         req.tenant.id,
         `

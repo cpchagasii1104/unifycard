@@ -996,37 +996,26 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // Buscar metadata atual
-        // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
-      const { socialPortsRegistry: socialPortsRegistry3 } = await import('@core/social/ports-registry');
-      const actorRepository3 = socialPortsRegistry3.getActorRepository();
-      const actor3 = await actorRepository3.findById(req.tenant.id, req.actionContext.actorId);
-      if (!actor3 || !actor3.user_id) {
-        return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
-      }
-      const { resolveGlobalUserId: resolveGlobalUserId3 } = await import('@core/identity/identity.utils');
-      const globalUserId3 = await resolveGlobalUserId3(actor3.user_id, req.tenant.id);
-      const globalUser = await identityService.getGlobalIdentity(globalUserId3);
+        // 🔴 DECISION-0113 fatia 5.1 (self): `userType` (PF/PJ) é a identidade do PRÓPRIO caller. O
+        // sujeito é resolvido de `req.user` SERVER-SIDE — NÃO do `actionContext.actorId` declarado
+        // (spoofável) — senão um caller altera o userType de OUTRO usuário. Padrão self (cf.
+        // `POST /confirm-first-access`). Removida a dupla resolução via actor declarado.
+        const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
+        const callerGlobalUserId = req.user.globalUserId ?? await resolveGlobalUserId(req.user.userId, req.tenant.id);
+        if (!callerGlobalUserId) {
+          return reply.status(403).send({ error: 'Identidade global do usuário autenticado não resolvida' });
+        }
+        const globalUser = await identityService.getGlobalIdentity(callerGlobalUserId);
         if (!globalUser) {
           return reply.status(404).send({ error: 'Usuário não encontrado' });
         }
 
-        // Atualizar metadata com userType
         const updatedMetadata = {
           ...globalUser.metadata,
           userType: req.body.userType,
         };
 
-        // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
-        const { socialPortsRegistry: socialPortsRegistry4 } = await import('@core/social/ports-registry');
-        const actorRepository4 = socialPortsRegistry4.getActorRepository();
-        const actor4 = await actorRepository4.findById(req.tenant.id, req.actionContext.actorId);
-        if (!actor4 || !actor4.user_id) {
-          return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
-        }
-        const { resolveGlobalUserId: resolveGlobalUserId4 } = await import('@core/identity/identity.utils');
-        const globalUserId4 = await resolveGlobalUserId4(actor4.user_id, req.tenant.id);
-        const updated = await identityService.updateGlobalIdentity(req.tenant.id, globalUserId4, {
+        const updated = await identityService.updateGlobalIdentity(req.tenant.id, callerGlobalUserId, {
           metadata: updatedMetadata,
         });
 
