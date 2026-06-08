@@ -10,15 +10,21 @@ import { z } from 'zod';
 import { HttpError } from '@core/errors/http-error';
 import { professionalC1Service } from './professional-c1.service';
 
-// Precondição comum (ordem do desenho §3): actionContext → tenant.
-function requireContext(req: FastifyRequest): { tenantId: string; actorId: string } {
+// Precondição comum (ordem do desenho §3): actionContext → tenant → principal autenticado.
+// 🔴 DECISION-0113 fatia 5.2: extrai também o `userId` do `req.user` (principal autenticado) para
+// threadar ao service, onde o `resolveActorGuarded` prova `canRepresentActor` antes de read/write.
+function requireContext(req: FastifyRequest): { tenantId: string; actorId: string; userId: string } {
   if (!req.actionContext?.actorId) {
     throw HttpError.badRequest('ActionContext obrigatório');
   }
   if (!req.tenant?.id) {
     throw HttpError.badRequest('Tenant não encontrado');
   }
-  return { tenantId: req.tenant.id, actorId: req.actionContext.actorId };
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new HttpError('Autenticação obrigatória', 401);
+  }
+  return { tenantId: req.tenant.id, actorId: req.actionContext.actorId, userId };
 }
 
 function fail(reply: FastifyReply, error: unknown): FastifyReply {
@@ -58,8 +64,8 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
   // R1 — GET /profile/professional/c1
   fastify.get('/professional/c1', async (req, reply) => {
     try {
-      const { tenantId, actorId } = requireContext(req);
-      const result = await professionalC1Service.getProfessionalC1(tenantId, actorId);
+      const { tenantId, actorId, userId } = requireContext(req);
+      const result = await professionalC1Service.getProfessionalC1(tenantId, actorId, userId);
       return reply.status(200).send(result);
     } catch (error) {
       return fail(reply, error);
@@ -69,12 +75,12 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
   // R2 — PUT /profile/professional/c1/bio
   fastify.put('/professional/c1/bio', async (req, reply) => {
     try {
-      const { tenantId, actorId } = requireContext(req);
+      const { tenantId, actorId, userId } = requireContext(req);
       const parsed = bioSchema.safeParse(req.body);
       if (!parsed.success) {
         return reply.status(400).send({ error: 'Payload inválido', details: parsed.error.issues });
       }
-      const result = await professionalC1Service.updateBio(tenantId, actorId, parsed.data.professional_bio);
+      const result = await professionalC1Service.updateBio(tenantId, actorId, parsed.data.professional_bio, userId);
       return reply.status(200).send(result);
     } catch (error) {
       return fail(reply, error);
@@ -84,7 +90,7 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
   // R3 — POST /profile/professional/c1/concepts
   fastify.post('/professional/c1/concepts', async (req, reply) => {
     try {
-      const { tenantId, actorId } = requireContext(req);
+      const { tenantId, actorId, userId } = requireContext(req);
       const parsed = declareSchema.safeParse(req.body);
       if (!parsed.success) {
         return reply.status(400).send({ error: 'Payload inválido', details: parsed.error.issues });
@@ -94,7 +100,7 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
         sourceCategoryId: parsed.data.source_category_id ?? null,
         skillLevel: parsed.data.skill_level,
         yearsExperience: parsed.data.years_experience ?? null,
-      });
+      }, userId);
       return reply.status(201).send(result);
     } catch (error) {
       return fail(reply, error);
@@ -106,7 +112,7 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
     '/professional/c1/concepts/:conceptId',
     async (req, reply) => {
       try {
-        const { tenantId, actorId } = requireContext(req);
+        const { tenantId, actorId, userId } = requireContext(req);
         const parsedParams = conceptParamSchema.safeParse(req.params);
         if (!parsedParams.success) {
           return reply.status(400).send({ error: 'Parâmetro inválido', details: parsedParams.error.issues });
@@ -123,7 +129,7 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
           skillLevel: parsed.data.skill_level,
           yearsExperience: parsed.data.years_experience,
           reactivate: parsed.data.reactivate,
-        });
+        }, userId);
         return reply.status(200).send(result);
       } catch (error) {
         return fail(reply, error);
@@ -136,12 +142,12 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
     '/professional/c1/concepts/:conceptId',
     async (req, reply) => {
       try {
-        const { tenantId, actorId } = requireContext(req);
+        const { tenantId, actorId, userId } = requireContext(req);
         const parsedParams = conceptParamSchema.safeParse(req.params);
         if (!parsedParams.success) {
           return reply.status(400).send({ error: 'Parâmetro inválido', details: parsedParams.error.issues });
         }
-        const result = await professionalC1Service.retireConcept(tenantId, actorId, parsedParams.data.conceptId);
+        const result = await professionalC1Service.retireConcept(tenantId, actorId, parsedParams.data.conceptId, userId);
         return reply.status(200).send(result);
       } catch (error) {
         return fail(reply, error);

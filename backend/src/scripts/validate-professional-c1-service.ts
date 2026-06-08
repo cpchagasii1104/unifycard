@@ -26,13 +26,26 @@ function statusOf(e: unknown): number | undefined {
 }
 
 async function main(): Promise<void> {
+  // 🔴 DECISION-0113 fatia 5.2: o resolveActorGuarded passou a chamar canRepresentActor (que usa o
+  // ActorRepository via socialPortsRegistry) → bootstrap dos social ports é obrigatório agora.
+  const { socialPortsRegistry } = await import('../core/social/ports-registry');
+  const adapters = await import('../modules/social/adapters');
+  socialPortsRegistry.setActorRepository(adapters.actorRepositoryAdapter);
+  socialPortsRegistry.setActorUtils(adapters.actorUtilsAdapter);
+  socialPortsRegistry.setSocialRepository(adapters.socialRepositoryAdapter);
+  socialPortsRegistry.setSocialService(adapters.socialServiceAdapter);
+  socialPortsRegistry.setEventFeedHandlers(adapters.eventFeedHandlersAdapter);
+
   // Fixtures vivos
-  const actor = await pool.query<{ actor_id: string }>(
-    `SELECT actor_id::text FROM actors WHERE tenant_id=$1 AND actor_type='user' LIMIT 1`,
+  const actor = await pool.query<{ actor_id: string; user_id: string }>(
+    `SELECT actor_id::text, user_id::text FROM actors WHERE tenant_id=$1 AND actor_type='user' AND user_id IS NOT NULL LIMIT 1`,
     [TENANT]
   );
   if (actor.rowCount === 0) { console.error('sem actor user em DEV'); process.exit(1); }
   const actorId = actor.rows[0].actor_id;
+  // 🔴 DECISION-0113 fatia 5.2: userId que REPRESENTA o actor de teste (path-1 ownership) — os services C1
+  // agora exigem `canRepresentActor(userId, actorId)` antes de read/write.
+  const userId = actor.rows[0].user_id;
 
   const concept = await pool.query<{ concept_id: string }>(
     `SELECT co.concept_id::text FROM concepts co
@@ -54,7 +67,7 @@ async function main(): Promise<void> {
               (SELECT count(*) FROM actor_professional_profiles)::text AS p`);
 
     // T2 — GET de actor existente sem declaração → vazio
-    const empty = await professionalC1Service.getProfessionalC1(TENANT, actorId);
+    const empty = await professionalC1Service.getProfessionalC1(TENANT, actorId, userId);
     record('T2 GET sem declaração → {concepts:[], professional_bio:null}',
       Array.isArray(empty.concepts) && empty.concepts.length === 0 && empty.professional_bio === null);
 
@@ -66,46 +79,48 @@ async function main(): Promise<void> {
       cntBefore.rows[0].a === cntAfter.rows[0].a && cntBefore.rows[0].p === cntAfter.rows[0].p);
 
     // T4 — POST válido → DTO; concept_id ausente → 400
-    const dto = await professionalC1Service.declareConcept(TENANT, actorId, { conceptId, skillLevel: 3 });
+    const dto = await professionalC1Service.declareConcept(TENANT, actorId, { conceptId, skillLevel: 3 }, userId);
     record('T4a declareConcept válido → DTO (conceptId, skillLevel)',
       dto.conceptId === conceptId && dto.skillLevel === 3 && dto.isActive === true);
     try {
-      await professionalC1Service.declareConcept(TENANT, actorId, { conceptId: '', skillLevel: 3 });
+      await professionalC1Service.declareConcept(TENANT, actorId, { conceptId: '', skillLevel: 3 }, userId);
       record('T4b concept_id ausente → 400', false, 'não lançou');
     } catch (e) { record('T4b concept_id ausente → 400', statusOf(e) === 400, `status=${statusOf(e)}`); }
 
     // T5 — POST duplicado → 409 (não 500)
     try {
-      await professionalC1Service.declareConcept(TENANT, actorId, { conceptId, skillLevel: 4 });
+      await professionalC1Service.declareConcept(TENANT, actorId, { conceptId, skillLevel: 4 }, userId);
       record('T5 declareConcept duplicado → 409', false, 'não lançou');
     } catch (e) { record('T5 declareConcept duplicado → 409 (não 500)', statusOf(e) === 409, `status=${statusOf(e)}`); }
 
     // T6 — PATCH skill fora de 1..5 → 400; dentro → 200
     try {
-      await professionalC1Service.updateConcept(TENANT, actorId, conceptId, { skillLevel: 9 });
+      await professionalC1Service.updateConcept(TENANT, actorId, conceptId, { skillLevel: 9 }, userId);
       record('T6a PATCH skill=9 → 400', false, 'não lançou');
     } catch (e) { record('T6a PATCH skill_level fora de 1..5 → 400', statusOf(e) === 400, `status=${statusOf(e)}`); }
-    const patched = await professionalC1Service.updateConcept(TENANT, actorId, conceptId, { skillLevel: 5 });
+    const patched = await professionalC1Service.updateConcept(TENANT, actorId, conceptId, { skillLevel: 5 }, userId);
     record('T6b PATCH skill=5 → DTO skillLevel=5', patched.skillLevel === 5);
 
     // T13 — POST com concept_id inexistente → 400/404 limpo (não 500)
     try {
       await professionalC1Service.declareConcept(TENANT, actorId,
-        { conceptId: '00000000-0000-0000-0000-000000000000', skillLevel: 2 });
+        { conceptId: '00000000-0000-0000-0000-000000000000', skillLevel: 2 }, userId);
       record('T13 concept_id inexistente → 400/404', false, 'não lançou');
     } catch (e) {
       const s = statusOf(e);
       record('T13 concept_id inexistente → 400/404 (não 500)', s === 400 || s === 404, `status=${s}`);
     }
 
-    // T11 — actorId inexistente → 404
+    // T11 — actorId inexistente → 403 (DECISION-0113 fatia 5.2: representabilidade é checada ANTES da
+    // existência; canRepresentActor é uniforme p/ inexistente E alheio → 403 sem VAZAR a existência do
+    // actor. Antes era 404; o 403 uniforme é o não-leak intencional.)
     try {
-      await professionalC1Service.getProfessionalC1(TENANT, '11111111-1111-1111-1111-111111111111');
-      record('T11 actor inexistente → 404', false, 'não lançou');
-    } catch (e) { record('T11 actorId inexistente → 404 (não 200-vazio, não 500)', statusOf(e) === 404, `status=${statusOf(e)}`); }
+      await professionalC1Service.getProfessionalC1(TENANT, '11111111-1111-1111-1111-111111111111', userId);
+      record('T11 actor inexistente → 403', false, 'não lançou');
+    } catch (e) { record('T11 actorId inexistente → 403 (não-leak; não 200-vazio, não 500)', statusOf(e) === 403, `status=${statusOf(e)}`); }
 
     // T7 — DELETE = desativação lógica; linha PERMANECE
-    const retired = await professionalC1Service.retireConcept(TENANT, actorId, conceptId);
+    const retired = await professionalC1Service.retireConcept(TENANT, actorId, conceptId, userId);
     record('T7a retireConcept → isActive=false + retiredAt!=null',
       retired.isActive === false && retired.retiredAt !== null);
     const stillThere = await runQueryWithTenant<{ n: string }>(

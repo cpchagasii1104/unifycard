@@ -40,7 +40,20 @@ function toDTO(row: InterestConceptRow): InterestConceptDTO {
 }
 
 class InterestC1Service {
-  private async resolveActorGuarded(tenantId: string, actorId: string): Promise<void> {
+  // 🔴 DECISION-0113 fatia 5.2: representabilidade (canRepresentActor) ANTES da existência — o `userId`
+  // autenticado precisa poder representar o `actorId` declarado (actor-keyed: self/empresa/grupo/delegação).
+  // Uniforme (false p/ inexistente E alheio) → 403 sem vazar existência de actor de terceiro.
+  private async resolveActorGuarded(tenantId: string, actorId: string, userId: string): Promise<void> {
+    let representable = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      representable = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      representable = false;
+    }
+    if (!representable) {
+      throw new HttpError('Actor não representável pelo usuário autenticado', 403);
+    }
     const identity = await interestC1Repository.getActorIdentityCheck(tenantId, actorId);
     if (!identity) {
       throw HttpError.notFound('Actor não encontrado');
@@ -70,8 +83,8 @@ class InterestC1Service {
     }
   }
 
-  async getInterestC1(tenantId: string, actorId: string): Promise<InterestC1DTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+  async getInterestC1(tenantId: string, actorId: string, userId: string): Promise<InterestC1DTO> {
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     const concepts = await interestC1Repository.listActiveConcepts(tenantId, actorId);
     return { concepts: concepts.map(toDTO) };
   }
@@ -79,9 +92,10 @@ class InterestC1Service {
   async declareConcept(
     tenantId: string,
     actorId: string,
-    input: DeclareInterestConceptInput
+    input: DeclareInterestConceptInput,
+    userId: string
   ): Promise<InterestConceptDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     if (!input.conceptId) throw HttpError.badRequest('conceptId é obrigatório');
     if (input.sourceCategoryId) {
       await this.assertSourceCategory(tenantId, input.sourceCategoryId, input.conceptId);
@@ -116,9 +130,10 @@ class InterestC1Service {
     tenantId: string,
     actorId: string,
     conceptId: string,
-    patch: UpdateInterestConceptInput
+    patch: UpdateInterestConceptInput,
+    userId: string
   ): Promise<InterestConceptDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     if (patch.sourceCategoryId) {
       await this.assertSourceCategory(tenantId, patch.sourceCategoryId, conceptId);
     }
@@ -135,9 +150,10 @@ class InterestC1Service {
   async retireConcept(
     tenantId: string,
     actorId: string,
-    conceptId: string
+    conceptId: string,
+    userId: string
   ): Promise<InterestConceptDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     const row = await interestC1Repository.retireConcept(tenantId, actorId, conceptId);
     if (!row) throw HttpError.notFound('Interesse ativo não encontrado');
     return toDTO(row);

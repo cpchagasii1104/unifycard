@@ -59,8 +59,21 @@ function assertYears(v: number | null | undefined): void {
 }
 
 class ProfessionalC1Service {
-  // (a) guarda de identidade [REPARO 1] + (b) invariante [REPARO 2], fail-closed, sem I/O em C1.
-  private async resolveActorGuarded(tenantId: string, actorId: string): Promise<void> {
+  // 🔴 DECISION-0113 fatia 5.2: (0) REPRESENTABILIDADE antes de tudo — o `userId` autenticado precisa
+  // poder REPRESENTAR o `actorId` declarado (`canRepresentActor`); não basta o actor existir. É actor-keyed
+  // (self / empresa / grupo / delegação). `canRepresentActor` é uniforme (false p/ inexistente E p/ alheio)
+  // → 403 SEM vazar a existência de actor de terceiro. Depois: (a) guarda de identidade + (b) invariante.
+  private async resolveActorGuarded(tenantId: string, actorId: string, userId: string): Promise<void> {
+    let representable = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      representable = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      representable = false; // incerteza no substrato de autoridade = deny fail-closed
+    }
+    if (!representable) {
+      throw new HttpError('Actor não representável pelo usuário autenticado', 403);
+    }
     const identity = await professionalC1Repository.getActorIdentityCheck(tenantId, actorId);
     if (!identity) {
       throw HttpError.notFound('Actor não encontrado');
@@ -71,8 +84,8 @@ class ProfessionalC1Service {
     }
   }
 
-  async getProfessionalC1(tenantId: string, actorId: string): Promise<ProfessionalC1DTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+  async getProfessionalC1(tenantId: string, actorId: string, userId: string): Promise<ProfessionalC1DTO> {
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     const concepts = await professionalC1Repository.listActiveConcepts(tenantId, actorId);
     const profile = await professionalC1Repository.getProfile(tenantId, actorId);
     // actor existe sem declaração ⇒ { concepts: [], professional_bio: null } (leitura NUNCA cria).
@@ -82,8 +95,8 @@ class ProfessionalC1Service {
     };
   }
 
-  async updateBio(tenantId: string, actorId: string, bio: string | null): Promise<BioDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+  async updateBio(tenantId: string, actorId: string, bio: string | null, userId: string): Promise<BioDTO> {
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     const row = await professionalC1Repository.upsertBio(tenantId, actorId, bio);
     return { professional_bio: row.professional_bio };
   }
@@ -91,9 +104,10 @@ class ProfessionalC1Service {
   async declareConcept(
     tenantId: string,
     actorId: string,
-    input: DeclareConceptInput
+    input: DeclareConceptInput,
+    userId: string
   ): Promise<ConceptDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     if (!input.conceptId) throw HttpError.badRequest('concept_id é obrigatório');
     assertSkillLevel(input.skillLevel);
     assertYears(input.yearsExperience);
@@ -109,9 +123,10 @@ class ProfessionalC1Service {
     tenantId: string,
     actorId: string,
     conceptId: string,
-    patch: UpdateConceptInput
+    patch: UpdateConceptInput,
+    userId: string
   ): Promise<ConceptDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     if (patch.skillLevel !== undefined) assertSkillLevel(patch.skillLevel);
     if (patch.yearsExperience !== undefined) assertYears(patch.yearsExperience);
     try {
@@ -127,9 +142,10 @@ class ProfessionalC1Service {
   async retireConcept(
     tenantId: string,
     actorId: string,
-    conceptId: string
+    conceptId: string,
+    userId: string
   ): Promise<ConceptDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     const row = await professionalC1Repository.retireConcept(tenantId, actorId, conceptId);
     if (!row) throw HttpError.notFound('Competência ativa não encontrada');
     return toConceptDTO(row);

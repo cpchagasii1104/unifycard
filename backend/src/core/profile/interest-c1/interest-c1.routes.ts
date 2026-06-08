@@ -9,14 +9,19 @@ import { z } from 'zod';
 import { HttpError } from '@core/errors/http-error';
 import { interestC1Service } from './interest-c1.service';
 
-function requireContext(req: FastifyRequest): { tenantId: string; actorId: string } {
+// 🔴 DECISION-0113 fatia 5.2: extrai também `userId` do `req.user` p/ threadar ao service (gate canRepresentActor).
+function requireContext(req: FastifyRequest): { tenantId: string; actorId: string; userId: string } {
   if (!req.actionContext?.actorId) {
     throw HttpError.badRequest('ActionContext obrigatório');
   }
   if (!req.tenant?.id) {
     throw HttpError.badRequest('Tenant não encontrado');
   }
-  return { tenantId: req.tenant.id, actorId: req.actionContext.actorId };
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new HttpError('Autenticação obrigatória', 401);
+  }
+  return { tenantId: req.tenant.id, actorId: req.actionContext.actorId, userId };
 }
 
 function fail(reply: FastifyReply, error: unknown): FastifyReply {
@@ -44,8 +49,8 @@ const interestC1Routes: FastifyPluginAsync = async (fastify) => {
   // R1 — GET /profile/interest/c1
   fastify.get('/interest/c1', async (req, reply) => {
     try {
-      const { tenantId, actorId } = requireContext(req);
-      const result = await interestC1Service.getInterestC1(tenantId, actorId);
+      const { tenantId, actorId, userId } = requireContext(req);
+      const result = await interestC1Service.getInterestC1(tenantId, actorId, userId);
       return reply.status(200).send(result);
     } catch (error) {
       return fail(reply, error);
@@ -55,7 +60,7 @@ const interestC1Routes: FastifyPluginAsync = async (fastify) => {
   // R2 — POST /profile/interest/c1/concepts
   fastify.post('/interest/c1/concepts', async (req, reply) => {
     try {
-      const { tenantId, actorId } = requireContext(req);
+      const { tenantId, actorId, userId } = requireContext(req);
       const parsed = declareSchema.safeParse(req.body);
       if (!parsed.success) {
         return reply.status(400).send({ error: 'Payload inválido', details: parsed.error.issues });
@@ -63,7 +68,7 @@ const interestC1Routes: FastifyPluginAsync = async (fastify) => {
       const result = await interestC1Service.declareConcept(tenantId, actorId, {
         conceptId: parsed.data.conceptId,
         sourceCategoryId: parsed.data.sourceCategoryId ?? null,
-      });
+      }, userId);
       return reply.status(201).send(result);
     } catch (error) {
       return fail(reply, error);
@@ -75,7 +80,7 @@ const interestC1Routes: FastifyPluginAsync = async (fastify) => {
     '/interest/c1/concepts/:conceptId',
     async (req, reply) => {
       try {
-        const { tenantId, actorId } = requireContext(req);
+        const { tenantId, actorId, userId } = requireContext(req);
         const parsedParams = conceptParamSchema.safeParse(req.params);
         if (!parsedParams.success) {
           return reply.status(400).send({ error: 'Parâmetro inválido', details: parsedParams.error.issues });
@@ -90,7 +95,7 @@ const interestC1Routes: FastifyPluginAsync = async (fastify) => {
         const result = await interestC1Service.updateConcept(tenantId, actorId, parsedParams.data.conceptId, {
           sourceCategoryId: parsed.data.sourceCategoryId,
           reactivate: parsed.data.reactivate,
-        });
+        }, userId);
         return reply.status(200).send(result);
       } catch (error) {
         return fail(reply, error);
@@ -103,12 +108,12 @@ const interestC1Routes: FastifyPluginAsync = async (fastify) => {
     '/interest/c1/concepts/:conceptId',
     async (req, reply) => {
       try {
-        const { tenantId, actorId } = requireContext(req);
+        const { tenantId, actorId, userId } = requireContext(req);
         const parsedParams = conceptParamSchema.safeParse(req.params);
         if (!parsedParams.success) {
           return reply.status(400).send({ error: 'Parâmetro inválido', details: parsedParams.error.issues });
         }
-        const result = await interestC1Service.retireConcept(tenantId, actorId, parsedParams.data.conceptId);
+        const result = await interestC1Service.retireConcept(tenantId, actorId, parsedParams.data.conceptId, userId);
         return reply.status(200).send(result);
       } catch (error) {
         return fail(reply, error);

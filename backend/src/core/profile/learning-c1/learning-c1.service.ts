@@ -51,7 +51,20 @@ function assertProgress(v: number | null | undefined): void {
 }
 
 class LearningC1Service {
-  private async resolveActorGuarded(tenantId: string, actorId: string): Promise<void> {
+  // 🔴 DECISION-0113 fatia 5.2: representabilidade (canRepresentActor) ANTES da existência — o `userId`
+  // autenticado precisa poder representar o `actorId` declarado (actor-keyed: self/empresa/grupo/delegação).
+  // Uniforme (false p/ inexistente E alheio) → 403 sem vazar existência de actor de terceiro.
+  private async resolveActorGuarded(tenantId: string, actorId: string, userId: string): Promise<void> {
+    let representable = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      representable = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      representable = false;
+    }
+    if (!representable) {
+      throw new HttpError('Actor não representável pelo usuário autenticado', 403);
+    }
     const identity = await learningC1Repository.getActorIdentityCheck(tenantId, actorId);
     if (!identity) {
       throw HttpError.notFound('Actor não encontrado');
@@ -83,8 +96,8 @@ class LearningC1Service {
     }
   }
 
-  async getLearningC1(tenantId: string, actorId: string): Promise<LearningC1DTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+  async getLearningC1(tenantId: string, actorId: string, userId: string): Promise<LearningC1DTO> {
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     const concepts = await learningC1Repository.listActiveConcepts(tenantId, actorId);
     return { concepts: concepts.map(toDTO) };
   }
@@ -92,9 +105,10 @@ class LearningC1Service {
   async declareConcept(
     tenantId: string,
     actorId: string,
-    input: DeclareLearningConceptInput
+    input: DeclareLearningConceptInput,
+    userId: string
   ): Promise<LearningConceptDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     if (!input.conceptId) throw HttpError.badRequest('conceptId é obrigatório');
     assertProgress(input.progress);
     if (input.sourceCategoryId) {
@@ -131,9 +145,10 @@ class LearningC1Service {
     tenantId: string,
     actorId: string,
     conceptId: string,
-    patch: UpdateLearningConceptInput
+    patch: UpdateLearningConceptInput,
+    userId: string
   ): Promise<LearningConceptDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     if (patch.progress !== undefined) assertProgress(patch.progress);
     if (patch.sourceCategoryId) {
       await this.assertSourceCategory(tenantId, patch.sourceCategoryId, conceptId);
@@ -151,9 +166,10 @@ class LearningC1Service {
   async retireConcept(
     tenantId: string,
     actorId: string,
-    conceptId: string
+    conceptId: string,
+    userId: string
   ): Promise<LearningConceptDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     const row = await learningC1Repository.retireConcept(tenantId, actorId, conceptId);
     if (!row) throw HttpError.notFound('Aprendizado ativo não encontrado');
     return toDTO(row);

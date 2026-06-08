@@ -1,3 +1,19 @@
+## 2026-06-07 — F-PROFILE-C1-AUTHORSHIP-GATE: profile-C1 prova representabilidade (DECISION-0113 fatia 5.2)
+
+**Branch:** `rescue-structural` · **backend** (3 services + 3 routes + 1 regressão + e2e novo; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** fecha `DT-PROFILE-C1-EXISTENCE-ONLY-RESOLVER`. Os 3 módulos Profile-C1 (`professional`/`learning`/`interest`) escreviam/liam autodeclarações (bio + concepts) keyed no `actionContext.actorId` spoofável, gateados **só** por `resolveActorGuarded` **existence-only** (provava que o actor existe, não que o `req.user` o representa). **Fix:** `resolveActorGuarded(tenantId, actorId, userId)` prova `authorizationService.canRepresentActor(tenantId, req.user.userId, actorId)` **ANTES** de read/write — **não self-only** (profile-C1 é actor-keyed: dono direto/empresa/grupo/delegação podem representar). `userId` threadado das rotas (`requireContext`→`req.user.userId`, 401 se ausente) como **param obrigatório** em todo método de service (tsc força nenhum caller esquecer). Gate-antes-da-existência ⇒ **403 uniforme** p/ actor **alheio** E **inexistente** (**não-leak**; antes 404). Invariante `id===actor_id` preservada como defesa em profundidade. **Prova de que deixou de ser existence-only:** `canRepresentActor` precede `getActorIdentityCheck` no fluxo, e o e2e exercita um principal **estranho** declarando o `actorId` do dev → 403 em read E mutation, antes do repo (sem escrita). Lifestyle **intocado** (é F5.3).
+
+**Arquivos:** `core/profile/{professional,learning,interest}-c1/*.service.ts` + `*.routes.ts` (6), `validate-professional-c1-service.ts` (threading userId + bootstrap social-ports + T11 404→403), `validate-pipeline-e2e-profile-c1-authorship.ts` (novo).
+
+**Prova:** e2e novo **16/16** (por módulo: ALLOW read dev-representa-próprio; BLOCK read estranho→403; BLOCK mutation→403 antes do repo; estrutural gate-antes-da-mutação; non-leak inexistente→403). Regressão `validate-professional-c1-service` **16/16**. Backend tsc **0** (fora geo); 4 gates OK (`critical_new=0`/`warning_new=1`=c3; dev **365**). Sem regressão cruzada: rbac 13/13, escalation 16/16, money-live 12/12, plan-identity 9/9, vocab 7/7, projection 4/4, cnpj 6/6, creator 9/9, user-submit 19/19. _(lifecycle e2e auto-aborta contra DEV por design — `assertEphemeralDb`, não toca DEV; não é regressão e não toca profile-C1.)_
+
+**DTs:** `DT-PROFILE-C1-EXISTENCE-ONLY-RESOLVER` → **CLOSED**.
+
+**PRÓXIMA ETAPA (espera go):** **F5.3 — lifestyle** (LGPD, por último; `DT-LIFESTYLE-CONSENT-AUTHORSHIP-UNBOUND`); depois **fatia 6** (leitura cross-user) → aí a DT-mãe (`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`) fecha.
+
+---
+
 ## 2026-06-07 — F-PLAN-IDENTITY-CONFIG-AUTHORSHIP-GATE-F5_1: plan + identity-config viram self-only (DECISION-0113 fatia 5.1)
 
 **Branch:** `rescue-structural` · **backend** (2 arquivos de rota; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
