@@ -435,7 +435,13 @@ export class CoreService {
           relationshipStatus: null,
         };
         if (lifestyleActorId) {
-          const ls = await lifestyleService.getLifestyle(tenantId, lifestyleActorId);
+          // 🔴 DECISION-0113 fatia 5.3: `getLifestyle` agora exige `userId` p/ o gate `canRepresentActor`.
+          // Aqui `lifestyleActorId` é o user-actor DESTE `userId` (subject) → passamos o próprio `userId`:
+          // canRepresentActor(userId, userActorOf(userId)) = ownership direto = true. Read SELF-resolvido,
+          // behavior-preserving. ⚠️ getCompleteProfile é chamado por groups/social com userId de TERCEIRO
+          // (cross-user) → a exposição caller≠subject deste agregado é superfície de LEITURA CROSS-USER
+          // (fatia 6), PRÉ-EXISTENTE e fora do escopo de F5.3; NÃO é gateada/“consertada” aqui. Ver DT-mãe.
+          const ls = await lifestyleService.getLifestyle(tenantId, lifestyleActorId, userId);
           for (const a of ls.attributes) {
             if (!a.isActive) continue;
             if (a.attributeKey === 'relationship_status') lifestyleOut.relationshipStatus = a.attributeValue;

@@ -41,7 +41,22 @@ function isLifestyleKey(key: string): key is LifestyleAttributeKey {
 }
 
 class LifestyleService {
-  private async resolveActorGuarded(tenantId: string, actorId: string): Promise<void> {
+  // 🔴 DECISION-0113 fatia 5.3 (LGPD): REPRESENTABILIDADE antes de tudo — o `userId` autenticado precisa
+  // poder REPRESENTAR o `actorId` declarado (`canRepresentActor`); não basta o actor existir. É actor-keyed
+  // (self / empresa / grupo / delegação). `canRepresentActor` é uniforme (false p/ inexistente E p/ alheio)
+  // → 403 SEM vazar a existência de actor de terceiro. Vale também para a LEITURA sensível (private-by-default
+  // passa a ser private-por-AUTORIDADE). Depois: (a) guarda de identidade + (b) invariante.
+  private async resolveActorGuarded(tenantId: string, actorId: string, userId: string): Promise<void> {
+    let representable = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      representable = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      representable = false; // incerteza no substrato de autoridade = deny fail-closed
+    }
+    if (!representable) {
+      throw new HttpError('Actor não representável pelo usuário autenticado', 403);
+    }
     const identity = await lifestyleRepository.getActorIdentityCheck(tenantId, actorId);
     if (!identity) {
       throw HttpError.notFound('Actor não encontrado');
@@ -66,21 +81,26 @@ class LifestyleService {
     }
   }
 
-  async getLifestyle(tenantId: string, actorId: string): Promise<LifestyleProfileDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+  async getLifestyle(tenantId: string, actorId: string, userId: string): Promise<LifestyleProfileDTO> {
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     const rows = await lifestyleRepository.listActive(tenantId, actorId);
     return { attributes: rows.map(toDTO) };
   }
 
   // Declara/atualiza um atributo. CONSENTIMENTO EXPLÍCITO obrigatório. Idempotente: inativo → reativa
   // com novo consentimento; ativo → atualiza valor (+ re-consentimento); inexistente → insere.
+  // 🔴 DECISION-0113 fatia 5.3 (LGPD): `userId` gateia a representabilidade; `performedByActorId` é a
+  // autoria REAL da trilha de consentimento — derivada server-side do actor do `req.user` na borda, NUNCA
+  // do `actionContext.actorId` cru. Sem performer real, não há consentimento auditável → a rota já falhou
+  // fail-closed (403) antes de chegar aqui. Por isso `performedByActorId` é OBRIGATÓRIO (sem fallback p/ subject).
   async declareAttribute(
     tenantId: string,
     actorId: string,
     input: DeclareLifestyleAttributeInput,
-    performedByActorId?: string | null
+    userId: string,
+    performedByActorId: string
   ): Promise<LifestyleAttributeDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     this.assertKeyAndValue(input.attributeKey, input.attributeValue);
 
     if (!input.consent || input.consent.granted !== true) {
@@ -113,7 +133,7 @@ class LifestyleService {
     await lifestyleRepository.insertAudit(tenantId, actorId, {
       attributeKey: input.attributeKey,
       action,
-      performedByActorId: performedByActorId ?? actorId,
+      performedByActorId, // autoria real (actor do req.user), nunca o subject como fallback
       source: AUDIT_SOURCE,
       reason: null,
     });
@@ -126,9 +146,10 @@ class LifestyleService {
     tenantId: string,
     actorId: string,
     attributeKey: string,
-    performedByActorId?: string | null
+    userId: string,
+    performedByActorId: string
   ): Promise<LifestyleAttributeDTO> {
-    await this.resolveActorGuarded(tenantId, actorId);
+    await this.resolveActorGuarded(tenantId, actorId, userId);
     if (!isLifestyleKey(attributeKey)) {
       throw HttpError.badRequest(`attributeKey inválido. Permitidos: ${LIFESTYLE_ATTRIBUTE_KEYS.join(', ')}`);
     }
@@ -139,7 +160,7 @@ class LifestyleService {
     await lifestyleRepository.insertAudit(tenantId, actorId, {
       attributeKey,
       action: 'retire',
-      performedByActorId: performedByActorId ?? actorId,
+      performedByActorId, // autoria real (actor do req.user), nunca o subject como fallback
       source: AUDIT_SOURCE,
       reason: 'anonymize',
     });

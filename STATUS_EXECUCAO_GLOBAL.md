@@ -1,3 +1,21 @@
+## 2026-06-08 — F-LIFESTYLE-AUTHORSHIP-GATE: lifestyle/LGPD com autoria provada (DECISION-0113 fatia 5.3)
+
+**Branch:** `rescue-structural` · **backend** (`lifestyle.routes.ts` + `lifestyle.service.ts` + 1 call-site em `core.service.ts` + e2e novo; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** fecha `DT-LIFESTYLE-CONSENT-AUTHORSHIP-UNBOUND`. Lifestyle escrevia atributo **sensível (LGPD)** + **consentimento** + audit keyed no `actionContext.actorId` spoofável (`resolveActorGuarded` existence-only), com `performedByActorId` defaultado ao **subject** → forja de valor sensível, consentimento e autoria. **Três travas no mesmo corte** (decisão Clayton): **(1)** `resolveActorGuarded(tenantId, actorId, userId)` prova `canRepresentActor(req.user.userId, actorId)` **antes** de read/write/consent (403 não-leak; cobre a **leitura sensível**); **(2)** `performedByActorId` = actor **real** do `req.user` via `findByUserId` na borda, **obrigatório** (removido o fallback `?? actorId`) — **sem performer resolvível → 403 fail-closed** (sem performer real, sem mutação/consentimento/audit); **(3)** leitura private-by-autoridade. **DECISION-0071 intocada** (só autoria/autoridade da 0113).
+
+**Arquivos:** `core/profile/lifestyle/lifestyle.routes.ts`, `lifestyle.service.ts`, `core/core.service.ts` (1 call-site do reader interno), `validate-pipeline-e2e-lifestyle-authorship.ts` (novo).
+
+**Prova:** e2e novo **10/10** (ALLOW read dev; BLOCK read/declare/retire estranho→403; **anti-forja**: audit não cresce após declare bloqueado; non-leak inexistente→403; estrutural gate-antes-da-existência + `performedBy` real sem `?? actorId`). Backend tsc **0** (fora geo); 4 gates OK (`critical_new=0`/`warning_new=1`=c3; dev **365**). Sem regressão: rbac 13/13, escalation 16/16, money-live 12/12, plan-identity 9/9, profile-c1 16/16, professional-c1 16/16.
+
+**Achado p/ fatia 6:** `core.service.getCompleteProfile` lê lifestyle de `userId` e é chamado por **groups**/**social** com `userId` de terceiro → **leitura cross-user de dado sensível PRÉ-EXISTENTE**. Call-site interno passa o próprio `userId` do subject (gate self-satisfeito = behavior-preserving; NÃO finge proteção cross-user). Registrado como superfície de **fatia 6**.
+
+**DTs:** `DT-LIFESTYLE-CONSENT-AUTHORSHIP-UNBOUND` → **CLOSED**. **Fatia 5 COMPLETA** (5.1+5.2+5.3).
+
+**PRÓXIMA ETAPA (espera go):** **fatia 6 — leitura cross-user** (`social-2.0 /ledger`, `identity /wallet-statement|/ledger|/configurations`, `me-active-location`, `impact-overview`, `pending-responsibilities` **+ `getCompleteProfile` lifestyle**). Só aí a **DT-mãe** `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` fecha. (Resíduos próprios fora do arco: money latente, `canActAs/checkOwnership`, fixtures stale.)
+
+---
+
 ## 2026-06-07 — F-PROFILE-C1-AUTHORSHIP-GATE: profile-C1 prova representabilidade (DECISION-0113 fatia 5.2)
 
 **Branch:** `rescue-structural` · **backend** (3 services + 3 routes + 1 regressão + e2e novo; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_

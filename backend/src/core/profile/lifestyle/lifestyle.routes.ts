@@ -9,14 +9,37 @@ import { z } from 'zod';
 import { HttpError } from '@core/errors/http-error';
 import { lifestyleService } from './lifestyle.service';
 
-function requireContext(req: FastifyRequest): { tenantId: string; actorId: string } {
+// 🔴 DECISION-0113 fatia 5.3 (LGPD): extrai também o `userId` do `req.user` (principal autenticado) para
+// threadar ao service (gate `canRepresentActor`). Sem `req.user` → 401.
+function requireContext(req: FastifyRequest): { tenantId: string; actorId: string; userId: string } {
   if (!req.actionContext?.actorId) {
     throw HttpError.badRequest('ActionContext obrigatório');
   }
   if (!req.tenant?.id) {
     throw HttpError.badRequest('Tenant não encontrado');
   }
-  return { tenantId: req.tenant.id, actorId: req.actionContext.actorId };
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new HttpError('Autenticação obrigatória', 401);
+  }
+  return { tenantId: req.tenant.id, actorId: req.actionContext.actorId, userId };
+}
+
+// 🔴 DECISION-0113 fatia 5.3 (LGPD): a AUTORIA da trilha de consentimento (`performedByActorId`) é derivada
+// server-side do actor REAL do `req.user`, NUNCA do `actionContext.actorId` cru. Se o caller autenticado não
+// tem user-actor resolvível, NÃO há performer real → sem performer, sem mutação/consentimento/audit (403
+// fail-closed; jamais cai no subject como fallback de autoria). Resolução na borda (mantém o service sem lookup solto).
+async function resolvePerformerActorId(req: FastifyRequest): Promise<string> {
+  const userId = req.user?.userId;
+  if (!userId || !req.tenant?.id) {
+    throw new HttpError('Autenticação obrigatória', 401);
+  }
+  const { socialPortsRegistry } = await import('@core/social/ports-registry');
+  const callerActor = await socialPortsRegistry.getActorRepository().findByUserId(req.tenant.id, userId);
+  if (!callerActor) {
+    throw new HttpError('Performer não resolvível (actor do usuário autenticado não encontrado)', 403);
+  }
+  return callerActor.actor_id;
 }
 
 function fail(reply: FastifyReply, error: unknown): FastifyReply {
@@ -41,8 +64,8 @@ const lifestyleRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /profile/lifestyle — atributos ativos (self).
   fastify.get('/lifestyle', async (req, reply) => {
     try {
-      const { tenantId, actorId } = requireContext(req);
-      const result = await lifestyleService.getLifestyle(tenantId, actorId);
+      const { tenantId, actorId, userId } = requireContext(req);
+      const result = await lifestyleService.getLifestyle(tenantId, actorId, userId);
       return reply.status(200).send(result);
     } catch (error) {
       return fail(reply, error);
@@ -54,7 +77,7 @@ const lifestyleRoutes: FastifyPluginAsync = async (fastify) => {
     '/lifestyle/attributes/:attributeKey',
     async (req, reply) => {
       try {
-        const { tenantId, actorId } = requireContext(req);
+        const { tenantId, actorId, userId } = requireContext(req);
         const parsedKey = keyParamSchema.safeParse(req.params);
         if (!parsedKey.success) {
           return reply.status(400).send({ error: 'attributeKey inválido', details: parsedKey.error.issues });
@@ -63,6 +86,7 @@ const lifestyleRoutes: FastifyPluginAsync = async (fastify) => {
         if (!parsedBody.success) {
           return reply.status(400).send({ error: 'Payload inválido', details: parsedBody.error.issues });
         }
+        const performedByActorId = await resolvePerformerActorId(req);
         const result = await lifestyleService.declareAttribute(
           tenantId,
           actorId,
@@ -75,7 +99,8 @@ const lifestyleRoutes: FastifyPluginAsync = async (fastify) => {
               version: parsedBody.data.consent.version ?? null,
             },
           },
-          actorId
+          userId,
+          performedByActorId
         );
         return reply.status(200).send(result);
       } catch (error) {
@@ -89,12 +114,19 @@ const lifestyleRoutes: FastifyPluginAsync = async (fastify) => {
     '/lifestyle/attributes/:attributeKey',
     async (req, reply) => {
       try {
-        const { tenantId, actorId } = requireContext(req);
+        const { tenantId, actorId, userId } = requireContext(req);
         const parsedKey = keyParamSchema.safeParse(req.params);
         if (!parsedKey.success) {
           return reply.status(400).send({ error: 'attributeKey inválido', details: parsedKey.error.issues });
         }
-        const result = await lifestyleService.retireAttribute(tenantId, actorId, parsedKey.data.attributeKey, actorId);
+        const performedByActorId = await resolvePerformerActorId(req);
+        const result = await lifestyleService.retireAttribute(
+          tenantId,
+          actorId,
+          parsedKey.data.attributeKey,
+          userId,
+          performedByActorId
+        );
         return reply.status(200).send(result);
       } catch (error) {
         return fail(reply, error);
