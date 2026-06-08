@@ -5,10 +5,8 @@ import type { FastifyInstance } from 'fastify';
 import type { LedgerEntryFilters } from './ledger.types';
 import { bankLedgerRepository } from '../bank/bank-ledger.repository';
 import { bankReportingRepository } from '../bank/bank-reporting.repository';
-import { BadRequestError, ForbiddenError } from '@core/errors';
+import { BadRequestError } from '@core/errors';
 import { ErrorCode } from '@core/errors/error-codes';
-
-type LedgerRequest = { ledgerAccessLevel?: 'full' | 'limited' };
 
 const ledgerRoutes = async (fastify: FastifyInstance) => {
   const requireLedgerPermission = async (req: any, _reply: any) => {
@@ -48,6 +46,49 @@ const ledgerRoutes = async (fastify: FastifyInstance) => {
     }
   };
 
+  // 🔴 DECISION-0113 F6.5.2 (money): gate de AUTORIDADE real (não o `requireLedgerPermission`, que só seta
+  // accessLevel e nunca bloqueia). Resolve o DONO REAL da conta da URL e exige representabilidade.
+  //   actor-owned (ownerType='user' + actorId) → canRepresentActor(req.user.userId, actorId).
+  //   system/escrow / sem actor / inexistente → fail-closed 403 não-leak (gate admin é frente própria:
+  //     `DT-LEDGER-ADMIN-READ-GATE-MISSING`). Permissão genérica de ledger NÃO autoriza accountId arbitrário.
+  // Retorna true se autorizado; false se já respondeu (401/403) — nesse caso o handler deve `return reply`.
+  const assertLedgerAccountAuthority = async (
+    req: any,
+    reply: any,
+    tenantId: string,
+    accountId: string
+  ): Promise<boolean> => {
+    const userId = req.user?.userId as string | undefined;
+    if (!userId) {
+      reply.status(401).send({ error: 'Não autenticado' });
+      return false;
+    }
+    let account: any = null;
+    try {
+      const { bankAccountRepository } = await import('../bank/bank-account.repository');
+      account = await bankAccountRepository.getAccountById(tenantId, accountId);
+    } catch {
+      account = null;
+    }
+    // não-leak: conta inexistente OU não-actor → 403 uniforme (não revela existência nem tipo).
+    if (!account || account.ownerType !== 'user' || !account.actorId) {
+      reply.status(403).send({ error: 'Conta não acessível por este usuário' });
+      return false;
+    }
+    let canRead = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canRead = await authorizationService.canRepresentActor(tenantId, userId, account.actorId);
+    } catch {
+      canRead = false;
+    }
+    if (!canRead) {
+      reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+      return false;
+    }
+    return true;
+  };
+
   fastify.get<{
     Querystring: {
       accountId?: string;
@@ -75,11 +116,16 @@ const ledgerRoutes = async (fastify: FastifyInstance) => {
       offset: req.query.offset,
     };
 
-    if ((req as LedgerRequest).ledgerAccessLevel === 'limited' && !filters.contextId) {
-      throw new ForbiddenError(
-        'Limited access: specify contextId to list entries for your context.',
-        ErrorCode.PERMISSION_DENIED
-      );
+    // 🔴 DECISION-0113 F6.5.2 (money): leitura por conta → provar DONO REAL (canRepresentActor) ANTES.
+    // Sem accountId (list-all do tenant OU só by-contextId) → dinheiro agregado/plataforma → fail-closed 403
+    // (gate admin real = frente própria `DT-LEDGER-ADMIN-READ-GATE-MISSING`; `requireLedgerPermission` não conta).
+    if (!filters.accountId) {
+      return reply
+        .status(403)
+        .send({ error: 'Listagem agregada/por-contexto exige gate administrativo (indisponível)' });
+    }
+    if (!(await assertLedgerAccountAuthority(req, reply, tenantId, filters.accountId))) {
+      return reply;
     }
 
     const limit = Math.min(filters.limit ?? 500, 10000);
@@ -126,6 +172,13 @@ const ledgerRoutes = async (fastify: FastifyInstance) => {
       throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
     }
     const tenantId = req.tenant.id;
+
+    // 🔴 DECISION-0113 F6.5.2 (OWN-PARAMS, money): o `accountId` vem da URL. Resolver o DONO REAL da conta
+    // ANTES de devolver saldo. actor-owned → provar `canRepresentActor(req.user.userId, account.actorId)`.
+    // system/escrow / sem actor / inexistente → fail-closed 403 (não-leak; dinheiro de plataforma exige gate
+    // admin real — frente própria `DT-LEDGER-ADMIN-READ-GATE-MISSING`; o `requireLedgerPermission` NÃO bloqueia
+    // ownership, só seta accessLevel). Permissão genérica de ledger NÃO autoriza ler accountId arbitrário.
+    if (!(await assertLedgerAccountAuthority(req, reply, tenantId, req.params.accountId))) return reply;
 
     const balance = await bankLedgerRepository.calculateBalance(tenantId, req.params.accountId);
 

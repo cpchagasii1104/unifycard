@@ -1,3 +1,19 @@
+## 2026-06-08 — F-LEDGER-ACCOUNT-AUTHORITY-GATE-F6_5_2: fecha o IDOR financeiro (DECISION-0113 fatia 6.5.2)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank-write/migration/schema/frontend). Dev 365. _(Esteira: eu escritora; par verifica. READ-FIRST + decisão de Clayton no fork non-actor.)_
+
+**O que entregou (o cofre):** `GET /ledger/accounts/:accountId/balance` e `GET /ledger/entries?accountId` liam saldo/movimentação de **qualquer conta por URL/query** (IDOR financeiro); o `requireLedgerPermission` é gate **falso** (só seta limited/full, nunca bloqueia). Agora o helper `assertLedgerAccountAuthority` resolve o **DONO REAL** via `bankAccountRepository.getAccountById` ANTES de ler: **actor-owned** → `canRepresentActor(req.user.userId, account.actorId)`; **system/escrow/sem-actor/inexistente** → **403 fail-closed** não-leak. `GET /ledger/entries` **sem accountId** (list-all/by-contextId) → **403 fail-closed**. **Opção 1 com trava forte (Clayton):** dinheiro de plataforma exige gate admin real; como não há reaproveitável limpo (o canônico `requirePermission` é intent/scope-acoplado, arriscado inline em money) → fail-closed + **STOP registrado** (`DT-LEDGER-ADMIN-READ-GATE-MISSING`), não simulado.
+
+**Arquivos:** `modules/ledger/ledger.routes.ts`, `validate-pipeline-e2e-ledger-account-authority-f6-5-2.ts` (novo).
+
+**Prova:** e2e novo **7/7** (A behavioral primitivo nega cross-user; B behavioral por conta **N/A** — DEV carteira lazy = 0 `bank_accounts` (Cleiton.md BANK-1), reportado transparente, não fake-green; C estrutural gate-antes-da-leitura nos 2 reads + list-all 403 + helper getAccountById+canRepresentActor + non-actor fail-closed). Backend tsc **0** (fora geo); 4 gates OK (**bank-ledger §4.6 verde** — zero `bank_*` novo; dev **365**). Núcleo 0113 + F6.5.1 intactos (10 regressões verdes).
+
+**DTs:** `DT-OPERATIONAL-READ-ACTORID-UNVALIDATED` OPEN (F6.5.2 fechada). **Aberta `DT-LEDGER-ADMIN-READ-GATE-MISSING`** (STOP do gate admin de reporting). DT-mãe OPEN.
+
+**PRÓXIMA ETAPA (espera go):** **F6.5.3 — contextual-thread** (mensagens privadas por threadId/contextId; OWN-PARAMS/participante). Depois 6.5.4 feed → 6.5.5 company-members GETs → 6.5.6 service-order reads+eventos → 6.5.7 dashboard/reports → 6.5.8 availability/votes/notifications/services → 6.5.9 ERP/marketplace. **R2 congelado.**
+
+---
+
 ## 2026-06-08 — F-INBOX-COMMITMENTS-AUTHORSHIP-GATE-F6_5_1: fecha o IDOR mais feio + /me/* esquecido (DECISION-0113 fatia 6.5.1)
 
 **Branch:** `rescue-structural` · **backend** (2 arquivos de rota; zero Bank/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica. Ordem da diretora: por dano, não conveniência.)_
