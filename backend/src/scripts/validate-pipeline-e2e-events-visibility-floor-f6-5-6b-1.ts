@@ -69,7 +69,7 @@ async function main(): Promise<void> {
   try {
     console.log('\n— A behavioral REAL (5 fixtures semeados): piso devolve só public+published/active —');
     const { eventRepository } = await import('../modules/events/event.repository');
-    const floored = await eventRepository.listEvents(TENANT_ID, { discoveryFloor: true, limit: 100000 });
+    const floored = await eventRepository.listEvents(TENANT_ID, { visibilityMode: 'public_discovery', limit: 100000 });
     const unfloored = await eventRepository.listEvents(TENANT_ID, { limit: 100000 });
     const fMine = mine(floored as any);
     const uMine = mine(unfloored as any);
@@ -86,8 +86,8 @@ async function main(): Promise<void> {
       uMine.length === 5, `n=${uMine.length}`);
 
     console.log('\n— A behavioral: status do cliente só ESTREITA dentro do piso (draft → vazio) —');
-    const flooredDraft = await eventRepository.listEvents(TENANT_ID, { discoveryFloor: true, status: 'DRAFT' as any, limit: 100000 });
-    record('A4 discoveryFloor + status=DRAFT → 0 fixtures (cliente não amplia o piso para draft)',
+    const flooredDraft = await eventRepository.listEvents(TENANT_ID, { visibilityMode: 'public_discovery', status: 'DRAFT' as any, limit: 100000 });
+    record('A4 public_discovery + status=DRAFT → 0 fixtures (cliente não amplia o piso para draft)',
       mine(flooredDraft as any).length === 0, `n=${mine(flooredDraft as any).length}`);
   } finally {
     await cleanup();
@@ -97,16 +97,16 @@ async function main(): Promise<void> {
   const repo = readFileSync(join(process.cwd(), 'src/modules/events/event.repository.ts'), 'utf8');
   const route = readFileSync(join(process.cwd(), 'src/modules/events/events-sprint76.routes.ts'), 'utf8');
   const myOrders = readFileSync(join(process.cwd(), 'src/modules/my-orders/my-orders.service.ts'), 'utf8');
-  record('B1 repo: branch discoveryFloor força visibility=\'public\'',
-    /if \(filters\.discoveryFloor\)/.test(repo) && /visibility = 'public'/.test(repo));
+  record('B1 repo: branch public_discovery força visibility=\'public\'',
+    /filters\.visibilityMode === 'public_discovery'/.test(repo) && /visibility = 'public'/.test(repo));
   record('B2 repo: piso de status published+active + interseção vazia segura (1 = 0)',
     /\['published', 'active'\]/.test(repo) && /conditions\.push\('1 = 0'\)/.test(repo));
-  record('B3 repo: default-off — status livre só quando NÃO discoveryFloor (else if filters.status)',
+  record('B3 repo: default-off — status livre só quando SEM modo (else if filters.status, interno)',
     /\} else if \(filters\.status\) \{/.test(repo));
-  record('B4 GET /events (sprint76) passa discoveryFloor: true',
-    /const filters: any = \{ discoveryFloor: true \}/.test(route));
-  record('B5 my-orders.service NÃO passa discoveryFloor (caller interno preservado)',
-    /listEvents\(tenantId, \{ limit: 10000 \}\)/.test(myOrders) && !/discoveryFloor/.test(myOrders));
+  record('B4 GET /events (sprint76) inicia em public_discovery (piso default; só sobe p/ dashboard se representável)',
+    /visibilityMode: 'public_discovery'/.test(route));
+  record('B5 my-orders.service NÃO passa visibilityMode/discoveryFloor (caller interno preservado)',
+    /listEvents\(tenantId, \{ limit: 10000 \}\)/.test(myOrders) && !/visibilityMode/.test(myOrders) && !/discoveryFloor/.test(myOrders));
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);

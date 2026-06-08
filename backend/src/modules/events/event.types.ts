@@ -154,9 +154,14 @@ export interface EventFilters {
   startAtTo?: Date | string;
   limit?: number;
   offset?: number;
-  // 🔵 DECISION-0113 F6.5.6b-B1: piso de discovery pública (deny-first). Default OFF (undefined) → callers
-  // internos (ex.: my-orders) inalterados. Só o caminho de descoberta pública (GET /events) passa `true`.
-  discoveryFloor?: boolean;
+  // 🔵 DECISION-0113 F6.5.6b — modo de visibilidade do caminho de descoberta. Default undefined → callers
+  // internos (ex.: my-orders) inalterados (sem piso). Só GET /events define o modo:
+  //  · 'public_discovery'   (B1) → piso: visibility='public' AND status IN ('published','active'); cliente estreita.
+  //  · 'organizer_dashboard'(B2) → SEM piso, mas EXIGE organizerActorId (fail-closed) → o organizer representável
+  //                                 vê os PRÓPRIOS draft/private/unlisted/group/followers; cliente estreita.
+  visibilityMode?: 'public_discovery' | 'organizer_dashboard';
+  // narrowing opcional do cliente por visibility (só estreita; no piso público o servidor já força 'public').
+  visibility?: string;
 }
 
 

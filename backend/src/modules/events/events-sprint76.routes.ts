@@ -138,6 +138,7 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       organizerActorId?: string;
       locationActorId?: string;
       status?: string;
+      visibility?: string;
       startAtFrom?: string;
       startAtTo?: string;
       limit?: number;
@@ -149,18 +150,34 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     }
     const tenantId = req.tenant.id;
 
-    // 🔵 DECISION-0113 F6.5.6b-B1: GET /events é descoberta PÚBLICA → piso server-side obrigatório
-    // (visibility='public' AND status IN ('published','active')). O cliente estreita; o servidor define o piso.
-    // Organizer-representável (ver próprios drafts/private), group, followers e unlisted abrem em B2/B3/B4/canal-5.
-    const filters: any = { discoveryFloor: true };
+    // 🔵 DECISION-0113 F6.5.6b — modo de visibilidade do GET /events:
+    //  · sem organizerActorId                          → public_discovery (piso B1).
+    //  · organizerActorId + caller NÃO representável    → public_discovery DAQUELE organizer (NÃO 403 — vitrine).
+    //  · organizerActorId + caller representável         → organizer_dashboard (vê os próprios não-públicos).
+    // O cliente estreita; o servidor define o piso. group/followers/unlisted globais e canal-5 = B3/B4/canal-5.
+    const filters: any = { visibilityMode: 'public_discovery' as 'public_discovery' | 'organizer_dashboard' };
     if (req.query.organizerActorId) {
       filters.organizerActorId = req.query.organizerActorId;
+      const userId = (req.user as { userId?: string } | undefined)?.userId;
+      if (userId) {
+        let canRepresent = false;
+        try {
+          const { authorizationService } = await import('@core/authorization/authorization.service');
+          canRepresent = await authorizationService.canRepresentActor(tenantId, userId, req.query.organizerActorId);
+        } catch { canRepresent = false; }
+        if (canRepresent) {
+          filters.visibilityMode = 'organizer_dashboard';
+        }
+      }
     }
     if (req.query.locationActorId) {
       filters.locationActorId = req.query.locationActorId;
     }
     if (req.query.status) {
       filters.status = req.query.status;
+    }
+    if (req.query.visibility) {
+      filters.visibility = req.query.visibility;
     }
     if (req.query.startAtFrom) {
       filters.startAtFrom = new Date(req.query.startAtFrom);

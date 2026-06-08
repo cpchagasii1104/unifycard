@@ -199,12 +199,11 @@ class EventRepository {
       paramIndex++;
     }
 
-    // 🔵 DECISION-0113 F6.5.6b-B1 — PISO DE DISCOVERY PÚBLICA (deny-first): aplicado SÓ quando o caller de
-    // descoberta pede explicitamente (discoveryFloor=true). Default OFF → callers internos (my-orders) intactos.
-    // Server FORÇA visibility='public' AND status IN ('published','active'); o `status` do cliente só ESTREITA
-    // DENTRO do piso, nunca amplia (draft/declared/etc. → interseção vazia segura). NÃO abre group/followers/
-    // unlisted/private/draft aqui (B2/B3/B4/canal-5). 'declared' fora do piso por decisão Clayton.
-    if (filters.discoveryFloor) {
+    // 🔵 DECISION-0113 F6.5.6b — modo de visibilidade (default = sem modo → callers internos como my-orders
+    // intactos). 'public_discovery' (B1) = piso público deny-first. 'organizer_dashboard' (B2) = sem piso, mas
+    // EXIGE organizerActorId (fail-closed) → o organizer representável vê os PRÓPRIOS não-públicos. O `status`/
+    // `visibility` do cliente só ESTREITAM, nunca ampliam. 'declared' fora do piso público por decisão Clayton.
+    if (filters.visibilityMode === 'public_discovery') {
       conditions.push(`visibility = 'public'`);
       const floorStatuses = ['published', 'active'];
       if (filters.status) {
@@ -221,7 +220,26 @@ class EventRepository {
         params.push(floorStatuses);
         paramIndex++;
       }
+    } else if (filters.visibilityMode === 'organizer_dashboard') {
+      // SEM piso público — mas dashboard SÓ existe atrelado a um organizer (a rota só ativa este modo após
+      // canRepresentActor(organizerActorId)). Defesa: sem organizerActorId → nunca devolve nada (1 = 0).
+      if (!filters.organizerActorId) {
+        conditions.push('1 = 0');
+      } else {
+        // organizerActorId já restringiu actor_id acima. Cliente estreita por status/visibility livremente.
+        if (filters.status) {
+          conditions.push(`status = $${paramIndex}`);
+          params.push(sprint76StatusToDb(filters.status));
+          paramIndex++;
+        }
+        if (filters.visibility) {
+          conditions.push(`visibility = $${paramIndex}`);
+          params.push(filters.visibility);
+          paramIndex++;
+        }
+      }
     } else if (filters.status) {
+      // INTERNO (default, ex.: my-orders) — comportamento anterior, sem piso.
       conditions.push(`status = $${paramIndex}`);
       params.push(sprint76StatusToDb(filters.status));
       paramIndex++;

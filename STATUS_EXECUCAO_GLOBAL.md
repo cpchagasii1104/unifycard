@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5.6b-B2 EVENTS · ORGANIZER DASHBOARD via canRepresentActor (DECISION-0113, classe H)
+
+**Branch:** `rescue-structural` · **backend** (3 arquivos + 2 e2e; zero Bank/migration/frontend/canal-5/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: abrir dashboard do dono sem 403 ao não-representável.)_
+
+**O que entregou:** o param B1 evoluiu para `visibilityMode ∈ {public_discovery, organizer_dashboard}` (default undefined → callers internos sem piso). `GET /events` decide o modo: **sem organizerActorId** → public_discovery; **organizerActorId + NÃO representável** → public_discovery DAQUELE organizer (só vitrine pública — **NÃO 403**); **organizerActorId + `canRepresentActor`** → organizer_dashboard (vê os PRÓPRIOS draft/private/unlisted/group/followers; cliente estreita). Repo: dashboard **fail-closed** sem organizerActorId (`1=0`). my-orders/internos intactos.
+
+**Arquivos:** `modules/events/event.types.ts`, `event.repository.ts`, `events-sprint76.routes.ts`, `validate-pipeline-e2e-events-organizer-dashboard-f6-5-6b-2.ts` (novo), B1 e `event-specs` e2e atualizados.
+
+**Prova:** e2e B2 **12/12** com **fixtures REAIS** (6 eventos do organizer: dashboard=6, status/visibility estreitam, sem-organizer→vazio, não-representável→só o 1 público; decisão de modo via canRepresentActor dev=true/estranho=false). B1 **9/9** (param novo), event-specs **8/8** (C2/C3 reescritos), LEFTOVER=0. Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: impact 7/7 · canal3-money 7/7 · cultural 7/7 · trust 12/12 · x-actor-id 9/9 · rbac 13/13 · money-live 12/12.
+
+**DTs:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` → **PARTIALLY MITIGATED** (B1+B2 done; faltam B3 group GLOBAL / B4 followers GLOBAL / canal-5). DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** B3 group-scoped global (group_members) → B4 followers global (follows) → canal-5 (/events/:id) → settlement/RFQ money READ-FIRST → sweep final.
+
+---
+
 ## 2026-06-08 — F6.5.6b-B1 EVENTS · PISO DE DISCOVERY PÚBLICA deny-first (DECISION-0113, classe H)
 
 **Branch:** `rescue-structural` · **backend** (3 arquivos + e2e; zero Bank/migration/frontend/canal-5/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: implementar B1 deny-first; cliente estreita, servidor define o piso.)_

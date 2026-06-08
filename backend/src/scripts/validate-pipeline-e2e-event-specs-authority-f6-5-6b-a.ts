@@ -81,15 +81,16 @@ async function main(): Promise<void> {
   record('B3 403 não-leak quando não representável + 401 sem user',
     /Actor não representável pelo usuário autenticado/.test(block) && /Unauthorized/.test(block));
 
-  console.log('\n— C escopo: caminho event_id preservado; GET /events e listEvents intocados —');
+  console.log('\n— C escopo: caminho event_id preservado; gate de event-specs é INDEPENDENTE do discovery —');
   record('C1 caminho event_id segue no queryEventSpecs (eventId: request.query.event_id preservado)',
     /eventId: request\.query\.event_id/.test(block));
+  // NOTA: o discovery (GET /events) evoluiu DEPOIS desta fatia (F6.5.6b-B1/B2). A canRepresentActor que existe
+  // hoje no sprint76 é para decidir o organizer_dashboard (B2), NÃO para gatear event-specs — concerns separados.
   const sprint76 = readFileSync(join(process.cwd(), 'src/modules/events/events-sprint76.routes.ts'), 'utf8');
-  const repo = readFileSync(join(process.cwd(), 'src/modules/events/event.repository.ts'), 'utf8');
-  record('C2 GET /events (discovery, sprint76) NÃO tem canRepresentActor (H visibility — decisão própria, não tocar)',
-    !/canRepresentActor/.test(sprint76));
-  record('C3 eventRepository.listEvents intocado (sem canRepresentActor; visibility floor é F6.5.6b-B)',
-    !/canRepresentActor/.test(repo));
+  record('C2 a canRepresentActor do discovery (sprint76) é só p/ organizer_dashboard (B2), não gateia event-specs',
+    /filters\.visibilityMode = 'organizer_dashboard'/.test(sprint76));
+  record('C3 o gate de event-specs vive no PRÓPRIO arquivo (events-spec.routes.ts), independente do discovery',
+    /canRepresentActor\(tenantId, userId, actorIdFilter\)/.test(src) && !/visibilityMode/.test(src));
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);
