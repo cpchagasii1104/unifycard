@@ -10,6 +10,8 @@
 
 **DTs:** `DT-TRUST-MODULE-UNGATED-COMPLIANCE` → **PARTIALLY MITIGATED** (NÃO CLOSED — modelo fino de compliance/risco = R2.4). DT-mãe `DT-DIRECT-QUERY-ACTOR-READERS-UNVALIDATED` OPEN.
 
+**🔴 FURO YALA (selo interino) — 2º arquivo trust escapou do READ-FIRST:** `core/reputation/trust.routes.ts` (dashboard de reputação, ≠ `modules/trust` risk-engine; registrado `app.builder.ts:398`) tem 3 GET NU. Classificação READ-FIRST de 1ª mão (pós-furo): `/me` + `/me/timeline` = **self** (NU ok); `GET /actor/:actorId` (**canal 5**) = **classe B-público** via `getPublicDashboard` (só agregado público — score/badge/stats-de-eventos/badges/tempo; **NÃO** risk-events/severity) → NU aceitável, **não** é leak de risco-interno. Caveat de design (não-bloqueante): `scoreBadge` pode revelar `critical`/`blocked` publicamente = decisão de transparência, não IDOR. **Resíduo registrado na DT + entra no grep adversarial final dos 5 canais (selo Yala).** Lição "mapa ≠ verdade" (4ª vez): trust tinha 2 arquivos.
+
 **PRÓXIMA ETAPA (espera go):** 1. Yala sela o trust gate interino. 2. Ler policy / `requirePolicyPermission`. 3. Decidir impact/ledger (G). 4. Voltar p/ F6.5.6b events → 6.5.7/8/9 → selo final Yala (grep dos 5 canais). **R2 congelado.**
 
 ---
