@@ -7,11 +7,18 @@ import { trustEngineService } from './trust-engine.service';
 import type { RegisterTrustEventInput, CanProceedInput } from './trust.types';
 
 const trustRoutes = async (fastify: FastifyInstance) => {
+  // 🔴 DECISION-0113 (trust = compliance/risco/anti-fraude, NÃO vitrine pública): GATE-ADMIN INTERINO.
+  // O módulo estava 100% NU (só `req.tenant`), reads E writes → qualquer caller lia o mapa de risco do
+  // tenant E injetava/recalculava sinais de fraude. Compliance opera CROSS-ACTOR por design → `canRepresentActor`
+  // seria ERRADO (bloquearia o operador legítimo). Gate = role-admin real (mecanismo canônico da fatia 1).
+  // INTERINO: o modelo fino de compliance/risk (permissão específica) fica para R2.4 — NÃO criar permission nova aqui.
+  const adminOnly = (fastify as unknown as { requireRole: (roles: string[]) => unknown }).requireRole(['admin']);
+
   /**
    * GET /trust/profile/:actorId
    * Busca trust profile por actor
    */
-  fastify.get<{ Params: { actorId: string } }>('/trust/profile/:actorId', async (req, reply) => {
+  fastify.get<{ Params: { actorId: string } }>('/trust/profile/:actorId', { preHandler: adminOnly as never }, async (req, reply) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
@@ -34,7 +41,7 @@ const trustRoutes = async (fastify: FastifyInstance) => {
       limit?: number;
       offset?: number;
     };
-  }>('/trust/profiles', async (req, reply) => {
+  }>('/trust/profiles', { preHandler: adminOnly as never }, async (req, reply) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
@@ -67,7 +74,7 @@ const trustRoutes = async (fastify: FastifyInstance) => {
       limit?: number;
       offset?: number;
     };
-  }>('/trust/events', async (req, reply) => {
+  }>('/trust/events', { preHandler: adminOnly as never }, async (req, reply) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
@@ -91,7 +98,7 @@ const trustRoutes = async (fastify: FastifyInstance) => {
    * POST /trust/events
    * Registra evento de trust
    */
-  fastify.post<{ Body: RegisterTrustEventInput }>('/trust/events', async (req, reply) => {
+  fastify.post<{ Body: RegisterTrustEventInput }>('/trust/events', { preHandler: adminOnly as never }, async (req, reply) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
@@ -105,7 +112,7 @@ const trustRoutes = async (fastify: FastifyInstance) => {
    * POST /trust/can-proceed
    * Verifica se pode prosseguir com ação baseado em trust score
    */
-  fastify.post<{ Body: CanProceedInput }>('/trust/can-proceed', async (req, reply) => {
+  fastify.post<{ Body: CanProceedInput }>('/trust/can-proceed', { preHandler: adminOnly as never }, async (req, reply) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
@@ -119,7 +126,7 @@ const trustRoutes = async (fastify: FastifyInstance) => {
    * POST /trust/recalculate/:actorId
    * Recalcula score de um actor
    */
-  fastify.post<{ Params: { actorId: string } }>('/trust/recalculate/:actorId', async (req, reply) => {
+  fastify.post<{ Params: { actorId: string } }>('/trust/recalculate/:actorId', { preHandler: adminOnly as never }, async (req, reply) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }

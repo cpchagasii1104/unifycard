@@ -1,3 +1,19 @@
+## 2026-06-08 — F-TRUST-ADMIN-GATE-INTERIM: fecha o módulo compliance NU com role-admin (DECISION-0113, classe F)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + 1 e2e; zero Bank/migration/frontend/permission nova). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: reads+writes no MESMO corte; role-admin, NÃO canRepresentActor; sem vocabulário novo.)_
+
+**O que entregou:** resolveu o **F** da classificação cont.133. Trust (risco/anti-fraude/compliance) estava **100% NU** (só `if (!req.tenant)`) nas **6 rotas** (3 reads: `/trust/profile/:actorId`, `/trust/profiles`, `/trust/events`; 3 writes: POST `/trust/events`, `/trust/can-proceed`, `/trust/recalculate/:actorId`) → qualquer caller autenticado lia o mapa de risco do tenant inteiro E injetava/recalculava sinais de fraude. Compliance opera **CROSS-ACTOR por design** → `canRepresentActor` seria ERRADO (bloquearia o operador legítimo). **Gate = `requireRole(['admin'])`** (mecanismo canônico da fatia 1), 1x no topo + `{ preHandler: adminOnly }` nas 6 rotas (roda antes do handler → bloqueia antes do service). **INTERINO:** o modelo fino de compliance/risk fica para **R2.4** — ZERO permission nova (`admin:view_risk`/`trust:*` "nasce em norma/decisão, não no susto").
+
+**Arquivos:** `modules/trust/trust.routes.ts`, `validate-pipeline-e2e-trust-admin-gate-interim.ts` (novo).
+
+**Prova:** e2e novo **12/12** (A estrutural: adminOnly via requireRole, 6 rotas gateadas + POST; B disciplina: ZERO `canRepresentActor(`, ZERO permission nova, marcado INTERINO+R2.4; C behavioral: role admin existe no tenant, admin-pass HTTP reportado **N/A** honestamente, mecanismo coberto por `rbac-actor-binding` 13/13). Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes (rbac 13/13 · money-live 12/12 · canal3-money 7/7 · cultural 7/7 · x-actor-id 9/9).
+
+**DTs:** `DT-TRUST-MODULE-UNGATED-COMPLIANCE` → **PARTIALLY MITIGATED** (NÃO CLOSED — modelo fino de compliance/risco = R2.4). DT-mãe `DT-DIRECT-QUERY-ACTOR-READERS-UNVALIDATED` OPEN.
+
+**PRÓXIMA ETAPA (espera go):** 1. Yala sela o trust gate interino. 2. Ler policy / `requirePolicyPermission`. 3. Decidir impact/ledger (G). 4. Voltar p/ F6.5.6b events → 6.5.7/8/9 → selo final Yala (grep dos 5 canais). **R2 congelado.**
+
+---
+
 ## 2026-06-08 — F6.5-CANAL3-A-CULTURAL: classificação não-money + gate do único A claro (DECISION-0113, canal 3)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank/migration/frontend/write). Dev 365. _(Esteira: eu escritora; par verifica. GO Clayton: classificar antes de mexer; autorizar só o A claro.)_
