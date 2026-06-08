@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5-CANAL3-MONEY · CORREÇÃO OVER-GATE REPORTING: view_all_ledger é autoridade cross-actor (DECISION-0113)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e ajustado; zero Bank/migration/frontend/permission). Dev 365. _(Esteira: eu escritora; Yala reseal. GO Clayton: corrigir SÓ reporting; não tocar invoice/payout.)_
+
+**O que entregou:** achado durante o READ-FIRST policy. A régua da permissão refinou a classe: `financial:view_ledger` (OWNER/ADMIN/FINANCE/**MANAGER**, escopo per-entidade) × `financial:view_all_ledger` (OWNER/ADMIN/FINANCE, **cross-actor "ver tudo", manual**). Na canal3-money tratei invoice/payout/reporting iguais — mas **`reporting /reporting/financial-kpis` usa `view_all_ledger`** (autoridade cross-actor por definição) → o `canRepresentActor(query.actorId)` adicional **bloqueava o finance/admin legítimo** = OVER-GATE/regressão funcional. **Correção cirúrgica (só reporting):** removido o `canRepresentActor`; preHandler `requirePermission('financial:view_all_ledger')` + tenant + req.user **preservados**; `actorId` segue filtro autorizado pela permissão view-all. Reclassificado **reporting = F-OK**. **`invoice` intocado** (`view_ledger`=escopo → canRepresentActor CORRETO e permanece). **`payout` intocado** (`execute_payout` admin-grade → D/INCONCLUSIVO, exige READ-FIRST próprio).
+
+**Arquivos:** `modules/reporting/reporting.routes.ts`, `validate-pipeline-e2e-canal3-money-direct-query-f6-5-c3m.ts` (ajustado).
+
+**Prova:** `getFinancialKPIs` confirmado read-only (sem Bank-write). e2e canal3-money **7/7** (B3 prova reporting SEM `canRepresentActor(` + preHandler view_all_ledger intacto + actorId filtro; B4 = invoice/payout). Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0/warning_new=1 baseline c3).
+
+**DTs:** `DT-DIRECT-QUERY-ACTOR-READERS-UNVALIDATED` — correção de over-gate em reporting registrada; payout D/inconclusivo; DT-mãe **OPEN**. R2 congelado.
+
+**Régua:** under-gate vaza; over-gate quebra operação; `view_all_ledger`=autoridade cross-actor (não somar representabilidade); `view_ledger`=escopo (somar). **PRÓXIMA ETAPA:** Yala **reseal** do canal3-money ajustado → depois decidir impact/ledger → F6.5.6b events. **payout espera** READ-FIRST financeiro próprio.
+
+---
+
 ## 2026-06-08 — F-TRUST-ADMIN-GATE-INTERIM: fecha o módulo compliance NU com role-admin (DECISION-0113, classe F)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + 1 e2e; zero Bank/migration/frontend/permission nova). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: reads+writes no MESMO corte; role-admin, NÃO canRepresentActor; sem vocabulário novo.)_

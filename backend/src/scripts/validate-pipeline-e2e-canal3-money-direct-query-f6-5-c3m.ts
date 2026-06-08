@@ -6,15 +6,19 @@
  * 1ª mão (lição: money à mão, agente é breadth):
  *   bank-http GET /bank/balance?actorId  → JÁ GATEADO (B): actorCapabilitiesService.resolveForUser(actorId,userId)
  *     valida autoridade sobre o actorId específico → 403 se sem authority. NÃO é leak. (modelo correto)
- *   invoice  GET /invoices?actorId&recipientActorId → A: preHandler RBAC-only (actor do CALLER), query nu.
- *   payout   GET /payouts/orders?actorId            → A: idem.
- *   reporting GET /reporting/financial-kpis?actorId → A: idem.
- * Fix (A): se a query declara actorId/recipientActorId, exige canRepresentActor(req.user.userId, partyId)
- *   antes da leitura; senão 403. Sem actorId → preHandler financeiro governa o agregado (não é o vetor).
+ *   invoice  GET /invoices?actorId&recipientActorId → A: `financial:view_ledger` (escopo per-entidade, inclui
+ *     MANAGER) é RBAC-only no actor do CALLER → exige canRepresentActor sobre o actorId/recipientActorId.
+ *   payout   GET /payouts/orders?actorId            → D/INCONCLUSIVO: `financial:execute_payout` (admin-grade);
+ *     mantido como na canal3-money até READ-FIRST financeiro próprio (NÃO alterado nesta correção).
+ *   reporting GET /reporting/financial-kpis?actorId → F-OK (CORREÇÃO 2026-06-08): exige `financial:view_all_ledger`
+ *     = permissão CROSS-ACTOR por definição (OWNER/ADMIN/FINANCE, manual). canRepresentActor era OVER-GATE
+ *     (bloqueava admin legítimo) → REMOVIDO. actorId é filtro autorizado pela permissão view-all, não spoof.
+ * Régua: view_ledger (escopo) → canRepresentActor correto; view_all_ledger (cross-actor) → canRepresentActor over-gate.
  *
  * Prova:
- *   A behavioral REAL — canRepresentActor nega cross-user (a decisão do gate).
- *   B estrutural — invoice/payout/reporting gateiam o actorId da query ANTES de listar; bank-http=B (resolveForUser).
+ *   A behavioral REAL — canRepresentActor nega cross-user (a decisão do gate de escopo, ex.: invoice).
+ *   B estrutural — invoice gateia o actorId da query ANTES de listar; reporting NÃO (over-gate removido,
+ *     view_all_ledger é a autoridade); payout intocado; bank-http=B (resolveForUser).
  *
  * Modo: npx tsx backend/src/scripts/validate-pipeline-e2e-canal3-money-direct-query-f6-5-c3m.ts
  */
@@ -84,10 +88,12 @@ async function main(): Promise<void> {
     && /\[req\.query\.actorId, req\.query\.recipientActorId\]/.test(inv));
   record('B2 payout: canRepresentActor(query.actorId) antes de listOrders(',
     gateBeforeRead(pay, 'canRepresentActor(tenantId, callerUserId, req.query.actorId)', 'listOrders('));
-  record('B3 reporting: canRepresentActor(query.actorId) antes de getFinancialKPIs(',
-    gateBeforeRead(rep, 'canRepresentActor(tenantId, callerUserId, req.query.actorId)', 'getFinancialKPIs('));
-  record('B4 invoice/payout/reporting: actorId filtrado nu → 403 "Sem autoridade sobre o actor filtrado"',
-    /Sem autoridade sobre o actor filtrado/.test(inv) && /Sem autoridade sobre o actor filtrado/.test(pay) && /Sem autoridade sobre o actor filtrado/.test(rep));
+  record('B3 reporting: SEM chamada canRepresentActor( (over-gate removido) + preHandler view_all_ledger intacto + actorId segue filtro',
+    !/canRepresentActor\(/.test(rep)
+    && /'financial:view_all_ledger'/.test(rep)
+    && /actorId: req\.query\.actorId/.test(rep));
+  record('B4 invoice/payout: actorId filtrado nu → 403 "Sem autoridade sobre o actor filtrado" (reporting reclassificado F-OK, fora)',
+    /Sem autoridade sobre o actor filtrado/.test(inv) && /Sem autoridade sobre o actor filtrado/.test(pay));
   record('B5 bank-http /bank/balance = JÁ B (gateado via actorCapabilitiesService.resolveForUser — NÃO tocado)',
     /actorCapabilitiesService\.resolveForUser\(tenantId, actorIdParam, userId\)/.test(bank)
     && /User has no authority over this actor/.test(bank));

@@ -60,18 +60,12 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
     }
     const tenantId = req.tenant.id;
 
-    // 🔴 DECISION-0113 canal 3 (money): `requireReportingPermission` gateia a permissão do CALLER (sobre o
-    // próprio actor), NÃO autoridade sobre o `actorId` declarado no filtro → KPIs financeiros de actor alheio
-    // é cross-user. Exige `canRepresentActor` sobre o actorId filtrado antes de calcular.
-    if (req.query.actorId) {
-      const callerUserId = (req as { user?: { userId?: string } }).user?.userId;
-      if (!callerUserId) return reply.status(401).send({ error: 'Não autenticado' });
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      let canRepresent = false;
-      try { canRepresent = await authorizationService.canRepresentActor(tenantId, callerUserId, req.query.actorId); } catch { canRepresent = false; }
-      if (!canRepresent) return reply.status(403).send({ error: 'Sem autoridade sobre o actor filtrado' });
-    }
-
+    // 🔵 DECISION-0113 canal 3 — CORREÇÃO DE OVER-GATE (2026-06-08): a rota já exige (preHandler)
+    // `financial:view_all_ledger` — permissão CROSS-ACTOR por definição (OWNER/ADMIN/FINANCE, atribuição
+    // manual). Exigir `canRepresentActor` sobre o `actorId` filtrado ALÉM disso bloqueava o finance/admin
+    // legítimo que NÃO representa o actor — contradizendo a própria permissão view-all. Aqui `actorId` é
+    // FILTRO de leitura autorizado pela permissão cross-actor, não vetor de spoof. (Contraste: `invoice`
+    // usa `financial:view_ledger` = escopo per-entidade → lá o `canRepresentActor` é CORRETO e PERMANECE.)
     const filters: ReportingFilters = {
       startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
       endDate: req.query.endDate ? new Date(req.query.endDate) : undefined,
