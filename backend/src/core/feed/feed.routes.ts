@@ -24,6 +24,24 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
     }
 
+    // 🔴 DECISION-0113 F6.5.4 (CRA): o feed contextual é PERSONALIZADO (estado inferido do actor). O
+    // `actionContext.actorId` é spoofável → provar que o `req.user` pode REPRESENTAR esse actor ANTES de
+    // ler o feed pessoal alheio. fail-closed → 401 (sem auth) / 403 (não representável) não-leak. Não altera
+    // ranking/algoritmo/semântica/filtros do feed — só impede ler o feed de OUTRO actor.
+    if (!req.actionContext?.actorId) {
+      return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório' });
+    }
+    let canReadFeed = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canReadFeed = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId);
+    } catch {
+      canReadFeed = false;
+    }
+    if (!canReadFeed) {
+      return reply.status(403).send({ ok: false, message: 'Actor não representável pelo usuário autenticado' });
+    }
+
     try {
       const limit = parseInt((req.query as any).limit || '20', 10);
       const feed = await feedService.getContextualFeed(

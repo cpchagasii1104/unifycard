@@ -1,3 +1,19 @@
+## 2026-06-08 — F-FEED-CONTEXTUAL-AUTHORSHIP-GATE-F6_5_4: feed pessoal só por representável (DECISION-0113 fatia 6.5.4)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica. Cobrança de behavioral REAL cumprida.)_
+
+**O que entregou:** o read que a **Yala sinalizou diretamente** como resíduo vivo. `GET /feed/contextual` lia o feed **personalizado** (estado inferido do actor) por `actionContext.actorId` spoofável → spoofar o actorId lia o feed pessoal de outro. Agora `canRepresentActor(req.user.userId, actionContext.actorId)` ANTES de `getContextualFeed`; 401 sem `req.user`; 400 sem actionContext; 403 não-leak. **Não altera ranking/algoritmo/semântica/filtros.** `/feed/unread-counts` (público) e `/feed/action` (write) intocados.
+
+**Arquivos:** `core/feed/feed.routes.ts`, `validate-pipeline-e2e-feed-contextual-authorship-f6-5-4.ts` (novo).
+
+**Prova (behavioral REAL — cobrança Clayton após 2 fatias N/A):** e2e **8/8** — A behavioral primitivo nega cross-user; **B behavioral REAL: o e2e CHAMA `getContextualFeed(devActor)` de verdade** e ele retorna `FeedContextual` (o feed vem do estado inferido do actor, não de posts → independe de `posts=0` em DEV; logs `[semantic]` provam execução); C estrutural gate-antes-da-leitura + fail-closed. Backend tsc **0** (fora geo); 4 gates OK (dev **365**). Núcleo 0113 + F6.5.1/2/3 intactos (12 regressões verdes).
+
+**DTs:** `DT-OPERATIONAL-READ-ACTORID-UNVALIDATED` OPEN (F6.5.4 fechada). DT-mãe OPEN.
+
+**PRÓXIMA ETAPA (espera go):** **F6.5.5 — company-members GETs** (estrutura org; a fatia 2 gateou só os writes — `GET /members[/:memberId]` ficaram nus; canManageCompany). Depois 6.5.6 service-order reads+eventos → 6.5.7 dashboard/reports → 6.5.8 availability/votes/notifications/services → 6.5.9 ERP/marketplace. **R2 congelado.**
+
+---
+
 ## 2026-06-08 — F-CONTEXTUAL-THREAD-AUTHORSHIP-GATE-F6_5_3: mensagens privadas só por participante (DECISION-0113 fatia 6.5.3)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
