@@ -1,3 +1,19 @@
+## 2026-06-08 — F-CONTEXTUAL-THREAD-AUTHORSHIP-GATE-F6_5_3: mensagens privadas só por participante (DECISION-0113 fatia 6.5.3)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** "URL não é autorização, é endereço". As 4 leituras de thread (`GET /:threadId`, `/context/:type/:id`, `/:threadId/messages`, e a lista) devolviam mensagens privadas por threadId/contextId arbitrário, sem checar participante. O **modelo de participante já existia** (`contextual_threads.participant_actor_ids[]`, usado pelo gate de **escrita** do service) → espelhei na leitura. Helper `assertThreadParticipant`: `canRepresentActor(req.user.userId, actionContext.actorId)` **E** `actorId ∈ thread.participantActorIds` → senão **403 não-leak** (uniforme com inexistente; 404→403). A **lista** passou a **forçar `participantActorId = actionContext.actorId`** (ignora o filtro do cliente) → só threads do caller. **Writes intocados** (escopo leitura).
+
+**Arquivos:** `modules/contextual-messaging/contextual-thread.routes.ts`, `validate-pipeline-e2e-contextual-thread-authorship-f6-5-3.ts` (novo).
+
+**Prova:** e2e novo **8/8** (A behavioral primitivo nega cross-user; B behavioral-por-thread **N/A** — tabela `contextual_threads` ausente em DEV, reportado transparente; C estrutural gate-antes-da-leitura nos 4 + lista escopada + não-leak 404→403 + writes intocados). Backend tsc **0** (fora geo); 4 gates OK (dev **365**). Núcleo 0113 + F6.5.1/6.5.2 intactos (11 regressões verdes).
+
+**DTs:** `DT-OPERATIONAL-READ-ACTORID-UNVALIDATED` OPEN (F6.5.3 fechada). DT-mãe OPEN.
+
+**PRÓXIMA ETAPA (espera go):** **F6.5.4 — feed/contextual** (`GET /feed/contextual` lê `actionContext.actorId`; CRA). Depois 6.5.5 company-members GETs → 6.5.6 service-order reads+eventos → 6.5.7 dashboard/reports → 6.5.8 availability/votes/notifications/services → 6.5.9 ERP/marketplace. **R2 congelado.**
+
+---
+
 ## 2026-06-08 — F-LEDGER-ACCOUNT-AUTHORITY-GATE-F6_5_2: fecha o IDOR financeiro (DECISION-0113 fatia 6.5.2)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank-write/migration/schema/frontend). Dev 365. _(Esteira: eu escritora; par verifica. READ-FIRST + decisão de Clayton no fork non-actor.)_
