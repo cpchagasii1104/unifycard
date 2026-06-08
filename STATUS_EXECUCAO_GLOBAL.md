@@ -1,3 +1,21 @@
+## 2026-06-08 — F6.5.6b-A EVENTS · GATEIA /event-specs?actor_id (A privado) + acha leak de visibility (DECISION-0113)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e novo; zero Bank/migration/frontend/permission). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: gatear SÓ event-specs?actor_id; NÃO tocar GET /events nem visibility.)_
+
+**O que entregou:** READ-FIRST de events (16 arquivos de rota) + micro-fatia A. `/event-specs?actor_id` = **A privado actor-keyed**: EventSpec é planning/intention do actor (macro_intention/answers/metadata); protectedScope autentica mas o `actor_id` era cru → leak cross-user. Gateado `canRepresentActor(tenantId, user_id, actor_id)` (idioma do arquivo: decorators tenant_id/user_id) ANTES de `queryEventSpecs`, só `if(actor_id)`; caminho `event_id` preservado (depende do modelo de visibility). EventSpec ≠ bank; zero caller vivo (latente).
+
+**Arquivos:** `modules/events/events-spec.routes.ts`, `validate-pipeline-e2e-event-specs-authority-f6-5-6b-a.ts` (novo).
+
+**🔴 Achado grave (NÃO corrigido — decisão própria):** `eventRepository.listEvents` NÃO tem **piso de visibilidade** → `GET /events?organizerActorId=X&status=draft` vaza rascunhos/privados de qualquer organizer; `GET /events` sem filtro lista TODOS os eventos do tenant. Classe **H visibility-tiered (RISCO ALTO)** → `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` (OPEN). Fix NÃO é canRepresentActor (mataria descoberta), é piso de visibility = **F6.5.6b-B (decisão de produto)**.
+
+**Prova:** e2e novo **8/8** (A behavioral real; B gate-antes-da-leitura só if(actor_id) + 401/403; C caminho event_id preservado + GET /events e listEvents intocados). Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: canal3-money 7/7 · impact 7/7 · cultural 7/7 · trust 12/12 · x-actor-id 9/9 · rbac 13/13 · money-live 12/12.
+
+**DTs:** `DT-DIRECT-QUERY-ACTOR-READERS-UNVALIDATED` — event-specs?actor_id A DONE. **Novas:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` (OPEN, H, alto). Settlement/economy/closure/RFQ = STOP money próprio. DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** decidir o **piso de visibilidade do GET /events** (F6.5.6b-B) → depois settlement/money READ-FIRST → canal-5 (event by id, mesmo modelo) → sweep final.
+
+---
+
 ## 2026-06-08 — F6.5-CANAL3-IMPACT · GATEIA /impact/ledger (A privado actor-keyed; DECISION-0113)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e novo; zero Bank/migration/frontend/permission). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: gatear SÓ /impact/ledger; balance intocado.)_

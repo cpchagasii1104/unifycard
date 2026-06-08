@@ -173,10 +173,30 @@ const eventsSpecRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
 
+    // 🔴 DECISION-0113 (canal 3): actor_id da query é HINT, não autoridade. EventSpec é planning/intention
+    // PRIVADO do actor (macro_intention/answers/metadata). Quando o filtro é por actor_id, prova que o usuário
+    // autenticado pode REPRESENTAR esse actor ANTES de consultar (fail-closed → 403 não-leak). O caminho por
+    // event_id (sem actor_id) NÃO é tocado aqui — depende do modelo de visibility de evento (canal 5 / F6.5.6b-B).
+    const actorIdFilter = request.query.actor_id ?? (request.query as { actorId?: string }).actorId;
+    if (actorIdFilter) {
+      const userId = (request as any).user_id;
+      if (!userId) {
+        return reply.code(401).send({ error: 'Unauthorized' });
+      }
+      let canRepresent = false;
+      try {
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        canRepresent = await authorizationService.canRepresentActor(tenantId, userId, actorIdFilter);
+      } catch { canRepresent = false; }
+      if (!canRepresent) {
+        return reply.code(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+      }
+    }
+
     try {
       const specs = await eventSpecService.queryEventSpecs(tenantId, {
         eventId: request.query.event_id ?? (request.query as { eventId?: string }).eventId,
-        actorId: request.query.actor_id ?? (request.query as { actorId?: string }).actorId,
+        actorId: actorIdFilter,
         macroIntention: request.query.macro_intention as any,
         subflow: request.query.subflow as any,
         limit: request.query.limit || 100,
