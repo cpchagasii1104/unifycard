@@ -213,19 +213,20 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant é obrigatório' });
       }
       const tenantId = req.tenant.id;
-      // ActionContext é obrigatório (V2)
+      // ActionContext é obrigatório (V2) — presença exigida pelo contrato; NÃO é fonte de autoridade.
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
-      // Resolver userId a partir do actorId (temporário, até services migrarem para actorId)
-      const { socialPortsRegistry } = await import('@core/social/ports-registry');
-      const actorRepository = socialPortsRegistry.getActorRepository();
-      const actor = await actorRepository.findById(tenantId, req.actionContext.actorId);
-      if (!actor || !actor.user_id) {
-        return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+      // 🔴 DECISION-0113 fatia 6.4 (self): criação de grupo é ação SELF — o grupo nasce pelo usuário
+      // autenticado REAL. Antes, o `userId` derivava do `actionContext.actorId` (spoofável) e alimentava
+      // TANTO o gate `identity_status` QUANTO `createGroup` → um caller declarava o actor de outro e criava
+      // grupo (e checava identity) em nome da vítima. Agora o sujeito é `req.user.userId` server-side; sem
+      // caller autenticado resolvível → fail-closed (401), nunca fallback ao actorId declarado.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
       }
-      const userId = actor.user_id;
+      const userId = req.user.userId;
       const requestId = (req as any).requestId || req.id;
 
       // 🔴 GATE: Validar identity_status COMPLETE antes de criar grupo

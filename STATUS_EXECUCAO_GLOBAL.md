@@ -1,3 +1,21 @@
+## 2026-06-08 — F-GROUPS-CREATE-SELF-AUTHORSHIP-F6_4: fecha o arco DECISION-0113 (fatia 6.4)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** última sub-fatia do arco. O READ-FIRST de F6.4 mostrou que `getCompleteProfile` é cross-user-**capaz** mas **todos** os 4 callers passam o próprio caller (self) → **não existe leitura de perfil alheio em produção** (o alerta da F5.3 estava superdimensionado). O furo real era o `POST /groups`, e era **write+read**: o `userId` derivava do `actionContext.actorId` spoofável e alimentava **tanto** o gate `identity_status` (read) **quanto** `groupsService.createGroup` (write) → um caller declarava o actor de uma vítima e **criava grupo em nome dela**. **Fix unificado self (decisão Clayton):** `userId = req.user.userId` server-side; sem caller resolvível → 401 fail-closed; o mesmo userId self alimenta read e write. Não tocou lógica de gênero/`identity_status` (item #1 do `Cleiton.md`), permissões de grupo, Bank.
+
+**Arquivos:** `modules/groups/groups.routes.ts`, `validate-pipeline-e2e-groups-create-self-authorship-f6-4.ts` (novo).
+
+**Prova:** e2e novo **10/10** (B: userId de `req.user.userId`, não de `actor.user_id`/`findById(actionContext.actorId)`; mesmo userId no read e no write; 401 fail-closed; C: os 4 callers de `getCompleteProfile` são self → nenhuma leitura de perfil alheio; D sanidade caller real). Backend tsc **0** (fora geo); 4 gates OK (`critical_new=0`/`warning_new=1`=c3; dev **365**). Sem regressão: rbac 13/13, escalation 16/16, money-live 12/12, plan-identity 9/9, profile-c1 16/16, lifestyle 10/10, money-read-f6-1 8/8, reads-f6-2-3 8/8.
+
+**DTs:** `DT-GROUPS-CREATE-ACTOR-SPOOF` (aberta+fechada nesta fatia) + `DT-CROSS-USER-READ-ACTORID-UNVALIDATED` → **CLOSED**.
+
+**🏁 ARCO DECISION-0113 COMPLETO (superfícies vivas).** A DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` → **CLOSED (superfícies vivas) / RESÍDUO-DIFERIDO**: fatias 1/2/3/5/6 DONE; nenhuma rota viva keyed em `actionContext.actorId` sem gate. Resíduo único = **money LATENTE (fatia 4)**, inerte (Proxy reject-all), cobrança carregada por `DT-MONEY-LATENT-REACTIVATION-TRAP` (OPEN). Resíduos próprios fora do arco: `DT-CANACTAS-CHECKOWNERSHIP-STALE`, `DT-PJ-EPHEMERAL-FIXTURES-STALE`. _(Fechamento aguarda ratificação Clayton/Yala.)_
+
+**PRÓXIMA ETAPA (espera go):** nada pendente neste arco. Candidatos do `Cleiton.md`: loops abertos (PJ operar PJ-1/PJ-2; delegação AUTH-1/AUTH-2; autogestão AUTG-1) ou o money-latente quando for religado.
+
+---
+
 ## 2026-06-08 — F-READS-AUTHORSHIP-GATE-F6_2_3: identity-config GET self + /me/* agregadores (DECISION-0113 fatia 6.2+6.3)
 
 **Branch:** `rescue-structural` · **backend** (4 arquivos de rota; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
