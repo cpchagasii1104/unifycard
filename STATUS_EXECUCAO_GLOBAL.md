@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5-CANAL3-MONEY: gateia direct-query actor readers do cluster money (DECISION-0113, 3º padrão)
+
+**Branch:** `rescue-structural` · **backend** (3 arquivos de rota; zero Bank-write/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica. GO Clayton "canal 3 money primeiro".)_
+
+**O que entregou:** 3º padrão (achado da Yala no sweep do x-actor-id): handlers leem `req.query.actorId`/`owner_actor_id` **direto**, fora do primitivo. READ-FIRST de 1ª mão do **cluster money** (a lição: money à mão). **`bank-http /bank/balance?actorId` = B (já gateado correto)** via `actorCapabilitiesService.resolveForUser` — valida autoridade sobre o actorId específico; **não tocado** (a Yala marcou como direct-reader, mas à mão está protegido — exatamente o "precisa inspeção por-handler"). **`invoice`/`payout`/`reporting` = A** — preHandler `require*Permission` é **RBAC-only no actor do CALLER** (`getActiveActor`), NÃO valida o `actorId`/`recipientActorId` da query (armadilha do ledger). **Fix:** se a query declara actor de parte → `canRepresentActor(req.user.userId, partyId)` antes de listar; senão 403. Sem actorId → preHandler financeiro governa o agregado (não é o vetor).
+
+**Arquivos:** `modules/invoicing/invoice.routes.ts`, `modules/payout/payout.routes.ts`, `modules/reporting/reporting.routes.ts`, `validate-pipeline-e2e-canal3-money-direct-query-f6-5-c3m.ts` (novo).
+
+**Prova:** e2e novo **7/7** (A behavioral REAL canRepresentActor nega cross-user; B estrutural gate-antes-da-leitura nos 3 + bank-http=B confirmado). Backend tsc **0** (fora geo); 4 gates OK (**bank-ledger §4.6 verde**; dev **365**). Núcleo 0113 + F6.5.x intactos (16 regressões verdes).
+
+**DTs:** `DT-DIRECT-QUERY-ACTOR-READERS-UNVALIDATED` — money DONE; resta o não-money (social-2.0/events-spec/cultural/trust/policy/audit/marketplace-categories/public-profiles, com classificação A/B). DT-mãe OPEN.
+
+**PRÓXIMA ETAPA (espera go):** canal 3 **não-money** (READ-FIRST → gatear os A, deixar os B públicos) → depois F6.5.6b events → 6.5.7/8/9 → selo final Yala (grep dos 5 canais). **R2 congelado.**
+
+---
+
 ## 2026-06-08 — F-X-ACTOR-ID-RESOLVER-BIND: fecha o 2º vetor de spoof (x-actor-id) no primitivo (DECISION-0113)
 
 **Branch:** `rescue-structural` · **backend** (1 primitivo + e2e; zero migration/Bank/frontend/write). Dev 365. _(Esteira: eu escritora; par verifica. Achado da Yala na verificação da F6.5.6a; GO Clayton "primitivo primeiro".)_

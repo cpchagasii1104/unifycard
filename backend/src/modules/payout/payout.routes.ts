@@ -114,6 +114,19 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
       throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
     }
     const tenantId = req.tenant.id;
+
+    // 🔴 DECISION-0113 canal 3 (money): `requirePayoutPermission` gateia a permissão do CALLER (sobre o
+    // próprio actor), NÃO autoridade sobre o `actorId` declarado no filtro → filtrar por actor alheio é
+    // cross-user. Exige `canRepresentActor` sobre o actorId filtrado antes de listar.
+    if (req.query.actorId) {
+      const callerUserId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!callerUserId) return reply.status(401).send({ error: 'Não autenticado' });
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      let canRepresent = false;
+      try { canRepresent = await authorizationService.canRepresentActor(tenantId, callerUserId, req.query.actorId); } catch { canRepresent = false; }
+      if (!canRepresent) return reply.status(403).send({ error: 'Sem autoridade sobre o actor filtrado' });
+    }
+
     const filters = {
       batchId: req.query.batchId,
       actorId: req.query.actorId,
