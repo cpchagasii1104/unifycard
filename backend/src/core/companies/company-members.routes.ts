@@ -142,6 +142,11 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113 F6.5.5: ler a estrutura organizacional (membros/cargos) exige a MESMA autoridade
+    // dos writes (fatia 2) — o `req.user` precisa GERENCIAR a empresa da URL (`canManageCompany`). Sem isso,
+    // qualquer caller listava membros/roles de empresa alheia. fail-closed 401/403; não-leak (403 vs lista).
+    if (!(await requireCompanyManage(req, reply, req.params.companyId))) return;
+
     try {
       const filters: any = {
         companyId: req.params.companyId,
@@ -196,7 +201,11 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // 🔴 DECISION-0113 F6.5.5 (anti-IDOR): resolve o membro REAL e gateia sobre a EMPRESA REAL dele
+      // (NÃO o `companyId` da URL) — mesma autoridade dos writes (PUT/DELETE). Membro inexistente → 403
+      // não-leak (uniforme com "sem autoridade": não revela existência de membro/empresa).
       const member = await companyMembersService.getMember(req.tenant.id, req.params.memberId);
+      if (!(await requireCompanyManage(req, reply, member.companyId))) return;
 
       return reply.send({
         ok: true,
@@ -211,6 +220,10 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
         },
       });
     } catch (error: unknown) {
+      // não-leak: membro inexistente (404) → 403 uniforme (não revela existência).
+      if ((error as { statusCode?: number })?.statusCode === 404) {
+        return reply.status(403).send({ error: 'Membro não acessível' });
+      }
       if (error instanceof Error) {
         fastify.log.error(error);
         const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;

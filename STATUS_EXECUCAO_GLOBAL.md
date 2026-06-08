@@ -1,3 +1,19 @@
+## 2026-06-08 — F-COMPANY-MEMBERS-READ-AUTHORITY-GATE-F6_5_5: reads de membros = mesma autoridade dos writes (DECISION-0113 fatia 6.5.5)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero R2/`actor_delegations`/Bank/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** a fatia 2 protegeu os **writes** de company-members (`requireCompanyManage`→`canManageCompany`), mas os 2 **GETs** ficaram nus → qualquer caller lia membros/cargos/estrutura de empresa alheia. Espelhei a autoridade da fatia 2: **`GET /:companyId/members`** → `requireCompanyManage(req.params.companyId)` antes de `listMembers`; **`GET /:companyId/members/:memberId`** (**anti-IDOR**) → resolve o membro REAL → `requireCompanyManage(member.companyId)` (não confia no `companyId` da URL); membro inexistente → **403 não-leak**. **Writes intocados.** Sem inventar R2/delegação.
+
+**Arquivos:** `core/companies/company-members.routes.ts`, `validate-pipeline-e2e-company-members-read-authority-f6-5-5.ts` (novo).
+
+**Prova:** e2e novo **7/7** (A behavioral `canManageCompany=false` p/ empresa não-gerenciada — fail-closed; dono=true/estranho=false em empresa REAL **coberto pela regressão `authority-escalation-gate` da fatia 2**, ephemeral, pois DEV tem **0 companies**; B estrutural gate-antes-da-leitura nos 2 GETs + anti-IDOR (gateia `member.companyId`) + não-leak 404→403 + writes intocados). Backend tsc **0** (fora geo); 4 gates OK (dev **365**). Núcleo 0113 + F6.5.1–4 intactos (13 regressões verdes).
+
+**DTs:** `DT-OPERATIONAL-READ-ACTORID-UNVALIDATED` OPEN (F6.5.5 fechada). DT-mãe OPEN.
+
+**PRÓXIMA ETAPA (espera go):** **F6.5.6 — service-order reads + eventos private/unlisted**. Depois 6.5.7 dashboard/reports → 6.5.8 availability/votes/notifications/services → 6.5.9 ERP/marketplace. **R2 congelado.**
+
+---
+
 ## 2026-06-08 — F-FEED-CONTEXTUAL-AUTHORSHIP-GATE-F6_5_4: feed pessoal só por representável (DECISION-0113 fatia 6.5.4)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica. Cobrança de behavioral REAL cumprida.)_
