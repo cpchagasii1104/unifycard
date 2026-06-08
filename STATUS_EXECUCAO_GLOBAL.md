@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5-CANAL3-MONEY · CORREÇÃO OVER-GATE PAYOUT: fecha o cluster money (DECISION-0113)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e ajustado; zero Bank/migration/frontend/permission). Dev 365. _(Esteira: eu escritora; Yala reseal. GO Clayton: corrigir SÓ GET /payouts/orders; writes intocados.)_
+
+**O que entregou:** READ-FIRST de 1ª mão (não por analogia). `financial:execute_payout` NÃO é `view_all_ledger` — tem papel OWNER/ADMIN/FINANCE **+ capability `can_hold_assets`** (permission-keys.ts:147) → permissão de **operador financeiro**, não ownership. **Prova estrutural do over-gate:** `GET /payouts/orders` SEM `actorId` já lista TODAS as orders do tenant; o `?actorId` é subconjunto → gatear só o subconjunto com `canRepresentActor` é incoerente. **Correção (só GET /payouts/orders):** removido o `canRepresentActor`; `requirePayoutPermission`/`execute_payout` + tenant + req.user **preservados**; `actorId` segue filtro. `listOrders` confirmado read-only. **Writes de payout INTOCADOS** (execute-manual/fail/batches). Reclassificado **payout = F-OK**.
+
+**Arquivos:** `modules/payout/payout.routes.ts`, `validate-pipeline-e2e-canal3-money-direct-query-f6-5-c3m.ts` (ajustado).
+
+**Prova:** e2e canal3-money **7/7** (B2 prova payout SEM `canRepresentActor(` + execute_payout intacto). Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: money-live 12/12 · rbac 13/13 · x-actor-id 9/9.
+
+**DTs:** `DT-DIRECT-QUERY-ACTOR-READERS-UNVALIDATED` — cluster money fechado sob a lente 0113 (invoice=B/escopo · reporting=F-OK · **payout=F-OK** · bank-http=B). DT-mãe **OPEN**. **🔴 F própria aberta:** `F-PAYOUT-COMPANY-SCOPING` (isolamento multi-empresa — o ponto real é a rota unfiltered, não o actorId; decisão de produto, NÃO 0113). R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala **reseal do canal3-money completo** → depois impact/ledger ou F6.5.6b events.
+
+---
+
 ## 2026-06-08 — F6.5-CANAL3-MONEY · CORREÇÃO OVER-GATE REPORTING: view_all_ledger é autoridade cross-actor (DECISION-0113)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e ajustado; zero Bank/migration/frontend/permission). Dev 365. _(Esteira: eu escritora; Yala reseal. GO Clayton: corrigir SÓ reporting; não tocar invoice/payout.)_
