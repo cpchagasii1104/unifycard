@@ -1,3 +1,19 @@
+## 2026-06-07 — F-PJ-CREATOR-INITIAL-AUTHORITY-ENFORCED: criador da PJ sempre nasce com governança (Opção B)
+
+**Branch:** `rescue-structural` · **backend** (1 linha de runtime + e2es; zero migration/Bank/frontend/`company_status`/`kyb_status`). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** fecha o `C) RISK` da auditoria PJ CREATOR GOVERNANCE. `createCompany` dava ao criador `can_manage_company = (role==='owner')` → criador com role≠owner nascia **sem governança** (deadlock; PJ órfã de gestor). **Fix (Opção B, decisão Clayton):** o `role` do form é preservado como rótulo, mas o `can_manage_company` do **membership inicial do criador** é **imposto server-side = true**, independente do role e sem confiar em `input.permissions`. Vale só para o criador no `createCompany`; membros futuros seguem o vocabulário. Clayton/fundador **não** vira gestor automático de PJ de terceiro. Aterra o princípio "autoridade nos flags, não no rótulo".
+
+**Arquivos:** `companies.service.ts` (`defaultPermissions.canManageCompany`→true), `validate-pipeline-e2e-pj-company-user-role-vocabulary.ts` (tier `company`→true p/ criador, autorizado), `validate-pipeline-e2e-pj-creator-initial-authority.ts` (novo).
+
+**Prova:** novo e2e **9/9** (owner/member/admin-perm-false→canManage=true; estranho→false; 1 membership = criador, sem fundador automático; invariante). vocab **7/7** ajustado. Backend tsc **0** (fora geo); 4 gates OK; dev **365**. Sem regressão: authority-escalation 16/16, rbac 13/13, projection 4/4, cnpj 6/6, lifecycle 7/7, KYB admin/release/submit verdes; atomic-company-birth 17/18 (1 falha `1d` **pré-existente**).
+
+**DTs:** `DT-PJ-CREATOR-INITIAL-AUTHORITY-NOT-ENFORCED` → **CLOSED** (aberta+fechada na fatia).
+
+**PRÓXIMA ETAPA (espera go):** retomar DECISION-0113 fatia 5/6 — **F5.1** (plan + identity-config), depois F5.2 (profile-C1), F5.3 (lifestyle/LGPD).
+
+---
+
 ## 2026-06-07 — F-PLAN-IDENTITY-PROFILE-LIFESTYLE-AUTHORSHIP-MAP (selado) — docs-only
 
 **DOCS-ONLY** (zero runtime/migration). Mapa READ-ONLY da **fatia 5/6** da DECISION-0113 concluído e selado. Achados (autoria spoofável por `actionContext.actorId`): `PUT /plan` (**duplo-spoof crítico** — privilégio E sujeito do actor declarado), `PUT /identity/configurations` (userType PF/PJ cross-user), Profile-C1 professional/learning/interest (resolver **existence-only**), Lifestyle PUT/DELETE (**consentimento LGPD forjável**). **Fatia 5 subfatiada:** **F5.1** plan + identity-config (plan exige redesign de privilégio sobre `req.user`) → **F5.2** profile-C1 (gate uniforme no `resolveActorGuarded`) → **F5.3** lifestyle (LGPD, por último). **Confirmação normativa:** DECISION-0113 governa a **autoria do consentimento de Lifestyle** (adendo interpretativo no decisions log; não altera DECISION-0071). 4 DTs abertas. 4 gates docs-only OK; dev 365. **Próxima execução = F5.1** (plan + identity-config), não lifestyle.

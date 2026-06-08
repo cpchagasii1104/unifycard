@@ -84,13 +84,18 @@ async function main(): Promise<void> {
     await pool.query(`DELETE FROM companies WHERE company_id = $1::uuid`, [id]);
   }
 
-  // expected manage tiers por papel
+  // expected manage tiers por papel.
+  // 🔴 F-PJ-CREATOR-INITIAL-AUTHORITY-ENFORCED (Opção B): para o CRIADOR INICIAL via createCompany,
+  // `can_manage_company` é imposto SERVER-SIDE = true em QUALQUER role (governança de nascimento da PJ;
+  // o role é só rótulo, a autoridade vive no flag). Por isso a coluna `company` é true para todos os roles
+  // AQUI (caso especial do criador). `financial/employees/services` seguem role-derived (vocabulário vigente).
+  // Membros adicionados depois (company-members) NÃO ganham governança por este caminho — não enfraquecido.
   const tier: Record<string, { company: boolean; financial: boolean; employees: boolean; services: boolean }> = {
     owner:      { company: true,  financial: true,  employees: true,  services: true },
-    admin:      { company: false, financial: true,  employees: true,  services: true },
-    staff:      { company: false, financial: false, employees: false, services: false },
-    contractor: { company: false, financial: false, employees: false, services: false },
-    member:     { company: false, financial: false, employees: false, services: false },
+    admin:      { company: true,  financial: true,  employees: true,  services: true },
+    staff:      { company: true,  financial: false, employees: false, services: false },
+    contractor: { company: true,  financial: false, employees: false, services: false },
+    member:     { company: true,  financial: false, employees: false, services: false },
   };
 
   try {

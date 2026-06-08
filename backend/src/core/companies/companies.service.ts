@@ -456,7 +456,14 @@ class CompaniesService {
     // contractor/member não. A autoridade material vive nestes flags can_manage_*, não no rótulo `role`.
     const isManagerTier = input.role === 'owner' || input.role === 'admin';
     const defaultPermissions = {
-      canManageCompany: input.permissions?.canManageCompany ?? (input.role === 'owner'),
+      // 🔴 F-PJ-CREATOR-INITIAL-AUTHORITY-ENFORCED (Opção B): o CRIADOR da PJ sempre nasce com governança
+      // inicial — `can_manage_company=true` imposto SERVER-SIDE, independente do `role` do formulário e
+      // SEM confiar em `input.permissions.canManageCompany`. O `role` é preservado como rótulo/cargo
+      // (vocabulário intacto); a autoridade material vive no flag (DT-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH).
+      // Vale SÓ para o membership inicial do criador neste fluxo `createCompany`; membros adicionados
+      // depois (company-members) seguem o vocabulário/permissões normais. Sem isto, um criador que escolhe
+      // role≠owner nasce sem `canManageCompany` → empresa órfã de gestor/delegador (deadlock de governança).
+      canManageCompany: true,
       canManageFinancial: input.permissions?.canManageFinancial ?? isManagerTier,
       canManageEmployees: input.permissions?.canManageEmployees ?? isManagerTier,
       canViewReports: input.permissions?.canViewReports ?? true,
