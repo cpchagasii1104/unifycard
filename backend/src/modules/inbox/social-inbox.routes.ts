@@ -35,6 +35,20 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
+    // 🔴 DECISION-0113 F6.5.1 (OWN-PARAMS): o inbox lido é do actor da URL (`:id`), não do caller. Sem
+    // gate, qualquer um lê o inbox de outro actor por `req.params.id` (IDOR). O caller precisa poder
+    // REPRESENTAR o actor alvo. Fail-closed → 401 (sem auth) / 403 (não representável) não-leak.
+    if (!req.user?.userId) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    let canReadInbox = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canReadInbox = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.params.id);
+    } catch { canReadInbox = false; }
+    if (!canReadInbox) {
+      return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+    }
 
     try {
       const filters: any = {};
@@ -90,6 +104,18 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
+    }
+    // 🔴 DECISION-0113 F6.5.1 (OWN-PARAMS): contador do inbox do actor da URL (`:id`). Mesmo gate do GET acima.
+    if (!req.user?.userId) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    let canReadCounter = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canReadCounter = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.params.id);
+    } catch { canReadCounter = false; }
+    if (!canReadCounter) {
+      return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
     }
 
     try {

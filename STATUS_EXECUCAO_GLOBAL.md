@@ -1,3 +1,19 @@
+## 2026-06-08 — F-INBOX-COMMITMENTS-AUTHORSHIP-GATE-F6_5_1: fecha o IDOR mais feio + /me/* esquecido (DECISION-0113 fatia 6.5.1)
+
+**Branch:** `rescue-structural` · **backend** (2 arquivos de rota; zero Bank/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica. Ordem da diretora: por dano, não conveniência.)_
+
+**O que entregou:** primeiro cluster do resíduo F6.5 — o de **maior dano** (IDOR direto). **inbox** (`social-inbox.routes.ts` `GET /actors/:id` + `/counter`): liam o inbox do actor da **URL** (`req.params.id`) sem gate nem `req.user` check → qualquer um lia inbox alheio. Agora **OWN-PARAMS**: `canRepresentActor(req.user.userId, req.params.id)` antes da leitura + **401** fail-closed (não havia). **commitments** (`GET /me/commitments`): híbrido — eventos/grupos já eram self (`req.user.id`), mas bookings/inbox/economia eram keyed no `actionContext.actorId` spoofável → **CRA** `canRepresentActor(req.user.userId, actionContext.actorId)` antes das queries. Writes do inbox (markAsRead/archive) **intocados** (escopo leitura; Clayton: "leitura é leitura").
+
+**Arquivos:** `modules/inbox/social-inbox.routes.ts`, `modules/profile/commitments.routes.ts`, `validate-pipeline-e2e-inbox-commitments-authorship-f6-5-1.ts` (novo).
+
+**Prova:** e2e novo **8/8** (A behavioral primitivo nega cross-user; B estrutural gate-antes-da-leitura nos 3 handlers + 401 fail-closed + writes intocados). Backend tsc **0** (fora geo); 4 gates OK (`critical_new=0`/`warning_new=1`=c3; dev **365**). Núcleo 0113 intacto: rbac 13/13 · escalation 16/16 · money-live 12/12 · plan-identity 9/9 · profile-c1 16/16 · lifestyle 10/10 · money-read-f6-1 8/8 · reads-f6-2-3 8/8 · groups-f6-4 10/10.
+
+**DTs:** `DT-OPERATIONAL-READ-ACTORID-UNVALIDATED` segue OPEN (F6.5.1 fechada; restam F6.5.2–6.5.9). DT-mãe OPEN.
+
+**PRÓXIMA ETAPA (espera go):** **F6.5.2 — ledger financeiro** (IDOR em `/accounts/:accountId/balance`; substituir o `requireLedgerPermission` falso). Depois 6.5.3 contextual-thread → 6.5.4 feed → 6.5.5 company-members GETs → 6.5.6 service-order reads+eventos → 6.5.7 dashboard/reports → 6.5.8 availability/votes/notifications/services → 6.5.9 ERP/marketplace. **R2 congelado.**
+
+---
+
 ## 2026-06-08 — ⛔ RETRATAÇÃO + F6.5.0 READ-FIRST: arco 0113 NÃO está completo (resíduo de leituras operacionais)
 
 **Branch:** `rescue-structural` · **docs-only** (retratação + classificação read-first; zero código). Dev 365. _(Esteira: Yala verificou os 3 commits F6 ✅ e BLOQUEOU o fechamento da DT-mãe; Clayton decidiu o caminho híbrido.)_

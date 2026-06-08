@@ -39,6 +39,19 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
       const globalUserId = req.user.id;
       const userId = req.user.id;
 
+      // 🔴 DECISION-0113 F6.5.1 (CRA): partes deste painel (bookings/inbox/economia, itens 4-6) são keyed
+      // no `actor.actor_id` resolvido do `actionContext.actorId` declarado (spoofável) → sem gate, um caller
+      // lê agenda/inbox/resumo econômico de OUTRO actor. O caller precisa poder REPRESENTAR esse actor.
+      // Fail-closed → 403 não-leak (antes da existência: uniforme p/ alheio E inexistente).
+      let canReadCommitments = false;
+      try {
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        canReadCommitments = await authorizationService.canRepresentActor(tenantId, req.user.userId, actorId);
+      } catch { canReadCommitments = false; }
+      if (!canReadCommitments) {
+        return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+      }
+
       // Buscar actor do ActionContext
       const actorRepository = socialPortsRegistry.getActorRepository();
       const actor = await actorRepository.findById(tenantId, actorId);
