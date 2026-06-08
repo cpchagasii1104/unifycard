@@ -31,6 +31,17 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
+      // 🔴 DECISION-0113 fatia 6.3 (leitura cross-user): representabilidade ANTES de ler o overview de
+      // impacto (eventos/grupos/bookings/valores) do actor declarado (spoofável) — fail-closed → 403 não-leak.
+      let canReadImpact = false;
+      try {
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        canReadImpact = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId);
+      } catch { canReadImpact = false; }
+      if (!canReadImpact) {
+        return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+      }
+
       const tenantId = req.tenant.id;
       const actorId = req.actionContext.actorId;
       const globalUserId = req.user!.id;

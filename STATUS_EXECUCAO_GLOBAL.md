@@ -1,3 +1,19 @@
+## 2026-06-08 — F-READS-AUTHORSHIP-GATE-F6_2_3: identity-config GET self + /me/* agregadores (DECISION-0113 fatia 6.2+6.3)
+
+**Branch:** `rescue-structural` · **backend** (4 arquivos de rota; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** **F6.2** — `identity GET /identity/configurations` virou **self** (userType PF/PJ é do próprio caller): resolve `callerGlobalUserId = req.user.globalUserId ?? resolveGlobalUserId(req.user.userId)`, espelhando o PUT da fatia 5.1; removida a resolução via `findById(actionContext.actorId)` (não lê mais userType alheio). **F6.3** — os 3 agregadores `/me/active-location` (geo lat/lng), `/me/impact-overview`, `/me/pending-responsibilities` provam `canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId)` **antes** da leitura (fail-closed → 403 não-leak). Self/representável seguem passando; só leitura alheia spoofada → 403.
+
+**Arquivos:** `core/identity/identity.routes.ts` (GET configurations), `core/location/me-active-location.routes.ts`, `core/profile/impact-overview.routes.ts`, `core/profile/pending-responsibilities.routes.ts`, `validate-pipeline-e2e-reads-authorship-f6-2-3.ts` (novo).
+
+**Prova:** e2e novo **8/8** (A behavioral primitivo nega cross-user; B estrutural F6.2 self via req.user, não via actor; C estrutural F6.3 gate antes da leitura nos 3 handlers + assinatura canônica). Backend tsc **0** (fora geo); 4 gates OK (`critical_new=0`/`warning_new=1`=c3; dev **365**). Sem regressão: rbac 13/13, escalation 16/16, money-live 12/12, plan-identity 9/9, profile-c1 16/16, lifestyle 10/10, money-read-f6-1 8/8.
+
+**DTs:** `DT-CROSS-USER-READ-ACTORID-UNVALIDATED` segue PARTIALLY MITIGATED (F6.1+F6.2+F6.3 fechadas).
+
+**PRÓXIMA ETAPA (STOP — exige envelope):** **F6.4** `getCompleteProfile` cross-user (caller≠subject em groups/social). Forma diferente das anteriores (gate no caller layer, e possível decisão de produto: visualizar perfil alheio é permitido e com quê redação?). Farei READ-FIRST + envelope antes de codar. Só com **F6.4** a DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` fecha e o arco DECISION-0113 está completo.
+
+---
+
 ## 2026-06-08 — F-MONEY-READ-AUTHORSHIP-GATE-F6_1: 5 reads financeiros provam representabilidade (DECISION-0113 fatia 6.1)
 
 **Branch:** `rescue-structural` · **backend** (2 arquivos de rota; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_

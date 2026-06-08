@@ -151,6 +151,17 @@ const meActiveLocationRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
+    // 🔴 DECISION-0113 fatia 6.3 (leitura cross-user): representabilidade ANTES de ler a localização (geo
+    // lat/lng) do actor declarado (spoofável) — fail-closed → 403 não-leak.
+    let canReadActiveLocation = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canReadActiveLocation = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId);
+    } catch { canReadActiveLocation = false; }
+    if (!canReadActiveLocation) {
+      return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+    }
+
     try {
       const location = await actorActiveLocationRepository.getActive(
         req.tenant.id,

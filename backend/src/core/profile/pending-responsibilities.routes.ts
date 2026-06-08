@@ -30,9 +30,20 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
+      // 🔴 DECISION-0113 fatia 6.3 (leitura cross-user): representabilidade ANTES de ler pendências
+      // (eventos/grupos/bookings/pagamentos) do actor declarado (spoofável) — fail-closed → 403 não-leak.
+      let canReadPending = false;
+      try {
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        canReadPending = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId);
+      } catch { canReadPending = false; }
+      if (!canReadPending) {
+        return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+      }
+
       const tenantId = req.tenant.id;
       const actorId = req.actionContext.actorId;
-      
+
       // Buscar actor do ActionContext
       const actorRepository = socialPortsRegistry.getActorRepository();
       const actor = await actorRepository.findById(tenantId, actorId);
