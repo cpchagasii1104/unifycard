@@ -1,4 +1,22 @@
-## 2026-06-08 — F-GROUPS-CREATE-SELF-AUTHORSHIP-F6_4: fecha o arco DECISION-0113 (fatia 6.4)
+## 2026-06-08 — ⛔ RETRATAÇÃO + F6.5.0 READ-FIRST: arco 0113 NÃO está completo (resíduo de leituras operacionais)
+
+**Branch:** `rescue-structural` · **docs-only** (retratação + classificação read-first; zero código). Dev 365. _(Esteira: Yala verificou os 3 commits F6 ✅ e BLOQUEOU o fechamento da DT-mãe; Clayton decidiu o caminho híbrido.)_
+
+**O que aconteceu:** a verificação adversarial da **Yala** (que eu mesma pedi) achou um **caso (d)**: leituras vivas cross-user que a fatia 6 deixou passar. **Os 3 commits F6 estão corretos (Yala verificou)** — o que foi **RETRATADO** é a minha alegação universal *"nenhuma rota viva keyed em `actionContext.actorId` sem gate permanece"*, **materialmente falsa**.
+
+**Confirmado de primeira mão:** `feed.routes.ts:18` `GET /contextual` (lê `actionContext.actorId`, 0 preHandler), `social-inbox.routes.ts:52/96` (`req.params.id` = **IDOR**), `commitments.routes.ts:38` `GET /me/commitments` (**agregador `/me/*` que a própria F6.3 deixou passar** — eram 4, não 3), `contextual-thread` (mensagens privadas), `service-order`, eventos privados. A varredura exaustiva achou **~41 arquivos candidatos** (teto, não contagem).
+
+**F6.5.0 (read-first, em curso):** classificação por rota — A privado-vazando (gate) · B público-design (não gatear) · C self · D write · E latente. ⚠️ Um agente de breadth provou-se **NÃO-confiável** (falso-negativo em feed; falso-positivo classificando marketplace-money **latente** — `Promise.reject('migrated to Bank')` confirmado — como A) → toda classe A exige verificação de 1ª mão.
+
+**DTs:** **DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` REABERTA/OPEN** (fechamento retratado). Aberta **`DT-OPERATIONAL-READ-ACTORID-UNVALIDATED` (OPEN)** com a classificação tiered. Money-latente confirmado classe E (`DT-MONEY-LATENT-REACTIVATION-TRAP`).
+
+**PRÓXIMA ETAPA (GO Clayton — caminho híbrido):** concluir F6.5.0 (classificar de 1ª mão toda a classe A) → F6.5.x gatear os privados-vazando **um cluster por vez, com READ-FIRST** (não às cegas — preservar reads públicos/descoberta) → Yala verifica → só então fecha a DT-mãe. **Não abrir R2 ainda.**
+
+**Lição:** o mapa da fatia 6 era ponto de partida, não verdade; vi isso em pequeno na F6.1 e **não generalizei** para varredura exaustiva. Toda fatia de autoridade futura começa por varredura exaustiva própria.
+
+---
+
+## 2026-06-08 — F-GROUPS-CREATE-SELF-AUTHORSHIP-F6_4: fatia 6.4 (groups self) — VERIFICADA por Yala; fechamento do arco RETRATADO
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
 
@@ -10,9 +28,9 @@
 
 **DTs:** `DT-GROUPS-CREATE-ACTOR-SPOOF` (aberta+fechada nesta fatia) + `DT-CROSS-USER-READ-ACTORID-UNVALIDATED` → **CLOSED**.
 
-**🏁 ARCO DECISION-0113 COMPLETO (superfícies vivas).** A DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` → **CLOSED (superfícies vivas) / RESÍDUO-DIFERIDO**: fatias 1/2/3/5/6 DONE; nenhuma rota viva keyed em `actionContext.actorId` sem gate. Resíduo único = **money LATENTE (fatia 4)**, inerte (Proxy reject-all), cobrança carregada por `DT-MONEY-LATENT-REACTIVATION-TRAP` (OPEN). Resíduos próprios fora do arco: `DT-CANACTAS-CHECKOWNERSHIP-STALE`, `DT-PJ-EPHEMERAL-FIXTURES-STALE`. _(Fechamento aguarda ratificação Clayton/Yala.)_
+**⛔ RETRATADO (ver entrada acima 2026-06-08):** esta entrada anunciou "arco completo nas superfícies vivas / DT-mãe CLOSED" — **falso**. Yala verificou os 3 commits F6 ✅ mas bloqueou o fechamento: há resíduo de leituras operacionais vivas (`DT-OPERATIONAL-READ-ACTORID-UNVALIDATED`). A DT-mãe segue **OPEN**.
 
-**PRÓXIMA ETAPA (espera go):** nada pendente neste arco. Candidatos do `Cleiton.md`: loops abertos (PJ operar PJ-1/PJ-2; delegação AUTH-1/AUTH-2; autogestão AUTG-1) ou o money-latente quando for religado.
+**O que F6.4 entregou e está correto (Yala VERIFICOU):** o fix self do `POST /groups`. O que NÃO se sustenta é a alegação de fechamento do arco.
 
 ---
 
