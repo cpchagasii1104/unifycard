@@ -1,3 +1,21 @@
+## 2026-06-08 — F-X-ACTOR-ID-RESOLVER-BIND: fecha o 2º vetor de spoof (x-actor-id) no primitivo (DECISION-0113)
+
+**Branch:** `rescue-structural` · **backend** (1 primitivo + e2e; zero migration/Bank/frontend/write). Dev 365. _(Esteira: eu escritora; par verifica. Achado da Yala na verificação da F6.5.6a; GO Clayton "primitivo primeiro".)_
+
+**O que entregou:** a Yala achou um **segundo vetor de spoof PARALELO** ao `actionContext.actorId` que a campanha nunca tocou — `resolveActiveActorFromRequest` resolvia o actor operante do header `x-actor-id` / query `actor_id` **sem `canRepresentActor`** (leak vivo confirmado: `GET /my-orders` via `x-actor-id: <vítima>` listava `service_orders` da vítima). Fix **central no primitivo** (decisão Clayton — não pano no chão): header/query = HINT; só retorna o actor se `canRepresentActor(req.tenant.id, req.user.userId, declaredActorId)`; sem `req.user` → 401; não representável → 403 não-leak; fallback self intocado. **Um corte cobre os 5 callers** (crm/my-orders/presence/subscriptions/venue).
+
+**READ-FIRST (sem STOP):** `auth.plugin` 401a sem token no protectedScope; os 5 callers estão no protectedScope (`req.user` garantido); **nenhuma rota pública chama o resolver**; live-chat/loyalty/services importam mas não chamam → callers reais = **5**, não 9.
+
+**Arquivos:** `modules/social/actor.utils.ts` (primitivo), `validate-pipeline-e2e-x-actor-id-resolver-bind.ts` (novo).
+
+**Prova — BEHAVIORAL REAL (sem caveat de tabela vazia):** e2e **9/9** — chama o primitivo `resolveActiveActorFromRequest` de verdade com requests mock: self fallback ok; x-actor-id próprio (representável) passa; **x-actor-id alheio + caller estranho → 403**; query `actor_id` spoof → 403; sem `req.user` → 401; my-orders-like → 403; estrutural (gate no primitivo + 5 consumidores ainda chamam). Backend tsc **0** (fora geo); 4 gates OK (dev **365**). Núcleo 0113 + F6.5.1–6a intactos (**15 regressões verdes** — primitivo compartilhado não quebrou nada).
+
+**DTs:** `DT-X-ACTOR-ID-RESOLVER-OWNERSHIP-UNVALIDATED` → **PRIMITIVO FECHADO / SWEEP RESIDUAL** (severidade caiu de SISTÊMICO-ABERTO p/ residual). DT-mãe OPEN (dois vetores; agora o vetor 2 tem gate central).
+
+**PRÓXIMA ETAPA (espera go + selo Yala):** sweep de confirmação das superfícies dos 5 callers (read+write via resolver) + social-2.0; depois retomar fila actionContext (F6.5.6b events → 6.5.7/8/9). **R2 congelado.**
+
+---
+
 ## 2026-06-08 — F-SERVICE-ORDER-READ-AUTHORITY-GATE-F6_5_6A: ler ordem comercial só por parte legítima (DECISION-0113 fatia 6.5.6a)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank/migration/frontend/write). Dev 365. _(Esteira: eu escritora; par verifica. Subfatiado: 6.5.6a service-order reads, separado de 6.5.6b events e dos writes.)_
