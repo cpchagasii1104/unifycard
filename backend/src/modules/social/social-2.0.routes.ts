@@ -659,6 +659,17 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
 
+    // 🔴 DECISION-0113 fatia 6 (leitura cross-user): o actorId vem do actionContext (spoofável). Prova que o
+    // req.user pode REPRESENTAR o actor ANTES de ler ledger financeiro alheio (fail-closed → 403 não-leak).
+    let canReadLedger = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canReadLedger = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId);
+    } catch { canReadLedger = false; }
+    if (!canReadLedger) {
+      return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+    }
+
     try {
       const limit = parseInt(req.query.limit || '50', 10);
       const entries = await socialLedgerService.getUserLedger(
@@ -689,6 +700,16 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
 
     if (!req.tenant) {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+
+    // 🔴 DECISION-0113 fatia 6 (leitura cross-user): representabilidade ANTES do resumo financeiro alheio.
+    let canReadSummary = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canReadSummary = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId);
+    } catch { canReadSummary = false; }
+    if (!canReadSummary) {
+      return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
     }
 
     try {

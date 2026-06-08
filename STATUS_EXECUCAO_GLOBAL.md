@@ -1,3 +1,19 @@
+## 2026-06-08 — F-MONEY-READ-AUTHORSHIP-GATE-F6_1: 5 reads financeiros provam representabilidade (DECISION-0113 fatia 6.1)
+
+**Branch:** `rescue-structural` · **backend** (2 arquivos de rota; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_
+
+**O que entregou:** abre a **fatia 6 (leitura cross-user)** pelo cluster de maior risco. 5 reads financeiros liam dado keyed em `req.actionContext.actorId` spoofável **sem gate** → qualquer caller declarava o `actorId` da vítima e lia ledger/wallet alheio. Agora cada handler prova `canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId)` **antes** da leitura (fail-closed → **403 não-leak**). Rotas: `social-2.0 /social/ledger` + `/social/ledger/summary`; `identity /identity/wallet/actor-statement` + `/identity/wallet` + `/identity/ledger`. Self/representável (empresa/grupo/delegação) seguem passando; só leitura alheia spoofada → 403. **Bank boundary intacta** (`/identity/ledger` via bank read port; gate `bank-ledger §4.6` verde).
+
+**Arquivos:** `modules/social/social-2.0.routes.ts`, `core/identity/identity.routes.ts`, `validate-pipeline-e2e-money-read-authorship-f6-1.ts` (novo).
+
+**Prova:** e2e novo **8/8** (A behavioral: primitivo nega cross-user dev/estranho; B estrutural: gate antes da leitura nos 5 handlers + assinatura canônica). Backend tsc **0** (fora geo); 4 gates OK (`critical_new=0`/`warning_new=1`=c3; dev **365**). Sem regressão: rbac 13/13, escalation 16/16, money-live 12/12, plan-identity 9/9, profile-c1 16/16, lifestyle 10/10, professional-c1 16/16.
+
+**DTs:** abre `DT-CROSS-USER-READ-ACTORID-UNVALIDATED` (PARTIALLY MITIGATED — F6.1 fechada).
+
+**PRÓXIMA ETAPA (mesma frente, uma faca por vez):** **F6.2** `/identity/configurations` GET (self-only, espelha F5.1) · **F6.3** `/me/*` agregadores (active-location/impact-overview/pending-responsibilities, canRepresentActor) · **F6.4** `getCompleteProfile` cross-user (caller≠subject em groups/social). Só com **F6.4** a DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` fecha e o arco DECISION-0113 está completo.
+
+---
+
 ## 2026-06-08 — F-LIFESTYLE-AUTHORSHIP-GATE: lifestyle/LGPD com autoria provada (DECISION-0113 fatia 5.3)
 
 **Branch:** `rescue-structural` · **backend** (`lifestyle.routes.ts` + `lifestyle.service.ts` + 1 call-site em `core.service.ts` + e2e novo; zero migration/Bank/frontend). Dev 365. _(Esteira: eu escritora; par verifica.)_

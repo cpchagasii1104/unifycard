@@ -769,6 +769,17 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
 
+    // 🔴 DECISION-0113 fatia 6 (leitura cross-user): o actorId vem do actionContext (spoofável). Prova que o
+    // req.user pode REPRESENTAR o actor ANTES de ler o statement de wallet alheio (fail-closed → 403 não-leak).
+    let canReadStatement = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canReadStatement = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId);
+    } catch { canReadStatement = false; }
+    if (!canReadStatement) {
+      return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+    }
+
     const limitParam = req.query?.limit ? Number(req.query.limit) : 100;
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 100;
 
@@ -801,6 +812,17 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
 
+    // 🔴 DECISION-0113 fatia 6 (leitura cross-user): representabilidade ANTES de resolver globalUserId/wallet
+    // alheio a partir do actorId declarado (fail-closed → 403 não-leak).
+    let canReadWallet = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canReadWallet = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId);
+    } catch { canReadWallet = false; }
+    if (!canReadWallet) {
+      return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+    }
+
     try {
       // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
       const { socialPortsRegistry } = await import('@core/social/ports-registry');
@@ -811,7 +833,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       }
       const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
       const globalUserId = await resolveGlobalUserId(actor.user_id, req.tenant.id);
-      
+
       // Buscar todas as contas do global_user_id
       const accounts = await accountService.getAccountsByGlobalUserId(globalUserId);
       
@@ -882,6 +904,17 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (!req.tenant) {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+
+    // 🔴 DECISION-0113 fatia 6 (leitura cross-user): representabilidade ANTES de ler o ledger financeiro
+    // agregado (bank read port) do actor declarado (fail-closed → 403 não-leak).
+    let canReadAggLedger = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canReadAggLedger = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId);
+    } catch { canReadAggLedger = false; }
+    if (!canReadAggLedger) {
+      return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
     }
 
     try {
