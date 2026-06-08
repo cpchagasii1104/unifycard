@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5-CANAL3-IMPACT · GATEIA /impact/ledger (A privado actor-keyed; DECISION-0113)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e novo; zero Bank/migration/frontend/permission). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: gatear SÓ /impact/ledger; balance intocado.)_
+
+**O que entregou:** READ-FIRST resolveu o último G do canal-3 não-money. `/impact/ledger` é **EXTRATO detalhado** (`getLedgerHistory` → event_type/impact_delta/source_type/**source_id**/**metadata**/created_at por entrada) = **atividade PRIVADA** do actor; `/impact/balance` é score agregado = **B público (intocado)**. Gate antes = só `req.user` → `actor_id` da query lido sem validação = leak cross-user (latente: **zero caller vivo**, mas vaza se exercido). Gateado `canRepresentActor(req.tenant.id, req.user.userId, actor_id)` ANTES de `getLedgerHistory`; 401/403-não-leak/400-preservado. **impact social ≠ bank** (impact_ledger = score FASE 10; zero bank_ledger).
+
+**Arquivos:** `modules/social/social-2.0.routes.ts`, `validate-pipeline-e2e-impact-ledger-authority-f6-5-c3i.ts` (novo).
+
+**Prova:** e2e novo **7/7** (A behavioral real canRepresentActor nega cross-user; B gate-antes-da-leitura sobre o actor_id filtrado + 401/403/400; C escopo — balance sem canRepresentActor + impact≠bank). Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: canal3-money 7/7 · cultural 7/7 · trust 12/12 · x-actor-id 9/9 · rbac 13/13 · money-live 12/12.
+
+**DTs:** `DT-DIRECT-QUERY-ACTOR-READERS-UNVALIDATED` — **canal-3 não-money quase fechado** (impact/ledger A DONE; trust F DONE; policy F-OK; cultural A DONE; money DONE+reseal). Resta events-spec (→F6.5.6b) + canal-5. DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala sela o canal-3 não-money → depois **F6.5.6b events** → canal-5 → sweep adversarial final dos 5 canais.
+
+---
+
 ## 2026-06-08 — F6.5-CANAL3-MONEY · CORREÇÃO OVER-GATE PAYOUT: fecha o cluster money (DECISION-0113)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e ajustado; zero Bank/migration/frontend/permission). Dev 365. _(Esteira: eu escritora; Yala reseal. GO Clayton: corrigir SÓ GET /payouts/orders; writes intocados.)_

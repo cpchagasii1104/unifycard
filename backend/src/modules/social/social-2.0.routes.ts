@@ -1112,11 +1112,24 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       const actorId = req.query.actor_id;
       const actorType = req.query.actor_type;
       const limit = parseInt(req.query.limit || '20', 10);
-      
+
       if (!actorId || !actorType) {
-        return reply.status(400).send({ 
-          error: 'actor_id e actor_type são obrigatórios' 
+        return reply.status(400).send({
+          error: 'actor_id e actor_type são obrigatórios'
         });
+      }
+
+      // 🔴 DECISION-0113 (canal 3): actor_id da query é HINT, não autoridade. /impact/ledger é EXTRATO
+      // detalhado (source_type/source_id/metadata/timestamps) = atividade privada do actor (≠ /impact/balance,
+      // que é score agregado público). Prova que o req.user pode REPRESENTAR o actor_id ANTES de ler o extrato
+      // alheio (fail-closed → 403 não-leak). /impact/balance permanece B público (intocado).
+      let canReadImpactLedger = false;
+      try {
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        canReadImpactLedger = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, actorId);
+      } catch { canReadImpactLedger = false; }
+      if (!canReadImpactLedger) {
+        return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
       }
 
       const history = await impactService.getLedgerHistory(
