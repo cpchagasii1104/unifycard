@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5-CANAL3-A-CULTURAL: classificação não-money + gate do único A claro (DECISION-0113, canal 3)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota; zero Bank/migration/frontend/write). Dev 365. _(Esteira: eu escritora; par verifica. GO Clayton: classificar antes de mexer; autorizar só o A claro.)_
+
+**O que entregou:** READ-FIRST de 1ª mão do canal-3 **não-money** (relatório read-only) + gate do **único A claro**. Classificação: **B público** (impact/reputation/marketplace-categories/public-profiles — NÃO gatear, quebra descoberta) · **A privado** (`cultural /profiles`) · **F compliance** (trust/policy = role-admin, decisão Clayton; business-audit já admin-gated) · **D writes** (trust POSTs) · **G** (impact/ledger, event-specs→events). **Gateado só `cultural /profiles?owner_actor_id`:** os PACs são do DONO; `owner_actor_id` spoofável → `canRepresentActor(req.user.userId, ownerActorId)` antes de `listProfilesByActor`; 401/403 não-leak. **B públicos / trust / policy / impact / events-spec INTOCADOS.**
+
+**Arquivos:** `modules/cultural/cultural.routes.ts`, `validate-pipeline-e2e-cultural-profiles-authority-f6-5-c3a.ts` (novo).
+
+**Prova:** e2e novo **7/7** (A behavioral real canRepresentActor nega cross-user; B estrutural gate-antes-da-leitura sobre o **owner filtrado**; C escopo — só /profiles, não o /:id params nem os B). Backend tsc **0** (fora geo); 4 gates OK (dev **365**). Núcleo + canal-3 money intactos (regressões verdes).
+
+**DTs:** `DT-DIRECT-QUERY-ACTOR-READERS` — classificação não-money concluída; A cultural DONE; **F trust/policy = decisão Clayton (role-admin) pendente**; G deferidos. DT-mãe OPEN.
+
+**PRÓXIMA ETAPA (espera go):** decisão Clayton sobre os **F (trust/policy role-admin)** + G (impact/ledger, event-specs→F6.5.6b) + canal 5 (params id); depois F6.5.6b events → 6.5.7/8/9 → selo final Yala (grep dos 5 canais). **R2 congelado.**
+
+---
+
 ## 2026-06-08 — F6.5-CANAL3-MONEY: gateia direct-query actor readers do cluster money (DECISION-0113, 3º padrão)
 
 **Branch:** `rescue-structural` · **backend** (3 arquivos de rota; zero Bank-write/migration/frontend). Dev 365. _(Esteira: eu escritora; par verifica. GO Clayton "canal 3 money primeiro".)_

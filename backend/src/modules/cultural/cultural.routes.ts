@@ -125,6 +125,24 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // 🔴 DECISION-0113 canal 3 (cultural privado): `owner_actor_id` da query é HINT, não autoridade. Os
+      // perfis culturais (PACs) são do DONO ("do ator ativo") → o `req.user` precisa poder REPRESENTAR esse
+      // owner antes de listar. fail-closed → 401 (sem caller) / 403 (não representável) não-leak.
+      const callerUserId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!callerUserId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+      let canRepresentOwner = false;
+      try {
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        canRepresentOwner = await authorizationService.canRepresentActor(req.tenant.id, callerUserId, ownerActorId);
+      } catch {
+        canRepresentOwner = false;
+      }
+      if (!canRepresentOwner) {
+        return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+      }
+
       const profiles = await culturalProfileService.listProfilesByActor(
         req.tenant.id,
         ownerActorId,
