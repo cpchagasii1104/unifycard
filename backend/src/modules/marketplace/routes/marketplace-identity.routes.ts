@@ -30,6 +30,25 @@ export async function registerIdentityRoutes(fastify: FastifyInstance) {
       throw new UnauthorizedError('Tenant required');
     }
     const tenantId = req.tenant.id;
+
+    // 🔴 DECISION-0113 (A-write body-driven): o actor alvo vem de `body.actor_id`. `can_manage_marketplace`
+    // (default de TODA company) não autoriza criar a identidade econômica de actor alheio. `body.actor_id` é
+    // HINT → exigir representá-lo ANTES de createEconomicIdentity (senão company A cria economic identity de B).
+    const targetActorId = req.body.actor_id;
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+    let canRep = false;
+    try {
+      canRep = await authorizationService.canRepresentActor(tenantId, userId, targetActorId);
+    } catch {
+      canRep = false;
+    }
+    if (!canRep) {
+      return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)', code: 'MARKETPLACE_ACTOR_NOT_REPRESENTABLE' });
+    }
+
     try {
       const identity = await economicIdentityService.createEconomicIdentity(tenantId, {
         actorId: req.body.actor_id,

@@ -8,11 +8,12 @@
  * Agora exigem canRepresentActor(tenantId, req.user.userId, params.actorId) ANTES do service; 401/403 fail-closed.
  * zero Bank (identidade econômica + trust events + reputation, não bank_*). Tabelas: economic_identities / trust_events.
  *
- * Cobertura atual (4 rotas marketplace actor-target gateadas pela MESMA régua):
+ * Cobertura atual (5 rotas marketplace actor-target gateadas pela MESMA régua):
+ *   - POST /economic-identities                     (A-WRITE create body.actor_id, DB-backed) ← esta fatia
  *   - GET  /economic-identities/:actorId            (read, DB-backed)   ← selado ebd029d9
  *   - GET  /trust-events/:actorId                   (read, DB-backed)   ← selado ebd029d9
- *   - POST /economic-identities/:actorId/recalculate (A-WRITE, DB-backed) ← esta fatia
- *   - GET  /reputation-snapshots/:actorId           (read, Map in-memory) ← esta fatia (gate defensivo: vaza snapshot efêmero de B no mesmo processo)
+ *   - POST /economic-identities/:actorId/recalculate (A-WRITE, DB-backed) ← selado 0933b188
+ *   - GET  /reputation-snapshots/:actorId           (read, Map in-memory) ← selado 0933b188 (gate defensivo)
  *
  * Fora desta fatia (declarado, intocado):
  *   - GET /b2b-contracts/actor/:actorId  = E (stub `return []`, b2b_contracts AUSENTE, materialidade futura)
@@ -86,6 +87,8 @@ async function main(): Promise<void> {
   console.log('\n— B estrutural: economic-identities (GET+recalculate) e trust-events gateiam params.actorId ANTES do service —');
   const route = readFileSync(join(process.cwd(), 'src/modules/marketplace/routes/marketplace-identity.routes.ts'), 'utf8');
   const sliceBetween = (a: string, b: string) => { const i = route.indexOf(a); const j = b ? route.indexOf(b, i + 1) : route.length; return i >= 0 ? route.slice(i, j > i ? j : route.length) : ''; };
+  // economic-identities CREATE (A-write body-driven): do registro POST até o registro do GET
+  const econCreate = sliceBetween("'/economic-identities',", "'/economic-identities/:actorId',");
   // economic-identities GET: do registro da rota GET até o início do bloco /recalculate
   const econGet = sliceBetween("'/economic-identities/:actorId',", "'/economic-identities/:actorId/recalculate'");
   // economic-identities recalculate (A-write): do registro /recalculate até /trust-events
@@ -100,6 +103,12 @@ async function main(): Promise<void> {
 
   record('B0 import authorizationService presente',
     /from '@core\/authorization\/authorization\.service'/.test(route));
+  record('B0a economic-identities CREATE (A-WRITE body.actor_id): canRepresentActor ANTES de createEconomicIdentity; 401/403',
+    /canRepresentActor\(tenantId, userId, targetActorId\)/.test(econCreate)
+    && econCreate.indexOf('canRepresentActor(') < econCreate.indexOf('createEconomicIdentity(')
+    && /status\(401\)/.test(econCreate) && /status\(403\)/.test(econCreate)
+    && /MARKETPLACE_ACTOR_NOT_REPRESENTABLE/.test(econCreate)
+    && /req\.body\.actor_id/.test(econCreate));
   record('B1 economic-identities: canRepresentActor(tenantId, userId, actorId) ANTES de getEconomicIdentity; 401/403',
     /canRepresentActor\(tenantId, userId, actorId\)/.test(econGet)
     && econGet.indexOf('canRepresentActor(') < econGet.indexOf('getEconomicIdentity(')
@@ -121,13 +130,15 @@ async function main(): Promise<void> {
     && /status\(401\)/.test(reput) && /status\(403\)/.test(reput)
     && /MARKETPLACE_ACTOR_NOT_REPRESENTABLE/.test(reput)
     && /from '@core\/authorization\/authorization\.service'/.test(slaRoute));
-  record('B3 params.actorId não chega cru ao service sem gate (gate precede o service nos 4 handlers)',
-    econGet.indexOf('canRepresentActor(') >= 0 && econGet.indexOf('canRepresentActor(') < econGet.indexOf('getEconomicIdentity(')
+  record('B3 actor alvo não chega cru ao service sem gate (gate precede o service nos 5 handlers, incl. create body-driven)',
+    econCreate.indexOf('canRepresentActor(') >= 0 && econCreate.indexOf('canRepresentActor(') < econCreate.indexOf('createEconomicIdentity(')
+    && econGet.indexOf('canRepresentActor(') >= 0 && econGet.indexOf('canRepresentActor(') < econGet.indexOf('getEconomicIdentity(')
     && trust.indexOf('canRepresentActor(') >= 0 && trust.indexOf('canRepresentActor(') < trust.indexOf('listTrustEvents(')
     && recalc.indexOf('canRepresentActor(') >= 0 && recalc.indexOf('canRepresentActor(') < recalc.indexOf('recalculateTrustScore(')
     && reput.indexOf('canRepresentActor(') >= 0 && reput.indexOf('canRepresentActor(') < reput.indexOf('getReputationSnapshots('));
-  record('B4 requirePermission(marketplace_manage_catalog) preservado nas 4 rotas alvo',
-    (route.match(/requirePermission\('marketplace_manage_catalog'\)/g) || []).length >= 3
+  record('B4 requirePermission(marketplace_manage_catalog) preservado nas rotas alvo (incl. create)',
+    (route.match(/requirePermission\('marketplace_manage_catalog'\)/g) || []).length >= 4
+    && /requirePermission\('marketplace_manage_catalog'\)/.test(econCreate)
     && /requirePermission\('marketplace_manage_catalog'\)/.test(econGet)
     && /requirePermission\('marketplace_manage_catalog'\)/.test(trust)
     && /requirePermission\('marketplace_manage_catalog'\)/.test(recalc)
@@ -144,13 +155,14 @@ async function main(): Promise<void> {
   record('B8 zero writes ADICIONADOS pelo patch (identity: POSTs pré-existentes create+recalculate; reputation é GET)',
     (route.match(/fastify\.(post|put|patch|delete)/g) || []).length === 2
     && !/fastify\.(post|put|patch|delete)/.test(reput));
-  record('B9 b2b-contracts e inventory/movements SEM actorId permanecem fora do patch (não tocados aqui)',
-    !/b2b-contracts/.test(route) && !/inventory\/movements/.test(route)
-    && !/b2b-contracts/.test(reput) && !/inventory\/movements/.test(reput));
+  record('B9 W2/W3/W4/W5/W6 (sla-contracts/reputation generate/disputes/resolve/apply-penalties), b2b-contracts e inventory/movements sem actorId fora do patch',
+    !/sla-contracts|reputation-snapshots\/generate|\/disputes|apply-sla-penalties|b2b-contracts|inventory\/movements/.test(route)
+    && !/sla-contracts|reputation-snapshots\/generate|\/disputes|apply-sla-penalties|b2b-contracts|inventory\/movements/.test(econCreate));
 
-  note('Denominador marketplace actor-target: A corrigidas NESTA fatia = 1 write (recalculate) + 1 read in-memory (reputation-snapshots). '
-    + 'A já corrigidas antes = inventory ×2 (by-actor saldo, movements?actorId) e identity reads ×2 (economic-identities GET, trust-events). '
-    + 'E fora do patch = b2b-contracts/actor/:actorId (stub). B/G fora do patch = inventory/movements SEM actorId (broad read). M = 0.');
+  note('Denominador marketplace actor-target: A corrigida NESTA fatia = POST /economic-identities (create, body.actor_id, DB-backed). '
+    + 'A já corrigidas antes = inventory ×2 (by-actor saldo, movements?actorId), economic-identities GET, trust-events GET, recalculate POST, reputation-snapshots GET. '
+    + 'E/vigia fora do patch = SLA/reputation generate/disputes in-memory (W2/W3/W4). M fora do patch = resolve refund/credit (W5) + apply SLA penalties split (W6). '
+    + 'Broad read fora do patch = inventory/movements SEM actorId. M nesta fatia = 0.');
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);
