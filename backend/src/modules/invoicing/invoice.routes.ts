@@ -110,22 +110,25 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
           const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
           const { runQueriesWithTenant } = await import('@core/database/pool');
           // resolve o actor 'user' do caller SOMENTE-LEITURA (NÃO cria actor — proibido side-effect em GET).
+          // 🔴 03_IDENTITY_CANONICA §8 / DECISION-0069: NÃO resolver por "primeiro resultado" (sem LIMIT 1).
+          // 0 user-actor → sem escape; EXATAMENTE 1 → avalia view_all_ledger; >1 (ambíguo) → fail-closed (não
+          // concede escape). Espelha o resolver self do unified-calendar (sem LIMIT; >1 = ambíguo fail-closed).
           const rows = await runQueriesWithTenant<{ actor_id: string }>(
             tenantId,
-            `SELECT actor_id FROM actors WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user' LIMIT 1`,
+            `SELECT actor_id FROM actors WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user'`,
             [tenantId, callerUserId]
           );
-          const callerActorId = rows[0]?.actor_id;
-          if (callerActorId) {
+          if (rows.length === 1) {
             await businessAuthorizationService.requirePermission(
               tenantId,
               callerUserId,
-              callerActorId,
+              rows[0].actor_id,
               'financial:view_all_ledger',
               'invoice_read'
             );
             canAccess = true;
           }
+          // rows.length === 0 (sem user-actor) OU > 1 (ambíguo) → NÃO concede escape (fail-closed).
         } catch {
           canAccess = false;
         }

@@ -94,6 +94,24 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 · invoice by-id MICRO-CORREÇÃO: admin escape sem resolve-by-first (§8/0069)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: auto-acusação da executora → veredito diretora "corrige antes de availability-conflicts" → Yala reseal.)_
+
+**Dívida de consistência (não vazamento):** o admin escape do `GET /invoices/:invoiceId` resolvia o caller-actor com `... actor_type='user' LIMIT 1` + `rows[0]` → "resolver pelo primeiro resultado", que `03_IDENTITY_CANONICA §8`/`DECISION-0069` proíbem (ambíguo deve falhar fechado). Fail-closed e mais-travado-que-antes, mas inconsistente com o resolver self do unified-calendar (que eu já fiz certo).
+
+**Correção:** removido `LIMIT 1`; conta os user-actors → EXATAMENTE 1 → avalia `financial:view_all_ledger`; 0 ou >1 (ambíguo) → NÃO concede escape (fail-closed). Espelha o unified-calendar.
+
+**Arquivos:** `modules/invoicing/invoice.routes.ts`, `validate-pipeline-e2e-invoice-by-id-authority-f6-5.ts`.
+
+**Prova:** e2e **16/16** (A5 dev=1→avalia; A6 estranho=0→sem escape; >1 N/A honesto; B3b sem LIMIT 1 no SQL/sem rows[0]?; B3c concede só com rows.length===1; party-check + list + writes intactos). tsc 0; 4 gates OK; dev 365. Regressões: invoice 16/16, canal3-money 7/7, unified-calendar 17/17, x-actor-id 9/9, money-live 12/12.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado. ⚠️ Resíduo: semântica `availability.owner_id` = base empírica, canonizar depois (não abrir frente agora). availability-conflicts + dashboard/reports pendentes.
+
+**PRÓXIMA ETAPA:** Yala reseal invoice by-id → availability-conflicts → dashboard/reports → sweep adversarial final.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 :id · invoice by-id IDOR financeiro fechado
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: Yala PASS no unified-calendar → GO invoice by-id. Yala verifica.)_

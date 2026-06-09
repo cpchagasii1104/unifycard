@@ -76,6 +76,16 @@ async function main(): Promise<void> {
     record('A4 parte system (\'system:platform\') NÃO é representável (false ou throw→fail-closed) → exige admin escape',
       sysRep === false);
 
+    // 🔴 §8/DECISION-0069: o resolver do admin escape NÃO usa LIMIT 1 — conta os user-actors e só concede com EXATAMENTE 1.
+    const resolverSql = `SELECT actor_id FROM actors WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user'`;
+    const devRows = await pool.query(resolverSql, [TENANT_ID, devUserId]);
+    record('A5 dev tem EXATAMENTE 1 user-actor → ramo "rows.length === 1" avalia o escape (não arbitra)',
+      devRows.rowCount === 1);
+    const strangerRows = await pool.query(resolverSql, [TENANT_ID, STRANGER_USER_ID]);
+    record('A6 estranho tem 0 user-actor → ramo "0" NÃO concede admin escape (fail-closed)',
+      strangerRows.rowCount === 0);
+    note('caso >1 user-actor (ambíguo) = N/A behavioral — semear 2º user-actor seria anomalia que o modelo resiste; coberto estruturalmente por B3c (>1 → sem escape).');
+
     const invReg = await pool.query<{ r: string | null }>(`SELECT to_regclass('public.invoices') AS r`);
     note(`party-lê-invoice-REAL = N/A — tabela 'invoices' ${invReg.rows[0].r ? 'PRESENTE' : 'AUSENTE'} em DEV (scaffold não exercido). Behavioral por-invoice não vendável; primitivo provado acima.`);
   } finally {
@@ -103,6 +113,12 @@ async function main(): Promise<void> {
     && /requirePermission\(/.test(byId)
     && /actor_type = 'user'/.test(byId)
     && !/ensureUserActor\(/.test(byId) && !/getActiveActor\(/.test(byId));
+  // 🔴 §8/DECISION-0069: o admin escape NÃO pode resolver por "primeiro resultado".
+  record('B3b admin escape NÃO usa LIMIT 1 no SQL nem rows[0] arbitrário (resolve fail-closed por ambiguidade)',
+    !/actor_type = 'user' LIMIT 1/.test(byId) && !/rows\[0\]\?\.actor_id/.test(byId));
+  record('B3c admin escape concede SÓ com EXATAMENTE 1 user-actor (rows.length === 1); 0 ou >1 → sem escape (fail-closed)',
+    /rows\.length === 1/.test(byId) && /requirePermission\(/.test(byId)
+    && byId.indexOf('rows.length === 1') < byId.indexOf('requirePermission('));
   record('B4 GET /invoices (list) intacto — gate por-parte preservado (canRepresentActor + "actor filtrado")',
     /canRepresentActor\(tenantId, callerUserId, partyId\)/.test(route) && /Sem autoridade sobre o actor filtrado/.test(route));
   record('B5 writes intocados (createInvoiceFromPayout/issueInvoice/cancelInvoice presentes; nenhum canRepresentActor injetado neles)',
