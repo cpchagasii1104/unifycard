@@ -218,6 +218,14 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       return reply.status(404).send({ error: 'Evento não encontrado' });
     }
 
+    // 🔵 DECISION-0113 F6.5.6b-CANAL5-A: acesso por ID herda o modelo de visibility da discovery (B1–B4).
+    // Deny-first → 404 não-leak (não confirma existência) para evento que o caller não pode ver.
+    const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+    const { canViewEvent } = await import('@core/events/event-visibility.service');
+    if (!(await canViewEvent(tenantId, req.params.id, callerUserId))) {
+      return reply.status(404).send({ error: 'Evento não encontrado' });
+    }
+
     return reply.send(event);
   });
 

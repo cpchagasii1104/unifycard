@@ -800,6 +800,14 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Event not found');
         }
 
+        // 🔵 DECISION-0113 F6.5.6b-CANAL5-A: acesso por ID herda o modelo de visibility da discovery (B1–B4).
+        // Deny-first → 404 não-leak (não confirma existência) para evento que o caller não pode ver.
+        const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+        const { canViewEvent } = await import('./event-visibility.service');
+        if (!(await canViewEvent(req.tenant.id, req.params.id, callerUserId))) {
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Event not found');
+        }
+
         return reply.status(200).send({ event });
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar evento');

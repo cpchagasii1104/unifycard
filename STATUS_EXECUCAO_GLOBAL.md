@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5.6b-CANAL5-A EVENTS · canViewEvent para GET /events/:id (DECISION-0113, canal 5)
+
+**Branch:** `rescue-structural` · **backend** (1 helper novo + 2 rotas + e2e; zero Bank/migration/frontend/sub-resources/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: helper único, eixo actor_id, 404 deny-first.)_
+
+**O que entregou:** o acesso single-event por ID ignorava visibility (IDOR — qualquer autenticado lia private/group/followers/draft por :id). Criado helper ÚNICO `canViewEvent` (`core/events/event-visibility.service.ts`, read-only) que **espelha a discovery; eixo = `event.actor_id`** (NÃO `created_by_*`; NÃO reusa `requireEventOwnerOrAdmin`=gestão). Régua: organizer representável vê tudo do próprio; senão só published/active → public/unlisted (autenticado; unlisted por link) · group (membro, eixo B3) · followers (follow server-side, eixo B4); private/draft/declared/ended/cancelled só organizer; **deny-first → 404 não-leak**. Lê campos RAW (status colapsa declared em 'PUBLISHED' no Event mapeado → uso o raw). Aplicado aos 2 readers canônicos: `GET /events/:id` (sprint76) + `GET /:id` (core). Readers low-level seguem puros (gate no route).
+
+**Arquivos:** `core/events/event-visibility.service.ts` (novo), `modules/events/events-sprint76.routes.ts`, `core/events/event.routes.ts`, `validate-pipeline-e2e-events-by-id-visibility-f6-5-6b-c5a.ts` (novo).
+
+**Prova:** e2e **17/17** com **fixtures REAIS** (organizer page-actor + grupo dono=O + dev membro simples + follow; matriz dos 16 casos incl. public/unlisted/private/group/followers × published/active/draft/declared/ended + inexistente; cleanup reverse-FK **LEFTOVER=0 nas 5 tabelas**). Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: B4 13/13 · B3 12/12 · B2 12/12 · B1 9/9 · event-specs 8/8 · impact 7/7 · canal3-money 7/7 · cultural 7/7 · trust 12/12 · x-actor-id 9/9 · rbac 13/13 · money-live 12/12.
+
+**DTs:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` → **PARTIALLY MITIGATED** (B1–B4 + canal-5-A done; faltam canal-5-B sub-resources não-money + money). DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** canal-5-B (sub-resources `/:eventId/details|posts|stats|participants|metrics` herdam canViewEvent) → settlement/economy/closure/RFQ money READ-FIRST → sweep adversarial final dos 5 canais.
+
+---
+
 ## 2026-06-08 — F6.5.6b-B4 EVENTS · FOLLOWERS-SCOPED DISCOVERY (DECISION-0113, classe H)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de repo + e2e; zero Bank/migration/frontend/canal-5/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: abrir followers p/ quem segue materialmente, follower do servidor não do cliente.)_
