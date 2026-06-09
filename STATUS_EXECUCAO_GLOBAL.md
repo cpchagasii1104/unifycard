@@ -1,3 +1,21 @@
+## 2026-06-08 — F6.5.6b-EVENTS-MONEY-READS · settlement/RFQ read gate (DECISION-0113; money não pega carona em visibility)
+
+**Branch:** `rescue-structural` · **backend** (1 helper + 2 arquivos de rota + e2e; zero Bank/migration/frontend/writes). Dev 365. _(Esteira: auditoria READ-ONLY 3 paralelas → executora; Yala verifica. GO Clayton: camada dupla 404/403; organizer-only MVP; writes = frente própria.)_
+
+**Auditoria (3 lanternas):** norma (money≠visibility) + código 1ª mão + blast. **De 1ª mão:** economy/closure = **mortos** (kill switch→500, sem vazar money); `POST settle` = **já gateado** F3.1 (não tocar); **`GET /events/:id/settlement` + `GET /events/:eventId/rfqs(/:rfqId)` = LEAK** (dado financeiro por id, só req.tenant).
+
+**O que entregou:** helper `assertCanReadEventMoney` (`core/events/event-visibility.service.ts`) — **camada dupla:** `canViewEvent` false → **404 não-leak**; visível mas não representa o organizer (`event.actor_id`) → **403**. Money não pega carona em visibility (canViewEvent só dá o 404; autoridade = `canRepresentActor(organizer)`, MVP organizer-only; finance-admin/view_all_ledger adiado). Aplicado aos 3 reads. POST settle + writes money **intocados**.
+
+**Arquivos:** `core/events/event-visibility.service.ts` (helper novo), `modules/marketplace/event-settlement.routes.ts`, `modules/events/event-rfq.routes.ts`, `validate-pipeline-e2e-events-money-reads-authority-f6-5-6b-mr.ts` (novo).
+
+**Prova:** e2e **13/13** com **fixtures REAIS** (organizer page O + eventos sob O/devActor): organizer→ok; visível-sem-organizer→403; invisível→404; inexistente→404; estranho público→403/privado→404. Estrutural: 3 reads gateados, POST settle intacto, canViewEvent inalterado, sem view_all_ledger/bank. tsc 0; 4 gates OK (bank-ledger verde, dev 365); 15 regressões verdes.
+
+**DTs:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` → tier de visibility de events **DONE** (reads); **nova `DT-EVENTS-MONEY-WRITES` OPEN** (economic-v2/checkout/tickets/consumption/rfq-writes = frente financeira própria, READ-FIRST com capacete). DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** abrir a frente money de WRITES (DT própria) **OU** o **sweep adversarial final dos 5 canais** → só depois avaliar fechar DT-mãe.
+
+---
+
 ## 2026-06-08 — F6.5.6b-CANAL5-C EVENTS · search herda piso B1–B4 + compare herda canViewEvent (DECISION-0113, canal 5)
 
 **Branch:** `rescue-structural` · **backend** (3 arquivos + e2e; zero Bank/migration/frontend/money/writes). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: fechar os 2 residuais não-money antes do money.)_

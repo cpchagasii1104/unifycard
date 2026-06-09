@@ -19,6 +19,17 @@ const eventSettlementRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const eventId = req.params.id;
 
+    // 🔴 DECISION-0113 F6.5.6b-EVENTS-MONEY-READS: settlement é dado FINANCEIRO → não pega carona em visibility.
+    // Camada dupla: invisível/inexistente → 404; visível mas sem representar o organizer → 403. (NÃO canViewEvent só.)
+    const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+    const { assertCanReadEventMoney } = await import('@core/events/event-visibility.service');
+    const auth = await assertCanReadEventMoney(tenantId, eventId, callerUserId);
+    if (!auth.ok) {
+      return reply.status(auth.status).send({
+        error: auth.status === 404 ? 'Evento não encontrado' : 'Sem autoridade financeira sobre o organizer do evento',
+      });
+    }
+
     const settlement = await eventSettlementService.getSettlementByEvent(tenantId, eventId);
 
     if (!settlement) {

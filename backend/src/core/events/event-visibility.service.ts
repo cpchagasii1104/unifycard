@@ -67,6 +67,38 @@ export async function canViewEvent(
   }
 }
 
+/**
+ * 🔵 DECISION-0113 F6.5.6b-EVENTS-MONEY-READS — autoridade de READ de dado FINANCEIRO/procurement de evento
+ * (settlement, RFQ). Camada DUPLA (decisão Clayton):
+ *   - 404 não-leak: evento inexistente OU não visível pelo `canViewEvent` (não confirma evento privado);
+ *   - 403 forbidden: evento VISÍVEL, mas o caller não REPRESENTA o organizer (`event.actor_id`).
+ * Money NÃO pega carona em visibility: `canViewEvent` só serve para o 404; a autoridade financeira é
+ * `canRepresentActor(event.actor_id)` (MVP organizer-only; finance-admin/view_all_ledger = decisão futura).
+ */
+export async function assertCanReadEventMoney(
+  tenantId: string,
+  eventId: string,
+  callerUserId: string | null | undefined
+): Promise<{ ok: true } | { ok: false; status: 404 | 403 }> {
+  // camada 404: inexistente ou invisível pelo modelo de visibility (não-leak de existência).
+  if (!(await canViewEvent(tenantId, eventId, callerUserId))) return { ok: false, status: 404 };
+  // camada 403: visível, mas dado financeiro exige REPRESENTAR o organizer (event.actor_id) — não canViewEvent.
+  const rows = await runQueriesWithTenant<{ actor_id: string | null }>(
+    tenantId,
+    `SELECT actor_id::text AS actor_id FROM events WHERE tenant_id = $1 AND id = $2`,
+    [tenantId, eventId]
+  );
+  const organizerActorId = rows[0]?.actor_id;
+  if (!organizerActorId || !callerUserId) return { ok: false, status: 403 }; // sem organizer/user → fail-closed
+  let canRep = false;
+  try {
+    canRep = await authorizationService.canRepresentActor(tenantId, callerUserId, organizerActorId);
+  } catch {
+    canRep = false;
+  }
+  return canRep ? { ok: true } : { ok: false, status: 403 };
+}
+
 // membership material: event.actor_id (group-actor) → actors.group_id → group_members.user_id = caller. (eixo B3)
 async function isGroupMember(tenantId: string, organizerActorId: string, callerUserId: string): Promise<boolean> {
   const rows = await runQueriesWithTenant<{ ok: number }>(
