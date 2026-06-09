@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requirePermission } from '@core/authorization/require-permission.guard';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { marketplaceService } from '../marketplace.service';
 import { marketplaceLogger } from '../marketplace.logger';
 import { AppError, BadRequestError, NotFoundError, UnauthorizedError } from '@core/errors';
@@ -161,7 +162,29 @@ export async function registerSlaRoutes(fastify: FastifyInstance) {
     preHandler: requirePermission('marketplace_manage_catalog'),
   }, async (req, reply) => {
     try {
+      if (!req.tenant) {
+        throw new UnauthorizedError('Tenant required');
+      }
+      const tenantId = req.tenant.id;
       const { actorId } = req.params;
+
+      // 🔴 DECISION-0113: reputation snapshot é actor-target. Hoje Map in-memory, mas pode vazar o snapshot
+      // efêmero de B se gerado no mesmo processo. `can_manage_marketplace` (default de company) não autoriza
+      // ler reputation de actor alheio. `:actorId` é HINT → exigir representá-lo ANTES de `getReputationSnapshots`.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+      let canRep = false;
+      try {
+        canRep = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+      } catch {
+        canRep = false;
+      }
+      if (!canRep) {
+        return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)', code: 'MARKETPLACE_ACTOR_NOT_REPRESENTABLE' });
+      }
+
       const snapshots = marketplaceService.governance.getReputationSnapshots(actorId);
       return reply.status(200).send({ snapshots });
     } catch (error: unknown) {

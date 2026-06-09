@@ -101,6 +101,24 @@ export async function registerIdentityRoutes(fastify: FastifyInstance) {
     }
     const tenantId = req.tenant.id;
     const { actorId } = req.params;
+
+    // 🔴 DECISION-0113 (A-write): recalculate é write actor-keyed. `can_manage_marketplace` é default de toda
+    // company → não autoriza recalcular a identidade econômica de actor alheio. `:actorId` é HINT → exigir
+    // representá-lo ANTES de qualquer recalculate (senão company A dispara recálculo da identidade de B).
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+    let canRep = false;
+    try {
+      canRep = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      canRep = false;
+    }
+    if (!canRep) {
+      return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)', code: 'MARKETPLACE_ACTOR_NOT_REPRESENTABLE' });
+    }
+
     try {
       const identity = await economicIdentityService.recalculateTrustScore(tenantId, actorId);
       if (!identity) {

@@ -5,11 +5,16 @@
  * getDefaultCapabilities). Logo `requirePermission('marketplace_manage_catalog')` passa para qualquer company
  * → `:actorId` em `/economic-identities/:actorId` e `/trust-events/:actorId` deixava company A ler a identidade
  * econômica / os trust events da company B (A vivo DB-backed, FAIL transversal da Yala sobre a classificação).
- * Agora ambas exigem canRepresentActor(tenantId, req.user.userId, params.actorId) ANTES do service; 401/403 fail-closed.
- * read-only, zero Bank (identidade econômica + trust events, não bank_*). Tabelas: economic_identities / trust_events.
+ * Agora exigem canRepresentActor(tenantId, req.user.userId, params.actorId) ANTES do service; 401/403 fail-closed.
+ * zero Bank (identidade econômica + trust events + reputation, não bank_*). Tabelas: economic_identities / trust_events.
+ *
+ * Cobertura atual (4 rotas marketplace actor-target gateadas pela MESMA régua):
+ *   - GET  /economic-identities/:actorId            (read, DB-backed)   ← selado ebd029d9
+ *   - GET  /trust-events/:actorId                   (read, DB-backed)   ← selado ebd029d9
+ *   - POST /economic-identities/:actorId/recalculate (A-WRITE, DB-backed) ← esta fatia
+ *   - GET  /reputation-snapshots/:actorId           (read, Map in-memory) ← esta fatia (gate defensivo: vaza snapshot efêmero de B no mesmo processo)
  *
  * Fora desta fatia (declarado, intocado):
- *   - GET /reputation-snapshots/:actorId = E (Map in-memory, reputation_snapshots AUSENTE)
  *   - GET /b2b-contracts/actor/:actorId  = E (stub `return []`, b2b_contracts AUSENTE, materialidade futura)
  *   - GET /inventory/movements SEM actorId = B (broad read tenant-wide itemizado, DT própria)
  *
@@ -78,13 +83,20 @@ async function main(): Promise<void> {
     await pool.query(`DELETE FROM actors WHERE id=$1`, [O]);
   }
 
-  console.log('\n— B estrutural: economic-identities e trust-events gateiam params.actorId ANTES do service —');
+  console.log('\n— B estrutural: economic-identities (GET+recalculate) e trust-events gateiam params.actorId ANTES do service —');
   const route = readFileSync(join(process.cwd(), 'src/modules/marketplace/routes/marketplace-identity.routes.ts'), 'utf8');
   const sliceBetween = (a: string, b: string) => { const i = route.indexOf(a); const j = b ? route.indexOf(b, i + 1) : route.length; return i >= 0 ? route.slice(i, j > i ? j : route.length) : ''; };
   // economic-identities GET: do registro da rota GET até o início do bloco /recalculate
   const econGet = sliceBetween("'/economic-identities/:actorId',", "'/economic-identities/:actorId/recalculate'");
+  // economic-identities recalculate (A-write): do registro /recalculate até /trust-events
+  const recalc = sliceBetween("'/economic-identities/:actorId/recalculate'", "'/trust-events/:actorId',");
   // trust-events GET: do registro da rota até o fim do arquivo
   const trust = sliceBetween("'/trust-events/:actorId',", "");
+
+  // reputation-snapshots (read in-memory): outro arquivo
+  const slaRoute = readFileSync(join(process.cwd(), 'src/modules/marketplace/routes/marketplace-sla.routes.ts'), 'utf8');
+  const slaSlice = (a: string, b: string) => { const i = slaRoute.indexOf(a); const j = b ? slaRoute.indexOf(b, i + 1) : slaRoute.length; return i >= 0 ? slaRoute.slice(i, j > i ? j : slaRoute.length) : ''; };
+  const reput = slaSlice("'/reputation-snapshots/:actorId',", "// POST /marketplace/payment-plan/:paymentPlanId/apply-sla-penalties");
 
   record('B0 import authorizationService presente',
     /from '@core\/authorization\/authorization\.service'/.test(route));
@@ -98,28 +110,47 @@ async function main(): Promise<void> {
     && trust.indexOf('canRepresentActor(') < trust.indexOf('listTrustEvents(')
     && /status\(401\)/.test(trust) && /status\(403\)/.test(trust)
     && /MARKETPLACE_ACTOR_NOT_REPRESENTABLE/.test(trust));
-  record('B3 params.actorId não chega cru ao service sem gate (gate precede o service nos 2 handlers)',
+  record('B2a recalculate (A-WRITE): canRepresentActor ANTES de recalculateTrustScore; 401/403',
+    /canRepresentActor\(tenantId, userId, actorId\)/.test(recalc)
+    && recalc.indexOf('canRepresentActor(') < recalc.indexOf('recalculateTrustScore(')
+    && /status\(401\)/.test(recalc) && /status\(403\)/.test(recalc)
+    && /MARKETPLACE_ACTOR_NOT_REPRESENTABLE/.test(recalc));
+  record('B2b reputation-snapshots: canRepresentActor ANTES de getReputationSnapshots; 401/403',
+    /canRepresentActor\(tenantId, userId, actorId\)/.test(reput)
+    && reput.indexOf('canRepresentActor(') < reput.indexOf('getReputationSnapshots(')
+    && /status\(401\)/.test(reput) && /status\(403\)/.test(reput)
+    && /MARKETPLACE_ACTOR_NOT_REPRESENTABLE/.test(reput)
+    && /from '@core\/authorization\/authorization\.service'/.test(slaRoute));
+  record('B3 params.actorId não chega cru ao service sem gate (gate precede o service nos 4 handlers)',
     econGet.indexOf('canRepresentActor(') >= 0 && econGet.indexOf('canRepresentActor(') < econGet.indexOf('getEconomicIdentity(')
-    && trust.indexOf('canRepresentActor(') >= 0 && trust.indexOf('canRepresentActor(') < trust.indexOf('listTrustEvents('));
-  record('B4 requirePermission(marketplace_manage_catalog) preservado nas 2 rotas alvo',
-    (route.match(/requirePermission\('marketplace_manage_catalog'\)/g) || []).length >= 2
+    && trust.indexOf('canRepresentActor(') >= 0 && trust.indexOf('canRepresentActor(') < trust.indexOf('listTrustEvents(')
+    && recalc.indexOf('canRepresentActor(') >= 0 && recalc.indexOf('canRepresentActor(') < recalc.indexOf('recalculateTrustScore(')
+    && reput.indexOf('canRepresentActor(') >= 0 && reput.indexOf('canRepresentActor(') < reput.indexOf('getReputationSnapshots('));
+  record('B4 requirePermission(marketplace_manage_catalog) preservado nas 4 rotas alvo',
+    (route.match(/requirePermission\('marketplace_manage_catalog'\)/g) || []).length >= 3
     && /requirePermission\('marketplace_manage_catalog'\)/.test(econGet)
-    && /requirePermission\('marketplace_manage_catalog'\)/.test(trust));
+    && /requirePermission\('marketplace_manage_catalog'\)/.test(trust)
+    && /requirePermission\('marketplace_manage_catalog'\)/.test(recalc)
+    && /requirePermission\('marketplace_manage_catalog'\)/.test(reput));
   record('B5 can_manage_marketplace NÃO tratado como autoridade sobre o actor alvo (capability não é o gate do actorId)',
     !/can_manage_marketplace/.test(econGet.replace(/\/\/[^\n]*/g, '')) // só em comentário, não em lógica
     && /canRepresentActor\(/.test(econGet) && /canRepresentActor\(/.test(trust));
-  record('B6 NÃO usa ensureUserActor/getActiveActor como authority shortcut',
-    !/ensureUserActor\(/.test(route) && !/getActiveActor\(/.test(route));
-  record('B7 zero Bank no arquivo (identidade/trust, não bank_*)',
-    !/bank_ledger|bank_transactions|bank_accounts/.test(route));
-  record('B8 zero writes ADICIONADOS pelo patch (POSTs pré-existentes: create + recalculate; nenhum novo)',
-    (route.match(/fastify\.(post|put|patch|delete)/g) || []).length === 2);
-  record('B9 rotas E/B fora do patch: economic-identities é o único arquivo tocado; sem reputation/b2b/movements aqui',
-    !/reputation-snapshots|b2b-contracts|inventory\/movements/.test(route));
+  record('B6 NÃO usa ensureUserActor/getActiveActor como authority shortcut (identity + sla)',
+    !/ensureUserActor\(/.test(route) && !/getActiveActor\(/.test(route)
+    && !/ensureUserActor\(/.test(reput) && !/getActiveActor\(/.test(reput));
+  record('B7 zero Bank nos handlers tocados (identidade/trust/reputation, não bank_*)',
+    !/bank_ledger|bank_transactions|bank_accounts/.test(route)
+    && !/bank_ledger|bank_transactions|bank_accounts/.test(reput));
+  record('B8 zero writes ADICIONADOS pelo patch (identity: POSTs pré-existentes create+recalculate; reputation é GET)',
+    (route.match(/fastify\.(post|put|patch|delete)/g) || []).length === 2
+    && !/fastify\.(post|put|patch|delete)/.test(reput));
+  record('B9 b2b-contracts e inventory/movements SEM actorId permanecem fora do patch (não tocados aqui)',
+    !/b2b-contracts/.test(route) && !/inventory\/movements/.test(route)
+    && !/b2b-contracts/.test(reput) && !/inventory\/movements/.test(reput));
 
-  note('Denominador marketplace actor-target: A corrigidas = 2 (economic-identities/:actorId + trust-events/:actorId). '
-    + 'E fora do patch = reputation-snapshots/:actorId (in-memory) + b2b-contracts/actor/:actorId (stub). '
-    + 'B fora do patch = inventory/movements SEM actorId (broad read). M = 0.');
+  note('Denominador marketplace actor-target: A corrigidas NESTA fatia = 1 write (recalculate) + 1 read in-memory (reputation-snapshots). '
+    + 'A já corrigidas antes = inventory ×2 (by-actor saldo, movements?actorId) e identity reads ×2 (economic-identities GET, trust-events). '
+    + 'E fora do patch = b2b-contracts/actor/:actorId (stub). B/G fora do patch = inventory/movements SEM actorId (broad read). M = 0.');
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);
