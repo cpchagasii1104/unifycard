@@ -8,6 +8,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { unifiedAvailabilityService } from './unified-availability.service';
 import { weeklyTemplateMaterializerService } from './weekly-template-materializer.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { BadRequestError } from '@core/errors';
 import { z } from 'zod';
 import rateLimit from '@fastify/rate-limit';
@@ -1007,6 +1008,28 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
+    }
+
+    // 🔴 DECISION-0113 canal-5 (params): `:actorId` é o SUJEITO da consulta de conflitos — retorna a agenda
+    // (slots/horários) do actor alvo = PII operacional. `actionContext`/`tenant` só provam presença, NÃO
+    // representabilidade. `req.params.actorId` é HINT, não autoridade. Exigir que o req.user PROVE representar
+    // esse actorId ANTES de detectConflicts (fail-closed → 403). 401 sem user. O gate bate no MESMO actorId
+    // que dirige a leitura, não no actor do caller.
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+    let canRep = false;
+    try {
+      canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, req.params.actorId);
+    } catch {
+      canRep = false;
+    }
+    if (!canRep) {
+      return reply.status(403).send({
+        error: 'Sem autoridade sobre o actor (canRepresentActor)',
+        code: 'AVAILABILITY_CONFLICTS_ACTOR_NOT_REPRESENTABLE',
+      });
     }
 
     try {

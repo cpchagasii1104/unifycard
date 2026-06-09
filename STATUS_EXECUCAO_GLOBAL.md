@@ -94,6 +94,26 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 CANAL-5 params · availability-conflicts IDOR de agenda fechado
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: Yala selou invoice by-id `21a6a2ea` → GO availability-conflicts. Yala verifica.)_
+
+**IDOR (agenda PII):** `GET /availability/:availabilityId/participants/:actorId/conflicts` validava só `actionContext`/`tenant` e usava `req.params.actorId` em `detectConflicts` (retorna slots/horários do actor alvo) → qualquer caller lia agenda alheia por params. Mesmo eixo do unified-calendar.
+
+**Correção:** `req.user.userId` obrigatório (401) → `canRepresentActor(tenantId, userId, req.params.actorId)` ANTES de `detectConflicts` → 403 fail-closed; catch fecha. Gate no MESMO actorId que dirige a leitura. `detectConflicts` read-only (SELECT detect_availability_conflicts, zero Bank). Idioma `req.user?.userId` do arquivo; sem getActiveActor/ensureUserActor.
+
+**Arquivos:** `core/availability/unified-availability.routes.ts`, `validate-pipeline-e2e-availability-conflicts-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **12/12** (A primitivo; B gate-sobre-params-antes-de-detectConflicts + 401/403 + catch fail-closed + sem writer-resolver + denominador 7 GETs; C service/repo read-only). tsc 0; 4 gates OK; dev 365. Regressões: availability-conflicts 12/12, unified-calendar 17/17, invoice 16/16, x-actor-id 9/9, canal3-money 7/7, money-live 12/12.
+
+**Denominador:** 7 GETs no arquivo — esta fatia fecha SÓ /conflicts. Os outros 6 (availability list/by-id, bookings, participants) = **resíduo do mesmo eixo agenda, registrado, fora deste escopo**.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado. dashboard/reports pendentes; +6 GETs de availability residuais.
+
+**PRÓXIMA ETAPA:** Yala reseal availability-conflicts → dashboard/reports → sweep adversarial final.
+
+---
+
 ## 2026-06-09 — DECISION-0113 · invoice by-id MICRO-CORREÇÃO: admin escape sem resolve-by-first (§8/0069)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: auto-acusação da executora → veredito diretora "corrige antes de availability-conflicts" → Yala reseal.)_
