@@ -1,3 +1,23 @@
+## 2026-06-09 — DECISION-0113 · payment-method READS · fecha list + by-id (arquivo inteiro)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: Yala — "default gateado não protege se a lista está aberta" → executora. GO Clayton: fechar o arquivo.)_
+
+**O que entregou:** os 2 reads que faltavam no `payment-method.routes.ts` (mesma PII financeira). **`GET /payment-methods?actorId`**: com actorId → `canRepresentActor(query.actorId)`; **SEM actorId** (lista TODOS os métodos do tenant = cross-actor) → `financial:view_all_ledger` (admin), senão fail-closed 403. **`GET /payment-methods/:id`**: `:id` é o paymentMethodId (recurso), NÃO actor → resolve o **owner real** (`method.actorId`, owner field provado) → `canRepresentActor(method.actorId)`; 404 inexistente. Read-only, sem Bank. `/default` (5c3e1108) + POST F3.1 **intactos**.
+
+**Arquivos:** `modules/marketplace/payment-method.routes.ts`, `validate-pipeline-e2e-payment-method-read-authority-f6-5-c3.ts` (novo); default-authority e2e atualizado (C agora prova denominador FECHADO).
+
+**Prova:** e2e read **12/12** (A behavioral canRepresentActor + admin-deny; B estrutural: **denominador 3 GETs TODOS gateados**, by-id usa method.actorId não params.id, default/POST intactos, read-only). default-authority **10/10**. LEFTOVER=0. tsc 0; 4 gates OK (bank-ledger verde, dev 365); regressões verdes.
+
+**DENOMINADOR DO ARQUIVO FECHADO:** os 3 GETs (list/by-id/default) + POST = todos com authority. Nenhum GET de payment-method nu.
+
+**🔴 RESÍDUO (DT-mãe NÃO fecha):** **RE-SWEEP EXAUSTIVO de actorId** (grep do backend inteiro — a frase "canal-3 limpo" já caiu uma vez) · groups economy · settlements/AP/AR · `/regions/:id/account` (decisão Clayton) · invoice/:invoiceId · marketplace-identity/sla · b2b-contracts/availability/organization.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** **re-sweep EXAUSTIVO de actorId** (denominador real do backend, arquivo por arquivo) → b2b-contracts/availability/organization → groups economy → settlement/AP/AR → fundo regional → só então DT-mãe.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-3 QUERY · payment-method default actor gate (?actorId)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: resíduo "canal-3 limpo" caiu → executora; Yala verifica. GO Clayton.)_

@@ -67,6 +67,41 @@ const paymentMethodRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const query = req.query as any;
 
+    // 🔴 DECISION-0113 canal 3: método de pagamento = PII financeira. Com `actorId` → representar o actor filtrado
+    // (canRepresentActor); SEM `actorId` → lista TODOS os métodos do tenant (cross-actor) → admin financeiro
+    // (financial:view_all_ledger), senão fail-closed (403). 401 sem user.
+    const userId = (req as { user?: { id?: string } }).user?.id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.id)' });
+    }
+    if (query.actorId) {
+      let canRep = false;
+      try {
+        canRep = await authorizationService.canRepresentActor(tenantId, userId, query.actorId);
+      } catch {
+        canRep = false;
+      }
+      if (!canRep) {
+        return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)' });
+      }
+    } else {
+      let adminOk = false;
+      try {
+        const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
+        const { getActiveActor } = await import('@core/actors/actor.helpers');
+        const callerActor = await getActiveActor(tenantId, userId);
+        if (callerActor) {
+          await businessAuthorizationService.requirePermission(tenantId, userId, callerActor.actor_id, 'financial:view_all_ledger', 'payment_method_list');
+          adminOk = true;
+        }
+      } catch {
+        adminOk = false;
+      }
+      if (!adminOk) {
+        return reply.status(403).send({ error: 'Listagem cross-actor de métodos exige financial:view_all_ledger' });
+      }
+    }
+
     const filters: PaymentMethodFilters = {};
     if (query.actorId) filters.actorId = query.actorId;
     if (query.type) filters.type = query.type as any;
@@ -86,10 +121,26 @@ const paymentMethodRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { id: string } }>('/payment-methods/:id', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const { id } = req.params;
+    const userId = (req as { user?: { id?: string } }).user?.id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.id)' });
+    }
 
     const method = await paymentMethodService.getMethodById(tenantId, id);
     if (!method) {
       throw new NotFoundError('Método não encontrado');
+    }
+
+    // 🔴 DECISION-0113 canal-5: `:id` é o paymentMethodId (recurso), NÃO actor. Resolve o OWNER real do método
+    // (`method.actorId`) e exige representar o dono ANTES de retornar a PII. fail-closed → 403.
+    let canRep = false;
+    try {
+      canRep = await authorizationService.canRepresentActor(tenantId, userId, method.actorId);
+    } catch {
+      canRep = false;
+    }
+    if (!canRep) {
+      return reply.status(403).send({ error: 'Sem autoridade sobre o dono do método (canRepresentActor)' });
     }
 
     return method;

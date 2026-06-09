@@ -77,19 +77,19 @@ async function main(): Promise<void> {
     && defBlock.indexOf('canRepresentActor(') < defBlock.indexOf('getDefaultMethod('));
   record('B2 403 não-representável + 401 sem user + 400 sem actorId (preservado)',
     /status\(403\)/.test(defBlock) && /status\(401\)/.test(defBlock) && /actorId é obrigatório/.test(defBlock));
-  record('B3 gate usa query.actorId (o filtrado), NÃO getActiveActor/actor do caller',
-    /const \{ actorId \} = req\.query/.test(defBlock) && !/getActiveActor\(/.test(route));
+  record('B3 gate do /default usa query.actorId (o filtrado), NÃO getActiveActor (no bloco do /default)',
+    /const \{ actorId \} = req\.query/.test(defBlock) && !/getActiveActor\(/.test(defBlock));
   record('B4 POST /payment-methods (F3.1) intacto (canRepresentActor sobre body.actorId)',
     /canRepresentActor\(tenantId, userId, ownerActorId\)/.test(route));
   record('B5 getDefaultMethod read-only (service → repository, sem Bank no diff)',
     !/bank_ledger|bank_transactions|INSERT INTO|UPDATE /.test(defBlock));
 
-  console.log('\n— C denominador (honesto): os 2 outros GETs do MESMO arquivo AINDA não gateados (resíduo) —');
-  record('C1 GET /payment-methods (list ?actorId) AINDA sem canRepresentActor → resíduo reportado',
-    /if \(query\.actorId\) filters\.actorId = query\.actorId/.test(route));
-  record('C2 GET /payment-methods/:id (params) AINDA sem authority → resíduo reportado',
-    /getMethodById\(tenantId, id\)/.test(route));
-  note('DENOMINADOR do arquivo: 3 GETs — /default GATEADO; /payment-methods (list) e /:id = RESÍDUO (reportado na DT, fila Clayton).');
+  console.log('\n— C denominador: os 3 GETs do arquivo agora TODOS gateados (fechado por fatia seguinte) —');
+  record('C1 GET /payment-methods (list) agora gateado (canRepresentActor ?actorId + financial:view_all_ledger sem actorId)',
+    /canRepresentActor\(tenantId, userId, query\.actorId\)/.test(route) && /'financial:view_all_ledger', 'payment_method_list'/.test(route));
+  record('C2 GET /payment-methods/:id agora gateado pelo owner real (canRepresentActor(method.actorId))',
+    /canRepresentActor\(tenantId, userId, method\.actorId\)/.test(route));
+  note('DENOMINADOR do arquivo FECHADO: 3 GETs — /default + list + /:id gateados; nenhum GET nu.');
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);
