@@ -94,9 +94,36 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // 🔴 DECISION-0113 canal-5 financeiro: LISTAGEM cross-actor/cross-owner com saldo NÃO é self-read (self tem /me;
+  // conta única tem /:accountId). ownerId legado NÃO é actor → NÃO canRepresentActor. Exige permissão financeira
+  // admin existente (financial:view_all_ledger); senão fail-closed (403). 401 sem user.
+  async function assertFinancialAdmin(
+    tenantId: string,
+    callerUserId: string | undefined,
+  ): Promise<{ ok: true } | { ok: false; status: 401 | 403 }> {
+    if (!callerUserId) return { ok: false, status: 401 };
+    try {
+      const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
+      const { getActiveActor } = await import('@core/actors/actor.helpers');
+      const callerActor = await getActiveActor(tenantId, callerUserId);
+      if (!callerActor) return { ok: false, status: 403 };
+      await businessAuthorizationService.requirePermission(tenantId, callerUserId, callerActor.actor_id, 'financial:view_all_ledger', 'account_list');
+      return { ok: true };
+    } catch {
+      return { ok: false, status: 403 };
+    }
+  }
+
   // GET /economy/accounts - Listar contas
   fastify.get('/', async (req, reply) => {
     const tenantId = req.tenant!.id;
+
+    const auth = await assertFinancialAdmin(tenantId, (req.user as { userId?: string } | undefined)?.userId);
+    if (!auth.ok) {
+      return reply.status(auth.status).send({
+        error: auth.status === 401 ? 'Authentication required' : 'Sem permissão financeira (financial:view_all_ledger)',
+      });
+    }
 
     const parsed = listAccountsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -221,6 +248,14 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
     Querystring: { ownerType?: OwnerType };
   }>('/owner/:ownerId', async (req, reply) => {
     const tenantId = req.tenant!.id;
+
+    // 🔴 DECISION-0113 canal-5 financeiro: lista por ownerId LEGADO (não actor) → listagem admin/financeira.
+    const auth = await assertFinancialAdmin(tenantId, (req.user as { userId?: string } | undefined)?.userId);
+    if (!auth.ok) {
+      return reply.status(auth.status).send({
+        error: auth.status === 401 ? 'Authentication required' : 'Sem permissão financeira (financial:view_all_ledger)',
+      });
+    }
 
     const parsedParams = ownerIdSchema.safeParse(req.params);
     if (!parsedParams.success) {

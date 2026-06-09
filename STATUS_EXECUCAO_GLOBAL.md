@@ -1,3 +1,23 @@
+## 2026-06-09 — DECISION-0113 CANAL-5 FINANCEIRO · account LIST gate (/ + /owner/:ownerId)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank-write/migration/frontend). Dev 365. _(Esteira: Yala achou o furo no mesmo arquivo → executora. GO Clayton: financial:view_all_ledger, não canRepresentActor.)_
+
+**O que entregou:** Yala passou o gate de `/:accountId` mas achou disclosure em massa no MESMO arquivo: `GET /economy/accounts/` (lista TODAS as contas do tenant + saldo) e `GET /owner/:ownerId` (lista por ownerId legado) — ambos só req.tenant. **São listagens cross-actor/cross-owner com saldo, NÃO self-read.** Gateadas com `assertFinancialAdmin` (helper) → `financial:view_all_ledger` (admin/finance existente); 401 sem user / 403 fail-closed. **NÃO canRepresentActor** (ownerId legado não é actor; self tem `/me`; conta única tem `/:accountId`).
+
+**Arquivos:** `core/economy/accounts/account.routes.ts`, `validate-pipeline-e2e-account-list-authority-f6-5-c5-financial.ts` (novo).
+
+**Prova:** e2e **8/8** (A behavioral: dev sem `financial:view_all_ledger` → requirePermission nega → 403; admin-pass N/A honesto; B estrutural: **denominador completo do arquivo = 5 GETs classificados** — `/me`=self · `/`=financial-admin · `/:accountId`+`/balance`=assertAccountReadAuthority · `/owner/:ownerId`=financial-admin; gates antes do read; saldo do bank_ledger intocado). tsc 0; 4 gates OK (**bank-ledger verde**, dev 365); 10 regressões verdes.
+
+**Denominador do arquivo FECHADO:** `/me`(self) · `/`(view_all_ledger) · `/:accountId`(owner) · `/:accountId/balance`(owner) · `/owner/:ownerId`(view_all_ledger). Nenhum GET de account nu.
+
+**🔴 RESÍDUO financeiro by-id (DT-mãe NÃO fecha):** settlements/:id · AP/AR (owner ambíguo, STOP) · `/regions/:id/account` (decisão Clayton) · invoice/:invoiceId (armadilha) · opportunity-dispatch · marketplace-identity/sla · groups-overview · re-sweep.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** opportunity-dispatch / groups economy → settlement/AP/AR READ-FIRST → decisão `/regions/:id/account` → invoice/marketplace → re-sweep → só então DT-mãe.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 FINANCEIRO BY-ID · account read gate (accountId/balance)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank-write/migration/frontend). Dev 365. _(Esteira: READ-FIRST denominador→owner-raw→executora; Yala verifica. GO Clayton.)_
