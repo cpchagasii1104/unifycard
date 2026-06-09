@@ -20,6 +20,24 @@ import type { GetHoldingCostsOptions, HoldingCostConfig } from '../marketplace/i
 import type { GetMarginOptions, MarginConfig } from '../marketplace/real-margin.types';
 import type { SimulationInput } from '../marketplace/decision-simulation.types';
 import type { GetPricingStrategyOptions } from '../marketplace/pricing-strategy.types';
+import { authorizationService } from '@core/authorization/authorization.service';
+
+/**
+ * 🔴 DECISION-0113 — resolve o actorId AUTORIZADO de um relatório dashboard/reports.
+ * `reports:view_operational` prova acesso ao MÓDULO (ownership do PRÓPRIO actor), NÃO autoridade sobre o actor
+ * filtrado. `query.actorId` é HINT → exigir canRepresentActor; sem query.actorId → self via actionContext
+ * (validado). Sem tenant-wide silencioso. Envia 401/403/400 e retorna null se negado.
+ */
+async function resolveReportActorId(req: any, reply: any): Promise<string | null> {
+  const userId = req?.user?.userId as string | undefined;
+  if (!userId) { reply.status(401).send({ ok: false, error: 'Autenticação obrigatória (req.user.userId)' }); return null; }
+  if (!req.actionContext?.actorId) { reply.status(400).send({ ok: false, error: 'ActionContext obrigatório' }); return null; }
+  const target = req.query?.actorId ? String(req.query.actorId) : String(req.actionContext.actorId);
+  let canRep = false;
+  try { canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, target); } catch { canRep = false; }
+  if (!canRep) { reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o actor do relatório (canRepresentActor)', code: 'REPORT_ACTOR_NOT_REPRESENTABLE' }); return null; }
+  return target;
+}
 
 const reportsRoutes = async (fastify: FastifyInstance) => {
   // GET /reports/sales
@@ -141,9 +159,10 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
       filters.endDate = new Date(query.endDate);
     }
 
-    if (query.actorId) {
-      filters.actorId = query.actorId;
-    }
+    // 🔴 DECISION-0113: query.actorId é HINT → representável OU self via actionContext. Nunca cru/tenant-wide.
+    const authorizedActorId = await resolveReportActorId(req, reply);
+    if (authorizedActorId === null) return;
+    filters.actorId = authorizedActorId;
 
     const report = await financialReportService.generateReport(tenantId, filters);
     return reply.status(200).send(report);
@@ -393,9 +412,10 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
     };
     const config: MarginConfig = {};
 
-    if (query.actorId) {
-      options.actorId = query.actorId;
-    }
+    // 🔴 DECISION-0113: query.actorId é HINT → representável OU self via actionContext. Nunca cru/tenant-wide.
+    const authorizedActorId = await resolveReportActorId(req, reply);
+    if (authorizedActorId === null) return;
+    options.actorId = authorizedActorId;
 
     if (query.productVariantId) {
       options.productVariantId = query.productVariantId;
@@ -445,9 +465,10 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
     };
     const config: MarginConfig = {};
 
-    if (query.actorId) {
-      options.actorId = query.actorId;
-    }
+    // 🔴 DECISION-0113: query.actorId é HINT → representável OU self via actionContext. Nunca cru/tenant-wide.
+    const authorizedActorId = await resolveReportActorId(req, reply);
+    if (authorizedActorId === null) return;
+    options.actorId = authorizedActorId;
 
     if (query.channel) {
       options.channel = query.channel as any;
@@ -493,9 +514,10 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
     };
     const config: MarginConfig = {};
 
-    if (query.actorId) {
-      options.actorId = query.actorId;
-    }
+    // 🔴 DECISION-0113: query.actorId é HINT → representável OU self via actionContext. Nunca cru/tenant-wide.
+    const authorizedActorId = await resolveReportActorId(req, reply);
+    if (authorizedActorId === null) return;
+    options.actorId = authorizedActorId;
 
     if (query.periodStart) {
       options.periodStart = new Date(query.periodStart);
@@ -570,9 +592,10 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
       productVariantId: query.productVariantId,
     };
 
-    if (query.actorId) {
-      options.actorId = query.actorId;
-    }
+    // 🔴 DECISION-0113: query.actorId é HINT → representável OU self via actionContext. Nunca cru/tenant-wide.
+    const authorizedActorId = await resolveReportActorId(req, reply);
+    if (authorizedActorId === null) return;
+    options.actorId = authorizedActorId;
 
     if (query.channel) {
       options.channel = query.channel as any;

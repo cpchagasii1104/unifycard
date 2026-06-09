@@ -94,6 +94,27 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 CANAL-3 · dashboard/reports actorId (6 rotas A, money-adjacent)
+
+**Branch:** `rescue-structural` · **backend** (2 arquivos de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: auditoria READ-ONLY + complemento fecharam o denominador → GO 6 rotas A. Yala verifica.)_
+
+**A armadilha:** `dashboard:view`/`reports:view_operational` = `null`/"ownership suficiente" (acesso ao módulo, ownership do próprio actor), NÃO autoridade sobre o `query.actorId` filtrado. 6 rotas passavam query.actorId CRU ao service (escopa orders/payouts/margem/preço) → leak de actor alheio.
+
+**Correção (régua sensível):** helper `resolveReportActorId` → req.user (401) → query.actorId representável (canRepresentActor) OU self via actionContext (validado) → 403 fail-closed (REPORT_ACTOR_NOT_REPRESENTABLE); nunca tenant-wide silencioso. Sem admin escape novo (consolidated=view_consolidated_reports já existia=F, preservado, fora destas 6); zero Bank (money-adjacent: orders/payouts, não cofre); services intocados.
+
+**Rotas A corrigidas:** dashboard/sales · reports/financial · reports/margin/{variants,actors,channels} · reports/pricing/strategy.
+**C intactas:** suggestions/holding-costs (filtro morto) · reports/sales (override) · dashboard/overview/today/month (actingActorId) · simulations (input.actorId nunca setado).
+
+**Arquivos:** `modules/dashboard/dashboard.routes.ts`, `modules/reports/reports.routes.ts`, `validate-pipeline-e2e-dashboard-reports-actorid-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **15/15**. tsc 0; 4 gates OK (bank-ledger verde; dev 365). Regressões TODAS verdes (13 suites).
+
+**DTs:** DT-mãe **OPEN** (falta sweep adversarial final dos 5 canais). R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala reseal → sweep adversarial final dos 5 canais (rumo a fechar a DT-mãe) OU próxima superfície que Clayton priorizar.
+
+---
+
 ## 2026-06-09 — DECISION-0113 WRITE · participant writes — 🏁 FECHA unified-availability.routes.ts PONTA-A-PONTA
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: matriz de produto da diretora → patch. Yala verifica.)_

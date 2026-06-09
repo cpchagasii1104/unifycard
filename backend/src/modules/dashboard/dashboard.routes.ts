@@ -3,7 +3,25 @@
 
 import type { FastifyInstance } from 'fastify';
 import { dashboardService } from './dashboard.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 import type { DashboardFilters } from './dashboard.types';
+
+/**
+ * 🔴 DECISION-0113 — resolve o actorId AUTORIZADO de um relatório dashboard/reports.
+ * `dashboard:view`/`reports:view_operational` provam acesso ao MÓDULO (ownership do PRÓPRIO actor), NÃO
+ * autoridade sobre o actor filtrado. `query.actorId` é HINT → exigir canRepresentActor; sem query.actorId →
+ * self via actionContext (validado). Sem tenant-wide silencioso. Envia 401/403/400 e retorna null se negado.
+ */
+async function resolveReportActorId(req: any, reply: any): Promise<string | null> {
+  const userId = req?.user?.userId as string | undefined;
+  if (!userId) { reply.status(401).send({ ok: false, error: 'Autenticação obrigatória (req.user.userId)' }); return null; }
+  if (!req.actionContext?.actorId) { reply.status(400).send({ ok: false, error: 'ActionContext obrigatório' }); return null; }
+  const target = req.query?.actorId ? String(req.query.actorId) : String(req.actionContext.actorId);
+  let canRep = false;
+  try { canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, target); } catch { canRep = false; }
+  if (!canRep) { reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o actor do relatório (canRepresentActor)', code: 'REPORT_ACTOR_NOT_REPRESENTABLE' }); return null; }
+  return target;
+}
 
 /**
  * Helper para resolver actorId do ActionContext
@@ -165,9 +183,10 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
       filters.endDate = new Date(query.endDate);
     }
 
-    if (query.actorId) {
-      filters.actorId = query.actorId;
-    }
+    // 🔴 DECISION-0113: query.actorId é HINT → representável OU self via actionContext. Nunca cru/tenant-wide.
+    const authorizedActorId = await resolveReportActorId(req, reply);
+    if (authorizedActorId === null) return; // 401/403/400 já enviado
+    filters.actorId = authorizedActorId;
 
     if (query.channel) {
       filters.channel = query.channel as 'PDV' | 'MARKETPLACE' | 'ALL';
