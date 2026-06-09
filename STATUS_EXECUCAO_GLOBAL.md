@@ -94,6 +94,22 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 CANAL-3 QUERY · unified-calendar?actorId gate (leak vivo de agenda)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: reconciliação 20+19 apontou unified-calendar como leak A #1 → executora; Yala verifica. GO Clayton.)_
+
+**O que entregou:** `GET /unified-calendar?actorId` lia a **agenda unificada** (availability + eventos do actor = PII operacional) de QUALQUER `actorId` declarado na query — **zero gate** (só `req.tenant`, sem `req.user`, sem `canRepresentActor`). Agora: quando há `query.actorId` → `canRepresentActor(tenantId, req.user.id, query.actorId)` ANTES de `getUnifiedCalendar`; 401 sem user; 403 não-representável (fail-closed). **Path SEM actorId preservado** (read-model do tenant; lista cross-actor sem filtro = outra família, resíduo honesto fora do escopo). Service read-only confirmado de 1ª mão (SELECT em `availability`/`events`; sem Bank). **Denominador FECHADO: 1 único GET, gateado.**
+
+**Arquivos:** `core/calendar/unified-calendar.routes.ts`, `validate-pipeline-e2e-unified-calendar-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **10/10** (A behavioral canRepresentActor próprio→true/alheio→false/estranho→false; B estrutural gate-antes-da-leitura + `if(query.actorId)` envolve o gate + 401/403 + path-sem-actorId preservado + import; C service read-only). tsc 0; 4 gates OK (`critical_new=0`/`warning_new=1` baseline c3; bank-ledger verde; dev 365).
+
+**DTs:** DT-mãe **OPEN** (denominador ainda incompleto). R2 congelado.
+
+**PRÓXIMA ETAPA:** auditoria READ-ONLY dos 4 itens não classificados (b2b-contracts · availability-conflicts · organization-units · invoice) → re-sweep dos 5 canais → só então avaliar fechar DT-mãe.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 PARAMS · economic-overview authority gate (resíduo do sweep final)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: sweep adversarial READ-ONLY achou o leak → executora; Yala verifica. GO Clayton.)_
