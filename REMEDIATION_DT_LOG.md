@@ -11542,6 +11542,21 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Mitigação:** ficam **FORA da `F3.1`** (que cobre só as 3 rotas vivas). Religamento futuro exige **DECISION + gate (`req.user`→`canRepresentActor`/`canManageCompany`/região) + E2E fail-closed no mesmo commit**; nunca religar o repo isolado. Para region/AP-AR, precede ainda a decisão de modelo (DTs abaixo).
 - **Vinculada a:** `DECISION-0114`, `DECISION-0113` (fatia 3), Lei 5 (Bank SSOT), `marketplace/*.service.ts` (Proxies), `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`.
 
+## DT-UNIFYCARD-ACQUIRING-LEGACY-TOMBSTONE — OPEN (2026-06-09, docs-only)
+
+- **Status:** **TOMBSTONE registrado (2026-06-09, docs-only)** — sub-caso específico e verificado de 1ª mão do `DT-MONEY-LATENT-REACTIVATION-TRAP`. Após 3 paralelas READ-ONLY + reachability check (HEAD `4674bc5c`), o trilho **UnifyCard acquiring legado** (SPRINT 73) é **C-INERTE**: registrado mas morto, **não M-LIVE, não A/BREAK**. Decisão diretora: **formalizar a aposentadoria** que o Proxy já implementa de fato — sem patch de authority (seria teatro: a rota rejeita antes de qualquer I/O), sem migration, sem frontend.
+- **Evidência material (1ª mão, banco vivo + código):**
+  - `unifycard.service.ts:12-15` — `unifyCardRepository` é um **`Proxy`** cujo CADA método retorna `Promise.reject(new Error('UnifyCard migrated to Bank'))` ("Repo migrado para Bank - fail-fast até migração"). Logo `authorize`/`capture`/`settle`/`listTransactions`/`getTransactionById` **lançam antes de tocar o DB** → rotas `/unifycard/*` registradas (`marketplace.routes:111`) mas **fail-closed/dead**.
+  - **Zero alcançabilidade viva:** `'UNIFYCARD'` literal e `isUnifyCard` **não existem** em backend; **`payment-execution.service.ts` não existe**; nenhum provider enum `unifycard`; **zero** referência no frontend (sem botão); **zero** caller interno de `unifyCardService.*`; nenhum seed cria provider UNIFYCARD ("UnifyCard DEV" = nome do tenant, não provider).
+  - **Banco vivo:** `unifycard_transactions` **EXISTE, 0 linhas**; `payment_methods` **AUSENTE**; `unifycard_payment_methods` **AUSENTE** (migration só em `migrations_archive`).
+- **Régua normativa (tombstone — a norma existente já basta, SEM DECISION nova):**
+  1. **`unifycard_transactions` = LOG histórico / NON-SSOT.** Manter (0 linhas), **NÃO dropar**; **NÃO** usar para saldo/decisão financeira/agregação/settlement final. Todo dinheiro real vive no **Bank (`bank_ledger`, Lei 5 SSOT)**.
+  2. **Rotas `/unifycard/*`** ficam tombstoned: estado atual é fail-closed por Proxy; **não** corrigir com `canRepresentActor` (rota morta). Uma futura conversão para `410/501` ou des-registro é **fatia separada de código** (NÃO esta — docs-only).
+  3. **`unifycard_payment_methods` / `unifycard-method`** = legado pós-Gênesis (tabela ausente, rota provavelmente não montada): **DT/cleanup própria de reconciliação**, **não** "lixo".
+- **Reactivation trap (a trava é esta aposentadoria formal):** religar UnifyCard — remover o Proxy, recriar tabelas de método, introduzir provider `UNIFYCARD`, ou registrar as rotas como vivas — **ressuscita um trilho financeiro sem Bank, sem idempotência, sem state machine, com authority fraca** (`actionContext.actorId` cru). Reativação **só** via **frente financeira própria, governada**: Bank port + authority binding (`req.user`→`canRepresentActor`) + idempotência + state machine + locks + E2Es financeiros, **no mesmo corte**.
+- **DECISION-0113:** unifycard **sai do caminho como C-INERTE/E**, NÃO como rota corrigida. A **DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` (0113) segue OPEN**. R2 congelado.
+- **Vinculada a:** `DT-MONEY-LATENT-REACTIVATION-TRAP`, `DECISION-0113`, `DECISION-0114`, Lei 5 (Bank SSOT), `unifycard.service.ts` (Proxy), `unifycard.routes.ts`, `unifycard-method.*` (legado).
+
 ## DT-REGION-FUND-DELEGATION-MODEL-PENDING — OPEN (2026-06-07)
 
 - **Status:** **OPEN (2026-06-07)** — `DECISION-0114 §2.1` cravou a **autoridade inicial** do Fundo Regional no **fundador/criador do sistema** (referido pelo SSOT de identidade/actor existente, sem CPF hardcoded), e que o fundo é da **plataforma**, não de empresa individual. Mas o **modelo de delegação futura** (diretor financeiro / diretoria / conselho / operador financeiro / função equivalente) **ainda não existe**.

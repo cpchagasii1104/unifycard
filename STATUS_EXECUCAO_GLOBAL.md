@@ -94,6 +94,24 @@
 
 ---
 
+## 2026-06-09 — UnifyCard acquiring legacy TOMBSTONE (docs-only, sem código)
+
+**Branch:** `rescue-structural` · **DOCS-ONLY** (zero código/migration/frontend/banco). Dev 365. HEAD `4674bc5c`. _(Esteira: 3 paralelas READ-ONLY + reachability check → C-INERTE → diretora GO tombstone docs-only.)_
+
+**Veredito (1ª mão):** UnifyCard acquiring legado é **C-INERTE / reactivation trap**, NÃO M-LIVE, NÃO A/BREAK. `unifyCardRepository` é um Proxy que rejeita todo método (`"UnifyCard migrated to Bank"`) → rotas `/unifycard/*` registradas mas **fail-closed/dead**. Zero provider `UNIFYCARD` em código/seed/DB; zero botão frontend; zero caller; `payment_methods`/`unifycard_payment_methods` **ausentes**; `unifycard_transactions` **0 linhas**.
+
+**Formalizado (DT-UNIFYCARD-ACQUIRING-LEGACY-TOMBSTONE, sub-caso do DT-MONEY-LATENT-REACTIVATION-TRAP — SEM DECISION nova, a norma existente basta):** `unifycard_transactions` = LOG histórico/NON-SSOT (manter, não dropar, não usar p/ saldo); rotas tombstoned (não corrigir com canRepresentActor — rota morta); methods fantasma = DT/cleanup própria; reativação só via frente financeira governada (Bank port + authority + idempotência + state machine + E2E).
+
+**Arquivos:** `REMEDIATION_DT_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`. **Nenhum código/migration/frontend.**
+
+**P1:** docs-only não altera runtime; corrige a causa **documental/operacional** do reactivation trap (formaliza a aposentadoria que o Proxy já implementa).
+
+**DTs:** DT-mãe DECISION-0113 **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** voltar ao **sweep adversarial final dos 5 canais** (rumo a fechar a DT-mãe 0113).
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-3 · dashboard/reports actorId (6 rotas A, money-adjacent)
 
 **Branch:** `rescue-structural` · **backend** (2 arquivos de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: auditoria READ-ONLY + complemento fecharam o denominador → GO 6 rotas A. Yala verifica.)_
