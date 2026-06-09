@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5.6b-B3 EVENTS · GROUP-SCOPED DISCOVERY (DECISION-0113, classe H)
+
+**Branch:** `rescue-structural` · **backend** (3 arquivos + e2e; zero Bank/migration/frontend/canal-5/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: abrir group p/ membros, membership do user, não do actorId declarado.)_
+
+**O que entregou:** no `public_discovery`, a visibility permitida virou **`public` OU (`group` com membership material)**; piso de status (published/active) aplica a ambos. Membership = `discoveryUserId` (= `req.user.userId`, **NUNCA actorId declarado**) → subquery `actor_id IN (actors JOIN group_members por user_id WHERE group_id IS NOT NULL)`. Sem caller → só public. Cliente `visibility=group` estreita (membro→group; não-membro→vazio). `group` draft fica FORA (piso de status).
+
+**Arquivos:** `modules/events/event.types.ts`, `event.repository.ts`, `events-sprint76.routes.ts`, `validate-pipeline-e2e-events-group-scoped-f6-5-6b-3.ts` (novo).
+
+**Prova:** e2e **12/12** com **fixtures REAIS** (1 grupo + 1 group-actor + membership do dev + eventos; cleanup reverse-FK, **LEFTOVER=0 nas 4 tabelas** events/group_members/actors/groups): membro vê group+published; não-membro/anônimo não; group+draft fora; visibility=group estreita; public p/ todos. Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: B2 12/12 · B1 9/9 · event-specs 8/8 · impact 7/7 · canal3-money 7/7 · cultural 7/7 · trust 12/12 · x-actor-id 9/9 · rbac 13/13 · money-live 12/12.
+
+**DTs:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` → **PARTIALLY MITIGATED** (B1+B2+B3 done; faltam B4 followers / canal-5). DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** B4 followers-scoped (follows por actor) → canal-5 (/events/:id) → settlement/RFQ money READ-FIRST → sweep final.
+
+---
+
 ## 2026-06-08 — F6.5.6b-B2 EVENTS · ORGANIZER DASHBOARD via canRepresentActor (DECISION-0113, classe H)
 
 **Branch:** `rescue-structural` · **backend** (3 arquivos + 2 e2e; zero Bank/migration/frontend/canal-5/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: abrir dashboard do dono sem 403 ao não-representável.)_

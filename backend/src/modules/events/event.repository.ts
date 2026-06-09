@@ -204,7 +204,7 @@ class EventRepository {
     // EXIGE organizerActorId (fail-closed) → o organizer representável vê os PRÓPRIOS não-públicos. O `status`/
     // `visibility` do cliente só ESTREITAM, nunca ampliam. 'declared' fora do piso público por decisão Clayton.
     if (filters.visibilityMode === 'public_discovery') {
-      conditions.push(`visibility = 'public'`);
+      // PISO DE STATUS (published/active) aplica a TODA visibility permitida; cliente só estreita dentro do piso.
       const floorStatuses = ['published', 'active'];
       if (filters.status) {
         const requested = sprint76StatusToDb(filters.status);
@@ -219,6 +219,28 @@ class EventRepository {
         conditions.push(`status = ANY($${paramIndex}::text[])`);
         params.push(floorStatuses);
         paramIndex++;
+      }
+      // 🔵 F6.5.6b-B3 — VISIBILITY permitida na discovery: 'public' SEMPRE; 'group' SÓ para eventos de grupos
+      // onde o caller (discoveryUserId, derivado de req.user — NUNCA actorId declarado) é membro (group_members
+      // por user_id). private/unlisted/followers NÃO entram na discovery (B2 dashboard / B4 / canal-5).
+      const wantPublic = !filters.visibility || filters.visibility === 'public';
+      const wantGroup = !filters.visibility || filters.visibility === 'group';
+      const visParts: string[] = [];
+      if (wantPublic) visParts.push(`visibility = 'public'`);
+      if (wantGroup && filters.discoveryUserId) {
+        visParts.push(
+          `(visibility = 'group' AND actor_id IN (` +
+            `SELECT a.id FROM actors a ` +
+            `JOIN group_members gm ON gm.group_id = a.group_id AND gm.tenant_id = a.tenant_id AND gm.user_id = $${paramIndex} ` +
+            `WHERE a.tenant_id = $1 AND a.group_id IS NOT NULL))`
+        );
+        params.push(filters.discoveryUserId);
+        paramIndex++;
+      }
+      if (visParts.length === 0) {
+        conditions.push('1 = 0'); // cliente pediu visibility fora da discovery (private/unlisted/followers) ou group sem user
+      } else {
+        conditions.push(`(${visParts.join(' OR ')})`);
       }
     } else if (filters.visibilityMode === 'organizer_dashboard') {
       // SEM piso público — mas dashboard SÓ existe atrelado a um organizer (a rota só ativa este modo após

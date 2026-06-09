@@ -155,10 +155,15 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     //  · organizerActorId + caller NÃO representável    → public_discovery DAQUELE organizer (NÃO 403 — vitrine).
     //  · organizerActorId + caller representável         → organizer_dashboard (vê os próprios não-públicos).
     // O cliente estreita; o servidor define o piso. group/followers/unlisted globais e canal-5 = B3/B4/canal-5.
-    const filters: any = { visibilityMode: 'public_discovery' as 'public_discovery' | 'organizer_dashboard' };
+    // userId do caller (derivado de req.user — NUNCA de actorId declarado). Usado p/ decidir representação
+    // (organizer dashboard) E p/ abrir 'group' na discovery (B3, membership por group_members.user_id).
+    const userId = (req.user as { userId?: string } | undefined)?.userId;
+    const filters: any = {
+      visibilityMode: 'public_discovery' as 'public_discovery' | 'organizer_dashboard',
+      discoveryUserId: userId,
+    };
     if (req.query.organizerActorId) {
       filters.organizerActorId = req.query.organizerActorId;
-      const userId = (req.user as { userId?: string } | undefined)?.userId;
       if (userId) {
         let canRepresent = false;
         try {
