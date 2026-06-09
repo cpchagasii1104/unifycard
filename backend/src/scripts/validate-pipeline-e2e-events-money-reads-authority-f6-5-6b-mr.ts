@@ -98,9 +98,21 @@ async function main(): Promise<void> {
     && /status: 403/.test(helper));
   record('B2 GET /events/:id/settlement chama assertCanReadEventMoney ANTES do getSettlementByEvent',
     settle.indexOf('assertCanReadEventMoney') >= 0 && settle.indexOf('assertCanReadEventMoney') < settle.indexOf('getSettlementByEvent(tenantId, eventId)'));
-  record('B3 GET /events/:eventId/rfqs (list + individual) chamam assertCanReadEventMoney antes do read',
-    (rfq.match(/assertCanReadEventMoney/g) || []).length >= 2
-    && rfq.indexOf('assertCanReadEventMoney') < rfq.indexOf('getEventRFQs('));
+  // DENOMINADOR COMPLETO: todo fastify.get de event-rfq.routes deve estar gateado (furo do 1º selo: quotes +
+  // compatible-companies haviam escapado). #GET === #gate, e cada read tem o gate imediatamente antes.
+  const rfqGetCount = (rfq.match(/fastify\.get</g) || []).length;
+  const rfqGateCount = (rfq.match(/await assertCanReadEventMoney\(/g) || []).length;
+  const gateBefore = (src: string, readMarker: string, lookback = 700) => {
+    const r = src.indexOf(readMarker);
+    return r >= 0 && src.slice(Math.max(0, r - lookback), r).includes('assertCanReadEventMoney(');
+  };
+  record(`B3 DENOMINADOR COMPLETO: todo GET de event-rfq gateado (#GET=${rfqGetCount} === #gate=${rfqGateCount})`,
+    rfqGetCount === 4 && rfqGateCount === 4);
+  record('B3b os 4 reads de RFQ têm o gate ANTES do read (rfqs · :rfqId · quotes · compatible-companies)',
+    gateBefore(rfq, 'getEventRFQs(') && gateBefore(rfq, 'getRFQById(tenantId, eventId, rfqId)')
+    && gateBefore(rfq, 'getRFQQuotes(') && gateBefore(rfq, 'findCompatibleCompaniesForRFQ('));
+  record('B3c RFQ WRITES (POST close/dispatch/accept/create) NÃO ganharam assertCanReadEventMoney (intocados)',
+    !/closeRFQ[\s\S]{0,300}assertCanReadEventMoney/.test(rfq) && /actionContext\.actorId/.test(rfq));
   record('B4 POST /settlement/settle INTOCADO (mantém canRepresentActor próprio; sem assertCanReadEventMoney no write)',
     /canRepresentActor\(tenantId, userId, organizerActorId\)/.test(settle) && /settleEvent\(/.test(settle));
   record('B5 canViewEvent NÃO alterado (assinatura preservada)',

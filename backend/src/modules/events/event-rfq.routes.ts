@@ -217,6 +217,15 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const { eventId, rfqId } = req.params;
 
       try {
+        // 🔴 DECISION-0113 F6.5.6b-EVENTS-MONEY-READS: quotes = propostas/preços (dado financeiro) → autoridade do organizer.
+        const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+        const { assertCanReadEventMoney } = await import('@core/events/event-visibility.service');
+        const auth = await assertCanReadEventMoney(tenantId, eventId, callerUserId);
+        if (!auth.ok) {
+          return reply.status(auth.status).send({
+            error: auth.status === 404 ? 'Evento não encontrado' : 'Sem autoridade sobre o organizer do evento',
+          });
+        }
         const result = await eventRFQService.getRFQQuotes(tenantId, eventId, rfqId);
         return reply.send(result);
       } catch (error: any) {
@@ -297,6 +306,15 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const { eventId, rfqId } = req.params;
 
       try {
+        // 🔴 DECISION-0113 F6.5.6b-EVENTS-MONEY-READS: lista de empresas compatíveis é procurement do RFQ → autoridade do organizer.
+        const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+        const { assertCanReadEventMoney } = await import('@core/events/event-visibility.service');
+        const auth = await assertCanReadEventMoney(tenantId, eventId, callerUserId);
+        if (!auth.ok) {
+          return reply.status(auth.status).send({
+            error: auth.status === 404 ? 'Evento não encontrado' : 'Sem autoridade sobre o organizer do evento',
+          });
+        }
         // Buscar RFQ
         const rfq = await eventRFQService.getRFQById(tenantId, eventId, rfqId);
         if (!rfq) {

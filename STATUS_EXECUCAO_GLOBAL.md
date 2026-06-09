@@ -8,7 +8,9 @@
 
 **Arquivos:** `core/events/event-visibility.service.ts` (helper novo), `modules/marketplace/event-settlement.routes.ts`, `modules/events/event-rfq.routes.ts`, `validate-pipeline-e2e-events-money-reads-authority-f6-5-6b-mr.ts` (novo).
 
-**Prova:** e2e **13/13** com **fixtures REAIS** (organizer page O + eventos sob O/devActor): organizer→ok; visível-sem-organizer→403; invisível→404; inexistente→404; estranho público→403/privado→404. Estrutural: 3 reads gateados, POST settle intacto, canViewEvent inalterado, sem view_all_ledger/bank. tsc 0; 4 gates OK (bank-ledger verde, dev 365); 15 regressões verdes.
+**🔴 1º selo (`fc53a6c6`) REPROVADO pela Yala — auditoria RFQ incompleta:** gateei só 2 dos 4 GETs vivos; escaparam `GET /rfqs/:rfqId/quotes` (propostas/preços) e `/compatible-companies` (procurement). **Correção aditiva (`<commit2>`):** denominador completo de `event-rfq.routes.ts` = **4 GETs, todos gateados**; RFQ writes intocados.
+
+**Prova:** e2e **15/15** com **fixtures REAIS** (organizer page O + eventos sob O/devActor): organizer→ok; visível-sem-organizer→403; invisível→404; inexistente→404; estranho público→403/privado→404. Estrutural: **denominador completo (#GET=4 === #gate=4)** + cada read gateado-antes + POST settle intacto + canViewEvent inalterado + sem view_all_ledger/bank. tsc 0; 4 gates OK (bank-ledger verde, dev 365); 15 regressões verdes.
 
 **DTs:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` → tier de visibility de events **DONE** (reads); **nova `DT-EVENTS-MONEY-WRITES` OPEN** (economic-v2/checkout/tickets/consumption/rfq-writes = frente financeira própria, READ-FIRST com capacete). DT-mãe **OPEN**. R2 congelado.
 
