@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requirePermission } from '@core/authorization/require-permission.guard';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { economicIdentityService } from '../economic-identity.service';
 import { trustEngineService } from '../../trust/trust-engine.service';
 import { marketplaceLogger } from '../marketplace.logger';
@@ -56,6 +57,25 @@ export async function registerIdentityRoutes(fastify: FastifyInstance) {
     }
     const tenantId = req.tenant.id;
     const { actorId } = req.params;
+
+    // 🔴 DECISION-0113: `marketplace_manage_catalog` → `can_manage_marketplace`, que é DEFAULT de TODA company
+    // (actor-registry getDefaultCapabilities). O guard prova que o caller representa o PRÓPRIO actor e tem a
+    // capability — NÃO prova autoridade sobre o `params.actorId` alvo. `:actorId` é HINT → exigir representar o
+    // actor alvo ANTES de ler a identidade econômica dele (senão company A lê a economic identity da company B).
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+    let canRep = false;
+    try {
+      canRep = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      canRep = false;
+    }
+    if (!canRep) {
+      return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)', code: 'MARKETPLACE_ACTOR_NOT_REPRESENTABLE' });
+    }
+
     try {
       const identity = await economicIdentityService.getEconomicIdentity(tenantId, actorId);
       if (!identity) {
@@ -108,6 +128,23 @@ export async function registerIdentityRoutes(fastify: FastifyInstance) {
       }
       const tenantId = req.tenant.id;
       const { actorId } = req.params;
+
+      // 🔴 DECISION-0113: mesma raiz — `can_manage_marketplace` é default de company → não autoriza ver os
+      // trust events de actor alheio. `:actorId` é HINT → exigir representá-lo ANTES de `listTrustEvents`.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+      let canRep = false;
+      try {
+        canRep = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+      } catch {
+        canRep = false;
+      }
+      if (!canRep) {
+        return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)', code: 'MARKETPLACE_ACTOR_NOT_REPRESENTABLE' });
+      }
+
       const events = await trustEngineService.listTrustEvents(tenantId, { actorId });
       return reply.status(200).send({ events });
     } catch (error: unknown) {
