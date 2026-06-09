@@ -869,6 +869,16 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔴 DECISION-0113 (WRITE) + matriz de autoridade por transição (decisão diretora): PUT NÃO é setter
+      // genérico de status. SÓ aceita CONFIRM (owner) e CANCEL (requester|owner). Resolve as PARTES reais
+      // (requester + dono da availability); req.user deve representar o actor atuante (actionContext); o ator
+      // atuante deve ter o PAPEL da transição; o estado atual deve permitir. 401 sem user; 404 booking ausente;
+      // 400 transição proibida; 403 papel errado; 409 estado inválido. params.id nunca como actor.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+
       // Validar payload
       const parsed = updateBookingSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -878,7 +888,52 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // só CONFIRM/CANCEL via PUT (status arbitrário / pular check-in/out PROIBIDO)
+      const target = parsed.data.status;
+      if (target !== UnifiedBookingStatus.CONFIRMED && target !== UnifiedBookingStatus.CANCELLED) {
+        return reply.status(400).send({
+          ok: false,
+          error: 'PUT /bookings/:id só aceita transição confirmed ou cancelled (status arbitrário proibido)',
+          code: 'BOOKING_TRANSITION_NOT_ALLOWED',
+        });
+      }
+
+      // o actor atuante (actionContext) deve ser representável pelo req.user
+      let actingOk = false;
       try {
+        actingOk = await authorizationService.canRepresentActor(req.tenant.id, userId, req.actionContext.actorId);
+      } catch {
+        actingOk = false;
+      }
+      if (!actingOk) {
+        return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o actor atuante (canRepresentActor)', code: 'BOOKING_ACTING_ACTOR_NOT_REPRESENTABLE' });
+      }
+
+      try {
+        // resolve as partes reais (404 booking ausente preservado).
+        const existing = await unifiedAvailabilityService.getBooking(req.tenant.id, req.params.id);
+        const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
+        const ownerId = availability.ownerId;
+        const requesterId = existing.requesterActorId;
+
+        if (target === UnifiedBookingStatus.CONFIRMED) {
+          // confirmar = SÓ owner, e SÓ a partir de requested.
+          if (req.actionContext.actorId !== ownerId) {
+            return reply.status(403).send({ ok: false, error: 'Confirmar booking exige ser o dono da availability', code: 'BOOKING_CONFIRM_OWNER_ONLY' });
+          }
+          if (existing.status !== UnifiedBookingStatus.REQUESTED) {
+            return reply.status(409).send({ ok: false, error: 'Só é possível confirmar um booking em estado requested', code: 'BOOKING_CONFIRM_INVALID_STATE' });
+          }
+        } else {
+          // cancelar = requester OU owner; nunca depois de checked_out.
+          if (req.actionContext.actorId !== requesterId && req.actionContext.actorId !== ownerId) {
+            return reply.status(403).send({ ok: false, error: 'Cancelar booking exige ser o requester ou o dono da availability', code: 'BOOKING_CANCEL_PARTY_ONLY' });
+          }
+          if (existing.status === UnifiedBookingStatus.CHECKED_OUT) {
+            return reply.status(409).send({ ok: false, error: 'Não é possível cancelar um booking já finalizado (checked_out)', code: 'BOOKING_CANCEL_INVALID_STATE' });
+          }
+        }
+
         const booking = await unifiedAvailabilityService.updateBooking(
           req.tenant.id,
           req.params.id,
@@ -920,6 +975,14 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔴 DECISION-0113 (WRITE) — matriz diretora: CHECK-IN = SÓ o dono da availability. Resolve o booking +
+      // owner real; actionContext deve === ownerId E req.user representa o owner. 401/403; 404 preservado.
+      // Pré-condição de estado (status=CONFIRMED) preservada no service. params.id nunca como actor.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+
       // Validar payload
       const parsed = checkInSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -930,6 +993,21 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        const existing = await unifiedAvailabilityService.getBooking(req.tenant.id, req.params.id);
+        const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
+        if (req.actionContext.actorId !== availability.ownerId) {
+          return reply.status(403).send({ ok: false, error: 'Check-in exige ser o dono da availability', code: 'BOOKING_CHECKIN_OWNER_ONLY' });
+        }
+        let canRep = false;
+        try {
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+        } catch {
+          canRep = false;
+        }
+        if (!canRep) {
+          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o dono da availability (canRepresentActor)', code: 'BOOKING_CHECKIN_NOT_REPRESENTABLE' });
+        }
+
         const booking = await unifiedAvailabilityService.checkIn(
           req.tenant.id,
           req.params.id,
@@ -971,6 +1049,14 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔴 DECISION-0113 (WRITE) — matriz diretora: CHECK-OUT = SÓ o dono da availability. Resolve o booking +
+      // owner real; actionContext deve === ownerId E req.user representa o owner. 401/403; 404 preservado.
+      // Pré-condição de estado (checkedInAt) preservada no service. params.id nunca como actor.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+
       // Validar payload
       const parsed = checkOutSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -981,6 +1067,21 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        const existing = await unifiedAvailabilityService.getBooking(req.tenant.id, req.params.id);
+        const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
+        if (req.actionContext.actorId !== availability.ownerId) {
+          return reply.status(403).send({ ok: false, error: 'Check-out exige ser o dono da availability', code: 'BOOKING_CHECKOUT_OWNER_ONLY' });
+        }
+        let canRep = false;
+        try {
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+        } catch {
+          canRep = false;
+        }
+        if (!canRep) {
+          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o dono da availability (canRepresentActor)', code: 'BOOKING_CHECKOUT_NOT_REPRESENTABLE' });
+        }
+
         const booking = await unifiedAvailabilityService.checkOut(
           req.tenant.id,
           req.params.id,

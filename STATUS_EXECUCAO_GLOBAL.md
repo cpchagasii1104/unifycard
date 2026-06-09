@@ -94,6 +94,26 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 WRITE · booking status/check-in/check-out (matriz) — FECHA A FAMÍLIA BOOKING
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: matriz de produto da diretora → patch. Yala verifica.)_
+
+**Matriz (decisão diretora):** PUT /bookings/:id deixa de ser setter genérico — só CONFIRM (owner, de requested) e CANCEL (requester|owner, não após checked_out); status fora disso → 400. check-in/check-out = só owner. state guards (409) + pré-condições do service preservadas.
+
+**Correção:** req.user (401) → actor atuante (actionContext) representável → resolve partes reais (requester + getAvailability(booking.availabilityId).ownerId) → papel por transição → 400/403/409/404. params.id nunca como actor; sem ensureUserActor/getActiveActor; zero Bank (outbox cancel = recomposição).
+
+**Arquivos:** `core/availability/unified-availability.routes.ts`, `validate-pipeline-e2e-availability-booking-status-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **19/19** com **fixtures REAIS** (owner=devActor + requester=R; estado inicial requested; matriz + guard de status). tsc 0; 4 gates OK (actor-writer verde; dev 365). Regressões TODAS verdes.
+
+**MARCO:** família booking writes FECHADA (create + status + check-in + check-out). Denominador do arquivo: 7 GETs + weekly PUT + 4 booking writes + 2 availability writes = TODOS gateados. **Resíduo = participant writes ×3.**
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala reseal → participant writes ×3 (POST add / PUT / DELETE — owner-or-self, com decisão de produto self-enroll) → fecha o arquivo inteiro → dashboard/reports.
+
+---
+
 ## 2026-06-09 — DECISION-0113 WRITE · booking CREATE (requester-scoped)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: decision-support classificou os 4 booking writes; diretora GO só o create — regra limpa. Yala verifica.)_
