@@ -496,6 +496,28 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113 canal-1 (WRITE): `actionContext.actorId` é o owner/autoria DECLARADO da grade — é
+    // client-declared (header/body/query), NÃO autoridade. Antes de materializar slots em `availability` para
+    // esse actor, PROVAR server-side que o req.user pode representá-lo. 401 sem user; 403 fail-closed.
+    // (`ownerId` continua = actionContext.actorId, mas agora PROVADO; o frontend legítimo manda o activeActor.)
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+    let canRep = false;
+    try {
+      canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, req.actionContext.actorId);
+    } catch {
+      canRep = false;
+    }
+    if (!canRep) {
+      return reply.status(403).send({
+        ok: false,
+        error: 'Sem autoridade sobre o actor (canRepresentActor) — não pode materializar agenda deste actor',
+        code: 'WEEKLY_TEMPLATE_ACTOR_NOT_REPRESENTABLE',
+      });
+    }
+
     const parsed = weeklyTemplateSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({

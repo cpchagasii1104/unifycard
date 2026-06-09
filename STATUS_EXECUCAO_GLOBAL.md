@@ -94,6 +94,26 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 CANAL-1 WRITE · availability weekly-template — FECHA O ARQUIVO INTEIRO
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: classificação READ-ONLY = A write spoof → GO corrigir. Yala verifica.)_
+
+**WRITE SPOOF:** `PUT /availability/weekly-template` materializava slots em `availability` com `ownerId = req.actionContext.actorId` (client-declared) sem prova → user podia escrever/alterar/soft-remover a grade de agenda de actor alheio. Comentário "nunca do cliente" era a armadilha.
+
+**Correção (handler, sem tocar service):** req.user.userId obrigatório (401) → `canRepresentActor(tenantId, userId, actionContext.actorId)` ANTES de `materialize` → 403 fail-closed (WEEKLY_TEMPLATE_ACTOR_NOT_REPRESENTABLE); ownerId continua = actionContext.actorId mas PROVADO. Sem ensureUserActor/getActiveActor; sem admin escape; zero Bank. Frontend (ProfileAgenda, activeActor) passa → sem UX-break.
+
+**Arquivos:** `core/availability/unified-availability.routes.ts`, `validate-pipeline-e2e-availability-weekly-template-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **15/15**. tsc 0; 4 gates OK (actor-writer §4.8.1 verde — relevante p/ write; dev 365). Regressões TODAS verdes (weekly-template 15/15 + read 15 + participants 18 + bookings 16 + conflicts 12 + unified-calendar 17 + invoice 16 + payment-method 12 + x-actor-id 9 + canal3-money 7 + money-live 12).
+
+**MARCO:** `unified-availability.routes.ts` **FECHADO** no eixo DECISION-0113 conhecido — 7 GETs + 1 PUT gateados; nenhum read/write keyed em actorId declarado sem prova server-side.
+
+**DTs:** DT-mãe **OPEN** (faltam dashboard/reports + sweep adversarial final). R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala reseal weekly-template → availability sai da fila como arquivo fechado → denominador maior: dashboard/reports OU sweep canal-3/canal-5.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 · availability list/by-id (owner-scoped) — FECHA OS 7 GETs DO ARQUIVO
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: decisão diretora "availability privada por padrão / owner-scoped" + frontend check OK antes do patch. Yala verifica.)_
