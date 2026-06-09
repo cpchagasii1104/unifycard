@@ -104,6 +104,20 @@ const opportunityDispatchRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113 canal-5 (params): `:id` é o actor ALVO (targetActorId), não autoridade. Listar os
+    // dispatches/procurement do actor exige REPRESENTAR esse actor. canRepresentActor sobre o MESMO actorId do
+    // params (fail-closed → 403). NÃO é o actor do caller; NÃO é getActiveActor.
+    let canRepresentTarget = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canRepresentTarget = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.params.id);
+    } catch {
+      canRepresentTarget = false;
+    }
+    if (!canRepresentTarget) {
+      return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)' });
+    }
+
     try {
       const filters: any = {
         targetActorId: req.params.id,

@@ -1,3 +1,21 @@
+## 2026-06-09 — DECISION-0113 CANAL-5 PARAMS · opportunity-dispatch actor gate (/actors/:id/dispatches)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: resíduo do sweep → executora; Yala verifica. GO Clayton.)_
+
+**O que entregou:** `GET /actors/:id/dispatches` (opportunity-dispatch) usava `req.params.id` como `targetActorId` sem provar autoridade → IDOR (qualquer autenticado listava dispatches/procurement de qualquer actor). Gateado `canRepresentActor(req.tenant.id, req.user.userId, req.params.id)` ANTES de `listDispatches`; 401 sem user; 403 não-representável. `:id` é o actor ALVO, não autoridade. `listDispatches` é read-only (repository.find), sem Bank. Writes (POST opportunities/:id, /:dispatchId/respond) intocados.
+
+**Arquivos:** `modules/dispatch/opportunity-dispatch.routes.ts`, `validate-pipeline-e2e-opportunity-dispatch-authority-f6-5-c5.ts` (novo).
+
+**Prova:** e2e **8/8** (A behavioral canRepresentActor: próprio→true / alvo-alheio→false / estranho→false; B estrutural: gate-antes-do-read sobre req.params.id, 401/403, NÃO getActiveActor, writes sem canRepresentActor, sem Bank; LEFTOVER=0). Denominador do arquivo: 1 GET (gateado) + 2 POSTs (writes, fora). tsc 0; 4 gates OK (bank-ledger verde, dev 365); 10 regressões verdes.
+
+**🔴 RESÍDUO financeiro/by-id ainda OPEN (DT-mãe NÃO fecha):** groups economy (`/economy/groups/:groupId/overview` — gate de membership/role) · settlements/:id+AP/AR (owner ambíguo) · `/regions/:id/account` (decisão Clayton) · invoice/:invoiceId (armadilha) · marketplace-identity/sla · re-sweep.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** groups economy (membership/role, não canRepresentActor no chute) → settlement/AP/AR READ-FIRST → decisão `/regions/:id/account` → invoice/marketplace → re-sweep → só então DT-mãe.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 FINANCEIRO · account LIST gate (/ + /owner/:ownerId)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank-write/migration/frontend). Dev 365. _(Esteira: Yala achou o furo no mesmo arquivo → executora. GO Clayton: financial:view_all_ledger, não canRepresentActor.)_
