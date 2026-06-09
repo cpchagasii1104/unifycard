@@ -220,11 +220,13 @@ class EventRepository {
         params.push(floorStatuses);
         paramIndex++;
       }
-      // 🔵 F6.5.6b-B3 — VISIBILITY permitida na discovery: 'public' SEMPRE; 'group' SÓ para eventos de grupos
-      // onde o caller (discoveryUserId, derivado de req.user — NUNCA actorId declarado) é membro (group_members
-      // por user_id). private/unlisted/followers NÃO entram na discovery (B2 dashboard / B4 / canal-5).
+      // 🔵 F6.5.6b-B3/B4 — VISIBILITY permitida na discovery: 'public' SEMPRE; 'group' SÓ p/ grupos onde o
+      // caller é membro (group_members por user_id); 'followers' SÓ p/ organizers seguidos por algum actor
+      // server-side do caller (follows por actor, derivado de actors.user_id = discoveryUserId — NUNCA actorId
+      // declarado). private/unlisted NÃO entram na discovery (B2 dashboard / canal-5). discoveryUserId vem de req.user.
       const wantPublic = !filters.visibility || filters.visibility === 'public';
       const wantGroup = !filters.visibility || filters.visibility === 'group';
+      const wantFollowers = !filters.visibility || filters.visibility === 'followers';
       const visParts: string[] = [];
       if (wantPublic) visParts.push(`visibility = 'public'`);
       if (wantGroup && filters.discoveryUserId) {
@@ -237,8 +239,20 @@ class EventRepository {
         params.push(filters.discoveryUserId);
         paramIndex++;
       }
+      if (wantFollowers && filters.discoveryUserId) {
+        // organizer (event.actor_id) seguido por ALGUM actor do caller (fa.user_id = discoveryUserId).
+        // follower vem do SERVIDOR (actors.user_id), nunca de actorId/query/header declarado pelo cliente.
+        visParts.push(
+          `(visibility = 'followers' AND actor_id IN (` +
+            `SELECT f.followed_actor_id FROM follows f ` +
+            `JOIN actors fa ON fa.id = f.follower_actor_id AND fa.tenant_id = f.tenant_id AND fa.user_id = $${paramIndex} ` +
+            `WHERE f.tenant_id = $1))`
+        );
+        params.push(filters.discoveryUserId);
+        paramIndex++;
+      }
       if (visParts.length === 0) {
-        conditions.push('1 = 0'); // cliente pediu visibility fora da discovery (private/unlisted/followers) ou group sem user
+        conditions.push('1 = 0'); // cliente pediu visibility fora da discovery (private/unlisted) ou group/followers sem user
       } else {
         conditions.push(`(${visParts.join(' OR ')})`);
       }

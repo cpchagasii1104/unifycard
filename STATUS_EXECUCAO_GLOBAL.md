@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5.6b-B4 EVENTS · FOLLOWERS-SCOPED DISCOVERY (DECISION-0113, classe H)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de repo + e2e; zero Bank/migration/frontend/canal-5/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: abrir followers p/ quem segue materialmente, follower do servidor não do cliente.)_
+
+**O que entregou:** no `public_discovery`, a visibility permitida virou **`public` OU (`group` com membership) OU (`followers` com follow material)**; piso de status (published/active) aplica a todos. Follower deriva de `actors.user_id = discoveryUserId` (= `req.user.userId`, **NUNCA actorId declarado**) → subquery `actor_id IN (follows JOIN actors fa por fa.user_id WHERE follower=fa)`. Sem caller → followers fora. Cliente `visibility=followers` estreita (segue→followers; não segue→vazio). `followers` draft fora (piso). **Repository-only** — reusa `discoveryUserId` do B3 (sem novo param/rota).
+
+**Arquivos:** `modules/events/event.repository.ts`, `validate-pipeline-e2e-events-followers-scoped-f6-5-6b-4.ts` (novo).
+
+**Prova:** e2e **13/13** com **fixtures REAIS** (1 organizer page-actor + eventos; **follow inserido NO MEIO** p/ provar que o follow decide, não privilégio do dev; cleanup **LEFTOVER=0** em events/actors/follows): dev SEM follow não vê → COM follow vê followers+published; followers+draft fora; estranho/anônimo não veem; visibility=followers estreita; public p/ todos. Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: B3 12/12 · B2 12/12 · B1 9/9 · event-specs 8/8 · impact 7/7 · canal3-money 7/7 · cultural 7/7 · trust 12/12 · x-actor-id 9/9 · rbac 13/13 · money-live 12/12.
+
+**DTs:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` → **PARTIALLY MITIGATED** (B1+B2+B3+B4 done; falta só **canal-5** /events/:id + unlisted por link). DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** canal-5 (`GET /events/:id` herda o modelo) → settlement/RFQ money READ-FIRST → sweep adversarial final dos 5 canais.
+
+---
+
 ## 2026-06-08 — F6.5.6b-B3 EVENTS · GROUP-SCOPED DISCOVERY (DECISION-0113, classe H)
 
 **Branch:** `rescue-structural` · **backend** (3 arquivos + e2e; zero Bank/migration/frontend/canal-5/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: abrir group p/ membros, membership do user, não do actorId declarado.)_
