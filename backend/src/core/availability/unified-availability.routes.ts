@@ -247,6 +247,33 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113 + decisão diretora: availability operacional é PRIVADA por padrão (esta rota protegida
+    // NÃO é vitrine pública de horários; discovery público = projeção/endpoint próprio futuro). Lista
+    // OWNER-SCOPED: `query.ownerId` é HINT, não autoridade → exigir representar o owner ANTES de listar.
+    // Sem ownerId representável → 403 fail-closed (nunca tenant-wide). 401 sem user. `ownerType` é só filtro.
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+    {
+      const ownerIdHint = req.query.ownerId;
+      let canRep = false;
+      if (ownerIdHint) {
+        try {
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, ownerIdHint);
+        } catch {
+          canRep = false;
+        }
+      }
+      if (!canRep) {
+        return reply.status(403).send({
+          ok: false,
+          error: 'Listagem de availability exige ownerId representável (agenda operacional é privada)',
+          code: 'AVAILABILITY_NOT_REPRESENTABLE',
+        });
+      }
+    }
+
     const filters: any = {};
     try {
       if (req.query.ownerType) {
@@ -319,11 +346,34 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113 canal-5 (:id recurso privado): `:id` é availabilityId, NÃO actor. Availability
+    // operacional é PRIVADA → resolve o recurso e exige representar o DONO REAL (`availability.ownerId`)
+    // ANTES de retornar. 401 sem user; 404 preservado se ausente; 403 fail-closed. `params.id` nunca como actor.
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+
     try {
       const availability = await unifiedAvailabilityService.getAvailability(
         req.tenant.id,
         req.params.id
       );
+
+      // gate owner-scoped antes de devolver a PII da availability.
+      let canRep = false;
+      try {
+        canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+      } catch {
+        canRep = false;
+      }
+      if (!canRep) {
+        return reply.status(403).send({
+          ok: false,
+          error: 'Sem autoridade sobre esta availability (representar o dono)',
+          code: 'AVAILABILITY_NOT_REPRESENTABLE',
+        });
+      }
 
       return reply.send({
         ok: true,

@@ -94,6 +94,28 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 CANAL-5 · availability list/by-id (owner-scoped) — FECHA OS 7 GETs DO ARQUIVO
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: decisão diretora "availability privada por padrão / owner-scoped" + frontend check OK antes do patch. Yala verifica.)_
+
+**IDOR:** `GET /availability/` (list por `query.ownerId` hint) + `/availability/:id` validavam só `actionContext`. Decisão diretora: availability operacional é PRIVADA; discovery público = endpoint próprio futuro (não criado).
+
+**Correção (OWNER-SCOPED):** list → `canRepresentActor(query.ownerId)` antes de listAvailabilities; sem ownerId representável → 403 (nunca tenant-wide); ownerType só filtro. by-id → resolve availability (404 preservado) → `canRepresentActor(availability.ownerId)` → 403; params.id nunca como actor. Sem admin escape (não há padrão canônico). 401 sem user; sem ensureUserActor/getActiveActor; read-only, zero Bank.
+
+**Frontend check (antes do patch):** listAvailabilities → 1 caller (ProfileAgenda, ownerId=activeActor representável → passa); getAvailability by-id → zero caller (rota `/availability/:id` não existe no App.tsx; navegações em MeusCompromissosPage = links mortos); discovery de slot via `services/:id/availability` (endpoint próprio). **Sem público real, sem UX-RISK.**
+
+**Arquivos:** `core/availability/unified-availability.routes.ts`, `validate-pipeline-e2e-availability-read-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **15/15** com **fixtures REAIS**. tsc 0; 4 gates OK; dev 365. Regressões: availability-read 15/15, participants 18/18, bookings 16/16, conflicts 12/12, unified-calendar 17/17, invoice 16/16, payment-method 12/12, x-actor-id 9/9, canal3-money 7/7, money-live 12/12.
+
+**Denominador:** os **7 GETs** de `unified-availability.routes.ts` estão **TODOS gateados** (list · by-id · bookings×2 · participants×2 · conflicts). Resíduo restante = **1 PUT weekly-template (write-authorship, outro eixo)**.
+
+**DTs:** DT-mãe **OPEN** (eixo agenda dos READS fechado; faltam outras superfícies + sweep final). R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala reseal availability list/by-id → gaveta agenda READS fechada → dashboard/reports OU weekly-template write (eixo write-authorship) — decisão diretora.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 · availability participants reads (owner-or-self)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: GO participants com decisão diretora "privado por padrão / owner-or-self". Yala verifica.)_
