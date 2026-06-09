@@ -94,6 +94,24 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 CANAL-5 :id · invoice by-id IDOR financeiro fechado
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: Yala PASS no unified-calendar → GO invoice by-id. Yala verifica.)_
+
+**IDOR (money-adjacent):** `GET /invoices/:invoiceId` — `requireInvoicePermission` provava só `financial:view_ledger` no actor DO CALLER, não acesso a ESTA invoice → caller com view_ledger lia invoice alheia por id. Invoice tem partes reais (emissor=`actorId`, destinatário=`recipientActorId`; podem ser `'system:platform'`).
+
+**Correção (espelha o gate por-parte do list):** resolve invoice → `canRepresentActor` sobre emissor OU destinatário → senão admin escape `financial:view_all_ledger` (caller-actor resolvido READ-ONLY, sem `ensureUserActor` — sem side-effect em GET) → senão 403 (`INVOICE_NOT_REPRESENTABLE`). 401 sem user. `getInvoiceById` read-only (SELECT), 404 preservado, zero Bank. List + writes intocados.
+
+**Arquivos:** `modules/invoicing/invoice.routes.ts`, `validate-pipeline-e2e-invoice-by-id-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **12/12** — A primitivo canRepresentActor (própria/alheia/estranho/system fail-closed); **behavioral por-invoice N/A: tabela `invoices` AUSENTE em DEV** (reportado, não vendido); B estrutural gate-sobre-as-partes-não-params.id + 401/403 + admin escape read-only + list/writes intactos; C getInvoiceById read-only. tsc 0; 4 gates OK; dev 365. Regressões: canal3-money 7/7, x-actor-id 9/9, unified-calendar 17/17, money-live 12/12.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado. availability-conflicts + dashboard/reports seguem pendentes.
+
+**PRÓXIMA ETAPA:** availability-conflicts → dashboard/reports → venue/unifycard/services/availability restante → cluster financeiro owner-ambíguo → sweep adversarial final.
+
+---
+
 ## 2026-06-09 — DECISION-0113 · unified-calendar CORRIGIDO (Yala FAIL): path sem actorId era tenant-wide
 
 **Branch:** `rescue-structural` · **backend** (2 arquivos: route + service; zero Bank/migration/frontend). Dev 365. _(Esteira: Yala derrubou o selo `e959b0d1` → executora corrige; Yala reseal. GO Clayton.)_

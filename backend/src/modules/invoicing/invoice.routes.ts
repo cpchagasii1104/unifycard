@@ -77,7 +77,66 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
         return reply.status(400).send({ error: 'tenant required' });
       }
       const tenantId = req.tenant.id;
+
+      // 🔴 DECISION-0113 canal-5 (:id recurso privado financeiro): `requireInvoicePermission` prova só que o
+      // CALLER tem financial:view_ledger no PRÓPRIO actor — NÃO prova acesso a ESTA invoice (IDOR). Invoice é
+      // documento money-adjacent com partes reais (emissor=actorId, destinatário=recipientActorId). Resolve a
+      // invoice e exige representar UMA das partes; admin cross-actor só com financial:view_all_ledger
+      // comprovado. fail-closed → 403. (espelha o gate por-parte já aplicado em GET /invoices list.)
+      const callerUserId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!callerUserId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      // read-only: findById = SELECT; 404 se inexistente (comportamento atual, sem leak adicional).
       const invoice = await invoiceService.getInvoiceById(tenantId, req.params.invoiceId);
+
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      let canAccess = false;
+      for (const partyId of [invoice.actorId, invoice.recipientActorId]) {
+        if (!partyId) continue;
+        try {
+          if (await authorizationService.canRepresentActor(tenantId, callerUserId, partyId)) {
+            canAccess = true;
+            break;
+          }
+        } catch { /* fail-closed */ }
+      }
+
+      // Escape admin cross-actor: financial:view_all_ledger (permissão real comprovada, NÃO o view_ledger do
+      // caller). Necessário p/ invoices com parte 'system:platform'/'system' (não representável por actor humano).
+      if (!canAccess) {
+        try {
+          const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
+          const { runQueriesWithTenant } = await import('@core/database/pool');
+          // resolve o actor 'user' do caller SOMENTE-LEITURA (NÃO cria actor — proibido side-effect em GET).
+          const rows = await runQueriesWithTenant<{ actor_id: string }>(
+            tenantId,
+            `SELECT actor_id FROM actors WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user' LIMIT 1`,
+            [tenantId, callerUserId]
+          );
+          const callerActorId = rows[0]?.actor_id;
+          if (callerActorId) {
+            await businessAuthorizationService.requirePermission(
+              tenantId,
+              callerUserId,
+              callerActorId,
+              'financial:view_all_ledger',
+              'invoice_read'
+            );
+            canAccess = true;
+          }
+        } catch {
+          canAccess = false;
+        }
+      }
+
+      if (!canAccess) {
+        return reply.status(403).send({
+          error: 'Sem autoridade sobre esta invoice (representar emissor/destinatário ou financial:view_all_ledger)',
+          code: 'INVOICE_NOT_REPRESENTABLE',
+        });
+      }
 
       return reply.send({ invoice });
     }
