@@ -94,6 +94,26 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 WRITE · participant writes — 🏁 FECHA unified-availability.routes.ts PONTA-A-PONTA
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: matriz de produto da diretora → patch. Yala verifica.)_
+
+**Matriz (decisão diretora):** ADD = owner-only · UPDATE = owner-only (role editável → controle de roster) · DELETE = owner-or-self (owner remove qualquer um; participante sai de si mesmo). Terceiro nunca.
+
+**Correção:** req.user (401) → resolve owner real (getAvailability) [+ getParticipant no PUT/DELETE, 404 preservado] → actionContext === papel exigido → canRepresentActor → 403 fail-closed. params.id nunca como actor; sem ensureUserActor/getActiveActor; zero Bank (outbox conflito = alerta).
+
+**Arquivos:** `core/availability/unified-availability.routes.ts`, `validate-pipeline-e2e-availability-participant-writes-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **17/17** com **fixtures REAIS** (owner=devActor + participant=P). tsc 0; 4 gates OK (actor-writer verde; dev 365). Regressões TODAS verdes (15 suites).
+
+**🏁 MARCO MAIOR:** `unified-availability.routes.ts` FECHADO ponta-a-ponta no eixo 0113 — **13 endpoints gateados** (7 GETs + weekly + availability create/update + booking create/status/check-in/out + participant add/update/delete). Nenhum read/write keyed em actorId declarado sem prova server-side.
+
+**DTs:** DT-mãe **OPEN** (faltam dashboard/reports + sweep adversarial final). R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala reseal → arquivo availability reconciliado por inteiro → denominador maior: dashboard/reports OU sweep canal-3/canal-5.
+
+---
+
 ## 2026-06-09 — DECISION-0113 WRITE · booking status/check-in/check-out (matriz) — FECHA A FAMÍLIA BOOKING
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: matriz de produto da diretora → patch. Yala verifica.)_

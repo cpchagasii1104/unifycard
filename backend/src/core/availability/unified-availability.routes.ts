@@ -1131,6 +1131,15 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔴 DECISION-0113 (WRITE) — matriz diretora: ADD participante = OWNER-ONLY (controle de roster do dono).
+      // `body.actorId` é o participante ALVO, NÃO autoridade. Resolve o owner real da availability; actionContext
+      // deve === ownerId E req.user representa o owner. 401 sem user; 404 availability ausente; 403 fail-closed.
+      // Sem self-enroll nesta fatia. `params.availabilityId` nunca como actor.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+
       // Validar payload
       const parsed = createParticipantSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -1141,6 +1150,21 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // resolve o owner REAL da availability (404 preservado) e gateia ANTES de criar participante.
+        const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, req.params.availabilityId);
+        if (req.actionContext.actorId !== availability.ownerId) {
+          return reply.status(403).send({ ok: false, error: 'Adicionar participante exige ser o dono da availability', code: 'PARTICIPANT_ADD_OWNER_ONLY' });
+        }
+        let canRep = false;
+        try {
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+        } catch {
+          canRep = false;
+        }
+        if (!canRep) {
+          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o dono da availability (canRepresentActor)', code: 'PARTICIPANT_ADD_NOT_REPRESENTABLE' });
+        }
+
         // 🔴 BLINDAGEM: Criar participante (NÃO bloqueia conflitos)
         const participant = await unifiedAvailabilityService.createParticipant(
           req.tenant.id,
@@ -1356,6 +1380,15 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔴 DECISION-0113 (WRITE) — matriz diretora: UPDATE participante = OWNER-ONLY. `role` é EDITÁVEL →
+      // alterar role é controle de roster (participante não pode autopromover-se). Resolve participant (404
+      // preservado) + owner real; actionContext deve === ownerId E req.user representa o owner. 401/403.
+      // `params.id` é participantId, nunca actor.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+
       // Validar payload
       const parsed = updateParticipantSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -1366,6 +1399,21 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        const existing = await unifiedAvailabilityService.getParticipant(req.tenant.id, req.params.id);
+        const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
+        if (req.actionContext.actorId !== availability.ownerId) {
+          return reply.status(403).send({ ok: false, error: 'Editar participante (role) exige ser o dono da availability', code: 'PARTICIPANT_UPDATE_OWNER_ONLY' });
+        }
+        let canRep = false;
+        try {
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+        } catch {
+          canRep = false;
+        }
+        if (!canRep) {
+          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o dono da availability (canRepresentActor)', code: 'PARTICIPANT_UPDATE_NOT_REPRESENTABLE' });
+        }
+
         const participant = await unifiedAvailabilityService.updateParticipant(
           req.tenant.id,
           req.params.id,
@@ -1400,7 +1448,33 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113 (WRITE) — matriz diretora: DELETE participante = OWNER-OR-SELF. Resolve participant (404
+    // preservado) + owner real. Permite SE: (1) actionContext === ownerId E representa owner (remoção admin); OU
+    // (2) actionContext === participant.actorId E representa o próprio (saída voluntária). Terceiro → 403.
+    // 401 sem user; `params.id` é participantId, nunca actor.
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+
     try {
+      const existing = await unifiedAvailabilityService.getParticipant(req.tenant.id, req.params.id);
+      const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
+      const ownerId = availability.ownerId;
+
+      let allowed = false;
+      // (1) owner remove qualquer participante
+      if (req.actionContext.actorId === ownerId) {
+        try { allowed = await authorizationService.canRepresentActor(req.tenant.id, userId, ownerId); } catch { allowed = false; }
+      }
+      // (2) o próprio participante sai (self-leave)
+      if (!allowed && req.actionContext.actorId === existing.actorId) {
+        try { allowed = await authorizationService.canRepresentActor(req.tenant.id, userId, existing.actorId); } catch { allowed = false; }
+      }
+      if (!allowed) {
+        return reply.status(403).send({ ok: false, error: 'Remover participante exige ser o dono da availability ou o próprio participante', code: 'PARTICIPANT_DELETE_OWNER_OR_SELF' });
+      }
+
       await unifiedAvailabilityService.deleteParticipant(
         req.tenant.id,
         req.params.id,
