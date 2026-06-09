@@ -74,6 +74,36 @@ const weeklyTemplateSchema = z.object({
   ownerType: z.enum([AvailabilityOwnerType.USER, AvailabilityOwnerType.PAGE]).optional(),
 });
 
+/**
+ * 🔴 DECISION-0113 canal-5 — autoridade de leitura de booking pelas PARTES REAIS do compromisso.
+ * Booking é recurso privado: as partes são (1) `requesterActorId` (quem solicitou) e (2) o DONO REAL da
+ * availability (`availability.ownerId`, que é o actorId). Autoriza se o req.user puder representar UMA das
+ * partes. NÃO gateia em `params.id` (= bookingId, recurso) nem em `actionContext.actorId` (hint). Read-only,
+ * fail-closed (qualquer erro → false). NÃO cria actor (sem ensureUserActor/getActiveActor).
+ */
+async function canReadBookingAsParty(
+  tenantId: string,
+  userId: string,
+  booking: { requesterActorId?: string; availabilityId?: string }
+): Promise<boolean> {
+  // Parte 1: o solicitante (requesterActorId).
+  if (booking.requesterActorId) {
+    try {
+      if (await authorizationService.canRepresentActor(tenantId, userId, booking.requesterActorId)) return true;
+    } catch { /* fail-closed */ }
+  }
+  // Parte 2: o dono REAL da availability associada (availability.ownerId = actorId).
+  if (booking.availabilityId) {
+    try {
+      const availability = await unifiedAvailabilityService.getAvailability(tenantId, booking.availabilityId);
+      if (availability?.ownerId && await authorizationService.canRepresentActor(tenantId, userId, availability.ownerId)) {
+        return true;
+      }
+    } catch { /* availability ausente/erro → fail-closed */ }
+  }
+  return false;
+}
+
 const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   // 🔴 HARDENING: Rate limiting para rotas sensíveis de availability
   await fastify.register(rateLimit as any, {
@@ -488,6 +518,35 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113: lista de bookings é escopada por PARTE REAL representável — NUNCA tenant-wide.
+    // `requesterActorId`/`availabilityId` na query são HINT. Exigir representar o requester OU o dono real
+    // da availability filtrada. Sem filtro de parte representável → 403 fail-closed (não lista o tenant).
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+    let scoped = false;
+    if (req.query.requesterActorId) {
+      try {
+        if (await authorizationService.canRepresentActor(req.tenant.id, userId, req.query.requesterActorId)) scoped = true;
+      } catch { /* fail-closed */ }
+    }
+    if (!scoped && req.query.availabilityId) {
+      try {
+        const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, req.query.availabilityId);
+        if (availability?.ownerId && await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId)) {
+          scoped = true;
+        }
+      } catch { /* availability ausente/erro → fail-closed */ }
+    }
+    if (!scoped) {
+      return reply.status(403).send({
+        ok: false,
+        error: 'Listagem de bookings exige filtro por parte representável (requesterActorId que você representa, ou availabilityId cujo dono você representa)',
+        code: 'BOOKING_LIST_SCOPE_REQUIRED',
+      });
+    }
+
     const filters: any = {};
     try {
       if (req.query.availabilityId) {
@@ -548,11 +607,29 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113 canal-5 (:id recurso privado): `:id` é bookingId, NÃO actor. Booking = compromisso
+    // privado entre requester e o dono da availability → resolver as PARTES reais e exigir representar UMA
+    // delas ANTES de retornar. 401 sem user; 403 fail-closed. `params.id` nunca é tratado como actor.
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+
     try {
       const booking = await unifiedAvailabilityService.getBooking(
         req.tenant.id,
         req.params.id
       );
+
+      // gate pelas partes reais (requester OU dono da availability) — antes de devolver a PII do booking.
+      const canRead = await canReadBookingAsParty(req.tenant.id, userId, booking);
+      if (!canRead) {
+        return reply.status(403).send({
+          ok: false,
+          error: 'Sem autoridade sobre este booking (representar o solicitante ou o dono da availability)',
+          code: 'BOOKING_NOT_REPRESENTABLE',
+        });
+      }
 
       return reply.send({
         ok: true,

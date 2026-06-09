@@ -94,6 +94,26 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 CANAL-5 · availability bookings reads (party-gate)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: classificação READ-ONLY → GO bookings → Yala verifica.)_
+
+**IDOR (compromisso privado):** `GET /availability/bookings` + `/bookings/:id` validavam só `actionContext` → caller lia booking alheio por id / listava por requesterActorId hint. Booking = compromisso entre requester e dono da availability.
+
+**Correção:** helper `canReadBookingAsParty` = `canRepresentActor(requesterActorId)` OU `canRepresentActor(availability.ownerId)` (dono real resolvido via getAvailability; ownerId=actorId). by-id: resolve booking (404) → gate partes → 403 (BOOKING_NOT_REPRESENTABLE); params.id nunca como actor. list: exige filtro por parte representável → senão 403 (BOOKING_LIST_SCOPE_REQUIRED, nunca tenant-wide). 401 sem user. Zero Bank (booking payment-free → não-M). read-only.
+
+**Arquivos:** `core/availability/unified-availability.routes.ts`, `validate-pipeline-e2e-availability-bookings-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **16/16** com **fixtures REAIS** (tabela bookings existe em DEV — dev lê via owner=true, via requester alheio=false). tsc 0; 4 gates OK; dev 365. Regressões: bookings 16/16, conflicts 12/12, unified-calendar 17/17, invoice 16/16, payment-method 12/12+10/10, x-actor-id 9/9, canal3-money 7/7, money-live 12/12.
+
+**Denominador:** fecha SÓ os 2 GETs de bookings. Arquivo NÃO fechado — availability list/by-id (G), participants list/by-id (resíduo A), weekly-template PUT (write). /conflicts selado.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala reseal bookings → participants (com cuidado de produto: visibilidade de participação) → availability list/by-id (decisão público×privado) → dashboard/reports.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 params · availability-conflicts IDOR de agenda fechado
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: Yala selou invoice by-id `21a6a2ea` → GO availability-conflicts. Yala verifica.)_
