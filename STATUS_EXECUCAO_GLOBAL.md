@@ -94,6 +94,24 @@
 
 ---
 
+## 2026-06-09 — DT RBAC fail-closed / FASE 6 reactivation trap (docs-only, trava de sequenciamento)
+
+**Branch:** `rescue-structural` · **DOCS-ONLY** (zero código/migration/banco/frontend). Dev 365. HEAD `9ea90e5a`. _(Esteira: reseal business-audit revelou o stub fail-closed → diretora GO registrar a trava de sequenciamento.)_
+
+**Achado (1ª mão):** `actor_has_permission` no DB vivo é stub `RETURN FALSE` (C47/DECISION-0013, até FASE 6) → **toda rota `requirePermission` dá 403 para todos hoje** (confirmado: admin:view_audit_logs/dashboard:view/reports:view_operational = false). O fato base já estava documentado; o **novo** é o ângulo DECISION-0113.
+
+**Registrado (DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP, OPEN, SEM DECISION nova):** os leaks query.actorId em rotas requirePermission estão **mascarados** (inertes hoje, por máscara temporária, não por gate); os patches 0113 (dashboard/reports `4674bc5c`) são **defesa-em-profundidade load-bearing** para o RBAC real. **STOP de sequenciamento:** FASE 6/RBAC real NÃO avança antes de fechar DECISION-0113, OU deve preservar `canRepresentActor(actionContext.actorId)` dentro de `requirePermission` (rbac.plugin:151 já o faz). business-audit = F/C, fora do denominador, sem patch.
+
+**Arquivos:** `REMEDIATION_DT_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`. **Nenhum código/migration/banco/frontend.**
+
+**P1:** docs-only não altera runtime; corrige a causa de **sequenciamento** (fail-closed mascara exposição; FASE 6 é reativação global que só avança após 0113 ou preservando os gates de representabilidade).
+
+**DTs:** DT-mãe DECISION-0113 **OPEN**. FASE 6 **NÃO liberada**. R2 congelado.
+
+**PRÓXIMA ETAPA:** marketplace-inventory READ-ONLY (sweep DECISION-0113).
+
+---
+
 ## 2026-06-09 — UnifyCard acquiring legacy TOMBSTONE (docs-only, sem código)
 
 **Branch:** `rescue-structural` · **DOCS-ONLY** (zero código/migration/frontend/banco). Dev 365. HEAD `4674bc5c`. _(Esteira: 3 paralelas READ-ONLY + reachability check → C-INERTE → diretora GO tombstone docs-only.)_
