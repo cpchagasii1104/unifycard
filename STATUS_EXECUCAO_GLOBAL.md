@@ -94,6 +94,24 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 · unified-calendar CORRIGIDO (Yala FAIL): path sem actorId era tenant-wide
+
+**Branch:** `rescue-structural` · **backend** (2 arquivos: route + service; zero Bank/migration/frontend). Dev 365. _(Esteira: Yala derrubou o selo `e959b0d1` → executora corrige; Yala reseal. GO Clayton.)_
+
+**Yala FAIL (correto):** o 1º selo gateava `?actorId` certo, MAS `GET /unified-calendar` SEM `actorId` chamava `getUnifiedCalendar(tenantId, {})` → availability + eventos do **TENANT INTEIRO** (mass-disclosure de PII operacional). Eu rotulei "outra família" — errado; é o mesmo leak, caminho-a-caminho.
+
+**Correção (decisão Clayton — sem actorId ≠ ver tenant):** user obrigatório (401); COM actorId → `canRepresentActor` (403); SEM actorId → `resolveSelfUserActorReadOnly(req.user.id)` (SELECT read-only do user-actor próprio, **não cria actor**; 0 → vazio, nunca tenant-wide; >1 → 409); leitura SEMPRE `filters={actorId}` — `getUnifiedCalendar(tenantId,{})` eliminado. **Bônus:** service ignorava `filters.actorId` na fonte availability (TODO no-op); confirmei no DB vivo `availability.owner_id = actors.id` (32/32) e apliquei `owner_id=$actorId`. Admin/tenant-wide calendar = FORA de escopo.
+
+**Arquivos:** `core/calendar/unified-calendar.routes.ts`, `core/calendar/unified-calendar.service.ts`, `validate-pipeline-e2e-unified-calendar-authority-f6-5.ts`.
+
+**Prova:** e2e **17/17** (behavioral: service escopa de verdade — actor O não vaza ao filtrar devActor, `{}` listaria os dois; self-resolve read-only não cria actor; estrutural: filters sempre com actorId, sem `getUnifiedCalendar(tenantId,{})`, sem ensureUserActor, 401/403/409; service read-only + owner_id filter). tsc 0; 4 gates OK; dev 365. Regressões: x-actor-id 9/9, canal3-money 7/7, events-visibility 9/9, events-money 15/15, money-live 12/12.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado. invoice by-id + availability-conflicts seguem pendentes.
+
+**PRÓXIMA ETAPA:** Yala reseal unified-calendar → invoice by-id → availability-conflicts → dashboard/reports → sweep adversarial final.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-3 QUERY · unified-calendar?actorId gate (leak vivo de agenda)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: reconciliação 20+19 apontou unified-calendar como leak A #1 → executora; Yala verifica. GO Clayton.)_

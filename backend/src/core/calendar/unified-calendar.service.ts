@@ -77,26 +77,33 @@ class UnifiedCalendarService {
     tenantId: string,
     filters: UnifiedCalendarFilters
   ): Promise<UnifiedCalendarEntry[]> {
-    const availabilityFilters: any = {};
-    
+    // 🔴 DECISION-0113: a agenda de availability é escopada pelo actor dono.
+    // Mapeamento confirmado de 1ª mão (DB vivo): `availability.owner_id = actors.id` (actorId) —
+    // 32/32 owner_id casam com actors, owner_type='user' → actor_type='user'. O TODO antigo
+    // ("assumindo que actorId pode ser userId") está resolvido: owner_id É o actorId.
+    const params: any[] = [tenantId];
+    let paramIndex = 2;
+
+    let ownerFilter = '';
     if (filters.actorId) {
-      // Para unified_availability, precisamos buscar por owner
-      // Se actorId for fornecido, buscar por owner_type='user' e owner_id=actorId
-      // (assumindo que actorId pode ser userId)
-      // TODO: melhorar mapeamento actorId -> ownerId
-    }
-    
-    if (filters.startTimeFrom) {
-      availabilityFilters.startDatetime = filters.startTimeFrom;
-    }
-    
-    if (filters.startTimeTo) {
-      availabilityFilters.endDatetime = filters.startTimeTo;
+      ownerFilter = `AND owner_id = $${paramIndex++}`;
+      params.push(filters.actorId);
     }
 
-    // Buscar todas as unified availabilities no período
+    let fromFilter = '';
+    if (filters.startTimeFrom) {
+      fromFilter = `AND end_datetime >= $${paramIndex++}`;
+      params.push(filters.startTimeFrom);
+    }
+
+    let toFilter = '';
+    if (filters.startTimeTo) {
+      toFilter = `AND start_datetime <= $${paramIndex++}`;
+      params.push(filters.startTimeTo);
+    }
+
     const query = `
-      SELECT 
+      SELECT
         availability_id,
         owner_type,
         owner_id,
@@ -111,14 +118,11 @@ class UnifiedCalendarService {
       FROM availability
       WHERE tenant_id = $1
         AND status = 'active'
-        ${filters.startTimeFrom ? `AND end_datetime >= $2` : ''}
-        ${filters.startTimeTo ? `AND start_datetime <= $${filters.startTimeFrom ? 3 : 2}` : ''}
+        ${ownerFilter}
+        ${fromFilter}
+        ${toFilter}
       ORDER BY start_datetime ASC
     `;
-
-    const params: any[] = [tenantId];
-    if (filters.startTimeFrom) params.push(filters.startTimeFrom);
-    if (filters.startTimeTo) params.push(filters.startTimeTo);
 
     const rows = await runQueriesWithTenant<any>(tenantId, query, params);
 
