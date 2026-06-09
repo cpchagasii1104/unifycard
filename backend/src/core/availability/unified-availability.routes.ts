@@ -161,6 +161,15 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔴 DECISION-0113 canal-1 (WRITE): `body.ownerId` é o owner DECLARADO da availability — client-declared,
+      // NÃO autoridade. Criar agenda operacional deve ser do PRÓPRIO owner: req.user precisa representá-lo E o
+      // actionContext (autoria) deve coincidir com o owner (sem audit/autoria divergente). 401 sem user; 403
+      // fail-closed. Sem admin escape (não há cross-owner legítimo de criação de availability).
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+
       // Validar payload
       const parsed = createAvailabilitySchema.safeParse(req.body);
       if (!parsed.success) {
@@ -176,6 +185,30 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(400).send({
             error: 'Invalid metadata',
             message: 'schedule não pode ser salvo em availability.metadata. AvailabilitySchedule é INPUT DECLARATIVO e não deve ser persistido como verdade temporal.',
+          });
+        }
+      }
+
+      // 🔴 gate owner-scoped: actionContext = owner (autoria coincide) + req.user representa o owner.
+      if (req.actionContext.actorId !== parsed.data.ownerId) {
+        return reply.status(403).send({
+          ok: false,
+          error: 'A autoria (actionContext) deve coincidir com o owner da availability',
+          code: 'AVAILABILITY_WRITE_OWNER_MISMATCH',
+        });
+      }
+      {
+        let canRep = false;
+        try {
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, parsed.data.ownerId);
+        } catch {
+          canRep = false;
+        }
+        if (!canRep) {
+          return reply.status(403).send({
+            ok: false,
+            error: 'Sem autoridade sobre o owner da availability (canRepresentActor)',
+            code: 'AVAILABILITY_WRITE_NOT_REPRESENTABLE',
           });
         }
       }
@@ -416,6 +449,14 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔴 DECISION-0113 canal-5 (WRITE :id recurso privado): `:id` é availabilityId, NÃO actor. Alterar agenda
+      // operacional exige representar o DONO REAL (resolvido da availability), não confiar em params/actionContext.
+      // 401 sem user; 404 preservado; 403 fail-closed; autoria (actionContext) deve coincidir com o owner real.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+
       // Validar payload
       const parsed = updateAvailabilitySchema.safeParse(req.body);
       if (!parsed.success) {
@@ -436,6 +477,29 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // resolve o owner REAL da availability (404 preservado se ausente) e gateia ANTES de atualizar.
+        const existing = await unifiedAvailabilityService.getAvailability(req.tenant.id, req.params.id);
+        if (req.actionContext.actorId !== existing.ownerId) {
+          return reply.status(403).send({
+            ok: false,
+            error: 'A autoria (actionContext) deve coincidir com o owner real da availability',
+            code: 'AVAILABILITY_WRITE_OWNER_MISMATCH',
+          });
+        }
+        let canRep = false;
+        try {
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, existing.ownerId);
+        } catch {
+          canRep = false;
+        }
+        if (!canRep) {
+          return reply.status(403).send({
+            ok: false,
+            error: 'Sem autoridade sobre o owner da availability (canRepresentActor)',
+            code: 'AVAILABILITY_WRITE_NOT_REPRESENTABLE',
+          });
+        }
+
         const updateData: any = { ...parsed.data };
         if (parsed.data.startDatetime) {
           updateData.startDatetime = new Date(parsed.data.startDatetime);

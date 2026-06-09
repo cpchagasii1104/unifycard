@@ -94,7 +94,29 @@
 
 ---
 
-## 2026-06-09 — DECISION-0113 CANAL-1 WRITE · availability weekly-template — FECHA O ARQUIVO INTEIRO
+## 2026-06-09 — DECISION-0113 WRITE · availability writes (create/update) owner-scoped
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: classificação READ-ONLY achou 9 writes-A; diretora GO a família mais limpa primeiro. Yala verifica.)_
+
+**WRITE SPOOF/IDOR:** `POST /availability` (ownerId=body) + `PUT /availability/:id` (por availabilityId) só com actionContext → criar agenda p/ owner alheio / alterar availability alheia. Service sem authority, zero Bank.
+
+**Correção (OWNER-SCOPED):** POST → req.user (401) → actionContext===body.ownerId (OWNER_MISMATCH) → canRepresentActor(body.ownerId) antes de createAvailability. PUT → req.user (401) → getAvailability (404 preservado) → actionContext===availability.ownerId → canRepresentActor(ownerId) antes de updateAvailability; params.id nunca como actor. Sem admin escape; sem ensureUserActor/getActiveActor; zero Bank.
+
+**Frontend check:** createAvailability/updateAvailability têm ZERO call site vivo (UI escreve agenda via weekly-template, já gateado) → sem UX-RISK.
+
+**Arquivos:** `core/availability/unified-availability.routes.ts`, `validate-pipeline-e2e-availability-writes-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **17/17** com **fixtures REAIS**. tsc 0; 4 gates OK (actor-writer §4.8.1 verde; dev 365). Regressões TODAS verdes (writes 17 + weekly 15 + read 15 + participants 18 + bookings 16 + conflicts 12 + unified-calendar 17 + invoice 16 + payment-method 12 + x-actor-id 9 + canal3-money 7 + money-live 12).
+
+**Denominador:** fecha SÓ POST / + PUT /:id. **Resíduos = 7 writes-A:** booking writes (4) + participant writes (3) = eixo write-authorship com nuance de produto.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala reseal → booking writes + participant writes (precisam decisão de produto: qual parte autoriza qual ação) OU dashboard/reports — decisão diretora.
+
+---
+
+## 2026-06-09 — DECISION-0113 CANAL-1 WRITE · availability weekly-template — FECHA O ARQUIVO INTEIRO (eixo reads+weekly)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: classificação READ-ONLY = A write spoof → GO corrigir. Yala verifica.)_
 
