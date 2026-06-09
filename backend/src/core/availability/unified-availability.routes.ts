@@ -627,6 +627,15 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔴 DECISION-0113 canal-1 (WRITE): `body.requesterActorId` é o solicitante DECLARADO da reserva —
+      // client-declared, NÃO autoridade. Quem cria a reserva deve REPRESENTAR o requester. O owner da
+      // availability PODE ser terceiro (cliente reserva slot de prestador) → NÃO se exige representar o owner.
+      // 401 sem user; autoria (actionContext) deve coincidir com o requester (sem R2/delegação); 403 fail-closed.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+
       // Validar payload
       const parsed = createBookingSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -634,6 +643,30 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           error: 'Invalid request body',
           details: parsed.error.errors,
         });
+      }
+
+      // 🔴 gate: actionContext = requester (autoria coincide) + req.user representa o requester.
+      if (req.actionContext.actorId !== parsed.data.requesterActorId) {
+        return reply.status(403).send({
+          ok: false,
+          error: 'A autoria (actionContext) deve coincidir com o requester da reserva',
+          code: 'BOOKING_CREATE_REQUESTER_MISMATCH',
+        });
+      }
+      {
+        let canRep = false;
+        try {
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, parsed.data.requesterActorId);
+        } catch {
+          canRep = false;
+        }
+        if (!canRep) {
+          return reply.status(403).send({
+            ok: false,
+            error: 'Sem autoridade sobre o requester da reserva (canRepresentActor)',
+            code: 'BOOKING_CREATE_REQUESTER_NOT_REPRESENTABLE',
+          });
+        }
       }
 
       try {

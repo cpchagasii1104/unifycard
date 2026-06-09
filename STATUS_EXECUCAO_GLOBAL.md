@@ -94,6 +94,26 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 WRITE · booking CREATE (requester-scoped)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: decision-support classificou os 4 booking writes; diretora GO só o create — regra limpa. Yala verifica.)_
+
+**WRITE SPOOF:** `POST /availability/bookings` gravava requesterActorId=body só com actionContext → criar reserva em nome de requester alheio.
+
+**Correção (requester-scoped):** req.user (401) → actionContext===body.requesterActorId (REQUESTER_MISMATCH) → canRepresentActor(body.requesterActorId) antes de createBooking. **NÃO exige representar o owner** da availability (cliente reserva slot de prestador terceiro). Sem admin escape; sem ensureUserActor/getActiveActor; zero Bank. Sem caller frontend vivo.
+
+**Arquivos:** `core/availability/unified-availability.routes.ts`, `validate-pipeline-e2e-availability-booking-create-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **14/14** com **fixtures REAIS** (owner terceiro + requester alheio). tsc 0; 4 gates OK (actor-writer verde; dev 365). Regressões TODAS verdes.
+
+**Denominador:** fecha SÓ POST /bookings. **Resíduos = 6 writes:** PUT /bookings/:id (G/integridade — status arbitrário sem state machine), check-in, check-out (G — papel), participant writes ×3.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala reseal → decisão de produto da diretora p/ a matriz (confirm=owner · cancel=requester|owner · check-in/out=owner · PUT status arbitrário=restringir) → patch do bloco status/check-in/out.
+
+---
+
 ## 2026-06-09 — DECISION-0113 WRITE · availability writes (create/update) owner-scoped
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: classificação READ-ONLY achou 9 writes-A; diretora GO a família mais limpa primeiro. Yala verifica.)_
