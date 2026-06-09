@@ -5,6 +5,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { requirePermission } from '@core/authorization/require-permission.guard';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { inventoryService } from '../inventory.service';
 import { marketplaceLogger } from '../marketplace.logger';
 import { AppError, BadRequestError, UnauthorizedError } from '@core/errors';
@@ -69,6 +70,24 @@ export async function registerMarketplaceInventoryRoutes(
       if (!variantId?.trim()) {
         throw new BadRequestError('variantId é obrigatório', ErrorCode.BAD_REQUEST);
       }
+
+      // 🔴 DECISION-0113: `can_manage_marketplace` é DEFAULT de TODA company (actor-registry) — NÃO prova
+      // autoridade sobre o `actorId` filtrado. `query.actorId` é HINT → exigir representar o actor alvo ANTES
+      // de ler o estoque dele (senão company A lê o estoque da company B). 401 sem user; 403 fail-closed.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+      let canRep = false;
+      try {
+        canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, actorId);
+      } catch {
+        canRep = false;
+      }
+      if (!canRep) {
+        return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)', code: 'INVENTORY_ACTOR_NOT_REPRESENTABLE' });
+      }
+
       try {
         const balance = await inventoryService.getCurrentBalanceByActor(
           req.tenant.id,
@@ -122,6 +141,25 @@ export async function registerMarketplaceInventoryRoutes(
       } = req.query;
       if (!variantId?.trim()) {
         throw new BadRequestError('variantId é obrigatório', ErrorCode.BAD_REQUEST);
+      }
+
+      // 🔴 DECISION-0113: quando filtra por `actorId`, exigir representá-lo (`can_manage_marketplace` é default
+      // de toda company → não autoriza ver o extrato de actor alheio). 401 sem user; 403 fail-closed. SEM
+      // `actorId`: comportamento atual preservado (extrato tenant-wide da variante = broad read, fora desta fatia).
+      if (actorId?.trim()) {
+        const userId = (req as { user?: { userId?: string } }).user?.userId;
+        if (!userId) {
+          return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+        }
+        let canRep = false;
+        try {
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, actorId);
+        } catch {
+          canRep = false;
+        }
+        if (!canRep) {
+          return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)', code: 'INVENTORY_ACTOR_NOT_REPRESENTABLE' });
+        }
       }
 
       const options: ListInventoryMovementsOptions = {};

@@ -94,6 +94,26 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 CANAL-3 · marketplace-inventory actorId (pós-FAIL Yala: era F, é A)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend/service). Dev 365. _(Esteira: Yala derrubou o F → executora corrige. Yala reseal.)_
+
+**FAIL da Yala (correto):** classifiquei marketplace-inventory como F (operador), mas `can_manage_marketplace` é **DEFAULT de TODA company** (`actor-registry.getDefaultCapabilities('company')=true`). Logo o gate de capability passa p/ qualquer company → `query.actorId` deixava company A ler estoque/extrato da company B = **A vivo** (canal-3).
+
+**Correção:** by-actor (actorId obrigatório) + movements (quando actorId presente) → `canRepresentActor(tenantId, req.user.userId, query.actorId)` ANTES do service; 401/403 fail-closed (INVENTORY_ACTOR_NOT_REPRESENTABLE). `requirePermission('marketplace_manage_inventory')` mantido (capability não é autoridade sobre o alvo). Read-only, zero Bank (estoque físico inventory_movements/balances). Sem ensureUserActor/getActiveActor; sem write.
+
+**Arquivos:** `modules/marketplace/routes/marketplace-inventory.routes.ts`, `validate-pipeline-e2e-marketplace-inventory-actorid-authority-f6-5-c3.ts` (novo).
+
+**Prova:** e2e **12/12** (A primitivo canRepresentActor; B estrutural gate-antes-do-service + broad-read preservado + capability mantida; C estoque-físico sem Bank). tsc 0; 4 gates OK; dev 365. Regressões TODAS verdes.
+
+**Resíduo (B):** /inventory/balance + /inventory/movements SEM actorId = broad read tenant-wide (gateado só por can_manage_marketplace default) — classificado, não corrigido aqui.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado. ⚠️ Revisar marketplace identity/sla (F-OK sob a mesma capability default).
+
+**PRÓXIMA ETAPA:** Yala reseal → próxima superfície do sweep (ou revisar identity/sla à luz do FAIL).
+
+---
+
 ## 2026-06-09 — DT RBAC fail-closed / FASE 6 reactivation trap (docs-only, trava de sequenciamento)
 
 **Branch:** `rescue-structural` · **DOCS-ONLY** (zero código/migration/banco/frontend). Dev 365. HEAD `9ea90e5a`. _(Esteira: reseal business-audit revelou o stub fail-closed → diretora GO registrar a trava de sequenciamento.)_
