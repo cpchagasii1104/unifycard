@@ -1,3 +1,21 @@
+## 2026-06-09 — DECISION-0113 CANAL-5 FINANCEIRO BY-ID · account read gate (accountId/balance)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank-write/migration/frontend). Dev 365. _(Esteira: READ-FIRST denominador→owner-raw→executora; Yala verifica. GO Clayton.)_
+
+**O que entregou:** leaks confirmados `GET /economy/accounts/:accountId` + `/:accountId/balance` (só req.tenant). READ-FIRST provou o owner: **`accountId` = `bank_accounts.id`** (lookup); **dono autoritativo = `bank_accounts.actor_id`** (via `bankAccountService.getAccountById`, que expõe `actorId` — o `toLegacyAccount` DROPA o actorId, por isso o STOP anterior estava certo); saldo vem de `bank_ledger` (`calculateBalance`). Helper `assertAccountReadAuthority`: `actor_id != null` → `canRepresentActor(actor_id)` (403); `actor_id == null` (system/escrow = cofre da plataforma) → `financial:view_all_ledger` (admin/finance existente), senão **fail-closed 403**; 404 inexistente; 401 sem user. Aplicado às 2 rotas.
+
+**Arquivos:** `core/economy/accounts/account.routes.ts`, `validate-pipeline-e2e-account-read-authority-f6-5-c5-financial.ts` (novo).
+
+**Prova:** e2e **11/11** com **fixtures REAIS** (conta actor-owned + conta system semeadas+limpas, LEFTOVER=0): getAccountById traz actorId=devActor (actor) / undefined (system); canRepresentActor dono→true/estranho→false; saldo via bank_ledger inalterado; helper antes do read nas 2 rotas; usa account.actorId não ownerId/accountId; `/owner/:ownerId` intocado. Backend tsc **0** (fora geo); 4 gates OK (**bank-ledger verde**, dev 365); regressões verdes.
+
+**🔴 RESÍDUO ainda OPEN (DT-mãe NÃO fecha):** `GET /owner/:ownerId` (mesmo arquivo, lista contas por ownerId legado — provável leak) · settlement/AP/AR (owner ambíguo, STOP) · `/regions/:id/account` (decisão Clayton: transparência vs admin) · invoice/opportunity/marketplace · re-sweep financeiro by-id.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** `/owner/:ownerId` → READ-FIRST settlement/AP/AR ownership → decisão `/regions/:id/account` → invoice/opportunity/marketplace → re-sweep → só então DT-mãe.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 PARAMS · economic-overview authority gate (resíduo do sweep final)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: sweep adversarial READ-ONLY achou o leak → executora; Yala verifica. GO Clayton.)_

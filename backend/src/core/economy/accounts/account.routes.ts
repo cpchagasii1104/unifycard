@@ -114,6 +114,45 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
     return accountService.listAccounts(tenantId, { limit, offset, ownerType: bankOwnerType });
   });
 
+  // 🔴 DECISION-0113 canal-5 financeiro by-id: autoridade de READ de conta. accountId = bank_accounts.id; o dono
+  // autoritativo é bank_accounts.actor_id (via bankAccountService — o toLegacyAccount DROPA o actorId, então não é
+  // cartório de authority). actor != null → representar o actor dono (403); actor == null (system/escrow = cofre da
+  // plataforma) → exige financial:view_all_ledger (admin/finance existente), senão fail-closed (403).
+  async function assertAccountReadAuthority(
+    tenantId: string,
+    callerUserId: string | undefined,
+    accountId: string,
+  ): Promise<{ ok: true } | { ok: false; status: 401 | 403 | 404 }> {
+    if (!callerUserId) return { ok: false, status: 401 };
+    const { bankAccountService } = await import('@modules/bank/bank-account.service');
+    const account = await bankAccountService.getAccountById(tenantId, accountId);
+    if (!account) return { ok: false, status: 404 };
+    if (account.actorId) {
+      let canRep = false;
+      try {
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        canRep = await authorizationService.canRepresentActor(tenantId, callerUserId, account.actorId);
+      } catch {
+        canRep = false;
+      }
+      return canRep ? { ok: true } : { ok: false, status: 403 };
+    }
+    // system/escrow (sem actor): cofre da plataforma → exige permissão financeira admin existente; senão fail-closed.
+    let adminOk = false;
+    try {
+      const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
+      const { getActiveActor } = await import('@core/actors/actor.helpers');
+      const callerActor = await getActiveActor(tenantId, callerUserId);
+      if (callerActor) {
+        await businessAuthorizationService.requirePermission(tenantId, callerUserId, callerActor.actor_id, 'financial:view_all_ledger', 'account');
+        adminOk = true;
+      }
+    } catch {
+      adminOk = false;
+    }
+    return adminOk ? { ok: true } : { ok: false, status: 403 };
+  }
+
   // GET /economy/accounts/:accountId - Buscar conta por ID
   fastify.get<{ Params: { accountId: string } }>('/:accountId', async (req, reply) => {
     const tenantId = req.tenant!.id;
@@ -123,6 +162,14 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({
         error: 'Invalid account ID',
         details: parsed.error.errors,
+      });
+    }
+
+    const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+    const auth = await assertAccountReadAuthority(tenantId, callerUserId, parsed.data.accountId);
+    if (!auth.ok) {
+      return reply.status(auth.status).send({
+        error: auth.status === 404 ? 'Account not found' : auth.status === 401 ? 'Authentication required' : 'Sem autoridade sobre a conta',
       });
     }
 
@@ -144,6 +191,14 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({
         error: 'Invalid account ID',
         details: parsed.error.errors,
+      });
+    }
+
+    const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+    const auth = await assertAccountReadAuthority(tenantId, callerUserId, parsed.data.accountId);
+    if (!auth.ok) {
+      return reply.status(auth.status).send({
+        error: auth.status === 404 ? 'Account not found' : auth.status === 401 ? 'Authentication required' : 'Sem autoridade sobre a conta',
       });
     }
 
