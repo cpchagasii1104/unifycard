@@ -1,3 +1,23 @@
+## 2026-06-09 — DECISION-0113 CANAL-3 QUERY · payment-method default actor gate (?actorId)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: resíduo "canal-3 limpo" caiu → executora; Yala verifica. GO Clayton.)_
+
+**O que entregou:** `GET /payment-methods/default?actorId` retornava o método default (PII financeira: card/provider) de qualquer actor declarado na query (só req.tenant). Gateado `canRepresentActor(tenantId, req.user.id, query.actorId)` ANTES de `getDefaultMethod`; 401 sem user; 403 não-representável; 400 sem actorId (preservado). actorId em query = hint, não autoridade. read-only, sem Bank. POST /payment-methods (F3.1) intacto.
+
+**🔴 DENOMINADOR DO ARQUIVO (3 GETs, honesto):** `/default` GATEADO; **`GET /payment-methods` (list ?actorId)** e **`GET /payment-methods/:id`** AINDA sem authority = **RESÍDUO reportado** (mesma PII; fila Clayton). _(A frase "canal-3 limpo" caiu: meu grep de canal-3 era parcial — não pegava marketplace/payment-method.)_
+
+**Arquivos:** `modules/marketplace/payment-method.routes.ts`, `validate-pipeline-e2e-payment-method-default-authority-f6-5-c3.ts` (novo).
+
+**Prova:** e2e **10/10** (A behavioral canRepresentActor próprio/alheio/estranho; B estrutural gate-antes-do-read sobre query.actorId + 401/403/400 + POST F3.1 intacto + read-only; C denominador: list+/:id reportados como resíduo). LEFTOVER=0. tsc 0; 4 gates OK (bank-ledger verde, dev 365); 10 regressões verdes.
+
+**🔴 RESÍDUO (DT-mãe NÃO fecha):** payment-method list ?actorId + /:id (mesmo arquivo) · groups economy · settlements/AP/AR · `/regions/:id/account` (decisão Clayton) · invoice/:invoiceId · marketplace-identity/sla · b2b-contracts/availability/organization (a verificar no re-sweep) · **re-sweep EXAUSTIVO de actorId** (denominador inteiro, não lista parcial).
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** payment-method list+/:id → re-sweep EXAUSTIVO de `?actorId`/`/:actorId`/`/actors/:id` → b2b-contracts/availability/organization → groups economy → settlement/AP/AR → decisão fundo regional → só então DT-mãe.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 PARAMS · opportunity-dispatch actor gate (/actors/:id/dispatches)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: resíduo do sweep → executora; Yala verifica. GO Clayton.)_

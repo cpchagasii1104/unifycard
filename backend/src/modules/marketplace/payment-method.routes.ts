@@ -107,6 +107,25 @@ const paymentMethodRoutes = async (fastify: FastifyInstance) => {
       throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
+    // 🔴 DECISION-0113 canal 3 (query): `actorId` é hint, não autoridade. Método de pagamento default = PII
+    // financeira do actor → exige representar o actor filtrado ANTES de ler (fail-closed → 403). 401 sem user.
+    const userId = (req as { user?: { id?: string } }).user?.id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.id)' });
+    }
+    let canRepresent = false;
+    try {
+      canRepresent = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      canRepresent = false;
+    }
+    if (!canRepresent) {
+      return reply.status(403).send({
+        error: 'Sem autoridade sobre o actor (canRepresentActor)',
+        code: 'PAYMENT_METHOD_DEFAULT_ACTOR_NOT_REPRESENTABLE',
+      });
+    }
+
     const method = await paymentMethodService.getDefaultMethod(tenantId, actorId);
     if (!method) {
       throw new NotFoundError('Método default não encontrado');
