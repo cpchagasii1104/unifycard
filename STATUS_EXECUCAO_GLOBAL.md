@@ -94,6 +94,26 @@
 
 ---
 
+## 2026-06-09 — DECISION-0113 CANAL-5 · availability participants reads (owner-or-self)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: GO participants com decisão diretora "privado por padrão / owner-or-self". Yala verifica.)_
+
+**IDOR (PII relacional):** `GET /:availabilityId/participants` + `/participants/:id` validavam só `actionContext` → caller lia participantes (actorId/role) alheios. Decisão diretora: participant é PRIVADO por padrão; visibilidade pública = projeção própria futura.
+
+**Correção (OWNER-OR-SELF):** list = OWNER-ONLY (getAvailability → canRepresentActor(ownerId) antes de listParticipants; 404 preservado); by-id = OWNER-OR-SELF (helper canReadParticipantAsParty: representar participant.actorId [self] OU availability.ownerId [owner]). params.id nunca como actor; sem ensureUserActor/getActiveActor; 401/403 fail-closed. Zero Bank, read-only.
+
+**Arquivos:** `core/availability/unified-availability.routes.ts`, `validate-pipeline-e2e-availability-participants-authority-f6-5.ts` (novo).
+
+**Prova:** e2e **18/18** com **fixtures REAIS** (owner lê, self lê o próprio, estranho 403, inexistente 404). tsc 0; 4 gates OK; dev 365. Regressões: participants 18/18, bookings 16/16, conflicts 12/12, unified-calendar 17/17, invoice 16/16, payment-method 12/12, x-actor-id 9/9, canal3-money 7/7, money-live 12/12.
+
+**Denominador:** fecha SÓ os 2 GETs de participants. Arquivo NÃO fechado — restam availability list/by-id (G) + weekly-template PUT (write). /conflicts + /bookings selados.
+
+**DTs:** DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** Yala reseal participants → decidir gaveta availability (list/by-id = G público×privado) OU voltar para dashboard/reports.
+
+---
+
 ## 2026-06-09 — DECISION-0113 CANAL-5 · availability bookings reads (party-gate)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: classificação READ-ONLY → GO bookings → Yala verifica.)_

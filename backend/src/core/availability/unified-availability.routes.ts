@@ -104,6 +104,36 @@ async function canReadBookingAsParty(
   return false;
 }
 
+/**
+ * 🔴 DECISION-0113 canal-5 — autoridade de leitura de participant (by-id) por OWNER-OR-SELF.
+ * Participant é PII relacional privada (decisão diretora 2026-06-09: não vira vitrine social por acidente).
+ * Autoriza se o req.user puder representar (1) o `participant.actorId` (o PRÓPRIO participante = self) OU
+ * (2) o DONO REAL da availability associada (`availability.ownerId` = actorId). NÃO gateia em `params.id`
+ * (= participantId, recurso) nem em `actionContext.actorId`. Read-only, fail-closed. Sem ensureUserActor/getActiveActor.
+ */
+async function canReadParticipantAsParty(
+  tenantId: string,
+  userId: string,
+  participant: { actorId?: string; availabilityId?: string }
+): Promise<boolean> {
+  // Self: o próprio actor participante.
+  if (participant.actorId) {
+    try {
+      if (await authorizationService.canRepresentActor(tenantId, userId, participant.actorId)) return true;
+    } catch { /* fail-closed */ }
+  }
+  // Owner: dono REAL da availability associada.
+  if (participant.availabilityId) {
+    try {
+      const availability = await unifiedAvailabilityService.getAvailability(tenantId, participant.availabilityId);
+      if (availability?.ownerId && await authorizationService.canRepresentActor(tenantId, userId, availability.ownerId)) {
+        return true;
+      }
+    } catch { /* availability ausente/erro → fail-closed */ }
+  }
+  return false;
+}
+
 const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   // 🔴 HARDENING: Rate limiting para rotas sensíveis de availability
   await fastify.register(rateLimit as any, {
@@ -911,7 +941,34 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113 + decisão diretora: lista de participantes = PII relacional PRIVADA → OWNER-ONLY.
+    // Resolve a availability por `params.availabilityId` (404 preservado se ausente) e exige representar o
+    // DONO REAL antes de listar (`actionContext`/`availabilityId` declarados são hint). 401 sem user;
+    // 403 fail-closed. (Visão de co-participante, se um dia desejada, é projeção/endpoint próprio — não aqui.)
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+
     try {
+      const availability = await unifiedAvailabilityService.getAvailability(
+        req.tenant.id,
+        req.params.availabilityId
+      );
+      let canRep = false;
+      try {
+        canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+      } catch {
+        canRep = false;
+      }
+      if (!canRep) {
+        return reply.status(403).send({
+          ok: false,
+          error: 'Sem autoridade sobre os participantes (representar o dono da availability)',
+          code: 'PARTICIPANTS_NOT_REPRESENTABLE',
+        });
+      }
+
       const filters: any = {
         availabilityId: req.params.availabilityId,
       };
@@ -965,11 +1022,29 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    // 🔴 DECISION-0113 canal-5 (:id recurso privado): `:id` é participantId, NÃO actor. Participant = PII
+    // relacional → resolve o participante e exige OWNER-OR-SELF: representar o próprio `participant.actorId`
+    // OU o DONO real da availability. 401 sem user; 403 fail-closed. `params.id` nunca tratado como actor.
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+    }
+
     try {
       const participant = await unifiedAvailabilityService.getParticipant(
         req.tenant.id,
         req.params.id
       );
+
+      // gate owner-or-self antes de devolver a PII do participant.
+      const canRead = await canReadParticipantAsParty(req.tenant.id, userId, participant);
+      if (!canRead) {
+        return reply.status(403).send({
+          ok: false,
+          error: 'Sem autoridade sobre este participante (representar o próprio participante ou o dono da availability)',
+          code: 'PARTICIPANT_NOT_REPRESENTABLE',
+        });
+      }
 
       return reply.send({
         ok: true,
