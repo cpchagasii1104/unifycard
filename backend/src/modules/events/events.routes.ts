@@ -305,6 +305,12 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant não encontrado' });
       }
 
+      // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+      const { canViewEvent } = await import('@core/events/event-visibility.service');
+      if (!(await canViewEvent(req.tenant.id, req.params.eventId, (req.user as { userId?: string }).userId))) {
+        return reply.status(404).send({ error: 'Evento não encontrado' });
+      }
+
       try {
         // Usar getEvent que agora retorna campos completos (eventType, ticketPrice, etc)
         const event = await eventsService.getEvent(
@@ -357,6 +363,12 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant não encontrado' });
       }
 
+      // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+      const { canViewEvent } = await import('@core/events/event-visibility.service');
+      if (!(await canViewEvent(req.tenant.id, req.params.eventId, (req.user as { userId?: string }).userId))) {
+        return reply.status(404).send({ error: 'Evento não encontrado' });
+      }
+
       try {
         const limit = req.query.limit ? parseInt(req.query.limit, 10) : 20;
         const posts = await eventsService.getEventPosts(
@@ -399,6 +411,12 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!req.tenant) {
         return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+      const { canViewEvent } = await import('@core/events/event-visibility.service');
+      if (!(await canViewEvent(req.tenant.id, req.params.eventId, (req.user as { userId?: string }).userId))) {
+        return reply.status(404).send({ error: 'Evento não encontrado' });
       }
 
       try {
@@ -458,6 +476,12 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!req.tenant) {
         return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+      const { canViewEvent } = await import('@core/events/event-visibility.service');
+      if (!(await canViewEvent(req.tenant.id, req.params.eventId, (req.user as { userId?: string }).userId))) {
+        return reply.status(404).send({ error: 'Evento não encontrado' });
       }
 
       try {
@@ -535,6 +559,12 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant não encontrado' });
       }
 
+      // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+      const { canViewEvent } = await import('@core/events/event-visibility.service');
+      if (!(await canViewEvent(req.tenant.id, req.params.eventId, (req.user as { userId?: string }).userId))) {
+        return reply.status(404).send({ error: 'Evento não encontrado' });
+      }
+
       try {
         const summary = await eventMetricsService.getEventMetricsSummary(
           req.tenant.id,
@@ -564,6 +594,12 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!req.tenant) {
         return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+      const { canViewEvent } = await import('@core/events/event-visibility.service');
+      if (!(await canViewEvent(req.tenant.id, req.params.eventId, (req.user as { userId?: string }).userId))) {
+        return reply.status(404).send({ error: 'Evento não encontrado' });
       }
 
       try {
@@ -726,6 +762,12 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (!req.tenant) {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+
+    // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+    const { canViewEvent } = await import('@core/events/event-visibility.service');
+    if (!(await canViewEvent(req.tenant.id, req.params.id, (req.user as { userId?: string }).userId))) {
+      return reply.status(404).send({ error: 'Evento não encontrado' });
     }
 
     try {

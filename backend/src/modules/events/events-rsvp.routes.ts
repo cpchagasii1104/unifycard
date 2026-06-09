@@ -88,6 +88,12 @@ const eventsRSVPRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
 
+    // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+    const { canViewEvent } = await import('@core/events/event-visibility.service');
+    if (!(await canViewEvent(tenantId, eventId, userId))) {
+      return reply.code(404).send({ error: 'Evento não encontrado' });
+    }
+
     try {
       const rsvp = await eventRSVPService.getRSVPStatus(
         tenantId,
@@ -118,9 +124,16 @@ const eventsRSVPRoutes: FastifyPluginAsync = async (fastify) => {
   }>('/:id/rsvp/counts', async (request, reply) => {
     const { id: eventId } = request.params;
     const tenantId = (request as any).tenant_id;
+    const userId = (request as any).user_id;
 
     if (!tenantId) {
       return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+    const { canViewEvent } = await import('@core/events/event-visibility.service');
+    if (!(await canViewEvent(tenantId, eventId, userId))) {
+      return reply.code(404).send({ error: 'Evento não encontrado' });
     }
 
     try {

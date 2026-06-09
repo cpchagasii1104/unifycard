@@ -31,6 +31,12 @@ const eventsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
         const tenantId = req.tenant.id;
         const eventId = req.params.eventId;
 
+        // 🔵 DECISION-0113 F6.5.6b-CANAL5-B: sub-resource herda canViewEvent do evento-pai (404 não-leak).
+        const { canViewEvent } = await import('@core/events/event-visibility.service');
+        if (!(await canViewEvent(tenantId, eventId, (req.user as { userId?: string }).userId))) {
+          return reply.status(404).send({ error: 'Evento não encontrado' });
+        }
+
         // Verificar se evento existe
         const eventRow = await runQueryWithTenant<{
           id: string;

@@ -1,3 +1,21 @@
+## 2026-06-08 — F6.5.6b-CANAL5-B EVENTS · sub-resources não-money herdam canViewEvent (DECISION-0113, canal 5)
+
+**Branch:** `rescue-structural` · **backend** (3 arquivos de rota + e2e; zero Bank/migration/frontend/money/writes). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: sub-resource só abre se o evento-pai passar no canViewEvent; money fora.)_
+
+**O que entregou:** READ-FIRST de todos os handlers `/:eventId/*`·`/:id/*` + gate dos **10 sub-resources não-money de leitura** com `canViewEvent` (404 deny-first, eixo do canal-5-A): `events.routes` details/posts/stats/participants/metrics(GET)/dashboard/occupancy · `events-rsvp` rsvp/status·rsvp/counts · `events-state-history` state-history. Gate ANTES do read; `eventId` de `req.params`. **F money STOP (NÃO tocados):** economy/closure-summary/settlement/RFQ/checkout/tickets/consumption/economic-v2. **D writes (NÃO tocados):** POSTs/lifecycle. organizer-metrics já é organizer-gated.
+
+**Arquivos:** `modules/events/events.routes.ts`, `events-rsvp.routes.ts`, `events-state-history.routes.ts`, `validate-pipeline-e2e-events-subresources-visibility-f6-5-6b-c5b.ts` (novo).
+
+**Prova:** e2e **16/16** (A sanidade behavioral do predicado herdado: public+published vê / private outsider 404; B estrutural: gate-antes-da-leitura nos 10 + 404 deny-first + eventId de params + money NÃO gateado). Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: canal-5-A 17/17 · B4 13/13 · B3 12/12 · B2 12/12 · B1 9/9 · event-specs 8/8 · impact 7/7 · canal3-money 7/7 · cultural 7/7 · trust 12/12 · x-actor-id 9/9 · rbac 13/13 · money-live 12/12.
+
+**🔴 Residuais honestos (NÃO desta fatia):** `GET /events/search` (discovery via searchEvents, provável sem piso de visibility = leak de discovery, pertence à frente de visibility-floor) · `POST /events/compare` (métricas multi-evento por body.eventIds[], precisa canViewEvent por-id). Registrados na DT.
+
+**DTs:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` → **PARTIALLY MITIGATED** (B1–B4 + canal-5-A + canal-5-B done; faltam money + os 2 residuais). DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** READ-FIRST money de events (economy/closure/settlement/RFQ/economic-v2) → residuais search/compare → sweep adversarial final dos 5 canais → só então avaliar fechar DT-mãe.
+
+---
+
 ## 2026-06-08 — F6.5.6b-CANAL5-A EVENTS · canViewEvent para GET /events/:id (DECISION-0113, canal 5)
 
 **Branch:** `rescue-structural` · **backend** (1 helper novo + 2 rotas + e2e; zero Bank/migration/frontend/sub-resources/settlement). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: helper único, eixo actor_id, 404 deny-first.)_
