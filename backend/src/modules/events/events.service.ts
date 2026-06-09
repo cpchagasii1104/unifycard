@@ -775,6 +775,7 @@ class EventsService {
       endDate,
       limit = 50,
       offset = 0,
+      discoveryUserId,
     } = options;
 
     let query = `
@@ -819,6 +820,30 @@ class EventsService {
       params.push(endDate);
       paramIndex++;
     }
+
+    // 🔵 DECISION-0113 F6.5.6b-CANAL5-C — PISO DE DISCOVERY (mesma régua B1–B4): search é 2ª listagem pública e
+    // deve herdar o piso. Só status published/active; visibility 'public' SEMPRE OU 'group' (membro material via
+    // group_members.user_id) OU 'followers' (follow material via follows + actors.user_id) — discoveryUserId
+    // (= req.user.userId, NUNCA actorId declarado). private/unlisted/draft/declared/ended/cancelled FORA.
+    query += ` AND status IN ('published','active')`;
+    const visParts: string[] = [`visibility = 'public'`];
+    if (discoveryUserId) {
+      visParts.push(
+        `(visibility = 'group' AND actor_id IN (SELECT a.id FROM actors a ` +
+          `JOIN group_members gm ON gm.group_id = a.group_id AND gm.tenant_id = a.tenant_id AND gm.user_id = $${paramIndex} ` +
+          `WHERE a.tenant_id = $1 AND a.group_id IS NOT NULL))`
+      );
+      params.push(discoveryUserId);
+      paramIndex++;
+      visParts.push(
+        `(visibility = 'followers' AND actor_id IN (SELECT f.followed_actor_id FROM follows f ` +
+          `JOIN actors fa ON fa.id = f.follower_actor_id AND fa.tenant_id = f.tenant_id AND fa.user_id = $${paramIndex} ` +
+          `WHERE f.tenant_id = $1))`
+      );
+      params.push(discoveryUserId);
+      paramIndex++;
+    }
+    query += ` AND (${visParts.join(' OR ')})`;
 
     query += ` ORDER BY datetime_start ASC NULLS LAST LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);

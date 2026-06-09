@@ -1,3 +1,19 @@
+## 2026-06-08 — F6.5.6b-CANAL5-C EVENTS · search herda piso B1–B4 + compare herda canViewEvent (DECISION-0113, canal 5)
+
+**Branch:** `rescue-structural` · **backend** (3 arquivos + e2e; zero Bank/migration/frontend/money/writes). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: fechar os 2 residuais não-money antes do money.)_
+
+**O que entregou:** **`GET /events/search`** (era 2ª listagem sem piso → vazava private/draft/group/followers/unlisted) agora **herda o piso B1–B4**: `searchEvents` (SQL próprio) ganhou `status IN ('published','active')` + `visibility public` SEMPRE OU `group`-membro OU `followers`-follow via `discoveryUserId`=req.user.userId server-side; filtros regionais/data preservados. **`POST /events/compare`** (métricas multi-id sem checagem) agora roda **`canViewEvent` por eventId ANTES de comparar**; se QUALQUER id invisível → **404 não-leak, sem parcial** (mata enumeração). Ambos read-only, sem bank.
+
+**Arquivos:** `modules/events/events.types.ts`, `events.service.ts`, `events.routes.ts`, `validate-pipeline-e2e-events-search-compare-visibility-f6-5-6b-c5c.ts` (novo).
+
+**Prova:** e2e **13/13** com **fixtures REAIS** (organizer page + grupo dono=O + dev membro/follower): search respeita o piso (dev vê public/group/followers; estranho/anônimo só public; draft/private/unlisted fora; filtro regional preservado); compare 404 em mistura/inexistente/sem-relação. Cleanup **LEFTOVER=0**. Backend tsc **0** (fora geo); 4 gates OK (dev **365**, arch critical_new=0). Regressões verdes: canal-5-B 16/16 · canal-5-A 17/17 · B1–B4 · event-specs 8/8 · canal3-money 7/7 · trust 12/12 · etc.
+
+**DTs:** `DT-EVENTS-LIST-NO-VISIBILITY-FLOOR` → **PARTIALLY MITIGATED** (B1–B4 + search + canal-5-A/B/C done; falta só o **money de events** + sweep final). DT-mãe **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** READ-FIRST money de events (economy/closure/settlement/RFQ/economic-v2 — money à mão) → sweep adversarial final dos 5 canais → só então avaliar fechar DT-mãe.
+
+---
+
 ## 2026-06-08 — F6.5.6b-CANAL5-B EVENTS · sub-resources não-money herdam canViewEvent (DECISION-0113, canal 5)
 
 **Branch:** `rescue-structural` · **backend** (3 arquivos de rota + e2e; zero Bank/migration/frontend/money/writes). Dev 365. _(Esteira: eu escritora; Yala verifica. GO Clayton: sub-resource só abre se o evento-pai passar no canViewEvent; money fora.)_

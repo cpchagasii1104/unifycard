@@ -638,9 +638,20 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔵 DECISION-0113 F6.5.6b-CANAL5-C: compare é multi-id → canViewEvent por eventId ANTES de comparar.
+        // Se QUALQUER id for invisível → 404 não-leak (sem comparação parcial; mata enumeração por diferença).
+        const eventIds = req.body.eventIds || [];
+        const callerUserId = (req.user as { userId?: string }).userId;
+        const { canViewEvent } = await import('@core/events/event-visibility.service');
+        for (const eventId of eventIds) {
+          if (!(await canViewEvent(req.tenant.id, eventId, callerUserId))) {
+            return reply.status(404).send({ error: 'Evento não encontrado' });
+          }
+        }
+
         const comparison = await eventMetricsDashboardService.compareEvents(
           req.tenant.id,
-          req.body.eventIds || []
+          eventIds
         );
 
         return comparison;
@@ -733,6 +744,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔵 DECISION-0113 F6.5.6b-CANAL5-C: search é discovery → herda o piso B1–B4 (discoveryUserId server-side).
         const events = await eventsService.searchEvents(req.tenant.id, {
           cityId: req.query.cityId,
           stateId: req.query.stateId,
@@ -741,6 +753,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
           endDate: req.query.endDate ? new Date(req.query.endDate) : undefined,
           limit: req.query.limit,
           offset: req.query.offset,
+          discoveryUserId: (req.user as { userId?: string }).userId,
         });
 
         return { events, totalCents: events.length };

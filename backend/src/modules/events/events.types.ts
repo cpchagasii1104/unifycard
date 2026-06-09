@@ -150,6 +150,9 @@ export interface SearchEventsOptions {
   endDate?: Date;
   limit?: number;
   offset?: number;
+  // 🔵 F6.5.6b-CANAL5-C: userId do CALLER (derivado de req.user — NUNCA actorId declarado), p/ abrir
+  // group/followers no piso de discovery do search (mesma régua B1–B4). Sem ele → só public.
+  discoveryUserId?: string;
 }
 
 // ===========================
