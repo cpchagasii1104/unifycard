@@ -24,6 +24,19 @@ const economicOverviewRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔴 DECISION-0113 canal-5 (params): `actorId` em params é endereço, não autoridade. Overview ECONÔMICO
+      // do actor exige REPRESENTAR o actor (mesmo actorId que dirige a leitura). Fail-closed → 403.
+      let canRepresent = false;
+      try {
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        canRepresent = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, req.params.actorId);
+      } catch {
+        canRepresent = false;
+      }
+      if (!canRepresent) {
+        return reply.status(403).send({ error: 'Sem autoridade sobre o actor (canRepresentActor)' });
+      }
+
       try {
         const overview = await economicOverviewService.getActorEconomicOverview(
           req.tenant.id,

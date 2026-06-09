@@ -1,3 +1,21 @@
+## 2026-06-09 — DECISION-0113 CANAL-5 PARAMS · economic-overview authority gate (resíduo do sweep final)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: sweep adversarial READ-ONLY achou o leak → executora; Yala verifica. GO Clayton.)_
+
+**O que entregou:** o **sweep adversarial final dos 5 canais** (READ-ONLY) achou resíduo de **canal-5 (params `:actorId`) FORA do surface events/social/money** já patcheado. **`GET /economy/actors/:actorId/overview`** vazava overview econômico por params (só req.user; service `findById`+project, zero authority). Gateado `canRepresentActor(req.tenant.id, req.user.userId, req.params.actorId)` ANTES do read; 401 sem user; 403 não-representável. actorId em params = endereço, não autoridade.
+
+**Arquivos:** `modules/economy/economic-overview.routes.ts`, `validate-pipeline-e2e-economic-overview-authority-f6-5-c5.ts` (novo).
+
+**Prova:** e2e **8/8** (A behavioral canRepresentActor: próprio→true / outro→false / estranho→false; B estrutural: gate-antes-do-read sobre o param, 401/403, service read-only, `/groups/:groupId/overview` intocado). tsc 0; 4 gates OK (bank-ledger verde, dev 365); regressões verdes (events money-reads 15/15, canal3-money 7/7, x-actor-id 9/9, etc.).
+
+**🔴 RESÍDUO do sweep ainda OPEN (DT-mãe NÃO fecha):** `GET /economy/groups/:groupId/overview` (mesmo shape, por groupId — classificar/decidir) · `opportunity-dispatch /actors/:id/dispatches` (procurement supplier-side, sem canRepresentActor) · `marketplace-identity /economic-identities/:actorId` + `marketplace-sla /reputation-snapshots/:actorId` (verificar semântica de `marketplace_manage_catalog` — armadilha "preHandler≠gateado"). risk-dashboard (requireRiskPermission) e actor-capabilities (resolveForUser) = F-OK/SAFE.
+
+**DTs:** DT-mãe **OPEN**. `DT-EVENTS-MONEY-WRITES` OPEN (frente própria). R2 congelado.
+
+**PRÓXIMA ETAPA:** READ-FIRST opportunity-dispatch → marketplace-identity/sla → re-sweep dos 5 canais → só então avaliar fechar DT-mãe.
+
+---
+
 ## 2026-06-08 — F6.5.6b-EVENTS-MONEY-READS · settlement/RFQ read gate (DECISION-0113; money não pega carona em visibility)
 
 **Branch:** `rescue-structural` · **backend** (1 helper + 2 arquivos de rota + e2e; zero Bank/migration/frontend/writes). Dev 365. _(Esteira: auditoria READ-ONLY 3 paralelas → executora; Yala verifica. GO Clayton: camada dupla 404/403; organizer-only MVP; writes = frente própria.)_
