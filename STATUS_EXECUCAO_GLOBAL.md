@@ -1,3 +1,21 @@
+## 2026-06-10 — F-G10-C1-PRECONDITION · Cluster 1 — unread-counts tenant-wide hardening (BACKEND)
+
+**Branch:** `rescue-structural` · **backend** (2 arquivos de rota + 1 e2e novo + DT_LOG/STATUS; zero migration/banco/frontend/Bank). Dev 365. HEAD antes `b6cc69a3`. _(Esteira: GO Clayton/IA Diretora — pré-condição da C1: fechar leituras tenant-wide que vazariam no tenant compartilhado; DECISION-0115 D1.)_
+
+**O que entregou (decisão de produto do GO):** `GET /social/unread-counts` + `GET /feed/unread-counts` — **`groups` agora é MEMBER-SCOPED** via `INNER JOIN group_members` (sujeito = `req.user.userId` server-side; DECISION-0113 — nenhum actor id declarado pelo cliente; atividade de grupo só conta para membros); **`services` conta apenas conteúdo público** (`is_published = true AND is_deleted = false AND metadata->>'groupId' IS NULL` — schema vivo de posts NÃO tem `visibility` por post; fronteira não-pública materializada = grupo); **`feed`/`events` intocados** (tenant-wide públicos por enquanto, queries byte-idênticas); contrato `{ feed, groups, events, services }` preservado.
+
+**🔴 ACHADO MATERIAL:** os dois endpoints eram **mortos-mas-200** — a query de `feed` referencia `posts.visibility` (coluna **inexistente** no schema vivo), o erro derrubava o `try/catch` único e os 4 contadores devolviam sempre 0. Sem correção disso o hardening seria teatro (nunca executaria). Correção estrutural: **erro isolado por contador** (`countOrZero`); `groups`/`events`/`services` ficaram vivos; `feed` permanece morto (=0) — resíduo registrado em **`DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN` (OPEN)** (correção do predicado de feed = fatia própria; e2e F6.5.4 C4 pinna o literal `visibility = 'PUBLIC'`).
+
+**Arquivos:** `modules/social/social.routes.ts`, `core/feed/feed.routes.ts`, `validate-pipeline-e2e-unread-counts-isolation-g10-c1-pre.ts` (novo), `REMEDIATION_DT_LOG.md` (1 DT nova).
+
+**Prova:** fail-first **14/20 → 20/20** (A behavioral com fixtures reais: membro vê grupo=1 / não-membro=0 / shape antiga vazaria=1 / services 1-de-4 fixtures; B estrutural ×2 arquivos: join membership + sujeito req.user, público-only, feed/events intocados, contrato, sem actor id de cliente, GET não cria actor, read-only, erro isolado). LEFTOVER=0. tsc: 0 erros nos arquivos da fatia (2 pré-existentes em `geo-enrichment.service.ts`, HEAD). 4 gates OK (actor-writer §4.8.1, bank-ledger §4.6, migrations 365, arch critical_new=0). Regressões: F6.5.4 8/8 (C4 verde) · groups-create 10/10 · group-two-moments 11/11 · events-group-scoped 12/12.
+
+**Escopo intocado:** register/C1 · tenant.service · migrations · banco · frontend · Bank/ledger/wallet/payout/split/settlement · PJ · agenda · gender/D3 · R2 · FASE 6 · DECISION-0113 (segue OPEN). Tenant compartilhado NÃO liberado.
+
+**PRÓXIMA ETAPA:** demais clusters da F-G10-C1-PRECONDITION (leituras tenant-wide restantes), com GO próprio.
+
+---
+
 ## 2026-06-10 — DECISION-0115 · decisões-raiz do nascimento humano vertical G10 (DOCS-ONLY)
 
 **Branch:** `rescue-structural` · **docs-only** (DECISION-0115 + DECISIONS_LOG + 6 DTs no DT_LOG + STATUS + opus + exec_log; zero código/migration/banco/frontend). Dev 365. HEAD origem `92eb49b4`. _(Esteira: auditoria READ-ONLY FASE B → PASS IA Diretora → GO docs-only Clayton.)_

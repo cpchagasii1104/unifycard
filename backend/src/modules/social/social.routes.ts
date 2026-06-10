@@ -165,6 +165,11 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /social/unread-counts
    * Retorna contadores de novidade para o menu social
    * Mesma lógica de /feed/unread-counts (mantida aqui para compatibilidade)
+   *
+   * 🔴 F-G10-C1-PRECONDITION (DECISION-0115 D1): no tenant inicial COMPARTILHADO, RLS é por tenant,
+   * não por actor/user — leituras tenant-wide vazam. Decisão de produto (GO IA Diretora/Clayton):
+   * `groups` é MEMBER-SCOPED via group_members (sujeito = req.user server-side; DECISION-0113);
+   * `services` conta apenas conteúdo público; `feed`/`events` continuam tenant-wide públicos por enquanto.
    */
   fastify.get('/unread-counts', async (req, reply) => {
     if (!req.user) {
@@ -176,89 +181,99 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const tenantId = req.tenant.id;
+    const userId = req.user.userId;
 
-    try {
-      const { runQueryWithTenant } = await import('@core/database/pool');
-      
-      // Feed: posts das últimas 24h
-      const oneDayAgo = new Date();
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-      
-      const feedCount = await runQueryWithTenant<{ count: string }>(
-        tenantId,
-        `
-        SELECT COUNT(*)::int as count
-        FROM posts
-        WHERE tenant_id = $1
-          AND created_at >= $2
-          AND visibility = 'PUBLIC'
-        `,
-        [tenantId, oneDayAgo]
-      );
+    const { runQueryWithTenant } = await import('@core/database/pool');
 
-      // Grupos: grupos com atividade recente (últimos 7 dias)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
-      const groupsCount = await runQueryWithTenant<{ count: string }>(
-        tenantId,
-        `
-        SELECT COUNT(DISTINCT metadata->>'groupId')::int as count
-        FROM posts
-        WHERE tenant_id = $1
-          AND metadata->>'groupId' IS NOT NULL
-          AND created_at >= $2
-        `,
-        [tenantId, sevenDaysAgo]
-      );
+    // Erro isolado por contador: a query legada de `feed` referencia coluna `visibility` inexistente no
+    // schema vivo de posts (resíduo rastreado em DT); com catch único, esse erro zerava o handler inteiro
+    // e o member-scoping de groups/services nunca executaria.
+    const countOrZero = async (counter: string, sql: string, params: unknown[]): Promise<number> => {
+      try {
+        const row = await runQueryWithTenant<{ count: string }>(tenantId, sql, params);
+        return row ? Number(row.count) : 0;
+      } catch (error) {
+        fastify.log.error({ err: error, tenantId, counter }, 'Erro ao buscar contador de novidade');
+        // Retornar zero em caso de erro (não quebrar UI)
+        return 0;
+      }
+    };
 
-      // Eventos: eventos próximos (próximos 7 dias)
-      const sevenDaysFromNow = new Date();
-      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-      
-      const eventsCount = await runQueryWithTenant<{ count: string }>(
-        tenantId,
-        `
-        SELECT COUNT(*)::int as count
-        FROM events
-        WHERE tenant_id = $1
-          AND status IN ('published', 'active')
-          AND datetime_start IS NOT NULL
-          AND datetime_start >= NOW()
-          AND datetime_start <= $2
-        `,
-        [tenantId, sevenDaysFromNow]
-      );
+    // Feed: posts das últimas 24h (INTOCADO — tenant-wide público por decisão de produto)
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
-      // Serviços: ofertas de serviço recentes (últimos 7 dias)
-      const servicesCount = await runQueryWithTenant<{ count: string }>(
-        tenantId,
-        `
-        SELECT COUNT(*)::int as count
-        FROM posts
-        WHERE tenant_id = $1
-          AND intent = 'service_offer'
-          AND created_at >= $2
-        `,
-        [tenantId, sevenDaysAgo]
-      );
+    const feed = await countOrZero(
+      'feed',
+      `
+      SELECT COUNT(*)::int as count
+      FROM posts
+      WHERE tenant_id = $1
+        AND created_at >= $2
+        AND visibility = 'PUBLIC'
+      `,
+      [tenantId, oneDayAgo]
+    );
 
-      return {
-        feed: feedCount ? Number(feedCount.count) : 0,
-        groups: groupsCount ? Number(groupsCount.count) : 0,
-        events: eventsCount ? Number(eventsCount.count) : 0,
-        services: servicesCount ? Number(servicesCount.count) : 0,
-      };
-    } catch (error) {
-      fastify.log.error({ err: error, tenantId }, 'Erro ao buscar contadores de novidade');
-      // Retornar zeros em caso de erro (não quebrar UI)
-      return {
-        feed: 0,
-        groups: 0,
-        events: 0,
-        services: 0,
-      };
-    }
+    // Grupos: MEMBER-SCOPED via group_members — atividade de grupo só conta para quem é membro;
+    // não vaza existência/atividade de grupos alheios no tenant compartilhado
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const groups = await countOrZero(
+      'groups',
+      `
+      SELECT COUNT(DISTINCT p.metadata->>'groupId')::int as count
+      FROM posts p
+      INNER JOIN group_members gm
+        ON gm.tenant_id = p.tenant_id
+       AND gm.group_id::text = p.metadata->>'groupId'
+      WHERE p.tenant_id = $1
+        AND p.metadata->>'groupId' IS NOT NULL
+        AND p.created_at >= $2
+        AND p.is_published = true
+        AND p.is_deleted = false
+        AND gm.user_id = $3
+      `,
+      [tenantId, sevenDaysAgo, userId]
+    );
+
+    // Eventos: eventos próximos (INTOCADO — tenant-wide público por decisão de produto)
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+    const events = await countOrZero(
+      'events',
+      `
+      SELECT COUNT(*)::int as count
+      FROM events
+      WHERE tenant_id = $1
+        AND status IN ('published', 'active')
+        AND datetime_start IS NOT NULL
+        AND datetime_start >= NOW()
+        AND datetime_start <= $2
+      `,
+      [tenantId, sevenDaysFromNow]
+    );
+
+    // Serviços: apenas conteúdo PÚBLICO — publicado, não deletado e fora de grupo (o schema vivo de
+    // posts não tem `visibility` por post; a fronteira não-pública materializada hoje é o grupo)
+    const services = await countOrZero(
+      'services',
+      `
+      SELECT COUNT(*)::int as count
+      FROM posts
+      WHERE tenant_id = $1
+        AND intent = 'service_offer'
+        AND created_at >= $2
+        AND is_published = true
+        AND is_deleted = false
+        AND metadata->>'groupId' IS NULL
+      `,
+      [tenantId, sevenDaysAgo]
+    );
+
+    return { feed, groups, events, services };
   });
 };
 
