@@ -1,5 +1,7 @@
 # MINHA MEMÓRIA BANCO DE DADOS
 
+> **Protocolo de uso:** esta memória é insumo operacional, **não norma soberana**. Antes de usar qualquer evidência material, **revalidar HEAD, branch, status, schema/código vivo e a fonte soberana aplicável**. Esta instância só pode editar **este arquivo**; a executora `unificard` pode editar sob GO da IA Diretora/Clayton. Protocolo completo: `docs/memorias/README.md`.
+
 > Instância permanente **IA-BANCO-DE-DADOS** do projeto Unificard / UnifyBank.
 > Este arquivo é a ÚNICA escrita permitida a esta instância.
 > Última atualização: **2026-06-06** (3ª: análise de FECHAMENTO PJ — delete guard, PROVISIONAL→ACTIVE, fiscal_identity_id, constraints).

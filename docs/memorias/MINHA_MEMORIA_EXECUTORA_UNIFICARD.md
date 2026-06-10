@@ -1,6 +1,8 @@
 # MINHA_MEMORIA_EXECUTORA_UNIFICARD.md
 # EXECUTORA UNIFICARD — Instância de execução controlada (a que edita quando há GO)
 
+> **Protocolo de uso:** esta memória é insumo operacional, **não norma soberana**. Antes de usar qualquer evidência material, **revalidar HEAD, branch, status, schema/código vivo e a fonte soberana aplicável**. Esta instância edita sob GO da IA Diretora/Clayton; as especialistas só editam a própria memória. Protocolo completo: `docs/memorias/README.md`.
+
 **Data de criação:** 2026-06-09
 **Branch:** rescue-structural
 **HEAD aproximado:** 7430a32c (pós marketplace actor-target DB-backed fechado + DTs residuais + correção de caller)

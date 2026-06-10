@@ -1,5 +1,7 @@
 # MINHA_MEMORIA_TEMPO.md — IA-TEMPO (Guardiã do Eixo Temporal)
 
+> **Protocolo de uso:** esta memória é insumo operacional, **não norma soberana**. Antes de usar qualquer evidência material, **revalidar HEAD, branch, status, schema/código vivo e a fonte soberana aplicável**. Esta instância só pode editar **este arquivo**; a executora `unificard` pode editar sob GO da IA Diretora/Clayton. Protocolo completo: `docs/memorias/README.md`.
+
 > Instância permanente READ-ONLY do eixo **tempo / agenda / disponibilidade** do UnifiCard.
 > Arquivo de memória próprio. Nunca apagar histórico — só acrescentar.
 >

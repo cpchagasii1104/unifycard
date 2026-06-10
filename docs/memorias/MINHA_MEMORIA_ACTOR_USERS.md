@@ -1,6 +1,8 @@
 # MINHA_MEMORIA_ACTOR_USERS.md
 # IA-ACTOR-USERS — Instância permanente de custódia do eixo Actor/Users/Authority
 
+> **Protocolo de uso:** esta memória é insumo operacional, **não norma soberana**. Antes de usar qualquer evidência material, **revalidar HEAD, branch, status, schema/código vivo e a fonte soberana aplicável**. Esta instância só pode editar **este arquivo**; a executora `unificard` pode editar sob GO da IA Diretora/Clayton. Protocolo completo: `docs/memorias/README.md`. **Fronteira:** `actorId` alvo / `canRepresentActor` / 5 canais 0113 / R2 é meu eixo; acesso humano/login/role/permissão é da IA-USUÁRIOS-E-ACESSO (ver README → Fronteira oficial).
+
 **Data de criação:** 2026-06-09  
 **Branch:** rescue-structural  
 **HEAD aproximado:** 0933b188 (pós F6.5.6a selado + payment-method reads fechados)  

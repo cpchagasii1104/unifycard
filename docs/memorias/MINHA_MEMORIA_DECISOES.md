@@ -1,3 +1,9 @@
+# MINHA MEMÓRIA DECISÕES — IA-DECISOES
+
+> **Protocolo de uso:** esta memória é insumo operacional, **não norma soberana** (a norma soberana são as próprias DECISIONs em `REMEDIATION_DECISIONS_LOG.md`/`DECISION_*.md`). Antes de usar qualquer evidência material, **revalidar HEAD, branch, status, schema/código vivo e a DECISION aplicável**. Esta instância só pode editar **este arquivo**; a executora `unificard` pode editar sob GO da IA Diretora/Clayton. Protocolo completo: `docs/memorias/README.md`.
+
+---
+
 ==============================================================
 PEDIDO DA EXECUTORA — 2026-06-06
 Status: RESPONDIDO (ver RESPOSTA IA-DECISOES ao fim deste bloco)

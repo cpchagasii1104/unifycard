@@ -1,4 +1,7 @@
 # MINHA MEMÓRIA — IA-USUÁRIOS-E-ACESSO
+
+> **Protocolo de uso:** esta memória é insumo operacional, **não norma soberana**. Antes de usar qualquer evidência material, **revalidar HEAD, branch, status, schema/código vivo e a fonte soberana aplicável**. Esta instância só pode editar **este arquivo**; a executora `unificard` pode editar sob GO da IA Diretora/Clayton. Protocolo completo: `docs/memorias/README.md`. **Fronteira:** acesso humano/login/role/permissão é meu eixo; `actorId` alvo / `canRepresentActor` / 5 canais 0113 é da IA-ACTOR-USERS (ver README → Fronteira oficial).
+
 ## Instância: Auditora Read-Only de Identidade, Acesso e Autoridade
 ## Data de criação: 2026-06-09 | Branch: rescue-structural
 

@@ -1,5 +1,7 @@
 # MINHA MEMÓRIA DOCUMENTOS
 
+> **Protocolo de uso:** esta memória é insumo operacional, **não norma soberana**. Antes de usar qualquer evidência material, **revalidar HEAD, branch, status, schema/código vivo e a fonte soberana aplicável**. Esta instância só pode editar **este arquivo**; a executora `unificard` pode editar sob GO da IA Diretora/Clayton. Protocolo completo: `docs/memorias/README.md`.
+
 > Memória de trabalho da instância **IA-DOCUMENTOS** (especialista em documentação do
 > projeto Unificard / UnifyBank). Append/atualização contínua. Este é o **único** arquivo
 > que esta instância tem permissão de escrever no primeiro momento.
