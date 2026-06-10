@@ -498,17 +498,13 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       // Sem preHandler de permissão RBAC - apenas autenticação via tenant plugin
       // O tenant plugin já garante que req.tenant e req.user estão disponíveis
     },
-    async (req) => {
-      if (!req.actionContext || !req.actionContext.actorId) {
-        throw fastify.httpErrors.badRequest('ActionContext obrigatório');
+    async (req, reply) => {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return reply.code(401).send({ error: 'UNAUTHENTICATED' });
       }
 
       const tenantId = req.tenant!.id;
-      const userId = req.actionContext.actorId;
-
-      if (!tenantId) {
-        throw fastify.httpErrors.unauthorized('Authentication required');
-      }
 
       const groups = await groupsService.getUserGroups(tenantId, userId);
       

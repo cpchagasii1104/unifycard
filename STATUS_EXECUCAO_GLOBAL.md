@@ -1,3 +1,19 @@
+## 2026-06-10 — F-GROUPS-MINE-AUTH-DERIVED-USER-FIX · GET /groups/mine sujeito derivado do JWT (BACKEND)
+
+**Branch:** `rescue-structural` · **backend** (1 arquivo de rota + 1 e2e novo; zero migration/banco/frontend/Bank). Dev 365. HEAD origem `3c2f2b3f`. _(Esteira: GO próprio — DECISION-0113 + DECISION-0116 Classe C GROUP_MEMBERS; fix independente da política, tipo confusion + canal-1 spoofável.)_
+
+**O que entregou:** `GET /groups/mine` em `groups.routes.ts:501–523` — substituído `const userId = req.actionContext.actorId` (actors.id, canal-1 spoofável, `users.user_id ≠ actors.id` = type confusion) por `const userId = req.user?.userId` (JWT server-side, `sub` = `users.id` ≡ `users.user_id`). Guard 401 `UNAUTHENTICATED` para `userId` ausente (sem fallback). Guard antigo `BadRequest "ActionContext obrigatório"` removido (tipo errado de falha, baseado na fonte errada). Contrato de resposta `{ groups: groupsWithCount }` preservado. Repository `getUserGroups` usa `gm.user_id = $2` (FK → `users.user_id`) — inalterado; só a origem do `$2` mudou.
+
+**Arquivos:** `backend/src/modules/groups/groups.routes.ts` (1 handler), `backend/src/scripts/validate-pipeline-e2e-groups-mine-auth-derived-user.ts` (novo, 16/16).
+
+**Prova:** fail-first **16/16** (A comportamental DB: dev user real; query member-scoped count determinístico; stranger=0; actorId≠userId documentado; B estrutural: `req.user?.userId`; guard 401; sem `actionContext.actorId`; `(req, reply)`; `gm.user_id = $2`; service delega sem transformação; GET não cria actor; read-only; contrato preservado; OLD guard removido; D schema: `group_members.user_id` existe, `actor_id` não). tsc: 2 erros pré-existentes em `geo-enrichment.service.ts` (HEAD, não introduzidos). Gates: `validate:architecture:strict` `critical_new=0` · `validate:system-state:strict` PASS · groups-create 10/10 · E2E novo 16/16.
+
+**Escopo intocado:** register/C1 · tenant.service · migrations · banco · frontend · Bank/ledger/wallet/payout · PJ · agenda · gender/D3 · R2 · FASE 6 · DECISION-0113 (segue OPEN) · suppliers · contacts · inventory · escrow · finance-agenda · daily-metrics. Tenant compartilhado NÃO liberado.
+
+**PRÓXIMA FATIA recomendada:** enumeração do denominador Classe-A finito (repositórios com owner-col + scope só tenant) → hardening por classe (suppliers/inventory/PO) → escrow frente money própria três paralelas.
+
+---
+
 ## 2026-06-10 — DECISION-0116 · política canônica de ownership/visibilidade intra-tenant (DOCS-ONLY)
 
 **Branch:** `rescue-structural` · **docs-only** (DECISION-0116 + DECISIONS_LOG + DT-mãe no DT_LOG + mapa de denominador + STATUS + opus + exec_log + normalização de memórias; zero código/migration/banco/frontend). Dev 365. HEAD origem `3d8ad25b`. _(Esteira: consolidação READ-ONLY de 6 especialistas → PASS IA Diretora → GO docs-only Clayton.)_
