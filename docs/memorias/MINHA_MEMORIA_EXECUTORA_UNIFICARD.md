@@ -89,7 +89,11 @@ Regras de papel (vinculantes):
 
 ## 6. ESTADO VIVO (revalidar HEAD antes de usar)
 
-**HEAD pós-`F-GROUPS-MINE-HTTP-PROOF-AND-ACTIONCONTEXT-DECOUPLING` (HEAD c00435da + bypass + e2e HTTP 26/26) · branch `rescue-structural` · dev 365 · DT-mãe 0113 OPEN · R2 CONGELADO · FASE 6 não liberada. HOLD: aguardando reseal Yala.**
+**HEAD pós-`F-INVENTORY-COMPANY-CONSOLIDATED-AUTHORITY-IMPL` (origem 7c76cfb5) · branch `rescue-structural` · dev 366 · DT-mãe 0113 OPEN · R2 CONGELADO · FASE 6 não liberada. HOLD: aguardando reseal Yala.**
+
+**Consolidado empresarial (DECISION-0116 ADENDO A1) IMPLEMENTADO:** rota `GET /marketplace/inventory/company/:companyId/balance` (gate `canViewConsolidatedInventory` = vínculo ativo + can_manage_company OU can_view_consolidated_inventory; actors server-side por `actors.company_id`; cliente sem lista). Migration `20260610120000` (coluna nova). Writer admin-gated `setConsolidatedInventoryPermission` (PUT dedicado). Eligibility = `company_id IS NOT NULL` (D2 Clayton). E2E 39/39.
+**Regras que aprendi nesta fatia:** (16) `uq_actors_company_page` = 1 page por empresa — segundo actor empresarial de fixture = outro tipo com company_id; (17) `inventory_movements` append-only por trigger — cleanup E2E via `session_replication_role=replica` em client dedicado, NUNCA tocar o trigger; (18) E2E selados que fazem `sliceBetween` de comentários selam a VIZINHANÇA — rota nova vai pro FIM do arquivo, não entre rotas seladas; (19) cleanup de fixture por MARKER (LIKE), nunca por IDs do run — resíduo de run abortado escapa de cleanup por ID; (20) PUT self-scoped de company_users aceita permissions.canManageCompany = escalation pré-existente (`DT-COMPANY-USERS-SELF-UPDATE-PERMISSION-ESCALATION` OPEN) — NUNCA adicionar permissão nova ao caminho self-scoped.
+**Resíduo explícito:** rotas tenant-wide legadas `/inventory/balance` + `/inventory/movements` sem actorId seguem OPEN no denominador Classe A (caller frontend vivo `getBalance`/`getMovements`); próxima fatia = migrar callers + tombstone/reconciliar.
 
 `GET /groups/mine` **FECHADO e selado (2 fatias):** F-GROUPS-MINE-AUTH-DERIVED-USER-FIX (type confusion + canal-1 fix, c00435da) + F-GROUPS-MINE-HTTP-PROOF-AND-ACTIONCONTEXT-DECOUPLING (HTTP 26/26 + bypass exato, HEAD atual). Bypass em `action-context.plugin.ts`: `rawPath === '/groups/mine'` (exato, GET only). Auth+tenant permanecem. Service/repository/schema intocados. DECISION-0113 OPEN.
 

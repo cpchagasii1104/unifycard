@@ -1,3 +1,25 @@
+## 2026-06-10 — F-INVENTORY-COMPANY-CONSOLIDATED-AUTHORITY-IMPL · consolidado empresarial autorizado (DOCS+MIGRATION+BACKEND+E2E)
+
+**Branch:** `rescue-structural` · **HEAD origem `7c76cfb5`** · dev **366** (migration nova aplicada). _(Esteira: READ-ONLY desta frente → 2 decisões bloqueantes de Clayton → GO de implementação.)_
+
+**Decisões de Clayton implementadas:** **D1** — permissão específica `company_users.can_view_consolidated_inventory` (NOT NULL DEFAULT FALSE); consolidado autorizado por `can_manage_company` OU pela flag, sempre com vínculo ATIVO; mesmo tenant/`can_manage_marketplace`/role genérica NÃO autorizam; sem R2; sem FASE 6. **D2** — critério empresarial de unidade de estoque = `actors.company_id IS NOT NULL` (vínculo material), NÃO `actor_type='page'` genérico; legado `'company'` preservado.
+
+**O que entregou:** (1) **Migration** `20260610120000` (coluna nova; sem backfill — admin já autoriza via can_manage_company). (2) **Autorizador** `companiesService.canViewConsolidatedInventory` (fail-closed, espelha canManageCompany + OR flag). (3) **Writer admin-gated** `setConsolidatedInventoryPermission` + rota `PUT /companies/:companyId/users/:companyUserId/consolidated-inventory-permission` (gate canManageCompany do caller; NÃO toca can_manage_company; auto-concessão vedada — campo fora do PUT self-scoped). (4) **Eligibility** `assertInventoryUnitActorEligible` reconhece `company_id IS NOT NULL` (fail-first provou que page-actor de PJ nova falhava). (5) **Rota consolidada** `GET /marketplace/inventory/company/:companyId/balance?variantId=X`: actors resolvidos server-side (CTE company_actors), `actorId/actorIds` na query → 400, shape `{companyId, productVariantId, consolidatedQuantity, unit, actorCount, resolvedAt}`, zero explícito sem actors, repo `calculateConsolidatedBalanceByCompany` (`actor_id IN (SELECT id FROM company_actors)` — nunca tenant-wide). (6) Tipos/SELECTs/INSERT/mappers de company_users atualizados (sem SELECT *).
+
+**Prova:** E2E HTTP real **39/39** (`validate-pipeline-e2e-inventory-company-consolidated-authority.ts`): A admin vê 17 (EA1=10+EA2=7; exclui FB1=100 de outra empresa e H=55 solto); B com flag vê; C sem flags 403; D de outra empresa 403; actorId(s) injetado 400; sem auth 401; empresa fantasma 403; GET não cria estado; admin mantém com flag=false; B perde com flag=false/membership inativa; C não se auto-concede (403, flag intacta); admin de F não concede em E; A concede/revoga a C (200/200); eligibility F1–F3; nível 1 preservado (canRepresentActor + by-actor=10). Fail-first capturado antes (rota 400/404 · eligibility falha · coluna ausente).
+
+**Gates:** tsc OK (2 pré-existentes geo-enrichment) · actor-writer-boundaries OK · bank-ledger-boundaries OK · regression-guards OK (366 migrations, numeração única) · architecture:strict `critical_new=0` · system-state PASS. **Regressões:** f6-5-c3 inventory 12/12 (rota nova movida p/ fim do arquivo para preservar slice selado B7) · marketplace actor-target 16/16 · company-members f6-5-5 7/7 · role-vocabulary 7/7 · x-actor-id-resolver-bind 9/9 · groups-mine 26/26. _Baseline N/A: atomic-company-birth (guarda DB efêmera, nunca roda em dev) · company-two-moments (CNPJ random sem dígito verificador no harness — pré-existente, provado via stash)._
+
+**DTs:** `DT-INVENTORY-COMPANY-CONSOLIDATED-MISSING-ROUTE` **CLOSED** · `DT-INVENTORY-UNIT-ACTOR-ELIGIBILITY-VOCABULARY-DRIFT` **CLOSED** · `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` **segue OPEN** (rotas tenant-wide legadas `/inventory/balance` + `/inventory/movements` sem actorId continuam no denominador Classe A; caller frontend vivo) · **NOVA** `DT-COMPANY-USERS-SELF-UPDATE-PERMISSION-ESCALATION` OPEN (PUT self-scoped aceita permissions.canManageCompany — qualquer membro se auto-promove; pré-existente, NÃO ampliada: flag nova fora do PUT genérico).
+
+**Docs:** DECISION-0116 **ADENDO A1** (12 itens) · DT_LOG (2 CLOSED + 1 update + 1 nova OPEN) · exec log novo · STATUS · opus · memória executora.
+
+**Escopo intocado:** Bank/ledger/wallet/payout/split/settlement · suppliers · contacts · purchase-orders · escrow · finance-agenda · daily-metrics · /groups/mine · R2/actor_delegations · FASE 6 · frontend (zero UI) · rotas tenant-wide legadas de inventory (STOP explícito). **C1/tenant compartilhado NÃO liberado. DECISION-0113 segue OPEN. Denominador global NÃO fechado.**
+
+**PRÓXIMA FATIA:** migrar callers frontend (`getBalance`/`getMovements`) → rota consolidada/by-actor + tombstone/reconciliar readers tenant-wide antigos; decisão de escopo (a/b/c/d) p/ movements sem actorId; `DT-COMPANY-USERS-SELF-UPDATE-PERMISSION-ESCALATION` (fatia própria). HOLD — aguardando reseal Yala.
+
+---
+
 ## 2026-06-10 — F-GROUPS-MINE-HTTP-PROOF-AND-ACTIONCONTEXT-DECOUPLING · GET /groups/mine HTTP real + bypass exato (BACKEND)
 
 **Branch:** `rescue-structural` · **backend** (1 plugin + 1 e2e reescrito; zero migration/banco/frontend/Bank). Dev 365. HEAD origem `c00435da`. _(Esteira: hardening da fatia anterior — R1 sem HTTP proof + R2 falso contrato actionContext.)_

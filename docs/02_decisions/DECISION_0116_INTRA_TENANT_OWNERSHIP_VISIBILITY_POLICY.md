@@ -83,3 +83,22 @@ Não altera código/runtime · não cria migration · não toca banco/frontend �
 ## 5. Referências
 
 `docs/02_decisions/DECISION_0116_INTRA_TENANT_OWNERSHIP_VISIBILITY_POLICY.md`; HEAD âncora `3d8ad25b`; consolidação das 6 especialistas (memórias `docs/memorias/MINHA_MEMORIA_{ACTOR_USERS,BANCO_DE_DADOS,DINHEIRO,DECISOES,DT,DOCUMENTOS}.md`, blocos 2026-06-10); `20260516100000_rls_critical_tables.sql`; `supplier.repository.ts`, `contact.repository.ts` (+ `to_regclass` NULL), `inventory-movement.repository.ts`, `daily-metrics.service.ts`, `escrow.repository.ts`/`escrow_transactions` migration, `financial-agenda.service.ts`, `groups.routes.ts`; `DECISION-0113`/`0115`/`0021`/`0030`/`0099`/`0100`/`0110`/`0111`/`0094`; `CONSTITUICAO_UNIFICARD` (Art. I); Lei 5; `SSOT_REGISTRY §5.9.1`.
+
+---
+
+## ADENDO A1 — Inventory consolidado da empresa (2026-06-10, decisor Clayton)
+
+**Frente:** `F-INVENTORY-COMPANY-CONSOLIDATED-AUTHORITY-IMPL` · **HEAD origem:** `7c76cfb5` · **Não reabre as classes de §2.2** — aplica e detalha o mapeamento de inventory.
+
+1. **Inventory material continua `ACTOR_PRIVATE` por actor.** `inventory_movements.actor_id` segue sendo o owner operacional material. A rota por actor (`/inventory/balance/by-actor`, gate `canRepresentActor`) permanece o caminho do detalhe.
+2. **O consolidado empresarial é projeção `COMPANY_INTERNAL`** — rota dedicada `GET /marketplace/inventory/company/:companyId/balance`. Não substitui as rotas por actor; não transforma inventory em tenant-wide.
+3. **Quem vê a projeção:** (a) administrador geral da empresa (`can_manage_company=true` ou `role='owner'`, mesma semântica de `canManageCompany`); OU (b) membro ATIVO com a permissão específica `company_users.can_view_consolidated_inventory=true`. Ambos exigem vínculo ativo (`is_active=true AND member_status='active'`).
+4. **O conjunto de actors é resolvido server-side** por `actors.company_id = :companyId` (vínculo empresarial material — Decisão 2 de Clayton).
+5. **O cliente NUNCA fornece a lista de actors.** Presença de `actorId`/`actorIds` na query do consolidado → 400 explícito.
+6. **`can_manage_marketplace` NÃO é autoridade de consolidado** (capability default de toda company — não diferencia A de B).
+7. **Mesmo tenant NÃO concede acesso** (a coincidência tenant≈pessoa está colapsando — 0115 D1).
+8. **`actors.company_id` é o vínculo empresarial material** usado na projeção E na elegibilidade de unidade de estoque (`assertInventoryUnitActorEligible` reconhece `company_id IS NOT NULL`; vocabulário legado `actor_type='company'` preservado sem regressão).
+9. **`actor_type='page'` isoladamente NÃO é critério suficiente** — páginas de grupo/evento sem `company_id` continuam inelegíveis.
+10. **A nova projeção não substitui as rotas por actor** (Nível 1 `ACTOR_PRIVATE` intacto, gate `canRepresentActor`).
+11. **As rotas tenant-wide legadas continuam BLOQUEADORAS** (`/inventory/balance` e `/inventory/movements` sem actorId — `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` OPEN) e serão reconciliadas em fatia posterior (migrar callers + tombstone/reconciliar). Permanecem no denominador Classe A.
+12. **Esta fatia NÃO libera C1/tenant compartilhado.** A concessão da permissão é writer dedicado admin-gated (`PUT /companies/:companyId/users/:companyUserId/consolidated-inventory-permission`, gate `canManageCompany` do caller); o PUT genérico self-scoped de membro NÃO recebe o campo — auto-concessão vedada por desenho. Sem R2/`actor_delegations`; sem FASE 6/RBAC stub. UI de gestão da permissão = fatia futura.

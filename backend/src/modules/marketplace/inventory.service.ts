@@ -205,6 +205,40 @@ class InventoryService {
   }
 
   /**
+   * Saldo CONSOLIDADO da empresa para uma variante (DECISION-0116 adendo — COMPANY_INTERNAL).
+   *
+   * Projeção sobre os actors empresariais resolvidos server-side por actors.company_id.
+   * NÃO recebe lista de actors do cliente. NÃO agrega tenant inteiro. Autorização
+   * (canViewConsolidatedInventory) é gate da rota — este método só projeta.
+   * Empresa sem actors → quantidade zero explícita (sem fallback tenant-wide).
+   */
+  async getCompanyConsolidatedBalance(
+    tenantId: string,
+    companyId: string,
+    productVariantId: string
+  ): Promise<{ quantity: number; unit: string; actorCount: number }> {
+    if (!companyId?.trim()) {
+      throw new Error('companyId é obrigatório para saldo consolidado da empresa');
+    }
+
+    // Verificar se variante existe (mesma disciplina de getCurrentBalance/getCurrentBalanceByActor)
+    const variant = await productVariantRepository.getVariantById(
+      tenantId,
+      productVariantId
+    );
+
+    if (!variant) {
+      throw new Error(`Variante não encontrada: ${productVariantId}`);
+    }
+
+    return await inventoryMovementRepository.calculateConsolidatedBalanceByCompany(
+      tenantId,
+      companyId,
+      productVariantId
+    );
+  }
+
+  /**
    * Obtém saldo do read model (opcional, para performance)
    * Se não existir, calcula das movimentações
    */

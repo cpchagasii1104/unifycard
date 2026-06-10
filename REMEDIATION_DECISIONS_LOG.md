@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0116 (2026-06-10) |
+| Última entrada | DECISION-0116 ADENDO A1 (2026-06-10) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -6809,3 +6809,14 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** nenhuma (decisão inédita; raiz irmã da 0113, não a substitui).
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0116_INTRA_TENANT_OWNERSHIP_VISIBILITY_POLICY.md`; HEAD âncora `3d8ad25b`; `20260516100000_rls_critical_tables.sql`; `supplier.repository.ts`/`contact.repository.ts`/`inventory-movement.repository.ts`/`daily-metrics.service.ts`/`escrow.repository.ts`/`financial-agenda.service.ts`/`groups.routes.ts`; `DECISION-0113`/`0115`/`0021`/`0030`/`0099`/`0100`/`0110`/`0111`/`0094`; `CONSTITUICAO_UNIFICARD` (Art. I); Lei 5; `SSOT_REGISTRY §5.9.1`; `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY`.
+
+### ADENDO A1 à DECISION-0116 — Inventory consolidado da empresa (2026-06-10)
+
+- **Data:** 2026-06-10 · **HEAD origem:** `7c76cfb5` · **Frente:** `F-INVENTORY-COMPANY-CONSOLIDATED-AUTHORITY-IMPL`
+- **Decisor:** Clayton (Decisões 1 e 2 cravadas no GO de implementação, após READ-ONLY da frente).
+- **Não reabre as classes da 0116** — aplica e detalha o mapeamento de inventory.
+- **D1 (autoridade do consolidado):** permissão específica `company_users.can_view_consolidated_inventory` (NOT NULL DEFAULT FALSE, migration `20260610120000`). Projeção consolidada autorizada por vínculo ATIVO em company_users com `can_manage_company` (≡ canManageCompany, incl. role='owner') OU a flag específica. Mesmo tenant NÃO autoriza; `can_manage_marketplace` (capability default de toda company) NÃO autoriza; role textual NÃO autoriza; sem R2/actor_delegations; sem FASE 6. Owner material do estoque permanece `inventory_movements.actor_id` (ACTOR_PRIVATE por actor preservado).
+- **D2 (actor elegível empresarial):** critério canônico = `actors.company_id IS NOT NULL` (vínculo material com a empresa). `actor_type='page'` isoladamente NÃO é critério; legado `actor_type='company'` preservado sem regressão. Não inferir vínculo por tenant/creator/role/atividade acidental.
+- **Materialização:** rota `GET /marketplace/inventory/company/:companyId/balance` (actors resolvidos server-side por company_id; cliente nunca fornece actorIds → 400; zero explícito sem actors; shape próprio com actorCount/resolvedAt) + autorizador `canViewConsolidatedInventory` + writer admin-gated `setConsolidatedInventoryPermission` (PUT dedicado; auto-concessão vedada — campo fora do PUT self-scoped). E2E 39/39.
+- **Resíduo explícito:** rotas tenant-wide legadas (`/inventory/balance`, `/inventory/movements` sem actorId) CONTINUAM no denominador Classe A (`DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` OPEN); reconciliação em fatia posterior. **Não libera C1/tenant compartilhado.**
+- **Referências:** `docs/02_decisions/DECISION_0116_INTRA_TENANT_OWNERSHIP_VISIBILITY_POLICY.md` (ADENDO A1); `docs/03_execution_log/20260610_F_INVENTORY_COMPANY_CONSOLIDATED_AUTHORITY_IMPL.md`; DTs `DT-INVENTORY-COMPANY-CONSOLIDATED-MISSING-ROUTE` (CLOSED) / `DT-INVENTORY-UNIT-ACTOR-ELIGIBILITY-VOCABULARY-DRIFT` (CLOSED) / `DT-COMPANY-USERS-SELF-UPDATE-PERMISSION-ESCALATION` (OPEN, descoberta).

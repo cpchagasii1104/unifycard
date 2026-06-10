@@ -290,6 +290,60 @@ class InventoryMovementRepository {
   }
 
   /**
+   * Saldo CONSOLIDADO da empresa para uma variante (DECISION-0116 adendo — COMPANY_INTERNAL).
+   *
+   * O conjunto de actors é resolvido SERVER-SIDE por actors.company_id = $companyId
+   * (vínculo empresarial material — Decisão 2 Clayton 2026-06-10). O cliente NUNCA
+   * fornece a lista de actorIds. A agregação cobre SOMENTE os actors da empresa:
+   * nunca o tenant inteiro, nunca actors de outra empresa, nunca actors humanos soltos.
+   * Autorização (canViewConsolidatedInventory) é responsabilidade da rota — este método
+   * só projeta. Read-only; não cria actor; não toca Bank.
+   */
+  async calculateConsolidatedBalanceByCompany(
+    tenantId: string,
+    companyId: string,
+    productVariantId: string
+  ): Promise<{ quantity: number; unit: string; actorCount: number }> {
+    const result = await runQueryWithTenant<{
+      total_quantity: string;
+      unit: string;
+      actor_count: number;
+    }>(
+      tenantId,
+      `
+      WITH company_actors AS (
+        SELECT id FROM actors
+        WHERE tenant_id = $1 AND company_id = $3::uuid
+      )
+      SELECT
+        (SELECT COUNT(*) FROM company_actors)::int AS actor_count,
+        COALESCE(
+          SUM(
+            CASE
+              WHEN im.movement_type = 'IN' THEN im.quantity
+              WHEN im.movement_type = 'OUT' THEN -im.quantity
+              WHEN im.movement_type = 'ADJUSTMENT' THEN im.quantity
+            END
+          ),
+          0
+        )::text AS total_quantity,
+        COALESCE(MAX(im.unit), 'un') AS unit
+      FROM inventory_movements im
+      WHERE im.tenant_id = $1
+        AND im.product_variant_id = $2
+        AND im.actor_id IN (SELECT id FROM company_actors)
+      `,
+      [tenantId, productVariantId, companyId]
+    );
+
+    return {
+      quantity: parseFloat(result?.total_quantity || '0'),
+      unit: result?.unit || 'un',
+      actorCount: result?.actor_count ?? 0,
+    };
+  }
+
+  /**
    * Mesmo cálculo que calculateBalance, na transação do client (obrigatório após lock na variante).
    */
   async calculateBalanceWithClient(

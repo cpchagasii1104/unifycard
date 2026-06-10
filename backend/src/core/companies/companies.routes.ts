@@ -368,6 +368,47 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   /**
+   * PUT /companies/:companyId/users/:companyUserId/consolidated-inventory-permission
+   * Concede/remove can_view_consolidated_inventory de um membro (DECISION-0116 adendo).
+   * Gate server-side: SÓ quem canManageCompany na empresa-alvo. O PUT genérico de membro
+   * (acima) é self-scoped e NÃO recebe este campo — auto-concessão é vedada por desenho.
+   */
+  fastify.put<{ Params: { companyId: string; companyUserId: string } }>(
+    '/:companyId/users/:companyUserId/consolidated-inventory-permission',
+    async (req, reply) => {
+      if (!req.user?.globalUserId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+      if (!req.tenant?.id) {
+        return reply.status(401).send({ error: 'Tenant obrigatório' });
+      }
+
+      const body = req.body as { canViewConsolidatedInventory?: unknown } | null;
+      if (!body || typeof body.canViewConsolidatedInventory !== 'boolean') {
+        return reply.status(400).send({ error: 'canViewConsolidatedInventory (boolean) é obrigatório' });
+      }
+
+      try {
+        const result = await companiesService.setConsolidatedInventoryPermission(
+          req.tenant.id,
+          req.params.companyId,
+          req.user.globalUserId,
+          req.params.companyUserId,
+          body.canViewConsolidatedInventory
+        );
+        return result;
+      } catch (error) {
+        const statusCode = (error as { statusCode?: number }).statusCode;
+        if (statusCode === 403 || statusCode === 404) {
+          return reply.status(statusCode).send({ error: (error as Error).message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao definir permissão de consolidado');
+        return reply.status(400).send({ error: error instanceof Error ? error.message : 'Erro ao definir permissão' });
+      }
+    }
+  );
+
+  /**
    * POST /companies/fetch-cnpj
    * Busca dados do CNPJ na Receita Federal (endpoint auxiliar)
    */

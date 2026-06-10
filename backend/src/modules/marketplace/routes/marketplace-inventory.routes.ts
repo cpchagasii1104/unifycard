@@ -218,4 +218,101 @@ export async function registerMarketplaceInventoryRoutes(
       }
     }
   );
+
+  /**
+   * GET /marketplace/inventory/company/:companyId/balance?variantId=X
+   * Saldo CONSOLIDADO da empresa (DECISION-0116 adendo — projeção COMPANY_INTERNAL).
+   *
+   * Gate server-side: canViewConsolidatedInventory (vínculo ATIVO em company_users com
+   * can_manage_company OU can_view_consolidated_inventory). `can_manage_marketplace`
+   * NÃO autoriza (capability default de toda company). Mesmo tenant NÃO autoriza.
+   * Actors resolvidos server-side por actors.company_id = :companyId — o cliente NUNCA
+   * fornece actorIds (presença de actorId/actorIds na query → 400 explícito).
+   * Empresa sem actors → zero explícito, sem fallback tenant-wide. GET não cria actor.
+   */
+  app.get<{
+    Params: { companyId: string };
+    Querystring: { variantId?: string; actorId?: string; actorIds?: string };
+  }>(
+    '/inventory/company/:companyId/balance',
+    async (req, reply) => {
+      if (!req.tenant) throw new UnauthorizedError('Tenant required');
+      const userId = (req as { user?: { userId?: string; globalUserId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+
+      const { companyId } = req.params;
+      const { variantId, actorId, actorIds } = req.query;
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!companyId || !UUID_RE.test(companyId)) {
+        throw new BadRequestError('companyId inválido (UUID)', ErrorCode.BAD_REQUEST);
+      }
+      if (!variantId?.trim()) {
+        throw new BadRequestError('variantId é obrigatório', ErrorCode.BAD_REQUEST);
+      }
+      // O conjunto de actors do consolidado é resolvido EXCLUSIVAMENTE server-side.
+      if (actorId !== undefined || actorIds !== undefined) {
+        throw new BadRequestError(
+          'actorId/actorIds não são aceitos no consolidado empresarial — o conjunto é resolvido server-side',
+          ErrorCode.BAD_REQUEST
+        );
+      }
+
+      // Identidade humana do caller: globalUserId do token quando presente, senão resolvido
+      // server-side (fail-closed) — mesmo padrão do binding de DECISION-0113.
+      let globalUserId = (req as { user?: { globalUserId?: string } }).user?.globalUserId ?? null;
+      if (!globalUserId) {
+        try {
+          const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
+          globalUserId = await resolveGlobalUserId(userId, req.tenant.id);
+        } catch {
+          globalUserId = null;
+        }
+      }
+      if (!globalUserId) {
+        return reply.status(403).send({
+          error: 'Identidade global do caller não resolvida',
+          code: 'CONSOLIDATED_INVENTORY_FORBIDDEN',
+        });
+      }
+
+      const { companiesService } = await import('@core/companies/companies.service');
+      let canView = false;
+      try {
+        canView = await companiesService.canViewConsolidatedInventory(req.tenant.id, companyId, globalUserId);
+      } catch {
+        canView = false;
+      }
+      if (!canView) {
+        return reply.status(403).send({
+          error: 'Sem autoridade para a projeção consolidada desta empresa',
+          code: 'CONSOLIDATED_INVENTORY_FORBIDDEN',
+        });
+      }
+
+      try {
+        const balance = await inventoryService.getCompanyConsolidatedBalance(
+          req.tenant.id,
+          companyId,
+          variantId
+        );
+        return reply.status(200).send({
+          companyId,
+          productVariantId: variantId,
+          consolidatedQuantity: balance.quantity,
+          unit: balance.unit,
+          actorCount: balance.actorCount,
+          resolvedAt: new Date().toISOString(),
+        });
+      } catch (error: unknown) {
+        marketplaceLogger.error('Erro ao buscar saldo consolidado da empresa', error as Error);
+        if (error instanceof AppError) throw error;
+        throw new BadRequestError(
+          error instanceof Error ? error.message : 'Erro ao buscar saldo consolidado',
+          ErrorCode.BAD_REQUEST
+        );
+      }
+    }
+  );
 }

@@ -468,6 +468,9 @@ class CompaniesService {
       canManageEmployees: input.permissions?.canManageEmployees ?? isManagerTier,
       canViewReports: input.permissions?.canViewReports ?? true,
       canManageServices: input.permissions?.canManageServices ?? isManagerTier,
+      // DECISION-0116 adendo: criador NÃO precisa da flag — can_manage_company=true já
+      // autoriza o consolidado. A flag nasce FALSE e só o writer admin-gated a concede.
+      canViewConsolidatedInventory: false,
     };
 
     const { softBlockService } = await import('@core/authorization/soft-block.service');
@@ -545,10 +548,10 @@ class CompaniesService {
         INSERT INTO company_users (
           tenant_id, company_id, global_user_id, role, role_description,
           can_manage_company, can_manage_financial, can_manage_employees,
-          can_view_reports, can_manage_services,
+          can_view_reports, can_manage_services, can_view_consolidated_inventory,
           is_active, is_primary, metadata
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING id AS company_user_id
         `,
         [
@@ -562,6 +565,7 @@ class CompaniesService {
           defaultPermissions.canManageEmployees,
           defaultPermissions.canViewReports,
           defaultPermissions.canManageServices,
+          defaultPermissions.canViewConsolidatedInventory,
           true,
           input.isPrimary ?? false,
           JSON.stringify({}),
@@ -928,6 +932,60 @@ class CompaniesService {
       [tenantId, companyId, globalUserId]
     );
     return row?.can_manage === true;
+  }
+
+  /**
+   * Autorizador da projeção consolidada de estoque (DECISION-0116 adendo COMPANY_INTERNAL).
+   * Autorizado quando há vínculo ATIVO em company_users com:
+   *   can_manage_company (mesma semântica de canManageCompany, incl. role='owner')
+   *   OU can_view_consolidated_inventory (permissão específica concedida pelo admin).
+   * Fail-closed: sem vínculo / inativo / suspenso → false. NÃO usa actorId de cliente,
+   * NÃO usa capability default (can_manage_marketplace), NÃO usa FASE 6, NÃO cria actor.
+   */
+  async canViewConsolidatedInventory(tenantId: string, companyId: string, globalUserId: string): Promise<boolean> {
+    const row = await runQueryWithTenant<{ can_view: boolean }>(
+      tenantId,
+      `SELECT (cu.can_manage_company OR cu.role = 'owner' OR cu.can_view_consolidated_inventory) AS can_view
+         FROM company_users cu
+        WHERE cu.tenant_id = $1 AND cu.company_id = $2 AND cu.global_user_id = $3::uuid
+          AND cu.is_active = true AND cu.member_status = 'active'
+        LIMIT 1`,
+      [tenantId, companyId, globalUserId]
+    );
+    return row?.can_view === true;
+  }
+
+  /**
+   * Writer da permissão específica de consolidado (DECISION-0116 adendo).
+   * Só quem canManageCompany na empresa-alvo concede/remove. O caminho NÃO toca
+   * can_manage_company (campo único, sem permissions genéricas). Não usa R2/role textual/
+   * capability default. O PUT self-scoped de company_users NÃO recebe este campo —
+   * auto-concessão é vedada por desenho (membro não escala a própria visão).
+   */
+  async setConsolidatedInventoryPermission(
+    tenantId: string,
+    companyId: string,
+    callerGlobalUserId: string,
+    targetCompanyUserId: string,
+    canView: boolean
+  ): Promise<{ companyUserId: string; canViewConsolidatedInventory: boolean }> {
+    const allowed = await this.canManageCompany(tenantId, companyId, callerGlobalUserId);
+    if (!allowed) {
+      throw HttpError.forbidden('Sem autoridade para gerir permissões desta empresa (canManageCompany)');
+    }
+
+    const row = await runQueryWithTenant<{ id: string; can_view_consolidated_inventory: boolean }>(
+      tenantId,
+      `UPDATE company_users cu
+          SET can_view_consolidated_inventory = $1, updated_at = NOW()
+        WHERE cu.id = $2::uuid AND cu.company_id = $3 AND cu.tenant_id = $4
+        RETURNING cu.id, cu.can_view_consolidated_inventory`,
+      [canView, targetCompanyUserId, companyId, tenantId]
+    );
+    if (!row) {
+      throw HttpError.notFound('Vínculo de membro não encontrado nesta empresa');
+    }
+    return { companyUserId: row.id, canViewConsolidatedInventory: row.can_view_consolidated_inventory };
   }
 
   /**
@@ -1307,6 +1365,7 @@ class CompaniesService {
       can_manage_employees: boolean;
       can_view_reports: boolean;
       can_manage_services: boolean;
+      can_view_consolidated_inventory: boolean;
       is_active: boolean;
       is_primary: boolean;
       cu_metadata: unknown;
@@ -1326,6 +1385,7 @@ class CompaniesService {
         cu.can_manage_employees,
         cu.can_view_reports,
         cu.can_manage_services,
+        cu.can_view_consolidated_inventory,
         cu.is_active,
         cu.is_primary,
         cu.metadata AS cu_metadata,
@@ -1352,6 +1412,7 @@ class CompaniesService {
         canManageEmployees: row.can_manage_employees,
         canViewReports: row.can_view_reports,
         canManageServices: row.can_manage_services,
+        canViewConsolidatedInventory: row.can_view_consolidated_inventory,
       },
       isActive: row.is_active,
       isPrimary: row.is_primary,
@@ -1440,6 +1501,7 @@ class CompaniesService {
       can_manage_employees: boolean;
       can_view_reports: boolean;
       can_manage_services: boolean;
+      can_view_consolidated_inventory: boolean;
       is_active: boolean;
       is_primary: boolean;
       cu_metadata: unknown;
@@ -1459,6 +1521,7 @@ class CompaniesService {
         cu.can_manage_employees,
         cu.can_view_reports,
         cu.can_manage_services,
+        cu.can_view_consolidated_inventory,
         cu.is_active,
         cu.is_primary,
         cu.metadata as cu_metadata,
@@ -1517,6 +1580,7 @@ class CompaniesService {
           canManageEmployees: row.can_manage_employees,
           canViewReports: row.can_view_reports,
           canManageServices: row.can_manage_services,
+          canViewConsolidatedInventory: row.can_view_consolidated_inventory,
         },
         isActive: row.is_active,
         isPrimary: row.is_primary,
@@ -1561,6 +1625,7 @@ class CompaniesService {
       can_manage_employees: boolean;
       can_view_reports: boolean;
       can_manage_services: boolean;
+      can_view_consolidated_inventory: boolean;
       is_active: boolean;
       is_primary: boolean;
       cu_metadata: unknown;
@@ -1580,6 +1645,7 @@ class CompaniesService {
         cu.can_manage_employees,
         cu.can_view_reports,
         cu.can_manage_services,
+        cu.can_view_consolidated_inventory,
         cu.is_active,
         cu.is_primary,
         cu.metadata as cu_metadata,
@@ -1638,6 +1704,7 @@ class CompaniesService {
           canManageEmployees: row.can_manage_employees,
           canViewReports: row.can_view_reports,
           canManageServices: row.can_manage_services,
+          canViewConsolidatedInventory: row.can_view_consolidated_inventory,
         },
         isActive: row.is_active,
         isPrimary: row.is_primary,
@@ -1799,6 +1866,7 @@ class CompaniesService {
       can_manage_employees: boolean;
       can_view_reports: boolean;
       can_manage_services: boolean;
+      can_view_consolidated_inventory: boolean;
       is_active: boolean;
       is_primary: boolean;
       metadata: unknown;
@@ -1819,6 +1887,7 @@ class CompaniesService {
         cu.can_manage_employees,
         cu.can_view_reports,
         cu.can_manage_services,
+        cu.can_view_consolidated_inventory,
         cu.is_active,
         cu.is_primary,
         cu.metadata,
@@ -1855,6 +1924,7 @@ class CompaniesService {
         canManageEmployees: row.can_manage_employees,
         canViewReports: row.can_view_reports,
         canManageServices: row.can_manage_services,
+        canViewConsolidatedInventory: row.can_view_consolidated_inventory,
       },
       isActive: row.is_active,
       isPrimary: row.is_primary,

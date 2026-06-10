@@ -87,6 +87,9 @@ export interface CompanyPermissions {
   canManageEmployees: boolean; // Gerenciar funcionários
   canViewReports: boolean; // Ver relatórios
   canManageServices: boolean; // Gerenciar serviços/produtos
+  // DECISION-0116 adendo: ver estoque consolidado da empresa SEM ser admin geral.
+  // Concessão exige canManageCompany do caller (writer dedicado) — nunca auto-concessão.
+  canViewConsolidatedInventory: boolean;
 }
 
 export type MarketplaceDomain = 'market' | 'services' | 'events' | 'real_estate' | 'vehicles' | 'jobs';
