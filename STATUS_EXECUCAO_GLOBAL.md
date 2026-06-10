@@ -1,3 +1,24 @@
+## 2026-06-09 — DECISION-0113 · marketplace residual traps (DOCS-ONLY) · inventory scope + governance in-memory
+
+**Branch:** `rescue-structural` · **docs-only** (REMEDIATION_DT_LOG + STATUS + opus; zero código/migration/Bank/frontend). Dev 365. _(Esteira: shape-check READ-ONLY → executora registra; GO Clayton docs-only.)_
+
+**Contexto:** a superfície marketplace actor-target **DB-backed** está FECHADA e selada com `canRepresentActor` (6 caminhos: inventory by-actor + movements?actorId `3edf5494`; economic-identities GET + trust-events GET `ebd029d9`; recalculate POST + reputation-snapshots GET `0933b188`; economic-identities CREATE body.actor_id `31ee7ff1` — todos PASS Yala). Restaram 3 resíduos não-DB-backed, agora registrados como DT/STOP em vez de tratados como resolvidos.
+
+**O que registrou (2 DTs novas + 1 STOP):**
+- **`DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` (OPEN):** `GET /inventory/movements` SEM actorId = **A latente / leak itemizado cross-company** (retorna `actor_id`+`quantity`+`movement_type`+`reason`+`metadata`+`created_by_user_id` por linha; linha-a-linha, não agregado). **NÃO é B** (expõe actor_id por linha), **não é Bank**, materialidade operacional/comercial. Correção = **decisão de escopo** (a obrigar actorId / b escopar representáveis / c agregar sem actor_id / d só admin institucional), não gate mecânico. DB vivo ROWS=0 (latente), sem caller in-repo.
+- **`DT-MARKETPLACE-GOVERNANCE-INMEMORY-ACTOR-TARGET-REACTIVATION-TRAP` (OPEN):** W2 `POST /sla-contracts` · W3 `POST /reputation-snapshots/generate` · W4 `POST /disputes` — writes body-driven actor-target **in-memory (Maps `.set()`)**, herdam `can_manage_marketplace` (default company). **Gate-on-materialization:** religar em DB/fila sem `canRepresentActor(body.actor_id)` no mesmo corte revive o leak. Família reactivation-trap.
+- **STOP money-aware (W5/W6, sem patch):** `POST /disputes/:disputeId/resolve` (refund/credit) + `POST /payment-plan/:id/apply-sla-penalties` (split) = **M**; exigem **três paralelas** antes de qualquer patch. Fora do corte 0113 simples.
+
+**Arquivos:** `REMEDIATION_DT_LOG.md` (2 DTs), `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`. Zero código.
+
+**Gates:** 4/4 OK (docs-only não muda runtime; bank-ledger verde, dev 365, critical_new=0).
+
+**DTs:** DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` **OPEN**. R2 congelado.
+
+**PRÓXIMA ETAPA:** decisão de produto entre venue/canal-5 (re-sweep exaustivo) **OU** frente money-aware W5/W6 (três paralelas). DECISION-0113 NÃO fechada.
+
+---
+
 ## 2026-06-09 — DECISION-0113 · payment-method READS · fecha list + by-id (arquivo inteiro)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + e2e; zero Bank/migration/frontend). Dev 365. _(Esteira: Yala — "default gateado não protege se a lista está aberta" → executora. GO Clayton: fechar o arquivo.)_
