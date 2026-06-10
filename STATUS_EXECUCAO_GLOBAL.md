@@ -1,3 +1,19 @@
+## 2026-06-10 — F-GROUPS-MINE-HTTP-PROOF-AND-ACTIONCONTEXT-DECOUPLING · GET /groups/mine HTTP real + bypass exato (BACKEND)
+
+**Branch:** `rescue-structural` · **backend** (1 plugin + 1 e2e reescrito; zero migration/banco/frontend/Bank). Dev 365. HEAD origem `c00435da`. _(Esteira: hardening da fatia anterior — R1 sem HTTP proof + R2 falso contrato actionContext.)_
+
+**O que entregou:** (1) **Bypass exato** em `action-context.plugin.ts`: `if (req.method === 'GET' && rawPath === '/groups/mine') return;` — path exato, sem endsWith, sem includes; auth+tenant permanecem obrigatórios; sem efeito sobre writes ou outras rotas. (2) **E2E HTTP real** reescrito com `fastify.inject()`: fixtures A+B+GA+GB+memberships reais no DB, token JWT mintado, cleanup transacional; prova isolação A/B, imunidade a spoof actorId malicioso, sem actionContext, sem criação de estado. 26/26 verdes. (3) Evidência fail-first: `failfirstprobe.ts` executado antes do bypass → `400 "ActionContext is required"`; após bypass → `200 { groups: [] }`.
+
+**Arquivos:** `backend/src/plugins/action-context.plugin.ts` (bypass adicionado), `backend/src/scripts/validate-pipeline-e2e-groups-mine-auth-derived-user.ts` (reescrito 16→26 HTTP).
+
+**Prova:** 26/26 (A1–A13 comportamental HTTP: isolação A/B; spoof ignorado; sem auth→401; contrato { groups }; GET não cria estado; B1–B10 estrutural; C1–C2 schema; D1 cleanup). Gates: `tsc` OK (2 erros pré-existentes geo-enrichment) · `validate:architecture:strict` `critical_new=0` · `validate:system-state:strict` PASS · `validate:regression-guards` OK · `validate:actor-writer-boundaries` OK · `validate:bank-ledger-boundaries` OK.
+
+**Escopo intocado:** service/repository/schema de groups · frontend · /groups/:id · writes · Bank/ledger/wallet/payout · migrations · DECISION-0113 (OPEN) · DECISION-0116 · suppliers · contacts · inventory · escrow · finance-agenda · daily-metrics · FASE 6 · R2 · C1 · tenant compartilhado.
+
+**PRÓXIMA FATIA:** HOLD — aguardando reseal da Yala.
+
+---
+
 ## 2026-06-10 — F-GROUPS-MINE-AUTH-DERIVED-USER-FIX · GET /groups/mine sujeito derivado do JWT (BACKEND)
 
 **Branch:** `rescue-structural` · **backend** (1 arquivo de rota + 1 e2e novo; zero migration/banco/frontend/Bank). Dev 365. HEAD origem `3c2f2b3f`. _(Esteira: GO próprio — DECISION-0113 + DECISION-0116 Classe C GROUP_MEMBERS; fix independente da política, tipo confusion + canal-1 spoofável.)_

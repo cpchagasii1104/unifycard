@@ -14,10 +14,18 @@ const actionContextPluginImpl: FastifyPluginAsync = async (fastify) => {
       return; // Deixar auth plugin tratar
     }
 
+    const rawPath = req.url.split('?')[0];
+
     // Bootstrap de sessão: listar actors disponíveis sem actor ainda no cliente.
     // Handler usa req.user.id (user_id) — ver social-2.0.routes GET /actors/available.
-    const rawPath = req.url.split('?')[0];
     if (req.method === 'GET' && rawPath.endsWith('/social/actors/available')) {
+      return;
+    }
+
+    // Self-scoped: GET /groups/mine deriva sujeito de req.user.userId (JWT server-side).
+    // actorId não participa da seleção; exigir actionContext seria contrato falso.
+    // DECISION-0113: actorId de cliente = hint, não autoridade. Auth + tenant permanecem obrigatórios.
+    if (req.method === 'GET' && rawPath === '/groups/mine') {
       return;
     }
 

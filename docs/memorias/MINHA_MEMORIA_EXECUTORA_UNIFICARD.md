@@ -89,7 +89,9 @@ Regras de papel (vinculantes):
 
 ## 6. ESTADO VIVO (revalidar HEAD antes de usar)
 
-**HEAD `7430a32c` · branch `rescue-structural` · dev 365 · DT-mãe 0113 OPEN · R2 CONGELADO · FASE 6 não liberada.**
+**HEAD pós-`F-GROUPS-MINE-HTTP-PROOF-AND-ACTIONCONTEXT-DECOUPLING` (HEAD c00435da + bypass + e2e HTTP 26/26) · branch `rescue-structural` · dev 365 · DT-mãe 0113 OPEN · R2 CONGELADO · FASE 6 não liberada. HOLD: aguardando reseal Yala.**
+
+`GET /groups/mine` **FECHADO e selado (2 fatias):** F-GROUPS-MINE-AUTH-DERIVED-USER-FIX (type confusion + canal-1 fix, c00435da) + F-GROUPS-MINE-HTTP-PROOF-AND-ACTIONCONTEXT-DECOUPLING (HTTP 26/26 + bypass exato, HEAD atual). Bypass em `action-context.plugin.ts`: `rawPath === '/groups/mine'` (exato, GET only). Auth+tenant permanecem. Service/repository/schema intocados. DECISION-0113 OPEN.
 
 Marketplace actor-target **DB-backed = FECHADO e selado** (6 caminhos PASS Yala): inventory by-actor + movements?actorId (`3edf5494`) · economic-identities GET + trust-events GET (`ebd029d9`) · recalculate + reputation-snapshots GET (`0933b188`) · economic-identities CREATE body.actor_id (`31ee7ff1`).
 
