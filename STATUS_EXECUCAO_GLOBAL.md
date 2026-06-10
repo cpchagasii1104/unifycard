@@ -1,3 +1,30 @@
+## 2026-06-10 — DECISION-0115 · decisões-raiz do nascimento humano vertical G10 (DOCS-ONLY)
+
+**Branch:** `rescue-structural` · **docs-only** (DECISION-0115 + DECISIONS_LOG + 6 DTs no DT_LOG + STATUS + opus + exec_log; zero código/migration/banco/frontend). Dev 365. HEAD origem `92eb49b4`. _(Esteira: auditoria READ-ONLY FASE B → PASS IA Diretora → GO docs-only Clayton.)_
+
+**Contexto:** a auditoria `F-G10-NASCIMENTO-HUMANO-VERTICAL — FASE B` provou que a jornada única de nascimento humano é **executável com writers canônicos existentes em 5 das 7 fases**. O bloqueio NÃO é implementação — é **cartorial/produto**. Esta fatia promulga as decisões-raiz sem as quais qualquer patch de nascimento seria folha solta.
+
+**O que promulgou (DECISION-0115, D1–D5):**
+- **D1** PF não nasce como destino final em tenant morto individual (`tenant-per-signup`); aponta para **tenant inicial vivo**; legado = transitório a reconciliar.
+- **D2** cadeia mínima `CPF/global_user→user→identity→actor(actor_type='user')` **garantida**, não best-effort silencioso (`auth.service.ts:521-526`/`:533-539`).
+- **D3** gender passa a aceitar/persistir **5 valores** (`male·female·non_binary·prefer_not_to_say·other`); nenhum input evapora — **emenda o enum da DECISION-0080** (resto vigente; execução = fatia futura com migration).
+- **D4** jornada **self/auth-derived** (sujeito = `req.user`); authority server-side, **sem depender de FASE 6** para o próprio nascimento/perfil/interesses/agenda.
+- **D5** vertical G10 **NÃO inclui evento econômico real** agora (sem dinheiro/payout/split/settlement/refund/ledger); money = frente própria três paralelas.
+
+**DTs (6 novas/atualizadas, todas OPEN):** `DT-HUMAN-BIRTH-TENANT-PER-SIGNUP-DEAD-WORLD` · `DT-HUMAN-BIRTH-IDENTITY-ACTOR-BEST-EFFORT-SILENT` · `DT-GENDER-INPUT-PERSISTENCE-VOCABULARY-DIVERGENCE` (emenda 0080) · `DT-IDENTITY-STATUS-COMPUTED-IN-MEMORY-ONBOARDING-GATE` · `DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE` (≥10 call-sites; amplia `DT-CORE-PROFILE-GET-CREATES-ACTOR`) · `DT-ONBOARDING-LOCK-FLAGS-METADATA-NO-EVENT`. Nenhuma DT de runtime fechada.
+
+**Arquivos:** `docs/02_decisions/DECISION_0115_HUMAN_BIRTH_VERTICAL_ROOT_DECISIONS.md` (novo), `REMEDIATION_DECISIONS_LOG.md`, `REMEDIATION_DT_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`, `docs/03_execution_log/20260610_DECISION_0115_HUMAN_BIRTH_VERTICAL_ROOT_DECISIONS.md`, `docs/memorias/MINHA_MEMORIA_EXECUTORA_UNIFICARD.md`. Zero código.
+
+**P1:** docs-only não altera runtime; corrige **causa-raiz cartorial/produto** (mundo inicial, atomicidade mínima, vocabulário civil, escopo self-owned, exclusão de evento econômico).
+
+**Gates:** esperado 4/4 OK (docs-only; bank-ledger verde; dev 365; critical_new=0).
+
+**Continua bloqueado:** DT-mãe `DECISION-0113` OPEN · FASE 6 não liberada · R2 congelado · PJ/Bank/profile intocados.
+
+**PRÓXIMA ETAPA:** fatia de código `C1 — costurar register ao mundo inicial vivo + garantir identity/actor mínimo` (sem dinheiro), com GO próprio.
+
+---
+
 ## 2026-06-09 — DECISION-0113 · marketplace residual traps (DOCS-ONLY) · inventory scope + governance in-memory
 
 **Branch:** `rescue-structural` · **docs-only** (REMEDIATION_DT_LOG + STATUS + opus; zero código/migration/Bank/frontend). Dev 365. _(Esteira: shape-check READ-ONLY → executora registra; GO Clayton docs-only.)_

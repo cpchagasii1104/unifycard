@@ -10268,6 +10268,8 @@ por mim nesta fatia** (A2 não toca o legado). O C1 novo NÃO tem esse problema 
 actionContext.actorId, zero criação — provado em T3). Próxima ação: read-only próprio confirmando
 os call sites legados antes de qualquer correção (frente A3/deprecação).
 
+**Atualização (2026-06-10, `F-G10 — FASE B`, governada por `DECISION-0115` §2.1):** confirmado material **vivo e mais amplo** — ≥10 call-sites de leitura criam actor (direto via `ensureUserActor` em `GET /core/profile` via `core.service.ts:133`, `/social/actors/:id`, `/trust/me`, `/trust/me/timeline`; via helper `getActiveActor`→`ensureUserActor` em GETs financeiros account/payout/reporting/invoice/policy/payment-method). Denominador e decisão "cura transitória, não modelo canônico" passam para `DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE` (OPEN). Esta DT segue OPEN como origem do diagnóstico.
+
 ### DT-LOOSE-ACTOR-LOOKUPS (OPEN — origem: diagnóstico A1/P2)
 **Contexto.** Diagnóstico A1 apontou ~6 lookups soltos `user/global_user → actor_id` fora da porta
 governada (anti-padrão §4.8.1). **Não inventariados por mim nesta fatia.** O C1 novo NÃO introduz
@@ -11945,3 +11947,70 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** sem scanner de produção, o download/review humano de documento real fica fail-closed em produção (a policy exige `clean`). NÃO é regressão (é o comportamento seguro decidido por 0112 §10 A2); é pendência de implementação.
 - **Resolução prevista:** fatia própria (junto/depois do user-submit + admin-review): integrar scanner real (ClamAV self-host ou API), via `DOCUMENT_MALWARE_SCANNER_PROVIDER=<scanner>` + config por env; persistir resultado de scan (estado `quarantine`/`unscanned`/`clean`/`infected`) quando houver storage de metadados de scan. Conjugar com a validação de magic bytes na rota user-submit (ver alerta em `MINHA_MEMORIA_DT.md`).
 - **Vinculada a:** `DECISION-0112` (§10 A2), `DT-PJ-DOCUMENT-MALWARE-SCAN-MISSING`, `DT-PJ-KYB-DOCUMENTS-NOT-IN-ONBOARDING`.
+
+---
+
+## DT-HUMAN-BIRTH-TENANT-PER-SIGNUP-DEAD-WORLD — OPEN (2026-06-10)
+
+- **Status:** **OPEN (2026-06-10)** — **governada por `DECISION-0115` D1**. Aberta pela auditoria READ-ONLY `F-G10-NASCIMENTO-HUMANO-VERTICAL — FASE B` (PASS IA Diretora, HEAD `92eb49b4`).
+- **Problema:** `authService.register` cria um tenant `user-{emailSlug}-{Date.now()}` **por pessoa** quando `tenantId` ausente (`backend/src/core/auth/auth.service.ts:217-239`) — cada PF nasce sozinha num "mundo morto" individual (R1 do G10). **Nenhuma DECISION governa em qual tenant a PF nasce** (grep completo no `REMEDIATION_DECISIONS_LOG` e `docs/02_decisions/` = zero antes da 0115). Amplificador: `PILOT_MODE` valida convite contra o tenant recém-criado (`:256-278`) → cadastro orgânico **matematicamente impossível** no piloto (R2 do G10).
+- **Risco:** sem mundo inicial vivo, o "primeiro morador" nasce isolado, sem contexto, sem coordenação possível — a vertical humana não tem onde acontecer. Reconciliar 94 atores legados com `user_id IS NULL` (DECISION-0062 F4/F5) também cruza este eixo.
+- **Decisão (DECISION-0115 D1):** PF **não nasce como destino final** em tenant morto individual; o nascimento aponta para um **tenant inicial vivo** (piloto/comunidade/entrada do sistema); `tenant-per-signup` legado é **trilho transitório a reconciliar**, não modelo canônico futuro.
+- **Resolução prevista:** fatia de código `C1 — costurar register ao mundo inicial vivo` (com GO próprio): definir/identificar o tenant inicial vivo e apontar o register para ele, reconciliando o legado **sem corrigir tenant no chute**. Sem migration nesta DT até a fatia decidir o substrato.
+- **Vinculada a:** `DECISION-0115` (D1), `DT-PUT-COMPANIES-TENANT-DIVERGENCE`, `DECISION-0062` (F4/F5 — atores legados sem user_id), `DT-HUMAN-BIRTH-IDENTITY-ACTOR-BEST-EFFORT-SILENT`.
+
+---
+
+## DT-HUMAN-BIRTH-IDENTITY-ACTOR-BEST-EFFORT-SILENT — OPEN (2026-06-10)
+
+- **Status:** **OPEN (2026-06-10)** — **governada por `DECISION-0115` D2**. Aberta pela auditoria `F-G10 — FASE B`.
+- **Problema:** no register, a criação de **identity** (`identityService.ensureIdentityRowForGlobalUserId`) e **actor** (`ensureUserActor`→`findOrCreateUserActor`, fail-closed, `actor_type='user'`) é chamada em **ordem causal correta** (identity antes de actor) mas **best-effort silencioso**: ambos em `try/catch` com `console.warn` "será retentado no próximo acesso" (`backend/src/core/auth/auth.service.ts:521-526` e `:533-539`). O nascimento da **identidade operacional mínima não é garantido** — o sistema confia na cura difusa on-demand (ver `DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE`).
+- **Risco:** um usuário pode existir em `users`/`global_users` sem identity row e/ou sem actor, com leitura "nasceu" enganosa; a integridade depende de um GET posterior disparar a cura. A atomicidade do nascimento mínimo é decisão-raiz (R-C da Árvore da Dívida da IA-DT).
+- **Decisão (DECISION-0115 D2):** a cadeia mínima `CPF/global_user → user → identity → actor (actor_type='user')` deve ser **garantida**, não best-effort silencioso no caminho canônico. Perfil/interesses/agenda/PJ **permanecem progressivos**; a identidade operacional mínima **não pode nascer quebrada**.
+- **Resolução prevista:** fatia `C1` (junto de D1): tornar identity+actor **garantidos** no nascimento (transação/ordem causal/fail-closed observável) sem afrouxar a trava `identity-before-actor` (DECISION-0062). Sem migration prevista (lógica de serviço).
+- **Vinculada a:** `DECISION-0115` (D2), `DECISION-0062` (identity-before-actor), `DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE`, `DT-HUMAN-BIRTH-TENANT-PER-SIGNUP-DEAD-WORLD`.
+
+---
+
+## DT-GENDER-INPUT-PERSISTENCE-VOCABULARY-DIVERGENCE — OPEN (2026-06-10)
+
+- **Status:** **OPEN (2026-06-10)** — **governada por `DECISION-0115` D3** (que **emenda o enum da `DECISION-0080`**). Aberta pela auditoria `F-G10 — FASE B`.
+- **Problema:** o register **aceita 5 valores** de gender (`backend/src/core/auth/auth.service.ts:207`: `male|female|other|non_binary|prefer_not_to_say`), mas a persistência só admite 3 (`profile.service.ts:254-258` filtra para `male|female|other`; contrato `packages/contracts/src/vocabulary.ts:6-11` `GENDER_VALUES=3`; coluna `global_users.gender` com CHECK de 3 por `DECISION-0080`). `non_binary` e `prefer_not_to_say` **evaporam silenciosamente** — sem erro, sem log, sem mapeamento (gap entrada≠saída).
+- **Tensão normativa explícita:** `DECISION-0080` (RATIFICADA) fixou **3 valores** e a coluna+CHECK vivos refletem isso (`DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` CLOSED). `DECISION-0115 D3` **muda para 5 valores** — é emenda soberana de Clayton ao **ponto do enum** da 0080; o resto da 0080 (gender = SSOT `global_users.gender`, "perfil coleta, identidade guarda", lock/set-once) **permanece vigente**.
+- **Risco:** identidade civil de pessoas não-binárias/que preferem não declarar é apagada sem rastro — contraria a leitura material e expõe gap de contrato. Persistir 5 hoje **quebraria o CHECK vivo** (precisa migration) — por isso é DT, não patch imediato.
+- **Decisão (DECISION-0115 D3):** vocabulário canônico passa a **aceitar e persistir 5 valores** (`male·female·non_binary·prefer_not_to_say·other`); nenhum input evapora sem erro/log/mapeamento.
+- **Resolução prevista:** fatia de código própria (migração governada): ALTER do CHECK `global_users.gender` para 5 valores + atualizar `GENDER_VALUES` no contrato + rebuild dist + remover o filtro silencioso (`profile.service.ts`) + backfill se necessário. Forward-only.
+- **Vinculada a:** `DECISION-0115` (D3), `DECISION-0080` (enum emendado), `DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` (CLOSED — local de armazenamento), `SELO_PROFILE_GENDER_IDENTITY_SSOT.md`.
+
+---
+
+## DT-IDENTITY-STATUS-COMPUTED-IN-MEMORY-ONBOARDING-GATE — OPEN (2026-06-10)
+
+- **Status:** **OPEN (2026-06-10)** — **governada por `DECISION-0115` §2.1**. Aberta pela auditoria `F-G10 — FASE B`.
+- **Problema:** `identity_status` (`COMPLETE`/`INCOMPLETE`) **não existe como coluna** — é **calculado em memória** de 4 campos espalhados em 3 tabelas (`global_users`/`profiles`/`identities`) em `backend/src/core/core.service.ts:762-764`, e governa `requiresOnboarding` no login (`auth.service.ts:645-653`). `identities` persiste apenas `kyc_status` (`pending`/`approved`/`rejected`) — conceito distinto de completude de onboarding. O gate de onboarding decide **sem fonte persistida, sem auditoria, sem transação**.
+- **Risco:** gate central da jornada de nascimento humano sem SSOT próprio — recálculo divergente entre call-sites, impossível auditar "por que este usuário ainda está em onboarding". Se a vertical G10 depender de `identity_status`, herda a fragilidade.
+- **Decisão (DECISION-0115 §2.1):** `identity_status` em memória é **divergência a governar** antes de virar gate central da jornada — persistir/auditar (coluna em `identities` ao lado de `kyc_status`) **ou** substituir por leitura canônica única, em fatia própria.
+- **Resolução prevista:** fatia própria (após D1/D2): decidir entre persistir `identity_status` ou derivá-lo de fonte única auditável; migração governada se persistir. Sem patch agora.
+- **Vinculada a:** `DECISION-0115` (§2.1), `DECISION-0062`, `DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT` (CLOSED — perfil contextual).
+
+---
+
+## DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE — OPEN (2026-06-10)
+
+- **Status:** **OPEN (2026-06-10)** — **governada por `DECISION-0115` §2.1**. Amplia/atualiza `DT-CORE-PROFILE-GET-CREATES-ACTOR` com denominador material verificado. Aberta pela auditoria `F-G10 — FASE B`.
+- **Problema:** a criação de actor em caminho de **leitura** (side-effect proibido em GET) é **mais ampla** que os "3 GETs" reportados pelo G10. Denominador material confirmado (≥10 call-sites): direto via `ensureUserActor` — `GET /core/profile` (via `core.service.ts:133`, caminho sem actorId), `GET /social/actors/:id` (`social-2.0.routes.ts:531`), `GET /trust/me` (`trust.routes.ts:25`), `GET /trust/me/timeline` (`:62`); e via helper `getActiveActor`→`ensureUserActor` (`actor.helpers.ts:25`) em rotas **GET financeiras**: account (`account.routes.ts:107,171`), payout, reporting, invoice, policy, payment-method. (As superfícies já seladas — unified-availability/calendar — **proíbem** `ensureUserActor` em GET por e2e estrutural; o sistema já converge nelas.)
+- **Risco:** leitura cria entidade (quebra idempotência HTTP / §4.8.1 / DECISION-0063 §11); mascara o nascimento best-effort (`DT-HUMAN-BIRTH-IDENTITY-ACTOR-BEST-EFFORT-SILENT`) — a "cura acidental" esconde que o register não garantiu o actor (R8/F13 do G10).
+- **Decisão (DECISION-0115 §2.1):** a criação de actor em GET é **cura transitória, não modelo canônico** — após garantir o actor no register (D2), a criação-em-leitura vira **rede de segurança a aposentar**, não autoridade.
+- **Resolução prevista:** após D2 (nascimento garantido), fatia READ-ONLY confirmando cada call-site e depois migração para resolução read-only (sem side-effect) — **não remover GETs curativos antes de o reparo legítimo existir** (R6↔R8 acoplados, STOP do G10).
+- **Vinculada a:** `DECISION-0115` (§2.1, D2), `DT-CORE-PROFILE-GET-CREATES-ACTOR` (origem A1/P2; agora confirmada viva e ampliada), `DT-HUMAN-BIRTH-IDENTITY-ACTOR-BEST-EFFORT-SILENT`.
+
+---
+
+## DT-ONBOARDING-LOCK-FLAGS-METADATA-NO-EVENT — OPEN (2026-06-10)
+
+- **Status:** **OPEN (2026-06-10)** — **governada por `DECISION-0115` §2.1**. Aberta pela auditoria `F-G10 — FASE B`. Distinta de `DT-ONBOARDING-METADATA-STORAGE-DECISION` (essa = estado de onboarding **de empresa**, RESOLVED via page-actor metadata); esta é sobre as flags **da PF**.
+- **Problema:** `onboarding_completed`/`onboarding_completedAt` e `personal_data_locked`/`personal_data_lockedAt` vivem em **`profiles.metadata`** (blob JSONB) como **estado operacional sem evento versionado** (`profile.service.ts`). `personal_data_locked` é flag de **bloqueio de ação** — exatamente o tipo de "estado operacional" que `USER_PROFILE_CONTRACT §4` diz não pertencer ao Perfil (read-model), sem evento histórico associado.
+- **Risco:** se a jornada de nascimento humano passar a **depender** dessas flags (gate de etapas), constrói lógica de jornada sobre estado não-auditável/não-versionado — "categoria sem evento = mentira histórica".
+- **Decisão (DECISION-0115 §2.1):** são flags operacionais sensíveis; se a jornada for depender delas, exigem **DT/governança** (evento versionado vs blob) antes do acoplamento.
+- **Resolução prevista:** fatia própria, **somente se** a vertical G10 precisar gatear etapas por essas flags — então mover para evento versionado/Identity SSOT. Sem patch agora (a vertical pode nascer sem depender delas).
+- **Vinculada a:** `DECISION-0115` (§2.1), `USER_PROFILE_CONTRACT §4`, `DT-ONBOARDING-METADATA-STORAGE-DECISION` (empresa, RESOLVED — não confundir).
