@@ -1,5 +1,13 @@
 # MINHA MEMÓRIA — IA-USUÁRIOS-E-ACESSO
 
+> 🛑 **INATIVA — ESCOPO ABSORVIDO POR `MINHA_MEMORIA_ACTOR_USERS.md`** (IA Diretora, 2026-06-10).
+> NÃO existe instância ativa separada para este arquivo. O eixo "acesso humano" (login/sessão/RBAC/
+> roles/permissions/company_users) passou a ser o **Eixo B** da instância única `IA-ACTOR-USERS`.
+> Este arquivo permanece como **memória institucional/histórica** — histórico preservado, NÃO apagado,
+> NÃO movido. O PEDIDO tenant-shared (2026-06-10) abaixo foi **REDIRECIONADO** para
+> `MINHA_MEMORIA_ACTOR_USERS.md` e **NÃO deve ser contado como resposta pendente** desta rodada
+> (a rodada espera 6 respostas, não 7). Não responder novos pedidos aqui.
+
 > **Protocolo de uso:** esta memória é insumo operacional, **não norma soberana**. Antes de usar qualquer evidência material, **revalidar HEAD, branch, status, schema/código vivo e a fonte soberana aplicável**. Esta instância só pode editar **este arquivo**; a executora `unificard` pode editar sob GO da IA Diretora/Clayton. Protocolo completo: `docs/memorias/README.md`. **Fronteira:** acesso humano/login/role/permissão é meu eixo; `actorId` alvo / `canRepresentActor` / 5 canais 0113 é da IA-ACTOR-USERS (ver README → Fronteira oficial).
 
 ## Instância: Auditora Read-Only de Identidade, Acesso e Autoridade
@@ -8,32 +16,73 @@
 ---
 
 ============================================================
-PEDIDO DA EXECUTORA — 2026-06-09
-Status: ABERTO
-HEAD no momento do pedido: 1d42a9d2
+PEDIDO DA EXECUTORA — 2026-06-10
+Status: REDIRECIONADO → `MINHA_MEMORIA_ACTOR_USERS.md` (Eixo B do PEDIDO 2026-06-10 REV.b; instância absorvida)
+HEAD no momento do pedido: 3d8ad25b
 Branch: rescue-structural
-Para: IA-USUÁRIOS-E-ACESSO
-Frente relacionada: marketplace residual traps / DECISION-0113 / inventory scope
+Para: IA-USUÁRIOS-E-ACESSO  → AGORA: IA-ACTOR-USERS (Eixo B)
+Frente relacionada: F-G10-TENANT-SHARED-ISOLATION — acesso humano e institucional
 Prioridade: alta
 ============================================================
 
+> 🔁 REDIRECIONADO (IA Diretora, 2026-06-10): estas perguntas foram MOVIDAS e fundidas como Eixo B do
+> PEDIDO mais recente em `MINHA_MEMORIA_ACTOR_USERS.md`. NÃO responder aqui; NÃO contar como pendente.
+> Texto original preservado abaixo apenas como histórico.
+
 CONTEXTO:
-`can_manage_marketplace` é DEFAULT de toda company (actor-registry). Os gates marketplace usavam `requirePermission` (capability) sem `canRepresentActor` sobre o actor alvo — corrigido nos 6 DB-backed. Resta decidir quem legitimamente vê o extrato itemizado tenant-wide de `inventory/movements` (opção d = "só admin/plataforma real"). Ver `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE`.
+No tenant compartilhado, readers tenant-only vazam entre usuários. Parte das rotas de groups está
+HOJE 403 para todos porque `actor_has_permission` é stub fail-closed `RETURN FALSE` (verificado no
+banco vivo) — máscara temporária, não autoridade. Preciso da régua de ACESSO HUMANO/INSTITUCIONAL.
 
-DÚVIDA OBJETIVA:
-1. Existe diferença formal entre permissão FUNCIONAL de marketplace (`can_manage_marketplace`) e AUTORIDADE operacional sobre actor alvo?
-2. `can_manage_marketplace` (default de company) pode autorizar listagem itemizada cross-company?
-3. Alguma role/RBAC/`company_users` existente legitimaria visão tenant-wide itemizada (admin/plataforma/finance)?
-4. Se a resposta for admin/plataforma, qual trilho de acesso humano deveria PROVAR isso (qual permission/role concreta)?
+DÚVIDAS OBJETIVAS:
+1. Que PAPEL HUMANO deveria acessar `contacts`, `suppliers` e `daily-metrics` (usuário comum /
+   representante da empresa / operador de marketplace / admin-compliance da plataforma)?
+2. As permissões existentes distinguem materialmente: usuário comum · representante de empresa ·
+   operador de marketplace · admin/compliance da plataforma? (onde isso vive — RBAC V2, roles, company_users).
+3. `company_users` ou o RBAC atual já MATERIALIZAM essa distinção (com dado vivo), ou é aspiracional?
+4. Quais rotas estão apenas MASCARADAS por `actor_has_permission = FALSE` (parecem seguras mas só
+   estão mortas) — e portanto viram leak quando a FASE 6 ligar sem o gate humano/representação certo?
+5. Qual autoridade humana/institucional deve ser PRESERVADA dentro de `requirePermission` quando a
+   FASE 6 for ativada, para não reabrir esses leaks?
 
-EVIDÊNCIA ESPERADA:
-- mapa de roles/permissões (RBAC legado/V2), `company_users`, permission-keys vivo;
-- classificação; riscos; recomendação; STOPs.
+EXIGIR NA RESPOSTA:
+- distinguir acesso humano/role/permissão (seu eixo) de autoridade-sobre-actor-alvo (eixo IA-ACTOR-USERS);
+- HEAD na resposta + fonte soberana; classificação onde aplicável.
 
-FORMATO DE RESPOSTA ESPERADO:
-RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
+STOPs:
+não editar RBAC; não liberar FASE 6; NÃO transformar role genérica em autoridade cross-actor. Insumo, não GO.
 
-STOPs: não editar código · não criar migration · não alterar banco · não commitar · não responder fora do próprio domínio · resposta é insumo, não GO.
+============================================================
+PEDIDO DA EXECUTORA — 2026-06-09
+Status: RESPONDIDO
+HEAD no momento do pedido: 1d42a9d2 | HEAD na resposta: 92eb49b4
+Branch: rescue-structural
+Para: IA-USUÁRIOS-E-ACESSO
+Frente relacionada: marketplace residual traps / DECISION-0113 / inventory scope
+============================================================
+
+RESPOSTA DA INSTÂNCIA
+HEAD no momento da resposta: 92eb49b4 (branch rescue-structural)
+Fonte soberana confirmada: DECISION-0042 (company_users SSOT), 08_AUTORIDADE_CANONICA.md §10, rbac.plugin.ts
+
+VEREDITO: can_manage_marketplace NÃO autoriza listagem cross-company. São dimensões diferentes. Opção (d) está correta.
+
+EVIDÊNCIAS:
+1. `can_manage_marketplace` = capability funcional do módulo marketplace (ator pode USAR o módulo). Default de company no actor-registry. Não define escopo de visibilidade de dados de outras empresas.
+2. `canRepresentActor(userId, actorId)` = autoridade operacional (ator pode AGIR em nome de). São dimensões ortogonais. Ter uma não implica ter a outra.
+3. `company_users` (DECISION-0042): roles owner/admin/staff/contractor/member são POR EMPRESA — não concedem visibilidade cross-company por design. Não existe role tenant-wide em company_users.
+4. RBAC legado (0060): tem role 'admin' mas é user_id-based, não actor-level. Não há permission granular para "inventory movements tenant-wide" seedada.
+5. RBAC V2: actor_has_permission = STUB RETURN FALSE. Nenhum gate de permissão granular funcional hoje.
+6. Conclusão: "admin/plataforma real" que o DT descreve como opção (d) = trilho que NÃO EXISTE ainda no schema. Nenhuma role/permission concreta hoje provaria isso.
+
+RISCOS:
+- Se a rota for aberta com can_manage_marketplace como gate, qualquer company vê o extrato tenant-wide de todas as outras. Vazamento cross-tenant.
+- RBAC V2 stub não pode salvar isso — falharia fechado (403), não abriria com critério errado.
+
+RECOMENDAÇÃO:
+A opção (d) é a correta. Implementação exige: (a) criar permission-key específica para visão tenant-wide (ex: 'inventory:movements:list:tenant-wide'), (b) seedar só para role admin/platform no RBAC V2, (c) gate com requirePermission nessa key + assertActorRepresentable. Não existe atalho hoje. Aguardar FASE 6 (reativação RBAC) antes de implementar a opção (d) — senão o gate ficaria fail-closed de qualquer forma.
+
+STOPs: não implementar; registrar DT-INVENTORY-MOVEMENTS-ITEMIZED como candidata a FASE 6; não usar can_manage_marketplace como proxy de autoridade cross-company.
 ============================================================
 
 ---
@@ -312,4 +361,55 @@ STOPS:
 
 ---
 
-*Instância criada: 2026-06-09. Próxima atualização: quando F6.5.6b–6.5.9 fecharem ou quando x-actor-id sweep selar.*
+---
+
+## §15 — PIVÔ G10 E AUDITORIA DO "ENCAIXE UNIVERSAL" (2026-06-10)
+
+**Pivô de direção (Clayton, 2026-06-10, HEAD `92eb49b4`):**
+Centro do projeto = nascimento PF ponta-a-ponta. Jornada G10 = prioridade máxima. Método: especialistas READ-ONLY respondem 5 perguntas P0 → IA Diretora consolida → 1 prompt cirúrgico. **SEM GO ainda.**
+
+**Auditoria do "encaixe universal" (declaração da IA Diretora):**
+Texto auditado: "a única forma de saber é colocar o encaixe à prova com uma jornada real de ponta a ponta."
+Veredito: **PARCIALMENTE VERDADEIRO.** Diagnóstico correto. Promessa arquitetural tem lastro. Recomendação de teste é a chamada certa. Mas o texto não nomeia os três buracos.
+
+**BURACO-1 — 94 atores humanos com user_id IS NULL (DECISION-0062 F4/F5 pendentes)**
+Cadeia CPF→actor rompida nesses atores. canRepresentActor V1 (direct user_id match) falha para eles. Jornada PF que encontrar um desses atores perde raiz humana verificável.
+
+**BURACO-2 (CRÍTICO) — actor_has_permission = STUB RETURN FALSE**
+Toda rota com requirePermission → 403 para qualquer ator hoje, incluindo legítimos.
+→ Jornada G10 bate nesse muro na primeira operação permissão-gated.
+→ Risco real: leitura equivocada "sistema não funciona" quando a realidade é "fail-closed deliberado até FASE 6".
+DT: DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP (OPEN).
+
+**BURACO-3 — actor_type vocabulary fragmentation**
+Código que verifica actor_type='user' não captura 'person'/'actor_human'. Falha silenciosa para atores com tipo legado.
+DT: DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION (OPEN).
+
+**Escopo obrigatório para jornada G10 — declarar ANTES de começar:**
+
+| Opção | O que prova | Funciona hoje? | Pré-condições |
+|-------|-------------|----------------|---------------|
+| A — sem permission gates | Identidade + representação | ✔ SIM | Nenhuma |
+| B — com permission gates | Promessa completa de autoridade | ✗ NÃO | DECISION-0113 todos-5-canais + FASE 6 reactivation |
+
+Sem declaração de escopo, a jornada interrompe no primeiro requirePermission e a conclusão pode ser enganosa.
+
+---
+
+## §16 — PROPOSTA DE UNIFICAÇÃO COM IA-ACTOR-USERS (leitura para a outra instância)
+
+**Contexto (2026-06-10):** Clayton propôs unificar IA-ACTOR-USERS + IA-USUÁRIOS-E-ACESSO numa instância única. A proposta foi enviada à IA Diretora. Aguarda GO.
+
+**Motivação arquitetural:** `canRepresentActor(userId, actorId)` senta exatamente na fronteira — recebe userId (domínio desta instância) e actorId (domínio da IA-ACTOR-USERS). Qualquer pergunta sobre ela obriga ambas as instâncias a se coordenarem. Essa coordenação tem custo e introduz lacuna de tradução.
+
+**Nome proposto:** `IA-IDENTIDADE-E-AUTORIDADE`
+
+**O que muda:** uma instância, um arquivo de memória (merge), README atualizado, fronteira oficial dissolvida.
+
+**O que não muda:** modo READ-ONLY, protocolo de pedido/resposta, autocontrole de ação.
+
+**Estado:** aguarda GO da IA Diretora. Não implementar antes.
+
+---
+
+*Última atualização: 2026-06-10. Próxima: quando FASE 6 reativar OU quando G10 jornada começar (declarar escopo antes).*

@@ -1,3 +1,27 @@
+## 2026-06-10 — DECISION-0116 · política canônica de ownership/visibilidade intra-tenant (DOCS-ONLY)
+
+**Branch:** `rescue-structural` · **docs-only** (DECISION-0116 + DECISIONS_LOG + DT-mãe no DT_LOG + mapa de denominador + STATUS + opus + exec_log + normalização de memórias; zero código/migration/banco/frontend). Dev 365. HEAD origem `3d8ad25b`. _(Esteira: consolidação READ-ONLY de 6 especialistas → PASS IA Diretora → GO docs-only Clayton.)_
+
+**Contexto:** a consolidação das 6 instâncias (ACTOR-USERS Eixo A+B, BANCO, DINHEIRO, DECISÕES, DT, DOCUMENTOS) provou que a **RLS é tenant-scoped por desenho e correta** (isolamento entre tenants), mas **não resolve sozinha visibilidade entre sujeitos do MESMO tenant**. Causa-raiz = **ausência de política canônica de ownership/visibilidade por classe de recurso** (vetor MISSING-SCOPE; raiz irmã da 0113). Isolamento entre pessoas era acidental (`tenant ≈ pessoa`); `DECISION-0115 D1` (tenant compartilhado) colapsa a coincidência.
+
+**O que promulgou (DECISION-0116):** 8 classes canônicas — `PUBLIC_TENANT` · `ACTOR_PRIVATE` · `COMPANY_INTERNAL` · `GROUP_MEMBERS` · `PERSONAL_SENSITIVE` · `INSTITUTIONAL_ADMIN` · `MONEY_PARTIES` · `DEFAULT_DENY` (sem classe = sem exposição). **Mapeamento:** feed/eventos públicos→PUBLIC_TENANT; grupos→GROUP_MEMBERS; inventory→ACTOR_PRIVATE; suppliers→COMPANY_INTERNAL (sem owner canônico — `created_by_actor_id`=audit, definir antes do hardening); contacts→PERSONAL_SENSITIVE/COMPANY_INTERNAL (tabela **não existe**; não restaurar archive; não bloqueia C1); daily-metrics→INSTITUTIONAL_ADMIN (inativa/501 até autoridade real); purchase-orders→COMPANY_INTERNAL; escrow→MONEY_PARTIES (frente própria); finance-agenda→COMPANY_INTERNAL/MONEY_PARTIES.
+
+**DT-mãe (OPEN):** `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` — raiz irmã de `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`; governada por 0115 D1; mecanismo 0113; política 0116; caveat `DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP`. Critério de convergência = denominador finito por repositório + classificação + correção Classe-A + gate de regressão + Yala.
+
+**Mapa:** `docs/02_decisions/MAPA_DENOMINADOR_TENANT_SHARED_ISOLATION.md` (cobertura honesta: FECHADO-NO-CLUSTER=unread-counts; AUDITADO/PARCIAL=clusters 2–8; INCONCLUSIVO=daily-metrics; NÃO-AUDITADO=15 módulos nominais). **Denominador global do backend = OPEN.**
+
+**Arquivos:** `docs/02_decisions/DECISION_0116_INTRA_TENANT_OWNERSHIP_VISIBILITY_POLICY.md` (novo), `docs/02_decisions/MAPA_DENOMINADOR_TENANT_SHARED_ISOLATION.md` (novo), `REMEDIATION_DECISIONS_LOG.md`, `REMEDIATION_DT_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, `opus.md`, `docs/03_execution_log/20260610_DECISION_0116_INTRA_TENANT_OWNERSHIP_VISIBILITY.md` (novo), normalização protocolar de memórias (flip ABERTO→RESPONDIDO + checkboxes executora). Zero código.
+
+**P1:** docs-only não altera runtime; promulga a **causa-raiz cartorial/produto** (política de classes de visibilidade) sem a qual qualquer patch de isolamento seria folha solta.
+
+**Gates:** esperado 4/4 OK (docs-only; bank-ledger verde; dev 365; critical_new=0).
+
+**Continua bloqueado:** C1/tenant compartilhado NÃO liberado · DECISION-0113 OPEN · FASE 6 não liberada · R2 congelado · escrow/finance-agenda em frente money própria.
+
+**PRÓXIMA FATIA recomendada (GO próprio):** `GET /groups/mine` — bug `DECISION-0113` (usa `req.actionContext.actorId` como `users.user_id`; canal-1 + type confusion; caller frontend vivo `api/groups.ts:210`); correção = `req.user.userId`; independe da 0116; não toca Bank; sem migration.
+
+---
+
 ## 2026-06-10 — F-G10-C1-PRECONDITION · Cluster 1 — unread-counts tenant-wide hardening (BACKEND)
 
 **Branch:** `rescue-structural` · **backend** (2 arquivos de rota + 1 e2e novo + DT_LOG/STATUS; zero migration/banco/frontend/Bank). Dev 365. HEAD antes `b6cc69a3`. _(Esteira: GO Clayton/IA Diretora — pré-condição da C1: fechar leituras tenant-wide que vazariam no tenant compartilhado; DECISION-0115 D1.)_

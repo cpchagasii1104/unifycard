@@ -23,8 +23,8 @@ Em conflito entre memória e qualquer fonte acima, **a fonte soberana vence** e 
 
 | Arquivo | Instância | Eixo / especialidade | Modo |
 |---|---|---|---|
-| `MINHA_MEMORIA_ACTOR_USERS.md` | **IA-ACTOR-USERS** | Actor/Users/Authority: 3 camadas de identidade, `canRepresentActor`, 5 canais DECISION-0113, R2/delegação | READ-ONLY |
-| `MINHA_MEMORIA_USUARIOS_E_ACESSO.md` | **IA-USUÁRIOS-E-ACESSO** | Identidade, acesso, login/sessão e autoridade (auditoria) | READ-ONLY |
+| `MINHA_MEMORIA_ACTOR_USERS.md` | **IA-ACTOR-USERS** | Actor/Users/Authority — instância única com 2 eixos. **Eixo A** (actor-alvo/autoridade): `canRepresentActor`, 5 canais DECISION-0113, actionContext, actorId em params/query/body, ownership de recursos, R2/delegação. **Eixo B** (acesso humano): user/global_user/identity, login/sessão, RBAC, roles/permissions, company_users, operador de marketplace, admin/compliance, FASE 6. | READ-ONLY |
+| ~~`MINHA_MEMORIA_USUARIOS_E_ACESSO.md`~~ | ~~IA-USUÁRIOS-E-ACESSO~~ | **INATIVA — escopo absorvido por `MINHA_MEMORIA_ACTOR_USERS.md` (Eixo B)** desde 2026-06-10. NÃO é instância ativa; arquivo preservado só como memória histórica (não conta nas respostas da rodada). | INATIVA |
 | `MINHA_MEMORIA_DINHEIRO.md` | **IA-DINHEIRO** | Eixo monetário: Bank/`bank_ledger` (Lei 5 SSOT), payments, split/payout/settlement | READ-ONLY |
 | `MINHA_MEMORIA_TEMPO.md` | **IA-TEMPO** | Eixo temporal: agenda, disponibilidade (`unified-availability`), booking | READ-ONLY |
 | `MINHA_MEMORIA_BANCO_DE_DADOS.md` | **IA-BANCO-DE-DADOS** | Schema, migrations, integridade, runtime do banco | READ-ONLY |
@@ -117,26 +117,27 @@ Status: RESPONDIDO        # ou STALE, se o HEAD da resposta envelheceu
 
 ---
 
-## Fronteira oficial: IA-ACTOR-USERS × IA-USUÁRIOS-E-ACESSO
+## Eixos internos da instância única IA-ACTOR-USERS (Eixo A × Eixo B)
 
-As duas tangenciam identidade/autoridade. Para não haver dois sensores brigando, a fronteira é:
+> **Histórico:** até 2026-06-10 isto era a "fronteira oficial" entre **duas** instâncias (IA-ACTOR-USERS ×
+> IA-USUÁRIOS-E-ACESSO). A IA Diretora consolidou: NÃO há instância separada de acesso humano — ela é o
+> **Eixo B** da instância única `IA-ACTOR-USERS`. `MINHA_MEMORIA_USUARIOS_E_ACESSO.md` está INATIVA
+> (memória histórica). Permanece a mesma distinção conceitual, agora como **dois eixos de uma só instância**.
 
-**IA-ACTOR-USERS** — dona de:
+**Eixo A — actor-alvo e autoridade operacional** ("esse actorId alvo pode ser usado/representado?"):
 - auditoria adversarial de `actorId` (DECISION-0113);
 - os 5 canais (actionContext · x-actor-id · query · params `:actorId` · params `:id` de recurso privado);
 - `canRepresentActor` (catraca de representabilidade);
-- R2 / delegação (congelada);
-- **actor alvo e autoridade operacional** ("esse actorId alvo pode ser usado?").
+- ownership de recursos (suppliers/contacts/groups/daily-metrics);
+- R2 / delegação (congelada).
 
-**IA-USUÁRIOS-E-ACESSO** — dona de:
-- modelo humano de acesso;
-- login / sessão;
+**Eixo B — acesso humano e institucional** ("esse usuário/logado/role/permissão tem acesso?"):
+- modelo humano de acesso; login / sessão;
 - `global_user_id`, `user_id`, `identity` (as 3 camadas como identidade humana);
-- RBAC legado / V2, roles, permissões funcionais;
-- `company_users`;
-- **acesso humano e permissões funcionais** ("esse usuário/logado/role/permissão tem acesso?").
+- RBAC legado / V2, roles, permissões funcionais; efeitos da FASE 6;
+- `company_users`; operador de marketplace; admin/compliance.
 
-**Regra de roteamento:**
-- Dúvida = "esse **actorId alvo** pode ser usado/representado?" → **IA-ACTOR-USERS**.
-- Dúvida = "esse **usuário/logado/role/permissão** tem acesso?" → **IA-USUÁRIOS-E-ACESSO**.
-- Se cruzar os dois eixos, **ambas respondem** e a **IA Diretora consolida**.
+**Regra de roteamento (interna à instância):**
+- Dúvida = "esse **actorId alvo** pode ser usado/representado?" → responder pelo **Eixo A**.
+- Dúvida = "esse **usuário/logado/role/permissão** tem acesso?" → responder pelo **Eixo B**.
+- Quando a dúvida cruza os dois eixos, a **mesma instância** responde separando A e B; a **IA Diretora consolida**.

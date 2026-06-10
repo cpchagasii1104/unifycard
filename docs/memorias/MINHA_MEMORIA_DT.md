@@ -10,6 +10,256 @@
 ---
 
 ============================================================
+PEDIDO DA EXECUTORA — 2026-06-10
+Status: RESPONDIDO (consolidado em DECISION-0116 + DT-mãe; ver RESPOSTA abaixo)
+HEAD no momento do pedido: 3d8ad25b
+Branch: rescue-structural
+Para: IA-DT
+Frente relacionada: F-G10-TENANT-SHARED-ISOLATION — árvore causal do isolamento intra-tenant
+Prioridade: alta
+============================================================
+
+CONTEXTO:
+A auditoria dos clusters 2–8 (parcial, não exaustiva) achou: leaks vivos (A) em suppliers/contacts/
+inventory/groups-dashboard; superfícies M (escrow/finance/PO); e uma família de reactivation-trap em
+groups mascarada por `actor_has_permission = FALSE` (stub fail-closed, verificado no banco). Preciso
+da árvore raiz/galho/folha antes de medir convergência.
+
+DÚVIDAS OBJETIVAS:
+1. A RAIZ deve ser registrada como "RLS não isola por actor" OU como "ausência de política canônica de
+   ownership/visibilidade por recurso dentro do tenant compartilhado"? (qual é mais fiel à causa material).
+2. Os clusters 2–8 devem ser FOLHAS de uma DT-mãe de isolamento intra-tenant? Qual o nome/escopo dela?
+3. Este trabalho pertence à DECISION-0113 (autoria/actorId hint) ou é RAIZ IRMÃ — "shared-tenant resource
+   visibility" — distinta de 0113? (0113 é hint-confiado; aqui o vetor é missing-scope, sem hint do cliente).
+4. Como medir CONVERGÊNCIA sem virar caça infinita a `WHERE tenant_id` (critério de denominador fechado)?
+5. Qual DENOMINADOR MÍNIMO precisa fechar antes de liberar C1/tenant compartilhado (quais classes são
+   bloqueantes vs diferíveis)?
+
+STOPs:
+NÃO abrir/fechar DT no log oficial; NÃO editar REMEDIATION_DT_LOG.md; distinguir raiz/galho/folha. HEAD + fonte. Insumo, não GO.
+
+============================================================
+RESPOSTA DA INSTÂNCIA — DT  ·  (responde ao PEDIDO acima — F-G10-TENANT-SHARED-ISOLATION)
+============================================================
+
+Status do pedido: RESPONDIDO
+HEAD no momento da resposta: 3d8ad25b  (== HEAD do pedido; SEM divergência — nada STALE no nível de commit)
+Branch: rescue-structural
+Fonte soberana confirmada:
+- `backend/migrations/20260516100000_rls_critical_tables.sql` (RLS = política real, lida 1ª mão)
+- `git show 3d8ad25b` (commit do fix unread-counts shared-tenant) + STATUS entry 2026-06-10 Cluster 1
+- `DECISION-0115` D1 (tenant inicial vivo / shared) — promulgada docs-only
+- `backend/src/modules/marketplace/supplier.repository.ts` + `inventory-movement.repository.ts` (escopo real das queries)
+- grep normativo `docs/01_normative` + `docs/02_decisions` + `docs/ssot` por política de visibilidade por recurso = **ZERO**
+
+Arquivos/schema efetivamente lidos:
+- migration RLS crítica (7 tabelas) · supplier.repository (WHERE tenant_id=$1) · inventory-movement.repository (tenant_id fixo, actor_id condicional) · STATUS topo (2 entradas) · commit 3d8ad25b diff/stat.
+
+------------------------------------------------------------
+VEREDITO
+------------------------------------------------------------
+A frente F-G10-TENANT-SHARED-ISOLATION é uma **RAIZ IRMÃ da DECISION-0113**, NÃO um sub-galho dela.
+A causa material NÃO é "RLS falha em isolar por actor" — **RLS isola por `tenant_id` POR DESENHO e corretamente** (fronteira tenant↔tenant; 7 tabelas críticas via `app.current_tenant`). A causa-raiz fiel é:
+**ausência de política canônica de ownership/visibilidade por recurso DENTRO de um tenant compartilhado.**
+O isolamento entre pessoas era **ACIDENTAL** (no mundo `tenant-per-signup`, tenant ≈ pessoa, então `WHERE tenant_id` ≈ `WHERE owner`). A **DECISION-0115 D1** torna o tenant compartilhado → a coincidência colapsa → co-tenants passam a se ver. Vetor = **missing-scope** (cliente não declara nada; a query devolve o tenant inteiro), distinto do vetor 0113 = **hint-confiado** (cliente declara actorId; servidor confia sem provar).
+
+------------------------------------------------------------
+EVIDÊNCIAS PROVADAS (1ª mão, HEAD 3d8ad25b)
+------------------------------------------------------------
+1. **RLS é tenant-scoped, não actor-scoped, e cobre só 7 tabelas.** `20260516100000_rls_critical_tables.sql`: policy `USING (tenant_id::text = current_setting('app.current_tenant', true))` em `bank_accounts/bank_transactions/bank_ledger/bank_splits/actors/economic_guardianship/authority_roots`. NENHUMA das tabelas vazadas (suppliers/contacts/inventory/groups) está sob RLS. → RLS não é o instrumento de isolamento intra-tenant, nem foi desenhado para isso.
+2. **Recursos carregam coluna de dono, mas a leitura escopa só por tenant.** `supplier.repository.ts`: coluna `created_by_actor_id` EXISTE (`:26`), mas o read é `WHERE tenant_id = $1 AND id = $2` (`:143`) e a listagem `conditions = ['tenant_id = $1']` (`:159`) — owner nunca entra na visibilidade. `inventory-movement.repository.ts`: `tenant_id = $1` SEMPRE (`:146`); `actor_id` só entra se o caller passar (`:159`, condicional) → default = tenant-wide. Confirma o já-registrado `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE`.
+3. **Não existe norma canônica de visibilidade por recurso.** grep em `01_normative`/`02_decisions`/`ssot` por "visibilidade por recurso / resource visibility / intra-tenant / shared tenant / visibility policy" = **zero**. → a raiz é genuinamente "política ausente", não "política violada".
+4. **O fix 3d8ad25b PROVA o padrão de correção e a fronteira 0113↔isolamento.** unread-counts: `groups` virou MEMBER-SCOPED via `INNER JOIN group_members` com sujeito = `req.user` server-side (DECISION-0113, sem actorId de cliente) E visibilidade por membership. Ou seja, a cura usou as DUAS raízes juntas (sujeito provado = 0113; quem-vê-o-quê = isolamento). Achado lateral: endpoints eram "mortos-mas-200" (coluna `posts.visibility` fantasma) → resíduo `DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN` OPEN.
+
+------------------------------------------------------------
+INFERÊNCIAS (claramente identificadas — NÃO verificadas 1ª mão nesta sessão)
+------------------------------------------------------------
+- **[INF]** contacts/groups-dashboard seguem o MESMO padrão de suppliers/inventory (tenant-only read sobre tabela com coluna de dono). Provável pela simetria, mas só verifiquei suppliers + inventory de 1ª mão. Os demais = **INCONCLUSIVO até leitura do repositório de cada um**.
+- **[INF]** a família reactivation-trap em groups "mascarada por `actor_has_permission=FALSE`" (citada pela executora) é real e coerente com `DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP` — mas o nexo exato (qual rota de groups fica latente atrás do stub) **não reverifiquei nesta sessão**; aceito o achado da executora como insumo, não como prova minha.
+
+------------------------------------------------------------
+RISCOS
+------------------------------------------------------------
+1. **Liberar C1/tenant compartilhado ANTES de fechar os leaks Classe-A** = transformar vazamento latente (hoje mascarado por tenant≈pessoa) em vazamento VIVO no primeiro co-tenant real. Este é o risco-mor da frente.
+2. **Tratar como sub-tarefa da 0113** = desenhar a cura errada (provar hint) quando o gap é adicionar escopo de dono/membro. 0113 não tem o que provar aqui (não há hint).
+3. **Caça infinita a `WHERE tenant_id`** sem denominador fechado → frente assintótica que nunca "fecha" (viola doutrina #11: DT exige critério de convergência).
+4. **Materializar reactivation-traps de groups** (hoje barrados pelo stub `FALSE`) sem o gate de visibilidade no mesmo corte = reviver leak no momento em que FASE 6 ligar.
+5. **Misturar M (escrow/finance/PO) no corte de isolamento** = violar "nunca Bank no corte de authority" (doutrina #9) + exigir três paralelas (#10).
+
+------------------------------------------------------------
+RESPOSTAS ÀS DÚVIDAS DA EXECUTORA (uma a uma)
+------------------------------------------------------------
+**D1 — "RLS não isola por actor" OU "ausência de política canônica de ownership/visibilidade por recurso no tenant compartilhado"?**
+→ **A segunda é a fiel.** "RLS não isola por actor" é SINTOMA/sub-fato, não raiz — RLS isola por tenant por desenho e está correto. A raiz material é **ausência de política canônica de visibilidade/ownership por recurso intra-tenant** (provado: owner-cols existem mas não são lidas; nenhuma norma define quem-vê-o-quê dentro do tenant; isolamento atual é acidental por tenant≈pessoa).
+
+**D2 — Clusters 2–8 são FOLHAS de uma DT-mãe de isolamento intra-tenant? Nome/escopo?**
+→ **SIM**, mas folhas CLASSIFICADAS por classe (não jogar tudo no mesmo balde). Nome sugerido (insumo, NÃO abrir no log): **`DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY`** (DT-mãe / RAIZ). Escopo: **toda leitura que (a) retorna linhas de recurso identificável por dono E (b) escopa só por `tenant_id`, sem predicado de owner/membro/representável, num mundo onde o tenant é compartilhado.** As folhas A (suppliers/contacts/inventory/groups-dashboard) penduram nela; as M (escrow/finance/PO) NÃO — vão para frente money-aware; as latentes/sem-caller ficam dormentes sob a mesma mãe com STOP.
+
+**D3 — Pertence à DECISION-0113 ou é RAIZ IRMÃ?**
+→ **RAIZ IRMÃ distinta.** 0113 = hint-confiado (cliente declara actorId → provar server-side). Isolamento intra-tenant = missing-scope (cliente declara nada → query devolve tenant inteiro). Vetores, superfícies e curas diferentes. Tangenciam no mesmo TRONCO **T2 (autoridade)** e uma cura completa frequentemente usa as duas (como o fix 3d8ad25b fez: sujeito req.user [0113] + member-scope [isolamento]) — mas são **duas raízes**, não uma. **Fechar 0113 NÃO fecha isolamento, e vice-versa.**
+
+**D4 — Como medir CONVERGÊNCIA sem virar caça infinita?**
+→ Denominador FECHADO e ENUMERÁVEL, não grep eterno. Critério: **o universo é o conjunto finito de métodos de LEITURA de repositório que retornam linhas com coluna de dono (`created_by_actor_id`/`actor_id`/`owner_*`) E hoje filtram só por `tenant_id`.** Convergência = cada um desse conjunto **classificado** (A-leak / público-por-desenho / M-money) e cada **A-leak** ou escopado (owner/membro/representável) ou decidido-público por norma. Âncora obrigatória: **um gate** (teste/lint que sinaliza "read tenant-only de tabela com owner-col") — sem gate, é assintótico e nunca "fecha" (doutrina #1/#11). O denominador é os repositórios, não as rotas — finito e contável.
+
+**D5 — DENOMINADOR MÍNIMO antes de liberar C1/tenant compartilhado (bloqueante vs diferível)?**
+→ **Bloqueante (fecha antes do shared tenant):** todos os **leaks Classe-A vivos com caller real** que ativariam no instante do tenant compartilhado — hoje materialmente: suppliers, inventory(movements), contacts, groups-dashboard (os 2 primeiros provados 1ª mão; os 2 últimos [INF] a verificar). Critério de "fechado" = escopado por owner/membro + e2e fail-first + Yala.
+→ **Diferível:** (a) **M / money** (escrow/finance/PO) → frente money-aware própria, três paralelas, FORA deste corte; (b) **latentes sem caller / ROWS=0** → dormentes sob a DT-mãe com STOP gate-on-materialization; (c) **reactivation-traps de groups atrás do stub `actor_has_permission=FALSE`** → NÃO patchar folha; gate no corte de materialização/FASE 6, não agora.
+→ **Mínimo honesto:** o shared tenant só libera quando o **denominador Classe-A vivo** estiver fechado (escopado ou decidido-público) + gate de regressão instalado. Não exige fechar M nem latentes.
+
+------------------------------------------------------------
+DECISÃO DE CLAYTON NECESSÁRIA
+------------------------------------------------------------
+**SIM — uma decisão-raiz de PRODUTO/NORMA (provável nova DECISION, candidata 0116).** A política canônica de visibilidade intra-tenant NÃO existe e não pode ser inferida pela IA: **quem vê o quê dentro de um tenant compartilhado?** Por classe de recurso, o default é (a) **owner-only**, (b) **membro/representável-scoped**, ou (c) **tenant-público-por-desenho**? Sem essa promulgação, cada folha vira chute e a DT-mãe não tem critério de fechamento. "Decisão não é DT" — patchar suppliers/contacts antes da política = folha solta. (O fix unread-counts já embutiu uma micro-decisão de produto — groups=member, services=público — caso a caso; isso precisa virar **regra geral promulgada**, não decisão ad-hoc por endpoint.)
+
+------------------------------------------------------------
+RECOMENDAÇÃO
+------------------------------------------------------------
+1. Registrar (executora, sob GO documental) a DT-mãe `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` como RAIZ IRMÃ de 0113 sob tronco T2, com as folhas A penduradas e o critério de denominador de D4.
+2. Levar a Clayton a decisão-raiz de visibilidade intra-tenant (default por classe de recurso) — pré-condição cartorial do C1, mesma natureza da DECISION-0115.
+3. Enumerar o denominador finito (repos com owner-col + read tenant-only) ANTES de patchar qualquer folha — produz a lista fechada de D4.
+4. Manter o padrão do fix 3d8ad25b (sujeito req.user [0113] + escopo de visibilidade) como gabarito de cura, mas só DEPOIS da regra geral promulgada.
+5. Instalar o gate de regressão (read tenant-only de owner-bearing table) para tornar o "fechado" verificável.
+
+------------------------------------------------------------
+O QUE A EXECUTORA NÃO DEVE FAZER
+------------------------------------------------------------
+- NÃO patchar suppliers/contacts/inventory/groups folha-a-folha antes da política de visibilidade promulgada (= folha solta de raiz não decidida).
+- NÃO enquadrar a frente como sub-tarefa da 0113 (cura errada: não há hint a provar).
+- NÃO incluir M (escrow/finance/PO) neste corte — frente money-aware, três paralelas.
+- NÃO materializar reactivation-traps de groups (atrás do stub `FALSE`) sem gate de visibilidade no mesmo corte.
+- NÃO declarar a frente "fechada" por amostragem — exige denominador finito + gate + Yala.
+- NÃO liberar C1/tenant compartilhado enquanto o denominador Classe-A vivo não fechar.
+
+------------------------------------------------------------
+STOPs
+------------------------------------------------------------
+não abrir/fechar DT no log oficial · não editar REMEDIATION_DT_LOG.md/DECISION_LOG/STATUS/opus/outras memórias · não commitar · não editar código/migration/banco/frontend · resposta é INSUMO, não GO · R2 congelada · DECISION-0113 DT-mãe OPEN · classificação raiz/galho/folha preservada.
+
+Status: RESPONDIDO — HEAD 3d8ad25b · 2026-06-10
+============================================================
+
+--- REVALIDAÇÃO (2ª passada, mesmo pedido) — HEAD 3d8ad25b ---
+Pedido reexaminado a pedido da executora. **HEAD vivo INALTERADO = `3d8ad25b`** (sem novo commit; working tree só com edições de memória). Reverifiquei 1ª mão no estado vivo:
+- `supplier.repository.ts` → `WHERE tenant_id = $1 AND id = $2` (`:143`) + listagem `['tenant_id = $1']` (`:159`) — owner-col ainda não lida. CONFIRMADO.
+- `inventory-movement.repository.ts` → `'tenant_id = $1'` (`:146`) fixo + `actor_id` condicional (`:159`). CONFIRMADO.
+- `20260516100000_rls_critical_tables.sql` presente; RLS tenant-scoped, 7 tabelas. CONFIRMADO.
+- grep de norma de visibilidade por recurso = ainda **VAZIO**. CONFIRMADO.
+**Veredito: a RESPOSTA ACIMA NÃO ESTÁ STALE — sobrevive integralmente ao HEAD vivo.** Nenhuma das 5 dúvidas muda; não há pedido novo no topo. Sem nova classificação a registrar.
+Status: RESPONDIDO (revalidado) — HEAD 3d8ad25b · 2026-06-10
+------------------------------------------------------------
+
+---
+
+============================================================
+RESPOSTA DA INSTÂNCIA — DT · 2026-06-10
+HEAD no momento da resposta: b6cc69a3
+Branch: rescue-structural
+Fonte soberana confirmada: STATUS_EXECUCAO_GLOBAL.md (entradas 2026-06-09 marketplace residual + 2026-06-10 DECISION-0115) · DECISION-0115_HUMAN_BIRTH_VERTICAL_ROOT_DECISIONS.md (D1–D5) · MINHA_MEMORIA_DT.md (Árvore + Reconciliação Viva) · README.md protocolo
+Responde ao PEDIDO DA EXECUTORA de 2026-06-09 (Status: ABERTO → RESPONDIDO)
+============================================================
+
+## VEREDITO POR DÚVIDA
+
+### D1 — `inventory/movements` sem actorId entra no DENOMINADOR da DECISION-0113?
+
+**NÃO. É raiz/DT própria de escopo — NÃO é canal-0113.**
+
+Os 5 canais da DECISION-0113 são: actorId via `actionContext` · `x-actor-id` · query `actor_id` · params `actorId` · params `:id` de recurso privado (IDOR). Em todos eles o cliente **declara um actorId** (hint) que o servidor deve provar server-side. A rota `GET /inventory/movements` **não tem canal de actorId algum** — ela simplesmente não escopa por actor e retorna dados itemizados cross-company (`actor_id` embutido por linha). Isso é **missing-scope**, não **hint-without-validation**.
+
+- **Classe:** A latente (materialidade comercial; `actor_id` por linha = identificável). **Mas o gap é ausência de scope, não ausência de gate sobre hint declarado.**
+- **Raiz:** produto-scope (decisão de Clayton — opções a/b/c/d na DT registrada).
+- **Não bloqueia o denominador 0113** (não há hint a validar até a decisão de escopo existir).
+- **Critério de convergência:** Clayton decide escopo (a obrigar actorId / b escopar representáveis / c agregar sem actor_id / d só admin institucional) → executora implementa → Yala sela. **DECISION-pending (produto) é pré-condição.**
+
+> Atenção: STATUS registra "caller vivo no frontend (`api/marketplace.ts:740 getMovements(variantId)`)" — há consumidor real. A decisão de escopo precisa levar em conta esse caller, não só o backend.
+
+---
+
+### D2 — Família W2/W3/W4 in-memory deve ter ÍNDICE-PAI de reactivation-trap?
+
+**SIM. Recomendo fortemente o índice-pai.**
+
+A família reactivation-trap já tem 4 membros conhecidos:
+1. `DT-MONEY-LATENT-REACTIVATION-TRAP` (settlements/AP/AR/regions)
+2. Unifycard-tombstone (write tombstonado que revive)
+3. RBAC fail-closed (`DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP` — confirmada em DECISION-0115 D4)
+4. **NOW: `DT-MARKETPLACE-GOVERNANCE-INMEMORY-ACTOR-TARGET-REACTIVATION-TRAP`** (W2/W3/W4)
+
+Todos compartilham a mesma estrutura de risco: **código inerte hoje** (in-memory / proxy-dead / stub) que se torna **vazamento real no momento de materialização** se o gate `canRepresentActor` não for incluído no mesmo corte. Tratar cada um isoladamente é exatamente o anti-padrão que torna o retrabalho inevitável.
+
+O índice-pai deve ser **referência de alerta**, não DT de execução. Função: antes de qualquer "reativar/materializar X", o checklist obrigatório é: "X é membro da família reactivation-trap? → gate `canRepresentActor` obrigatório no mesmo corte."
+
+- **Critério de convergência do índice-pai:** não fecha — é registro permanente de vigilância. Cada membro fecha individualmente quando materializado com gate correto ou aposentado.
+- **Critério de convergência de W2/W3/W4 (DT individual):** W2/W3 ficam em-memoria (dormentes) até decisão de materializar DB/fila. Quando materializar: incluir `canRepresentActor(body.actor_id)` no mesmo corte, não depois. Se não materializar = DT permanece dormente/inativa (sem risco presente). **Não patchar hoje — nenhum dado em DB, zero urgência.**
+
+---
+
+### D3 — W5/W6 money devem ficar FORA da 0113 e abrir frente money-aware separada?
+
+**SIM. Desmembramento confirmado.**
+
+`POST /disputes/:disputeId/resolve` (refund/credit) e `POST /payment-plan/:id/apply-sla-penalties` (split) são **Classe M** (money-write). Colocá-los no mesmo corte de 0113 violaria simultaneamente:
+- A doutrina "nunca PJ+grupo+Bank+marketplace no mesmo corte" (doutrina ponto 9).
+- A regra de três paralelas para qualquer evento econômico real (doutrina ponto 10).
+- O escopo da DECISION-0113 (authority sobre actorId hint — não sobre lógica de refund/split).
+
+**Estado atual:** STOP registrado no STATUS. **Correto. Não patchar.**
+
+- **Critério de convergência de W5/W6:** frente money-aware própria, com três paralelas + E2E específico + gate financeiro (alinhado à DECISION-0114 no caminho money). Bloqueado por: (a) DECISION-0113 fechada (R2 congelada, mas isso não bloqueia diretamente W5/W6) + (b) decisão de modelo financeiro (D3/D5 da 0114 para o escopo de disputas e SLA-penalties). **Raiz: H · money-latent / financeiro (ver Árvore).**
+
+---
+
+## ÁRVORE ATUALIZADA (delta desta resposta)
+
+Nenhuma raiz nova. Deltas de galho:
+- **T2 · galho 0113:** `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` = **folha pendente de raiz D (produto-scope)**, não denominador 0113.
+- **T3 · galho money-latent:** W5/W6 entram no sub-galho money-latent, com STOP em vigor.
+- **Cross-galho (T2+T3):** índice-pai reactivation-trap como meta-referência (não-DT executável; alerta permanente).
+
+---
+
+## DECISÃO CLAYTON NECESSÁRIA?
+
+| Dúvida | Decisão necessária | Urgência |
+|---|---|---|
+| Escopo de `inventory/movements` | **SIM** — decisão de produto (a/b/c/d); sem ela a DT fica latente indefinidamente | Média (dado DB = ROWS=0 hoje) |
+| Índice-pai reactivation-trap | NÃO — é registro de vigilância; qualquer instância pode criá-lo como meta-nota | Baixa |
+| W5/W6 desmembramento | Já decidido implicitamente (STOP registrado por Clayton/STATUS) | NÃO re-perguntar |
+| W5/W6 frente money-aware | **SIM** — quando for ativar; pré-condição = modelo D3/D5 da 0114 | Baixa (bloqueada agora) |
+
+---
+
+## DELTA DO ESTADO VIVO (DECISION-0115, HEAD b6cc69a3)
+
+DECISION-0115 promulgou 5 decisões-raiz do nascimento humano (D1 mundo inicial · D2 nascimento garantido · D3 gender 5-valores · D4 self/auth-derived · D5 sem money no G10). Abriu 6 novas DTs (todas OPEN, nenhuma de runtime fechada). Impacto na Árvore:
+
+- **RAIZ R-A** (tenant-per-signup) = agora governada por **D1 da DECISION-0115** (PF aponta para tenant inicial vivo; legado = transitório). R-A deixa de ser "decisão pendente" e passa a ser "decisão tomada, execução pendente (C1)".
+- **RAIZ R-C** (best-effort birth) = governada por **D2**. Cadeia mínima garantida obrigatória.
+- **RAIZ R-D** (gender vocabulary) = governada por **D3** (5 valores; emenda 0080; execução = fatia futura com migration).
+- **DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE** amplia `DT-CORE-PROFILE-GET-CREATES-ACTOR` — os ≥10 call-sites confirmados reforçam o STOP R6↔R8 (não remover GETs curativos antes do reparo do nascimento garantido).
+
+**RAÍZES R-A, R-C, R-D agora TÊM decisão promulgada** — saem do quadrante "raiz não decidida" e entram em "execução pendente". Isso DESTRAVA galhos dependentes dessas raízes (onboarding C1, gender migration, etc.) **quando houver GO específico de cada fatia**.
+
+**R-B (DECISION-0113)** e **R2 (delegação)** PERMANECEM bloqueantes — não alteradas pela 0115.
+
+---
+
+## STOPs reiterados (pós-0115)
+
+1. `inventory/movements` = **não patchar sem decisão de escopo de Clayton** (a/b/c/d).
+2. W2/W3/W4 = **não materializar em DB sem `canRepresentActor` no mesmo corte**.
+3. W5/W6 = **STOP money; frente própria com três paralelas**.
+4. Índice-pai reactivation-trap = registro de alerta, não autorização de execução.
+5. **R2 CONGELADA.** DECISION-0113 DT-mãe OPEN. Nada que dependa de R2 começa.
+6. Gender migration (D3) e identity_status persistido (§2.1 da 0115) = fatias próprias com migration governada — **não junto de C1**.
+7. `DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE`: ≥10 call-sites — **não remover GETs curativos antes de C1 garantir nascimento** (R6↔R8 acoplamento).
+
+Status: RESPONDIDO — HEAD b6cc69a3 · 2026-06-10
+============================================================
+
+---
+
+============================================================
 PEDIDO DA EXECUTORA — 2026-06-09
 Status: ABERTO
 HEAD no momento do pedido: 1d42a9d2
@@ -46,6 +296,11 @@ STOPs: não editar código · não criar migration · não alterar banco · não
 
 | # | Seção | Para quê |
 |---|---|---|
+| ⚡ | **PEDIDO DA EXECUTORA 2026-06-09 (topo)** | **ABERTO** — 4 dúvidas: inventory/movements no denominador 0113? família reactivation-trap W2-W6? desmembramento money W5/W6? critérios de convergência? **aguarda resposta IA-DT** |
+| 🧪 | **Auditoria da tese "encaixe universal"** | lastro vs abstração: FORTE auditável · PARCIAL escalável · FRACO sem-fricção. Lastro no tronco; promessa não-provada na jornada. Jornada-prova falsificável (quebras previstas) |
+| 🎓 | **Aprendizado de método** | RÉGUA DE AUTOCONTROLE: como auditar sem se enganar (7 lições: árvore > lista, raiz=decisão, código vivo vence, dedupe, tronco-são≠sem-doença, contagem engana, horizontal≠vertical) |
+| 🌳 | **Árvore da dívida (raiz→tronco→galho→folha)** | **ESPINHA ORGANIZADORA** — 5 raízes (decisões), 5 troncos sãos, galhos por tronco, plano raiz-primeiro. Regra: não patchar folha de galho sem raiz decidida |
+| 0 | **🔎 Ratificação G10 (onboarding)** | cross-check do G10 vs mapa+vivo; 2 P0 confirmados vivos (gender R4/R11, tenant R1); raiz nova "I · Onboarding PF" |
 | 0 | **📊 Snapshot de métricas** (abaixo) | linha de base: dívida sobe ou desce? como medir |
 | 1 | **🧭 Doutrina de manutenção** | régua permanente: como o sistema se mantém (13 pontos) — NÃO autoriza execução |
 | 2 | **Aprendizado cruzado — identidade** | 3 camadas (`global_user_id`/`user_id`/`actor_id`) = desenho, NÃO drift; STOP constitucional |
@@ -88,6 +343,109 @@ Status: LINHA DE BASE (para a próxima medição comparar), NÃO EXECUÇÃO. Fon
 
 **Ponto de inversão esperado:** quando a Yala não achar canal novo, descoberta seca → fechamento alcança → OPEN bruto começa a cair. Hoje = fase "abrir para fechar a raiz".
 **Sinal de regressão (AUSENTE hoje):** OPEN subindo **+** CLOSED estagnado **+** mix feature-dominante.
+
+---
+
+## 🧪 AUDITORIA DA TESE "ENCAIXE UNIVERSAL" — lastro vs abstração — IA-DT — 2026-06-10 · HEAD `92eb49b4`
+Status: AUDITORIA DE TESE (mede promessa contra material), NÃO EXECUÇÃO.
+Tese: actor-first/capability-additive — qualquer pessoa/entidade, qualquer papel, um sistema, sem fragmentar identidade/ledger/trust. Critério (Clayton): escalável + auditável + sem fricção, ou vira abstração sem lastro.
+
+### Veredito por propriedade
+- **Auditável = FORTE (lastro real):** 0113 autoria provada · `responsible_actor_id`→CPF · ledger append-only · actor-traceability.
+- **Escalável = PARCIAL:** modelo escala (1 pessoa→N actors via 3 camadas); implementação sabota (tenant-per-user fabrica universos; PJ não delega papéis).
+- **Sem fricção = FRACO na borda:** loop de gênero, beco-sem-actor sem CTA, referral morto, conta meio-viva.
+
+### Onde TEM lastro (tronco/substrato — verificado)
+Acoplamento actor-first universal (todo módulo→`actor_id`) · 3 camadas de identidade (= o mecanismo do encaixe: 1 pessoa, N papéis) · agenda universal (PF+PJ mesmo SSOT) · CONCEPT · Bank actor-keyed. → No tronco, a tese é arquitetura materializada, **não** abstração vazia.
+
+### Onde é promessa NÃO-PROVADA (raiz/galho — pontos de quebra)
+- R-A tenant: encaixa em **mundo morto** (tenant privado vazio).
+- R-D gender: **NÃO encaixa** non_binary/prefer_not_to_say (contra-exemplo material à universalidade).
+- R-C best-effort birth: encaixe meio-vivo irreparável.
+- R2/AUTH: PJ não monta equipe (sem papel funcional delegável).
+- AUTG-1: grupo não governa o fundo recebido.
+- 0113 OPEN: autoridade não provada em todo canal.
+
+### Conclusão
+**Lastro REAL no desenho + auditabilidade; promessa AINDA NÃO PROVADA na jornada ponta-a-ponta.** Não é abstração sem lastro nem promessa cumprida. **É HIPÓTESE FALSIFICÁVEL** — a IA-DT consegue prever ONDE quebra (= os nós raiz/galho abertos), o que converte "encaixe universal" de slogan em teste.
+
+### Jornada-prova (oráculo que converte a árvore em prova) — quebras previstas HOJE
+cadastro (qualquer gênero) [R-A+R-D ⛔] → PF prestador+agenda [serviços parcial PJ-2] → cria PJ [OK inerte] → delega financeiro [R2 ⛔] → PJ vende+split [publicar parcial PJ-1] → split rega referral/fundo/grupo [dispara ✅, grupo não governa AUTG-1] → entra em 3 grupos e fiscaliza [leitura OK, voto de gasto falta].
+Cada ⛔ mapeia 1:1 a uma raiz/galho do plano. **Recomendação: a jornada-prova é o critério de aceite do "encaixe universal" — rodá-la (quando houver GO) valida ou falsifica a tese ponta a ponta.**
+
+---
+
+## 🎓 APRENDIZADO DE MÉTODO — como a IA-DT audita sem se enganar — 2026-06-10
+Status: RÉGUA DE AUTOCONTROLE (como auditar), NÃO EXECUÇÃO. Destilado das sessões 2026-06-08/09/10.
+
+1. **Lista plana esconde profundidade — pensar em ÁRVORE.** "8 raízes lado a lado" mascarava a causalidade. Poucas raízes; muitas folhas. Antes de classificar uma DT, perguntar: é raiz, tronco, galho ou folha? (ver árvore abaixo).
+2. **Raiz é frequentemente DECISÃO, não código.** As raízes mais profundas são perguntas não respondidas por Clayton (tenant, gender, nascimento). "Decisão não é DT" — patchar código antes da decisão = retrabalho. Não atacar folha de galho sem raiz decidida.
+3. **Memória/snapshot/doc envelhece — código vivo vence.** Revalidar HEAD a cada fatia (pulou ~6× em 3 dias) e **verificar de 1ª mão todo claim sensível antes de afirmar**. Caso real: eu repeti "gender só male/female" de um doc stale; o vivo era `male|female|other` — só a leitura do `core.service.ts:749` corrigiu. Doc não é evidência.
+4. **Integrar e DEDUPLICAR achados de outras instâncias.** G10/IA-DOCUMENTOS corrigiram classificações minhas. O "3 IDs sem mapper" era leitura errada (é desenho constitucional + mapper existe). Mapear achado novo → DT existente antes de contar como nova (sem dupla contagem).
+5. **Tronco são ≠ sistema sem doença.** Quando os pilares (identidade/Bank/tempo/CONCEPT/autoridade) estão corretos, o trabalho PARECE "consertar bugs" (folhas), mas a doença mora na RAIZ (decisão) e nos GALHOS (enforcement). "Limpar o tronco" (ex.: colapsar 3 IDs) = regressão constitucional.
+6. **Contagem bruta de folha engana em fase de sweep.** OPEN subindo durante varredura adversarial = descoberta saudável, não regressão. Medir por RAIZ e por razão fechadas/abertas, não por cabeça de DT.
+7. **Sweep horizontal não substitui vertical humana.** Largura (cobrir canais) + profundidade (ler o handler) — a lição 0113 nasceu de tratar o mapa horizontal como exaustivo. Denominador completo antes de selo; Yala sela prova, não narrativa.
+
+---
+
+## 🌳 ÁRVORE DA DÍVIDA TÉCNICA (raiz→tronco→galho→folha) — IA-DT — 2026-06-10 · HEAD `92eb49b4`
+Status: ESPINHA ORGANIZADORA (supera o mapa plano de "8 raízes" — agora hierárquica). NÃO autoriza execução.
+> **Regra de ouro:** nunca patchar FOLHA cujo GALHO pende de RAIZ não decidida = "atacar folha" = retrabalho. Toda fatia pergunta: de que galho a folha pendura, e o galho já tem raiz decidida?
+
+### RAIZ — decisões fundacionais NÃO tomadas (só Clayton; regeneram folhas)
+- **R-A · Estratégia de tenant no nascimento** (G10 R1 / Clayton Q1) — MAIS PROFUNDA: "em que mundo a PF nasce?" Sem mundo compartilhado, o PROPÓSITO (valor volta à comunidade) não existe; referral/piloto/social/fundo inertes. CONFIRMADO VIVO (`auth.service.ts:219`).
+- **R-B · Modelo de autoridade** — `actorId` não é autoridade (DECISION-0113, em enforcement; DT-mãe OPEN).
+- **R-C · Política de nascimento da PF** — atômico × best-effort+reparo (Clayton Q3) → governa best-effort-birth, GET-cria-actor, conteúdo de E2E.
+- **R-D · Vocabulário civil de gender** (Clayton Q2) → governa gender-triple-vocab + exclusão não-binária (CONFIRMADO VIVO: cadastro 5 valores, SSOT 3, `non_binary`/`prefer_not_to_say`→INCOMPLETE→barrado de grupo).
+- **R-E · Modelos financeiros congelados** — Fundo Regional/AP-AR (0114 D3/D5) + autogestão de grupo. Sub-raízes; só abrem depois de R-A/R-B.
+
+### TRONCO — pilares load-bearing (estruturalmente SÃOS — não derrubar, só enforçar)
+T1 Identidade (3 camadas + resolver + writer único, constitucional) · T2 Autoridade (canRepresentActor + actor_delegations) · T3 Bank/ledger (SSOT money) · T4 Tempo (unified_availability, C63 fechado) · T5 Semântica (CONCEPT).
+
+### GALHO — clusters por tronco
+- **T2:** 0113 channel-sweep (canais 1–5) · R2 delegação · governança financeira de grupo.
+- **T1:** onboarding-PF (tenant) · best-effort-birth · GET-cria-actor · gender-vocab · CPF dual-write.
+- **T3:** money-latent (settlements/AP/AR/region) · group-money 3-substratos · payout externo.
+- **PJ (cross T1+T3+T5):** KYB-docs (Pilar 1) · lifecycle/delete/capability (Pilar 2) · marketplace-semantics.
+
+### FOLHA — DTs individuais (~179). Penduram em galho.
+ex.: `groups/:id/economy` (0113-canal5) · `PUT /profile/physical` ghost (onboarding) · education-resolve-by-first (`03 §8`, identidade-resolver) · CPF/console hot-path (higiene) · `DT-PJ-VERIFIED-AT-GHOST` (higiene PJ) · zombie endpoints.
+
+### PLANO raiz-primeiro
+- **N0 RAIZ (Clayton; zero código):** Q1 tenant → Q2 gender → Q3 birth → selo final 0113 (Yala).
+- **N1 enforcement de tronco (executora, pós-decisão):** fechar sweep 0113 (groups/:id/economy + residuais + sweep Yala); enforçar resolver de identidade em todo reader (mata GET-cria-actor COM reparo de R-C — acoplamento R6↔R8).
+- **N2 galhos governados (uma frente; financeiro = 3 paralelas):** R2 delegação (após selo 0113) · onboarding/energização (após R-A) · gender fix (após R-D).
+- **N3 folhas cirúrgicas (só após galho-pai decidido):** higiene CPF/console · remover `PUT /profile/physical` · zombie endpoints · education-resolve-by-first · reconciliação cartório/índice.
+
+### Congelamentos
+R2 só após 0113 selado · financeiro (R-E/group-money) só com 3 paralelas + decisão de modelo · nunca PJ+grupo+Bank+marketplace no mesmo corte · não colapsar 3 IDs · não afrouxar identity_status unilateralmente.
+
+---
+
+## 🔎 RATIFICAÇÃO IA-DT DO G10 (onboarding / energização inicial) — 2026-06-10 · HEAD vivo `31ee7ff1`+
+Status: CROSS-CHECK READ-ONLY do `G10_CONSOLIDACAO_EXECUTIVA_ONBOARDING.md` (auditoria GUARDIÃO, snapshot HEAD ~`7430a32c`) contra meu mapa de raízes + estado VIVO. NÃO autoriza execução.
+
+### Verificação de 1ª mão (de-stalei o G10 nos 2 P0 de maior impacto humano — ambos CONFIRMADOS vivos)
+- **Gender (R4/R11) — CONFIRMADO VIVO + corrige meu Cleiton#1.** `identity_status.hasGender` aceita `male|female|other` (`core.service.ts:749`) — **já NÃO é "só male/female"** (aquilo era o doc `AUDITORIA_CADASTRO_IMUTAVEL` stale). MAS cadastro coleta **5** (`GENDER_VALUES`, `auth.service.ts:207`); SSOT persiste só 3 (`profile.service.ts:258` genderToSave; `:559` validação). → `non_binary`/`prefer_not_to_say` **evaporam → `INCOMPLETE` perpétuo → barrados de criar grupo**. Bug VIVO (2 de 5 valores excluídos). **Cleiton#1 deixa de ser "A VERIFICAR" → CONFIRMADO.** Decisão = Clayton Q2 (vocabulário civil).
+- **Tenant-per-user (R1) — CONFIRMADO VIVO.** `auth.service.ts:219` `user-${emailSlug}-${Date.now()}` + createTenant + log "Tenant criado automaticamente" quando sem `x-tenant-id`. Cada cadastro fabrica tenant privado vazio. Decisão = Clayton Q1.
+
+### Veredito do G10 (pela régua da doutrina)
+**Passa:** read-only, GUARDIÃO, "inconclusivo" no vácuo de snapshot, severidades como PROPOSTA, defere a Clayton. **Caveat (doutrina #7/#12):** snapshot `~7430a32c`; verifiquei os 2 P0 vivos (OK), mas **R8 (3 GETs que criam actor) precisa re-sweep vivo** — a campanha 0113 vem gateando GETs; pontos podem ter mudado.
+
+### Mapeamento G10 → meu mapa de raízes (dedupe — sem dupla contagem)
+- **R1 tenant-strategy = RAIZ NOVA** → adiciono **raiz "I · Onboarding PF / energização inicial"** (meu mapa de 8 raízes não tinha o eixo organic-PF-signup). **P0, DECISION-pending** (Clayton Q1). Bloqueia referral/piloto/social/CTA.
+- **R4/R11 gender** → existente `DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` + DECISION-0080 (agora LIVE-confirmado).
+- **R8 GET-cria-actor** → existentes `DT-CORE-PROFILE-GET-CREATES-ACTOR`/`DT-LOOSE-ACTOR-LOOKUPS` (DTL 10263/10271) + cluster 0113. **STOP R6↔R8:** GETs curativos são hoje a ÚNICA cura do "actor ausente" — remover sem reparo legítimo mata a cura (acoplados).
+- **R5/R6 best-effort birth (sem reparo runtime)** → família `DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP` + DECISION-0062.
+- **R3 referral · R10 progress-promise · P-A physical-PUT-ghost · P-B education-resolve-by-first (`03 §8`) · P-G CPF/console hot-path** → pontas próprias; P-B junta ao pacote resolver (IA-ACTOR-USERS).
+
+### 5 perguntas P0 a Clayton (DECISION-pending — "decisão não é DT"; ordem A→B→C)
+A tenant-de-nascimento · B vocabulário de gender · C nascimento atômico vs best-effort+reparo · D progress-gate honesto · E finalidade educação/lifestyle (LGPD).
+
+### STOPs herdados do G10 (adoto)
+Não corrigir tenant no chute · não afrouxar `identity_status` unilateralmente · não remover GETs curativos antes de reparo legítimo (R6↔R8) · não criar `PUT /profile/physical` (remover o apêndice) · não reativar Saúde · não patchar nada sem decisão promulgada + GO Diretora + selo Yala.
+
+_Como ajudei (read-only): confirmei vivos os 2 P0, integrei as raízes do G10 ao mapa sem duplicar, resolvi meu Cleiton#1, sinalizei o re-sweep de R8 e o acoplamento R6↔R8. Execução/decisão seguem com Clayton/executora/Yala._
 
 ---
 

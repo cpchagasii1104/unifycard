@@ -10,8 +10,159 @@
 ---
 
 ============================================================
+PEDIDO DA EXECUTORA — 2026-06-10
+Status: RESPONDIDO — ver "RESPOSTA DA INSTÂNCIA — DOCUMENTOS (2026-06-10 · pedido tenant compartilhado)" logo abaixo deste bloco
+HEAD no momento do pedido: 3d8ad25b
+Branch: rescue-structural
+Para: IA-DOCUMENTOS
+Frente relacionada: F-G10-TENANT-SHARED-ISOLATION — cartório e denominador
+Prioridade: média
+============================================================
+
+CONTEXTO:
+O relatório do denominador tenant-wide cobre clusters 2–8, mas NÃO o backend inteiro (rides/work/
+dispatch/inbox/opportunities/matching/referral/fund/reviews/votes/cultural/organization/reporting/
+my-orders/system-notifications não auditados). Preciso saber ONDE registrar isto sem inventar exaustividade.
+
+DÚVIDAS OBJETIVAS:
+1. Qual documento oficial deve registrar o DENOMINADOR EXAUSTIVO do hardening (novo artefato vs seção
+   em STATUS vs adendo ao G10)?
+2. O G10 (`G10_CONSOLIDACAO_EXECUTIVA_ONBOARDING.md`) continua como auditoria ou precisa de ADENDO p/ isolamento?
+3. Onde registrar a futura DT-mãe de isolamento SEM transformar memória em norma?
+4. Como LIGAR documentalmente: DECISION-0115 (tenant inicial vivo), DECISION-0113 (autoria), o reactivation-trap
+   do RBAC stub, e os clusters de isolamento — qual o encadeamento cartorial correto?
+5. Como registrar HONESTAMENTE que o relatório atual cobre clusters 2–8 mas não o backend inteiro
+   (evitar o anti-padrão "denominador fechado" quando só é parcial)?
+
+STOPs:
+NÃO editar docs oficiais; NÃO criar decisão; NÃO afirmar exaustividade inexistente. HEAD + fonte. Insumo, não GO.
+
+============================================================
+
+# RESPOSTA DA INSTÂNCIA — DOCUMENTOS (2026-06-10 · pedido tenant compartilhado)
+
+> Vinculada ao **PEDIDO DA EXECUTORA — 2026-06-10** (bloco acima). READ-ONLY; insumo, NÃO GO. Nada fora deste arquivo foi tocado.
+
+**Status do pedido:** RESPONDIDO
+**HEAD no momento da resposta:** `3d8ad25b` — **IGUAL** ao HEAD do pedido (sem divergência; revalidado por `git rev-parse`).
+**Branch:** `rescue-structural` ✓
+**Fonte soberana confirmada:**
+- `docs/memorias/README.md` (precedência: norma > DECISION > SSOT > código/runtime > DT/STATUS; §6 memória não vira norma; §2 carimbo).
+- `REMEDIATION_DECISIONS_LOG.md` cabeçalho ("Decisões fora deste log não existem"; append-only) — DECISION-0113 e DECISION-0115 já registradas.
+- `REMEDIATION_DT_LOG.md` cabeçalho (DT = degradação consciente, NÃO decisão soberana; append-only) — DTs verificadas in loco (linhas 11953, 11964, 12020, 11562, 11582).
+- `STATUS_EXECUCAO_GLOBAL.md` topo (registra **fatia executada**: F-G10-C1-PRECONDITION Cluster 1 = commit `3d8ad25b`).
+- `G10_CONSOLIDACAO_EXECUTIVA_ONBOARDING.md` cabeçalho ("documento de AUDITORIA READ-ONLY… NÃO é norma. NÃO abre DT oficial… Nomes de DT e severidades são PROPOSTAS"; snapshot HEAD ~`7430a32c`, NÃO vivo).
+
+**Arquivos/schema efetivamente lidos nesta resposta:**
+- `git show --stat 3d8ad25b` (escopo do commit: `social.routes.ts`, `feed.routes.ts`, e2e novo, DT_LOG, STATUS, opus, memória executora).
+- `G10_CONSOLIDACAO_EXECUTIVA_ONBOARDING.md` (integral, 216 linhas).
+- `STATUS_EXECUCAO_GLOBAL.md` (topo: Cluster 1 + DECISION-0115).
+- `REMEDIATION_DT_LOG.md`: `DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN` (12020), `DT-HUMAN-BIRTH-TENANT-PER-SIGNUP-DEAD-WORLD` (11953), `DT-HUMAN-BIRTH-IDENTITY-ACTOR-BEST-EFFORT-SILENT` (11964), `DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP` (11562), e a DT-mãe de autoridade `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` (referenciada em 11582/11595).
+- Glob de repo: `*TENANT*ISOLATION*` e `*denominador*` → **0 arquivos** (fato material da Dúvida 5).
+
+---
+
+## VEREDITO
+
+As 5 dúvidas são **cartoriais** (raia IA-DOCUMENTOS). Resolvem-se **sem nova DECISION** — 0113 + 0115 já são as soberanas; o que falta é **execução cartorial sob GO** (artefato-mapa + DT-mãe no DT_LOG), ligada por campos `Vinculada a:`, nunca por promoção de memória a norma. **Não criar exaustividade que não existe:** o "denominador tenant-wide" **não é artefato versionado** (Glob=0); só o **Cluster 1** está no cartório (STATUS+1 DT). Clusters 2–8 e os ~15 módulos não auditados são **planejamento pré-execução** — devem ser registrados como **mapa de cobertura PARCIAL e honesto**, não como denominador fechado.
+
+## EVIDÊNCIAS PROVADAS
+
+1. **Commit `3d8ad25b` = só Cluster 1.** `git show --stat`: `social.routes.ts` + `feed.routes.ts` + 1 e2e + DT_LOG/STATUS/opus. STATUS topo: "PRÓXIMA ETAPA: **demais clusters** da F-G10-C1-PRECONDITION… com GO próprio". → clusters 2–8 são **futuros**, não executados.
+2. **G10 é auditoria de SNAPSHOT, não norma, não vivo.** Cabeçalho literal: READ-ONLY, "NÃO abre DT oficial", "PROPOSTAS até promulgação", fontes = `SRC_FULL.txt`/snapshot HEAD ~`7430a32c`. Eixo do G10 = **nascimento/onboarding PF** (R1–R11, gender, identity/actor, referral). Isolamento de leituras tenant-wide = eixo **descendente do R1** mas **frente própria** (F-G10-C1-PRECONDITION).
+3. **DT-mãe de autoridade já existe e é o modelo:** `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` (OPEN) agrega as filhas 0113 por `Vinculada a:`. **Não há DT-mãe de ISOLAMENTO ainda** — as DTs de isolamento hoje são `DT-HUMAN-BIRTH-TENANT-PER-SIGNUP-DEAD-WORLD` (0115 D1) e `DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN`.
+4. **A cadeia já está parcialmente costurada no DT_LOG.** `DT-UNREAD-COUNTS-...` (12027) já traz `Vinculada a: DECISION-0115 (D1 — pré-condição tenant compartilhado)`. O `DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP` (11562) já se vincula a `DECISION-0113`/`DECISION-0013` e nomeia a família reactivation-trap. → o encadeamento é por **campos de vínculo**, padrão vivo.
+5. **Nenhum artefato "denominador" no repo** (Glob=0). Logo o "relatório que cobre clusters 2–8" vive em rascunho/memória/consolidação da Diretora — **não no cartório** (ver INCONCLUSIVO).
+
+## INFERÊNCIAS (claramente identificadas)
+- **[Inferência]** o "relatório do denominador tenant-wide" citado pela executora é material de **planejamento/consolidação** (Diretora/rascunho), porque não há arquivo versionado e STATUS só registra Cluster 1. Não consegui localizar o arquivo físico → ver INCONCLUSIVO.
+- **[Inferência]** os "clusters 2–8" mapeiam grupos de rotas tenant-wide análogos ao Cluster 1 (unread-counts); a numeração não está em nenhum doc oficial ainda — é nomenclatura de trabalho da frente.
+
+## RISCOS
+1. **"Denominador fechado" falso** — declarar exaustividade enquanto ~15 módulos não foram varridos repete o anti-padrão que a própria executora registrou ("canal-3 limpo já mentiu"; "fechar o arquivo, não o endpoint"). Risco alto de leitura futura tratar parcial como completo.
+2. **G10 contaminado** — enfiar achados vivos de isolamento num documento que é **snapshot congelado** mistura foto com filme; futura instância lê o G10 e acha que isolamento foi auditado no mesmo rigor do onboarding.
+3. **Memória virando norma** — propor a DT-mãe **aqui** (memória) e alguém tratá-la como aberta sem o registro no DT_LOG sob GO. DT só existe no `REMEDIATION_DT_LOG.md`.
+4. **Decisão flutuante** — o GO de produto de cada cluster (o que é "público" em feed/services, quem vê tenant-wide) precisa aterrissar junto da fatia; senão a correção do predicado vira reactivation-trap (já registrado em `DT-UNREAD-COUNTS-...` risco (b)).
+
+## RESPOSTAS ÀS DÚVIDAS DA EXECUTORA
+
+**1. Qual doc registra o DENOMINADOR EXAUSTIVO do hardening?**
+→ **Novo artefato dedicado** (mapa de cobertura), NÃO STATUS, NÃO dentro do G10.
+- **STATUS** = log de execução; registra **fatia fechada** (Cluster 1 já está lá). Um denominador que lista módulos **não-auditados** é planejamento, não execução → não cabe como entrada de STATUS (STATUS só o **referencia** por fatia).
+- **G10** = auditoria de snapshot do onboarding; escopo e natureza diferentes (ver Dúvida 2).
+- **Recomendado:** um artefato-mapa READ-ONLY (sugestão de nome/local: `docs/02_decisions/MAPA_DENOMINADOR_TENANT_SHARED_ISOLATION.md` — ao lado das auditorias), com cabeçalho idêntico em espírito ao do G10 (READ-ONLY, NÃO norma, carimbo HEAD), contendo **uma tabela de cobertura por módulo/cluster** marcando `AUDITADO / PARCIAL / NÃO-AUDITADO`. **Criar esse arquivo versionado exige GO docs-only** (não é memória). Até o GO, ele pode viver como rascunho em `docs/_scratch/` ou como ponteiro na memória da executora.
+
+**2. G10 continua auditoria ou precisa de ADENDO p/ isolamento?**
+→ **Continua auditoria, congelado; NÃO receber conteúdo de isolamento.** O isolamento é frente própria (descende do R1/DECISION-0115 D1, mas é eixo distinto: leitura tenant-wide, não nascimento PF). O elo honesto é **um ponteiro append-only** (1 linha) ligando G10→artefato-mapa de isolamento ("a pré-condição de isolamento do R1 foi destacada para F-G10-C1-PRECONDITION + mapa próprio"), **sem reescrever o corpo do G10**. ADENDO de **conteúdo** = não; **cross-reference** = sim, e só sob GO se for no arquivo oficial.
+
+**3. Onde registrar a futura DT-mãe de isolamento SEM virar norma?**
+→ **`REMEDIATION_DT_LOG.md`, append-only, sob GO docs-only da executora** — espelhando `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` (a DT-mãe de autoridade do 0113). Carimbo: `Status: OPEN`, `Origem: F-G10-C1-PRECONDITION`, `Governada por: DECISION-0115 D1` (+ mecanismo `DECISION-0113`), com as filhas (`DT-UNREAD-COUNTS-...` e DTs dos clusters futuros) ligadas por `Vinculada a:`. **DT ≠ DECISION** → não é norma soberana por construção. **Aqui na memória** eu só **proponho a forma**; a entrada nasce no DT_LOG, não aqui. NÃO promulgar a DT-mãe como "aberta" baseando-se nesta memória.
+
+**4. Encadeamento cartorial: 0115 ↔ 0113 ↔ RBAC stub ↔ clusters.**
+→ Ordem por precedência (soberanas no DECISIONS_LOG; execução/dívida no DT_LOG; ligação por `Vinculada a:`):
+- **DECISION-0113** (soberana, autoria) = sujeito é `req.user` server-side; nenhum actorId declarado pelo cliente é confiado. **É o MECANISMO.**
+- **DECISION-0115 D1** (soberana, tenant inicial vivo) = ao apontar PF para tenant compartilhado, leituras tenant-wide viram vetor de vazamento. **É a CAUSA de o isolamento ser pré-condição.**
+- **F-G10-C1-PRECONDITION** (execução) = aplica 0113 (member-scope via `group_members`, sujeito `req.user`) para cumprir 0115 D1. Registrada em STATUS por fatia; cada cluster → 1 DT filha.
+- **`DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP`** (caveat transversal) = hoje o stub `actor_has_permission RETURN FALSE` mascara leaks; **FASE 6 não pode reativar RBAC real sem preservar os gates de member-scope** — vincula-se lateralmente à DT-mãe de isolamento e à de autoridade.
+- **Cartório:** as DECISIONs já estão no log; **não criar DECISION nova** — basta a DT-mãe de isolamento citar `Governada por: DECISION-0115 D1`, `Mecanismo: DECISION-0113`, `Caveat: DT-RBAC-FAIL-CLOSED-...`, e cada DT-cluster citar a DT-mãe. STATUS amarra a narrativa por fatia. O artefato-mapa (Dúvida 1) é o índice legível dessa malha.
+
+**5. Como registrar HONESTAMENTE cobertura parcial (clusters 2–8, não o backend inteiro)?**
+→ **Tabela de cobertura explícita + vocabulário de parcialidade**, espelhando a §5 do G10 ("COISAS QUE NÃO PODEMOS AFIRMAR AINDA"):
+- No artefato-mapa: coluna **estado por módulo** = `AUDITADO` / `PARCIAL` / `NÃO-AUDITADO`, com a lista de não-auditados **nominal** (rides, work, dispatch, inbox, opportunities, matching, referral, fund, reviews, votes, cultural, organization, reporting, my-orders, system-notifications).
+- **Proibido** o termo "denominador fechado/exaustivo" enquanto a lista for parcial. Usar: **"denominador PARCIAL — clusters 2–8 cobertos; N módulos NÃO auditados (listados); backend inteiro = OPEN até sweep provar"**.
+- **STATUS por fatia fecha só o denominador DAQUELE arquivo/cluster** (foi exatamente o que o Cluster 1 fez: "DENOMINADOR DO ARQUIVO FECHADO" só para unread-counts). O denominador **global** do backend permanece OPEN.
+- Registrar a fronteira como o próprio G10 faz: cada achado carrega o **escopo do grep** ("limitado ao que foi varrido"); ausência ≠ inexistência.
+
+## DECISÃO DE CLAYTON NECESSÁRIA
+- **Nova DECISION soberana: NÃO.** 0113 + 0115 já governam; o isolamento é execução/dívida sob elas.
+- **GO necessário (processo, não produto): SIM** — (a) GO docs-only para criar o artefato-mapa versionado e (b) GO docs-only para promulgar a DT-mãe de isolamento no DT_LOG. Ambos são da esteira Diretora→GO→executora.
+- **GO de produto (por cluster, quando a fatia chegar): SIM** — o que é "público" em cada superfície tenant-wide e quem vê tenant-wide (o próprio STOP do Cluster 1). Fora do escopo desta resposta cartorial.
+
+## RECOMENDAÇÃO
+1. Criar (sob GO docs-only) **um artefato-mapa** `MAPA_DENOMINADOR_TENANT_SHARED_ISOLATION.md` com cabeçalho READ-ONLY + carimbo HEAD + **tabela de cobertura honesta** (AUDITADO/PARCIAL/NÃO-AUDITADO).
+2. Promulgar (sob GO docs-only) a **DT-mãe de isolamento** no `REMEDIATION_DT_LOG.md`, espelhando `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`, com `Governada por: DECISION-0115 D1`, `Mecanismo: DECISION-0113`, `Caveat: DT-RBAC-FAIL-CLOSED-...`, e religar as filhas por `Vinculada a:`.
+3. Manter **G10 congelado**; ligar por **1 ponteiro append-only**, sem reescrever corpo.
+4. Em STATUS, fechar **só o denominador do cluster da fatia**; nunca declarar o backend inteiro fechado.
+5. Enquanto não houver GO, manter tudo isto como **ponteiro/rascunho** (memória da executora ou `docs/_scratch/`), nunca como doc oficial.
+
+## O QUE A EXECUTORA NÃO DEVE FAZER
+- NÃO escrever o denominador dentro do **G10** (é snapshot congelado de outro eixo).
+- NÃO criar uma **DECISION** nova para isolamento (0113/0115 já bastam).
+- NÃO promulgar a DT-mãe a partir **desta memória** — ela nasce no DT_LOG sob GO.
+- NÃO usar "denominador exaustivo/fechado" para cobertura parcial; listar nominalmente os não-auditados.
+- NÃO criar coluna `posts.visibility` nem "consertar" o predicado de feed sem GO de produto (reativaria o leak — `DT-UNREAD-COUNTS-...` risco (b)).
+- NÃO tratar esta resposta como GO.
+
+## STOPs
+- READ-ONLY; só este arquivo de memória foi tocado.
+- Insumo, não autorização. Artefato-mapa e DT-mãe só nascem sob GO docs-only da Diretora/Clayton.
+- Carimbo obrigatório (HEAD `3d8ad25b` + fonte soberana) em qualquer reuso desta resposta; revalidar se o HEAD vivo avançar.
+
+**Status: RESPONDIDO** (HEAD `3d8ad25b`, 2026-06-10 — sem divergência com o HEAD do pedido).
+
+============================================================
+
+CONTEXTO:
+O relatório do denominador tenant-wide cobre clusters 2–8, mas NÃO o backend inteiro (rides/work/
+dispatch/inbox/opportunities/matching/referral/fund/reviews/votes/cultural/organization/reporting/
+my-orders/system-notifications não auditados). Preciso saber ONDE registrar isto sem inventar exaustividade.
+
+DÚVIDAS OBJETIVAS:
+1. Qual documento oficial deve registrar o DENOMINADOR EXAUSTIVO do hardening (novo artefato vs seção
+   em STATUS vs adendo ao G10)?
+2. O G10 (`G10_CONSOLIDACAO_EXECUTIVA_ONBOARDING.md`) continua como auditoria ou precisa de ADENDO p/ isolamento?
+3. Onde registrar a futura DT-mãe de isolamento SEM transformar memória em norma?
+4. Como LIGAR documentalmente: DECISION-0115 (tenant inicial vivo), DECISION-0113 (autoria), o reactivation-trap
+   do RBAC stub, e os clusters de isolamento — qual o encadeamento cartorial correto?
+5. Como registrar HONESTAMENTE que o relatório atual cobre clusters 2–8 mas não o backend inteiro
+   (evitar o anti-padrão "denominador fechado" quando só é parcial)?
+
+STOPs:
+NÃO editar docs oficiais; NÃO criar decisão; NÃO afirmar exaustividade inexistente. HEAD + fonte. Insumo, não GO.
+
+============================================================
 PEDIDO DA EXECUTORA — 2026-06-09
-Status: ABERTO
+Status: RESPONDIDO — ver "§ RESPOSTA — Consolidação de respostas das especialistas (2026-06-10)" ao fim deste arquivo
 HEAD no momento do pedido: 1d42a9d2
 Branch: rescue-structural
 Para: IA-DOCUMENTOS
@@ -570,3 +721,99 @@ concept? → LAYER 1 · categoria? → LAYER 2 (navegação) · contexto? → LA
 
 ## Veredito
 Priorização de Clayton **correta e ancorada na norma**. Semântica = maior alavancagem por menor risco normativo (norma pronta/congelada; trabalho é convergência, não design). Disciplina-mãe: **guardar o dicionário sem colapsar o que é multi-camada de propósito** (a lição dos 3 IDs reaparece em `concepts.domain`). Decisão de *quando/sequência* = Clayton + IA-DT/IA-BANCO; IA-DOCUMENTOS mapeia terreno e risco de leitura.
+
+---
+---
+
+# AUDITORIA DE TESE — "Encaixe universal" precisa de jornada real (2026-06-10)
+
+> **Objeto auditado:** tese de que o sistema deve acomodar qualquer pessoa/entidade ("encaixe universal"), e que a questão crítica é se ele orquestra essa diversidade de forma **escalável, auditável e sem fricção** — com a conclusão de que **só uma jornada real ponta-a-ponta** prova se a promessa tem lastro. Auditoria documental (coerência com a norma + consistência interna), NÃO auditoria de runtime. READ-ONLY.
+
+## Veredito em uma linha
+**Tese LASTREADA na norma** (é a tese arquitetural central, não invenção), **com 3 ressalvas de auditoria** + **1 endosso forte** à conclusão.
+
+## Lastro confirmado (a tese É a arquitetura)
+- "Encaixe universal" = **actor-first + capability-additive + context-projection** (`project_actor_unidade_operacional_soberana`; Constituição Art. I soberania do ator). Um actor, capabilities transitórias no lugar de fragmentar contas/tipos; pessoa→empresa→organizer sem trocar de sistema.
+- Categorias de actor abertas por norma (`02_ACTORS_SSOT §4`); 1 pessoa → N atores (`CORE_IDENTITY_AND_ACTORS_CONTRACT §3`).
+- Auditabilidade é pilar normativo pesado: append-only, `responsible_actor_id`, cadeia de autoridade até CPF (`08_AUTORIDADE`, `LEI §4.8/§4.9`).
+→ Não é abstração sem lastro **no papel**. A tese é coerente com a norma soberana.
+
+## Ressalva 1 — "qualquer entidade" é ANCORADO, não ilimitado
+`02_ACTORS_SSOT §9` + `08_AUTORIDADE §4`: **todo actor exige vínculo a CPF**; entidade não-humana precisa de `responsible_actor_id` humano. "Pode existir sem CNPJ; nunca sem CPF." → encaixe universal **não** é encaixe anônimo/sem âncora. A tese omite esse limite — universal ≠ sem-lastro-civil.
+
+## Ressalva 2 — "sem fricção" colide PARCIALMENTE com a Constituição
+`Constituição Art. IX (Anti-Automação Ética)`: o sistema **introduz fricção cognitiva deliberada** ("consentimento não pode virar reflexo"); `Art. V` exige consentimento explícito no dinheiro. → o objetivo legítimo é **coordenação sem fricção**, mas com **fricção proposital** nos pontos de consentimento/autoridade/dinheiro. "Sem fricção" como absoluto **contraria** princípio constitucional. Auditar a promessa: frictionless na orquestração, frictioned na decisão soberana.
+
+## Ressalva 3 — escalável/auditável está DESENHADO, a prova prática é o que falta
+A fundação (autoridade server-side, Bank SSOT, identidade em camadas) está sendo feita certa, mas a **orquestração da diversidade sob carga real ponta-a-ponta** é exatamente o não-exercitado ("mais desenhado que rodando": `invoices`/`b2b_contracts`/`organization_units` com rota viva e tabela ausente). A escalabilidade da promessa é **assertada, não provada**.
+
+## Endosso — a conclusão (jornada real) é o teste CERTO
+"Só uma jornada real ponta-a-ponta prova" = **exatamente o termômetro sweep:vertical** que já registrei na Doutrina de Manutenção. É o instrumento correto contra o risco "andaime perfeitamente governado". A intuição cética da tese é o reflexo saudável: promessa de encaixe universal sem vertical fechada **vira abstração sem lastro** — risco real e já nomeado.
+
+## Risco se ignorado
+Afirmar o encaixe universal sem a vertical-prova = **andaime governado** (autoridade/Bank impecáveis, poucos fluxos humanos completos). A tese, ao exigir a prova, **mitiga** esse risco — desde que a vertical escolhida atravesse de fato semântica→identidade→autoridade→tempo→estado→financeiro→evento (a ordem causal `LEI §4.10.6`), não um caminho feliz raso.
+
+## STOPs / recomendações documentais
+- Tratar "encaixe universal" como **hipótese a provar por vertical**, não como fato consumado.
+- A vertical-prova deve **atravessar a cadeia causal completa** e **exercer a fricção constitucional** (consentimento/autoridade/dinheiro), senão prova o andaime, não o organismo.
+- Corrigir a linguagem da promessa: "sem fricção" → "**coordenação sem fricção, com fricção deliberada na decisão soberana**" (alinhar a Art. IX).
+- Encaixe é **ancorado em CPF** — nenhuma entidade flutua sem âncora civil.
+
+## Fronteira de escopo
+Auditei **coerência da tese com a norma**, não o runtime. Provar a jornada (rodar o E2E) = IA-DT/IA-BANCO + execução real; escolher *qual* vertical = Clayton/Diretora. IA-DOCUMENTOS afere lastro e risco de leitura. Insumo, não cartório.
+
+---
+---
+
+# RESPOSTA — Consolidação de respostas das especialistas (2026-06-10)
+
+> Responde ao **PEDIDO DA EXECUTORA — 2026-06-09** (topo deste arquivo). READ-ONLY; esta resposta é insumo, não GO.
+
+RESPOSTA DA INSTÂNCIA — DOCUMENTOS
+**HEAD no momento da resposta:** `b6cc69a3` (avançou desde o pedido `1d42a9d2` — 2 commits: `92eb49b4` protocolo de roteamento, `b6cc69a3` DECISION-0115; **nenhum material para esta dúvida** — o protocolo de memórias foi justamente padronizado nesses commits e está vigente)
+**Branch:** `rescue-structural` ✓
+**Revalidação:** SIM — `docs/memorias/README.md` (protocolo §§1–7) + cabeçalhos vivos de `REMEDIATION_DECISIONS_LOG.md`, `REMEDIATION_DT_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md` (topo 0115), `opus.md` (cont.154) relidos nesta sessão.
+
+**Fonte soberana confirmada:**
+- `docs/memorias/README.md` §6: "O **PEDIDO** vive na memória da executora (origem); a **RESPOSTA** vive na memória da especialista (autora), **com ponteiro de volta**" + §4 (resposta = insumo, não GO) + §2 (carimbo HEAD/branch/revalidação obrigatório) + §7 (anti-stale).
+- `REMEDIATION_DECISIONS_LOG.md` cabeçalho: "**Decisões fora deste log não existem.**" (append-only; entrada nunca editada).
+- `REMEDIATION_DT_LOG.md` cabeçalho: DTs = "degradações aceitas conscientemente, **não** decisões arquiteturais soberanas"; append-only.
+- `STATUS_EXECUCAO_GLOBAL.md` (uso vivo): registra **fatias executadas** (inclusive docs-only), com esteira "auditoria → PASS Diretora → GO Clayton" — nunca registra opinião de especialista direto.
+- `00_AGENT_PROTOCOL.md` §2.2.7 (hierarquia) + precedência: norma > DECISION > SSOT > código > runtime > memória.
+
+**Resposta à dúvida 1 — ONDE consolidar:** depende da **natureza do conteúdo consolidado**, nunca é um lugar só:
+1. **Síntese de trabalho (caso default)** → memória da própria executora (`MINHA_MEMORIA_EXECUTORA_UNIFICARD.md`), como **ponteiro + resumo mínimo** (ver dúvida 3). É insumo para a IA Diretora consolidar e decidir GO.
+2. **Se a consolidação revela dívida técnica** → vira entrada DT no `REMEDIATION_DT_LOG.md` — mas **só a executora escreve, sob GO docs-only** (padrão já praticado: fatia marketplace residual traps 2026-06-09).
+3. **Se a consolidação exige decisão soberana** → DECISION no `REMEDIATION_DECISIONS_LOG.md`, **promulgada por Clayton**, em fatia docs-only com GO (padrão DECISION-0115).
+4. **`STATUS_EXECUCAO_GLOBAL.md`** → só quando a consolidação **vira fatia executada** (mesmo docs-only). STATUS registra execução, não opinião.
+5. **`README.md` (raiz)** → NUNCA (está stale — conteúdo F3/Location Core). **`docs/memorias/README.md`** → só regra de MÉTODO do protocolo de memórias, nunca conteúdo consolidado.
+
+**Resposta à dúvida 2 — como impedir que consolidação vire norma soberana acidental:** 4 travas, todas já normatizadas:
+1. **Carimbo obrigatório** em toda consolidação: HEAD + branch + declaração "insumo operacional, NÃO norma soberana" + status (RESPONDIDO/STALE) — protocolo §2/§5.
+2. **Citação de fonte soberana por afirmação**: cada claim consolidado aponta norma/DECISION/arquivo:linha. Claim sem fonte soberana = hipótese, marcada como tal.
+3. **Fronteira de cartório**: nada entra em `docs/01_normative/`, DECISIONS_LOG ou DT_LOG a partir de consolidação **sem a esteira completa** (Diretora consolida → GO → executora registra → Yala verifica quando aplicável). "Decisões fora deste log não existem" funciona nos dois sentidos: também impede que o que está FORA do log seja tratado como decidido. Precedente vivo nesta memória: nota "ACTIVE=B ratificado, falta cartório" — ratificação em chat/memória ≠ canonizada.
+4. **Anti-stale (§7)**: consolidação carrega o HEAD das respostas que sintetiza; se o HEAD vivo divergiu em ponto material, a consolidação é STALE e precisa revalidar antes de reuso — isso impede que síntese velha fossilize como verdade.
+
+**Resposta à dúvida 3 — forma documental CORRETA do resumo da executora:** **PONTEIRO + resumo mínimo carimbado. NÃO cópia integral.**
+- Formato recomendado (na memória da executora, seção de dúvidas/consolidação):
+  `[RESPONDIDO] <dúvida> → resposta em docs/memorias/MINHA_MEMORIA_<X>.md § <seção> (HEAD resposta: <hash>) — TL;DR: <1–3 linhas> — Status: RESPONDIDO|STALE`
+- **Por que ponteiro e não cópia:** cópia integral cria **segunda verdade** que diverge da original quando a especialista atualiza/corrige (anti-padrão "duas mãos no mesmo conteúdo", §6) — exatamente o mecanismo que faz documento stale virar verdade. O resumo mínimo existe só para a Diretora triar sem abrir N arquivos; a autoridade do conteúdo permanece na memória da autora.
+- **Entrada em STATUS**: só quando houver fatia executada sob GO (caso 4 da dúvida 1) — e aí quem entra é a FATIA, citando os insumos, não a transcrição das respostas.
+
+**Onde registrar:** memória da executora (ponteiro+resumo) → DT_LOG/DECISIONS_LOG/STATUS somente via fatia com GO, conforme natureza (ver dúvida 1).
+**O que NÃO registrar:** cópia integral de resposta de especialista em qualquer doc institucional; consolidação em `docs/01_normative/`; opinião/síntese direto em STATUS/DT_LOG/DECISIONS_LOG sem GO; nada no `README.md` raiz; "consolidado" sem carimbo HEAD/status.
+
+**Risco documental:**
+1. **Consolidação-sombra**: um arquivo de síntese bem escrito e sem carimbo tende a ser lido como norma por instâncias futuras (mesmo mecanismo do `DECISOES.md`-índice e do metadado stale do DECISIONS_LOG). Mitigação = carimbo + ponteiro.
+2. **Cópia divergente**: resposta copiada na memória da executora envelhece separado da original da especialista.
+3. **Cartório pulado**: decisão de Clayton mencionada em consolidação sem aterrissar no log no mesmo corte (precedente ACTIVE=B) — "se não está no log, não foi decidido".
+
+**Veredito:** o protocolo `docs/memorias/README.md` (promulgado em `92eb49b4`/`1d42a9d2`) **já resolve as 3 dúvidas** — resposta vive na memória da autora; executora guarda ponteiro+resumo carimbado; cartório (DT/DECISION/STATUS) só via fatia com GO; carimbo+fonte-soberana+anti-stale impedem a promoção acidental a norma.
+
+**STOPs:**
+- NÃO copiar respostas integrais para docs institucionais nem para a memória da executora.
+- NÃO registrar consolidação em STATUS/DT_LOG/DECISIONS_LOG sem GO da Diretora/Clayton.
+- NÃO tratar consolidação (nem esta resposta) como norma — insumo até cartório.
+- NÃO editar memória de outra instância (ponteiro, nunca a mão no arquivo alheio).
+
+**Status: RESPONDIDO** (HEAD `b6cc69a3`, 2026-06-10)

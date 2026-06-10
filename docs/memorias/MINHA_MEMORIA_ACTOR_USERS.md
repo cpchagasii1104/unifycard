@@ -11,8 +11,391 @@
 ---
 
 ============================================================
+PEDIDO DA EXECUTORA — 2026-06-10 (REV. 2026-06-10b — MESCLADO)
+Status: RESPONDIDO (ver RESPOSTA DA INSTÂNCIA abaixo)
+HEAD no momento do pedido: 3d8ad25b
+Branch: rescue-structural
+Para: IA-ACTOR-USERS (instância única — Eixo A actor-alvo/autoridade + Eixo B acesso humano)
+Frente relacionada: F-G10-TENANT-SHARED-ISOLATION — ownership de readers + acesso humano (tenant compartilhado)
+Prioridade: alta
+============================================================
+
+NOTA DE ESCOPO (IA Diretora, 2026-06-10): a instância "IA-USUÁRIOS-E-ACESSO" NÃO é uma instância
+separada — seu eixo (acesso humano: login/sessão/RBAC/roles/permissions/company_users) foi ABSORVIDO
+por esta instância como **Eixo B**. O pedido aberto de `MINHA_MEMORIA_USUARIOS_E_ACESSO.md` (2026-06-10)
+foi MOVIDO para cá e fundido abaixo. Esta rodada espera **6 respostas especialistas, não 7**. Responder
+TUDO aqui, separando explicitamente Eixo A e Eixo B.
+
+  Eixo A — actor-alvo e autoridade operacional:
+    canRepresentActor, DECISION-0113, actionContext, params/query/body actorId, R2.
+  Eixo B — acesso humano:
+    user, global_user, identity, sessão, login, RBAC, roles, permissions, company_users.
+
+CONTEXTO:
+Auditoria READ-ONLY dos clusters 2–8 do denominador tenant-wide (HEAD 3d8ad25b) achou readers VIVOS
+tenant-only que vazam no tenant inicial COMPARTILHADO (RLS é por tenant, não por actor/user). Parte das
+rotas de groups está HOJE 403 para todos porque `actor_has_permission` é stub fail-closed `RETURN FALSE`
+(verificado no banco vivo) — máscara temporária, não autoridade. Antes de escolher a próxima fatia,
+preciso provar OWNERSHIP real, a relação server-side exigida, e a régua de acesso humano/institucional.
+NÃO infira ownership pelo nome da coluna — leia handler/service/repository/schema.
+
+DÚVIDAS — EIXO A (actor-alvo / autoridade operacional):
+A1. Para `suppliers` (modules/marketplace/supplier.*) e `contacts` (modules/marketplace/contact.*),
+    qual é o sujeito PROPRIETÁRIO real do recurso: creator actor · company actor · usuário · tenant ·
+    operador institucional · outro vínculo? (provar por FK/coluna no schema vivo + uso no service).
+A2. `created_by_actor_id` (purchase_orders/outros) representa AUTORIA HISTÓRICA ou AUTORIDADE ATUAL
+    sobre o recurso? Pode ser usado como base de `canRepresentActor`?
+A3. Quais relações server-side devem ser resolvidas ANTES das leituras desses readers:
+    `canRepresentActor`, `canManageCompany`, `company_users`, membership, ou permissão institucional?
+    (qual primitivo canônico, no padrão já usado em inventory by-actor / payment-method by-id).
+A4. Daily-metrics (core/dashboard/daily-metrics.*) hoje é CROSS-TENANT (queries sem tenant_id) —
+    isso é leitura legítima de admin institucional ou reader SEM autoridade que deveria ser self/tenant?
+
+DÚVIDAS — EIXO B (acesso humano / institucional):
+B1. Que PAPEL HUMANO deveria acessar `contacts`, `suppliers` e `daily-metrics` (usuário comum /
+    representante da empresa / operador de marketplace / admin-compliance da plataforma)?
+B2. As permissões existentes distinguem materialmente: usuário comum · representante de empresa ·
+    operador de marketplace · admin/compliance da plataforma? (onde isso vive — RBAC V2, roles, company_users).
+B3. `company_users` ou o RBAC atual já MATERIALIZAM essa distinção (com dado vivo), ou é aspiracional?
+B4. Quais rotas estão apenas MASCARADAS por `actor_has_permission = FALSE` (parecem seguras mas só
+    estão mortas) — e portanto viram leak quando a FASE 6 ligar sem o gate humano/representação certo?
+B5. Qual autoridade humana/institucional deve ser PRESERVADA dentro de `requirePermission` quando a
+    FASE 6 for ativada, para não reabrir esses leaks?
+
+DÚVIDA TRANSVERSAL (Eixo A + Eixo B):
+AB1. Os readers de groups bloqueados HOJE pelo stub RBAC, quando a FASE 6 reativar, devem exigir
+     membership (`group_members` — Eixo A) e/ou role/permissão humana (Eixo B) e/ou visibilidade pública?
+     (qual a régua combinada de autoridade-alvo + acesso humano por tipo de leitura de grupo).
+
+EXIGIR NA RESPOSTA:
+- leitura do handler + service + repository + schema (1ª mão, não memória);
+- NÃO inferir ownership pelo nome da coluna;
+- separar explicitamente o que é Eixo A (autoridade sobre actor/recurso alvo) do que é Eixo B (acesso humano/role);
+- classificação A/B/C/D/M/G por reader;
+- HEAD no momento da resposta + fonte soberana usada.
+
+STOPs:
+não editar código; não editar RBAC; não liberar R2; não liberar FASE 6; NÃO tratar capability default de
+company (ex.: can_manage_marketplace) como autoridade sobre o actor/recurso ALVO; NÃO transformar role
+genérica em autoridade cross-actor. Resposta é insumo, não GO.
+
+============================================================
+
+---
+
+============================================================
+RESPOSTA DA INSTÂNCIA — ACTOR_USERS (ao pedido 2026-06-10 REV. b — Eixo A + Eixo B)
+Status: RESPONDIDO
+HEAD no momento da resposta: 3d8ad25b (bate com pedido — confirmado git log)
+Branch: rescue-structural
+Fonte soberana confirmada: DECISION-0113 §D1-D5/D8, authorization.service.ts:333-391, supplier.repository.ts:26-31/88-153/158-195, contact.repository.ts:13-26/48-100/212-279, supplier.service.ts:68-77, contact.service.ts:105-174/242-252, daily-metrics.routes.ts:12-46, daily-metrics.service.ts:124-192, rbac.plugin.ts:100-141/145-170, rbac.service.ts:119-188, groups.routes.ts:82-199/490-586/810-828, migrations/20260422000100_actor_has_permission_fail_closed.sql:24, migrations/0060_rbac_roles.sql:193-211
+Arquivos lidos 1ª mão: SIM (todos acima). B2/B3 inferidos parcialmente de company-members.repository.ts + companies.service.ts:916-930.
+============================================================
+
+## EIXO A — Actor-alvo e autoridade operacional
+
+### A1 — Proprietário real: Suppliers e Contacts
+
+#### SUPPLIERS — dono: TENANT (sem FK de actor ownership)
+
+Schema provado (supplier.repository.ts:26-31):
+```
+suppliers {
+  id, tenant_id,          ← FK obrigatória
+  name, code, email, phone, contact_name, address, ...  ← dados B2B
+  created_by_actor_id,    ← AUDIT IMUTÁVEL (escrito no INSERT, nunca atualizado)
+  created_by_user_id,     ← AUDIT IMUTÁVEL
+  metadata
+}
+```
+Sem coluna `owner_actor_id`, `company_id` nem FK de ownership para `actors` ou `companies`.
+
+Handler GET /suppliers (supplier.routes.ts:40-52): sem preHandler. Passa apenas `tenantId` ao service.
+Repository listSuppliers (supplier.repository.ts:158-195): `WHERE tenant_id = $1` + filtros opcionais.
+Repository getSupplierById (supplier.repository.ts:133-153): `WHERE tenant_id = $1 AND id = $2`.
+
+**Classificação: A latente (shared tenant, scope-missing)**
+Qualquer usuário autenticado no tenant pode ler todos os fornecedores. Dados: name, email, phone, tax_id de empresas fornecedoras, address, registration_number. Não PII de pessoa física, mas dado operacional/comercial cross-user.
+
+#### CONTACTS — dono: TENANT (sem FK de actor ownership; user_id ≠ ownership)
+
+Schema provado (contact.repository.ts:13-26):
+```
+contacts {
+  id, tenant_id,          ← FK obrigatória
+  type, name,             ← identificação
+  tax_id,                 ← PII (CPF/CNPJ)
+  email, phone,           ← PII
+  address,                ← PII
+  user_id,                ← LINK OPCIONAL: "este contato está vinculado a este user" — NÃO é proprietário
+  kyc_status, metadata
+}
+```
+Sem `created_by_actor_id`, sem `owner_actor_id`, sem `company_id`.
+
+`contacts.user_id` ≠ proprietário: é link posterior via `linkUserToContact(tenantId, contactId, userId)` — ação opcional que associa um contato a um usuário do sistema. Não confere autoridade sobre o contato.
+
+Handler GET /contacts (contact.routes.ts:68-111): sem preHandler. Só `tenantId`. Recebe `userId` como filtro opcional — qualquer chamador pode filtrar contacts por `userId` alheio.
+Repository listContacts (contact.repository.ts:212-279): `WHERE tenant_id = $1` + filtros opcionais.
+Repository getContactById (contact.repository.ts:82-100): `WHERE tenant_id = $1 AND id = $2`.
+
+**Classificação: A vivo (shared tenant, PII cross-user)**
+Qualquer usuário autenticado no tenant lê tax_id (CPF/CNPJ), email, phone, address, kyc_status de todos os contatos. Mais severo que suppliers. Inclui contatos de pessoas físicas (CPF).
+
+---
+
+### A2 — `created_by_actor_id`: autoria histórica ou autoridade atual?
+
+**AUTORIA HISTÓRICA. NÃO pode ser base para `canRepresentActor`.**
+
+Evidência 1ª mão (supplier.repository.ts:88-95): escrito apenas no INSERT via `$15` (created_by_actor_id). Não há UPDATE desta coluna em nenhum outro método do repository.
+
+Razões pelas quais NÃO é base para canRepresentActor:
+1. **Imutável:** escrito no INSERT, nunca atualizado. Não reflete estado atual de ownership.
+2. **Actor pode ter saído/sido revogado:** canRepresentActor verifica ownership ATUAL (actors.user_id, company_users, delegação ativa) — não historial de criação.
+3. **Transferência não capturada:** se "dono operacional" muda, `created_by_actor_id` não muda.
+4. **Semântica de audit:** evidência forense de "quem criou", não "quem tem autoridade agora". O auditService usa exatamente para isso.
+
+Para actor-ownership real: exige coluna `owner_actor_id` com semântica de transferência governada. Suppliers e contacts não têm essa coluna.
+
+---
+
+### A3 — Relação server-side a resolver ANTES das leituras
+
+`canRepresentActor` NÃO se aplica a suppliers e contacts: não há FK de actor ownership para comparar. Aplicar canRepresentActor seria criar gate sem âncora de schema.
+
+Mapa de primitivos por tipo de recurso:
+
+| Tipo de recurso | FK de ownership | Gate correto | Primitivo canônico |
+|----------------|----------------|-------------|-------------------|
+| actor-owned (owner_actor_id) | actors.id | canRepresentActor(tenantId, userId, resource.ownerActorId) | authorization.service.ts:333 |
+| company-managed (company_id) | companies.id | canManageCompany(tenantId, company_id, globalUserId) | companies.service.ts:916 |
+| tenant-wide sem FK de actor (suppliers, contacts) | NENHUMA | permissão institucional OU decisão Clayton | requirePermission / company_users |
+| cross-tenant (admin de plataforma) | N/A | super-admin check (não existe hoje) | institucional — ausente |
+
+Para suppliers: sem FK de company ou actor, opções são:
+- a) Adicionar `company_id` FK + usar `canManageCompany` (muda schema)
+- b) Exigir permissão `marketplace:suppliers:read` via RBAC (precisa FASE 6 funcionar)
+- c) Decisão Clayton: dado B2B compartilhado por todos os membros do tenant é aceitável?
+
+Para contacts: PII exige gate obrigatório. Opções:
+- a) Self-read: `contacts.user_id === req.user.userId` (contato vinculado ao próprio user)
+- b) Admin/compliance: permissão `marketplace:contacts:read` com role institucional
+- STOP: decisão Clayton obrigatória antes de qualquer patch.
+
+---
+
+### A4 — daily-metrics: cross-tenant legítimo ou reader sem autoridade?
+
+**B INSTITUCIONAL — reader sem autoridade. Gate incompleto por design.**
+
+Evidência 1ª mão (daily-metrics.service.ts):
+```typescript
+// countActiveOrganizers — pool.query sem tenant_id:
+pool.query('SELECT COUNT(DISTINCT id) FROM event_organizers WHERE created_at >= NOW() - INTERVAL ...')
+
+// countEventsCreated — pool.query sem tenant_id:
+pool.query('SELECT COUNT(*) FROM events WHERE created_at >= $1 AND created_at < $2', [start, end])
+
+// countActiveSubscriptions — pool.query sem tenant_id:
+pool.query('SELECT COUNT(*) FROM organizer_subscriptions WHERE status = \'active\' ...')
+
+// calculateConversionRate — pool.query sem tenant_id:
+pool.query('SELECT COUNT(*) FROM event_metrics WHERE type = \'VIEW\' ...')
+```
+
+Handler (daily-metrics.routes.ts:17): `// TODO: Verificar se usuário é admin` — gate NUNCA implementado.
+Gate atual: apenas `if (!req.user) return 401`. Qualquer autenticado em qualquer tenant vê agregados de toda a plataforma.
+
+**Não é leitura legítima de admin:** o TODO confirma que falta o gate. Não existe flag de super-admin.
+**Não é self/tenant:** pool.query sem tenant_id = cross-tenant por design.
+**É observabilidade institucional incompleta:** destino provável = dashboard de super-admin da plataforma.
+
+Dados expostos: counts de events, organizers, subscriptions, conversions — agregados, sem PII, mas divulgam métricas de negócio de toda a plataforma para qualquer usuário autenticado.
+
+STOP adicional: tabelas `event_organizers`, `organizer_subscriptions`, `event_metrics` podem não existir no DB vivo atual (schema drift histórico). Se ausentes → runtime error 500. INCONCLUSIVO até verificação de schema vivo.
+
+---
+
+## EIXO B — Acesso humano / institucional
+
+### B1 — Papel humano correto por reader
+
+| Reader | Papel humano que deveria acessar |
+|--------|----------------------------------|
+| `GET /suppliers` | Representante da empresa (company member com can_manage_company) OU operador de marketplace da plataforma |
+| `GET /contacts` (PII) | Somente representante empresa autenticado OU admin-compliance; self-read para contato vinculado ao próprio user |
+| `GET /dashboard/metrics/today|history` | Admin institucional da plataforma (super-admin) — NÃO usuário comum |
+| `GET /groups/mine` | Self (o próprio usuário autenticado via req.user.userId, não actorId declarado) |
+| `GET /groups` | Qualquer autenticado para grupos públicos; membro para privado/secreto |
+| `GET /groups/:id` | Visibility-aware: público=autenticado; privado/secreto=membro |
+| `GET /groups/:id/members` | Membro do grupo (para privado/secreto); qualquer autenticado (para público) |
+
+---
+
+### B2 — Permissões existentes distinguem materialmente?
+
+**PARCIALMENTE — company_users materializa distinção para empresa. RBAC V2 (actor-based) é aspiracional (stub).**
+
+company_users (evidência 1ª mão — companies.service.ts:547):
+```
+company_users {
+  tenant_id, company_id, user_id (via global_user_id),
+  role,                    ← 'owner' | 'admin' | 'member' | ...
+  can_manage_company,      ← boolean — autoridade de gestão da empresa
+  can_manage_financial,    ← boolean — autoridade financeira
+  can_manage_employees,    ← boolean — autoridade sobre membros
+  ...
+}
+```
+Esta tabela MATERIALIZA a distinção empresa/usuário: `can_manage_company OR role='owner'` = representante com autoridade (companies.service.ts:923).
+
+RBAC V2 (roles/permissions/role_permissions) — estrutura existe (migração 0060_rbac_roles.sql), mas:
+- `actor_has_permission` = STUB RETURN FALSE (migration 20260422000100:24)
+- `user_has_permission(tenantId, userId, resource, action)` = FUNCIONAL (migration 0060:193-210) mas NÃO usada pelo rbac.plugin
+- rbac.plugin usa `actorHasAllPermissions` → `actor_has_permission` → stub → FALSE
+
+**Distinção material atual:**
+- Empresa vs usuário: SIM (company_users.can_manage_company VIVO)
+- Operador marketplace vs admin compliance: NÃO (sem permissões marketplace:* ou compliance:* atribuídas)
+- Super-admin plataforma: NÃO (infraestrutura inexistente)
+
+---
+
+### B3 — `company_users` ou RBAC atual materializam a distinção?
+
+**company_users: SIM (vivo, com dados).** `can_manage_company`, `can_manage_financial`, `can_manage_employees` são flags vivas.
+
+**RBAC actor-based: NÃO (aspiracional/stub).** Sem atribuições de permissão por actor em uso atual. A função `user_has_permission` (user-based) funciona, mas o rbac.plugin a ignora.
+
+**Consequência:** para suppliers/contacts, o único gate vivo é a fronteira tenant. Para company-owned resources, o gate vivo é company_users via canManageCompany. Para groups, o gate vivo é owner/admin via requireGroupOwnerOrPermission (que contorna o stub). Para tudo mais, o stub é a única barreira — e ela cai com FASE 6.
+
+---
+
+### B4 — Rotas mascaradas pelo stub (viram leak quando FASE 6 ligar)
+
+| Rota | preHandler | Hoje | Com FASE 6 sem gate extra |
+|------|-----------|------|--------------------------|
+| `GET /groups` | requirePermission(['groups:read']) | 403 (stub) | ABERTO se actor tem groups:read |
+| `GET /groups/:id` | requirePermission(['groups:read']) | 403 (stub) | ABERTO se actor tem groups:read |
+| `GET /groups/:id/members` | requirePermission(['groups:members:read']) | 403 (stub) | ABERTO se actor tem groups:members:read |
+| `GET /groups-closure/:id` | requirePermission(['groups:read']) | 403 (stub) | ABERTO |
+| `GET /groups-state-history/:id` | requirePermission(['groups:read']) | 403 (stub) | ABERTO |
+| `GET /groups-insights/:groupId` | requirePermission(['groups:read']) | 403 (stub) | ABERTO |
+| POST /groups | requirePermission(['groups:create']) | 403 (stub) | ABERTO |
+| POST /groups/:id/join | requirePermission(['groups:join']) | 403 (stub) | ABERTO |
+
+**Rotas que NÃO são mascaradas (continuam abertas HOJE e continuam abertas com FASE 6):**
+- `GET /suppliers` — sem requirePermission → sempre aberto para tenant
+- `GET /contacts` — sem requirePermission → sempre aberto para tenant (PII!)
+- `GET /dashboard/metrics/today|history` — sem requirePermission → sempre aberto para qualquer autenticado
+- `GET /groups/mine` — sem preHandler → sempre aberto, canal-1 spoof
+
+**Rotas que bypass o stub via owner/admin check (acessíveis hoje para owners):**
+- PUT /groups/:id → requireGroupOwnerOrPermission → owner/admin bypass RBAC
+- PATCH /groups/:id/members/:userId → requireGroupOwnerOrPermission → owner/admin bypass
+
+O rbac.plugin já tem `assertActorRepresentable` (canRepresentActor binding) — esse gate PERMANECE quando FASE 6 ativar. O risco não é spoof de actorId via requirePermission, mas sim a semântica da permissão (quem recebe groups:read? qual é a régua de visibilidade?).
+
+---
+
+### B5 — Autoridade a preservar dentro de `requirePermission` quando FASE 6 ativar
+
+**O que DEVE ser preservado (já existe no rbac.plugin):**
+1. `validateActionContext` — tenant/actorId/intent/scope obrigatórios
+2. `assertActorRepresentable` → `canRepresentActor(tenantId, req.user.id, actorId)` — BINDING req.user (DECISION-0113). NUNCA remover ou contornar.
+
+**O que DEVE ser decidido ANTES de ativar FASE 6:**
+1. Quem recebe `groups:read`? Qualquer autenticado? Só members? Só admin?
+2. Quando `actor_has_permission` real rodar, qual é o critério: actor tem role com groups:read assignado? Ou membership em group_members? Os dois são modelos diferentes — não podem coexistir sem definição.
+3. Para groups:read de grupos públicos: a verificação de `visibility='public'` deve ser no SERVICE (server-side filter), não dependência da permissão RBAC isolada.
+4. Para groups:read de grupos privados/secretos: exige JOIN em `group_members` server-side, não apenas permissão RBAC genérica.
+
+**O que NÃO deve ser feito na ativação de FASE 6:**
+- Não conceder groups:read a todos os actors automaticamente (abre tudo)
+- Não remover assertActorRepresentable do rbac.plugin (reabre canal-1 spoof)
+- Não tratar `can_manage_marketplace` (capability default de company) como autoridade para groups:read
+
+---
+
+## TRANSVERSAL AB1 — Groups readers: régua combinada Eixo A + Eixo B
+
+| Rota | Eixo A (actor-alvo) | Eixo B (acesso humano) | Régua combinada |
+|------|--------------------|-----------------------|----------------|
+| `GET /groups/mine` | self: req.user.userId → actor type='user' (NÃO actionContext.actorId) | Qualquer autenticado sobre os próprios groups | canRepresentActor desnecessário (self); resolver via req.user.userId server-side |
+| `GET /groups` | Nenhum actorId alvo (lista pública) | Qualquer autenticado para visibility='public' | Sem canRepresentActor; filtro visibility='public' no service |
+| `GET /groups/:id` | Nenhum actorId alvo (by-id) | Visibility-aware: public=autenticado; private/secret=group_members.user_id = caller | Server-side: se group.visibility != 'public' → checar group_members.user_id = req.user.userId |
+| `GET /groups/:id/members` | Nenhum actorId alvo (lista de membros) | Membro do grupo para private/secret; qualquer autenticado para public | Server-side: group_members.user_id = caller (para private/secret) |
+
+**STOP duplo para FASE 6:**
+1. Semântica de visibilidade (produto Clayton) ANTES de ativar groups:read.
+2. Corrigir `GET /groups/mine` para usar req.user.userId (não actorId canal-1) ANTES de qualquer reativação de groups.
+
+---
+
+## NOVO ACHADO — `GET /groups/mine`: CANAL-1 SPOOF VIVO
+
+**groups.routes.ts:507:** `const userId = req.actionContext.actorId;`
+- actorId é canal-1: client-declared, spoofável (DECISION-0113 D1).
+- Sem preHandler → sem assertActorRepresentable → sem canRepresentActor.
+- Qualquer caller declara `actorId` de outro actor e lista os grupos desse actor.
+- Agravante: TYPE CONFUSION — `actorId` (actors.id UUID) usado como parâmetro nomeado `userId` em `getUserGroups(tenantId, userId)`. O que getUserGroups faz com esse valor? INCONCLUSIVO (groups.service.ts:getUserGroups NÃO lido 1ª mão).
+- **Classificação: A vivo canal-1.** Independente da FASE 6.
+
+---
+
+## VEREDITO GLOBAL (Eixo A + Eixo B)
+
+| Reader | Classe | Eixo A gate faltante | Eixo B gate faltante | Urgência |
+|--------|--------|---------------------|---------------------|----------|
+| `GET /contacts` | A vivo | Sem ownership FK | Sem role humano | ALTA (PII) |
+| `GET /groups/mine` | A vivo canal-1 | actorId spoofável | Sem canRepresentActor | ALTA |
+| `GET /suppliers` | A latente | Sem ownership FK | Sem role humano | MÉDIA |
+| `GET /dashboard/metrics/*` | B institucional | Cross-tenant | Admin gate TODO | MÉDIA |
+| `GET /groups/*` (exceto /mine) | E mascarado | — (stub bloqueia) | Semântica FASE 6 indefinida | BAIXA (protegido pelo stub) |
+
+---
+
+## DECISÕES DE PRODUTO NECESSÁRIAS (Clayton)
+
+1. **Contacts:** quem pode ler — todos os membros do tenant, só representantes de empresa, ou somente após consentimento (LGPD/PII)?
+2. **Suppliers:** dado B2B compartilhado por todos os membros do tenant é aceitável ou exige gate de company?
+3. **daily-metrics:** desativar (501) até existir super-admin, ou Clayton autoriza acesso público temporariamente?
+4. **Groups visibility:** semântica de groups:read — qualquer autenticado para public, membership para private/secret? (Pré-requisito de FASE 6)
+
+---
+
+## O QUE A EXECUTORA NÃO DEVE FAZER
+
+- NÃO usar `created_by_actor_id` como base para `canRepresentActor`.
+- NÃO usar `contacts.user_id` como gate de ownership (é link opcional, não autoridade).
+- NÃO implementar gate de suppliers/contacts sem decisão de Clayton sobre semântica.
+- NÃO reativar groups via FASE 6 sem corrigir `GET /groups/mine` (canal-1) + decisão de visibilidade.
+- NÃO remover `assertActorRepresentable` do rbac.plugin.
+- NÃO tratar `can_manage_marketplace` como autoridade cross-actor sobre recurso alvo.
+- NÃO chamar `findAvailableActors` em GET para scoping (side-effect findOrCreate).
+- NÃO liberar R2.
+- NÃO commitar.
+
+---
+
+## STOPs DESTA RESPOSTA
+
+- STOP `groups.service.ts:getUserGroups` NÃO lido — TYPE CONFUSION actorId/userId em `GET /groups/mine` não resolvida. Leitura obrigatória antes de qualquer patch nessa rota.
+- STOP tabelas `event_organizers`, `organizer_subscriptions`, `event_metrics` não verificadas no DB vivo (daily-metrics pode gerar 500 em runtime se ausentes).
+- STOP `purchase_orders` schema NÃO lido 1ª mão (mencionado no pedido, mas evidência de created_by_actor_id=audit foi provada via suppliers que usa o mesmo padrão).
+- STOP decisão de produto (Clayton) obrigatória para contacts, suppliers, daily-metrics, groups visibility antes de qualquer patch.
+- DT-mãe DECISION-0113 OPEN.
+- R2 congelado.
+- FASE 6 congelada.
+
+============================================================
+
+---
+
+============================================================
 PEDIDO DA EXECUTORA — 2026-06-09
-Status: ABERTO
+Status: RESPONDIDO (ver RESPOSTA abaixo)
 HEAD no momento do pedido: 1d42a9d2
 Branch: rescue-structural
 Para: IA-ACTOR-USERS
@@ -37,6 +420,99 @@ FORMATO DE RESPOSTA ESPERADO:
 RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
 
 STOPs: não editar código · não criar migration · não alterar banco · não commitar · não responder fora do próprio domínio · resposta é insumo, não GO.
+============================================================
+
+---
+
+============================================================
+RESPOSTA DA INSTÂNCIA — ACTOR_USERS (ao pedido 2026-06-09)
+Status: RESPONDIDO
+HEAD no momento da resposta: b6cc69a3 (DECISION-0115 docs-only)
+Branch: rescue-structural
+Delta pedido→resposta: docs-only (DECISION-0115 + memórias). Zero código relevante ao eixo actor/users alterado.
+Fonte soberana confirmada: DECISION-0113 §D2/§D5, authorization.service.ts:333, actor.repository.ts:557-581, actor-repository.port.ts:78
+============================================================
+
+### Q1 — Helper canônico para listar actors representáveis por user_id num tenant
+
+**SIM EXISTE: `findAvailableActors(tenantId, userId)`**
+
+- Implementação: `backend/src/modules/social/actor.repository.ts:557`
+- Porta canônica: `backend/src/core/social/ports/actor-repository.port.ts:78`
+- Adapter: `backend/src/modules/social/adapters/actor-repository.adapter.ts:76`
+- Exposto em: `GET /social/actors/available` (social-2.0.routes.ts:401/423)
+
+O que retorna: (1) actor pessoal `actor_type='user'` do caller; (2) actors de empresas onde tem company_users vínculo + can_manage_company; (implicit 3) delegações ativas via canRepresentActor chain.
+
+**⚠️ ALERTA CRÍTICO — side-effect CREATE em GET:**
+`findAvailableActors` chama `this.findOrCreateUserActor(tenantId, user.user_id)` na linha 581 — cria o actor do user se não existir. É side-effect de escrita numa leitura. Classificação: anti-padrão STOP §8 da minha memória.
+
+**Implicação para inventory/movements (opção b):** NÃO usar `findAvailableActors` diretamente para escopo numa rota GET. Exigiria variante read-only (`findRepresentableActors` sem `findOrCreate`), ou SELECT inline: `WHERE actor_id IN (SELECT id FROM actors WHERE (user_id=$userId AND actor_type='user') UNION SELECT a.id FROM actors a JOIN company_users cu ON ...)`. Decisão de produto antes de implementar.
+
+---
+
+### Q2 — `canRepresentActor` é o primitivo correto para os 3 sabores?
+
+**SIM. Mesma semântica de autoridade para body/params/query.**
+
+DECISION-0113 §D2 vinculante: "Autoridade soberana exige BINDING com o principal autenticado. `actorId ∈ canActAs(req.user)` verificado server-side."
+
+`canRepresentActor` (authorization.service.ts:333) = forma simplificada de `canActAs` sem permissionKey (retorna bool direto). 5 vetores cobertos:
+1. ownership direto — `actor.user_id === userId` + actor_type user/actor_human/person
+2. empresa — `companiesService.canManageCompany(tenantId, actor.company_id, globalUserId)`
+3. grupo — `safeCheckOwnership(tenantId, userId, 'groups', actor.group_id)`
+4. registry-bônus — `actorRegistryService.findByActorId` + safeCheckOwnership
+5. delegação ativa — `findActiveDelegation(tenantId, userId, actorId)`
+
+Fail-closed: inputs inválidos → false (linha 335-337). Actor inexistente no tenant → false (linha 342-343). Erro de resolve → false (safeResolveGlobalUserId/safeCheckOwnership).
+
+**Padrão correto para os 3 canais:**
+- body.actor_id: `canRepresentActor(req.tenant.id, req.user.userId, req.body.actorId)`
+- params.actorId (canal-4): `canRepresentActor(req.tenant.id, req.user.userId, req.params.actorId)`
+- query.actorId (canal-3): `canRepresentActor(req.tenant.id, req.user.userId, req.query.actorId)`
+
+---
+
+### Q3 — Classificação de inventory/movements sem actorId
+
+**Raiz própria de DT — NÃO é canal 0113 clássico.**
+
+Distinção material:
+- **Canal 0113** pressupõe: cliente declara actorId → hint pode ser spoofado → gate `canRepresentActor` resolve.
+- **inventory/movements sem actorId**: não há hint — a rota simplesmente retorna linhas de todos os actors sem filtragem. O risco não é spoofing de actorId, é ausência de escopo (scope-missing).
+
+**Classificação correta: A latente por scope-missing.** DT já registrada: `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` (OPEN). Exposição: actor_id + quantity + movement_type + reason + metadata + created_by_user_id por linha — linha-a-linha cross-company, materialidade operacional/comercial. Não bank.
+
+**Caller vivo confirmado:** frontend `api/marketplace.ts:740 getMovements(variantId)` chama o endpoint sem actorId (nota de correção já no DT).
+
+**Não confundir com canal 0113:** registrar no DT como "scope-missing" (distinto de "hint-to-spoof"). Estratégia de correção requer decisão de produto (ver Q4).
+
+---
+
+### Q4 — Estratégia quando NÃO há actor alvo único na entrada (lista variant-wide)
+
+**4 opções — todas requerem decisão Clayton (produto). Executora não implementa sem GO + opção escolhida.**
+
+| Opção | Descrição | Impacto no caller | Complexidade |
+|-------|-----------|-------------------|--------------|
+| **a) Obrigar actorId** | Exige query.actorId; vira canal-3 clássico com `canRepresentActor` | Frontend precisa adaptar (getMovements precisa passar actorId) | Baixa |
+| **b) Escopar representáveis** | Filtra results WHERE actorId IN (actors representáveis pelo caller). Sem mudar contrato do endpoint | Transparente para o caller | Média — exige variante read-only sem findOrCreate |
+| **c) Agregar sem actor_id** | Retorna só SUM/COUNT, sem actor_id/created_by por linha. Remove o vetor de leak | Mudança de contrato (perda de granularidade) | Média |
+| **d) Só admin institucional** | Exige permissão `financial:view_all_ledger` (ou equivalente) | Bloqueia usuários comuns inteiramente | Baixa |
+
+**Recomendação técnica (insumo, não GO):** opção (a) é a mais alinhada ao modelo 0113 (vira canal-3 explícito) e não exige novo mecanismo. Opção (b) é a mais transparente ao caller mas exige cuidado com side-effect de findOrCreate. Opção (d) é conservadora e mais simples se o endpoint for de uso admin legítimo. Escolha é de Clayton.
+
+---
+
+### STOPs desta resposta
+
+- Não implementar nenhuma das opções sem GO + opção escolhida por Clayton.
+- Variante read-only de findAvailableActors (para opção b) exigiria GO próprio + e2e.
+- DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE permanece OPEN até decisão de produto.
+- DT-mãe DECISION-0113 continua OPEN — inventory/movements não fecha a DT-mãe.
+- R2 congelado.
+- Não commitar.
+
 ============================================================
 
 ---
@@ -491,3 +967,5 @@ canRepresentActor é a prova.
 | Data | Conteúdo |
 |------|----------|
 | 2026-06-09 | Criação inicial — bootstrap completo, 20 seções, estado HEAD 0933b188 |
+| 2026-06-10 | Resposta ao PEDIDO DA EXECUTORA 2026-06-09: findAvailableActors (helper + alerta side-effect), canRepresentActor 3 sabores, inventory/movements scope-missing vs canal-0113, 4 estratégias variant-wide. HEAD b6cc69a3 (DECISION-0115 docs-only). |
+| 2026-06-10 | Resposta ao PEDIDO DA EXECUTORA 2026-06-10 (REV. b): Eixo A (A1-A4) + Eixo B (B1-B5) + AB1 (groups). Suppliers/contacts = TENANT-owned sem FK de actor. created_by_actor_id = audit histórico. daily-metrics = B institucional cross-tenant sem admin gate. groups/mine = A vivo canal-1 spoof. RBAC stub = RETURN FALSE confirmado. company_users = vivo; RBAC actor-based = aspiracional. Novo achado: TYPE CONFUSION actorId/userId em GET /groups/mine. HEAD 3d8ad25b. |

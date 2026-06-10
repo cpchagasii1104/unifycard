@@ -17,8 +17,43 @@
 ---
 
 ============================================================
+PEDIDO DA EXECUTORA — 2026-06-10
+Status: RESPONDIDO (resposta em AUDITORIA #4 abaixo — HEAD 3d8ad25b, sem divergência)
+HEAD no momento do pedido: 3d8ad25b
+Branch: rescue-structural
+Para: IA-DINHEIRO
+Frente relacionada: F-G10-TENANT-SHARED-ISOLATION — superfícies M (tenant compartilhado)
+Prioridade: alta
+============================================================
+
+CONTEXTO:
+A auditoria do denominador tenant-wide achou superfícies VIVAS com materialidade financeira, tenant-only,
+no tenant compartilhado. Classifiquei M (escrow, finance/agenda+cashflow, purchase-orders). Preciso da
+sua leitura para confirmar M × comercial e desenhar as "três paralelas" da PRIMEIRA frente money.
+
+AUDITAR SEPARADAMENTE:
+1. Escrow readers (modules/escrow): GET /api/escrow + /:escrowId + /agreement/:id + /:id/milestones +
+   /:id/transactions são tenant-only (sem req.user, sem resolver partes). Quais são as PARTES autorizadas
+   (requester/provider actor)? Vínculo com `bank_transaction`? Campos materiais expostos (held/released/
+   refundedAmountCents)? Que AUTORIDADE por recurso é necessária antes de cada read?
+2. Purchase orders: `unit_price_cents`/`total_price_cents` tornam os readers M ou apenas comercialmente
+   sensíveis (preço de compromisso, não movimento de ledger)? Qual actor/company é o proprietário?
+3. Finance agenda/cashflow (modules/marketplace/financial-agenda.*): `scheduled_actions` é PROJEÇÃO ou
+   AUTORIDADE? Escopo correto = por creator / actor responsável / conta / empresa / tenant? Há risco de
+   INFERIR saldo/fluxo fora do Bank (cashflow agrega inflow/outflow tenant-wide)?
+4. Daily-metrics com `totalRevenue`: money-adjacent ou M? Pode existir visão institucional cross-tenant
+   legítima? Quais E2Es e quais "três paralelas" seriam obrigatórios se virar money?
+
+ENTREGAR:
+- divisão recomendada das TRÊS PARALELAS para a primeira frente M (qual é a 1ª superfície a abrir e por quê);
+- HEAD na resposta + fonte soberana (Lei 5 / DECISION / schema bank).
+
+STOPs:
+`bank_ledger` é único SSOT; NÃO propor gate isolado como solução financeira completa; não editar. Insumo, não GO.
+
+============================================================
 PEDIDO DA EXECUTORA — 2026-06-09
-Status: ABERTO
+Status: RESPONDIDO (resposta em AUDITORIA #3 abaixo — HEAD b6cc69a3)
 HEAD no momento do pedido: 1d42a9d2
 Branch: rescue-structural
 Para: IA-DINHEIRO
@@ -351,3 +386,276 @@ fail-first + selo Yala; sem mexer em flag/region sem decisão de modelo; grupo-d
 **Lacuna normativa a decidir:** criar (ou não) `AUTHORITY_MAP_FINANCIAL_v1.md` — ausente; bootstrap o cita.
 
 _Memória da IA-DINHEIRO — READ-ONLY. Orienta veredito, não autoriza execução._
+
+---
+
+## AUDITORIA #2 — Tese do "ENCAIXE UNIVERSAL" sob a lente do dinheiro (2026-06-10)
+
+**HEAD no momento da auditoria:** `92eb49b4` · **branch:** `rescue-structural`.
+**Anti-stale:** HEAD moveu de `31ee7ff1` → `92eb49b4`, mas os 5 commits do delta são **docs(memories/remediation) only** — zero mudança em código/migration financeiro. Logo os achados materiais R1–R9 da Auditoria #1 **permanecem válidos** neste HEAD. (Revalidar de novo se o próximo HEAD tocar `modules/bank`/migrations.)
+
+**Objeto auditado:** tese estratégica (Clayton, ligada ao PIVÔ G10 — primeira vertical humana viva / nascimento PF ponta-a-ponta): o sistema acomoda qualquer pessoa/entidade (encaixe universal), e a pergunta crítica é se ele **orquestra essa diversidade de forma escalável, auditável e sem fricção** em autoridade/identidade/coordenação — testável só por **jornada real ponta-a-ponta**.
+
+**Classificação:** tese ESTRATÉGICA/PRODUTO, money-ADJACENT (toca "fluxo de coordenação econômica"). NÃO é write financeiro. Audito **só o lastro financeiro** da promessa; autoridade/identidade = eixo IA-ACTOR-USERS (consolidação Diretora).
+
+**VEREDITO: TESE COM LASTRO NO NÚCLEO, SEM LASTRO COMPLETO NA BORDA.** O "encaixe universal" é materialmente verdadeiro onde mais importa (o ledger), mas a promessa "escalável+auditável+sem fricção" ainda NÃO se sustenta na superfície econômica. A conclusão do texto está CERTA: só a jornada E2E real prova — e pela lente do dinheiro eu **já sei onde a jornada quebra**.
+
+**Onde o encaixe universal TEM lastro (confirmado material, Auditoria #1):**
+- `bank_ledger` é UNIVERSAL por construção: uma só verdade de saldo, chaveada por `actor_id`, BIGINT cents, append-only por trigger. PF, PJ, grupo, organizer, seller usam a MESMA estrutura econômica — é exatamente o "capability-additive sem fragmentar ledger" da tese central. Esse é o lastro real da promessa.
+- Split/recovery/idempotência/lock materialmente enforçados → o núcleo escala diversidade sem criar verdade paralela.
+
+**Onde o encaixe universal NÃO tem lastro ainda (a jornada E2E vai bater aqui):**
+- **Auditável quebra na AUTORIDADE (R1):** rotas vivas de superfície econômica (AP/AR, settlement, region credit/debit, escrow release/refund, dispute reversal) confiam em actorId declarado pelo cliente, fail-open. "Encaixe universal auditável" é falso enquanto qualquer actor puder ser declarado sem prova. Uma jornada PJ ponta-a-ponta que cruze esses fluxos expõe isto.
+- **Auditável quebra no EVENTO (R3/R4):** payout/settlement movem ledger sem emitir outbox → observador cego; janelas async sem sweep. "Sem fricção" mascara dinheiro que anda sem rastro de evento.
+- **Sem fricção mente no FUNDO REGIONAL (R2):** `regional_funds.total_balance_cents` (legado, flag OFF default) é verdade paralela ao ledger → duas respostas para o mesmo saldo = anti-auditável.
+- **Encaixe INCOMPLETO para GRUPO e EMPRESA:** grupo-dinheiro SEM decisão própria (DECISION-0114 não cobre); AP/AR latente. O "encaixe econômico" desses dois papéis é hoje parcialmente aspiracional, não material.
+
+**Predição pela lente do dinheiro — onde a jornada E2E real (G10 PF) toca o eixo:**
+- Nascimento PF: CPF→identity→actor. Pergunta money: a gênese PF provisiona `actor_wallet`/`user_wallet`? (`ensureUserWalletForActor` existe; confirmar se o onboarding chama). PF puro provavelmente NÃO toca `bank_ledger` no nascimento — primeiro contato com dinheiro é o 1º recebimento/pagamento. **Para a jornada PF ser "viva" no eixo dinheiro, precisa de pelo menos UM evento econômico real (recebimento) com split+ledger+evento ponta-a-ponta.** Sem isso, o encaixe PF é provado em identidade, não em dinheiro.
+- Se a vertical G10 incluir PF recebendo (ex.: prestador), aí entra autoridade da rota financeira → cai em R1. Se for só nascimento+perfil, o eixo dinheiro fica como prova FUTURA, não nesta vertical.
+
+**RECOMENDAÇÃO (insumo p/ Diretora):** endossar o método do texto (jornada E2E real é o teste certo). Pela lente money: definir explicitamente SE a vertical G10 inclui um evento econômico real. Se SIM → a jornada precisa das três paralelas no(s) ponto(s) que tocam dinheiro e provavelmente expõe R1. Se NÃO (só nascimento+identidade+perfil) → o eixo dinheiro fica fora desta vertical e R1/R2 seguem como frentes próprias, NÃO bloqueiam G10. **Não deixar a promessa "encaixe econômico universal" ser declarada provada por uma jornada que não move um centavo real.**
+
+**STOPs:** não executo nada · auditoria é insumo, não GO · autoridade/identidade da tese = IA-ACTOR-USERS, eu cubro só o lastro financeiro · não declarar encaixe econômico "provado" sem ledger+split+evento reais numa jornada.
+
+**Pendência aberta na minha caixa:** PEDIDO DA EXECUTORA W5/W6 — **RESPONDIDO** em AUDITORIA #3 abaixo (HEAD `b6cc69a3`). W5(refund/credit) e W6(split penalty) exigem bank_ledger quando materializarem, mas há BLOQUEIOS de modelo não resolvidos. DECISION específica ausente. G10 excluiu evento econômico real (DECISION-0115 D5).
+
+_Memória da IA-DINHEIRO — READ-ONLY. Orienta veredito, não autoriza execução._
+
+---
+
+## AUDITORIA #3 — RESPOSTA AO PEDIDO W5/W6 (2026-06-10)
+
+**HEAD:** `b6cc69a3` · **branch:** `rescue-structural`.
+**Anti-stale:** delta `1d42a9d2→b6cc69a3` = 3 commits docs-only (memories + DECISION-0115). Zero mudança em código/migration financeiro. Achados R1–R9 Auditoria#1 válidos.
+**Código vivo lido:** `marketplace-sla.service.ts` (L234-303 W6, L340-369 W5) · `marketplace-sla.routes.ts` (L201-298) · `reconciliation-dispute.service.ts` (padrão reversal).
+**Norma verificada:** SSOT_REGISTRY §5.5/§5.7 · DECISION-0111 D3/D6/D9 · DECISION-0113 · DECISION-0114 · DECISION-0115 D5.
+
+### Diagnóstico W5 — `POST /disputes/:disputeId/resolve`
+
+Estado vivo: **100% in-memory**. `resolveDisputeCase()` L340-369 só muta `disputeCases: Map`. Zero DB. Zero bank_ledger.
+
+Por tipo de resolution quando materializar:
+- `refund` | `partial_refund` → **DEVEM** tocar bank_ledger (SSOT_REGISTRY §5.7: autoridade = bank_ledger + bank_transactions; chave = bank_transaction_id âncora; estorno = nova TX, nunca edição).
+- `credit` → **DEVE** tocar bank_ledger (crédito em conta do customer — qual conta? NÃO decidido; exige DECISION).
+- `replacement` → logística; sem ledger financeiro direto.
+- `dismissed` → fechamento; sem ledger.
+
+**Bloqueio material:** W5 tem `orderId`/`checkoutId` mas **zero** `bank_transaction_id` âncora. Sem âncora = refund canônico impossível (§5.7). Mapear orderId→checkout→payment_intent→bank_transaction_id é pré-condição.
+
+**Autoridade:** `resolved_by` vem de `req.body.resolved_by` (HINT; DECISION-0113). Authority server-side (`req.user.id + admin-gate`) obrigatória antes de mover dinheiro.
+
+**Padrão a reutilizar:** `reconciliation-dispute.service.ts:281` já usa `requestAndExecuteReversalSync` com `bank_transaction_id` anchor + `external_reversal` type. Não reinventar.
+
+### Diagnóstico W6 — `POST /payment-plan/:paymentPlanId/apply-sla-penalties`
+
+Estado vivo: **100% in-memory**. `applySLAPenaltiesToPaymentPlan()` L234-303 só appenda `pending_penalties` (lista in-memory); NÃO subtrai de `sellerSplit.amountCents` agora. Seta `sla_penalties_applied=true` em objeto in-memory. Zero DB. Zero bank_ledger.
+
+Quando materializar — dois fluxos distintos:
+- **Pre-split** (split ainda não gravado em bank_splits): recalcular splits ANTES de gravar. Penalty reduz seller, redistribui para redirect_to. Sem toque direto em bank_ledger (a TX canônica usa o split recalculado).
+- **Post-split** (split já em bank_splits): PROIBIDO editar (invariante imutabilidade). Penalty = NOVA TX: débito seller_account + crédito target. Toca bank_ledger.
+
+**Bloqueio em cadeia:** W6 depende de W2(SLA-contract-DB) + W3(snapshot-DB) + payment_plan-DB. Toda a cadeia está in-memory hoje. W6 é ponta, não raiz.
+
+**Risco aritmético:** L261 `(sellerSplit.amountCents * valueCents) / 100` = aritmética float em centavos. Precisa `Math.round()`/`Math.floor()` com política de arredondamento decidida.
+
+### Diagnóstico `redirect_to`
+
+**Hoje: metadado de política transiente** (in-memory, volatiza no restart). Não é promessa formal, não é liquidação.
+
+Para virar liquidação, precisa de DECISION que mapeia:
+- `regional_fund` → conta system `regional_fund:{tenant}:{city}` (depende de USE_BANK_REGIONAL_FUND=true, hoje OFF default; R2 OPEN).
+- `customer` → user_wallet ou actor_wallet? NÃO definido.
+- `platform` → qual bank_account do tenant? NÃO mapeado.
+
+### STOPs financeiros obrigatórios antes de qualquer patch W5/W6
+
+1. STOP se não houver DECISION de marketplace dispute financeira (anchor + tipos + autoridade + credit policy).
+2. STOP se W5(refund) sem bank_transaction_id âncora mapeado desde orderId/checkoutId.
+3. STOP se W5 sem authority server-side (req.user.id + admin-gate) antes do movimento.
+4. STOP se W6 tentar editar bank_splits já gravados (invariante imutabilidade; nova TX obrigatória).
+5. STOP se redirect_to='regional_fund' sem R2 resolvido + flag USE_BANK_REGIONAL_FUND=ON.
+6. STOP se amountCents não coercido como inteiro antes do Bank (invariante BIGINT).
+7. STOP sem três paralelas completas + E2E fail-first + 4 gates + money-live + canal3-money.
+8. STOP se write bank_ledger proposto fora de modules/bank/ (SSOT_REGISTRY §5.2, Lei §4.6).
+9. STOP se "credit" sem DECISION de conta origem/destino/tipo.
+
+### Riscos financeiros ranqueados
+
+🔴 R1 — W5(refund) sem âncora bank_transaction_id → ledger orphan, devolução sem rastreabilidade.
+🔴 R2 — W5 autoridade fail-open (`resolved_by` do body) → fraude/autorização espúria.
+🔴 R3 — W6 tentando editar bank_splits já gravados → corrupção contábil.
+🟠 R4 — redirect_to='regional_fund' com flag OFF → sem conta de destino = dinheiro sem destinatário.
+🟠 R5 — amountCents como JS `number` sem coerção → perda de precisão acima 2^53.
+🟡 R6 — aritmética float em penalty → arredondamento silencioso em centavos.
+
+### Classificação final: STOP (bloqueios de modelo não resolvidos)
+
+W5 e W6 não podem materializar sem: (1) DECISION específica de marketplace dispute financeira, (2) bank_transaction_id anchor para W5, (3) decisão de modelo split pre vs post para W6. São frentes próprias futuras, FORA do escopo G10 atual (DECISION-0115 D5 confirma).
+
+_Memória da IA-DINHEIRO — READ-ONLY. Insumo para IA Diretora/Clayton. Não autoriza execução._
+
+---
+
+## AUDITORIA #4 — RESPOSTA AO PEDIDO TENANT COMPARTILHADO (F-G10-TENANT-SHARED-ISOLATION) (2026-06-10)
+
+**Status do pedido: RESPONDIDO.**
+**HEAD no momento da resposta:** `3d8ad25b` · **Branch:** `rescue-structural`.
+**Divergência HEAD:** NENHUMA — HEAD vivo == HEAD do pedido `3d8ad25b` (`git log` confirma topo). Commit `3d8ad25b` = "fix(authority): scope unread counts for shared tenant" (F-G10-C1-PRECONDITION, Cluster 1 social/feed — o precedente que abriu esta frente).
+
+**Fonte soberana confirmada:**
+- LEI 5 (SSOT Absoluto / `bank_ledger` única verdade financeira) + SSOT_EXCLUSIVE_BANK_RULE §4 (escrow em regime de extinção).
+- SSOT_REGISTRY §5.5 (split), §5.7 (refund âncora bank_transaction_id), §5.9.1 (B2B/PO = valores comerciais NÃO-SSOT).
+- DECISION-0110/0111 (escrow service: release por confirmação, refund pré/pós-release, KYB-no-release, split imutável).
+- DECISION-0113 (actorId/parte declarada pelo cliente = HINT; sujeito = req.user server-side).
+- DECISION-0115 D1 (tenant inicial vivo compartilhado) + D5 (G10 NÃO inclui evento econômico real agora).
+
+**Arquivos/schema efetivamente lidos:**
+- `modules/escrow/escrow.routes.ts` (5 reads + 4 writes), `escrow.repository.ts`, `escrow.types.ts`, `escrow.module.ts` (registro `/api`), migration `20260530270000_escrow_transactions.sql`.
+- `modules/marketplace/financial-agenda.routes.ts` + `financial-agenda.service.ts`; `modules/automation/scheduled-action.repository.ts` (listActions L160).
+- `modules/marketplace/purchase-order.routes.ts` + `purchase-order.types.ts`; `marketplace.routes.ts` L103/L125 (registro).
+- `core/dashboard/daily-metrics.routes.ts` + `daily-metrics.service.ts`; `dashboard.module.ts` (registro `/metrics`).
+
+### VEREDITO
+
+Das 4 superfícies, **apenas ESCROW é M-REAL** (FK direta a `bank_transactions`, expõe movimento de custódia hold/release/refund). Finance-agenda é **M-PROJEÇÃO** (agrega cifras de dinheiro tenant-wide, mas NÃO lê ledger nem infere saldo atual). Purchase-orders é **COMERCIAL-SENSÍVEL** (preço de compromisso, §5.9.1, NÃO-SSOT financeiro) — não-M. Daily-metrics é **MONEY-ADJACENT** (`totalRevenue` é placeholder `return 0`, não toca Bank) — não-M.
+**1ª frente money recomendada = ESCROW**, e dentro dela a prioridade material é o **WRITE path (release/refund)**, não os reads.
+
+### EVIDÊNCIAS PROVADAS
+
+**(1) ESCROW — M-REAL, fail-open em read E write:**
+- Migration `20260530270000_escrow_transactions.sql:14`: `bank_transaction_id UUID REFERENCES bank_transactions(id)` → **FK real ao SSOT financeiro**. `amount_cents BIGINT CHECK (>0)` (L10), `transaction_type IN ('hold','release','refund')` (L9), idempotency UNIQUE(tenant,idempotency_key) (L23).
+- `GET /escrow/:id/transactions` (routes L155-166) → `listTransactions` (repo L476-491) expõe `bank_transaction_id` + `amount_cents` + `transaction_type` + `initiated_by_actor_id`. **Tenant-only**, sem `req.user`, sem resolver partes.
+- 5 reads (`GET /escrow`, `/:id`, `/agreement/:id`, `/:id/milestones`, `/:id/transactions`) = **todos `req.tenant` apenas** (routes L54-166). `escrow_accounts` expõe `held/released/refunded/total_amount_cents` + `dispute_status`.
+- **Partes autorizadas NÃO estão no escrow** — `escrow_accounts` só tem `agreement_id`/`service_order_id`/`bundle_id` (repo rows L14-32). Requester/provider vivem no **AGREEMENT**. Gate por recurso exige resolver `agreement → partes → canRepresentActor` (cross-módulo).
+- **WRITE path é o buraco maior:** `POST /:id/release-payment` (L194-210), `/:id/refund` (L216-232), `/:id/authorize-milestone` (L172-188) → só `userId = req.user?.id || null` (L179/201/223), SEM `canRepresentActor`; o actor-alvo vem do BODY (`releasedByActorId`/`refundedByActorId` = HINT cliente). Refund/release movem dinheiro via `ESCROW_BANK_BRIDGE`/`toBankAccountId` (types L153/L167). = família R1 (Auditoria #1), porém aqui **toca bank_transactions de verdade**.
+- Escrow está em **regime de extinção/migração** (SSOT_EXCLUSIVE_BANK_RULE §4; flags `ESCROW_READ_FROM_BANK`/`ESCROW_BANK_BRIDGE`; `EscrowFinancialPosition` compara custody-bank vs legacy held). Desenho da frente deve considerar isso, não tratar escrow como destino final.
+
+**(2) FINANCE AGENDA/CASHFLOW — M-PROJEÇÃO (não lê ledger):**
+- `getUpcomingPayables`/`Receivables`/`Settlements` → **retornam `[]`** (service L23-54: "repository removido (migrado/SSOT)"). Só `getUpcomingScheduledActions` (L59-109) alimenta.
+- Fonte = `scheduled_action.repository.listActions(tenant,{status:'SCHEDULED'})` (L70), filtra `actionType ∈ {PAYOUT,PAYMENT,SETTLEMENT}` (L90), `amountCents = action.metadata.amount_cents` (L98) = **valor PLANEJADO em metadata, NÃO ledger**.
+- `getCashflowProjection` (L159-211) soma `totalInflow/totalOutflow/netCashflow` sobre esses itens. **NÃO há SELECT a bank_ledger/bank_accounts.** Hoje inflow≈0 (sem receivables/settlements), outflow = ações agendadas.
+- Escopo: **tenant-wide**. `ScheduledActionFilters` (repo L160-203) tem tenant/status/type/ref/date — **NÃO tem filtro por creator/actor/conta**. Escopar por responsável exige novo filtro.
+- Risco "inferir saldo fora do Bank": **NÃO viola "saldo só do Bank"** (não afirma saldo atual; é projeção forward). MAS expõe agregado de movimentos financeiros planejados cross-company no tenant compartilhado = vazamento de inteligência financeira.
+
+**(3) PURCHASE ORDERS — COMERCIAL-SENSÍVEL, não-M:**
+- `unitPriceCents`/`totalPriceCents` são `number | null` (types L68/L70) = **preço de compromisso de compra**, NÃO movimento de ledger. Type header L26-27: "NÃO executa pagamentos / NÃO emite fiscal". Enquadra-se em **SSOT_REGISTRY §5.9.1 (valores comerciais, não SSOT financeiro)**.
+- Reads (`GET /purchase-orders`, `/:id`, `/:id/items`, routes L42-84) = **tenant-only, SEM nenhum check de actionContext** (enquanto os WRITES L24/97/122/174 exigem `actionContext.actorId`). Assimetria: leitura mais aberta que escrita.
+- Proprietário = `createdByActorId` / `supplierId` (types L32/L45). Materialidade = inteligência de preço de fornecedor cross-company, não dinheiro real.
+
+**(4) DAILY-METRICS — MONEY-ADJACENT, não-M:**
+- `calculateTodayRevenue` (service L158-162) → **`return 0` hardcoded** ("precisa integrar com Stripe"). `totalRevenue` NÃO vem de bank_ledger.
+- Service usa `pool.query` **global, SEM tenant scope** (L124-191: event_organizers/events/organizer_subscriptions/event_metrics) = dashboard institucional **cross-tenant por desenho legítimo** (ops/observabilidade).
+- Routes exigem `req.user` mas **"TODO: Verificar se usuário é admin"** (L16/37) = **admin-gate ausente**. O gap é controle de acesso admin, não vazamento financeiro.
+
+### INFERÊNCIAS (claramente identificadas)
+
+- **INF-1:** a divergência custody-bank vs legacy held no escrow (campo `divergence_cents` em `EscrowFinancialPosition`) sugere que os campos `held/released/refunded_amount_cents` em `escrow_accounts` PODEM divergir do `bank_ledger` quando a flag está OFF. NÃO provei o estado da flag em runtime nesta auditoria → tratar como hipótese a confirmar com IA-BANCO-DE-DADOS antes de desenhar leitura canônica.
+- **INF-2:** assumo que as partes (requester/provider) do escrow são resolvíveis a partir do `agreement_id`. NÃO li o schema/serviço de `agreements` nesta passada → a viabilidade do gate por-recurso depende de o agreement carregar os actorIds das partes. **INCONCLUSIVO até ler o módulo agreement.**
+
+### RISCOS
+
+🔴 **RISCO-1 (escrow write):** release/refund fail-open (`req.user?.id||null`, actor-alvo do body) movem dinheiro via bank bridge sem `canRepresentActor` → liberação/estorno para conta indevida = perda real. **Mais material que os reads.**
+🔴 **RISCO-2 (escrow read):** `/:id/transactions` expõe `bank_transaction_id` + valores de custódia de qualquer escrow do tenant compartilhado → vazamento de movimento financeiro cross-company.
+🟠 **RISCO-3 (finance-agenda):** cashflow tenant-wide agrega valores planejados de payout/payment/settlement de todas as empresas do tenant compartilhado → inteligência financeira cross-company (não é saldo, é plano).
+🟡 **RISCO-4 (purchase-orders):** preço de compra de fornecedor exposto cross-company (comercial, não dinheiro).
+🟡 **RISCO-5 (daily-metrics):** sem admin-gate, qualquer user autenticado vê dashboard institucional; `totalRevenue=0` hoje, mas se um dia ligar a fonte real SEM corrigir o gate, vira exposição financeira.
+
+### RESPOSTAS ÀS DÚVIDAS DA EXECUTORA (uma a uma)
+
+**1. Escrow — partes autorizadas / vínculo bank / campos / autoridade por read:**
+- Partes = requester/provider **no AGREEMENT**, não no escrow (escrow só tem `agreement_id`). [INF-2: confirmar que agreement carrega os actorIds.]
+- Vínculo bank = **SIM, FK real** `escrow_transactions.bank_transaction_id → bank_transactions(id)` (migration L14).
+- Campos materiais expostos: `held/released/refunded/total_amount_cents`, `dispute_status`, `bank_transaction_id`, `transaction_type`, `amount_cents`, `initiated_by_actor_id`.
+- Autoridade necessária por read: resolver o(s) actor(es)-parte do agreement do escrow e exigir `canRepresentActor(req.user, parte)` ANTES de cada read; sujeito = `req.user` server-side (DECISION-0113). Hoje há ZERO disso.
+
+**2. Purchase orders — M ou comercial?**
+- **Apenas comercialmente sensível**, NÃO-M. `unit_price_cents`/`total_price_cents` = preço de compromisso (§5.9.1 NÃO-SSOT). Não há movimento de ledger, settlement nem payout. Proprietário = `createdByActorId`/`supplierId`. Reads precisam de escopo de representabilidade (mesmo gap), mas **não entram na cadeia de dinheiro real** → NÃO é a 1ª frente money.
+
+**3. Finance agenda/cashflow — projeção ou autoridade? escopo? infere saldo fora do Bank?**
+- **PROJEÇÃO**, nunca autoridade (service declara READ-ONLY; soma metadata planejada, não ledger). `scheduled_actions` é fila de ações agendadas, não verdade contábil.
+- Escopo correto: por **actor/empresa responsável** pela ação agendada (hoje só tenant; filtro de actor inexistente em `listActions`). Cashflow agregado deveria ser por conta/empresa representável, não tenant-wide.
+- **NÃO infere saldo do Bank** (não há SELECT em bank_ledger). Mas **agrega cifras de dinheiro** → tratar como exposição, não como violação de "saldo só do Bank". Se um dia somar saldo real, aí sim cairia em STOP de inferência.
+
+**4. Daily-metrics `totalRevenue` — adjacente ou M? cross-tenant legítimo? E2E/paralelas se virar money?**
+- **Money-ADJACENT** hoje (`totalRevenue` = placeholder `return 0`, sem Bank).
+- Visão cross-tenant institucional **é legítima por desenho** (dashboard de operação) — o correto é **admin-gate** (resolver o TODO), não tenant-scope.
+- **SE** algum dia `totalRevenue` passar a vir de receita real: vira M e exige as três paralelas + E2E fail-first + leitura via **API do Bank** (nunca SELECT direto em bank_ledger fora de modules/bank/) + admin-gate provado. Enquanto for 0, é só dívida de controle de acesso.
+
+### DIVISÃO RECOMENDADA DAS TRÊS PARALELAS — 1ª frente M = ESCROW
+
+**Por que escrow primeiro:** único com FK real a `bank_transactions` e movimento de custódia (hold/release/refund). Maior materiália. Purchase-order é comercial; finance-agenda é projeção; daily-metrics é adjacente/0.
+
+- **Paralela A — NORMA / AUTORIDADE:** SSOT_EXCLUSIVE_BANK_RULE §4 (escrow em extinção — não cristalizar) · DECISION-0110/0111 (release por confirmação, refund pré/pós, KYB-no-release, split imutável) · DECISION-0113 (parte = HINT; sujeito = req.user; `canRepresentActor`) · §5.7 (refund âncora bank_transaction_id). Definir: quem são as partes (resolver via agreement) e qual autoridade por rota (read vs release vs refund).
+- **Paralela B — SCHEMA / CÓDIGO / LEGADO:** `escrow_accounts` (sem campo de parte) → `agreements` (partes) [INF-2 a provar] · `escrow_transactions.bank_transaction_id` FK · estado das flags `ESCROW_READ_FROM_BANK`/`ESCROW_BANK_BRIDGE` · divergência custody-bank vs legacy held (`EscrowFinancialPosition.divergence_cents`) [INF-1, confirmar com IA-BANCO-DE-DADOS].
+- **Paralela C — CONCORRÊNCIA / GATES / REGRESSÃO:** reads são read-only (sem race), mas o WRITE path (release/refund) exige lock/revalidação transacional no Bank + idempotência (UNIQUE idempotency_key já existe) · E2E fail-first por rota (5 reads + 3 writes) · 4 gates âncora + `money-live` + `canal3-money` · regressão dos fluxos de release/refund existentes · prova de que nada acessa `bank_*` fora de `modules/bank/`.
+
+**Ordem dentro da frente escrow:** começar pelo **WRITE path (release/refund authority)** — é onde o dinheiro realmente se move e o fail-open é mais grave — e fechar os reads no mesmo arco (ambos sob 0113). NÃO confundir com a frente de POLÍTICA de release/refund (DECISION-0110/0111), que é decisão de produto separada.
+
+### DECISÃO DE CLAYTON NECESSÁRIA
+
+- **SIM** para finance-agenda: qual o escopo canônico do cashflow (por empresa/actor responsável vs tenant)? É decisão de produto sobre quem enxerga o fluxo projetado no tenant compartilhado.
+- **SIM** para daily-metrics: confirmar que a visão é institucional/admin cross-tenant legítima (então é admin-gate, eixo IA-USUÁRIOS-E-ACESSO) — não é eixo dinheiro.
+- **NÃO** para escrow ser a 1ª frente M: isso é classificação técnica que eu sustento (FK real a bank). Mas a POLÍTICA de release/refund é DECISION-0110/0111 (já existe) — Clayton só decide se reabre o runtime do escrow agora ou mantém OFF.
+- Fronteira de eixo: a parte de **representabilidade/canRepresentActor** (resolver partes do agreement) é eixo **IA-ACTOR-USERS** → ambas respondem, Diretora consolida.
+
+### RECOMENDAÇÃO
+
+1. Abrir **ESCROW** como 1ª frente M, priorizando o WRITE path (release/refund), sob lente 0113, com as três paralelas acima. NÃO tratar como "gate isolado" — é cadeia de custódia que termina em bank_transactions.
+2. Finance-agenda: frente própria de **escopo de projeção** (decisão de produto + filtro por actor em `scheduled_actions`), classificada M-projeção, não bloqueia G10.
+3. Purchase-orders: tratar no cluster de **representabilidade de leitura comercial** (mesmo padrão dos reads marketplace 0113), NÃO no eixo dinheiro.
+4. Daily-metrics: rota de **admin-gate** (eixo acesso), não dinheiro, enquanto `totalRevenue=0`.
+5. Antes de desenhar o gate de escrow: ler o módulo `agreements` para provar INF-2 (partes resolvíveis) e confirmar com IA-BANCO-DE-DADOS o estado das flags/divergência (INF-1).
+
+### O QUE A EXECUTORA NÃO DEVE FAZER
+
+- NÃO propor gate de leitura isolado como "solução financeira completa" do escrow — o write path (release/refund) é o risco maior e tem que entrar no mesmo arco.
+- NÃO tratar purchase-order ou daily-metrics como frente money (não tocam ledger).
+- NÃO ler `bank_*` direto fora de `modules/bank/` ao desenhar a posição financeira do escrow — usar API do Bank.
+- NÃO reabrir runtime de escrow (release/refund) sem KYB-gate + double-entry + lock/revalidação (DECISION-0111 D11).
+- NÃO confundir cashflow projetado com saldo — e NÃO transformá-lo em leitura de saldo do Bank.
+- NÃO declarar G10 dependente disto: DECISION-0115 D5 já excluiu evento econômico real da vertical → escrow/finance-agenda são frentes próprias, não pré-condição de nascimento PF.
+
+### STOPs
+
+- `bank_ledger` é o único SSOT de saldo; nenhuma destas superfícies pode inferir saldo.
+- Escrow write (release/refund) sem `canRepresentActor` + KYB + lock/revalidação transacional → STOP.
+- Qualquer leitura/escrita de `bank_*` fora de `modules/bank/` → STOP (LEI §4.6).
+- Gate de read proposto sem o write path no mesmo arco → STOP (solução financeira incompleta).
+- Sem três paralelas + E2E fail-first + 4 gates + money-live → STOP.
+- Não commitar · não editar código/migration/banco/frontend/STATUS/DT/DECISION/opus/outras memórias · resposta é insumo, não GO.
+
+**Status: RESPONDIDO** · HEAD revalidado `3d8ad25b` (sem divergência). INCONCLUSIVOS declarados: INF-2 (partes no agreement) e INF-1 (estado flags/divergência custody) — precisam de leitura do módulo agreement e confirmação da IA-BANCO-DE-DADOS antes do desenho do gate.
+
+_Memória da IA-DINHEIRO — READ-ONLY. Insumo para IA Diretora/Clayton. Não autoriza execução._
+
+---
+
+## ADENDO À AUDITORIA #4 — fechamento dos INCONCLUSIVOS INF-1 / INF-2 (2026-06-10)
+
+**Revalidação:** reli o último PEDIDO do topo (F-G10-TENANT-SHARED-ISOLATION). `git log` → HEAD vivo **`3d8ad25b`** = HEAD do pedido e da AUDITORIA #4. **ZERO divergência → AUDITORIA #4 NÃO está STALE.** Aproveitei o HEAD estável para fechar materialmente os 2 inconclusivos que eu mesma havia deixado.
+
+**Arquivos lidos agora:** `modules/agreements/agreement.types.ts` · `modules/escrow/escrow.service.ts` (L115-230 flags) · `modules/escrow/escrow.routes.ts` (L74 `/financial-position`) · `escrow.types.ts`.
+
+### INF-2 — RESOLVIDO (partes SÃO resolvíveis): ✅
+
+`Agreement` carrega as partes **diretamente** (`agreement.types.ts`):
+- `requesterActorId: string` (L34) · `providerActorId: string` (L35) · `createdByActorId` (L44) · `finalizedByActorId` (L47).
+
+Logo a cadeia de autoridade do escrow é **provável e viável**: `escrow_accounts.agreement_id` → `agreements` → `{requesterActorId, providerActorId}` → `canRepresentActor(req.user, parte)`. O gate por-recurso (read e write) tem como resolver as partes sem inventar campo novo. **INF-2 fecha: partes resolvíveis via agreement.** (A representabilidade em si segue eixo IA-ACTOR-USERS.)
+
+### INF-1 — RESOLVIDO PARCIAL (default OFF + read-from-bank NÃO ligado): ⚠️
+
+- **`ESCROW_BANK_BRIDGE`** = env-flag puro, **default OFF** (`=== '1' || === 'true'`, falsy quando ausente — `escrow.service.ts:125,215`). Quando ON: release/refund vão **bank-FIRST** (transfer via `bankTransactionService`/`bankAccountService`, exige `toBankAccountId`, com gate de risco financeiro C54 `requireFinancialRiskClearance`). Bom: a escrita, quando ligada, passa pelo Bank com gate.
+- **`ESCROW_READ_FROM_BANK`** = citado **apenas em comentários de tipo** (`escrow.types.ts:47,68`); **`getEscrowFinancialPosition` NÃO existe** (route `/escrow/:id/financial-position` retorna **501** — `escrow.routes.ts:74-76` `TODO(DT-07)`). Ou seja, o caminho canônico "ler custódia do Bank" **não está vivo**.
+- **Consequência material:** hoje os reads de escrow servem as **colunas legadas** `held/released/refunded_amount_cents` de `escrow_accounts` — **NÃO** o saldo de custódia reconciliado com `bank_ledger`. O campo `divergence_cents` (`EscrowFinancialPosition`) é um **tipo sem produtor vivo** → **divergência legacy×bank NÃO é detectada em runtime hoje**.
+
+**Refinamento do veredito (não muda a 1ª frente):** o read-authority gap do escrow é **ainda mais relevante** porque exibe cifras de dinheiro **legadas e não-reconciliadas**, e o endpoint canônico de posição financeira está 501. Ao desenhar a frente escrow, a leitura canônica de saldo deve vir do **Bank via API** (resolver DT-07/`getEscrowFinancialPosition`), não das colunas legadas.
+
+### Resíduo de prova (único ponto que permanece fora do meu alcance read-only)
+
+- **Valor de runtime/deploy** das envs `ESCROW_BANK_BRIDGE` / `ESCROW_READ_FROM_BANK` no ambiente vivo: provei o **default** (OFF / não-ligado) e o **código**, mas o valor efetivo em produção depende do `.env`/deploy → confirmar com IA-BANCO-DE-DADOS/infra antes de assumir estado. Não é bloqueante para classificar a frente; é bloqueante para afirmar "custódia reconciliada" em runtime.
+
+**Status: RESPONDIDO** · HEAD `3d8ad25b` (sem divergência) · INF-1 e INF-2 **fechados materialmente** (resíduo único: valor de env em deploy). Nada além desta memória foi alterado; sem commit.
+
+_Memória da IA-DINHEIRO — READ-ONLY. Insumo para IA Diretora/Clayton. Não autoriza execução._

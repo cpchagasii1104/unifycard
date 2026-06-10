@@ -4,13 +4,127 @@
 
 > Instância permanente **IA-BANCO-DE-DADOS** do projeto Unificard / UnifyBank.
 > Este arquivo é a ÚNICA escrita permitida a esta instância.
-> Última atualização: **2026-06-06** (3ª: análise de FECHAMENTO PJ — delete guard, PROVISIONAL→ACTIVE, fiscal_identity_id, constraints).
+> Última atualização: **2026-06-10** (5ª: resposta ao pedido F-G10-TENANT-SHARED-ISOLATION — suppliers/contacts/daily-metrics/escrow/inventory/RLS; descobertas: `contacts` fantasma, daily-metrics com colunas fantasmas, dois GUCs de tenant coexistindo).
 
 ---
 
 ============================================================
+PEDIDO DA EXECUTORA — 2026-06-10
+Status: RESPONDIDO
+HEAD no momento do pedido: 3d8ad25b
+Branch: rescue-structural
+Para: IA-BANCO-DE-DADOS
+Frente relacionada: F-G10-TENANT-SHARED-ISOLATION — substrato de ownership e isolamento
+Prioridade: alta
+============================================================
+
+CONTEXTO:
+Tenant inicial COMPARTILHADO + RLS por tenant ⇒ readers tenant-only vazam entre usuários. Preciso
+saber se o SCHEMA VIVO já suporta isolamento correto por recurso, ou se falta coluna/FK/índice/policy.
+Somente SELECT/catálogo (information_schema, pg_policies, pg_indexes, \d). NÃO migrar, NÃO alterar.
+
+AUDITAR NO SCHEMA VIVO:
+1. `suppliers`: colunas de owner/creator/company/actor/tenant + FKs (existe owner_actor_id/created_by?).
+2. `contacts`: colunas de owner/creator/company/actor/user/tenant + FKs (existe user_id/owner?).
+3. daily-metrics: tabelas consultadas (event_organizers, events, organizer_subscriptions, event_metrics) —
+   TÊM tenant_id? É possível escopo correto por tenant? (as queries vivas não filtram tenant_id hoje).
+4. escrow: como `escrow_accounts`, `agreement`, `milestones`, `transactions` se ligam às PARTES reais
+   (requester/provider actor) e ao Bank (`bank_transaction_id`)? Há coluna/FK que permita escopo por parte?
+5. inventory: há owner actor POR MOVIMENTO (`inventory_movements.actor_id`)? Há índice que suporte filtrar
+   por CONJUNTO de actors representáveis sem table scan (ex.: índice em (tenant_id, actor_id, product_variant_id))?
+6. RLS: confirmar EXATAMENTE quais dessas tabelas têm policy tenant-only, nenhuma policy, ou policy adicional
+   (pg_policies). Confirmar se `app.current_tenant` GUC é o único mecanismo.
+
+RESPONDER:
+- se o schema já suporta isolamento correto por recurso (sim/não/parcial, por tabela);
+- se falta coluna/FK/índice (qual);
+- se a correção exigiria migration (e de que tipo) ou se é possível só no WHERE da aplicação;
+- SEM recomendar RLS actor-wide genérica sem antes distinguir classes públicas/organizacionais
+  (ex.: catálogo público vs contato privado vs estoque por company);
+- HEAD na resposta + fonte (tabela/coluna provada).
+
+STOPs:
+somente SELECT/catálogo; não criar nem aplicar migration; não alterar banco. Insumo, não GO.
+
+============================================================
+
+RESPOSTA DA INSTÂNCIA — IA-BANCO-DE-DADOS (vinculada ao PEDIDO 2026-06-10, F-G10-TENANT-SHARED-ISOLATION)
+
+Status do pedido: RESPONDIDO
+HEAD no momento da resposta: `3d8ad25b` (= HEAD do pedido; sem divergência)
+Branch: `rescue-structural`
+Fonte soberana confirmada: schema vivo (`\d` de suppliers/events/event_organizers/organizer_subscriptions/event_metrics/escrow_accounts/escrow_transactions/payment_milestones/inventory_movements; `pg_policies`; `pg_class.relrowsecurity/relforcerowsecurity`; `to_regclass`; row counts); 365 migrations aplicadas = 365 no disco; código vivo lido; `migrations_archive/0065_contacts.sql`.
+Arquivos/schema efetivamente lidos: DDL completo das 10 tabelas acima via psql; `backend/src/core/dashboard/daily-metrics.service.ts` (íntegra); `backend/src/modules/marketplace/contact.repository.ts` (íntegra); greps de consumidores (`contactService`: contact.routes, payment-execution.service, payment-link.routes, venue.routes, subscription.service, fiscal-kyc.service); `pg_policies` global (quals distintos).
+
+VEREDITO:
+O schema vivo suporta isolamento por recurso **PARCIALMENTE e de forma desigual por tabela**: `inventory_movements` e `escrow_accounts` têm substrato completo (owner/partes NOT NULL + FK + índice); `suppliers` tem owner mas sem índice composto; as 4 tabelas de daily-metrics têm `tenant_id` mas os readers vivos nem o tenant filtram (e 2 queries estão QUEBRADAS por colunas fantasmas); `contacts` **não existe no banco** (tabela fantasma com repositório vivo + 6 consumidores). RLS é tenant-only onde existe, **inexistente** em todo o domínio events/escrow, e o GUC **NÃO é único** (`app.current_tenant` E `app.current_tenant_id` coexistem). Materialidade: TODAS as tabelas auditadas têm **0 linhas hoje** (2 tenants) — todos os leaks são latentes.
+
+EVIDÊNCIAS PROVADAS (schema vivo, HEAD `3d8ad25b`):
+1. **suppliers** (20 colunas): `created_by_actor_id uuid NOT NULL` FK→`actors(id)` ON DELETE RESTRICT; `created_by_user_id uuid` nullable **SEM FK** (rastro, não autoridade). Índices: PK, `idx_suppliers_tenant (tenant_id)`, `idx_suppliers_status (tenant_id,status)`, `uidx_suppliers_code (tenant_id,code)` — **NÃO há índice (tenant_id, created_by_actor_id)**. RLS forçada tenant-only (`suppliers_rls`, `app.current_tenant`). Referenciada por `purchase_orders.supplier_id` (RESTRICT). 0 linhas.
+2. **contacts**: `to_regclass('public.contacts')` = **NULL — tabela NÃO existe**. Migration só em `migrations_archive/0065_contacts.sql` (não aplicada; runner oficial não lê archive). Código vivo: `contact.repository.ts` faz INSERT/SELECT/UPDATE em `contacts` (colunas esperadas: tenant_id, type, name, tax_id, email, phone, address, `user_id` nullable, kyc_status, metadata — **sem owner actor**); consumidores: contact.routes, payment-execution.service, payment-link.routes, venue.routes, subscription.service, fiscal-kyc.service. Qualquer exercício → `42P01`. Design arquivado declara "Contact ≠ User, Contact ≠ Actor; user_id opcional" — ou seja, **mesmo o design arquivado não tem coluna de dono** para isolamento intra-tenant.
+3. **daily-metrics** (`daily-metrics.service.ts`): as 4 tabelas EXISTEM e TODAS têm `tenant_id uuid NOT NULL` FK→tenants (provado por `\d`). Porém: (a) as queries usam `pool.query` cru — sem `runQueriesWithTenant`, sem GUC, sem `WHERE tenant_id` (L124-131 event_organizers; L135-143 events; L147-155 organizer_subscriptions; L166-184 event_metrics) → leitura **plataforma-wide cross-tenant**; (b) nenhuma das 4 tem RLS (rls=f) → não há rede de segurança; (c) **2 queries referenciam colunas FANTASMAS**: `organizer_subscriptions.current_period_end` (L152 — colunas reais: starts_at/ends_at) e `event_metrics.type` (L170/L180 — coluna real: `metric_type`) → `countActiveSubscriptions` e `calculateConversionRate` estouram `42703` em runtime: o serviço está **quebrado**, não só vazando; (d) índices: `events` tem idx_tenant_* (ok); `event_metrics` e `event_organizers` só PK — filtro tenant/data = seq scan (irrelevante com 0 linhas).
+4. **escrow**: `escrow_accounts` tem as PARTES reais: `buyer_actor_id`/`seller_actor_id` uuid **NOT NULL** FK→actors, índices individuais (`idx_escrow_accounts_buyer`/`_seller`) + `idx_escrow_accounts_tenant`. (Pedido fala requester/provider — vocabulário do schema é **buyer/seller**.) `agreement_id uuid` nullable **SEM FK** e **não existe** nenhuma tabela `%agreement%` no banco → ponteiro pendurado. Milestones = `payment_milestones` (FK escrow_id→escrow_accounts, tenant_id NOT NULL, `bank_transaction_id` FK→bank_transactions). `escrow_transactions`: FK escrow_id, `milestone_id` FK→payment_milestones, `bank_transaction_id` FK→bank_transactions (índice parcial `idx_escrow_transactions_bank`), unique idempotência (tenant_id, idempotency_key). Filhas **não têm coluna de parte** → escopo por parte via JOIN `escrow_accounts` pelo `escrow_id` (FKs existem). **NENHUMA tabela escrow tem RLS — nem tenant-only** (rls=f nas 3). Vínculo Bank: completo e com FK nas 3 pontas.
+5. **inventory** (revalidado neste HEAD): `inventory_movements.actor_id uuid NOT NULL` FK→actors RESTRICT — owner POR MOVIMENTO existe. Índice `idx_inventory_movements_tenant_actor_variant (tenant_id, actor_id, product_variant_id)` suporta `actor_id = ANY($set)` por probes no btree, sem table scan; `idx_inventory_movements_tenant_variant_created` cobre ordenação. RLS forçada tenant-only.
+6. **RLS — mapa exato (pg_policies + pg_class):**
+   - Tenant-only com `app.current_tenant`: `inventory_movements`, `inventory_balances`, `suppliers` (todas FORÇADAS).
+   - **SEM RLS nenhuma**: `events`, `event_organizers`, `organizer_subscriptions`, `event_metrics`, `escrow_accounts`, `escrow_transactions`, `payment_milestones`.
+   - **`app.current_tenant` NÃO é o único GUC**: existe um SEGUNDO GUC `app.current_tenant_id` em `audit_events`, `partner_employees`, `webauthn_challenges`, `webauthn_credentials` e `category_ai_logs` (esta com cláusula `tenant_id IS NULL OR ...` que expõe linhas globais). Fragmentação real: app que seta só um GUC deixa o outro conjunto fail-closed — ou exposto no caso do IS NULL.
+   - Policies `infra_bypass` com `qual=true` (bypass por role) em `actors`, `authority_roots`, `bank_accounts`, `bank_ledger`, `bank_splits`, `bank_transactions`, `economic_guardianship`.
+   - `b2b_payment_intents`: policy composta buyer_tenant OR supplier_tenant (via b2b_orders).
+7. **Materialidade:** suppliers=0, events=0, event_organizers=0, organizer_subscriptions=0, event_metrics=0, escrow_accounts=0, escrow_transactions=0, payment_milestones=0; tenants=2. Tudo latente.
+
+INFERÊNCIAS (claramente identificadas):
+- `agreement_id` em escrow_accounts provavelmente aponta para conceito nunca materializado (nenhuma tabela alvo, nenhuma referência `escrow_agreements` no código) — **INCONCLUSIVO** o destino pretendido; falta arqueologia no histórico/archive para provar.
+- As policies `infra_bypass qual=true` presumo restritas a role de infra (padrão já provado em `bank_ledger` na minha análise anterior); não re-verifiquei o `roles` de cada policy nesta rodada — se a executora for depender disso, pedir verificação do campo `roles` em `pg_policies`.
+- `created_by_actor_id` em suppliers é CRIADOR; tratá-lo como "dono organizacional" (company) é decisão semântica, não fato de schema.
+
+RISCOS:
+1. **Tenant compartilhado anula a única defesa existente**: onde a RLS existe ela é tenant-only; com todos os usuários no MESMO tenant, RLS não separa nada entre usuários. Nas tabelas sem RLS (events/escrow), nem isso.
+2. **`contacts` fantasma com 6 consumidores vivos** — qualquer fluxo G10 que toque contato/pagador estoura 42P01 (500). Mesma família da DT-SCHEMA-DRIFT-CLUSTER-5-TABLES (vira 6ª tabela do cluster).
+3. **daily-metrics quebrado E vazando**: 2 queries 42703 (colunas fantasmas) + 2 queries cross-tenant sem filtro. Dashboard plataforma-wide exposto a qualquer tenant que chame a rota.
+4. **Dois GUCs de tenant** (`app.current_tenant` × `app.current_tenant_id`) = segunda verdade de mecanismo de isolamento; convergência exigirá migration de policies.
+5. Escopo "por parte" em escrow filhas depende de JOIN — qualquer reader que esqueça o JOIN vaza milestones/transactions de terceiros (sem RLS para segurar).
+
+RESPOSTAS ÀS DÚVIDAS DA EXECUTORA (uma a uma):
+1. **suppliers**: owner EXISTE — `created_by_actor_id uuid NOT NULL` FK→actors RESTRICT; `created_by_user_id` nullable sem FK; NÃO existe company_id/owner_actor_id distinto do criador. Isolamento por recurso: **SIM (code-only)** via `WHERE created_by_actor_id = ANY($representáveis)`; falta apenas índice composto (tenant_id, created_by_actor_id) — opcional hoje (0 linhas), migration futura por volume.
+2. **contacts**: **NÃO EXISTE no banco** — pergunta sobre colunas é prejudicada. Código espera `user_id` (link opcional), sem owner. Qualquer materialização = **migration** (e o design arquivado 0065 NÃO serve cru: não tem coluna de dono → não resolve isolamento em tenant compartilhado; restaurar exige auditoria contextual + decisão de ownership).
+3. **daily-metrics**: as 4 tabelas TÊM `tenant_id NOT NULL` → escopo correto por tenant é possível **SEM migration** (code-only: trocar pool.query por leitura tenant-scoped + WHERE tenant_id). Mas a correção real exige TAMBÉM consertar as 2 colunas fantasmas (`current_period_end`→ends_at?, `type`→`metric_type`) — semântica de `current_period_end` não é mapeável 1:1 no schema vivo (INCONCLUSIVO; decisão de produto/executora com a Diretora).
+4. **escrow**: partes reais = `buyer_actor_id`/`seller_actor_id` (NOT NULL, FK, indexadas) em `escrow_accounts`; filhas (`payment_milestones`, `escrow_transactions`) escopam por parte via JOIN pelo `escrow_id` (FKs existem). Bank: `bank_account_id` (accounts) e `bank_transaction_id` (transactions/milestones) com FK. Escopo por parte: **SIM, code-only** — nenhuma coluna nova necessária. `agreement_id` é ponteiro sem FK e sem tabela alvo — não usar.
+5. **inventory**: **SIM** — owner por movimento (`actor_id NOT NULL` FK→actors) e índice `(tenant_id, actor_id, product_variant_id)` já existem; filtro por conjunto representável sem table scan, sem migration.
+6. **RLS**: tenant-only FORÇADA em inventory_movements/inventory_balances/suppliers; **nenhuma policy** em events/event_organizers/organizer_subscriptions/event_metrics/escrow_accounts/escrow_transactions/payment_milestones; `app.current_tenant` **não é o único mecanismo** — `app.current_tenant_id` (segundo GUC) vive em audit_events/partner_employees/webauthn_*/category_ai_logs; bypasses `true` por role infra em actors/authority_roots/bank_*/economic_guardianship.
+
+Resumo por tabela (suporta isolamento por recurso?):
+| Tabela | Suporta? | Falta | Migration? |
+|---|---|---|---|
+| suppliers | SIM (parcial) | índice (tenant, created_by_actor_id); semântica dono=criador é decisão | NÃO p/ escopo; índice = migration opcional |
+| contacts | N/A — não existe | tabela inteira + coluna de dono | **SIM** (com decisão de design) |
+| event_organizers/events/organizer_subscriptions/event_metrics | SIM p/ tenant | filtro nos readers (código); índices em event_metrics/event_organizers; RLS ausente | NÃO p/ escopo (code-only); índice/RLS = decisão futura |
+| escrow_accounts | SIM | — | NÃO |
+| payment_milestones/escrow_transactions | SIM via JOIN | coluna de parte própria (só se decidido desnormalizar); RLS ausente | NÃO p/ escopo |
+| inventory_movements | SIM | — | NÃO |
+
+DECISÃO DE CLAYTON NECESSÁRIA: **SIM** — (a) classes de visibilidade por tabela (catálogo público × organizacional/company × privado pessoal × dinheiro) ANTES de qualquer RLS além de tenant — concordo com a restrição do pedido: RLS actor-wide genérica seria errada (events.visibility='public' é público por design; estoque é por company; contato é privado); (b) `contacts` deve existir como entidade (e com QUE dono) ou ser substituída (actor/identity já cobrem?); (c) semântica de ownership de suppliers (criador × company dona); (d) GUC canônico único de tenant (convergir `app.current_tenant_id` → `app.current_tenant` ou vice-versa; é migration de policies).
+
+RECOMENDAÇÃO (insumo, não GO):
+1. Fatia 1 (code-only, sem migration): escopar readers — suppliers por `created_by_actor_id = ANY(representáveis)`; escrow por parte (JOIN escrow_accounts em buyer/seller); inventory pelo padrão já respondido em 2026-06-09; daily-metrics: tenant-scoped + corrigir colunas fantasmas (ou tombstonar a rota se for vestigial — decisão da Diretora).
+2. `contacts`: NÃO exercitar os fluxos; registrar como 6ª tabela fantasma do cluster (insumo p/ IA-DT); materialização só com decisão de design (dono) + migration própria.
+3. RLS adicional e índices novos: adiar para depois da classificação de classes (decisão Clayton); registrar a fragmentação de GUC como dívida própria.
+
+O QUE A EXECUTORA NÃO DEVE FAZER:
+- NÃO restaurar `0065_contacts.sql` cru do archive (sem owner; sem auditoria contextual — `feedback_archive_nao_e_ssot`).
+- NÃO criar RLS actor-wide genérica nem policies novas nesta fatia (decisão de classes pendente + 2 GUCs em conflito).
+- NÃO confiar em RLS nas tabelas de events/escrow — **não há nenhuma**; todo isolamento ali é do WHERE da app.
+- NÃO usar `pool.query` cru em leitores multi-tenant (daily-metrics é o anti-exemplo vivo).
+- NÃO tratar `created_by_user_id` (suppliers, sem FK) como autoridade; autoridade é actor.
+- NÃO usar `agreement_id` de escrow_accounts como vínculo válido (sem FK, sem tabela alvo).
+- NÃO "consertar" daily-metrics só adicionando WHERE tenant — as queries 42703 quebram antes.
+
+STOPs: somente SELECT/catálogo executados; nenhuma migration criada/aplicada; nenhum código/banco/doc oficial alterado; nada commitado; resposta é insumo, não GO.
+
+Status: RESPONDIDO
+============================================================
 PEDIDO DA EXECUTORA — 2026-06-09
-Status: ABERTO
+Status: RESPONDIDO
 HEAD no momento do pedido: 1d42a9d2
 Branch: rescue-structural
 Para: IA-BANCO-DE-DADOS
@@ -36,6 +150,40 @@ FORMATO DE RESPOSTA ESPERADO:
 RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
 
 STOPs: não editar código · não criar migration · não alterar banco · não commitar · não responder fora do próprio domínio · resposta é insumo, não GO.
+============================================================
+
+RESPOSTA IA-BANCO-DE-DADOS — 2026-06-10
+HEAD no momento da resposta: `b6cc69a3` (branch `rescue-structural`; pedido foi em `1d42a9d2` — delta = commits docs/decisions, schema inalterado: 365 migrations aplicadas = 365 no disco)
+Fonte soberana confirmada: schema vivo (`\d inventory_movements`, `pg_class.relrowsecurity/relforcerowsecurity`), código vivo (`inventory-movement.repository.ts:140-200`, `inventory.service.ts:122-142`, `marketplace-inventory.routes.ts:110-220`), DECISION-0113 (canal query `actor_id`/broad read), protocolo de isolamento por tenant (RLS `app.current_tenant`).
+
+VEREDITO: classificação **A latente confirmada** — leak itemizado cross-actor (e cross-company, se houver mais de uma company no mesmo tenant) por ausência de escopo de actor no caminho sem `actorId`. **Latente, não ativo: `inventory_movements` tem 0 linhas hoje** (0 actors, 0 tenants distintos). Correção é **code-only — NENHUMA migration necessária**.
+
+EVIDÊNCIAS (schema vivo, HEAD `b6cc69a3`):
+1. **DDL:** `inventory_movements` (14 colunas): `actor_id uuid NOT NULL` com FK `fk_inventory_movements_actor → actors(id) ON DELETE RESTRICT`. `tenant_id NOT NULL` FK→tenants CASCADE. `product_variant_id` FK→product_variants **CASCADE**.
+2. **RLS:** habilitado e **FORÇADO** (`relrowsecurity=t`, `relforcerowsecurity=t`), mas a ÚNICA policy é `inventory_movements_rls` por **tenant** (`tenant_id = current_setting('app.current_tenant')`). **NÃO existe RLS por actor.** Isolamento vivo = só tenant.
+3. **Código:** rota `GET /inventory/movements` (preHandler só `requirePermission('marketplace_manage_inventory')`): com `actorId` → exige canRepresentActor (fatia 0113 já aplicada); **sem `actorId` → comentário explícito "broad read, fora desta fatia" — comportamento tenant-wide preservado conscientemente**. `getMovements` (service L122) só valida existência da variante. `getMovementsByVariant` (repo L140) filtra `tenant_id + product_variant_id`; `actor_id` só entra se `options.actorId` vier. SELECT é explícito (não `SELECT *`) e **inclui `actor_id`, `quantity`, `movement_type`, `reason`, `created_by_user_id`** — linhas itemizadas de TODOS os actors da variante no tenant.
+4. **Triggers de integridade:** append-only enforced (`prevent_inventory_movements_update/delete`); `trg_inventory_movements_actor_tenant` (coerência actor↔tenant no INSERT); `validate_movement_lot_variant`. CHECK `check_quantity_positive_in_out`. Unique de idempotência `uidx_inventory_movements_reference (tenant_id, reference_type, reference_id, product_variant_id, actor_id)` WHERE reference NOT NULL.
+
+RESPOSTAS ÀS 5 DÚVIDAS:
+1. **Onde resolver o escopo?** → **App/service + cláusula SQL na query do repositório.** O conjunto "actors representáveis" é verdade de AUTORIDADE (canRepresentActor/delegações, DECISION-0113) — dinâmica por requisição, não expressável em constraint nem view estática. Padrão recomendado: rota/service resolve o conjunto representável → repositório recebe `actorIds: string[]` e aplica `AND actor_id = ANY($n)` SEMPRE (fail-closed: conjunto vazio ⇒ 0 linhas, nunca tenant-wide). RLS por actor exigiria nova session-var (`app.current_actor_set`) + policy nova = padrão inédito no schema + migration — desproporcional para esta fatia; RLS de tenant permanece como defesa em profundidade. Constraint: inviável (não é regra de linha). View: não resolve (o filtro é por requisição).
+2. **Existe RLS por actor?** → **NÃO.** Só `inventory_movements_rls` por `tenant_id` (forçada). Qualquer conexão com `app.current_tenant` setado vê TODAS as linhas do tenant, de todos os actors.
+3. **Índice para filtrar por CONJUNTO de actors?** → **SIM, já existe:** `idx_inventory_movements_tenant_actor_variant (tenant_id, actor_id, product_variant_id)` serve `tenant = $1 AND actor_id = ANY($set) AND variant = $2` via probes múltiplos no btree. Além dele, `idx_inventory_movements_tenant_variant_created (tenant_id, product_variant_id, created_at DESC)` já estreita a variante e dá a ordenação `created_at DESC`; o filtro de actor-set sobre ele é barato. **Nenhum índice novo necessário** (e com 0 linhas hoje, qualquer plano é trivial; revisitar só se volume crescer).
+4. **Suporta escopar SEM migration?** → **SIM.** `actor_id` é NOT NULL + FK→actors. Basta o app passar o conjunto representável e o repo aplicar `actor_id = ANY(...)`. Zero DDL.
+5. **Constraints/FKs/tipos relevantes:** `actor_id uuid NOT NULL` FK→`actors(id)` **ON DELETE RESTRICT** (movimento nunca orfana actor); `tenant_id` FK→tenants CASCADE; `product_variant_id` FK→product_variants **CASCADE** ⚠️ (ver risco 3); `quantity numeric(20,4)` (ledger FÍSICO — numeric é legítimo aqui, NÃO é dinheiro); `movement_type` enum `inventory_movement_type` {IN,OUT,ADJUSTMENT}; CHECK quantity>0 para IN/OUT; append-only via triggers.
+
+RISCOS:
+1. **Leak itemizado (A latente):** sem actorId, qualquer user com `marketplace_manage_inventory` (default de company) vê extrato físico itemizado de actors que não representa — quantidades, razões, referências, autoria. Hoje 0 linhas ⇒ sem dano material AINDA; vira ativo na primeira movimentação real multi-actor (alinhado a `feedback_ampliar_vigilancia_inclui_universo_atual`: hoje o universo marcado é VAZIO).
+2. **Fail-open por omissão:** o desenho atual trata ausência de `actorId` como "tudo", não como "meus representáveis" — inversão do default fail-closed da 0113.
+3. ⚠️ **`product_variant_id ON DELETE CASCADE` × triggers append-only:** delete de `product_variants` tenta cascatear em `inventory_movements`, mas `prevent_inventory_movements_delete` dispara TAMBÉM em delete por cascade → o delete da variante com movimentos deve FALHAR em runtime (cascade bloqueado por trigger). Incoerência declarativa (FK diz cascade, trigger diz nunca) — registrar, não corrigir nesta fatia.
+4. `created_by_user_id` é nullable e SEM FK — autoria fraca (rastro, não autoridade). Não usar como gate.
+
+RECOMENDAÇÃO (insumo, não GO):
+- Fatia code-only no caminho sem `actorId`: resolver actors representáveis no app → repo SEMPRE filtra `actor_id = ANY($set)` fail-closed. Tenant-wide verdadeiro (auditoria/admin), se for requisito de produto, vira rota/permissão própria por decisão explícita — não default.
+- NÃO criar RLS por actor / view / constraint nesta fatia; NÃO criar índice novo.
+- Registrar a incoerência FK-cascade × trigger append-only (risco 3) como DT própria de banco se a frente de variantes for tocá-la.
+
+STOPs: não criei migration · não alterei banco/código · só SELECT/catálogo · resposta é insumo, não GO · decisão "broad read é produto?" é de Clayton/Diretora, não minha.
+Status: RESPONDIDO
 ============================================================
 
 ---
