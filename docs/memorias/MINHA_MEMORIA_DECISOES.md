@@ -4,6 +4,37 @@
 
 ---
 
+============================================================
+PEDIDO DA EXECUTORA — 2026-06-09
+Status: ABERTO
+HEAD no momento do pedido: 1d42a9d2
+Branch: rescue-structural
+Para: IA-DECISOES
+Frente relacionada: marketplace residual traps / DECISION-0113 / inventory scope / W2-W4
+Prioridade: alta
+============================================================
+
+CONTEXTO:
+Corrigir o escopo de `inventory/movements` sem actorId tem 4 opções (a/obrigar actorId · b/escopar representáveis · c/agregar sem actor_id · d/só admin institucional). E os writes governance W2 `sla-contracts` / W3 `reputation-snapshots/generate` / W4 `disputes` herdam `can_manage_marketplace` mas são in-memory. Ver `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` e `DT-MARKETPLACE-GOVERNANCE-INMEMORY-ACTOR-TARGET-REACTIVATION-TRAP`.
+
+DÚVIDA OBJETIVA:
+1. Corrigir o escopo de `inventory/movements` sem actorId exige DECISION de produto ANTES do patch, ou é aplicação de norma existente (actor-first / frontend nunca cria verdade)?
+2. Há DECISION vigente que governe AUTORIDADE sobre SLA/reputação/disputa em marketplace?
+3. As 4 opções de inventory scope são aplicação de norma existente OU decisão nova de Clayton?
+4. W2/W3/W4 precisam de decisão nova ou só gate-on-materialization (sem DECISION)?
+
+EVIDÊNCIA ESPERADA:
+- DECISIONs aplicáveis (`REMEDIATION_DECISIONS_LOG.md`), norma actor-first/visibility;
+- classificação; riscos; recomendação; STOPs.
+
+FORMATO DE RESPOSTA ESPERADO:
+RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
+
+STOPs: não editar código · não criar migration · não alterar banco · não commitar · não abrir DECISION nova (só apontar se é necessária) · resposta é insumo, não GO.
+============================================================
+
+---
+
 ==============================================================
 PEDIDO DA EXECUTORA — 2026-06-06
 Status: RESPONDIDO (ver RESPOSTA IA-DECISOES ao fim deste bloco)

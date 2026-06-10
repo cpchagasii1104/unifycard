@@ -9,6 +9,36 @@
 
 ---
 
+============================================================
+PEDIDO DA EXECUTORA — 2026-06-09
+Status: ABERTO
+HEAD no momento do pedido: 1d42a9d2
+Branch: rescue-structural
+Para: IA-DOCUMENTOS
+Frente relacionada: marketplace residual traps / método de memórias
+Prioridade: média
+============================================================
+
+CONTEXTO:
+Estou roteando dúvidas às especialistas via blocos PEDIDO nas memórias. Cada uma responde na própria memória. Depois preciso consolidar — sem que a consolidação vire norma soberana acidental.
+
+DÚVIDA OBJETIVA:
+1. Onde as respostas das especialistas devem ser consolidadas depois: memória da executora, `REMEDIATION_DT_LOG.md`, `STATUS_EXECUCAO_GLOBAL.md`, DECISION ou `README.md`?
+2. Como impedir que a consolidação transforme memória em norma soberana?
+3. Se as especialistas respondem nas próprias memórias, qual é a forma documental CORRETA de a executora registrar o resumo (ponteiro? cópia? entrada em STATUS?)?
+
+EVIDÊNCIA ESPERADA:
+- hierarquia documental, regra de precedência, camadas (norma/decisão/status/memória);
+- classificação; riscos; recomendação; STOPs.
+
+FORMATO DE RESPOSTA ESPERADO:
+RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
+
+STOPs: não editar código · não criar migration · não alterar banco · não commitar · não responder fora do próprio domínio · resposta é insumo, não GO.
+============================================================
+
+---
+
 ## Papel da instância
 
 Sou a instância **permanente de Documentação**. NÃO sou a executora principal.
@@ -478,3 +508,65 @@ Decidir *quais* verticais priorizar, sequência de raízes, ou tocar runtime/sch
 **Base normativa cruzada (≥7 docs soberanos):** `03_IDENTITY_CANONICA`, `02_ACTORS_SSOT`, `IDENTITY_SSOT_PRECEDENCE`, `08_AUTORIDADE_CANONICA`, `CORE_IDENTITY_AND_ACTORS_CONTRACT`, `LEI_DE_COERENCIA_SISTEMICA §4.8/§4.9`, `06_GOVERNANCA_CANONICA`, `CORE_IMUTAVEL`, `SYSTEM_REMEDIATION_PLAN §15`.
 
 **Natureza deste registro:** insumo operacional / mapa de orientação — **não** é norma soberana, **não** é cartório. Se algum destes pontos precisar virar regra vigente (ex.: institucionalizar o termômetro sweep:vertical, ou a sincronização periódica do índice), exige **frente documental própria** + promulgação de Clayton em `REMEDIATION_DECISIONS_LOG` / STATUS. Cartório vem depois.
+
+---
+---
+
+# REFERÊNCIA — Eixo Semântica / CONCEPT / Nomenclatura (2026-06-09)
+
+> **Por que esta entrada existe:** Clayton sinalizou que, depois de Actor+User+Authority, o próximo eixo mais estratégico é **Semântica/CONCEPT/Nomenclatura** — a "guardiã do dicionário do sistema". Pesquisei a norma para confirmar/aterrar a tese. Confirma-se com força: a tese não é opinião, é lei literal. READ-ONLY; síntese, não norma soberana.
+
+## TL;DR para futuras instâncias
+- A ordem **SEMÂNTICA → IDENTIDADE → AUTORIDADE → TEMPO → ESTADO → FINANCEIRO → EVENTO** é **norma literal** (`LEI_COERENCIA §4.10.6`, linhas 464-467): "sem `concept_ref` válido, a operação financeira carece de significado".
+- O eixo Semântica é o **único com a norma já FECHADA/CONGELADA** (`18_DOMAIN_ONTOLOGY v1.0.6`, risco "BAIXO/quase zero", "agora é EXECUÇÃO"). A instância seria **guardiã/executora de convergência**, NÃO redesenhadora de ontologia.
+- Risco do eixo é **silencioso**: erro semântico não derruba o sistema — faz "funcionar com a coisa errada no lugar certo". Por isso é #1 em causalidade e ~#3 em risco.
+- **Armadilha-espelho dos 3 IDs:** `concepts.domain` é deliberadamente multi-camada (DECISION-0105) — **NÃO colapsar**; `financeiro-*` é viga do Bank, **não renomear**.
+
+## O modelo canônico (o "dicionário") — `18_DOMAIN §4/§19-23` + Lei 7
+6 camadas, papéis não-sobrepostos:
+- **LAYER 1 CONCEPT** (`concepts`, canonical_id imutável) = SSOT semântico, "o que é".
+- **LAYER 2 TREE** (`categories`) = navegação operacional única (NÃO identidade).
+- **LAYER 3 CONTEXT** = personal/professional/institutional (aplicação).
+- **LAYER 4 INTENT** = ação (comprar/contratar/aprender).
+- **LAYER 5 ATTRIBUTES** = metadados planos (≠ identidade).
+- **LAYER 6 GRAPH** (`concept_relations`, triple-store) = relações entre CONCEPTs já identificados.
+- Cross-cutting: **actor ≠ concept** (identidade ≠ semântica); **status/state ≠ concept** (state_machine deriva do execution_model, não do concept); **`canonical_product` ≠ CONCEPT** (`§5.1.1` materialização operacional; CONCEPT prevalece).
+
+## Perguntas-guardiã → camada SSOT (mapa de triagem)
+concept? → LAYER 1 · categoria? → LAYER 2 (navegação) · contexto? → LAYER 3 · oferta/intent? → LAYER 4 · metadata indevida? → LAYER 5 vs jsonb · actor/user? → eixo IDENTIDADE §4.8 · status/estado? → execution_model/state · produto/serviço? → N0 `produtos-e-comercio` vs `servicos` (dois trilhos, §7) · segunda verdade? → Lei 7 / PROHIBITED_STRUCTURES.
+
+## Resolver soberano transacional — `LEI §4.10`
+- `concept-offer-refs.adapter.ts` é o **único** que resolve `concept_ref` em fluxo transacional (intent/checkout/offer/pedido).
+- Encadeamento obrigatório: `product → canonical_products(READY) → concept_id → concept_ref` (READY = `concept_resolution_status='confirmed'` + concept_id not null + name not blank + category_id not null + type='INDUSTRIAL').
+- Proibido: ler `canonical_products.concept_id` direto como decisão; bypass via SQL ad-hoc; `ORDER BY` para "escolher" canônico.
+
+## O caso `hybrid` (Clayton estava certo) — já mapeado e parcialmente governado
+- **`DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN`** — "ambos/hybrid como conceito atômico" é o anti-padrão. Certo: produto e serviço são **dois trilhos** (`18_DOMAIN §7`, N0 separados); "ambos" = **composição**, não conceito.
+- **`DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK`** → **GOVERNED por DECISION-0106** (mapa `market→produtos-e-comercio`, `services→servicos`, `events→cultura-lazer-e-eventos`, `jobs`=capability, `real_estate`/`vehicles`=regulado; `vehicles` NÃO mapeia `mobilidade-e-logistica` — load-bearing do rides). NÃO CLOSED: falta consumo downstream.
+- **DECISION-0102** — domínio de atuação **derivado de CONCEPT + governado pelo backend**, não checkbox de frontend (`DomainSelector` livre = drift a neutralizar).
+
+## Armadilha `concepts.domain` (a lição dos 3 IDs se repete)
+- **`DT-CONCEPTS-DOMAIN-LAYER-OVERLOAD` → GOVERNED por DECISION-0105:** `concepts.domain` é **dimensão multi-camada legítima** = N0 de atuação + **`financeiro-*` (viga Bank/RFC C2, INTOCÁVEL)** + `item-comercial` (SKU). NÃO conflatar `produtos-e-comercio` (tipo de comércio) com `item-comercial` (mercadoria/SKU).
+- **Resíduo aberto (legítimo):** refletir formalmente as 3 camadas em `18_DOMAIN_ONTOLOGY` (0105 não CLOSED por falta desse reflexo normativo).
+
+## Trabalho que a instância de Semântica herdaria (mapa)
+- Reflexo normativo das 3 camadas de `concepts.domain` (resíduo 0105).
+- Consumir DECISION-0106 downstream: `concept/company_type → allowed domains`; `DomainSelector` derivar de N0; remover `hybrid` atômico.
+- `categories → concept_id` (§15 passo 4); eliminar `categoryAffinities` (passo 5).
+- `DT-SERVICE-RAMO-TAXONOMY-FORK`, `DT-PJ-CANONICAL-CATALOG-SHARED-ITEMS`.
+
+## STOPs documentais (eixo Semântica)
+- **Ontologia CONGELADA** — mudar N0/camadas exige RFC + comitê (`18_DOMAIN §14`); a instância converge runtime, não redesenha.
+- **CONCEPT só nasce pelo pipeline de governança** (`§5.5`, trigger `0075`, `concept-governance.service`); proibido criar em service/handler/script.
+- **NÃO colapsar `concepts.domain`** (multi-camada); **`financeiro-*` não renomear** (viga Bank).
+- **`slug`/`category_id`/nome ≠ identidade** (Lei 7, §20); `canonical_product` ≠ CONCEPT (§5.1.1).
+- **Designed ≠ live:** `18_DOMAIN` descreve serviços aspiracionais (`concept-governance-service`, `graph-service`); §15 marca alguns FEITO (triggers 0073-0077), outros ALTA/EM-CURSO — verificar schema/runtime vivo antes de tratar o doc como verdade de runtime ("mais desenhado que rodando").
+
+## Documentos lidos (esta pesquisa)
+- `docs/01_normative/18_DOMAIN_ONTOLOGY_UNIFICARD.md` (integral, v1.0.6 congelado) — camadas, CONCEPT SSOT, governança, GRAPH, N0, §15 plano, §18 veredito
+- `docs/01_normative/LEI_DE_COERENCIA_SISTEMICA §4.10` (resolver soberano, encadeamento, §4.10.6 ordem causal)
+- `REMEDIATION_DT_LOG` cluster raiz-D (HYBRID-ATOMIC, DOMAIN-VOCABULARY-FORK, CONCEPTS-DOMAIN-LAYER-OVERLOAD, ONBOARDING-DOMAIN-SELECTION, CANONICAL-CATALOG, SERVICE-RAMO) + DECISIONs 0102/0105/0106 (referências)
+- (cruzado: Lei 7 `LEIS_OPERACIONAIS`, `07_NOMENCLATURA_CANONICA`, `PROHIBITED_STRUCTURES`, `SSOT_REGISTRY` catálogo/CONCEPT)
+
+## Veredito
+Priorização de Clayton **correta e ancorada na norma**. Semântica = maior alavancagem por menor risco normativo (norma pronta/congelada; trabalho é convergência, não design). Disciplina-mãe: **guardar o dicionário sem colapsar o que é multi-camada de propósito** (a lição dos 3 IDs reaparece em `concepts.domain`). Decisão de *quando/sequência* = Clayton + IA-DT/IA-BANCO; IA-DOCUMENTOS mapeia terreno e risco de leitura.

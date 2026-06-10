@@ -16,6 +16,36 @@
 
 ---
 
+============================================================
+PEDIDO DA EXECUTORA — 2026-06-09
+Status: ABERTO
+HEAD no momento do pedido: 1d42a9d2
+Branch: rescue-structural
+Para: IA-DINHEIRO
+Frente relacionada: marketplace residual traps / DECISION-0113 / W5-W6
+Prioridade: bloqueante
+============================================================
+
+CONTEXTO:
+Os writes marketplace W5 `POST /disputes/:disputeId/resolve` (resolution_type refund/partial_refund/credit, `amountCents`/`currency`) e W6 `POST /payment-plan/:paymentPlanId/apply-sla-penalties` (manipula `split.amountCents`/penalty) hoje são in-memory (`marketplace-sla.service.ts` Maps `.set()`). Classifiquei ambos como M (money-aware) e PAREI — ver `DT-MARKETPLACE-GOVERNANCE-INMEMORY-ACTOR-TARGET-REACTIVATION-TRAP` (STOP money-aware). Capability é `can_manage_marketplace`/`can_hold_assets` = default de company.
+
+DÚVIDA OBJETIVA:
+1. W5 (refund/credit) e W6 (split/penalty) tocam ou DEVERIAM tocar `bank_ledger` quando materializarem? Ou ficam em projeção comercial fora do Bank?
+2. Como estruturar as três paralelas (norma/autoridade · schema/código/legado · concorrência/gates/regressão) para W5/W6 antes de qualquer patch?
+3. `redirect_to` (regional_fund/customer/platform) das penalties de SLA é liquidação, promessa de liquidação, ou só metadado de política?
+4. Quais STOPs financeiros são obrigatórios ANTES de qualquer patch em W5/W6?
+
+EVIDÊNCIA ESPERADA:
+- norma/DECISION aplicável (Lei 5 SSOT, DECISION-0114, refund/recovery), se houver;
+- código/schema vivo (`bank_ledger`/`bank_splits`/payout), se necessário;
+- classificação; riscos; recomendação; STOPs.
+
+FORMATO DE RESPOSTA ESPERADO:
+RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
+
+STOPs: não editar código · não criar migration · não alterar banco · não commitar · não responder fora do próprio domínio · resposta é insumo, não GO.
+============================================================
+
 ## 1. Papel da instância
 
 GUARDIÃ READ-ONLY do domínio que move, reserva, retém, debita, liquida ou projeta dinheiro:
@@ -256,5 +286,68 @@ Nunca implementar. Nunca criar migration. Nunca rodar SQL destrutivo.
 
 ### Próxima frente recomendada (NÃO executar)
 Auditoria/fechamento de **`DT-FINANCIAL-SURFACE-ACTIONCONTEXT-ACTORID-UNVALIDATED`** (achado #1) sob a lente 0113 — antes de `F-ACTOR-WALLET-PAYOUT-WIRING`. É autoridade, exige as três paralelas + E2E fail-first por rota; separar o que toca `bank_ledger` real (dispute reversal) do que toca substrato latente (AP/AR/region/escrow).
+
+---
+
+## DOUTRINA — DINHEIRO É O EIXO MAIS PERIGOSO (Clayton, 2026-06-09)
+
+**Princípio (vinculante na minha postura de guardiã):** o eixo dinheiro é o de maior risco
+material do sistema — transação, saldo, liquidação. Deslize aqui = prejuízo real, fraude ou
+problema legal. Causas típicas: lógica de movimentação errada, **permissão mal definida**, falha
+de segurança. Por isso, **qualquer** mudança no eixo dinheiro exige tripla checagem e validação
+multi-etapa. Não existe "rapidinho" no dinheiro.
+
+**Como isto vira método (o que eu exijo antes de qualquer GO que toque dinheiro):**
+1. **Três paralelas** obrigatórias: (A) norma/nomenclatura/autoridade · (B) schema/código/legado ·
+   (C) concorrência/gates/regressão. Nunca micro-fatia sem prova.
+2. **E2E fail-first específico** por fluxo + `money-live` + `canal3-money` + 4 gates âncora verdes.
+3. **Separar o que toca `bank_ledger` real do que toca substrato latente/legado** (AP/AR, region
+   legacy, escrow próprio) — severidade e desenho mudam conforme isso.
+4. **Prova server-side de autoridade** em toda ação financeira (req.user + canRepresentActor/
+   canManageCompany/self) — actorId declarado pelo cliente é HINT, nunca autoridade (DECISION-0113).
+5. **Revalidar HEAD/schema/código vivo** a cada fatia — memória é insumo, não norma (ver `README.md`).
+6. **Verificação adversarial (Yala) sela PROVA, não narrativa.** Nada "fechado" sem selo + prova material.
+
+**Ligação direta com os achados desta auditoria:** o risco "permissão mal definida → fraude/legal"
+NÃO é teórico aqui — é exatamente o achado **R1** (rotas vivas de superfície financeira confiando em
+actorId declarado pelo cliente, fail-open). É o vazamento que mais casa com esta doutrina e por isso
+é a **próxima frente recomendada** — mas a fechar com as três paralelas, nunca no impulso.
+
+**Fronteira de eixo (protocolo `README.md`):** a parte de AUTORIDADE de R1 (representabilidade,
+`canRepresentActor`, 5 canais DECISION-0113) é eixo da **IA-ACTOR-USERS**; eu sou dona do fato
+"isto está numa superfície que move dinheiro / substrato latente vs bank_ledger real". R1 cruza os
+dois eixos → **ambas respondem, IA Diretora consolida**. Não fecho autoridade sozinha.
+
+---
+
+## PROPOSTA À IA DIRETORA #1 — Sequenciamento da próxima frente do eixo dinheiro (2026-06-09)
+
+**HEAD:** `31ee7ff1` · **branch:** `rescue-structural` · **migrations:** 368. _Insumo, não GO. Revalidar HEAD vivo antes de sequenciar._
+
+**Aprendizado-chave consolidado:** o cofre (núcleo Bank) está materialmente blindado; o risco real do eixo
+migrou para as **bordas** — autoridade nas rotas de superfície + balance paralelo + observabilidade async.
+A doutrina "dinheiro é o eixo mais perigoso → tripla checagem" se materializa primeiro em **R1**.
+
+**Recomendação de ordem (prioridade decrescente):**
+1. **R1 — `DT-FINANCIAL-SURFACE-ACTIONCONTEXT-ACTORID-UNVALIDATED`** (autoridade fail-open em rotas vivas de
+   dinheiro de empresa). PRIORIDADE 1. **Cross-eixo com IA-ACTOR-USERS** (representabilidade é eixo dela) →
+   ambas respondem, Diretora consolida. Fatiar por rota; **separar dispute-reversal (toca bank_ledger real)
+   do resto (AP/AR/region/escrow = substrato latente)**. Fechar ANTES de payout wiring.
+2. **R2 — `DT-REGIONAL-FUND-PARALLEL-BALANCE`** (regional_funds.total_balance_cents UPDATE in-place fora do
+   Bank). Exige decisão de modelo (alinhar DECISION-0114 / SSOT_REGISTRY §5.9.2). Não é "fix", é decisão.
+3. **R3/R4 — janelas async + ledger-sem-evento** (payout/settlement workers). DT já OPEN; medir frequência
+   antes de endurecer worker (risco de regressão no money).
+4. **R5 — bug `economic-overview.projector.ts` (coluna `amount` inexistente + parseFloat em centavos).**
+   Pequeno e isolado, mas é crash + float em dinheiro — pode entrar como fatia cirúrgica independente.
+5. **R6 (SELECT direto a bank_* fora do Bank) e R7 (constraints fracas payout/settlement)** — convergência,
+   não urgência. Sugerir virar gate (SELECT boundary) e migration de hardening forward-only.
+
+**Frente grande (F-ACTOR-WALLET-PAYOUT-WIRING): CONGELADA até R1 fechar.** Não plugar actor_wallet no trilho
+legado seller_available→seller_payout. Premissa de autoridade tem que estar sólida antes de mover saque.
+
+**STOPs que mantenho:** sem execução por mim; nenhum endpoint de R1 fechado sem três paralelas + E2E
+fail-first + selo Yala; sem mexer em flag/region sem decisão de modelo; grupo-dinheiro sem decisão própria.
+
+**Lacuna normativa a decidir:** criar (ou não) `AUTHORITY_MAP_FINANCIAL_v1.md` — ausente; bootstrap o cita.
 
 _Memória da IA-DINHEIRO — READ-ONLY. Orienta veredito, não autoriza execução._

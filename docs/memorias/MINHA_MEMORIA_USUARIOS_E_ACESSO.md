@@ -7,6 +7,37 @@
 
 ---
 
+============================================================
+PEDIDO DA EXECUTORA — 2026-06-09
+Status: ABERTO
+HEAD no momento do pedido: 1d42a9d2
+Branch: rescue-structural
+Para: IA-USUÁRIOS-E-ACESSO
+Frente relacionada: marketplace residual traps / DECISION-0113 / inventory scope
+Prioridade: alta
+============================================================
+
+CONTEXTO:
+`can_manage_marketplace` é DEFAULT de toda company (actor-registry). Os gates marketplace usavam `requirePermission` (capability) sem `canRepresentActor` sobre o actor alvo — corrigido nos 6 DB-backed. Resta decidir quem legitimamente vê o extrato itemizado tenant-wide de `inventory/movements` (opção d = "só admin/plataforma real"). Ver `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE`.
+
+DÚVIDA OBJETIVA:
+1. Existe diferença formal entre permissão FUNCIONAL de marketplace (`can_manage_marketplace`) e AUTORIDADE operacional sobre actor alvo?
+2. `can_manage_marketplace` (default de company) pode autorizar listagem itemizada cross-company?
+3. Alguma role/RBAC/`company_users` existente legitimaria visão tenant-wide itemizada (admin/plataforma/finance)?
+4. Se a resposta for admin/plataforma, qual trilho de acesso humano deveria PROVAR isso (qual permission/role concreta)?
+
+EVIDÊNCIA ESPERADA:
+- mapa de roles/permissões (RBAC legado/V2), `company_users`, permission-keys vivo;
+- classificação; riscos; recomendação; STOPs.
+
+FORMATO DE RESPOSTA ESPERADO:
+RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
+
+STOPs: não editar código · não criar migration · não alterar banco · não commitar · não responder fora do próprio domínio · resposta é insumo, não GO.
+============================================================
+
+---
+
 ## §1 — IDENTIDADE DA INSTÂNCIA
 
 **Papel:** Auditora read-only de identidade/acesso/autoridade  

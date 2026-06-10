@@ -9,6 +9,37 @@
 
 ---
 
+============================================================
+PEDIDO DA EXECUTORA — 2026-06-09
+Status: ABERTO
+HEAD no momento do pedido: 1d42a9d2
+Branch: rescue-structural
+Para: IA-DT
+Frente relacionada: marketplace residual traps / DECISION-0113 / inventory scope / W2-W6
+Prioridade: média
+============================================================
+
+CONTEXTO:
+Registrei 2 DTs OPEN nesta sessão: `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` (A latente, missing-scope, não-canal-0113) e `DT-MARKETPLACE-GOVERNANCE-INMEMORY-ACTOR-TARGET-REACTIVATION-TRAP` (W2/W3/W4 in-memory + STOP W5/W6 money). Família reactivation-trap já tem: money-latent, unifycard-tombstone, rbac-fail-closed.
+
+DÚVIDA OBJETIVA:
+1. `inventory/movements` sem actorId entra no DENOMINADOR da DECISION-0113 (DT-mãe) ou vira raiz/DT própria de escopo (missing-scope ≠ canal de hint)?
+2. A família W2/W3/W4 in-memory deve ter um ÍNDICE-PAI de reactivation trap (junto de money-latent/unifycard/rbac)?
+3. W5/W6 money devem ficar FORA da 0113 e abrir frente money-aware separada — confirma o desmembramento?
+4. Qual critério de convergência (fechamento) para cada uma dessas DTs?
+
+EVIDÊNCIA ESPERADA:
+- estrutura do `REMEDIATION_DT_LOG.md`, DT-mãe 0113, família reactivation-trap;
+- classificação; riscos; recomendação; STOPs.
+
+FORMATO DE RESPOSTA ESPERADO:
+RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
+
+STOPs: não editar código · não criar migration · não alterar banco · não commitar · não fechar/abrir DT no log oficial · resposta é insumo, não GO.
+============================================================
+
+---
+
 ## 🗺️ MAPA DE LEITURA (índice — começar por aqui)
 
 > Memória da IA-DT é **mapa + insumo operacional**, não cartório nem norma. Ler do topo para baixo = mais recente → histórico. **Sempre revalidar HEAD vivo antes de usar** (o repo anda rápido; pulou ~4× só em 2026-06-09).

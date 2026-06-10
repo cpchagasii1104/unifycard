@@ -10,6 +10,37 @@
 
 ---
 
+============================================================
+PEDIDO DA EXECUTORA — 2026-06-09
+Status: ABERTO
+HEAD no momento do pedido: 1d42a9d2
+Branch: rescue-structural
+Para: IA-ACTOR-USERS
+Frente relacionada: marketplace residual traps / DECISION-0113 / inventory scope
+Prioridade: alta
+============================================================
+
+CONTEXTO:
+Fechei e selei os 6 caminhos marketplace actor-target DB-backed com `canRepresentActor` (body/params/query). Restou `GET /inventory/movements` SEM `actorId`: a chamada é variant-wide, NÃO há actor alvo único na entrada, e retorna linhas itemizadas de todos os actors. Classifiquei A latente por ausência de escopo (não um canal 0113 clássico). Ver `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE`.
+
+DÚVIDA OBJETIVA:
+1. Existe helper canônico para listar TODOS os actors representáveis por um `user_id` num tenant (para a opção "escopar aos representáveis")?
+2. `canRepresentActor` é o primitivo correto para os 3 sabores (body.actor_id, params.actorId, query.actorId) — mesma semântica de autoridade?
+3. `inventory/movements` sem actorId: classificar como ausência de escopo interno, canal DECISION-0113, ou raiz própria?
+4. Qual a estratégia correta quando NÃO há actor alvo único na entrada (lista variant-wide)?
+
+EVIDÊNCIA ESPERADA:
+- norma/DECISION-0113, contrato de representabilidade, código vivo (`authorization.service`/`canRepresentActor`);
+- classificação; riscos; recomendação; STOPs.
+
+FORMATO DE RESPOSTA ESPERADO:
+RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
+
+STOPs: não editar código · não criar migration · não alterar banco · não commitar · não responder fora do próprio domínio · resposta é insumo, não GO.
+============================================================
+
+---
+
 ## 1. PAPEL DA INSTÂNCIA
 
 Sou a instância **IA-ACTOR-USERS** do projeto Unificard / UnifyBank.

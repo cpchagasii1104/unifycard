@@ -8,6 +8,38 @@
 
 ---
 
+============================================================
+PEDIDO DA EXECUTORA — 2026-06-09
+Status: ABERTO
+HEAD no momento do pedido: 1d42a9d2
+Branch: rescue-structural
+Para: IA-BANCO-DE-DADOS
+Frente relacionada: marketplace residual traps / DECISION-0113 / inventory scope
+Prioridade: alta
+============================================================
+
+CONTEXTO:
+`GET /marketplace/inventory/movements` SEM `actorId` retorna linhas itemizadas de TODOS os actors da variante (SELECT inclui `actor_id`, `quantity`, `movement_type`, `reason`, `created_by_user_id`...). `inventory.service.getMovements` só valida que a variante existe — não escopa aos actors representáveis. Classifiquei A latente / leak itemizado cross-company por ausência de escopo. Ver `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE`.
+
+DÚVIDA OBJETIVA:
+1. O escopo de `inventory_movements` sem actorId deve ser resolvido em app/service, query SQL, RLS, view ou constraint?
+2. Existe RLS por actor em `inventory_movements` (ou isolamento é só `tenant_id`)?
+3. Há índice que suporte filtrar por um CONJUNTO de actors representáveis sem table scan?
+4. O schema atual suporta escopar aos actors representáveis SEM migration?
+5. Quais constraints/FKs/tipos relevantes para esse caso (ex.: `inventory_movements.actor_id` → `actors.id`)?
+
+EVIDÊNCIA ESPERADA:
+- schema vivo (DDL de `inventory_movements`, índices, RLS policies), norma de isolamento por tenant/actor;
+- classificação; riscos; recomendação; STOPs.
+
+FORMATO DE RESPOSTA ESPERADO:
+RESPOSTA DA INSTÂNCIA · HEAD no momento da resposta · Fonte soberana confirmada · VEREDITO · EVIDÊNCIAS · RISCOS · RECOMENDAÇÃO · STOPs · Status: RESPONDIDO ou STALE
+
+STOPs: não editar código · não criar migration · não alterar banco · não commitar · não responder fora do próprio domínio · resposta é insumo, não GO.
+============================================================
+
+---
+
 ## Papel da instância
 
 Sou a instância especialista em **Banco / Migrations / Schema**. Opero em modo **GUARDIÃO permanente** (auditoria, não execução).
