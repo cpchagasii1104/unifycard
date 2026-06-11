@@ -103,19 +103,18 @@ const retireConceptSchema = z.object({
   intent: z.string().max(256).optional(),
 }).optional();
 
-const updateCompanyUserSchema = z.object({
-  role: z.enum(['owner', 'admin', 'staff', 'contractor', 'member']).optional(),
-  roleDescription: z.string().optional(),
-  permissions: z.object({
-    canManageCompany: z.boolean().optional(),
-    canManageFinancial: z.boolean().optional(),
-    canManageEmployees: z.boolean().optional(),
-    canViewReports: z.boolean().optional(),
-    canManageServices: z.boolean().optional(),
-  }).optional(),
-  isActive: z.boolean().optional(),
-  isPrimary: z.boolean().optional(),
-});
+// F-COMPANY-USERS-SELF-UPDATE-AUTHORITY-ESCALATION-CLOSURE: o PUT self-scoped do próprio vínculo
+// é AUTOATENDIMENTO. ALLOWLIST EXPLÍCITA de campos não-autoritativos (não blacklist): qualquer
+// campo fora dela — role, permissions(.*), isActive, isPrimary, memberStatus, aliases, objetos
+// aninhados, chaves desconhecidas — é rejeitado de forma OBSERVÁVEL (403), nunca descartado em
+// silêncio. Schema `.strict()` é o 2º anteparo (chaves extras → erro, não drop). Autoridade muda
+// SÓ por writer administrativo gateado (PUT /members/:memberId; setConsolidatedInventoryPermission).
+const SELF_EDITABLE_COMPANY_USER_FIELDS = ['roleDescription'] as const;
+const selfUpdateCompanyUserSchema = z
+  .object({
+    roleDescription: z.string().max(256).optional(),
+  })
+  .strict();
 
 const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   // Registrar multipart para upload de arquivos
@@ -334,7 +333,9 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * PUT /companies/:companyId/users/:companyUserId
-   * Atualiza relacionamento usuário-empresa
+   * AUTOATENDIMENTO do próprio vínculo (self-scoped). Só campos NÃO-autoritativos
+   * (allowlist: roleDescription). Campos de autoridade (role/permissions/is_active/
+   * is_primary/member_status) → 403 observável. Autoridade muda só por writer admin gateado.
    */
   fastify.put<{ Params: { companyId: string; companyUserId: string } }>(
     '/:companyId/users/:companyUserId',
@@ -342,24 +343,48 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       if (!req.user?.globalUserId) {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
+      if (!req.tenant?.id) {
+        return reply.status(401).send({ error: 'Tenant obrigatório' });
+      }
+
+      // ── ANTEPARO 1 (allowlist explícita, rejeição OBSERVÁVEL) ──────────────────────
+      // Inspeciona as chaves CRUAS do body. Qualquer chave fora da allowlist self-editable
+      // (role, permissions, isActive, isPrimary, memberStatus, can*, aliases, aninhados,
+      // chaves desconhecidas) → 403. NÃO confia no zod para descartar: rejeita por chave.
+      const rawBody = (req.body ?? {}) as Record<string, unknown>;
+      const allowed = new Set<string>(SELF_EDITABLE_COMPANY_USER_FIELDS);
+      const disallowedKeys = Object.keys(rawBody).filter((k) => !allowed.has(k));
+      if (disallowedKeys.length > 0) {
+        return reply.status(403).send({
+          error: 'Autoatendimento não pode alterar autoridade/estrutura do vínculo. Use o writer administrativo (PUT /members/:memberId).',
+          code: 'COMPANY_USER_SELF_UPDATE_FIELD_FORBIDDEN',
+          forbiddenFields: disallowedKeys,
+          allowedFields: [...SELF_EDITABLE_COMPANY_USER_FIELDS],
+        });
+      }
+
+      // ── ANTEPARO 2 (schema estrito: tipo + chaves extras → erro, não drop) ─────────
+      const parsed = selfUpdateCompanyUserSchema.safeParse(rawBody);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: 'Dados inválidos',
+          details: parsed.error.errors,
+        });
+      }
 
       try {
-        const parsed = updateCompanyUserSchema.safeParse(req.body);
-        if (!parsed.success) {
-          return reply.status(400).send({
-            error: 'Dados inválidos',
-            details: parsed.error.errors,
-          });
-        }
-
-        const companyUser = await companiesService.updateCompanyUser(
+        const companyUser = await companiesService.selfUpdateCompanyUser(
           req.params.companyUserId,
           req.user.globalUserId,
           parsed.data,
-          req.tenant?.id
+          req.tenant.id
         );
         return companyUser;
       } catch (error) {
+        const statusCode = (error as { statusCode?: number }).statusCode;
+        if (statusCode === 404) {
+          return reply.status(404).send({ error: (error as Error).message });
+        }
         fastify.log.error({ err: error }, 'Erro ao atualizar relacionamento');
         const message = error instanceof Error ? error.message : 'Erro ao atualizar relacionamento';
         return reply.status(400).send({ ok: false, message });

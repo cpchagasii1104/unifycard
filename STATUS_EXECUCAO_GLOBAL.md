@@ -1,3 +1,27 @@
+## 2026-06-10 — F-COMPANY-USERS-SELF-UPDATE-AUTHORITY-ESCALATION-CLOSURE · fecha autoelevação self-scoped (BACKEND+E2E+DOCS)
+
+**Branch:** `rescue-structural` · **HEAD origem `c6bbcae1`** · dev 366 (sem migration nova). _(Esteira: Yala deu PASS BLOQUEADO à fatia de inventory por causa desta escalation preexistente → GO de correção da causa-raiz.)_
+
+**Bloqueador (provado por HTTP pela Yala + root-cause probe):** `PUT /companies/:companyId/users/:companyUserId` (self-scoped, `WHERE global_user_id=caller`) aceitava campos de autoridade via `updateCompanyUser` (mass-assignment). Membro comum enviava `{permissions:{canManageCompany:true}}` → **200**, banco `can_manage_company` false→**true**, e passava a acessar `GET /marketplace/inventory/company/:id/balance` (**200**). Causa-raiz = **autoria da linha ≠ autoridade para conceder privilégios**.
+
+**Correção (causa-raiz, allowlist):** (1) Rota: `SELF_EDITABLE_COMPANY_USER_FIELDS=['roleDescription']`; inspeção de chaves cruas → qualquer campo de autoridade/estrutura/desconhecido → **403 observável** (`COMPANY_USER_SELF_UPDATE_FIELD_FORBIDDEN`); schema `.strict()` 2º anteparo. (2) Service: `updateCompanyUser` mass-assignment **REMOVIDO**; novo `selfUpdateCompanyUser` com SQL de coluna FIXA (`role_description`), self-scoped. (3) Tipo `UpdateCompanyUserInput`→`SelfUpdateCompanyUserInput={roleDescription?}`. `role_description` não alimenta `canManageCompany`.
+
+**Prova:** root-cause probe antes/depois (200/banco-mudado/consolidado-200 → 403/banco-inalterado/consolidado-403). E2E HTTP **33/33** (`validate-pipeline-e2e-company-users-self-escalation-closure.ts`): P1–P14 todo campo de autoridade + aliases + aninhados + desconhecidos → 403; banco inalterado; C continua 403; roleDescription muda sem tocar autoridade; writers admin (concede/revoga, anti-self, cross-empresa, cross-membro) intactos; GET sem estado; estruturais.
+
+**Blast radius:** flags de company_users alimentam canManageCompany (→requireCompanyManage, canRepresentActor de page-actor, canViewConsolidatedInventory) + GETs financeiros/admin. Fechado o ÚNICO writer self-scoped inseguro na raiz (nascimento server-side + admin-gated já eram seguros) → não foi preciso re-gatear consumidores. role='owner' auditado: só nascimento + admin-gated escrevem role; self não pode mais → fallback seguro.
+
+**Gates:** tsc OK (2 pré-existentes geo-enrichment) · actor-writer OK · bank-ledger OK · regression-guards OK · architecture:strict `critical_new=0` · system-state PASS. **Regressões:** self-escalation 33/33 · inventory consolidado 39/39 · inventory f6-5-c3 12/12 · marketplace actor-target 16/16 · company-members f6-5-5 7/7 · role-vocabulary 7/7 · x-actor-id 9/9 · groups-mine 26/26.
+
+**DTs:** `DT-COMPANY-USERS-SELF-UPDATE-PERMISSION-ESCALATION` **CLOSED** (com prova HTTP) · **NOVAS** `DT-INVENTORY-CONSOLIDATED-HETEROGENEOUS-UNIT-AGGREGATION` OPEN (SUM+MAX(unit), sem constraint de unidade única) + `DT-INVENTORY-ELIGIBILITY-IGNORES-COMPANY-OPERATIONAL-STATE` OPEN (eligibility não gateia company_status/KYB) — ambas resíduos próprios, não tocadas aqui.
+
+**Docs:** DECISION-0116 ADENDO A1 item 12 **corrigido com honestidade** (a auto-concessão NÃO estava vedada antes; rota genérica preexistente permitia autoelevação; causa-raiz fechada agora) · DT_LOG (1 CLOSED + 2 novas OPEN) · exec log · STATUS · opus · memória executora.
+
+**Escopo intocado:** migration 366 · schema/query de inventory (salvo nada — não tocado) · readers legados de inventory · frontend · Bank/ledger/wallet/payout/split/settlement · suppliers · contacts · purchase-orders · escrow · finance-agenda · daily-metrics · /groups/mine · R2/actor_delegations · FASE 6 · C1/register · tenant compartilhado · DECISION-0113 · 8 classes da 0116. **Inventory consolidado (`c6bbcae1`) DESBLOQUEADO** após esta prova. **C1/tenant compartilhado NÃO liberado. DECISION-0113 OPEN.**
+
+**PRÓXIMA FATIA:** readers tenant-wide legados de inventory (migrar callers + tombstone) · DTs de unidade heterogênea e eligibility-por-status (frentes próprias). HOLD — aguardando reseal Yala.
+
+---
+
 ## 2026-06-10 — F-INVENTORY-COMPANY-CONSOLIDATED-AUTHORITY-IMPL · consolidado empresarial autorizado (DOCS+MIGRATION+BACKEND+E2E)
 
 **Branch:** `rescue-structural` · **HEAD origem `7c76cfb5`** · dev **366** (migration nova aplicada). _(Esteira: READ-ONLY desta frente → 2 decisões bloqueantes de Clayton → GO de implementação.)_

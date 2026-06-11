@@ -141,12 +141,16 @@ export interface UpdateCompanyInput {
   metadata?: Record<string, any>;
 }
 
-export interface UpdateCompanyUserInput {
-  role?: CompanyUserRole;
+/**
+ * Input de AUTOATENDIMENTO do vínculo do próprio usuário (self-scoped).
+ * F-COMPANY-USERS-SELF-UPDATE-AUTHORITY-ESCALATION-CLOSURE: allowlist EXPLÍCITA de campos
+ * NÃO-autoritativos. O membro NUNCA edita role/permissões/is_active/is_primary/member_status
+ * pela própria linha — autoridade muda só por writer administrativo gateado
+ * (PUT /members/:memberId via requireCompanyManage; setConsolidatedInventoryPermission).
+ * `roleDescription` é rótulo livre (não alimenta canManageCompany = `can_manage_company OR role='owner'`).
+ */
+export interface SelfUpdateCompanyUserInput {
   roleDescription?: string;
-  permissions?: Partial<CompanyPermissions>;
-  isActive?: boolean;
-  isPrimary?: boolean;
 }
 
 export interface RevenueFederalData {

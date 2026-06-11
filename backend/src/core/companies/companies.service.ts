@@ -16,7 +16,7 @@ import type {
   CompanyUser,
   CreateCompanyInput,
   UpdateCompanyInput,
-  UpdateCompanyUserInput,
+  SelfUpdateCompanyUserInput,
   RevenueFederalData,
   CompanyAddress,
   CompanyContact,
@@ -1935,131 +1935,59 @@ class CompaniesService {
   }
 
   /**
-   * Atualiza relacionamento usuário-empresa
+   * AUTOATENDIMENTO do próprio vínculo (self-scoped) — F-COMPANY-USERS-SELF-UPDATE-AUTHORITY-ESCALATION-CLOSURE.
+   *
+   * Substitui o antigo `updateCompanyUser` (mass-assignment): aquele construía UPDATE dinâmico
+   * a partir de `role`/`permissions.*`/`is_active`/`is_primary` num writer self-scoped
+   * (`WHERE global_user_id = caller`), permitindo que QUALQUER membro se auto-promovesse a admin
+   * (escalation provada por HTTP pela Yala). A autoria da linha (editar a PRÓPRIA linha) NÃO é
+   * autoridade para conceder privilégios.
+   *
+   * Aqui o SQL menciona EXCLUSIVAMENTE `role_description` (único campo não-autoritativo).
+   * Nenhum campo de autoridade é construível por este caminho. Mudanças de autoridade usam só os
+   * writers administrativos gateados (`PUT /members/:memberId` via `requireCompanyManage`;
+   * `setConsolidatedInventoryPermission`). A allowlist de campos é imposta na rota (rejeição
+   * observável 403); este método é o segundo anteparo: SQL com coluna fixa.
    */
-  async updateCompanyUser(
+  async selfUpdateCompanyUser(
     companyUserId: string,
-    globalUserId: string,
-    input: UpdateCompanyUserInput,
+    callerGlobalUserId: string,
+    input: SelfUpdateCompanyUserInput,
     tenantId?: string
   ): Promise<CompanyUser> {
     // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
     if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para updateCompanyUser (§8 03_IDENTITY_CANONICA)');
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para selfUpdateCompanyUser (§8 03_IDENTITY_CANONICA)');
     }
     const finalTenantId = tenantId;
-    const updates: string[] = [];
-    const values: any[] = [];
-    let paramIdx = 1;
 
-    if (input.role !== undefined) {
-      updates.push(`role = $${paramIdx}`);
-      values.push(input.role);
-      paramIdx++;
-    }
-
-    if (input.roleDescription !== undefined) {
-      updates.push(`role_description = $${paramIdx}`);
-      values.push(input.roleDescription || null);
-      paramIdx++;
-    }
-
-    if (input.permissions) {
-      if (input.permissions.canManageCompany !== undefined) {
-        updates.push(`can_manage_company = $${paramIdx}`);
-        values.push(input.permissions.canManageCompany);
-        paramIdx++;
-      }
-      if (input.permissions.canManageFinancial !== undefined) {
-        updates.push(`can_manage_financial = $${paramIdx}`);
-        values.push(input.permissions.canManageFinancial);
-        paramIdx++;
-      }
-      if (input.permissions.canManageEmployees !== undefined) {
-        updates.push(`can_manage_employees = $${paramIdx}`);
-        values.push(input.permissions.canManageEmployees);
-        paramIdx++;
-      }
-      if (input.permissions.canViewReports !== undefined) {
-        updates.push(`can_view_reports = $${paramIdx}`);
-        values.push(input.permissions.canViewReports);
-        paramIdx++;
-      }
-      if (input.permissions.canManageServices !== undefined) {
-        updates.push(`can_manage_services = $${paramIdx}`);
-        values.push(input.permissions.canManageServices);
-        paramIdx++;
-      }
-    }
-
-    if (input.isActive !== undefined) {
-      updates.push(`is_active = $${paramIdx}`);
-      values.push(input.isActive);
-      paramIdx++;
-    }
-
-    if (input.isPrimary !== undefined) {
-      // 🔴 CORREÇÃO: Se está marcando como primária, desmarcar outras COM filtro tenant_id
-      if (input.isPrimary) {
-        // Buscar company_ids do usuário neste tenant
-        const userCompaniesRows = await runQueriesWithTenant<{ company_id: string }>(
-          finalTenantId,
-          `
-          SELECT c.company_id
-          FROM companies c
-          INNER JOIN company_users cu ON c.company_id = cu.company_id
-          WHERE c.tenant_id = $1 AND cu.global_user_id = $2::uuid AND cu.is_active = true
-          `,
-          [finalTenantId, globalUserId]
-        );
-
-        if (userCompaniesRows && userCompaniesRows.length > 0) {
-          const companyIds = userCompaniesRows.map(c => c.company_id);
-          await runQueryWithTenant(
-            finalTenantId,
-            `
-            UPDATE company_users
-            SET is_primary = false, updated_at = NOW()
-            WHERE company_id = ANY($1::uuid[]) AND global_user_id = $2::uuid AND id != $3::uuid
-            `,
-            [companyIds, globalUserId, companyUserId]
-          );
-        }
-      }
-      updates.push(`is_primary = $${paramIdx}`);
-      values.push(input.isPrimary);
-      paramIdx++;
-    }
-
-    if (updates.length === 0) {
-      const existing = await this.getCompanyUserById(companyUserId, globalUserId, finalTenantId);
+    if (input.roleDescription === undefined) {
+      // Nada a atualizar — devolve o estado atual (idempotente), self-scoped.
+      const existing = await this.getCompanyUserById(companyUserId, callerGlobalUserId, finalTenantId);
       if (!existing) {
-        throw new Error('Relacionamento não encontrado');
+        throw HttpError.notFound('Relacionamento não encontrado');
       }
       return existing;
     }
 
-    updates.push(`updated_at = NOW()`);
-    values.push(companyUserId, globalUserId, finalTenantId);
-
-    // 🔴 CORREÇÃO: UPDATE COM filtro tenant_id via JOIN
+    // SQL com coluna FIXA — só `role_description`. Self-scoped: a linha tem de ser do próprio caller.
     await runQueryWithTenant(
       finalTenantId,
       `
       UPDATE company_users cu
-      SET ${updates.join(', ')}
+      SET role_description = $1, updated_at = NOW()
       FROM companies c
       WHERE cu.company_id = c.company_id
-        AND cu.id = $${paramIdx}::uuid 
-        AND cu.global_user_id = $${paramIdx + 1}::uuid
-        AND c.tenant_id = $${paramIdx + 2}
+        AND cu.id = $2::uuid
+        AND cu.global_user_id = $3::uuid
+        AND c.tenant_id = $4
       `,
-      values
+      [input.roleDescription || null, companyUserId, callerGlobalUserId, finalTenantId]
     );
 
-    const updated = await this.getCompanyUserById(companyUserId, globalUserId, finalTenantId);
+    const updated = await this.getCompanyUserById(companyUserId, callerGlobalUserId, finalTenantId);
     if (!updated) {
-      throw new Error('Erro ao atualizar relacionamento');
+      throw HttpError.notFound('Relacionamento não encontrado');
     }
 
     return updated;
