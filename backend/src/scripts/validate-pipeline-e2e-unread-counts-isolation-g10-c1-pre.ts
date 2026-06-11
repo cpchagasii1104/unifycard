@@ -189,8 +189,11 @@ async function main(): Promise<void> {
       !/actionContext/.test(handler) && !/x-actor-id/.test(handler) && !/actorId/.test(handler));
     record(`B7[${name}] GET não cria actor (sem ensureUserActor/getActiveActor) e é read-only (sem INSERT/UPDATE/DELETE)`,
       !/ensureUserActor|getActiveActor/.test(handler) && !/INSERT INTO|UPDATE |DELETE FROM/.test(handler));
-    record(`B8[${name}] erro isolado por contador (query quebrada de um contador não zera os demais)`,
-      /countOrZero/.test(handler));
+    // F-C1-AUTO-REACHABLE-READ-PURITY: o isolamento por contador é PRESERVADO (cada contador tem
+    // seu try/catch), mas o erro estrutural agora retorna `null` (indisponível/honesto), NÃO `0` falso.
+    // Assertiva atualizada: helper renomeado countOrZero → countOrNull; catch retorna null (read purity).
+    record(`B8[${name}] erro isolado por contador (query quebrada → null honesto, não zera nem falseia os demais)`,
+      /countOrNull/.test(handler) && !/countOrZero/.test(handler) && /return null;/.test(handler));
   }
 
   const failed = results.filter((r) => !r.ok);

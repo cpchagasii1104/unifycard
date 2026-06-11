@@ -66,11 +66,12 @@ const profileRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const profile = await profileService.getProfile(req.tenant.id, userId);
-      
+
       if (!profile) {
-        // Auto-create profile se não existir (DEV FRIENDLY)
-        const newProfile = await profileService.createProfileIfNotExists(req.tenant.id, userId);
-        return reply.send({ ok: true, data: newProfile });
+        // F-C1-AUTO-REACHABLE-READ-PURITY: GET é LEITURA PURA — NÃO cria profile.
+        // Ausência honesta = 404 PROFILE_NOT_FOUND (o bootstrap do frontend já tolera 404
+        // como "primeiro acesso"). A criação é writer explícito (PUT/POST), nunca GET.
+        return reply.status(404).send({ ok: false, code: 'PROFILE_NOT_FOUND', message: 'Perfil não encontrado' });
       }
 
       return reply.send({ ok: true, data: profile });
@@ -395,29 +396,19 @@ const profileRoutes: FastifyPluginAsync = async (fastify) => {
         }
       });
     } catch (error) {
-      // 🔴 CORREÇÃO: Sempre retornar HTTP 200 com fallback zerado
-      fastify.log.warn({ 
-        err: error, 
+      // F-C1-AUTO-REACHABLE-READ-PURITY: ERRO ESTRUTURAL NÃO vira progresso zero falso (200).
+      // Falha de cálculo/schema/query → erro OBSERVÁVEL (500). Progresso 0 só quando o cálculo
+      // executa legitimamente (caminho de sucesso acima). O frontend distingue "0% real" de "falha".
+      fastify.log.error({
+        err: error,
         userId: req.user?.userId,
-        tenantId: req.tenant?.id 
-      }, 'Erro ao calcular progresso do perfil - retornando fallback zerado');
-      
-      return reply.send({ 
-        ok: true, 
-        data: {
-          progress: 0,
-          maxProgressWithoutValidation: 80,
-          hasPresentialValidation: false,
-          breakdown: {
-            personalData: 0,
-            professionalProfile: 0,
-            physicalProfile: 0,
-            learningProfile: 0,
-            companies: 0,
-            presentialValidation: 0,
-          },
-          messages: [],
-        }
+        tenantId: req.tenant?.id,
+      }, 'Erro ao calcular progresso do perfil');
+      return reply.status(500).send({
+        ok: false,
+        code: 'PROFILE_PROGRESS_CALCULATION_FAILED',
+        message: 'Erro ao calcular progresso do perfil',
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   });

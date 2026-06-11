@@ -154,17 +154,16 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant.id;
     const userId = req.user.userId;
 
-    // Erro isolado por contador: a query legada de `feed` referencia coluna `visibility` inexistente no
-    // schema vivo de posts (resíduo rastreado em DT); com catch único, esse erro zerava o handler inteiro
-    // e o member-scoping de groups/services nunca executaria.
-    const countOrZero = async (counter: string, sql: string, params: unknown[]): Promise<number> => {
+    // F-C1-AUTO-REACHABLE-READ-PURITY: erro estrutural NÃO vira ZERO FALSO. Cada contador é
+    // isolado; falha (ex.: a query legada de `feed` referencia `posts.visibility`, coluna fantasma —
+    // DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN) retorna **null** (indisponível/honesto), NÃO 0.
+    const countOrNull = async (counter: string, sql: string, params: unknown[]): Promise<number | null> => {
       try {
         const row = await runQueryWithTenant<{ count: string }>(tenantId, sql, params);
         return row ? Number(row.count) : 0;
       } catch (error) {
-        fastify.log.error({ err: error, tenantId, counter }, 'Erro ao buscar contador de novidade');
-        // Retornar zero em caso de erro (não quebrar UI)
-        return 0;
+        fastify.log.error({ err: error, tenantId, counter }, 'Contador de novidade indisponível (erro estrutural)');
+        return null; // indisponível — NUNCA zero falso
       }
     };
 
@@ -172,7 +171,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
     const oneDayAgo = new Date();
     oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
-    const feed = await countOrZero(
+    const feed = await countOrNull(
       'feed',
       `
       SELECT COUNT(*)::int as count
@@ -189,7 +188,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const groups = await countOrZero(
+    const groups = await countOrNull(
       'groups',
       `
       SELECT COUNT(DISTINCT p.metadata->>'groupId')::int as count
@@ -211,7 +210,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
-    const events = await countOrZero(
+    const events = await countOrNull(
       'events',
       `
       SELECT COUNT(*)::int as count
@@ -227,7 +226,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Serviços: apenas conteúdo PÚBLICO — publicado, não deletado e fora de grupo (o schema vivo de
     // posts não tem `visibility` por post; a fronteira não-pública materializada hoje é o grupo)
-    const services = await countOrZero(
+    const services = await countOrNull(
       'services',
       `
       SELECT COUNT(*)::int as count

@@ -645,14 +645,19 @@ export class ActorRepository {
 
     const actors: Array<ActorRow & { user_role?: string; can_post?: boolean; company_status?: string }> = [];
 
-    // 1. Actor pessoal (user)
-    // 🔴 REGRA: PF sempre tem can_post = true (permissão básica)
-    const userActor = await this.findOrCreateUserActor(tenantId, user.user_id);
-    actors.push({
-      ...userActor,
-      user_role: 'owner',
-      can_post: true, // PF sempre pode postar
-    });
+    // 1. Actor pessoal (user) — LEITURA PURA (F-C1-AUTO-REACHABLE-READ-PURITY).
+    // O nascimento atômico (F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC) GARANTE o user-actor; este GET
+    // NÃO cria/cura actor. Usuário corretamente nascido → actor existe e entra na lista.
+    // Usuário legado sem actor → AUSÊNCIA HONESTA (não entra na lista; NÃO cria). A sessão
+    // trata a lista vazia como estado bloqueado observável (sem maternidade clandestina).
+    const userActor = await this.findByUserId(tenantId, user.user_id);
+    if (userActor) {
+      actors.push({
+        ...userActor,
+        user_role: 'owner',
+        can_post: true, // PF sempre pode postar
+      });
+    }
 
     // 2. Actors de empresas onde o usuário tem permissão
     // Busca empresas via JOIN direto entre company_users e users usando global_user_id

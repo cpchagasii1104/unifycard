@@ -3,11 +3,14 @@
 
 import { apiFetch } from './client';
 
+// F-C1-AUTO-REACHABLE-READ-PURITY: cada contador pode ser `null` = INDISPONÍVEL (erro estrutural
+// no backend), distinto de `0` = contado/nada novo. O backend não retorna mais zero falso; a UI
+// trata null como "sem badge / indisponível", nunca como "0 novas".
 export interface UnreadCounts {
-  feed: number;
-  groups: number;
-  events: number;
-  services: number;
+  feed: number | null;
+  groups: number | null;
+  events: number | null;
+  services: number | null;
 }
 
 /**

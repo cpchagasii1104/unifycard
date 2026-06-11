@@ -7,24 +7,46 @@ import { runQueryWithTenant } from '@core/database/pool';
 
 const referralRoutes: FastifyPluginAsync = async (fastify) => {
   /**
-   * GET /referral/code
-   * Obtém ou gera código de indicação do usuário autenticado
+   * GET /referral/code — LEITURA PURA (F-C1-AUTO-REACHABLE-READ-PURITY).
+   * Apenas LÊ o código existente do usuário autenticado. NÃO gera/escreve (sem
+   * getOrCreateReferralCode/UPDATE). Ausente → `referralCode: null` (ausência honesta).
+   * A criação sob demanda é o writer explícito POST /referral/code (idempotente).
    */
   fastify.get('/code', async (req, reply) => {
     if (!req.user) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
-
     if (!req.tenant) {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
-
     try {
-      const code = await referralService.getOrCreateReferralCode(req.tenant.id, req.user.id);
+      const code = await referralService.getReferralCode(req.tenant.id, req.user.id);
       return { referralCode: code };
     } catch (error) {
       fastify.log.error({ err: error }, 'Erro ao buscar código de indicação');
       return reply.status(500).send({ error: 'Erro ao buscar código de indicação' });
+    }
+  });
+
+  /**
+   * POST /referral/code — writer EXPLÍCITO e idempotente (F-C1-AUTO-REACHABLE-READ-PURITY).
+   * Cria/garante o código próprio de indicação sob demanda (server-side, tenant-scoped,
+   * sem efeito financeiro, sem mudar tenant, sem cross-tenant). Idempotente:
+   * `getOrCreateReferralCode` retorna o existente se já houver (concorrência não duplica).
+   */
+  fastify.post('/code', async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+    try {
+      const code = await referralService.getOrCreateReferralCode(req.tenant.id, req.user.id);
+      return reply.status(200).send({ referralCode: code });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao gerar código de indicação');
+      return reply.status(500).send({ error: 'Erro ao gerar código de indicação' });
     }
   });
 

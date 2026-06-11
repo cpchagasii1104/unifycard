@@ -19,7 +19,7 @@ import { locationRepository } from './location/location.repository';
 import { lifestyleService } from './profile/lifestyle/lifestyle.service';
 import { profileEducationService } from './profile/profile-education.service';
 import { identityService } from './identity/identity.service';
-import { ensureUserActor } from '@modules/identity/actor-writer.service';
+// F-C1-AUTO-REACHABLE-READ-PURITY: ensureUserActor REMOVIDO de getCoreProfile (GET não cria actor).
 // Importar actorRepository dinamicamente para evitar dependência circular
 // // actorRepository importado dinamicamente para evitar dependência circular
 
@@ -130,7 +130,10 @@ export class CoreService {
         if (actorId) {
           actor = await actorRepository.findById(tenantId, actorId);
         } else {
-          actor = await ensureUserActor(tenantId, userId);
+          // F-C1-AUTO-REACHABLE-READ-PURITY: LEITURA PURA — o nascimento garante o user-actor;
+          // este GET NÃO cria/cura actor (sem ensureUserActor). Ausente (legado) → actor=null
+          // (estado explicitamente incompleto na projeção), nunca actor sintético.
+          actor = await actorRepository.findByUserId(tenantId, userId);
         }
         
         if (actor) {
@@ -203,16 +206,10 @@ export class CoreService {
         if (row) {
           // identities.tax_id é SOBERANO; blob de cache (user_profiles.cpf) só se SSOT ausente (transição).
           cpf = row.identity_cpf || row.user_profile_cpf || null;
+          // F-C1-AUTO-REACHABLE-READ-PURITY: LEITURA PURA — NÃO gera referral code no GET
+          // (sem getOrCreateReferralCode/UPDATE). Ausente → null (ausência honesta). A geração
+          // é writer explícito (POST /referral/code) ou o nascimento (best-effort), nunca este GET.
           referralCode = row.referral_code || null;
-          
-          // 🔴 GERAÇÃO GARANTIDA: Se não tem código, gerar AGORA
-          if (!referralCode) {
-            const { referralService } = await import('@core/referral/referral.service');
-            const { devLog } = await import('@utils/devLog');
-            devLog.info('referral.code.generating', { userId });
-            referralCode = await referralService.getOrCreateReferralCode(tenantId, userId);
-            devLog.success('referral.code.generated', { userId, referralCode });
-          }
         }
       } catch (err) {
         const { devLog } = await import('@utils/devLog');
@@ -221,20 +218,7 @@ export class CoreService {
           tenantId,
           error: err instanceof Error ? err.message : String(err),
         });
-        
-        // Fallback: tentar gerar código mesmo em caso de erro na query
-        try {
-          const { referralService } = await import('@core/referral/referral.service');
-          const { devLog } = await import('@utils/devLog');
-          referralCode = await referralService.getOrCreateReferralCode(tenantId, userId);
-          devLog.success('referral.code.generated.fallback', { userId, referralCode });
-        } catch (genErr) {
-          const { devLog } = await import('@utils/devLog');
-          devLog.error('referral.code.generation.failed', {
-            userId,
-            error: genErr instanceof Error ? genErr.message : String(genErr),
-          });
-        }
+        // LEITURA PURA: sem fallback de geração de código no GET. referralCode permanece null.
       }
       
       try {

@@ -178,22 +178,11 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       // 🔴 FONTE ÚNICA DE VERDADE: Buscar profile_personal_confirmed do profile
       // 🔴 CORREÇÃO CRÍTICA: Sempre buscar profile, mesmo que não exista (criar se necessário)
       const { profileService } = await import('@core/profile/profile.service');
-      let userProfile = await profileService.getProfile(req.tenant.id, userId);
-      
-      // 🔴 CORREÇÃO: Se profile não existe, criar vazio (primeiro acesso)
-      // Isso garante que sempre temos um profile para verificar a flag
-      if (!userProfile) {
-        try {
-          userProfile = await profileService.createProfileIfNotExists(req.tenant.id, userId);
-          fastify.log.info({
-            userId,
-            tenantId: req.tenant.id,
-          }, 'Profile criado automaticamente para primeiro acesso');
-        } catch (createError) {
-          // Se falhar ao criar, logar mas continuar com valores padrão
-          fastify.log.warn({ err: createError }, 'Erro ao criar profile automaticamente');
-        }
-      }
+      // F-C1-AUTO-REACHABLE-READ-PURITY: LEITURA PURA — NÃO cria profile no GET
+      // (sem createProfileIfNotExists). Profile ausente = ausência honesta; os defaults abaixo
+      // (profilePersonalConfirmed=false / canEditPersonalData=true) representam o primeiro acesso
+      // sem materializar linha. A criação é writer explícito (PUT /profile), nunca este GET.
+      const userProfile = await profileService.getProfile(req.tenant.id, userId);
       
       // 🔴 FONTE ÚNICA DE VERDADE: profile_personal_confirmed controla modal e cadeado
       // false → modal aparece, campos editáveis (primeiro acesso)

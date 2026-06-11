@@ -1,3 +1,27 @@
+## 2026-06-11 — F-C1-AUTO-REACHABLE-READ-PURITY · GETs auto-reachable do C1 viram leitura pura (BACKEND+FRONTEND+E2E+GATE+DOCS)
+
+**Branch:** `rescue-structural` · **HEAD origem `30dd2a16`** · _(Fatia 2 do arco C1, após `F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC`. Com o nascimento já garantindo actor+profile atomicamente, os GETs curativos do caminho C1 deixam de "curar" no read.)_
+
+**Invariante fechada:** nenhum GET AUTO/REQUIRED-REACHABLE (register→SessionProvider→actors→profile→onboarding→1ª Home) cria actor/profile/identity/referral, faz INSERT/UPDATE/DELETE/UPSERT, get-or-create/ensure-materializing, publica evento, compensa nascimento incompleto, nem transforma falha estrutural em zero/null-enganoso/200-falso. PODE: ler, projetar, ausência honesta, erro observável, incompletude explícita.
+
+**Denominador fechado em UM commit (`fix(c1): make auto-reachable reads side-effect free`):** CP1 `/social/actors/available` (findOrCreateUserActor→findByUserId) · CP2 `/profile` (createProfileIfNotExists→404 honesto) · CP3 `/core/profile` (ensureUserActor→findByUserId + remoção do get-or-create de referral) · CP4 `/identity/me` (sem createProfileIfNotExists) · CP5 `/referral/code` (getOrCreate→getReferralCode + **writer explícito `POST /referral/code`** idempotente) · CP6 `/profile/progress` (catch 200-falso→500 observável) · CP7 unread-counts social+feed (`countOrZero`→`countOrNull`, erro→`null` honesto). Frontend mínimo: `UnreadCounts` → `number | null`.
+
+**Gate estrutural:** `audit-c1-auto-reachable-read-purity.mjs` (`validate:c1-read-purity` + em `validate:regression-guards`): 8 superfícies, **8/8 PURE_APPROVED, KNOWN_OPEN=0**. Não declara C1/gender/Home/convite fechados.
+
+**Prova:** E2E HTTP `validate-pipeline-e2e-c1-auto-reachable-read-purity.ts` **32/32** (app real; snapshots de estado antes/depois de cada GET; A nascimento garante actor+profile · B–F GETs puros · C legado sem actor não curado · D 404 honesto · G GET sem escrita + POST idempotente · H progress 200 puro · I `feed===null` por erro estrutural real (posts.visibility fantasma) + groups número · J bootstrap sem novo estado · K1 gate verde + **K2 prova negativa** (injeta write-on-GET → gate FALHA → restaura) · Z1 cleanup zero residual).
+
+**Gates:** tsc backend OK (4 geo baseline, 0 novas) · tsc frontend 0 · actor-writer OK · bank-ledger OK · regression-guards OK (inclui o novo gate) · `validate:architectural` baseline **37 inalterado** (stash test: 37 com e sem a fatia → **zero violação nova**; falha pré-existente categories/lifestyle/interest-c1) · dev-login smoke OK. **Regressões:** birth-organic 29/29 · feed-contextual-authorship-f6-5-4 **8/8** (literal `visibility='PUBLIC'` preservado) · unread-counts-isolation **20/20** (B8 atualizado p/ countOrNull+null) · groups-mine 26/26 · x-actor-id 9/9 · self-escalation 33/33 · consolidated 39/39 · legacy-readers 32/32 · members 7/7 · role-vocab 7/7.
+
+**DTs:** `DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN` ATUALIZADA (erro→null honesto; tipo frontend number|null) · NOVAS OPEN: `DT-C1-IDENTITY-ME-ABSENCE-FABRICATION-MASKS-INCOMPLETENESS` (catch read-only mascara identity ausente com 200-parcial) + `DT-C1-INSTITUTIONAL-SYSTEM-ACTOR-PENDING` (conteúdo institucional sem actor-sistema soberano; DECISION-0101 D6 proíbe improvisar). DECISION-0115 ganha adendo factual Fatia 2; endereça parcialmente `DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE` + `DT-CORE-PROFILE-GET-CREATES-ACTOR` no ponto C1 (família segue OPEN fora do denominador).
+
+**Cartório:** **F-C1-AUTO-REACHABLE-READ-PURITY CONCLUÍDA** (aguardando reseal Yala) · macrofrente **C1 PARTIAL/OPEN**. NÃO declara C1 completo / gender / Home financeira / convite resolvido. Bank-reads do DashboardHome fora de escopo (leitura pura sem provisionamento). System actor NÃO criado (DECISION-0101 D6).
+
+**Escopo intocado:** Bank/wallet/ledger/payout/inventory writers · FASE 6 · R2 · gender · convite cross-tenant · ranking/semântica de feed · predicado `visibility='PUBLIC'` (pin F6.5.4 C4). **C1/tenant compartilhado NÃO liberados; DECISION-0113 OPEN.**
+
+**PRÓXIMA FATIA:** decisão da IA Diretora — Home read seal / institutional system actor (DECISION) / identity-me contract / convite (`F-C1-TENANT-INVITE-RESOLUTION`). HOLD — aguardando reseal Yala.
+
+---
+
 ## 2026-06-11 — F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC · nascimento humano orgânico tenant-bound + atômico (MIGRATION+BACKEND+E2E+GATE+DOCS)
 
 **Branch:** `rescue-structural` · **HEAD origem `7f647c79`** · dev 366→**367** (seed tenant institucional). _(Esteira: HARD STOP de `F-C1-BIRTH-MINIMUM-ATOMIC` aceito → GO revisado organic-only; override cross-tenant por convite adiado para `F-C1-TENANT-INVITE-RESOLUTION`.)_
