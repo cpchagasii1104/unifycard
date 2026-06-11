@@ -736,12 +736,35 @@ export interface InventoryLot {
   metadata?: Record<string, any>;
 }
 
-export async function getMovements(variantId: string): Promise<InventoryMovement[]> {
-  const response = await apiFetch(`/marketplace/inventory/movements?variantId=${variantId}`);
+/**
+ * Extrato de movimentos de uma variante NA PERSPECTIVA DE UM ACTOR (ACTOR_PRIVATE).
+ * F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL: `actorId` é OBRIGATÓRIO — o
+ * backend rejeita sem actorId (400 INVENTORY_ACTOR_ID_REQUIRED) e exige canRepresentActor.
+ * Não há mais extrato tenant-wide.
+ */
+export async function getMovements(
+  actorId: string,
+  variantId: string,
+  filters?: { movementType?: string; startDate?: string; endDate?: string; limit?: number; offset?: number }
+): Promise<InventoryMovement[]> {
+  const params = new URLSearchParams({ actorId, variantId });
+  if (filters?.movementType) params.set('movementType', filters.movementType);
+  if (filters?.startDate) params.set('startDate', filters.startDate);
+  if (filters?.endDate) params.set('endDate', filters.endDate);
+  if (filters?.limit != null) params.set('limit', String(filters.limit));
+  if (filters?.offset != null) params.set('offset', String(filters.offset));
+  const response = await apiFetch(`/marketplace/inventory/movements?${params.toString()}`);
   const data = await response.json();
   return data.movements || [];
 }
 
+/**
+ * @deprecated DESATIVADO no backend (501 INVENTORY_TENANT_WIDE_BALANCE_DISABLED).
+ * Saldo tenant-wide era leak de recurso privado (DECISION-0116). Sem callers internos.
+ * Use `getBalanceByActor(actorId, variantId)` ou o saldo consolidado empresarial
+ * (`/inventory/company/:companyId/balance`). Mantido só por compatibilidade externa
+ * desconhecida; NÃO criar fallback.
+ */
 export async function getBalance(variantId: string): Promise<InventoryBalance> {
   const response = await apiFetch(`/marketplace/inventory/balance?variantId=${variantId}`);
   const data = await response.json();

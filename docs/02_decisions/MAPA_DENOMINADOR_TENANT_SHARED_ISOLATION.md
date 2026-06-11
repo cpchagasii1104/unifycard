@@ -51,8 +51,13 @@ Mapeia o **denominador** de leituras que, no **tenant inicial compartilhado** (`
 | purchase-orders (list/:id/items) | AUDITADO | COMPANY_INTERNAL | **A comercial** (não-M) | parcial | escopo representabilidade (padrão reads 0113) |
 | contacts (`/marketplace/contacts` *) | AUDITADO | PERSONAL_SENSITIVE/COMPANY_INTERNAL | **D** (schema ghost) | não | tabela ausente (`to_regclass`=NULL); não restaurar archive; materialização = migration + design |
 | escrow (5 reads + write path) | AUDITADO | MONEY_PARTIES | **M-real** | não (0115 D5) | frente financeira própria (três paralelas; write-path prioritário) |
-| inventory balance/movements (sem actorId) | AUDITADO | ACTOR_PRIVATE | **A latente** | SIM | code-only (actor_id=ANY representáveis; índice já existe) — `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` |
+| inventory balance (tenant-wide, sem owner) | **FECHADO** (2026-06-11) | ACTOR_PRIVATE | **A → tombstone 501** | feito | `INVENTORY_TENANT_WIDE_BALANCE_DISABLED` (não chama service) — `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` CLOSED |
+| inventory movements (sem actorId) | **FECHADO** (2026-06-11) | ACTOR_PRIVATE | **A → actorId obrigatório** | feito | 400 `INVENTORY_ACTOR_ID_REQUIRED` + canRepresentActor; gate `validate:inventory-reader-scope` — `DT-INVENTORY-MOVEMENTS-...` CLOSED |
 | inventory balance/movements (by-actor / com actorId) | AUDITADO | ACTOR_PRIVATE | C (gateado canRepresentActor) | não | — |
+| inventory consolidado empresa (`/inventory/company/:id/balance`) | **FECHADO** (2026-06-10) | COMPANY_INTERNAL | C (canViewConsolidatedInventory) | não | DECISION-0116 ADENDO A1 |
+| **products/visible** (`/marketplace/products/visible`) | AUDITADO (HARD STOP) | ACTOR_PRIVATE/COMPANY_INTERNAL | **A LIVE (auth-only)** | SIM | estoque agregado tenant-wide retornado como availableQuantity — `DT-INVENTORY-PRODUCT-VISIBILITY-TENANT-WIDE-STOCK-PROJECTION` (OPEN; decisão merchant/oferta) |
+| **reconciliation metrics** (`/admin/metrics/reconciliation/*`) | AUDITADO (HARD STOP) | INSTITUTIONAL_ADMIN | **A LIVE sub-gated + cross-tenant** | SIM | tenantId client-supplied/nullable — `DT-INVENTORY-RECONCILIATION-METRICS-INSTITUTIONAL-AUTHORITY-MISSING` (OPEN) |
+| **reports/inventory\*** + transfers/sla | AUDITADO (HARD STOP) | ACTOR_PRIVATE/INSTITUTIONAL | **stub-dead FASE 6** | não (inerte) | reactivation-trap — `DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP` (escopar antes de ligar RBAC) |
 | marketplace search (`/marketplace/search`) | AUDITADO | PUBLIC_TENANT | B (catálogo público legítimo) | não | — |
 | finance-agenda / cashflow | AUDITADO | COMPANY_INTERNAL / MONEY_PARTIES | **M-projeção** | não | frente própria de escopo de projeção (não Bank) |
 | availability / unified-calendar | AUDITADO | ACTOR_PRIVATE | C (canRepresentActor / self) | não | — |
@@ -67,7 +72,9 @@ Módulos **não varridos** nesta frente — **denominador global permanece OPEN*
 
 ## Síntese
 
-- **Bloqueante p/ liberar C1 (Classe-A vivo com caller):** groups/mine, suppliers, inventory(movements/balance sem actorId), groups/:id/dashboard. (Latentes por dado=0 hoje; vivos por shape.)
-- **Diferível:** M (escrow/finance-agenda — frente money), contacts (schema ghost), rotas groups atrás do stub (FASE 6), daily-metrics (admin-gate/tombstone).
+- **Bloqueante p/ liberar C1 (Classe-A vivo com caller):** ~~groups/mine~~ (CLOSED), suppliers, ~~inventory(movements/balance sem actorId)~~ (**CLOSED 2026-06-11** — tombstone 501 + actorId obrigatório), groups/:id/dashboard, **products/visible** (NOVO — LIVE auth-only), **reconciliation metrics** (NOVO — LIVE sub-gated). (Latentes por dado=0 hoje; vivos por shape.)
+- **inventory = PARCIAL:** 2 folhas fechadas (balance tenant-wide / movements sem actorId), mas o **galho inventory NÃO está fechado** — products/visible + reconciliation metrics (LIVE) e reports/* (stub-dead FASE 6) seguem OPEN. Inventory **NÃO** é FECHADO-NO-CLUSTER; **NÃO** sai do denominador Classe A. Gate `validate:inventory-reader-scope` mantém o inventário honesto (KNOWN_OPEN explícito).
+- **Diferível:** M (escrow/finance-agenda — frente money), contacts (schema ghost), rotas groups atrás do stub (FASE 6), daily-metrics (admin-gate/tombstone), reports/inventory* (FASE 6 reactivation-trap).
+- **Denominador global do backend = OPEN.** C1/tenant compartilhado seguem BLOQUEADOS.
 - **Próxima fatia de código:** `GET /groups/mine` (independe da 0116; puro `DECISION-0113`).
 - **Convergência:** denominador finito por repositório + classificação 0116 + correção Classe-A + gate de regressão + Yala reseal → só então C1 liberável no eixo de isolamento.

@@ -1,3 +1,29 @@
+## 2026-06-11 — F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL · 2 folhas tenant-wide fechadas + gate baselined (BACKEND+FRONTEND+E2E+GATE+DOCS)
+
+**Branch:** `rescue-structural` · **HEAD origem `ebde8984`** · dev 366 (sem migration). _(Esteira: HARD STOP da enumeração → DEC-A da IA Diretora: fechar SÓ as 2 rotas nomeadas; galho inventory PARCIAL/OPEN.)_
+
+**HARD STOP honrado:** a enumeração (workflow de 6 agentes Explore READ-ONLY + verificação 1ª mão de gates/SQL) provou que o galho inventory tem MAIS readers tenant-wide de `inventory_movements` que as 2 nomeadas. Reportado à IA Diretora → DEC-A (fechar só as 2; manter galho PARCIAL).
+
+**Fechado (2 folhas):** (1) `GET /marketplace/inventory/balance` → **tombstone 501 `INVENTORY_TENANT_WIDE_BALANCE_DISABLED`** (sem service/query/estado; auth+tenant preservados). (2) `GET /marketplace/inventory/movements` → **actorId OBRIGATÓRIO** (ausente → 400 `INVENTORY_ACTOR_ID_REQUIRED`; presente → UUID + canRepresentActor antes do service; sem fallback). Filtros/paginação/shape preservados.
+
+**Frontend:** `getMovements(actorId, variantId, filtros?)` (actorId obrigatório no tipo+URL); `getBalance` deprecated sem caller interno; `MarketplaceInventory` actor-scoped (sem actorId → não consulta, estado vazio, zero fallback); **aba pública "Estoque" REMOVIDA** da `MarketplacePage` (`?tab=inventory` → aba pública válida, sem montar estoque/request); `CompanyInventoryTab` passa page-actor aos dois readers. Frontend tsc 0 erros.
+
+**Gate G1 baselined:** `backend/scripts/audit-inventory-reader-scope.mjs` (`validate:inventory-reader-scope`, integrado a `validate:regression-guards`): inventário de readers de `inventory_movements`; **FORBIDDEN_REGRESSION** (balance volta a chamar getCurrentBalance / movements deixa de exigir actorId / reader novo); **KNOWN_OPEN** explícito (dívida, não aprovação); **NEW_UNCLASSIFIED=0**. Output: `KNOWN_OPEN=4 NEW_UNCLASSIFIED=0 FIXED_REGRESSION=2`. Nunca imprime "fully safe". Prova negativa+positiva no E2E.
+
+**Prova:** E2E HTTP `validate-pipeline-e2e-inventory-legacy-readers-reconciliation.ts` **32/32** (balance 401/501/sem-estado/by-actor/consolidado; movements 400-sem-actorId/400-inválido/200-representável/só-linhas-do-actor/403-cross-empresa/403-solto/401/filtros/sem-estado/capability-não-supera-representação; estrutural frontend; gate baselined+negativa). f6-5-c3 **atualizado 12/12** (B3/B4/B7 = novo contrato, sem perda de cobertura).
+
+**Gates:** tsc backend OK (2 geo baseline) + tsc frontend 0 · actor-writer OK · bank-ledger OK · regression-guards OK (inclui G1) · architecture:strict `critical_new=0` (warning_new=4 = falsos-positivos da palavra "balance" em nomes de rota) · system-state PASS. **Regressões:** consolidado 39/39 · self-escalation 33/33 · marketplace actor-target 16/16 · members 7/7 · role-vocab 7/7 · x-actor-id 9/9 · groups-mine 26/26.
+
+**DTs:** `DT-INVENTORY-MOVEMENTS-ITEMIZED-CROSSCOMPANY-SCOPE` **CLOSED** (com prova). **NOVAS OPEN:** `DT-INVENTORY-PRODUCT-VISIBILITY-TENANT-WIDE-STOCK-PROJECTION` (`/marketplace/products/visible` LIVE auth-only) + `DT-INVENTORY-RECONCILIATION-METRICS-INSTITUTIONAL-AUTHORITY-MISSING` (`/admin/metrics/reconciliation/*` LIVE sub-gated cross-tenant). **Atualizada:** `DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP` (lista reports/inventory* + transfers/sla). **Cartório:** divergência self-escalation reconciliada no DECISIONS_LOG (descoberta `c6bbcae1` → CLOSED `ebde8984`, PASS Yala; sem reescrever histórico). DECISION-0116 ADENDO A1 item 11 atualizado + **ADENDO A2**.
+
+**Mapa:** inventory **PARCIAL** — 2 folhas FECHADO, products/visible + reconciliation LIVE OPEN, reports FASE 6 trap. **Inventory NÃO é FECHADO-NO-CLUSTER; NÃO sai do denominador Classe A.**
+
+**Escopo intocado:** products/visible (não corrigido) · reconciliation metrics (sem gate simples) · reports stub-dead (não patchados) · migration 366 · query consolidada · company_users · Bank/ledger/wallet/payout/split/settlement · suppliers · purchase-orders · contacts · groups · escrow · finance-agenda · daily-metrics · unidade heterogênea · eligibility/KYB. **C1/tenant compartilhado NÃO liberados. DECISION-0113 OPEN. R2/FASE 6 não liberados. Denominador global OPEN.**
+
+**PRÓXIMAS 3 FRENTES (B/C/D):** B = products/visible scoping por merchant/oferta; C = reconciliation metrics authority institucional + tenant server-side; D = reports/* scoping antes da FASE 6. HOLD — aguardando reseal Yala.
+
+---
+
 ## 2026-06-10 — F-COMPANY-USERS-SELF-UPDATE-AUTHORITY-ESCALATION-CLOSURE · fecha autoelevação self-scoped (BACKEND+E2E+DOCS)
 
 **Branch:** `rescue-structural` · **HEAD origem `c6bbcae1`** · dev 366 (sem migration nova). _(Esteira: Yala deu PASS BLOQUEADO à fatia de inventory por causa desta escalation preexistente → GO de correção da causa-raiz.)_

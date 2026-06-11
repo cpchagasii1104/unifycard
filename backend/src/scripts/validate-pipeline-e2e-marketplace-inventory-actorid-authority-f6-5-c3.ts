@@ -77,7 +77,8 @@ async function main(): Promise<void> {
   const route = readFileSync(join(process.cwd(), 'src/modules/marketplace/routes/marketplace-inventory.routes.ts'), 'utf8');
   const sliceBetween = (a: string, b: string) => { const i = route.indexOf(a); const j = b ? route.indexOf(b, i + 1) : route.length; return i >= 0 ? route.slice(i, j > i ? j : route.length) : ''; };
   const byActor = sliceBetween("Saldo operacional por actor", "Extrato de movimentações");
-  const movements = sliceBetween("Extrato de movimentações", "}\n}"); // até o fim do arquivo/handler
+  const movements = sliceBetween("Extrato de movimentações", "Saldo CONSOLIDADO da empresa");
+  const balanceBlock = sliceBetween("TOMBSTONE 501", "Saldo operacional por actor");
 
   record('B1 import authorizationService presente',
     /from '@core\/authorization\/authorization\.service'/.test(route));
@@ -85,20 +86,26 @@ async function main(): Promise<void> {
     /canRepresentActor\(req\.tenant\.id, userId, actorId\)/.test(byActor)
     && byActor.indexOf('canRepresentActor(') < byActor.indexOf('getCurrentBalanceByActor(')
     && /status\(401\)/.test(byActor) && /INVENTORY_ACTOR_NOT_REPRESENTABLE/.test(byActor));
-  record('B3 movements: gate só quando actorId presente (if (actorId?.trim())) e ANTES de getMovements; 401/403',
-    /if \(actorId\?\.trim\(\)\) \{/.test(movements)
+  // ATUALIZADO F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL: movements passou a EXIGIR
+  // actorId (antes era opcional). canRepresentActor ANTES do service; ausência → 400.
+  record('B3 movements: actorId OBRIGATÓRIO (400 INVENTORY_ACTOR_ID_REQUIRED) + canRepresentActor ANTES de getMovements; 401/403',
+    /INVENTORY_ACTOR_ID_REQUIRED/.test(movements)
     && /canRepresentActor\(req\.tenant\.id, userId, actorId\)/.test(movements)
     && movements.indexOf('canRepresentActor(') < movements.indexOf('getMovements(')
     && /status\(401\)/.test(movements) && /INVENTORY_ACTOR_NOT_REPRESENTABLE/.test(movements));
-  record('B4 movements SEM actorId preservado (options.actorId só setado quando presente; sem gate forçado)',
-    /if \(actorId\?\.trim\(\)\) options\.actorId = actorId/.test(movements));
+  record('B4 movements SEM actorId REJEITADO (não mais tenant-wide): 400 antes de montar options',
+    /if \(!actorId\?\.trim\(\)\) \{[\s\S]{0,200}INVENTORY_ACTOR_ID_REQUIRED/.test(movements)
+    && movements.indexOf('INVENTORY_ACTOR_ID_REQUIRED') < movements.indexOf('getMovements('));
   record('B5 can_manage_marketplace NÃO tratado como autoridade sobre o actor alvo (requirePermission continua, mas canRepresentActor é o gate do actorId)',
     /requirePermission\('marketplace_manage_inventory'\)/.test(route) && /canRepresentActor\(/.test(route));
   record('B6 NÃO usa ensureUserActor/getActiveActor; sem Bank',
     !/ensureUserActor\(/.test(route) && !/getActiveActor\(/.test(route)
     && !/bank_ledger|bank_transactions|bank_accounts/.test(route));
-  record('B7 /inventory/balance (sem actorId) INTOCADO (sem canRepresentActor no bloco do balance consolidado)',
-    !/canRepresentActor/.test(sliceBetween("Saldo consolidado por variante", "Saldo operacional por actor")));
+  // ATUALIZADO: /inventory/balance (sem owner) deixou de ser INTOCADO — virou TOMBSTONE 501.
+  record('B7 /inventory/balance = TOMBSTONE 501 (INVENTORY_TENANT_WIDE_BALANCE_DISABLED, sem getCurrentBalance/calculateBalance)',
+    /INVENTORY_TENANT_WIDE_BALANCE_DISABLED/.test(balanceBlock)
+    && /status\(501\)/.test(balanceBlock)
+    && !/getCurrentBalance\(/.test(balanceBlock));
   record('B8 zero writes adicionados (só app.get no arquivo)',
     !/app\.(post|put|patch|delete)/.test(route));
 
@@ -106,7 +113,7 @@ async function main(): Promise<void> {
   const svc = readFileSync(join(process.cwd(), 'src/modules/marketplace/inventory.service.ts'), 'utf8');
   record('C1 inventory.service sem Bank (inventory_movements/balances, não bank_*)',
     !/bank_ledger|bank_transactions|bank_accounts/.test(svc));
-  note('Denominador: A corrigidas = 2 (by-actor + movements?actorId). B fora do patch = /inventory/balance e /inventory/movements SEM actorId (broad read tenant-wide). M=0; E=0; G=0.');
+  note('Denominador (pós F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL): /inventory/balance tenant-wide = TOMBSTONE 501; /inventory/movements sem actorId = 400 (actorId obrigatório). Ambas as folhas fechadas. KNOWN_OPEN fora desta correção: products/visible, reconciliation metrics, reports/* (FASE 6 stub) — ver gate validate:inventory-reader-scope.');
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);

@@ -392,8 +392,11 @@ async function main(): Promise<void> {
     const routesSrc = readFileSync(join(process.cwd(), 'src/modules/marketplace/routes/marketplace-inventory.routes.ts'), 'utf8');
     record('G2 rota consolidada existe com gate canViewConsolidatedInventory',
       routesSrc.includes("'/inventory/company/:companyId/balance'") && routesSrc.includes('canViewConsolidatedInventory'));
+    // G3: o handler da rota consolidada (do comentário "Saldo CONSOLIDADO da empresa" até o fim)
+    // NÃO usa requirePermission — autoriza por canViewConsolidatedInventory.
+    const consolBlock = routesSrc.slice(routesSrc.indexOf('Saldo CONSOLIDADO da empresa'));
     record('G3 consolidado NÃO usa requirePermission(can_manage_marketplace) como autoridade',
-      !/inventory\/company[\s\S]{0,600}requirePermission/.test(routesSrc));
+      consolBlock.length > 0 && !/requirePermission\(/.test(consolBlock) && /canViewConsolidatedInventory/.test(consolBlock));
     const repoSrc = readFileSync(join(process.cwd(), 'src/modules/marketplace/inventory-movement.repository.ts'), 'utf8');
     record('G4 agregação restrita a company_actors (subquery server-side company_id)',
       repoSrc.includes('calculateConsolidatedBalanceByCompany') &&
@@ -406,8 +409,11 @@ async function main(): Promise<void> {
       !unitSrc.includes("actor_type = 'page'"));
     record('G7 rota consolidada não toca Bank (sem bank_ledger/bankPorts)',
       !/inventory\/company[\s\S]{0,3000}(bank_ledger|bankPorts)/.test(routesSrc));
-    const oldBalance = /\/inventory\/balance'[\s\S]{0,800}getCurrentBalance\(req\.tenant\.id, variantId\)/.test(routesSrc);
-    record('G8 rota tenant-wide legada /inventory/balance preservada (DT aberta, fatia futura)', oldBalance);
+    // G8 ATUALIZADO (F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL): a rota tenant-wide
+    // legada /inventory/balance deixou de ser leak — virou TOMBSTONE 501 (não chama getCurrentBalance).
+    const balanceTombstone = /'\/inventory\/balance'[\s\S]{0,900}INVENTORY_TENANT_WIDE_BALANCE_DISABLED/.test(routesSrc)
+      && !/'\/inventory\/balance'[\s\S]{0,900}getCurrentBalance\(/.test(routesSrc);
+    record('G8 /inventory/balance tenant-wide = TOMBSTONE 501 (não chama getCurrentBalance)', balanceTombstone);
 
     console.log('\n— H: cleanup —');
   } finally {

@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react';
 import {
   listProducts,
   listVariants,
-  getBalance,
   getBalanceByActor,
   getMovements,
   addMovement,
@@ -21,7 +20,11 @@ import {
 import { showToast } from '../common/Toast';
 
 interface MarketplaceInventoryProps {
-  /** Quando informado, mostra saldo do actor (drill-down loja); ausente = visão matriz tenant-wide. */
+  /**
+   * Actor operacional (unidade de estoque). OBRIGATÓRIO para leitura — o estoque é
+   * ACTOR_PRIVATE (DECISION-0116). Ausente = componente não consulta (sem fallback
+   * tenant-wide). A aba pública de estoque foi removida; este componente é actor-scoped.
+   */
   actorId?: string;
 }
 
@@ -64,13 +67,18 @@ export default function MarketplaceInventory({ actorId }: MarketplaceInventoryPr
   };
 
   const loadInventoryData = async (variantId: string) => {
+    // F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL: estoque é ACTOR_PRIVATE.
+    // Sem actorId NÃO há leitura (zero fallback tenant-wide). O componente é actor-scoped.
+    if (!actorId) {
+      setBalance(null);
+      setMovements([]);
+      setLots([]);
+      return;
+    }
     try {
-      const balancePromise = actorId
-        ? getBalanceByActor(actorId, variantId)
-        : getBalance(variantId);
       const [bal, movs, lts] = await Promise.all([
-        balancePromise,
-        getMovements(variantId),
+        getBalanceByActor(actorId, variantId),
+        getMovements(actorId, variantId),
         listLots(variantId),
       ]);
       setBalance(bal);
@@ -122,6 +130,19 @@ export default function MarketplaceInventory({ actorId }: MarketplaceInventoryPr
 
   if (isLoading) {
     return <div>Carregando...</div>;
+  }
+
+  // Estoque é ACTOR_PRIVATE: sem actor operacional não há o que mostrar (sem fallback tenant-wide).
+  if (!actorId) {
+    return (
+      <div className="marketplace-inventory" style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+        <p>Estoque indisponível sem unidade operacional.</p>
+        <p style={{ fontSize: '0.9em', marginTop: '0.5rem' }}>
+          O estoque é privado por actor. Acesse pelo painel da empresa (aba Estoque) ou por uma
+          unidade operacional que você represente.
+        </p>
+      </div>
+    );
   }
 
   return (

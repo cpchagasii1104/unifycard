@@ -14,22 +14,26 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import MarketplaceHome from '../components/marketplace/MarketplaceHome';
 import MarketplaceCatalog from '../components/marketplace/MarketplaceCatalog';
 import MarketplaceProducts from '../components/marketplace/MarketplaceProducts';
-import MarketplaceInventory from '../components/marketplace/MarketplaceInventory';
 import './MarketplacePage.css';
 
-type TabType = 'home' | 'catalog' | 'products' | 'inventory';
+// F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL (DEC-A/D2): a aba pública
+// "Estoque" foi REMOVIDA — estoque é ACTOR_PRIVATE (DECISION-0116), não pertence à
+// vitrine pública (montava MarketplaceInventory sem actor → leitura tenant-wide). O
+// estoque vive no painel da empresa (CompanyInventoryTab, com page-actor) ou por actor.
+type TabType = 'home' | 'catalog' | 'products';
 
 export default function MarketplacePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('home');
 
-  // Detectar tab e parâmetros a partir da URL query string
+  // Detectar tab a partir da URL query string. Links legados `?tab=inventory` caem na
+  // aba pública válida padrão (home) — NÃO montam estoque, NÃO disparam request.
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tab = params.get('tab') as TabType;
-    if (tab && ['home', 'catalog', 'products', 'inventory'].includes(tab)) {
-      setActiveTab(tab);
+    const tab = params.get('tab');
+    if (tab && ['home', 'catalog', 'products'].includes(tab)) {
+      setActiveTab(tab as TabType);
     }
   }, [location.search]);
 
@@ -56,12 +60,6 @@ export default function MarketplacePage() {
           >
             Produtos
           </button>
-          <button
-            className={activeTab === 'inventory' ? 'active' : ''}
-            onClick={() => setActiveTab('inventory')}
-          >
-            Estoque
-          </button>
         </div>
         {/* 🔴 ENTITY LISTING PAGE: CTAs explícitos para gestão (navegação apenas) */}
         <div className="marketplace-header-actions">
@@ -78,7 +76,6 @@ export default function MarketplacePage() {
         {activeTab === 'home' && <MarketplaceHome />}
         {activeTab === 'catalog' && <MarketplaceCatalog />}
         {activeTab === 'products' && <MarketplaceProducts />}
-        {activeTab === 'inventory' && <MarketplaceInventory />}
       </div>
     </div>
   );

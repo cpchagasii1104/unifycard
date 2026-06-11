@@ -26,30 +26,32 @@ export async function registerMarketplaceInventoryRoutes(
   _svc?: unknown
 ): Promise<void> {
   /**
-   * GET /marketplace/inventory/balance?variantId=X
-   * Saldo consolidado por variante (visão matriz tenant-wide).
-   * Soma todos actors do tenant — alinhado a inventoryService.getCurrentBalance.
+   * GET /marketplace/inventory/balance?variantId=X — TOMBSTONE 501.
+   *
+   * F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL (DEC-A): o saldo
+   * tenant-wide (calculateBalance somando TODOS os actors do tenant) é leak de
+   * recurso privado no tenant compartilhado (DECISION-0116 ACTOR_PRIVATE). A rota
+   * é DESATIVADA fail-closed: NÃO chama service, NÃO toca inventory_movements,
+   * NÃO cria estado. Auth + tenant preservados pela scope. Os consumidores devem
+   * usar os contratos ESCOPADOS já existentes: saldo por actor
+   * (`/inventory/balance/by-actor`, canRepresentActor) ou saldo consolidado
+   * empresarial autorizado (`/inventory/company/:companyId/balance`,
+   * canViewConsolidatedInventory). A rota NÃO é reaproveitada com companyId/actorId
+   * — os contratos escopados têm rotas próprias.
    */
   app.get<{ Querystring: { variantId?: string } }>(
     '/inventory/balance',
-    { preHandler: requirePermission('marketplace_manage_inventory') },
     async (req, reply) => {
       if (!req.tenant) throw new UnauthorizedError('Tenant required');
-      const { variantId } = req.query;
-      if (!variantId?.trim()) {
-        throw new BadRequestError('variantId é obrigatório', ErrorCode.BAD_REQUEST);
-      }
-      try {
-        const balance = await inventoryService.getCurrentBalance(req.tenant.id, variantId);
-        return reply.status(200).send(balance);
-      } catch (error: unknown) {
-        marketplaceLogger.error('Erro ao buscar saldo de estoque', error as Error);
-        if (error instanceof AppError) throw error;
-        throw new BadRequestError(
-          error instanceof Error ? error.message : 'Erro ao buscar saldo',
-          ErrorCode.BAD_REQUEST
-        );
-      }
+      return reply.status(501).send({
+        ok: false,
+        error: 'INVENTORY_TENANT_WIDE_BALANCE_DISABLED',
+        code: 'INVENTORY_TENANT_WIDE_BALANCE_DISABLED',
+        message:
+          'Saldo de estoque tenant-wide foi desativado (DECISION-0116). Use o saldo por ' +
+          'actor (GET /marketplace/inventory/balance/by-actor) ou o saldo consolidado ' +
+          'empresarial autorizado (GET /marketplace/inventory/company/:companyId/balance).',
+      });
     }
   );
 
@@ -143,10 +145,24 @@ export async function registerMarketplaceInventoryRoutes(
         throw new BadRequestError('variantId é obrigatório', ErrorCode.BAD_REQUEST);
       }
 
-      // 🔴 DECISION-0113: quando filtra por `actorId`, exigir representá-lo (`can_manage_marketplace` é default
-      // de toda company → não autoriza ver o extrato de actor alheio). 401 sem user; 403 fail-closed. SEM
-      // `actorId`: comportamento atual preservado (extrato tenant-wide da variante = broad read, fora desta fatia).
-      if (actorId?.trim()) {
+      // F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL (DEC-A): `actorId` é
+      // OBRIGATÓRIO. O extrato é ACTOR_PRIVATE (DECISION-0116; expõe actor_id +
+      // created_by_user_id por linha). SEM actorId, a query era tenant-wide itemizada
+      // (leak cross-company). Agora: ausente → 400; presente → UUID + canRepresentActor
+      // ANTES do service. `can_manage_marketplace` (default de toda company) NÃO autoriza
+      // ver o extrato de actor alheio. SEM fallback (actionContext/companyId/actor ativo/
+      // LIMIT 1/tenant inteiro). 401 sem user; 403 fail-closed.
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!actorId?.trim()) {
+        return reply.status(400).send({
+          error: 'actorId é obrigatório (extrato de movimentos é por actor — ACTOR_PRIVATE)',
+          code: 'INVENTORY_ACTOR_ID_REQUIRED',
+        });
+      }
+      if (!UUID_RE.test(actorId)) {
+        return reply.status(400).send({ error: 'actorId inválido (UUID)', code: 'INVENTORY_ACTOR_ID_REQUIRED' });
+      }
+      {
         const userId = (req as { user?: { userId?: string } }).user?.userId;
         if (!userId) {
           return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
