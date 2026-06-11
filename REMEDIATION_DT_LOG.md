@@ -12161,9 +12161,9 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ---
 
-## DT-C1-IDENTITY-ME-ABSENCE-FABRICATION-MASKS-INCOMPLETENESS — OPEN (2026-06-11)
+## DT-C1-IDENTITY-ME-ABSENCE-FABRICATION-MASKS-INCOMPLETENESS — CLOSED (2026-06-11)
 
-- **Status:** **OPEN (2026-06-11)** — registrada pela frente `F-C1-AUTO-REACHABLE-READ-PURITY` (CP4). **NÃO corrigida** nesta fatia: o bloco é LEITURA (sem INSERT/UPDATE/DELETE), logo NÃO viola a invariante de read-purity da fatia; mas é **mascaramento de completude** que merece decisão própria.
+- **Status:** **CLOSED (2026-06-11)** — fechada pela macrofrente `F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE` (CP2), mesma data da abertura (aberta pela fatia read-purity, fechada pela fatia seguinte). **Resolução:** o catch de fabricação (~110 linhas reconstruindo perfil parcial em 200) foi REMOVIDO; cadeia de identidade quebrada → **409 `IDENTITY_CHAIN_INCOMPLETE`** observável (outros erros → 500). Pós-nascimento atômico (DECISION-0115 D2) o caminho é legado-only. Frontend (`Profile.tsx`) distingue o 409 estrutural (exibe erro) de dado progressivo ausente (fluxo normal). GET continua sem criar identity/actor/profile/status; `identity_status` NÃO virou SSOT novo. Prova: E2E jornada 4.5 (200 honesto com identity real) + prova negativa 14.2 (reintroduzir fabricação → gate `c1-human-journey` FALHA). _(Texto histórico da abertura preservado abaixo.)_
 - **Fato (1ª mão):** o handler `GET /identity/me` (identity.routes.ts ~L48–L160) envolve `identityService.getIdentityProfile()` num `try/catch`. Quando a identity NÃO existe (erro "Global user não encontrado"/"resolveGlobalUserId"), o catch **reconstrói um `profile` parcial** lendo direto de `users` + `global_users` (SELECT cru) e devolve **HTTP 200** com `reputation/wallet/residence = undefined`. Ou seja: a ausência estrutural de identity é **curada cosmeticamente** (200 com shape parcial), em vez de devolver ausência/incompletude honesta observável.
 - **Por que ficou intacto nesta fatia:** a invariante de `F-C1-AUTO-REACHABLE-READ-PURITY` proíbe **escrita** em GET (INSERT/UPDATE/get-or-create/ensure) — este catch só LÊ. A remoção do mascaramento é mudança de **contrato de resposta** (200-parcial → 404/estado-incompleto-explícito), com blast radius no frontend (modal de primeiro acesso lê `/identity/me`), e exige decisão de produto. Fora do corte de leitura-pura.
 - **Materialidade pós-nascimento-atômico:** após `F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC`, todo nascido tem identity garantida → o catch é **código morto no caminho C1 vivo**. Permanece alcançável só por (a) usuários LEGADOS com `global_user_id` nulo/identity ausente, (b) corrupção parcial. É um fallback de mundo antigo, não do nascimento atual.
@@ -12180,3 +12180,22 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** (a) sem actor institucional, qualquer conteúdo de boas-vindas/oficial no tenant compartilhado ou (i) inexiste (primeira Home vazia/honesta) ou (ii) seria forjado tenant-wide sem autoria auditável; (b) tentação futura de hardcode `SYSTEM_ACTOR_ID` ou de um GET de bootstrap "criar se não existe" (proibido — write-on-GET + viola DECISION-0101 D6).
 - **Resolução prevista:** DECISION própria (IA Diretora/Clayton) sobre o **modelo de actor institucional**: se existe um actor-sistema por tenant, como nasce (seed de migration determinística, NÃO get-or-create em runtime), que `actor_type`/governança/auditoria tem, e quais recursos institucionais ele possui (welcome/oficial/avisos). Só então conteúdo institucional ganha sujeito soberano. **Até lá:** primeira Home institucional fica honestamente vazia/mínima; NÃO inventar system actor em GET; NÃO hardcode.
 - **Vinculada a:** `DECISION-0101` (D6 — proibição de system actor improvisado), `DECISION-0115` (D1 tenant compartilhado), `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` (classe PUBLIC_TENANT/INSTITUTIONAL_ADMIN da 0116), `DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN` (feed/events tenant-wide sem sujeito), `DT-C1-IDENTITY-ME-ABSENCE-FABRICATION-MASKS-INCOMPLETENESS` (irmã).
+
+---
+
+## DT-PJ-TABS-BANK-READS-MASK-ERRORS — OPEN (2026-06-11)
+
+- **Status:** **OPEN (2026-06-11)** — registrada pela macrofrente `F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE` (CP7 Home read seal). NÃO corrigida nesta frente (superfície **PJ**, explicitamente FORA do escopo do GO; classificada `KNOWN_OPEN_OUTSIDE_C1` no gate `audit-c1-human-journey-closure.mjs`).
+- **Fato (1ª mão):** as abas PJ `CompanyFinancialTab.tsx:42-43` e `CompanyOverviewTab.tsx:48-49` consomem `getBankStatement(...)` com `.catch(() => ({ entries: [], total: 0, hasMore: false }))` — o ERRO estrutural do extrato vira **lista vazia falsa** na UI da empresa (mesma família do zero-falso fechado na Home C1). Com o backend agora honesto (catch de `/bank/statement` → 500 `BANK_STATEMENT_UNAVAILABLE`), o erro chega ao cliente mas é **re-mascarado** nesses dois catches PJ.
+- **Risco:** gestor de empresa vê "nenhuma movimentação" quando na verdade o extrato falhou — degradação financeira silenciosa em superfície PJ.
+- **Resolução prevista:** fatia própria da frente PJ — replicar o padrão CP7 (catch → `null` = indisponível; UI distingue "vazio real" de "indisponível", como `DashboardHome` faz agora). NÃO misturar com a jornada PF.
+- **Vinculada a:** `F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE` (CP7 fechou a família na Home PF), `DashboardHome.tsx` (padrão de referência), `api/bank.ts` (cliente já não fabrica zero).
+
+---
+
+## DT-SOCIAL-TARGETING-GENDER-ENUM-3V — OPEN (2026-06-11)
+
+- **Status:** **OPEN (2026-06-11)** — registrada pela macrofrente `F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE` (CP1 gender). NÃO corrigida (superfície de **targeting social**, fora da jornada própria; `KNOWN_OPEN_OUTSIDE_C1`).
+- **Fato:** o vocabulário soberano de gender passou a **5 valores** (`male|female|non_binary|other|prefer_not_to_say` — GO C1 2026-06-11, CHECK + contracts + writers/readers fechados), mas o targeting demográfico do social-2.0 (`social-2.0.routes.ts:25` / `social-2.0.service.ts:28,646`) ainda usa enum de **3 valores** (`male|female|other`). Consequência: conteúdo NÃO pode ser segmentado para `non_binary`/`prefer_not_to_say` — e isso pode ser **decisão de produto correta** (não segmentar por esses valores; cf. DECISION-0071 que vetou targeting por dado sensível) ou drift.
+- **Resolução prevista:** decisão de produto explícita ANTES de alargar o enum de targeting (segmentar por gender minoritário tem implicação de privacidade/LGPD — mesma família da DECISION-0071 "sem targeting por dado sensível"). NÃO alargar mecanicamente.
+- **Vinculada a:** `DECISION-0080` (+ adendo 5 valores), `DECISION-0071` (sem targeting sensível), `packages/contracts/vocabulary.ts` (GENDER_VALUES=5), `social-2.0.routes.ts`/`social-2.0.service.ts`.

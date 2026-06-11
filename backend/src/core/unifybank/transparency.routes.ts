@@ -55,38 +55,24 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
     // 🔴 REGRA DE OURO: Usuário autenticado + tenant válido → SEMPRE retornar 200
     // 401 é EXCLUSIVO para token inválido/sessão expirada (já tratado pelo auth plugin)
     
+    // F-C1-HOME-READ-SEAL (CP7): falha de auth/tenant NÃO vira extrato vazio falso — erro observável.
     if (!req.user || !req.user.id) {
-      // Se chegou aqui sem user, é problema de auth plugin (não deveria acontecer)
       fastify.log.warn('Usuário não autenticado em /bank/statement (auth plugin deveria ter bloqueado)');
-      return reply.status(200).send({
-        success: true,
-        statement: {
-          entries: [],
-          totalCents: 0,
-          hasMore: false,
-        },
-      });
+      return reply.status(401).send({ success: false, code: 'UNAUTHENTICATED', error: 'Não autenticado' });
     }
 
     if (!req.tenant || !req.tenant.id) {
-      fastify.log.warn('Tenant não encontrado em /bank/statement - retornando extrato vazio');
-      return reply.status(200).send({
-        success: true,
-        statement: {
-          entries: [],
-          totalCents: 0,
-          hasMore: false,
-        },
-      });
+      return reply.status(400).send({ success: false, code: 'TENANT_NOT_FOUND', error: 'Tenant não encontrado' });
     }
 
     const tenantId = req.tenant.id;
     const userId = req.user.id;
 
-    // 2. Resolver globalUserId (se não encontrar, retornar extrato vazio)
+    // Sem identidade bancária (global_user) = AUSÊNCIA honesta: zero movimentos é materialmente
+    // verdadeiro para quem não tem conta — distinto de ERRO estrutural (500 no catch).
     const globalUserId = await resolveGlobalUserId(userId, tenantId);
     if (!globalUserId) {
-      fastify.log.debug({ userId, tenantId }, 'globalUserId não encontrado - retornando extrato vazio');
+      fastify.log.debug({ userId, tenantId }, 'globalUserId não encontrado - extrato vazio (ausência honesta)');
       return reply.status(200).send({
         success: true,
         statement: {
@@ -143,16 +129,12 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
         statement: result,
       });
     } catch (error) {
-      const err = error as Error;
+      // F-C1-HOME-READ-SEAL (CP7): ERRO ESTRUTURAL nunca vira extrato vazio falso (200 + []).
       fastify.log.error({ err: error, userId, tenantId, globalUserId, actorId: parsed.data.actorId }, 'Error fetching user statement');
-      // 🔴 NUNCA retornar 500 - sempre retornar 200 com payload vazio
-      return reply.status(200).send({
-        success: true,
-        statement: {
-          entries: [],
-          totalCents: 0,
-          hasMore: false,
-        },
+      return reply.status(500).send({
+        success: false,
+        code: 'BANK_STATEMENT_UNAVAILABLE',
+        error: 'Extrato indisponível (erro estrutural). Não é um extrato vazio.',
       });
     }
   });
@@ -227,30 +209,24 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
     // 🔴 REGRA DE OURO: Usuário autenticado + tenant válido → SEMPRE retornar 200
     // 401 é EXCLUSIVO para token inválido/sessão expirada (já tratado pelo auth plugin)
     
+    // F-C1-HOME-READ-SEAL (CP7): falha de auth/tenant NÃO vira fundo nulo falso — erro observável.
     if (!req.user || !req.user.id) {
-      // Se chegou aqui sem user, é problema de auth plugin (não deveria acontecer)
       fastify.log.warn('Usuário não autenticado em /bank/regional-fund (auth plugin deveria ter bloqueado)');
-      return reply.status(200).send({
-        success: true,
-        regionalFund: null,
-      });
+      return reply.status(401).send({ success: false, code: 'UNAUTHENTICATED', error: 'Não autenticado' });
     }
 
     if (!req.tenant || !req.tenant.id) {
-      fastify.log.warn('Tenant não encontrado em /bank/regional-fund - retornando fundo vazio');
-      return reply.status(200).send({
-        success: true,
-        regionalFund: null,
-      });
+      return reply.status(400).send({ success: false, code: 'TENANT_NOT_FOUND', error: 'Tenant não encontrado' });
     }
 
     const tenantId = req.tenant.id;
     const userId = req.user.id;
 
-    // 2. Resolver globalUserId (se não encontrar, retornar fundo vazio)
+    // Sem identidade bancária (global_user) = AUSÊNCIA honesta (regionalFund:null no SUCESSO),
+    // distinta de ERRO estrutural (500 no catch).
     const globalUserId = await resolveGlobalUserId(userId, tenantId);
     if (!globalUserId) {
-      fastify.log.debug({ userId, tenantId }, 'globalUserId não encontrado - retornando fundo vazio');
+      fastify.log.debug({ userId, tenantId }, 'globalUserId não encontrado - fundo nulo (ausência honesta)');
       return reply.status(200).send({
         success: true,
         regionalFund: null,
@@ -278,12 +254,13 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
         regionalFund: result || null,
       });
     } catch (error) {
-      const err = error as Error;
+      // F-C1-HOME-READ-SEAL (CP7): ERRO ESTRUTURAL nunca vira fundo "null" falso em 200 — o null
+      // de sucesso significa "fundo não configurado"; erro é erro (500 observável).
       fastify.log.error({ err: error, userId, tenantId, globalUserId }, 'Error fetching regional fund');
-      // 🔴 NUNCA retornar 500 - sempre retornar 200 com payload vazio
-      return reply.status(200).send({
-        success: true,
-        regionalFund: null,
+      return reply.status(500).send({
+        success: false,
+        code: 'REGIONAL_FUND_UNAVAILABLE',
+        error: 'Fundo regional indisponível (erro estrutural).',
       });
     }
   });

@@ -138,7 +138,8 @@ export default function DashboardHome() {
   const [referralEarningsCents, setReferralEarningsCents] = useState(0);
   const [referralCount, setReferralCount] = useState(0);
   const [groups, setGroups] = useState<GroupRow[]>([]);
-  const [recentEntries, setRecentEntries] = useState<BankStatementEntry[]>([]);
+  // CP7 HOME READ SEAL: null = INDISPONÍVEL (erro estrutural do backend), distinto de [] = vazio real.
+  const [recentEntries, setRecentEntries] = useState<BankStatementEntry[] | null>([]);
 
   const loadData = useCallback(async () => {
     if (!activeActor) return;
@@ -154,7 +155,8 @@ export default function DashboardHome() {
       getMyGroups().catch(() => ({ groups: [] })),
       isUser ? getReferralEarnings().catch(() => null) : Promise.resolve(null),
       isUser ? getUserRegionalFund({ limit: 1 }).catch(() => null) : Promise.resolve(null),
-      getBankStatement({ limit: 4, actorId: bankActorId }).catch(() => ({ entries: [], total: 0, hasMore: false })),
+      // CP7: erro de extrato NÃO vira lista vazia falsa — null = indisponível
+      getBankStatement({ limit: 4, actorId: bankActorId }).catch(() => null),
     ]);
 
     setBalanceCents(
@@ -171,7 +173,9 @@ export default function DashboardHome() {
       setReferralEarningsCents(referralR.value.totalCents);
       setReferralCount(referralR.value.count);
     }
-    setRecentEntries(statementR.status === 'fulfilled' ? statementR.value.entries : []);
+    setRecentEntries(
+      statementR.status === 'fulfilled' && statementR.value ? statementR.value.entries : null
+    );
 
     const groupsList = groupsR.status === 'fulfilled' ? groupsR.value.groups || [] : [];
     const balanceFetches = await Promise.allSettled(
@@ -209,7 +213,9 @@ export default function DashboardHome() {
   if (!activeActor) return null;
 
   const isUser = activeActor.actor_type === 'user';
-  const balanceToShow = balanceCents ?? 0;
+  // CP7 HOME READ SEAL: null = indisponível (erro estrutural) → exibe "—", NUNCA R$ 0,00 falso.
+  // Zero real (conta com saldo 0 / sem conta) chega como 0 num 200 de sucesso e exibe R$ 0,00 honesto.
+  const balanceToShow = balanceCents;
 
   return (
     <div className="dh-content">
@@ -233,7 +239,7 @@ export default function DashboardHome() {
                     <div className="dh-card-icon-circle">🌍</div>
                     <div className="dh-card-label">Fundo Regional</div>
                   </div>
-                  <div className="dh-card-value">{formatBRL(regionalFundCents ?? 0)}</div>
+                  <div className="dh-card-value">{regionalFundCents === null ? '—' : formatBRL(regionalFundCents)}</div>
                   <div className="dh-card-foot">
                     <span className="dh-card-hint">onde você mora</span>
                   </div>
@@ -246,8 +252,8 @@ export default function DashboardHome() {
                     <div className="dh-card-icon-circle">💰</div>
                     <div className="dh-card-label">Meu saldo Unifibank</div>
                   </div>
-                  <div className={`dh-card-value ${balanceToShow < 0 ? 'negative' : ''}`}>
-                    {formatBRL(balanceToShow)}
+                  <div className={`dh-card-value ${(balanceToShow ?? 0) < 0 ? 'negative' : ''}`}>
+                    {balanceToShow === null ? '—' : formatBRL(balanceToShow)}
                   </div>
                   <div className="dh-card-foot">
                     <span className="dh-card-hint">saldo disponível</span>
@@ -261,8 +267,8 @@ export default function DashboardHome() {
                     <div className="dh-card-icon-circle">🏢</div>
                     <div className="dh-card-label">Caixa da empresa</div>
                   </div>
-                  <div className={`dh-card-value ${balanceToShow < 0 ? 'negative' : ''}`}>
-                    {formatBRL(balanceToShow)}
+                  <div className={`dh-card-value ${(balanceToShow ?? 0) < 0 ? 'negative' : ''}`}>
+                    {balanceToShow === null ? '—' : formatBRL(balanceToShow)}
                   </div>
                   <div className="dh-card-foot">
                     <span className="dh-card-hint">saldo operacional</span>
@@ -276,8 +282,8 @@ export default function DashboardHome() {
                     <div className="dh-card-icon-circle">👥</div>
                     <div className="dh-card-label">Caixa do grupo</div>
                   </div>
-                  <div className={`dh-card-value ${balanceToShow < 0 ? 'negative' : ''}`}>
-                    {formatBRL(balanceToShow)}
+                  <div className={`dh-card-value ${(balanceToShow ?? 0) < 0 ? 'negative' : ''}`}>
+                    {balanceToShow === null ? '—' : formatBRL(balanceToShow)}
                   </div>
                   <div className="dh-card-foot">
                     <span className="dh-card-hint">contribuições</span>
@@ -489,13 +495,21 @@ export default function DashboardHome() {
         <section className="dh-section">
           <div className="dh-section-header">
             <h2 className="dh-section-title">Atividade recente</h2>
-            {recentEntries.length > 0 && (
+            {recentEntries !== null && recentEntries.length > 0 && (
               <button type="button" className="dh-section-link" onClick={() => navigate('/banco')}>
                 Ver todas
               </button>
             )}
           </div>
-          {recentEntries.length === 0 ? (
+          {recentEntries === null ? (
+            <div className="dh-empty-card">
+              <div className="dh-empty-icon">⚠️</div>
+              <div className="dh-empty-body">
+                <div className="dh-empty-title">Extrato indisponível</div>
+                <div className="dh-empty-hint">Não foi possível carregar suas transações agora</div>
+              </div>
+            </div>
+          ) : recentEntries.length === 0 ? (
             <div className="dh-empty-card">
               <div className="dh-empty-icon">📭</div>
               <div className="dh-empty-body">

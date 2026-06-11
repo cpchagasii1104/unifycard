@@ -73,7 +73,7 @@
     "check:migrations": "node scripts/check-migration-numbering.js",
     "guard:financial-regression": "tsx scripts/guard-financial-regression.ts",
     "lint:sql-regression": "tsx scripts/sql-regression-lint.ts",
-    "validate:regression-guards": "tsx scripts/guard-financial-regression.ts && tsx scripts/sql-regression-lint.ts && node scripts/check-migration-numbering.js && node scripts/audit-inventory-reader-scope.mjs && node scripts/audit-register-birth-atomicity.mjs && node scripts/audit-c1-auto-reachable-read-purity.mjs",
+    "validate:regression-guards": "tsx scripts/guard-financial-regression.ts && tsx scripts/sql-regression-lint.ts && node scripts/check-migration-numbering.js && node scripts/audit-inventory-reader-scope.mjs && node scripts/audit-register-birth-atomicity.mjs && node scripts/audit-c1-auto-reachable-read-purity.mjs && node scripts/audit-c1-human-journey-closure.mjs",
     "validate:inventory-reader-scope": "node scripts/audit-inventory-reader-scope.mjs",
     "validate:register-birth-atomicity": "node scripts/audit-register-birth-atomicity.mjs",
     "validate:c1-read-purity": "node scripts/audit-c1-auto-reachable-read-purity.mjs",
@@ -128,7 +128,8 @@
     "arch:validate": "pnpm run arch:marketplace:validate && pnpm run arch:core:validate",
     "validate:schema-coherence": "node ../scripts/validate-schema-code-coherence.mjs",
     "validate:schema-coherence:strict": "node ../scripts/validate-schema-code-coherence.mjs --mode=strict",
-    "validate:schema-coherence:fallback": "node ../scripts/validate-schema-code-coherence.mjs --mode=fallback"
+    "validate:schema-coherence:fallback": "node ../scripts/validate-schema-code-coherence.mjs --mode=fallback",
+    "validate:c1-human-journey": "node scripts/audit-c1-human-journey-closure.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^8.5.0",

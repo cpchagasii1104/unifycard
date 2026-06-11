@@ -65,15 +65,8 @@ export async function getBankBalance(options?: { actorId?: string }): Promise<Ba
   const response = await apiFetch(`/bank/balance${qs}`, {}, { silent401: true });
 
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      return {
-        success: true,
-        balanceCents: 0,
-        balance: 0,
-        currency: 'BRL',
-        hasAccount: false,
-      };
-    }
+    // CP7 HOME READ SEAL: 401/403/erro NUNCA viram saldo 0 fabricado no cliente — o frontend
+    // não cria verdade financeira. Erro propaga; consumidores exibem "indisponível" (—).
     const errorData = await response.json().catch(() => ({}));
     throw new Error(extractErrorMessage(errorData, `Erro ao buscar saldo: ${response.status}`));
   }

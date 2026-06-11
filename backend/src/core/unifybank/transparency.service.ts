@@ -549,9 +549,21 @@ class TransparencyService {
     }
 
     // 2. Resolver conta regional no Unify Bank (conta de sistema regional_fund)
-    // Buscar conta regional_fund do sistema para a região do usuário
+    // F-C1-HOME-READ-SEAL (CP7): o adapter LANÇA quando a conta de sistema não existe (fail-closed,
+    // correto para WRITERS de money). Neste READER, fundo não configurado no tenant = AUSÊNCIA
+    // legítima → null (200 regionalFund:null), não erro estrutural. O throw do adapter fica intacto.
     const bankAccount = bankPortsRegistry.getBankAccount();
-    const regionalFundAccount = await bankAccount.getSystemAccount(tenantId, 'regional_fund', 'BRL');
+    let regionalFundAccount: Awaited<ReturnType<typeof bankAccount.getSystemAccount>> | null = null;
+    try {
+      regionalFundAccount = await bankAccount.getSystemAccount(tenantId, 'regional_fund', 'BRL');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/not found/i.test(msg)) {
+        regionalFundAccount = null; // ausência honesta (fundo não configurado neste tenant)
+      } else {
+        throw err; // erro estrutural real continua observável
+      }
+    }
 
     if (!regionalFundAccount) {
       return null; // Não há fundo regional para esse usuário

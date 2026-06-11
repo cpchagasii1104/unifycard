@@ -1,3 +1,31 @@
+## 2026-06-11 — F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE · jornada humana C1 fechada de ponta a ponta (MIGRATION+BACKEND+FRONTEND+E2E+GATE+DOCS)
+
+**Branch:** `rescue-structural` · **HEAD origem `970dc455`** (pós-PASS Yala read-purity) · migrations 367→**368** · _(macrofrente integrada com checkpoints seriais — GO único da IA Diretora, sem micro-GOs)._
+
+**Jornada provada (E2E HTTP integrado `validate-pipeline-e2e-c1-human-journey-end-to-end.ts` **55/55**, 2 usuários A/B no MESMO `unificard-inicial` + 3 da matriz gender):** cadastro → login → bootstrap → perfil pessoal → gender → profissional C1 → learning C1 → interests C1 (add/remove/**reactivate**) → agenda (Unified Availability) → Home → relogin → **reabertura de TODOS os dados** → **isolamento A/B** (7 provas 403 + zero mistura no banco) → negativas de payload → **zero evento econômico** (bank_ledger/bank_transactions INTACTOS) → zero tenant novo → prova negativa do gate.
+
+**CP1 GENDER (CLOSED):** vocabulário soberano **5 valores** (GO expande DECISION-0080+ADENDO): contracts GENDER_VALUES=5 · migration `20260611130000` (CHECK 3→5 fail-closed) · writers/readers via `isGender` · frontend ProfilePersonalForm 2→5. **BLOCKER vivo eliminado:** Register UI já oferecia 5 e o zod de 3 quebrava o cadastro de non_binary/prefer_not_to_say. Casa canônica/set-once/blob-stripado preservados. Matriz dos 5 provada (register→persistência→releitura→relogin); inválido→400.
+
+**CP2 /IDENTITY/ME (CLOSED):** fabricação de perfil parcial (200) REMOVIDA → cadeia quebrada = **409 IDENTITY_CHAIN_INCOMPLETE** observável; outros erros 500; frontend distingue estrutural × progressivo. `DT-C1-IDENTITY-ME-ABSENCE-FABRICATION` **CLOSED**.
+
+**CP3 PERFIL PESSOAL (CLOSED):** cadeia canônica auditada (fullName/birthdate→global_users · CPF→identities.tax_id · gender→global_users · endereço→Location Core · phone→profiles); aliases mortos `GET/PUT /profile/profile` removidos (zero callers).
+
+**CP4/5/6 PROFISSIONAL+LEARNING+INTERESTS+AGENDA (CLOSED, zero código):** já canônicos (resolveActorGuarded/canRepresentActor · concept_id FK · sem blob/fallback/localStorage · weekly-template fail-closed · timezone IANA · zero economia) — PROVADOS pelo E2E, não alterados.
+
+**CP7 HOME READ SEAL (CLOSED · ZERO FINANCIAL_HARD_STOP):** erro estrutural ≠ ausência: catch de `/bank/balance|statement|regional-fund` 200+zero/empty/null falso → **500 BANK_*_UNAVAILABLE**; ausência honesta preservada (hasAccount:false / vazio real / null-sucesso); reader do fundo trata `getSystemAccount` not-found como ausência (throw do adapter preservado p/ writers); `api/bank.ts` não fabrica balanceCents:0; DashboardHome exibe `—`/"Extrato indisponível" p/ null. Nenhum read cria estado; nenhum Bank writer no C1.
+
+**Gate:** `audit-c1-human-journey-closure.mjs` — **17 CLOSED_C1 · 5 KNOWN_OPEN_OUTSIDE_C1 · 0 FINANCIAL_HARD_STOP · 0 FORBIDDEN_REGRESSION** — religado em regression-guards; prova negativa no E2E (fabricação reintroduzida → gate FALHA → restaurado).
+
+**Gates/regressões (todos verdes):** tsc be/fe · actor-writer · bank-ledger · regression-guards · architectural 37→**35** (2 pré-existentes removidas pela limpeza do identity/me; ZERO nova) · check:migrations 368 · birth 29/29 · read-purity 32/32 · groups-mine 26/26 · x-actor-id 9/9 · self-escalation 33/33 · consolidated 39/39 · legacy-readers 32/32 · members 7/7 · role-vocab 7/7 · feed 8/8 · unread 20/20 · profile-c1 16/16 · availability 15+15+17+14+12 · canal3 7/7 · dev-login OK.
+
+**DTs:** CLOSED IDENTITY-ME-FABRICATION · NOVAS OPEN fora do C1: `DT-PJ-TABS-BANK-READS-MASK-ERRORS` + `DT-SOCIAL-TARGETING-GENDER-ENUM-3V` · adendos DECISION-0080 (5v, F2/F3) + DECISION-0115 (jornada).
+
+**Cartório:** gender CLOSED · identity/me CLOSED · perfil pessoal CLOSED · profissional CLOSED · learning CLOSED · interests CLOSED · agenda própria CLOSED · Home read seal CLOSED (zero hard stop). **F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE CONCLUÍDA — macrofrente C1 fecha com reseal Yala.** Permanecem OPEN: convite cross-tenant · pilot_invites · system actor institucional · PJ · inventory · marketplace · DECISION-0113 · FASE 6 · R2 · money fora do C1.
+
+**Commits:** A `fc248f9e` (gender+identity) · B `6f3aac97` (perfil) · E (Home seal+E2E+gate+cartório). HOLD — aguardando reseal Yala.
+
+---
+
 ## 2026-06-11 — F-C1-AUTO-REACHABLE-READ-PURITY · GETs auto-reachable do C1 viram leitura pura (BACKEND+FRONTEND+E2E+GATE+DOCS)
 
 **Branch:** `rescue-structural` · **HEAD origem `30dd2a16`** · _(Fatia 2 do arco C1, após `F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC`. Com o nascimento já garantindo actor+profile atomicamente, os GETs curativos do caminho C1 deixam de "curar" no read.)_

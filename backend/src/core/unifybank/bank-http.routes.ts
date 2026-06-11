@@ -132,30 +132,21 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
     reply.header('x-request-id', requestId);
     req.log.info({ requestId, route: 'GET /bank/balance', actorId: req.query.actorId }, 'bank.http.balance');
 
+    // F-C1-HOME-READ-SEAL (CP7): falha de auth/tenant NÃO vira saldo falso 200 — erro observável.
     if (!req.user?.id) {
-      return reply.status(200).send({
-        success: true,
-        balanceCents: 0,
-        balance: 0,
-        currency: 'BRL',
-        hasAccount: false,
-      });
+      return reply.status(401).send({ success: false, code: 'UNAUTHENTICATED', error: 'Não autenticado' });
     }
 
     if (!req.tenant?.id) {
-      return reply.status(200).send({
-        success: true,
-        balanceCents: 0,
-        balance: 0,
-        currency: 'BRL',
-        hasAccount: false,
-      });
+      return reply.status(400).send({ success: false, code: 'TENANT_NOT_FOUND', error: 'Tenant não encontrado' });
     }
 
     const tenantId = req.tenant.id;
     const userId = req.user.id;
     const actorIdParam = req.query.actorId;
 
+    // Sem identidade bancária (global_user) = AUSÊNCIA honesta sinalizada (hasAccount:false).
+    // zero=zero: usuário sem conta tem materialmente saldo 0 — distinto de ERRO (500 abaixo).
     const globalUserId = await resolveGlobalUserId(userId, tenantId);
     if (!globalUserId) {
       return reply.status(200).send({
@@ -227,13 +218,13 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
         hasAccount: accountResolved,
       });
     } catch (err) {
+      // F-C1-HOME-READ-SEAL (CP7): ERRO ESTRUTURAL nunca vira saldo falso (200 + 0). O frontend
+      // distingue indisponível (erro) de zero real (sucesso). Leitura pura — nada é criado/curado.
       req.log.error({ err, requestId, userId, tenantId, actorId: actorIdParam }, 'bank.http.balance.error');
-      return reply.status(200).send({
-        success: true,
-        balanceCents: 0,
-        balance: 0,
-        currency: 'BRL',
-        hasAccount: false,
+      return reply.status(500).send({
+        success: false,
+        code: 'BANK_BALANCE_UNAVAILABLE',
+        error: 'Saldo indisponível (erro estrutural). Não é um saldo zero.',
       });
     }
   });
