@@ -1,13 +1,15 @@
 -- ============================================================
--- GENDER 5 VALORES (GO F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE 2026-06-11)
+-- GENDER 5 VALORES (DECISION-0115 D3 — implementada pela macrofrente C1, 2026-06-11)
 -- ============================================================
 -- Expande o vocabulário soberano de `global_users.gender` de 3 → 5 valores:
 --   male | female | non_binary | other | prefer_not_to_say
 --
--- Contexto: a DECISION-0080 promulgara 3 valores ('male'|'female'|'other'); o GO da macrofrente
--- C1 (IA Diretora, 2026-06-11) promulgou o vocabulário de 5 valores — o mesmo já oferecido pela
--- UI de Register e aceito pela assinatura de auth.service.register. Esta migration alinha o CHECK
--- do banco ao vocabulário soberano (adendo factual registrado na DECISION-0080).
+-- Precedência normativa: a fonte soberana é a DECISION-0115 D3, ratificada expressamente por
+-- Clayton, que SUPEROU a regra de 3 valores da DECISION-0080 §4 exclusivamente nesse ponto.
+-- O GO da macrofrente C1 não promulga norma — apenas executa a D3. Esta migration IMPLEMENTA
+-- a decisão soberana, alinhando o CHECK do banco ao vocabulário já oferecido pela UI de Register
+-- (adendo factual registrado na DECISION-0080).
+-- [Correção de atribuição normativa 2026-06-12 — só comentários; SQL executável intocado.]
 --
 -- Casa canônica INALTERADA: global_users.gender (set-once via setUserGenderIfAbsent).
 -- Nenhum dado existente é alterado (valores vivos 'male'/NULL são subconjunto dos 5).

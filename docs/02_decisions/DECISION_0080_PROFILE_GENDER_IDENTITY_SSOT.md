@@ -139,13 +139,13 @@ F5        — selo + CLOSE da DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT.
 
 ## 9. Superada por
 
-(em aberto — decisão vigente, com ADENDO abaixo)
+**Parcialmente superada — apenas no §4 (enum de valores) — pela `DECISION-0115` D3** (ratificada expressamente por Clayton): vocabulário soberano = 5 valores. Todo o restante desta DECISION permanece vigente. Ver ADENDO abaixo.
 
 ## ADENDO FACTUAL — VOCABULÁRIO EXPANDIDO PARA 5 VALORES + F2/F3 IMPLEMENTADOS (2026-06-11)
 
-> Adendo **factual** registrado pela executora sob GO `F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE` (IA Diretora, 2026-06-11).
+> Adendo **factual** registrado pela executora sob GO `F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE` (IA Diretora, 2026-06-11). **Redação de precedência corrigida em 2026-06-12 sob GO `F-C1-GENDER-NORMATIVE-PRECEDENCE-CORRECTION`** (a versão anterior deste adendo atribuía incorretamente a promulgação ao GO executivo).
 
-- **Vocabulário:** o GO da macrofrente C1 promulgou o enum soberano de **5 valores** — `male | female | non_binary | other | prefer_not_to_say` — expandindo o §4 desta DECISION (que fixara 3 e vetara os outros 2 "sem evidência"). A evidência material que faltava em 2026-06-02 existia no runtime: a UI de Register **já oferecia os 5** (e 2 deles quebravam o cadastro por rejeição do zod de 3). Norma mais recente vence: GO C1 > §4 original.
+- **Precedência normativa (correta):** a **`DECISION-0115` D3, ratificada expressamente por Clayton**, estabeleceu o vocabulário soberano de **5 valores** — `male | female | non_binary | other | prefer_not_to_say` — e **superou a regra de 3 valores do §4 desta DECISION exclusivamente nesse ponto** (D3 é emenda explícita ao enum; todo o resto da 0080 — casa canônica `global_users.gender`, "perfil coleta, identidade guarda", lock/set-once — permanece vigente). O **GO da macrofrente C1 NÃO promulga norma e NÃO supera DECISION**: apenas **executou** a DECISION-0115 D3. O commit/runtime implementam a decisão soberana; este adendo registra a implementação e a relação de superação — não cria soberania. Evidência material que motivou a D3: a UI de Register já oferecia os 5 valores e `non_binary`/`prefer_not_to_say` **evaporavam silenciosamente** (DT-GENDER-INPUT-PERSISTENCE-VOCABULARY-DIVERGENCE).
 - **Implementação (mesma frente):** contracts `GENDER_VALUES`=5 · migration `20260611130000` (CHECK `chk_global_users_gender` 3→5, guard fail-closed) · `setUserGenderIfAbsent`/extração de `upsertProfile`/`hasGender` via `isGender` · frontend `ProfilePersonalForm` 2→5 opções (rótulos do Register). **Tudo o mais desta DECISION permanece:** casa canônica `global_users.gender`, set-once (`WHERE gender IS NULL`), blob stripado, espelho `metadata.gender` na leitura, fronteira civil ≠ health/lifestyle/sexualOrientation.
 - **Estado das fases:** F1 ✅ (2026-06-02) · **F2 ✅ + F3 ✅ (2026-06-11, esta frente)** · F4 cleanup do blob ✅ (migration `20260602150000`, blob zerado em dev) · F5 selo = E2E jornada (5 valores: register→persistência→leitura→relogin→reabertura) + gate `audit-c1-human-journey-closure.mjs` (5 checks de gender).
 - **Resíduo registrado:** targeting social-2.0 segue com enum 3v — `DT-SOCIAL-TARGETING-GENDER-ENUM-3V` (alargar exige decisão de produto/LGPD; cf. DECISION-0071).
