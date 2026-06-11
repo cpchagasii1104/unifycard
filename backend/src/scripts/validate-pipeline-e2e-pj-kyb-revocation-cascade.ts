@@ -18,12 +18,14 @@ import { pool } from '../core/database/pool';
 import { companiesService } from '../core/companies/companies.service';
 import { companyPublicationsService } from '../core/companies/company-publications.service';
 import { fiscalIdentityKybService } from '../core/identity/fiscal-identity-kyb.service';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor } from '../modules/identity/actor-writer.service';
 
-const TENANT_ID = '11111111-2222-3333-4444-777777777777';
+// C1 (nascimento orgânico): authService.register roteia para o tenant institucional canônico
+// — o teste ADOTA o tenant real do primeiro user registrado (hint só inicializa o register).
+const SEED_TENANT_HINT = '11111111-2222-3333-4444-777777777777';
+let TENANT_ID = '';
 const PASSWORD = '123456';
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 
@@ -91,8 +93,14 @@ let PAIRS: Pair[] = [];
 async function makeUser(tag: string, cpfSeed: number): Promise<{ userId: string; globalUserId: string; humanActorId: string }> {
   const email = `${tag}@unificard.test`;
   const existing = await pool.query('SELECT user_id FROM users WHERE email=$1 LIMIT 1', [email]);
-  if (existing.rowCount === 0) await authService.register(TENANT_ID, email, PASSWORD, validCpf(cpfSeed), `KYB ${tag}`);
-  const u = (await pool.query<{ user_id: string; global_user_id: string }>(`SELECT user_id::text, global_user_id::text FROM users WHERE email=$1 AND tenant_id=$2 LIMIT 1`, [email, TENANT_ID])).rows[0];
+  if (existing.rowCount === 0) await authService.register(TENANT_ID || SEED_TENANT_HINT, email, PASSWORD, validCpf(cpfSeed), `KYB ${tag}`);
+  // C1: lookup por email; o tenant REAL vem da linha (register é orgânico/canônico).
+  const u = (await pool.query<{ user_id: string; global_user_id: string; tenant_id: string }>(`SELECT user_id::text, global_user_id::text, tenant_id::text FROM users WHERE email=$1 LIMIT 1`, [email])).rows[0];
+  if (!u) throw new Error(`fixture: user ${email} não encontrado após register`);
+  if (!TENANT_ID) {
+    TENANT_ID = u.tenant_id;
+    await rbacService.seedDefaultRBAC(TENANT_ID);
+  }
   const actor = await ensureUserActor(TENANT_ID, u.user_id);
   await rbacService.assignRoleByName(TENANT_ID, u.user_id, 'admin');
   return { userId: u.user_id, globalUserId: u.global_user_id, humanActorId: actor.actor_id };
@@ -143,10 +151,8 @@ async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
 
-  const t = await pool.query('SELECT id FROM tenants WHERE id=$1 LIMIT 1', [TENANT_ID]);
-  if (t.rowCount === 0) await tenantService.createTenant({ id: TENANT_ID, name: 'KYB Revoke Test', slug: 'kyb-revoke-test' });
-  await rbacService.seedDefaultRBAC(TENANT_ID);
-
+  // C1: tenant operacional resolvido pelo PRÓPRIO register orgânico (makeUser adota o tenant
+  // real do primeiro user + seedDefaultRBAC). Nada de tenant sintético prévio.
   const reviewer = await makeUser('reviewer', 135792468);
   REVIEWER_ACTOR_ID = reviewer.humanActorId;
 

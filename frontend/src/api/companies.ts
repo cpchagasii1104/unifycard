@@ -389,6 +389,42 @@ export async function getCompanyKybStatus(companyId: string): Promise<CompanyKyb
   return result?.data ?? result;
 }
 
+// ── CP5 F-PJ-HUMAN-TO-COMPANY: publicação controlada (DECISION-0099/0100) ──────────────────
+// O frontend NUNCA afirma "público" antes da publicação material: o estado vem do reader; o
+// publish é bloqueado pelo backend sem KYB approved (409 KYB_NOT_APPROVED — razão exibida).
+
+export interface CompanyPublication {
+  publicationId: string;
+  conceptId: string;
+  status: string;
+  publishedAt: string | null;
+  retiredAt: string | null;
+}
+
+export async function listCompanyPublications(companyId: string): Promise<CompanyPublication[]> {
+  const response = await apiFetch(`/companies/${companyId}/publications`);
+  const result = await response.json();
+  return result?.data ?? [];
+}
+
+export async function publishCompanyConcept(companyId: string, conceptId: string): Promise<{ alreadyPublished: boolean }> {
+  const response = await apiFetch(`/companies/${companyId}/publications`, {
+    method: 'POST',
+    body: JSON.stringify({ conceptId, source: 'company_dashboard' }),
+  });
+  const result = await response.json();
+  return result?.data ?? result;
+}
+
+export async function retireCompanyConcept(companyId: string, conceptId: string): Promise<{ alreadyRetired: boolean }> {
+  const response = await apiFetch(`/companies/${companyId}/publications/${conceptId}/retire`, {
+    method: 'POST',
+    body: JSON.stringify({ source: 'company_dashboard' }),
+  });
+  const result = await response.json();
+  return result?.data ?? result;
+}
+
 // ── F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR (DECISION-0098) ──────────────────────────────
 // Catálogo governado de seleção + rota viva do par. O frontend NÃO inventa concept nem
 // classificação: envia o que o backend expôs (precedente Profile C1). businessType/

@@ -1205,6 +1205,37 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /companies/:companyId/publications   (CP5 — leitura pura membership-scoped)
+   * Estado material de publicação da empresa (sem escrita; writers seguem gateados).
+   */
+  fastify.get<{ Params: { companyId: string } }>('/:companyId/publications', async (req, reply) => {
+    if (!req.user?.globalUserId) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    }
+    const companyId = req.params.companyId;
+    if (!z.string().uuid().safeParse(companyId).success) {
+      return reply.status(400).send({ ok: false, code: 'INVALID_COMPANY_ID', message: 'companyId inválido' });
+    }
+    try {
+      const data = await companyPublicationsService.listCompanyPublications({
+        tenantId: req.tenant.id,
+        companyId,
+        globalUserId: req.user.globalUserId,
+      });
+      return reply.send({ ok: true, data });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+      if (statusCode >= 500) fastify.log.error({ err: error, companyId }, 'Erro ao listar publicações PJ');
+      const message = error instanceof Error ? error.message : 'Erro ao listar publicações';
+      return reply.status(statusCode).send({ ok: false, code, message });
+    }
+  });
+
+  /**
    * POST /companies/:companyId/publications/:conceptId/retire
    * Despublica (retira) a publicação active. NÃO exige KYB. Idempotente (sem active → alreadyRetired=true).
    */

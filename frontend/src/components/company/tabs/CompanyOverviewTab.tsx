@@ -5,7 +5,15 @@ import { useState, useEffect } from 'react';
 import { useSession } from '../../../contexts/SessionProvider';
 import { getBankBalance, getBankStatement } from '../../../api/bank';
 import { listCompanyMembers } from '../../../api/companyMembers';
-import { getCompanyKybStatus, submitCompanyKybRequest, type CompanyKybStatus } from '../../../api/companies';
+import {
+  getCompanyKybStatus,
+  submitCompanyKybRequest,
+  listCompanyPublications,
+  publishCompanyConcept,
+  retireCompanyConcept,
+  type CompanyKybStatus,
+  type CompanyPublication,
+} from '../../../api/companies';
 import { showToast } from '../../common/Toast';
 import { isAuthenticated, getTenantId } from '../../../config/auth';
 import { centsToReais } from '../../../utils/money';
@@ -36,6 +44,9 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
   /** CP4 (GO 10.3): status MATERIAL do KYB. null = indisponível (erro de leitura). */
   const [kyb, setKyb] = useState<CompanyKybStatus | null | undefined>(undefined);
   const [kybSubmitting, setKybSubmitting] = useState(false);
+  /** CP5: estado MATERIAL de publicação. null = indisponível (erro de leitura). */
+  const [publications, setPublications] = useState<CompanyPublication[] | null | undefined>(undefined);
+  const [pubActing, setPubActing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // O dashboard PJ exige contexto de page actor; sem ele, os reads empresariais são
@@ -54,7 +65,7 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
   const loadOverviewData = async () => {
     setLoading(true);
 
-    const [balanceResult, statementResult, membersResult, kybResult] = await Promise.allSettled([
+    const [balanceResult, statementResult, membersResult, kybResult, pubResult] = await Promise.allSettled([
       pageActorId
         ? getBankBalance({ actorId: pageActorId })
         : Promise.reject(new Error('Sem contexto de page actor da empresa')),
@@ -63,6 +74,7 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
         : Promise.reject(new Error('Sem contexto de page actor da empresa')),
       listCompanyMembers(companyId),
       getCompanyKybStatus(companyId),
+      listCompanyPublications(companyId),
     ]);
 
     // Saldo: sucesso → centavos (zero real é zero real); falha → undefined (indisponível).
@@ -77,8 +89,41 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
     setMembersCount(membersResult.status === 'fulfilled' ? membersResult.value.length : null);
     // KYB: falha → null (indisponível); sucesso → estado material da fonte fiscal.
     setKyb(kybResult.status === 'fulfilled' ? kybResult.value : null);
+    // Publicações: falha → null (indisponível, nunca "não publicada" falsa).
+    setPublications(pubResult.status === 'fulfilled' ? pubResult.value : null);
 
     setLoading(false);
+  };
+
+  // CP5: publicar/retirar o concept primário — o backend prova autoridade + KYB + par;
+  // bloqueio de KYB (409 KYB_NOT_APPROVED) aparece como razão honesta, não como sucesso.
+  const activePublication = Array.isArray(publications)
+    ? publications.find((p) => p.status === 'active')
+    : undefined;
+  const handlePublishToggle = async (): Promise<void> => {
+    setPubActing(true);
+    try {
+      if (activePublication) {
+        await retireCompanyConcept(companyId, activePublication.conceptId);
+        showToast('Publicação retirada.', 'success');
+      } else {
+        if (!company.primaryConceptId) {
+          showToast('Empresa ainda não ativada operacionalmente (sem atividade principal).', 'error');
+          return;
+        }
+        await publishCompanyConcept(companyId, company.primaryConceptId);
+        showToast('Empresa publicada para descoberta.', 'success');
+      }
+      const refreshed = await listCompanyPublications(companyId).catch(() => null);
+      setPublications(refreshed);
+    } catch (err: any) {
+      const msg = err?.code === 'KYB_NOT_APPROVED'
+        ? 'Publicação bloqueada: a verificação (KYB) da empresa ainda não foi aprovada.'
+        : err instanceof Error ? err.message : 'Falha na operação de publicação.';
+      showToast(msg, 'error');
+    } finally {
+      setPubActing(false);
+    }
   };
 
   // CP4/CP2 (GO 10.3): "Enviar para análise" do dashboard — o backend prova autoridade,
@@ -228,6 +273,29 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
                   {kybSubmitting ? '⏳ Enviando…' : 'Enviar para análise'}
                 </button>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Publicação (CP5 — DECISION-0099/0100): estado MATERIAL; nunca afirma "público"
+            antes da publicação real; bloqueio de KYB aparece como razão honesta. */}
+        <div className="overview-card">
+          <h3>Publicação</h3>
+          {publications === undefined ? (
+            <p>…</p>
+          ) : publications === null ? (
+            <p title="Leitura do estado de publicação indisponível">— indisponível</p>
+          ) : (
+            <div className="overview-info">
+              <div className="overview-info-item">
+                <span className="overview-label">Status:</span>
+                <span className="overview-value">
+                  {activePublication ? '🟢 Publicada (descobrível)' : 'Não publicada'}
+                </span>
+              </div>
+              <button className="btn-primary" onClick={handlePublishToggle} disabled={pubActing}>
+                {pubActing ? '⏳ …' : activePublication ? 'Retirar publicação' : 'Publicar empresa'}
+              </button>
             </div>
           )}
         </div>

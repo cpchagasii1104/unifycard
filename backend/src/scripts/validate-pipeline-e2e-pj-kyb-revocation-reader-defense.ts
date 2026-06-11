@@ -15,12 +15,13 @@ import { companiesService } from '../core/companies/companies.service';
 import { companyPublicationsService } from '../core/companies/company-publications.service';
 import { fiscalIdentityKybService } from '../core/identity/fiscal-identity-kyb.service';
 import { listTenantsOfferingConcept } from '../modules/marketplace/tenant-concept-offerings.repository';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor } from '../modules/identity/actor-writer.service';
 
-const TENANT_ID = '11111111-2222-3333-4444-888888888888';
+// C1 (nascimento orgânico): register roteia para o tenant canônico — o teste ADOTA o tenant real.
+const SEED_TENANT_HINT = '11111111-2222-3333-4444-888888888888';
+let TENANT_ID = '';
 const PASSWORD = '123456';
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 
@@ -69,8 +70,10 @@ type Pair = { ct: string; c: string };
 async function makeUser(tag: string, cpfSeed: number): Promise<{ userId: string; globalUserId: string; humanActorId: string }> {
   const email = `${tag}@unificard.test`;
   const existing = await pool.query('SELECT user_id FROM users WHERE email=$1 LIMIT 1', [email]);
-  if (existing.rowCount === 0) await authService.register(TENANT_ID, email, PASSWORD, validCpf(cpfSeed), `RD ${tag}`);
-  const u = (await pool.query<{ user_id: string; global_user_id: string }>(`SELECT user_id::text, global_user_id::text FROM users WHERE email=$1 AND tenant_id=$2 LIMIT 1`, [email, TENANT_ID])).rows[0];
+  if (existing.rowCount === 0) await authService.register(TENANT_ID || SEED_TENANT_HINT, email, PASSWORD, validCpf(cpfSeed), `RD ${tag}`);
+  const u = (await pool.query<{ user_id: string; global_user_id: string; tenant_id: string }>(`SELECT user_id::text, global_user_id::text, tenant_id::text FROM users WHERE email=$1 LIMIT 1`, [email])).rows[0];
+  if (!u) throw new Error(`fixture: user ${email} não encontrado após register`);
+  if (!TENANT_ID) { TENANT_ID = u.tenant_id; await rbacService.seedDefaultRBAC(TENANT_ID); }
   const actor = await ensureUserActor(TENANT_ID, u.user_id);
   await rbacService.assignRoleByName(TENANT_ID, u.user_id, 'admin');
   return { userId: u.user_id, globalUserId: u.global_user_id, humanActorId: actor.actor_id };
@@ -95,9 +98,7 @@ const tenantSurfaces = async (conceptId: string): Promise<boolean> => {
 async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
-  const t = await pool.query('SELECT id FROM tenants WHERE id=$1 LIMIT 1', [TENANT_ID]);
-  if (t.rowCount === 0) await tenantService.createTenant({ id: TENANT_ID, name: 'Reader Defense Test', slug: 'reader-defense-test' });
-  await rbacService.seedDefaultRBAC(TENANT_ID);
+  // C1: tenant adotado do primeiro register orgânico (makeUser seta TENANT_ID + RBAC).
   REVIEWER_ACTOR_ID = (await makeUser('rd-reviewer', 246813579)).humanActorId;
 
   const pairs = (await pool.query<{ ct: string; c: string }>(`SELECT company_type_id::text AS ct, concept_id::text AS c FROM company_type_allowed_concepts ORDER BY concept_id`)).rows;

@@ -13,7 +13,7 @@
 
 import { runQueryWithTenant, getClientWithTenant } from '@core/database/pool';
 import { HttpError } from '@core/errors/http-error';
-import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { socialPortsRegistry } from '@core/social/ports-registry';
 import { authorityDecisionService } from '@core/compliance/authority-decision.service';
 import { companiesService } from './companies.service';
 
@@ -187,10 +187,11 @@ export const companyPublicationsService = {
       throw pubError('KYB_NOT_APPROVED', `Publicação exige KYB approved (${kyb.reason})`, 409);
     }
 
-    // ── Actor humano de auditoria (resolvido backend-side; NÃO do frontend) ───
-    const humanActor = await ensureUserActor(tenantId, responsibleUserId);
+    // ── Actor humano de auditoria (LEITURA PURA backend-side; NÃO do frontend) ───
+    // PJ-B3: publicação não cria/cura actor — humano nascido (C1) já o tem; ausência = erro.
+    const humanActor = await socialPortsRegistry.getActorRepository().findByUserId(tenantId, responsibleUserId);
     if (!humanActor?.actor_id) {
-      throw pubError('RESPONSIBLE_ACTOR_NOT_FOUND', `actor humano (user ${responsibleUserId}) não resolvido`, 404);
+      throw pubError('RESPONSIBLE_ACTOR_NOT_FOUND', `actor humano (user ${responsibleUserId}) não existe — publicação não cria/cura actors`, 404);
     }
 
     // ── Transação: lock da publicação active + idempotência/insert ───────────
@@ -269,9 +270,10 @@ export const companyPublicationsService = {
     // ── Autoridade + empresa (sem gate KYB no retire) ────────────────────────
     await loadCompanyForAuthority(tenantId, companyId, globalUserId);
 
-    const humanActor = await ensureUserActor(tenantId, responsibleUserId);
+    // PJ-B3: leitura pura — retire também não cria/cura actor.
+    const humanActor = await socialPortsRegistry.getActorRepository().findByUserId(tenantId, responsibleUserId);
     if (!humanActor?.actor_id) {
-      throw pubError('RESPONSIBLE_ACTOR_NOT_FOUND', `actor humano (user ${responsibleUserId}) não resolvido`, 404);
+      throw pubError('RESPONSIBLE_ACTOR_NOT_FOUND', `actor humano (user ${responsibleUserId}) não existe — retire não cria/cura actors`, 404);
     }
 
     const client = await getClientWithTenant(tenantId);
@@ -311,5 +313,58 @@ export const companyPublicationsService = {
     } finally {
       client.release();
     }
+  },
+
+  /**
+   * CP5 — leitura PURA das publicações da empresa (PJ-B4: membership-scoped).
+   * Qualquer membro ATIVO lê o estado de publicação; publicar/retirar seguem gateados
+   * por canManageCompany nos writers. Sem escrita, sem projeção, sem KYB-gate (é leitura
+   * do estado material — o gate vive nos writers e no discovery reader).
+   */
+  async listCompanyPublications(input: {
+    tenantId: string;
+    companyId: string;
+    globalUserId: string;
+  }): Promise<Array<{
+    publicationId: string;
+    conceptId: string;
+    status: string;
+    publishedAt: string | null;
+    retiredAt: string | null;
+  }>> {
+    const { tenantId, companyId, globalUserId } = input;
+    const member = await runQueryWithTenant<{ ok: number }>(
+      tenantId,
+      `SELECT 1 AS ok FROM company_users cu
+        WHERE cu.tenant_id = $1 AND cu.company_id = $2
+          AND cu.global_user_id = $3::uuid AND cu.is_active = true AND cu.member_status = 'active'
+        LIMIT 1`,
+      [tenantId, companyId, globalUserId]
+    );
+    if (!member) {
+      throw pubError('PUBLICATIONS_FORBIDDEN', 'Sem vínculo ativo com esta empresa', 404);
+    }
+    const { runQueriesWithTenant } = await import('@core/database/pool');
+    const rows = await runQueriesWithTenant<{
+      id: string;
+      concept_id: string;
+      status: string;
+      published_at: string | null;
+      retired_at: string | null;
+    }>(
+      tenantId,
+      `SELECT id::text, concept_id::text, status, published_at::text, retired_at::text
+         FROM company_concept_publications
+        WHERE tenant_id = $1 AND company_id = $2::uuid
+        ORDER BY published_at DESC NULLS LAST`,
+      [tenantId, companyId]
+    );
+    return (rows ?? []).map((r) => ({
+      publicationId: r.id,
+      conceptId: r.concept_id,
+      status: r.status,
+      publishedAt: r.published_at,
+      retiredAt: r.retired_at,
+    }));
   },
 };
