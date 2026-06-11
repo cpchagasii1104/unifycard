@@ -19,6 +19,7 @@
 // src/core/identity/identity.service.ts
 import { pool } from '@core/database/pool';
 import { runQueryWithTenant } from '@core/database/pool';
+import { isGender } from '@unificard/contracts';
 import { normalizeCpf, validateCpf } from '@utils/cpf.validator';
 import { reputationService } from '@core/reputation/reputation.service';
 import { residenceService } from '@core/residence/residence.service';
@@ -427,12 +428,13 @@ class IdentityService {
    * F2 GENDER (DECISION-0080): grava `global_users.gender` apenas se ainda AUSENTE (set-once).
    * O `WHERE gender IS NULL` materializa o lock/imutabilidade: o primeiro valor fica; tentativas
    * posteriores de alterar são NO-OP (não lançam) — mesma regra de negócio de hoje, só muda o local.
-   * Valida o enum canônico (male|female|other). Valor inválido/ausente → no-op silencioso.
+   * Valida o enum canônico de 5 valores (GENDER_VALUES — GO C1 2026-06-11 expande DECISION-0080).
+   * Valor inválido/ausente → no-op silencioso.
    * Retorna true se gravou agora, false se já existia (ou input inválido).
    */
   async setUserGenderIfAbsent(globalUserId: string, gender: string | null | undefined): Promise<boolean> {
     const g = typeof gender === 'string' ? gender.trim() : '';
-    if (g !== 'male' && g !== 'female' && g !== 'other') return false;
+    if (!isGender(g)) return false;
     const result = await pool.query(
       `UPDATE global_users
        SET gender = $2, updated_at = now()

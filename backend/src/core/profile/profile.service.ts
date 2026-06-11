@@ -9,6 +9,7 @@ import { ConflictError } from '@core/errors';
 import type { Profile, UpdateProfileInput } from './profile.types';
 import { validateCpfOrThrow, normalizeCpf, sanitizeCpfForLog } from '@utils/cpf.validator';
 import { normalizeFullName } from '@utils/nameNormalizer';
+import { isGender } from '@unificard/contracts';
 
 type AnyRow = Record<string, any>;
 
@@ -249,13 +250,13 @@ class ProfileService {
       }
     }
 
-    // F2 GENDER (DECISION-0080): extrair gender do payload — NÃO mora em metadata; vai para o
-    // Identity SSOT (global_users.gender), espelhando o tratamento do CPF. Enum male|female|other.
+    // F2 GENDER (DECISION-0080 + GO C1 2026-06-11): extrair gender do payload — NÃO mora em metadata;
+    // vai para o Identity SSOT (global_users.gender). Enum soberano de 5 valores (GENDER_VALUES).
     let genderToSave: string | null = null;
     if (input.metadata && typeof input.metadata === 'object') {
       const gv = (input.metadata as any).gender;
       const g = typeof gv === 'string' ? gv.trim() : '';
-      if (g === 'male' || g === 'female' || g === 'other') genderToSave = g;
+      if (isGender(g)) genderToSave = g;
     }
 
     // Sanitizar metadata: remover imutáveis e dados sensíveis
@@ -348,7 +349,7 @@ class ProfileService {
       // F2 GENDER (DECISION-0080): gender vem do Identity SSOT (global_users.gender), não do blob.
       // Considera o valor recém-salvo nesta operação (genderToSave) ou o canônico já persistido.
       const finalGender = genderToSave || genderCanonical || existingMetadata?.gender;
-      const hasGender = finalGender === 'male' || finalGender === 'female' || finalGender === 'other';
+      const hasGender = isGender(finalGender);
       
       // Se todos os dados obrigatórios existem, marcar onboarding como concluído
       if (hasFullName && hasBirthdate && hasGender) {
@@ -553,10 +554,10 @@ class ProfileService {
     if (!globalUser?.birthdate) errors.push('Data de nascimento');
 
     const existingProfile = await this.getProfile(tenantId, userId);
-    // F2 GENDER (DECISION-0080): gender canônico vem de global_users.gender (Identity SSOT);
-    // blob é fallback transitório até o cleanup (F4). Enum male|female|other.
+    // F2 GENDER (DECISION-0080 + GO C1 2026-06-11): gender canônico vem de global_users.gender
+    // (Identity SSOT); blob é fallback transitório até o cleanup (F4). Enum soberano de 5 valores.
     const gender = globalUser?.gender || existingProfile?.metadata?.gender;
-    if (!gender || (gender !== 'male' && gender !== 'female' && gender !== 'other')) errors.push('Gênero');
+    if (!isGender(gender)) errors.push('Gênero');
 
     if (errors.length > 0) {
       const error: any = new Error(

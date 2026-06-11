@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { type Gender } from "@unificard/contracts";
 
 export function useProfilePersonalState() {
   // Formulário Pessoal
@@ -13,7 +14,7 @@ export function useProfilePersonalState() {
   const [birthdateError, setBirthdateError] = useState<string | null>(null);
   const [userAge, setUserAge] = useState<number | undefined>(undefined);
   const [hasBirthdate, setHasBirthdate] = useState(false); // 🔴 IMUTABILIDADE: Flag para detectar se birthdate já foi cadastrado
-  const [gender, setGender] = useState<"male" | "female" | "">("");
+  const [gender, setGender] = useState<Gender | "">("");
   const [genderError, setGenderError] = useState<string | null>(null);
   const [hasGender, setHasGender] = useState(false); // 🔴 IMUTABILIDADE: Flag para detectar se gender já foi cadastrado
   const [countryCode, setCountryCode] = useState("55");

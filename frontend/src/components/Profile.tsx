@@ -37,6 +37,7 @@ import { CompaniesManager } from "./CompaniesManager";
 import OnboardingModal from "./OnboardingModal";
 import ProfileProgressBar from "./ProfileProgressBar";
 import { useProfilePersonalState } from "../hooks/useProfilePersonalState";
+import { type Gender } from "@unificard/contracts";
 import { useProfileCep } from "../hooks/useProfileCep";
 import ProfilePersonalForm from "./ProfilePersonalForm";
 import "./Profile.css";
@@ -411,7 +412,7 @@ export default function Profile() {
       setHasCpf(cpfDigits.length === 11);
 
       // Gender (sempre setar, mesmo se vazio)
-      const genderValue = (metadata.gender as "male" | "female" | "") || "";
+      const genderValue = (metadata.gender as Gender | "") || "";
       setGender(genderValue);
       // 🔴 IMUTABILIDADE: Se gender existe, marcar como já cadastrado (imutável)
       setHasGender(!!genderValue);
@@ -496,8 +497,16 @@ export default function Profile() {
       let identityData: IdentityProfile | null = null;
       try {
         identityData = await getIdentityProfile();
-      } catch (err) {
-        console.warn("Erro ao buscar identity (não crítico):", err);
+      } catch (err: any) {
+        // CP2 (/identity/me honesto): 409 IDENTITY_CHAIN_INCOMPLETE = cadeia de identidade quebrada
+        // (estrutural) — distinto de dado progressivo ausente. Erro estrutural É exibido, não engolido.
+        if (err?.code === "IDENTITY_CHAIN_INCOMPLETE" || err?.status === 409) {
+          setError(
+            "Sua identidade está incompleta no sistema (cadastro anterior ao modelo atual). Contate o suporte.",
+          );
+        } else {
+          console.warn("Erro ao buscar identity (não crítico):", err);
+        }
       }
 
       const pp = coreProfile.personal_profile as

@@ -49,117 +49,36 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         profile = await identityService.getIdentityProfile(userId, req.tenant.id);
       } catch (error) {
-        // 🔴 CORREÇÃO: Se identity não existe ainda (primeiro acesso), retornar estrutura parcial
-        // Isso permite que o frontend funcione mesmo sem global_user criado
+        // F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE (CP2): cadeia de identidade quebrada NÃO é
+        // mascarada com 200 + perfil parcial fabricado. Pós-nascimento atômico (DECISION-0115 D2)
+        // todo nascido tem identity; cadeia ausente = legado/corrupção → erro estrutural OBSERVÁVEL
+        // (409 IDENTITY_CHAIN_INCOMPLETE). Este GET NÃO cria identity/actor/profile/status.
         const errorMessage = error instanceof Error ? error.message : String(error);
-        const isGlobalUserNotFound = errorMessage.includes('Global user não encontrado') || 
-                                     errorMessage.includes('não encontrado') ||
-                                     errorMessage.includes('not found') ||
-                                     errorMessage.includes('resolveGlobalUserId');
-        
-        if (isGlobalUserNotFound) {
-          // 🔴 PRIMEIRO ACESSO: Tentar buscar dados do cadastro antes de retornar estrutura mínima
-          fastify.log.info({
-            userId,
-            tenantId: req.tenant.id,
-            message: 'Global user não encontrado - tentando buscar dados do cadastro',
-          }, 'Primeiro acesso detectado');
-          
-          // Buscar dados locais e tentar buscar global_user diretamente
-          const { runQueryWithTenant } = await import('@core/database/pool');
-          const { pool } = await import('@core/database/pool');
-          
-          const localUser = await runQueryWithTenant<{
-            id: string;
-            tenant_id: string;
-            email: string;
-            created_at: Date;
-            global_user_id: string | null;
-          }>(
-            req.tenant.id,
-            `SELECT id, tenant_id, email, created_at, global_user_id FROM users WHERE id = $1 LIMIT 1`,
-            [userId]
-          );
-          
-          if (!localUser) {
-            return reply.status(404).send({ 
-              ok: false,
-              message: 'Usuário não encontrado',
-            });
-          }
-          
-          // 🔴 CORREÇÃO: Se global_user_id existe em users, tentar buscar dados do global_user
-          let globalUserData: any = null;
-          if (localUser.global_user_id) {
-            try {
-              const globalUserResult = await pool.query<{
-                global_user_id: string;
-                full_name: string | null;
-                birthdate: Date | null;
-                avatar_url: string | null;
-                gender: string | null;
-                metadata: any;
-                gu_created_at: Date;
-                gu_updated_at: Date;
-              }>(
-                `SELECT global_user_id, full_name, birthdate, avatar_url, gender, metadata,
-                        created_at AS gu_created_at, updated_at AS gu_updated_at
-                 FROM global_users
-                 WHERE global_user_id = $1
-                 LIMIT 1`,
-                [localUser.global_user_id]
-              );
-              
-              if (globalUserResult.rows.length > 0) {
-                globalUserData = globalUserResult.rows[0];
-                fastify.log.info({
-                  userId,
-                  globalUserId: localUser.global_user_id,
-                  hasFullName: !!globalUserData.full_name,
-                  hasBirthdate: !!globalUserData.birthdate,
-                }, 'Dados do cadastro encontrados no global_user');
-              }
-            } catch (globalError) {
-              fastify.log.warn({ err: globalError }, 'Erro ao buscar global_user (não crítico)');
-            }
-          }
-          
-          // Retornar estrutura com dados do cadastro se disponíveis
-          profile = {
-            global: {
-              globalUserId: globalUserData?.global_user_id || localUser.global_user_id || '',
-              fullName: globalUserData?.full_name || null,
-              birthdate: globalUserData?.birthdate || null,
-              avatarUrl: globalUserData?.avatar_url || null,
-              gender: globalUserData?.gender ?? null, // F2 GENDER (DECISION-0080)
-              metadata: globalUserData?.metadata || {},
-              createdAt: globalUserData?.gu_created_at != null ? (typeof globalUserData.gu_created_at === 'string' ? globalUserData.gu_created_at : (globalUserData.gu_created_at as Date).toISOString()) : (typeof localUser.created_at === 'string' ? localUser.created_at : (localUser.created_at as Date).toISOString()),
-              updatedAt: globalUserData?.gu_updated_at != null ? (typeof globalUserData.gu_updated_at === 'string' ? globalUserData.gu_updated_at : (globalUserData.gu_updated_at as Date).toISOString()) : (typeof localUser.created_at === 'string' ? localUser.created_at : (localUser.created_at as Date).toISOString()),
-            },
-            local: {
-              userId: localUser.id,
-              tenantId: localUser.tenant_id,
-              email: localUser.email,
-              createdAt: localUser.created_at instanceof Date ? localUser.created_at.toISOString() : String(localUser.created_at),
-            },
-            reputation: undefined,
-            wallet: undefined,
-            residence: undefined,
-          };
-        } else {
-          // Para outros erros, logar e retornar 500
-          console.error('[IdentityService] ❌ ERRO CRÍTICO:', {
+        const isIdentityChainBroken = errorMessage.includes('Global user não encontrado') ||
+                                      errorMessage.includes('não encontrado') ||
+                                      errorMessage.includes('not found') ||
+                                      errorMessage.includes('resolveGlobalUserId');
+
+        if (isIdentityChainBroken) {
+          fastify.log.error({
             userId,
             tenantId: req.tenant.id,
             error: errorMessage,
-          });
-          fastify.log.error({ err: error }, 'Erro ao buscar perfil');
-          return reply.status(500).send({ 
+          }, 'Cadeia de identidade incompleta (users.global_user_id/global_users ausente) — erro estrutural observável');
+          return reply.status(409).send({
             ok: false,
-            message: 'Erro ao buscar perfil',
-            error: errorMessage,
+            code: 'IDENTITY_CHAIN_INCOMPLETE',
+            message: 'Cadeia de identidade incompleta para este usuário (nascimento anterior ao modelo atômico ou estado corrompido). Não é um primeiro acesso normal.',
           });
         }
+
+        // Outros erros estruturais → 500 observável
+        fastify.log.error({ err: error }, 'Erro ao buscar perfil');
+        return reply.status(500).send({
+          ok: false,
+          message: 'Erro ao buscar perfil',
+          error: errorMessage,
+        });
       }
 
       // 🔴 CRÍTICO: Serializar birthdate como string YYYY-MM-DD para evitar problemas de timezone

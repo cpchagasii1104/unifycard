@@ -3,8 +3,9 @@
  * §SSOT: fonte única de verdade para enumerações de domínio (§5.16 SSOT_REGISTRY_UNIFICARD).
  */
 
-// Gender
-export const GENDER_VALUES = ['male', 'female', 'other'] as const;
+// Gender — vocabulário soberano de 5 valores (GO F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE 2026-06-11;
+// expande a DECISION-0080 que promulgara 3). Casa canônica: global_users.gender (set-once).
+export const GENDER_VALUES = ['male', 'female', 'non_binary', 'other', 'prefer_not_to_say'] as const;
 export type Gender = typeof GENDER_VALUES[number];
 export function isGender(value: unknown): value is Gender {
   return GENDER_VALUES.includes(value as Gender);

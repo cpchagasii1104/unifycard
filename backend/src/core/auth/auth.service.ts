@@ -23,6 +23,7 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 
 import { runQueryWithTenant } from '@core/database/pool';
+import type { Gender } from '@unificard/contracts';
 import { canonicalLogger } from '@core/logging/canonical-logger';
 import type {
   AuthUser,
@@ -204,7 +205,7 @@ class AuthService {
     cpf?: string,
     fullName?: string,
     birthdate?: string,
-    gender?: 'male' | 'female' | 'other' | 'non_binary' | 'prefer_not_to_say',
+    gender?: Gender,
     referralCode?: string
   ): Promise<LoginResult & { tenantId: string }> {
     const normalizedEmail = email.trim().toLowerCase();

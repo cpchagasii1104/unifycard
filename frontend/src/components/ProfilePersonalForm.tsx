@@ -15,6 +15,16 @@ import {
 import { normalizeFullName } from "../utils/nameNormalizer";
 import { formatISOToBR } from "../utils/dateNormalizer";
 import LockedField from "./ui/LockedField";
+import { type Gender } from "@unificard/contracts";
+
+// Vocabulário soberano de 5 valores (GO C1 2026-06-11) — mesmos rótulos do Register.
+const GENDER_LABELS: Record<Gender, string> = {
+  male: "Masculino",
+  female: "Feminino",
+  non_binary: "Não-binário",
+  other: "Outro",
+  prefer_not_to_say: "Prefiro não informar",
+};
 
 interface ProfilePersonalFormProps {
   error: string | null;
@@ -42,8 +52,8 @@ interface ProfilePersonalFormProps {
   setBirthdateError: (error: string | null) => void;
   userAge: number | undefined;
   setUserAge: (age: number | undefined) => void;
-  gender: "male" | "female" | "";
-  setGender: (value: "male" | "female") => void;
+  gender: Gender | "";
+  setGender: (value: Gender) => void;
   genderError: string | null;
   setGenderError: (error: string | null) => void;
   countryCode: string;
@@ -314,11 +324,7 @@ export default function ProfilePersonalForm({
           <LockedField
             value={gender}
             label="Sexo"
-            formatValue={(val) => {
-              if (val === "male") return "Masculino";
-              if (val === "female") return "Feminino";
-              return "Não informado";
-            }}
+            formatValue={(val) => GENDER_LABELS[val as Gender] ?? "Não informado"}
             tooltipMessage="Este dado é protegido. Para corrigir, entre em contato com o administrador."
           />
         ) : (
@@ -328,7 +334,7 @@ export default function ProfilePersonalForm({
               id="gender"
               value={gender}
               onChange={(e) => {
-                setGender(e.target.value as "male" | "female");
+                setGender(e.target.value as Gender);
                 setGenderError(null);
               }}
               onBlur={() => {
@@ -340,8 +346,9 @@ export default function ProfilePersonalForm({
               className={genderError ? "error" : ""}
             >
               <option value="">Selecione</option>
-              <option value="male">Masculino</option>
-              <option value="female">Feminino</option>
+              {(Object.keys(GENDER_LABELS) as Gender[]).map((g) => (
+                <option key={g} value={g}>{GENDER_LABELS[g]}</option>
+              ))}
             </select>
             {genderError && <span className="field-error">{genderError}</span>}
             {!genderError && gender && (

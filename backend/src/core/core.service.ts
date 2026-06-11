@@ -2,6 +2,7 @@
 // Serviço CORE - agrega dados de todos os módulos
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { isGender } from '@unificard/contracts';
 import { profileService } from './profile/profile.service';
 import { profileProfessionalService } from './profile/profile-professional.service';
 import { profilePhysicalService } from './profile/profile-physical.service';
@@ -727,10 +728,10 @@ export class CoreService {
         console.warn('Erro ao buscar birthdate para identity_status:', err);
       }
 
-      // F2 GENDER (DECISION-0080): gender vem do espelho canônico (global_users.gender → metadata.gender).
-      // Enum canônico male|female|other (reconcilia a inconsistência que antes honrava só male/female).
+      // F2 GENDER (DECISION-0080 + GO C1 2026-06-11): gender vem do espelho canônico
+      // (global_users.gender → metadata.gender). Enum soberano de 5 valores (GENDER_VALUES).
       const gender = profile.personal_profile?.metadata?.gender;
-      const hasGender = !!(gender && (gender === 'male' || gender === 'female' || gender === 'other'));
+      const hasGender = isGender(gender);
 
       // INSTRUMENTAÇÃO: Logar antes de calcular identity_status
       console.error('[IDENTITY_STATUS_DEBUG]', JSON.stringify({
