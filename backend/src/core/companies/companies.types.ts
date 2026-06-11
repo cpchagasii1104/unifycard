@@ -34,6 +34,10 @@ export interface Company {
   kybStatus: KybVerificationStatus | null;
   /** Derivado: `kybStatus === 'approved'`. Único critério de "empresa verificada" no display. */
   isKybApproved: boolean;
+  /** Par soberano da ativação operacional (DECISION-0098, Momento 2). Projeção read-only —
+   *  o ÚNICO writer é activateCompanyOperationally. null = empresa ainda não operacional. */
+  primaryCompanyTypeId?: string | null;
+  primaryConceptId?: string | null;
   metadata?: Record<string, any>; // Raio X, análises, etc.
   createdAt: string;
   updatedAt: string;

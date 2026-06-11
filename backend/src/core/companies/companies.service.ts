@@ -1232,6 +1232,10 @@ class CompaniesService {
       // DECISION-0089 Fase 1: verificação derivada exclusivamente de fiscal_identities.kyb_status.
       kybStatus: (row.kyb_status ?? null) as Company['kybStatus'],
       isKybApproved: row.kyb_status === 'approved',
+      // CP3: projeção read-only do par soberano (writer único = activateCompanyOperationally).
+      // Permite ao wizard REABRIR mostrando o par persistido em vez de estado vazio.
+      primaryCompanyTypeId: (row as { primary_company_type_id?: string | null }).primary_company_type_id ?? null,
+      primaryConceptId: (row as { primary_concept_id?: string | null }).primary_concept_id ?? null,
       metadata: row.metadata || undefined,
       createdAt: toIso(createdRaw),
       updatedAt: toIso(updatedRaw),

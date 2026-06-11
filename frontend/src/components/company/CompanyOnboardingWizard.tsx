@@ -1,7 +1,7 @@
 // frontend/src/components/company/CompanyOnboardingWizard.tsx
 // Wizard de onboarding e configuração de empresa
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import {
@@ -33,6 +33,10 @@ interface CompanyOnboardingWizardProps {
    *  O wizard CONFIRMA esse papel — não repergunta. Vem de company.userRole.role (getCompanyById). */
   initialRole?: CompanyUserRole;
   initialRoleDescription?: string;
+  /** CP3: par soberano JÁ PERSISTIDO (projeção de companies.primary_*). Ao reabrir o wizard,
+   *  a Etapa 1 mostra o par gravado em vez de estado vazio — a verdade é do backend. */
+  initialCompanyTypeId?: string;
+  initialConceptId?: string;
   onComplete?: () => void;
   onCancel?: () => void;
 }
@@ -61,6 +65,8 @@ export default function CompanyOnboardingWizard({
   companyName,
   initialRole,
   initialRoleDescription,
+  initialCompanyTypeId,
+  initialConceptId,
   onComplete,
   onCancel,
 }: CompanyOnboardingWizardProps) {
@@ -86,7 +92,10 @@ export default function CompanyOnboardingWizard({
   const [companyTypes, setCompanyTypes] = useState<OperationalCompanyType[]>([]);
   const [companyTypesLoading, setCompanyTypesLoading] = useState(true);
   const [companyTypesError, setCompanyTypesError] = useState<string | null>(null);
-  const [selectedCompanyTypeId, setSelectedCompanyTypeId] = useState<string>('');
+  // CP3: reabertura mostra o par PERSISTIDO (companies.primary_*); o concept inicial é aplicado
+  // depois que a lista de concepts permitidos carrega (efeito abaixo), uma única vez.
+  const [selectedCompanyTypeId, setSelectedCompanyTypeId] = useState<string>(initialCompanyTypeId ?? '');
+  const pendingInitialConceptRef = useRef<string | null>(initialConceptId ?? null);
 
   const [concepts, setConcepts] = useState<AllowedOperationalConcept[]>([]);
   const [conceptsLoading, setConceptsLoading] = useState(false);
@@ -145,7 +154,14 @@ export default function CompanyOnboardingWizard({
     setSelectedConceptId('');
     getAllowedConceptsForCompanyType(selectedCompanyTypeId)
       .then((list) => {
-        if (!cancelled) setConcepts(list);
+        if (cancelled) return;
+        setConcepts(list);
+        // CP3: aplica o concept persistido UMA vez (reabertura) — só se ainda for permitido.
+        const pending = pendingInitialConceptRef.current;
+        if (pending && list.some((c) => c.conceptId === pending)) {
+          setSelectedConceptId(pending);
+        }
+        pendingInitialConceptRef.current = null;
       })
       .catch((err: any) => {
         if (!cancelled) setConceptsError(err?.message || 'Erro ao carregar atividades permitidas');

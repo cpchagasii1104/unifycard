@@ -99,9 +99,16 @@ async function main(): Promise<void> {
   await pool.query(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1,$2,'cpf','pending','none')`, [ownerGlobalId, ownerCpf]);
   await pool.query(`INSERT INTO users (id, user_id, tenant_id, global_user_id, email, password_hash, token_version) VALUES ($1,$1,$2,$3,$4,'x',0)`, [ownerUserId, TENANT_ID, ownerGlobalId, `${ownerUserId}@e2e.local`]);
 
+  // PJ-B3: a ativação NÃO cura actors — o setup materializa o que o nascimento real (C1 +
+  // createCompany atômico) teria criado: actor humano do owner + page-actor por empresa.
+  const { socialPortsRegistry } = await import('../core/social/ports-registry');
+  const actorRepo = socialPortsRegistry.getActorRepository();
+  const ownerActor = await actorRepo.findOrCreateUserActor(TENANT_ID, ownerUserId);
+
   // ── Empresas inertes (INSERT direto, Momento 1) + membership ──────────────
   const mkCompany = async (name: string): Promise<string> => {
     const r = await pool.query<{ company_id: string }>(`INSERT INTO companies (tenant_id, company_name) VALUES ($1,$2) RETURNING company_id::text`, [TENANT_ID, name]);
+    await actorRepo.findOrCreatePageActor(TENANT_ID, r.rows[0].company_id, ownerActor.actor_id);
     return r.rows[0].company_id;
   };
   const companyId = await mkCompany('E2E Flow C1 (owner-manage)');

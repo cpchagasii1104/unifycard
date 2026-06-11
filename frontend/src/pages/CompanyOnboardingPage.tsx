@@ -100,6 +100,8 @@ export default function CompanyOnboardingPage() {
         companyName={company.companyName}
         initialRole={company.userRole?.role}
         initialRoleDescription={company.userRole?.roleDescription}
+        initialCompanyTypeId={company.primaryCompanyTypeId ?? undefined}
+        initialConceptId={company.primaryConceptId ?? undefined}
         onComplete={handleComplete}
         onCancel={handleCancel}
       />
