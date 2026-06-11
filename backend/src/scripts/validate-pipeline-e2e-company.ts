@@ -35,12 +35,14 @@ const ADMIN_USER_ID = process.env.E2E_ADMIN_USER_ID || 'beb7b5e4-2d22-4782-83c9-
 
 type CheckResult = { ok: boolean; reason?: string; detail?: any };
 
+// PJ-B7: falha de assert LANÇA (não process.exit) — process.exit pulava o finally de cleanup
+// e cada run vermelho vazava companies "E2E Test Co" + fiscais no dev (resíduo real medido).
 function assertOk(label: string, r: CheckResult): void {
   if (r.ok === false) {
     console.error(`  ❌ FALHOU: ${label}`);
     if (r.reason) console.error(`     Motivo: ${r.reason}`);
     if (r.detail !== undefined) console.error(JSON.stringify(r.detail, null, 2));
-    process.exit(1);
+    throw new Error(`E2E_FAIL: ${label}`);
   }
   console.log(`  ✅ ${label}`);
 }
@@ -53,14 +55,15 @@ async function expectFail(
   try {
     await fn();
     console.error(`  ❌ SISTEMA ACEITOU VIOLACAO: ${label}`);
-    process.exit(1);
+    throw new Error(`E2E_FAIL: ${label}`);
   } catch (e: any) {
     const msg = e?.message || String(e);
+    if (msg.startsWith('E2E_FAIL:')) throw e;
     if (expected && !expected.test(msg)) {
       console.error(`  ❌ Rejeitou mas com mensagem inesperada [${label}]:`);
       console.error(`     Esperado match: ${expected}`);
       console.error(`     Recebido:        ${msg}`);
-      process.exit(1);
+      throw new Error(`E2E_FAIL: ${label}`);
     }
     console.log(`  ✅ Rejeitou corretamente [${label}]: ${msg}`);
   }
