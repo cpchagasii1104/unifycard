@@ -129,8 +129,12 @@ export async function getBankStatement(options: {
   startDate?: Date;
   endDate?: Date;
   actorId?: string;
+  /** CP4 PJ-B5: superfícies PJ NÃO podem converter 401/403 em extrato vazio (GO §3.4 —
+   *  erro ≠ ausência). true ⇒ erro de auth PROPAGA; o caller exibe "indisponível".
+   *  Default false preserva o comportamento legado das superfícies PF (Wallet/Home). */
+  strictAuthErrors?: boolean;
 } = {}): Promise<BankStatement> {
-  const { limit = 50, offset = 0, startDate, endDate, actorId } = options;
+  const { limit = 50, offset = 0, startDate, endDate, actorId, strictAuthErrors = false } = options;
 
   const params = new URLSearchParams();
   params.append('limit', limit.toString());
@@ -148,7 +152,7 @@ export async function getBankStatement(options: {
   const response = await apiFetch(`/bank/statement?${params.toString()}`, {}, { silent401: true });
 
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+    if (!strictAuthErrors && (response.status === 401 || response.status === 403)) {
       return {
         entries: [],
         total: 0,

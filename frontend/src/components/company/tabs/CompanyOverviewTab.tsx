@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { useSession } from '../../../contexts/SessionProvider';
 import { getBankBalance, getBankStatement } from '../../../api/bank';
 import { listCompanyMembers } from '../../../api/companyMembers';
+import { getCompanyKybStatus, submitCompanyKybRequest, type CompanyKybStatus } from '../../../api/companies';
+import { showToast } from '../../common/Toast';
 import { isAuthenticated, getTenantId } from '../../../config/auth';
 import { centsToReais } from '../../../utils/money';
 import type { Company } from '../../../api/companies';
@@ -22,12 +24,23 @@ interface CompanyOverviewTabProps {
 
 export default function CompanyOverviewTab({ company, companyId }: CompanyOverviewTabProps) {
   const { sessionReady, activeActor } = useSession();
-  /** Saldo em centavos (canônico §4.7). */
-  const [balanceCents, setBalanceCents] = useState<number | null>(null);
-  const [membersCount, setMembersCount] = useState<number>(0);
-  const [lastActivities, setLastActivities] = useState<any[]>([]);
+  // CP4 PJ-B5 (GO §3.4): reads financeiros usam o PAGE ACTOR da empresa (nunca o actor humano
+  // da sessão como fallback silencioso) e erro NUNCA vira zero/vazio — null = "indisponível",
+  // distinto de zero real/lista vazia real. Uma leitura falhando não derruba a aba inteira.
+  /** Saldo em centavos (§4.7). undefined = indisponível (erro); null = ainda não carregado. */
+  const [balanceCents, setBalanceCents] = useState<number | null | undefined>(null);
+  /** null = indisponível (erro); número = contagem real. */
+  const [membersCount, setMembersCount] = useState<number | null>(0);
+  /** null = extrato indisponível (erro); [] = vazio REAL. */
+  const [lastActivities, setLastActivities] = useState<any[] | null>([]);
+  /** CP4 (GO 10.3): status MATERIAL do KYB. null = indisponível (erro de leitura). */
+  const [kyb, setKyb] = useState<CompanyKybStatus | null | undefined>(undefined);
+  const [kybSubmitting, setKybSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  // O dashboard PJ exige contexto de page actor; sem ele, os reads empresariais são
+  // "indisponíveis" — jamais respondidos com o saldo do usuário humano.
+  const pageActorId = activeActor?.actor_type === 'page' ? activeActor.actor_id : null;
 
   useEffect(() => {
     if (!sessionReady || !isAuthenticated() || !getTenantId() || !activeActor) {
@@ -40,33 +53,60 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
 
   const loadOverviewData = async () => {
     setLoading(true);
-    setError(null);
 
+    const [balanceResult, statementResult, membersResult, kybResult] = await Promise.allSettled([
+      pageActorId
+        ? getBankBalance({ actorId: pageActorId })
+        : Promise.reject(new Error('Sem contexto de page actor da empresa')),
+      pageActorId
+        ? getBankStatement({ limit: 3, actorId: pageActorId, strictAuthErrors: true })
+        : Promise.reject(new Error('Sem contexto de page actor da empresa')),
+      listCompanyMembers(companyId),
+      getCompanyKybStatus(companyId),
+    ]);
+
+    // Saldo: sucesso → centavos (zero real é zero real); falha → undefined (indisponível).
+    if (balanceResult.status === 'fulfilled' && balanceResult.value) {
+      setBalanceCents(balanceResult.value.balanceCents ?? balanceResult.value.balance ?? 0);
+    } else {
+      setBalanceCents(undefined);
+    }
+    // Extrato: falha → null (indisponível, NÃO "nenhuma atividade").
+    setLastActivities(statementResult.status === 'fulfilled' ? (statementResult.value?.entries ?? []) : null);
+    // Membros: falha → null (indisponível, NÃO "0 colaboradores").
+    setMembersCount(membersResult.status === 'fulfilled' ? membersResult.value.length : null);
+    // KYB: falha → null (indisponível); sucesso → estado material da fonte fiscal.
+    setKyb(kybResult.status === 'fulfilled' ? kybResult.value : null);
+
+    setLoading(false);
+  };
+
+  // CP4/CP2 (GO 10.3): "Enviar para análise" do dashboard — o backend prova autoridade,
+  // documentos mínimos e 1 pending por fiscal; aqui só dispara e reflete o estado material.
+  const handleKybSubmit = async (): Promise<void> => {
+    setKybSubmitting(true);
     try {
-      // Carregar dados em paralelo
-      const [balanceResult, statementResult, membersResult] = await Promise.allSettled([
-        getBankBalance().catch(() => null),
-        getBankStatement({ limit: 3 }).catch(() => ({ entries: [], total: 0, hasMore: false })),
-        listCompanyMembers(companyId).catch(() => []),
-      ]);
-
-      // Preferir `balanceCents` canônico (§4.7); cair para `balance` legado.
-      const balanceValue = balanceResult.status === 'fulfilled' && balanceResult.value
-        ? (balanceResult.value.balanceCents ?? balanceResult.value.balance ?? null)
-        : null;
-      const statement = statementResult.status === 'fulfilled' ? statementResult.value : null;
-      const members = membersResult.status === 'fulfilled' ? membersResult.value : [];
-
-      setBalanceCents(balanceValue);
-      setMembersCount(members.length);
-      setLastActivities(statement?.entries || []);
+      await submitCompanyKybRequest(companyId);
+      showToast('Empresa enviada para análise (KYB).', 'success');
+      const refreshed = await getCompanyKybStatus(companyId).catch(() => null);
+      setKyb(refreshed);
     } catch (err: any) {
-      console.error('Erro ao carregar dados da visão geral:', err);
-      setError(err.message || 'Erro ao carregar dados');
+      showToast(err instanceof Error ? err.message : 'Falha ao enviar para análise.', 'error');
     } finally {
-      setLoading(false);
+      setKybSubmitting(false);
     }
   };
+
+  const KYB_STATUS_LABEL: Record<string, string> = {
+    pending: 'Pendente de análise',
+    approved: 'Verificada',
+    rejected: 'Rejeitada',
+    suspended: 'Suspensa',
+    closed: 'Encerrada',
+  };
+  const hasPendingKybRequest = !!kyb && kyb.requests.some((r) => r.status === 'pending');
+  const lastKybDecision = kyb?.requests.find((r) => r.status !== 'pending');
+  const canSubmitKyb = !!kyb && !hasPendingKybRequest && (kyb.kybStatus === 'pending' || kyb.kybStatus === 'rejected');
 
   /** Formata valor em CENTAVOS (§4.7) para string monetária BRL. */
   const formatCentsAsBRL = (cents: number) => {
@@ -106,17 +146,6 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
           <div className="skeleton skeleton-item" />
           <div className="skeleton skeleton-item" />
           <div className="skeleton skeleton-item" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="company-tab-content">
-        <div className="company-tab-error">
-          <p>Erro: {error}</p>
-          <button onClick={loadOverviewData}>Tentar novamente</button>
         </div>
       </div>
     );
@@ -163,27 +192,73 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
             )}
             <div className="overview-info-item">
               <span className="overview-label">Colaboradores:</span>
-              <span className="overview-value">{membersCount}</span>
+              {/* CP4: null = leitura falhou → "—" (nunca "0" falso) */}
+              <span className="overview-value">{membersCount === null ? '—' : membersCount}</span>
             </div>
           </div>
         </div>
 
-        {/* Saldo */}
-        {balanceCents !== null && (
-          <div className="overview-card">
-            <h3>Saldo Atual</h3>
-            <div className="overview-balance">
+        {/* Verificação (KYB) — CP4 GO 10.3: status MATERIAL da fonte fiscal + ação de submit +
+            reason da última decisão. null = leitura indisponível (erro), nunca status inventado. */}
+        <div className="overview-card">
+          <h3>Verificação (KYB)</h3>
+          {kyb === undefined ? (
+            <p>…</p>
+          ) : kyb === null ? (
+            <p title="Leitura do status KYB indisponível">— indisponível</p>
+          ) : (
+            <div className="overview-info">
+              <div className="overview-info-item">
+                <span className="overview-label">Status:</span>
+                <span className="overview-value">{KYB_STATUS_LABEL[kyb.kybStatus] ?? kyb.kybStatus}</span>
+              </div>
+              {hasPendingKybRequest && (
+                <div className="overview-info-item">
+                  <span className="overview-value">📨 Em análise — aguardando o reviewer</span>
+                </div>
+              )}
+              {lastKybDecision?.decisionReason && kyb.kybStatus !== 'approved' && (
+                <div className="overview-info-item">
+                  <span className="overview-label">Última decisão:</span>
+                  <span className="overview-value">{lastKybDecision.decisionReason}</span>
+                </div>
+              )}
+              {canSubmitKyb && (
+                <button className="btn-primary" onClick={handleKybSubmit} disabled={kybSubmitting}>
+                  {kybSubmitting ? '⏳ Enviando…' : 'Enviar para análise'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Saldo DA EMPRESA (page actor) — CP4: erro ≠ zero. undefined = indisponível honesto. */}
+        <div className="overview-card">
+          <h3>Saldo Atual</h3>
+          <div className="overview-balance">
+            {balanceCents === undefined ? (
+              <div className="overview-balance-value" title="Leitura financeira indisponível — não é saldo zero">
+                — <span style={{ fontSize: '0.8rem', fontWeight: 400 }}>indisponível</span>
+              </div>
+            ) : balanceCents === null ? (
+              <div className="overview-balance-value">…</div>
+            ) : (
               <div className={`overview-balance-value ${balanceCents >= 0 ? 'positive' : 'negative'}`}>
                 {formatCentsAsBRL(balanceCents)}
               </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* Últimas Atividades */}
+        {/* Últimas Atividades — CP4: null = extrato indisponível (erro), [] = vazio REAL. */}
         <div className="overview-card overview-card-full">
           <h3>Últimas Atividades</h3>
-          {lastActivities.length === 0 ? (
+          {lastActivities === null ? (
+            <div className="overview-empty">
+              <p>Extrato indisponível no momento — não foi possível ler as movimentações.</p>
+              <button onClick={loadOverviewData}>Tentar novamente</button>
+            </div>
+          ) : lastActivities.length === 0 ? (
             <div className="overview-empty">
               <p>Nenhuma atividade recente</p>
             </div>

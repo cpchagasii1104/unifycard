@@ -18,11 +18,14 @@ interface CompanyFinancialTabProps {
 export default function CompanyFinancialTab({ company, companyId }: CompanyFinancialTabProps) {
   const { sessionReady, activeActor } = useSession();
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
-  /** Saldo em centavos (canônico §4.7). Convertido para reais apenas na exibição. */
-  const [balanceCents, setBalanceCents] = useState<number | null>(null);
-  const [entries, setEntries] = useState<BankStatementEntry[]>([]);
+  // CP4 PJ-B5 (GO §3.4): reads financeiros da PJ usam o PAGE ACTOR da empresa e erro NUNCA
+  // vira zero/vazio. undefined = saldo indisponível (erro); null = carregando; número = real.
+  const [balanceCents, setBalanceCents] = useState<number | null | undefined>(null);
+  /** null = extrato indisponível (erro); [] = vazio REAL. */
+  const [entries, setEntries] = useState<BankStatementEntry[] | null>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const pageActorId = activeActor?.actor_type === 'page' ? activeActor.actor_id : null;
 
   useEffect(() => {
     if (!sessionReady || !isAuthenticated() || !getTenantId() || !activeActor) {
@@ -35,28 +38,24 @@ export default function CompanyFinancialTab({ company, companyId }: CompanyFinan
 
   const loadFinancialData = async () => {
     setLoading(true);
-    setError(null);
 
-    try {
-      const [balanceResult, statementResult] = await Promise.allSettled([
-        getBankBalance().catch(() => null),
-        getBankStatement({ limit: 10 }).catch(() => ({ entries: [], total: 0, hasMore: false })),
-      ]);
+    const [balanceResult, statementResult] = await Promise.allSettled([
+      pageActorId
+        ? getBankBalance({ actorId: pageActorId })
+        : Promise.reject(new Error('Sem contexto de page actor da empresa')),
+      pageActorId
+        ? getBankStatement({ limit: 10, actorId: pageActorId, strictAuthErrors: true })
+        : Promise.reject(new Error('Sem contexto de page actor da empresa')),
+    ]);
 
-      // Preferir `balanceCents` canônico (§4.7); cair para `balance` legado se backend antigo.
-      const balanceValue = balanceResult.status === 'fulfilled' && balanceResult.value
-        ? (balanceResult.value.balanceCents ?? balanceResult.value.balance ?? null)
-        : null;
-      const statement = statementResult.status === 'fulfilled' ? statementResult.value : null;
-
-      setBalanceCents(balanceValue);
-      setEntries(statement?.entries || []);
-    } catch (err: any) {
-      console.error('Erro ao carregar dados financeiros:', err);
-      setError(err.message || 'Erro ao carregar dados financeiros');
-    } finally {
-      setLoading(false);
+    if (balanceResult.status === 'fulfilled' && balanceResult.value) {
+      setBalanceCents(balanceResult.value.balanceCents ?? balanceResult.value.balance ?? 0);
+    } else {
+      setBalanceCents(undefined);
     }
+    setEntries(statementResult.status === 'fulfilled' ? (statementResult.value?.entries ?? []) : null);
+
+    setLoading(false);
   };
 
   /** Formata valor em CENTAVOS (§4.7) para string monetária BRL. */
@@ -101,35 +100,36 @@ export default function CompanyFinancialTab({ company, companyId }: CompanyFinan
     );
   }
 
-  if (error) {
-    return (
-      <div className="company-tab-content">
-        <div className="company-tab-error">
-          <p>Erro: {error}</p>
-          <button onClick={loadFinancialData}>Tentar novamente</button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="company-tab-content">
       <div className="financial-header">
         <h3>Financeiro</h3>
-        {balanceCents !== null && (
-          <div className="financial-balance">
-            <span className="financial-balance-label">Saldo Atual:</span>
+        <div className="financial-balance">
+          <span className="financial-balance-label">Saldo Atual:</span>
+          {/* CP4: undefined = leitura falhou → "— indisponível" (NUNCA zero falso). */}
+          {balanceCents === undefined ? (
+            <span className="financial-balance-value" title="Leitura financeira indisponível — não é saldo zero">
+              — indisponível
+            </span>
+          ) : balanceCents === null ? (
+            <span className="financial-balance-value">…</span>
+          ) : (
             <span className={`financial-balance-value ${balanceCents >= 0 ? 'positive' : 'negative'}`}>
               {formatCentsAsBRL(balanceCents)}
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Extrato */}
+      {/* Extrato — CP4: null = indisponível (erro observável), [] = vazio REAL. */}
       <div className="financial-statement">
         <h4>Extrato (Últimas 10 transações)</h4>
-        {entries.length === 0 ? (
+        {entries === null ? (
+          <div className="financial-empty">
+            <p>Extrato indisponível no momento — não foi possível ler as movimentações.</p>
+            <button onClick={loadFinancialData}>Tentar novamente</button>
+          </div>
+        ) : entries.length === 0 ? (
           <div className="financial-empty">
             <p>Nenhuma transação encontrada</p>
           </div>
