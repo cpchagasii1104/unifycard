@@ -494,7 +494,8 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * POST /companies/:companyId/kyb/documents   (F-PJ-KYB-DOCUMENTS-USER-SUBMIT, DECISION-0112 §10 A4)
-   * Submissão documental KYB USER-FACING. Autoria AUTH-DERIVED (req.user.userId → ensureUserActor;
+   * Submissão documental KYB USER-FACING. Autoria AUTH-DERIVED por LEITURA (req.user.userId →
+   * findByUserId; actor ausente = 403 KYB_DOC_ACTOR_MISSING fail-closed, SEM cura — PJ-B3;
    * NÃO actionContext.actorId/body — spoofável); autoridade = canManageCompany (posse de companyId não
    * basta). Fluxo: multipart→buffer → validate(MIME+magic) → MalwareScanPort(clean-only) →
    * DocumentStoragePort(privado) → submitFiscalIdentityDocument. NÃO toca company_status/kyb_status/Bank.

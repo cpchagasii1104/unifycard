@@ -2,15 +2,19 @@
 // F-PJ-KYB-DOCUMENTS-USER-SUBMIT (DECISION-0112 §10 A4): orquestra a submissão documental KYB
 // USER-FACING, conectando autoridade → storage → scan → SSOT.
 //
-// AUTORIA AUTH-DERIVED (veredito IA-DECISOES, opção B — SSOT_REGISTRY §5.16/§5.1, AUTHORITY_PRECEDENCE,
-// 0112 §10 A4): submittedByActorId = ensureUserActor(tenantId, req.user.userId). NÃO usa
-// actionContext.actorId (client-declared/spoofável). Autoridade da empresa = canManageCompany; posse
-// de companyId não basta. Ordem: actor → company→fiscal_identity → authority → validate(MIME+magic) →
-// scan(clean-only) → store(privado) → submitFiscalIdentityDocument. Só documento 'clean' grava no SSOT.
+// AUTORIA AUTH-DERIVED por LEITURA PURA (F-PJ-KYB-DOCUMENT-ACTOR-CURE-CLOSURE / PJ-B3):
+// submittedByActorId = actor humano EXISTENTE do usuário autenticado (findByUserId). A jornada PJ
+// NUNCA cria/cura actor humano — cadeia incompleta (actor ausente) = erro estrutural fail-closed
+// KYB_DOC_ACTOR_MISSING, sem NENHUM efeito (sem actor novo, sem arquivo, sem registro, sem request).
+// NÃO usa actionContext.actorId (client-declared/spoofável). Autoridade da empresa = canManageCompany;
+// posse de companyId não basta. Ordem fail-closed: actor(LEITURA) → company→fiscal_identity →
+// authority → validate(MIME+magic) → scan(clean-only) → store(privado) → submitFiscalIdentityDocument.
+// Se o INSERT falhar APÓS o storage, o blob é removido (compensação idempotente via
+// DocumentStoragePort.deleteDocument). Só documento 'clean' grava no SSOT.
 // NÃO toca company_status/kyb_status/Bank/company_documents/migration.
 
 import { runQueryWithTenant } from '@core/database/pool';
-import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { socialPortsRegistry } from '@core/social/ports-registry';
 import { companiesService } from '@core/companies/companies.service';
 import {
   fiscalIdentityDocumentService,
@@ -69,10 +73,17 @@ export async function submitKybDocument(
     throw new KybDocumentSubmitError(400, 'KYB_DOC_BAD_REQUEST', 'tenantId, companyId, globalUserId e userId são obrigatórios.');
   }
 
-  // ── 1. AUTORIA auth-derived (NUNCA actionContext/body) ───────────────────────
-  const actor = await ensureUserActor(tenantId, userId);
+  // ── 1. AUTORIA auth-derived por LEITURA PURA (NUNCA actionContext/body; NUNCA cura) ──
+  // PJ-B3: o humano nasce com identity+actor (C1). Aqui o actor é RESOLVIDO por leitura;
+  // ausência = cadeia humana incompleta → erro estrutural ANTES de qualquer efeito
+  // (nenhum actor criado, nenhum arquivo armazenado, nenhum registro/request).
+  const actor = await socialPortsRegistry.getActorRepository().findByUserId(tenantId, userId);
   if (!actor?.actor_id) {
-    throw new KybDocumentSubmitError(403, 'KYB_DOC_ACTOR_UNRESOLVED', 'Actor humano do usuário autenticado não resolvido.');
+    throw new KybDocumentSubmitError(
+      403,
+      'KYB_DOC_ACTOR_MISSING',
+      'Actor humano do usuário autenticado não existe — a submissão documental não cria/cura actors (nascimento C1 é o caminho canônico).',
+    );
   }
 
   // ── 2. company → fiscal_identity_id (tenant-scoped) ──────────────────────────
@@ -126,13 +137,25 @@ export async function submitKybDocument(
   const stored = await storage.storeDocument({ tenantId, buffer, mimeType, originalFilename });
 
   // ── 8. WRITER canônico do SSOT (fiscal_identity_documents; status='submitted') ─
-  const doc = await fiscalIdentityDocumentService.submitFiscalIdentityDocument({
-    fiscalIdentityId,
-    documentType,
-    fileReference: stored.fileReference,
-    fileHash: stored.fileHash,
-    submittedByActorId: actor.actor_id,
-  });
+  //      COMPENSAÇÃO fail-closed (§6): INSERT falhou após o storage → remove o blob
+  //      (deleteDocument idempotente) e relança — zero arquivo órfão, zero registro.
+  let doc;
+  try {
+    doc = await fiscalIdentityDocumentService.submitFiscalIdentityDocument({
+      fiscalIdentityId,
+      documentType,
+      fileReference: stored.fileReference,
+      fileHash: stored.fileHash,
+      submittedByActorId: actor.actor_id,
+    });
+  } catch (err) {
+    try {
+      await storage.deleteDocument(stored.fileReference);
+    } catch {
+      // best-effort: a falha ORIGINAL do INSERT prevalece; blob residual é varrível por ref.
+    }
+    throw err;
+  }
 
   // ── 9. resposta segura (sem path local, sem URL pública) ─────────────────────
   return {

@@ -139,10 +139,14 @@ async function main(): Promise<void> {
     // ═══ U17 — estrutural ════════════════════════════════════════════════════
     const stripComments = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
     const svc = stripComments(await fsp.readFile(join(process.cwd(), 'src/core/kyb-documents/kyb-document-submit.service.ts'), 'utf8'));
+    // F-PJ-KYB-DOCUMENT-ACTOR-CURE-CLOSURE (PJ-B3): o pin INVERTEU — o serviço NÃO pode mais
+    // curar actor (ensureUserActor/findOrCreate proibidos); resolução por LEITURA (findByUserId)
+    // com erro estrutural KYB_DOC_ACTOR_MISSING quando a cadeia humana está incompleta.
     const noActionContext = !svc.includes('actionContext');
-    const usesEnsureUserActor = svc.includes('ensureUserActor');
+    const noCure = !svc.includes('ensureUserActor') && !svc.includes('findOrCreateUserActor');
+    const readResolved = svc.includes('findByUserId') && svc.includes('KYB_DOC_ACTOR_MISSING');
     const noGhostNoBank = !svc.includes('company_documents') && !/\bbank_/.test(svc) && !svc.includes("UPDATE companies SET company_status") && !svc.includes('kyb_status');
-    record('U17 serviço: sem actionContext, usa ensureUserActor, sem company_documents/Bank/status', noActionContext && usesEnsureUserActor && noGhostNoBank, `actCtx=${!noActionContext} ensure=${usesEnsureUserActor} clean=${noGhostNoBank}`);
+    record('U17 serviço: sem actionContext, SEM cura de actor (leitura+erro estrutural), sem company_documents/Bank/status', noActionContext && noCure && readResolved && noGhostNoBank, `actCtx=${!noActionContext} noCure=${noCure} read=${readResolved} clean=${noGhostNoBank}`);
   } finally {
     console.log('\n— cleanup —');
     if (fiscalIds.length > 0) await pool.query(`DELETE FROM fiscal_identity_documents WHERE fiscal_identity_id = ANY($1::uuid[])`, [fiscalIds]);

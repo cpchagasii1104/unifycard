@@ -14,4 +14,11 @@ export interface DocumentStoragePort {
 
   /** Recupera o conteúdo por fileReference para uso interno (sem endpoint público). */
   readDocument(fileReference: string): Promise<ReadDocumentResult>;
+
+  /**
+   * Remove o conteúdo por fileReference — COMPENSAÇÃO fail-closed (F-PJ-KYB-DOCUMENT-ACTOR-CURE-
+   * CLOSURE §6): se o INSERT do registro documental falhar APÓS o storage, o blob não pode ficar
+   * órfão. IDEMPOTENTE: referência inexistente não é erro (delete repetido = no-op).
+   */
+  deleteDocument(fileReference: string): Promise<void>;
 }

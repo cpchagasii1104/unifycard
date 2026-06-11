@@ -232,7 +232,7 @@ async function cleanupFixtures(f: Fixture): Promise<void> {
   );
   await deleteCompaniesAndFiscal(pool, "company_name LIKE $1", [`${MARKER}-%`]);
   await pool.query(`DELETE FROM users WHERE email LIKE $1`, [`${MARKER.toLowerCase()}-%`]);
-  await pool.query(`DELETE FROM global_users WHERE full_name LIKE $1`, [`${MARKER}-%`]);
+  await pool.query(`DELETE FROM global_users WHERE full_name ILIKE $1`, [`${MARKER}-%`]);
 }
 
 async function main(): Promise<void> {
@@ -424,7 +424,7 @@ async function main(): Promise<void> {
         (SELECT COUNT(*) FROM actors WHERE display_name LIKE $1) +
         (SELECT COUNT(*) FROM companies WHERE company_name LIKE $1) +
         (SELECT COUNT(*) FROM inventory_movements WHERE reason = $2) +
-        (SELECT COUNT(*) FROM global_users WHERE full_name LIKE $1) AS total`,
+        (SELECT COUNT(*) FROM global_users WHERE full_name ILIKE $1) AS total`,
       [`${MARKER}-%`, MARKER]
     );
     record('H1 cleanup: zero fixtures residuais', Number(leftovers.rows[0].total) === 0, `restam ${leftovers.rows[0].total}`);

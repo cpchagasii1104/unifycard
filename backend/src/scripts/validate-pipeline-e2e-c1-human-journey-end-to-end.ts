@@ -113,7 +113,7 @@ async function cleanup(): Promise<void> {
       await client.query(`DELETE FROM user_profiles WHERE user_id=$1`, [u.id]);
       await client.query(`DELETE FROM users WHERE id=$1`, [u.id]);
     }
-    const gus = await client.query(`SELECT global_user_id::text gid FROM global_users WHERE full_name LIKE $1`, [`${MARKER}%`]);
+    const gus = await client.query(`SELECT global_user_id::text gid FROM global_users WHERE full_name ILIKE $1`, [`${MARKER}%`]);
     for (const g of gus.rows) {
       await client.query(`DELETE FROM identities WHERE global_user_id=$1`, [g.gid]);
       await client.query(`DELETE FROM global_users WHERE global_user_id=$1`, [g.gid]);
@@ -399,7 +399,7 @@ async function main(): Promise<void> {
 
   } finally {
     await cleanup();
-    const left = await pool.query(`SELECT (SELECT COUNT(*) FROM users WHERE email LIKE $1)+(SELECT COUNT(*) FROM global_users WHERE full_name LIKE $2) total`, [`${MARKER}-%`, `${MARKER}%`]);
+    const left = await pool.query(`SELECT (SELECT COUNT(*) FROM users WHERE email LIKE $1)+(SELECT COUNT(*) FROM global_users WHERE full_name ILIKE $2) total`, [`${MARKER}-%`, `${MARKER}%`]);
     record('Z1 cleanup: zero fixtures residuais', Number(left.rows[0].total) === 0, `restam ${left.rows[0].total}`);
     await app.close();
     await pool.end();

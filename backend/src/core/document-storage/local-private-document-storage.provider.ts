@@ -118,6 +118,22 @@ export class LocalPrivateDocumentStorageProvider implements DocumentStoragePort 
     return { buffer, mimeType: meta.mimeType, sizeBytes: meta.sizeBytes, fileHash: meta.fileHash };
   }
 
+  /**
+   * Remove blob + sidecar (compensação de INSERT falho — port §deleteDocument). IDEMPOTENTE:
+   * arquivo ausente é no-op. Mesma defesa anti-traversal do read (ref opaca 32 hex).
+   */
+  async deleteDocument(fileReference: string): Promise<void> {
+    if (!fileReference || typeof fileReference !== 'string' || !OPAQUE_REF.test(fileReference)) {
+      throw new DocumentStorageError(
+        DOC_STORAGE_ERR.INVALID_REFERENCE,
+        'deleteDocument: fileReference inválido (esperado token opaco de 32 hex).',
+      );
+    }
+    const blobPath = this.resolveBlobPath(fileReference);
+    await fs.rm(blobPath, { force: true });
+    await fs.rm(`${blobPath}.meta.json`, { force: true });
+  }
+
   /** Resolve o path do blob com defesa-em-profundidade: o resultado DEVE ficar dentro de baseDir. */
   private resolveBlobPath(fileReference: string): string {
     if (!OPAQUE_REF.test(fileReference)) {

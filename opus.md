@@ -4463,3 +4463,16 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   o nascimento real cria — senão o teste depende exatamente do anti-padrão que se está matando. 4. CRLF de
   stash/autocrlf cega pins '\n  }\n' — normalizar line-endings em pins de slice. 5. Fechar máscara financeira
   é trocar o TIPO do estado (null/undefined ≠ zero/[]) e deixar a UI dizer "indisponível" — mesmo molde CP7.)
+
+### F-PJ-KYB-DOCUMENT-ACTOR-CURE-CLOSURE ✅ (2026-06-12) — corretivo do reseal Yala
+- Última cura de actor da jornada PJ morta: kyb-document-submit lia ensureUserActor (vetor Yala:
+  identity sem actor → upload CRIAVA actor). Agora leitura pura + KYB_DOC_ACTOR_MISSING fail-closed +
+  compensação de blob no INSERT falho. Gate virou TRANSVERSAL (família 13 arquivos, NEW_UNCLASSIFIED,
+  prova negativa dupla).
+  (Lições: 1. Gate textual com stripComments ingênuo (block antes de line) é cego de verdade — um
+  `admin/*` num comentário de linha abria falso bloco e MUTILAVA o código analisado; a prova negativa
+  №2 só falhou em derrubar o gate por isso. Sempre provar o gate com injeção REAL antes de confiar.
+  2. KNOWN_OPEN "idempotente/auth-derived/só legado" não é exceção para cura de actor — a Yala
+  materializou o caso teórico em 1 INSERT real. 3. Auditoria de residual da matriz INTEIRA achou dois
+  vazadores de fixture invisíveis há semanas (LIKE case-sensitive vs register que capitaliza; helper
+  local fora do codemod) — residual zero é critério de prova, não cosmética.)

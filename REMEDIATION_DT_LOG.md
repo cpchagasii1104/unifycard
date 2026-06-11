@@ -12277,3 +12277,44 @@ Fechada pelo CP4 desta macrofrente: catches → null/indisponível (padrão CP7 
   denominador PJ (preferências de oportunidade = frente RFQ/matching). Não bloqueia a jornada.
 - **Resolução prevista:** na frente de oportunidades/RFQ, decidir: materializar a tabela OU remover o
   bloco pós-commit (DECISION-0103-style ghost cleanup).
+
+---
+
+## F-PJ-KYB-DOCUMENT-ACTOR-CURE-CLOSURE — CLOSED (2026-06-12) — correção final pós-reseal Yala
+
+Bloqueador único do reseal: `kyb-document-submit.service.ts` chamava `ensureUserActor` →
+`findOrCreateUserActor` → INSERT em actors (vetor reproduzido pela Yala: identity presente, actor
+ausente, upload → actor CRIADO + falha posterior — cura residual violando PJ-B3/C1).
+
+**Resolução (causa-raiz):**
+- Service resolve o actor por LEITURA PURA (`findByUserId`); ausência → **403
+  `KYB_DOC_ACTOR_MISSING`** ANTES de qualquer efeito (sem actor/arquivo/registro/request/evento).
+- Compensação fail-closed nova: INSERT documental falho APÓS storage → blob removido
+  (`DocumentStoragePort.deleteDocument`, idempotente; implementado no provider local).
+- **PJ-B3 agora INTEGRALMENTE CLOSED** (zero cura em TODO o caminho PJ; residual removido de
+  KNOWN_OPEN). Pin U17 do e2e user-submit INVERTIDO (pinava a cura; agora pina a ausência dela).
+- **Gate transversal**: `audit-pj-human-to-company-closure.mjs` deixou de vigiar arquivo único —
+  família explícita de 13 serviços/writers PJ (companies/members/publications/validation/kyb-docs/
+  kyb-request/download/fiscal-kyb/fiscal-document/economic-activity/rotas) proibida de conter
+  `ensureUserActor`/`findOrCreateUserActor`/`ensureCanonicalActorChain`/`INSERT INTO actors`
+  (única exceção: `ensurePageActorTx` na transação do nascimento em companies.service); arquivo
+  novo nos diretórios da jornada sem classificação → **NEW_UNCLASSIFIED** (falha). stripComments
+  do gate corrigido ORDER-SAFE (um `/*` dentro de comentário de linha mutilava o código analisado
+  e cegava a varredura — provado e selado; limitação heurística registrada no próprio gate).
+- **Provas adversariais permanentes** (founder-lifecycle 33/33): D1 multipart REAL positivo ·
+  D2 vetor Yala (identity+user sem actor → 403; actors/identities/docs/requests/storage 0→0) ·
+  D3 actor ausente + company inexistente (sem cura residual) · D4 sem autoridade · D5 MIME ·
+  D6 magic · D7 scan não-clean · D8 falha de storage · D9 INSERT falho pós-storage → blob
+  compensado. Provas negativas do gate ×2 (ensureUserActor reinjetado → FAIL, sha
+  `ea1be916…` restaurado; `INSERT INTO actors` em arquivo da família → FAIL, sha `0064cf1d…`
+  restaurado).
+
+### DT-PJ-E2E-FIXTURE-RESIDUE-FAMILY — CLOSED (2026-06-12) [extensão, mesma correção]
+Auditoria de residual da matriz completa revelou e fechou na RAIZ dois vazamentos de fixture
+pré-existentes adicionais: (a) `pj-company-user-role-vocabulary` apagava 5 companies sem a fonte
+fiscal (helper local fora do codemod do CP1) → helper canônico aplicado (0 órfãs); (b) cleanups
+por `global_users.full_name LIKE marker` eram CASE-SENSITIVE enquanto o register CAPITALIZA o
+nome ('E2e-…') → identities/global_users de fixture vazavam silenciosamente havia semanas
+(91 órfãs medidas e varridas; 6 e2es corrigidos para ILIKE: c1-birth/read-purity/human-journey/
+self-escalation/inventory-consolidated/pj-integrado). Pós-correção: matriz inteira re-rodada
+deixa dev byte-estável (identities 16→16, global_users 8→8, actors 10→10, órfãs fiscais 0).

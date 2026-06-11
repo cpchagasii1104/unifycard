@@ -424,7 +424,7 @@ async function main(): Promise<void> {
         await pool.query(`DELETE FROM user_profiles WHERE user_id=$1`, [u.id]).catch(() => undefined);
         await pool.query(`DELETE FROM users WHERE id=$1`, [u.id]);
       }
-      const gus = await pool.query<{ gid: string }>(`SELECT global_user_id::text gid FROM global_users WHERE full_name LIKE $1`, [`${MARKER}%`]);
+      const gus = await pool.query<{ gid: string }>(`SELECT global_user_id::text gid FROM global_users WHERE full_name ILIKE $1`, [`${MARKER}%`]);
       for (const g of gus.rows) {
         await pool.query(`DELETE FROM identities WHERE global_user_id=$1`, [g.gid]);
         await pool.query(`DELETE FROM global_users WHERE global_user_id=$1`, [g.gid]);

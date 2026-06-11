@@ -30,7 +30,16 @@ function check(surface, ok, failMsg, cls = 'FORBIDDEN_REGRESSION') {
   if (!ok) failures.push(`${cls}: ${failMsg}`);
 }
 
-const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+// Strip de comentários ORDER-SAFE (F-PJ-KYB-DOCUMENT-ACTOR-CURE-CLOSURE §10): comentários de
+// LINHA primeiro — um `/*` dentro de um comentário `// ... admin/*` abria um falso bloco e
+// MUTILAVA o código analisado (provado: a varredura da família deixava de ver injeção real).
+// Guarda `[^:"'\`]` preserva `://` (URLs em strings). LIMITAÇÃO HONESTA: heurística textual,
+// não AST — `//` no meio de string ainda é stripado; nenhum arquivo da família depende disso
+// (verificado), e falso-positivo aqui só torna o gate MAIS restritivo, nunca mais permissivo
+// para os tokens proibidos (que são identificadores/SQL sem `//`).
+const stripComments = (s) => s
+  .replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
 
 // ── 1. NASCIMENTO: fiscal-first atômico, sem cura de actor humano (PJ-B3) ──
 {
@@ -52,6 +61,59 @@ const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\
 
   check('pj:creator-authority-server-side', /canManageCompany: true,/.test(birth),
     'criador deve nascer com can_manage_company=true imposto server-side (Opção B).');
+}
+
+// ── 1b. FAMÍLIA PJ TRANSVERSAL: NENHUM serviço da jornada cria/cura ACTOR HUMANO ──
+//        (F-PJ-KYB-DOCUMENT-ACTOR-CURE-CLOSURE §9 — a regra deixou de ser por arquivo único.)
+//        Proibidos (código vivo, comment-stripped): ensureUserActor · findOrCreateUserActor ·
+//        ensureCanonicalActorChain · INSERT INTO actors. Exceção ÚNICA: ensurePageActorTx
+//        (page-actor da EMPRESA) dentro de companies.service.ts (transação canônica do nascimento).
+//        "Auth-derived"/"idempotente"/"só legado" NÃO são exceção.
+{
+  const PJ_ACTOR_FAMILY = [
+    'core/companies/companies.service.ts',
+    'core/companies/companies.routes.ts',
+    'core/companies/company-members.service.ts',
+    'core/companies/company-members.repository.ts',
+    'core/companies/company-members.routes.ts',
+    'core/companies/company-publications.service.ts',
+    'core/companies/company-validation.service.ts',
+    'core/kyb-documents/kyb-document-submit.service.ts',
+    'core/kyb-documents/kyb-request-submit.service.ts',
+    'core/kyb-documents/kyb-document-download.service.ts',
+    'core/identity/fiscal-identity-kyb.service.ts',
+    'core/identity/fiscal-identity-document.service.ts',
+    'core/identity/fiscal-identity-economic-activity.service.ts',
+  ];
+  const FORBIDDEN_CURE = /\bensureUserActor\b|\bfindOrCreateUserActor\b|\bensureCanonicalActorChain\b|INSERT INTO actors\b/;
+  for (const f of PJ_ACTOR_FAMILY) {
+    let code = stripComments(BE(f));
+    if (f.endsWith('companies.service.ts')) {
+      // remove a exceção transacional ANTES do match (ensurePageActorTx contém 'ensurePageActor',
+      // não os tokens proibidos — a remoção é só clareza/robustez).
+      code = code.replace(/ensurePageActorTx/g, '__PAGE_ACTOR_TX_ALLOWED__');
+    }
+    const short = f.split('/').pop();
+    check(`pj:family-no-actor-cure:${short}`, !FORBIDDEN_CURE.test(code),
+      `${f} contém criação/cura de actor humano (ensureUserActor/findOrCreateUserActor/ensureCanonicalActorChain/INSERT INTO actors) — PROIBIDO na jornada PJ (PJ-B3).`);
+  }
+
+  // Arquivo NOVO nos diretórios da jornada sem classificação → NEW_UNCLASSIFIED (falha).
+  const CLASSIFIED_NON_RESOLVING = new Set([
+    'companies.module.ts', 'companies.types.ts', 'company-members.types.ts', 'kyb-document-validation.ts',
+  ]);
+  const familyShort = new Set(PJ_ACTOR_FAMILY.map((f) => f.split('/').pop()));
+  const unclassified = [];
+  for (const dir of ['core/companies', 'core/kyb-documents']) {
+    for (const entry of readdirSync(join(process.cwd(), 'src', dir))) {
+      if (!/\.ts$/.test(entry)) continue;
+      if (!familyShort.has(entry) && !CLASSIFIED_NON_RESOLVING.has(entry)) unclassified.push(`${dir}/${entry}`);
+    }
+  }
+  surfaces.push(['pj:family-new-unclassified', unclassified.length === 0 ? 'CLOSED_PJ' : 'NEW_UNCLASSIFIED']);
+  if (unclassified.length > 0) {
+    failures.push(`NEW_UNCLASSIFIED: serviço PJ novo sem classificação no denominador de actor-resolution: ${unclassified.join(', ')} — classificar no gate antes de prosseguir.`);
+  }
 }
 
 // ── 2. READERS por MEMBERSHIP (PJ-B4) ──
@@ -100,6 +162,16 @@ const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\
     && /findByUserId/.test(svc) && !/ensureUserActor/.test(svc);
   check('pj:kyb-submit-guards', ok,
     'kyb-request-submit: canManageCompany + documentos mínimos materialmente enviados + autoria por leitura (sem cura).');
+
+  // F-PJ-KYB-DOCUMENT-ACTOR-CURE-CLOSURE: o submit DOCUMENTAL resolve actor por LEITURA com erro
+  // estrutural + compensa INSERT falho pós-storage (deleteDocument). Vetor da Yala selado.
+  const docSvc = stripComments(BE('core/kyb-documents/kyb-document-submit.service.ts'));
+  const docOk = /findByUserId/.test(docSvc)
+    && /KYB_DOC_ACTOR_MISSING/.test(docSvc)
+    && /deleteDocument/.test(docSvc)
+    && !/ensureUserActor|findOrCreateUserActor/.test(docSvc);
+  check('pj:kyb-doc-submit-read-resolved-compensated', docOk,
+    'kyb-document-submit: actor por LEITURA (findByUserId + KYB_DOC_ACTOR_MISSING) + compensação de storage no INSERT falho — cura PROIBIDA.');
 }
 
 // ── 5. KYB: review/revogação humanos, admin-only; founder não se auto-aprova ──
@@ -248,7 +320,6 @@ const KNOWN_OPEN_OUTSIDE_PJ = [
   'estado needs_more_info/"Ajustes Solicitados" (decisão futura; MVP = rejected+reason)',
   'UI de edição cadastral pós-criação (PUT existe; superfície fina)',
   'convite cross-tenant / system actor institucional / FASE 6 / R2 (delegação)',
-  'kyb-document-submit usa ensureUserActor idempotente (autoria auth-derived; pin U17 do e2e user-submit)',
 ];
 for (const k of KNOWN_OPEN_OUTSIDE_PJ) surfaces.push([k, 'KNOWN_OPEN_OUTSIDE_PJ']);
 

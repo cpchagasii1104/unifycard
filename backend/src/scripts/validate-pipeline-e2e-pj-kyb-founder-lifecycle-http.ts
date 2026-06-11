@@ -18,6 +18,7 @@
 import 'tsconfig-paths/register';
 import dotenv from 'dotenv';
 import { join } from 'path';
+import { promises as fsp } from 'fs';
 import Fastify, { FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import jwt from 'jsonwebtoken';
@@ -94,6 +95,31 @@ function makeValidCnpj(seed: number): string {
 
 interface Human { globalId: string; userId: string; actorId: string; headers: Record<string, string> }
 
+/** Monta um corpo multipart/form-data REAL (rota viva de upload, sem mock de transporte). */
+function multipartBody(parts: Array<{ name: string; filename?: string; contentType?: string; value: Buffer | string }>): { payload: Buffer; contentType: string } {
+  const boundary = '----e2epjkyb' + Math.random().toString(16).slice(2);
+  const chunks: Buffer[] = [];
+  for (const p of parts) {
+    let head = `--${boundary}\r\nContent-Disposition: form-data; name="${p.name}"`;
+    if (p.filename) head += `; filename="${p.filename}"`;
+    head += '\r\n';
+    if (p.contentType) head += `Content-Type: ${p.contentType}\r\n`;
+    head += '\r\n';
+    chunks.push(Buffer.from(head), Buffer.isBuffer(p.value) ? p.value : Buffer.from(p.value), Buffer.from('\r\n'));
+  }
+  chunks.push(Buffer.from(`--${boundary}--\r\n`));
+  return { payload: Buffer.concat(chunks), contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
+/** Conta arquivos no storage local privado (0 se o diretório não existe). */
+async function storageFileCount(): Promise<number> {
+  try {
+    return (await fsp.readdir(join(process.cwd(), '.private', 'document-storage'))).length;
+  } catch {
+    return 0;
+  }
+}
+
 async function main(): Promise<void> {
   await assertEphemeralDb();
   await bootstrapSocialPorts();
@@ -106,22 +132,24 @@ async function main(): Promise<void> {
   const actorRepo = socialPortsRegistry.getActorRepository();
 
   let cpfSeq = Date.now() % 100000000;
-  const mkHuman = async (name: string, role?: 'admin'): Promise<Human> => {
+  // withActor=false reproduz a cadeia INCOMPLETA do vetor da Yala: global_user + identity + user
+  // EXISTEM, actor humano NÃO — a jornada PJ deve falhar fechado SEM curar (PJ-B3).
+  const mkHuman = async (name: string, role?: 'admin', withActor = true): Promise<Human> => {
     const globalId = randomUUID();
     const userId = randomUUID();
     const cpf = String(cpfSeq++).padStart(11, '0').slice(-11);
     await pool.query(`INSERT INTO global_users (global_user_id, cpf, full_name, metadata) VALUES ($1,$2,$3,'{}'::jsonb)`, [globalId, cpf, name]);
     await pool.query(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1,$2,'cpf','pending','none')`, [globalId, cpf]);
     await pool.query(`INSERT INTO users (id, user_id, tenant_id, global_user_id, email, password_hash, token_version) VALUES ($1,$1,$2,$3,$4,'x',0)`, [userId, TENANT_ID, globalId, `${userId}@e2e.local`]);
-    const actor = await actorRepo.findOrCreateUserActor(TENANT_ID, userId);
+    const actorId = withActor ? (await actorRepo.findOrCreateUserActor(TENANT_ID, userId)).actor_id : userId;
     if (role === 'admin') await rbacService.assignRoleByName(TENANT_ID, userId, 'admin');
     const token = jwt.sign(
       { sub: userId, userId, tenantId: TENANT_ID, email: `${userId}@e2e.local`, tokenVersion: 0, globalUserId: globalId, type: 'access' },
       JWT_SECRET as string,
       { expiresIn: '15m' }
     );
-    const ac = JSON.stringify({ actorId: actor.actor_id, intent: 'pj_kyb_e2e', source: 'e2e', scope: `tenant:${TENANT_ID}` });
-    return { globalId, userId, actorId: actor.actor_id, headers: { authorization: `Bearer ${token}`, 'x-action-context': ac } };
+    const ac = JSON.stringify({ actorId, intent: 'pj_kyb_e2e', source: 'e2e', scope: `tenant:${TENANT_ID}` });
+    return { globalId, userId, actorId, headers: { authorization: `Bearer ${token}`, 'x-action-context': ac } };
   };
 
   const F = await mkHuman('E2E KYB Founder');
@@ -258,6 +286,112 @@ async function main(): Promise<void> {
     const appr2 = await app.inject({ method: 'PATCH', url: `/identity/pj/kyb/admin/requests/${reqY2.kybRequestId}/review`, headers: A.headers, payload: { decision: 'approved', reason: 'reenvio válido' } });
     const fiY2 = await pool.query<{ k: string }>(`SELECT kyb_status AS k FROM fiscal_identities WHERE fiscal_identity_id=$1::uuid`, [EY.fiscalIdentityId]);
     record('S17d aprovação pós-reenvio → approved (rejected→approved auditado)', appr2.statusCode === 200 && fiY2.rows[0].k === 'approved', `status=${appr2.statusCode} kyb=${fiY2.rows[0].k}`);
+
+    // ═══ BLOCO D — F-PJ-KYB-DOCUMENT-ACTOR-CURE-CLOSURE ═══════════════════════════
+    // Upload documental via MULTIPART REAL + vetor adversarial da Yala (actor humano
+    // AUSENTE com identity/user presentes) + compensações fail-closed.
+    console.log('\n— D. multipart real + actor ausente (PJ-B3) —');
+    const EZ = await createCompany(F, 70000003, 'E2E KYB Co C');
+    const uploadMultipart = async (h: Human, companyId: string, mime: string, body: Buffer, documentType = 'cnpj_registration') => {
+      const mp = multipartBody([{ name: 'file', filename: 'doc.pdf', contentType: mime, value: body }]);
+      return app.inject({
+        method: 'POST',
+        url: `/companies/${companyId}/kyb/documents?documentType=${documentType}`,
+        headers: { ...h.headers, 'content-type': mp.contentType },
+        payload: mp.payload,
+      });
+    };
+    const snapshot = async () => {
+      const r = await pool.query<{ a: string; i: string; d: string; q: string }>(
+        `SELECT (SELECT count(*) FROM actors)::text a, (SELECT count(*) FROM identities)::text i,
+                (SELECT count(*) FROM fiscal_identity_documents)::text d,
+                (SELECT count(*) FROM fiscal_identity_kyb_requests)::text q`);
+      return { ...r.rows[0], files: await storageFileCount() };
+    };
+
+    // D1 — POSITIVO: founder íntegro envia documento pela ROTA MULTIPART real.
+    const d1 = await uploadMultipart(F, EZ.companyId, 'application/pdf', PDF);
+    const d1doc = d1.json()?.data;
+    const d1row = await pool.query<{ by: string }>(`SELECT submitted_by_actor_id::text AS by FROM fiscal_identity_documents WHERE document_id=$1::uuid`, [d1doc?.documentId]);
+    record('D1 multipart real → 201 + registro com submitted_by = actor do founder', d1.statusCode === 201 && d1row.rows[0]?.by === F.actorId, `status=${d1.statusCode} by=${d1row.rows[0]?.by}`);
+
+    // D2 — ADVERSARIAL (vetor Yala): identity+user EXISTEM, actor humano NÃO.
+    const L = await mkHuman('E2E KYB NoActor', undefined, false);
+    const before2 = await snapshot();
+    const d2 = await uploadMultipart(L, EZ.companyId, 'application/pdf', PDF);
+    const after2 = await snapshot();
+    record('D2 actor ausente → 403 KYB_DOC_ACTOR_MISSING (fail-closed, ANTES de qualquer efeito)',
+      d2.statusCode === 403 && d2.json()?.code === 'KYB_DOC_ACTOR_MISSING', `status=${d2.statusCode} body=${d2.body}`);
+    record('D2 ZERO cura/efeito: actors, identities, documents, requests e storage imutáveis',
+      JSON.stringify(before2) === JSON.stringify(after2), `${JSON.stringify(before2)} vs ${JSON.stringify(after2)}`);
+
+    // D3 — ADVERSARIAL complementar: actor ausente + company INEXISTENTE (validação posterior
+    // nunca deixa cura residual — o actor é resolvido por leitura ANTES da company).
+    const before3 = await snapshot();
+    const d3 = await uploadMultipart(L, '00000000-0000-0000-0000-0000000000aa', 'application/pdf', PDF);
+    const after3 = await snapshot();
+    record('D3 actor ausente + company inexistente → erro estrutural, actor segue ausente',
+      d3.statusCode === 403 && d3.json()?.code === 'KYB_DOC_ACTOR_MISSING' && JSON.stringify(before3) === JSON.stringify(after3),
+      `status=${d3.statusCode}`);
+
+    // D4 — membro sem manage via multipart → 403 sem efeito.
+    const before4 = await snapshot();
+    const d4 = await uploadMultipart(M, EZ.companyId, 'application/pdf', PDF);
+    record('D4 sem autoridade (canManageCompany) via multipart → 403 sem efeito',
+      d4.statusCode === 403 && JSON.stringify(before4) === JSON.stringify(await snapshot()), `status=${d4.statusCode}`);
+
+    // D5 — MIME inválido via multipart → 400, zero storage.
+    const before5 = await snapshot();
+    const d5 = await uploadMultipart(F, EZ.companyId, 'text/plain', Buffer.from('nao é pdf'));
+    record('D5 MIME não permitido → 400 sem storage/registro',
+      d5.statusCode === 400 && d5.json()?.code === 'KYB_DOC_MIME_NOT_ALLOWED' && JSON.stringify(before5) === JSON.stringify(await snapshot()),
+      `status=${d5.statusCode}`);
+
+    // D6 — magic bytes ≠ MIME declarado → 400, zero storage.
+    const before6 = await snapshot();
+    const d6 = await uploadMultipart(F, EZ.companyId, 'application/pdf', Buffer.from('GIF89a fake'));
+    record('D6 magic bytes divergentes → 400 sem storage/registro',
+      d6.statusCode === 400 && d6.json()?.code === 'KYB_DOC_MAGIC_MISMATCH' && JSON.stringify(before6) === JSON.stringify(await snapshot()),
+      `status=${d6.statusCode}`);
+
+    // D7 — scanner NÃO-clean (dep fake) → 422, nada armazenado/gravado.
+    const { submitKybDocument } = await import('../core/kyb-documents/kyb-document-submit.service');
+    const before7 = await snapshot();
+    let d7code = '';
+    try {
+      await submitKybDocument(
+        { tenantId: TENANT_ID, companyId: EZ.companyId, globalUserId: F.globalId, userId: F.userId, documentType: 'articles_of_association', buffer: PDF, mimeType: 'application/pdf' },
+        { scanner: { scanDocument: async () => ({ status: 'infected' as const, scanner: 'e2e-fake' }) } },
+      );
+    } catch (e) { d7code = (e as { code?: string }).code ?? ''; }
+    record('D7 scan não-clean → fail-closed sem storage/registro',
+      d7code === 'KYB_DOC_SCAN_NOT_CLEAN' && JSON.stringify(before7) === JSON.stringify(await snapshot()), `code=${d7code}`);
+
+    // D8 — falha de STORAGE → erro, zero registro.
+    const before8 = await snapshot();
+    let d8threw = false;
+    try {
+      await submitKybDocument(
+        { tenantId: TENANT_ID, companyId: EZ.companyId, globalUserId: F.globalId, userId: F.userId, documentType: 'articles_of_association', buffer: PDF, mimeType: 'application/pdf' },
+        { storage: { storeDocument: async () => { throw new Error('STORAGE_DOWN'); }, readDocument: async () => { throw new Error('x'); }, deleteDocument: async () => undefined } },
+      );
+    } catch { d8threw = true; }
+    record('D8 falha de storage → erro sem registro documental',
+      d8threw && JSON.stringify(before8) === JSON.stringify(await snapshot()), '');
+
+    // D9 — falha de INSERT APÓS storage → COMPENSAÇÃO: blob removido (deleteDocument), zero registro.
+    const { fiscalIdentityDocumentService } = await import('../core/identity/fiscal-identity-document.service');
+    const originalSubmitDoc = fiscalIdentityDocumentService.submitFiscalIdentityDocument.bind(fiscalIdentityDocumentService);
+    (fiscalIdentityDocumentService as { submitFiscalIdentityDocument: unknown }).submitFiscalIdentityDocument = async () => { throw new Error('INSERT_DOWN'); };
+    const before9 = await snapshot();
+    let d9threw = false;
+    try {
+      await submitKybDocument({ tenantId: TENANT_ID, companyId: EZ.companyId, globalUserId: F.globalId, userId: F.userId, documentType: 'articles_of_association', buffer: PDF, mimeType: 'application/pdf' });
+    } catch { d9threw = true; }
+    (fiscalIdentityDocumentService as { submitFiscalIdentityDocument: unknown }).submitFiscalIdentityDocument = originalSubmitDoc;
+    const after9 = await snapshot();
+    record('D9 INSERT falha após storage → compensação remove o blob (zero arquivo órfão, zero registro)',
+      d9threw && JSON.stringify(before9) === JSON.stringify(after9), `${JSON.stringify(before9)} vs ${JSON.stringify(after9)}`);
 
     // S18 — zero Bank writer
     const bank1 = await pool.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text AS n`);

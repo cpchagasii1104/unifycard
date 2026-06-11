@@ -14147,3 +14147,21 @@ FORA (OPEN explícito): produtos/ofertas/venda · inventory residual · provider
 needs_more_info · convite cross-tenant · system actor institucional · FASE 6 · R2 · money writers ·
 DT-PJ-COMPANY-OPPORTUNITY-PREFERENCES-GHOST (novo, pós-commit fail-open). NÃO declarado: marketplace/venda/
 money completos. Aguardando RESEAL Yala.
+
+---
+
+## F-PJ-KYB-DOCUMENT-ACTOR-CURE-CLOSURE ✅ CLOSED (2026-06-12) — corretivo final pós-reseal Yala
+
+HEAD `6f884469` → 1 commit corretivo. Bloqueador único do reseal eliminado: kyb-document-submit
+NÃO chama mais ensureUserActor — actor por LEITURA (findByUserId) + 403 KYB_DOC_ACTOR_MISSING
+fail-closed ANTES de qualquer efeito; compensação nova de storage no INSERT falho (deleteDocument
+no port+provider). PJ-B3 INTEGRALMENTE CLOSED (residual fora do KNOWN_OPEN). Gate PJ TRANSVERSAL
+(família de 13 arquivos + NEW_UNCLASSIFIED + stripComments order-safe — bug que cegava a varredura
+provado e corrigido). Vetor da Yala reproduzido como prova PERMANENTE (D2: actors/identities/docs/
+requests/storage 0→0) + multipart REAL positivo/negativos (founder-lifecycle 33/33). Provas
+negativas do gate ×2 com restauração byte-idêntica. Matriz COMPLETA re-executada verde (integrado
+52/52 · C1 55/55 · ~40 suítes · gates todos OK · arch critical_new=0 · system-state PASS · tsc FE 0/
+BE baseline · zero migration 368/368 · Bank intocado). Bônus de residual fechado na raiz:
+role-vocabulary (fiscais) + 6 cleanups LIKE→ILIKE (91 identities órfãs históricas varridas);
+dev agora byte-estável pós-matriz. **F-PJ-HUMAN-TO-COMPANY-END-TO-END-CLOSURE: tecnicamente
+concluída — AGUARDANDO RE-RESEAL FINAL DA YALA (não declarada CLOSED).**
