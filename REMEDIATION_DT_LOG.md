@@ -12211,3 +12211,69 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Invariante a preservar:** se a UX passar a prometer edição, o writer deve retornar **conflito observável** (409/422 `GENDER_IMMUTABLE` ou equivalente) OU deve existir **decisão explícita de mutabilidade** (nova DECISION emendando o lock da 0080) — nunca 200 silencioso sobre escrita ignorada.
 - **Resolução prevista:** frente própria, condicionada a produto: (a) manter set-once e tornar a recusa observável no writer; ou (b) DECISION de mutabilidade governada (quem pode mudar, auditoria, limites). Não patchar antes da decisão.
 - **Vinculada a:** `DECISION-0080` (lock/set-once vigente), `DECISION-0115` D3 (enum 5v), `identity.service.setUserGenderIfAbsent`, `profile.service.upsertProfile`, `ProfilePersonalForm` (`lockGenderField`).
+
+---
+
+## MACROFRENTE F-PJ-HUMAN-TO-COMPANY-END-TO-END-CLOSURE — REGISTRO CONSOLIDADO (2026-06-12)
+
+GO integrado da IA Diretora (HEAD origem `95e04863`). Commits A–F (`80f1a59d`…ver git log). Registro por blocker:
+
+- **PJ-B1 (submissão KYB pelo fundador) — CLOSED.** `POST /companies/:id/kyb/requests` user-facing
+  (canManageCompany + docs mínimos materialmente enviados + 1 pending/fiscal; autoria por LEITURA) +
+  `GET /companies/:id/kyb/status` + ação "Enviar para análise" no wizard E no dashboard. Contrato de
+  REENVIO pós-rejeição promulgado (GO §3.1/8.4; adendo factual na DECISION-0086 §9). Prova:
+  founder-lifecycle 23/23 + e2e integrado 52/52.
+- **PJ-B2 (backoffice mínimo do reviewer) — CLOSED.** `/admin/kyb` (KybReviewBackoffice): fila+filtro,
+  documentos, download protegido, accept/reject documental com reason, approve/reject da request com
+  reason, revogação (rota HTTP nova energiza writer DECISION-0101). Founder não acessa (403 provado).
+- **PJ-B3 (cura de actor na criação PJ) — CLOSED.** `ensureUserActor`/`ensurePageActor` REMOVIDOS dos
+  caminhos PJ (createCompany, activateCompanyOperationally, publish/retire): resolução por LEITURA PURA
+  (`findByUserId`/`findByCompanyId`) + erro estrutural honesto (`COMPANY_CREATOR_ACTOR_MISSING`).
+  Page-actor segue nascendo SÓ na transação do nascimento (ensurePageActorTx). Provado: legado sem actor
+  → 400 sem nenhuma cura (actor count imutável).
+- **PJ-B4 (readers creator-scoped) — CLOSED.** listCompanies/getCompanyById derivam acesso de
+  `company_users` ATIVO (membership), não de `companies.global_user_id`; update/delete gateados por
+  canManageCompany; `checkOwnership('companies')` reconhece o vocabulário canônico (aditivo). Vínculo
+  removido/inativo deixa de conceder leitura. Leitura NÃO concede gestão (provado M4–M7).
+- **PJ-B5 (dashboard mascara/actor errado) — CLOSED** (= DT-PJ-TABS-BANK-READS-MASK-ERRORS CLOSED, ver
+  abaixo). Tabs PJ leem saldo/extrato DO PAGE ACTOR (`actorId`); erro→"indisponível" (≠ zero/vazio);
+  membros falho → "—"; `strictAuthErrors` no client p/ PJ; card KYB com status material + reason; card
+  Publicação com estado material. Zero read financeiro cria estado.
+- **PJ-B6 (allowlist incompleta) — CLOSED por VERIFICAÇÃO.** O achado "5 pares para 7 types" do READ-FIRST
+  era FALSO: a migration `20260416125000_concepts_estabelecimento.sql` semeia o par dos 7 company_types
+  (supermercado/hortifruti/açougue/padaria/farmácia/salão/restaurante); confirmado no dev vivo (7×1) e
+  pinado no gate (`pj:allowlist-7-types-governed`). Nenhum seed novo.
+- **PJ-B7 (resíduos/incoerências dev) — CLOSED.** `dev-clean-pj-residues.ts` (dry-run/--apply, transação,
+  predicados reproduzíveis) aplicado: 557 fiscal_identities órfãs de fixture DELETADAS, 1 company PROBE
+  deletada, 2 PROVISIONAL-sem-par rebaixadas a DRAFT (sem fabricar par; lifecycle vivo autoriza — a
+  promoção canônica é exclusiva da ativação). Invariante "PROVISIONAL ⇒ par" coerente (0 violações).
+  CAUSA raiz corrigida: helper `pj-fiscal-cleanup.ts` nos 16 E2Es que vazavam fiscal_identities.
+- **PJ-B8 (E2E integrado + gate) — CLOSED.** `validate-pipeline-e2e-pj-human-to-company-end-to-end.ts`
+  (52/52, HTTP real, tenant unificard-inicial, 2 humanos × 2 empresas, relogin, membership, isolamento,
+  zero Bank writer/zero inventory, cleanup MARKER zero-resíduo) + gate
+  `audit-pj-human-to-company-closure.mjs` em `validate:regression-guards` (25 CLOSED_PJ; prova negativa:
+  regressão temporária → FAIL; restauração byte-idêntica sha256 `0d464622…`).
+
+### DT-PJ-TABS-BANK-READS-MASK-ERRORS — **CLOSED (2026-06-12)**
+Fechada pelo CP4 desta macrofrente: catches → null/indisponível (padrão CP7 da Home), reads com page actor
+(`getBankBalance({actorId})`/`getBankStatement({actorId, strictAuthErrors:true})`). Pinado no gate PJ
+(`pj:dashboard-actor-correct-honest`). (Entrada OPEN original acima preservada como histórico.)
+
+### DT-PJ-E2E-FIXTURES-STALE-VS-LIVE-CONTRACTS — CLOSED (2026-06-12)
+- **Fato:** bateria §14 revelou fixtures de E2E defasados vs contratos vivos (todas falhas PRÉ-EXISTENTES,
+  não causadas pela macrofrente): (a) register orgânico C1 roteia ao tenant canônico — 10 e2es esperavam
+  tenant sintético (atomic-birth, company, two-moments, kyb-writer/documents/gate, capability-kyb,
+  social-kyb-gate, verification-display, cnae-evidence-writer, revocation×2); (b) DV de CNPJ na borda
+  (0085) — two-moments gerava CNPJ aleatório; (c) lifecycle DRAFT no nascimento — asserts esperavam
+  PROVISIONAL; (d) CHECK lifecycle baniu 'VERIFIED' — fixtures usavam-no (→ ACTIVE); (e) gate documental
+  §3.10 — F2-A aprovava sem docs; (f) pin de migrations =359 congelado; (g) pin de slice com '\n  }\n'
+  cego a CRLF (delete-guard). **Resolução:** fixtures realinhados aos contratos vivos (padrão "tenant
+  adotado do register orgânico"; geradores com DV; asserts DRAFT; seeds de docs aceitos; ≥359;
+  normalização CRLF). Nenhuma assertion enfraquecida; nenhuma regressão allowlistada.
+
+### DT-PJ-COMPANY-OPPORTUNITY-PREFERENCES-GHOST — OPEN (2026-06-12)
+- **Fato (1ª mão):** o pós-commit de `createCompany` insere em `company_opportunity_preferences`, mas a
+  tabela NÃO existe no dev vivo (42P01 engolido por design fail-open). Ghost-write pré-existente, fora do
+  denominador PJ (preferências de oportunidade = frente RFQ/matching). Não bloqueia a jornada.
+- **Resolução prevista:** na frente de oportunidades/RFQ, decidir: materializar a tabela OU remover o
+  bloco pós-commit (DECISION-0103-style ghost cleanup).

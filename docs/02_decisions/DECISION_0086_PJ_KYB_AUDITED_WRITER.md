@@ -121,3 +121,20 @@ NÃO Bank/ledger/split. NÃO frontend. NÃO KYC PF / identities. NÃO conta banc
 ## 8. Superada por
 
 (em aberto — decisão vigente)
+
+## 9. ADENDO FACTUAL (2026-06-12 — F-PJ-HUMAN-TO-COMPANY-END-TO-END-CLOSURE)
+
+Registro factual (não altera a decisão; executa fases antes deferidas, sob GO da IA Diretora §3.1/8.x):
+
+- **Submissão USER-FACING**: `POST /companies/:companyId/kyb/requests` (canManageCompany + documentos
+  mínimos materialmente enviados + 1 pending por fiscal; autoria auth-derived por LEITURA — sem cura de
+  actor). O writer `submitFiscalKybRequest` permanece ÚNICO. A rota admin original (`/identity/pj/kyb/requests`)
+  segue existindo para operação institucional.
+- **Reenvio pós-rejeição** (item "NÃO resubmit pós-rejected" do §6, deferido à época): contrato promulgado
+  pelo GO §3.1/8.4 — submit/review aceitam fonte fiscal em `rejected` (além de `pending`); nova request
+  pending é criada SEM reaproveitar/apagar a rejeitada (histórico íntegro). `approved/suspended/closed`
+  seguem recusando submit.
+- **Revogação via HTTP**: `POST /identity/pj/kyb/admin/fiscal-identities/:id/revoke` energiza o writer da
+  DECISION-0101 (reviewer humano fail-closed + cascata).
+- **Status do fundador**: `GET /companies/:companyId/kyb/status` (leitura pura membership-scoped).
+- Provas: `validate-pipeline-e2e-pj-kyb-founder-lifecycle-http` (23/23) + e2e integrado da jornada PJ (52/52).

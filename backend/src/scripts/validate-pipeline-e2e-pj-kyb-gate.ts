@@ -7,18 +7,17 @@
  *
  * Prova: PF KYC approved passa / pending bloqueia; PJ pending/rejected/suspended bloqueia transfer/payment/
  * payout/reversal; PJ approved passa; page sem company / company sem fiscal bloqueia; gate lê kyb_status
- * (company_status='VERIFIED'+kyb pending bloqueia); user → KYB_NOT_APPLICABLE; permissive não libera PJ;
+ * (company_status='ACTIVE'+kyb pending bloqueia); user → KYB_NOT_APPLICABLE; permissive não libera PJ;
  * trace tem camada KYB; zero Bank.
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor } from '../modules/identity/actor-writer.service';
 import { authorityDecisionService } from '../core/compliance/authority-decision.service';
 
-const TENANT_ID = '44444444-5555-6666-7777-888888888888';
+let TENANT_ID = '44444444-5555-6666-7777-888888888888'; // hint — adotado do register organico (C1)
 const PASSWORD = '123456';
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 
@@ -57,17 +56,16 @@ async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
 
-  if ((await pool.query('SELECT id FROM tenants WHERE id=$1', [TENANT_ID])).rowCount === 0) {
-    await tenantService.createTenant({ id: TENANT_ID, name: 'KYB Gate Test', slug: 'kyb-gate-test' });
-  }
-  await rbacService.seedDefaultRBAC(TENANT_ID);
-
-  // PF approved / PF pending (actores user — KYC).
+  // C1: register orgânico → tenant canônico; o teste ADOTA o tenant real (primeiro seedUser).
   async function seedUser(email: string): Promise<string> {
     if ((await pool.query('SELECT user_id FROM users WHERE email=$1', [email.toLowerCase()])).rowCount === 0) {
       await authService.register(TENANT_ID, email, PASSWORD, validCpf(), 'Gate PF');
     }
-    const u = await pool.query<{ user_id: string }>('SELECT user_id::text FROM users WHERE email=$1 AND tenant_id=$2 LIMIT 1', [email.toLowerCase(), TENANT_ID]);
+    const u = await pool.query<{ user_id: string; tenant_id: string }>('SELECT user_id::text, tenant_id::text FROM users WHERE email=$1 LIMIT 1', [email.toLowerCase()]);
+    if (TENANT_ID !== u.rows[0].tenant_id) {
+      TENANT_ID = u.rows[0].tenant_id;
+      await rbacService.seedDefaultRBAC(TENANT_ID);
+    }
     const a = await ensureUserActor(TENANT_ID, u.rows[0].user_id);
     return a.actor_id;
   }
@@ -146,9 +144,9 @@ async function main(): Promise<void> {
 
   // ═══ 10/11 — fonte é kyb_status, não company_status ═══
   console.log('\n— 10/11 fonte —');
-  const pjVerifiedPending = await makePj('pending', 'VERIFIED'); // companies VERIFIED mas kyb pending
+  const pjVerifiedPending = await makePj('pending', 'ACTIVE'); // companies ACTIVE mas kyb pending
   const e11 = await gate(pjVerifiedPending);
-  record('10/11 company_status=VERIFIED + kyb pending → bloqueia (gate lê kyb_status)', e11.decision === 'block' && e11.reason === 'KYB_PENDING_BLOCKS_FINANCIAL', `reason=${e11.reason}`);
+  record('10/11 company_status=ACTIVE + kyb pending → bloqueia (gate lê kyb_status)', e11.decision === 'block' && e11.reason === 'KYB_PENDING_BLOCKS_FINANCIAL', `reason=${e11.reason}`);
 
   // ═══ 16 — reversal segue a regra ═══
   console.log('\n— 16 reversal —');

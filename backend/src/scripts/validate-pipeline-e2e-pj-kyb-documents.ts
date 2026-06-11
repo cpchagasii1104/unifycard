@@ -10,14 +10,14 @@
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor } from '../modules/identity/actor-writer.service';
 import { fiscalIdentityKybService } from '../core/identity/fiscal-identity-kyb.service';
 import { fiscalIdentityDocumentService } from '../core/identity/fiscal-identity-document.service';
 
-const TENANT_ID = '33333333-4444-5555-6666-777777777777';
+// C1: hint inicial — o teste adota o tenant real do register orgânico.
+let TENANT_ID = '33333333-4444-5555-6666-777777777777';
 const EMAIL = 'kyb-docs@unificard.test';
 const PASSWORD = '123456';
 const CPF = '11144477735';
@@ -54,14 +54,13 @@ async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
 
-  if ((await pool.query('SELECT id FROM tenants WHERE id=$1', [TENANT_ID])).rowCount === 0) {
-    await tenantService.createTenant({ id: TENANT_ID, name: 'KYB Docs Test', slug: 'kyb-docs-test' });
-  }
-  await rbacService.seedDefaultRBAC(TENANT_ID);
+  // C1: register orgânico → tenant canônico; o teste ADOTA o tenant real do user.
   if ((await pool.query('SELECT user_id FROM users WHERE email=$1', [EMAIL.toLowerCase()])).rowCount === 0) {
     await authService.register(TENANT_ID, EMAIL, PASSWORD, CPF, 'KYB Docs PF');
   }
-  const u = await pool.query<{ user_id: string }>('SELECT user_id::text FROM users WHERE email=$1 AND tenant_id=$2 LIMIT 1', [EMAIL.toLowerCase(), TENANT_ID]);
+  const u = await pool.query<{ user_id: string; tenant_id: string }>('SELECT user_id::text, tenant_id::text FROM users WHERE email=$1 LIMIT 1', [EMAIL.toLowerCase()]);
+  TENANT_ID = u.rows[0].tenant_id;
+  await rbacService.seedDefaultRBAC(TENANT_ID);
   const actor = await ensureUserActor(TENANT_ID, u.rows[0].user_id);
   await rbacService.assignRoleByName(TENANT_ID, u.rows[0].user_id, 'admin');
   const actorId = actor.actor_id;

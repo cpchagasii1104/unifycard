@@ -12,13 +12,14 @@
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
 import { companiesService } from '../core/companies/companies.service';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor } from '../modules/identity/actor-writer.service';
 import { fiscalIdentityKybService } from '../core/identity/fiscal-identity-kyb.service';
 
-const TENANT_ID = '22222222-3333-4444-5555-666666666666';
+// C1 (nascimento orgânico): register roteia para o tenant canônico — valor abaixo é só HINT;
+// o teste ADOTA o tenant real do user registrado.
+let TENANT_ID = '22222222-3333-4444-5555-666666666666';
 const EMAIL = 'kyb-writer@unificard.test';
 const PASSWORD = '123456';
 const CPF = '11144477735';
@@ -66,18 +67,16 @@ async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
 
-  // ── seed: tenant + user (actor humano = operador) ──
-  if ((await pool.query('SELECT id FROM tenants WHERE id=$1', [TENANT_ID])).rowCount === 0) {
-    await tenantService.createTenant({ id: TENANT_ID, name: 'KYB Writer Test', slug: 'kyb-writer-test' });
-  }
-  await rbacService.seedDefaultRBAC(TENANT_ID);
+  // ── seed: user (actor humano = operador). C1: tenant adotado do register orgânico. ──
   if ((await pool.query('SELECT user_id FROM users WHERE email=$1', [EMAIL.toLowerCase()])).rowCount === 0) {
     await authService.register(TENANT_ID, EMAIL, PASSWORD, CPF, 'KYB Writer PF');
   }
-  const u = await pool.query<{ user_id: string; global_user_id: string }>(
-    'SELECT user_id::text, global_user_id::text FROM users WHERE email=$1 AND tenant_id=$2 LIMIT 1', [EMAIL.toLowerCase(), TENANT_ID]);
+  const u = await pool.query<{ user_id: string; global_user_id: string; tenant_id: string }>(
+    'SELECT user_id::text, global_user_id::text, tenant_id::text FROM users WHERE email=$1 LIMIT 1', [EMAIL.toLowerCase()]);
   const userId = u.rows[0].user_id;
   const globalUserId = u.rows[0].global_user_id;
+  TENANT_ID = u.rows[0].tenant_id;
+  await rbacService.seedDefaultRBAC(TENANT_ID);
   const actor = await ensureUserActor(TENANT_ID, userId);
   await rbacService.assignRoleByName(TENANT_ID, userId, 'admin');
   const actorId = actor.actor_id; // operador (submitted_by / reviewed_by). actor_id == actors.id.
@@ -91,6 +90,18 @@ async function main(): Promise<void> {
       `INSERT INTO fiscal_identities (cnpj, kyb_status, created_by_actor_id) VALUES ($1,'pending',$2::uuid) RETURNING fiscal_identity_id`,
       [cnpj, actorId]);
     return { fiscalId: r.rows[0].fiscal_identity_id, cnpj };
+  }
+  // Gate documental §3.10 (DECISION-0087, posterior à F2-A): aprovar exige cnpj_registration +
+  // articles_of_association ACEITOS. Seed direto (testando o WRITER de request, não o documental).
+  async function seedAcceptedDocs(fid: string): Promise<void> {
+    for (const t of ['cnpj_registration', 'articles_of_association']) {
+      await pool.query(
+        `INSERT INTO fiscal_identity_documents
+           (fiscal_identity_id, document_type, document_status, file_reference, submitted_by_actor_id,
+            reviewed_by_actor_id, reviewed_at, decision_reason)
+         VALUES ($1::uuid, $2, 'accepted', $3, $4::uuid, $4::uuid, NOW(), 'seed accepted')`,
+        [fid, t, 'ref://seed/' + Math.random().toString(36).slice(2), actorId]);
+    }
   }
   const kybStatus = async (fid: string) => (await pool.query<{ s: string }>('SELECT kyb_status s FROM fiscal_identities WHERE fiscal_identity_id=$1', [fid])).rows[0].s;
   const reqStatus = async (rid: string) => (await pool.query<{ s: string }>('SELECT status s FROM fiscal_identity_kyb_requests WHERE kyb_request_id=$1', [rid])).rows[0]?.s ?? 'NONE';
@@ -117,6 +128,7 @@ async function main(): Promise<void> {
 
   // ═══ 4 — APPROVE HAPPY ═══
   console.log('\n— 4/5 review —');
+  await seedAcceptedDocs(f1.fiscalId);
   const apv = await fiscalIdentityKybService.reviewFiscalKybRequest(sub1.kybRequestId, 'approved', 'kyb completo', actorId);
   const fiApproved = await pool.query<{ kyb: string; rb: string | null; ra: Date | null; dr: string | null }>(
     'SELECT kyb_status kyb, reviewed_by_actor_id::text rb, reviewed_at ra, decision_reason dr FROM fiscal_identities WHERE fiscal_identity_id=$1', [f1.fiscalId]);
@@ -175,9 +187,11 @@ async function main(): Promise<void> {
   const comp = await companiesService.createCompany(globalUserId, { cnpj: validCnpj(), companyName: 'KYB Company', role: 'owner', fetchFromRevenue: false }, TENANT_ID);
   const compFiscal = (await pool.query<{ fid: string; cs: string }>('SELECT fiscal_identity_id::text fid, company_status cs FROM companies WHERE company_id=$1', [comp.company.companyId])).rows[0];
   const subC = await fiscalIdentityKybService.submitFiscalKybRequest(compFiscal.fid, actorId);
+  await seedAcceptedDocs(compFiscal.fid);
   await fiscalIdentityKybService.reviewFiscalKybRequest(subC.kybRequestId, 'approved', 'ok', actorId);
   const csAfter = (await pool.query<{ cs: string }>('SELECT company_status cs FROM companies WHERE company_id=$1', [comp.company.companyId])).rows[0].cs;
-  record('13 KYB approve NÃO altera companies.company_status (segue PROVISIONAL)', compFiscal.cs === 'PROVISIONAL' && csAfter === 'PROVISIONAL', `before=${compFiscal.cs} after=${csAfter}`);
+  // F-PJ-LIFECYCLE: a empresa NASCE DRAFT; o KYB approve não pode tocar o eixo lifecycle.
+  record('13 KYB approve NÃO altera companies.company_status (segue DRAFT do nascimento)', compFiscal.cs === 'DRAFT' && csAfter === 'DRAFT', `before=${compFiscal.cs} after=${csAfter}`);
 
   // ═══ 14 — QUEUE ═══
   const qPending = await fiscalIdentityKybService.getFiscalKybQueue('pending');

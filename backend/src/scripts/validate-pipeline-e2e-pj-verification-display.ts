@@ -15,13 +15,12 @@
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor } from '../modules/identity/actor-writer.service';
 import { companiesService } from '../core/companies/companies.service';
 
-const TENANT_ID = '33333333-4444-5555-6666-777777777777';
+let TENANT_ID = '33333333-4444-5555-6666-777777777777'; // hint — adotado do register organico (C1)
 const PASSWORD = '123456';
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 
@@ -60,20 +59,19 @@ async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
 
-  if ((await pool.query('SELECT id FROM tenants WHERE id=$1', [TENANT_ID])).rowCount === 0) {
-    await tenantService.createTenant({ id: TENANT_ID, name: 'PJ Verification Display Test', slug: 'pj-verif-display-test' });
-  }
-  await rbacService.seedDefaultRBAC(TENANT_ID);
+  // C1: tenant adotado do register orgânico (abaixo); sem tenant sintético prévio.
 
   // Owner real → global_user_id (dono das companies) + responsible actor (âncora humana §4.8.2).
   const ownerEmail = 'verif-owner@unificard.test';
   if ((await pool.query('SELECT user_id FROM users WHERE email=$1', [ownerEmail.toLowerCase()])).rowCount === 0) {
     await authService.register(TENANT_ID, ownerEmail, PASSWORD, validCpf(), 'Verif Owner');
   }
-  const ownerRow = await pool.query<{ global_user_id: string; user_id: string }>(
-    'SELECT global_user_id::text, user_id::text FROM users WHERE email=$1 AND tenant_id=$2 LIMIT 1',
-    [ownerEmail.toLowerCase(), TENANT_ID]
+  const ownerRow = await pool.query<{ global_user_id: string; user_id: string; tenant_id: string }>(
+    'SELECT global_user_id::text, user_id::text, tenant_id::text FROM users WHERE email=$1 LIMIT 1',
+    [ownerEmail.toLowerCase()]
   );
+  TENANT_ID = ownerRow.rows[0].tenant_id;
+  await rbacService.seedDefaultRBAC(TENANT_ID);
   const ownerGlobalUserId = ownerRow.rows[0].global_user_id;
   const responsibleActor = (await ensureUserActor(TENANT_ID, ownerRow.rows[0].user_id)).actor_id;
 
@@ -98,6 +96,12 @@ async function main(): Promise<void> {
       `INSERT INTO companies (tenant_id, global_user_id, company_name, fiscal_identity_id, status, company_status)
        VALUES ($1,$2::uuid,'PJ Verif',$3::uuid,'active',$4) RETURNING company_id::text`,
       [TENANT_ID, ownerGlobalUserId, fid, companyStatus]);
+    // PJ-B4: readers de company são MEMBERSHIP-scoped — a fixture materializa o vínculo
+    // que o nascimento real (createCompany) cria server-side.
+    await pool.query(
+      `INSERT INTO company_users (tenant_id, company_id, global_user_id, role, can_manage_company, is_active, member_status)
+       VALUES ($1,$2::uuid,$3::uuid,'owner',true,true,'active')`,
+      [TENANT_ID, c.rows[0].company_id, ownerGlobalUserId]);
     return c.rows[0].company_id;
   }
 

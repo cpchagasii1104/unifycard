@@ -168,7 +168,7 @@ const KNOWN_OPEN_OUTSIDE_C1 = [
   'convite-cross-tenant (DT-C1-TENANT-INVITE-RESOLUTION-NO-SUBSTRATE)',
   'system-actor-institucional (DT-C1-INSTITUTIONAL-SYSTEM-ACTOR-PENDING)',
   'feed-unread visibility fantasma (DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN; null honesto)',
-  'PJ tabs (CompanyFinancialTab/OverviewTab) statement catch->empty — superfície PJ, fora do C1',
+  'PJ (jornada própria — selada pelo gate audit-pj-human-to-company-closure; tabs catch->empty FECHADO lá)',
   'social-2.0 targeting gender enum 3-valores — superfície targeting, fora da jornada própria',
 ];
 for (const k of KNOWN_OPEN_OUTSIDE_C1) surfaces.push([k, 'KNOWN_OPEN_OUTSIDE_C1']);

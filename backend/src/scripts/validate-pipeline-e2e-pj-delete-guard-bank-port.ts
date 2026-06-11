@@ -215,8 +215,9 @@ async function main(): Promise<void> {
       record('D6 sem actor → permitida (port não consultado)', ok === true && after.status === 'inactive', `ok=${ok} status=${after.status}`);
     });
 
-    // D7 — estrutural (fonte)
-    const src = readFileSync(join(process.cwd(), 'src/core/companies/companies.service.ts'), 'utf8');
+    // D7 — estrutural (fonte). Line-ending agnóstico (CRLF/LF): normaliza antes de fatiar —
+    // o fallback antigo (arquivo inteiro) fazia o pin gritar sobre métodos vizinhos em CRLF.
+    const src = readFileSync(join(process.cwd(), 'src/core/companies/companies.service.ts'), 'utf8').replace(/\r\n/g, '\n');
     const delStart = src.indexOf('async deleteCompany(');
     const delEnd = src.indexOf('\n  }\n', delStart);
     const delBody = delStart >= 0 && delEnd >= 0 ? src.slice(delStart, delEnd) : src;

@@ -47,10 +47,18 @@ async function bootstrap(): Promise<void> {
   socialPortsRegistry.setEventFeedHandlers(adapters.eventFeedHandlersAdapter);
 }
 
+// DECISION-0085 §4.3: o DV do CNPJ é validado na BORDA do createCompany — o gerador
+// precisa emitir CNPJ com dígitos verificadores VÁLIDOS (o aleatório puro quebrava ~99%).
 function randomCnpj(): string {
-  let s = '';
-  for (let i = 0; i < 14; i++) s += Math.floor(Math.random() * 10).toString();
-  return s;
+  const n: number[] = [];
+  for (let i = 0; i < 12; i++) n.push(Math.floor(Math.random() * 10));
+  const dig = (len: number) => {
+    let pos = len - 7, sum = 0;
+    for (let i = 0; i < len; i++) { sum += n[i] * pos--; if (pos < 2) pos = 9; }
+    const r = sum % 11; return r < 2 ? 0 : 11 - r;
+  };
+  n.push(dig(12)); n.push(dig(13));
+  return n.join('');
 }
 
 async function expectServiceError(label: string, fn: () => Promise<unknown>, code: string): Promise<void> {

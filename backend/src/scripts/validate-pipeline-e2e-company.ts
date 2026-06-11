@@ -28,7 +28,9 @@ import { rbacService } from '../core/rbac/rbac.service';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
-const TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
+// C1 (nascimento orgânico): authService.register roteia para o tenant institucional canônico —
+// o valor abaixo é só HINT inicial; o teste ADOTA o tenant REAL do user registrado (Etapa 1).
+let TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
 const ADMIN_USER_ID = process.env.E2E_ADMIN_USER_ID || 'beb7b5e4-2d22-4782-83c9-6e006da53713';
 
 type CheckResult = { ok: boolean; reason?: string; detail?: any };
@@ -207,6 +209,16 @@ async function main(): Promise<void> {
     cleanupState.userId = reg.user.userId;
     const userId = cleanupState.userId!;
 
+    // C1: o register é orgânico (tenant canônico server-side). ADOTA o tenant real do user
+    // para o resto do pipeline; RBAC seed idempotente no tenant adotado.
+    const realTenant = (await pool.query<{ t: string }>(
+      `SELECT tenant_id::text t FROM users WHERE id = $1::uuid`, [userId],
+    )).rows[0]?.t;
+    if (realTenant && realTenant !== TENANT_ID) {
+      TENANT_ID = realTenant;
+      await rbacService.seedDefaultRBAC(TENANT_ID);
+    }
+
     // SELECT 1a: global_users com CPF.
     const guRes = await pool.query<{ global_user_id: string; cpf: string }>(
       `SELECT global_user_id, cpf FROM global_users WHERE cpf = $1`,
@@ -274,7 +286,8 @@ async function main(): Promise<void> {
     const companyId = created.company.companyId;
     cleanupState.companyIds.push(companyId);
 
-    // SELECT 2a: companies PROVISIONAL.
+    // SELECT 2a: companies nasce DRAFT (F-PJ-LIFECYCLE-DRAFT-TO-PROVISIONAL: a promoção para
+    // PROVISIONAL é exclusiva da ativação operacional — Momento 2).
     const cRes = await pool.query<{
       company_id: string;
       company_status: string;
@@ -282,10 +295,10 @@ async function main(): Promise<void> {
       `SELECT company_id, company_status FROM companies WHERE company_id = $1::uuid`,
       [companyId],
     );
-    assertOk('A2a: companies criada PROVISIONAL (is_verified dropado 3.3-B2)', {
+    assertOk('A2a: companies criada DRAFT (lifecycle vivo; is_verified dropado 3.3-B2)', {
       ok:
         !!cRes.rows[0] &&
-        cRes.rows[0].company_status === 'PROVISIONAL',
+        cRes.rows[0].company_status === 'DRAFT',
       reason: 'companies em estado inesperado',
       detail: cRes.rows[0],
     });
@@ -316,6 +329,19 @@ async function main(): Promise<void> {
     // ETAPA 3 — submitForValidation
     // ============================================================
     console.log('--- Etapa 3: submitForValidation ---');
+    // F-PJ-LIFECYCLE: a empresa nasce DRAFT e o submit legado (Frente B) exige PROVISIONAL.
+    // Promoção pelo CAMINHO CANÔNICO (ativação operacional, writer único do par) — nunca
+    // UPDATE direto de company_status.
+    const allowedPair = (await pool.query<{ ct: string; c: string }>(
+      `SELECT company_type_id::text ct, concept_id::text c FROM company_type_allowed_concepts LIMIT 1`,
+    )).rows[0]!;
+    await companiesService.activateCompanyOperationally({
+      tenantId: TENANT_ID,
+      companyId,
+      responsibleUserId: userId,
+      primaryCompanyTypeId: allowedPair.ct,
+      primaryConceptId: allowedPair.c,
+    });
     const submitResult = await companiesService.submitForValidation(
       companyId,
       TENANT_ID,
@@ -432,6 +458,11 @@ async function main(): Promise<void> {
     );
     const companyId2 = created2.company.companyId;
     cleanupState.companyIds.push(companyId2);
+    // DRAFT → PROVISIONAL pelo caminho canônico (submit legado exige PROVISIONAL).
+    await companiesService.activateCompanyOperationally({
+      tenantId: TENANT_ID, companyId: companyId2, responsibleUserId: userId,
+      primaryCompanyTypeId: allowedPair.ct, primaryConceptId: allowedPair.c,
+    });
     await companiesService.submitForValidation(
       companyId2,
       TENANT_ID,
@@ -483,6 +514,11 @@ async function main(): Promise<void> {
     );
     const companyId3 = created3.company.companyId;
     cleanupState.companyIds.push(companyId3);
+    // DRAFT → PROVISIONAL pelo caminho canônico (submit legado exige PROVISIONAL).
+    await companiesService.activateCompanyOperationally({
+      tenantId: TENANT_ID, companyId: companyId3, responsibleUserId: userId,
+      primaryCompanyTypeId: allowedPair.ct, primaryConceptId: allowedPair.c,
+    });
     const submitB4 = await companiesService.submitForValidation(
       companyId3,
       TENANT_ID,

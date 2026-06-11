@@ -14114,3 +14114,36 @@ critical_new=0/total=20/warning_new=1 (:334 pré-existente).
 
 **`DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY` permanece OPEN.** Próximo: **F5** — deprecar caches `user_profiles.cpf` +
 `profiles.cpf` (parar dual-write → leitura fallback → DROP em migration dedicada com janela de observação). PJ fora.
+
+---
+
+## F-PJ-HUMAN-TO-COMPANY-END-TO-END-CLOSURE ✅ CLOSED (2026-06-12) — macrofrente integrada (GO IA Diretora)
+
+HEAD origem `95e04863` → commits A–F (`80f1a59d` nascimento/membership/coerência · CP2 KYB founder+backoffice ·
+`0d8b0d83` ativação · `389f3ac2` dashboard honesto · `2cf2cfcd` publicação/lifecycle · commit F e2e+gate+cartório).
+Jornada PJ ponta a ponta FECHADA: humano C1 → empresa fiscal-first atômica (sem cura de actor) → vínculo
+server-side → page actor → ativação governada (par 7/7 types por migration) → docs KYB → submissão pelo FUNDADOR
+(user-facing novo) → review humano (backoffice mínimo /admin/kyb + rotas admin; revogação HTTP nova 0101) →
+publicação KYB-gated → discovery defendido → relogin/reabertura por MEMBERSHIP → isolamento 2×2 provado.
+
+Blockers PJ-B1..B8: TODOS CLOSED (detalhe no REMEDIATION_DT_LOG). DT-PJ-TABS-BANK-READS-MASK-ERRORS CLOSED.
+Decisões congeladas do GO executadas: §3.1 (founder submete; reviewer humano separado), §3.2 (sem
+needs_more_info; rejected+reason+reenvio auditável — adendo factual DECISION-0086 §9), §3.3 (leitura por
+vínculo), §3.4 (dashboard actor-correct/failure-honest), §3.5 (limpeza dev: 557 fiscais órfãs + PROBE + 2
+PROVISIONAL→DRAFT; invariante PROVISIONAL⇒par coerente), §3.6 (backoffice mínimo, não-ERP).
+
+Provas: e2e integrado **52/52** (HTTP, unificard-inicial, 2 humanos×2 empresas, zero Bank writer, zero
+inventory, cleanup MARKER zero resíduo) · birth/membership **29/29** · founder-lifecycle KYB **23/23** ·
+atomic-birth 18/18 · activation 15/15 + flow 22/22 · publication 20/20 + projection 13/13 · revocation 15/15 +
+reader-defense 6/6 · self-escalation 33/33 · consolidated 39/39 · legacy-readers 32/32 · groups-mine 26/26 ·
+C1 base (birth-organic/read-purity/journey 55/55) verdes · +20 suítes PJ/KYB verdes (fixtures pré-existentes
+defasados realinhados — DT-PJ-E2E-FIXTURES-STALE-VS-LIVE-CONTRACTS CLOSED). Gates: actor-writer OK ·
+bank-ledger OK · regression-guards OK (inclui novo `audit-pj-human-to-company-closure.mjs`, 25 CLOSED_PJ,
+prova negativa com restauração byte-idêntica) · arch --strict critical_new=0 (4 warnings novos = deslocamento
+de baseline por edits em scripts de teste) · system-state PASS · tsc backend (só baseline geo-enrichment ×2
+pré-existente, provado via stash no HEAD limpo) · tsc frontend 0 · git diff --check 0.
+
+FORA (OPEN explícito): produtos/ofertas/venda · inventory residual · providers prod storage/scanner ·
+needs_more_info · convite cross-tenant · system actor institucional · FASE 6 · R2 · money writers ·
+DT-PJ-COMPANY-OPPORTUNITY-PREFERENCES-GHOST (novo, pós-commit fail-open). NÃO declarado: marketplace/venda/
+money completos. Aguardando RESEAL Yala.

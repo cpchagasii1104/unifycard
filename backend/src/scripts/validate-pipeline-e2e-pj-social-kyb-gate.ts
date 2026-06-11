@@ -7,7 +7,7 @@
  * Prova o NÚCLEO de decisão do gate — `isPageActorKybApproved` (helper usado por
  * social-2.0.service[publish_feed] e social-votes.service[cast_vote]):
  *   - page-actor kyb='approved'                          → true  (libera)
- *   - page-actor kyb='pending' + company_status='VERIFIED' → false (company_status NÃO libera)
+ *   - page-actor kyb='pending' + company_status='ACTIVE' → false (company_status NÃO libera)
  *   - page-actor kyb='rejected'/'suspended'              → false (bloqueia)
  *   - page-actor sem fiscal_identity                     → false (fail-closed)
  *   - user/PF                                            → false no helper (mas o GATE guarda por
@@ -20,13 +20,12 @@
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor } from '../modules/identity/actor-writer.service';
 import { isPageActorKybApproved } from '../modules/social/pj-kyb-gate';
 
-const TENANT_ID = '88888888-9999-aaaa-bbbb-cccccccccccc';
+let TENANT_ID = '88888888-9999-aaaa-bbbb-cccccccccccc'; // hint — adotado do register organico (C1)
 const PASSWORD = '123456';
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 
@@ -65,19 +64,17 @@ async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
 
-  if ((await pool.query('SELECT id FROM tenants WHERE id=$1', [TENANT_ID])).rowCount === 0) {
-    await tenantService.createTenant({ id: TENANT_ID, name: 'PJ social KYB gate Test', slug: 'pj-social-kyb-gate-test' });
-  }
-  await rbacService.seedDefaultRBAC(TENANT_ID);
-
+  // C1: register orgânico → tenant canônico; o teste ADOTA o tenant real do owner.
   const ownerEmail = 'social-kyb-owner@unificard.test';
   if ((await pool.query('SELECT user_id FROM users WHERE email=$1', [ownerEmail.toLowerCase()])).rowCount === 0) {
     await authService.register(TENANT_ID, ownerEmail, PASSWORD, validCpf(), 'Social Owner');
   }
-  const ownerRow = await pool.query<{ global_user_id: string; user_id: string }>(
-    'SELECT global_user_id::text, user_id::text FROM users WHERE email=$1 AND tenant_id=$2 LIMIT 1',
-    [ownerEmail.toLowerCase(), TENANT_ID]
+  const ownerRow = await pool.query<{ global_user_id: string; user_id: string; tenant_id: string }>(
+    'SELECT global_user_id::text, user_id::text, tenant_id::text FROM users WHERE email=$1 LIMIT 1',
+    [ownerEmail.toLowerCase()]
   );
+  TENANT_ID = ownerRow.rows[0].tenant_id;
+  await rbacService.seedDefaultRBAC(TENANT_ID);
   const ownerGlobalUserId = ownerRow.rows[0].global_user_id;
   const userActorId = (await ensureUserActor(TENANT_ID, ownerRow.rows[0].user_id)).actor_id;
 
@@ -103,10 +100,10 @@ async function main(): Promise<void> {
   }
 
   const pageApproved = await makePageActor('approved', 'PROVISIONAL');     // approved mas company_status PROVISIONAL
-  const pagePendingLie = await makePageActor('pending', 'VERIFIED');       // pending mas company_status='VERIFIED'
+  const pagePendingLie = await makePageActor('pending', 'ACTIVE');       // pending mas company_status='ACTIVE'
   const pageRejected = await makePageActor('rejected', 'PROVISIONAL');
   const pageSuspended = await makePageActor('suspended', 'PROVISIONAL');
-  const pageNoFiscal = await makePageActor('no_fiscal', 'VERIFIED');
+  const pageNoFiscal = await makePageActor('no_fiscal', 'ACTIVE');
 
   const bankBefore = await pool
     .query<{ n: string }>(`SELECT (COALESCE((SELECT count(*) FROM bank_ledger),0)+COALESCE((SELECT count(*) FROM bank_transactions),0))::text n`)
@@ -114,7 +111,7 @@ async function main(): Promise<void> {
 
   console.log('\n— isPageActorKybApproved (núcleo do gate publish_feed/cast_vote) —');
   record('1 page kyb=approved → true (libera post/voto)', (await isPageActorKybApproved(TENANT_ID, pageApproved)) === true);
-  record('2 page kyb=pending + company_status=VERIFIED → false (company_status NÃO libera)', (await isPageActorKybApproved(TENANT_ID, pagePendingLie)) === false);
+  record('2 page kyb=pending + company_status=ACTIVE → false (company_status NÃO libera)', (await isPageActorKybApproved(TENANT_ID, pagePendingLie)) === false);
   record('3 page kyb=rejected → false (bloqueia)', (await isPageActorKybApproved(TENANT_ID, pageRejected)) === false);
   record('4 page kyb=suspended → false (bloqueia)', (await isPageActorKybApproved(TENANT_ID, pageSuspended)) === false);
   record('5 page sem fiscal_identity → false (fail-closed)', (await isPageActorKybApproved(TENANT_ID, pageNoFiscal)) === false);

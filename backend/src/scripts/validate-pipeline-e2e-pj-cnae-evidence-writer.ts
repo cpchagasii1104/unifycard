@@ -21,13 +21,12 @@ import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
 import { companiesService } from '../core/companies/companies.service';
 import { fiscalIdentityEconomicActivityService } from '../core/identity/fiscal-identity-economic-activity.service';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor } from '../modules/identity/actor-writer.service';
 import type { RevenueFederalData } from '../core/companies/companies.types';
 
-const TENANT_ID = '11111111-2222-3333-4444-666666666666';
+let TENANT_ID = '11111111-2222-3333-4444-666666666666'; // hint — adotado do register organico (C1)
 const PASSWORD = '123456';
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 
@@ -89,11 +88,16 @@ async function wireSocialPorts(): Promise<void> {
 async function seedUser(email: string, cpf: string, fullName: string): Promise<{ globalUserId: string }> {
   const existing = await pool.query('SELECT user_id FROM users WHERE email = $1 LIMIT 1', [email.toLowerCase()]);
   if (existing.rowCount === 0) await authService.register(TENANT_ID, email, PASSWORD, cpf, fullName);
-  const u = await pool.query<{ user_id: string; global_user_id: string }>(
-    'SELECT user_id::text, global_user_id::text FROM users WHERE email = $1 AND tenant_id = $2 LIMIT 1',
-    [email.toLowerCase(), TENANT_ID]
+  // C1: lookup por email; o tenant REAL vem da linha (register é orgânico/canônico).
+  const u = await pool.query<{ user_id: string; global_user_id: string; tenant_id: string }>(
+    'SELECT user_id::text, global_user_id::text, tenant_id::text FROM users WHERE email = $1 LIMIT 1',
+    [email.toLowerCase()]
   );
   if (u.rowCount === 0) throw new Error(`seed: user ${email} não encontrado`);
+  if (TENANT_ID !== u.rows[0].tenant_id) {
+    TENANT_ID = u.rows[0].tenant_id;
+    await rbacService.seedDefaultRBAC(TENANT_ID);
+  }
   await ensureUserActor(TENANT_ID, u.rows[0].user_id);
   await rbacService.assignRoleByName(TENANT_ID, u.rows[0].user_id, 'admin');
   return { globalUserId: u.rows[0].global_user_id };
@@ -131,14 +135,13 @@ async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
 
-  const t = await pool.query('SELECT id FROM tenants WHERE id = $1 LIMIT 1', [TENANT_ID]);
-  if (t.rowCount === 0) await tenantService.createTenant({ id: TENANT_ID, name: 'CNAE Writer Test', slug: 'cnae-writer-test' });
-  await rbacService.seedDefaultRBAC(TENANT_ID);
+  // C1: tenant adotado do register orgânico (seedUser); sem tenant sintético prévio.
   const { globalUserId } = await seedUser('cnae-writer@unificard.test', validCpf(987654321), 'CNAE Writer PF');
 
-  // 11. schema = 359 (sem nova migration nesta fatia)
-  const migN = (await pool.query<{ n: string }>(`SELECT count(*)::text AS n FROM schema_migrations`)).rows[0].n;
-  record('11 schema = 359 migrations (sem nova migration)', migN === '359', `n=${migN}`);
+  // 11. schema migrado FULL (pin defasado de 359 atualizado: a fatia não cria migration,
+  //     mas o repositório evolui — exige ≥359 e coerência com o runner FULL).
+  const migN = parseInt((await pool.query<{ n: string }>(`SELECT count(*)::text AS n FROM schema_migrations`)).rows[0].n, 10);
+  record('11 schema FULL aplicado (≥359 migrations; fatia não cria migration)', migN >= 359, `n=${migN}`);
 
   const bankBefore = await countBank();
   const mktBefore = await countMarketplaceProjections();

@@ -7,7 +7,7 @@
  * Prova o caminho REAL:
  *   reputationService.getPermissions:
  *     - page-actor kyb='approved' → canPost true (capability liberada);
- *     - page-actor kyb='pending' + company_status='VERIFIED' → canPost false (company_status NÃO libera);
+ *     - page-actor kyb='pending' + company_status='ACTIVE' → canPost false (company_status NÃO libera);
  *     - page-actor sem fiscal → canPost false (fail-closed);
  *     - user/PF → canPost true (inalterado).
  *   companiesService.updateCompany (CNPJ-lock):
@@ -17,14 +17,13 @@
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor } from '../modules/identity/actor-writer.service';
 import { reputationService } from '../modules/social/reputation.service';
 import { companiesService } from '../core/companies/companies.service';
 
-const TENANT_ID = '77777777-8888-9999-aaaa-bbbbbbbbbbbb';
+let TENANT_ID = '77777777-8888-9999-aaaa-bbbbbbbbbbbb'; // hint — adotado do register organico (C1)
 const PASSWORD = '123456';
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 
@@ -71,19 +70,17 @@ async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
 
-  if ((await pool.query('SELECT id FROM tenants WHERE id=$1', [TENANT_ID])).rowCount === 0) {
-    await tenantService.createTenant({ id: TENANT_ID, name: 'PJ capability KYB Test', slug: 'pj-capability-kyb-test' });
-  }
-  await rbacService.seedDefaultRBAC(TENANT_ID);
-
+  // C1: register orgânico → tenant canônico; o teste ADOTA o tenant real do owner.
   const ownerEmail = 'capability-owner@unificard.test';
   if ((await pool.query('SELECT user_id FROM users WHERE email=$1', [ownerEmail.toLowerCase()])).rowCount === 0) {
     await authService.register(TENANT_ID, ownerEmail, PASSWORD, validCpf(), 'Cap Owner');
   }
-  const ownerRow = await pool.query<{ global_user_id: string; user_id: string }>(
-    'SELECT global_user_id::text, user_id::text FROM users WHERE email=$1 AND tenant_id=$2 LIMIT 1',
-    [ownerEmail.toLowerCase(), TENANT_ID]
+  const ownerRow = await pool.query<{ global_user_id: string; user_id: string; tenant_id: string }>(
+    'SELECT global_user_id::text, user_id::text, tenant_id::text FROM users WHERE email=$1 LIMIT 1',
+    [ownerEmail.toLowerCase()]
   );
+  TENANT_ID = ownerRow.rows[0].tenant_id;
+  await rbacService.seedDefaultRBAC(TENANT_ID);
   const ownerGlobalUserId = ownerRow.rows[0].global_user_id;
   const userActorId = (await ensureUserActor(TENANT_ID, ownerRow.rows[0].user_id)).actor_id;
 
@@ -103,6 +100,12 @@ async function main(): Promise<void> {
        VALUES ($1,$2::uuid,'PJ Cap',$3::uuid,'active',$4) RETURNING company_id::text`,
       [TENANT_ID, ownerGlobalUserId, fid, companyStatus]);
     const companyId = c.rows[0].company_id;
+    // PJ-B4: readers/writers de company são MEMBERSHIP-scoped — a fixture materializa o vínculo
+    // que o nascimento real (createCompany) cria server-side.
+    await pool.query(
+      `INSERT INTO company_users (tenant_id, company_id, global_user_id, role, can_manage_company, is_active, member_status)
+       VALUES ($1,$2::uuid,$3::uuid,'owner',true,true,'active')`,
+      [TENANT_ID, companyId, ownerGlobalUserId]);
     const a = await pool.query<{ id: string }>(
       `INSERT INTO actors (tenant_id, actor_type, company_id, display_name, responsible_actor_id)
        VALUES ($1,'page',$2::uuid,'PJ Cap',$3::uuid) RETURNING id::text`,
@@ -111,8 +114,8 @@ async function main(): Promise<void> {
   }
 
   const pjApproved = await makePj('approved', 'PROVISIONAL');         // approved mas company_status PROVISIONAL
-  const pjPendingLie = await makePj('pending', 'VERIFIED');           // pending mas company_status='VERIFIED' (mentira)
-  const pjNoFiscal = await makePj('no_fiscal', 'VERIFIED');           // sem fiscal
+  const pjPendingLie = await makePj('pending', 'ACTIVE');           // pending mas company_status='ACTIVE' (mentira)
+  const pjNoFiscal = await makePj('no_fiscal', 'ACTIVE');           // sem fiscal
 
   const bankBefore = await pool
     .query<{ n: string }>(`SELECT (COALESCE((SELECT count(*) FROM bank_ledger),0)+COALESCE((SELECT count(*) FROM bank_transactions),0))::text n`)
@@ -120,12 +123,12 @@ async function main(): Promise<void> {
 
   // ═══ getPermissions — capability deriva de kyb_status ═══
   console.log('\n— getPermissions (capability via kyb_status) —');
-  // Passa company_status='VERIFIED' de propósito para provar que é IGNORADO.
-  const pApproved = await reputationService.getPermissions(TENANT_ID, pjApproved.pageActorId, 'page', 'VERIFIED');
+  // Passa company_status='ACTIVE' de propósito para provar que é IGNORADO.
+  const pApproved = await reputationService.getPermissions(TENANT_ID, pjApproved.pageActorId, 'page', 'ACTIVE');
   record('1 PJ kyb=approved → canPost=true (capability liberada)', pApproved.canPost === true, `canPost=${pApproved.canPost}`);
 
-  const pPending = await reputationService.getPermissions(TENANT_ID, pjPendingLie.pageActorId, 'page', 'VERIFIED');
-  record('2 PJ kyb=pending + company_status=VERIFIED → canPost=false (company_status NÃO libera)',
+  const pPending = await reputationService.getPermissions(TENANT_ID, pjPendingLie.pageActorId, 'page', 'ACTIVE');
+  record('2 PJ kyb=pending + company_status=ACTIVE → canPost=false (company_status NÃO libera)',
     pPending.canPost === false && pPending.canVote === false && pPending.canCreateProject === false && pPending.canCreateCTA === false,
     `canPost=${pPending.canPost} canVote=${pPending.canVote}`);
 
@@ -149,7 +152,7 @@ async function main(): Promise<void> {
   try {
     await companiesService.updateCompany(pjPendingLie.companyId, ownerGlobalUserId, { cnpj: validCnpj(424242424242) }, TENANT_ID);
   } catch (e: any) { pendingMsg = e?.message ?? ''; pendingKybLock = /KYB approved|casa fiscal/i.test(pendingMsg); }
-  record('6 company kyb=pending (company_status=VERIFIED) → NÃO bloqueia por KYB/company_status',
+  record('6 company kyb=pending (company_status=ACTIVE) → NÃO bloqueia por KYB/company_status',
     pendingKybLock === false, `kybLock=${pendingKybLock} msg=${pendingMsg}`);
 
   const bankAfter = await pool

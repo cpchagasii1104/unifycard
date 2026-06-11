@@ -4445,3 +4445,21 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   disciplina é separar invariante real (realOrphans=0, T2 mismatch=0, T4 coerência) de assertion ambiental obsoleta
   (count>=19): o teste falhou, mas a falha é do baseline congelado, não do código — reportar honesto, não "consertar"
   fora de escopo nem fingir 9/9.)
+
+### F-PJ-HUMAN-TO-COMPANY-END-TO-END-CLOSURE ✅ (2026-06-12) — macrofrente integrada PJ
+- GO único, 6 checkpoints seriais sem re-autorização (molde da C1). HEAD 95e04863 → commits A–F. Jornada
+  humano→empresa FECHADA ponta a ponta: nascimento fiscal-first atômico SEM cura de actor (PJ-B3: leitura pura
+  em createCompany/activation/publication), readers por MEMBERSHIP (PJ-B4: criador E membro leem; vínculo
+  removido revoga; leitura ≠ gestão), KYB utilizável (PJ-B1 founder submete com docs materiais; PJ-B2 backoffice
+  mínimo /admin/kyb; reenvio pós-rejeição auditável — adendo 0086 §9; revogação HTTP 0101), ativação 7/7 types
+  (PJ-B6 era achado FALSO do READ-FIRST — migration semeia tudo), dashboard actor-correct/failure-honest (PJ-B5),
+  higiene dev (PJ-B7: 557 fiscais órfãs + leak corrigido na RAIZ com helper de cleanup em 16 e2es), e2e integrado
+  52/52 + gate estrutural com prova negativa byte-idêntica (PJ-B8).
+  (Lições: 1. READ-FIRST de agentes precisa de verificação de 1ª mão — "5 pares de 7" e "fiscal_identities=0"
+  eram falsos; a migration e o psql diziam a verdade. 2. Quando uma frente-mãe muda contrato vivo (register
+  orgânico C1, DV na borda, DRAFT no nascimento, CHECK lifecycle), os fixtures de e2e viram dívida silenciosa
+  em massa — o padrão "tenant adotado do register" virou template e 12 suítes voltaram a provar de verdade,
+  sem afrouxar nenhuma assertion. 3. Remover uma cura (ensureUserActor) exige materializar nos FIXTURES o que
+  o nascimento real cria — senão o teste depende exatamente do anti-padrão que se está matando. 4. CRLF de
+  stash/autocrlf cega pins '\n  }\n' — normalizar line-endings em pins de slice. 5. Fechar máscara financeira
+  é trocar o TIPO do estado (null/undefined ≠ zero/[]) e deixar a UI dizer "indisponível" — mesmo molde CP7.)
