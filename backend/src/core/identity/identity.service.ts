@@ -234,6 +234,41 @@ class IdentityService {
   }
 
   /**
+   * Variante client-aware/transacional de `ensureIdentityRowForGlobalUser`
+   * (F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC). Usa o `client` da transação do caller —
+   * a row de `identities` é escrita ATOMICAMENTE junto com global_user/user/actor.
+   * NÃO abre/commita transação. Mesma lógica/idempotência (ON CONFLICT DO NOTHING).
+   */
+  async ensureIdentityRowForGlobalUserTx(
+    client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> },
+    globalUserId: string
+  ): Promise<void> {
+    const exists = await client.query(
+      `SELECT 1 FROM identities WHERE global_user_id = $1 LIMIT 1`,
+      [globalUserId]
+    );
+    if (exists.rows.length > 0) {
+      return;
+    }
+    const gu = await client.query(
+      `SELECT cpf FROM global_users WHERE global_user_id = $1 LIMIT 1`,
+      [globalUserId]
+    );
+    const taxId = this.taxIdForIdentityFromGlobalUser(
+      globalUserId,
+      gu.rows[0]?.cpf ?? null
+    );
+    await client.query(
+      `
+      INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level)
+      VALUES ($1::uuid, $2, 'cpf', 'pending', 'none')
+      ON CONFLICT (global_user_id) DO NOTHING
+      `,
+      [globalUserId, taxId]
+    );
+  }
+
+  /**
    * Garante linha em `identities` para satisfazer FK `actors.global_user_id → identities(global_user_id)`.
    */
   private async ensureIdentityRowForGlobalUser(globalUserId: string): Promise<void> {

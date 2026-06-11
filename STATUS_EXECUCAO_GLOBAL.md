@@ -1,3 +1,27 @@
+## 2026-06-11 — F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC · nascimento humano orgânico tenant-bound + atômico (MIGRATION+BACKEND+E2E+GATE+DOCS)
+
+**Branch:** `rescue-structural` · **HEAD origem `7f647c79`** · dev 366→**367** (seed tenant institucional). _(Esteira: HARD STOP de `F-C1-BIRTH-MINIMUM-ATOMIC` aceito → GO revisado organic-only; override cross-tenant por convite adiado para `F-C1-TENANT-INVITE-RESOLUTION`.)_
+
+**Causa-raiz fechada (manifest B1/B2/parte de B3):** register criava tenant-per-signup (`user-<slug>-<ts>`), aceitava `x-tenant-id` do cliente, fazia nascimento statement-by-statement com identity/actor best-effort, e emitia token ANTES da cadeia.
+
+**O que entregou:** (1) **Migration** `20260611120000` — seed idempotente do tenant institucional `Comunidade Inicial Unificard` / slug `unificard-inicial` (id via DB default; ON CONFLICT slug DO NOTHING; sem mover tenants históricos). (2) **tenant.service.getTenantBySlug** (resolver server-side fail-closed: exatamente 1 linha). (3) **register reescrito** (auth.service): tenant resolvido server-side = unificard-inicial; `x-tenant-id` IGNORADO (`void tenantId`); **transação única** (`withTransaction`) global_user→user→profiles(cpf)→**identity (Tx)**→**actor (Tx)**; token só APÓS COMMIT; rollback total em qualquer falha; SEM best-effort/"retentar no próximo acesso". (4) **Variantes Tx** aditivas: `identityService.ensureIdentityRowForGlobalUserTx`, `actor.repository.findOrCreateUserActorTx` (+ port + adapter + `ensureUserActorTx`) — espelham `findOrCreatePageActorTx`, sem forkar a cadeia canônica. (5) **Referral** validado pré-tx (inválido → 400 antes de qualquer escrita; intra-tenant; nunca cross-tenant); aplicação pós-commit (progressivo). (6) **PILOT_MODE** preservado como gate de admissão DENTRO de unificard-inicial (não escolhe tenant; fail-closed).
+
+**Gate estrutural:** `audit-register-birth-atomicity.mjs` (`validate:register-birth-atomicity` + em `validate:regression-guards`): INV1 tenant server-side · INV2 sem tenant-per-signup · INV3 x-tenant-id ignorado · INV4 transação única + identity/actor Tx · INV5 sem best-effort · INV6 token pós-COMMIT. Não declara read purity/gender/invite/C1 fechados.
+
+**Prova:** E2E HTTP `validate-pipeline-e2e-c1-birth-minimum-atomic-organic.ts` **29/29** (tenant institucional único; 2 cadastros orgânicos → unificard-inicial com global_user+user+identity+actor + JWT tenant correto; x-tenant-id alheio ignorado; referral inválido 400 sem resíduo; **rollback total via falha forçada de actor** — zero global_user/user/identity/actor; PILOT_MODE fail-closed sem resíduo; zero tenant user-* novo; histórico intacto; estrutural; gate + prova negativa). Cleanup por MARKER (nunca toca unificard-dev/user-cpchagasii).
+
+**Gates:** tsc backend OK (2 geo baseline) · actor-writer OK · bank-ledger OK · regression-guards OK (inclui register-birth + inventory-reader-scope; 367 migrations numeração única) · architecture:strict `critical_new=0` (warning_new=4 = falsos-positivos "balance" pré-existentes, não-meus) · system-state PASS. **Regressões:** groups-mine 26/26 · x-actor-id 9/9 · consolidado 39/39 · self-escalation 33/33 · actor-target 16/16 · members 7/7 · role-vocab 7/7 · inventory f6-5-c3 12/12 · legacy-readers 32/32.
+
+**DTs novas OPEN:** `DT-C1-TENANT-INVITE-RESOLUTION-NO-SUBSTRATE` (convite→tenant sem substrato seguro; pilot tenant-keyed, referral intra-tenant) + `DT-C1-PILOT-INVITES-TABLE-ABSENT-IN-DEV` (`pilot_invites` ausente; PILOT valid-invite não exercitável em dev). DECISION-0115 ganha adendo factual de implementação.
+
+**Cartório:** TENANT (decisão) FECHADA · tenant orgânico no register IMPLEMENTADO · tenant por convite cross-tenant PENDENTE DE SUBSTRATO. **F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC CLOSED** · F-C1-BIRTH-MINIMUM-ATOMIC PARTIAL · **macrofrente C1 PARTIAL/OPEN**. READ PURITY / REFERRAL GET / GENDER PENDENTES · IDENTITY_STATUS CONDICIONAL · HOME READ SEAL PENDENTE.
+
+**Escopo intocado:** read purity (GETs curativos NÃO tocados) · gender (out of scope; metadata preservado) · GET /referral/code · /core/profile · /identity/me · Home/Bank/wallet/ledger/payout/inventory · FASE 6 · R2 · PJ/agenda/learning/interests/profissional · convite cross-tenant. **C1/tenant compartilhado NÃO liberados; DECISION-0113 OPEN; denominador global OPEN.** _Nota: auth.service.ts tinha banner "CONGELADO/Gate 1"; a alteração foi autorizada explicitamente pelo GO da IA Diretora (norma > comentário histórico)._
+
+**PRÓXIMA FATIA:** Fatia 2 (read purity: tornar puros os GETs /social/actors/available, /profile, /core/profile, /referral/code agora que o nascimento garante actor+profile). Em paralelo (decisão): `F-C1-TENANT-INVITE-RESOLUTION`. HOLD — aguardando reseal Yala.
+
+---
+
 ## 2026-06-11 — F-INVENTORY-LEGACY-READERS-RECONCILIATION-IMPL-PARTIAL · 2 folhas tenant-wide fechadas + gate baselined (BACKEND+FRONTEND+E2E+GATE+DOCS)
 
 **Branch:** `rescue-structural` · **HEAD origem `ebde8984`** · dev 366 (sem migration). _(Esteira: HARD STOP da enumeração → DEC-A da IA Diretora: fechar SÓ as 2 rotas nomeadas; galho inventory PARCIAL/OPEN.)_

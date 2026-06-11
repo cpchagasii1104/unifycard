@@ -21,6 +21,22 @@ export async function ensureUserActor(tenantId: string, userId: string) {
 }
 
 /**
+ * Variante transacional de ensureUserActor (F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC).
+ * Cria o user-actor humano usando o `client` da transação do caller — escrita atômica
+ * junto com global_user/user/identity no nascimento. A escrita em `actors` permanece na
+ * camada actor-writer/repository (writer soberano §4.8); o caller só empresta a transação.
+ * NÃO abre/commita transação; o tenant context deve estar ativo no client (RLS).
+ */
+export async function ensureUserActorTx(
+  client: TxQueryClient,
+  tenantId: string,
+  userId: string
+) {
+  const repo = socialPortsRegistry.getActorRepository();
+  return repo.findOrCreateUserActorTx(client, tenantId, userId);
+}
+
+/**
  * Garante que existe um actor 'page' para esta empresa.
  * Idempotente — seguro chamar múltiplas vezes.
  * responsibleActorId: actor_id do humano (CPF) que criou a empresa.

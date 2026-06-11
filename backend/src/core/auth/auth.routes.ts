@@ -164,12 +164,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       // 🔴 GARANTIA CANÔNICA: tenantId já validado no authService.register
       // Token foi gerado pelo próprio serviço, não há necessidade de validar imediatamente
       // Log canônico de sucesso
+      // F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC: tenant é SEMPRE resolvido server-side
+      // (unificard-inicial); o header x-tenant-id NÃO escolhe tenant. Sem "criado/fornecido".
       fastify.log.info({
         pid: process.pid,
         route: '/auth/register',
         tenantIdFinal: result.tenantId,
-        tenantWasCreated: !tenantId,
-        tenantWasProvided: !!tenantId,
+        tenantResolution: 'server-side:unificard-inicial',
       }, '[RUNTIME] POST /auth/register - sucesso');
 
       return reply.status(201).send({

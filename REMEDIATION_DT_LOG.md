@@ -12137,3 +12137,24 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Materialidade:** latente — depende de fluxo real de movimento em empresa não-ativa. Não é leak nem escalation. Pré-existente conceitualmente; a D2 só trocou o critério de tipo→company_id, não introduziu o gate de status.
 - **Resolução prevista:** decisão de produto — definir se eligibility de unidade de estoque deve gatear por `company_status`/KYB, e qual estado mínimo. **Norma ANTES de gatear** (não cravar status no código sem DECISION). Frente própria; não misturar com autoelevação.
 - **Vinculada a:** `DECISION-0116` (ADENDO A1 D2), `DECISION-0097` (nascimento PJ dois momentos / ativação operacional), `inventory-unit-actor.ts`, `DT-INVENTORY-COMPANY-CONSOLIDATED-MISSING-ROUTE` (CLOSED, irmã).
+
+---
+
+## DT-C1-TENANT-INVITE-RESOLUTION-NO-SUBSTRATE — OPEN (2026-06-11)
+
+- **Status:** **OPEN (2026-06-11)** — registrada pela frente `F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC` (HARD STOP aceito pela IA Diretora + GO revisado). NÃO corrigida nesta fatia (exige decisão de produto + substrato próprio = `F-C1-TENANT-INVITE-RESOLUTION`).
+- **Decisão (FECHADA, direção):** no modelo final, um **convite canônico válido** pode SUBSTITUIR o fallback institucional `unificard-inicial` e resolver, server-side, o tenant do nascimento (decisão TENANT). Convite inválido/expirado/incompatível → falha honesta, sem fallback, sem estado parcial.
+- **Bloqueio material (provado de 1ª mão):** NÃO existe substrato seguro para "código de convite → tenant" no register: (a) pilot invite é **tenant-keyed** — `pilotInvitesService.hasValidInvite(tenantId, email)` → `findPendingByEmail(tenantId, email)` (`WHERE tenant_id=$1`); exige o tenant já conhecido; não resolve tenant a partir de um código; além disso a tabela `pilot_invites` NÃO existe no schema vivo de dev (`to_regclass`=NULL — só `group_invites`). (b) `referralCode` é **intra-tenant** — `applyReferralCode(tenantId, ...)` resolve o referrer com `WHERE tenant_id=$1 AND referral_code=$2`; não mapeia código→tenant. (c) o payload do register recebe email + cpf + referralCode + header `x-tenant-id` (este PROIBIDO como autoridade) — não há token/código de convite que carregue um tenant.
+- **O que ESTA fatia fez (organic-only):** cadastro orgânico → `unificard-inicial` server-side (atômico); `x-tenant-id` ignorado; PILOT_MODE permanece **fail-closed** como gate de admissão DENTRO de `unificard-inicial` (não escolhe tenant; sem busca cross-tenant). O override cross-tenant **não** foi implementado nem simulado.
+- **Resolução prevista (`F-C1-TENANT-INVITE-RESOLUTION`):** IA Diretora/Clayton define o modelo: um código/token de convite que carregue ou resolva um tenant, validado server-side, sem ambiguidade (qual convite vence; expiração/compatibilidade; implicações de RLS na resolução), e materializa o substrato (tabela/índice). Só então o register passa a resolver o tenant do convite ANTES da transação de nascimento.
+- **Vinculada a:** decisão TENANT (FECHADA), `DECISION-0115` (D1/D2), `C1_REACHABILITY_MANIFEST` (blocker B1/§7), `auth.service.register`, `pilot-invites.*` (tenant-keyed + tabela ausente), `referral.service` (intra-tenant), `DT-HUMAN-BIRTH-TENANT-PER-SIGNUP-DEAD-WORLD` (raiz histórica do tenant-per-signup, agora fechada no orgânico).
+
+---
+
+## DT-C1-PILOT-INVITES-TABLE-ABSENT-IN-DEV — OPEN (2026-06-11)
+
+- **Status:** **OPEN (2026-06-11)** — observação registrada pela frente `F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC`. NÃO corrigida (substrato; fora do escopo organic).
+- **Fato (1ª mão):** `to_regclass('public.pilot_invites')` = NULL no dev vivo (só `group_invites` existe). O `pilotInvitesRepository` (`findPendingByEmail`/`create`/`markAsAccepted`/...) faz `FROM/INTO pilot_invites`. Em `PILOT_MODE='true'`, `hasValidInvite` lança `42P01` (relação inexistente).
+- **Efeito:** `PILOT_MODE` permanece **fail-closed por ausência de substrato** — o caminho de convite válido (cenário F do GO) NÃO é exercitável em dev (não há como criar convite). O caminho de REJEIÇÃO (sem convite → register não-201, antes de qualquer escrita) foi provado pelo E2E (P1/P2). O nascimento ORGÂNICO (PILOT_MODE off) é o foco e está fechado.
+- **Resolução prevista:** quando `F-C1-TENANT-INVITE-RESOLUTION` definir o modelo de convite, materializar a tabela/substrato e habilitar o caminho de convite válido + E2E correspondente. Não restaurar tabela arbitrária sem o modelo.
+- **Vinculada a:** `DT-C1-TENANT-INVITE-RESOLUTION-NO-SUBSTRATE`, `pilot-invites.repository.ts`, `auth.service.register` (gate PILOT_MODE).

@@ -25,6 +25,14 @@ export class ActorRepositoryAdapter implements ActorRepositoryPort {
     return realRepository.findOrCreateUserActor(tenantId, userId);
   }
 
+  async findOrCreateUserActorTx(
+    client: TxQueryClient,
+    tenantId: string,
+    userId: string
+  ) {
+    return realRepository.findOrCreateUserActorTx(client, tenantId, userId);
+  }
+
   async findOrCreatePageActor(
     tenantId: string,
     companyId: string,

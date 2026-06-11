@@ -62,6 +62,17 @@ Não altera código/runtime · não cria migration · não toca banco/frontend �
 - `DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION` → **OPEN** (mantida; `user` × `actor_human` × demais; jornada nasce em `user`).
 - `DT-CORE-PROFILE-GET-CREATES-ACTOR` → **OPEN** (atualizada: confirmada viva e mais ampla; ver `DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE`).
 
+## ADENDO FACTUAL DE IMPLEMENTAÇÃO — F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC (2026-06-11)
+
+> Adendo **factual** (não reescreve D1–D5; registra a implementação da Fatia 1 do nascimento). HEAD origem `7f647c79` · dev 366→367.
+
+- **D1 (tenant inicial vivo) — IMPLEMENTADO no cadastro orgânico:** materializado o tenant institucional `Comunidade Inicial Unificard` / slug `unificard-inicial` (migration `20260611120000`, idempotente, id por default do banco). `auth.service.register` resolve esse tenant **server-side** (`tenantService.getTenantBySlug`); o header `x-tenant-id` deixou de escolher tenant (ignorado); **zero tenant `user-*` novo** por signup. Tenants `user-*` históricos preservados (não migrados).
+- **D2 (nascimento garantido) — IMPLEMENTADO (atômico):** `global_user → user → identity → actor` numa **única transação** (`withTransaction`) com variantes Tx aditivas (`ensureIdentityRowForGlobalUserTx`, `findOrCreateUserActorTx`/`ensureUserActorTx`); **token só após COMMIT**; qualquer falha → **rollback total** (provado por E2E com falha forçada de actor). Eliminado o best-effort de identity/actor e o "retentar no próximo acesso" no register. Profile completo permanece **progressivo** (não requisito; GET /profile auto-cria — Fatia 2 read purity).
+- **Override de tenant por convite — PENDENTE DE SUBSTRATO:** cadastro com convite que resolve tenant cross-tenant NÃO implementado (pilot invite tenant-keyed; referral intra-tenant; sem código convite→tenant). `DT-C1-TENANT-INVITE-RESOLUTION-NO-SUBSTRATE` + `DT-C1-PILOT-INVITES-TABLE-ABSENT-IN-DEV`; execução em `F-C1-TENANT-INVITE-RESOLUTION`. PILOT_MODE = gate fail-closed dentro de `unificard-inicial`.
+- **D3 (gender) / read purity / referral GET:** NÃO tocados (gender em metadata; GETs curativos intactos = Fatia 2).
+- **Gate:** `validate:register-birth-atomicity` (6 invariantes). NÃO declara read purity/gender/invite/C1 fechados.
+- **Estado:** Fatia 1 (nascimento mínimo orgânico) CLOSED; macrofrente C1 PARTIAL/OPEN. Ver `docs/03_execution_log/20260611_F_C1_BIRTH_MINIMUM_ATOMIC_ORGANIC.md`.
+
 ## 5. Referências
 
 `docs/02_decisions/DECISION_0115_HUMAN_BIRTH_VERTICAL_ROOT_DECISIONS.md`; HEAD âncora `92eb49b4`; auditoria `F-G10-NASCIMENTO-HUMANO-VERTICAL — FASE B` (PASS IA Diretora); `G10_CONSOLIDACAO_EXECUTIVA_ONBOARDING.md`; `CONSTITUICAO_UNIFICARD` (Art. I/V/IX); Lei 5; `LEI_DE_COERENCIA_SISTEMICA_UNIFICARD §4.8`; `03_IDENTITY_CANONICA`; `02_ACTORS_SSOT`; `CORE_IDENTITY_AND_ACTORS_CONTRACT`; `USER_PROFILE_CONTRACT`; `AGENDA_UNIVERSAL_CONTRACT`/`CORE_TEMPORAL_CONTRACT`; `EMPRESA_NASCIMENTO_CANONICO`; `DECISION-0062`/`0072 B1`/`0075`/`0080`/`0113`/`0114`; código vivo `auth.service.ts:200-539`, `identity.service.ts:239-285`, `actor.repository.ts:57-146`, `profile.service.ts:205-529`, `core.service.ts:103-149/740-774`, `actor-registry.service.ts:224-269`, `actor.helpers.ts`, `unified-availability.routes.ts`, `companies.service.ts:255-723`.

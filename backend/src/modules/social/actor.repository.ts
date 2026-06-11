@@ -146,6 +146,75 @@ export class ActorRepository {
   }
 
   /**
+   * Variante client-aware/transacional de `findOrCreateUserActor`
+   * (F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC). Cria o user-actor humano usando o `client`
+   * da transação do caller — escrita ATÔMICA junto com global_user/user/identity no
+   * nascimento. NÃO abre/commita transação; o tenant context já deve estar ativo no
+   * client (RLS). Mesma ordem causal (DECISION-0062: identity ANTES de actor) e
+   * fail-closed (sem âncora global / sem identity → erro, nunca órfão). Não duplica
+   * a cadeia canônica: é a variante Tx do MESMO writer (espelho de findOrCreatePageActorTx).
+   */
+  async findOrCreateUserActorTx(
+    client: TxQueryClient,
+    tenantId: string,
+    userId: string
+  ): Promise<ActorRow> {
+    const existing = await client.query(
+      `SELECT a.* FROM actors a
+        WHERE a.tenant_id = $1 AND a.user_id = $2 AND a.actor_type = 'user'
+        LIMIT 1`,
+      [tenantId, userId]
+    );
+    if (existing.rows[0]) {
+      return existing.rows[0] as ActorRow;
+    }
+
+    const userRes = await client.query(
+      `SELECT u.email, p.full_name, u.global_user_id::text AS global_user_id
+         FROM users u
+         LEFT JOIN profiles p ON u.user_id = p.user_id AND u.tenant_id = p.tenant_id
+        WHERE u.user_id = $1
+        LIMIT 1`,
+      [userId]
+    );
+    const user = userRes.rows[0] as { email: string; full_name: string | null; global_user_id: string | null } | undefined;
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+    if (!user.global_user_id) {
+      throw new Error(
+        `findOrCreateUserActorTx: users.global_user_id ausente para user_id=${userId} — ` +
+        `actor humano canônico exige âncora global (DECISION-0062 D4 / §4.8). Não cria órfão.`
+      );
+    }
+
+    const identityCheck = await client.query(
+      `SELECT global_user_id::text FROM identities WHERE global_user_id = $1::uuid LIMIT 1`,
+      [user.global_user_id]
+    );
+    if (!identityCheck.rows[0]) {
+      throw new Error(
+        `findOrCreateUserActorTx: identity ausente para global_user_id=${user.global_user_id} — ` +
+        `ordem causal exige identity ANTES de actor (migration 0010 FK fk_actor_identity).`
+      );
+    }
+
+    const displayName = user.full_name || user.email.split('@')[0];
+    const inserted = await client.query(
+      `INSERT INTO actors (
+         tenant_id, actor_type, user_id, global_user_id, display_name, slug
+       )
+       VALUES ($1, 'user', $2, $3::uuid, $4, $5)
+       RETURNING *`,
+      [tenantId, userId, user.global_user_id, displayName, `user-${userId.substring(0, 8)}`]
+    );
+    if (!inserted.rows[0]) {
+      throw new Error('Erro ao criar actor');
+    }
+    return inserted.rows[0] as ActorRow;
+  }
+
+  /**
    * Busca actor por user_id
    */
   async findByUserId(tenantId: string, userId: string): Promise<ActorRow | null> {

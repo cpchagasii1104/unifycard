@@ -209,103 +209,51 @@ class AuthService {
   ): Promise<LoginResult & { tenantId: string }> {
     const normalizedEmail = email.trim().toLowerCase();
 
-    // 🔴 GARANTIA CANÔNICA: tenantId pode ser fornecido ou criado automaticamente
-    // Log explícito para distinguir tenant fornecido vs criado
-    let finalTenantId = tenantId;
-    let tenantWasCreated = false;
-    
-    if (!finalTenantId) {
-      const emailSlug = normalizedEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-      const tenantSlug = `user-${emailSlug}-${Date.now()}`;
-      const newTenantId = randomUUID();
-      const { tenantService } = await import('@core/tenants/tenant.service');
-      try {
-        const created = await tenantService.createTenant({
-          id: newTenantId,
-          name: `Tenant ${emailSlug}`,
-          slug: tenantSlug,
-        });
-        finalTenantId = created.tenantId;
-        tenantWasCreated = true;
+    // ── TENANT server-side (F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC · decisão TENANT FECHADA · DECISION-0115 D1) ──
+    // x-tenant-id / qualquer input do cliente NÃO escolhe tenant no cadastro. O cadastro orgânico
+    // resolve `unificard-inicial` SERVER-SIDE. Zero criação de tenant `user-*`. O override
+    // cross-tenant por convite está DECIDIDO mas SEM substrato seguro → fica para
+    // F-C1-TENANT-INVITE-RESOLUTION (ver DT-C1-TENANT-INVITE-RESOLUTION-NO-SUBSTRATE).
+    // O parâmetro `tenantId` (oriundo do header x-tenant-id) é IGNORADO como autoridade por desenho.
+    void tenantId;
+    const { tenantService } = await import('@core/tenants/tenant.service');
+    const institutionalTenant = await tenantService.getTenantBySlug('unificard-inicial');
+    const finalTenantId = institutionalTenant.tenantId;
+    canonicalLogger.info(null, 'Cadastro orgânico → tenant institucional unificard-inicial', {
+      tenantId: finalTenantId,
+      email: normalizedEmail.substring(0, 3) + '***',
+    });
 
-        canonicalLogger.info(null, 'Tenant criado automaticamente', {
-          tenantId: finalTenantId,
-          email: normalizedEmail.substring(0, 3) + '***',
-          tenantSlug,
-        });
-      } catch (err) {
-        console.error('Erro ao criar tenant automaticamente:', err);
-        throw err instanceof Error ? err : new Error('Falha ao criar tenant automaticamente');
-      }
-    } else {
-      // 🔴 LOG CANÔNICO: tenant fornecido
-      canonicalLogger.info(null, 'Tenant fornecido', {
-        tenantId: finalTenantId,
-        email: normalizedEmail.substring(0, 3) + '***',
-      });
-    }
-
-    // SPRINT 14: Verificar convite se modo piloto estiver ativo
-    // Verificar após ter finalTenantId (criado ou fornecido)
-    /**
-     * EXCEÇÃO INSTITUCIONAL (SPRINT 30)
-     * Motivo: Em modo piloto, registro requer convite válido (exceção ao fluxo normal)
-     * Contexto: Sistema em fase de piloto fechado
-     * Tipo: estrutural (condicional ao PILOT_MODE)
-     */
+    // ── PILOT_MODE: gate de ADMISSÃO dentro de unificard-inicial (NÃO escolhe tenant) ──
+    // Falha ANTES de qualquer escrita. Nenhum tenant é criado/revertido (não criamos tenant).
     if (process.env.PILOT_MODE === 'true') {
       const { pilotInvitesService } = await import('@core/pilot/pilot-invites.service');
       const hasInvite = await pilotInvitesService.hasValidInvite(finalTenantId, normalizedEmail);
-      
       if (!hasInvite) {
-        // Se não houver convite e tenant foi criado automaticamente, reverter criação
-        if (!tenantId) {
-          const { pool } = await import('@core/database/pool');
-          const client = await pool.connect();
-          try {
-            await client.query('DELETE FROM tenants WHERE id = $1', [finalTenantId]);
-          } catch (err) {
-            // Ignorar erro ao reverter
-          } finally {
-            client.release();
-          }
-        }
-        
         const error = new Error('O sistema está em fase de piloto fechado.') as Error & { statusCode?: number };
         error.statusCode = 403;
         throw error;
       }
     }
 
+    // ── VALIDAÇÕES PRÉ-TRANSAÇÃO (zero escrita) ──
     const existing = await runQueryWithTenant<UserRow>(
       finalTenantId,
-      `
-        SELECT id, tenant_id, email, password_hash, created_at, token_version
-        FROM users
-        WHERE email = $1
-        LIMIT 1
-      `,
+      `SELECT id, tenant_id, email, password_hash, created_at, token_version
+         FROM users WHERE email = $1 LIMIT 1`,
       [normalizedEmail]
     );
-
     if (existing) {
       const error = new Error('Email already registered') as Error & { statusCode?: number };
       error.statusCode = 409;
       throw error;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const newUserId = randomUUID();
-
-    // 🔴 GARANTIA CANÔNICA: CPF é obrigatório para criar global_users
     if (!cpf) {
       const error = new Error('CPF é obrigatório para cadastro') as Error & { statusCode?: number };
       error.statusCode = 400;
       throw error;
     }
-
-    // 🔒 SEGURANÇA: Validar CPF antes de salvar
     try {
       validateCpfOrThrow(cpf);
     } catch (validationError) {
@@ -317,236 +265,161 @@ class AuthService {
     const normalizedCpf = normalizeCpf(cpf);
     const normalizedFullName = fullName ? normalizeFullName(fullName) : null;
     const normalizedBirthdate = birthdate ? normalizeBirthdate(birthdate) : null;
-    
-    // 🔴 GARANTIA CANÔNICA: Criar/obter global_users ANTES de criar users
-    // UPSERT em global_users usando CPF como chave SSOT
-    const { pool } = await import('@core/database/pool');
-    const globalUserResult = await pool.query<{ global_user_id: string }>(
-      `
-        INSERT INTO global_users (cpf, full_name, avatar_url, birthdate, metadata)
-        VALUES ($1, $2, NULL, $3::DATE, '{}'::jsonb)
-        ON CONFLICT (cpf)
-        DO UPDATE SET cpf = EXCLUDED.cpf
-        RETURNING global_user_id
-      `,
-      [normalizedCpf, normalizedFullName, normalizedBirthdate]
-    );
 
-    if (!globalUserResult.rows[0]) {
-      throw new Error('Failed to create or retrieve global user');
-    }
-
-    const globalUserId = globalUserResult.rows[0].global_user_id;
-
-    // 🔴 GARANTIA CANÔNICA: Inserir users com global_user_id NO INSERT
-    const inserted = await runQueryWithTenant<UserRow>(
-      finalTenantId,
-      `
-        INSERT INTO users (id, tenant_id, global_user_id, email, password_hash, plan)
-        VALUES ($1, $2, $3, $4, $5, 'free')
-        RETURNING id, tenant_id, email, password_hash, created_at, token_version
-      `,
-      [newUserId, finalTenantId, globalUserId, normalizedEmail, passwordHash]
-    );
-
-    if (!inserted) {
-      throw new Error('Failed to create user');
-    }
-
-    const user = this.toAuthUser(inserted);
-    
-    // Salvar CPF na tabela profiles
-    try {
-      await pool.query(
-        `
-        INSERT INTO profiles (tenant_id, user_id, cpf)
-        VALUES ($1, $2, $3)
-        `,
-        [finalTenantId, user.userId, normalizedCpf]
+    // ── REFERRAL: validar DENTRO de unificard-inicial ANTES de qualquer escrita ──
+    // Referral NÃO escolhe tenant; é intra-tenant (decisão FECHADA). Código inválido → 400
+    // honesto, ANTES da transação (zero estado parcial). A APLICAÇÃO ocorre pós-commit
+    // (dado progressivo financeiro; nascimento já completo). NÃO procurar cross-tenant.
+    if (referralCode) {
+      const referrer = await runQueryWithTenant<{ id: string }>(
+        finalTenantId,
+        `SELECT id FROM users WHERE tenant_id = $1 AND UPPER(referral_code) = UPPER($2) LIMIT 1`,
+        [finalTenantId, referralCode]
       );
-    } catch (dbError: any) {
-      // 🔒 SEGURANÇA: Capturar erro de unicidade (CPF duplicado)
-      if (dbError.code === '23505') {
-        // Constraint UNIQUE violada (CPF já existe)
-        const error = new Error('CPF já está em uso por outra conta') as Error & { statusCode?: number };
-        error.statusCode = 409;
+      if (!referrer) {
+        const error = new Error('Código de indicação inválido') as Error & { statusCode?: number; code?: string };
+        error.statusCode = 400;
+        error.code = 'INVALID_REFERRAL_CODE';
         throw error;
       }
-      // Re-lançar outros erros
-      throw dbError;
     }
 
-    // 🔴 GARANTIA CANÔNICA: users.global_user_id é a fonte única de verdade
-    // user_identity_links NÃO é mais usado - removido conforme schema canônico
-    
-    // 🔴 PARTE 1 - CORREÇÃO BUG: Salvar nome, data de nascimento e sexo no cadastro
-    // IMPORTANTE: Fazer isso DEPOIS de criar a identidade global para garantir que globalUserId existe
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newUserId = randomUUID();
+
+    // ── NASCIMENTO ATÔMICO: global_user → user → identity → actor em UMA transação ──
+    // Token só após COMMIT. Qualquer falha → ROLLBACK total (withTransaction), sem estado
+    // residual e sem token. SEM best-effort de identity/actor; SEM "retentar no próximo acesso".
+    const { withTransaction } = await import('@core/database/transaction.helper');
+    const { identityService } = await import('@core/identity/identity.service');
+    const { ensureUserActorTx } = await import('@modules/identity/actor-writer.service');
+
+    const birth = await withTransaction(finalTenantId, async (client) => {
+      // global_users UPSERT por CPF (SSOT de identidade global; identidade compartilhada entre tenants)
+      const gu = await client.query(
+        `INSERT INTO global_users (cpf, full_name, avatar_url, birthdate, metadata)
+           VALUES ($1, $2, NULL, $3::DATE, '{}'::jsonb)
+           ON CONFLICT (cpf) DO UPDATE SET cpf = EXCLUDED.cpf
+           RETURNING global_user_id`,
+        [normalizedCpf, normalizedFullName, normalizedBirthdate]
+      );
+      const globalUserId = gu.rows[0]?.global_user_id as string | undefined;
+      if (!globalUserId) {
+        throw new Error('Failed to create or retrieve global user');
+      }
+
+      // users INSERT (global_user_id no INSERT — SSOT)
+      let userRow: UserRow;
+      try {
+        const ins = await client.query(
+          `INSERT INTO users (id, tenant_id, global_user_id, email, password_hash, plan)
+             VALUES ($1, $2, $3, $4, $5, 'free')
+             RETURNING id, tenant_id, email, password_hash, created_at, token_version`,
+          [newUserId, finalTenantId, globalUserId, normalizedEmail, passwordHash]
+        );
+        userRow = ins.rows[0] as UserRow;
+        if (!userRow) throw new Error('Failed to create user');
+      } catch (dbError: any) {
+        if (dbError?.code === '23505') {
+          const error = new Error('Email already registered') as Error & { statusCode?: number };
+          error.statusCode = 409;
+          throw error;
+        }
+        throw dbError;
+      }
+
+      // profiles(cpf) — dedup CPF ATÔMICO (23505 → ROLLBACK total → 409). Writer já existente
+      // (não é completude nova): preserva a integridade de CPF dentro da mesma transação.
+      try {
+        await client.query(
+          `INSERT INTO profiles (tenant_id, user_id, cpf) VALUES ($1, $2, $3)`,
+          [finalTenantId, userRow.id, normalizedCpf]
+        );
+      } catch (dbError: any) {
+        if (dbError?.code === '23505') {
+          const error = new Error('CPF já está em uso por outra conta') as Error & { statusCode?: number };
+          error.statusCode = 409;
+          throw error;
+        }
+        throw dbError;
+      }
+
+      // identity mínima (mesmo client) — ANTES do actor (FK actors.global_user_id → identities)
+      await identityService.ensureIdentityRowForGlobalUserTx(client, globalUserId);
+      // actor humano (mesmo client) — fail-closed; falha aqui → ROLLBACK total (sem órfão)
+      await ensureUserActorTx(client, finalTenantId, userRow.id);
+
+      return { globalUserId, userRow };
+    });
+
+    const { globalUserId, userRow } = birth;
+    const user = this.toAuthUser(userRow);
+
+    if (typeof userRow.token_version !== 'number') {
+      throw new Error('Schema inválido: token_version ausente após criação de usuário');
+    }
+
+    // ── TOKEN somente APÓS COMMIT bem-sucedido (tenant = unificard-inicial) ──
+    const tokens = this.generateTokens(user, userRow.token_version, globalUserId);
+
+    canonicalLogger.info(null, 'Nascimento atômico concluído (commit + token)', {
+      tenantId: finalTenantId,
+      userId: user.userId,
+      tokenVersion: userRow.token_version,
+    });
+
+    // ── PÓS-COMMIT — DADOS PROGRESSIVOS (best-effort; nascimento já é COMPLETO e atômico) ──
+    // DECISION-0115: perfil/gender/referral são progressivos, NÃO requisitos do nascimento.
+    // Gender permanece em metadata (casa canônica fica para a Fatia 4; fora do escopo aqui).
     if (fullName || birthdate || gender || normalizedCpf) {
       try {
         const { profileService } = await import('@core/profile/profile.service');
-
-        // Preparar dados do perfil
         const profileMetadata: Record<string, any> = {};
-        if (gender) {
-          profileMetadata.gender = gender;
-        }
-        // Bug CPF fix (2026-05-14): propagar CPF para user_profiles via profileService.
-        // GET /core/profile monta personal_profile.cpf de user_profiles.cpf (core.service.ts:289-304),
-        // mas REGISTER só gravava profiles.cpf — Profile inicial via vazio e usuário tinha que
-        // reinserir CPF. profileService.upsertProfile lê metadata.cpf, valida via validateCpfOrThrow
-        // e faz UPSERT em user_profiles (linha 456) sem persistir cpf dentro de profiles.metadata.
-        if (normalizedCpf) {
-          profileMetadata.cpf = normalizedCpf;
-        }
-
-        // Salvar nome e sexo no perfil
-        // 🔴 PADRONIZAÇÃO: Usar nome já normalizado
+        if (gender) profileMetadata.gender = gender;
+        if (normalizedCpf) profileMetadata.cpf = normalizedCpf;
         await profileService.upsertProfile(finalTenantId, user.userId, {
           fullName: normalizedFullName || undefined,
           metadata: Object.keys(profileMetadata).length > 0 ? profileMetadata : undefined,
         });
       } catch (profileError) {
-        // Log mas não falha o registro
-        console.warn('Erro ao salvar dados do perfil no cadastro (não crítico):', profileError);
+        console.warn('Erro ao salvar dados progressivos do perfil (não crítico):', profileError);
       }
     }
-    
-    // Aplicar código de indicação se fornecido (APENAS durante cadastro)
+
+    // Referral já validado pré-tx; aplicação pós-commit (financeiro/progressivo). Falha aqui
+    // (ex.: corrida) NÃO invalida o nascimento completo — não é "criação parcial".
     if (referralCode) {
       try {
         const { referralService } = await import('@core/referral/referral.service');
         await referralService.applyReferralCode(finalTenantId, user.userId, referralCode);
       } catch (err) {
-        // 🔧 FIX: Não engolir erro quando código de indicação é inválido
-        console.warn('Erro ao aplicar código de indicação:', err);
-        
-        // Se o erro for "Código de indicação inválido", transformar em erro HTTP 400
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        if (errorMessage === 'Código de indicação inválido') {
-          const error = new Error('Código de indicação inválido') as Error & { statusCode?: number; code?: string };
-          error.statusCode = 400;
-          error.code = 'INVALID_REFERRAL_CODE';
-          throw error;
-        }
-        
-        // Para outros erros, re-lançar para não engolir
-        throw err;
+        console.warn('[register] aplicação de referral pós-commit falhou (não crítico):', err);
       }
     }
 
-    // SPRINT 14: Marcar convite como aceito se modo piloto estiver ativo
-    /**
-     * EXCEÇÃO INSTITUCIONAL (SPRINT 30)
-     * Motivo: Em modo piloto, registro requer convite válido (exceção ao fluxo normal)
-     * Contexto: Sistema em fase de piloto fechado
-     * Tipo: estrutural (condicional ao PILOT_MODE)
-     */
     if (process.env.PILOT_MODE === 'true') {
       try {
         const { pilotInvitesService } = await import('@core/pilot/pilot-invites.service');
         await pilotInvitesService.acceptInvite(finalTenantId, normalizedEmail);
       } catch (err) {
-        // Erro silencioso - não quebrar registro
         console.warn('[AuthService] Erro ao marcar convite como aceito:', err);
       }
     }
 
-    // Gerar código de indicação automaticamente
-    // 🔴 CRÍTICO: Código de indicação é chave financeira, DEVE ser gerado
+    // Código próprio de indicação (não faz parte do contrato de resposta) — progressivo.
     try {
       const { referralService } = await import('@core/referral/referral.service');
-      const generatedCode = await referralService.getOrCreateReferralCode(finalTenantId, user.userId);
-      console.log('[AuthService] ✅ Código de indicação gerado:', {
-        userId: user.userId,
-        referralCode: generatedCode,
-      });
+      await referralService.getOrCreateReferralCode(finalTenantId, user.userId);
     } catch (err) {
-      // 🔴 Log como ERROR, não WARN - código é importante
-      console.error('[AuthService] ❌ ERRO ao gerar código de indicação:', {
-        userId: user.userId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      // Não falha o registro, mas o código ficará vazio
-      // Será gerado na primeira vez que o usuário acessar o perfil
+      console.error('[AuthService] ❌ ERRO ao gerar código de indicação (não crítico):', err instanceof Error ? err.message : String(err));
     }
 
-    // 🔴 GARANTIA CANÔNICA: token_version OBRIGATÓRIO - fail fast se ausente
-    if (typeof inserted.token_version !== 'number') {
-      console.error('[AuthService] ❌ Schema inválido: token_version ausente após criação de usuário', {
-        userId: user.userId,
-        tenantId: finalTenantId,
-        insertedKeys: Object.keys(inserted),
-      });
-      throw new Error('Schema inválido: token_version ausente após criação de usuário');
-    }
-
-    // 🔴 GARANTIA CANÔNICA: tenantId OBRIGATÓRIO no user - fail fast se ausente
-    if (!user.tenantId || typeof user.tenantId !== 'string') {
-      console.error('[AuthService] ❌ tenantId ausente no user após criação', {
-        userId: user.userId,
-        tenantId: finalTenantId,
-        userKeys: Object.keys(user),
-      });
-      throw new Error('tenantId ausente no user após criação');
-    }
-
-    // 🔴 GARANTIA CANÔNICA: tenantId do user deve corresponder ao finalTenantId
-    if (user.tenantId !== finalTenantId) {
-      console.error('[AuthService] ❌ tenantId do user não corresponde ao finalTenantId', {
-        userId: user.userId,
-        userTenantId: user.tenantId,
-        finalTenantId,
-      });
-      throw new Error('tenantId do user não corresponde ao finalTenantId');
-    }
-
-    // CRÍTICO: Incluir token_version do banco no token gerado
-    const tokens = this.generateTokens(user, inserted.token_version, globalUserId);
-
-    // 🔴 LOG CANÔNICO: Registro completo com todas as garantias validadas
-    console.log('[AuthService] ✅ Registro concluído com sucesso:', {
-      userId: user.userId,
-      tenantId: finalTenantId,
-      tenantWasCreated,
-      tenantWasProvided: !tenantWasCreated,
-      tokenVersion: inserted.token_version,
-    });
-
-    // 🔴 ORDEM CAUSAL (F3.1 v2 DECISION-0062): identity ANTES de actor.
-    // FK `actors.global_user_id → identities(global_user_id)` (migration 0010)
-    // exige row de identity preexistente para qualquer actor humano canônico.
-    // Idempotente (ON CONFLICT DO NOTHING). Best-effort com log: se falhar aqui,
-    // a trava fail-closed em findOrCreateUserActor impede actor órfão, e o retry
-    // no próximo acesso reexecuta ambos na ordem correta (identity → actor).
-    try {
-      const { identityService } = await import('@core/identity/identity.service');
-      await identityService.ensureIdentityRowForGlobalUserId(globalUserId);
-    } catch (identityError) {
-      console.warn('[register] ensureIdentityRowForGlobalUserId falhou — será retentado no próximo acesso:', identityError);
-    }
-
-    // 🔴 GARANTIA CANÔNICA: Criar actor operacional para o usuário registrado.
-    // Depende de identity já existir (passo anterior). Se identity falhou,
-    // findOrCreateUserActor falha fail-closed sem criar órfão.
-    // Idempotente — seguro chamar em retry. NÃO chamar dentro de transação.
-    // §4.8 LEI_COERENCIA_SISTEMICA_UNIFICARD
-    try {
-      const { ensureUserActor } = await import('@modules/identity/actor-writer.service');
-      await ensureUserActor(finalTenantId, user.userId);
-    } catch (actorError) {
-      // Log mas não falha o registro — actor será criado no próximo uso
-      console.warn('[register] ensureUserActor falhou — será retentado no próximo acesso:', actorError);
-    }
-
-    // 🔴 PARTE 2 - ONBOARDING: Usuário recém-criado sempre precisa de onboarding
     const requiresOnboarding = true;
-
-    // 🔴 GARANTIA CANÔNICA: tenantId SEMPRE retornado
-    return { 
-      user, 
-      tokens, 
-      tenantId: finalTenantId, // Sempre presente - validado acima
-      requiresOnboarding 
+    return {
+      user,
+      tokens,
+      tenantId: finalTenantId,
+      requiresOnboarding,
     };
   }
 

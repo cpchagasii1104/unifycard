@@ -87,6 +87,41 @@ class TenantService {
   }
 
   /**
+   * Resolve um tenant institucional por slug (server-side, fail-closed).
+   * F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC: usado para resolver `unificard-inicial`
+   * como fallback do cadastro orgânico SEM input do cliente. Exige EXATAMENTE uma
+   * linha; ausente/duplicado → erro (jamais cria tenant, jamais retorna ambíguo).
+   * `tenants.slug` tem UNIQUE (tenants_slug_key); a duplicidade é defesa-em-profundidade.
+   */
+  async getTenantBySlug(slug: string): Promise<Tenant> {
+    if (!slug || typeof slug !== 'string' || slug.trim() === '') {
+      throw new Error('TENANT_SLUG_REQUIRED: slug é obrigatório para resolução institucional');
+    }
+    const result = await pool.query<{
+      id: string; name: string; slug: string; city_id: string | null;
+      created_at: Date; updated_at: Date;
+    }>(
+      'SELECT id, name, slug, city_id, created_at, updated_at FROM tenants WHERE slug = $1',
+      [slug]
+    );
+    if (result.rowCount === 0) {
+      throw new Error(`TENANT_NOT_FOUND: tenant institucional ausente para slug "${slug}"`);
+    }
+    if ((result.rowCount ?? 0) > 1) {
+      throw new Error(`TENANT_AMBIGUOUS: múltiplos tenants para slug "${slug}" (esperado único)`);
+    }
+    const row = result.rows[0];
+    return {
+      tenantId: row.id,
+      name: row.name,
+      slug: row.slug,
+      cityId: row.city_id ?? null,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+    };
+  }
+
+  /**
    * Único ponto de criação de tenant: INSERT + bootstrap tenant_contexts na mesma transação.
    * @param outerClient — se definido, participa da transação do chamador (sem BEGIN/COMMIT aqui).
    */

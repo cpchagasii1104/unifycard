@@ -45,6 +45,16 @@ export interface ActorRepositoryPort {
   findByUserId(tenantId: string, userId: string): Promise<ActorRow | null>;
   findByCompanyId(tenantId: string, companyId: string): Promise<ActorRow | null>;
   findOrCreateUserActor(tenantId: string, userId: string): Promise<ActorRow>;
+  /**
+   * Variante client-aware/transacional de `findOrCreateUserActor` (F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC):
+   * cria o user-actor humano na transação do caller (nascimento atômico global_user→user→identity→actor).
+   * NÃO abre/commita transação; assume tenant context ativo no `client` (RLS). Fail-closed.
+   */
+  findOrCreateUserActorTx(
+    client: TxQueryClient,
+    tenantId: string,
+    userId: string
+  ): Promise<ActorRow>;
   findOrCreatePageActor(
     tenantId: string,
     companyId: string,
