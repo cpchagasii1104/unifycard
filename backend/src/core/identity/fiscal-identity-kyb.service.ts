@@ -36,9 +36,13 @@ class FiscalIdentityKybService {
   /**
    * submitFiscalKybRequest: cria pedido de KYB (status='pending') para uma identidade fiscal PJ.
    *
-   * Guards: fiscal_identity existe e `kyb_status='pending'`. Duplicidade barrada pela partial-unique
-   * (`uq_fikyb_one_pending`) → relança como FISCAL_IDENTITY_HAS_PENDING_KYB. NÃO altera kyb_status.
-   * submittedByActorId = actor humano do operador (req.actionContext.actorId) — autoridade.
+   * Guards: fiscal_identity existe e `kyb_status` ∈ {pending, rejected}. O caso 'rejected' é o
+   * CONTRATO DE REENVIO (GO F-PJ-HUMAN-TO-COMPANY §3.1/8.4 — fase antes deferida pela 0086):
+   * nova request pending é criada SEM apagar o histórico (a request rejeitada anterior permanece
+   * com reason/auditoria); nenhuma request é "reaproveitada". approved/suspended/closed NÃO
+   * aceitam novo submit. Duplicidade barrada pela partial-unique (`uq_fikyb_one_pending`)
+   * → relança como FISCAL_IDENTITY_HAS_PENDING_KYB. NÃO altera kyb_status.
+   * submittedByActorId = actor humano do operador/responsável — autoridade.
    */
   async submitFiscalKybRequest(
     fiscalIdentityId: string,
@@ -60,8 +64,8 @@ class FiscalIdentityKybService {
     if (fi.rows.length === 0) {
       throw new Error(`FISCAL_IDENTITY_NOT_FOUND: identidade fiscal ${fiscalIdentityId} não existe.`);
     }
-    if (fi.rows[0].kyb_status !== 'pending') {
-      throw new Error(`FISCAL_IDENTITY_NOT_PENDING: kyb_status atual='${fi.rows[0].kyb_status}'. Submit só faz sentido para 'pending'.`);
+    if (fi.rows[0].kyb_status !== 'pending' && fi.rows[0].kyb_status !== 'rejected') {
+      throw new Error(`FISCAL_IDENTITY_NOT_PENDING: kyb_status atual='${fi.rows[0].kyb_status}'. Submit só é aceito para 'pending' (1ª análise) ou 'rejected' (reenvio auditável).`);
     }
 
     try {
@@ -152,8 +156,10 @@ class FiscalIdentityKybService {
       if (fiRes.rows.length === 0) {
         throw new Error(`FISCAL_IDENTITY_DISAPPEARED: identidade fiscal ${fiscalIdentityId} sumiu sob lock (corrupção).`);
       }
-      if (fiRes.rows[0].kyb_status !== 'pending') {
-        throw new Error(`FISCAL_IDENTITY_NOT_PENDING: kyb_status atual='${fiRes.rows[0].kyb_status}' — review só transiciona de 'pending'.`);
+      // Reenvio pós-rejeição (GO §3.1/8.4): a fonte pode estar 'rejected' quando a request sob
+      // review é uma RESSUBMISSÃO — a decisão transiciona rejected→approved|rejected normalmente.
+      if (fiRes.rows[0].kyb_status !== 'pending' && fiRes.rows[0].kyb_status !== 'rejected') {
+        throw new Error(`FISCAL_IDENTITY_NOT_PENDING: kyb_status atual='${fiRes.rows[0].kyb_status}' — review só transiciona de 'pending'/'rejected'.`);
       }
 
       // (2.5) PRÉ-CONDIÇÃO DOCUMENTAL (F2-B / DECISION-0087 §3.10): aprovar KYB sem documentos
@@ -208,7 +214,7 @@ class FiscalIdentityKybService {
                 reviewed_at = NOW(),
                 decision_reason = $4,
                 updated_at = NOW()
-          WHERE fiscal_identity_id = $1::uuid AND kyb_status = 'pending'
+          WHERE fiscal_identity_id = $1::uuid AND kyb_status IN ('pending','rejected')
           RETURNING fiscal_identity_id`,
         [fiscalIdentityId, decision, reviewerActorId, decisionReason],
       );

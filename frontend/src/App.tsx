@@ -6,6 +6,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import SocialLedger from './components/social/SocialLedger';
 import CompanyValidationBackoffice from './components/CompanyValidationBackoffice';
+import KybReviewBackoffice from './admin/KybReviewBackoffice'; // CP2 PJ-B2: backoffice mínimo reviewer KYB
 import RegionalFundUser from './components/RegionalFundUser';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SocialLayout from './components/layout/SocialLayout';
@@ -379,6 +380,8 @@ function AppContent() {
           <Route path="empresas/:companyId/onboarding" element={<CompanyOnboardingPage />} />
           <Route path="grupos/novo" element={<GrupoNovoPage />} />
           <Route path="validation" element={<CompanyValidationBackoffice />} />
+          {/* CP2 PJ-B2: backoffice mínimo do reviewer KYB (admin-only no backend; 403 honesto) */}
+          <Route path="admin/kyb" element={<KybReviewBackoffice />} />
           {/* SPRINT 13: Observação de Piloto */}
           <Route path="admin/pilot" element={<PilotObserverPage />} />
           {/* Compatibilidade */}

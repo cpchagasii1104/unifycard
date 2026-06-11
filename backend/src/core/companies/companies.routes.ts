@@ -546,6 +546,81 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   /**
+   * POST /companies/:companyId/kyb/requests   (CP2 PJ-B1 — F-PJ-HUMAN-TO-COMPANY-END-TO-END-CLOSURE)
+   * "ENVIAR PARA ANÁLISE" user-facing: o responsável (canManageCompany, vínculo ativo) abre o
+   * pedido de análise KYB da identidade fiscal da empresa. Pré-condições: fiscal identity presente
+   * + documentos mínimos materialmente enviados + nenhuma request pending. Autoria AUTH-DERIVED
+   * (actor humano por LEITURA — sem cura). O fundador NÃO aprova/rejeita/revoga (review = admin
+   * humano em /identity/pj/kyb/admin/*). NÃO altera kyb_status/company_status/Bank.
+   */
+  fastify.post<{ Params: { companyId: string }; Body: { reason?: string } }>(
+    '/:companyId/kyb/requests',
+    async (req, reply) => {
+      if (!req.user?.globalUserId || !req.user?.userId) {
+        return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+      }
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+      }
+      const companyId = req.params.companyId;
+      if (!z.string().uuid().safeParse(companyId).success) {
+        return reply.status(400).send({ ok: false, code: 'INVALID_COMPANY_ID', message: 'companyId inválido' });
+      }
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
+      try {
+        const { submitCompanyKybRequest } = await import('../kyb-documents/kyb-request-submit.service');
+        const result = await submitCompanyKybRequest({
+          tenantId: req.tenant.id,
+          companyId,
+          globalUserId: req.user.globalUserId,
+          userId: req.user.userId,
+          reason,
+        });
+        fastify.log.info({ companyId, kybRequestId: result.kybRequestId, submittedByActorId: result.submittedByActorId }, '📨 KYB enviado para análise pelo responsável');
+        return reply.status(201).send({ ok: true, data: result });
+      } catch (error) {
+        const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+        const code = (error as { code?: string }).code;
+        const message = error instanceof Error ? error.message : 'Erro ao enviar para análise KYB';
+        if (statusCode >= 500) fastify.log.error({ err: error, companyId }, 'Erro no submit de request KYB');
+        return reply.status(statusCode).send({ ok: false, code, message });
+      }
+    },
+  );
+
+  /**
+   * GET /companies/:companyId/kyb/status   (CP2 — superfície de status material do KYB)
+   * Leitura PURA membership-scoped: kyb_status da fonte fiscal + histórico de requests
+   * (status/reason) + documentos (tipo/status). Sem file_reference/paths; sem escrita.
+   */
+  fastify.get<{ Params: { companyId: string } }>(
+    '/:companyId/kyb/status',
+    async (req, reply) => {
+      if (!req.user?.globalUserId) {
+        return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+      }
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+      }
+      const companyId = req.params.companyId;
+      if (!z.string().uuid().safeParse(companyId).success) {
+        return reply.status(400).send({ ok: false, code: 'INVALID_COMPANY_ID', message: 'companyId inválido' });
+      }
+      try {
+        const { getCompanyKybStatus } = await import('../kyb-documents/kyb-request-submit.service');
+        const data = await getCompanyKybStatus({ tenantId: req.tenant.id, companyId, globalUserId: req.user.globalUserId });
+        return reply.send({ ok: true, data });
+      } catch (error) {
+        const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
+        const code = (error as { code?: string }).code;
+        const message = error instanceof Error ? error.message : 'Erro ao consultar status KYB';
+        if (statusCode >= 500) fastify.log.error({ err: error, companyId }, 'Erro no status KYB');
+        return reply.status(statusCode).send({ ok: false, code, message });
+      }
+    },
+  );
+
+  /**
    * GET /companies/:companyId/documents
    * Lista documentos da empresa
    */

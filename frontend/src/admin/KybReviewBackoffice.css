@@ -1,0 +1,126 @@
+/* CP2 PJ-B2 — backoffice mínimo do reviewer KYB PJ */
+.kyb-backoffice {
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.kyb-backoffice h1 {
+  margin-bottom: 0.25rem;
+}
+
+.kyb-subtitle {
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.kyb-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.kyb-error,
+.kyb-forbidden {
+  color: #b00020;
+  background: #fdecea;
+  border: 1px solid #f5c6cb;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+}
+
+.kyb-empty {
+  color: #666;
+  font-style: italic;
+}
+
+.kyb-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.kyb-table th,
+.kyb-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e0e0e0;
+  vertical-align: middle;
+}
+
+.kyb-table tr.selected {
+  background: #f0f7ff;
+}
+
+.kyb-reason {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kyb-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: #eee;
+  color: #333;
+}
+
+.kyb-badge.kyb-pending,
+.kyb-badge.kyb-submitted {
+  background: #fff3cd;
+  color: #7a5d00;
+}
+
+.kyb-badge.kyb-approved,
+.kyb-badge.kyb-accepted {
+  background: #d4edda;
+  color: #155724;
+}
+
+.kyb-badge.kyb-rejected,
+.kyb-badge.kyb-suspended,
+.kyb-badge.kyb-closed {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.kyb-badge.kyb-superseded {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.kyb-detail {
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  background: #fafbfc;
+}
+
+.kyb-doc-actions,
+.kyb-decision-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.kyb-decision-actions {
+  margin-top: 1rem;
+}
+
+.kyb-backoffice .btn-danger {
+  background: #b00020;
+  color: #fff;
+  border: none;
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.kyb-backoffice .btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

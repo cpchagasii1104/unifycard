@@ -1278,6 +1278,52 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  /**
+   * POST /identity/pj/kyb/admin/fiscal-identities/:fiscalIdentityId/revoke
+   * Revogação de aprovação KYB (DECISION-0101): approved → suspended|closed, reviewer HUMANO
+   * (fail-closed no writer), cascata atômica de retração de publicações + projeção.
+   * requireRole(['admin']). CP2 PJ-B2: energiza via HTTP o writer já selado.
+   */
+  fastify.post<{
+    Params: { fiscalIdentityId: string };
+    Body: { newStatus: 'suspended' | 'closed'; reason: string };
+  }>('/pj/kyb/admin/fiscal-identities/:fiscalIdentityId/revoke', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório (actor do operador ausente)' });
+    }
+    const { newStatus, reason } = req.body ?? ({} as { newStatus?: 'suspended' | 'closed'; reason?: string });
+    if (newStatus !== 'suspended' && newStatus !== 'closed') {
+      return reply.status(400).send({ ok: false, message: "Body.newStatus deve ser 'suspended' ou 'closed'" });
+    }
+    if (!reason || typeof reason !== 'string' || reason.trim() === '') {
+      return reply.status(400).send({ ok: false, message: 'Body.reason é obrigatório (auditoria da revogação)' });
+    }
+    try {
+      const { fiscalIdentityKybService } = await import('@core/identity/fiscal-identity-kyb.service');
+      const result = await fiscalIdentityKybService.revokeFiscalKybApproval({
+        fiscalIdentityId: req.params.fiscalIdentityId,
+        newStatus,
+        reason,
+        reviewerActorId: req.actionContext.actorId,
+      });
+      fastify.log.info({
+        fiscalIdentityId: result.fiscalIdentityId,
+        newStatus: result.newStatus,
+        retiredPublications: result.retiredPublications,
+      }, '🛑 KYB PJ revogado (cascata de publicações aplicada)');
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao revogar KYB PJ');
+      const message = error instanceof Error ? error.message : 'Erro ao revogar KYB PJ';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
+
   // ============================================================
   // F2-B KYB DOCUMENTOS PJ (DECISION-0087): SSOT documental KYB da identidade fiscal PJ.
   //   Tabela: fiscal_identity_documents (migration 20260603140000)

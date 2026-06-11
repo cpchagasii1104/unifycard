@@ -333,6 +333,59 @@ export async function submitCompanyKybDocument(
   return (json as { data: { documentId: string; documentType: string; documentStatus: string; mimeType: string; sizeBytes: number } }).data;
 }
 
+// ── CP2 F-PJ-HUMAN-TO-COMPANY (PJ-B1): "Enviar para análise" + status material do KYB ──────
+// O frontend NÃO decide nada: o backend prova autoridade (canManageCompany), exige documentos
+// mínimos materialmente enviados e garante 1 request pendente por identidade fiscal. A resposta
+// exibe estado MATERIAL (pending/approved/rejected) — nunca afirma aprovação no submit.
+
+export interface CompanyKybRequest {
+  kybRequestId: string;
+  fiscalIdentityId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedByActorId: string;
+  reviewedByActorId: string | null;
+  reviewedAt: string | null;
+  decisionReason: string | null;
+}
+
+export interface CompanyKybStatus {
+  fiscalIdentityId: string;
+  kybStatus: string;
+  requests: Array<{
+    kybRequestId: string;
+    status: string;
+    submittedAt: string | null;
+    reviewedAt: string | null;
+    decisionReason: string | null;
+  }>;
+  documents: Array<{
+    documentId: string;
+    documentType: string;
+    documentStatus: string;
+    decisionReason: string | null;
+    createdAt: string | null;
+  }>;
+}
+
+/** Abre o pedido de análise KYB (founder/canManageCompany). Erros relevantes (error.code):
+ *  KYB_REQUEST_REQUIRES_DOCUMENTS (422), KYB_REQUEST_ALREADY_PENDING (409),
+ *  KYB_REQUEST_FORBIDDEN (403), KYB_REQUEST_NOT_SUBMITTABLE (409). */
+export async function submitCompanyKybRequest(companyId: string, reason?: string): Promise<CompanyKybRequest> {
+  const response = await apiFetch(`/companies/${companyId}/kyb/requests`, {
+    method: 'POST',
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+  const result = await response.json();
+  return result?.data ?? result;
+}
+
+/** Status material do KYB da empresa (leitura pura, membership-scoped). */
+export async function getCompanyKybStatus(companyId: string): Promise<CompanyKybStatus> {
+  const response = await apiFetch(`/companies/${companyId}/kyb/status`);
+  const result = await response.json();
+  return result?.data ?? result;
+}
+
 // ── F-PJ-ONBOARDING-FRONTEND-ACTIVATION-PAIR (DECISION-0098) ──────────────────────────────
 // Catálogo governado de seleção + rota viva do par. O frontend NÃO inventa concept nem
 // classificação: envia o que o backend expôs (precedente Profile C1). businessType/
