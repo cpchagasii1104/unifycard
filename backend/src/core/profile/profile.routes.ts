@@ -87,10 +87,9 @@ const profileRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Rota principal
   fastify.get('/', getProfileHandler);
-  
-  // TODO: Remover após frontend migrar para rota canônica
-  // Alias temporário para compatibilidade: /profile/profile -> /profile
-  fastify.get('/profile', getProfileHandler);
+
+  // F-C1-HUMAN-JOURNEY (CP3): alias legado GET /profile/profile REMOVIDO — zero callers
+  // (frontend usa /core/profile e GET /profile canônicos). Fallback morto não fica vivo na jornada.
 
   /**
    * Handler para atualizar perfil
@@ -226,27 +225,8 @@ const profileRoutes: FastifyPluginAsync = async (fastify) => {
     },
   }, updateProfileHandler);
   
-  // TODO: Remover após frontend migrar para rota canônica
-  // Alias temporário para compatibilidade: /profile/profile -> /profile
-  fastify.put<{
-    Body: {
-      fullName?: string;
-      phone?: string;
-      metadata?: Record<string, any>;
-    };
-  }>('/profile', {
-    schema: {
-      body: {
-        type: 'object',
-        additionalProperties: true,
-        properties: {
-          fullName: { type: 'string' },
-          phone: { type: 'string' },
-          metadata: { type: 'object', additionalProperties: true },
-        },
-      },
-    },
-  }, updateProfileHandler);
+  // F-C1-HUMAN-JOURNEY (CP3): alias legado PUT /profile/profile REMOVIDO — zero callers
+  // (frontend usa PUT /profile canônico). Writer duplicado não fica vivo na jornada.
 
   /**
    * POST /profile/complete-onboarding
