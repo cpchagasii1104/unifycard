@@ -22,12 +22,14 @@ import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
 import { withTransaction } from '../core/database/transaction.helper';
 import { companiesService } from '../core/companies/companies.service';
-import { tenantService } from '../core/tenants/tenant.service';
 import { rbacService } from '../core/rbac/rbac.service';
 import { authService } from '../core/auth/auth.service';
 import { ensureUserActor, ensurePageActorTx } from '../modules/identity/actor-writer.service';
 
-const TENANT_ID = '11111111-2222-3333-4444-555555555555';
+// C1 (nascimento orgânico): authService.register roteia para o tenant institucional
+// canônico (unificard-inicial) — o teste ADOTA o tenant real do user registrado.
+const SEED_TENANT_HINT = '11111111-2222-3333-4444-555555555555';
+let TENANT_ID = '';
 const EMAIL = 'atomic-birth@unificard.test';
 const EMAIL2 = 'atomic-birth-2@unificard.test';
 const PASSWORD = '123456';
@@ -93,13 +95,18 @@ async function wireSocialPorts(): Promise<void> {
 async function seedUser(email: string, cpf: string, fullName: string): Promise<{ globalUserId: string; userId: string; actorId: string }> {
   const existing = await pool.query('SELECT user_id FROM users WHERE email = $1 LIMIT 1', [email.toLowerCase()]);
   if (existing.rowCount === 0) {
-    await authService.register(TENANT_ID, email, PASSWORD, cpf, fullName);
+    await authService.register(TENANT_ID || SEED_TENANT_HINT, email, PASSWORD, cpf, fullName);
   }
-  const u = await pool.query<{ user_id: string; global_user_id: string }>(
-    'SELECT user_id::text, global_user_id::text FROM users WHERE email = $1 AND tenant_id = $2 LIMIT 1',
-    [email.toLowerCase(), TENANT_ID]
+  // C1: o register é orgânico (tenant institucional). Lookup por email; o tenant REAL vem da linha.
+  const u = await pool.query<{ user_id: string; global_user_id: string; tenant_id: string }>(
+    'SELECT user_id::text, global_user_id::text, tenant_id::text FROM users WHERE email = $1 LIMIT 1',
+    [email.toLowerCase()]
   );
   if (u.rowCount === 0) throw new Error(`seed: user ${email} não encontrado após register`);
+  if (!TENANT_ID) {
+    TENANT_ID = u.rows[0].tenant_id;
+    await rbacService.seedDefaultRBAC(TENANT_ID);
+  }
   const userId = u.rows[0].user_id;
   const actor = await ensureUserActor(TENANT_ID, userId);
   await rbacService.assignRoleByName(TENANT_ID, userId, 'admin');
@@ -122,9 +129,8 @@ async function expectThrow(fn: () => Promise<unknown>): Promise<boolean> {
 async function main(): Promise<void> {
   await assertEphemeralDb();
   await wireSocialPorts();
-  const t = await pool.query('SELECT id FROM tenants WHERE id = $1 LIMIT 1', [TENANT_ID]);
-  if (t.rowCount === 0) await tenantService.createTenant({ id: TENANT_ID, name: 'Atomic Birth Test', slug: 'atomic-birth-test' });
-  await rbacService.seedDefaultRBAC(TENANT_ID);
+  // C1: o tenant operacional é resolvido pelo PRÓPRIO register orgânico (seedUser seta
+  // TENANT_ID + seedDefaultRBAC na primeira chamada). Nada de tenant sintético prévio.
   const u1 = await seedUser(EMAIL, CPF, FULLNAME);
   const u2 = await seedUser(EMAIL2, validCpf(), 'Atomic Birth PF 2');
   const { globalUserId, actorId: creatorActorId } = u1;
@@ -151,7 +157,9 @@ async function main(): Promise<void> {
   record('1a 1 fiscal_identity criada (kyb_status=pending, cnpj correto)', fi.rows[0].n === '1' && fi.rows[0].kyb === 'pending' && fi.rows[0].cnpj === cnpj1);
   record('1b companies.fiscal_identity_id aponta para a fiscal', comp.rows[0].fiscal_identity_id === fi.rows[0].fid);
   record('1c companies.cnpj = fiscal_identities.cnpj (projeção)', comp.rows[0].cnpj === fi.rows[0].cnpj);
-  record('1d company PROVISIONAL/pending (não-operacional)', comp.rows[0].company_status === 'PROVISIONAL' && comp.rows[0].primary_company_type_id === null);
+  // F-PJ-LIFECYCLE-DRAFT-TO-PROVISIONAL: a empresa NASCE DRAFT (em configuração); a promoção
+  // para PROVISIONAL acontece SÓ na ativação operacional (Momento 2, par gravado).
+  record('1d company DRAFT sem par (não-operacional no nascimento)', comp.rows[0].company_status === 'DRAFT' && comp.rows[0].primary_company_type_id === null);
   const cu = await pool.query<{ n: string }>('SELECT count(*)::text n FROM company_users WHERE company_id=$1', [companyId]);
   const pa = await pool.query<{ responsible: string | null; n: string }>(`SELECT count(*)::text n, MAX(responsible_actor_id::text) responsible FROM actors WHERE tenant_id=$1 AND company_id=$2 AND actor_type='page'`, [TENANT_ID, companyId]);
   record('1e company_user (1) + page-actor (1, responsible=criador)', cu.rows[0].n === '1' && pa.rows[0].n === '1' && pa.rows[0].responsible === creatorActorId);

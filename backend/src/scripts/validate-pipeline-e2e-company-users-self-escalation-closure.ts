@@ -22,6 +22,7 @@ import Fastify, { FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import { randomUUID, createHash } from 'crypto';
 import { pool } from '../core/database/pool';
+import { deleteCompaniesAndFiscal } from './helpers/pj-fiscal-cleanup';
 import authPlugin from '../core/auth/auth.plugin';
 import { tenantPlugin } from '../plugins/tenant.plugin';
 import { actionContextPlugin } from '../plugins/action-context.plugin';
@@ -161,7 +162,7 @@ async function cleanupFixtures(): Promise<void> {
   await pool.query(`DELETE FROM products WHERE name LIKE $1`, [`${MARKER}-%`]);
   await pool.query(`DELETE FROM actors WHERE display_name LIKE $1`, [`${MARKER}-%`]);
   await pool.query(`DELETE FROM company_users WHERE company_id IN (SELECT company_id FROM companies WHERE company_name LIKE $1)`, [`${MARKER}-%`]);
-  await pool.query(`DELETE FROM companies WHERE company_name LIKE $1`, [`${MARKER}-%`]);
+  await deleteCompaniesAndFiscal(pool, "company_name LIKE $1", [`${MARKER}-%`]);
   await pool.query(`DELETE FROM users WHERE email LIKE $1`, [`${MARKER.toLowerCase()}-%`]);
   await pool.query(`DELETE FROM global_users WHERE full_name LIKE $1`, [`${MARKER}-%`]);
 }

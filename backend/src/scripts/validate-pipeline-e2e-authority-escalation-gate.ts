@@ -32,6 +32,7 @@ import { join } from 'path';
 import { readFileSync } from 'fs';
 
 import { pool } from '../core/database/pool';
+import { deleteCompaniesAndFiscal } from './helpers/pj-fiscal-cleanup';
 import { companiesService } from '../core/companies/companies.service';
 import { authorizationService } from '../core/authorization/authorization.service';
 
@@ -163,7 +164,7 @@ async function main(): Promise<void> {
         catch (e) { if ((e as { code?: string }).code !== '42P01') console.warn(`cleanup ${t}:`, (e as Error).message); }
       }
       await pool.query(`DELETE FROM actors WHERE company_id = ANY($1::uuid[])`, [ids]);
-      await pool.query(`DELETE FROM companies WHERE company_id = ANY($1::uuid[])`, [ids]);
+      await deleteCompaniesAndFiscal(pool, "company_id = ANY($1::uuid[])", [ids]);
     }
     const left = await pool.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM companies WHERE company_name LIKE 'E2E Esc Gate %'`

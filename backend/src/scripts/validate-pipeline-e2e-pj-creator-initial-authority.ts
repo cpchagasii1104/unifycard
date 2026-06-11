@@ -23,6 +23,7 @@ import dotenv from 'dotenv';
 import { join } from 'path';
 
 import { pool } from '../core/database/pool';
+import { deleteCompaniesAndFiscal } from './helpers/pj-fiscal-cleanup';
 import { companiesService } from '../core/companies/companies.service';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
@@ -81,7 +82,7 @@ async function main(): Promise<void> {
       catch (e) { if ((e as { code?: string }).code !== '42P01') console.warn(`cleanup ${t}:`, (e as Error).message); }
     }
     await pool.query(`DELETE FROM actors WHERE company_id = $1::uuid`, [id]);
-    await pool.query(`DELETE FROM companies WHERE company_id = $1::uuid`, [id]);
+    await deleteCompaniesAndFiscal(pool, "company_id = $1::uuid", [id]);
   }
 
   async function newCompany(role: string, name: string, permissions?: Record<string, boolean>): Promise<string> {

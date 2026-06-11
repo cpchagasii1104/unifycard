@@ -28,6 +28,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 import { pool } from '../core/database/pool';
+import { deleteCompaniesAndFiscal } from './helpers/pj-fiscal-cleanup';
 import {
   operationalAddressHelper,
   PJ_OPERATIONAL_ADDRESS_REQUIRED,
@@ -149,7 +150,7 @@ async function cleanupPe5TestData(): Promise<void> {
   );
   // Apaga actors/companies de teste (cascade limpa o resto)
   await pool.query(`DELETE FROM actors WHERE tenant_id = $1::uuid AND display_name LIKE 'pe5_%'`, [TENANT_ID]);
-  await pool.query(`DELETE FROM companies WHERE tenant_id = $1::uuid AND company_name LIKE 'pe5_%'`, [TENANT_ID]);
+  await deleteCompaniesAndFiscal(pool, "tenant_id = $1::uuid AND company_name LIKE 'pe5_%'", [TENANT_ID]);
   // Apaga addresses órfãos criados nesta sessão E2E
   await pool.query(
     `DELETE FROM addresses

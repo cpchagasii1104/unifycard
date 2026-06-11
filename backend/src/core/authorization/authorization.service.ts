@@ -450,6 +450,15 @@ class AuthorizationService {
         return false;
       }
 
+      // PJ-B4 (vocabulário alinhado): autoridade CANÔNICA de gestão primeiro —
+      // can_manage_company OR role='owner', vínculo ativo (mesma semântica de
+      // companiesService.canManageCompany). O helper legado abaixo (is_primary /
+      // role='admin') é preservado de forma ADITIVA para não regredir grants existentes.
+      const { companiesService } = await import('@core/companies/companies.service');
+      if (await companiesService.canManageCompany(tenantId, entityId, globalUserId)) {
+        return true;
+      }
+
       // Verificar company_users (legacy) - is_primary = true indica owner
       const companyUser = await runQueryWithTenant<{ global_user_id: string }>(
         tenantId,

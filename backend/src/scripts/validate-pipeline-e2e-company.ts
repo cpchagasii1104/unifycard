@@ -20,6 +20,7 @@ import dotenv from 'dotenv';
 import { join } from 'path';
 
 import { pool } from '../core/database/pool';
+import { deleteCompaniesAndFiscal } from './helpers/pj-fiscal-cleanup';
 import { authService } from '../core/auth/auth.service';
 import { companiesService } from '../core/companies/companies.service';
 import { tenantService } from '../core/tenants/tenant.service';
@@ -121,7 +122,7 @@ async function cleanup(state: CleanupState): Promise<void> {
       await pool
         .query(`DELETE FROM company_domains WHERE company_id = $1::uuid`, [cid])
         .catch(() => {});
-      await pool.query(`DELETE FROM companies WHERE company_id = $1::uuid`, [cid]);
+      await deleteCompaniesAndFiscal(pool, "company_id = $1::uuid", [cid]);
       console.log(`  ✓ company ${cid} + relations`);
     }
     if (userId) {

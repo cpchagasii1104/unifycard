@@ -21,6 +21,7 @@ import dotenv from 'dotenv';
 import { join } from 'path';
 
 import { pool } from '../core/database/pool';
+import { deleteCompaniesAndFiscal } from './helpers/pj-fiscal-cleanup';
 import { companiesService } from '../core/companies/companies.service';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
@@ -180,7 +181,7 @@ async function main(): Promise<void> {
         }
       }
       await pool.query(`DELETE FROM actors WHERE company_id = ANY($1::uuid[])`, [ids]);
-      await pool.query(`DELETE FROM companies WHERE company_id = ANY($1::uuid[])`, [ids]);
+      await deleteCompaniesAndFiscal(pool, "company_id = ANY($1::uuid[])", [ids]);
       const left = await pool.query<{ n: string }>(`SELECT count(*)::text AS n FROM companies WHERE company_id = ANY($1::uuid[])`, [ids]);
       const actorsLeft = await pool.query<{ n: string }>(`SELECT count(*)::text AS n FROM actors WHERE company_id = ANY($1::uuid[])`, [ids]);
       console.log(`  companies restantes=${left.rows[0].n} · page-actors restantes=${actorsLeft.rows[0].n}`);

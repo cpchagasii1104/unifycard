@@ -20,6 +20,7 @@ import dotenv from 'dotenv';
 import { join } from 'path';
 
 import { pool } from '../core/database/pool';
+import { deleteCompaniesAndFiscal } from './helpers/pj-fiscal-cleanup';
 import { companiesService } from '../core/companies/companies.service';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
@@ -92,7 +93,7 @@ async function main(): Promise<void> {
         catch (e) { if ((e as { code?: string }).code !== '42P01') console.warn(`cleanup ${t}:`, (e as Error).message); }
       }
       await pool.query(`DELETE FROM actors WHERE company_id = $1::uuid`, [id]);
-      await pool.query(`DELETE FROM companies WHERE company_id = $1::uuid`, [id]);
+      await deleteCompaniesAndFiscal(pool, "company_id = $1::uuid", [id]);
       createdCompanyIds.splice(createdCompanyIds.indexOf(id), 1);
     }
   }
@@ -135,7 +136,7 @@ async function main(): Promise<void> {
         }
       }
       await pool.query(`DELETE FROM actors WHERE company_id = ANY($1::uuid[])`, [ids]);
-      await pool.query(`DELETE FROM companies WHERE company_id = ANY($1::uuid[])`, [ids]);
+      await deleteCompaniesAndFiscal(pool, "company_id = ANY($1::uuid[])", [ids]);
       const left = await pool.query<{ n: string }>(`SELECT count(*)::text AS n FROM companies WHERE company_id = ANY($1::uuid[])`, [ids]);
       console.log(`  companies restantes=${left.rows[0].n}`);
       record('CLEANUP DEV intacto (companies de teste = 0)', left.rows[0].n === '0');

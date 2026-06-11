@@ -26,6 +26,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 import { pool } from '../core/database/pool';
+import { deleteCompaniesAndFiscal } from './helpers/pj-fiscal-cleanup';
 import { bankAccountService } from '../modules/bank/bank-account.service';
 import { servicePaymentExecutionService } from '../modules/services/service-payment-execution.service';
 import { economicPolicyRepository } from '../modules/economy/policy-engine/economic-policy.repository';
@@ -681,7 +682,7 @@ async function main() {
     `UPDATE actors SET company_id=NULL WHERE id=$1::uuid AND tenant_id=$2::uuid`,
     [fx.workerActorId, TENANT_ID]
   );
-  await pool.query(`DELETE FROM companies WHERE company_id=$1::uuid`, [companyT3]);
+  await deleteCompaniesAndFiscal(pool, "company_id=$1::uuid", [companyT3]);
   await cleanupPolicies();
 
   console.log(

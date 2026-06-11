@@ -4,7 +4,8 @@
 import { randomUUID } from 'crypto';
 import { CompanyStatus } from '@unificard/contracts';
 import { pool } from '@core/database/pool';
-import { ensurePageActor, ensurePageActorTx, ensureUserActor } from '@modules/identity/actor-writer.service';
+import { ensurePageActorTx } from '@modules/identity/actor-writer.service';
+import { socialPortsRegistry } from '@core/social/ports-registry';
 import { isTestOverrideUser } from '../../utils/isTestOverrideUser';
 import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import { withTransaction } from '@core/database/transaction.helper';
@@ -442,13 +443,22 @@ class CompaniesService {
       metadata.service_categories = input.serviceCategories;
     }
 
-    // ── PRÉ-TX — user-actor do criador (idempotente, FORA da transação) ──────────
-    // Identity-before-actor (DECISION-0062 / §7): ensureUserActor exige identity preexistente
-    // e usa conexão própria (NÃO compõe transação). Falha aqui = nascimento nem inicia.
+    // ── PRÉ-TX — actor humano do criador (LEITURA PURA, FORA da transação) ───────
+    // PJ-B3 (F-PJ-HUMAN-TO-COMPANY-END-TO-END-CLOSURE): a pessoa humana JÁ NASCE com
+    // identity+actor (C1). A criação de empresa NÃO cria nem repara actor humano —
+    // resolve por leitura (findByUserId) e a ausência é erro estrutural honesto.
+    // Nenhum writer de actor humano roda neste caminho (a cura via ensureUserActor
+    // foi removida; só o page-actor da EMPRESA nasce aqui, dentro da transação).
     if (!userId) {
       throw new Error('userId é obrigatório para criar actors da empresa após o cadastro.');
     }
-    const creatorActor = await ensureUserActor(finalTenantId, userId);
+    const creatorActor = await socialPortsRegistry.getActorRepository().findByUserId(finalTenantId, userId);
+    if (!creatorActor?.actor_id) {
+      throw new Error(
+        'COMPANY_CREATOR_ACTOR_MISSING: o criador não possui actor humano neste tenant. ' +
+          'A criação de empresa não cria nem cura actors — o nascimento humano (C1) é o caminho canônico.'
+      );
+    }
 
     // Permissões + SOFT-BLOCK (validação que pode LANÇAR) — PRÉ-TX, antes de abrir transação.
     // F-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH: defaults derivados do vocabulário ALINHADO ao banco
@@ -730,9 +740,9 @@ class CompaniesService {
    * Ativação operacional da empresa (Momento 2) — single writer (Fase 3B.3).
    * Desenho: docs/02_decisions/DESENHO_FASE_3B_EMPRESA_DOIS_MOMENTOS.md (commit 691b2169).
    *
-   * Três fases. Os writers de actor (ensureUserActor/ensurePageActor) usam
-   * runQueryWithTenant/client interno e por isso rodam FORA da transação — NUNCA dentro de
-   * BEGIN/COMMIT. Só a Fase 3 abre transação (getClientWithTenant) e grava APENAS a
+   * Três fases. A Fase 2 RESOLVE os actors por leitura pura (findByUserId/findByCompanyId)
+   * — a ativação não cria nem cura actors (PJ-B3); ambos nasceram na transação de
+   * createCompany. Só a Fase 3 abre transação (getClientWithTenant) e grava APENAS a
    * classificação primária (primary_company_type_id + primary_concept_id). SEM capabilities
    * (dívida D-CONCEPT/D-CONTEXT-RESOLVER). Falha em qualquer ponto → fail-closed.
    */
@@ -815,21 +825,24 @@ class CompaniesService {
       }
     }
 
-    // ── FASE 2 — garantir identidade operacional (FORA de transação) ─────────
-    // ensureUserActor/ensurePageActor usam client interno; NUNCA dentro de BEGIN/COMMIT.
-    const responsibleActor = await ensureUserActor(tenantId, responsibleUserId);
+    // ── FASE 2 — resolver identidade operacional (LEITURA PURA, fora de transação) ──
+    // PJ-B3: a ativação NÃO cura actor (nem humano nem page). Ambos nasceram na transação
+    // de createCompany (F-ATOMIC-COMPANY-BIRTH); ausência aqui é corrupção estrutural →
+    // erro honesto, nunca find-or-create.
+    const actorRepo = socialPortsRegistry.getActorRepository();
+    const responsibleActor = await actorRepo.findByUserId(tenantId, responsibleUserId);
     if (!responsibleActor?.actor_id) {
       throw this.activationError(
         'RESPONSIBLE_ACTOR_NOT_FOUND',
-        `actor humano responsável (user ${responsibleUserId}) não resolvido`,
+        `actor humano responsável (user ${responsibleUserId}) não existe — ativação não cria/cura actors`,
         404
       );
     }
-    const pageActor = await ensurePageActor(tenantId, companyId, responsibleActor.actor_id);
+    const pageActor = await actorRepo.findByCompanyId(tenantId, companyId);
     if (!pageActor?.actor_id || pageActor.actor_type !== 'page') {
       throw this.activationError(
         'PAGE_ACTOR_AMBIGUOUS',
-        `page-actor da empresa ${companyId} em estado inesperado`,
+        `page-actor da empresa ${companyId} ausente/inesperado — deveria ter nascido na criação (ativação não cria/cura actors)`,
         500
       );
     }
@@ -1295,7 +1308,11 @@ class CompaniesService {
       return userRoleOverride ? ({ ...companyOverride, userRole: userRoleOverride } as Company) : companyOverride;
     }
 
-    // Comportamento normal (sem override) - usa runQueryWithTenant para garantir isolamento
+    // Comportamento normal (sem override) — leitura por VÍNCULO (PJ-B4): o acesso deriva de
+    // company_users ATIVO (membership), não de companies.global_user_id (autoria histórica).
+    // O criador continua lendo (tem vínculo server-side desde o nascimento); membro autorizado
+    // lê pela mesma porta; usuário sem vínculo → null (404 honesto na rota). Leitura NÃO
+    // concede gestão/lifecycle/publicação (writers têm guards próprios via canManageCompany).
     const rowsNormal = await runQueriesWithTenant<{
       company_id: string;
       global_user_id: string;
@@ -1327,7 +1344,13 @@ class CompaniesService {
       SELECT c.*, fi.kyb_status
       FROM companies c
       LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
-      WHERE c.tenant_id = $1 AND c.company_id = $2::uuid AND global_user_id = $3::uuid
+      WHERE c.tenant_id = $1 AND c.company_id = $2::uuid
+        AND EXISTS (
+          SELECT 1 FROM company_users cu
+           WHERE cu.tenant_id = c.tenant_id AND cu.company_id = c.company_id
+             AND cu.global_user_id = $3::uuid
+             AND cu.is_active = true AND cu.member_status = 'active'
+        )
       LIMIT 1
       `,
       [tenantId, companyId, globalUserId]
@@ -1591,7 +1614,11 @@ class CompaniesService {
     } as Company & { userRole: CompanyUser }));
     }
 
-    // 🔴 CORREÇÃO: Comportamento normal (sem override) COM filtro tenant_id
+    // Comportamento normal (sem override) — listagem por VÍNCULO (PJ-B4): INNER JOIN em
+    // company_users do PRÓPRIO caller (ativo), não filtro por companies.global_user_id.
+    // Criador e membro autorizado listam pela mesma porta; o userRole projetado é o vínculo
+    // DO CALLER (o JOIN antigo sem filtro de membro projetava o vínculo de outro membro e
+    // duplicava linhas em empresas multi-membro). Vínculo removido/inativo → empresa some.
     const resultRows = await runQueriesWithTenant<{
       company_id: string;
       global_user_id: string;
@@ -1652,9 +1679,14 @@ class CompaniesService {
         cu.created_at as cu_created_at,
         cu.updated_at as cu_updated_at
       FROM companies c
-      LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
+      INNER JOIN company_users cu
+              ON cu.company_id = c.company_id
+             AND cu.tenant_id = c.tenant_id
+             AND cu.global_user_id = $2::uuid
+             AND cu.is_active = true
+             AND cu.member_status = 'active'
       LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
-      WHERE c.tenant_id = $1 AND c.global_user_id = $2::uuid
+      WHERE c.tenant_id = $1
       ORDER BY c.created_at DESC
       `,
       [finalTenantId, globalUserId]
@@ -1736,6 +1768,13 @@ class CompaniesService {
     const existing = await this.getCompanyById(companyId, globalUserId, finalTenantId);
     if (!existing) {
       throw new Error('Empresa não encontrada');
+    }
+
+    // PJ-B4: leitura por vínculo NÃO concede gestão. Editar a entidade exige autoridade
+    // material (can_manage_company OR role='owner', vínculo ativo) — não autoria histórica.
+    const canManage = await this.canManageCompany(finalTenantId, companyId, globalUserId);
+    if (!canManage) {
+      throw new Error('Sem autoridade para editar esta empresa (canManageCompany)');
     }
 
     // 🔴 PROTEÇÃO: Bloquear alteração de CNPJ quando a identidade fiscal já está verificada.
@@ -1824,14 +1863,14 @@ class CompaniesService {
     }
 
     updates.push(`updated_at = NOW()`);
-    values.push(companyId, globalUserId, finalTenantId);
+    values.push(companyId, finalTenantId);
 
     await runQueryWithTenant(
       finalTenantId,
       `
       UPDATE companies
       SET ${updates.join(', ')}
-      WHERE tenant_id = $${paramIdx + 2} AND company_id = $${paramIdx}::uuid AND global_user_id = $${paramIdx + 1}::uuid
+      WHERE tenant_id = $${paramIdx + 1} AND company_id = $${paramIdx}::uuid
       `,
       values
     );
@@ -2005,10 +2044,17 @@ class CompaniesService {
     }
     const finalTenantId = tenantId;
 
-    // Verificar se empresa existe e pertence ao usuário
+    // Verificar se empresa existe e o caller tem vínculo (leitura por membership — PJ-B4)
     const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
     if (!company) {
       throw new Error('Empresa não encontrada');
+    }
+
+    // PJ-B4: exclusão é ato de GESTÃO — exige autoridade material (canManageCompany),
+    // não autoria histórica nem mero vínculo de leitura.
+    const canManage = await this.canManageCompany(finalTenantId, companyId, globalUserId);
+    if (!canManage) {
+      throw new Error('Sem autoridade para remover esta empresa (canManageCompany)');
     }
 
     // 🔴 GUARDA FAIL-CLOSED (F-PJ-DELETE-GUARD-BANK-PORT): bloquear exclusão de empresa com vínculo
@@ -2057,7 +2103,8 @@ class CompaniesService {
       }
     }
 
-    // Soft delete COM filtro tenant_id + ownership (status operacional 'inactive' — NÃO toca
+    // Soft delete COM filtro tenant_id; autoridade já provada acima via canManageCompany
+    // (status operacional 'inactive' — NÃO toca
     // company_status/KYB/documentos). RETURNING torna o boolean de sucesso confiável:
     // runQueryWithTenant devolve rows[0], e um UPDATE sem RETURNING voltaria undefined.
     const deletedRow = await runQueryWithTenant<{ company_id: string }>(
@@ -2065,10 +2112,10 @@ class CompaniesService {
       `
       UPDATE companies
       SET status = 'inactive', updated_at = NOW()
-      WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
+      WHERE tenant_id = $1 AND company_id = $2::uuid
       RETURNING company_id
       `,
-      [finalTenantId, companyId, globalUserId]
+      [finalTenantId, companyId]
     );
 
     return deletedRow != null;

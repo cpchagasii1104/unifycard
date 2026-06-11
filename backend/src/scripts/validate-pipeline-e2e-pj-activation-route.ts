@@ -118,10 +118,19 @@ async function main(): Promise<void> {
   const conceptB = concepts.rows[1].concept_id;
   await pool.query(`INSERT INTO company_type_allowed_concepts (company_type_id, concept_id) VALUES ($1,$2),($3,$4)`, [typeA, conceptA, typeB, conceptB]);
 
-  // ── Companies (Momento 1 inerte, INSERT direto) + memberships ─────────────
+  // ── Actor humano do owner (nascimento C1 simulado) — PJ-B3: a ativação NÃO cura
+  //    actors; o setup materializa o que o nascimento real teria criado. ────────────
+  const { socialPortsRegistry } = await import('../core/social/ports-registry');
+  const actorRepo = socialPortsRegistry.getActorRepository();
+  const ownerActor = await actorRepo.findOrCreateUserActor(TENANT_ID, ownerUserId);
+
+  // ── Companies (Momento 1 inerte, INSERT direto + page-actor como no nascimento) ──
   const mkCompany = async (name: string): Promise<string> => {
     const r = await pool.query<{ company_id: string }>(`INSERT INTO companies (tenant_id, company_name) VALUES ($1,$2) RETURNING company_id::text`, [TENANT_ID, name]);
-    return r.rows[0].company_id;
+    const companyId = r.rows[0].company_id;
+    // PJ-B3: page-actor nasce com a empresa (F-ATOMIC-COMPANY-BIRTH); a ativação só RESOLVE.
+    await actorRepo.findOrCreatePageActor(TENANT_ID, companyId, ownerActor.actor_id);
+    return companyId;
   };
   const mkMember = async (companyId: string, role: string, canManage: boolean): Promise<void> => {
     await pool.query(
