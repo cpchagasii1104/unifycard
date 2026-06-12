@@ -516,6 +516,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     const { default: serviceOfferingsRoutes } = await import('./modules/services/service-offerings.routes');
     await protectedScope.register(serviceOfferingsRoutes, { prefix: '/services' });
 
+    // DECISION-0117 F (CP5) — projeção do menu de módulos + busca agrupada por identidade canônica
+    const { default: moduleProjectionRoutes } = await import('./core/navigation/module-projection.routes');
+    await protectedScope.register(moduleProjectionRoutes, { prefix: '/navigation' });
+    const { default: marketplaceCanonicalSearchRoutes } = await import('./modules/marketplace/marketplace-canonical-search.routes');
+    await protectedScope.register(marketplaceCanonicalSearchRoutes, { prefix: '/marketplace' });
+
 
     const { featureFlagsService } = await import('./core/config/feature-flags.service');
     if (featureFlagsService.isProcurementCampaignEnabled()) {

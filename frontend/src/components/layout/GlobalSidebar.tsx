@@ -1,124 +1,56 @@
 // frontend/src/components/layout/GlobalSidebar.tsx
 // 2026-05-15: Sidebar unificada compartilhada por todas as páginas autenticadas.
-// Substitui as 4 sidebars antigas (BankLayout / SocialLayout / AdminLayout /
-// DashboardHome inline) por uma única estrutura padronizada.
+// 2026-06-11 (DECISION-0117 F / CP5): o menu de módulos deixa de ser array
+// hardcoded — é PROJEÇÃO do registry backend governado (GET /navigation/modules).
+// O frontend não inventa módulo/categoria/rota/autoridade; rotas mortas (STUB/
+// TOMBSTONE) não chegam aqui; o menu não concede poder (backend revalida tudo).
+// PILOT_HIDDEN_ROUTES e NAV_GROUPS hardcoded foram absorvidos pelo registry.
 //
-// Pedido Clayton: "em todas as páginas a opção da lateral esquerda tem que
-// ser igual" + adicionar "Sair" no final.
-//
-// Estrutura: 6 seções + Sair.
-//   1. Geral (Início)
-//   2. Financeiro (Carteira/UnifyBank, Extrato, Fundo Regional, Ledger Social)
-//   3. Comércio (Fazer compras, Pedir carro, Pedir comida, Serviços)
-//   4. Social (Rede Social, Grupos, Votações, Impacto)
-//   5. Conta (Meu Perfil, Minhas Empresas, Transparência, Configurações)
-//   6. Criar (Empresa, Página, Grupo, Canal, Evento)
-//   7. Sair
+// priorityRoutes (perfil contextual do actor) seguem como APRESENTAÇÃO:
+// destacam, nunca escondem nem autorizam ("prioriza, não esconde").
 
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { clearSession } from '../../config/auth';
 import { useActorMode } from '../../hooks/useActorMode';
 import { useBusinessProfile } from '../../hooks/useBusinessProfile';
+import { getNavigationModules, type NavModuleGroup, type NavModuleItem } from '../../api/navigation';
 import './GlobalSidebar.css';
-
-interface NavItem {
-  label: string;
-  icon: string;
-  route: string;
-  /** Match exato ou prefixo. Default: prefixo. */
-  exact?: boolean;
-}
-
-interface NavGroup {
-  title: string | null;
-  items: NavItem[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    title: null,
-    items: [{ label: 'Início', icon: '🏠', route: '/home', exact: true }],
-  },
-  {
-    title: 'Financeiro',
-    items: [
-      { label: 'UnifyBank', icon: '🏦', route: '/banco' },
-      { label: 'Extrato', icon: '📄', route: '/extrato' },
-      { label: 'Fundo Regional', icon: '🌱', route: '/fundo-regional' },
-      { label: 'Ledger Social', icon: '📜', route: '/ledger' },
-    ],
-  },
-  {
-    title: 'Comércio',
-    items: [
-      { label: 'Fazer compras', icon: '🛒', route: '/marketplace' },
-      { label: 'Pedir um carro', icon: '🚗', route: '/em-desenvolvimento?feature=mobility' },
-      { label: 'Pedir comida', icon: '🍕', route: '/em-desenvolvimento?feature=food' },
-      { label: 'Locações', icon: '🔑', route: '/em-desenvolvimento?feature=locacoes' },
-      { label: 'Serviços', icon: '🔧', route: '/services' },
-    ],
-  },
-  {
-    title: 'Social',
-    items: [
-      { label: 'Rede Social', icon: '💬', route: '/social' },
-      { label: 'Grupos', icon: '👥', route: '/grupos' },
-      // DT-MODULE-VOTES-FANTASMA (2026-05-16): /votacoes desativado — tabelas inexistentes.
-      { label: 'Votações', icon: '🗳️', route: '/em-desenvolvimento?feature=votes' },
-      { label: 'Impacto', icon: '💚', route: '/impacto' },
-    ],
-  },
-  {
-    title: 'Conta',
-    items: [
-      { label: 'Meu Perfil', icon: '👤', route: '/perfil' },
-      { label: 'Minhas Empresas', icon: '🏢', route: '/empresas' },
-      { label: 'Transparência', icon: '🔍', route: '/transparencia' },
-      { label: 'Configurações', icon: '⚙️', route: '/dashboard' },
-    ],
-  },
-  {
-    title: 'Criar',
-    items: [
-      { label: 'Empresa', icon: '🏢', route: '/empresas' },
-      { label: 'Página', icon: '📄', route: '/em-desenvolvimento?feature=page' },
-      { label: 'Grupo', icon: '👥', route: '/grupos' },
-      { label: 'Canal', icon: '📡', route: '/em-desenvolvimento?feature=channel' },
-      { label: 'Evento', icon: '🎭', route: '/events/new' },
-    ],
-  },
-];
-
-// [MVP-A piloto fechado] Rotas ocultadas do nav por estarem fora do escopo do piloto
-// (marketplace de produtos, serviços pagos, PJ/empresas). Código e rotas permanecem intactos —
-// apenas não são exibidos no menu. Reverter = esvaziar este Set.
-const PILOT_HIDDEN_ROUTES = new Set<string>(['/marketplace', '/services', '/empresas']);
 
 export default function GlobalSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile } = useActorMode();
   const { profile: businessProfile } = useBusinessProfile();
+  const [groups, setGroups] = useState<NavModuleGroup[]>([]);
 
-  const isActive = (item: NavItem): boolean => {
+  useEffect(() => {
+    let cancelled = false;
+    getNavigationModules()
+      .then((projection) => {
+        if (!cancelled) setGroups(projection.groups);
+      })
+      .catch(() => {
+        // Falha honesta: sem projeção, sem menu inventado (fica Início + Sair).
+        if (!cancelled) setGroups([{ title: 'Geral', items: [{ moduleKey: 'home', label: 'Início', icon: '🏠', route: '/home', exact: true }] }]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isActive = (item: NavModuleItem): boolean => {
     const path = item.route.split('?')[0];
     if (item.exact) return location.pathname === path;
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
-  // 2026-05-15: priorityRoutes vêm do perfil contextual do actor ativo.
-  // 2026-05-18 P2 item 5: businessProfile (banda/clínica/loja/etc) MERGE com
-  // priorities do actor — princípio "prioriza, não esconde" preservado.
-  // Sem businessProfile: priorities = profile.sidebarPriorities (legacy).
-  // Com businessProfile: union (Set) — destaque combinado, sem remoção.
-  // Itens prioritários recebem destaque visual (badge "● prioritário").
-  // NÃO escondemos itens — apenas marcamos visualmente. Mantém base
-  // estrutural universal conforme diretriz "actor = modo operacional".
+  // priorityRoutes do perfil contextual: destaque visual, nunca remoção/autoridade.
   const priorityRoutes = new Set([
     ...profile.sidebarPriorities,
     ...(businessProfile?.sidebarPriorities ?? []),
   ]);
-  const isPriority = (item: NavItem): boolean => priorityRoutes.has(item.route);
+  const isPriority = (item: NavModuleItem): boolean => priorityRoutes.has(item.route);
 
   const handleLogout = () => {
     clearSession();
@@ -134,15 +66,15 @@ export default function GlobalSidebar() {
       </div>
 
       <nav className="gs-nav">
-        {NAV_GROUPS.map((group, gIdx) => (
-          <div key={gIdx} className="gs-group">
-            {group.title && <div className="gs-group-title">{group.title}</div>}
-            {group.items.filter((item) => !PILOT_HIDDEN_ROUTES.has(item.route)).map((item) => {
+        {groups.map((group, gIdx) => (
+          <div key={group.title + gIdx} className="gs-group">
+            {group.title && group.title !== 'Geral' && <div className="gs-group-title">{group.title}</div>}
+            {group.items.map((item) => {
               const active = isActive(item);
               const priority = isPriority(item);
               return (
                 <button
-                  key={item.label + item.route}
+                  key={item.moduleKey + item.route}
                   type="button"
                   className={`gs-item ${active ? 'active' : ''} ${priority ? 'priority' : ''}`}
                   onClick={() => navigate(item.route)}

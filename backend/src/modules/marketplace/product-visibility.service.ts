@@ -46,6 +46,8 @@ export interface VisibleProduct {
 
 export interface ListVisibleProductsOptions {
   categoryIds?: string[];
+  /** Página do ITEM canônico (CP5): lista só as ofertas desta identidade. */
+  canonicalProductId?: string;
   limit?: number;
   offset?: number;
 }
@@ -66,6 +68,10 @@ export async function listVisibleProducts(
   if (categoryIds && categoryIds.length > 0) {
     params.push(categoryIds);
     categoryFilter = `AND cp.category_id = ANY($${params.length}::uuid[])`;
+  }
+  if (options.canonicalProductId) {
+    params.push(options.canonicalProductId);
+    categoryFilter += ` AND cp.id = $${params.length}::uuid`;
   }
 
   const query = `
