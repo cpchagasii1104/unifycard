@@ -184,10 +184,10 @@ async function main(): Promise<void> {
   const companyA = await createCompany(UA, 83000001, 'E2E Iso Co A');
   const companyB = await createCompany(UB, 83000002, 'E2E Iso Co B');
 
-  const upload = async (h: Human, companyId: string, buf: Buffer, filename: string): Promise<{ status: number; body: { ok?: boolean; data?: { mediaAssetId: string; moderationStatus: string; reusedExistingBlob: boolean; reusedExistingAsset: boolean }; code?: string } }> => {
+  const upload = async (h: Human, companyId: string, buf: Buffer, filename: string, purpose?: string): Promise<{ status: number; body: { ok?: boolean; data?: { mediaAssetId: string; moderationStatus: string; reusedExistingBlob: boolean; reusedExistingAsset: boolean }; code?: string } }> => {
     const mp = multipartBody([{ name: 'file', filename, contentType: 'image/png', value: buf }]);
     const r = await app.inject({
-      method: 'POST', url: `/catalog/media/assets?companyId=${companyId}`,
+      method: 'POST', url: `/catalog/media/assets?companyId=${companyId}${purpose ? `&purpose=${purpose}` : ''}`,
       headers: { ...h.headers, 'content-type': mp.contentType },
       payload: mp.payload,
     });
@@ -211,7 +211,9 @@ async function main(): Promise<void> {
     record('T1b curador de A aprova o asset de A', apprA.statusCode === 200, `status=${apprA.statusCode}`);
 
     const filesAfterA = await storageFileCount();
-    const u2 = await upload(UB, companyB, PNG_X, 'privada-b.png');
+    // DECISION-0118 D1: B declara USO EMPRESARIAL (purpose=business_media) — a
+    // declaração de B é contexto da empresa B (anexável em business_media em T8).
+    const u2 = await upload(UB, companyB, PNG_X, 'privada-b.png', 'business_media');
     const assetB = u2.body?.data?.mediaAssetId as string;
     const filesAfterB = await storageFileCount();
     record('T2 tenant B envia MESMOS bytes → asset lógico PRÓPRIO (id ≠ A), blob físico reutilizado',

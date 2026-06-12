@@ -49,15 +49,23 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
   }
 
   /**
-   * POST /assets?companyId= — upload de mídia (sugestão empresarial).
-   * multipart: file (+ campos opcionais license). Dedup por hash.
+   * POST /assets?companyId=&purpose= — upload de mídia (DECLARAÇÃO CONTEXTUAL,
+   * DECISION-0118 D1). multipart: file. Dimensões: purpose (business_media |
+   * canonical_catalog; default canonical_catalog), license, provenance,
+   * idempotencyKey. A empresa (companyId) é o CONTEXT_OWNER da declaração —
+   * mesmo humano + mesmos bytes em empresas/finalidades distintas = declarações
+   * distintas (nenhuma dimensão descartada em silêncio).
    */
-  fastify.post<{ Querystring: { companyId?: string; license?: string } }>('/assets', async (req, reply) => {
+  fastify.post<{ Querystring: { companyId?: string; license?: string; purpose?: string; provenance?: string; idempotencyKey?: string } }>('/assets', async (req, reply) => {
     const sub = subject(req as never);
     if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
     const companyId = String(req.query.companyId ?? '').trim();
     if (!companyId) {
-      return reply.status(400).send({ ok: false, code: 'MEDIA_COMPANY_REQUIRED', message: 'companyId é obrigatório (sugestão empresarial).' });
+      return reply.status(400).send({ ok: false, code: 'MEDIA_COMPANY_REQUIRED', message: 'companyId é obrigatório (declaração empresarial).' });
+    }
+    const purpose = String(req.query.purpose ?? 'canonical_catalog').trim();
+    if (purpose !== 'business_media' && purpose !== 'canonical_catalog') {
+      return reply.status(400).send({ ok: false, code: 'MEDIA_PURPOSE_INVALID', message: 'purpose deve ser business_media ou canonical_catalog.' });
     }
     const actorId = await humanActorId(req.tenant.id, sub.userId);
     if (!actorId) return reply.status(403).send({ ok: false, code: 'MEDIA_ACTOR_MISSING' });
@@ -78,6 +86,12 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
         license: req.query.license ?? null,
         source: 'company_suggestion',
         createdByActorId: actorId,
+        // purpose dirige o contexto: uso empresarial ≠ sugestão canônica.
+        contextType: purpose === 'business_media' ? 'company' : 'canonical_suggestion',
+        contextOwnerId: companyId,
+        purpose,
+        provenance: req.query.provenance ?? null,
+        idempotencyKey: req.query.idempotencyKey ?? null,
       });
       // Hash global NÃO é exposto (não é identificador público de mídia privada).
       // reusedExistingBlob = bytes físicos reutilizados; o ASSET é sempre do contexto do caller.
@@ -209,6 +223,7 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
       const { buffer, mimeType } = await mediaAssetService.readContentAuthorized(req.params.mediaAssetId, {
         tenantId: req.tenant.id,
         userId: sub.userId,
+        globalUserId: sub.globalUserId,
         isCurator,
       });
       return reply.header('content-type', mimeType).send(buffer);

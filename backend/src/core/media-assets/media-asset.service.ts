@@ -26,6 +26,13 @@ import { resolveMalwareScanProvider } from '../document-malware-scan/document-ma
 import { magicBytesMatchMime } from '../kyb-documents/kyb-document-validation';
 import { insertCatalogEvent } from '../catalog/canonical/canonical-variant.service';
 import { authorizationService } from '../authorization/authorization.service';
+import {
+  computeMediaContextFingerprintV1,
+  type MediaContextType,
+  type MediaPurpose,
+  MEDIA_CONTEXT_TYPES,
+  MEDIA_PURPOSES,
+} from './media-context-identity';
 
 export class MediaAssetError extends Error {
   constructor(public readonly statusCode: number, public readonly code: string, message: string) {
@@ -47,7 +54,10 @@ export interface MediaBlob {
   storageReference: string;
 }
 
-/** Camada LÓGICA — campos físicos projetados do blob por JOIN (leitura interna). */
+/**
+ * Camada LÓGICA — DECLARAÇÃO CONTEXTUAL (DECISION-0118 D1). Campos físicos
+ * projetados do blob por JOIN (leitura interna).
+ */
 export interface MediaAsset {
   id: string;
   mediaBlobId: string;
@@ -59,6 +69,12 @@ export interface MediaAsset {
   moderationStatus: string;
   createdByActorId: string | null;
   originTenantId: string | null;
+  contextType: MediaContextType;
+  contextOwnerId: string | null;
+  purpose: MediaPurpose;
+  provenance: string | null;
+  contextFingerprint: string;
+  idempotencyKey: string | null;
 }
 
 interface BlobRow {
@@ -80,11 +96,18 @@ interface AssetRow {
   moderation_status: string;
   created_by_actor_id: string | null;
   origin_tenant_id: string | null;
+  context_type: string;
+  context_owner_id: string | null;
+  purpose: string;
+  origin_note: string | null;
+  context_fingerprint: string;
+  idempotency_key: string | null;
 }
 
 const ASSET_SELECT =
   'ma.id, ma.media_blob_id, mb.mime_type, mb.size_bytes, ma.source, ma.license, ma.version, ' +
-  'ma.moderation_status, ma.created_by_actor_id, ma.origin_tenant_id';
+  'ma.moderation_status, ma.created_by_actor_id, ma.origin_tenant_id, ma.context_type, ' +
+  'ma.context_owner_id, ma.purpose, ma.origin_note, ma.context_fingerprint, ma.idempotency_key';
 const ASSET_FROM = 'media_assets ma JOIN media_blobs mb ON mb.id = ma.media_blob_id';
 
 function toBlob(row: BlobRow): MediaBlob {
@@ -109,6 +132,12 @@ function toAsset(row: AssetRow): MediaAsset {
     moderationStatus: row.moderation_status,
     createdByActorId: row.created_by_actor_id,
     originTenantId: row.origin_tenant_id,
+    contextType: row.context_type as MediaContextType,
+    contextOwnerId: row.context_owner_id,
+    purpose: row.purpose as MediaPurpose,
+    provenance: row.origin_note,
+    contextFingerprint: row.context_fingerprint,
+    idempotencyKey: row.idempotency_key,
   };
 }
 
@@ -129,8 +158,24 @@ export function toPublicMediaProjection(asset: MediaAsset): PublicMediaProjectio
 export interface MediaReadContext {
   tenantId: string;
   userId: string;
+  /** Necessário para autoridade de CONTEXT_OWNER empresarial (canManageCompany). */
+  globalUserId?: string;
   /** Curador humano (requireRole admin já provado na rota OU rbac consultado pela rota). */
   isCurator?: boolean;
+}
+
+export interface PersistAssetParams {
+  mediaBlobId: string;
+  source: string;
+  license: string | null;
+  createdByActorId: string | null;
+  originTenantId: string | null;
+  contextType: MediaContextType;
+  contextOwnerId: string | null;
+  purpose: MediaPurpose;
+  provenance: string | null;
+  contextFingerprint: string;
+  idempotencyKey: string | null;
 }
 
 /** Test seam (mesmo molde do submitKybDocument): storage/scanner/persist fakes no e2e. */
@@ -138,32 +183,39 @@ export interface IngestMediaDeps {
   storage?: DocumentStoragePort;
   scanner?: MalwareScanPort;
   /** Override do INSERT do ASSET LÓGICO (e2e de compensação ref-count-safe). */
-  persistAssetRow?: (params: {
-    mediaBlobId: string;
-    source: string;
-    license: string | null;
-    createdByActorId: string | null;
-    originTenantId: string | null;
-  }) => Promise<AssetRow>;
+  persistAssetRow?: (params: PersistAssetParams) => Promise<AssetRow>;
 }
 
-async function defaultPersistAssetRow(params: {
-  mediaBlobId: string;
-  source: string;
-  license: string | null;
-  createdByActorId: string | null;
-  originTenantId: string | null;
-}): Promise<AssetRow> {
+async function defaultPersistAssetRow(params: PersistAssetParams): Promise<AssetRow> {
   const r = await pool.query<AssetRow>(
     `WITH ins AS (
-       INSERT INTO media_assets (media_blob_id, source, license, created_by_actor_id, origin_tenant_id)
-       VALUES ($1::uuid, $2, $3, $4::uuid, $5::uuid)
-       RETURNING id, media_blob_id, source, license, version, moderation_status, created_by_actor_id, origin_tenant_id
+       INSERT INTO media_assets (
+         media_blob_id, source, license, created_by_actor_id, origin_tenant_id,
+         context_type, context_owner_id, purpose, origin_note, context_fingerprint, idempotency_key
+       )
+       VALUES ($1::uuid, $2, $3, $4::uuid, $5::uuid, $6, $7::uuid, $8, $9, $10, $11)
+       RETURNING id, media_blob_id, source, license, version, moderation_status,
+                 created_by_actor_id, origin_tenant_id, context_type, context_owner_id,
+                 purpose, origin_note, context_fingerprint, idempotency_key
      )
      SELECT ins.id, ins.media_blob_id, mb.mime_type, mb.size_bytes, ins.source, ins.license,
-            ins.version, ins.moderation_status, ins.created_by_actor_id, ins.origin_tenant_id
+            ins.version, ins.moderation_status, ins.created_by_actor_id, ins.origin_tenant_id,
+            ins.context_type, ins.context_owner_id, ins.purpose, ins.origin_note,
+            ins.context_fingerprint, ins.idempotency_key
        FROM ins JOIN media_blobs mb ON mb.id = ins.media_blob_id`,
-    [params.mediaBlobId, params.source, params.license, params.createdByActorId, params.originTenantId]
+    [
+      params.mediaBlobId,
+      params.source,
+      params.license,
+      params.createdByActorId,
+      params.originTenantId,
+      params.contextType,
+      params.contextOwnerId,
+      params.purpose,
+      params.provenance,
+      params.contextFingerprint,
+      params.idempotencyKey,
+    ]
   );
   return r.rows[0];
 }
@@ -188,17 +240,30 @@ export const mediaAssetService = {
   },
 
   /**
-   * Reuso LÓGICO context-scoped: mesmo blob + mesmo tenant + mesmo actor criador
-   * = asset idempotente. Contexto diferente NUNCA reusa asset de terceiro.
+   * Reuso LÓGICO pela DECLARAÇÃO CONTEXTUAL COMPLETA (DECISION-0118 D1):
+   * idempotente sse blob+tenant+actor+context_type+context_owner+source+purpose+
+   * licença+provenance coincidem INTEGRALMENTE (context_fingerprint). Qualquer
+   * dimensão divergente ⇒ declaração nova (nenhuma intenção descartada).
    */
-  async findAssetByBlobAndContext(mediaBlobId: string, originTenantId: string, createdByActorId: string): Promise<MediaAsset | null> {
+  async findAssetByContextFingerprint(contextFingerprint: string): Promise<MediaAsset | null> {
     const r = await pool.query<AssetRow>(
       `SELECT ${ASSET_SELECT} FROM ${ASSET_FROM}
-        WHERE ma.media_blob_id = $1::uuid
-          AND ma.origin_tenant_id = $2::uuid
-          AND ma.created_by_actor_id = $3::uuid
+        WHERE ma.context_fingerprint = $1
         LIMIT 1`,
-      [mediaBlobId, originTenantId, createdByActorId]
+      [contextFingerprint]
+    );
+    return r.rows[0] ? toAsset(r.rows[0]) : null;
+  },
+
+  /** Chave explícita de idempotência — escopo (tenant, actor declarante). */
+  async findAssetByIdempotencyKey(originTenantId: string, createdByActorId: string, idempotencyKey: string): Promise<MediaAsset | null> {
+    const r = await pool.query<AssetRow>(
+      `SELECT ${ASSET_SELECT} FROM ${ASSET_FROM}
+        WHERE ma.origin_tenant_id = $1::uuid
+          AND ma.created_by_actor_id = $2::uuid
+          AND ma.idempotency_key = $3
+        LIMIT 1`,
+      [originTenantId, createdByActorId, idempotencyKey]
     );
     return r.rows[0] ? toAsset(r.rows[0]) : null;
   },
@@ -215,20 +280,36 @@ export const mediaAssetService = {
   },
 
   /**
-   * Resolver de VISIBILIDADE do asset lógico (metadata e arquivo):
+   * Resolver de VISIBILIDADE da declaração (metadata e arquivo) — DECISION-0118 D1:
    *   (a) canônica pública: approved + vinculada a produto/variante/serviço canônico;
-   *   (b) contexto do criador: mesmo tenant + canRepresentActor sobre o actor criador;
-   *   (c) curador humano (moderação precisa VER o pending).
+   *   (b) autoridade do CONTEXT_OWNER: declaração com empresa dona do uso exige
+   *       canManageCompany sobre ELA (representação genérica do actor autor NÃO
+   *       basta quando o ownership real é uma empresa específica);
+   *   (c) contexto do criador (declarações de plataforma/legadas sem owner):
+   *       mesmo tenant + canRepresentActor sobre o actor declarante;
+   *   (d) curador humano do tenant (moderação precisa VER o pending).
    * Cross-tenant privado: invisível (caller recebe 404 — sem oráculo de existência).
    */
   async canReadMediaAsset(asset: MediaAsset, ctx: MediaReadContext): Promise<boolean> {
     if (asset.moderationStatus === 'approved' && (await this.isAttachedToCanonical(asset.id))) {
       return true;
     }
-    if (ctx.isCurator === true && asset.originTenantId === ctx.tenantId) {
+    if (asset.originTenantId !== ctx.tenantId) {
+      return false;
+    }
+    if (ctx.isCurator === true) {
       return true;
     }
-    if (asset.originTenantId === ctx.tenantId && asset.createdByActorId) {
+    if (asset.contextOwnerId) {
+      if (!ctx.globalUserId) return false;
+      try {
+        const { companiesService } = await import('../companies/companies.service');
+        return await companiesService.canManageCompany(ctx.tenantId, asset.contextOwnerId, ctx.globalUserId);
+      } catch {
+        return false; // fail-closed
+      }
+    }
+    if (asset.createdByActorId) {
       return authorizationService.canRepresentActor(ctx.tenantId, ctx.userId, asset.createdByActorId);
     }
     return false;
@@ -271,6 +352,12 @@ export const mediaAssetService = {
       license?: string | null;
       source?: 'company_suggestion' | 'curated' | 'seed';
       createdByActorId?: string | null;
+      /** DECISION-0118 D1 — declaração contextual completa. */
+      contextType?: MediaContextType;
+      contextOwnerId?: string | null;
+      purpose?: MediaPurpose;
+      provenance?: string | null;
+      idempotencyKey?: string | null;
     },
     deps: IngestMediaDeps = {}
   ): Promise<{ asset: MediaAsset; reusedExistingBlob: boolean; reusedExistingAsset: boolean }> {
@@ -327,49 +414,117 @@ export const mediaAssetService = {
       }
     }
 
-    // ── Camada LÓGICA: reuso SÓ no contexto do caller (tenant + actor criador) ──
+    // ── Camada LÓGICA: DECLARAÇÃO CONTEXTUAL (DECISION-0118 D1) ─────────────
     const source = input.source ?? 'company_suggestion';
     const createdByActorId = input.createdByActorId ?? null;
-    if (createdByActorId) {
-      const own = await this.findAssetByBlobAndContext(blob.id, input.tenantId, createdByActorId);
-      if (own) {
-        return { asset: own, reusedExistingBlob: true, reusedExistingAsset: true };
-      }
+    const contextType = input.contextType ?? (source === 'company_suggestion' ? 'canonical_suggestion' : 'platform');
+    const contextOwnerId = input.contextOwnerId ?? null;
+    const purpose = input.purpose ?? (source === 'company_suggestion' ? 'canonical_catalog' : 'platform_curation');
+    const provenance = input.provenance ?? null;
+    const license = input.license ?? null;
+    const idempotencyKey = input.idempotencyKey ?? null;
+    if (!(MEDIA_CONTEXT_TYPES as readonly string[]).includes(contextType)) {
+      throw new MediaAssetError(400, 'MEDIA_CONTEXT_TYPE_INVALID', `context_type '${contextType}' fora do vocabulário.`);
+    }
+    if (!(MEDIA_PURPOSES as readonly string[]).includes(purpose)) {
+      throw new MediaAssetError(400, 'MEDIA_PURPOSE_INVALID', `purpose '${purpose}' fora do vocabulário.`);
+    }
+    if (contextType === 'company' && !contextOwnerId) {
+      throw new MediaAssetError(400, 'MEDIA_CONTEXT_OWNER_REQUIRED', 'Uso empresarial exige context_owner_id (empresa dona do uso).');
     }
 
-    const persist = deps.persistAssetRow ?? defaultPersistAssetRow;
-    let row: AssetRow;
+    const contextFingerprint = computeMediaContextFingerprintV1({
+      mediaBlobId: blob.id,
+      originTenantId: input.tenantId,
+      createdByActorId,
+      contextType,
+      contextOwnerId,
+      source,
+      purpose,
+      license,
+      provenance,
+    });
+
     try {
-      row = await persist({
-        mediaBlobId: blob.id,
-        source,
-        license: input.license ?? null,
-        createdByActorId,
-        originTenantId: input.tenantId,
-      });
-    } catch (err) {
-      // Corrida no UNIQUE de contexto: o próprio contexto inseriu em paralelo → idempotente.
-      if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505' && createdByActorId) {
-        const winner = await this.findAssetByBlobAndContext(blob.id, input.tenantId, createdByActorId);
-        if (winner) return { asset: winner, reusedExistingBlob: true, reusedExistingAsset: true };
+      // CHAVE EXPLÍCITA de idempotência: payload divergente = CONFLITO observável
+      // (409); jamais sucesso falso, jamais alteração do registro anterior.
+      if (idempotencyKey && createdByActorId) {
+        const byKey = await this.findAssetByIdempotencyKey(input.tenantId, createdByActorId, idempotencyKey);
+        if (byKey) {
+          if (byKey.contextFingerprint === contextFingerprint) {
+            return { asset: byKey, reusedExistingBlob: true, reusedExistingAsset: true };
+          }
+          throw new MediaAssetError(409, 'MEDIA_IDEMPOTENCY_CONFLICT',
+            'Idempotency-Key reutilizada com payload contextual divergente — nada foi alterado.');
+        }
       }
-      // COMPENSAÇÃO: só se o blob nasceu NESTA chamada e ninguém mais o referencia.
+
+      // CASO 1 — contexto INTEGRALMENTE idêntico ⇒ idempotente (mesmo asset).
+      const same = await this.findAssetByContextFingerprint(contextFingerprint);
+      if (same) {
+        return { asset: same, reusedExistingBlob: true, reusedExistingAsset: true };
+      }
+
+      // CASO 2 — mesmos bytes, contexto DIFERENTE ⇒ declaração NOVA sobre o mesmo blob.
+      const persist = deps.persistAssetRow ?? defaultPersistAssetRow;
+      let row: AssetRow;
+      try {
+        row = await persist({
+          mediaBlobId: blob.id,
+          source,
+          license,
+          createdByActorId,
+          originTenantId: input.tenantId,
+          contextType,
+          contextOwnerId,
+          purpose,
+          provenance,
+          contextFingerprint,
+          idempotencyKey,
+        });
+      } catch (err) {
+        if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505') {
+          // Corrida no UNIQUE de fingerprint: o MESMO contexto inseriu em paralelo → idempotente.
+          const winner = await this.findAssetByContextFingerprint(contextFingerprint);
+          if (winner) return { asset: winner, reusedExistingBlob: true, reusedExistingAsset: true };
+          // Corrida no UNIQUE de idempotency_key: outro payload ganhou a chave → conflito.
+          if (idempotencyKey && createdByActorId) {
+            const byKey = await this.findAssetByIdempotencyKey(input.tenantId, createdByActorId, idempotencyKey);
+            if (byKey && byKey.contextFingerprint !== contextFingerprint) {
+              throw new MediaAssetError(409, 'MEDIA_IDEMPOTENCY_CONFLICT',
+                'Idempotency-Key reutilizada com payload contextual divergente — nada foi alterado.');
+            }
+          }
+        }
+        throw err;
+      }
+
+      const asset = toAsset(row);
+      await insertCatalogEvent({
+        entityType: 'media_asset',
+        entityId: asset.id,
+        eventType: 'media_ingested',
+        payload: {
+          mediaBlobId: blob.id,
+          mimeType: mime,
+          sizeBytes: asset.sizeBytes,
+          reusedExistingBlob: !blobCreatedHere,
+          contextType,
+          contextOwnerId,
+          purpose,
+        },
+        actorId: createdByActorId,
+        tenantId: input.tenantId,
+      });
+      return { asset, reusedExistingBlob: !blobCreatedHere, reusedExistingAsset: false };
+    } catch (err) {
+      // COMPENSAÇÃO: só se o blob nasceu NESTA chamada e ninguém mais o referencia
+      // (blob COMPARTILHADO jamais é apagado — guarda NOT EXISTS + FK RESTRICT).
       if (blobCreatedHere) {
         await this.deleteBlobIfUnreferenced(blob, storage);
       }
       throw err;
     }
-
-    const asset = toAsset(row);
-    await insertCatalogEvent({
-      entityType: 'media_asset',
-      entityId: asset.id,
-      eventType: 'media_ingested',
-      payload: { mediaBlobId: blob.id, mimeType: mime, sizeBytes: asset.sizeBytes, reusedExistingBlob: !blobCreatedHere },
-      actorId: createdByActorId,
-      tenantId: input.tenantId,
-    });
-    return { asset, reusedExistingBlob: !blobCreatedHere, reusedExistingAsset: false };
   },
 
   /**
@@ -451,11 +606,13 @@ export const mediaAssetService = {
   },
 
   /**
-   * Complemento EMPRESARIAL (isolado por actor; nunca substitui a canônica).
-   * Autoridade sobre o OWNER (canRepresentActor) é provada na ROTA; aqui se prova
-   * que o ASSET pertence ao contexto do caller: mesmo tenant E (contexto do criador
-   * representável OU mídia canônica pública aprovada — referência explícita).
-   * Asset privado de OUTRO tenant/contexto: inanexável (cross-tenant → 404 sem oráculo).
+   * Complemento EMPRESARIAL (isolado por CONTEXTO — DECISION-0118 D1).
+   * Autoridade sobre o OWNER actor (canRepresentActor) é provada na ROTA; aqui se
+   * prova que o ASSET pertence ao CONTEXTO EMPRESARIAL do alvo do attach:
+   * declaração `context_type='company'` cuja `context_owner_id` é a MESMA empresa
+   * do alvo — OU mídia canônica pública aprovada (referência explícita).
+   * O mesmo humano representar duas empresas NÃO torna os ativos privados de uma
+   * anexáveis pela outra. Cross-tenant privado → 404 sem oráculo.
    */
   async attachBusinessMedia(input: {
     tenantId: string;
@@ -475,11 +632,26 @@ export const mediaAssetService = {
         // Cross-tenant privado: invisível — sem oráculo de existência.
         throw new MediaAssetError(404, 'MEDIA_NOT_FOUND', 'Asset inexistente.');
       }
-      const creatorOk =
-        asset.createdByActorId !== null &&
-        (await authorizationService.canRepresentActor(input.tenantId, input.subjectUserId, asset.createdByActorId));
-      if (!creatorOk) {
-        throw new MediaAssetError(403, 'MEDIA_ASSET_FOREIGN', 'Asset lógico de outro contexto — anexe mídia do próprio contexto ou mídia canônica pública.');
+      // Empresa-alvo do attach: 'company' usa o próprio alvo; demais derivam do
+      // page actor dono (actors.company_id). PF sem empresa ⇒ sem contexto empresarial.
+      let targetCompanyId: string | null = null;
+      if (input.attachedToType === 'company') {
+        targetCompanyId = input.attachedToId;
+      } else {
+        const owner = await pool.query<{ company_id: string | null }>(
+          `SELECT company_id FROM actors WHERE id = $1::uuid AND tenant_id = $2::uuid LIMIT 1`,
+          [input.ownerActorId, input.tenantId]
+        );
+        targetCompanyId = owner.rows[0]?.company_id ?? null;
+      }
+      const contextMatches =
+        asset.contextType === 'company' &&
+        asset.contextOwnerId !== null &&
+        targetCompanyId !== null &&
+        asset.contextOwnerId === targetCompanyId;
+      if (!contextMatches) {
+        throw new MediaAssetError(403, 'MEDIA_ASSET_FOREIGN',
+          'Asset lógico de outro contexto — anexe declaração empresarial DESTA empresa ou mídia canônica pública.');
       }
     }
     await pool.query(
