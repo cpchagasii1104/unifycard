@@ -502,6 +502,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     const { default: catalogGovernanceRoutes } = await import('./core/catalog/catalog-governance.routes');
     await protectedScope.register(catalogGovernanceRoutes, { prefix: '/catalog/governance' });
 
+    // DECISION-0117 C — mídia canônica content-addressed (assets + relações + complemento empresarial)
+    const { default: mediaAssetsRoutes } = await import('./core/media-assets/media-assets.routes');
+    await protectedScope.register(mediaAssetsRoutes, { prefix: '/catalog/media' });
+
 
     const { featureFlagsService } = await import('./core/config/feature-flags.service');
     if (featureFlagsService.isProcurementCampaignEnabled()) {
