@@ -4543,3 +4543,25 @@ físico para o vocabulário não escapar de novo). 3. Gate que exige a FORMA da 
 (dimensões na identidade), não assinaturas. 4. Enum member regex sem escopo de bloco vaza para
 os outros enums do arquivo — parse do bloco antes do parse dos membros. 5. Fixture de page actor:
 o nascimento de empresa JÁ materializa o page (uq_actors_company_page) — SELECT antes de INSERT.
+
+## 2026-06-12 — F-CANONICAL-MEDIA-CONTEXT-IDENTITY-V2-COLLISION-SAFE-CLOSURE
+
+Yala provou preimage-collision no fingerprint V1 (md5 de join "|"): dois campos livres
+adjacentes deixam "a"+"b|c" == "a|b"+"c". V2: encoder de fonte ÚNICA em SQL (campo nomeado,
+marcador N de NULL, length-prefix em bytes UTF-8, sha256, version=2), recomparação material
+integral em TODO match (409 em colisão), backfill legado provado nas duas rotas
+(preservação + fail-closed).
+
+LIÇÕES: 1. Concatenar campos LIVRES com delimitador é colidível por construção — identidade
+composta exige encoding length-prefixed/nomeado (injetividade por construção), não "delimitador
+improvável". 2. Hash NUNCA é prova de igualdade em substrato de identidade: o lookup por
+fingerprint localiza CANDIDATO; a igualdade vem da recomparação das colunas materiais
+(IS NOT DISTINCT FROM) — isso também imuniza contra colisão do próprio algoritmo. 3. Fórmula
+espelhada em duas linguagens É uma DT latente: a fonte única (função SQL chamada pelo runtime)
+elimina a classe inteira de drift — e o custo é um SELECT. 4. NULL≡"" só pode ser verdade por
+NORMALIZAÇÃO PRÉ-PERSISTÊNCIA declarada e testada; se ficar implícito no encoder, vira
+ambiguidade de novo. 5. Backfill nunca exercitado (tabela vazia no dev) é backfill NÃO provado —
+e2e de migração com MIGRATION_STOP_BEFORE + seed legado + cenário impossível prova as duas
+rotas (preservação E abort) antes de a primeira linha real existir. 6. Gate de janela única
+([\s\S]{0,N}) é contornável quando o token aparece em mais de uma call-site — matchAll +
+janela POR call-site fecha o bypass.

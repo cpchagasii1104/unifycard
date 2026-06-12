@@ -170,24 +170,92 @@ for (const f of FAMILY) {
     !/FROM\s+media_assets[\s\S]{0,120}?WHERE[\s\S]{0,80}?content_hash/i.test(media) && !/\bfindByContentHash\b/.test(media),
     'media-asset voltou a resolver ASSET LÓGICO por hash global (asset/metadata do 1º uploader vazando cross-tenant — FAIL Yala).');
 
-  // 6d — identidade lógica é a DECLARAÇÃO CONTEXTUAL COMPLETA (DECISION-0118 D1).
-  //      PROIBIDO voltar a blob+tenant+actor como contexto completo (o anti-padrão
-  //      [B1] do reseal Yala — licença/source/purpose/owner descartados em silêncio).
+  // 6d — identidade lógica é a DECLARAÇÃO CONTEXTUAL COMPLETA (DECISION-0118 D1),
+  //      em ENCODER V2 collision-safe (fecha DT-MEDIA-CONTEXT-FINGERPRINT-
+  //      SERIALIZATION-AMBIGUITY): PROIBIDO join '|' / md5 / fórmula manuscrita
+  //      paralela; a fonte do encoder é a FUNÇÃO SQL media_context_fingerprint_v2.
   const identity = read(join(SRC, 'core/media-assets/media-context-identity.ts'));
-  check('canonical:media-identity-is-full-context',
-    /computeMediaContextFingerprintV1/.test(media) &&
+  check('canonical:media-identity-is-full-context-v2',
+    /computeMediaContextFingerprintV2/.test(media) &&
     /this\.findAssetByContextFingerprint\(contextFingerprint\)/.test(media) &&
     !/findAssetByBlobAndContext/.test(media) &&
+    /media_context_fingerprint_v2\(/.test(identity) &&
     /decl\.contextType/.test(identity) && /decl\.contextOwnerId/.test(identity) &&
     /decl\.source/.test(identity) && /decl\.purpose/.test(identity) &&
-    /normalizeContextDimension\(decl\.license\)/.test(identity) &&
-    /normalizeContextDimension\(decl\.provenance\)/.test(identity),
-    'identidade do asset lógico regrediu (context_owner/source/purpose/licença/provenance fora da identidade — colapso contextual [B1]).');
+    /canonicalizeContextDimension\(decl\.license\)/.test(identity) &&
+    /canonicalizeContextDimension\(decl\.provenance\)/.test(identity),
+    'identidade do asset lógico regrediu (encoder V2/dimensões fora da identidade — colapso contextual [B1]).');
 
-  // 6d2 — chave explícita de idempotência: payload divergente = CONFLITO observável.
+  // 6d1 — SERIALIZAÇÃO INEQUÍVOCA: proibido reaparecer concatenação com
+  //       delimitador livre (join "|") ou md5 como identidade contextual viva.
+  check('canonical:media-no-ambiguous-serialization',
+    !/\.join\(['"`]\|['"`]\)/.test(identity) && !/\bmd5\b/i.test(identity) &&
+    !/createHash\(['"`]md5['"`]\)/.test(media) &&
+    !/computeMediaContextFingerprintV1\b/.test(media) && !/computeMediaContextFingerprintV1\b/.test(identity),
+    'serialização ambígua/md5 voltou à identidade contextual (preimage colidível — vetor Yala license="a|b").');
+
+  // 6d2 — chave explícita de idempotência: TODO match (todas as call-sites)
+  //       exige COMPARAÇÃO MATERIAL INTEGRAL; divergente = CONFLITO observável.
+  const keyCallSites = [...media.matchAll(/this\.findAssetByIdempotencyKey\(/g)];
   check('canonical:media-idempotency-conflict-observable',
-    /MEDIA_IDEMPOTENCY_CONFLICT/.test(media) && /findAssetByIdempotencyKey/.test(media),
-    'Idempotency-Key divergente deixou de conflitar observavelmente (sucesso falso/descarte silencioso — proibido).');
+    /MEDIA_IDEMPOTENCY_CONFLICT/.test(media) &&
+    keyCallSites.length >= 1 &&
+    keyCallSites.every((m) => /materiallyEqualMediaContext\(/.test(media.slice(m.index, m.index + 300))),
+    'Idempotency-Key deixou de recomparar o payload integral em alguma call-site / de conflitar observavelmente (sucesso falso — proibido).');
+
+  // 6d3 — HASH NUNCA É PROVA DE IGUALDADE: TODO match de fingerprint (todas as
+  //       call-sites) recompara as dimensões materiais; colisão = 409 observável.
+  const fpCallSites = [...media.matchAll(/this\.findAssetByContextFingerprint\(contextFingerprint\)/g)];
+  check('canonical:media-fingerprint-never-sole-proof',
+    /MEDIA_CONTEXT_FINGERPRINT_COLLISION/.test(media) &&
+    fpCallSites.length >= 1 &&
+    fpCallSites.every((m) => /materiallyEqualMediaContext\(/.test(media.slice(m.index, m.index + 300))),
+    'match de fingerprint voltou a reutilizar asset SEM recomparação material integral em alguma call-site (fingerprint-only trust — proibido).');
+
+  // 6d4 — comparação material COMPLETA: nenhuma dimensão pode ser ignorada.
+  check('canonical:media-material-comparison-complete',
+    /materiallyEqualMediaContext/.test(identity) &&
+    /ma\.media_blob_id = \$2::uuid/.test(identity) &&
+    /ma\.origin_tenant_id IS NOT DISTINCT FROM/.test(identity) &&
+    /ma\.created_by_actor_id IS NOT DISTINCT FROM/.test(identity) &&
+    /ma\.context_type = \$5::text/.test(identity) &&
+    /ma\.context_owner_id IS NOT DISTINCT FROM/.test(identity) &&
+    /ma\.source = \$7::text/.test(identity) &&
+    /ma\.purpose = \$8::text/.test(identity) &&
+    /media_context_dimension_norm\(ma\.license\)/.test(identity) &&
+    /media_context_dimension_norm\(ma\.origin_note\)/.test(identity),
+    'comparação material perdeu dimensão (blob/tenant/actor/context/owner/source/purpose/licença/provenance — descarte silencioso possível).');
+
+  // 6d5 — V2 VERSIONADO + V1 NÃO SOBERANO: migration recalcula tudo para V2
+  //       (sha256, length-prefix, marcador N de NULL), retira o índice V1;
+  //       runtime persiste version=2 e NUNCA consulta o fingerprint V1.
+  const migV2 = readFileSync(join(MIGRATIONS, '20260612120000_media_context_identity_v2.sql'), 'utf-8');
+  check('canonical:media-identity-v2-versioned-encoder',
+    /media_context_fingerprint_v2/.test(migV2) && /sha256\(/.test(migV2) &&
+    /octet_length\(convert_to\(/.test(migV2) && /THEN 'N'/.test(migV2) &&
+    /media_context_preimage_field_v2\('LICENSE'/.test(migV2) &&
+    /media_context_preimage_field_v2\('PROVENANCE'/.test(migV2) &&
+    /SET context_fingerprint = media_context_fingerprint_v2\(/.test(migV2) &&
+    /context_identity_version = 2/.test(migV2) &&
+    /DROP INDEX IF EXISTS uidx_media_assets_context_fingerprint;/.test(migV2) &&
+    /uidx_media_assets_context_fingerprint_v2/.test(migV2) &&
+    /contextIdentityVersion: MEDIA_CONTEXT_IDENTITY_VERSION/.test(media) &&
+    !/context_fingerprint_v1/.test(media) && !/context_fingerprint_v1/.test(identity),
+    'identidade V2 regrediu (sem versão/sha256/recálculo, índice V1 soberano ou runtime consultando fingerprint V1 — proibido).');
+
+  // 6d6 — PROVAS PERMANENTES: vetor Yala exato + colisão forçada + backfill
+  //       legado precisam EXISTIR como e2e (gate acusa remoção).
+  const ctxE2ePath = join(SRC, 'scripts/validate-pipeline-e2e-media-contextual-identity.ts');
+  const backfillE2ePath = join(SRC, 'scripts/validate-pipeline-e2e-media-migration-backfill-legacy.ts');
+  const ctxE2e = existsSync(ctxE2ePath) ? readFileSync(ctxE2ePath, 'utf-8') : '';
+  const backfillE2e = existsSync(backfillE2ePath) ? readFileSync(backfillE2ePath, 'utf-8') : '';
+  check('canonical:media-v2-proofs-exist',
+    /provenance: 'b\|c'/.test(ctxE2e) && /license: 'a\|b'/.test(ctxE2e) &&
+    /MEDIA_CONTEXT_FINGERPRINT_COLLISION/.test(ctxE2e) &&
+    /MIGRATION_STOP_BEFORE|stop-before/i.test(backfillE2e) &&
+    /context_identity_version/.test(backfillE2e) &&
+    /media_context_fingerprint_v2/.test(backfillE2e),
+    'provas permanentes da identidade V2 sumiram (vetor Yala exato / colisão forçada / backfill legado — suíte obrigatória).');
 
   // 6e — reader de arquivo AUTORIZADO: rota chama leitura autorizada; resolver
   //      prova visibilidade — canônica pública = approved E vinculada (isAttachedToCanonical);

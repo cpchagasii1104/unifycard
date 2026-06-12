@@ -12479,3 +12479,65 @@ Revalidados como FORA do corte desta macrofrente (GO §14): vínculo booking→s
 sobreposição temporal global · bundle atômico · actorId usado como userId nas service orders ·
 escrow best-effort. Pertencem à macrofrente **oferta → pedido/agendamento** (cadeia causal
 seguinte); nenhum deles bloqueia as superfícies declaradas desta frente.
+
+## DT-MEDIA-CONTEXT-FINGERPRINT-SERIALIZATION-AMBIGUITY — OPEN (2026-06-12, achado do re-reseal final Yala) → CLOSED (2026-06-12)
+
+- **Origem:** re-reseal FINAL da Yala sobre a macrofrente canônica (eixo mídia FAIL com este
+  único bloqueador): `computeMediaContextFingerprintV1` era `md5(parts.join('|'))` — campos
+  LIVRES adjacentes (licença, provenance) permitiam **preimages idênticos para contextos
+  diferentes**: `license='a' + provenance='b|c'` colidia com `license='a|b' + provenance='c'`;
+  o serviço encontrava o asset anterior por fingerprint SEM recomparar dimensões,
+  devolvia `reusedExistingAsset=true` e a nova licença era **descartada em silêncio** —
+  violação direta da DECISION-0118 D1 (contexto divergente não é idempotente).
+- **Status:** **CLOSED (2026-06-12)** — frente `F-CANONICAL-MEDIA-CONTEXT-IDENTITY-V2-COLLISION-SAFE-CLOSURE`:
+  - **Encoder V2 de FONTE ÚNICA** (migration `20260612120000_media_context_identity_v2.sql`):
+    funções SQL `media_context_dimension_norm` / `media_context_preimage_v2` /
+    `media_context_fingerprint_v2` usadas pelo backfill E pelo runtime
+    (`computeMediaContextFingerprintV2` só as invoca — nenhuma segunda fórmula manuscrita).
+    Serialização INEQUÍVOCA: `MEDIA_CTX_V2` + campo NOMEADO + marcador `N` de NULL +
+    **length-prefix em BYTES UTF-8** + conteúdo (`"a|b"` num campo jamais vira dois campos);
+    hash **sha256**; `context_identity_version=2` persistido (NOT NULL + CHECK);
+    `context_fingerprint_v1` preservado como ARQUEOLOGIA (índice V1 retirado; UNIQUE V2 vivo);
+    fail-closed: source fora do vocabulário / sugestão sem declarante / colisão V2 = ABORT
+    sem mesclar/apagar/escolher.
+  - **HASH NUNCA É PROVA DE IGUALDADE**: todo match (fingerprint, idempotency_key, corridas
+    23505) recompara TODAS as dimensões materiais (`materiallyEqualMediaContext` — blob, tenant,
+    actor, context_type, context_owner, source, purpose, licença, provenance — `IS NOT DISTINCT
+    FROM` + a MESMA normalização da identidade). Fingerprint igual + dimensão diferente ⇒
+    **409 MEDIA_CONTEXT_FINGERPRINT_COLLISION** (nunca devolve o anterior, nada alterado);
+    idempotency-key divergente ⇒ 409 MEDIA_IDEMPOTENCY_CONFLICT.
+  - **Semântica normada explícita** das dimensões livres: canonicalização PRÉ-PERSISTÊNCIA
+    (trim ASCII; `''`/whitespace ⇒ NULL — NULL ≡ vazio por DECISÃO via normalização, nunca por
+    ambiguidade de encoding; case PRESERVADO na persistência); identidade case-insensitive
+    (lower, DECISION-0118 D1); Unicode byte-exato (NFC ≠ NFD = declarações distintas);
+    espaços internos significativos. Dado LEGADO preservado byte-exato (migração não normaliza).
+  - Gate canônico ampliado (6d reescrito V2 + 6d1 serialização ambígua proibida + 6d2/6d3
+    recomparação em TODAS as call-sites + 6d4 comparação completa + 6d5 versão/V1-não-soberano +
+    6d6 provas permanentes) — 76/5/0/0/0. Provas negativas P12–P16 (+ P-M1/P-M2 repontadas)
+    **16/16** sha-verificadas.
+- **Provas:** e2e `validate-pipeline-e2e-media-contextual-identity.ts` **35/35** (VETOR YALA
+  EXATO com preimages distintos e parseáveis · NULL×EMPTY×TRIM×CASE · Unicode NFC≠NFD/emoji ·
+  delimitadores/injeção de encoding · COLISÃO FORÇADA service-level 409 com linha intacta) ·
+  e2e NOVO `validate-pipeline-e2e-media-migration-backfill-legacy.ts` **20/20** (backfill
+  legado REAL: fase feliz com preservação total + inferência da 374 + V2 recalculado pela fonte
+  única + arqueologia V1; fase fail-closed: contexto não inferível ⇒ 376 aborta, nada
+  descartado) · isolation 25/25 · CP2 26/26 · canônico integrado 21/21 · integrado
+  contextual-temporal 10/10 · temporal preservado (owner-authority 24/24 + gate 23/0).
+
+## EIXO TEMPORAL DECISION-0118 D2 — PASS MATERIAL YALA (2026-06-12)
+
+O re-reseal final da Yala deu **PASS MATERIAL independente** ao eixo temporal (D2: resolver
+polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0). O eixo está
+**CLOSED tecnicamente**; nenhuma superfície temporal foi alterada pela frente V2 de mídia
+(preservação re-provada: e2e owner-authority 24/24 + gate temporal 23/0 pós-correção).
+
+## DT-UNIFIED-AVAILABILITY-GROUP-AUTHORITY-FALLBACK-SEMANTICS — OPEN (2026-06-12, registrada pela IA Diretora no PASS temporal)
+
+- **Origem:** a policy de GROUP no resolver temporal usa
+  `COALESCE(groups.owner_actor_id, groups.actor_id)` — fallback semântico sem exploração
+  material provada, mas sem auditoria dedicada da semântica (quando `owner_actor_id` é NULL,
+  o `actor_id` criador vira autoridade).
+- **Status:** **OPEN** — destinada à futura macrofrente de **autoridade/delegação**
+  (F-AUTHORITY-DELEGATION-ROLES-AND-PROFESSIONAL-CAPABILITIES-CLOSURE). NÃO bloqueia o eixo
+  service_offering aprovado; NÃO reabre o resolver polimórfico; o fallback NÃO está autorizado
+  como modelo definitivo.

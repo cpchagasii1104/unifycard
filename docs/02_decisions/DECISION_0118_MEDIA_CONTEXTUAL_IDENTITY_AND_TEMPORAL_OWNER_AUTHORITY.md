@@ -92,3 +92,30 @@ reseal Yala (vetores [B1]/[B2]); DECISION-0072; DECISION-0109; DECISION-0113; DE
 ADENDOS A1/A2; SSOT_REGISTRY (SSOT TEMPORAL); schema vivo (`availability.owner_type` VARCHAR sem
 CHECK; `service_offerings.provider_actor_id`; `services.actor_id`; `events.actor_id`;
 `groups.owner_actor_id`; `media_assets` pós-`20260612090000`).
+
+## ADENDO FACTUAL DE IMPLEMENTAÇÃO — IDENTIDADE V2 COLLISION-SAFE (2026-06-12)
+
+Adendo FACTUAL (não altera o significado da decisão). O re-reseal final da Yala provou que a
+implementação V1 do fingerprint de D1 (`md5(parts.join('|'))`) violava a própria D1 por
+ambiguidade de serialização: `license='a'/provenance='b|c'` e `license='a|b'/provenance='c'`
+produziam o MESMO preimage e a 2ª declaração era descartada em silêncio
+(DT-MEDIA-CONTEXT-FINGERPRINT-SERIALIZATION-AMBIGUITY).
+
+A frente `F-CANONICAL-MEDIA-CONTEXT-IDENTITY-V2-COLLISION-SAFE-CLOSURE`
+(migration `20260612120000_media_context_identity_v2.sql`) materializou D1 com:
+
+1. **Serialização inequívoca** — preimage `MEDIA_CTX_V2` com campo nomeado, marcador `N` de
+   NULL e tamanho em bytes UTF-8 (length-prefix) antes do conteúdo;
+2. **Versionamento** — `context_identity_version = 2` persistido (NOT NULL + CHECK);
+3. **Hash forte** — sha256 (md5 retirado da identidade viva; `context_fingerprint_v1`
+   preservado só como arqueologia, sem índice);
+4. **Fonte única do encoder** — funções SQL `media_context_dimension_norm` /
+   `media_context_preimage_v2` / `media_context_fingerprint_v2`, usadas por backfill E runtime
+   (o TypeScript apenas as invoca);
+5. **Comparação material completa** — fingerprint/idempotency-key match NUNCA basta: toda
+   reutilização exige recomparação integral das dimensões persistidas
+   (`materiallyEqualMediaContext`, `IS NOT DISTINCT FROM`); colisão material ⇒
+   `409 MEDIA_CONTEXT_FINGERPRINT_COLLISION`; key divergente ⇒ `409 MEDIA_IDEMPOTENCY_CONFLICT`;
+6. **Semântica explícita das dimensões livres** — canonicalização pré-persistência (trim ASCII;
+   vazio ⇒ NULL; case preservado); identidade case-insensitive (lower); Unicode byte-exato
+   (NFC ≠ NFD distintos); espaços internos significativos; dado legado preservado byte-exato.

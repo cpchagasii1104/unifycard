@@ -14240,3 +14240,41 @@ encaminhado à frente 0113. Frontend: 0.**
 service_order uniqueness · capacidade/sobreposição global · bundle atômico · service-order
 actor/user conflation · escrow best-effort. Estados: esta frente **tecnicamente concluída** ·
 F-CANONICAL-CATALOG **tecnicamente concluída** · MACROFRENTE CANÔNICA **NÃO CLOSED antes da Yala**.
+
+## 2026-06-12 — F-CANONICAL-MEDIA-CONTEXT-IDENTITY-V2-COLLISION-SAFE-CLOSURE (GO corretivo final IA Diretora)
+
+Re-reseal FINAL Yala: **eixo temporal D2 = PASS MATERIAL (CLOSED tecnicamente)** · eixo mídia =
+FAIL com ÚNICO bloqueador **DT-MEDIA-CONTEXT-FINGERPRINT-SERIALIZATION-AMBIGUITY** (V1 =
+`md5(join('|'))`; license="a"/prov="b|c" colidia com license="a|b"/prov="c"; serviço reusava
+por fingerprint SEM recomparar e descartava a 2ª licença em silêncio).
+
+**CORREÇÃO (2 commits sobre `6f2c8969`):** migration `20260612120000` (376/376) — encoder V2 de
+**FONTE ÚNICA** (funções SQL `media_context_{dimension_norm,preimage_v2,fingerprint_v2}`,
+usadas por backfill E runtime): serialização inequívoca (campo nomeado + marcador N de NULL +
+length-prefix em bytes UTF-8), **sha256**, `context_identity_version=2`, arqueologia
+`context_fingerprint_v1` (índice V1 retirado; UNIQUE V2), fail-closed (source fora do
+vocabulário / sugestão sem declarante / colisão V2 = ABORT). **Hash nunca é prova de
+igualdade**: todo match (fingerprint/key/corrida) recompara TODAS as dimensões
+(`materiallyEqualMediaContext`, IS NOT DISTINCT FROM); colisão material ⇒ **409
+MEDIA_CONTEXT_FINGERPRINT_COLLISION**. Semântica normada explícita: trim ASCII pré-persistência
+(vazio⇒NULL; case preservado); identidade lower; Unicode byte-exato; legado preservado
+byte-exato. `MIGRATION_STOP_BEFORE` aditivo no runner (e2e de backfill).
+
+**PROVAS:** e2e contextual **35/35** (VETOR YALA exato + NULL/EMPTY/TRIM/CASE + NFC≠NFD/emoji/
+delimitadores/injeção de encoding + COLISÃO FORÇADA 409) · e2e NOVO backfill legado **20/20**
+(fase feliz: IDs/blobs/relações/moderação/licença/source/provenance preservados + V2 pela fonte
+única + arqueologia V1; fase fail-closed: contexto não inferível ⇒ 376 aborta, nada descartado) ·
+isolation 25/25 · CP2 26/26 · canônico integrado 21/21 · integrado 10/10 · **temporal
+INTOCADO e re-provado** (owner-authority 24/24 · gate 23/0). Gate canônico **76/5/0/0/0**
+(6d V2 + 6d1 anti-join('|')/md5 + 6d2/6d3 recomparação em todas as call-sites + 6d4 comparação
+completa + 6d5 versão/V1-não-soberano + 6d6 provas permanentes). **Provas negativas 16/16**
+(P12–P16 novas + P-M1/P-M2 repontadas; sha byte-idênticas). actor-writer OK · bank-ledger OK ·
+regression-guards OK · system-state PASS · arch critical_new=0 · **tsc backend VERMELHO — 25
+pré-existentes (arco 0113), ZERO novo; frontend 0**.
+
+**CARTÓRIO:** DT-MEDIA-CONTEXT-FINGERPRINT-SERIALIZATION-AMBIGUITY OPEN→**CLOSED** · EIXO
+TEMPORAL D2 **PASS** registrado · **DT-UNIFIED-AVAILABILITY-GROUP-AUTHORITY-FALLBACK-SEMANTICS
+OPEN** (COALESCE de GROUP → macrofrente autoridade/delegação; não bloqueia; fallback não é
+modelo definitivo) · ADENDO factual V2 na DECISION-0118 (sem DECISION nova). Estados: esta
+frente **tecnicamente concluída aguardando re-reseal Yala** · EIXO TEMPORAL D2 **PASS
+preservado** · MACROFRENTE CANÔNICA **NÃO CLOSED**.

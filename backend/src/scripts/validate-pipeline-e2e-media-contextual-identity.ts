@@ -290,11 +290,129 @@ async function main(): Promise<void> {
       licK.rows[0].license === 'lic-k' && (await count(`SELECT count(*)::text n FROM media_assets`)) === assetsBefore409,
       `status=${k3.status}`);
 
+    // ═══ VETOR YALA EXATO (V2 collision-safe) — license='a'/prov='b|c' × 'a|b'/'c' ═
+    // Na V1 (join '|' + md5) estes dois contextos tinham o MESMO preimage e a 2ª
+    // declaração era descartada em silêncio. Na V2 são identidades DISTINTAS.
+    const y1 = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'a', provenance: 'b|c' }, PNG_X, 'y1.png');
+    const y2 = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'a|b', provenance: 'c' }, PNG_X, 'y2.png');
+    const assetY1 = y1.body?.data?.mediaAssetId as string;
+    const assetY2 = y2.body?.data?.mediaAssetId as string;
+    record('VETOR YALA: license="a"/prov="b|c" e license="a|b"/prov="c" → declarações DISTINTAS (201/201)',
+      y1.status === 201 && y2.status === 201 && !!assetY1 && !!assetY2 && assetY1 !== assetY2,
+      `y1=${y1.status} y2=${y2.status}`);
+    const yRows = await pool.query<{ id: string; license: string; origin_note: string; context_fingerprint: string; context_identity_version: number }>(
+      `SELECT id::text, license, origin_note, context_fingerprint, context_identity_version FROM media_assets WHERE id = ANY($1::uuid[]) ORDER BY id = $2::uuid DESC`,
+      [[assetY1, assetY2], assetY1]
+    );
+    record('VETOR YALA: licença/provenance corretas em CADA linha; fingerprints V2 distintos; version=2',
+      yRows.rows[0].license === 'a' && yRows.rows[0].origin_note === 'b|c' &&
+      yRows.rows[1].license === 'a|b' && yRows.rows[1].origin_note === 'c' &&
+      yRows.rows[0].context_fingerprint !== yRows.rows[1].context_fingerprint &&
+      yRows.rows[0].context_identity_version === 2 && yRows.rows[1].context_identity_version === 2,
+      JSON.stringify(yRows.rows.map((r) => [r.license, r.origin_note])));
+    const pre = await pool.query<{ p1: string; p2: string }>(
+      `SELECT media_context_preimage_v2(ma1.media_blob_id, ma1.origin_tenant_id, ma1.created_by_actor_id, ma1.context_type, ma1.context_owner_id, ma1.source, ma1.purpose, ma1.license, ma1.origin_note) AS p1,
+              media_context_preimage_v2(ma2.media_blob_id, ma2.origin_tenant_id, ma2.created_by_actor_id, ma2.context_type, ma2.context_owner_id, ma2.source, ma2.purpose, ma2.license, ma2.origin_note) AS p2
+         FROM media_assets ma1, media_assets ma2 WHERE ma1.id=$1::uuid AND ma2.id=$2::uuid`,
+      [assetY1, assetY2]
+    );
+    record('VETOR YALA: preimages V2 DIFERENTES e inequivocamente parseáveis (length-prefix: "b|c" é S3, um campo só)',
+      pre.rows[0].p1 !== pre.rows[0].p2 &&
+      pre.rows[0].p1.includes('LICENSE:S1:a;PROVENANCE:S3:b|c') &&
+      pre.rows[0].p2.includes('LICENSE:S3:a|b;PROVENANCE:S1:c') &&
+      pre.rows[0].p1.startsWith('MEDIA_CTX_V2;BLOB:S36:'));
+    await app.inject({ method: 'POST', url: `/catalog/media/assets/${assetY1}/approve`, headers: CUR.headers });
+    const yMod = await pool.query<{ a: string; b: string }>(
+      `SELECT (SELECT moderation_status FROM media_assets WHERE id=$1::uuid) a, (SELECT moderation_status FROM media_assets WHERE id=$2::uuid) b`, [assetY1, assetY2]);
+    record('VETOR YALA: moderação independente (aprovar Y1 não aprova Y2); blob físico continua ÚNICO',
+      yMod.rows[0].a === 'approved' && yMod.rows[0].b === 'pending' &&
+      (await count(`SELECT count(*)::text n FROM media_blobs`)) === 1);
+
+    // ═══ NULL × EMPTY × TRIM × CASE (semântica normada, explícita) ════════════
+    const n1 = await upload(H1, { companyId: E1, purpose: 'business_media' }, PNG_X, 'n1.png');
+    const assetN1 = n1.body?.data?.mediaAssetId as string;
+    const n2 = await upload(H1, { companyId: E1, purpose: 'business_media', license: '' }, PNG_X, 'n2.png');
+    const n3 = await upload(H1, { companyId: E1, purpose: 'business_media', license: '   ' }, PNG_X, 'n3.png');
+    record('NULL ≡ ""(vazio) ≡ "   "(whitespace) por NORMALIZAÇÃO pré-persistência (reuso idempotente, license persistida NULL)',
+      n1.status === 201 && n2.status === 200 && n3.status === 200 &&
+      n2.body?.data?.mediaAssetId === assetN1 && n3.body?.data?.mediaAssetId === assetN1 &&
+      (await count(`SELECT count(*)::text n FROM media_assets WHERE id=$1::uuid AND license IS NULL`, [assetN1])) === 1,
+      `n1=${n1.status} n2=${n2.status} n3=${n3.status}`);
+    const t1 = await upload(H1, { companyId: E1, purpose: 'business_media', license: '  lic-trim  ' }, PNG_X, 't1.png');
+    const t2 = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'lic-trim' }, PNG_X, 't2.png');
+    record('TRIM: espaços de borda não criam identidade nova; persistência canônica sem bordas',
+      t1.status === 201 && t2.status === 200 && t2.body?.data?.mediaAssetId === t1.body?.data?.mediaAssetId &&
+      (await count(`SELECT count(*)::text n FROM media_assets WHERE id=$1::uuid AND license = 'lic-trim'`, [t1.body?.data?.mediaAssetId])) === 1,
+      `t1=${t1.status} t2=${t2.status}`);
+    const c1 = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'Case-MIT' }, PNG_X, 'c1.png');
+    const c2 = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'case-mit' }, PNG_X, 'c2.png');
+    record('CASE: identidade case-insensitive (DECISION-0118 D1) com case PRESERVADO na persistência',
+      c1.status === 201 && c2.status === 200 && c2.body?.data?.mediaAssetId === c1.body?.data?.mediaAssetId &&
+      (await count(`SELECT count(*)::text n FROM media_assets WHERE id=$1::uuid AND license = 'Case-MIT'`, [c1.body?.data?.mediaAssetId])) === 1,
+      `c1=${c1.status} c2=${c2.status}`);
+    // ESPAÇOS INTERNOS são significativos.
+    const s1 = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'lic a b' }, PNG_X, 's1.png');
+    const s2 = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'lic a  b' }, PNG_X, 's2.png');
+    record('ESPAÇOS INTERNOS: "lic a b" ≠ "lic a  b" (declarações distintas)',
+      s1.status === 201 && s2.status === 201 && s1.body?.data?.mediaAssetId !== s2.body?.data?.mediaAssetId,
+      `s1=${s1.status} s2=${s2.status}`);
+
+    // ═══ UNICODE / DELIMITADORES / INJEÇÃO DE ENCODING ════════════════════════
+    const uNFC = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'café' }, PNG_X, 'u1.png');
+    const uNFD = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'café' }, PNG_X, 'u2.png');
+    record('UNICODE: NFC ≠ NFD = declarações DISTINTAS (byte-exato UTF-8; sem colisão, sem erro)',
+      uNFC.status === 201 && uNFD.status === 201 && uNFC.body?.data?.mediaAssetId !== uNFD.body?.data?.mediaAssetId,
+      `nfc=${uNFC.status} nfd=${uNFD.status}`);
+    const uEmoji = await upload(H1, { companyId: E1, purpose: 'business_media', license: '🎨 arte própria' }, PNG_X, 'u3.png');
+    record('UNICODE: emoji/acentos aceitos como dimensão (length-prefix em BYTES UTF-8)',
+      uEmoji.status === 201, `status=${uEmoji.status}`);
+    const dTorture = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'l1"q\'\\b;semi:colon', provenance: 'linha1\nlinha2' }, PNG_X, 'd1.png');
+    record('DELIMITADORES: aspas/backslash/;/:/quebra-de-linha no conteúdo são INERTES (declaração válida)',
+      dTorture.status === 201, `status=${dTorture.status}`);
+    const inj1 = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'x;PROVENANCE:S1:y' }, PNG_X, 'i1.png');
+    const inj2 = await upload(H1, { companyId: E1, purpose: 'business_media', license: 'x', provenance: 'PROVENANCE:S1:y' }, PNG_X, 'i2.png');
+    record('INJEÇÃO DE ENCODING: conteúdo imitando a gramática do preimage NÃO colide com campos reais',
+      inj1.status === 201 && inj2.status === 201 && inj1.body?.data?.mediaAssetId !== inj2.body?.data?.mediaAssetId,
+      `i1=${inj1.status} i2=${inj2.status}`);
+
+    // ═══ COLISÃO FORÇADA — hash NUNCA é prova de igualdade (service-level) ════
+    // Fixture controlada: o asset existente recebe (via SQL direto) o fingerprint
+    // que a PRÓXIMA declaração materialmente DIFERENTE vai computar — simulando
+    // colisão de sha256. A lógica REAL de comparação decide: 409, nada alterado.
+    const { mediaAssetService: svc, MediaAssetError: SvcErr } = await import('../core/media-assets/media-asset.service');
+    const colIngest = (license: string) => svc.ingest({
+      tenantId: TENANT_ID, buffer: PNG_X, mimeType: 'image/png', originalFilename: 'col.png',
+      license, source: 'company_suggestion', createdByActorId: H1.actorId,
+      contextType: 'company', contextOwnerId: E1, purpose: 'business_media', provenance: 'col-prov',
+    });
+    const colA = (await colIngest('col-a')).asset;
+    const blobIdCol = colA.mediaBlobId;
+    const forgedFp = (await pool.query<{ fp: string }>(
+      `SELECT media_context_fingerprint_v2($1::uuid, $2::uuid, $3::uuid, 'company', $4::uuid, 'company_suggestion', 'business_media', 'col-b', 'col-prov') AS fp`,
+      [blobIdCol, TENANT_ID, H1.actorId, E1]
+    )).rows[0].fp;
+    await pool.query(`UPDATE media_assets SET context_fingerprint = $2 WHERE id = $1::uuid`, [colA.id, forgedFp]);
+    const assetsBeforeCol = await count(`SELECT count(*)::text n FROM media_assets`);
+    let colErr: unknown = null;
+    try { await colIngest('col-b'); } catch (e) { colErr = e; }
+    const colRow = await pool.query<{ license: string }>(`SELECT license FROM media_assets WHERE id=$1::uuid`, [colA.id]);
+    record('COLISÃO FORÇADA: fingerprint igual + dimensão material diferente → 409 MEDIA_CONTEXT_FINGERPRINT_COLLISION (nunca devolve o anterior)',
+      colErr instanceof SvcErr && colErr.statusCode === 409 && colErr.code === 'MEDIA_CONTEXT_FINGERPRINT_COLLISION',
+      colErr instanceof SvcErr ? colErr.code : String(colErr));
+    record('COLISÃO FORÇADA: linha existente INTACTA (license col-a), nenhuma criada, nenhuma metadata descartada',
+      colRow.rows[0].license === 'col-a' && (await count(`SELECT count(*)::text n FROM media_assets`)) === assetsBeforeCol);
+    // Restaura o fingerprint VERDADEIRO da fixture (recomputado pela fonte única).
+    await pool.query(
+      `UPDATE media_assets SET context_fingerprint = media_context_fingerprint_v2(media_blob_id, origin_tenant_id, created_by_actor_id, context_type, context_owner_id, source, purpose, license, origin_note) WHERE id = $1::uuid`,
+      [colA.id]
+    );
+
     // ═══ INTEGRIDADE FINAL ════════════════════════════════════════════════════
-    record('integridade: 1 blob, 5 declarações (A/B/C/A2/K), zero órfão, arquivos=blobs×2',
+    record('integridade: 1 blob, 19 declarações, zero órfão, todas version=2, arquivos=blobs×2',
       (await count(`SELECT count(*)::text n FROM media_blobs`)) === 1 &&
-      (await count(`SELECT count(*)::text n FROM media_assets`)) === 5 &&
+      (await count(`SELECT count(*)::text n FROM media_assets`)) === 19 &&
       (await count(`SELECT count(*)::text n FROM media_assets ma WHERE NOT EXISTS (SELECT 1 FROM media_blobs mb WHERE mb.id=ma.media_blob_id)`)) === 0 &&
+      (await count(`SELECT count(*)::text n FROM media_assets WHERE context_identity_version IS DISTINCT FROM 2`)) === 0 &&
       (await storageFileCount()) - files0 === 2);
     record('zero Bank writer', (await count(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`)) === bank0);
 
