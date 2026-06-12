@@ -498,6 +498,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     await protectedScope.register(categoryReviewModule, { prefix: '/admin' });
     await protectedScope.register(canonicalProductModule, { prefix: '/catalog/products' });
 
+    // DECISION-0117 — sugestão empresarial + curadoria humana do catálogo canônico
+    const { default: catalogGovernanceRoutes } = await import('./core/catalog/catalog-governance.routes');
+    await protectedScope.register(catalogGovernanceRoutes, { prefix: '/catalog/governance' });
+
+
     const { featureFlagsService } = await import('./core/config/feature-flags.service');
     if (featureFlagsService.isProcurementCampaignEnabled()) {
       const { procurementCampaignModule } = await import(

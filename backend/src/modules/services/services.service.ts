@@ -21,7 +21,7 @@ import type {
 } from '@core/availability/unified-availability.types';
 import { AvailabilityOwnerType, UnifiedAvailabilityStatus } from '@core/availability/unified-availability.types';
 import type { Service, CreateServiceInput, UpdateServiceInput } from './services.types';
-import { ServiceStatus } from './services.types';
+import { ServiceStatus, ServiceType } from './services.types';
 // 🔴 CORREÇÃO FASE 1B: Removidas referências a serviceAvailabilityRepository e AvailabilityStatus
 // Toda lógica temporal agora usa unifiedAvailabilityService
 
@@ -72,9 +72,27 @@ class ServicesService {
       input.serviceType
     );
 
+    // DECISION-0117 D: serviço empresarial REFERENCIA identidade canônica compartilhada —
+    // não duplica significado por prestador. Obrigatório para service_type='service';
+    // o canônico deve existir, estar ATIVO (curado) e visível no tenant (global∪scoped).
+    // Redirect de merge é resolvido aqui (refs antigas seguem válidas).
+    const effectiveServiceType = input.serviceType || ServiceType.SERVICE;
+    let canonicalServiceId = input.canonicalServiceId ?? null;
+    if (effectiveServiceType === ServiceType.SERVICE) {
+      if (!canonicalServiceId) {
+        throw new BadRequestError(
+          'canonicalServiceId é obrigatório: serviço referencia o serviço canônico compartilhado (DECISION-0117 D).'
+        );
+      }
+      const { canonicalServiceService } = await import('@core/catalog/canonical/canonical-service.service');
+      const canonical = await canonicalServiceService.requireActiveForTenant(tenantId, canonicalServiceId);
+      canonicalServiceId = canonical.id;
+    }
+
     // Criar serviço
     const service = await servicesRepository.create(tenantId, {
       ...input,
+      canonicalServiceId,
       status: input.status || ServiceStatus.DRAFT, // Default: draft
     });
 

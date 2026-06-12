@@ -17,6 +17,8 @@ const createServiceSchema = z.object({
   serviceType: z.enum(['service', 'rental', 'event', 'job']).optional(),
   status: z.enum(['draft', 'active', 'paused']).optional(),
   categoryId: z.string().uuid().nullable().optional(),
+  // DECISION-0117 D: identidade canônica compartilhada (obrigatória p/ service_type='service' — validada no service)
+  canonicalServiceId: z.string().uuid().nullable().optional(),
   priceCents: z.number().int().min(0).nullable().optional(),
   currency: z.string().optional(),
   pricingType: z.enum(['hourly', 'daily', 'weekly', 'monthly', 'fixed', 'quote']).nullable().optional(),
@@ -83,6 +85,7 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
             serviceType: parsed.data.serviceType as any,
             status: parsed.data.status as any,
             categoryId: parsed.data.categoryId,
+            canonicalServiceId: parsed.data.canonicalServiceId,
             priceCents: parsed.data.priceCents,
             currency: parsed.data.currency,
             pricingType: parsed.data.pricingType,

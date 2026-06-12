@@ -22,6 +22,7 @@ class ServicesRepository {
       serviceType: row.service_type as ServiceType,
       status: row.status as ServiceStatus,
       categoryId: row.category_id,
+      canonicalServiceId: row.canonical_service_id,
       priceCents: row.price_cents,
       currency: row.currency,
       pricingType: row.pricing_type as any,
@@ -57,7 +58,7 @@ class ServicesRepository {
       `
       SELECT 
         service_id, tenant_id, actor_id, name, slug, description, short_description,
-        service_type, status, category_id, price_cents, currency, pricing_type,
+        service_type, status, category_id, canonical_service_id, price_cents, currency, pricing_type,
         country_id, state_id, city_id, neighborhood, metadata,
         created_at, updated_at, activated_at
       FROM services
@@ -82,7 +83,7 @@ class ServicesRepository {
     let query = `
       SELECT 
         service_id, tenant_id, actor_id, name, slug, description, short_description,
-        service_type, status, category_id, price_cents, currency, pricing_type,
+        service_type, status, category_id, canonical_service_id, price_cents, currency, pricing_type,
         country_id, state_id, city_id, neighborhood, metadata,
         created_at, updated_at, activated_at
       FROM services
@@ -136,13 +137,13 @@ class ServicesRepository {
       `
       INSERT INTO services (
         tenant_id, actor_id, name, slug, description, short_description,
-        service_type, status, category_id, price_cents, currency, pricing_type,
+        service_type, status, category_id, canonical_service_id, price_cents, currency, pricing_type,
         country_id, state_id, city_id, neighborhood, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING 
         service_id, tenant_id, actor_id, name, slug, description, short_description,
-        service_type, status, category_id, price_cents, currency, pricing_type,
+        service_type, status, category_id, canonical_service_id, price_cents, currency, pricing_type,
         country_id, state_id, city_id, neighborhood, metadata,
         created_at, updated_at, activated_at
       `,
@@ -156,6 +157,7 @@ class ServicesRepository {
         input.serviceType || ServiceType.SERVICE,
         input.status || ServiceStatus.DRAFT,
         input.categoryId || null,
+        input.canonicalServiceId || null,
         input.priceCents || null,
         input.currency || 'BRL',
         input.pricingType || null,
@@ -233,7 +235,7 @@ class ServicesRepository {
     const query = `
       SELECT 
         s.service_id, s.tenant_id, s.actor_id, s.name, s.slug, s.description, s.short_description,
-        s.service_type, s.status, s.category_id, s.price_cents, s.currency, s.pricing_type,
+        s.service_type, s.status, s.category_id, s.canonical_service_id, s.price_cents, s.currency, s.pricing_type,
         s.country_id, s.state_id, s.city_id, s.neighborhood, s.metadata,
         s.created_at, s.updated_at, s.activated_at
       FROM services s
@@ -331,7 +333,7 @@ class ServicesRepository {
       WHERE service_id = $${paramIndex++} AND tenant_id = $${paramIndex++}
       RETURNING 
         service_id, tenant_id, actor_id, name, slug, description, short_description,
-        service_type, status, category_id, price_cents, currency, pricing_type,
+        service_type, status, category_id, canonical_service_id, price_cents, currency, pricing_type,
         country_id, state_id, city_id, neighborhood, metadata,
         created_at, updated_at, activated_at
       `,

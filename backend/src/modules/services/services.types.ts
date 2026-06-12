@@ -49,6 +49,9 @@ export interface Service {
   serviceType: ServiceType;
   status: ServiceStatus;
   categoryId?: string | null; // Categoria (opcional, scope adequado)
+  // DECISION-0117 D: identidade canônica COMPARTILHADA do serviço (obrigatória
+  // para service_type='service' novos; NULL apenas em legado pré-0117).
+  canonicalServiceId?: string | null;
   priceCents?: number | null; // Preço em centavos
   currency: string; // Moeda (ex: 'BRL', 'USD')
   pricingType?: PricingType | null;
@@ -76,6 +79,7 @@ export interface ServiceRow {
   service_type: ServiceType;
   status: ServiceStatus;
   category_id: string | null;
+  canonical_service_id: string | null;
   price_cents: number | null;
   currency: string;
   pricing_type: PricingType | null;
@@ -102,6 +106,8 @@ export interface CreateServiceInput {
   serviceType?: ServiceType;
   status?: ServiceStatus; // Default: 'draft'
   categoryId?: string | null;
+  /** DECISION-0117 D: OBRIGATÓRIO para service_type='service' (identidade compartilhada). */
+  canonicalServiceId?: string | null;
   priceCents?: number | null;
   currency?: string; // Default: 'BRL'
   pricingType?: PricingType | null;
