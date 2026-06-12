@@ -510,6 +510,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     const { default: companyTemplatesRoutes } = await import('./core/companies/company-templates.routes');
     await protectedScope.register(companyTemplatesRoutes, { prefix: '/companies' });
 
+    // DECISION-0117 A/D (CP4) — ativação de variante canônica + ofertas empresariais
+    const { default: marketplaceOfferingsRoutes } = await import('./modules/marketplace/marketplace-offerings.routes');
+    await protectedScope.register(marketplaceOfferingsRoutes, { prefix: '/marketplace' });
+    const { default: serviceOfferingsRoutes } = await import('./modules/services/service-offerings.routes');
+    await protectedScope.register(serviceOfferingsRoutes, { prefix: '/services' });
+
 
     const { featureFlagsService } = await import('./core/config/feature-flags.service');
     if (featureFlagsService.isProcurementCampaignEnabled()) {

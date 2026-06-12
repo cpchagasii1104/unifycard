@@ -39,11 +39,11 @@ const MANIFEST = {
     category: 'SCOPED_APPROVED',
     reason: 'Interna: balanceOnClient só em tx de reserva; não exposta via rota HTTP.',
   },
-  // KNOWN_OPEN — readers tenant-wide reais, FORA do escopo desta fatia, com DT própria.
   'modules/marketplace/product-visibility.service.ts': {
-    category: 'KNOWN_OPEN',
-    reason: 'GET /marketplace/products/visible (auth-only) retorna availableQuantity = SUM tenant-wide cross-actor. DT-INVENTORY-PRODUCT-VISIBILITY-TENANT-WIDE-STOCK-PROJECTION (OPEN; decisão merchant/oferta).',
+    category: 'SCOPED_APPROVED',
+    reason: 'CP4 DECISION-0117: estoque projetado escopado pelo MERCHANT da oferta (im.actor_id = po.merchant_id) com unidade consistente (im.unit = pv.sale_unit). DT-INVENTORY-PRODUCT-VISIBILITY-TENANT-WIDE-STOCK-PROJECTION CLOSED — regressão vigiada em 3c.',
   },
+  // KNOWN_OPEN — readers tenant-wide reais, FORA do escopo desta fatia, com DT própria.
   'core/reconciliation/reconciliation.service.ts': {
     category: 'KNOWN_OPEN',
     reason: 'GET /admin/metrics/reconciliation/summary+drift (auth-only, tenantId client-supplied/nullable). DT-INVENTORY-RECONCILIATION-METRICS-INSTITUTIONAL-AUTHORITY-MISSING (OPEN).',
@@ -125,6 +125,16 @@ if (/INVENTORY_ACTOR_ID_REQUIRED/.test(routesSrc)) {
   fixedRegression++;
 } else {
   failures.push('FORBIDDEN_REGRESSION: GET /inventory/movements deixou de exigir actorId (falta INVENTORY_ACTOR_ID_REQUIRED → leak tenant-wide itemizado).');
+}
+
+// 3c) products/visible (CP4 DECISION-0117): a soma de estoque DEVE permanecer escopada
+//     pelo merchant da oferta e com unidade consistente — voltar a tenant-wide é regressão.
+const visibilityPath = join(ROOT, 'modules/marketplace/product-visibility.service.ts');
+const visibilitySrc = readFileSync(visibilityPath, 'utf-8');
+if (/im\.actor_id\s*=\s*po\.merchant_id/.test(visibilitySrc) && /im\.unit\s*=\s*pv\.sale_unit/.test(visibilitySrc)) {
+  fixedRegression++;
+} else {
+  failures.push('FORBIDDEN_REGRESSION: products/visible perdeu o escopo por merchant (im.actor_id = po.merchant_id) e/ou a consistência de unidade (im.unit = pv.sale_unit) — estoque público NÃO pode voltar a tenant-wide (DECISION-0117 CP4).');
 }
 
 // ── Saída honesta ───────────────────────────────────────────────────────────────────
