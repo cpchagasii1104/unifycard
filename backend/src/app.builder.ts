@@ -506,6 +506,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     const { default: mediaAssetsRoutes } = await import('./core/media-assets/media-assets.routes');
     await protectedScope.register(mediaAssetsRoutes, { prefix: '/catalog/media' });
 
+    // DECISION-0117 E — templates empresariais versionados (aplicação manual-assistida)
+    const { default: companyTemplatesRoutes } = await import('./core/companies/company-templates.routes');
+    await protectedScope.register(companyTemplatesRoutes, { prefix: '/companies' });
+
 
     const { featureFlagsService } = await import('./core/config/feature-flags.service');
     if (featureFlagsService.isProcurementCampaignEnabled()) {
