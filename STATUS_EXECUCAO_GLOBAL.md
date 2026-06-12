@@ -14202,3 +14202,41 @@ Próxima cadeia: oferta → pedido/agendamento. Aguardando RESEAL Yala.
 **Provas:** e2e adversarial permanente `validate-pipeline-e2e-media-tenant-isolation.ts` **25/25** (2 tenants HTTP reais; vetor Yala + canônica pública + corrida + compensação compartilhada) · CP2 ampliado **26/26** · integrado **21/21** · gate `audit-canonical-catalog-closure.mjs` reescrito (checks 6a–6i; invariant que EXIGIA o anti-padrão removida; 68/5/0/0/0) · provas negativas **6/6** novas (`negative-proofs-media-isolation.ps1`) + **8/8** originais (P8 reapontada). Regressões: foundation 35/35 · templates 15/15 · offerings 16/16 · menu 13/13 · ramo 14/14 · salon 10/10 · pub-writer 20/20 · pub-projection 13/13 · revocation-cascade 15/15 · revocation-reader 6/6 · C1 journey 55/55 · PJ integrado 52/52 · inventory consolidated 39/39 · legacy-readers 32/32 (fixture G1d atualizada ao contrato vigente FIXED_REGRESSION=3 — defasagem pré-existente do commit D, expectativa FORTALECIDA).
 
 **Estado:** F-CANONICAL-MEDIA-BLOB-ASSET-TENANT-ISOLATION-CLOSURE **CLOSED** · F-CANONICAL-CATALOG-BUSINESS-TEMPLATES-AND-OFFERING-CLOSURE **tecnicamente concluída — AGUARDANDO RE-RESEAL FINAL YALA** (não declarada CLOSED). Resíduo honesto: projeção pública de business_media via lifecycle (superfície futura).
+
+---
+
+## F-CANONICAL-CONTEXTUAL-MEDIA-AND-TEMPORAL-AUTHORITY-CLOSURE ✅ tecnicamente concluída (2026-06-12) — AGUARDANDO RESEAL YALA
+
+**Branch:** `rescue-structural` · sobre HEAD `7ff2aeb8` · migrations 373→**375** (374
+`20260612100000_media_asset_contextual_identity` + 375 `20260612110000_availability_owner_type_check`,
+aditivas forward-only) · **DECISION-0118 promulgada ANTES do runtime** (commit 0 docs-only).
+GO macro corretivo integrado da IA Diretora — DOIS bloqueadores do re-reseal Yala, dois eixos causais.
+
+**EIXO M ([B1] DT-CANONICAL-MEDIA-LOGICAL-CONTEXT-COLLAPSE CLOSED):** asset lógico =
+DECLARAÇÃO CONTEXTUAL — identidade = blob+tenant+actor+context_type+context_owner+source+purpose+
+licença+provenance (colunas reais + context_fingerprint UNIQUE; blob+tenant+actor REMOVIDA);
+mesmos bytes em E1/E2/canônica = declarações distintas MESMO com o mesmo humano; dimensão
+divergente nunca descartada; Idempotency-Key divergente = 409 observável; leitura/attach por
+autoridade do CONTEXT_OWNER (canManageCompany); moderação por declaração; canônica pública
+publica SÓ a declaração aprovada/vinculada. E2E novo **21/21**.
+
+**EIXO T ([B2] DT-UNIFIED-AVAILABILITY-RESOURCE-OWNER-AUTHORITY-CONFLATION CLOSED):**
+availability.(owner_type,owner_id) = RECURSO ≠ authority actor. Resolver polimórfico central
+(`availability-owner-authority.ts`, policies user/page/service/service_offering/event/group →
+authority actor material do schema) em TODAS as rotas temporais; actionContext (hint 0113)
+comparado ao authority RESOLVIDO; `canRepresentActor(ownerId-cru)` eliminado; service_offering
+no enum (zero `as never`) + frontend espelhado + CHECK físico de owner_type. Availability de
+service_offering deixou de ser write-only: prestador gerencia a superfície INTEIRA por HTTP.
+E2E novo **24/24** + integrado **10/10**.
+
+**Gates:** canonical-catalog ampliado (identidade contextual; cristalização blob+tenant+actor
+REMOVIDA; 71/5/0/0/0) + **gate temporal NOVO** `audit-availability-owner-authority.mjs` (23/0)
+no regression-guards. **Provas negativas 11/11** (P-M1..5 + P-T1..6, sha byte-idênticas).
+**tsc backend: VERMELHO — 25 erros PRÉ-EXISTENTES (arco 0113: account.routes 10 ·
+event-rfq 8 · event-settlement 2 · e2e-events-money-reads 5); ZERO erro novo da macrofrente;
+encaminhado à frente 0113. Frontend: 0.**
+
+**FORA (registrado sem fechar, frente oferta→pedido):** booking↔offering binding ·
+service_order uniqueness · capacidade/sobreposição global · bundle atômico · service-order
+actor/user conflation · escrow best-effort. Estados: esta frente **tecnicamente concluída** ·
+F-CANONICAL-CATALOG **tecnicamente concluída** · MACROFRENTE CANÔNICA **NÃO CLOSED antes da Yala**.

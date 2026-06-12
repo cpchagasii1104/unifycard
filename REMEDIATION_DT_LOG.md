@@ -12405,3 +12405,77 @@ canônica no regime PJ-B3, vigiada por gate).
   + **8/8** originais re-verdes (P8 reapontada para o dedup físico).
 - **Resíduo honesto:** projeção PÚBLICA de business_media via lifecycle de oferta/publicação
   (hoje: owner/representável apenas; nenhum consumer público existe) — superfície futura.
+
+---
+
+## DT-CANONICAL-MEDIA-LOGICAL-CONTEXT-COLLAPSE — OPEN (2026-06-12, achado do re-reseal Yala [B1]) → CLOSED (2026-06-12)
+
+- **Origem:** re-reseal adversarial da Yala sobre a macrofrente canônica: a identidade do asset
+  lógico pós-`7ff2aeb8` era apenas `(media_blob_id, origin_tenant_id, created_by_actor_id)` —
+  o MESMO humano no MESMO tenant enviando os mesmos bytes com **licença/source/finalidade/empresa
+  divergentes** recebia o asset ANTERIOR em silêncio (dimensões descartadas); o gate 6d
+  CRISTALIZAVA o anti-padrão (exigia exatamente blob+tenant+actor).
+- **Status:** **CLOSED (2026-06-12)** — frente `F-CANONICAL-CONTEXTUAL-MEDIA-AND-TEMPORAL-AUTHORITY-CLOSURE`
+  (DECISION-0118 D1; commit A da macrofrente):
+  - Migration `20260612100000_media_asset_contextual_identity.sql` (aditiva, forward-only,
+    backfill fail-closed): `context_type` (company|canonical_suggestion|platform, CHECK) ·
+    `context_owner_id` (empresa dona do uso; NOT NULL quando company) · `purpose`
+    (business_media|canonical_catalog|platform_curation, CHECK) · `idempotency_key` (UNIQUE por
+    tenant+actor) · **`context_fingerprint` UNIQUE** (md5 V1 de blob|tenant|actor|context_type|
+    context_owner|source|purpose|licença_norm|provenance_norm — fórmula espelhada em
+    `media-context-identity.ts`). UNIQUE blob+tenant+actor REMOVIDA.
+  - Contrato de idempotência: CASO 1 contexto INTEGRALMENTE idêntico ⇒ mesmo asset; CASO 2
+    qualquer dimensão divergente ⇒ declaração NOVA sobre o MESMO blob (nada descartado); CASO 3
+    Idempotency-Key reutilizada com payload divergente ⇒ **409 MEDIA_IDEMPOTENCY_CONFLICT** sem
+    alterar o registro anterior.
+  - Autorização contextual: leitura privada exige autoridade do **CONTEXT_OWNER**
+    (canManageCompany) — não a representação genérica do autor; attach business exige declaração
+    da MESMA empresa-alvo (mesmo humano em E1 e E2 NÃO cruza ativos privados); sugestão canônica
+    pending não vira business media; canônica pública = approved + relação canônica explícita.
+  - Gate: check 6d REESCRITO (identidade = contexto completo; `findAssetByBlobAndContext`
+    PROIBIDO) + 6d2 (conflito observável) + 6e/6f endurecidos (context_owner). Provas negativas
+    P-M1..P-M5 (5/5, sha-verificadas).
+- **Provas:** e2e `validate-pipeline-e2e-media-contextual-identity.ts` **21/21** (cenários
+  A/B/C/D do GO + licença divergente + moderação por declaração + cross-company mesmo-humano +
+  Idempotency-Key 409 + canônica pública por declaração) · isolation cross-tenant re-verde ·
+  CP2 re-verde · integrado contextual+temporal 10/10.
+
+## DT-UNIFIED-AVAILABILITY-RESOURCE-OWNER-AUTHORITY-CONFLATION — OPEN (2026-06-12, achado do re-reseal Yala [B2]) → CLOSED (2026-06-12)
+
+- **Origem:** re-reseal Yala: a família temporal inteira tratava `availability.owner_id` como
+  ACTOR (`canRepresentActor(userId, ownerId)`; `actionContext.actorId === ownerId` como
+  autorização). Para `owner_type='service_offering'` (owner_id = oferta, que NUNCA existe em
+  `actors`), a availability era **WRITE-ONLY** (criada pelo writer com `as never`, inacessível a
+  leitura/gestão); `owner_type` era VARCHAR LIVRE no banco.
+- **Status:** **CLOSED (2026-06-12)** — DECISION-0118 D2 (commit B da macrofrente):
+  - **Resolver polimórfico central** `availability-owner-authority.ts`
+    (`resolveAvailabilityOwner[Authority]` + `OWNER_AUTHORITY_POLICIES` por owner_type): prova
+    existência no tenant + fidelidade tipo↔id + deriva o **authority actor** material
+    (user/page→próprio actor · service→services.actor_id · service_offering→
+    service_offerings.provider_actor_id · event→events.actor_id · group→groups.owner_actor_id)
+    + canRepresentActor server-side. UUID coincidente JAMAIS autoriza (404 em type-mismatch).
+  - TODAS as rotas temporais (create/list/get/update/weekly-template/bookings list-get-confirm-
+    cancel/check-in/check-out/participants add-list-get-update-delete) migradas: autoria
+    (actionContext, hint 0113) comparada ao **authority actor RESOLVIDO**; autoridade =
+    canRepresentActor(authority actor). `canRepresentActor(ownerId-cru)` eliminado.
+  - `service_offering` no enum `AvailabilityOwnerType` (zero `as never`; writer usa o enum) +
+    frontend espelhado + **CHECK físico** `chk_availability_owner_type` (migration
+    `20260612110000`, valida dados vivos antes; só tipos normados+vivos+com policy — sem
+    driver/pdv por antecipação).
+  - Gate novo `audit-availability-owner-authority.mjs` no regression-guards (paridade
+    enum↔CHECK; policy por tipo; proibições ownerId-cru/`as never`/cure; NEW_UNCLASSIFIED).
+    Provas negativas P-T1..P-T6 (6/6, sha-verificadas).
+- **Provas:** e2e `validate-pipeline-e2e-availability-owner-authority.ts` **24/24**
+  (service_offering ponta a ponta por HTTP: cria/relê/lista/atualiza/pausa/reativa/booking/
+  confirma/check-in/check-out; estranho 403 em TODAS; owner inexistente 404; tipo↔id 404;
+  actionContext forjado 403; offering.id ∉ actors; CHECK rejeita 'pdv'; matriz user/page/
+  service/event/group dono-funciona/estranho-falha) · integrado 10/10 · 9 e2es f6-5 de
+  availability re-verdes (matriz).
+
+## ACHADOS YALA REGISTRADOS SEM FECHAR (frente causal futura — booking/pedido)
+
+Revalidados como FORA do corte desta macrofrente (GO §14): vínculo booking→service_offering via
+`booking.metadata.serviceId` · UNIQUE de service_order por booking · capacidade concorrente /
+sobreposição temporal global · bundle atômico · actorId usado como userId nas service orders ·
+escrow best-effort. Pertencem à macrofrente **oferta → pedido/agendamento** (cadeia causal
+seguinte); nenhum deles bloqueia as superfícies declaradas desta frente.

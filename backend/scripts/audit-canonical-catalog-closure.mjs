@@ -49,6 +49,7 @@ const FAMILY = [
   'core/catalog/catalog-governance.routes.ts',
   'core/media-assets/media-asset.service.ts',
   'core/media-assets/media-assets.routes.ts',
+  'core/media-assets/media-context-identity.ts',
   'core/companies/business-templates.service.ts',
   'core/companies/company-templates.routes.ts',
   'core/navigation/module-registry.ts',
@@ -169,26 +170,45 @@ for (const f of FAMILY) {
     !/FROM\s+media_assets[\s\S]{0,120}?WHERE[\s\S]{0,80}?content_hash/i.test(media) && !/\bfindByContentHash\b/.test(media),
     'media-asset voltou a resolver ASSET LÓGICO por hash global (asset/metadata do 1º uploader vazando cross-tenant — FAIL Yala).');
 
-  // 6d — reuso lógico é CONTEXT-SCOPED (blob + tenant + actor criador).
-  check('canonical:media-logical-reuse-context-scoped',
-    /this\.findAssetByBlobAndContext\(blob\.id,\s*input\.tenantId/.test(media) &&
-    /origin_tenant_id\s*=\s*\$2::uuid/.test(media) && /created_by_actor_id\s*=\s*\$3::uuid/.test(media),
-    'reuso de asset lógico deixou de ser scoped por tenant/actor (colisão de hash devolvendo asset de terceiro).');
+  // 6d — identidade lógica é a DECLARAÇÃO CONTEXTUAL COMPLETA (DECISION-0118 D1).
+  //      PROIBIDO voltar a blob+tenant+actor como contexto completo (o anti-padrão
+  //      [B1] do reseal Yala — licença/source/purpose/owner descartados em silêncio).
+  const identity = read(join(SRC, 'core/media-assets/media-context-identity.ts'));
+  check('canonical:media-identity-is-full-context',
+    /computeMediaContextFingerprintV1/.test(media) &&
+    /this\.findAssetByContextFingerprint\(contextFingerprint\)/.test(media) &&
+    !/findAssetByBlobAndContext/.test(media) &&
+    /decl\.contextType/.test(identity) && /decl\.contextOwnerId/.test(identity) &&
+    /decl\.source/.test(identity) && /decl\.purpose/.test(identity) &&
+    /normalizeContextDimension\(decl\.license\)/.test(identity) &&
+    /normalizeContextDimension\(decl\.provenance\)/.test(identity),
+    'identidade do asset lógico regrediu (context_owner/source/purpose/licença/provenance fora da identidade — colapso contextual [B1]).');
+
+  // 6d2 — chave explícita de idempotência: payload divergente = CONFLITO observável.
+  check('canonical:media-idempotency-conflict-observable',
+    /MEDIA_IDEMPOTENCY_CONFLICT/.test(media) && /findAssetByIdempotencyKey/.test(media),
+    'Idempotency-Key divergente deixou de conflitar observavelmente (sucesso falso/descarte silencioso — proibido).');
 
   // 6e — reader de arquivo AUTORIZADO: rota chama leitura autorizada; resolver
-  //      prova visibilidade (canônica pública aprovada + contexto do criador por tenant).
+  //      prova visibilidade — canônica pública = approved E vinculada (isAttachedToCanonical);
+  //      privado = autoridade do CONTEXT_OWNER (canManageCompany) ou criador, POR TENANT.
   check('canonical:media-file-reader-authorized',
     /readContentAuthorized\(/.test(routes) &&
     /canReadMediaAsset/.test(media) &&
-    /asset\.originTenantId === ctx\.tenantId/.test(media) &&
+    /asset\.originTenantId !== ctx\.tenantId/.test(media) &&
     /moderationStatus === 'approved'/.test(media) &&
+    /isAttachedToCanonical\(asset\.id\)/.test(media) &&
+    /canManageCompany\(ctx\.tenantId,\s*asset\.contextOwnerId/.test(media) &&
     /canRepresentActor/.test(media),
-    'leitura de arquivo/metadata de mídia perdeu a autorização (tenant/visibilidade) — arquivo privado servível cross-tenant.');
+    'leitura de arquivo/metadata de mídia perdeu a autorização contextual (tenant/context_owner/visibilidade) — arquivo privado servível indevidamente.');
 
-  // 6f — attach/business prova que o ASSET pertence ao contexto do caller.
+  // 6f — attach/business prova que o ASSET pertence ao CONTEXTO EMPRESARIAL do alvo
+  //      (empresa E2 NÃO anexa declaração privada de E1, mesmo com o mesmo humano).
   check('canonical:media-business-attach-context-proof',
-    /MEDIA_ASSET_FOREIGN/.test(media) && /subjectUserId/.test(media),
-    'attach/business deixou de provar o contexto do asset (tenant B anexando asset privado de A).');
+    /MEDIA_ASSET_FOREIGN/.test(media) &&
+    /asset\.contextOwnerId === targetCompanyId/.test(media) &&
+    /asset\.contextType === 'company'/.test(media),
+    'attach/business deixou de provar o CONTEXT_OWNER do asset (declaração de outra empresa/finalidade anexável — [B1]).');
 
   // 6g — moderação/autoria/origem/licença NÃO vivem no BLOB físico.
   const newMig = readFileSync(join(MIGRATIONS, '20260612090000_media_blob_asset_separation.sql'), 'utf-8').replace(/--[^\n]*/g, '');

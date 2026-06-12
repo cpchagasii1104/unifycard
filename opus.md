@@ -4522,3 +4522,24 @@ teste são o backstop). 4. Fixture de e2e que assere a SAÍDA de um gate (FIXED_
 defasada quando o gate evolui no mesmo trem de commits — rodar o e2e no MESMO HEAD do gate antes
 de selar. 5. Gate textual que vigia invariante: ao corrigir o modelo, REMOVER o check que exigia
 o anti-padrão antigo é tão obrigatório quanto adicionar os novos — senão o gate prende a correção.
+
+## 2026-06-12 — F-CANONICAL-CONTEXTUAL-MEDIA-AND-TEMPORAL-AUTHORITY-CLOSURE (2 vetores Yala)
+
+DECISION-0118 antes do runtime. [B1] identidade de mídia lógica virou DECLARAÇÃO CONTEXTUAL
+(context_fingerprint UNIQUE sobre blob+tenant+actor+context_type+context_owner+source+purpose+
+licença+provenance; Idempotency-Key 409 em payload divergente). [B2] owner temporal virou RECURSO
+com resolver polimórfico central (authority actor material por owner_type; CHECK físico; zero
+`as never`); service_offering deixou de ser write-only. E2es novos 21/21 + 24/24 + 10/10;
+provas negativas 11/11; gate temporal novo no regression-guards.
+
+LIÇÕES: 1. "Context-scoped" tem GRAUS — blob+tenant+actor parecia isolamento mas ainda colapsava
+DECLARAÇÕES (licença/finalidade/empresa); identidade de recurso compartilhado deve enumerar TODAS
+as dimensões materiais da intenção, e o fingerprint computado (espelhado SQL↔código) torna isso
+executável por UNIQUE. 2. Owner polimórfico sem resolver é bomba de autorização: qualquer rota
+que compara actorId com owner_id cru quebra NO DIA em que o primeiro owner-recurso entra no
+vocabulário — a correção certa é policy por tipo derivando o AUTHORITY ACTOR do schema (e CHECK
+físico para o vocabulário não escapar de novo). 3. Gate que exige a FORMA da implementação
+(findAssetByBlobAndContext com $2/$3) cristaliza o bug junto com a proteção — vigiar INVARIANTES
+(dimensões na identidade), não assinaturas. 4. Enum member regex sem escopo de bloco vaza para
+os outros enums do arquivo — parse do bloco antes do parse dos membros. 5. Fixture de page actor:
+o nascimento de empresa JÁ materializa o page (uq_actors_company_page) — SELECT antes de INSERT.
