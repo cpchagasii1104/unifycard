@@ -336,6 +336,7 @@ async function main(): Promise<void> {
   }
   await pool.end();
   console.log('✨ Menu projetado do registry + discovery canônica agrupada — verde.');
+  process.exit(0); // CLI validator: encerra o event loop (handles transitivas de módulos importados)
 }
 
 main().catch(async (e) => {

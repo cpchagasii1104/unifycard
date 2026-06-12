@@ -11586,7 +11586,8 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-INVENTORY-PRODUCT-VISIBILITY-TENANT-WIDE-STOCK-PROJECTION — OPEN (2026-06-11)
 
-- **Status:** **OPEN (2026-06-11)** — descoberta na enumeração HARD STOP da frente `F-INVENTORY-LEGACY-READERS-RECONCILIATION` (auditoria adversarial de 6 readers + verificação 1ª mão). NÃO corrigida (fora do escopo DEC-A; exige decisão de produto).
+- **Status:** **CLOSED (2026-06-11)** — fechada pela frente `F-CANONICAL-CATALOG-BUSINESS-TEMPLATES-AND-OFFERING-CLOSURE` CP4 (DECISION-0117; commit `70d3df6b`). A decisão de produto pendente ("estoque do merchant/oferta") foi tomada na DECISION-0117 A e implementada: `product-visibility.service.ts` agrega estoque **DO MERCHANT da oferta** (`im.actor_id = po.merchant_id`) com **unidade consistente** (`im.unit = pv.sale_unit`; bases incompatíveis ficam FORA da soma — DECISION-0117 H) e variante da oferta ligada à variante tenant (`pv.canonical_variant_id`), além de DEFESA DIRETA no reader (merchant de empresa só aparece com KYB aprovado + publicação ativa; PF preserva contrato legado, registrado). Prova: e2e `validate-pipeline-e2e-canonical-offerings-inventory.ts` O6/O7/O8/O9 (A=10/B=5 sem vazamento; kg fora da soma em un; estoque zero sai da lista com a oferta viva; sem KYB não aparece). Regressão vigiada em DOIS gates: `validate:inventory-reader-scope` (check 3c; manifest SCOPED_APPROVED) e `audit-canonical-catalog-closure.mjs` (visibility-merchant-scoped-stock). _Entrada histórica abaixo preservada._
+- **Status histórico:** OPEN (2026-06-11) — descoberta na enumeração HARD STOP da frente `F-INVENTORY-LEGACY-READERS-RECONCILIATION` (auditoria adversarial de 6 readers + verificação 1ª mão). À época não corrigida (fora do escopo DEC-A; exigia decisão de produto).
 - **Rota (LIVE):** `GET /marketplace/products/visible` (`store-onboarding.routes.ts:314`, registrada em `app.builder.ts:638` no protectedScope — **só authPlugin, SEM preHandler de permissão**). Qualquer usuário autenticado acessa.
 - **Leak (verificado 1ª mão):** `product-visibility.service.ts:97-108` agrega `SUM(inventory_movements)` cross-actor por variante (`WHERE tenant_id=$1 AND product_variant_id=pv.id`, **sem actor_id**) e o RETORNA como `availableQuantity` (SELECT linha 73 + map linha 145). O próprio cabeçalho do arquivo documenta a limitação ("pode mostrar estoque de seller A para oferta de seller B"). Classe: leak tenant-wide AGREGADO (não itemiza actor_id, mas revela estoque total cross-seller). Latente em dado (dev 0 linhas), vivo por shape.
 - **Correção exige DECISÃO DE PRODUTO (não mecânica):** o estoque exibido no catálogo deve ser resolvido pelo **merchant/actor proprietário da oferta** (`product_offers.merchant_id`), nunca por `SUM` tenant-wide. Hipótese para a frente futura (B): estoque por oferta/merchant; não somar global. Pode exigir per-offer availability.
@@ -12318,3 +12319,40 @@ nome ('E2e-…') → identities/global_users de fixture vazavam silenciosamente 
 (91 órfãs medidas e varridas; 6 e2es corrigidos para ILIKE: c1-birth/read-purity/human-journey/
 self-escalation/inventory-consolidated/pj-integrado). Pós-correção: matriz inteira re-rodada
 deixa dev byte-estável (identities 16→16, global_users 8→8, actors 10→10, órfãs fiscais 0).
+
+---
+
+## F-CANONICAL-CATALOG-BUSINESS-TEMPLATES-AND-OFFERING-CLOSURE — ✅ tecnicamente concluída (2026-06-11) — AGUARDANDO RESEAL YALA
+
+GO integrado da IA Diretora (ratificação de produto: Clayton; DECISION-0117 promulgada ANTES do
+runtime) sobre HEAD `d865a04d`. Commits seriais: 0=`a664eeb0` (DECISION) · A=`9ab5233c` (CP1
+fundação canônica: canonical_units/variants/services/catalog_events/merge; sugestão→curadoria
+humana; LOCAL scoped; marca normalizada; unidades fail-closed; services exige canônico; e2e 35/35)
+· B=`e551e581` (CP2 mídia content-addressed sha-256 UNIQUE + relações + business_media + compensação;
+e2e 20/20) · C=`d44ceade` (CP3 templates versionados por referência + aplicação manual-assistida
+auditável + distribuidora-de-bebidas seed; e2e 15/15) · D=`70d3df6b` (CP4 ofertas variant-aware c/
+internal_sku/sale_unit + service_offerings c/ Unified Availability + products/visible merchant-scoped;
+e2e 16/16) · E=`2bc06e73` (CP5 module-registry + menu projetado + GlobalSidebar consome projeção +
+busca 1-item→N-ofertas; e2e 13/13) · F=commit desta entrega (E2E INTEGRADO 21/21 + gate
+`audit-canonical-catalog-closure.mjs` em validate:regression-guards [61 CLOSED_CANONICAL/5
+KNOWN_OPEN/0/0/0] + 8 provas negativas sha-verificadas + cartório).
+
+**DTs fechadas:** DT-INVENTORY-PRODUCT-VISIBILITY-TENANT-WIDE-STOCK-PROJECTION (acima).
+**Invariantes vivas:** preço pertence à OFERTA; estoque pertence ao ACTOR; empresa cria OFERTA,
+não significado; canônico compartilhado; template = referência versionada; menu = projeção;
+merge = redirect append-only; unidades fail-closed; zero Bank writer; zero actor cure (família
+canônica no regime PJ-B3, vigiada por gate).
+
+## DT-MARKETPLACE-LEGACY-MEMORY-PRODUCT-ROUTES — OPEN (2026-06-11)
+
+- **Status:** **OPEN** — auditada (não removida) pela frente canônica, conforme GO §11.4 ("não
+  remover sem provar zero caller"): `GET /marketplace/store/:storeId/products` e
+  `GET /marketplace/products/canonical` seguem servindo dados EM MEMÓRIA (legacy) e têm **caller
+  vivo no frontend** (`frontend/src/api/marketplace.ts:141/188` + páginas de loja).
+- **Substituto canônico VIVO:** `/marketplace/catalog/items/search` + `/marketplace/catalog/items/:id/offers`
+  (agrupamento por identidade; ofertas DB-backed gateadas por KYB/publicação).
+- **Resolução prevista:** fatia própria migra as páginas de loja do frontend para as superfícies
+  canônicas e tombstona as rotas em memória (provando zero caller + regressões verdes). Vigiada
+  como KNOWN_OPEN no gate `audit-canonical-catalog-closure.mjs`.
+- **Vinculada a:** `marketplace.routes.ts` (legacy memory), `marketplace-legacy-memory-order-flag`,
+  DECISION-0117 F, `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` (vocabulário, OPEN).

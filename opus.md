@@ -4476,3 +4476,27 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   materializou o caso teórico em 1 INSERT real. 3. Auditoria de residual da matriz INTEIRA achou dois
   vazadores de fixture invisíveis há semanas (LIKE case-sensitive vs register que capitaliza; helper
   local fora do codemod) — residual zero é critério de prova, não cosmética.)
+
+## 2026-06-11 — F-CANONICAL-CATALOG-BUSINESS-TEMPLATES-AND-OFFERING-CLOSURE (GO integrado, 6 CPs)
+
+DECISION-0117 (A–H de Clayton) promulgada ANTES do runtime; commits 0+A–F sobre d865a04d.
+Entregue: canonical_variants (eixos discriminadores NO fingerprint; nome é rótulo), canonical_services
+(+ writer de services exige canônico ativo), canonical_units fail-closed, sugestão→curadoria humana
+(empresa nunca cria global READY), LOCAL scoped, merge redirect append-only, mídia content-addressed
+(sha-256 UNIQUE; molde document-storage; compensação), templates versionados por REFERÊNCIA com
+aplicação manual-assistida auditável (+ distribuidora-de-bebidas), ofertas variant-aware (SKU/unidade/
+status; canRepresentActor), service_offerings com Unified Availability (zero agenda paralela),
+products/visible merchant-scoped (DT fechada), module-registry + menu PROJETADO (sidebar sem hardcode),
+busca 1-item→N-ofertas com preço POR unidade. E2Es: 35+20+15+16+13+21 (integrado) + matriz completa.
+Gate audit-canonical-catalog-closure (19 arquivos família; 61 CLOSED) + 8 provas negativas sha.
+
+LIÇÕES: 1. Identidade de variante = EIXOS, não rótulo — o e2e pegou o nome participando do fingerprint
+("COCA 1 L" ≠ "Coca 1L") e a correção materializou a DECISION melhor que o desenho inicial.
+2. Runs penduradas em DB efêmera reutilizada produzem falso-vermelho de dedup ("já existe") — efêmera
+é DESCARTÁVEL: DROP/CREATE sempre; nunca diagnosticar dedup sem DB limpa. 3. O harness trava wrappers
+longos em background (node sem conexões) — Start-Process detached + log + Monitor until-grep é o
+padrão estável. 4. NEW_UNCLASSIFIED dos gates ANTIGOS é parte do contrato da frente NOVA: o gate PJ
+derrubou a matriz ao ver business-templates em core/companies — classificar no denominador do gate
+vizinho é cartório de código, não burocracia. 5. Check de gate que aceita a 1ª ocorrência de um token
+(definição de método) em vez da CHAMADA é satisfazível por token decorativo — exigir assinatura da
+chamada (this.findByContentHash(contentHash)).

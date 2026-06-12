@@ -6847,3 +6847,14 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 - **Supera:** nenhuma (consolida e estende; reancora contratos comprovados do plano órfão).
 - **Superada por:** (em aberto)
 - **Referências:** `docs/02_decisions/DECISION_0117_CANONICAL_CATALOG_OFFERING_MODEL.md`; GO integrado da frente; READ-FIRST da frente; `SEMANTIC_CATALOG_GOVERNANCE.md`; `C.25_SPEC.md`; `RFC_SEMANTIC_SIGNALS_ONBOARDING_BRIDGE.md`; `2B_reconciliation.md`; DECISIONs 0097–0109/0113/0115/0116; DTs vinculadas no documento.
+
+> **ADENDO A1 à DECISION-0117 (2026-06-11, factual):** implementação integral na mesma macrofrente —
+> commits A `9ab5233c` (CP1 fundação: variants/services/units/merge/curadoria; e2e 35/35) ·
+> B `e551e581` (CP2 mídia content-addressed; 20/20) · C `d44ceade` (CP3 templates versionados +
+> distribuidora-de-bebidas; 15/15) · D `70d3df6b` (CP4 ofertas variant-aware + service_offerings c/
+> Unified Availability + products/visible merchant-scoped → DT-INVENTORY-PRODUCT-VISIBILITY-TENANT-
+> WIDE-STOCK-PROJECTION CLOSED; 16/16) · E `2bc06e73` (CP5 menu projetado de registry + busca
+> 1-item→N-ofertas; 13/13) · F (E2E integrado 21/21 + gate audit-canonical-catalog-closure 61/5/0/0/0
+> + 8 provas negativas sha-verificadas + cartório). Detalhe no ADENDO A1 do arquivo da DECISION e em
+> docs/03_execution_log/20260611_F_CANONICAL_CATALOG_BUSINESS_TEMPLATES_AND_OFFERING_CLOSURE.md.
+> Macrofrente tecnicamente concluída — AGUARDANDO RESEAL YALA.

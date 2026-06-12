@@ -1,0 +1,335 @@
+#!/usr/bin/env node
+// Gate estrutural — F-CANONICAL-CATALOG-BUSINESS-TEMPLATES-AND-OFFERING-CLOSURE
+// (DECISION-0117). Vigia as invariantes do catálogo canônico, templates, mídia,
+// menu e ofertas. Integrado em validate:regression-guards.
+//
+// Classificações: CLOSED_CANONICAL · KNOWN_OPEN_OUTSIDE_CANONICAL ·
+// FINANCIAL_HARD_STOP · FORBIDDEN_REGRESSION · NEW_UNCLASSIFIED.
+//
+// Análise comment-stripped ORDER-SAFE (line-comments primeiro, com guarda para
+// '://'; depois block-comments) — herdada do gate PJ após o bug provado em que
+// um '/*' dentro de comentário de linha cegava a varredura. Limitação honesta:
+// heurística textual, não AST; falso positivo torna o gate MAIS restritivo.
+// Tokens em comentário NÃO satisfazem nem violam o gate (são removidos antes).
+
+import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
+import { join, extname } from 'path';
+
+const SRC = join(process.cwd(), 'src');
+const REPO = join(process.cwd(), '..');
+const MIGRATIONS = join(process.cwd(), 'migrations');
+
+const stripComments = (s) => s
+  .replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+
+const surfaces = [];
+const failures = [];
+function check(surface, ok, failMsg, cls = 'FORBIDDEN_REGRESSION') {
+  surfaces.push([surface, ok ? 'CLOSED_CANONICAL' : cls]);
+  if (!ok) failures.push(`${cls}: ${failMsg}`);
+}
+function knownOpen(surface, note) {
+  surfaces.push([surface, 'KNOWN_OPEN_OUTSIDE_CANONICAL']);
+  console.log(`  KNOWN_OPEN: ${surface} — ${note}`);
+}
+
+function read(p) {
+  return stripComments(readFileSync(p, 'utf-8'));
+}
+
+// ── FAMÍLIA CANÔNICA (denominador explícito de writers/readers da frente) ─────
+const FAMILY = [
+  'core/catalog/canonical/catalog-identity.ts',
+  'core/catalog/canonical/canonical-units.service.ts',
+  'core/catalog/canonical/canonical-variant.service.ts',
+  'core/catalog/canonical/canonical-service.service.ts',
+  'core/catalog/curation/catalog-curation.service.ts',
+  'core/catalog/suggestions/catalog-suggestion.service.ts',
+  'core/catalog/catalog-governance.routes.ts',
+  'core/media-assets/media-asset.service.ts',
+  'core/media-assets/media-assets.routes.ts',
+  'core/companies/business-templates.service.ts',
+  'core/companies/company-templates.routes.ts',
+  'core/navigation/module-registry.ts',
+  'core/navigation/module-projection.routes.ts',
+  'modules/marketplace/product-offering.service.ts',
+  'modules/marketplace/marketplace-offerings.routes.ts',
+  'modules/marketplace/marketplace-canonical-search.routes.ts',
+  'modules/marketplace/product-visibility.service.ts',
+  'modules/services/service-offering.service.ts',
+  'modules/services/service-offerings.routes.ts',
+];
+
+// 1) Família NÃO cura actor humano (regime PJ-B3 estendido) e NÃO escreve Bank.
+const FORBIDDEN_CURE = /\bensureUserActor\b|\bfindOrCreateUserActor\b|\bensureCanonicalActorChain\b|INSERT\s+INTO\s+actors\b/;
+const BANK_WRITER = /INSERT\s+INTO\s+bank_|UPDATE\s+bank_/i;
+for (const f of FAMILY) {
+  const p = join(SRC, f);
+  if (!existsSync(p)) {
+    failures.push(`FORBIDDEN_REGRESSION: arquivo da família canônica desapareceu: ${f}`);
+    surfaces.push([`family:${f}`, 'FORBIDDEN_REGRESSION']);
+    continue;
+  }
+  const code = read(p);
+  check(`canonical:family-no-actor-cure:${f}`, !FORBIDDEN_CURE.test(code),
+    `writer canônico ${f} cria/cura actor humano (proibido — DECISION-0117 B / PJ-B3).`);
+  check(`canonical:family-no-bank-writer:${f}`, !BANK_WRITER.test(code),
+    `writer canônico ${f} escreve em bank_* (FINANCIAL_HARD_STOP — zero financeiro nesta frente).`,
+    'FINANCIAL_HARD_STOP');
+}
+
+// 2) PREÇO/ESTOQUE jamais em entidade canônica (preço = oferta; estoque = actor).
+{
+  let violation = null;
+  const scan = (dir) => {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        if (entry === 'node_modules') continue;
+        scan(full);
+      } else if (['.ts', '.sql'].includes(extname(full))) {
+        const raw = extname(full) === '.ts' ? read(full) : readFileSync(full, 'utf-8').replace(/--[^\n]*/g, '');
+        const m = raw.match(/(INSERT\s+INTO|UPDATE|ALTER\s+TABLE)\s+canonical_(products|variants|services)[\s\S]{0,300}?(price_cents|stock_quantity|estoque_)/i);
+        if (m && !violation) violation = `${full.replace(process.cwd(), '')}: ${m[0].slice(0, 80)}…`;
+      }
+    }
+  };
+  scan(SRC);
+  scan(MIGRATIONS);
+  check('canonical:no-price-or-stock-on-canonical', violation === null,
+    `preço/estoque entrando em entidade CANÔNICA (proibido — DECISION-0117 A/D): ${violation}`);
+}
+
+// 3) Empresa NÃO cria canônico global READY: sugestão nasce scoped; promoção/READY só na curadoria.
+{
+  // Vigia ESCRITA (INSERT/UPDATE) — predicados de LEITURA de visibilidade 2B
+  // (scope='global' em WHERE) são legítimos e não disparam.
+  const sug = read(join(SRC, 'core/catalog/suggestions/catalog-suggestion.service.ts'));
+  const writesGlobal =
+    /SET\s+scope\s*=\s*'global'/i.test(sug) ||
+    /INSERT\s+INTO\s+canonical_products[\s\S]{0,500}?VALUES[\s\S]{0,300}?'global'/i.test(sug) ||
+    /SET[^;]{0,200}concept_resolution_status\s*=\s*'confirmed'/i.test(sug);
+  check('canonical:suggestion-never-global-ready', !writesGlobal,
+    'catalog-suggestion passou a GRAVAR global/confirmed direto (empresa criando global READY — proibido, DECISION-0117 B).');
+  const cur = read(join(SRC, 'core/catalog/curation/catalog-curation.service.ts'));
+  check('canonical:curation-owns-ready',
+    /concept_resolution_status\s*=\s*'confirmed'/.test(cur) && /resolved_by_actor_id/.test(cur),
+    'catalog-curation perdeu a confirmação humana auditada (READY sem curador).');
+}
+
+// 4) OFERTA referencia canônico/variante; writer prova canRepresentActor.
+{
+  const off = read(join(SRC, 'modules/marketplace/product-offering.service.ts'));
+  check('canonical:offer-references-variant',
+    /canonical_variant_id/.test(off) && /resolveRedirect/.test(off) && /CANONICAL_NOT_READY/.test(off),
+    'product-offering deixou de referenciar a variante canônica/readiness (oferta sem identidade — proibido).');
+  check('canonical:offer-authority-canrepresent',
+    /canRepresentActor\(/.test(off),
+    'product-offering perdeu a prova server-side canRepresentActor (actorId do cliente virando autoridade — DECISION-0113).');
+}
+
+// 5) SERVIÇO empresarial referencia canonical_service; sem agenda paralela.
+{
+  const svc = read(join(SRC, 'modules/services/services.service.ts'));
+  check('canonical:services-writer-requires-canonical',
+    /canonicalServiceId/.test(svc) && /requireActiveForTenant/.test(svc),
+    'services.service deixou de exigir canonical_service_id ativo (significado duplicado por prestador — DECISION-0117 D).');
+  const so = read(join(SRC, 'modules/services/service-offering.service.ts'));
+  check('canonical:service-offering-unified-availability',
+    /unifiedAvailabilityService\.createAvailability/.test(so) && !/INSERT\s+INTO\s+schedules\b/i.test(so),
+    'service-offering criou agenda paralela ou abandonou a Unified Availability (proibido — DECISION-0117 D).');
+  check('canonical:service-offering-authority',
+    /canRepresentActor\(/.test(so) && /requireActiveForTenant/.test(so),
+    'service-offering perdeu canRepresentActor/identidade canônica ativa.');
+}
+
+// 6) MÍDIA content-addressed: dedup por hash ANTES do storage; UNIQUE no schema.
+{
+  const media = read(join(SRC, 'core/media-assets/media-asset.service.ts'));
+  // Exige a CHAMADA de dedup (não a definição do método — token decorativo não satisfaz).
+  const dedupIdx = media.indexOf('this.findByContentHash(contentHash)');
+  const storeIdx = media.indexOf('storeDocument({');
+  check('canonical:media-hash-dedup-before-store',
+    dedupIdx > -1 && storeIdx > -1 && dedupIdx < storeIdx && /deleteDocument/.test(media),
+    'media-asset perdeu o dedup por content_hash antes do storage e/ou a compensação (blob duplicado/órfão — DECISION-0117 C).');
+  const mig = readFileSync(join(MIGRATIONS, '20260611160000_media_assets_canonical.sql'), 'utf-8');
+  check('canonical:media-unique-content-hash',
+    /uidx_media_assets_content_hash/.test(mig),
+    'UNIQUE de content_hash sumiu do schema de mídia.');
+}
+
+// 7) images JSONB NÃO volta a ser SSOT (nenhum writer novo grava canonical_products.images).
+{
+  let violation = null;
+  const scanTs = (dir) => {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        if (entry === 'node_modules') continue;
+        scanTs(full);
+      } else if (extname(full) === '.ts' && !full.includes('scripts')) {
+        const code = read(full);
+        const m = code.match(/UPDATE\s+canonical_products\s+SET[\s\S]{0,200}?\bimages\b/i);
+        if (m && !violation) violation = full.replace(process.cwd(), '');
+      }
+    }
+  };
+  scanTs(SRC);
+  check('canonical:images-jsonb-not-ssot', violation === null,
+    `writer voltou a gravar canonical_products.images como SSOT (mídia canônica é media_assets — DECISION-0117 C): ${violation}`);
+}
+
+// 8) TEMPLATES: aplicação versionada/auditável; sem metadata opaca; sem efeito comercial.
+{
+  const tpl = read(join(SRC, 'core/companies/business-templates.service.ts'));
+  check('canonical:template-application-versioned',
+    /template_version_id/.test(tpl) && /applied_by_actor_id/.test(tpl),
+    'aplicação de template perdeu versão/actor aplicador (auditoria obrigatória — DECISION-0117 E).');
+  check('canonical:template-no-opaque-metadata',
+    !/businessType|businessCategory/.test(tpl),
+    'template voltou a depender de metadata opaca businessType/businessCategory (proibido — DECISION-0098/0117 E).');
+  check('canonical:template-no-commercial-effect',
+    !/INSERT\s+INTO\s+(product_offers|service_offerings|inventory_movements|availability)\b/i.test(tpl),
+    'template passou a criar oferta/estoque/agenda automaticamente (proibido — DECISION-0117 E).');
+}
+
+// 9) MENU: projeção do registry; frontend não inventa; STUB/TOMBSTONE fora.
+{
+  const reg = read(join(SRC, 'core/navigation/module-registry.ts'));
+  check('canonical:menu-registry-hides-stub',
+    /status === 'LIVE'/.test(reg),
+    'liveEntriesForContext deixou de filtrar STUB/TOMBSTONE (rota morta aparecendo como operacional).');
+  const sidebarPath = join(REPO, 'frontend/src/components/layout/GlobalSidebar.tsx');
+  const sidebar = read(readFileSync(sidebarPath, 'utf-8') ? sidebarPath : sidebarPath);
+  const sidebarCode = read(sidebarPath);
+  check('canonical:sidebar-consumes-projection',
+    /getNavigationModules/.test(sidebarCode) && !/NAV_GROUPS\s*:\s*NavGroup\[\]/.test(sidebarCode) && !/PILOT_HIDDEN_ROUTES/.test(sidebarCode),
+    'GlobalSidebar voltou a hardcodar NAV_GROUPS/PILOT_HIDDEN_ROUTES divergentes do registry (DECISION-0117 F).');
+}
+
+// 10) DISCOVERY: estoque merchant-scoped + unidade consistente + KYB/publicação no reader.
+{
+  const vis = read(join(SRC, 'modules/marketplace/product-visibility.service.ts'));
+  check('canonical:visibility-merchant-scoped-stock',
+    /im\.actor_id\s*=\s*po\.merchant_id/.test(vis),
+    'products/visible voltou a somar estoque tenant-wide (DT-INVENTORY-PRODUCT-VISIBILITY reaberta).');
+  check('canonical:visibility-unit-consistent',
+    /im\.unit\s*=\s*pv\.sale_unit/.test(vis),
+    'products/visible voltou a somar unidades incompatíveis (DECISION-0117 H).');
+  check('canonical:visibility-kyb-publication-gate',
+    /kyb_status\s*=\s*'approved'/.test(vis) && /company_concept_publications/.test(vis),
+    'discovery contornou KYB/publicação (defesa direta do reader removida — DECISION-0099/0101/0117).');
+  const search = read(join(SRC, 'modules/marketplace/marketplace-canonical-search.routes.ts'));
+  check('canonical:search-groups-by-identity',
+    /duplicate_of_canonical_product_id IS NULL/.test(search) && /byUnit/.test(search),
+    'busca deixou de agrupar por identidade canônica e/ou de separar preços por unidade.');
+}
+
+// 11) UNIDADES fail-closed.
+{
+  const units = read(join(SRC, 'core/catalog/canonical/canonical-units.service.ts'));
+  check('canonical:units-fail-closed',
+    /UNIT_INCOMPATIBLE/.test(units) && /UNIT_UNKNOWN/.test(units),
+    'registry de unidades perdeu o fail-closed (soma silenciosa de bases incompatíveis — DECISION-0117 H).');
+}
+
+// 12) MERGE por redirect append-only (sem rewrite destrutivo).
+{
+  const cur = read(join(SRC, 'core/catalog/curation/catalog-curation.service.ts'));
+  check('canonical:merge-redirect-append-only',
+    /duplicate_of_canonical_product_id/.test(cur) && !/DELETE\s+FROM\s+canonical_products/i.test(cur),
+    'merge curatorial virou rewrite destrutivo (DELETE de canônico) ou perdeu o redirect (DECISION-0117 G).');
+}
+
+// 13) NEW_UNCLASSIFIED — arquivo novo nos diretórios da frente sem classificação.
+{
+  const WATCH_DIRS = ['core/catalog', 'core/media-assets', 'core/navigation'];
+  const CLASSIFIED_NON_RESOLVING = new Set([
+    // pré-existentes do substrato canônico (fora do denominador de writers desta frente):
+    'core/catalog/canonical/canonical-concept-resolution-audit.ts',
+    'core/catalog/canonical/canonical-concept-resolution-queue.service.ts',
+    'core/catalog/canonical/canonical-concept.types.ts',
+    'core/catalog/canonical/canonical-match-suggestion.service.ts',
+    'core/catalog/canonical/canonical-product-commerce-guard.ts',
+    'core/catalog/canonical/canonical-product-creation.pipeline.ts',
+    'core/catalog/canonical/canonical-product-creation.service.ts',
+    'core/catalog/canonical/canonical-product-db.types.ts',
+    'core/catalog/canonical/canonical-product-events.repository.ts',
+    'core/catalog/canonical/canonical-product-readiness.ts',
+    'core/catalog/canonical/canonical-product.module.ts',
+    'core/catalog/canonical/canonical-product.repository.ts',
+    'core/catalog/canonical/canonical-product.routes.ts',
+    'core/catalog/canonical/canonical-product.service.ts',
+    'core/catalog/canonical/canonical-product.types.ts',
+    'core/catalog/category-review.module.ts',
+    'core/catalog/category-review.routes.ts',
+    'core/catalog/category-review.service.ts',
+    'core/catalog/dynamic-pricing/dynamic-pricing.module.ts',
+    'core/catalog/dynamic-pricing/dynamic-pricing.routes.ts',
+    'core/catalog/dynamic-pricing/dynamic-pricing.service.ts',
+    'core/catalog/dynamic-pricing/dynamic-pricing.types.ts',
+    'core/catalog/offer-index/offer-index.module.ts',
+    'core/catalog/offer-index/offer-index.routes.ts',
+    'core/catalog/offer-index/offer-index.service.ts',
+    'core/catalog/offer-index/offer-index.types.ts',
+    'core/catalog/product-demand/product-demand.module.ts',
+    'core/catalog/product-demand/product-demand.routes.ts',
+    'core/catalog/product-demand/product-demand.service.ts',
+    'core/catalog/product-demand/product-demand.types.ts',
+    'core/navigation/n1-query.adapter.ts',
+    'core/navigation/n2-governance.service.ts',
+    'core/navigation/n2-query.adapter.ts',
+    'core/navigation/navigation-offers.list.ts',
+    'core/navigation/navigation.routes.ts',
+  ]);
+  const familySet = new Set(FAMILY);
+  let unclassified = 0;
+  for (const wd of WATCH_DIRS) {
+    const base = join(SRC, wd);
+    if (!existsSync(base)) continue;
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (extname(full) === '.ts') {
+          const rel = full.replace(SRC, '').replace(/\\/g, '/').replace(/^\//, '');
+          if (!familySet.has(rel) && !CLASSIFIED_NON_RESOLVING.has(rel)) {
+            unclassified++;
+            failures.push(`NEW_UNCLASSIFIED: arquivo novo na frente canônica sem classificação: ${rel} — classifique na FAMILY ou em CLASSIFIED_NON_RESOLVING (com revisão).`);
+            surfaces.push([`new:${rel}`, 'NEW_UNCLASSIFIED']);
+          }
+        }
+      }
+    };
+    walk(base);
+  }
+  if (unclassified === 0) surfaces.push(['canonical:new-files-classified', 'CLOSED_CANONICAL']);
+}
+
+// ── KNOWN_OPEN fora do fechamento (dívidas explícitas, não aprovação) ─────────
+knownOpen('legacy:marketplace-store-products-in-memory',
+  'GET /marketplace/store/:id/products e /marketplace/products/canonical seguem em memória com caller vivo no frontend — remoção exige substituto provado (fatia própria). Substituto canônico vivo: /marketplace/catalog/items/*.');
+knownOpen('legacy:product_prices-table',
+  'tabela product_prices (0 linhas) sem writer vivo — candidata a tombstone em fatia própria.');
+knownOpen('vocabulary:marketplace-domain-fork',
+  'MarketplaceDomain↔N0 segue OPEN (DT própria, DECISION-0102 §13 — aguarda Clayton).');
+knownOpen('media:production-provider',
+  'provider de produção de mídia FORA desta frente (local/dev funcional).');
+knownOpen('units:auto-conversion',
+  'conversão automática de unidades FORA (fail-closed vigente).');
+
+// ── Saída ─────────────────────────────────────────────────────────────────────
+const closed = surfaces.filter(([, c]) => c === 'CLOSED_CANONICAL').length;
+const open = surfaces.filter(([, c]) => c === 'KNOWN_OPEN_OUTSIDE_CANONICAL').length;
+const forb = surfaces.filter(([, c]) => c === 'FORBIDDEN_REGRESSION').length;
+const fin = surfaces.filter(([, c]) => c === 'FINANCIAL_HARD_STOP').length;
+const newu = surfaces.filter(([, c]) => c === 'NEW_UNCLASSIFIED').length;
+console.log(`[canonical-catalog-closure] CLOSED_CANONICAL=${closed} KNOWN_OPEN_OUTSIDE_CANONICAL=${open} FORBIDDEN_REGRESSION=${failures.length ? forb : 0} FINANCIAL_HARD_STOP=${fin} NEW_UNCLASSIFIED=${newu}`);
+
+if (failures.length > 0) {
+  console.error('GATE FAIL [canonical-catalog-closure]:');
+  failures.forEach((f) => console.error('  ', f));
+  process.exit(1);
+}
+console.log('GATE OK [canonical-catalog-closure] — invariantes DECISION-0117 vigiadas; KNOWN_OPEN seguem dívida explícita.');

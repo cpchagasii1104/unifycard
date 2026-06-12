@@ -71,11 +71,15 @@ async function main(): Promise<void> {
     `INSERT INTO actors (tenant_id, actor_type, display_name, company_id, responsible_actor_id) VALUES ($1,'page','Super',$2::uuid,$3::uuid) RETURNING id::text AS id`,
     [TENANT_ID, superCompany, humanId])).rows[0].id;
 
+
+  // DECISION-0117 D: writer exige canonical_service_id ativo (identidade compartilhada).
+  const CANONICAL_SERVICE_ID = (await pool.query<{ id: string }>(`
+SELECT id::text AS id FROM canonical_services WHERE scope='global' AND slug='corte-de-cabelo-masculino' LIMIT 1`)).rows[0].id;
   const bankBefore = await count(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::int AS n`);
 
   // ═══ 1 — criar serviço válido de salão (passa pelo guard de categoria) ═══
   const service = await servicesService.createService(TENANT_ID, randomUUID(), {
-    actorId: salaoPage, name: 'Corte Feminino', categoryId: catCabeleireiro, serviceType: 'service' as any, status: 'active' as any,
+    actorId: salaoPage, name: 'Corte Feminino', categoryId: catCabeleireiro, serviceType: 'service' as any, status: 'active' as any, canonicalServiceId: CANONICAL_SERVICE_ID,
   } as any);
   record('1 serviço de salão criado (válido, passou pelo guard)', !!service.serviceId);
   const serviceId = service.serviceId;
@@ -110,7 +114,7 @@ async function main(): Promise<void> {
   let superBlocked = false;
   try {
     await servicesService.createService(TENANT_ID, randomUUID(), {
-      actorId: superPage, name: 'Corte no Super', categoryId: catCabeleireiro, serviceType: 'service' as any,
+      actorId: superPage, name: 'Corte no Super', categoryId: catCabeleireiro, serviceType: 'service' as any, canonicalServiceId: CANONICAL_SERVICE_ID,
     } as any);
   } catch (e) { superBlocked = e instanceof ForbiddenError; }
   record('10 supermercado segue barrado pelo guard de categoria (não cria serviço de salão)', superBlocked);

@@ -78,6 +78,10 @@ const stripComments = (s) => s
     'core/companies/company-members.routes.ts',
     'core/companies/company-publications.service.ts',
     'core/companies/company-validation.service.ts',
+    // F-CANONICAL-CATALOG (DECISION-0117 E): templates empresariais — actor por LEITURA
+    // (findByUserId) + canManageCompany; aplicação NUNCA cria/cura actor nem concede autoridade.
+    'core/companies/business-templates.service.ts',
+    'core/companies/company-templates.routes.ts',
     'core/kyb-documents/kyb-document-submit.service.ts',
     'core/kyb-documents/kyb-request-submit.service.ts',
     'core/kyb-documents/kyb-document-download.service.ts',

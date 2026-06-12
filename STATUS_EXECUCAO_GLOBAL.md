@@ -14165,3 +14165,26 @@ BE baseline · zero migration 368/368 · Bank intocado). Bônus de residual fech
 role-vocabulary (fiscais) + 6 cleanups LIKE→ILIKE (91 identities órfãs históricas varridas);
 dev agora byte-estável pós-matriz. **F-PJ-HUMAN-TO-COMPANY-END-TO-END-CLOSURE: tecnicamente
 concluída — AGUARDANDO RE-RESEAL FINAL DA YALA (não declarada CLOSED).**
+
+---
+
+## F-CANONICAL-CATALOG-BUSINESS-TEMPLATES-AND-OFFERING-CLOSURE ✅ tecnicamente concluída (2026-06-11) — AGUARDANDO RESEAL YALA
+
+GO integrado (6 checkpoints seriais, sem re-autorização) sobre `d865a04d`. **DECISION-0117**
+promulgada ANTES do runtime (decisões A–H de Clayton: variante material; sugestão→curadoria;
+mídia content-addressed; canonical_services+offerings; templates versionados por referência;
+menu=projeção de registry; merge redirect; unidades fail-closed). Commits: 0 `a664eeb0` ·
+A `9ab5233c` (35/35) · B `e551e581` (20/20) · C `d44ceade` (15/15) · D `70d3df6b` (16/16) ·
+E `2bc06e73` (13/13) · F (integrado 21/21 + gate + provas negativas 8/8 + cartório).
+Migrations 369–372 (4 novas, aditivas; checksums preservados). DT-INVENTORY-PRODUCT-VISIBILITY-
+TENANT-WIDE-STOCK-PROJECTION **CLOSED** (products/visible merchant-scoped + unidade consistente +
+KYB/publicação no reader). Gate novo `audit-canonical-catalog-closure.mjs` no regression-guards
+(família 19 arquivos; NEW_UNCLASSIFIED; provas negativas byte-idênticas ×8). Frontend: GlobalSidebar
+consome projeção do registry (hardcode absorvido).
+
+FORA (OPEN explícito): provider mídia produção · conversão automática de unidades · carrinho/
+pedido/booking transacional/checkout/pagamento · system actor institucional · MarketplaceDomain↔N0
+(0102 §13) · legados marketplace em memória (DT-MARKETPLACE-LEGACY-MEMORY-PRODUCT-ROUTES, caller
+vivo) · product_prices ghost · price federation (DT-COMMERCIAL-PRICE-FEDERATED-SSOT) · R2 · FASE 6.
+NÃO declarado: marketplace econômico completo / pedido / pagamento / inventory global / UnifyBank.
+Próxima cadeia: oferta → pedido/agendamento. Aguardando RESEAL Yala.

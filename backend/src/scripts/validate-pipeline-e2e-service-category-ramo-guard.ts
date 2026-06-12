@@ -37,10 +37,15 @@ async function assertEphemeralDb(): Promise<void> {
 const count = async (sql: string, p: unknown[] = []): Promise<number> => Number((await pool.query(sql, p)).rows[0].n);
 
 type Out = { ok: boolean; forbidden: boolean; err?: string };
+// DECISION-0117 D: o writer passou a EXIGIR canonical_service_id ativo (identidade
+// compartilhada). O eixo testado AQUI segue sendo categoria/ramo — usamos o serviço
+// canônico GLOBAL seed (corte-de-cabelo-masculino) em todas as criações.
+let CANONICAL_SERVICE_ID = '';
 async function tryCreate(tenantId: string, actorId: string, name: string, categoryId: string | null): Promise<Out> {
   try {
     await servicesService.createService(tenantId, randomUUID(), {
       actorId, name, categoryId, serviceType: 'service' as any, status: 'draft' as any,
+      canonicalServiceId: CANONICAL_SERVICE_ID,
     } as any); // intent undefined → pula validação de intent; o guard roda antes do create
     return { ok: true, forbidden: false };
   } catch (e) {
@@ -53,6 +58,11 @@ async function main(): Promise<void> {
 
   const TENANT_ID = randomUUID();
   await tenantService.createTenant({ id: TENANT_ID, name: 'Service Guard', slug: `svc-guard-${Date.now()}` });
+
+  // DECISION-0117 D: canônico global ativo do seed (identidade compartilhada do writer).
+  CANONICAL_SERVICE_ID = (await pool.query<{ id: string }>(
+    `SELECT id::text AS id FROM canonical_services WHERE scope='global' AND slug='corte-de-cabelo-masculino' LIMIT 1`
+  )).rows[0].id;
 
   const ct = (await pool.query<{ id: string; slug: string; concept: string }>(
     `SELECT ct.id::text, ct.slug, a.concept_id::text AS concept FROM company_types ct
