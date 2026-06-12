@@ -118,21 +118,22 @@ async function main(): Promise<void> {
   record('B2 PUT confirm = owner-only (actionContext===ownerId) + estado requested (409 se não)',
     /BOOKING_CONFIRM_OWNER_ONLY/.test(put) && /existing\.status !== UnifiedBookingStatus\.REQUESTED/.test(put)
     && /BOOKING_CONFIRM_INVALID_STATE/.test(put));
-  record('B3 PUT cancel = requester OU owner; não após checked_out (409)',
-    /!== requesterId && req\.actionContext\.actorId !== ownerId/.test(put)
+  // DECISION-0118 D2: o lado OWNER é o AUTHORITY ACTOR resolvido (recurso ≠ actor).
+  record('B3 PUT cancel = requester OU autoridade do owner; não após checked_out (409)',
+    /!== requesterId && \(!ownerAuthorityActorId \|\| req\.actionContext\.actorId !== ownerAuthorityActorId\)/.test(put)
     && /BOOKING_CANCEL_PARTY_ONLY/.test(put) && /CHECKED_OUT/.test(put) && /BOOKING_CANCEL_INVALID_STATE/.test(put));
   record('B4 PUT: resolve booking + owner real (getBooking/getAvailability) ANTES de updateBooking; 401',
     put.indexOf('getBooking(') < put.indexOf('updateBooking(')
     && put.indexOf('getAvailability(') < put.indexOf('updateBooking(')
     && /status\(401\)/.test(put));
-  record('B5 check-in = owner-only (actionContext===ownerId + canRepresentActor) ANTES de checkIn; 401/403',
+  record('B5 check-in = autoridade do owner (actionContext===authority + canRepresentActor) ANTES de checkIn; 401/403',
     /BOOKING_CHECKIN_OWNER_ONLY/.test(ci)
-    && /canRepresentActor\(req\.tenant\.id, userId, availability\.ownerId\)/.test(ci)
+    && /canRepresentActor\(req\.tenant\.id, userId, ownerAuthorityActorId\)/.test(ci)
     && ci.indexOf('canRepresentActor(') < ci.indexOf('checkIn(')
     && /status\(401\)/.test(ci));
-  record('B6 check-out = owner-only ANTES de checkOut; 401/403',
+  record('B6 check-out = autoridade do owner ANTES de checkOut; 401/403',
     /BOOKING_CHECKOUT_OWNER_ONLY/.test(co)
-    && /canRepresentActor\(req\.tenant\.id, userId, availability\.ownerId\)/.test(co)
+    && /canRepresentActor\(req\.tenant\.id, userId, ownerAuthorityActorId\)/.test(co)
     && co.indexOf('canRepresentActor(') < co.indexOf('checkOut(')
     && /status\(401\)/.test(co));
   record('B7 NÃO usa params.id como actor; NÃO usa actionContext como autoridade crua nos 3 (comparado ao papel)',

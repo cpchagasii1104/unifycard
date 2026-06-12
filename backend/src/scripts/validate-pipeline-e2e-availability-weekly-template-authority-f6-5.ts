@@ -75,8 +75,11 @@ async function main(): Promise<void> {
   const route = readFileSync(join(process.cwd(), 'src/core/availability/unified-availability.routes.ts'), 'utf8');
   const wt = route.slice(route.indexOf("'/weekly-template'"), route.indexOf("POST /availability/bookings") > 0 ? route.indexOf("POST /availability/bookings") : route.length);
 
-  record('B1 gate canRepresentActor(req.tenant.id, userId, req.actionContext.actorId) ANTES de materialize',
-    /canRepresentActor\(req\.tenant\.id, userId, req\.actionContext\.actorId\)/.test(wt)
+  // DECISION-0118 D2: o resolver prova o TIPO do actor declarado (user/page) e o
+  // authority actor antes do gate (fidelidade owner_type↔owner_id).
+  record('B1 gate resolveAvailabilityOwner(ownerTypeDeclared, actionContext.actorId) + canRepresentActor(owner.authorityActorId) ANTES de materialize',
+    /resolveAvailabilityOwner\(req\.tenant\.id, ownerTypeDeclared, req\.actionContext\.actorId\)/.test(wt)
+    && /canRepresentActor\(req\.tenant\.id, userId, owner\.authorityActorId\)/.test(wt)
     && wt.indexOf('canRepresentActor(') < wt.indexOf('materialize('));
   record('B2 actionContext.actorId é ALVO declarado (ownerId), provado pelo gate — não autoridade crua',
     /ownerId: req\.actionContext\.actorId/.test(wt) && /canRepresentActor\(/.test(wt));

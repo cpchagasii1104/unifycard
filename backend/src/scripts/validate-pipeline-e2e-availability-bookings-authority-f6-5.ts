@@ -127,9 +127,10 @@ async function main(): Promise<void> {
     && /canReadBookingAsParty\(req\.tenant\.id, userId, booking\)/.test(byId));
   record('B3 by-id: NÃO gateia em params.id (bookingId ≠ actor); 401 sem user; 403 fail-closed (BOOKING_NOT_REPRESENTABLE)',
     !/canRepresentActor\([^)]*params\.id/.test(byId) && /status\(401\)/.test(byId) && /status\(403\)/.test(byId) && /BOOKING_NOT_REPRESENTABLE/.test(byId));
-  record('B4 list: exige parte representável (requester OU dono da availability); sem scope → 403 (não tenant-wide)',
+  // DECISION-0118 D2: o lado owner usa o resolver polimórfico (authority actor).
+  record('B4 list: exige parte representável (requester OU autoridade do owner via resolver); sem scope → 403 (não tenant-wide)',
     /canRepresentActor\(req\.tenant\.id, userId, req\.query\.requesterActorId\)/.test(list)
-    && /\.ownerId && await authorizationService\.canRepresentActor/.test(list)
+    && /representsAvailabilityOwner\(req\.tenant\.id, userId, availability\)/.test(list)
     && /BOOKING_LIST_SCOPE_REQUIRED/.test(list)
     && list.indexOf('if (!scoped)') < list.indexOf('listBookings('));
   record('B5 NÃO usa actionContext.actorId como autoridade; NÃO getActiveActor/ensureUserActor (sem side-effect em GET)',

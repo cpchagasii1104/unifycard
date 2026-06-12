@@ -106,16 +106,18 @@ async function main(): Promise<void> {
   const list = sliceBetween("}>('/', async", "GET /availability/:id");
   const byId = sliceBetween("fastify.get<{ Params: { id: string } }>('/:id'", "PUT /availability/:id");
 
-  record('B1 LIST: query.ownerId é HINT → canRepresentActor(req.tenant.id, userId, ownerIdHint) ANTES de listAvailabilities',
+  // DECISION-0118 D2: owner é RECURSO — o gate exige o RESOLVER (authority actor), não ownerId cru.
+  record('B1 LIST: query.ownerId é HINT → representsAvailabilityOwner (resolver polimórfico) ANTES de listAvailabilities',
     /const ownerIdHint = req\.query\.ownerId/.test(list)
-    && /canRepresentActor\(req\.tenant\.id, userId, ownerIdHint\)/.test(list)
-    && list.indexOf('canRepresentActor(') < list.indexOf('listAvailabilities('));
+    && /representsAvailabilityOwner\(req\.tenant\.id, userId, \{ ownerType: t, ownerId: ownerIdHint \}\)/.test(list)
+    && list.indexOf('representsAvailabilityOwner(') < list.indexOf('listAvailabilities('));
   record('B2 LIST: sem ownerId representável → 403 (AVAILABILITY_NOT_REPRESENTABLE); 401 sem user; nunca tenant-wide',
     /AVAILABILITY_NOT_REPRESENTABLE/.test(list) && /status\(401\)/.test(list) && /status\(403\)/.test(list));
-  record('B3 BY-ID: getAvailability ANTES do gate; canRepresentActor(availability.ownerId); NÃO params.id como actor',
-    byId.indexOf('getAvailability(') >= 0 && byId.indexOf('getAvailability(') < byId.indexOf('canRepresentActor(')
-    && /canRepresentActor\(req\.tenant\.id, userId, availability\.ownerId\)/.test(byId)
-    && !/canRepresentActor\([^)]*params\.id/.test(byId));
+  record('B3 BY-ID: getAvailability ANTES do gate; representsAvailabilityOwner (authority actor resolvido); NÃO params.id como actor',
+    byId.indexOf('getAvailability(') >= 0 && byId.indexOf('getAvailability(') < byId.indexOf('representsAvailabilityOwner(')
+    && /representsAvailabilityOwner\(req\.tenant\.id, userId, availability\)/.test(byId)
+    && !/canRepresentActor\([^)]*params\.id/.test(byId)
+    && !/canRepresentActor\(req\.tenant\.id, userId, availability\.ownerId\)/.test(byId));
   record('B4 BY-ID: 401 sem user + 403 fail-closed (AVAILABILITY_NOT_REPRESENTABLE)',
     /status\(401\)/.test(byId) && /status\(403\)/.test(byId) && /AVAILABILITY_NOT_REPRESENTABLE/.test(byId));
   record('B5 NÃO usa actionContext.actorId como autoridade; NÃO getActiveActor/ensureUserActor',

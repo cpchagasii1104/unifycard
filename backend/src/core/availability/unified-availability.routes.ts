@@ -9,6 +9,11 @@ import { FastifyPluginAsync } from 'fastify';
 import { unifiedAvailabilityService } from './unified-availability.service';
 import { weeklyTemplateMaterializerService } from './weekly-template-materializer.service';
 import { authorizationService } from '@core/authorization/authorization.service';
+import {
+  resolveAvailabilityOwner,
+  AvailabilityOwnerAuthorityError,
+  type ResolvedAvailabilityOwner,
+} from './availability-owner-authority';
 import { BadRequestError } from '@core/errors';
 import { z } from 'zod';
 import rateLimit from '@fastify/rate-limit';
@@ -75,41 +80,72 @@ const weeklyTemplateSchema = z.object({
 });
 
 /**
- * 🔴 DECISION-0113 canal-5 — autoridade de leitura de booking pelas PARTES REAIS do compromisso.
- * Booking é recurso privado: as partes são (1) `requesterActorId` (quem solicitou) e (2) o DONO REAL da
- * availability (`availability.ownerId`, que é o actorId). Autoriza se o req.user puder representar UMA das
- * partes. NÃO gateia em `params.id` (= bookingId, recurso) nem em `actionContext.actorId` (hint). Read-only,
- * fail-closed (qualquer erro → false). NÃO cria actor (sem ensureUserActor/getActiveActor).
+ * 🔴 DECISION-0118 D2 — o (ownerType, ownerId) da availability é RECURSO, não actor.
+ * Resolve o AUTHORITY ACTOR do recurso via policy polimórfica e prova canRepresentActor
+ * server-side. Read-only, fail-closed (recurso ausente/tipo incompatível/erro → false).
+ * NÃO cria actor. NUNCA chama canRepresentActor com o ownerId cru.
+ */
+async function representsAvailabilityOwner(
+  tenantId: string,
+  userId: string,
+  availability: { ownerType?: string; ownerId?: string } | null | undefined
+): Promise<boolean> {
+  if (!availability?.ownerType || !availability.ownerId) return false;
+  try {
+    const owner = await resolveAvailabilityOwner(tenantId, availability.ownerType, availability.ownerId);
+    return await authorizationService.canRepresentActor(tenantId, userId, owner.authorityActorId);
+  } catch {
+    return false; // fail-closed
+  }
+}
+
+/**
+ * Resolve o authority actor do owner de uma availability EXISTENTE (para
+ * autoria/transições). null = recurso owner irresolúvel (fail-closed no caller).
+ */
+async function authorityActorOfAvailability(
+  tenantId: string,
+  availability: { ownerType?: string; ownerId?: string } | null | undefined
+): Promise<string | null> {
+  if (!availability?.ownerType || !availability.ownerId) return null;
+  try {
+    const owner = await resolveAvailabilityOwner(tenantId, availability.ownerType, availability.ownerId);
+    return owner.authorityActorId;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 🔴 DECISION-0113 canal-5 + DECISION-0118 D2 — autoridade de leitura de booking pelas
+ * PARTES REAIS: (1) `requesterActorId` (actor solicitante) e (2) o AUTHORITY ACTOR do
+ * recurso owner da availability (resolvido por policy — nunca o ownerId cru). Fail-closed.
  */
 async function canReadBookingAsParty(
   tenantId: string,
   userId: string,
   booking: { requesterActorId?: string; availabilityId?: string }
 ): Promise<boolean> {
-  // Parte 1: o solicitante (requesterActorId).
+  // Parte 1: o solicitante (requesterActorId — actor de verdade).
   if (booking.requesterActorId) {
     try {
       if (await authorizationService.canRepresentActor(tenantId, userId, booking.requesterActorId)) return true;
     } catch { /* fail-closed */ }
   }
-  // Parte 2: o dono REAL da availability associada (availability.ownerId = actorId).
+  // Parte 2: autoridade do RECURSO owner da availability associada.
   if (booking.availabilityId) {
     try {
       const availability = await unifiedAvailabilityService.getAvailability(tenantId, booking.availabilityId);
-      if (availability?.ownerId && await authorizationService.canRepresentActor(tenantId, userId, availability.ownerId)) {
-        return true;
-      }
+      if (await representsAvailabilityOwner(tenantId, userId, availability)) return true;
     } catch { /* availability ausente/erro → fail-closed */ }
   }
   return false;
 }
 
 /**
- * 🔴 DECISION-0113 canal-5 — autoridade de leitura de participant (by-id) por OWNER-OR-SELF.
- * Participant é PII relacional privada (decisão diretora 2026-06-09: não vira vitrine social por acidente).
- * Autoriza se o req.user puder representar (1) o `participant.actorId` (o PRÓPRIO participante = self) OU
- * (2) o DONO REAL da availability associada (`availability.ownerId` = actorId). NÃO gateia em `params.id`
- * (= participantId, recurso) nem em `actionContext.actorId`. Read-only, fail-closed. Sem ensureUserActor/getActiveActor.
+ * 🔴 DECISION-0113 canal-5 + DECISION-0118 D2 — leitura de participant por OWNER-OR-SELF:
+ * (1) o PRÓPRIO `participant.actorId` (self) OU (2) o AUTHORITY ACTOR do recurso owner
+ * da availability (resolvido por policy). Fail-closed. Sem ensureUserActor/getActiveActor.
  */
 async function canReadParticipantAsParty(
   tenantId: string,
@@ -122,13 +158,11 @@ async function canReadParticipantAsParty(
       if (await authorizationService.canRepresentActor(tenantId, userId, participant.actorId)) return true;
     } catch { /* fail-closed */ }
   }
-  // Owner: dono REAL da availability associada.
+  // Owner: autoridade do recurso owner da availability associada.
   if (participant.availabilityId) {
     try {
       const availability = await unifiedAvailabilityService.getAvailability(tenantId, participant.availabilityId);
-      if (availability?.ownerId && await authorizationService.canRepresentActor(tenantId, userId, availability.ownerId)) {
-        return true;
-      }
+      if (await representsAvailabilityOwner(tenantId, userId, availability)) return true;
     } catch { /* availability ausente/erro → fail-closed */ }
   }
   return false;
@@ -189,25 +223,37 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      // 🔴 gate owner-scoped: actionContext = owner (autoria coincide) + req.user representa o owner.
-      if (req.actionContext.actorId !== parsed.data.ownerId) {
+      // 🔴 DECISION-0118 D2 — (ownerType, ownerId) = RECURSO temporal, não actor.
+      // Resolve a policy do tipo (existência no tenant + tipo compatível + AUTHORITY
+      // ACTOR material); autoria (actionContext) deve coincidir com o authority actor
+      // RESOLVIDO; req.user deve representá-lo (canRepresentActor server-side).
+      let owner: ResolvedAvailabilityOwner;
+      try {
+        owner = await resolveAvailabilityOwner(req.tenant.id, parsed.data.ownerType, parsed.data.ownerId);
+      } catch (err) {
+        if (err instanceof AvailabilityOwnerAuthorityError) {
+          return reply.status(err.statusCode).send({ ok: false, error: err.message, code: err.code });
+        }
+        throw err;
+      }
+      if (req.actionContext.actorId !== owner.authorityActorId) {
         return reply.status(403).send({
           ok: false,
-          error: 'A autoria (actionContext) deve coincidir com o owner da availability',
+          error: 'A autoria (actionContext) deve coincidir com o authority actor do owner da availability',
           code: 'AVAILABILITY_WRITE_OWNER_MISMATCH',
         });
       }
       {
         let canRep = false;
         try {
-          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, parsed.data.ownerId);
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, owner.authorityActorId);
         } catch {
           canRep = false;
         }
         if (!canRep) {
           return reply.status(403).send({
             ok: false,
-            error: 'Sem autoridade sobre o owner da availability (canRepresentActor)',
+            error: 'Sem autoridade sobre o owner da availability (authority actor não representável)',
             code: 'AVAILABILITY_WRITE_NOT_REPRESENTABLE',
           });
         }
@@ -280,28 +326,31 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
-    // 🔴 DECISION-0113 + decisão diretora: availability operacional é PRIVADA por padrão (esta rota protegida
-    // NÃO é vitrine pública de horários; discovery público = projeção/endpoint próprio futuro). Lista
-    // OWNER-SCOPED: `query.ownerId` é HINT, não autoridade → exigir representar o owner ANTES de listar.
-    // Sem ownerId representável → 403 fail-closed (nunca tenant-wide). 401 sem user. `ownerType` é só filtro.
+    // 🔴 DECISION-0113 + DECISION-0118 D2: availability operacional é PRIVADA por padrão. Lista
+    // OWNER-SCOPED: `query.ownerId`/`ownerType` são HINT, não autoridade. O owner é RECURSO —
+    // resolve o AUTHORITY ACTOR pela policy do tipo declarado (ou, sem ownerType, prova que o
+    // hint é um ACTOR user/page) e exige representá-lo ANTES de listar. Sem autoridade → 403
+    // fail-closed (nunca tenant-wide). 401 sem user.
     const userId = (req as { user?: { userId?: string } }).user?.userId;
     if (!userId) {
       return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
     }
     {
       const ownerIdHint = req.query.ownerId;
-      let canRep = false;
+      let authorized = false;
       if (ownerIdHint) {
-        try {
-          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, ownerIdHint);
-        } catch {
-          canRep = false;
+        const typesToTry = req.query.ownerType ? [req.query.ownerType] : ['user', 'page'];
+        for (const t of typesToTry) {
+          if (await representsAvailabilityOwner(req.tenant.id, userId, { ownerType: t, ownerId: ownerIdHint })) {
+            authorized = true;
+            break;
+          }
         }
       }
-      if (!canRep) {
+      if (!authorized) {
         return reply.status(403).send({
           ok: false,
-          error: 'Listagem de availability exige ownerId representável (agenda operacional é privada)',
+          error: 'Listagem de availability exige owner representável (agenda operacional é privada)',
           code: 'AVAILABILITY_NOT_REPRESENTABLE',
         });
       }
@@ -393,17 +442,13 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         req.params.id
       );
 
-      // gate owner-scoped antes de devolver a PII da availability.
-      let canRep = false;
-      try {
-        canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
-      } catch {
-        canRep = false;
-      }
-      if (!canRep) {
+      // gate owner-scoped antes de devolver a PII da availability — DECISION-0118 D2:
+      // resolve o AUTHORITY ACTOR do recurso owner (nunca o ownerId cru como actor).
+      const canRead = await representsAvailabilityOwner(req.tenant.id, userId, availability);
+      if (!canRead) {
         return reply.status(403).send({
           ok: false,
-          error: 'Sem autoridade sobre esta availability (representar o dono)',
+          error: 'Sem autoridade sobre esta availability (authority actor do owner não representável)',
           code: 'AVAILABILITY_NOT_REPRESENTABLE',
         });
       }
@@ -477,25 +522,27 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // resolve o owner REAL da availability (404 preservado se ausente) e gateia ANTES de atualizar.
+        // resolve o owner REAL (404 preservado se ausente) e o AUTHORITY ACTOR do
+        // recurso (DECISION-0118 D2) — autoria e autoridade batem no actor RESOLVIDO.
         const existing = await unifiedAvailabilityService.getAvailability(req.tenant.id, req.params.id);
-        if (req.actionContext.actorId !== existing.ownerId) {
+        const authorityActorId = await authorityActorOfAvailability(req.tenant.id, existing);
+        if (!authorityActorId || req.actionContext.actorId !== authorityActorId) {
           return reply.status(403).send({
             ok: false,
-            error: 'A autoria (actionContext) deve coincidir com o owner real da availability',
+            error: 'A autoria (actionContext) deve coincidir com o authority actor do owner real da availability',
             code: 'AVAILABILITY_WRITE_OWNER_MISMATCH',
           });
         }
         let canRep = false;
         try {
-          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, existing.ownerId);
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, authorityActorId);
         } catch {
           canRep = false;
         }
         if (!canRep) {
           return reply.status(403).send({
             ok: false,
-            error: 'Sem autoridade sobre o owner da availability (canRepresentActor)',
+            error: 'Sem autoridade sobre o owner da availability (authority actor não representável)',
             code: 'AVAILABILITY_WRITE_NOT_REPRESENTABLE',
           });
         }
@@ -560,26 +607,13 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
-    // 🔴 DECISION-0113 canal-1 (WRITE): `actionContext.actorId` é o owner/autoria DECLARADO da grade — é
-    // client-declared (header/body/query), NÃO autoridade. Antes de materializar slots em `availability` para
-    // esse actor, PROVAR server-side que o req.user pode representá-lo. 401 sem user; 403 fail-closed.
-    // (`ownerId` continua = actionContext.actorId, mas agora PROVADO; o frontend legítimo manda o activeActor.)
+    // 🔴 DECISION-0113 canal-1 (WRITE) + DECISION-0118 D2: `actionContext.actorId` é o owner/autoria
+    // DECLARADO da grade — client-declared, NÃO autoridade. O resolver prova (a) que o actor EXISTE
+    // no tenant com o TIPO declarado (user/page — fidelidade owner_type↔owner_id) e (b) que o
+    // req.user pode representá-lo. 401 sem user; 403 fail-closed.
     const userId = (req as { user?: { userId?: string } }).user?.userId;
     if (!userId) {
       return reply.status(401).send({ error: 'Autenticação obrigatória (req.user.userId)' });
-    }
-    let canRep = false;
-    try {
-      canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, req.actionContext.actorId);
-    } catch {
-      canRep = false;
-    }
-    if (!canRep) {
-      return reply.status(403).send({
-        ok: false,
-        error: 'Sem autoridade sobre o actor (canRepresentActor) — não pode materializar agenda deste actor',
-        code: 'WEEKLY_TEMPLATE_ACTOR_NOT_REPRESENTABLE',
-      });
     }
 
     const parsed = weeklyTemplateSchema.safeParse(req.body);
@@ -588,6 +622,24 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         error: 'Invalid request body',
         details: parsed.error.errors,
       });
+    }
+
+    {
+      const ownerTypeDeclared = parsed.data.ownerType ?? AvailabilityOwnerType.USER;
+      let canRep = false;
+      try {
+        const owner = await resolveAvailabilityOwner(req.tenant.id, ownerTypeDeclared, req.actionContext.actorId);
+        canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, owner.authorityActorId);
+      } catch {
+        canRep = false;
+      }
+      if (!canRep) {
+        return reply.status(403).send({
+          ok: false,
+          error: 'Sem autoridade sobre o actor (authority actor não representável) — não pode materializar agenda deste actor',
+          code: 'WEEKLY_TEMPLATE_ACTOR_NOT_REPRESENTABLE',
+        });
+      }
     }
 
     try {
@@ -733,7 +785,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
     if (!scoped && req.query.availabilityId) {
       try {
         const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, req.query.availabilityId);
-        if (availability?.ownerId && await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId)) {
+        if (await representsAvailabilityOwner(req.tenant.id, userId, availability)) {
           scoped = true;
         }
       } catch { /* availability ausente/erro → fail-closed */ }
@@ -910,24 +962,25 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // resolve as partes reais (404 booking ausente preservado).
+        // resolve as partes reais (404 booking ausente preservado) — o lado OWNER é o
+        // AUTHORITY ACTOR do recurso (DECISION-0118 D2), nunca o ownerId cru.
         const existing = await unifiedAvailabilityService.getBooking(req.tenant.id, req.params.id);
         const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
-        const ownerId = availability.ownerId;
+        const ownerAuthorityActorId = await authorityActorOfAvailability(req.tenant.id, availability);
         const requesterId = existing.requesterActorId;
 
         if (target === UnifiedBookingStatus.CONFIRMED) {
-          // confirmar = SÓ owner, e SÓ a partir de requested.
-          if (req.actionContext.actorId !== ownerId) {
-            return reply.status(403).send({ ok: false, error: 'Confirmar booking exige ser o dono da availability', code: 'BOOKING_CONFIRM_OWNER_ONLY' });
+          // confirmar = SÓ a autoridade do owner, e SÓ a partir de requested.
+          if (!ownerAuthorityActorId || req.actionContext.actorId !== ownerAuthorityActorId) {
+            return reply.status(403).send({ ok: false, error: 'Confirmar booking exige a autoridade do owner da availability', code: 'BOOKING_CONFIRM_OWNER_ONLY' });
           }
           if (existing.status !== UnifiedBookingStatus.REQUESTED) {
             return reply.status(409).send({ ok: false, error: 'Só é possível confirmar um booking em estado requested', code: 'BOOKING_CONFIRM_INVALID_STATE' });
           }
         } else {
-          // cancelar = requester OU owner; nunca depois de checked_out.
-          if (req.actionContext.actorId !== requesterId && req.actionContext.actorId !== ownerId) {
-            return reply.status(403).send({ ok: false, error: 'Cancelar booking exige ser o requester ou o dono da availability', code: 'BOOKING_CANCEL_PARTY_ONLY' });
+          // cancelar = requester OU autoridade do owner; nunca depois de checked_out.
+          if (req.actionContext.actorId !== requesterId && (!ownerAuthorityActorId || req.actionContext.actorId !== ownerAuthorityActorId)) {
+            return reply.status(403).send({ ok: false, error: 'Cancelar booking exige ser o requester ou a autoridade do owner da availability', code: 'BOOKING_CANCEL_PARTY_ONLY' });
           }
           if (existing.status === UnifiedBookingStatus.CHECKED_OUT) {
             return reply.status(409).send({ ok: false, error: 'Não é possível cancelar um booking já finalizado (checked_out)', code: 'BOOKING_CANCEL_INVALID_STATE' });
@@ -995,17 +1048,18 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const existing = await unifiedAvailabilityService.getBooking(req.tenant.id, req.params.id);
         const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
-        if (req.actionContext.actorId !== availability.ownerId) {
-          return reply.status(403).send({ ok: false, error: 'Check-in exige ser o dono da availability', code: 'BOOKING_CHECKIN_OWNER_ONLY' });
+        const ownerAuthorityActorId = await authorityActorOfAvailability(req.tenant.id, availability);
+        if (!ownerAuthorityActorId || req.actionContext.actorId !== ownerAuthorityActorId) {
+          return reply.status(403).send({ ok: false, error: 'Check-in exige a autoridade do owner da availability', code: 'BOOKING_CHECKIN_OWNER_ONLY' });
         }
         let canRep = false;
         try {
-          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, ownerAuthorityActorId);
         } catch {
           canRep = false;
         }
         if (!canRep) {
-          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o dono da availability (canRepresentActor)', code: 'BOOKING_CHECKIN_NOT_REPRESENTABLE' });
+          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o owner da availability (authority actor não representável)', code: 'BOOKING_CHECKIN_NOT_REPRESENTABLE' });
         }
 
         const booking = await unifiedAvailabilityService.checkIn(
@@ -1069,17 +1123,18 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const existing = await unifiedAvailabilityService.getBooking(req.tenant.id, req.params.id);
         const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
-        if (req.actionContext.actorId !== availability.ownerId) {
-          return reply.status(403).send({ ok: false, error: 'Check-out exige ser o dono da availability', code: 'BOOKING_CHECKOUT_OWNER_ONLY' });
+        const ownerAuthorityActorId = await authorityActorOfAvailability(req.tenant.id, availability);
+        if (!ownerAuthorityActorId || req.actionContext.actorId !== ownerAuthorityActorId) {
+          return reply.status(403).send({ ok: false, error: 'Check-out exige a autoridade do owner da availability', code: 'BOOKING_CHECKOUT_OWNER_ONLY' });
         }
         let canRep = false;
         try {
-          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, ownerAuthorityActorId);
         } catch {
           canRep = false;
         }
         if (!canRep) {
-          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o dono da availability (canRepresentActor)', code: 'BOOKING_CHECKOUT_NOT_REPRESENTABLE' });
+          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o owner da availability (authority actor não representável)', code: 'BOOKING_CHECKOUT_NOT_REPRESENTABLE' });
         }
 
         const booking = await unifiedAvailabilityService.checkOut(
@@ -1150,19 +1205,21 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // resolve o owner REAL da availability (404 preservado) e gateia ANTES de criar participante.
+        // resolve o owner REAL (404 preservado) e o AUTHORITY ACTOR do recurso
+        // (DECISION-0118 D2) ANTES de criar participante.
         const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, req.params.availabilityId);
-        if (req.actionContext.actorId !== availability.ownerId) {
-          return reply.status(403).send({ ok: false, error: 'Adicionar participante exige ser o dono da availability', code: 'PARTICIPANT_ADD_OWNER_ONLY' });
+        const ownerAuthorityActorId = await authorityActorOfAvailability(req.tenant.id, availability);
+        if (!ownerAuthorityActorId || req.actionContext.actorId !== ownerAuthorityActorId) {
+          return reply.status(403).send({ ok: false, error: 'Adicionar participante exige a autoridade do owner da availability', code: 'PARTICIPANT_ADD_OWNER_ONLY' });
         }
         let canRep = false;
         try {
-          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, ownerAuthorityActorId);
         } catch {
           canRep = false;
         }
         if (!canRep) {
-          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o dono da availability (canRepresentActor)', code: 'PARTICIPANT_ADD_NOT_REPRESENTABLE' });
+          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o owner da availability (authority actor não representável)', code: 'PARTICIPANT_ADD_NOT_REPRESENTABLE' });
         }
 
         // 🔴 BLINDAGEM: Criar participante (NÃO bloqueia conflitos)
@@ -1249,16 +1306,11 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         req.tenant.id,
         req.params.availabilityId
       );
-      let canRep = false;
-      try {
-        canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
-      } catch {
-        canRep = false;
-      }
-      if (!canRep) {
+      const canRead = await representsAvailabilityOwner(req.tenant.id, userId, availability);
+      if (!canRead) {
         return reply.status(403).send({
           ok: false,
-          error: 'Sem autoridade sobre os participantes (representar o dono da availability)',
+          error: 'Sem autoridade sobre os participantes (authority actor do owner não representável)',
           code: 'PARTICIPANTS_NOT_REPRESENTABLE',
         });
       }
@@ -1401,17 +1453,18 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const existing = await unifiedAvailabilityService.getParticipant(req.tenant.id, req.params.id);
         const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
-        if (req.actionContext.actorId !== availability.ownerId) {
-          return reply.status(403).send({ ok: false, error: 'Editar participante (role) exige ser o dono da availability', code: 'PARTICIPANT_UPDATE_OWNER_ONLY' });
+        const ownerAuthorityActorId = await authorityActorOfAvailability(req.tenant.id, availability);
+        if (!ownerAuthorityActorId || req.actionContext.actorId !== ownerAuthorityActorId) {
+          return reply.status(403).send({ ok: false, error: 'Editar participante (role) exige a autoridade do owner da availability', code: 'PARTICIPANT_UPDATE_OWNER_ONLY' });
         }
         let canRep = false;
         try {
-          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, availability.ownerId);
+          canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, ownerAuthorityActorId);
         } catch {
           canRep = false;
         }
         if (!canRep) {
-          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o dono da availability (canRepresentActor)', code: 'PARTICIPANT_UPDATE_NOT_REPRESENTABLE' });
+          return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o owner da availability (authority actor não representável)', code: 'PARTICIPANT_UPDATE_NOT_REPRESENTABLE' });
         }
 
         const participant = await unifiedAvailabilityService.updateParticipant(
@@ -1460,19 +1513,19 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const existing = await unifiedAvailabilityService.getParticipant(req.tenant.id, req.params.id);
       const availability = await unifiedAvailabilityService.getAvailability(req.tenant.id, existing.availabilityId);
-      const ownerId = availability.ownerId;
+      const ownerAuthorityActorId = await authorityActorOfAvailability(req.tenant.id, availability);
 
       let allowed = false;
-      // (1) owner remove qualquer participante
-      if (req.actionContext.actorId === ownerId) {
-        try { allowed = await authorizationService.canRepresentActor(req.tenant.id, userId, ownerId); } catch { allowed = false; }
+      // (1) a AUTORIDADE do owner remove qualquer participante (DECISION-0118 D2)
+      if (ownerAuthorityActorId && req.actionContext.actorId === ownerAuthorityActorId) {
+        try { allowed = await authorizationService.canRepresentActor(req.tenant.id, userId, ownerAuthorityActorId); } catch { allowed = false; }
       }
       // (2) o próprio participante sai (self-leave)
       if (!allowed && req.actionContext.actorId === existing.actorId) {
         try { allowed = await authorizationService.canRepresentActor(req.tenant.id, userId, existing.actorId); } catch { allowed = false; }
       }
       if (!allowed) {
-        return reply.status(403).send({ ok: false, error: 'Remover participante exige ser o dono da availability ou o próprio participante', code: 'PARTICIPANT_DELETE_OWNER_OR_SELF' });
+        return reply.status(403).send({ ok: false, error: 'Remover participante exige a autoridade do owner da availability ou o próprio participante', code: 'PARTICIPANT_DELETE_OWNER_OR_SELF' });
       }
 
       await unifiedAvailabilityService.deleteParticipant(

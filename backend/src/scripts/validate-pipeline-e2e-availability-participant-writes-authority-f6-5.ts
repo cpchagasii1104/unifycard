@@ -108,22 +108,23 @@ async function main(): Promise<void> {
   const upd = sliceBetween("matriz diretora: UPDATE participante", "DELETE /availability/participants/:id");
   const del = sliceBetween("matriz diretora: DELETE participante", "GET /availability/:availabilityId/participants/:actorId/conflicts");
 
-  record('B1 ADD owner-only: getAvailability(params.availabilityId) + actionContext===ownerId + canRepresentActor ANTES de createParticipant',
+  // DECISION-0118 D2: o lado OWNER é o AUTHORITY ACTOR resolvido (recurso ≠ actor).
+  record('B1 ADD owner-only: getAvailability + actionContext===authority + canRepresentActor(authority) ANTES de createParticipant',
     /PARTICIPANT_ADD_OWNER_ONLY/.test(add)
-    && /canRepresentActor\(req\.tenant\.id, userId, availability\.ownerId\)/.test(add)
+    && /canRepresentActor\(req\.tenant\.id, userId, ownerAuthorityActorId\)/.test(add)
     && add.indexOf('canRepresentActor(') < add.indexOf('createParticipant(')
     && /status\(401\)/.test(add));
   record('B2 ADD: body.actorId é alvo (não autoridade); NÃO self-enroll (gate é sobre owner, não sobre body.actorId)',
     !/canRepresentActor\([^)]*parsed\.data\.actorId/.test(add) && !/canRepresentActor\([^)]*params\.availabilityId/.test(add));
-  record('B3 UPDATE owner-only: getParticipant + owner real + actionContext===ownerId + canRepresentActor ANTES de updateParticipant',
+  record('B3 UPDATE owner-only: getParticipant + owner real + actionContext===authority + canRepresentActor ANTES de updateParticipant',
     /PARTICIPANT_UPDATE_OWNER_ONLY/.test(upd)
     && upd.indexOf('getParticipant(') < upd.indexOf('updateParticipant(')
-    && /canRepresentActor\(req\.tenant\.id, userId, availability\.ownerId\)/.test(upd)
+    && /canRepresentActor\(req\.tenant\.id, userId, ownerAuthorityActorId\)/.test(upd)
     && upd.indexOf('canRepresentActor(') < upd.indexOf('updateParticipant(')
     && /status\(401\)/.test(upd));
-  record('B4 DELETE owner-or-self: resolve participant + owner; permite owner OU self (participant.actorId); 403/401',
+  record('B4 DELETE owner-or-self: resolve participant + owner; permite AUTORIDADE do owner OU self (participant.actorId); 403/401',
     /PARTICIPANT_DELETE_OWNER_OR_SELF/.test(del)
-    && /req\.actionContext\.actorId === ownerId/.test(del)
+    && /req\.actionContext\.actorId === ownerAuthorityActorId/.test(del)
     && /req\.actionContext\.actorId === existing\.actorId/.test(del)
     && del.indexOf('getParticipant(') < del.indexOf('deleteParticipant(')
     && /status\(401\)/.test(del));

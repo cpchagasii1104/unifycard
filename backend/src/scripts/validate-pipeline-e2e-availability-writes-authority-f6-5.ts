@@ -104,20 +104,27 @@ async function main(): Promise<void> {
   const post = sliceBetween("Criar nova disponibilidade", "Listar disponibilidades com filtros");
   const put = sliceBetween("Atualizar disponibilidade", "materializa a grade semanal declarativa");
 
-  record('B1 POST: gate canRepresentActor(req.tenant.id, userId, parsed.data.ownerId) ANTES de createAvailability',
-    /canRepresentActor\(req\.tenant\.id, userId, parsed\.data\.ownerId\)/.test(post)
+  // DECISION-0118 D2: owner é RECURSO — o gate estrutural exige o RESOLVER polimórfico
+  // (authority actor) no lugar do anti-padrão ownerId-cru-como-actor [B2 do reseal Yala].
+  // O eixo permanece: gate ANTES do efeito; mismatch 403; 401; nunca params.id como actor.
+  record('B1 POST: resolveAvailabilityOwner + canRepresentActor(owner.authorityActorId) ANTES de createAvailability',
+    /resolveAvailabilityOwner\(req\.tenant\.id, parsed\.data\.ownerType, parsed\.data\.ownerId\)/.test(post)
+    && /canRepresentActor\(req\.tenant\.id, userId, owner\.authorityActorId\)/.test(post)
     && post.indexOf('canRepresentActor(') < post.indexOf('createAvailability('));
-  record('B2 POST: mismatch actionContext.actorId !== body.ownerId → 403 (OWNER_MISMATCH); 401/403',
-    /req\.actionContext\.actorId !== parsed\.data\.ownerId/.test(post)
-    && /AVAILABILITY_WRITE_OWNER_MISMATCH/.test(post) && /status\(401\)/.test(post) && /AVAILABILITY_WRITE_NOT_REPRESENTABLE/.test(post));
-  record('B3 PUT: resolve owner real (getAvailability) ANTES de updateAvailability; canRepresentActor(existing.ownerId)',
+  record('B2 POST: mismatch actionContext.actorId !== owner.authorityActorId → 403 (OWNER_MISMATCH); 401/403',
+    /req\.actionContext\.actorId !== owner\.authorityActorId/.test(post)
+    && /AVAILABILITY_WRITE_OWNER_MISMATCH/.test(post) && /status\(401\)/.test(post) && /AVAILABILITY_WRITE_NOT_REPRESENTABLE/.test(post)
+    && !/canRepresentActor\(req\.tenant\.id, userId, parsed\.data\.ownerId\)/.test(post));
+  record('B3 PUT: resolve owner real (getAvailability) ANTES de updateAvailability; canRepresentActor(authorityActorId)',
     put.indexOf('getAvailability(') >= 0 && put.indexOf('getAvailability(') < put.indexOf('updateAvailability(')
-    && /canRepresentActor\(req\.tenant\.id, userId, existing\.ownerId\)/.test(put)
+    && /authorityActorOfAvailability\(req\.tenant\.id, existing\)/.test(put)
+    && /canRepresentActor\(req\.tenant\.id, userId, authorityActorId\)/.test(put)
     && put.indexOf('canRepresentActor(') < put.indexOf('updateAvailability('));
-  record('B4 PUT: mismatch actionContext !== existing.ownerId → 403; 401/403; NÃO params.id como actor',
-    /req\.actionContext\.actorId !== existing\.ownerId/.test(put)
+  record('B4 PUT: mismatch actionContext !== authorityActorId → 403; 401/403; NÃO params.id como actor',
+    /req\.actionContext\.actorId !== authorityActorId/.test(put)
     && /AVAILABILITY_WRITE_OWNER_MISMATCH/.test(put) && /status\(401\)/.test(put)
-    && !/canRepresentActor\([^)]*params\.id/.test(put));
+    && !/canRepresentActor\([^)]*params\.id/.test(put)
+    && !/canRepresentActor\(req\.tenant\.id, userId, existing\.ownerId\)/.test(put));
   record('B5 NÃO usa ensureUserActor/getActiveActor nos dois handlers',
     !/ensureUserActor\(/.test(post + put) && !/getActiveActor\(/.test(post + put));
   record('B6 writes sem Bank no handler',

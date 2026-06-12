@@ -9,14 +9,19 @@
 
 /**
  * Tipo de Owner da Disponibilidade
- * 🔴 BLINDAGEM: Owner é polimórfico (user, service, event, group)
+ * 🔴 BLINDAGEM: Owner é polimórfico — identifica o RECURSO temporal, NÃO o actor
+ * de autoridade (DECISION-0118 D2: resource owner ≠ authority actor; a autoridade
+ * é resolvida server-side por policy em availability-owner-authority.ts).
+ * Vocabulário ESPELHADO no CHECK físico chk_availability_owner_type
+ * (migration 20260612110000) — não alterar um sem o outro.
  */
 export enum AvailabilityOwnerType {
-  USER = 'user',     // Disponibilidade de usuário
-  SERVICE = 'service', // Disponibilidade de serviço
-  EVENT = 'event',   // Disponibilidade de evento
-  GROUP = 'group',   // Disponibilidade de grupo
-  PAGE = 'page',     // Disponibilidade de página (ex.: organizador tipo page)
+  USER = 'user',     // Disponibilidade de usuário (owner_id = actors.id humano)
+  SERVICE = 'service', // Disponibilidade de serviço (owner_id = services.service_id)
+  EVENT = 'event',   // Disponibilidade de evento (owner_id = events.id)
+  GROUP = 'group',   // Disponibilidade de grupo (owner_id = groups.id)
+  PAGE = 'page',     // Disponibilidade de página (owner_id = actors.id page)
+  SERVICE_OFFERING = 'service_offering', // Oferta de serviço (owner_id = service_offerings.id — DECISION-0117 D)
 }
 
 /**

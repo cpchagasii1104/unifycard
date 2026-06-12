@@ -22,7 +22,8 @@ function unwrapResponse<T>(raw: any): T {
 /**
  * Tipo de owner da disponibilidade
  */
-export type AvailabilityOwnerType = 'user' | 'service' | 'event' | 'group';
+// DECISION-0118 D2 — vocabulário ESPELHADO no enum backend + CHECK físico (page e service_offering incluídos).
+export type AvailabilityOwnerType = 'user' | 'service' | 'event' | 'group' | 'page' | 'service_offering';
 
 /**
  * Tipo de disponibilidade

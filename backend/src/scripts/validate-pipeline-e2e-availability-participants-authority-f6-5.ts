@@ -136,11 +136,12 @@ async function main(): Promise<void> {
   record('B1 helper canReadParticipantAsParty usa participant.actorId (self) E availability.ownerId (owner)',
     /async function canReadParticipantAsParty/.test(route)
     && /participant\.actorId/.test(route) && /availability\.ownerId/.test(route));
-  record('B2 LIST owner-only: getAvailability + canRepresentActor(availability.ownerId) ANTES de listParticipants; 401/403',
+  // DECISION-0118 D2: owner é RECURSO — autoridade via resolver (authority actor).
+  record('B2 LIST owner-only: getAvailability + representsAvailabilityOwner ANTES de listParticipants; 401/403',
     list.indexOf('getAvailability(') >= 0 && list.indexOf('getAvailability(') < list.indexOf('listParticipants(')
-    && /canRepresentActor\(req\.tenant\.id, userId, availability\.ownerId\)/.test(list)
+    && /representsAvailabilityOwner\(req\.tenant\.id, userId, availability\)/.test(list)
     && /status\(401\)/.test(list) && /PARTICIPANTS_NOT_REPRESENTABLE/.test(list)
-    && list.indexOf('canRepresentActor(') < list.indexOf('listParticipants('));
+    && list.indexOf('representsAvailabilityOwner(') < list.indexOf('listParticipants('));
   record('B3 BY-ID: getParticipant ANTES do gate; canReadParticipantAsParty; 401/403; NÃO params.id como actor',
     byId.indexOf('getParticipant(') >= 0 && byId.indexOf('getParticipant(') < byId.indexOf('canReadParticipantAsParty(')
     && /canReadParticipantAsParty\(req\.tenant\.id, userId, participant\)/.test(byId)

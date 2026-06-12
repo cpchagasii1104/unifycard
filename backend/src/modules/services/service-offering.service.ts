@@ -12,7 +12,7 @@ import { pool } from '@core/database/pool';
 import { authorizationService } from '@core/authorization/authorization.service';
 import { canonicalServiceService } from '@core/catalog/canonical/canonical-service.service';
 import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
-import type { UnifiedAvailability } from '@core/availability/unified-availability.types';
+import { AvailabilityOwnerType, type UnifiedAvailability } from '@core/availability/unified-availability.types';
 
 export class ServiceOfferingError extends Error {
   constructor(public readonly statusCode: number, public readonly code: string, message: string) {
@@ -180,13 +180,16 @@ export const serviceOfferingService = {
       throw new ServiceOfferingError(403, 'SERVICE_OFFERING_NOT_REPRESENTABLE',
         'Sem autoridade sobre o prestador desta oferta.');
     }
+    // DECISION-0118 D2: service_offering é owner_type CANÔNICO (enum + CHECK físico,
+    // sem `as never`); a autoridade é o provider (resolvida aqui e, nas rotas, pela
+    // policy polimórfica de availability-owner-authority).
     return unifiedAvailabilityService.createAvailability(input.tenantId, input.userId, {
-      ownerType: 'service_offering',
+      ownerType: AvailabilityOwnerType.SERVICE_OFFERING,
       ownerId: offering.id,
-      startDatetime: input.startDatetime,
-      endDatetime: input.endDatetime,
+      startDatetime: new Date(input.startDatetime),
+      endDatetime: new Date(input.endDatetime),
       capacity: input.capacity ?? null,
-    } as never);
+    });
   },
 
   /** Ofertas ATIVAS de um serviço canônico (agrupamento por identidade — discovery). */
