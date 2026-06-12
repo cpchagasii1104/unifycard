@@ -6873,3 +6873,23 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 > 8/8 · gate 68/5/0/0/0 · matriz completa re-verde. Detalhe no ADENDO A2 do arquivo da DECISION e em
 > docs/03_execution_log/20260612_F_CANONICAL_MEDIA_BLOB_ASSET_TENANT_ISOLATION_CLOSURE.md.
 > Macrofrente segue tecnicamente concluída — AGUARDANDO RE-RESEAL FINAL YALA.
+
+### DECISION-0118 — Identidade contextual de mídia lógica e autoridade polimórfica do owner temporal
+
+- **Data:** 2026-06-12 · **Status:** PROMULGADA (GO macro corretivo integrado da IA Diretora;
+  executa correção dos DOIS bloqueadores do reseal Yala) · **Arquivo:**
+  `docs/02_decisions/DECISION_0118_MEDIA_CONTEXTUAL_IDENTITY_AND_TEMPORAL_OWNER_AUTHORITY.md`
+- **D1 (mídia):** blob físico global ≠ direito de uso. Asset lógico = DECLARAÇÃO CONTEXTUAL —
+  identidade inclui blob+tenant+actor declarante+context_type+context_owner+source+purpose+
+  licença+provenance (colunas reais + context_fingerprint UNIQUE). Idempotência SÓ com contexto
+  integralmente idêntico; idempotency_key reutilizada com payload divergente = 409 observável;
+  nenhuma dimensão descartada em silêncio; moderação por declaração; autorização resolve o
+  context_owner (empresa), não a representação genérica do autor.
+- **D2 (tempo):** availability.(owner_type,owner_id) = RECURSO, não actor. Autoridade resolvida
+  server-side por policy polimórfica (resolver central): user/page→próprio actor ·
+  service→services.actor_id · service_offering→service_offerings.provider_actor_id ·
+  event→events.actor_id · group→groups.owner_actor_id. service_offering entra no enum; CHECK
+  físico de owner_type; `as never` proibido; actionContext segue hint (0113) comparado ao
+  authority actor resolvido; proibido canRepresentActor(ownerId-recurso) e ownerId como autoridade.
+- Fecha (após provas): DT-CANONICAL-MEDIA-LOGICAL-CONTEXT-COLLAPSE e
+  DT-UNIFIED-AVAILABILITY-RESOURCE-OWNER-AUTHORITY-CONFLATION.
