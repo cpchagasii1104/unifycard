@@ -680,9 +680,20 @@ async function main() {
 
     // Filtra apenas migrations pendentes (incluindo as forçadas)
     // IMPORTANTE: Aplicar filtro de profile ANTES de verificar pendentes
-    const pendingMigrations = filteredMigrations.filter(
+    let pendingMigrations = filteredMigrations.filter(
       (m) => !executedMigrations.has(m.filename) || migrationsToForceExecute.includes(m.filename)
     );
+
+    // Test-tooling (e2e de backfill de migration): aplica SOMENTE migrations com
+    // filename estritamente ANTERIOR a MIGRATION_STOP_BEFORE (mesma ordem
+    // lexicográfica do diretório). Sem a env var, comportamento idêntico.
+    // Forward-only preservado: as migrations não aplicadas continuam pendentes.
+    const stopBefore = process.env.MIGRATION_STOP_BEFORE;
+    if (stopBefore) {
+      const before = pendingMigrations.length;
+      pendingMigrations = pendingMigrations.filter((m) => m.filename.localeCompare(stopBefore) < 0);
+      console.log(`✂️  MIGRATION_STOP_BEFORE='${stopBefore}': ${pendingMigrations.length} de ${before} pendentes serão aplicadas (restantes ficam PENDENTES).\n`);
+    }
 
     if (pendingMigrations.length === 0) {
       console.log('✅ Todas as migrations já foram registradas e validadas. Nada a fazer.\n');

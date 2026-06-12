@@ -27,7 +27,11 @@ import { magicBytesMatchMime } from '../kyb-documents/kyb-document-validation';
 import { insertCatalogEvent } from '../catalog/canonical/canonical-variant.service';
 import { authorizationService } from '../authorization/authorization.service';
 import {
-  computeMediaContextFingerprintV1,
+  computeMediaContextFingerprintV2,
+  materiallyEqualMediaContext,
+  canonicalizeContextDimension,
+  MEDIA_CONTEXT_IDENTITY_VERSION,
+  type MediaContextDeclaration,
   type MediaContextType,
   type MediaPurpose,
   MEDIA_CONTEXT_TYPES,
@@ -74,6 +78,7 @@ export interface MediaAsset {
   purpose: MediaPurpose;
   provenance: string | null;
   contextFingerprint: string;
+  contextIdentityVersion: number;
   idempotencyKey: string | null;
 }
 
@@ -101,13 +106,15 @@ interface AssetRow {
   purpose: string;
   origin_note: string | null;
   context_fingerprint: string;
+  context_identity_version: number;
   idempotency_key: string | null;
 }
 
 const ASSET_SELECT =
   'ma.id, ma.media_blob_id, mb.mime_type, mb.size_bytes, ma.source, ma.license, ma.version, ' +
   'ma.moderation_status, ma.created_by_actor_id, ma.origin_tenant_id, ma.context_type, ' +
-  'ma.context_owner_id, ma.purpose, ma.origin_note, ma.context_fingerprint, ma.idempotency_key';
+  'ma.context_owner_id, ma.purpose, ma.origin_note, ma.context_fingerprint, ' +
+  'ma.context_identity_version, ma.idempotency_key';
 const ASSET_FROM = 'media_assets ma JOIN media_blobs mb ON mb.id = ma.media_blob_id';
 
 function toBlob(row: BlobRow): MediaBlob {
@@ -137,6 +144,7 @@ function toAsset(row: AssetRow): MediaAsset {
     purpose: row.purpose as MediaPurpose,
     provenance: row.origin_note,
     contextFingerprint: row.context_fingerprint,
+    contextIdentityVersion: Number(row.context_identity_version),
     idempotencyKey: row.idempotency_key,
   };
 }
@@ -175,6 +183,7 @@ export interface PersistAssetParams {
   purpose: MediaPurpose;
   provenance: string | null;
   contextFingerprint: string;
+  contextIdentityVersion: number;
   idempotencyKey: string | null;
 }
 
@@ -191,17 +200,18 @@ async function defaultPersistAssetRow(params: PersistAssetParams): Promise<Asset
     `WITH ins AS (
        INSERT INTO media_assets (
          media_blob_id, source, license, created_by_actor_id, origin_tenant_id,
-         context_type, context_owner_id, purpose, origin_note, context_fingerprint, idempotency_key
+         context_type, context_owner_id, purpose, origin_note, context_fingerprint,
+         context_identity_version, idempotency_key
        )
-       VALUES ($1::uuid, $2, $3, $4::uuid, $5::uuid, $6, $7::uuid, $8, $9, $10, $11)
+       VALUES ($1::uuid, $2, $3, $4::uuid, $5::uuid, $6, $7::uuid, $8, $9, $10, $11, $12)
        RETURNING id, media_blob_id, source, license, version, moderation_status,
                  created_by_actor_id, origin_tenant_id, context_type, context_owner_id,
-                 purpose, origin_note, context_fingerprint, idempotency_key
+                 purpose, origin_note, context_fingerprint, context_identity_version, idempotency_key
      )
      SELECT ins.id, ins.media_blob_id, mb.mime_type, mb.size_bytes, ins.source, ins.license,
             ins.version, ins.moderation_status, ins.created_by_actor_id, ins.origin_tenant_id,
             ins.context_type, ins.context_owner_id, ins.purpose, ins.origin_note,
-            ins.context_fingerprint, ins.idempotency_key
+            ins.context_fingerprint, ins.context_identity_version, ins.idempotency_key
        FROM ins JOIN media_blobs mb ON mb.id = ins.media_blob_id`,
     [
       params.mediaBlobId,
@@ -214,6 +224,7 @@ async function defaultPersistAssetRow(params: PersistAssetParams): Promise<Asset
       params.purpose,
       params.provenance,
       params.contextFingerprint,
+      params.contextIdentityVersion,
       params.idempotencyKey,
     ]
   );
@@ -240,10 +251,10 @@ export const mediaAssetService = {
   },
 
   /**
-   * Reuso LÓGICO pela DECLARAÇÃO CONTEXTUAL COMPLETA (DECISION-0118 D1):
-   * idempotente sse blob+tenant+actor+context_type+context_owner+source+purpose+
-   * licença+provenance coincidem INTEGRALMENTE (context_fingerprint). Qualquer
-   * dimensão divergente ⇒ declaração nova (nenhuma intenção descartada).
+   * Localiza o CANDIDATO pela identidade contextual V2 (context_fingerprint
+   * sha256 da declaração completa). REGRA V2: o retorno NÃO autoriza reuso —
+   * hash nunca é prova de igualdade; o caller DEVE recomparar todas as
+   * dimensões materiais (materiallyEqualMediaContext) antes de reutilizar.
    */
   async findAssetByContextFingerprint(contextFingerprint: string): Promise<MediaAsset | null> {
     const r = await pool.query<AssetRow>(
@@ -420,8 +431,10 @@ export const mediaAssetService = {
     const contextType = input.contextType ?? (source === 'company_suggestion' ? 'canonical_suggestion' : 'platform');
     const contextOwnerId = input.contextOwnerId ?? null;
     const purpose = input.purpose ?? (source === 'company_suggestion' ? 'canonical_catalog' : 'platform_curation');
-    const provenance = input.provenance ?? null;
-    const license = input.license ?? null;
+    // Canonicalização PRÉ-PERSISTÊNCIA (semântica normada): trim ASCII + ''⇒NULL
+    // (NULL ≡ vazio por DECISÃO explícita, via normalização — case preservado).
+    const provenance = canonicalizeContextDimension(input.provenance);
+    const license = canonicalizeContextDimension(input.license);
     const idempotencyKey = input.idempotencyKey ?? null;
     if (!(MEDIA_CONTEXT_TYPES as readonly string[]).includes(contextType)) {
       throw new MediaAssetError(400, 'MEDIA_CONTEXT_TYPE_INVALID', `context_type '${contextType}' fora do vocabulário.`);
@@ -433,7 +446,9 @@ export const mediaAssetService = {
       throw new MediaAssetError(400, 'MEDIA_CONTEXT_OWNER_REQUIRED', 'Uso empresarial exige context_owner_id (empresa dona do uso).');
     }
 
-    const contextFingerprint = computeMediaContextFingerprintV1({
+    // Declaração contextual NORMALIZADA — usada pelo encoder V2 (função SQL,
+    // fonte única) E pela recomparação material integral de qualquer match.
+    const declaration: MediaContextDeclaration = {
       mediaBlobId: blob.id,
       originTenantId: input.tenantId,
       createdByActorId,
@@ -443,15 +458,17 @@ export const mediaAssetService = {
       purpose,
       license,
       provenance,
-    });
+    };
+    const contextFingerprint = await computeMediaContextFingerprintV2(declaration);
 
     try {
       // CHAVE EXPLÍCITA de idempotência: payload divergente = CONFLITO observável
       // (409); jamais sucesso falso, jamais alteração do registro anterior.
+      // Hash NUNCA é prova de igualdade: recompara TODAS as dimensões materiais.
       if (idempotencyKey && createdByActorId) {
         const byKey = await this.findAssetByIdempotencyKey(input.tenantId, createdByActorId, idempotencyKey);
         if (byKey) {
-          if (byKey.contextFingerprint === contextFingerprint) {
+          if (await materiallyEqualMediaContext(byKey.id, declaration)) {
             return { asset: byKey, reusedExistingBlob: true, reusedExistingAsset: true };
           }
           throw new MediaAssetError(409, 'MEDIA_IDEMPOTENCY_CONFLICT',
@@ -459,10 +476,18 @@ export const mediaAssetService = {
         }
       }
 
-      // CASO 1 — contexto INTEGRALMENTE idêntico ⇒ idempotente (mesmo asset).
-      const same = await this.findAssetByContextFingerprint(contextFingerprint);
-      if (same) {
-        return { asset: same, reusedExistingBlob: true, reusedExistingAsset: true };
+      // CASO 1 — match de fingerprint NÃO basta (V2): reuso idempotente SÓ se a
+      // comparação material INTEGRAL confirmar igualdade dimensão a dimensão.
+      const candidate = await this.findAssetByContextFingerprint(contextFingerprint);
+      if (candidate) {
+        if (await materiallyEqualMediaContext(candidate.id, declaration)) {
+          return { asset: candidate, reusedExistingBlob: true, reusedExistingAsset: true };
+        }
+        // Colisão de hash com contexto materialmente DIFERENTE: conflito
+        // OBSERVÁVEL — nunca devolve o asset anterior, nunca descarta a nova
+        // intenção, nunca altera o registro existente.
+        throw new MediaAssetError(409, 'MEDIA_CONTEXT_FINGERPRINT_COLLISION',
+          'Colisão de fingerprint contextual com declaração materialmente distinta — nada foi reutilizado nem alterado.');
       }
 
       // CASO 2 — mesmos bytes, contexto DIFERENTE ⇒ declaração NOVA sobre o mesmo blob.
@@ -480,17 +505,29 @@ export const mediaAssetService = {
           purpose,
           provenance,
           contextFingerprint,
+          contextIdentityVersion: MEDIA_CONTEXT_IDENTITY_VERSION,
           idempotencyKey,
         });
       } catch (err) {
         if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505') {
-          // Corrida no UNIQUE de fingerprint: o MESMO contexto inseriu em paralelo → idempotente.
+          // Corrida no UNIQUE de fingerprint: vencedor TAMBÉM é recomparado
+          // materialmente — igual ⇒ idempotente; diferente ⇒ colisão observável.
           const winner = await this.findAssetByContextFingerprint(contextFingerprint);
-          if (winner) return { asset: winner, reusedExistingBlob: true, reusedExistingAsset: true };
-          // Corrida no UNIQUE de idempotency_key: outro payload ganhou a chave → conflito.
+          if (winner) {
+            if (await materiallyEqualMediaContext(winner.id, declaration)) {
+              return { asset: winner, reusedExistingBlob: true, reusedExistingAsset: true };
+            }
+            throw new MediaAssetError(409, 'MEDIA_CONTEXT_FINGERPRINT_COLLISION',
+              'Colisão de fingerprint contextual com declaração materialmente distinta — nada foi reutilizado nem alterado.');
+          }
+          // Corrida no UNIQUE de idempotency_key: outro payload ganhou a chave —
+          // recomparação material decide reuso × conflito.
           if (idempotencyKey && createdByActorId) {
             const byKey = await this.findAssetByIdempotencyKey(input.tenantId, createdByActorId, idempotencyKey);
-            if (byKey && byKey.contextFingerprint !== contextFingerprint) {
+            if (byKey) {
+              if (await materiallyEqualMediaContext(byKey.id, declaration)) {
+                return { asset: byKey, reusedExistingBlob: true, reusedExistingAsset: true };
+              }
               throw new MediaAssetError(409, 'MEDIA_IDEMPOTENCY_CONFLICT',
                 'Idempotency-Key reutilizada com payload contextual divergente — nada foi alterado.');
             }
