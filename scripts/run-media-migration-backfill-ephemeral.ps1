@@ -1,8 +1,10 @@
 # run-media-migration-backfill-ephemeral.ps1
 # Orquestrador do E2E de BACKFILL LEGADO das migrations de midia (374/375/376)
 # - F-CANONICAL-MEDIA-CONTEXT-IDENTITY-V2-COLLISION-SAFE-CLOSURE (GO secao 6).
-# Cria DUAS DBs EFEMERAS (caminho feliz + fail-closed); o proprio e2e orquestra
-# os migrates parciais/completos via MIGRATION_STOP_BEFORE. NUNCA toca unificard_dev.
+# Cria DUAS DBs EFEMERAS (caminho feliz + fail-closed); o proprio e2e orquestra:
+# preparacao historica via tooling TEST-ONLY (test-support/apply-migrations-
+# before-for-test, NODE_ENV=test) + atualizacao final via runner PRODUTIVO real.
+# NUNCA toca unificard_dev.
 $ErrorActionPreference = 'Stop'
 $env:PGCLIENTENCODING = 'UTF8'
 
@@ -36,7 +38,6 @@ try {
     $env:MIGRATION_PROFILE = 'FULL'
     $env:NODE_ENV = 'development'
     Remove-Item Env:PILOT_MODE -ErrorAction SilentlyContinue
-    Remove-Item Env:MIGRATION_STOP_BEFORE -ErrorAction SilentlyContinue
 
     Push-Location $backend
     try {
@@ -48,7 +49,6 @@ try {
         Pop-Location
         Remove-Item Env:BACKFILL_FC_DATABASE_URL -ErrorAction SilentlyContinue
         Remove-Item Env:BACKFILL_FC_DATABASE_NAME -ErrorAction SilentlyContinue
-        Remove-Item Env:MIGRATION_STOP_BEFORE -ErrorAction SilentlyContinue
     }
 }
 finally {

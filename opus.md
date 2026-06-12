@@ -4565,3 +4565,24 @@ e2e de migração com MIGRATION_STOP_BEFORE + seed legado + cenário impossível
 rotas (preservação E abort) antes de a primeira linha real existir. 6. Gate de janela única
 ([\s\S]{0,N}) é contornável quando o token aparece em mais de uma call-site — matchAll +
 janela POR call-site fecha o bypass.
+
+## 2026-06-12 — F-MIGRATION-RUNNER-TEST-HOOK-ISOLATION-CLOSURE
+
+Yala provou que o MIGRATION_STOP_BEFORE que eu adicionei ao runner PRODUTIVO para o e2e de
+backfill era um hazard de produção: schema parcial com exit 0 sob NODE_ENV=production.
+Correção: mecanismo REMOVIDO do entrypoint produtivo; preparação histórica movida para
+tooling test-only com guardas simultâneas; runner ganhou verificação final fail-closed
+(sucesso só com pending=0 recalculado do disco).
+
+LIÇÕES: 1. Test-hook em entrypoint produtivo é dívida de integridade NO MOMENTO em que nasce —
+a conveniência de "uma env a mais" no runner custa um vetor de deploy parcial; tooling de teste
+mora em test-support/, atrás de NODE_ENV=test + banco efêmero, NUNCA atrás de um if no caminho
+quente. 2. `if (NODE_ENV !== production)` NÃO é correção para isso: ambiente ausente/manipulado
+não pode decidir integridade de schema — a correção é o mecanismo NÃO EXISTIR no binário
+produtivo. 3. Sucesso de migração é uma AFIRMAÇÃO sobre o estado final, não sobre o loop: a
+mensagem de "todas executadas" deve ser derivada de pending==0 recalculado DEPOIS, do disco —
+nunca da lista que o próprio processo decidiu iterar. 4. Truncamento por comparação de string
+(localeCompare contra filename livre) falha silencioso com target inexistente; seleção de alvo
+exige igualdade EXATA + ocorrência única + erro alto. 5. Extrair primitivas compartilhadas
+(enumeração/transação/forward-only) para um core puro deixa runner e tooling com UMA semântica
+de execução — a alternativa (duplicar) cria drift, e a outra (hook no runner) criou este achado.

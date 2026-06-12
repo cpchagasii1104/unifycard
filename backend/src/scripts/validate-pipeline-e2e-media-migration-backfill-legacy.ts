@@ -7,10 +7,13 @@
  * dados reais. Este e2e prova as DUAS rotas:
  *
  *  FASE A (DB efêmera 1 — caminho feliz):
- *    migra até ANTES da 374 (MIGRATION_STOP_BEFORE) → semeia dados VÁLIDOS no
- *    schema legado (asset empresarial pending + asset canônico approved +
+ *    tooling TEST-ONLY (test-support/apply-migrations-before-for-test, NODE_ENV
+ *    =test + banco efêmero + target exato) prepara o estado ANTES da 374 →
+ *    semeia dados VÁLIDOS no schema legado (asset empresarial pending + asset
+ *    canônico approved +
  *    business_media + canonical_service_media + licença com bordas/case +
- *    provenance contendo '|') → aplica 374/375/376 normalmente → prova:
+ *    provenance contendo '|') → runner PRODUTIVO real aplica TODAS as
+ *    pendentes (374/375/376; nenhum truncamento existe nele) → prova:
  *    IDs/blobs/relações/moderação/licença/source/provenance/tenant/actor
  *    PRESERVADOS byte-exatos; context_type/purpose inferidos pela regra da 374;
  *    context_identity_version=2; context_fingerprint == função SQL V2 (fonte
@@ -39,7 +42,6 @@ const NAME_A = process.env.EXPECTED_DATABASE_NAME || '';
 const URL_B = process.env.BACKFILL_FC_DATABASE_URL || '';
 const NAME_B = process.env.BACKFILL_FC_DATABASE_NAME || '';
 
-const STOP_BEFORE = '20260612100000';
 const MIG_374 = '20260612100000_media_asset_contextual_identity.sql';
 const MIG_375 = '20260612110000_availability_owner_type_check.sql';
 const MIG_376 = '20260612120000_media_context_identity_v2.sql';
@@ -77,16 +79,30 @@ function assertEphemeralNames(): void {
   console.log(`🔒 DBs efêmeras confirmadas: ${NAME_A} (fase A) · ${NAME_B} (fase B)`);
 }
 
-function runMigrate(url: string, dbName: string, stopBefore?: string): { status: number; out: string } {
+/** Runner PRODUTIVO real — aplica TODAS as pendentes (nenhum truncamento existe). */
+function runMigrate(url: string, dbName: string): { status: number; out: string } {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     DATABASE_URL: url,
     EXPECTED_DATABASE_NAME: dbName,
     MIGRATION_PROFILE: 'FULL',
   };
-  delete env.MIGRATION_STOP_BEFORE;
-  if (stopBefore) env.MIGRATION_STOP_BEFORE = stopBefore;
   const r = spawnSync('npx', ['tsx', 'src/core/db/migrate.ts'], {
+    cwd: process.cwd(), env, shell: true, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+  });
+  return { status: r.status ?? 99, out: `${r.stdout ?? ''}\n${r.stderr ?? ''}` };
+}
+
+/** Tooling EXCLUSIVO de teste — prepara a DB efêmera ANTES da migration-alvo. */
+function runTestPrepare(url: string, dbName: string, beforeTarget: string): { status: number; out: string } {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    NODE_ENV: 'test',
+    DATABASE_URL: url,
+    EXPECTED_DATABASE_NAME: dbName,
+    MIGRATION_PROFILE: 'FULL',
+  };
+  const r = spawnSync('npx', ['tsx', 'src/scripts/test-support/apply-migrations-before-for-test.ts', `--before=${beforeTarget}`], {
     cwd: process.cwd(), env, shell: true, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
   });
   return { status: r.status ?? 99, out: `${r.stdout ?? ''}\n${r.stderr ?? ''}` };
@@ -101,9 +117,12 @@ async function main(): Promise<void> {
 
   try {
     // ════ FASE A — caminho feliz ═══════════════════════════════════════════
-    console.log('\n— FASE A: migra até ANTES da 374 —');
-    const mA1 = runMigrate(URL_A, NAME_A, STOP_BEFORE);
-    record('A1 migrate parcial (stop-before 374) → exit 0', mA1.status === 0, mA1.out.slice(-400));
+    console.log('\n— FASE A: tooling TEST-ONLY prepara a DB ANTES da 374 —');
+    const mA1 = runTestPrepare(URL_A, NAME_A, MIG_374);
+    record('A1 preparação test-only (before 374) → exit 0 + mensagem test-only inequívoca (NUNCA "todas executadas")',
+      mA1.status === 0 && mA1.out.includes(`TEST DATABASE PREPARED BEFORE ${MIG_374}`) &&
+      !mA1.out.includes('Todas as migrações pendentes foram EXECUTADAS'),
+      mA1.out.slice(-400));
     const applied374 = await count(poolA, `SELECT count(*)::text n FROM schema_migrations WHERE filename = $1`, [MIG_374]);
     const hasCtxCol = await count(poolA, `SELECT count(*)::text n FROM information_schema.columns WHERE table_name='media_assets' AND column_name='context_type'`);
     record('A2 schema LEGADO confirmado (374 não aplicada; media_assets sem context_type)', applied374 === 0 && hasCtxCol === 0);
@@ -153,9 +172,10 @@ async function main(): Promise<void> {
       (await count(poolA, `SELECT count(*)::text n FROM business_media`)) === 1 &&
       (await count(poolA, `SELECT count(*)::text n FROM canonical_service_media WHERE media_asset_id=$1::uuid`, [ASSET_CAN])) === 1);
 
-    console.log('\n— FASE A: aplica 374/375/376 normalmente —');
+    console.log('\n— FASE A: runner PRODUTIVO real aplica TODAS as pendentes (374/375/376) —');
     const mA2 = runMigrate(URL_A, NAME_A);
-    record('A5 migrate completo (374+375+376) → exit 0', mA2.status === 0, mA2.out.slice(-600));
+    record('A5 runner produtivo (sem truncamento) → exit 0 com pending final = 0',
+      mA2.status === 0 && mA2.out.includes('Todas as migrações pendentes foram EXECUTADAS'), mA2.out.slice(-600));
     record('A6 schema_migrations registra 374/375/376',
       (await count(poolA, `SELECT count(*)::text n FROM schema_migrations WHERE filename = ANY($1)`, [[MIG_374, MIG_375, MIG_376]])) === 3);
 
@@ -210,8 +230,9 @@ async function main(): Promise<void> {
 
     // ════ FASE B — fail-closed (contexto não inferível) ════════════════════
     console.log('\n— FASE B: cenário legado IMPOSSÍVEL → migração V2 aborta —');
-    const mB1 = runMigrate(URL_B, NAME_B, STOP_BEFORE);
-    record('B1 migrate parcial (stop-before 374) → exit 0', mB1.status === 0, mB1.out.slice(-300));
+    const mB1 = runTestPrepare(URL_B, NAME_B, MIG_374);
+    record('B1 preparação test-only (before 374) → exit 0',
+      mB1.status === 0 && mB1.out.includes('TEST DATABASE PREPARED BEFORE'), mB1.out.slice(-300));
     await poolB.query(
       `INSERT INTO media_blobs (id, content_hash, mime_type, size_bytes, storage_reference)
        VALUES ($1, 'e2e-legacy-hash-3', 'image/png', 300, 'e2e-legacy-ref-3')`, [BLOB_3]);

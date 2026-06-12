@@ -252,7 +252,7 @@ for (const f of FAMILY) {
   check('canonical:media-v2-proofs-exist',
     /provenance: 'b\|c'/.test(ctxE2e) && /license: 'a\|b'/.test(ctxE2e) &&
     /MEDIA_CONTEXT_FINGERPRINT_COLLISION/.test(ctxE2e) &&
-    /MIGRATION_STOP_BEFORE|stop-before/i.test(backfillE2e) &&
+    /apply-migrations-before-for-test/.test(backfillE2e) &&
     /context_identity_version/.test(backfillE2e) &&
     /media_context_fingerprint_v2/.test(backfillE2e),
     'provas permanentes da identidade V2 sumiram (vetor Yala exato / colisão forçada / backfill legado — suíte obrigatória).');

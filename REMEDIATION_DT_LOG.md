@@ -12541,3 +12541,44 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   (F-AUTHORITY-DELEGATION-ROLES-AND-PROFESSIONAL-CAPABILITIES-CLOSURE). NÃO bloqueia o eixo
   service_offering aprovado; NÃO reabre o resolver polimórfico; o fallback NÃO está autorizado
   como modelo definitivo.
+
+## DT-MIGRATION-RUNNER-TEST-HOOK-PRODUCTION-TRUNCATION — OPEN (2026-06-12, achado do re-reseal final Yala) → CLOSED (2026-06-12)
+
+- **Origem:** re-reseal final Yala (mídia V2 PASS · temporal D2 PASS · este único bloqueador):
+  o guard `MIGRATION_STOP_BEFORE` (test-tooling do e2e de backfill) vivia no runner
+  PRODUTIVO `core/db/migrate.ts`. Sob NODE_ENV=production: variável apontando para migration
+  existente ⇒ runner parava ANTES dela, **exit 0** e mensagem de sucesso total; variável com
+  filename inexistente ⇒ podia aplicar ZERO migrations com exit 0 e "nada a fazer" — schema
+  INCOMPLETO tratável como deploy bem-sucedido.
+- **Status:** **CLOSED (2026-06-12)** — frente `F-MIGRATION-RUNNER-TEST-HOOK-ISOLATION-CLOSURE`:
+  - **Runner produtivo PURIFICADO**: `MIGRATION_STOP_BEFORE` REMOVIDO integralmente (símbolo e
+    interpretação); semântica única = descobrir TODAS as pendentes → validar sequência →
+    aplicar TODAS → falhar em qualquer erro → **verificação final fail-closed** (recalcula
+    pendentes do DISCO + schema_migrations DEPOIS da execução; pending > 0 ⇒ exit 1) →
+    mensagem de sucesso total ÚNICA e somente após pending = 0. Variáveis desconhecidas não
+    alteram comportamento. (A correção NÃO é um `if NODE_ENV` — o mecanismo não existe mais.)
+  - **Primitivas compartilhadas** extraídas para `core/db/migration-runner-core.ts`
+    (enumeração/profile/forward-only/transação/checksum) — fonte única entre runner e tooling,
+    sem duplicar o migrador e sem devolver truncamento ao entrypoint produtivo.
+  - **Tooling EXCLUSIVO de teste** `src/scripts/test-support/apply-migrations-before-for-test.ts`:
+    exige SIMULTANEAMENTE NODE_ENV=test · EXPECTED_DATABASE_NAME (≠ unificard_dev; nome
+    materialmente efêmero) · current_database() == EXPECTED · target por **FILENAME EXATO**
+    (igualdade estrita, ocorrência única, pendente, sem posterior aplicada — nunca prefixo/
+    substring/localeCompare); recusas fail-closed ANTES de aplicar qualquer migration
+    (TEST_ENV_REQUIRED/DEV_DB_REFUSED/EPHEMERAL_NAME_REQUIRED/DB_NAME_MISMATCH/TARGET_NOT_FOUND/
+    TARGET_MALFORMED/TARGET_AMBIGUOUS/TARGET_ALREADY_APPLIED/POSTERIOR_ALREADY_APPLIED);
+    mensagem inequívoca "TEST DATABASE PREPARED BEFORE <migration>" + aplicadas/parada/
+    intencionalmente pendentes/banco — NUNCA a mensagem de sucesso total produtiva.
+  - **E2E de backfill adaptado**: preparação histórica via tooling test-only + etapa final via
+    runner PRODUTIVO REAL (prova as duas coisas na mesma jornada) — 20/20 re-verde.
+  - **Gate novo** `audit-migration-runner-isolation.mjs` (11/0, no validate:regression-guards +
+    alias): proíbe truncamento no runner/core; exige sucesso-só-com-pending-zero (mensagem
+    única e posterior à checagem); exige as guardas do helper e o uso do runner produtivo na
+    etapa final do backfill; exige o e2e P1–P10. Provas negativas N1–N6 (6/6, sha-verificadas).
+- **Provas:** e2e NOVO `validate-pipeline-e2e-migration-runner-isolation.ts` **13/13** —
+  P1 variável antiga IGNORADA sob NODE_ENV=production (376 aplicada; pending 0) · P2 aplica
+  todas · P3 preparação válida (anteriores aplicadas; target/posteriores pendentes; mensagem
+  test-only) · P4 target inexistente exit≠0 banco inalterado · P5 vazio/malformado/ausente ·
+  P6 NODE_ENV=production recusado · P7 unificard_dev recusado ANTES de conectar · P8 EXPECTED
+  divergente · P9 target já aplicado = erro observável · P10 migration quebrada transiente ⇒
+  exit≠0 SEM mensagem de conclusão total (schema parcial jamais é sucesso).

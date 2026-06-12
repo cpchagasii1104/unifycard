@@ -14278,3 +14278,37 @@ OPEN** (COALESCE de GROUP → macrofrente autoridade/delegação; não bloqueia;
 modelo definitivo) · ADENDO factual V2 na DECISION-0118 (sem DECISION nova). Estados: esta
 frente **tecnicamente concluída aguardando re-reseal Yala** · EIXO TEMPORAL D2 **PASS
 preservado** · MACROFRENTE CANÔNICA **NÃO CLOSED**.
+
+## 2026-06-12 — F-MIGRATION-RUNNER-TEST-HOOK-ISOLATION-CLOSURE (GO corretivo operacional final)
+
+Re-reseal final Yala: **mídia V2 PASS MATERIAL** · **temporal D2 PASS MATERIAL** · único
+bloqueador **DT-MIGRATION-RUNNER-TEST-HOOK-PRODUCTION-TRUNCATION** (MIGRATION_STOP_BEFORE no
+runner produtivo: sob NODE_ENV=production permitia schema PARCIAL com exit 0 e mensagem de
+sucesso total; target inexistente ⇒ zero migrations com "nada a fazer").
+
+**CORREÇÃO (1 commit sobre `5d6f8a7a`):** mecanismo de teste REMOVIDO do caminho produtivo —
+`core/db/migrate.ts` purificado (semântica única: aplicar SEMPRE todas as pendentes; variáveis
+desconhecidas não alteram nada) + **verificação final fail-closed** (pendentes recalculadas do
+disco+schema_migrations APÓS a execução; pending>0 ⇒ exit 1; mensagem de sucesso ÚNICA e só
+depois). Primitivas compartilhadas extraídas p/ `migration-runner-core.ts` (fonte única, sem
+duplicar o migrador). Preparação histórica agora vive SÓ em
+`src/scripts/test-support/apply-migrations-before-for-test.ts` (NODE_ENV=test + EXPECTED ==
+current_database + recusa unificard_dev/não-efêmero + target por FILENAME EXATO com 9 recusas
+fail-closed + mensagem "TEST DATABASE PREPARED BEFORE …", nunca a de sucesso produtivo). E2E
+de backfill adaptado: prepara via tooling test-only, FINALIZA via runner produtivo REAL.
+
+**PROVAS:** e2e NOVO runner-isolation **13/13** (P1–P10: variável antiga ignorada em produção;
+todas aplicadas; preparação válida; inexistente/vazio/malformado/produção/dev/EXPECTED-divergente/
+já-aplicado recusados sem aplicar nada; migration quebrada ⇒ exit≠0 sem mensagem de conclusão) ·
+backfill **20/20** re-verde · contextual **35/35** · isolation **25/25** · CP2 **26/26** ·
+canônico integrado **21/21** · integrado **10/10** · temporal preservado (**24/24** + gate
+**23/0**) · negativas contextual+temporal **16/16** · **gate NOVO**
+`audit-migration-runner-isolation.mjs` (11/0) no regression-guards + negativas N1–N6 **6/6**.
+Gates: actor-writer OK · bank-ledger OK · regression-guards OK · system-state PASS · arch
+critical_new=0 · diff-check 0 · **tsc backend VERMELHO — 25 pré-existentes (0113), ZERO novo;
+frontend 0**. Dev 376/376 byte-estável; zero DB efêmera; storage 0.
+
+**CARTÓRIO:** DT-MIGRATION-RUNNER-TEST-HOOK-PRODUCTION-TRUNCATION OPEN→**CLOSED**. Sem DECISION
+nova. Estados: esta frente **tecnicamente concluída aguardando reseal Yala** · MÍDIA V2 **PASS
+preservado** · TEMPORAL D2 **PASS preservado** · MACROFRENTE CANÔNICA **NÃO CLOSED** (só o PASS
+da Yala autoriza o CLOSED em cadeia + READ-FIRST de F-AUTHORITY-DELEGATION-…).
