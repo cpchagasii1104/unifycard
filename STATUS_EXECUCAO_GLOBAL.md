@@ -14188,3 +14188,17 @@ pedido/booking transacional/checkout/pagamento · system actor institucional · 
 vivo) · product_prices ghost · price federation (DT-COMMERCIAL-PRICE-FEDERATED-SSOT) · R2 · FASE 6.
 NÃO declarado: marketplace econômico completo / pedido / pagamento / inventory global / UnifyBank.
 Próxima cadeia: oferta → pedido/agendamento. Aguardando RESEAL Yala.
+
+---
+
+## F-CANONICAL-MEDIA-BLOB-ASSET-TENANT-ISOLATION-CLOSURE ✅ CLOSED (2026-06-12) — correção do único bloqueador do reseal Yala
+
+**Branch:** `rescue-structural` · sobre HEAD `274861c3` · migrations 372→**373** (`20260612090000_media_blob_asset_separation.sql`, aditiva forward-only) · commit único corretivo.
+
+**Causa-raiz (FAIL Yala):** dedup física global de mídia ACOPLADA ao registro lógico — `media_assets.content_hash` UNIQUE fazia tenant B herdar o asset (autoria/origem/moderação) do tenant A nos mesmos bytes; `GET /catalog/media/assets/:id/file` servia blob sem prova de tenant/actor/vínculo/visibilidade; B conseguia anexar asset de A em business_media. **DT-CANONICAL-MEDIA-CROSS-TENANT-METADATA-AND-FILE-LEAK OPEN→CLOSED.**
+
+**Modelo corrigido (materializa DECISION-0117 C — ADENDO A2):** `media_blobs` (FÍSICA: hash UNIQUE GLOBAL, mesmos bytes=1 blob; sem tenant/actor/moderação/licença; blob/hash/storage_reference NÃO autorizam) ≠ `media_assets` (LÓGICA: FK blob RESTRICT; autoria/origem/licença/moderação POR tenant/actor; UNIQUE parcial blob+tenant+criador = idempotência de contexto). Ingestão: dedup física `findBlobByHash` antes do storage; reuso lógico SÓ no contexto do caller; hash fora do response. Compensação ref-count-safe (`deleteBlobIfUnreferenced` NOT EXISTS+FK RESTRICT — blob compartilhado JAMAIS apagado). Leitura autorizada (`readContentAuthorized`: canônica pública approved+attached / criador canRepresentActor / curador; cross-tenant privado=404 sem oráculo). attach/business prova contexto (`MEDIA_ASSET_FOREIGN`). Projeção pública sem autoria/origem/storage/hash. Moderação por asset lógico (aprovar A nunca aprova B).
+
+**Provas:** e2e adversarial permanente `validate-pipeline-e2e-media-tenant-isolation.ts` **25/25** (2 tenants HTTP reais; vetor Yala + canônica pública + corrida + compensação compartilhada) · CP2 ampliado **26/26** · integrado **21/21** · gate `audit-canonical-catalog-closure.mjs` reescrito (checks 6a–6i; invariant que EXIGIA o anti-padrão removida; 68/5/0/0/0) · provas negativas **6/6** novas (`negative-proofs-media-isolation.ps1`) + **8/8** originais (P8 reapontada). Regressões: foundation 35/35 · templates 15/15 · offerings 16/16 · menu 13/13 · ramo 14/14 · salon 10/10 · pub-writer 20/20 · pub-projection 13/13 · revocation-cascade 15/15 · revocation-reader 6/6 · C1 journey 55/55 · PJ integrado 52/52 · inventory consolidated 39/39 · legacy-readers 32/32 (fixture G1d atualizada ao contrato vigente FIXED_REGRESSION=3 — defasagem pré-existente do commit D, expectativa FORTALECIDA).
+
+**Estado:** F-CANONICAL-MEDIA-BLOB-ASSET-TENANT-ISOLATION-CLOSURE **CLOSED** · F-CANONICAL-CATALOG-BUSINESS-TEMPLATES-AND-OFFERING-CLOSURE **tecnicamente concluída — AGUARDANDO RE-RESEAL FINAL YALA** (não declarada CLOSED). Resíduo honesto: projeção pública de business_media via lifecycle (superfície futura).

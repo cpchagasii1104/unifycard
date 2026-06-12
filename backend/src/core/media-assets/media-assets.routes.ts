@@ -1,17 +1,22 @@
 // media-assets.routes.ts
-// DECISION-0117 C — superfícies de mídia canônica (prefixo /catalog/media).
+// DECISION-0117 C + F-CANONICAL-MEDIA-BLOB-ASSET-TENANT-ISOLATION-CLOSURE
+// — superfícies de mídia canônica (prefixo /catalog/media).
 //
 // Upload (sugestão empresarial): autenticado + actor humano por LEITURA +
 // canManageCompany (fail-closed; sem cura). Moderação/attach canônico = admin
-// humano. Complemento empresarial = canRepresentActor sobre o owner actor.
-// Mesmo conteúdo NUNCA duplica blob (content-addressed). Zero Bank writer.
+// humano. Complemento empresarial = canRepresentActor sobre o owner actor +
+// asset do PRÓPRIO contexto (ou canônico público). Leitura de arquivo é
+// AUTORIZADA (canônica pública / contexto do criador / curador) — asset privado
+// de outro tenant é invisível (404). Mesmo conteúdo NUNCA duplica BLOB físico,
+// mas cada tenant/contexto tem seu ASSET lógico. Zero Bank writer.
 
 import type { FastifyPluginAsync } from 'fastify';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
 import { socialPortsRegistry } from '../social/ports-registry';
 import { authorizationService } from '../authorization/authorization.service';
-import { mediaAssetService, MediaAssetError, MEDIA_MAX_BYTES } from './media-asset.service';
+import { rbacService } from '../rbac/rbac.service';
+import { mediaAssetService, MediaAssetError, MEDIA_MAX_BYTES, toPublicMediaProjection } from './media-asset.service';
 
 const attachCanonicalSchema = z.object({
   entity: z.enum(['product', 'variant', 'service']),
@@ -74,13 +79,15 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
         source: 'company_suggestion',
         createdByActorId: actorId,
       });
-      return reply.status(result.reusedExistingBlob ? 200 : 201).send({
+      // Hash global NÃO é exposto (não é identificador público de mídia privada).
+      // reusedExistingBlob = bytes físicos reutilizados; o ASSET é sempre do contexto do caller.
+      return reply.status(result.reusedExistingAsset ? 200 : 201).send({
         ok: true,
         data: {
           mediaAssetId: result.asset.id,
-          contentHash: result.asset.contentHash,
           moderationStatus: result.asset.moderationStatus,
           reusedExistingBlob: result.reusedExistingBlob,
+          reusedExistingAsset: result.reusedExistingAsset,
         },
       });
     } catch (err) {
@@ -157,6 +164,7 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       await mediaAssetService.attachBusinessMedia({
         tenantId: req.tenant.id,
+        subjectUserId: sub.userId,
         ownerActorId,
         attachedToType: parsed.data.attachedToType as 'product_offer' | 'service_offering' | 'company' | 'establishment',
         attachedToId: parsed.data.attachedToId as string,
@@ -170,7 +178,11 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  /** Mídia canônica de uma entidade (assets aprovados; reutilizável por todas as ofertas). */
+  /**
+   * Mídia canônica de uma entidade (assets aprovados; reutilizável por todas as
+   * ofertas). Projeção PÚBLICA: sem autoria/origem/storage — metadata privada
+   * do uploader nunca vaza no payload público.
+   */
   fastify.get<{ Params: { entity: string; entityId: string } }>(
     '/canonical/:entity/:entityId',
     async (req, reply) => {
@@ -178,15 +190,27 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
       if (!['product', 'variant', 'service'].includes(entity)) {
         return reply.status(400).send({ ok: false, code: 'MEDIA_ENTITY_INVALID' });
       }
-      const data = await mediaAssetService.listCanonicalMedia(entity as 'product' | 'variant' | 'service', req.params.entityId);
-      return reply.send({ ok: true, data });
+      const assets = await mediaAssetService.listCanonicalMedia(entity as 'product' | 'variant' | 'service', req.params.entityId);
+      return reply.send({ ok: true, data: assets.map(toPublicMediaProjection) });
     }
   );
 
-  /** Conteúdo do asset (preview dev/backoffice). */
+  /**
+   * Conteúdo do asset — leitura AUTORIZADA (canônica pública aprovada / contexto
+   * do criador via canRepresentActor / curador admin). Asset privado de outro
+   * tenant/contexto = 404 (sem oráculo de existência). Asset ID/hash/blob NÃO
+   * autorizam acesso por si.
+   */
   fastify.get<{ Params: { mediaAssetId: string } }>('/assets/:mediaAssetId/file', async (req, reply) => {
+    const sub = subject(req as never);
+    if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
     try {
-      const { buffer, mimeType } = await mediaAssetService.readContent(req.params.mediaAssetId);
+      const isCurator = await rbacService.userHasRole(req.tenant.id, sub.userId, 'admin');
+      const { buffer, mimeType } = await mediaAssetService.readContentAuthorized(req.params.mediaAssetId, {
+        tenantId: req.tenant.id,
+        userId: sub.userId,
+        isCurator,
+      });
       return reply.header('content-type', mimeType).send(buffer);
     } catch (err) {
       if (err instanceof MediaAssetError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });

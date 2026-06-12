@@ -14,7 +14,7 @@
  * CNPJs distintos; page actors distintos; KYB real controlado (admin humano).
  *
  * Produto: Coca-Cola Original 1 litro retornável — 1 CONCEPT, 1 canônico,
- * 1 variante exata, 1 media asset (reenvio não duplica blob); A e B referenciam
+ * 1 variante exata, 1 BLOB de mídia (reenvio não duplica blob; asset lógico por contexto); A e B referenciam
  * a MESMA variante com SKUs/preços/estoques próprios; busca = 1 item → 2 ofertas;
  * cross-actor 403 + banco imutável. Serviço: corte de cabelo masculino — 1 CONCEPT,
  * 1 canônico, 2 prestadores (preço/duração/agenda próprios na Unified Availability).
@@ -290,7 +290,8 @@ async function main(): Promise<void> {
       payload: { conceptId: CONCEPT_COLA },
     });
 
-    // mídia canônica: upload A → aprovação → attach; reenvio por B reutiliza o blob
+    // mídia canônica: upload A → aprovação → attach; reenvio por B reutiliza o
+    // BLOB físico mas ganha asset LÓGICO próprio (isolamento blob×asset)
     const mpA = multipartBody([{ name: 'file', filename: 'coca.png', contentType: 'image/png', value: PNG_COCA }]);
     const upA = await app.inject({
       method: 'POST', url: `/catalog/media/assets?companyId=${A.companyId}`,
@@ -311,9 +312,12 @@ async function main(): Promise<void> {
     const filesAfterReupload = await storageFileCount();
     record('I3 produto: 1 concept + 1 canônico + 1 variante + 1 mídia canônica (attach curatorial)',
       sug.statusCode === 201 && !!variantId && upA.statusCode === 201 && att.statusCode === 200, `sug=${sug.statusCode} up=${upA.statusCode} att=${att.statusCode}`);
-    record('I4 mesmo upload (empresa B) NÃO duplica blob (asset reutilizado)',
-      upB.statusCode === 200 && upB.json()?.data?.mediaAssetId === assetId && upB.json()?.data?.reusedExistingBlob === true && filesAfterReupload === filesAfterUpload,
-      `files ${filesAfterUpload}→${filesAfterReupload}`);
+    const assetIdB = upB.json()?.data?.mediaAssetId as string;
+    const blobCount = await pool.query<{ n: string }>(`SELECT count(*)::text n FROM media_blobs`);
+    record('I4 mesmo upload (empresa B) NÃO duplica blob físico; asset lógico PRÓPRIO de B',
+      upB.statusCode === 201 && !!assetIdB && assetIdB !== assetId && upB.json()?.data?.reusedExistingBlob === true &&
+      filesAfterReupload === filesAfterUpload && blobCount.rows[0].n === '1',
+      `files ${filesAfterUpload}→${filesAfterReupload} blobs=${blobCount.rows[0].n}`);
 
     // A e B ativam a MESMA variante (SKUs/preços próprios) + estoques próprios
     const offerA = await app.inject({
@@ -446,7 +450,7 @@ async function main(): Promise<void> {
       const storage = resolveDocumentStorageProvider();
       const docRefs = await pool.query<{ file_reference: string }>(`SELECT file_reference FROM fiscal_identity_documents`);
       for (const ref of docRefs.rows) { try { await storage.deleteDocument(ref.file_reference); } catch { /* noop */ } }
-      const mediaRefs = await pool.query<{ storage_reference: string }>(`SELECT storage_reference FROM media_assets`);
+      const mediaRefs = await pool.query<{ storage_reference: string }>(`SELECT storage_reference FROM media_blobs`);
       for (const ref of mediaRefs.rows) { try { await storage.deleteDocument(ref.storage_reference); } catch { /* noop */ } }
     } catch { /* noop */ }
     const filesFinal = await storageFileCount();

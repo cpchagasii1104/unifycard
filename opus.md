@@ -4500,3 +4500,25 @@ derrubou a matriz ao ver business-templates em core/companies — classificar no
 vizinho é cartório de código, não burocracia. 5. Check de gate que aceita a 1ª ocorrência de um token
 (definição de método) em vez da CHAMADA é satisfazível por token decorativo — exigir assinatura da
 chamada (this.findByContentHash(contentHash)).
+
+## 2026-06-12 — F-CANONICAL-MEDIA-BLOB-ASSET-TENANT-ISOLATION-CLOSURE (correção do FAIL Yala)
+
+Reseal Yala reprovou 1 bloqueador: media_assets misturava BLOB físico (hash UNIQUE global) com
+ASSET lógico (autoria/tenant/moderação) — tenant B herdava o asset de A nos mesmos bytes; file
+reader sem autorização. Correção: media_blobs (física, hash UNIQUE global) ≠ media_assets (lógica,
+FK blob + UNIQUE parcial blob+tenant+criador), leitura/attach autorizados, compensação
+ref-count-safe, projeção pública sem metadata privada. E2E adversarial 25/25 (2 tenants HTTP) +
+CP2 26/26 + integrado 21/21 + 6 provas negativas novas + matriz completa re-verde.
+
+LIÇÕES: 1. "Content-addressed" é propriedade do BLOB, não do recurso autorizável — quando a chave
+de dedup física vira identidade lógica, todo metadata contextual vaza junto; separar camada física
+(sem autoridade) de camada lógica (com contexto) preserva a economia de storage SEM acoplar
+confidencialidade. 2. Compensação de pipeline com recurso COMPARTILHADO precisa de ref-count
+(NOT EXISTS + FK RESTRICT na corrida) — o "deleteDocument no catch" correto para recurso exclusivo
+vira arma contra terceiros quando o recurso é deduplicado. 3. Batch cmd que invoca npx/pnpm (que
+são .cmd) SEM `call` nunca retorna — "rótulo em lote não encontrado" é o sintoma; e relançar um
+orquestrador sem matar o anterior produz interleaving que ENGOLE entradas da matriz (logs por
+teste são o backstop). 4. Fixture de e2e que assere a SAÍDA de um gate (FIXED_REGRESSION=N) fica
+defasada quando o gate evolui no mesmo trem de commits — rodar o e2e no MESMO HEAD do gate antes
+de selar. 5. Gate textual que vigia invariante: ao corrigir o modelo, REMOVER o check que exigia
+o anti-padrão antigo é tão obrigatório quanto adicionar os novos — senão o gate prende a correção.

@@ -144,19 +144,92 @@ for (const f of FAMILY) {
     'service-offering perdeu canRepresentActor/identidade canônica ativa.');
 }
 
-// 6) MÍDIA content-addressed: dedup por hash ANTES do storage; UNIQUE no schema.
+// 6) MÍDIA: BLOB FÍSICO global ≠ ASSET LÓGICO tenant/actor-scoped
+//    (DECISION-0117 C + F-CANONICAL-MEDIA-BLOB-ASSET-TENANT-ISOLATION-CLOSURE,
+//    fechamento da DT-CANONICAL-MEDIA-CROSS-TENANT-METADATA-AND-FILE-LEAK).
 {
   const media = read(join(SRC, 'core/media-assets/media-asset.service.ts'));
-  // Exige a CHAMADA de dedup (não a definição do método — token decorativo não satisfaz).
-  const dedupIdx = media.indexOf('this.findByContentHash(contentHash)');
+  const routes = read(join(SRC, 'core/media-assets/media-assets.routes.ts'));
+
+  // 6a — dedup FÍSICA (camada blob) por hash ANTES do storage; exige a CHAMADA.
+  const dedupIdx = media.indexOf('this.findBlobByHash(contentHash)');
   const storeIdx = media.indexOf('storeDocument({');
-  check('canonical:media-hash-dedup-before-store',
-    dedupIdx > -1 && storeIdx > -1 && dedupIdx < storeIdx && /deleteDocument/.test(media),
-    'media-asset perdeu o dedup por content_hash antes do storage e/ou a compensação (blob duplicado/órfão — DECISION-0117 C).');
-  const mig = readFileSync(join(MIGRATIONS, '20260611160000_media_assets_canonical.sql'), 'utf-8');
-  check('canonical:media-unique-content-hash',
-    /uidx_media_assets_content_hash/.test(mig),
-    'UNIQUE de content_hash sumiu do schema de mídia.');
+  check('canonical:media-blob-dedup-before-store',
+    dedupIdx > -1 && storeIdx > -1 && dedupIdx < storeIdx,
+    'media-asset perdeu o dedup FÍSICO por blob antes do storage (blob duplicado — DECISION-0117 C).');
+
+  // 6b — compensação ref-count-safe: blob compartilhado JAMAIS é apagado.
+  check('canonical:media-compensation-refcount-safe',
+    /deleteBlobIfUnreferenced/.test(media) && /NOT EXISTS\s*\(SELECT\s+1\s+FROM\s+media_assets/i.test(media),
+    'compensação de mídia perdeu a guarda ref-count (apagaria blob compartilhado por outro tenant).');
+
+  // 6c — anti-padrão ORIGINAL do vazamento: lookup LÓGICO global por hash
+  //      (devolver o media_asset do primeiro uploader a outro tenant).
+  check('canonical:media-no-global-logical-hash-lookup',
+    !/FROM\s+media_assets[\s\S]{0,120}?WHERE[\s\S]{0,80}?content_hash/i.test(media) && !/\bfindByContentHash\b/.test(media),
+    'media-asset voltou a resolver ASSET LÓGICO por hash global (asset/metadata do 1º uploader vazando cross-tenant — FAIL Yala).');
+
+  // 6d — reuso lógico é CONTEXT-SCOPED (blob + tenant + actor criador).
+  check('canonical:media-logical-reuse-context-scoped',
+    /this\.findAssetByBlobAndContext\(blob\.id,\s*input\.tenantId/.test(media) &&
+    /origin_tenant_id\s*=\s*\$2::uuid/.test(media) && /created_by_actor_id\s*=\s*\$3::uuid/.test(media),
+    'reuso de asset lógico deixou de ser scoped por tenant/actor (colisão de hash devolvendo asset de terceiro).');
+
+  // 6e — reader de arquivo AUTORIZADO: rota chama leitura autorizada; resolver
+  //      prova visibilidade (canônica pública aprovada + contexto do criador por tenant).
+  check('canonical:media-file-reader-authorized',
+    /readContentAuthorized\(/.test(routes) &&
+    /canReadMediaAsset/.test(media) &&
+    /asset\.originTenantId === ctx\.tenantId/.test(media) &&
+    /moderationStatus === 'approved'/.test(media) &&
+    /canRepresentActor/.test(media),
+    'leitura de arquivo/metadata de mídia perdeu a autorização (tenant/visibilidade) — arquivo privado servível cross-tenant.');
+
+  // 6f — attach/business prova que o ASSET pertence ao contexto do caller.
+  check('canonical:media-business-attach-context-proof',
+    /MEDIA_ASSET_FOREIGN/.test(media) && /subjectUserId/.test(media),
+    'attach/business deixou de provar o contexto do asset (tenant B anexando asset privado de A).');
+
+  // 6g — moderação/autoria/origem/licença NÃO vivem no BLOB físico.
+  const newMig = readFileSync(join(MIGRATIONS, '20260612090000_media_blob_asset_separation.sql'), 'utf-8').replace(/--[^\n]*/g, '');
+  const blobBlock = (newMig.match(/CREATE TABLE IF NOT EXISTS media_blobs\s*\(([\s\S]*?)\);/) ?? [, ''])[1];
+  let blobContextWriter = null;
+  {
+    const scanBlobWriters = (dir) => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) {
+          if (entry === 'node_modules') continue;
+          scanBlobWriters(full);
+        } else if (extname(full) === '.ts') {
+          const code = read(full);
+          const m = code.match(/(UPDATE|ALTER\s+TABLE)\s+media_blobs[\s\S]{0,200}?(moderation_status|created_by_actor_id|origin_tenant_id|license|source)/i);
+          if (m && !blobContextWriter) blobContextWriter = full.replace(process.cwd(), '');
+        }
+      }
+    };
+    scanBlobWriters(SRC);
+  }
+  check('canonical:media-blob-has-no-contextual-authority',
+    blobBlock.length > 0 &&
+    !/moderation_status|created_by_actor_id|origin_tenant_id|license|source/i.test(blobBlock) &&
+    blobContextWriter === null,
+    `moderação/autoria/origem/licença entrando na camada de BLOB físico (autoridade contextual no blob — proibido): ${blobContextWriter ?? 'schema media_blobs'}`);
+
+  // 6h — UNIQUE de hash SÓ na camada física; unicidade lógica é por contexto.
+  check('canonical:media-hash-unique-only-physical',
+    /uidx_media_blobs_content_hash/.test(newMig) &&
+    /DROP INDEX IF EXISTS uidx_media_assets_content_hash/.test(newMig) &&
+    /uidx_media_assets_blob_context/.test(newMig),
+    'unicidade de content_hash saiu da camada física e/ou voltou à camada lógica (um asset global por hash = vazamento).');
+
+  // 6i — payload PÚBLICO de mídia canônica não vaza autoria/origem/storage.
+  check('canonical:media-public-projection-strips-private',
+    /toPublicMediaProjection/.test(routes) &&
+    !/createdByActorId|originTenantId|storageReference|contentHash/.test(
+      (read(join(SRC, 'core/media-assets/media-asset.service.ts')).match(/function toPublicMediaProjection[\s\S]*?\n\}/) ?? [''])[0]
+    ),
+    'projeção pública de mídia canônica voltou a expor autoria/origem/storage do uploader.');
 }
 
 // 7) images JSONB NÃO volta a ser SSOT (nenhum writer novo grava canonical_products.images).

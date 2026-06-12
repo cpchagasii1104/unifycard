@@ -12356,3 +12356,52 @@ canônica no regime PJ-B3, vigiada por gate).
   como KNOWN_OPEN no gate `audit-canonical-catalog-closure.mjs`.
 - **Vinculada a:** `marketplace.routes.ts` (legacy memory), `marketplace-legacy-memory-order-flag`,
   DECISION-0117 F, `DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK` (vocabulário, OPEN).
+
+---
+
+## DT-CANONICAL-MEDIA-CROSS-TENANT-METADATA-AND-FILE-LEAK — OPEN (2026-06-12, achado do reseal Yala) → CLOSED (2026-06-12)
+
+- **Origem:** RESEAL adversarial da Yala sobre `F-CANONICAL-CATALOG-BUSINESS-TEMPLATES-AND-OFFERING-CLOSURE`
+  retornou **FAIL com um único bloqueador material**: a deduplicação física global de mídia
+  (`media_assets.content_hash` UNIQUE) estava ACOPLADA ao registro lógico de autoria/tenant/
+  origem/licença/moderação/visibilidade.
+- **Vetor reproduzido:** tenant A envia mídia privada pending → tenant B envia os MESMOS bytes →
+  `findByContentHash` global devolvia o MESMO `media_asset` (B observava origin_tenant_id/
+  created_by_actor_id/moderation_status de A); B conseguia vincular o asset de A em
+  `business_media`; `GET /catalog/media/assets/:id/file` servia o blob SEM prova de tenant/actor/
+  vínculo/visibilidade/moderação.
+- **Status:** **CLOSED (2026-06-12)** — fechada pela frente corretiva
+  `F-CANONICAL-MEDIA-BLOB-ASSET-TENANT-ISOLATION-CLOSURE` (commit único sobre `274861c3`):
+  - **Modelo blob × asset** (migration `20260612090000_media_blob_asset_separation.sql`, aditiva,
+    forward-only): `media_blobs` = camada FÍSICA (content_hash **UNIQUE GLOBAL** — mesmos bytes =
+    1 blob; MIME/tamanho/referência opaca; SEM tenant/actor/moderação/licença/source — blob não é
+    recurso autorizável) ≠ `media_assets` = camada LÓGICA (FK `media_blob_id` RESTRICT; origem/
+    autoria/licença/moderação POR TENANT/ACTOR; UNIQUE parcial `(media_blob_id, origin_tenant_id,
+    created_by_actor_id)` = idempotência de contexto). UNIQUE de hash e colunas físicas SAÍRAM da
+    camada lógica após backfill fail-closed.
+  - **Ingestão:** dedup FÍSICA por `findBlobByHash` antes do storage; asset lógico criado/reusado
+    SÓ no contexto do caller (`findAssetByBlobAndContext`); `reusedExistingBlob` = bytes físicos
+    reutilizados (NUNCA asset de terceiro); hash global REMOVIDO do response.
+  - **Compensação ref-count-safe:** `deleteBlobIfUnreferenced` (DELETE com `NOT EXISTS` + FK
+    RESTRICT na corrida) — blob compartilhado JAMAIS é apagado; blob pré-existente nunca é tocado.
+  - **Leitura autorizada:** `readContentAuthorized`/`canReadMediaAsset` — visível SÓ se (a)
+    canônica pública (approved + vinculada a entidade canônica), (b) contexto do criador
+    (mesmo tenant + canRepresentActor), ou (c) curador admin do tenant. Cross-tenant privado =
+    404 sem oráculo. Asset ID/hash/blob/storage_reference NÃO autorizam acesso.
+  - **Attach empresarial contextual:** `attachBusinessMedia` prova que o asset pertence ao
+    contexto do caller (mesmo tenant + criador representável) OU é canônico público
+    (referência explícita); cross-tenant privado → 404 (`MEDIA_ASSET_FOREIGN` para mesmo-tenant
+    sem autoridade).
+  - **Projeção pública** de mídia canônica (`toPublicMediaProjection`): sem autoria/origem/
+    storage/hash — metadata privada do uploader não vaza em payload público.
+  - **Moderação por asset lógico:** aprovar o asset de um tenant NUNCA altera o de outro
+    (mesmo blob).
+- **Provas:** e2e adversarial permanente `validate-pipeline-e2e-media-tenant-isolation.ts`
+  **25/25** (2 tenants reais por HTTP: 1 blob/2 assets; metadata/file/attach isolados; canônica
+  pública vs privada do mesmo blob; corrida cross-tenant e mesmo-contexto; blob compartilhado
+  sobrevive a DB-failure) · CP2 ampliado **26/26** · e2e integrado **21/21** · gate
+  `audit-canonical-catalog-closure.mjs` reescrito (checks 6a–6i; invariant antiga que EXIGIA o
+  anti-padrão removida) · provas negativas **6/6** novas (`negative-proofs-media-isolation.ps1`)
+  + **8/8** originais re-verdes (P8 reapontada para o dedup físico).
+- **Resíduo honesto:** projeção PÚBLICA de business_media via lifecycle de oferta/publicação
+  (hoje: owner/representável apenas; nenhum consumer público existe) — superfície futura.

@@ -87,6 +87,40 @@ Não abre carrinho/pedido/checkout/booking transacional/pagamento; não cria pro
 
 Resíduos OPEN honestos: provider de mídia de produção · conversão automática de unidades · booking transacional/pagamento · system actor institucional definitivo · MarketplaceDomain↔N0 (0102 §13) · legados marketplace em memória (caller vivo; substituto canônico vivo em `/marketplace/catalog/items/*`) · `product_prices` ghost · price federation global (DT-COMMERCIAL-PRICE-FEDERATED-SSOT).
 
+## ADENDO A2 — Separação blob físico × asset lógico de mídia (2026-06-12, factual; correção do reseal Yala)
+
+**Não contraria a Decisão C — MATERIALIZA-A.** O reseal adversarial da Yala reprovou um único
+bloqueador: a implementação inicial de CP2 acoplou a dedup física global (`content_hash` UNIQUE em
+`media_assets`) ao registro lógico de autoria/tenant/origem/licença/moderação — tenant B que
+enviasse os mesmos bytes HERDAVA o asset (e a metadata) do tenant A, e o file reader servia blob
+sem prova de visibilidade (DT-CANONICAL-MEDIA-CROSS-TENANT-METADATA-AND-FILE-LEAK).
+
+Correção (frente `F-CANONICAL-MEDIA-BLOB-ASSET-TENANT-ISOLATION-CLOSURE`, migration
+`20260612090000_media_blob_asset_separation.sql`, aditiva forward-only):
+
+- **`media_blobs` (camada FÍSICA)** — `content_hash` **UNIQUE GLOBAL** (a invariante "reenvio do
+  mesmo conteúdo NÃO cria novo blob" da Decisão C vive AQUI), MIME/tamanho/referência opaca.
+  SEM tenant, actor, moderação, licença ou source — blob/hash/storage_reference NÃO são recursos
+  autorizáveis.
+- **`media_assets` (camada LÓGICA)** — referencia o blob (`media_blob_id` FK RESTRICT) e carrega
+  origem/autoria/licença/moderação POR TENANT/ACTOR ("origem, autoria, licença, versão, estado de
+  moderação" da Decisão C vivem AQUI). Tenants distintos com os mesmos bytes = assets lógicos
+  DISTINTOS sobre o MESMO blob; reenvio idempotente SÓ no mesmo contexto (UNIQUE parcial
+  blob+tenant+actor criador).
+- **Leitura/attach autorizados** — arquivo/metadata visíveis SÓ para: canônica pública (approved
+  + vinculada a entidade canônica — o attach curatorial é o ato explícito de publicação), contexto
+  do criador (canRepresentActor), ou curador admin; cross-tenant privado = 404 sem oráculo.
+  `attach/business` exige asset do próprio contexto OU canônico público. Projeção pública sem
+  autoria/origem/storage/hash.
+- **Compensação ref-count-safe** — blob compartilhado JAMAIS é apagado em falha de INSERT
+  (`deleteBlobIfUnreferenced`: DELETE guardado por NOT EXISTS + FK RESTRICT).
+
+Provas: e2e adversarial permanente `validate-pipeline-e2e-media-tenant-isolation.ts` **25/25**
+(2 tenants por HTTP real) · CP2 ampliado **26/26** · integrado **21/21** · gate com checks 6a–6i
+(o check antigo que EXIGIA o anti-padrão foi substituído) · provas negativas 6/6 novas + 8/8
+originais. `business_media` pública via lifecycle de oferta permanece superfície futura (hoje:
+owner/representável).
+
 ## 4. Referências
 
 GO integrado `F-CANONICAL-CATALOG-BUSINESS-TEMPLATES-AND-OFFERING-CLOSURE` (Clayton/IA Diretora, 2026-06-11); READ-FIRST consolidado da mesma frente (3 trilhos, HEAD `d865a04d`); `docs/02_decisions/SEMANTIC_CATALOG_GOVERNANCE.md`; `docs/02_decisions/C.25_SPEC.md`; `docs/02_decisions/RFC_SEMANTIC_SIGNALS_ONBOARDING_BRIDGE.md`; `docs/03_execution_log/2026-04-09_produto_plano_mestre_completo_v1.9_eixo9.md`; `docs/03_execution_log/2B_reconciliation.md`; schema vivo (`canonical_products`, `product_offers.price_cents BIGINT`, `inventory_movements.actor_id`, `availability`); DECISIONs e DTs listadas no cabeçalho.

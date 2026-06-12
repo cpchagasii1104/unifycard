@@ -8,7 +8,8 @@
  *   - upload válido (multipart real) → asset pending + blob no storage privado;
  *   - MIME inválido / magic mismatch / scanner não-clean / arquivo vazio → fail-closed, ZERO efeito;
  *   - storage failure → erro, zero registro; DB failure PÓS-storage → blob COMPENSADO (zero órfão);
- *   - mesmo arquivo 2× → 1 blob (reusedExistingBlob; contagem de arquivos não cresce);
+ *   - mesmo arquivo por OUTRO contexto → 1 blob FÍSICO, asset LÓGICO próprio (isolamento
+ *     blob×asset; pending de terceiro invisível); reenvio no MESMO contexto idempotente;
  *   - duas empresas reutilizam o MESMO asset canônico (attach curatorial; sem cópia);
  *   - complemento empresarial isolado (sem canRepresentActor do owner → 403);
  *   - detach canônico não apaga asset/blob referenciado;
@@ -170,7 +171,7 @@ async function main(): Promise<void> {
   const companyA = await createCompany(FA, 82000001, 'E2E Media Co A');
   const companyB = await createCompany(FB, 82000002, 'E2E Media Co B');
 
-  const upload = async (h: Human, companyId: string, buf: Buffer, mime: string, filename: string): Promise<{ status: number; body: { ok?: boolean; data?: { mediaAssetId: string; contentHash: string; moderationStatus: string; reusedExistingBlob: boolean }; code?: string } }> => {
+  const upload = async (h: Human, companyId: string, buf: Buffer, mime: string, filename: string): Promise<{ status: number; body: { ok?: boolean; data?: { mediaAssetId: string; moderationStatus: string; reusedExistingBlob: boolean; reusedExistingAsset: boolean }; code?: string } }> => {
     const mp = multipartBody([{ name: 'file', filename, contentType: mime, value: buf }]);
     const r = await app.inject({
       method: 'POST', url: `/catalog/media/assets?companyId=${companyId}`,
@@ -191,12 +192,24 @@ async function main(): Promise<void> {
     const files1 = await storageFileCount();
     record('M1b blob no storage privado (+sidecar)', files1 > files0, `${files0}→${files1}`);
 
-    // M2 — mesmo arquivo 2× (outra empresa) → MESMO asset, ZERO blob novo
+    // M2 — mesmo arquivo por OUTRO contexto (FB): blob físico REUTILIZADO,
+    //      asset lógico PRÓPRIO (FB nunca herda asset/metadata/moderação de FA)
     const m2 = await upload(FB, companyB, PNG_A, 'image/png', 'coca-copia.png');
     const files2 = await storageFileCount();
-    record('M2 mesmo conteúdo não duplica blob (reuso content-addressed)',
-      m2.status === 200 && m2.body?.data?.mediaAssetId === assetA && m2.body?.data?.reusedExistingBlob === true && files2 === files1,
-      `status=${m2.status} files ${files1}→${files2}`);
+    const assetB = m2.body?.data?.mediaAssetId as string;
+    record('M2 mesmo conteúdo não duplica blob físico; 2º contexto ganha asset lógico PRÓPRIO',
+      m2.status === 201 && !!assetB && assetB !== assetA && m2.body?.data?.reusedExistingBlob === true && files2 === files1,
+      `status=${m2.status} assetB=${assetB} files ${files1}→${files2}`);
+    const m2b = await upload(FA, companyA, PNG_A, 'image/png', 'coca-de-novo.png');
+    record('M2b reenvio no MESMO contexto é idempotente (mesmo asset lógico)',
+      m2b.status === 200 && m2b.body?.data?.mediaAssetId === assetA && m2b.body?.data?.reusedExistingAsset === true,
+      `status=${m2b.status}`);
+    const blobs2 = await pool.query<{ n: string }>(`SELECT count(*)::text n FROM media_blobs`);
+    record('M2c um único blob físico para os mesmos bytes (assets lógicos=2, blobs=1)',
+      blobs2.rows[0].n === '1', `blobs=${blobs2.rows[0].n}`);
+    const peek = await app.inject({ method: 'GET', url: `/catalog/media/assets/${assetA}/file`, headers: FB.headers });
+    record('M2d arquivo PENDING de outro contexto é invisível mesmo com o ID (404, sem oráculo)',
+      peek.statusCode === 404, `status=${peek.statusCode}`);
 
     // M3 — MIME inválido → 400, zero efeito
     const m3 = await upload(FA, companyA, Buffer.from('GIF89a-fake'), 'image/gif', 'x.gif');
@@ -232,7 +245,7 @@ async function main(): Promise<void> {
       m6ok = /E2E_STORAGE_DOWN/.test((e as Error).message);
     }
     const reg6 = await pool.query<{ n: string }>(`SELECT count(*)::text n FROM media_assets WHERE origin_tenant_id=$1`, [TENANT_ID]);
-    record('M6 storage failure → erro sem registro fantasma', m6ok && reg6.rows[0].n === '1', `assets=${reg6.rows[0].n}`);
+    record('M6 storage failure → erro sem registro fantasma (só os 2 assets de M1/M2)', m6ok && reg6.rows[0].n === '2', `assets=${reg6.rows[0].n}`);
 
     // M7 — DB failure PÓS-storage → COMPENSAÇÃO (blob removido; zero órfão)
     const filesBefore7 = await storageFileCount();
@@ -261,6 +274,9 @@ async function main(): Promise<void> {
     record('M8a attach de asset PENDING → 422 (moderação obrigatória)', att0.statusCode === 422 && /MEDIA_NOT_APPROVED/.test(att0.body), `status=${att0.statusCode}`);
     const appr = await app.inject({ method: 'POST', url: `/catalog/media/assets/${assetA}/approve`, headers: CUR.headers });
     record('M8b admin aprova asset', appr.statusCode === 200 && appr.json()?.data?.moderationStatus === 'approved', `status=${appr.statusCode}`);
+    const modB = await pool.query<{ s: string }>(`SELECT moderation_status s FROM media_assets WHERE id=$1::uuid`, [assetB]);
+    record('M8b2 moderação é do ASSET LÓGICO: aprovar o de FA NÃO aprova o de FB (mesmo blob)',
+      modB.rows[0].s === 'pending', `moderationB=${modB.rows[0].s}`);
     const apprByFounder = await app.inject({ method: 'POST', url: `/catalog/media/assets/${assetA}/approve`, headers: FA.headers });
     record('M8c moderação é curatorial (não-admin → 403)', apprByFounder.statusCode === 403, `status=${apprByFounder.statusCode}`);
     const att1 = await app.inject({
@@ -296,15 +312,21 @@ async function main(): Promise<void> {
     const files11 = await storageFileCount();
     record('M11 detach remove vínculo, preserva asset+blob', det.statusCode === 200 && stillAsset.rows[0].n === '1' && files11 === filesBefore11, `files ${filesBefore11}→${files11}`);
 
-    // M12 — leitura do conteúdo (round-trip do blob)
+    // M12 — leitura do conteúdo (round-trip do blob, criador autorizado)
     const read12 = await app.inject({ method: 'GET', url: `/catalog/media/assets/${assetA}/file`, headers: FA.headers });
-    record('M12 conteúdo round-trip íntegro', read12.statusCode === 200 && Buffer.compare(read12.rawPayload, PNG_A) === 0, `status=${read12.statusCode} bytes=${read12.rawPayload.length}`);
+    record('M12 conteúdo round-trip íntegro (criador)', read12.statusCode === 200 && Buffer.compare(read12.rawPayload, PNG_A) === 0, `status=${read12.statusCode} bytes=${read12.rawPayload.length}`);
+    const read12b = await app.inject({ method: 'GET', url: `/catalog/media/assets/${assetA}/file`, headers: FB.headers });
+    record('M12b pós-detach o asset de FA volta a ser privado para FB (404 — visibilidade segue lifecycle)',
+      read12b.statusCode === 404, `status=${read12b.statusCode}`);
+    const read12c = await app.inject({ method: 'GET', url: `/catalog/media/assets/${assetB}/file`, headers: FB.headers });
+    record('M12c FB lê o PRÓPRIO asset lógico pending (mesmo blob compartilhado)',
+      read12c.statusCode === 200 && Buffer.compare(read12c.rawPayload, PNG_A) === 0, `status=${read12c.statusCode}`);
 
-    // M13 — zero órfão: nº de blobs novos == nº de assets persistidos (×2 com sidecar .meta.json)
-    const assetsN = await pool.query<{ n: string }>(`SELECT count(*)::text n FROM media_assets`);
+    // M13 — zero órfão: nº de arquivos novos == nº de BLOBS físicos (×2 com sidecar .meta.json)
+    const blobsN = await pool.query<{ n: string }>(`SELECT count(*)::text n FROM media_blobs`);
     const filesEnd = await storageFileCount();
-    record('M13 zero arquivo órfão (blobs novos = assets × 2 [blob+sidecar])',
-      filesEnd - files0 === Number(assetsN.rows[0].n) * 2, `delta=${filesEnd - files0} assets=${assetsN.rows[0].n}`);
+    record('M13 zero arquivo órfão (arquivos novos = blobs × 2 [blob+sidecar])',
+      filesEnd - files0 === Number(blobsN.rows[0].n) * 2, `delta=${filesEnd - files0} blobs=${blobsN.rows[0].n}`);
 
     // M14 — zero Bank writer
     const econ1 = await pool.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`);
@@ -314,7 +336,7 @@ async function main(): Promise<void> {
     // remove os blobs criados nesta run (delete idempotente do provider).
     const { resolveDocumentStorageProvider } = await import('../core/document-storage/document-storage.provider');
     const storage = resolveDocumentStorageProvider();
-    const refs = await pool.query<{ storage_reference: string }>(`SELECT storage_reference FROM media_assets`);
+    const refs = await pool.query<{ storage_reference: string }>(`SELECT storage_reference FROM media_blobs`);
     for (const ref of refs.rows) {
       try { await storage.deleteDocument(ref.storage_reference); } catch { /* best-effort */ }
     }

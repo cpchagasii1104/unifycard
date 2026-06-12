@@ -232,7 +232,9 @@ async function main(): Promise<void> {
     record('G1b baseline contém readers nominais (repository + product-visibility + reconciliation + reports)',
       gateOut.includes('inventory-movement.repository.ts') && gateOut.includes('product-visibility.service.ts') && gateOut.includes('reconciliation.service.ts') && gateOut.includes('inventory-report.service.ts'));
     record('G1c KNOWN_OPEN aparece honestamente (>0) e NEW_UNCLASSIFIED=0', /KNOWN_OPEN=[1-9]/.test(gateOut) && /NEW_UNCLASSIFIED=0/.test(gateOut), gateOut.split('\n').filter(l => /KNOWN_OPEN|NEW_UNCLASSIFIED|FIXED_REGRESSION/.test(l)).join(' | '));
-    record('G1d FIXED_REGRESSION=2 (balance tombstone + movements actor-required)', /FIXED_REGRESSION=2/.test(gateOut));
+    // DECISION-0117 CP4: o gate ganhou a 3ª regressão FECHADA (products/visible
+    // merchant-scoped, check 3c) — fixture acompanha o contrato soberano vigente.
+    record('G1d FIXED_REGRESSION=3 (balance tombstone + movements actor-required + visibility merchant-scoped)', /FIXED_REGRESSION=3/.test(gateOut));
     record('G1e gate NUNCA imprime "fully safe"', !/fully safe/i.test(gateOut));
     // Prova negativa: reader sintético tenant-only → gate falha.
     const probePath = join(process.cwd(), 'src/modules/marketplace/_e2e_g1probe.ts');

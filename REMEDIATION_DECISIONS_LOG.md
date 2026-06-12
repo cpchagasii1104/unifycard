@@ -6858,3 +6858,18 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
 > + 8 provas negativas sha-verificadas + cartório). Detalhe no ADENDO A1 do arquivo da DECISION e em
 > docs/03_execution_log/20260611_F_CANONICAL_CATALOG_BUSINESS_TEMPLATES_AND_OFFERING_CLOSURE.md.
 > Macrofrente tecnicamente concluída — AGUARDANDO RESEAL YALA.
+
+> **ADENDO A2 à DECISION-0117 (2026-06-12, factual — correção do reseal Yala):** o FAIL da Yala
+> (único bloqueador: dedup física de mídia ACOPLADA ao registro lógico — tenant B herdava o
+> media_asset/metadata de A nos mesmos bytes; file reader sem autorização) foi corrigido pela frente
+> F-CANONICAL-MEDIA-BLOB-ASSET-TENANT-ISOLATION-CLOSURE SEM contrariar a Decisão C — materializando-a:
+> migration `20260612090000` separa `media_blobs` (FÍSICA: content_hash UNIQUE GLOBAL; sem tenant/
+> actor/moderação/licença) de `media_assets` (LÓGICA: FK blob RESTRICT; autoria/origem/licença/
+> moderação POR tenant/actor; UNIQUE parcial blob+tenant+criador). Leitura/attach autorizados
+> (canônica pública approved+attached / criador canRepresentActor / curador; cross-tenant privado=404);
+> compensação ref-count-safe (blob compartilhado jamais apagado); projeção pública sem metadata
+> privada. DT-CANONICAL-MEDIA-CROSS-TENANT-METADATA-AND-FILE-LEAK OPEN→CLOSED. Provas: e2e
+> adversarial 25/25 (2 tenants HTTP) · CP2 26/26 · integrado 21/21 · provas negativas 6/6 novas +
+> 8/8 · gate 68/5/0/0/0 · matriz completa re-verde. Detalhe no ADENDO A2 do arquivo da DECISION e em
+> docs/03_execution_log/20260612_F_CANONICAL_MEDIA_BLOB_ASSET_TENANT_ISOLATION_CLOSURE.md.
+> Macrofrente segue tecnicamente concluída — AGUARDANDO RE-RESEAL FINAL YALA.

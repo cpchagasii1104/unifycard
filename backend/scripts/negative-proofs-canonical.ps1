@@ -31,7 +31,7 @@ $proofs = @(
        Inject = { param($c) $c -replace [regex]::Escape("mfi.kyb_status = 'approved'"), "1=1" } },
     @{ Name = 'P8 dedup de media hash removido';
        File = 'src/core/media-assets/media-asset.service.ts';
-       Inject = { param($c) $c -replace [regex]::Escape("const existing = await this.findByContentHash(contentHash);"), "const existing = null as never;" } }
+       Inject = { param($c) $c -replace [regex]::Escape("let blob = await this.findBlobByHash(contentHash);"), "let blob = null as MediaBlob | null;" } }
 )
 
 $allOk = $true
