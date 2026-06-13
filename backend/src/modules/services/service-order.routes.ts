@@ -75,6 +75,13 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
         return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
 
+      // 🔴 F-BOOKING-ORDER-BINDING-CANONICAL: userId REAL (autenticado) é necessário para
+      // canRepresentActor do dono da availability — actionContext.actorId é HINT (DECISION-0113).
+      const userId = req.user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Authentication required' });
+      }
+
       const { bookingId, decisionId } = req.body;
 
       if (!bookingId) {
@@ -91,7 +98,7 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
           bookingId,
           decisionId,
           actionContext.actorId,
-          actionContext.actorId
+          userId
         );
 
         return reply.status(201).send(order);

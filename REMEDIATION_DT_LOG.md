@@ -12743,3 +12743,33 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Modelo definitivo PENDENTE (frente futura):** authority binding verificada (sujeito =
   `req.user`; `canActAs`/`canRepresentActor`; `system` não disparável por rota humana) antes de
   reabilitar a mutação HTTP.
+
+## DT-BOOKING-ORDER-AUTHORITY-CONFUSED-DEPUTY
+
+- **Status:** CLOSED / CONTAINED (2026-06-13, F-BOOKING-ORDER-BINDING-CANONICAL, DECISION-0121)
+- **Severidade:** CRITICAL (Authority Inversion — autoridade de provedor derivada de hint cliente-declarado)
+- **Origem:** cadeia `booking → decision → service_order` resolvia o provedor de `booking.metadata.serviceId`
+  e validava `service.actorId === decidedByActorId` / `worker_actor_id = service.actorId`. Projeção
+  cliente-declarada vencia o SSOT temporal (`availability.owner`) — AUTHORITY_ENFORCEMENT_MODEL §5/§8,
+  AUTHORITY_LAW §17, DECISION-0113.
+- **Contenção:** autoridade derivada do dono soberano da availability via `resolveAvailabilityOwner`
+  (DECISION-0118 D2) + `canRepresentActor` fail-closed; `metadata.serviceId` rebaixado a HINT (só aceite se
+  o serviço pertencer ao dono, senão 409); `worker_actor_id` = dono soberano; rota `confirm-booking` usa
+  `req.user.userId` real. Integridade: FK + UNIQUE parcial em `service_orders.booking_id`, FK
+  `decision_id`, FK `bookings.requester_actor_id`. Guard `audit-booking-order-authority-binding.mjs` +
+  prova negativa + e2e adversarial 11/11.
+- **Não bloqueia:** Bank intocado; reversal/dispute containment intactos.
+
+## DT-BOOKING-ORDER-SERVICE-OFFERING-CANONICAL-BINDING
+
+- **Status:** OPEN (fatia própria — migração canônica plena)
+- **Severidade:** MEDIUM (binding correto de autoridade já entregue; resta canonizar o vínculo comercial)
+- **Origem:** F-BOOKING-ORDER-BINDING-CANONICAL (2026-06-13). `service_orders.service_id` continua
+  FK→`services` (legado). O SSOT comercial/agendável canônico é `service_offerings` (C2, DECISION-0117),
+  mas `service_orders` não tem coluna/elo para `service_offering`. A frente atual vinculou a AUTORIDADE ao
+  dono da availability (resolve confused-deputy) sem migrar a order para `service_offering`.
+- **Resolução prevista:** quando a availability de oferta (`owner_type='service_offering'`) for o caminho
+  vivo de contratação, adicionar `service_orders.service_offering_id` (FK→`service_offerings`) + resolução
+  do binding a partir do offering, mantendo `service_id` legado durante a convergência. Sem tocar Bank.
+- **Não bloqueia:** a cadeia já vincula autoridade ao dono soberano; o `service_id` legado é consistente
+  com o dono (enforced).

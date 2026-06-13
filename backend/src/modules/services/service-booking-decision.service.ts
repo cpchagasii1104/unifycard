@@ -87,7 +87,37 @@ class ServiceBookingDecisionService {
       throw new BadRequestError('Booking não encontrado');
     }
 
-    // 🔴 BLINDAGEM: Validar que service existe (do metadata do booking)
+    // 🔴 CONFUSED-DEPUTY FIX (F-BOOKING-ORDER-BINDING-CANONICAL): a AUTORIDADE de decidir sobre o
+    // booking deriva do DONO SOBERANO da availability (SSOT temporal Unified Availability;
+    // AUTHORITY_ENFORCEMENT_MODEL §8 "availability vence booking/serviço"), NUNCA de
+    // booking.metadata.serviceId — actorId/serviceId cliente-declarado é HINT, nunca autoridade
+    // (DECISION-0113; AUTHORITY_LAW §17). Resolução server-side via primitivo canônico
+    // resolveAvailabilityOwner (availability-owner-authority.ts) — sem mini-core de autoridade aqui.
+    const availability = await unifiedAvailabilityService.getAvailability(tenantId, booking.availabilityId);
+    if (!availability) {
+      throw new BadRequestError('Disponibilidade do booking não encontrada');
+    }
+    const { resolveAvailabilityOwner } = await import('@core/availability/availability-owner-authority');
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    const owner = await resolveAvailabilityOwner(tenantId, availability.ownerType, availability.ownerId);
+
+    // (a) Autoria == authority actor do recurso (DECISION-0118 D2): quem decide atua COMO o dono.
+    if (input.decidedByActorId !== owner.authorityActorId) {
+      throw HttpError.forbidden('Apenas o dono da disponibilidade pode decidir sobre este booking');
+    }
+    // (b) Representabilidade server-side do dono pelo utilizador autenticado (fail-closed).
+    let canRepOwner = false;
+    try {
+      canRepOwner = await authorizationService.canRepresentActor(tenantId, userId, owner.authorityActorId);
+    } catch {
+      canRepOwner = false;
+    }
+    if (!canRepOwner) {
+      throw HttpError.forbidden('Sem autoridade para representar o dono da disponibilidade');
+    }
+
+    // 🔴 BLINDAGEM: serviceId do metadata é HINT — só aceite se o service pertencer ao MESMO dono
+    // soberano da availability (bloqueia confused-deputy de serviço/provider alheio).
     const serviceId = booking.metadata?.serviceId;
     if (!serviceId) {
       throw new BadRequestError('Booking não possui serviceId no metadata');
@@ -96,11 +126,8 @@ class ServiceBookingDecisionService {
     if (!service) {
       throw new BadRequestError('Service não encontrado');
     }
-
-    // 🔴 BLINDAGEM: Validar que decided_by_actor é o dono do service
-    // Apenas o dono do service pode decidir sobre bookings
-    if (service.actorId !== input.decidedByActorId) {
-      throw new BadRequestError('Apenas o dono do service pode decidir sobre bookings');
+    if (service.actorId !== owner.authorityActorId) {
+      throw HttpError.conflict('Serviço declarado não pertence ao dono da disponibilidade reservada');
     }
 
     // 🔴 BLINDAGEM: Validar que decided_by_actor existe

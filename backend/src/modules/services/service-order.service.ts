@@ -1394,15 +1394,41 @@ class ServiceOrderService {
       throw new Error(`Disponibilidade não encontrada: ${booking.availabilityId}`);
     }
 
+    // 🔴 CONFUSED-DEPUTY FIX (F-BOOKING-ORDER-BINDING-CANONICAL): o provider (worker) da order
+    // deriva do DONO SOBERANO da availability (SSOT temporal), não de booking.metadata.serviceId
+    // (hint cliente-declarado — DECISION-0113). Resolução server-side via primitivo canônico.
+    const { resolveAvailabilityOwner } = await import('@core/availability/availability-owner-authority');
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    const owner = await resolveAvailabilityOwner(tenantId, availability.ownerType, availability.ownerId);
+
+    // Autoria == authority actor (DECISION-0118 D2) + representabilidade server-side (fail-closed).
+    if (confirmedByActorId !== owner.authorityActorId) {
+      throw HttpError.forbidden('Apenas o dono da disponibilidade pode confirmar este booking');
+    }
+    if (confirmedByUserId) {
+      let canRepOwner = false;
+      try {
+        canRepOwner = await authorizationService.canRepresentActor(tenantId, confirmedByUserId, owner.authorityActorId);
+      } catch {
+        canRepOwner = false;
+      }
+      if (!canRepOwner) {
+        throw HttpError.forbidden('Sem autoridade para representar o dono da disponibilidade');
+      }
+    }
+
     const bookingServiceId = booking.metadata?.serviceId;
     if (!bookingServiceId) {
       throw new Error('Booking deve ter metadata.serviceId para criar service order');
     }
 
-    // 6. Buscar service para pegar providerActorId (actorId do service)
+    // 6. Service do metadata é HINT — só aceite se pertencer ao dono soberano da availability.
     const service = await servicesRepository.findById(tenantId, bookingServiceId);
     if (!service) {
       throw new Error(`Serviço não encontrado: ${bookingServiceId}`);
+    }
+    if (service.actorId !== owner.authorityActorId) {
+      throw HttpError.conflict('Serviço declarado não pertence ao dono da disponibilidade reservada');
     }
 
     // 7. Verificar se já existe service order para este booking
@@ -1480,7 +1506,7 @@ class ServiceOrderService {
     // 10. Criar Service Order com status CONFIRMED
     const order = await serviceOrderRepository.createOrder(tenantId, {
       serviceId: bookingServiceId,
-      workerActorId: service.actorId, // providerActorId
+      workerActorId: owner.authorityActorId, // provider SOBERANO (dono da availability), não metadata
       customerActorId: booking.requesterActorId,
       bookingId: booking.bookingId,
       decisionId: decision.decisionId,
@@ -1502,7 +1528,7 @@ class ServiceOrderService {
         decisionId: decision.decisionId,
         eventId: booking.metadata?.eventId || null,
         serviceId: bookingServiceId,
-        providerActorId: service.actorId,
+        providerActorId: owner.authorityActorId,
         requesterActorId: booking.requesterActorId,
       },
     });

@@ -1,3 +1,21 @@
+## 2026-06-13 — F-BOOKING-ORDER-BINDING-CANONICAL · confused-deputy booking→decision→order contido (BACKEND+MIGRATION+GUARD+E2E+GATES+DOCS) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **HEAD origem `23c80ee0`** · migrations 378→**379** · MODO EXECUTOR sob GO macrofrente · DECISION-0121.
+
+**Problema (Authority Inversion / confused-deputy):** a cadeia derivava a autoridade do provedor de `booking.metadata.serviceId` (cliente-declarado): decisão validava `service.actorId === decidedByActorId` e order setava `worker_actor_id = service.actorId`, ambos do metadata — projeção vencia o SSOT temporal `availability.owner` (AUTHORITY_ENFORCEMENT §5/§8, AUTHORITY_LAW §17, DECISION-0113).
+
+**Fix:** autoridade derivada do DONO SOBERANO da availability via `resolveAvailabilityOwner` (DECISION-0118 D2) + `canRepresentActor` fail-closed; `metadata.serviceId` rebaixado a HINT (serviço só aceito se pertencer ao dono → 409); `worker_actor_id` = dono soberano; rota `confirm-booking` usa `req.user.userId` real (era `actionContext.actorId`). Decisão e order: autoria == authorityActor (D2). `metadata.serviceId` **não é autoridade**.
+
+**Integridade não-financeira (migration `20260613150000`):** FK `service_orders.booking_id→bookings` (SET NULL) + UNIQUE parcial `uidx_service_orders_booking_id` (≤1 order/booking) + FK `service_orders.decision_id→service_booking_decisions` (SET NULL) + FK `bookings.requester_actor_id→actors` (CASCADE). `service_orders`/`bookings` operacionais (sem saldo) — **zero Bank** (LEI §4.6–4.7).
+
+**Provas:** e2e adversarial `validate-pipeline-e2e-booking-order-binding-canonical.ts` (DB efêmera, **11/11**): T2 confused-deputy · T3 metadata spoof 409 · T7 representabilidade · T1/T8 legítimo · T-owner worker=dono no banco · T5 duplicidade (app+UNIQUE) · T6/T-FK FKs · T4 param decorativo · T9 Bank intocado. Guard `audit-booking-order-authority-binding.mjs` (checked=4/0) + prova negativa.
+
+**Gates (todos verdes):** actor-writer OK · bank-ledger OK · regression-guards EXIT 0 (actor-authority-boundary 10/10 new=0 · availability-owner-authority 23/0) · arch --strict critical_new=0 · tsc 25 (baseline arco 0113, zero novo). dev 379.
+
+**DTs:** `DT-BOOKING-ORDER-AUTHORITY-CONFUSED-DEPUTY` **CLOSED/CONTAINED** · `DT-BOOKING-ORDER-SERVICE-OFFERING-CANONICAL-BINDING` **OPEN** (migração plena p/ service_offering, fatia própria). **HOLD para reseal.** Não segui para PJ/cargos/grants/CNAE, modelo definitivo de reversal, nem event.routes.
+
+---
+
 ## 2026-06-11 — F-C1-HUMAN-JOURNEY-END-TO-END-CLOSURE · jornada humana C1 fechada de ponta a ponta (MIGRATION+BACKEND+FRONTEND+E2E+GATE+DOCS)
 
 **Branch:** `rescue-structural` · **HEAD origem `970dc455`** (pós-PASS Yala read-purity) · migrations 367→**368** · _(macrofrente integrada com checkpoints seriais — GO único da IA Diretora, sem micro-GOs)._

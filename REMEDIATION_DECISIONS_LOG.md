@@ -6893,3 +6893,16 @@ decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decis�
   authority actor resolvido; proibido canRepresentActor(ownerId-recurso) e ownerId como autoridade.
 - Fecha (após provas): DT-CANONICAL-MEDIA-LOGICAL-CONTEXT-COLLAPSE e
   DT-UNIFIED-AVAILABILITY-RESOURCE-OWNER-AUTHORITY-CONFLATION.
+
+## DECISION-0121 — Booking→order authority binding canônico (confused-deputy)
+
+**Data:** 2026-06-13 · **Frente:** F-BOOKING-ORDER-BINDING-CANONICAL · **Branch:** rescue-structural
+
+A autoridade da cadeia `booking → decision → service_order` passa a derivar do DONO SOBERANO da
+availability (`resolveAvailabilityOwner`, DECISION-0118 D2) + `canRepresentActor` fail-closed, nunca de
+`booking.metadata.serviceId` (HINT cliente-declarado, DECISION-0113). Decisão e order: autoria ==
+authorityActor + serviço do metadata só aceito se pertencer ao dono (409); `worker_actor_id` = dono
+soberano; rota `confirm-booking` usa `req.user.userId` real. Integridade não-financeira (migration
+20260613150000): FK + UNIQUE parcial em `service_orders.booking_id`, FK `decision_id`, FK
+`bookings.requester_actor_id`. Zero Bank. Detalhe: `docs/02_decisions/DECISION_0121_BOOKING_ORDER_AUTHORITY_BINDING_CANONICAL.md`.
+Dívida residual: DT-BOOKING-ORDER-SERVICE-OFFERING-CANONICAL-BINDING (migração plena p/ service_offering).

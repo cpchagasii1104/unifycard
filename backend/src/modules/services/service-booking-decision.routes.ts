@@ -60,7 +60,10 @@ const serviceBookingDecisionRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(201).send({ ok: true, data: decision });
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao criar decisão de booking');
-        return reply.status(400).send({
+        // Honrar statusCode de HttpError (403 mismatch de autoridade / 409 serviço alheio ao dono);
+        // demais erros mantêm 400 (default).
+        const statusCode = (error as { statusCode?: number })?.statusCode ?? 400;
+        return reply.status(statusCode).send({
           error: 'Erro ao criar decisão de booking',
           message: error instanceof Error ? error.message : String(error),
         });
