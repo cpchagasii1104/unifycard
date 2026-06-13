@@ -1,3 +1,17 @@
+## 2026-06-13 — F-0113-CLASSIC-CHANNEL-READERS-BINDING · 9 classic readers classificados A-E; 2 bindados, 7 baselineados justificados (BACKEND+GUARD+E2E+GATES+DOCS, sem migration) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **HEAD origem `3331ad96`** · migrations **380 (inalterado)** · MODO EXECUTOR sob GO macrofrente (ultracode) · DECISION-0124.
+
+**READ-FIRST (workflow 9 leitores) + matriz A-E:** nem todo actorId em params/query é violação — em rotas admin/financeiro o actorId é **filtro autorizado por permissão cross-actor** (operador já vê tudo); bindar quebraria o legítimo. Violações reais = ESCRITAS self/representado sem binding.
+
+**Fechados (binding canRepresentActor):** `public-profiles` (writes POST/PATCH/visibility bindados + lista força visibility=PUBLIC) e `marketplace-categories` (/import substitui self-check) → removidos do baseline. **Baselineados justificados (7):** reporting (view_all_ledger cross-actor = filtro autorizado, F-OK), payout+bank-http (FINANCIAL/BANK hard-stop), business-audit+policy+trust (admin/interino = DECISION_REQUIRED R2), risk-dashboard (RESÍDUO PRIORITÁRIO: requirePermission(actorId,actorId) spoofável → fix modelo de permissão R2).
+
+**Provas:** e2e `validate-pipeline-e2e-classic-channel-readers-binding` (DB efêmera) **9/9**; **guard 0113 flagged=7 baseline=7 new=0 stale=0** (baseline 9→7) + prova negativa OK. Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25 (baseline, zero novo). Sem migration; dev 380. Bank intocado.
+
+**DTs:** `DT-0113-CLASSIC-CHANNEL-READERS` **PARTIAL** (baseline 9→7); `DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY` baseline 9→7. **HOLD para reseal.** Não segui para PJ/cargos/grants, dispute/reversal financeiro, service_id nullable, CNAE/capability.
+
+---
+
 ## 2026-06-13 — F-0113-EVENT-ACTOR-BODY-BINDING · binding server-side de actor do body em event.routes (BACKEND+GUARD+E2E+GATES+DOCS, sem migration) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **HEAD origem `5e82fb68`** · migrations **380 (inalterado)** · MODO EXECUTOR sob GO macrofrente (ultracode). Resíduo P1 baselineado da DECISION-0113.

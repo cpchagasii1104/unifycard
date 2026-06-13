@@ -3,11 +3,37 @@
 
 import type { FastifyInstance } from 'fastify';
 import { publicProfileService } from './public-profile.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 import type {
   CreatePublicProfileInput,
   UpdatePublicProfileInput,
   PublicProfileFilters,
 } from './public-profile.types';
+
+/**
+ * 🔴 F-0113-CLASSIC-CHANNEL-READERS-BINDING (DECISION-0113): actorId (actionContext/body) é HINT —
+ * o utilizador autenticado DEVE representar o actor via canRepresentActor (ownership 'user' / gestão
+ * de empresa 'page' / grupo / delegação), fail-closed. Substitui actionContext cliente-declarado como
+ * autoridade de ESCRITA de perfil.
+ */
+async function assertRepresentsActor(req: any, reply: any, actorId: string): Promise<boolean> {
+  const userId = req.user?.userId ?? req.user?.id;
+  if (!userId) {
+    reply.status(401).send({ error: 'Authentication required' });
+    return false;
+  }
+  let ok = false;
+  try {
+    ok = await authorizationService.canRepresentActor(req.tenant.id, userId, actorId);
+  } catch {
+    ok = false;
+  }
+  if (!ok) {
+    reply.status(403).send({ error: 'Sem autoridade para representar este actor' });
+    return false;
+  }
+  return true;
+}
 
 const publicProfileRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -22,6 +48,7 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
     if (!actionContext || !actionContext.actorId) {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
+    if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
 
     const profile = await publicProfileService.createProfile(
       tenantId,
@@ -47,6 +74,7 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
     if (!actionContext || !actionContext.actorId) {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
+    if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
 
     const profile = await publicProfileService.updateProfile(
       tenantId,
@@ -93,9 +121,9 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
     if (req.query.profileType) {
       filters.profileType = req.query.profileType as any;
     }
-    if (req.query.visibility) {
-      filters.visibility = req.query.visibility as any;
-    }
+    // 🔴 F-0113: listagem PÚBLICA — visibility FORÇADA a PUBLIC server-side (cliente NÃO pode pedir
+    // PRIVATE e vazar perfis privados). actorId segue como filtro de recurso público (não autoridade).
+    filters.visibility = 'PUBLIC' as any;
     if (req.query.actorId) {
       filters.actorId = req.query.actorId;
     }
@@ -126,6 +154,7 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
     if (!actionContext || !actionContext.actorId) {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
+    if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
 
     const profile = await publicProfileService.changeVisibility(
       tenantId,

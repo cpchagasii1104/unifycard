@@ -12843,3 +12843,18 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Prova:** e2e `validate-pipeline-e2e-event-actor-body-binding` 12/12; guard 0113 new=0 stale=0
   (event.routes removido do baseline, sem maquiagem) + prova negativa OK; Bank intocado; tsc 25; sem migration.
 - **Efeito sobre `DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY`:** baseline reduzido 10 → 9 (event.routes saiu).
+
+## DT-0113-CLASSIC-CHANNEL-READERS — PARTIAL (2026-06-13)
+
+- **Status:** OPEN → **PARTIAL** (F-0113-CLASSIC-CHANNEL-READERS-BINDING, DECISION-0124). Baseline 9 → 7.
+- **Fechados (binding canRepresentActor, self/representado):** `public-profiles` (writes POST/PATCH/
+  visibility bindados via canRepresentActor; `GET /public-profiles` força visibility=PUBLIC) e
+  `marketplace-categories` (`POST /import` substitui o self-check por canRepresentActor; GET = catálogo público).
+- **Baselineados com justificativa A-E (classe D/C, não maquiagem):** reporting (view_all_ledger cross-actor =
+  filtro autorizado, NÃO spoof — bindar quebraria admin), payout + bank-http (FINANCIAL/BANK hard-stop;
+  GET /balance já tem resolveForUser), business-audit + policy + trust (admin/interino, binding per-actor =
+  DECISION_REQUIRED R2), risk-dashboard (RESÍDUO PRIORITÁRIO: `requirePermission(tenantId,actorId,actorId,...)`
+  usa actorId client-declarado como userId = spoofável; fix = corrigir modelo de permissão, R2/produto).
+- **Efeito sobre `DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY`:** baseline reduzido 9 → 7.
+- **Prova:** e2e `validate-pipeline-e2e-classic-channel-readers-binding` 9/9; guard new=0 stale=0 + prova
+  negativa OK; Bank intocado; sem migration.

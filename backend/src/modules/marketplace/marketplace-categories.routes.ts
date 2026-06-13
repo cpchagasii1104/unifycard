@@ -236,10 +236,19 @@ const marketplaceCategoriesRoutes = async (fastify: FastifyInstance) => {
 
     const { actorId, categoryIds, metadata } = req.body;
 
-    // Validar permissões (apenas o próprio actor ou admin)
-    if (actor.actor_id !== actorId) {
-      // TODO: Verificar permissão de admin
-      throw new ForbiddenError('Sem permissão para importar categorias');
+    // 🔴 F-0113-CLASSIC-CHANNEL-READERS-BINDING: actorId do body é HINT — o utilizador DEVE representar
+    // o actor via canRepresentActor (ownership 'user' / gestão de empresa 'page' / grupo / delegação),
+    // fail-closed. Substitui o check self-only (que bloqueava pages representadas e não era reconhecido
+    // pelo guard 0113). actor (ensureUserActor) segue como createdByActorId do registro.
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    let canRep = false;
+    try {
+      canRep = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      canRep = false;
+    }
+    if (!canRep) {
+      throw new ForbiddenError('Sem autoridade para representar o actor (importar categorias)');
     }
 
     const importResult = await marketplaceCategoriesService.importCategories(

@@ -6935,3 +6935,16 @@ operacional/sistêmica), `admin/support` sem papel material fora do RBAC V2 → 
 + política de quem faz reconciliação manual + escopo company/tenant. Ambos = decisão de produto (STOP).
 Detalhe: `docs/02_decisions/DECISION_0123_DISPUTE_REVERSAL_AUTHORITY_BINDING_MODEL.md`. Prova: e2e 10/10
 (contenções intactas, body.actor ignorado, Bank intocado).
+
+## DECISION-0124 — Classificação A-E dos classic readers params/query.actorId
+
+**Data:** 2026-06-13 · **Frente:** F-0113-CLASSIC-CHANNEL-READERS-BINDING · **Branch:** rescue-structural
+
+9 readers baselineados (0113) classificados na matriz A-E. **2 FECHADOS** com binding canRepresentActor
+(self/representado): public-profiles (writes bindados + lista forçada PUBLIC) e marketplace-categories
+(/import substitui self-check) → removidos do baseline. **7 BASELINEADOS COM JUSTIFICATIVA** (não
+maquiagem): reporting (view_all_ledger cross-actor = filtro autorizado, F-OK), payout/bank-http
+(FINANCIAL/BANK hard-stop), business-audit/policy/trust (admin, binding per-actor = DECISION_REQUIRED R2),
+risk-dashboard (RESÍDUO PRIORITÁRIO: requirePermission(actorId,actorId) spoofável — fix = corrigir modelo de
+permissão, R2/produto, não bindar por cima). Baseline 9→7. Detalhe:
+`docs/02_decisions/DECISION_0124_CLASSIC_CHANNEL_READERS_CLASSIFICATION.md`. Prova: e2e 9/9; guard new=0 stale=0.

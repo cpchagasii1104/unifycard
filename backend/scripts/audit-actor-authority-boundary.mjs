@@ -56,16 +56,20 @@ const BASELINE = {
   // /events/:id/v2/commitments · check-in/out · checkout) passaram a exigir representabilidade
   // server-side via canRepresentActor (req.user.userId → actor), fail-closed. metadata/actionContext
   // = HINT. DT-0113-EVENT-ACTOR-BODY-BINDING → CLOSED. Guard reconhece o binding helper.
-  // Canais clássicos (params/query) em readers/filtros — DECISION-0113 clássica:
-  'modules/public-profiles/public-profile.routes.ts': 'query.actorId — reader público (filtro). DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/business-audit/business-audit.routes.ts':   'query.actorId — auditoria (log/filtro). DT-0113-CLASSIC-CHANNEL-READERS.',
-  'core/unifybank/bank-http.routes.ts':                'query.actorId — bank read. DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/risk-command-center/risk-dashboard.routes.ts': 'params.actorId — risk dashboard (reader). DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/policy-engine/policy.routes.ts':            'params/query.actorId — policy engine (reader). DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/payout/payout.routes.ts':                   'query.actorId — payout (reader/filtro). DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/trust/trust.routes.ts':                     'params/query.actorId — trust engine (reader). DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/marketplace/marketplace-categories.routes.ts': 'query.actorId — categorias (log/filtro). DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/reporting/reporting.routes.ts':             'query.actorId — reporting (filtro). DT-0113-CLASSIC-CHANNEL-READERS.',
+  // Canais clássicos (params/query) em readers/filtros — DECISION-0113 clássica.
+  // F-0113-CLASSIC-CHANNEL-READERS-BINDING (2026-06-13): matriz A-E aplicada. REMOVIDOS do baseline
+  // (binding canRepresentActor adicionado, self/representado): public-profiles (writes bound + lista
+  // forçada PUBLIC) e marketplace-categories (/import → canRepresentActor; GET = catálogo público).
+  // Os 7 abaixo PERMANECEM baselineados COM JUSTIFICATIVA (não maquiagem) — classe D/C: actorId é
+  // FILTRO autorizado por permissão admin/cross-actor (binding canRepresentActor QUEBRARIA o operador
+  // legítimo), OU é Bank hard-stop, OU exige decisão de produto/R2 (DECISION_REQUIRED). Ver DECISION-0124.
+  'modules/business-audit/business-audit.routes.ts':   'D · query.actorId em GET /business-audit-logs sob requirePermission(admin:view_audit_logs) — actorId é filtro de admin de auditoria. Binding per-actor = DECISION_REQUIRED (escopo cross-actor vs self é produto). DT-0113-CLASSIC-CHANNEL-READERS.',
+  'core/unifybank/bank-http.routes.ts':                'D · BANK domain (HARD STOP). GET /balance já tem autoridade via actorCapabilitiesService.resolveForUser (não reconhecida pelo guard); writers de transação são Bank. Não tocar. DT-0113-CLASSIC-CHANNEL-READERS.',
+  'modules/risk-command-center/risk-dashboard.routes.ts': 'D · params/actionContext.actorId sob requireRiskPermission(financial:view_all_ledger). RESÍDUO PRIORITÁRIO: requirePermission(tenantId,actorId,actorId,...) usa actorId client-declared como userId (spoofável) — fix = corrigir o modelo de permissão (R2/produto), não bindar por cima. DECISION_REQUIRED. DT-0113-CLASSIC-CHANNEL-READERS.',
+  'modules/policy-engine/policy.routes.ts':            'D · params/query.actorId sob requirePolicyPermission (admin) — policy/sanction reads. Binding per-actor = R2 fine-grained permission. DECISION_REQUIRED. DT-0113-CLASSIC-CHANNEL-READERS.',
+  'modules/payout/payout.routes.ts':                   'D · FINANCIAL (HARD STOP). query.actorId em GET /payouts/orders sob requirePermission(financial:execute_payout) — filtro do operador que já vê tudo; writers de payout não tocar. DT-0113-CLASSIC-CHANNEL-READERS.',
+  'modules/trust/trust.routes.ts':                     'D · params/query.actorId sob requireRole(admin) INTERINO (DECISION-0113, pendente R2.4) que aciona assertActorRepresentActor no rbac.plugin. Manter interino. DECISION_REQUIRED. DT-0113-CLASSIC-CHANNEL-READERS.',
+  'modules/reporting/reporting.routes.ts':             'D · query.actorId/body.filters.actorId sob requirePermission(financial:view_all_ledger) = autoridade CROSS-ACTOR por design (admin vê tudo); actorId é filtro autorizado, NÃO spoof. Bindar quebraria o admin. F-OK justificado. DT-0113-CLASSIC-CHANNEL-READERS.',
 };
 
 function walk(dir, files = []) {
