@@ -12690,3 +12690,28 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Status:** **OPEN (P1)** — mapeadas e registradas; NÃO redesenhadas nesta contenção emergencial.
   Mesma correção de raiz (authority binding por `req.user`/representabilidade) na macrofrente de
   authority. Sem ação de runtime agora.
+
+## DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY — OPEN / BASELINE SELADO (2026-06-13, frente F-0113-AUTHORITY-FACADE-BOUNDARY-SEAL)
+
+- **Origem:** A DECISION-0113 governa actorId DECLARADO pelo cliente como HINT. Os achados A/B/C/D +
+  o P0 dispute reversal provaram um **6º canal** não registrado: **objeto de ator no BODY**
+  (`body.actor` / `body.actor.actorId` / `body.actor.kind` / `authoritySource` do body /
+  `actor.kind` do body). Hierarquia confirmada: authority.service (porta) → canActAs (resolvedor)
+  → canRepresentActor (representabilidade) / company_users (SSOT PJ membership). RBAC V2
+  dormente-divergente (não soberano); CNAE = evidência fiscal, não autorização.
+- **Status:** **OPEN / BASELINE SELADO** — 6º canal registrado na DECISION-0113 (ADENDO 2026-06-13);
+  guard de regressão `audit-actor-authority-boundary.mjs` no `validate:regression-guards`
+  (BASELINE de 11 arquivos; FALHA em rota NOVA client-declared sem binding; prova negativa
+  verde). NÃO corrige os fluxos do baseline (frentes próprias). RBAC V2 NÃO promovido;
+  company_users segue fonte material PJ.
+- **BASELINE conhecido (11 arquivos, congelados):**
+  - **6º canal (body.actor):** `reconciliation-dispute.routes.ts` (/reversal P0 CONTIDO 403;
+    irmãs → DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY P1) · `core/events/event.routes.ts`
+    (body.actor_id/actor_type → **DT-0113-EVENT-ACTOR-BODY-BINDING** P1).
+  - **canais clássicos (params/query) em readers/filtros → DT-0113-CLASSIC-CHANNEL-READERS:**
+    public-profile · business-audit · bank-http · risk-dashboard · policy-engine · payout ·
+    trust · marketplace-categories · reporting.
+- **Resíduos = frentes próprias (NÃO nesta frente):** dispute body.actor P1; booking→order
+  (`metadata.serviceId` vínculo fraco); PJ/cargos/grants; modelo definitivo de reversal. Cada
+  correção de runtime sai do baseline ao adicionar binding (o guard reporta o item como
+  "baseline já não casa" para limpeza futura).

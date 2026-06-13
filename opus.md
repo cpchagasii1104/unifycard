@@ -4640,3 +4640,20 @@ quando o token também aparece em COMENTÁRIO: checar o site REAL de chamada
 (reconciliationDisputeService.executeDisputeFinancialReversal(), actor = parseActor(...)), não a
 menção. 5. git diff --check sobre a árvore inteira pega drift protegido (MINHA_MEMORIA_*) que não
 é da frente — checar --check só nos arquivos tocados para o veredito honesto.
+
+## 2026-06-13 — F-0113-AUTHORITY-FACADE-BOUNDARY-SEAL
+
+O P0 dispute revelou um 6º canal de autoridade client-declared (body.actor) que a DECISION-0113
+não nomeava. Em vez de corrigir todos os fluxos, transformei a regra numa CERCA verificável:
+guard de regressão com baseline explícito que congela o conhecido e falha no novo.
+
+LIÇÕES: 1. Quando a auditoria revela um canal novo de um vetor já normado, o ato barato e
+durável é REGISTRAR o canal na norma + uma cerca de regressão — não sair corrigindo N fluxos
+(isso são frentes próprias). 2. Baseline EXPLÍCITO > tentar zerar: lista os 11 violadores
+conhecidos com DT, congela, e qualquer rota nova fora da lista falha o gate — sem falso verde e
+sem travar o que já existe. 3. Guard file-level é heurístico (binding num handler não prova
+binding em todos) — declarar a limitação no header e tratá-lo como cerca de regressão, não prova
+de correção, mantém a honestidade. 4. Prova negativa (injeta violação nova → gate falha →
+restaura) é o que separa um gate vivo de um gate decorativo. 5. Selar fronteira ≠ promover
+mecanismo: o guard exige binding por canActAs/canRepresentActor e PROÍBE requireRole como
+solução — não promove RBAC V2 dormente só porque ele "existe".

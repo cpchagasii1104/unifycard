@@ -14406,3 +14406,25 @@ handler /disputes/:id/reversal reduzido ao gate 403 DISPUTE_REVERSAL_HTTP_DISABL
 E2e 7/7; gates OK; regression-guards EXIT 0; arch critical_new=0; tsc 25 baseline
 (reconciliation=0; 2 erros do reseal eliminados); diff-check 0; sem migration; Bank/motor
 intactos. F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT CLOSED apos cleanup tsc.
+
+## 2026-06-13 — F-0113-AUTHORITY-FACADE-BOUNDARY-SEAL (IMPLEMENTED / HOLD)
+
+Selar a fronteira DECISION-0113 após A/B/C/D + P0 dispute. Docs-only + guard; zero runtime de
+negócio, zero Bank, zero migration, zero schema. Parent 48da5536; dev 378/378.
+
+- 6º CANAL registrado na DECISION-0113 (ADENDO): objeto de ator no BODY (body.actor /
+  body.actor.actorId / body.actor.kind / authoritySource do body / actor.kind do body) = HINT,
+  nunca autoridade; binding por authority.service/canActAs/canRepresentActor ou caller sistêmico.
+- Hierarquia consolidada: authority.service (porta) → canActAs (resolvedor) → canRepresentActor
+  (representabilidade) → company_users (SSOT PJ); RBAC V2 NÃO soberano (FASE 6/dormente); CNAE =
+  evidência fiscal, não autorização.
+- Guard NOVO audit-actor-authority-boundary.mjs no validate:regression-guards (+ alias):
+  BASELINE explícito de 11 rotas (cada uma com DT); FALHA em rota NOVA client-declared sem
+  binding; prova negativa verde. Heurística file-level (cerca de regressão).
+- DTs: DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY OPEN/BASELINE SELADO;
+  DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY (P1) / DT-0113-EVENT-ACTOR-BODY-BINDING (P1) /
+  DT-0113-CLASSIC-CHANNEL-READERS — runtime para frentes próprias.
+- Invariância: RBAC V2 não promovido (guard proíbe requireRole/requirePermission como solução;
+  sem actor_roles); company_users SSOT PJ; P0 reversal 403 intacto; reversal.service/Bank/PJ/CNAE
+  não tocados. Gates verdes; tsc 25 baseline (zero .ts runtime tocado); diff-check 0; sem migration.
+- Próxima frente recomendada: dispute body.actor P1 → booking→order. HOLD PARA RESEAL.

@@ -67,3 +67,55 @@ docs-only · **zero** código/migration/Bank/frontend/middleware-runtime/rbac-pl
 
 - `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` → **GOVERNED/DECIDED** (desenho promulgado; inventário da auditoria persistido). **Segue OPEN** até a remediação por fatias. Resíduos = as 6 fatias da §5.
 - Possíveis DTs derivadas por fatia (a abrir quando cada fatia rodar): `DT-RBAC-PLUGIN-REQ-USER-BINDING`, `DT-SERVICE-MONEY-AUTHORSHIP-SPOOFABLE`, etc. — **não abertas agora** (a auditoria já as cobre no inventário do DT-mãe).
+
+---
+
+## ADENDO — 6º CANAL `body.actor` + FRONTEIRA DE AUTORIDADE SELADA (F-0113-AUTHORITY-FACADE-BOUNDARY-SEAL, 2026-06-13)
+
+HEAD `48da5536`. Frente docs-only + guard estrutural (zero runtime de negócio, zero Bank, zero migration).
+
+### Hierarquia de autoridade vigente (consolidada, não reescreve a norma)
+
+```
+Porta normativa        → authorizationService (authority.service)
+Resolvedor central     → canActAs
+Representabilidade      → canRepresentActor
+PJ membership (SSOT)    → company_users
+RBAC V2                 → NÃO soberano (FASE 6 / dormente-divergente:
+                          actor_has_permission=FALSE; actor_has_any_role resolve por
+                          user_id, não actor; actor_roles inexistente)
+CNAE                    → evidência fiscal, NÃO autorização
+body.actor / actorId    → canal do cliente; HINT; nunca autoridade
+```
+
+### 6º CANAL registrado (revelado pelo P0 dispute reversal)
+
+A DECISION-0113 tratava os canais clássicos de `actorId` declarado (actionContext.actorId,
+`x-actor-id`, `query.actor_id`, `params.actorId`, `params.id` de recurso privado). Fica agora
+**formalmente registrado o 6º canal**: **qualquer objeto de ator declarado no BODY**:
+
+```
+body.actor
+body.actor.actorId
+body.actor.kind
+authoritySource vindo de body
+actor.kind vindo de body
+```
+
+**Regra:** qualquer objeto de ator declarado pelo cliente é HINT e DEVE ser vinculado
+server-side por `authorityService.canPerformAction` / `canActAs` / `canRepresentActor` (ou por
+caller sistêmico real). `authoritySource:'system'` NÃO é disparável por rota HTTP humana
+(materializado na contenção P0 de `/reconciliation/disputes/:id/reversal` → 403 fail-closed).
+
+### Cerca operacional (guard de regressão)
+
+`backend/scripts/audit-actor-authority-boundary.mjs` (em `validate:regression-guards` +
+alias `validate:actor-authority-boundary`): varre `*.routes.ts`, detecta canais de ator
+client-declared sem helper de binding no arquivo, compara contra **BASELINE EXPLÍCITO** do
+estado conhecido (11 arquivos, cada um com DT) e **FALHA em QUALQUER rota NOVA** fora do
+baseline. Heurística file-level (não AST) — cerca de regressão, não prova de correção total.
+Prova negativa: `negative-proof-actor-authority-boundary.ps1` (injeta rota nova com
+`body.actor` sem binding → guard FALHA → remove → verde).
+
+**Esta frente NÃO corrige fluxos** (dispute P1, booking→order, PJ/cargos/grants, modelo
+definitivo de reversal seguem em frentes próprias). Sela a fronteira e congela o baseline.
