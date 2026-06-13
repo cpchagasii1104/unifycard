@@ -14312,3 +14312,37 @@ frontend 0**. Dev 376/376 byte-estável; zero DB efêmera; storage 0.
 nova. Estados: esta frente **tecnicamente concluída aguardando reseal Yala** · MÍDIA V2 **PASS
 preservado** · TEMPORAL D2 **PASS preservado** · MACROFRENTE CANÔNICA **NÃO CLOSED** (só o PASS
 da Yala autoriza o CLOSED em cadeia + READ-FIRST de F-AUTHORITY-DELEGATION-…).
+
+## 2026-06-13 — F-REFERRAL-LINK-MATERIALIZATION-AND-SPLIT-CONTRACT (DECISION-0119)
+
+Reseal Yala da F-REGISTER-PRELAUNCH-BLOCKERS deu PASS COM RESSALVA: cadastro com referral não
+trava, mas o vínculo econômico A→B não materializava (applyReferralCode apontava p/
+users.metadata / user_referral_links AUSENTE / referrals arquivada; best-effort engolido;
+getActiveReferral → null). **DECISION-0119** promulgada ANTES do patch: vínculo PURO A→B,
+atômico ao nascimento, engine-neutro, money-adjacent (NÃO Bank writer).
+
+**CORREÇÃO (commit sobre `1b2dcbe9`):** migration `20260613120000_user_referral_links.sql`
+(377/377; tabela canônica link_id/tenant/referrer/referred/code/created_at; UNIQUE(tenant,
+referred); CHECK(referrer<>referred); índice (tenant,referrer); RLS app.current_tenant; SEM
+percentual/janela/status/política). `applyReferralCodeTx` (writer transacional puro: resolve
+referrer no tenant, valida não-autoindicação, INSERT ON CONFLICT DO NOTHING, **fail-closed**:
+código válido sem vínculo materializado ⇒ lança ⇒ rollback). `register` move a aplicação do
+referral p/ DENTRO da `withTransaction` (mesmo client, após user/identity/actor) — referral
+válido + falha de vínculo = rollback total; removido o best-effort pós-commit.
+`getActiveReferral` lê a fonte canônica user_referral_links com janela de 1 ano como REGRA DE
+LEITURA (não coluna); ramo `referrals` neutralizado. `applyReferralCode` não-tx vira wrapper
+withTransaction (POST /referral/apply preservado).
+
+**PROVAS:** e2e NOVO `validate-pipeline-e2e-referral-link-materialization` **14/14** (T1 A
+nasce+code; T2 B com codeA→201; T3 vínculo correto; T4 getActiveReferral→A; T5 inválido→400 sem
+B; T6 autoindicação lança sem vínculo; T7 cross-tenant→null; T8 idempotência 1→1; T9 falha
+forçada→rollback total; T10 zero Bank; T11 split não dispara; T12 split-engine 5%+fonte pura
+intactos). Regressão: c1-birth 29/29; register-prelaunch 22/22; c1-read-purity + c1-human-journey
+CLOSED (regression-guards EXIT 0). Gates: actor-writer OK; bank-ledger OK; arch --strict
+critical_new=0. tsc backend 25 pré-existentes (arco 0113), zero novo em auth/referral/identity;
+frontend 0. diff-check 0. Dev 377/377 byte-estável (links=0; bank_ledger/transactions/splits=0).
+
+**CARTÓRIO:** DECISION-0119 promulgada; DT-REFERRAL-LEGACY-CLEANUP OPEN (users.metadata.referred_by
++ tabela referrals arquivada + higiene de órfãos). Estados: F-REFERRAL-LINK-MATERIALIZATION-AND-
+SPLIT-CONTRACT **IMPLEMENTED / HOLD para reseal Yala**; A1 money-adjacent **CLOSED candidato**.
+Não continuar p/ authority/PJ/cargos/grants/CNAE.

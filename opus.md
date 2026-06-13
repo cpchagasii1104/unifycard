@@ -4586,3 +4586,21 @@ nunca da lista que o próprio processo decidiu iterar. 4. Truncamento por compar
 exige igualdade EXATA + ocorrência única + erro alto. 5. Extrair primitivas compartilhadas
 (enumeração/transação/forward-only) para um core puro deixa runner e tooling com UMA semântica
 de execução — a alternativa (duplicar) cria drift, e a outra (hook no runner) criou este achado.
+
+## 2026-06-13 — F-REFERRAL-LINK-MATERIALIZATION-AND-SPLIT-CONTRACT
+
+Yala: PASS COM RESSALVA — cadastro com referral não trava, mas o vínculo A→B não materializa
+(applyReferralCode apontava p/ users.metadata + user_referral_links ausente + referrals
+arquivada, best-effort pós-commit engolido). DECISION-0119: vínculo PURO, atômico ao nascimento,
+engine-neutro, money-adjacent. Tabela só relação; writer transacional fail-closed; getActiveReferral
+lê a fonte pura.
+
+LIÇÕES: 1. "best-effort pós-commit" para um fato que precisa EXISTIR é mentira de atomicidade:
+se o código é válido, o vínculo é parte do nascimento — falha ⇒ rollback, não warning engolido.
+2. Separar RELAÇÃO de POLÍTICA: a tabela de vínculo guarda só quem-indicou-quem; percentual/janela/
+status são do engine e mudam sem migration — embuti-los na tabela acopla identidade a finanças.
+3. Engine-neutro por leitura única: getActiveReferral é o ponto onde legado e futuro engine
+convergem; o vínculo serve aos dois sem cutover. 4. `SET session_replication_role = replica` em
+cleanup de e2e desabilita FK/CASCADE — apagar o pai deixa o filho órfão; varrer órfãos por
+NOT EXISTS, não confiar no cascade durante replica. 5. Promulgar a DECISION ANTES do patch
+(pré-condição Yala) força a separação relação/política a ser decidida, não improvisada no código.

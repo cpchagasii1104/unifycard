@@ -350,6 +350,15 @@ class AuthService {
       // actor humano (mesmo client) — fail-closed; falha aqui → ROLLBACK total (sem órfão)
       await ensureUserActorTx(client, finalTenantId, userRow.id);
 
+      // VÍNCULO DE INDICAÇÃO A→B atômico ao nascimento (DECISION-0119 D2). Referral
+      // já validado pré-tx (referrer existe → senão 400 acima). Materializa em
+      // user_referral_links no MESMO client; falha de gravação com código válido
+      // ⇒ exceção sobe ⇒ ROLLBACK total (não pode existir indicado sem vínculo).
+      if (referralCode) {
+        const { referralService } = await import('@core/referral/referral.service');
+        await referralService.applyReferralCodeTx(client, finalTenantId, userRow.id, referralCode);
+      }
+
       return { globalUserId, userRow };
     });
 
@@ -387,16 +396,8 @@ class AuthService {
       }
     }
 
-    // Referral já validado pré-tx; aplicação pós-commit (financeiro/progressivo). Falha aqui
-    // (ex.: corrida) NÃO invalida o nascimento completo — não é "criação parcial".
-    if (referralCode) {
-      try {
-        const { referralService } = await import('@core/referral/referral.service');
-        await referralService.applyReferralCode(finalTenantId, user.userId, referralCode);
-      } catch (err) {
-        console.warn('[register] aplicação de referral pós-commit falhou (não crítico):', err);
-      }
-    }
+    // (Vínculo de indicação A→B já materializado ATOMICAMENTE dentro da transação
+    // de nascimento — DECISION-0119 D2. Não há aplicação pós-commit best-effort.)
 
     if (process.env.PILOT_MODE === 'true') {
       try {

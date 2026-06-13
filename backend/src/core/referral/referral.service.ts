@@ -2,6 +2,7 @@
 // Serviço de código de indicação/afiliado geral para usuários
 
 import { runQueryWithTenant } from '@core/database/pool';
+import { withTransaction } from '@core/database/transaction.helper';
 import crypto from 'crypto';
 
 class ReferralService {
@@ -88,151 +89,79 @@ class ReferralService {
   }
 
   /**
-   * Aplica código de indicação (quando novo usuário se registra com código)
-   * 🔴 REGRA DE NEGÓCIO: Só pode ser aplicado durante o cadastro, não após
+   * Materializa o VÍNCULO PURO de indicação A→B (DECISION-0119).
+   *
+   * Writer TRANSACIONAL: recebe o MESMO `client` do nascimento (register) e grava
+   * em `user_referral_links` DENTRO da transação. Relação imutável referrer→referred;
+   * NÃO grava percentual/janela/status/política (isso é do split-engine — engine-neutro);
+   * NÃO escreve Bank; NÃO usa users.metadata nem a tabela `referrals` (arqueologia).
+   *
+   * FAIL-CLOSED (D2): código VÁLIDO sem vínculo materializado ⇒ lança ⇒ a transação
+   * de nascimento faz ROLLBACK total. Não engole falha de gravação do vínculo.
+   * Idempotente (D5): ON CONFLICT (tenant_id, referred_user_id) DO NOTHING.
+   */
+  async applyReferralCodeTx(
+    client: { query: (text: string, params?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> },
+    tenantId: string,
+    referredUserId: string,
+    referralCode: string
+  ): Promise<{ referrerUserId: string }> {
+    // Resolver o referrer pelo código no tenant correto (tenant-safe).
+    const referrerRes = await client.query(
+      `SELECT id FROM users
+        WHERE tenant_id = $1 AND UPPER(referral_code) = UPPER($2)
+        LIMIT 1`,
+      [tenantId, referralCode]
+    );
+    const referrerUserId: string | undefined = referrerRes.rows[0]?.id;
+    if (!referrerUserId) {
+      // Código deveria existir (validado pré-tx); ausência aqui (corrida) é FAIL-CLOSED.
+      throw new Error('Código de indicação inválido — vínculo não materializado');
+    }
+
+    // D5: sem autoindicação (CHECK no banco também rejeita; aqui falha cedo e claro).
+    if (referrerUserId === referredUserId) {
+      throw new Error('Autoindicação não permitida');
+    }
+
+    // Inserir o vínculo PURO (idempotente). A janela/percentual NÃO entram aqui.
+    await client.query(
+      `INSERT INTO user_referral_links (tenant_id, referrer_user_id, referred_user_id, referral_code_used)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tenant_id, referred_user_id) DO NOTHING`,
+      [tenantId, referrerUserId, referredUserId, referralCode]
+    );
+
+    // FAIL-CLOSED: confirmar que o vínculo existe para (tenant, referred). Ausência
+    // (ex.: tabela faltando / falha silenciosa) ⇒ lança ⇒ rollback do nascimento.
+    const linkRes = await client.query(
+      `SELECT referrer_user_id FROM user_referral_links
+        WHERE tenant_id = $1 AND referred_user_id = $2
+        LIMIT 1`,
+      [tenantId, referredUserId]
+    );
+    const materialized: string | undefined = linkRes.rows[0]?.referrer_user_id;
+    if (!materialized) {
+      throw new Error('Falha ao materializar vínculo de indicação (user_referral_links)');
+    }
+
+    return { referrerUserId: materialized };
+  }
+
+  /**
+   * Aplicação NÃO-transacional (POST /referral/apply pós-cadastro): abre a própria
+   * transação tenant-safe e delega ao writer puro `applyReferralCodeTx`. Mesmo
+   * contrato/idempotência/fail-closed do caminho de nascimento. O vínculo é
+   * imutável (D5): reaplicação com outro código não troca o referrer existente.
    */
   async applyReferralCode(
     tenantId: string,
-    newUserId: string,
+    referredUserId: string,
     referralCode: string
   ): Promise<{ referrerUserId: string }> {
-    // 🔴 CRÍTICO: Verificar se usuário já possui referred_by (bloquear reaplicação)
-    const userCheck = await runQueryWithTenant<{ metadata: any }>(
-      tenantId,
-      `
-        SELECT metadata
-        FROM users
-        WHERE id = $1
-        LIMIT 1
-      `,
-      [newUserId]
+    return withTransaction(tenantId, (client) =>
+      this.applyReferralCodeTx(client, tenantId, referredUserId, referralCode)
     );
-
-    if (userCheck && userCheck.metadata && userCheck.metadata.referred_by) {
-      throw new Error('Código de indicação só pode ser aplicado durante o cadastro');
-    }
-
-    // Buscar usuário que possui o código
-    const referrer = await runQueryWithTenant<{ id: string }>(
-      tenantId,
-      `
-        SELECT id
-        FROM users
-        WHERE tenant_id = $1 AND UPPER(referral_code) = UPPER($2)
-        LIMIT 1
-      `,
-      [tenantId, referralCode]
-    );
-
-    if (!referrer || !referrer.id) {
-      throw new Error('Código de indicação inválido');
-    }
-
-    // Registrar relação de indicação (será usado para calcular comissões futuras)
-    // Por enquanto, apenas registramos no metadata do usuário
-    await runQueryWithTenant(
-      tenantId,
-      `
-        UPDATE users
-        SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('referred_by', $2)
-        WHERE id = $1
-      `,
-      [newUserId, referrer.id]
-    );
-
-    // 🔴 GARANTIA CANÔNICA: Inserção canônica conforme schema
-    // 1) Inserir primeiro em user_referral_links com RETURNING link_id
-    // 2) Inserir em referrals INCLUINDO link_id (NOT NULL)
-    let linkId: string | null = null;
-    try {
-      const linkResult = await runQueryWithTenant<{ link_id: string }>(
-        tenantId,
-        `
-        INSERT INTO user_referral_links (tenant_id, referrer_user_id, referred_user_id, referral_code_used)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
-        RETURNING link_id
-        `,
-        [tenantId, referrer.id, newUserId, referralCode]
-      );
-      
-      if (linkResult?.link_id) {
-        linkId = linkResult.link_id;
-      } else {
-        // ON CONFLICT DO NOTHING não retorna linha, buscar link_id existente
-        const existingLink = await runQueryWithTenant<{ link_id: string }>(
-          tenantId,
-          `
-          SELECT link_id
-          FROM user_referral_links
-          WHERE tenant_id = $1 AND referred_user_id = $2
-          LIMIT 1
-          `,
-          [tenantId, newUserId]
-        );
-        
-        if (existingLink?.link_id) {
-          linkId = existingLink.link_id;
-        }
-      }
-    } catch (err) {
-      // Se user_referral_links NÃO EXISTIR, PARAR e REPORTAR
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
-        throw new Error(`Tabela user_referral_links não existe. Execute migration 030_referrals.sql primeiro.`);
-      }
-      // Outros erros podem ser ignorados (ex: constraint violation)
-      console.warn('[referral.service] referral.link_error', {
-        error: errorMessage,
-      });
-    }
-
-    // Registrar na tabela referrals (nova, com expiração)
-    // 🔴 CRÍTICO: Incluir link_id se disponível (NOT NULL conforme schema)
-    try {
-      const endsAt = new Date();
-      endsAt.setFullYear(endsAt.getFullYear() + 1); // 1 ano a partir de agora
-
-      if (linkId) {
-        await runQueryWithTenant(
-          tenantId,
-          `
-          INSERT INTO referrals (tenant_id, link_id, referrer_user_id, referred_user_id, startsAt, endsAt, percentage_bps, status)
-          VALUES ($1, $2, $3, $4, NOW(), $5, 500, 'active')
-          ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
-          `,
-          [tenantId, linkId, referrer.id, newUserId, endsAt]
-        );
-      } else {
-        // Se não tem link_id, tentar inserir sem ele (pode falhar se constraint exigir)
-        await runQueryWithTenant(
-          tenantId,
-          `
-          INSERT INTO referrals (tenant_id, referrer_user_id, referred_user_id, startsAt, endsAt, percentage_bps, status)
-          VALUES ($1, $2, $3, NOW(), $4, 500, 'active')
-          ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
-          `,
-          [tenantId, referrer.id, newUserId, endsAt]
-        );
-      }
-      
-      console.log('[referral.service] referral.created', {
-        referrerUserId: referrer.id,
-        referredUserId: newUserId,
-        referralCode,
-        linkId,
-        endsAt,
-      });
-    } catch (err) {
-      console.warn('[referral.service] referral.error', {
-        error: err instanceof Error ? err.message : String(err),
-        referrerUserId: referrer.id,
-        referredUserId: newUserId,
-        linkId,
-      });
-    }
-
-    return { referrerUserId: referrer.id };
   }
 }
 

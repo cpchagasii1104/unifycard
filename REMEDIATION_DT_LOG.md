@@ -12582,3 +12582,26 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   P6 NODE_ENV=production recusado · P7 unificard_dev recusado ANTES de conectar · P8 EXPECTED
   divergente · P9 target já aplicado = erro observável · P10 migration quebrada transiente ⇒
   exit≠0 SEM mensagem de conclusão total (schema parcial jamais é sucesso).
+
+## DT-REFERRAL-LEGACY-CLEANUP — OPEN (2026-06-13, frente F-REFERRAL-LINK-MATERIALIZATION-AND-SPLIT-CONTRACT)
+
+- **Origem:** ao materializar o vínculo PURO A→B em `user_referral_links` (DECISION-0119), o
+  `applyReferralCode` legado foi reescrito e parou de usar (a) `users.metadata.referred_by`
+  (marcador de indicação no blob do usuário) e (b) a tabela `referrals`
+  arquivada/incompatível (`link_id`/`percentage_bps`/`status`/`startsAt`/`endsAt` — política
+  financeira embutida; AUSENTE no schema vivo, `to_regclass` = NULL). O ramo `referrals` em
+  `getActiveReferral` foi neutralizado; a leitura passou a ser só `user_referral_links`.
+- **Resíduo a limpar (fatia própria):**
+  - remover quaisquer escritas/leituras remanescentes de `users.metadata.referred_by`
+    (hoje sem writer vivo após a reescrita; varrer readers eventuais);
+  - decidir tombstone/remoção definitiva da tabela `referrals` arquivada (migrations
+    `0070`/`0077` são arqueologia — NÃO reaplicar);
+  - confirmar que o split-engine (`bank-split-engine.service.ts`) lê o referrer SOMENTE via
+    `getActiveReferral` (fonte pura) — já é o caso hoje (REFERRAL_PERCENTAGE=0.05 inalterado);
+  - higiene: o cleanup de e2es que usa `SET session_replication_role = replica` desabilita o
+    `ON DELETE CASCADE`, deixando linhas órfãs em `user_referral_links` ao apagar usuários
+    fixture (limpo nesta frente; e2e de regressão pode regerar — varrer órfãos por
+    `NOT EXISTS users`).
+- **Status:** **OPEN** — não bloqueia esta frente; destinada à limpeza de legado de referral.
+  A comissão de indicação (5%, janela 1 ano) permanece governada por `DECISION-0048`/split-engine
+  lendo o vínculo puro; percentual/janela NÃO viram colunas do vínculo.

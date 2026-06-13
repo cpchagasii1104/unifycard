@@ -4,53 +4,24 @@
 import { runQueryWithTenant } from '@core/database/pool';
 
 /**
- * Busca referrer ativo para um usuário
- * Retorna referrerUserId APENAS se referral está ativo e não expirado
- * Retorna null caso contrário
- * 
- * Usa tabela referrals (nova) se disponível, senão usa user_referral_links (legacy)
+ * Busca referrer ATIVO para um usuário indicado.
+ * Retorna referrerUserId APENAS se o vínculo existe e está dentro da janela de
+ * 1 ano; retorna null caso contrário.
+ *
+ * DECISION-0119: lê a FONTE CANÔNICA `user_referral_links` (vínculo PURO A→B). A
+ * janela de 1 ano é REGRA DE LEITURA/POLÍTICA aplicada aqui — NÃO é coluna da
+ * tabela de vínculo (que não guarda janela/expiração/status). O ramo legado da
+ * tabela `referrals` (arquivada/incompatível, ausente no schema vivo) foi
+ * neutralizado: o split-engine passa a ler o vínculo puro por esta função.
  */
 export async function getActiveReferral(
   tenantId: string,
   userId: string,
   atDate: Date = new Date()
 ): Promise<string | null> {
-  // Tentar buscar da tabela referrals (nova) — try/catch tolera tabela ausente
-  // para permitir fallback ao legacy + retorno null quando referral não existe (smoke v3 fundacional).
+  let link: { referrer_user_id: string; created_at: Date } | null = null;
   try {
-    const referralResult = await runQueryWithTenant<{
-      referrer_user_id: string;
-      endsAt: Date;
-      status: string;
-    }>(
-      tenantId,
-      `
-        SELECT referrer_user_id, endsAt, status
-        FROM referrals
-        WHERE tenant_id = $1
-          AND referred_user_id = $2
-          AND status = 'active'
-          AND endsAt > $3
-        LIMIT 1
-      `,
-      [tenantId, userId, atDate]
-    );
-
-    if (referralResult) {
-      return referralResult.referrer_user_id;
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!/relação .* não existe|relation .* does not exist/i.test(msg)) {
-      throw err;
-    }
-    // Tabela ausente — segue para legacy
-  }
-
-  // Fallback: usar user_referral_links (legacy) para backward compatibility
-  let legacyResult: { referrer_user_id: string; created_at: Date } | null = null;
-  try {
-    legacyResult = (await runQueryWithTenant<{
+    link = (await runQueryWithTenant<{
       referrer_user_id: string;
       created_at: Date;
     }>(
@@ -68,25 +39,24 @@ export async function getActiveReferral(
     if (!/relação .* não existe|relation .* does not exist/i.test(msg)) {
       throw err;
     }
-    // Tabela legacy também ausente — sem referral
+    // Tabela ausente (ambiente sem a migration) — sem referral.
     return null;
   }
 
-  if (!legacyResult) {
+  if (!link) {
     return null;
   }
 
-  const link = legacyResult;
+  // Janela de 1 ano aplicada na LEITURA (política), não materializada no vínculo.
   const referralDate = new Date(link.created_at);
   const oneYearAgo = new Date(atDate);
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-  // Se referral tem menos de 1 ano, retornar referrer
   if (referralDate >= oneYearAgo) {
     return link.referrer_user_id;
   }
 
-  // Após 1 ano, referral não é mais ativo
+  // Após 1 ano, o vínculo não é mais ativo para fins de split.
   return null;
 }
 
