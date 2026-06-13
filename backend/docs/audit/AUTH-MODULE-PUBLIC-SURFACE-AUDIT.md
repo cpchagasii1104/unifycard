@@ -15,6 +15,7 @@ Garantir que `authModule` é 100% self-contained e não depende de escopo proteg
 - POST `/auth/refresh`
 - POST `/auth/logout`
 - GET `/auth/check-cpf`
+- GET `/auth/check-referral` _(adicionada — F-REGISTER-PRELAUNCH-BLOCKERS A1)_
 
 ### 2. webauthn.routes.ts (registrado em auth.module.ts:9 com prefix `/webauthn`)
 - POST `/auth/webauthn/challenge`
@@ -99,6 +100,23 @@ Garantir que `authModule` é 100% self-contained e não depende de escopo proteg
 - ❌ `authPlugin` - NÃO dependente
 
 **Status:** ✅ PÚBLICO - Self-contained
+
+---
+
+### ✅ GET /auth/check-referral
+
+**Localização:** `auth.routes.ts` (após `/auth/check-cpf`) — F-REGISTER-PRELAUNCH-BLOCKERS A1.
+
+**Dependências verificadas:**
+- ❌ `req.tenant` - NÃO usado
+- ❌ `req.user` - NÃO usado (pré-sessão, sem JWT)
+- ❌ `req.headers['x-tenant-id']` - NÃO usado como autoridade (tenant `unificard-inicial`
+  resolvido server-side via `tenantService.getTenantBySlug`)
+- ✅ Rate limit `auth.check-referral` (equivalente ao check-cpf)
+- ❌ `tenantPlugin` - NÃO dependente
+- ❌ `authPlugin` - NÃO dependente
+
+**Status:** ✅ PÚBLICO - Self-contained (tenant institucional server-side; cliente não escolhe tenant)
 
 ---
 

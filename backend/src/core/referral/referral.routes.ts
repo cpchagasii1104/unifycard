@@ -144,9 +144,14 @@ const referralRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * GET /referral/validate
-   * 🔧 FIX: Valida se um código de indicação existe (para UX em tempo real)
-   * Não aplica o código, apenas verifica existência
+   * GET /referral/validate — ROTA LOGADA / LEGADA (não usada no pré-cadastro).
+   *
+   * Valida se um código de indicação existe (UX em tempo real); não aplica o código.
+   * Vive sob o escopo PROTEGIDO (exige sessão/tenant). NÃO é a rota do pré-cadastro:
+   * a validação pública pré-sessão é `GET /auth/check-referral` (apiFetchPublic,
+   * tenant `unificard-inicial` server-side — F-REGISTER-PRELAUNCH-BLOCKERS A1).
+   * Mantida por compatibilidade para chamadas logadas; candidata a tombstone
+   * documental se nenhum caller logado restar (sem alteração de runtime nesta frente).
    */
   fastify.get<{
     Querystring: {

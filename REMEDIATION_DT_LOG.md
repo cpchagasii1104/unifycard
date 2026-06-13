@@ -12605,3 +12605,24 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Status:** **OPEN** — não bloqueia esta frente; destinada à limpeza de legado de referral.
   A comissão de indicação (5%, janela 1 ano) permanece governada por `DECISION-0048`/split-engine
   lendo o vínculo puro; percentual/janela NÃO viram colunas do vínculo.
+
+## DT-REFERRAL-CODE-UNIQUE-HARDENING — OPEN (2026-06-13, frente F-REGISTER-PUBLIC-CONTRACT-AND-REFERRAL-HARDENING)
+
+- **Origem:** `users.referral_code` é gerado por `getOrCreateReferralCode`
+  (`crypto.randomBytes(4)` → 8 hex maiúsculos) com unicidade garantida apenas por
+  **check-then-write tenant-scoped** (SELECT por `(tenant_id, referral_code)` antes do
+  UPDATE, até 10 tentativas) — **sem constraint UNIQUE no banco**. Há janela de corrida
+  (duas gerações concorrentes no mesmo tenant poderiam colidir; espaço 16^8 ≈ 4,3 bi
+  torna improvável, não impossível). A resolução/validação de referral é tenant-scoped
+  (`UPPER(referral_code)` dentro do tenant) tanto no register quanto no `/auth/check-referral`.
+- **READ-FIRST (dev vivo, 2026-06-13):** 8 códigos; 8 distintos globalmente; 8 distintos por
+  `(tenant_id, referral_code)`; **0 duplicatas** (global e por tenant); **nenhum índice**
+  sobre `users.referral_code`. Dados LIMPOS — uma UNIQUE futura é segura quanto a dados.
+- **Hardening futuro recomendado (fatia própria, com GO):** `CREATE UNIQUE INDEX … ON
+  users (tenant_id, UPPER(referral_code)) WHERE referral_code IS NOT NULL` (parcial,
+  case-insensitive, tenant-scoped — casa com a semântica de lookup) **ou** UNIQUE global
+  se a unicidade cross-tenant for desejada. Fecha a corrida do gerador e endurece a
+  integridade do código próprio.
+- **Status:** **OPEN** — NÃO aplicar migration nesta frente (documental). Sem necessidade de
+  PARAR para novo GO: os dados estão limpos e isto é hardening eletivo, não correção urgente.
+  Aplicar somente sob GO dedicado (fatia de migration).

@@ -269,8 +269,9 @@ class AuthService {
 
     // ── REFERRAL: validar DENTRO de unificard-inicial ANTES de qualquer escrita ──
     // Referral NÃO escolhe tenant; é intra-tenant (decisão FECHADA). Código inválido → 400
-    // honesto, ANTES da transação (zero estado parcial). A APLICAÇÃO ocorre pós-commit
-    // (dado progressivo financeiro; nascimento já completo). NÃO procurar cross-tenant.
+    // honesto, ANTES da transação (zero estado parcial). A APLICAÇÃO do vínculo A→B ocorre
+    // DENTRO da transação de nascimento (DECISION-0119 D2 — atômica; código válido sem vínculo
+    // materializado ⇒ rollback total). NÃO procurar cross-tenant.
     if (referralCode) {
       const referrer = await runQueryWithTenant<{ id: string }>(
         finalTenantId,
@@ -379,8 +380,9 @@ class AuthService {
     });
 
     // ── PÓS-COMMIT — DADOS PROGRESSIVOS (best-effort; nascimento já é COMPLETO e atômico) ──
-    // DECISION-0115: perfil/gender/referral são progressivos, NÃO requisitos do nascimento.
-    // Gender permanece em metadata (casa canônica fica para a Fatia 4; fora do escopo aqui).
+    // DECISION-0115: perfil/gender são progressivos, NÃO requisitos do nascimento.
+    // (O vínculo de referral NÃO é mais pós-commit: materializa DENTRO da transação de
+    // nascimento — DECISION-0119 D2.) Gender permanece em metadata (casa canônica = Fatia 4).
     if (fullName || birthdate || gender || normalizedCpf) {
       try {
         const { profileService } = await import('@core/profile/profile.service');

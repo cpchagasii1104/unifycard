@@ -2,9 +2,9 @@
 
 **Status:** `CORE`  
 **Governing Contract:** `CORE_IMUTAVEL.md`  
-**Version:** `v1.0.0`  
-**Data de Criação:** 2025-01-22  
-**Última Atualização:** 2025-01-22
+**Version:** `v1.1.0`
+**Data de Criação:** 2025-01-22
+**Última Atualização:** 2026-06-13
 
 ---
 
@@ -35,11 +35,13 @@ Todas as rotas de autenticação são **públicas** e **não requerem** autentic
 
 #### 1.1 POST `/auth/register`
 
-**Descrição:** Registra um novo usuário no sistema.
+**Descrição:** Registra um novo usuário no sistema (nascimento humano orgânico atômico).
 
 **Headers:**
 - `Content-Type: application/json` (obrigatório)
-- `x-tenant-id: <uuid>` (opcional - se não fornecido, tenant será criado automaticamente)
+- `x-tenant-id: <uuid>` (IGNORADO como autoridade) — o cadastro orgânico resolve o
+  tenant institucional `unificard-inicial` **server-side** (DECISION-0115 D1 + decisão
+  TENANT FECHADA). **Não cria** tenant `user-*`; o header do cliente **não escolhe** tenant.
 
 **Body:**
 ```json
@@ -49,10 +51,21 @@ Todas as rotas de autenticação são **públicas** e **não requerem** autentic
   "cpf": "string (11 dígitos)",
   "fullName": "string (opcional)",
   "birthdate": "string (YYYY-MM-DD, opcional)",
-  "gender": "string (enum: 'male' | 'female' | 'other', opcional)",
+  "gender": "string (enum: 'male' | 'female' | 'non_binary' | 'other' | 'prefer_not_to_say', opcional)",
   "referralCode": "string (opcional)"
 }
 ```
+
+> **Gender (vocabulário canônico — 5 valores):** `male`, `female`, `non_binary`,
+> `other`, `prefer_not_to_say` (`@unificard/contracts` `GENDER_VALUES`). O contrato
+> anterior listava apenas 3 valores e está corrigido aqui.
+
+> **Referral (DECISION-0119):** quando `referralCode` é informado e **válido**, o
+> vínculo de indicação A→B é materializado **dentro da transação de nascimento**
+> (atômico). Código **inválido** → `400` (`INVALID_REFERRAL_CODE`) antes de qualquer
+> escrita. Falha ao materializar o vínculo com código válido → **rollback total** do
+> cadastro. O cadastro **não cria** estado Bank. `/auth/register` é a **validação
+> soberana final** do referral (a checagem pública `/auth/check-referral` é só UX).
 
 **Response 201 (Success):**
 ```json
@@ -61,7 +74,7 @@ Todas as rotas de autenticação são **públicas** e **não requerem** autentic
   "data": {
     "user": {
       "userId": "uuid",
-      "tenantId": "uuid",
+      "tenantId": "uuid (= unificard-inicial, resolvido server-side)",
       "email": "string"
     },
     "tokens": {
@@ -370,6 +383,74 @@ Todas as rotas de autenticação são **públicas** e **não requerem** autentic
 
 ---
 
+#### 1.6 GET `/auth/check-referral`
+
+**Descrição:** Validação **pública / pré-sessão** de código de indicação para UX em
+tempo real (debounce no cadastro). Não aplica o código; apenas verifica existência.
+Adicionada na frente `F-REGISTER-PRELAUNCH-BLOCKERS-CLOSURE` (A1).
+
+**Rota pública pré-sessão.** O frontend usa `apiFetchPublic` (sem JWT). O tenant
+institucional `unificard-inicial` é resolvido **server-side**; `x-tenant-id` do cliente
+**não é autoridade** e é ignorado na resolução do tenant.
+
+**Headers:**
+- Nenhum header obrigatório (pré-sessão; sem `Authorization`)
+
+**Query Parameters:**
+- `code: string` (obrigatório) - código de indicação (alfanumérico, 4–32 caracteres)
+
+**Rate limit:** `auth.check-referral` (equivalente ao `auth.check-cpf` — 10/min por
+IP, configurável via `RATE_LIMIT_AUTH_CHECK_REFERRAL`). Excedente → `429`.
+
+**Response 200 (Success):**
+```json
+{
+  "valid": boolean
+}
+```
+- código existente no tenant institucional → `{ "valid": true }`
+- código **formatado mas inexistente** → `{ "valid": false }` (resposta honesta, não erro)
+
+**Response 400 (Bad Request):**
+```json
+{
+  "error": "Código de indicação é obrigatório"
+}
+```
+- código ausente/vazio **ou** formato inválido (fora de `^[A-Za-z0-9]{4,32}$`).
+
+**Response 429 (Too Many Requests):**
+```json
+{
+  "success": false,
+  "error": "Limite de verificações de indicação excedido. Tente novamente após ...",
+  "resetAt": "ISO-8601"
+}
+```
+
+**Response 500 (Internal Server Error):**
+```json
+{
+  "error": "Erro ao validar código de indicação"
+}
+```
+- Erro técnico pré-sessão **não** é "código inválido" confirmado — o cliente trata
+  como indeterminado e **não** bloqueia o cadastro. A validação soberana final do
+  referral é o `POST /auth/register`.
+
+**Erros Possíveis:**
+- `400` - código ausente/vazio/formato inválido
+- `429` - rate limit excedido
+- `500` - erro técnico (indeterminado, não confirma inválido)
+
+> **NOTA — `/referral/validate` (logada/legada):** a validação em tempo real do
+> pré-cadastro usa **esta** rota pública (`/auth/check-referral`), **não**
+> `GET /referral/validate`. Esta última vive sob o escopo **protegido** (exige
+> sessão/tenant) e é mantida apenas para chamadas logadas (candidata a tombstone
+> documental). Não é rota pública e não consta nesta seção.
+
+---
+
 ### 2. Health Check (`/health`)
 
 #### 2.1 GET `/health`
@@ -610,7 +691,8 @@ Todas as rotas de autenticação são **públicas** e **não requerem** autentic
 #### Rotas que NÃO requerem headers:
 - `GET /health`
 - `GET /auth/check-cpf`
-- `POST /auth/register` (x-tenant-id opcional)
+- `GET /auth/check-referral`
+- `POST /auth/register` (x-tenant-id IGNORADO como autoridade — tenant `unificard-inicial` server-side)
 - `POST /auth/login` (x-tenant-id opcional)
 
 #### Rotas que requerem `x-tenant-id`:
@@ -732,6 +814,17 @@ Todas as respostas de erro seguem o formato:
 
 ## Changelog
 
+### v1.1.0 (2026-06-13) — F-REGISTER-PUBLIC-CONTRACT-AND-REFERRAL-HARDENING
+- ✅ Novo endpoint público documentado: `GET /auth/check-referral` (validação pré-sessão
+  de referral; `{ valid: boolean }`; 400 formato; 429 rate-limit `auth.check-referral`;
+  tenant `unificard-inicial` server-side; `apiFetchPublic`). Adição backward-compatible.
+- ✅ `POST /auth/register` corrigido (contrato stale): `x-tenant-id` **não é autoridade**
+  (tenant institucional resolvido server-side; **não cria** tenant `user-*`); `gender` com
+  **5 valores** canônicos (`male`/`female`/`non_binary`/`other`/`prefer_not_to_say`);
+  nota de referral transacional (DECISION-0119) e de validação soberana final no register.
+- ✅ `/referral/validate` esclarecida como rota **logada/legada** (não pré-cadastro público).
+- ℹ️ Sem breaking change (apenas adição + correção de documentação stale).
+
 ### v1.0.0 (2025-01-22)
 - ✅ Contrato inicial congelado
 - ✅ Rotas de autenticação documentadas (5 endpoints: register, login, refresh, logout, check-cpf)
@@ -771,9 +864,13 @@ Todas as respostas de erro seguem o formato:
 ## Referências
 
 - `docs/audit/SYSTEM-CANONICAL-INVARIANTS.md` - Invariantes canônicos
-- `backend/src/core/auth/auth.routes.ts` - Implementação das rotas de autenticação
+- `backend/src/core/auth/auth.routes.ts` - Implementação das rotas de autenticação (inclui `/auth/check-referral`)
+- `backend/src/core/rate-limiting/auth-rate-limit.service.ts` - Config do rate-limit `auth.check-referral`
+- `backend/src/core/referral/referral.routes.ts` - `/referral/validate` (logada/legada)
 - `backend/src/core/health/health.module.ts` - Implementação do health check
 - `backend/src/modules/payments/pix.routes.ts` - Implementação dos webhooks PIX
+- `docs/02_decisions/DECISION_0115_HUMAN_BIRTH_VERTICAL_ROOT_DECISIONS.md` - tenant server-side
+- `docs/02_decisions/DECISION_0119_REFERRAL_LINK_PURE_VINCULO.md` - vínculo de indicação transacional
 
 ---
 
@@ -800,6 +897,6 @@ Qualquer mudança que viole este contrato **DEVE** ser marcada como **BREAKING C
 
 ---
 
-**Última Revisão:** 2025-01-22  
+**Última Revisão:** 2026-06-13
 **Próxima Revisão:** Conforme processo de governança
 
