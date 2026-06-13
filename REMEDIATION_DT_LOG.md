@@ -12858,3 +12858,20 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Efeito sobre `DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY`:** baseline reduzido 9 → 7.
 - **Prova:** e2e `validate-pipeline-e2e-classic-channel-readers-binding` 9/9; guard new=0 stale=0 + prova
   negativa OK; Bank intocado; sem migration.
+
+## DT-RISK-DASHBOARD-PERMISSION-SUBJECT-SPOOF — CLOSED (2026-06-13)
+
+- **Status:** (resíduo prioritário de DECISION-0124) → **CLOSED** (F-RISK-DASHBOARD-PERMISSION-SPOOF-CONTAINMENT).
+- **Bug:** `requireRiskPermission` fazia `requirePermission(tenantId, actorId, actorId, 'financial:view_all_ledger', ...)`
+  com `actorId = req.actionContext.actorId` (cliente-declarado) — a assinatura é `(tenantId, userId/SUBJECT,
+  actorId/TARGET, action)`, logo o actorId client-declarado era o SUBJECT → autoautorização (spoof).
+- **Correção:** subject = `req.user?.userId ?? req.user?.id` (SERVER-SIDE/JWT, 401 se ausente); target/contexto =
+  actionContext.actorId (HINT). Mantido `requirePermission` (grant-based, enforça o GRANT admin view_all_ledger);
+  `canActAs` NÃO usado (concederia por ownership puro, enfraquecendo o gate admin cross-actor).
+- **Anti-regressão:** novo check DURO `SUBJECT_EQUALS_TARGET` em `audit-actor-authority-boundary.mjs` —
+  `requirePermission(tenantId, X, X, ...)` (subject==target mesmo identificador) SEMPRE FALHA (não baselineável).
+  Prova negativa fase 2 OK.
+- **Baseline:** `risk-dashboard` permanece baselineado (heurística não reconhece requirePermission) com nota
+  "spoof CLOSED" — mesma classe dos demais admin readers (R2 fine-grained, DECISION_REQUIRED). Não é falso-verde.
+- **Prova:** e2e `validate-pipeline-e2e-risk-dashboard-permission-spoof` 7/7 (Bob sem grant declarando actorId=Admin
+  → 403; ownership não basta → 403; sem auth → 401; subject=req.user; Bank intocado). Sem migration.

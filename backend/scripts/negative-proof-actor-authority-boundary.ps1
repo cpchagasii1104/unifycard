@@ -41,8 +41,23 @@ Remove-Item $probeDir -Force -Recurse -ErrorAction SilentlyContinue
 
 $guardOkAgain = ((Invoke-Guard) -eq 0)
 
-$ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe))
-Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain residue=$([bool](Test-Path $probeDir))"
+# Fase 2: subject==target (requirePermission(tenantId, X, X, ...)) -> guard deve FALHAR (antipadrao spoof).
+$probe2 = Join-Path (Get-Location) 'src\modules\__neg_probe2__\neg-probe-spoof.routes.ts'
+$probe2Dir = Split-Path $probe2 -Parent
+New-Item -ItemType Directory -Force -Path $probe2Dir | Out-Null
+$content2 = @'
+export const negSpoof = async (req: any, tenantId: string, actorId: string) => {
+  await businessAuthorizationService.requirePermission(tenantId, actorId, actorId, 'financial:view_all_ledger');
+};
+'@
+Set-Content -Path $probe2 -Value $content2 -Encoding UTF8
+$spoofFailed = ((Invoke-Guard) -ne 0)
+Remove-Item $probe2 -Force
+Remove-Item $probe2Dir -Force -Recurse -ErrorAction SilentlyContinue
+$spoofRestored = ((Invoke-Guard) -eq 0)
+
+$ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) -and $spoofFailed -and $spoofRestored -and (-not (Test-Path $probe2))
+Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored residue=$([bool](Test-Path $probeDir))"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
-Write-Host 'NEGATIVE PROOF: OK — guard detecta nova violação client-declared sem binding; restauração limpa.' -ForegroundColor Green
+Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding e (b) subject==target spoof; restauracao limpa.' -ForegroundColor Green
 exit 0

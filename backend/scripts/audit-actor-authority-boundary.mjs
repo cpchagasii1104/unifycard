@@ -65,7 +65,7 @@ const BASELINE = {
   // legítimo), OU é Bank hard-stop, OU exige decisão de produto/R2 (DECISION_REQUIRED). Ver DECISION-0124.
   'modules/business-audit/business-audit.routes.ts':   'D · query.actorId em GET /business-audit-logs sob requirePermission(admin:view_audit_logs) — actorId é filtro de admin de auditoria. Binding per-actor = DECISION_REQUIRED (escopo cross-actor vs self é produto). DT-0113-CLASSIC-CHANNEL-READERS.',
   'core/unifybank/bank-http.routes.ts':                'D · BANK domain (HARD STOP). GET /balance já tem autoridade via actorCapabilitiesService.resolveForUser (não reconhecida pelo guard); writers de transação são Bank. Não tocar. DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/risk-command-center/risk-dashboard.routes.ts': 'D · params/actionContext.actorId sob requireRiskPermission(financial:view_all_ledger). RESÍDUO PRIORITÁRIO: requirePermission(tenantId,actorId,actorId,...) usa actorId client-declared como userId (spoofável) — fix = corrigir o modelo de permissão (R2/produto), não bindar por cima. DECISION_REQUIRED. DT-0113-CLASSIC-CHANNEL-READERS.',
+  'modules/risk-command-center/risk-dashboard.routes.ts': 'D · SPOOF subject==target CLOSED (F-RISK-DASHBOARD-PERMISSION-SPOOF-CONTAINMENT): requireRiskPermission agora usa requirePermission(tenantId, req.user.userId [SERVER-SIDE], actorId [HINT/contexto], financial:view_all_ledger) — subject vem do JWT, nunca do actionContext; requirePermission enforça o GRANT admin (não basta ownership). Regressão do spoof bloqueada pelo check SUBJECT_EQUALS_TARGET (hard-fail). Baselineado APENAS pela heurística (guard não reconhece requirePermission como binding) — mesma classe dos demais admin readers (R2 fine-grained permission, DECISION_REQUIRED). DT-RISK-DASHBOARD-PERMISSION-SUBJECT-SPOOF CLOSED. DT-0113-CLASSIC-CHANNEL-READERS.',
   'modules/policy-engine/policy.routes.ts':            'D · params/query.actorId sob requirePolicyPermission (admin) — policy/sanction reads. Binding per-actor = R2 fine-grained permission. DECISION_REQUIRED. DT-0113-CLASSIC-CHANNEL-READERS.',
   'modules/payout/payout.routes.ts':                   'D · FINANCIAL (HARD STOP). query.actorId em GET /payouts/orders sob requirePermission(financial:execute_payout) — filtro do operador que já vê tudo; writers de payout não tocar. DT-0113-CLASSIC-CHANNEL-READERS.',
   'modules/trust/trust.routes.ts':                     'D · params/query.actorId sob requireRole(admin) INTERINO (DECISION-0113, pendente R2.4) que aciona assertActorRepresentActor no rbac.plugin. Manter interino. DECISION_REQUIRED. DT-0113-CLASSIC-CHANNEL-READERS.',
@@ -105,6 +105,17 @@ for (const file of walk(SRC)) {
   }
 }
 
+// 🔴 ANTIPADRÃO DURO (F-RISK-DASHBOARD-PERMISSION-SPOOF-CONTAINMENT): subject == target em chamada de
+// autorização — ex.: requirePermission(tenantId, actorId, actorId, ...) onde o 2º arg (subject/userId)
+// e o 3º (target/actor) são o MESMO identificador (geralmente derivado de actionContext/params/query).
+// O SUBJECT da permissão deve vir SERVER-SIDE de req.user; nunca do alvo. SEMPRE FALHA (não baselineável).
+const SUBJECT_EQUALS_TARGET = /requirePermission\(\s*[^,]+,\s*([A-Za-z_$][\w$]*)\s*,\s*\1\s*,/;
+const subjectSpoof = [];
+for (const file of walk(SRC)) {
+  const rel = file.replace(SRC, '').replace(/^[\\/]/, '').replace(/\\/g, '/');
+  if (SUBJECT_EQUALS_TARGET.test(stripComments(readFileSync(file, 'utf-8')))) subjectSpoof.push(rel);
+}
+
 // Baseline pode listar arquivos que hoje JÁ TÊM binding (organization) — não é erro;
 // só reportamos baseline órfão como informativo (drift de limpeza), nunca FAIL.
 const flaggedRels = new Set(flagged.map((f) => f.rel));
@@ -114,6 +125,12 @@ console.log(`[actor-authority-boundary] flagged=${flagged.length} baseline=${Obj
 if (staleBaseline.length > 0) {
   console.log('  ℹ️  baseline já não casa (binding adicionado/arquivo limpo — pode ser removido do baseline numa futura limpeza):');
   staleBaseline.forEach((b) => console.log(`     - ${b}`));
+}
+
+if (subjectSpoof.length > 0) {
+  console.error('GATE FAIL [actor-authority-boundary]: SUBJECT==TARGET client-declared em requirePermission (spoof de autoridade — F-RISK-DASHBOARD-PERMISSION-SPOOF). O subject deve vir de req.user server-side, nunca do alvo:');
+  subjectSpoof.forEach((f) => console.error(`  ❌ ${f}  — requirePermission(tenantId, X, X, ...) com mesmo identificador; use canActAs(tenantId, req.user.userId, targetActorId, ...).`));
+  process.exit(1);
 }
 
 if (newViolations.length > 0) {

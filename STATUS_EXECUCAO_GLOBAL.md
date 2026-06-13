@@ -1,3 +1,17 @@
+## 2026-06-13 — F-RISK-DASHBOARD-PERMISSION-SPOOF-CONTAINMENT · spoof subject==target fechado (subject server-side) + guard hard-check (BACKEND+GUARD+E2E+GATES+DOCS, sem migration) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **HEAD origem `52f6c0d0`** · migrations **380 (inalterado)** · MODO EXECUTOR sob GO macrofrente controlada (ultracode).
+
+**Bug (resíduo prioritário DECISION-0124):** `requireRiskPermission` fazia `requirePermission(tenantId, actorId, actorId, 'financial:view_all_ledger', ...)` com `actorId = req.actionContext.actorId` (cliente-declarado) — assinatura `(tenantId, userId/SUBJECT, actorId/TARGET, action)` → o actorId client-declarado era o SUBJECT = autoautorização (spoof).
+
+**Fix (binding seguro, Option A):** subject = `req.user.userId` (SERVER-SIDE/JWT, 401 se ausente); target/contexto = actionContext.actorId (HINT). Mantido `requirePermission` (grant-based, enforça GRANT admin); **canActAs NÃO usado** (concederia por ownership puro = enfraquecia o gate admin cross-actor). Novo check DURO `SUBJECT_EQUALS_TARGET` no guard bloqueia regressão de `requirePermission(X,X)`.
+
+**Provas:** e2e `validate-pipeline-e2e-risk-dashboard-permission-spoof` (DB efêmera, Fastify inject) **7/7** — Bob sem grant declarando actorId=Admin → 403; ownership não basta → 403; sem auth → 401; subject=req.user. **Guard 0113 flagged=7 baseline=7 new=0 stale=0** + prova negativa DUPLA (client-declared + subject==target). Gates: actor-writer OK · bank-ledger OK · regression rc=0 · arch critical_new=0 · tsc 25 (baseline, zero novo). Sem migration; dev 380. Bank intocado.
+
+**DTs:** `DT-RISK-DASHBOARD-PERMISSION-SUBJECT-SPOOF` **CLOSED**; `DT-0113-CLASSIC-CHANNEL-READERS` PARTIAL (risk-dashboard baselineado mas spoof-CLOSED, admin reader R2). **HOLD para reseal.** Não segui para outros baselineados, Core financeiro, PJ/grants, service_id nullable.
+
+---
+
 ## 2026-06-13 — F-0113-CLASSIC-CHANNEL-READERS-BINDING · 9 classic readers classificados A-E; 2 bindados, 7 baselineados justificados (BACKEND+GUARD+E2E+GATES+DOCS, sem migration) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **HEAD origem `3331ad96`** · migrations **380 (inalterado)** · MODO EXECUTOR sob GO macrofrente (ultracode) · DECISION-0124.
