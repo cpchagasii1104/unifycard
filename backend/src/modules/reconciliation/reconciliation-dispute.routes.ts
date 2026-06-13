@@ -183,59 +183,21 @@ const reconciliationDisputeRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Params: { id: string };
     Body: { actor?: unknown; reason?: string };
-  }>('/disputes/:id/reversal', async (req, reply) => {
+  }>('/disputes/:id/reversal', async (_req, reply) => {
     // 🔴 CONTENÇÃO P0 — F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT (fail-closed).
-    // Esta rota lia actor.kind/actorId do BODY (system/admin/support) e disparava reversal
-    // financeiro REAL via executeDisputeFinancialReversal — actorId declarado pelo cliente NÃO
-    // é autoridade (DECISION-0113); `system`/external_reversal não é ação humana via HTTP
-    // (CORE_ESTORNOS_FINANCEIROS_CANONICO / DECISION-0052). Bloqueado ANTES de parsear/executar
-    // o reversal até existir authority binding verificada. NÃO chama o reversal engine.
-    // Ver DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED. Motor financeiro intacto.
+    // Esta rota LIA actor.kind/actorId do BODY (system/admin/support) e disparava reversal
+    // financeiro REAL via reconciliationDisputeService.executeDisputeFinancialReversal —
+    // actorId declarado pelo cliente NÃO é autoridade (DECISION-0113); `system`/external_reversal
+    // não é ação humana via HTTP (CORE_ESTORNOS_FINANCEIROS_CANONICO / DECISION-0052).
+    // O handler foi REDUZIDO a este 403 fail-closed: NÃO há mais caminho (alcançável ou morto)
+    // que chame parseActor / executeDisputeFinancialReversal / requestAndExecuteReversalSync.
+    // Reabilitação só com authority binding verificada (frente futura) —
+    // ver DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED. Motor financeiro intacto.
     return reply.status(403).send({
       ok: false,
       code: 'DISPUTE_REVERSAL_HTTP_DISABLED',
       message: 'Manual dispute reversal through HTTP is disabled until authority binding is implemented.',
     });
-
-    const tenantId = req.tenant?.id;
-    if (!tenantId) {
-      return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
-    }
-    let actor: ReconciliationDisputeActor;
-    try {
-      actor = parseActor(req.body?.actor);
-    } catch {
-      return reply.status(403).send({ ok: false, code: 'UNAUTHORIZED_DISPUTE_CREATION' });
-    }
-    try {
-      const out = await reconciliationDisputeService.executeDisputeFinancialReversal(
-        tenantId,
-        req.params.id,
-        actor,
-        { reason: parseOptionalReason(req.body) }
-      );
-      return reply.send({ ok: true, dispute: out.dispute, reversal: out.reversal });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg === 'UNAUTHORIZED_DISPUTE_CREATION') {
-        return reply.status(403).send({ ok: false, code: msg });
-      }
-      if (msg === 'ACTOR_ID_REQUIRED_FOR_REVERSAL') {
-        return reply.status(400).send({ ok: false, code: msg });
-      }
-      if (msg === 'DISPUTE_NOT_FOUND' || msg === 'LEDGER_DISCREPANCY_NOT_FOUND') {
-        return reply.status(404).send({ ok: false, code: msg });
-      }
-      if (
-        msg === 'DISPUTE_MUST_BE_UNDER_REVIEW_FOR_REVERSAL' ||
-        msg === 'DISPUTE_REVERSAL_NOT_APPLICABLE_FOR_TYPE' ||
-        msg === 'DISPUTE_REVERSAL_REFERENCE_NOT_A_BANK_TRANSACTION'
-      ) {
-        return reply.status(409).send({ ok: false, code: msg });
-      }
-      fastify.log.error(e);
-      return reply.status(500).send({ ok: false, code: msg });
-    }
   });
 };
 

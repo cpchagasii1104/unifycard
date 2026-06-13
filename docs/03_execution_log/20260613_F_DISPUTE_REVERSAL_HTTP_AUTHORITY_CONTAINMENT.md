@@ -74,3 +74,26 @@ dev: `reversals`=0 · `bank_ledger`=0 · `bank_transactions`=0 (sem escrita). `r
 
 - F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT: **IMPLEMENTED / HOLD PARA RESEAL FINANCEIRO**.
 - Não seguir para authority/PJ/cargos/grants/CNAE; não iniciar modelo definitivo de reversal.
+
+## ADENDO — TSC CLEANUP (F-DISPUTE-REVERSAL-HTTP-CONTAINMENT-TSC-CLEANUP, 2026-06-13)
+
+O reseal apontou 2 erros TS NOVOS em codigo MORTO abaixo do `return 403` (linhas 212/219): o
+early-return tornou o resto do handler inalcancavel e o TS perdeu narrowing.
+
+- Correcao (commit sobre `6fbb01eb`): removido todo o corpo morto do handler de
+  `POST /disputes/:id/reversal`; o handler agora contem APENAS o gate `403
+  DISPUTE_REVERSAL_HTTP_DISABLED` — sem caminho (alcancavel OU morto) que chame `parseActor` /
+  `executeDisputeFinancialReversal` / `requestAndExecuteReversalSync`. parseActor/
+  parseOptionalReason/reconciliationDisputeService/ReconciliationDisputeActor seguem usados
+  pelas rotas irmas (from-discrepancy/to-review/resolve) — sem unused. S1 do e2e reajustado.
+- Provas: e2e dispute-reversal-http-containment 7/7 (403 antes de parse/engine; zero linha em
+  reversals/bank_transactions/bank_ledger). Gates: actor-writer OK; bank-ledger OK;
+  regression-guards EXIT 0; arch --strict critical_new=0. tsc backend 25 (baseline exato do arco
+  0113); reconciliation/dispute/reversal/bank = ZERO erros; os 2 erros do reseal eliminados.
+  git diff --check (arquivos da frente) = 0. Sem migration; Bank/motor intactos.
+- Nota de ambiente: durante o cleanup o node_modules vendorizado sofreu churn (deps untracked
+  bullmq/pino e o dist de @unificard/contracts foram prunados por um pnpm install); restaurado
+  por git checkout do tracked + pnpm install --force (repopular store) + rebuild de
+  packages/contracts (tsc -b). Estado final: node_modules ao HEAD, contracts reconstruido, tsc
+  de volta ao baseline 25. Nenhum arquivo de node_modules/packages entra no commit.
+- Estado: F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT — CLOSED apos cleanup tsc.

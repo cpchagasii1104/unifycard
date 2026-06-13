@@ -158,18 +158,19 @@ async function main(): Promise<void> {
 
     // Estrutural: o gate precede parseActor/executeDisputeFinancialReversal no handler.
     const routes = readFileSync(join(REPO, 'backend/src/modules/reconciliation/reconciliation-dispute.routes.ts'), 'utf8');
+    // O handler de /reversal é o ÚLTIMO da rota → bloco = do route literal ao fim do arquivo.
     const reversalBlock = routes.slice(routes.indexOf("'/disputes/:id/reversal'"));
-    // Sites REAIS de execução (não menções em comentário): o return do gate, a atribuição
-    // `actor = parseActor(...)` e a chamada `reconciliationDisputeService.executeDisputeFinancialReversal(`.
-    const gateIdx = reversalBlock.indexOf("return reply.status(403)");
-    const parseIdx = reversalBlock.indexOf('actor = parseActor(req.body');
-    const execCallIdx = reversalBlock.indexOf('reconciliationDisputeService.executeDisputeFinancialReversal(');
-    record('S1 gate (return 403 DISPUTE_REVERSAL_HTTP_DISABLED) precede a chamada real de parseActor e do reversal engine',
-      gateIdx > -1 && /DISPUTE_REVERSAL_HTTP_DISABLED/.test(reversalBlock.slice(gateIdx, gateIdx + 200)) &&
-      parseIdx > gateIdx && execCallIdx > gateIdx,
-      `gate=${gateIdx} parse=${parseIdx} execCall=${execCallIdx}`);
-    record('S2 contenção é só no edge HTTP (reversal.service / requestAndExecuteReversalSync não alterados por esta rota)',
-      /executeDisputeFinancialReversal/.test(routes)); // serviço ainda existe; rota só não o alcança.
+    const gateOk = /return reply\.status\(403\)\.send\(\{[\s\S]{0,200}?DISPUTE_REVERSAL_HTTP_DISABLED/.test(reversalBlock);
+    // Dead code REMOVIDO: o handler reduzido NÃO contém chamada real de parseActor nem do engine
+    // (só menções em COMENTÁRIO são permitidas — provam o histórico, não um caminho).
+    const codeOnly = reversalBlock.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    record('S1 handler /reversal reduzido ao gate 403; SEM caminho (alcançável ou morto) chamando parseActor/engine',
+      gateOk &&
+      !/actor = parseActor\(/.test(codeOnly) &&
+      !/reconciliationDisputeService\.executeDisputeFinancialReversal\(/.test(codeOnly),
+      `gateOk=${gateOk}`);
+    record('S2 contenção só no edge HTTP: serviço executeDisputeFinancialReversal ainda existe no service (motor intacto)',
+      readFileSync(join(REPO, 'backend/src/modules/reconciliation/reconciliation-dispute.service.ts'), 'utf8').includes('executeDisputeFinancialReversal'));
   } finally {
     await app.close();
   }

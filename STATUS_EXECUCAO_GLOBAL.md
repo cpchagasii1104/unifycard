@@ -14397,3 +14397,12 @@ arch critical_new=0. tsc 25 pré-existentes (0113), zero novo. CARTÓRIO:
 DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED OPEN/P0-CONTAINED; DT-DISPUTE-MUTATION-ACTOR-BODY-
 AUTHORITY OPEN/P1 (rotas irmãs from-discrepancy/to-review/resolve, não movem dinheiro). Estado:
 IMPLEMENTED / HOLD PARA RESEAL FINANCEIRO. Modelo definitivo (authority binding) = frente futura.
+
+## 2026-06-13 — F-DISPUTE-REVERSAL-HTTP-CONTAINMENT-TSC-CLEANUP (CLOSED)
+
+Reseal apontou 2 erros TS em codigo MORTO abaixo do return 403. Removido todo o corpo morto —
+handler /disputes/:id/reversal reduzido ao gate 403 DISPUTE_REVERSAL_HTTP_DISABLED; sem caminho
+(vivo/morto) chamando parseActor/executeDisputeFinancialReversal/requestAndExecuteReversalSync.
+E2e 7/7; gates OK; regression-guards EXIT 0; arch critical_new=0; tsc 25 baseline
+(reconciliation=0; 2 erros do reseal eliminados); diff-check 0; sem migration; Bank/motor
+intactos. F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT CLOSED apos cleanup tsc.
