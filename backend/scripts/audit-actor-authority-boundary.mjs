@@ -46,9 +46,11 @@ const BINDING_HELPERS = /\bcanActAs\b|\bcanRepresentActor\b|\bcanPerformAction\b
 // Arquivo (rel a src/) → canais usados sem binding no arquivo + nota/DT. NOVOS arquivos
 // fora desta lista que casem um canal sem binding = FALHA.
 const BASELINE = {
-  // 6º CANAL (body.actor) — alvo normativo desta frente:
-  'modules/reconciliation/reconciliation-dispute.routes.ts':
-    'body.actor (parseActor): /reversal P0 CONTIDO (403 fail-closed); irmãs from-discrepancy/to-review/resolve → DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY (P1).',
+  // 6º CANAL (body.actor) — alvo normativo:
+  // reconciliation-dispute.routes.ts REMOVIDO do baseline (2026-06-13): /reversal contido
+  // (403 DISPUTE_REVERSAL_HTTP_DISABLED) + irmãs from-discrepancy/to-review/resolve contidas
+  // (403 DISPUTE_MUTATION_HTTP_DISABLED) — parseActor/req.body.actor eliminados; guard não mais
+  // detecta canal. DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY → P1 CONTAINED.
   'core/events/event.routes.ts':
     'body.actor_id/actor_type — write de evento sem binding no arquivo. DT-0113-EVENT-ACTOR-BODY-BINDING (P1).',
   // Canais clássicos (params/query) em readers/filtros — DECISION-0113 clássica:

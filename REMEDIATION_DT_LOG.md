@@ -12715,3 +12715,31 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   (`metadata.serviceId` vínculo fraco); PJ/cargos/grants; modelo definitivo de reversal. Cada
   correção de runtime sai do baseline ao adicionar binding (o guard reporta o item como
   "baseline já não casa" para limpeza futura).
+
+## DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY — OPEN / P1 CONTAINED (2026-06-13, frente F-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY-CONTAINMENT)
+
+- **Origem:** as 3 rotas irmãs de mutação de disputa (`POST /reconciliation/disputes/from-discrepancy`,
+  `/:id/to-review`, `/:id/resolve`) liam `actor.kind/actorId` do BODY (system/admin/support) via
+  `parseActor(req.body?.actor)` e mutavam estado de disputa via `reconciliationDisputeService`
+  SEM binding server-side (6º canal, DECISION-0113). Não movem dinheiro diretamente (P1), mas
+  alteram estado sensível; `/to-review` preparava o estado UNDER_REVIEW que habilitava o reversal.
+- **Status:** OPEN → **P1 CONTAINED (2026-06-13)** — contenção fail-closed no edge HTTP: cada
+  handler reduzido ao `403 DISPUTE_MUTATION_HTTP_DISABLED` ("Manual dispute mutation through HTTP
+  is disabled until authority binding is implemented.") como ÚNICA instrução — sem caminho
+  (alcançável OU morto) que chame `parseActor` / o service de mutação. `parseActor`/
+  `parseOptionalReason`/import `ReconciliationDisputeActor` REMOVIDOS (sem caller restante).
+  `GET /disputes/:id/events` (leitura) preservado. `/reversal` segue contido em separado
+  (`403 DISPUTE_REVERSAL_HTTP_DISABLED`, P0). Sem `requireRole/requirePermission` (RBAC V2 não
+  soberano); `actor.kind=system/admin/support` do body não liberado; `authoritySource` não
+  derivado do body; sem migration; zero Bank; `reversal.service`/`requestAndExecuteReversalSync`
+  intactos.
+- **Guard:** `audit-actor-authority-boundary.mjs` deixou de detectar `body.actor` na rota →
+  `reconciliation-dispute.routes.ts` REMOVIDO do baseline (flagged=10 · baseline=10 · new=0 ·
+  stale=0; sem maquiagem). Prova negativa verde.
+- **Provas:** e2e `validate-pipeline-e2e-dispute-mutation-http-containment` **11/11** (T1 system/
+  T2 admin/T3 support → 403; T4 id inexistente não vira 404 = service não chamado; T5 zero linha
+  em reconciliation_disputes/_events; T6 /reversal 403 intacto; T7 GET /events preservado;
+  estrutural sem parseActor/service de mutação).
+- **Modelo definitivo PENDENTE (frente futura):** authority binding verificada (sujeito =
+  `req.user`; `canActAs`/`canRepresentActor`; `system` não disparável por rota humana) antes de
+  reabilitar a mutação HTTP.

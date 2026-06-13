@@ -14428,3 +14428,16 @@ negócio, zero Bank, zero migration, zero schema. Parent 48da5536; dev 378/378.
   sem actor_roles); company_users SSOT PJ; P0 reversal 403 intacto; reversal.service/Bank/PJ/CNAE
   não tocados. Gates verdes; tsc 25 baseline (zero .ts runtime tocado); diff-check 0; sem migration.
 - Próxima frente recomendada: dispute body.actor P1 → booking→order. HOLD PARA RESEAL.
+
+## 2026-06-13 — F-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY-CONTAINMENT (P1 CONTAINED)
+
+Resíduo P1 do 6º canal: 3 rotas irmãs de mutação de disputa (from-discrepancy/to-review/resolve)
+liam actor do BODY sem binding e mutavam estado via service. Contidas fail-closed no edge HTTP:
+cada handler reduzido ao 403 DISPUTE_MUTATION_HTTP_DISABLED (única instrução; sem dead code);
+parseActor/parseOptionalReason/ReconciliationDisputeActor removidos (sem caller). GET /events
+preservado; /reversal segue 403 DISPUTE_REVERSAL_HTTP_DISABLED (P0 intacto). Guard atualizado:
+reconciliation-dispute saiu do baseline (flagged=10 baseline=10 new=0 stale=0; sem maquiagem);
+prova negativa verde. e2e novo 11/11; gates actor-writer/bank-ledger OK, regression-guards
+EXIT 0, arch critical_new=0; tsc 25 baseline (zero novo reconciliation/dispute/reversal/bank);
+diff-check 0; sem migration; Bank/reversal engine intactos. DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY
+OPEN→P1 CONTAINED. Estado: IMPLEMENTED / HOLD PARA RESEAL. Próxima: booking→order.
