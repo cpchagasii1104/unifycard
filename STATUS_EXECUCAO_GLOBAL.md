@@ -1,3 +1,17 @@
+## 2026-06-13 — F-0113-EVENT-ACTOR-BODY-BINDING · binding server-side de actor do body em event.routes (BACKEND+GUARD+E2E+GATES+DOCS, sem migration) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **HEAD origem `5e82fb68`** · migrations **380 (inalterado)** · MODO EXECUTOR sob GO macrofrente (ultracode). Resíduo P1 baselineado da DECISION-0113.
+
+**Achado (READ-FIRST):** `getAuthenticatedUserActor` derivava o "userActor" do `actionContext` cliente-declarado (user-match comparava dois hints); `actor_type='page'`/não-user validado só por existência (TODOs). Rotas economic (authorize/refund/execute) usam ActionContext server-resolved (safe).
+
+**Fix:** helper `userRepresentsActor(tenantId, req.user.userId, bodyActorId)` → `canRepresentActor` (ownership 'user' · gestão empresa 'page' · grupo · delegação), **fail-closed**, em TODOS os handlers body-actor: POST /events · /events/v2/draft · /events/v2/create · /events/:id/v2/commitments · check-in/out · checkout (gate ANTES de `processCheckout` — motor financeiro intocado). body.actor_* / actionContext = HINT.
+
+**Provas:** e2e `validate-pipeline-e2e-event-actor-body-binding` (DB efêmera) **12/12** — canRepresentActor truth (ownership/company) · T2 HTTP 403 não-representante · T1/T3 representante passa · ≥7 gates server-side · page existence-only removido · checkout gate antes de processCheckout · Bank intocado · contenções intactas. **Guard 0113 new=0 stale=0** (event.routes removido do baseline, sem maquiagem) + prova negativa OK. Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25 (baseline, zero novo). Sem migration; dev 380.
+
+**DTs:** `DT-0113-EVENT-ACTOR-BODY-BINDING` **CLOSED**; `DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY` baseline 10→9. **HOLD para reseal.** Não segui para PJ/cargos/grants, dispute/reversal financeiro, service_id nullable.
+
+---
+
 ## 2026-06-13 — F-DISPUTE-REVERSAL-AUTHORITY-BINDING-MODEL · modelo definitivo documentado, NADA reabilitado (DOCS+E2E, zero código produção) · DECISION_REQUIRED/HOLD
 
 **Branch:** `rescue-structural` · **HEAD origem `794a3b62`** · migrations **380 (inalterado, sem migration)** · MODO EXECUTOR sob GO macrofrente controlada (ultracode) · DECISION-0123.

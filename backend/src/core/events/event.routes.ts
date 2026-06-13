@@ -195,6 +195,28 @@ async function getAuthenticatedUserActor(
   };
 }
 
+/**
+ * 🔴 F-0113-EVENT-ACTOR-BODY-BINDING (DECISION-0113): actor_id/actor_type vindos do body (ou de
+ * actionContext) são HINT — nunca autoridade. A autoridade exige que o utilizador AUTENTICADO
+ * (`req.user.userId`) REPRESENTE o actor declarado, resolvido server-side por `canRepresentActor`
+ * (ownership do actor 'user' · gestão da empresa do 'page' · dono do grupo · delegação ativa).
+ * Fail-closed: sem userId/actorId ou sem representabilidade → false. Substitui o match fraco contra
+ * `actionContext.actorId` (também client-declared).
+ */
+async function userRepresentsActor(
+  tenantId: string,
+  userId: string | undefined,
+  actorId: string | undefined
+): Promise<boolean> {
+  if (!userId || !actorId) return false;
+  const { authorizationService } = await import('@core/authorization/authorization.service');
+  try {
+    return await authorizationService.canRepresentActor(tenantId, userId, actorId);
+  } catch {
+    return false;
+  }
+}
+
 const eventRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /events
@@ -270,27 +292,17 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           );
         }
 
-        // Validar que actor_id do input corresponde ao actor do usuário autenticado
-        if (req.body.actor_type === 'user' && req.body.actor_id !== userActor.actor_id) {
+        // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: actor_id/actor_type são HINT. O utilizador autenticado
+        // DEVE representar o actor declarado (user=ownership, page=gestão da empresa), resolvido
+        // server-side via canRepresentActor — fail-closed. Substitui o match contra actionContext.
+        if (!(await userRepresentsActor(req.tenant.id, req.user.userId, req.body.actor_id))) {
           return sendEventHttpError(
             reply,
             req,
             403,
             ErrorCode.FORBIDDEN,
-            'actor_id does not match authenticated user'
+            'Sem autoridade para representar o actor declarado'
           );
-        }
-
-        // Se actor_type é 'page', validar que actor pertence ao usuário
-        if (req.body.actor_type === 'page') {
-          const { socialPortsRegistry } = await import('@core/social/ports-registry');
-  const actorRepository = socialPortsRegistry.getActorRepository();
-          const pageActor = await actorRepository.findById(req.tenant.id, req.body.actor_id);
-          if (!pageActor) {
-            return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Actor (page) not found');
-          }
-          // Validar que page pertence ao usuário (via companies)
-          // TODO: Implementar validação completa de ownership de page
         }
 
         // Verificar débitos pendentes do actor efetivo (CONTRATO v1.4: bloqueia criação)
@@ -878,17 +890,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Actor (attendee) not found');
         }
 
-        // Validar ownership: se for user, deve ser o user autenticado; se for page, deve pertencer ao user
-        if (attendeeActor.actor_type === 'user' && req.body.attendee_actor_id !== userActor.actor_id) {
+        // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: attendee_actor_id é HINT. O utilizador autenticado DEVE
+        // representá-lo server-side (canRepresentActor) ANTES de qualquer fluxo econômico (processCheckout).
+        // Fail-closed; substitui o match contra actionContext. NÃO toca o motor financeiro.
+        if (!(await userRepresentsActor(req.tenant.id, req.user.userId, req.body.attendee_actor_id))) {
           return sendEventHttpError(
             reply,
             req,
             403,
             ErrorCode.FORBIDDEN,
-            'attendee_actor_id does not match authenticated user'
+            'Sem autoridade para representar o attendee declarado'
           );
         }
-        // TODO: Validar ownership de page (via companies)
 
         // Verificar débitos pendentes do actor efetivo (CONTRATO v1.4: bloqueia checkout)
         // CORREÇÃO: Verificar débitos do attendee_actor (pode ser user ou page)
@@ -1066,20 +1079,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        // Obter actor do ActionContext
-        const userActor = await getAuthenticatedUserActor(
-          req.tenant.id,
-          req.actionContext.actorId
-        );
-
-        // Validar que actor_id do input corresponde ao actor do usuário autenticado
-        if (req.body.actor_type === 'user' && req.body.actor_id !== userActor.actor_id) {
+        // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: actor_id é HINT — o utilizador autenticado DEVE representar
+        // o actor declarado server-side (canRepresentActor), fail-closed. Substitui o match contra actionContext.
+        if (!(await userRepresentsActor(req.tenant.id, req.user.userId, req.body.actor_id))) {
           return sendEventHttpError(
             reply,
             req,
             403,
             ErrorCode.FORBIDDEN,
-            'actor_id does not match authenticated user'
+            'Sem autoridade para representar o actor declarado'
           );
         }
 
@@ -1561,6 +1569,12 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: responsible_actor_id é HINT — o utilizador autenticado DEVE
+        // representar o actor que assume o commitment (fail-closed). Não inventa regra social de assignment
+        // cross-actor; bloqueia atribuir commitment a actor não representado.
+        if (!(await userRepresentsActor(req.tenant.id, req.user.userId, req.body.responsible_actor_id))) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, 'Sem autoridade para representar o responsible_actor declarado');
+        }
         const commitment = await operationalCommitmentsService.createCommitment(
           req.tenant.id,
           toCreateOperationalCommitmentInput(req.params.id, req.body)
@@ -1663,6 +1677,12 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: se observed_by_actor_id for declarado no body (schema
+        // runtime snake_case), o utilizador autenticado DEVE representá-lo (fail-closed).
+        const checkInObservedBy = (req.body as { observed_by_actor_id?: string }).observed_by_actor_id;
+        if (checkInObservedBy && !(await userRepresentsActor(req.tenant.id, req.user.userId, checkInObservedBy))) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, 'Sem autoridade para representar o observed_by_actor declarado');
+        }
         const commitment = await operationalCommitmentsService.checkIn(
           req.tenant.id,
           req.params.id,
@@ -1721,6 +1741,12 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: se observed_by_actor_id for declarado no body (schema
+        // runtime snake_case), o utilizador autenticado DEVE representá-lo (fail-closed).
+        const checkOutObservedBy = (req.body as { observed_by_actor_id?: string }).observed_by_actor_id;
+        if (checkOutObservedBy && !(await userRepresentsActor(req.tenant.id, req.user.userId, checkOutObservedBy))) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, 'Sem autoridade para representar o observed_by_actor declarado');
+        }
         const commitment = await operationalCommitmentsService.checkOut(
           req.tenant.id,
           req.params.id,
@@ -1928,6 +1954,17 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.tenant.id,
           req.actionContext.actorId
         );
+
+        // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: o actor que cria/avança o draft (actionContext) e o actor
+        // declarado no body (event.actor_id, se presente) são HINT — o utilizador autenticado DEVE
+        // representá-los server-side (canRepresentActor), fail-closed.
+        const declaredOwnerId = (req.body as { event?: { actor_id?: string } })?.event?.actor_id;
+        if (
+          !(await userRepresentsActor(req.tenant.id, req.user.userId, userActor.actor_id)) ||
+          (declaredOwnerId ? !(await userRepresentsActor(req.tenant.id, req.user.userId, declaredOwnerId)) : false)
+        ) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, 'Sem autoridade para representar o actor do evento');
+        }
 
         const event = await eventCreationOrchestrator.createOrAdvanceDraft(
           req.tenant.id,

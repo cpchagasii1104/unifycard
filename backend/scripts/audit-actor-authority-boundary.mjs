@@ -51,8 +51,11 @@ const BASELINE = {
   // (403 DISPUTE_REVERSAL_HTTP_DISABLED) + irmãs from-discrepancy/to-review/resolve contidas
   // (403 DISPUTE_MUTATION_HTTP_DISABLED) — parseActor/req.body.actor eliminados; guard não mais
   // detecta canal. DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY → P1 CONTAINED.
-  'core/events/event.routes.ts':
-    'body.actor_id/actor_type — write de evento sem binding no arquivo. DT-0113-EVENT-ACTOR-BODY-BINDING (P1).',
+  // core/events/event.routes.ts REMOVIDO do baseline (2026-06-13, F-0113-EVENT-ACTOR-BODY-BINDING):
+  // todos os handlers que liam actor do body (POST /events · /events/v2/draft · /events/v2/create ·
+  // /events/:id/v2/commitments · check-in/out · checkout) passaram a exigir representabilidade
+  // server-side via canRepresentActor (req.user.userId → actor), fail-closed. metadata/actionContext
+  // = HINT. DT-0113-EVENT-ACTOR-BODY-BINDING → CLOSED. Guard reconhece o binding helper.
   // Canais clássicos (params/query) em readers/filtros — DECISION-0113 clássica:
   'modules/public-profiles/public-profile.routes.ts': 'query.actorId — reader público (filtro). DT-0113-CLASSIC-CHANNEL-READERS.',
   'modules/business-audit/business-audit.routes.ts':   'query.actorId — auditoria (log/filtro). DT-0113-CLASSIC-CHANNEL-READERS.',

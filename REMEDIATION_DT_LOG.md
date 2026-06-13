@@ -12827,3 +12827,19 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   Permanece 403.
 - **Prova:** e2e `validate-pipeline-e2e-dispute-reversal-authority-model` 10/10 (contenções intactas;
   body.actor ignorado; reconciliation_disputes/_events + reversals/bank = 0). Sem migration; zero Bank.
+
+## DT-0113-EVENT-ACTOR-BODY-BINDING — CLOSED (2026-06-13)
+
+- **Status:** OPEN/P1 → **CLOSED** (F-0113-EVENT-ACTOR-BODY-BINDING).
+- **Causa:** `core/events/event.routes.ts` liam actor do BODY (actor_id/actor_type/responsible_actor_id/
+  observed_by_actor_id/attendee_actor_id) como ator-de-atuação; `getAuthenticatedUserActor` derivava o
+  "userActor" do `actionContext` client-declared (user-match comparava dois hints); page validado só por
+  existência (TODOs).
+- **Correção:** helper `userRepresentsActor(tenantId, req.user.userId, bodyActorId)` →
+  `authorizationService.canRepresentActor` (ownership 'user' · gestão empresa 'page' via company_users ·
+  grupo · delegação), **fail-closed**, em TODOS os handlers body-actor (POST /events · /events/v2/draft ·
+  /events/v2/create · /events/:id/v2/commitments · check-in/out · checkout [gate antes de processCheckout]).
+  body.actor_* e actionContext = HINT, nunca autoridade.
+- **Prova:** e2e `validate-pipeline-e2e-event-actor-body-binding` 12/12; guard 0113 new=0 stale=0
+  (event.routes removido do baseline, sem maquiagem) + prova negativa OK; Bank intocado; tsc 25; sem migration.
+- **Efeito sobre `DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY`:** baseline reduzido 10 → 9 (event.routes saiu).
