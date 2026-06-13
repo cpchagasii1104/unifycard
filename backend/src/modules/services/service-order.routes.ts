@@ -112,35 +112,24 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
   );
 
   /**
-   * POST /service-orders
-   * Cria ordem de serviço (status: DRAFT)
+   * POST /service-orders — CONTIDO (fail-closed).
+   *
+   * 🔴 CONTENÇÃO P1 — F-SERVICE-ORDER-DIRECT-CREATE-AUTHORITY-CONTAINMENT. A criação DIRETA de
+   * service_order via HTTP aceitava `workerActorId`/`customerActorId`/`bookingId`/`decisionId`/
+   * `serviceId` do BODY cliente-declarado, sem binding ao dono soberano da availability, sem
+   * validar representabilidade e sem exigir decisão ACCEPTED — vetor IRMÃO do confused-deputy
+   * (DECISION-0113/0121). Com a UNIQUE parcial em `service_orders.booking_id`, permitia ainda
+   * ocupar o slot e bloquear o fluxo legítimo (DoS). Reduzida ao 403 fail-closed: NÃO há caminho
+   * (alcançável ou morto) que chame `serviceOrderService.createOrder`. O caminho canônico é
+   * `POST /service-orders/confirm-booking` (`confirmBookingFromDecision`, binding ao dono).
+   * Reabilitação só com authority binding verificada. Ver DT-SERVICE-ORDER-CREATE-DIRECT-AUTHORITY-UNBOUND.
    */
-  fastify.post<{ Body: CreateServiceOrderInput }>('/service-orders', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-    }
-
-    // Converter scheduledStart e scheduledEnd de string para Date
-    const body = req.body as any;
-    if (body.scheduledStart) {
-      body.scheduledStart = new Date(body.scheduledStart);
-    }
-    if (body.scheduledEnd) {
-      body.scheduledEnd = new Date(body.scheduledEnd);
-    }
-
-    const order = await serviceOrderService.createOrder(
-      tenantId,
-      body,
-          actionContext.actorId,
-          actionContext.actorId
-    );
-
-    return reply.status(201).send(order);
+  fastify.post<{ Body: CreateServiceOrderInput }>('/service-orders', async (_req, reply) => {
+    return reply.status(403).send({
+      ok: false,
+      code: 'SERVICE_ORDER_DIRECT_CREATE_DISABLED',
+      message: 'Direct service order creation through HTTP is disabled until authority binding is implemented. Use the booking decision flow.',
+    });
   });
 
   /**

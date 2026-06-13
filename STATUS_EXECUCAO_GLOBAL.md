@@ -1,3 +1,17 @@
+## 2026-06-13 — F-SERVICE-ORDER-DIRECT-CREATE-AUTHORITY-CONTAINMENT · vetor irmão `POST /service-orders` contido (BACKEND+GUARD+E2E+GATES+DOCS, sem migration) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **HEAD origem `46212880`** · migrations **379 (inalterado)** · MODO EXECUTOR sob GO curto.
+
+**Causa (P1, achado no reseal de F-BOOKING-ORDER-BINDING-CANONICAL):** `serviceOrderService.createOrder` (caller único: `POST /service-orders`) aceitava `workerActorId`/`customerActorId`/`bookingId`/`decisionId`/`serviceId` do BODY cliente-declarado, sem binding ao dono da availability — vetor irmão do confused-deputy. Com a UNIQUE parcial de booking_id, permitia order spoofada e/ou ocupar o slot (DoS).
+
+**Contenção:** handler `POST /service-orders` reduzido a **`403 SERVICE_ORDER_DIRECT_CREATE_DISABLED`** (sem dead code; `serviceOrderService.createOrder` não alcançado por rota). Caminho canônico `confirm-booking` (`confirmBookingFromDecision`) intacto. Sem requireRole/requirePermission; binding definitivo não implementado.
+
+**Provas:** e2e `validate-pipeline-e2e-service-order-direct-create-containment` (DB efêmera, Fastify inject + service-layer) **8/8** — T1 403 · T2 não-404 · T3 zero order direta · T4 canônico intacto · T5 duplicidade · T6 Bank · T7 dispute containment. Guard `audit-booking-order-authority-binding` checked=5/0 (novo check da rota) + prova negativa dupla. Gates: actor-writer OK · bank-ledger OK · regression-guards EXIT 0 · arch --strict critical_new=0 · tsc 25 (baseline, zero novo). Sem migration; dev 379.
+
+**DTs:** `DT-SERVICE-ORDER-CREATE-DIRECT-AUTHORITY-UNBOUND` **OPEN / P1 CONTAINED**; `DT-BOOKING-ORDER-AUTHORITY-CONFUSED-DEPUTY` classe **CONTAINED** (ambas superfícies fail-closed). **F-BOOKING-ORDER-BINDING-CANONICAL: PARTIAL → CLOSED** (pendente reseal). **HOLD para reseal.** Não segui para service_offering migration, modelo de reversal, nem PJ/cargos/grants/CNAE.
+
+---
+
 ## 2026-06-13 — F-BOOKING-ORDER-BINDING-CANONICAL · confused-deputy booking→decision→order contido (BACKEND+MIGRATION+GUARD+E2E+GATES+DOCS) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **HEAD origem `23c80ee0`** · migrations 378→**379** · MODO EXECUTOR sob GO macrofrente · DECISION-0121.

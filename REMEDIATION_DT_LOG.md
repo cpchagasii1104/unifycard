@@ -12773,3 +12773,28 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   do binding a partir do offering, mantendo `service_id` legado durante a convergência. Sem tocar Bank.
 - **Não bloqueia:** a cadeia já vincula autoridade ao dono soberano; o `service_id` legado é consistente
   com o dono (enforced).
+
+## DT-SERVICE-ORDER-CREATE-DIRECT-AUTHORITY-UNBOUND
+
+- **Status:** OPEN / **P1 CONTAINED** (2026-06-13, F-SERVICE-ORDER-DIRECT-CREATE-AUTHORITY-CONTAINMENT)
+- **Severidade:** P1 (vetor irmão do confused-deputy — achado no reseal de F-BOOKING-ORDER-BINDING-CANONICAL)
+- **Origem:** `serviceOrderService.createOrder` (atrás de `POST /service-orders`) aceitava
+  `workerActorId`/`customerActorId`/`bookingId`/`decisionId`/`serviceId` do BODY cliente-declarado,
+  sem binding ao dono soberano da availability, sem representabilidade e sem exigir decisão ACCEPTED.
+  Com a UNIQUE parcial `uidx_service_orders_booking_id`, permitia criar order `draft` sobre o booking
+  de outro (worker spoofado) e/ou ocupar o slot bloqueando o fluxo legítimo (DoS / authority bypass lateral).
+- **Contenção (edge HTTP, fail-closed):** o handler `POST /service-orders` foi reduzido a
+  **`403 SERVICE_ORDER_DIRECT_CREATE_DISABLED`** ANTES de qualquer chamada — NÃO há caminho
+  (alcançável ou morto) que chame `serviceOrderService.createOrder`. O método de serviço permanece
+  (dormente, sem caller HTTP). Caminho canônico `POST /service-orders/confirm-booking`
+  (`confirmBookingFromDecision`, binding ao dono) intacto. Não se usou requireRole/requirePermission;
+  worker/customer/booking/decision/service do body não liberados; binding definitivo não implementado.
+- **Guard:** `audit-booking-order-authority-binding.mjs` agora falha se `service-order.routes.ts`
+  voltar a chamar `serviceOrderService.createOrder` (prova negativa fase 2). e2e
+  `validate-pipeline-e2e-service-order-direct-create-containment` 8/8.
+- **Resolução prevista (fatia própria):** bindar `createOrder` ao dono da availability quando houver
+  `bookingId`/`workerActorId` (mesmo primitivo `resolveAvailabilityOwner` + `canRepresentActor`), OU
+  manter desabilitado e canalizar tudo pelo fluxo de decisão. Sem tocar Bank.
+- **Efeito sobre DT-BOOKING-ORDER-AUTHORITY-CONFUSED-DEPUTY:** com esta contenção, ambas as
+  superfícies (decisão e criação direta) são fail-closed contra o confused-deputy — a CLASSE está
+  **CONTAINED** (binding definitivo do createOrder segue como dívida acima).

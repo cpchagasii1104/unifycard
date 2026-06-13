@@ -73,6 +73,23 @@ for (const rel of KNOWN_WRITERS) {
   }
 }
 
+// 1b) Rota HTTP direta POST /service-orders CONTIDA (F-SERVICE-ORDER-DIRECT-CREATE-AUTHORITY-
+//     CONTAINMENT): não pode chamar serviceOrderService.createOrder (criação direta com
+//     worker/customer/booking/decision/service cliente-declarados, sem binding ao dono — vetor
+//     irmão do confused-deputy). Reabertura = regressão.
+{
+  const rel = 'modules/services/service-order.routes.ts';
+  const p = join(SRC, rel);
+  if (!existsSync(p)) {
+    failures.push(`FORBIDDEN_REGRESSION: rota de service-order desapareceu: ${rel}`);
+  } else {
+    checked++;
+    if (/serviceOrderService\.createOrder\(/.test(read(p))) {
+      failures.push(`CONFUSED_DEPUTY_REGRESSION: ${rel} voltou a chamar serviceOrderService.createOrder direto via HTTP (criação direta sem binding ao dono soberano — contenção rompida).`);
+    }
+  }
+}
+
 // 2) Varredura ampla: QUALQUER novo writer (cria order/decisão) que leia metadata.serviceId sem
 //    binding canônico = nova violação.
 for (const file of walk(SRC)) {

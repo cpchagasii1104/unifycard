@@ -50,8 +50,22 @@ Remove-Item $probeDir -Force -Recurse -ErrorAction SilentlyContinue
 
 $guardOkAgain = ((Invoke-Guard) -eq 0)
 
-$ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe))
-Write-Host "[neg-proof booking-order-authority-binding] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain residue=$([bool](Test-Path $probeDir))"
+# 4) Fase 2: re-exposicao da rota direta POST /service-orders chamando serviceOrderService.createOrder.
+$routes = Join-Path (Get-Location) 'src\modules\services\service-order.routes.ts'
+$bak = "$routes.negbak"
+Copy-Item $routes $bak -Force
+$routeFailed = $false; $routeRestored = $false
+try {
+    Add-Content -Path $routes -Value 'const _negProbe = async () => serviceOrderService.createOrder(0 as any, 0 as any, "", "");' -Encoding UTF8
+    $routeFailed = ((Invoke-Guard) -ne 0)
+}
+finally {
+    Move-Item $bak $routes -Force
+    $routeRestored = ((Invoke-Guard) -eq 0)
+}
+
+$ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) -and $routeFailed -and $routeRestored -and (-not (Test-Path $bak))
+Write-Host "[neg-proof booking-order-authority-binding] baseOk=$baseOk writerViolationFailed=$guardFailed writerRestoredOk=$guardOkAgain routeReexposeFailed=$routeFailed routeRestoredOk=$routeRestored residue=$([bool](Test-Path $probeDir))"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
-Write-Host 'NEGATIVE PROOF: OK — guard detecta writer confused-deputy novo; restauracao limpa.' -ForegroundColor Green
+Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) writer confused-deputy novo e (b) re-exposicao da rota direta; restauracao limpa.' -ForegroundColor Green
 exit 0
