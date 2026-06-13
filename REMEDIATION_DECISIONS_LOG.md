@@ -6921,3 +6921,17 @@ service próprio. `confirmBookingFromDecision` segue caminho único; POST /servi
 Detalhe: `docs/02_decisions/DECISION_0122_SERVICE_OFFERING_CANONICAL_BINDING.md`. Resíduo:
 DT-BOOKING-ORDER-SERVICE-OFFERING-CANONICAL-BINDING → PARTIAL/CONTAINED (service_id NOT NULL exige
 mudança estrutural/produto para ofertas sem service de apoio).
+
+## DECISION-0123 — Modelo de autoridade dispute/reversal HTTP (DECISION_REQUIRED)
+
+**Data:** 2026-06-13 · **Frente:** F-DISPUTE-REVERSAL-AUTHORITY-BINDING-MODEL · **Branch:** rescue-structural
+
+Modelo definitivo documentado; **nada reabilitado**; zero código de rota/Bank/engine/migration. As 4 rotas
+seguem 403. **P0 `/reversal`** move dinheiro real (`requestAndExecuteReversalSync`→bank_transactions) com
+`authoritySource:'system'` (CORE_ESTORNOS: system=evento externo, NÃO ação HTTP humana) — reabilitar exige
+**Core de Aprovação Financeira** + caminho job/evento interno (não HTTP). **P1** (estado puro) não tem
+binding simples: sem permission-key canônica (`dispute:*`), sem actor party resolvível (disputa é
+operacional/sistêmica), `admin/support` sem papel material fora do RBAC V2 → exige decisão de permission-key
++ política de quem faz reconciliação manual + escopo company/tenant. Ambos = decisão de produto (STOP).
+Detalhe: `docs/02_decisions/DECISION_0123_DISPUTE_REVERSAL_AUTHORITY_BINDING_MODEL.md`. Prova: e2e 10/10
+(contenções intactas, body.actor ignorado, Bank intocado).

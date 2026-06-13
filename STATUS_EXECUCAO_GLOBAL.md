@@ -1,3 +1,17 @@
+## 2026-06-13 — F-DISPUTE-REVERSAL-AUTHORITY-BINDING-MODEL · modelo definitivo documentado, NADA reabilitado (DOCS+E2E, zero código produção) · DECISION_REQUIRED/HOLD
+
+**Branch:** `rescue-structural` · **HEAD origem `794a3b62`** · migrations **380 (inalterado, sem migration)** · MODO EXECUTOR sob GO macrofrente controlada (ultracode) · DECISION-0123.
+
+**READ-FIRST (10 respostas):** P1 mutations (from-discrepancy/to-review/resolve) = estado puro (zero dinheiro); P0 `/reversal` move dinheiro real (`requestAndExecuteReversalSync`→bank_transactions, `authoritySource:'system'`). **NÃO** há admin/support real fora do RBAC V2; **zero permission-key** canônica para dispute/reconciliation; disputa é operacional/sistêmica **sem actor party resolvível**; `system` proibido de rota HTTP humana (CORE_ESTORNOS).
+
+**Decisão: DECISION_REQUIRED / HOLD.** Nenhuma rota reabilitada; **zero código de rota/Bank/engine/migration**. **P0** exige Core de Aprovação Financeira + caminho job/evento interno (reversão HTTP humana = erro de categoria na taxonomia). **P1** exige decisão de produto: permission-key + política de quem faz reconciliação manual + escopo company/tenant. Ambos = STOP do GO.
+
+**Provas:** e2e `validate-pipeline-e2e-dispute-reversal-authority-model` (DB efêmera) **10/10** — 4 rotas seguem 403 (body.actor IGNORADO, antes de parseActor/service) · zero linha em reconciliation_disputes/_events · zero em reversals/bank_ledger/bank_transactions · contenções + GET /events intactos. Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25 (baseline, zero novo). Sem migration; dev 380.
+
+**DTs:** `DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED` (P0) e `DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY` (P1) seguem **CONTAINED** + modelo/decisão registrada (DECISION-0123). **HOLD para decisão de produto.** Não segui para PJ/cargos/grants, service_id nullable, CNAE/capability.
+
+---
+
 ## 2026-06-13 — F-SERVICE-OFFERING-CANONICAL-BINDING · oferta = recurso comercial canônico da decision/order (BACKEND+MIGRATION+GUARD+E2E+GATES+DOCS) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **HEAD origem `68c99da6`** · migrations 379→**380** · MODO EXECUTOR sob GO macrofrente (ultracode) · DECISION-0122.

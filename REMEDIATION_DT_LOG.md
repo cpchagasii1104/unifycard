@@ -12811,3 +12811,19 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   de apoio exige tornar `service_id` nullable + caminho que popule `service_offerings.service_id` (hoje
   sempre NULL na criação). `service_id` segue como legado/projeção, validado contra o provider soberano.
 - **Não bloqueia:** a autoridade já deriva 100% do provider soberano (offering), nunca do service_id/metadata.
+
+## DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED / DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY — MODELO (2026-06-13)
+
+- **Status:** ambos seguem **CONTAINED** (403 fail-closed); modelo definitivo documentado em DECISION-0123
+  (F-DISPUTE-REVERSAL-AUTHORITY-BINDING-MODEL). **Nada reabilitado** — DECISION_REQUIRED.
+- **P0 (DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED):** `/reversal` move dinheiro real; `authoritySource=
+  'system'` (CORE_ESTORNOS) = evento externo, não ação HTTP humana. Reabilitar exige **Core de Aprovação
+  Financeira** (approval_requests + lineage não-system) + caminho **job/evento interno**, não rota humana.
+  HARD STOP (engine/migration financeira). Permanece 403.
+- **P1 (DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY):** estado puro, mas sem binding simples — **zero
+  permission-key canônica** (`dispute:*`), disputa sem **actor party resolvível** (operacional/sistêmica),
+  `admin/support` sem papel material fora do RBAC V2. Reabilitar exige (a) definir permission-key, (b)
+  decidir política de quem faz reconciliação manual, (c) decidir escopo company/tenant — decisão de produto.
+  Permanece 403.
+- **Prova:** e2e `validate-pipeline-e2e-dispute-reversal-authority-model` 10/10 (contenções intactas;
+  body.actor ignorado; reconciliation_disputes/_events + reversals/bank = 0). Sem migration; zero Bank.
