@@ -589,6 +589,81 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
   });
+
+  // GET /auth/check-referral?code=<CODE>
+  // Validação PÚBLICA (pré-sessão) de código de indicação para UX em tempo real.
+  // F-REGISTER-PRELAUNCH-BLOCKERS A1 (Opção A): resolve o tenant institucional
+  // `unificard-inicial` SERVER-SIDE (mesma decisão TENANT do cadastro orgânico,
+  // DECISION-0115 D1) — NUNCA confia em x-tenant-id do cliente como autoridade.
+  // Shape estável { valid: boolean }; não aplica, não escreve, não cria actor.
+  fastify.get<{ Querystring: { code?: string } }>('/check-referral', async (req, reply) => {
+    const rawCode = req.query.code;
+
+    if (!rawCode || typeof rawCode !== 'string' || rawCode.trim() === '') {
+      return reply.status(400).send({ error: 'Código de indicação é obrigatório' });
+    }
+    // Reusa o MESMO formato de /referral/validate (alfanumérico, 4-32).
+    const code = rawCode.trim();
+    const codeRegex = /^[A-Za-z0-9]{4,32}$/;
+    if (!codeRegex.test(code)) {
+      return reply.status(400).send({ error: 'Formato de código de indicação inválido' });
+    }
+
+    // 🔴 RATE LIMITING (equivalente ao check-cpf). IP/sem-tenant — pré-sessão.
+    try {
+      const rateLimitCheck = await authRateLimitService.checkRateLimit('auth.check-referral', req);
+      if (!rateLimitCheck.allowed) {
+        fastify.log.warn({
+          route: '/auth/check-referral',
+          ip: authRateLimitService.extractClientIp(req),
+          reason: rateLimitCheck.reason,
+          limit: rateLimitCheck.limit,
+          resetAt: rateLimitCheck.resetAt.toISOString(),
+        }, '🚫 [AUTH] Rate limit excedido em /auth/check-referral');
+        throw new RateLimitError(
+          `Limite de verificações de indicação excedido. Tente novamente após ${rateLimitCheck.resetAt.toISOString()}`,
+          rateLimitCheck.resetAt,
+          rateLimitCheck.remaining
+        );
+      }
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        return reply.status(429).send({
+          success: false,
+          error: error.message,
+          resetAt: error.resetAt?.toISOString(),
+          remaining: error.remaining,
+        });
+      }
+      // Fail-open: erro no rate limit não quebra o fluxo de UX.
+      fastify.log.warn({ err: error }, '[AUTH] Erro ao verificar rate limit referral (fail-open)');
+    }
+
+    try {
+      // TENANT server-side — x-tenant-id do cliente é IGNORADO por desenho.
+      const { tenantService } = await import('@core/tenants/tenant.service');
+      const { runQueryWithTenant } = await import('@core/database/pool');
+      const institutionalTenant = await tenantService.getTenantBySlug('unificard-inicial');
+      const tenantId = institutionalTenant.tenantId;
+
+      const referrer = await runQueryWithTenant<{ user_id: string }>(
+        tenantId,
+        `SELECT user_id
+           FROM users
+          WHERE tenant_id = $1 AND UPPER(referral_code) = UPPER($2)
+          LIMIT 1`,
+        [tenantId, code]
+      );
+
+      // Shape simples e estável; existência ⇒ valid:true, ausência ⇒ valid:false.
+      return reply.status(200).send({ valid: !!(referrer && referrer.user_id) });
+    } catch (error) {
+      // Erro técnico pré-sessão NÃO é "código inválido" confirmado → 500 honesto
+      // (o frontend mantém o status como indeterminado, não bloqueia o cadastro).
+      fastify.log.error({ err: error }, 'Erro ao validar código de indicação (público)');
+      return reply.status(500).send({ error: 'Erro ao validar código de indicação' });
+    }
+  });
 };
 
 export default authRoutes;

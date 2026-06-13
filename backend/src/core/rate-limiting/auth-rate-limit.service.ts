@@ -19,6 +19,7 @@ export type AuthRateLimitAction =
   | 'auth.login'
   | 'auth.register'
   | 'auth.check-cpf'
+  | 'auth.check-referral'
   | 'auth.webauthn.challenge'
   | 'auth.webauthn.verify'
   | 'auth.refresh';
@@ -46,6 +47,12 @@ const RATE_LIMITS: Record<AuthRateLimitAction, {
     max: parseInt(process.env.RATE_LIMIT_AUTH_CHECK_CPF || '10', 10), // 10 verificações/minuto
     windowMs: parseInt(process.env.RATE_LIMIT_AUTH_CHECK_CPF_WINDOW_MS || '60000', 10), // 1 minuto
     description: 'CPF check attempts',
+  },
+  'auth.check-referral': {
+    // Pré-sessão: limite equivalente (ou mais restritivo) ao check-cpf.
+    max: parseInt(process.env.RATE_LIMIT_AUTH_CHECK_REFERRAL || '10', 10), // 10 verificações/minuto
+    windowMs: parseInt(process.env.RATE_LIMIT_AUTH_CHECK_REFERRAL_WINDOW_MS || '60000', 10), // 1 minuto
+    description: 'Referral code check attempts (pre-session)',
   },
   'auth.webauthn.challenge': {
     max: parseInt(process.env.RATE_LIMIT_AUTH_WEBAUTHN_CHALLENGE || '10', 10), // 10 challenges/minuto

@@ -274,8 +274,27 @@ export async function applyReferralCode(referralCode: string): Promise<ApplyRefe
   return response.json();
 }
 
+/**
+ * Validação PRÉ-SESSÃO de código de indicação (F-REGISTER-PRELAUNCH-BLOCKERS A1).
+ * Usa o endpoint PÚBLICO /auth/check-referral via apiFetchPublic — sem JWT, sem
+ * tenant do cliente (o backend resolve `unificard-inicial` server-side). Antes,
+ * isto chamava /referral/validate (rota logada) e lançava TENANT_ID_REQUIRED no
+ * pré-cadastro, bloqueando o usuário novo com código válido.
+ *
+ * Erro técnico pré-sessão NUNCA vira "código inválido" confirmado: só 200 com
+ * { valid: false } é inválido confirmado; qualquer falha de rede/HTTP propaga
+ * como exceção e o chamador trata como indeterminado (não bloqueia o cadastro).
+ */
 export async function validateReferralCode(code: string): Promise<ValidateReferralCodeResponse> {
-  const response = await apiFetch(`/referral/validate?code=${encodeURIComponent(code)}`);
+  const response = await apiFetchPublic(`/auth/check-referral?code=${encodeURIComponent(code)}`);
+  if (!response.ok) {
+    // 400 (formato) também é resposta de validação → inválido confirmado.
+    if (response.status === 400) {
+      return { valid: false };
+    }
+    // 429/500/rede: indeterminado — propaga para o chamador NÃO marcar inválido.
+    throw new Error(`check-referral falhou: HTTP ${response.status}`);
+  }
   return response.json();
 }
 

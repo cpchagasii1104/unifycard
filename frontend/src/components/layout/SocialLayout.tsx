@@ -21,7 +21,9 @@ export default function SocialLayout() {
     actors,
     hasValidActor,
     authHydrated,
+    refreshActors,
   } = useActiveActor();
+  const [isReloadingContext, setIsReloadingContext] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({
     feed: 0,
     groups: 0,
@@ -41,6 +43,20 @@ export default function SocialLayout() {
   const handleLogout = () => {
     clearSession();
     navigate('/login');
+  };
+
+  // F-REGISTER-PRELAUNCH-BLOCKERS A3: recuperação do contexto SEM cura por leitura.
+  // refreshActors apenas REFETCH os actors disponíveis (read) + re-dispara o
+  // bootstrap via auth-changed; NÃO cria actor, NÃO chama writer.
+  const handleReloadContext = async () => {
+    if (isReloadingContext) return;
+    setIsReloadingContext(true);
+    try {
+      await refreshActors();
+      window.dispatchEvent(new Event('auth-changed'));
+    } finally {
+      setIsReloadingContext(false);
+    }
   };
 
   // Obter apps disponíveis para o contexto atual
@@ -174,10 +190,23 @@ export default function SocialLayout() {
         </div>
       );
     }
+    // Estado autenticado + hidratado + sem actor: recuperável, NÃO beco sem saída.
+    // CTAs operacionais (nenhum cria actor por leitura — A3).
     return (
       <div className="social-layout social-layout--blocked" style={{ padding: '2rem', textAlign: 'center' }}>
         <p>Não há actor disponível para esta conta.</p>
-        <p>Crie ou associe um perfil ou empresa para continuar a usar a área social.</p>
+        <p>Isto costuma ser um contexto ainda não carregado. Tente recarregar ou abra o seu perfil.</p>
+        <div className="social-layout__recovery-actions" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <button type="button" onClick={handleReloadContext} disabled={isReloadingContext}>
+            {isReloadingContext ? 'A recarregar…' : 'Recarregar contexto'}
+          </button>
+          <button type="button" onClick={() => navigate('/perfil')}>
+            Ir para o meu perfil
+          </button>
+          <button type="button" onClick={handleLogout}>
+            Sair e entrar novamente
+          </button>
+        </div>
       </div>
     );
   }

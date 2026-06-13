@@ -112,7 +112,10 @@ function AuthWrapper() {
     location.pathname === '/register' ? 'register' : 'login';
 
   const handleLoginSuccess = () => navigate('/home');
-  const handleRegisterSuccess = () => navigate('/home');
+  // F-REGISTER-PRELAUNCH-BLOCKERS A2: decisão de rota pós-cadastro centralizada aqui
+  // (navegação SPA; preserva o bootstrap disparado por auth-changed, sem reload total).
+  const handleRegisterSuccess = (opts?: { requiresOnboarding?: boolean }) =>
+    navigate(opts?.requiresOnboarding ? '/perfil' : '/home');
 
   if (currentView === 'register') {
     return (

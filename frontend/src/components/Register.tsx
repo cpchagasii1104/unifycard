@@ -13,7 +13,12 @@ import InfoTooltip from './ui/InfoTooltip';
 import './Register.css';
 
 interface RegisterProps {
-  onRegisterSuccess: () => void;
+  /**
+   * Sucesso de cadastro. A DECISÃO de rota pós-cadastro fica no chamador
+   * (AuthWrapper), que detém o `navigate` SPA — sem verdade paralela aqui.
+   * `requiresOnboarding` direciona /perfil vs /home (F-REGISTER-PRELAUNCH A2).
+   */
+  onRegisterSuccess: (opts?: { requiresOnboarding?: boolean }) => void;
   onBackToLogin: () => void;
   onBackToHome?: () => void;
 }
@@ -113,15 +118,14 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
     referralDebounceTimerRef.current = setTimeout(async () => {
       try {
         const result = await validateReferralCode(trimmedCode);
-        if (result.valid) {
-          setReferralStatus('valid');
-        } else {
-          setReferralStatus('invalid');
-        }
+        // Só a resposta de validação (200 valid:false ou 400 formato) confirma inválido.
+        setReferralStatus(result.valid ? 'valid' : 'invalid');
       } catch (err) {
-        // HTTP 404 ou 400 = código inválido
-        // Outros erros também tratados como inválidos para não bloquear UX
-        setReferralStatus('invalid');
+        // F-REGISTER-PRELAUNCH-BLOCKERS A1: erro TÉCNICO pré-sessão (rede/429/500)
+        // NÃO é "código inválido" confirmado → volta a 'idle' (indeterminado), para
+        // não bloquear o submit. O register server-side é a fonte de verdade final.
+        console.warn('[Register] Validação de referral indeterminada (erro técnico):', err);
+        setReferralStatus('idle');
       }
     }, 400);
 
@@ -268,17 +272,15 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
         
         // 🔴 PARTE 2 - ONBOARDING: Verificar se precisa de onboarding
         const requiresOnboarding = result.data.requiresOnboarding === true;
-        
-        // Disparar evento para SessionProvider re-bootstrap
+
+        // Disparar evento para SessionProvider re-bootstrap (hidratação de sessão).
         window.dispatchEvent(new CustomEvent('auth-changed'));
-        
-        // 🔴 ONBOARDING: Redirecionar para perfil se precisa de onboarding (SEM sessionStorage)
-        if (requiresOnboarding) {
-          // Redirecionar para perfil - Profile.tsx verificará diretamente do backend
-          window.location.href = '/perfil';
-        } else {
-          onRegisterSuccess();
-        }
+
+        // F-REGISTER-PRELAUNCH-BLOCKERS A2: navegação SPA (sem window.location.href,
+        // que faria reload total e destruiria o bootstrap recém-agendado por
+        // auth-changed). A rota (/perfil quando requiresOnboarding, senão /home) é
+        // decidida pelo chamador que detém o navigate.
+        onRegisterSuccess({ requiresOnboarding });
       } else {
         setError('Registro falhou');
       }
