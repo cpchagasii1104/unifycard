@@ -12626,3 +12626,31 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Status:** **OPEN** — NÃO aplicar migration nesta frente (documental). Sem necessidade de
   PARAR para novo GO: os dados estão limpos e isto é hardening eletivo, não correção urgente.
   Aplicar somente sob GO dedicado (fatia de migration).
+
+## DT-ONBOARDING-LOCK-FLAGS-METADATA-NO-EVENT — OPEN → MITIGADA (2026-06-13, frente F-CIVIL-IDENTITY-CONFIRMATION-SSOT-SEPARATION)
+
+- **Origem (DECISION-0115):** `onboarding_completed`/`personal_data_locked`/
+  `profile_personal_confirmed` em `profiles`/`profiles.metadata` operavam como flags de
+  AUTORIDADE da confirmação/trava civil — sem evento versionado/auditável
+  (`USER_PROFILE_CONTRACT §4`), violando o Perfil-como-projeção.
+- **Status:** **MITIGADA (2026-06-13)** — DECISION-0120 promulgada; a confirmação/trava civil
+  passou a viver na camada identity AUDITÁVEL e append-only:
+  - migration `20260613130000_identity_civil_confirmation_events.sql` (append-only; FK
+    `global_users(global_user_id)`/`users(id)`/`actors(id)`; UNIQUE parcial "uma confirmação
+    vigente"; RLS; CPF só por hash/parcial no snapshot; backfill SEM perda — 8 profiles
+    travados → 8 eventos; aviso visto projetado para quem já clicara "Entendi");
+  - `identityCivilConfirmationService` (hasVigent/canEditCivilData/confirmCivilData);
+  - `profileService.canEditPersonalData` passou a DELEGAR à camada identity (não lê mais
+    `personal_data_locked`/`profilePersonalConfirmed` como autoridade);
+  - `confirmFirstAccess` ("Entendi, continuar") marca SOMENTE `first_access_notice_seen_at`
+    (D2 — aviso visto), não confirma/trava;
+  - novo `POST /identity/confirm-civil-data` (D3/D4); `GET /identity/me` projeta
+    `first_access_notice_seen`/`civil_data_confirmed`/`can_edit_personal_data` da camada identity;
+  - write path civil (`updateGlobalIdentity`) respeita a trava via `canEditPersonalData`
+    (agora identity-derived).
+- **Resíduo (fatia própria — OPEN):** `DT-ONBOARDING-LOCK-FLAGS-METADATA-CLEANUP` — cleanup/
+  tombstone definitivo das flags legadas em `profiles.metadata`
+  (`profile_personal_confirmed`/`personal_data_locked`) e da coluna
+  `profiles.is_profile_personal_confirmed` (hoje PROJEÇÃO/tombstone, não autoridade); avaliar
+  remover o auto-lock `personal_data_locked` em `upsertProfile` (inerte hoje). `onboarding_completed`
+  (completude ≠ confirmação civil) segue em metadata. Desbloqueio civil governado = frente futura.

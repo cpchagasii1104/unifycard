@@ -277,18 +277,13 @@ const profileRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * POST /profile/confirm-first-access
-   * Confirma primeiro acesso - seta profile_personal_confirmed = true
-   * 🔴 FONTE ÚNICA DE VERDADE: Esta é a flag que controla:
-   *  - Se o modal de primeiro acesso aparece (false = aparece, true = não aparece)
-   *  - Se os campos pessoais estão bloqueados (true = cadeado ativo)
-   *
-   * REGRA DE OURO:
-   * - Este endpoint FAZ APENAS: setar profile_personal_confirmed = true
-   * - NÃO valida dados obrigatórios (isso é responsabilidade do handleSavePersonal)
-   * - Permite que o usuário feche o modal e preencha os campos DEPOIS
-   * - A validação acontece no salvamento do perfil, não na confirmação do modal
-   * - NÃO exige body (pode ser vazio)
+   * POST /profile/confirm-first-access — DECISION-0120 D2.
+   * Marca SOMENTE o aviso/modal de primeiro acesso como VISTO
+   * (`metadata.first_access_notice_seen_at`). Controla apenas a visibilidade do modal.
+   *  - NÃO confirma dados civis (ação explícita = POST /identity/confirm-civil-data);
+   *  - NÃO trava edição civil (a trava civil é autoridade da camada identity, D6);
+   *  - NÃO valida dados obrigatórios;
+   *  - NÃO exige body (pode ser vazio).
    */
   fastify.post('/confirm-first-access', {
     bodyLimit: 1024,

@@ -102,13 +102,18 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       // (profilePersonalConfirmed=false / canEditPersonalData=true) representam o primeiro acesso
       // sem materializar linha. A criação é writer explícito (PUT /profile), nunca este GET.
       const userProfile = await profileService.getProfile(req.tenant.id, userId);
-      
-      // 🔴 FONTE ÚNICA DE VERDADE: profile_personal_confirmed controla modal e cadeado
-      // false → modal aparece, campos editáveis (primeiro acesso)
-      // true → modal não aparece, campos bloqueados (já confirmado)
-      // Se não tem profile, assume false (primeiro acesso - modal aparece)
-      const profilePersonalConfirmed = userProfile ? userProfile.profilePersonalConfirmed : false;
-      const canEditPersonalData = userProfile ? userProfile.canEditPersonalData : true;
+
+      // DECISION-0120: a AUTORIDADE da trava/confirmação civil é a camada IDENTITY
+      // (evento auditável), NÃO profiles. O modal de primeiro acesso é controlado por
+      // AVISO VISTO (D2); o cadeado civil por CONFIRMAÇÃO CIVIL (D3/D6).
+      const { identityCivilConfirmationService } = await import('@core/identity/identity-civil-confirmation.service');
+      const civilState = await identityCivilConfirmationService.getState(req.tenant.id, userId);
+      const firstAccessNoticeSeen = await profileService.hasSeenFirstAccessNotice(req.tenant.id, userId);
+      const canEditPersonalData = civilState.canEditCivilData;
+      const civilDataConfirmed = civilState.civilDataConfirmed;
+      // `profile_personal_confirmed` agora é PROJEÇÃO DEPRECADA (= confirmação civil),
+      // mantida só para compat de clientes antigos; não é mais autoridade.
+      const profilePersonalConfirmed = civilDataConfirmed;
       
       // F2 GENDER (DECISION-0080): gender canônico vem de global_users.gender (profile.global.gender).
       // Espelha no metadata exposto ao frontend (que ainda espera metadata.gender), SEM depender do blob —
@@ -135,10 +140,15 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
           metadata: profileMetadata, // Incluir metadata com gender
           createdAt: userProfile.createdAt,
           updatedAt: userProfile.updatedAt,
-          profile_personal_confirmed: userProfile.profilePersonalConfirmed,
-          can_edit_personal_data: userProfile.canEditPersonalData,
+          // Projeção do estado da camada identity (não dos flags legados de profiles).
+          profile_personal_confirmed: profilePersonalConfirmed,
+          can_edit_personal_data: canEditPersonalData,
         } : null,
-        // 🔴 FONTE ÚNICA DE VERDADE: profile_personal_confirmed controla modal e cadeado
+        // DECISION-0120: estado derivado da camada IDENTITY (projeção; profiles não é autoridade).
+        // first_access_notice_seen → controla o MODAL (D2). civil_data_confirmed/can_edit_personal_data
+        // → controlam o CADEADO civil (D3/D6). profile_personal_confirmed = projeção deprecada.
+        first_access_notice_seen: firstAccessNoticeSeen,
+        civil_data_confirmed: civilDataConfirmed,
         profile_personal_confirmed: profilePersonalConfirmed,
         can_edit_personal_data: canEditPersonalData,
       };
@@ -969,9 +979,9 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * POST /identity/confirm-first-access
-   * Confirma primeiro acesso (chamado pelo botão "Entendi, continuar" do modal)
-   * 🔴 FONTE ÚNICA DE VERDADE: Seta profile_personal_confirmed = true
-   * Isso bloqueia os campos permanentemente e esconde o modal
+   * Botão "Entendi, continuar" do modal — DECISION-0120 D2: marca SOMENTE o aviso/modal
+   * como VISTO (`first_access_notice_seen_at`). NÃO confirma dados civis e NÃO trava
+   * edição civil (isso é a ação explícita POST /identity/confirm-civil-data).
    * - NÃO exige body (pode ser vazio)
    */
   fastify.post('/confirm-first-access', {
@@ -998,30 +1008,76 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
-      const actorId = req.actionContext.actorId;
       const userId = req.user.id;
 
       const { profileService } = await import('@core/profile/profile.service');
-      
-      // 🔴 FONTE ÚNICA DE VERDADE: Confirmar primeiro acesso
-      // Isso seta profile_personal_confirmed = true
+
+      // DECISION-0120 D2: marca SOMENTE o aviso visto — não confirma civil, não trava.
       await profileService.confirmFirstAccess(req.tenant.id, userId);
-      
+
       fastify.log.info({
         userId,
         tenantId: req.tenant.id,
-      }, '✅ Primeiro acesso confirmado - modal não aparecerá mais');
+      }, '✅ Aviso de primeiro acesso marcado como visto (modal não aparecerá mais) — sem confirmar/travar civil');
 
-      return reply.send({ 
-        ok: true, 
-        message: 'Primeiro acesso confirmado com sucesso',
-        firstAccessConfirmed: true,
+      return reply.send({
+        ok: true,
+        message: 'Aviso de primeiro acesso marcado como visto',
+        firstAccessNoticeSeen: true,
       });
     } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao confirmar primeiro acesso');
-      return reply.status(500).send({ 
-        error: 'Erro ao confirmar primeiro acesso',
+      fastify.log.error({ err: error }, 'Erro ao marcar aviso de primeiro acesso');
+      return reply.status(500).send({
+        error: 'Erro ao marcar aviso de primeiro acesso',
         message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  /**
+   * POST /identity/confirm-civil-data — DECISION-0120 D3/D4: confirmação CIVIL EXPLÍCITA.
+   * Ação separada do aviso visto, feita DEPOIS de exibir os campos civis ao usuário.
+   * Resolve identity/global/actor server-side, grava EVENTO auditável append-only na
+   * camada identity (idempotente — uma confirmação vigente) e retorna o estado derivado.
+   * Trava a edição civil daqui em diante (canEditPersonalData = false). Não grava em
+   * profiles como fonte. Não toca Bank.
+   */
+  fastify.post('/confirm-civil-data', {
+    bodyLimit: 1024,
+    preHandler: async (req: any) => {
+      if (!req.body || (typeof req.body === 'object' && Object.keys(req.body).length === 0)) {
+        req.body = {};
+      }
+    },
+  }, async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+    try {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+      const userId = req.user.id;
+      const actorId = req.actionContext.actorId as string;
+      const { identityCivilConfirmationService } = await import('@core/identity/identity-civil-confirmation.service');
+      const state = await identityCivilConfirmationService.confirmCivilData(req.tenant.id, userId, actorId);
+      fastify.log.info({ userId, tenantId: req.tenant.id }, '✅ Confirmação civil registrada (evento auditável) — edição civil travada');
+      return reply.send({
+        ok: true,
+        message: 'Dados civis confirmados',
+        civil_data_confirmed: state.civilDataConfirmed,
+        can_edit_personal_data: state.canEditCivilData,
+        confirmed_at: state.confirmedAt,
+      });
+    } catch (error) {
+      const statusCode = (error as { statusCode?: number })?.statusCode ?? 500;
+      fastify.log.error({ err: error }, 'Erro ao confirmar dados civis');
+      return reply.status(statusCode).send({
+        error: 'Erro ao confirmar dados civis',
+        message: error instanceof Error ? error.message : String(error),
       });
     }
   });

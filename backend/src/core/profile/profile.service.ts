@@ -578,35 +578,21 @@ class ProfileService {
   }
 
   /**
-   * Confirma primeiro acesso (fecha o cadeado).
-   * ✅ Se a coluna existir: seta a flag booleana canônica = true
-   * ✅ Se não existir: grava metadata.profile_personal_confirmed = true (fallback)
+   * Marca o AVISO/MODAL de primeiro acesso como VISTO (DECISION-0120 D2 —
+   * "Entendi, continuar"). Estado de UX/onboarding em projeção (`metadata.
+   * first_access_notice_seen_at`). NÃO confirma dados civis e NÃO trava edição
+   * civil (isso é ação explícita e separada na camada identity:
+   * `identityCivilConfirmationService.confirmCivilData`). Append em metadata,
+   * preservando o restante; NÃO escreve a flag de confirmação/trava legada.
    */
   async confirmFirstAccess(tenantId: string, userId: string): Promise<void> {
-    const confirmedColumn = await this.getProfilePersonalConfirmedColumn(tenantId);
-
-    if (confirmedColumn) {
-      const result = await runQueryWithTenant<AnyRow>(
-        tenantId,
-        `
-          INSERT INTO profiles (tenant_id, user_id, full_name, phone, metadata, ${confirmedColumn})
-          VALUES ($1, $2, NULL, NULL, '{}'::JSONB, true)
-          ON CONFLICT (tenant_id, user_id)
-          DO UPDATE SET
-            ${confirmedColumn} = true,
-            updated_at = now()
-          RETURNING profile_id
-        `,
-        [tenantId, userId]
-      );
-
-      if (!result) throw new Error('Falha ao confirmar primeiro acesso');
-      return;
-    }
-
-    // Fallback: schema antigo
     const existing = await this.getProfile(tenantId, userId);
-    const merged = deepMerge(existing?.metadata || {}, { profile_personal_confirmed: true });
+    const seenAt = existing?.metadata?.first_access_notice_seen_at;
+    if (typeof seenAt === 'string') return; // idempotente: já visto.
+
+    const merged = deepMerge(existing?.metadata || {}, {
+      first_access_notice_seen_at: new Date().toISOString(),
+    });
 
     const result = await runQueryWithTenant<AnyRow>(
       tenantId,
@@ -615,14 +601,14 @@ class ProfileService {
         VALUES ($1, $2, NULL, NULL, $3::JSONB)
         ON CONFLICT (tenant_id, user_id)
         DO UPDATE SET
-          metadata = $3::JSONB,
+          metadata = COALESCE(profiles.metadata, '{}'::JSONB) || $3::JSONB,
           updated_at = now()
         RETURNING profile_id
       `,
       [tenantId, userId, JSON.stringify(merged)]
     );
 
-    if (!result) throw new Error('Falha ao confirmar primeiro acesso');
+    if (!result) throw new Error('Falha ao marcar aviso de primeiro acesso como visto');
   }
 
   /**
@@ -634,17 +620,24 @@ class ProfileService {
   }
 
   /**
-   * Verifica se pode editar dados pessoais (nome, birthdate, gender)
-   * 🔧 FIX (first personal save locks identity fields): Fonte única de verdade é personal_data_locked
+   * Verifica se pode editar dados civis (nome, birthdate, gender).
+   * DECISION-0120 D6: a AUTORIDADE é a camada identity (confirmação civil auditável) —
+   * NÃO mais `profiles.personal_data_locked`/`profile_personal_confirmed` (que viraram
+   * projeção/tombstone). Este método é apenas PROJEÇÃO que delega à fonte identity.
    */
   async canEditPersonalData(tenantId: string, userId: string): Promise<boolean> {
+    const { identityCivilConfirmationService } = await import('@core/identity/identity-civil-confirmation.service');
+    return identityCivilConfirmationService.canEditCivilData(tenantId, userId);
+  }
+
+  /**
+   * Aviso/modal de primeiro acesso JÁ visto? (DECISION-0120 D2 — "Entendi, continuar").
+   * É só estado de UX/onboarding em projeção; NÃO é confirmação/trava civil.
+   */
+  async hasSeenFirstAccessNotice(tenantId: string, userId: string): Promise<boolean> {
     const profile = await this.getProfile(tenantId, userId);
-    if (!profile) return true;
-    // 🔧 FIX (first personal save locks identity fields): Verificar personal_data_locked primeiro
-    const personalDataLocked = profile.metadata?.personal_data_locked === true;
-    if (personalDataLocked) return false;
-    // Fallback para profilePersonalConfirmed (compatibilidade)
-    return !profile.profilePersonalConfirmed;
+    if (!profile) return false;
+    return typeof profile.metadata?.first_access_notice_seen_at === 'string';
   }
 }
 

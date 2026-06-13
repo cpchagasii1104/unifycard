@@ -14346,3 +14346,38 @@ frontend 0. diff-check 0. Dev 377/377 byte-estável (links=0; bank_ledger/transa
 + tabela referrals arquivada + higiene de órfãos). Estados: F-REFERRAL-LINK-MATERIALIZATION-AND-
 SPLIT-CONTRACT **IMPLEMENTED / HOLD para reseal Yala**; A1 money-adjacent **CLOSED candidato**.
 Não continuar p/ authority/PJ/cargos/grants/CNAE.
+
+## 2026-06-13 — F-CIVIL-IDENTITY-CONFIRMATION-SSOT-SEPARATION (DECISION-0120)
+
+Auditoria READ-FIRST: profiles operava como AUTORIDADE da confirmação/trava de identidade civil
+(is_profile_personal_confirmed/metadata.profile_personal_confirmed/personal_data_locked +
+canEditPersonalData + confirmFirstAccess) — viola Perfil-como-projeção
+(DT-ONBOARDING-LOCK-FLAGS-METADATA-NO-EVENT OPEN). DECISION-0120 promulgada ANTES do patch:
+separa (1) aviso visto · (2) confirmação civil · (3) completude · (4) trava civil; autoridade
+da trava migra para camada identity auditável append-only.
+
+**CORREÇÃO (commit sobre `e6d3c6d6`):** migration `20260613130000` (378/378) —
+`identity_civil_confirmation_events` (append-only; FK global_users/users/actors; UNIQUE parcial
+"uma confirmação vigente"; RLS; CPF só por hash/parcial; **backfill SEM perda**: 8 profiles
+travados → 8 eventos; aviso visto projetado). NOVO `identityCivilConfirmationService`
+(hasVigent/canEditCivilData/confirmCivilData). `profileService.canEditPersonalData` DELEGA à
+camada identity (D6 — não lê mais flags de profiles como autoridade). `confirmFirstAccess` marca
+SÓ `first_access_notice_seen_at` (D2). NOVO `POST /identity/confirm-civil-data` (D3/D4).
+`GET /identity/me` projeta first_access_notice_seen/civil_data_confirmed/can_edit_personal_data
+da camada identity. Write path civil (`updateGlobalIdentity`) respeita a trava via
+canEditPersonalData (identity-derived). Frontend: lock de `can_edit_personal_data`, modal de
+`first_access_notice_seen`, ação explícita "Confirmo dados civis".
+
+**PROVAS:** e2e NOVO civil-identity-confirmation **16/16** (T1 aviso não visto; T2 "Entendi"=só
+aviso; T3 não confirmado; T4 canEdit true; T5 evento auditável CPF-hash; T6 canEdit false;
+T7 write path respeita trava; T8/T10 profiles não é autoridade; T9 backfill; T15 zero Bank +
+4 estruturais). Regressão: c1-birth 29/29; register-prelaunch 22/22; referral-link 14/14;
+c1-read-purity + c1-human-journey CLOSED (regression-guards EXIT 0). Gates: actor-writer OK;
+bank-ledger OK; arch --strict critical_new=0; diff-check 0. tsc backend 25 pré-existentes
+(arco 0113), zero novo em profile/identity/auth; frontend 0. Dev 378/378; civil_events=8
+(backfill); bank 0.
+
+**CARTÓRIO:** DECISION-0120 promulgada; DT-ONBOARDING-LOCK-FLAGS-METADATA-NO-EVENT OPEN→MITIGADA;
+DT-ONBOARDING-LOCK-FLAGS-METADATA-CLEANUP OPEN (cleanup/tombstone fatia própria). Estado:
+F-CIVIL-IDENTITY-CONFIRMATION-SSOT-SEPARATION **IMPLEMENTED / HOLD para reseal Yala**.
+Não continuar para authority/PJ/cargos/grants/CNAE.

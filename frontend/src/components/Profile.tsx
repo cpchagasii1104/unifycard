@@ -77,6 +77,9 @@ export default function Profile() {
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   /** Cadeado identidade (CPF+nascimento+sexo): só quando confirmado E CPF+nascimento existem (evita “travado sem dado”). */
   const [lockIdentityCore, setLockIdentityCore] = useState(false);
+  /** DECISION-0120: confirmação civil vigente na camada identity (autoridade da trava). */
+  const [civilDataConfirmed, setCivilDataConfirmed] = useState(false);
+  const [confirmingCivil, setConfirmingCivil] = useState(false);
   const [profileProgress, setProfileProgress] = useState<number | null>(null);
 
   // Formulário Pessoal - usando hook extraído
@@ -543,14 +546,15 @@ export default function Profile() {
         setHasBirthdate(false);
       }
 
-      const profilePersonalConfirmed =
-        pp?.profile_personal_confirmed === true ||
-        pp?.profilePersonalConfirmed === true;
+      // DECISION-0120: a TRAVA civil deriva da camada IDENTITY (can_edit_personal_data),
+      // NÃO de profiles.profile_personal_confirmed. civilDataConfirmed = trava vigente.
+      const civilDataConfirmed = identityData?.civil_data_confirmed === true
+        || identityData?.can_edit_personal_data === false;
 
       const cpfPresent = cpfDigits.length === 11;
       const birthPresent = birthIso.length >= 10;
       const lockTrio =
-        profilePersonalConfirmed === true &&
+        civilDataConfirmed === true &&
         cpfPresent &&
         birthPresent;
       setLockIdentityCore(lockTrio);
@@ -560,17 +564,18 @@ export default function Profile() {
         identityData?.global?.metadata?.onboarding_completed === true;
       setOnboardingCompleted(onboardingCompleted);
 
-      // 🔴 GUARD: Modal de primeiro acesso só faz sentido para actor=user.
-      // Backend retorna personal_profile=null deliberadamente para page/group/channel
-      // (core.service.ts:138-154), o que fazia o modal entrar em loop ao trocar para
-      // page actor: clique no botão gravava em user real (correto), mas loadData()
-      // subsequente lia personal_profile=null e re-abria o modal.
-      // Sub-instância resolvida de DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT.
-      const showModal = activeActor?.actor_type === 'user' && !profilePersonalConfirmed;
+      // DECISION-0120 D2: o MODAL é controlado por AVISO VISTO (first_access_notice_seen),
+      // não pela confirmação civil. "Entendi, continuar" só marca o aviso como visto.
+      // 🔴 GUARD: modal de primeiro acesso só faz sentido para actor=user
+      // (page/group/channel retornam personal_profile=null — DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT).
+      const noticeSeen = identityData?.first_access_notice_seen === true;
+      const showModal = activeActor?.actor_type === 'user' && !noticeSeen;
       setShowOnboardingModal(showModal);
+      setCivilDataConfirmed(civilDataConfirmed);
 
       console.log("[Profile] ✅ Estado de primeiro acesso atualizado:", {
-        profilePersonalConfirmed,
+        civilDataConfirmed,
+        noticeSeen,
         onboardingCompleted,
         lockIdentityCore: lockTrio,
         showOnboardingModal: showModal,
@@ -1056,6 +1061,26 @@ export default function Profile() {
     }
   };
 
+  /**
+   * DECISION-0120 D3: confirmação CIVIL EXPLÍCITA (ação separada do aviso visto).
+   * Só depois de exibir os campos civis. Grava evento auditável na camada identity
+   * (POST /identity/confirm-civil-data) e trava a edição civil daqui em diante.
+   */
+  const handleConfirmCivilData = async () => {
+    if (confirmingCivil || civilDataConfirmed) return;
+    setConfirmingCivil(true);
+    try {
+      const { confirmCivilData } = await import("../api/identity");
+      await confirmCivilData();
+      await loadData(); // realinha lock/estado à camada identity
+    } catch (err) {
+      console.error("[Profile] Erro ao confirmar dados civis:", err);
+      setError(err instanceof Error ? err.message : "Erro ao confirmar dados civis");
+    } finally {
+      setConfirmingCivil(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="profile-page">
@@ -1271,6 +1296,20 @@ export default function Profile() {
             handleSavePersonal={handleSavePersonal}
             isSaving={isSaving}
           />
+        )}
+
+        {/* DECISION-0120 D3: confirmação CIVIL EXPLÍCITA — ação separada do aviso visto,
+            só depois de exibir os campos civis e quando ainda não confirmados. */}
+        {activeTab === "personal" && !civilDataConfirmed && hasFullName && hasCpf && hasBirthdate && (
+          <div className="profile-form profile-civil-confirm" style={{ marginTop: "1rem" }}>
+            <p>
+              Confira seus dados civis acima (nome, CPF, nascimento e sexo). Ao confirmar, eles
+              ficam protegidos contra edição. Esta ação é separada do aviso de primeiro acesso.
+            </p>
+            <button type="button" onClick={handleConfirmCivilData} disabled={confirmingCivil}>
+              {confirmingCivil ? "Confirmando…" : "Confirmo que meus dados civis estão corretos"}
+            </button>
+          </div>
         )}
 
         {activeTab === "professional" && <ProfileProfessional />}

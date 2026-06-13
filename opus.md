@@ -4604,3 +4604,22 @@ convergem; o vínculo serve aos dois sem cutover. 4. `SET session_replication_ro
 cleanup de e2e desabilita FK/CASCADE — apagar o pai deixa o filho órfão; varrer órfãos por
 NOT EXISTS, não confiar no cascade durante replica. 5. Promulgar a DECISION ANTES do patch
 (pré-condição Yala) força a separação relação/política a ser decidida, não improvisada no código.
+
+## 2026-06-13 — F-CIVIL-IDENTITY-CONFIRMATION-SSOT-SEPARATION
+
+profiles operava como autoridade da trava civil (4 conceitos conflacionados num flag: aviso
+visto / confirmação civil / completude / trava). DECISION-0120: autoridade migra para camada
+identity (evento auditável append-only); profiles vira projeção/tombstone; aviso visto e
+confirmação civil viram ações separadas.
+
+LIÇÕES: 1. Um flag booleano que responde a 4 perguntas diferentes é 4 bugs esperando: separar
+"vi o aviso" de "confirmo os dados" de "completei o perfil" de "está travado" é pré-condição
+para qualquer um deles ser correto. 2. Autoridade de trava civil precisa de EVENTO auditável
+versionado, não flag mutável em blob — quando a pergunta é "quem travou e quando", metadata não
+responde. 3. Mover autoridade com 1 ponto de delegação (canEditPersonalData → camada identity)
+flipa TODOS os call-sites (write path + /me) sem refactor amplo — a função vira projeção fina.
+4. Backfill que PRESERVA enforcement (travado continua travado) ≠ backfill que copia o flag:
+mapear o estado-efetivo-atual (canEdit=false) para o novo evento, não o flag bruto. 5. Snapshot
+de auditoria com PII: CPF nunca em claro (hash + últimos 3); o snapshot registra O QUE foi
+confirmado sem virar vazamento. 6. identities keyed por global_user_id (não identity_id
+separado) — ler o schema vivo antes de aceitar o shape sugerido do GO.

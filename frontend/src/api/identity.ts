@@ -54,6 +54,28 @@ export interface IdentityProfile {
     currency: string;
     languages: string[];
   };
+  // DECISION-0120: estado da camada IDENTITY (projeção; profiles não é autoridade).
+  // first_access_notice_seen → controla o MODAL (D2). can_edit_personal_data /
+  // civil_data_confirmed → controlam o CADEADO civil (D3/D6).
+  first_access_notice_seen?: boolean;
+  civil_data_confirmed?: boolean;
+  can_edit_personal_data?: boolean;
+}
+
+/**
+ * DECISION-0120 D3: confirmação CIVIL EXPLÍCITA (depois de exibir os campos civis).
+ * Grava evento auditável na camada identity e trava a edição civil.
+ */
+export async function confirmCivilData(): Promise<{ civil_data_confirmed: boolean; can_edit_personal_data: boolean }> {
+  const response = await apiFetch('/identity/confirm-civil-data', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
+  }
+  return response.json();
 }
 
 export interface UpdateIdentityInput {
