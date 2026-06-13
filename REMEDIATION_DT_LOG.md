@@ -12654,3 +12654,39 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   `profiles.is_profile_personal_confirmed` (hoje PROJEÇÃO/tombstone, não autoridade); avaliar
   remover o auto-lock `personal_data_locked` em `upsertProfile` (inerte hoje). `onboarding_completed`
   (completude ≠ confirmação civil) segue em metadata. Desbloqueio civil governado = frente futura.
+
+## DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED — OPEN / P0 CONTAINED (2026-06-13, frente F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT)
+
+- **Origem (P0 financeiro confirmado por 3 paralelas READ-ONLY):** `POST /reconciliation/disputes/:id/reversal`
+  (protectedScope, autenticada, SEM admin-gate real) lia `actor.kind` ∈ {system,admin,support} e
+  `actor.actorId` do BODY via `parseActor`, NÃO usava `req.user`, sem `canRepresentActor`/`canActAs`/
+  `authorityService`, e chamava `executeDisputeFinancialReversal` → `requestAndExecuteReversalSync`
+  (`authoritySource:'system'`, `reversalType:'external_reversal'`) movendo dinheiro REAL em
+  `reversals`/`bank_transactions`/`bank_ledger`. Qualquer usuário autenticado disparava reversal
+  declarando `actor` no body. Viola DECISION-0113 (actorId do cliente é hint, nunca autoridade),
+  CORE_ESTORNOS_FINANCEIROS_CANONICO (estorno manual exige autoridade verificada; `system` é caller
+  sistêmico/externo, não humano via HTTP), DECISION-0052 (external_reversal/system ≠ ação humana).
+- **Status:** **P0 CONTAINED (2026-06-13)** — contenção fail-closed no EDGE HTTP: o handler
+  retorna `403 DISPUTE_REVERSAL_HTTP_DISABLED` ("Manual dispute reversal through HTTP is disabled
+  until authority binding is implemented.") como PRIMEIRA instrução, ANTES de `parseActor` e de
+  `executeDisputeFinancialReversal`. A rota permanece registrada mas NÃO alcança o reversal engine.
+  Motor financeiro intacto (`reversal.service.ts`/`requestAndExecuteReversalSync` não alterados);
+  zero escrita Bank; sem migration; sem RBAC V2 (dormente/divergente: `actor_has_permission`=FALSE,
+  role resolve por user_id, catálogo não é autoridade operacional).
+- **Modelo definitivo PENDENTE (frente futura, com GO):** authority binding verificada (sujeito =
+  `req.user` server-side; `canRepresentActor`/autoridade financeira real; `system`/external_reversal
+  NÃO disparável por rota humana) + trilha auditável, antes de reabilitar o disparo HTTP.
+- **Provas:** e2e `validate-pipeline-e2e-dispute-reversal-http-containment` **7/7** (system/admin/
+  support no body → 403; id inexistente NÃO vira 404 = serviço não chamado; zero linha em
+  reversals/bank_transactions/bank_ledger; gate precede parseActor/reversal engine).
+
+## DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY — OPEN (2026-06-13, irmãs da rota P0; NÃO implementadas nesta contenção)
+
+- **Origem:** as rotas irmãs de mutação de disputa compartilham a MESMA raiz `parseActor(req.body?.actor)`
+  (actor/kind declarados pelo cliente, sem `canRepresentActor`/autoridade verificada):
+  `POST /reconciliation/disputes/from-discrepancy`, `POST /reconciliation/disputes/:id/to-review`,
+  `POST /reconciliation/disputes/:id/resolve`. **NÃO movem dinheiro diretamente** (a rota que move é
+  `/reversal`, já contida) — por isso ficam para frente própria.
+- **Status:** **OPEN (P1)** — mapeadas e registradas; NÃO redesenhadas nesta contenção emergencial.
+  Mesma correção de raiz (authority binding por `req.user`/representabilidade) na macrofrente de
+  authority. Sem ação de runtime agora.

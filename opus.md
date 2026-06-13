@@ -4623,3 +4623,20 @@ mapear o estado-efetivo-atual (canEdit=false) para o novo evento, não o flag br
 de auditoria com PII: CPF nunca em claro (hash + últimos 3); o snapshot registra O QUE foi
 confirmado sem virar vazamento. 6. identities keyed por global_user_id (não identity_id
 separado) — ler o schema vivo antes de aceitar o shape sugerido do GO.
+
+## 2026-06-13 — F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT (P0)
+
+Rota HTTP autenticada movia dinheiro real lendo actor/kind do body (system/admin/support) e
+chamando o reversal engine. Contenção: chave de boca só para desligar o edge HTTP (403
+fail-closed antes do parseActor), motor financeiro intacto.
+
+LIÇÕES: 1. P0 que move dinheiro contém-se na MENOR superfície (return no topo do handler), não
+redesenhando o motor — cortar o fio energizado primeiro, religar com autoridade depois. 2. Gate
+de contenção deve ser a PRIMEIRA instrução do handler: provar via e2e que id inexistente NÃO
+vira 404 (curto-circuito antes do serviço) é a prova limpa de que o engine não é alcançado. 3.
+RBAC V2 dormente (actor_has_permission=FALSE, role por user_id) NÃO serve de gate de contenção —
+requireRole daria falsa sensação de proteção. 4. Verificação estrutural por indexOf quebra
+quando o token também aparece em COMENTÁRIO: checar o site REAL de chamada
+(reconciliationDisputeService.executeDisputeFinancialReversal(), actor = parseActor(...)), não a
+menção. 5. git diff --check sobre a árvore inteira pega drift protegido (MINHA_MEMORIA_*) que não
+é da frente — checar --check só nos arquivos tocados para o veredito honesto.

@@ -14381,3 +14381,19 @@ bank-ledger OK; arch --strict critical_new=0; diff-check 0. tsc backend 25 pré-
 DT-ONBOARDING-LOCK-FLAGS-METADATA-CLEANUP OPEN (cleanup/tombstone fatia própria). Estado:
 F-CIVIL-IDENTITY-CONFIRMATION-SSOT-SEPARATION **IMPLEMENTED / HOLD para reseal Yala**.
 Não continuar para authority/PJ/cargos/grants/CNAE.
+
+## 2026-06-13 — F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT (P0 CONTAINED)
+
+P0 financeiro confirmado por 3 paralelas: POST /reconciliation/disputes/:id/reversal lia
+actor.kind/actorId do BODY (system/admin/support), sem req.user/canRepresentActor, e movia
+dinheiro real via executeDisputeFinancialReversal→requestAndExecuteReversalSync
+(authoritySource:system/external_reversal) em reversals/bank_transactions/bank_ledger. Qualquer
+autenticado disparava. CONTENÇÃO fail-closed no edge HTTP (commit sobre 8af211be):
+403 DISPUTE_REVERSAL_HTTP_DISABLED como PRIMEIRA instrução, antes de parseActor/reversal engine;
+rota registrada mas não alcança o motor; reversal.service intacto; zero Bank; zero migration;
+sem RBAC V2. Provas: e2e novo 7/7 (system/admin/support→403; serviço não chamado; zero linha
+reversals/ledger/transactions). Gates: actor-writer OK; bank-ledger OK; regression-guards EXIT 0;
+arch critical_new=0. tsc 25 pré-existentes (0113), zero novo. CARTÓRIO:
+DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED OPEN/P0-CONTAINED; DT-DISPUTE-MUTATION-ACTOR-BODY-
+AUTHORITY OPEN/P1 (rotas irmãs from-discrepancy/to-review/resolve, não movem dinheiro). Estado:
+IMPLEMENTED / HOLD PARA RESEAL FINANCEIRO. Modelo definitivo (authority binding) = frente futura.

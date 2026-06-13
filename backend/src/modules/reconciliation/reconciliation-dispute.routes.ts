@@ -184,6 +184,19 @@ const reconciliationDisputeRoutes: FastifyPluginAsync = async (fastify) => {
     Params: { id: string };
     Body: { actor?: unknown; reason?: string };
   }>('/disputes/:id/reversal', async (req, reply) => {
+    // 🔴 CONTENÇÃO P0 — F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT (fail-closed).
+    // Esta rota lia actor.kind/actorId do BODY (system/admin/support) e disparava reversal
+    // financeiro REAL via executeDisputeFinancialReversal — actorId declarado pelo cliente NÃO
+    // é autoridade (DECISION-0113); `system`/external_reversal não é ação humana via HTTP
+    // (CORE_ESTORNOS_FINANCEIROS_CANONICO / DECISION-0052). Bloqueado ANTES de parsear/executar
+    // o reversal até existir authority binding verificada. NÃO chama o reversal engine.
+    // Ver DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED. Motor financeiro intacto.
+    return reply.status(403).send({
+      ok: false,
+      code: 'DISPUTE_REVERSAL_HTTP_DISABLED',
+      message: 'Manual dispute reversal through HTTP is disabled until authority binding is implemented.',
+    });
+
     const tenantId = req.tenant?.id;
     if (!tenantId) {
       return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
