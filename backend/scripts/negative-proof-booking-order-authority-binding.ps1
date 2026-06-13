@@ -64,8 +64,22 @@ finally {
     $routeRestored = ((Invoke-Guard) -eq 0)
 }
 
-$ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) -and $routeFailed -and $routeRestored -and (-not (Test-Path $bak))
-Write-Host "[neg-proof booking-order-authority-binding] baseOk=$baseOk writerViolationFailed=$guardFailed writerRestoredOk=$guardOkAgain routeReexposeFailed=$routeFailed routeRestoredOk=$routeRestored residue=$([bool](Test-Path $probeDir))"
+# 5) Fase 3: serviceOfferingId gravado de fonte CLIENTE (metadata) num writer real.
+$writer = Join-Path (Get-Location) 'src\modules\services\service-order.service.ts'
+$wbak = "$writer.negbak"
+Copy-Item $writer $wbak -Force
+$offeringFailed = $false; $offeringRestored = $false
+try {
+    Add-Content -Path $writer -Value 'const _negOffering = (metadata: any) => ({ serviceOfferingId: metadata.serviceOfferingId });' -Encoding UTF8
+    $offeringFailed = ((Invoke-Guard) -ne 0)
+}
+finally {
+    Move-Item $wbak $writer -Force
+    $offeringRestored = ((Invoke-Guard) -eq 0)
+}
+
+$ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) -and $routeFailed -and $routeRestored -and (-not (Test-Path $bak)) -and $offeringFailed -and $offeringRestored -and (-not (Test-Path $wbak))
+Write-Host "[neg-proof booking-order-authority-binding] baseOk=$baseOk writerViolationFailed=$guardFailed writerRestoredOk=$guardOkAgain routeReexposeFailed=$routeFailed routeRestoredOk=$routeRestored offeringFromClientFailed=$offeringFailed offeringRestoredOk=$offeringRestored residue=$([bool](Test-Path $probeDir))"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
-Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) writer confused-deputy novo e (b) re-exposicao da rota direta; restauracao limpa.' -ForegroundColor Green
+Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) writer confused-deputy, (b) re-exposicao da rota, (c) serviceOfferingId de fonte cliente; restauracao limpa.' -ForegroundColor Green
 exit 0

@@ -66,6 +66,8 @@ export interface ServiceOrder {
   customerActorId: string;
   bookingId: string | null;
   decisionId: string | null;
+  /** Recurso comercial/agendável CANÔNICO quando availability.owner_type='service_offering' (DECISION-0117/0122). NULL = caminho legado (service_id). */
+  serviceOfferingId: string | null;
   status: ServiceOrderStatus;
   scheduledStart: Date;
   scheduledEnd: Date | null;
@@ -112,6 +114,7 @@ export interface CreateServiceOrderInput {
   customerActorId: string;
   bookingId?: string;
   decisionId?: string;
+  serviceOfferingId?: string;
   scheduledStart: Date;
   scheduledEnd?: Date;
   estimatedDurationMinutes?: number;

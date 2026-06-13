@@ -21,6 +21,7 @@ class ServiceBookingDecisionRepository {
       tenantId: row.tenant_id,
       bookingId: row.booking_id,
       decidedByActorId: row.decided_by_actor_id,
+      serviceOfferingId: row.service_offering_id ?? null,
       status: row.status as BookingDecisionStatus,
       decidedAt: row.decided_at,
       reason: row.reason,
@@ -39,6 +40,7 @@ class ServiceBookingDecisionRepository {
       `
       SELECT 
         decision_id, tenant_id, booking_id, decided_by_actor_id,
+        service_offering_id,
         status, decided_at, reason, metadata,
         created_at, updated_at
       FROM service_booking_decisions
@@ -67,6 +69,7 @@ class ServiceBookingDecisionRepository {
       `
       SELECT 
         decision_id, tenant_id, booking_id, decided_by_actor_id,
+        service_offering_id,
         status, decided_at, reason, metadata,
         created_at, updated_at
       FROM service_booking_decisions
@@ -106,12 +109,13 @@ class ServiceBookingDecisionRepository {
       `
       INSERT INTO service_booking_decisions (
         tenant_id, booking_id, decided_by_actor_id,
-        status, decided_at, reason, metadata
+        status, decided_at, reason, metadata, service_offering_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (booking_id) DO NOTHING
       RETURNING 
         decision_id, tenant_id, booking_id, decided_by_actor_id,
+        service_offering_id,
         status, decided_at, reason, metadata,
         created_at, updated_at
       `,
@@ -123,6 +127,7 @@ class ServiceBookingDecisionRepository {
         new Date(),
         input.reason || null,
         JSON.stringify(input.metadata || {}),
+        input.serviceOfferingId ?? null,
       ]
     );
 

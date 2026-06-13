@@ -27,6 +27,8 @@ export interface ServiceBookingDecision {
   tenantId: string;
   bookingId: string; // OBRIGATÓRIO: Booking sobre o qual a decisão foi tomada
   decidedByActorId: string; // OBRIGATÓRIO: Actor que decide (dono do service)
+  /** Oferta comercial canônica (DECISION-0122) quando a availability é owner_type='service_offering'. NULL = caminho legado. */
+  serviceOfferingId?: string | null;
   status: BookingDecisionStatus;
   decidedAt: Date;
   reason?: string | null; // Motivo da decisão (opcional)
@@ -43,6 +45,7 @@ export interface ServiceBookingDecisionRow {
   tenant_id: string;
   booking_id: string;
   decided_by_actor_id: string;
+  service_offering_id: string | null;
   status: BookingDecisionStatus;
   decided_at: Date;
   reason: string | null;
@@ -60,6 +63,7 @@ export interface CreateServiceBookingDecisionInput {
   bookingId: string; // OBRIGATÓRIO
   decidedByActorId: string; // OBRIGATÓRIO
   status: BookingDecisionStatus; // OBRIGATÓRIO: accepted ou rejected
+  serviceOfferingId?: string | null; // oferta canônica (derivada do SSOT availability), nunca do cliente
   reason?: string | null;
   metadata?: Record<string, any>;
 }

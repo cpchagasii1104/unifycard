@@ -116,6 +116,10 @@ class ServiceBookingDecisionService {
       throw HttpError.forbidden('Sem autoridade para representar o dono da disponibilidade');
     }
 
+    // 🔴 F-SERVICE-OFFERING-CANONICAL-BINDING (DECISION-0122): a oferta canônica é gravada a partir do
+    // SSOT availability (owner_id) quando owner_type='service_offering' — NUNCA do cliente/metadata.
+    const serviceOfferingId = availability.ownerType === 'service_offering' ? availability.ownerId : null;
+
     // 🔴 BLINDAGEM: serviceId do metadata é HINT — só aceite se o service pertencer ao MESMO dono
     // soberano da availability (bloqueia confused-deputy de serviço/provider alheio).
     const serviceId = booking.metadata?.serviceId;
@@ -142,9 +146,10 @@ class ServiceBookingDecisionService {
       throw new BadRequestError('Já existe uma decisão para este booking');
     }
 
-    // Criar decisão
+    // Criar decisão (serviceOfferingId derivado do SSOT availability sobrescreve qualquer valor do cliente)
     const decision = await serviceBookingDecisionRepository.create(tenantId, {
       ...input,
+      serviceOfferingId,
     });
 
     // Criar notificação para requester (não bloqueante)

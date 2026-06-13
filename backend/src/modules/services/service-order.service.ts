@@ -202,6 +202,7 @@ class ServiceOrderService {
       customerActorId: input.customerActorId,
       bookingId: input.bookingId || null,
       decisionId: input.decisionId ?? null,
+      serviceOfferingId: input.serviceOfferingId ?? null,
       scheduledStart,
       scheduledEnd,
       estimatedDurationMinutes: input.estimatedDurationMinutes || null,
@@ -1417,6 +1418,24 @@ class ServiceOrderService {
       }
     }
 
+    // 🔴 F-SERVICE-OFFERING-CANONICAL-BINDING (DECISION-0122): quando o recurso temporal é uma OFERTA
+    // (owner_type='service_offering'), ela é o recurso comercial/agendável CANÔNICO da order — gravada
+    // a partir do SSOT (availability.ownerId), NUNCA do cliente/metadata. service_id segue legado/
+    // projeção (NOT NULL), validado contra o MESMO provider soberano.
+    let serviceOfferingId: string | null = null;
+    if (availability.ownerType === 'service_offering') {
+      serviceOfferingId = availability.ownerId;
+      // Anti-divergência: se a oferta carrega service_id próprio, metadata.serviceId não pode contradizê-lo.
+      const { pool } = await import('@core/database/pool');
+      const offeringRow = (await pool.query<{ service_id: string | null }>(
+        `SELECT service_id::text AS service_id FROM service_offerings WHERE id = $1::uuid AND tenant_id = $2::uuid LIMIT 1`,
+        [serviceOfferingId, tenantId]
+      )).rows[0];
+      if (offeringRow?.service_id && booking.metadata?.serviceId && offeringRow.service_id !== booking.metadata.serviceId) {
+        throw HttpError.conflict('serviceId do metadata diverge do service da oferta canônica');
+      }
+    }
+
     const bookingServiceId = booking.metadata?.serviceId;
     if (!bookingServiceId) {
       throw new Error('Booking deve ter metadata.serviceId para criar service order');
@@ -1510,6 +1529,8 @@ class ServiceOrderService {
       customerActorId: booking.requesterActorId,
       bookingId: booking.bookingId,
       decisionId: decision.decisionId,
+      serviceOfferingId, // recurso comercial canônico (do SSOT availability) quando offering-owned
+
       scheduledStart,
       scheduledEnd,
       estimatedDurationMinutes: availability.endDatetime 

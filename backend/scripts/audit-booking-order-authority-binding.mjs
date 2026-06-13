@@ -34,6 +34,11 @@ const OWNER_BINDING = /resolveAvailabilityOwner\(/;
 const AUTHORITY_BY_SERVICE_OWNER =
   /service\.actorId\s*[!=]==?\s*(input\.decidedByActorId|decidedByActorId|confirmedByActorId|actionContext\.actorId)\b/;
 
+// F-SERVICE-OFFERING-CANONICAL-BINDING: a oferta canônica (serviceOfferingId) DEVE vir do SSOT
+// availability (availability.ownerId), NUNCA do cliente. Fonte client-declarada = proibida.
+const OFFERING_FROM_CLIENT =
+  /serviceOfferingId\s*[:=]\s*(req\.body|input\.metadata|booking\.metadata|metadata)\??\.(serviceOfferingId|service_offering_id)\b|(metadata|req\.body)\??\.serviceOfferingId\b/;
+
 // Denominador explícito: writers conhecidos da cadeia (devem permanecer conformes).
 const KNOWN_WRITERS = [
   'modules/services/service-booking-decision.service.ts',
@@ -70,6 +75,9 @@ for (const rel of KNOWN_WRITERS) {
   }
   if (AUTHORITY_BY_SERVICE_OWNER.test(code)) {
     failures.push(`CONFUSED_DEPUTY_REGRESSION: ${rel} voltou a derivar autoridade de service.actorId vs ator client-declared (autoridade por metadata — proibido).`);
+  }
+  if (OFFERING_FROM_CLIENT.test(code)) {
+    failures.push(`CONFUSED_DEPUTY_REGRESSION: ${rel} grava serviceOfferingId de fonte CLIENTE (metadata/body) — a oferta canônica deve vir do SSOT availability.ownerId (DECISION-0122).`);
   }
 }
 

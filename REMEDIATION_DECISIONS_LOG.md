@@ -6906,3 +6906,18 @@ soberano; rota `confirm-booking` usa `req.user.userId` real. Integridade não-fi
 20260613150000): FK + UNIQUE parcial em `service_orders.booking_id`, FK `decision_id`, FK
 `bookings.requester_actor_id`. Zero Bank. Detalhe: `docs/02_decisions/DECISION_0121_BOOKING_ORDER_AUTHORITY_BINDING_CANONICAL.md`.
 Dívida residual: DT-BOOKING-ORDER-SERVICE-OFFERING-CANONICAL-BINDING (migração plena p/ service_offering).
+
+## DECISION-0122 — service_offering recurso canônico da cadeia decision/order
+
+**Data:** 2026-06-13 · **Frente:** F-SERVICE-OFFERING-CANONICAL-BINDING · **Branch:** rescue-structural
+
+Quando `availability.owner_type='service_offering'`, a OFERTA é o recurso comercial/agendável canônico
+da decision/order: coluna NULLABLE `service_offering_id` (FK→service_offerings, SET NULL) em
+`service_booking_decisions` e `service_orders` (migration 20260613160000), gravada a partir do SSOT
+`availability.ownerId` (NUNCA do cliente; override de valor declarado). provider/worker via
+`resolveAvailabilityOwner` (DECISION-0118 D2). `service_id` permanece NOT NULL legado/projeção (Lei 4),
+de metadata validado contra o provider — não é autoridade; anti-divergência (409) se a oferta tiver
+service próprio. `confirmBookingFromDecision` segue caminho único; POST /service-orders permanece 403.
+Detalhe: `docs/02_decisions/DECISION_0122_SERVICE_OFFERING_CANONICAL_BINDING.md`. Resíduo:
+DT-BOOKING-ORDER-SERVICE-OFFERING-CANONICAL-BINDING → PARTIAL/CONTAINED (service_id NOT NULL exige
+mudança estrutural/produto para ofertas sem service de apoio).

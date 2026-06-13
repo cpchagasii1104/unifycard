@@ -17,6 +17,7 @@ interface ServiceOrderRow {
   customer_actor_id: string;
   booking_id: string | null;
   decision_id: string | null;
+  service_offering_id: string | null;
   status: string;
   // F1 (Camada 1 saída) — 2026-05-26
   settlement_flow: string;
@@ -60,6 +61,7 @@ class ServiceOrderRepository {
       customerActorId: row.customer_actor_id,
       bookingId: row.booking_id,
       decisionId: row.decision_id,
+      serviceOfferingId: row.service_offering_id,
       status: row.status as any,
       scheduledStart: row.scheduled_start,
       scheduledEnd: row.scheduled_end,
@@ -102,6 +104,7 @@ class ServiceOrderRepository {
       customerActorId: string;
       bookingId: string | null;
       decisionId: string | null;
+      serviceOfferingId: string | null;
       scheduledStart: Date;
       scheduledEnd: Date | null;
       estimatedDurationMinutes: number | null;
@@ -123,10 +126,11 @@ class ServiceOrderRepository {
         status, scheduled_start, scheduled_end, estimated_duration_minutes,
         location_address, location_latitude, location_longitude,
         description, customer_notes,
-        created_by_actor_id, created_by_user_id, metadata
+        created_by_actor_id, created_by_user_id, metadata, service_offering_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19)
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+                service_offering_id,
                 status,
                 settlement_flow,
                 buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
@@ -158,6 +162,7 @@ class ServiceOrderRepository {
         input.createdByActorId,
         input.createdByUserId,
         JSON.stringify(input.metadata),
+        input.serviceOfferingId,
       ]
     );
 
@@ -176,6 +181,7 @@ class ServiceOrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+             service_offering_id,
              status,
              settlement_flow,
              buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
@@ -257,6 +263,7 @@ class ServiceOrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+             service_offering_id,
              status,
              settlement_flow,
              buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
@@ -297,6 +304,7 @@ class ServiceOrderRepository {
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'draft'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+                service_offering_id,
                 status,
                 settlement_flow,
                 buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
@@ -337,6 +345,7 @@ class ServiceOrderRepository {
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'confirmed'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+                service_offering_id,
                 status,
                 settlement_flow,
                 buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
@@ -377,6 +386,7 @@ class ServiceOrderRepository {
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'in_progress'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+                service_offering_id,
                 status,
                 settlement_flow,
                 buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
@@ -435,6 +445,7 @@ class ServiceOrderRepository {
       WHERE tenant_id = $1 AND id = $2 AND status = 'in_progress'
         AND settlement_flow = 'fixed_price_escrow'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+                service_offering_id,
                 status,
                 settlement_flow,
                 buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
@@ -511,6 +522,7 @@ class ServiceOrderRepository {
           OR (release_eligible_at IS NOT NULL AND release_eligible_at <= NOW())
         )
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+                service_offering_id,
                 status,
                 settlement_flow,
                 buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
@@ -563,6 +575,7 @@ class ServiceOrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+             service_offering_id,
              status,
              settlement_flow,
              buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
@@ -607,6 +620,7 @@ class ServiceOrderRepository {
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status IN ('draft', 'confirmed', 'in_progress')
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+                service_offering_id,
                 status,
                 settlement_flow,
                 buyer_confirmation_deadline_at, buyer_confirmed_completion_at,

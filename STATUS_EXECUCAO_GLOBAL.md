@@ -1,3 +1,17 @@
+## 2026-06-13 — F-SERVICE-OFFERING-CANONICAL-BINDING · oferta = recurso comercial canônico da decision/order (BACKEND+MIGRATION+GUARD+E2E+GATES+DOCS) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **HEAD origem `68c99da6`** · migrations 379→**380** · MODO EXECUTOR sob GO macrofrente (ultracode) · DECISION-0122.
+
+**READ-FIRST provou:** `service_offerings.service_id` SEMPRE null na criação (vínculo = `canonical_service_id`, DECISION-0117); `provider_actor_id` soberano; `availability.owner_type='service_offering'` já resolve provider; `service_orders.service_id` NOT NULL (Lei 4 → não-nullable); zero readers legados; rows=0.
+
+**Entregue:** coluna NULLABLE `service_offering_id` (FK→service_offerings SET NULL + índice parcial) em `service_booking_decisions` e `service_orders` (migration `20260613160000`). `confirmBookingFromDecision`/`createDecision` gravam `service_offering_id` do **SSOT `availability.ownerId`** quando offering-owned (NUNCA do cliente; override de valor declarado). provider/worker via `resolveAvailabilityOwner`. `service_id` permanece legado/projeção (de metadata validado contra provider) — não autoriza; anti-divergência 409.
+
+**Provas:** e2e `validate-pipeline-e2e-service-offering-canonical-binding` (DB efêmera) **11/11** — T1/T6 legítimo (order+decision com service_offering_id=oferta do SSOT, worker=provider) · T2 confused-deputy oferta · T3 service_id alheio 409 · T4 metadata.serviceOfferingId spoof IGNORADO · T5 provider mismatch · T6b service_id projeção · T7 duplicidade · T8 POST/service-orders 403 · T9 dispute containment · T10 Bank. Guard checked=5/0 (offering-from-client proibido) + prova negativa **tripla**. Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25 (baseline, zero novo). dev 380.
+
+**DTs:** `DT-BOOKING-ORDER-SERVICE-OFFERING-CANONICAL-BINDING` **PARTIAL/CONTAINED** (oferta canônica registrada; resíduo = service_id NOT NULL p/ ofertas sem service de apoio, exige mudança estrutural/produto). **HOLD para reseal.** Não segui para dispute/reversal definitivo, PJ/cargos/grants, CNAE/capability.
+
+---
+
 ## 2026-06-13 — F-SERVICE-ORDER-DIRECT-CREATE-AUTHORITY-CONTAINMENT · vetor irmão `POST /service-orders` contido (BACKEND+GUARD+E2E+GATES+DOCS, sem migration) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **HEAD origem `46212880`** · migrations **379 (inalterado)** · MODO EXECUTOR sob GO curto.

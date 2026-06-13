@@ -12798,3 +12798,16 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Efeito sobre DT-BOOKING-ORDER-AUTHORITY-CONFUSED-DEPUTY:** com esta contenção, ambas as
   superfícies (decisão e criação direta) são fail-closed contra o confused-deputy — a CLASSE está
   **CONTAINED** (binding definitivo do createOrder segue como dívida acima).
+
+## DT-BOOKING-ORDER-SERVICE-OFFERING-CANONICAL-BINDING — ATUALIZAÇÃO (2026-06-13)
+
+- **Status:** OPEN → **PARTIAL / CONTAINED** (F-SERVICE-OFFERING-CANONICAL-BINDING, DECISION-0122).
+- **Entregue:** a OFERTA passou a ser o recurso comercial canônico REGISTRADO na cadeia — coluna
+  NULLABLE `service_offering_id` (FK→service_offerings) em `service_booking_decisions` e `service_orders`
+  (migration 20260613160000), gravada do SSOT `availability.ownerId` (nunca do cliente). provider via
+  `resolveAvailabilityOwner`. e2e 11/11; guard (offering-from-client) + prova negativa tripla.
+- **Resíduo (fatia futura, exige decisão estrutural/produto):** `service_orders.service_id` permanece
+  NOT NULL (Lei 4) — toda order ainda carrega um service legado; a eliminação para ofertas SEM service
+  de apoio exige tornar `service_id` nullable + caminho que popule `service_offerings.service_id` (hoje
+  sempre NULL na criação). `service_id` segue como legado/projeção, validado contra o provider soberano.
+- **Não bloqueia:** a autoridade já deriva 100% do provider soberano (offering), nunca do service_id/metadata.
