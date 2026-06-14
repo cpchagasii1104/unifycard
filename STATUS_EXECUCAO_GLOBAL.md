@@ -14633,3 +14633,19 @@ prova negativa verde. e2e novo 11/11; gates actor-writer/bank-ledger OK, regress
 EXIT 0, arch critical_new=0; tsc 25 baseline (zero novo reconciliation/dispute/reversal/bank);
 diff-check 0; sem migration; Bank/reversal engine intactos. DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY
 OPEN→P1 CONTAINED. Estado: IMPLEMENTED / HOLD PARA RESEAL. Próxima: booking→order.
+
+## 2026-06-14 — F-FINANCIAL-INTERNAL-SURFACES-P1-CONTAINMENT (P1 CONTAINED)
+
+Duas superfícies internas P1 do READ-FIRST do Core de Aprovação contidas fail-closed (sem dinheiro,
+sem Core de Aprovação, sem bank-http/payout). **R18** `POST /automation/schedule/run-due`: era
+disparável por usuário comum autenticado com `now` da query → reduzido ao 403
+`AUTOMATION_RUN_DUE_HTTP_DISABLED` (service executeDueActions intacto p/ futuro worker). **R19**
+`/internal/financial/disputes` (controller em app cru fora do protectedScope, tenant_id do body/query,
+list cross-tenant) → 3 rotas reduzidas ao 403 `FINANCIAL_DISPUTES_HTTP_DISABLED` (repos intactos;
+zero Bank). Guard NOVO `audit-internal-surfaces-containment.mjs` no regression-guards (cerca de
+regressão); negative-proof morde R18+R19 com restauração byte-idêntica; e2e novo 11/11 (DB efêmera).
+Gates: actor-writer/bank-ledger OK, regression-guards rc=0, arch critical_new=0, tsc 25 baseline
+(zero erro nos arquivos tocados); sem migration; baseline 0113 inalterado (2: bank-http, payout).
+DT-AUTOMATION-RUN-DUE-HTTP-OPEN e DT-FINANCIAL-DISPUTES-INTERNAL-HTTP-OPEN → P1 CONTAINED. Derivado de
+DECISION-0113 (sem DECISION nova). R20 (bank_splits imutabilidade) FORA — risco derivado registrado.
+Estado: IMPLEMENTED / HOLD PARA RESEAL. Restam DECISION_REQUIRED: Core de Aprovação Financeira (bank-http/payout).

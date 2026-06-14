@@ -13015,3 +13015,33 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Prova:** e2e **32/32** (TR1–TR9: view/manage separados; company não abre trust; A≠B; view não autoriza mutation; T18 bank-http/payout intocados);
   neg-proof **17/17** (Forma D). Gates verdes; tsc 25. Bank/payout/dispute/service-orders intocados; sem RBAC V2; sem frontend.
 - **Restam DECISION_REQUIRED:** bank-http/payout (Core de Aprovação Financeira); platform-wide/cross-tenant; deprecar legado/RBAC v1.
+
+## DT-AUTOMATION-RUN-DUE-HTTP-OPEN — P1 CONTAINED (2026-06-14, F-FINANCIAL-INTERNAL-SURFACES-P1-CONTAINMENT)
+
+- **Status:** OPEN→**P1 CONTAINED**. `POST /automation/schedule/run-due` disparava
+  `scheduledActionService.executeDueActions(tenantId, now)` SEM gate admin/internal forte (só
+  authPlugin/tenantPlugin do protectedScope) e com `now` vindo de `req.query.now` — qualquer usuário
+  comum autenticado do tenant forçava varredura de vencidos com tempo arbitrário. Tempo declarado pelo
+  cliente NÃO é autoridade (DECISION-0113). Derivado de DECISION-0113, sem decisão nova.
+- **Contenção:** handler reduzido ao **403 `AUTOMATION_RUN_DUE_HTTP_DISABLED`** (sem `query.now`, sem
+  `executeDueActions` por esta rota). Service `executeDueActions` intacto p/ futuro worker/internal
+  caller. Demais rotas automation intocadas.
+- **Reabilitação:** worker/caller sistêmico OU gate admin/internal materialmente provado (frente futura).
+- **Guard:** `audit-internal-surfaces-containment.mjs` FALHA se voltar `executeDueActions(`/`query.now`.
+
+## DT-FINANCIAL-DISPUTES-INTERNAL-HTTP-OPEN — P1 CONTAINED (2026-06-14, F-FINANCIAL-INTERNAL-SURFACES-P1-CONTAINMENT)
+
+- **Status:** OPEN→**P1 CONTAINED**. `/internal/financial/disputes` (controller em app cru,
+  `app.builder.ts:177-178`, FORA do protectedScope) não tinha auth efetiva nem req.user; lia
+  `tenant_id` do body (POST/PATCH) e da query (GET) como autoridade; gravava
+  `financial_disputes`/`financial_alerts` e `listOpenDisputes(undefined)` vazava **cross-tenant**.
+  `tenant_id` client-declared NÃO é autoridade (DECISION-0113; tenant vem server-side). Zero Bank
+  (nunca tocou bank_transactions/bank_ledger/bank_accounts).
+- **Contenção:** as 3 rotas (POST/GET/PATCH) reduzidas ao **403 `FINANCIAL_DISPUTES_HTTP_DISABLED`**;
+  sem chamada a createDispute/listOpenDisputes/updateDisputeStatus/createFinancialAlert; sem tenant_id
+  body/query. Repositórios intactos p/ futuro caller com subject server-side dentro do protectedScope.
+  Registro mantido em /internal (contenção 403 preferida — mover cohort /internal tem blast radius alto).
+- **Reabilitação:** mover p/ protectedScope + subject server-side (req.user/req.tenant), tenant nunca do body/query.
+- **Guard:** `audit-internal-surfaces-containment.mjs` FALHA se voltar create/update/list/alert ou tenant_id body/query.
+- **Prova (ambas):** e2e 11/11 (DB efêmera); neg-proof morde R18+R19 (restauração byte-idêntica); regression-guards rc=0;
+  actor-writer/bank-ledger OK; arch critical_new=0; tsc 25 baseline. Baseline 0113 inalterado (2). Sem migration.

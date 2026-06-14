@@ -229,22 +229,25 @@ const automationRoutes = async (fastify: FastifyInstance) => {
 
   /**
    * POST /automation/schedule/run-due
-   * Executa ações vencidas (admin/internal)
-   * 
-   * ⚠️ Esta rota deve ser protegida (apenas admin/internal)
+   *
+   * 🔴 CONTENÇÃO P1 — F-FINANCIAL-INTERNAL-SURFACES-P1-CONTAINMENT (fail-closed).
+   * Esta rota disparava `scheduledActionService.executeDueActions(tenantId, now)` SEM gate
+   * admin/internal forte (estava só sob authPlugin/tenantPlugin do protectedScope, sem papel
+   * material) e com `now` vindo de `req.query.now` — qualquer usuário comum autenticado do
+   * tenant podia forçar a execução de ações vencidas com tempo arbitrário. Tempo declarado pelo
+   * cliente NÃO é autoridade de execução; varredura de vencidos é trabalho sistêmico, não ação
+   * humana via HTTP exposto. Reduzida ao 403 fail-closed: NÃO há mais caminho (alcançável) que
+   * leia `query.now` nem chame `executeDueActions` por esta rota. O service `executeDueActions`
+   * permanece intacto para um futuro worker/internal caller (sem caller humano hoje).
+   * Reabilitação só via worker/caller sistêmico ou gate admin/internal materialmente provado.
+   * Ver DT-AUTOMATION-RUN-DUE-HTTP-OPEN.
    */
-  fastify.post('/schedule/run-due', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const query = req.query as any;
-    const now = query.now ? new Date(query.now) : new Date();
-
-    const result = await scheduledActionService.executeDueActions(tenantId, now);
-
-    return {
-      executed: result.executed,
-      failed: result.failed,
-      results: result.results,
-    };
+  fastify.post('/schedule/run-due', async (_req, reply) => {
+    return reply.status(403).send({
+      ok: false,
+      code: 'AUTOMATION_RUN_DUE_HTTP_DISABLED',
+      message: 'Scheduled due-action execution through this HTTP route is disabled; it must run via an internal/worker caller. Client-supplied time is not execution authority.',
+    });
   });
 };
 
