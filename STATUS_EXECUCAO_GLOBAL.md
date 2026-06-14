@@ -1,3 +1,17 @@
+## 2026-06-14 — F-R2-FINE-GRAINED-PERMISSION-MODEL · auditoria READ-FIRST do modelo de permissão (DOCS-ONLY, zero código) · READ-FIRST COMPLETE / DECISION REQUIRED
+
+**Branch:** `rescue-structural` · **HEAD `d8c7d1ee`** · dev 380 · MODO READ-FIRST CONTROLADO (ultracode). Relatório: `docs/04_audit/20260614_R2_FINE_GRAINED_PERMISSION_MODEL_AUDIT.md`.
+
+**Estado vivo do RBAC (introspeccionado):** caminho canônico = `canActAs` (ownership/delegação `actor_delegations`=9/empresa via `company_users.can_manage_company`/`actor_registry.capabilities_json`=9). `company_users.can_*`: só `can_manage_company` é consultado (os outros 5 flags = DECORATIVOS). `businessAuthorizationService.requirePermission` = LEGADO QUEBRADO (depende de `organization_member`/`organization_role` AUSENTES). RBAC v1 (roles=8/permissions=76/role_permissions=136/`user_roles`=1) = ÓRFÃO; RBAC v2 (`actor_roles`) = AUSENTE. permission-keys: 62 keys, ~15 usadas, sem famílias risk/dispute/audit/reconciliation.
+
+**ACHADO-CHAVE:** após o fix do spoof do risk-dashboard, **NENHUM dos 7 resíduos tem o spoof subject=actionContext** — todos usam subject server-side (req.user). Ficam baselineados só porque o guard 0113 não reconhece requirePermission/requireRole.
+
+**Proposta R2 mínima (sem RBAC V2, sem migration):** subject sempre server-side; consolidar em `canActAs` + ligar `company_users.can_*` (já existem); deprecar requirePermission legado; estender o guard a reconhecer binding seguro (subject=req.user) mantendo SUBJECT_EQUALS_TARGET.
+
+**Fatia executável SEM decisão de produto = FATIA A** (guard reconhece subject=req.user → fecha honestamente 4 dos 7: reporting/business-audit/policy-reads/risk-dashboard; baseline → financeiro hard-stop payout/bank-http + trust congelado). **FATIAS C/D exigem decisão do Clayton** (item 6 do relatório). **DECISION REQUIRED / HOLD.** Zero código de produção; sem migration.
+
+---
+
 ## 2026-06-13 — F-RISK-DASHBOARD-PERMISSION-SPOOF-CONTAINMENT · spoof subject==target fechado (subject server-side) + guard hard-check (BACKEND+GUARD+E2E+GATES+DOCS, sem migration) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **HEAD origem `52f6c0d0`** · migrations **380 (inalterado)** · MODO EXECUTOR sob GO macrofrente controlada (ultracode).

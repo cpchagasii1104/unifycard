@@ -12875,3 +12875,19 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   "spoof CLOSED" — mesma classe dos demais admin readers (R2 fine-grained, DECISION_REQUIRED). Não é falso-verde.
 - **Prova:** e2e `validate-pipeline-e2e-risk-dashboard-permission-spoof` 7/7 (Bob sem grant declarando actorId=Admin
   → 403; ownership não basta → 403; sem auth → 401; subject=req.user; Bank intocado). Sem migration.
+
+## DT-0113-CLASSIC-CHANNEL-READERS — NOTA R2 (2026-06-14, auditoria F-R2-FINE-GRAINED-PERMISSION-MODEL)
+
+- READ-FIRST do modelo de permissão (`docs/04_audit/20260614_R2_FINE_GRAINED_PERMISSION_MODEL_AUDIT.md`).
+- **Achado:** os 7 readers baselineados NÃO têm mais o spoof subject=actionContext (risk-dashboard era o
+  único; CLOSED). Todos usam subject server-side (req.user via requirePermission/fastify.requirePermission/
+  req.user.id). Ficam baselineados só porque o guard 0113 não reconhece requirePermission/requireRole.
+- **Fontes materiais vivas:** `canActAs` (ownership/delegação/`company_users.can_manage_company`/
+  `actor_registry.capabilities_json`). `company_users.can_*` (5 flags) DECORATIVOS (não consultados).
+  `businessAuthorizationService.requirePermission` LEGADO QUEBRADO (`organization_member` ausente). RBAC v1
+  órfão; RBAC v2 ausente.
+- **Fatia executável sem decisão (FATIA A):** estender o guard a reconhecer binding seguro (subject=req.user)
+  + manter SUBJECT_EQUALS_TARGET → fecha 4 dos 7 (reporting/business-audit/policy-reads/risk-dashboard).
+  Baseline restante = payout/bank-http (financeiro hard-stop) + trust (R2.4 congelado). **FATIAS C/D exigem
+  decisão do Clayton** (company_users.can_* como SSOT de grant · famílias de permission-key · policy mutations
+  · trust unfreeze · deprecar legado). DECISION REQUIRED.
