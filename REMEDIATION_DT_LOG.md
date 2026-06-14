@@ -13135,3 +13135,17 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   usado; payout_requests legado não usado; Bank só via port; baseline 0113=0; can_execute_* não criado. Sem migration.
 - **Resta (frentes futuras):** worker system-only gated que consuma approved (F5); payout HTTP request-only (decisão);
   multi-approval/quórum; seller_available tombstone; PIX/TED; dispute/reversal/cartão.
+
+## DT-CORE-FINANCIAL-APPROVAL-MOTOR — worker de payout system-only ligado (2026-06-14, F-PAYOUT-WORKER-SYSTEM-ONLY-SEAL)
+
+- **Status:** executor selado **ganhou caller canônico**. Worker NOVO `actor-wallet-payout-worker.ts` (system-only,
+  default-off via ENABLE_PAYOUT_WORKER estrito) consome SOMENTE `actor_wallet_payout_requests='approved'` (claim
+  FOR UPDATE SKIP LOCKED; subject=approval.requested_by_user_id) → `executeActorWalletPayout`. NÃO toca Bank direto,
+  NÃO usa seller_available/seller_payout/payout_requests legado/availableBalanceCents.
+- **Legado neutralizado:** `payout-worker.ts startPayoutWorker` TOMBSTONED (no-op; não inicia ciclo seller_available).
+  BOOT repontado p/ o canônico (gateado ENABLE_PAYOUT_WORKER). Tombstone definitivo de seller_available = frente futura.
+- **Guard NOVO** `audit-payout-worker-system-only.mjs` no regression-guards (+ dormancy estendido p/ o canônico) +
+  negative-proof (morde seller_available/bank direto/BOOT-religa-legado) + e2e 9/9 (DB efêmera, MOVE dinheiro:
+  default-off, só approved, recovery drena, concorrência sem duplicidade, double-entry).
+- **Hard stops:** payout HTTP fail-closed; baseline 0113=0; worker default-off; Bank só via executor selado; sem SQL
+  direto bank_*; can_execute_* não criado. Sem migration. Ativação prod = ENABLE_PAYOUT_WORKER='true' explícito.

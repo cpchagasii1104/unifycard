@@ -267,20 +267,20 @@ export async function startServer(): Promise<void> {
     console.warn('[BOOT] Aviso: Reconciliation Scheduled Worker (INFRA-3) não iniciado:', err);
   }
 
-  // Payout Worker — processa payout_requests (requested → seller_available → seller_payout, a cada 10s).
-  // 🔒 DORMÊNCIA ESTRUTURAL (F-FINANCIAL-WORKERS-STRUCTURAL-DORMANCY-SEAL, DECISION-0128): executor real de
-  // dinheiro (bankTransactionService.transfer) SEM gate de aprovação do Core. DEFAULT-OFF até Core EXECUTION /
-  // F-PAYOUT-EXECUTION-SEAL. Só inicia com ENABLE_PAYOUT_WORKER='true' (estrito; sem auto-enable por NODE_ENV).
+  // Payout Worker — CANÔNICO system-only (F-PAYOUT-WORKER-SYSTEM-ONLY-SEAL, DECISION-0128).
+  // 🔒 DEFAULT-OFF (ENABLE_PAYOUT_WORKER='true' estrito; sem auto-enable por NODE_ENV). Consome SOMENTE
+  // actor_wallet_payout_requests approved → executor SELADO executeActorWalletPayout (recovery lock + Bank port).
+  // O worker LEGADO seller_available→seller_payout está TOMBSTONED (payout-worker.ts) e não é mais iniciado.
   if (isFinancialWorkerEnabled('ENABLE_PAYOUT_WORKER')) {
     try {
-      const { startPayoutWorker } = await import('./src/workers/payout-worker');
-      startPayoutWorker();
-      console.log('[BOOT] Payout Worker iniciado (ENABLE_PAYOUT_WORKER=true; requested payouts a cada 10s)');
+      const { startActorWalletPayoutWorker } = await import('./src/workers/actor-wallet-payout-worker');
+      startActorWalletPayoutWorker();
+      console.log('[BOOT] ActorWallet Payout Worker iniciado (ENABLE_PAYOUT_WORKER=true; approved payouts a cada 10s)');
     } catch (err) {
-      console.warn('[BOOT] Aviso: Payout Worker não iniciado:', err);
+      console.warn('[BOOT] Aviso: ActorWallet Payout Worker não iniciado:', err);
     }
   } else {
-    console.log('[BOOT] Payout Worker DESLIGADO (default-off; ENABLE_PAYOUT_WORKER≠true) — Core EXECUTION HOLD.');
+    console.log('[BOOT] ActorWallet Payout Worker DESLIGADO (default-off; ENABLE_PAYOUT_WORKER≠true).');
   }
 
   // Reversal Worker — Prompt 51: reversals pending → transfer espelhado (a cada 30s).

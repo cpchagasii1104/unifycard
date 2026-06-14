@@ -98,9 +98,14 @@ async function runPayoutCycle(): Promise<void> {
   }
 }
 
+// 🔴 TOMBSTONE — F-PAYOUT-WORKER-SYSTEM-ONLY-SEAL (DECISION-0128).
+// O worker legado seller_available→seller_payout NÃO é mais iniciável. O payout de PRODUÇÃO roda via
+// ActorWalletPayoutWorker (trilho canônico actor_wallet_payout_requests + executor selado executeActorWalletPayout).
+// startPayoutWorker é um no-op fail-closed: NÃO inicia ciclo/interval, NÃO toca seller_available. O código
+// processPayout/runPayoutCycle permanece como HISTÓRICO (lei histórica), inalcançável. Tombstone definitivo de
+// seller_available/payout_requests = frente própria futura. void p/ evitar import não-usado do ciclo legado.
 export function startPayoutWorker(): void {
-  if (intervalId !== null) return;
-  runPayoutCycle().catch((err) => console.error('[PayoutWorker] Initial run error:', err));
-  intervalId = setInterval(runPayoutCycle, INTERVAL_MS);
-  console.log('[PayoutWorker] Started (interval 10s, batch limit 50)');
+  // referências mortas propositais (histórico preservado, ciclo legado não executado).
+  void runPayoutCycle; void intervalId; void INTERVAL_MS;
+  console.warn('[PayoutWorker] TOMBSTONED (seller_available legado desativado). Use ActorWalletPayoutWorker.');
 }

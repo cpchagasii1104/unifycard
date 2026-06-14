@@ -14741,3 +14741,21 @@ critical_new=0, tsc 25 baseline (zero nos arquivos tocados); sem migration. payo
 seller_available/availableBalanceCents/payout_requests legado não usados; Bank só via port; baseline 0113=0; can_execute_*
 não criado; dispute/reversal/cartão fora. Estado: IMPLEMENTED / HOLD PARA RESEAL. Resta: worker system-only (F5), payout
 HTTP request-only (decisão), multi-approval, seller_available tombstone, PIX/TED, dispute/reversal/cartão.
+
+## 2026-06-14 — F-PAYOUT-WORKER-SYSTEM-ONLY-SEAL (IMPLEMENTED / HOLD PARA RESEAL)
+
+Worker de payout de produção = canônico/system-only/default-off, ligando o executor selado ao trilho
+actor_wallet_payout_requests aprovado. Worker NOVO actor-wallet-payout-worker.ts (claim FOR UPDATE SKIP LOCKED de
+status='approved'; subject=approval.requested_by_user_id server-side) → executeActorWalletPayout (recovery lock +
+BankTransactionPort). Default-off via ENABLE_PAYOUT_WORKER (estrito; sem NODE_ENV; sem HTTP). Worker LEGADO
+seller_available→seller_payout TOMBSTONED (startPayoutWorker no-op); BOOT repontado p/ o canônico. Guard NOVO
+audit-payout-worker-system-only.mjs no regression-guards (FALHA se worker usar seller_available/payout_requests/bank
+direto/availableBalanceCents, não consumir approved/não chamar executeActorWalletPayout, não default-off, BOOT religar
+legado, legado voltar a setInterval, ou baseline 0113 regredir); dormancy guard estendido p/ o canônico; negative-proof
+morde 3 vetores; e2e 9/9 (DB efêmera, move dinheiro: default-off, só approved, recovery drena comprometido,
+concorrência sem ledger duplicado, double-entry). Gates: actor-writer/bank-ledger OK, regression-guards rc=0, arch
+critical_new=0, tsc 25 baseline (zero nos arquivos tocados); sem migration. payout HTTP fail-closed; bank-http
+request-only; baseline 0113=0; seller_available/payout_requests legado não usados; Bank só via executor selado;
+can_execute_* não criado; dispute/reversal/cartão fora. Estado: IMPLEMENTED / HOLD PARA RESEAL. Ativação prod =
+ENABLE_PAYOUT_WORKER='true' explícito. Próximas: payout HTTP request-only (decisão), multi-approval, seller_available
+tombstone definitivo, observabilidade.

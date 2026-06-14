@@ -24,6 +24,8 @@ const stripComments = (s) => s
 
 const WORKERS = [
   { start: 'startPayoutWorker', flag: 'ENABLE_PAYOUT_WORKER' },
+  // canônico (F-PAYOUT-WORKER-SYSTEM-ONLY-SEAL): mesmo flag default-off; o legado startPayoutWorker é tombstone.
+  { start: 'startActorWalletPayoutWorker', flag: 'ENABLE_PAYOUT_WORKER' },
   { start: 'startReversalWorker', flag: 'ENABLE_REVERSAL_WORKER' },
   { start: 'startBankSettlementWorker', flag: 'ENABLE_BANK_SETTLEMENT_WORKER' },
 ];
