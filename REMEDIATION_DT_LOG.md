@@ -13073,3 +13073,17 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   F-BANK-HTTP-AUTHORITY-BINDING / F-ACTOR-WALLET-PAYOUT-WIRING / F-PAYOUT-EXECUTION-SEAL (DECISION-0128 §16).
 - **Prova:** e2e 17/17; neg-proof morde Bank port + availableBalanceCents (restauração byte-idêntica);
   regression-guards rc=0; actor-writer/bank-ledger OK; arch critical_new=0; tsc 25; dev 383→384. Zero dinheiro.
+
+## DT-0113-CLASSIC-CHANNEL-READERS — bank-http REMOVIDO do baseline (2026-06-14, F-BANK-HTTP-AUTHORITY-BINDING)
+
+- **Status:** `bank-http` **REMOVIDO do baseline 0113 → baseline 2 → 1** (resta apenas `payout`, HARD STOP move-money).
+- **Mudança:** os writers move-money (`POST /transactions/simple|split`) deixaram de executar Bank — viraram
+  **REQUEST-ONLY**: criam `approval_request` no Core (DECISION-0128) com subject/tenant/actor/conta server-side
+  (`createFinancialApprovalRequest`, operation_type='transfer'), retornam 202 `status=requested`, **sem** bank_transaction/
+  bank_ledger/split. `GET /balance` (reader, subject server-side + `resolveForUser`) reconhecido por **Forma E** do guard
+  0113 → `SAFE_SUBJECT_READERS` (não mascarado). Guard NOVO `audit-bank-http-authority-binding.mjs` cerca: sem Bank exec,
+  request-only, sem availableBalanceCents, sem autoridade client-declared, **baseline 0113 não pode ser zerado enquanto payout resta**.
+- **Prova:** e2e 14/14 (DB efêmera); neg-proof bank-http (morde Bank exec + availableBalanceCents) + neg-proof 0113
+  (recognized 5, baseline 1, payout baselined, Forma E); regression-guards rc=0; actor-writer/bank-ledger OK; arch
+  critical_new=0; tsc 25. Sem migration. Bank/payout/dispute/reversal/cartão intocados.
+- **Resta:** `payout` no baseline 0113 (= 1) — fecha em F-ACTOR-WALLET-PAYOUT-WIRING/F-PAYOUT-EXECUTION-SEAL (DECISION-0128 §16).

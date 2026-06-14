@@ -14679,3 +14679,17 @@ cleanup do e2e financial-approval-substrate ficou tolerante à imutabilidade. Ga
 regression-guards rc=0, arch critical_new=0, tsc 25 baseline (zero nos arquivos tocados); dev 383→384. Bank/payout/
 ledger/dispute/reversal/cartão intocados; bank-http/payout permanecem baseline 0113 = 2. Estado: IMPLEMENTED /
 HOLD PARA RESEAL. Core EXECUTION segue HOLD. Próxima: F-BANK-HTTP-AUTHORITY-BINDING (DECISION-0128 §16).
+
+## 2026-06-14 — F-BANK-HTTP-AUTHORITY-BINDING (IMPLEMENTED / HOLD PARA RESEAL)
+
+bank-http REMOVIDO do baseline DECISION-0113 (**2 → 1**, resta payout) por binding ao Core de Aprovação (DECISION-0128).
+Writers move-money POST /transactions/simple|split viraram REQUEST-ONLY: criam approval_request (operation_type='transfer',
+subject/tenant/actor/conta server-side) e retornam 202 status=requested — NÃO executam Bank (zero bank_transaction/ledger/
+split). GET /balance (reader seguro) reconhecido por nova Forma E do guard 0113 (actorCapabilitiesService.resolveForUser,
+subject server-side) → SAFE_SUBJECT_READERS, sem mascarar. Guard NOVO audit-bank-http-authority-binding.mjs no regression-
+guards (sem Bank exec; request-only; sem availableBalanceCents; sem autoridade client-declared; baseline 0113 não zerável
+enquanto payout resta). e2e 14/14 (DB efêmera); neg-proof bank-http + neg-proof 0113 (recognized 5, baseline 1, payout
+baselined, Forma E); gates: actor-writer/bank-ledger OK, regression-guards rc=0, arch critical_new=0, tsc 25 baseline (zero
+nos arquivos tocados); sem migration. Bank/payout/dispute/reversal/cartão intocados; can_execute_* não criado;
+availableBalanceCents não usado. Estado: IMPLEMENTED / HOLD PARA RESEAL. **DECISION-0113 baseline = 1** (resta payout).
+Próxima: F-ACTOR-WALLET-PAYOUT-WIRING / F-PAYOUT-EXECUTION-SEAL (DECISION-0128 §16) — fecha o último resíduo 0113.

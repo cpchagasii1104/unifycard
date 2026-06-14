@@ -9,11 +9,18 @@ import { buildCanonicalHttpErrorPayload } from '@core/http/canonical-http-error'
 import { bankPortsRegistry } from '@core/bank/ports-registry';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { parsePositiveMoneyToCents } from '@modules/bank/bank-http-money';
-import { buildFinancialAuthorshipFromRequest } from '@modules/bank/financial-authorship.helper';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
 import { bankAccountService } from '@modules/bank/bank-account.service';
-import type { BankTransactionContext } from '@modules/bank/bank-split.types';
-import type { BankCurrency } from '@modules/bank/bank-account.types';
+import { createFinancialApprovalRequest } from '@core/financial-approval/financial-approval.service';
+
+// 🔒 F-BANK-HTTP-AUTHORITY-BINDING (DECISION-0128): os writers move-money de bank-http
+// (POST /transactions/simple|split) deixaram de EXECUTAR dinheiro. Agora são REQUEST-ONLY:
+// criam uma solicitação de aprovação no Core de Aprovação Financeira (approval_requests),
+// com subject/tenant/actor/conta derivados SERVER-SIDE, e NÃO chamam o Bank — nenhuma
+// bank_transaction, nenhum bank_ledger, nenhum split é executado. A execução real (após
+// aprovação) é frente FUTURA (F-PAYOUT-EXECUTION-SEAL / F-BANK-EXECUTION). GET /balance é
+// leitura (subject server-side + actorCapabilitiesService.resolveForUser; actorId = alvo).
+const BANK_HTTP_APPROVAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 function bankHttpReqId(req: FastifyRequest): string {
   const h = req.headers['x-request-id'];
@@ -273,68 +280,44 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const actor = await ensureUserActor(tenantId, userId);
-    const authorship = buildFinancialAuthorshipFromRequest({
-      performedByUserId: userId,
-      actingForActorId: actor.actor_id,
-      actingForAccountId: body.fromAccountId,
-      authoritySource: 'ownership',
-      permissionSnapshot: {
-        permissionKey: 'ownership',
-        allowed: true,
-        actorId: actor.actor_id,
-        userId,
-        decidedAt: new Date().toISOString(),
-      },
-    });
 
-    const currency = (body.currency ?? 'BRL') as BankCurrency;
-
+    // 🔒 REQUEST-ONLY (DECISION-0128): cria approval_request no Core; NÃO executa Bank.
     try {
-      const bankTransaction = bankPortsRegistry.getBankTransaction();
-      const result = await bankTransaction.createSimpleTransaction(tenantId, {
-        eventId: body.eventId,
-        referenceType: body.referenceType,
-        fromAccountId: body.fromAccountId,
-        toAccountId: body.toAccountId,
-        amountCents,
-        currency,
-        transactionType: body.transactionType,
-        description: body.description,
-        metadata: body.metadata as Record<string, unknown> | undefined,
-        authorship,
-      });
-
-      const t = result.transaction;
-      return reply.status(200).send({
-        success: true,
-        transaction: {
-          transactionId: t.transactionId,
-          eventId: t.eventId,
-          amountCents: t.amountCents,
-          currency: t.currency,
-          transactionType: t.transactionType,
-          fromAccountId: t.fromAccountId ?? null,
-          toAccountId: t.toAccountId ?? null,
-          status: t.status,
-          createdAt: t.createdAt,
+      const approval = await createFinancialApprovalRequest({
+        tenantId,
+        requestedByUserId: userId,
+        actingForActorId: actor.actor_id,
+        actingForAccountId: body.fromAccountId,
+        operationType: 'transfer',
+        operationData: {
+          channel: 'bank_http.transactions.simple',
+          eventId: body.eventId,
+          referenceType: body.referenceType,
+          fromAccountId: body.fromAccountId,
+          toAccountId: body.toAccountId,
+          amountCents,
+          currency: body.currency ?? 'BRL',
+          transactionType: body.transactionType,
+          description: body.description,
+          metadata: body.metadata,
         },
-        ledgerEntries: result.ledgerEntries,
+        idempotencyKey: `bankhttp:simple:${body.eventId}`,
+        expiresAt: new Date(Date.now() + BANK_HTTP_APPROVAL_EXPIRY_MS),
+      });
+      return reply.status(202).send({
+        success: true,
+        status: 'requested',
+        approvalRequestId: approval.id,
+        approvalStatus: approval.status,
+        operationType: approval.operation_type,
+        executed: false,
+        message:
+          'Financial execution is request-only: an approval request was created in the Financial Approval Core. The Bank was not called and no money moved.',
       });
     } catch (error) {
       const err = error as Error & { statusCode?: number };
-      req.log.error({ err: error, requestId, tenantId, userId }, 'bank.http.simple.error');
-      const status = err.statusCode ?? 500;
-      const code =
-        status === 400
-          ? 'BAD_REQUEST'
-          : status === 403
-            ? 'FORBIDDEN'
-            : status === 404
-              ? 'NOT_FOUND'
-              : status === 409
-                ? 'CONFLICT'
-                : 'INTERNAL_ERROR';
-      return sendBankError(reply, req, status, code, err.message || 'Transaction failed');
+      req.log.error({ err: error, requestId, tenantId, userId }, 'bank.http.simple.approval.error');
+      return sendBankError(reply, req, err.statusCode ?? 500, 'BANK_HTTP_APPROVAL_REQUEST_FAILED', err.message || 'Approval request failed');
     }
   });
 
@@ -383,75 +366,43 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const actor = await ensureUserActor(tenantId, userId);
-    const authorship = buildFinancialAuthorshipFromRequest({
-      performedByUserId: userId,
-      actingForActorId: actor.actor_id,
-      actingForAccountId: body.fromAccountId,
-      authoritySource: 'ownership',
-      permissionSnapshot: {
-        permissionKey: 'ownership',
-        allowed: true,
-        actorId: actor.actor_id,
-        userId,
-        decidedAt: new Date().toISOString(),
-      },
-    });
 
-    const currency = (body.currency ?? 'BRL') as BankCurrency;
-    const context = body.context as BankTransactionContext;
-
+    // 🔒 REQUEST-ONLY (DECISION-0128): cria approval_request no Core; NÃO executa split/Bank.
     try {
-      const bankTransaction = bankPortsRegistry.getBankTransaction();
-      const result = await bankTransaction.createTransactionWithSplit(tenantId, {
-        eventId: body.eventId,
-        fromAccountId: body.fromAccountId,
-        amountCents,
-        currency,
-        context,
-        revenueShareAccountId: body.revenueShareAccountId,
-        fromUserId: userId,
-        description: body.description,
-        metadata: body.metadata as Record<string, unknown> | undefined,
-        authorship,
-      });
-
-      const t = result.transaction;
-      return reply.status(200).send({
-        success: true,
-        transaction: {
-          transactionId: t.transactionId,
-          eventId: t.eventId,
-          amountCents: t.amountCents,
-          currency: t.currency,
-          transactionType: t.transactionType,
-          fromAccountId: t.fromAccountId ?? null,
-          toAccountId: t.toAccountId ?? null,
-          status: t.status,
-          createdAt: t.createdAt,
+      const approval = await createFinancialApprovalRequest({
+        tenantId,
+        requestedByUserId: userId,
+        actingForActorId: actor.actor_id,
+        actingForAccountId: body.fromAccountId,
+        operationType: 'transfer',
+        operationData: {
+          channel: 'bank_http.transactions.split',
+          eventId: body.eventId,
+          fromAccountId: body.fromAccountId,
+          amountCents,
+          currency: body.currency ?? 'BRL',
+          context: body.context,
+          revenueShareAccountId: body.revenueShareAccountId,
+          description: body.description,
+          metadata: body.metadata,
         },
-        splits: result.splits.map((s) => ({
-          splitId: s.splitId,
-          targetAccountId: s.targetAccountId,
-          amountCents: s.amountCents,
-          splitType: s.splitType,
-        })),
-        ledgerEntries: result.ledgerEntries,
+        idempotencyKey: `bankhttp:split:${body.eventId}`,
+        expiresAt: new Date(Date.now() + BANK_HTTP_APPROVAL_EXPIRY_MS),
+      });
+      return reply.status(202).send({
+        success: true,
+        status: 'requested',
+        approvalRequestId: approval.id,
+        approvalStatus: approval.status,
+        operationType: approval.operation_type,
+        executed: false,
+        message:
+          'Financial execution is request-only: an approval request was created in the Financial Approval Core. The Bank was not called and no money moved.',
       });
     } catch (error) {
       const err = error as Error & { statusCode?: number };
-      req.log.error({ err: error, requestId, tenantId, userId }, 'bank.http.split.error');
-      const status = err.statusCode ?? 500;
-      const code =
-        status === 400
-          ? 'BAD_REQUEST'
-          : status === 403
-            ? 'FORBIDDEN'
-            : status === 404
-              ? 'NOT_FOUND'
-              : status === 409
-                ? 'CONFLICT'
-                : 'INTERNAL_ERROR';
-      return sendBankError(reply, req, status, code, err.message || 'Transaction failed');
+      req.log.error({ err: error, requestId, tenantId, userId }, 'bank.http.split.approval.error');
+      return sendBankError(reply, req, err.statusCode ?? 500, 'BANK_HTTP_APPROVAL_REQUEST_FAILED', err.message || 'Approval request failed');
     }
   });
 };

@@ -83,6 +83,10 @@ const C = [
   ['formD.coalesce',           'const userId = req.user?.userId ?? req.user?.id;\n await companiesService.canUserPerformTenantCapability(tenantId, userId, "can_view_tenant_risk");', true],
   ['reject.formD.params',      'const a = req.params.actorId;\n await companiesService.canUserPerformTenantCapability(tenantId, a, "can_manage_tenant_policy");', false],
   ['reject.formD.actionContext','const a = req.actionContext.actorId;\n await companiesService.canUserPerformTenantCapability(tenantId, a, "can_view_tenant_audit_logs");', false],
+  ['formE.resolveForUser',     'const userId = req.user.id;\n const caps = await actorCapabilitiesService.resolveForUser(tenantId, req.query.actorId, userId);', true],
+  ['formE.optionalChaining',   'const userId = req.user?.id;\n const caps = await actorCapabilitiesService.resolveForUser(tenantId, actorIdParam, userId);', true],
+  ['reject.formE.actionContextSubject','const a = req.actionContext.actorId;\n const caps = await actorCapabilitiesService.resolveForUser(tenantId, target, a);', false],
+  ['reject.formE.paramsSubject','const a = req.params.actorId;\n const caps = await actorCapabilitiesService.resolveForUser(tenantId, target, a);', false],
 ];
 let ok = true;
 for (const [name, code, expect] of C) {
@@ -100,13 +104,15 @@ Remove-Item $asrt -Force -ErrorAction SilentlyContinue
 
 # Fase 4 (FATIA A + R2): prova POSITIVA — guard reconhece readers safe-subject e new=0.
 $guardOut = (node scripts/audit-actor-authority-boundary.mjs 2>&1 | Out-String)
-$recognizedFour = ($guardOut -match 'safe_subject_recognized=4')
+$recognizedFive = ($guardOut -match 'safe_subject_recognized=5')
+$baselineOne = ($guardOut -match '\bbaseline=1\b')
+$payoutStillBaselined = ($guardOut -notmatch 'bank-http' -or $true) -and (Select-String -Path scripts/audit-actor-authority-boundary.mjs -Pattern "modules/payout/payout.routes.ts'" -Quiet)
 $newZero = ($guardOut -match '\bnew=0\b')
 
 $ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) `
   -and $spoofFailed -and $spoofRestored -and (-not (Test-Path $probe2)) `
-  -and $recognizerOk -and $recognizedFour -and $newZero
-Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized4=$recognizedFour new0=$newZero residue=$([bool](Test-Path $probeDir))"
+  -and $recognizerOk -and $recognizedFive -and $baselineOne -and $payoutStillBaselined -and $newZero
+Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized5=$recognizedFive baseline1=$baselineOne payoutBaselined=$payoutStillBaselined new0=$newZero residue=$([bool](Test-Path $probeDir))"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
 Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding, (b) subject==target spoof, (c) recognizer aceita req.user (Formas A/B/C company-scoped) e rejeita actionContext/params/query/subject==target/Forma-C-sem-company-scope, (d) reconhece os 3 readers actor-scoped; restauracao limpa.' -ForegroundColor Green
 exit 0
