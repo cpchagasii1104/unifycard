@@ -92,15 +92,15 @@ async function main(): Promise<void> {
     !/canRepresentActor\(/.test(pay)
     && /'financial:execute_payout'/.test(pay)
     && /actorId: req\.query\.actorId/.test(pay));
-  // F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION (2026-06-13): a autoridade do reporting migrou do
-  // requirePermission legado (financial:view_all_ledger via organization_members ausente) para
-  // company_users.can_view_reports (canUserPerformCompanyCapability). Subject server-side (req.user.id);
-  // SEM over-gate canRepresentActor; actorId segue FILTRO de query.
-  record('B3 reporting: SEM canRepresentActor( (over-gate removido) + gate R2 can_view_reports (subject req.user.id) + actorId segue filtro',
+  // F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE (2026-06-14): reporting é tenant-wide IRREDUTÍVEL (o service
+  // agrega tenant-wide e NÃO honra filtro por actor). Como grant de empresa não autoriza leitura tenant-wide
+  // (reseal Yala/decisão Clayton), reporting é FAIL-CLOSED (COMPANY_SCOPE_REQUIRED) até existir platform-admin.
+  // SEM over-gate canRepresentActor; SEM actorId runtime (removido — era morto).
+  record('B3 reporting: SEM canRepresentActor( + FAIL-CLOSED COMPANY_SCOPE_REQUIRED (tenant-wide, sem actorId runtime/sem requirePermission legado)',
     !/canRepresentActor\(/.test(rep)
-    && /canUserPerformCompanyCapability\(\s*[\s\S]*?,\s*userId,\s*'can_view_reports'/.test(rep)
-    && /const userId = req\.user\?\.id/.test(rep)
-    && /actorId: req\.query\.actorId/.test(rep));
+    && /COMPANY_SCOPE_REQUIRED/.test(rep)
+    && !/req\.query\.actorId/.test(rep)
+    && !/businessAuthorizationService\.requirePermission/.test(rep));
   record('B4 invoice: actorId filtrado nu → 403 "Sem autoridade sobre o actor filtrado" (escopo view_ledger; reporting+payout reclassificados F-OK, fora)',
     /Sem autoridade sobre o actor filtrado/.test(inv));
   record('B5 bank-http /bank/balance = JÁ B (gateado via actorCapabilitiesService.resolveForUser — NÃO tocado)',

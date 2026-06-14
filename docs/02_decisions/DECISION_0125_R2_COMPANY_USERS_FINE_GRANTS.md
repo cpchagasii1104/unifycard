@@ -83,8 +83,33 @@ service-orders contido; T13 event/public-profiles bindings intactos; T14 Bank in
 flagged=3/baseline=3/new=0/safe_subject_recognized=4; prova negativa 12/12 (4 casos Forma C). Gates
 verdes; tsc 25; migration count 380→381.
 
+## Adendo §escopo — F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE (2026-06-14, reseal Yala / decisão Clayton)
+
+O reseal apontou (a) âncora: migration `20260613170000` commitada mas não aplicada ao dev (380≠381);
+(b) escopo: o primitivo autorizava leitura tenant-wide por QUALQUER `company_users` ativo com grant.
+
+**Correções (promulgadas):**
+- **Âncora:** migration aplicada ao `unificard_dev` via runner canônico (`npm run migrate`) → **dev 381/381**;
+  4 colunas presentes (boolean NOT NULL default false). Sem nova migration.
+- **Escopo (regra vinculante):** `company_users.can_*` vale para a **empresa/actor-alvo resolvível**. Grant em
+  uma empresa **NÃO** autoriza leitura tenant-wide. **Leitura tenant-wide/platform-admin ampla = DECISION_REQUIRED**
+  (sem modelo de grant tenant-level/platform-operator).
+  - `canUserPerformCompanyCapability` agora é **fail-closed sem `companyId`** (`reason='company_scope_required'`);
+    com `companyId` checa o vínculo NAQUELA empresa. `owner`/`can_manage_company` = supergrant SÓ dentro da empresa
+    escopada — **nunca** tenant-wide.
+  - Novo `resolveCompanyIdForActor(tenantId, actorId)` (via `actors.company_id`, server-side, fail-closed).
+  - **Rotas tenant-wide → FAIL-CLOSED** (`COMPANY_SCOPE_REQUIRED`): reporting (todas — dados tenant-wide irredutíveis,
+    `actorId` removido por ser morto), risk `/overview` + `/actors` (lista), business-audit `/:logId`, policy lista/
+    mutations. **Rotas actor-scoped → company-scoped** (resolvem `actors.company_id` do alvo): risk `/actors/:actorId`
+    [`/timeline`], business-audit `?actorId=`, policy `/policies/evaluate/:actorId` + `/policy-decisions/actor/:actorId/active`.
+- **Guard:** Forma C agora exige prova de company-scope (`resolveCompanyIdForActor` no arquivo) para reconhecer.
+  reporting saiu do allowlist (sem canal). baseline 0113 inalterado (3: bank-http/payout/trust); recognized=3.
+- **Prova:** e2e `validate-pipeline-e2e-company-users-fine-grants` **20/20** (T-PRIM fail-closed/scoped; T2/T7 company-scoped
+  passa; T3 cross-company 403; T4/T8/T10/T-reporting tenant-wide → COMPANY_SCOPE_REQUIRED; T11 owner não tenant-wide;
+  T12/T12b alvo não vira subject / company não-resolvível). neg-proof 13/13 (incl. reject Forma-C sem company-scope).
+
 ## Estado
 
-DECISION-0125 PROMULGADA. DT-0113-CLASSIC-CHANNEL-READERS: PARTIAL (baseline 4→3). Restam DECISION_REQUIRED
-(frentes próprias): escopo per-empresa das platform reads; deprecação do `businessAuthorizationService`/
-RBAC v1 órfão; trust R2.4; disputa/reversão.
+DECISION-0125 PROMULGADA (incl. §escopo). dev **381/381**. DT-0113-CLASSIC-CHANNEL-READERS: PARTIAL (baseline 3).
+Restam DECISION_REQUIRED (frentes próprias): **modelo platform-admin / tenant-level grant** (destrava reads tenant-wide
+hoje fail-closed); deprecar `businessAuthorizationService`/RBAC v1 órfão; trust R2.4; disputa/reversão.

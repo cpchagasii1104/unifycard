@@ -10,32 +10,53 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
   /**
    * Middleware: Verificar permissão para acessar Risk Command Center
    */
-  const requireRiskPermission = async (req: any, reply: any) => {
+  // 🔴 ESCOPO R2 (F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE, 2026-06-14, reseal Yala / decisão Clayton):
+  // a autoridade fina é `company_users.can_view_risk` (DECISION-0125), COMPANY-SCOPED — grant em uma
+  // empresa NÃO autoriza leitura tenant-wide. SUBJECT = req.user (server-side); actionContext/params.actorId
+  // = alvo, NUNCA subject. can_manage_risk fica RESERVADO (sem runtime hoje).
+
+  // Rotas TENANT-WIDE (overview, lista de actors): dados agregados do tenant, sem empresa-alvo resolvível
+  // → FAIL-CLOSED (company_scope_required) até existir grant platform-admin (DECISION_REQUIRED).
+  const requireRiskTenantWide = async (req: any, reply: any) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
-    const tenantId = req.tenant.id;
-    // 🔵 R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13) + DECISION-0113: o SUBJECT da
-    // autorização vem do utilizador AUTENTICADO server-side (req.user.userId/JWT), NUNCA do
-    // actionContext.actorId (client-declared). A autoridade fina é `company_users.can_view_risk` (fonte
-    // material do R2 mínimo), NÃO o chain legado businessAuthorizationService→organization_members (ausente
-    // ⇒ 403 sempre). O authorizer resolve a identidade global via JOIN canônico users.global_user_id.
-    // actionContext.actorId permanece HINT/alvo/contexto (usado só para auditoria nos handlers), NUNCA subject.
-    // can_manage_risk fica RESERVADO para futuras ações de mitigação (sem runtime hoje).
     const userId = req.user?.userId ?? req.user?.id;
     if (!userId) {
       return reply.status(401).send({ error: 'Authentication required' });
     }
+    return reply.status(403).send({
+      error: 'Risk tenant-wide exige grant platform-admin (DECISION_REQUIRED). Grant de empresa não autoriza leitura tenant-wide.',
+      code: 'COMPANY_SCOPE_REQUIRED',
+    });
+  };
 
+  // Rotas ACTOR-SCOPED (/actors/:actorId, /actors/:actorId/timeline): o dado é do actor-alvo. Resolve a
+  // empresa material do actor (actors.company_id, server-side) e exige can_view_risk NAQUELA empresa.
+  // actor-alvo sem company resolvível (ex.: user-actor sem company_id) → fail-closed company_scope_required.
+  const requireRiskActorScoped = async (req: any, reply: any) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
+    const tenantId = req.tenant.id;
+    const userId = req.user?.userId ?? req.user?.id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
     try {
       const { companiesService } = await import('@core/companies/companies.service');
+      const companyId = await companiesService.resolveCompanyIdForActor(tenantId, req.params?.actorId);
+      if (!companyId) {
+        return reply.status(403).send({ error: 'Actor-alvo sem empresa resolvível — escopo company obrigatório', code: 'COMPANY_SCOPE_REQUIRED' });
+      }
       const { allowed } = await companiesService.canUserPerformCompanyCapability(
         tenantId,
         userId,
-        'can_view_risk'
+        'can_view_risk',
+        { companyId }
       );
       if (!allowed) {
-        return reply.status(403).send({ error: 'Sem permissão para acessar Risk Command Center' });
+        return reply.status(403).send({ error: 'Sem permissão para acessar Risk Command Center desta empresa' });
       }
     } catch (permError: any) {
       return reply.status(403).send({ error: 'Sem permissão para acessar Risk Command Center' });
@@ -70,7 +91,7 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.get<{}>(
     '/risk/dashboard/overview',
-    { preHandler: requireRiskPermission },
+    { preHandler: requireRiskTenantWide },
     async (req, reply) => {
       if (!req.tenant) {
         return reply.status(400).send({ error: 'tenant required' });
@@ -106,7 +127,7 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
       limit?: number;
       offset?: number;
     };
-  }>('/risk/dashboard/actors', { preHandler: requireRiskPermission }, async (req, reply) => {
+  }>('/risk/dashboard/actors', { preHandler: requireRiskTenantWide }, async (req, reply) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
@@ -142,7 +163,7 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.get<{ Params: { actorId: string } }>(
     '/risk/dashboard/actors/:actorId',
-    { preHandler: requireRiskPermission },
+    { preHandler: requireRiskActorScoped },
     async (req, reply) => {
       if (!req.tenant) {
         return reply.status(400).send({ error: 'tenant required' });
@@ -169,7 +190,7 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.get<{ Params: { actorId: string } }>(
     '/risk/dashboard/actors/:actorId/timeline',
-    { preHandler: requireRiskPermission },
+    { preHandler: requireRiskActorScoped },
     async (req, reply) => {
       if (!req.tenant) {
         return reply.status(400).send({ error: 'tenant required' });

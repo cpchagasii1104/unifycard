@@ -991,59 +991,73 @@ class CompaniesService {
   }
 
   /**
-   * R2 FINE-GRAINED GRANTS (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13).
-   * Autorizador genérico de capability fina sobre `company_users.can_*` — a fonte material
-   * do R2 mínimo (decisão Clayton/IA Diretora). Generaliza canManageCompany/
-   * canViewConsolidatedInventory para qualquer coluna can_* whitelisted.
+   * R2 FINE-GRAINED GRANTS (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13 ·
+   * ESCOPO CORRIGIDO F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE, 2026-06-14, DECISION-0125 §escopo).
+   * Autorizador genérico de capability fina sobre `company_users.can_*` — a fonte material do R2
+   * mínimo. Generaliza canManageCompany/canViewConsolidatedInventory para qualquer can_* whitelisted.
    *
-   * SUBJECT = `userId` (req.user.id server-side; users.id). A identidade global é resolvida
-   * DENTRO da query pelo JOIN canônico `users.global_user_id` (SSOT pós-Gate-0) — NÃO confia
-   * em req.user.globalUserId (opcional) nem em qualquer actorId client-declared. O `actorId`
-   * de params/query/body/actionContext NUNCA é subject; no máximo é filtro/alvo de leitura.
+   * SUBJECT = `userId` (req.user.id server-side; users.id). A identidade global é resolvida DENTRO da
+   * query pelo JOIN canônico `users.global_user_id` — NÃO confia em req.user.globalUserId (opcional)
+   * nem em actorId client-declared. O actorId de params/query/body/actionContext NUNCA é subject.
    *
-   * `companyId` é OPCIONAL: quando o alvo material é uma empresa específica, escopa o grant a
-   * ela; as superfícies admin tenant-wide desta frente (reporting/risk/audit/policy) NÃO têm
-   * empresa-alvo única (agregam o tenant) — passam companyId=undefined e o grant é satisfeito
-   * por QUALQUER vínculo ATIVO no tenant que detenha a capability (ou can_manage_company/owner).
-   * Property conhecida (documentada): em tenant multi-empresa, o grant tenant-wide habilita a
-   * leitura agregada do tenant; o escopo per-empresa das superfícies platform-level é refino
-   * futuro (fora desta frente). Fail-closed: sem vínculo ativo com o grant → allowed=false.
-   *
-   * Coluna resolvida por whitelist fixa (NUNCA interpola string de cliente → sem SQL injection).
+   * 🔴 ESCOPO COMPANY OBRIGATÓRIO (reseal Yala / decisão Clayton): `companyId` é REQUERIDO. Um grant
+   * em UMA empresa NÃO autoriza leitura tenant-wide. Sem companyId resolvido → **fail-closed**
+   * (`allowed=false, reason='company_scope_required'`). Com companyId → verifica o vínculo NAQUELA
+   * empresa. `owner`/`can_manage_company` são supergrant SÓ DENTRO da empresa escopada — NUNCA viram
+   * supergrant tenant-wide. A leitura tenant-wide/platform-admin ampla permanece DECISION_REQUIRED
+   * (sem modelo de grant tenant-level/platform-operator). Coluna por whitelist fixa (sem SQL injection).
    */
   async canUserPerformCompanyCapability(
     tenantId: string,
     userId: string,
     capability: CompanyCapabilityKey,
     opts?: { companyId?: string }
-  ): Promise<{ allowed: boolean; source: 'company_users.can_*' }> {
+  ): Promise<{ allowed: boolean; source: 'company_users.can_*'; reason?: string }> {
     const column = COMPANY_CAPABILITY_COLUMNS[capability];
     if (!column) {
       // capability fora da whitelist = erro de programação; fail-closed (nunca abre acesso).
       throw new Error(`canUserPerformCompanyCapability: capability não suportada: ${String(capability)}`);
     }
     if (!userId) {
-      return { allowed: false, source: 'company_users.can_*' };
+      return { allowed: false, source: 'company_users.can_*', reason: 'no_subject' };
     }
-    const params: unknown[] = [tenantId, userId];
-    let companyFilter = '';
-    if (opts?.companyId) {
-      params.push(opts.companyId);
-      companyFilter = `AND cu.company_id = $3::uuid`;
+    // 🔴 fail-closed sem escopo company: grant é per-empresa, nunca tenant-wide.
+    if (!opts?.companyId) {
+      return { allowed: false, source: 'company_users.can_*', reason: 'company_scope_required' };
     }
     const row = await runQueryWithTenant<{ allowed: boolean }>(
       tenantId,
       `SELECT (cu.can_manage_company OR cu.role = 'owner' OR cu.${column}) AS allowed
          FROM company_users cu
          JOIN users u ON u.global_user_id = cu.global_user_id
-        WHERE cu.tenant_id = $1 AND u.id = $2::uuid
+        WHERE cu.tenant_id = $1 AND u.id = $2::uuid AND cu.company_id = $3::uuid
           AND cu.is_active = true AND cu.member_status = 'active'
-          ${companyFilter}
           AND (cu.can_manage_company OR cu.role = 'owner' OR cu.${column})
         LIMIT 1`,
-      params
+      [tenantId, userId, opts.companyId]
     );
-    return { allowed: row?.allowed === true, source: 'company_users.can_*' };
+    return row?.allowed === true
+      ? { allowed: true, source: 'company_users.can_*' }
+      : { allowed: false, source: 'company_users.can_*', reason: 'no_grant_in_company' };
+  }
+
+  /**
+   * Resolve o `companyId` material de um actor-alvo (F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE).
+   * Usa `actors.company_id` (page/company-actor tem company_id; user-actor tem NULL). Server-side,
+   * fail-closed: actor inexistente / sem company_id → null (⇒ o caller deve negar com
+   * `company_scope_required`). NÃO confia em nada client-declared além do id consultado contra o tenant.
+   */
+  async resolveCompanyIdForActor(tenantId: string, actorId?: string | null): Promise<string | null> {
+    if (!actorId) return null;
+    const row = await runQueryWithTenant<{ cid: string | null }>(
+      tenantId,
+      `SELECT company_id::text AS cid
+         FROM actors
+        WHERE tenant_id = $1 AND id = $2::uuid AND company_id IS NOT NULL
+        LIMIT 1`,
+      [tenantId, actorId]
+    );
+    return row?.cid ?? null;
   }
 
   /**

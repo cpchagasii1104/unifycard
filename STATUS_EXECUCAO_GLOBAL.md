@@ -1,3 +1,17 @@
+## 2026-06-14 — F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE · fecha reseal PASS-COM-RESSALVA: âncora (migration→dev 381) + escopo (grant company-scoped, tenant-wide fail-closed) · IMPLEMENTED/HOLD RESEAL FINAL
+
+**Branch:** `rescue-structural` · **parent `0662155f`** · dev 380 → **381** (sem nova migration) · MODO EXECUTOR macrofrente corretiva (ultracode). Execução: `docs/03_execution_log/20260614_F_R2_FINE_GRANTS_ANCHOR_AND_SCOPE_CLOSURE.md`. DECISION-0125 §escopo promulgada.
+
+**Parte A (âncora):** migration `20260613170000` aplicada ao `unificard_dev` via runner canônico (`npm run migrate`) → **dev 381/381**; 4 colunas presentes (boolean NOT NULL default false).
+
+**Parte B (escopo — corrige ressalva):** `company_users.can_*` é **company-scoped** — grant em uma empresa NÃO autoriza leitura tenant-wide. `canUserPerformCompanyCapability` **fail-closed sem companyId** (`company_scope_required`); checa o vínculo NAQUELA empresa; `owner`/`can_manage_company` = supergrant SÓ dentro da empresa, nunca tenant-wide. Novo `resolveCompanyIdForActor` (actors.company_id). **Reads tenant-wide = fail-closed COMPANY_SCOPE_REQUIRED** (reporting [actorId morto removido], risk /overview+/actors lista, business-audit /:logId, policy lista+mutations) até modelo platform-admin = **DECISION_REQUIRED**. **Reads actor-scoped = company-scoped** (risk /actors/:id[/timeline], business-audit ?actorId=, policy /policies/evaluate/:id + /policy-decisions/actor/:id/active).
+
+**Guard:** Forma C exige prova de company-scope (`resolveCompanyIdForActor`); reporting fora do allowlist (sem canal). baseline 3 (bank-http/payout/trust); recognized=3.
+
+**Provas:** e2e `company-users-fine-grants` **20/20** (T-PRIM fail-closed/scoped · T2/T7 company passa · T3 cross 403 · T4/T8/T10/T-reporting tenant-wide→COMPANY_SCOPE_REQUIRED · T11 owner não tenant-wide · T12/T12b alvo≠subject); guard `flagged=3 baseline=3 new=0 safe_subject_recognized=3` rc=0; neg-proof **13/13** (incl. reject Forma-C sem company-scope); canal3 B3 + spoof T-struct ajustados. Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25. Bank/payout/dispute/service-orders intocados; sem RBAC V2; sem frontend; sem nova migration. **IMPLEMENTED / HOLD PARA RESEAL FINAL.**
+
+---
+
 ## 2026-06-13 — F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION · R2 mínimo: `company_users.can_*` como fonte material de permissão fina (runtime + migration não-financeira + guard + e2e) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `149f2958`** · dev 380 → **381** · MODO EXECUTOR macrofrente (ultracode). Execução: `docs/03_execution_log/20260613_F_R2_COMPANY_USERS_FINE_GRANTS_MATERIALIZATION.md`. DECISION-0125 PROMULGADA.

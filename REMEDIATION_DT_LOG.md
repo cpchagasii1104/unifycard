@@ -12966,3 +12966,22 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Restam DECISION_REQUIRED (frentes próprias):** escopo per-empresa das platform reads; deprecar
   businessAuthorizationService/RBAC v1 órfão; trust R2.4; disputa/reversão (`can_review_disputes`/
   `can_execute_dispute_action` documentadas mas NÃO criadas).
+
+## DT-0113-CLASSIC-CHANNEL-READERS — PARTIAL / escopo corrigido (2026-06-14, F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE)
+
+- **Status:** PARTIAL. Fecha o reseal **PASS COM RESSALVA** da Yala (DECISION-0125 §escopo). Baseline 0113 inalterado (3: bank-http/payout/trust).
+- **Âncora:** migration `20260613170000` aplicada ao `unificard_dev` via runner canônico → **dev 381/381**; 4 colunas presentes.
+- **Escopo (regra vinculante):** grant `company_users.can_*` é **company-scoped** — NÃO autoriza leitura tenant-wide.
+  `canUserPerformCompanyCapability` **fail-closed sem companyId** (`reason='company_scope_required'`); com companyId checa
+  o vínculo NAQUELA empresa; `owner`/`can_manage_company` = supergrant SÓ dentro da empresa, nunca tenant-wide. Novo
+  `resolveCompanyIdForActor` (actors.company_id, server-side). **Reads tenant-wide = fail-closed (COMPANY_SCOPE_REQUIRED)
+  até modelo platform-admin/tenant-level = DECISION_REQUIRED.**
+- **Rotas:** reporting (TODAS, dados tenant-wide irredutíveis, actorId morto removido), risk /overview+/actors lista,
+  business-audit /:logId, policy lista+mutations = **fail-closed**. risk /actors/:id[/timeline], business-audit ?actorId=,
+  policy /policies/evaluate/:id + /policy-decisions/actor/:id/active = **company-scoped** (resolvem actors.company_id).
+- **Guard:** Forma C exige prova de company-scope (`resolveCompanyIdForActor` no arquivo) para reconhecer; reporting saiu
+  do allowlist (sem canal). recognized=3.
+- **Prova:** e2e **20/20** (DB efêmera 381); guard `flagged=3 baseline=3 new=0 safe_subject_recognized=3`; neg-proof **13/13**
+  (incl. reject Forma-C sem company-scope). Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch
+  critical_new=0 · tsc 25. Bank/payout/dispute/service-orders intocados; sem RBAC V2; sem frontend; sem nova migration.
+- **Restam DECISION_REQUIRED:** modelo platform-admin/tenant-level grant (destrava reads tenant-wide); deprecar legado/RBAC v1; trust R2.4; disputa.

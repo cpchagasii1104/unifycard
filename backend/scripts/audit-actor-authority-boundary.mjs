@@ -84,12 +84,17 @@ function safeSubjectProof(rawCode) {
       return `B:requirePermission(tenantId, ${subj}=req.user, ${target}) — subject server-side, subj!=target`;
     }
   }
-  // Forma C — canUserPerformCompanyCapability(tenantId, <subj=req.user var>, '<can_*>'): autoridade
-  // material em company_users.can_*; subject server-side. O 2º argumento é o SUBJECT (não o alvo).
-  for (const m of code.matchAll(/\bcanUserPerformCompanyCapability\(\s*[^,()]+,\s*([A-Za-z_$][\w$]*)\s*,/g)) {
-    const subj = m[1].trim();
-    if (serverSubjectVars.has(subj)) {
-      return `C:canUserPerformCompanyCapability(tenantId, ${subj}=req.user, can_*) — subject server-side, autoridade=company_users.can_*`;
+  // Forma C — canUserPerformCompanyCapability(tenantId, <subj=req.user var>, '<can_*>', { companyId })
+  // COM prova de COMPANY-SCOPE server-side no arquivo (resolveCompanyIdForActor). O 2º arg é o SUBJECT
+  // (req.user, não o alvo). O primitivo é fail-closed sem companyId (grant per-empresa, nunca tenant-wide,
+  // DECISION-0125 §escopo) — reconhecer Forma C exige a prova de escopo company para não maquiar tenant-wide.
+  const hasCompanyScopeProof = /\bresolveCompanyIdForActor\s*\(/.test(code);
+  if (hasCompanyScopeProof) {
+    for (const m of code.matchAll(/\bcanUserPerformCompanyCapability\(\s*[^,()]+,\s*([A-Za-z_$][\w$]*)\s*,/g)) {
+      const subj = m[1].trim();
+      if (serverSubjectVars.has(subj)) {
+        return `C:canUserPerformCompanyCapability(tenantId, ${subj}=req.user, can_*, {companyId}) + resolveCompanyIdForActor — subject server-side, company-scoped (fail-closed sem companyId)`;
+      }
     }
   }
   return null;
@@ -103,20 +108,18 @@ function safeSubjectProof(rawCode) {
 // estando no BASELINE) FALHA. NÃO inclui payout/bank-http (move-money HARD STOP), policy-engine
 // (mutations mixed — per-actor binding R2 DECISION_REQUIRED) nem trust (requireRole interino R2.4):
 // esses PERMANECEM no BASELINE com justificativa material própria. Ver DECISION-0124 + DT-0113-CLASSIC.
-// FATIA A reconheceu reporting/business-audit/risk-dashboard por subject server-side. R2
-// (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13) materializou a autoridade fina em
-// company_users.can_* via Forma C (canUserPerformCompanyCapability) e ADICIONOU policy-engine: o arquivo
-// MIXED (reads+mutations) passou a ter subject server-side em TODA rota (gate único can_manage_policy),
-// tornando-o provável e honestamente reconhecível — saiu do BASELINE.
+// F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE (2026-06-14): escopo corrigido. As rotas tenant-wide são
+// FAIL-CLOSED (company_scope_required); as rotas ACTOR-SCOPED resolvem actors.company_id e exigem o grant
+// NAQUELA empresa (Forma C company-scoped). reporting saiu do allowlist: virou 100% fail-closed e teve o
+// `actorId` morto removido ⇒ não casa mais canal client-declared (fora do escopo do guard). Os 3 abaixo
+// mantêm canal (query/params.actorId como ALVO) + Forma C com prova de company-scope (resolveCompanyIdForActor).
 const SAFE_SUBJECT_READERS = {
-  'modules/reporting/reporting.routes.ts':
-    'READER. subject=req.user.id → canUserPerformCompanyCapability(tenantId, userId, can_view_reports) [company_users.can_*]. GET financial-kpis/revenue/commission/trust/dispute-overview + POST /export (read+download). query.actorId/body.filters.actorId = filtro CROSS-ACTOR de admin (não spoof). Sem move-money writer.',
   'modules/business-audit/business-audit.routes.ts':
-    'READER. subject=req.user.id → canUserPerformCompanyCapability(tenantId, userId, can_view_audit_logs) [company_users.can_*]. GET /business-audit-logs[/:logId] — logs imutáveis. query.actorId = filtro. Zero write.',
+    'ACTOR-SCOPED. GET /business-audit-logs?actorId → resolveCompanyIdForActor → canUserPerformCompanyCapability(can_view_audit_logs, {companyId}). Sem actorId resolvível (listagem tenant-wide) e GET /:logId = FAIL-CLOSED (company_scope_required). query.actorId = alvo (repo FILTRA por actor_id), nunca subject. Zero write.',
   'modules/risk-command-center/risk-dashboard.routes.ts':
-    'READER. subject=req.user.userId??id → canUserPerformCompanyCapability(tenantId, userId, can_view_risk) [company_users.can_*]. GET dashboard/overview/actors[/:actorId][/timeline]. actionContext/params.actorId = alvo/contexto (HINT). Spoof subject==target CLOSED (F-RISK-DASHBOARD-PERMISSION-SPOOF). Sem write.',
+    'ACTOR-SCOPED. GET /actors/:actorId[/timeline] → resolveCompanyIdForActor(params.actorId) → canUserPerformCompanyCapability(can_view_risk, {companyId}). /overview e /actors (lista) = tenant-wide FAIL-CLOSED. params.actorId = alvo. Spoof subject==target CLOSED. Sem write.',
   'modules/policy-engine/policy.routes.ts':
-    'MIXED→PROVÁVEL. subject=req.user.id → canUserPerformCompanyCapability(tenantId, userId, can_manage_policy) [company_users.can_*] em TODAS as rotas (GET reads + POST create/activate/deactivate/apply/revoke). params/query.actorId = filtro/alvo de avaliação, NUNCA subject. Gate único can_manage_policy (mais restritivo p/ reads, sem perda de segurança) — arquivo inteiro provável.',
+    'ACTOR-SCOPED. GET /policies/evaluate/:actorId e /policy-decisions/actor/:actorId/active → resolveCompanyIdForActor → canUserPerformCompanyCapability(can_manage_policy, {companyId}). Demais (listar/criar/ativar/decisões/apply/revoke) = tenant-wide/mixed FAIL-CLOSED. params/query.actorId = alvo, nunca subject.',
 };
 
 // ── BASELINE EXPLÍCITO (estado conhecido; cada item tem DT vinculada) ──

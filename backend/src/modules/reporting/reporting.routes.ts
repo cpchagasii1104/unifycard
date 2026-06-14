@@ -10,36 +10,28 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
   /**
    * Middleware: Verificar permissão para acessar reporting.
    *
-   * 🔵 R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13): a autoridade fina vem de
-   * `company_users.can_view_reports` (fonte material do R2 mínimo), NÃO do chain legado
-   * businessAuthorizationService→organization_members (tabela ausente em runtime ⇒ 403 sempre).
-   * SUBJECT = req.user.id (server-side); o authorizer resolve a identidade global via JOIN canônico
-   * users.global_user_id. O `actorId` de query/body permanece FILTRO de leitura, NUNCA subject.
+   * 🔴 ESCOPO R2 (F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE, 2026-06-14, reseal Yala / decisão Clayton):
+   * a autoridade fina é `company_users.can_view_reports` (DECISION-0125), mas o grant é **company-scoped**
+   * — NÃO autoriza leitura tenant-wide. TODAS as rotas de reporting agregam dados TENANT-WIDE
+   * (reportingService.getFinancialKPIs(tenantId, ...) etc.; o filtro `actorId` NÃO é honrado pelo service)
+   * e NÃO têm empresa-alvo resolvível. Logo, sem modelo de grant platform-admin/tenant-level, o reporting
+   * permanece **FAIL-CLOSED** (`company_scope_required`) — DECISION_REQUIRED. Scopear a auth a uma empresa
+   * e devolver agregado tenant-wide seria exatamente o vazamento vetado ("grant em uma empresa lê o tenant
+   * inteiro"). req.user obrigatório (401); SUBJECT é sempre server-side; nada client-declared autoriza.
    */
   const requireReportingPermission = async (req: any, reply: any) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
-    const tenantId = req.tenant.id;
     const userId = req.user?.id;
-
     if (!userId) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
-
-    try {
-      const { companiesService } = await import('@core/companies/companies.service');
-      const { allowed } = await companiesService.canUserPerformCompanyCapability(
-        tenantId,
-        userId,
-        'can_view_reports'
-      );
-      if (!allowed) {
-        return reply.status(403).send({ error: 'Sem permissão para acessar reporting' });
-      }
-    } catch (permError: any) {
-      return reply.status(403).send({ error: 'Sem permissão para acessar reporting' });
-    }
+    // Tenant-wide agregado, sem empresa-alvo resolvível → fail-closed (platform-admin = DECISION_REQUIRED).
+    return reply.status(403).send({
+      error: 'Reporting tenant-wide exige grant platform-admin (DECISION_REQUIRED). Grant de empresa não autoriza leitura tenant-wide.',
+      code: 'COMPANY_SCOPE_REQUIRED',
+    });
   };
 
   /**
@@ -50,7 +42,6 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
     Querystring: {
       startDate?: string;
       endDate?: string;
-      actorId?: string;
       currency?: string;
     };
   }>('/reporting/financial-kpis', { preHandler: requireReportingPermission }, async (req, reply) => {
@@ -59,16 +50,12 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
     }
     const tenantId = req.tenant.id;
 
-    // 🔵 DECISION-0113 canal 3 — CORREÇÃO DE OVER-GATE (2026-06-08): a rota já exige (preHandler)
-    // `financial:view_all_ledger` — permissão CROSS-ACTOR por definição (OWNER/ADMIN/FINANCE, atribuição
-    // manual). Exigir `canRepresentActor` sobre o `actorId` filtrado ALÉM disso bloqueava o finance/admin
-    // legítimo que NÃO representa o actor — contradizendo a própria permissão view-all. Aqui `actorId` é
-    // FILTRO de leitura autorizado pela permissão cross-actor, não vetor de spoof. (Contraste: `invoice`
-    // usa `financial:view_ledger` = escopo per-entidade → lá o `canRepresentActor` é CORRETO e PERMANECE.)
+    // `actorId` REMOVIDO (F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE): o service NÃO honra filtro por actor
+    // (agrega tenant-wide); o filtro era morto e mascarava a natureza tenant-wide. A rota é fail-closed no
+    // preHandler até existir grant platform-admin (DECISION_REQUIRED).
     const filters: ReportingFilters = {
       startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
       endDate: req.query.endDate ? new Date(req.query.endDate) : undefined,
-      actorId: req.query.actorId,
       currency: req.query.currency,
     };
 
@@ -222,7 +209,6 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
       const filters: ReportingFilters = {
         startDate: req.body.filters?.startDate ? new Date(req.body.filters.startDate) : undefined,
         endDate: req.body.filters?.endDate ? new Date(req.body.filters.endDate) : undefined,
-        actorId: req.body.filters?.actorId,
         status: req.body.filters?.status,
         currency: req.body.filters?.currency,
       };

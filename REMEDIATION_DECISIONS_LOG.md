@@ -6970,3 +6970,16 @@ vínculo ativo no tenant; escopo per-empresa = refino futuro. Detalhe:
 `docs/02_decisions/DECISION_0125_R2_COMPANY_USERS_FINE_GRANTS.md`. Prova: e2e 15/15 (DB efêmera, T0..T14);
 guard flagged=3/baseline=3/new=0/safe_subject_recognized=4; prova negativa 12/12; gates verdes; tsc 25;
 migrations 380→381.
+
+## DECISION-0125 §escopo — grant company-scoped; tenant-wide = DECISION_REQUIRED
+
+**Data:** 2026-06-14 · **Frente:** F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE · **Branch:** rescue-structural
+
+Reseal Yala PASS COM RESSALVA corrigido. `company_users.can_*`: fonte material R2 mínima, **company-scoped** —
+grant em uma empresa NÃO autoriza leitura tenant-wide. `canUserPerformCompanyCapability` fail-closed sem companyId
+(`company_scope_required`); owner/can_manage_company supergrant só dentro da empresa escopada. Novo
+`resolveCompanyIdForActor` (actors.company_id). Reads tenant-wide (reporting/risk-overview/audit-list/policy-list+mutations)
+= fail-closed COMPANY_SCOPE_REQUIRED; reads actor-scoped (risk/actors/:id, audit?actorId, policy/evaluate/:id) = company-scoped.
+Platform-admin/tenant-level grant = DECISION_REQUIRED. Âncora: migration 20260613170000 aplicada ao dev → 381/381. Guard
+Forma C exige prova de company-scope. Prova: e2e 20/20; neg-proof 13/13; gates verdes; tsc 25. Detalhe:
+`docs/02_decisions/DECISION_0125_R2_COMPANY_USERS_FINE_GRANTS.md` (Adendo §escopo).

@@ -74,10 +74,11 @@ const C = [
   ['reject.query',             'const a = req.query.actorId;\n await s.requirePermission(tenantId, a, target, "k");', false],
   ['reject.subjectEqTarget',   'const userId = req.user?.id;\n await s.requirePermission(tenantId, actorId, actorId, "k");', false],
   ['reject.serverSubjectEqTarget','const userId = req.user?.id;\n await s.requirePermission(tenantId, userId, userId, "k");', false],
-  ['formC.companyCapability',  'const userId = req.user?.id;\n await companiesService.canUserPerformCompanyCapability(tenantId, userId, "can_view_reports");', true],
-  ['formC.coalesce',           'const userId = req.user?.userId ?? req.user?.id;\n await companiesService.canUserPerformCompanyCapability(tenantId, userId, "can_view_risk");', true],
-  ['reject.formC.params',      'const a = req.params.actorId;\n await companiesService.canUserPerformCompanyCapability(tenantId, a, "can_manage_policy");', false],
-  ['reject.formC.actionContext','const a = req.actionContext.actorId;\n await companiesService.canUserPerformCompanyCapability(tenantId, a, "can_view_audit_logs");', false],
+  ['formC.companyScoped',      'const userId = req.user?.id;\n const c = await companiesService.resolveCompanyIdForActor(tenantId, req.params.actorId);\n await companiesService.canUserPerformCompanyCapability(tenantId, userId, "can_view_reports", { companyId: c });', true],
+  ['formC.coalesce',           'const userId = req.user?.userId ?? req.user?.id;\n const c = await companiesService.resolveCompanyIdForActor(tenantId, req.params.actorId);\n await companiesService.canUserPerformCompanyCapability(tenantId, userId, "can_view_risk", { companyId: c });', true],
+  ['reject.formC.noCompanyScope','const userId = req.user?.id;\n await companiesService.canUserPerformCompanyCapability(tenantId, userId, "can_view_risk");', false],
+  ['reject.formC.params',      'const a = req.params.actorId;\n const c = await companiesService.resolveCompanyIdForActor(tenantId, a);\n await companiesService.canUserPerformCompanyCapability(tenantId, a, "can_manage_policy", { companyId: c });', false],
+  ['reject.formC.actionContext','const a = req.actionContext.actorId;\n const c = await companiesService.resolveCompanyIdForActor(tenantId, a);\n await companiesService.canUserPerformCompanyCapability(tenantId, a, "can_view_audit_logs", { companyId: c });', false],
 ];
 let ok = true;
 for (const [name, code, expect] of C) {
@@ -95,13 +96,13 @@ Remove-Item $asrt -Force -ErrorAction SilentlyContinue
 
 # Fase 4 (FATIA A + R2): prova POSITIVA — guard reconhece readers safe-subject e new=0.
 $guardOut = (node scripts/audit-actor-authority-boundary.mjs 2>&1 | Out-String)
-$recognizedFour = ($guardOut -match 'safe_subject_recognized=4')
+$recognizedThree = ($guardOut -match 'safe_subject_recognized=3')
 $newZero = ($guardOut -match '\bnew=0\b')
 
 $ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) `
   -and $spoofFailed -and $spoofRestored -and (-not (Test-Path $probe2)) `
-  -and $recognizerOk -and $recognizedFour -and $newZero
-Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized4=$recognizedFour new0=$newZero residue=$([bool](Test-Path $probeDir))"
+  -and $recognizerOk -and $recognizedThree -and $newZero
+Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized3=$recognizedThree new0=$newZero residue=$([bool](Test-Path $probeDir))"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
-Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding, (b) subject==target spoof, (c) recognizer aceita req.user (Formas A/B/C) e rejeita actionContext/params/query/subject==target, (d) reconhece os 4 readers safe-subject; restauracao limpa.' -ForegroundColor Green
+Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding, (b) subject==target spoof, (c) recognizer aceita req.user (Formas A/B/C company-scoped) e rejeita actionContext/params/query/subject==target/Forma-C-sem-company-scope, (d) reconhece os 3 readers actor-scoped; restauracao limpa.' -ForegroundColor Green
 exit 0

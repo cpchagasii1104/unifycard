@@ -10,13 +10,14 @@ const businessAuditRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * Middleware: Verificar permissão para LER logs de auditoria.
    *
-   * 🔵 R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13): a autoridade fina vem de
-   * `company_users.can_view_audit_logs` (fonte material do R2 mínimo), NÃO do fastify.requirePermission
-   * (['admin:view_audit_logs']) legado (rbac.plugin V2 dormente / grant não semeado ⇒ 403). SUBJECT =
-   * req.user.id (server-side); o authorizer resolve a identidade global via JOIN canônico
-   * users.global_user_id. Os logs são imutáveis (leitura); query.actorId é FILTRO, NUNCA subject.
+   * 🔴 ESCOPO R2 (F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE, 2026-06-14, reseal Yala / decisão Clayton):
+   * a autoridade fina é `company_users.can_view_audit_logs` (DECISION-0125), COMPANY-SCOPED — grant em uma
+   * empresa NÃO autoriza ler logs tenant-wide. SUBJECT = req.user.id (server-side); query.actorId = alvo
+   * de leitura (o repositório FILTRA por actor_id), NUNCA subject. A LISTAGEM exige um actor-alvo que
+   * resolva para empresa (actors.company_id) e can_view_audit_logs NAQUELA empresa; sem alvo resolvível
+   * (listagem tenant-wide) → FAIL-CLOSED (company_scope_required), DECISION_REQUIRED (platform-admin).
    */
-  const requireAuditReadPermission = async (req: any, reply: any) => {
+  const requireAuditActorScoped = async (req: any, reply: any) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
@@ -27,17 +28,37 @@ const businessAuditRoutes: FastifyPluginAsync = async (fastify) => {
     }
     try {
       const { companiesService } = await import('@core/companies/companies.service');
+      const companyId = await companiesService.resolveCompanyIdForActor(tenantId, req.query?.actorId);
+      if (!companyId) {
+        return reply.status(403).send({ error: 'Auditoria tenant-wide exige escopo company (actorId alvo resolvível) — DECISION_REQUIRED', code: 'COMPANY_SCOPE_REQUIRED' });
+      }
       const { allowed } = await companiesService.canUserPerformCompanyCapability(
         tenantId,
         userId,
-        'can_view_audit_logs'
+        'can_view_audit_logs',
+        { companyId }
       );
       if (!allowed) {
-        return reply.status(403).send({ error: 'Sem permissão para visualizar logs de auditoria' });
+        return reply.status(403).send({ error: 'Sem permissão para visualizar logs de auditoria desta empresa' });
       }
     } catch {
       return reply.status(403).send({ error: 'Sem permissão para visualizar logs de auditoria' });
     }
+  };
+
+  // Busca por logId não tem actor-alvo resolvível por desenho → fail-closed (company_scope_required).
+  const requireAuditTenantWide = async (req: any, reply: any) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
+    const userId = req.user?.id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    return reply.status(403).send({
+      error: 'Busca de log por id tenant-wide exige grant platform-admin (DECISION_REQUIRED).',
+      code: 'COMPANY_SCOPE_REQUIRED',
+    });
   };
 
   /**
@@ -56,7 +77,7 @@ const businessAuditRoutes: FastifyPluginAsync = async (fastify) => {
       offset?: number;
     };
   }>('/business-audit-logs', {
-    preHandler: requireAuditReadPermission,
+    preHandler: requireAuditActorScoped,
   }, async (req, reply) => {
     const tenantId = req.tenant!.id;
 
@@ -90,7 +111,7 @@ const businessAuditRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { logId: string } }>(
     '/business-audit-logs/:logId',
     {
-      preHandler: requireAuditReadPermission,
+      preHandler: requireAuditTenantWide,
     },
     async (req, reply) => {
       const tenantId = req.tenant!.id;

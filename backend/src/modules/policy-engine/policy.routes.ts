@@ -14,41 +14,54 @@ import type {
 
 const policyRoutes = async (fastify: FastifyInstance) => {
   /**
-   * Middleware: Verificar permissão para acessar Policy Engine (reads E mutations).
+   * Middleware: Policy Engine — autoridade fina `company_users.can_manage_policy` (DECISION-0125).
    *
-   * 🔵 R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13): a autoridade fina vem de
-   * `company_users.can_manage_policy` (fonte material do R2 mínimo), NÃO do chain legado
-   * businessAuthorizationService→organization_members (ausente ⇒ 403 sempre). SUBJECT = req.user.id
-   * (server-side); o authorizer resolve a identidade global via JOIN canônico users.global_user_id e
-   * inclui o fallback documentado can_manage_company/owner (mesma semântica de DECISION-0116). O `actorId`
-   * de params/query/body (filtros de leitura, alvo de avaliação) NUNCA é subject.
-   *
-   * Decisão consciente (arquivo MIXED reads+mutations): em vez de manter o arquivo baselineado no guard
-   * 0113, TODAS as rotas (GET reads + POST create/activate/deactivate/apply/revoke) passam pelo MESMO
-   * gate `can_manage_policy`. Unificar reads sob a mesma capability das mutations é MAIS restritivo (não
-   * abre leitura a quem não pode gerir) — sem perda de segurança — e torna o arquivo INTEIRO provável
-   * (subject server-side em toda rota), permitindo o reconhecimento honesto pelo guard (sai do baseline).
+   * 🔴 ESCOPO R2 (F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE, 2026-06-14, reseal Yala / decisão Clayton):
+   * grant COMPANY-SCOPED — não autoriza tenant-wide. SUBJECT = req.user.id (server-side); actorId = alvo,
+   * NUNCA subject. As rotas tenant-wide/mixed (listar/criar/ativar/desativar políticas e decisões, aplicar/
+   * revogar) NÃO têm empresa-alvo resolvível e gerem estado tenant-wide → **FAIL-CLOSED**
+   * (company_scope_required), DECISION_REQUIRED (platform-admin/tenant-level grant).
    */
   const requirePolicyPermission = async (req: any, reply: any) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
-    const tenantId = req.tenant.id;
     const userId = req.user?.id;
-
     if (!userId) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
+    return reply.status(403).send({
+      error: 'Policy tenant-wide/mixed exige grant platform-admin (DECISION_REQUIRED). Grant de empresa não autoriza gestão tenant-wide de políticas.',
+      code: 'COMPANY_SCOPE_REQUIRED',
+    });
+  };
 
+  // Rotas ACTOR-SCOPED (/policies/evaluate/:actorId, /policy-decisions/actor/:actorId/active): o output é
+  // do actor-alvo. Resolve a empresa material do actor (actors.company_id) e exige can_manage_policy NAQUELA
+  // empresa. Sem company resolvível → fail-closed company_scope_required.
+  const requirePolicyActorScoped = async (req: any, reply: any) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
+    const tenantId = req.tenant.id;
+    const userId = req.user?.id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
     try {
       const { companiesService } = await import('@core/companies/companies.service');
+      const companyId = await companiesService.resolveCompanyIdForActor(tenantId, req.params?.actorId);
+      if (!companyId) {
+        return reply.status(403).send({ error: 'Actor-alvo sem empresa resolvível — escopo company obrigatório', code: 'COMPANY_SCOPE_REQUIRED' });
+      }
       const { allowed } = await companiesService.canUserPerformCompanyCapability(
         tenantId,
         userId,
-        'can_manage_policy'
+        'can_manage_policy',
+        { companyId }
       );
       if (!allowed) {
-        return reply.status(403).send({ error: 'Sem permissão para acessar Policy Engine' });
+        return reply.status(403).send({ error: 'Sem permissão para Policy Engine desta empresa' });
       }
     } catch (permError: any) {
       return reply.status(403).send({ error: 'Sem permissão para acessar Policy Engine' });
@@ -163,7 +176,7 @@ const policyRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.get<{ Params: { actorId: string } }>(
     '/policies/evaluate/:actorId',
-    { preHandler: requirePolicyPermission },
+    { preHandler: requirePolicyActorScoped },
     async (req, reply) => {
       if (!req.tenant) {
         return reply.status(400).send({ error: 'tenant required' });
@@ -282,7 +295,7 @@ const policyRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.get<{ Params: { actorId: string } }>(
     '/policy-decisions/actor/:actorId/active',
-    { preHandler: requirePolicyPermission },
+    { preHandler: requirePolicyActorScoped },
     async (req, reply) => {
       if (!req.tenant) {
         return reply.status(400).send({ error: 'tenant required' });
