@@ -15,34 +15,28 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'tenant required' });
     }
     const tenantId = req.tenant.id;
-    // 🔴 F-RISK-DASHBOARD-PERMISSION-SPOOF-CONTAINMENT (DECISION-0113): o SUBJECT da autorização vem do
-    // utilizador AUTENTICADO server-side (req.user.userId/JWT), NUNCA do actionContext.actorId
-    // (client-declared). actionContext.actorId é apenas o actor-alvo (HINT) que o user diz representar —
-    // canActAs valida representabilidade (ownership/delegação) + a permissão cross-actor de admin. O
-    // targetActorId NUNCA vira subject (antes: requirePermission(tenantId, actorId, actorId, ...) = spoof).
+    // 🔵 R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13) + DECISION-0113: o SUBJECT da
+    // autorização vem do utilizador AUTENTICADO server-side (req.user.userId/JWT), NUNCA do
+    // actionContext.actorId (client-declared). A autoridade fina é `company_users.can_view_risk` (fonte
+    // material do R2 mínimo), NÃO o chain legado businessAuthorizationService→organization_members (ausente
+    // ⇒ 403 sempre). O authorizer resolve a identidade global via JOIN canônico users.global_user_id.
+    // actionContext.actorId permanece HINT/alvo/contexto (usado só para auditoria nos handlers), NUNCA subject.
+    // can_manage_risk fica RESERVADO para futuras ações de mitigação (sem runtime hoje).
     const userId = req.user?.userId ?? req.user?.id;
     if (!userId) {
       return reply.status(401).send({ error: 'Authentication required' });
     }
-    // ActionContext é obrigatório (V2)
-    if (!req.actionContext || !req.actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext obrigatório' });
-    }
-
-    const actorId = req.actionContext.actorId; // HINT/alvo/contexto, NUNCA subject
 
     try {
-      const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
-      // requirePermission(tenantId, SUBJECT/userId, actorId/contexto, action, ctx). financial:view_all_ledger
-      // = permissão admin CROSS-ACTOR (atribuição manual) — enforça o GRANT do utilizador (não basta ownership).
-      // O SUBJECT é req.user (server-side); o actorId segue como contexto/alvo (HINT). Antes: (actorId, actorId) = spoof.
-      await businessAuthorizationService.requirePermission(
+      const { companiesService } = await import('@core/companies/companies.service');
+      const { allowed } = await companiesService.canUserPerformCompanyCapability(
         tenantId,
         userId,
-        actorId,
-        'financial:view_all_ledger',
-        'risk_command_center'
+        'can_view_risk'
       );
+      if (!allowed) {
+        return reply.status(403).send({ error: 'Sem permissão para acessar Risk Command Center' });
+      }
     } catch (permError: any) {
       return reply.status(403).send({ error: 'Sem permissão para acessar Risk Command Center' });
     }

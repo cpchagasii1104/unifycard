@@ -6948,3 +6948,25 @@ maquiagem): reporting (view_all_ledger cross-actor = filtro autorizado, F-OK), p
 risk-dashboard (RESÍDUO PRIORITÁRIO: requirePermission(actorId,actorId) spoofável — fix = corrigir modelo de
 permissão, R2/produto, não bindar por cima). Baseline 9→7. Detalhe:
 `docs/02_decisions/DECISION_0124_CLASSIC_CHANNEL_READERS_CLASSIFICATION.md`. Prova: e2e 9/9; guard new=0 stale=0.
+
+## DECISION-0125 — Fonte material dos grants finos R2: `company_users.can_*`
+
+**Data:** 2026-06-13 · **Frente:** F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION · **Branch:** rescue-structural
+
+R2 source of fine-grained grants = **`company_users.can_*`** (NÃO RBAC v1 órfão / RBAC V2 ausente /
+requireRole genérico / actorId cliente / actionContext / catálogo decorativo). Novo primitivo
+`companiesService.canUserPerformCompanyCapability(tenantId, userId, capability, {companyId?})` — subject =
+req.user.id (server-side, resolvido p/ global_user_id via JOIN canônico users.global_user_id), autoriza por
+`(can_manage_company OR role='owner' OR <coluna whitelisted>)`, vínculo ATIVO, coluna por whitelist fixa,
+fail-closed. Migration `20260613170000` +4 colunas booleanas NOT NULL DEFAULT false em company_users
+(`can_view_audit_logs`/`can_view_risk`/`can_manage_risk`[reservada]/`can_manage_policy`). Migradas do chain
+legado QUEBRADO (organization_members ausente ⇒ 403): reporting (can_view_reports), business-audit
+(can_view_audit_logs), risk-dashboard (can_view_risk), policy-engine (can_manage_policy — reads+mutations no
+mesmo gate, fecha a divergência da FATIA A; baseline 4→3). Guard Forma C reconhece o primitivo como
+safe-binding. Hard stops: zero Bank/payout/reversal/dispute/service-orders; sem RBAC V2/FASE 6; sem
+actor_roles/company_roles/grants genéricos; sem frontend; `can_review_disputes`/`can_execute_dispute_action`
+documentadas mas NÃO criadas (frente própria). Propriedade conhecida: reads tenant-wide ⇒ grant por qualquer
+vínculo ativo no tenant; escopo per-empresa = refino futuro. Detalhe:
+`docs/02_decisions/DECISION_0125_R2_COMPANY_USERS_FINE_GRANTS.md`. Prova: e2e 15/15 (DB efêmera, T0..T14);
+guard flagged=3/baseline=3/new=0/safe_subject_recognized=4; prova negativa 12/12; gates verdes; tsc 25;
+migrations 380→381.

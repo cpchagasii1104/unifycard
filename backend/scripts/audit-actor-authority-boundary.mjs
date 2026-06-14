@@ -57,6 +57,11 @@ const stripComments = (s) => s
 //             partir de req.user (ESTRUTURAL — o decorator nunca aceita subject client-declared).
 //   Forma B — businessAuthorizationService.requirePermission(tenantId, <subj>, <target>, ...)
 //             onde <subj> é uma const local ligada a req.user.userId/req.user.id E subj !== target.
+//   Forma C — R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION): companiesService
+//             .canUserPerformCompanyCapability(tenantId, <subj>, '<can_*>') onde <subj> é uma const
+//             local ligada a req.user.userId/req.user.id. A autoridade material é company_users.can_*
+//             (SSOT de membership PJ); a identidade global é resolvida server-side (JOIN users.global_user_id)
+//             DENTRO do authorizer — o actorId client-declared nunca é subject. Não é writer move-money.
 // Retorna string de prova (truthy) ou null. Recebe código bruto OU já sem comentários — strip interno.
 // É PROIBIDO reconhecer subject vindo de req.actionContext.actorId / req.params.* / req.query.* /
 // req.body.* (não são server-side); e subject == target SEMPRE falha (ver SUBJECT_EQUALS_TARGET).
@@ -79,6 +84,14 @@ function safeSubjectProof(rawCode) {
       return `B:requirePermission(tenantId, ${subj}=req.user, ${target}) — subject server-side, subj!=target`;
     }
   }
+  // Forma C — canUserPerformCompanyCapability(tenantId, <subj=req.user var>, '<can_*>'): autoridade
+  // material em company_users.can_*; subject server-side. O 2º argumento é o SUBJECT (não o alvo).
+  for (const m of code.matchAll(/\bcanUserPerformCompanyCapability\(\s*[^,()]+,\s*([A-Za-z_$][\w$]*)\s*,/g)) {
+    const subj = m[1].trim();
+    if (serverSubjectVars.has(subj)) {
+      return `C:canUserPerformCompanyCapability(tenantId, ${subj}=req.user, can_*) — subject server-side, autoridade=company_users.can_*`;
+    }
+  }
   return null;
 }
 
@@ -90,13 +103,20 @@ function safeSubjectProof(rawCode) {
 // estando no BASELINE) FALHA. NÃO inclui payout/bank-http (move-money HARD STOP), policy-engine
 // (mutations mixed — per-actor binding R2 DECISION_REQUIRED) nem trust (requireRole interino R2.4):
 // esses PERMANECEM no BASELINE com justificativa material própria. Ver DECISION-0124 + DT-0113-CLASSIC.
+// FATIA A reconheceu reporting/business-audit/risk-dashboard por subject server-side. R2
+// (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13) materializou a autoridade fina em
+// company_users.can_* via Forma C (canUserPerformCompanyCapability) e ADICIONOU policy-engine: o arquivo
+// MIXED (reads+mutations) passou a ter subject server-side em TODA rota (gate único can_manage_policy),
+// tornando-o provável e honestamente reconhecível — saiu do BASELINE.
 const SAFE_SUBJECT_READERS = {
   'modules/reporting/reporting.routes.ts':
-    'READER. subject=req.user.id → requirePermission(tenantId, userId, actor.actor_id, financial:view_all_ledger). GET financial-kpis/revenue/commission/trust/dispute-overview + POST /export (read+download). query.actorId/body.filters.actorId = filtro CROSS-ACTOR de admin (não spoof). Sem move-money writer.',
+    'READER. subject=req.user.id → canUserPerformCompanyCapability(tenantId, userId, can_view_reports) [company_users.can_*]. GET financial-kpis/revenue/commission/trust/dispute-overview + POST /export (read+download). query.actorId/body.filters.actorId = filtro CROSS-ACTOR de admin (não spoof). Sem move-money writer.',
   'modules/business-audit/business-audit.routes.ts':
-    'READER. fastify.requirePermission([admin:view_audit_logs]) preHandler (subject=req.user via rbac.plugin). GET /business-audit-logs[/:logId] — logs imutáveis. query.actorId = filtro. Zero write.',
+    'READER. subject=req.user.id → canUserPerformCompanyCapability(tenantId, userId, can_view_audit_logs) [company_users.can_*]. GET /business-audit-logs[/:logId] — logs imutáveis. query.actorId = filtro. Zero write.',
   'modules/risk-command-center/risk-dashboard.routes.ts':
-    'READER. subject=req.user.userId??id → requirePermission(tenantId, userId, actorId, financial:view_all_ledger). GET dashboard/overview/actors[/:actorId][/timeline]. actionContext/params.actorId = alvo/contexto (HINT). Spoof subject==target CLOSED (F-RISK-DASHBOARD-PERMISSION-SPOOF). Sem write.',
+    'READER. subject=req.user.userId??id → canUserPerformCompanyCapability(tenantId, userId, can_view_risk) [company_users.can_*]. GET dashboard/overview/actors[/:actorId][/timeline]. actionContext/params.actorId = alvo/contexto (HINT). Spoof subject==target CLOSED (F-RISK-DASHBOARD-PERMISSION-SPOOF). Sem write.',
+  'modules/policy-engine/policy.routes.ts':
+    'MIXED→PROVÁVEL. subject=req.user.id → canUserPerformCompanyCapability(tenantId, userId, can_manage_policy) [company_users.can_*] em TODAS as rotas (GET reads + POST create/activate/deactivate/apply/revoke). params/query.actorId = filtro/alvo de avaliação, NUNCA subject. Gate único can_manage_policy (mais restritivo p/ reads, sem perda de segurança) — arquivo inteiro provável.',
 };
 
 // ── BASELINE EXPLÍCITO (estado conhecido; cada item tem DT vinculada) ──
@@ -114,10 +134,11 @@ const BASELINE = {
   // F-0113-CLASSIC-CHANNEL-READERS-BINDING (2026-06-13): public-profiles + marketplace-categories REMOVIDOS
   // (binding canRepresentActor). F-R2-GUARD-SAFE-SUBJECT-RECOGNITION (2026-06-13): reporting + business-audit +
   // risk-dashboard REMOVIDOS do baseline — reconhecidos por SAFE_SUBJECT_READERS (subject server-side provado).
-  // Os 4 abaixo PERMANECEM baselineados COM JUSTIFICATIVA MATERIAL (não maquiagem): Bank/financeiro HARD STOP,
-  // mutations mixed (R2 DECISION_REQUIRED) ou interino congelado. Ver DECISION-0124.
+  // F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION (2026-06-13): policy-engine REMOVIDO — todas as rotas (reads
+  // + mutations) passaram a usar canUserPerformCompanyCapability(can_manage_policy) com subject server-side
+  // (Forma C), tornando o arquivo provável. Os 3 abaixo PERMANECEM baselineados COM JUSTIFICATIVA MATERIAL (não
+  // maquiagem): Bank/financeiro HARD STOP (move-money), ou requireRole interino R2.4 congelado. Ver DECISION-0124.
   'core/unifybank/bank-http.routes.ts':                'D · BANK domain (HARD STOP) + move-money writers (POST /transactions/simple|split). GET /balance tem autoridade via actorCapabilitiesService.resolveForUser (não reconhecida pelo guard nem é requirePermission). Não tocar. DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/policy-engine/policy.routes.ts':            'D · MIXED: subject do gate é server-side (req.user.id → requirePermission) MAS o arquivo tem mutations (POST /policies create + activate/deactivate, POST /policy-decisions apply + /revoke) com binding per-actor = R2 fine-grained DECISION_REQUIRED. Guard file-level não prova segurança por-rota das mutations → MANTER baselineado. DT-0113-CLASSIC-CHANNEL-READERS.',
   'modules/payout/payout.routes.ts':                   'D · FINANCIAL (HARD STOP) + move-money writers (POST /payouts/batches, /orders/:id/execute-manual, /fail). subject server-side (req.user.id → requirePermission financial:execute_payout) mas é money-writer — não auto-reconhecer. query.actorId em GET /payouts/orders = filtro do operador. Não tocar. DT-0113-CLASSIC-CHANNEL-READERS.',
   'modules/trust/trust.routes.ts':                     'D · params/query.actorId sob requireRole(admin) INTERINO (DECISION-0113, pendente R2.4) + mixed writes (POST /trust/events, /can-proceed, /recalculate). requireRole NÃO é prova de subject server-side reconhecida (e o modelo fino é R2.4 congelado). Manter interino. DECISION_REQUIRED. DT-0113-CLASSIC-CHANNEL-READERS.',
 };

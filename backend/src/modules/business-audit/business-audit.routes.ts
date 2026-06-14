@@ -8,6 +8,39 @@ import type { BusinessAuditLogFilters } from './business-audit.types';
 
 const businessAuditRoutes: FastifyPluginAsync = async (fastify) => {
   /**
+   * Middleware: Verificar permissão para LER logs de auditoria.
+   *
+   * 🔵 R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13): a autoridade fina vem de
+   * `company_users.can_view_audit_logs` (fonte material do R2 mínimo), NÃO do fastify.requirePermission
+   * (['admin:view_audit_logs']) legado (rbac.plugin V2 dormente / grant não semeado ⇒ 403). SUBJECT =
+   * req.user.id (server-side); o authorizer resolve a identidade global via JOIN canônico
+   * users.global_user_id. Os logs são imutáveis (leitura); query.actorId é FILTRO, NUNCA subject.
+   */
+  const requireAuditReadPermission = async (req: any, reply: any) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
+    const tenantId = req.tenant.id;
+    const userId = req.user?.id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    try {
+      const { companiesService } = await import('@core/companies/companies.service');
+      const { allowed } = await companiesService.canUserPerformCompanyCapability(
+        tenantId,
+        userId,
+        'can_view_audit_logs'
+      );
+      if (!allowed) {
+        return reply.status(403).send({ error: 'Sem permissão para visualizar logs de auditoria' });
+      }
+    } catch {
+      return reply.status(403).send({ error: 'Sem permissão para visualizar logs de auditoria' });
+    }
+  };
+
+  /**
    * GET /business-audit-logs
    * Listar logs de auditoria com filtros
    */
@@ -23,7 +56,7 @@ const businessAuditRoutes: FastifyPluginAsync = async (fastify) => {
       offset?: number;
     };
   }>('/business-audit-logs', {
-    preHandler: [fastify.requirePermission(['admin:view_audit_logs'])],
+    preHandler: requireAuditReadPermission,
   }, async (req, reply) => {
     const tenantId = req.tenant!.id;
 
@@ -57,7 +90,7 @@ const businessAuditRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { logId: string } }>(
     '/business-audit-logs/:logId',
     {
-      preHandler: [fastify.requirePermission(['admin:view_audit_logs'])],
+      preHandler: requireAuditReadPermission,
     },
     async (req, reply) => {
       const tenantId = req.tenant!.id;

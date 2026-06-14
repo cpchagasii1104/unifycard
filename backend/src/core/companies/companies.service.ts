@@ -26,6 +26,28 @@ import type {
   MarketplaceDomain,
 } from './companies.types';
 
+/**
+ * Capabilities finas R2 materializadas em `company_users.can_*`
+ * (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION). A whitelist mapeia chave → coluna real;
+ * usada por canUserPerformCompanyCapability para autorizar SEM interpolar string de cliente.
+ * Inclui as colunas pré-existentes reutilizadas (can_view_reports) e as criadas na migration
+ * 20260613170000 (can_view_audit_logs / can_view_risk / can_manage_risk / can_manage_policy).
+ */
+export type CompanyCapabilityKey =
+  | 'can_view_reports'
+  | 'can_view_audit_logs'
+  | 'can_view_risk'
+  | 'can_manage_risk'
+  | 'can_manage_policy';
+
+const COMPANY_CAPABILITY_COLUMNS: Record<CompanyCapabilityKey, string> = {
+  can_view_reports: 'can_view_reports',
+  can_view_audit_logs: 'can_view_audit_logs',
+  can_view_risk: 'can_view_risk',
+  can_manage_risk: 'can_manage_risk',
+  can_manage_policy: 'can_manage_policy',
+};
+
 class CompaniesService {
   /**
    * Lista domínios de atuação da empresa.
@@ -966,6 +988,62 @@ class CompaniesService {
       [tenantId, companyId, globalUserId]
     );
     return row?.can_view === true;
+  }
+
+  /**
+   * R2 FINE-GRAINED GRANTS (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13).
+   * Autorizador genérico de capability fina sobre `company_users.can_*` — a fonte material
+   * do R2 mínimo (decisão Clayton/IA Diretora). Generaliza canManageCompany/
+   * canViewConsolidatedInventory para qualquer coluna can_* whitelisted.
+   *
+   * SUBJECT = `userId` (req.user.id server-side; users.id). A identidade global é resolvida
+   * DENTRO da query pelo JOIN canônico `users.global_user_id` (SSOT pós-Gate-0) — NÃO confia
+   * em req.user.globalUserId (opcional) nem em qualquer actorId client-declared. O `actorId`
+   * de params/query/body/actionContext NUNCA é subject; no máximo é filtro/alvo de leitura.
+   *
+   * `companyId` é OPCIONAL: quando o alvo material é uma empresa específica, escopa o grant a
+   * ela; as superfícies admin tenant-wide desta frente (reporting/risk/audit/policy) NÃO têm
+   * empresa-alvo única (agregam o tenant) — passam companyId=undefined e o grant é satisfeito
+   * por QUALQUER vínculo ATIVO no tenant que detenha a capability (ou can_manage_company/owner).
+   * Property conhecida (documentada): em tenant multi-empresa, o grant tenant-wide habilita a
+   * leitura agregada do tenant; o escopo per-empresa das superfícies platform-level é refino
+   * futuro (fora desta frente). Fail-closed: sem vínculo ativo com o grant → allowed=false.
+   *
+   * Coluna resolvida por whitelist fixa (NUNCA interpola string de cliente → sem SQL injection).
+   */
+  async canUserPerformCompanyCapability(
+    tenantId: string,
+    userId: string,
+    capability: CompanyCapabilityKey,
+    opts?: { companyId?: string }
+  ): Promise<{ allowed: boolean; source: 'company_users.can_*' }> {
+    const column = COMPANY_CAPABILITY_COLUMNS[capability];
+    if (!column) {
+      // capability fora da whitelist = erro de programação; fail-closed (nunca abre acesso).
+      throw new Error(`canUserPerformCompanyCapability: capability não suportada: ${String(capability)}`);
+    }
+    if (!userId) {
+      return { allowed: false, source: 'company_users.can_*' };
+    }
+    const params: unknown[] = [tenantId, userId];
+    let companyFilter = '';
+    if (opts?.companyId) {
+      params.push(opts.companyId);
+      companyFilter = `AND cu.company_id = $3::uuid`;
+    }
+    const row = await runQueryWithTenant<{ allowed: boolean }>(
+      tenantId,
+      `SELECT (cu.can_manage_company OR cu.role = 'owner' OR cu.${column}) AS allowed
+         FROM company_users cu
+         JOIN users u ON u.global_user_id = cu.global_user_id
+        WHERE cu.tenant_id = $1 AND u.id = $2::uuid
+          AND cu.is_active = true AND cu.member_status = 'active'
+          ${companyFilter}
+          AND (cu.can_manage_company OR cu.role = 'owner' OR cu.${column})
+        LIMIT 1`,
+      params
+    );
+    return { allowed: row?.allowed === true, source: 'company_users.can_*' };
   }
 
   /**

@@ -93,14 +93,19 @@ async function main(): Promise<void> {
   }
   await app.close();
 
-  // ── T-struct — subject = req.user; actorId = alvo/contexto; NÃO subject==target ──
+  // ── T-struct — subject = req.user; actorId = alvo/contexto; autoridade R2 = company_users.can_view_risk ──
+  // F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION (2026-06-13): a autoridade fina migrou do
+  // requirePermission legado (organization_members ausente) para company_users.can_view_risk
+  // (canUserPerformCompanyCapability). O SUBJECT continua server-side (req.user); o actorId segue HINT/alvo.
   {
     const raw = readFileSync(join(process.cwd(), 'src/modules/risk-command-center/risk-dashboard.routes.ts'), 'utf-8');
     const src = raw.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, ''); // comment-stripped
+    const flat = src.replace(/\s+/g, ' ');
     const subjectFromUser = /const userId = req\.user\?\.userId \?\? req\.user\?\.id/.test(src);
-    const requirePermSubjectUser = /requirePermission\(\s*tenantId,\s*userId,\s*actorId,/.test(src.replace(/\s+/g, ' '));
-    const noSpoof = !/requirePermission\([^)]*,\s*actorId\s*,\s*actorId\s*,/.test(src.replace(/\s+/g, ' '));
-    record('T-struct subject=req.user.userId; requirePermission(tenantId, userId, actorId); sem subject==target', subjectFromUser && requirePermSubjectUser && noSpoof, `subjectUser=${subjectFromUser} noSpoof=${noSpoof} permUser=${requirePermSubjectUser}`);
+    const capabilityGate = /canUserPerformCompanyCapability\(\s*tenantId,\s*userId,\s*['"]can_view_risk['"]/.test(flat);
+    const noSpoof = !/requirePermission\([^)]*,\s*actorId\s*,\s*actorId\s*,/.test(flat); // sem subject==target legado
+    const noLegacyRequirePerm = !/businessAuthorizationService\.requirePermission/.test(flat);
+    record('T-struct subject=req.user.userId; canUserPerformCompanyCapability(can_view_risk); sem requirePermission legado/spoof', subjectFromUser && capabilityGate && noSpoof && noLegacyRequirePerm, `subjectUser=${subjectFromUser} capabilityGate=${capabilityGate} noSpoof=${noSpoof} noLegacy=${noLegacyRequirePerm}`);
   }
 
   // ── T6 — guard: check SUBJECT_EQUALS_TARGET presente; risk-dashboard reconhecido safe-subject (spoof CLOSED) ──

@@ -8,7 +8,13 @@ import type { ReportingFilters, ExportInput } from './reporting.types';
 
 const reportingRoutes = async (fastify: FastifyInstance) => {
   /**
-   * Middleware: Verificar permissão para acessar reporting
+   * Middleware: Verificar permissão para acessar reporting.
+   *
+   * 🔵 R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13): a autoridade fina vem de
+   * `company_users.can_view_reports` (fonte material do R2 mínimo), NÃO do chain legado
+   * businessAuthorizationService→organization_members (tabela ausente em runtime ⇒ 403 sempre).
+   * SUBJECT = req.user.id (server-side); o authorizer resolve a identidade global via JOIN canônico
+   * users.global_user_id. O `actorId` de query/body permanece FILTRO de leitura, NUNCA subject.
    */
   const requireReportingPermission = async (req: any, reply: any) => {
     if (!req.tenant) {
@@ -22,22 +28,15 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
     }
 
     try {
-      const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
-      const { getActiveActor } = await import('@core/actors/actor.helpers');
-      
-      const actor = await getActiveActor(tenantId, userId);
-      if (!actor) {
-        return reply.status(403).send({ error: 'Actor não encontrado' });
-      }
-
-      // Verificar permissão para reporting
-      await businessAuthorizationService.requirePermission(
+      const { companiesService } = await import('@core/companies/companies.service');
+      const { allowed } = await companiesService.canUserPerformCompanyCapability(
         tenantId,
         userId,
-        actor.actor_id,
-        'financial:view_all_ledger',
-        'reporting'
+        'can_view_reports'
       );
+      if (!allowed) {
+        return reply.status(403).send({ error: 'Sem permissão para acessar reporting' });
+      }
     } catch (permError: any) {
       return reply.status(403).send({ error: 'Sem permissão para acessar reporting' });
     }

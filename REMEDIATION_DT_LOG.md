@@ -12928,3 +12928,41 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   arco 0113, zero novo). Bank intocado · runtime de produção intocado (só guard/.ps1/e2e-test) · sem migration (dev 380).
 - **Próximo:** FATIAS C/D (company_users.can_* como SSOT de grant · famílias permission-key · policy mutations ·
   trust unfreeze · deprecar legado quebrado) — DECISION REQUIRED (Clayton).
+
+## DT-0113-CLASSIC-CHANNEL-READERS — PARTIAL / baseline 4 → 3 (2026-06-13, F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION)
+
+- **Status:** PARTIAL (macrofrente R2 mínima executada — runtime R2 + migration não-financeira + guard + e2e + docs).
+  DECISION-0125 PROMULGADA. Resolve a FATIA C/D antes prevista para depois (Clayton/IA Diretora deram GO com decisão tomada).
+- **Decisão materializada:** a fonte material de permissão fina é **`company_users.can_*`** (NÃO RBAC v1 órfão /
+  RBAC V2 ausente / requireRole genérico / actorId cliente / actionContext). Ver DECISION-0125.
+- **Runtime (R2 mínimo):** novo primitivo `companiesService.canUserPerformCompanyCapability(tenantId, userId, capability,
+  {companyId?})` — resolve `users.global_user_id` por JOIN canônico, exige vínculo ATIVO, autoriza por
+  `(can_manage_company OR role='owner' OR <coluna whitelisted>)`, coluna por whitelist fixa (sem SQL injection),
+  fail-closed. Migram do chain legado QUEBRADO (businessAuthorizationService→organization_members ausente ⇒ 403 sempre):
+  reporting (`can_view_reports`), business-audit (`can_view_audit_logs`), risk-dashboard (`can_view_risk`),
+  policy-engine (`can_manage_policy`, reads+mutations no mesmo gate).
+- **Migration `20260613170000`:** +4 colunas booleanas NOT NULL DEFAULT false em `company_users`
+  (`can_view_audit_logs`, `can_view_risk`, `can_manage_risk` [RESERVADA], `can_manage_policy`). Não-financeira; só
+  `company_users`; zero backfill (admin concede; existentes nascem false ⇒ nenhum acesso EXISTENTE ampliado pois o
+  legado já negava). dev 380 → **381**.
+- **Removido do baseline (1): `policy-engine`.** A FATIA A o mantivera baselineado (mixed; guard não provava por-rota).
+  Aqui o arquivo INTEIRO (reads + mutations) passou ao MESMO gate `can_manage_policy` com subject server-side → tornou-se
+  provável → reconhecido pela **Forma C** do recognizer. Decisão consciente: unificar reads sob a capability das mutations
+  é MAIS restritivo (sem perda de segurança). **Fecha a divergência honesta da FATIA A.**
+- **Guard:** `safeSubjectProof` ganhou **Forma C** — `canUserPerformCompanyCapability(tenantId, <subj=req.user>, '<can_*>')`
+  (subject server-side, autoridade = company_users.can_*). reporting/business-audit/risk-dashboard migraram de Forma A/B →
+  Forma C. `SAFE_SUBJECT_READERS` agora lista os 4. `SUBJECT_EQUALS_TARGET` segue hard-fail.
+- **Mantidos no baseline (3) com justificativa material:** `bank-http` + `payout` (BANK/FINANCIAL hard-stop + move-money
+  writers — não tocados), `trust` (requireRole INTERINO + mixed writes; R2.4 congelado).
+- **Propriedade conhecida (honestidade):** as 4 superfícies são reads tenant-wide (sem empresa-alvo única); o grant é
+  satisfeito por QUALQUER vínculo ativo no tenant com a capability. Escopo per-empresa = refino futuro. Ver DECISION-0125.
+- **Efeito sobre `DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY`:** baseline **4 → 3**.
+- **Prova:** e2e `validate-pipeline-e2e-company-users-fine-grants` (DB efêmera, **15/15** — T0..T14); guard
+  `flagged=3 baseline=3 new=0 stale=0 safe_subject_recognized=4` rc=0; prova negativa **12/12** (incl. 4 casos Forma C);
+  e2e risk-dashboard-spoof T-struct/T6 + canal3 B3 ajustados (verdes contra source vivo). Gates: actor-writer OK ·
+  bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25 (baseline arco 0113, zero novo). Bank
+  intocado; payout/reversal/dispute/booking/order/service_offering intocados; sem RBAC V2/FASE 6; sem actor_roles/
+  company_roles/grants genéricos; sem frontend.
+- **Restam DECISION_REQUIRED (frentes próprias):** escopo per-empresa das platform reads; deprecar
+  businessAuthorizationService/RBAC v1 órfão; trust R2.4; disputa/reversão (`can_review_disputes`/
+  `can_execute_dispute_action` documentadas mas NÃO criadas).

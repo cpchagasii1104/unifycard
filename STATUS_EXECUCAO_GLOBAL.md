@@ -1,3 +1,21 @@
+## 2026-06-13 — F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION · R2 mínimo: `company_users.can_*` como fonte material de permissão fina (runtime + migration não-financeira + guard + e2e) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `149f2958`** · dev 380 → **381** · MODO EXECUTOR macrofrente (ultracode). Execução: `docs/03_execution_log/20260613_F_R2_COMPANY_USERS_FINE_GRANTS_MATERIALIZATION.md`. DECISION-0125 PROMULGADA.
+
+**Decisão (DECISION-0125):** fonte material de grant fino = `company_users.can_*` (NÃO RBAC v1 órfão / RBAC V2 ausente / requireRole / actorId cliente / actionContext). Novo primitivo `companiesService.canUserPerformCompanyCapability(tenantId, userId, capability, {companyId?})` — subject=req.user.id resolvido p/ global_user_id via JOIN canônico users.global_user_id; autoriza por `(can_manage_company OR role='owner' OR <coluna whitelisted>)`, vínculo ATIVO, coluna por whitelist fixa (sem injection), fail-closed.
+
+**Migration `20260613170000`:** +4 booleanas NOT NULL DEFAULT false em company_users (`can_view_audit_logs`/`can_view_risk`/`can_manage_risk`[reservada]/`can_manage_policy`). Não-financeira; zero backfill (existentes nascem false; como o legado já negava, nenhum acesso EXISTENTE ampliado).
+
+**Rotas migradas do chain legado QUEBRADO** (businessAuthorizationService→organization_members ausente ⇒ 403 sempre): reporting (can_view_reports), business-audit (can_view_audit_logs), risk-dashboard (can_view_risk), policy-engine (can_manage_policy — reads+mutations no MESMO gate).
+
+**Guard 0113 baseline 4 → 3:** Forma C em `safeSubjectProof` reconhece `canUserPerformCompanyCapability(tenantId, <req.user>, '<can_*>')`. policy-engine REMOVIDO (arquivo provável — fecha a divergência da FATIA A). Mantidos: bank-http+payout (HARD STOP), trust (requireRole interino R2.4). SUBJECT_EQUALS_TARGET segue hard-fail.
+
+**Propriedade conhecida (honestidade):** as 4 reads são tenant-wide (sem empresa-alvo única) ⇒ grant por qualquer vínculo ativo no tenant com a capability; escopo per-empresa = refino futuro (DECISION-0125).
+
+**Provas:** e2e `validate-pipeline-e2e-company-users-fine-grants` (DB efêmera, **15/15** T0..T14); guard `flagged=3 baseline=3 new=0 stale=0 safe_subject_recognized=4` rc=0; prova negativa **12/12** (incl. 4 Forma C); risk-dashboard-spoof T-struct/T6 + canal3 B3 ajustados (verdes). Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25 (zero novo). Bank intocado; payout/reversal/dispute/booking/order/service_offering intocados; sem RBAC V2/FASE 6; sem actor_roles/company_roles/grants genéricos; sem frontend. **IMPLEMENTED / HOLD PARA RESEAL.** Restam DECISION_REQUIRED: escopo per-empresa · deprecar legado/RBAC v1 · trust R2.4 · disputa/reversão.
+
+---
+
 ## 2026-06-13 — F-R2-GUARD-SAFE-SUBJECT-RECOGNITION · FATIA A do READ-FIRST R2: guard reconhece subject server-side (GUARD-ONLY, zero runtime de produção, sem migration) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `4e296359`** · dev 380 · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260613_F_R2_GUARD_SAFE_SUBJECT_RECOGNITION.md`.

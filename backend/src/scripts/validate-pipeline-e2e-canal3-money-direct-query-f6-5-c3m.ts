@@ -92,9 +92,14 @@ async function main(): Promise<void> {
     !/canRepresentActor\(/.test(pay)
     && /'financial:execute_payout'/.test(pay)
     && /actorId: req\.query\.actorId/.test(pay));
-  record('B3 reporting: SEM chamada canRepresentActor( (over-gate removido) + preHandler view_all_ledger intacto + actorId segue filtro',
+  // F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION (2026-06-13): a autoridade do reporting migrou do
+  // requirePermission legado (financial:view_all_ledger via organization_members ausente) para
+  // company_users.can_view_reports (canUserPerformCompanyCapability). Subject server-side (req.user.id);
+  // SEM over-gate canRepresentActor; actorId segue FILTRO de query.
+  record('B3 reporting: SEM canRepresentActor( (over-gate removido) + gate R2 can_view_reports (subject req.user.id) + actorId segue filtro',
     !/canRepresentActor\(/.test(rep)
-    && /'financial:view_all_ledger'/.test(rep)
+    && /canUserPerformCompanyCapability\(\s*[\s\S]*?,\s*userId,\s*'can_view_reports'/.test(rep)
+    && /const userId = req\.user\?\.id/.test(rep)
     && /actorId: req\.query\.actorId/.test(rep));
   record('B4 invoice: actorId filtrado nu → 403 "Sem autoridade sobre o actor filtrado" (escopo view_ledger; reporting+payout reclassificados F-OK, fora)',
     /Sem autoridade sobre o actor filtrado/.test(inv));

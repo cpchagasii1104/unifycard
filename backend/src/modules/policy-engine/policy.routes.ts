@@ -14,7 +14,20 @@ import type {
 
 const policyRoutes = async (fastify: FastifyInstance) => {
   /**
-   * Middleware: Verificar permissão para acessar Policy Engine
+   * Middleware: Verificar permissão para acessar Policy Engine (reads E mutations).
+   *
+   * 🔵 R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION, 2026-06-13): a autoridade fina vem de
+   * `company_users.can_manage_policy` (fonte material do R2 mínimo), NÃO do chain legado
+   * businessAuthorizationService→organization_members (ausente ⇒ 403 sempre). SUBJECT = req.user.id
+   * (server-side); o authorizer resolve a identidade global via JOIN canônico users.global_user_id e
+   * inclui o fallback documentado can_manage_company/owner (mesma semântica de DECISION-0116). O `actorId`
+   * de params/query/body (filtros de leitura, alvo de avaliação) NUNCA é subject.
+   *
+   * Decisão consciente (arquivo MIXED reads+mutations): em vez de manter o arquivo baselineado no guard
+   * 0113, TODAS as rotas (GET reads + POST create/activate/deactivate/apply/revoke) passam pelo MESMO
+   * gate `can_manage_policy`. Unificar reads sob a mesma capability das mutations é MAIS restritivo (não
+   * abre leitura a quem não pode gerir) — sem perda de segurança — e torna o arquivo INTEIRO provável
+   * (subject server-side em toda rota), permitindo o reconhecimento honesto pelo guard (sai do baseline).
    */
   const requirePolicyPermission = async (req: any, reply: any) => {
     if (!req.tenant) {
@@ -28,22 +41,15 @@ const policyRoutes = async (fastify: FastifyInstance) => {
     }
 
     try {
-      const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
-      const { getActiveActor } = await import('@core/actors/actor.helpers');
-      
-      const actor = await getActiveActor(tenantId, userId);
-      if (!actor) {
-        return reply.status(403).send({ error: 'Actor não encontrado' });
-      }
-
-      // Verificar permissão para acessar policy engine
-      await businessAuthorizationService.requirePermission(
+      const { companiesService } = await import('@core/companies/companies.service');
+      const { allowed } = await companiesService.canUserPerformCompanyCapability(
         tenantId,
         userId,
-        actor.actor_id,
-        'financial:view_all_ledger', // Reutilizar permissão de finance
-        'policy_engine'
+        'can_manage_policy'
       );
+      if (!allowed) {
+        return reply.status(403).send({ error: 'Sem permissão para acessar Policy Engine' });
+      }
     } catch (permError: any) {
       return reply.status(403).send({ error: 'Sem permissão para acessar Policy Engine' });
     }
