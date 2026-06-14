@@ -1,5 +1,6 @@
 // BOOT.ts - ÚNICO ENTRYPOINT DO BACKEND
 import { loadBackendEnv } from './src/core/db/load-backend-env';
+import { isFinancialWorkerEnabled } from './src/workers/financial-worker-gate';
 import { assertSensitivePermissionsHaveCapabilityMapping } from './src/core/authorization/permission-keys';
 import { validateEnv } from './src/core/config/env-validation';
 
@@ -266,31 +267,48 @@ export async function startServer(): Promise<void> {
     console.warn('[BOOT] Aviso: Reconciliation Scheduled Worker (INFRA-3) não iniciado:', err);
   }
 
-  // Payout Worker — processa payout_requests (requested → seller_available → seller_payout, a cada 10s)
-  try {
-    const { startPayoutWorker } = await import('./src/workers/payout-worker');
-    startPayoutWorker();
-    console.log('[BOOT] Payout Worker iniciado (requested payouts a cada 10s)');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Payout Worker não iniciado:', err);
+  // Payout Worker — processa payout_requests (requested → seller_available → seller_payout, a cada 10s).
+  // 🔒 DORMÊNCIA ESTRUTURAL (F-FINANCIAL-WORKERS-STRUCTURAL-DORMANCY-SEAL, DECISION-0128): executor real de
+  // dinheiro (bankTransactionService.transfer) SEM gate de aprovação do Core. DEFAULT-OFF até Core EXECUTION /
+  // F-PAYOUT-EXECUTION-SEAL. Só inicia com ENABLE_PAYOUT_WORKER='true' (estrito; sem auto-enable por NODE_ENV).
+  if (isFinancialWorkerEnabled('ENABLE_PAYOUT_WORKER')) {
+    try {
+      const { startPayoutWorker } = await import('./src/workers/payout-worker');
+      startPayoutWorker();
+      console.log('[BOOT] Payout Worker iniciado (ENABLE_PAYOUT_WORKER=true; requested payouts a cada 10s)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Payout Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Payout Worker DESLIGADO (default-off; ENABLE_PAYOUT_WORKER≠true) — Core EXECUTION HOLD.');
   }
 
-  // Reversal Worker — Prompt 51: reversals pending → transfer espelhado (a cada 30s)
-  try {
-    const { startReversalWorker } = await import('./src/workers/reversal-worker');
-    startReversalWorker();
-    console.log('[BOOT] Reversal Worker iniciado (reversals a cada 30s)');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Reversal Worker não iniciado:', err);
+  // Reversal Worker — Prompt 51: reversals pending → transfer espelhado (a cada 30s).
+  // 🔒 DORMÊNCIA ESTRUTURAL: move dinheiro; dispute/reversal contido. DEFAULT-OFF (ENABLE_REVERSAL_WORKER='true').
+  if (isFinancialWorkerEnabled('ENABLE_REVERSAL_WORKER')) {
+    try {
+      const { startReversalWorker } = await import('./src/workers/reversal-worker');
+      startReversalWorker();
+      console.log('[BOOT] Reversal Worker iniciado (ENABLE_REVERSAL_WORKER=true; reversals a cada 30s)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Reversal Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Reversal Worker DESLIGADO (default-off; ENABLE_REVERSAL_WORKER≠true) — dispute/reversal contido.');
   }
 
-  // Bank Settlement Worker — processa bank_settlements (pending → seller_payout → bank_settlement, a cada 10s)
-  try {
-    const { startBankSettlementWorker } = await import('./src/workers/bank-settlement-worker');
-    startBankSettlementWorker();
-    console.log('[BOOT] Bank Settlement Worker iniciado (pending settlements a cada 10s)');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Bank Settlement Worker não iniciado:', err);
+  // Bank Settlement Worker — processa bank_settlements (pending → seller_payout → bank_settlement, a cada 10s).
+  // 🔒 DORMÊNCIA ESTRUTURAL: executor de dinheiro (trilho legado seller). DEFAULT-OFF (ENABLE_BANK_SETTLEMENT_WORKER='true').
+  if (isFinancialWorkerEnabled('ENABLE_BANK_SETTLEMENT_WORKER')) {
+    try {
+      const { startBankSettlementWorker } = await import('./src/workers/bank-settlement-worker');
+      startBankSettlementWorker();
+      console.log('[BOOT] Bank Settlement Worker iniciado (ENABLE_BANK_SETTLEMENT_WORKER=true; pending settlements a cada 10s)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Bank Settlement Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Bank Settlement Worker DESLIGADO (default-off; ENABLE_BANK_SETTLEMENT_WORKER≠true) — Core EXECUTION HOLD.');
   }
 
   // Reconciliation Engine (Prompt 52) — diagnóstico ledger/transactions/contas, a cada 5min (configurável)

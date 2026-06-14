@@ -14709,3 +14709,17 @@ tocados); sem migration. Bank/dispute/reversal/cartão intocados; can_execute_* 
 = legado idle, fora do escopo HTTP (tombstone futuro). Estado: IMPLEMENTED / HOLD PARA RESEAL. **DECISION-0113
 baseline = 0.** Core EXECUTION segue HOLD. Próximas (DECISION-0128 §16): F-PAYOUT-EXECUTION-SEAL · F-DISPUTE-
 REVERSAL-REOPEN · F-CARD-AUTHORIZATION-CORE.
+
+## 2026-06-14 — F-FINANCIAL-WORKERS-STRUCTURAL-DORMANCY-SEAL (IMPLEMENTED / HOLD PARA RESEAL)
+
+Dormência dos 3 workers financeiros (payout/reversal/bank-settlement) tornada ESTRUTURAL. Estavam armados
+incondicionalmente em backend/BOOT.ts (entrypoint de produção), dormentes só por inanição de producer. Agora
+DEFAULT-OFF: cada start*Worker() atrás de isFinancialWorkerEnabled('ENABLE_{PAYOUT,REVERSAL,BANK_SETTLEMENT}_WORKER')
+(novo src/workers/financial-worker-gate.ts; process.env[flag]==='true' estrito; sem NODE_ENV auto-enable; sem
+fail-open; espelha firewall DECISION-0110). Guard NOVO audit-financial-workers-dormancy.mjs no regression-guards
+(FALHA em start incondicional / fail-open / NODE_ENV auto-enable / producer em rota HTTP). Negative-proof morde os
+3 vetores; e2e unit 11/11 (matriz default-off + selos vizinhos íntegros). Demais workers do BOOT (infra viva) não
+tocados. Gates: actor-writer/bank-ledger OK, regression-guards rc=0, arch critical_new=0, tsc 25 baseline (zero nos
+arquivos tocados); sem migration. Bank/payout HTTP/bank-http/dispute/reversal intocados; baseline 0113 = 0; nenhum
+producer novo; zero dinheiro. NÃO implementa payout, NÃO fecha Core EXECUTION (HOLD), NÃO resolve seller_available.
+Estado: IMPLEMENTED / HOLD PARA RESEAL. Próxima: F-PAYOUT-EXECUTION-SEAL (DECISION-0128 §16).

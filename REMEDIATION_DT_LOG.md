@@ -13103,3 +13103,18 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Resta (frentes futuras, dependem do Core executor):** F-PAYOUT-EXECUTION-SEAL (execução real com revalidação de
   saldo + recovery block + locks), F-DISPUTE-REVERSAL-REOPEN, F-CARD-AUTHORIZATION-CORE; tombstone do worker
   seller_available (legado idle). Core EXECUTION segue HOLD.
+
+## DT-FINANCIAL-WORKERS-ARMED-AT-BOOT — dormência tornada estrutural (2026-06-14, F-FINANCIAL-WORKERS-STRUCTURAL-DORMANCY-SEAL)
+
+- **Status:** RISCO (achado do F-PAYOUT-EXECUTION-SEAL-READ-FIRST) → **MITIGADO/SEALED**. Os 3 workers financeiros
+  que movem dinheiro (`payout-worker`/`reversal-worker`/`bank-settlement-worker`) estavam armados INCONDICIONALMENTE
+  em `backend/BOOT.ts` (entrypoint de produção), dormentes só por inanição de producer. Agora **DEFAULT-OFF
+  estrutural**: cada `start*Worker()` atrás de `isFinancialWorkerEnabled('ENABLE_{PAYOUT,REVERSAL,BANK_SETTLEMENT}_WORKER')`
+  (`src/workers/financial-worker-gate.ts`; `process.env[flag] === 'true'` estrito; sem NODE_ENV auto-enable; sem fail-open).
+- **Guard NOVO** `audit-financial-workers-dormancy.mjs` no regression-guards: FALHA se BOOT chamar worker financeiro
+  sem gate; se o helper virar fail-open/auto-enable NODE_ENV; ou se producer (`createPayoutRequest`/`createBankSettlement`)
+  aparecer em rota HTTP. Negative-proof morde os 3 vetores (restauração byte-idêntica). e2e unit 11/11.
+- **NÃO resolve:** payout real (F-PAYOUT-EXECUTION-SEAL), Core EXECUTION (HOLD), tombstone de seller_available, nem
+  reabertura de reversal/bank-settlement — frentes próprias futuras. Apenas impede start por padrão.
+- **Prova:** regression-guards rc=0; actor-writer/bank-ledger OK; arch critical_new=0; tsc 25; sem migration.
+  Bank/payout HTTP/bank-http/dispute/reversal intocados; baseline 0113 = 0. Zero dinheiro movido.
