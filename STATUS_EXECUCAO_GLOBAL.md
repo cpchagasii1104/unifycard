@@ -1,3 +1,17 @@
+## 2026-06-14 — F-PAYOUT-APPROVE-ENDPOINT-CORE-AUTHORITY · approve endpoint FAIL-CLOSED (CAMINHO B): existe, exige requester≠approver, política ausente → PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED · FAIL-CLOSED IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `6259c51b`** · dev **384** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_F_PAYOUT_APPROVE_ENDPOINT_CORE_AUTHORITY.md`. Materializa DECISION-0129 (D14) no modo fail-closed.
+
+**Caminho escolhido: B — FAIL-CLOSED.** READ-FIRST provou de 1ª mão que NÃO há política/faixa material (tabelas `payout_policies/financial_approval_policies/financial_approvers` AUSENTES; `bank_policies` 0 linhas; sem `financial:approve_payout`; `organization_members` AUSENTE; sem `can_approve_*`). CAMINHO A exigiria fabricar approver / hardcodar faixa (vedado D6/D12). CAMINHO C desnecessário (porta fail-closed criável sem ambiguidade).
+
+**Patch:** `payout-approval-policy.ts` NOVO (resolvedor fail-closed, sem hardcode/grant/saldo; discriminante string-literal `code`) · `payout-decision.routes.ts` NOVO (`POST /payouts/requests/:id/decision`: subject/tenant server-side; resolve payout + approval via Core `findApprovalRequestById`; valida operation_type/status; **403 PAYOUT_APPROVER_CANNOT_BE_REQUESTER** se requester==approver; senão **422 PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED**, `executed:false`) · `actor-wallet-payout.service.ts` +reader read-only `getActorWalletPayoutRequestById` (executor/approve-bridge selados intocados) · `payout.module.ts` registra. **NÃO** chama approveActorWalletPayout/recordFinancialApprovalDecision/executeActorWalletPayout/worker/Bank.
+
+**0113:** rota resolve por `:payoutRequestId` (recurso) + tenant server-side → **zero canal client-declared** → guard ignora → **baseline 0113=0** (`flagged=0 baseline=0 safe_subject_recognized=6`).
+
+**Guard NOVO** `audit-payout-approve-endpoint.mjs` (rota + resolvedor) no `validate:regression-guards`. **Provas:** e2e **25/25** (CAMINHO B T1–T25); neg-proof **5/5 mordidas** + restauração byte-idêntica (rota+policy); regression-guards rc=0; actor-writer OK; bank-ledger OK; arch --strict critical_new=0; tsc **25** (baseline arc-0113; zero nos arquivos tocados). **HARD STOPS:** bank_ledger/transactions/splits intocados; rotas antigas 403; worker default-off; bank-http request-only; seller_available/payout_requests/availableBalanceCents não usados; can_execute_*/can_approve_* não criados; **nenhum approved real nasce**. **FAIL-CLOSED IMPLEMENTED / HOLD PARA RESEAL.** CAMINHO A (aprovação real) = DECISION_REQUIRED (Clayton promulga faixa/autoridade Core). DT-PAYOUT-APPROVAL-POLICY-NOT-CONFIGURED OPEN.
+
+---
+
 ## 2026-06-14 — F-R2-TRUST-TENANT-GRANTS-R24-UNFREEZE · fecha trust (baseline 0113 3→2): requireRole(admin) interino → grant tenant-level · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `427765fa`** · dev 382 → **383** · MODO EXECUTOR macrofrente (ultracode). Execução: `docs/03_execution_log/20260614_F_R2_TRUST_TENANT_GRANTS_R24_UNFREEZE.md`. DECISION-0127 promulgada.

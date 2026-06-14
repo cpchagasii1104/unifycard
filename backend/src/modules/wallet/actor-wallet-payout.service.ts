@@ -310,6 +310,24 @@ class ActorWalletPayoutService {
   }
 
   /**
+   * READ-ONLY — resolve um payout_request por id+tenant (server-side). Zero financeiro,
+   * sem lock, sem mutação. Usado pelo endpoint de decisão (F-PAYOUT-APPROVE-ENDPOINT-CORE-
+   * AUTHORITY) para resolver o pedido + seu approval_request_id antes da trava de política.
+   * tenantId vem SEMPRE server-side (nunca do body). Retorna null se não houver no tenant.
+   */
+  async getActorWalletPayoutRequestById(
+    tenantId: string,
+    payoutRequestId: string
+  ): Promise<ActorWalletPayoutRequest | null> {
+    if (!tenantId || !payoutRequestId) return null;
+    const res = await pool.query<ActorWalletPayoutRequestRow>(
+      `SELECT * FROM actor_wallet_payout_requests WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
+      [tenantId, payoutRequestId]
+    );
+    return res.rows[0] ? toActorWalletPayoutRequest(res.rows[0]) : null;
+  }
+
+  /**
    * F2.5 — APPROVE BRIDGE (DECISION-0128 / F-PAYOUT-EXECUTION-SEAL).
    *
    * Ponte de PRODUÇÃO `pending_approval → approved`, consumindo o Core de Aprovação Financeira

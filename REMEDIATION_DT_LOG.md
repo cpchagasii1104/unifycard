@@ -13177,3 +13177,21 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   Bank/worker; executed:false.
 - **Inalterado:** request-only fechado; executor/worker selados; bank-http request-only; baseline 0113=0;
   availableBalanceCents não autoriza; seller_available/payout_requests legado não usados. Sem código/migration nesta DECISION.
+
+## DT-PAYOUT-APPROVAL-POLICY-NOT-CONFIGURED — approve endpoint existe mas é FAIL-CLOSED por política/faixa ausente (2026-06-14, F-PAYOUT-APPROVE-ENDPOINT-CORE-AUTHORITY)
+
+- **Status:** **OPEN (fail-closed, seguro por construção).** O approve endpoint `POST /api/payouts/requests/:id/decision`
+  foi IMPLEMENTADO no modo **CAMINHO B**: resolve request/approval, valida tenant/tipo/estado, exige **requester≠approver**
+  (D3) e então **falha fechado** com `PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED` (HTTP 422, `executed:false`). Approval permanece
+  `pending`; payout permanece `pending_approval`. **Nenhum payout é aprovado por HTTP.**
+- **Causa material (verificada, dev 384):** NÃO existe política/faixa de aprovação promulgada — tabelas
+  `payout_policies`/`financial_approval_policies`/`financial_approvers` AUSENTES; `bank_policies` 0 linhas; sem permission
+  `financial:approve_payout`; sem coluna `can_approve_*`/`approve_payout`; `organization_members` AUSENTE. DECISION-0129 D6
+  difere os **valores de faixa** a Clayton (proibido hardcodar) e D2 exige **autoridade Core Financeiro** material (inexistente).
+- **Convergência (CAMINHO A, frente futura):** quando Clayton promulgar, via DECISION específica, (a) o modelo de autoridade
+  Core Financeiro de aprovação (D2) e (b) a faixa segura de valor (D4/D6), o resolvedor `resolvePayoutApprovalPolicy`
+  (`src/modules/payout/payout-approval-policy.ts`) materializa o ramo `configured:true` e a rota passa a chamar
+  `recordFinancialApprovalDecision` + `approveActorWalletPayout` (ainda `executed:false`; execução = worker system-only).
+- **Cercas:** guard `audit-payout-approve-endpoint.mjs` (no `validate:regression-guards`) impede que a rota aprove sem política
+  / mova dinheiro / use grant comum / aceite spoof / retorne executed:true / o resolvedor retorne `configured:true`. Baseline
+  0113=0 preservado (rota sem canal client-declared). Multi-approval/quórum, PIX/TED, dispute/reversal/card = fora.
