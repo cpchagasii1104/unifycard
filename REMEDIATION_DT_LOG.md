@@ -13045,3 +13045,14 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Guard:** `audit-internal-surfaces-containment.mjs` FALHA se voltar create/update/list/alert ou tenant_id body/query.
 - **Prova (ambas):** e2e 11/11 (DB efêmera); neg-proof morde R18+R19 (restauração byte-idêntica); regression-guards rc=0;
   actor-writer/bank-ledger OK; arch critical_new=0; tsc 25 baseline. Baseline 0113 inalterado (2). Sem migration.
+
+## DT-0113-CLASSIC-CHANNEL-READERS — bank-http/payout: decisão de produto cartorializada (2026-06-14, DECISION-0128)
+
+- **Status:** **INALTERADO** — bank-http e payout **permanecem baseline 0113 = 2** (HARD STOP move-money). DECISION-0128
+  (PROMULGADA/NORMATIVA) cartoriza a decisão de PRODUTO/autoridade (D1–D10 do READ-FIRST do Core): grants comuns
+  (`company_users`/`tenant_operator_grants`) NÃO executam dinheiro; qualquer movimento exige o Core de Aprovação Financeira;
+  `can_execute_financial_*` só como primitive interna do Core; `availableBalanceCents` não autoriza; recovery bloqueia payout;
+  dispute/reversal contidos; cartão físico futuro chama o Core, nunca o ledger.
+- **Implementação:** segue **DECISION_REQUIRED** — esta DECISION NÃO implementa runtime. Saída do baseline 0113 só após o Core
+  (F-CORE-FINANCIAL-APPROVAL-MODEL → F-BANK-HTTP-AUTHORITY-BINDING → F-ACTOR-WALLET-PAYOUT-WIRING → F-PAYOUT-EXECUTION-SEAL).
+- **Sem código/migration/Bank/payout** nesta frente (docs-only).

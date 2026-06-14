@@ -7008,3 +7008,22 @@ grant A≠B; zero dinheiro. Migration 20260614130000 (+2 booleanas, sem backfill
 canUserPerformTenantCapability estendido (whitelist). Guard Forma D reconhece trust → SAFE_SUBJECT_READERS; baseline 2
 (bank-http/payout). bank-http/payout = fora do escopo (Core de Aprovação Financeira). Prova: e2e 32/32; neg-proof 17/17;
 gates verdes; tsc 25. Detalhe: `docs/02_decisions/DECISION_0127_TRUST_TENANT_GRANTS_R24_UNFREEZE.md`.
+
+## DECISION-0128 — Core de Aprovação Financeira: grants comuns não executam dinheiro; cartão físico usa o Core
+
+**Data:** 2026-06-14 · **Frente:** F-CORE-FINANCIAL-APPROVAL-DECISION-CARTORIO · **Branch:** rescue-structural · **Tipo:** DOCS-ONLY / DECISION-ONLY
+
+**PROMULGADA / NORMATIVA — runtime NÃO implementado** (implementação depende de frente executora própria). Fecha a decisão
+de PRODUTO/autoridade (D1–D10 do READ-FIRST do Core), não a implementação. `company_users.can_*` (company-scoped) e
+`tenant_operator_grants.can_*` (tenant-scoped) autorizam operação NÃO-financeira; **qualquer** movimento de dinheiro exige o
+**Core de Aprovação Financeira** (request→approval→execution; aplica ATL/KYC/KYB/Guarda/risco/recovery/limites; chama Bank p/
+ledger; evento depois). Hierarquia: trava mais restritiva vence (ATL>KYC/KYB>Guarda>IA>Produto); grants subordinados. Domínios
+não-financeiros (estoque/PDV/produtos/serviços/CRM/agenda/membros) podem usar grant comum — mas se gerarem cobrança/split/
+crédito/comissão/pagamento/payout, entram no Core. Social tem modelo próprio (dono controla; moderação auditável; sem "admin vê
+tudo"). Ver saldo ≠ mover dinheiro. Transferência/payout NÃO são botão de `company_users`/`tenant_operator_grants`. Payout:
+Core valida saldo real no Bank + recovery obligations + locks + idempotência; `availableBalanceCents` NÃO autoriza saque.
+Recovery ativa bloqueia payout (revalidar na transação). Dispute/reversal seguem contidos até o Core. `can_execute_financial_*`
+só como primitive interna do Core (nunca grant comum/role/bypass). **Cartão físico futuro** chama o Core (autorização→validação→
+hold→liquidação→Bank ledger→evento), nunca o ledger direto; Unificard NÃO guarda PAN/CVV/trilha sensível (no máximo token/
+referência/status/limites/trilha de autorização). bank-http/payout **permanecem baseline 0113 = 2** até o Core. Maker-checker/PCI
+citados só como analogia de mercado, não norma. Detalhe: `docs/02_decisions/DECISION_0128_CORE_FINANCIAL_APPROVAL_AUTHORITY.md`.

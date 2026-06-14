@@ -14649,3 +14649,17 @@ Gates: actor-writer/bank-ledger OK, regression-guards rc=0, arch critical_new=0,
 DT-AUTOMATION-RUN-DUE-HTTP-OPEN e DT-FINANCIAL-DISPUTES-INTERNAL-HTTP-OPEN → P1 CONTAINED. Derivado de
 DECISION-0113 (sem DECISION nova). R20 (bank_splits imutabilidade) FORA — risco derivado registrado.
 Estado: IMPLEMENTED / HOLD PARA RESEAL. Restam DECISION_REQUIRED: Core de Aprovação Financeira (bank-http/payout).
+
+## 2026-06-14 — F-CORE-FINANCIAL-APPROVAL-DECISION-CARTORIO (DOCS-ONLY / DECISION-ONLY)
+
+Cartorializada a decisão de produto/autoridade do Clayton sobre o Core de Aprovação Financeira:
+**DECISION-0128** (PROMULGADA/NORMATIVA, runtime NÃO implementado). Grants comuns (`company_users`
+company-scoped / `tenant_operator_grants` tenant-scoped) autorizam operação NÃO-financeira; qualquer
+movimento de dinheiro exige o Core (request→approval→execution; ATL/KYC/KYB/Guarda/risco/recovery/limites;
+Bank=ledger SSOT; evento depois). Fronteira: estoque/PDV/produtos/serviços/CRM/agenda usam grant comum, mas
+cobrança/split/crédito/comissão/pagamento/payout entram no Core. Social = modelo próprio. Ver saldo ≠ mover
+dinheiro. `can_execute_financial_*` só como primitive interna do Core. Cartão físico futuro chama o Core
+(nunca ledger direto; sem PAN/CVV). Fecha D1–D10 do READ-FIRST (decisão de produto), NÃO a implementação.
+bank-http/payout permanecem baseline 0113 = 2 até o Core. **Zero código, zero migration, zero Bank/payout/
+ledger/wallet/frontend** — docs-only. git diff --check limpo. Estado: PROMULGADA / HOLD PARA RESEAL.
+Próxima frente recomendada: F-CORE-FINANCIAL-APPROVAL-MODEL (sob GO próprio).
