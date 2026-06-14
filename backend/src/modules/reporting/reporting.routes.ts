@@ -8,30 +8,37 @@ import type { ReportingFilters, ExportInput } from './reporting.types';
 
 const reportingRoutes = async (fastify: FastifyInstance) => {
   /**
-   * Middleware: Verificar permissão para acessar reporting.
+   * Middleware: Verificar permissão para acessar reporting (TENANT-WIDE).
    *
-   * 🔴 ESCOPO R2 (F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE, 2026-06-14, reseal Yala / decisão Clayton):
-   * a autoridade fina é `company_users.can_view_reports` (DECISION-0125), mas o grant é **company-scoped**
-   * — NÃO autoriza leitura tenant-wide. TODAS as rotas de reporting agregam dados TENANT-WIDE
-   * (reportingService.getFinancialKPIs(tenantId, ...) etc.; o filtro `actorId` NÃO é honrado pelo service)
-   * e NÃO têm empresa-alvo resolvível. Logo, sem modelo de grant platform-admin/tenant-level, o reporting
-   * permanece **FAIL-CLOSED** (`company_scope_required`) — DECISION_REQUIRED. Scopear a auth a uma empresa
-   * e devolver agregado tenant-wide seria exatamente o vazamento vetado ("grant em uma empresa lê o tenant
-   * inteiro"). req.user obrigatório (401); SUBJECT é sempre server-side; nada client-declared autoriza.
+   * 🔵 R2 TENANT-LEVEL (F-R2-TENANT-LEVEL-OPERATOR-GRANTS, 2026-06-14, DECISION-0126): reporting agrega
+   * dados TENANT-WIDE (reportingService.getFinancialKPIs(tenantId, ...)). A autoridade vem do modelo
+   * MATERIAL SEPARADO `tenant_operator_grants.can_view_tenant_reports` — NÃO de `company_users.can_*`
+   * (grant de empresa NUNCA autoriza tenant-wide, DECISION-0125 §escopo). SUBJECT = req.user.id
+   * (server-side; identidade global resolvida via JOIN canônico users.global_user_id); nada client-declared
+   * autoriza. Grant em tenant A não vale tenant B. Sem grant tenant-level → 403.
    */
   const requireReportingPermission = async (req: any, reply: any) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
+    const tenantId = req.tenant.id;
     const userId = req.user?.id;
     if (!userId) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
-    // Tenant-wide agregado, sem empresa-alvo resolvível → fail-closed (platform-admin = DECISION_REQUIRED).
-    return reply.status(403).send({
-      error: 'Reporting tenant-wide exige grant platform-admin (DECISION_REQUIRED). Grant de empresa não autoriza leitura tenant-wide.',
-      code: 'COMPANY_SCOPE_REQUIRED',
-    });
+    try {
+      const { companiesService } = await import('@core/companies/companies.service');
+      const { allowed } = await companiesService.canUserPerformTenantCapability(
+        tenantId,
+        userId,
+        'can_view_tenant_reports'
+      );
+      if (!allowed) {
+        return reply.status(403).send({ error: 'Sem grant tenant-level para reporting (can_view_tenant_reports)', code: 'TENANT_GRANT_REQUIRED' });
+      }
+    } catch {
+      return reply.status(403).send({ error: 'Sem grant tenant-level para reporting' });
+    }
   };
 
   /**

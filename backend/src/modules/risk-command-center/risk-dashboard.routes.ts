@@ -15,20 +15,31 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
   // empresa NÃO autoriza leitura tenant-wide. SUBJECT = req.user (server-side); actionContext/params.actorId
   // = alvo, NUNCA subject. can_manage_risk fica RESERVADO (sem runtime hoje).
 
-  // Rotas TENANT-WIDE (overview, lista de actors): dados agregados do tenant, sem empresa-alvo resolvível
-  // → FAIL-CLOSED (company_scope_required) até existir grant platform-admin (DECISION_REQUIRED).
+  // Rotas TENANT-WIDE (overview, lista de actors): dados agregados do tenant. Autoridade = modelo SEPARADO
+  // `tenant_operator_grants.can_view_tenant_risk` (DECISION-0126) — NÃO company_users (grant de empresa não
+  // abre tenant-wide). SUBJECT = req.user (server-side). Grant em tenant A não vale tenant B. Sem grant → 403.
   const requireRiskTenantWide = async (req: any, reply: any) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
+    const tenantId = req.tenant.id;
     const userId = req.user?.userId ?? req.user?.id;
     if (!userId) {
       return reply.status(401).send({ error: 'Authentication required' });
     }
-    return reply.status(403).send({
-      error: 'Risk tenant-wide exige grant platform-admin (DECISION_REQUIRED). Grant de empresa não autoriza leitura tenant-wide.',
-      code: 'COMPANY_SCOPE_REQUIRED',
-    });
+    try {
+      const { companiesService } = await import('@core/companies/companies.service');
+      const { allowed } = await companiesService.canUserPerformTenantCapability(
+        tenantId,
+        userId,
+        'can_view_tenant_risk'
+      );
+      if (!allowed) {
+        return reply.status(403).send({ error: 'Sem grant tenant-level para risk (can_view_tenant_risk)', code: 'TENANT_GRANT_REQUIRED' });
+      }
+    } catch {
+      return reply.status(403).send({ error: 'Sem grant tenant-level para risk' });
+    }
   };
 
   // Rotas ACTOR-SCOPED (/actors/:actorId, /actors/:actorId/timeline): o dado é do actor-alvo. Resolve a

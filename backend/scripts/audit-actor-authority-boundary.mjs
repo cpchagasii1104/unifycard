@@ -57,11 +57,14 @@ const stripComments = (s) => s
 //             partir de req.user (ESTRUTURAL — o decorator nunca aceita subject client-declared).
 //   Forma B — businessAuthorizationService.requirePermission(tenantId, <subj>, <target>, ...)
 //             onde <subj> é uma const local ligada a req.user.userId/req.user.id E subj !== target.
-//   Forma C — R2 (F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION): companiesService
-//             .canUserPerformCompanyCapability(tenantId, <subj>, '<can_*>') onde <subj> é uma const
-//             local ligada a req.user.userId/req.user.id. A autoridade material é company_users.can_*
-//             (SSOT de membership PJ); a identidade global é resolvida server-side (JOIN users.global_user_id)
-//             DENTRO do authorizer — o actorId client-declared nunca é subject. Não é writer move-money.
+//   Forma C — R2 company-scoped: companiesService.canUserPerformCompanyCapability(tenantId, <subj>, '<can_*>',
+//             {companyId}) COM prova de company-scope (resolveCompanyIdForActor) no arquivo. <subj> = const
+//             local ligada a req.user.userId/req.user.id. Autoridade = company_users.can_* (per-empresa,
+//             fail-closed sem companyId). O actorId client-declared nunca é subject.
+//   Forma D — R2 tenant-level: companiesService.canUserPerformTenantCapability(tenantId, <subj>, '<can_tenant_*>')
+//             onde <subj> = const local ligada a req.user.userId/req.user.id. Autoridade = tenant_operator_grants
+//             .can_* (TENANT-LEVEL, DECISION-0126; tenant-scoped por construção, sem actorId/company/company_users;
+//             grant em tenant A não vale tenant B). NÃO é Bank/payout/trust (esses seguem baselineados).
 // Retorna string de prova (truthy) ou null. Recebe código bruto OU já sem comentários — strip interno.
 // É PROIBIDO reconhecer subject vindo de req.actionContext.actorId / req.params.* / req.query.* /
 // req.body.* (não são server-side); e subject == target SEMPRE falha (ver SUBJECT_EQUALS_TARGET).
@@ -97,6 +100,15 @@ function safeSubjectProof(rawCode) {
       }
     }
   }
+  // Forma D — canUserPerformTenantCapability(tenantId, <subj=req.user var>, '<can_tenant_*>'): autoridade
+  // material em tenant_operator_grants.can_* (TENANT-LEVEL, DECISION-0126). Subject server-side; tenant-scoped
+  // por construção (NÃO usa actorId/company/company_users). Grant em tenant A não vale tenant B.
+  for (const m of code.matchAll(/\bcanUserPerformTenantCapability\(\s*[^,()]+,\s*([A-Za-z_$][\w$]*)\s*,/g)) {
+    const subj = m[1].trim();
+    if (serverSubjectVars.has(subj)) {
+      return `D:canUserPerformTenantCapability(tenantId, ${subj}=req.user, can_tenant_*) — subject server-side, autoridade=tenant_operator_grants.can_* (tenant-scoped)`;
+    }
+  }
   return null;
 }
 
@@ -114,12 +126,16 @@ function safeSubjectProof(rawCode) {
 // `actorId` morto removido ⇒ não casa mais canal client-declared (fora do escopo do guard). Os 3 abaixo
 // mantêm canal (query/params.actorId como ALVO) + Forma C com prova de company-scope (resolveCompanyIdForActor).
 const SAFE_SUBJECT_READERS = {
+// F-R2-TENANT-LEVEL-OPERATOR-GRANTS (2026-06-14, DECISION-0126): as rotas tenant-wide deixaram de ser
+// fail-closed e passaram a abrir por GRANT TENANT-LEVEL (tenant_operator_grants.can_*, Forma D) — NUNCA por
+// company_users. As rotas actor-scoped seguem company-scoped (Forma C). reporting usa só Forma D e não tem
+// canal client-declared (fora do escopo do guard).
   'modules/business-audit/business-audit.routes.ts':
-    'ACTOR-SCOPED. GET /business-audit-logs?actorId → resolveCompanyIdForActor → canUserPerformCompanyCapability(can_view_audit_logs, {companyId}). Sem actorId resolvível (listagem tenant-wide) e GET /:logId = FAIL-CLOSED (company_scope_required). query.actorId = alvo (repo FILTRA por actor_id), nunca subject. Zero write.',
+    'MISTA. GET /business-audit-logs?actorId resolvível → company-scoped (Forma C, can_view_audit_logs); sem actor resolvível ou GET /:logId → tenant-level (Forma D, can_view_tenant_audit_logs). query.actorId = alvo (repo FILTRA por actor_id), nunca subject. Zero write.',
   'modules/risk-command-center/risk-dashboard.routes.ts':
-    'ACTOR-SCOPED. GET /actors/:actorId[/timeline] → resolveCompanyIdForActor(params.actorId) → canUserPerformCompanyCapability(can_view_risk, {companyId}). /overview e /actors (lista) = tenant-wide FAIL-CLOSED. params.actorId = alvo. Spoof subject==target CLOSED. Sem write.',
+    'MISTA. GET /actors/:actorId[/timeline] → company-scoped (Forma C, can_view_risk). /overview e /actors (lista) → tenant-level (Forma D, can_view_tenant_risk). params.actorId = alvo. Spoof subject==target CLOSED. Sem write.',
   'modules/policy-engine/policy.routes.ts':
-    'ACTOR-SCOPED. GET /policies/evaluate/:actorId e /policy-decisions/actor/:actorId/active → resolveCompanyIdForActor → canUserPerformCompanyCapability(can_manage_policy, {companyId}). Demais (listar/criar/ativar/decisões/apply/revoke) = tenant-wide/mixed FAIL-CLOSED. params/query.actorId = alvo, nunca subject.',
+    'MISTA. GET /policies/evaluate/:actorId e /policy-decisions/actor/:actorId/active → company-scoped (Forma C, can_manage_policy). Listar/criar/ativar/decisões/apply/revoke → tenant-level (Forma D, can_manage_tenant_policy; estado de política interno, sem efeito financeiro). params/query.actorId = alvo, nunca subject.',
 };
 
 // ── BASELINE EXPLÍCITO (estado conhecido; cada item tem DT vinculada) ──

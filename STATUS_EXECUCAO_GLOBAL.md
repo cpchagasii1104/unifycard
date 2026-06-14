@@ -1,3 +1,19 @@
+## 2026-06-14 — F-R2-TENANT-LEVEL-OPERATOR-GRANTS · modelo material separado `tenant_operator_grants` destrava tenant-wide com segurança (company_users nunca abre tenant) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `b0baadd7`** · dev 381 → **382** · MODO EXECUTOR macrofrente (ultracode). Execução: `docs/03_execution_log/20260614_F_R2_TENANT_LEVEL_OPERATOR_GRANTS.md`. DECISION-0126 promulgada.
+
+**Decisão (DECISION-0126):** `company_users.can_*` = company-scoped (nunca tenant-wide). Tenant-wide abre SÓ por **`tenant_operator_grants.can_*`** (modelo material SEPARADO). Migration `20260614120000` (tabela + `can_view_tenant_reports`/`can_view_tenant_audit_logs`/`can_view_tenant_risk`/`can_manage_tenant_policy`; `global_user_id`→`global_users(global_user_id)`; sem backfill; zero permissão financeira) aplicada ao dev → **382/382**.
+
+**Primitivo:** `canUserPerformTenantCapability(tenantId, userId, capability)` — subject=req.user.id server-side (→global_user_id via JOIN canônico); whitelist; `is_active`; fail-closed (`no_tenant_grant`); **grant em tenant A não vale B**; **não consulta company_users**.
+
+**Rotas:** reporting (todas)→`can_view_tenant_reports`; risk `/overview`+`/actors` lista→`can_view_tenant_risk`; business-audit sem actor/`/:logId`→`can_view_tenant_audit_logs`; policy lista+mutations→`can_manage_tenant_policy`. **Actor-scoped permanece company-scoped** (risk `/actors/:id`, audit `?actorId`, policy `/evaluate/:id`) — tenant grant NÃO cobre escopo company.
+
+**Guard:** Forma D reconhece o primitivo tenant-level (subject server-side; tenant-scoped; sem actorId cliente; não Bank/payout/trust). Baseline 0113 inalterado **3** (bank-http/payout/trust); `flagged=3 baseline=3 new=0 stale=0 safe_subject_recognized=3`.
+
+**Provas:** e2e **23/23** (T2/T6/T9/T12 sem grant→403 · T3/T7/T7b/T10/T13 com tenant grant→passa · T4/T17 company não abre tenant-wide · T5 grant A≠B · T8/T11/T14 actor-scoped preservado · T15/T15b actorId≠subject · T16 SUBJECT_EQUALS_TARGET · T18-T21 bank/payout/trust/dispute/service-orders/Bank intocados); neg-proof **17/17** (incl. Forma D); canal3 B3 + spoof T-struct verdes. Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25. Sem RBAC V2; sem frontend. **IMPLEMENTED / HOLD PARA RESEAL.** Restam DECISION_REQUIRED: platform-wide/cross-tenant; execução financeira; deprecar legado; trust R2.4.
+
+---
+
 ## 2026-06-14 — F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE · fecha reseal PASS-COM-RESSALVA: âncora (migration→dev 381) + escopo (grant company-scoped, tenant-wide fail-closed) · IMPLEMENTED/HOLD RESEAL FINAL
 
 **Branch:** `rescue-structural` · **parent `0662155f`** · dev 380 → **381** (sem nova migration) · MODO EXECUTOR macrofrente corretiva (ultracode). Execução: `docs/03_execution_log/20260614_F_R2_FINE_GRANTS_ANCHOR_AND_SCOPE_CLOSURE.md`. DECISION-0125 §escopo promulgada.

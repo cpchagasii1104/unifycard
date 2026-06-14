@@ -28,37 +28,51 @@ const businessAuditRoutes: FastifyPluginAsync = async (fastify) => {
     }
     try {
       const { companiesService } = await import('@core/companies/companies.service');
+      // 1) Preferir COMPANY-SCOPED quando o actorId-alvo resolve para uma empresa (company_users.can_view_audit_logs).
       const companyId = await companiesService.resolveCompanyIdForActor(tenantId, req.query?.actorId);
-      if (!companyId) {
-        return reply.status(403).send({ error: 'Auditoria tenant-wide exige escopo company (actorId alvo resolvível) — DECISION_REQUIRED', code: 'COMPANY_SCOPE_REQUIRED' });
+      if (companyId) {
+        const { allowed } = await companiesService.canUserPerformCompanyCapability(
+          tenantId, userId, 'can_view_audit_logs', { companyId }
+        );
+        if (!allowed) {
+          return reply.status(403).send({ error: 'Sem permissão para visualizar logs de auditoria desta empresa' });
+        }
+        return;
       }
-      const { allowed } = await companiesService.canUserPerformCompanyCapability(
-        tenantId,
-        userId,
-        'can_view_audit_logs',
-        { companyId }
+      // 2) Sem actor/company resolvível (listagem tenant-wide) → grant TENANT-LEVEL (DECISION-0126),
+      //    nunca company_users (grant de empresa não abre tenant-wide).
+      const { allowed } = await companiesService.canUserPerformTenantCapability(
+        tenantId, userId, 'can_view_tenant_audit_logs'
       );
       if (!allowed) {
-        return reply.status(403).send({ error: 'Sem permissão para visualizar logs de auditoria desta empresa' });
+        return reply.status(403).send({ error: 'Sem grant tenant-level para auditoria (can_view_tenant_audit_logs)', code: 'TENANT_GRANT_REQUIRED' });
       }
     } catch {
       return reply.status(403).send({ error: 'Sem permissão para visualizar logs de auditoria' });
     }
   };
 
-  // Busca por logId não tem actor-alvo resolvível por desenho → fail-closed (company_scope_required).
+  // Busca por logId não tem actor-alvo resolvível por desenho → grant TENANT-LEVEL (DECISION-0126).
   const requireAuditTenantWide = async (req: any, reply: any) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
+    const tenantId = req.tenant.id;
     const userId = req.user?.id;
     if (!userId) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
-    return reply.status(403).send({
-      error: 'Busca de log por id tenant-wide exige grant platform-admin (DECISION_REQUIRED).',
-      code: 'COMPANY_SCOPE_REQUIRED',
-    });
+    try {
+      const { companiesService } = await import('@core/companies/companies.service');
+      const { allowed } = await companiesService.canUserPerformTenantCapability(
+        tenantId, userId, 'can_view_tenant_audit_logs'
+      );
+      if (!allowed) {
+        return reply.status(403).send({ error: 'Sem grant tenant-level para auditoria (can_view_tenant_audit_logs)', code: 'TENANT_GRANT_REQUIRED' });
+      }
+    } catch {
+      return reply.status(403).send({ error: 'Sem grant tenant-level para auditoria' });
+    }
   };
 
   /**

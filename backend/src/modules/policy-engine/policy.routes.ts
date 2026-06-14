@@ -22,18 +22,33 @@ const policyRoutes = async (fastify: FastifyInstance) => {
    * revogar) NÃO têm empresa-alvo resolvível e gerem estado tenant-wide → **FAIL-CLOSED**
    * (company_scope_required), DECISION_REQUIRED (platform-admin/tenant-level grant).
    */
+  // Rotas TENANT-WIDE/MIXED (listar/criar/ativar/desativar políticas e decisões, aplicar/revogar): gerem
+  // estado tenant-wide de POLÍTICA (policy_rules/policy_decisions — registros internos, SEM efeito financeiro
+  // nem chamada externa; nenhum bank_*/payout/reversal). Autoridade = modelo SEPARADO
+  // `tenant_operator_grants.can_manage_tenant_policy` (DECISION-0126) — NÃO company_users/can_manage_company
+  // (grant de empresa não abre tenant-wide). SUBJECT = req.user.id (server-side). Grant tenant A ≠ tenant B.
   const requirePolicyPermission = async (req: any, reply: any) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
+    const tenantId = req.tenant.id;
     const userId = req.user?.id;
     if (!userId) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
-    return reply.status(403).send({
-      error: 'Policy tenant-wide/mixed exige grant platform-admin (DECISION_REQUIRED). Grant de empresa não autoriza gestão tenant-wide de políticas.',
-      code: 'COMPANY_SCOPE_REQUIRED',
-    });
+    try {
+      const { companiesService } = await import('@core/companies/companies.service');
+      const { allowed } = await companiesService.canUserPerformTenantCapability(
+        tenantId,
+        userId,
+        'can_manage_tenant_policy'
+      );
+      if (!allowed) {
+        return reply.status(403).send({ error: 'Sem grant tenant-level para Policy Engine (can_manage_tenant_policy)', code: 'TENANT_GRANT_REQUIRED' });
+      }
+    } catch {
+      return reply.status(403).send({ error: 'Sem grant tenant-level para Policy Engine' });
+    }
   };
 
   // Rotas ACTOR-SCOPED (/policies/evaluate/:actorId, /policy-decisions/actor/:actorId/active): o output é

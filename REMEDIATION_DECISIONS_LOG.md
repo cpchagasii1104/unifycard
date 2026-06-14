@@ -6983,3 +6983,16 @@ grant em uma empresa NÃO autoriza leitura tenant-wide. `canUserPerformCompanyCa
 Platform-admin/tenant-level grant = DECISION_REQUIRED. Âncora: migration 20260613170000 aplicada ao dev → 381/381. Guard
 Forma C exige prova de company-scope. Prova: e2e 20/20; neg-proof 13/13; gates verdes; tsc 25. Detalhe:
 `docs/02_decisions/DECISION_0125_R2_COMPANY_USERS_FINE_GRANTS.md` (Adendo §escopo).
+
+## DECISION-0126 — Tenant-level operator grants
+
+**Data:** 2026-06-14 · **Frente:** F-R2-TENANT-LEVEL-OPERATOR-GRANTS · **Branch:** rescue-structural
+
+company_users.can_* = company-scoped (nunca tenant-wide). Tenant-wide abre SÓ por `tenant_operator_grants.can_*`
+(modelo material SEPARADO). Migration 20260614120000 (tabela + can_view_tenant_reports/audit_logs/risk +
+can_manage_tenant_policy; global_user_id→global_users(global_user_id); sem backfill; zero permissão financeira) aplicada
+ao dev → 382. Primitivo canUserPerformTenantCapability (subject=req.user server-side; whitelist; fail-closed; grant A≠B;
+não consulta company_users). Rotas: reporting→can_view_tenant_reports; risk overview/list→can_view_tenant_risk;
+business-audit tenant→can_view_tenant_audit_logs; policy tenant→can_manage_tenant_policy. Actor-scoped permanece
+company-scoped. Guard Forma D. platform-wide/cross-tenant + execução financeira = fora do escopo/DECISION_REQUIRED.
+Prova: e2e 23/23; neg-proof 17/17; gates verdes; tsc 25. Detalhe: `docs/02_decisions/DECISION_0126_TENANT_LEVEL_OPERATOR_GRANTS.md`.

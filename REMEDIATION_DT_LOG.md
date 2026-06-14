@@ -12985,3 +12985,20 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   (incl. reject Forma-C sem company-scope). Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch
   critical_new=0 · tsc 25. Bank/payout/dispute/service-orders intocados; sem RBAC V2; sem frontend; sem nova migration.
 - **Restam DECISION_REQUIRED:** modelo platform-admin/tenant-level grant (destrava reads tenant-wide); deprecar legado/RBAC v1; trust R2.4; disputa.
+
+## DT-0113-CLASSIC-CHANNEL-READERS — tenant-level grants destravados (2026-06-14, F-R2-TENANT-LEVEL-OPERATOR-GRANTS)
+
+- **Status:** as superfícies tenant-wide (fail-closed em DECISION-0125 §escopo) foram destravadas por modelo MATERIAL
+  SEPARADO `tenant_operator_grants.can_*` (DECISION-0126) — NUNCA por company_users. Baseline 0113 inalterado (3).
+- **Modelo:** tabela `tenant_operator_grants` (migration 20260614120000; tenant_id + global_user_id→global_users(global_user_id)
+  + 4 booleanas can_view_tenant_reports/audit_logs/risk + can_manage_tenant_policy + is_active; UNIQUE(tenant_id,global_user_id);
+  sem backfill; zero permissão financeira). Primitivo `canUserPerformTenantCapability` (subject=req.user.id→global_user_id;
+  whitelist; fail-closed; grant A≠B; não consulta company_users). dev 381→**382**.
+- **Rotas:** reporting (todas)→can_view_tenant_reports; risk /overview+/actors→can_view_tenant_risk; business-audit sem
+  actor/`/:logId`→can_view_tenant_audit_logs; policy lista+mutations→can_manage_tenant_policy. **Actor-scoped permanece
+  company-scoped** (risk /actors/:id, audit ?actorId, policy /evaluate/:id) — tenant grant NÃO cobre escopo company.
+- **Guard:** Forma D reconhece o primitivo tenant-level (subject server-side; tenant-scoped; sem actorId cliente; não Bank/payout/trust).
+- **Prova:** e2e **23/23** (T4/T17 company não abre tenant-wide; T5 grant A≠B; T8/T11/T14 actor-scoped preservado; T18-T21 invariantes);
+  guard `flagged=3 baseline=3 new=0 safe_subject_recognized=3`; neg-proof **17/17** (incl. Forma D). Gates verdes; tsc 25.
+  Bank/payout/trust/dispute/service-orders intocados; sem RBAC V2; sem frontend.
+- **Restam DECISION_REQUIRED:** platform-wide/cross-tenant operator; execução financeira (Core de Aprovação Financeira); deprecar legado/RBAC v1; trust R2.4.

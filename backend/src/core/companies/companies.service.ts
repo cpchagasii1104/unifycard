@@ -48,6 +48,25 @@ const COMPANY_CAPABILITY_COLUMNS: Record<CompanyCapabilityKey, string> = {
   can_manage_policy: 'can_manage_policy',
 };
 
+/**
+ * Capabilities TENANT-LEVEL materializadas em `tenant_operator_grants.can_*`
+ * (F-R2-TENANT-LEVEL-OPERATOR-GRANTS, DECISION-0126). Modelo SEPARADO de company_users: destrava as
+ * superfícies tenant-wide (reporting/risk-overview/audit-tenant/policy-tenant) que `company_users.can_*`
+ * NUNCA pode abrir. Whitelist fixa (sem SQL injection). SOMENTE leitura/política não-financeira.
+ */
+export type TenantCapabilityKey =
+  | 'can_view_tenant_reports'
+  | 'can_view_tenant_audit_logs'
+  | 'can_view_tenant_risk'
+  | 'can_manage_tenant_policy';
+
+const TENANT_CAPABILITY_COLUMNS: Record<TenantCapabilityKey, string> = {
+  can_view_tenant_reports: 'can_view_tenant_reports',
+  can_view_tenant_audit_logs: 'can_view_tenant_audit_logs',
+  can_view_tenant_risk: 'can_view_tenant_risk',
+  can_manage_tenant_policy: 'can_manage_tenant_policy',
+};
+
 class CompaniesService {
   /**
    * Lista domínios de atuação da empresa.
@@ -1039,6 +1058,43 @@ class CompaniesService {
     return row?.allowed === true
       ? { allowed: true, source: 'company_users.can_*' }
       : { allowed: false, source: 'company_users.can_*', reason: 'no_grant_in_company' };
+  }
+
+  /**
+   * R2 TENANT-LEVEL OPERATOR GRANTS (F-R2-TENANT-LEVEL-OPERATOR-GRANTS, 2026-06-14, DECISION-0126).
+   * Autorizador tenant-level sobre `tenant_operator_grants.can_*` — modelo MATERIAL SEPARADO de
+   * company_users. Destrava as superfícies tenant-wide que `company_users.can_*` NUNCA pode abrir.
+   *
+   * SUBJECT = userId (req.user.id server-side; users.id). Identidade global resolvida pelo JOIN canônico
+   * users.global_user_id — actorId client-declared NUNCA é subject. Grant em tenant A NÃO vale tenant B
+   * (filtro tog.tenant_id = $tenantId do request). Fail-closed: sem grant ativo com a capability → false.
+   * Coluna por whitelist fixa (sem SQL injection). NÃO consulta company_users (modelos separados).
+   */
+  async canUserPerformTenantCapability(
+    tenantId: string,
+    userId: string,
+    capability: TenantCapabilityKey
+  ): Promise<{ allowed: boolean; source: 'tenant_operator_grants.can_*'; reason?: string }> {
+    const column = TENANT_CAPABILITY_COLUMNS[capability];
+    if (!column) {
+      throw new Error(`canUserPerformTenantCapability: capability não suportada: ${String(capability)}`);
+    }
+    if (!userId) {
+      return { allowed: false, source: 'tenant_operator_grants.can_*', reason: 'no_subject' };
+    }
+    const row = await runQueryWithTenant<{ allowed: boolean }>(
+      tenantId,
+      `SELECT tog.${column} AS allowed
+         FROM tenant_operator_grants tog
+         JOIN users u ON u.global_user_id = tog.global_user_id
+        WHERE tog.tenant_id = $1 AND u.id = $2::uuid
+          AND tog.is_active = true AND tog.${column} = true
+        LIMIT 1`,
+      [tenantId, userId]
+    );
+    return row?.allowed === true
+      ? { allowed: true, source: 'tenant_operator_grants.can_*' }
+      : { allowed: false, source: 'tenant_operator_grants.can_*', reason: 'no_tenant_grant' };
   }
 
   /**

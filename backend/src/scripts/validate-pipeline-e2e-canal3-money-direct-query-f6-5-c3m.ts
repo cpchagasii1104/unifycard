@@ -92,13 +92,14 @@ async function main(): Promise<void> {
     !/canRepresentActor\(/.test(pay)
     && /'financial:execute_payout'/.test(pay)
     && /actorId: req\.query\.actorId/.test(pay));
-  // F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE (2026-06-14): reporting é tenant-wide IRREDUTÍVEL (o service
-  // agrega tenant-wide e NÃO honra filtro por actor). Como grant de empresa não autoriza leitura tenant-wide
-  // (reseal Yala/decisão Clayton), reporting é FAIL-CLOSED (COMPANY_SCOPE_REQUIRED) até existir platform-admin.
-  // SEM over-gate canRepresentActor; SEM actorId runtime (removido — era morto).
-  record('B3 reporting: SEM canRepresentActor( + FAIL-CLOSED COMPANY_SCOPE_REQUIRED (tenant-wide, sem actorId runtime/sem requirePermission legado)',
+  // F-R2-TENANT-LEVEL-OPERATOR-GRANTS (2026-06-14, DECISION-0126): reporting é tenant-wide IRREDUTÍVEL
+  // (service agrega tenant-wide e não honra actor). Abre SÓ por grant TENANT-LEVEL
+  // (tenant_operator_grants.can_view_tenant_reports) — NUNCA por company_users (grant de empresa não abre
+  // tenant-wide). SEM canRepresentActor; SEM actorId runtime; SEM requirePermission legado.
+  record('B3 reporting: SEM canRepresentActor( + gate TENANT-LEVEL can_view_tenant_reports (TENANT_GRANT_REQUIRED, sem actorId/sem requirePermission legado)',
     !/canRepresentActor\(/.test(rep)
-    && /COMPANY_SCOPE_REQUIRED/.test(rep)
+    && /canUserPerformTenantCapability\(\s*[\s\S]*?,\s*userId,\s*'can_view_tenant_reports'/.test(rep)
+    && /TENANT_GRANT_REQUIRED/.test(rep)
     && !/req\.query\.actorId/.test(rep)
     && !/businessAuthorizationService\.requirePermission/.test(rep));
   record('B4 invoice: actorId filtrado nu → 403 "Sem autoridade sobre o actor filtrado" (escopo view_ledger; reporting+payout reclassificados F-OK, fora)',

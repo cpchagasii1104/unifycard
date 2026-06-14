@@ -79,6 +79,10 @@ const C = [
   ['reject.formC.noCompanyScope','const userId = req.user?.id;\n await companiesService.canUserPerformCompanyCapability(tenantId, userId, "can_view_risk");', false],
   ['reject.formC.params',      'const a = req.params.actorId;\n const c = await companiesService.resolveCompanyIdForActor(tenantId, a);\n await companiesService.canUserPerformCompanyCapability(tenantId, a, "can_manage_policy", { companyId: c });', false],
   ['reject.formC.actionContext','const a = req.actionContext.actorId;\n const c = await companiesService.resolveCompanyIdForActor(tenantId, a);\n await companiesService.canUserPerformCompanyCapability(tenantId, a, "can_view_audit_logs", { companyId: c });', false],
+  ['formD.tenantCapability',   'const userId = req.user?.id;\n await companiesService.canUserPerformTenantCapability(tenantId, userId, "can_view_tenant_reports");', true],
+  ['formD.coalesce',           'const userId = req.user?.userId ?? req.user?.id;\n await companiesService.canUserPerformTenantCapability(tenantId, userId, "can_view_tenant_risk");', true],
+  ['reject.formD.params',      'const a = req.params.actorId;\n await companiesService.canUserPerformTenantCapability(tenantId, a, "can_manage_tenant_policy");', false],
+  ['reject.formD.actionContext','const a = req.actionContext.actorId;\n await companiesService.canUserPerformTenantCapability(tenantId, a, "can_view_tenant_audit_logs");', false],
 ];
 let ok = true;
 for (const [name, code, expect] of C) {
