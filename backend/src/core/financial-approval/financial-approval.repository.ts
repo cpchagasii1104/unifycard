@@ -7,6 +7,7 @@
 // tenant SEMPRE server-side (parâmetros), nunca de body/query. Colunas explícitas
 // (sem SELECT *). Idempotência por (tenant_id, idempotency_key).
 
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
   ApprovalRequestRow,
@@ -106,6 +107,51 @@ export async function findApprovalRequestByIdempotency(
        WHERE tenant_id = $1 AND idempotency_key = $2 LIMIT 1`,
     [tenantId, idempotencyKey]
   );
+}
+
+// ── Variantes transaction-composable (aceitam PoolClient) — para fluxos de domínio
+// (ex.: actor_wallet payout F2/F3) que precisam criar/ler approval DENTRO da MESMA TX,
+// SEM SQL cru fora do Core. O caller é responsável por BEGIN/COMMIT e pelo tenant context
+// (getClientWithTenant). NÃO movem dinheiro (approval_requests não é bank_*).
+
+export async function insertApprovalRequestTx(
+  client: PoolClient,
+  p: InsertApprovalRequestParams & { id?: string }
+): Promise<ApprovalRequestRow> {
+  const r = await client.query<ApprovalRequestRow>(
+    `INSERT INTO approval_requests
+       (id, tenant_id, requested_by_user_id, acting_for_actor_id, acting_for_account_id,
+        operation_type, operation_data, required_approvals, approval_type, status,
+        idempotency_key, expires_at)
+     VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7::jsonb, $8, $9, 'pending', $10, $11)
+     RETURNING ${REQUEST_COLS}`,
+    [
+      p.id ?? null,
+      p.tenantId,
+      p.requestedByUserId,
+      p.actingForActorId,
+      p.actingForAccountId,
+      p.operationType,
+      JSON.stringify(p.operationData ?? {}),
+      p.requiredApprovals,
+      p.approvalType,
+      p.idempotencyKey,
+      p.expiresAt,
+    ]
+  );
+  return r.rows[0] as ApprovalRequestRow;
+}
+
+export async function findApprovalRequestByIdTx(
+  client: PoolClient,
+  tenantId: string,
+  id: string
+): Promise<ApprovalRequestRow | undefined> {
+  const r = await client.query<ApprovalRequestRow>(
+    `SELECT ${REQUEST_COLS} FROM approval_requests WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
+    [tenantId, id]
+  );
+  return r.rows[0];
 }
 
 export interface ListApprovalRequestsFilter {

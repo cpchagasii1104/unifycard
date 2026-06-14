@@ -13118,3 +13118,20 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   reabertura de reversal/bank-settlement — frentes próprias futuras. Apenas impede start por padrão.
 - **Prova:** regression-guards rc=0; actor-writer/bank-ledger OK; arch critical_new=0; tsc 25; sem migration.
   Bank/payout HTTP/bank-http/dispute/reversal intocados; baseline 0113 = 0. Zero dinheiro movido.
+
+## DT-CORE-FINANCIAL-APPROVAL-MOTOR — payout EXECUTION selado (2026-06-14, F-PAYOUT-EXECUTION-SEAL)
+
+- **Status:** Core EXECUTION (payout) **HOLD → SELADO** no trilho canônico `actor_wallet_payout_requests`, Core-aprovado.
+- **B1 RESOLVIDO** (ponte produção pending_approval→approved): bridge NOVO `approveActorWalletPayout` (system-only,
+  server-side) consome o Core `recordFinancialApprovalDecision` (voto approve → approved; single-approval; idempotente).
+- **B2 RESOLVIDO** (SQL cru): F2 cria approval via `insertApprovalRequestTx` (Core repo, mesma TX) + idempotency_key;
+  F3 lê approval via `findApprovalRequestByIdTx` (Core repo). Sem SQL cru de approval no módulo wallet.
+- **Executor** (`executeActorWalletPayout`, já existente): FOR UPDATE no payout_request; valida approval approved/type/
+  não-expirado via Core; drain recovery (FOR UPDATE FIFO) + recompute; transfer via BankTransactionPort
+  (referenceType=actor_wallet_payout, idempotência); TX única (rollback); availableBalanceCents NÃO autoriza.
+- **Guard NOVO** `audit-payout-execution-seal.mjs` no regression-guards + negative-proof (morde SQL cru/bank direto/
+  seller_available) + e2e 13/13 (DB efêmera, MOVE dinheiro): full flow + no-approval/idempotência/concorrência/recovery.
+- **Hard stops:** payout HTTP fail-closed; executor system-only (sem rota/BOOT/worker ligado); seller_available não
+  usado; payout_requests legado não usado; Bank só via port; baseline 0113=0; can_execute_* não criado. Sem migration.
+- **Resta (frentes futuras):** worker system-only gated que consuma approved (F5); payout HTTP request-only (decisão);
+  multi-approval/quórum; seller_available tombstone; PIX/TED; dispute/reversal/cartão.

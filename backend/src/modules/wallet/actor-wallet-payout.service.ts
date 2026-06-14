@@ -22,6 +22,11 @@ import { bankLedgerRepository } from '@modules/bank/bank-ledger.repository';
 import { buildFinancialAuthorshipFromRequest } from '@modules/bank/financial-authorship.helper';
 import { drainRecoveryObligationsForCredit } from '@modules/financial-recovery/actor-wallet-recovery-obligation.service';
 import {
+  insertApprovalRequestTx,
+  findApprovalRequestByIdTx,
+} from '@core/financial-approval/financial-approval.repository';
+import { recordFinancialApprovalDecision } from '@core/financial-approval/financial-approval.service';
+import {
   ACTOR_WALLET_PAYOUT_OPERATION_TYPE,
   ACTOR_WALLET_PAYOUT_REFERENCE_TYPE,
   type ActorWalletPayoutRequest,
@@ -52,7 +57,11 @@ export class ActorWalletPayoutError extends Error {
       | 'PAYOUT_APPROVAL_WRONG_TYPE'
       | 'PAYOUT_APPROVAL_EXPIRED'
       | 'PAYOUT_SETTLEMENT_ACCOUNT_MISSING'
-      | 'PAYOUT_MISSING_PERFORMED_BY',
+      | 'PAYOUT_MISSING_PERFORMED_BY'
+      // approve bridge errors
+      | 'PAYOUT_APPROVE_MISSING_APPROVER'
+      | 'PAYOUT_APPROVE_NOT_PENDING'
+      | 'PAYOUT_APPROVE_NOT_RESOLVED',
     message: string
   ) {
     super(message);
@@ -224,35 +233,31 @@ class ActorWalletPayoutService {
     try {
       await client.query('BEGIN');
 
-      // 6a. approval_request (gate obrigatório — DECISION-0054 + DECISION-0058 D4)
+      // 6a. approval_request (gate obrigatório — DECISION-0054 + DECISION-0058 D4).
+      // F-PAYOUT-EXECUTION-SEAL: criado via Core repository (insertApprovalRequestTx) na MESMA TX —
+      // sem SQL cru de approval no módulo wallet. idempotency_key herda dedup do Core.
       const approvalId = uuidv4();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 dias
-      await client.query(
-        `INSERT INTO approval_requests
-           (id, tenant_id,
-            requested_by_user_id, acting_for_actor_id, acting_for_account_id,
-            operation_type, operation_data,
-            required_approvals, approval_type,
-            status, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 1, 'sequential', 'pending', $8)`,
-        [
-          approvalId,
-          tenantId,
-          requestedByUserId,
-          actorId,
-          wallet.accountId,
-          ACTOR_WALLET_PAYOUT_OPERATION_TYPE,
-          JSON.stringify({
-            requested_amount_cents: requestedAmountCents,
-            destination_type: 'internal_settlement',
-            reason,
-            snapshot_gross_balance_cents: snapshot.grossBalanceCents,
-            snapshot_pending_recovery_cents: snapshot.pendingRecoveryCents,
-            snapshot_available_balance_cents: snapshot.availableBalanceCents,
-          }),
-          expiresAt,
-        ]
-      );
+      await insertApprovalRequestTx(client, {
+        id: approvalId,
+        tenantId,
+        requestedByUserId,
+        actingForActorId: actorId,
+        actingForAccountId: wallet.accountId,
+        operationType: ACTOR_WALLET_PAYOUT_OPERATION_TYPE,
+        operationData: {
+          requested_amount_cents: requestedAmountCents,
+          destination_type: 'internal_settlement',
+          reason,
+          snapshot_gross_balance_cents: snapshot.grossBalanceCents,
+          snapshot_pending_recovery_cents: snapshot.pendingRecoveryCents,
+          snapshot_available_balance_cents: snapshot.availableBalanceCents,
+        },
+        requiredApprovals: 1,
+        approvalType: 'sequential',
+        idempotencyKey: `awpayout-approval:${idempotencyKey}`,
+        expiresAt,
+      });
 
       // 6b. actor_wallet_payout_requests
       const payoutId = uuidv4();
@@ -298,6 +303,108 @@ class ActorWalletPayoutService {
           `actor ${actorId} já possui request ativo (conflito de concorrência detectado pelo index).`
         );
       }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * F2.5 — APPROVE BRIDGE (DECISION-0128 / F-PAYOUT-EXECUTION-SEAL).
+   *
+   * Ponte de PRODUÇÃO `pending_approval → approved`, consumindo o Core de Aprovação Financeira
+   * (recordFinancialApprovalDecision). System-only / server-side: `approvedByUserId` é o operador
+   * (req.user server-side), NUNCA actorId do cliente. Single-approval (required_approvals=1; quórum/
+   * multi-approval = frente futura). NÃO move dinheiro. Idempotente (re-chamada com já-approved retorna).
+   *
+   *   1. FOR UPDATE no payout_request (deve estar pending_approval; idempotente se já approved).
+   *   2. Resolve o approval_request via Core (voto 'approve' → status 'approved'). Se já approved, não re-vota.
+   *   3. Flip payout_request pending_approval → approved + approved_amount_cents = requested.
+   */
+  async approveActorWalletPayout(
+    tenantId: string,
+    payoutRequestId: string,
+    approvedByUserId: string
+  ): Promise<{
+    approved: true;
+    payoutRequestId: string;
+    approvalRequestId: string;
+    approvedAmountCents: number;
+  }> {
+    if (!tenantId || !payoutRequestId) {
+      throw new ActorWalletPayoutError('PAYOUT_REQUEST_NOT_FOUND', 'tenantId e payoutRequestId são obrigatórios');
+    }
+    if (!approvedByUserId) {
+      throw new ActorWalletPayoutError(
+        'PAYOUT_APPROVE_MISSING_APPROVER',
+        'approvedByUserId (operador server-side) é obrigatório para aprovar o payout'
+      );
+    }
+
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+
+      const reqResult = await client.query<ActorWalletPayoutRequestRow>(
+        `SELECT * FROM actor_wallet_payout_requests WHERE tenant_id=$1 AND id=$2 FOR UPDATE`,
+        [tenantId, payoutRequestId]
+      );
+      const req = reqResult.rows[0];
+      if (!req) {
+        throw new ActorWalletPayoutError('PAYOUT_REQUEST_NOT_FOUND', `payout_request ${payoutRequestId} não encontrado`);
+      }
+      if (!req.approval_request_id) {
+        throw new ActorWalletPayoutError('PAYOUT_APPROVAL_NOT_FOUND', `payout_request ${payoutRequestId} sem approval_request_id`);
+      }
+      // Idempotente: já aprovado.
+      if (req.status === 'approved') {
+        await client.query('COMMIT');
+        return {
+          approved: true,
+          payoutRequestId,
+          approvalRequestId: req.approval_request_id,
+          approvedAmountCents: Number(req.approved_amount_cents ?? req.requested_amount_cents),
+        };
+      }
+      if (req.status !== 'pending_approval') {
+        throw new ActorWalletPayoutError(
+          'PAYOUT_APPROVE_NOT_PENDING',
+          `payout_request ${payoutRequestId} status='${req.status}', esperado 'pending_approval'`
+        );
+      }
+
+      // Resolver o approval pelo Core (só se ainda pending). recordFinancialApprovalDecision usa
+      // conexão própria; linhas distintas do payout_request → sem deadlock.
+      const approval = await findApprovalRequestByIdTx(client, tenantId, req.approval_request_id);
+      if (!approval) {
+        throw new ActorWalletPayoutError('PAYOUT_APPROVAL_NOT_FOUND', `approval_request ${req.approval_request_id} não encontrado`);
+      }
+      if (approval.status === 'pending') {
+        const decision = await recordFinancialApprovalDecision({
+          tenantId,
+          approvalRequestId: req.approval_request_id,
+          votedByUserId: approvedByUserId,
+          voteType: 'approve',
+        });
+        if (decision.outcome !== 'approved') {
+          throw new ActorWalletPayoutError('PAYOUT_APPROVE_NOT_RESOLVED', `approval não resolveu para 'approved' (outcome='${decision.outcome}')`);
+        }
+      } else if (approval.status !== 'approved') {
+        throw new ActorWalletPayoutError('PAYOUT_APPROVE_NOT_RESOLVED', `approval_request status='${approval.status}', não aprovável`);
+      }
+
+      const approvedAmountCents = Number(req.requested_amount_cents);
+      await client.query(
+        `UPDATE actor_wallet_payout_requests
+            SET status='approved', approved_amount_cents=$1, updated_at=NOW()
+          WHERE id=$2 AND status='pending_approval'`,
+        [approvedAmountCents, payoutRequestId]
+      );
+
+      await client.query('COMMIT');
+      return { approved: true, payoutRequestId, approvalRequestId: req.approval_request_id, approvedAmountCents };
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
       throw err;
     } finally {
       client.release();
@@ -407,16 +514,9 @@ class ActorWalletPayoutService {
           `payout_request ${payoutRequestId} sem approval_request_id vinculado`
         );
       }
-      const approvalResult = await client.query<{
-        status: string;
-        operation_type: string;
-        expires_at: Date | null;
-      }>(
-        `SELECT status, operation_type, expires_at FROM approval_requests
-          WHERE tenant_id = $1 AND id = $2`,
-        [tenantId, req.approval_request_id]
-      );
-      const approval = approvalResult.rows[0];
+      // F-PAYOUT-EXECUTION-SEAL: leitura do approval via Core repository (findApprovalRequestByIdTx),
+      // na MESMA TX/client — sem SQL cru de approval no módulo wallet.
+      const approval = await findApprovalRequestByIdTx(client, tenantId, req.approval_request_id);
       if (!approval) {
         throw new ActorWalletPayoutError(
           'PAYOUT_APPROVAL_NOT_FOUND',

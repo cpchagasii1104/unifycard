@@ -14723,3 +14723,21 @@ tocados. Gates: actor-writer/bank-ledger OK, regression-guards rc=0, arch critic
 arquivos tocados); sem migration. Bank/payout HTTP/bank-http/dispute/reversal intocados; baseline 0113 = 0; nenhum
 producer novo; zero dinheiro. NÃO implementa payout, NÃO fecha Core EXECUTION (HOLD), NÃO resolve seller_available.
 Estado: IMPLEMENTED / HOLD PARA RESEAL. Próxima: F-PAYOUT-EXECUTION-SEAL (DECISION-0128 §16).
+
+## 2026-06-14 — F-PAYOUT-EXECUTION-SEAL (IMPLEMENTED / HOLD PARA RESEAL) — Core EXECUTION de payout SELADO
+
+Primeira frente a selar EXECUÇÃO real de payout (trilho canônico actor_wallet_payout_requests, Core-aprovado,
+system-only, default-off). O executor executeActorWalletPayout já existia/correto; resolvi os 2 gaps: B1 — bridge
+NOVO approveActorWalletPayout (system-only, server-side) consumindo o Core recordFinancialApprovalDecision (ponte
+produção pending_approval→approved; single-approval; idempotente); B2 — F2/F3 deixaram de usar SQL cru de approval
+(via Core repo: insertApprovalRequestTx/findApprovalRequestByIdTx, variantes transaction-composable). Fluxo selado:
+request(F2 zero $)→approve(bridge/Core)→execute(F3: FOR UPDATE + drain recovery + recompute bank_ledger + transfer
+via BankTransactionPort referenceType=actor_wallet_payout + status completed + evento depois). Guard NOVO
+audit-payout-execution-seal.mjs no regression-guards (FALHA em SQL cru de approval, bank_* direto, seller_available,
+can_execute_*, autoridade client-declared, HTTP/BOOT exposure, ou falta de approval-via-Core/FOR UPDATE/drain/transfer-
+port); negative-proof morde 3 vetores; e2e 13/13 (DB efêmera, MOVE dinheiro: full flow + no-approval + idempotência +
+concorrência + recovery drena comprometido). Gates: actor-writer/bank-ledger OK, regression-guards rc=0, arch
+critical_new=0, tsc 25 baseline (zero nos arquivos tocados); sem migration. payout HTTP fail-closed; workers default-off;
+seller_available/availableBalanceCents/payout_requests legado não usados; Bank só via port; baseline 0113=0; can_execute_*
+não criado; dispute/reversal/cartão fora. Estado: IMPLEMENTED / HOLD PARA RESEAL. Resta: worker system-only (F5), payout
+HTTP request-only (decisão), multi-approval, seller_available tombstone, PIX/TED, dispute/reversal/cartão.
