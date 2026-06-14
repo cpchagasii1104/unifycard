@@ -13056,3 +13056,20 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Implementação:** segue **DECISION_REQUIRED** — esta DECISION NÃO implementa runtime. Saída do baseline 0113 só após o Core
   (F-CORE-FINANCIAL-APPROVAL-MODEL → F-BANK-HTTP-AUTHORITY-BINDING → F-ACTOR-WALLET-PAYOUT-WIRING → F-PAYOUT-EXECUTION-SEAL).
 - **Sem código/migration/Bank/payout** nesta frente (docs-only).
+
+## DT-CORE-FINANCIAL-APPROVAL-MOTOR — MODEL materializado, EXECUTION ainda HOLD (2026-06-14, F-CORE-FINANCIAL-APPROVAL-MODEL)
+
+- **Decisão técnica (ADAPTAR, não duplicar):** o substrato canônico `approval_requests`/`approval_votes`
+  (migration 20260530569000, DECISION-0054) já existia SEM service/repository ("motor"). Esta frente NÃO
+  duplicou tabelas: construiu o service/repository/governança NÃO-EXECUTOR sobre as tabelas canônicas
+  (`src/core/financial-approval/{service,repository,types}.ts`) + migration aditiva 20260614140000
+  (idempotency_key + unique parcial; approval_votes append-only; approval_requests no-delete + freeze terminal).
+- **NÃO-EXECUTOR:** o Core registra request/decision/governança e resolve estado (pending/approved/rejected/
+  expired) com `executed:false`. NÃO move dinheiro, NÃO escreve bank_*, NÃO chama payout/transfer/reversal/
+  cartão. Subject/tenant server-side; actorId cliente nunca é subject. Guard NOVO
+  `audit-financial-approval-core-boundary.mjs` (regression-guards) + negative-proof + e2e 17/17 (DB efêmera).
+- **Colisão tratada:** cleanup-por-DELETE do e2e financial-approval-substrate ficou tolerante à imutabilidade.
+- **EXECUTION segue HOLD/DECISION_REQUIRED:** bank-http/payout permanecem baseline 0113 = 2; saída só após
+  F-BANK-HTTP-AUTHORITY-BINDING / F-ACTOR-WALLET-PAYOUT-WIRING / F-PAYOUT-EXECUTION-SEAL (DECISION-0128 §16).
+- **Prova:** e2e 17/17; neg-proof morde Bank port + availableBalanceCents (restauração byte-idêntica);
+  regression-guards rc=0; actor-writer/bank-ledger OK; arch critical_new=0; tsc 25; dev 383→384. Zero dinheiro.

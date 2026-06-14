@@ -40,6 +40,7 @@ export interface ApprovalRequestRow {
   required_approvals: number;
   approval_type: ApprovalType;
   status: ApprovalRequestStatus;
+  idempotency_key: string | null;  // adicionada em 20260614140000 (DECISION-0128)
   expires_at: Date;
   created_at: Date;
   updated_at: Date;
@@ -73,4 +74,49 @@ export interface CastApprovalVoteInput {
   voteType: ApprovalVoteType;
   reason?: string;
   permissionSnapshot?: Record<string, unknown>;
+}
+
+// ── Core de Aprovação Financeira (DECISION-0128) — contratos do service NÃO-EXECUTOR ──
+// O service registra/valida/decide aprovação. NÃO executa operação financeira: o approval
+// record não é saldo, não é ledger, não autoriza sozinho movimento de dinheiro.
+
+export interface CreateFinancialApprovalRequestInput {
+  tenantId: string;            // server-side (nunca body/query como autoridade)
+  requestedByUserId: string;   // subject server-side (req.user.id), nunca actorId do cliente
+  actingForActorId: string;    // alvo/representado (binding server-side a montante)
+  actingForAccountId: string;
+  operationType: ApprovalOperationType;
+  operationData?: Record<string, unknown>;  // snapshot (amount_cents BIGINT-safe vive aqui)
+  requiredApprovals?: number;  // default 1
+  approvalType?: ApprovalType;  // default 'sequential'
+  expiresAt: Date;
+  idempotencyKey?: string;     // dedup server-side
+}
+
+export interface RecordFinancialApprovalDecisionInput {
+  tenantId: string;
+  approvalRequestId: string;
+  votedByUserId: string;       // subject server-side
+  voteType: ApprovalVoteType;
+  reason?: string;
+  permissionSnapshot?: Record<string, unknown>;
+}
+
+// Resolução do estado APÓS a decisão — NUNCA dispara execução financeira.
+export type ApprovalDecisionOutcome = 'pending' | 'approved' | 'rejected' | 'expired';
+
+export interface RecordFinancialApprovalDecisionResult {
+  request: ApprovalRequestRow;
+  vote: ApprovalVoteRow;
+  outcome: ApprovalDecisionOutcome;
+  approveCount: number;
+  requiredApprovals: number;
+  // Marcador explícito: o Core de aprovação NÃO executa. Wiring de execução é frente futura.
+  executed: false;
+}
+
+export interface FinancialApprovalRequestView {
+  request: ApprovalRequestRow;
+  votes: ApprovalVoteRow[];
+  approveCount: number;
 }

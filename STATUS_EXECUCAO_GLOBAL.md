@@ -14663,3 +14663,19 @@ dinheiro. `can_execute_financial_*` só como primitive interna do Core. Cartão 
 bank-http/payout permanecem baseline 0113 = 2 até o Core. **Zero código, zero migration, zero Bank/payout/
 ledger/wallet/frontend** — docs-only. git diff --check limpo. Estado: PROMULGADA / HOLD PARA RESEAL.
 Próxima frente recomendada: F-CORE-FINANCIAL-APPROVAL-MODEL (sob GO próprio).
+
+## 2026-06-14 — F-CORE-FINANCIAL-APPROVAL-MODEL (IMPLEMENTED / HOLD PARA RESEAL)
+
+Materializado o motor runtime NÃO-EXECUTOR do Core de Aprovação Financeira (DECISION-0128): "sala de aprovação,
+não a porta do cofre". READ-FIRST interno achou substrato canônico já existente (approval_requests/approval_votes,
+DECISION-0054) SEM service → ADAPTEI (não dupliquei): service/repository/governança sobre as tabelas canônicas +
+migration aditiva 20260614140000 (idempotency_key + unique parcial; approval_votes append-only; approval_requests
+no-delete + freeze de estado terminal). Service: createFinancialApprovalRequest / recordFinancialApprovalDecision
+(resolve pending/approved/rejected/expired, executed:false) / cancel / get / list. Subject+tenant server-side;
+actorId cliente nunca subject; sem rota HTTP; SEM executor financeiro / Bank port / availableBalanceCents /
+can_execute_*. Guard novo audit-financial-approval-core-boundary.mjs no regression-guards + negative-proof
+(morde Bank port + availableBalanceCents) + e2e 17/17 (DB efêmera, seed identidade→actor→conta). Colisão tratada:
+cleanup do e2e financial-approval-substrate ficou tolerante à imutabilidade. Gates: actor-writer/bank-ledger OK,
+regression-guards rc=0, arch critical_new=0, tsc 25 baseline (zero nos arquivos tocados); dev 383→384. Bank/payout/
+ledger/dispute/reversal/cartão intocados; bank-http/payout permanecem baseline 0113 = 2. Estado: IMPLEMENTED /
+HOLD PARA RESEAL. Core EXECUTION segue HOLD. Próxima: F-BANK-HTTP-AUTHORITY-BINDING (DECISION-0128 §16).

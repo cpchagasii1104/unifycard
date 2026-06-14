@@ -79,14 +79,19 @@ async function getFixtures() {
 
 async function cleanup(requestIds: string[]) {
   if (requestIds.length === 0) return;
-  await q(
-    `DELETE FROM approval_votes WHERE approval_request_id = ANY($1::uuid[])`,
-    [requestIds],
-  );
-  await q(
-    `DELETE FROM approval_requests WHERE id = ANY($1::uuid[])`,
-    [requestIds],
-  );
+  // DECISION-0128 / migration 20260614140000: approval_requests/approval_votes são
+  // append-only/no-delete (triggers). O DELETE agora é REJEITADO por design — as linhas
+  // de governança permanecem. Tolerante: marca como cancelled (não-terminal→cancelled) e
+  // ignora a impossibilidade de deletar. Em DB efêmera não há resíduo (banco é dropado).
+  try {
+    await q(
+      `UPDATE approval_requests SET status='cancelled', updated_at=NOW()
+         WHERE id = ANY($1::uuid[]) AND status='pending'`,
+      [requestIds],
+    );
+  } catch {
+    /* governança imutável — sem cleanup destrutivo (DECISION-0128) */
+  }
 }
 
 // ── ledger snapshot ───────────────────────────────────────────────────────────
