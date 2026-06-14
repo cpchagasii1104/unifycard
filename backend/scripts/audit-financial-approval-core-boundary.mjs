@@ -28,7 +28,12 @@ const FORBIDDEN = [
   { key: 'availableBalanceCents as input', re: /availableBalanceCents/ },
   { key: 'can_execute_* reference', re: /can_execute_/ },
   { key: 'client-declared authority (req.body/query/params/actionContext)', re: /req\.body|req\.query|req\.params|actionContext/ },
-  { key: 'import of Bank/payout/reversal module', re: /from\s+['"][^'"]*(unifybank|bank-transaction|\/payout|payout\.service|reversal\.service|bank-ledger|actor-wallet-payout)[^'"]*['"]/ },
+  // NOTA (F-PAYOUT-APPROVAL-POLICY-MATERIALIZATION): `\/payout` (substring cru) era amplo demais — casava
+  // arquivos INTERNOS do Core nomeados `payout-*` (ex.: payout-approval-policy.*), não só o IMPORT do módulo
+  // de execução. Precisado para `modules/payout` (o módulo de payout, que é o que o Core NÃO pode importar).
+  // Imports de execução seguem barrados: `modules/payout`, `payout.service`, `actor-wallet-payout`,
+  // `bank-transaction`, `bank-ledger`, `unifybank`, `reversal.service`.
+  { key: 'import of Bank/payout/reversal module', re: /from\s+['"][^'"]*(unifybank|bank-transaction|modules\/payout|payout\.service|reversal\.service|bank-ledger|actor-wallet-payout)[^'"]*['"]/ },
 ];
 
 function walk(dir, files = []) {

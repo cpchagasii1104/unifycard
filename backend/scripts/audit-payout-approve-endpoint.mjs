@@ -1,23 +1,27 @@
 #!/usr/bin/env node
-// Guard estrutural — F-PAYOUT-APPROVE-ENDPOINT-CORE-AUTHORITY / CAMINHO B (DECISION-0129).
+// Guard estrutural — F-PAYOUT-APPROVAL-POLICY-MATERIALIZATION (DECISION-0130).
 //
-// O endpoint de decisão de payout (src/modules/payout/payout-decision.routes.ts) é FAIL-CLOSED:
-// resolve request/approval, valida tenant/tipo/estado, exige requester != approver (D3) e então
-// retorna PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED (política/faixa material ausente — D2/D4/D6).
-// NÃO aprova, NÃO executa, NÃO move dinheiro. FALHA (exit 1) se a ROTA:
-//   (a) chamar approveActorWalletPayout / executeActorWalletPayout / recordFinancialApprovalDecision /
-//       worker (start/run...PayoutWorker) / bankTransactionService; ou escrever bank_*/approval_* direto;
-//   (b) retornar executed:true;
-//   (c) usar availableBalanceCents / seller_available / seller_payout / payout_requests legado;
-//   (d) usar businessAuthorizationService / organization_members / company_users / tenant_operator_grants /
-//       can_execute_ / can_approve_ / financial:execute_payout / financial:approve_payout como autoridade;
-//   (e) ler canal de ator client-declared (req.body actorId / x-actor-id / req.query actorId / actionContext /
-//       params.actorId) OU aceitar approvedByUserId/tenantId/status/operationType/approvalRequestId do body;
-//   (f) FALTAR: resolvePayoutApprovalPolicy + policy.configured + PAYOUT_APPROVER_CANNOT_BE_REQUESTER +
-//       requested_by_user_id + findApprovalRequestById (Core) + executed:false + subject/tenant server-side;
-// ou se o RESOLVEDOR de política (payout-approval-policy.ts) deixar de ser fail-closed (sem
-// PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED, ou passar a retornar `configured: true`, ou ler grant/saldo);
-// ou se as rotas antigas deixarem de ser fail-closed; ou se o baseline 0113 regredir.
+// O endpoint de decisão de payout aprova DENTRO da faixa MVP via Core Financeiro material (policy +
+// authority do operador + travas D7 + limite diário), registrando a decisão append-only e mudando
+// approval/payout para 'approved' — SEM mover dinheiro (executed:false). Arquitetura:
+//   ROUTE   src/modules/payout/payout-decision.routes.ts      (pré-checagens + delega ao orquestrador)
+//   ORCH    src/modules/payout/payout-approval.service.ts     (decisão Core + bridge selado)
+//   CORE    src/core/financial-approval/payout-approval-policy.service.ts  (policy/authority/D7/diário/evento)
+//   CONST   src/core/financial-approval/payout-approval-policy.constants.ts (faixa MVP 50000/150000)
+//
+// FALHA (exit 1) se:
+//  (ROUTE) chamar approveActorWalletPayout/executeActorWalletPayout/recordFinancialApprovalDecision/worker/
+//          bankTransactionService; escrever bank_*/approval_*; retornar executed:true; usar availableBalanceCents/
+//          seller_available/payout_requests/company_users/tenant_operator_grants/organization_members/
+//          businessAuthorizationService/can_execute_/can_approve_/financial:(execute|approve)_payout; ler canal
+//          client-declared ou aceitar spoof de body; ou FALTAR payoutApprovalService/PAYOUT_APPROVER_CANNOT_BE_
+//          REQUESTER/requested_by_user_id/findApprovalRequestById/executed:false/req.user|tenant server-side;
+//  (CORE)  NÃO referenciar as 3 tabelas Core (policies/authorities/policy_events), a faixa MVP, o limite diário
+//          e as travas D7 (kyc/atl/risk/recovery/internal_settlement); OU usar grant comum/availableBalanceCents/
+//          seller_available como autoridade; OU chamar executor/worker/Bank/escrever bank_*;
+//  (CONST) faixa MVP divergir de 50000/150000;
+//  (ORCH)  não chamar o bridge approveActorWalletPayout ou a decisão Core; OU chamar executor/worker/Bank;
+//  rotas antigas deixarem de ser fail-closed; baseline 0113 regredir.
 // Integrado em validate:regression-guards.
 
 import { readFileSync, existsSync } from 'fs';
@@ -27,7 +31,9 @@ import { BASELINE, SAFE_SUBJECT_READERS } from './audit-actor-authority-boundary
 
 const ROOT = process.cwd();
 const ROUTE = join(ROOT, 'src', 'modules', 'payout', 'payout-decision.routes.ts');
-const POLICY = join(ROOT, 'src', 'modules', 'payout', 'payout-approval-policy.ts');
+const ORCH = join(ROOT, 'src', 'modules', 'payout', 'payout-approval.service.ts');
+const CORE = join(ROOT, 'src', 'core', 'financial-approval', 'payout-approval-policy.service.ts');
+const CONST = join(ROOT, 'src', 'core', 'financial-approval', 'payout-approval-policy.constants.ts');
 const MODULE = join(ROOT, 'src', 'modules', 'payout', 'payout.module.ts');
 const OLD = join(ROOT, 'src', 'modules', 'payout', 'payout.routes.ts');
 const stripComments = (s) => s
@@ -36,95 +42,99 @@ const stripComments = (s) => s
 
 function runGuard() {
   const failures = [];
-
-  if (!existsSync(ROUTE)) {
-    console.error('GATE FAIL [payout-approve-endpoint]: payout-decision.routes.ts ausente.');
-    process.exit(1);
+  for (const [label, f] of [['route', ROUTE], ['orchestrator', ORCH], ['core-service', CORE], ['constants', CONST]]) {
+    if (!existsSync(f)) {
+      console.error(`GATE FAIL [payout-approve-endpoint]: ${label} ausente (${f.replace(ROOT, '')}).`);
+      process.exit(1);
+    }
   }
-  if (!existsSync(POLICY)) {
-    console.error('GATE FAIL [payout-approve-endpoint]: payout-approval-policy.ts ausente.');
-    process.exit(1);
-  }
-  const code = stripComments(readFileSync(ROUTE, 'utf8'));
-  const policy = stripComments(readFileSync(POLICY, 'utf8'));
+  const route = stripComments(readFileSync(ROUTE, 'utf8'));
+  const orch = stripComments(readFileSync(ORCH, 'utf8'));
+  const core = stripComments(readFileSync(CORE, 'utf8'));
+  const constants = stripComments(readFileSync(CONST, 'utf8'));
 
-  // (a) sem aprovação real / execução / worker / Bank
+  // ── ROUTE ───────────────────────────────────────────────────────────────────
   for (const sym of [
     'approveActorWalletPayout', 'executeActorWalletPayout', 'recordFinancialApprovalDecision',
     'runActorWalletPayoutWorkerCycle', 'startActorWalletPayoutWorker', 'bankTransactionService',
   ]) {
-    if (new RegExp(`\\b${sym}\\b`).test(code)) {
-      failures.push(`rota de decisão referencia ${sym} — proibido em CAMINHO B (não aprova/executa/move dinheiro).`);
-    }
+    if (new RegExp(`\\b${sym}\\b`).test(route)) failures.push(`ROUTE referencia ${sym} — proibido (a rota delega ao orquestrador; não move dinheiro).`);
   }
-  if (/(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+bank_[a-z_]+/i.test(code)) failures.push('rota escreve bank_* direto — proibido.');
-  if (/(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+approval_[a-z_]+/i.test(code)) failures.push('rota escreve approval_* por SQL cru — proibido (use o Core).');
-
-  // (b) executed:true
-  if (/executed\s*:\s*true/.test(code)) failures.push('rota retorna executed:true — fail-closed deve ser executed:false.');
-
-  // (c) legado/projeção como autoridade
-  if (/availableBalanceCents/.test(code)) failures.push('rota referencia availableBalanceCents (não autoriza).');
-  if (/seller_available|seller_payout/.test(code)) failures.push('rota referencia seller_available/seller_payout (legado).');
-  if (/\bpayout_requests\b/.test(code)) failures.push('rota referencia payout_requests legado.');
-
-  // (d) autoridade proibida
+  if (/(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(bank_|approval_)[a-z_]+/i.test(route)) failures.push('ROUTE escreve bank_*/approval_* direto — proibido.');
+  if (/executed\s*:\s*true/.test(route)) failures.push('ROUTE retorna executed:true — proibido.');
+  if (/availableBalanceCents/.test(route)) failures.push('ROUTE referencia availableBalanceCents (não autoriza).');
+  if (/seller_available|seller_payout/.test(route)) failures.push('ROUTE referencia seller_available/seller_payout (legado).');
+  if (/\bpayout_requests\b/.test(route)) failures.push('ROUTE referencia payout_requests legado.');
   for (const bad of ['businessAuthorizationService', 'organization_members', 'company_users', 'tenant_operator_grants', 'can_execute_', 'can_approve_']) {
-    if (new RegExp(bad).test(code)) failures.push(`rota usa autoridade proibida: ${bad}.`);
+    if (new RegExp(bad).test(route)) failures.push(`ROUTE usa autoridade proibida: ${bad}.`);
   }
-  if (/financial:(execute|approve)_payout/.test(code)) failures.push('rota usa financial:execute_payout/financial:approve_payout como autoridade.');
-
-  // (e) canal client-declared / spoof de body
-  if (/req\.body\??\.(actorId|actor_id)\b|req\.body\??\.actor\b(?!_)|['"]x-actor-id['"]|req\.query[^;]*actorId|req\.actionContext|req\.params\??\.actorId\b/.test(code)) {
-    failures.push('rota lê canal de ator client-declared (body/x-actor-id/query/actionContext/params.actorId).');
+  if (/financial:(execute|approve)_payout/.test(route)) failures.push('ROUTE usa financial:(execute|approve)_payout como autoridade.');
+  if (/req\.body\??\.(actorId|actor_id)\b|req\.body\??\.actor\b(?!_)|['"]x-actor-id['"]|req\.query[^;]*actorId|req\.actionContext|req\.params\??\.actorId\b/.test(route)) {
+    failures.push('ROUTE lê canal de ator client-declared (body/x-actor-id/query/actionContext/params.actorId).');
   }
-  if (/req\.body[^;]*\b(approvedByUserId|tenantId|tenant_id|operationType|operation_type|approvalRequestId)\b/.test(code)) {
-    failures.push('rota aceita approvedByUserId/tenantId/operationType/approvalRequestId do body como autoridade.');
+  if (/req\.body[^;]*\b(approvedByUserId|tenantId|tenant_id|operationType|operation_type|approvalRequestId|amountCents|availableBalanceCents)\b/.test(route)) {
+    failures.push('ROUTE aceita approvedByUserId/tenantId/operationType/approvalRequestId/amount do body como autoridade.');
   }
-
-  // (f) invariantes fail-closed presentes
-  const required = [
-    { re: /\bresolvePayoutApprovalPolicy\s*\(/, msg: 'rota não consulta resolvePayoutApprovalPolicy (política fail-closed).' },
-    { re: /policy\.code/, msg: 'rota não ramifica/usa policy.code (resultado do resolvedor de política).' },
-    { re: /PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED/, msg: 'rota não devolve PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED (fail-closed).' },
-    { re: /PAYOUT_APPROVER_CANNOT_BE_REQUESTER/, msg: 'rota não enforça requester != approver (PAYOUT_APPROVER_CANNOT_BE_REQUESTER).' },
-    { re: /requested_by_user_id/, msg: 'rota não compara requested_by_user_id (segregação de função).' },
-    { re: /\bfindApprovalRequestById\s*\(/, msg: 'rota não resolve approval via Core (findApprovalRequestById).' },
-    { re: /executed\s*:\s*false/, msg: 'rota não devolve executed:false.' },
-    { re: /req\.user\??\.id/, msg: 'subject (aprovador) não vem de req.user server-side.' },
-    { re: /req\.tenant\??\.id/, msg: 'tenant não vem de req.tenant server-side.' },
+  const routeReq = [
+    { re: /payoutApprovalService\.approvePayoutDecision\s*\(/, msg: 'ROUTE não delega ao orquestrador material (payoutApprovalService.approvePayoutDecision).' },
+    { re: /PAYOUT_APPROVER_CANNOT_BE_REQUESTER/, msg: 'ROUTE não enforça requester != approver (PAYOUT_APPROVER_CANNOT_BE_REQUESTER).' },
+    { re: /requested_by_user_id/, msg: 'ROUTE não compara requested_by_user_id (segregação).' },
+    { re: /\bfindApprovalRequestById\s*\(/, msg: 'ROUTE não resolve approval via Core (findApprovalRequestById).' },
+    { re: /executed\s*:\s*false/, msg: 'ROUTE não devolve executed:false.' },
+    { re: /req\.user\??\.id/, msg: 'ROUTE: subject (aprovador) não vem de req.user server-side.' },
+    { re: /req\.tenant\??\.id/, msg: 'ROUTE: tenant não vem de req.tenant server-side.' },
   ];
-  for (const r of required) if (!r.re.test(code)) failures.push(r.msg);
+  for (const r of routeReq) if (!r.re.test(route)) failures.push(r.msg);
 
-  // (policy) resolvedor fail-closed
-  if (!/PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED/.test(policy)) {
-    failures.push('payout-approval-policy.ts não expõe PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED.');
+  // ── CORE SERVICE (material) ───────────────────────────────────────────────────
+  const coreReq = [
+    { re: /financial_approval_policies/, msg: 'CORE não consulta financial_approval_policies.' },
+    { re: /financial_approval_authorities/, msg: 'CORE não consulta financial_approval_authorities (autoridade do operador).' },
+    { re: /financial_approval_policy_events/, msg: 'CORE não grava trilha append-only (financial_approval_policy_events).' },
+    { re: /PAYOUT_MVP_MAX_AMOUNT_CENTS/, msg: 'CORE não aplica a faixa MVP (PAYOUT_MVP_MAX_AMOUNT_CENTS).' },
+    { re: /PAYOUT_APPROVAL_DAILY_LIMIT_EXCEEDED/, msg: 'CORE não enforça o limite diário (PAYOUT_APPROVAL_DAILY_LIMIT_EXCEEDED).' },
+    { re: /date_trunc\(\s*'day'/, msg: 'CORE não computa uso diário (date_trunc day).' },
+    { re: /atl_blocked_actors/, msg: 'CORE não checa ATL (atl_blocked_actors).' },
+    { re: /actor_risk_profile/, msg: 'CORE não checa risco (actor_risk_profile).' },
+    { re: /actor_wallet_recovery_obligations/, msg: 'CORE não checa recovery (actor_wallet_recovery_obligations).' },
+    { re: /kyc_status/, msg: 'CORE não checa KYC (kyc_status).' },
+    { re: /internal_settlement/, msg: 'CORE não checa destino (internal_settlement).' },
+    { re: /pg_advisory_xact_lock/, msg: 'CORE não serializa o diário (pg_advisory_xact_lock).' },
+  ];
+  for (const r of coreReq) if (!r.re.test(core)) failures.push(r.msg);
+  for (const bad of ['company_users', 'tenant_operator_grants', 'organization_members', 'availableBalanceCents', 'seller_available', 'can_execute_', 'businessAuthorizationService']) {
+    if (new RegExp(bad).test(core)) failures.push(`CORE usa autoridade/sinal proibido: ${bad}.`);
   }
-  if (!/configured:\s*false/.test(policy)) {
-    failures.push('payout-approval-policy.ts não produz configured:false (deixou de ser fail-closed).');
+  for (const sym of ['executeActorWalletPayout', 'bankTransactionService', 'startActorWalletPayoutWorker', 'runActorWalletPayoutWorkerCycle']) {
+    if (new RegExp(`\\b${sym}\\b`).test(core)) failures.push(`CORE referencia ${sym} — Core decide, não executa/move dinheiro.`);
   }
-  if (/return\s*{[^}]*configured:\s*true/.test(policy)) {
-    failures.push('payout-approval-policy.ts RETORNA configured:true — CAMINHO A exige DECISION/faixa material (proibido fabricar aqui).');
-  }
-  for (const bad of ['availableBalanceCents', 'company_users', 'tenant_operator_grants', 'seller_available', 'can_execute_', 'can_approve_']) {
-    if (new RegExp(bad).test(policy)) failures.push(`payout-approval-policy.ts referencia ${bad} — não pode virar autoridade.`);
-  }
+  if (/(INSERT\s+INTO|UPDATE)\s+bank_[a-z_]+/i.test(core)) failures.push('CORE escreve bank_* direto — proibido.');
 
-  // (module) rota registrada
+  // ── CONSTANTS (faixa MVP ancorada em DECISION-0130 D4) ────────────────────────
+  if (!/PAYOUT_MVP_MAX_AMOUNT_CENTS\s*=\s*50000\b/.test(constants)) failures.push('CONST: PAYOUT_MVP_MAX_AMOUNT_CENTS != 50000 (faixa MVP D4).');
+  if (!/PAYOUT_MVP_DAILY_LIMIT_CENTS\s*=\s*150000\b/.test(constants)) failures.push('CONST: PAYOUT_MVP_DAILY_LIMIT_CENTS != 150000 (faixa MVP D4).');
+
+  // ── ORCHESTRATOR (decisão Core + bridge; sem execução) ────────────────────────
+  if (!/decidePayoutApproval\s*\(/.test(orch)) failures.push('ORCH não chama a decisão material (decidePayoutApproval).');
+  if (!/\bapproveActorWalletPayout\s*\(/.test(orch)) failures.push('ORCH não chama o bridge selado (approveActorWalletPayout) no caminho aprovado.');
+  for (const sym of ['executeActorWalletPayout', 'bankTransactionService', 'startActorWalletPayoutWorker', 'runActorWalletPayoutWorkerCycle']) {
+    if (new RegExp(`\\b${sym}\\b`).test(orch)) failures.push(`ORCH referencia ${sym} — orquestrador não executa/move dinheiro.`);
+  }
+  if (/(INSERT\s+INTO|UPDATE)\s+bank_[a-z_]+/i.test(orch)) failures.push('ORCH escreve bank_* direto — proibido.');
+
+  // ── módulo registra a rota ─────────────────────────────────────────────────────
   if (existsSync(MODULE)) {
     const mod = stripComments(readFileSync(MODULE, 'utf8'));
     if (!/payoutDecisionRoutes/.test(mod)) failures.push('payout.module.ts não registra payoutDecisionRoutes.');
   }
 
-  // rotas antigas seguem fail-closed
+  // ── rotas antigas fail-closed + baseline 0113 ─────────────────────────────────
   if (existsSync(OLD)) {
     const oldc = stripComments(readFileSync(OLD, 'utf8'));
     if ((oldc.match(/PAYOUT_HTTP_EXECUTION_DISABLED/g) || []).length < 1 || (oldc.match(/status\(403\)/g) || []).length < 3) {
       failures.push('rotas antigas (batches/execute-manual/fail) deixaram de ser fail-closed (403).');
     }
   }
-
-  // baseline 0113 íntegro
   if ('core/unifybank/bank-http.routes.ts' in BASELINE || 'modules/payout/payout.routes.ts' in BASELINE) {
     failures.push('baseline 0113 regrediu: bank-http/payout voltou ao BASELINE.');
   }
@@ -137,8 +147,8 @@ function runGuard() {
     failures.forEach((x) => console.error(`  ❌ ${x}`));
     process.exit(1);
   }
-  console.log('[payout-approve-endpoint] POST /payouts/requests/:id/decision: resolvePayoutApprovalPolicy fail-closed (PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED); requester!=approver (PAYOUT_APPROVER_CANNOT_BE_REQUESTER); approval via Core (findApprovalRequestById); executed:false; subject/tenant server-side; sem approve/execute/worker/Bank/recordDecision; sem availableBalanceCents/seller_available/company_users/tenant_operator_grants; resolvedor nunca retorna configured:true; rotas antigas fail-closed; baseline 0113 íntegro.');
-  console.log('GATE OK [payout-approve-endpoint] — endpoint de aprovação é FAIL-CLOSED: não aprova sem política Core material, não move dinheiro.');
+  console.log('[payout-approve-endpoint] approve material: ROUTE delega payoutApprovalService (requester!=approver, executed:false, sem bridge/execução/grant comum); CORE policy+authority+D7(kyc/atl/recovery/risk/destino)+diário(advisory lock)+evento append-only, faixa MVP 50000/150000; ORCH decisão Core + bridge selado sem execução; rotas antigas fail-closed; baseline 0113 íntegro.');
+  console.log('GATE OK [payout-approve-endpoint] — aprovação material dentro da faixa MVP; HTTP nunca executa/move dinheiro.');
 }
 
 const isMain = process.argv[1] ? resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;

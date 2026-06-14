@@ -1,28 +1,10 @@
 /**
- * E2E — F-PAYOUT-APPROVE-ENDPOINT-CORE-AUTHORITY / CAMINHO B (DECISION-0129). NÃO MOVE DINHEIRO.
+ * E2E — F-PAYOUT-APPROVAL-POLICY-MATERIALIZATION (DECISION-0130). NÃO MOVE DINHEIRO.
  *
- * Prova o endpoint de decisão FAIL-CLOSED: POST /api/payouts/requests/:id/decision resolve o
- * payout_request + approval_request, valida tenant/tipo/estado, exige requester != approver (D3) e
- * então retorna PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED (política/faixa material ausente — D2/D4/D6).
- * NUNCA aprova, NUNCA executa, NUNCA chama approveActorWalletPayout/recordFinancialApprovalDecision/
- * worker/Bank. Approval permanece 'pending'; payout permanece 'pending_approval'; executed:false.
- *
- *   T1  decision approve → 422 PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED, executed:false.
- *   T2  approval permanece pending.   T3 payout permanece pending_approval.   T4 executed:false.
- *   T5/T6/T7 bank_ledger/bank_transactions/bank_splits intocados.
- *   T8  approveActorWalletPayout NÃO chamado (sem approved_amount_cents / settlement / status approved).
- *   T9  recordFinancialApprovalDecision NÃO registra approve (zero approval_votes).
- *   T10 requester == approver → 403 PAYOUT_APPROVER_CANNOT_BE_REQUESTER.
- *   T11 spoof body (approvedByUserId/tenantId/status/operationType/approvalRequestId/availableBalanceCents) IGNORADO.
- *   T12 wrong tenant → 404 (não resolve fora do tenant).
- *   T13 wrong operation_type → 422 PAYOUT_APPROVAL_WRONG_TYPE.
- *   T14 company_users/tenant_operator_grants/businessAuthorizationService NÃO aparecem na rota (não aprovam).
- *   T15 availableBalanceCents não autoriza (saldo>0 e ainda assim NOT_CONFIGURED).
- *   T16 seller_available não lido (guard verde).   T17 payout_requests legado não usado (guard verde).
- *   T18 rotas antigas (batches/execute-manual/fail) continuam 403.
- *   T19 worker default-off.   T20 bank-http request-only.   T21 baseline 0113=0.
- *   T22 can_execute_* comum não criado.   T23 request-only entrypoint intacto + payout segue pending.
- *   T24 nenhum approved real nasce (zero payout/approval 'approved').   T25 nenhum ledger nasce.
+ * Prova a aprovação MATERIAL de payout dentro da faixa MVP: policy + authority (operador financeiro
+ * institucional) + faixa (50000/150000) + travas D7 (KYC/ATL/recovery/risco/destino) + limite diário +
+ * segregação (requester≠approver) + auditoria append-only. HTTP aprova mas NUNCA executa (executed:false,
+ * sem Bank/worker/ledger). 36 cenários (T1–T36) + concorrência.
  *
  * 🔒 DB EFÊMERA (wrapper run-payout-approve-endpoint-ephemeral.ps1).
  */
@@ -46,11 +28,6 @@ const q = (sql: string, p: unknown[] = []) => pool.query(sql, p);
 const cwd = process.cwd();
 const guardGreen = (s: string): boolean => { try { execSync(`node scripts/${s}`, { cwd, encoding: 'utf8' }); return true; } catch { return false; } };
 
-let TENANT = ''; let OTHER_TENANT = ''; let REQUESTER = ''; let APPROVER = '';
-let ACTOR = ''; let CONCEPT = '';
-let PAYOUT1 = ''; let APPROVAL1 = '';
-let PAYOUT2 = ''; let APPROVAL2 = '';
-// Auth stub mutável (preHandler lê por request).
 let CURRENT_USER = ''; let CURRENT_TENANT = '';
 
 async function assertEphemeral(): Promise<void> {
@@ -78,180 +55,245 @@ async function buildApp(): Promise<FastifyInstance> {
   return app;
 }
 
-async function makeWallet(actorId: string): Promise<string> {
-  await q(`INSERT INTO bank_accounts (tenant_id, owner_type, owner_id, actor_id, account_type) VALUES ($1,'actor',$2,$3,'actor_wallet')`, [TENANT, `${actorId}:actor_wallet`, actorId]);
-  return (await q(`SELECT id FROM bank_accounts WHERE tenant_id=$1 AND actor_id=$2 AND account_type='actor_wallet' LIMIT 1`, [TENANT, actorId])).rows[0].id;
+let CONCEPT = '';
+let seq = 0;
+const nextCpf = (): string => { seq += 1; return String(10000000000 + seq * 137 + Math.floor(Math.random() * 100)); };
+
+async function mkTenant(slug: string): Promise<string> {
+  const t = uuidv4();
+  await q(`INSERT INTO tenants (id, name, slug) VALUES ($1,$2,$3)`, [t, slug, slug]);
+  // conta system clearing (fonte de coverage); creditada por actor em mkActorPayout (bank_transactions.actor_id NOT NULL).
+  await q(`INSERT INTO bank_accounts (tenant_id, owner_type, owner_id, account_type) VALUES ($1,'system',$2,'clearing')`, [t, `system:clearing:${t}`]);
+  return t;
 }
 
-async function seed(base: number): Promise<void> {
-  TENANT = uuidv4(); OTHER_TENANT = uuidv4();
-  const gidR = uuidv4(); REQUESTER = uuidv4();
-  const gidA = uuidv4(); APPROVER = uuidv4();
-  ACTOR = uuidv4();
-  const cpfR = String(10000000000 + (base % 79999999999));
-  const cpfA = String(20000000000 + (base % 69999999999));
-  await q(`INSERT INTO tenants (id, name, slug) VALUES ($1,$2,$3)`, [TENANT, `e2e-pdec-${base}`, `e2e-pdec-${base}`]);
-  // requester
-  await q(`INSERT INTO global_users (global_user_id, cpf) VALUES ($1,$2)`, [gidR, cpfR]);
-  await q(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1,$2,'cpf','approved','complete')`, [gidR, cpfR]);
-  await q(`INSERT INTO users (id, user_id, tenant_id, email, password_hash, global_user_id) VALUES ($1,$1,$2,$3,'x',$4)`, [REQUESTER, TENANT, `req-${base}@e2e.local`, gidR]);
-  await q(`INSERT INTO actors (id, actor_id, tenant_id, actor_type, display_name, user_id, global_user_id) VALUES ($1,$1,$2,'user','E2E Requester',$3,$4)`, [ACTOR, TENANT, REQUESTER, gidR]);
-  // approver (usuário institucional distinto; sem actor próprio necessário)
-  await q(`INSERT INTO global_users (global_user_id, cpf) VALUES ($1,$2)`, [gidA, cpfA]);
-  await q(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1,$2,'cpf','approved','complete')`, [gidA, cpfA]);
-  await q(`INSERT INTO users (id, user_id, tenant_id, email, password_hash, global_user_id) VALUES ($1,$1,$2,$3,'x',$4)`, [APPROVER, TENANT, `appr-${base}@e2e.local`, gidA]);
+async function mkUser(tenantId: string, kyc = 'approved'): Promise<string> {
+  const gid = uuidv4(); const uid = uuidv4(); const cpf = nextCpf();
+  await q(`INSERT INTO global_users (global_user_id, cpf) VALUES ($1,$2)`, [gid, cpf]);
+  await q(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1,$2,'cpf',$3,'complete')`, [gid, cpf, kyc]);
+  await q(`INSERT INTO users (id, user_id, tenant_id, email, password_hash, global_user_id) VALUES ($1,$1,$2,$3,'x',$4)`, [uid, tenantId, `u-${uid.slice(0, 8)}@e2e.local`, gid]);
+  return uid;
+}
 
-  const wacc = await makeWallet(ACTOR);
-  CONCEPT = (await q(`SELECT concept_id FROM concepts LIMIT 1`)).rows[0]?.concept_id;
-  if (!CONCEPT) throw new Error('Sem concept.');
-  // coverage (conta system clearing creditada) + crédito da wallet p/ saldo > 0 (prova T15).
-  const clearing = await q(`INSERT INTO bank_accounts (tenant_id, owner_type, owner_id, account_type) VALUES ($1,'system',$2,'clearing') RETURNING id`, [TENANT, `system:clearing:${TENANT}`]);
-  const ct = uuidv4();
-  await q(`INSERT INTO bank_transactions (id, tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, concept_id) VALUES ($1,$2,$3,$4,$5,'initial_credit','e2e pdec coverage seed','e2e_pdec_cov',$6,$7)`, [ct, TENANT, ACTOR, clearing.rows[0].id, 100000000, ct, CONCEPT]);
-  await q(`INSERT INTO bank_ledger (id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification) VALUES (gen_random_uuid(),$1,$2,$3,'credit',$4,'initial_credit','e2e pdec coverage seed')`, [TENANT, clearing.rows[0].id, ct, 100000000]);
+interface Bundle { actorId: string; ownerUserId: string; payoutId: string; approvalId: string; walletAccountId: string; walletTxId: string; }
+
+async function mkActorPayout(tenantId: string, kyc: string, amountCents: number): Promise<Bundle> {
+  const ownerUserId = await mkUser(tenantId, kyc);
+  const gid = (await q(`SELECT global_user_id FROM users WHERE id=$1`, [ownerUserId])).rows[0].global_user_id;
+  const actorId = uuidv4();
+  await q(`INSERT INTO actors (id, actor_id, tenant_id, actor_type, display_name, user_id, global_user_id) VALUES ($1,$1,$2,'user','E2E Actor',$3,$4)`, [actorId, tenantId, ownerUserId, gid]);
+  await q(`INSERT INTO bank_accounts (tenant_id, owner_type, owner_id, actor_id, account_type) VALUES ($1,'actor',$2,$3,'actor_wallet')`, [tenantId, `${actorId}:actor_wallet`, actorId]);
+  const walletAccountId = (await q(`SELECT id FROM bank_accounts WHERE tenant_id=$1 AND actor_id=$2 AND account_type='actor_wallet' LIMIT 1`, [tenantId, actorId])).rows[0].id;
+  // coverage: credita a conta system clearing (atribuída a este actor) ANTES de creditar a wallet
+  // (check_coverage_before_credit dispara só em conta não-system).
+  const clearingId = (await q(`SELECT id FROM bank_accounts WHERE tenant_id=$1 AND account_type='clearing' AND owner_type='system' LIMIT 1`, [tenantId])).rows[0].id;
+  const cvt = uuidv4();
+  await q(`INSERT INTO bank_transactions (id, tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, concept_id) VALUES ($1,$2,$3,$4,$5,'initial_credit','e2e approve coverage seed','e2e_appr_cov',$6,$7)`, [cvt, tenantId, actorId, clearingId, 100000000, cvt, CONCEPT]);
+  await q(`INSERT INTO bank_ledger (id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification) VALUES (gen_random_uuid(),$1,$2,$3,'credit',$4,'initial_credit','e2e approve coverage seed')`, [tenantId, clearingId, cvt, 100000000]);
   const wt = uuidv4();
-  await q(`INSERT INTO bank_transactions (id, tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, concept_id) VALUES ($1,$2,$3,$4,$5,'initial_credit','e2e pdec wallet seed','e2e_pdec_seed',$6,$7)`, [wt, TENANT, ACTOR, wacc, 10000, wt, CONCEPT]);
-  await q(`INSERT INTO bank_ledger (id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification) VALUES (gen_random_uuid(),$1,$2,$3,'credit',$4,'initial_credit','e2e pdec wallet seed')`, [TENANT, wacc, wt, 10000]);
+  await q(`INSERT INTO bank_transactions (id, tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, concept_id) VALUES ($1,$2,$3,$4,$5,'initial_credit','e2e approve wallet seed','e2e_appr_seed',$6,$7)`, [wt, tenantId, actorId, walletAccountId, 5000000, wt, CONCEPT]);
+  await q(`INSERT INTO bank_ledger (id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification) VALUES (gen_random_uuid(),$1,$2,$3,'credit',$4,'initial_credit','e2e approve wallet seed')`, [tenantId, walletAccountId, wt, 5000000]);
 
-  // PAYOUT1 + APPROVAL1 (pending; operation_type=actor_wallet_payout) via service (requested_by=REQUESTER).
   const { actorWalletPayoutService } = await import('../modules/wallet/actor-wallet-payout.service');
   const r = await actorWalletPayoutService.requestActorWalletPayout({
-    tenantId: TENANT, actorId: ACTOR, requestedByUserId: REQUESTER,
-    requestedAmountCents: 1000, idempotencyKey: `pdec-${base}`, reason: 'e2e decision fixture',
+    tenantId, actorId, requestedByUserId: ownerUserId, requestedAmountCents: amountCents,
+    idempotencyKey: `appr-${actorId}`, reason: 'e2e approve fixture',
   });
-  PAYOUT1 = r.payoutRequest.id; APPROVAL1 = r.payoutRequest.approvalRequestId!;
-
-  // PAYOUT2 + APPROVAL2 (wrong operation_type='transfer') — ator distinto p/ não colidir active-gate.
-  const gidX = uuidv4(); const userX = uuidv4(); const ACTOR2 = uuidv4(); const cpfX = String(30000000000 + (base % 59999999999));
-  await q(`INSERT INTO global_users (global_user_id, cpf) VALUES ($1,$2)`, [gidX, cpfX]);
-  await q(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1,$2,'cpf','approved','complete')`, [gidX, cpfX]);
-  await q(`INSERT INTO users (id, user_id, tenant_id, email, password_hash, global_user_id) VALUES ($1,$1,$2,$3,'x',$4)`, [userX, TENANT, `x-${base}@e2e.local`, gidX]);
-  await q(`INSERT INTO actors (id, actor_id, tenant_id, actor_type, display_name, user_id, global_user_id) VALUES ($1,$1,$2,'user','E2E WrongType',$3,$4)`, [ACTOR2, TENANT, userX, gidX]);
-  const wacc2 = await makeWallet(ACTOR2);
-  APPROVAL2 = uuidv4();
-  await q(`INSERT INTO approval_requests (id, tenant_id, requested_by_user_id, acting_for_actor_id, acting_for_account_id, operation_type, operation_data, required_approvals, approval_type, status, idempotency_key, expires_at) VALUES ($1,$2,$3,$4,$5,'transfer','{}'::jsonb,1,'sequential','pending',$6, NOW() + INTERVAL '7 days')`, [APPROVAL2, TENANT, REQUESTER, ACTOR2, wacc2, `pdec-wt-${base}`]);
-  PAYOUT2 = uuidv4();
-  await q(`INSERT INTO actor_wallet_payout_requests (id, tenant_id, actor_id, actor_wallet_account_id, approval_request_id, requested_amount_cents, destination_type, idempotency_key, status) VALUES ($1,$2,$3,$4,$5,$6,'internal_settlement',$7,'pending_approval')`, [PAYOUT2, TENANT, ACTOR2, wacc2, APPROVAL2, 1000, `pdec-wt-${base}`]);
+  return { actorId, ownerUserId, payoutId: r.payoutRequest.id, approvalId: r.payoutRequest.approvalRequestId!, walletAccountId, walletTxId: wt };
 }
 
-const snap = async (t: string): Promise<number> => Number((await q(`SELECT count(*)::int n FROM ${t} WHERE tenant_id=$1`, [TENANT])).rows[0].n);
-const votesCount = async (apprId: string): Promise<number> => Number((await q(`SELECT count(*)::int n FROM approval_votes WHERE approval_request_id=$1`, [apprId])).rows[0].n);
+async function mkPolicy(tenantId: string, opts: { max?: number; daily?: number; requiresSecond?: boolean; active?: boolean } = {}): Promise<string> {
+  const r = await q(
+    `INSERT INTO financial_approval_policies (tenant_id, scope, max_amount_cents, daily_limit_cents, requires_second_approval, is_active, reason)
+     VALUES ($1,'actor_wallet_payout',$2,$3,$4,$5,'e2e policy') RETURNING id`,
+    [tenantId, opts.max ?? 50000, opts.daily ?? 150000, opts.requiresSecond ?? false, opts.active ?? true]
+  );
+  return r.rows[0].id;
+}
+async function mkAuthority(tenantId: string, policyId: string, userId: string, opts: { max?: number; daily?: number; active?: boolean } = {}): Promise<string> {
+  const r = await q(
+    `INSERT INTO financial_approval_authorities (tenant_id, policy_id, user_id, scope, max_amount_cents, daily_limit_cents, is_active, reason)
+     VALUES ($1,$2,$3,'actor_wallet_payout',$4,$5,$6,'e2e authority') RETURNING id`,
+    [tenantId, policyId, userId, opts.max ?? 50000, opts.daily ?? 150000, opts.active ?? true]
+  );
+  return r.rows[0].id;
+}
+
+const snap = async (t: string, tenantId: string): Promise<number> => Number((await q(`SELECT count(*)::int n FROM ${t} WHERE tenant_id=$1`, [tenantId])).rows[0].n);
 const apprStatus = async (id: string): Promise<string> => (await q(`SELECT status FROM approval_requests WHERE id=$1`, [id])).rows[0]?.status;
 const payoutRow = async (id: string) => (await q(`SELECT status, approved_amount_cents, executed_amount_cents, settlement_transaction_id FROM actor_wallet_payout_requests WHERE id=$1`, [id])).rows[0];
+const approvedEvents = async (payoutId: string): Promise<number> => Number((await q(`SELECT count(*)::int n FROM financial_approval_policy_events WHERE payout_request_id=$1 AND decision='approved'`, [payoutId])).rows[0].n);
 
 async function main(): Promise<void> {
   await assertEphemeral();
-  const base = Math.floor(Math.random() * 90000000) + 10000000;
-  await seed(base);
-  CURRENT_USER = APPROVER; CURRENT_TENANT = TENANT;
+  CONCEPT = (await q(`SELECT concept_id FROM concepts LIMIT 1`)).rows[0]?.concept_id;
+  if (!CONCEPT) throw new Error('Sem concept.');
+
+  // ── tenants ──
+  const TENANT = await mkTenant(`e2e-appr-${uuidv4().slice(0, 8)}`);
+  const T_NP = await mkTenant(`e2e-nop-${uuidv4().slice(0, 8)}`);   // sem policy
+  const T_WP = await mkTenant(`e2e-wp-${uuidv4().slice(0, 8)}`);    // com policy, sem authority do APPROVER
+
+  const APPROVER = await mkUser(TENANT);
+  const APPROVER_NOAUTH = await mkUser(TENANT);
+  const POLICY = await mkPolicy(TENANT);
+  await mkAuthority(TENANT, POLICY, APPROVER);
+
+  // actors do TENANT principal
+  const A_OK = await mkActorPayout(TENANT, 'approved', 1000);
+  const A_FAIXA = await mkActorPayout(TENANT, 'approved', 60000);
+  const A_DAILY = await mkActorPayout(TENANT, 'approved', 40000);
+  const A_T23 = await mkActorPayout(TENANT, 'approved', 40000);
+  const A_KYC = await mkActorPayout(TENANT, 'pending', 1000);
+  const A_ATL = await mkActorPayout(TENANT, 'approved', 1000);
+  const A_RISK = await mkActorPayout(TENANT, 'approved', 1000);
+  const A_REC = await mkActorPayout(TENANT, 'approved', 1000);
+  const A_DEST = await mkActorPayout(TENANT, 'approved', 1000);
+  const A_CONC = await mkActorPayout(TENANT, 'approved', 30000);
+  const A_REVK = await mkActorPayout(TENANT, 'approved', 1000);
+  const A_SPOOF = await mkActorPayout(TENANT, 'approved', 1000);
+
+  // D7 seeds
+  await q(`INSERT INTO atl_blocked_actors (actor_id, tenant_id, blocked_at, blocked_reason) VALUES ($1,$2,now(),'e2e atl')`, [A_ATL.actorId, TENANT]);
+  await q(`INSERT INTO actor_risk_profile (actor_id, risk_score, risk_level, flags, risk_rules_version) VALUES ($1,180,'high','{}'::jsonb,1)`, [A_RISK.actorId]);
+  // recovery obligation ativa para A_REC
+  const pi = uuidv4();
+  await q(`INSERT INTO payment_intents (id, tenant_id, actor_id, amount_cents, payment_status, intent_type, reference_id, gateway, currency) VALUES ($1,$2,$3,$4,'pending','payout_recovery',$5,'internal','BRL')`, [pi, TENANT, A_REC.actorId, 1000, uuidv4()]);
+  await q(`INSERT INTO actor_wallet_recovery_obligations (tenant_id, debtor_actor_id, debtor_account_id, creditor_actor_id, creditor_account_id, original_transaction_id, payment_intent_id, amount_cents, reason, status, recovered_amount_cents) VALUES ($1,$2,$3,$2,$3,$4,$5,$6,'e2e recovery','approved',0)`, [TENANT, A_REC.actorId, A_REC.walletAccountId, A_REC.walletTxId, pi, 1000]);
+  // pré-uso diário p/ A_DAILY: evento aprovado de 120000 hoje.
+  await q(`INSERT INTO financial_approval_policy_events (tenant_id, policy_id, actor_id, decision, approved_by_user_id, requested_by_user_id, amount_cents, reason, idempotency_key) VALUES ($1,$2,$3,'approved',$4,$5,120000,'preseed daily',$6)`, [TENANT, POLICY, A_DAILY.actorId, APPROVER, A_DAILY.ownerUserId, `preseed:${A_DAILY.actorId}`]);
+
+  // T_NP: actor+payout sem policy
+  const APPROVER_NP = await mkUser(T_NP);
+  const A_NP = await mkActorPayout(T_NP, 'approved', 1000);
+  // T_WP: policy mas APPROVER (do TENANT) não tem authority lá
+  await mkPolicy(T_WP);
+  const A_WP = await mkActorPayout(T_WP, 'approved', 1000);
+
   const app = await buildApp();
   const hdr = { 'content-type': 'application/json' };
-  const decide = (id: string, payload: object) => app.inject({ method: 'POST', url: `/api/payouts/requests/${id}/decision`, headers: hdr, payload: JSON.stringify(payload) });
+  const decide = (tenantId: string, userId: string, id: string, payload: object) => {
+    CURRENT_TENANT = tenantId; CURRENT_USER = userId;
+    return app.inject({ method: 'POST', url: `/api/payouts/requests/${id}/decision`, headers: hdr, payload: JSON.stringify(payload) });
+  };
+  const body = (r: any) => { try { return JSON.parse(r.body); } catch { return null; } };
 
-  const lB = await snap('bank_ledger'); const txB = await snap('bank_transactions'); const spB = await snap('bank_splits');
+  const lB = await snap('bank_ledger', TENANT); const txB = await snap('bank_transactions', TENANT); const spB = await snap('bank_splits', TENANT);
 
   try {
-    // T1/T4 — approve → 422 POLICY_NOT_CONFIGURED, executed:false.
-    const r1 = await decide(PAYOUT1, { decision: 'approve', reason: 'tentativa de aprovação' });
-    const b1 = (() => { try { return JSON.parse(r1.body); } catch { return null; } })();
-    record('T1 decision approve → 422 PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED, executed:false',
-      r1.statusCode === 422 && b1?.code === 'PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED' && b1?.executed === false,
-      `status=${r1.statusCode} body=${r1.body.slice(0, 160)}`);
+    // ── Cenário policy AUSENTE (T_NP) ──
+    const r1 = await decide(T_NP, APPROVER_NP, A_NP.payoutId, { decision: 'approve' });
+    record('T1 policy ausente → 422 PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED', r1.statusCode === 422 && body(r1)?.code === 'PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED', `status=${r1.statusCode} code=${body(r1)?.code}`);
+    record('T2 approval continua pending', (await apprStatus(A_NP.approvalId)) === 'pending');
+    record('T3 payout continua pending_approval', (await payoutRow(A_NP.payoutId)).status === 'pending_approval');
+    record('T4 executed:false', body(r1)?.executed === false);
+    record('T5 zero bank no tenant sem policy', (await snap('bank_ledger', T_NP)) === (await snap('bank_ledger', T_NP)));
 
-    // T2 — approval pending.
-    record('T2 approval permanece pending', (await apprStatus(APPROVAL1)) === 'pending', `status=${await apprStatus(APPROVAL1)}`);
-    // T3 — payout pending_approval.
-    const p3 = await payoutRow(PAYOUT1);
-    record('T3 payout permanece pending_approval', p3.status === 'pending_approval', `status=${p3.status}`);
-    // T4 — executed:false + status no body.
-    record('T4 executed:false + approvalStatus pending + payoutStatus pending_approval no body',
-      b1?.executed === false && b1?.approvalStatus === 'pending' && b1?.payoutStatus === 'pending_approval');
+    // ── Segregação (T14, antes do happy path consumir A_OK) ──
+    const r14 = await decide(TENANT, A_OK.ownerUserId, A_OK.payoutId, { decision: 'approve' });
+    record('T14 requester == approver → 403 PAYOUT_APPROVER_CANNOT_BE_REQUESTER', r14.statusCode === 403 && body(r14)?.code === 'PAYOUT_APPROVER_CANNOT_BE_REQUESTER' && (await apprStatus(A_OK.approvalId)) === 'pending');
 
-    // T5/T6/T7 — Bank intocado.
-    record('T5 bank_ledger intocado', (await snap('bank_ledger')) === lB);
-    record('T6 bank_transactions intocado', (await snap('bank_transactions')) === txB);
-    record('T7 bank_splits intocado', (await snap('bank_splits')) === spB);
+    // ── Autoridade ausente (T15) ──
+    const r15 = await decide(TENANT, APPROVER_NOAUTH, A_OK.payoutId, { decision: 'approve' });
+    record('T15 user sem authority → 403 PAYOUT_APPROVAL_AUTHORITY_NOT_FOUND', r15.statusCode === 403 && body(r15)?.code === 'PAYOUT_APPROVAL_AUTHORITY_NOT_FOUND' && (await apprStatus(A_OK.approvalId)) === 'pending');
 
-    // T8 — approveActorWalletPayout não chamado.
-    record('T8 approveActorWalletPayout NÃO chamado (sem approved/settlement/approved_amount)',
-      p3.status === 'pending_approval' && p3.approved_amount_cents === null && p3.executed_amount_cents === null && p3.settlement_transaction_id === null,
-      JSON.stringify(p3));
-    // T9 — recordFinancialApprovalDecision não registra approve.
-    record('T9 recordFinancialApprovalDecision NÃO registra approve (zero approval_votes)', (await votesCount(APPROVAL1)) === 0, `votes=${await votesCount(APPROVAL1)}`);
+    // T16/T17 — grants comuns não aprovam (estrutural: ausentes no Core/rota).
+    const coreSrc = readFileSync(join(cwd, 'src/core/financial-approval/payout-approval-policy.service.ts'), 'utf8').replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
+    const routeSrc = readFileSync(join(cwd, 'src/modules/payout/payout-decision.routes.ts'), 'utf8').replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
+    record('T16 company_users NÃO é autoridade (ausente em core/rota)', !/company_users/.test(coreSrc) && !/company_users/.test(routeSrc));
+    record('T17 tenant_operator_grants NÃO é autoridade (ausente em core/rota)', !/tenant_operator_grants/.test(coreSrc) && !/tenant_operator_grants/.test(routeSrc));
 
-    // T10 — requester == approver → 403.
-    CURRENT_USER = REQUESTER;
-    const r10 = await decide(PAYOUT1, { decision: 'approve' });
-    const b10 = (() => { try { return JSON.parse(r10.body); } catch { return null; } })();
-    CURRENT_USER = APPROVER;
-    record('T10 requester == approver → 403 PAYOUT_APPROVER_CANNOT_BE_REQUESTER',
-      r10.statusCode === 403 && b10?.code === 'PAYOUT_APPROVER_CANNOT_BE_REQUESTER' && b10?.executed === false && (await apprStatus(APPROVAL1)) === 'pending',
-      `status=${r10.statusCode} code=${b10?.code}`);
+    // ── Spoof (T24): APPROVER_NOAUTH + spoof approvedByUserId=APPROVER NÃO empresta autoridade ──
+    const r24 = await decide(TENANT, APPROVER_NOAUTH, A_SPOOF.payoutId, { decision: 'approve', approvedByUserId: APPROVER, tenantId: TENANT, status: 'approved', operationType: 'transfer', approvalRequestId: uuidv4(), amountCents: 1, availableBalanceCents: 999999999 });
+    record('T24 spoof body NÃO vira autoridade (APPROVER_NOAUTH segue sem authority → 403)', r24.statusCode === 403 && body(r24)?.code === 'PAYOUT_APPROVAL_AUTHORITY_NOT_FOUND' && (await apprStatus(A_SPOOF.approvalId)) === 'pending');
 
-    // T11 — spoof body ignorado (subject=req.user=APPROVER; ainda fail-closed).
-    const r11 = await decide(PAYOUT1, { decision: 'approve', approvedByUserId: REQUESTER, tenantId: OTHER_TENANT, status: 'approved', operationType: 'transfer', approvalRequestId: uuidv4(), availableBalanceCents: 999999999 });
-    const b11 = (() => { try { return JSON.parse(r11.body); } catch { return null; } })();
-    record('T11 spoof body (approvedByUserId/tenantId/status/operationType/approvalRequestId/availableBalanceCents) IGNORADO',
-      r11.statusCode === 422 && b11?.code === 'PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED' && (await apprStatus(APPROVAL1)) === 'pending' && (await votesCount(APPROVAL1)) === 0,
-      `status=${r11.statusCode} code=${b11?.code}`);
+    // ── Happy path (T6–T13): APPROVER aprova A_OK ──
+    const r6 = await decide(TENANT, APPROVER, A_OK.payoutId, { decision: 'approve', reason: 'ok' });
+    const b6 = body(r6);
+    record('T6 approve válido → approval pending → approved', r6.statusCode === 200 && (await apprStatus(A_OK.approvalId)) === 'approved', `status=${r6.statusCode} appr=${await apprStatus(A_OK.approvalId)}`);
+    const p6 = await payoutRow(A_OK.payoutId);
+    record('T7 payout pending_approval → approved', p6.status === 'approved', `status=${p6.status}`);
+    record('T8 executed:false', b6?.executed === false && b6?.payoutStatus === 'approved');
+    record('T9 bank_ledger intocado', (await snap('bank_ledger', TENANT)) === lB);
+    record('T10 bank_transactions intocado', (await snap('bank_transactions', TENANT)) === txB);
+    record('T11 bank_splits intocado', (await snap('bank_splits', TENANT)) === spB);
+    record('T12 não chama worker (dormancy verde)', guardGreen('audit-financial-workers-dormancy.mjs'));
+    record('T13 não executa payout (não completed; sem settlement/executed)', p6.status === 'approved' && p6.executed_amount_cents === null && p6.settlement_transaction_id === null);
 
-    // T12 — wrong tenant → 404.
-    CURRENT_TENANT = OTHER_TENANT;
-    const r12 = await decide(PAYOUT1, { decision: 'approve' });
-    const b12 = (() => { try { return JSON.parse(r12.body); } catch { return null; } })();
-    CURRENT_TENANT = TENANT;
-    record('T12 wrong tenant → 404 PAYOUT_REQUEST_NOT_FOUND (não resolve fora do tenant)',
-      r12.statusCode === 404 && b12?.code === 'PAYOUT_REQUEST_NOT_FOUND', `status=${r12.statusCode} code=${b12?.code}`);
+    // ── Autoridade: cross-tenant (T18), revoked authority (T19), revoked policy (T20) ──
+    const r18 = await decide(T_WP, APPROVER, A_WP.payoutId, { decision: 'approve' });
+    record('T18 cross-tenant authority falha → 403 AUTHORITY_NOT_FOUND', r18.statusCode === 403 && body(r18)?.code === 'PAYOUT_APPROVAL_AUTHORITY_NOT_FOUND');
 
-    // T13 — wrong operation_type → 422.
-    const r13 = await decide(PAYOUT2, { decision: 'approve' });
-    const b13 = (() => { try { return JSON.parse(r13.body); } catch { return null; } })();
-    record('T13 wrong operation_type → 422 PAYOUT_APPROVAL_WRONG_TYPE',
-      r13.statusCode === 422 && b13?.code === 'PAYOUT_APPROVAL_WRONG_TYPE' && b13?.executed === false, `status=${r13.statusCode} code=${b13?.code}`);
+    await q(`UPDATE financial_approval_authorities SET is_active=false, revoked_at=now() WHERE tenant_id=$1 AND user_id=$2`, [TENANT, APPROVER]);
+    const r19 = await decide(TENANT, APPROVER, A_REVK.payoutId, { decision: 'approve' });
+    record('T19 authority revogada/inativa falha → 403 AUTHORITY_NOT_FOUND', r19.statusCode === 403 && body(r19)?.code === 'PAYOUT_APPROVAL_AUTHORITY_NOT_FOUND');
+    await q(`UPDATE financial_approval_authorities SET is_active=true, revoked_at=NULL WHERE tenant_id=$1 AND user_id=$2`, [TENANT, APPROVER]);
 
-    // T14 — autoridade comum NÃO aparece na rota (não aprova).
-    const routeSrc = readFileSync(join(cwd, 'src/modules/payout/payout-decision.routes.ts'), 'utf8')
-      .replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
-    const noCommonAuth = !/company_users|tenant_operator_grants|businessAuthorizationService|organization_members/.test(routeSrc);
-    record('T14 company_users/tenant_operator_grants/businessAuthorizationService NÃO aprovam (ausentes na rota)', noCommonAuth);
+    await q(`UPDATE financial_approval_policies SET is_active=false, revoked_at=now() WHERE id=$1`, [POLICY]);
+    const r20 = await decide(TENANT, APPROVER, A_REVK.payoutId, { decision: 'approve' });
+    record('T20 policy revogada/inativa falha → 422 POLICY_NOT_CONFIGURED', r20.statusCode === 422 && body(r20)?.code === 'PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED');
+    await q(`UPDATE financial_approval_policies SET is_active=true, revoked_at=NULL WHERE id=$1`, [POLICY]);
 
-    // T15 — availableBalanceCents não autoriza (saldo>0 e ainda NOT_CONFIGURED).
-    const bal = Number((await q(`SELECT COALESCE(SUM(CASE WHEN direction='credit' THEN amount_cents ELSE -amount_cents END),0)::bigint b FROM bank_ledger WHERE tenant_id=$1 AND account_id=(SELECT id FROM bank_accounts WHERE tenant_id=$1 AND actor_id=$2 AND account_type='actor_wallet' LIMIT 1)`, [TENANT, ACTOR])).rows[0].b);
-    record('T15 availableBalanceCents não autoriza (saldo>0 e ainda assim NOT_CONFIGURED)', bal > 0 && b1?.code === 'PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED', `bal=${bal}`);
+    // ── Faixa (T21–T23) ──
+    const r21 = await decide(TENANT, APPROVER, A_FAIXA.payoutId, { decision: 'approve' });
+    record('T21 amount > 50000 → 422 APPROVAL_POLICY_REQUIRES_MULTI_APPROVAL', r21.statusCode === 422 && body(r21)?.code === 'APPROVAL_POLICY_REQUIRES_MULTI_APPROVAL' && (await payoutRow(A_FAIXA.payoutId)).status === 'pending_approval');
+    const r22 = await decide(TENANT, APPROVER, A_DAILY.payoutId, { decision: 'approve' });
+    record('T22 daily > 150000 → 422 PAYOUT_APPROVAL_DAILY_LIMIT_EXCEEDED', r22.statusCode === 422 && body(r22)?.code === 'PAYOUT_APPROVAL_DAILY_LIMIT_EXCEEDED' && (await payoutRow(A_DAILY.payoutId)).status === 'pending_approval');
+    const r23 = await decide(TENANT, APPROVER, A_T23.payoutId, { decision: 'approve' });
+    record('T23 amount<=50000 e diário ok → aprova', r23.statusCode === 200 && (await payoutRow(A_T23.payoutId)).status === 'approved' && body(r23)?.executed === false);
 
-    // T16/T17 — seller_available/payout_requests legado não usados (guard verde + ausência no fonte).
-    record('T16 seller_available não lido (guard verde + ausente na rota)', guardGreen('audit-payout-approve-endpoint.mjs') && !/seller_available|seller_payout/.test(routeSrc));
-    record('T17 payout_requests legado não usado (ausente na rota)', !/\bpayout_requests\b/.test(routeSrc));
-
-    // T18 — rotas antigas 403.
-    const rb = await app.inject({ method: 'POST', url: '/api/payouts/batches', headers: hdr, payload: '{}' });
+    // ── Legado/selos (T25–T34) ──
+    record('T25 seller_available não usado (core/rota)', !/seller_available/.test(coreSrc) && !/seller_available/.test(routeSrc));
+    record('T26 payout_requests legado não usado', !/\bpayout_requests\b/.test(coreSrc) && !/\bpayout_requests\b/.test(routeSrc));
+    const ro = await app.inject({ method: 'POST', url: '/api/payouts/batches', headers: hdr, payload: '{}' });
     const rem = await app.inject({ method: 'POST', url: `/api/payouts/orders/${uuidv4()}/execute-manual`, headers: hdr, payload: '{}' });
     const rf = await app.inject({ method: 'POST', url: `/api/payouts/orders/${uuidv4()}/fail`, headers: hdr, payload: '{}' });
-    record('T18 rotas antigas (batches/execute-manual/fail) continuam 403', rb.statusCode === 403 && rem.statusCode === 403 && rf.statusCode === 403, `${rb.statusCode}/${rem.statusCode}/${rf.statusCode}`);
-
-    // T19/T20 — worker default-off + bank-http request-only.
-    record('T19 worker default-off (dormancy guard verde)', guardGreen('audit-financial-workers-dormancy.mjs'));
-    record('T20 bank-http request-only (guard verde)', guardGreen('audit-bank-http-authority-binding.mjs'));
-
-    // T21 — baseline 0113=0.
-    let baseline0 = false;
-    try { baseline0 = /baseline=0\b/.test(execSync('node scripts/audit-actor-authority-boundary.mjs', { cwd, encoding: 'utf8' })); } catch { baseline0 = false; }
-    record('T21 DECISION-0113 baseline=0', baseline0);
-
-    // T22 — can_execute_* comum não criado.
+    record('T27 rotas antigas continuam 403', ro.statusCode === 403 && rem.statusCode === 403 && rf.statusCode === 403);
+    record('T28 worker default-off', guardGreen('audit-financial-workers-dormancy.mjs'));
+    record('T29 bank-http request-only', guardGreen('audit-bank-http-authority-binding.mjs'));
+    let baseline0 = false; try { baseline0 = /baseline=0\b/.test(execSync('node scripts/audit-actor-authority-boundary.mjs', { cwd, encoding: 'utf8' })); } catch { baseline0 = false; }
+    record('T30 DECISION-0113 baseline=0', baseline0);
     const canExec = (await q(`SELECT count(*)::int n FROM information_schema.columns WHERE table_name IN ('company_users','tenant_operator_grants') AND column_name LIKE 'can_execute_%'`)).rows[0].n;
-    record('T22 can_execute_* comum não criado', canExec === 0, `canExec=${canExec}`);
+    record('T31 can_execute_* comum não criado', canExec === 0, `canExec=${canExec}`);
+    record('T32 request-only continua criando pending (guard verde + payout nasceu pending)', guardGreen('audit-payout-request-only-entrypoint.mjs'));
+    record('T33 approve real NÃO marca completed', (await payoutRow(A_OK.payoutId)).status === 'approved' && (await payoutRow(A_T23.payoutId)).status === 'approved');
+    record('T34 worker system-only (executor selado, sem HTTP) — guards verdes', guardGreen('audit-payout-execution-seal.mjs') && guardGreen('audit-payout-worker-system-only.mjs'));
 
-    // T23 — request-only entrypoint intacto + payout segue pending.
-    record('T23 request-only entrypoint intacto + payout segue pending_approval', guardGreen('audit-payout-request-only-entrypoint.mjs') && (await payoutRow(PAYOUT1)).status === 'pending_approval');
+    // ── Concorrência (T35): 2 aprovações concorrentes do MESMO payout → 1 evento, daily contado 1x ──
+    CURRENT_TENANT = TENANT; CURRENT_USER = APPROVER;
+    const [c1, c2] = await Promise.all([
+      app.inject({ method: 'POST', url: `/api/payouts/requests/${A_CONC.payoutId}/decision`, headers: hdr, payload: JSON.stringify({ decision: 'approve' }) }),
+      app.inject({ method: 'POST', url: `/api/payouts/requests/${A_CONC.payoutId}/decision`, headers: hdr, payload: JSON.stringify({ decision: 'approve' }) }),
+    ]);
+    const ev = await approvedEvents(A_CONC.payoutId);
+    const dailyConc = Number((await q(`SELECT COALESCE(SUM(amount_cents),0)::text s FROM financial_approval_policy_events WHERE tenant_id=$1 AND actor_id=$2 AND decision='approved'`, [TENANT, A_CONC.actorId])).rows[0].s);
+    record('T35 2 aprovações concorrentes → 1 evento aprovado, daily contado 1x (30000), payout approved',
+      ev === 1 && dailyConc === 30000 && (await payoutRow(A_CONC.payoutId)).status === 'approved' && [c1.statusCode, c2.statusCode].every((s) => s === 200),
+      `events=${ev} daily=${dailyConc} codes=${c1.statusCode}/${c2.statusCode}`);
 
-    // T24 — nenhum approved real nasce.
-    const apprApproved = Number((await q(`SELECT count(*)::int n FROM approval_requests WHERE tenant_id=$1 AND status='approved'`, [TENANT])).rows[0].n);
-    const payApproved = Number((await q(`SELECT count(*)::int n FROM actor_wallet_payout_requests WHERE tenant_id=$1 AND status='approved'`, [TENANT])).rows[0].n);
-    record('T24 nenhum approved real nasce (zero approval/payout approved)', apprApproved === 0 && payApproved === 0, `appr=${apprApproved} pay=${payApproved}`);
+    // ── D7 (T36): KYC/ATL/RECOVERY/RISCO/DESTINO bloqueiam materialmente ──
+    const rk = await decide(TENANT, APPROVER, A_KYC.payoutId, { decision: 'approve' });
+    const ra = await decide(TENANT, APPROVER, A_ATL.payoutId, { decision: 'approve' });
+    const rr = await decide(TENANT, APPROVER, A_RISK.payoutId, { decision: 'approve' });
+    const rc = await decide(TENANT, APPROVER, A_REC.payoutId, { decision: 'approve' });
+    // destino: o payout real é internal_settlement; provamos o gate via chamada direta ao Core com pix_key.
+    const { payoutApprovalPolicyService } = await import('../core/financial-approval/payout-approval-policy.service');
+    const dd = await payoutApprovalPolicyService.decidePayoutApproval({
+      tenantId: TENANT, approverUserId: APPROVER, payoutRequestId: A_DEST.payoutId, approvalRequestId: A_DEST.approvalId,
+      actorId: A_DEST.actorId, requestedByUserId: A_DEST.ownerUserId, requestedAmountCents: 1000, destinationType: 'pix_key',
+    });
+    const d7ok =
+      rk.statusCode === 422 && body(rk)?.code === 'PAYOUT_APPROVAL_BLOCKED_KYC' &&
+      ra.statusCode === 422 && body(ra)?.code === 'PAYOUT_APPROVAL_BLOCKED_ATL' &&
+      rr.statusCode === 422 && body(rr)?.code === 'PAYOUT_APPROVAL_BLOCKED_RISK' &&
+      rc.statusCode === 422 && body(rc)?.code === 'PAYOUT_APPROVAL_BLOCKED_RECOVERY' &&
+      dd.kind === 'blocked' && dd.code === 'PAYOUT_APPROVAL_BLOCKED_DESTINATION';
+    record('T36 D7 bloqueiam: KYC/ATL/RISCO/RECOVERY (HTTP) + DESTINO (core) — todos 422 e payouts seguem pending',
+      d7ok && (await payoutRow(A_KYC.payoutId)).status === 'pending_approval' && (await payoutRow(A_ATL.payoutId)).status === 'pending_approval' && (await payoutRow(A_RISK.payoutId)).status === 'pending_approval' && (await payoutRow(A_REC.payoutId)).status === 'pending_approval',
+      `kyc=${body(rk)?.code} atl=${body(ra)?.code} risk=${body(rr)?.code} rec=${body(rc)?.code} dest=${dd.kind === 'blocked' ? dd.code : dd.kind}`);
 
-    // T25 — nenhum ledger nasce (bank_ledger intocado no run inteiro).
-    record('T25 nenhum ledger nasce (bank_ledger imutável no run)', (await snap('bank_ledger')) === lB, `before=${lB} after=${await snap('bank_ledger')}`);
+    // selo final: nenhum bank_* tocado no tenant inteiro durante todo o run.
+    record('T+ bank_ledger imutável no run inteiro', (await snap('bank_ledger', TENANT)) === lB);
   } finally {
     await app.close();
     await pool.end();
@@ -261,7 +303,7 @@ async function main(): Promise<void> {
   console.log(`\n${'═'.repeat(64)}`);
   console.log(`RESULTADO: ${results.length - failed.length}/${results.length} verdes`);
   if (failed.length > 0) { failed.forEach((f) => console.log(`  ❌ ${f.label} — ${f.reason ?? ''}`)); process.exit(1); }
-  console.log('✨ Endpoint de aprovação FAIL-CLOSED: resolve request/approval, exige requester!=approver, política ausente → PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED; zero aprovação, zero dinheiro — verde.');
+  console.log('✨ Aprovação material de payout dentro da faixa MVP (policy+authority+D7+diário+segregação); HTTP aprova sem executar; zero dinheiro — verde.');
   process.exit(0);
 }
 

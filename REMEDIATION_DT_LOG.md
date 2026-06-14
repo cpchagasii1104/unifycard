@@ -13180,8 +13180,16 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 
 ## DT-PAYOUT-APPROVAL-POLICY-NOT-CONFIGURED — approve endpoint existe mas é FAIL-CLOSED por política/faixa ausente (2026-06-14, F-PAYOUT-APPROVE-ENDPOINT-CORE-AUTHORITY)
 
-- **Status:** **DECIDIDO / IMPLEMENTATION_AUTHORIZED — NÃO CLOSED (runtime ainda fail-closed).** _(2026-06-14, atualizado por
-  DECISION-0130.)_ A causa material foi **decidida por Clayton**: DECISION-0130 (PAYOUT APPROVAL POLICY MATERIALIZATION)
+- **Status:** **CLOSED** _(2026-06-14, F-PAYOUT-APPROVAL-POLICY-MATERIALIZATION, migration `20260614150000`, dev 385)._
+  A política/faixa/autoridade material foi MATERIALIZADA no Core Financeiro: `financial_approval_policies` +
+  `financial_approval_authorities` (operador financeiro institucional, FK `users.id`) + `financial_approval_policy_events`
+  (append-only, D9). O resolvedor `payoutApprovalPolicyService.decidePayoutApproval` aprova DENTRO da faixa MVP
+  (`max_amount_cents<=50000`, `daily_limit_cents<=150000`), com `requester != approver` (D3), travas D7 materiais
+  (KYC/ATL/recovery/risco/destino) e limite diário race-safe (advisory lock). O approve endpoint **aprova de verdade**
+  (`approvalStatus/payoutStatus='approved'`) sem mover dinheiro (`executed:false`). e2e 37/37; bridge/executor/worker
+  selados intocados; baseline 0113=0. Acima da faixa → `APPROVAL_POLICY_REQUIRES_MULTI_APPROVAL` (D5). Resíduos viram
+  DTs próprias (ver [[DT-PAYOUT-APPROVAL-KYB-DEFERRED-INTERNAL-MVP]]).
+  _(Histórico — status anterior, DECIDIDO/IMPLEMENTATION_AUTHORIZED por DECISION-0130.)_ A causa material foi **decidida por Clayton**: DECISION-0130 (PAYOUT APPROVAL POLICY MATERIALIZATION)
   promulgou o **aprovador material** (operador financeiro institucional no Core), o **substrato** (`financial_approval_policies`/
   `financial_approval_authorities`/`financial_approval_policy_events`) e a **faixa segura MVP** (`max_amount_cents=50000` /
   `daily_limit_cents=150000`), com `requester != approver` e bloqueio acima da faixa (`APPROVAL_POLICY_REQUIRES_MULTI_APPROVAL`).
@@ -13199,6 +13207,22 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   a chamar `recordFinancialApprovalDecision` + `approveActorWalletPayout` (ainda `executed:false`; execução = worker
   system-only). Acima da faixa → `APPROVAL_POLICY_REQUIRES_MULTI_APPROVAL` (0130 D5). **CLOSED somente quando o runtime
   aprovar dentro da faixa.**
-- **Cercas:** guard `audit-payout-approve-endpoint.mjs` (no `validate:regression-guards`) impede que a rota aprove sem política
-  / mova dinheiro / use grant comum / aceite spoof / retorne executed:true / o resolvedor retorne `configured:true`. Baseline
-  0113=0 preservado (rota sem canal client-declared). Multi-approval/quórum, PIX/TED, dispute/reversal/card, seller_available = fora.
+- **Cercas:** guard `audit-payout-approve-endpoint.mjs` (no `validate:regression-guards`) — reescrito p/ o fluxo material
+  (route+orquestrador+core+const): exige policy/authority/D7/diário/faixa MVP, requester≠approver, executed:false, sem
+  bridge/executor/worker/Bank na rota, sem grant comum. Baseline 0113=0 preservado. Multi-approval/quórum, PIX/TED,
+  dispute/reversal/card, seller_available = fora.
+
+## DT-PAYOUT-APPROVAL-KYB-DEFERRED-INTERNAL-MVP — KYB não é trava do approve no MVP internal_settlement (2026-06-14, F-PAYOUT-APPROVAL-POLICY-MATERIALIZATION)
+
+- **Status:** **OPEN (LOW, por escopo).** O resolvedor material de aprovação de payout (DECISION-0130 D7) enforça
+  KYC/ATL/recovery/risco/destino, mas **NÃO** enforça **KYB** (`fiscal_identity_kyb_requests`). Motivo material: o MVP é
+  `destination_type='internal_settlement'` (liquidação interna na conta de settlement da plataforma — **sem destino
+  bancário externo**); KYB existe para verificar a **empresa antes de payout EXTERNO PJ**, que está fora do MVP (D13/D5
+  PIX/TED fora). Destino não-internal é **bloqueado** (`PAYOUT_APPROVAL_BLOCKED_DESTINATION`), então nenhum payout externo
+  PJ passa sem a frente de destino externo.
+- **Convergência:** quando a frente de **destino bancário externo (PIX/TED) + KYB** for autorizada, o gate KYB entra no
+  resolvedor (link actor PJ → `fiscal_identity` → `fiscal_identity_kyb_requests.status='approved'`) ANTES de habilitar
+  destino externo. Até lá, internal-only + bloqueio de destino externo = seguro por construção.
+- **Resíduo de auditoria (NOTA):** `financial_approval_policy_events` registra `approved` (sempre) e `blocked` (quando há
+  policy+authority resolvidas); decisões pré-autoridade (sem policy/authority/segregação) não geram evento. Auditoria
+  completa de rejected/blocked = evolução futura (a tabela já suporta os 3 valores via CHECK).

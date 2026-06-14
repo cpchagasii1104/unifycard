@@ -1,3 +1,17 @@
+## 2026-06-14 — F-PAYOUT-APPROVAL-POLICY-MATERIALIZATION · aprovação MATERIAL de payout viva dentro da faixa MVP (policy+authority+D7+diário) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `fc139481`** · **dev 384 → 385** (migration `20260614150000`) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_F_PAYOUT_APPROVAL_POLICY_MATERIALIZATION.md`. Materializa DECISION-0130 (CAMINHO A).
+
+**Caminho A — IMPLEMENTED.** O approve endpoint deixa de ser fail-closed e **APROVA DE VERDADE** payouts DENTRO da faixa MVP. READ-FIRST provou substrato D7 material (KYC `identities.kyc_status`, ATL `atl_blocked_actors`, recovery `actor_wallet_recovery_obligations`, risco `actor_risk_profile`, destino `internal_settlement`); aprovador FK = `users.id` (casa `requested_by_user_id`); KYB deferido (MVP internal-only, DT).
+
+**Patch:** migration (3 tabelas Core: `financial_approval_policies`/`authorities`/`policy_events`; BIGINT/TIMESTAMPTZ; CHECK MVP ceiling 50000/150000 = D4; append-only trigger = D9; índices; sem backfill/autoridade automática) · Core `payout-approval-policy.constants.ts`+`.service.ts` (`decidePayoutApproval`: advisory lock por (tenant,actor) + idempotência + policy/authority + faixa `min(policy,auth,teto)` + multi-approval(>50000) + D7 + diário + evento append-only; NÃO importa @modules/move dinheiro) · módulo `payout-approval.service.ts` (orquestrador: decisão Core + bridge selado) · rota `payout-decision.routes.ts` reescrita (delega ao orquestrador; requester≠approver; `executed:false`; NÃO chama bridge/executor/worker/Bank) · removido stub `payout-approval-policy.ts`.
+
+**Guard:** `audit-payout-approve-endpoint.mjs` reescrito (route+orch+core+const, material). `audit-financial-approval-core-boundary.mjs`: token de import `\/payout` (amplo demais — casava arquivos internos do Core `payout-*`) **precisado p/ `modules/payout`** (tightening, não loosening: Core segue proibido de importar o módulo payout/Bank).
+
+**Provas:** e2e **37/37** (T1-5 policy ausente · T6-13 approve real sem dinheiro · T14 segregação · T15/18/19 authority · T20 policy revogada · T21 >50000→MULTI_APPROVAL · T22 daily→DAILY_LIMIT · T23 dentro da faixa→aprova · T24 spoof não empresta autoridade · T25-34 selos/legado · **T35 concorrência: 2 aprovações→1 evento, daily 1×** · **T36 D7 KYC/ATL/RISCO/RECOVERY/DESTINO bloqueiam**); neg-proof **6 mordidas** + restauração byte-idêntica; regression-guards rc=0; core-boundary OK (5 arquivos, NÃO-EXECUTOR); actor-writer/bank-ledger OK; arch --strict critical_new=0; tsc **25**. **HARD STOPS:** HTTP não executa/move dinheiro; bank_* intocado; grants comuns não aprovam; amount>50000/daily>150000 não aprovam; executor/worker/bridge selados intocados; baseline 0113=0. **IMPLEMENTED / HOLD PARA RESEAL.** DT-PAYOUT-APPROVAL-POLICY-NOT-CONFIGURED → **CLOSED**. Próximas: ativar worker (decisão), destino externo+KYB, multi-approval.
+
+---
+
 ## 2026-06-14 — DECISION-PAYOUT-APPROVAL-POLICY-MATERIALIZATION · DECISION-0130 (docs-only): aprovador material + substrato Core + faixa segura MVP · PROMULGADA/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `538898b9`** · dev **384** (SEM migration) · MODO EXECUTOR docs-only/cartório (ultracode). Execução: `docs/03_execution_log/20260614_DECISION_PAYOUT_APPROVAL_POLICY_MATERIALIZATION.md`. Numeração confirmada: maior DECISION = 0129; **0130 livre, sem colisão** (docs/02_decisions + DECISIONS_LOG).
