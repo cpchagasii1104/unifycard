@@ -58,13 +58,17 @@ export type TenantCapabilityKey =
   | 'can_view_tenant_reports'
   | 'can_view_tenant_audit_logs'
   | 'can_view_tenant_risk'
-  | 'can_manage_tenant_policy';
+  | 'can_manage_tenant_policy'
+  | 'can_view_tenant_trust'
+  | 'can_manage_tenant_trust';
 
 const TENANT_CAPABILITY_COLUMNS: Record<TenantCapabilityKey, string> = {
   can_view_tenant_reports: 'can_view_tenant_reports',
   can_view_tenant_audit_logs: 'can_view_tenant_audit_logs',
   can_view_tenant_risk: 'can_view_tenant_risk',
   can_manage_tenant_policy: 'can_manage_tenant_policy',
+  can_view_tenant_trust: 'can_view_tenant_trust',
+  can_manage_tenant_trust: 'can_manage_tenant_trust',
 };
 
 class CompaniesService {

@@ -6996,3 +6996,15 @@ não consulta company_users). Rotas: reporting→can_view_tenant_reports; risk o
 business-audit tenant→can_view_tenant_audit_logs; policy tenant→can_manage_tenant_policy. Actor-scoped permanece
 company-scoped. Guard Forma D. platform-wide/cross-tenant + execução financeira = fora do escopo/DECISION_REQUIRED.
 Prova: e2e 23/23; neg-proof 17/17; gates verdes; tsc 25. Detalhe: `docs/02_decisions/DECISION_0126_TENANT_LEVEL_OPERATOR_GRANTS.md`.
+
+## DECISION-0127 — Trust tenant-level grants / R2.4 unfreeze
+
+**Data:** 2026-06-14 · **Frente:** F-R2-TRUST-TENANT-GRANTS-R24-UNFREEZE · **Branch:** rescue-structural
+
+Fecha o resíduo trust do baseline 0113 (3→2). requireRole(['admin']) interino substituído por grant material
+tenant-level: tenant_operator_grants.can_view_tenant_trust (reads) / can_manage_tenant_trust (mutations/recalculate).
+Trust = compliance/risco TENANT-SCOPED; subject=req.user server-side; actorId=alvo; company_users NÃO abre trust;
+grant A≠B; zero dinheiro. Migration 20260614130000 (+2 booleanas, sem backfill) aplicada ao dev → 383. Primitivo
+canUserPerformTenantCapability estendido (whitelist). Guard Forma D reconhece trust → SAFE_SUBJECT_READERS; baseline 2
+(bank-http/payout). bank-http/payout = fora do escopo (Core de Aprovação Financeira). Prova: e2e 32/32; neg-proof 17/17;
+gates verdes; tsc 25. Detalhe: `docs/02_decisions/DECISION_0127_TRUST_TENANT_GRANTS_R24_UNFREEZE.md`.

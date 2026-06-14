@@ -136,6 +136,8 @@ const SAFE_SUBJECT_READERS = {
     'MISTA. GET /actors/:actorId[/timeline] → company-scoped (Forma C, can_view_risk). /overview e /actors (lista) → tenant-level (Forma D, can_view_tenant_risk). params.actorId = alvo. Spoof subject==target CLOSED. Sem write.',
   'modules/policy-engine/policy.routes.ts':
     'MISTA. GET /policies/evaluate/:actorId e /policy-decisions/actor/:actorId/active → company-scoped (Forma C, can_manage_policy). Listar/criar/ativar/decisões/apply/revoke → tenant-level (Forma D, can_manage_tenant_policy; estado de política interno, sem efeito financeiro). params/query.actorId = alvo, nunca subject.',
+  'modules/trust/trust.routes.ts':
+    'TENANT-LEVEL (R2.4 UNFREEZE, DECISION-0127). Compliance/risco tenant-scoped. Reads (GET /trust/profile/:actorId, /profiles, /events, POST /can-proceed) → Forma D can_view_tenant_trust; mutations (POST /trust/events, /recalculate/:actorId) → Forma D can_manage_tenant_trust. requireRole(admin) REMOVIDO. params/query.actorId = alvo, nunca subject. Sem dinheiro (dispute_* = tipos de evento de score).',
 };
 
 // ── BASELINE EXPLÍCITO (estado conhecido; cada item tem DT vinculada) ──
@@ -153,13 +155,11 @@ const BASELINE = {
   // F-0113-CLASSIC-CHANNEL-READERS-BINDING (2026-06-13): public-profiles + marketplace-categories REMOVIDOS
   // (binding canRepresentActor). F-R2-GUARD-SAFE-SUBJECT-RECOGNITION (2026-06-13): reporting + business-audit +
   // risk-dashboard REMOVIDOS do baseline — reconhecidos por SAFE_SUBJECT_READERS (subject server-side provado).
-  // F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION (2026-06-13): policy-engine REMOVIDO — todas as rotas (reads
-  // + mutations) passaram a usar canUserPerformCompanyCapability(can_manage_policy) com subject server-side
-  // (Forma C), tornando o arquivo provável. Os 3 abaixo PERMANECEM baselineados COM JUSTIFICATIVA MATERIAL (não
-  // maquiagem): Bank/financeiro HARD STOP (move-money), ou requireRole interino R2.4 congelado. Ver DECISION-0124.
+  // F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION (2026-06-13): policy-engine REMOVIDO. F-R2-TRUST-TENANT-GRANTS-
+  // R24-UNFREEZE (2026-06-14): trust REMOVIDO — requireRole(admin) interino substituído por grant tenant-level
+  // (Forma D, can_view/manage_tenant_trust). Restam 2: Bank/financeiro HARD STOP (move-money). Ver DECISION-0127.
   'core/unifybank/bank-http.routes.ts':                'D · BANK domain (HARD STOP) + move-money writers (POST /transactions/simple|split). GET /balance tem autoridade via actorCapabilitiesService.resolveForUser (não reconhecida pelo guard nem é requirePermission). Não tocar. DT-0113-CLASSIC-CHANNEL-READERS.',
   'modules/payout/payout.routes.ts':                   'D · FINANCIAL (HARD STOP) + move-money writers (POST /payouts/batches, /orders/:id/execute-manual, /fail). subject server-side (req.user.id → requirePermission financial:execute_payout) mas é money-writer — não auto-reconhecer. query.actorId em GET /payouts/orders = filtro do operador. Não tocar. DT-0113-CLASSIC-CHANNEL-READERS.',
-  'modules/trust/trust.routes.ts':                     'D · params/query.actorId sob requireRole(admin) INTERINO (DECISION-0113, pendente R2.4) + mixed writes (POST /trust/events, /can-proceed, /recalculate). requireRole NÃO é prova de subject server-side reconhecida (e o modelo fino é R2.4 congelado). Manter interino. DECISION_REQUIRED. DT-0113-CLASSIC-CHANNEL-READERS.',
 };
 
 function walk(dir, files = []) {

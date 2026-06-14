@@ -22,6 +22,7 @@ import reportingRoutes from '../modules/reporting/reporting.routes';
 import businessAuditRoutes from '../modules/business-audit/business-audit.routes';
 import riskDashboardRoutes from '../modules/risk-command-center/risk-dashboard.routes';
 import policyRoutes from '../modules/policy-engine/policy.routes';
+import trustRoutes from '../modules/trust/trust.routes';
 
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 type Res = { label: string; ok: boolean; reason?: string };
@@ -75,9 +76,9 @@ async function addMembership(tenantId: string, companyId: string, gu: string, gr
 
 async function addTenantGrant(tenantId: string, gu: string, grants: Record<string, boolean>): Promise<void> {
   await pool.query(
-    `INSERT INTO tenant_operator_grants (tenant_id, global_user_id, can_view_tenant_reports, can_view_tenant_audit_logs, can_view_tenant_risk, can_manage_tenant_policy, is_active)
-     VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,true)`,
-    [tenantId, gu, grants.can_view_tenant_reports === true, grants.can_view_tenant_audit_logs === true, grants.can_view_tenant_risk === true, grants.can_manage_tenant_policy === true],
+    `INSERT INTO tenant_operator_grants (tenant_id, global_user_id, can_view_tenant_reports, can_view_tenant_audit_logs, can_view_tenant_risk, can_manage_tenant_policy, can_view_tenant_trust, can_manage_tenant_trust, is_active)
+     VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,true)`,
+    [tenantId, gu, grants.can_view_tenant_reports === true, grants.can_view_tenant_audit_logs === true, grants.can_view_tenant_risk === true, grants.can_manage_tenant_policy === true, grants.can_view_tenant_trust === true, grants.can_manage_tenant_trust === true],
   );
 }
 
@@ -103,6 +104,8 @@ async function main(): Promise<void> {
   const tRisk = await mkUser(TENANT_A, 'T_Risk');       await addTenantGrant(TENANT_A, tRisk.gu, { can_view_tenant_risk: true });
   const tAudit = await mkUser(TENANT_A, 'T_Audit');     await addTenantGrant(TENANT_A, tAudit.gu, { can_view_tenant_audit_logs: true });
   const tPolicy = await mkUser(TENANT_A, 'T_Policy');   await addTenantGrant(TENANT_A, tPolicy.gu, { can_manage_tenant_policy: true });
+  const tTrustView = await mkUser(TENANT_A, 'T_TrustView');   await addTenantGrant(TENANT_A, tTrustView.gu, { can_view_tenant_trust: true });
+  const tTrustManage = await mkUser(TENANT_A, 'T_TrustManage'); await addTenantGrant(TENANT_A, tTrustManage.gu, { can_manage_tenant_trust: true });
   // company-level members (tenant A) — para preservação company-scoped
   const cRisk = await mkUser(TENANT_A, 'C_Risk');       await addMembership(TENANT_A, A.companyId, cRisk.gu, { can_view_risk: true });
   const cAudit = await mkUser(TENANT_A, 'C_Audit');     await addMembership(TENANT_A, A.companyId, cAudit.gu, { can_view_audit_logs: true });
@@ -144,11 +147,14 @@ async function main(): Promise<void> {
   await app.register(businessAuditRoutes);
   await app.register(riskDashboardRoutes);
   await app.register(policyRoutes);
+  await app.register(trustRoutes);
   await app.ready();
 
   const get = (url: string, userId?: string, actorId?: string) =>
     app.inject({ method: 'GET', url, headers: { ...(userId ? { 'x-test-user-id': userId } : {}), ...(actorId ? { 'x-test-actor-id': actorId } : {}) } });
-  const passedGate = (s: number): boolean => s !== 401 && s !== 403; // 500 por tabela latente = downstream do gate
+  const post = (url: string, userId?: string, body: any = {}) =>
+    app.inject({ method: 'POST', url, headers: { ...(userId ? { 'x-test-user-id': userId } : {}) }, payload: body });
+  const passedGate = (s: number): boolean => s !== 401 && s !== 403; // 500/400 downstream = passou o gate
   const denied = (s: number): boolean => s === 403;
 
   // ── T2 / T3 — reporting tenant-wide: sem grant → 403; com can_view_tenant_reports → passa ──
@@ -189,22 +195,49 @@ async function main(): Promise<void> {
   record('T15 actorId alvo não vira subject: none declarando actorId=companyActorA em /overview → 403', denied((await get('/risk/dashboard/overview', none.userId, A.companyActorId)).statusCode));
   // ── T15b — actor-alvo sem company resolvível (user-actor) → company-scoped nega ──
   record('T15b risk /actors/:userActorSemCompany (company grant) → 403 (sem company resolvível)', denied((await get(`/risk/dashboard/actors/${userActorNoCompany}`, cRisk.userId)).statusCode));
+
+  // ── TRUST (R2.4 UNFREEZE, DECISION-0127) — tenant-level view vs manage ──
+  record('TR2 trust read SEM can_view_tenant_trust → 403', denied((await get('/trust/profiles', none.userId)).statusCode));
+  record('TR3 trust read com can_view_tenant_trust → AUTORIZADO', passedGate((await get('/trust/profiles', tTrustView.userId)).statusCode));
+  record('TR4 company grant (cAll) SEM tenant trust → trust read 403 (company não abre trust tenant-level)', denied((await get('/trust/profiles', cAll.userId)).statusCode));
+  record('TR5 trust recalculate (mutation) SEM can_manage_tenant_trust → 403', denied((await post(`/trust/recalculate/${A.companyActorId}`, none.userId)).statusCode));
+  record('TR6 trust recalculate com can_manage_tenant_trust → AUTORIZADO (gate concede)', passedGate((await post(`/trust/recalculate/${A.companyActorId}`, tTrustManage.userId)).statusCode));
+  record('TR7 can_view_tenant_trust NÃO autoriza mutation: tTrustView POST /trust/recalculate → 403', denied((await post(`/trust/recalculate/${A.companyActorId}`, tTrustView.userId)).statusCode));
+  record('TR9 trust actorId alvo não vira subject: none declarando /trust/profile/:actorId → 403', denied((await get(`/trust/profile/${A.companyActorId}`, none.userId)).statusCode));
   await app.close();
+
+  // ── TR8 — grant trust tenant A não vale tenant B (primitivo) ──
+  {
+    const inA = await companiesService.canUserPerformTenantCapability(TENANT_A, tTrustView.userId, 'can_view_tenant_trust');
+    const inB = await companiesService.canUserPerformTenantCapability(TENANT_B, tTrustView.userId, 'can_view_tenant_trust');
+    record('TR8 trust grant cross-tenant: view em A → allowed; em B → negado', inA.allowed === true && inB.allowed === false, `A=${JSON.stringify(inA)} B=${JSON.stringify(inB)}`);
+  }
+  // ── TR1 — migration trust cols existem ──
+  {
+    const tc = (await pool.query<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_name='tenant_operator_grants' AND column_name = ANY($1)`, [['can_view_tenant_trust', 'can_manage_tenant_trust']])).rows.map((r) => r.column_name).sort();
+    record('TR1 migration: tenant_operator_grants.can_{view,manage}_tenant_trust existem', tc.length === 2, `cols=${tc.join(',')}`);
+  }
 
   // ── T16 — SUBJECT_EQUALS_TARGET hard-fail no guard (estrutural) ──
   {
     const guard = readFileSync(join(process.cwd(), 'scripts/audit-actor-authority-boundary.mjs'), 'utf-8');
     record('T16 guard mantém SUBJECT_EQUALS_TARGET hard-fail', /SUBJECT_EQUALS_TARGET\s*=\s*\/requirePermission/.test(guard));
   }
-  // ── T18 — bank-http/payout/trust baselineados e intocados (estrutural) ──
+  // ── T18 — bank-http/payout permanecem baselineados/intocados; trust SAIU do baseline (tenant-level) ──
   {
     const guard = readFileSync(join(process.cwd(), 'scripts/audit-actor-authority-boundary.mjs'), 'utf-8');
+    const baselineBlock = (guard.match(/const BASELINE = \{[\s\S]*?\n\};/) || [''])[0];
     const pay = readFileSync(join(process.cwd(), 'src/modules/payout/payout.routes.ts'), 'utf-8');
     const bank = readFileSync(join(process.cwd(), 'src/core/unifybank/bank-http.routes.ts'), 'utf-8');
     const trust = readFileSync(join(process.cwd(), 'src/modules/trust/trust.routes.ts'), 'utf-8');
-    const baselined = /bank-http\.routes\.ts/.test(guard) && /payout\.routes\.ts/.test(guard) && /trust\.routes\.ts/.test(guard);
-    const untouched = ![pay, bank, trust].some((s) => /canUserPerformTenantCapability|canUserPerformCompanyCapability/.test(s)) && /'financial:execute_payout'/.test(pay);
-    record('T18 bank-http+payout+trust baselineados + sem primitive R2 (hard-stop/interino intocado)', baselined && untouched, `baselined=${baselined} untouched=${untouched}`);
+    const bankPayoutBaselined = /bank-http\.routes\.ts/.test(baselineBlock) && /payout\.routes\.ts/.test(baselineBlock);
+    const trustOutOfBaseline = !/trust\.routes\.ts/.test(baselineBlock); // trust removido do BASELINE
+    const bankPayoutUntouched = ![pay, bank].some((s) => /canUserPerformTenantCapability|canUserPerformCompanyCapability/.test(s)) && /'financial:execute_payout'/.test(pay);
+    const trustNoComments = trust.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const trustUsesTenantGrant = /canUserPerformTenantCapability/.test(trustNoComments) && !/requireRole/.test(trustNoComments);
+    record('T18 bank-http+payout baselineados+intocados; trust FORA do baseline usando tenant grant (requireRole removido)',
+      bankPayoutBaselined && trustOutOfBaseline && bankPayoutUntouched && trustUsesTenantGrant,
+      `bankPayoutBaselined=${bankPayoutBaselined} trustOut=${trustOutOfBaseline} bankPayoutUntouched=${bankPayoutUntouched} trustTenant=${trustUsesTenantGrant}`);
   }
   // ── T19 — dispute/reversal contidos ──
   record('T19 dispute/reversal HTTP contido (DISPUTE_REVERSAL_HTTP_DISABLED)',

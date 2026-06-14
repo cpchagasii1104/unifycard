@@ -1,3 +1,17 @@
+## 2026-06-14 — F-R2-TRUST-TENANT-GRANTS-R24-UNFREEZE · fecha trust (baseline 0113 3→2): requireRole(admin) interino → grant tenant-level · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `427765fa`** · dev 382 → **383** · MODO EXECUTOR macrofrente (ultracode). Execução: `docs/03_execution_log/20260614_F_R2_TRUST_TENANT_GRANTS_R24_UNFREEZE.md`. DECISION-0127 promulgada.
+
+**Decisão (DECISION-0127):** o `requireRole(['admin'])` INTERINO (R2.4 congelado) do trust foi substituído por grant material **tenant-level**. Trust = compliance/risco TENANT-SCOPED (actorId=alvo, nunca subject; zero dinheiro — "dispute_*" são tipos de evento de score). Migration `20260614130000` (+`can_view_tenant_trust`/`can_manage_tenant_trust` em `tenant_operator_grants`; sem backfill) aplicada ao dev → **383/383**.
+
+**Rotas (view vs manage separados):** GET /trust/profile/:actorId·/profiles·/events + POST /trust/can-proceed → `can_view_tenant_trust`; POST /trust/events·/recalculate/:actorId → `can_manage_tenant_trust`. `requireRole` REMOVIDO. `company_users.can_*` NÃO abre trust tenant-level; grant tenant A≠B.
+
+**Guard:** trust REMOVIDO do BASELINE → SAFE_SUBJECT_READERS (Forma D = `canUserPerformTenantCapability`). **Baseline 0113: 3 → 2** (restam bank-http, payout). `flagged=2 baseline=2 new=0 stale=0 safe_subject_recognized=4`.
+
+**Provas:** e2e **32/32** (TR2 read sem grant→403 · TR3 com can_view_tenant_trust→passa · TR4 company não abre trust · TR5 mutation sem can_manage→403 · TR6 com can_manage→passa · TR7 view NÃO autoriza mutation · TR8 grant A≠B · TR9 actorId≠subject · T18 bank-http/payout baselineados+intocados/trust fora); neg-proof **17/17** (Forma D); canal3 B3 + spoof T-struct verdes. Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25. Bank/payout/dispute/service-orders intocados; sem RBAC V2; sem frontend. **IMPLEMENTED / HOLD PARA RESEAL.** Restam DECISION_REQUIRED: bank-http/payout (Core de Aprovação Financeira); platform-wide/cross-tenant; deprecar legado.
+
+---
+
 ## 2026-06-14 — F-R2-TENANT-LEVEL-OPERATOR-GRANTS · modelo material separado `tenant_operator_grants` destrava tenant-wide com segurança (company_users nunca abre tenant) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `b0baadd7`** · dev 381 → **382** · MODO EXECUTOR macrofrente (ultracode). Execução: `docs/03_execution_log/20260614_F_R2_TENANT_LEVEL_OPERATOR_GRANTS.md`. DECISION-0126 promulgada.

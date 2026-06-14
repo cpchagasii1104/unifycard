@@ -13002,3 +13002,16 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   guard `flagged=3 baseline=3 new=0 safe_subject_recognized=3`; neg-proof **17/17** (incl. Forma D). Gates verdes; tsc 25.
   Bank/payout/trust/dispute/service-orders intocados; sem RBAC V2; sem frontend.
 - **Restam DECISION_REQUIRED:** platform-wide/cross-tenant operator; execução financeira (Core de Aprovação Financeira); deprecar legado/RBAC v1; trust R2.4.
+
+## DT-0113-CLASSIC-CHANNEL-READERS — trust fechado, baseline 3→2 (2026-06-14, F-R2-TRUST-TENANT-GRANTS-R24-UNFREEZE)
+
+- **Status:** `trust` REMOVIDO do baseline 0113 → **baseline 3 → 2** (restam bank-http, payout). DECISION-0127.
+- **Mudança:** `requireRole(['admin'])` interino (R2.4 congelado) substituído por grant material tenant-level
+  `tenant_operator_grants.can_view_tenant_trust` (reads) / `can_manage_tenant_trust` (mutations/recalculate).
+  Trust = compliance/risco TENANT-SCOPED; subject=req.user.id server-side; actorId=alvo; company_users NÃO abre trust;
+  grant A≠B; zero dinheiro (dispute_* = tipos de evento de score). Migration 20260614130000 (+2 booleanas, sem backfill); dev 382→**383**.
+- **Rotas:** GET profile/:actorId·profiles·events + POST can-proceed → can_view_tenant_trust; POST events·recalculate/:actorId → can_manage_tenant_trust.
+- **Guard:** Forma D reconhece trust; trust em SAFE_SUBJECT_READERS. `flagged=2 baseline=2 new=0 safe_subject_recognized=4`.
+- **Prova:** e2e **32/32** (TR1–TR9: view/manage separados; company não abre trust; A≠B; view não autoriza mutation; T18 bank-http/payout intocados);
+  neg-proof **17/17** (Forma D). Gates verdes; tsc 25. Bank/payout/dispute/service-orders intocados; sem RBAC V2; sem frontend.
+- **Restam DECISION_REQUIRED:** bank-http/payout (Core de Aprovação Financeira); platform-wide/cross-tenant; deprecar legado/RBAC v1.

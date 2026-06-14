@@ -100,13 +100,13 @@ Remove-Item $asrt -Force -ErrorAction SilentlyContinue
 
 # Fase 4 (FATIA A + R2): prova POSITIVA — guard reconhece readers safe-subject e new=0.
 $guardOut = (node scripts/audit-actor-authority-boundary.mjs 2>&1 | Out-String)
-$recognizedThree = ($guardOut -match 'safe_subject_recognized=3')
+$recognizedFour = ($guardOut -match 'safe_subject_recognized=4')
 $newZero = ($guardOut -match '\bnew=0\b')
 
 $ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) `
   -and $spoofFailed -and $spoofRestored -and (-not (Test-Path $probe2)) `
-  -and $recognizerOk -and $recognizedThree -and $newZero
-Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized3=$recognizedThree new0=$newZero residue=$([bool](Test-Path $probeDir))"
+  -and $recognizerOk -and $recognizedFour -and $newZero
+Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized4=$recognizedFour new0=$newZero residue=$([bool](Test-Path $probeDir))"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
 Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding, (b) subject==target spoof, (c) recognizer aceita req.user (Formas A/B/C company-scoped) e rejeita actionContext/params/query/subject==target/Forma-C-sem-company-scope, (d) reconhece os 3 readers actor-scoped; restauracao limpa.' -ForegroundColor Green
 exit 0
