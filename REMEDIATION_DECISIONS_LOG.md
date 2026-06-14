@@ -7047,3 +7047,31 @@ D12 grants proibidos (can_execute_payout em company_users/tenant_operator_grants
 final). D13 fora: dispute/reversal, cartão, PIX/TED, multi-approval, HTTP-executor. D14 approve endpoint AUTORIZADO pós-
 registro: via Core, server-side, requester≠approver, sem dinheiro/Bank/worker, executed:false. Detalhe:
 `docs/02_decisions/DECISION_0129_PAYOUT_APPROVAL_AUTHORITY.md`.
+
+## DECISION-0130 — Materialização da política de aprovação de payout (aprovador material, substrato Core, faixa segura MVP)
+
+**Data:** 2026-06-14 · **Frente:** DECISION-PAYOUT-APPROVAL-POLICY-MATERIALIZATION · **Branch:** rescue-structural · **Tipo:** DOCS-ONLY
+
+**PROMULGADA / NORMATIVA — política material NÃO implementada** (autorizada a implementar em frente própria, D12).
+**Concretiza** o que a DECISION-0129 deixou aberto (aprovador, substrato Core, faixa de valor) — a lacuna que mantém o
+approve endpoint em `PAYOUT_APPROVAL_POLICY_NOT_CONFIGURED`. **D1** aprovador material = operador financeiro institucional
+no Core Financeiro (`financial_approval_operator`/`financial_approval_authority`); NÃO valem dono automático/tenant admin/
+`company_users`/`tenant_operator_grants`/`organization_members`/role/`financial:execute_payout`/`can_execute_*`/
+actionContext/x-actor-id/body|query actorId. **D2** substrato no Core (não RBAC comum): `financial_approval_policies`/
+`financial_approval_authorities`/`financial_approval_policy_events` (ou equivalentes canônicos); mín. tenant_id,
+global_user_id/user_id server-side, scope=actor_wallet_payout, max_amount_cents, daily_limit_cents, requires_second_approval,
+is_active, created_at/revoked_at TIMESTAMPTZ, created_by/revoked_by, reason, trilha append-only. **D3** requested_by_user_id
+!= approved_by_user_id (sem exceção). **D4** faixa MVP: **max_amount_cents = 50000** (R$ 500) e **daily_limit_cents = 150000**
+(R$ 1.500) — limites de MVP controlado, não final (concretiza 0129 D6). **D5** acima da faixa → não aprovar/executar/
+enfileirar → `APPROVAL_POLICY_REQUIRES_MULTI_APPROVAL` (multi-approval = futuro, sem improviso). **D6** PF (KYC/ATL/destino
+próprio) e PJ (KYB/representante solicita/operador institucional aprova) com políticas distintas, mesmo teto MVP. **D7**
+travas absolutas (ATL/KYC-KYB/recovery ativa/dispute/risco/destino não verificado/valor acima/auto-aprovação) reduzem
+elegibilidade a zero; trava mais restritiva vence (ATL>KYC/KYB>Guarda/recovery>IA>Produto). **D8** availableBalanceCents
+nunca autoriza (execução revalida no Bank). **D9** auditoria append-only por decisão (approval/payout ids, decision,
+approver/requester, policy_id, amount, reason, snapshots risk/kyc/recovery, idempotency); terminal não apagável. **D10**
+HTTP approve registra/aprova e retorna executed:false; nunca Bank/worker/executor/ledger/completed; worker system-only
+default-off; executor via BankTransactionPort. **D11** grants comuns proibidos como autoridade final. **D12** frente futura
+AUTORIZADA `F-PAYOUT-APPROVAL-POLICY-MATERIALIZATION` (substrato + policy resolver configured:true + approve real na faixa +
+requester≠approver + bloqueio acima da faixa + auditoria). **Fora:** multi-approval/quórum, PIX/TED, dispute/reversal,
+cartão, seller_available. Sem código/migration/runtime nesta DECISION. Detalhe:
+`docs/02_decisions/DECISION_0130_PAYOUT_APPROVAL_POLICY_MATERIALIZATION.md`.
