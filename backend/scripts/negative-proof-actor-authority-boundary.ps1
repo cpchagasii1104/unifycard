@@ -1,7 +1,11 @@
 # negative-proof-actor-authority-boundary.ps1
-# Prova que o guard audit-actor-authority-boundary detecta NOVA violação do 6º canal.
-# Injeta uma rota temporária que lê req.body.actor SEM binding → guard deve FALHAR (new>=1)
-# → remove o arquivo → guard volta a passar. Zero resíduo.
+# Prova que o guard audit-actor-authority-boundary:
+#   (1) detecta NOVA violação client-declared sem binding (6º canal);
+#   (2) detecta subject==target spoof (hard-fail não-baselineável);
+#   (3) [FATIA A] o recognizer safeSubjectProof ACEITA subject server-side (req.user) e REJEITA
+#       subject vindo de actionContext/params/query e subject==target;
+#   (4) [FATIA A] o guard reconhece exatamente os readers safe-subject (safe_subject_recognized) e new=0.
+# Tudo com restauração limpa (zero resíduo).
 # Uso: pwsh -File scripts/negative-proof-actor-authority-boundary.ps1
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot\..
@@ -56,8 +60,44 @@ Remove-Item $probe2 -Force
 Remove-Item $probe2Dir -Force -Recurse -ErrorAction SilentlyContinue
 $spoofRestored = ((Invoke-Guard) -eq 0)
 
-$ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) -and $spoofFailed -and $spoofRestored -and (-not (Test-Path $probe2))
-Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored residue=$([bool](Test-Path $probeDir))"
+# Fase 3 (FATIA A): asserções UNITÁRIAS do recognizer safeSubjectProof — subject server-side ACEITO,
+# subject de actionContext/params/query e subject==target REJEITADOS.
+$asrt = Join-Path (Get-Location) 'scripts\__neg_safe_subject_assert__.mjs'
+$asrtContent = @'
+import { safeSubjectProof } from './audit-actor-authority-boundary.mjs';
+const C = [
+  ['serverside.id',            'const userId = req.user?.id;\n await s.requirePermission(tenantId, userId, actorId, "k");', true],
+  ['serverside.userId.coalesce','const userId = req.user?.userId ?? req.user?.id;\n await s.requirePermission(tenantId, userId, actorId, "k");', true],
+  ['formA.preHandler',         "fastify.requirePermission(['admin:view_audit_logs'])", true],
+  ['reject.actionContext',     'const a = req.actionContext.actorId;\n await s.requirePermission(tenantId, a, target, "k");', false],
+  ['reject.params',            'const a = req.params.actorId;\n await s.requirePermission(tenantId, a, target, "k");', false],
+  ['reject.query',             'const a = req.query.actorId;\n await s.requirePermission(tenantId, a, target, "k");', false],
+  ['reject.subjectEqTarget',   'const userId = req.user?.id;\n await s.requirePermission(tenantId, actorId, actorId, "k");', false],
+  ['reject.serverSubjectEqTarget','const userId = req.user?.id;\n await s.requirePermission(tenantId, userId, userId, "k");', false],
+];
+let ok = true;
+for (const [name, code, expect] of C) {
+  const got = !!safeSubjectProof(code);
+  const pass = got === expect;
+  if (!pass) ok = false;
+  console.log(`  ${pass ? 'OK' : 'FAIL'} ${name} expected=${expect} got=${got}`);
+}
+process.exit(ok ? 0 : 1);
+'@
+Set-Content -Path $asrt -Value $asrtContent -Encoding UTF8
+node $asrt
+$recognizerOk = ($LASTEXITCODE -eq 0)
+Remove-Item $asrt -Force -ErrorAction SilentlyContinue
+
+# Fase 4 (FATIA A): prova POSITIVA — guard reconhece readers safe-subject e new=0.
+$guardOut = (node scripts/audit-actor-authority-boundary.mjs 2>&1 | Out-String)
+$recognizedThree = ($guardOut -match 'safe_subject_recognized=3')
+$newZero = ($guardOut -match '\bnew=0\b')
+
+$ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) `
+  -and $spoofFailed -and $spoofRestored -and (-not (Test-Path $probe2)) `
+  -and $recognizerOk -and $recognizedThree -and $newZero
+Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized3=$recognizedThree new0=$newZero residue=$([bool](Test-Path $probeDir))"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
-Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding e (b) subject==target spoof; restauracao limpa.' -ForegroundColor Green
+Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding, (b) subject==target spoof, (c) recognizer aceita req.user e rejeita actionContext/params/query/subject==target, (d) reconhece os 3 readers safe-subject; restauracao limpa.' -ForegroundColor Green
 exit 0

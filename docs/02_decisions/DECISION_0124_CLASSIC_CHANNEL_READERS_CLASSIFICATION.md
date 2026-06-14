@@ -58,3 +58,21 @@ anteriores intactos. Guard 0113 **new=0 stale=0** + prova negativa OK. Gates ver
 
 DT-0113-CLASSIC-CHANNEL-READERS: **PARTIAL** (2 fechados; baseline 7 justificado, dos quais 5 DECISION_REQUIRED
 + 2 HARD-STOP financeiros). Eliminação dos 7 exige decisão de produto/R2 (permission model) — fora desta frente.
+
+## Adendo — FATIA A (2026-06-13, F-R2-GUARD-SAFE-SUBJECT-RECOGNITION)
+
+Após a auditoria READ-FIRST R2 (`docs/04_audit/20260614_R2_FINE_GRAINED_PERMISSION_MODEL_AUDIT.md`) provar que
+nenhum dos 7 readers usa mais subject client-declared (todos server-side; risk-dashboard spoof CLOSED), a FATIA A
+(GUARD-ONLY, zero runtime) ensinou o guard a **reconhecer subject server-side** (`safeSubjectProof`: Forma A =
+`fastify.requirePermission([...])`; Forma B = `requirePermission(tenantId, <req.user-var>, <target>, ...)` com
+subj!=target) num allowlist auditado `SAFE_SUBJECT_READERS`. **Baseline 7 → 4:**
+
+- **Removidos (subject server-side provado):** `reporting`, `business-audit`, `risk-dashboard`.
+- **Mantidos:** `bank-http` + `payout` (financeiro/move-money HARD STOP), `policy-engine` (MIXED: reads + mutations
+  num único arquivo, binding per-actor R2 DECISION_REQUIRED — guard file-level não isola), `trust` (requireRole
+  interino R2.4 congelado).
+
+Nota: a auditoria previu fechar 4 (incl. "policy-reads"); fecharam-se **3** — `policy.routes.ts` é mixed e o guard
+não prova segurança por-rota, então permanece baselineado (conservador). `SUBJECT_EQUALS_TARGET` segue hard-fail.
+FATIAS C/D (SSOT de grant · famílias de permission-key · policy mutations · trust unfreeze · deprecar legado) =
+DECISION REQUIRED.

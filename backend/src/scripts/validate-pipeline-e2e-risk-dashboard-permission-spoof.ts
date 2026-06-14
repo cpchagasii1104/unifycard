@@ -103,12 +103,15 @@ async function main(): Promise<void> {
     record('T-struct subject=req.user.userId; requirePermission(tenantId, userId, actorId); sem subject==target', subjectFromUser && requirePermSubjectUser && noSpoof, `subjectUser=${subjectFromUser} noSpoof=${noSpoof} permUser=${requirePermSubjectUser}`);
   }
 
-  // ── T6 — guard new=0 stale=0; risk-dashboard nota spoof CLOSED ──
+  // ── T6 — guard: check SUBJECT_EQUALS_TARGET presente; risk-dashboard reconhecido safe-subject (spoof CLOSED) ──
+  // F-R2-GUARD-SAFE-SUBJECT-RECOGNITION (2026-06-13): risk-dashboard saiu do BASELINE e passou a ser reconhecido
+  // por SAFE_SUBJECT_READERS (subject server-side req.user provado pelo recognizer). O hard-check anti-spoof
+  // SUBJECT_EQUALS_TARGET permanece (regressão do spoof continua bloqueada). A nota spoof-CLOSED migrou.
   {
     const guard = readFileSync(join(process.cwd(), 'scripts/audit-actor-authority-boundary.mjs'), 'utf-8');
     const hardCheck = /SUBJECT_EQUALS_TARGET\s*=\s*\/requirePermission/.test(guard);
-    const note = /risk-dashboard\.routes\.ts': 'D · SPOOF subject==target CLOSED/.test(guard);
-    record('T6 guard tem check SUBJECT_EQUALS_TARGET + nota risk-dashboard spoof CLOSED', hardCheck && note);
+    const recognizedSafe = /risk-dashboard\.routes\.ts':[\s\S]{0,500}Spoof subject==target CLOSED/.test(guard);
+    record('T6 guard SUBJECT_EQUALS_TARGET presente + risk-dashboard reconhecido safe-subject (spoof CLOSED)', hardCheck && recognizedSafe);
   }
 
   // ── T8 — Bank intocado ──

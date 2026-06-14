@@ -12891,3 +12891,40 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   Baseline restante = payout/bank-http (financeiro hard-stop) + trust (R2.4 congelado). **FATIAS C/D exigem
   decisão do Clayton** (company_users.can_* como SSOT de grant · famílias de permission-key · policy mutations
   · trust unfreeze · deprecar legado). DECISION REQUIRED.
+
+## DT-0113-CLASSIC-CHANNEL-READERS — PARTIAL / baseline 7 → 4 (2026-06-13, F-R2-GUARD-SAFE-SUBJECT-RECOGNITION)
+
+- **Status:** PARTIAL (FATIA A do READ-FIRST R2 executada — GUARD-ONLY, zero runtime de produção, sem migration).
+- **O que mudou (só tooling):** o guard `audit-actor-authority-boundary.mjs` ganhou um RECOGNIZER de SUBJECT
+  SERVER-SIDE (`safeSubjectProof`) e um allowlist auditado `SAFE_SUBJECT_READERS`. Duas formas de prova:
+  **(A)** `fastify.requirePermission([...])` preHandler (subject = req.user via rbac.plugin, estrutural);
+  **(B)** `requirePermission(tenantId, <subj>, <target>, ...)` com `<subj>` = const local ligada a
+  `req.user.userId/req.user.id` E `subj !== target`. O guard só remove do escopo se a prova AINDA estiver
+  presente em runtime (se reverterem o subject p/ client-declared, volta a flaggar e FALHA por não estar no baseline).
+- **Removidos do baseline (3) — reconhecidos por subject server-side:** `reporting` (req.user.id →
+  requirePermission financial:view_all_ledger; query.actorId = filtro cross-actor; reads + export), `business-audit`
+  (fastify.requirePermission([admin:view_audit_logs]); GETs imutáveis), `risk-dashboard` (req.user.userId??id →
+  requirePermission; GETs; spoof subject==target já CLOSED).
+- **DIVERGÊNCIA HONESTA vs auditoria R2:** o READ-FIRST previu fechar **4** (incluindo "policy-reads"). Fechei **3**.
+  `policy-engine` PERMANECE baselineado porque `policy.routes.ts` é **MIXED** num único arquivo (reads + mutations:
+  POST /policies create + activate/deactivate, POST /policy-decisions apply + /revoke). O guard é file-level —
+  não separa os reads safe das mutations cujo binding per-actor é R2 DECISION_REQUIRED. Remover o arquivo inteiro
+  seria afirmar segurança que o guard não prova por-rota. Conservador = manter (GO: "não remover baseline de arquivo
+  mixed se o guard não conseguir provar segurança por rota/caso").
+- **Mantidos no baseline (4) com justificativa material:** `bank-http` (BANK hard-stop + move-money writers;
+  resolveForUser não é requirePermission), `payout` (FINANCIAL hard-stop + move-money writers; subject server-side
+  mas é money-writer, não auto-reconhecível), `policy-engine` (MIXED mutations, R2 DECISION_REQUIRED), `trust`
+  (requireRole(admin) INTERINO + mixed writes; R2.4 congelado).
+- **Anti-regressão preservada:** `SUBJECT_EQUALS_TARGET` (subject==target em requirePermission) permanece hard-fail
+  não-baselineável. O recognizer REJEITA subject vindo de actionContext/params/query e subject==target (provado por
+  8 asserções unitárias).
+- **Efeito sobre `DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY`:** baseline reduzido **7 → 4** (honesto: 3
+  removidos por prova de subject server-side, não por maquiagem).
+- **Prova:** guard `flagged=4 baseline=4 new=0 stale=0 safe_subject_recognized=3` rc=0; prova negativa ampliada OK
+  (a) violação client-declared sem binding FALHA, (b) subject==target FALHA, (c) recognizer aceita req.user e rejeita
+  actionContext/params/query/subject==target [8/8 unit], (d) reconhece os 3 readers; restauração limpa. e2e
+  risk-dashboard T6 ajustado (nota spoof-CLOSED migrou p/ SAFE_SUBJECT_READERS; lógica verde contra guard vivo).
+  Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25 (baseline
+  arco 0113, zero novo). Bank intocado · runtime de produção intocado (só guard/.ps1/e2e-test) · sem migration (dev 380).
+- **Próximo:** FATIAS C/D (company_users.can_* como SSOT de grant · famílias permission-key · policy mutations ·
+  trust unfreeze · deprecar legado quebrado) — DECISION REQUIRED (Clayton).

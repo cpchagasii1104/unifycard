@@ -1,3 +1,17 @@
+## 2026-06-13 — F-R2-GUARD-SAFE-SUBJECT-RECOGNITION · FATIA A do READ-FIRST R2: guard reconhece subject server-side (GUARD-ONLY, zero runtime de produção, sem migration) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `4e296359`** · dev 380 · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260613_F_R2_GUARD_SAFE_SUBJECT_RECOGNITION.md`.
+
+**Mudança (só tooling):** `audit-actor-authority-boundary.mjs` ganhou recognizer `safeSubjectProof` (Forma A = `fastify.requirePermission([...])`; Forma B = `requirePermission(tenantId, <req.user-var>, <target>) com subj!=target`) + allowlist auditado `SAFE_SUBJECT_READERS`. Remove do escopo só se a prova ainda existir em runtime (regressão → flagga → FALHA). `SUBJECT_EQUALS_TARGET` mantido hard-fail. Export + isMain p/ teste unitário.
+
+**Baseline 7 → 4.** Removidos (subject server-side provado): `reporting`, `business-audit`, `risk-dashboard`. Mantidos: `bank-http`+`payout` (financeiro/move-money HARD STOP), `policy-engine` (MIXED reads+mutations num arquivo, R2 DECISION_REQUIRED), `trust` (requireRole interino R2.4 congelado).
+
+**Divergência honesta:** auditoria previu 4 removidos (incl. "policy-reads"); fechei **3** — `policy.routes.ts` é mixed e o guard file-level não isola reads das mutations. Meta 7→3 NÃO forçada; 7→4 é o honesto.
+
+**Provas:** guard `flagged=4 baseline=4 new=0 stale=0 safe_subject_recognized=3` rc=0; prova negativa ampliada OK (client-declared sem binding FALHA · subject==target FALHA · recognizer 8/8 unit aceita req.user e rejeita actionContext/params/query/subject==target · reconhece 3 readers); e2e risk-dashboard T6 ajustado (verde contra guard vivo). Gates: actor-writer OK · bank-ledger OK · regression-guards rc=0 · arch --strict critical_new=0 · tsc 25 (zero novo). Bank intocado · runtime de produção intocado (só guard/.ps1/e2e-test) · sem migration. **IMPLEMENTED / HOLD PARA RESEAL.** Próximo: FATIAS C/D = DECISION REQUIRED.
+
+---
+
 ## 2026-06-14 — F-R2-FINE-GRAINED-PERMISSION-MODEL · auditoria READ-FIRST do modelo de permissão (DOCS-ONLY, zero código) · READ-FIRST COMPLETE / DECISION REQUIRED
 
 **Branch:** `rescue-structural` · **HEAD `d8c7d1ee`** · dev 380 · MODO READ-FIRST CONTROLADO (ultracode). Relatório: `docs/04_audit/20260614_R2_FINE_GRAINED_PERMISSION_MODEL_AUDIT.md`.
