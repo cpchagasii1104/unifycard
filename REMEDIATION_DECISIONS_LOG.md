@@ -7075,3 +7075,31 @@ AUTORIZADA `F-PAYOUT-APPROVAL-POLICY-MATERIALIZATION` (substrato + policy resolv
 requester≠approver + bloqueio acima da faixa + auditoria). **Fora:** multi-approval/quórum, PIX/TED, dispute/reversal,
 cartão, seller_available. Sem código/migration/runtime nesta DECISION. Detalhe:
 `docs/02_decisions/DECISION_0130_PAYOUT_APPROVAL_POLICY_MATERIALIZATION.md`.
+
+## DECISION-0131 — Gramática de autoridade (DECISION-índice: cita 0013→0130, promulga 7 itens novos)
+
+**Data:** 2026-06-14 · **Frente:** DECISION-0131 · **Branch:** rescue-structural · **HEAD vivo:** 20fe30cc · **Tipo:** DOCS-ONLY
+
+**PROMULGADA / NORMATIVA — gramática de autoridade, NÃO plano de código.** DECISION-índice: **CITA** a cadeia (0021/0042/
+0113/0114/0116/0119/0120/0121/0124/0125/0126/0127/0128/0129/0130 + AUTHORITY_LAW/AUTHORITY_ENFORCEMENT_MODEL/08_AUTORIDADE/
+SSOT_REGISTRY/AUTHORITY_PRECEDENCE) e **PROMULGA só os 7 itens novos**. Rulings de Clayton: **A0=confirmar · B1=B · B2=A ·
+B3=A · B4=confirmar · B5=A · B6=deferir · B7=confirmar**, com **3 emendas obrigatórias da executora**. **B1** cargo-template
+materializa grants operacionais reais (não SSOT; runtime lê só grant material ativo; `grant_origin` imutável; revogar cargo
+cascateia; alterar template não retroage; opção C indireção-viva PROIBIDA) — **EMENDA 1: cargo NÃO materializa
+`financial_approval_authorities` (Core-only, seed soberano PORTA-1)**. **B2** vocabulário temporal comum por substrato
+(valid_from/valid_until/revoked_at/suspended_at/reason/created_by/revoked_by); tempo-de-autoridade≠agenda; agenda não autoriza
+dinheiro; `financial_approval_authorities` mantém lifecycle no Core; `tenant_operator_grants` ganha migration + guard de drift.
+**B3** `actor_id` canônico na composição + mapper explícito user_id↔global_user_id↔actor_id — **EMENDA 2: mapper é resolvedor
+de COMPOSIÇÃO; NÃO re-keyar o Core financeiro; `financial_approval_authorities` permanece user_id-bound (segregação user-level
+0130 D3)**. **B4** member_status=SSOT · is_active=projeção · role='owner'≠supergrant eterno; sequência medir→backfill
+can_manage_company→flip→guard. **B5** RLS forçada nos 6 planos de autoridade = **direção promulgada, execução FUTURA** —
+**EMENDA 3: pre-flight BLOQUEANTE (validar BYPASSRLS infra + smoke worker/seed/migration sob RLS); manter guards app-level**.
+**B6** platform/cross-tenant DEFERIDO (sem `platform_operator_grants`; tenant-scope 0126). **B7** 5 estados (CANÔNICO/
+ADAPTADOR_TRANSITÓRIO/CONTIDO_FAIL_CLOSED/TOMBSTONE/DIVERGENTE) + hard-rule de jure (actorId client-declared — 5 canais 0113 +
+variante body — nunca autoridade; binding canRepresentActor obrigatório; assertActorRepresentable não-removível; swap do stub
+actor_has_permission travado por guard; seed de 1ª authority/delegation/RBAC = ato soberano). **Estado vivo:**
+`financial_approval_*`=0/0/0 (fail-closed); `actor_delegations` 9/0-ativas; RLS=0 nos 6 planos; baseline 0113=0. **Portas
+soberanas:** PORTA-1 (seed policy/authority) · PORTA-2 (swap stub RBAC) · PORTA-3 (delegação viva) — fora de qualquer GO de
+executora. **Fora:** código, migration, seed, RLS aplicada, cargo_templates, mapper, delegação viva, financial seed, platform
+authority, cartão físico (≥0132). Cada item §B = frente futura gated (tripé). Sem código/migration/runtime nesta DECISION.
+Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.

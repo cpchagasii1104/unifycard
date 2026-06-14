@@ -1,3 +1,15 @@
+## 2026-06-14 — DECISION-0131 · gramática de autoridade (DECISION-índice; docs-only): cargo-template/temporal/mapper/membership/RLS/platform/hard-rules · PROMULGADA/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `20fe30cc`** · dev **385** (SEM migration) · MODO EXECUTOR docs-only/cartório (ultracode). Execução: `docs/03_execution_log/20260614_DECISION_0131_AUTHORITY_GRAMMAR.md`. Numeração: 0131 livre (docs/02_decisions + LOG). Análise prévia da Opus aprovada por Clayton; GO concedido SÓ para redação docs-only.
+
+**DECISION-índice:** CITA 0021/0042/0113…0130 + AUTHORITY_LAW/ENFORCEMENT/08_AUTORIDADE/SSOT_REGISTRY/AUTHORITY_PRECEDENCE; PROMULGA só os 7 itens novos. **Rulings Clayton:** A0=confirmar · B1=B · B2=A · B3=A · B4=confirmar · B5=A · B6=deferir · B7=confirmar + **3 emendas obrigatórias**: (1) cargo-template NÃO materializa `financial_approval_authorities` (Core-only, seed soberano PORTA-1); (2) mapper de identidade é resolvedor de COMPOSIÇÃO, NÃO re-keyar o Core financeiro (`financial_approval_authorities` permanece user_id-bound; segregação 0130 D3 é user-level); (3) RLS = direção promulgada, execução FUTURA com pre-flight BLOQUEANTE (BYPASSRLS infra + smoke worker/seed/migration sob RLS) + guards app-level mantidos.
+
+**Estado vivo (1ª mão, dev 385):** `financial_approval_*`=0/0/0 (payout fail-closed p/ todos — substrato 0130 materializado, NÃO semeado); `actor_delegations` 9/0-ativas; `company_users` 2/0-divergências; `organization_members`/`platform_operator_grants`/`cargo_templates`/`user_identity_links` AUSENTES; RBAC stub `RETURN FALSE`; RLS=0 nos 6 planos (vs bank_ledger/user_roles já rls=t); baseline 0113=0. **Portas soberanas** PORTA-1/2/3 (seed = promulgação, fora de GO de executora).
+
+**Cartório:** `DECISION_0131_AUTHORITY_GRAMMAR.md` (NOVO) · LOG (+entrada append-only) · execução log (NOVO). **Gates (docs-only):** zero `.ts/.mjs/.sql/.json/package`; `git diff --check` limpo; **dev 385 inalterado**; HEAD/branch ok. **GO negado:** código/migration/seed/RLS aplicada/cargo_templates/mapper/delegação viva/financial seed/platform/cartão. **PROMULGADA / HOLD PARA RESEAL.** Cada item §B = frente futura gated (tripé). Próxima: Yala reseal.
+
+---
+
 ## 2026-06-14 — F-PAYOUT-APPROVAL-POLICY-MATERIALIZATION · aprovação MATERIAL de payout viva dentro da faixa MVP (policy+authority+D7+diário) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `fc139481`** · **dev 384 → 385** (migration `20260614150000`) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_F_PAYOUT_APPROVAL_POLICY_MATERIALIZATION.md`. Materializa DECISION-0130 (CAMINHO A).
