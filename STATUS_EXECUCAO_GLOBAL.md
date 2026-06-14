@@ -1,3 +1,13 @@
+## 2026-06-14 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 2 (B2f — MONEY UNBOUND): rotas econômicas v2 custody/split vinculadas ao dono do evento · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `d4dc2a8d`** (pós-PASS Yala batch 1) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_WAVE1_DECISION_0131_BATCH2_B2f.md`.
+
+**Verificação de 1ª mão (STOP respeitado):** POST `/events/:id/economic/v2/custody` (lê `economic_owner_id`) e `/economic/v2/split` (lê `parts[].target_id`) estavam **UNBOUND** — nem rota nem service (`createCustody`/`calculateSplit`) faziam binding. _(Nenhuma move dinheiro: custody=registro declarativo event_custody+outbox; split=cálculo in-memory.)_ **Patch:** em cada rota, ANTES do side-effect: `getEvent` → `userRepresentsActor(req.tenant.id, req.user.userId, event.actorId)` → 403 PERMISSION_DENIED. Autoridade sobre o EVENTO (canРepresentActor); economic_owner/targets são DADO. Sem refactor de service, sem Core financeiro, sem novo modelo.
+
+**Tripé:** guard `audit-event-economic-authority-binding.mjs` (createCustody/calculateSplit exigem binding+403+getEvent antes) + neg-proof (2 mordidas, byte-idêntico) + e2e efêmero **6/6** (Bob não-rep→403 custody+split, sem side-effect; Alice dona→≠403; Bank intocado). **Gates:** actor-writer/bank-ledger OK · regression rc=0 (+1 guard; 0113 baseline=0) · arch critical_new=0 · tsc build 25/strict 43 (ambos baseline herdado, ZERO atribuível). **HARD STOPS:** sem refactor amplo/Core financeiro/seed/RLS/cartão/mapper/cargo/delegação/platform; F3 não resolvido; C4/B3f/A1/E1/E2/B1f não junto; Bank intocado; dev 385/385. **BATCH 2 IMPLEMENTED / HOLD PARA RESEAL.**
+
+---
+
 ## 2026-06-14 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 1: B4f vazamento cross-tenant FECHADO + F1/F2 locks stub/tombstone · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `b6f08e91`** (pós-PASS Yala 0131) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_WAVE1_DECISION_0131_INDEPENDENTES_BATCH1.md`.

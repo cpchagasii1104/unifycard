@@ -2262,6 +2262,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔒 B2f (DECISION-0131 §B7 / 0113): binding server-side ANTES de qualquer side-effect.
+        // Só quem REPRESENTA o actor dono do evento pode mexer na economia dele. economic_owner_id
+        // é DADO (beneficiário), não autoridade — a autoridade é sobre o EVENTO (canRepresentActor).
+        const event = await eventService.getEvent(req.tenant.id, req.params.eventId);
+        if (!event) {
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Event not found');
+        }
+        const canManageEconomy = await userRepresentsActor(req.tenant.id, req.user.userId, event.actorId);
+        if (!canManageEconomy) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.PERMISSION_DENIED, 'Caller cannot represent the event owner for economic operations (custody).');
+        }
+
         const custody = await eventCustodyService.createCustody(
           req.tenant.id,
           {
@@ -2385,6 +2397,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔒 B2f (DECISION-0131 §B7 / 0113): binding server-side ANTES de qualquer side-effect.
+        // Só quem REPRESENTA o actor dono do evento declara o split. parts[].target_id são
+        // beneficiários (DADO), não autoridade — split multi-parte não exige representar cada target.
+        const event = await eventService.getEvent(req.tenant.id, req.params.eventId);
+        if (!event) {
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Event not found');
+        }
+        const canManageEconomy = await userRepresentsActor(req.tenant.id, req.user.userId, event.actorId);
+        if (!canManageEconomy) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.PERMISSION_DENIED, 'Caller cannot represent the event owner for economic operations (split).');
+        }
+
         const split = await eventSplitDeclarativeService.calculateSplit(
           req.tenant.id,
           {
