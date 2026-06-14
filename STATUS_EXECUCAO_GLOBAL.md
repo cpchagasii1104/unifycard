@@ -14775,3 +14775,18 @@ arch critical_new=0, tsc 25 baseline (zero nos arquivos tocados); sem migration.
 autoridade material; sem 4-olhos) — NÃO implementado. rotas antigas fail-closed; worker default-off; bank-http request-only;
 baseline 0113=0; seller_available/payout_requests legado não usados; can_execute_* não criado; executor/worker selados
 intocados. Estado: IMPLEMENTED / HOLD PARA RESEAL. Próximas: decisão de Clayton (quem aprova), self-reader, operador-em-nome-de.
+
+## 2026-06-14 — DECISION-PAYOUT-APPROVAL-AUTHORITY (DECISION-0129 PROMULGADA / DOCS-ONLY)
+
+Cartorializada a autoridade de aprovação de payout: DECISION-0129 (PROMULGADA/NORMATIVA; approve endpoint NÃO
+implementado, autorizado a implementar em frente própria por D14). D1 solicita = representante (canRepresentActor,
+já implementado). D2 aprova = Core Financeiro institucional por política explícita (company_users/tenant_operator_grants/
+role/organization_members/actionContext/x-actor-id/body|query actorId NÃO bastam). D3 segregação: requested_by_user_id !=
+approved_by_user_id. D4 MVP 1 aprovação p/ faixa segura (acima → bloquear/revisão). D5 multi-approval futuro. D6 faixas =
+Clayton (sem hardcode; BIGINT). D7 PF/PJ políticas distintas. D8 trava mais restritiva (ATL>KYC>Guarda/recovery>IA>Produto).
+D9 availableBalanceCents nunca autoriza. D10 execução interna/system (HTTP nunca executa). D11 trilho canônico
+actor_wallet (sem seller_available/payout_requests legado). D12 grants proibidos. D13 fora: dispute/reversal/cartão/PIX-TED/
+multi-approval/HTTP-executor. D14 approve endpoint autorizado pós-registro (via Core; server-side; requester≠approver; sem
+dinheiro/Bank/worker; executed:false). Zero código/migration/Bank/payout/worker — docs-only. git diff --check limpo.
+Estado: PROMULGADA / HOLD PARA RESEAL. Próxima frente: F-PAYOUT-APPROVE-ENDPOINT (materializar permissão de aprovação no
+Core Financeiro, segregação de função, faixa segura, auditoria).

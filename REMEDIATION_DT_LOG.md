@@ -13166,3 +13166,14 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Hard stops:** rotas antigas 403; worker default-off; bank-http request-only; baseline 0113=0; executor/worker
   selados intocados; availableBalanceCents não autoriza; can_execute_* não criado. Sem migration.
 - **Resta:** approve endpoint (D2/D3/D4); self-reader /payouts/requests/mine; operador-em-nome-de (D1); company-scoping (D9).
+
+## DT-PAYOUT-PRODUCTION-ENTRYPOINT — approve: DECISION_REQUIRED → DECIDIDO (2026-06-14, DECISION-0129)
+
+- **Status:** o approve endpoint deixou de ser **DECISION_REQUIRED** → **DECIDIDO** (DECISION-0129 PROMULGADA). A
+  autoridade de aprovação foi definida: pertence ao Core Financeiro institucional (D2), com segregação de função
+  requester≠approver (D3), MVP 1-aprovação por faixa segura (D4), travas restritivas (D8), sem grants comuns (D12).
+- **Implementação:** AUTORIZADA (D14) em frente própria **F-PAYOUT-APPROVE-ENDPOINT** — ainda NÃO implementada. O
+  approve endpoint deve: registrar via Core; autoridade server-side; impedir requester==approver; NÃO mover dinheiro/
+  Bank/worker; executed:false.
+- **Inalterado:** request-only fechado; executor/worker selados; bank-http request-only; baseline 0113=0;
+  availableBalanceCents não autoriza; seller_available/payout_requests legado não usados. Sem código/migration nesta DECISION.

@@ -7027,3 +7027,23 @@ só como primitive interna do Core (nunca grant comum/role/bypass). **Cartão f�
 hold→liquidação→Bank ledger→evento), nunca o ledger direto; Unificard NÃO guarda PAN/CVV/trilha sensível (no máximo token/
 referência/status/limites/trilha de autorização). bank-http/payout **permanecem baseline 0113 = 2** até o Core. Maker-checker/PCI
 citados só como analogia de mercado, não norma. Detalhe: `docs/02_decisions/DECISION_0128_CORE_FINANCIAL_APPROVAL_AUTHORITY.md`.
+
+## DECISION-0129 — Autoridade de aprovação de payout (quem solicita, quem aprova, segregação de função)
+
+**Data:** 2026-06-14 · **Frente:** DECISION-PAYOUT-APPROVAL-AUTHORITY · **Branch:** rescue-structural · **Tipo:** DOCS-ONLY
+
+**PROMULGADA / NORMATIVA — approve endpoint NÃO implementado** (autorizado a implementar em frente própria, D14).
+Fecha a autoridade de aprovação de payout (resolvia a "autoridade por ausência" do READ-FIRST). D1 SOLICITA =
+representante autorizado (canRepresentActor; req.user server-side; já implementado). D2 APROVA = Core Financeiro
+institucional por política explícita; company_users/tenant_operator_grants/role/organization_members/actionContext/
+x-actor-id/body|query actorId NÃO bastam. D3 segregação de função: requested_by_user_id != approved_by_user_id (4-olhos
+mínimo). D4 MVP = 1 aprovação para faixa segura; acima → bloquear/revisão reforçada. D5 multi-approval = futuro (não
+fingir). D6 faixas de valor = Clayton define; sem hardcode; amount_cents BIGINT. D7 PF (KYC/destino/ATL) e PJ
+(representante/KYB/aprovação) com políticas distintas. D8 trava mais restritiva vence (ATL>KYC>Guarda/recovery>IA>Produto;
+recovery ativa/dispute pendente/risco/limite/destino bloqueiam). D9 availableBalanceCents nunca autoriza (revalida na TX).
+D10 execução = trilho interno/system (worker→executor→BankTransactionPort→Bank→evento depois; HTTP nunca executa). D11
+trilho canônico actor_wallet_payout_requests+actor_wallet (sem seller_available/seller_payout/payout_requests legado).
+D12 grants proibidos (can_execute_payout em company_users/tenant_operator_grants; role financial:execute_payout como poder
+final). D13 fora: dispute/reversal, cartão, PIX/TED, multi-approval, HTTP-executor. D14 approve endpoint AUTORIZADO pós-
+registro: via Core, server-side, requester≠approver, sem dinheiro/Bank/worker, executed:false. Detalhe:
+`docs/02_decisions/DECISION_0129_PAYOUT_APPROVAL_AUTHORITY.md`.
