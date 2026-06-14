@@ -14759,3 +14759,19 @@ request-only; baseline 0113=0; seller_available/payout_requests legado não usad
 can_execute_* não criado; dispute/reversal/cartão fora. Estado: IMPLEMENTED / HOLD PARA RESEAL. Ativação prod =
 ENABLE_PAYOUT_WORKER='true' explícito. Próximas: payout HTTP request-only (decisão), multi-approval, seller_available
 tombstone definitivo, observabilidade.
+
+## 2026-06-14 — F-PAYOUT-REQUEST-ONLY-ENTRYPOINT (IMPLEMENTED / HOLD PARA RESEAL)
+
+Entrada HTTP request-only de payout: POST /api/payouts/requests (arquivo novo payout-request.routes.ts, registrado no
+payout.module) cria SOMENTE a solicitação (actor_wallet_payout_requests pending_approval + approval_requests pending via
+Core), com subject=req.user.id/tenant=req.tenant.id server-side e actorId=hint gateado por canRepresentActor (fail-closed,
+403 se não-representável). NÃO aprova/executa/chama worker/Bank; executed:false; body zod .strip() ignora spoof
+(requestedByUserId/tenantId/status/operationType/availableBalanceCents). Arquivo separado preserva o guard 0113
+(safe_subject_recognized=6, payout em SAFE_SUBJECT_READERS). Guard NOVO audit-payout-request-only-entrypoint.mjs no
+regression-guards + negative-proof (morde execução/executed:true/remoção canRepresentActor) + e2e 16/16 (DB efêmera, zero
+dinheiro: request cria pending+approval, spoof ignorado, actor não-representável 403, idempotência, active-gate 409,
+availableBalanceCents não autoriza 422, rotas antigas 403). Gates: actor-writer/bank-ledger OK, regression-guards rc=0,
+arch critical_new=0, tsc 25 baseline (zero nos arquivos tocados); sem migration. APPROVE endpoint = DECISION_REQUIRED (sem
+autoridade material; sem 4-olhos) — NÃO implementado. rotas antigas fail-closed; worker default-off; bank-http request-only;
+baseline 0113=0; seller_available/payout_requests legado não usados; can_execute_* não criado; executor/worker selados
+intocados. Estado: IMPLEMENTED / HOLD PARA RESEAL. Próximas: decisão de Clayton (quem aprova), self-reader, operador-em-nome-de.

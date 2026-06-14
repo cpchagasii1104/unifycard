@@ -13149,3 +13149,20 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   default-off, só approved, recovery drena, concorrência sem duplicidade, double-entry).
 - **Hard stops:** payout HTTP fail-closed; baseline 0113=0; worker default-off; Bank só via executor selado; sem SQL
   direto bank_*; can_execute_* não criado. Sem migration. Ativação prod = ENABLE_PAYOUT_WORKER='true' explícito.
+
+## DT-PAYOUT-PRODUCTION-ENTRYPOINT — request-only implementado; approve DECISION_REQUIRED (2026-06-14, F-PAYOUT-REQUEST-ONLY-ENTRYPOINT)
+
+- **Status:** entrada HTTP de payout **request-only** entregue: `POST /api/payouts/requests` (arquivo novo
+  `payout-request.routes.ts`) cria SOMENTE solicitação (pending_approval + approval pending via Core), subject=req.user
+  server-side, actorId=hint → `canRepresentActor` (fail-closed). NÃO aprova/executa/move dinheiro; executed:false.
+- **APPROVE = DECISION_REQUIRED (NÃO implementado):** sem `financial:approve_payout`, role-chain morta
+  (organization_members ABSENTE), company_users/tenant_operator_grants insuficientes, sem 4-olhos. Wirá-lo exigiria
+  autoridade-por-ausência → bloqueado por decisão de Clayton (D2/D3/D4 do READ-FIRST).
+- **Guard NOVO** `audit-payout-request-only-entrypoint.mjs` no regression-guards (FALHA se a rota aprovar/executar/
+  chamar Bank/worker, usar seller_available/payout_requests/availableBalanceCents/businessAuthorizationService/
+  can_execute_*, aceitar requestedByUserId/tenant do body, ou se existir approve/decision route, ou rotas antigas
+  saírem do 403, ou baseline 0113 regredir). Negative-proof morde execução/executed:true/remoção-canRepresentActor.
+  e2e 16/16 (DB efêmera, zero dinheiro).
+- **Hard stops:** rotas antigas 403; worker default-off; bank-http request-only; baseline 0113=0; executor/worker
+  selados intocados; availableBalanceCents não autoriza; can_execute_* não criado. Sem migration.
+- **Resta:** approve endpoint (D2/D3/D4); self-reader /payouts/requests/mine; operador-em-nome-de (D1); company-scoping (D9).
