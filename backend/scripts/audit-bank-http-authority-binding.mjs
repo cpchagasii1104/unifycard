@@ -57,9 +57,12 @@ function runGuard() {
     failures.push('bank-http usa tenant_id de body/query como autoridade.');
   }
 
-  // (e) baseline 0113 não pode ser zerado enquanto payout resta
-  if (!('modules/payout/payout.routes.ts' in BASELINE)) {
-    failures.push('baseline 0113 ZERADO indevidamente: payout saiu do BASELINE sem frente própria.');
+  // (e) payout não pode "sumir" mascarado: deve seguir RECONHECIDO (BASELINE enquanto resíduo, OU
+  // SAFE_SUBJECT_READERS quando fechado por frente própria — F-ACTOR-WALLET-PAYOUT-WIRING). Nunca apagado.
+  const payoutBaselined = 'modules/payout/payout.routes.ts' in BASELINE;
+  const payoutRecognized = 'modules/payout/payout.routes.ts' in SAFE_SUBJECT_READERS;
+  if (!payoutBaselined && !payoutRecognized) {
+    failures.push('payout sumiu do guard 0113 (nem BASELINE nem SAFE_SUBJECT_READERS) — baseline mascarado.');
   }
   // (f) bank-http não pode "sumir" — deve estar reconhecido (não mascarado) e fora do baseline.
   if ('core/unifybank/bank-http.routes.ts' in BASELINE) {

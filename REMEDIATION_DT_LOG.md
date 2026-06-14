@@ -13087,3 +13087,19 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   (recognized 5, baseline 1, payout baselined, Forma E); regression-guards rc=0; actor-writer/bank-ledger OK; arch
   critical_new=0; tsc 25. Sem migration. Bank/payout/dispute/reversal/cartão intocados.
 - **Resta:** `payout` no baseline 0113 (= 1) — fecha em F-ACTOR-WALLET-PAYOUT-WIRING/F-PAYOUT-EXECUTION-SEAL (DECISION-0128 §16).
+
+## DT-0113-CLASSIC-CHANNEL-READERS — payout REMOVIDO; baseline 0113 = 0 (2026-06-14, F-ACTOR-WALLET-PAYOUT-WIRING)
+
+- **Status:** `payout` **REMOVIDO do baseline 0113 → baseline 1 → 0**. Último resíduo fechado; **arco authority-binding
+  DECISION-0113 ENCERRADO** (bank-http request-only + payout fail-closed).
+- **Mudança:** writers move-money/estado-financeiro (`POST /payouts/batches`, `/orders/:id/execute-manual`,
+  `/orders/:id/fail`) → **FAIL-CLOSED** (403 `PAYOUT_HTTP_EXECUTION_DISABLED`): não chamam `createPayoutBatch`/
+  `executePayoutManual`/`markAsFailed`, não movem dinheiro, não criam settlement, não marcam payout pago/executado.
+  GET readers (gateados por `requirePayoutPermission` = Forma B, subject server-side) reconhecidos → `SAFE_SUBJECT_READERS`.
+  `seller_available`/`availableBalanceCents` não autorizam (guard). Guard NOVO `audit-payout-authority-binding.mjs`.
+- **Prova:** e2e 14/14 (DB efêmera); neg-proof payout (morde exec + seller_available) + neg-proof 0113 (recognized 6,
+  baseline 0) + neg-proof bank-http (continua mordendo); regression-guards rc=0; actor-writer/bank-ledger OK; arch
+  critical_new=0; tsc 25. Sem migration. Bank/dispute/reversal/cartão intocados.
+- **Resta (frentes futuras, dependem do Core executor):** F-PAYOUT-EXECUTION-SEAL (execução real com revalidação de
+  saldo + recovery block + locks), F-DISPUTE-REVERSAL-REOPEN, F-CARD-AUTHORIZATION-CORE; tombstone do worker
+  seller_available (legado idle). Core EXECUTION segue HOLD.

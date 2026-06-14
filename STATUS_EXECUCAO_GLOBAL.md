@@ -14693,3 +14693,19 @@ baselined, Forma E); gates: actor-writer/bank-ledger OK, regression-guards rc=0,
 nos arquivos tocados); sem migration. Bank/payout/dispute/reversal/cartão intocados; can_execute_* não criado;
 availableBalanceCents não usado. Estado: IMPLEMENTED / HOLD PARA RESEAL. **DECISION-0113 baseline = 1** (resta payout).
 Próxima: F-ACTOR-WALLET-PAYOUT-WIRING / F-PAYOUT-EXECUTION-SEAL (DECISION-0128 §16) — fecha o último resíduo 0113.
+
+## 2026-06-14 — F-ACTOR-WALLET-PAYOUT-WIRING (IMPLEMENTED / HOLD PARA RESEAL) — 🎯 BASELINE 0113 = 0
+
+payout REMOVIDO do baseline DECISION-0113 (1 → 0). **Último resíduo fechado — arco authority-binding ENCERRADO**
+(bank-http request-only + payout fail-closed). Writers move-money/estado-financeiro POST /payouts/batches,
+/orders/:id/execute-manual, /orders/:id/fail → FAIL-CLOSED (403 PAYOUT_HTTP_EXECUTION_DISABLED): não chamam
+createPayoutBatch/executePayoutManual/markAsFailed, não movem dinheiro/settlement, não marcam pago/executado.
+GET readers (requirePayoutPermission = Forma B, subject server-side) reconhecidos → SAFE_SUBJECT_READERS.
+seller_available/availableBalanceCents não autorizam. Guard NOVO audit-payout-authority-binding.mjs no regression-
+guards (sem exec; fail-closed; sem seller_available/availableBalanceCents; payout+bank-http reconhecidos, baseline
+íntegro). e2e 14/14 (DB efêmera); neg-proofs payout + 0113 (recognized 6, baseline 0) + bank-http verdes; gates:
+actor-writer/bank-ledger OK, regression-guards rc=0, arch critical_new=0, tsc 25 baseline (zero nos arquivos
+tocados); sem migration. Bank/dispute/reversal/cartão intocados; can_execute_* não criado. seller_available worker
+= legado idle, fora do escopo HTTP (tombstone futuro). Estado: IMPLEMENTED / HOLD PARA RESEAL. **DECISION-0113
+baseline = 0.** Core EXECUTION segue HOLD. Próximas (DECISION-0128 §16): F-PAYOUT-EXECUTION-SEAL · F-DISPUTE-
+REVERSAL-REOPEN · F-CARD-AUTHORIZATION-CORE.

@@ -104,15 +104,17 @@ Remove-Item $asrt -Force -ErrorAction SilentlyContinue
 
 # Fase 4 (FATIA A + R2): prova POSITIVA — guard reconhece readers safe-subject e new=0.
 $guardOut = (node scripts/audit-actor-authority-boundary.mjs 2>&1 | Out-String)
-$recognizedFive = ($guardOut -match 'safe_subject_recognized=5')
-$baselineOne = ($guardOut -match '\bbaseline=1\b')
-$payoutStillBaselined = ($guardOut -notmatch 'bank-http' -or $true) -and (Select-String -Path scripts/audit-actor-authority-boundary.mjs -Pattern "modules/payout/payout.routes.ts'" -Quiet)
+$recognizedSix = ($guardOut -match 'safe_subject_recognized=6')
+$baselineZero = ($guardOut -match '\bbaseline=0\b')
+# Resíduos financeiros fechados: bank-http (Forma E) e payout (Forma B) RECONHECIDOS (não flagged, não baselined).
+$bankHttpRecognized = ($guardOut -match 'bank-http\.routes\.ts.*resolveForUser')
+$payoutRecognized = ($guardOut -match 'payout\.routes\.ts.*requirePermission')
 $newZero = ($guardOut -match '\bnew=0\b')
 
 $ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) `
   -and $spoofFailed -and $spoofRestored -and (-not (Test-Path $probe2)) `
-  -and $recognizerOk -and $recognizedFive -and $baselineOne -and $payoutStillBaselined -and $newZero
-Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized5=$recognizedFive baseline1=$baselineOne payoutBaselined=$payoutStillBaselined new0=$newZero residue=$([bool](Test-Path $probeDir))"
+  -and $recognizerOk -and $recognizedSix -and $baselineZero -and $bankHttpRecognized -and $payoutRecognized -and $newZero
+Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized6=$recognizedSix baseline0=$baselineZero bankHttpRecognized=$bankHttpRecognized payoutRecognized=$payoutRecognized new0=$newZero residue=$([bool](Test-Path $probeDir))"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
 Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding, (b) subject==target spoof, (c) recognizer aceita req.user (Formas A/B/C company-scoped) e rejeita actionContext/params/query/subject==target/Forma-C-sem-company-scope, (d) reconhece os 3 readers actor-scoped; restauracao limpa.' -ForegroundColor Green
 exit 0

@@ -151,6 +151,8 @@ const SAFE_SUBJECT_READERS = {
     'TENANT-LEVEL (R2.4 UNFREEZE, DECISION-0127). Compliance/risco tenant-scoped. Reads (GET /trust/profile/:actorId, /profiles, /events, POST /can-proceed) → Forma D can_view_tenant_trust; mutations (POST /trust/events, /recalculate/:actorId) → Forma D can_manage_tenant_trust. requireRole(admin) REMOVIDO. params/query.actorId = alvo, nunca subject. Sem dinheiro (dispute_* = tipos de evento de score).',
   'core/unifybank/bank-http.routes.ts':
     'READER + REQUEST-ONLY (F-BANK-HTTP-AUTHORITY-BINDING, DECISION-0128). GET /balance: subject server-side (userId=req.user.id) + actorCapabilitiesService.resolveForUser (Forma E); query.actorId = ALVO de leitura, nunca subject; sem write/move-money (getUserBalance/getActorBalance = leitura). POST /transactions/simple|split: NÃO executam mais Bank — REQUEST-ONLY (createFinancialApprovalRequest no Core; sem bank_transaction/bank_ledger/split). Os writers usam só req.user.id (sem canal client-declared). Guard cercado por audit-bank-http-authority-binding.mjs.',
+  'modules/payout/payout.routes.ts':
+    'READER + FAIL-CLOSED (F-ACTOR-WALLET-PAYOUT-WIRING, DECISION-0128). GET /payouts/orders[?actorId]/batches: gateados por requirePayoutPermission → businessAuthorizationService.requirePermission(tenantId, userId=req.user.id, actor.actor_id, financial:execute_payout) = Forma B (subject server-side, subj!=target); query.actorId = FILTRO de leitura do operador, nunca subject. POST /payouts/batches, /orders/:id/execute-manual, /orders/:id/fail: FAIL-CLOSED (403 PAYOUT_HTTP_EXECUTION_DISABLED) — NÃO executam payout, NÃO chamam payoutService executor, NÃO movem dinheiro/settlement. Guard cercado por audit-payout-authority-binding.mjs.',
 };
 
 // ── BASELINE EXPLÍCITO (estado conhecido; cada item tem DT vinculada) ──
@@ -171,10 +173,11 @@ const BASELINE = {
   // F-R2-COMPANY-USERS-FINE-GRANTS-MATERIALIZATION (2026-06-13): policy-engine REMOVIDO. F-R2-TRUST-TENANT-GRANTS-
   // R24-UNFREEZE (2026-06-14): trust REMOVIDO — requireRole(admin) interino substituído por grant tenant-level
   // (Forma D, can_view/manage_tenant_trust). F-BANK-HTTP-AUTHORITY-BINDING (2026-06-14): bank-http REMOVIDO —
-  // writers viraram REQUEST-ONLY (createFinancialApprovalRequest, sem move-money) e GET /balance reconhecido por
-  // Forma E (resolveForUser, subject server-side) → SAFE_SUBJECT_READERS. Resta 1: payout (HARD STOP move-money).
-  // Ver DECISION-0128 + audit-bank-http-authority-binding.mjs.
-  'modules/payout/payout.routes.ts':                   'D · FINANCIAL (HARD STOP) + move-money writers (POST /payouts/batches, /orders/:id/execute-manual, /fail). subject server-side (req.user.id → requirePermission financial:execute_payout) mas é money-writer — não auto-reconhecer. query.actorId em GET /payouts/orders = filtro do operador. Não tocar. DT-0113-CLASSIC-CHANNEL-READERS.',
+  // writers REQUEST-ONLY + GET /balance Forma E. F-ACTOR-WALLET-PAYOUT-WIRING (2026-06-14): payout REMOVIDO —
+  // writers (batches/execute-manual/fail) FAIL-CLOSED (403 PAYOUT_HTTP_EXECUTION_DISABLED, sem executor) e GET
+  // readers reconhecidos por Forma B (requirePermission com subject server-side) → SAFE_SUBJECT_READERS.
+  // **BASELINE 0113 = 0** — os 2 resíduos financeiros (bank-http, payout) fechados. Execução real de Bank/payout
+  // = frente futura (F-PAYOUT-EXECUTION-SEAL). Ver DECISION-0128 + audit-payout-authority-binding.mjs.
 };
 
 function walk(dir, files = []) {

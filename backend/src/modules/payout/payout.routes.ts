@@ -4,9 +4,22 @@
 
 import type { FastifyInstance } from 'fastify';
 import { payoutService } from './payout.service';
-import type { CreatePayoutBatchInput, ExecutePayoutManualInput, FailPayoutInput } from './payout.types';
 import { BadRequestError, ForbiddenError, UnauthorizedError } from '@core/errors';
 import { ErrorCode } from '@core/errors/error-codes';
+
+// 🔒 F-ACTOR-WALLET-PAYOUT-WIRING (DECISION-0128): os writers move-money/estado-financeiro de payout
+// (POST /payouts/batches, /orders/:id/execute-manual, /orders/:id/fail) são EXECUÇÃO/BATCH/FAIL-SETTLEMENT —
+// FAIL-CLOSED (403 PAYOUT_HTTP_EXECUTION_DISABLED). Não chamam payoutService executor, não movem dinheiro,
+// não criam settlement, não marcam payout pago/executado. A execução real (após aprovação no Core, com
+// revalidação de saldo no Bank + bloqueio por recovery obligations + locks + idempotência) é frente FUTURA
+// (F-PAYOUT-EXECUTION-SEAL). availableBalanceCents/seller_available NÃO autorizam payout. Os GET readers
+// seguem gateados por requirePayoutPermission (subject server-side = req.user; actorId = filtro de leitura).
+const PAYOUT_HTTP_EXECUTION_DISABLED = {
+  ok: false,
+  code: 'PAYOUT_HTTP_EXECUTION_DISABLED',
+  message:
+    'Payout execution through HTTP is disabled. Execution requires the Financial Approval Core (request → approval → execution with balance revalidation, recovery-obligation block and locks), not implemented yet (DECISION-0128).',
+} as const;
 
 const payoutRoutes = async (fastify: FastifyInstance) => {
   const requirePayoutPermission = async (req: any, _reply: any) => {
@@ -44,18 +57,11 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     }
   };
 
-  fastify.post<{ Body: CreatePayoutBatchInput }>(
+  // 🔴 FAIL-CLOSED — batch executor (não executa dinheiro; não cria batch/orders).
+  fastify.post(
     '/payouts/batches',
     { preHandler: requirePayoutPermission },
-    async (req, reply) => {
-      if (!req.tenant) {
-        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
-      }
-      const tenantId = req.tenant.id;
-      const result = await payoutService.createPayoutBatch(tenantId, req.body);
-
-      return reply.status(201).send(result);
-    }
+    async (_req, reply) => reply.status(403).send(PAYOUT_HTTP_EXECUTION_DISABLED)
   );
 
   fastify.get<{
@@ -153,42 +159,18 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     }
   );
 
-  fastify.post<{ Params: { orderId: string }; Body: ExecutePayoutManualInput }>(
+  // 🔴 FAIL-CLOSED — execução manual de payout (não executa dinheiro; não marca order executada/paga).
+  fastify.post<{ Params: { orderId: string } }>(
     '/payouts/orders/:orderId/execute-manual',
     { preHandler: requirePayoutPermission },
-    async (req, reply) => {
-      if (!req.tenant) {
-        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
-      }
-      const tenantId = req.tenant.id;
-      const userId = req.user?.id || null;
-
-      const order = await payoutService.executePayoutManual(tenantId, req.params.orderId, {
-        ...req.body,
-        executedByUserId: userId,
-      });
-
-      return reply.send({ order });
-    }
+    async (_req, reply) => reply.status(403).send(PAYOUT_HTTP_EXECUTION_DISABLED)
   );
 
-  fastify.post<{ Params: { orderId: string }; Body: FailPayoutInput }>(
+  // 🔴 FAIL-CLOSED — fail/settlement de payout (não move dinheiro; não cria settlement; não muda estado financeiro).
+  fastify.post<{ Params: { orderId: string } }>(
     '/payouts/orders/:orderId/fail',
     { preHandler: requirePayoutPermission },
-    async (req, reply) => {
-      if (!req.tenant) {
-        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
-      }
-      const tenantId = req.tenant.id;
-      const userId = req.user?.id || null;
-
-      const order = await payoutService.markAsFailed(tenantId, req.params.orderId, {
-        ...req.body,
-        failedByUserId: userId,
-      });
-
-      return reply.send({ order });
-    }
+    async (_req, reply) => reply.status(403).send(PAYOUT_HTTP_EXECUTION_DISABLED)
   );
 };
 
