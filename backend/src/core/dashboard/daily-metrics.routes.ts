@@ -12,10 +12,12 @@ const dailyMetricsRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.user) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
-
-    // TODO: Verificar se usuário é admin
+    // 🔒 B4f: escopo OBRIGATÓRIO por tenant (server-side). Sem tenant, não há métrica (fail-closed).
+    if (!req.tenant?.id) {
+      return reply.status(400).send({ error: 'Tenant context required' });
+    }
     try {
-      const metrics = await dailyMetricsService.getTodayMetrics();
+      const metrics = await dailyMetricsService.getTodayMetrics(req.tenant.id);
       return metrics;
     } catch (error) {
       fastify.log.error({ err: error }, 'Erro ao buscar métricas do dia');
@@ -33,11 +35,13 @@ const dailyMetricsRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.user) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
-
-    // TODO: Verificar se usuário é admin
+    // 🔒 B4f: escopo OBRIGATÓRIO por tenant (server-side).
+    if (!req.tenant?.id) {
+      return reply.status(400).send({ error: 'Tenant context required' });
+    }
     try {
       const days = parseInt(req.query.days || '7', 10);
-      const metrics = await dailyMetricsService.getMetricsHistory(days);
+      const metrics = await dailyMetricsService.getMetricsHistory(req.tenant.id, days);
       return { metrics };
     } catch (error) {
       fastify.log.error({ err: error }, 'Erro ao buscar histórico de métricas');

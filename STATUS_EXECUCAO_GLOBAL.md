@@ -1,3 +1,15 @@
+## 2026-06-14 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 1: B4f vazamento cross-tenant FECHADO + F1/F2 locks stub/tombstone · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `b6f08e91`** (pós-PASS Yala 0131) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_WAVE1_DECISION_0131_INDEPENDENTES_BATCH1.md`.
+
+**B4f (URGENTE — vazamento cross-tenant fechado):** `daily-metrics.service.ts` rodava queries SEM `tenant_id` → qualquer autenticado lia agregados platform-wide. Reescrito: toda query filtra `tenant_id` (server-side via `req.tenant.id`); rota exige tenant (400 fail-closed). _(Corrigidos 3 nomes de coluna defasados que tornavam o service 500 latente.)_ Tripé: guard `audit-dashboard-metrics-tenant-scope.mjs` + neg-proof + e2e efêmero **4/4** (A≠B).
+
+**F1+F2 (locks):** guard `audit-rbac-stub-and-tombstones.mjs` — F1 trava o swap do stub `actor_has_permission` (def EFETIVA = `RETURN FALSE`; bloqueia ligar FASE 6/PORTA-2); F2 bloqueia ressurreição de `organization_members`/`user_identity_links` (CREATE TABLE). Neg-proof: 2 mordidas (swap RETURN TRUE + CREATE TABLE), byte-idêntico.
+
+**Gates:** actor-writer/bank-ledger OK · regression-guards rc=0 (+2 guards; 0113 baseline=0) · arch critical_new=0 · tsc 25. **HARD STOPS:** sem gated/seed/RLS/RBAC-ligado/delegação/platform/cartão/Core financeiro; dev 385/385. **Findings (próximos batches):** B1f já-fechado de fato; **B2f achou 2 rotas money UNBOUND (custody/split) — STOP respeitado, classificar+bindar em frente própria**; C4 migration aditiva pronta; **F3 reclassificado: `actor_has_any_role` é LIVE (não tombstone) → frente Art.17 própria**; A1/E1/E2/B3f scoped. **BATCH 1 IMPLEMENTED / HOLD PARA RESEAL.**
+
+---
+
 ## 2026-06-14 — DECISION-0131 · gramática de autoridade (DECISION-índice; docs-only): cargo-template/temporal/mapper/membership/RLS/platform/hard-rules · PROMULGADA/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `20fe30cc`** · dev **385** (SEM migration) · MODO EXECUTOR docs-only/cartório (ultracode). Execução: `docs/03_execution_log/20260614_DECISION_0131_AUTHORITY_GRAMMAR.md`. Numeração: 0131 livre (docs/02_decisions + LOG). Análise prévia da Opus aprovada por Clayton; GO concedido SÓ para redação docs-only.
