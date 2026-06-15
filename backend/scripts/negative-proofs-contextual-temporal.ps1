@@ -63,7 +63,16 @@ $proofs = @(
        Inject = { param($c) $c + "`nconst __negT5 = `"req.actionContext.actorId !== availability.ownerId`";`nvoid __negT5;`n" } },
     @{ Name = 'P-T6 owner_type novo sem policy/CHECK (driver)';
        File = 'src/core/availability/unified-availability.types.ts';
-       Inject = { param($c) $c -replace [regex]::Escape("SERVICE_OFFERING = 'service_offering',"), "SERVICE_OFFERING = 'service_offering',`n  DRIVER = 'driver'," } }
+       Inject = { param($c) $c -replace [regex]::Escape("SERVICE_OFFERING = 'service_offering',"), "SERVICE_OFFERING = 'service_offering',`n  DRIVER = 'driver'," } },
+    @{ Name = 'P-T7 fail-closed de owner_type DESCONHECIDO removido (400 AVAILABILITY_OWNER_TYPE_UNKNOWN) [E1]';
+       File = 'src/core/availability/availability-owner-authority.ts';
+       Inject = { param($c) $c -replace [regex]::Escape("'AVAILABILITY_OWNER_TYPE_UNKNOWN'"), "'AVAILABILITY_OWNER_TYPE_OK'" } },
+    @{ Name = 'P-T8 fail-closed de recurso INEXISTENTE removido (404 AVAILABILITY_OWNER_NOT_FOUND) [E1]';
+       File = 'src/core/availability/availability-owner-authority.ts';
+       Inject = { param($c) $c -replace [regex]::Escape("'AVAILABILITY_OWNER_NOT_FOUND'"), "'AVAILABILITY_OWNER_OK'" } },
+    @{ Name = 'P-T9 fail-closed de AUTORIDADE removido (403 AVAILABILITY_OWNER_NOT_REPRESENTABLE) [E1]';
+       File = 'src/core/availability/availability-owner-authority.ts';
+       Inject = { param($c) $c -replace [regex]::Escape("'AVAILABILITY_OWNER_NOT_REPRESENTABLE'"), "'AVAILABILITY_OWNER_OK_REP'" } }
 )
 
 $allOk = $true
@@ -103,5 +112,5 @@ foreach ($p in $proofs) {
 }
 
 if (-not $allOk) { Write-Host 'PROVAS NEGATIVAS (contextual+temporal+V2): FALHA' -ForegroundColor Red; exit 1 }
-Write-Host 'PROVAS NEGATIVAS (contextual+temporal+V2): 16/16 — gates derrubam cada regressao; restauracao byte-identica.' -ForegroundColor Green
+Write-Host "PROVAS NEGATIVAS (contextual+temporal+V2): $($proofs.Count)/$($proofs.Count) — gates derrubam cada regressao (inclui E1 fail-closed P-T7/8/9); restauracao byte-identica." -ForegroundColor Green
 exit 0

@@ -13347,6 +13347,34 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   autoridade composta) = decisão de produto Clayton, frente própria — **NÃO declarado resolvido**. Resíduo service-side
   remanescente: `executePayment` ainda recebe `actingUserId: session.actorId` (operador) — autoria operacional, não money-party.
 
+## DT-AVAILABILITY-OWNER-AUTHORITY-EXEMPLAR-RESIDUES — resíduos do exemplar (NÃO no padrão de autoridade) (2026-06-15, E1 / ONDA DECISION-0131)
+
+- **Status:** **OPEN (resíduos REAIS fora do padrão de autoridade; NÃO corrigir em E1).** O padrão owner-authority está
+  CORRETO e travado (guard `audit-availability-owner-authority.mjs`, CLOSED=26). Estes resíduos são de
+  REPRODUTIBILIDADE/COBERTURA-DE-GUARD/limpeza, não de autoridade. Descobertos no READ-FIRST do E1.
+- **R1 (orphan proof):** o e2e exemplar `validate-pipeline-e2e-availability-owner-authority.ts` cita no cabeçalho o
+  orquestrador `scripts/run-availability-owner-authority-ephemeral.ps1` que **NÃO existe** (glob vazio). O e2e exige DB
+  efêmera (assertEphemeralDb aborta em unificard_dev) → sem runner não há como rodá-lo como documentado. **Prova órfã.**
+  Convergência: criar o runner efêmero (mirror dos run-*-ephemeral.ps1 do PDV/groups) — frente própria pequena.
+- **R2 (lacuna de guard — write-path fora de core/availability):** o gate NÃO enumera writers da tabela availability;
+  um writer NOVO fora de `src/core/availability` (INSERT direto / repo com ownerId cru) passa pelo gate. O
+  NEW_UNCLASSIFIED só cobre arquivos novos DENTRO de core/availability. Convergência: estender o gate p/ varrer writers
+  do repositório availability em todo SRC e exigir o resolver (cuidado com falso-positivo — frente própria).
+- **R3 (lacuna de guard — raw-ownerId por nome):** os negative-guards `RAW_OWNER_AS_ACTOR`/`CTX_EQ_OWNER` casam uma
+  LISTA FIXA de nomes de variável (availability.ownerId, existing.ownerId, parsed.data.ownerId, ownerIdHint,
+  req.query.ownerId). Um write path com ownerId cru em variável de nome diferente (ex.: `target.ownerId`, destructured
+  `const { ownerId }`) evade. Heurística textual por design; convergência só se surgir caso real.
+- **R4 (drift — helpers duplicados):** `unified-availability.routes.ts` reimplementa inline
+  `representsAvailabilityOwner`/`authorityActorOfAvailability` e NÃO importa o primitivo combinado exportado
+  `resolveAvailabilityOwnerAuthority` (importa só `resolveAvailabilityOwner` + o tipo de erro). Risco de drift se um
+  caminho mudar e o outro não. Convergência: rotas passarem a usar o primitivo combinado (frente própria; toca .ts de rota
+  — fora do E1 zero-runtime).
+- **OBSERVAÇÕES normativas (não-código, fora do escopo E1 — só registro):** `CORE_TEMPORAL_HARDENING_CONTRACT.md` tem
+  cabeçalho stale (`Status: SUBORDINATED / Domain: UNKNOWN` enquanto o corpo se declara CANONICAL·BINDING·CORE);
+  `AUTHORITY_ENFORCEMENT_MODEL.md` referencia `AUTHORITY_LAW.md` inexistente (a lei viva é LEI §4.9). Não há linha
+  normativa que enumere owner_type policy coverage p/ availability — o exemplar é policy de CÓDIGO ancorada na LEI §4.9
+  geral (autoridade server-side) + PROHIBITED_STRUCTURES (fail-closed), não numa norma temporal específica.
+
 ## DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE — 31 rotas leem actionContext.actorId (canal-1) sem binding (2026-06-15, B1f / ONDA DECISION-0131)
 
 - **Status:** **OPEN (CONGELADO + DETECTADO; NÃO corrigir agora).** Materializa o **canal-1 da DECISION-0113** (o

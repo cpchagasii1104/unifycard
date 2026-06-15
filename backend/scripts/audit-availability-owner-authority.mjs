@@ -102,6 +102,28 @@ for (const f of FAMILY) {
     'resolver perdeu a derivação material do authority actor (provider_actor_id/owner_actor_id) ou a prova canRepresentActor.');
 }
 
+// 4b) CONTRATO FAIL-CLOSED do resolver (E1 — AVAILABILITY OWNER-AUTHORITY EXEMPLAR / REGRESSION LOCK).
+// O gate já prova COBERTURA (policy por owner_type) mas não a REJEIÇÃO: o exemplar canônico da DECISION-0131
+// é o triplo fail-closed do resolver — owner_type desconhecido→400, recurso inexistente/tipo incompatível→404,
+// sem representabilidade→403 — materializando LEI §4.9 (autoridade server-side) + PROHIBITED_STRUCTURES (fail-closed).
+// Trava os 3 throws + os 2 catches fail-closed (erro de policy/canRepresentActor → deny, nunca allow).
+{
+  check('temporal:resolver-failclosed-unknown-owner-type',
+    /if\s*\(\s*!policy\s*\)/.test(resolver) && /AVAILABILITY_OWNER_TYPE_UNKNOWN/.test(resolver) &&
+    /AvailabilityOwnerAuthorityError\(\s*400\s*,\s*['"]AVAILABILITY_OWNER_TYPE_UNKNOWN['"]/.test(resolver),
+    'resolver perdeu o fail-closed de owner_type DESCONHECIDO (if(!policy) throw 400 AVAILABILITY_OWNER_TYPE_UNKNOWN) — tipo fora do vocabulário NÃO pode virar allow.');
+
+  check('temporal:resolver-failclosed-owner-not-found',
+    /AvailabilityOwnerAuthorityError\(\s*404\s*,\s*['"]AVAILABILITY_OWNER_NOT_FOUND['"]/.test(resolver) &&
+    /authorityActorId\s*=\s*null/.test(resolver),
+    'resolver perdeu o fail-closed de recurso INEXISTENTE/tipo incompatível (catch→authorityActorId=null + throw 404 AVAILABILITY_OWNER_NOT_FOUND) — UUID de outro tipo/ausente NÃO pode autorizar.');
+
+  check('temporal:resolver-failclosed-not-representable',
+    /AvailabilityOwnerAuthorityError\(\s*403\s*,\s*['"]AVAILABILITY_OWNER_NOT_REPRESENTABLE['"]/.test(resolver) &&
+    /if\s*\(\s*!canRep\s*\)/.test(resolver) && /canRep\s*=\s*false/.test(resolver),
+    'resolver perdeu o fail-closed de AUTORIDADE (canRepresentActor: catch→canRep=false + if(!canRep) throw 403 AVAILABILITY_OWNER_NOT_REPRESENTABLE) — autoridade não pode ser ignorada nem fail-open.');
+}
+
 // 5) WRITER de service_offering usa o ENUM (nunca string fora do vocabulário).
 {
   check('temporal:so-writer-uses-enum',
