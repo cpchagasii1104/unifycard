@@ -7,8 +7,9 @@
 // vincula req.user → actor. `actionContext.actorId` NÃO é coberto pelo audit-actor-authority-boundary
 // (gap conhecido). Este guard congela o estado e FALHA se:
 //   (a) surgir uma rota PDV NOVA (path fora do REGISTRO classificado);
-//   (b) a rota de pagamento for declassificada de DIVERGENT-MONEY sem um binding REAL
-//       (canRepresentActor/assertActorRepresentable) presente;
+//   (b) a rota de pagamento (CANONICAL pós PDV-F2A) perder o binding real (canRepresentActor sobre
+//       order.sellerActorId resolvido por getOrderById), OU o gate deixar de vir ANTES de payOrderFromPdv,
+//       OU for apresentada como CANONICAL sem binding;
 //   (c) o PDV tocar bank_ledger/bank_transactions DIRETO (BANK_TOUCH não classificado) — hoje passa por
 //       marketplace/Core (paymentExecutionService), sem ledger direto;
 //   (d) o módulo PDV perder a marca canal-1 (deixar de usar actionContext.actorId — sinal de mudança
@@ -38,7 +39,7 @@ const PDV_ROUTES = {
   'POST /orders':                           'DIVERGENT (cria order marketplace; autoria actionContext.actorId; money-adjacent)',
   'POST /orders/:orderId/items/unit':       'DIVERGENT (add item; autoria actionContext.actorId; money-adjacent)',
   'POST /orders/:orderId/items/weight':     'DIVERGENT (add item; autoria actionContext.actorId; money-adjacent)',
-  'POST /orders/:orderId/pay':              'DIVERGENT-MONEY (executa pagamento via marketplace paymentExecutionService; actionContext.actorId; SEM binding)',
+  'POST /orders/:orderId/pay':              'CANONICAL (PDV-F2A: canRepresentActor sobre order.sellerActorId server-side, ANTES de payOrderFromPdv; requirePermission = camada adicional, não autoridade única; actionContext.actorId = audit, não autoridade)',
 };
 const PAY_KEY = 'POST /orders/:orderId/pay';
 const PAY_PATH = '/orders/:orderId/pay';
@@ -75,15 +76,32 @@ function runGuard() {
     failures.push('pdv.routes.ts não usa mais actionContext.actorId — modelo de autoridade mudou; reclassifique o REGISTRO (LOCK).');
   }
 
-  // (b) rota de pagamento: se declassificada de DIVERGENT-MONEY, exige binding REAL no bloco da rota pay.
+  // (b) rota de pagamento (PDV-F2A): CANONICAL exige binding REAL (canRepresentActor) + order resolvido
+  // server-side (getOrderById) + gate ANTES do side-effect (payOrderFromPdv). Declassificar p/ CANONICAL
+  // sem binding, ou chamar payOrderFromPdv antes do gate, MORDE.
   const payIdx = code.indexOf(PAY_PATH);
-  const payBlock = payIdx >= 0 ? code.slice(payIdx) : '';
-  const payHasBinding = /\b(canRepresentActor|assertActorRepresentable)\s*\(/.test(payBlock);
-  const payClass = PDV_ROUTES[PAY_KEY] || '';
-  if (!payClass.startsWith('DIVERGENT-MONEY') && !payHasBinding) {
-    failures.push('rota de pagamento PDV declassificada de DIVERGENT-MONEY SEM binding real (canRepresentActor/assertActorRepresentable) — proibido apresentar money como segura/canônica sem binding.');
+  if (payIdx < 0) {
+    failures.push('rota de pagamento PDV (/orders/:orderId/pay) não encontrada — REGISTRO precisa revisão.');
+  } else {
+    const payBlock = code.slice(payIdx);
+    const payHasBinding = /\b(canRepresentActor|assertActorRepresentable)\s*\(/.test(payBlock);
+    const payClass = PDV_ROUTES[PAY_KEY] || '';
+    if (payClass.startsWith('CANONICAL')) {
+      if (!payHasBinding) {
+        failures.push('pay classificada CANONICAL SEM canRepresentActor/assertActorRepresentable — proibido apresentar money como canônica sem binding.');
+      }
+      if (!/\bgetOrderById\s*\(/.test(payBlock)) {
+        failures.push('pay: order NÃO resolvido server-side (orderService.getOrderById) para obter o seller — autoridade não pode vir do body.');
+      }
+      const bindIdx = payBlock.search(/\b(canRepresentActor|assertActorRepresentable)\s*\(/);
+      const sideIdx = payBlock.search(/\bpayOrderFromPdv\s*\(/);
+      if (bindIdx < 0 || sideIdx < 0 || bindIdx > sideIdx) {
+        failures.push('pay: o gate canônico (canRepresentActor) deve vir ANTES de payOrderFromPdv (side-effect de pagamento).');
+      }
+    } else if (!payClass.startsWith('DIVERGENT-MONEY') && !payHasBinding) {
+      failures.push('pay declassificada de DIVERGENT-MONEY SEM binding real — proibido.');
+    }
   }
-  if (payIdx < 0) failures.push('rota de pagamento PDV (/orders/:orderId/pay) não encontrada — REGISTRO precisa revisão.');
 
   // (c) PDV não pode tocar bank_ledger/bank_transactions DIRETO (sem classificação BANK_TOUCH).
   for (const f of walk(PDV_DIR)) {
@@ -99,9 +117,9 @@ function runGuard() {
     process.exit(1);
   }
   const divergent = Object.values(PDV_ROUTES).filter((v) => v.startsWith('DIVERGENT')).length;
-  const money = Object.values(PDV_ROUTES).filter((v) => v.startsWith('DIVERGENT-MONEY')).length;
-  console.log(`[pdv-authority-lock] ${Object.keys(PDV_ROUTES).length} rotas PDV classificadas (${divergent} DIVERGENT incl. ${money} DIVERGENT-MONEY); canal-1 actionContext.actorId sem binding (DT); pay sem binding; PDV não toca bank_ledger direto (via Core).`);
-  console.log('GATE OK [pdv-authority-lock] — superfície PDV (canal-1 sem binding) LOCKED + classificada; novas rotas/declassificação/bank-touch direto mordem.');
+  const canonical = Object.values(PDV_ROUTES).filter((v) => v.startsWith('CANONICAL')).length;
+  console.log(`[pdv-authority-lock] ${Object.keys(PDV_ROUTES).length} rotas PDV classificadas (${divergent} DIVERGENT canal-1 sem binding [DT] + ${canonical} CANONICAL: pay com canRepresentActor sobre order.sellerActorId antes do side-effect [PDV-F2A]); PDV não toca bank_ledger direto (via Core).`);
+  console.log('GATE OK [pdv-authority-lock] — pay (money) com binding canônico antes do payOrderFromPdv; demais rotas PDV canal-1 LOCKED + classificadas; novas rotas/declassificação/bank-touch direto mordem.');
 }
 
 const isMain = process.argv[1] ? resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;

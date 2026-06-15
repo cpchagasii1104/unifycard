@@ -1,3 +1,13 @@
+## 2026-06-15 — PDV-F2A (PAYMENT AUTHORITY BINDING): POST /pdv/orders/:id/pay deixa de ser role/canal-1 → ownership canônico (representa o seller da ordem) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `ef4ea717`** (pós-PASS Yala PDV-F0-LOCK) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH6_PDV_F2A_PAYMENT_AUTHORITY.md`. **Atende ao GO PDV-F2** (correção direta da rota money).
+
+**READ-FIRST:** `orders` NÃO tem `session_id` (sem FK order→session) → NÃO dá p/ ir pela sessão sem improvisar. O actor autorizado resolvível é o **SELLER da ordem** (`orders.seller_actor_id`, server-side via getOrderById). **Correção:** ANTES de `payOrderFromPdv`: getOrderById → `canRepresentActor(tenantId, req.user.id, order.sellerActorId)` → 403; consistência seller/buyer vs ordem. `requirePermission`/`actionContext.actorId`/role = camada adicional, NÃO autoridade. **DIVERGENT-MONEY → CANONICAL.** NÃO improvisei order→session (STOP respeitado); NÃO expandi p/ as 9 outras rotas (deferido, não-silencioso).
+
+**Tripé:** guard `audit-pdv-authority-lock.mjs` atualizado (pay CANONICAL exige canRepresentActor+getOrderById antes do side-effect) + neg-proof (5 mordidas, byte-idêntico) + e2e efêmero **5/5** (representa seller→passa; não-representa→403; spoof actionContext→403; Bank intocado). **Gates:** actor-writer/bank-ledger OK · regression rc=0 · arch critical_new=0 · tsc build 25/strict 43. **HARD STOPS:** Bank/Core/ledger/paymentExecutionService/seed/migration/RBAC/9-outras-rotas/social-work intocados; dev 385/385. **BATCH (PDV-F2A) IMPLEMENTED / HOLD PARA RESEAL.** Restam 9 rotas PDV DIVERGENT (PDV-F2B+); modelo operador/empresa = possível decisão Clayton.
+
+---
+
 ## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 5 (PDV-F0-LOCK): matriz + lock guard + neg-proof (read-only, zero runtime) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `85cf27ae`** (pós-PASS Yala batch 4) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH5_PDV_F0_LOCK.md`. **ZERO runtime change** (lock/read-only + guard; NÃO corrige handler).

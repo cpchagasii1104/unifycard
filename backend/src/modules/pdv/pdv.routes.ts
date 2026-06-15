@@ -3,6 +3,8 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { requirePermission } from '@core/authorization/require-permission.guard';
+import { orderService } from '../marketplace/order.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { pdvService } from './pdv.service';
 import { auditService } from '@core/audit/audit.service';
 import type { AuditSeverity, AuditSource } from '@core/audit/audit.service';
@@ -275,6 +277,27 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       const idempotencyKey = (req.headers['idempotency-key'] as string) || undefined;
       if (idempotencyKey) {
         input.idempotencyKey = idempotencyKey;
+      }
+
+      // 🔒 PDV-F2A (DECISION-0131 / 0113 canal-1 / Art.17): autoridade CANÔNICA por REPRESENTABILIDADE do
+      // SELLER da ORDEM (server-side), ANTES de qualquer side-effect. actionContext.actorId / role /
+      // capability NÃO autorizam sozinhos: req.user DEVE representar o vendedor da ordem. O seller é
+      // resolvido da ORDEM (orderService.getOrderById), NUNCA do body. Sem representar o seller → 403.
+      const payUserId = req.user?.id;
+      if (!payUserId) {
+        return reply.status(401).send({ error: 'Authentication required' });
+      }
+      const orderForAuth = await orderService.getOrderById(tenantId, orderId);
+      if (!orderForAuth) {
+        return reply.status(404).send({ error: 'Order not found' });
+      }
+      const canRepresentSeller = await authorizationService.canRepresentActor(tenantId, payUserId, orderForAuth.sellerActorId);
+      if (!canRepresentSeller) {
+        return reply.status(403).send({ error: 'Caller must represent the order seller to process payment.' });
+      }
+      // Consistência: seller/buyer do body devem casar com a ORDEM (sem redirecionar dinheiro pelo body).
+      if (input.sellerActorId !== orderForAuth.sellerActorId || input.buyerActorId !== orderForAuth.buyerActorId) {
+        return reply.status(403).send({ error: 'Payment parties must match the order (seller/buyer).' });
       }
 
       const result = await pdvService.payOrderFromPdv(tenantId, input);

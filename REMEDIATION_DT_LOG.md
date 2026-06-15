@@ -13277,6 +13277,12 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Contenção atual:** guard `audit-role-as-authority-containment.mjs` classifica os 4 como `ADAPTER_TRANSITIONAL` e
   bloqueia callers novos não classificados. Sem mudança de runtime (a palavra CANONICAL não rotula mais role-fallback).
 
+### ATUALIZAÇÃO 2026-06-15 (PDV-F2A): a rota money `POST /pdv/orders/:orderId/pay` foi **CORRIGIDA** — DIVERGENT-MONEY
+→ **CANONICAL**: gate `canRepresentActor` sobre `orders.seller_actor_id` (server-side via getOrderById) ANTES de
+`payOrderFromPdv`; `requirePermission`/`actionContext.actorId`/role NÃO autorizam sozinhos; consistência seller/buyer
+vs ordem. Cercado por `audit-pdv-authority-lock.mjs` (pay CANONICAL exige binding antes do side-effect). e2e 5/5;
+Bank/Core intocados. **Restam 9 rotas PDV DIVERGENT** (sessions/orders/items) → sub-frentes PDV-F2B+.
+
 ## DT-PDV-CANAL1-AUTHORITY-NO-BINDING — PDV grava autoria por actionContext.actorId sem binding (2026-06-15, PDV-F0-LOCK / DECISION-0131 · 0113 canal-1)
 
 - **Status:** **OPEN (CONTIDO + CLASSIFICADO; correção = PDV-F2).** READ-FIRST de 1ª mão (WAVE-1 BATCH-5) mapeou as **10
