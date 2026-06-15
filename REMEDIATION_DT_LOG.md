@@ -13347,6 +13347,26 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   autoridade composta) = decisão de produto Clayton, frente própria — **NÃO declarado resolvido**. Resíduo service-side
   remanescente: `executePayment` ainda recebe `actingUserId: session.actorId` (operador) — autoria operacional, não money-party.
 
+## DT-RIDES-CANCEL-REVERSAL-DEAD-BRIDGE — bridge de reversão em código morto + fallback de autor frouxo (2026-06-15, C4 / ONDA DECISION-0131)
+
+- **Status:** **OPEN (DEAD/CONTIDO por inalcançabilidade; NÃO corrigir/amputar agora).** Descoberto no READ-FIRST do C4.
+- **Achado:** `rides.service.cancelRide` (SPRINT 4, "cancelar corrida COM reversão") chama
+  `bankIntegrationService.reverseTransaction(tenantId, bankTransactionId)` **sem `actorId`**. O bridge
+  `bankIntegrationService.reverseTransaction` (bank-integration.service.ts:746), quando `actorId` é ausente, usa
+  **fallback "primeiro actor do tenant"** (`SELECT id FROM actors ORDER BY created_at ASC LIMIT 1`) como `reversals.actor_id`
+  (AUTORIA do request — não autoridade do money, que é system via `buildSystemAuthorship`).
+- **Por que NÃO é money vivo:** `rides.service.cancelRide` tem **0 callers** (grep `\bcancelRide\s*\(` = só a definição).
+  O cancelamento VIVO de corrida é `rides/lifecycle.routes.ts POST /cancel` — que faz cancelamento inline com autoridade
+  real (`assertRideAuthority` + participação `driver_user_id===userId`/`passenger_user_id===userId`) e **NÃO reverte**
+  transação bancária. Logo o fallback frouxo é alcançável **só por dead code**.
+- **Materialidade:** autoria-lixo LATENTE (não spoof de cliente — `actorId` não vem do body). Money é system-authored.
+  Risco só se `cancelRide`/`reverseTransaction`-sem-actorId ganhar caller vivo.
+- **Contenção (C4 guard-lock):** `audit-reversal-containment.mjs` (INV6) **baselineia** os arquivos que referenciam
+  `reverseTransaction(`/`cancelRide(` e **MORDE** se surgir arquivo novo (= novo caller potencial). NÃO altera runtime.
+- **Convergência (frente própria, futura — só se rides/bank for reativado):** exige **READ-FIRST financeiro** próprio;
+  endurecer o bridge (exigir `actorId` explícito, remover o fallback "1º actor") OU tombstone do `cancelRide`. **NÃO
+  amputar nesta frente** (lei histórica: rides+bank). **NÃO declarar resolvido o operador×reversal model.**
+
 ## DT-GROUPS-INVITES-MINE-NAMESPACE-DIVERGENT — `/groups/invites/mine` e `:id/request` usam namespace de identidade divergente (2026-06-15, B3f / ONDA DECISION-0131)
 
 - **Status:** **OPEN (CONTIDO; NÃO corrigir agora — abre arco de identidade).** Descoberto no READ-FIRST do B3f.
