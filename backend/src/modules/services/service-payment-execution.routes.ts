@@ -4,6 +4,8 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { servicePaymentExecutionService } from './service-payment-execution.service';
+import { servicePaymentRequestService } from './service-payment-request.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { z } from 'zod';
 import { isServiceFinancialRuntimeEnabled, serviceFinancialDisabledBody } from './service-financial-firewall';
 
@@ -91,6 +93,25 @@ const servicePaymentExecutionRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔒 F-C1-MONEY-SPR-READ-AUTHORITY-HARDENING (DECISION-0113): MESMA cadeia da leitura do payment
+        // request — resolve o payment request server-side e exige que req.user REPRESENTE o payer OU o
+        // receiver. tenant_id não basta; actor do cliente não autoriza; nada move dinheiro (sem firewall no GET).
+        const paymentRequest = await servicePaymentRequestService.getPaymentRequest(
+          req.tenant.id,
+          req.params.paymentRequestId
+        );
+        if (!paymentRequest) {
+          return reply.status(404).send({ error: 'Payment request não encontrado' });
+        }
+        const canRead =
+          (await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, paymentRequest.payerActorId)) ||
+          (await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, paymentRequest.receiverActorId));
+        if (!canRead) {
+          return reply.status(403).send({
+            error: 'Caller must represent the payer or receiver of this payment request.',
+          });
+        }
+
         const result = await servicePaymentExecutionService.getExecutionByPaymentRequest(
           req.tenant.id,
           req.params.paymentRequestId

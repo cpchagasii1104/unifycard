@@ -94,6 +94,14 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
+      // 🔒 F-C1-MONEY-SPR-READ-AUTHORITY-HARDENING (DECISION-0113): autoridade de LEITURA.
+      // req.user (server-side) DEVE REPRESENTAR o payer OU o receiver da relação financeira.
+      // actionContext.actorId/tenant_id NÃO autorizam sozinhos; nada move dinheiro aqui.
+      const userId = req.user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Authentication required' });
+      }
+
       try {
         const paymentRequest = await servicePaymentRequestService.getPaymentRequestByBooking(
           req.tenant.id,
@@ -102,6 +110,18 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
 
         if (!paymentRequest) {
           return reply.status(404).send({ error: 'Payment request não encontrado' });
+        }
+
+        // payer = requester do booking · receiver = dono do service (ambos validados na criação e
+        // persistidos no payment request). O chamador deve representar AO MENOS UMA parte. Sem isso → 403.
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        const canRead =
+          (await authorizationService.canRepresentActor(req.tenant.id, userId, paymentRequest.payerActorId)) ||
+          (await authorizationService.canRepresentActor(req.tenant.id, userId, paymentRequest.receiverActorId));
+        if (!canRead) {
+          return reply.status(403).send({
+            error: 'Caller must represent the payer or receiver of this payment request.',
+          });
         }
 
         return reply.send({ ok: true, data: paymentRequest });

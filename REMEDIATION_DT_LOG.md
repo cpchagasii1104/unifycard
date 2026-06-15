@@ -13347,6 +13347,27 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   autoridade composta) = decisão de produto Clayton, frente própria — **NÃO declarado resolvido**. Resíduo service-side
   remanescente: `executePayment` ainda recebe `actingUserId: session.actorId` (operador) — autoria operacional, não money-party.
 
+## DT-SPR-READ-AUTHORITY-RESIDUES — resíduos pós-hardening da leitura de service-payment-request (2026-06-15, F-C1-MONEY-SPR-READ / ONDA DECISION-0131)
+
+- **Status:** **OPEN (resíduos REAIS; a LEITURA foi corrigida e travada).** Os 2 GET money-adjacent de
+  service-payment-request agora exigem representar payer OU receiver (canRepresentActor server-side, 403 fail-closed);
+  guard `audit-spr-read-authority.mjs` (CLOSED) + e2e 9/9 + neg-proof 3 mordidas. Estes resíduos NÃO são da leitura.
+- **R1 (POST create canal-1 + decisão de produto):** `POST /:serviceId/bookings/:bookingId/payments` (criar cobrança)
+  segue usando `actionContext.actorId` (canal-1) SEM binding e **NÃO foi tocado** (GO: não corrigir POST create). A
+  correção depende de **decisão Clayton: quem pode criar cobrança — payer, receiver ou ambos.** Convergência = frente
+  própria com decisão de produto. _(Efeito colateral do guard B1f: `audit-actor-authority-boundary` é FILE-LEVEL — agora
+  que o arquivo tem `canRepresentActor` (do GET), o guard CLAREIA o arquivo inteiro (stale_baseline=1) e **não flagga mais
+  o canal-1 do POST**. O baseline B1f permanece com 31 entradas (objeto intacto); a entrada deste arquivo virou stale. O
+  POST create permanece debt — registrado AQUI para não se perder.)_
+- **R2 (POST execute):** `POST /:paymentRequestId/execute` segue FAIL-CLOSED por DECISION-0110 (firewall
+  SERVICE_FINANCIAL_RUNTIME_ENABLED default OFF) — **NÃO tocado**. O GET execution (sem firewall) ganhou o binding de leitura.
+- **R3 (FK/índice/RLS ausentes — achado IA-BANCO):** `service_payment_requests` tem `payer_actor_id`/`receiver_actor_id`
+  uuid NOT NULL mas **sem FK p/ actors, sem índice, sem RLS**. NÃO bloqueia a leitura (owner resolvido app-level via o
+  próprio payment request + canRepresentActor). **NÃO criar migration nesta frente** (GO). Convergência = frente própria
+  de integridade (FK/índice/RLS) quando priorizada.
+- **NÃO declarado resolvido:** C1_MONEY inteiro · SPR create · payment execution · firewall · purchase-order · AP/AR ·
+  settlement. Esta frente fecha SÓ a LEITURA (GET) de service-payment-request.
+
 ## DT-TEMPORAL-LEGACY-DECOMMISSION-RESIDUES — resíduos do descomissionamento legado temporal (2026-06-15, E2 / ONDA DECISION-0131)
 
 - **Status:** **OPEN (resíduos REAIS de descomissionamento; NÃO no write-path — tombstone травado).** O write-path legado
