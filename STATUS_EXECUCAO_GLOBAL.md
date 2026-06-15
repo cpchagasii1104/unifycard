@@ -1,3 +1,13 @@
+## 2026-06-15 — B3f (GET /groups/mine) GUARD-LOCK: comportamento auth-derived TRAVADO (zero runtime) + DT do irmão invites/mine · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `d58db1c5`** (pós-selo do arco PDV) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_B3F_GROUPS_MINE_GUARD_LOCK.md`. **ZERO runtime change** (só guard .mjs + neg-proof + package.json + cartório; nenhum .ts tocado).
+
+**READ-FIRST (READ-ONLY) mudou a premissa:** o alvo do B3f — `GET /groups/mine` — **JÁ ESTAVA CORRIGIDO+committado** (c00435da derive subject from authenticated user + 7c76cfb5 decouple from action context): handler deriva `req.user?.userId` (JWT server-side), 401 fail-closed UNAUTHENTICATED, read-only, bypass EXATO no action-context.plugin (`method==='GET' && rawPath==='/groups/mine'`), repo filtra `gm.user_id=$2`; e2e HTTP real existente (isolação A/B + spoof ignorado). **Dois resíduos REAIS:** (R1) o comportamento estava DESTRAVADO (sem guard de regressão); (R2) os irmãos `GET /groups/invites/mine` + `POST /:id/request` usam namespace divergente `globalUserId||id` (drift das 3 identidades). **Decisão IA Diretora:** R1 agora (guard-lock), R2 vira DT (NÃO abrir arco de identidade).
+
+**Patch (R1):** guard `audit-groups-mine-auth-derived.mjs` (no `validate:regression-guards`) — FALHA se o handler perder `req.user?.userId`/401/read-only, re-acoplar actionContext/actorId, o bypass do plugin virar endsWith/includes, ou o repo deixar de filtrar `gm.user_id=$2`. **Neg-proof 6 mordidas** byte-idêntico (sem-userId/sem-401/write/recouple-actionContext/bypass-alargado/repo-namespace). **DT-GROUPS-INVITES-MINE-NAMESPACE-DIVERGENT** registrado (R2, OPEN, requer READ-FIRST de identidade). **Gates:** regression-guards rc=0 (+1 guard) · tsc build **25**/strict **43** (inalterado — zero .ts tocado). **HARD STOPS:** invites/mine + :id/request NÃO tocados; identidade/mapper/namespace NÃO abertos; Bank/Core/PDV intocados; dev 385/385. **B3f IMPLEMENTED / HOLD PARA RESEAL.**
+
+---
+
 ## 2026-06-15 — ARCO PDV **SELADO/CLOSED** (IA Diretora, pós-PASS Yala F2C): autoridade PDV selada em ROTA e SERVICE; NÃO abrir PDV-F2D
 
 **Decisão da IA Diretora** (2026-06-15, após PASS Yala do PDV-F2C): o arco PDV está **ENCERRADO por agora**. O PDV cumpriu seu papel dentro da frente de AUTORIDADE: eliminou canal-1 cru nas rotas e no ponto money, reforçou o service e corrigiu o bug local de summary. **NÃO abrir PDV-F2D** (continuar puxando PDV = risco de buraco infinito). Cadeia selada:

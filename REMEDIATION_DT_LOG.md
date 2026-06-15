@@ -13346,3 +13346,18 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
 - **NÃO resolvido (residue ABERTO de propósito):** **modelo operador×empresa** (operador-na-empresa-do-seller como
   autoridade composta) = decisão de produto Clayton, frente própria — **NÃO declarado resolvido**. Resíduo service-side
   remanescente: `executePayment` ainda recebe `actingUserId: session.actorId` (operador) — autoria operacional, não money-party.
+
+## DT-GROUPS-INVITES-MINE-NAMESPACE-DIVERGENT — `/groups/invites/mine` e `:id/request` usam namespace de identidade divergente (2026-06-15, B3f / ONDA DECISION-0131)
+
+- **Status:** **OPEN (CONTIDO; NÃO corrigir agora — abre arco de identidade).** Descoberto no READ-FIRST do B3f.
+- **Achado:** `GET /groups/mine` (já corrigido, c00435da+7c76cfb5, agora **TRAVADO** por `audit-groups-mine-auth-derived.mjs`)
+  deriva o sujeito de **`req.user?.userId`** e o repository filtra **`gm.user_id = $2`**. Mas os irmãos
+  **`GET /groups/invites/mine`** (groups.routes.ts:1381) e **`POST /groups/:id/request`** (1411) usam
+  **`req.user!.globalUserId || req.user!.id`** — namespace de identidade DIFERENTE (`global_user_id`/`id` vs `user_id`).
+- **Materialidade:** é o drift das **3 identidades paralelas** (`global_user_id` / `user_id` / `actor_id` sem mapper) —
+  o mesmo apontado na memória de onboarding/identidade. NÃO é money; é leitura/elegibilidade de convite. Mexer = abrir
+  **arco de identidade/namespace** (maior que o B3f; risco de sequestrar a onda 0131).
+- **Contenção:** o B3f travou SÓ o `/groups/mine` (guard estrutural, zero runtime). Os irmãos seguem como estão.
+- **Convergência (frente própria, futura):** unificar o namespace de membership/convite quando a frente de identidade
+  (mapper `global_user_id`↔`user_id`↔`actor_id`) for aberta. Até lá: NÃO patch isolado (risco de inverter qual
+  identidade o `group_members`/`group_invites` realmente indexam). **Requer READ-FIRST de identidade antes de tocar.**
