@@ -230,10 +230,20 @@ class PdvService {
 
     // 2. Buscar pedido
     const order = await orderService.getOrderById(tenantId, input.orderId);
-    
+
     if (!order) {
       throw new Error(`Pedido não encontrado: ${input.orderId}`);
     }
+
+    // 🔒 PDV-F2C: DEFESA PRÓPRIA DO SERVICE — o money NÃO confia em seller/buyer vindos do body.
+    // As partes da transação são DERIVADAS da ORDEM persistida (autoritativa). Se o body divergir
+    // da ordem, falha FAIL-CLOSED ANTES de qualquer side-effect (createPaymentIntent/executePayment).
+    // Independe da validação da rota: outro caller futuro não consegue redirecionar dinheiro pelo body.
+    if (input.sellerActorId !== order.sellerActorId || input.buyerActorId !== order.buyerActorId) {
+      throw new Error('PDV payment parties must match the persisted order (seller/buyer).');
+    }
+    const sellerActorId = order.sellerActorId;
+    const buyerActorId = order.buyerActorId;
 
     // 3. Submeter pedido se estiver em draft
     let finalOrder = order;
@@ -250,7 +260,7 @@ class PdvService {
     const intent = await createPaymentIntent(tenantId, {
       referenceId: input.orderId,
       gateway: 'internal',
-      actorId: input.buyerActorId,
+      actorId: buyerActorId,
       amountCents: input.amountCents,
       currency: input.currency ? toPaymentCurrency(input.currency) : 'BRL',
       source: 'pdv',
@@ -268,8 +278,8 @@ class PdvService {
     const { paymentExecutionService } = await import('../marketplace/payment-execution.service');
     const transaction = await paymentExecutionService.executePayment(tenantId, {
       paymentIntentId: authorizedIntent.id,
-      buyerActorId: input.buyerActorId,
-      sellerActorId: input.sellerActorId,
+      buyerActorId,
+      sellerActorId,
       actingUserId: session.actorId, // Operador do PDV
       idempotencyKey: input.idempotencyKey,
     });
@@ -329,7 +339,7 @@ class PdvService {
         o.id,
         o.status,
         o.created_at,
-        pi.amount as payment_amount,
+        pi.amount_cents as payment_amount,
         pt.status as payment_status
       FROM orders o
       LEFT JOIN payment_intents pi ON pi.order_id = o.id
@@ -437,7 +447,7 @@ class PdvService {
         o.id,
         o.status,
         o.created_at,
-        pi.amount as payment_amount,
+        pi.amount_cents as payment_amount,
         pt.status as payment_status
       FROM orders o
       LEFT JOIN payment_intents pi ON pi.order_id = o.id

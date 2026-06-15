@@ -13,7 +13,10 @@
 //   (d) o módulo PDV perder a marca canal-1 (deixar de usar actionContext.actorId como HINT);
 //   (e) o helper `assertRepresents` sumir OU deixar de conter o primitivo real (canRepresentActor);
 //   (f) a cobertura de binding cair (menos chamadas a `assertRepresents` que as 9 rotas não-pay);
-//   (g) reaparecer autoria CRUA `actor_id: actionContext.actorId` (canal-1 como autoridade final).
+//   (g) reaparecer autoria CRUA `actor_id: actionContext.actorId` (canal-1 como autoridade final);
+//   (h/i/j) PDV-F2C — defesa própria do service: payOrderFromPdv perder a validação seller/buyer contra a
+//       ORDEM persistida, OU o side-effect (createPaymentIntent) vier ANTES dessa validação, OU as chamadas
+//       money voltarem a confiar em input.seller/buyerActorId (body) em vez de derivar da ordem.
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { join, resolve, extname } from 'path';
@@ -22,6 +25,7 @@ import { fileURLToPath } from 'url';
 const ROOT = process.cwd();
 const PDV_DIR = join(ROOT, 'src', 'modules', 'pdv');
 const ROUTES = join(PDV_DIR, 'pdv.routes.ts');
+const SERVICE = join(PDV_DIR, 'pdv.service.ts');
 const stripComments = (s) => s
   .replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1')
   .replace(/\/\*[\s\S]*?\*\//g, '');
@@ -116,6 +120,41 @@ function runGuard() {
     const sideIdx = payBlock.search(/\bpayOrderFromPdv\s*\(/);
     if (bindIdx < 0 || sideIdx < 0 || bindIdx > sideIdx) {
       failures.push('pay: o gate canônico (canRepresentActor) deve vir ANTES de payOrderFromPdv (side-effect de pagamento).');
+    }
+  }
+
+  // (h/i/j) DEFESA PRÓPRIA DO SERVICE (PDV-F2C): payOrderFromPdv não pode confiar em seller/buyer do body.
+  // Deve VALIDAR input contra a ORDEM persistida ANTES do side-effect (createPaymentIntent) e DERIVAR as
+  // partes da ordem (não passar input.*ActorId às chamadas money).
+  if (!existsSync(SERVICE)) {
+    failures.push('pdv.service.ts ausente — não dá para verificar a defesa própria do payOrderFromPdv.');
+  } else {
+    const svc = stripComments(readFileSync(SERVICE, 'utf8'));
+    // Escopar SÓ o corpo de payOrderFromPdv (createOrderFromPdv legitimamente usa input.* para criar a
+    // ordem NOVA, gateado na rota pela representabilidade do operador da sessão — não é money sobre ordem).
+    const payStart = svc.search(/async\s+payOrderFromPdv\s*\(/);
+    if (payStart < 0) {
+      failures.push('payOrderFromPdv não encontrado em pdv.service.ts — REGISTRO precisa revisão.');
+    } else {
+      const rest = svc.slice(payStart + 1);
+      const nextIdx = rest.search(/\n\s{2}(?:async\s+)?[A-Za-z_]\w*\s*\(/);
+      const payBody = nextIdx > 0 ? rest.slice(0, nextIdx) : rest;
+      const hasSellerCheck = /input\.sellerActorId\s*!==\s*order\.sellerActorId/.test(payBody);
+      const hasBuyerCheck = /input\.buyerActorId\s*!==\s*order\.buyerActorId/.test(payBody);
+      if (!hasSellerCheck || !hasBuyerCheck) {
+        failures.push('payOrderFromPdv SEM validação interna seller/buyer contra a ordem persistida (input.*ActorId !== order.*ActorId) — money confiaria no body.');
+      }
+      const valIdx = payBody.search(/input\.sellerActorId\s*!==\s*order\.sellerActorId/);
+      const sideIdx = payBody.search(/createPaymentIntent\s*\(/);
+      if (valIdx < 0 || sideIdx < 0 || valIdx > sideIdx) {
+        failures.push('payOrderFromPdv: a validação seller/buyer (vs ordem persistida) deve vir ANTES do side-effect money (createPaymentIntent).');
+      }
+      if (/actorId:\s*input\.buyerActorId/.test(payBody)) {
+        failures.push('createPaymentIntent usa input.buyerActorId (body) — money deve DERIVAR da ordem persistida.');
+      }
+      if (/(buyerActorId|sellerActorId):\s*input\.(buyer|seller)ActorId/.test(payBody)) {
+        failures.push('executePayment usa input.seller/buyerActorId (body) — money deve DERIVAR da ordem persistida.');
+      }
     }
   }
 

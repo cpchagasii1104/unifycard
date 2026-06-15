@@ -13325,3 +13325,24 @@ rota-nova/bank-touch/sem-cobertura/autoria-crua) byte-idêntica · e2e 9/9 (read
 regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/seed/RBAC intocados.
 **Resíduo (fora de escopo, frente própria):** `getSessionSummary` realtime usa `pi.amount` (coluna ausente nesse schema)
 → 500 downstream DO gate (não-autoridade; bug latente de query pré-existente).
+
+### ATUALIZAÇÃO 2026-06-15 (PDV-F2C): **micro-batch final** — defesa própria do service + bug de summary resolvidos.
+- **Service-level hardening (`payOrderFromPdv`):** READ-FIRST confirmou **caller único** (a rota PDV) — mas o service
+  ainda confiava em `input.sellerActorId/buyerActorId` (body). Agora o service tem **defesa própria**: deriva as partes
+  da **ORDEM persistida** (`order.sellerActorId/buyerActorId`, já buscada por `getOrderById`) e **falha FAIL-CLOSED**
+  (`"must match the persisted order"`) se o body divergir, **ANTES** do side-effect money (`createPaymentIntent`, passo 4).
+  `createPaymentIntent`/`executePayment` passam a usar os valores DERIVADOS, não o body. Independe da rota → caller futuro
+  não redireciona dinheiro pelo body. **Sem tocar `paymentExecutionService`/Bank/Core/migration.**
+- **Bug `pi.amount` (Yala/F2B resíduo):** schema vivo = `payment_intents.amount_cents` (bigint) + `order_id` EXISTE +
+  `pt.status` válido. Correção **query-only** (rename `pi.amount` → `pi.amount_cents`) em `getSessionSummary` **E**
+  `closeSessionWithSummary` (query idêntica). Sem migration, sem semântica nova. **Bug de LEITURA, não autoridade, não dinheiro.**
+- **Guard estendido** (3 checks novos, escopados ao corpo de `payOrderFromPdv` — `createOrderFromPdv` legitimamente usa
+  `input.*` p/ criar ordem NOVA, gateado na rota): validação seller/buyer vs ordem persistida presente · ANTES do
+  side-effect · chamadas money NÃO confiam em `input.*ActorId`. **Neg-proof 7→10 mordidas** (add: service-sem-validação ·
+  side-effect-antes-da-validação · body-trust) byte-idêntico. **e2e 9→12/12** (TS1 body divergente→fail-closed ·
+  TS2 body casa→passa validação sem money (SUBMITTED downstream) · TS3 zero payment_intent criado · T9 summary própria→**200**).
+- **Provas:** guard GATE OK · actor-writer/bank-ledger OK · regression rc=0 · arch critical_new=0 (0 atribuível) ·
+  tsc build 25/strict 43 (0 atribuível). Bank/Core/paymentExecutionService/migration/seed intocados.
+- **NÃO resolvido (residue ABERTO de propósito):** **modelo operador×empresa** (operador-na-empresa-do-seller como
+  autoridade composta) = decisão de produto Clayton, frente própria — **NÃO declarado resolvido**. Resíduo service-side
+  remanescente: `executePayment` ainda recebe `actingUserId: session.actorId` (operador) — autoria operacional, não money-party.

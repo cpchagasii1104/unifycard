@@ -19,6 +19,7 @@ import Fastify from 'fastify';
 import { pool } from '../core/database/pool';
 import { tenantService } from '../core/tenants/tenant.service';
 import pdvRoutes from '../modules/pdv/pdv.routes';
+import { pdvService } from '../modules/pdv/pdv.service';
 import { execSync } from 'child_process';
 import { randomUUID } from 'crypto';
 
@@ -145,10 +146,36 @@ async function main(): Promise<void> {
     const r8 = await getSummary(sessAlice);
     record('T8 GET summary de sessão alheia (Modelo B: resolve session.actor_id) → 403', is403(r8), `status=${r8.statusCode}`);
 
-    // T9 — GET /sessions/:id/summary: o DONO (Alice) lê sua sessão → NÃO 403 (binding passa).
+    // T9 — GET /sessions/:id/summary: o DONO (Alice) lê sua sessão → 200 (binding passa E PDV-F2C: a query
+    // de summary deixou de 500 no `pi.amount` ausente — agora `pi.amount_cents`).
     CURRENT_USER = alice.userId; CURRENT_AC = alice.actorId;
     const r9 = await getSummary(sessAlice);
-    record('T9 GET summary da própria sessão (dono) → não 403 (binding passa)', !is403(r9), `status=${r9.statusCode}`);
+    record('T9 GET summary da própria sessão (dono) → 200 (binding passa + summary não-500 pós pi.amount_cents)', r9.statusCode === 200, `status=${r9.statusCode}`);
+
+    // ── PDV-F2C: defesa própria do service payOrderFromPdv (NÃO confia em seller/buyer do body) ──
+    // Sessão OPEN real + ordem persistida (seller=Alice, buyer=Bob, status='cancelled'). Os dois testes
+    // provam que NENHUM payment_intent é criado (side-effect money nunca começa).
+    const piBefore = await count(`SELECT count(*)::int AS n FROM payment_intents`);
+    // Reusa a sessão OPEN de Alice (T8) — o service só exige sessão OPEN, não checa ownership (isso é da rota).
+    const orderReal = await mkOrder(TENANT, alice.actorId, bob.actorId); // seller=Alice, buyer=Bob
+
+    // TS1 — body DIVERGENTE da ordem (seller errado) → fail-closed ANTES do side-effect.
+    let ts1ok = false; let ts1msg = '';
+    try {
+      await pdvService.payOrderFromPdv(TENANT, { sessionId: sessAlice, orderId: orderReal, amountCents: 1000, currency: 'BRL', sellerActorId: bob.actorId, buyerActorId: bob.actorId });
+    } catch (e) { ts1msg = (e as Error).message; ts1ok = /match the persisted order/i.test(ts1msg); }
+    record('TS1 service: body seller/buyer divergente da ordem → fail-closed (match the persisted order)', ts1ok, `msg=${ts1msg}`);
+
+    // TS2 — body CASA com a ordem → passa a validação (sem money; ordem não-submittable barra DEPOIS, sem side-effect).
+    let ts2ok = false; let ts2msg = '';
+    try {
+      await pdvService.payOrderFromPdv(TENANT, { sessionId: sessAlice, orderId: orderReal, amountCents: 1000, currency: 'BRL', sellerActorId: alice.actorId, buyerActorId: bob.actorId });
+    } catch (e) { ts2msg = (e as Error).message; ts2ok = /SUBMITTED/i.test(ts2msg) && !/match the persisted order/i.test(ts2msg); }
+    record('TS2 service: body casa com a ordem → passa a validação (falha downstream SUBMITTED, sem money)', ts2ok, `msg=${ts2msg}`);
+
+    // TS3 — nenhum payment_intent criado em TS1/TS2 (side-effect money nunca começou).
+    const piAfter = await count(`SELECT count(*)::int AS n FROM payment_intents`);
+    record('TS3 service: nenhum payment_intent criado (side-effect money nunca começou)', piAfter === piBefore, `before=${piBefore} after=${piAfter}`);
 
     // T10 — guard verde.
     let guard = false; try { execSync('node scripts/audit-pdv-authority-lock.mjs', { cwd, encoding: 'utf8' }); guard = true; } catch { guard = false; }

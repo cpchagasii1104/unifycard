@@ -7,7 +7,10 @@
 #   (d) surgir rota PDV nova não classificada;
 #   (e) o PDV tocar bank_ledger DIRETO;
 #   (f) a cobertura de binding cair (rotas não-pay sem assertRepresents);
-#   (g) reaparecer autoria CRUA `actor_id: actionContext.actorId`.
+#   (g) reaparecer autoria CRUA `actor_id: actionContext.actorId`;
+#   (h) payOrderFromPdv perder a validação interna seller/buyer vs ordem persistida;
+#   (i) o side-effect money (createPaymentIntent) vier ANTES da validação;
+#   (j) as chamadas money voltarem a confiar em input.*ActorId (body) em vez de derivar da ordem.
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot\..
 
@@ -25,6 +28,7 @@ function Restore { foreach ($f in $script:files) { Set-Content -Path $f -Value $
 $baseOk = ((Invoke-Guard) -eq 0)
 $noBindingBites = $false; $noOrderBites = $false; $orderBites = $false; $newRouteBites = $false
 $bankBites = $false; $coverageBites = $false; $rawAuthorityBites = $false
+$svcNoValBites = $false; $svcSideBeforeValBites = $false; $svcBodyTrustBites = $false
 
 try {
   # (a) binding perde o primitivo real (canRepresentActor → stub).
@@ -54,14 +58,26 @@ try {
   # (g) autoria CRUA reintroduzida (actor_id de auditoria volta a vir de actionContext.actorId).
   Set-Content -Path $routes -Value ($orig[$routes] -replace 'actor_id: target\.actorId', 'actor_id: actionContext.actorId') -Encoding UTF8 -NoNewline
   $rawAuthorityBites = ((Invoke-Guard) -ne 0); Restore
+
+  # (h) service perde a validação interna seller/buyer vs ordem persistida.
+  Set-Content -Path $service -Value ($orig[$service] -replace 'input\.sellerActorId !== order\.sellerActorId', 'input.sellerActorId !== input.sellerActorId') -Encoding UTF8 -NoNewline
+  $svcNoValBites = ((Invoke-Guard) -ne 0); Restore
+
+  # (i) side-effect money (createPaymentIntent) injetado ANTES da validação.
+  Set-Content -Path $service -Value ($orig[$service] -replace '(const session = await this\.getSessionById\(tenantId, input\.sessionId\);)', "`$1 await createPaymentIntent(tenantId, {} as any);") -Encoding UTF8 -NoNewline
+  $svcSideBeforeValBites = ((Invoke-Guard) -ne 0); Restore
+
+  # (j) chamadas money voltam a confiar no body (input.buyerActorId) em vez de derivar da ordem.
+  Set-Content -Path $service -Value ($orig[$service] -replace 'actorId: buyerActorId,', 'actorId: input.buyerActorId,') -Encoding UTF8 -NoNewline
+  $svcBodyTrustBites = ((Invoke-Guard) -ne 0); Restore
 }
 finally { Restore }
 
 $restored = $true
 foreach ($f in $files) { if ((Get-Sha $f) -ne $sha[$f]) { $restored = $false } }
 $guardGreenAgain = ((Invoke-Guard) -eq 0)
-$ok = $baseOk -and $noBindingBites -and $noOrderBites -and $orderBites -and $newRouteBites -and $bankBites -and $coverageBites -and $rawAuthorityBites -and $restored -and $guardGreenAgain
-Write-Host "[neg-proof pdv-authority-lock] baseOk=$baseOk noBinding=$noBindingBites noOrder=$noOrderBites orderBeforeGate=$orderBites newRoute=$newRouteBites bank=$bankBites coverage=$coverageBites rawAuthority=$rawAuthorityBites restored=$restored guardGreenAgain=$guardGreenAgain"
+$ok = $baseOk -and $noBindingBites -and $noOrderBites -and $orderBites -and $newRouteBites -and $bankBites -and $coverageBites -and $rawAuthorityBites -and $svcNoValBites -and $svcSideBeforeValBites -and $svcBodyTrustBites -and $restored -and $guardGreenAgain
+Write-Host "[neg-proof pdv-authority-lock] baseOk=$baseOk noBinding=$noBindingBites noOrder=$noOrderBites orderBeforeGate=$orderBites newRoute=$newRouteBites bank=$bankBites coverage=$coverageBites rawAuthority=$rawAuthorityBites svcNoVal=$svcNoValBites svcSideBeforeVal=$svcSideBeforeValBites svcBodyTrust=$svcBodyTrustBites restored=$restored guardGreenAgain=$guardGreenAgain"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
-Write-Host 'NEGATIVE PROOF: OK — guard morde stub-primitivo/sem-order/side-effect-antes-do-gate/rota-nova/bank-touch/sem-cobertura/autoria-crua; restauração byte-idêntica.' -ForegroundColor Green
+Write-Host 'NEGATIVE PROOF: OK — guard morde stub-primitivo/sem-order/side-effect-antes-do-gate/rota-nova/bank-touch/sem-cobertura/autoria-crua/service-sem-validacao/side-effect-antes-da-validacao/body-trust; restauração byte-idêntica.' -ForegroundColor Green
 exit 0
