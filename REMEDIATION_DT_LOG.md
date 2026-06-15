@@ -13302,3 +13302,26 @@ Bank/Core intocados. **Restam 9 rotas PDV DIVERGENT** (sessions/orders/items) �
   (operador) + verificar a sessão antes do pagamento; readers com binding (sessão é leakável por spoof de actorId hoje).
   **Pode exigir decisão de Clayton** (modelo de autoridade do operador PDV: sessão × empresa × delegação). NÃO tocar
   Bank/Core/seed/RBAC.
+
+### ATUALIZAÇÃO 2026-06-16 (PDV-F2B): **DT FECHADO** — as **9 rotas PDV restantes** (sessions ×6, orders ×1, items ×2)
+foram **VINCULADAS**. Toda rota PDV agora prova server-side que `req.user` REPRESENTA o actor material da ação via
+`canRepresentActor` (helper `assertRepresents`) ANTES de agir/ler, e NENHUMA grava autoria por `actionContext.actorId` cru:
+- **Modelo A** (`POST /sessions/open`, `GET /sessions/open`, `GET /sessions`): `assertRepresents` sobre o actor
+  operacional declarado (`actionContext.actorId`) — readers deixam de ser leakáveis por spoof.
+- **Modelo B** (`POST /sessions/:id/close`, `GET /sessions/:id/summary`, `POST /sessions/:id/close-with-summary`):
+  resolve o DONO da sessão (`pdv_sessions.actor_id`, server-side via `findSessionById`) + `assertRepresents`; 404 (ausente)
+  ≠ 403 (sem autoridade).
+- **Modelo C** (`POST /orders`): resolve a sessão por `input.sessionId` → `session.actor_id` (operador) + `assertRepresents`;
+  sem `sessionId` resolvível → STOP/400.
+- **Modelo D** (`POST /orders/:orderId/items/{unit,weight}`): resolve a ORDEM server-side (`getOrderById`) →
+  `seller_actor_id` + `assertRepresents`.
+- **Autoria de auditoria** das 4 rotas que gravavam `actor_id: actionContext.actorId` CRU (orders, items×2, **pay**)
+  passou a gravar o actor VALIDADO (operador/seller resolvido). **`POST /pay` (PDV-F2A) preservada**, só o audit endureceu.
+**Classes:** 10 CANONICAL (binding por representabilidade, role-independente). Guard `audit-pdv-authority-lock.mjs`
+estendido: helper presente com primitivo real · cobertura ≥9 chamadas `assertRepresents` · zero `actor_id:
+actionContext.actorId` cru. **SEM migration** (`pdv_sessions.actor_id`/`orders.seller_actor_id` já resolvem).
+**Provas:** guard GATE OK (10 CANONICAL) · neg-proof 7 mordidas (stub-primitivo/sem-order/side-effect-antes-do-gate/
+rota-nova/bank-touch/sem-cobertura/autoria-crua) byte-idêntica · e2e 9/9 (readers isolam o gate: spoof→403, dono→passa) ·
+regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/seed/RBAC intocados.
+**Resíduo (fora de escopo, frente própria):** `getSessionSummary` realtime usa `pi.amount` (coluna ausente nesse schema)
+→ 500 downstream DO gate (não-autoridade; bug latente de query pré-existente).

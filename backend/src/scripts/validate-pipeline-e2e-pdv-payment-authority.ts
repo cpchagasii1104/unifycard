@@ -56,6 +56,13 @@ async function mkOrder(tenantId: string, sellerActorId: string, buyerActorId: st
   )).rows[0].id;
 }
 
+async function mkSession(tenantId: string, actorId: string): Promise<string> {
+  return (await pool.query<{ id: string }>(
+    `INSERT INTO pdv_sessions (tenant_id, actor_id, status, metadata) VALUES ($1::uuid,$2::uuid,'OPEN','{}'::jsonb) RETURNING id::text AS id`,
+    [tenantId, actorId]
+  )).rows[0].id;
+}
+
 let CURRENT_USER = ''; let CURRENT_AC = '';
 
 async function main(): Promise<void> {
@@ -118,9 +125,34 @@ async function main(): Promise<void> {
     // T4 — Bank intocado em todos os cenários.
     record('T4 Bank intocado (bank_ledger+bank_transactions inalterados)', (await count(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::int AS n`)) === bankBefore);
 
-    // T5 — guard verde.
+    // ── PDV-F2B: binding das rotas não-pay (readers isolam o gate — sem requirePermission) ──
+    const getSessions = () => app.inject({ method: 'GET', url: '/pdv/sessions' });
+    const getSummary = (sessionId: string) => app.inject({ method: 'GET', url: `/pdv/sessions/${sessionId}/summary` });
+
+    // T6 — GET /sessions: req.user representa o actor declarado (Alice/Alice) → NÃO 403 (passa o binding).
+    CURRENT_USER = alice.userId; CURRENT_AC = alice.actorId;
+    const r6 = await getSessions();
+    record('T6 GET /sessions representando o próprio actor → não 403 (binding passa)', !is403(r6), `status=${r6.statusCode}`);
+
+    // T7 — GET /sessions: spoof do actionContext.actorId (user=Alice, AC=actor de Bob) → 403 (reader binding).
+    CURRENT_USER = alice.userId; CURRENT_AC = bob.actorId;
+    const r7 = await getSessions();
+    record('T7 GET /sessions spoof actionContext.actorId → 403 (reader binding anti-spoof)', is403(r7), `status=${r7.statusCode}`);
+
+    // T8 — GET /sessions/:id/summary (Modelo B): sessão DE Alice, requisitada por Bob → 403 (não representa o dono).
+    const sessAlice = await mkSession(TENANT, alice.actorId);
+    CURRENT_USER = bob.userId; CURRENT_AC = bob.actorId;
+    const r8 = await getSummary(sessAlice);
+    record('T8 GET summary de sessão alheia (Modelo B: resolve session.actor_id) → 403', is403(r8), `status=${r8.statusCode}`);
+
+    // T9 — GET /sessions/:id/summary: o DONO (Alice) lê sua sessão → NÃO 403 (binding passa).
+    CURRENT_USER = alice.userId; CURRENT_AC = alice.actorId;
+    const r9 = await getSummary(sessAlice);
+    record('T9 GET summary da própria sessão (dono) → não 403 (binding passa)', !is403(r9), `status=${r9.statusCode}`);
+
+    // T10 — guard verde.
     let guard = false; try { execSync('node scripts/audit-pdv-authority-lock.mjs', { cwd, encoding: 'utf8' }); guard = true; } catch { guard = false; }
-    record('T5 guard pdv-authority-lock verde', guard);
+    record('T10 guard pdv-authority-lock verde', guard);
   } finally {
     await app.close();
     await pool.end();

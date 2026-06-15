@@ -77,6 +77,15 @@ class PdvService {
   }
 
   /**
+   * Busca sessão por ID sem lançar (null se ausente).
+   * PDV-F2B: usado pelas rotas para resolver o operador (session.actorId) e provar
+   * representabilidade ANTES da ação, distinguindo 404 (ausente) de 403 (sem autoridade).
+   */
+  async findSessionById(tenantId: string, sessionId: string) {
+    return await pdvSessionRepository.getSessionById(tenantId, sessionId);
+  }
+
+  /**
    * Busca sessão aberta por actor
    */
   async getOpenSessionByActor(tenantId: string, actorId: string) {
