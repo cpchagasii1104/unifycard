@@ -13226,3 +13226,31 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
 - **Resíduo de auditoria (NOTA):** `financial_approval_policy_events` registra `approved` (sempre) e `blocked` (quando há
   policy+authority resolvidas); decisões pré-autoridade (sem policy/authority/segregação) não geram evento. Auditoria
   completa de rejected/blocked = evolução futura (a tabela já suporta os 3 valores via CHECK).
+
+## DT-ROLE-AS-AUTHORITY-DIVERGENT — role decide autoridade onde deveria haver primitivo canônico (2026-06-15, F-RBAC-ROLE-AS-AUTHORITY-CONTAINMENT / Art.17)
+
+- **Status:** **OPEN (CONTIDO + CLASSIFICADO; correção = sub-frentes).** READ-FIRST de 1ª mão (DECISION-0131 BATCH 3)
+  classificou os 8 callers vivos de `rbacService.userHasAnyRole`/`actorHasAnyRole` (lê `user_roles` como autoridade —
+  AUTHORITY_LAW Art.17). **4 CANONICAL** (role = fallback APÓS primitivo canônico: `social-work.routes` post-owner,
+  `event-lifecycle` owner/company, `work-insights`/`worker-status` self). **4 DIVERGENT** (role decide sozinha, sem
+  primitivo canônico antes):
+  - `modules/social/social-work-payment.routes.ts:175` — **DIVERGENT-MONEY**: GET `/posts/:postId/payments` (lista
+    transações do job) gateado SÓ por `userHasAnyRole(['admin','owner'])`. **Prioridade.**
+  - `modules/social/social-work-apply.routes.ts:142` — GET applicants, role-sole.
+  - `modules/social/social-work-schedule.routes.ts:168` — GET schedules, role-sole.
+  - `core/categories/categories.service.ts:197` — `createCategory(allowActive)`, role-sole (config).
+- **Por que NÃO corrigi agora (escape do GO — frente grande, sem refactor amplo):** as 3 rotas social-work têm
+  **preHandler `requirePermission([...])` que é ELE PRÓPRIO role-based** (rbac.plugin → `actorHasAnyRole` →
+  `actor_has_any_role` → `user_roles`). Logo o dono do post (primitivo canônico) seria barrado pelo preHandler ANTES do
+  check inline — uma correção limpa (deixar o owner passar) exige **mexer no preHandler RBAC-V2**, que é proibido neste
+  batch (não ativar/alterar RBAC, sem refactor amplo). `categories` não tem primitivo canônico (autoridade de taxonomia
+  institucional inexiste). Improvisar seria pior que conter+classificar.
+- **Contenção atual:** guard `audit-role-as-authority-containment.mjs` (no `validate:regression-guards`) congela os 8
+  callers classificados e **FALHA em qualquer caller NOVO não classificado** (bloqueio de regressão de role-como-autoridade).
+  O lock do stub `actor_has_permission=RETURN FALSE` segue em [[audit-rbac-stub-and-tombstones]] (F1). Duplicata morta
+  `services/events/event-lifecycle.routes.ts` REMOVIDA.
+- **Convergência (sub-frentes próprias):** (1) **F-RBAC-V2-PERMISSION-OWNERSHIP** — desemaranhar `requirePermission` para
+  admitir primitivo de ownership (post-owner) antes/junto do role; (2) então corrigir social-work apply/payment/schedule
+  para `post-owner OR admin` (padrão `validatePostAccess`); (3) **F-CATEGORIES-TAXONOMY-AUTHORITY** — decidir o primitivo
+  de autoridade de taxonomia (institucional) p/ `createCategory(active)`. Cada uma com tripé. Nenhuma toca dinheiro/Core
+  financeiro/seed/RBAC-ativação.
