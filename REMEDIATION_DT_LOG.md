@@ -13254,3 +13254,23 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   para `post-owner OR admin` (padrão `validatePostAccess`); (3) **F-CATEGORIES-TAXONOMY-AUTHORITY** — decidir o primitivo
   de autoridade de taxonomia (institucional) p/ `createCategory(active)`. Cada uma com tripé. Nenhuma toca dinheiro/Core
   financeiro/seed/RBAC-ativação.
+
+## DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER — callers com primitivo canônico + fallback por role (2026-06-15, F-RBAC-ROLE-AS-AUTHORITY-CONTAINMENT / Art.17)
+
+- **Status:** **OPEN (CONTIDO; convergência futura).** _(Correção do FAIL Yala de WAVE-1 BATCH-3: estes 4 callers
+  estavam rotulados CANONICAL indevidamente.)_ São **ADAPTADOR_TRANSITÓRIO**, não CANÔNICO definitivo: têm primitivo
+  canônico **PRIMÁRIO**, mas mantêm **fallback por role** (`primitivo OR userHasAnyRole(['admin','owner'])`), logo role
+  AINDA é caminho de autoridade secundária (AUTHORITY_LAW Art.17):
+  - `modules/social/social-work.routes.ts:40` — `create-job`: post owner (`globalUserId`) **OR** admin role.
+  - `modules/events/event-lifecycle.routes.ts:55` — tickets/checkin/consumption: event owner / company-admin **OR** admin role.
+  - `modules/work/work-insights.routes.ts:27` — GET insights: self (`userId===current`) **OR** admin role.
+  - `modules/work-instant/worker-status.routes.ts:253` — GET presence: self **OR** admin role.
+- **Distinção vinculante:** **CANÔNICO** = decisão NÃO depende de role · **ADAPTADOR_TRANSITÓRIO** = primitivo canônico
+  primário + fallback/atalho por role · **DIVERGENT** = role decide autoridade final/única (esses 4 NÃO são DIVERGENT —
+  têm primitivo primário — e NÃO são CANÔNICOS puros — têm role-fallback).
+- **Convergência (sub-frente própria):** substituir o fallback `admin/owner role` por **capability/ownership/autoridade
+  material** sem role (ex.: grant de supervisão tenant-scoped, `tenant_operator_grants`/`company_users.can_*`, ou
+  primitivo de delegação), removendo a leitura de `user_roles` como autoridade. Cada um com tripé. **NÃO** ativar RBAC,
+  **NÃO** mexer no preHandler RBAC-V2 sem a frente própria, **NÃO** tocar dinheiro/Core/seed.
+- **Contenção atual:** guard `audit-role-as-authority-containment.mjs` classifica os 4 como `ADAPTER_TRANSITIONAL` e
+  bloqueia callers novos não classificados. Sem mudança de runtime (a palavra CANONICAL não rotula mais role-fallback).

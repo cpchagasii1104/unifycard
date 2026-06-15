@@ -12,10 +12,10 @@ DTs**, sem refactor amplo. Parent `fd568e70` · branch `rescue-structural` · de
 
 | Caller | Rota/op | Sole gate? | Primitivo canônico | Classe |
 | --- | --- | --- | --- | --- |
-| `modules/social/social-work.routes.ts:40` | POST create-job (W) | NÃO | post owner (`globalUserId`) | **CANONICAL** |
-| `modules/events/event-lifecycle.routes.ts:55` | POST tickets/checkin/consumption (W, money-adj) | NÃO | event owner / company-admin | **CANONICAL** |
-| `modules/work/work-insights.routes.ts:27` | GET insights (R) | NÃO | self (`userId===current`) | **CANONICAL** |
-| `modules/work-instant/worker-status.routes.ts:253` | GET presence (R) | NÃO | self | **CANONICAL** |
+| `modules/social/social-work.routes.ts:40` | POST create-job (W) | NÃO | post owner (`globalUserId`) | **ADAPTER_TRANSITIONAL** |
+| `modules/events/event-lifecycle.routes.ts:55` | POST tickets/checkin/consumption (W, money-adj) | NÃO | event owner / company-admin | **ADAPTER_TRANSITIONAL** |
+| `modules/work/work-insights.routes.ts:27` | GET insights (R) | NÃO | self (`userId===current`) | **ADAPTER_TRANSITIONAL** |
+| `modules/work-instant/worker-status.routes.ts:253` | GET presence (R) | NÃO | self | **ADAPTER_TRANSITIONAL** |
 | `modules/social/social-work-payment.routes.ts:175` | **GET payments (R, MONEY)** | **SIM** | — | **DIVERGENT-MONEY** |
 | `modules/social/social-work-apply.routes.ts:142` | GET applicants (R) | SIM | — | **DIVERGENT** |
 | `modules/social/social-work-schedule.routes.ts:168` | GET schedules (R) | SIM | — | **DIVERGENT** |
@@ -69,8 +69,25 @@ autoridade de caller alterada (correção = sub-frente). dev 385/385.
 2. Correção social-work apply/payment/schedule → `post-owner OR admin` (padrão `validatePostAccess`) — **depende de (1)**.
 3. **F-CATEGORIES-TAXONOMY-AUTHORITY** — decidir primitivo de autoridade de taxonomia institucional p/ `createCategory(active)`.
 
+## Correção do FAIL Yala (2026-06-15) — reclassificação CANONICAL → ADAPTER_TRANSITIONAL
+
+Yala deu FAIL num ponto estreito: os 4 callers rotulados CANONICAL têm fluxo `primitivo canônico OR
+userHasAnyRole(['admin','owner'])` — role ainda é **caminho de autoridade secundária**, logo **não são CANÔNICOS
+definitivos**. Correção (cartorial/guard, **zero mudança de runtime**):
+- **Antes → Depois:** social-work create-job · event-lifecycle · work-insights · worker-status: **CANONICAL →
+  ADAPTER_TRANSITIONAL** (no guard `audit-role-as-authority-containment.mjs` e neste log). Guard agora reporta
+  `0 CANONICAL puro + 4 ADAPTER_TRANSITIONAL + 4 DIVERGENT`.
+- **Legenda corrigida no guard:** CANÔNICO = decisão NÃO depende de role · ADAPTADOR_TRANSITÓRIO = primitivo canônico
+  primário + fallback/atalho por role · DIVERGENT = role decide autoridade final/única.
+- **DT NOVA** `DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER` (os 4 adapters: têm primitivo primário, MAS role-fallback →
+  convergir p/ capability/ownership material sem role). Os 4 DIVERGENT já registrados **não foram reabertos**.
+- **Não declarado corrigido:** F3 (segue contenção), RBAC-V2, social-work-payment. neg-proof segue mordendo caller
+  novo. Gates: regression rc=0 · actor-writer/bank-ledger OK · arch critical_new=0 · tsc build 25/strict 43 (inalterado).
+
 ## Estado
 
-WAVE-1 BATCH-3 (F3) **IMPLEMENTED / HOLD PARA RESEAL**. Uso vivo de role-como-autoridade CONTIDO + CLASSIFICADO
-(8 callers; 4 CANONICAL, 4 DIVERGENT em DT); novos usos bloqueados; duplicata morta removida; stub RBAC segue travado.
-Correções = sub-frentes próprias (RBAC-V2 ownership / categories taxonomy). dev 385; baseline 0113=0; Bank/Core intocados.
+WAVE-1 BATCH-3 (F3) **IMPLEMENTED / HOLD PARA RESEAL** como **F3-CONTAINMENT / CLASSIFICATION / REGRESSION-LOCK**
+(NÃO "F3 corrigido"). Uso vivo de role-como-autoridade CONTIDO + CLASSIFICADO (8 callers; **0 CANONICAL puro · 4
+ADAPTER_TRANSITIONAL · 4 DIVERGENT**, todos em DT de convergência); novos usos bloqueados; duplicata morta removida;
+stub RBAC segue travado. Correções = sub-frentes próprias (RBAC-V2 ownership / social-work / categories taxonomy /
+remoção de role-fallback). dev 385; baseline 0113=0; Bank/Core intocados; zero mudança de runtime.

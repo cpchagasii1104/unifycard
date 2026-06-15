@@ -23,14 +23,19 @@ const stripComments = (s) => s
 // Definições do primitivo (não são callers) — fora do escopo.
 const PRIMITIVE_FILES = new Set(['core/rbac/rbac.service.ts', 'plugins/rbac.plugin.ts']);
 
-// REGISTRO DE CLASSIFICAÇÃO (READ-FIRST 1ª mão). rel(src/) → { class, nota }.
-// CANONICAL = role é fallback APÓS primitivo canônico (owner/self/company). DIVERGENT = role decide sozinha
-// superfície sensível → DT de correção (sub-frente). Não há correção neste guard (frente grande, Art.17).
+// REGISTRO DE CLASSIFICAÇÃO (READ-FIRST 1ª mão). rel(src/) → { class, nota }. Vocabulário (DECISION-0131 §B7):
+//   CANONICAL            = a decisão NÃO depende de role (autoridade material/ownership/capability pura).
+//   ADAPTER_TRANSITIONAL = tem primitivo canônico PRIMÁRIO (owner/self/company), MAS com fallback/atalho por role
+//                          (`primitivo OR userHasAnyRole(['admin','owner'])`). Role AINDA é caminho de autoridade
+//                          secundária → precisa convergir p/ REMOVER o role-fallback (DT). NÃO é canônico definitivo.
+//   DIVERGENT            = role decide autoridade FINAL/ÚNICA em superfície sensível (role-sole) → DT de correção.
+// Não há correção de runtime neste guard (frente grande, Art.17): é contenção + classificação + lock de regressão.
+// (Yala FAIL 2026-06-15: os 4 callers role-fallback estavam rotulados CANONICAL indevidamente — corrigido p/ ADAPTER_TRANSITIONAL.)
 const CLASSIFIED = {
-  'modules/social/social-work.routes.ts':            'CANONICAL (post owner OR admin) — validatePostAccess',
-  'modules/events/event-lifecycle.routes.ts':        'CANONICAL (event owner / company-admin OR admin)',
-  'modules/work/work-insights.routes.ts':            'CANONICAL (self OR admin)',
-  'modules/work-instant/worker-status.routes.ts':    'CANONICAL (self OR admin)',
+  'modules/social/social-work.routes.ts':            'ADAPTER_TRANSITIONAL → DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER (post owner OR admin role-fallback; validatePostAccess)',
+  'modules/events/event-lifecycle.routes.ts':        'ADAPTER_TRANSITIONAL → DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER (event owner / company-admin OR admin role-fallback)',
+  'modules/work/work-insights.routes.ts':            'ADAPTER_TRANSITIONAL → DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER (self OR admin role-fallback)',
+  'modules/work-instant/worker-status.routes.ts':    'ADAPTER_TRANSITIONAL → DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER (self OR admin role-fallback)',
   'modules/social/social-work-payment.routes.ts':    'DIVERGENT-MONEY → DT-ROLE-AS-AUTHORITY-DIVERGENT (GET payments role-sole; entangled com requirePermission RBAC-V2)',
   'modules/social/social-work-apply.routes.ts':      'DIVERGENT → DT-ROLE-AS-AUTHORITY-DIVERGENT (GET applicants role-sole)',
   'modules/social/social-work-schedule.routes.ts':   'DIVERGENT → DT-ROLE-AS-AUTHORITY-DIVERGENT (GET schedules role-sole)',
@@ -69,9 +74,11 @@ function runGuard() {
     failures.forEach((x) => console.error(`  ❌ ${x}`));
     process.exit(1);
   }
-  const divergent = Object.entries(CLASSIFIED).filter(([, v]) => v.startsWith('DIVERGENT')).length;
-  console.log(`[role-as-authority-containment] ${callers.length} caller(s) de role classificados; ${divergent} DIVERGENT em DT (correção = sub-frente); duplicata morta removida; nenhum caller novo não-classificado.`);
-  console.log('GATE OK [role-as-authority-containment] — uso vivo de role-como-autoridade contido e classificado (Art.17); novos usos sem classificação são bloqueados.');
+  const divergent = Object.values(CLASSIFIED).filter((v) => v.startsWith('DIVERGENT')).length;
+  const adapters = Object.values(CLASSIFIED).filter((v) => v.startsWith('ADAPTER_TRANSITIONAL')).length;
+  const canonicalPure = Object.values(CLASSIFIED).filter((v) => v.startsWith('CANONICAL')).length;
+  console.log(`[role-as-authority-containment] ${callers.length} caller(s) classificados: ${canonicalPure} CANONICAL puro + ${adapters} ADAPTER_TRANSITIONAL (role-fallback após primitivo) + ${divergent} DIVERGENT (role-sole) — adapters e divergent em DT de convergência; duplicata morta removida; nenhum caller novo não-classificado.`);
+  console.log('GATE OK [role-as-authority-containment] — uso vivo de role-como-autoridade contido e classificado (Art.17); role-fallback NÃO é canônico definitivo; novos usos sem classificação são bloqueados.');
 }
 
 const isMain = process.argv[1] ? resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
