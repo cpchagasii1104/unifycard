@@ -13364,10 +13364,15 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   (fluxo futuro separado, NÃO reutiliza este create).
 - **R2 (POST execute):** `POST /:paymentRequestId/execute` segue FAIL-CLOSED por DECISION-0110 (firewall
   SERVICE_FINANCIAL_RUNTIME_ENABLED default OFF) — **NÃO tocado**. O GET execution (sem firewall) ganhou o binding de leitura.
-- **R3 (FK/índice/RLS ausentes — achado IA-BANCO):** `service_payment_requests` tem `payer_actor_id`/`receiver_actor_id`
-  uuid NOT NULL mas **sem FK p/ actors, sem índice, sem RLS**. NÃO bloqueia a leitura (owner resolvido app-level via o
-  próprio payment request + canRepresentActor). **NÃO criar migration nesta frente** (GO). Convergência = frente própria
-  de integridade (FK/índice/RLS) quando priorizada.
+- **R3 (FK/índice/RLS ausentes — achado IA-BANCO) — FK+ÍNDICES ✅ RESOLVIDOS, RLS OPEN (F-C1-MONEY-SPR-SCHEMA-INTEGRITY,
+  2026-06-15, migration `20260615200000_service_payment_requests_fk_index.sql`, dev 385→386):** READ-FIRST (SELECT/catálogo)
+  provou seguro — 0 FK existentes, **0 órfãos** (payer/receiver; row_count=0), tipos uuid compatíveis com `actors.id` (PK).
+  Migration forward-only/idempotente (guard DO-block FK + `IF NOT EXISTS` índice; sem DROP/dados/lifecycle/RLS/trigger/amount)
+  adicionou: **FK `payer_actor_id`→actors(id)** · **FK `receiver_actor_id`→actors(id)** · **índice (tenant_id,payer_actor_id)**
+  · **índice (tenant_id,receiver_actor_id)**. Os índices (tenant_id,booking_id) e (tenant_id,service_id) JÁ existiam (não
+  recriados). Provado: migration aplicada em dev (FKs+índices confirmados no catálogo) + e2es SPR read 9/9 / create 10/10
+  (com FK ativa) + regression-guards rc=0 (migration-numbering/sql-lint passam). **RLS continua OPEN** (frente/decisão
+  própria — NÃO incluída nesta frente; R3 NÃO está totalmente fechado enquanto RLS ficar fora).
 - **NÃO declarado resolvido:** C1_MONEY inteiro · SPR create · payment execution · firewall · purchase-order · AP/AR ·
   settlement. Esta frente fecha SÓ a LEITURA (GET) de service-payment-request.
 

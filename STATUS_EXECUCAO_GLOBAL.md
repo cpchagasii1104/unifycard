@@ -1,3 +1,13 @@
+## 2026-06-15 — F-C1-MONEY-SPR-SCHEMA-INTEGRITY-FK-INDEX: FK payer/receiver→actors + índices (migration; dev 385→386) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `3d2115bc`** (pós-SPR-CREATE) · **dev 385→386** (migration `20260615200000_service_payment_requests_fk_index.sql`) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_F_C1_MONEY_SPR_SCHEMA_INTEGRITY.md`. **Schema-only** (FK+índices; SEM RLS/runtime/Bank/execução/firewall). Trata o DT-SPR-READ-AUTHORITY-RESIDUES R3 (parte FK/índice).
+
+**READ-FIRST (SELECT/catálogo, pré-migration):** `service_payment_requests` — payer/receiver/tenant uuid NOT NULL; `actors.id`=uuid (PK); **0 FK existentes**; **0 órfãos** (payer/receiver; row_count=0); índices (tenant_id,booking_id)+(tenant_id,service_id) JÁ existem; **sem índice em payer/receiver**. ⇒ seguro criar. **Migration** forward-only/idempotente (guard DO-block p/ FK · `IF NOT EXISTS` p/ índice; sem DROP/dados/status/lifecycle/RLS/trigger/amount): FK `payer_actor_id`→actors(id) · FK `receiver_actor_id`→actors(id) · índice (tenant_id,payer_actor_id) · índice (tenant_id,receiver_actor_id). Índices booking/service NÃO recriados (já existem).
+
+**Provas:** migration aplicada em dev (catálogo confirma 2 FKs + 2 índices novos; dev=386) · e2es SPR **read 9/9 / create 10/10** com FK ATIVA (ephemeral FULL aplica a migration; seeding cria actors antes do PR → FK satisfeita) · **Gates:** actor-writer/bank-ledger OK · regression rc=0 (check-migration-numbering + sql-regression-lint passam; 14-díg timestamp) · arch critical_new=0 · tsc build **25**/strict **43** (INALTERADO — zero .ts). **DT R3 → FK+índices ✅ RESOLVIDOS; RLS continua OPEN** (frente própria, NÃO incluída). **NÃO tocado:** RLS/policy · POST execute/create/GETs selados (zero .ts) · firewall · Bank/Core/ledger/split/payout/settlement/reversal · purchase-order/AP-AR · payer-initiated · naming amount · trigger. **Fecha SÓ como:** F-C1-MONEY-SPR-SCHEMA-INTEGRITY-FK-INDEX. **IMPLEMENTED / HOLD PARA RESEAL.**
+
+---
+
 ## 2026-06-15 — F-C1-MONEY-SPR-CREATE-AUTHORITY-HARDENING: o RECEIVER/PROVIDER emite a cobrança (Opção A) — POST create exige representar o receiver derivado (runtime cirúrgico) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `81e35ad8`** (pós-SPR-READ) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_F_C1_MONEY_SPR_CREATE_AUTHORITY.md`. **RUNTIME cirúrgico** (SÓ o POST create; SEM Bank/ledger/split/migration/firewall/POST-execute). **Decisão de produto Clayton: Opção A — receiver/provider cria a cobrança; payer paga.**
