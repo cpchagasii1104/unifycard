@@ -30,6 +30,8 @@ export interface PurchaseOrder {
   id: string;
   tenantId: string;
   supplierId: string;
+  /** Owner empresarial material (actor operacional da empresa COMPRADORA = page+company_id). Autoridade. */
+  ownerActorId: string;
   orderNumber: string | null;
   status: PurchaseOrderStatus;
   orderDate: Date;
@@ -81,6 +83,8 @@ export interface PurchaseOrderItem {
  */
 export interface CreatePurchaseOrderInput {
   supplierId: string;
+  /** Owner empresarial DERIVADO/validado server-side (page+company_id representável). Body = só HINT. */
+  ownerActorId?: string;
   orderNumber?: string;
   orderDate?: Date | string;
   expectedDeliveryDate?: Date | string;

@@ -12,6 +12,7 @@ interface PurchaseOrderRow {
   id: string;
   tenant_id: string;
   supplier_id: string;
+  owner_actor_id: string;
   order_number: string | null;
   status: string;
   order_date: Date;
@@ -61,6 +62,7 @@ class PurchaseOrderRepository {
       id: row.id,
       tenantId: row.tenant_id,
       supplierId: row.supplier_id,
+      ownerActorId: row.owner_actor_id,
       orderNumber: row.order_number,
       status: row.status as PurchaseOrder['status'],
       orderDate: row.order_date,
@@ -108,7 +110,7 @@ class PurchaseOrderRepository {
   }
 
   private poSelectList = `
-      id, tenant_id, supplier_id, order_number, status,
+      id, tenant_id, supplier_id, owner_actor_id, order_number, status,
       order_date, expected_delivery_date, received_at, completed_at,
       delivery_address, delivery_city, delivery_state, delivery_zip_code,
       notes, internal_notes,
@@ -128,6 +130,7 @@ class PurchaseOrderRepository {
     tenantId: string,
     input: {
       supplierId: string;
+      ownerActorId: string;
       orderNumber: string | null;
       orderDate: Date;
       expectedDeliveryDate: Date | null;
@@ -146,18 +149,19 @@ class PurchaseOrderRepository {
       tenantId,
       `
       INSERT INTO purchase_orders (
-        tenant_id, supplier_id, order_number, status,
+        tenant_id, supplier_id, owner_actor_id, order_number, status,
         order_date, expected_delivery_date,
         delivery_address, delivery_city, delivery_state, delivery_zip_code,
         notes, internal_notes,
         created_by_actor_id, created_by_user_id, metadata
       )
-      VALUES ($1, $2, $3, 'DRAFT', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb)
+      VALUES ($1, $2, $3, $4, 'DRAFT', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
       RETURNING ${this.poSelectList}
       `,
       [
         tenantId,
         input.supplierId,
+        input.ownerActorId,
         input.orderNumber,
         input.orderDate,
         input.expectedDeliveryDate,

@@ -13366,6 +13366,14 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
 - **Convergência (frente futura):** materializar owner empresarial (company-owned) em `purchase_orders` (schema + backfill)
   e religar `receivePO` derivando a autoridade do OWNER EMPRESARIAL (canRepresentActor sobre o company-actor), NUNCA de
   `created_by_actor_id`. **NÃO declarado:** ownership definitivo · inventory authority · accounts payable · C1_MONEY inteiro.
+- **ATUALIZAÇÃO 2026-06-15 (F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING):** ✅ **owner empresarial MATERIALIZADO.**
+  `purchase_orders.owner_actor_id` (migration `20260615210000`, dev 386→387; NOT NULL row_count=0; FK→actors(id); índice
+  (tenant_id, owner_actor_id)) = actor operacional da empresa COMPRADORA = **`actor_type='page' AND company_id IS NOT NULL`**
+  (§4.38; `company`/`actor_organizational` são vocabulário legado/abstração de autoridade, NÃO o operacional). create/list/
+  read/items/submit/cancel agora exigem `canRepresentActor(req.user, owner_actor_id)` + validação organizacional;
+  created_by/supplier/tenant NÃO autorizam. **NÃO** entrou company_id (evita dupla verdade — derivável de owner_actor_id
+  via actor→company). **`receivePO` CONTINUA CONTIDO** (esta frente NÃO o reabilitou). **Resta (frente futura):** religar
+  `receivePO` derivando a autoridade do `owner_actor_id` (company-actor) + fluxo de recebimento próprio.
 
 ## DT-SPR-READ-AUTHORITY-RESIDUES — resíduos pós-hardening da leitura de service-payment-request (2026-06-15, F-C1-MONEY-SPR-READ / ONDA DECISION-0131)
 

@@ -35,6 +35,12 @@ class PurchaseOrderService {
     createdByActorId: string,
     createdByUserId?: string
   ): Promise<PurchaseOrder> {
+    // 🔒 F-C1-MONEY-PO-OWNER: owner empresarial é OBRIGATÓRIO e validado server-side pela rota (page+company_id
+    // representável). Defesa em profundidade: o service NUNCA persiste PO sem owner empresarial material.
+    if (!input.ownerActorId) {
+      throw new AppError(400, 'PURCHASE_ORDER_OWNER_REQUIRED: purchase_order exige owner empresarial material (owner_actor_id) resolvido e validado server-side.', 'PURCHASE_ORDER_OWNER_REQUIRED');
+    }
+
     // Converter datas se necessário
     const orderDate = input.orderDate ? (input.orderDate instanceof Date ? input.orderDate : new Date(input.orderDate)) : new Date();
     const expectedDeliveryDate = input.expectedDeliveryDate ? (input.expectedDeliveryDate instanceof Date ? input.expectedDeliveryDate : new Date(input.expectedDeliveryDate)) : null;
@@ -42,6 +48,7 @@ class PurchaseOrderService {
     // Criar ordem
     const order = await purchaseOrderRepository.createPurchaseOrder(tenantId, {
       supplierId: input.supplierId,
+      ownerActorId: input.ownerActorId,
       orderNumber: input.orderNumber || null,
       orderDate,
       expectedDeliveryDate,
