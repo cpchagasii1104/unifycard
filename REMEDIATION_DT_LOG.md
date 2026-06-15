@@ -13276,3 +13276,23 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   **NÃO** mexer no preHandler RBAC-V2 sem a frente própria, **NÃO** tocar dinheiro/Core/seed.
 - **Contenção atual:** guard `audit-role-as-authority-containment.mjs` classifica os 4 como `ADAPTER_TRANSITIONAL` e
   bloqueia callers novos não classificados. Sem mudança de runtime (a palavra CANONICAL não rotula mais role-fallback).
+
+## DT-PDV-CANAL1-AUTHORITY-NO-BINDING — PDV grava autoria por actionContext.actorId sem binding (2026-06-15, PDV-F0-LOCK / DECISION-0131 · 0113 canal-1)
+
+- **Status:** **OPEN (CONTIDO + CLASSIFICADO; correção = PDV-F2).** READ-FIRST de 1ª mão (WAVE-1 BATCH-5) mapeou as **10
+  rotas** de `src/modules/pdv/pdv.routes.ts`: TODAS gravam/filtram autoria por **`actionContext.actorId`** (canal-1
+  DECISION-0113) **SEM binding server-side** (o hook só checa existência; `require-permission.guard` checa a capability do
+  actor DECLARADO, não vincula req.user → actor). `actionContext.actorId` NÃO é coberto pelo `audit-actor-authority-boundary`
+  (gap). Classes: **10 DIVERGENT, incl. 1 DIVERGENT-MONEY** (`POST /orders/:orderId/pay` — executa pagamento via
+  marketplace `paymentExecutionService`, autoria canal-1, sem binding).
+- **Materialidade:** pay = MONEY (via Core); sessões/orders/items = MONEY_ADJACENT. **PDV NÃO toca `bank_ledger` direto**
+  (passa por Core/marketplace) — sem STOP crítico.
+- **Schema:** só `pdv_sessions` (`tenant_id`, `actor_id`→actors) é tabela PDV; o `actor_id` é o operador → **ownership
+  resolvível** (provável sem migration).
+- **Contenção:** guard `audit-pdv-authority-lock.mjs` (no `validate:regression-guards`) congela as 10 rotas classificadas
+  e FALHA em: rota PDV nova não classificada · pay declassificada de DIVERGENT-MONEY sem binding real · PDV escrever
+  bank_ledger direto · PDV perder a marca canal-1. **Zero runtime change** (lock/read-only).
+- **Convergência (PDV-F2, frente própria):** bindar o operador via `canRepresentActor` sobre `pdv_sessions.actor_id`
+  (operador) + verificar a sessão antes do pagamento; readers com binding (sessão é leakável por spoof de actorId hoje).
+  **Pode exigir decisão de Clayton** (modelo de autoridade do operador PDV: sessão × empresa × delegação). NÃO tocar
+  Bank/Core/seed/RBAC.

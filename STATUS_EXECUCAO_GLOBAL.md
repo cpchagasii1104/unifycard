@@ -1,3 +1,13 @@
+## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 5 (PDV-F0-LOCK): matriz + lock guard + neg-proof (read-only, zero runtime) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `85cf27ae`** (pós-PASS Yala batch 4) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH5_PDV_F0_LOCK.md`. **ZERO runtime change** (lock/read-only + guard; NÃO corrige handler).
+
+**Matriz PDV (1ª mão, 10 rotas):** TODAS gravam/filtram autoria por `actionContext.actorId` (canal-1 0113) **SEM binding** (hook só checa existência; `require-permission.guard` checa capability do actor DECLARADO, não vincula req.user→actor; `actionContext` não é coberto pelo guard 0113). **10 DIVERGENT, incl. 1 DIVERGENT-MONEY** (`POST /orders/:orderId/pay` — paga via marketplace `paymentExecutionService`). **Achados confirmados:** pay = DIVERGENT-MONEY; hook/guard NÃO bindam; PDV **NÃO toca bank_ledger direto** (via Core, grep vazio) — sem STOP crítico. Schema: só `pdv_sessions` (actor_id=operador → ownership resolvível).
+
+**Lock guard** `audit-pdv-authority-lock.mjs` (registro das 10 rotas; FALHA em rota nova não classificada / pay declassificada sem binding / bank_ledger direto / perda da marca canal-1) + **neg-proof** (3 mordidas, byte-idêntico). **Gates:** actor-writer/bank-ledger OK · regression rc=0 (+1 guard; 0113 baseline=0) · arch critical_new=0 · tsc build 25/strict 43 (inalterado). **DT-PDV-CANAL1-AUTHORITY-NO-BINDING** OPEN (correção=PDV-F2, possível decisão Clayton). **HARD STOPS:** runtime PDV/Bank/Core/ledger/seed/migration/RBAC/RLS/mapper/cargo/delegação/platform/cartão/financial_approval_* intocados; C4/B3f/A1/E1/E2/B1f não junto. **BATCH 5 IMPLEMENTED / HOLD PARA RESEAL.**
+
+---
+
 ## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 4 (F-RBAC-V2-PERMISSION-OWNERSHIP, money-first): GET payments deixa de ser role-solo → ownership canônico · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `8cd5daa9`** (pós-PASS Yala re-reseal batch 3) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH4_RBAC_V2_OWNERSHIP_MONEY.md`.
