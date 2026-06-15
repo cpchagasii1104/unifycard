@@ -32,6 +32,9 @@ import { fileURLToPath } from 'url';
 const SRC = join(process.cwd(), 'src');
 
 // Canais de ator DECLARADO pelo cliente (hints; exigem binding server-side).
+// B1f (F-0113-CANAL1-ACTIONCONTEXT-TRANSVERSAL-LOCK, 2026-06-15): incluído o canal-1 da DECISION-0113
+// — `actionContext.actorId` (o x-action-context é client-declared). É o canal que faltava: o princípio
+// transversal "cliente declara intenção, servidor decide autoridade" agora cobre TODOS os 5 canais.
 const CLIENT_ACTOR_CHANNELS = [
   { key: 'body.actor-object',     re: /parseActor\(\s*req\.body|req\.body\??\.actor\??\.(kind|actorId|actor_id)|req\.body\??\.actor\b(?!_)/ },
   { key: 'body.actorId',          re: /req\.body\??\.(actorId|actor_id)\b/ },
@@ -40,7 +43,14 @@ const CLIENT_ACTOR_CHANNELS = [
   { key: 'query.actorId',         re: /req\.query\??\.actorId\b/ },
   { key: 'header.x-actor-id',     re: /['"]x-actor-id['"]/ },
   { key: 'metadata.serviceId',    re: /metadata\.serviceId\b/ },
+  { key: 'actionContext.actorId', re: /actionContext\??\.\s*actorId\b/ },
 ];
+// Canais que requirePermission([ NÃO vincula (declaram um ator DIFERENTE do que o canal-1 verifica).
+// requirePermission resolve a capability do `actionContext.actorId` (canal-1) via canPerformAction→canActAs,
+// ligando req.user→actor declarado. NÃO liga body/params/query/x-actor-id (ator distinto). Por isso o
+// clearing por requirePermission só vale quando o ÚNICO canal do arquivo é o actionContext.actorId.
+const STRICT_CHANNELS = new Set(['body.actor-object', 'body.actorId', 'authoritySource:system', 'params.actorId', 'query.actorId', 'header.x-actor-id', 'metadata.serviceId']);
+const REQUIRE_PERMISSION_PREHANDLER = /\brequirePermission\(\s*\[/;
 
 // Helpers de binding server-side (a presença NO ARQUIVO satisfaz a heurística file-level).
 const BINDING_HELPERS = /\bcanActAs\b|\bcanRepresentActor\b|\bcanPerformAction\b|\brequireRepresentable\b|\brequireRepresentableActor\b|\bauthorityActorOf\b|\brepresentsAvailabilityOwner\b|\bcanManageCompany\b/;
@@ -158,7 +168,45 @@ const SAFE_SUBJECT_READERS = {
 // ── BASELINE EXPLÍCITO (estado conhecido; cada item tem DT vinculada) ──
 // Arquivo (rel a src/) → canais usados sem binding no arquivo + nota/DT. NOVOS arquivos
 // fora desta lista (e fora de SAFE_SUBJECT_READERS) que casem um canal sem binding = FALHA.
+// B1f (2026-06-15): nota compartilhada do canal-1 congelado. Debt PRÉ-EXISTENTE (esses arquivos já liam
+// actionContext.actorId sem binding ANTES do B1f; o canal-1 só não era detectado). Congelado, NÃO corrigido.
+const C1 = 'canal-1 actionContext.actorId (DECISION-0113) lido p/ agir/filtrar SEM binding server-side; debt PRÉ-EXISTENTE congelado por B1f. Convergência = vincular (requirePermission/canRepresentActor) por subsistema, frente própria. Ver DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.';
+const C1_MONEY = 'canal-1 actionContext.actorId SEM binding em superfície MONEY-ADJACENT (settlement/payment-request/accounts) — debt PRÉ-EXISTENTE congelado por B1f; PRIORIDADE de convergência. Ver DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.';
+
 const BASELINE = {
+  // ── B1f canal-1 (actionContext.actorId) — 31 rotas com debt 0113 PRÉ-EXISTENTE, congeladas ──
+  // (NÃO corrigidas; o B1f só TORNOU VISÍVEL + travou regressão. Cada subsistema converge em frente própria.)
+  'core/authorization/business-authorization.routes.ts': C1,
+  'core/feed/feed-plugin.routes.ts': C1,
+  'core/intent/intent-execute.routes.ts': C1,
+  'core/plan/plan.routes.ts': C1,
+  'core/profile/interest-c1/interest-c1.routes.ts': C1,
+  'core/profile/learning-c1/learning-c1.routes.ts': C1,
+  'core/profile/lifestyle/lifestyle.routes.ts': C1,
+  'core/profile/professional-c1/professional-c1.routes.ts': C1,
+  'modules/automation/automation.routes.ts': C1,
+  'modules/events/event-rfq.routes.ts': C1,
+  'modules/events/organizers/organizers.routes.ts': C1,
+  'modules/human-mvp/human-mvp.routes.ts': C1,
+  'modules/marketplace/accounts-payable.routes.ts': C1_MONEY,
+  'modules/marketplace/accounts-receivable.routes.ts': C1_MONEY,
+  'modules/marketplace/business-segment.routes.ts': C1,
+  'modules/marketplace/contact.routes.ts': C1,
+  'modules/marketplace/purchase-order.routes.ts': C1_MONEY,
+  'modules/marketplace/settlement.routes.ts': C1_MONEY,
+  'modules/marketplace/store-onboarding.routes.ts': C1,
+  'modules/marketplace/supplier.routes.ts': C1,
+  'modules/marketplace/tax-profile.routes.ts': C1,
+  'modules/marketplace/unifycard-method.routes.ts': C1,
+  'modules/marketplace/unifycard.routes.ts': C1,
+  'modules/services/service-bundle.routes.ts': C1,
+  'modules/services/service-payment-request.routes.ts': C1_MONEY,
+  'modules/services/services-discovery.routes.ts': C1,
+  'modules/services/services.routes.ts': C1,
+  'modules/social/social-marketplace-ref.routes.ts': C1,
+  'modules/social/social.routes.ts': C1,
+  'modules/system-notifications/system-notification.routes.ts': C1,
+  'modules/votes/votes.routes.ts': C1,
   // 6º CANAL (body.actor) — alvo normativo:
   // reconciliation-dispute.routes.ts REMOVIDO do baseline (2026-06-13): /reversal contido
   // (403 DISPUTE_REVERSAL_HTTP_DISABLED) + irmãs from-discrepancy/to-review/resolve contidas
@@ -203,6 +251,7 @@ function runGuard() {
   const flagged = [];          // arquivos que casam canal sem binding e sem safe-subject (estado atual)
   const newViolations = [];
   const safeRecognized = [];   // readers reconhecidos por subject server-side (FATIA A)
+  const acRecognized = [];     // B1f canal-1: actionContext.actorId vinculado por requirePermission([ (Forma A)
 
   for (const file of walk(SRC)) {
     const rel = file.replace(SRC, '').replace(/^[\\/]/, '').replace(/\\/g, '/');
@@ -220,6 +269,14 @@ function runGuard() {
         continue;
       }
       // estava no allowlist mas perdeu a prova → cai como violação (não está no BASELINE).
+    }
+    // B1f canal-1 (Forma A): se o ÚNICO canal é actionContext.actorId e há requirePermission([ preHandler,
+    // o canal-1 está VINCULADO (requirePermission→canPerformAction→canActAs liga req.user→actor declarado).
+    // NÃO vale se o arquivo também casa um canal STRICT (esse declara outro ator, que requirePermission não liga).
+    const onlyActionContext = channels.length > 0 && channels.every((k) => !STRICT_CHANNELS.has(k));
+    if (onlyActionContext && REQUIRE_PERMISSION_PREHANDLER.test(code)) {
+      acRecognized.push({ rel, channels });
+      continue;
     }
     flagged.push({ rel, channels });
     if (!(rel in BASELINE)) {
@@ -241,7 +298,7 @@ function runGuard() {
   const recognizedRels = new Set(safeRecognized.map((f) => f.rel));
   const staleSafeReaders = Object.keys(SAFE_SUBJECT_READERS).filter((r) => !recognizedRels.has(r) && !flaggedRels.has(r));
 
-  console.log(`[actor-authority-boundary] flagged=${flagged.length} baseline=${Object.keys(BASELINE).length} new=${newViolations.length} stale_baseline=${staleBaseline.length} safe_subject_recognized=${safeRecognized.length}`);
+  console.log(`[actor-authority-boundary] flagged=${flagged.length} baseline=${Object.keys(BASELINE).length} new=${newViolations.length} stale_baseline=${staleBaseline.length} safe_subject_recognized=${safeRecognized.length} canal1_bound_by_requirePermission=${acRecognized.length}`);
   if (safeRecognized.length > 0) {
     console.log('  ✅ subject server-side reconhecido (FATIA A — fora do baseline, prova verificada em runtime):');
     safeRecognized.forEach((s) => console.log(`     - ${s.rel}  [${s.channels.join(', ')}]  → ${s.proof}`));

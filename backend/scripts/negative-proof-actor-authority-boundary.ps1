@@ -45,6 +45,45 @@ Remove-Item $probeDir -Force -Recurse -ErrorAction SilentlyContinue
 
 $guardOkAgain = ((Invoke-Guard) -eq 0)
 
+# Fase 1b (B1f canal-1): rota NOVA usando actionContext.actorId SEM binding/requirePermission -> guard FALHA.
+$probeC1 = Join-Path (Get-Location) 'src\modules\__neg_probe_c1__\neg-probe-c1.routes.ts'
+$probeC1Dir = Split-Path $probeC1 -Parent
+New-Item -ItemType Directory -Force -Path $probeC1Dir | Out-Null
+$contentC1 = @'
+import type { FastifyPluginAsync } from 'fastify';
+const negProbeC1: FastifyPluginAsync = async (fastify) => {
+  fastify.post('/neg-c1', async (req: any, reply: any) => {
+    // canal-1 (DECISION-0113): actionContext.actorId usado p/ agir SEM binding server-side.
+    const actorId = req.actionContext.actorId;
+    return reply.send({ ok: true, actorId });
+  });
+};
+export default negProbeC1;
+'@
+Set-Content -Path $probeC1 -Value $contentC1 -Encoding UTF8
+$c1Failed = ((Invoke-Guard) -ne 0)
+Remove-Item $probeC1 -Force; Remove-Item $probeC1Dir -Force -Recurse -ErrorAction SilentlyContinue
+$c1Restored = ((Invoke-Guard) -eq 0)
+
+# Fase 1c (B1f canal-1 Forma A): mesma rota canal-1 MAS com requirePermission([ -> guard fica VERDE (vinculado).
+$probeC1b = Join-Path (Get-Location) 'src\modules\__neg_probe_c1b__\neg-probe-c1b.routes.ts'
+$probeC1bDir = Split-Path $probeC1b -Parent
+New-Item -ItemType Directory -Force -Path $probeC1bDir | Out-Null
+$contentC1b = @'
+import type { FastifyPluginAsync } from 'fastify';
+const negProbeC1b: FastifyPluginAsync = async (fastify) => {
+  fastify.post('/neg-c1b', { preHandler: [fastify.requirePermission(['k:write'])] }, async (req: any, reply: any) => {
+    const actorId = req.actionContext.actorId;
+    return reply.send({ ok: true, actorId });
+  });
+};
+export default negProbeC1b;
+'@
+Set-Content -Path $probeC1b -Value $contentC1b -Encoding UTF8
+$c1FormAGreen = ((Invoke-Guard) -eq 0)
+Remove-Item $probeC1b -Force; Remove-Item $probeC1bDir -Force -Recurse -ErrorAction SilentlyContinue
+$c1FormARestored = ((Invoke-Guard) -eq 0)
+
 # Fase 2: subject==target (requirePermission(tenantId, X, X, ...)) -> guard deve FALHAR (antipadrao spoof).
 $probe2 = Join-Path (Get-Location) 'src\modules\__neg_probe2__\neg-probe-spoof.routes.ts'
 $probe2Dir = Split-Path $probe2 -Parent
@@ -105,16 +144,20 @@ Remove-Item $asrt -Force -ErrorAction SilentlyContinue
 # Fase 4 (FATIA A + R2): prova POSITIVA — guard reconhece readers safe-subject e new=0.
 $guardOut = (node scripts/audit-actor-authority-boundary.mjs 2>&1 | Out-String)
 $recognizedSix = ($guardOut -match 'safe_subject_recognized=6')
-$baselineZero = ($guardOut -match '\bbaseline=0\b')
+# B1f: canal-1 incluído. Os 31 resíduos actionContext.actorId PRÉ-EXISTENTES estão no BASELINE (congelados);
+# canal-1 vinculado por requirePermission([ (groups) é reconhecido fora do baseline.
+$baseline31 = ($guardOut -match '\bbaseline=31\b')
+$canal1Recognized = ($guardOut -match 'canal1_bound_by_requirePermission=\d')
 # Resíduos financeiros fechados: bank-http (Forma E) e payout (Forma B) RECONHECIDOS (não flagged, não baselined).
 $bankHttpRecognized = ($guardOut -match 'bank-http\.routes\.ts.*resolveForUser')
 $payoutRecognized = ($guardOut -match 'payout\.routes\.ts.*requirePermission')
 $newZero = ($guardOut -match '\bnew=0\b')
 
 $ok = $baseOk -and $guardFailed -and $guardOkAgain -and (-not (Test-Path $probe)) `
+  -and $c1Failed -and $c1Restored -and $c1FormAGreen -and $c1FormARestored `
   -and $spoofFailed -and $spoofRestored -and (-not (Test-Path $probe2)) `
-  -and $recognizerOk -and $recognizedSix -and $baselineZero -and $bankHttpRecognized -and $payoutRecognized -and $newZero
-Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized6=$recognizedSix baseline0=$baselineZero bankHttpRecognized=$bankHttpRecognized payoutRecognized=$payoutRecognized new0=$newZero residue=$([bool](Test-Path $probeDir))"
+  -and $recognizerOk -and $recognizedSix -and $baseline31 -and $canal1Recognized -and $bankHttpRecognized -and $payoutRecognized -and $newZero
+Write-Host "[neg-proof actor-authority-boundary] baseOk=$baseOk newViolationFailed=$guardFailed restoredOk=$guardOkAgain c1Failed=$c1Failed c1Restored=$c1Restored c1FormAGreen=$c1FormAGreen c1FormARestored=$c1FormARestored subjectEqTargetFailed=$spoofFailed spoofRestored=$spoofRestored recognizerUnitOk=$recognizerOk recognized6=$recognizedSix baseline31=$baseline31 canal1Recognized=$canal1Recognized bankHttpRecognized=$bankHttpRecognized payoutRecognized=$payoutRecognized new0=$newZero residue=$([bool](Test-Path $probeDir))"
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
-Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding, (b) subject==target spoof, (c) recognizer aceita req.user (Formas A/B/C company-scoped) e rejeita actionContext/params/query/subject==target/Forma-C-sem-company-scope, (d) reconhece os 3 readers actor-scoped; restauracao limpa.' -ForegroundColor Green
+Write-Host 'NEGATIVE PROOF: OK - guard detecta (a) violacao client-declared sem binding, (b) [B1f] canal-1 actionContext.actorId nova sem binding FALHA e com requirePermission([ fica VERDE, (c) subject==target spoof, (d) recognizer aceita req.user (Formas A/B/C/D/E) e rejeita actionContext/params/query/subject==target, (e) 31 residuos canal-1 congelados no baseline; restauracao limpa.' -ForegroundColor Green
 exit 0

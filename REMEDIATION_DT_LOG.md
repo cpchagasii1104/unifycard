@@ -13347,6 +13347,35 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   autoridade composta) = decisão de produto Clayton, frente própria — **NÃO declarado resolvido**. Resíduo service-side
   remanescente: `executePayment` ainda recebe `actingUserId: session.actorId` (operador) — autoria operacional, não money-party.
 
+## DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE — 31 rotas leem actionContext.actorId (canal-1) sem binding (2026-06-15, B1f / ONDA DECISION-0131)
+
+- **Status:** **OPEN (CONGELADO + DETECTADO; NÃO corrigir agora).** Materializa o **canal-1 da DECISION-0113** (o
+  5º/último canal client-declared) no guard transversal `audit-actor-authority-boundary.mjs` (B1f).
+- **Achado:** o guard 0113 cobria 4 canais (body/params/query/x-actor-id + 6º body.actor) mas **NÃO** o
+  `actionContext.actorId` (x-action-context é client-declared = HINT, não autoridade). B1f adicionou o canal e mediu:
+  **55 `*.routes.ts`** usam `actionContext.actorId`; **22** já têm binding (canActAs/canRepresentActor/assertRepresents…);
+  **6** são safe-subject readers (Forma C/D/E); **1** vinculado por `requirePermission([` (Forma A — liga req.user→actor
+  via canPerformAction→canActAs); **31 RESÍDUO** (canal-1 lido p/ agir/filtrar SEM binding) → **congelados no BASELINE**.
+- **Por que congelar (não corrigir):** é **debt PRÉ-EXISTENTE** (essas 31 já liam canal-1 sem binding ANTES do B1f; o
+  guard só não enxergava o canal). Corrigir as 31 = tocar marketplace ERP/CRM, services, social, profile-C1, events,
+  votes, automation, intent, plan, feed, human-mvp, notifications, business-authorization — frente ampla, NÃO um batch.
+  B1f = **detector geral** que impede a dívida CRESCER (nova rota canal-1 sem binding/requirePermission → guard FALHA).
+- **As 31 (congeladas):** core/authorization/business-authorization · core/feed/feed-plugin · core/intent/intent-execute ·
+  core/plan/plan · core/profile/{interest-c1,learning-c1,lifestyle,professional-c1} · modules/automation ·
+  modules/events/{event-rfq,organizers} · modules/human-mvp · modules/marketplace/{accounts-payable,accounts-receivable,
+  business-segment,contact,purchase-order,settlement,store-onboarding,supplier,tax-profile,unifycard-method,unifycard} ·
+  modules/services/{service-bundle,service-payment-request,services-discovery,services} ·
+  modules/social/{social-marketplace-ref,social} · modules/system-notifications/system-notification · modules/votes.
+- **Subconjunto MONEY-ADJACENT (PRIORIDADE de convergência):** marketplace/{accounts-payable, accounts-receivable,
+  purchase-order, settlement} + services/service-payment-request (marcados `C1_MONEY` no baseline).
+- **Contenção:** guard `audit-actor-authority-boundary.mjs` (no `validate:regression-guards`): canal-1 reconhecido;
+  `requirePermission([` vincula canal-1 (Forma A); as 31 no BASELINE; **nova rota canal-1 sem binding = FALHA**.
+  neg-proof estendido (canal-1 nova sem binding FALHA; com requirePermission([ fica VERDE; restauração limpa).
+- **Convergência (frentes próprias, por subsistema):** vincular cada rota canal-1 via `requirePermission` (quando o ator
+  é o operacional declarado) OU `canRepresentActor` (quando age sobre recurso de outro actor), como já feito em PDV
+  (assertRepresents), social-work, events. **Ordem por materialidade:** money-adjacent primeiro. Vínculo com a DT-mãe
+  DECISION-0113 (5 canais). **NÃO corrigir em massa.**
+
 ## DT-RIDES-CANCEL-REVERSAL-DEAD-BRIDGE — bridge de reversão em código morto + fallback de autor frouxo (2026-06-15, C4 / ONDA DECISION-0131)
 
 - **Status:** **OPEN (DEAD/CONTIDO por inalcançabilidade; NÃO corrigir/amputar agora).** Descoberto no READ-FIRST do C4.

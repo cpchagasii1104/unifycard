@@ -1,3 +1,15 @@
+## 2026-06-15 — B1f CANAL-1 TRANSVERSAL LOCK: actionContext.actorId entra no guard 0113 (5º canal) + 31 resíduos congelados no baseline (zero runtime) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `abb3dcb2`** (pós-PASS C4) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_B1F_CANAL1_TRANSVERSAL_LOCK.md`. **ZERO runtime change** (só guard .mjs + neg-proof .ps1 + cartório; nenhum .ts tocado).
+
+**Princípio travado (transversal):** cliente declara intenção, servidor decide autoridade. O guard 0113 `audit-actor-authority-boundary.mjs` cobria 4 canais client-declared (body/params/query/x-actor-id + 6º body.actor) mas **NÃO o canal-1 `actionContext.actorId`** (x-action-context é client-declared = HINT). B1f **adicionou o canal-1** + reconhece `requirePermission([` como binder estrutural do canal-1 (Forma A: requirePermission→canPerformAction→canActAs liga req.user→actor declarado; só vale quando o ÚNICO canal do arquivo é actionContext — os canais STRICT declaram OUTRO ator, que requirePermission não liga).
+
+**Blast radius medido (READ-FIRST):** 55 `*.routes.ts` usam actionContext.actorId → 22 já com binding · 6 safe-subject readers (Forma C/D/E) · 1 Forma A (requirePermission, groups) · **31 RESÍDUO** (canal-1 sem binding) → **CONGELADOS no BASELINE** (debt PRÉ-EXISTENTE; o guard só não enxergava o canal). Subconjunto money-adjacent (accounts-payable/receivable, purchase-order, settlement, service-payment-request) marcado `C1_MONEY` = prioridade. **NÃO corrigidas** (frente ampla por subsistema; B1f = detector que impede a dívida CRESCER).
+
+**Tripé:** guard GATE OK (flagged=31, baseline=31, new=0, safe_subject=6, canal1_bound_by_requirePermission=1) · neg-proof estendido (canal-1 nova sem binding FALHA · com requirePermission([ fica VERDE · 31 congeladas · subject==target spoof · recognizer Formas A/B/C/D/E · restauração limpa) · sem e2e (frente é guard estrutural, zero runtime). **DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE** registrado (31 rotas + vínculo DT-mãe DECISION-0113). **Gates:** actor-writer/bank-ledger OK · regression rc=0 · arch critical_new=0 (0 atribuível) · tsc build **25**/strict **43** (INALTERADO — zero .ts). **HARD STOPS:** as 31 rotas NÃO corrigidas; nenhum runtime tocado; identidade/RBAC/Bank/Core intocados. **B1f IMPLEMENTED / HOLD PARA RESEAL.**
+
+---
+
 ## 2026-06-15 — C4 REVERSAL CONTAINMENT / SYSTEM-AUTHORSHIP REGRESSION LOCK: contenção do motor de reversal TRAVADA por guard (zero runtime) + DT do bridge morto · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `b92302a1`** (pós-PASS B3f) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_C4_REVERSAL_CONTAINMENT_LOCK.md`. **ZERO runtime change** (só guard .mjs + neg-proof + package.json + cartório; nenhum .ts tocado). Pós READ-FIRST C4 (READ-FIRST COMPLETE: sem money vivo divergente).
