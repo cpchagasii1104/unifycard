@@ -1,3 +1,20 @@
+## 2026-06-15 — A1 · CARTÓRIO DA ONDA LEVE DECISION-0131 ALINHADO (índice consolidado; cartório puro, ZERO runtime)
+
+**HEAD vivo `f41be7b8` · branch `rescue-structural` · dev 385/385 (sem migration).** A1 = higiene cartorial pós-fechamentos da ONDA LEVE 0131. **Não tocou runtime/.ts/.sql/migration/guard.** Índice único e alinhado dos 6 fechamentos (cada um com selo EXATO, escopo NÃO-fechado e DT). Todos **HOLD/PASS** conforme reseal Yala; cada entrada detalhada abaixo.
+
+| Frente | Commit | Selo EXATO (fecha SÓ como) | NÃO fecha | DT |
+| --- | --- | --- | --- | --- |
+| **PDV arco** | F0 `ef4ea717` · F2A `7be810f1` · F2B `fa72d8e7` · F2C `f7e6e6e6` · seal `d58db1c5` | PDV authority selada em ROTA+SERVICE (matrix-lock · seller-ownership · 10-rotas-bound · service-hardening+summary) | PDV produto · operador×empresa · PDV-F2D | DT-PDV-CANAL1 (F2B CLOSED) |
+| **B3f** | `b92302a1` | GROUPS-MINE AUTH-DERIVED REGRESSION LOCK | groups inteiro · invites/mine · :id/request | DT-GROUPS-INVITES-MINE-NAMESPACE-DIVERGENT (OPEN) |
+| **C4** | `abb3dcb2` | REVERSAL CONTAINMENT / SYSTEM-AUTHORSHIP REGRESSION LOCK | reversal engine · rides bridge · fallback · recovery · operador×reversal | DT-RIDES-CANCEL-REVERSAL-DEAD-BRIDGE (OPEN) |
+| **B1f** | `365d1b2b` | CANAL-1 (actionContext.actorId) TRANSVERSAL LOCK · baseline=31 | DECISION-0113 inteira · as 31 rotas (debt congelado, NÃO corrigido) | DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE (OPEN, 31) |
+| **E1** | `b985ba1b` | AVAILABILITY OWNER-AUTHORITY EXEMPLAR / REGRESSION LOCK | availability/agenda/booking · weekly-template · list/by-id | DT-AVAILABILITY-OWNER-AUTHORITY-EXEMPLAR-RESIDUES (OPEN; R1 runner órfão = resíduo, não bloqueador) |
+| **E2** | `f41be7b8` | TEMPORAL LEGACY WRITE-PATH TOMBSTONE / REGRESSION LOCK | decommission físico · leitura legada · agenda/availability | DT-TEMPORAL-LEGACY-DECOMMISSION-RESIDUES (OPEN; R4 = doc "não aplicada" STALE, DB provou APLICADA) |
+
+**Invariante transversal da onda leve:** todos os 6 são **guard-lock/tombstone de regressão, ZERO runtime** — travam o estado bom/morto contra regressão; NÃO corrigem em massa nem fecham domínio. **Cada selo é estreito por design.** Resíduos materiais (C1_MONEY das 31 canal-1, rides bridge, runner órfão E1, descomissionamento físico temporal, leitura legada) seguem como DT/frente própria — **NÃO fechados pela onda leve.** Correções por subsistema = frentes próprias futuras. **A1 fecha SÓ como:** CARTÓRIO DA ONDA LEVE 0131 ALINHADO.
+
+---
+
 ## 2026-06-15 — E2 TEMPORAL TOMBSTONE / LEGACY WRITE-PATH REGRESSION LOCK: schedules/schedule_slots travados como mortos por guard (zero runtime) + DT de resíduos · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `b985ba1b`** (pós-PASS E1) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_E2_TEMPORAL_LEGACY_TOMBSTONE_LOCK.md`. **ZERO runtime change** (só guard .mjs + neg-proof .ps1 + package.json + cartório; nenhum .ts/migration tocado). READ-FIRST: workflow read-only (3 mappers) + DB live + leitura 1ª mão.
@@ -6,7 +23,7 @@
 
 **Lacuna objetiva travada:** NÃO havia guard impedindo um writer NOVO contra schedules/schedule_slots nem pinando o REVOKE. Novo guard `audit-temporal-legacy-tombstone.mjs` (mirror do bank-ledger §4.6): (a) zero INSERT/UPDATE/DELETE de runtime contra as tabelas (exclui scripts/tests; LEITURA não casa); (b) REVOKE migration presente+revogando schedules E schedule_slots FROM PUBLIC; (c) os 3 serviços continuam lançando *LegacyError. **CLOSED=5, writers=0.**
 
-**Tripé:** guard GATE OK · neg-proof `negative-proof-temporal-legacy-tombstone.ps1` **5 mordidas** byte-idêntico (writer INSERT/UPDATE/DELETE novo · REVOKE enfraquecido · tombstone ressuscitado; probe removido) · sem e2e novo (frente é guard estrutural, zero runtime; e2e-transversal pré-existente já checa o REVOKE). **DT-TEMPORAL-LEGACY-DECOMMISSION-RESIDUES** (R1 leitura legada viva em EventAvailabilityPreviewService · R2 coluna morta event_tickets.schedule_slot_id=null · R3 rota social-work-schedule 501 montada · R4 doc "não aplicada" stale vs DB; owner-bypass). **Gates:** actor-writer/bank-ledger OK · regression rc=0 (+1 guard) · arch critical_new=0 (0 atribuível) · tsc build **25**/strict **43** (INALTERADO — zero .ts). **HARD STOPS:** agenda/booking/participants/conflicts/weekly-template/list-by-id/availability-owner-authority(E1)/canal-1-baseline(B1f)/PDV/groups-mine/reversal/Bank/Core/RLS/mapper/cargo/RBAC/actor_delegations NÃO tocados; nenhuma migration criada. **Fecha SÓ como:** TEMPORAL TOMBSTONE / LEGACY WRITE-PATH REGRESSION LOCK. **E2 IMPLEMENTED / HOLD PARA RESEAL.**
+**Tripé:** guard GATE OK · neg-proof `negative-proof-temporal-legacy-tombstone.ps1` **5 mordidas** byte-idêntico (writer INSERT/UPDATE/DELETE novo · REVOKE enfraquecido · tombstone ressuscitado; probe removido) · sem e2e novo (frente é guard estrutural, zero runtime; e2e-transversal pré-existente já checa o REVOKE). **DT-TEMPORAL-LEGACY-DECOMMISSION-RESIDUES** (R1 leitura legada viva em EventAvailabilityPreviewService · R2 coluna morta event_tickets.schedule_slot_id=null · R3 rota social-work-schedule 501 montada · R4 doc "não aplicada" stale vs DB; owner-bypass). **Gates:** actor-writer/bank-ledger OK · regression rc=0 (+1 guard) · arch critical_new=0 (0 atribuível) · tsc build **25**/strict **43** (INALTERADO — zero .ts). **HARD STOPS:** agenda/booking/participants/conflicts/weekly-template/list-by-id/availability-owner-authority(E1)/canal-1-baseline(B1f)/PDV/groups-mine/reversal/Bank/Core/RLS/mapper/cargo/RBAC/actor_delegations NÃO tocados; nenhuma migration criada. **Fecha SÓ como (selo canônico A1):** TEMPORAL LEGACY WRITE-PATH TOMBSTONE / REGRESSION LOCK. **E2 IMPLEMENTED / HOLD PARA RESEAL.**
 
 ---
 

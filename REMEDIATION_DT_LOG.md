@@ -13363,10 +13363,14 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   (`createScheduleFromPost` lança 'temporarily disabled - migration to Unified Availability pending'; writers legados
   comentados/mortos; `getSchedulesForPost` retorna []). Importa tipos de `../schedule/schedule.types` (dependência viva
   do módulo legado). Convergência: reescrever sobre unified_availability OU desmontar a rota (frente própria).
-- **R4 (discrepância documental):** docs (SSOT_REGISTRY/RFC_C63, lido pelo workflow) descrevem o REVOKE como **"não
-  aplicada"**, mas o banco vivo CONTRADIZ: a migration `20260428200000_schedules_revoke_write.sql` ESTÁ em
-  `schema_migrations` (aplicada) e `has_table_privilege('public', schedules/schedule_slots, INSERT/UPDATE/DELETE)` = FALSE
-  (PUBLIC negado). **Doc stale.** NÃO criar migration (brake respeitado). Convergência: corrigir a doc (não-código).
+- **R4 (discrepância documental — em doc NORMATIVA):** `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md` tem DOIS blocos
+  stale (localizados pelo A1): (i) **linhas ~25-26** marcam a migration `20260428200000` como "(não aplicada — bloqueará
+  WRITE)"; (ii) **linhas ~32-36** declaram "Violação Ativa — C63 (CRITICAL): 6 WRITE paths ativos / Status: IN_PROGRESS".
+  Ambos CONTRADIZEM o banco/estado vivo: migration ESTÁ em `schema_migrations`; `has_table_privilege('public', …, INSERT/
+  UPDATE/DELETE)` = FALSE; zero writer de runtime (3 serviços tombstone lançam *LegacyError; guard CLOSED=5). **Doc stale.**
+  **SSOT_REGISTRY é NORMATIVA** → a correção NÃO foi feita pelo A1 (proibição: editar norma soberana exige GO específico;
+  regra de parada A1: correção material → registrar, não corrigir). **Registrado como resíduo; aguarda GO de correção
+  normativa.** O cartório (STATUS/DT/oplog) reflete a verdade (REVOKE aplicado). NÃO criar migration (brake respeitado).
 - **OBSERVAÇÃO (owner-bypass):** o app conecta como `postgres` (OWNER das tabelas) → o REVOKE FROM PUBLIC NÃO vincula o
   owner em runtime; a garantia EFETIVA contra write legado é CÓDIGO (zero writer) — exatamente o que o guard E2 trava.
   O REVOKE statement revoga só INSERT,UPDATE (não DELETE), mas PUBLIC.DELETE já é negado por default → sem efeito prático.
@@ -13394,10 +13398,13 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   caminho mudar e o outro não. Convergência: rotas passarem a usar o primitivo combinado (frente própria; toca .ts de rota
   — fora do E1 zero-runtime).
 - **OBSERVAÇÕES normativas (não-código, fora do escopo E1 — só registro):** `CORE_TEMPORAL_HARDENING_CONTRACT.md` tem
-  cabeçalho stale (`Status: SUBORDINATED / Domain: UNKNOWN` enquanto o corpo se declara CANONICAL·BINDING·CORE);
-  `AUTHORITY_ENFORCEMENT_MODEL.md` referencia `AUTHORITY_LAW.md` inexistente (a lei viva é LEI §4.9). Não há linha
-  normativa que enumere owner_type policy coverage p/ availability — o exemplar é policy de CÓDIGO ancorada na LEI §4.9
-  geral (autoridade server-side) + PROHIBITED_STRUCTURES (fail-closed), não numa norma temporal específica.
+  cabeçalho stale (`Status: SUBORDINATED / Domain: UNKNOWN` enquanto o corpo se declara CANONICAL·BINDING·CORE) — resíduo
+  em doc NORMATIVA (correção exige GO específico de norma). Não há linha normativa que enumere owner_type policy coverage
+  p/ availability — o exemplar é policy de CÓDIGO ancorada na LEI §4.9 geral (autoridade server-side) +
+  PROHIBITED_STRUCTURES (fail-closed), não numa norma temporal específica.
+  _(CORREÇÃO A1 2026-06-15: a observação E1 original afirmava que `AUTHORITY_ENFORCEMENT_MODEL.md` referencia um
+  `AUTHORITY_LAW.md` INEXISTENTE — **FALSO**. `docs/01_normative/AUTHORITY_LAW.md` EXISTE (CANÔNICO·CONSTITUCIONAL) e a
+  referência em AUTHORITY_ENFORCEMENT_MODEL.md:10 está correta. Claim retirado.)_
 
 ## DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE — 31 rotas leem actionContext.actorId (canal-1) sem binding (2026-06-15, B1f / ONDA DECISION-0131)
 
