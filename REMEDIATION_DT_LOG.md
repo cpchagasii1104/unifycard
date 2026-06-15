@@ -13234,8 +13234,10 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   AUTHORITY_LAW Art.17). **4 CANONICAL** (role = fallback APÓS primitivo canônico: `social-work.routes` post-owner,
   `event-lifecycle` owner/company, `work-insights`/`worker-status` self). **4 DIVERGENT** (role decide sozinha, sem
   primitivo canônico antes):
-  - `modules/social/social-work-payment.routes.ts:175` — **DIVERGENT-MONEY**: GET `/posts/:postId/payments` (lista
-    transações do job) gateado SÓ por `userHasAnyRole(['admin','owner'])`. **Prioridade.**
+  - `modules/social/social-work-payment.routes.ts:175` — **DIVERGENT-MONEY → CORRIGIDO** (WAVE-1 BATCH-4, 2026-06-15):
+    GET `/posts/:postId/payments` agora gateado por `canRepresentActor` sobre `posts.actor_id` (autor), SEM role;
+    `requirePermission`+`userHasAnyRole` removidos. Cercado por `audit-social-work-payment-ownership.mjs`. _(Resíduo:
+    POST `/pay` money-write segue com requirePermission role-based — frente própria.)_
   - `modules/social/social-work-apply.routes.ts:142` — GET applicants, role-sole.
   - `modules/social/social-work-schedule.routes.ts:168` — GET schedules, role-sole.
   - `core/categories/categories.service.ts:197` — `createCategory(allowActive)`, role-sole (config).

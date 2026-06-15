@@ -36,7 +36,8 @@ const CLASSIFIED = {
   'modules/events/event-lifecycle.routes.ts':        'ADAPTER_TRANSITIONAL → DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER (event owner / company-admin OR admin role-fallback)',
   'modules/work/work-insights.routes.ts':            'ADAPTER_TRANSITIONAL → DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER (self OR admin role-fallback)',
   'modules/work-instant/worker-status.routes.ts':    'ADAPTER_TRANSITIONAL → DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER (self OR admin role-fallback)',
-  'modules/social/social-work-payment.routes.ts':    'DIVERGENT-MONEY → DT-ROLE-AS-AUTHORITY-DIVERGENT (GET payments role-sole; entangled com requirePermission RBAC-V2)',
+  // social-work-payment.routes.ts: CORRIGIDO em WAVE-1 BATCH-4 (ownership-only, sem role) → não é mais caller
+  // de role; cercado por audit-social-work-payment-ownership.mjs. Removido do registro de callers.
   'modules/social/social-work-apply.routes.ts':      'DIVERGENT → DT-ROLE-AS-AUTHORITY-DIVERGENT (GET applicants role-sole)',
   'modules/social/social-work-schedule.routes.ts':   'DIVERGENT → DT-ROLE-AS-AUTHORITY-DIVERGENT (GET schedules role-sole)',
   'core/categories/categories.service.ts':           'DIVERGENT-CONFIG → DT-ROLE-AS-AUTHORITY-DIVERGENT (createCategory active role-sole)',

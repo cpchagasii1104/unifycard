@@ -1,3 +1,13 @@
+## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 4 (F-RBAC-V2-PERMISSION-OWNERSHIP, money-first): GET payments deixa de ser role-solo → ownership canônico · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `8cd5daa9`** (pós-PASS Yala re-reseal batch 3) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH4_RBAC_V2_OWNERSHIP_MONEY.md`.
+
+**Escopo estreito:** corrigir SÓ a superfície money `GET /social/work/posts/:postId/payments` (DIVERGENT-MONEY). READ-FIRST: autorizada por `requirePermission` (RBAC-V2 role-based) + inline `userHasAnyRole` → role-solo; o dono do post SEM role era barrado. **Descoberta crítica:** `socialService.getPost` está QUEBRADO (SQL com `post_id`/`global_user_id` inexistentes; `posts` é actor-based `id`/`actor_id`) → NÃO usei. Primitivo canônico vivo: `posts.actor_id` (autor) + `canRepresentActor`. **Patch:** removido requirePermission+userHasAnyRole da GET payments; adicionado `SELECT actor_id FROM posts` → `canRepresentActor(tenantId, req.user.id, postActorId)` → 403 fail-closed, SEM role-fallback. **DIVERGENT-MONEY → CANÔNICO-OWNERSHIP.**
+
+**Tripé:** guard `audit-social-work-payment-ownership.mjs` (GET payments exige FROM posts+postActorId+canRepresentActor+403; sem userHasAnyRole/requirePermission) + neg-proof (3 mordidas, byte-idêntico) + e2e efêmero **5/5** (Alice representa→≠403; Bob não-representa→403; **Bob COM role admin→AINDA 403**; Bank intocado). Containment guard atualizado (payment removido; 7 callers: 4 ADAPTER + 3 DIVERGENT). **Gates:** actor-writer/bank-ledger OK · regression rc=0 (+1 guard; 0113 baseline=0) · arch critical_new=0 · tsc build 25/strict 43 (zero atribuível). **HARD STOPS:** sem reescrever RBAC-V2/ativar RBAC/trocar stub/FASE 6/cargo/mapper/RLS/financial_approval_*/Bank/seed/cartão; sem mexer em apply/schedule/categories/adapters; Bank intocado; dev 385/385. **Resíduos (DT):** POST /pay (money-write role-based), apply/schedule/categories, getPost/resolveJobFromPost defasados. **BATCH 4 IMPLEMENTED / HOLD PARA RESEAL.**
+
+---
+
 ## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 3 (F3 — ROLE-AS-AUTHORITY CONTAINMENT): role-como-autoridade vivo CONTIDO + classificado (Art.17) · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `fd568e70`** (pós-PASS Yala batch 2) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_WAVE1_DECISION_0131_BATCH3_F3.md`.

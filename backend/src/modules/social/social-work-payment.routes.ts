@@ -6,7 +6,8 @@
 import { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { socialWorkPaymentService } from './social-work-payment.service';
 import { transactionService } from '@core/economy/transaction.service';
-import { rbacService } from '@core/rbac/rbac.service';
+import { pool } from '@core/database/pool';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { z } from 'zod';
 
 const paymentFromPostSchema = z.object({
@@ -162,20 +163,31 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get<{ Params: { postId: string } }>(
     '/posts/:postId/payments',
-    {
-      preHandler: fastify.requirePermission(['economy:transaction:read', 'social:post:read']),
-    },
     async (req, reply) => {
       const tenantId = req.tenant!.id;
       const userId = req.user!.id;
       const { postId } = req.params;
       const requestId = (req as any).requestId || req.id;
 
-      // Validar se é OWNER ou ADMIN
-      const hasAdminRole = await rbacService.userHasAnyRole(tenantId, userId, ['admin', 'owner']);
-      if (!hasAdminRole) {
+      // 🔒 BATCH 4 (F-RBAC-V2-PERMISSION-OWNERSHIP / Art.17): autoridade CANÔNICA por REPRESENTABILIDADE do
+      // actor AUTOR do post, SEM role-fallback. Era DIVERGENT-MONEY (role-solo via requirePermission RBAC-V2 +
+      // userHasAnyRole) — `user_roles`/role NÃO autoriza esta superfície money. `posts` é actor-based
+      // (posts.actor_id = autor); só quem REPRESENTA esse actor (canRepresentActor — ownership/company/group/
+      // delegação, server-side) vê os pagamentos do job; senão 403 fail-closed. (Admin cross-job audit =
+      // autoridade material futura, não role.) NÃO uso socialService.getPost — seu SQL está defasado
+      // (post_id/global_user_id inexistentes no schema atual); leio posts.actor_id direto (read-only).
+      const postRow = await pool.query<{ actor_id: string }>(
+        'SELECT actor_id FROM posts WHERE id = $1 AND tenant_id = $2 LIMIT 1',
+        [postId, tenantId]
+      );
+      if (!postRow.rows[0]) {
+        return reply.status(404).send({ error: 'Post not found' });
+      }
+      const postActorId = postRow.rows[0].actor_id;
+      const canRepresent = await authorizationService.canRepresentActor(tenantId, userId, postActorId);
+      if (!canRepresent) {
         return reply.status(403).send({
-          error: 'Only Owner or Admin can view payments for jobs created from posts',
+          error: 'Only the post owner (or its representative) can view payments for jobs created from this post',
         });
       }
 
