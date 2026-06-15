@@ -3,6 +3,7 @@
 
 import { purchaseOrderRepository } from './purchase-order.repository';
 import { inventoryService } from './inventory.service';
+import { AppError } from '@core/errors';
 import type {
   PurchaseOrder,
   PurchaseOrderItem,
@@ -162,6 +163,35 @@ class PurchaseOrderService {
    * SPRINT 69: Gera inventory_movements IN para cada item recebido
    */
   async receivePO(
+    tenantId: string,
+    orderId: string,
+    input: ReceivePurchaseOrderInput,
+    receivedByUserId?: string
+  ): Promise<{ order: PurchaseOrder; movements: Array<{ itemId: string; movementId: string }> }> {
+    // 🔒 F-C1-MONEY-PO-RECEIVE-EXPLICIT-CONTAINMENT (decisão Clayton: purchase_order NÃO é creator-owned).
+    // HARD-STOP fail-closed ANTES de QUALQUER mutação. O efeito material de recebimento — inventory IN
+    // (hoje usando order.createdByActorId como actor), status RECEIVED/COMPLETED e accounts payable — NÃO
+    // pode rodar enquanto a purchase_order não tiver OWNER EMPRESARIAL MATERIAL (company-owned /
+    // company_actor_owned; frente futura de schema/modelagem/backfill). Owner material provado hoje = só
+    // tenant_id (sem company_id/company_actor_id/owner_actor_id/received_by_actor_id no schema vivo).
+    // `created_by_actor_id` é AUTORIA histórica, NUNCA autoridade. Esta contenção é EXPLÍCITA (não acidental)
+    // e independe de actionContext.actingUserId/actorId e de created_by_actor_id. NÃO remover sem owner material.
+    throw new AppError(
+      403,
+      'PURCHASE_ORDER_RECEIVE_CONTAINED: receivePO está bloqueado até purchase_order ter owner empresarial material (company-owned). created_by_actor_id é autoria, não autoridade. Ref: F-C1-MONEY-PO-RECEIVE-EXPLICIT-CONTAINMENT.',
+      'PURCHASE_ORDER_RECEIVE_CONTAINED'
+    );
+  }
+
+  /**
+   * 🔒 CONTIDO — implementação material de recebimento PRESERVADA mas NÃO CHAMADA.
+   * Toda a mutação (updateItemQuantityReceived / inventoryService.addMovement IN /
+   * markAsReceived / markAsCompleted / accountsPayableService.createFromPurchaseOrder) vive AQUI,
+   * fisicamente separada de receivePO (que é hard-stop fail-closed). NENHUM caller a invoca.
+   * Reabilitação SÓ quando purchase_order tiver OWNER EMPRESARIAL MATERIAL (company-owned) — e mesmo
+   * então a autoridade deverá vir do owner empresarial, NUNCA de order.createdByActorId (autoria).
+   */
+  private async receivePOContainedImpl(
     tenantId: string,
     orderId: string,
     input: ReceivePurchaseOrderInput,

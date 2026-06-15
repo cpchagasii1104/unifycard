@@ -140,23 +140,16 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.post<{ Params: { id: string }; Body: ReceivePurchaseOrderInput }>(
     '/purchase-orders/:id/receive',
-    async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const { id } = req.params;
-      const actionContext = (req as any).actionContext;
-
-      if (!actionContext?.actingUserId) {
-        throw new BadRequestError('actingUserId é obrigatório', ErrorCode.MISSING_ACTOR);
-      }
-
-      const result = await purchaseOrderService.receivePO(
-        tenantId,
-        id,
-        req.body,
-        actionContext.actingUserId
-      );
-
-      return result;
+    async (_req, reply) => {
+      // 🔒 F-C1-MONEY-PO-RECEIVE-EXPLICIT-CONTAINMENT: a rota é EXPLICITAMENTE contida (fail-closed 403)
+      // ANTES de qualquer leitura/checagem — espelha o hard-stop do service (purchaseOrderService.receivePO),
+      // que é a contenção primária (protege qualquer caller alternativo/futuro). Recebimento de PO só será
+      // reabilitado quando purchase_order tiver OWNER EMPRESARIAL MATERIAL (company-owned). actionContext/
+      // created_by_actor_id NÃO autorizam. Não move estoque, não muda status, não cria conta a pagar.
+      return reply.status(403).send({
+        error: 'PURCHASE_ORDER_RECEIVE_CONTAINED',
+        message: 'Recebimento de purchase_order está contido (fail-closed) até existir owner empresarial material (company-owned). Ref: F-C1-MONEY-PO-RECEIVE-EXPLICIT-CONTAINMENT.',
+      });
     }
   );
 

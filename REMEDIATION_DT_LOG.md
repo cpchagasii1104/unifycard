@@ -13347,6 +13347,26 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   autoridade composta) = decisão de produto Clayton, frente própria — **NÃO declarado resolvido**. Resíduo service-side
   remanescente: `executePayment` ainda recebe `actingUserId: session.actorId` (operador) — autoria operacional, não money-party.
 
+## DT-PO-RECEIVE-COMPANY-OWNER-PENDING — recebimento de purchase_order contido até owner empresarial material (2026-06-15, F-C1-MONEY-PO-RECEIVE / ONDA DECISION-0131)
+
+- **Status:** **OPEN (CONTIDO EXPLICITAMENTE fail-closed; owner empresarial = frente futura de schema).** Decisão Clayton:
+  **purchase_order NÃO é creator-owned**; `created_by_actor_id` = autoria histórica/auditoria, NUNCA autoridade atual.
+  Destino canônico: **company-owned / company_actor_owned**.
+- **Achado:** `receivePO` acionava o efeito material (inventory IN via `order.createdByActorId`, status RECEIVED/COMPLETED,
+  accounts payable) — antes contido **por acidente**. Agora **CONTIDO EXPLICITAMENTE**: `purchaseOrderService.receivePO`
+  é hard-stop fail-closed (`throw AppError(403, …, PURCHASE_ORDER_RECEIVE_CONTAINED)`) na PRIMEIRA linha, ANTES de
+  qualquer leitura/mutação; toda a implementação material foi movida para `receivePOContainedImpl` (privado, **NÃO
+  chamado**); a rota `POST /purchase-orders/:id/receive` é 403 PURCHASE_ORDER_RECEIVE_CONTAINED (não chama o service).
+- **Schema vivo (owner material hoje = só tenant_id):** `purchase_orders` NÃO tem `company_id`/`company_actor_id`/
+  `owner_actor_id`/`received_by_actor_id`. Company-owned exige **frente futura de schema/modelagem/backfill** (migration).
+- **Contenção:** guard `audit-po-receive-containment.mjs` (no `validate:regression-guards`): receivePO = hard-stop sem
+  mutação · impl contido sem caller · rota 403. neg-proof 5 mordidas. e2e 9/9 (rota 403; service lança CONTAINED antes da
+  leitura — provado por orderId inexistente → CONTAINED, não "Ordem não encontrada"; spoof actingUserId/actorId não
+  destrava; PO segue SUBMITTED; zero inventory_movements; accounts_payable não religado; Bank intocado).
+- **Convergência (frente futura):** materializar owner empresarial (company-owned) em `purchase_orders` (schema + backfill)
+  e religar `receivePO` derivando a autoridade do OWNER EMPRESARIAL (canRepresentActor sobre o company-actor), NUNCA de
+  `created_by_actor_id`. **NÃO declarado:** ownership definitivo · inventory authority · accounts payable · C1_MONEY inteiro.
+
 ## DT-SPR-READ-AUTHORITY-RESIDUES — resíduos pós-hardening da leitura de service-payment-request (2026-06-15, F-C1-MONEY-SPR-READ / ONDA DECISION-0131)
 
 - **Status:** **OPEN (resíduos REAIS; a LEITURA foi corrigida e travada).** Os 2 GET money-adjacent de
