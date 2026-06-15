@@ -1,3 +1,18 @@
+## 2026-06-15 — ARCO PDV **SELADO/CLOSED** (IA Diretora, pós-PASS Yala F2C): autoridade PDV selada em ROTA e SERVICE; NÃO abrir PDV-F2D
+
+**Decisão da IA Diretora** (2026-06-15, após PASS Yala do PDV-F2C): o arco PDV está **ENCERRADO por agora**. O PDV cumpriu seu papel dentro da frente de AUTORIDADE: eliminou canal-1 cru nas rotas e no ponto money, reforçou o service e corrigiu o bug local de summary. **NÃO abrir PDV-F2D** (continuar puxando PDV = risco de buraco infinito). Cadeia selada:
+
+| Batch | Selo |
+| --- | --- |
+| **PDV-F0** (`ef4ea717`) | matrix + regression lock fechado |
+| **PDV-F2A** (`7be810f1`) | payment seller-ownership gated fechado |
+| **PDV-F2B** (`fa72d8e7`) | 10 rotas PDV authority/authorship bound fechado |
+| **PDV-F2C** (`f7e6e6e6`) | service-level hardening + summary `amount_cents` fechado |
+
+**NÃO fechado (NÃO misturar — fora do arco PDV):** modelo **operador×empresa** = decisão de produto Clayton · `actingUserId=session.actorId` = autoria operacional, hardening futuro · Bank/Core/`paymentExecutionService` = não tocados · RBAC/FASE 6 = não tocados. **Próximo:** voltar à ONDA DECISION-0131 restante (candidatos: **B3f** `GET /groups/mine` [baixo risco] ou **C4** reversal operator trace [materialidade, exige READ-FIRST forte — toca reversão/audit financeiro]). **PDV não sequestra mais o plano.**
+
+---
+
 ## 2026-06-15 — PDV-F2C (MICRO-BATCH FINAL): defesa própria do service payOrderFromPdv (não confia em seller/buyer do body) + bug pi.amount→amount_cents · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `fa72d8e7`** (pós-PASS Yala PDV-F2B) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH8_PDV_F2C_SERVICE_HARDENING.md`. **Atende ao GO PDV-F2C.**
