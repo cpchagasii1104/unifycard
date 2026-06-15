@@ -7,10 +7,12 @@ import { servicePaymentRequestService } from './service-payment-request.service'
 import { z } from 'zod';
 
 const createPaymentRequestSchema = z.object({
-  bookingId: z.string().uuid(), // OBRIGATÓRIO
-  serviceId: z.string().uuid(), // OBRIGATÓRIO
-  payerActorId: z.string().uuid(), // OBRIGATÓRIO
-  receiverActorId: z.string().uuid(), // OBRIGATÓRIO
+  bookingId: z.string().uuid().optional(), // vem da URL (params); body é redundante
+  serviceId: z.string().uuid().optional(), // vem da URL (params); body é redundante
+  // 🔒 F-C1-MONEY-SPR-CREATE: payer/receiver são NÃO-autoritativos e DERIVADOS server-side
+  // (receiver=service.actor_id, payer=booking.requester). Se vierem no body, são IGNORADOS.
+  payerActorId: z.string().uuid().optional(),
+  receiverActorId: z.string().uuid().optional(),
   amountCents: z.number().positive('Valor deve ser maior que zero'), // OBRIGATÓRIO
   currency: z.string().optional(), // Default: 'FIC'
   metadata: z.record(z.any()).optional(),
@@ -35,7 +37,7 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:serviceId/bookings/:bookingId/payments',
     async (req, reply) => {
-      // ActionContext é obrigatório (V2)
+      // ActionContext é obrigatório (V2) — mantido por contrato, mas NÃO é autoridade.
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
@@ -43,7 +45,17 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
 
-      // Validar payload
+      // 🔒 F-C1-MONEY-SPR-CREATE-AUTHORITY-HARDENING (DECISION-0113 · decisão de produto Opção A):
+      // a COBRANÇA (payment_request) é EMITIDA pelo RECEIVER/PROVIDER. req.user (server-side) DEVE
+      // REPRESENTAR o receiver_actor_id, DERIVADO do SERVICE (services.actor_id). payer/receiver são
+      // resolvidos server-side (service + booking); body/actionContext/header/query NÃO provam
+      // autoridade nem definem as partes. Nada move dinheiro (sem Bank/execução/firewall aqui).
+      const userId = req.user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Authentication required' });
+      }
+
+      // Validar payload (payer/receiver no body são NÃO-autoritativos e ignorados).
       const parsed = createPaymentRequestSchema.safeParse(req.body);
       if (!parsed.success) {
         return reply.status(400).send({
@@ -52,15 +64,38 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // Resolver SERVICE e BOOKING server-side → derivar receiver/payer (NUNCA do body).
+      const { servicesRepository } = await import('./services.repository');
+      const service = await servicesRepository.findById(req.tenant.id, req.params.serviceId);
+      if (!service) {
+        return reply.status(404).send({ error: 'Service não encontrado' });
+      }
+      const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
+      const booking = await unifiedAvailabilityService.getBooking(req.tenant.id, req.params.bookingId).catch(() => null);
+      if (!booking) {
+        return reply.status(404).send({ error: 'Booking não encontrado' });
+      }
+      const receiverActorId = service.actorId;       // dono/provider do service (recebe a cobrança)
+      const payerActorId = booking.requesterActorId; // solicitante do booking (paga a cobrança)
+
+      // AUTORIDADE (Opção A): o emissor da cobrança deve REPRESENTAR o receiver/provider.
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      const canCreate = await authorizationService.canRepresentActor(req.tenant.id, userId, receiverActorId);
+      if (!canCreate) {
+        return reply.status(403).send({
+          error: 'Caller must represent the service receiver/provider to create a payment request.',
+        });
+      }
+
       try {
         const paymentRequest = await servicePaymentRequestService.createPaymentRequest(
           req.tenant.id,
-          req.actionContext.actorId,
+          userId,
           {
             bookingId: req.params.bookingId, // bookingId vem da URL
             serviceId: req.params.serviceId, // serviceId vem da URL
-            payerActorId: parsed.data.payerActorId,
-            receiverActorId: parsed.data.receiverActorId,
+            payerActorId,    // DERIVADO server-side (body ignorado)
+            receiverActorId, // DERIVADO server-side (body ignorado)
             amountCents: parsed.data.amountCents,
             currency: parsed.data.currency,
             metadata: parsed.data.metadata,

@@ -13352,13 +13352,16 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
 - **Status:** **OPEN (resíduos REAIS; a LEITURA foi corrigida e travada).** Os 2 GET money-adjacent de
   service-payment-request agora exigem representar payer OU receiver (canRepresentActor server-side, 403 fail-closed);
   guard `audit-spr-read-authority.mjs` (CLOSED) + e2e 9/9 + neg-proof 3 mordidas. Estes resíduos NÃO são da leitura.
-- **R1 (POST create canal-1 + decisão de produto):** `POST /:serviceId/bookings/:bookingId/payments` (criar cobrança)
-  segue usando `actionContext.actorId` (canal-1) SEM binding e **NÃO foi tocado** (GO: não corrigir POST create). A
-  correção depende de **decisão Clayton: quem pode criar cobrança — payer, receiver ou ambos.** Convergência = frente
-  própria com decisão de produto. _(Efeito colateral do guard B1f: `audit-actor-authority-boundary` é FILE-LEVEL — agora
-  que o arquivo tem `canRepresentActor` (do GET), o guard CLAREIA o arquivo inteiro (stale_baseline=1) e **não flagga mais
-  o canal-1 do POST**. O baseline B1f permanece com 31 entradas (objeto intacto); a entrada deste arquivo virou stale. O
-  POST create permanece debt — registrado AQUI para não se perder.)_
+- **R1 (POST create canal-1) — ✅ RESOLVIDO (F-C1-MONEY-SPR-CREATE, 2026-06-15):** decisão de produto Clayton
+  promulgada (**Opção A: o RECEIVER/PROVIDER emite a cobrança**). `POST /:serviceId/bookings/:bookingId/payments` agora
+  exige `canRepresentActor(req.user.userId, receiver_actor_id)` com **receiver derivado de `service.actor_id`** e payer de
+  `booking.requesterActorId` — server-side, body/actionContext NÃO autorizam nem definem as partes (body payer/receiver
+  IGNORADOS, derivados usados). 403 fail-closed. Provado: guard `audit-spr-read-authority.mjs` estendido (POST create) +
+  neg-proof 5 mordidas + e2e create 10/10 (receiver cria; payer/terceiro/spoof 403; spoof body→derivado persiste; booking
+  de outro service / não-aceito → 400; zero dinheiro). _(O canal-1 do POST está MATERIALMENTE vinculado agora — o
+  mascaramento file-level do guard B1f deixou de ser relevante para este arquivo. Baseline B1f intacto = 31 entradas; a
+  entrada deste arquivo segue stale (file-level), mas o POST não é mais debt.)_ **NÃO fechado:** payer-initiated payment
+  (fluxo futuro separado, NÃO reutiliza este create).
 - **R2 (POST execute):** `POST /:paymentRequestId/execute` segue FAIL-CLOSED por DECISION-0110 (firewall
   SERVICE_FINANCIAL_RUNTIME_ENABLED default OFF) — **NÃO tocado**. O GET execution (sem firewall) ganhou o binding de leitura.
 - **R3 (FK/índice/RLS ausentes — achado IA-BANCO):** `service_payment_requests` tem `payer_actor_id`/`receiver_actor_id`

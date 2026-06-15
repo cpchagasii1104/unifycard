@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-// Guard estrutural — F-C1-MONEY-SPR-READ-AUTHORITY-HARDENING (DECISION-0113 · ONDA 0131 C1_MONEY).
-// Trava a autoridade de LEITURA de service-payment-request: os 2 GET money-adjacent devem exigir, server-side,
-// que req.user REPRESENTE o payer OU o receiver (canRepresentActor sobre payerActorId/receiverActorId) e negar
-// 403 caso contrário. tenant_id/actionContext não autorizam sozinhos. FALHA se qualquer GET perder o binding.
-// NÃO cobre o POST create (decisão de produto pendente — ver DT). Integrado em validate:regression-guards.
+// Guard estrutural — F-C1-MONEY-SPR-{READ,CREATE}-AUTHORITY-HARDENING (DECISION-0113 · ONDA 0131 C1_MONEY).
+// LEITURA: os 2 GET money-adjacent devem exigir, server-side, que req.user REPRESENTE payer OU receiver
+//   (canRepresentActor sobre payerActorId/receiverActorId) e negar 403; tenant_id/actionContext não autorizam.
+// CRIAÇÃO (Opção A, decisão de produto Clayton): o POST create exige que o emissor REPRESENTE o RECEIVER
+//   derivado do SERVICE (service.actorId); payer/receiver derivados server-side (service/booking), NUNCA do body.
+// FALHA se qualquer GET perder o binding, OU o POST create perder canRepresentActor / derivação server-side /
+// 403, OU voltar a usar body (parsed.data.{payer,receiver}ActorId) como autoridade. Em validate:regression-guards.
 
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
@@ -36,13 +38,36 @@ function runGuard() {
       failures.push(`${rel} (${what}) perdeu o 403 fail-closed — sem representar payer/receiver deve negar.`);
     }
   }
+
+  // POST create (Opção A): autoridade pelo RECEIVER derivado server-side; body não-autoritativo.
+  const sprRel = 'src/modules/services/service-payment-request.routes.ts';
+  const sprPath = join(ROOT, sprRel);
+  if (existsSync(sprPath)) {
+    const full = stripComments(readFileSync(sprPath, 'utf-8'));
+    // Recorta o handler do POST create (do 1º fastify.post até o 1º fastify.get).
+    const postIdx = full.search(/fastify\.post\b/);
+    const getIdx = full.search(/fastify\.get\b/);
+    const post = postIdx >= 0 ? full.slice(postIdx, getIdx > postIdx ? getIdx : full.length) : '';
+    if (!post) {
+      failures.push(`${sprRel}: POST create não encontrado — REGISTRO precisa revisão.`);
+    } else {
+      if (!/\bcanRepresentActor\s*\(/.test(post)) failures.push(`${sprRel} (POST create) sem canRepresentActor — emissor da cobrança não vinculado ao receiver (Opção A).`);
+      if (!/service\.actorId/.test(post)) failures.push(`${sprRel} (POST create) não deriva o receiver de service.actorId (server-side) — receiver não pode vir do body.`);
+      if (!/booking\.requesterActorId/.test(post)) failures.push(`${sprRel} (POST create) não deriva o payer de booking.requesterActorId (server-side) — payer não pode vir do body.`);
+      if (!/\.status\(\s*403\s*\)/.test(post)) failures.push(`${sprRel} (POST create) perdeu o 403 fail-closed (sem representar o receiver → negar).`);
+      if (/(payerActorId|receiverActorId)\s*:\s*parsed\.data\.(payer|receiver)ActorId/.test(post)) {
+        failures.push(`${sprRel} (POST create) usa parsed.data.{payer,receiver}ActorId (body) como parte da cobrança — body NÃO é autoridade; derive de service/booking.`);
+      }
+    }
+  }
+
   if (failures.length > 0) {
     console.error('GATE FAIL [spr-read-authority]:');
     failures.forEach((f) => console.error('  ❌ ' + f));
     process.exit(1);
   }
-  console.log('[spr-read-authority] 2 GET money-adjacent com binding: canRepresentActor sobre payer/receiver + 403 fail-closed.');
-  console.log('GATE OK [spr-read-authority] — leitura de service-payment-request exige representar payer OU receiver (DECISION-0113); tenant/actionContext não autorizam.');
+  console.log('[spr-read-authority] 2 GET (payer OU receiver) + POST create (receiver derivado, Opção A): canRepresentActor + 403; body não-autoritativo.');
+  console.log('GATE OK [spr-read-authority] — leitura exige representar payer/receiver; criação exige representar o RECEIVER derivado (service.actor_id); body/actionContext não autorizam (DECISION-0113).');
 }
 
 const isMain = process.argv[1] ? resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
