@@ -13347,6 +13347,30 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   autoridade composta) = decisão de produto Clayton, frente própria — **NÃO declarado resolvido**. Resíduo service-side
   remanescente: `executePayment` ainda recebe `actingUserId: session.actorId` (operador) — autoria operacional, não money-party.
 
+## DT-TEMPORAL-LEGACY-DECOMMISSION-RESIDUES — resíduos do descomissionamento legado temporal (2026-06-15, E2 / ONDA DECISION-0131)
+
+- **Status:** **OPEN (resíduos REAIS de descomissionamento; NÃO no write-path — tombstone травado).** O write-path legado
+  `schedules`/`schedule_slots` está MORTO e agora TRAVADO (guard `audit-temporal-legacy-tombstone.mjs`, CLOSED=5: zero
+  writer de runtime, REVOKE FROM PUBLIC pinado, 3 serviços-tombstone lançando *LegacyError). Estes resíduos são de
+  LEITURA legada/COLUNA/rota-501/documentação, NÃO de escrita. Descobertos no READ-FIRST do E2 (workflow + 1ª mão).
+- **R1 (leitura legada viva):** `services/feed/EventAvailabilityPreviewService.ts:68` faz `SELECT ... FROM schedule_slots`
+  (READ-MODEL read-only, nunca reserva). **Legítima** (brake #3: leitura histórica permitida) — o guard NÃO bloqueia
+  leitura. Mas quebra se as tabelas forem DROPADAS. Convergência: migrar o preview p/ unified_availability (frente própria).
+- **R2 (coluna legada):** `modules/events/checkout-ticket.service.ts` ainda grava a COLUNA `event_tickets.schedule_slot_id`
+  (sempre `null`; `const slotId = null`). Resíduo de coluna, NÃO write de tabela legada (a reserva temporal vai por
+  unified_availability). Convergência: remover a coluna morta (migration futura — fora do E2).
+- **R3 (rota 501 montada):** `modules/social/social-work-schedule.routes.ts` segue MONTADA mas funcional-501
+  (`createScheduleFromPost` lança 'temporarily disabled - migration to Unified Availability pending'; writers legados
+  comentados/mortos; `getSchedulesForPost` retorna []). Importa tipos de `../schedule/schedule.types` (dependência viva
+  do módulo legado). Convergência: reescrever sobre unified_availability OU desmontar a rota (frente própria).
+- **R4 (discrepância documental):** docs (SSOT_REGISTRY/RFC_C63, lido pelo workflow) descrevem o REVOKE como **"não
+  aplicada"**, mas o banco vivo CONTRADIZ: a migration `20260428200000_schedules_revoke_write.sql` ESTÁ em
+  `schema_migrations` (aplicada) e `has_table_privilege('public', schedules/schedule_slots, INSERT/UPDATE/DELETE)` = FALSE
+  (PUBLIC negado). **Doc stale.** NÃO criar migration (brake respeitado). Convergência: corrigir a doc (não-código).
+- **OBSERVAÇÃO (owner-bypass):** o app conecta como `postgres` (OWNER das tabelas) → o REVOKE FROM PUBLIC NÃO vincula o
+  owner em runtime; a garantia EFETIVA contra write legado é CÓDIGO (zero writer) — exatamente o que o guard E2 trava.
+  O REVOKE statement revoga só INSERT,UPDATE (não DELETE), mas PUBLIC.DELETE já é negado por default → sem efeito prático.
+
 ## DT-AVAILABILITY-OWNER-AUTHORITY-EXEMPLAR-RESIDUES — resíduos do exemplar (NÃO no padrão de autoridade) (2026-06-15, E1 / ONDA DECISION-0131)
 
 - **Status:** **OPEN (resíduos REAIS fora do padrão de autoridade; NÃO corrigir em E1).** O padrão owner-authority está
