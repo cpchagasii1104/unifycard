@@ -7240,3 +7240,25 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Superada por:** —
 - **🟢 RESEAL YALA = PASS (2026-06-16, adversarial READ-ONLY).** Commit material `3224d6f8`. Yala confirmou: DECISION-0137 existe; commit docs-only puro; `permission-keys.ts`=SSOT de capability keys p/ grants; `business-permissions.types.ts`=role-map (não registry); `PermissionString`/`rbac`=legado/FASE 6 (grafado `${string}:${string}`); grants não usam BusinessAction/PermissionString/OrganizationRoleKey/`users.referral_code`; Slice 1B intacto; Slice 1C bloqueado; financeiro CRITICAL/3 paralelas; organization não reativada; zero runtime/código/schema/frontend/migration. `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` → **CLOSED_AS_RFC_BASELINE / YALA PASS**; `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` permanece OPEN. Estado final: **CLOSED / YALA PASS**.
 - **Referências:** `docs/02_decisions/DECISION_0137_PERMISSION_TRI_REGISTRY_RFC.md` · `permission-keys.ts` · `business-permissions.types.ts` · `rbac.types.ts` · `DECISION-0134`/`0135`/`0136` · `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` · `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`.
+
+---
+
+## DECISION-0138 — Operador de agenda por grant explícito (RFC de produto/autoridade)
+
+- **Data:** 2026-06-16
+- **Tipo:** arquitetural / autoridade / produto / RFC (DOCS-ONLY · IMPLEMENTED / HOLD YALA)
+- **Frente:** F-CALENDAR-OPERATOR-GRANT-AUTHORITY-RFC · **HEAD:** `6e74deb9` · **dev:** 391 (sem migration)
+- **Contexto:** o Slice 1C (enforcement de grant em rota de agenda) estava bloqueado por `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` (decisão de produto sobre owner-only). Clayton decidiu: owner delega operação de agenda por grant explícito, sem cargo rígido. READ-FIRST confirmou que `calendar:block`/`unblock` são keys NÃO-roteadas (a rota viva de agenda é owner-only selada DECISION-0113/0118).
+- **Decisão (produto + composição):**
+  1. **Operador de agenda existe:** owner/representante legítimo do `scope_actor` delega por **grant explícito** (secretária/cônjuge/funcionário/parceiro/etc.); **sem cargo rígido** — granular por `actor × capability × scope_actor`. Templates/cargos = fase futura, não bloqueiam.
+  2. **Código/slug = lookup, NÃO authority:** proibido `users.referral_code`/slug/actorId-de-body como autoridade; autoridade nasce do grant persistido contra `actor_id`.
+  3. **Composição fail-closed do Slice 1C:** rota executa se **A** owner/self · **B** `canRepresentActor(user,scope)` · **C** grant ativo (grantee server-side / scope / capability / status active / janela / tenant). Grant é **ADITIVO** (não remove owner; não concede direito de conceder).
+  4. **Mapeamento obrigatório:** o 1C deve mapear de 1ª mão quais rotas reais correspondem a calendar:* (não há rota `/block`); composição entra aditiva sobre o gate selado.
+  5. **Scope:** não confundir agenda pessoal × empresarial; owner vem de `resolveAvailabilityOwner`, não de actorId declarado.
+  6. **Auditoria futura:** user/actor/scope/capability/grant/ação. **Financeiro FORA** (CRITICAL / 3 paralelas).
+- **NÃO muda runtime:** zero código; availability/calendar owner-only intocado; `hasCapabilityGrant` NÃO plugado em rota; Slice 1C NÃO implementado.
+- **NÃO decidido:** mapeamento concreto de rota (1C); cargos/templates; cutover de vocabulários.
+- **Responsável:** Clayton / IA Diretora (executor: Claude). **Validação prévia:** Clayton (decisão de produto).
+- **Supera:** nenhuma (resolve a dúvida de `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` como baseline de produto).
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0138_CALENDAR_OPERATOR_GRANT_AUTHORITY_RFC.md` · `DECISION-0136`/`0137`/`0113`/`0118` · `actor_capability_grants` · `unified-availability.routes.ts` (owner-only) · `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`.

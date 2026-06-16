@@ -1,3 +1,21 @@
+## 2026-06-16 — F-CALENDAR-OPERATOR-GRANT-AUTHORITY-RFC · IMPLEMENTED / HOLD YALA (docs-only RFC)
+
+**Branch:** `rescue-structural` · **HEAD `6e74deb9`** · **dev 391 (ZERO migration)** · MODO EXECUTOR (docs-only). RFC de **produto/autoridade**: owner delega operação de agenda a outro actor por **grant explícito**, sem cargo rígido. Promulga **DECISION-0138** (`docs/02_decisions/DECISION_0138_CALENDAR_OPERATOR_GRANT_AUTHORITY_RFC.md`). Execução: `docs/03_execution_log/20260616_F_CALENDAR_OPERATOR_GRANT_AUTHORITY_RFC.md`. **NÃO implementa enforcement; availability/calendar owner-only INTOCADO.**
+
+**Achado:** `calendar:block`/`unblock` são capability keys **NÃO-roteadas** (rota viva de agenda = `POST /availability`/`PUT /weekly-template`, seladas owner-only DECISION-0113/0118) → o Slice 1C deve **mapear rotas reais** antes de plugar enforcement.
+
+**DECISION-0138 promulga:** (1) operador de agenda existe (owner delega por grant; sem cargo rígido; granular por actor×capability×scope); (2) cargos/templates = fase futura; (3) código/slug = lookup, NÃO authority (proibido referral_code/slug/actorId-de-body); (4) **composição fail-closed do 1C** (A owner/self · B canRepresentActor(scope) · C grant ativo server-side); (5) grant ADITIVO (não remove owner; não concede direito de conceder); (6) scope pessoal × empresarial não se confundem; (7) auditoria futura; (8) financeiro FORA / 3 paralelas.
+
+**DT:** `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` → **IMPLEMENTED_AS_PRODUCT_AUTHORITY_BASELINE / HOLD YALA** (CLOSED só no seal pós-Yala). **Slice 1C NÃO nasce neste RFC** (só após Yala PASS); pré-condições: mapear rotas + composição + guard/e2e + auditoria.
+
+**Provas:** `git diff` = 5 .md (DECISION-0138 + execution log + STATUS + DECISIONS_LOG + DT_LOG); arch-patterns --strict critical_new=0.
+
+**NÃO TOCADO:** código · `permission-keys.ts`/`business-permissions.types.ts`/`rbac` · availability/calendar runtime · `hasCapabilityGrant` em rota · owner-only no código · endpoints/migration/enforcement · frontend · financeiro/`bank_ledger` · votes/organization/contextual-thread.
+
+**Estado:** **IMPLEMENTED / HOLD YALA** (docs-only RFC). dev 391.
+
+---
+
 ## 2026-06-16 — F-PERMISSION-TRI-REGISTRY-RFC · CLOSED / YALA PASS (docs-only RFC)
 
 **Branch:** `rescue-structural` · **commit material `3224d6f8`** · **dev 391 (ZERO migration)** · MODO EXECUTOR (docs-only). **🟢 RESEAL YALA = PASS** (adversarial READ-ONLY, 2026-06-16). RFC que define o papel canônico dos **três** vocabulários de permissão vivos antes do Slice 1C. Promulga **DECISION-0137** (`docs/02_decisions/DECISION_0137_PERMISSION_TRI_REGISTRY_RFC.md`). Execução: `docs/03_execution_log/20260616_F_PERMISSION_TRI_REGISTRY_RFC.md` (seção YALA RESEAL — PASS). **NADA material tocado.**
