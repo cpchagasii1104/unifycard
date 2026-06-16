@@ -3,287 +3,51 @@
 // 🔴 BLINDAGEM: NÃO toma decisões automáticas
 
 import { FastifyPluginAsync } from 'fastify';
-import { contextualThreadService } from './contextual-thread.service';
-import type {
-  CreateContextualThreadInput,
-  SendContextualMessageInput,
-} from './contextual-thread.types';
+
+// 🔴 F-CONTEXTUAL-THREAD-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT (DT-CONTEXTUAL-THREAD-SCHEMA-GHOST):
+// O módulo `contextual-messaging` está MONTADO (app.builder.ts) e suas rotas batem no repository, que
+// faz INSERT/SELECT/UPDATE em `contextual_threads`/`contextual_messages`. Mas essas tabelas **não são
+// criadas por NENHUMA migration canônica** (verificado: zero ocorrência de `CREATE TABLE ... contextual_*`
+// em backend/migrations; `to_regclass('public.contextual_threads')=NULL`). → schema ghost. Qualquer
+// acesso ao DB emitiria `42P01 relation "contextual_threads" não existe` (500 cru), e os writes ainda
+// carregavam riscos LATENTES de autoria (`sendMessage` gravava `actionContext.actorId` cru; `addParticipant`
+// aceitava `body.actorId` cru). NÃO se faz binding sobre superfície morta.
+//
+// Decisão IA Diretora (2026-06-16): NÃO religar / NÃO materializar schema / NÃO ativar feature. Substituir
+// o 500 cru por contenção fail-closed HONESTA: 501 nomeado, ZERO chamada ao service/repository, ZERO acesso
+// ao DB, ZERO write. **Reads contidos na MESMA frente** (também batem nas tabelas ghost — decisão IA Diretora:
+// não deixar GET emitindo 500 cru enquanto POST está honesto). Religação/binding/elegibilidade = frentes
+// próprias (DT-CONTEXTUAL-THREAD-SCHEMA-GHOST / DT-CONTEXTUAL-THREAD-WRITE-AUTHORSHIP-BINDING-LATENT).
+const CONTEXTUAL_THREAD_SCHEMA_GHOST_CONTAINED = {
+  ok: false,
+  code: 'CONTEXTUAL_THREAD_SCHEMA_GHOST_CONTAINED',
+  message:
+    'Contextual threads are not available because their canonical schema (contextual_threads / ' +
+    'contextual_messages) has not been materialized. (DT-CONTEXTUAL-THREAD-SCHEMA-GHOST)',
+};
 
 const contextualThreadRoutes: FastifyPluginAsync = async (fastify) => {
-  // 🔴 DECISION-0113 F6.5.3 (mensagem privada): ler thread/mensagens exige ser PARTICIPANTE real — espelha
-  // o gate de escrita do service (`sendMessage`: só participantes enviam). threadId/contextId na URL é
-  // ENDEREÇO, não autorização. Gate: (1) o caller pode representar o `actionContext.actorId` declarado
-  // (`canRepresentActor`); (2) esse actor está em `thread.participantActorIds`. Senão → 403 não-leak
-  // (uniforme com thread inexistente). Sem participante resolvível → fail-closed.
-  const assertThreadParticipant = async (
-    req: any,
-    reply: any,
-    tenantId: string,
-    thread: { participantActorIds?: string[] } | null
-  ): Promise<boolean> => {
-    const userId = req.user?.userId as string | undefined;
-    const actorId = req.actionContext?.actorId as string | undefined;
-    if (!userId) {
-      reply.status(401).send({ error: 'Não autenticado' });
-      return false;
-    }
-    if (!actorId) {
-      reply.status(400).send({ error: 'ActionContext obrigatório' });
-      return false;
-    }
-    let canRepresent = false;
-    try {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      canRepresent = await authorizationService.canRepresentActor(tenantId, userId, actorId);
-    } catch {
-      canRepresent = false;
-    }
-    if (!canRepresent) {
-      reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
-      return false;
-    }
-    if (!thread || !Array.isArray(thread.participantActorIds) || !thread.participantActorIds.includes(actorId)) {
-      // não-leak: thread inexistente OU caller não-participante → 403 uniforme (não revela existência).
-      reply.status(403).send({ error: 'Thread não acessível' });
-      return false;
-    }
-    return true;
-  };
+  // Handler de contenção único — curto-circuito fail-closed (501) ANTES de qualquer service/repository/DB.
+  const contained = async (_req: any, reply: any) =>
+    reply.status(501).send(CONTEXTUAL_THREAD_SCHEMA_GHOST_CONTAINED);
 
-  /**
-   * POST /contextual-threads
-   * Criar nova thread contextual
-   */
-  fastify.post<{ Body: CreateContextualThreadInput }>(
-    '/contextual-threads',
-    async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const actionContext = (req as any).actionContext;
+  // ── WRITES (contidos: zero service, zero repository, zero DB, zero write, zero autoria) ──
+  // POST /contextual-threads (createThread)
+  fastify.post('/contextual-threads', contained);
+  // POST /contextual-threads/:threadId/participants (addParticipant — body.actorId cru NÃO é lido)
+  fastify.post('/contextual-threads/:threadId/participants', contained);
+  // POST /contextual-threads/:threadId/messages (sendMessage — actionContext.actorId cru NÃO é lido)
+  fastify.post('/contextual-threads/:threadId/messages', contained);
 
-      if (!actionContext?.actorId) {
-        return reply.status(400).send({ error: 'actorId é obrigatório' });
-      }
-
-      try {
-        const thread = await contextualThreadService.createThread(tenantId, req.body);
-        return reply.status(201).send(thread);
-      } catch (error: any) {
-        fastify.log.error({ err: error }, 'Erro ao criar thread contextual');
-        return reply.status(error.statusCode || 500).send({
-          error: 'Erro ao criar thread contextual',
-          message: error.message,
-        });
-      }
-    }
-  );
-
-  /**
-   * GET /contextual-threads
-   * Listar threads com filtros
-   */
-  fastify.get<{
-    Querystring: {
-      contextType?: string;
-      contextId?: string;
-      participantActorId?: string;
-      limit?: number;
-      offset?: number;
-    };
-  }>('/contextual-threads', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-
-    // 🔴 DECISION-0113 F6.5.3: a listagem é ESCOPADA ao actor do caller (provado representável). O filtro
-    // `participantActorId` do cliente é IGNORADO (não se confia no cliente) e forçado = actionContext.actorId.
-    const userId = (req as any).user?.userId as string | undefined;
-    const callerActorId = (req as any).actionContext?.actorId as string | undefined;
-    if (!userId) {
-      return reply.status(401).send({ error: 'Não autenticado' });
-    }
-    if (!callerActorId) {
-      return reply.status(400).send({ error: 'ActionContext obrigatório' });
-    }
-    let canRepresent = false;
-    try {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      canRepresent = await authorizationService.canRepresentActor(tenantId, userId, callerActorId);
-    } catch {
-      canRepresent = false;
-    }
-    if (!canRepresent) {
-      return reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
-    }
-
-    try {
-      const result = await contextualThreadService.listThreads(tenantId, {
-        contextType: req.query.contextType as any,
-        contextId: req.query.contextId,
-        participantActorId: callerActorId, // forçado ao actor do caller (ignora filtro do cliente)
-        limit: req.query.limit,
-        offset: req.query.offset,
-      });
-      return result;
-    } catch (error: any) {
-      fastify.log.error({ err: error }, 'Erro ao listar threads contextuais');
-      return reply.status(error.statusCode || 500).send({
-        error: 'Erro ao listar threads contextuais',
-        message: error.message,
-      });
-    }
-  });
-
-  /**
-   * GET /contextual-threads/:threadId
-   * Buscar thread por ID
-   */
-  fastify.get<{ Params: { threadId: string } }>(
-    '/contextual-threads/:threadId',
-    async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const { threadId } = req.params;
-
-      try {
-        const thread = await contextualThreadService.getThreadById(tenantId, threadId);
-        if (!(await assertThreadParticipant(req, reply, tenantId, thread))) return reply;
-        return thread;
-      } catch (error: any) {
-        // não-leak: thread inexistente (404) → 403 uniforme (igual a não-participante).
-        if (error?.statusCode === 404) {
-          return reply.status(403).send({ error: 'Thread não acessível' });
-        }
-        fastify.log.error({ err: error }, 'Erro ao buscar thread contextual');
-        return reply.status(error.statusCode || 500).send({
-          error: 'Erro ao buscar thread contextual',
-          message: error.message,
-        });
-      }
-    }
-  );
-
-  /**
-   * GET /contextual-threads/context/:contextType/:contextId
-   * Buscar thread por contexto
-   */
-  fastify.get<{ Params: { contextType: string; contextId: string } }>(
-    '/contextual-threads/context/:contextType/:contextId',
-    async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const { contextType, contextId } = req.params;
-
-      try {
-        const thread = await contextualThreadService.getThreadByContext(
-          tenantId,
-          contextType,
-          contextId
-        );
-        // não-leak: thread inexistente OU caller não-participante → 403 uniforme (não revela existência).
-        if (!thread) {
-          return reply.status(403).send({ error: 'Thread não acessível' });
-        }
-        if (!(await assertThreadParticipant(req, reply, tenantId, thread))) return reply;
-        return thread;
-      } catch (error: any) {
-        fastify.log.error({ err: error }, 'Erro ao buscar thread por contexto');
-        return reply.status(error.statusCode || 500).send({
-          error: 'Erro ao buscar thread por contexto',
-          message: error.message,
-        });
-      }
-    }
-  );
-
-  /**
-   * POST /contextual-threads/:threadId/participants
-   * Adicionar participante à thread
-   */
-  fastify.post<{ Params: { threadId: string }; Body: { actorId: string } }>(
-    '/contextual-threads/:threadId/participants',
-    async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const { threadId } = req.params;
-      const { actorId } = req.body;
-
-      try {
-        const thread = await contextualThreadService.addParticipant(tenantId, threadId, actorId);
-        return thread;
-      } catch (error: any) {
-        fastify.log.error({ err: error }, 'Erro ao adicionar participante');
-        return reply.status(error.statusCode || 500).send({
-          error: 'Erro ao adicionar participante',
-          message: error.message,
-        });
-      }
-    }
-  );
-
-  /**
-   * POST /contextual-threads/:threadId/messages
-   * Enviar mensagem em thread
-   */
-  fastify.post<{ Params: { threadId: string }; Body: SendContextualMessageInput }>(
-    '/contextual-threads/:threadId/messages',
-    async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const { threadId } = req.params;
-      const actionContext = (req as any).actionContext;
-
-      if (!actionContext?.actorId) {
-        return reply.status(400).send({ error: 'actorId é obrigatório' });
-      }
-
-      try {
-        const message = await contextualThreadService.sendMessage(
-          tenantId,
-          threadId,
-          req.body,
-          actionContext.actorId,
-          actionContext.actorId
-        );
-        return reply.status(201).send(message);
-      } catch (error: any) {
-        fastify.log.error({ err: error }, 'Erro ao enviar mensagem');
-        return reply.status(error.statusCode || 500).send({
-          error: 'Erro ao enviar mensagem',
-          message: error.message,
-        });
-      }
-    }
-  );
-
-  /**
-   * GET /contextual-threads/:threadId/messages
-   * Listar mensagens de uma thread
-   */
-  fastify.get<{
-    Params: { threadId: string };
-    Querystring: { limit?: number; offset?: number };
-  }>('/contextual-threads/:threadId/messages', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const { threadId } = req.params;
-    const limit = req.query.limit ? parseInt(req.query.limit.toString(), 10) : 100;
-    const offset = req.query.offset ? parseInt(req.query.offset.toString(), 10) : 0;
-
-    try {
-      // 🔴 F6.5.3: provar participação ANTES de devolver mensagens privadas (resolve a thread p/ os participantes).
-      const thread = await contextualThreadService.getThreadById(tenantId, threadId);
-      if (!(await assertThreadParticipant(req, reply, tenantId, thread))) return reply;
-      const result = await contextualThreadService.getMessages(tenantId, threadId, limit, offset);
-      return result;
-    } catch (error: any) {
-      // não-leak: thread inexistente (404) → 403 uniforme.
-      if (error?.statusCode === 404) {
-        return reply.status(403).send({ error: 'Thread não acessível' });
-      }
-      fastify.log.error({ err: error }, 'Erro ao listar mensagens');
-      return reply.status(error.statusCode || 500).send({
-        error: 'Erro ao listar mensagens',
-        message: error.message,
-      });
-    }
-  });
+  // ── READS (contidos na mesma frente — batem nas MESMAS tabelas ghost; não emitir 500 cru) ──
+  // GET /contextual-threads (listThreads)
+  fastify.get('/contextual-threads', contained);
+  // GET /contextual-threads/:threadId (getThreadById)
+  fastify.get('/contextual-threads/:threadId', contained);
+  // GET /contextual-threads/context/:contextType/:contextId (getThreadByContext)
+  fastify.get('/contextual-threads/context/:contextType/:contextId', contained);
+  // GET /contextual-threads/:threadId/messages (getMessages)
+  fastify.get('/contextual-threads/:threadId/messages', contained);
 };
 
 export default contextualThreadRoutes;
-
-
-
-

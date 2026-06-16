@@ -1,3 +1,21 @@
+## 2026-06-16 — F-CONTEXTUAL-THREAD-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT · IMPLEMENTED / HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `f9604558`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. Contenção (NÃO binding) do módulo `contextual-messaging`, **montado** mas dependente de tabelas inexistentes (schema ghost). Execução: `docs/03_execution_log/20260616_F_CONTEXTUAL_THREAD_SCHEMA_GHOST_FAIL_CLOSED_CONTAINMENT.md`.
+
+**Achado:** `contextual-thread.repository` faz INSERT/SELECT/UPDATE em `contextual_threads`/`contextual_messages` — tabelas que **nenhuma migration canônica cria** (`to_regclass=NULL` ambas). Módulo montado (`app.builder.ts:558`). As 7 rotas (3 writes + 4 reads) bateriam em **42P01** (500 cru); writes com autoria latente (`sendMessage` actionContext.actorId cru; `addParticipant` body.actorId cru).
+
+**Patch:** handler único `contained` → **501 `CONTEXTUAL_THREAD_SCHEMA_GHOST_CONTAINED`** (1ª instrução) nas **7 rotas** (reads incluídos por decisão IA Diretora — batem nas mesmas tabelas). ZERO service/repository/DB/write/autoria. `assertThreadParticipant`/`canRepresentActor`/`actionContext.actorId`/`req.body`/imports do service removidos. Service/repository NÃO tocados.
+
+**Provas:** tsc build 25/strict 43 (baseline); guard `audit-contextual-thread-schema-ghost-containment.mjs` na chain regression-guards GATE OK; neg-proof **5 mordidas** + SHA256 byte-idêntico; e2e efêmero **13/13** (S0/S1 ghost confirmado; 7 rotas→501 e NÃO 500; Bank intocado; 3 estruturais); 4 gates (actor-writer · bank-ledger · regression-guards rc=0 · arch-patterns critical_new=0).
+
+**DTs:** DT-CONTEXTUAL-THREAD-SCHEMA-GHOST (OPEN raiz/contido) · DT-CONTEXTUAL-THREAD-WRITE-AUTHORSHIP-BINDING-LATENT (OPEN) · DT-ORGANIZERS-BUILT-BUT-UNMOUNTED (OPEN/Clayton — achado adjacente, organizers tem código+schema mas não montado; NÃO tocado). **É containment, não binding; raiz OPEN; feature NÃO ativada; ZERO schema criado.**
+
+**NÃO TOCADO:** migration/schema/tabelas contextual · religação/ativação · `contextual-thread.service`/`.repository` · binding sobre rota morta · organizers/billing/plans/stripe · votes/service-order/service-bundle · Bank/Core/`bank_ledger`/payout/split/recovery/payment/invoice · RLS/RBAC/FASE 6 · contacts/suppliers/agenda.
+
+**Estado:** **IMPLEMENTED / HOLD RESEAL** — aguarda reseal Yala. dev 390.
+
+---
+
 ## 2026-06-16 — F-VOTES-WRITES-EXPLICIT-FAIL-CLOSED-CONTAINMENT · CLOSED / YALA PASS
 
 **Branch:** `rescue-structural` · **commit material `3404c565`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (READ-ONLY, 2026-06-16). Subfrente derivada de **STOP**: o GO `F-WRITE-AUTHORSHIP-VOTES-MODULE-BINDING` pediu binding dos writes de `votes`, mas o **READ-FIRST contradisse a premissa** — os writes não estão vivos. Decisão IA Diretora: **conter fail-closed, NÃO religar**. **A CONTENÇÃO está CLOSED; a RAIZ de votes (rota morta) permanece OPEN; votes NÃO foi ativado.** Execução: `docs/03_execution_log/20260616_F_VOTES_WRITES_EXPLICIT_FAIL_CLOSED_CONTAINMENT.md` (seção YALA RESEAL — PASS).
