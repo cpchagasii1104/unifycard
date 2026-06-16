@@ -1,6 +1,10 @@
-## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-SCHEMA-AND-NONFIN-ENFORCEMENT-SLICE-1 · IMPLEMENTED / HOLD YALA
+## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-SCHEMA-AND-NONFIN-ENFORCEMENT-SLICE-1 · CLOSED / YALA PASS
 
-**Branch:** `rescue-structural` · **parent `127525d2`** · **dev 390→391 (1 migration)** · MODO EXECUTOR. Materializa o substrato de **capability grants por actor** (DECISION-0136). **Slice 1A** (decisão IA Diretora após STOP): schema + service + repository + resolver, **SEM enforcement em rota de negócio**. Não-financeiro. Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_SCHEMA_AND_NONFIN_ENFORCEMENT_SLICE_1.md`.
+**Branch:** `rescue-structural` · **commit material `1e61c83b`** · **dev 391 (1 migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (adversarial READ-ONLY, 2026-06-16). Materializa o substrato de **capability grants por actor** (DECISION-0136). **Slice 1A** (decisão IA Diretora após STOP): schema + service + repository + resolver, **SEM enforcement em rota de negócio**. Não-financeiro. Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_SCHEMA_AND_NONFIN_ENFORCEMENT_SLICE_1.md` (seção YALA RESEAL — PASS).
+
+**Yala confirmou:** Slice 1A não alterou autoridade de negócio; zero rota com enforcement; zero endpoint HTTP; availability/calendar intocado; `actor_capability_grants` actor-based (grant por actor_id); lookup por `actors.slug`; `users.referral_code` proibido/ausente; slug sem unicidade mitigado por resolver fail-closed em ambiguidade; financeiro/bank_ledger fora; `permission-keys.ts` e `business-permissions.types.ts` intocados; ghost modules intocados; guard/e2e/neg-proof passaram; `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` segue OPEN.
+
+**Warnings não-bloqueantes (registrados):** **W1** — allowlist do Slice inclui `services:create`/`services:edit`/`services:disable`: canônicas (DECISION-0135) mas **ainda NÃO existem em `permission-keys.ts`**; antes de qualquer enforcement com `services:*`, **reconciliar/registrar no SSOT vivo de permission keys**. **W2** — o CHECK de `capability_key` no banco é **trava defensiva temporária**; NÃO é registry, NÃO substitui `permission-keys.ts`, NÃO é fonte de verdade; expandir allowlist exige nova migration/frente.
 
 **STOP que moldou o slice:** `calendar:block` é key DEFINIDA mas NÃO-ROTEADA; a rota viva (`POST /` create-availability) tem gate SELADO DECISION-0113/0118 ("Sem admin escape"). Enforçar grant ali relaxaria invariante selado → IA Diretora escolheu Slice 1A só (substrato; sem enforcement; superfície selada intocada).
 
@@ -12,7 +16,11 @@
 
 **NÃO TOCADO:** enforcement em rota · availability/calendar/weekly-template/bookings/participants · `permission-keys.ts` · `business-permissions.types.ts` · frontend/UI · financeiro/Bank/ledger/payout/split/refund · `users.referral_code` · votes/organization/contextual-thread · RBAC/FASE 6 · scope global.
 
-**Estado:** **IMPLEMENTED / HOLD YALA.** Enforcement (Slice 1C) + endpoints (1B) + UI = frentes futuras. dev 391.
+**Pendências (pós-selo):** Slice 1B (endpoints de gestão de grants) · Slice 1C (enforcement em rota — só após decisão explícita, `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`) · **reconciliar `services:*` em `permission-keys.ts` antes de enforcement** · reconciliar `permission-keys.ts` × `business-permissions.types.ts` · UI de checkboxes (futuro) · financeiro fora (sempre 3 paralelas).
+
+**Frase canônica:** "Slice 1A materializa apenas o substrato de capability grants por actor; ele não muda autoridade de negócio, não relaxa gates selados e não transforma lookup humano em authority."
+
+**Estado:** **CLOSED / YALA PASS.** Enforcement (Slice 1C) + endpoints (1B) + UI = frentes futuras. dev 391.
 
 ---
 

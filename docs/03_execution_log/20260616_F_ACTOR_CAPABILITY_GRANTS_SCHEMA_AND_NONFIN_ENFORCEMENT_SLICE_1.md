@@ -64,7 +64,30 @@ ZERO scope global · grants nascem inexistentes (sem backfill).
 
 ## Estado
 
-**IMPLEMENTED / HOLD YALA.** Fecha SÓ como **F-ACTOR-CAPABILITY-GRANTS-...-SLICE-1**: substrato de capability grants
+**CLOSED / YALA PASS.** Fecha SÓ como **F-ACTOR-CAPABILITY-GRANTS-...-SLICE-1**: substrato de capability grants
 por actor materializado (tabela + service + repository + resolver por slug + `hasCapabilityGrant`), invariantes
 provados, **zero enforcement em rota de negócio** (availability owner-only selado preservado). DECISION-0136
-promulgada; DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION aberta. dev **391**. **Aguarda reseal Yala.**
+promulgada; DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION aberta. dev **391**.
+
+## YALA RESEAL — PASS (2026-06-16, adversarial READ-ONLY)
+
+- **Veredito:** **PASS** (reseal adversarial READ-ONLY). Commit material `1e61c83b` · branch `rescue-structural` · dev 391.
+- **Confirmado:** Slice 1A **não alterou autoridade de negócio**; **nenhuma rota** recebeu enforcement; **nenhum
+  endpoint HTTP** criado; **availability/calendar intocado**; `actor_capability_grants` é **actor-based** (grant por
+  `actor_id`); lookup por **`actors.slug`**; **`users.referral_code` proibido/ausente**; `actors.slug` sem unicidade
+  **mitigado por resolver fail-closed em ambiguidade**; **financeiro/bank_ledger fora**; `permission-keys.ts` e
+  `business-permissions.types.ts` **intocados**; **ghost modules intocados**; guard + e2e **13/13** + neg-proof
+  **5 mordidas** passaram; **`DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` segue OPEN**.
+- **Warnings não-bloqueantes:**
+  - **W1 —** a allowlist inclui `services:create`/`services:edit`/`services:disable` (canônicas DECISION-0135) que
+    **ainda NÃO existem em `permission-keys.ts`**. Antes de qualquer enforcement com `services:*`, **reconciliar/
+    registrar as keys no SSOT vivo de permission keys**.
+  - **W2 —** o CHECK de `capability_key` no banco é **trava defensiva temporária** do Slice 1A — **NÃO** é registry,
+    **NÃO** substitui `permission-keys.ts`, **NÃO** deve virar fonte de verdade de permissões. Expandir a allowlist
+    exige nova migration/frente própria.
+- **Pendências:** Slice 1B (endpoints) · Slice 1C (enforcement, só após decisão explícita) ·
+  `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` · reconciliar `services:*` em `permission-keys.ts` ·
+  reconciliar `permission-keys.ts` × `business-permissions.types.ts` · UI futura · financeiro fora (3 paralelas).
+- **Frase canônica:** "Slice 1A materializa apenas o substrato de capability grants por actor; ele não muda
+  autoridade de negócio, não relaxa gates selados e não transforma lookup humano em authority."
+- **Selo:** commit docs-only `docs: seal actor capability grants slice`. Estado final: **CLOSED / YALA PASS**.
