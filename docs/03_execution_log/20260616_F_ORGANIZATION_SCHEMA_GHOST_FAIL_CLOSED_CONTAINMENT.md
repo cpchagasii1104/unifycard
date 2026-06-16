@@ -74,7 +74,24 @@ payment/invoice · ZERO RLS/RBAC/FASE 6 · ZERO contacts/referral.
 
 ## Estado
 
-**IMPLEMENTED / HOLD RESEAL.** Fecha SÓ como **F-ORGANIZATION-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT**: as 13 rotas
+**CLOSED / YALA PASS (contenção).** Fecha SÓ como **F-ORGANIZATION-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT**: as 13 rotas
 de `organization` ficam contidas fail-closed (501 nomeado, zero DB, curto-circuito pré-DB, sem 42P01); a raiz
 (schema ghost) permanece OPEN; feature NÃO ativada; `organization_members` (tombstone) NÃO ressuscitada;
-ZERO schema criado. dev 390. **Aguarda reseal Yala.**
+ZERO schema criado. dev 390.
+
+## YALA RESEAL — PASS (2026-06-16, READ-ONLY)
+
+- **Veredito:** **PASS** (reseal READ-ONLY). Commit material `fb262919` · branch `rescue-structural` · dev 390.
+- **Confirmado:** `organization_invites`/`organization_members`/`organization_units`/`organization_roles` não existem
+  no schema vivo (`to_regclass=NULL` ×4, e2e S×4); as **13 rotas** (5 writes + 8 reads) → **501
+  `ORGANIZATION_SCHEMA_GHOST_CONTAINED`**; ZERO chamada ao service/repository; ZERO acesso ao DB; **NÃO** emite
+  42P01/500 (curto-circuito pré-DB provado no e2e); reads E writes contidos; e2e **22/22**; guard **GATE OK**;
+  neg-proof **5 mordidas** + SHA256 byte-idêntico; **4 gates verdes**; **Bank/Core/ledger intocados**;
+  **`organization_members` (tombstone) NÃO ressuscitada** (segue ausente — e2e T-tombstone).
+- **Binding DECISION-0113 pré-existente:** o módulo já tinha `requireRepresentable`/`canRepresentActor` (correto em
+  intenção). Foi **removido APENAS porque rodava sobre superfície morta** (rota ghost) — e **deve ser REAPLICADO**
+  (não reinventado) se a feature for religada. Registrado em **DT-ORGANIZATION-AUTHORITY-BINDING-LATENT**.
+- **A CONTENÇÃO está CLOSED; a RAIZ permanece OPEN:** organization **não** foi ativado; tabelas **não** criadas;
+  binding **não** aplicado sobre superfície morta. Materialização/religação/descontinuação (e decisão sobre o
+  tombstone) = decisão Clayton.
+- **Selo:** commit docs-only `docs: seal organization schema ghost containment`. Estado final: **CLOSED / YALA PASS** (contenção).

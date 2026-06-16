@@ -1,6 +1,6 @@
-## 2026-06-16 — F-ORGANIZATION-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT · IMPLEMENTED / HOLD RESEAL
+## 2026-06-16 — F-ORGANIZATION-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT · CLOSED / YALA PASS
 
-**Branch:** `rescue-structural` · **parent `5183e0ae`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. Contenção (NÃO binding) do módulo `organization`, **montado** mas dependente de tabelas inexistentes (schema ghost; `organization_members` é **tombstone**). Execução: `docs/03_execution_log/20260616_F_ORGANIZATION_SCHEMA_GHOST_FAIL_CLOSED_CONTAINMENT.md`.
+**Branch:** `rescue-structural` · **commit material `fb262919`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (READ-ONLY, 2026-06-16). Contenção (NÃO binding) do módulo `organization`, **montado** mas dependente de tabelas inexistentes (schema ghost; `organization_members` é **tombstone**). **A CONTENÇÃO está CLOSED; a RAIZ organization (schema ghost) permanece OPEN; organization NÃO foi ativado; schema NÃO foi criado; `organization_members` (tombstone) NÃO foi ressuscitada.** Execução: `docs/03_execution_log/20260616_F_ORGANIZATION_SCHEMA_GHOST_FAIL_CLOSED_CONTAINMENT.md` (seção YALA RESEAL — PASS).
 
 **Achado:** services/repositories de `organization` operam em `organization_invites`/`organization_members`/`organization_units`/`organization_roles` — tabelas que **nenhuma migration canônica cria** (`to_regclass=NULL` ×4). Módulo montado (`app.builder.ts:688-689`). As 13 rotas (5 writes + 8 reads) bateriam em **42P01** (500 cru). `organization_members` é tombstone conhecido (DECISION-0131/WAVE1-BATCH1 F2). O binding DECISION-0113 pré-existente (`requireRepresentable`) rodava sobre superfície morta.
 
@@ -8,11 +8,11 @@
 
 **Provas:** tsc build 25/strict 43 (baseline); guard `audit-organization-schema-ghost-containment.mjs` na chain regression-guards GATE OK; neg-proof **5 mordidas** + SHA256 byte-idêntico; e2e efêmero **22/22** (4 ghost confirmados; 13 rotas→501 e NÃO 500; Bank intocado; tombstone intacta; 3 estruturais); 4 gates (actor-writer · bank-ledger · regression-guards rc=0 · arch-patterns critical_new=0).
 
-**DTs:** DT-ORGANIZATION-SCHEMA-GHOST (OPEN raiz/contido) · DT-ORGANIZATION-AUTHORITY-BINDING-LATENT (OPEN/futuro — reaplicar binding na religação). **É containment, não binding; raiz OPEN; feature NÃO ativada; ZERO schema criado; tombstone NÃO ressuscitada.** Materialização/religação/descontinuação = decisão Clayton.
+**DTs (raiz seguem OPEN após o selo):** DT-ORGANIZATION-SCHEMA-GHOST (OPEN raiz / contenção CLOSED) · DT-ORGANIZATION-AUTHORITY-BINDING-LATENT (OPEN/futuro — reaplicar binding DECISION-0113 na religação). **É containment, não binding; raiz OPEN; feature NÃO ativada; ZERO schema criado; tombstone NÃO ressuscitada.** Materialização/religação/descontinuação (e qualquer decisão sobre ressuscitar/substituir `organization_members`) = decisão Clayton.
 
-**NÃO TOCADO:** migration/schema/tabelas organization · ressurreição de organization_members · religação/ativação · services/repositories de organization · binding sobre rota morta · human-mvp · votes/contextual-thread/organizers/service-order/service-bundle · Bank/Core/`bank_ledger`/payout/split/recovery/payment/invoice · RLS/RBAC/FASE 6 · contacts/referral.
+**NÃO TOCADO:** migration/schema/tabelas organization · ressurreição de organization_members · religação/ativação · services/repositories de organization · binding sobre rota morta · human-mvp/reports/automation/agreements/business-audit/system-notifications/risk/policy/venue · votes/contextual-thread/organizers/service-order/service-bundle · Bank/Core/`bank_ledger`/payout/split/recovery/payment/invoice · RLS/RBAC/FASE 6 · contacts/referral.
 
-**Estado:** **IMPLEMENTED / HOLD RESEAL** — aguarda reseal Yala. dev 390.
+**Estado:** **CLOSED / YALA PASS** (contenção) — selado docs-only. RAIZ OPEN; organization NÃO ativado; schema NÃO criado; tombstone NÃO ressuscitada. dev 390.
 
 ---
 
