@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { AvailabilitySchedule } from '../api/categories';
-import type { MaterializeWeeklyTemplateResult } from '../api/availability';
+import type { MaterializeWeeklyTemplateResult, TemporalPurpose } from '../api/availability';
 import { validateTimeRange, validateDateRange } from '../utils/validation';
 import { normalizeTimeValue } from '../utils/temporal/normalizeTime';
 import { summarizeMaterializeResult } from '../utils/temporal/materializeResult';
@@ -14,15 +14,21 @@ interface AvailabilityScheduleProps {
   // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: persistência REMOTA EXPLÍCITA. Resolve com o resultado
   // real da materialização (rejected/conflicts/protectedCount) ou REJEITA em erro HTTP. NÃO é
   // mais um `onChange` fire-and-forget — o save só "confirma" depois que esta Promise resolve limpa.
-  onSave: (availability: AvailabilitySchedule) => Promise<MaterializeWeeklyTemplateResult>;
-  // 🔴 UX TEMPORAL CANÔNICO: Seletor de contexto apenas para user actors.
-  // Contexto WORK/LEISURE/STUDY NÃO é persistido nesta frente — selector fica oculto/desabilitado
-  // quando false (default). Persistir contexto exige DT/decisão própria (CONCEPT), não improviso.
+  // 🔴 DECISION-0132: o save agora envia também a finalidade por faixa (purposes). Mantém o contrato
+  // honesto (Promise que resolve com o resultado real ou rejeita em erro) da frente anterior.
+  onSave: (
+    availability: AvailabilitySchedule,
+    purposes: Record<string, string>
+  ) => Promise<MaterializeWeeklyTemplateResult>;
+  // 🔴 DECISION-0132: catálogo canônico das 4 finalidades (slug+conceptId+bookable), resolvido do
+  // backend. Quando presente, o seletor de finalidade por faixa é renderizado.
+  temporalPurposes?: TemporalPurpose[];
+  // 🔴 DECISION-0132: read-back das finalidades já persistidas. Chave = `${dayKey|specific}|${range}`.
+  initialPurposes?: Record<string, string>;
+  // (legado, mantido por compat — não usado para persistir contexto: ver DECISION-0132)
   showContextSelector?: boolean;
-  // 🔴 UX TEMPORAL CANÔNICO: Callback opcional de metadata de contexto (apenas local, não persiste).
   onContextChange?: (dayKey: string, slotIndex: number, context: 'WORK' | 'LEISURE' | 'STUDY' | null) => void;
-  // 🔴 UX TEMPORAL CANÔNICO: Estado inicial de contextos (opcional)
-  slotContexts?: Record<string, 'WORK' | 'LEISURE' | 'STUDY' | null>; // key: "${dayKey}-${index}"
+  slotContexts?: Record<string, 'WORK' | 'LEISURE' | 'STUDY' | null>;
 }
 
 interface RestPeriod {
@@ -51,9 +57,19 @@ const MONTHS = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
 
+/** DECISION-0132: rótulos pt-BR das finalidades (apresentação; a verdade é o concept_id). */
+const PURPOSE_LABELS: Record<string, string> = {
+  'trabalho': 'Trabalho',
+  'estudo': 'Estudo',
+  'cuidados-pessoais': 'Cuidados Pessoais',
+  'lazer': 'Lazer',
+};
+
 export default function AvailabilityScheduleEnhanced({
   availability,
   onSave,
+  temporalPurposes,
+  initialPurposes = {},
   showContextSelector = false,
   onContextChange,
   slotContexts = {},
@@ -73,6 +89,13 @@ export default function AvailabilityScheduleEnhanced({
   // 🔴 UX TEMPORAL CANÔNICO: Estado de contexto por slot (apenas descritivo)
   // Formato: { "dayKey-index": "WORK" | "LEISURE" | "STUDY" | null }
   const [contexts, setContexts] = useState<Record<string, 'WORK' | 'LEISURE' | 'STUDY' | null>>(slotContexts);
+  // 🔴 DECISION-0132: finalidade temporal por faixa. Chave = `${dayKey|specific}|${range}` → slug.
+  // Estável por RANGE (não por índice) para alinhar com o read-back e o payload do backend.
+  const [slotPurposes, setSlotPurposes] = useState<Record<string, string>>(initialPurposes);
+  // mapa slug → bookable (para marcar blocos protegidos como não-bookáveis na UI)
+  const purposeBookableBySlug = new Map<string, boolean>(
+    (temporalPurposes ?? []).map((p) => [p.slug, p.bookable])
+  );
   // 🔴 UX FECHAMENTO: Memória local do último end_time confirmado por contexto por dia
   // Formato: { "dayKey-context": "HH:mm" } - apenas em memória, não persiste
   const [lastEndTimeByContext, setLastEndTimeByContext] = useState<Record<string, string>>({});
@@ -141,6 +164,14 @@ export default function AvailabilityScheduleEnhanced({
     setDirtyDays({}); // 🔴 Limpar estado sujo ao carregar novo schedule
     isInitialMount.current = false;
   }, [availability]);
+
+  // 🔴 DECISION-0132: sincronizar finalidades do read-back quando o backend devolve novo mapa.
+  // Keyed por assinatura de conteúdo (evita loop por identidade de objeto do prop).
+  const initialPurposesStr = JSON.stringify(initialPurposes);
+  useEffect(() => {
+    setSlotPurposes(initialPurposes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPurposesStr]);
 
   // Atualizar schedule quando mudanças internas ocorrem (sem loop)
   useEffect(() => {
@@ -231,6 +262,21 @@ export default function AvailabilityScheduleEnhanced({
     return completeSchedule;
   };
 
+  // 🔴 DECISION-0132: monta o mapa de finalidades por faixa (`${dayKey}|${range}` → slug) a partir
+  // do estado atual, restrito às faixas vivas da grade semanal. Slug é declaração; o backend resolve.
+  const buildPurposes = (): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const [day, ranges] of Object.entries(schedule)) {
+      if (day === 'rest' || day === 'specific') continue;
+      if (!Array.isArray(ranges)) continue;
+      for (const range of ranges) {
+        const slug = slotPurposes[`${day}|${range}`];
+        if (slug) out[`${day}|${range}`] = slug;
+      }
+    }
+    return out;
+  };
+
   // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: persistência HONESTA.
   // Aguarda o PUT real (onSave) e só limpa dirty/originalSchedule/pendente APÓS confirmação LIMPA.
   // Resultado parcial (rejected/conflicts/protectedCount) NÃO limpa dirty e mostra aviso de
@@ -242,7 +288,7 @@ export default function AvailabilityScheduleEnhanced({
     if (saveState.status === 'saving') return; // evita clique duplo concorrente
     setSaveState({ status: 'saving', message: 'Salvando agenda…' });
     try {
-      const result = await onSave(completeSchedule);
+      const result = await onSave(completeSchedule, buildPurposes());
       const summary = summarizeMaterializeResult(result);
       if (summary.status === 'clean') {
         // ✅ Confirmação LIMPA do backend → agora sim commit local.
@@ -2811,12 +2857,49 @@ export default function AvailabilityScheduleEnhanced({
                                 >
                                   Lazer e Cuidados Pessoais
                                 </option>
-                                <option 
+                                <option
                                   value="STUDY"
                                 >
                                   Estudo
                                 </option>
                               </select>
+                              {/* 🔴 DECISION-0132: seletor de FINALIDADE TEMPORAL (4 concepts resolvidos do
+                                  backend). Persistido como purpose_concept_id por janela. Slug = declaração. */}
+                              {temporalPurposes && temporalPurposes.length > 0 && (
+                                <div className="purpose-selector-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  <select
+                                    className="purpose-selector"
+                                    aria-label={`Finalidade do horário ${slot} (${day.label})`}
+                                    title="Finalidade deste tempo (DECISION-0132)"
+                                    value={slot ? (slotPurposes[`${day.key}|${slot}`] || '') : ''}
+                                    disabled={!slot}
+                                    onChange={(e) => {
+                                      if (!slot) return;
+                                      const slug = e.target.value || null;
+                                      const k = `${day.key}|${slot}`;
+                                      setSlotPurposes(prev => {
+                                        const next = { ...prev };
+                                        if (slug) next[k] = slug; else delete next[k];
+                                        return next;
+                                      });
+                                      setDirtyDays(prev => ({ ...prev, [day.key]: true }));
+                                    }}
+                                  >
+                                    <option value="">Sem finalidade</option>
+                                    {temporalPurposes.map(p => (
+                                      <option key={p.slug} value={p.slug}>
+                                        {PURPOSE_LABELS[p.slug] ?? p.slug}{p.bookable ? '' : ' 🔒'}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {slot && slotPurposes[`${day.key}|${slot}`] &&
+                                    purposeBookableBySlug.get(slotPurposes[`${day.key}|${slot}`]) === false && (
+                                      <span style={{ fontSize: '0.7rem', color: '#9a3412' }} title="Tempo pessoal protegido — não recebe agendamentos">
+                                        🔒 não-bookável
+                                      </span>
+                                    )}
+                                </div>
+                              )}
                               <div className="time-inputs-group">
                                 <div className="time-input-wrapper">
                                 <input

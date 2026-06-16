@@ -78,12 +78,27 @@ export interface UnifiedAvailability {
   timezone: string;
   capacity: number | null;
   /**
+   * 🔴 DECISION-0132: finalidade temporal da janela (CONCEPT). NULL = legado/sem finalidade.
+   * É a verdade persistida (concept_id); o slug correspondente vem de fetchTemporalPurposes().
+   */
+  purposeConceptId?: string | null;
+  /**
    * Metadata JSONB extensível. Chaves reservadas convencionais
    * documentadas em AvailabilityBufferMetadata (sem UI ativa em Fase 2).
    */
   metadata: Record<string, any> & Partial<AvailabilityBufferMetadata>;
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
+}
+
+/**
+ * 🔴 DECISION-0132: finalidade temporal canônica (resolvida do backend; CONCEPT é o SSOT).
+ * slug = declaração; conceptId = verdade; bookable = política (trabalho=true; demais=false).
+ */
+export interface TemporalPurpose {
+  slug: string;
+  conceptId: string;
+  bookable: boolean;
 }
 
 /**
@@ -163,6 +178,9 @@ export async function putWeeklyAvailabilityTemplate(input: {
   schedule: WeeklyAvailabilitySchedule;
   timezone: string;
   horizonWeeks?: number;
+  // 🔴 DECISION-0132: finalidade por faixa. Chave = `${dayKey|specific}|${range}`, valor = slug.
+  // O backend valida (z.enum dos 4) e resolve a concept_id. Ausência → janela sem finalidade.
+  purposes?: Record<string, string>;
 }): Promise<MaterializeWeeklyTemplateResult> {
   const result = await apiFetchJson<{ ok: boolean; data: MaterializeWeeklyTemplateResult }>(
     '/availability/weekly-template',
@@ -177,6 +195,18 @@ export async function putWeeklyAvailabilityTemplate(input: {
   }
 
   return result.data;
+}
+
+/**
+ * 🔴 DECISION-0132: catálogo canônico das 4 finalidades temporais (resolvido do backend).
+ * O frontend usa para renderizar as opções e mapear concept_id→slug no read-back.
+ */
+export async function fetchTemporalPurposes(): Promise<TemporalPurpose[]> {
+  const result = await apiFetchJson<{ ok: boolean; data: TemporalPurpose[] }>(
+    '/availability/temporal-purposes',
+    { method: 'GET' }
+  );
+  return result.ok && Array.isArray(result.data) ? result.data : [];
 }
 
 /**

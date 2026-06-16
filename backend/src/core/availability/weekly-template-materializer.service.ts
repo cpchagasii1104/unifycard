@@ -29,6 +29,7 @@ import {
   UnifiedBookingStatus,
   type UnifiedAvailability,
 } from './unified-availability.types';
+import { resolveTemporalPurposeBySlug } from './temporal-purpose';
 
 /** Marcador de procedência (NÃO é a chave `schedule` bloqueada pelo guard). */
 export const WEEKLY_TEMPLATE_SOURCE = 'profile_weekly_template';
@@ -62,6 +63,10 @@ export interface MaterializeWeeklyTemplateInput {
   ownerType: AvailabilityOwnerType;
   ownerId: string; // actor_id (resolvido server-side via actionContext)
   horizonWeeks?: number;
+  // 🔴 DECISION-0132: finalidade temporal por faixa. Chave = `${dayKey|specific}|${range}`, valor = slug
+  // de finalidade (trabalho/estudo/cuidados-pessoais/lazer). Slug é DECLARAÇÃO; resolvido a concept_id
+  // server-side. Ausência → janela sem finalidade (NULL). Slug já validado na rota (400 se inválido).
+  purposes?: Record<string, string>;
 }
 
 export interface MaterializeWeeklyTemplateResult {
@@ -84,6 +89,7 @@ interface DesiredWindow {
   availabilityType: UnifiedAvailabilityType;
   templateKey: string;
   instantKey: string;
+  purposeConceptId: string | null; // DECISION-0132 (resolvido server-side; null = sem finalidade)
 }
 
 function instantKey(start: Date, end: Date): string {
@@ -132,8 +138,13 @@ class WeeklyTemplateMaterializerService {
     const rejected: Array<{ entry: string; reason: string }> = [];
     const nowUtc = DateTime.utc().toJSDate();
 
+    // DECISION-0132: resolver slug→concept_id das finalidades server-side (slug é só declaração).
+    const purposeSlugToConceptId = await resolveTemporalPurposeBySlug();
+
     // ── 1. Calcular janelas DESEJADAS a partir do template ────────────────────────────────
-    const desired = this.computeDesiredWindows(schedule, timezone, horizonWeeks, nowUtc, rejected);
+    const desired = this.computeDesiredWindows(
+      schedule, timezone, horizonWeeks, nowUtc, rejected, input.purposes ?? {}, purposeSlugToConceptId
+    );
 
     // ── 2. Carregar janelas-template EXISTENTES (marcador de procedência) ──────────────────
     const allOwnerWindows = await unifiedAvailabilityRepository.findAvailabilities(tenantId, {
@@ -162,15 +173,24 @@ class WeeklyTemplateMaterializerService {
       const match = existingByInstant.get(w.instantKey);
       if (match) {
         seen.add(w.instantKey);
+        // DECISION-0132: a finalidade da MESMA janela (mesmo instante) pode ter mudado entre saves
+        // (ex.: trabalho→lazer no mesmo horário). Atualizar purpose_concept_id quando divergir, senão
+        // o save daria recibo falso (a frente anterior fechou exatamente esse anti-padrão). uuid plain.
+        const purposeChanged = (match.purposeConceptId ?? null) !== w.purposeConceptId;
         if (match.status === UnifiedAvailabilityStatus.PAUSED) {
-          // Reativar janela-template idêntica previamente retirada (sem duplicar). Status-only:
-          // o marcador `metadata.source` já distingue origem; não precisamos remarcar metadata
-          // (e o UPDATE jsonb dinâmico do repo compartilhado tem inferência de tipo frágil — evitado).
+          // Reativar janela-template idêntica previamente retirada (sem duplicar). Status-only +
+          // (se mudou) finalidade. O marcador `metadata.source` já distingue origem.
           await unifiedAvailabilityService.updateAvailability(tenantId, match.availabilityId, ownerId, {
             status: UnifiedAvailabilityStatus.ACTIVE,
+            ...(purposeChanged ? { purposeConceptId: w.purposeConceptId } : {}),
           });
           reactivated++;
         } else {
+          if (purposeChanged) {
+            await unifiedAvailabilityService.updateAvailability(tenantId, match.availabilityId, ownerId, {
+              purposeConceptId: w.purposeConceptId,
+            });
+          }
           kept++;
         }
         continue;
@@ -186,6 +206,7 @@ class WeeklyTemplateMaterializerService {
           startDatetime: w.startUtc,
           endDatetime: w.endUtc,
           timezone,
+          purposeConceptId: w.purposeConceptId, // DECISION-0132 (concept_id resolvido; null = sem finalidade)
           metadata: {
             source: WEEKLY_TEMPLATE_SOURCE,
             templateKey: w.templateKey,
@@ -252,12 +273,22 @@ class WeeklyTemplateMaterializerService {
     timezone: string,
     horizonWeeks: number,
     nowUtc: Date,
-    rejected: Array<{ entry: string; reason: string }>
+    rejected: Array<{ entry: string; reason: string }>,
+    purposes: Record<string, string>,
+    purposeSlugToConceptId: Map<string, string>
   ): DesiredWindow[] {
     const out: DesiredWindow[] = [];
     const dedup = new Set<string>();
     const horizonDays = horizonWeeks * 7;
     const todayZ = DateTime.now().setZone(timezone).startOf('day');
+
+    // DECISION-0132: resolve a finalidade (concept_id) declarada para uma faixa `${key}|${range}`.
+    // Slug ausente/desconhecido → null (sem finalidade); a rota já rejeita slug fora dos 4.
+    const purposeFor = (key: string, range: string): string | null => {
+      const slug = purposes[`${key}|${range}`];
+      if (!slug) return null;
+      return purposeSlugToConceptId.get(slug) ?? null;
+    };
 
     for (const [rawKey, ranges] of Object.entries(schedule || {})) {
       const key = rawKey.toLowerCase().trim();
@@ -281,7 +312,8 @@ class WeeklyTemplateMaterializerService {
               out, dedup, rejected, timezone, nowUtc,
               date.year, date.month, date.day, parsed,
               UnifiedAvailabilityType.RECURRING,
-              `weekly:${key}:${date.toISODate()}:${range}`
+              `weekly:${key}:${date.toISODate()}:${range}`,
+              purposeFor(key, range)
             );
           }
         }
@@ -305,7 +337,8 @@ class WeeklyTemplateMaterializerService {
             out, dedup, rejected, timezone, nowUtc,
             Number(m[1]), Number(m[2]), Number(m[3]), parsed,
             UnifiedAvailabilityType.FIXED,
-            `specific:${m[1]}-${m[2]}-${m[3]}:${m[4]}`
+            `specific:${m[1]}-${m[2]}-${m[3]}:${m[4]}`,
+            purposeFor('specific', entry)
           );
         }
         continue;
@@ -328,7 +361,8 @@ class WeeklyTemplateMaterializerService {
     day: number,
     t: { sh: number; sm: number; eh: number; em: number },
     availabilityType: UnifiedAvailabilityType,
-    templateKey: string
+    templateKey: string,
+    purposeConceptId: string | null
   ): void {
     const start = DateTime.fromObject(
       { year, month, day, hour: t.sh, minute: t.sm },
@@ -352,7 +386,7 @@ class WeeklyTemplateMaterializerService {
     const ik = instantKey(startUtc, endUtc);
     if (dedup.has(ik)) return; // mesma janela vinda de chaves diferentes
     dedup.add(ik);
-    out.push({ startUtc, endUtc, availabilityType, templateKey, instantKey: ik });
+    out.push({ startUtc, endUtc, availabilityType, templateKey, instantKey: ik, purposeConceptId });
   }
 
 }

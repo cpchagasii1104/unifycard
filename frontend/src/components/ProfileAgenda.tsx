@@ -3,7 +3,7 @@
 // Agenda unificada por ACTOR ATIVO
 // 🔴 REGRA: Agenda pertence ao activeActor, não à pessoa física/jurídica
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { DateTime } from 'luxon';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import {
@@ -14,12 +14,14 @@ import {
   createAvailability,
   updateAvailability,
   putWeeklyAvailabilityTemplate,
+  fetchTemporalPurposes,
   type UnifiedAvailability,
   type UnifiedBooking,
   type AvailabilityParticipant,
   type AvailabilityConflict,
   type AvailabilityOwnerType,
   type MaterializeWeeklyTemplateResult,
+  type TemporalPurpose,
 } from '../api/availability';
 import { type AvailabilitySchedule } from '../api/categories';
 import { useProfileAgendaState } from '../hooks/useProfileAgendaState';
@@ -46,8 +48,13 @@ const LUXON_WEEKDAY_TO_KEY: Record<number, string> = {
  * `availability` (apenas as marcadas como template recorrente e ativas). Converte start/end para
  * dia-da-semana + "HH:mm-HH:mm" na timezone de cada janela. NÃO usa bookings nem metadata.schedule.
  */
-function reconstructWeeklySchedule(avs: UnifiedAvailability[]): AvailabilitySchedule {
+function reconstructWeeklySchedule(
+  avs: UnifiedAvailability[],
+  conceptIdToSlug: Map<string, string>
+): { schedule: AvailabilitySchedule; purposes: Record<string, string> } {
   const byDay: Record<string, Set<string>> = {};
+  // 🔴 DECISION-0132: read-back da finalidade por faixa, keyed `${dayKey}|${range}` (estável).
+  const purposes: Record<string, string> = {};
   for (const a of avs) {
     if (a.metadata?.source !== WEEKLY_TEMPLATE_SOURCE) continue;
     if (a.availabilityType !== 'recurring') continue;
@@ -60,12 +67,16 @@ function reconstructWeeklySchedule(avs: UnifiedAvailability[]): AvailabilitySche
     if (!dayKey) continue;
     const range = `${start.toFormat('HH:mm')}-${end.toFormat('HH:mm')}`;
     (byDay[dayKey] ??= new Set<string>()).add(range);
+    if (a.purposeConceptId) {
+      const slug = conceptIdToSlug.get(a.purposeConceptId);
+      if (slug) purposes[`${dayKey}|${range}`] = slug;
+    }
   }
   const schedule: AvailabilitySchedule = {};
   for (const [day, ranges] of Object.entries(byDay)) {
     schedule[day] = Array.from(ranges).sort();
   }
-  return schedule;
+  return { schedule, purposes };
 }
 
 export default function ProfileAgenda() {
@@ -87,6 +98,10 @@ export default function ProfileAgenda() {
     setSchedule,
   } = useProfileAgendaState();
   const { formatDate, getStatusLabel, getStatusColor, getOwnerType: getOwnerTypeLogic } = useProfileAgendaLogic();
+
+  // 🔴 DECISION-0132: catálogo das 4 finalidades (do backend) + read-back das finalidades persistidas.
+  const [temporalPurposes, setTemporalPurposes] = useState<TemporalPurpose[]>([]);
+  const [initialPurposes, setInitialPurposes] = useState<Record<string, string>>({});
 
   // 🔴 REGRA: Determinar ownerType baseado no activeActor
   const getOwnerType = useCallback((): AvailabilityOwnerType => {
@@ -128,10 +143,21 @@ export default function ProfileAgenda() {
 
       setAvailabilities(availabilitiesData);
 
+      // 🔴 DECISION-0132: catálogo das finalidades (CONCEPT, do backend) + mapa concept_id→slug p/ read-back.
+      const purposesCatalog = temporalPurposes.length > 0 ? temporalPurposes : await fetchTemporalPurposes();
+      if (purposesCatalog !== temporalPurposes) setTemporalPurposes(purposesCatalog);
+      const conceptIdToSlug = new Map<string, string>(purposesCatalog.map((p) => [p.conceptId, p.slug]));
+
       // 🔴 CORE TEMPORAL (F2): read-back da grade reconstruído a partir das janelas CONCRETAS
       // materializadas no SSOT `availability` (template recorrente ativo), NÃO de metadata.schedule
       // nem de bookings. Antes era `setSchedule({})` (write-only sem read-back).
-      setSchedule(reconstructWeeklySchedule(availabilitiesData));
+      // DECISION-0132: reconstrói também a finalidade por faixa.
+      const { schedule: reconSchedule, purposes: reconPurposes } = reconstructWeeklySchedule(
+        availabilitiesData,
+        conceptIdToSlug
+      );
+      setSchedule(reconSchedule);
+      setInitialPurposes(reconPurposes);
 
       // Buscar bookings associados às disponibilidades
       const allBookings: UnifiedBooking[] = [];
@@ -181,7 +207,10 @@ export default function ProfileAgenda() {
   // editor mantém dirty). NÃO mutamos `schedule` aqui — o editor é dono do rascunho durante a sessão;
   // mutar o prop dispararia o reset por `availability` e limparia dirty por fora (recibo falso).
   const handleSaveSchedule = useCallback(
-    async (newSchedule: AvailabilitySchedule): Promise<MaterializeWeeklyTemplateResult> => {
+    async (
+      newSchedule: AvailabilitySchedule,
+      purposes: Record<string, string>
+    ): Promise<MaterializeWeeklyTemplateResult> => {
       if (!activeActor) {
         throw new Error('Ator não encontrado. Selecione um ator para editar a agenda.');
       }
@@ -195,7 +224,8 @@ export default function ProfileAgenda() {
       if (!timezone) {
         throw new Error('Não foi possível detectar seu fuso horário. A agenda não foi salva.');
       }
-      return await putWeeklyAvailabilityTemplate({ schedule: newSchedule, timezone });
+      // 🔴 DECISION-0132: envia a finalidade por faixa (purposes). Backend valida slug (z.enum) e resolve concept_id.
+      return await putWeeklyAvailabilityTemplate({ schedule: newSchedule, timezone, purposes });
     },
     [activeActor]
   );
@@ -258,6 +288,8 @@ export default function ProfileAgenda() {
         getStatusLabel={getStatusLabel}
         getStatusColor={getStatusColor}
         onSave={handleSaveSchedule}
+        temporalPurposes={temporalPurposes}
+        initialPurposes={initialPurposes}
       />
     </div>
   );

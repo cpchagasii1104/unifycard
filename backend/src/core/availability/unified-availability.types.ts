@@ -74,6 +74,8 @@ export interface UnifiedAvailability {
   endDatetime: Date;
   timezone: string; // IANA timezone
   capacity?: number | null; // Capacidade (NULL = ilimitado)
+  // 🔴 DECISION-0132: finalidade temporal da janela (CONCEPT). NULL = legado/sem finalidade.
+  purposeConceptId?: string | null;
   metadata: Record<string, any>;
   createdAt: string;
   updatedAt: string;
@@ -116,6 +118,7 @@ export interface UnifiedAvailabilityRow {
   end_datetime: Date;
   timezone: string;
   capacity: number | null;
+  purpose_concept_id: string | null; // DECISION-0132
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -162,6 +165,8 @@ export interface CreateUnifiedAvailabilityInput {
   endDatetime: Date; // OBRIGATÓRIO
   timezone?: string; // Default: 'America/Sao_Paulo'
   capacity?: number | null; // Opcional
+  // 🔴 DECISION-0132: finalidade temporal (concept_id já RESOLVIDO server-side; nunca slug cru). NULL = sem finalidade.
+  purposeConceptId?: string | null;
   metadata?: Record<string, any>;
 }
 
@@ -175,6 +180,7 @@ export interface UpdateUnifiedAvailabilityInput {
   endDatetime?: Date;
   timezone?: string;
   capacity?: number | null;
+  purposeConceptId?: string | null; // DECISION-0132 (concept_id resolvido; undefined = não tocar)
   metadata?: Record<string, any>;
 }
 

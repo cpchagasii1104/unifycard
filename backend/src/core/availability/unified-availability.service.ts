@@ -12,6 +12,7 @@ import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { unifiedAvailabilityRepository } from './unified-availability.repository';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { BadRequestError, NotFoundError } from '@core/errors';
+import { getProtectedPurposeConceptIds } from './temporal-purpose';
 import { ActorEffect } from '@core/social/ports';
 import type {
   UnifiedAvailability,
@@ -145,6 +146,19 @@ class UnifiedAvailabilityService {
     const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, input.availabilityId);
     if (!availability) {
       throw new NotFoundError('Disponibilidade não encontrada');
+    }
+
+    // 🔴 DECISION-0132 §4 — GATE de finalidade: tempo pessoal PROTEGIDO (estudo/cuidados-pessoais/lazer)
+    // NÃO é bookável por padrão. Bookability é regra DERIVADA da finalidade (não há coluna is_bookable).
+    // `trabalho` e `NULL` (legado) seguem bookáveis. concept_ids protegidos resolvidos server-side por
+    // (domain, slug) — nunca compara string crua da UI. (Aditivo; a blindagem de availability é preservada.)
+    if (availability.purposeConceptId) {
+      const protectedPurposeIds = await getProtectedPurposeConceptIds();
+      if (protectedPurposeIds.has(availability.purposeConceptId)) {
+        throw new BadRequestError(
+          'AVAILABILITY_PERSONAL_PROTECTED: esta janela é tempo pessoal protegido (estudo/cuidados-pessoais/lazer) e não é bookável.'
+        );
+      }
     }
 
     // 🔴 BLINDAGEM: Validar que requesterActorId foi fornecido

@@ -148,6 +148,9 @@ for (const f of FAMILY) {
   const KNOWN_NON_RESOLVING = new Set([
     'core/availability/availability.module.ts',
     'core/availability/unified-availability.types.ts',
+    // DECISION-0132: resolver/política de FINALIDADE temporal (CONCEPT). NÃO participa da resolução de
+    // owner-authority (owner/recurso) — é a camada semântica de purpose. Guard próprio: audit-temporal-purpose.mjs.
+    'core/availability/temporal-purpose.ts',
   ]);
   const base = join(SRC, 'core/availability');
   let unclassified = 0;

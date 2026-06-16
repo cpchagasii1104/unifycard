@@ -10418,7 +10418,14 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-AGENDA-CONTEXT-WORK-LEISURE-STUDY-NOT-PERSISTED
 
-- **Status:** **OPEN (2026-06-16)** — aberta por **F-AGENDA-EDITING-UX-TRUTHFULNESS-V2**.
+- **Status:** **CLOSED / MATERIALIZADA (2026-06-16)** — resolvida por **DECISION-0132** (commit docs-only `db8829ec`)
+  + **F-AGENDA-PURPOSE-CONCEPT-MATERIALIZATION** (commit 2). A finalidade temporal passou a ser **CONCEPT**
+  persistido em `availability.purpose_concept_id` (FK→concepts, ON DELETE RESTRICT), nunca metadata/enum/estado
+  visual. 4 concepts governados (`trabalho`/`estudo`/`cuidados-pessoais`/`lazer`) em domínios N0 **naturais**
+  (SEM novo domínio N0 — ontologia §7 CONGELADA preservada). Booking gate protege estudo/cuidados/lazer (400
+  `AVAILABILITY_PERSONAL_PROTECTED`); trabalho/NULL bookáveis. Read-back por faixa + seletor de 4 finalidades.
+  Provas: e2e 15/15 · guard+neg-proof · gates verdes. _(histórico OPEN preservado abaixo.)_
+- **Status histórico:** OPEN (2026-06-16) — aberta por **F-AGENDA-EDITING-UX-TRUTHFULNESS-V2**.
 - **Origem:** a UI de edição da Agenda (`AvailabilityScheduleEnhanced`) expunha um seletor de contexto
   WORK/LEISURE/STUDY por slot, com `onContextChange` stub e comentário em `ProfileAgenda` prometendo
   "persistência futura". O contexto **nunca entrava no payload** do `PUT /availability/weekly-template`

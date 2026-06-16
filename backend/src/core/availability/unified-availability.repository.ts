@@ -44,6 +44,7 @@ class UnifiedAvailabilityRepository {
       endDatetime: row.end_datetime,
       timezone: row.timezone,
       capacity: row.capacity || undefined,
+      purposeConceptId: row.purpose_concept_id ?? null, // DECISION-0132
       metadata: row.metadata || {},
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -95,6 +96,7 @@ class UnifiedAvailabilityRepository {
       endDatetime,
       timezone = 'America/Sao_Paulo',
       capacity = null,
+      purposeConceptId = null, // DECISION-0132
       metadata = {},
     } = input;
 
@@ -116,9 +118,9 @@ class UnifiedAvailabilityRepository {
       `
       INSERT INTO availability (
         tenant_id, owner_type, owner_id, availability_type, status,
-        start_datetime, end_datetime, timezone, capacity, metadata
+        start_datetime, end_datetime, timezone, capacity, purpose_concept_id, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
       `,
       [
@@ -131,6 +133,7 @@ class UnifiedAvailabilityRepository {
         endDatetime,
         timezone,
         capacity,
+        purposeConceptId, // DECISION-0132 (concept_id resolvido server-side; NULL permitido)
         JSON.stringify(metadata),
       ]
     );
@@ -240,6 +243,12 @@ class UnifiedAvailabilityRepository {
     if (input.capacity !== undefined) {
       fields.push(`capacity = $${paramIndex}`);
       params.push(input.capacity);
+      paramIndex++;
+    }
+    if (input.purposeConceptId !== undefined) {
+      // DECISION-0132: concept_id já resolvido server-side (uuid ou null); nunca slug cru.
+      fields.push(`purpose_concept_id = $${paramIndex}`);
+      params.push(input.purposeConceptId);
       paramIndex++;
     }
     if (input.metadata !== undefined) {

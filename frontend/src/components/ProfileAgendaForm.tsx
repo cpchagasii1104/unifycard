@@ -4,6 +4,7 @@ import type {
   UnifiedBooking,
   AvailabilityParticipant,
   MaterializeWeeklyTemplateResult,
+  TemporalPurpose,
 } from '../api/availability';
 import type { AvailabilitySchedule } from '../api/categories';
 
@@ -17,9 +18,15 @@ interface ProfileAgendaFormProps {
   formatDate: (dateString: string) => string;
   getStatusLabel: (status: string) => string;
   getStatusColor: (status: string) => string;
-  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: persistência remota EXPLÍCITA (resolve com o resultado
-  // real da materialização ou rejeita em erro). Substitui o antigo `handleScheduleChange` debounced.
-  onSave: (newSchedule: AvailabilitySchedule) => Promise<MaterializeWeeklyTemplateResult>;
+  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2 + DECISION-0132: persistência remota EXPLÍCITA, agora
+  // enviando também a finalidade temporal por faixa (purposes).
+  onSave: (
+    newSchedule: AvailabilitySchedule,
+    purposes: Record<string, string>
+  ) => Promise<MaterializeWeeklyTemplateResult>;
+  // 🔴 DECISION-0132: catálogo das 4 finalidades (do backend) + read-back das finalidades persistidas.
+  temporalPurposes: TemporalPurpose[];
+  initialPurposes: Record<string, string>;
 }
 
 export default function ProfileAgendaForm({
@@ -33,6 +40,8 @@ export default function ProfileAgendaForm({
   getStatusLabel,
   getStatusColor,
   onSave,
+  temporalPurposes,
+  initialPurposes,
 }: ProfileAgendaFormProps) {
   // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: esta tela é a agenda PESSOAL (Pessoa Física). Para
   // actor não-user (page/group/service) NÃO existe fluxo próprio aqui — bloquear explicitamente em
@@ -107,7 +116,10 @@ export default function ProfileAgendaForm({
         <AvailabilityScheduleEnhanced
           availability={schedule}
           onSave={onSave}
-          // Contexto WORK/LEISURE/STUDY não é persistido nesta frente → selector oculto/desabilitado.
+          // 🔴 DECISION-0132: finalidade temporal (4 concepts do backend) por faixa.
+          temporalPurposes={temporalPurposes}
+          initialPurposes={initialPurposes}
+          // Selector de contexto legado segue oculto; a finalidade vem do seletor de purpose.
           showContextSelector={false}
         />
       ) : (

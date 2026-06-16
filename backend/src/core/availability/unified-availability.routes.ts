@@ -8,6 +8,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { unifiedAvailabilityService } from './unified-availability.service';
 import { weeklyTemplateMaterializerService } from './weekly-template-materializer.service';
+import { listTemporalPurposes } from './temporal-purpose';
 import { authorizationService } from '@core/authorization/authorization.service';
 import {
   resolveAvailabilityOwner,
@@ -77,6 +78,10 @@ const weeklyTemplateSchema = z.object({
   timezone: z.string().min(1),
   horizonWeeks: z.number().int().min(8).max(12).optional(),
   ownerType: z.enum([AvailabilityOwnerType.USER, AvailabilityOwnerType.PAGE]).optional(),
+  // 🔴 DECISION-0132: finalidade temporal por faixa. Chave = `${dayKey|specific}|${range}`; valor = slug
+  // de finalidade. O z.enum valida que o slug é UM DOS QUATRO (400 caso contrário) — slug é declaração;
+  // o materializer resolve a concept_id server-side. Ausência → janela sem finalidade (NULL).
+  purposes: z.record(z.enum(['trabalho', 'estudo', 'cuidados-pessoais', 'lazer'])).optional(),
 });
 
 /**
@@ -393,6 +398,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           endDatetime: a.endDatetime.toISOString(),
           timezone: a.timezone,
           capacity: a.capacity,
+          purposeConceptId: a.purposeConceptId ?? null, // DECISION-0132: finalidade temporal (read-back)
           metadata: a.metadata,
           createdAt: a.createdAt,
           updatedAt: a.updatedAt,
@@ -649,12 +655,29 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         horizonWeeks: parsed.data.horizonWeeks,
         ownerType: parsed.data.ownerType ?? AvailabilityOwnerType.USER,
         ownerId: req.actionContext.actorId, // actor-first: ownerId vem do contexto, nunca do cliente
+        purposes: parsed.data.purposes, // DECISION-0132: finalidade por faixa (slugs validados no zod)
       });
       return reply.status(200).send({ ok: true, data: result });
     } catch (error: any) {
       if (error instanceof BadRequestError) {
         return reply.status(400).send({ ok: false, error: error.message });
       }
+      fastify.log.error(error);
+      return reply.status(error.statusCode || 500).send({ ok: false, error: error.message });
+    }
+  });
+
+  /**
+   * GET /availability/temporal-purposes
+   * DECISION-0132: catálogo canônico das 4 finalidades temporais (slug + concept_id + bookable),
+   * resolvido do backend (CONCEPT é o SSOT). O frontend usa para (a) renderizar as 4 opções e
+   * (b) mapear concept_id→slug no read-back. Leitura pura, sem dados sensíveis.
+   */
+  fastify.get('/temporal-purposes', async (_req, reply) => {
+    try {
+      const purposes = await listTemporalPurposes();
+      return reply.status(200).send({ ok: true, data: purposes });
+    } catch (error: any) {
       fastify.log.error(error);
       return reply.status(error.statusCode || 500).send({ ok: false, error: error.message });
     }
