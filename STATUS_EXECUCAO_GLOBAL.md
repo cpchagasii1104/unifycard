@@ -1,3 +1,30 @@
+## 2026-06-16 — F-STATUS-HOLD-RECONCILIATION-POST-SUPPLIERS-AGENDA-SEALS (docs-only) · CLOSED
+
+**Branch:** `rescue-structural` · **HEAD `11fc81a2`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). Reconcilia headers stale do STATUS após os fechamentos aceitos pela IA Diretora/Clayton/Yala. Execução: `docs/03_execution_log/20260616_F_STATUS_HOLD_RECONCILIATION_POST_SUPPLIERS_AGENDA.md`. **Nada material tocado** (zero código/migration/schema/runtime). Não fecha nenhum HOLD sem prova.
+
+### 1) FECHADOS RECENTES CONFIRMADOS (CLOSED)
+- **F-CONTACTS-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT** — CLOSED / YALA PASS COM RESSALVA (material `a55f2231`, selo `ebe410b4`; reseal note no corpo).
+- **F-TEMPORAL-PURPOSE-CONCEPT-DECISION + AGENDA-PURPOSE-MATERIALIZATION** — CLOSED / YALA PASS (`db8829ec`+`e764b8f2`; reseal note).
+- **F-AGENDA-SAVE-RATE-LIMIT-429** — CLOSED / YALA PASS COM RESSALVA (material `17f25d66`, selo `11fc81a2`; reseal note).
+- **F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO** — CLOSED / YALA PASS (`7e13fb5c`) — **header FLIPADO nesta reconciliação** (aceite IA Diretora no GO de wiring).
+- **F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING** — CLOSED / YALA PASS COM RESSALVA (`d8bf869b`) — **header FLIPADO nesta reconciliação** (aceite IA Diretora no GO de status-enum; R2 paga).
+- **F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH** — CLOSED / YALA PASS (material `c86d4969`, selo `c7e02d61`; reseal note).
+
+### 2) RESSALVAS NÃO BLOQUEANTES CARREGADAS (DT OPEN, não corrigidas)
+- **DT-AGENDA-LOAD-REQUEST-COUNT-NO-GUARD** (OPEN) — guard/teste de request-count futuro; agenda não regride.
+- **DT-SUPPLIERS-OWNER-ORG-ACTOR-DB-CONSTRAINT-HARDENING** (OPEN) — org-actor validado app-level; CHECK/trigger DB futuro.
+- **Suppliers R3 — list in-memory** (perf futura; sem vazamento externo) · **DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT** (OPEN, transversal: RLS não é prova de autoridade).
+- **contacts genesis/ownership** — OPEN/futura (decisão de produto Clayton; NÃO aberta).
+
+### 3) HOLDs AINDA PENDENTES / A RECONCILIAR (NÃO fechados — sem prova de reseal no STATUS/logs)
+- **Backlog 0131-wave** (todos `IMPLEMENTED/HOLD`, SEM nota de reseal nem execution-log com seção "YALA RESEAL"): SPR ×3 (read/create/schema-fk) · PO-OWNER · PO-RECEIVE-CONTAINMENT · PDV-F2A/F2B/F2C · E1/E2/B1f/C4/B3f · BATCH 1–5 (DECISION-0131) · DECISION-0131 (gramática, PROMULGADA/HOLD). **Money-tocantes (SPR/PO/PDV) → classificados como "exige 3 paralelas antes de qualquer materialização futura"; NÃO executar.**
+- **F-AGENDA-EDITING-UX-TRUTHFULNESS-V2** — `IMPLEMENTED/HOLD`, SEM nota de reseal → **HOLD REAL / precisa reseal ou confirmação de reseal anterior**. (A frente temporal-purpose construiu sobre ela, mas não a resealou formalmente.)
+- **Veredito desta seção:** nenhum item acima foi fechado (sem prova). Próximo passo recomendado = **reseal/reconciliação do backlog 0131-wave** (confirmar contra registros Yala / `F-AUTHORITY-MAP-0131-v2`) ANTES de abrir frente material grande.
+
+**Fecha SÓ como:** F-STATUS-HOLD-RECONCILIATION-POST-SUPPLIERS-AGENDA-SEALS. **CLOSED (docs-only).**
+
+---
+
 ## 2026-06-16 — F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH: alinha status de suppliers ao CHECK físico lowercase (runtime/types, ZERO migration) · CLOSED / YALA PASS
 
 **Branch:** `rescue-structural` · **parent `d8bf869b`** · **dev 390 (ZERO migration — DB já correto)** · MODO EXECUTOR (ultracode, escopo pequeno/local). Resolve a ressalva R2 (Yala) da frente anterior. Execução: `docs/03_execution_log/20260616_F_SUPPLIERS_STATUS_ENUM_CASE_MISMATCH.md`.
@@ -12,7 +39,7 @@
 
 ---
 
-## 2026-06-16 — F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING: materializa DECISION-0133 (suppliers company-owned via owner_actor_id) — schema+runtime+authority · IMPLEMENTED/HOLD RESEAL
+## 2026-06-16 — F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING: materializa DECISION-0133 (suppliers company-owned via owner_actor_id) — schema+runtime+authority · CLOSED / YALA PASS COM RESSALVA
 
 **Branch:** `rescue-structural` · **parent `7e13fb5c`** · **dev 389→390** (migration `20260616130000_suppliers_owner_actor_id.sql`) · MODO EXECUTOR (ultracode). Materializa **DECISION-0133**. Execução: `docs/03_execution_log/20260616_F_SUPPLIERS_OWNER_ACTOR_SCHEMA_WIRING.md`.
 
@@ -20,11 +47,13 @@
 
 **Runtime (espelha PO owner):** `supplier.routes` ganhou `isOrgActor` (page+company_id) + `loadAndAuthorizeSupplier`. **POST** resolve owner server-side (ownerHint=body.ownerActorId||actionContext.actorId → `isOrgActor` 403 → `canRepresentActor` 403 → create com `ownerActorId=ownerHint`; created_by=actionContext.actorId=autoria; body NÃO é autoridade). **GET list** filtra por `canRepresentActor(ownerActorId)` (dedup; tenant-only NÃO basta). **GET :id** via loadAndAuthorize (404/403). `supplier.service.createSupplier` exige `SUPPLIER_OWNER_REQUIRED`. `created_by_actor_id`=audit · `tenant_id`=escopo · `supplier_id`=contraparte. **AP (`accounts-payable`) INTOCADO** (usa getSupplierById como existência/contraparte; autoridade vem do PO owner; não regrediu a tenant-only). NÃO há rotas update/delete (não wired).
 
-**Provas:** backend typecheck **25** (baseline, 0 atribuível) · migration dev 389→390 + catálogo pós verificado (owner_actor_id NOT NULL, FK, índice; created_by/PO.supplier_id intactos) · e2e efêmero **12/12** (cross-company same-tenant: create owner-repr 201 + created_by=autoria; spoof owner B/owner humano/não-rep 403; LIST Alice só A / Bob só B; GET A por Bob mesmo-tenant 403; GET B por Alice 403; created_by não autoriza; tenant não basta) · guard `audit-supplier-owner-authority.mjs` (no chain) GATE OK · neg-proof **7 mordidas** byte-idêntico · actor-writer/bank-ledger OK · regression rc=0 · arch `--strict` critical_new=0. **DT:** DT-SUPPLIERS-OWNER-ACTOR-WIRING **CLOSED/materializada** · DT-SUPPLIERS-OWNER-ORG-ACTOR-DB-CONSTRAINT-HARDENING OPEN (org-actor validado app-level; DB constraint futura) · DT-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH OPEN (residuo pré-existente, NÃO corrigido — fora de ownership). **Escopo negativo:** ZERO contacts · ZERO Bank/Core/ledger/payout/split/recovery · ZERO RLS · ZERO RBAC/FASE 6 · ZERO AP/PO redesign · ZERO company_id 2ª verdade · ZERO backfill. **Fecha SÓ como:** F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING. **IMPLEMENTED / HOLD PARA RESEAL.**
+**Provas:** backend typecheck **25** (baseline, 0 atribuível) · migration dev 389→390 + catálogo pós verificado (owner_actor_id NOT NULL, FK, índice; created_by/PO.supplier_id intactos) · e2e efêmero **12/12** (cross-company same-tenant: create owner-repr 201 + created_by=autoria; spoof owner B/owner humano/não-rep 403; LIST Alice só A / Bob só B; GET A por Bob mesmo-tenant 403; GET B por Alice 403; created_by não autoriza; tenant não basta) · guard `audit-supplier-owner-authority.mjs` (no chain) GATE OK · neg-proof **7 mordidas** byte-idêntico · actor-writer/bank-ledger OK · regression rc=0 · arch `--strict` critical_new=0. **DT:** DT-SUPPLIERS-OWNER-ACTOR-WIRING **CLOSED/materializada** · DT-SUPPLIERS-OWNER-ORG-ACTOR-DB-CONSTRAINT-HARDENING OPEN (org-actor validado app-level; DB constraint futura) · DT-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH OPEN (residuo pré-existente, NÃO corrigido — fora de ownership). **Escopo negativo:** ZERO contacts · ZERO Bank/Core/ledger/payout/split/recovery · ZERO RLS · ZERO RBAC/FASE 6 · ZERO AP/PO redesign · ZERO company_id 2ª verdade · ZERO backfill. **Fecha SÓ como:** F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING.
+
+**🟢 CLOSED / YALA PASS COM RESSALVA (header flipado por F-STATUS-HOLD-RECONCILIATION 2026-06-16, docs-only).** Evidência do aceite: a IA Diretora declarou esta frente **CLOSED / YALA PASS COM RESSALVA · commit material `d8bf869b`** no GO de F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH (que pagou a ressalva R2 desta frente) e reafirmou em F-STATUS-HOLD-RECONCILIATION. Ressalvas remanescentes NÃO bloqueantes: **R1** `DT-SUPPLIERS-OWNER-ORG-ACTOR-DB-CONSTRAINT-HARDENING` (OPEN; org-actor validado app-level) · **R3** list filtra em memória (sem vazamento externo; perf futura). **R2 já PAGA** (`DT-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH` CLOSED). Nenhum reseal/material novo nesta reconciliação.
 
 ---
 
-## 2026-06-16 — F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO: promulga DECISION-0133 (suppliers company-owned via owner_actor_id) — docs-only · IMPLEMENTED/HOLD RESEAL
+## 2026-06-16 — F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO: promulga DECISION-0133 (suppliers company-owned via owner_actor_id) — docs-only · CLOSED / YALA PASS
 
 **Branch:** `rescue-structural` · **parent `ebe410b4`** · **dev 389 (ZERO migration)** · MODO EXECUTOR (ultracode, **docs-only**). **Cartório soberano leve:** decisão arquitetural de ownership ANTES de qualquer migration/runtime. Execução: `docs/03_execution_log/20260616_F_SUPPLIERS_OWNERSHIP_SOVEREIGN_CARTORIO.md`.
 
@@ -32,7 +61,9 @@
 
 **Evidence Pack revalidado vivo (dev 389):** `suppliers` existe, `row_count=0`, tem `tenant_id`+`created_by_actor_id`+`created_by_user_id`, **sem** `owner_actor_id`/`company_id`/`user_id`; readers tenant-only por shape.
 
-**Cartório:** REMEDIATION_DECISIONS_LOG (DECISION-0133) · DT_LOG (DT-SUPPLIERS-OWNER-ACTOR-WIRING = ownership DECIDIDO, implementation OPEN; + nova **DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT** transversal) · execution log · opus. **Suppliers IMPLEMENTATION ainda OPEN** (frente futura F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING). **NÃO feito:** suppliers runtime/migration/schema/backfill · RLS hardening (só DT/alerta) · contacts genesis (segue futura) · AP/Bank/Core/payout/split/recovery · suppliers.{repository,service,routes} · RBAC/FASE 6 · delegação/cargo/company_users. **Provas:** docs-only (zero .ts/frontend/migration/SQL/runtime) · arch `--strict` critical_new=0 · regression rc=0. **Fecha SÓ como:** F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO. **IMPLEMENTED / HOLD PARA RESEAL.**
+**Cartório:** REMEDIATION_DECISIONS_LOG (DECISION-0133) · DT_LOG (DT-SUPPLIERS-OWNER-ACTOR-WIRING = ownership DECIDIDO, implementation OPEN; + nova **DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT** transversal) · execution log · opus. **Suppliers IMPLEMENTATION ainda OPEN** (frente futura F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING). **NÃO feito:** suppliers runtime/migration/schema/backfill · RLS hardening (só DT/alerta) · contacts genesis (segue futura) · AP/Bank/Core/payout/split/recovery · suppliers.{repository,service,routes} · RBAC/FASE 6 · delegação/cargo/company_users. **Provas:** docs-only (zero .ts/frontend/migration/SQL/runtime) · arch `--strict` critical_new=0 · regression rc=0. **Fecha SÓ como:** F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO.
+
+**🟢 CLOSED / YALA PASS (header flipado por F-STATUS-HOLD-RECONCILIATION 2026-06-16, docs-only).** Evidência do aceite: a IA Diretora declarou esta frente **CLOSED / YALA PASS · commit `7e13fb5c`** no GO de F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING (que materializou a DECISION-0133 aqui promulgada) e reafirmou em F-STATUS-HOLD-RECONCILIATION. DECISION-0133 vigente; implementação já materializada e selada na cadeia suppliers. Nenhum reseal/material novo nesta reconciliação.
 
 ---
 
