@@ -78,7 +78,30 @@ ZERO CRM genesis · ZERO redesign de payment-link/venue/subscription · ZERO fal
 
 ## Estado
 
-**IMPLEMENTED / HOLD PARA RESEAL.** Fecha SÓ como **F-CONTACTS-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT**: `contacts`
+**CLOSED / YALA PASS COM RESSALVA.** Fecha SÓ como **F-CONTACTS-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT**: `contacts`
 ausente não gera mais 500 cru — toda superfície (rotas + callers via service) responde **501
 `CONTACTS_SCHEMA_GHOST_CONTAINED`** ANTES do repository; gênese/ownership de contacts segue como frente própria
 futura; archive não restaurado; zero migration. dev 389.
+
+## YALA RESEAL — PASS COM RESSALVA
+
+- **Veredito:** **PASS COM RESSALVA.** Âncora: HEAD `a55f22310fcadd6d2d8b636871267d15d3d6a755` · branch
+  `rescue-structural` · parent `17f25d66` · dev 389/389 · zero migration. Conclusão: selar o **containment** como
+  CLOSED; **gênese de contacts permanece futura** (NÃO fechada).
+- **Provas confirmadas pela Yala:** commit `a55f2231`; `contacts` segue ausente (`to_regclass`=NULL); zero migration;
+  archive `0065_contacts.sql` intocado; **501 `CONTACTS_SCHEMA_GHOST_CONTAINED`** em todas as superfícies; repository
+  **não alcançado**; **e2e 9/9**; **negative-proof 4 mordidas**; **4 gates verdes** (actor-writer/bank-ledger/
+  regression/arch).
+- **Escopo negativo confirmado:** ZERO migration · ZERO CREATE TABLE contacts · ZERO restauração de archive ·
+  ZERO Bank/ledger/payout/split/recovery · ZERO suppliers · ZERO PDV · ZERO owner/CRM genesis.
+- **Ressalvas:**
+  - **R1 — to_regclass / auto-destrave futuro (NÃO bloqueia o containment; OBRIGATÓRIA na gênese):** se uma migration
+    futura criar `contacts` de forma qualificada/aspada ou fora do padrão reconhecido pelo guard, o runtime baseado em
+    `to_regclass` pode destravar o módulo **sem owner institucional**. A futura **F-CONTACTS-GENESIS-INSTITUTIONAL-OWNER**
+    deve endurecer/remover o guard conscientemente e impedir **tenant-only sem owner**.
+  - **R2 / R3:** sem ressalvas adicionais materiais nesta frente (a Yala não levantou R2/R3 bloqueantes; registrado
+    para completude — qualquer item futuro entra na frente de gênese).
+- **Fechamento permitido:** SOMENTE da frente de **containment**. **Contacts genesis permanece FUTURA/OPEN**
+  (tabela, owner, CRM, ownership institucional — frente própria F-CONTACTS-GENESIS-INSTITUTIONAL-OWNER, carregando R1).
+- **Selo:** commit docs-only `docs: seal contacts schema ghost containment`. Estado final: **CLOSED / YALA PASS
+  COM RESSALVA**.

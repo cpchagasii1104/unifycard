@@ -12122,10 +12122,18 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ---
 
-## DT-CONTACTS-SCHEMA-GHOST — CONTIDO FAIL-CLOSED (2026-06-16); GÊNESE/OWNERSHIP OPEN
+## DT-CONTACTS-SCHEMA-GHOST — CONTAINMENT CLOSED (2026-06-16, YALA PASS COM RESSALVA); GÊNESE/OWNERSHIP OPEN
 
-- **Status:** **SINTOMA CONTIDO (2026-06-16)** por **F-CONTACTS-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT** ·
-  **GÊNESE/OWNERSHIP segue OPEN** (frente própria futura). HEAD `17f25d66`.
+- **Status:** **CONTAINMENT CLOSED (2026-06-16, YALA PASS COM RESSALVA)** — schema ghost (42P01/500 cru) **CONTIDO**
+  fail-closed (501) por **F-CONTACTS-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT** (commit `a55f2231`, reseal Yala PASS).
+  **GÊNESE/OWNERSHIP de contacts permanece OPEN** (frente própria futura — NÃO fechada aqui). Âncora reseal:
+  HEAD `a55f2231` · branch `rescue-structural` · parent `17f25d66` · dev 389/389 · zero migration.
+- **R1 (RESSALVA da Yala — não bloqueia o containment; REQUISITO OBRIGATÓRIO da gênese futura):** **to_regclass /
+  auto-destrave futuro** — o containment é válido enquanto `contacts` está ausente; porém, se uma migration futura
+  criar `contacts` de forma qualificada/aspada ou fora do padrão reconhecido pelo guard, o runtime baseado em
+  `to_regclass` pode **destravar o módulo sem owner institucional**. A futura **F-CONTACTS-GENESIS-INSTITUTIONAL-OWNER**
+  deve **endurecer/remover esse guard conscientemente** e **impedir tenant-only sem owner**. _(Carregada como
+  pré-condição da gênese; não é dívida do containment atual.)_
 - **Contexto:** a tabela `contacts` é **schema ghost** — `to_regclass('public.contacts') = NULL` no schema vivo;
   NÃO há migration viva que a crie (só `migrations_archive/0065_contacts.sql`, archive, NÃO-SSOT). O módulo
   `contact.{routes,service,repository,types}.ts` existe e o `contact.repository` faz `INSERT/SELECT/UPDATE` em
