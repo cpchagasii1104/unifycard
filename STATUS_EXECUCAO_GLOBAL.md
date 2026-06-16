@@ -1,3 +1,45 @@
+## 2026-06-16 — F-0131-WAVE-DOCS-ONLY-SEAL (docs-only) · CLOSED
+
+**Branch:** `rescue-structural` · **HEAD `37a50823`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). Sela documentalmente a **onda 0131** que permanecia com headers `IMPLEMENTED/HOLD` no repo apesar de já atestada por **Yala in-session = PASS** (auditoria base F-0131-WAVE-HOLD-RECONCILIATION-READONLY). Execução: `docs/03_execution_log/20260616_F_0131_WAVE_DOCS_ONLY_SEAL.md`. **NADA material tocado** (zero código/migration/schema/runtime/banco). **Não fecha financeiro futuro.**
+
+**Fonte da prova (todos os itens abaixo):** **Yala atestado in-session, ainda não documentado no repo antes deste selo** + execution logs/guards/e2es/neg-proofs já citados em cada entrada (NÃO reexecutados). **Natureza:** docs-only seal; **sem nova execução material neste commit.** 20 headers flipados de `IMPLEMENTED/HOLD RESEAL` → `CLOSED / YALA PASS` (os corpos das entradas permanecem como registro histórico pré-selo; o header + esta entrada são autoritativos).
+
+### Itens selados (CLOSED / YALA PASS)
+| Item | Frente (STATUS) | Commit material | Nota |
+| --- | --- | --- | --- |
+| SPR-READ | F-C1-MONEY-SPR-READ-AUTHORITY-HARDENING | runtime cirúrgico | authority de leitura |
+| SPR-CREATE | F-C1-MONEY-SPR-CREATE-AUTHORITY-HARDENING | runtime cirúrgico | authority de create (Opção A) |
+| SPR-SCHEMA-FK | F-C1-MONEY-SPR-SCHEMA-INTEGRITY-FK-INDEX | migration dev 385→386 | FK/índice (não-financeiro) |
+| PO-OWNER | F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING | migration dev 386→387 | owner_actor_id |
+| PO-RECEIVE-CONTAINMENT | F-C1-MONEY-PO-RECEIVE-EXPLICIT-CONTAINMENT | runtime | receivePO CONTIDO (não funcional) |
+| PDV-F2A | PDV-F2A (payment authority binding) | runtime | ownership do seller |
+| PDV-F2B | PDV-F2B (9 rotas + audit hardening) | runtime | representabilidade server-side |
+| PDV-F2C | PDV-F2C (service payOrderFromPdv) | runtime | defesa própria do service |
+| E1 | E1 AVAILABILITY OWNER-AUTHORITY EXEMPLAR | guard, zero runtime | exemplar 0131 |
+| E2 | E2 TEMPORAL TOMBSTONE | guard, zero runtime | schedules/schedule_slots mortos |
+| B1f | B1f CANAL-1 TRANSVERSAL LOCK | guard, zero runtime | actionContext.actorId 5º canal |
+| C4 | C4 REVERSAL CONTAINMENT | guard, zero runtime | motor de reversal contido |
+| B3f | B3f GET /groups/mine GUARD-LOCK | guard, zero runtime | auth-derived travado |
+| BATCH-1 | BATCH 1 (B4f cross-tenant + F1/F2 locks) | runtime | vazamento cross-tenant fechado |
+| BATCH-2 | BATCH 2 (B2f money-unbound) | runtime | custody/split vinculados ao dono do evento |
+| BATCH-3 | BATCH 3 (F3 role-as-authority containment) | runtime | **Yala in-session: FAIL inicial → correção → PASS** |
+| BATCH-4 | BATCH 4 (RBAC-V2 GET payments ownership) | runtime | role-solo → ownership |
+| BATCH-5 | BATCH 5 (PDV-F0-LOCK) | guard, zero runtime | matriz + lock |
+| DECISION-0131 | DECISION-0131 gramática/instrumento/portas | docs-only | **DOCS_ONLY_NO_MATERIAL** — cartório/gramática; NÃO ativou runtime; portas soberanas seguem exigindo GO específico |
+| AGENDA-TRUTHFULNESS | F-AGENDA-EDITING-UX-TRUTHFULNESS-V2 | frontend-only | distinto de F-AGENDA-SAVE-RATE-LIMIT-429 (já selada) |
+
+### 🔴 STOP FINANCEIRO OBRIGATÓRIO (FINANCIAL_NEEDS_3_PARALLELS)
+Este selo **NÃO** muda estado financeiro, **NÃO** ativa payout, **NÃO** ativa split, **NÃO** ativa recovery, **NÃO** cria seed `financial_approval` e **NÃO** libera execução financeira. Os itens abaixo permanecem **NÃO FEITOS / NÃO AUTORIZADOS** por este selo: seed `financial_approval` · payout · split · recovery · **SPR-execute** · **PO-receive funcional** · qualquer movimentação de dinheiro · qualquer alteração em `bank_ledger` · qualquer materialização financeira nova. Os selos de SPR/PO/PDV/BATCH-2/BATCH-4 cobrem SÓ a **autoridade/contenção/schema/leitura** da frente nomeada — **NÃO autorizam materialização financeira futura**. Qualquer frente futura que toque saldo/dinheiro/split/payout/recovery exige **três paralelas READ-ONLY antes de execução**.
+
+### Fora do escopo deste selo (permanecem `IMPLEMENTED/HOLD`)
+As entradas de 2026-06-13/14 abaixo da onda nomeada (F-PAYOUT-* · DECISION-0130 · F-R2-* · F-RISK-DASHBOARD · F-0113-CLASSIC/EVENT-BINDING · F-SERVICE-OFFERING · F-SERVICE-ORDER-DIRECT-CREATE · F-BOOKING-ORDER) **NÃO** foram seladas aqui (fora da lista nomeada da auditoria) — seguem HOLD para reconciliação própria.
+
+**Próxima frente liberável (NÃO executada neste commit):** **F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING** (authority write-spoof, escopo claro, não-financeiro). NÃO abrir financeiro (3 paralelas) nem contacts genesis (decisão Clayton).
+
+**Fecha SÓ como:** F-0131-WAVE-DOCS-ONLY-SEAL. **CLOSED (docs-only).**
+
+---
+
 ## 2026-06-16 — F-STATUS-HOLD-RECONCILIATION-POST-SUPPLIERS-AGENDA-SEALS (docs-only) · CLOSED
 
 **Branch:** `rescue-structural` · **HEAD `11fc81a2`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). Reconcilia headers stale do STATUS após os fechamentos aceitos pela IA Diretora/Clayton/Yala. Execução: `docs/03_execution_log/20260616_F_STATUS_HOLD_RECONCILIATION_POST_SUPPLIERS_AGENDA.md`. **Nada material tocado** (zero código/migration/schema/runtime). Não fecha nenhum HOLD sem prova.
@@ -109,7 +151,7 @@
 
 ---
 
-## 2026-06-16 — F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: editor da Agenda para de emitir recibo falso de save (frontend-only; sem backend/migration) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-16 — F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: editor da Agenda para de emitir recibo falso de save (frontend-only; sem backend/migration) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `382d0f22`** (pós-PO-OWNER) · **dev 387 (ZERO migration)** · MODO EXECUTOR (ultracode, escopo restrito frontend). Execução: `docs/03_execution_log/20260616_WAVE1_AGENDA_EDITING_UX_TRUTHFULNESS_V2.md`. **Frontend-only:** zero backend/schema/migration/RLS/materializer/authority-core. **Hipótese confirmada:** o bug vivo estava na UI de edição, não no SSOT temporal (`unified_availability` intocado).
 
@@ -123,7 +165,7 @@
 
 ---
 
-## 2026-06-15 — F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING: purchase_order ganha owner_actor_id (empresa compradora = page+company_id); toda operação exige representar o owner (migration; dev 386→387) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING: purchase_order ganha owner_actor_id (empresa compradora = page+company_id); toda operação exige representar o owner (migration; dev 386→387) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `522b2059`** (pós-PO-RECEIVE-containment) · **dev 386→387** (migration `20260615210000_purchase_orders_owner_actor_id.sql`) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_F_C1_MONEY_PO_OWNER_ACTOR_SCHEMA_WIRING.md`. **Migration + runtime** (PO service/routes/repo/types; SEM receivePO/inventory/AP/Bank/RLS/company_id). **Decisão Clayton: PO pertence ao lado COMPRADOR via owner_actor_id; created_by=autoria, supplier=contraparte, tenant=escopo — nunca owner.**
 
@@ -135,7 +177,7 @@
 
 ---
 
-## 2026-06-15 — F-C1-MONEY-PO-RECEIVE-EXPLICIT-CONTAINMENT: receivePO vira hard-stop fail-closed (service+rota) até owner empresarial material · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — F-C1-MONEY-PO-RECEIVE-EXPLICIT-CONTAINMENT: receivePO vira hard-stop fail-closed (service+rota) até owner empresarial material · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `9edfbdf9`** (pós-SPR-SCHEMA) · dev **386** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_F_C1_MONEY_PO_RECEIVE_CONTAINMENT.md`. **Runtime cirúrgico** (purchase-order service+routes; SEM Bank/ledger/inventory/AP/migration/owner-schema). **Decisão Clayton: purchase_order NÃO é creator-owned; created_by_actor_id = autoria, não autoridade; destino = company-owned (frente futura).**
 
@@ -145,7 +187,7 @@
 
 ---
 
-## 2026-06-15 — F-C1-MONEY-SPR-SCHEMA-INTEGRITY-FK-INDEX: FK payer/receiver→actors + índices (migration; dev 385→386) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — F-C1-MONEY-SPR-SCHEMA-INTEGRITY-FK-INDEX: FK payer/receiver→actors + índices (migration; dev 385→386) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `3d2115bc`** (pós-SPR-CREATE) · **dev 385→386** (migration `20260615200000_service_payment_requests_fk_index.sql`) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_F_C1_MONEY_SPR_SCHEMA_INTEGRITY.md`. **Schema-only** (FK+índices; SEM RLS/runtime/Bank/execução/firewall). Trata o DT-SPR-READ-AUTHORITY-RESIDUES R3 (parte FK/índice).
 
@@ -155,7 +197,7 @@
 
 ---
 
-## 2026-06-15 — F-C1-MONEY-SPR-CREATE-AUTHORITY-HARDENING: o RECEIVER/PROVIDER emite a cobrança (Opção A) — POST create exige representar o receiver derivado (runtime cirúrgico) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — F-C1-MONEY-SPR-CREATE-AUTHORITY-HARDENING: o RECEIVER/PROVIDER emite a cobrança (Opção A) — POST create exige representar o receiver derivado (runtime cirúrgico) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `81e35ad8`** (pós-SPR-READ) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_F_C1_MONEY_SPR_CREATE_AUTHORITY.md`. **RUNTIME cirúrgico** (SÓ o POST create; SEM Bank/ledger/split/migration/firewall/POST-execute). **Decisão de produto Clayton: Opção A — receiver/provider cria a cobrança; payer paga.**
 
@@ -165,7 +207,7 @@
 
 ---
 
-## 2026-06-15 — F-C1-MONEY-SPR-READ-AUTHORITY-HARDENING: leitura de service-payment-request exige representar payer OU receiver (runtime cirúrgico) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — F-C1-MONEY-SPR-READ-AUTHORITY-HARDENING: leitura de service-payment-request exige representar payer OU receiver (runtime cirúrgico) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `3e7fcda8`** (pós-A1) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_F_C1_MONEY_SPR_READ_AUTHORITY.md`. **RUNTIME cirúrgico** (2 GET routes; SEM Bank/ledger/split/migration/firewall). READ-FIRST: workflow read-only (4 mappers) + DB schema + leitura 1ª mão.
 
@@ -192,7 +234,7 @@
 
 ---
 
-## 2026-06-15 — E2 TEMPORAL TOMBSTONE / LEGACY WRITE-PATH REGRESSION LOCK: schedules/schedule_slots travados como mortos por guard (zero runtime) + DT de resíduos · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — E2 TEMPORAL TOMBSTONE / LEGACY WRITE-PATH REGRESSION LOCK: schedules/schedule_slots travados como mortos por guard (zero runtime) + DT de resíduos · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `b985ba1b`** (pós-PASS E1) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_E2_TEMPORAL_LEGACY_TOMBSTONE_LOCK.md`. **ZERO runtime change** (só guard .mjs + neg-proof .ps1 + package.json + cartório; nenhum .ts/migration tocado). READ-FIRST: workflow read-only (3 mappers) + DB live + leitura 1ª mão.
 
@@ -204,7 +246,7 @@
 
 ---
 
-## 2026-06-15 — E1 AVAILABILITY OWNER-AUTHORITY EXEMPLAR / REGRESSION LOCK: padrão server-side registrado como exemplar DECISION-0131 + contrato fail-closed travado (zero runtime) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — E1 AVAILABILITY OWNER-AUTHORITY EXEMPLAR / REGRESSION LOCK: padrão server-side registrado como exemplar DECISION-0131 + contrato fail-closed travado (zero runtime) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `365d1b2b`** (pós-PASS B1f) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_E1_AVAILABILITY_OWNER_AUTHORITY_EXEMPLAR.md`. **ZERO runtime change** (só guard .mjs + neg-proof .ps1 + cartório; nenhum .ts tocado). READ-FIRST via workflow read-only (4 mappers: normative/guard/resolver/e2e) + leitura direta.
 
@@ -216,7 +258,7 @@
 
 ---
 
-## 2026-06-15 — B1f CANAL-1 TRANSVERSAL LOCK: actionContext.actorId entra no guard 0113 (5º canal) + 31 resíduos congelados no baseline (zero runtime) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — B1f CANAL-1 TRANSVERSAL LOCK: actionContext.actorId entra no guard 0113 (5º canal) + 31 resíduos congelados no baseline (zero runtime) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `abb3dcb2`** (pós-PASS C4) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_B1F_CANAL1_TRANSVERSAL_LOCK.md`. **ZERO runtime change** (só guard .mjs + neg-proof .ps1 + cartório; nenhum .ts tocado).
 
@@ -228,7 +270,7 @@
 
 ---
 
-## 2026-06-15 — C4 REVERSAL CONTAINMENT / SYSTEM-AUTHORSHIP REGRESSION LOCK: contenção do motor de reversal TRAVADA por guard (zero runtime) + DT do bridge morto · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — C4 REVERSAL CONTAINMENT / SYSTEM-AUTHORSHIP REGRESSION LOCK: contenção do motor de reversal TRAVADA por guard (zero runtime) + DT do bridge morto · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `b92302a1`** (pós-PASS B3f) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_C4_REVERSAL_CONTAINMENT_LOCK.md`. **ZERO runtime change** (só guard .mjs + neg-proof + package.json + cartório; nenhum .ts tocado). Pós READ-FIRST C4 (READ-FIRST COMPLETE: sem money vivo divergente).
 
@@ -238,7 +280,7 @@
 
 ---
 
-## 2026-06-15 — B3f (GET /groups/mine) GUARD-LOCK: comportamento auth-derived TRAVADO (zero runtime) + DT do irmão invites/mine · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — B3f (GET /groups/mine) GUARD-LOCK: comportamento auth-derived TRAVADO (zero runtime) + DT do irmão invites/mine · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `d58db1c5`** (pós-selo do arco PDV) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_B3F_GROUPS_MINE_GUARD_LOCK.md`. **ZERO runtime change** (só guard .mjs + neg-proof + package.json + cartório; nenhum .ts tocado).
 
@@ -263,7 +305,7 @@
 
 ---
 
-## 2026-06-15 — PDV-F2C (MICRO-BATCH FINAL): defesa própria do service payOrderFromPdv (não confia em seller/buyer do body) + bug pi.amount→amount_cents · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — PDV-F2C (MICRO-BATCH FINAL): defesa própria do service payOrderFromPdv (não confia em seller/buyer do body) + bug pi.amount→amount_cents · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `fa72d8e7`** (pós-PASS Yala PDV-F2B) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH8_PDV_F2C_SERVICE_HARDENING.md`. **Atende ao GO PDV-F2C.**
 
@@ -273,7 +315,7 @@
 
 ---
 
-## 2026-06-16 — PDV-F2B (AUTHORITY/AUTHORSHIP DAS 9 ROTAS RESTANTES + AUDIT HARDENING): toda rota PDV passa a provar representabilidade server-side; DT-PDV-CANAL1 FECHADO · IMPLEMENTED/HOLD RESEAL
+## 2026-06-16 — PDV-F2B (AUTHORITY/AUTHORSHIP DAS 9 ROTAS RESTANTES + AUDIT HARDENING): toda rota PDV passa a provar representabilidade server-side; DT-PDV-CANAL1 FECHADO · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `7be810f1`** (pós-PASS Yala PDV-F2A) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260616_WAVE1_DECISION_0131_BATCH7_PDV_F2B_REMAINING_ROUTES.md`. **Atende ao GO PDV-F2B.**
 
@@ -283,7 +325,7 @@
 
 ---
 
-## 2026-06-15 — PDV-F2A (PAYMENT AUTHORITY BINDING): POST /pdv/orders/:id/pay deixa de ser role/canal-1 → ownership canônico (representa o seller da ordem) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — PDV-F2A (PAYMENT AUTHORITY BINDING): POST /pdv/orders/:id/pay deixa de ser role/canal-1 → ownership canônico (representa o seller da ordem) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `ef4ea717`** (pós-PASS Yala PDV-F0-LOCK) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH6_PDV_F2A_PAYMENT_AUTHORITY.md`. **Atende ao GO PDV-F2** (correção direta da rota money).
 
@@ -293,7 +335,7 @@
 
 ---
 
-## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 5 (PDV-F0-LOCK): matriz + lock guard + neg-proof (read-only, zero runtime) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 5 (PDV-F0-LOCK): matriz + lock guard + neg-proof (read-only, zero runtime) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `85cf27ae`** (pós-PASS Yala batch 4) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH5_PDV_F0_LOCK.md`. **ZERO runtime change** (lock/read-only + guard; NÃO corrige handler).
 
@@ -303,7 +345,7 @@
 
 ---
 
-## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 4 (F-RBAC-V2-PERMISSION-OWNERSHIP, money-first): GET payments deixa de ser role-solo → ownership canônico · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 4 (F-RBAC-V2-PERMISSION-OWNERSHIP, money-first): GET payments deixa de ser role-solo → ownership canônico · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `8cd5daa9`** (pós-PASS Yala re-reseal batch 3) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260615_WAVE1_DECISION_0131_BATCH4_RBAC_V2_OWNERSHIP_MONEY.md`.
 
@@ -313,7 +355,7 @@
 
 ---
 
-## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 3 (F3 — ROLE-AS-AUTHORITY CONTAINMENT): role-como-autoridade vivo CONTIDO + classificado (Art.17) · IMPLEMENTED/HOLD RESEAL
+## 2026-06-15 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 3 (F3 — ROLE-AS-AUTHORITY CONTAINMENT): role-como-autoridade vivo CONTIDO + classificado (Art.17) · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `fd568e70`** (pós-PASS Yala batch 2) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_WAVE1_DECISION_0131_BATCH3_F3.md`.
 
@@ -323,7 +365,7 @@
 
 ---
 
-## 2026-06-14 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 2 (B2f — MONEY UNBOUND): rotas econômicas v2 custody/split vinculadas ao dono do evento · IMPLEMENTED/HOLD RESEAL
+## 2026-06-14 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 2 (B2f — MONEY UNBOUND): rotas econômicas v2 custody/split vinculadas ao dono do evento · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `d4dc2a8d`** (pós-PASS Yala batch 1) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_WAVE1_DECISION_0131_BATCH2_B2f.md`.
 
@@ -333,7 +375,7 @@
 
 ---
 
-## 2026-06-14 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 1: B4f vazamento cross-tenant FECHADO + F1/F2 locks stub/tombstone · IMPLEMENTED/HOLD RESEAL
+## 2026-06-14 — PRIMEIRA ONDA INDEPENDENTE (DECISION-0131) · BATCH 1: B4f vazamento cross-tenant FECHADO + F1/F2 locks stub/tombstone · CLOSED / YALA PASS (selo 0131-wave docs-only — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `b6f08e91`** (pós-PASS Yala 0131) · dev **385** (sem migration) · MODO EXECUTOR (ultracode). Execução: `docs/03_execution_log/20260614_WAVE1_DECISION_0131_INDEPENDENTES_BATCH1.md`.
 
@@ -345,7 +387,7 @@
 
 ---
 
-## 2026-06-14 — DECISION-0131 · gramática de autoridade (DECISION-índice; docs-only): cargo-template/temporal/mapper/membership/RLS/platform/hard-rules · PROMULGADA/HOLD RESEAL
+## 2026-06-14 — DECISION-0131 · gramática de autoridade (DECISION-índice; docs-only): cargo-template/temporal/mapper/membership/RLS/platform/hard-rules · CLOSED / YALA PASS (DOCS-ONLY; selo 0131-wave — Yala in-session)
 
 **Branch:** `rescue-structural` · **parent `20fe30cc`** · dev **385** (SEM migration) · MODO EXECUTOR docs-only/cartório (ultracode). Execução: `docs/03_execution_log/20260614_DECISION_0131_AUTHORITY_GRAMMAR.md`. Numeração: 0131 livre (docs/02_decisions + LOG). Análise prévia da Opus aprovada por Clayton; GO concedido SÓ para redação docs-only.
 
