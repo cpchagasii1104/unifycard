@@ -1,3 +1,19 @@
+## 2026-06-16 — F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING · IMPLEMENTED / HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `2173d60c`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. Fix material de **autoridade (DECISION-0113), não-financeiro**, escopo local. Corrige o **write-authorship-spoof** das transições de estado de service-order (`DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF` → **CLOSED**). Execução: `docs/03_execution_log/20260616_F_SERVICE_ORDER_WRITE_AUTHORSHIP_BINDING.md`.
+
+**Achado:** `service-order.routes.ts` passava `actionContext.actorId` como AMBOS `*ByActorId` E `*ByUserId` nos 5 writes não-financeiros (confirm/start/complete/cancel/buyer-confirm) → autoria forjável + gate de serviço (`canActAs`) alimentado com actor-UUID no lugar do userId. **Fix:** helper `bindOrderWriteActor` (route layer, espelha `assertOrderParty` do read F6.5.6a) — `req.user.userId` REAL (401) + `actionContext.actorId` (400) + actor declarado PARTE (`customer|worker`, senão 403 não-leak) + `canRepresentActor` (senão 403); grava `*ByActorId=bound.actorId` e `*ByUserId=bound.userId` REAL; 403 honesto ANTES do write. Regra fina "só customer confirma" do buyer-confirm preservada (defesa em profundidade). **Regularização adjacente:** `service_order:confirm_completion` (referenciado `as any`, ausente do mapa canônico → 500 latente pré-existente em todo buyer-confirm) **registrado** em `permission-keys.ts` com capability `null` (idêntico aos irmãos `service_order:*`); `as any` removido — **NÃO** ativa RBAC/FASE 6.
+
+**Provas:** tsc build 25/strict 43 (baseline); guard `audit-service-order-write-authorship-binding.mjs` na chain regression-guards GATE OK; neg-proof **5 mordidas** + restauração byte-idêntica SHA256; e2e efêmero **22/22** (12 comportamentais incl. todos os spoof→403 + Bank intocado; 6 estruturais); 4 gates (actor-writer · bank-ledger · regression-guards rc=0 · arch-patterns critical_new=0). Read e2e F6.5.6a C6 atualizado (writes BINDADOS).
+
+**Resíduo CONSCIENTE (NÃO fechado):** `confirm-financial-terms` (FINANCEIRO/split, 503) segue com a conflação — documentado no código; frente financeira própria (3 paralelas).
+
+**NÃO TOCADO:** Bank/Core/`bank_ledger`/payout/split/recovery/payment exec/invoice/AP-AR · migration · schema · RLS/RBAC tables · `confirm-booking` · create direto (403) · frontend.
+
+**Estado:** **IMPLEMENTED / HOLD RESEAL** — aguarda reseal Yala. dev 390.
+
+---
+
 ## 2026-06-16 — F-0131-WAVE-DOCS-ONLY-SEAL (docs-only) · CLOSED
 
 **Branch:** `rescue-structural` · **HEAD `37a50823`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). Sela documentalmente a **onda 0131** que permanecia com headers `IMPLEMENTED/HOLD` no repo apesar de já atestada por **Yala in-session = PASS** (auditoria base F-0131-WAVE-HOLD-RECONCILIATION-READONLY). Execução: `docs/03_execution_log/20260616_F_0131_WAVE_DOCS_ONLY_SEAL.md`. **NADA material tocado** (zero código/migration/schema/runtime/banco). **Não fecha financeiro futuro.**

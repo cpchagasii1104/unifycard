@@ -72,6 +72,7 @@ export type PermissionKey =
   | 'service_order:start'
   | 'service_order:complete'
   | 'service_order:cancel'
+  | 'service_order:confirm_completion'
   | 'rfq:create'
   | 'rfq:view'
   | 'rfq:close'
@@ -170,6 +171,7 @@ export const PERMISSION_CAPABILITIES: Record<PermissionKey, string | null> = {
   'service_order:start': null, // ownership suficiente
   'service_order:complete': null, // ownership suficiente
   'service_order:cancel': null, // ownership suficiente
+  'service_order:confirm_completion': null, // ownership suficiente (buyer confirma conclusão — D2; regulariza chave já referenciada no service)
   'rfq:create': null, // ownership suficiente
   'rfq:view': null, // ownership suficiente
   'rfq:close': null, // ownership suficiente

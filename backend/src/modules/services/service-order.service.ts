@@ -750,7 +750,7 @@ class ServiceOrderService {
       const { authorityService } = await import('@modules/authority/authority.service');
       const auth = await authorityService.canPerformAction(
         input.buyerActorId,
-        'service_order:confirm_completion' as any,
+        'service_order:confirm_completion',
         undefined,
         { tenantId, userId: input.buyerUserId }
       );

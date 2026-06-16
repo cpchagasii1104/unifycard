@@ -54,6 +54,52 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     return true;
   };
 
+  // 🔴 DECISION-0113 (WRITE-AUTHORSHIP) — DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF: gravar a AUTORIA de uma
+  // transição de estado comercial (confirm/start/complete/cancel/buyer-confirm) exige BINDING server-side.
+  // O `actionContext.actorId` é só um HINT cliente-declarado (5 canais 0113) — NÃO autoridade. Antes:
+  // `*ByActorId/*ByUserId = actionContext.actorId` permitia forjar quem confirmou/iniciou a ordem em nome
+  // da vítima E alimentava o gate de serviço (`canActAs`) com um actor-UUID no lugar do userId real.
+  // Binding (espelha `assertOrderParty` do read + precedente PO/suppliers): (1) `req.user.userId` REAL
+  // obrigatório (401); (2) `actionContext.actorId` obrigatório (400); (3) o actor declarado deve ser PARTE
+  // legítima da ordem (`customerActorId` OU `workerActorId`) — senão 403 não-leak (cobre ordem inexistente
+  // e não-parte uniformemente); (4) `canRepresentActor(userId, actorId)` — senão 403. Retorna o par
+  // {userId, actorId} BINDADO: o handler grava `*ByUserId = userId REAL` (autoria verdadeira + gate de
+  // serviço passa a rodar contra o principal real). 403 honesto ANTES de qualquer write (sem write parcial).
+  const bindOrderWriteActor = async (
+    req: any,
+    reply: any,
+    tenantId: string,
+    order: { customerActorId?: string; workerActorId?: string } | null
+  ): Promise<{ userId: string; actorId: string } | null> => {
+    const userId = req.user?.userId as string | undefined;
+    const actorId = req.actionContext?.actorId as string | undefined;
+    if (!userId) {
+      reply.status(401).send({ error: 'Não autenticado' });
+      return null;
+    }
+    if (!actorId) {
+      reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+      return null;
+    }
+    // não-leak: ordem inexistente OU actor declarado não é parte → 403 uniforme (não revela existência).
+    if (!order || (order.customerActorId !== actorId && order.workerActorId !== actorId)) {
+      reply.status(403).send({ error: 'Ordem não acessível' });
+      return null;
+    }
+    let canRepresent = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canRepresent = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+    } catch {
+      canRepresent = false;
+    }
+    if (!canRepresent) {
+      reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
+      return null;
+    }
+    return { userId, actorId };
+  };
+
   /**
    * POST /service-orders/confirm-booking
    * Confirma booking aceito criando Service Order
@@ -204,16 +250,15 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     async (req, reply) => {
       const tenantId = req.tenant!.id;
       const { id } = req.params;
-      const actionContext = (req as any).actionContext;
 
-      // ActionContext é obrigatório (V2)
-      if (!actionContext || !actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-      }
+      // 🔴 DECISION-0113 write-binding: autoria bindada (parte representável) ANTES do write.
+      const existing = await serviceOrderService.getOrderById(tenantId, id);
+      const bound = await bindOrderWriteActor(req, reply, tenantId, existing);
+      if (!bound) return reply;
 
       const order = await serviceOrderService.confirmOrder(tenantId, id, {
-        confirmedByActorId: actionContext.actorId,
-        confirmedByUserId: actionContext.actorId,
+        confirmedByActorId: bound.actorId,
+        confirmedByUserId: bound.userId,
       });
 
       return order;
@@ -229,16 +274,15 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     async (req, reply) => {
       const tenantId = req.tenant!.id;
       const { id } = req.params;
-      const actionContext = (req as any).actionContext;
 
-      // ActionContext é obrigatório (V2)
-      if (!actionContext || !actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-      }
+      // 🔴 DECISION-0113 write-binding: autoria bindada (parte representável) ANTES do write.
+      const existing = await serviceOrderService.getOrderById(tenantId, id);
+      const bound = await bindOrderWriteActor(req, reply, tenantId, existing);
+      if (!bound) return reply;
 
       const order = await serviceOrderService.startOrder(tenantId, id, {
-        startedByActorId: actionContext.actorId,
-        startedByUserId: actionContext.actorId,
+        startedByActorId: bound.actorId,
+        startedByUserId: bound.userId,
         workerNotes: req.body.workerNotes,
       });
 
@@ -255,16 +299,15 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     async (req, reply) => {
       const tenantId = req.tenant!.id;
       const { id } = req.params;
-      const actionContext = (req as any).actionContext;
 
-      // ActionContext é obrigatório (V2)
-      if (!actionContext || !actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-      }
+      // 🔴 DECISION-0113 write-binding: autoria bindada (parte representável) ANTES do write.
+      const existing = await serviceOrderService.getOrderById(tenantId, id);
+      const bound = await bindOrderWriteActor(req, reply, tenantId, existing);
+      if (!bound) return reply;
 
       const order = await serviceOrderService.completeOrder(tenantId, id, {
-        completedByActorId: actionContext.actorId,
-        completedByUserId: actionContext.actorId,
+        completedByActorId: bound.actorId,
+        completedByUserId: bound.userId,
         workerNotes: req.body.workerNotes,
       });
 
@@ -292,15 +335,17 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     async (req, reply) => {
       const tenantId = req.tenant!.id;
       const { id } = req.params;
-      const actionContext = (req as any).actionContext;
 
-      if (!actionContext || !actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-      }
+      // 🔴 DECISION-0113 write-binding: autoria bindada (parte representável) ANTES do write. O service
+      // ainda reforça a regra fina "só o customer confirma" (order.customerActorId === buyerActorId) —
+      // este binding garante que o actor declarado é representável e parte (defesa em profundidade).
+      const existing = await serviceOrderService.getOrderById(tenantId, id);
+      const bound = await bindOrderWriteActor(req, reply, tenantId, existing);
+      if (!bound) return reply;
 
       const order = await serviceOrderService.confirmBuyerCompletion(tenantId, id, {
-        buyerActorId: actionContext.actorId,
-        buyerUserId: actionContext.actorId,
+        buyerActorId: bound.actorId,
+        buyerUserId: bound.userId,
       });
 
       return order;
@@ -316,16 +361,15 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     async (req, reply) => {
       const tenantId = req.tenant!.id;
       const { id } = req.params;
-      const actionContext = (req as any).actionContext;
 
-      // ActionContext é obrigatório (V2)
-      if (!actionContext || !actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-      }
+      // 🔴 DECISION-0113 write-binding: autoria bindada (parte representável) ANTES do write.
+      const existing = await serviceOrderService.getOrderById(tenantId, id);
+      const bound = await bindOrderWriteActor(req, reply, tenantId, existing);
+      if (!bound) return reply;
 
       const order = await serviceOrderService.cancelOrder(tenantId, id, {
-        cancelledByActorId: actionContext.actorId,
-        cancelledByUserId: actionContext.actorId,
+        cancelledByActorId: bound.actorId,
+        cancelledByUserId: bound.userId,
         cancellationReason: req.body.cancellationReason,
       });
 
@@ -373,6 +417,12 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
    * - NÃO move dinheiro automaticamente
    * - Apenas cria entidade de split para rastreabilidade
    * - Confirmação humana obrigatória
+   *
+   * 🟠 RESÍDUO CONSCIENTE (DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF): este write ainda usa
+   * `confirmedBy* = actionContext.actorId` (mesma conflação corrigida nos demais writes). NÃO foi
+   * bindado aqui porque é FINANCEIRO (cria split / `confirmFinancialTerms`) e está fora do escopo
+   * não-financeiro desta fatia — além de estar atrás de `isFinancialEnabled()` → 503 (inalcançável
+   * por ora). O binding deste handler entra na frente financeira própria (3 paralelas read-only).
    */
   fastify.post<{ Params: { id: string }; Body: ConfirmFinancialTermsInput }>(
     '/service-orders/:id/confirm-financial-terms',

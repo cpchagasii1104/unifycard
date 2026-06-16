@@ -108,8 +108,16 @@ async function main(): Promise<void> {
     /partyFilters\.length === 0/.test(src) && /canRepresentActor\(tenantId, userId, partyId\)/.test(src));
   record('C5 não-leak: ordem inexistente OU não-parte → 403 ("Ordem não acessível"), 404 removido',
     /Ordem não acessível/.test(src) && !/Ordem não encontrada/.test(src));
-  record('C6 writes (confirm/start/complete/cancel/buyer-confirm) INTOCADOS (handlers separados)',
-    /confirmOrder\(/.test(src) && /startOrder\(/.test(src) && /confirmedByActorId: actionContext\.actorId/.test(src));
+  // C6 (atualizado por F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING): os writes deixaram de ser "intocados".
+  // Agora estão BINDADOS (bindOrderWriteActor) — a autoria não vem mais do actionContext.actorId cru.
+  // O read gate (assertOrderParty) e o write gate (bindOrderWriteActor) coexistem. (confirmedBy* aparece
+  // também no confirm-financial-terms — resíduo financeiro documentado — então o negativo usa campos
+  // exclusivos dos writes não-financeiros: start/complete/cancel/buyer.)
+  record('C6 writes BINDADOS (confirm/start/complete/cancel/buyer-confirm via bound.*; sem spoof nos não-financeiros)',
+    /confirmOrder\(/.test(src) && /startOrder\(/.test(src)
+    && /confirmedByActorId: bound\.actorId/.test(src)
+    && /const bindOrderWriteActor = async/.test(src)
+    && !/(startedByActorId|completedByActorId|cancelledByActorId|buyerActorId): actionContext\.actorId/.test(src));
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);
