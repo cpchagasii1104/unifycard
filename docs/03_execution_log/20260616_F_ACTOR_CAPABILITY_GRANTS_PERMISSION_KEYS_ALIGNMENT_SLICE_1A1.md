@@ -53,6 +53,23 @@ alinhamento CHECK↔registry agora é coberto pelo guard.)
 
 ## Estado
 
-**IMPLEMENTED / HOLD YALA.** Fecha SÓ como **F-ACTOR-CAPABILITY-GRANTS-PERMISSION-KEYS-ALIGNMENT-SLICE-1A1**:
+**CLOSED / YALA PASS.** Fecha SÓ como **F-ACTOR-CAPABILITY-GRANTS-PERMISSION-KEYS-ALIGNMENT-SLICE-1A1**:
 `services:create/edit/disable` registradas em `permission-keys.ts` (capability null); guard alinha CHECK↔registry;
-`business-permissions.types.ts`/migration intocados; zero enforcement/endpoint/financeiro. dev 391. **Aguarda reseal Yala.**
+`business-permissions.types.ts`/migration intocados; zero enforcement/endpoint/financeiro. dev 391.
+
+## YALA RESEAL — PASS (2026-06-16, adversarial READ-ONLY)
+
+- **Veredito:** **PASS** (reseal adversarial READ-ONLY). Commit material `98d28aec` · branch `rescue-structural` · dev 391.
+- **Confirmado:** exatamente **3 keys** adicionadas (`services:create`/`services:edit`/`services:disable`);
+  `calendar:block`/`calendar:unblock` **preservadas**; migration `actor_capability_grants` **intocada**;
+  `business-permissions.types.ts` **intocado**; **zero endpoint**; **zero enforcement**; **zero frontend**;
+  **zero financeiro**; guard **CHECK×registry ativo**; neg-proof **`pk-misalign` morde**; **W1 fechado**;
+  **W2 permanece válido como orientação**.
+- **W2 (orientação reafirmada):** o CHECK de `capability_key` da migration continua sendo **trava defensiva
+  temporária** — **NÃO** é registry, **NÃO** é SSOT, **NÃO** substitui `permission-keys.ts`.
+- **Pendências:** reconciliação ampla `permission-keys.ts` × `business-permissions.types.ts` · Slice 1B (endpoints) ·
+  Slice 1C (enforcement, dependente de decisão explícita / `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`) ·
+  UI de checkboxes · financeiro (sempre fora / 3 paralelas).
+- **Frase canônica:** "Slice 1A1 fecha o desalinhamento entre a allowlist defensiva do banco e o registry vivo de
+  permission keys, sem criar enforcement, endpoint, UI ou nova autoridade de negócio."
+- **Selo:** commit docs-only `docs: seal actor grant permission keys alignment`. Estado final: **CLOSED / YALA PASS**.

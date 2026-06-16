@@ -1,6 +1,8 @@
-## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-PERMISSION-KEYS-ALIGNMENT-SLICE-1A1 · IMPLEMENTED / HOLD YALA
+## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-PERMISSION-KEYS-ALIGNMENT-SLICE-1A1 · CLOSED / YALA PASS
 
-**Branch:** `rescue-structural` · **parent `b0e6f297`** · **dev 391 (ZERO migration)** · MODO EXECUTOR. Fecha o **warning W1** do Slice 1A: registra no SSOT vivo `permission-keys.ts` as keys não-financeiras que a allowlist defensiva da migration já permitia (CHECK ≠ registry). Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_PERMISSION_KEYS_ALIGNMENT_SLICE_1A1.md`.
+**Branch:** `rescue-structural` · **commit material `98d28aec`** · **dev 391 (ZERO migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (adversarial READ-ONLY, 2026-06-16). Fecha o **warning W1** do Slice 1A: registra no SSOT vivo `permission-keys.ts` as keys não-financeiras que a allowlist defensiva da migration já permitia (CHECK ≠ registry). Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_PERMISSION_KEYS_ALIGNMENT_SLICE_1A1.md` (seção YALA RESEAL — PASS).
+
+**Yala confirmou:** exatamente 3 keys adicionadas (`services:create`/`services:edit`/`services:disable`); `calendar:block`/`calendar:unblock` preservadas; migration `actor_capability_grants` intocada; `business-permissions.types.ts` intocado; zero endpoint/enforcement/frontend/financeiro; guard CHECK×registry ativo; neg-proof `pk-misalign` morde; **W1 fechado**; **W2 permanece válido como orientação** (o CHECK da migration segue trava defensiva temporária — NÃO registry, NÃO SSOT, NÃO substitui `permission-keys.ts`).
 
 **Patch:** `permission-keys.ts` — adicionadas `services:create`/`services:edit`/`services:disable` (union + `PERMISSION_CAPABILITIES`, capability `null` = ownership suficiente, DECISION-0135). Vocabulário apenas, **sem enforcement**. `calendar:block/unblock` já existiam. Guard `audit-actor-capability-grants-nonfinancial.mjs` **estendido** (check 5: allowlist da migration ⊆ permission-keys.ts; sem financeiro; sem `finance:*`). **`business-permissions.types.ts` e a migration INTOCADOS.**
 
@@ -10,7 +12,9 @@
 
 **NÃO TOCADO:** `business-permissions.types.ts` · migration · service/repository/types do grant · availability/calendar · frontend · financeiro/bank_ledger/payout/split/refund · votes/organization/contextual-thread · aliases · renomeações.
 
-**Estado:** **IMPLEMENTED / HOLD YALA.** dev 391.
+**Frase canônica:** "Slice 1A1 fecha o desalinhamento entre a allowlist defensiva do banco e o registry vivo de permission keys, sem criar enforcement, endpoint, UI ou nova autoridade de negócio."
+
+**Estado:** **CLOSED / YALA PASS.** Pendente: reconciliação ampla `permission-keys.ts` × `business-permissions.types.ts` · Slice 1B (endpoints) · Slice 1C (enforcement, decisão explícita / `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`) · UI · financeiro (3 paralelas). dev 391.
 
 ---
 
