@@ -73,6 +73,11 @@ export type PermissionKey =
   | 'service_order:complete'
   | 'service_order:cancel'
   | 'service_order:confirm_completion'
+  // Serviços (catálogo de serviço do actor/empresa). Registradas no SSOT vivo para alinhar a allowlist
+  // defensiva de actor_capability_grants (DECISION-0136 W1). Vocabulário apenas — sem enforcement aqui.
+  | 'services:create'
+  | 'services:edit'
+  | 'services:disable'
   | 'rfq:create'
   | 'rfq:view'
   | 'rfq:close'
@@ -172,6 +177,9 @@ export const PERMISSION_CAPABILITIES: Record<PermissionKey, string | null> = {
   'service_order:complete': null, // ownership suficiente
   'service_order:cancel': null, // ownership suficiente
   'service_order:confirm_completion': null, // ownership suficiente (buyer confirma conclusão — D2; regulariza chave já referenciada no service)
+  'services:create': null, // ownership suficiente (vocabulário p/ actor_capability_grants — DECISION-0136 W1; sem enforcement aqui)
+  'services:edit': null, // ownership suficiente
+  'services:disable': null, // ownership suficiente
   'rfq:create': null, // ownership suficiente
   'rfq:view': null, // ownership suficiente
   'rfq:close': null, // ownership suficiente

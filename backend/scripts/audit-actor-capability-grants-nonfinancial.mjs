@@ -117,6 +117,35 @@ function read(p) { return existsSync(p) ? readFileSync(p, 'utf8') : null; }
   checked++;
 }
 
+// 5) ALINHAMENTO COM O SSOT VIVO (DECISION-0136 W1): toda capability permitida no CHECK da migration DEVE
+//    existir em permission-keys.ts. O CHECK do banco é trava defensiva — NÃO pode virar registry paralelo.
+{
+  const rawSql = read(MIG);
+  const PK = join(SRC, 'core/authorization/permission-keys.ts');
+  const pk = read(PK);
+  if (rawSql && pk) {
+    checked++;
+    const checkBlock = (stripSql(rawSql).match(/chk_acg_capability_nonfinancial CHECK \([\s\S]*?\)\s*\)/) || [''])[0];
+    const allow = [...checkBlock.matchAll(/'([a-z_]+:[a-z_]+)'/g)].map((m) => m[1]);
+    if (allow.length === 0) {
+      failures.push('GRANTS_REGRESSION: não foi possível extrair a allowlist do CHECK da migration.');
+    }
+    for (const key of allow) {
+      if (FINANCIAL.test(key)) {
+        failures.push(`GRANTS_REGRESSION: allowlist contém capability FINANCEIRA '${key}' (proibido).`);
+      }
+      // a key precisa existir como literal no PERMISSION_CAPABILITIES (registry vivo).
+      if (!new RegExp(`'${key.replace(/[:]/g, '\\:')}':\\s*null`).test(pk) && !pk.includes(`'${key}':`)) {
+        failures.push(`GRANTS_REGRESSION: capability '${key}' está na allowlist da migration mas NÃO existe em permission-keys.ts (CHECK ≠ registry — DECISION-0136 W1).`);
+      }
+    }
+    // permission-keys.ts não pode ganhar domínio financeiro errado 'finance:' (canônico é 'financial:').
+    if (/'finance:[a-z_]+'/.test(pk)) {
+      failures.push("GRANTS_REGRESSION: permission-keys.ts contém key 'finance:*' — o domínio canônico é 'financial:' (DECISION-0135).");
+    }
+  }
+}
+
 console.log(`[actor-capability-grants-nonfinancial] checked=${checked} failures=${failures.length}`);
 if (failures.length > 0) {
   console.error('GATE FAIL [actor-capability-grants-nonfinancial]:');

@@ -1,3 +1,19 @@
+## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-PERMISSION-KEYS-ALIGNMENT-SLICE-1A1 · IMPLEMENTED / HOLD YALA
+
+**Branch:** `rescue-structural` · **parent `b0e6f297`** · **dev 391 (ZERO migration)** · MODO EXECUTOR. Fecha o **warning W1** do Slice 1A: registra no SSOT vivo `permission-keys.ts` as keys não-financeiras que a allowlist defensiva da migration já permitia (CHECK ≠ registry). Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_PERMISSION_KEYS_ALIGNMENT_SLICE_1A1.md`.
+
+**Patch:** `permission-keys.ts` — adicionadas `services:create`/`services:edit`/`services:disable` (union + `PERMISSION_CAPABILITIES`, capability `null` = ownership suficiente, DECISION-0135). Vocabulário apenas, **sem enforcement**. `calendar:block/unblock` já existiam. Guard `audit-actor-capability-grants-nonfinancial.mjs` **estendido** (check 5: allowlist da migration ⊆ permission-keys.ts; sem financeiro; sem `finance:*`). **`business-permissions.types.ts` e a migration INTOCADOS.**
+
+**Provas:** tsc 25/43 (baseline); guard GATE OK (checked=5, alignment CHECK↔registry); neg-proof **6 mordidas** (+ pk-misalign) + SHA256; 4 gates (actor-writer · bank-ledger · regression-guards rc=0 incl. rbac-stub OK · arch critical_new=0).
+
+**W1 FECHADO.** **W2 permanece orientação** (CHECK = trava defensiva temporária, não registry). **Pendente:** reconciliação ampla `permission-keys.ts` × `business-permissions.types.ts` · endpoints (1B) · enforcement (1C, `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`) · UI · financeiro (3 paralelas).
+
+**NÃO TOCADO:** `business-permissions.types.ts` · migration · service/repository/types do grant · availability/calendar · frontend · financeiro/bank_ledger/payout/split/refund · votes/organization/contextual-thread · aliases · renomeações.
+
+**Estado:** **IMPLEMENTED / HOLD YALA.** dev 391.
+
+---
+
 ## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-SCHEMA-AND-NONFIN-ENFORCEMENT-SLICE-1 · CLOSED / YALA PASS
 
 **Branch:** `rescue-structural` · **commit material `1e61c83b`** · **dev 391 (1 migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (adversarial READ-ONLY, 2026-06-16). Materializa o substrato de **capability grants por actor** (DECISION-0136). **Slice 1A** (decisão IA Diretora após STOP): schema + service + repository + resolver, **SEM enforcement em rota de negócio**. Não-financeiro. Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_SCHEMA_AND_NONFIN_ENFORCEMENT_SLICE_1.md` (seção YALA RESEAL — PASS).

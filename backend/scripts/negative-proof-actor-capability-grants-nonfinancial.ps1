@@ -9,6 +9,7 @@ Set-Location $PSScriptRoot\..
 $mig    = Join-Path (Get-Location) 'migrations\20260616210000_create_actor_capability_grants.sql'
 $types  = Join-Path (Get-Location) 'src\modules\authority\actor-capability-grant.types.ts'
 $lookup = Join-Path (Get-Location) 'src\modules\authority\actor-lookup.service.ts'
+$pk     = Join-Path (Get-Location) 'src\core\authorization\permission-keys.ts'
 
 function Invoke-Guard {
     node scripts/audit-actor-capability-grants-nonfinancial.mjs *> $null
@@ -23,7 +24,8 @@ $bites = @(
     @{ name = 'scope-global';        file = $mig;    find = "CHECK \(scope_type = 'actor'\)";      repl = "CHECK (scope_type IN ('actor','global'))" },
     @{ name = 'drop-grantee-actor';  file = $mig;    find = 'grantee_actor_id      UUID NOT NULL'; repl = 'grantee_actor_id      UUID NULL' },
     @{ name = 'types-financial';     file = $types;  find = "'services:disable',";                 repl = "'services:disable',`r`n  'split:create'," },
-    @{ name = 'lookup-referral';     file = $lookup; find = 'AND slug=\$2';                         repl = "AND referral_code=`$2" }
+    @{ name = 'lookup-referral';     file = $lookup; find = 'AND slug=\$2';                         repl = "AND referral_code=`$2" },
+    @{ name = 'pk-misalign';         file = $pk;     find = "  'services:create': null,[^\r\n]*\r?\n"; repl = '' }
 )
 
 $allBitesOk = $true
