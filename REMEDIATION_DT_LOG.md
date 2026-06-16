@@ -10430,6 +10430,27 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
   + coluna/relação canônica em `unified_availability`), nunca blob/metadata ad-hoc. Até lá, o selector
   permanece oculto. Vínculo: [[project_frente_desenho_a3_promulgado]] (CONCEPT actor-first), SSOT temporal
   `unified_availability` (DECISION-0072 / DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT abaixo).
+- **MODELO FECHADO + RATIFICADO (2026-06-16, F-AGENDA-PERSONAL-TIME-PURPOSE-CANONICALIZATION — auditoria
+  READ-ONLY):** Clayton/IA Diretora ratificou o modelo canônico de **finalidade de tempo pessoal** (responde
+  "para que serve este tempo do actor"):
+  - **CONCEPT, não metadata/enum/estado:** novo domínio N0 **`tempo-e-finalidade`** + 4 concepts canônicos —
+    `trabalho`, `estudo`, `cuidados-pessoais`, `lazer` (semeados via governança `app.concept_governance='true'`,
+    idempotente). Justificativa: finalidade é camada semântica PRÓPRIA, não espalhar em servicos/saude/educacao/
+    cultura-lazer (isso misturaria finalidade temporal com o domínio da OPORTUNIDADE).
+  - **Persistência por janela:** `ALTER TABLE availability ADD COLUMN purpose_concept_id UUID NULL REFERENCES
+    concepts(concept_id) ON DELETE RESTRICT` + índice `(tenant_id, purpose_concept_id)`. NULL = legado/sem
+    finalidade (compatível). SEM coluna `is_bookable` (bookability é FUNÇÃO da finalidade, não fato independente).
+  - **Bookability derivada no GATE de createBooking (aditivo, fora da blindagem de availability):** `trabalho`
+    bookável; `estudo`/`cuidados-pessoais`/`lazer` REJEITAM booking por padrão (tempo protegido); `NULL` legado
+    segue bookável. Override por-janela = frente futura.
+  - **Read-back /perfil:** fonte única `availability` (grid pessoal), finalidade reconstruída por slot. NÃO
+    compor Unified Calendar nesta tela.
+  - **Fora do escopo (frente posterior):** matching social/empresarial — usuário declara finalidade do tempo;
+    empresa/post/oferta declara janela própria; matching cruza tempo+finalidade+concept da oportunidade;
+    preço/desconto/limite/estoque ficam em seus SSOTs, NUNCA na agenda. Esta frente fecha SÓ a finalidade
+    semântica da agenda pessoal.
+  - **Status da DT:** segue **OPEN** até a frente de implementação (`F-AGENDA-PERSONAL-TIME-PURPOSE`, prompt
+    executor preparado 2026-06-16) materializar o modelo. Audit não tocou código.
 - **Resíduo cosmético correlato:** `ProfileAgenda.isEmpty` (hint de empty-state) pode persistir após o 1º
   save bem-sucedido até um reload — efeito colateral DELIBERADO de não mutar o prop `schedule` no save
   (mutá-lo dispararia o reset por `availability` no editor e limparia `dirtyDays` por fora = recibo falso).
