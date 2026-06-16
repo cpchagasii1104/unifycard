@@ -67,6 +67,21 @@ HEAD `7e104d70` · branch `rescue-structural` · `frontend/`+`backend/` limpos (
 
 ## Estado
 
-**IMPLEMENTED / HOLD PARA RESEAL.** Fecha SÓ como **F-AGENDA-SAVE-RATE-LIMIT-429**: o save da agenda destravou ao
+**CLOSED / YALA PASS COM RESSALVA.** Fecha SÓ como **F-AGENDA-SAVE-RATE-LIMIT-429**: o save da agenda destravou ao
 eliminar a tempestade de requests do `loadAgenda` (≤12 no load, antes ~162); o 429 (quando ocorrer) mantém dirty e
 mostra mensagem clara; nenhuma regressão na frente CLOSED de finalidade temporal; rate-limit de produção intocado. dev 389.
+
+## YALA RESEAL / RE-RESEAL — PASS COM RESSALVA
+
+- **Veredito:** **PASS COM RESSALVA** (re-reseal READ-ONLY). Commit material `17f25d66` · HEAD do reseal `c7e02d61` ·
+  branch `rescue-structural`. Conclusão: **CLOSED / YALA PASS COM RESSALVA**; fila HOLD da agenda **limpa funcionalmente**.
+- **Provas confirmadas:** fix **frontend-only** vivo e INALTERADO no HEAD (ProfileAgenda.tsx / AvailabilityScheduleEnhanced.tsx
+  sem diff entre `17f25d66` e HEAD); `loadAgenda` ~162 → **≤12 requests constantes** (bookings/participants só dos 5
+  cards exibidos; laço morto de `detectConflicts` removido); **save NÃO chama loadAgenda** e não duplica (guard
+  `saveState==='saving'`); **429 = erro honesto** (mensagem clara, **dirty preservado**, sem sucesso falso);
+  **backend/rate-limit INTOCADO**; zero migration/schema/backend material; zero Bank/Core/contacts/suppliers/RLS/RBAC.
+- **Ressalva R1 (não bloqueante → DT):** a correção está provada por **call-trace estático** (sem harness de
+  componente no frontend) + e2e de não-regressão; **falta guard/teste AUTOMATIZADO de request-count** que morda se
+  `loadAgenda` voltar ao fan-out por janela/participante, reintroduzir `detectConflicts` em loop, ou mascarar 429.
+  Registrada como **DT-AGENDA-LOAD-REQUEST-COUNT-NO-GUARD (OPEN)** — não bloqueia o fechamento; R1 NÃO corrigida aqui.
+- **Selo:** commit docs-only `docs: seal agenda rate-limit reseal`. Estado final: **CLOSED / YALA PASS COM RESSALVA**.

@@ -12122,6 +12122,26 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ---
 
+## DT-AGENDA-LOAD-REQUEST-COUNT-NO-GUARD — OPEN (2026-06-16)
+
+- **Status:** **OPEN (2026-06-16)** — registrada no selo de **F-AGENDA-SAVE-RATE-LIMIT-429** (ressalva R1 da Yala).
+  **NÃO bloqueante; NÃO reabre a frente** (a correção funcional do 429 está CLOSED / YALA PASS COM RESSALVA, commit
+  material `17f25d66`).
+- **Classificação:** frontend guard/test futuro · **não é bug funcional atual** · **não é vazamento** · não é backend ·
+  não é schema.
+- **Contexto:** o fix do 429 (loadAgenda ~162→≤12 requests; busca bookings/participants só dos 5 cards; remoção do
+  laço morto de `detectConflicts`; save não chama loadAgenda; 429 mantém dirty) está provado por **call-trace estático**
+  + e2e de não-regressão (temporal-purpose 15/15). **Falta um guard/teste AUTOMATIZADO de request-count** que morda se:
+  (a) `loadAgenda` voltar a fazer fan-out `listBookings`/`listParticipants` por TODAS as janelas (não só os 5 cards);
+  (b) `detectConflicts` em loop reaparecer; (c) o 429 for mascarado como sucesso (dirty limpo indevido).
+- **Critério futuro de fechamento:** teste de request-count p/ `loadAgenda` com N janelas provando limite CONSTANTE;
+  OU guard estático que falhe se listBookings/listParticipants/detectConflicts voltarem a iterar todas as janelas;
+  + prova de que 429 não vira sucesso falso (dirty preservado).
+- **Vinculada a:** `frontend/src/components/ProfileAgenda.tsx` (loadAgenda), `AvailabilityScheduleEnhanced.tsx`
+  (persistSchedule/429), execution log `20260616_F_AGENDA_SAVE_RATE_LIMIT_429.md`.
+
+---
+
 ## DT-SUPPLIERS-OWNER-ACTOR-WIRING — MATERIALIZADA / CLOSED (2026-06-16, F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING)
 
 - **Status:** **MATERIALIZADA / CLOSED (2026-06-16)** — DECISION-0133 implementada por
