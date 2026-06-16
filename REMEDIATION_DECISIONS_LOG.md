@@ -7103,3 +7103,27 @@ soberanas:** PORTA-1 (seed policy/authority) · PORTA-2 (swap stub RBAC) · PORT
 executora. **Fora:** código, migration, seed, RLS aplicada, cargo_templates, mapper, delegação viva, financial seed, platform
 authority, cartão físico (≥0132). Cada item §B = frente futura gated (tripé). Sem código/migration/runtime nesta DECISION.
 Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
+
+---
+
+## DECISION-0132 — Finalidade temporal da agenda pessoal como CONCEPT (coarse-grained, sem novo domínio N0)
+
+- **Data:** 2026-06-16
+- **Tipo:** arquitetural (ontologia / CONCEPT)
+- **ID da violação (se aplicável):** DT-AGENDA-CONTEXT-WORK-LEISURE-STUDY-NOT-PERSISTED
+- **Contexto:** a agenda pessoal (`unified_availability` / tabela `availability`, DECISION-0072 B1) registra janelas de tempo sem significado — o usuário marca horários sem dizer se aquele tempo é trabalho, estudo, autocuidado ou lazer. A DT anterior exigiu persistir a finalidade **via CONCEPT** (nunca metadata/enum/estado visual). O desenho inicial propôs um domínio N0 `tempo-e-finalidade`; o READ-FIRST de `18_DOMAIN_ONTOLOGY_UNIFICARD.md` mostrou que N0 é lista FECHADA de 12 (CONGELADA, §7/§11), que finalidade falha o critério formal de domínio (§3), e que o precedente `causas-sociais` (§8.2) resolve "finalidade" como atributo/dimensão, não domínio.
+- **Opções consideradas:**
+  1. Opção A — novo domínio N0 `tempo-e-finalidade`. Contras: emenda seção CONGELADA, falha §3, contraria precedente §8.2.
+  2. Opção B — 4 concepts em domínios N0 NATURAIS existentes + allowlist; finalidade vive na coluna `availability.purpose_concept_id`; domínio do concept NÃO é limite de matching. Prós: zero emenda à ontologia frozen; norma-canônica; honra a tese "finalidade é camada própria" via coluna+dimensão. **(escolhida)**
+  3. Opção C — registrar dimensão transversal formal (§4.1) com infra própria. Contra: pesada para MVP; schema força `concept.domain`∈N0 de qualquer forma → recai em B.
+- **Escolha:** Opção B (ratificada por Clayton via ADENDO 2026-06-16).
+- **Justificativa:** preserva a ontologia N0 CONGELADA (lista fechada de 12), segue o precedente normativo de "finalidade" (§8.2), mantém CONCEPT como SSOT semântico e `unified_availability` como SSOT temporal, e honra a regra-mãe do ADENDO: agenda = intenção AMPLA do tempo (coarse-grained), categoria da oportunidade = outra camada; `purpose_concept_id` é intenção do tempo, NÃO categoria comercial; domínio do concept não limita o matching futuro.
+- **Consequências esperadas:**
+  - Curto prazo: agenda ganha finalidade por janela (CONCEPT), lida de volta por slot; estudo/cuidados/lazer protegidos no gate de booking; trabalho/NULL bookáveis. Ontologia N0 intacta.
+  - Médio prazo: base semântica para a frente de matching (tempo × finalidade × categoria/janela da oportunidade), sem taxonomia comercial na agenda.
+- **Mapeamento canônico (domínios naturais):** `trabalho`→`servicos` · `estudo`→`educacao-e-conhecimento` · `cuidados-pessoais`→`saude-e-bem-estar` · `lazer`→`cultura-lazer-e-eventos`.
+- **Responsável:** Clayton / IA Diretora (executor: Claude Opus 4.8).
+- **Validação prévia:** Clayton + auditoria READ-ONLY (F-AGENDA-PERSONAL-TIME-PURPOSE-CANONICALIZATION) + ADENDO Clayton 2026-06-16.
+- **Supera:** nenhuma (complementa DECISION-0072; resolve DT-AGENDA-CONTEXT-WORK-LEISURE-STUDY-NOT-PERSISTED).
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0132_TEMPORAL_PURPOSE_CONCEPT.md` · `18_DOMAIN_ONTOLOGY_UNIFICARD.md` §3/§4.1/§7/§8.2/§11 · migrations `0069_concepts`/`0073_domains_n0`/`0074`/`0075_concept_governance_trigger` · `backend/src/core/availability/*` · `REMEDIATION_DT_LOG.md` (DT-AGENDA-CONTEXT).
