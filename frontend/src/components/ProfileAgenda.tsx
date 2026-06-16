@@ -3,7 +3,7 @@
 // Agenda unificada por ACTOR ATIVO
 // 🔴 REGRA: Agenda pertence ao activeActor, não à pessoa física/jurídica
 
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback } from 'react';
 import { DateTime } from 'luxon';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import {
@@ -19,6 +19,7 @@ import {
   type AvailabilityParticipant,
   type AvailabilityConflict,
   type AvailabilityOwnerType,
+  type MaterializeWeeklyTemplateResult,
 } from '../api/availability';
 import { type AvailabilitySchedule } from '../api/categories';
 import { useProfileAgendaState } from '../hooks/useProfileAgendaState';
@@ -171,58 +172,33 @@ export default function ProfileAgenda() {
 
   // 🔴 CORE TEMPORAL (F2 / DECISION-0072 B1): schedule é INPUT DECLARATIVO. A persistência
   // materializa a grade em janelas CONCRETAS no SSOT `availability` via PUT /availability/weekly-template
-  // (NÃO mais via PUT /profile/professional, que responde 501). Verdade temporal vive só em
-  // `availability`. Timezone EXPLÍCITA do browser; se ausente, o save é bloqueado (sem fallback silencioso).
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleScheduleChange = useCallback(async (newSchedule: AvailabilitySchedule) => {
-    if (!activeActor) {
-      setError('Actor não encontrado');
-      return;
-    }
-
-    // Atualizar estado local imediatamente (UX responsiva)
-    setSchedule(newSchedule);
-
-    // Apenas user actor (PF) persiste schedule semanal — pages têm agenda própria via outro
-    // caminho. Schedule é dimensão da PESSOA, não da empresa.
-    if (activeActor.actor_type !== 'user') return;
-
-    // Timezone EXPLÍCITA (DECISION-0072 §3.4): sem fallback silencioso. Se o browser não resolver,
-    // bloquear o save com erro claro.
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (!timezone) {
-      setSaveStatus('error');
-      setError('Não foi possível detectar seu fuso horário. A agenda não foi salva.');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-      return;
-    }
-
-    // Debounce: salvar 700ms após última mudança
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    setSaveStatus('saving');
-
-    saveTimerRef.current = setTimeout(async () => {
-      try {
-        await putWeeklyAvailabilityTemplate({ schedule: newSchedule, timezone });
-        setSaveStatus('saved');
-        // Voltar para 'idle' depois de 2s
-        setTimeout(() => setSaveStatus('idle'), 2000);
-      } catch (err) {
-        console.error('[ProfileAgenda] Erro ao salvar schedule:', err);
-        setSaveStatus('error');
-        setTimeout(() => setSaveStatus('idle'), 3000);
+  // (NÃO mais via PUT /profile/professional, que responde 501). Verdade temporal vive só em `availability`.
+  //
+  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: persistência é EXPLÍCITA e AGUARDADA, acionada só pelo
+  // clique em Salvar do editor. SEM debounce (o recibo de "salvo" não pode anteceder o PUT real) e
+  // SEM descartar o resultado: devolvemos o MaterializeWeeklyTemplateResult ao editor para que ele
+  // decida limpar dirty (confirmação limpa) ou avisar "salvo parcialmente". Em erro, REJEITA (o
+  // editor mantém dirty). NÃO mutamos `schedule` aqui — o editor é dono do rascunho durante a sessão;
+  // mutar o prop dispararia o reset por `availability` e limparia dirty por fora (recibo falso).
+  const handleSaveSchedule = useCallback(
+    async (newSchedule: AvailabilitySchedule): Promise<MaterializeWeeklyTemplateResult> => {
+      if (!activeActor) {
+        throw new Error('Ator não encontrado. Selecione um ator para editar a agenda.');
       }
-    }, 700);
-  }, [activeActor, setSchedule, setError]);
-
-  // Limpar timer ao desmontar
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, []);
+      // Defesa em profundidade: a UI já bloqueia non-user; aqui falhamos ALTO (não em silêncio).
+      // Schedule é dimensão da PESSOA — agenda de empresa/grupo tem fluxo próprio, não esta tela.
+      if (activeActor.actor_type !== 'user') {
+        throw new Error('Esta agenda pessoal só pode ser salva como Pessoa Física. Selecione seu ator pessoal.');
+      }
+      // Timezone EXPLÍCITA (DECISION-0072 §3.4): sem fallback silencioso.
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (!timezone) {
+        throw new Error('Não foi possível detectar seu fuso horário. A agenda não foi salva.');
+      }
+      return await putWeeklyAvailabilityTemplate({ schedule: newSchedule, timezone });
+    },
+    [activeActor]
+  );
 
 
   // 🔴 REGRA: Sem activeActor, não renderizar agenda
@@ -269,18 +245,8 @@ export default function ProfileAgenda() {
 
   return (
     <div className="profile-agenda-wrapper">
-      {/* Indicador de save status (schedule declarativo). Discreto. */}
-      {saveStatus !== 'idle' && (
-        <div
-          className={`profile-agenda-save-status profile-agenda-save-status--${saveStatus}`}
-          role="status"
-          aria-live="polite"
-        >
-          {saveStatus === 'saving' && '💾 Salvando preferências…'}
-          {saveStatus === 'saved' && '✓ Preferências salvas'}
-          {saveStatus === 'error' && '⚠️ Erro ao salvar — tente novamente'}
-        </div>
-      )}
+      {/* 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: o feedback de save (salvando/salvo/parcial/erro)
+          é responsabilidade do editor, que reflete o resultado REAL do backend. */}
       <ProfileAgendaForm
         activeActor={activeActor}
         availabilities={availabilities}
@@ -291,12 +257,7 @@ export default function ProfileAgenda() {
         formatDate={formatDate}
         getStatusLabel={getStatusLabel}
         getStatusColor={getStatusColor}
-        handleScheduleChange={handleScheduleChange}
-        onContextChange={(dayKey, slotIndex, context) => {
-          // 🔴 UX TEMPORAL CANÔNICO: Metadata de contexto será persistida junto com availability
-          // Este callback permite rastrear mudanças de contexto para persistência futura
-          // Por enquanto, apenas armazenamos localmente (será persistido quando schedule for salvo)
-        }}
+        onSave={handleSaveSchedule}
       />
     </div>
   );

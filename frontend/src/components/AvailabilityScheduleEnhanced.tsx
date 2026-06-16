@@ -3,16 +3,23 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { AvailabilitySchedule } from '../api/categories';
+import type { MaterializeWeeklyTemplateResult } from '../api/availability';
 import { validateTimeRange, validateDateRange } from '../utils/validation';
 import { normalizeTimeValue } from '../utils/temporal/normalizeTime';
+import { summarizeMaterializeResult } from '../utils/temporal/materializeResult';
 import './AvailabilitySchedule.css';
 
 interface AvailabilityScheduleProps {
   availability: AvailabilitySchedule | null;
-  onChange: (availability: AvailabilitySchedule) => void;
-  // 🔴 UX TEMPORAL CANÔNICO: Seletor de contexto apenas para user actors
-  showContextSelector?: boolean; // true apenas quando actor_type === 'user'
-  // 🔴 UX TEMPORAL CANÔNICO: Callback para metadata de contexto
+  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: persistência REMOTA EXPLÍCITA. Resolve com o resultado
+  // real da materialização (rejected/conflicts/protectedCount) ou REJEITA em erro HTTP. NÃO é
+  // mais um `onChange` fire-and-forget — o save só "confirma" depois que esta Promise resolve limpa.
+  onSave: (availability: AvailabilitySchedule) => Promise<MaterializeWeeklyTemplateResult>;
+  // 🔴 UX TEMPORAL CANÔNICO: Seletor de contexto apenas para user actors.
+  // Contexto WORK/LEISURE/STUDY NÃO é persistido nesta frente — selector fica oculto/desabilitado
+  // quando false (default). Persistir contexto exige DT/decisão própria (CONCEPT), não improviso.
+  showContextSelector?: boolean;
+  // 🔴 UX TEMPORAL CANÔNICO: Callback opcional de metadata de contexto (apenas local, não persiste).
   onContextChange?: (dayKey: string, slotIndex: number, context: 'WORK' | 'LEISURE' | 'STUDY' | null) => void;
   // 🔴 UX TEMPORAL CANÔNICO: Estado inicial de contextos (opcional)
   slotContexts?: Record<string, 'WORK' | 'LEISURE' | 'STUDY' | null>; // key: "${dayKey}-${index}"
@@ -46,7 +53,7 @@ const MONTHS = [
 
 export default function AvailabilityScheduleEnhanced({
   availability,
-  onChange,
+  onSave,
   showContextSelector = false,
   onContextChange,
   slotContexts = {},
@@ -78,6 +85,14 @@ export default function AvailabilityScheduleEnhanced({
   const [dayMode, setDayMode] = useState<Record<string, 'FIXED' | 'FLEXIBLE'>>({});
   // 🔴 ESTADO SUJO: Rastrear dias modificados (não salvos)
   const [dirtyDays, setDirtyDays] = useState<Record<string, boolean>>({});
+  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: veredito REAL do último save (espelha o backend).
+  // 'saving' bloqueia novo clique; 'saved' = confirmação LIMPA; 'partial' = algo não aplicado
+  // (rejected/conflicts/protectedCount) — NÃO é sucesso pleno; 'error' = falha HTTP (dirty preservado).
+  const [saveState, setSaveState] = useState<{
+    status: 'idle' | 'saving' | 'saved' | 'partial' | 'error';
+    message: string;
+    detail?: string;
+  }>({ status: 'idle', message: '' });
   // 🔴 ESTADO ORIGINAL: Manter cópia do schedule inicial para comparação
   const [originalSchedule, setOriginalSchedule] = useState<AvailabilitySchedule>(availability || {});
   const isInitialMount = useRef(true);
@@ -195,32 +210,62 @@ export default function AvailabilityScheduleEnhanced({
     // 🔴 NÃO chamar onChange automaticamente - apenas quando Salvar for clicado
   };
   
-  // 🔴 FUNÇÃO DE SALVAR: Persistir mudanças e limpar estado sujo
-  const handleSave = () => {
-    // Construir schedule completo incluindo restPeriods e specificDates
+  // 🔴 Monta o schedule completo (grade + rest + specific) a partir do estado atual.
+  const buildCompleteSchedule = (): AvailabilitySchedule => {
     const completeSchedule: AvailabilitySchedule = { ...schedule };
-    
-    // Adicionar períodos de descanso
+
     if (restPeriods.length > 0) {
       completeSchedule['rest'] = restPeriods.map(p => `${p.startDate}:${p.endDate}`);
     } else {
       delete completeSchedule['rest'];
     }
 
-    // Adicionar datas específicas
     if (specificDates.size > 0) {
-      completeSchedule['specific'] = Array.from(specificDates.values()).map(sd => 
+      completeSchedule['specific'] = Array.from(specificDates.values()).map(sd =>
         `${sd.date}:${sd.timeSlots.join(',')}`
       );
     } else {
       delete completeSchedule['specific'];
     }
-    
-    // Persistir via onChange
-    onChange(completeSchedule);
-    setOriginalSchedule(completeSchedule);
-    setSchedule(completeSchedule);
-    setDirtyDays({});
+
+    return completeSchedule;
+  };
+
+  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: persistência HONESTA.
+  // Aguarda o PUT real (onSave) e só limpa dirty/originalSchedule/pendente APÓS confirmação LIMPA.
+  // Resultado parcial (rejected/conflicts/protectedCount) NÃO limpa dirty e mostra aviso de
+  // "salvo parcialmente". Erro HTTP mantém dirty, não atualiza originalSchedule e mostra o erro.
+  const persistSchedule = async (
+    completeSchedule: AvailabilitySchedule,
+    clearDirty: () => void
+  ): Promise<void> => {
+    if (saveState.status === 'saving') return; // evita clique duplo concorrente
+    setSaveState({ status: 'saving', message: 'Salvando agenda…' });
+    try {
+      const result = await onSave(completeSchedule);
+      const summary = summarizeMaterializeResult(result);
+      if (summary.status === 'clean') {
+        // ✅ Confirmação LIMPA do backend → agora sim commit local.
+        setOriginalSchedule(completeSchedule);
+        setSchedule(completeSchedule);
+        clearDirty();
+        setSaveState({ status: 'saved', message: summary.message });
+      } else {
+        // ⚠️ Parcial: NÃO limpar dirty, NÃO atualizar originalSchedule. Não fingir grade inteira aplicada.
+        setSaveState({ status: 'partial', message: summary.message, detail: summary.detail });
+      }
+    } catch (err) {
+      // ❌ Erro HTTP/exception: manter dirty + originalSchedule; mostrar erro claro.
+      setSaveState({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Não foi possível salvar a agenda. Tente novamente.',
+      });
+    }
+  };
+
+  // 🔴 FUNÇÃO DE SALVAR: Persistir mudanças e limpar estado sujo SÓ após confirmação limpa do backend
+  const handleSave = async () => {
+    await persistSchedule(buildCompleteSchedule(), () => setDirtyDays({}));
   };
   
   // 🔴 FUNÇÃO DE DESCARTAR: Reverter para estado original
@@ -252,36 +297,15 @@ export default function AvailabilityScheduleEnhanced({
     setSpecificDates(datesMap);
   };
 
-  // 🔴 FUNÇÃO DE SALVAR POR DIA: Salvar apenas alterações de um dia específico
-  const handleSaveDay = (dayKey: string) => {
-    // Construir schedule completo incluindo restPeriods e specificDates
-    const completeSchedule: AvailabilitySchedule = { ...schedule };
-    
-    // Adicionar períodos de descanso
-    if (restPeriods.length > 0) {
-      completeSchedule['rest'] = restPeriods.map(p => `${p.startDate}:${p.endDate}`);
-    } else {
-      delete completeSchedule['rest'];
-    }
-
-    // Adicionar datas específicas
-    if (specificDates.size > 0) {
-      completeSchedule['specific'] = Array.from(specificDates.values()).map(sd => 
-        `${sd.date}:${sd.timeSlots.join(',')}`
-      );
-    } else {
-      delete completeSchedule['specific'];
-    }
-    
-    // Persistir via onChange
-    onChange(completeSchedule);
-    setOriginalSchedule(completeSchedule);
-    setSchedule(completeSchedule);
-    
-    // Remover apenas este dia do estado sujo
-    const newDirtyDays = { ...dirtyDays };
-    delete newDirtyDays[dayKey];
-    setDirtyDays(newDirtyDays);
+  // 🔴 FUNÇÃO DE SALVAR POR DIA: Salvar apenas alterações de um dia específico (mesmo contrato honesto)
+  const handleSaveDay = async (dayKey: string) => {
+    await persistSchedule(buildCompleteSchedule(), () => {
+      setDirtyDays(prev => {
+        const next = { ...prev };
+        delete next[dayKey];
+        return next;
+      });
+    });
   };
 
   // 🔴 FUNÇÃO DE DESCARTAR POR DIA: Descartar apenas alterações de um dia específico
@@ -326,37 +350,16 @@ export default function AvailabilityScheduleEnhanced({
     setTimeSlotErrors(newErrors);
   };
 
-  // 🔴 FUNÇÃO DE SALVAR POR DATA (MODO CALENDÁRIO): Salvar apenas alterações de uma data específica
-  const handleSaveDate = (date: string) => {
-    // Construir schedule completo incluindo restPeriods e specificDates
-    const completeSchedule: AvailabilitySchedule = { ...schedule };
-    
-    // Adicionar períodos de descanso
-    if (restPeriods.length > 0) {
-      completeSchedule['rest'] = restPeriods.map(p => `${p.startDate}:${p.endDate}`);
-    } else {
-      delete completeSchedule['rest'];
-    }
-
-    // Adicionar datas específicas
-    if (specificDates.size > 0) {
-      completeSchedule['specific'] = Array.from(specificDates.values()).map(sd => 
-        `${sd.date}:${sd.timeSlots.join(',')}`
-      );
-    } else {
-      delete completeSchedule['specific'];
-    }
-    
-    // Persistir via onChange
-    onChange(completeSchedule);
-    setOriginalSchedule(completeSchedule);
-    setSchedule(completeSchedule);
-    
-    // Remover apenas esta data do estado sujo
+  // 🔴 FUNÇÃO DE SALVAR POR DATA (MODO CALENDÁRIO): mesmo contrato honesto (await + clean-only clear)
+  const handleSaveDate = async (date: string) => {
     const dateKey = `calendar-${date}`;
-    const newDirtyDays = { ...dirtyDays };
-    delete newDirtyDays[dateKey];
-    setDirtyDays(newDirtyDays);
+    await persistSchedule(buildCompleteSchedule(), () => {
+      setDirtyDays(prev => {
+        const next = { ...prev };
+        delete next[dateKey];
+        return next;
+      });
+    });
   };
 
   // 🔴 FUNÇÃO DE DESCARTAR POR DATA (MODO CALENDÁRIO): Descartar apenas alterações de uma data específica
@@ -2106,6 +2109,8 @@ export default function AvailabilityScheduleEnhanced({
                       className="context-selector"
                       title="Contexto (opcional) - Define lógica de validação temporal"
                       tabIndex={0}
+                      disabled={!showContextSelector}
+                      style={{ display: showContextSelector ? undefined : 'none' }}
                     >
                       <option value="">Sem contexto</option>
                       <option 
@@ -2359,20 +2364,21 @@ export default function AvailabilityScheduleEnhanced({
                 <button
                   type="button"
                   onClick={() => handleSaveDate(selectedDate)}
+                  disabled={saveState.status === 'saving'}
                   style={{
                     padding: '0.5rem 1rem',
-                    backgroundColor: '#10b981',
+                    backgroundColor: saveState.status === 'saving' ? '#6ee7b7' : '#10b981',
                     color: 'white',
                     border: 'none',
                     borderRadius: '0.375rem',
-                    cursor: 'pointer',
+                    cursor: saveState.status === 'saving' ? 'wait' : 'pointer',
                     fontWeight: '500',
                     fontSize: '0.875rem',
                     whiteSpace: 'nowrap',
                   }}
                   title={`Salvar alterações de ${selectedDate}`}
                 >
-                  💾 Salvar
+                  {saveState.status === 'saving' ? '⏳ Salvando…' : '💾 Salvar'}
                 </button>
                 <button
                   type="button"
@@ -2410,6 +2416,50 @@ export default function AvailabilityScheduleEnhanced({
         </p>
       </div>
 
+      {/* 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: feedback REAL do save (espelha o backend). */}
+      {saveState.status !== 'idle' && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            marginBottom: '1rem',
+            padding: '0.75rem 1rem',
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem',
+            fontWeight: 500,
+            border: '1px solid',
+            backgroundColor:
+              saveState.status === 'saved' ? '#ecfdf5'
+              : saveState.status === 'partial' ? '#fffbeb'
+              : saveState.status === 'error' ? '#fef2f2'
+              : '#f3f4f6',
+            borderColor:
+              saveState.status === 'saved' ? '#6ee7b7'
+              : saveState.status === 'partial' ? '#fbbf24'
+              : saveState.status === 'error' ? '#fca5a5'
+              : '#d1d5db',
+            color:
+              saveState.status === 'saved' ? '#065f46'
+              : saveState.status === 'partial' ? '#92400e'
+              : saveState.status === 'error' ? '#991b1b'
+              : '#374151',
+          }}
+        >
+          <div>
+            {saveState.status === 'saving' && '💾 '}
+            {saveState.status === 'saved' && '✓ '}
+            {saveState.status === 'partial' && '⚠️ '}
+            {saveState.status === 'error' && '⚠️ '}
+            {saveState.message}
+          </div>
+          {saveState.detail && (
+            <div style={{ marginTop: '0.25rem', fontWeight: 400, fontSize: '0.8125rem' }}>
+              {saveState.detail}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 🔴 BOTÕES SALVAR/DESCARTAR - POSICIONAMENTO CLARO E SEM AMBIGUIDADE */}
       {hasUnsavedChanges() && (
         <div className="save-discard-buttons" style={{
@@ -2438,20 +2488,21 @@ export default function AvailabilityScheduleEnhanced({
           <button
             type="button"
             onClick={handleSave}
+            disabled={saveState.status === 'saving'}
             style={{
               padding: '0.5rem 1rem',
-              backgroundColor: '#10b981',
+              backgroundColor: saveState.status === 'saving' ? '#6ee7b7' : '#10b981',
               color: 'white',
               border: 'none',
               borderRadius: '0.375rem',
-              cursor: 'pointer',
+              cursor: saveState.status === 'saving' ? 'wait' : 'pointer',
               fontWeight: '500',
               fontSize: '0.875rem',
               whiteSpace: 'nowrap',
             }}
             title="Salvar todas as alterações da agenda"
           >
-            💾 Salvar
+            {saveState.status === 'saving' ? '⏳ Salvando…' : '💾 Salvar'}
           </button>
           <button
             type="button"
@@ -2745,6 +2796,8 @@ export default function AvailabilityScheduleEnhanced({
                                 className="context-selector"
                                 title="Contexto (opcional) - Define lógica de validação temporal"
                                 tabIndex={0}
+                                disabled={!showContextSelector}
+                                style={{ display: showContextSelector ? undefined : 'none' }}
                               >
                                 <option value="">Sem contexto</option>
                                 <option 
@@ -2895,20 +2948,21 @@ export default function AvailabilityScheduleEnhanced({
                         <button
                           type="button"
                           onClick={() => handleSaveDay(day.key)}
+                          disabled={saveState.status === 'saving'}
                           style={{
                             padding: '0.5rem 1rem',
-                            backgroundColor: '#10b981',
+                            backgroundColor: saveState.status === 'saving' ? '#6ee7b7' : '#10b981',
                             color: 'white',
                             border: 'none',
                             borderRadius: '0.375rem',
-                            cursor: 'pointer',
+                            cursor: saveState.status === 'saving' ? 'wait' : 'pointer',
                             fontWeight: '500',
                             fontSize: '0.875rem',
                             whiteSpace: 'nowrap',
                           }}
                           title={`Salvar alterações de ${day.label}`}
                         >
-                          💾 Salvar
+                          {saveState.status === 'saving' ? '⏳ Salvando…' : '💾 Salvar'}
                         </button>
                         <button
                           type="button"

@@ -10416,8 +10416,35 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ---
 
+## DT-AGENDA-CONTEXT-WORK-LEISURE-STUDY-NOT-PERSISTED
+
+- **Status:** **OPEN (2026-06-16)** — aberta por **F-AGENDA-EDITING-UX-TRUTHFULNESS-V2**.
+- **Origem:** a UI de edição da Agenda (`AvailabilityScheduleEnhanced`) expunha um seletor de contexto
+  WORK/LEISURE/STUDY por slot, com `onContextChange` stub e comentário em `ProfileAgenda` prometendo
+  "persistência futura". O contexto **nunca entrava no payload** do `PUT /availability/weekly-template`
+  nem tinha decisão semântica (CONCEPT) — afordância cosmética que fingia ser persistível.
+- **Decisão da frente:** contexto **NÃO é persistido** nesta frente. Selector **oculto+desabilitado**
+  (`showContextSelector=false`, default), comentário de persistência-futura **removido**. NÃO foi salvo
+  contexto em `metadata` no improviso; NÃO foi criada semântica fora de CONCEPT.
+- **Convergência:** se o produto quiser persistir contexto temporal, abrir decisão própria (modelo CONCEPT
+  + coluna/relação canônica em `unified_availability`), nunca blob/metadata ad-hoc. Até lá, o selector
+  permanece oculto. Vínculo: [[project_frente_desenho_a3_promulgado]] (CONCEPT actor-first), SSOT temporal
+  `unified_availability` (DECISION-0072 / DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT abaixo).
+- **Resíduo cosmético correlato:** `ProfileAgenda.isEmpty` (hint de empty-state) pode persistir após o 1º
+  save bem-sucedido até um reload — efeito colateral DELIBERADO de não mutar o prop `schedule` no save
+  (mutá-lo dispararia o reset por `availability` no editor e limparia `dirtyDays` por fora = recibo falso).
+  Não-bloqueador; self-heal no próximo `loadAgenda` (troca de ator / reload).
+
+---
+
 ## DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT
 
+- **ATUALIZAÇÃO 2026-06-16 (F-AGENDA-EDITING-UX-TRUTHFULNESS-V2):** a CADEIA DE PERSISTÊNCIA já estava
+  canônica (esta DT CLOSED), mas a **UI de edição** emitia **recibo falso** de save. Corrigido frontend-only:
+  contrato `onChange` fire-and-forget → **`onSave` aguardado** que devolve `MaterializeWeeklyTemplateResult`;
+  dirty/originalSchedule só limpam em confirmação LIMPA; parcial (rejected/conflicts/protectedCount) e erro
+  HTTP MANTÊM dirty; **debounce 700ms removido**; non-user bloqueado com mensagem (sem no-op silencioso).
+  SSOT temporal `unified_availability` e o materializador **intocados**. Não reabre esta DT.
 - **Status:** **CLOSED (2026-06-01)** — selada por [`docs/02_decisions/SELO_AGENDA_UNIFIED_AVAILABILITY.md`](docs/02_decisions/SELO_AGENDA_UNIFIED_AVAILABILITY.md). Frente concluída: DECISION-0072 B1 → F1 (backend materializador `PUT /availability/weekly-template` + fix off-by-one do repo) → F2 (frontend ProfileAgenda → endpoint temporal + read-back do SSOT) → F3 (remoção do client morto `updateProfessionalProfile`). Agenda escreve/lê do SSOT `unified_availability`; grade semanal materializada em janelas concretas (B1); `/profile/professional` morto e sem caller; nada em `metadata.schedule`/`schedules`/`schedule_slots`. Resíduos = frentes próprias: B2 (recorrência nativa, se o produto exigir), C63 (write-paths legados schedules/schedule_slots), leitura legada `getProfessionalProfile`. *(Histórico OPEN preservado abaixo.)*
 - **Status histórico:** OPEN (2026-06-01)
 - **Origem:** pós-selo A3.2 / auditoria da aba Profissional C1 (`SELO_A3_2_PROFISSIONAL_C1.md`).

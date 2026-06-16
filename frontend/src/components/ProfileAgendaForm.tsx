@@ -1,5 +1,10 @@
 import AvailabilityScheduleEnhanced from './AvailabilityScheduleEnhanced';
-import type { UnifiedAvailability, UnifiedBooking, AvailabilityParticipant } from '../api/availability';
+import type {
+  UnifiedAvailability,
+  UnifiedBooking,
+  AvailabilityParticipant,
+  MaterializeWeeklyTemplateResult,
+} from '../api/availability';
 import type { AvailabilitySchedule } from '../api/categories';
 
 interface ProfileAgendaFormProps {
@@ -12,8 +17,9 @@ interface ProfileAgendaFormProps {
   formatDate: (dateString: string) => string;
   getStatusLabel: (status: string) => string;
   getStatusColor: (status: string) => string;
-  handleScheduleChange: (newSchedule: AvailabilitySchedule) => Promise<void>;
-  onContextChange: (dayKey: string, slotIndex: number, context: 'WORK' | 'LEISURE' | 'STUDY' | null) => void;
+  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: persistência remota EXPLÍCITA (resolve com o resultado
+  // real da materialização ou rejeita em erro). Substitui o antigo `handleScheduleChange` debounced.
+  onSave: (newSchedule: AvailabilitySchedule) => Promise<MaterializeWeeklyTemplateResult>;
 }
 
 export default function ProfileAgendaForm({
@@ -26,9 +32,13 @@ export default function ProfileAgendaForm({
   formatDate,
   getStatusLabel,
   getStatusColor,
-  handleScheduleChange,
-  onContextChange,
+  onSave,
 }: ProfileAgendaFormProps) {
+  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: esta tela é a agenda PESSOAL (Pessoa Física). Para
+  // actor não-user (page/group/service) NÃO existe fluxo próprio aqui — bloquear explicitamente em
+  // vez de mostrar um editor que finge persistir. (Unified Availability suporta outros owners no
+  // backend; esta tela só não inventa esse fluxo.)
+  const isPersonalUserActor = activeActor?.actor_type === 'user';
   return (
     <div className="profile-agenda">
       {/* 🔴 REGRA: Exibir claramente o actor da agenda */}
@@ -91,14 +101,39 @@ export default function ProfileAgendaForm({
         </div>
       )}
 
-      {/* Editor de Agenda Avançado - Sempre visível */}
-      <AvailabilityScheduleEnhanced
-        availability={schedule}
-        onChange={handleScheduleChange}
-        // 🔴 UX TEMPORAL CANÔNICO: Seletor de contexto apenas para user actors
-        showContextSelector={activeActor?.actor_type === 'user'}
-        onContextChange={onContextChange}
-      />
+      {/* 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: agenda pessoal só edita como Pessoa Física (user).
+          Non-user é bloqueado com mensagem explícita — sem editor que finja persistir. */}
+      {isPersonalUserActor ? (
+        <AvailabilityScheduleEnhanced
+          availability={schedule}
+          onSave={onSave}
+          // Contexto WORK/LEISURE/STUDY não é persistido nesta frente → selector oculto/desabilitado.
+          showContextSelector={false}
+        />
+      ) : (
+        <div
+          role="note"
+          style={{
+            padding: '1.5rem',
+            backgroundColor: '#fff7ed',
+            border: '1px solid #fdba74',
+            borderRadius: '0.75rem',
+            color: '#9a3412',
+            fontSize: '0.9375rem',
+            lineHeight: 1.5,
+          }}
+        >
+          <strong>🔒 Esta é a agenda pessoal (Pessoa Física).</strong>
+          <p style={{ margin: '0.5rem 0 0' }}>
+            O ator ativo é{' '}
+            <strong>
+              {activeActor?.actor_type === 'page' ? 'uma empresa' : activeActor?.actor_type === 'group' ? 'um grupo' : `do tipo ${activeActor?.actor_type ?? 'desconhecido'}`}
+            </strong>
+            , que tem fluxo próprio de disponibilidade — não editável por aqui. Para configurar sua agenda
+            pessoal, selecione seu ator de Pessoa Física.
+          </p>
+        </div>
+      )}
 
       {/* Lista de Disponibilidades Existentes (se houver) */}
       {availabilities.length > 0 && (
