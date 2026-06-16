@@ -12122,6 +12122,43 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ---
 
+## DT-SUPPLIERS-OWNER-ACTOR-WIRING — OWNERSHIP DECIDIDO (DECISION-0133, 2026-06-16); IMPLEMENTATION OPEN
+
+- **Status:** **OWNERSHIP DECIDIDO (2026-06-16)** por **DECISION-0133** (cartório soberano docs-only; commit desta frente).
+  **IMPLEMENTATION segue OPEN** — frente própria futura **F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING** (migration + runtime),
+  gated por GO. HEAD `ebe410b4`.
+- **Ownership canônico (DECISION-0133):** `suppliers` é **company-owned via `owner_actor_id`** = page/company actor
+  (`actor_type='page' AND company_id IS NOT NULL`) da empresa dona do cadastro. `created_by_actor_id`=autoria/auditoria
+  (NÃO owner) · `created_by_user_id`=não-authority · `tenant_id`=escopo · `supplier_id`=contraparte. Authority runtime
+  futura = `canRepresentActor(owner_actor_id)`. **Espelha** `purchase_orders.owner_actor_id` (F-C1-MONEY-PO-OWNER).
+- **Estado vivo (Evidence Pack revalidado):** `suppliers` existe, `row_count=0`, **sem** `owner_actor_id`/`company_id`/
+  `user_id`; readers tenant-only por shape. **Leak Classe-A NÃO corrigido em runtime** (só o ownership foi decidido).
+- **Pré-condições da wiring futura:** revalidar `row_count` antes da migration (0 → NOT NULL ok; >0 → STOP/backfill
+  determinístico); create/read/update/delete/list por `owner_actor_id`; `canRepresentActor` só com owner material;
+  NÃO usar created_by/tenant como autoridade; NÃO adicionar `company_id` como 2ª verdade sem decisão; NÃO plugar em
+  AP/PO sem owner resolvido; RLS não substitui authority app-level.
+- **Vinculada a:** `DECISION-0133` (ownership), `DECISION-0116` (classificou COMPANY_INTERNAL + deferiu owner),
+  `DECISION-0131`/`F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING` (precedente), `DECISION-0113` (canRepresentActor),
+  `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` (classe A — suppliers), `DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT`.
+
+---
+
+## DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT — OPEN (transversal, 2026-06-16)
+
+- **Status:** **OPEN (2026-06-16)** — alerta transversal registrado por **F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO**
+  (DECISION-0133). Não é frente própria; é **invariante de prova** para qualquer frente que invoque RLS como defesa.
+- **Texto:** Enquanto a aplicação conectar como `postgres`/superuser/`bypassrls`, **RLS não é defesa efetiva de runtime**
+  e **não pode ser citada como prova de autoridade**. Qualquer frente que use RLS como defesa deve **primeiro provar o
+  role real da aplicação SEM `bypassrls`**. **Authority app-level server-side continua obrigatória** (RLS = defesa em
+  profundidade futura, nunca substituto). Aplica-se a suppliers, contacts, inventory, purchase_orders e a todo reader
+  de recurso privado.
+- **Resolução prevista:** frente própria futura de **DB app role hardening** (criar role de aplicação sem `bypassrls`,
+  validar smoke worker/seed/migration sob RLS — paridade com EMENDA 3 de DECISION-0131 B5). Fora desta frente.
+- **Vinculada a:** `DECISION-0133` (§4/§6), `DECISION-0116`, `DECISION-0131 B5` (RLS direção + pre-flight bloqueante),
+  `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY`.
+
+---
+
 ## DT-CONTACTS-SCHEMA-GHOST — CONTAINMENT CLOSED (2026-06-16, YALA PASS COM RESSALVA); GÊNESE/OWNERSHIP OPEN
 
 - **Status:** **CONTAINMENT CLOSED (2026-06-16, YALA PASS COM RESSALVA)** — schema ghost (42P01/500 cru) **CONTIDO**

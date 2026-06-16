@@ -1,3 +1,15 @@
+## 2026-06-16 — F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO: promulga DECISION-0133 (suppliers company-owned via owner_actor_id) — docs-only · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `ebe410b4`** · **dev 389 (ZERO migration)** · MODO EXECUTOR (ultracode, **docs-only**). **Cartório soberano leve:** decisão arquitetural de ownership ANTES de qualquer migration/runtime. Execução: `docs/03_execution_log/20260616_F_SUPPLIERS_OWNERSHIP_SOVEREIGN_CARTORIO.md`.
+
+**DECISION-0133 (nova, PROMULGADA):** `docs/02_decisions/DECISION_0133_SUPPLIERS_COMPANY_OWNED_OWNER_ACTOR_ID.md` + entrada em `REMEDIATION_DECISIONS_LOG.md`. **Suppliers é company-owned via `owner_actor_id`** = page/company actor (`actor_type='page' AND company_id IS NOT NULL`) da empresa dona. `created_by_actor_id`=autoria/auditoria (NÃO owner) · `created_by_user_id`=não-authority · `tenant_id`=escopo · `supplier_id`=contraparte. Authority runtime futura = `canRepresentActor(owner_actor_id)`. **Espelha** `purchase_orders.owner_actor_id` (F-C1-MONEY-PO-OWNER); evita dupla verdade `company_id`+`owner_actor_id`. **NÃO é:** tenant-wide / creator-owned / user-owned / supplier_id-owned / RBAC genérico / RLS-only. Âncora = DECISION-0116 (classificou COMPANY_INTERNAL + deferiu o owner).
+
+**Evidence Pack revalidado vivo (dev 389):** `suppliers` existe, `row_count=0`, tem `tenant_id`+`created_by_actor_id`+`created_by_user_id`, **sem** `owner_actor_id`/`company_id`/`user_id`; readers tenant-only por shape.
+
+**Cartório:** REMEDIATION_DECISIONS_LOG (DECISION-0133) · DT_LOG (DT-SUPPLIERS-OWNER-ACTOR-WIRING = ownership DECIDIDO, implementation OPEN; + nova **DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT** transversal) · execution log · opus. **Suppliers IMPLEMENTATION ainda OPEN** (frente futura F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING). **NÃO feito:** suppliers runtime/migration/schema/backfill · RLS hardening (só DT/alerta) · contacts genesis (segue futura) · AP/Bank/Core/payout/split/recovery · suppliers.{repository,service,routes} · RBAC/FASE 6 · delegação/cargo/company_users. **Provas:** docs-only (zero .ts/frontend/migration/SQL/runtime) · arch `--strict` critical_new=0 · regression rc=0. **Fecha SÓ como:** F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO. **IMPLEMENTED / HOLD PARA RESEAL.**
+
+---
+
 ## 2026-06-16 — F-CONTACTS-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT: tabela `contacts` ausente contida fail-closed (501) — backend code-only · CLOSED / YALA PASS COM RESSALVA
 
 **Branch:** `rescue-structural` · **parent `17f25d66`** · **dev 389 (ZERO migration)** · MODO EXECUTOR (ultracode, escopo pequeno). **Backend code-only** (sem migration/schema/archive). Execução: `docs/03_execution_log/20260616_F_CONTACTS_SCHEMA_GHOST_FAIL_CLOSED_CONTAINMENT.md`. **GÊNESE DE CONTACTS NÃO FOI FEITA** — apenas contenção do schema ghost.

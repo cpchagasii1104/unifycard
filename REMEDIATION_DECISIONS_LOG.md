@@ -7127,3 +7127,29 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** nenhuma (complementa DECISION-0072; resolve DT-AGENDA-CONTEXT-WORK-LEISURE-STUDY-NOT-PERSISTED).
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0132_TEMPORAL_PURPOSE_CONCEPT.md` · `18_DOMAIN_ONTOLOGY_UNIFICARD.md` §3/§4.1/§7/§8.2/§11 · migrations `0069_concepts`/`0073_domains_n0`/`0074`/`0075_concept_governance_trigger` · `backend/src/core/availability/*` · `REMEDIATION_DT_LOG.md` (DT-AGENDA-CONTEXT).
+
+---
+
+## DECISION-0133 — Suppliers company-owned via `owner_actor_id`
+
+- **Data:** 2026-06-16
+- **Tipo:** arquitetural (ownership)
+- **ID da violação (se aplicável):** DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY (classe A — suppliers); lacuna deferida por DECISION-0116
+- **Contexto:** Evidence Pack (revalidado 1ª mão, dev 389, HEAD `ebe410b4`) provou: `suppliers` existe, `row_count=0`, schema tem `tenant_id`+`created_by_actor_id`+`created_by_user_id` mas **NÃO** tem `owner_actor_id`/`company_id`/`user_id` (owner material ausente). `created_by_actor_id` é autoria/auditoria, não ownership; readers tenant-only por shape. RLS não é prova de autoridade enquanto a app conecta como postgres/superuser/bypassrls. DECISION-0116 classificou `suppliers`=COMPANY_INTERNAL e **deferiu** a definição do owner canônico ("não gatear pelo creator; definir antes do hardening").
+- **Opções consideradas:**
+  1. tenant-wide — vazaria B2B entre empresas do mesmo tenant. ❌
+  2. creator-owned (`created_by_actor_id`) — congela autoridade no autor histórico; quem digitou ≠ quem governa. ❌
+  3. user-owned (`created_by_user_id`) — usuário pode ter N empresas; fornecedor é institucional, não pessoal. ❌
+  4. **company-owned via `owner_actor_id`** (page/company actor da empresa dona) — institucional, sem dupla verdade, espelha `purchase_orders.owner_actor_id`, alinha a `canRepresentActor`. **(escolhida)**
+- **Escolha:** Opção 4 — `owner_actor_id` (page/company actor; `actor_type='page' AND company_id IS NOT NULL`).
+- **Justificativa:** supplier é cadastro institucional da empresa; um usuário pode ter várias empresas; tenant-wide vaza B2B; creator-owned congela autoridade; espelha o precedente PO owner_actor_id; evita dupla verdade `company_id`+`owner_actor_id` (deriva-se de actor→company); alinha autoridade runtime futura a `canRepresentActor(owner_actor_id)`.
+- **Consequências esperadas:**
+  - Curto prazo: nenhuma alteração runtime/schema (docs-only). Promulga o owner ANTES de migration.
+  - Médio prazo: F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING (futura) adiciona a coluna+FK+índice, revalida `row_count` (0→NOT NULL ok; >0→STOP/backfill determinístico), e gateia create/read/update/delete/list por `canRepresentActor(owner_actor_id)`. `created_by_actor_id`=audit; `tenant_id`=escopo; RLS não substitui authority app-level.
+- **Mapeamento canônico:** owner=`owner_actor_id` (page/company actor) · `created_by_actor_id`=autoria · `created_by_user_id`=não-authority · `tenant_id`=escopo · `supplier_id`=contraparte/referência.
+- **NÃO decidido:** contacts/CRM genesis · RLS hardening · DB app role (bypassrls) · RBAC/FASE 6 · delegação/cargo · AP/Bank/Core · suppliers runtime/migration/backfill.
+- **Responsável:** Clayton / IA Diretora (executor: Claude).
+- **Validação prévia:** Clayton + Evidence Pack suppliers (revalidado vivo).
+- **Supera:** nenhuma (preenche a lacuna deferida por DECISION-0116; complementa DECISION-0131/PO owner).
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0133_SUPPLIERS_COMPANY_OWNED_OWNER_ACTOR_ID.md` · `DECISION-0116` (classificação+deferral) · `DECISION-0131`/`F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING` (precedente owner_actor_id) · `DECISION-0113` (canRepresentActor) · `DECISION-0115 D1` (tenant compartilhado) · `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` · `DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT` (RLS inert) · suppliers schema vivo (tenant_id+created_by_actor_id+created_by_user_id; sem owner; row_count=0).
