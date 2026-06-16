@@ -1,3 +1,21 @@
+## 2026-06-16 — F-ORGANIZATION-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT · IMPLEMENTED / HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `5183e0ae`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. Contenção (NÃO binding) do módulo `organization`, **montado** mas dependente de tabelas inexistentes (schema ghost; `organization_members` é **tombstone**). Execução: `docs/03_execution_log/20260616_F_ORGANIZATION_SCHEMA_GHOST_FAIL_CLOSED_CONTAINMENT.md`.
+
+**Achado:** services/repositories de `organization` operam em `organization_invites`/`organization_members`/`organization_units`/`organization_roles` — tabelas que **nenhuma migration canônica cria** (`to_regclass=NULL` ×4). Módulo montado (`app.builder.ts:688-689`). As 13 rotas (5 writes + 8 reads) bateriam em **42P01** (500 cru). `organization_members` é tombstone conhecido (DECISION-0131/WAVE1-BATCH1 F2). O binding DECISION-0113 pré-existente (`requireRepresentable`) rodava sobre superfície morta.
+
+**Patch:** handler único `contained` → **501 `ORGANIZATION_SCHEMA_GHOST_CONTAINED`** (1ª instrução) nas **13 rotas** (blanket — reads incluídos). ZERO service/repository/DB/write/autoria. `requireRepresentable`/`canRepresentActor`/`actionContext.actorId`/`req.body`/imports de service removidos. **`organization_members` NÃO ressuscitada.** Services/repositories NÃO tocados.
+
+**Provas:** tsc build 25/strict 43 (baseline); guard `audit-organization-schema-ghost-containment.mjs` na chain regression-guards GATE OK; neg-proof **5 mordidas** + SHA256 byte-idêntico; e2e efêmero **22/22** (4 ghost confirmados; 13 rotas→501 e NÃO 500; Bank intocado; tombstone intacta; 3 estruturais); 4 gates (actor-writer · bank-ledger · regression-guards rc=0 · arch-patterns critical_new=0).
+
+**DTs:** DT-ORGANIZATION-SCHEMA-GHOST (OPEN raiz/contido) · DT-ORGANIZATION-AUTHORITY-BINDING-LATENT (OPEN/futuro — reaplicar binding na religação). **É containment, não binding; raiz OPEN; feature NÃO ativada; ZERO schema criado; tombstone NÃO ressuscitada.** Materialização/religação/descontinuação = decisão Clayton.
+
+**NÃO TOCADO:** migration/schema/tabelas organization · ressurreição de organization_members · religação/ativação · services/repositories de organization · binding sobre rota morta · human-mvp · votes/contextual-thread/organizers/service-order/service-bundle · Bank/Core/`bank_ledger`/payout/split/recovery/payment/invoice · RLS/RBAC/FASE 6 · contacts/referral.
+
+**Estado:** **IMPLEMENTED / HOLD RESEAL** — aguarda reseal Yala. dev 390.
+
+---
+
 ## 2026-06-16 — F-CONTEXTUAL-THREAD-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT · CLOSED / YALA PASS
 
 **Branch:** `rescue-structural` · **commit material `19499b90`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (READ-ONLY, 2026-06-16). Contenção (NÃO binding) do módulo `contextual-messaging`, **montado** mas dependente de tabelas inexistentes (schema ghost). **A CONTENÇÃO está CLOSED; a RAIZ contextual-thread (schema ghost) permanece OPEN; contextual-thread NÃO foi ativado; schema NÃO foi criado.** Execução: `docs/03_execution_log/20260616_F_CONTEXTUAL_THREAD_SCHEMA_GHOST_FAIL_CLOSED_CONTAINMENT.md` (seção YALA RESEAL — PASS).

@@ -1,366 +1,55 @@
 // backend/src/modules/organization/organization.routes.ts
 // SPRINT 78: Rotas REST para Organization
 
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { organizationRoleService } from './organization-role.service';
-import { organizationInviteService } from './organization-invite.service';
-import { organizationMemberService } from './organization-member.service';
-import { organizationUnitService } from './organization-unit.service';
-import { authorizationService } from '@core/authorization/authorization.service';
-import type {
-  InviteUserInput,
-  AcceptInviteInput,
-  OrganizationInviteFilters,
-  OrganizationMemberFilters,
-} from './organization.types';
+import type { FastifyInstance } from 'fastify';
+
+// 🔴 F-ORGANIZATION-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT (DT-ORGANIZATION-SCHEMA-GHOST):
+// O módulo `organization` está MONTADO (app.builder.ts, prefixo /organization) e suas rotas batem nos
+// services/repositories de `organization_invites`/`organization_members`/`organization_units`/
+// `organization_roles`. Mas essas tabelas **não são criadas por NENHUMA migration canônica** (verificado:
+// zero `CREATE TABLE ... organization_*` em backend/migrations; `to_regclass=NULL` p/ as 4). →schema ghost.
+// `organization_members` é, ademais, **tombstone conhecido** (DECISION-0131 / WAVE1-BATCH1 F2: "tombstones
+// não ressuscitam"; ausente no schema vivo). Qualquer acesso ao DB emitiria `42P01 relation does not exist`
+// (500 cru). O binding DECISION-0113 (`requireRepresentable`) que existia aqui era correto em intenção, mas
+// roda sobre superfície MORTA — não há caminho vivo seguro. NÃO se faz binding sobre rota ghost.
+//
+// Decisão IA Diretora (2026-06-16): NÃO religar / NÃO materializar schema / NÃO ressuscitar
+// organization_members / NÃO ativar feature. Substituir o 500 cru por contenção fail-closed HONESTA
+// (blanket): 501 nomeado, ZERO chamada ao service/repository, ZERO acesso ao DB, ZERO write, ZERO autoria —
+// em TODAS as rotas (reads e writes batem nas mesmas tabelas ghost). Materialização/religação/descontinuação
+// = decisão Clayton (DT-ORGANIZATION-SCHEMA-GHOST / DT-ORGANIZATION-AUTHORITY-BINDING-LATENT).
+const ORGANIZATION_SCHEMA_GHOST_CONTAINED = {
+  ok: false,
+  code: 'ORGANIZATION_SCHEMA_GHOST_CONTAINED',
+  message:
+    'Organization module is not available because its canonical schema (organization_invites / ' +
+    'organization_members / organization_units / organization_roles) has not been materialized. ' +
+    '(DT-ORGANIZATION-SCHEMA-GHOST)',
+};
 
 const organizationRoutes = async (fastify: FastifyInstance) => {
-  /**
-   * BINDING DE REPRESENTABILIDADE (DECISION-0113 fatia 2): mutação de convite/membro/role exige que o
-   * `actorId` declarado seja REPRESENTÁVEL pelo `req.user` (`canRepresentActor`). Os checks de
-   * autoridade da organização já existem (`validateCanInvite`/`validateCanManageMembers` = OWNER/ADMIN),
-   * mas eram keyed no `actionContext.actorId` spoofável; este gate prova que o caller veste o actor
-   * antes de o service rodar o check OWNER/ADMIN sobre ele. Fail-closed: sem `req.user`→401; não-representável/erro→403.
-   */
-  async function requireRepresentable(req: FastifyRequest, reply: FastifyReply, actorId: string): Promise<boolean> {
-    const tenantId = req.tenant!.id;
-    const userId = (req as { user?: { id?: string } }).user?.id;
-    if (!userId) {
-      reply.status(401).send({ error: 'Autenticação obrigatória (req.user.id)' });
-      return false;
-    }
-    let ok = false;
-    try {
-      ok = await authorizationService.canRepresentActor(tenantId, userId, actorId);
-    } catch {
-      ok = false;
-    }
-    if (!ok) {
-      reply.status(403).send({
-        error: 'Actor declarado não é representável pelo usuário autenticado (DECISION-0113)',
-        code: 'ORG_ACTOR_NOT_REPRESENTABLE',
-      });
-      return false;
-    }
-    return true;
-  }
-  // ============================================================
-  // INVITES
-  // ============================================================
+  // Handler de contenção único — curto-circuito fail-closed (501) ANTES de qualquer service/repository/DB.
+  const contained = async (_req: any, reply: any) =>
+    reply.status(501).send(ORGANIZATION_SCHEMA_GHOST_CONTAINED);
 
-  /**
-   * POST /organization/invites
-   * Convidar usuário
-   */
-  fastify.post<{ Body: InviteUserInput }>('/invites', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
+  // ── INVITES (writes contidos + read contido) ──
+  fastify.post('/invites', contained);
+  fastify.post('/invites/:id/accept', contained);
+  fastify.post('/invites/:id/revoke', contained);
+  fastify.get('/invites', contained);
 
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-    }
+  // ── MEMBERS (read + writes contidos) — organization_members é tombstone; NÃO ressuscitado ──
+  fastify.get('/members', contained);
+  fastify.post('/members/:id/role', contained);
+  fastify.post('/members/:id/remove', contained);
 
-    // 🔴 DECISION-0113 fatia 2: provar representabilidade antes do check OWNER/ADMIN (validateCanInvite)
-    if (!(await requireRepresentable(req, reply, actionContext.actorId))) return;
-
-    const invite = await organizationInviteService.inviteUser(
-      tenantId,
-      req.body,
-      actionContext.actorId,
-      actionContext.actorId
-    );
-
-    return reply.status(201).send(invite);
-  });
-
-  /**
-   * POST /organization/invites/:id/accept
-   * Aceitar convite
-   */
-  fastify.post<{
-    Params: { id: string };
-    Body: { token: string; actorId: string };
-  }>('/invites/:id/accept', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-    }
-
-    // 🔴 DECISION-0113 fatia 2: o aceitante só pode vincular um actor que ele representa (não o de terceiro)
-    if (!(await requireRepresentable(req, reply, req.body.actorId))) return;
-
-    const member = await organizationInviteService.acceptInvite(tenantId, {
-      token: req.body.token,
-      userId: actionContext.actorId,
-      actorId: req.body.actorId,
-    });
-
-    return reply.send(member);
-  });
-
-  /**
-   * POST /organization/invites/:id/revoke
-   * Revogar convite
-   */
-  fastify.post<{ Params: { id: string } }>('/invites/:id/revoke', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-    }
-
-    // 🔴 DECISION-0113 fatia 2: provar representabilidade antes do check OWNER/ADMIN (validateCanInvite)
-    if (!(await requireRepresentable(req, reply, actionContext.actorId))) return;
-
-    const revokedInvite = await organizationInviteService.revokeInvite(
-      tenantId,
-      req.params.id,
-      actionContext.actorId,
-      actionContext.actorId
-    );
-
-    return reply.send(revokedInvite);
-  });
-
-  /**
-   * GET /organization/invites
-   * Lista convites
-   */
-  fastify.get<{
-    Querystring: {
-      status?: string;
-      limit?: number;
-      offset?: number;
-    };
-  }>('/invites', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-
-    const filters: OrganizationInviteFilters = {};
-    if (req.query.status) {
-      filters.status = req.query.status as any;
-    }
-    if (req.query.limit) {
-      filters.limit = req.query.limit;
-    }
-    if (req.query.offset) {
-      filters.offset = req.query.offset;
-    }
-
-    const invites = await organizationInviteService.listInvites(tenantId, filters);
-
-    return reply.send({ invites, totalCents: invites.length });
-  });
-
-  // ============================================================
-  // MEMBERS
-  // ============================================================
-
-  /**
-   * GET /organization/members
-   * Lista membros
-   */
-  fastify.get<{
-    Querystring: {
-      status?: string;
-      roleKey?: string;
-      limit?: number;
-      offset?: number;
-    };
-  }>('/members', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-
-    const filters: OrganizationMemberFilters = {};
-    if (req.query.status) {
-      filters.status = req.query.status as any;
-    }
-    if (req.query.roleKey) {
-      filters.roleKey = req.query.roleKey as any;
-    }
-    if (req.query.limit) {
-      filters.limit = req.query.limit;
-    }
-    if (req.query.offset) {
-      filters.offset = req.query.offset;
-    }
-
-    const members = await organizationMemberService.listMembers(tenantId, filters);
-
-    return reply.send({ members, totalCents: members.length });
-  });
-
-  /**
-   * POST /organization/members/:id/role
-   * Muda papel do membro
-   */
-  fastify.post<{
-    Params: { id: string };
-    Body: { roleKey: string };
-  }>('/members/:id/role', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-    }
-
-    // 🔴 DECISION-0113 fatia 2: provar representabilidade antes do check OWNER/ADMIN (validateCanManageMembers)
-    if (!(await requireRepresentable(req, reply, actionContext.actorId))) return;
-
-    const member = await organizationMemberService.changeRole(
-      tenantId,
-      req.params.id,
-      req.body.roleKey,
-      actionContext.actorId,
-      actionContext.actorId
-    );
-
-    return reply.send(member);
-  });
-
-  /**
-   * POST /organization/members/:id/remove
-   * Remove membro
-   */
-  fastify.post<{ Params: { id: string } }>('/members/:id/remove', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-    }
-
-    // 🔴 DECISION-0113 fatia 2: provar representabilidade antes do check OWNER/ADMIN (validateCanManageMembers)
-    if (!(await requireRepresentable(req, reply, actionContext.actorId))) return;
-
-    await organizationMemberService.removeMember(
-      tenantId,
-      req.params.id,
-      actionContext.actorId,
-      actionContext.actorId
-    );
-
-    return reply.status(204).send();
-  });
-
-  // ============================================================
-  // ORGANIZATION UNITS
-  // ============================================================
-
-  /**
-   * GET /organization/units
-   * Lista unidades organizacionais
-   */
-  fastify.get<{
-    Querystring: {
-      parentId?: string | null;
-      type?: 'MATRIX' | 'BRANCH' | 'DC';
-    };
-  }>('/units', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const { parentId, type } = req.query;
-
-    const units = await organizationUnitService.listUnits(
-      tenantId,
-      parentId === 'null' || parentId === null ? null : parentId,
-      type
-    );
-
-    return reply.status(200).send({ units });
-  });
-
-  /**
-   * GET /organization/units/tree
-   * Obtém árvore de unidades
-   */
-  fastify.get<{
-    Querystring: {
-      rootId?: string;
-    };
-  }>('/units/tree', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const { rootId } = req.query;
-
-    const tree = await organizationUnitService.getUnitTree(tenantId, rootId);
-
-    return reply.status(200).send({ tree });
-  });
-
-  /**
-   * GET /organization/units/:id
-   * Busca unidade por ID
-   */
-  fastify.get<{
-    Params: { id: string };
-  }>('/units/:id', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const { id } = req.params;
-
-    const unit = await organizationUnitService.getUnitById(tenantId, id);
-
-    if (!unit) {
-      return reply.status(404).send({ error: 'Unidade não encontrada' });
-    }
-
-    return reply.status(200).send(unit);
-  });
-
-  /**
-   * GET /organization/units/:id/children
-   * Busca unidades filhas
-   */
-  fastify.get<{
-    Params: { id: string };
-  }>('/units/:id/children', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const { id } = req.params;
-
-    const children = await organizationUnitService.getChildren(tenantId, id);
-
-    return reply.status(200).send({ units: children });
-  });
-
-  /**
-   * GET /organization/units/:id/descendants
-   * Busca descendentes
-   */
-  fastify.get<{
-    Params: { id: string };
-  }>('/units/:id/descendants', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const { id } = req.params;
-
-    const descendants = await organizationUnitService.getDescendants(tenantId, id);
-
-    return reply.status(200).send({ units: descendants });
-  });
-
-  /**
-   * GET /organization/units/actor/:actorId
-   * Busca unidade por actor
-   */
-  fastify.get<{
-    Params: { actorId: string };
-  }>('/units/actor/:actorId', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const { actorId } = req.params;
-
-    const unit = await organizationUnitService.getUnitByActor(tenantId, actorId);
-
-    if (!unit) {
-      return reply.status(404).send({ error: 'Unidade não encontrada para este actor' });
-    }
-
-    return reply.status(200).send(unit);
-  });
+  // ── ORGANIZATION UNITS (reads contidos — batem nas mesmas tabelas ghost) ──
+  fastify.get('/units', contained);
+  fastify.get('/units/tree', contained);
+  fastify.get('/units/:id', contained);
+  fastify.get('/units/:id/children', contained);
+  fastify.get('/units/:id/descendants', contained);
+  fastify.get('/units/actor/:actorId', contained);
 };
 
 export default organizationRoutes;
-
