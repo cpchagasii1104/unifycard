@@ -7174,3 +7174,26 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** nenhuma (consolida/baseline; complementa DECISION-0113/0131).
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0134_ACTOR_REFERRAL_CAPABILITY_GRANTS_BASELINE.md` · `07_NOMENCLATURA_CANONICA` (§3, §4.74) · `permission-keys.ts` · `DECISION-0113`/`DECISION-0131` · execution logs da rodada · `DECISION-0133`.
+
+---
+
+## DECISION-0135 — RFC de nomenclatura canônica de permission keys
+
+- **Data:** 2026-06-16
+- **Tipo:** arquitetural / nomenclatura / RFC (DOCS-ONLY)
+- **Frente:** F-PERMISSION-KEYS-NOMENCLATURE-RFC · **HEAD:** `337a3c52` · **dev:** 390 (sem migration)
+- **Contexto:** ratifica a nomenclatura prometida por DECISION-0134 §1.4 (SSOT_REGISTRY→07→RFC) ANTES de implementação de grants. READ-FIRST de `permission-keys.ts` (33 keys vivas) fundou as reconciliações em fato, não suposição.
+- **Decisão (promulgada):**
+  1. **Gramática canônica:** `<domain>:<action>`, exatamente um `:`, ambos lowercase snake_case; proibido `domain:sub:action`, pontilhado e invertido (`read:object`).
+  2. **Ordem da action = `object_verb`** quando há subobjeto (ex.: `inventory:stock_in_create`, `financial:payout_approve`); verbo simples quando ação simples (`service_order:confirm`). Keys vivas em `verbo_objeto` (view-first/execute-first) = **LEGACY_ALIAS** até cutover.
+  3. **Reconciliações (fundadas no vivo):** `finance:`→**`financial:`** (financial é o domínio vivo; finance nunca existiu) · temporal canônico = **`calendar:`** (vivo; agenda/booking não são keys) · **`canonical_products:`** vivo (catálogo N0) × `products:` comercial = conceito distinto, NÃO duplicate, PRODUCT_DECISION_REQUIRED · `pos` recomendado (sem key viva; pdv→pos se surgir) · invertido `read:`/`write:` proibido · `suppliers:credit_*` object_verb.
+  4. **Classes:** CANONICAL_READY / LEGACY_ALIAS / NEEDS_RENAME / DUPLICATE_CONCEPT / CRITICAL_FINANCIAL / PRODUCT_DECISION_REQUIRED / DO_NOT_IMPLEMENT_NOW. votes/organization/contextual-thread = DO_NOT_IMPLEMENT_NOW (ghost contido).
+  5. **CRITICAL_FINANCIAL** (financial/financial_terms/split/cards/cash_drawer/customer_credit/suppliers:credit_/pos refund/purchase_orders money): capability autoriza tentativa; execução exige bank_ledger SSOT + transação + lock + idempotência + auditoria + evento + 3 paralelas.
+  6. **Código de indicação** reafirmado (lookup, não authority). Frase: "O código de indicação localiza o actor; o grant autoriza o actor; o enforcement valida actor_id + authority."
+- **NÃO muda runtime:** `permission-keys.ts` intocado; zero alias runtime; zero grant; zero enforcement novo; cutover de aliases = frente futura.
+- **Escolha:** RFC docs-only; gramática + reconciliações + aliases + classes promulgados como baseline normativo.
+- **NÃO decidido:** grafia de `financial:all_ledger_view`; conceito `booking:`; existência runtime de `products:` comercial; cutover; implementação de grants; RBAC/FASE 6; financeiro.
+- **Responsável:** Clayton / IA Diretora (executor: Claude). **Validação prévia:** Clayton.
+- **Supera:** nenhuma (ratifica a nomenclatura deferida por DECISION-0134).
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0135_PERMISSION_KEYS_NOMENCLATURE_RFC.md` · `07_NOMENCLATURA_CANONICA` (§3, §3.2, §4.74) · `permission-keys.ts` · `DECISION-0134` · `DECISION-0113`/`DECISION-0131`.

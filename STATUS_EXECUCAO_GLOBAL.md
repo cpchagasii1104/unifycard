@@ -1,3 +1,19 @@
+## 2026-06-16 — F-PERMISSION-KEYS-NOMENCLATURE-RFC · CLOSED (docs-only RFC)
+
+**Branch:** `rescue-structural` · **HEAD `337a3c52`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). RFC que fixa a gramática canônica das permission keys (ratificação `SSOT_REGISTRY→07→RFC` prometida pela DECISION-0134). Promulga **DECISION-0135** (`docs/02_decisions/DECISION_0135_PERMISSION_KEYS_NOMENCLATURE_RFC.md`). Execução: `docs/03_execution_log/20260616_F_PERMISSION_KEYS_NOMENCLATURE_RFC.md`. **`permission-keys.ts` NÃO tocado; zero runtime/grant/schema.**
+
+**READ-FIRST das 33 keys vivas** fundou as reconciliações: `financial:` é o domínio vivo (**`finance:` nunca existiu**); `calendar:` é vivo (**agenda/booking não são keys**); `canonical_products:` vivo, `products:` sem key viva; sem `pos:`/`pdv:`; sem `read:`/`write:` invertido.
+
+**DECISION-0135 promulga:** (1) gramática `<domain>:<action>` (1 `:`, lowercase snake_case; proibido multi-`:`/pontilhado/invertido); (2) **ordem `object_verb`** com subobjeto (verb-first vivo = LEGACY_ALIAS); (3) reconciliações vinculantes — **finance→financial**, **agenda/booking→calendar**, **products×canonical_products** (conceito distinto, não duplicate), **pos/pdv** (pos canônico), invertido proibido, `suppliers:credit_` object_verb; (4) classes CANONICAL_READY/LEGACY_ALIAS/NEEDS_RENAME/DUPLICATE_CONCEPT/CRITICAL_FINANCIAL/PRODUCT_DECISION_REQUIRED/DO_NOT_IMPLEMENT_NOW; (5) tabela de aliases **documental (sem runtime)**; (6) CRITICAL_FINANCIAL (capability autoriza tentativa; execução exige bank_ledger+transação+lock+idempotência+auditoria+evento+3 paralelas); (7) reafirma código de indicação = lookup.
+
+**Provas:** `git diff` = só docs; arch-patterns --strict critical_new=0.
+
+**NÃO TOCADO:** `permission-keys.ts` · código/runtime/migration/schema · grants/enforcement/alias-runtime/RBAC/FASE 6 · financeiro/Bank/ledger · referral · ativação votes/contextual-thread/organization · frontend.
+
+**Estado:** **CLOSED (docs-only RFC).** Cutover de aliases em `permission-keys.ts` + implementação de grants = frentes futuras gated, pós-reseal. dev 390.
+
+---
+
 ## 2026-06-16 — F-AUTHORITY-PERMISSIONS-CLOSURE-BASELINE · CLOSED (docs-only baseline)
 
 **Branch:** `rescue-structural` · **HEAD `957aeb32`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). Fechamento **documental** da família authority/permissões. Promulga **DECISION-0134** (`docs/02_decisions/DECISION_0134_ACTOR_REFERRAL_CAPABILITY_GRANTS_BASELINE.md`). Execução: `docs/03_execution_log/20260616_F_AUTHORITY_PERMISSIONS_CLOSURE_BASELINE.md`. **NADA material tocado.**
