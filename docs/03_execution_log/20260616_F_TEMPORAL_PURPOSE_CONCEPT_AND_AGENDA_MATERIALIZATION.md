@@ -73,8 +73,23 @@ slug fora dos 4 = 400; FK RESTRICT bloqueia delete de concept em uso; mudança d
 
 ## Estado
 
-**IMPLEMENTED / HOLD PARA RESEAL.** Fecha SÓ como **F-TEMPORAL-PURPOSE-CONCEPT-DECISION +
+**CLOSED / YALA PASS.** Fecha SÓ como **F-TEMPORAL-PURPOSE-CONCEPT-DECISION +
 F-AGENDA-PURPOSE-CONCEPT-MATERIALIZATION**: finalidade temporal é CONCEPT em `availability.purpose_concept_id`
 (FK RESTRICT, sem is_bookable, sem metadata); 4 concepts governados em domínios N0 naturais (sem novo domínio N0);
 estudo/cuidados/lazer não-bookáveis por padrão; trabalho/NULL bookáveis; SSOT temporal segue `unified_availability`;
 CONCEPT governa a semântica; matching/social/promo fora. dev 389.
+
+## YALA RESEAL
+
+- **Veredito:** **PASS.** Reseal READ-ONLY adversarial. Conclusão da IA Diretora: selar como **CLOSED**.
+- **Commits verificados:** `db8829ec` (C1 — DECISION-0132 docs-only) · `e764b8f2` (C2 — materialização / HEAD).
+- **Confirmado pela Yala:** ordem causal DECISION→materialização · commit 1 docs-only · commit 2 materialização ·
+  SEM domínio N0 `tempo-e-finalidade` · SEM metadata · SEM enum solto · SEM `is_bookable` · allowlist soberana
+  server-side · booking gate real · frontend simples · matching/social/promo FORA · provas reproduzíveis.
+- **Ressalvas NÃO bloqueantes (R1/R2 — registradas, NÃO corrigidas nesta frente):**
+  1. **backend tsc:** o cartório anterior reportou **25**; a medição viva da Yala apontou **42 baseline** — **não
+     atribuível** à frente (divergência de baseline de medição, não erro introduzido pelos arquivos tocados).
+  2. **`audit-temporal-purpose.mjs` depende do cwd `backend/`:** fragilidade de invocação (paths relativos a
+     `process.cwd()`), **não bloqueante** — o guard roda corretamente quando invocado de `backend/` (como na chain
+     `validate:regression-guards`). Endurecer a invocação fica como dívida futura, fora desta frente.
+- **Selo:** commit docs-only `seal: close temporal purpose agenda after yala pass`. Estado final: **CLOSED**.
