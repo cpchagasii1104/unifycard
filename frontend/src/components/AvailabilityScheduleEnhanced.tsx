@@ -302,9 +302,15 @@ export default function AvailabilityScheduleEnhanced({
       }
     } catch (err) {
       // ❌ Erro HTTP/exception: manter dirty + originalSchedule; mostrar erro claro.
+      // 🔴 F-AGENDA-SAVE-RATE-LIMIT-429: traduzir 429/rate-limit numa mensagem útil (mantém dirty —
+      // NÃO finge que salvou). Não esconde o erro: orienta o usuário a aguardar e tentar de novo.
+      const raw = err instanceof Error ? err.message : '';
+      const isRateLimited = /rate limit|too many requests|429|retry in/i.test(raw);
       setSaveState({
         status: 'error',
-        message: err instanceof Error ? err.message : 'Não foi possível salvar a agenda. Tente novamente.',
+        message: isRateLimited
+          ? 'Muitas tentativas em pouco tempo. Aguarde cerca de 1 minuto e clique em Salvar novamente.'
+          : (raw || 'Não foi possível salvar a agenda. Tente novamente.'),
       });
     }
   };

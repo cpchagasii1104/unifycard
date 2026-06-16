@@ -10,7 +10,6 @@ import {
   listAvailabilities,
   listBookings,
   listParticipants,
-  detectConflicts,
   createAvailability,
   updateAvailability,
   putWeeklyAvailabilityTemplate,
@@ -18,7 +17,6 @@ import {
   type UnifiedAvailability,
   type UnifiedBooking,
   type AvailabilityParticipant,
-  type AvailabilityConflict,
   type AvailabilityOwnerType,
   type MaterializeWeeklyTemplateResult,
   type TemporalPurpose,
@@ -159,12 +157,18 @@ export default function ProfileAgenda() {
       setSchedule(reconSchedule);
       setInitialPurposes(reconPurposes);
 
-      // Buscar bookings associados às disponibilidades
+      // 🔴 F-AGENDA-SAVE-RATE-LIMIT-429: a grade semanal é materializada em MUITAS janelas (faixa × dia ×
+      // horizonte 8 semanas → dezenas/centenas). Buscar bookings+participants POR JANELA disparava 2×N
+      // requests a `/availability/*` no load, estourando o rate-limit (60/min) — e aí o PUT de Salvar
+      // levava 429. Bookings/participants só alimentam os CARDS exibidos (`availabilities.slice(0,5)`),
+      // então buscamos só desses 5 (cap constante, independente do tamanho da agenda). O laço de
+      // detectConflicts foi REMOVIDO: `conflictsMap` é computado mas NUNCA exibido (não passa ao form) —
+      // era fan-out morto. O save NÃO recarrega a agenda (handleSaveSchedule não chama loadAgenda).
+      const displayed = availabilitiesData.slice(0, 5);
       const allBookings: UnifiedBooking[] = [];
       const participantsData: Record<string, AvailabilityParticipant[]> = {};
-      const conflictsData: Record<string, AvailabilityConflict[]> = {};
 
-      for (const availability of availabilitiesData) {
+      for (const availability of displayed) {
         const availabilityBookings = await listBookings({
           availabilityId: availability.availabilityId,
         });
@@ -172,22 +176,11 @@ export default function ProfileAgenda() {
 
         const participants = await listParticipants(availability.availabilityId);
         participantsData[availability.availabilityId] = participants;
-
-        for (const participant of participants) {
-          const conflicts = await detectConflicts(
-            availability.availabilityId,
-            participant.actorId
-          );
-          if (conflicts.length > 0) {
-            const conflictKey = `${availability.availabilityId}_${participant.actorId}`;
-            conflictsData[conflictKey] = conflicts;
-          }
-        }
       }
 
       setBookings(allBookings);
       setParticipantsMap(participantsData);
-      setConflictsMap(conflictsData);
+      setConflictsMap({}); // conflitos não são exibidos nesta tela; evitamos o fan-out de detectConflicts
     } catch (err) {
       console.error('Erro ao carregar agenda:', err);
       setError('Não foi possível carregar a agenda agora. Por favor, tente novamente em alguns instantes.');
