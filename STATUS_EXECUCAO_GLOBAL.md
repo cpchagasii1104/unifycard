@@ -1,14 +1,16 @@
-## 2026-06-16 — F-SERVICE-BUNDLE-WRITE-AUTHORSHIP-BINDING · IMPLEMENTED / HOLD RESEAL
+## 2026-06-16 — F-SERVICE-BUNDLE-WRITE-AUTHORSHIP-BINDING · CLOSED / YALA PASS
 
-**Branch:** `rescue-structural` · **parent `3a309b83`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. Fix material de **autoridade (DECISION-0113), não-financeiro**, escopo local — superfície IRMÃ do service-order. Corrige o **write-authorship-spoof** dos 2 writes de service-bundle (`DT-SERVICE-BUNDLE-WRITE-AUTHORSHIP-SPOOF` → **CLOSED**). Execução: `docs/03_execution_log/20260616_F_SERVICE_BUNDLE_WRITE_AUTHORSHIP_BINDING.md`.
+**Branch:** `rescue-structural` · **commit material `380981ea`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (READ-ONLY, 2026-06-16). Fix material de **autoridade (DECISION-0113), não-financeiro**, escopo local — superfície IRMÃ do service-order. Corrige o **write-authorship-spoof** dos 2 writes de service-bundle (`DT-SERVICE-BUNDLE-WRITE-AUTHORSHIP-SPOOF` → **CLOSED** para book/confirm). Execução: `docs/03_execution_log/20260616_F_SERVICE_BUNDLE_WRITE_AUTHORSHIP_BINDING.md` (seção YALA RESEAL — PASS).
 
 **Achado:** `service-bundle.routes.ts` — `book` passava `actionContext.actorId` como userId + `requesterActorId` cru do body; `confirm` gravava `confirmedBy* = actionContext.actorId`. Sem `canRepresentActor`. **Fix:** helper `bindWriteActor` (espelha `bindOrderWriteActor`): `req.user.userId` REAL (401) + actor declarado (400) + `canRepresentActor` (403); 403 ANTES do write. `book` binda `body.requesterActorId` + passa userId REAL; `confirm` grava `confirmedByActorId=validado` + `confirmedByUserId=userId REAL`. Autoridade fina por-booking segue reforçada downstream por `confirmBookingFromDecision`. `bundle:create`/`bundle:confirm` já registradas (capability null) — sem permission-key nova, sem over-gate.
 
 **Provas:** tsc build 25/strict 43 (baseline); guard `audit-service-bundle-write-authorship-binding.mjs` na chain regression-guards GATE OK; neg-proof **7 mordidas** + SHA256 byte-idêntico; e2e efêmero **14/14** (fluxo REAL: book/confirm legítimos 201, todos os spoof→403, **Bank intocado**; 4 estruturais); 4 gates (actor-writer · bank-ledger · regression-guards rc=0 · arch-patterns critical_new=0); revisão adversarial subagente = SECURE.
 
-**NÃO TOCADO:** service-order · confirm-financial-terms · Bank/Core/`bank_ledger`/payout/split/recovery/payment exec/invoice/AP-AR · migration · schema · permission-keys (nenhuma nova) · RLS/RBAC/FASE 6 · contacts · suppliers · agenda · frontend · sweep votes/organizers.
+**Ressalva NÃO bloqueante (carregada como futura):** o **sweep votes/organizers** da família write-authorship permanece **OPEN** na DT-mãe (`DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF` / `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`); **NÃO fechado** nesta frente.
 
-**Estado:** **IMPLEMENTED / HOLD RESEAL** — aguarda reseal Yala. dev 390.
+**NÃO TOCADO:** service-order · confirm-financial-terms · Bank/Core/`bank_ledger`/payout/split/recovery/payment exec/invoice/AP-AR · migration · schema · permission-keys (nenhuma nova) · RLS/RBAC/FASE 6 · contacts · suppliers · agenda · frontend · **sweep votes/organizers (permanece fora)**.
+
+**Estado:** **CLOSED / YALA PASS** — selado docs-only. dev 390.
 
 ---
 

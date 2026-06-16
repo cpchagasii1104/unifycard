@@ -76,7 +76,21 @@ DT/STATUS/log. ZERO migration/schema/banco; ZERO service-order; ZERO financeiro.
 
 ## Estado
 
-**IMPLEMENTED / HOLD RESEAL.** Fecha SÓ como **F-SERVICE-BUNDLE-WRITE-AUTHORSHIP-BINDING**: os 2 writes de
+**CLOSED / YALA PASS.** Fecha SÓ como **F-SERVICE-BUNDLE-WRITE-AUTHORSHIP-BINDING**: os 2 writes de
 service-bundle bindam a autoria ao actor representável (canRepresentActor), gravam o userId REAL, e rejeitam
 spoof com 403 honesto sem write parcial. `DT-SERVICE-BUNDLE-WRITE-AUTHORSHIP-SPOOF` → CLOSED. dev 390.
-**Aguarda reseal Yala.**
+
+## YALA RESEAL — PASS (2026-06-16, READ-ONLY)
+
+- **Veredito:** **PASS** (reseal READ-ONLY). Commit material `380981ea` · branch `rescue-structural` · dev 390.
+- **Confirmado:** os 2 writes (book/confirm) bindados — `actionContext.actorId` não é mais authority crua;
+  `requesterActorId`/`confirmedByActorId` passam por binding; `req.user.userId` REAL usado; `canRepresentActor`
+  antes do write; spoof → **403 antes de qualquer write, sem write parcial**; body injection neutralizada por
+  override após `...body`; ownership fino do confirm permanece downstream em `confirmBookingFromDecision`;
+  **reads intocados**; e2e **14/14**; guard **GATE OK**; neg-proof **7 mordidas** + SHA256 byte-idêntico;
+  **4 gates verdes**; **Bank intocado**; revisão adversarial = **SECURE**.
+- **Sem permission-key nova:** `bundle:create`/`bundle:confirm` já existiam no mapa canônico (capability `null`).
+- **Ressalva NÃO bloqueante (carregada como futura):** o **sweep votes/organizers** da família write-authorship
+  permanece **OPEN** na DT-mãe (`DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF` / `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`);
+  **NÃO fechado** nesta frente.
+- **Selo:** commit docs-only `docs: seal service-bundle write authority binding`. Estado final: **CLOSED / YALA PASS**.
