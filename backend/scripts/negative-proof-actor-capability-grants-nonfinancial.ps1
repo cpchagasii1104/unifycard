@@ -10,6 +10,7 @@ $mig    = Join-Path (Get-Location) 'migrations\20260616210000_create_actor_capab
 $types  = Join-Path (Get-Location) 'src\modules\authority\actor-capability-grant.types.ts'
 $lookup = Join-Path (Get-Location) 'src\modules\authority\actor-lookup.service.ts'
 $pk     = Join-Path (Get-Location) 'src\core\authorization\permission-keys.ts'
+$routes = Join-Path (Get-Location) 'src\modules\authority\actor-capability-grant.routes.ts'
 
 function Invoke-Guard {
     node scripts/audit-actor-capability-grants-nonfinancial.mjs *> $null
@@ -25,7 +26,10 @@ $bites = @(
     @{ name = 'drop-grantee-actor';  file = $mig;    find = 'grantee_actor_id      UUID NOT NULL'; repl = 'grantee_actor_id      UUID NULL' },
     @{ name = 'types-financial';     file = $types;  find = "'services:disable',";                 repl = "'services:disable',`r`n  'split:create'," },
     @{ name = 'lookup-referral';     file = $lookup; find = 'AND slug=\$2';                         repl = "AND referral_code=`$2" },
-    @{ name = 'pk-misalign';         file = $pk;     find = "  'services:create': null,[^\r\n]*\r?\n"; repl = '' }
+    @{ name = 'pk-misalign';         file = $pk;     find = "  'services:create': null,[^\r\n]*\r?\n"; repl = '' },
+    @{ name = 'ep-financial';        file = $routes; find = 'const actorCapabilityGrantRoutes';      repl = "const _fin = 'financial:execute_payout';`r`nconst actorCapabilityGrantRoutes" },
+    @{ name = 'ep-no-scope';         file = $routes; find = 'scopeActorId: z\.string\(\)\.uuid\(\),'; repl = 'scopeActorId: z.string().uuid().optional(),'; all = $true },
+    @{ name = 'ep-requirepermission';file = $routes; find = 'const actorCapabilityGrantRoutes';      repl = "const _rp = requirePermission;`r`nconst actorCapabilityGrantRoutes" }
 )
 
 $allBitesOk = $true
@@ -34,7 +38,7 @@ foreach ($b in $bites) {
     $orig = Get-Content $b.file -Raw
     $origHash = (Get-FileHash $b.file -Algorithm SHA256).Hash
     $rx = [regex]::new($b.find)
-    $mutated = $rx.Replace($orig, $b.repl, 1)
+    if ($b.all) { $mutated = $rx.Replace($orig, $b.repl) } else { $mutated = $rx.Replace($orig, $b.repl, 1) }
     if ($mutated -eq $orig) { $allBitesOk = $false; $details += "$($b.name)=NAO_MUTOU"; continue }
     Set-Content -Path $b.file -Value $mutated -NoNewline -Encoding UTF8
     $bit = ((Invoke-Guard) -ne 0)

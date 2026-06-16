@@ -97,7 +97,9 @@ function read(p) { return existsSync(p) ? readFileSync(p, 'utf8') : null; }
   }
 }
 
-// 4) NENHUMA rota de negócio importa o grant service (enforcement deferido; superfície selada intocada).
+// 4) Enforcement deferido: SÓ a rota de GESTÃO de grants pode importar o service; nenhuma rota de NEGÓCIO
+//    pode importar; e `hasCapabilityGrant` (primitivo de enforcement) NÃO pode aparecer em rota nenhuma (1C).
+const GRANT_ROUTES_REL = 'modules/authority/actor-capability-grant.routes.ts';
 {
   const routeFiles = [];
   (function walk(dir) {
@@ -108,13 +110,52 @@ function read(p) { return existsSync(p) ? readFileSync(p, 'utf8') : null; }
     }
   })(SRC);
   for (const f of routeFiles) {
-    const code = readFileSync(f, 'utf8');
-    if (/actor-capability-grant\.service|actorCapabilityGrantService/.test(code)) {
-      const rel = f.replace(SRC, '').replace(/\\/g, '/');
-      failures.push(`GRANTS_REGRESSION: rota ${rel} importa o grant service — enforcement em rota de negócio é Slice FUTURO (DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION).`);
+    const rel = f.replace(SRC, '').replace(/\\/g, '/').replace(/^\//, '');
+    const code = stripTs(readFileSync(f, 'utf8'));
+    const isMgmt = rel === GRANT_ROUTES_REL;
+    if (!isMgmt && /actorCapabilityGrantService/.test(code)) {
+      failures.push(`GRANTS_REGRESSION: rota ${rel} importa o grant service — só a rota de gestão (${GRANT_ROUTES_REL}) pode; enforcement em rota de negócio é Slice FUTURO (DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION).`);
+    }
+    if (/hasCapabilityGrant\(/.test(code)) {
+      failures.push(`GRANTS_REGRESSION: rota ${rel} usa hasCapabilityGrant( — enforcement em rota é Slice 1C (decisão de produto), proibido agora.`);
     }
   }
   checked++;
+}
+
+// 6) Invariantes da rota de GESTÃO de grants (Slice 1B).
+{
+  const p = join(SRC, GRANT_ROUTES_REL);
+  if (existsSync(p)) {
+    checked++;
+    const code = stripTs(readFileSync(p, 'utf8'));
+    // capability vem da allowlist não-financeira (z.enum) — sem hardcode de key financeira.
+    if (FINANCIAL.test(code)) {
+      failures.push(`GRANTS_REGRESSION: ${GRANT_ROUTES_REL} referencia capability/termo FINANCEIRO (proibido no Slice 1B).`);
+    }
+    if (!/NON_FINANCIAL_CAPABILITY_ALLOWLIST/.test(code)) {
+      failures.push(`GRANTS_REGRESSION: ${GRANT_ROUTES_REL} não valida capabilityKey contra a allowlist não-financeira (z.enum).`);
+    }
+    // nada de referral comercial / vocabulários paralelos / rbac como autoridade do grant.
+    for (const [re, why] of [
+      [/referral_code/, 'usa referral_code (comercial ≠ authority)'],
+      [/business-permissions|BusinessPermission|BusinessAction/, 'usa business-permissions.types.ts (vocabulário paralelo)'],
+      [/PermissionString|requirePermission|rbac\.plugin/, 'usa rbac PermissionString/requirePermission como autoridade do grant'],
+      [/scope_type\s*[:=]\s*'global'|'global'/, "introduz scope 'global' (proibido)"],
+      [/DELETE FROM actor_capability_grants/i, 'faz DELETE físico de grant (revogação é status)'],
+      [/availability|calendar\.routes|unified-availability/, 'toca availability/calendar (proibido)'],
+    ]) {
+      if (re.test(code)) failures.push(`GRANTS_REGRESSION: ${GRANT_ROUTES_REL} ${why}.`);
+    }
+    // autoridade do endpoint = canRepresentActor (gate de scope) + grava actor_id.
+    if (!/canRepresentActor\(/.test(code)) {
+      failures.push(`GRANTS_REGRESSION: ${GRANT_ROUTES_REL} não usa canRepresentActor (autoridade do scope no GET).`);
+    }
+    // GET list exige scopeActorId (sem listagem global): scopeActorId é campo obrigatório no schema de list.
+    if (!/scopeActorId:\s*z\.string\(\)\.uuid\(\),/.test(code)) {
+      failures.push(`GRANTS_REGRESSION: ${GRANT_ROUTES_REL} não exige scopeActorId obrigatório (risco de listagem global).`);
+    }
+  }
 }
 
 // 5) ALINHAMENTO COM O SSOT VIVO (DECISION-0136 W1): toda capability permitida no CHECK da migration DEVE

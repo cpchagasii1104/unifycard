@@ -11884,6 +11884,14 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Fechamento futuro:** decisão de produto (operador de agenda) → frente de enforcement (compor `hasCapabilityGrant` com `canRepresentActor` e owner-nativo na rota escolhida), preservando DECISION-0113/0118.
 - **Vinculada a:** `DECISION-0136` (substrato), `DECISION-0134`/`DECISION-0135`, `DECISION-0113`/`DECISION-0118` (gate selado de availability), `actor_capability_grants`.
 
+## DT-PERMISSION-TRI-REGISTRY-RECONCILIATION — OPEN / BLOCKS_1C_NOT_1B (2026-06-16)
+
+- **Status:** **OPEN / BLOCKS_1C_NOT_1B.** Aberta no Slice 1B de endpoints de grants (`F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B`).
+- **Achado:** o sistema tem **três vocabulários vivos de permissão**: (1) `core/authorization/permission-keys.ts` (`PermissionKey`, 36 keys `domain:action` — registry usado por `canActAs`/DECISION-0113); (2) `core/authorization/business-permissions.types.ts` (`BusinessAction`, segundo enum `domain:action`; importa `OrganizationRoleKey` do módulo organization **ghost/contido**); (3) `rbac.plugin` `PermissionString` (RBAC legado/FASE 6 — stub deny-all). Sem SSOT único.
+- **Impacto:** **Slice 1B NÃO está bloqueado** — os endpoints de grant usam **só** `permission-keys.ts` (registry) + `actor_capability_grants` + `canRepresentActor`; não tocam os outros dois. Mas **antes do Slice 1C** (enforcement em rota de negócio), a composição dos três vocabulários precisa ser **reconciliada** para evitar trilho paralelo (o enforcement não pode escolher o vocabulário errado nem reanimar o ghost).
+- **Fechamento futuro:** RFC/decisão de SSOT único de permission keys (provável: `permission-keys.ts` canônico; `business-permissions.types.ts` → mapper/deprecação; `rbac PermissionString` → FASE 6 separada), **antes** de qualquer Slice 1C.
+- **Vinculada a:** `DECISION-0135` (gramática), `DECISION-0136` (grants), `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` (1C), `permission-keys.ts` × `business-permissions.types.ts` × `rbac.plugin`.
+
 ## DT-TRUST-MODULE-UNGATED-COMPLIANCE — PARTIALLY MITIGATED (2026-06-08)
 
 - **Status:** **PARTIALLY MITIGATED (2026-06-08)** via `F-TRUST-ADMIN-GATE-INTERIM`. **Achado (READ-FIRST):** o módulo `trust` (`modules/trust/trust.routes.ts`, risco/anti-fraude/compliance) estava **100% NU** — só `if (!req.tenant)`, **sem `req.user`, sem preHandler, sem permission** — em **TODAS as 6 rotas, reads E writes**: qualquer caller autenticado lia o **mapa de risco do tenant** (`GET /trust/profile/:actorId`, `/trust/profiles` por riskLevel/score, `/trust/events` = sinais de fraude/severity) **E injetava/recalculava sinais de fraude** (`POST /trust/events`, `/trust/recalculate/:actorId`, `/trust/can-proceed`). Dado = risco INTERNO (não reputação pública — essa é `social-2.0 /reputation`, classe B).

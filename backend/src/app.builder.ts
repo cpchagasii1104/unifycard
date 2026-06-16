@@ -414,6 +414,12 @@ export async function buildApp(): Promise<FastifyInstance> {
 
     await protectedScope.register(economyModule, { prefix: '/economy' });
     await protectedScope.register(rbacModule, { prefix: '/rbac' });
+    // F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B (DECISION-0136): gestão de grants por actor. SÓ
+    // criar/listar/revogar; ZERO enforcement em rota de negócio. Autoridade = canRepresentActor(scope).
+    await protectedScope.register(
+      (await import('./modules/authority/actor-capability-grant.routes')).default,
+      { prefix: '/authority' }
+    );
     await protectedScope.register(configModule, { prefix: '/config' });
     await protectedScope.register(notifyModule, { prefix: '/notify' });
     await protectedScope.register(reviewModule, { prefix: '/reviews' });
