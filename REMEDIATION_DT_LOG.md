@@ -12122,11 +12122,18 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ---
 
-## DT-SUPPLIERS-OWNER-ACTOR-WIRING — OWNERSHIP DECIDIDO (DECISION-0133, 2026-06-16); IMPLEMENTATION OPEN
+## DT-SUPPLIERS-OWNER-ACTOR-WIRING — MATERIALIZADA / CLOSED (2026-06-16, F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING)
 
-- **Status:** **OWNERSHIP DECIDIDO (2026-06-16)** por **DECISION-0133** (cartório soberano docs-only; commit desta frente).
-  **IMPLEMENTATION segue OPEN** — frente própria futura **F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING** (migration + runtime),
-  gated por GO. HEAD `ebe410b4`.
+- **Status:** **MATERIALIZADA / CLOSED (2026-06-16)** — DECISION-0133 implementada por
+  **F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING** (migration `20260616130000` dev 389→390 + runtime). `suppliers` ganhou
+  `owner_actor_id uuid NOT NULL` (FK→actors(id) RESTRICT, índice `(tenant_id, owner_actor_id)`); create resolve owner
+  server-side (isOrgActor page+company_id + canRepresentActor; body é hint); list/get gateados por
+  `canRepresentActor(owner_actor_id)` (tenant-only NÃO basta); service exige `SUPPLIER_OWNER_REQUIRED`;
+  `created_by_actor_id`=audit, `tenant_id`=escopo, `supplier_id`=contraparte. **Leak Classe-A de suppliers FECHADO**
+  (cross-company same-tenant isolado — e2e 12/12). Guard `audit-supplier-owner-authority.mjs` (no chain) + neg-proof
+  7 mordidas. AP (`accounts-payable`) intocado: usa `getSupplierById` como existência/contraparte (autoridade vem do
+  PO owner), não regrediu para tenant-only. HEAD `7e13fb5c`→commit desta frente.
+- _(histórico OWNERSHIP DECIDIDO / IMPLEMENTATION OPEN — superado por esta materialização.)_
 - **Ownership canônico (DECISION-0133):** `suppliers` é **company-owned via `owner_actor_id`** = page/company actor
   (`actor_type='page' AND company_id IS NOT NULL`) da empresa dona do cadastro. `created_by_actor_id`=autoria/auditoria
   (NÃO owner) · `created_by_user_id`=não-authority · `tenant_id`=escopo · `supplier_id`=contraparte. Authority runtime
@@ -12140,6 +12147,34 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Vinculada a:** `DECISION-0133` (ownership), `DECISION-0116` (classificou COMPANY_INTERNAL + deferiu owner),
   `DECISION-0131`/`F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING` (precedente), `DECISION-0113` (canRepresentActor),
   `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` (classe A — suppliers), `DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT`.
+
+---
+
+## DT-SUPPLIERS-OWNER-ORG-ACTOR-DB-CONSTRAINT-HARDENING — OPEN (2026-06-16)
+
+- **Status:** **OPEN (2026-06-16)** — aberta por F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING. **Não bloqueante.**
+- **Contexto:** `suppliers.owner_actor_id` deve ser um actor **organizacional** (page + company_id). A **FK** garante
+  apenas que aponta para um `actors.id` existente; a validação de que é **page/company** é **app-level** (helper
+  `isOrgActor` na rota, ANTES de criar) — espelha o precedente `purchase_orders.owner_actor_id`. Não há, hoje,
+  CHECK/trigger no DB que force o tipo organizacional (não há padrão vivo testável para isso na família).
+- **Resolução prevista:** hardening DB futuro (trigger/constraint validando `actor_type='page' AND company_id IS NOT
+  NULL` no owner) SE/quando houver padrão vivo — reforço, não substituto da validação runtime. Fora desta frente.
+- **Vinculada a:** `DECISION-0133`, `F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING` (mesmo padrão app-level).
+
+---
+
+## DT-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH — OPEN (residuo pré-existente, 2026-06-16)
+
+- **Status:** **OPEN (2026-06-16)** — observado (não introduzido) por F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING.
+  **Não bloqueante; FORA do escopo de ownership.**
+- **Contexto:** mismatch latente pré-existente — `suppliers_status_check` no DB = `status IN ('active','inactive')`
+  (minúsculo, 2 valores), mas `SupplierStatus` (type) = `'ACTIVE'|'INACTIVE'|'SUSPENDED'` e `supplierService` faz
+  default `input.status || 'ACTIVE'` (maiúsculo). Nunca exercitado (row_count era 0). Um POST /suppliers sem `status`
+  bateria 500 (CHECK violado). NÃO corrigido nesta frente (é bug de enum/status, não de ownership; o e2e isola
+  passando `status:'active'`).
+- **Resolução prevista:** frente própria de normalização de status (alinhar type/default/CHECK; decidir se
+  'SUSPENDED' entra). Fora desta frente.
+- **Vinculada a:** `supplier.types.ts`/`supplier.service.ts`/migration de criação de suppliers (`suppliers_status_check`).
 
 ---
 

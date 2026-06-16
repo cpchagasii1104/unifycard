@@ -23,6 +23,7 @@ interface SupplierRow {
   tax_id: string | null;
   registration_number: string | null;
   status: string;
+  owner_actor_id: string; // DECISION-0133
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
@@ -51,6 +52,7 @@ class SupplierRepository {
       taxId: row.tax_id,
       registrationNumber: row.registration_number,
       status: row.status as any,
+      ownerActorId: row.owner_actor_id, // DECISION-0133
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
@@ -78,6 +80,7 @@ class SupplierRepository {
       taxId: string | null;
       registrationNumber: string | null;
       status: string;
+      ownerActorId: string; // DECISION-0133 (resolvido server-side; nunca body cru)
       createdByActorId: string;
       createdByUserId: string | null;
       metadata: Record<string, any>;
@@ -89,13 +92,13 @@ class SupplierRepository {
       INSERT INTO suppliers (
         tenant_id, name, code, email, phone, contact_name,
         address, city, state, zip_code, country,
-        tax_id, registration_number, status,
+        tax_id, registration_number, status, owner_actor_id,
         created_by_actor_id, created_by_user_id, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)
       RETURNING id, tenant_id, name, code, email, phone, contact_name,
                 address, city, state, zip_code, country,
-                tax_id, registration_number, status,
+                tax_id, registration_number, status, owner_actor_id,
                 created_by_actor_id, created_by_user_id, metadata,
                 created_at, updated_at
       `,
@@ -114,6 +117,7 @@ class SupplierRepository {
         input.taxId,
         input.registrationNumber,
         input.status,
+        input.ownerActorId, // DECISION-0133 (owner empresarial; $16)
         input.createdByActorId,
         input.createdByUserId,
         JSON.stringify(input.metadata),
@@ -136,7 +140,7 @@ class SupplierRepository {
       `
       SELECT id, tenant_id, name, code, email, phone, contact_name,
              address, city, state, zip_code, country,
-             tax_id, registration_number, status,
+             tax_id, registration_number, status, owner_actor_id,
              created_by_actor_id, created_by_user_id, metadata,
              created_at, updated_at
       FROM suppliers
@@ -180,7 +184,7 @@ class SupplierRepository {
       `
       SELECT id, tenant_id, name, code, email, phone, contact_name,
              address, city, state, zip_code, country,
-             tax_id, registration_number, status,
+             tax_id, registration_number, status, owner_actor_id,
              created_by_actor_id, created_by_user_id, metadata,
              created_at, updated_at
       FROM suppliers

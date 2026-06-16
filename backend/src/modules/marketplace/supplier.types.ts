@@ -30,6 +30,8 @@ export interface Supplier {
   taxId: string | null;
   registrationNumber: string | null;
   status: SupplierStatus;
+  // 🔴 DECISION-0133: owner canônico = actor operacional da empresa dona (page+company_id). Authority material.
+  ownerActorId: string;
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
@@ -42,6 +44,8 @@ export interface Supplier {
  */
 export interface CreateSupplierInput {
   name: string;
+  // 🔴 DECISION-0133: hint de owner empresarial; RESOLVIDO/validado server-side na rota (body não é autoridade).
+  ownerActorId?: string;
   code?: string;
   email?: string;
   phone?: string;

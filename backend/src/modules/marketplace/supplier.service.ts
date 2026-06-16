@@ -31,9 +31,17 @@ class SupplierService {
       throw new Error('Nome do fornecedor é obrigatório');
     }
 
+    // 🔴 DECISION-0133 (defesa em profundidade): supplier NUNCA nasce sem owner empresarial material.
+    // O owner é resolvido/validado server-side na rota (isOrgActor + canRepresentActor); aqui só garantimos
+    // que ele chegou. created_by_actor_id permanece AUTORIA, nunca owner.
+    if (!input.ownerActorId) {
+      throw new Error('SUPPLIER_OWNER_REQUIRED: owner_actor_id (empresa dona) é obrigatório para criar fornecedor');
+    }
+
     // Criar fornecedor
     const supplier = await supplierRepository.createSupplier(tenantId, {
       name: input.name.trim(),
+      ownerActorId: input.ownerActorId, // DECISION-0133 (resolvido server-side; nunca body cru)
       code: input.code?.trim() || null,
       email: input.email?.trim() || null,
       phone: input.phone?.trim() || null,
