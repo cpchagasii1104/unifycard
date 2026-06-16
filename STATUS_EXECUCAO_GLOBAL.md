@@ -1,18 +1,20 @@
-## 2026-06-16 — F-PERMISSION-TRI-REGISTRY-RFC · IMPLEMENTED / HOLD YALA (docs-only RFC)
+## 2026-06-16 — F-PERMISSION-TRI-REGISTRY-RFC · CLOSED / YALA PASS (docs-only RFC)
 
-**Branch:** `rescue-structural` · **HEAD `fad9a854`** · **dev 391 (ZERO migration)** · MODO EXECUTOR (docs-only). RFC que define o papel canônico dos **três** vocabulários de permissão vivos antes do Slice 1C. Promulga **DECISION-0137** (`docs/02_decisions/DECISION_0137_PERMISSION_TRI_REGISTRY_RFC.md`). Execução: `docs/03_execution_log/20260616_F_PERMISSION_TRI_REGISTRY_RFC.md`. **NADA material tocado.**
+**Branch:** `rescue-structural` · **commit material `3224d6f8`** · **dev 391 (ZERO migration)** · MODO EXECUTOR (docs-only). **🟢 RESEAL YALA = PASS** (adversarial READ-ONLY, 2026-06-16). RFC que define o papel canônico dos **três** vocabulários de permissão vivos antes do Slice 1C. Promulga **DECISION-0137** (`docs/02_decisions/DECISION_0137_PERMISSION_TRI_REGISTRY_RFC.md`). Execução: `docs/03_execution_log/20260616_F_PERMISSION_TRI_REGISTRY_RFC.md` (seção YALA RESEAL — PASS). **NADA material tocado.**
+
+**Yala confirmou:** DECISION-0137 existe; commit docs-only puro; `permission-keys.ts` = SSOT de capability keys p/ actor grants; `business-permissions.types.ts` = role-map/context matrix (não registry); `PermissionString`/`rbac` = legado/FASE 6 separado; `PermissionString` grafado como `${string}:${string}`; grants não usam BusinessAction/PermissionString/OrganizationRoleKey/`users.referral_code`; Slice 1B não alterado; Slice 1C bloqueado; financeiro CRITICAL/3 paralelas; organization não reativada; zero runtime/código/schema/frontend/migration.
 
 **READ-FIRST confirmou 3 vocabulários (não dualidade):** `permission-keys.ts` (`PermissionKey`+`PERMISSION_CAPABILITIES`, contém `can_hold_assets`) · `business-permissions.types.ts` (`BUSINESS_PERMISSION_MAP: Record<BusinessAction, OrganizationRoleKey[]>` — role-map; `import type` only) · `rbac.types.ts` (`PermissionString = ` `${string}:${string}` — template legado de `requirePermission`).
 
 **DECISION-0137 promulga:** (1) `permission-keys.ts` = **SSOT** de capability keys p/ grants; (2) `business-permissions.types.ts` = **role-map**, não registry (não usado pelo 1B; só no 1C se composição decidida); (3) `PermissionString`/`rbac` = **legado/FASE 6**, não authority de grant; (4) grants usam só `actor_id`/`scope_actor_id`/`capability_key` do `permission-keys.ts` (não BusinessAction/PermissionString/OrganizationRoleKey/referral); (5) enforcement 1C só após **decisão de composição de rota**; (6) financeiro CRITICAL fora (3 paralelas); (7) organization não reativada (OrganizationRoleKey type-only).
 
-**DT:** `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` → **IMPLEMENTED_AS_RFC_BASELINE / HOLD YALA** (CLOSED_AS_RFC_BASELINE só no seal pós-Yala). **Slice 1C segue BLOQUEADO** por `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` (OPEN) + decisão de composição de rota. Cutover material = futuro.
+**DT:** `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` → **CLOSED_AS_RFC_BASELINE / YALA PASS** (classificação documental do papel dos 3 vocabulários FECHADA; cutover material = futuro). **Slice 1C segue BLOQUEADO** por `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` (OPEN / PRODUCT_AUTHORITY_DECISION_REQUIRED) + decisão de composição de rota.
 
-**Provas:** `git diff` = 5 .md (DECISION-0137 + execution log + STATUS + DECISIONS_LOG + DT_LOG); arch-patterns --strict critical_new=0.
+**Frase canônica:** "DECISION-0137 fecha a classificação da tri-registry como baseline documental: permission-keys.ts é o SSOT de capability keys para actor grants; business-permissions.types.ts é matriz role→action; PermissionString/rbac é legado/FASE 6 separado. Nenhum enforcement nasce deste RFC."
 
-**NÃO TOCADO:** `permission-keys.ts` · `business-permissions.types.ts` · `rbac.plugin`/`rbac.types` · `requirePermission` · migration/endpoint/enforcement · availability/calendar · frontend · financeiro/`bank_ledger` · votes/organization/contextual-thread · cutover de aliases.
+**Pendências:** decisão de composição de rota (Slice 1C) · cutover material futuro dos vocabulários · UI de checkboxes · financeiro fora / 3 paralelas · operador de agenda (DT-CALENDAR) ainda não decidido.
 
-**Estado:** **IMPLEMENTED / HOLD YALA** (docs-only RFC). dev 391.
+**Estado:** **CLOSED / YALA PASS** (docs-only RFC). dev 391.
 
 ---
 
