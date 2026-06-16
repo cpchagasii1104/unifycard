@@ -10,7 +10,9 @@
 
 **NÃO TOCADO:** `permission-keys.ts` · `business-permissions.types.ts` · `rbac.plugin` · migration · grant service/repository/types/lookup (1A) · availability/calendar · frontend/UI · financeiro/bank_ledger · `users.referral_code` · votes/organization/contextual-thread · enforcement em rota de negócio.
 
-**Estado:** **IMPLEMENTED / HOLD YALA.** Enforcement (1C, após reconciliação tri-registry + decisão) + UI = frentes futuras. dev 391.
+**🟢 R1 (Yala) CLOSED (2026-06-16, F-ACTOR-CAPABILITY-GRANTS-DEV-MIGRATION-MATERIALIZATION):** o substrato não estava aplicado no `unificard_dev` vivo (dev 390; `to_regclass`=NULL; migration `20260616210000` pendente — endpoints dariam 42P01). Aplicada **só** via runner canônico `src/core/db/migrate.ts` (1 pendente, exatamente a alvo): `unificard_dev` agora em **391**; `actor_capability_grants` existe (constraints+índices conferidos; `row_count=0`; `bank_ledger`=0 intocado; PENDING=[]). **Zero código/nova-migration/SQL-manual.** Slice 1B segue HOLD YALA p/ revalidação final.
+
+**Estado:** **IMPLEMENTED / HOLD YALA.** Enforcement (1C, após reconciliação tri-registry + decisão) + UI = frentes futuras. dev 391 (aplicada ao dev vivo).
 
 ---
 

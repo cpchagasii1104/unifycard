@@ -66,6 +66,30 @@ ZERO enforcement em rota de negócio · ZERO `hasCapabilityGrant` em rota · ZER
 ZERO frontend/UI · ZERO `users.referral_code` · ZERO grant global (`scope_type='actor'`) · ZERO delete físico ·
 ZERO votes/organization/contextual-thread.
 
+## R1 (Yala) — DEV MIGRATION MATERIALIZED (2026-06-16, F-ACTOR-CAPABILITY-GRANTS-DEV-MIGRATION-MATERIALIZATION)
+
+Yala apontou no reseal do 1B a **ressalva R1**: o código passou, mas o substrato `actor_capability_grants`
+**não estava aplicado** no `unificard_dev` vivo (`to_regclass`=NULL; migration `20260616210000` ausente de
+`schema_migrations`; dev em 390; endpoints dariam 42P01 fora da DB efêmera).
+
+**Verificação READ-ONLY (antes):** `current_database=unificard_dev`; `schema_migrations`=**390** (col `filename`);
+última aplicada `20260616130000_suppliers_owner_actor_id.sql`; **PENDENTE = exatamente
+`[20260616210000_create_actor_capability_grants.sql]`** (1 só, exatamente a alvo); `to_regclass`=NULL. Nenhum
+STOP disparado (uma pendência, a correta; tabela ausente + não-registrada = consistente).
+
+**Aplicação:** **somente** via runner canônico `src/core/db/migrate.ts` (profile CORE_ONLY) — 1 pendente
+EXECUTADA: `20260616210000_create_actor_capability_grants.sql` (117ms). **Zero SQL manual; zero nova migration;
+zero edição de migration; zero código.**
+
+**Verificação (depois):** `to_regclass('public.actor_capability_grants')`=**actor_capability_grants** (existe);
+`schema_migrations` contém `20260616210000`; dev count = **391**; **PENDING=[]**; `row_count=0` (sem backfill);
+constraints `chk_acg_capability_nonfinancial`/`chk_acg_scope_type`/`chk_acg_status` + 5 FKs + pkey; índices
+`uidx_actor_capability_grants_active` (unique parcial) + `idx_..._grantee` + `idx_..._scope`; **`bank_ledger`=0
+(intocado)**. 4 gates verdes (actor-writer · bank-ledger · regression-guards · arch critical_new=0).
+
+**Resultado:** **R1 CLOSED** — endpoints 1B não têm mais risco 42P01 por ausência da tabela no dev vivo. Zero
+código alterado; Slice 1B permanece **IMPLEMENTED / HOLD YALA** até a revalidação final da Yala.
+
 ## Estado
 
 **IMPLEMENTED / HOLD YALA.** Fecha SÓ como **F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B**: 3 endpoints de gestão
