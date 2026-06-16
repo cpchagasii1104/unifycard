@@ -1,16 +1,20 @@
-## 2026-06-16 — F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING · IMPLEMENTED / HOLD RESEAL
+## 2026-06-16 — F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING · CLOSED / YALA PASS
 
-**Branch:** `rescue-structural` · **parent `2173d60c`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. Fix material de **autoridade (DECISION-0113), não-financeiro**, escopo local. Corrige o **write-authorship-spoof** das transições de estado de service-order (`DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF` → **CLOSED**). Execução: `docs/03_execution_log/20260616_F_SERVICE_ORDER_WRITE_AUTHORSHIP_BINDING.md`.
+**Branch:** `rescue-structural` · **commit material `c53330e0`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (READ-ONLY, 2026-06-16). Fix material de **autoridade (DECISION-0113), não-financeiro**, escopo local. Corrige o **write-authorship-spoof** das transições de estado de service-order (`DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF` → **CLOSED** para os 5 writes não-financeiros). Execução: `docs/03_execution_log/20260616_F_SERVICE_ORDER_WRITE_AUTHORSHIP_BINDING.md` (seção YALA RESEAL — PASS).
 
 **Achado:** `service-order.routes.ts` passava `actionContext.actorId` como AMBOS `*ByActorId` E `*ByUserId` nos 5 writes não-financeiros (confirm/start/complete/cancel/buyer-confirm) → autoria forjável + gate de serviço (`canActAs`) alimentado com actor-UUID no lugar do userId. **Fix:** helper `bindOrderWriteActor` (route layer, espelha `assertOrderParty` do read F6.5.6a) — `req.user.userId` REAL (401) + `actionContext.actorId` (400) + actor declarado PARTE (`customer|worker`, senão 403 não-leak) + `canRepresentActor` (senão 403); grava `*ByActorId=bound.actorId` e `*ByUserId=bound.userId` REAL; 403 honesto ANTES do write. Regra fina "só customer confirma" do buyer-confirm preservada (defesa em profundidade). **Regularização adjacente:** `service_order:confirm_completion` (referenciado `as any`, ausente do mapa canônico → 500 latente pré-existente em todo buyer-confirm) **registrado** em `permission-keys.ts` com capability `null` (idêntico aos irmãos `service_order:*`); `as any` removido — **NÃO** ativa RBAC/FASE 6.
 
 **Provas:** tsc build 25/strict 43 (baseline); guard `audit-service-order-write-authorship-binding.mjs` na chain regression-guards GATE OK; neg-proof **5 mordidas** + restauração byte-idêntica SHA256; e2e efêmero **22/22** (12 comportamentais incl. todos os spoof→403 + Bank intocado; 6 estruturais); 4 gates (actor-writer · bank-ledger · regression-guards rc=0 · arch-patterns critical_new=0). Read e2e F6.5.6a C6 atualizado (writes BINDADOS).
 
-**Resíduo CONSCIENTE (NÃO fechado):** `confirm-financial-terms` (FINANCEIRO/split, 503) segue com a conflação — documentado no código; frente financeira própria (3 paralelas).
+**Aceite específico (Yala/IA Diretora):** a regularização de `service_order:confirm_completion` em `permission-keys.ts` foi **ACEITA** como correção de vocabulário canônico **já referenciado** pelo service (capability `null`, sem ativar RBAC/FASE 6).
 
-**NÃO TOCADO:** Bank/Core/`bank_ledger`/payout/split/recovery/payment exec/invoice/AP-AR · migration · schema · RLS/RBAC tables · `confirm-booking` · create direto (403) · frontend.
+**Ressalvas NÃO bloqueantes (carregadas como futuras):** (1) `confirm-financial-terms` permanece conflado **por design** (FINANCEIRO/split, 503) → frente financeira própria com **3 paralelas READ-ONLY**; **NÃO fechar**. (2) `service-bundle` write-authorship = superfície IRMÃ pré-existente com padrão semelhante → frente futura **F-SERVICE-BUNDLE-WRITE-AUTHORSHIP-BINDING** (`DT-SERVICE-BUNDLE-WRITE-AUTHORSHIP-SPOOF` OPEN); **não bloqueia** este fechamento.
 
-**Estado:** **IMPLEMENTED / HOLD RESEAL** — aguarda reseal Yala. dev 390.
+**Provas (reseladas):** tsc build 25 / strict 43 (baseline); guard `audit-service-order-write-authorship-binding.mjs` na chain regression-guards GATE OK; neg-proof **5 mordidas** + restauração byte-idêntica SHA256; e2e efêmero **22/22** (spoof→403, estado inalterado, **Bank intocado**); 4 gates (actor-writer · bank-ledger · regression-guards rc=0 · arch-patterns critical_new=0).
+
+**NÃO TOCADO:** Bank/Core/`bank_ledger`/payout/split/recovery/payment exec/invoice/AP-AR · migration · schema · RLS/RBAC tables · `confirm-booking` · create direto (403) · `service-bundle` · `confirm-financial-terms` · frontend.
+
+**Estado:** **CLOSED / YALA PASS** — selado docs-only. dev 390.
 
 ---
 

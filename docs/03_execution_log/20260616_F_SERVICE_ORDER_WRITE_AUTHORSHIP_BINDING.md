@@ -69,8 +69,29 @@ banco · RLS/RBAC tables/FASE 6 · `confirm-booking` · create direto (403) · `
 
 ## Estado
 
-**IMPLEMENTED / HOLD RESEAL.** Fecha SÓ como **F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING**: os 5 writes
+**CLOSED / YALA PASS.** Fecha SÓ como **F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING**: os 5 writes
 não-financeiros de service-order bindam a autoria ao actor representável e parte (canRepresentActor),
 gravam o userId REAL, e rejeitam spoof com 403 honesto sem write parcial; `service_order:confirm_completion`
 regularizado no mapa canônico; resíduo financeiro documentado. `DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF`
-→ CLOSED. dev 390. **Aguarda reseal Yala.**
+→ CLOSED. dev 390.
+
+## YALA RESEAL — PASS (2026-06-16, READ-ONLY)
+
+- **Veredito:** **PASS** (reseal READ-ONLY). Commit material `c53330e0` · branch `rescue-structural` · dev 390.
+- **Confirmado:** os 5 writes não-financeiros (confirm/start/complete/cancel/buyer-confirm) bindados —
+  `actionContext.actorId` não é mais authority crua; actor declarado precisa ser **PARTE** da ordem
+  **E** representável (`canRepresentActor`); `req.user.userId` REAL usado como userId; `*ByActorId`
+  grava actor validado, `*ByUserId` grava user real; **403 ANTES do write, sem write parcial**;
+  e2e **22/22**; guard **GATE OK**; negative-proof **morde** (5 mordidas + SHA256 byte-idêntico);
+  **4 gates verdes**; **Bank intocado**.
+- **Aceite específico:** a regularização de `service_order:confirm_completion` em `permission-keys.ts`
+  (capability `null`) foi **ACEITA** como correção de vocabulário canônico **já referenciado** pelo
+  service — **sem ativar RBAC/FASE 6**.
+- **Ressalvas NÃO bloqueantes (carregadas como futuras):**
+  1. `confirm-financial-terms` permanece conflado **por design** (FINANCEIRO/split, 503) → frente
+     financeira própria com **3 paralelas READ-ONLY**; **NÃO fechar**.
+  2. `service-bundle` write-authorship = superfície IRMÃ pré-existente (mesmo padrão) → frente futura
+     **F-SERVICE-BUNDLE-WRITE-AUTHORSHIP-BINDING** (`DT-SERVICE-BUNDLE-WRITE-AUTHORSHIP-SPOOF` OPEN);
+     **não bloqueia** este fechamento.
+- **Selo:** commit docs-only `docs: seal service-order write authority binding`. Estado final:
+  **CLOSED / YALA PASS**.
