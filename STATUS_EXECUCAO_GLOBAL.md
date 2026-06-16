@@ -1,3 +1,21 @@
+## 2026-06-16 — F-AUTHORITY-PERMISSIONS-CLOSURE-BASELINE · CLOSED (docs-only baseline)
+
+**Branch:** `rescue-structural` · **HEAD `957aeb32`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). Fechamento **documental** da família authority/permissões. Promulga **DECISION-0134** (`docs/02_decisions/DECISION_0134_ACTOR_REFERRAL_CAPABILITY_GRANTS_BASELINE.md`). Execução: `docs/03_execution_log/20260616_F_AUTHORITY_PERMISSIONS_CLOSURE_BASELINE.md`. **NADA material tocado.**
+
+**Conformidade 07 (chave da frente):** matriz rendida na forma canônica **`domain:action`** (colon snake_case) — alinhada ao `permission-keys.ts` vivo + 07 §4.74; **proibido trilho paralelo pontilhado** (07 §3). Grafia final + reconciliação `finance:`↔`financial:` deferidas a `SSOT_REGISTRY→07→RFC` (§3.2). Baseline ≠ enforcement.
+
+**DECISION-0134 promulga:** (1) **código de indicação = chave humana de lookup do actor** (não authority; não substitui actor_id/canRepresentActor; permissão concedida ao actor_id resolvido); (2) cargos = templates de capabilities, não fonte primária; (3) **matriz inicial de capabilities** (17 domínios) baseline expansível; (4) classes de risco LOW/MEDIUM/HIGH/CRITICAL (financeiro CRITICAL — checkbox não move dinheiro; 3 paralelas).
+
+**Estado da família (consolidado):** **CLOSED nesta rodada** — service-order WA · service-bundle WA · votes containment · contextual-thread containment · organization containment · suppliers/PO owner · contacts containment · 0131-wave seal. **OPEN controlado** — votes/contextual-thread/organization (schema/binding/eligibility) · organizers unmounted · human-mvp triagem · containment campaign (reports/automation/agreements/business-audit/system-notifications) · financeiro (payout/split/recovery/confirm-financial-terms) · **implementação runtime de grants** · UI de permissões · cargos/templates.
+
+**Provas:** `git diff` = só docs (DECISION-0134 + decisions log + STATUS + execution log); arch-patterns --strict critical_new=0.
+
+**NÃO TOCADO:** código/runtime/migration/schema · ativação votes/contextual-thread/organization · organizers · human-mvp · grants/RBAC/FASE 6/RLS · código de indicação (resolver/tabela/UI) · financeiro/Bank/ledger · frontend.
+
+**Estado:** **CLOSED (docs-only baseline).** Implementação runtime de grants = nova frente futura (gated, pós-RFC). dev 390.
+
+---
+
 ## 2026-06-16 — F-ORGANIZATION-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT · CLOSED / YALA PASS
 
 **Branch:** `rescue-structural` · **commit material `fb262919`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (READ-ONLY, 2026-06-16). Contenção (NÃO binding) do módulo `organization`, **montado** mas dependente de tabelas inexistentes (schema ghost; `organization_members` é **tombstone**). **A CONTENÇÃO está CLOSED; a RAIZ organization (schema ghost) permanece OPEN; organization NÃO foi ativado; schema NÃO foi criado; `organization_members` (tombstone) NÃO foi ressuscitada.** Execução: `docs/03_execution_log/20260616_F_ORGANIZATION_SCHEMA_GHOST_FAIL_CLOSED_CONTAINMENT.md` (seção YALA RESEAL — PASS).

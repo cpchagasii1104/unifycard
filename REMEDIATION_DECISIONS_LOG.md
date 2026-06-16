@@ -7153,3 +7153,24 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** nenhuma (preenche a lacuna deferida por DECISION-0116; complementa DECISION-0131/PO owner).
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0133_SUPPLIERS_COMPANY_OWNED_OWNER_ACTOR_ID.md` · `DECISION-0116` (classificação+deferral) · `DECISION-0131`/`F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING` (precedente owner_actor_id) · `DECISION-0113` (canRepresentActor) · `DECISION-0115 D1` (tenant compartilhado) · `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` · `DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT` (RLS inert) · suppliers schema vivo (tenant_id+created_by_actor_id+created_by_user_id; sem owner; row_count=0).
+
+---
+
+## DECISION-0134 — Actor referral como lookup + baseline de capability grants
+
+- **Data:** 2026-06-16
+- **Tipo:** arquitetural / autoridade / baseline (DOCS-ONLY)
+- **Frente:** F-AUTHORITY-PERMISSIONS-CLOSURE-BASELINE · **HEAD:** `957aeb32` · **dev:** 390 (sem migration)
+- **Contexto:** fechamento documental da família authority/permissões após a rodada DECISION-0113/write-authorship + containments schema-ghost (service-order/service-bundle CORRIGIDOS; votes/contextual-thread/organization CONTIDOS). Necessidade: promulgar (a) o papel do código de indicação, (b) o modelo de autoridade, (c) uma matriz inicial de capabilities — **respeitando `07_NOMENCLATURA_CANONICA`**.
+- **Decisão:**
+  1. **Código de indicação = chave humana de lookup do actor** (não pertence a CPF/CNPJ; CPF/CNPJ originam N actors; único por actor; localiza o actor; **NÃO** é authority; **NÃO** substitui `actor_id` nem `canRepresentActor`). Permissão é concedida ao `actor_id` resolvido. Frase canônica: *"O código de indicação é uma chave humana de acoplamento ao actor; a autoridade continua sendo actor_id + grants + canRepresentActor/delegação/owner derivado."*
+  2. **Cargos/funções = templates de capabilities**, não a fonte primária; verdade primária = `actor_id` + grants.
+  3. **Matriz inicial de capabilities** (17 domínios) promulgada como **BASELINE conceitual expansível**, na **forma canônica `domain:action`** (colon, snake_case) — alinhada ao `permission-keys.ts` vivo e ao 07 §4.74 (`scope` `read:users`). **Proibido** vocabulário pontilhado paralelo (07 §3). Classes de risco LOW/MEDIUM/HIGH/CRITICAL; financeiro = CRITICAL (checkbox não move dinheiro; exige Bank/ledger/idempotência/locks/3 paralelas).
+- **Conformidade 07 (chave da frente):** forma `domain:action` adotada; mapeamento determinístico de nomes pontilhados (`inventory.stock_in.approve`→`inventory:stock_in_approve`); por **§3.2** (nenhum nome nasce no doc/código e é ratificado depois), a **grafia final** das chaves + a **reconciliação `finance:`↔`financial:`** (vivo em permission-keys.ts) ficam para `SSOT_REGISTRY → 07 → RFC` na frente de implementação. Baseline ≠ enforcement.
+- **Escolha:** baseline docs-only; sem ativar grants/RBAC/UI/código de indicação.
+- **Consequências esperadas:** curto prazo nenhuma (docs-only); médio prazo nova frente de **implementação runtime de grants** (tabela de grants contra `actor_id`, resolver de código de indicação, enforcement) + UI de checkboxes + templates de cargo — todas gated, pós-RFC de nomenclatura.
+- **NÃO decidido:** implementação de grants · resolver/tabela do referral · UI · cargos/role system · ativação votes/contextual-thread/organization · montagem organizers · grafia final SSOT_REGISTRY das chaves · `move_money` · RBAC/FASE 6 · RLS · migration/schema · frontend.
+- **Responsável:** Clayton / IA Diretora (executor: Claude). **Validação prévia:** Clayton.
+- **Supera:** nenhuma (consolida/baseline; complementa DECISION-0113/0131).
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0134_ACTOR_REFERRAL_CAPABILITY_GRANTS_BASELINE.md` · `07_NOMENCLATURA_CANONICA` (§3, §4.74) · `permission-keys.ts` · `DECISION-0113`/`DECISION-0131` · execution logs da rodada · `DECISION-0133`.
