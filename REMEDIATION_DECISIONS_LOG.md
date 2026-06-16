@@ -7216,3 +7216,26 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Superada por:** —
 - **🟢 RESEAL YALA = PASS (2026-06-16, adversarial READ-ONLY).** Commit material `1e61c83b`. Yala confirmou: Slice 1A não alterou autoridade de negócio; zero rota com enforcement; zero endpoint HTTP; availability/calendar intocado; grants por actor_id; lookup por `actors.slug` (`users.referral_code` proibido/ausente); slug sem unicidade mitigado por resolver fail-closed em ambiguidade; financeiro/bank_ledger fora; `permission-keys.ts`/`business-permissions.types.ts`/ghost intocados; guard/e2e 13/13/neg-proof 5-mordidas OK; `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` OPEN. **Warnings:** W1 `services:create/edit/disable` da allowlist ainda NÃO existem em `permission-keys.ts` — reconciliar no SSOT vivo antes de enforcement. W2 o CHECK de `capability_key` é trava defensiva temporária, NÃO registry/SSOT; expandir allowlist = nova migration. Estado: **CLOSED / YALA PASS**.
 - **Referências:** `docs/02_decisions/DECISION_0136_ACTOR_CAPABILITY_GRANTS_SUBSTRATE.md` · `actor_capability_grants` (mig 20260616210000) · `modules/authority/actor-capability-grant.*` · `DECISION-0134`/`0135`/`0113`/`0126` · `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`.
+
+---
+
+## DECISION-0137 — RFC da tri-registry de permissões (papel canônico de cada vocabulário)
+
+- **Data:** 2026-06-16
+- **Tipo:** arquitetural / autoridade / RFC (DOCS-ONLY · IMPLEMENTED / HOLD YALA)
+- **Frente:** F-PERMISSION-TRI-REGISTRY-RFC · **HEAD:** `fad9a854` · **dev:** 391 (sem migration)
+- **Contexto:** o Slice 1C (enforcement de grant em rota) estava bloqueado pela `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION`. READ-FIRST 1ª mão confirmou **três** vocabulários vivos de permissão (sem dualidade simples): `permission-keys.ts` (`PermissionKey`+`PERMISSION_CAPABILITIES`, contém `can_hold_assets`), `business-permissions.types.ts` (`BUSINESS_PERMISSION_MAP: Record<BusinessAction, OrganizationRoleKey[]>` — role-map; `import type` only), `rbac.types.ts` (`PermissionString = ` + "`${string}:${string}`" + ` — template legado usado por requirePermission).
+- **Decisão:**
+  1. `permission-keys.ts` = **SSOT canônico** de capability keys para `actor_capability_grants`.
+  2. `business-permissions.types.ts` = **matriz role→action/contexto**, NÃO registry; não usado pelo Slice 1B; só no 1C se a composição for decidida.
+  3. `PermissionString`/`rbac` = **legado/FASE 6 separado**; NÃO alimenta grants; NÃO é authority de grant; alinhamento = frente própria.
+  4. Grants usam `actor_id`/`scope_actor_id`/`capability_key` do `permission-keys.ts` + allowlist não-financeira; NÃO usam BusinessAction/PermissionString/OrganizationRoleKey/`users.referral_code`.
+  5. Enforcement 1C só após **decisão de composição de rota** (owner + canRepresentActor + grant + role-map/requirePermission se aplicável).
+  6. Financeiro CRITICAL fora (3 paralelas); 7. organization NÃO reativada (OrganizationRoleKey type-only).
+- **NÃO muda runtime:** zero arquivo material alterado; zero endpoint/enforcement; Slice 1B intacto.
+- **Escolha:** RFC docs-only; classificação canônica + bloqueio explícito do 1C promulgados como baseline.
+- **NÃO decidido:** cutover material dos vocabulários; composição de rota do 1C; owner-only de agenda (DT-CALENDAR).
+- **Responsável:** Clayton / IA Diretora (executor: Claude). **Validação prévia:** Clayton.
+- **Supera:** nenhuma (resolve a classificação da `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` como baseline).
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0137_PERMISSION_TRI_REGISTRY_RFC.md` · `permission-keys.ts` · `business-permissions.types.ts` · `rbac.types.ts` · `DECISION-0134`/`0135`/`0136` · `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` · `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`.

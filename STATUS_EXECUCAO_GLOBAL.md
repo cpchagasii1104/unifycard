@@ -1,3 +1,21 @@
+## 2026-06-16 — F-PERMISSION-TRI-REGISTRY-RFC · IMPLEMENTED / HOLD YALA (docs-only RFC)
+
+**Branch:** `rescue-structural` · **HEAD `fad9a854`** · **dev 391 (ZERO migration)** · MODO EXECUTOR (docs-only). RFC que define o papel canônico dos **três** vocabulários de permissão vivos antes do Slice 1C. Promulga **DECISION-0137** (`docs/02_decisions/DECISION_0137_PERMISSION_TRI_REGISTRY_RFC.md`). Execução: `docs/03_execution_log/20260616_F_PERMISSION_TRI_REGISTRY_RFC.md`. **NADA material tocado.**
+
+**READ-FIRST confirmou 3 vocabulários (não dualidade):** `permission-keys.ts` (`PermissionKey`+`PERMISSION_CAPABILITIES`, contém `can_hold_assets`) · `business-permissions.types.ts` (`BUSINESS_PERMISSION_MAP: Record<BusinessAction, OrganizationRoleKey[]>` — role-map; `import type` only) · `rbac.types.ts` (`PermissionString = ` `${string}:${string}` — template legado de `requirePermission`).
+
+**DECISION-0137 promulga:** (1) `permission-keys.ts` = **SSOT** de capability keys p/ grants; (2) `business-permissions.types.ts` = **role-map**, não registry (não usado pelo 1B; só no 1C se composição decidida); (3) `PermissionString`/`rbac` = **legado/FASE 6**, não authority de grant; (4) grants usam só `actor_id`/`scope_actor_id`/`capability_key` do `permission-keys.ts` (não BusinessAction/PermissionString/OrganizationRoleKey/referral); (5) enforcement 1C só após **decisão de composição de rota**; (6) financeiro CRITICAL fora (3 paralelas); (7) organization não reativada (OrganizationRoleKey type-only).
+
+**DT:** `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` → **IMPLEMENTED_AS_RFC_BASELINE / HOLD YALA** (CLOSED_AS_RFC_BASELINE só no seal pós-Yala). **Slice 1C segue BLOQUEADO** por `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` (OPEN) + decisão de composição de rota. Cutover material = futuro.
+
+**Provas:** `git diff` = 5 .md (DECISION-0137 + execution log + STATUS + DECISIONS_LOG + DT_LOG); arch-patterns --strict critical_new=0.
+
+**NÃO TOCADO:** `permission-keys.ts` · `business-permissions.types.ts` · `rbac.plugin`/`rbac.types` · `requirePermission` · migration/endpoint/enforcement · availability/calendar · frontend · financeiro/`bank_ledger` · votes/organization/contextual-thread · cutover de aliases.
+
+**Estado:** **IMPLEMENTED / HOLD YALA** (docs-only RFC). dev 391.
+
+---
+
 ## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B · CLOSED / YALA PASS
 
 **Branch:** `rescue-structural` · **commit material `9a4df379`** · **dev 391 (substrato aplicado ao dev vivo)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS INTEGRAL** (após R1 CLOSED, 2026-06-16). Endpoints HTTP de **gestão** de actor capability grants sobre o substrato do Slice 1A (DECISION-0136). **NENHUM enforcement em rota de negócio.** Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_ENDPOINTS_SLICE_1B.md` (seção YALA RESEAL — PASS).
