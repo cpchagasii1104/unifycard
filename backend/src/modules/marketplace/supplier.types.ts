@@ -4,7 +4,9 @@
 /**
  * Status do fornecedor
  */
-export type SupplierStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+// 🔴 F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH: alinhado ao CHECK físico `suppliers_status_check`
+// ((status = ANY (ARRAY['active','inactive']))). lowercase canônico; 'SUSPENDED' não existe no DB.
+export type SupplierStatus = 'active' | 'inactive';
 
 /**
  * Fornecedor

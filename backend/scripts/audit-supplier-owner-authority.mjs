@@ -60,6 +60,16 @@ if (mig) {
 // (h) repository expõe owner_actor_id
 must(/owner_actor_id/.test(repo) && /ownerActorId/.test(repo), 'repository não persiste/lê owner_actor_id');
 
+// (i) F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH: status alinhado ao CHECK físico (lowercase active/inactive).
+const types = read(join(MK, 'supplier.types.ts'));
+const typesCode = types.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''); // sem comentários
+must(/SupplierStatus\s*=\s*'active'\s*\|\s*'inactive'/.test(typesCode), "SupplierStatus deve ser 'active' | 'inactive' (lowercase canônico; sem ACTIVE/INACTIVE/SUSPENDED)");
+must(!/'ACTIVE'|'INACTIVE'|'SUSPENDED'/.test(typesCode), 'supplier.types.ts não pode conter status uppercase/legado (ACTIVE/INACTIVE/SUSPENDED) no código');
+must(/normalizeSupplierStatus/.test(service), 'service deve normalizar status (normalizeSupplierStatus)');
+must(!/status:\s*input\.status\s*\|\|\s*'ACTIVE'/.test(service), "service não pode usar default 'ACTIVE' uppercase (CHECK físico é lowercase)");
+must(/return 'active'/.test(service), "normalizeSupplierStatus deve ter default canônico 'active'");
+must(!/createSupplier[\s\S]{0,400}status:\s*'ACTIVE'/.test(service), 'service não pode persistir status uppercase no create');
+
 if (failures.length) {
   console.error('GATE FAIL [supplier-owner-authority]:');
   for (const f of failures) console.error('  - ' + f);

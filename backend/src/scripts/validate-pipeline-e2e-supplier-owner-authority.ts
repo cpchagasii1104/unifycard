@@ -80,9 +80,9 @@ async function main(): Promise<void> {
   const asAlice = () => { CURRENT_USER = alice.userId; CURRENT_AC = { actorId: alice.actorId, actingUserId: alice.userId }; };
   const asBob = () => { CURRENT_USER = bob.userId; CURRENT_AC = { actorId: bob.actorId, actingUserId: bob.userId }; };
   const asCarol = () => { CURRENT_USER = carol.userId; CURRENT_AC = { actorId: carol.actorId, actingUserId: carol.userId }; };
-  // status='active' (minúsculo) p/ casar o CHECK pré-existente suppliers_status_check (mismatch latente
-  // type 'ACTIVE' vs CHECK 'active' — orgânico/pré-existente, FORA do escopo de ownership desta frente).
-  const create = (ownerActorId: string, name = 'Fornecedor') => app.inject({ method: 'POST', url: '/suppliers', headers: { 'content-type': 'application/json' }, payload: JSON.stringify({ name, ownerActorId, status: 'active' }) });
+  // F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH: create SEM status explícito → default canônico 'active' (CHECK físico).
+  const create = (ownerActorId: string, name = 'Fornecedor') => app.inject({ method: 'POST', url: '/suppliers', headers: { 'content-type': 'application/json' }, payload: JSON.stringify({ name, ownerActorId }) });
+  const createStatus = (ownerActorId: string, status: string) => app.inject({ method: 'POST', url: '/suppliers', headers: { 'content-type': 'application/json' }, payload: JSON.stringify({ name: 'StatusTest', ownerActorId, status }) });
   const st = (r: any) => r.statusCode;
   const j = (r: any) => { try { return JSON.parse(r.body); } catch { return null; } };
 
@@ -91,9 +91,9 @@ async function main(): Promise<void> {
     asAlice();
     const r1 = await create(coA.pageActorId, 'Fornecedor A1');
     const s1 = j(r1);
-    record('T1 create owner=empresa(page) representável → 201; ownerActorId=page-actor A; created_by=Alice',
-      st(r1) === 201 && s1?.ownerActorId === coA.pageActorId && s1?.createdByActorId === alice.actorId,
-      `status=${st(r1)} owner=${s1?.ownerActorId} createdBy=${s1?.createdByActorId}`);
+    record('T1 create SEM status → 201; ownerActorId=page-actor A; created_by=Alice; status=active (default canônico)',
+      st(r1) === 201 && s1?.ownerActorId === coA.pageActorId && s1?.createdByActorId === alice.actorId && s1?.status === 'active',
+      `status=${st(r1)} owner=${s1?.ownerActorId} createdBy=${s1?.createdByActorId} st=${s1?.status}`);
     const supA = s1?.id;
 
     // T2 — Alice spoofa owner=empresa B (que ela NÃO representa) → 403.
@@ -142,6 +142,20 @@ async function main(): Promise<void> {
 
     // T10 — supplier_id (PK)/tenant não são owner: a authority é só owner_actor_id (já provado por T7b/T8/T9).
     record('T10 owner_actor_id é a ÚNICA authority (created_by/tenant/supplier_id não autorizam)', true);
+
+    // ── F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH ──────────────────────────────────────────
+    asAlice();
+    const rStA = await createStatus(coA.pageActorId, 'active');
+    record('T11 create status="active" → 201; persiste active', st(rStA) === 201 && j(rStA)?.status === 'active', `status=${st(rStA)} st=${j(rStA)?.status}`);
+    const rStI = await createStatus(coA.pageActorId, 'inactive');
+    record('T12 create status="inactive" → 201; persiste inactive', st(rStI) === 201 && j(rStI)?.status === 'inactive', `status=${st(rStI)} st=${j(rStI)?.status}`);
+    const rStUpper = await createStatus(coA.pageActorId, 'ACTIVE');
+    record('T13 create status="ACTIVE" (uppercase) → 201 NORMALIZADO p/ active', st(rStUpper) === 201 && j(rStUpper)?.status === 'active', `status=${st(rStUpper)} st=${j(rStUpper)?.status}`);
+    const rStBad = await createStatus(coA.pageActorId, 'pending');
+    record('T14 create status inválido ("pending") → rejeitado (não 201; não vaza 42P01/CHECK)', st(rStBad) !== 201, `status=${st(rStBad)}`);
+    // Catálogo: nenhum status uppercase persistido.
+    const upperRows = (await pool.query<{ n: number }>(`SELECT count(*)::int n FROM suppliers WHERE status NOT IN ('active','inactive')`)).rows[0].n;
+    record('T15 zero suppliers persistidos fora de {active,inactive}', upperRows === 0, `fora=${upperRows}`);
   } finally {
     await app.close();
   }

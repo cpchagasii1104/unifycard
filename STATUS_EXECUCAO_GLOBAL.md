@@ -1,3 +1,15 @@
+## 2026-06-16 — F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH: alinha status de suppliers ao CHECK físico lowercase (runtime/types, ZERO migration) · IMPLEMENTED/HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `d8bf869b`** · **dev 390 (ZERO migration — DB já correto)** · MODO EXECUTOR (ultracode, escopo pequeno/local). Resolve a ressalva R2 (Yala) da frente anterior. Execução: `docs/03_execution_log/20260616_F_SUPPLIERS_STATUS_ENUM_CASE_MISMATCH.md`.
+
+**Causa (pré-existente, exposta ao energizar suppliers):** `suppliers_status_check` (DB) = `status IN ('active','inactive')` (lowercase) — **DB correto**; mas `SupplierStatus` (type) era `'ACTIVE'|'INACTIVE'|'SUSPENDED'` e `supplierService` default `input.status || 'ACTIVE'` → POST /suppliers sem status violava o CHECK (500). DB column default já era `'active'`.
+
+**Correção (runtime/types only):** `SupplierStatus = 'active' | 'inactive'`; helper `normalizeSupplierStatus` (ausente→'active'; `'ACTIVE'`→normalizado 'active'; inválido→rejeitado falha honesta); default no create = 'active'; filtro de list normalizado p/ lowercase. **CHECK físico NÃO alterado** (já correto; nenhuma migration). **owner_actor_id / canRepresentActor / created_by(audit) / tenant(escopo) PRESERVADOS.**
+
+**Provas:** backend typecheck **25** (0 atribuível) · e2e efêmero **17/17** (12 owner-authority SEM regressão + T1 create sem status→active + T11 active + T12 inactive + T13 'ACTIVE'→normalizado + T14 inválido rejeitado + T15 zero uppercase persistido) · guard `audit-supplier-owner-authority.mjs` estendido (status lowercase/normalização) GATE OK · neg-proof **8 mordidas** byte-idêntico (incl. status-uppercase) · actor-writer/bank-ledger OK · regression rc=0 · arch `--strict` critical_new=0. **DT-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH → CLOSED.** **Escopo negativo:** ZERO migration · ZERO owner_actor_id/DECISION-0133/AP/PO/contacts/Bank/Core/RLS/RBAC/delegação. **Arquivos:** `supplier.types.ts` · `supplier.service.ts` · e2e/guard/neg-proof estendidos. **Fecha SÓ como:** F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH. **IMPLEMENTED / HOLD PARA RESEAL.**
+
+---
+
 ## 2026-06-16 — F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING: materializa DECISION-0133 (suppliers company-owned via owner_actor_id) — schema+runtime+authority · IMPLEMENTED/HOLD RESEAL
 
 **Branch:** `rescue-structural` · **parent `7e13fb5c`** · **dev 389→390** (migration `20260616130000_suppliers_owner_actor_id.sql`) · MODO EXECUTOR (ultracode). Materializa **DECISION-0133**. Execução: `docs/03_execution_log/20260616_F_SUPPLIERS_OWNER_ACTOR_SCHEMA_WIRING.md`.

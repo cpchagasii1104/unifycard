@@ -6,7 +6,20 @@ import type {
   Supplier,
   CreateSupplierInput,
   SupplierFilters,
+  SupplierStatus,
 } from './supplier.types';
+
+// 🔴 F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH: vocabulário CANÔNICO lowercase, espelha o CHECK físico
+// `suppliers_status_check` ((status = ANY (ARRAY['active','inactive']))). Single source no runtime.
+export const SUPPLIER_STATUSES: readonly SupplierStatus[] = ['active', 'inactive'];
+
+/** Normaliza o status do input p/ o canônico lowercase. Ausente → 'active'. Inválido → erro (falha honesta). */
+export function normalizeSupplierStatus(raw: string | null | undefined): SupplierStatus {
+  if (raw == null || String(raw).trim() === '') return 'active';
+  const v = String(raw).trim().toLowerCase();
+  if ((SUPPLIER_STATUSES as readonly string[]).includes(v)) return v as SupplierStatus;
+  throw new Error(`SUPPLIER_STATUS_INVALID: status deve ser 'active' ou 'inactive' (recebido: ${raw})`);
+}
 
 /**
  * Service para Fornecedores
@@ -38,6 +51,11 @@ class SupplierService {
       throw new Error('SUPPLIER_OWNER_REQUIRED: owner_actor_id (empresa dona) é obrigatório para criar fornecedor');
     }
 
+    // 🔴 F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH: o CHECK físico `suppliers_status_check` aceita só
+    // 'active'/'inactive' (minúsculo). Normalizamos o input para o vocabulário CANÔNICO lowercase (default
+    // 'active' quando ausente); valor fora do canônico é REJEITADO antes de bater no CHECK (falha honesta).
+    const status = normalizeSupplierStatus(input.status);
+
     // Criar fornecedor
     const supplier = await supplierRepository.createSupplier(tenantId, {
       name: input.name.trim(),
@@ -53,7 +71,7 @@ class SupplierService {
       country: input.country?.trim() || null,
       taxId: input.taxId?.trim() || null,
       registrationNumber: input.registrationNumber?.trim() || null,
-      status: input.status || 'ACTIVE',
+      status,
       createdByActorId,
       createdByUserId: createdByUserId || null,
       metadata: input.metadata || {},
@@ -74,7 +92,14 @@ class SupplierService {
    * Lista fornecedores com filtros
    */
   async listSuppliers(tenantId: string, filters: SupplierFilters = {}): Promise<Supplier[]> {
-    return await supplierRepository.listSuppliers(tenantId, filters);
+    // 🔴 F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH: o filtro de status também é canônico lowercase (senão um
+    // ?status=ACTIVE retornaria vazio silenciosamente contra o CHECK físico). Valor inválido → ignorado.
+    const normalized: SupplierFilters = { ...filters };
+    if (normalized.status != null && String(normalized.status).trim() !== '') {
+      const v = String(normalized.status).trim().toLowerCase();
+      normalized.status = (SUPPLIER_STATUSES as readonly string[]).includes(v) ? (v as SupplierStatus) : undefined;
+    }
+    return await supplierRepository.listSuppliers(tenantId, normalized);
   }
 
   /**

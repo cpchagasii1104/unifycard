@@ -12163,18 +12163,21 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ---
 
-## DT-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH — OPEN (residuo pré-existente, 2026-06-16)
+## DT-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH — CLOSED (2026-06-16, F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH)
 
-- **Status:** **OPEN (2026-06-16)** — observado (não introduzido) por F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING.
-  **Não bloqueante; FORA do escopo de ownership.**
-- **Contexto:** mismatch latente pré-existente — `suppliers_status_check` no DB = `status IN ('active','inactive')`
-  (minúsculo, 2 valores), mas `SupplierStatus` (type) = `'ACTIVE'|'INACTIVE'|'SUSPENDED'` e `supplierService` faz
-  default `input.status || 'ACTIVE'` (maiúsculo). Nunca exercitado (row_count era 0). Um POST /suppliers sem `status`
-  bateria 500 (CHECK violado). NÃO corrigido nesta frente (é bug de enum/status, não de ownership; o e2e isola
-  passando `status:'active'`).
-- **Resolução prevista:** frente própria de normalização de status (alinhar type/default/CHECK; decidir se
-  'SUSPENDED' entra). Fora desta frente.
-- **Vinculada a:** `supplier.types.ts`/`supplier.service.ts`/migration de criação de suppliers (`suppliers_status_check`).
+- **Status:** **CLOSED (2026-06-16)** — corrigido por **F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH** (runtime/types only,
+  ZERO migration: o CHECK físico já estava correto). HEAD `d8bf869b`→commit desta frente.
+- **Causa (pré-existente):** `suppliers_status_check` no DB = `status IN ('active','inactive')` (lowercase, 2 valores),
+  mas `SupplierStatus` (type) era `'ACTIVE'|'INACTIVE'|'SUSPENDED'` e `supplierService` fazia default
+  `input.status || 'ACTIVE'` (maiúsculo) → POST /suppliers sem status batia o CHECK (500). Latente (row_count era 0),
+  exposto ao energizar suppliers.
+- **Correção:** alinhado o runtime ao DB canônico lowercase — `SupplierStatus = 'active' | 'inactive'`; helper
+  `normalizeSupplierStatus` (ausente→'active'; 'ACTIVE'/'Active'→'active' normalizado; inválido→rejeitado falha
+  honesta); default no create = 'active'; filtro de list normalizado p/ lowercase. **DB CHECK NÃO alterado** (já
+  correto). Provas: e2e 17/17 (T1 create sem status→active; T11–T15 status canônico/normalização/rejeição; zero
+  uppercase persistido) + guard (+status checks) + neg-proof (8 mordidas, incl. status-uppercase).
+- **NÃO tocado:** owner_actor_id / canRepresentActor / DECISION-0133 / migration / AP / PO / Bank / contacts.
+- **Vinculada a:** `supplier.types.ts`/`supplier.service.ts`; `suppliers_status_check` (DB, intocado).
 
 ---
 
