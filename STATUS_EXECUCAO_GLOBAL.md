@@ -1,3 +1,21 @@
+## 2026-06-16 — F-VOTES-WRITES-EXPLICIT-FAIL-CLOSED-CONTAINMENT · IMPLEMENTED / HOLD RESEAL
+
+**Branch:** `rescue-structural` · **parent `8c113dc3`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. Subfrente derivada de **STOP**: o GO `F-WRITE-AUTHORSHIP-VOTES-MODULE-BINDING` pediu binding dos writes de `votes`, mas o **READ-FIRST contradisse a premissa** — os writes não estão vivos. Decisão IA Diretora: **conter fail-closed, NÃO religar**. Execução: `docs/03_execution_log/20260616_F_VOTES_WRITES_EXPLICIT_FAIL_CLOSED_CONTAINMENT.md`.
+
+**Achado (módulo `votes` DUPLAMENTE MORTO):** (1) `req.activeActor` nunca é populado em todo `backend/src` (único leitor = `votes.routes.ts`; zero escritor) → 4 writes caíam em 401 enganoso; (2) **schema ghost** — tabelas `votes`/`vote_options`/`vote_responses` não existem em nenhuma migration canônica (`to_regclass=NULL`, só `group_vote_*`). O spoof do GO não era alcançável.
+
+**Patch (contenção):** os 4 writes (`POST /votes` · `/:id/publish` · `/:id/vote` · `/:id/close`) → **501 `VOTES_ACTIVE_ACTOR_WIRING_MISSING`**, ZERO chamada ao `votesService`, ZERO escrita, curto-circuito antes do DB. `actionContext.actorId` removido. Reads + `votes.service` intocados.
+
+**Provas:** tsc build 25/strict 43 (baseline); guard `audit-votes-writes-containment.mjs` na chain regression-guards GATE OK; neg-proof **3 mordidas** + SHA256 byte-idêntico; e2e efêmero **11/11** (S0 schema-ghost confirmado; 4 writes→501; T5 não-500; Bank intocado; 4 estruturais); 4 gates (actor-writer · bank-ledger · regression-guards rc=0 · arch-patterns critical_new=0).
+
+**DTs:** DT-VOTES-ACTIVE-ACTOR-WIRING-MISSING (OPEN/contido) · DT-VOTES-WRITE-AUTHORSHIP-BINDING-LATENT (OPEN/futuro) · DT-VOTES-FINE-GRAINED-ELIGIBILITY-POLICY (OPEN/Clayton). **Religação + elegibilidade fina = frentes próprias.**
+
+**NÃO TOCADO:** religação · `resolveActiveActorFromRequest` · ativação de votação · migration/schema · `votes.service` · reads · groups-votes/organizers/social-votes · Bank/Core/`bank_ledger`/payout/split/recovery/payment/invoice · RBAC/RLS/FASE 6 · contacts/suppliers/agenda.
+
+**Estado:** **IMPLEMENTED / HOLD RESEAL** — aguarda reseal Yala. dev 390.
+
+---
+
 ## 2026-06-16 — F-SERVICE-BUNDLE-WRITE-AUTHORSHIP-BINDING · CLOSED / YALA PASS
 
 **Branch:** `rescue-structural` · **commit material `380981ea`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (READ-ONLY, 2026-06-16). Fix material de **autoridade (DECISION-0113), não-financeiro**, escopo local — superfície IRMÃ do service-order. Corrige o **write-authorship-spoof** dos 2 writes de service-bundle (`DT-SERVICE-BUNDLE-WRITE-AUTHORSHIP-SPOOF` → **CLOSED** para book/confirm). Execução: `docs/03_execution_log/20260616_F_SERVICE_BUNDLE_WRITE_AUTHORSHIP_BINDING.md` (seção YALA RESEAL — PASS).
