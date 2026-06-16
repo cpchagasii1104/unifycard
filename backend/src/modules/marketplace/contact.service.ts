@@ -3,6 +3,7 @@
 
 import type { AuditEventInput } from '@core/audit/audit.service';
 import { contactRepository } from './contact.repository';
+import { assertContactsFeatureAvailable } from './contact-feature.guard';
 import { normalizeCpf, validateCpf } from '../../utils/cpf.validator';
 import {
   validateTaxId,
@@ -108,6 +109,8 @@ class ContactService {
     createdByActorId: string,
     createdByUserId?: string
   ): Promise<Contact> {
+    // 🔴 F-CONTACTS-SCHEMA-GHOST: fail-closed 501 ANTES do repository quando `contacts` está ausente.
+    await assertContactsFeatureAvailable();
     // Validar nome
     if (!input.name || input.name.trim().length === 0) {
       throw new Error('Nome é obrigatório');
@@ -183,6 +186,8 @@ class ContactService {
     updatedByActorId: string,
     updatedByUserId?: string
   ): Promise<Contact> {
+    // 🔴 F-CONTACTS-SCHEMA-GHOST: fail-closed 501 ANTES do repository quando `contacts` está ausente.
+    await assertContactsFeatureAvailable();
     // Validar nome se fornecido
     if (input.name !== undefined && input.name.trim().length === 0) {
       throw new Error('Nome não pode ser vazio');
@@ -222,6 +227,8 @@ class ContactService {
    * Busca contato por ID
    */
   async getContactById(tenantId: string, contactId: string): Promise<Contact | null> {
+    // 🔴 F-CONTACTS-SCHEMA-GHOST: fail-closed 501 ANTES do repository quando `contacts` está ausente.
+    await assertContactsFeatureAvailable();
     return contactRepository.getContactById(tenantId, contactId);
   }
 
@@ -229,6 +236,8 @@ class ContactService {
    * Busca contato por tax_id
    */
   async getContactByTaxId(tenantId: string, taxId: string): Promise<Contact | null> {
+    // 🔴 F-CONTACTS-SCHEMA-GHOST: fail-closed 501 ANTES do repository quando `contacts` está ausente.
+    await assertContactsFeatureAvailable();
     const normalized = this.normalizeTaxId(taxId);
     if (!normalized) {
       return null;
@@ -243,6 +252,8 @@ class ContactService {
     tenantId: string,
     filters: ContactFilters = {}
   ): Promise<Contact[]> {
+    // 🔴 F-CONTACTS-SCHEMA-GHOST: fail-closed 501 ANTES do repository quando `contacts` está ausente.
+    await assertContactsFeatureAvailable();
     // Normalizar tax_id se fornecido
     if (filters.taxId) {
       filters.taxId = this.normalizeTaxId(filters.taxId) || undefined;
@@ -261,6 +272,8 @@ class ContactService {
     linkedByActorId: string,
     linkedByUserId?: string
   ): Promise<Contact> {
+    // 🔴 F-CONTACTS-SCHEMA-GHOST: fail-closed 501 ANTES do repository quando `contacts` está ausente.
+    await assertContactsFeatureAvailable();
     const contact = await contactRepository.linkUserToContact(tenantId, contactId, userId);
 
     // Registrar auditoria

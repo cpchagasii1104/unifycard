@@ -12122,6 +12122,34 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ---
 
+## DT-CONTACTS-SCHEMA-GHOST — CONTIDO FAIL-CLOSED (2026-06-16); GÊNESE/OWNERSHIP OPEN
+
+- **Status:** **SINTOMA CONTIDO (2026-06-16)** por **F-CONTACTS-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT** ·
+  **GÊNESE/OWNERSHIP segue OPEN** (frente própria futura). HEAD `17f25d66`.
+- **Contexto:** a tabela `contacts` é **schema ghost** — `to_regclass('public.contacts') = NULL` no schema vivo;
+  NÃO há migration viva que a crie (só `migrations_archive/0065_contacts.sql`, archive, NÃO-SSOT). O módulo
+  `contact.{routes,service,repository,types}.ts` existe e o `contact.repository` faz `INSERT/SELECT/UPDATE` em
+  `contacts` → **42P01 / 500 cru**. Callers vivos: rotas `/marketplace/contacts*` + 5 serviços
+  (`fiscal-kyc`, `payment-execution`, `payment-link`, `subscription`, `venue`) — TODOS via `contactService`
+  (funil único; **nenhum** importa `contactRepository` direto).
+- **Contenção (esta frente, code-only):** novo `contact-feature.guard.ts` (`assertContactsFeatureAvailable` →
+  probe `to_regclass`; se ausente lança **`AppError(501, …, 'CONTACTS_SCHEMA_GHOST_CONTAINED')`**) chamado no
+  INÍCIO dos 6 métodos do `contactService` que alcançam o repository → falha **honesta 501** ANTES do SQL, em
+  vez de 42P01/500. Callers internos best-effort (ex.: `payment-execution`) já degradam (try/catch) — sem
+  fallback falso, sem dado fake, sem sucesso mascarado. Guard `audit-contacts-schema-ghost-containment.mjs`
+  (no chain) + neg-proof (4 mordidas) + e2e efêmero 9/9 (501 em todas as superfícies; repository não alcançado).
+- **NÃO feito (escopo proibido honrado):** **ZERO** gênese de contacts · ZERO tabela/migration · ZERO restauração
+  do archive `0065_contacts.sql` · ZERO owner/`owner_actor_id`/`company_id`/`user_id`-as-owner · ZERO CRM genesis ·
+  ZERO Bank/ledger/payout/split/recovery · ZERO suppliers/PDV.
+- **Resolução prevista (GÊNESE = frente própria OPEN):** quando o produto decidir criar `contacts`, será frente
+  própria com **ownership institucional** (migration + design de owner/visibilidade — ver
+  `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` classe D). A gênese remove/ajusta este guard (o probe
+  `to_regclass` passa a verdadeiro e a feature destrava sozinha). Até lá, **fail-closed 501**.
+- **Vinculada a:** `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` (classe D — `contacts` ghost trap,
+  "não restaurar archive"); `migrations_archive/0065_contacts.sql` (archive, não-SSOT).
+
+---
+
 ## DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY — OPEN (2026-06-10)
 
 - **Status:** **OPEN (2026-06-10)** — DT-mãe da frente de isolamento intra-tenant. Promulgada junto de `DECISION-0116` (GO docs-only Clayton/IA Diretora). HEAD `3d8ad25b`.
