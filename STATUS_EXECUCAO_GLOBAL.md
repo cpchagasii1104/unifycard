@@ -1,3 +1,21 @@
+## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-SCHEMA-AND-NONFIN-ENFORCEMENT-SLICE-1 · IMPLEMENTED / HOLD YALA
+
+**Branch:** `rescue-structural` · **parent `127525d2`** · **dev 390→391 (1 migration)** · MODO EXECUTOR. Materializa o substrato de **capability grants por actor** (DECISION-0136). **Slice 1A** (decisão IA Diretora após STOP): schema + service + repository + resolver, **SEM enforcement em rota de negócio**. Não-financeiro. Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_SCHEMA_AND_NONFIN_ENFORCEMENT_SLICE_1.md`.
+
+**STOP que moldou o slice:** `calendar:block` é key DEFINIDA mas NÃO-ROTEADA; a rota viva (`POST /` create-availability) tem gate SELADO DECISION-0113/0118 ("Sem admin escape"). Enforçar grant ali relaxaria invariante selado → IA Diretora escolheu Slice 1A só (substrato; sem enforcement; superfície selada intocada).
+
+**Patch:** migration `20260616210000_create_actor_capability_grants.sql` (tabela grantee_actor_id × capability_key × scope_actor_id; UNIQUE parcial; CHECK scope=actor + allowlist NÃO-financeira) + repository + service (grant/list/revoke + `hasCapabilityGrant` DEFINIDO, NÃO aplicado a rota) + `actorLookupService.resolveBySlug` (actors.slug, fail-closed; NUNCA users.referral_code). Sem endpoints HTTP (Slice 1B).
+
+**Provas:** tsc 25/43 (baseline); guard `audit-actor-capability-grants-nonfinancial.mjs` na chain regression-guards GATE OK; neg-proof **5 mordidas** + SHA256; e2e efêmero **13/13** (grant/revoke/scope/tenant/allowlist financeira→403/resolveBySlug/grant-por-actor_id/Bank intocado); 4 gates verdes.
+
+**DECISION-0136** promulgada. **DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION** aberta (OPEN/PRODUCT_AUTHORITY_DECISION_REQUIRED — operador não-owner em agenda relaxa gate selado → frente própria).
+
+**NÃO TOCADO:** enforcement em rota · availability/calendar/weekly-template/bookings/participants · `permission-keys.ts` · `business-permissions.types.ts` · frontend/UI · financeiro/Bank/ledger/payout/split/refund · `users.referral_code` · votes/organization/contextual-thread · RBAC/FASE 6 · scope global.
+
+**Estado:** **IMPLEMENTED / HOLD YALA.** Enforcement (Slice 1C) + endpoints (1B) + UI = frentes futuras. dev 391.
+
+---
+
 ## 2026-06-16 — F-PERMISSION-KEYS-NOMENCLATURE-RFC · CLOSED / YALA PASS (docs-only RFC)
 
 **Branch:** `rescue-structural` · **commit material `6dee2ea7`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). **🟢 RESEAL YALA = PASS** (adversarial READ-ONLY, 2026-06-16). RFC que fixa a gramática canônica das permission keys (ratificação `SSOT_REGISTRY→07→RFC` prometida pela DECISION-0134). Promulga **DECISION-0135** (`docs/02_decisions/DECISION_0135_PERMISSION_KEYS_NOMENCLATURE_RFC.md`). Execução: `docs/03_execution_log/20260616_F_PERMISSION_KEYS_NOMENCLATURE_RFC.md` (seção YALA RESEAL — PASS). **`permission-keys.ts` NÃO tocado; zero runtime/grant/schema.**

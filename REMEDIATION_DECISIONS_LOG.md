@@ -7198,3 +7198,20 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Superada por:** —
 - **🟢 RESEAL YALA = PASS (2026-06-16, adversarial READ-ONLY).** Commit material `6dee2ea7`. Yala confirmou: formato `<domain>:<action>`; action `object_verb` p/ subobjeto; chaves vivas preservadas; `permission-keys.ts` intocado; aliases apenas documentais; zero runtime/grants; referral = lookup (nunca authority); financeiro CRITICAL (não checkbox executável); ghost = DO_NOT_IMPLEMENT_NOW. **Warnings não-bloqueantes:** W1 — `financial:execute_payout` tem capability viva `can_hold_assets`; cutover→`financial:payout_execute` NÃO é cosmético (money-path) → exige frente própria + gates + neg-proof + e2e + 3 paralelas. W2 — `products:` permanece PRODUCT_DECISION_REQUIRED (não declarar runtime até separar `canonical_products:*` N0 × `products:*` N1/N2). **DECISION_PENDING:** `financial:all_ledger_view` · `booking:` · `products:`. Estado final: **CLOSED / YALA PASS**.
 - **Referências:** `docs/02_decisions/DECISION_0135_PERMISSION_KEYS_NOMENCLATURE_RFC.md` · `07_NOMENCLATURA_CANONICA` (§3, §3.2, §4.74) · `permission-keys.ts` · `DECISION-0134` · `DECISION-0113`/`DECISION-0131`.
+
+---
+
+## DECISION-0136 — Substrato de capability grants por actor (`actor_capability_grants`)
+
+- **Data:** 2026-06-16
+- **Tipo:** arquitetural / autoridade / materialização (Slice 1A)
+- **Frente:** F-ACTOR-CAPABILITY-GRANTS-SCHEMA-AND-NONFIN-ENFORCEMENT-SLICE-1 · **parent:** `127525d2` · **dev:** 390→**391**
+- **Contexto:** materializa o modelo de grants prometido por DECISION-0134 (referral=lookup; grants contra actor_id) + DECISION-0135 (key `domain:action`). READ-FIRST provou que `calendar:block` é key não-roteada e que a rota viva de availability tem gate SELADO (DECISION-0113/0118, "Sem admin escape") → IA Diretora escolheu **Slice 1A só** (substrato, SEM enforcement).
+- **Decisão:** cria tabela `actor_capability_grants` (grantee_actor_id × capability_key × scope_actor_id) + service/repository/resolver. Invariantes: lookup por `actors.slug` (NUNCA `users.referral_code` comercial); grant por actor_id; representar≠capability; owner nativo + grant aditivo; concedente representa o escopo (`canRepresentActor`); multi-tenant isolado; grants nascem inexistentes; allowlist NÃO-financeira (`calendar:block/unblock`, `services:create/edit/disable`); sem `scope_type='global'`. **`hasCapabilityGrant` definido mas NÃO aplicado a rota.**
+- **NÃO feito:** enforcement em rota de negócio (availability owner-only intocado → DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION OPEN); endpoints HTTP (Slice 1B); UI; cutover permission-keys.ts; reconciliação de vocabulário.
+- **Provas:** tsc 25/43; guard `audit-actor-capability-grants-nonfinancial.mjs` na chain regression-guards; neg-proof 5 mordidas + SHA256; e2e efêmero 13/13; 4 gates verdes; Bank intocado.
+- **NÃO tocado:** financeiro/Bank/ledger · `permission-keys.ts` · `business-permissions.types.ts` · frontend · votes/organization/contextual-thread · RBAC/FASE 6 · `users.referral_code` · availability.
+- **Responsável:** Clayton / IA Diretora (executor: Claude). **Validação prévia:** Clayton (escolheu Slice 1A após STOP).
+- **Supera:** nenhuma (materializa DECISION-0134/0135).
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0136_ACTOR_CAPABILITY_GRANTS_SUBSTRATE.md` · `actor_capability_grants` (mig 20260616210000) · `modules/authority/actor-capability-grant.*` · `DECISION-0134`/`0135`/`0113`/`0126` · `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`.
