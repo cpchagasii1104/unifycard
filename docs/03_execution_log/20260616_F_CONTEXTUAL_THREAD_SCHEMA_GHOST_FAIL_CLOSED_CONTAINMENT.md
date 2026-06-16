@@ -83,6 +83,20 @@ payment/invoice · ZERO RLS/RBAC/FASE 6 · ZERO contacts/suppliers/agenda.
 
 ## Estado
 
-**IMPLEMENTED / HOLD RESEAL.** Fecha SÓ como **F-CONTEXTUAL-THREAD-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT**: as 7
+**CLOSED / YALA PASS (contenção).** Fecha SÓ como **F-CONTEXTUAL-THREAD-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT**: as 7
 rotas de `contextual-thread` ficam contidas fail-closed (501 nomeado, zero DB, curto-circuito pré-DB, sem 42P01); a
-raiz (schema ghost) permanece OPEN; feature NÃO ativada. dev 390. **Aguarda reseal Yala.**
+raiz (schema ghost) permanece OPEN; feature NÃO ativada. dev 390.
+
+## YALA RESEAL — PASS (2026-06-16, READ-ONLY)
+
+- **Veredito:** **PASS** (reseal READ-ONLY). Commit material `19499b90` · branch `rescue-structural` · dev 390.
+- **Confirmado:** `contextual_threads`/`contextual_messages` não existem no schema vivo (`to_regclass=NULL`, e2e
+  S0/S1); as **7 rotas** (3 writes + 4 reads) → **501 `CONTEXTUAL_THREAD_SCHEMA_GHOST_CONTAINED`**; ZERO chamada ao
+  service/repository; ZERO acesso ao DB; **NÃO** emite 42P01/500 (curto-circuito pré-DB provado no e2e); reads E
+  writes contidos (mesmas tabelas ghost); e2e **13/13**; guard **GATE OK**; neg-proof **5 mordidas** + SHA256
+  byte-idêntico; **4 gates verdes**; **Bank/Core/ledger intocados**; **organizers só DT/observação, NÃO execução**.
+- **A CONTENÇÃO está CLOSED; a RAIZ permanece OPEN:** contextual-thread **não** foi ativado; tabelas **não** criadas;
+  binding **não** aplicado sobre superfície morta. Materialização/religação = frente própria.
+- **DTs de raiz seguem OPEN:** DT-CONTEXTUAL-THREAD-SCHEMA-GHOST (raiz) · DT-CONTEXTUAL-THREAD-WRITE-AUTHORSHIP-BINDING-LATENT
+  · DT-ORGANIZERS-BUILT-BUT-UNMOUNTED (decisão Clayton).
+- **Selo:** commit docs-only `docs: seal contextual-thread schema ghost containment`. Estado final: **CLOSED / YALA PASS** (contenção).
