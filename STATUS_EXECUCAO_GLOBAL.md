@@ -1,6 +1,12 @@
-## 2026-06-16 — F-PERMISSION-KEYS-NOMENCLATURE-RFC · CLOSED (docs-only RFC)
+## 2026-06-16 — F-PERMISSION-KEYS-NOMENCLATURE-RFC · CLOSED / YALA PASS (docs-only RFC)
 
-**Branch:** `rescue-structural` · **HEAD `337a3c52`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). RFC que fixa a gramática canônica das permission keys (ratificação `SSOT_REGISTRY→07→RFC` prometida pela DECISION-0134). Promulga **DECISION-0135** (`docs/02_decisions/DECISION_0135_PERMISSION_KEYS_NOMENCLATURE_RFC.md`). Execução: `docs/03_execution_log/20260616_F_PERMISSION_KEYS_NOMENCLATURE_RFC.md`. **`permission-keys.ts` NÃO tocado; zero runtime/grant/schema.**
+**Branch:** `rescue-structural` · **commit material `6dee2ea7`** · **dev 390 (ZERO migration)** · MODO EXECUTOR (docs-only). **🟢 RESEAL YALA = PASS** (adversarial READ-ONLY, 2026-06-16). RFC que fixa a gramática canônica das permission keys (ratificação `SSOT_REGISTRY→07→RFC` prometida pela DECISION-0134). Promulga **DECISION-0135** (`docs/02_decisions/DECISION_0135_PERMISSION_KEYS_NOMENCLATURE_RFC.md`). Execução: `docs/03_execution_log/20260616_F_PERMISSION_KEYS_NOMENCLATURE_RFC.md` (seção YALA RESEAL — PASS). **`permission-keys.ts` NÃO tocado; zero runtime/grant/schema.**
+
+**Yala confirmou:** formato `<domain>:<action>`; action `object_verb` p/ subobjeto; chaves vivas preservadas; `permission-keys.ts` intocado; aliases apenas documentais; zero runtime; zero grants; referral = lookup (nunca authority); financeiro CRITICAL (não checkbox executável); módulos ghost = DO_NOT_IMPLEMENT_NOW.
+
+**Warnings não-bloqueantes (registrados):** **W1** — `financial:execute_payout` tem capability viva `can_hold_assets`; cutover→`financial:payout_execute` **NÃO é cosmético** (money-path) → exige frente própria, gates, neg-proof, e2e e **3 paralelas**. **W2** — `products:` permanece **PRODUCT_DECISION_REQUIRED**; não declarar `products` como domínio runtime canônico até decisão explícita separando `canonical_products:*` (catálogo N0) × `products:*` (comercial N1/N2, se existir).
+
+**DECISION_PENDING reais:** `financial:all_ledger_view` (grafia do escopo "all") · `booking:` (conceito) · `products:` (existência runtime comercial).
 
 **READ-FIRST das 33 keys vivas** fundou as reconciliações: `financial:` é o domínio vivo (**`finance:` nunca existiu**); `calendar:` é vivo (**agenda/booking não são keys**); `canonical_products:` vivo, `products:` sem key viva; sem `pos:`/`pdv:`; sem `read:`/`write:` invertido.
 
@@ -10,7 +16,9 @@
 
 **NÃO TOCADO:** `permission-keys.ts` · código/runtime/migration/schema · grants/enforcement/alias-runtime/RBAC/FASE 6 · financeiro/Bank/ledger · referral · ativação votes/contextual-thread/organization · frontend.
 
-**Estado:** **CLOSED (docs-only RFC).** Cutover de aliases em `permission-keys.ts` + implementação de grants = frentes futuras gated, pós-reseal. dev 390.
+**Sequência correta (pós-selo):** cutover de aliases em `permission-keys.ts` = **frente futura própria** (W1: a key de payout exige gates/neg-proof/e2e/3 paralelas por ser money-path) → grants runtime **depois** do cutover → financeiro = **3 paralelas** → UI checkboxes **depois** de grants → referral resolver = frente futura mantendo **lookup ≠ authority**.
+
+**Estado:** **CLOSED / YALA PASS** (docs-only RFC) — selado. `permission-keys.ts` intocado. dev 390.
 
 ---
 
