@@ -1,6 +1,6 @@
-## 2026-06-16 — F-VOTES-WRITES-EXPLICIT-FAIL-CLOSED-CONTAINMENT · IMPLEMENTED / HOLD RESEAL
+## 2026-06-16 — F-VOTES-WRITES-EXPLICIT-FAIL-CLOSED-CONTAINMENT · CLOSED / YALA PASS
 
-**Branch:** `rescue-structural` · **parent `8c113dc3`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. Subfrente derivada de **STOP**: o GO `F-WRITE-AUTHORSHIP-VOTES-MODULE-BINDING` pediu binding dos writes de `votes`, mas o **READ-FIRST contradisse a premissa** — os writes não estão vivos. Decisão IA Diretora: **conter fail-closed, NÃO religar**. Execução: `docs/03_execution_log/20260616_F_VOTES_WRITES_EXPLICIT_FAIL_CLOSED_CONTAINMENT.md`.
+**Branch:** `rescue-structural` · **commit material `3404c565`** · **dev 390 (ZERO migration)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS** (READ-ONLY, 2026-06-16). Subfrente derivada de **STOP**: o GO `F-WRITE-AUTHORSHIP-VOTES-MODULE-BINDING` pediu binding dos writes de `votes`, mas o **READ-FIRST contradisse a premissa** — os writes não estão vivos. Decisão IA Diretora: **conter fail-closed, NÃO religar**. **A CONTENÇÃO está CLOSED; a RAIZ de votes (rota morta) permanece OPEN; votes NÃO foi ativado.** Execução: `docs/03_execution_log/20260616_F_VOTES_WRITES_EXPLICIT_FAIL_CLOSED_CONTAINMENT.md` (seção YALA RESEAL — PASS).
 
 **Achado (módulo `votes` DUPLAMENTE MORTO):** (1) `req.activeActor` nunca é populado em todo `backend/src` (único leitor = `votes.routes.ts`; zero escritor) → 4 writes caíam em 401 enganoso; (2) **schema ghost** — tabelas `votes`/`vote_options`/`vote_responses` não existem em nenhuma migration canônica (`to_regclass=NULL`, só `group_vote_*`). O spoof do GO não era alcançável.
 
@@ -8,11 +8,11 @@
 
 **Provas:** tsc build 25/strict 43 (baseline); guard `audit-votes-writes-containment.mjs` na chain regression-guards GATE OK; neg-proof **3 mordidas** + SHA256 byte-idêntico; e2e efêmero **11/11** (S0 schema-ghost confirmado; 4 writes→501; T5 não-500; Bank intocado; 4 estruturais); 4 gates (actor-writer · bank-ledger · regression-guards rc=0 · arch-patterns critical_new=0).
 
-**DTs:** DT-VOTES-ACTIVE-ACTOR-WIRING-MISSING (OPEN/contido) · DT-VOTES-WRITE-AUTHORSHIP-BINDING-LATENT (OPEN/futuro) · DT-VOTES-FINE-GRAINED-ELIGIBILITY-POLICY (OPEN/Clayton). **Religação + elegibilidade fina = frentes próprias.**
+**DTs (raiz seguem OPEN após o selo):** DT-VOTES-ACTIVE-ACTOR-WIRING-MISSING (OPEN raiz / contenção CLOSED) · DT-VOTES-WRITE-AUTHORSHIP-BINDING-LATENT (OPEN/futuro) · DT-VOTES-FINE-GRAINED-ELIGIBILITY-POLICY (OPEN/Clayton). **Religação + materialização de tabelas + elegibilidade fina = frentes próprias.** Reads de votes seguem fora do escopo (quebrados pelo schema ghost) — frente própria se desejado.
 
-**NÃO TOCADO:** religação · `resolveActiveActorFromRequest` · ativação de votação · migration/schema · `votes.service` · reads · groups-votes/organizers/social-votes · Bank/Core/`bank_ledger`/payout/split/recovery/payment/invoice · RBAC/RLS/FASE 6 · contacts/suppliers/agenda.
+**NÃO TOCADO:** religação · `resolveActiveActorFromRequest` · ativação de votação · migration/schema/tabelas votes · `votes.service`/`votes.routes` (selo é docs-only) · reads · groups-votes/organizers/social-votes · Bank/Core/`bank_ledger`/payout/split/recovery/payment/invoice · RBAC/RLS/FASE 6 · contacts/suppliers/agenda · código de indicação.
 
-**Estado:** **IMPLEMENTED / HOLD RESEAL** — aguarda reseal Yala. dev 390.
+**Estado:** **CLOSED / YALA PASS** (contenção) — selado docs-only. RAIZ de votes OPEN; votes NÃO ativado. dev 390.
 
 ---
 

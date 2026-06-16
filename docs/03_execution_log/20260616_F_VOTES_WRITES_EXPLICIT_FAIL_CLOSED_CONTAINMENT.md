@@ -69,7 +69,21 @@ payout/split/recovery/payment/invoice · ZERO RBAC/RLS/FASE 6 · ZERO contacts/s
 
 ## Estado
 
-**IMPLEMENTED / HOLD RESEAL.** Fecha SÓ como **F-VOTES-WRITES-EXPLICIT-FAIL-CLOSED-CONTAINMENT**: os 4 writes de
+**CLOSED / YALA PASS (contenção).** Fecha SÓ como **F-VOTES-WRITES-EXPLICIT-FAIL-CLOSED-CONTAINMENT**: os 4 writes de
 `votes` ficam contidos fail-closed (501 nomeado, zero escrita, curto-circuito pré-DB); a conflação foi removida do
 call-site; reads e service intocados. Religação + elegibilidade fina = frentes próprias (3 DTs OPEN). dev 390.
-**Aguarda reseal Yala.**
+
+## YALA RESEAL — PASS (2026-06-16, READ-ONLY)
+
+- **Veredito:** **PASS** (reseal READ-ONLY). Commit material `3404c565` · branch `rescue-structural` · dev 390.
+- **Confirmado:** premissa do GO contradita (módulo duplamente morto: `req.activeActor` fantasma + schema ghost);
+  os 4 writes (`POST /votes` · `/:id/publish` · `/:id/vote` · `/:id/close`) → **501 `VOTES_ACTIVE_ACTOR_WIRING_MISSING`**;
+  ZERO chamada ao `votesService`; ZERO acesso ao DB; **NÃO** emite 500 "relation does not exist" (curto-circuito
+  pré-DB provado no e2e T5); `actionContext.actorId` removido do arquivo; e2e **11/11**; guard **GATE OK**;
+  neg-proof **3 mordidas** + SHA256 byte-idêntico; **4 gates verdes**; **Bank/Core/ledger intocados**.
+- **A CONTENÇÃO está CLOSED; a RAIZ permanece OPEN:** votes **não** foi religado/ativado; tabelas **não** criadas;
+  `activeActor` **não** resolvido; elegibilidade fina **não** decidida. Religação = frentes próprias com decisão Clayton.
+- **DTs de raiz seguem OPEN:** DT-VOTES-ACTIVE-ACTOR-WIRING-MISSING (raiz) · DT-VOTES-WRITE-AUTHORSHIP-BINDING-LATENT ·
+  DT-VOTES-FINE-GRAINED-ELIGIBILITY-POLICY.
+- **Reads de votes:** seguem FORA do escopo (quebrados pelo schema ghost, pré-existente) — frente própria se desejado.
+- **Selo:** commit docs-only `docs: seal votes write containment after yala pass`. Estado final: **CLOSED / YALA PASS** (contenção).
