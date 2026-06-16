@@ -1,6 +1,10 @@
-## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B · IMPLEMENTED / HOLD YALA
+## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B · CLOSED / YALA PASS
 
-**Branch:** `rescue-structural` · **parent `f70f4b86`** · **dev 391 (ZERO migration)** · MODO EXECUTOR. Endpoints HTTP de **gestão** de actor capability grants sobre o substrato do Slice 1A (DECISION-0136). **NENHUM enforcement em rota de negócio.** Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_ENDPOINTS_SLICE_1B.md`.
+**Branch:** `rescue-structural` · **commit material `9a4df379`** · **dev 391 (substrato aplicado ao dev vivo)** · MODO EXECUTOR. **🟢 RESEAL YALA = PASS INTEGRAL** (após R1 CLOSED, 2026-06-16). Endpoints HTTP de **gestão** de actor capability grants sobre o substrato do Slice 1A (DECISION-0136). **NENHUM enforcement em rota de negócio.** Execução: `docs/03_execution_log/20260616_F_ACTOR_CAPABILITY_GRANTS_ENDPOINTS_SLICE_1B.md` (seção YALA RESEAL — PASS).
+
+**Yala confirmou:** endpoints sob protectedScope; exatamente `POST /authority/grants`, `GET /authority/grants`, `POST /authority/grants/:grantId/revoke`; zero endpoint público; caller representa `scope_actor` via `canRepresentActor`; GET exige `scopeActorId` (sem listagem global); revoke por **status** (sem delete físico); grantee por slug/actorId resolvido server-side; `users.referral_code` ausente; capability financeira rejeitada; `permission-keys.ts`/`business-permissions.types.ts`/`rbac.plugin`/migration/frontend/ghost intocados; zero enforcement em rota de negócio; financeiro/bank_ledger intocados; e2e 15/15 + guard + neg-proof 9-mordidas passaram.
+
+**🟢 R1 CLOSED:** `unificard_dev` 391/391; `actor_capability_grants` existe no schema vivo; PENDING=[]; endpoints sem risco 42P01 por ausência da tabela (ver `F-ACTOR-CAPABILITY-GRANTS-DEV-MIGRATION-MATERIALIZATION`).
 
 **Patch:** `modules/authority/actor-capability-grant.routes.ts` (novo) — `POST /authority/grants` (cria; grantee por slug/actorId server-side; `canRepresentActor(scope)`; capability via `z.enum` allowlist não-financeira; grava actor_id; duplicado→409; slug não resolvido→404), `GET /authority/grants` (**scopeActorId OBRIGATÓRIO**, sem listagem global; `canRepresentActor(scope)`→403 senão), `POST /authority/grants/:grantId/revoke` (status, não delete físico). Registro inline em `app.builder.ts` (`/authority`). Guard estendido (checks 4+6: só a rota de gestão importa o service; `hasCapabilityGrant` proibido em rota; sem financeiro/referral/global/business-permissions/requirePermission/availability/delete).
 
@@ -12,7 +16,11 @@
 
 **🟢 R1 (Yala) CLOSED (2026-06-16, F-ACTOR-CAPABILITY-GRANTS-DEV-MIGRATION-MATERIALIZATION):** o substrato não estava aplicado no `unificard_dev` vivo (dev 390; `to_regclass`=NULL; migration `20260616210000` pendente — endpoints dariam 42P01). Aplicada **só** via runner canônico `src/core/db/migrate.ts` (1 pendente, exatamente a alvo): `unificard_dev` agora em **391**; `actor_capability_grants` existe (constraints+índices conferidos; `row_count=0`; `bank_ledger`=0 intocado; PENDING=[]). **Zero código/nova-migration/SQL-manual.** Slice 1B segue HOLD YALA p/ revalidação final.
 
-**Estado:** **IMPLEMENTED / HOLD YALA.** Enforcement (1C, após reconciliação tri-registry + decisão) + UI = frentes futuras. dev 391 (aplicada ao dev vivo).
+**Frase canônica:** "Slice 1B permite gerir grants no backend, mas ainda não altera nenhuma autoridade de negócio: grants podem ser criados/listados/revogados, porém nenhum fluxo de produto consome esses grants até decisão e Slice 1C."
+
+**Pendências:** `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` (OPEN / BLOCKS_1C_NOT_1B) · `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` (OPEN / PRODUCT_AUTHORITY_DECISION_REQUIRED) · Slice 1C (enforcement, decisão explícita) · UI de checkboxes · financeiro (sempre fora / 3 paralelas) · reconciliar `permission-keys.ts` × `business-permissions.types.ts` × `PermissionString` antes de enforcement.
+
+**Estado:** **CLOSED / YALA PASS** (R1 incluída). Enforcement (1C) + UI = frentes futuras. dev 391 (aplicada ao dev vivo).
 
 ---
 

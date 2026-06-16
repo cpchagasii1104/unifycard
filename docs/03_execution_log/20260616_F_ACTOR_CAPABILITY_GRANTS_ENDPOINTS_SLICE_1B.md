@@ -92,8 +92,31 @@ código alterado; Slice 1B permanece **IMPLEMENTED / HOLD YALA** até a revalida
 
 ## Estado
 
-**IMPLEMENTED / HOLD YALA.** Fecha SÓ como **F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B**: 3 endpoints de gestão
+**CLOSED / YALA PASS.** Fecha SÓ como **F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B**: 3 endpoints de gestão
 de grants (criar/listar/revogar) sob `/authority`, autoridade por `canRepresentActor(scope)`, allowlist
 não-financeira, sem listagem global, revoke por status; **zero enforcement em rota de negócio**;
 `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` aberta (bloqueia 1C, não 1B); `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`
-segue OPEN. dev 391. **Aguarda reseal Yala.**
+segue OPEN. dev 391.
+
+## YALA RESEAL — PASS INTEGRAL (2026-06-16, após R1 CLOSED)
+
+- **Veredito:** **PASS INTEGRAL** (reseal adversarial; PASS COM RESSALVA inicial → R1 fechada → PASS final).
+  Commit material `9a4df379` · branch `rescue-structural` · dev 391 (substrato aplicado ao dev vivo).
+- **Confirmado:** endpoints sob **protectedScope**; exatamente `POST /authority/grants`, `GET /authority/grants`,
+  `POST /authority/grants/:grantId/revoke`; **zero endpoint público**; caller representa o `scope_actor` via
+  `canRepresentActor`; GET exige `scopeActorId` (**sem listagem global**); revoke por **status** (sem delete
+  físico); grantee por slug/actorId resolvido server-side; **`users.referral_code` ausente**; capability
+  financeira rejeitada; `permission-keys.ts`/`business-permissions.types.ts`/`rbac.plugin`/migration/frontend/
+  ghost **intocados**; **zero enforcement em rota de negócio**; financeiro/`bank_ledger` intocados; e2e **15/15**
+  + guard + neg-proof **9 mordidas** passaram.
+- **R1 CLOSED:** `unificard_dev` **391/391**; `actor_capability_grants` existe no schema vivo; **PENDING=[]**;
+  endpoints sem risco 42P01 por ausência da tabela (frente `F-ACTOR-CAPABILITY-GRANTS-DEV-MIGRATION-MATERIALIZATION`,
+  aplicada só via runner canônico; `row_count=0`; `bank_ledger` intocado).
+- **Pendências:** `DT-PERMISSION-TRI-REGISTRY-RECONCILIATION` (OPEN / BLOCKS_1C_NOT_1B) ·
+  `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` (OPEN / PRODUCT_AUTHORITY_DECISION_REQUIRED) · Slice 1C
+  (enforcement, decisão explícita) · UI de checkboxes · financeiro (3 paralelas) · reconciliar
+  `permission-keys.ts` × `business-permissions.types.ts` × `PermissionString` antes de enforcement.
+- **Frase canônica:** "Slice 1B permite gerir grants no backend, mas ainda não altera nenhuma autoridade de
+  negócio: grants podem ser criados/listados/revogados, porém nenhum fluxo de produto consome esses grants até
+  decisão e Slice 1C."
+- **Selo:** commit docs-only `docs: seal actor capability grant endpoints`. Estado final: **CLOSED / YALA PASS**.
