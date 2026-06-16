@@ -65,7 +65,7 @@ Auditoria futura (user/actor/scope/capability/grant/ação). 10. Financeiro FORA
 
 ## Estado
 
-**IMPLEMENTED / HOLD YALA.** Fecha SÓ como **F-CALENDAR-OPERATOR-GRANT-AUTHORITY-RFC**: decisão de produto
+**✅ CLOSED / YALA PASS** (reseal Yala adversarial READ-ONLY sobre commit `0532232d` = PASS; seal docs-only 2026-06-16; `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` → CLOSED_AS_PRODUCT_AUTHORITY_BASELINE / YALA PASS). _(Histórico: IMPLEMENTED / HOLD YALA.)_ Fecha SÓ como **F-CALENDAR-OPERATOR-GRANT-AUTHORITY-RFC**: decisão de produto
 (delegação flexível de agenda por grant) + composição fail-closed do Slice 1C promulgadas; código/slug ≠ authority;
 `actor_id` é a base material; grant = autoridade delegada granular aditiva; Slice 1C NÃO implementado; financeiro
 fora. `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` → IMPLEMENTED_AS_PRODUCT_AUTHORITY_BASELINE / HOLD YALA. dev 391.

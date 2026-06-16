@@ -1,6 +1,6 @@
 # DECISION-0138 — Operador de agenda por grant explícito (RFC de produto/autoridade)
 
-**Status:** **PROMULGADA / NORMATIVA (RFC docs-only) — IMPLEMENTED / HOLD YALA.** **ZERO** código, migration,
+**Status:** **PROMULGADA / NORMATIVA (RFC docs-only) — ✅ CLOSED / YALA PASS** (reseal Yala adversarial READ-ONLY sobre commit `0532232d` = PASS, 2026-06-16; `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` → CLOSED_AS_PRODUCT_AUTHORITY_BASELINE / YALA PASS). Histórico: IMPLEMENTED / HOLD YALA → **ZERO** código, migration,
 schema, runtime, endpoint, enforcement, frontend, financeiro. Promulga a **decisão de produto** (owner delega
 operação de agenda a outro actor por grant explícito, sem cargo rígido) + a **composição técnica mínima** do
 futuro Slice 1C. **NÃO implementa enforcement** — availability/calendar permanece **owner-only** no código.

@@ -7246,7 +7246,8 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 ## DECISION-0138 — Operador de agenda por grant explícito (RFC de produto/autoridade)
 
 - **Data:** 2026-06-16
-- **Tipo:** arquitetural / autoridade / produto / RFC (DOCS-ONLY · IMPLEMENTED / HOLD YALA)
+- **Tipo:** arquitetural / autoridade / produto / RFC (DOCS-ONLY · ✅ CLOSED / YALA PASS)
+- **RESEAL YALA (2026-06-16):** reseal adversarial READ-ONLY sobre commit `0532232d` retornou **PASS**. Frente **CLOSED / YALA PASS**; `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` → **CLOSED_AS_PRODUCT_AUTHORITY_BASELINE / YALA PASS**. Yala confirmou: DECISION-0138 existe; delegação flexível promulgada; código/slug/`referral_code` ≠ authority; `actor_id` = base material; grant = `actor_id`+`capability_key`+`scope_actor`, aditivo; Slice 1C NÃO implementado; availability/calendar + owner-only intocados; `calendar:block`/`unblock` sem rota literal `/block`; financeiro fora/3 paralelas; DECISION-0137 respeitada; zero material (commit = 5 .md; arch gate critical_new=0).
 - **Frente:** F-CALENDAR-OPERATOR-GRANT-AUTHORITY-RFC · **HEAD:** `6e74deb9` · **dev:** 391 (sem migration)
 - **Contexto:** o Slice 1C (enforcement de grant em rota de agenda) estava bloqueado por `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` (decisão de produto sobre owner-only). Clayton decidiu: owner delega operação de agenda por grant explícito, sem cargo rígido. READ-FIRST confirmou que `calendar:block`/`unblock` são keys NÃO-roteadas (a rota viva de agenda é owner-only selada DECISION-0113/0118).
 - **Decisão (produto + composição):**
