@@ -223,7 +223,27 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       }
 
       const createdAsActorId = req.actionContext.actorId;
-      
+
+      // 🔴 DECISION-0113 / DECISION-0131 §B7 / Z2-R6.2 — o autor declarado do post (`validated.actor_id`) é
+      // o actor que assina/publica. actorId declarado pelo cliente é HINT, nunca autoridade: o principal
+      // autenticado (`req.user.userId`, server-side) DEVE provar representação desse actor via
+      // canRepresentActor (fail-closed → 403) ANTES de criar o post. `requirePermission('publish_feed')`
+      // (abaixo) é permissão de MÓDULO/capability, não autoridade sobre o actor autor — preservada como
+      // gate adicional, NUNCA substituto. Sem actor_id → autoria do próprio actor do usuário (representável
+      // por construção via ensureUserActor no service).
+      if (validated.actor_id) {
+        let canRepresentAuthor = false;
+        try {
+          const { authorizationService } = await import('@core/authorization/authorization.service');
+          canRepresentAuthor = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, validated.actor_id);
+        } catch {
+          canRepresentAuthor = false;
+        }
+        if (!canRepresentAuthor) {
+          return reply.status(403).send({ ok: false, code: 'SOCIAL_POST_ACTOR_NOT_REPRESENTABLE', error: 'Sem autoridade para publicar como o actor declarado (canRepresentActor)' });
+        }
+      }
+
       // CONTINUOUS PRODUCTION: Verificar permissão específica para publicar feed
       // Action context já foi resolvido pelo middleware
       if (req.actionContext && validated.actor_id) {
