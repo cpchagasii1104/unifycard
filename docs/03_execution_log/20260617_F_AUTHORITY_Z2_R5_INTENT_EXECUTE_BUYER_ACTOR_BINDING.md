@@ -97,9 +97,28 @@ Sem migration; **zero refactor de RBAC** (só a rota intent-execute); Bank Core/
 **intocados**. **A1–A6 settlement/unifycard/regionAccount money-latent NÃO foram corrigidas nesta frente** —
 permanecem para frente própria de guard/fail-closed anti-reativação.
 
+## Warnings não-bloqueantes (reseal Yala = PASS_WITH_WARNINGS)
+
+- **W-a** — E2E C6 não testa explicitamente `repeat_last_order` com a **mesma** idempotency-key após um 403.
+  Análise de código indica segurança: o `claim` é deletado no `finally` em erro e só vira `completed` no sucesso →
+  o 403 não deixa um claim "completed" reutilizável. Classificação: melhoria futura de cobertura.
+- **W-b** — `succeeded = true` poderia ser setado só **após** `completeIntentIdempotency` confirmar. Classificação:
+  robustez defensiva futura (não exploitável aqui).
+- **W-c** — o guard ainda é file-level para `intent-execute.routes.ts`; um guard cross-module Z2 futuro deve
+  subsumir este e os guards R1/R2/R3. Classificação: melhoria futura da DT-mãe.
+- **OBS** — untracked `backend/output_*.txt` é ruído de reseal, fora do commit.
+
+## Continuidade (recomendação futura — NÃO executar agora)
+
+- **`F-AUTHORITY-Z2-R4-MONEY-LATENT-CONTAINMENT`** — escopo A1–A6 settlement/unifycard/regionAccount; objetivo:
+  impedir que stubs "migrated to Bank" sejam religados sem authority gate. **Não tocado nesta R5.**
+- **Guard cross-module Z2** — continua recomendado para avançar a DT-mãe: `actorId` de query/body/actionContext
+  aplicado a filtro/target/owner/write sensível **sem** `canRepresentActor`/`assertActorRepresentable`/helper seguro.
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA.** `DT-AUTHORITY-Z2-INTENT-EXECUTE-BUYER-ACTOR-UNBOUND` → **IMPLEMENTED_AS_CONTAINED /
-HOLD YALA**. **Esta frente fechou somente a contenção localizada de intent-execute buyer actor binding. Não fecha Z2
-inteiro, Z1, Z3, authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` permanece
-**OPEN**. CLOSED só no seal pós-Yala PASS material.
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-17 sobre commit material `2f531a9b`; reseal Yala material
+READ-ONLY = PASS_WITH_WARNINGS). dev 394. `DT-AUTHORITY-Z2-INTENT-EXECUTE-BUYER-ACTOR-UNBOUND` → **CLOSED / YALA
+PASS MATERIAL**. **Esta frente fechou somente a contenção localizada de intent-execute buyer actor binding. Não
+fecha Z2 inteiro, Z1, Z3, authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`
+permanece **OPEN**. R1 groups, R2 dashboard e R3 reports **não reabertos**. Nenhum código material alterado no seal.
