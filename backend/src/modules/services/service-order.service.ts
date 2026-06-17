@@ -927,8 +927,8 @@ class ServiceOrderService {
       // ────────────────────────────────────────────────────────────
       // 2. Resolve service_payment_request via booking_id
       // ────────────────────────────────────────────────────────────
-      const requestResult = await client.query<{ payment_request_id: string; amount: string }>(
-        `SELECT payment_request_id::text, amount::text
+      const requestResult = await client.query<{ payment_request_id: string; amount_cents: string }>(
+        `SELECT payment_request_id::text, amount_cents::text
            FROM service_payment_requests
           WHERE tenant_id = $1::uuid AND booking_id = $2::uuid LIMIT 1`,
         [tenantId, bookingId]

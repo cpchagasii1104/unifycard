@@ -45,7 +45,7 @@ class ServicePaymentRequestRepository {
       `
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       FROM service_payment_requests
@@ -72,7 +72,7 @@ class ServicePaymentRequestRepository {
       `
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       FROM service_payment_requests
@@ -101,7 +101,7 @@ class ServicePaymentRequestRepository {
     let query = `
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       FROM service_payment_requests
@@ -149,13 +149,13 @@ class ServicePaymentRequestRepository {
       `
       INSERT INTO service_payment_requests (
         tenant_id, booking_id, service_id, payer_actor_id, receiver_actor_id,
-        status, amount, currency, requested_at, metadata
+        status, amount_cents, currency, requested_at, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (booking_id) DO NOTHING
       RETURNING 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       `,
@@ -217,7 +217,7 @@ class ServicePaymentRequestRepository {
       WHERE payment_request_id = $${paramIndex++} AND tenant_id = $${paramIndex++}
       RETURNING 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       `,

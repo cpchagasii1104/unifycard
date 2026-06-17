@@ -45,6 +45,13 @@ Status values:
 
 ---
 
+## DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE — IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16)
+
+- **🟡 IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16, `F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS`).** Correção cirúrgica de nomenclatura financeira canônica (`07_NOMENCLATURA_CANONICA` §valores monetários: dinheiro = inteiro em centavos, sufixo OBRIGATÓRIO `_cents`, `BIGINT`, nunca NUMERIC/float). `service_payment_requests.amount` e `service_payment_executions.amount` (BIGINT) → `amount_cents` (BIGINT). **Executa norma existente — NÃO é DECISION nova.** Migration `20260616220000` forward-only/idempotente (RENAME puro; CHECK `(amount>0)` de executions seguiu o rename → `(amount_cents>0)`; requests sem CHECK não recebeu um novo). Janela: sistema local/virgem, **row_count=0** nas 2 tabelas → sem backfill. Repos (aliases `amount AS "amountCents"` → `amount_cents AS "amountCents"`; INSERT col `amount_cents`) + callers (`service-order.service`, `pending-responsibilities.routes`, `impact-overview.routes`, `backfill-payment-splits-to-bank`) + 7 e2e/fixtures atualizados; contrato externo `amountCents` preservado. Guard `audit-service-payment-amount-cents.mjs` em `validate:regression-guards` (negative-proof mordeu+restaurou). E2E spr-read 9/9 + spr-create 10/10 (efêmera FULL). **Escopo negativo:** payout/split/recovery/`bank_ledger`/`bank_transactions`/`bank_splits`/`payment_intents`/liquidação/saldo/grants/agenda/frontend **intocados**; `payment_splits.amount` (outra tabela) não tocado. **CLOSED só no seal pós-Yala PASS.** dev 391→392.
+- **Vinculada a:** `07_NOMENCLATURA_CANONICA` (§_cents) · `service-payment-request.repository`/`service-payment-execution.repository` · migration `20260616220000` · guard `audit-service-payment-amount-cents.mjs`.
+
+---
+
 ## DT-CONSERVATION-OBSERVABILITY — OPEN (parcialmente endereçada: S4 → S3-detectado)
 
 - **Status:** OPEN 2026-05-25 (commit `c94eebe2` — detecção habilitada; endurecimento de worker / recovery automático permanecem decisão futura).

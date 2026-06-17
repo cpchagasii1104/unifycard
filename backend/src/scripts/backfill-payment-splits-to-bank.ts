@@ -95,11 +95,11 @@ async function main(): Promise<void> {
       const exQ = await client.query<{
         execution_id: string;
         payer_actor_id: string;
-        amount: string;
+        amount_cents: string;
         currency: string;
         metadata: unknown;
       }>(
-        `SELECT execution_id, payer_actor_id, amount::text, currency, metadata
+        `SELECT execution_id, payer_actor_id, amount_cents::text, currency, metadata
          FROM service_payment_executions WHERE execution_id = $1 AND tenant_id = $2`,
         [executionId, tenantId]
       );
@@ -130,7 +130,7 @@ async function main(): Promise<void> {
         percentage: p.percentage ? parseFloat(p.percentage) : null,
       }));
       const sumPs = splitCents.reduce((s, x) => s + x.amountCents, 0);
-      const execCents = moneyToCents(execution.amount);
+      const execCents = moneyToCents(execution.amount_cents);
       if (Math.abs(sumPs - execCents) > 1) {
         inconsistencies.push({
           execution_id: executionId,

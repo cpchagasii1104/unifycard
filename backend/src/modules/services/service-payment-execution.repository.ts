@@ -62,7 +62,7 @@ class ServicePaymentExecutionRepository {
       `
       SELECT 
         execution_id, tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
-        amount AS "amountCents", currency, executed_at as "executedAt", metadata, created_at, updated_at
+        amount_cents AS "amountCents", currency, executed_at as "executedAt", metadata, created_at, updated_at
       FROM service_payment_executions
       WHERE execution_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -87,7 +87,7 @@ class ServicePaymentExecutionRepository {
       `
       SELECT 
         execution_id, tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
-        amount AS "amountCents", currency, executed_at as "executedAt", metadata, created_at, updated_at
+        amount_cents AS "amountCents", currency, executed_at as "executedAt", metadata, created_at, updated_at
       FROM service_payment_executions
       WHERE payment_request_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -202,13 +202,13 @@ class ServicePaymentExecutionRepository {
     const sql = `
       INSERT INTO service_payment_executions (
         execution_id, tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
-        amount, currency, executed_at, metadata
+        amount_cents, currency, executed_at, metadata
       )
       VALUES (COALESCE($9::uuid, gen_random_uuid()), $1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (payment_request_id) DO NOTHING
       RETURNING
         execution_id, tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
-        amount AS "amountCents", currency, executed_at as "executedAt", metadata, created_at, updated_at
+        amount_cents AS "amountCents", currency, executed_at as "executedAt", metadata, created_at, updated_at
       `;
     const params: unknown[] = [
       tenantId,

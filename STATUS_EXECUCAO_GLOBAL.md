@@ -1,3 +1,23 @@
+## 2026-06-16 — F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS · 🟡 IMPLEMENTED / HOLD YALA (material)
+
+**Branch:** `rescue-structural` · **HEAD inicial `6b8f7cf2`** · **dev 391 → 392 (+1 migration)** · MODO EXECUTOR cirúrgico. Corrige **nomenclatura financeira canônica** (`07_NOMENCLATURA_CANONICA` §_cents: dinheiro = inteiro em centavos, sufixo `_cents`, BIGINT, nunca NUMERIC/float): `service_payment_requests.amount` e `service_payment_executions.amount` (BIGINT) → `amount_cents` (BIGINT). **Executa norma existente — sem DECISION nova.** Janela: sistema local/virgem, row_count=0 nas 2 tabelas → rename puro, sem backfill.
+
+**Disposição:** `backend/tmpschema.ts` (untracked, 0 refs) descartado como artefato local.
+
+**Migration:** `20260616220000_rename_service_payment_amount_to_amount_cents.sql` — forward-only, idempotente (RENAME só se `amount` existe e `amount_cents` não), preserva BIGINT/dados, sem coluna paralela/NUMERIC. CHECK `(amount > 0)` de executions seguiu o rename → `(amount_cents > 0)` (auto-PG). requests não tinha CHECK — não adicionado (fora do escopo de nomenclatura). **Prova DEPOIS:** schema_migrations=392, pending=[], só `amount_cents` BIGINT nas 2 tabelas (row_count=0), `bank_ledger`/`bank_transactions`/`bank_splits` intocados.
+
+**Código (escopo service_payment_*):** repos request (5 alias + INSERT) e execution (3 alias + INSERT) → `amount_cents AS "amountCents"` / INSERT `amount_cents`; callers `service-order.service` (SELECT+tipo), `pending-responsibilities.routes` (`pr.amount_cents AS "amountCents"`), `impact-overview.routes` (`SUM(amount_cents)`), `backfill-payment-splits-to-bank` (SELECT executions); 7 e2e/fixtures (col INSERT). Contrato externo `amountCents` preservado (alias na borda); `amount` monetário não reintroduzido.
+
+**Guard:** novo `audit-service-payment-amount-cents.mjs` em `validate:regression-guards` (morde: bare amount (re)definida/CHECK bare/alias antigo/INSERT bare/NUMERIC em cents; allowlist = 2 CREATE históricos + rename). **Negative-proof mordeu (exit 1) e restaurou byte-idêntico** em 2 formas (alias no repo; migration com bare amount).
+
+**E2E:** `run-spr-read-authority-ephemeral` **9/9**, `run-spr-create-authority-ephemeral` **10/10** (DB efêmera FULL incl. rename; INSERT/SELECT via amount_cents; bank/ledger/split intocados).
+
+**Gates:** actor-writer-boundaries OK · bank-ledger-boundaries OK · regression-guards OK (+ guard novo) · arch-patterns --strict critical_new=0 · tsc 43 baseline strict (0 nos arquivos da frente).
+
+**DT:** `DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE` → **IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA**. Escopo negativo: payout/split/recovery/bank_ledger/payment_intents/liquidação/saldo/grants/agenda/frontend **intocados**. **Aguarda reseal Yala.**
+
+---
+
 ## 2026-06-16 — F-CALENDAR-OPERATOR-GRANT-AUTHORITY-RFC · ✅ CLOSED / YALA PASS (docs-only RFC)
 
 **SEAL (2026-06-16):** reseal Yala adversarial READ-ONLY sobre commit `0532232d` retornou **PASS**. Frente **CLOSED / YALA PASS**; `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` → **CLOSED_AS_PRODUCT_AUTHORITY_BASELINE / YALA PASS**. **Yala confirmou:** DECISION-0138 existe; delegação flexível de operador de agenda promulgada (owner delega operação a outro actor confiável; sem cargo rígido inicial); código/slug/localizador = lookup, NÃO authority; `users.referral_code` NÃO vira authority; `actor_id` = base material; grant = `actor_id`+`capability_key`+`scope_actor`, ADITIVO (não concede direito de conceder); Slice 1C NÃO implementado; availability/calendar runtime intocado; owner-only intocado; `calendar:block`/`unblock` ainda sem rota literal `/block`; financeiro fora / 3 paralelas; DECISION-0137 respeitada; zero código/runtime/schema/frontend/migration. Seal = docs-only (arch gate critical_new=0). **Pendências futuras (Slice 1C):** mapear rotas reais de `calendar:*` · preservar owner-only/canRepresentActor como base · compor grant ativo como caminho aditivo · guard/neg-proof/E2E · UI de checkboxes · financeiro fora/3 paralelas · `backend/tmpschema.ts` precisa de disposição antes da próxima frente material. **Frase canônica:** "DECISION-0138 fecha a decisão de produto/autoridade: o owner pode delegar operação de agenda a outro actor confiável por grant explícito, sem cargo rígido inicial. Código/slug é lookup, não authority. Nenhum enforcement nasce deste RFC."

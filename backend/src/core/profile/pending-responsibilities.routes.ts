@@ -192,7 +192,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         `
         SELECT 
           pr.payment_request_id,
-          pr.amount,
+          pr.amount_cents AS "amountCents",
           pr.currency,
           pr.status,
           pr.requestedAt,

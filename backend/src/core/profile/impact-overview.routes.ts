@@ -139,7 +139,7 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
       const moneyLockedPaymentsRow = await runQueryWithTenant<{ total: string }>(
         tenantId,
         `
-        SELECT COALESCE(SUM(amount), 0)::text as total
+        SELECT COALESCE(SUM(amount_cents), 0)::text as total
         FROM service_payment_requests
         WHERE tenant_id = $1
           AND payer_actor_id = $2
