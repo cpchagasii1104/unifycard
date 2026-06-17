@@ -69,8 +69,17 @@ tsc **25** baseline (0 na frente).
 Sem migration; **zero refactor de RBAC** (só o gate de groups); Bank Core/ledger/`bank_splits`/payout/recovery/
 referral/`canManageCompany`/dashboard/event-rfq/automation **intocados**. `unified-availability` **não editado** (PROVA).
 
+## Warnings não-bloqueantes (reseal Yala = PASS_WITH_WARNINGS)
+
+- **W1** — negative-proof narrada neste log, sem `.ps1` reproduzível commitado → melhoria futura de Evidence Pack / guard reproducibility.
+- **W2** — guard `audit-groups-no-actioncontext-owner-bypass` hardcoded em `groups.routes.ts`; não varre todo o diretório groups → cobertura futura (terreno da DT-mãe).
+- **W3** — regex do guard não pega variações com parênteses (ex.: `ownerActorId === (req.actionContext.actorId)`) → robustez futura do guard.
+- **W4** — handlers ainda passam `req.actionContext.actorId` a métodos de service que re-checam ownership (`requesterMatchesOwnerActor`). **NÃO exploitável** nesta frente (o preHandler decide antes com `req.user.userId`), mas permanece terreno da `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`.
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA** (commit material 2026-06-17). dev 394. `DT-AUTHORITY-Z2-GROUPS-HANDROLLED-OWNER-BYPASS`
-→ **IMPLEMENTED_AS_CONTAINED / HOLD YALA**. **DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` permanece OPEN**
-(contenção localizada, não fechamento do arco DECISION-0113). **CLOSED só no seal pós-Yala PASS material.**
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-17 sobre commit material `37eb5efa`; reseal Yala
+material READ-ONLY = PASS_WITH_WARNINGS). dev 394. `DT-AUTHORITY-Z2-GROUPS-HANDROLLED-OWNER-BYPASS` → **CLOSED /
+YALA PASS MATERIAL**. **Esta frente fechou somente a contenção localizada de groups. Não fecha Z2 inteiro, Z1,
+Z3, authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` **permanece OPEN**.
+Nenhum código material alterado no seal.
