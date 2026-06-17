@@ -119,14 +119,14 @@ async function main(): Promise<void> {
   // rotas C intactas
   record('B10 C intactas: suggestions + holding-costs ainda com options.actorId = query.actorId CRU (2 ocorrências); NÃO gateadas',
     (rep.match(/options\.actorId = query\.actorId/g) || []).length === 2);
-  record('B11 C intactas: reports/sales mantém override (actorId: actionContext.actorId); dashboard overview/today/month NÃO usam resolveReportActorId',
+  record('B11 reports/sales override preservado; dashboard overview/today/month/sales gateados via resolveReportActorId (Z2-R2)',
     /actorId: actionContext\.actorId/.test(rep)
-    && (dash.match(/resolveReportActorId\(req, reply\)/g) || []).length === 1); // só dashboard/sales
+    && (dash.match(/resolveReportActorId\(req, reply\)/g) || []).length === 4); // overview/today/month/sales (Z2-R2)
 
   // sem Bank
   record('B12 sem Bank/ledger nos dois route files',
     !/bank_ledger|bank_transactions|bank_accounts/.test(dash + rep));
-  note('Denominador: 6 rotas A gateadas; C (suggestions/holding-costs/sales/overview/today/month/inventory/aging/transfers/simulations) intactas; F consolidated preservado; M=nenhuma; G=nenhuma.');
+  note('Denominador: 6 rotas A gateadas; dashboard overview/today/month gateados via Z2-R2 (query.actorId só com canRepresentActor); C remanescentes (suggestions/holding-costs/inventory/aging/transfers/simulations) intactas; F consolidated preservado; M=nenhuma; G=nenhuma.');
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);

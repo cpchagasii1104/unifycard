@@ -59,8 +59,13 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
 
     const filters: DashboardFilters = {};
 
+    // 🔴 DECISION-0113 / Z2-R2: query.actorId é HINT de filtro, NÃO authority. `dashboard:view` prova
+    // acesso ao MÓDULO, não autoridade sobre o actor filtrado. Só aplica se o usuário AUTENTICADO
+    // REPRESENTA o actor alvo (canRepresentActor via resolveReportActorId) — 403 senão. Mesmo padrão de /sales.
     if (query.actorId) {
-      filters.actorId = query.actorId;
+      const authorizedActorId = await resolveReportActorId(req, reply);
+      if (authorizedActorId === null) return; // 401/403/400 já enviado
+      filters.actorId = authorizedActorId;
     }
 
     if (query.channel) {
@@ -121,8 +126,13 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
 
     const filters: DashboardFilters = {};
 
+    // 🔴 DECISION-0113 / Z2-R2: query.actorId é HINT de filtro, NÃO authority. `dashboard:view` prova
+    // acesso ao MÓDULO, não autoridade sobre o actor filtrado. Só aplica se o usuário AUTENTICADO
+    // REPRESENTA o actor alvo (canRepresentActor via resolveReportActorId) — 403 senão. Mesmo padrão de /sales.
     if (query.actorId) {
-      filters.actorId = query.actorId;
+      const authorizedActorId = await resolveReportActorId(req, reply);
+      if (authorizedActorId === null) return; // 401/403/400 já enviado
+      filters.actorId = authorizedActorId;
     }
 
     if (query.channel) {
@@ -151,8 +161,13 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
 
     const filters: DashboardFilters = {};
 
+    // 🔴 DECISION-0113 / Z2-R2: query.actorId é HINT de filtro, NÃO authority. `dashboard:view` prova
+    // acesso ao MÓDULO, não autoridade sobre o actor filtrado. Só aplica se o usuário AUTENTICADO
+    // REPRESENTA o actor alvo (canRepresentActor via resolveReportActorId) — 403 senão. Mesmo padrão de /sales.
     if (query.actorId) {
-      filters.actorId = query.actorId;
+      const authorizedActorId = await resolveReportActorId(req, reply);
+      if (authorizedActorId === null) return; // 401/403/400 já enviado
+      filters.actorId = authorizedActorId;
     }
 
     if (query.channel) {
