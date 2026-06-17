@@ -69,9 +69,24 @@ Sem migration; **zero refactor de RBAC** (só os 3 handlers de dashboard); Bank 
 recovery/referral/groups/event-rfq/automation **intocados**. `/sales` não editado (já gateado). `reports.routes.ts`
 não editado (rotas "C" remanescentes = resíduo da DT-mãe).
 
+## Warnings não-bloqueantes (reseal Yala = PASS_WITH_WARNINGS)
+
+- **W1** — negative-proof narrada neste log, sem `.ps1` reproduzível commitado → melhoria futura de Evidence Pack / guard reproducibility.
+- **W2** — guard `audit-dashboard-actor-filter-requires-representation` hardcoded em `dashboard.routes.ts`; **não cobre** `reports.routes.ts` (intencional nesta frente; resíduo p/ guard Z2 cross-module futuro).
+- **W3** — regex do guard não pega variações como `filters.actorId = (query.actorId)` ou bracket notation → robustez futura.
+
+## Resíduo vivo — próxima contenção (NÃO corrigido neste seal)
+
+- **`F-AUTHORITY-Z2-R3-REPORTS-ACTOR-FILTER-BINDING`** — candidato natural próximo. `reports.routes.ts` ainda
+  contém actor filter cru em rotas operacionais: `/inventory/suggestions` e `/inventory/holding-costs`
+  (`options.actorId = query.actorId`), protegidas apenas por `reports:view_operational`. **NÃO bloqueia o
+  fechamento de R2 dashboard; bloqueia o fechamento da DT-mãe** `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`.
+  Deve virar a próxima contenção R3. `reports.routes.ts` **não foi tocado** nesta frente nem neste seal.
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA** (commit material 2026-06-17). dev 394. `DT-AUTHORITY-Z2-DASHBOARD-ACTOR-FILTER-UNBOUND`
-→ **IMPLEMENTED_AS_CONTAINED / HOLD YALA**. **Esta frente fechou somente a contenção localizada de dashboard actor
-filter binding. Não fecha Z2 inteiro, Z1, Z3, authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`
-**permanece OPEN**. **CLOSED só no seal pós-Yala PASS material.**
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-17 sobre commit material `fb73cd95`; reseal Yala
+material READ-ONLY = PASS_WITH_WARNINGS). dev 394. `DT-AUTHORITY-Z2-DASHBOARD-ACTOR-FILTER-UNBOUND` → **CLOSED /
+YALA PASS MATERIAL**. **Esta frente fechou somente a contenção localizada de dashboard actor filter binding. Não
+fecha Z2 inteiro, Z1, Z3, authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`
+**permanece OPEN**. Nenhum código material alterado no seal.
