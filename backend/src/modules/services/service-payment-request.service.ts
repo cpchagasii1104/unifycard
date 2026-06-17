@@ -93,6 +93,11 @@ class ServicePaymentRequestService {
     if (!input.amountCents || input.amountCents <= 0) {
       throw new BadRequestError('amountCents deve ser maior que zero');
     }
+    // 🔴 BLINDAGEM: service payment MVP é BRL-only (07 §4.10 ISO 4217; FIC não é moeda canônica).
+    // Fail-closed na borda — espelha o CHECK (currency = 'BRL') do banco e o gate de execução.
+    if (input.currency && input.currency !== 'BRL') {
+      throw new BadRequestError('service payment aceita somente currency BRL (MVP)');
+    }
 
     // 🔴 BLINDAGEM: Validar que booking existe via Unified Availability
     const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
@@ -147,7 +152,7 @@ class ServicePaymentRequestService {
     // Criar payment request
     const paymentRequest = await servicePaymentRequestRepository.create(tenantId, {
       ...input,
-      currency: input.currency || 'FIC', // Default: moeda fictícia
+      currency: input.currency || 'BRL', // Default: BRL (service payment MVP — 07 §4.10)
     });
 
     // 🔴 BLINDAGEM: Enfileirar effect na outbox (pós-commit do INSERT do pedido)
@@ -175,7 +180,7 @@ class ServicePaymentRequestService {
               serviceId: service.serviceId,
               amountCents: paymentRequest.amountCents,
               currency: paymentRequest.currency,
-              status: paymentRequest.status,
+              status: paymentRequest.paymentRequestStatus, // snapshot descritivo no payload do evento
             },
           },
           metadata: {
@@ -273,7 +278,7 @@ class ServicePaymentRequestService {
 
     // 🔴 BLINDAGEM: Enfileirar effect na outbox se status mudou para 'cancelled'
     // Pagamento é um PEDIDO de pagamento, não execução automática
-    if (input.status === PaymentRequestStatus.CANCELLED && currentPaymentRequest.status !== PaymentRequestStatus.CANCELLED) {
+    if (input.paymentRequestStatus === PaymentRequestStatus.CANCELLED && currentPaymentRequest.paymentRequestStatus !== PaymentRequestStatus.CANCELLED) {
       try {
         const outboxClient = await getClientWithTenant(tenantId);
         try {
@@ -297,7 +302,7 @@ class ServicePaymentRequestService {
                 serviceId: service.serviceId,
                 amountCents: updatedPaymentRequest.amountCents,
                 currency: updatedPaymentRequest.currency,
-                status: updatedPaymentRequest.status,
+                status: updatedPaymentRequest.paymentRequestStatus, // snapshot descritivo no payload do evento
                 cancelled: true,
               },
             },

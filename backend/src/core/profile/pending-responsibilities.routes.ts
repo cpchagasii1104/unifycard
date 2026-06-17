@@ -194,14 +194,14 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
           pr.payment_request_id,
           pr.amount_cents AS "amountCents",
           pr.currency,
-          pr.status,
+          pr.payment_request_status AS status,
           pr.requestedAt,
           pr.service_id,
           pr.booking_id
         FROM service_payment_requests pr
         WHERE pr.tenant_id = $1
           AND pr.payer_actor_id = $2
-          AND pr.status = 'pending'
+          AND pr.payment_request_status = 'pending'
         ORDER BY pr.requestedAt DESC
         LIMIT 20
         `,

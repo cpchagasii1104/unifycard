@@ -45,15 +45,32 @@ Status values:
 
 ---
 
-## DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE — OPEN / BLOCKS_SERVICE_PAYMENT_07_FULL_CONFORMANCE (2026-06-16)
+## DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE — IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16)
 
+- **🟡 IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`).** `service_payment_requests.status` (`VARCHAR(30) DEFAULT 'pending'`) → **`payment_request_status`** (07 §3.4: `status` genérico isolado proibido em banco; precedente `payment_intents.payment_status`). Migration `20260616230000` forward-only/idempotente (RENAME COLUMN + RENAME CONSTRAINT `chk_service_payment_requests_status` → `chk_service_payment_requests_payment_request_status`, CHECK re-aponta sozinho; valores `pending/cancelled/expired/paid` preservados). Contrato interno `paymentRequestStatus` (types/repo/service/execution-service); enum `PaymentRequestStatus` ganhou `PAID='paid'` (CHECK do banco já admitia). Rota agregada `pending-responsibilities` mantém alias de saída `status` lendo `payment_request_status AS status` (compat de lista heterogênea). `updatePaymentRequestSchema` (Zod, não-roteada) renomeado p/ `paymentRequestStatus`. 8 e2e (coluna no INSERT). Guard `audit-service-money-07-nomenclature.mjs` morde regressão (negative-proof). row_count=0; dev 392→393. **CLOSED só no seal pós-Yala PASS.**
 - **🔴 OPEN / BLOCKS_SERVICE_PAYMENT_07_FULL_CONFORMANCE (2026-06-16, resíduo obrigatório do reseal Yala de `F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS`).**
 - **Contexto:** `service_payment_requests` ainda possui coluna genérica `status` (`VARCHAR(30) NOT NULL DEFAULT 'pending'`, migration `20260530494000`). Os valores estão lowercase, mas o **nome da coluna permanece genérico** em domínio financeiro/service payment. Pelo 07, `status` isolado em banco exige revisão de especificidade quando o domínio financeiro já tem precedente `payment_intents.payment_status`.
 - **Risco:** ambiguidade de lifecycle; falsa impressão de conformidade total; divergência futura entre request status × payment status × execution lifecycle.
 - **Mitigação atual:** frente `amount_cents` selada de forma **restrita**; nenhuma alegação de conformidade total do domínio com o 07.
 - **Resolução prevista:** `F-NOMENCLATURE-SERVICE-PAYMENT-STATUS-CURRENCY-RFC` — três paralelas READ-ONLY antes de patch material (toca caminho financeiro/D-money).
 - **Nomes candidatos a avaliar (sem decidir agora):** `service_payment_request_status` · `payment_request_status`.
-- **Vinculada a:** `07_NOMENCLATURA_CANONICA` · `DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE` (selo restrito) · `DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL` · `payment_intents.payment_status` (precedente).
+- **Vinculada a:** `07_NOMENCLATURA_CANONICA` · `DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE` (selo restrito) · `DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL` · `payment_intents.payment_status` (precedente) · `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE` (execução).
+
+---
+
+## DT-SERVICES-PRICE-CENTS-BIGINT-NOMENCLATURE — IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16)
+
+- **🟡 IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`).** `services.price_cents` `INTEGER` → **`BIGINT`** (07 §4.7: dinheiro é BIGINT, não INTEGER — mesmo com nome correto `_cents`; precedente já-BIGINT `service_offerings.price_cents`). Migration `20260616230000` (`ALTER COLUMN price_cents TYPE BIGINT`; CHECK `services_price_positive` sobrevive; nome/dados preservados; row_count=0). **Achado crítico de correção:** sem `setTypeParser` global no projeto, o driver `pg` devolve `int8`(BIGINT) como **string** — o mapper `services.repository.toService` lia `row.price_cents` cru e quebraria o contrato `priceCents:number` (`service-bundle.service.ts:167` faria concatenação de string `sum + "1000"`). Corrigido com coerção `Number(row.price_cents)` (espelha `service-offering.service.ts`/`amount_cents`). Contrato `priceCents`/API/Zod `z.number().int()` preservados; lógica de preço intocada. Guard exige a coerção e proíbe `price_cents` não-BIGINT em migration. **CLOSED só no seal pós-Yala PASS.**
+- **Vinculada a:** `07_NOMENCLATURA_CANONICA` (§4.7) · `services.repository.ts` (coerção) · migration `20260616230000` · guard `audit-service-money-07-nomenclature.mjs`.
+
+---
+
+## RESÍDUOS / PRÓXIMAS MACROFRENTES — registradas por `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE` (2026-06-16, NÃO executar agora)
+
+- **`F-07-NORMATIVE-INTERPRETATION-RFC`** — interpretação normativa do 07 sobre: `status` genérico vs `status` de lifecycle interno (07 §3.4 proíbe isolado em contrato público × §4.11 tolera coluna `status` interna); body/response `camelCase` × query params `snake_case`; versionamento REST `/v1` (07 §9) × rotas vivas sem `/v1`. RFC docs-only antes de qualquer cutover.
+- **`F-NOMENCLATURE-SERVICE-TEMPORAL-AT`** — `service_orders.scheduled_start`/`scheduled_end` · `service_discovery_requests.requested_start` (sufixo `_at` temporal). NÃO tocado nesta frente (escopo = dinheiro/currency/status).
+- **`F-NOMENCLATURE-GRANT-LIFECYCLE-AT`** — `actor_capability_grants.valid_from`/`valid_until` + decisão `status`/`grant_status` antes do Slice 1C.
+- **`F-NOMENCLATURE-MARKETPLACE-LIFECYCLE-AT`** — `product_prices.valid_from`/`valid_to` · `economic_policies.effective_from`/`effective_until`.
 
 ---
 
@@ -11548,6 +11565,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL
 
+- **🟡 IMPLEMENTED_AS_NOMENCLATURE_AND_CHAIN_ALIGNMENT / HOLD YALA (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`).** O chain-break `FIC × BRL` foi **eliminado** alinhando o request à execução (que já era BRL-fail-closed em `service-payment-execution.service.ts:462`): (1) `service_payment_requests.currency` `VARCHAR(10) DEFAULT 'FIC'` → **`VARCHAR(3) DEFAULT 'BRL'`** + CHECK `currency='BRL'`; (2) `service_payment_executions.currency` `TEXT` → **`VARCHAR(3)`** + CHECK `currency='BRL'` (07 §4.10 ISO 4217); (3) FIC removido do caminho service_payment runtime/e2e (`service.ts:150`/`repository.ts:170` default → BRL; service rejeita `currency≠'BRL'` na borda; types/routes/exec-types comentários; 2 e2e). `FIC` confirmado **ausente de todo `docs/01_normative`** (não é ISO 4217). Migration `20260616230000`. **Decisão MVP:** service payment é **BRL-only** (CHECK relaxável em frente multi-moeda futura). row_count=0. Guard morde `'FIC'`/currency não-canônica. **Resíduo informativo:** comentários `// (default: 'FIC')` em `economic-overview.types.ts` (módulo economy, display-only) **fora** do escopo desta frente. **CLOSED só no seal pós-Yala PASS.**
 - **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110`. **Confirmado:** payment-request default `currency='FIC'` (`service-payment-request.service.ts:150`) × execução **exige** `BRL` e rejeita (`service-payment-execution.service.ts:462`). Um payment-request com a moeda default seria **rejeitado** na execução (cadeia quebra).
 - **Resolução prevista:** unificar a moeda canônica (BRL no MVP) entre request e execution, na cadeia canônica pós-firewall. **NÃO** executar agora.
 - **Reforço (2026-06-16, reseal Yala de `F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS` = PASS_WITH_REQUIRED_RESIDUALS):** confirmada **OPEN** como resíduo bloqueante da conformidade 07 completa de `service_payment_*`. Registrado que **`FIC` NÃO está ratificado como ISO 4217 no 07** e que há **chain-break material**: request default `FIC` (`currency VARCHAR(10) DEFAULT 'FIC'`, migration `20260530494000`) × execução exige `BRL`. A frente `amount_cents` foi selada de forma **restrita**, sem tocar currency. Resolução endereçada por `F-NOMENCLATURE-SERVICE-PAYMENT-STATUS-CURRENCY-RFC` (READ-ONLY + 3 paralelas), que deve decidir se `FIC` é moeda ISO, token interno ou conceito separado. **NÃO** executar agora. Vinculada a `DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE` (selo restrito) + `DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE`.

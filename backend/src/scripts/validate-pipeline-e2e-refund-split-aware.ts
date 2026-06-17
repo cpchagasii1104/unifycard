@@ -248,7 +248,7 @@ async function createPaymentRequest(
   await pool.query(
     `INSERT INTO service_payment_requests (
        payment_request_id, tenant_id, booking_id, service_id, payer_actor_id, receiver_actor_id,
-       status, amount_cents, currency
+       payment_request_status, amount_cents, currency
      ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid, 'pending', $7, 'BRL')`,
     [paymentRequestId, TENANT_ID, bookingId, serviceId, buyerActorId, receiverActorId, amount]
   );

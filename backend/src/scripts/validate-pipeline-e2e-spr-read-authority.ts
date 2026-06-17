@@ -59,7 +59,7 @@ async function mkBooking(tenantId: string, availabilityId: string, requesterActo
 }
 async function mkPaymentRequest(tenantId: string, bookingId: string, serviceId: string, payerActorId: string, receiverActorId: string): Promise<string> {
   const id = randomUUID();
-  await pool.query(`INSERT INTO service_payment_requests (payment_request_id, tenant_id, booking_id, service_id, payer_actor_id, receiver_actor_id, status, amount_cents, currency, requested_at, metadata, created_at, updated_at) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6::uuid,'pending',1000,'FIC',NOW(),'{}'::jsonb,NOW(),NOW())`, [id, tenantId, bookingId, serviceId, payerActorId, receiverActorId]);
+  await pool.query(`INSERT INTO service_payment_requests (payment_request_id, tenant_id, booking_id, service_id, payer_actor_id, receiver_actor_id, payment_request_status, amount_cents, currency, requested_at, metadata, created_at, updated_at) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6::uuid,'pending',1000,'BRL',NOW(),'{}'::jsonb,NOW(),NOW())`, [id, tenantId, bookingId, serviceId, payerActorId, receiverActorId]);
   return id;
 }
 

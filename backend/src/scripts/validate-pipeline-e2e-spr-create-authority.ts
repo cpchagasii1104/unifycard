@@ -105,7 +105,7 @@ async function main(): Promise<void> {
 
   const post = (svc: string, bk: string, body: Record<string, unknown>) => app.inject({
     method: 'POST', url: `/${svc}/bookings/${bk}/payments`, headers: { 'content-type': 'application/json' },
-    payload: JSON.stringify({ amountCents: 1000, currency: 'FIC', ...body }),
+    payload: JSON.stringify({ amountCents: 1000, currency: 'BRL', ...body }),
   });
   const prRow = async (bk: string) => (await pool.query<{ payer: string; receiver: string }>(`SELECT payer_actor_id::text payer, receiver_actor_id::text receiver FROM service_payment_requests WHERE tenant_id=$1 AND booking_id=$2 LIMIT 1`, [TENANT, bk])).rows[0];
 

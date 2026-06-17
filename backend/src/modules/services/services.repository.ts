@@ -23,7 +23,9 @@ class ServicesRepository {
       status: row.status as ServiceStatus,
       categoryId: row.category_id,
       canonicalServiceId: row.canonical_service_id,
-      priceCents: row.price_cents,
+      // price_cents é BIGINT (07 §4.7) — o driver pg devolve int8 como string; coage para number
+      // preservando o contrato priceCents:number|null (sem global type-parser no projeto).
+      priceCents: row.price_cents === null ? null : Number(row.price_cents),
       currency: row.currency,
       pricingType: row.pricing_type as any,
       countryId: row.country_id,

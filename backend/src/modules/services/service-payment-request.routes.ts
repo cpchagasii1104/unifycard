@@ -14,12 +14,12 @@ const createPaymentRequestSchema = z.object({
   payerActorId: z.string().uuid().optional(),
   receiverActorId: z.string().uuid().optional(),
   amountCents: z.number().positive('Valor deve ser maior que zero'), // OBRIGATÓRIO
-  currency: z.string().optional(), // Default: 'FIC'
+  currency: z.string().optional(), // Default: 'BRL' (service payment MVP — 07 §4.10; service rejeita ≠ BRL)
   metadata: z.record(z.any()).optional(),
 });
 
 const updatePaymentRequestSchema = z.object({
-  status: z.enum(['pending', 'cancelled', 'expired']).optional(),
+  paymentRequestStatus: z.enum(['pending', 'cancelled', 'expired']).optional(),
   metadata: z.record(z.any()).optional(),
 });
 

@@ -14,6 +14,7 @@ export enum PaymentRequestStatus {
   PENDING = 'pending',   // Pedido de pagamento pendente
   CANCELLED = 'cancelled', // Pedido de pagamento cancelado
   EXPIRED = 'expired',    // Pedido de pagamento expirado
+  PAID = 'paid',          // Cobrança paga (CHECK do banco já admite 'paid')
 }
 
 /**
@@ -35,9 +36,9 @@ export interface ServicePaymentRequest {
   serviceId: string; // OBRIGATÓRIO: Service relacionado
   payerActorId: string; // OBRIGATÓRIO: Actor que paga
   receiverActorId: string; // OBRIGATÓRIO: Actor que recebe (dono do service)
-  status: PaymentRequestStatus;
+  paymentRequestStatus: PaymentRequestStatus;
   amountCents: number; // Valor do pagamento
-  currency: string; // Moeda (default: 'FIC' = Fictícia)
+  currency: string; // Moeda canônica do service payment: 'BRL' (07 §4.10 ISO 4217)
   requestedAt: Date;
   metadata: Record<string, any>;
   createdAt: string;
@@ -56,7 +57,7 @@ export interface ServicePaymentRequestRow {
   service_id: string;
   payer_actor_id: string;
   receiver_actor_id: string;
-  status: PaymentRequestStatus;
+  paymentRequestStatus: PaymentRequestStatus;
   amountCents: number;
   currency: string;
   requested_at: Date;
@@ -78,7 +79,7 @@ export interface CreateServicePaymentRequestInput {
   payerActorId: string; // OBRIGATÓRIO
   receiverActorId: string; // OBRIGATÓRIO
   amountCents: number; // OBRIGATÓRIO: Valor do pagamento
-  currency?: string; // Default: 'FIC'
+  currency?: string; // Default: 'BRL' (service payment MVP é BRL-only — 07 §4.10)
   metadata?: Record<string, any>;
 }
 
@@ -86,7 +87,7 @@ export interface CreateServicePaymentRequestInput {
  * Input para atualizar pedido de pagamento
  */
 export interface UpdateServicePaymentRequestInput {
-  status?: PaymentRequestStatus;
+  paymentRequestStatus?: PaymentRequestStatus;
   metadata?: Record<string, any>;
 }
 

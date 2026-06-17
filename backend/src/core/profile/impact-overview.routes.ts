@@ -143,7 +143,7 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
         FROM service_payment_requests
         WHERE tenant_id = $1
           AND payer_actor_id = $2
-          AND status = 'pending'
+          AND payment_request_status = 'pending'
         `,
         [tenantId, actor.actor_id]
       );

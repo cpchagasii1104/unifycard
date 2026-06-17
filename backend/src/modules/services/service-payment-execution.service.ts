@@ -443,7 +443,7 @@ class ServicePaymentExecutionService {
     if (!paymentRequest) {
       throw new BadRequestError('Payment request não encontrado');
     }
-    if (paymentRequest.status !== PaymentRequestStatus.PENDING) {
+    if (paymentRequest.paymentRequestStatus !== PaymentRequestStatus.PENDING) {
       throw new BadRequestError('Só é possível executar payment request com status pending');
     }
 

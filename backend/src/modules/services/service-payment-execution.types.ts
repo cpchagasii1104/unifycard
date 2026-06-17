@@ -26,7 +26,7 @@ export interface ServicePaymentExecution {
   payerActorId: string; // OBRIGATÓRIO: Actor que paga
   receiverActorId: string; // OBRIGATÓRIO: Actor que recebe (dono do service)
   amountCents: number; // Valor executado (deve ser igual ao payment_request.amountCents)
-  currency: string; // Moeda (default: 'FIC' = Fictícia)
+  currency: string; // Moeda canônica da execução: 'BRL' (07 §4.10; execução é BRL-fail-closed)
   executedAt: Date;
   metadata: Record<string, any>;
   createdAt: string;

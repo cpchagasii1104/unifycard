@@ -24,7 +24,7 @@ class ServicePaymentRequestRepository {
       serviceId: row.service_id,
       payerActorId: row.payer_actor_id,
       receiverActorId: row.receiver_actor_id,
-      status: row.status as PaymentRequestStatus,
+      paymentRequestStatus: row.paymentRequestStatus as PaymentRequestStatus,
       amountCents: Number(row.amountCents),
       currency: row.currency,
       requestedAt: row.requested_at,
@@ -45,7 +45,7 @@ class ServicePaymentRequestRepository {
       `
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, payment_request_status AS "paymentRequestStatus", amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       FROM service_payment_requests
@@ -72,7 +72,7 @@ class ServicePaymentRequestRepository {
       `
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, payment_request_status AS "paymentRequestStatus", amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       FROM service_payment_requests
@@ -101,7 +101,7 @@ class ServicePaymentRequestRepository {
     let query = `
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, payment_request_status AS "paymentRequestStatus", amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       FROM service_payment_requests
@@ -110,7 +110,7 @@ class ServicePaymentRequestRepository {
     const params: any[] = [serviceId, tenantId];
 
     if (filters?.status) {
-      query += ` AND status = $3`;
+      query += ` AND payment_request_status = $3`;
       params.push(filters.status);
     }
 
@@ -149,13 +149,13 @@ class ServicePaymentRequestRepository {
       `
       INSERT INTO service_payment_requests (
         tenant_id, booking_id, service_id, payer_actor_id, receiver_actor_id,
-        status, amount_cents, currency, requested_at, metadata
+        payment_request_status, amount_cents, currency, requested_at, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (booking_id) DO NOTHING
       RETURNING 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, payment_request_status AS "paymentRequestStatus", amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       `,
@@ -167,7 +167,7 @@ class ServicePaymentRequestRepository {
         input.receiverActorId,
         PaymentRequestStatus.PENDING,
         input.amountCents,
-        input.currency || 'FIC',
+        input.currency || 'BRL',
         new Date(),
         JSON.stringify(input.metadata || {}),
       ]
@@ -193,9 +193,9 @@ class ServicePaymentRequestRepository {
     const params: any[] = [];
     let paramIndex = 1;
 
-    if (input.status !== undefined) {
-      updates.push(`status = $${paramIndex++}`);
-      params.push(input.status);
+    if (input.paymentRequestStatus !== undefined) {
+      updates.push(`payment_request_status = $${paramIndex++}`);
+      params.push(input.paymentRequestStatus);
     }
     if (input.metadata !== undefined) {
       updates.push(`metadata = $${paramIndex++}`);
@@ -217,7 +217,7 @@ class ServicePaymentRequestRepository {
       WHERE payment_request_id = $${paramIndex++} AND tenant_id = $${paramIndex++}
       RETURNING 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount_cents AS "amountCents", currency,
+        payer_actor_id, receiver_actor_id, payment_request_status AS "paymentRequestStatus", amount_cents AS "amountCents", currency,
         requested_at, metadata, created_at, updated_at,
         cancelled_at, expired_at
       `,
