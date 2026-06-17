@@ -119,8 +119,21 @@ recovery · D-money/release · liquidação · saldo · `actor_capability_grants
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA** (commit material 2026-06-16; aguarda reseal Yala READ-ONLY). dev 393.
-DTs: `DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE` IMPLEMENTED_AS_NOMENCLATURE_BASELINE/HOLD YALA ·
-`DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL` IMPLEMENTED_AS_NOMENCLATURE_AND_CHAIN_ALIGNMENT/HOLD YALA ·
-`DT-SERVICES-PRICE-CENTS-BIGINT-NOMENCLATURE` (nova) IMPLEMENTED_AS_NOMENCLATURE_BASELINE/HOLD YALA.
-**Nenhum resíduo fora do escopo marcado como resolvido. CLOSED só no seal pós-Yala PASS.**
+**✅ CLOSED / YALA PASS** (seal docs-only 2026-06-16 sobre commit material `b84e3d61`). **Veredito Yala: PASS_WITH_WARNINGS.** dev **393/393, pending=[]**.
+
+**Confirmado no seal (banco vivo + commit):**
+- `service_payment_requests` **sem `status`**, com **`payment_request_status`** (VARCHAR(30); CHECK pending/cancelled/expired/paid).
+- `service_payment_requests.currency` / `service_payment_executions.currency` = **`VARCHAR(3)` + CHECK `='BRL'`**; FIC fora do caminho service_payment.
+- `service_payment_executions` **sem status**; `amount_cents` BIGINT preservado.
+- `services.price_cents` **BIGINT** (coerção `Number(row.price_cents)` no mapper).
+- **Bank Core / `payment_intents` / D-money / recovery INTOCADOS.**
+- E2Es SPR **9/9** e **10/10**; gates obrigatórios verdes (actor-writer/bank-ledger boundaries, regression-guards, arch critical_new=0, check:migrations, tsc baseline).
+
+**Warnings não-bloqueantes (registrados como DT OPEN):**
+- **W1 — `DT-SERVICE-MONEY-07-NEGATIVE-PROOF-REPRODUCIBILITY` (OPEN / NON_BLOCKING_HARDENING):** negative-proof narrado neste log, sem script reproduzível versionado; guard ativo e provado → não bloqueia.
+- **W2 — `DT-FINANCIAL-SSOT-RED-SERVICE-PAYMENT-EXECUTION-REPOSITORY` (OPEN / BLOCKS_NEXT_FINANCIAL_FRONT_TOUCHING_SERVICE_PAYMENT_EXECUTION_REPOSITORY):** `validate:financial-ssot` já vermelho antes de `b84e3d61`, cita `service-payment-execution.repository.ts` (não editado nesta frente) → não bloqueia este seal; exige 3 paralelas READ-ONLY antes de nova frente financeira que toque esse arquivo.
+
+DTs da frente: `DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE` **CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS** ·
+`DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL` **CLOSED_AS_NOMENCLATURE_AND_CHAIN_ALIGNMENT / YALA PASS** ·
+`DT-SERVICES-PRICE-CENTS-BIGINT-NOMENCLATURE` **CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS**.
+**Resíduos fora do escopo mantidos OPEN** (F-07-NORMATIVE-INTERPRETATION-RFC · F-NOMENCLATURE-SERVICE-TEMPORAL-AT · F-NOMENCLATURE-GRANT-LIFECYCLE-AT · F-NOMENCLATURE-MARKETPLACE-LIFECYCLE-AT · gates financeiros amplos preexistentes). **Seal restrito a service money 07 — não sela conformidade total de todos os domínios com o 07.**

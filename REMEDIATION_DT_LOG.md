@@ -45,8 +45,9 @@ Status values:
 
 ---
 
-## DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE — IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16)
+## DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE — CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS (2026-06-16)
 
+- **🟢 CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`; reseal Yala = PASS_WITH_WARNINGS sobre commit `b84e3d61`).** `service_payment_requests.status` → `payment_request_status` selado: coluna+CHECK renomeadas, contrato `paymentRequestStatus`, enum `+PAID`, alias de saída `status` na lista agregada `pending-responsibilities` preservado (compat), guard ativo. Seal docs-only.
 - **🟡 IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`).** `service_payment_requests.status` (`VARCHAR(30) DEFAULT 'pending'`) → **`payment_request_status`** (07 §3.4: `status` genérico isolado proibido em banco; precedente `payment_intents.payment_status`). Migration `20260616230000` forward-only/idempotente (RENAME COLUMN + RENAME CONSTRAINT `chk_service_payment_requests_status` → `chk_service_payment_requests_payment_request_status`, CHECK re-aponta sozinho; valores `pending/cancelled/expired/paid` preservados). Contrato interno `paymentRequestStatus` (types/repo/service/execution-service); enum `PaymentRequestStatus` ganhou `PAID='paid'` (CHECK do banco já admitia). Rota agregada `pending-responsibilities` mantém alias de saída `status` lendo `payment_request_status AS status` (compat de lista heterogênea). `updatePaymentRequestSchema` (Zod, não-roteada) renomeado p/ `paymentRequestStatus`. 8 e2e (coluna no INSERT). Guard `audit-service-money-07-nomenclature.mjs` morde regressão (negative-proof). row_count=0; dev 392→393. **CLOSED só no seal pós-Yala PASS.**
 - **🔴 OPEN / BLOCKS_SERVICE_PAYMENT_07_FULL_CONFORMANCE (2026-06-16, resíduo obrigatório do reseal Yala de `F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS`).**
 - **Contexto:** `service_payment_requests` ainda possui coluna genérica `status` (`VARCHAR(30) NOT NULL DEFAULT 'pending'`, migration `20260530494000`). Os valores estão lowercase, mas o **nome da coluna permanece genérico** em domínio financeiro/service payment. Pelo 07, `status` isolado em banco exige revisão de especificidade quando o domínio financeiro já tem precedente `payment_intents.payment_status`.
@@ -58,10 +59,25 @@ Status values:
 
 ---
 
-## DT-SERVICES-PRICE-CENTS-BIGINT-NOMENCLATURE — IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16)
+## DT-SERVICES-PRICE-CENTS-BIGINT-NOMENCLATURE — CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS (2026-06-16)
 
+- **🟢 CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`; reseal Yala = PASS_WITH_WARNINGS sobre commit `b84e3d61`).** `services.price_cents` INTEGER → BIGINT selado; coerção `Number(row.price_cents)` preserva contrato `priceCents:number` (sem `setTypeParser` global); CHECK `services_price_positive` sobreviveu; lógica de preço intocada; guard exige a coerção. Seal docs-only.
 - **🟡 IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`).** `services.price_cents` `INTEGER` → **`BIGINT`** (07 §4.7: dinheiro é BIGINT, não INTEGER — mesmo com nome correto `_cents`; precedente já-BIGINT `service_offerings.price_cents`). Migration `20260616230000` (`ALTER COLUMN price_cents TYPE BIGINT`; CHECK `services_price_positive` sobrevive; nome/dados preservados; row_count=0). **Achado crítico de correção:** sem `setTypeParser` global no projeto, o driver `pg` devolve `int8`(BIGINT) como **string** — o mapper `services.repository.toService` lia `row.price_cents` cru e quebraria o contrato `priceCents:number` (`service-bundle.service.ts:167` faria concatenação de string `sum + "1000"`). Corrigido com coerção `Number(row.price_cents)` (espelha `service-offering.service.ts`/`amount_cents`). Contrato `priceCents`/API/Zod `z.number().int()` preservados; lógica de preço intocada. Guard exige a coerção e proíbe `price_cents` não-BIGINT em migration. **CLOSED só no seal pós-Yala PASS.**
 - **Vinculada a:** `07_NOMENCLATURA_CANONICA` (§4.7) · `services.repository.ts` (coerção) · migration `20260616230000` · guard `audit-service-money-07-nomenclature.mjs`.
+
+---
+
+## DT-SERVICE-MONEY-07-NEGATIVE-PROOF-REPRODUCIBILITY — OPEN / NON_BLOCKING_HARDENING (2026-06-16)
+
+- **🟡 OPEN / NON_BLOCKING_HARDENING (2026-06-16, warning W1 do reseal Yala de `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`).** Yala confirmou que o guard `audit-service-money-07-nomenclature.mjs` mordeu os vetores (7 de migration + 4 de runtime) e que o baseline voltou verde, mas o **negative-proof ficou narrado no execution log, sem script reproduzível versionado**. **NÃO bloqueia o seal** — o guard está ativo e provado. Recomenda-se versionar um negative-proof reproduzível (script/fixture) para paridade e repetibilidade.
+- **Vinculada a:** `audit-service-money-07-nomenclature.mjs` · `docs/03_execution_log/20260616_F_NOMENCLATURE_SERVICE_MONEY_07_CLOSURE.md` (§Guard + Negative-proof).
+
+---
+
+## DT-FINANCIAL-SSOT-RED-SERVICE-PAYMENT-EXECUTION-REPOSITORY — OPEN / BLOCKS_NEXT_FINANCIAL_FRONT_TOUCHING_SERVICE_PAYMENT_EXECUTION_REPOSITORY (2026-06-16)
+
+- **🔴 OPEN / BLOCKS_NEXT_FINANCIAL_FRONT_TOUCHING_SERVICE_PAYMENT_EXECUTION_REPOSITORY (2026-06-16, warning W2 do reseal Yala de `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`).** `validate:financial-ssot` já estava **vermelho antes de `b84e3d61`** e cita `service-payment-execution.repository.ts` ("repository financeiro detectado fora de `src/core/bank`"). O arquivo **não foi editado** por `b84e3d61` (esta frente só tocou `service-payment-execution.service.ts:446` + comentário em `.types.ts`), portanto **não bloqueia o seal** desta frente (red estrutural/pré-existente). **Roadblock:** antes de qualquer nova frente financeira que **toque `service-payment-execution.repository.ts`**, esse vermelho DEVE ser tratado com **três paralelas READ-ONLY** + decisão de fronteira SSOT (Bank é a única fonte de verdade financeira — 07 §3.3 / LEIS Lei 5).
+- **Vinculada a:** `validate:financial-ssot` · `service-payment-execution.repository.ts` · `07_NOMENCLATURA_CANONICA` (§3.3 SSOT) · `LEIS_OPERACIONAIS` (Lei 5).
 
 ---
 
@@ -11565,6 +11581,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL
 
+- **🟢 CLOSED_AS_NOMENCLATURE_AND_CHAIN_ALIGNMENT / YALA PASS (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`; reseal Yala = PASS_WITH_WARNINGS sobre commit `b84e3d61`).** Chain-break `FIC × BRL` eliminado: `spr.currency` VARCHAR(3) DEFAULT 'BRL' + CHECK, `spe.currency` VARCHAR(3) + CHECK, FIC fora do caminho service_payment runtime/e2e; alinhado à execução BRL-fail-closed. Decisão MVP BRL-only (CHECK relaxável). Resíduo informativo `economic-overview.types.ts` (economy display-only) segue fora do escopo. Seal docs-only.
 - **🟡 IMPLEMENTED_AS_NOMENCLATURE_AND_CHAIN_ALIGNMENT / HOLD YALA (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`).** O chain-break `FIC × BRL` foi **eliminado** alinhando o request à execução (que já era BRL-fail-closed em `service-payment-execution.service.ts:462`): (1) `service_payment_requests.currency` `VARCHAR(10) DEFAULT 'FIC'` → **`VARCHAR(3) DEFAULT 'BRL'`** + CHECK `currency='BRL'`; (2) `service_payment_executions.currency` `TEXT` → **`VARCHAR(3)`** + CHECK `currency='BRL'` (07 §4.10 ISO 4217); (3) FIC removido do caminho service_payment runtime/e2e (`service.ts:150`/`repository.ts:170` default → BRL; service rejeita `currency≠'BRL'` na borda; types/routes/exec-types comentários; 2 e2e). `FIC` confirmado **ausente de todo `docs/01_normative`** (não é ISO 4217). Migration `20260616230000`. **Decisão MVP:** service payment é **BRL-only** (CHECK relaxável em frente multi-moeda futura). row_count=0. Guard morde `'FIC'`/currency não-canônica. **Resíduo informativo:** comentários `// (default: 'FIC')` em `economic-overview.types.ts` (módulo economy, display-only) **fora** do escopo desta frente. **CLOSED só no seal pós-Yala PASS.**
 - **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110`. **Confirmado:** payment-request default `currency='FIC'` (`service-payment-request.service.ts:150`) × execução **exige** `BRL` e rejeita (`service-payment-execution.service.ts:462`). Um payment-request com a moeda default seria **rejeitado** na execução (cadeia quebra).
 - **Resolução prevista:** unificar a moeda canônica (BRL no MVP) entre request e execution, na cadeia canônica pós-firewall. **NÃO** executar agora.
