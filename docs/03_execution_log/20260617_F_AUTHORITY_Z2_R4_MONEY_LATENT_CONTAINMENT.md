@@ -98,11 +98,44 @@ R5 intent-execute, referral **intocados**. A reativação real de settlement/uni
 para frente própria (decisão de authority + binding server-side + fluxo Bank canônico + E2E financeiro +
 reseal Yala). O restante do cluster money-latent (AP/AR/payment-split/payout) NÃO foi tocado.
 
+## Proof-hygiene pós-reseal (commit `7889eb26`) — W1/W2 resolvidos
+
+Reseal Yala material READ-ONLY = **PASS_WITH_WARNINGS**. Warnings operacionais resolvidos antes do seal:
+
+- **W1 — negative-proof NOT_RUN (BOM/parser error):** o `.ps1` não tinha BOM no início; o parser error sob
+  Windows PowerShell 5.1 vinha de caracteres não-ASCII (emoji/acentos) lidos como ANSI codepage. Fix: reescrito
+  em **ASCII puro (sem BOM)** + `Set-Location` para `backend` (o guard resolve `src/...` via `process.cwd()`) +
+  asserções explícitas de restauração byte-idêntica e git-status limpo. Verificado em **pwsh 7 E powershell.exe
+  5.1** a partir da raiz do repo: base passa → mutação (religar `settlementService.settle`) faz o guard falhar
+  (exit 1) → restauração faz o guard passar → restauração **byte-idêntica** → **git status limpo** (sem resíduo).
+  Lógica do teste preservada. Diff = somente o `.ps1`.
+- **W2 — E2E NOT_RUN no ambiente Yala (sem postgres/DATABASE_URL):** reproduzido no ambiente da executora —
+  `run-marketplace-money-latent-containment-ephemeral.ps1` **15/15 verdes** (DB efêmera
+  `unificard_marketplace_money_latent_e2e`, nunca unificard_dev; A1–A6 → 403; service não atingido; bank/money
+  tables inalteradas; R1/R2/R3/R5 sem regressão).
+
+## W3 — resíduo fora do escopo A1–A6 (registrado, NÃO corrigido)
+
+- **W3** — GET `/marketplace/unifycard/transactions` ainda usa `query.actorId` sem gate de representação.
+  Natureza: **reader / não-money / latente por stub** — NÃO pertence ao escopo A1–A6 de mutação money-latent.
+  Registrado como resíduo da **DT-mãe 0113** e candidato a futura frente de **reader-containment / Z2 reader sweep**.
+
+## Continuidade (recomendação futura — NÃO executar agora)
+
+Com R1/R2/R3/R4/R5 e referral contidos, os próximos candidatos:
+1. **Guard cross-module Z2** — subsumir os guards per-file R1/R2/R3/R4/R5 e impedir `actorId` de query/body/
+   actionContext aplicado a owner/filter/write sensível sem binding (avança a DT-mãe).
+2. **Z2-R6 não-money** — event-rfq, social-2.0 posts, venue menus/tabs, plan, feed/action, system-notifications,
+   business-permissions/check, services POST/PUT, store-onboarding.
+3. **Reader-containment** — GET `/unifycard/transactions` e outros readers com `query.actorId` sem representation gate.
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA.** `DT-AUTHORITY-Z2-MARKETPLACE-MONEY-LATENT-ACTORID-UNBOUND` →
-**IMPLEMENTED_AS_CONTAINED / HOLD YALA** (sub-caso de `DT-MONEY-LATENT-REACTIVATION-TRAP`, raiz OPEN).
-**Esta frente fechou somente a contenção localizada das rotas marketplace money-latent settlement/
-unifycard/regionAccount. Não religa Bank, não implementa fluxo financeiro, não fecha Z2 inteiro, Z1, Z3,
-authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` permanece
-**OPEN**. CLOSED só no seal pós-Yala PASS material.
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-17 sobre commit material `dcb3a60f` + proof-hygiene
+`7889eb26`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS). dev 394.
+`DT-AUTHORITY-Z2-MARKETPLACE-MONEY-LATENT-ACTORID-UNBOUND` → **CLOSED / YALA PASS MATERIAL**.
+**Esta frente fechou somente a contenção localizada das rotas marketplace money-latent settlement/unifycard/
+regionAccount. Não religa Bank, não implementa fluxo financeiro, não fecha Z2 inteiro, Z1, Z3, authority global
+nem a DT-mãe 0113** — `DT-MONEY-LATENT-REACTIVATION-TRAP` (raiz) e `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`
+(DT-mãe) permanecem **OPEN**. R1 groups, R2 dashboard, R3 reports, R5 intent-execute **não reabertos**. Nenhum
+código material alterado no seal.
