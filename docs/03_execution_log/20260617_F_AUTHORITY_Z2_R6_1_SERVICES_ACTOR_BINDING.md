@@ -85,11 +85,37 @@ Core/`bank_ledger`/`bank_transactions`/`bank_splits`, R1 groups/R2 dashboard/R3 
 intent-execute, referral, event-rfq/social-posts/feed-action/venue/system-notifications/store-onboarding/
 business-permissions/unifycard **intocados**.
 
+## Proof-hygiene pós-reseal (sem novo commit; HEAD permaneceu `b54838ed`) — W1/W2 resolvidos
+
+Reseal Yala material READ-ONLY = **PASS_WITH_WARNINGS**. Warnings operacionais resolvidos antes do seal,
+sem alterar material (o `.ps1` já estava ASCII/sem-BOM com Set-Location + asserção byte-idêntica + git
+status pre-vs-post; nenhuma edição necessária):
+
+- **W1 — E2E + negative-proof não rodaram no pass Yala:** reproduzidos no ambiente da executora.
+  `negative-proof-services-actor-binding.ps1` executado em **pwsh 7 e Windows PowerShell 5.1** — base passa
+  → mutação spoofando o subject (`parsed.data.actorId` como 2º arg) faz o guard FALHAR (exit 1) → restauração
+  faz o guard passar → restauração **byte-idêntica** → **git status sem resíduo**. E2E
+  `run-services-actor-binding-ephemeral` **17/17** (DB efêmera dedicada, nunca unificard_dev).
+- **W2 — gates completos não reexecutados frescos no pass Yala:** gates frescos verdes — actor-writer /
+  bank-ledger boundaries, regression-guards (inclui `services-actor-binding`), arch `--strict`
+  critical_new=0, check:migrations 394/394, tsc baseline 43 (zero erro novo).
+
+## Continuidade (recomendação futura — NÃO executar agora)
+
+- **R6.2 SOCIAL-POSTS-ACTOR-BINDING** — vivo, non-money, write-attribution unbound.
+- **R6.3 FEED-ACTION** — alinhar ao padrão de binding do `/feed/contextual`.
+- **R7 EVENT-RFQ-ACTING-USER-GATE** — money-adjacent, maior severidade remanescente (fail-open por
+  `actingUserId` fantasma; `acceptQuote` cria booking + payment_request).
+- **venue / system-notifications** — schema ghost; conter antes de materializar tabelas.
+- **business-permissions/check** — aguarda decisão Clayton.
+- **Guard cross-module Z2** — para subsumir os guards per-file (avança a DT-mãe).
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA.** `DT-AUTHORITY-Z2-SERVICES-ACTOR-BINDING-UNBOUND` →
-**IMPLEMENTED_AS_CONTAINED / HOLD YALA** (vinculada ao parent canal-1 `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`,
-que segue OPEN). **Esta frente fechou somente a contenção localizada de services actor binding. Não fecha Z2
-inteiro, Z1, Z3, authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`
-permanece **OPEN**. **Continuidade (NÃO executar agora):** R6.2 social-posts · R6.3 feed-action/reader · R7
-event-rfq money-adjacent · reader-containment / guard cross-module Z2. CLOSED só no seal pós-Yala PASS material.
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-17 sobre commit material `b54838ed`; reseal Yala
+material READ-ONLY = PASS_WITH_WARNINGS; warnings W1/W2 resolvidos pela executora). dev 394.
+`DT-AUTHORITY-Z2-SERVICES-ACTOR-BINDING-UNBOUND` → **CLOSED / YALA PASS MATERIAL**. **Esta frente fechou
+somente a contenção localizada de services actor binding. Não fecha Z2 inteiro, Z1, Z3, authority global nem
+a DT-mãe 0113** — o parent canal-1 `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` e a DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` permanecem **OPEN**. R1/R2/R3/R4/R5 **não reabertos**;
+availability e service-offering **não regrediram**. Nenhum código material alterado no seal.
