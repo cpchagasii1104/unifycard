@@ -212,7 +212,12 @@ const BASELINE = {
   'modules/services/service-bundle.routes.ts': C1,
   'modules/services/service-payment-request.routes.ts': C1_MONEY,
   'modules/services/services-discovery.routes.ts': C1,
-  'modules/services/services.routes.ts': C1,
+  // services.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R6.1-SERVICES-ACTOR-BINDING):
+  // POST /services e PUT /services/:id passaram a exigir representação server-side do actor dono via
+  // canRepresentActor(req.tenant.id, req.user.userId, ownerActorId) fail-closed (403
+  // SERVICE_ACTOR_NOT_REPRESENTABLE) ANTES do write; o check fraco (actor.user_id !== userId &&
+  // actor_type !== 'user') foi substituído pelo primitivo canônico. Guard próprio:
+  // audit-services-actor-binding.mjs. DT-AUTHORITY-Z2-SERVICES-ACTOR-BINDING-UNBOUND.
   'modules/social/social-marketplace-ref.routes.ts': C1,
   'modules/social/social.routes.ts': C1,
   'modules/system-notifications/system-notification.routes.ts': C1,

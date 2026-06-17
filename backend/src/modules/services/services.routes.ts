@@ -7,6 +7,7 @@ import { servicesService } from './services.service';
 import { z } from 'zod';
 import { resolveActiveActorFromRequest } from '@modules/social/actor.utils';
 import { ActorIntent } from '@modules/social/actor-intents.types';
+import { authorizationService } from '@core/authorization/authorization.service';
 
 const createServiceSchema = z.object({
   actorId: z.string().uuid(), // OBRIGATÓRIO
@@ -72,10 +73,23 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // 🔴 DECISION-0113 / DECISION-0131 §B7 / Z2-R6.1 — `body.actorId` é HINT (dono declarado do
+      // serviço), nunca autoridade. O principal autenticado (req.user.userId, server-side) DEVE provar
+      // representação do actor dono via canRepresentActor (fail-closed → 403) ANTES de criar o serviço.
+      // Existência do actor (validada no service) NÃO prova representação.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ ok: false, code: 'AUTH_REQUIRED', error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+      const canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, parsed.data.actorId);
+      if (!canRep) {
+        return reply.status(403).send({ ok: false, code: 'SERVICE_ACTOR_NOT_REPRESENTABLE', error: 'Sem autoridade para criar serviço em nome do actor declarado (canRepresentActor)' });
+      }
+
       try {
         const service = await servicesService.createService(
           req.tenant.id,
-          req.actionContext.actorId,
+          userId,
           {
             actorId: parsed.data.actorId, // OBRIGATÓRIO
             name: parsed.data.name,
@@ -201,11 +215,28 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // 🔴 DECISION-0113 / DECISION-0131 §B7 / Z2-R6.1 — autoridade sobre o serviço vem da representação
+      // do actor DONO (server-resolved a partir do serviço atual), não de actorId declarado pelo cliente.
+      // req.user.userId DEVE representar currentService.actorId via canRepresentActor (fail-closed → 403)
+      // ANTES do update.
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ ok: false, code: 'AUTH_REQUIRED', error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+      const current = await servicesService.getService(req.tenant.id, req.params.id);
+      if (!current) {
+        return reply.status(404).send({ ok: false, error: 'Serviço não encontrado' });
+      }
+      const canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, current.actorId);
+      if (!canRep) {
+        return reply.status(403).send({ ok: false, code: 'SERVICE_ACTOR_NOT_REPRESENTABLE', error: 'Sem autoridade sobre o actor dono do serviço (canRepresentActor)' });
+      }
+
       try {
         const service = await servicesService.updateService(
           req.tenant.id,
           req.params.id,
-          req.actionContext.actorId,
+          userId,
           {
             name: parsed.data.name,
             description: parsed.data.description,

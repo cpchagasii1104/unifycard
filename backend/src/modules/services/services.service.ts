@@ -12,6 +12,7 @@ import { actorEffectsService } from '@modules/social/actor-effects.service';
 import { ActorIntent } from '@modules/social/actor-intents.types';
 import { ActorEffect } from '@modules/social/actor-effects.types';
 import { BadRequestError, ForbiddenError } from '@core/errors';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { assertServiceCategoryAllowedForCompany } from './service-category-guard';
 import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
 import type {
@@ -46,6 +47,14 @@ class ServicesService {
     const actor = await actorRepository.findById(tenantId, input.actorId);
     if (!actor) {
       throw new BadRequestError('Actor não encontrado');
+    }
+
+    // 🔴 DECISION-0113 / DECISION-0131 §B7 / Z2-R6.1 — `userId` (principal autenticado server-side) DEVE
+    // representar o actor dono declarado; existência do actor NÃO prova representação. Fail-closed (403).
+    // Defesa em profundidade — a rota já vinculou; este check protege chamadas diretas ao service.
+    const canRepresentOwner = await authorizationService.canRepresentActor(tenantId, userId, input.actorId);
+    if (!canRepresentOwner) {
+      throw new ForbiddenError('SERVICE_ACTOR_NOT_REPRESENTABLE: apenas quem representa o actor pode criar serviço em seu nome');
     }
 
     // 🔴 BLINDAGEM: Validar intent se fornecido
@@ -156,18 +165,14 @@ class ServicesService {
       throw new BadRequestError('Serviço não encontrado');
     }
 
-    // Validar que usuário tem permissão (owner do actor)
-    const actor = await actorRepository.findById(tenantId, currentService.actorId);
-    if (!actor) {
-      throw new BadRequestError('Actor não encontrado');
-    }
-
-    // 🔴 BLINDAGEM: Validar permissão (simplificado - pode ser expandido)
-    // Por enquanto, apenas verificar se é owner do actor
-    if (actor.user_id !== userId && actor.actor_type !== 'user') {
-      // Para page/group, verificar se usuário tem permissão
-      // Por enquanto, apenas owner pode atualizar
-      throw new BadRequestError('Apenas o dono do actor pode atualizar o serviço');
+    // 🔴 DECISION-0113 / DECISION-0131 §B7 / Z2-R6.1 — substitui o check fraco anterior
+    // (`actor.user_id !== userId && actor.actor_type !== 'user'`, bypass para actor-type 'user' e sem
+    // caminho de delegação). Autoridade = representação do actor DONO (currentService.actorId) pelo
+    // principal autenticado (userId), via canRepresentActor. Fail-closed (403). Defesa em profundidade:
+    // a rota já vinculou; este check protege chamadas diretas ao service.
+    const canRepresentOwner = await authorizationService.canRepresentActor(tenantId, userId, currentService.actorId);
+    if (!canRepresentOwner) {
+      throw new ForbiddenError('SERVICE_ACTOR_NOT_REPRESENTABLE: apenas quem representa o actor dono pode atualizar o serviço');
     }
 
     // DECISION-0109: se o update troca a categoria, revalida domínio + ramo (service_type efetivo do
