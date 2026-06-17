@@ -93,7 +93,21 @@ CPF/user **não** vira dono econômico; body/metadata **não** define dono; acto
 canRepresentActor (signup só auto-provisiona user_actor); (3) `marketplace/referral.*` dormante — limpeza/compat
 em fatia própria; (4) `bank_splits.referral_link_id`/CHECK fora do escopo; (5) deprecação de `users.referral_code`.
 
+## Warnings não-bloqueantes (reseal Yala = PASS_WITH_WARNINGS)
+
+- **W1** — negative-proof narrada neste log, **sem script reproduzível versionado**. Melhoria futura de
+  Evidence Pack / guard reproducibility. Não bloqueia (guard ativo e provado).
+- **W2** — `REFERRAL_PERCENTAGE = 5%` hardcoded no split-engine. **Decisão de política futura**; **NÃO foi
+  introduzida** por esta frente (já existia; DECISION-0119/0048 governam percentual/janela).
+- **W3** — `validate:architectural-rules.ts` vermelho em profile. **DT própria, fora do escopo** desta frente
+  (pré-existente; não introduzido pelo patch).
+- **W4** — reexecução fresca do `referral-link-materialization` → **14/14 verdes** (DB efêmera, 2026-06-17, pós-seal).
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA** (commit material 2026-06-17). dev 394. `DT-ACTOR-SCOPED-REFERRAL-USER-ONLY` →
-**IMPLEMENTED_AS_ACTOR_SCOPED / HOLD YALA**. **CLOSED só no seal pós-Yala PASS material.**
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-17 sobre commit material `6e94916f`; reseal Yala
+material READ-ONLY = PASS_WITH_WARNINGS não-bloqueantes). dev **394/394**. `DT-ACTOR-SCOPED-REFERRAL-USER-ONLY`
+→ **CLOSED**. **Confirmado no seal:** Bank Core/writer/ledger/`bank_splits` intocados; earnings → `actor_wallet`
+do owner; `referral_code` = lookup, nunca authority; body/metadata neutralizado server-side; `actor_system`
+fail-closed; `canRepresentActor` obrigatório; `referred_actor_id` server-side. **Janela de 5 anos permanece
+PENDENTE CLAYTON** (não decidida por esta frente). Nenhum código material alterado no seal.
