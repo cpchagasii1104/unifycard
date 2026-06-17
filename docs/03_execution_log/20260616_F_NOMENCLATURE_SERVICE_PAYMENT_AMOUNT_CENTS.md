@@ -74,7 +74,16 @@ NÃO tocado: payout · split · recovery · `bank_ledger`/`bank_transactions`/`b
 fluxo de liquidação · semântica de saldo · permission grants · operador de agenda · frontend · `payment_splits.amount`
 (outra tabela). Nenhuma lógica financeira alterada — apenas o **nome físico** da coluna. Dados não movidos (row_count=0).
 
+## Resíduos obrigatórios (reseal Yala = PASS_WITH_REQUIRED_RESIDUALS)
+
+O selo é **RESTRITO** a `amount → amount_cents`. `service_payment_*` **NÃO** está 100% conforme o 07. Resíduos:
+
+1. **`DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE` — OPEN / BLOCKS_SERVICE_PAYMENT_07_FULL_CONFORMANCE.** Coluna `status` genérica (`VARCHAR(30) DEFAULT 'pending'`) em domínio financeiro; precedente `payment_intents.payment_status`. Nomes candidatos (sem decidir): `service_payment_request_status` · `payment_request_status`.
+2. **`DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL` — OPEN** (já aberta por DECISION-0110, reforçada). `FIC` não ratificado como ISO 4217 no 07; chain-break material: request default `FIC` × execução exige `BRL`.
+3. **Próxima frente: `F-NOMENCLATURE-SERVICE-PAYMENT-STATUS-CURRENCY-RFC`** — READ-ONLY primeiro + **3 paralelas** (toca status/currency/D-money/release/payment_intents/E2E; decide FIC = moeda ISO, token interno ou conceito separado). **NÃO** executar patch material agora.
+
 ## Estado
 
-**IMPLEMENTED / HOLD YALA.** Fecha SÓ como **F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS**. dev 392.
-`DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE` → IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA. **Aguarda reseal Yala.**
+**✅ CLOSED / YALA PASS — RESTRICTED TO AMOUNT_CENTS** (reseal Yala = PASS_WITH_REQUIRED_RESIDUALS sobre commit `2285eaba`; seal docs-only 2026-06-16). Fecha SÓ como **F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS**, restrito à correção material `amount → amount_cents`. _(Histórico: IMPLEMENTED / HOLD YALA.)_ dev 392. `DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE` → **CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS**.
+
+> **Selo:** "Este selo fecha somente a correção material `amount → amount_cents` em service_payment_requests e service_payment_executions. Não sela conformidade total do domínio service_payment_* com o 07."

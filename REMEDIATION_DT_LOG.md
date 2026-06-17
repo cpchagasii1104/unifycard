@@ -45,8 +45,21 @@ Status values:
 
 ---
 
-## DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE — IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16)
+## DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE — OPEN / BLOCKS_SERVICE_PAYMENT_07_FULL_CONFORMANCE (2026-06-16)
 
+- **🔴 OPEN / BLOCKS_SERVICE_PAYMENT_07_FULL_CONFORMANCE (2026-06-16, resíduo obrigatório do reseal Yala de `F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS`).**
+- **Contexto:** `service_payment_requests` ainda possui coluna genérica `status` (`VARCHAR(30) NOT NULL DEFAULT 'pending'`, migration `20260530494000`). Os valores estão lowercase, mas o **nome da coluna permanece genérico** em domínio financeiro/service payment. Pelo 07, `status` isolado em banco exige revisão de especificidade quando o domínio financeiro já tem precedente `payment_intents.payment_status`.
+- **Risco:** ambiguidade de lifecycle; falsa impressão de conformidade total; divergência futura entre request status × payment status × execution lifecycle.
+- **Mitigação atual:** frente `amount_cents` selada de forma **restrita**; nenhuma alegação de conformidade total do domínio com o 07.
+- **Resolução prevista:** `F-NOMENCLATURE-SERVICE-PAYMENT-STATUS-CURRENCY-RFC` — três paralelas READ-ONLY antes de patch material (toca caminho financeiro/D-money).
+- **Nomes candidatos a avaliar (sem decidir agora):** `service_payment_request_status` · `payment_request_status`.
+- **Vinculada a:** `07_NOMENCLATURA_CANONICA` · `DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE` (selo restrito) · `DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL` · `payment_intents.payment_status` (precedente).
+
+---
+
+## DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE — CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS (2026-06-16)
+
+- **🟢 CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS (2026-06-16, `F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS`; reseal Yala = PASS_WITH_REQUIRED_RESIDUALS sobre commit `2285eaba`).** **Yala confirmou:** `amount` removido das duas tabelas; `amount_cents` BIGINT nas duas; CHECK de `service_payment_executions` aponta para `amount_cents > 0`; repositories/callers/fixtures adaptados; Bank Core intocado; fluxo financeiro sem mudança semântica; guard ativo; E2Es verdes. **SELO RESTRITO:** fecha SÓ a correção material `amount → amount_cents` — **NÃO** sela conformidade total de `service_payment_*` com o 07 (resíduos obrigatórios abaixo). _"Este selo fecha somente a correção material `amount → amount_cents` em service_payment_requests e service_payment_executions. Não sela conformidade total do domínio service_payment_* com o 07."_ **Resíduos bloqueantes da conformidade 07 completa:** [DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE](#) (status genérico) · [DT-SERVICE-PAYMENT-CURRENCY-FIC-vs-BRL](#) (currency/FIC default × execução BRL). Próxima frente: `F-NOMENCLATURE-SERVICE-PAYMENT-STATUS-CURRENCY-RFC` (READ-ONLY + 3 paralelas antes de patch material).
 - **🟡 IMPLEMENTED_AS_NOMENCLATURE_BASELINE / HOLD YALA (2026-06-16, `F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS`).** Correção cirúrgica de nomenclatura financeira canônica (`07_NOMENCLATURA_CANONICA` §valores monetários: dinheiro = inteiro em centavos, sufixo OBRIGATÓRIO `_cents`, `BIGINT`, nunca NUMERIC/float). `service_payment_requests.amount` e `service_payment_executions.amount` (BIGINT) → `amount_cents` (BIGINT). **Executa norma existente — NÃO é DECISION nova.** Migration `20260616220000` forward-only/idempotente (RENAME puro; CHECK `(amount>0)` de executions seguiu o rename → `(amount_cents>0)`; requests sem CHECK não recebeu um novo). Janela: sistema local/virgem, **row_count=0** nas 2 tabelas → sem backfill. Repos (aliases `amount AS "amountCents"` → `amount_cents AS "amountCents"`; INSERT col `amount_cents`) + callers (`service-order.service`, `pending-responsibilities.routes`, `impact-overview.routes`, `backfill-payment-splits-to-bank`) + 7 e2e/fixtures atualizados; contrato externo `amountCents` preservado. Guard `audit-service-payment-amount-cents.mjs` em `validate:regression-guards` (negative-proof mordeu+restaurou). E2E spr-read 9/9 + spr-create 10/10 (efêmera FULL). **Escopo negativo:** payout/split/recovery/`bank_ledger`/`bank_transactions`/`bank_splits`/`payment_intents`/liquidação/saldo/grants/agenda/frontend **intocados**; `payment_splits.amount` (outra tabela) não tocado. **CLOSED só no seal pós-Yala PASS.** dev 391→392.
 - **Vinculada a:** `07_NOMENCLATURA_CANONICA` (§_cents) · `service-payment-request.repository`/`service-payment-execution.repository` · migration `20260616220000` · guard `audit-service-payment-amount-cents.mjs`.
 
@@ -11537,6 +11550,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 - **Status:** OPEN (2026-06-06) — aberta por `DECISION-0110`. **Confirmado:** payment-request default `currency='FIC'` (`service-payment-request.service.ts:150`) × execução **exige** `BRL` e rejeita (`service-payment-execution.service.ts:462`). Um payment-request com a moeda default seria **rejeitado** na execução (cadeia quebra).
 - **Resolução prevista:** unificar a moeda canônica (BRL no MVP) entre request e execution, na cadeia canônica pós-firewall. **NÃO** executar agora.
+- **Reforço (2026-06-16, reseal Yala de `F-NOMENCLATURE-SERVICE-PAYMENT-AMOUNT-CENTS` = PASS_WITH_REQUIRED_RESIDUALS):** confirmada **OPEN** como resíduo bloqueante da conformidade 07 completa de `service_payment_*`. Registrado que **`FIC` NÃO está ratificado como ISO 4217 no 07** e que há **chain-break material**: request default `FIC` (`currency VARCHAR(10) DEFAULT 'FIC'`, migration `20260530494000`) × execução exige `BRL`. A frente `amount_cents` foi selada de forma **restrita**, sem tocar currency. Resolução endereçada por `F-NOMENCLATURE-SERVICE-PAYMENT-STATUS-CURRENCY-RFC` (READ-ONLY + 3 paralelas), que deve decidir se `FIC` é moeda ISO, token interno ou conceito separado. **NÃO** executar agora. Vinculada a `DT-SERVICE-PAYMENT-AMOUNT-CENTS-NOMENCLATURE` (selo restrito) + `DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE`.
 
 ## DT-SERVICE-RELEASE-TIMEOUT-RUNTIME-MISSING
 
