@@ -68,9 +68,25 @@ tsc **25** baseline (0 na frente).
 Sem migration; **zero refactor de RBAC** (só as 3 rotas de reports); Bank Core/ledger/`bank_splits`/payout/recovery/
 referral/groups/dashboard/event-rfq/automation **intocados**. As 5 rotas já gateadas de reports não foram alteradas.
 
+## Warnings não-bloqueantes (reseal Yala = PASS_WITH_WARNINGS)
+
+- **W1** — negative-proof narrada neste log, sem `.ps1` reproduzível commitado → melhoria futura de Evidence Pack / guard reproducibility.
+- **W2** — guard `audit-reports-actor-filter-requires-representation` hardcoded em `reports.routes.ts`; rotas de relatório em **outros módulos** poderiam escapar → resíduo p/ guard Z2 cross-module futuro.
+- **W3** — regex do guard não pega bracket notation / optional chaining → robustez futura.
+- **W4** — limiar `≥8 chamadas` do guard é frágil (adição/remoção de rota altera o contador) → robustez futura.
+
+## Observação estratégica (recomendação futura — NÃO executar agora)
+
+Após **R1 groups + R2 dashboard + R3 reports**, a próxima etapa recomendada para avançar a **DT-mãe**
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` **não é mais correção por-arquivo**, e sim um **sweep sistêmico
+cross-module Z2**: (a) guard único varrendo `src/**/*.routes.ts`; (b) detecção de `actorId` vindo de
+query/body/actionContext aplicado a filtros/options/ownership **sem** `canRepresentActor`/`assertActorRepresentable`/
+helper seguro; (c) versionamento de negative-proof reproduzível. **Esta frente NÃO abre esse sweep** — fica para próxima decisão de direção.
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA** (commit material 2026-06-17). dev 394. `DT-AUTHORITY-Z2-REPORTS-ACTOR-FILTER-UNBOUND`
-→ **IMPLEMENTED_AS_CONTAINED / HOLD YALA**. **Esta frente fechou somente a contenção localizada de reports actor
-filter binding. Não fecha Z2 inteiro, Z1, Z3, authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`
-**permanece OPEN**. R1 groups e R2 dashboard **não reabertos**. **CLOSED só no seal pós-Yala PASS material.**
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-17 sobre commit material `e8394a27`; reseal Yala
+material READ-ONLY = PASS_WITH_WARNINGS). dev 394. `DT-AUTHORITY-Z2-REPORTS-ACTOR-FILTER-UNBOUND` → **CLOSED /
+YALA PASS MATERIAL**. **Esta frente fechou somente a contenção localizada de reports actor filter binding. Não
+fecha Z2 inteiro, Z1, Z3, authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`
+**permanece OPEN**. R1 groups e R2 dashboard **não reabertos**. Nenhum código material alterado no seal.
