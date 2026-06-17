@@ -9,77 +9,51 @@ import type {
   SettleTransactionInput,
   UnifyCardTransactionFilters,
 } from './unifycard.types';
-import { BadRequestError, NotFoundError } from '@core/errors';
-import { ErrorCode } from '@core/errors/error-codes';
+import { NotFoundError } from '@core/errors';
+
+// 🔴 CONTENÇÃO Z2-R4 — F-AUTHORITY-Z2-R4-MONEY-LATENT-CONTAINMENT (fail-closed).
+// Rotas money-latent: o sink (unifyCardService.authorize|capture|settle) está morto por Proxy
+// ("UnifyCard migrated to Bank") e a rota usava `actionContext.actorId` CRU como autoria/autoridade,
+// sem binding server-side (DECISION-0113/0131 §B7). Para tornar a contenção EXPLÍCITA e auditável
+// (não dependente do stub), os handlers de MUTAÇÃO foram REDUZIDOS a um 403 fail-closed: NÃO há
+// caminho (alcançável ou morto) que chame unifyCardService.authorize|capture|settle. Motor
+// financeiro intacto, porém INALCANÇÁVEL. Readers GET permanecem vivos. Reabilitação SÓ com frente
+// própria: decisão de authority + binding server-side (canRepresentActor/requirePermission) + fluxo
+// Bank canônico + E2E financeiro + reseal Yala. Ver
+// DT-AUTHORITY-Z2-MARKETPLACE-MONEY-LATENT-ACTORID-UNBOUND (vinculada a DT-MONEY-LATENT-REACTIVATION-TRAP).
+const UNIFYCARD_HTTP_EXECUTION_DISABLED = {
+  ok: false,
+  code: 'UNIFYCARD_HTTP_EXECUTION_DISABLED',
+  message:
+    'UnifyCard authorize/capture/settle through HTTP is contained until Bank migration provides authority binding (DECISION-0113/0131). Reactivation requires a dedicated frente: authority decision, server-side binding (canRepresentActor/requirePermission), canonical Bank flow, financial E2E and Yala reseal.',
+} as const;
 
 const unifyCardRoutes = async (fastify: FastifyInstance) => {
   /**
    * POST /unifycard/authorize
    * Autoriza transação UnifyCard
    */
-  fastify.post<{ Body: AuthorizeTransactionInput }>('/unifycard/authorize', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    if (!actionContext?.actorId) {
-      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
-    }
-
-    const actorId = actionContext.actorId;
-
-    const transaction = await unifyCardService.authorize(
-      tenantId,
-      req.body,
-      actorId,
-      actionContext.actorId,
-      actionContext.actorId
-    );
-
-    return reply.status(201).send(transaction);
+  fastify.post<{ Body: AuthorizeTransactionInput }>('/unifycard/authorize', async (_req, reply) => {
+    // 🔴 CONTENÇÃO Z2-R4 (fail-closed): NÃO chama unifyCardService.authorize. Ver banner acima.
+    return reply.status(403).send(UNIFYCARD_HTTP_EXECUTION_DISABLED);
   });
 
   /**
    * POST /unifycard/capture
    * Captura transação UnifyCard
    */
-  fastify.post<{ Body: CaptureTransactionInput }>('/unifycard/capture', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    if (!actionContext?.actorId) {
-      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
-    }
-
-    const transaction = await unifyCardService.capture(
-      tenantId,
-      req.body,
-      actionContext.actorId,
-      actionContext.actorId
-    );
-
-    return transaction;
+  fastify.post<{ Body: CaptureTransactionInput }>('/unifycard/capture', async (_req, reply) => {
+    // 🔴 CONTENÇÃO Z2-R4 (fail-closed): NÃO chama unifyCardService.capture. Ver banner acima.
+    return reply.status(403).send(UNIFYCARD_HTTP_EXECUTION_DISABLED);
   });
 
   /**
    * POST /unifycard/settle
    * Liquida transação UnifyCard
    */
-  fastify.post<{ Body: SettleTransactionInput }>('/unifycard/settle', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    if (!actionContext?.actorId) {
-      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
-    }
-
-    const transaction = await unifyCardService.settle(
-      tenantId,
-      req.body,
-      actionContext.actorId,
-      actionContext.actorId
-    );
-
-    return transaction;
+  fastify.post<{ Body: SettleTransactionInput }>('/unifycard/settle', async (_req, reply) => {
+    // 🔴 CONTENÇÃO Z2-R4 (fail-closed): NÃO chama unifyCardService.settle. Ver banner acima.
+    return reply.status(403).send(UNIFYCARD_HTTP_EXECUTION_DISABLED);
   });
 
   /**

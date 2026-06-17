@@ -197,12 +197,18 @@ const BASELINE = {
   'modules/marketplace/business-segment.routes.ts': C1,
   'modules/marketplace/contact.routes.ts': C1,
   'modules/marketplace/purchase-order.routes.ts': C1_MONEY,
-  'modules/marketplace/settlement.routes.ts': C1_MONEY,
+  // settlement.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R4-MONEY-LATENT-CONTAINMENT):
+  // as 3 rotas money-latent de mutação (settle/credit/debit) foram REDUZIDAS a 403 fail-closed e não
+  // leem mais actionContext.actorId — o canal-1 desapareceu do arquivo. Guard próprio:
+  // audit-marketplace-money-latent-containment.mjs. DT-AUTHORITY-Z2-MARKETPLACE-MONEY-LATENT-ACTORID-UNBOUND.
   'modules/marketplace/store-onboarding.routes.ts': C1,
   'modules/marketplace/supplier.routes.ts': C1,
   'modules/marketplace/tax-profile.routes.ts': C1,
   'modules/marketplace/unifycard-method.routes.ts': C1,
-  'modules/marketplace/unifycard.routes.ts': C1,
+  // unifycard.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R4-MONEY-LATENT-CONTAINMENT):
+  // as 3 rotas money-latent (authorize/capture/settle) foram REDUZIDAS a 403 fail-closed e não leem
+  // mais actionContext.actorId. Guard próprio: audit-marketplace-money-latent-containment.mjs.
+  // DT-AUTHORITY-Z2-MARKETPLACE-MONEY-LATENT-ACTORID-UNBOUND.
   'modules/services/service-bundle.routes.ts': C1,
   'modules/services/service-payment-request.routes.ts': C1_MONEY,
   'modules/services/services-discovery.routes.ts': C1,
