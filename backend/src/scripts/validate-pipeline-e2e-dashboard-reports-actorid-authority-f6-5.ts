@@ -113,12 +113,13 @@ async function main(): Promise<void> {
   const rPr = sliceBetween(rep, "GetPricingStrategyOptions = {", "Erro ao buscar estratégia de preço");
   record('B8 reports/pricing/strategy: gate antes de getPriceStrategy; options.actorId = authorizedActorId',
     rPr.indexOf('resolveReportActorId(') < rPr.indexOf('getPriceStrategy(') && /options\.actorId = authorizedActorId/.test(rPr) && !/options\.actorId = query\.actorId/.test(rPr));
-  record('B9 reports: resolveReportActorId chamado exatamente 5x (financial + margin×3 + pricing)',
-    (rep.match(/resolveReportActorId\(req, reply\)/g) || []).length === 5);
+  record('B9 reports: resolveReportActorId chamado 8x (financial + margin×3 + pricing + sales + suggestions + holding-costs — Z2-R3)',
+    (rep.match(/resolveReportActorId\(req, reply\)/g) || []).length === 8);
 
-  // rotas C intactas
-  record('B10 C intactas: suggestions + holding-costs ainda com options.actorId = query.actorId CRU (2 ocorrências); NÃO gateadas',
-    (rep.match(/options\.actorId = query\.actorId/g) || []).length === 2);
+  // Z2-R3: sales + inventory/suggestions + holding-costs GATEADOS (0 cru)
+  record('B10 reports/sales + inventory/suggestions + holding-costs gateados (Z2-R3): 0 actor filter cru',
+    (rep.match(/options\.actorId = query\.actorId/g) || []).length === 0
+    && (rep.match(/filters\.actorId = query\.actorId/g) || []).length === 0);
   record('B11 reports/sales override preservado; dashboard overview/today/month/sales gateados via resolveReportActorId (Z2-R2)',
     /actorId: actionContext\.actorId/.test(rep)
     && (dash.match(/resolveReportActorId\(req, reply\)/g) || []).length === 4); // overview/today/month/sales (Z2-R2)
@@ -126,7 +127,7 @@ async function main(): Promise<void> {
   // sem Bank
   record('B12 sem Bank/ledger nos dois route files',
     !/bank_ledger|bank_transactions|bank_accounts/.test(dash + rep));
-  note('Denominador: 6 rotas A gateadas; dashboard overview/today/month gateados via Z2-R2 (query.actorId só com canRepresentActor); C remanescentes (suggestions/holding-costs/inventory/aging/transfers/simulations) intactas; F consolidated preservado; M=nenhuma; G=nenhuma.');
+  note('Denominador: 6 rotas A gateadas; dashboard overview/today/month gateados (Z2-R2); reports/sales + inventory/suggestions + holding-costs gateados (Z2-R3); C remanescentes (inventory/aging/transfers/simulations) intactas; F consolidated preservado; M=nenhuma; G=nenhuma.');
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);

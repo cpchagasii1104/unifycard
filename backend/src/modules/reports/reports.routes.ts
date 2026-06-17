@@ -58,9 +58,11 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
       filters.endDate = new Date(query.endDate);
     }
 
-    if (query.actorId) {
-      filters.actorId = query.actorId;
-    }
+    // 🔴 DECISION-0113 / Z2-R3: query.actorId é HINT → representável OU self via actionContext (canRepresentActor).
+    // `reports:view_operational` prova acesso ao MÓDULO, NÃO autoridade sobre o actor filtrado. 403 senão.
+    const authorizedActorId = await resolveReportActorId(req, reply);
+    if (authorizedActorId === null) return; // 401/403/400 já enviado
+    filters.actorId = authorizedActorId;
 
     if (query.channel) {
       filters.channel = query.channel as 'PDV' | 'MARKETPLACE' | 'ALL';
@@ -266,9 +268,11 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
     const options: GetInventorySuggestionsOptions = {};
     const config: SuggestionConfig = {};
 
-    if (query.actorId) {
-      options.actorId = query.actorId;
-    }
+    // 🔴 DECISION-0113 / Z2-R3: query.actorId é HINT → representável OU self via actionContext (canRepresentActor).
+    // `reports:view_operational` prova acesso ao MÓDULO, NÃO autoridade sobre o actor filtrado. 403 senão.
+    const authorizedActorId = await resolveReportActorId(req, reply);
+    if (authorizedActorId === null) return; // 401/403/400 já enviado
+    options.actorId = authorizedActorId;
 
     if (query.productVariantId) {
       options.productVariantId = query.productVariantId;
@@ -339,9 +343,11 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
     const options: GetHoldingCostsOptions = {};
     const config: HoldingCostConfig = {};
 
-    if (query.actorId) {
-      options.actorId = query.actorId;
-    }
+    // 🔴 DECISION-0113 / Z2-R3: query.actorId é HINT → representável OU self via actionContext (canRepresentActor).
+    // `reports:view_operational` prova acesso ao MÓDULO, NÃO autoridade sobre o actor filtrado. 403 senão.
+    const authorizedActorId = await resolveReportActorId(req, reply);
+    if (authorizedActorId === null) return; // 401/403/400 já enviado
+    options.actorId = authorizedActorId;
 
     if (query.productVariantId) {
       options.productVariantId = query.productVariantId;
