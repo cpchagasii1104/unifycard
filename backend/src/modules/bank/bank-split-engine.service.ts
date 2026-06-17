@@ -165,15 +165,19 @@ class BankSplitEngineService {
     }
 
     // 2. Referral sobre profit (centavos inteiros)
+    //    DECISION-0139: o earning de indicação pertence ao ACTOR dono do código
+    //    (owner_actor_id), NÃO ao CPF/user por reflexo. Destino = actor_wallet do owner.
+    //    target_actor_id é resolvido pelo writer canônico a partir da conta destino
+    //    (bank_accounts.actor_id da actor_wallet) — DECISION-0036. Sem alterar Bank Core.
     if (fromUserId && profitAmountCents > 0) {
-      const referrerUserId = await getActiveReferral(tenantId, fromUserId);
+      const active = await getActiveReferral(tenantId, fromUserId);
 
-      if (referrerUserId) {
+      if (active) {
         const referralCents = Math.round(profitAmountCents * REFERRAL_PERCENTAGE);
-        const referrerAccount = await bankAccountService.getAccountByOwner(
+        // actor_wallet do owner econômico (idempotente; cria se ausente).
+        const referrerAccount = await bankAccountService.ensureActorWalletAccount(
           tenantId,
-          referrerUserId,
-          'user',
+          active.referrerActorId,
           currency
         );
 
@@ -183,7 +187,12 @@ class BankSplitEngineService {
             targetAccountId: referrerAccount.accountId,
             amountCents: referralCents,
             percentage: REFERRAL_PERCENTAGE,
-            metadata: { referrerUserId, referredUserId: fromUserId, allocationType: 'referral' },
+            metadata: {
+              referrerActorId: active.referrerActorId,
+              referrerUserId: active.referrerUserId,
+              referredUserId: fromUserId,
+              allocationType: 'referral',
+            },
           });
           profitAmountCents -= referralCents;
         }

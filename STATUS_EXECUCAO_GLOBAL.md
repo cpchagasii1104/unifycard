@@ -1,3 +1,23 @@
+## 2026-06-17 — F-ACTOR-REFERRAL-CODE-SUBSTRATE · 🟡 IMPLEMENTED / HOLD YALA (material)
+
+**Branch:** `rescue-structural` · **HEAD inicial `1e006f95`** · **dev 393 → 394 (+1 migration)** · MODO EXECUTOR / Ultracode. Materializa o **referral ACTOR-SCOPED** (DECISION-0139): código e earnings pertencem ao `owner_actor_id` (não ao CPF/user por reflexo); `referral_code` = lookup, **nunca authority**; body/metadata não define dono; `actor_system` fail-closed; earnings → `actor_wallet` do owner; **zero Bank Core/ledger/bank_splits**.
+
+**Pré-flight:** HEAD `1e006f95` (== anchor das auditorias A/B/C + Yala PASS docs-only de DECISION-0139 satisfeito pelo handoff da Diretora); sem sujeira material; migrations 393/393 pending=[]. Auditorias A=PASS_DESIGN · B=PASS_SCHEMA_PLAN · C=PASS_MONEY_PLAN (handoff).
+
+**Migration `20260617120000`:** `actor_referral_codes` (id, tenant_id, **owner_actor_id FK actors(id)**, code, **code_status** CHECK active/inactive/revoked, created_by_actor_id FK actors(id), created_by_user_id, created_at, revoked_at, metadata; `UNIQUE(tenant_id, code)`; **partial unique index 1 ativo/owner** `WHERE code_status='active' AND revoked_at IS NULL`; RLS app.current_tenant). `user_referral_links` += `referrer_actor_id`/`referred_actor_id` (FK actors(id), breadcrumb user_* preservado). **Prova DEPOIS:** FKs→actors(id)/tenants(id), índices confirmados, dev 394.
+
+**Código:** `actor-referral-code.service` (novo — resolver `code→owner_actor_id`, gerador idempotente, **fail-closed actor_system**) · `referral-helper.getActiveReferral` → devolve **owner econômico (actor)** + breadcrumb (compat legado→actor_human) · `referral.service.applyReferralCodeTx` **actor-substrate-first** (grava referrer_actor_id=owner + referred_actor_id=actor_human server-side; referrer_user_id = humano por trás do owner) · `bank-split-engine` earning → **`ensureActorWalletAccount(ownerActorId)`** (`target_actor_id=owner` resolvido pelo writer via `bank_accounts.actor_id`, DECISION-0036, **sem tocar createSplit/createEntry/Bank Core**) · `auth.service` provisiona código actor-scoped do novo actor_human no signup · `referral.routes` **POST/GET /referral/actor-code** com **canRepresentActor** · `publication-engine.generateShareableLink` embute código do actor **server-side** (body/metadata ignorados como dono).
+
+**E2E:** `run-actor-referral-substrate-ephemeral` **15/15** (PF/banda/empresa-page; non-mixing; actor_system fail-closed; referred_actor_id server-side; target=actor_wallet do owner; target_actor_id=owner; canRepresentActor 403; body não define dono; **bank_ledger intocado**) · `referral-link-materialization` **14/14** (adaptado ao novo retorno).
+
+**Guard:** novo `audit-actor-referral-actor-scoped.mjs` em `validate:regression-guards` (FK→actors(id) obrigatória; fail-closed actor_system; split via actor_wallet; body-injection; canRepresentActor). **Negative-proof mordeu (exit 1) e restaurou byte-idêntico** (FK→users · split via conta-user · fail-closed removido · body-injection).
+
+**Gates:** actor-writer-boundaries OK · **bank-ledger-boundaries OK** · regression-guards OK (+ guard novo) · arch --strict **critical_new=0** (warning_new=4 pré-existente) · check:migrations OK · tsc **25** baseline (0 na frente).
+
+**DT:** `DT-ACTOR-SCOPED-REFERRAL-USER-ONLY` → **IMPLEMENTED_AS_ACTOR_SCOPED / HOLD YALA**. **Resíduos:** janela de 5 anos PENDENTE Clayton; auto-hook de código para page/group/derivado via endpoint (canRepresentActor); `marketplace/referral.*` dormante (tabela `referral_codes` ausente — não promovida, não 2ª SSOT); `bank_splits.referral_link_id`/CHECK fora do escopo; `users.referral_code` legado/compat. **Escopo proibido intocado:** Bank Core/writer/ledger/bank_splits/payout/5-anos/CPF-como-owner/body-define-dono/actor_system-com-código. **Aguarda reseal Yala — CLOSED só pós-PASS.**
+
+---
+
 ## 2026-06-17 — F-ACTOR-SCOPED-REFERRAL-PREFLIGHT · ✅ DECISION-0139 PROMULGADA (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD inicial `1565a184`** · dev 393 (sem migration) · MODO docs-only. Promulga **DECISION-0139 — Actor-Scoped Referral Code & Earnings** (build-on / **supersede parcial** de `DECISION-0134`): o **código de indicação e os earnings pertencem economicamente ao `actor` dono (`owner_actor_id`)** — destino canônico = `actor_wallet`/`bank_account` do owner; **CPF/`actor_human` = raiz legal/civil/fiscal/rastreável, NÃO dono econômico por reflexo**; `referral_code` = lookup, **nunca authority**; `body/metadata.referral_code` arbitrário **não define dono econômico**; operar actor por delegação **não transfere ownership econômico** (cadeia até CPF original + ocupante, `08 §6.2`). 13 regras soberanas + 4 exemplos canônicos (PF/banda/empresa/grupo; 1 CPF com N actors **não mistura earnings**).

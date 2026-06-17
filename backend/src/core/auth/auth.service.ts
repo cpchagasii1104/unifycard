@@ -411,11 +411,29 @@ class AuthService {
     }
 
     // Código próprio de indicação (não faz parte do contrato de resposta) — progressivo.
+    // Legado users.referral_code (compat) + substrato canônico actor_referral_codes (DECISION-0139).
     try {
       const { referralService } = await import('@core/referral/referral.service');
       await referralService.getOrCreateReferralCode(finalTenantId, user.userId);
     } catch (err) {
-      console.error('[AuthService] ❌ ERRO ao gerar código de indicação (não crítico):', err instanceof Error ? err.message : String(err));
+      console.error('[AuthService] ❌ ERRO ao gerar código de indicação legado (não crítico):', err instanceof Error ? err.message : String(err));
+    }
+    // DECISION-0139: provisiona o código ACTOR-SCOPED do novo actor_human (owner econômico = o próprio actor).
+    try {
+      const ownerActorRow = await runQueryWithTenant<{ id: string }>(
+        finalTenantId,
+        `SELECT id FROM actors
+          WHERE tenant_id = $1 AND user_id = $2 AND actor_type IN ('user', 'person', 'actor_human')
+          LIMIT 1`,
+        [finalTenantId, user.userId]
+      );
+      const ownerActorId = ownerActorRow?.id;
+      if (ownerActorId) {
+        const { actorReferralCodeService } = await import('@core/referral/actor-referral-code.service');
+        await actorReferralCodeService.ensureActorReferralCode(finalTenantId, ownerActorId, ownerActorId, user.userId);
+      }
+    } catch (err) {
+      console.error('[AuthService] ❌ ERRO ao provisionar actor_referral_code (não crítico):', err instanceof Error ? err.message : String(err));
     }
 
     const requiresOnboarding = true;

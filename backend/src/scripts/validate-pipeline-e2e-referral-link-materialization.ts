@@ -138,10 +138,10 @@ async function main(): Promise<void> {
       !!L && L.tenant_id === instId && L.referrer_user_id === aId && L.referred_user_id === bId && L.referral_code_used === codeA,
       JSON.stringify(L));
 
-    // T4 — getActiveReferral resolve A.
+    // T4 — getActiveReferral resolve A (DECISION-0139: devolve owner actor + breadcrumb user).
     const { getActiveReferral } = await import('../core/referral/referral-helper.service');
     const active = await getActiveReferral(instId, bId);
-    record('T4 getActiveReferral(tenant, B) === A', active === aId, `got=${active}`);
+    record('T4 getActiveReferral(tenant, B).referrerUserId === A', active?.referrerUserId === aId, `got=${JSON.stringify(active)}`);
 
     // T5 — código inválido → 400, B2 não nasce.
     const emailB2 = `e2e-rl-b2-${base}@e2e.local`;

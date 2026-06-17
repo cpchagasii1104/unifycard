@@ -302,11 +302,14 @@ class PublicationEngineService {
       throw new NotFoundError('Publication metadata not found');
     }
 
-    // Usar referral_code fornecido ou do metadata ou gerar novo
-    let referralCode = input.referral_code || metadata.referral_code;
-    
-    // Se não existe, buscar do actor (futuro: buscar código de indicação do actor)
-    // Por enquanto, usar null se não fornecido
+    // DECISION-0139 §1.9/§6.6: o link de compartilhamento embute o código do ACTOR
+    // representado pelo caller (resolvido SERVER-SIDE no substrato canônico
+    // actor_referral_codes), NUNCA um referral_code arbitrário de body/metadata — body
+    // não pode escolher dono econômico. Se o actor não tem código, sai sem ?ref
+    // (comissão futura = 0; não inventa dono). input.referral_code/metadata.referral_code
+    // são IGNORADOS como fonte de dono econômico.
+    const { actorReferralCodeService } = await import('@core/referral/actor-referral-code.service');
+    const referralCode = await actorReferralCodeService.getActiveCodeForActor(tenantId, actorId);
 
     // Construir URL base
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';

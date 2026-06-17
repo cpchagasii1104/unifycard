@@ -51,6 +51,84 @@ const referralRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * POST /referral/actor-code — código ACTOR-SCOPED (DECISION-0139). Provisiona (idempotente)
+   * o código de indicação de um ACTOR dono. AUTORIDADE: o caller DEVE REPRESENTAR o
+   * owner_actor_id (canRepresentActor) — `ownerActorId` no body é ALVO DECLARATIVO e só tem
+   * efeito se a representação server-side passar; o código NUNCA é authority. actor_system
+   * é fail-closed (400). created_by_actor_id = actor_human do caller (autoria, não autoridade).
+   */
+  fastify.post<{ Body: { ownerActorId: string } }>('/actor-code', async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+    const ownerActorId = req.body?.ownerActorId;
+    if (!ownerActorId) {
+      return reply.status(400).send({ error: 'ownerActorId é obrigatório' });
+    }
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    const canManage = await authorizationService.canRepresentActor(req.tenant.id, req.user.id, ownerActorId);
+    if (!canManage) {
+      return reply.status(403).send({ error: 'Caller deve representar o actor dono do código' });
+    }
+    try {
+      const callerActor = await runQueryWithTenant<{ id: string }>(
+        req.tenant.id,
+        `SELECT id FROM actors WHERE tenant_id = $1 AND user_id = $2
+           AND actor_type IN ('user', 'person', 'actor_human') LIMIT 1`,
+        [req.tenant.id, req.user.id]
+      );
+      const createdByActorId = callerActor?.id ?? ownerActorId;
+      const { actorReferralCodeService } = await import('@core/referral/actor-referral-code.service');
+      const code = await actorReferralCodeService.ensureActorReferralCode(
+        req.tenant.id,
+        ownerActorId,
+        createdByActorId,
+        req.user.id
+      );
+      return reply.status(200).send({ ownerActorId, code });
+    } catch (error) {
+      if (error instanceof Error && /ACTOR_SYSTEM_REFERRAL_FORBIDDEN/.test(error.message)) {
+        return reply.status(400).send({ error: 'actor_system não recebe código de indicação econômico' });
+      }
+      fastify.log.error({ err: error }, 'Erro ao provisionar código de indicação do actor');
+      return reply.status(500).send({ error: 'Erro ao provisionar código de indicação do actor' });
+    }
+  });
+
+  /**
+   * GET /referral/actor-code?ownerActorId=... — lê o código ATIVO de um actor REPRESENTÁVEL.
+   * Mesma autoridade: canRepresentActor obrigatório (não vaza código de actor de terceiros).
+   */
+  fastify.get<{ Querystring: { ownerActorId?: string } }>('/actor-code', async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+    const ownerActorId = req.query?.ownerActorId;
+    if (!ownerActorId) {
+      return reply.status(400).send({ error: 'ownerActorId é obrigatório' });
+    }
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    const canRead = await authorizationService.canRepresentActor(req.tenant.id, req.user.id, ownerActorId);
+    if (!canRead) {
+      return reply.status(403).send({ error: 'Caller deve representar o actor dono do código' });
+    }
+    try {
+      const { actorReferralCodeService } = await import('@core/referral/actor-referral-code.service');
+      const code = await actorReferralCodeService.getActiveCodeForActor(req.tenant.id, ownerActorId);
+      return reply.status(200).send({ ownerActorId, code });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao buscar código de indicação do actor');
+      return reply.status(500).send({ error: 'Erro ao buscar código de indicação do actor' });
+    }
+  });
+
+  /**
    * POST /referral/apply
    * Aplica código de indicação (usado no registro)
    */
