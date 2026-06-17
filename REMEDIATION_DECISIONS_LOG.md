@@ -7172,7 +7172,7 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **NÃO decidido:** implementação de grants · resolver/tabela do referral · UI · cargos/role system · ativação votes/contextual-thread/organization · montagem organizers · grafia final SSOT_REGISTRY das chaves · `move_money` · RBAC/FASE 6 · RLS · migration/schema · frontend.
 - **Responsável:** Clayton / IA Diretora (executor: Claude). **Validação prévia:** Clayton.
 - **Supera:** nenhuma (consolida/baseline; complementa DECISION-0113/0131).
-- **Superada por:** —
+- **Superada por:** **DECISION-0139 (parcial)** — actor-scoped referral **code & earnings** (posse econômica por `owner_actor_id`, destino de earnings em `actor_wallet`, vetor `body.referral_code` travado, estado material USER_ONLY). A §2 da 0134 (código pertence ao actor; lookup, não authority) **permanece vigente**.
 - **Referências:** `docs/02_decisions/DECISION_0134_ACTOR_REFERRAL_CAPABILITY_GRANTS_BASELINE.md` · `07_NOMENCLATURA_CANONICA` (§3, §4.74) · `permission-keys.ts` · `DECISION-0113`/`DECISION-0131` · execution logs da rodada · `DECISION-0133`.
 
 ---
@@ -7263,3 +7263,19 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** nenhuma (resolve a dúvida de `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION` como baseline de produto).
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0138_CALENDAR_OPERATOR_GRANT_AUTHORITY_RFC.md` · `DECISION-0136`/`0137`/`0113`/`0118` · `actor_capability_grants` · `unified-availability.routes.ts` (owner-only) · `DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION`.
+
+---
+
+## DECISION-0139 — Actor-Scoped Referral Code & Earnings
+
+- **Data:** 2026-06-17
+- **Tipo:** Produto / Arquitetura / Autoridade / Econômico (DOCS-ONLY)
+- **Frente:** F-ACTOR-SCOPED-REFERRAL-PREFLIGHT · **HEAD:** `1565a184` · **dev:** 393 (sem migration)
+- **Contexto:** auditoria READ-ONLY actor-scoped referral retornou **USER_ONLY** — o diferencial Unificard (código por actor) **ainda não está materialmente implementado**. Hoje: `users.referral_code` é fonte viva; `user_referral_links` é user↔user; check/split resolvem **user**; actors derivados não nascem com código; `generateShareableLink` aceita `referral_code` solto em body/metadata (vetor DIVERGENT); `referral_codes(owner_actor_id)` só em archive/docs. **Positivo:** infra financeira já actor-native (`bank_accounts.owner_type='actor'`, `actor_wallet` por actor, `getActorWalletAccount`/`ensureActorWalletAccount`). Gap = **identidade do código + resolver do split**, NÃO o Bank/wallet.
+- **Decisão (promulgada — 13 regras soberanas):** CPF/`actor_human` = raiz legal/civil/fiscal/rastreável, nunca substituído por `referral_code`; `actor` = unidade econômica soberana; `actor_organizational` não-soberano legalmente mas unidade econômica interna; **cada actor pode ter código próprio**; **`referral_code` pertence a `owner_actor_id`**, é **lookup, não authority**, não concede permissão sozinho; `body/metadata.referral_code` arbitrário **não define dono econômico**; **earnings pertencem ao actor dono**, destino = **`actor_wallet`/`bank_account` do `owner_actor_id`**; CPF raiz preserva rastreabilidade mas **não captura earnings por reflexo**; operar actor por delegação **não transfere ownership econômico** (cadeia até CPF original + ocupante, `08 §6.2`). Exemplos canônicos: PF→wallet PF; banda→wallet banda; empresa/página/grupo→wallet do actor; 1 CPF com N actors **não mistura earnings**.
+- **Janela de 5 anos:** **PENDENTE CLAYTON** — mencionada como decisão de produto, **sem prova documental formal** nesta auditoria; **NÃO promulgada** até ratificação explícita/referência documental. Esta DECISION **não afirma** que os 5 anos estão ratificados.
+- **Resíduo material:** `DT-ACTOR-SCOPED-REFERRAL-USER-ONLY` (OPEN / PRODUCT_DIFFERENTIATOR_NOT_MATERIALIZED · MONEY_ADJACENT · AUTHORITY_ADJACENT). **Próxima macrofrente (planejada, não implementada):** `F-ACTOR-REFERRAL-CODE-SUBSTRATE` (criar `actor_referral_codes` owner_actor_id; evoluir `user_referral_links`→actor↔actor; gerar código no nascimento do actor; split por `getActorWalletAccount(ownerActorId)`; travar `body.referral_code`; E2Es PF/banda/empresa/grupo + non-mixing; guards). STOPs: money-adjacent (3 paralelas READ-ONLY antes de código), não tocar Bank Core fora de APIs canônicas, não escrever `bank_ledger`, code/slug/referral = lookup nunca authority.
+- **Responsável:** Clayton / IA Diretora (executor: Claude). **Validação prévia:** Clayton.
+- **Supera:** **DECISION-0134 (parcial)** — refina/superseda quanto a actor-scoped referral **code & earnings**; a 0134 §2 (código pertence ao actor; lookup, não authority) **permanece vigente**.
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0139_ACTOR_SCOPED_REFERRAL_CODE_AND_EARNINGS.md` · `DECISION-0134`/`0113`/`0131` · `AUTHORITY_LAW` · `LEI_DE_COERENCIA_SISTEMICA` · `07_NOMENCLATURA_CANONICA` · `bank_accounts.owner_type='actor'`/`getActorWalletAccount` · `DT-ACTOR-SCOPED-REFERRAL-USER-ONLY` · `docs/03_execution_log/20260617_F_ACTOR_SCOPED_REFERRAL_PREFLIGHT.md`.

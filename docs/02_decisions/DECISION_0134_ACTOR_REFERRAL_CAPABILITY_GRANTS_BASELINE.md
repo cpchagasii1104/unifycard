@@ -13,6 +13,12 @@ RFC` antes de virar enforcement (§3.2 do 07 — nenhum nome nasce no código/do
 **Tipo:** arquitetural / autoridade / baseline · **Frente:** F-AUTHORITY-PERMISSIONS-CLOSURE-BASELINE ·
 **Responsável:** Clayton / IA Diretora (executor: Claude) · **Validação prévia:** Clayton.
 
+> **Refinada / superseded parcialmente pela DECISION-0139** quanto a **actor-scoped referral code & earnings**
+> (posse econômica do código por `owner_actor_id`; earnings → `actor_wallet` do owner; CPF não captura por
+> reflexo; vetor `body.referral_code` travado; estado material USER_ONLY registrado). A §2 desta 0134
+> (código pertence ao actor; lookup, não authority) **permanece vigente**; a 0139 apenas **adiciona** a dimensão
+> econômica/earnings e a frente material `F-ACTOR-REFERRAL-CODE-SUBSTRATE`. _(Ponteiro append-only — história da 0134 preservada.)_
+
 **Deriva de / subordinada a:** `CONSTITUICAO_UNIFICARD` (actor como unidade operacional soberana) ·
 `SSOT_REGISTRY_UNIFICARD` · `07_NOMENCLATURA_CANONICA` (§3 regra suprema · §4.74 `permission`/`scope`) ·
 `LEI_DE_COERENCIA_SISTEMICA` · **DECISION-0113** (actorId declarado é HINT; autoridade = `canRepresentActor`) ·

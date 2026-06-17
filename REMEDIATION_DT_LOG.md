@@ -45,6 +45,18 @@ Status values:
 
 ---
 
+## DT-ACTOR-SCOPED-REFERRAL-USER-ONLY — OPEN / PRODUCT_DIFFERENTIATOR_NOT_MATERIALIZED · MONEY_ADJACENT · AUTHORITY_ADJACENT (2026-06-17)
+
+- **Status:** **OPEN** (2026-06-17, auditoria READ-ONLY actor-scoped referral = **USER_ONLY**; `DECISION-0139`).
+- **Origem:** preflight `F-ACTOR-SCOPED-REFERRAL-PREFLIGHT` sobre HEAD `1565a184`.
+- **Vinculada a:** `DECISION-0139` (build-on/supersede parcial de `DECISION-0134`) · `users.referral_code` · `user_referral_links` · `generateShareableLink` · `bank_accounts.owner_type='actor'` / `getActorWalletAccount`.
+- **Contexto:** o diferencial actor-scoped referral **ainda NÃO está implementado** — o sistema é **user-only**. `users.referral_code` é a fonte viva; `user_referral_links` liga **user↔user**; check/split referral resolvem a **conta do user**; **actors derivados não recebem código próprio**; `generateShareableLink` aceita `referral_code` solto em `body`/`metadata` (**vetor DIVERGENT**); `referral_codes(owner_actor_id)` existe só em archive/docs (não vivo).
+- **Risco:** código de **actor derivado** (banda/empresa/página/grupo) pagar o **CPF pessoal por reflexo**, violando a regra soberana (earnings → `actor_wallet` do `owner_actor_id`, `DECISION-0139 §1.10–1.12`); e `body.referral_code` injetar dono econômico (§1.9).
+- **Mitigação atual:** infra financeira **já é actor-native** (`bank_accounts.owner_type='actor'`, `actor_wallet` por actor, `getActorWalletAccount`/`ensureActorWalletAccount`) → o gap **não** está no Bank/wallet, e sim na **identidade canônica do código** (`actor_referral_codes` ausente) + **resolver do split** (resolve user, não `owner_actor_id`). DECISION-0139 promulga a regra (docs-only); nenhuma captura indevida foi introduzida.
+- **Resolução prevista:** macrofrente material `F-ACTOR-REFERRAL-CODE-SUBSTRATE` (gated, money-adjacent): criar `actor_referral_codes` (`owner_actor_id` FK actors; `UNIQUE(tenant_id, code)`; `UNIQUE(tenant_id, owner_actor_id)` se 1 ativo/actor); evoluir `user_referral_links`→`referrer_actor_id`/`referred_actor_id` (mantendo `user_id`/`global_user_id` breadcrumb); gerar código no nascimento do actor derivado; split via `getActorWalletAccount(ownerActorId)`; **bloquear `body/metadata.referral_code` arbitrário**; reescrever E2E user-only; criar guards. **STOPs:** 3 paralelas READ-ONLY antes de código; não tocar Bank Core fora de APIs canônicas; **não escrever `bank_ledger`**; E2Es obrigatórias (PF→PF · banda→banda · empresa→empresa · grupo/página→actor próprio · mesmo CPF com N actors **não mistura earnings**); não fechar enquanto `body.referral_code` puder injetar dono econômico; code/slug/referral = lookup, **nunca authority**.
+
+---
+
 ## DT-SERVICE-PAYMENT-REQUEST-STATUS-NOMENCLATURE — CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS (2026-06-16)
 
 - **🟢 CLOSED_AS_NOMENCLATURE_BASELINE / YALA PASS (2026-06-16, `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`; reseal Yala = PASS_WITH_WARNINGS sobre commit `b84e3d61`).** `service_payment_requests.status` → `payment_request_status` selado: coluna+CHECK renomeadas, contrato `paymentRequestStatus`, enum `+PAID`, alias de saída `status` na lista agregada `pending-responsibilities` preservado (compat), guard ativo. Seal docs-only.
