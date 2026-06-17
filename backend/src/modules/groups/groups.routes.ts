@@ -107,22 +107,25 @@ async function requireGroupOwnerOrPermission(
     throw fastify.httpErrors.badRequest('Group ID is required');
   }
 
-  // Resolver userId a partir do actorId para uso em isUserAdminOrOwner e logs
-  const { socialPortsRegistry } = await import('@core/social/ports-registry');
-  const actorRepository = socialPortsRegistry.getActorRepository();
-  const actor = await actorRepository.findById(tenantId, actorId);
-  if (!actor || !actor.user_id) {
-    throw fastify.httpErrors.badRequest('Actor não encontrado ou não é do tipo user');
+  // 🔒 DECISION-0113 / Z2 (F-AUTHORITY-Z2-R1): a AUTORIDADE vem do USUÁRIO AUTENTICADO
+  // (req.user.userId, server-side), NUNCA do actorId declarado. `actionContext.actorId` segue
+  // como HINT/contexto (logs), mas NÃO prova autoridade. Antes, userIdForCheck derivava do
+  // actorId declarado (spoofável) e alimentava ownership/admin/RBAC — bypass corrigido aqui.
+  if (!req.user?.userId) {
+    throw fastify.httpErrors.unauthorized('Authentication required');
   }
-  const userIdForCheck = actor.user_id;
+  const userIdForCheck = req.user.userId;
 
   // 1. Verificar se é owner do grupo OU admin (permissão implícita)
   try {
     const group = await groupsService.getGroup(tenantId, groupId);
     if (group) {
-      // ActionContext é obrigatório (V2)
-      const isOwner = group.ownerActorId === req.actionContext.actorId;
-      
+      // 🔒 DECISION-0113 / Z2: ownership = o USUÁRIO AUTENTICADO REPRESENTA o owner actor do
+      // grupo (server-side). Declarar actionContext.actorId = ownerActorId NÃO autoriza
+      // (actorId do client é hint, nunca authority). canRepresentActor é fail-closed.
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      const isOwner = await authorizationService.canRepresentActor(tenantId, userIdForCheck, group.ownerActorId);
+
       if (isOwner) {
         /**
          * EXCEÇÃO INSTITUCIONAL (SPRINT 30)
