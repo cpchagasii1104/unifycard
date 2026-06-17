@@ -178,7 +178,11 @@ const BASELINE = {
   // (NÃO corrigidas; o B1f só TORNOU VISÍVEL + travou regressão. Cada subsistema converge em frente própria.)
   'core/authorization/business-authorization.routes.ts': C1,
   'core/feed/feed-plugin.routes.ts': C1,
-  'core/intent/intent-execute.routes.ts': C1,
+  // core/intent/intent-execute.routes.ts REMOVIDO do baseline (F-AUTHORITY-Z2-R5-INTENT-EXECUTE-BUYER-ACTOR-BINDING):
+  // POST /intent/execute passou a exigir representabilidade server-side do buyer actor via
+  // canRepresentActor(tenantId, req.user.userId, buyerActorId) fail-closed (403 BUYER_ACTOR_NOT_REPRESENTABLE)
+  // ANTES de criar order/itens/reserva/saga. O actionContext.actorId vira HINT vinculado. Guard próprio:
+  // audit-intent-execute-buyer-actor-binding.mjs. DT-AUTHORITY-Z2-INTENT-EXECUTE-BUYER-ACTOR-UNBOUND.
   'core/plan/plan.routes.ts': C1,
   'core/profile/interest-c1/interest-c1.routes.ts': C1,
   'core/profile/learning-c1/learning-c1.routes.ts': C1,

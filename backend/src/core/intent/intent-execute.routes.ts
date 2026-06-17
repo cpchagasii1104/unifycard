@@ -14,6 +14,7 @@ import {
 } from './intent-execute-idempotency';
 import { inventoryReservationService } from '@modules/marketplace/inventory-reservation.service';
 import { InsufficientStockError } from '@modules/marketplace/inventory-reservation.types';
+import { authorizationService } from '@core/authorization/authorization.service';
 
 const executeItemSchema = z.object({
   concept_ref: z.string().uuid(),
@@ -230,6 +231,32 @@ const intentExecuteRoutes: FastifyPluginAsync = async (fastify) => {
         ok: false,
         error: 'ActionContext.actorId é obrigatório',
         code: 'ACTOR_REQUIRED',
+      });
+    }
+
+    // 🔴 DECISION-0113 / DECISION-0131 §B7 / Z2-R5 — `actionContext.actorId` (canal-1 client-declared) é
+    // HINT, nunca autoridade: declarar ≠ autorizar. Antes de criar order/itens/reserva/saga em nome do
+    // buyer actor, o principal autenticado (req.user.userId, server-side) DEVE provar representação via
+    // `canRepresentActor` (fail-closed → 403). Posse/declaração do ID não basta (DECISION-0113 D2).
+    const authUserId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!authUserId) {
+      return reply.status(401).send({
+        ok: false,
+        error: 'Autenticação obrigatória (req.user.userId)',
+        code: 'AUTH_REQUIRED',
+      });
+    }
+    let canRepresentBuyer = false;
+    try {
+      canRepresentBuyer = await authorizationService.canRepresentActor(tenantId, authUserId, buyerActorId);
+    } catch {
+      canRepresentBuyer = false;
+    }
+    if (!canRepresentBuyer) {
+      return reply.status(403).send({
+        ok: false,
+        error: 'Sem autoridade para agir como o buyer actor declarado (canRepresentActor)',
+        code: 'BUYER_ACTOR_NOT_REPRESENTABLE',
       });
     }
 
