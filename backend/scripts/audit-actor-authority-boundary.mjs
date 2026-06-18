@@ -172,6 +172,13 @@ const SAFE_SUBJECT_READERS = {
 // actionContext.actorId sem binding ANTES do B1f; o canal-1 só não era detectado). Congelado, NÃO corrigido.
 const C1 = 'canal-1 actionContext.actorId (DECISION-0113) lido p/ agir/filtrar SEM binding server-side; debt PRÉ-EXISTENTE congelado por B1f. Convergência = vincular (requirePermission/canRepresentActor) por subsistema, frente própria. Ver DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.';
 const C1_MONEY = 'canal-1 actionContext.actorId SEM binding em superfície MONEY-ADJACENT (settlement/payment-request/accounts) — debt PRÉ-EXISTENTE congelado por B1f; PRIORIDADE de convergência. Ver DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.';
+// R7a EVENT-RFQ ACTING-USER-GATE (2026-06-18): as escritas W1-W5 (createRFQ/closeRFQ/createQuote/from-spec/
+// dispatch) foram VINCULADAS server-side (canRepresentActor / assertCanReadEventMoney, fail-closed 403
+// EVENT_RFQ_ACTOR_NOT_REPRESENTABLE) — guard próprio audit-event-rfq-actor-binding.mjs. O arquivo PERMANECE
+// no baseline porque W6 acceptQuote (POST .../quotes/:quoteId/accept) segue UNBOUND e é MONEY-ADJACENT
+// (cria availability+booking+service_booking_decision+service_payment_request PENDING) → frente própria R7b.
+// O baseline é file-level e não isola W6; remover mascararia W6 como resolvido (proibido).
+const C1_RFQ_W6 = 'canal-1 actionContext.actorId — W1-W5 VINCULADAS por R7a (guard audit-event-rfq-actor-binding); RESTA W6 acceptQuote UNBOUND + MONEY-ADJACENT (R7b, decisão pendente). Mantido no baseline para NÃO mascarar W6. Ver DT-AUTHORITY-Z2-EVENT-RFQ-ACTOR-BINDING-UNBOUND + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.';
 
 const BASELINE = {
   // ── B1f canal-1 (actionContext.actorId) — 31 rotas com debt 0113 PRÉ-EXISTENTE, congeladas ──
@@ -189,7 +196,7 @@ const BASELINE = {
   'core/profile/lifestyle/lifestyle.routes.ts': C1,
   'core/profile/professional-c1/professional-c1.routes.ts': C1,
   'modules/automation/automation.routes.ts': C1,
-  'modules/events/event-rfq.routes.ts': C1,
+  'modules/events/event-rfq.routes.ts': C1_RFQ_W6,
   'modules/events/organizers/organizers.routes.ts': C1,
   'modules/human-mvp/human-mvp.routes.ts': C1,
   'modules/marketplace/accounts-payable.routes.ts': C1_MONEY,

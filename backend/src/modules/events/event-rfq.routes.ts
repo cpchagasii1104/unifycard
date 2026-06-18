@@ -34,6 +34,19 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const body = req.body;
 
       try {
+        // 🔴 R7a EVENT-RFQ ACTING-USER-GATE (DECISION-0113/0131 §B7 / Z2): actionContext.actorId é HINT/target,
+        // NUNCA autoridade. Subject soberano = req.user.userId (server-side); prova de representação do organizer
+        // DECLARADO via canRepresentActor ANTES do write. Non-money-runtime (não materializa payment_request).
+        const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+        if (!callerUserId) {
+          return reply.status(401).send({ error: 'Autenticação obrigatória', code: 'AUTH_REQUIRED' });
+        }
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        const canRep = await authorizationService.canRepresentActor(req.tenant.id, callerUserId, actionContext.actorId);
+        if (!canRep) {
+          return reply.status(403).send({ error: 'Sem autoridade para representar o organizer declarado', code: 'EVENT_RFQ_ACTOR_NOT_REPRESENTABLE' });
+        }
+
         const result = await eventRFQService.createRFQ(
           tenantId,
           actionContext.actorId,
@@ -146,6 +159,19 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const { eventId, rfqId } = req.params;
 
       try {
+        // 🔴 R7a EVENT-RFQ ACTING-USER-GATE: closeRFQ MUTA recurso existente do organizer → autoridade
+        // resolvida SERVER-SIDE a partir do evento (event.actor_id), NUNCA de actionContext.actorId.
+        // assertCanReadEventMoney (DECISION-0113 F6.5.6b) resolve o organizer e exige canRepresentActor.
+        const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+        const { assertCanReadEventMoney } = await import('@core/events/event-visibility.service');
+        const auth = await assertCanReadEventMoney(tenantId, eventId, callerUserId);
+        if (!auth.ok) {
+          return reply.status(auth.status).send({
+            error: auth.status === 404 ? 'Evento não encontrado' : 'Sem autoridade sobre o organizer do evento',
+            ...(auth.status === 403 ? { code: 'EVENT_RFQ_ACTOR_NOT_REPRESENTABLE' } : {}),
+          });
+        }
+
         const rfq = await eventRFQService.closeRFQ(
           tenantId,
           eventId,
@@ -183,6 +209,18 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const body = req.body;
 
       try {
+        // 🔴 R7a EVENT-RFQ ACTING-USER-GATE: createQuote cria proposta "como" um provider DECLARADO →
+        // actionContext.actorId é HINT/target; subject = req.user.userId; canRepresentActor ANTES do write.
+        const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+        if (!callerUserId) {
+          return reply.status(401).send({ error: 'Autenticação obrigatória', code: 'AUTH_REQUIRED' });
+        }
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        const canRep = await authorizationService.canRepresentActor(req.tenant.id, callerUserId, actionContext.actorId);
+        if (!canRep) {
+          return reply.status(403).send({ error: 'Sem autoridade para representar o provider declarado', code: 'EVENT_RFQ_ACTOR_NOT_REPRESENTABLE' });
+        }
+
         const quote = await eventRFQService.createQuote(
           tenantId,
           eventId,
@@ -258,6 +296,19 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const { eventId, specId } = req.params;
 
       try {
+        // 🔴 R7a EVENT-RFQ ACTING-USER-GATE: from-spec MUTA declaration + cria RFQ no evento existente →
+        // autoridade resolvida SERVER-SIDE pelo organizer do evento (event.actor_id), não por igualdade
+        // contra actionContext.actorId spoofável. assertCanReadEventMoney exige canRepresentActor ANTES do write.
+        const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+        const { assertCanReadEventMoney } = await import('@core/events/event-visibility.service');
+        const auth = await assertCanReadEventMoney(tenantId, eventId, callerUserId);
+        if (!auth.ok) {
+          return reply.status(auth.status).send({
+            error: auth.status === 404 ? 'Evento não encontrado' : 'Sem autoridade sobre o organizer do evento',
+            ...(auth.status === 403 ? { code: 'EVENT_RFQ_ACTOR_NOT_REPRESENTABLE' } : {}),
+          });
+        }
+
         // Buscar EventSpec
         const eventSpec = await eventSpecService.getEventSpecById(tenantId, specId);
         
@@ -369,6 +420,19 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       }
 
       try {
+        // 🔴 R7a EVENT-RFQ ACTING-USER-GATE: dispatch dispara oportunidades do RFQ do evento existente →
+        // autoridade resolvida SERVER-SIDE pelo organizer do evento (event.actor_id). actingUserId fantasma
+        // (actionContext) deixa de ser autoridade. assertCanReadEventMoney exige canRepresentActor ANTES do write.
+        const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+        const { assertCanReadEventMoney } = await import('@core/events/event-visibility.service');
+        const auth = await assertCanReadEventMoney(tenantId, eventId, callerUserId);
+        if (!auth.ok) {
+          return reply.status(auth.status).send({
+            error: auth.status === 404 ? 'Evento não encontrado' : 'Sem autoridade sobre o organizer do evento',
+            ...(auth.status === 403 ? { code: 'EVENT_RFQ_ACTOR_NOT_REPRESENTABLE' } : {}),
+          });
+        }
+
         // Buscar RFQ
         const rfq = await eventRFQService.getRFQById(tenantId, eventId, rfqId);
         if (!rfq) {
