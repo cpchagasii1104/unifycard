@@ -91,11 +91,31 @@ Sem migration/schema; writer soberano `applyReferralCodeTx` **inalterado**; `app
 referral, R1/R2/R3/R4/R5/R6.1/R6.2, `applyReferralCodeTx`, feed-action/event-rfq/venue/system-notifications/
 store-onboarding/business-permissions/unifycard **intocados**; DT-mãe 0113 **não fechada**.
 
+## Proof-hygiene pós-reseal (sem novo commit; HEAD permaneceu `037364ca`) — W1/W2/W3 follow-up
+
+Reseal Yala material READ-ONLY = **PASS_WITH_WARNINGS** (Yala leu/rodou: E2E 23/23, gates, guard, script
+negative-proof, diff runtime, resolver, register pré-validação, `/auth/check-referral`, `applyReferralCodeTx`).
+Warnings registrados como **follow-up não-bloqueante**:
+
+- **W1 — negative-proof não reexecutado pela Yala:** o script muta `referral.service.ts` temporariamente,
+  incompatível com o mandato READ-ONLY. **Não bloqueia:** a executora já o executou em **pwsh 7 e Windows
+  PowerShell 5.1** (base passa → degrada o resolver p/ legacy-only → guard FALHA exit 1 → restauração
+  byte-idêntica → git status inalterado), e a Yala validou guard + E2E + propriedade material. Procedural.
+- **W2 — working tree sujo fora do material:** docs/memorias + `.md` de planejamento + outputs `.txt` + pngs.
+  **Zero arquivo do material referral/auth afetado** → não é HOLD_WORKTREE_DIRTY.
+- **W3 — carry-over rota legada `/social/posts/create`:** externa sem gate, **dead-at-db**, já registrada como
+  follow-up/DT futura de contenção (herdada da R6.2). Fora desta frente.
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA.** `DT-REFERRAL-REGISTER-ACTOR-CODE-GATE-LEGACY-ENTRYPOINT` →
-**IMPLEMENTED_AS_CONTAINED / HOLD YALA**. **Esta frente corrigiu somente a porta de entrada do cadastro para
-reconhecer códigos actor-scoped de referral. Não altera a economia do referral, não cria payout/split, não
-toca Bank/ledger/splits e não fecha frentes de authority 0113.** **Continuidade (NÃO executar agora):** R6.3
-feed-action · R7 event-rfq money-adjacent · rota legada `/social/posts/create` (follow-up/DT futura) · guard
-cross-module Z2. CLOSED só no seal pós-Yala PASS material.
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-17 sobre commit material `037364ca`; reseal Yala
+material READ-ONLY = PASS_WITH_WARNINGS; warnings W1/W2/W3 registrados como follow-up não-bloqueante). dev 394.
+`DT-REFERRAL-REGISTER-ACTOR-CODE-GATE-LEGACY-ENTRYPOINT` → **CLOSED / YALA PASS MATERIAL**. **Esta frente
+corrigiu somente a porta de entrada do cadastro para reconhecer códigos actor-scoped de referral. Não altera a
+economia do referral, não cria payout/split, não toca Bank/ledger/splits e não fecha frentes de authority
+0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` permanece **OPEN**. Writer soberano
+`applyReferralCodeTx` e R6.2/R6.1/R6.3/R7 **não tocados**; nenhum código material alterado no seal.
+**Continuidade (NÃO executar agora):** R6.3 feed-action · R7 event-rfq money-adjacent · rota legada
+`/social/posts/create` (follow-up/DT futura) · guard cross-module Z2 · RBAC/FASE 6 (não liberar antes de
+fechar 0113 ou preservar canRepresentActor no caminho real) · actor_delegations (não ativar como autoridade
+viva sem proveniência/E2E/reseal).
