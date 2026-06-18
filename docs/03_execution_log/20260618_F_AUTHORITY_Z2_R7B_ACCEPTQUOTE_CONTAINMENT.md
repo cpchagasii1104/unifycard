@@ -1,5 +1,24 @@
 # 2026-06-18 — R7b ACCEPTQUOTE P0 CONTAINMENT — HARD-STOP TEMPORÁRIO FAIL-CLOSED (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-18, sobre commit material `34d1421c`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**. Yala confirmou
+> materialmente: escopo só P0 containment; `event-rfq.service.ts` intocado; sem migration; Bank/workers/RBAC/
+> actor_delegations/payout intocados; hard-stop W6 ANTES de `req.tenant`/`actionContext`/params/qualquer `await`;
+> retorno **403 `EVENT_RFQ_ACCEPT_QUOTE_CONTAINED`**; sink `eventRFQService.acceptQuote` presente mas
+> inalcançável; **E2E efêmero 11/11 rodado pela Yala** (zero writes em events.metadata / availability / bookings /
+> service_booking_decisions / service_payment_requests / bank_ledger·transactions·splits); actor-writer-boundaries
+> OK · bank-ledger-boundaries OK · regression-guards OK · arch `--strict` critical_new=0 · check:migrations
+> 394/394 · tsc baseline 43 zero novo · 07_NOMENCLATURA sem drift; R7a W1-W5 sem regressão; cartório correto; **R7b
+> NÃO marcado como remediado pleno; DT-mãe 0113 e parent canal-1 seguem OPEN**.
+>
+> **Warnings do reseal (follow-up não-bloqueante):** **W1** — negative-proof não reexecutado pela Yala (muta a
+> fonte temporariamente vs mandato READ-ONLY); validado estruturalmente pela Yala + já executado pela executora em
+> **pwsh 7 e Windows PowerShell 5.1**. **W2** — o guard prova a presença textual do `return 403`, mas NÃO prova a
+> verdade do flag `CONTAINMENT_ACTIVE`; um futuro `= false as boolean` manteria o guard verde (o E2E pegaria) →
+> **follow-up opcional de hardening do guard** (ex.: provar `= true`/ausência de `false as boolean`), sem bloquear
+> o seal. **W3** — working tree sujo fora do material (docs/memorias/untracked/artefatos) → não é
+> HOLD_WORKTREE_DIRTY. Seal = docs-only; HEAD material permanece `34d1421c`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Contenção **P0 temporária / fail-closed** da rota W6 `POST /events/:eventId/rfqs/:rfqId/quotes/:quoteId/accept`
 (`event-rfq.routes.ts`, DECISION-0113 / DECISION-0131 §B7 / Z2). **NÃO é o redesenho final** — apenas blinda a
 superfície money-adjacent antes de qualquer sink, enquanto o fluxo de confirmação do provider não existe
@@ -86,12 +105,14 @@ migration / sem tabela RFQ/Quote**; não corrige totalCents/type/status; service
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA** (HEAD final após commit material — ver STATUS). `R7b acceptQuote` →
-**CONTAINED / HOLD YALA**. `DT-AUTHORITY-Z2-EVENT-RFQ-ACCEPTQUOTE-UNBOUND` →
-**IMPLEMENTED_AS_CONTAINED / HOLD YALA**. **R7b NÃO está remediado plenamente** — esta é contenção P0; o
-redesenho final (provider confirmation, atomicidade, idempotência, criação de estado intermediário) exige
-**DECISION própria**. DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e
-`DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` permanecem **OPEN**. Próximo passo: **Yala reseal**.
+**✅ CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-18 sobre commit material
+`34d1421c`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W3 registrados como follow-up
+não-bloqueante — ver bloco SEAL no topo). `R7b acceptQuote P0` → **CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**.
+`DT-AUTHORITY-Z2-EVENT-RFQ-ACCEPTQUOTE-UNBOUND` → **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**.
+**R7b NÃO está remediado plenamente** — esta é contenção P0; o redesenho final (provider confirmation,
+atomicidade, idempotência, criação de estado intermediário) exige **DECISION própria**. DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` permanecem
+**OPEN**. _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
 
 ## OPEN / permanece (registro explícito)
 
