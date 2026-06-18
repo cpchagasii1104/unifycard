@@ -273,12 +273,13 @@ class AuthService {
     // DENTRO da transação de nascimento (DECISION-0119 D2 — atômica; código válido sem vínculo
     // materializado ⇒ rollback total). NÃO procurar cross-tenant.
     if (referralCode) {
-      const referrer = await runQueryWithTenant<{ id: string }>(
-        finalTenantId,
-        `SELECT id FROM users WHERE tenant_id = $1 AND UPPER(referral_code) = UPPER($2) LIMIT 1`,
-        [finalTenantId, referralCode]
-      );
-      if (!referrer) {
+      // DECISION-0139: a porta de entrada reconhece código ACTOR-SCOPED (actor_referral_codes) E o
+      // legado (users.referral_code), via RESOLVER ÚNICO read-only (mesma ordem do writer soberano).
+      // Apenas valida existência/validade — a materialização do vínculo é EXCLUSIVA de
+      // applyReferralCodeTx dentro da transação de nascimento (não duplicar writer aqui).
+      const { referralService } = await import('@core/referral/referral.service');
+      const candidate = await referralService.resolveReferralCodeCandidate(finalTenantId, referralCode);
+      if (!candidate.valid) {
         const error = new Error('Código de indicação inválido') as Error & { statusCode?: number; code?: string };
         error.statusCode = 400;
         error.code = 'INVALID_REFERRAL_CODE';

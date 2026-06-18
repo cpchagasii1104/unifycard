@@ -89,6 +89,63 @@ class ReferralService {
   }
 
   /**
+   * RESOLVER ÚNICO read-only de CANDIDATO de código de indicação (DECISION-0139).
+   *
+   * Porta de entrada do cadastro (`/auth/check-referral` + `authService.register` pré-validação):
+   * reconhece código ACTOR-SCOPED (`actor_referral_codes`) **E** o legado (`users.referral_code`),
+   * na MESMA ordem do writer soberano `applyReferralCodeTx` (actor-scoped primeiro, legado depois).
+   *
+   * NÃO escreve nada · NÃO cria vínculo/actor/wallet · NÃO toca Bank. A materialização do vínculo
+   * (`user_referral_links`) continua EXCLUSIVA do writer transacional `applyReferralCodeTx` — este
+   * resolver só responde "este código existe e é válido?" para UX (valid:true/false) e para a
+   * pré-validação fail-fast do cadastro (código inválido → 400 ANTES de qualquer escrita).
+   *
+   * FAIL-CLOSED: `actor_system` NUNCA é dono econômico válido — verificado server-side via JOIN em
+   * `actors` (independente do gate de criação em `ensureActorReferralCode`), de modo que uma linha
+   * CRUA semeada em `actor_referral_codes` com owner system é recusada aqui também.
+   *
+   * `ownerActorId` (quando kind='actor') é metadata de rastreabilidade para o caller; o vínculo real
+   * é resolvido server-side no writer, não a partir deste retorno.
+   */
+  async resolveReferralCodeCandidate(
+    tenantId: string,
+    code: string
+  ): Promise<{ valid: boolean; kind: 'actor' | 'legacy' | null; ownerActorId: string | null }> {
+    const trimmed = (code ?? '').trim();
+    if (!trimmed) return { valid: false, kind: null, ownerActorId: null };
+
+    // 1) Substrato CANÔNICO actor-scoped PRIMEIRO (mesma ordem do writer). JOIN em actors para
+    //    recusar owner actor_system server-side (fail-closed mesmo p/ linha crua semeada).
+    const actorRow = await runQueryWithTenant<{ owner_actor_id: string }>(
+      tenantId,
+      `SELECT arc.owner_actor_id
+         FROM actor_referral_codes arc
+         JOIN actors a ON a.tenant_id = arc.tenant_id AND a.id = arc.owner_actor_id
+        WHERE arc.tenant_id = $1 AND UPPER(arc.code) = UPPER($2)
+          AND arc.code_status = 'active' AND arc.revoked_at IS NULL
+          AND a.actor_type NOT IN ('system', 'actor_system')
+        LIMIT 1`,
+      [tenantId, trimmed]
+    );
+    if (actorRow?.owner_actor_id) {
+      return { valid: true, kind: 'actor', ownerActorId: actorRow.owner_actor_id };
+    }
+
+    // 2) Compat: código LEGADO em users.referral_code (fallback, nunca authority).
+    const legacyRow = await runQueryWithTenant<{ id: string }>(
+      tenantId,
+      `SELECT id FROM users WHERE tenant_id = $1 AND UPPER(referral_code) = UPPER($2) LIMIT 1`,
+      [tenantId, trimmed]
+    );
+    if (legacyRow?.id) {
+      return { valid: true, kind: 'legacy', ownerActorId: null };
+    }
+
+    // 3) Inexistente em AMBOS os substratos → inválido (não inventa dono).
+    return { valid: false, kind: null, ownerActorId: null };
+  }
+
+  /**
    * Materializa o VÍNCULO PURO de indicação A→B (DECISION-0119).
    *
    * Writer TRANSACIONAL: recebe o MESMO `client` do nascimento (register) e grava

@@ -642,21 +642,16 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       // TENANT server-side — x-tenant-id do cliente é IGNORADO por desenho.
       const { tenantService } = await import('@core/tenants/tenant.service');
-      const { runQueryWithTenant } = await import('@core/database/pool');
       const institutionalTenant = await tenantService.getTenantBySlug('unificard-inicial');
       const tenantId = institutionalTenant.tenantId;
 
-      const referrer = await runQueryWithTenant<{ user_id: string }>(
-        tenantId,
-        `SELECT user_id
-           FROM users
-          WHERE tenant_id = $1 AND UPPER(referral_code) = UPPER($2)
-          LIMIT 1`,
-        [tenantId, code]
-      );
+      // DECISION-0139: resolver ÚNICO read-only reconhece código ACTOR-SCOPED (actor_referral_codes)
+      // E o legado (users.referral_code), na mesma ordem do writer. Não escreve, não cria vínculo,
+      // não toca Bank. Shape simples e estável: existência válida ⇒ valid:true, ausência ⇒ valid:false.
+      const { referralService } = await import('@core/referral/referral.service');
+      const candidate = await referralService.resolveReferralCodeCandidate(tenantId, code);
 
-      // Shape simples e estável; existência ⇒ valid:true, ausência ⇒ valid:false.
-      return reply.status(200).send({ valid: !!(referrer && referrer.user_id) });
+      return reply.status(200).send({ valid: candidate.valid });
     } catch (error) {
       // Erro técnico pré-sessão NÃO é "código inválido" confirmado → 500 honesto
       // (o frontend mantém o status como indeterminado, não bloqueia o cadastro).
