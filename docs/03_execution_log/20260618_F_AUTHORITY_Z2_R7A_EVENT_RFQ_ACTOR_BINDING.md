@@ -98,14 +98,39 @@ Sem migration/schema; **W6 acceptQuote / `eventRFQService.acceptQuote` / `create
 spec/declaration/produto (só gate antes do sink); R6.2 social-posts, R6.1 services, referral, RBAC/FASE 6,
 actor_delegations **intocados**; DT-mãe 0113 **não fechada**.
 
+## Proof-hygiene pós-reseal (sem novo commit; HEAD permaneceu `06349c83`) — W1-W4 follow-up
+
+Reseal Yala material READ-ONLY = **PASS_WITH_WARNINGS** (Yala validou guard + E2E + propriedade material +
+diff runtime + W6 exclusion + baseline). Warnings registrados como **follow-up não-bloqueante**:
+
+- **W1 — negative-proof não reexecutado pela Yala:** o script muta `event-rfq.routes.ts` temporariamente,
+  incompatível com o mandato READ-ONLY. **Não bloqueia:** a executora o executou em **pwsh 7 e Windows
+  PowerShell 5.1** (spoofa subject de W1 → guard FALHA exit 1 → restauração byte-idêntica → git status
+  inalterado), e a Yala validou guard + E2E 20/20 + propriedade material.
+- **W2 — `assertCanReadEventMoney` como gate de ESCRITA (W2/W4/W5):** materialmente forte hoje — resolve
+  `organizerActorId` server-side de `event.actor_id` e chama `canRepresentActor`. Warning de
+  nomenclatura/acoplamento: o nome "Read" num gate de write pode enfraquecer silenciosamente se no futuro
+  admitir papéis read-only. **Follow-up recomendado:** `assertCanWriteEventRFQ` ou wrapper organizer-only.
+  Não bloqueia o selo material.
+- **W3 — working tree sujo fora do material:** docs/memorias + planejamento + outputs + pngs; zero arquivo do
+  material verificado → não é HOLD_WORKTREE_DIRTY.
+- **W4 — carry-over rota legada `/social/posts/create`:** dead-at-db/ungated, já follow-up. Fora desta frente.
+
+**07_NOMENCLATURA:** Yala não encontrou drift novo introduzido pelo commit — `priceCents`/`expectedPriceCents`
+são pré-existentes; `actor_system` não foi introduzido como actor_type operacional; `totalCents`-como-contagem
+não foi introduzido por esta frente.
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA.** `DT-AUTHORITY-Z2-EVENT-RFQ-ACTOR-BINDING-UNBOUND` →
-**IMPLEMENTED_AS_CONTAINED / HOLD YALA** (vinculada ao parent canal-1 `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-
-BASELINE`, que segue OPEN, e à DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`, OPEN). **Esta frente
-corrigiu somente R7a event-rfq actor binding nas escritas non-money-runtime W1-W5. Não altera acceptQuote, não
-cria payment_request, não altera service_payment_requests, não toca Bank/ledger/splits e não fecha a DT-mãe
-0113.** **R7b acceptQuote permanece OPEN / DECISÃO PENDENTE** (money-adjacent: cria availability + booking +
-service_booking_decision + service_payment_request PENDING — exige decisão/recorte próprio). **Continuidade
-(NÃO executar agora):** R7b acceptQuote · R6.3 feed-action · rota legada `/social/posts/create` · guard
-cross-module Z2. CLOSED só no seal pós-Yala PASS material.
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-18 sobre commit material `06349c83`; reseal Yala
+material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W4 registrados como follow-up não-bloqueante). dev 394.
+`DT-AUTHORITY-Z2-EVENT-RFQ-ACTOR-BINDING-UNBOUND` → **CLOSED / YALA PASS MATERIAL**. **Esta frente corrigiu
+somente R7a event-rfq actor binding nas escritas non-money-runtime W1-W5. Não altera acceptQuote, não cria
+payment_request, não altera service_payment_requests, não toca Bank/ledger/splits, não mascara W6 no baseline e
+não fecha a DT-mãe 0113** — o parent canal-1 `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` e a DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` permanecem **OPEN**. W6 acceptQuote e
+`eventRFQService.acceptQuote`/`createPaymentRequest`/`service_payment_requests`/`service_payment_executions`/
+Bank **não tocados**; nenhum código material alterado no seal. **R7b acceptQuote permanece OPEN / DECISÃO
+PENDENTE** (money-adjacent: cria availability + booking + service_booking_decision + service_payment_request
+PENDING — exige frente própria antes de qualquer patch). **Continuidade (NÃO executar agora):** R7b acceptQuote
+· R6.3 feed-action · rota legada `/social/posts/create` · guard cross-module Z2.
