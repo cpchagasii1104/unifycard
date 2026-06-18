@@ -464,10 +464,31 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
    * POST /events/:eventId/rfqs/:rfqId/quotes/:quoteId/accept
    * Q3 — Aceita uma proposta: cria booking + payment request pendente
    * 🔴 BLINDAGEM: NÃO executa pagamento — apenas registra intenção
+   * 🔴 R7b ACCEPTQUOTE P0 CONTAINMENT — rota CONTIDA / fail-closed (ver hard-stop abaixo).
    */
   fastify.post<{ Params: { eventId: string; rfqId: string; quoteId: string } }>(
     '/events/:eventId/rfqs/:rfqId/quotes/:quoteId/accept',
     async (req, reply) => {
+      // 🔴 R7b ACCEPTQUOTE P0 HARD-STOP FAIL-CLOSED (DECISION-0113/0131 §B7 / Z2 · Clayton 2026-06-18):
+      // acceptQuote é MONEY-ADJACENT — confia em actionContext.actorId (HINT, NUNCA autoridade), NÃO chama
+      // canRepresentActor, e materializa a cadeia availability → booking → service_booking_decision →
+      // service_payment_request PENDING "em nome do provider", sem confirmação do provider, sem transação única,
+      // sem idempotência suficiente. Regra de produto (Clayton): aceitar quote = "quero seguir com esta proposta";
+      // NÃO autoriza cobrança e o organizer NÃO pode emitir cobrança pelo provider (provider/receiver emite, payer
+      // paga). Até existir o fluxo de confirmação do provider (DECISION própria — redesenho R7b), a rota é CONTIDA
+      // ANTES de qualquer sink material (events.metadata, availability, booking, decision, payment_request,
+      // event_outbox, Bank/Core). O fluxo legado abaixo (incl. o sink `eventRFQService.acceptQuote(...)`)
+      // permanece CONTIDO: o guard always-on retorna 403 ANTES dele. O flag é runtime-widened (`true as boolean`)
+      // de propósito — mantém o corpo legado type-checked (sem TS unreachable / perda de narrowing) até o
+      // redesenho R7b (DECISION própria) substituí-lo; em runtime é sempre true → 403 fail-closed.
+      const CONTAINMENT_ACTIVE = true as boolean;
+      if (CONTAINMENT_ACTIVE) {
+        return reply.status(403).send({
+          error: 'Accept quote is temporarily contained pending provider confirmation flow.',
+          code: 'EVENT_RFQ_ACCEPT_QUOTE_CONTAINED',
+        });
+      }
+
       if (!req.tenant?.id) {
         return reply.status(400).send({ error: 'Tenant é obrigatório' });
       }
