@@ -93,12 +93,35 @@ Sem migration/schema; service `createPost` **não gateado** (callers internos pr
 system-notifications/store-onboarding/business-permissions/unifycard **intocados**; feed/comments/likes/
 media/KYB/visibility/ranking/timeline não tocados.
 
+## Caller analysis (Yala — reseal material READ-ONLY)
+
+`social2Service.createPost` callers: `POST /social/posts` = **EXTERNAL_ROUTE_GATED**; events/groups/votes/
+event-feed = **INTERNAL_SYSTEM_SAFE**; seed/test = **SEED_TEST_ONLY**; **zero EXTERNAL_ROUTE_UNGATED**. Confirma
+a decisão de gatear a rota (única superfície client-declared) e NÃO o service (callers internos confiáveis).
+
+## Proof-hygiene pós-reseal (sem novo commit; HEAD permaneceu `c41476f7`) — W1/W2 follow-up
+
+Reseal Yala material READ-ONLY = **PASS_WITH_WARNINGS** (E2E 14/14, gates, guard, leitura adversarial dos
+callers). Warnings registrados como **follow-up não-bloqueante**, não como bloqueio do fechamento:
+
+- **W1 — rota legada `/social/posts/create`:** externa e sem representation gate, **mas dead-at-db** no schema
+  canônico — usa service legado/`social.repository`, **não** `social2Service.createPost`, **não cria post
+  hoje**. Registrado como follow-up recomendado / DT futura de contenção da rota legada. **Não implementar
+  neste commit; não bloqueia o fechamento da R6.2.**
+- **W2 — negative-proof não reexecutado pela Yala:** o script muta fonte temporariamente, incompatível com o
+  mandato READ-ONLY. **Não bloqueia:** a executora já o executou em **pwsh 7 e Windows PowerShell 5.1** (base
+  passa → spoof do subject faz o guard FALHAR exit 1 → restauração byte-idêntica → git status inalterado), e a
+  Yala validou guard + E2E 14/14 + a propriedade material. Procedural, não material.
+
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA.** `DT-AUTHORITY-Z2-SOCIAL-POSTS-ACTOR-BINDING-UNBOUND` →
-**IMPLEMENTED_AS_CONTAINED / HOLD YALA** (vinculada ao parent canal-1 `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`,
-que segue OPEN). **Esta frente fechou somente a contenção localizada de social-posts actor binding. Não fecha
-Z2 inteiro, Z1, Z3, authority global nem a DT-mãe 0113** — `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`
-permanece **OPEN**. **Continuidade (NÃO executar agora):** R6.3 feed-action · R7 event-rfq money-adjacent ·
-venue/system-notifications schema-ghost · business-permissions/check (decisão Clayton) · guard cross-module
-Z2. CLOSED só no seal pós-Yala PASS material.
+**✅ CLOSED / YALA PASS MATERIAL** (seal docs-only 2026-06-17 sobre commit material `c41476f7`; reseal Yala
+material READ-ONLY = PASS_WITH_WARNINGS; warnings W1/W2 registrados como follow-up não-bloqueante). dev 394.
+`DT-AUTHORITY-Z2-SOCIAL-POSTS-ACTOR-BINDING-UNBOUND` → **CLOSED / YALA PASS MATERIAL**. **Esta frente fechou
+somente a contenção localizada de social-posts actor binding. Não fecha Z2 inteiro, Z1, Z3, authority global
+nem a DT-mãe 0113** — o parent canal-1 `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` e a DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` permanecem **OPEN**. R1/R2/R3/R4/R5/R6.1 **não reabertos**;
+feed/comments/likes/media/KYB/ranking/timeline e Bank/ledger/splits **não regrediram**. Nenhum código material
+alterado no seal. **Continuidade (NÃO executar agora):** F-REFERRAL-REGISTER-ACTOR-CODE-GATE (próxima
+recomendada) · R6.3 feed-action · R7 event-rfq money-adjacent · venue/system-notifications schema-ghost ·
+business-permissions/check (decisão Clayton) · guard cross-module Z2.
