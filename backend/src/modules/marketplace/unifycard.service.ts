@@ -38,19 +38,12 @@ class UnifyCardService {
     createdByActorId: string,
     createdByUserId?: string
   ): Promise<UnifyCardTransaction> {
-    // Buscar payment method se fornecido
-    let feePercentage = 0;
-    if (input.paymentMethodId) {
-      const { paymentMethodService } = await import('./payment-method.service');
-      const paymentMethod = await paymentMethodService.getMethodById(tenantId, input.paymentMethodId);
-      if (paymentMethod) {
-        feePercentage = paymentMethod.feePercentage;
-      }
-    }
-
-    // Calcular taxa e valor líquido
-    const feeAmountCents = Math.round(input.grossAmountCents * feePercentage);
-    const netAmountCents = input.grossAmountCents - feeAmountCents;
+    // DECISION-0140/0141: taxa resolvida via economic_policy_engine (bps), NUNCA fee_percentage.
+    // engine resolve; método no máximo espelha. Fail-closed: sem policy ⇒ fee=0 (sem fallback em percentage).
+    const { resolveMarketplaceFeeViaPolicy } = await import('./marketplace-fee-policy');
+    const feeResolution = await resolveMarketplaceFeeViaPolicy(tenantId, input.grossAmountCents);
+    const feeAmountCents = feeResolution.feeAmountCents;
+    const netAmountCents = feeResolution.netAmountCents;
 
     // Criar transação autorizada
     const transaction = await unifyCardRepository.createAuthorizedTransaction(tenantId, {
@@ -65,7 +58,11 @@ class UnifyCardService {
       createdByUserId: createdByUserId || null,
       metadata: {
         ...input.metadata,
-        fee_percentage: feePercentage,
+        // DECISION-0141: snapshot auditável em bps (NÃO SSOT).
+        fee_rate_bps: feeResolution.feeRateBps,
+        fee_amount_cents: feeResolution.feeAmountCents,
+        policy_id: feeResolution.policyId,
+        policy_version: feeResolution.policyVersion,
       },
     });
 

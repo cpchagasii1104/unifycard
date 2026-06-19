@@ -1,3 +1,17 @@
+## 2026-06-19 — F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION (fee via economic_policy_engine em bps) · 🟡 EXECUTED / MATERIAL / PENDING YALA (fee material executado; payout NÃO autorizado)
+
+**MATERIAL (HEAD before `0100fd17`, dev 394, SEM migration).** Cutover dos consumers de taxa UnifyCard/marketplace para resolver via **economic_policy_engine** em **bps** (DECISION-0141 schema-of-record + DECISION-0140 unidade), eliminando `gross*(feePercentage/100)` — o bug 299¢ vs 3¢. **Materialmente seguro:** os 2 sinks de fee são dead-at-code/db (settlementService Proxy-dead + `settlements` GHOST; unifyCardRepository Proxy-dead) → mudança não move dinheiro real. **NÃO toca Bank/payout; NÃO reativa settlement; NÃO reabre R8Q 501; NÃO cria migration.**
+
+**Mudança:** novo resolvedor único `marketplace-fee-policy.ts::resolveMarketplaceFeeViaPolicy` (resolve policy → `calculatePolicySplits` floor(gross*bps/10000) → fee = soma dos splits não-`revenue_share`; fail-closed: sem policy ⇒ fee=0, sem fallback em percentage); `payment-execution.service.ts` + `unifycard.service.ts` consomem o resolvedor; snapshots em bps (fee_rate_bps/fee_amount_cents/policy_*), sem fee_percentage. Bank só via facades (inalteradas).
+
+**Prova:** E2E `validate-pipeline-e2e-unifycard-fee-bps` **14/14** (299 bps × 10000¢ = **299¢** via engine; fail-closed sem policy; snapshot bps; boundary; R8Q contido). Guard `audit-unifycard-fee-bps-consumer` wired+GREEN. Negative-proofs `negative-proof-unifycard-fee-bps-consumer.ps1` (pwsh 7 + WPS 5.1): NP1 /100 · NP2 *100 · NP3 feePercentage · NP4 fee-fora-do-engine · NP5 method-as-SSOT · NP6 reabrir R8Q 501 — todos mordem + restauram byte-idêntico.
+
+**Boundary proofs:** Bank boundary PASS (só facades; zero bank_ledger/transactions/splits no diff) · settlement non-reactivation PASS (Proxy-dead + ghost) · payout non-touch PASS · R8Q 501 PASS (guard verde). **Gates:** actor-writer/bank-ledger OK · regression-guards **73 OK / 0 FAIL** · arch critical_new=0 · migrations 394/394 · detector baseline 0 · tsc 43 (zero novos).
+
+**Estados:** `F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION` → **EXECUTED / MATERIAL / PENDING YALA** · `DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION` → **EXECUTED / PENDING_YALA** (NÃO CLOSED — fecha só com Yala PASS material) · Payout → **NOT AUTHORIZED** · R8Q → 501 contido. **Fee material EXECUTADO · Payout NÃO autorizado.** Detalhe: `docs/03_execution_log/F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION-EXECUTION.md`. Próxima ação: **Yala reseal material**.
+
+---
+
 ## 2026-06-19 — F-UNIFYCARD-FEE-BPS-MATERIAL-GO (Clayton GO / backfill NOT APPLICABLE) · ✅ CLOSED / DOCS-ONLY (fee material NÃO executado; payout NÃO autorizado)
 
 **Docs-only / GO Clayton (HEAD `38bb8ebb`, dev 394, sem migration/código/runtime).** Registra a declaração soberana de Clayton: Unificard **sem produção real** e **sem dado financeiro real legado** de UnifyCard fee → **backfill financeiro real = NOT APPLICABLE** no estado atual. Tratado como exec-log + STATUS/DT (não DECISION nova; normativas = 0140 unidade + 0141 schema-of-record). **Evidência Paralela A (READ-ONLY dev):** `economic_policy_lines` LIVE rows=0; `payment_methods`/`unifycard_payment_methods`/`regional_fees`/`settlements`/`event_settlements` GHOST; única coluna fee/bps viva = `economic_policy_lines.bps` (zero fee_percentage/fee_rate_bps em tabela aplicada) → sem dado legado a reconciliar.

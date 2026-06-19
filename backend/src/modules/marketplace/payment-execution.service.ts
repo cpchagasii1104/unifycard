@@ -15,6 +15,7 @@ import { logFinancialEvent } from '@core/observability/financial-logger';
 import type { PaymentTransaction, ExecutePaymentInput } from './payment-intent.types';
 import type { BankCurrency } from '../bank/bank-account.types';
 import { paymentTransactionRepository } from '../payments/payment-transaction.repository';
+import { resolveMarketplaceFeeViaPolicy } from './marketplace-fee-policy';
 
 /**
  * Service para execução de pagamentos
@@ -301,33 +302,10 @@ class PaymentExecutionService {
       // SPRINT 85: Verificar se payment method é PIX
       const isPix = paymentMethodSnapshot?.type === 'PIX';
 
-      // SPRINT 82: Resolver taxa via UnifyCardMethodService se provider = UNIFYCARD
-      let resolvedFeePercentage = paymentMethodSnapshot?.fee_percentage || 0;
-      let resolvedSettlementDelayDays = paymentMethodSnapshot?.settlement_delay_days || 0;
-      
-      if (isUnifyCard && paymentMethodSnapshot?.type) {
-        try {
-          const { unifyCardMethodService } = await import('./unifycard-method.service');
-          // Mapear tipo do payment_method para tipo do unifycard_method
-          let unifyCardMethodType: string = paymentMethodSnapshot.type;
-          if (paymentMethodSnapshot.type === 'CREDIT_CARD') {
-            unifyCardMethodType = 'CREDIT';
-          } else if (paymentMethodSnapshot.type === 'DEBIT_CARD') {
-            unifyCardMethodType = 'DEBIT';
-          } else if (paymentMethodSnapshot.type === 'VOUCHER') {
-            unifyCardMethodType = 'VALE_REFEICAO'; // Default, pode ser ajustado
-          }
-
-          const feeInfo = await unifyCardMethodService.resolveFee(tenantId, unifyCardMethodType);
-          
-          // Usar taxa resolvida (não modifica o snapshot original)
-          resolvedFeePercentage = feeInfo.feePercentage;
-          resolvedSettlementDelayDays = feeInfo.settlementDelayDays;
-        } catch (error) {
-          // Log mas não bloqueia execução (compatibilidade)
-          console.warn('[PaymentExecution] Erro ao resolver taxa UnifyCard:', error);
-        }
-      }
+      // DECISION-0140/0141: taxa resolvida via economic_policy_engine (bps), NUNCA fee_percentage/100.
+      // engine resolve; método no máximo espelha. Fail-closed: sem policy ⇒ fee=0 (sem fallback em percentage).
+      const resolvedSettlementDelayDays = paymentMethodSnapshot?.settlement_delay_days || 0;
+      const feeResolution = await resolveMarketplaceFeeViaPolicy(tenantId, intent.amountCents);
 
       if (await getByOrderId(tenantId, intent.orderId)) {
         await orderSagaService.advanceSaga(tenantId, intent.orderId, 'payment_pending');
@@ -481,10 +459,14 @@ class PaymentExecutionService {
         unifycard_transaction_id: bankResult.unifyCardTransactionId,
       };
 
-      // SPRINT 82: Adicionar snapshot da taxa se UnifyCard
+      // DECISION-0141: snapshot auditável em bps (NÃO SSOT; SSOT é o economic_policy_engine). Sem fee_percentage.
       if (isUnifyCard && paymentMethodSnapshot) {
         updatedMetadata.unifycard_fee_snapshot = {
-          fee_percentage: resolvedFeePercentage,
+          fee_rate_bps: feeResolution.feeRateBps,
+          fee_amount_cents: feeResolution.feeAmountCents,
+          policy_id: feeResolution.policyId,
+          policy_code: feeResolution.policyCode,
+          policy_version: feeResolution.policyVersion,
           settlement_delay_days: resolvedSettlementDelayDays,
           method_type: paymentMethodSnapshot.type,
         };
@@ -708,10 +690,9 @@ class PaymentExecutionService {
 
         // Se regionId encontrado e há taxa (fee), criar settlement
         if (regionId) {
-          // SPRINT 82: Calcular taxa usando taxa resolvida (já resolvido via UnifyCardMethodService se UNIFYCARD)
-          const feePercentage = isUnifyCard ? resolvedFeePercentage : (intent.metadata?.payment_method_snapshot?.fee_percentage || 0);
+          // DECISION-0140/0141: taxa do settlement vem do economic_policy_engine (bps), nunca fee_percentage/100.
           const grossAmountCents = intent.amountCents;
-          const feeAmountCents = Math.round(grossAmountCents * (feePercentage / 100));
+          const feeAmountCents = feeResolution.feeAmountCents;
 
           if (feeAmountCents > 0) {
             // Determinar sourceType baseado na origem
@@ -736,6 +717,11 @@ class PaymentExecutionService {
                   payment_transaction_id: successTransaction.id,
                   order_id: intent.orderId,
                   bank_transaction_id: bankResult.transactionId,
+                  // DECISION-0141: snapshot auditável em bps da policy resolvida (NÃO SSOT).
+                  fee_rate_bps: feeResolution.feeRateBps,
+                  fee_amount_cents: feeResolution.feeAmountCents,
+                  policy_id: feeResolution.policyId,
+                  policy_version: feeResolution.policyVersion,
                 },
               },
               sellerActorId, // createdByActorId
