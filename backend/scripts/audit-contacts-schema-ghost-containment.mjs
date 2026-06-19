@@ -69,6 +69,23 @@ for (const name of GUARDED_METHODS) {
   must(offenders.length === 0, `funil quebrado: contactRepository referenciado fora do service: ${offenders.join(', ')}`);
 }
 
+// (e) ROUTE-LEVEL containment (R8F, 2026-06-19): a rota também contém fail-closed na BORDA, ANTES de ler
+// actionContext.actorId (canal-1) ou chamar contactService — eliminando o canal-1 do arquivo (saída honesta do
+// baseline canal-1). FALHA se: a rota voltar a chamar contactService, voltar a ler actionContext.actorId, ou
+// perder o 501 CONTACTS_SCHEMA_GHOST_CONTAINED.
+{
+  const ROUTES = join(MK, 'contact.routes.ts');
+  const rawRoutes = read(ROUTES);
+  must(rawRoutes, 'contact.routes.ts ausente');
+  // comment-stripped (não confundir o canal-1 no comentário de contenção com uso real).
+  const routes = rawRoutes.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
+  must(/CONTACTS_SCHEMA_GHOST_CONTAINED/.test(routes), 'route não retorna code CONTACTS_SCHEMA_GHOST_CONTAINED');
+  const contained501 = (routes.match(/reply\.status\(\s*501\s*\)\.send\(\s*CONTAINED\s*\)/g) || []).length;
+  must(contained501 >= 6, `route esperado >= 6 rotas contidas (501 CONTAINED), encontradas ${contained501} — não remover rotas`);
+  must(!/contactService\./.test(routes), 'route voltou a chamar contactService (religação exige frente própria — gênese do schema)');
+  must(!/actionContext\s*\.\s*actorId/.test(routes), 'route voltou a referenciar actionContext.actorId (canal-1) — a rota contida não lê ator do cliente');
+}
+
 // (d) nenhuma migration viva cria a tabela contacts ────────────────────────────────────
 const migs = existsSync(MIGRATIONS) ? readdirSync(MIGRATIONS) : [];
 let createdContacts = false;

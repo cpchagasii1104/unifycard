@@ -195,6 +195,24 @@ function serviceBoundProof(rel, rawRouteCode) {
   return `service-bound writer: rota subject=req.user.userId (actionContext.actorId=alvo) + ${svcRel} canRepresentActor(tenantId,userId,actorId) em resolveActorGuarded ANTES do sink`;
 }
 
+// ── F-AUTHORITY-Z2-R8F (plan) — SELF-BOUND WRITERS (2026-06-19) ───────────────────────────────
+// Rotas cujo WRITE é per-user do PRÓPRIO caller (self-only): o SUBJECT deriva de `req.user.userId`
+// (findByUserId), o actionContext.actorId declarado é NEUTRALIZADO, e há 403 de privilégio ANTES do sink.
+// É o análogo "self" do SERVICE_BOUND_WRITERS: reconhecidas com PROVA verificada em runtime (subject de
+// req.user). Se a prova sumir (subject volta a vir do actionContext), o arquivo re-flagga e, FORA do baseline,
+// FALHA. Rigor de ordering/sink vive no guard dedicado audit-plan-self-bound.mjs.
+const SELF_BOUND_WRITERS = {
+  'core/plan/plan.routes.ts': 'PUT /plan self-only (DECISION-0113 fatia 5.1): subject=req.user.userId via findByUserId→callerActor.actor_id; 403 de privilégio ANTES do UPDATE users; sink mira userRow.user_id do caller. actionContext.actorId neutralizado. Guard: audit-plan-self-bound.mjs.',
+};
+
+// Prova: a rota deriva o subject de req.user.userId (findByUserId) — server-side, não client-declared.
+function selfBoundProof(rel, rawCode) {
+  if (!(rel in SELF_BOUND_WRITERS)) return null;
+  const code = stripComments(rawCode);
+  if (!/findByUserId\(\s*req\.tenant\.id\s*,\s*req\.user\.userId\s*\)/.test(code)) return null;
+  return `self-bound writer: subject=req.user.userId (findByUserId); actionContext.actorId neutralizado — ${SELF_BOUND_WRITERS[rel]}`;
+}
+
 // ── BASELINE EXPLÍCITO (estado conhecido; cada item tem DT vinculada) ──
 // Arquivo (rel a src/) → canais usados sem binding no arquivo + nota/DT. NOVOS arquivos
 // fora desta lista (e fora de SAFE_SUBJECT_READERS) que casem um canal sem binding = FALHA.
@@ -219,7 +237,12 @@ const BASELINE = {
   // canRepresentActor(tenantId, req.user.userId, buyerActorId) fail-closed (403 BUYER_ACTOR_NOT_REPRESENTABLE)
   // ANTES de criar order/itens/reserva/saga. O actionContext.actorId vira HINT vinculado. Guard próprio:
   // audit-intent-execute-buyer-actor-binding.mjs. DT-AUTHORITY-Z2-INTENT-EXECUTE-BUYER-ACTOR-UNBOUND.
-  'core/plan/plan.routes.ts': C1,
+  // core/plan/plan.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8F-NON-MONEY-REMAINING-CANAL1-WAVE,
+  // 2026-06-19): PUT /plan é self-only (DECISION-0113 fatia 5.1) — subject=req.user.userId (findByUserId→
+  // callerActor.actor_id), actionContext.actorId NEUTRALIZADO, 403 de privilégio ANTES do UPDATE users (mira
+  // userRow.user_id do caller). NÃO é money (users.plan = feature-flag). Reconhecido por SELF_BOUND_WRITERS
+  // (prova subject=req.user em runtime) + guard dedicado audit-plan-self-bound.mjs. Se a prova sumir, re-flagga
+  // e FALHA. DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   // core/profile/{interest-c1,learning-c1,professional-c1,lifestyle}.routes.ts REMOVIDOS do baseline canal-1
   // (F-AUTHORITY-Z2-R8B-PROFILE-C1-BASELINE-RECONCILIATION, 2026-06-18): os 4 trilhos profile-c1 são WRITERS
   // actor-keyed com SUBJECT server-side (req.user.userId via requireContext) e BINDING no SERVICE
@@ -238,7 +261,12 @@ const BASELINE = {
   // do schema canônico e de unificard_dev — to_regclass=null) e zero caller. As 3 rotas (POST/GET/PATCH) foram
   // CONTIDAS fail-closed (501 BUSINESS_SEGMENT_SCHEMA_GHOST_CONTAINED) ANTES de qualquer service/DB — o canal-1
   // (actionContext.actorId) DESAPARECEU do arquivo. Guard: audit-canal1-ghost-wave-r8e-containment.mjs.
-  'modules/marketplace/contact.routes.ts': C1,
+  // contact.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8F-NON-MONEY-REMAINING-CANAL1-WAVE,
+  // 2026-06-19): a tabela `contacts` é SCHEMA-GHOST (CREATE TABLE só em migrations_archive/0065; ausente do
+  // schema canônico e de unificard_dev). Write já contido no SERVICE (assertContactsFeatureAvailable 501); R8F
+  // elevou a contenção à BORDA — as 6 rotas retornam 501 CONTACTS_SCHEMA_GHOST_CONTAINED ANTES de ler
+  // actionContext.actorId/chamar contactService → o canal-1 DESAPARECEU do arquivo. Guard: audit-contacts-
+  // schema-ghost-containment.mjs (seção route-level). DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   'modules/marketplace/purchase-order.routes.ts': C1_MONEY,
   // settlement.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R4-MONEY-LATENT-CONTAINMENT):
   // as 3 rotas money-latent de mutação (settle/credit/debit) foram REDUZIDAS a 403 fail-closed e não
@@ -344,6 +372,7 @@ function runGuard() {
   const safeRecognized = [];   // readers reconhecidos por subject server-side (FATIA A)
   const acRecognized = [];     // B1f canal-1: actionContext.actorId vinculado por requirePermission([ (Forma A)
   const serviceBoundRecognized = []; // R8B: writers profile-c1 bound no SERVICE (prova cross-file runtime)
+  const selfBoundRecognized = [];    // R8F: writers self-only bound a req.user.userId (prova runtime)
 
   for (const file of walk(SRC)) {
     const rel = file.replace(SRC, '').replace(/^[\\/]/, '').replace(/\\/g, '/');
@@ -370,6 +399,15 @@ function runGuard() {
         continue;
       }
       // estava no mapa mas perdeu a prova (binding removido) → cai como violação (não está no BASELINE).
+    }
+    // R8F: writer self-only bound a req.user.userId (prova AINDA presente) → reconhecido.
+    if (rel in SELF_BOUND_WRITERS) {
+      const proof = selfBoundProof(rel, raw);
+      if (proof) {
+        selfBoundRecognized.push({ rel, channels, proof });
+        continue;
+      }
+      // estava no mapa mas perdeu a prova (subject voltou ao actionContext) → cai como violação (fora do BASELINE).
     }
     // B1f canal-1 (Forma A): se o ÚNICO canal é actionContext.actorId e há requirePermission([ preHandler,
     // o canal-1 está VINCULADO (requirePermission→canPerformAction→canActAs liga req.user→actor declarado).
@@ -401,8 +439,19 @@ function runGuard() {
   // R8B: SERVICE_BOUND_WRITERS órfão (entrada que não foi exercida nem reconhecida) → informativo.
   const sbRecognizedRels = new Set(serviceBoundRecognized.map((f) => f.rel));
   const staleServiceBound = Object.keys(SERVICE_BOUND_WRITERS).filter((r) => !sbRecognizedRels.has(r) && !flaggedRels.has(r));
+  // R8F: SELF_BOUND_WRITERS órfão (sem canal/sem uso) → informativo.
+  const selfBoundRels = new Set(selfBoundRecognized.map((f) => f.rel));
+  const staleSelfBound = Object.keys(SELF_BOUND_WRITERS).filter((r) => !selfBoundRels.has(r) && !flaggedRels.has(r));
 
-  console.log(`[actor-authority-boundary] flagged=${flagged.length} baseline=${Object.keys(BASELINE).length} new=${newViolations.length} stale_baseline=${staleBaseline.length} safe_subject_recognized=${safeRecognized.length} service_bound_recognized=${serviceBoundRecognized.length} canal1_bound_by_requirePermission=${acRecognized.length}`);
+  console.log(`[actor-authority-boundary] flagged=${flagged.length} baseline=${Object.keys(BASELINE).length} new=${newViolations.length} stale_baseline=${staleBaseline.length} safe_subject_recognized=${safeRecognized.length} service_bound_recognized=${serviceBoundRecognized.length} self_bound_recognized=${selfBoundRecognized.length} canal1_bound_by_requirePermission=${acRecognized.length}`);
+  if (selfBoundRecognized.length > 0) {
+    console.log('  ✅ writer self-only bound a req.user reconhecido (R8F — fora do baseline, prova verificada em runtime):');
+    selfBoundRecognized.forEach((s) => console.log(`     - ${s.rel}  [${s.channels.join(', ')}]  → ${s.proof}`));
+  }
+  if (staleSelfBound.length > 0) {
+    console.log('  ℹ️  SELF_BOUND_WRITERS órfão (sem canal/sem uso — revisar numa futura limpeza):');
+    staleSelfBound.forEach((r) => console.log(`     - ${r}`));
+  }
   if (safeRecognized.length > 0) {
     console.log('  ✅ subject server-side reconhecido (FATIA A — fora do baseline, prova verificada em runtime):');
     safeRecognized.forEach((s) => console.log(`     - ${s.rel}  [${s.channels.join(', ')}]  → ${s.proof}`));
@@ -444,4 +493,4 @@ if (isMain) {
   runGuard();
 }
 
-export { safeSubjectProof, serviceBoundProof, runGuard, SAFE_SUBJECT_READERS, SERVICE_BOUND_WRITERS, BASELINE, CLIENT_ACTOR_CHANNELS, BINDING_HELPERS };
+export { safeSubjectProof, serviceBoundProof, selfBoundProof, runGuard, SAFE_SUBJECT_READERS, SERVICE_BOUND_WRITERS, SELF_BOUND_WRITERS, BASELINE, CLIENT_ACTOR_CHANNELS, BINDING_HELPERS };

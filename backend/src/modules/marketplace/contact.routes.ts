@@ -1,175 +1,39 @@
 // backend/src/modules/marketplace/contact.routes.ts
-// SPRINT 0: CONTACTS / CLIENTES UNIFICADOS
+// 🔴 R8F CONTACT SCHEMA-GHOST CONTAINMENT — route-level (DECISION-0113 / DECISION-0131 §B7 / Z2 · 2026-06-19):
+// A tabela `contacts` é SCHEMA-GHOST — CREATE TABLE só em `migrations_archive/0065_contacts.sql`, ausente do
+// schema canônico e de unificard_dev (to_regclass=null). O write JÁ era contido fail-closed no SERVICE
+// (`assertContactsFeatureAvailable()` → 501 `CONTACTS_SCHEMA_GHOST_CONTAINED`, guard audit-contacts-schema-ghost-
+// containment.mjs). Esta frente eleva a contenção à BORDA (route): as rotas retornam 501 ANTES de ler
+// `actionContext.actorId` (canal-1) ou chamar `contactService` — eliminando o canal-1 do arquivo (saída honesta
+// do baseline). Comportamento p/ o frontend idêntico (já recebia 501 do service). NÃO religar, NÃO criar
+// migration, NÃO materializar `contacts` (gênese é frente própria). Rotas permanecem registradas. O funil do
+// service + guard de containment seguem intactos (defesa em profundidade).
 
 import type { FastifyInstance } from 'fastify';
-import { contactService } from './contact.service';
-import type {
-  CreateContactInput,
-  UpdateContactInput,
-  ContactFilters,
-} from './contact.types';
-import { AppError, BadRequestError, NotFoundError } from '@core/errors';
-import { ErrorCode } from '@core/errors/error-codes';
+
+const CONTAINED = {
+  error: 'Contacts are temporarily unavailable (schema not materialized).',
+  code: 'CONTACTS_SCHEMA_GHOST_CONTAINED',
+} as const;
 
 const contactRoutes = async (fastify: FastifyInstance) => {
-  /**
-   * POST /contacts
-   * Cria novo contato
-   */
-  fastify.post<{ Body: CreateContactInput }>('/contacts', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
+  // POST /contacts — criar (dead-at-db + canal-1 → contido).
+  fastify.post('/contacts', async (_req, reply) => reply.status(501).send(CONTAINED));
 
-    if (!actionContext?.actorId) {
-      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
-    }
+  // PATCH /contacts/:id — atualizar (dead-at-db + canal-1 → contido).
+  fastify.patch<{ Params: { id: string } }>('/contacts/:id', async (_req, reply) => reply.status(501).send(CONTAINED));
 
-    const contact = await contactService.createContact(
-      tenantId,
-      req.body,
-      actionContext.actorId,
-      actionContext.actingUserId
-    );
+  // GET /contacts — listar (dead-at-db → contido).
+  fastify.get('/contacts', async (_req, reply) => reply.status(501).send(CONTAINED));
 
-    return reply.status(201).send({ contact });
-  });
+  // GET /contacts/:id — buscar por id (dead-at-db → contido).
+  fastify.get<{ Params: { id: string } }>('/contacts/:id', async (_req, reply) => reply.status(501).send(CONTAINED));
 
-  /**
-   * PATCH /contacts/:id
-   * Atualiza contato
-   */
-  fastify.patch<{
-    Params: { id: string };
-    Body: UpdateContactInput;
-  }>('/contacts/:id', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const contactId = req.params.id;
-    const actionContext = (req as any).actionContext;
+  // GET /contacts/search — buscar (dead-at-db → contido).
+  fastify.get('/contacts/search', async (_req, reply) => reply.status(501).send(CONTAINED));
 
-    if (!actionContext?.actorId) {
-      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
-    }
-
-    const contact = await contactService.updateContact(
-      tenantId,
-      contactId,
-      req.body,
-      actionContext.actorId,
-      actionContext.actingUserId
-    );
-
-    return reply.send({ contact });
-  });
-
-  /**
-   * GET /contacts
-   * Lista contatos
-   */
-  fastify.get<{
-    Querystring: {
-      type?: string;
-      taxId?: string;
-      email?: string;
-      phone?: string;
-      userId?: string;
-      search?: string;
-      limit?: number;
-      offset?: number;
-    };
-  }>('/contacts', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-
-    const filters: ContactFilters = {};
-    if (req.query.type) {
-      filters.type = req.query.type as any;
-    }
-    if (req.query.taxId) {
-      filters.taxId = req.query.taxId;
-    }
-    if (req.query.email) {
-      filters.email = req.query.email;
-    }
-    if (req.query.phone) {
-      filters.phone = req.query.phone;
-    }
-    if (req.query.userId) {
-      filters.userId = req.query.userId;
-    }
-    if (req.query.search) {
-      filters.search = req.query.search;
-    }
-    if (req.query.limit) {
-      filters.limit = req.query.limit;
-    }
-    if (req.query.offset) {
-      filters.offset = req.query.offset;
-    }
-
-    const contacts = await contactService.listContacts(tenantId, filters);
-
-    return reply.send({ contacts });
-  });
-
-  /**
-   * GET /contacts/:id
-   * Busca contato por ID
-   */
-  fastify.get<{ Params: { id: string } }>('/contacts/:id', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const contactId = req.params.id;
-
-    const contact = await contactService.getContactById(tenantId, contactId);
-
-    if (!contact) {
-      throw new NotFoundError('Contato não encontrado');
-    }
-
-    return reply.send({ contact });
-  });
-
-  /**
-   * GET /contacts/search
-   * Busca contatos por taxId, email ou phone
-   */
-  fastify.get<{
-    Querystring: {
-      taxId?: string;
-      email?: string;
-      phone?: string;
-    };
-  }>('/contacts/search', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-
-    const filters: ContactFilters = {};
-    if (req.query.taxId) {
-      filters.taxId = req.query.taxId;
-    }
-    if (req.query.email) {
-      filters.email = req.query.email;
-    }
-    if (req.query.phone) {
-      filters.phone = req.query.phone;
-    }
-
-    const contacts = await contactService.listContacts(tenantId, filters);
-
-    return reply.send({ contacts });
-  });
-
-  /**
-   * POST /contacts/:id/kyc/validate
-   * Valida KYC básico do contato
-   */
-  fastify.post<{ Params: { id: string } }>('/contacts/:id/kyc/validate', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const contactId = req.params.id;
-
-    const contact = await contactService.getContactById(tenantId, contactId);
-    if (!contact) {
-      throw new NotFoundError('Contato não encontrado');
-    }
-    return reply.send({ kycStatus: contact.kycStatus });
-  });
+  // POST /contacts/:id/kyc/validate — KYC (dead-at-db → contido).
+  fastify.post<{ Params: { id: string } }>('/contacts/:id/kyc/validate', async (_req, reply) => reply.status(501).send(CONTAINED));
 };
 
 export default contactRoutes;
