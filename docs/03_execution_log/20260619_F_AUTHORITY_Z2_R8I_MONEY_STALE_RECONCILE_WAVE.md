@@ -1,5 +1,34 @@
 # 2026-06-19 — R8I MONEY-STALE RECONCILE WAVE — event-rfq + purchase-order + service-payment-request (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `3c87bad5`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL** (reconciliou 3,
+> restam 7; **NÃO** fecha a DT-mãe 0113 nem o parent canal-1). **Estados por item (todos RECONCILE, NÃO
+> containment novo):** **event-rfq[stale/W6]** → **CLOSED / RECONCILED / YALA PASS_WITH_WARNINGS MATERIAL** ·
+> **purchase-order[stale]** → **CLOSED / RECONCILED / YALA PASS_WITH_WARNINGS MATERIAL** ·
+> **service-payment-request[stale]** → **CLOSED / RECONCILED / YALA PASS_WITH_WARNINGS MATERIAL**. **Yala confirmou
+> materialmente:** HEAD 3c87bad5 · branch rescue-structural · migrations 394/394 · diff de **apenas 4 arquivos**;
+> **zero `.ts` runtime**; zero E2E/guard/negative-proof novo; sem migration; R8I = reconcile PURO de baseline +
+> cartório (commit removeu 3 entradas stale money do BASELINE); zero Bank/Core/bank_ledger/bank_transactions/
+> bank_splits/payout/recovery/AP/AR/organizers/store-onboarding/services-discovery/unifycard-method/
+> business-authorization/automation/human-mvp alterado; zero runtime financeiro reativado; zero decisão de produto/
+> risco. **Base material por item:** event-rfq — W1-W5 bound (canRepresentActor), W6 acceptQuote hard-stop **403
+> EVENT_RFQ_ACCEPT_QUOTE_CONTAINED** antes de availability/booking/decision/payment_request (sink inalcançável;
+> zero write em service_payment_requests/bank_*); purchase-order — writes vivos owner-bound (canRepresentActor),
+> /receive hard-stop **403 PURCHASE_ORDER_RECEIVE_CONTAINED** (receivePOContainedImpl inalcançável; zero write em
+> accounts_payable/bank_*); service-payment-request — Opção A (receiver/payer server-side, body NÃO governa
+> autoridade, canRepresentActor(receiver) antes do sink, amount_cents BIGINT, idempotência ON CONFLICT(booking_id),
+> firewall SERVICE_FINANCIAL_RUNTIME_ENABLED preservado; zero write em bank_*). **Guards (6 pré-existentes wired e
+> GREEN):** audit-event-rfq-actor-binding · audit-event-rfq-acceptquote-containment · audit-po-owner-authority ·
+> audit-po-receive-containment · audit-spr-read-authority · audit-service-payment-amount-cents
+> (`validate:regression-guards` = **63 GATE OK / 0 FAIL**). **Baseline:** antes baseline 10 / stale 3 → depois
+> **baseline 7 · flagged 7 · new 0 · stale_baseline 0 · safe_subject 6 · service_bound 4 · self_bound 1 ·
+> not_authority 1**. **DT-mãe 0113 e parent canal-1 seguem OPEN.**
+>
+> **Warnings do reseal (não-bloqueante):** **W1** — negative-proofs pré-existentes não reexecutados pela Yala
+> (mutam source); Yala validou estruturalmente (prova viva deste commit = 6 guards GREEN + new=0); reexecução
+> pwsh 7/WPS 5.1 declarada pela executora. **W2** — working tree sujo fora do material (docs/memorias/untracked) →
+> não é HOLD_WORKTREE_DIRTY. Seal = docs-only; HEAD material permanece `3c87bad5`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Reconciliação de baseline canal-1 dos **3 itens money-stale** já materialmente bound/contained por frentes
 anteriores (R7a/R7b · PO · SPR), DECISION-0113 / DECISION-0131 §B7 / Z2. **NÃO implementa financeiro, NÃO religa
 pagamento, NÃO toca Bank/Core/ledger/transactions/splits.** É baseline hygiene com prova material + guards +
@@ -64,9 +93,14 @@ fecha DT-mãe 0113 nem parent canal-1 (baseline 7>0). Redesign de acceptQuote e 
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. event-rfq · purchase-order · service-payment-request → **RECONCILED (stale,
-guard-backed) / HOLD YALA** (removidos do baseline). DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e
-parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` permanecem **OPEN** (baseline 7). Próximo passo: **Yala reseal**.
+**✅ CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material
+`3c87bad5`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2 não-bloqueantes — ver bloco SEAL no
+topo). event-rfq · purchase-order · service-payment-request → **CLOSED / RECONCILED / YALA PASS_WITH_WARNINGS
+MATERIAL** (stale, guard-backed; removidos do baseline). **NÃO é containment novo, NÃO é implementação financeira,
+acceptQuote NÃO foi redesenhado, DECISION-0114 D5 NÃO foi resolvida.** A DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e o parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
+permanecem **OPEN** (baseline 7; redesign acceptQuote + DECISION-0114 D5 OPEN). _(Histórico: 🟡 IMPLEMENTED / HOLD
+YALA antes do reseal.)_
 
 ## Fila restante para fechar 0113 (7 entradas)
 
