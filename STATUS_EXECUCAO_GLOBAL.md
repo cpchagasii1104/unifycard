@@ -1,3 +1,19 @@
+## 2026-06-19 — Z3 SAFE-SUBJECT FORMA C DEDICATED GUARDS (higiene W3; guard-only, sem runtime change) · 🟡 IMPLEMENTED / HOLD YALA (material)
+
+**Branch:** `rescue-structural` · **HEAD inicial `20ace3a1`** · dev 394 (sem migration) · MODO guard hygiene (W3 do sweep 0113). **NÃO altera runtime (as 3 superfícies já são materialmente seguras — H1), NÃO reabre 0113, NÃO toca money/Bank/settlement/fee, NÃO mexe no detector p/ mascarar.** READ-FIRST: `business-audit`, `policy-engine`, `risk-command-center` — todas com subject=req.user (401 sem user) + Forma C (`canUserPerformCompanyCapability` via resolveCompanyIdForActor) e/ou Forma D (`canUserPerformTenantCapability`) fail-closed 403; actionContext.actorId NÃO governa autoridade (ausente em business-audit/policy; só audit-breadcrumb em risk, dados keyed por params.actorId); read-only; zero bank_*.
+
+**Implementação (guard-only):** guard dedicado `audit-safe-subject-form-c-dedicated-guards.mjs` (wired) — por superfície exige capability Forma C/D + subject req.user + fail-closed 401/403 + service de dados não recebe actionContext.actorId como arg + zero bank_*. **Nenhum arquivo de rota/runtime alterado.**
+
+**E2E/negative-proof:** E2E DB-free `validate-pipeline-e2e-safe-subject-form-c` **10/10** (6 rotas sem req.user → 401; spoof actionContext não autoriza; guard verde; baseline 0 inalterado). **Negative-proof versionado** (pwsh 7 + WPS 5.1): business-audit subject≠req.user → FAIL; risk passa actionContext.actorId ao service → FAIL; restauração byte-idêntica.
+
+**Gates:** actor-writer/bank-ledger OK · regression-guards **72 GATE OK / 0 FAIL** · actor-authority-boundary **flagged 0 · baseline 0 · new 0 · stale 0** (inalterado) · arch critical_new=0 · check:migrations 394/394 · tsc 43.
+
+**Escopo negativo:** NÃO alterou runtime das rotas · NÃO trocou requireRole/requirePermission p/ limpar detector · NÃO alterou capability/canRepresentActor/canActAs · NÃO mexeu no detector p/ mascarar · NÃO tocou Bank/ledger/settlement/fee/bps · NÃO reabriu trilhos contidos · NÃO criou migration · NÃO reabriu 0113 · NÃO alterou o baseline (segue 0).
+
+**Estado:** **🟡 IMPLEMENTED / HOLD YALA**. `DT-AUTHORITY-SAFE-SUBJECT-FORM-C-DEDICATED-GUARDS` → IMPLEMENTED / HOLD YALA (W3 endereçada com guard+negative-proof+E2E). Baseline canal-1 permanece 0. Detalhe: `docs/03_execution_log/20260619_F_AUTHORITY_Z3_SAFE_SUBJECT_FORM_C_GUARDS.md`. **Próximo passo: Yala reseal.**
+
+---
+
 ## 2026-06-19 — 🏛️ FECHAMENTO SOBERANO: DECISION-0113 CANAL-1 BASELINE ZERO · ✅ CLOSED / BASELINE ZERO / YALA PASS_WITH_WARNINGS MATERIAL (docs-only soberano)
 
 **Ato soberano docs-only (HEAD `0e1ba2e9`)** após **sweep final READ-ONLY = PASS_WITH_WARNINGS**. Fecha o **baseline canal-1** da DECISION-0113. **NÃO corrige resíduos financeiros/produto, NÃO reabre trilhos contidos, NÃO executa runtime, NÃO altera código/detector.**
