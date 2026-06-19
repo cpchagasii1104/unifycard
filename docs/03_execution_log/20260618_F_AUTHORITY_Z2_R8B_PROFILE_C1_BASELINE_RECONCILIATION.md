@@ -1,5 +1,33 @@
 # 2026-06-18 — R8B PROFILE-C1 BASELINE RECONCILIATION — hardening + higiene de baseline (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-18, sobre commit material `9ba35d08`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED / YALA PASS_WITH_WARNINGS MATERIAL** (CLOSED pleno — é reconciliação
+> de baseline com prova material, NÃO contenção de rota morta; mas **NÃO** fecha a DT-mãe 0113 nem o parent
+> canal-1). Yala confirmou materialmente: diff de 8 arquivos; **zero runtime `.ts` alterado**; zero
+> migration/schema; zero frontend; zero Bank/Core/ledger/splits/payout/recovery; zero RBAC/FASE 6; zero
+> actor_delegations/R2; não tocou R7b/R8A/social routes; **Caso A confirmado** — os 4 profile-c1 (interest ·
+> learning · professional · lifestyle) estão bound no service; rotas derivam subject de `req.user.userId`;
+> `actionContext.actorId` é target/hint, não subject; services têm `canRepresentActor(tenantId, userId, actorId)`;
+> `resolveActorGuarded` ocorre ANTES dos sinks; lifestyle usa performer server-side sem fallback `?? actorId`;
+> guard dedicado material confirmado; baseline reduzido honestamente (**flagged 20→16 · baseline 27→23 · new=0 ·
+> service_bound_recognized=4 · stale_baseline=7 inalterado · safe_subject_recognized=6 inalterado**); se a prova
+> sumir, o gate FALHA; actor-writer-boundaries OK · bank-ledger-boundaries OK · regression-guards OK · arch
+> `--strict` critical_new=0 · check:migrations 394/394 · tsc baseline 43; cartório correto; **DT-mãe 0113 e parent
+> canal-1 seguem OPEN**.
+>
+> **Warnings do reseal (follow-up não-bloqueante):** **W1** — negative-proof não reexecutado pela Yala (muta a
+> source); validado estruturalmente pela Yala + executora declarou execução em **pwsh 7 e Windows PowerShell 5.1**.
+> **W2** — os E2Es runtime profile-c1 (16/16) e lifestyle (10/10) não foram rodados pela Yala porque NÃO têm runner
+> efêmero / `assertEphemeralDb`/`EXPECTED_DATABASE_NAME` (poderiam escrever em unificard_dev); mitigação: este
+> commit não altera runtime `.ts`, guard dedicado GREEN, leitura direta de source; **follow-up recomendado: criar
+> runner efêmero para esses E2Es em frente própria**. **W3** — working tree sujo fora do material
+> (docs/memorias/untracked/artefatos) → não é HOLD_WORKTREE_DIRTY.
+>
+> **Observação registrada:** `serviceBoundProof()` do detector é GROSSO — verifica a PRESENÇA de `canRepresentActor`
+> no arquivo de service, não o ordering before-sink. O ordering rigoroso (gate@ < sink@ por método) vive no guard
+> dedicado `audit-profile-c1-actor-binding.mjs` — camada adequada, **não defeito bloqueante**. Seal = docs-only;
+> HEAD material permanece `9ba35d08`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Reconciliação do baseline canal-1 do quarteto **profile-c1** (`interest` · `learning` · `professional` ·
 `lifestyle`), DECISION-0113 fatia 5.2/5.3 · Z2. **NÃO é frente de produto/financeira/RBAC nem redesenho de
 perfil** — é hardening de guard + higiene de baseline com prova material. Hipótese de entrada **CONFIRMADA
@@ -84,7 +112,11 @@ alterado — só guards (`.mjs`), `package.json` (wiring) e negative-proof (`.ps
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. `profile-c1 baseline reconciliation` → **IMPLEMENTED / HOLD YALA**.
-`DT-AUTHORITY-Z2-PROFILE-C1-BASELINE-RECONCILIATION` → **IMPLEMENTED / HOLD YALA**. DT-mãe
-`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
-permanecem **OPEN** (o parent encolheu de 27→23 entradas, mas segue aberto). Próximo passo: **Yala reseal**.
+**✅ CLOSED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-18 sobre commit material `9ba35d08`;
+reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W3 + observação serviceBoundProof registrados
+como follow-up não-bloqueante — ver bloco SEAL no topo). `profile-c1 baseline reconciliation` →
+**CLOSED / YALA PASS_WITH_WARNINGS MATERIAL**. `DT-AUTHORITY-Z2-PROFILE-C1-BASELINE-RECONCILIATION` →
+**CLOSED / YALA PASS_WITH_WARNINGS MATERIAL**. **CLOSED pleno (reconciliação provada, não contenção) — mas NÃO
+fecha a remediação 0113:** a DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e o parent
+`DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` permanecem **OPEN** (o parent encolheu de 27→23 entradas, mas
+segue aberto). _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
