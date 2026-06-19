@@ -1,5 +1,32 @@
 # 2026-06-18 — R8C SYSTEM-NOTIFICATION READ-STATE AUTHORITY — SCHEMA-GHOST CONTAINMENT (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-18, sobre commit material `791d7492`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL** (CLOSED_AS_CONTAINED,
+> NÃO `CLOSED` simples — a frente NÃO remedia notificações funcionalmente, apenas contém rotas mortas por
+> schema-ghost; e **NÃO** fecha a DT-mãe 0113 nem o parent canal-1). Yala confirmou materialmente: HEAD 791d7492 ·
+> branch rescue-structural · check:migrations 394/394 · diff de 9 arquivos; sem migration/schema; sem Bank/Core/
+> ledger/splits/payout/recovery; sem RBAC/FASE 6; sem actor_delegations/R2; sem R7b/R8A/R8B/social/profile-c1;
+> frontend intocado; service/repo de system-notifications ficaram como dead code residual; as 5 rotas permanecem
+> registradas; **`system_notifications` confirmado como SCHEMA-GHOST** (`SELECT to_regclass('public.system_notifications')
+> = NULL`; sem CREATE TABLE nas migrations canônicas; CREATE TABLE só em `migrations_archive/0921_system_notifications.sql`;
+> bind não resolveria 42P01; migration fora de escopo e não criada → **decisão CONTAIN correta**); as 5 rotas
+> retornam **501 `SYSTEM_NOTIFICATION_SCHEMA_GHOST_CONTAINED`** ANTES de qualquer service/DB; sem `actionContext.actorId`;
+> sem `recipientActorId` client-declared; sem repository/write/read contra a tabela fantasma; o frontend ainda chama
+> as 5 rotas, mas antes era 500/42P01 e agora **falha honestamente com 501**; guard material confirmado; **E2E 7/7
+> rodado pela Yala**; baseline reduzido honestamente (**flagged 16→15 · baseline 23→22 · new=0**);
+> actor-authority-boundary OK · actor-writer-boundaries OK · bank-ledger-boundaries OK · regression-guards OK ·
+> arch `--strict` critical_new=0 · tsc baseline 43; cartório correto; **DT-mãe 0113 e parent canal-1 seguem OPEN**.
+>
+> **Warnings do reseal (follow-up não-bloqueante):** **W1** — negative-proof não reexecutado pela Yala (muta a
+> source); validado estruturalmente pela Yala + executora declarou execução em **pwsh 7 e Windows PowerShell 5.1**.
+> **W2** — working tree sujo fora do material (docs/memorias/untracked/artefatos) → não é HOLD_WORKTREE_DIRTY.
+>
+> **Residual/follow-up registrado (NÃO executar agora):** se a feature de notificações for revivida —
+> materializar o substrato canônico; decidir se o DDL arquivado em `migrations_archive/0921` deve virar migration
+> viva; criar binding canônico recipient/owner via `canRepresentActor`; remover ou reabilitar o service/repo dead
+> code; criar E2E cross-actor + guard + negative-proof; fazer Yala reseal. Seal = docs-only; HEAD material
+> permanece `791d7492`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Frente de autoridade sobre os writers de read-state de notificações (DECISION-0113 / DECISION-0131 §B7 / Z2). A
 hipótese de entrada era "writer vivo perigoso" com recipient client-declared. O **READ-FIRST/PROVA reverteu a
 hipótese**: a tabela `system_notifications` é **SCHEMA-GHOST** → decisão **Caso B (CONTER)**, não BIND.
@@ -80,9 +107,14 @@ NÃO redesenhou notificações · NÃO criou rota nova · NÃO removeu rotas (co
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. `system-notification read-state` → **CONTAINED (schema-ghost) / HOLD YALA**.
-`DT-AUTHORITY-Z2-SYSTEM-NOTIFICATION-READ-STATE` → **IMPLEMENTED_AS_CONTAINED / HOLD YALA**. DT-mãe
-`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
+**✅ CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-18 sobre commit material
+`791d7492`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2 + residual registrados como
+follow-up não-bloqueante — ver bloco SEAL no topo). `R8C system-notifications schema-ghost` →
+**CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**. `DT-AUTHORITY-Z2-SYSTEM-NOTIFICATION-READ-STATE` →
+**CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**. **CLOSED_AS_CONTAINED ≠ remediação funcional:** não
+materializa/redesenha notificações — apenas contém rotas mortas por schema-ghost; a DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e o parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
 permanecem **OPEN**. **Residual (follow-up, fora do escopo):** materializar o substrato `system_notifications`
-(DDL em migrations_archive/0921) + binding canônico (canRepresentActor) + remoção do service/repo dead-code, se a
-feature de notificações for revivida — frente própria. Próximo passo: **Yala reseal**.
+(DDL em migrations_archive/0921) + binding canônico (canRepresentActor) + remoção/reabilitação do service/repo
+dead-code + E2E cross-actor/guard/negative-proof, se a feature de notificações for revivida — frente própria.
+_(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
