@@ -56,6 +56,23 @@ if (/findByUserId\(\s*[^,)]*,\s*req\.actionContext\.actorId/.test(put) || /findB
   failures.push(`${REL} PUT: PROIBIDO — actionContext.actorId como subject de findByUserId. Subject = req.user.userId.`);
 }
 
+// ── GET '/' (read "meu plano") — R8G: também self-bound (subject de req.user, não actionContext) ──
+// Recorta o handler GET (do registro GET até o registro PUT).
+const getIdx = code.search(/fastify\.get\b/);
+const getEnd = putIdx >= 0 ? putIdx : code.length;
+const get = getIdx >= 0 ? code.slice(getIdx, getEnd) : '';
+if (getIdx < 0) {
+  failures.push(`${REL}: handler GET (read de plano) não encontrado.`);
+} else {
+  if (!SUBJECT.test(get)) {
+    failures.push(`${REL} GET: SUBJECT do read deve derivar de req.user.userId via findByUserId — não encontrado (read por actionContext.actorId = W3).`);
+  }
+  // PROIBIDO: read por actionContext.actorId (subject client-declared).
+  if (/getUserPlanByActorId\(\s*[^,)]*,\s*req\.actionContext\.actorId/.test(get) || /getUserPlanByActorId\(\s*[^,)]*,\s*actionContext\.actorId/.test(get)) {
+    failures.push(`${REL} GET: PROIBIDO — getUserPlanByActorId com actionContext.actorId como subject. Subject = actor do req.user (self-only).`);
+  }
+}
+
 if (failures.length > 0) {
   console.error('GATE FAIL [plan-self-bound]:');
   for (const f of failures) console.error('   - ' + f);

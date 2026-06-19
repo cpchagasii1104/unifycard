@@ -213,6 +213,26 @@ function selfBoundProof(rel, rawCode) {
   return `self-bound writer: subject=req.user.userId (findByUserId); actionContext.actorId neutralizado — ${SELF_BOUND_WRITERS[rel]}`;
 }
 
+// ── F-AUTHORITY-Z2-R8G — NON-AUTHORITY READ-ONLY (2026-06-19) ─────────────────────────────────
+// Rotas read-only onde o actionContext.actorId é PURE PRESENCE-GATE (400-if-missing), nunca threadado a service
+// e sem write sink — NÃO governa nada material (H_FALSE_POSITIVE). Reconhecidas com PROVA verificada em runtime
+// (sem write + actorId só em presence-gate `!`). Se a prova sumir (write aparece OU actorId vira valor/arg), o
+// arquivo re-flagga e, FORA do baseline, FALHA. Guard dedicado: audit-feed-plugin-not-authority.mjs.
+const NON_AUTHORITY_READONLY = {
+  'core/feed/feed-plugin.routes.ts': 'orquestrador visual read-only (BLINDAGEM): actionContext.actorId só presence-gate (400-if-missing), nunca threadado a feedPluginService, sem write/DB. Guard: audit-feed-plugin-not-authority.mjs.',
+};
+
+// Prova: sem write sink + toda ocorrência de actionContext.actorId está em presence-gate (`!`).
+function notAuthorityReadonlyProof(rel, rawCode) {
+  if (!(rel in NON_AUTHORITY_READONLY)) return null;
+  const code = stripComments(rawCode);
+  if (/\bINSERT\b|\bUPDATE\b|\bDELETE\b|runQueryWithTenant|runQueriesWithTenant|pool\.query|\.create\(|\.update\(|\.delete\(|\.insert\(/i.test(code)) return null;
+  for (const line of code.split('\n')) {
+    if (/actionContext\s*\.\s*actorId/.test(line) && !/!\s*req\.actionContext|!\s*actionContext/.test(line)) return null;
+  }
+  return `not-authority read-only: sem write/DB; actionContext.actorId só presence-gate — ${NON_AUTHORITY_READONLY[rel]}`;
+}
+
 // ── BASELINE EXPLÍCITO (estado conhecido; cada item tem DT vinculada) ──
 // Arquivo (rel a src/) → canais usados sem binding no arquivo + nota/DT. NOVOS arquivos
 // fora desta lista (e fora de SAFE_SUBJECT_READERS) que casem um canal sem binding = FALHA.
@@ -231,7 +251,12 @@ const BASELINE = {
   // ── B1f canal-1 (actionContext.actorId) — 31 rotas com debt 0113 PRÉ-EXISTENTE, congeladas ──
   // (NÃO corrigidas; o B1f só TORNOU VISÍVEL + travou regressão. Cada subsistema converge em frente própria.)
   'core/authorization/business-authorization.routes.ts': C1,
-  'core/feed/feed-plugin.routes.ts': C1,
+  // core/feed/feed-plugin.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8G-NON-MONEY-READ-NOT-AUTHORITY-WAVE,
+  // 2026-06-19): orquestrador VISUAL read-only — actionContext.actorId é PURE PRESENCE-GATE (400-if-missing), nunca
+  // threadado a feedPluginService, sem write/DB → H_FALSE_POSITIVE (não governa nada material). Reconhecido por
+  // NON_AUTHORITY_READONLY (prova runtime: sem write + actorId só presence-gate) + guard dedicado
+  // audit-feed-plugin-not-authority.mjs. Se a prova sumir (write/arg), re-flagga e FALHA.
+  // DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   // core/intent/intent-execute.routes.ts REMOVIDO do baseline (F-AUTHORITY-Z2-R5-INTENT-EXECUTE-BUYER-ACTOR-BINDING):
   // POST /intent/execute passou a exigir representabilidade server-side do buyer actor via
   // canRepresentActor(tenantId, req.user.userId, buyerActorId) fail-closed (403 BUYER_ACTOR_NOT_REPRESENTABLE)
@@ -373,6 +398,7 @@ function runGuard() {
   const acRecognized = [];     // B1f canal-1: actionContext.actorId vinculado por requirePermission([ (Forma A)
   const serviceBoundRecognized = []; // R8B: writers profile-c1 bound no SERVICE (prova cross-file runtime)
   const selfBoundRecognized = [];    // R8F: writers self-only bound a req.user.userId (prova runtime)
+  const notAuthorityRecognized = []; // R8G: read-only not-authority (actorId presence-gate, sem write)
 
   for (const file of walk(SRC)) {
     const rel = file.replace(SRC, '').replace(/^[\\/]/, '').replace(/\\/g, '/');
@@ -409,6 +435,15 @@ function runGuard() {
       }
       // estava no mapa mas perdeu a prova (subject voltou ao actionContext) → cai como violação (fora do BASELINE).
     }
+    // R8G: read-only not-authority (actorId presence-gate, sem write — prova AINDA presente) → reconhecido.
+    if (rel in NON_AUTHORITY_READONLY) {
+      const proof = notAuthorityReadonlyProof(rel, raw);
+      if (proof) {
+        notAuthorityRecognized.push({ rel, channels, proof });
+        continue;
+      }
+      // perdeu a prova (write apareceu OU actorId virou valor/arg) → cai como violação (fora do BASELINE).
+    }
     // B1f canal-1 (Forma A): se o ÚNICO canal é actionContext.actorId e há requirePermission([ preHandler,
     // o canal-1 está VINCULADO (requirePermission→canPerformAction→canActAs liga req.user→actor declarado).
     // NÃO vale se o arquivo também casa um canal STRICT (esse declara outro ator, que requirePermission não liga).
@@ -442,8 +477,19 @@ function runGuard() {
   // R8F: SELF_BOUND_WRITERS órfão (sem canal/sem uso) → informativo.
   const selfBoundRels = new Set(selfBoundRecognized.map((f) => f.rel));
   const staleSelfBound = Object.keys(SELF_BOUND_WRITERS).filter((r) => !selfBoundRels.has(r) && !flaggedRels.has(r));
+  // R8G: NON_AUTHORITY_READONLY órfão → informativo.
+  const naRels = new Set(notAuthorityRecognized.map((f) => f.rel));
+  const staleNonAuthority = Object.keys(NON_AUTHORITY_READONLY).filter((r) => !naRels.has(r) && !flaggedRels.has(r));
 
-  console.log(`[actor-authority-boundary] flagged=${flagged.length} baseline=${Object.keys(BASELINE).length} new=${newViolations.length} stale_baseline=${staleBaseline.length} safe_subject_recognized=${safeRecognized.length} service_bound_recognized=${serviceBoundRecognized.length} self_bound_recognized=${selfBoundRecognized.length} canal1_bound_by_requirePermission=${acRecognized.length}`);
+  console.log(`[actor-authority-boundary] flagged=${flagged.length} baseline=${Object.keys(BASELINE).length} new=${newViolations.length} stale_baseline=${staleBaseline.length} safe_subject_recognized=${safeRecognized.length} service_bound_recognized=${serviceBoundRecognized.length} self_bound_recognized=${selfBoundRecognized.length} not_authority_recognized=${notAuthorityRecognized.length} canal1_bound_by_requirePermission=${acRecognized.length}`);
+  if (notAuthorityRecognized.length > 0) {
+    console.log('  ✅ read-only not-authority reconhecido (R8G — fora do baseline, prova verificada em runtime):');
+    notAuthorityRecognized.forEach((s) => console.log(`     - ${s.rel}  [${s.channels.join(', ')}]  → ${s.proof}`));
+  }
+  if (staleNonAuthority.length > 0) {
+    console.log('  ℹ️  NON_AUTHORITY_READONLY órfão (sem canal/sem uso — revisar numa futura limpeza):');
+    staleNonAuthority.forEach((r) => console.log(`     - ${r}`));
+  }
   if (selfBoundRecognized.length > 0) {
     console.log('  ✅ writer self-only bound a req.user reconhecido (R8F — fora do baseline, prova verificada em runtime):');
     selfBoundRecognized.forEach((s) => console.log(`     - ${s.rel}  [${s.channels.join(', ')}]  → ${s.proof}`));
@@ -493,4 +539,4 @@ if (isMain) {
   runGuard();
 }
 
-export { safeSubjectProof, serviceBoundProof, selfBoundProof, runGuard, SAFE_SUBJECT_READERS, SERVICE_BOUND_WRITERS, SELF_BOUND_WRITERS, BASELINE, CLIENT_ACTOR_CHANNELS, BINDING_HELPERS };
+export { safeSubjectProof, serviceBoundProof, selfBoundProof, notAuthorityReadonlyProof, runGuard, SAFE_SUBJECT_READERS, SERVICE_BOUND_WRITERS, SELF_BOUND_WRITERS, NON_AUTHORITY_READONLY, BASELINE, CLIENT_ACTOR_CHANNELS, BINDING_HELPERS };

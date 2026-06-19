@@ -21,12 +21,16 @@ const planRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      // ActionContext é obrigatório (V2)
-      if (!req.actionContext || !req.actionContext.actorId) {
-        return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório' });
+      // 🔴 R8G / DECISION-0113 fatia 5.1 (self-only READ): "meu plano" — o plano é per-user do PRÓPRIO caller.
+      // O SUBJECT deriva do actor do `req.user` autenticado (findByUserId), NÃO do `actionContext.actorId`
+      // declarado (spoofável). Sem isto, um caller lia tier/canToggle/is_test/admin de OUTRO actor (W3 do reseal
+      // R8F). Frontend chama GET /plan sem actorId → semântica "meu plano". Fecha DT-AUTHORITY-Z2-PLAN-GET-READ-AUTHORITY.
+      const { socialPortsRegistry: planSpr } = await import('@core/social/ports-registry');
+      const callerActor = await planSpr.getActorRepository().findByUserId(req.tenant.id, req.user.userId);
+      if (!callerActor) {
+        return reply.status(403).send({ ok: false, message: 'Actor do usuário autenticado não encontrado' });
       }
-
-      const actorId = req.actionContext.actorId;
+      const actorId = callerActor.actor_id;
 
       const plan = await planGateService.getUserPlanByActorId(req.tenant.id, actorId);
       
