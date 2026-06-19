@@ -1,5 +1,41 @@
 # 2026-06-19 — R8K ORGANIZERS CONTAINMENT + STORE-ONBOARDING BIND (macrofrente, cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `387a1313`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL**. Estados:
+> `DT-ORGANIZER-BILLING-SCHEMA-GHOST` + organizer billing/subscription → **CLOSED_AS_CONTAINED / YALA
+> PASS_WITH_WARNINGS MATERIAL**; organizers file → **PARTIAL / REMAINDER EVENT-ORGANIZER AUTHORITY**;
+> `DT-STORE-ONBOARDING-CATALOG-ACTOR-UNBOUND` + store-onboarding → **CLOSED / BOUND / YALA PASS_WITH_WARNINGS
+> MATERIAL**. **Yala confirmou materialmente:** HEAD 387a1313 · branch rescue-structural · migrations 394/394 · sem
+> migration/schema; diff 11 arquivos, runtime `.ts` só em organizers.routes.ts + store-onboarding.routes.ts; nenhum
+> service/billing/stripe/settlement/bank file alterado; zero Bank/Core/bank_ledger/bank_transactions/bank_splits/
+> payout/recovery/settlement; event-settlement canônico (events.actor_id + canRepresentActor) INTOCADO; zero
+> services-discovery/unifycard-method/business-authorization/automation/human-mvp; zero decisão SaaS-vs-split; zero
+> reativação de billing; catálogo não virou financeiro; price_cents BIGINT preservado. **Schema-ghost confirmado em
+> dev:** event_organizers existe (com actor_id) mas plan/plan_expires_at AUSENTES; organizer_subscriptions existe com
+> schema canônico ≠ do que organizer-billing.service escrevia → plan/subscribe/cancel/subscribe-stripe/subscription
+> dead-at-db → containment sem migration apropriado. **organizer billing (5 rotas contidas — /:id/plan · /:id/
+> subscribe · /:id/subscription/cancel · /:id/subscription · /:id/subscribe/stripe):** 501
+> ORGANIZER_BILLING_SCHEMA_GHOST_CONTAINED antes de service/sink (handlers `_req`; zero organizerBillingService/
+> stripeService/Stripe/pool/runQueryWithTenant/coluna-ghost/organizer_subscriptions-write/bank_*). **Webhook
+> /webhooks/stripe:** no-op ACK 200 contained (não chama renew/updateSubscriptionStatus; zero escrita; evita retry
+> storm). **store-onboarding (BOUND):** boundStoreActorId = data.actorId ?? importerActorId; subjectUserId =
+> req.user?.id; 401 se ausente; canRepresentActor(tenantId, subjectUserId, boundStoreActorId) antes da escrita; 403
+> STORE_ONBOARDING_ACTOR_AUTHORITY_REQUIRED se false; input.actorId = actor provado; requirePermission legado
+> preservado (não é mais a única autoridade); category guard DECISION-0108 + idempotência UNIQUE preservados; saiu do
+> baseline. **Guards** `audit-organizer-billing-ghost-containment.mjs` + `audit-store-onboarding-actor-bind.mjs`
+> wired+GREEN. **E2E DB-free** validate-pipeline-e2e-r8k-organizers-store **10/10**. **Gates Yala:** actor-writer OK ·
+> bank-ledger OK · regression-guards **66 GATE OK / 0 FAIL** · arch critical_new=0 · check:migrations 394/394 · tsc
+> baseline 43. **Baseline 7→6** (flagged 6 · new=0 · stale 0 · safe_subject 6 · service_bound 4 · self_bound 1 ·
+> not_authority 1 — store-onboarding fora, organizers PARTIAL). **DT-mãe 0113 + parent canal-1 OPEN (6>0).**
+>
+> **Warnings do reseal (não-bloqueantes):** **W1** — negative-proof não reexecutado pela Yala (muta source); validado
+> estruturalmente + executora pwsh 7 & WPS 5.1 (reintroduzir organizerBillingService numa rota contida → FALHA;
+> remover canRepresentActor do store-onboarding → FALHA; restauração byte-idêntica; git pré==pós). **W2** — working
+> tree sujo fora do material → não é HOLD_WORKTREE_DIRTY. **W3** — E2E não exercita em runtime store-onboarding
+> spoof→403 nem zero-write bank do store-onboarding; não bloqueia (guard dedicado cobre estruturalmente:
+> canRepresentActor-before-write + 403 nomeado + zero bank_*); follow-up opcional = E2E runtime do bind em fatia
+> futura. Seal = docs-only; HEAD material permanece `387a1313`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Dois itens do baseline canal-1 (DECISION-0113 / Z2): **organizers** = contenção decision-neutral do billing/
 subscription quebrado (schema-ghost) + **store-onboarding** = bind de catálogo non-money com autoridade server-side.
 **NÃO implementa pagamento, NÃO liga firewall, NÃO toca Bank/Core/ledger, NÃO decide SaaS-vs-split, NÃO toca
@@ -79,11 +115,15 @@ catálogo em financeiro · NÃO alterou DECISION-0110 · NÃO fecha DT-mãe 0113
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. organizers billing/subscription → **CONTAINED (501 / webhook no-op) / HOLD YALA**;
-organizers file → **PARTIAL / REMAINDER NON-MONEY ROUTES** (create/add-member/link-event). store-onboarding →
-**BOUND (canRepresentActor) / HOLD YALA** (removido do baseline). `DT-AUTHORITY-Z2-ORGANIZER-BILLING-SCHEMA-GHOST`
-→ IMPLEMENTED_AS_CONTAINED / HOLD YALA; `DT-AUTHORITY-Z2-STORE-ONBOARDING-CATALOG-ACTOR-UNBOUND` →
-IMPLEMENTED_AS_BOUND / HOLD YALA. DT-mãe 0113 + parent canal-1 OPEN (baseline 6). Próximo passo: **Yala reseal**.
+**✅ CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material
+`387a1313`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2-W3 não-bloqueantes — ver bloco SEAL
+no topo). organizer billing/subscription → **CLOSED_AS_CONTAINED (501 / webhook no-op) / YALA PASS_WITH_WARNINGS
+MATERIAL**; organizers file → **PARTIAL / REMAINDER EVENT-ORGANIZER AUTHORITY** (create/add-member/link-event;
+permanece no baseline — correto). store-onboarding → **CLOSED / BOUND (canRepresentActor) / YALA PASS_WITH_WARNINGS
+MATERIAL** (removido do baseline). `DT-AUTHORITY-Z2-ORGANIZER-BILLING-SCHEMA-GHOST` → **CLOSED_AS_CONTAINED**;
+`DT-AUTHORITY-Z2-STORE-ONBOARDING-CATALOG-ACTOR-UNBOUND` → **CLOSED / BOUND**. **CLOSED_AS_CONTAINED ≠ reativação:**
+billing segue desativado, SaaS-vs-split NÃO decidido. DT-mãe 0113 + parent canal-1 OPEN (baseline 6). _(Histórico:
+🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
 
 ## Fila restante para fechar 0113 (6 entradas)
 
