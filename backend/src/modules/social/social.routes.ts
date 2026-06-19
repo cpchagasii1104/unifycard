@@ -1,13 +1,12 @@
 // src/modules/social/social.routes.ts
 import { FastifyPluginAsync } from 'fastify';
 import { socialService } from './social.service';
-import type { CreatePostInput } from './social.types';
-import { createPostSchema } from './social.schemas';
 
 const socialRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /social/posts/create
-   * Cria um novo post com análise automática de intent e categorias
+   * 🔴 R8A SOCIAL LEGACY POST-CREATE CONTAINMENT (DECISION-0113/0131 §B7 / Z2 · 2026-06-18) — CONTIDA.
+   * Rota LEGADA superseded pela canônica POST /social/posts (social-2.0.routes.ts). Fail-closed 501.
    */
   fastify.post<{
     Body: {
@@ -83,36 +82,21 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
-      }
-
-      // ActionContext é obrigatório (V2)
-      if (!req.actionContext || !req.actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext obrigatório' });
-      }
-
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
-      }
-
-      try {
-        const validated = createPostSchema.parse(req.body);
-        const post = await socialService.createPost(
-          req.server,
-          req.tenant.id,
-          req.actionContext.actorId,
-          validated as CreatePostInput
-        );
-        return reply.status(201).send(post);
-      } catch (error) {
-        if (error instanceof Error) {
-          return reply.status(400).send({ error: error.message });
-        }
-        fastify.log.error({ err: error }, 'Erro ao criar post');
-        return reply.status(500).send({ error: 'Erro ao criar post' });
-      }
+    async (_req, reply) => {
+      // 🔴 R8A SOCIAL LEGACY POST-CREATE CONTAINMENT (DECISION-0113 / DECISION-0131 §B7 / Z2 · 2026-06-18):
+      // Esta rota era (a) UNGATED-AUTHORITY — passava req.actionContext.actorId direto como autor/globalUserId
+      // em socialService.createPost SEM canRepresentActor (actionContext.actorId = hint, nunca autoridade); e
+      // (b) DEAD-AT-DB — SocialRepository.create faz INSERT em colunas-fantasma (type/visibility/confidence/
+      // categories/suggested_actions/event_id + RETURNING post_id), enquanto o schema vivo de `posts` usa
+      // id/actor_id/post_type/intent_metadata/targeting/is_published → o INSERT lança e nada persiste.
+      // Zero caller vivo: o frontend usa a canônica POST /social/posts (social-2.0); o orchestrator aponta para
+      // /marketplace/posts/create (outro prefixo); nenhum teste chama esta rota. CONTIDA fail-closed (501 nomeado)
+      // ANTES de qualquer sink — sem chamar socialService.createPost e sem usar actionContext.actorId como
+      // autoridade. Religação/redesenho exige frente própria (a canônica já é a superfície viva).
+      return reply.status(501).send({
+        error: 'Legacy endpoint retired. Use the canonical POST /social/posts (social 2.0).',
+        code: 'SOCIAL_LEGACY_POST_CREATE_CONTAINED',
+      });
     }
   );
 
