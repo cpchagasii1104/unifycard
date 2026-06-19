@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0140 (2026-06-19) |
+| Última entrada | DECISION-0141 (2026-06-19) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7296,3 +7296,19 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** — (primeira promulgação da unidade de fee do trilho UnifyCard method; alinha o trilho à régua já existente `07_NOMENCLATURA_CANONICA §4.8`).
 - **Superada por:** —
 - **Referências:** `07_NOMENCLATURA_CANONICA §4.8` (bps/`_bps` INTEGER; `fee_percentage` proibido) · `DECISION-0113` (canal-1 CLOSED/baseline zero) · `DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION` · `DT-AUTHORITY-Z2-UNIFYCARD-METHOD-M5-MONEY-CONTAINMENT` (R8Q) · `docs/03_execution_log/20260619_F_AUTHORITY_Z2_R8Q_UNIFYCARD_METHOD_M5_CONTAINMENT.md` · `docs/03_execution_log/20260619_F_FINANCIAL_DECISION_FEE_BPS_UNIFYCARD_METHOD.md` · consumers conhecidos: `unifycard.service.ts` (299¢) / `payment-execution.service.ts` (`/100`→3¢).
+
+---
+
+## DECISION-0141 — UnifyCard Fee BPS Schema-of-Record (economic_policy_engine)
+
+- **Data:** 2026-06-19
+- **Tipo:** Financeiro / Produto / Arquitetura / SSOT (DOCS-ONLY — schema-of-record ruling, NÃO implementação material)
+- **Frente:** F-UNIFYCARD-FEE-BPS-SCHEMA-OF-RECORD · **HEAD:** `4fe02008` · **dev:** 394 (sem migration)
+- **Status:** **PROMULGADA / DOCS-ONLY / SCHEMA-OF-RECORD RULING / NOT MATERIAL IMPLEMENTATION.**
+- **Contexto:** DECISION-0140 decidiu a UNIDADE (fee_rate_bps INTEGER / feeRateBps), mas não o ENDEREÇO soberano. Esta DECISION decide ONDE a configuração de fee/split mora. Substrato vivo confirmado: `economic_policy_lines` é tabela canônica (migration 20260530561000) **com coluna `bps`** + `economic_policy_resolution_logs` (20260530564000); DECISION-0047 estabelece o **Economic Policy Engine como camada canônica de DECISÃO de split**. `payment_methods`/`unifycard_payment_methods` são **ghost** no dev (R8Q); não há `fee_percentage` vivo em schema aplicado; o bug 299¢→3¢ é latente/dormente (divergência de unidade + ausência de schema-of-record).
+- **Decisão soberana (Clayton adota B + D):** **(B)** a fonte canônica/SSOT de configuração de fee/split é o **`economic_policy_engine` / `economic_policy_lines.bps`** (bps INTEGER). **(D)** o trilho **UnifyCard-method permanece contido/ghost/501** (R8Q) até a feature nascer em frente material própria com Evidence Pack financeiro. **Regra central:** a taxa financeira UnifyCard **NÃO** deve ter SSOT em `payment_methods` nem em `unifycard_payment_methods`. Se reativadas, podem atuar **apenas** como adapter / snapshot / read-model / interface operacional / override modelado via policy engine — **nunca SSOT financeiro paralelo**. Nenhum path novo pode resolver fee/split fora do economic_policy_engine. `payment_intents.metadata` pode guardar **snapshot auditável** da policy resolvida (NÃO SSOT; deve usar bps `fee_rate_bps`/`feeRateBps`). `fee_percentage`/`feePercentage` = legado/deferred/proibidos como destino canônico. **Execução material futura usa `gross_cents * fee_rate_bps / 10000`.** **Proibido:** `/100` ambíguo · `*100` órfão · `fee_percentage` runtime canônico · SSOT paralelo de fee em tabela de método · tocar Bank/Core fora do boundary · reabrir payout · reativar settlement/fundo regional sem frente própria.
+- **Consequências:** `F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION` continua **DEFERRED** (now governed by this schema-of-record ruling); `DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION` continua **OPEN / MATERIAL_REQUIRED**; **payout NOT AUTHORIZED**; R8Q 501 contido. A futura executora material só entra após: Evidence Pack financeiro · schema before/after · consumer map · E2E 299¢ · negative-proof contra `/100` · guard de nomenclatura · guard de consumer · Bank boundary proof · settlement non-reactivation proof · payout non-touch proof · gates · Yala reseal. **NÃO decididos aqui (frente futura):** backfill de produção, reativação de payment_methods/unifycard_payment_methods/settlement, payout, política comercial de taxa final, execução material.
+- **Responsável:** Clayton / IA Diretora (executor: Claude). **Validação prévia:** Clayton (B + D) + paralelas READ-ONLY A/B/C.
+- **Supera:** — (complementa **DECISION-0140**, que fixou a unidade; ancora-se em **DECISION-0047** Economic Policy Engine como resolvedor canônico de split).
+- **Superada por:** —
+- **Referências:** `DECISION-0047` (Economic Policy Engine canônico de split) · `DECISION-0140` (unidade bps) · `07_NOMENCLATURA_CANONICA §4.8` · `economic_policy_lines.bps` (migration 20260530561000) · `economic_policy_resolution_logs` (20260530564000) · `SSOT_EXCLUSIVE_BANK_RULE`/`SSOT_CONTRACT`/`SSOT_REGISTRY_UNIFICARD` (bank_ledger = SSOT único de dinheiro realizado) · `DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION` · `F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION` · `docs/02_decisions/DECISION_0141_UNIFYCARD_FEE_SCHEMA_OF_RECORD.md` · `docs/03_execution_log/F-UNIFYCARD-FEE-BPS-SCHEMA-OF-RECORD-DECISION-EXECUTION.md`.
