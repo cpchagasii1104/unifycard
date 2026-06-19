@@ -1,5 +1,40 @@
 # 2026-06-19 — R8J SERVICES-DISCOVERY DIRECT-PAY CONTAINMENT — aposentar o trilho direto (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `6942023d`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL**.
+> `DT-AUTHORITY-Z2-SERVICES-DISCOVERY-DIRECT-PAY` → **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**;
+> `/services/request/pay` → **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**; `services-discovery` →
+> **PARTIAL / REMAINDER NON-MONEY ROUTES** (createOffer/createRequest/respond seguem canal-1 → arquivo PERMANECE
+> no baseline; correto, sem mascaramento). **Yala confirmou materialmente:** HEAD 6942023d · branch
+> rescue-structural · migrations 394/394 · sem migration/schema; diff de 9 arquivos, runtime `.ts` SÓ
+> services-discovery.routes.ts (handler /request/pay apenas) + E2E firewall modificado + runner efêmero
+> adicionado; services-discovery.service.ts e service-financial-firewall.ts NÃO alterados; zero Bank/Core/
+> bank_ledger/bank_transactions/bank_splits/createSimpleTransaction alterado; zero payAcceptedRequest redesenhado;
+> zero escrow/intent/approval/release/KYB; DECISION-0110 não decidida; firewall não ligado (default OFF preservado);
+> rotas não-money não corrigidas. **Handler /request/pay (confirmado):** `async (_req, reply)`; firewall
+> `isServiceFinancialRuntimeEnabled()` como 1º gate (OFF → 403 SERVICE_FINANCIAL_RUNTIME_DISABLED); depois hard-stop
+> INCONDICIONAL 403 SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110; removidos req.actionContext.actorId,
+> req.tenant, parse do body, chamada a payAcceptedRequest e catch; zero createSimpleTransaction/bank_ledger/
+> bank_transactions/bank_splits/payment_status/payment_bank_transaction_id; sink INALCANÇÁVEL por esta rota.
+> **payAcceptedRequest:** residual/morto/futuro — intocado, não redesenhado, authorship fabricada não corrigida
+> (fica para a cadeia DECISION-0110), sem caller vivo fora da própria definição. **Guard** wired+GREEN (restrito ao
+> handler; exige 403 RETIRED + firewall default-OFF; proíbe payAcceptedRequest/createSimpleTransaction/bank_*/
+> payment_status/actionContext.actorId; não morde createOffer/createRequest/respond). **E2E** 12/12 (DB efêmera
+> `unificard_service_firewall_e2e`, nunca dev; flag ON → /request/pay 403 RETIRED; bank_ledger/bank_transactions
+> delta=0; zero service_orders/payment_intents/service_payment_executions). **Gates Yala:** actor-writer OK ·
+> bank-ledger OK · regression-guards **64 GATE OK / 0 FAIL** · arch critical_new=0 · check:migrations 394/394 ·
+> tsc baseline 43. **Baseline 7→7** (flagged 7 · new=0 · stale 0 · safe_subject 6 · service_bound 4 · self_bound 1
+> · not_authority 1 — services-discovery PERMANECE). **DT-mãe 0113 + parent canal-1 + DECISION-0110 OPEN.**
+>
+> **Warnings do reseal (não-bloqueantes):** **W1** — negative-proof não reexecutado pela Yala (muta source);
+> validado estruturalmente + executora pwsh 7 & WPS 5.1 (mutação reintroduz payAcceptedRequest + actionContext.actorId
+> → guard FALHA; restauração byte-idêntica; git pré==pós). **W2** — working tree sujo fora do material → não é
+> HOLD_WORKTREE_DIRTY. **W3** — E2E zero-write ainda NÃO conta `bank_splits` nem mede
+> `service_discovery_requests.payment_status/payment_bank_transaction_id`; não bloqueia R8J porque o containment é
+> ESTRUTURAL (sink removido do handler; payAcceptedRequest não é chamado; não há caminho para escrever splits/
+> payment_status por esta rota); coverage completo fica para a cadeia canônica DECISION-0110. Seal = docs-only; HEAD
+> material permanece `6942023d`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Aposentadoria fail-closed do trilho direto **POST /services/request/pay** (DECISION-0110 D2 / DECISION-0113 / Z2).
 O trilho movia dinheiro (`payAcceptedRequest → bankTx.createSimpleTransaction → bank_ledger/bank_transactions`)
 lendo `actionContext.actorId` (client-declared) SEM `canRepresentActor` antes do sink, com authorship fabricada.
@@ -85,11 +120,15 @@ intent/approval/release/KYB · NÃO tocou Bank/Core/bank_ledger/bank_transaction
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. `/services/request/pay` → **CLOSED_AS_CONTAINED (RETIRED) / HOLD YALA**.
-services-discovery file → **PARTIAL / REMAINDER NON-MONEY ROUTES**.
-`DT-AUTHORITY-Z2-SERVICES-DISCOVERY-DIRECT-PAY` → **IMPLEMENTED_AS_CONTAINED / HOLD YALA**. DT-mãe
-`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` + parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` OPEN
-(baseline 7). DECISION-0110 (reabertura via cadeia D1-D7/D8) OPEN. Próximo passo: **Yala reseal**.
+**✅ CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material
+`6942023d`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2-W3 não-bloqueantes — ver bloco SEAL
+no topo). `/services/request/pay` → **CLOSED_AS_CONTAINED (RETIRED) / YALA PASS_WITH_WARNINGS MATERIAL**.
+services-discovery file → **PARTIAL / REMAINDER NON-MONEY ROUTES** (permanece no baseline; correto).
+`DT-AUTHORITY-Z2-SERVICES-DISCOVERY-DIRECT-PAY` → **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**.
+**CLOSED_AS_CONTAINED ≠ reabertura:** o trilho direto segue aposentado; payAcceptedRequest residual/morto; authorship
+fabricada NÃO corrigida (cadeia DECISION-0110). DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` + parent
+`DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` + `DECISION-0110` + rotas não-money services-discovery permanecem
+**OPEN** (baseline 7). _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
 
 ## Fila restante para fechar 0113 (7 entradas — inalterada)
 
