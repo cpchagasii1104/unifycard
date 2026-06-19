@@ -1,5 +1,36 @@
 # 2026-06-19 — R8O ORGANIZERS REMAINDER EVENT-ORGANIZER AUTHORITY BIND (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `3893a517`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED / YALA PASS_WITH_WARNINGS MATERIAL**.
+> `DT-AUTHORITY-Z2-ORGANIZER-EVENT-AUTHORITY` + organizers → **CLOSED / BOUND / FULLY RESOLVED / YALA
+> PASS_WITH_WARNINGS MATERIAL** (billing CONTAINED R8K + authority BOUND R8O). **Yala confirmou materialmente:**
+> HEAD 3893a517 · branch rescue-structural · migrations 394/394 · sem migration/schema; diff 9 arquivos, runtime
+> `.ts` só events/organizers/organizers.routes.ts; nenhum service/settlement/bank file alterado; diff toca só
+> create/add-member/link-event (cluster billing R8K fora do diff); detector removeu organizers do baseline; guard +
+> negative-proof novos. **Bind confirmado:** helper resolveRequesterGlobalUserId(req,reply) — sem req.user?.id →
+> 401 ORGANIZER_ACTOR_AUTHORITY_REQUIRED; sem req.tenant?.id → 400; subject só de req.user; body/query/actionContext
+> NÃO substituem subject; create usa createOrganizer(...,requesterGlobalUserId) owner=self; add-member/link-event
+> usam requesterGlobalUserId + hasPermission gateia; req.actionContext.actorId removido das 3 rotas; spoof
+> actionContext não autoriza; sem bypass de owner_global_user_id. Autoridade real = owner_global_user_id +
+> event_organizer_members.role; event_organizers.actor_id órfão/não usado (não bloqueia). **Billing R8K
+> PRESERVADO:** 5 rotas seguem 501 ORGANIZER_BILLING_SCHEMA_GHOST_CONTAINED + webhook no-op 200 contained; sem
+> reintrodução de organizerBillingService/stripeService; sem decisão SaaS-vs-split; sem materialização de schema.
+> **Event-settlement PRESERVADO:** linkEvent atualiza events.organizer_id e NÃO events.actor_id; events.actor_id +
+> canRepresentActor canônicos intocados. **Guard** `audit-organizers-actor-authority-bind.mjs` wired+GREEN. **E2E
+> DB-free** 7/7. **Gates Yala:** actor-writer OK · bank-ledger OK · regression-guards **69 GATE OK / 0 FAIL** · arch
+> critical_new=0 · check:migrations 394/394 · tsc baseline 43. **Baseline 3→2** (flagged 2 · new=0 · stale 0 ·
+> safe_subject 7 · service_bound 4 · self_bound 1 · not_authority 1 — restam services-discovery[PARTIAL]/
+> unifycard-method[M5]). **DT-mãe 0113 + parent canal-1 OPEN (2>0).**
+>
+> **Warnings do reseal (não-bloqueantes):** **W1** — negative-proof não reexecutado pela Yala (muta source);
+> validado estruturalmente + executora pwsh 7 & WPS 5.1 (requesterGlobalUserId→actionContext.actorId → FALHA;
+> resolveGlobalUserId(query.actorId) em vez de req.user.id → FALHA; restauração byte-idêntica; git pré==pós).
+> **W2** — working tree sujo fora do material → não é HOLD_WORKTREE_DIRTY. **W3** — o E2E prova fail-closed 401 +
+> billing preservado, mas NÃO exercita positive-path nem mede delta bank_*; não bloqueia (prova estrutural: zero
+> bank nos handlers + guard proíbe bank_* + actionContext removido do código); follow-up opcional = E2E
+> positive-path com req.user válido → create owner=self. Seal = docs-only; HEAD material permanece `3893a517`.
+> _(Detalhe IMPLEMENTED abaixo.)_
+
 Bind canal-1 das rotas remanescentes de event-organizer authority (create/add-member/link-event) — o "PARTIAL"
 deixado por R8K (DECISION-0113 / Z2). **NÃO reabre billing, NÃO toca event-settlement/services-discovery/
 unifycard-method/Bank/ledger, NÃO decide SaaS-vs-split, NÃO cria migration.**
@@ -76,10 +107,13 @@ NÃO abriu RBAC amplo · NÃO fecha DT-mãe 0113 nem parent canal-1 (2>0).
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. organizers create/add-member/link-event → **BOUND (subject=req.user) / HOLD YALA**;
-organizers file → **FULLY RESOLVED** (billing CONTAINED R8K + authority BOUND R8O) → removido do baseline.
-`DT-AUTHORITY-Z2-ORGANIZER-EVENT-AUTHORITY` → IMPLEMENTED_AS_BOUND / HOLD YALA. DT-mãe 0113 + parent canal-1 OPEN
-(baseline 2). Próximo passo: **Yala reseal**.
+**✅ CLOSED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material `3893a517`;
+reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2-W3 não-bloqueantes — ver bloco SEAL no topo).
+organizers create/add-member/link-event → **BOUND (subject=req.user)**; organizers file → **CLOSED / BOUND / FULLY
+RESOLVED** (billing CONTAINED R8K + authority BOUND R8O; removido do baseline).
+`DT-AUTHORITY-Z2-ORGANIZER-EVENT-AUTHORITY` → **CLOSED / BOUND / YALA PASS_WITH_WARNINGS MATERIAL**. DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` + parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` permanecem
+**OPEN** (baseline 2). _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
 
 ## Fila restante para fechar 0113 (2 entradas)
 
