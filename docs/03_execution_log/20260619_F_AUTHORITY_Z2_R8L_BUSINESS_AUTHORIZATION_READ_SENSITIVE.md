@@ -1,5 +1,36 @@
 # 2026-06-19 — R8L BUSINESS-AUTHORIZATION READ-SENSITIVE AUTHORITY (bind, cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `60b2c498`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED / YALA PASS_WITH_WARNINGS MATERIAL**.
+> `DT-AUTHORITY-Z2-BUSINESS-AUTHORIZATION-READ-SENSITIVE` + business-authorization → **CLOSED / BOUND / YALA
+> PASS_WITH_WARNINGS MATERIAL**. **Yala confirmou materialmente:** HEAD 60b2c498 · branch rescue-structural ·
+> migrations 394/394 · sem migration/schema; diff 9 arquivos, runtime `.ts` só core/authorization/
+> business-authorization.routes.ts; businessAuthorizationService legado + authorization.service INTOCADOS; bank
+> intocado; detector atualizado (Forma B checkPermission + SAFE_SUBJECT entry); guard + negative-proof novos; zero
+> Bank/Core/bank_ledger/bank_transactions/bank_splits/payout/recovery/settlement; zero services-discovery/
+> unifycard-method/organizers/automation/human-mvp; zero RBAC amplo. **Bind confirmado:** subjectUserId =
+> req.user?.id (401 BUSINESS_AUTHORIZATION_ACTOR_AUTHORITY_REQUIRED se ausente); orgActorId = req.query.actorId
+> (alvo, NÃO subject); 400 se action/orgActorId ausentes; checkPermission(tenantId, subjectUserId, orgActorId,
+> action, contextId) — subject = 2º arg vindo de req.user.id; actionContext.actorId removido como subject; body/
+> query/actionContext não substituem o subject; spoof actionContext/x-actor-id NÃO altera o subject; canRepresentActor
+> NÃO usado (consulta de auto-permissão, evita ovo-galinha); sem authority bypass (subject=req.user autenticado;
+> leitura revela só o papel do próprio caller). **Detector/baseline:** Forma B estendida p/ checkPermission +
+> SAFE_SUBJECT_READERS entry restrita (reconhece subject=req.user-derived, exige subj!=target, recognizer não
+> amplo); business-authorization REMOVIDO do baseline → **6→5** (flagged 5 · new=0 · stale 0 · safe_subject 7 ·
+> service_bound 4 · self_bound 1 · not_authority 1). **Guard** `audit-business-authorization-read-authority.mjs`
+> wired+GREEN (restrito; exige subject=req.user.id/subjectUserId + 401 nomeado + checkPermission(…subjectUserId…);
+> proíbe actionContext/body/query como subject + bank_*/write; não mascara outras rotas). **E2E DB-free** 6/6.
+> **Gates Yala:** actor-writer OK · bank-ledger OK · regression-guards **67 GATE OK / 0 FAIL** · arch critical_new=0
+> · check:migrations 394/394 · tsc baseline 43. **DT-mãe 0113 + parent canal-1 OPEN (5>0).**
+>
+> **Warnings do reseal (não-bloqueantes):** **W1** — negative-proof não reexecutado pela Yala (muta source);
+> validado estruturalmente + executora pwsh 7 & WPS 5.1 (subject→actionContext.actorId → FALHA; subject derivado de
+> query.actorId em vez de req.user → FALHA; restauração byte-idêntica; git pré==pós). **W2** — working tree sujo
+> fora do material → não é HOLD_WORKTREE_DIRTY. **W3** — o E2E roda contra unificard_dev (não DB efêmera, ≠
+> disciplina das ondas R8E/F/H/J/K); Yala verificou que é READ-ONLY (zero INSERT/UPDATE/DELETE/pool.query de
+> escrita) → não bloqueia; follow-up opcional = isolamento efêmero/stub puro p/ consistência da série. Seal =
+> docs-only; HEAD material permanece `60b2c498`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Bind canal-1 da leitura sensível `GET /business-permissions/check` (DECISION-0113 / Z2). **NÃO toca money, NÃO toca
 Bank/Core/ledger, NÃO abre frente ampla de RBAC/delegação, NÃO altera businessAuthorizationService legado fora do
 escopo, NÃO cria migration.**
@@ -82,9 +113,12 @@ canal-1 (5>0).
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. `GET /business-permissions/check` → **BOUND (subject=req.user) / HOLD YALA**
-(removido do baseline). `DT-AUTHORITY-Z2-BUSINESS-AUTHORIZATION-READ-SENSITIVE` → IMPLEMENTED_AS_BOUND / HOLD YALA.
-DT-mãe 0113 + parent canal-1 OPEN (baseline 5). Próximo passo: **Yala reseal**.
+**✅ CLOSED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material `60b2c498`; reseal
+Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2-W3 não-bloqueantes — ver bloco SEAL no topo). `GET
+/business-permissions/check` → **CLOSED / BOUND (subject=req.user)** (removido do baseline).
+`DT-AUTHORITY-Z2-BUSINESS-AUTHORIZATION-READ-SENSITIVE` → **CLOSED / BOUND / YALA PASS_WITH_WARNINGS MATERIAL**.
+DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` + parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
+permanecem **OPEN** (baseline 5). _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
 
 ## Fila restante para fechar 0113 (5 entradas)
 
