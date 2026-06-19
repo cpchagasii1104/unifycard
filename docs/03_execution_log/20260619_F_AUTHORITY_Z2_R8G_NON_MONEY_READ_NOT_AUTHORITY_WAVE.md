@@ -1,5 +1,32 @@
 # 2026-06-19 — R8G NON-MONEY READ / NOT-AUTHORITY WAVE — plan GET (W3) + feed-plugin + business-authorization (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `e57e909f`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL** (executou 2, deixou
+> 12 remanescentes; **NÃO** fecha a DT-mãe 0113 nem o parent canal-1). **Estados por tipo:** **plan GET /
+> DT-AUTHORITY-Z2-PLAN-GET-READ-AUTHORITY** → **CLOSED / RESOLVED / YALA PASS_WITH_WARNINGS MATERIAL**
+> (A_SAFE_SUBJECT_RECONCILE) · **feed-plugin** → **CLOSED / YALA PASS_WITH_WARNINGS MATERIAL**
+> (H_FALSE_POSITIVE_NOT_AUTHORITY) · **business-authorization** → **DEFERRED / READ-SENSITIVE / OWN FRONT**
+> (permanece no baseline). **Yala confirmou materialmente:** HEAD e57e909f · branch rescue-structural · migrations
+> 394/394 · sem migration/schema; zero money/método de pagamento/Bank/Core/ledger/splits/payout/recovery/AP/AR/PO/
+> SPR; zero RBAC/FASE 6/actor_delegations/R2/produto; services-discovery/unifycard-method/business-authorization/
+> automation/human-mvp NÃO tocados; GET /plan agora self-only (deriva actor do caller via
+> findByUserId(req.tenant.id, req.user.userId); 403 se não houver callerActor; não usa mais
+> req.actionContext.actorId como subject; frontend getPlan() sem actorId = "meu plano"; W3 resolvido);
+> `audit-plan-self-bound.mjs` cobre PUT+GET e roda GREEN; feed-plugin not-authority (route NÃO alterado;
+> actionContext.actorId só em 5 presence-gates; zero write/DB/INSERT/UPDATE/DELETE; actorId não threadado a
+> feedPluginService; `audit-feed-plugin-not-authority.mjs` GREEN; recognizer NON_AUTHORITY_READONLY restrito);
+> business-authorization corretamente deferido (read advisory com operador client-declared = read sensível,
+> permanece no baseline); detector live **flagged=9 · baseline=12 · new=0 · stale_baseline=3 ·
+> safe_subject_recognized=6 · service_bound_recognized=4 · self_bound_recognized=1 · not_authority_recognized=1**;
+> actor-authority-boundary OK · actor-writer-boundaries OK · bank-ledger-boundaries OK · regression-guards OK ·
+> arch `--strict` critical_new=0 · tsc baseline 43; cartório correto; **DT-mãe 0113 e parent canal-1 seguem OPEN**.
+>
+> **Warnings do reseal (follow-up não-bloqueante):** **W1** — negative-proof não reexecutado pela Yala (muta a
+> source); validado estruturalmente + executora declarou pwsh 7 e WPS 5.1. **W2** — working tree sujo fora do
+> material → não é HOLD_WORKTREE_DIRTY. **W3** — sem E2E DB-free nesta onda para a mudança runtime do GET /plan;
+> aceitável por ser read-only/non-money; a prova repousa em diff + guard dedicado GREEN cobrindo GET+PUT +
+> negative-proof. Seal = docs-only; HEAD material permanece `e57e909f`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Onda não-money/read sobre 3 entradas (DECISION-0113 / Z2): (1) `GET /plan` (W3 do reseal R8F) · (2) `feed-plugin`
 (H_FALSE_POSITIVE) · (3) `business-authorization` (H_FALSE_POSITIVE candidato). Executou as 2 quick wins seguras
 (plan GET self-subject + feed-plugin not-authority); **deferiu** business-authorization (read sensível por operador
@@ -80,10 +107,13 @@ migration/schema · NÃO materializou schema · NÃO decidiu produto · NÃO fec
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. Onda R8G: plan GET A_SAFE_SUBJECT (fecha W3) + feed-plugin H_FALSE_POSITIVE;
-**baseline 13→12**. `DT-AUTHORITY-Z2-PLAN-GET-READ-AUTHORITY` → **RESOLVED (HOLD YALA)** (GET self-bound).
-DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
-permanecem **OPEN**. Próximo passo: **Yala reseal**.
+**✅ CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material
+`e57e909f`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W3 registrados como follow-up
+não-bloqueante — ver bloco SEAL no topo). Onda R8G: **plan GET / DT-AUTHORITY-Z2-PLAN-GET-READ-AUTHORITY → CLOSED /
+RESOLVED** (A_SAFE_SUBJECT) · **feed-plugin → CLOSED** (H_FALSE_POSITIVE) · **business-authorization → DEFERRED /
+READ-SENSITIVE / OWN FRONT**. **baseline 13→12.** A onda deixou 12 remanescentes → a DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e o parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
+permanecem **OPEN**. _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
 
 ## Fila restante para fechar 0113 (12 entradas)
 
