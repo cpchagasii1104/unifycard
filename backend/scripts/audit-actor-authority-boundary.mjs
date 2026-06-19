@@ -91,11 +91,13 @@ function safeSubjectProof(rawCode) {
     serverSubjectVars.add(m[1]);
   }
   if (serverSubjectVars.size === 0) return null;
-  for (const m of code.matchAll(/\brequirePermission\(\s*[^,()]+,\s*([A-Za-z_$][\w$]*)\s*,\s*([A-Za-z_$][\w$.]*)\s*,/g)) {
+  // requirePermission E checkPermission (mesma família businessAuthorizationService(tenantId, userId, actorId, action)):
+  // o 2º arg é o SUBJECT (userId server-side), o 3º é o actor/org ALVO. R8L incluiu checkPermission (read-sensitive).
+  for (const m of code.matchAll(/\b(?:requirePermission|checkPermission)\(\s*[^,()]+,\s*([A-Za-z_$][\w$]*)\s*,\s*([A-Za-z_$][\w$.]*)\s*,/g)) {
     const subj = m[1].trim();
     const target = m[2].trim();
     if (serverSubjectVars.has(subj) && subj !== target) {
-      return `B:requirePermission(tenantId, ${subj}=req.user, ${target}) — subject server-side, subj!=target`;
+      return `B:requirePermission/checkPermission(tenantId, ${subj}=req.user, ${target}) — subject server-side, subj!=target`;
     }
   }
   // Forma C — canUserPerformCompanyCapability(tenantId, <subj=req.user var>, '<can_*>', { companyId })
@@ -147,6 +149,14 @@ function safeSubjectProof(rawCode) {
 // `actorId` morto removido ⇒ não casa mais canal client-declared (fora do escopo do guard). Os 3 abaixo
 // mantêm canal (query/params.actorId como ALVO) + Forma C com prova de company-scope (resolveCompanyIdForActor).
 const SAFE_SUBJECT_READERS = {
+  // F-AUTHORITY-Z2-R8L (2026-06-19): GET /business-permissions/check (leitura sensível de permissão p/ UI).
+  // BIND: subject = req.user.id (server-side, const subjectUserId); query.actorId = CONTEXTO org (alvo de leitura);
+  // checkPermission(tenantId, subjectUserId, orgActorId, action) → getUserRole resolve só o papel REAL do caller
+  // naquela org (revela o que é dele). Forma B (subject server-side, subj!=target). actionContext.actorId NÃO
+  // governa mais a checagem. Guard dedicado: audit-business-authorization-read-authority.mjs. A prova some se o
+  // subject voltar a ser client-declared → re-flagga (fora do BASELINE) → FALHA.
+  'core/authorization/business-authorization.routes.ts':
+    'READ-SENSITIVE. GET /business-permissions/check: subject=req.user.id (subjectUserId, Forma B checkPermission), query.actorId = contexto org (alvo), revela só o papel do próprio caller via getUserRole; actionContext.actorId não é mais autoridade. Zero write, zero bank_*.',
 // F-R2-TENANT-LEVEL-OPERATOR-GRANTS (2026-06-14, DECISION-0126): as rotas tenant-wide deixaram de ser
 // fail-closed e passaram a abrir por GRANT TENANT-LEVEL (tenant_operator_grants.can_*, Forma D) — NUNCA por
 // company_users. As rotas actor-scoped seguem company-scoped (Forma C). reporting usa só Forma D e não tem
@@ -250,7 +260,12 @@ const C1_RFQ_W6 = 'canal-1 actionContext.actorId — W1-W5 VINCULADAS por R7a (g
 const BASELINE = {
   // ── B1f canal-1 (actionContext.actorId) — 31 rotas com debt 0113 PRÉ-EXISTENTE, congeladas ──
   // (NÃO corrigidas; o B1f só TORNOU VISÍVEL + travou regressão. Cada subsistema converge em frente própria.)
-  'core/authorization/business-authorization.routes.ts': C1,
+  // business-authorization.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8L, 2026-06-19): GET
+  // /business-permissions/check BOUND — subject = req.user.id (server-side); query.actorId = contexto org (alvo);
+  // checkPermission revela só o papel do próprio caller (getUserRole). actionContext.actorId não governa mais.
+  // Reconhecido por safeSubjectProof Forma B (checkPermission) + entrada em SAFE_SUBJECT_READERS; guard dedicado
+  // audit-business-authorization-read-authority.mjs (morde se subject voltar a client-declared / sumir o 401 /
+  // tocar bank_*). Se a prova sumir, re-flagga. DT-AUTHORITY-Z2-BUSINESS-AUTHORIZATION-READ-SENSITIVE.
   // core/feed/feed-plugin.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8G-NON-MONEY-READ-NOT-AUTHORITY-WAVE,
   // 2026-06-19): orquestrador VISUAL read-only — actionContext.actorId é PURE PRESENCE-GATE (400-if-missing), nunca
   // threadado a feedPluginService, sem write/DB → H_FALSE_POSITIVE (não governa nada material). Reconhecido por

@@ -19,24 +19,33 @@ const businessAuthorizationRoutes: FastifyPluginAsync = async (fastify) => {
     };
   }>('/business-permissions/check', async (req, reply) => {
     const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
 
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+    // 🔴 R8L canal-1 BIND (DECISION-0113 / Z2): leitura sensível de permissão/role. O SUBJECT da checagem é o
+    // utilizador AUTENTICADO (req.user, server-side) — NUNCA o actionContext.actorId client-declared (antes ele
+    // governava o operador, permitindo perguntar "o operador X pode A em Y?" sem provar ser X). `req.query.actorId`
+    // é apenas o CONTEXTO organizacional (alvo) sobre o qual o caller pergunta a SUA PRÓPRIA permissão:
+    // checkPermission → getUserRole(tenantId, req.user, orgActorId) resolve o papel REAL do caller naquela org,
+    // revelando só o que é dele. Subject server-side; alvo = filtro de leitura. Recognizer: safeSubjectProof Forma B
+    // (subject=req.user, subj!=target). Guard: audit-business-authorization-read-authority.mjs.
+    const subjectUserId = req.user?.id;
+    if (!subjectUserId) {
+      return reply
+        .status(401)
+        .send({ error: 'BUSINESS_AUTHORIZATION_ACTOR_AUTHORITY_REQUIRED', message: 'Não autenticado: subject server-side obrigatório' });
     }
 
-    const { action, actorId, contextId } = req.query;
+    const { action, contextId } = req.query;
+    const orgActorId = req.query.actorId; // contexto organizacional (alvo de leitura), NÃO subject
 
-    if (!action || !actorId) {
+    if (!action || !orgActorId) {
       return reply.status(400).send({ error: 'action e actorId são obrigatórios' });
     }
 
     try {
       const result = await businessAuthorizationService.checkPermission(
         tenantId,
-        actionContext.actorId,
-        actorId,
+        subjectUserId,
+        orgActorId,
         action as BusinessAction,
         contextId
       );
