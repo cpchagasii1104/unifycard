@@ -1,5 +1,35 @@
 # 2026-06-19 — R8N AUTOMATION + HUMAN-MVP GHOST/PRODUCT CONTAINMENT (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `ac5571b7`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED / YALA PASS_WITH_WARNINGS MATERIAL**.
+> `DT-AUTHORITY-Z2-AUTOMATION-SCHEMA-GHOST` + automation → **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS
+> MATERIAL**; `DT-AUTHORITY-Z2-HUMAN-MVP-SCHEMA-GHOST` + human-mvp → **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS
+> MATERIAL**. **Yala confirmou materialmente:** HEAD ac5571b7 · branch rescue-structural · migrations 394/394 · sem
+> migration/schema; diff 10 arquivos, runtime `.ts` só automation.routes.ts + human-mvp.routes.ts; nenhum service/
+> bank/worker/scheduled-action file alterado; detector removeu automation + human-mvp do baseline; guard + negative-
+> proof novos; G10/register/identity/onboarding/actor-writer NÃO tocados. Schema-ghost confirmado (to_regclass=NULL):
+> automation `alerts`/`scheduled_actions`; human-mvp `human_mvp_profiles`/`human_mvp_skills`/`human_mvp_opportunities`/
+> `skills`/`service_offers`/`opportunities`. **automation (9 rotas):** GET alerts(×3)/schedule(×2) + POST /alerts +
+> PATCH /alerts/:id/status + POST /schedule + POST /schedule/:id/cancel → 501 AUTOMATION_SCHEMA_GHOST_CONTAINED antes
+> de service/sink (handlers sem actionContext/service; zero alertService/scheduledActionService/bank_*); run-due
+> PRESERVA 403 AUTOMATION_RUN_DUE_HTTP_DISABLED (R18 preservado); executeDueActions intocado, sem caller vivo.
+> **human-mvp (5 rotas):** POST /n/skills · /n/service-offers · /n/opportunities · /n/event-instances · /n/
+> activity-executions → 501 HUMAN_MVP_SCHEMA_GHOST_CONTAINED antes de service/sink; registrado sob /n, zero frontend
+> caller → NÃO é vertical G10 viva (containment não quebra G10; register/identity/actor intocados). **Guard**
+> `audit-automation-human-mvp-ghost-containment.mjs` wired+GREEN (exige 501 automation+human-mvp + run-due 403;
+> proíbe service/actionContext.actorId/bank_*; não mascara services-discovery/organizers/unifycard-method).
+> **E2E DB-free** 20/20. **Gates Yala:** actor-writer OK · bank-ledger OK · regression-guards **68 GATE OK / 0 FAIL**
+> · arch critical_new=0 · check:migrations 394/394 · tsc baseline 43. **Baseline 5→3** (flagged 3 · new=0 · stale 0
+> · safe_subject 7 · service_bound 4 · self_bound 1 · not_authority 1 — restam organizers[PARTIAL]/unifycard-method
+> [M5]/services-discovery[PARTIAL]). **DT-mãe 0113 + parent canal-1 OPEN (3>0).**
+>
+> **Warnings do reseal (não-bloqueantes):** **W1** — negative-proof não reexecutado pela Yala (muta source);
+> validado estruturalmente + executora pwsh 7 & WPS 5.1 (reintroduzir alertService → FALHA; reintroduzir
+> humanMvpSkillService → FALHA; restauração byte-idêntica; git pré==pós). **W2** — working tree sujo fora do
+> material → não é HOLD_WORKTREE_DIRTY. **W3** — o E2E não mede delta explícito de bank_ledger/transactions/splits;
+> não bloqueia (prova estrutural: todas as rotas retornam 501 antes de qualquer sink + guard proíbe bank_* nos
+> handlers contidos). Seal = docs-only; HEAD material permanece `ac5571b7`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Containment dos 2 itens C_CONTAIN ghost do baseline canal-1 (DECISION-0113 / Z2): **automation** e **human-mvp**,
 ambos provados SCHEMA-GHOST (dead-at-db). **NÃO é financeira, NÃO toca Bank/Core/ledger, NÃO decide produto G10,
 NÃO cria migration.**
@@ -71,10 +101,13 @@ intocado) · NÃO fecha DT-mãe 0113 nem parent canal-1 (3>0).
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. automation → **CONTAINED (501 schema-ghost) / HOLD YALA**; human-mvp →
-**CONTAINED (501 schema-ghost) / HOLD YALA** (ambos removidos do baseline). `DT-AUTHORITY-Z2-AUTOMATION-SCHEMA-GHOST`
-+ `DT-AUTHORITY-Z2-HUMAN-MVP-SCHEMA-GHOST` → IMPLEMENTED_AS_CONTAINED / HOLD YALA. DT-mãe 0113 + parent canal-1 OPEN
-(baseline 3). Próximo passo: **Yala reseal**.
+**✅ CLOSED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material `ac5571b7`; reseal
+Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2-W3 não-bloqueantes — ver bloco SEAL no topo). automation
+→ **CLOSED_AS_CONTAINED (501 schema-ghost)**; human-mvp → **CLOSED_AS_CONTAINED (501 schema-ghost)** (ambos removidos
+do baseline). `DT-AUTHORITY-Z2-AUTOMATION-SCHEMA-GHOST` + `DT-AUTHORITY-Z2-HUMAN-MVP-SCHEMA-GHOST` → **CLOSED_AS_CONTAINED
+/ YALA PASS_WITH_WARNINGS MATERIAL**. **CLOSED_AS_CONTAINED ≠ reativação:** schema segue ghost; reabrir exige schema +
+(human-mvp) decisão G10 + binding. DT-mãe 0113 + parent canal-1 OPEN (baseline 3). _(Histórico: 🟡 IMPLEMENTED / HOLD
+YALA antes do reseal.)_
 
 ## Fila restante para fechar 0113 (3 entradas)
 
