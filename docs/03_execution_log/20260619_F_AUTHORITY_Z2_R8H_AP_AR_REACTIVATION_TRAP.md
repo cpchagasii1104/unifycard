@@ -1,5 +1,33 @@
 # 2026-06-19 — R8H AP/AR REACTIVATION-TRAP CONTAINMENT — blindagem defensiva (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `eaaf077a`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL** (CLOSED_AS_CONTAINED,
+> NÃO `CLOSED` simples — AP/AR continuam DESATIVADOS aguardando decisão financeira futura; **NÃO** fecha a DT-mãe
+> 0113 nem o parent canal-1). `DT-AUTHORITY-Z2-AP-AR-REACTIVATION-TRAP` → **CLOSED_AS_CONTAINED / YALA
+> PASS_WITH_WARNINGS MATERIAL**. **Yala confirmou materialmente:** HEAD eaaf077a · branch rescue-structural ·
+> migrations 394/394 · sem migration/schema; zero Bank/Core/bank_ledger/bank_transactions/bank_splits/payout/
+> recovery/settlement/service-payment-request/purchase-order alterado; zero reativação AP/AR; DECISION-0114 D5 não
+> decidida; CRM não redesenhado; `accounts_payable`/`accounts_receivable` = NULL (to_regclass); services AP/AR
+> seguem **Proxy reject-all "migrated to Bank"** (commit não removeu nem enfraqueceu o Proxy); rotas públicas AP/AR
+> NÃO chegam ao service/proxy; callers internos seguem via service Proxy-dead; não há caminho vivo para Bank/ledger;
+> 7 rotas AP → **403 ACCOUNTS_PAYABLE_DISABLED**; 5 rotas AR → **403 ACCOUNTS_RECEIVABLE_DISABLED**; containment
+> ANTES de actionContext/service/sink; canal-1 sumiu dos arquivos AP/AR; callers internos (ticket/scheduled-action/
+> payment-execution/purchase-order) intocados e nenhum usa rota HTTP pública; CRM residual `crm.service.ts:413`
+> confirmado como read de accounts_receivable ghost/dead-at-db; guard `audit-ap-ar-reactivation-trap.mjs` wired e
+> GREEN (exige rotas contidas + Proxy reject-all; falha se rota voltar a chamar service OU se o Proxy for removido);
+> **E2E DB-free 15/15 rodado pela Yala**; baseline **12→10** (flagged 9→7 · new=0 · stale=3 · safe_subject=6 ·
+> service_bound=4 · self_bound=1 · not_authority=1); actor-authority-boundary OK · actor-writer-boundaries OK ·
+> bank-ledger-boundaries OK · regression-guards OK · arch `--strict` critical_new=0 · tsc baseline 43; cartório
+> correto; **DT-mãe 0113 e parent canal-1 seguem OPEN**.
+>
+> **Warnings do reseal (follow-up não-bloqueante):** **W1** — negative-proof não reexecutado pela Yala (muta a
+> source); validado estruturalmente + executora declarou pwsh 7 e Windows PowerShell 5.1. **W2** — working tree
+> sujo fora do material → não é HOLD_WORKTREE_DIRTY.
+>
+> **Residual / OPEN registrados:** CRM `crm.service.ts:413` read de accounts_receivable (ghost/dead-at-db; não é
+> writer canal-1; não redesenhado → follow-up próprio) · **DECISION-0114 D5 OPEN** (AP/AR não podem ser religados
+> sem decisão própria). Seal = docs-only; HEAD material permanece `eaaf077a`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Contenção **defensiva fail-closed** de `accounts-payable` + `accounts-receivable` contra reativação insegura
 (DECISION-0113 / DECISION-0131 §B7 / Z2; DECISION-0114 D5). **NÃO implementa AP/AR, NÃO religa Bank, NÃO toca
 ledger, NÃO cria regra financeira.** Instala 403 fail-closed antes do Proxy/service + guard anti-reactivation-trap.
@@ -80,11 +108,14 @@ intactos) · NÃO fecha DT-mãe 0113 nem parent canal-1 (baseline 10>0). Service
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. AP/AR rotas → **CONTAINED (403 DISABLED) / HOLD YALA**.
-`DT-AUTHORITY-Z2-AP-AR-REACTIVATION-TRAP` → **IMPLEMENTED_AS_CONTAINED / HOLD YALA**. DT-mãe
-`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
-permanecem **OPEN**; `DECISION-0114 D5` (religar AP/AR) segue **OPEN** (decisão própria). **Residual:** CRM
-read de `accounts_receivable` (ghost dead-at-db) — frente própria. Próximo passo: **Yala reseal**.
+**✅ CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material
+`eaaf077a`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2 + residuais registrados — ver bloco
+SEAL no topo). AP/AR rotas → **CONTAINED (403 DISABLED) / YALA PASS_WITH_WARNINGS MATERIAL**.
+`DT-AUTHORITY-Z2-AP-AR-REACTIVATION-TRAP` → **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**.
+**CLOSED_AS_CONTAINED ≠ remediação:** AP/AR seguem desativados aguardando decisão financeira; a DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`, o parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` e a
+`DECISION-0114 D5` (religar AP/AR) permanecem **OPEN**. **Residual:** CRM read de `accounts_receivable`
+(crm.service.ts:413, ghost dead-at-db) — frente própria. _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
 
 ## Fila restante para fechar 0113 (10 entradas)
 
