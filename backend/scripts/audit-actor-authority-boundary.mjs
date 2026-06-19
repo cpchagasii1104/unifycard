@@ -257,7 +257,13 @@ const BASELINE = {
   // SERVICE_ACTOR_NOT_REPRESENTABLE) ANTES do write; o check fraco (actor.user_id !== userId &&
   // actor_type !== 'user') foi substituído pelo primitivo canônico. Guard próprio:
   // audit-services-actor-binding.mjs. DT-AUTHORITY-Z2-SERVICES-ACTOR-BINDING-UNBOUND.
-  'modules/social/social-marketplace-ref.routes.ts': C1,
+  // social-marketplace-ref.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8D-SOCIAL-MARKETPLACE-REF-
+  // BIND-OR-CONTAIN, 2026-06-18): a tabela `social_marketplace_refs` é SCHEMA-GHOST (CREATE TABLE só em
+  // migrations_archive/0759; ausente do schema canônico e de unificard_dev — to_regclass=null). As 3 rotas
+  // (POST /marketplace-ref · GET /:postId · GET /details/:refId) foram CONTIDAS fail-closed (501
+  // SOCIAL_MARKETPLACE_REF_SCHEMA_GHOST_CONTAINED) ANTES de qualquer service/DB — o canal-1 (actionContext.actorId,
+  // que era breadcrumb de auditoria; o write nunca recebia o actor) DESAPARECEU do arquivo. Guard próprio:
+  // audit-social-marketplace-ref-schema-ghost-containment.mjs. DT-AUTHORITY-Z2-SOCIAL-MARKETPLACE-REF.
   'modules/social/social.routes.ts': C1,
   // system-notification.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8C-SYSTEM-NOTIFICATION-READ-STATE-
   // AUTHORITY, 2026-06-18): a tabela `system_notifications` é SCHEMA-GHOST (migration 257 arquivada em
