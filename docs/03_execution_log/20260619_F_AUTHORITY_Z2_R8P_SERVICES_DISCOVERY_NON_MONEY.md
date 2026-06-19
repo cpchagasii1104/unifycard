@@ -1,5 +1,37 @@
 # 2026-06-19 — R8P SERVICES-DISCOVERY NON-MONEY AUTHORITY BIND (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `73896cd7`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED / YALA PASS_WITH_WARNINGS MATERIAL**.
+> `DT-AUTHORITY-Z2-SERVICES-DISCOVERY-NON-MONEY-AUTHORITY` + services-discovery → **CLOSED / BOUND / FULLY
+> RESOLVED / YALA PASS_WITH_WARNINGS MATERIAL** (direct-pay RETIRED R8J + non-money authority BOUND R8P). **Yala
+> confirmou materialmente:** HEAD 73896cd7 · branch rescue-structural · migrations 394/394 · sem migration/schema;
+> diff 9 arquivos, runtime `.ts` só services-discovery.routes.ts; nenhum service/bank/unifycard/payment-execution/
+> settlement file alterado; diff adiciona só helper + 6 call-sites; /request/pay fora do diff; detector removeu
+> services-discovery do baseline. **Bind confirmado:** helper assertActorRepresentable(req,reply) — sem req.user →
+> 401 SERVICE_DISCOVERY_ACTOR_AUTHORITY_REQUIRED; não-representável → canRepresentActor(req.tenant.id, req.user.id,
+> req.actionContext.actorId) → 403; 6 call-sites após presence-checks, antes de parse/service; actionContext.actorId
+> vira hint, sozinho não autoriza; body/query não substituem subject. **Rotas non-authority confirmadas:** /metrics
+> + /search passam só tenant.id (+filtros), actionContext.actorId é presence-gate, NÃO filtro actor-scoped → sem
+> read-residual. **Direct-pay R8J PRESERVADO:** /request/pay CLOSED_AS_CONTAINED (firewall 1º gate; 403
+> SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110; handler _req; zero payAcceptedRequest/createSimpleTransaction/
+> bank_*; SERVICE_FINANCIAL_RUNTIME_ENABLED default OFF). **unifycard-method INTOCADO** (M5 money defer, OPEN; sem
+> alteração de payment-execution/settlement/fee_percentage/unidade de fee). **Guard**
+> `audit-services-discovery-actor-bind.mjs` wired+GREEN (helper canRepresentActor; ≥6 call-sites; /request/pay
+> retired+firewall; proíbe payAcceptedRequest/createSimpleTransaction/bank_*; não mascara unifycard-method). **E2E
+> DB-free** 10/10. **Gates Yala:** actor-writer OK · bank-ledger OK · regression-guards **70 GATE OK / 0 FAIL** ·
+> arch critical_new=0 · check:migrations 394/394 · tsc baseline 43. **Baseline 2→1** (flagged 1 · new=0 · stale 0 ·
+> safe_subject 7 · service_bound 4 · self_bound 1 · not_authority 1 — resta APENAS unifycard-method[M5]). **DT-mãe
+> 0113 + parent canal-1 OPEN (1>0).**
+>
+> **Warnings do reseal (não-bloqueantes):** **W1** — negative-proof não reexecutado pela Yala (muta source);
+> validado estruturalmente + executora pwsh 7 & WPS 5.1 (neutralizar canRepresentActor com canRep=true → FALHA;
+> remover um bind call-site → FALHA; restauração byte-idêntica; git pré==pós). **W2** — working tree sujo fora do
+> material → não é HOLD_WORKTREE_DIRTY. **W3** — o E2E prova fail-closed 401 + /request/pay retired, mas NÃO
+> exercita positive-path nem representable-spoof; não bloqueia (prova estrutural: helper retorna 403 se
+> !canRepresentActor; guard exige canRepresentActor; negative-proof o neutraliza e falha); follow-up opcional = E2E
+> positive-path + spoof de actor não representável. Seal = docs-only; HEAD material permanece `73896cd7`. _(Detalhe
+> IMPLEMENTED abaixo.)_
+
 Bind canal-1 das 6 rotas não-money de services-discovery (o "PARTIAL" deixado por R8J), DECISION-0113 / Z2. **NÃO
 reabre /request/pay (retired R8J), NÃO toca payAcceptedRequest/firewall/settlement/unifycard-method/Bank/ledger,
 NÃO cria migration.**
@@ -72,10 +104,14 @@ parent canal-1 (1>0).
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. services-discovery 6 rotas não-money → **BOUND (canRepresentActor) / HOLD YALA**;
-services-discovery file → **FULLY RESOLVED** (direct-pay RETIRED R8J + non-money authority BOUND R8P) → removido do
-baseline. `DT-AUTHORITY-Z2-SERVICES-DISCOVERY-NON-MONEY-AUTHORITY` → IMPLEMENTED_AS_BOUND / HOLD YALA. DT-mãe 0113 +
-parent canal-1 OPEN (baseline 1). Próximo passo: **Yala reseal**.
+**✅ CLOSED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material `73896cd7`;
+reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2-W3 não-bloqueantes — ver bloco SEAL no topo).
+services-discovery 6 rotas não-money → **BOUND (canRepresentActor)**; services-discovery file → **CLOSED / BOUND /
+FULLY RESOLVED** (direct-pay RETIRED R8J + non-money authority BOUND R8P; removido do baseline).
+`DT-AUTHORITY-Z2-SERVICES-DISCOVERY-NON-MONEY-AUTHORITY` → **CLOSED / BOUND / YALA PASS_WITH_WARNINGS MATERIAL**.
+DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` + parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
+permanecem **OPEN** (baseline 1 — só unifycard-method[M5]). _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do
+reseal.)_
 
 ## Fila restante para fechar 0113 (1 entrada)
 
