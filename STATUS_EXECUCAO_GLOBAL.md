@@ -1,3 +1,21 @@
+## 2026-06-19 — F-0131-BACKLOG-DOCS-RECONCILIATION (sincronização cartorial 0131-wave) · ✅ CLOSED / DOCS-ONLY (cartório sincronizado; fee/payout NÃO autorizados)
+
+**Docs-only / cartorial (HEAD `52df866c`, dev 394, sem migration/código/runtime).** Reconcilia o cartório do backlog 0131-wave a partir da auditoria READ-ONLY `F-0131-BACKLOG-RECONCILIATION-SWEEP` (aceita VALID / PASS_WITH_WARNINGS). **Não implementa, não autoriza fee material, não autoriza payout, não fecha DT material por inferência.**
+
+**Evidência (live repo, não memória):** DECISION-0131 = **PROMULGADA / NORMATIVA** (REMEDIATION_DECISIONS_LOG:7081, 2026-06-14, DOCS-ONLY, rulings Clayton A0/B1=B/B2=A/B3=A/B4/B5=A/B6=deferir/B7 + 3 emendas) + mirror `DECISION_0131_AUTHORITY_GRAMMAR.md` + **Yala seal** `20260616_F_0131_WAVE_DOCS_ONLY_SEAL.md` ("Yala in-session = PASS", wave-level). DECISION-0113 = CLOSED/BASELINE ZERO; Z3 Forma C = CLOSED. DECISION-0140 = régua docs-only (mirror `DECISION_0140_UNIFYCARD_FEE_BPS_RULING.md` criado — padrão de mirror exigia).
+
+**Planos 0131 tratados como HISTORICAL/STALE (Opção B — são UNTRACKED scratch, NÃO editados):** `PLANO-DEFINITIVO-0131-EXECUTORA.md` (diz "NÃO promulgado / HEAD 20fe30cc / dev 385" — divergente do vivo: 0131 promulgada, HEAD 52df866c, dev 394, baseline 0113 zero, Z3/R8 selados), `DECISION-0131-INSTRUMENTO-DECISAO.md` (esqueleto pré-promulgação), `F-AUTHORITY-MAP-0131-v2.md` (mapa-insumo). **Usar STATUS_EXECUCAO_GLOBAL.md como estado vivo, NÃO os planos.**
+
+**Matriz normalizada (sem "CLOSED provável"/"CLOSED parcial"; flags sim/não/inconclusivo):** E1 availability-owner-authority = **INCONCLUSIVE** (não confirmado nesta frente docs-only); B5f contacts/suppliers = containment guard-backed **CLOSED** + reativação institucional **DEFERRED** (separados, sem "parcial"); A4 Yala reseal 0131 = coberto pelo wave-seal 20260616 (artefato localizado). C3 RLS / C4 reversal trail / D1 backfill / C1 mapper = **OPEN / MATERIAL_REQUIRED**.
+
+**Estados (mínimos):** F-0131-BACKLOG-RECONCILIATION-SWEEP → **CLOSED / READ-ONLY MATRIX COMPLETED / PASS_WITH_WARNINGS** · F-0131-BACKLOG-DOCS-RECONCILIATION → **CLOSED** · PLANO-DEFINITIVO-0131-EXECUTORA → **HISTORICAL/STALE/SUPERSEDED** · DECISION-0140 → **DECIDED / DOCS-ONLY RULING / NOT MATERIAL** · DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION → **OPEN / MATERIAL_REQUIRED** · F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION → **DEFERRED / REQUIRES EVIDENCE PACK FINANCEIRO** · Payout → **NOT AUTHORIZED / blocked by PORTA-1 + frente própria**.
+
+**Bloqueadores preservados (não suavizados):** fee material — DT-UNIFYCARD-...-BPS-MIGRATION, F-...-FEE-BPS-MATERIAL-MIGRATION, DECISION-0110, DECISION-0114 D5, organizer billing SaaS-vs-split, event_settlements ghost, schema-ghost unifycard-method, Card-2/8/9. Payout — financial_approval seed/PORTA-1, actor_wallet gates, C3 RLS, C4 reversal trail, DECISION-0114 D5, Card-3/5/9.
+
+**Gates:** actor-writer/bank-ledger OK · regression-guards 72 GATE OK / 0 FAIL · arch critical_new=0 · check:migrations 394/394 · baseline 0113 = 0 (inalterado). **Fee material NÃO autorizado · Payout NÃO autorizado.** Detalhe: `docs/03_execution_log/F-0131-BACKLOG-DOCS-RECONCILIATION-EXECUTION.md`. **Próximo passo após Yala:** 3 paralelas READ-ONLY p/ F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION.
+
+---
+
 ## 2026-06-19 — DECISÃO FINANCEIRA fee bps UnifyCard method (DECISION-0140) · ✅ DECIDED / B / DOCS-ONLY (régua, não implementação)
 
 **Promulgação normativa docs-only (HEAD `a258973c`, dev 394, sem migration).** Clayton escolhe **B** + parecer IA-DINHEIRO. **Régua promulgada:** taxas percentuais de método financeiro UnifyCard DEVEM usar **`fee_rate_bps INTEGER`** no banco / **`feeRateBps`** no runtime/API; `fee_percentage`/`feePercentage` = legado/deferred (não expandir, não usar em novas implementações). Alinha à `07_NOMENCLATURA_CANONICA §4.8`. Mata na raiz a ambiguidade de unidade do bug **299¢ vs 3¢** (contrato 0.0299 vs settlement `/100`→2.99). **NÃO é implementação:** zero código/runtime/settlement/Bank/migration; `/100` não removido; nomes não trocados no código; trilho segue CONTIDO (R8Q, 501).
