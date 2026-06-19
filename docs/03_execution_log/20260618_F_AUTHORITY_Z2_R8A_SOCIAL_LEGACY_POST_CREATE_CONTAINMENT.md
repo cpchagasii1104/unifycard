@@ -1,5 +1,33 @@
 # 2026-06-18 — R8A SOCIAL LEGACY POST-CREATE CONTAINMENT — HARD-STOP FAIL-CLOSED (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-18, sobre commit material `b5afc6bf`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**. Yala confirmou
+> materialmente: escopo só a rota legada `/social/posts/create` + guard/e2e/proof/docs; sem migration;
+> `social.service.ts`/`social.repository.ts`/`social-2.0.routes.ts`/`social-2.0.service.ts` intocados;
+> R7b/event-rfq intocados; Bank/Core/ledger/splits/payout/recovery intocados; RBAC/FASE 6 intocado;
+> contacts/suppliers intocados; rota legada permanece **registrada**; `POST /social/posts/create` retorna **501
+> `SOCIAL_LEGACY_POST_CREATE_CONTAINED`** de forma **incondicional** (sem `await`, sem `req.user`/`tenant`/
+> `actionContext`, sem `socialService.createPost`, sem repository/write/outbox); **zero caller vivo** confirmado
+> (frontend usa a canônica `POST /social/posts`; orchestrator usa `/marketplace/posts/create`, outro módulo/
+> prefixo; testes/e2e não dependem da legada); **dead-at-db** confirmado no source; **E2E efêmero 7/7 rodado pela
+> Yala** (legado com/sem actionContext → 501; posts count inalterado; canônica `/social/posts` alcançável e
+> ≠501/≠404); guards R8A/R6.2/baseline verdes; actor-writer-boundaries OK · bank-ledger-boundaries OK ·
+> regression-guards OK · arch `--strict` critical_new=0 · check:migrations 394/394 · tsc baseline 43; cartório
+> correto; **DT-mãe 0113 e parent canal-1 seguem OPEN**.
+>
+> **Warnings do reseal (follow-up não-bloqueante):** **W1** — negative-proof não reexecutado pela Yala (muta a
+> fonte temporariamente vs mandato READ-ONLY); validado estruturalmente pela Yala + já executado pela executora em
+> **pwsh 7 e Windows PowerShell 5.1**. **W2** — o caso E2E **D** prova alcançabilidade + gate de representação
+> intacto da canônica, mas **não** prova write canônico bem-sucedido (o ambiente efêmero é negado por RBAC
+> `publish_feed`); a intactness é sustentada por not-in-diff + guard + alcançabilidade. **W3** — working tree sujo
+> fora do material (docs/memorias/untracked/artefatos) → não é HOLD_WORKTREE_DIRTY.
+>
+> **Observação registrada (fora do escopo R8A):** `social-group.service.ts` ainda chama o método interno
+> `socialService.createPost`, porém com autoridade `globalUserId` **server-side** (não `actionContext`) — caller
+> interno confiável, **não** é regressão desta frente. Follow-up possível: retirada futura do método legado
+> interno `socialService.createPost`, sem tratar como regressão de R8A. Seal = docs-only; HEAD material permanece
+> `b5afc6bf`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Contenção **fail-closed (501 nomeado)** da rota LEGADA `POST /social/posts/create` (`modules/social/social.routes.ts`,
 montada no prefixo `/social` via `socialModule`), DECISION-0113 / DECISION-0131 §B7 / Z2. Decisão **A) CONTER**
 (não BIND, não religar) após READ-FIRST provar **zero caller vivo + dead-at-db**. A superfície viva é a canônica
@@ -98,7 +126,10 @@ NÃO fecha a DT-mãe 0113 nem o parent canal-1.
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. `R8A /social/posts/create` → **CONTAINED / HOLD YALA**.
-`DT-AUTHORITY-Z2-SOCIAL-LEGACY-POST-CREATE-UNBOUND` → **IMPLEMENTED_AS_CONTAINED / HOLD YALA**. DT-mãe
-`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` permanecem
-**OPEN**. Próximo passo: **Yala reseal**.
+**✅ CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-18 sobre commit material
+`b5afc6bf`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W3 + observação social-group
+registrados como follow-up não-bloqueante — ver bloco SEAL no topo). `R8A /social/posts/create legacy` →
+**CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**. `DT-AUTHORITY-Z2-SOCIAL-LEGACY-POST-CREATE-UNBOUND` →
+**CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**. **Não fecha remediação plena:** a DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e o parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
+permanecem **OPEN**. _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do reseal.)_
