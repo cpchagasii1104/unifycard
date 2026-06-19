@@ -368,7 +368,14 @@ const BASELINE = {
   // vinculados ao owner via guard dedicado audit-supplier-owner-authority.mjs (em validate:regression-guards).
   // O detector file-level já o eximia (stale_baseline). Removido como higiene honesta — se o binding sumir, o
   // guard dedicado falha. DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
-  'modules/marketplace/unifycard-method.routes.ts': C1,
+  // unifycard-method.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8Q, 2026-06-19): ÚLTIMA entrada do
+  // baseline → baseline canal-1 ZERA. MONEY-DEFERRED + SCHEMA-GHOST: tabela unifycard_payment_methods + enum
+  // unifycard_method_type só em migrations_archive/0142 (to_regclass/to_regtype=NULL no schema vivo) + defeito de
+  // unidade de fee não decidido (bps §4.8). As 3 rotas foram CONTIDAS (501 UNIFYCARD_METHOD_MONEY_DEFERRED_CONTAINED)
+  // antes de qualquer service/sink → o canal-1 (actionContext.actorId no POST) sumiu do arquivo. Guard dedicado:
+  // audit-unifycard-method-money-containment.mjs. Service/resolveFee/payment-execution/settlement INTOCADOS (dormant).
+  // NÃO corrige fee, NÃO migra bps (DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION OPEN). Se a contenção sumir, o guard
+  // falha E o arquivo re-flagga. DT-AUTHORITY-Z2-UNIFYCARD-METHOD-M5-MONEY-CONTAINMENT.
   // unifycard.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R4-MONEY-LATENT-CONTAINMENT):
   // as 3 rotas money-latent (authorize/capture/settle) foram REDUZIDAS a 403 fail-closed e não leem
   // mais actionContext.actorId. Guard próprio: audit-marketplace-money-latent-containment.mjs.

@@ -1,67 +1,35 @@
 // backend/src/modules/marketplace/unifycard-method.routes.ts
-// SPRINT 82: Rotas REST para UnifyCard Methods
+// 🔴 R8Q UNIFYCARD-METHOD M5 MONEY-AWARE CONTAINMENT (DECISION-0113 / Z2; norma 07_NOMENCLATURA_CANONICA §4.8 · 2026-06-19):
+// O trilho unifycard-method (config de adquirência: fees/settlement_days) está MONEY-DEFERRED e SCHEMA-GHOST:
+//   • a tabela `unifycard_payment_methods` e o enum `unifycard_method_type` existem só em migrations_archive/0142;
+//     no schema vivo to_regclass/to_regtype = NULL → toda rota era dead-at-db (POST/GET → 500).
+//   • o POST lia `actionContext.actorId` (canal-1) e o consumo de fee tem defeito de UNIDADE não decidido
+//     (unifycard.service: gross*0.0299=299¢ vs payment-execution.service: gross*(0.0299/100)=3¢). A correção
+//     canônica é bps INTEGER (_bps, §4.8), mas exige DECISION financeira própria — NÃO é feita aqui.
+// CONTENÇÃO money-aware: as 3 rotas retornam 501 `UNIFYCARD_METHOD_MONEY_DEFERRED_CONTAINED` ANTES de qualquer
+// service/repository/sink. NÃO corrige fee, NÃO migra bps, NÃO altera settlement/payment-execution/unifycard.service,
+// NÃO materializa schema, NÃO toca Bank/ledger. O service (incl. resolveFee, consumido pelo settlement DORMANT/
+// proxy-dead em payment-execution.service.ts:321) permanece INTOCADO. Guard: audit-unifycard-method-money-containment.mjs.
+// Reabrir exige: schema canônico + DECISION de unidade de fee (bps) + binding de autoridade — frente própria
+// (DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION, OPEN).
 
 import type { FastifyInstance } from 'fastify';
-import { unifyCardMethodService } from './unifycard-method.service';
-import type { CreateUnifyCardMethodInput } from './unifycard-method.types';
-import { BadRequestError, NotFoundError } from '@core/errors';
-import { ErrorCode } from '@core/errors/error-codes';
+
+const UNIFYCARD_METHOD_GHOST_BODY = {
+  ok: false,
+  error: 'UNIFYCARD_METHOD_MONEY_DEFERRED_CONTAINED',
+  code: 'UNIFYCARD_METHOD_MONEY_DEFERRED_CONTAINED',
+  message:
+    'UnifyCard acquiring-method configuration is disabled: its schema is ghost (unifycard_payment_methods/' +
+    'unifycard_method_type do not exist in the canonical schema) and its fee unit is an undecided money matter ' +
+    '(canonical = basis points / _bps INTEGER per 07_NOMENCLATURA_CANONICA §4.8). Reopening requires a canonical ' +
+    'schema + a fee-unit decision + server-side authority binding. No money is moved.',
+} as const;
 
 const unifyCardMethodRoutes = async (fastify: FastifyInstance) => {
-  /**
-   * POST /unifycard/methods
-   * Cria método de pagamento UnifyCard
-   */
-  // 🔴 DECISION-0113 fatia 3 (F3.1): criar método/config de adquirência (fees/settlement_days) é
-  // ação tenant/admin-level. Gate admin canônico (rbac.plugin já binda req.user via canRepresentActor
-  // na fatia 1) — usuário comum não configura adquirência. `actionContext.actorId` deixa de ser autoridade.
-  fastify.post<{ Body: CreateUnifyCardMethodInput }>(
-    '/unifycard/methods',
-    { preHandler: [fastify.requireRole(['admin'])] },
-    async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    if (!actionContext?.actorId) {
-      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
-    }
-
-    const method = await unifyCardMethodService.createMethod(
-      tenantId,
-      req.body,
-      actionContext.actorId
-    );
-
-    return reply.status(201).send(method);
-  });
-
-  /**
-   * GET /unifycard/methods
-   * Lista métodos UnifyCard
-   */
-  fastify.get('/unifycard/methods', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-
-    const methods = await unifyCardMethodService.listMethods(tenantId);
-
-    return reply.send({ methods, totalCents: methods.length });
-  });
-
-  /**
-   * GET /unifycard/methods/:type
-   * Busca método por tipo
-   */
-  fastify.get<{ Params: { type: string } }>('/unifycard/methods/:type', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-
-    const method = await unifyCardMethodService.getMethodByType(tenantId, req.params.type);
-
-    if (!method) {
-      throw new NotFoundError('Método não encontrado');
-    }
-
-    return reply.send(method);
-  });
+  fastify.post('/unifycard/methods', async (_req, reply) => reply.status(501).send(UNIFYCARD_METHOD_GHOST_BODY));
+  fastify.get('/unifycard/methods', async (_req, reply) => reply.status(501).send(UNIFYCARD_METHOD_GHOST_BODY));
+  fastify.get<{ Params: { type: string } }>('/unifycard/methods/:type', async (_req, reply) => reply.status(501).send(UNIFYCARD_METHOD_GHOST_BODY));
 };
 
 export default unifyCardMethodRoutes;
