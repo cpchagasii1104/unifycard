@@ -296,6 +296,13 @@ const BASELINE = {
   // POST/PATCH alerts + POST/cancel schedule) sumiu do arquivo. run-due preserva 403 AUTOMATION_RUN_DUE_HTTP_DISABLED
   // (guard R18). Guard dedicado: audit-automation-human-mvp-ghost-containment.mjs. scheduledActionService intocado
   // (dead; sem worker vivo). Se a contenção sumir, o guard falha E o arquivo re-flagga. DT-AUTHORITY-Z2-AUTOMATION-SCHEMA-GHOST.
+  // organizers/organizers.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8O, 2026-06-19): event-organizer
+  // authority BOUND — create/add-member/link-event derivam o subject de req.user server-side (resolveRequesterGlobalUserId
+  // → resolveGlobalUserId(req.user.id) → requesterGlobalUserId); hasPermission (owner_global_user_id / member role)
+  // gateia; actionContext.actorId não é mais autoridade. Billing schema-ghost (R8K) preservado (5×501 + webhook no-op);
+  // event-settlement intocado (linkEvent só seta events.organizer_id, não events.actor_id). Guard dedicado:
+  // audit-organizers-actor-authority-bind.mjs (morde se actionContext voltar / subject deixar de ser req.user /
+  // billing reabrir / tocar events.actor_id / bank_*). Se a proteção sumir, re-flagga. DT-AUTHORITY-Z2-ORGANIZER-EVENT-AUTHORITY.
   // event-rfq.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8I-MONEY-STALE-RECONCILE-WAVE, 2026-06-19):
   // STALE — W1-W5 BOUND (R7a, canRepresentActor/assertCanReadEventMoney) e W6 acceptQuote CONTIDO (R7b, hard-stop
   // 403 EVENT_RFQ_ACCEPT_QUOTE_CONTAINED antes de availability/booking/decision/payment_request). Guards dedicados
@@ -303,13 +310,9 @@ const BASELINE = {
   // que mordem se W6 reativar / W1-W5 perderem binding). Sem bank_* no arquivo. Reconcile de baseline (não-money-
   // movement); se a proteção sumir, o guard dedicado falha E o arquivo re-flagga. DECISION (redesign acceptQuote)
   // segue OPEN. DT-AUTHORITY-Z2-EVENT-RFQ-* + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
-  // organizers.routes.ts PERMANECE no baseline (PARTIAL) — F-AUTHORITY-Z2-R8K (2026-06-19): o cluster de
-  // subscription/billing (subscribe/cancel/subscribe-stripe/plan/subscription + webhook) foi CONTIDO (501
-  // ORGANIZER_BILLING_SCHEMA_GHOST_CONTAINED / webhook no-op ACK 200) por ser SCHEMA-GHOST + a rota cancel não ter
-  // autoridade; guard audit-organizer-billing-ghost-containment.mjs. Mas create/add-member/link-event ainda leem
-  // actionContext.actorId (canal-1 do core event-organizer, fora do escopo desta frente) → o arquivo segue flagged.
-  // Bind dessas rotas = frente própria futura (event-organizer authority). event-settlement canônico intocado.
-  'modules/events/organizers/organizers.routes.ts': C1,
+  // organizers.routes.ts: billing/subscription CONTIDO em R8K (5×501 + webhook no-op) e event-organizer authority
+  // (create/add-member/link-event) BOUND em R8O (subject=req.user→global_user_id) → arquivo FORA do baseline (ver
+  // bloco R8O acima). _(Histórico: PERMANECEU PARTIAL após R8K até o bind R8O.)_
   // human-mvp.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8N, 2026-06-19): SCHEMA-GHOST — todas as
   // tabelas human_mvp_*/skills/service_offers/opportunities ausentes (to_regclass=null); NÃO é a vertical G10 viva
   // (sem frontend caller; protótipo registrado sob /n). As 5 rotas POST foram CONTIDAS (501

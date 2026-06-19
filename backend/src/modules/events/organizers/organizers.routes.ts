@@ -25,6 +25,25 @@ const ORGANIZER_BILLING_GHOST_BODY = {
 } as const;
 
 const organizersRoutes: FastifyPluginAsync = async (fastify) => {
+  // 🔴 R8O canal-1 BIND (DECISION-0113 / Z2 · 2026-06-19): a autoridade de event-organizer é keyed por
+  // global_user_id (owner_global_user_id / event_organizer_members.role via hasPermission). O SUBJECT é o
+  // utilizador AUTENTICADO (req.user), resolvido server-side para global_user_id — NUNCA o actionContext.actorId
+  // client-declared (que era passado como requesterGlobalUserId, spoofável + semanticamente errado: actor id !=
+  // global user id). Helper compartilhado por create/add-member/link-event. event_organizers.actor_id é órfão/não
+  // usado pelo modelo; a autoridade real é o global_user_id. Guard: audit-organizers-actor-authority-bind.mjs.
+  const resolveRequesterGlobalUserId = async (req: any, reply: any): Promise<string | null> => {
+    if (!req.user?.id) {
+      reply.status(401).send({ error: 'ORGANIZER_ACTOR_AUTHORITY_REQUIRED', message: 'Não autenticado: subject server-side obrigatório' });
+      return null;
+    }
+    if (!req.tenant?.id) {
+      reply.status(400).send({ error: 'Tenant não encontrado' });
+      return null;
+    }
+    const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
+    return resolveGlobalUserId(req.user.id, req.tenant.id);
+  };
+
   /**
    * POST /events/organizers/create
    * Cria um novo organizador
@@ -51,18 +70,9 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
-      }
-
-      // ActionContext é obrigatório (V2)
-      if (!req.actionContext || !req.actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext obrigatório' });
-      }
-
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
-      }
+      // 🔴 R8O BIND: subject = req.user (server-side) → global_user_id; o organizer nasce owned pelo caller autenticado.
+      const requesterGlobalUserId = await resolveRequesterGlobalUserId(req, reply);
+      if (requesterGlobalUserId === null) return reply;
 
       try {
         const validated = createOrganizerSchema.parse(req.body);
@@ -85,9 +95,9 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         const organizer = await organizersService.createOrganizer(
-          req.tenant.id,
+          req.tenant!.id,
           validated,
-          req.actionContext.actorId
+          requesterGlobalUserId
         );
 
         return reply.status(201).send({
@@ -134,26 +144,17 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
-      }
-
-      // ActionContext é obrigatório (V2)
-      if (!req.actionContext || !req.actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext obrigatório' });
-      }
-
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
-      }
+      // 🔴 R8O BIND: subject = req.user (server-side) → global_user_id; addMember gateia via hasPermission(owner/admin).
+      const requesterGlobalUserId = await resolveRequesterGlobalUserId(req, reply);
+      if (requesterGlobalUserId === null) return reply;
 
       try {
         const validated = addMemberSchema.parse(req.body);
         const member = await organizersService.addMember(
-          req.tenant.id,
+          req.tenant!.id,
           req.params.id,
           validated,
-          req.actionContext.actorId
+          requesterGlobalUserId
         );
         return reply.status(201).send(member);
       } catch (error) {
@@ -195,26 +196,18 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
-      }
-
-      // ActionContext é obrigatório (V2)
-      if (!req.actionContext || !req.actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext obrigatório' });
-      }
-
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
-      }
+      // 🔴 R8O BIND: subject = req.user (server-side) → global_user_id; linkEvent gateia via hasPermission(organizer)
+      // + criador do evento. Só atualiza events.organizer_id — NÃO toca events.actor_id (event-settlement intocado).
+      const requesterGlobalUserId = await resolveRequesterGlobalUserId(req, reply);
+      if (requesterGlobalUserId === null) return reply;
 
       try {
         const validated = linkEventSchema.parse(req.body);
         await organizersService.linkEvent(
-          req.tenant.id,
+          req.tenant!.id,
           req.params.eventId,
           validated.organizerId,
-          req.actionContext.actorId
+          requesterGlobalUserId
         );
         return reply.status(200).send({ success: true, message: 'Evento vinculado ao organizador' });
       } catch (error) {
