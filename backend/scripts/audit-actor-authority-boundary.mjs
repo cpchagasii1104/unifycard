@@ -290,7 +290,12 @@ const BASELINE = {
   // Reconhecidos por SERVICE_BOUND_WRITERS (prova cross-file verificada em runtime); guard dedicado material:
   // audit-profile-c1-actor-binding.mjs (+ human-journey §7 cobre lifestyle). Se a prova sumir, voltam a flaggar
   // e FALHAM (fora do baseline). DT-AUTHORITY-Z2-PROFILE-C1-BASELINE-RECONCILIATION.
-  'modules/automation/automation.routes.ts': C1,
+  // automation.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8N, 2026-06-19): SCHEMA-GHOST — tabelas
+  // alerts/scheduled_actions ausentes (to_regclass=null). As 9 rotas de dados foram CONTIDAS (501
+  // AUTOMATION_SCHEMA_GHOST_CONTAINED) antes de qualquer service/sink → o canal-1 (actionContext.actorId em
+  // POST/PATCH alerts + POST/cancel schedule) sumiu do arquivo. run-due preserva 403 AUTOMATION_RUN_DUE_HTTP_DISABLED
+  // (guard R18). Guard dedicado: audit-automation-human-mvp-ghost-containment.mjs. scheduledActionService intocado
+  // (dead; sem worker vivo). Se a contenção sumir, o guard falha E o arquivo re-flagga. DT-AUTHORITY-Z2-AUTOMATION-SCHEMA-GHOST.
   // event-rfq.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8I-MONEY-STALE-RECONCILE-WAVE, 2026-06-19):
   // STALE — W1-W5 BOUND (R7a, canRepresentActor/assertCanReadEventMoney) e W6 acceptQuote CONTIDO (R7b, hard-stop
   // 403 EVENT_RFQ_ACCEPT_QUOTE_CONTAINED antes de availability/booking/decision/payment_request). Guards dedicados
@@ -305,7 +310,13 @@ const BASELINE = {
   // actionContext.actorId (canal-1 do core event-organizer, fora do escopo desta frente) → o arquivo segue flagged.
   // Bind dessas rotas = frente própria futura (event-organizer authority). event-settlement canônico intocado.
   'modules/events/organizers/organizers.routes.ts': C1,
-  'modules/human-mvp/human-mvp.routes.ts': C1,
+  // human-mvp.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8N, 2026-06-19): SCHEMA-GHOST — todas as
+  // tabelas human_mvp_*/skills/service_offers/opportunities ausentes (to_regclass=null); NÃO é a vertical G10 viva
+  // (sem frontend caller; protótipo registrado sob /n). As 5 rotas POST foram CONTIDAS (501
+  // HUMAN_MVP_SCHEMA_GHOST_CONTAINED) antes de qualquer service/sink → o canal-1 (actionContext.actorId em
+  // POST /skills) sumiu do arquivo. Guard dedicado: audit-automation-human-mvp-ghost-containment.mjs. Services
+  // intocados (dead). Reabrir como produto vivo exige schema + decisão G10 + binding. Se a contenção sumir, o guard
+  // falha E o arquivo re-flagga. DT-AUTHORITY-Z2-HUMAN-MVP-SCHEMA-GHOST.
   // accounts-payable.routes.ts + accounts-receivable.routes.ts REMOVIDOS do baseline canal-1
   // (F-AUTHORITY-Z2-R8H-AP-AR-REACTIVATION-TRAP-CONTAINMENT, 2026-06-19): AP/AR migrados para o Bank (service =
   // Proxy reject-all; tabelas accounts_payable/accounts_receivable schema-ghost, to_regclass=null). As rotas
