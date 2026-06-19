@@ -283,6 +283,12 @@ const BASELINE = {
   // que mordem se W6 reativar / W1-W5 perderem binding). Sem bank_* no arquivo. Reconcile de baseline (não-money-
   // movement); se a proteção sumir, o guard dedicado falha E o arquivo re-flagga. DECISION (redesign acceptQuote)
   // segue OPEN. DT-AUTHORITY-Z2-EVENT-RFQ-* + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
+  // organizers.routes.ts PERMANECE no baseline (PARTIAL) — F-AUTHORITY-Z2-R8K (2026-06-19): o cluster de
+  // subscription/billing (subscribe/cancel/subscribe-stripe/plan/subscription + webhook) foi CONTIDO (501
+  // ORGANIZER_BILLING_SCHEMA_GHOST_CONTAINED / webhook no-op ACK 200) por ser SCHEMA-GHOST + a rota cancel não ter
+  // autoridade; guard audit-organizer-billing-ghost-containment.mjs. Mas create/add-member/link-event ainda leem
+  // actionContext.actorId (canal-1 do core event-organizer, fora do escopo desta frente) → o arquivo segue flagged.
+  // Bind dessas rotas = frente própria futura (event-organizer authority). event-settlement canônico intocado.
   'modules/events/organizers/organizers.routes.ts': C1,
   'modules/human-mvp/human-mvp.routes.ts': C1,
   // accounts-payable.routes.ts + accounts-receivable.routes.ts REMOVIDOS do baseline canal-1
@@ -315,7 +321,13 @@ const BASELINE = {
   // as 3 rotas money-latent de mutação (settle/credit/debit) foram REDUZIDAS a 403 fail-closed e não
   // leem mais actionContext.actorId — o canal-1 desapareceu do arquivo. Guard próprio:
   // audit-marketplace-money-latent-containment.mjs. DT-AUTHORITY-Z2-MARKETPLACE-MONEY-LATENT-ACTORID-UNBOUND.
-  'modules/marketplace/store-onboarding.routes.ts': C1,
+  // store-onboarding.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8K, 2026-06-19): catálogo non-money
+  // BOUND — o write de product_offers (merchant_id) agora exige canRepresentActor(tenantId, req.user, storeActorId)
+  // fail-closed 403 STORE_ONBOARDING_ACTOR_AUTHORITY_REQUIRED ANTES da escrita; data.actorId (body) é só HINT
+  // validado. requirePermission (papel) preservado; category guard DECISION-0108 preservado; price_cents BIGINT;
+  // zero bank_*. Guard dedicado: audit-store-onboarding-actor-bind.mjs (morde se canRepresentActor/subject=req.user/
+  // fail-closed sumir). Se a proteção sumir, o guard falha E o arquivo re-flagga. DT-AUTHORITY-Z2-STORE-ONBOARDING-
+  // CATALOG-ACTOR-UNBOUND + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   // tax-profile.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8E-REMAINING-CANAL1-TRIAGE-WAVE,
   // 2026-06-18): a tabela `tax_profiles` é SCHEMA-GHOST (CREATE TABLE só em migrations_archive/0072; ausente do
   // schema canônico e de unificard_dev — to_regclass=null) e zero caller; tax-profile é metadado fiscal, NÃO

@@ -9,6 +9,7 @@ import { listVisibleProducts } from './product-visibility.service';
 import type { StoreOnboardingInput } from './store-onboarding.types';
 import type { BusinessAction } from '@core/authorization/business-permissions.types';
 import { businessAuthorizationService } from '@core/authorization/business-authorization.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { AppError, BadRequestError, UnauthorizedError, ForbiddenError, InternalServerError } from '@core/errors';
 import { ErrorCode } from '@core/errors/error-codes';
 import type { ActorRow } from '@modules/social/actor.repository';
@@ -182,9 +183,30 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
 
       try {
         const data = validationResult.data;
+        // 🔴 R8K canal-1 BIND (DECISION-0113 / Z2): data.actorId (body) é APENAS um HINT do store/merchant actor.
+        // O caller (req.user) DEVE provar que pode representar esse actor ANTES de qualquer escrita de catálogo
+        // (product_offers.merchant_id = este actor). Sem isto, qualquer user autorizado no tenant criaria ofertas
+        // para QUALQUER store actor (canal-1: body governa o merchant). requirePermission (legado) checa o papel do
+        // caller, mas NÃO prova representação do actor-alvo — por isso o canRepresentActor fail-closed 403 aqui.
+        const boundStoreActorId = data.actorId ?? importerActorId;
+        const subjectUserId = req.user?.id;
+        if (!subjectUserId) {
+          throw new UnauthorizedError('Não autenticado');
+        }
+        const canRepresentStore = await authorizationService.canRepresentActor(
+          tenantId,
+          subjectUserId,
+          boundStoreActorId
+        );
+        if (!canRepresentStore) {
+          throw new ForbiddenError(
+            'STORE_ONBOARDING_ACTOR_AUTHORITY_REQUIRED: caller não pode representar o store/merchant actor informado',
+            ErrorCode.FORBIDDEN
+          );
+        }
         const input: StoreOnboardingInput = {
-          // C51 fix: usar importerActorId (actor_id real) como fallback, não userId
-          actorId: data.actorId ?? importerActorId,
+          // canal-1 BIND R8K: usa o store actor PROVADO representável (data.actorId hint validado ou importerActorId).
+          actorId: boundStoreActorId,
           hasOwnProducts: data.hasOwnProducts,
           defaultCostPrice: data.defaultCostPrice,
           defaultSalePrice: data.defaultSalePrice,

@@ -1,17 +1,28 @@
 // src/modules/events/organizers/organizers.routes.ts
 import { FastifyPluginAsync } from 'fastify';
-import { runQueryWithTenant, pool } from '@core/database/pool';
 import { organizersService } from './organizers.service';
 import { organizerPlansService } from './organizer-plans.service';
-import { organizerBillingService } from './organizer-billing.service';
-import { stripeService } from './stripe.service';
 import { createOrganizerSchema, addMemberSchema, linkEventSchema } from './organizers.schemas';
-import Stripe from 'stripe';
 
-// Interface estendida para Stripe.Invoice com subscription (propriedade presente em runtime mas não tipada)
-interface ExtendedStripeInvoice extends Stripe.Invoice {
-  subscription: string | Stripe.Subscription | null;
-}
+// 🔴 R8K ORGANIZER BILLING/SUBSCRIPTION SCHEMA-GHOST CONTAINMENT (DECISION-0113 / Z2 · 2026-06-19):
+// O substrato de billing do organizer é SCHEMA-GHOST: as colunas event_organizers.plan / plan_expires_at NÃO
+// existem (migration archive 0217 nunca aplicada) e organizer_subscriptions tem schema canônico DIFERENTE do que
+// organizer-billing.service escreve (current_period_*/payment_gateway*/canceled_at ausentes). Logo subscribe/
+// cancel/subscribe-stripe/webhook escreviam em colunas inexistentes (42703/dead) e /:id/subscription/cancel NÃO
+// tinha autoridade alguma (qualquer user do tenant cancelava qualquer organizer). CONTENÇÃO decision-neutral: as
+// mutações de subscription/billing retornam 501 ORGANIZER_BILLING_SCHEMA_GHOST_CONTAINED antes de qualquer service/
+// sink; o webhook Stripe vira no-op 200 (não escreve ghost e não dispara retry storm da Stripe). NÃO decide SaaS-vs-
+// split (DECISION própria futura), NÃO toca Bank/ledger, NÃO toca event-settlement canônico (events.actor_id +
+// canRepresentActor). Reabrir billing exige schema canônico + decisão de produto + binding de autoridade.
+const ORGANIZER_BILLING_GHOST_BODY = {
+  error: 'ORGANIZER_BILLING_SCHEMA_GHOST_CONTAINED',
+  code: 'ORGANIZER_BILLING_SCHEMA_GHOST_CONTAINED',
+  message:
+    'Organizer subscription/billing is disabled: its schema is ghost (the organizer plan/expiry and billing ' +
+    'columns do not exist in the canonical schema). Reopening requires a canonical schema + a product decision ' +
+    '(SaaS vs event-split) + server-side authority binding. No money is moved.',
+  decision: 'DECISION-0113',
+} as const;
 
 const organizersRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -325,49 +336,9 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
     Params: { id: string };
   }>(
     '/:id/plan',
-    async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
-      }
-
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
-      }
-
-      try {
-        const organizer = await organizersService.getOrganizer(req.tenant.id, req.params.id);
-        if (!organizer) {
-          return reply.status(404).send({ error: 'Organizador não encontrado' });
-        }
-
-        // Buscar plano atual
-        const organizerRow = await runQueryWithTenant<{
-          plan: string;
-          plan_expires_at: Date | null;
-        }>(
-          req.tenant.id,
-          `
-          SELECT plan, plan_expires_at
-          FROM event_organizers
-          WHERE id = $1
-          `,
-          [req.params.id]
-        );
-
-        const plan = (organizerRow?.plan || 'free') as 'free' | 'basic' | 'pro' | 'enterprise';
-        const planInfo = organizerPlansService.getPlanInfo(plan);
-
-        return {
-          plan,
-          planInfo,
-          expiresAt: organizerRow?.plan_expires_at || null,
-          isExpired: organizerRow?.plan_expires_at ? organizerRow.plan_expires_at < new Date() : false,
-        };
-      } catch (error) {
-        fastify.log.error({ err: error }, 'Erro ao buscar plano do organizador');
-        return reply.status(500).send({ error: 'Erro ao buscar plano' });
-      }
-    }
+    // 🔴 R8K: lê event_organizers.plan/plan_expires_at — colunas SCHEMA-GHOST (não existem). Contida (501),
+    // consistente com o cluster billing. GET /plans (catálogo estático) segue ativo. Reabrir exige schema + decisão.
+    async (_req, reply) => reply.status(501).send(ORGANIZER_BILLING_GHOST_BODY)
   );
 
   /**
@@ -384,53 +355,8 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
     };
   }>(
     '/:id/subscribe',
-    async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
-      }
-
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
-      }
-
-      try {
-        // Verificar se usuário tem permissão no organizador
-        const organizer = await organizersService.getOrganizer(req.tenant.id, req.params.id);
-        if (!organizer) {
-          return reply.status(404).send({ error: 'Organizador não encontrado' });
-        }
-
-        // Verificar se é owner ou admin
-        // ActionContext é obrigatório (V2)
-        if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
-        }
-
-        const hasPermission = await organizersService.hasPermission(
-          req.tenant.id,
-          req.params.id,
-          req.actionContext.actorId,
-          ['owner', 'admin']
-        );
-
-        if (!hasPermission) {
-          return reply.status(403).send({ error: 'Sem permissão para gerenciar assinatura' });
-        }
-
-        const subscription = await organizerBillingService.createSubscription(req.tenant.id, {
-          organizerId: req.params.id,
-          plan: req.body.plan,
-          paymentGateway: req.body.paymentGateway,
-          paymentGatewayCustomerId: req.body.paymentGatewayCustomerId,
-          paymentGatewaySubscriptionId: req.body.paymentGatewaySubscriptionId,
-        });
-
-        return reply.status(201).send(subscription);
-      } catch (error) {
-        fastify.log.error({ err: error }, 'Erro ao criar assinatura');
-        return reply.status(500).send({ error: 'Erro ao criar assinatura' });
-      }
-    }
+    // 🔴 R8K: billing schema-ghost → contido (501) antes de qualquer service/sink. Ver ORGANIZER_BILLING_GHOST_BODY.
+    async (_req, reply) => reply.status(501).send(ORGANIZER_BILLING_GHOST_BODY)
   );
 
   /**
@@ -444,28 +370,9 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
     };
   }>(
     '/:id/subscription/cancel',
-    async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
-      }
-
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
-      }
-
-      try {
-        await organizerBillingService.cancelSubscription(
-          req.tenant.id,
-          req.params.id,
-          req.body.cancelAtPeriodEnd !== false
-        );
-
-        return reply.status(200).send({ success: true });
-      } catch (error) {
-        fastify.log.error({ err: error }, 'Erro ao cancelar assinatura');
-        return reply.status(500).send({ error: 'Erro ao cancelar assinatura' });
-      }
-    }
+    // 🔴 R8K: billing schema-ghost + esta rota NÃO tinha autoridade (qualquer user do tenant cancelava qualquer
+    // organizer). Contido (501) antes de qualquer service/sink. Reabrir exige schema + decisão + binding.
+    async (_req, reply) => reply.status(501).send(ORGANIZER_BILLING_GHOST_BODY)
   );
 
   /**
@@ -476,31 +383,9 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
     Params: { id: string };
   }>(
     '/:id/subscription',
-    async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
-      }
-
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
-      }
-
-      try {
-        const subscription = await organizerBillingService.getActiveSubscription(
-          req.tenant.id,
-          req.params.id
-        );
-
-        if (!subscription) {
-          return reply.status(404).send({ error: 'Assinatura ativa não encontrada' });
-        }
-
-        return subscription;
-      } catch (error) {
-        fastify.log.error({ err: error }, 'Erro ao buscar assinatura');
-        return reply.status(500).send({ error: 'Erro ao buscar assinatura' });
-      }
-    }
+    // 🔴 R8K: leitura de assinatura também é schema-ghost (getActiveSubscription consulta colunas inexistentes de
+    // organizer_subscriptions). Contida (501) — consistente com o cluster billing. Reabrir exige schema + decisão.
+    async (_req, reply) => reply.status(501).send(ORGANIZER_BILLING_GHOST_BODY)
   );
 
   /**
@@ -517,266 +402,24 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
     };
   }>(
     '/:id/subscribe/stripe',
-    async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
-      }
-
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
-      }
-
-      try {
-        const organizer = await organizersService.getOrganizer(req.tenant.id, req.params.id);
-        if (!organizer) {
-          return reply.status(404).send({ error: 'Organizador não encontrado' });
-        }
-
-        // ActionContext é obrigatório (V2)
-        if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
-        }
-
-        const hasPermission = await organizersService.hasPermission(
-          req.tenant.id,
-          req.params.id,
-          req.actionContext.actorId,
-          ['owner', 'admin']
-        );
-
-        if (!hasPermission) {
-          return reply.status(403).send({ error: 'Sem permissão para gerenciar assinatura' });
-        }
-
-        // ActionContext é obrigatório (V2)
-        if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
-        }
-
-        const customer = await stripeService.createCustomer({
-          email: req.body.email,
-          name: req.body.name,
-
-          metadata: {
-            organizerId: req.params.id,
-            tenantId: req.tenant.id,
-            globalUserId: req.actionContext.actorId, // TODO: Resolver globalUserId a partir do actorId se necessário
-          },
-        });
-
-        const priceId = stripeService.getStripePriceId(req.body.plan);
-        if (!priceId) {
-          return reply.status(400).send({ error: 'Plano inválido ou não configurado' });
-        }
-
-        const stripeSubscription = await stripeService.createSubscription({
-          customerId: customer.id,
-          priceId,
-          metadata: {
-            organizerId: req.params.id,
-            tenantId: req.tenant.id,
-          },
-        });
-
-        const subscription = await organizerBillingService.createSubscription(req.tenant.id, {
-          organizerId: req.params.id,
-          plan: req.body.plan,
-          paymentGateway: 'stripe',
-          paymentGatewayCustomerId: customer.id,
-          paymentGatewaySubscriptionId: stripeSubscription.id,
-        });
-
-        return reply.status(201).send({
-          subscription,
-          clientSecret: (stripeSubscription.latest_invoice as any)?.payment_intent?.client_secret,
-        });
-      } catch (error) {
-        fastify.log.error({ err: error }, 'Erro ao criar assinatura Stripe');
-        return reply.status(500).send({ error: 'Erro ao criar assinatura' });
-      }
-    }
+    // 🔴 R8K: billing schema-ghost → contido (501) antes de Stripe/service/sink. Reabrir exige schema + decisão + binding.
+    async (_req, reply) => reply.status(501).send(ORGANIZER_BILLING_GHOST_BODY)
   );
 
   /**
    * POST /events/organizers/webhooks/stripe
-   * Webhook do Stripe para eventos de pagamento
+   * 🔴 R8K: o billing é schema-ghost; os handlers do webhook (renew/update subscription) escreviam em colunas
+   * inexistentes (dead) e, retornando não-2xx, disparavam retry storm da Stripe (até 3 dias). CONTIDO como no-op
+   * OBSERVÁVEL: ACK 200 (Stripe para de reenviar), NÃO verifica assinatura para mutar (nada muta), NÃO chama
+   * nenhum handler de billing, ZERO escrita. Reabrir exige schema canônico + decisão de produto + binding.
    */
   fastify.post('/webhooks/stripe', async (req, reply) => {
-    const signature = req.headers['stripe-signature'] as string;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    if (!webhookSecret) {
-      fastify.log.warn('STRIPE_WEBHOOK_SECRET não configurado');
-      return reply.status(400).send({ error: 'Webhook não configurado' });
-    }
-
-    try {
-      const event = stripeService.verifyWebhookSignature(
-        JSON.stringify(req.body),
-        signature,
-        webhookSecret
-      );
-
-      fastify.log.info({ eventType: event.type }, 'Webhook Stripe recebido');
-
-      switch (event.type) {
-        case 'invoice.payment_succeeded':
-          await handleInvoicePaymentSucceeded(fastify, event);
-          break;
-        case 'invoice.payment_failed':
-          await handleInvoicePaymentFailed(fastify, event);
-          break;
-        case 'customer.subscription.deleted':
-          await handleSubscriptionDeleted(fastify, event);
-          break;
-        case 'customer.subscription.updated':
-          await handleSubscriptionUpdated(fastify, event);
-          break;
-        default:
-          fastify.log.debug({ eventType: event.type }, 'Evento Stripe ignorado');
-      }
-
-      return reply.status(200).send({ received: true });
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao processar webhook Stripe');
-      return reply.status(400).send({ error: 'Webhook inválido' });
-    }
+    fastify.log.info(
+      { event: 'organizer_stripe_webhook_contained', code: 'ORGANIZER_BILLING_SCHEMA_GHOST_CONTAINED' },
+      'Webhook Stripe de organizer contido (billing schema-ghost): no-op, ACK 200, zero escrita'
+    );
+    return reply.status(200).send({ received: true, contained: 'ORGANIZER_BILLING_SCHEMA_GHOST_CONTAINED' });
   });
 };
 
-async function handleInvoicePaymentSucceeded(fastify: any, event: Stripe.Event) {
-  const invoice = event.data.object as ExtendedStripeInvoice;
-  const subscriptionId = typeof invoice.subscription === 'string' 
-    ? invoice.subscription 
-    : (invoice.subscription && typeof invoice.subscription === 'object' && 'id' in invoice.subscription)
-      ? (invoice.subscription as Stripe.Subscription).id
-      : null;
-
-  if (!subscriptionId) return;
-
-  const result = await pool.query<{
-    id: string;
-    tenant_id: string;
-    organizer_id: string;
-  }>(
-    `
-    SELECT id, tenant_id, organizer_id
-    FROM organizer_subscriptions
-    WHERE payment_gateway_subscription_id = $1
-    LIMIT 1
-    `,
-    [subscriptionId]
-  );
-
-  const subscription = result.rows[0];
-
-  if (!subscription) {
-    fastify.log.warn({ subscriptionId }, 'Assinatura não encontrada para invoice pago');
-    return;
-  }
-
-  await organizerBillingService.renewSubscription(subscription.tenant_id, subscription.id);
-  fastify.log.info({ subscriptionId: subscription.id }, 'Assinatura renovada via webhook');
-}
-
-async function handleInvoicePaymentFailed(fastify: any, event: Stripe.Event) {
-  const invoice = event.data.object as ExtendedStripeInvoice;
-  const subscriptionId = typeof invoice.subscription === 'string' 
-    ? invoice.subscription 
-    : (invoice.subscription && typeof invoice.subscription === 'object' && 'id' in invoice.subscription)
-      ? (invoice.subscription as Stripe.Subscription).id
-      : null;
-
-  if (!subscriptionId) return;
-
-  const result = await pool.query<{
-    id: string;
-    tenant_id: string;
-  }>(
-    `
-    SELECT id, tenant_id
-    FROM organizer_subscriptions
-    WHERE payment_gateway_subscription_id = $1
-    LIMIT 1
-    `,
-    [subscriptionId]
-  );
-
-  const subscription = result.rows[0];
-
-  if (!subscription) return;
-
-  await organizerBillingService.updateSubscriptionStatus(
-    subscription.tenant_id,
-    subscription.id,
-    'past_due'
-  );
-  fastify.log.warn({ subscriptionId: subscription.id }, 'Assinatura marcada como past_due');
-}
-
-async function handleSubscriptionDeleted(fastify: any, event: Stripe.Event) {
-  const stripeSubscription = event.data.object as Stripe.Subscription;
-
-  const result = await pool.query<{
-    id: string;
-    tenant_id: string;
-  }>(
-    `
-    SELECT id, tenant_id
-    FROM organizer_subscriptions
-    WHERE payment_gateway_subscription_id = $1
-    LIMIT 1
-    `,
-    [stripeSubscription.id]
-  );
-
-  const subscription = result.rows[0];
-
-  if (!subscription) return;
-
-  await organizerBillingService.updateSubscriptionStatus(
-    subscription.tenant_id,
-    subscription.id,
-    'canceled'
-  );
-  fastify.log.info({ subscriptionId: subscription.id }, 'Assinatura cancelada via webhook');
-}
-
-async function handleSubscriptionUpdated(fastify: any, event: Stripe.Event) {
-  const stripeSubscription = event.data.object as Stripe.Subscription;
-
-  const result = await pool.query<{
-    id: string;
-    tenant_id: string;
-  }>(
-    `
-    SELECT id, tenant_id
-    FROM organizer_subscriptions
-    WHERE payment_gateway_subscription_id = $1
-    LIMIT 1
-    `,
-    [stripeSubscription.id]
-  );
-
-  const subscription = result.rows[0];
-
-  if (!subscription) return;
-
-  const currentPeriodEnd = (stripeSubscription as any).current_period_end;
-  if (currentPeriodEnd && typeof currentPeriodEnd === 'number') {
-    await runQueryWithTenant(
-      subscription.tenant_id,
-      `
-      UPDATE organizer_subscriptions
-      SET current_period_end = $1, updated_at = now()
-      WHERE id = $2
-      `,
-      [new Date(currentPeriodEnd * 1000), subscription.id]
-    );
-  }
-}
-
 export default organizersRoutes;
-
-
-
