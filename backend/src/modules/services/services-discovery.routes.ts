@@ -244,46 +244,28 @@ const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.post('/request/pay', async (req, reply) => {
-    // DECISION-0110: pagamento DIRETO legado (sem escrow/split) é proibido no canônico (D2) — fail-closed
-    // (firewall ANTES de qualquer lógica; não move dinheiro). Destino do trilho (aposentar/flagar) é frente própria.
+  fastify.post('/request/pay', async (_req, reply) => {
+    // 🔴 R8J SERVICES-DISCOVERY DIRECT-PAY RETIREMENT (DECISION-0110 D2 · 2026-06-19):
+    // (1) firewall geral (default OFF) PRESERVADO — consistência com as demais rotas financeiras de serviço.
     if (!isServiceFinancialRuntimeEnabled()) {
       return reply.status(403).send(serviceFinancialDisabledBody('POST /services/request/pay'));
     }
-    if (!req.actionContext?.actorId) {
-      return reply.status(400).send({ error: 'ActionContext obrigatório' });
-    }
-    if (!req.tenant?.id) {
-      return reply.status(400).send({ error: 'Tenant not found' });
-    }
-
-    let payBody: PayRequestParsed;
-    try {
-      payBody = payRequestBodySchema.parse(req.body) as PayRequestParsed;
-    } catch (e) {
-      if (e instanceof ZodError) {
-        return zodBadRequest(reply, e);
-      }
-      throw e;
-    }
-
-    try {
-      const data = await servicesDiscoveryService.payAcceptedRequest(
-        req.tenant.id,
-        req.actionContext.actorId,
-        payBody
-      );
-      return reply.send({ ok: true, data });
-    } catch (err) {
-      fastify.log.error({ err }, 'services-discovery pay');
-      if (err instanceof AppError) {
-        return reply.status(err.statusCode).send({ error: err.message });
-      }
-      return reply.status(400).send({
-        error: 'Erro ao pagar pedido',
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
+    // (2) Mesmo com o firewall ON, o pagamento DIRETO legado está APOSENTADO INCONDICIONALMENTE: o trilho
+    // payAcceptedRequest → bankTx.createSimpleTransaction → bank_ledger/bank_transactions está FORA da política
+    // canônica (DECISION-0110 D2) e lia actionContext.actorId (client-declared) SEM canRepresentActor antes do
+    // sink. Esta rota NUNCA mais alcança payAcceptedRequest: o canal-1 (actionContext.actorId), o parse do body
+    // e a chamada ao sink foram REMOVIDOS do handler. Flipar o firewall NÃO reabre o trilho direto — reabertura
+    // exige a cadeia canônica D1-D7/D8 (pré-pago→escrow→intent→split→approval→KYB→release) em frente própria.
+    // payAcceptedRequest permanece no service, intocado e INALCANÇÁVEL por esta rota. Ver DECISION-0110/0111/0128.
+    return reply.status(403).send({
+      error: 'SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110',
+      code: 'SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110',
+      message:
+        'Direct service pay (POST /services/request/pay) is retired by DECISION-0110 D2 (legacy direct trail, ' +
+        'out of canonical policy). Reopening requires the canonical financial chain (escrow/intent/split/approval/' +
+        'KYB/release) in its own front, not the firewall flag.',
+      decision: 'DECISION-0110',
+    });
   });
 
   fastify.post('/request/respond', async (req, reply) => {

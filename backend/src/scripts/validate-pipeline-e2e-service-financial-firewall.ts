@@ -89,6 +89,15 @@ async function main(): Promise<void> {
       body?.error !== 'SERVICE_FINANCIAL_RUNTIME_DISABLED' && resp.statusCode >= 400,
       `status=${resp.statusCode} body=${resp.body.slice(0, 120)}`);
   }
+  // ═══ R8J: /request/pay APOSENTADO (DECISION-0110 D2) — mesmo com firewall ON, 403 RETIRED, NUNCA payAcceptedRequest ═══
+  {
+    const resp = await appOn.inject({ method: 'POST', url: '/request/pay', payload: { requestId: '00000000-0000-0000-0000-000000000001' } });
+    let body: any = {};
+    try { body = JSON.parse(resp.body); } catch { /* noop */ }
+    record('R8J POST /request/pay (flag ON) → 403 SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110 (firewall ON NÃO reabre o trilho direto)',
+      resp.statusCode === 403 && body?.error === 'SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110' && body?.decision === 'DECISION-0110',
+      `status=${resp.statusCode} body=${resp.body.slice(0, 140)}`);
+  }
   await appOn.close();
   // restaura OFF (não vaza o flag)
   delete process.env[SERVICE_FINANCIAL_RUNTIME_FLAG];
