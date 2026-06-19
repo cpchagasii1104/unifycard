@@ -1,5 +1,36 @@
 # 2026-06-18 — R8D SOCIAL-MARKETPLACE-REF — SCHEMA-GHOST CONTAINMENT (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-18, sobre commit material `c334cabc`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL** (CLOSED_AS_CONTAINED,
+> NÃO `CLOSED` simples — não remedia a feature `social_marketplace_refs` funcionalmente; apenas contém rotas
+> mortas por schema-ghost; e **NÃO** fecha a DT-mãe 0113 nem o parent canal-1). Yala confirmou materialmente:
+> HEAD c334cabc · branch rescue-structural · check:migrations 394/394 · diff de 9 arquivos; sem migration/schema;
+> sem Bank/Core/ledger/splits/payout/recovery; sem RBAC/FASE 6; sem actor_delegations/R2; sem R7b/R8A/R8B/R8C/
+> social-legacy/profile-c1/system-notifications; frontend intocado; sibling marketplace-refs (feature diferente)
+> não alterado; service/repo/types ficaram como dead code residual; as 3 rotas permanecem registradas;
+> `actionContext.actorId` era **só breadcrumb de auditoria** no source pré-diff (em `auditService.record` low
+> severity/non-blocking try/catch; `createRef(tenantId, req.body)` nunca recebia o actor → não governava o sink);
+> **`social_marketplace_refs` confirmado como SCHEMA-GHOST** (`SELECT to_regclass('public.social_marketplace_refs')
+> = NULL`; sem CREATE TABLE canônico; só em `migrations_archive/0759`; INSERT/SELECT/DELETE dariam 42P01; bind não
+> resolveria; migration fora de escopo, não criada → **CONTAIN correto**); as 3 rotas retornam **501
+> `SOCIAL_MARKETPLACE_REF_SCHEMA_GHOST_CONTAINED`** ANTES de qualquer service/DB; sem `actionContext.actorId`/
+> `auditService.record`/`createRef`/repository/write/read/delete/referência à tabela ghost no route file; o
+> frontend ainda chama as 3 rotas, mas antes era 500/42P01 e agora **falha honestamente com 501**; guard material
+> confirmado; **E2E DB-free 5/5 rodado pela Yala**; baseline reduzido honestamente (**flagged 15→14 · baseline
+> 22→21 · new=0**); actor-authority-boundary OK · actor-writer-boundaries OK · bank-ledger-boundaries OK ·
+> regression-guards OK · arch `--strict` critical_new=0 · tsc baseline 43; cartório correto; **DT-mãe 0113 e
+> parent canal-1 seguem OPEN**.
+>
+> **Warnings do reseal (follow-up não-bloqueante):** **W1** — negative-proof não reexecutado pela Yala (muta a
+> source); validado estruturalmente pela Yala + executora declarou execução em **pwsh 7 e Windows PowerShell 5.1**.
+> **W2** — working tree sujo fora do material (docs/memorias/untracked/artefatos) → não é HOLD_WORKTREE_DIRTY.
+>
+> **Residual/follow-up registrado (NÃO executar agora):** se a feature `social_marketplace_refs` for revivida —
+> materializar substrato canônico; decidir modelo de autoria/ownership (possivelmente post-owner); decidir se o
+> DDL arquivado em `migrations_archive/0759` vira migration viva; criar binding canônico com `canRepresentActor`;
+> remover/reabilitar service/repo/types dead code; criar E2E cross-actor + guard + negative-proof; fazer Yala
+> reseal. Seal = docs-only; HEAD material permanece `c334cabc`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Auditoria da superfície `social-marketplace-ref` (DECISION-0113 / DECISION-0131 §B7 / Z2), classificada no R8 como
 "contenção simples possível: write existe, actor aparentemente é breadcrumb, não toca Bank". O READ-FIRST/PROVA
 confirmou **duas** coisas: (1) o `actionContext.actorId` é apenas **breadcrumb de auditoria** (o write nunca
@@ -77,10 +108,15 @@ registradas) · NÃO fecha DT-mãe 0113 nem parent canal-1.
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. `social-marketplace-ref schema-ghost` → **CONTAINED / HOLD YALA**.
-`DT-AUTHORITY-Z2-SOCIAL-MARKETPLACE-REF` → **IMPLEMENTED_AS_CONTAINED / HOLD YALA**. DT-mãe
-`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
+**✅ CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-18 sobre commit material
+`c334cabc`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W2 + residual registrados como
+follow-up não-bloqueante — ver bloco SEAL no topo). `R8D social-marketplace-ref schema-ghost` →
+**CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**. `DT-AUTHORITY-Z2-SOCIAL-MARKETPLACE-REF` →
+**CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL**. **CLOSED_AS_CONTAINED ≠ remediação funcional:** não
+materializa/redesenha a feature — apenas contém rotas mortas por schema-ghost; a DT-mãe
+`DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e o parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
 permanecem **OPEN** (parent encolheu 22→21). **Residual (follow-up, fora do escopo):** materializar o substrato
-`social_marketplace_refs` (DDL em migrations_archive/0759) + decidir o modelo de autoria (post-owner?) + binding
-canônico + remoção/reabilitação do service/repo dead-code, se a feature for revivida — frente própria. Próximo
-passo: **Yala reseal**.
+`social_marketplace_refs` (DDL em migrations_archive/0759) + decidir o modelo de autoria/ownership (post-owner?) +
+binding canônico (canRepresentActor) + remoção/reabilitação do service/repo/types dead-code + E2E cross-actor/
+guard/negative-proof, se a feature for revivida — frente própria. _(Histórico: 🟡 IMPLEMENTED / HOLD YALA antes do
+reseal.)_
