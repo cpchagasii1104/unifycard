@@ -209,7 +209,6 @@ const C1_MONEY = 'canal-1 actionContext.actorId SEM binding em superfície MONEY
 // (cria availability+booking+service_booking_decision+service_payment_request PENDING) → frente própria R7b.
 // O baseline é file-level e não isola W6; remover mascararia W6 como resolvido (proibido).
 const C1_RFQ_W6 = 'canal-1 actionContext.actorId — W1-W5 VINCULADAS por R7a (guard audit-event-rfq-actor-binding); RESTA W6 acceptQuote UNBOUND + MONEY-ADJACENT (R7b, decisão pendente). Mantido no baseline para NÃO mascarar W6. Ver DT-AUTHORITY-Z2-EVENT-RFQ-ACTOR-BINDING-UNBOUND + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.';
-
 const BASELINE = {
   // ── B1f canal-1 (actionContext.actorId) — 31 rotas com debt 0113 PRÉ-EXISTENTE, congeladas ──
   // (NÃO corrigidas; o B1f só TORNOU VISÍVEL + travou regressão. Cada subsistema converge em frente própria.)
@@ -260,7 +259,13 @@ const BASELINE = {
   // audit-services-actor-binding.mjs. DT-AUTHORITY-Z2-SERVICES-ACTOR-BINDING-UNBOUND.
   'modules/social/social-marketplace-ref.routes.ts': C1,
   'modules/social/social.routes.ts': C1,
-  'modules/system-notifications/system-notification.routes.ts': C1,
+  // system-notification.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8C-SYSTEM-NOTIFICATION-READ-STATE-
+  // AUTHORITY, 2026-06-18): a tabela `system_notifications` é SCHEMA-GHOST (migration 257 arquivada em
+  // migrations_archive/0921; ausente do schema canônico e de unificard_dev — to_regclass=null). Todas as rotas
+  // (list/unread-count/:id/read/mark-all-read) foram CONTIDAS fail-closed (501 SYSTEM_NOTIFICATION_SCHEMA_GHOST_
+  // CONTAINED) ANTES de qualquer service/DB — o canal-1 (actionContext.actorId/recipientActorId) DESAPARECEU do
+  // arquivo. Guard próprio: audit-system-notification-schema-ghost-containment.mjs.
+  // DT-AUTHORITY-Z2-SYSTEM-NOTIFICATION-READ-STATE.
   'modules/votes/votes.routes.ts': C1,
   // 6º CANAL (body.actor) — alvo normativo:
   // reconciliation-dispute.routes.ts REMOVIDO do baseline (2026-06-13): /reversal contido

@@ -1,178 +1,44 @@
 // backend/src/modules/system-notifications/system-notification.routes.ts
-// Rotas para Notificações In-App
-// 🔴 BLINDAGEM: NÃO executa ações automaticamente
+// 🔴 R8C SYSTEM-NOTIFICATION SCHEMA-GHOST CONTAINMENT (DECISION-0113 / DECISION-0131 §B7 / Z2 · 2026-06-18):
+// A tabela `system_notifications` é SCHEMA-GHOST — existia como `migrations/257_create_system_notifications.sql`,
+// foi MOVIDA para `migrations_archive/0921_system_notifications.sql` e NÃO está no schema canônico (set de 394
+// migrations) nem em unificard_dev (to_regclass('public.system_notifications') = null). Toda rota deste módulo
+// era (a) DEAD-AT-DB — o repository faz INSERT/UPDATE/SELECT numa tabela inexistente → 42P01/500; e (b)
+// UNGATED-AUTHORITY — os writers de read-state confiavam em recipientActorId client-declared (W2 body/
+// actionContext) ou em NENHUM dono (W1 só por notification_id) como autoridade (canal-1/0113). Como o substrato
+// não existe, a correção honesta é CONTER fail-closed (501 nomeado) ANTES de qualquer service/DB — NÃO religar,
+// NÃO criar migration, NÃO redesenhar. Materializar o schema + binding canônico (canRepresentActor) é frente
+// própria (DECISION-0071-style), fora do escopo R8C. As rotas permanecem registradas (não removidas).
 
 import { FastifyPluginAsync } from 'fastify';
-import { systemNotificationService } from './system-notification.service';
-import type { SystemNotificationFilters } from './system-notification.types';
+
+const CONTAINED = {
+  error: 'System notifications are temporarily unavailable (schema not materialized).',
+  code: 'SYSTEM_NOTIFICATION_SCHEMA_GHOST_CONTAINED',
+} as const;
 
 const systemNotificationRoutes: FastifyPluginAsync = async (fastify) => {
-  /**
-   * GET /system-notifications
-   * Listar notificações com filtros
-   */
-  fastify.get<{
-    Querystring: {
-      recipientActorId?: string;
-      type?: string;
-      contextType?: string;
-      contextId?: string;
-      unreadOnly?: boolean;
-      limit?: number;
-      offset?: number;
-    };
-  }>('/system-notifications', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
+  // GET /system-notifications — listar (dead-at-db → contido).
+  fastify.get('/system-notifications', async (_req, reply) => reply.status(501).send(CONTAINED));
 
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext obrigatório' });
-    }
+  // GET /system-notifications/unread-count — contar não lidas (dead-at-db → contido).
+  fastify.get('/system-notifications/unread-count', async (_req, reply) => reply.status(501).send(CONTAINED));
 
-    // Se recipientActorId não for fornecido, usar o actor do ActionContext
-    const recipientActorId = req.query.recipientActorId || actionContext.actorId;
-
-    try {
-      const filters: SystemNotificationFilters = {
-        recipientActorId,
-        type: req.query.type as any,
-        contextType: req.query.contextType as any,
-        contextId: req.query.contextId,
-        unreadOnly:
-          req.query.unreadOnly === true ||
-          (typeof req.query.unreadOnly === 'string' && req.query.unreadOnly === 'true'),
-        limit: req.query.limit ? parseInt(req.query.limit.toString(), 10) : undefined,
-        offset: req.query.offset ? parseInt(req.query.offset.toString(), 10) : undefined,
-      };
-
-      const result = await systemNotificationService.listNotifications(tenantId, filters);
-      return result;
-    } catch (error: any) {
-      fastify.log.error({ err: error }, 'Erro ao listar notificações');
-      return reply.status(error.statusCode || 500).send({
-        error: 'Erro ao listar notificações',
-        message: error.message,
-      });
-    }
-  });
-
-  /**
-   * GET /system-notifications/unread-count
-   * Contar notificações não lidas
-   */
-  fastify.get<{
-    Querystring: {
-      recipientActorId?: string;
-    };
-  }>('/system-notifications/unread-count', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    // ActionContext é obrigatório
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext obrigatório' });
-    }
-
-    const recipientActorId = req.query.recipientActorId || actionContext.actorId;
-
-    try {
-      const count = await systemNotificationService.countUnread(tenantId, recipientActorId);
-      return { count };
-    } catch (error: any) {
-      fastify.log.error({ err: error }, 'Erro ao contar notificações não lidas');
-      return reply.status(error.statusCode || 500).send({
-        error: 'Erro ao contar notificações não lidas',
-        message: error.message,
-      });
-    }
-  });
-
-  /**
-   * GET /system-notifications/:notificationId
-   * Buscar notificação por ID
-   */
+  // GET /system-notifications/:notificationId — buscar por id (dead-at-db → contido).
   fastify.get<{ Params: { notificationId: string } }>(
     '/system-notifications/:notificationId',
-    async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const { notificationId } = req.params;
-
-      try {
-        const notification = await systemNotificationService.getNotificationById(
-          tenantId,
-          notificationId
-        );
-        return notification;
-      } catch (error: any) {
-        fastify.log.error({ err: error }, 'Erro ao buscar notificação');
-        return reply.status(error.statusCode || 500).send({
-          error: 'Erro ao buscar notificação',
-          message: error.message,
-        });
-      }
-    }
+    async (_req, reply) => reply.status(501).send(CONTAINED)
   );
 
-  /**
-   * POST /system-notifications/:notificationId/read
-   * Marcar notificação como lida
-   */
+  // POST /system-notifications/:notificationId/read — W1 markAsRead (dead-at-db + ungated → contido).
   fastify.post<{ Params: { notificationId: string } }>(
     '/system-notifications/:notificationId/read',
-    async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const { notificationId } = req.params;
-
-      try {
-        const notification = await systemNotificationService.markAsRead(tenantId, notificationId);
-        return notification;
-      } catch (error: any) {
-        fastify.log.error({ err: error }, 'Erro ao marcar notificação como lida');
-        return reply.status(error.statusCode || 500).send({
-          error: 'Erro ao marcar notificação como lida',
-          message: error.message,
-        });
-      }
-    }
+    async (_req, reply) => reply.status(501).send(CONTAINED)
   );
 
-  /**
-   * POST /system-notifications/mark-all-read
-   * Marcar todas as notificações como lidas
-   */
-  fastify.post<{
-    Body: {
-      recipientActorId?: string;
-    };
-  }>('/system-notifications/mark-all-read', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    // ActionContext é obrigatório
-    // ActionContext é obrigatório (V2)
-    if (!actionContext || !actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext obrigatório' });
-    }
-
-    const recipientActorId = req.body.recipientActorId || actionContext.actorId;
-
-    try {
-      const result = await systemNotificationService.markAllAsRead(tenantId, recipientActorId);
-      return result;
-    } catch (error: any) {
-      fastify.log.error({ err: error }, 'Erro ao marcar todas as notificações como lidas');
-      return reply.status(error.statusCode || 500).send({
-        error: 'Erro ao marcar todas as notificações como lidas',
-        message: error.message,
-      });
-    }
-  });
+  // POST /system-notifications/mark-all-read — W2 markAllAsRead (dead-at-db + ungated → contido).
+  // (body ignorado: a contenção não lê recipient client-declared.)
+  fastify.post('/system-notifications/mark-all-read', async (_req, reply) => reply.status(501).send(CONTAINED));
 };
 
 export default systemNotificationRoutes;
-
-
-
-
