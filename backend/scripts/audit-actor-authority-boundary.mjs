@@ -276,7 +276,13 @@ const BASELINE = {
   // audit-profile-c1-actor-binding.mjs (+ human-journey §7 cobre lifestyle). Se a prova sumir, voltam a flaggar
   // e FALHAM (fora do baseline). DT-AUTHORITY-Z2-PROFILE-C1-BASELINE-RECONCILIATION.
   'modules/automation/automation.routes.ts': C1,
-  'modules/events/event-rfq.routes.ts': C1_RFQ_W6,
+  // event-rfq.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8I-MONEY-STALE-RECONCILE-WAVE, 2026-06-19):
+  // STALE — W1-W5 BOUND (R7a, canRepresentActor/assertCanReadEventMoney) e W6 acceptQuote CONTIDO (R7b, hard-stop
+  // 403 EVENT_RFQ_ACCEPT_QUOTE_CONTAINED antes de availability/booking/decision/payment_request). Guards dedicados
+  // wired+GREEN: audit-event-rfq-actor-binding.mjs + audit-event-rfq-acceptquote-containment.mjs (+ negative-proofs
+  // que mordem se W6 reativar / W1-W5 perderem binding). Sem bank_* no arquivo. Reconcile de baseline (não-money-
+  // movement); se a proteção sumir, o guard dedicado falha E o arquivo re-flagga. DECISION (redesign acceptQuote)
+  // segue OPEN. DT-AUTHORITY-Z2-EVENT-RFQ-* + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   'modules/events/organizers/organizers.routes.ts': C1,
   'modules/human-mvp/human-mvp.routes.ts': C1,
   // accounts-payable.routes.ts + accounts-receivable.routes.ts REMOVIDOS do baseline canal-1
@@ -298,7 +304,13 @@ const BASELINE = {
   // elevou a contenção à BORDA — as 6 rotas retornam 501 CONTACTS_SCHEMA_GHOST_CONTAINED ANTES de ler
   // actionContext.actorId/chamar contactService → o canal-1 DESAPARECEU do arquivo. Guard: audit-contacts-
   // schema-ghost-containment.mjs (seção route-level). DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
-  'modules/marketplace/purchase-order.routes.ts': C1_MONEY,
+  // purchase-order.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8I-MONEY-STALE-RECONCILE-WAVE,
+  // 2026-06-19): STALE — writes vivos exigem representar o owner empresarial (canRepresentActor; created_by_actor_id/
+  // supplier_id/tenant_id NÃO autorizam) e /receive está CONTIDO (hard-stop 403; receivePOContainedImpl preservado
+  // mas inalcançável). Guards dedicados wired+GREEN: audit-po-owner-authority.mjs + audit-po-receive-containment.mjs
+  // (+ negative-proofs que mordem se /receive reativar / writes perderem owner). Sem bank_* no arquivo; não toca
+  // ledger. Reconcile de baseline; se a proteção sumir, o guard dedicado falha E o arquivo re-flagga.
+  // DT-AUTHORITY-Z2-PURCHASE-ORDER-* + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   // settlement.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R4-MONEY-LATENT-CONTAINMENT):
   // as 3 rotas money-latent de mutação (settle/credit/debit) foram REDUZIDAS a 403 fail-closed e não
   // leem mais actionContext.actorId — o canal-1 desapareceu do arquivo. Guard próprio:
@@ -325,7 +337,14 @@ const BASELINE = {
   // de bundle está vinculada ao actor representável via guard dedicado audit-service-bundle-write-authorship-
   // binding.mjs (em validate:regression-guards). Detector já o eximia (stale_baseline). Higiene honesta — se o
   // binding sumir, o guard dedicado falha. DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
-  'modules/services/service-payment-request.routes.ts': C1_MONEY,
+  // service-payment-request.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8I-MONEY-STALE-RECONCILE-WAVE,
+  // 2026-06-19): STALE — Opção A selada: receiver derivado server-side (service.actor_id), payer/receiver
+  // server-side, body ignorado p/ autoridade, canRepresentActor(receiver) antes do sink, amount_cents BIGINT,
+  // idempotência ON CONFLICT(booking_id), firewall SERVICE_FINANCIAL_RUNTIME_ENABLED nos callers vivos. Guards
+  // dedicados wired+GREEN: audit-spr-read-authority.mjs + audit-service-payment-amount-cents.mjs (+ negative-proof
+  // que morde se body governar payer/receiver / perder canRepresentActor). Sem bank_* no arquivo; não toca ledger.
+  // Reconcile de baseline; se a proteção sumir, o guard dedicado falha E o arquivo re-flagga.
+  // DT-SERVICE-PAYMENT-REQUEST-* + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   'modules/services/services-discovery.routes.ts': C1,
   // services.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R6.1-SERVICES-ACTOR-BINDING):
   // POST /services e PUT /services/:id passaram a exigir representação server-side do actor dono via
