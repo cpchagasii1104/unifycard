@@ -1,130 +1,29 @@
 // backend/src/modules/marketplace/accounts-receivable.routes.ts
-// SPRINT 71: Rotas REST para Accounts Receivable
+// 🔴 R8H ACCOUNTS-RECEIVABLE REACTIVATION-TRAP CONTAINMENT (DECISION-0113 / DECISION-0131 §B7 / Z2; DECISION-0114 D5 · 2026-06-19):
+// AR foi MIGRADO para o Bank: o service usa um Proxy reject-all ("AccountsReceivable migrated to Bank") e a tabela
+// `accounts_receivable` é SCHEMA-GHOST (to_regclass=null em unificard_dev). As rotas públicas liam
+// `actionContext.actorId`/`query.actorId` (canal-1/0113) SEM canRepresentActor e, numa reativação futura do repo,
+// escreveriam receivable com autoridade não-vinculada (reactivation trap). DECISION-0114 D5 PROÍBE religar AP/AR
+// sem decisão própria. CONTENÇÃO DEFENSIVA fail-closed: as rotas retornam **403 `ACCOUNTS_RECEIVABLE_DISABLED`**
+// ANTES de ler actionContext OU chamar o service. NÃO religa AR, NÃO troca o Proxy, NÃO toca Bank/ledger, NÃO cria
+// migration. O service (Proxy reject-all) e os callers internos (payment-execution/ticket) permanecem INALTERADOS
+// (já reject). A leitura do CRM (crm.service.ts:413 FROM accounts_receivable, ghost dead-at-db) é RESIDUAL — não
+// é writer canal-1 e não é redesenhada aqui. Guard: audit-ap-ar-reactivation-trap.mjs.
 
 import type { FastifyInstance } from 'fastify';
-import { accountsReceivableService } from './accounts-receivable.service';
-import type {
-  CreateManualReceivableInput,
-  AccountsReceivableFilters,
-} from './accounts-receivable.types';
-import { BadRequestError, NotFoundError } from '@core/errors';
-import { ErrorCode } from '@core/errors/error-codes';
+
+const DISABLED = {
+  ok: false,
+  code: 'ACCOUNTS_RECEIVABLE_DISABLED',
+  error: 'Accounts Receivable is disabled (migrated to Bank). Reactivation requires its own front (DECISION-0114 D5) with canonical authority binding.',
+} as const;
 
 const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
-  /**
-   * POST /accounts-receivable/manual
-   * Cria conta a receber manual
-   */
-  fastify.post<{ Body: CreateManualReceivableInput }>('/accounts-receivable/manual', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const actionContext = (req as any).actionContext;
-
-    if (!actionContext?.actorId) {
-      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
-    }
-
-    const body = req.body as any;
-    if (body.expectedAt) {
-      body.expectedAt = new Date(body.expectedAt);
-    }
-
-    const receivable = await accountsReceivableService.createManualReceivable(
-      tenantId,
-      body,
-      actionContext.actorId,
-      actionContext.actingUserId
-    );
-
-    return reply.status(201).send(receivable);
-  });
-
-  /**
-   * GET /accounts-receivable
-   * Lista contas a receber
-   */
-  fastify.get('/accounts-receivable', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const query = req.query as any;
-
-    const filters: AccountsReceivableFilters = {};
-    if (query.actorId) filters.actorId = query.actorId;
-    if (query.status) filters.status = query.status as any;
-    if (query.sourceType) filters.sourceType = query.sourceType as any;
-    if (query.sourceId) filters.sourceId = query.sourceId;
-    if (query.expectedAtFrom) filters.expectedAtFrom = query.expectedAtFrom;
-    if (query.expectedAtTo) filters.expectedAtTo = query.expectedAtTo;
-    if (query.limit) filters.limit = parseInt(query.limit);
-    if (query.offset) filters.offset = parseInt(query.offset);
-
-    const receivables = await accountsReceivableService.listReceivables(tenantId, filters);
-    return { receivables };
-  });
-
-  /**
-   * GET /accounts-receivable/:id
-   * Busca conta por ID
-   */
-  fastify.get<{ Params: { id: string } }>('/accounts-receivable/:id', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const { id } = req.params;
-
-    const receivable = await accountsReceivableService.getReceivableById(tenantId, id);
-    if (!receivable) {
-      throw new NotFoundError('Conta não encontrada');
-    }
-
-    return receivable;
-  });
-
-  /**
-   * POST /accounts-receivable/:id/mark-received
-   * Marca conta como recebida
-   */
-  fastify.post<{ Params: { id: string } }>('/accounts-receivable/:id/mark-received', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const { id } = req.params;
-    const actionContext = (req as any).actionContext;
-
-    if (!actionContext?.actorId) {
-      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
-    }
-
-    const receivable = await accountsReceivableService.markAsReceived(
-      tenantId,
-      id,
-      actionContext.actorId,
-      actionContext.actingUserId
-    );
-
-    return receivable;
-  });
-
-  /**
-   * POST /accounts-receivable/:id/cancel
-   * Cancela conta a receber
-   */
-  fastify.post<{ Params: { id: string }; Body: { cancellationReason?: string } }>(
-    '/accounts-receivable/:id/cancel',
-    async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const { id } = req.params;
-      const actionContext = (req as any).actionContext;
-
-      if (!actionContext?.actorId) {
-        throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
-      }
-
-      const receivable = await accountsReceivableService.cancelReceivable(
-        tenantId,
-        id,
-        actionContext.actorId,
-        actionContext.actingUserId,
-        req.body.cancellationReason
-      );
-
-      return receivable;
-    }
-  );
+  fastify.post('/accounts-receivable/manual', async (_req, reply) => reply.status(403).send(DISABLED));
+  fastify.get('/accounts-receivable', async (_req, reply) => reply.status(403).send(DISABLED));
+  fastify.get<{ Params: { id: string } }>('/accounts-receivable/:id', async (_req, reply) => reply.status(403).send(DISABLED));
+  fastify.post<{ Params: { id: string } }>('/accounts-receivable/:id/mark-received', async (_req, reply) => reply.status(403).send(DISABLED));
+  fastify.post<{ Params: { id: string } }>('/accounts-receivable/:id/cancel', async (_req, reply) => reply.status(403).send(DISABLED));
 };
 
 export default accountsReceivableRoutes;

@@ -279,8 +279,14 @@ const BASELINE = {
   'modules/events/event-rfq.routes.ts': C1_RFQ_W6,
   'modules/events/organizers/organizers.routes.ts': C1,
   'modules/human-mvp/human-mvp.routes.ts': C1,
-  'modules/marketplace/accounts-payable.routes.ts': C1_MONEY,
-  'modules/marketplace/accounts-receivable.routes.ts': C1_MONEY,
+  // accounts-payable.routes.ts + accounts-receivable.routes.ts REMOVIDOS do baseline canal-1
+  // (F-AUTHORITY-Z2-R8H-AP-AR-REACTIVATION-TRAP-CONTAINMENT, 2026-06-19): AP/AR migrados para o Bank (service =
+  // Proxy reject-all; tabelas accounts_payable/accounts_receivable schema-ghost, to_regclass=null). As rotas
+  // públicas foram CONTIDAS fail-closed (403 ACCOUNTS_PAYABLE_DISABLED / ACCOUNTS_RECEIVABLE_DISABLED) ANTES de
+  // ler actionContext.actorId/query.actorId ou chamar o service → o canal-1 DESAPARECEU dos arquivos. Guard
+  // anti-reactivation: audit-ap-ar-reactivation-trap.mjs (rotas contidas + services mantêm o Proxy reject-all =
+  // repo não reativável sem frente própria). NÃO toca Bank/ledger (não-mascaramento; DECISION-0114 D5 segue OPEN).
+  // DT-AUTHORITY-Z2-AP-AR-REACTIVATION-TRAP + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   // business-segment.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8E-REMAINING-CANAL1-TRIAGE-WAVE,
   // 2026-06-18): a tabela `business_segments` é SCHEMA-GHOST (CREATE TABLE só em migrations_archive/0048; ausente
   // do schema canônico e de unificard_dev — to_regclass=null) e zero caller. As 3 rotas (POST/GET/PATCH) foram
