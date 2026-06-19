@@ -233,7 +233,11 @@ const BASELINE = {
   'modules/human-mvp/human-mvp.routes.ts': C1,
   'modules/marketplace/accounts-payable.routes.ts': C1_MONEY,
   'modules/marketplace/accounts-receivable.routes.ts': C1_MONEY,
-  'modules/marketplace/business-segment.routes.ts': C1,
+  // business-segment.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8E-REMAINING-CANAL1-TRIAGE-WAVE,
+  // 2026-06-18): a tabela `business_segments` é SCHEMA-GHOST (CREATE TABLE só em migrations_archive/0048; ausente
+  // do schema canônico e de unificard_dev — to_regclass=null) e zero caller. As 3 rotas (POST/GET/PATCH) foram
+  // CONTIDAS fail-closed (501 BUSINESS_SEGMENT_SCHEMA_GHOST_CONTAINED) ANTES de qualquer service/DB — o canal-1
+  // (actionContext.actorId) DESAPARECEU do arquivo. Guard: audit-canal1-ghost-wave-r8e-containment.mjs.
   'modules/marketplace/contact.routes.ts': C1,
   'modules/marketplace/purchase-order.routes.ts': C1_MONEY,
   // settlement.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R4-MONEY-LATENT-CONTAINMENT):
@@ -241,14 +245,27 @@ const BASELINE = {
   // leem mais actionContext.actorId — o canal-1 desapareceu do arquivo. Guard próprio:
   // audit-marketplace-money-latent-containment.mjs. DT-AUTHORITY-Z2-MARKETPLACE-MONEY-LATENT-ACTORID-UNBOUND.
   'modules/marketplace/store-onboarding.routes.ts': C1,
-  'modules/marketplace/supplier.routes.ts': C1,
-  'modules/marketplace/tax-profile.routes.ts': C1,
+  // tax-profile.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8E-REMAINING-CANAL1-TRIAGE-WAVE,
+  // 2026-06-18): a tabela `tax_profiles` é SCHEMA-GHOST (CREATE TABLE só em migrations_archive/0072; ausente do
+  // schema canônico e de unificard_dev — to_regclass=null) e zero caller; tax-profile é metadado fiscal, NÃO
+  // money-movement. As 3 rotas (POST/GET/PATCH) foram CONTIDAS fail-closed (501 TAX_PROFILE_SCHEMA_GHOST_CONTAINED)
+  // ANTES de qualquer service/DB — o canal-1 (actionContext.actorId) DESAPARECEU do arquivo. Guard:
+  // audit-canal1-ghost-wave-r8e-containment.mjs.
+  // supplier.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8E-REMAINING-CANAL1-TRIAGE-WAVE, 2026-06-18):
+  // entrada STALE — o arquivo já carrega o binding helper (canRepresentActor) e os writes de supplier estão
+  // vinculados ao owner via guard dedicado audit-supplier-owner-authority.mjs (em validate:regression-guards).
+  // O detector file-level já o eximia (stale_baseline). Removido como higiene honesta — se o binding sumir, o
+  // guard dedicado falha. DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   'modules/marketplace/unifycard-method.routes.ts': C1,
   // unifycard.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R4-MONEY-LATENT-CONTAINMENT):
   // as 3 rotas money-latent (authorize/capture/settle) foram REDUZIDAS a 403 fail-closed e não leem
   // mais actionContext.actorId. Guard próprio: audit-marketplace-money-latent-containment.mjs.
   // DT-AUTHORITY-Z2-MARKETPLACE-MONEY-LATENT-ACTORID-UNBOUND.
-  'modules/services/service-bundle.routes.ts': C1,
+  // service-bundle.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8E-REMAINING-CANAL1-TRIAGE-WAVE,
+  // 2026-06-18): entrada STALE — o arquivo já carrega o binding helper (canRepresentActor) e a autoria dos writes
+  // de bundle está vinculada ao actor representável via guard dedicado audit-service-bundle-write-authorship-
+  // binding.mjs (em validate:regression-guards). Detector já o eximia (stale_baseline). Higiene honesta — se o
+  // binding sumir, o guard dedicado falha. DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   'modules/services/service-payment-request.routes.ts': C1_MONEY,
   'modules/services/services-discovery.routes.ts': C1,
   // services.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R6.1-SERVICES-ACTOR-BINDING):
@@ -264,7 +281,11 @@ const BASELINE = {
   // SOCIAL_MARKETPLACE_REF_SCHEMA_GHOST_CONTAINED) ANTES de qualquer service/DB — o canal-1 (actionContext.actorId,
   // que era breadcrumb de auditoria; o write nunca recebia o actor) DESAPARECEU do arquivo. Guard próprio:
   // audit-social-marketplace-ref-schema-ghost-containment.mjs. DT-AUTHORITY-Z2-SOCIAL-MARKETPLACE-REF.
-  'modules/social/social.routes.ts': C1,
+  // social.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8E-REMAINING-CANAL1-TRIAGE-WAVE, 2026-06-18):
+  // entrada STALE — pós R8A a rota legada POST /social/posts/create está CONTIDA (501) e o canal-1 só sobrevive em
+  // COMENTÁRIO (comment-stripped: sem actionContext.actorId, sem binding helper → não casa canal). Guard dedicado:
+  // audit-social-legacy-post-create-containment.mjs. Higiene honesta — se a contenção regredir, o guard falha.
+  // DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   // system-notification.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8C-SYSTEM-NOTIFICATION-READ-STATE-
   // AUTHORITY, 2026-06-18): a tabela `system_notifications` é SCHEMA-GHOST (migration 257 arquivada em
   // migrations_archive/0921; ausente do schema canônico e de unificard_dev — to_regclass=null). Todas as rotas
@@ -272,7 +293,11 @@ const BASELINE = {
   // CONTAINED) ANTES de qualquer service/DB — o canal-1 (actionContext.actorId/recipientActorId) DESAPARECEU do
   // arquivo. Guard próprio: audit-system-notification-schema-ghost-containment.mjs.
   // DT-AUTHORITY-Z2-SYSTEM-NOTIFICATION-READ-STATE.
-  'modules/votes/votes.routes.ts': C1,
+  // votes.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8E-REMAINING-CANAL1-TRIAGE-WAVE, 2026-06-18):
+  // entrada STALE — os 4 writes de votes estão CONTIDOS fail-closed (501 VOTES_WRITES_CONTAINED) e o arquivo NÃO
+  // referencia mais actionContext.actorId (comment-stripped: zero canal). Guard dedicado:
+  // audit-votes-writes-containment.mjs. Higiene honesta — se a contenção regredir, o guard falha.
+  // DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
   // 6º CANAL (body.actor) — alvo normativo:
   // reconciliation-dispute.routes.ts REMOVIDO do baseline (2026-06-13): /reversal contido
   // (403 DISPUTE_REVERSAL_HTTP_DISABLED) + irmãs from-discrepancy/to-review/resolve contidas
