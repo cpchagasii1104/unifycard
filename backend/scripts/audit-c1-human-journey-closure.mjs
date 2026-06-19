@@ -84,10 +84,13 @@ function check(surface, ok, failMsg) {
 }
 
 // ── 7. Trilhos C1: actor guarded server-side (DECISION-0113) ──
+// R8B (2026-06-18): `lifestyle` incluído explicitamente — fechava o quarteto profile-c1 sem assertion
+// de canRepresentActor no guard, único gap antes da reconciliação do baseline canal-1.
 for (const [name, file] of [
   ['professional', 'core/profile/professional-c1/professional-c1.service.ts'],
   ['learning', 'core/profile/learning-c1/learning-c1.service.ts'],
   ['interest', 'core/profile/interest-c1/interest-c1.service.ts'],
+  ['lifestyle', 'core/profile/lifestyle/lifestyle.service.ts'],
 ]) {
   const src = BE(file);
   check(`c1:${name}-actor-guarded`, /canRepresentActor\(/.test(src),

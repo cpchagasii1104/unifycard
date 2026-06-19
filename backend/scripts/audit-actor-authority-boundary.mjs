@@ -165,6 +165,36 @@ const SAFE_SUBJECT_READERS = {
     'READER + FAIL-CLOSED (F-ACTOR-WALLET-PAYOUT-WIRING, DECISION-0128). GET /payouts/orders[?actorId]/batches: gateados por requirePayoutPermission → businessAuthorizationService.requirePermission(tenantId, userId=req.user.id, actor.actor_id, financial:execute_payout) = Forma B (subject server-side, subj!=target); query.actorId = FILTRO de leitura do operador, nunca subject. POST /payouts/batches, /orders/:id/execute-manual, /orders/:id/fail: FAIL-CLOSED (403 PAYOUT_HTTP_EXECUTION_DISABLED) — NÃO executam payout, NÃO chamam payoutService executor, NÃO movem dinheiro/settlement. Guard cercado por audit-payout-authority-binding.mjs.',
 };
 
+// ── F-AUTHORITY-Z2-R8B-PROFILE-C1-BASELINE-RECONCILIATION (2026-06-18) ───────────────────────
+// Os 4 trilhos profile-c1 (interest/learning/professional/lifestyle) são WRITERS actor-keyed cujo SUBJECT é
+// server-side (`req.user.userId` via requireContext) e cujo BINDING (`canRepresentActor`) vive no SERVICE
+// (resolveActorGuarded), chamado ANTES de todo sink. O detector é file-level: a ROTA casa o canal
+// actionContext.actorId, mas o binding está no SERVICE. Reconhecidos aqui com PROVA cross-file verificada em
+// runtime (rota deriva subject de req.user E o service tem canRepresentActor). Se a prova sumir (rota deixa de
+// threadar req.user OU service perde canRepresentActor) o arquivo volta a flaggar e, FORA do BASELINE, FALHA.
+// Guard dedicado material: audit-profile-c1-actor-binding.mjs. NÃO mascara: prova viva, não allowlist cega.
+const SERVICE_BOUND_WRITERS = {
+  'core/profile/interest-c1/interest-c1.routes.ts': 'core/profile/interest-c1/interest-c1.service.ts',
+  'core/profile/learning-c1/learning-c1.routes.ts': 'core/profile/learning-c1/learning-c1.service.ts',
+  'core/profile/professional-c1/professional-c1.routes.ts': 'core/profile/professional-c1/professional-c1.service.ts',
+  'core/profile/lifestyle/lifestyle.routes.ts': 'core/profile/lifestyle/lifestyle.service.ts',
+};
+
+// Prova cross-file: a ROTA deriva o subject de req.user (server-side) E o SERVICE correspondente prova
+// canRepresentActor (resolveActorGuarded). Retorna string de prova (truthy) ou null. Recebe código bruto da rota.
+function serviceBoundProof(rel, rawRouteCode) {
+  const svcRel = SERVICE_BOUND_WRITERS[rel];
+  if (!svcRel) return null;
+  const routeCode = stripComments(rawRouteCode);
+  // Subject server-side: a rota deriva userId de req.user (requireContext) — nunca de canal client-declared.
+  if (!/req\.user\??\.userId/.test(routeCode)) return null;
+  let svcCode;
+  try { svcCode = stripComments(readFileSync(join(SRC, svcRel), 'utf-8')); } catch { return null; }
+  // Binding no service: canRepresentActor(tenantId, userId, actorId) (resolveActorGuarded).
+  if (!/canRepresentActor\(\s*tenantId\s*,\s*userId\s*,\s*actorId\s*\)/.test(svcCode)) return null;
+  return `service-bound writer: rota subject=req.user.userId (actionContext.actorId=alvo) + ${svcRel} canRepresentActor(tenantId,userId,actorId) em resolveActorGuarded ANTES do sink`;
+}
+
 // ── BASELINE EXPLÍCITO (estado conhecido; cada item tem DT vinculada) ──
 // Arquivo (rel a src/) → canais usados sem binding no arquivo + nota/DT. NOVOS arquivos
 // fora desta lista (e fora de SAFE_SUBJECT_READERS) que casem um canal sem binding = FALHA.
@@ -191,10 +221,13 @@ const BASELINE = {
   // ANTES de criar order/itens/reserva/saga. O actionContext.actorId vira HINT vinculado. Guard próprio:
   // audit-intent-execute-buyer-actor-binding.mjs. DT-AUTHORITY-Z2-INTENT-EXECUTE-BUYER-ACTOR-UNBOUND.
   'core/plan/plan.routes.ts': C1,
-  'core/profile/interest-c1/interest-c1.routes.ts': C1,
-  'core/profile/learning-c1/learning-c1.routes.ts': C1,
-  'core/profile/lifestyle/lifestyle.routes.ts': C1,
-  'core/profile/professional-c1/professional-c1.routes.ts': C1,
+  // core/profile/{interest-c1,learning-c1,professional-c1,lifestyle}.routes.ts REMOVIDOS do baseline canal-1
+  // (F-AUTHORITY-Z2-R8B-PROFILE-C1-BASELINE-RECONCILIATION, 2026-06-18): os 4 trilhos profile-c1 são WRITERS
+  // actor-keyed com SUBJECT server-side (req.user.userId via requireContext) e BINDING no SERVICE
+  // (resolveActorGuarded → canRepresentActor(tenantId, userId, actorId), fail-closed 403, ANTES de todo sink).
+  // Reconhecidos por SERVICE_BOUND_WRITERS (prova cross-file verificada em runtime); guard dedicado material:
+  // audit-profile-c1-actor-binding.mjs (+ human-journey §7 cobre lifestyle). Se a prova sumir, voltam a flaggar
+  // e FALHAM (fora do baseline). DT-AUTHORITY-Z2-PROFILE-C1-BASELINE-RECONCILIATION.
   'modules/automation/automation.routes.ts': C1,
   'modules/events/event-rfq.routes.ts': C1_RFQ_W6,
   'modules/events/organizers/organizers.routes.ts': C1,
@@ -274,6 +307,7 @@ function runGuard() {
   const newViolations = [];
   const safeRecognized = [];   // readers reconhecidos por subject server-side (FATIA A)
   const acRecognized = [];     // B1f canal-1: actionContext.actorId vinculado por requirePermission([ (Forma A)
+  const serviceBoundRecognized = []; // R8B: writers profile-c1 bound no SERVICE (prova cross-file runtime)
 
   for (const file of walk(SRC)) {
     const rel = file.replace(SRC, '').replace(/^[\\/]/, '').replace(/\\/g, '/');
@@ -291,6 +325,15 @@ function runGuard() {
         continue;
       }
       // estava no allowlist mas perdeu a prova → cai como violação (não está no BASELINE).
+    }
+    // R8B: writer profile-c1 bound no SERVICE (prova cross-file AINDA presente) → reconhecido.
+    if (rel in SERVICE_BOUND_WRITERS) {
+      const proof = serviceBoundProof(rel, raw);
+      if (proof) {
+        serviceBoundRecognized.push({ rel, channels, proof });
+        continue;
+      }
+      // estava no mapa mas perdeu a prova (binding removido) → cai como violação (não está no BASELINE).
     }
     // B1f canal-1 (Forma A): se o ÚNICO canal é actionContext.actorId e há requirePermission([ preHandler,
     // o canal-1 está VINCULADO (requirePermission→canPerformAction→canActAs liga req.user→actor declarado).
@@ -319,11 +362,22 @@ function runGuard() {
   // Allowlist de safe-subject órfão (entrada que não foi exercida nem reconhecida) → informativo.
   const recognizedRels = new Set(safeRecognized.map((f) => f.rel));
   const staleSafeReaders = Object.keys(SAFE_SUBJECT_READERS).filter((r) => !recognizedRels.has(r) && !flaggedRels.has(r));
+  // R8B: SERVICE_BOUND_WRITERS órfão (entrada que não foi exercida nem reconhecida) → informativo.
+  const sbRecognizedRels = new Set(serviceBoundRecognized.map((f) => f.rel));
+  const staleServiceBound = Object.keys(SERVICE_BOUND_WRITERS).filter((r) => !sbRecognizedRels.has(r) && !flaggedRels.has(r));
 
-  console.log(`[actor-authority-boundary] flagged=${flagged.length} baseline=${Object.keys(BASELINE).length} new=${newViolations.length} stale_baseline=${staleBaseline.length} safe_subject_recognized=${safeRecognized.length} canal1_bound_by_requirePermission=${acRecognized.length}`);
+  console.log(`[actor-authority-boundary] flagged=${flagged.length} baseline=${Object.keys(BASELINE).length} new=${newViolations.length} stale_baseline=${staleBaseline.length} safe_subject_recognized=${safeRecognized.length} service_bound_recognized=${serviceBoundRecognized.length} canal1_bound_by_requirePermission=${acRecognized.length}`);
   if (safeRecognized.length > 0) {
     console.log('  ✅ subject server-side reconhecido (FATIA A — fora do baseline, prova verificada em runtime):');
     safeRecognized.forEach((s) => console.log(`     - ${s.rel}  [${s.channels.join(', ')}]  → ${s.proof}`));
+  }
+  if (serviceBoundRecognized.length > 0) {
+    console.log('  ✅ writer profile-c1 bound no SERVICE reconhecido (R8B — fora do baseline, prova cross-file verificada em runtime):');
+    serviceBoundRecognized.forEach((s) => console.log(`     - ${s.rel}  [${s.channels.join(', ')}]  → ${s.proof}`));
+  }
+  if (staleServiceBound.length > 0) {
+    console.log('  ℹ️  SERVICE_BOUND_WRITERS órfão (sem canal/sem uso — revisar numa futura limpeza):');
+    staleServiceBound.forEach((r) => console.log(`     - ${r}`));
   }
   if (staleBaseline.length > 0) {
     console.log('  ℹ️  baseline já não casa (binding adicionado/arquivo limpo — pode ser removido do baseline numa futura limpeza):');
@@ -354,4 +408,4 @@ if (isMain) {
   runGuard();
 }
 
-export { safeSubjectProof, runGuard, SAFE_SUBJECT_READERS, BASELINE, CLIENT_ACTOR_CHANNELS, BINDING_HELPERS };
+export { safeSubjectProof, serviceBoundProof, runGuard, SAFE_SUBJECT_READERS, SERVICE_BOUND_WRITERS, BASELINE, CLIENT_ACTOR_CHANNELS, BINDING_HELPERS };
