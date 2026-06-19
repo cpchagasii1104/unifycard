@@ -1,5 +1,36 @@
 # 2026-06-18 — R8E REMAINING CANAL-1 TRIAGE WAVE — triagem das 21 + onda controlada (cirúrgico)
 
+> **SEAL DOCS-ONLY (2026-06-19, sobre commit material `65a2dce3`):** reseal Yala material READ-ONLY =
+> **PASS_WITH_WARNINGS** → frente **CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL** (fechou a fatia
+> executada — 6 entradas — mas deixou **15 entradas remanescentes**; **NÃO** fecha a DT-mãe 0113 nem o parent
+> canal-1). **Estados por tipo:** as 4 reconciliações stale (**supplier · service-bundle · social.routes · votes**)
+> → **CLOSED / YALA PASS_WITH_WARNINGS MATERIAL** (reconciliação stale já guardada — NÃO containment); as 2
+> contenções schema-ghost (**business-segment · tax-profile**) → **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS
+> MATERIAL** (NÃO `CLOSED` simples — contenção por schema-ghost). **Yala confirmou materialmente:** HEAD 65a2dce3 ·
+> branch rescue-structural · migrations 394/394 · diff de 10 arquivos; sem migration/schema; zero money executado;
+> zero Bank/Core/ledger/splits/payout/recovery; zero AP/AR/purchase-order/service-payment-request; zero RBAC/FASE 6;
+> zero actor_delegations/R2; zero decisão de produto; não fechou DT-mãe 0113 nem parent canal-1; lista das 21 +
+> matriz A-H confirmadas; 6 entradas executadas (4 stale removals + 2 schema-ghost containments);
+> `business_segments`/`tax_profiles` = schema-ghost (to_regclass=NULL; CREATE TABLE só em migrations_archive/0048 e
+> /0072); zero frontend caller p/ business-segment e tax-profile; ambas as rotas → 501 nomeado ANTES de service/DB;
+> guard da onda confirmado; **E2E DB-free 8/8 rodado pela Yala**; baseline reduzido honestamente **21→15** (flagged
+> 14→12 · new=0 · stale_baseline 7→3 — os 3 restantes são money · safe_subject_recognized=6 ·
+> service_bound_recognized=4); actor-authority-boundary OK · actor-writer-boundaries OK · bank-ledger-boundaries OK ·
+> regression-guards OK · arch `--strict` critical_new=0 · tsc baseline 43; cartório correto; **DT-mãe 0113 e parent
+> canal-1 seguem OPEN**.
+>
+> **Warnings do reseal (follow-up não-bloqueante):** **W1** — negative-proof não reexecutado pela Yala (muta a
+> source); validado estruturalmente + executora declarou execução em **pwsh 7 e Windows PowerShell 5.1**. **W2** —
+> working tree sujo fora do material (docs/memorias/untracked/artefatos) → não é HOLD_WORKTREE_DIRTY. **W3** — nas 4
+> reconciliações stale, a Yala confiou em **guard dedicado WIRED+GREEN + detector new=0** (não reauditou linha-a-
+> linha o biting interno dos guards supplier/service-bundle/votes nesta onda); mitigação: runtime intocado nessas 4
+> entradas, guards dedicados wired em validate:regression-guards, regression-guards GREEN, detector live new=0 — se
+> a remoção mascarasse canal-1 vivo, viraria newViolation e falharia.
+>
+> **Observação:** `unifycard-method` aparece em mais de uma leitura de risco (money-adjacent vs false-positive) —
+> registrado como **DEFERIDO**, não executado nesta onda; não decidir money-adjacent vs false-positive sem frente
+> própria. Seal = docs-only; HEAD material permanece `65a2dce3`. _(Detalhe IMPLEMENTED abaixo.)_
+
 Onda controlada sobre as **21 entradas restantes** do parent canal-1 (`DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`,
 DECISION-0113 / Z2). Triagem completa em matriz A–H (14 ativamente flagged via fan-out de 14 leitores read-only +
 7 já-stale) e **execução em lote SOMENTE de quick wins seguras** (4 reconciliações de stale + 2 contenções
@@ -95,9 +126,15 @@ DT-mãe 0113 nem o parent canal-1 (baseline 15 > 0).
 
 ## Estado
 
-**🟡 IMPLEMENTED / HOLD YALA**. Onda R8E: 4 reconciliações stale + 2 contenções schema-ghost; **baseline 21→15**.
-DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` e parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE`
-permanecem **OPEN**. Próximo passo: **Yala reseal**.
+**✅ CLOSED_WITH_REMAINDER / YALA PASS_WITH_WARNINGS MATERIAL** (seal docs-only 2026-06-19 sobre commit material
+`65a2dce3`; reseal Yala material READ-ONLY = PASS_WITH_WARNINGS; warnings W1-W3 + observação unifycard-method
+registrados como follow-up não-bloqueante — ver bloco SEAL no topo). Onda R8E: 4 reconciliações stale + 2
+contenções schema-ghost; **baseline 21→15**. **Estados por tipo:** supplier · service-bundle · social.routes ·
+votes → **CLOSED / YALA PASS_WITH_WARNINGS MATERIAL** (reconciliação stale, não containment); business-segment ·
+tax-profile → **CLOSED_AS_CONTAINED / YALA PASS_WITH_WARNINGS MATERIAL** (contenção schema-ghost). **A onda fechou
+a fatia executada mas deixou 15 entradas remanescentes** → a DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED`
+e o parent `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` permanecem **OPEN**. _(Histórico: 🟡 IMPLEMENTED / HOLD
+YALA antes do reseal.)_
 
 ## Fila restante para fechar 0113 (15 entradas)
 
