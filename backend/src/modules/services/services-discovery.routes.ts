@@ -72,6 +72,26 @@ type RespondParsed = Parameters<typeof servicesDiscoveryService.respondToRequest
 type CreateRequestParsed = Parameters<typeof servicesDiscoveryService.createRequest>[2];
 
 const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
+  // 🔴 R8P canal-1 BIND (DECISION-0113 / Z2 · 2026-06-19): actionContext.actorId é HINT do actor operacional
+  // (provider/customer/responder); o serviço só compara/filtra por ele (offer.actorId===actionActorId,
+  // provider_actor_id===actionActorId, customer===actionActorId). Sem prova de representação, qualquer caller
+  // declara o public actor id de outro e age/lê como ele. BIND: o caller (req.user) DEVE representar o actor
+  // declarado (canRepresentActor server-side) ANTES de qualquer write/leitura actor-scoped. NÃO toca /request/pay
+  // (retired R8J), payAcceptedRequest, firewall, settlement nem bank_*. Guard: audit-services-discovery-actor-bind.mjs.
+  const assertActorRepresentable = async (req: any, reply: FastifyReply): Promise<boolean> => {
+    if (!req.user?.id) {
+      reply.status(401).send({ error: 'SERVICE_DISCOVERY_ACTOR_AUTHORITY_REQUIRED', message: 'Não autenticado: subject server-side obrigatório' });
+      return false;
+    }
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    const canRep = await authorizationService.canRepresentActor(req.tenant.id, req.user.id, req.actionContext.actorId);
+    if (!canRep) {
+      reply.status(403).send({ error: 'SERVICE_DISCOVERY_ACTOR_AUTHORITY_REQUIRED', message: 'Caller não pode representar o actor declarado' });
+      return false;
+    }
+    return true;
+  };
+
   fastify.post('/offers', async (req, reply) => {
     if (!req.actionContext?.actorId) {
       return reply.status(400).send({ error: 'ActionContext obrigatório' });
@@ -79,6 +99,7 @@ const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
+    if (!(await assertActorRepresentable(req, reply))) return reply;
 
     let body: CreateOfferParsed;
     try {
@@ -177,6 +198,7 @@ const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
+    if (!(await assertActorRepresentable(req, reply))) return reply;
 
     let listQuery: ListRequestsFiltersParsed;
     try {
@@ -214,6 +236,7 @@ const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
+    if (!(await assertActorRepresentable(req, reply))) return reply;
 
     let providerListQuery: ListRequestsFiltersParsed;
     try {
@@ -275,6 +298,7 @@ const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
+    if (!(await assertActorRepresentable(req, reply))) return reply;
 
     let respondPayload: RespondParsed;
     try {
@@ -312,6 +336,7 @@ const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
+    if (!(await assertActorRepresentable(req, reply))) return reply;
 
     const idParse = z.string().uuid().safeParse(req.params.requestId);
     if (!idParse.success) {
@@ -344,6 +369,7 @@ const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
+    if (!(await assertActorRepresentable(req, reply))) return reply;
 
     let createRequestPayload: CreateRequestParsed;
     try {

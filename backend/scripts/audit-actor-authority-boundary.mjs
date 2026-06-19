@@ -386,7 +386,14 @@ const BASELINE = {
   // que morde se body governar payer/receiver / perder canRepresentActor). Sem bank_* no arquivo; não toca ledger.
   // Reconcile de baseline; se a proteção sumir, o guard dedicado falha E o arquivo re-flagga.
   // DT-SERVICE-PAYMENT-REQUEST-* + DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE.
-  'modules/services/services-discovery.routes.ts': C1,
+  // services-discovery.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R8P, 2026-06-19): rotas não-money
+  // BOUND — /offers, /request, /request/respond, /my-requests, /provider-requests, /request/:requestId exigem
+  // assertActorRepresentable → canRepresentActor(req.tenant.id, req.user.id, actionContext.actorId) fail-closed
+  // 403 SERVICE_DISCOVERY_ACTOR_AUTHORITY_REQUIRED ANTES de qualquer write/leitura actor-scoped. /request/pay segue
+  // RETIRED (R8J, 403 SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110 + firewall); /metrics e /search usam
+  // actionContext só como presence-gate (tenant-wide/category, não authority). Guard dedicado:
+  // audit-services-discovery-actor-bind.mjs (morde se algum dos 6 binds regredir / direct-pay reabrir / bank_*).
+  // Sem bank_* no arquivo; não toca payAcceptedRequest/settlement. DT-AUTHORITY-Z2-SERVICES-DISCOVERY-NON-MONEY-AUTHORITY.
   // services.routes.ts REMOVIDO do baseline canal-1 (F-AUTHORITY-Z2-R6.1-SERVICES-ACTOR-BINDING):
   // POST /services e PUT /services/:id passaram a exigir representação server-side do actor dono via
   // canRepresentActor(req.tenant.id, req.user.userId, ownerActorId) fail-closed (403
