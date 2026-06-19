@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0116 ADENDO A1 (2026-06-10) |
+| Última entrada | DECISION-0140 (2026-06-19) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7279,3 +7279,20 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** **DECISION-0134 (parcial)** — refina/superseda quanto a actor-scoped referral **code & earnings**; a 0134 §2 (código pertence ao actor; lookup, não authority) **permanece vigente**.
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0139_ACTOR_SCOPED_REFERRAL_CODE_AND_EARNINGS.md` · `DECISION-0134`/`0113`/`0131` · `AUTHORITY_LAW` · `LEI_DE_COERENCIA_SISTEMICA` · `07_NOMENCLATURA_CANONICA` · `bank_accounts.owner_type='actor'`/`getActorWalletAccount` · `DT-ACTOR-SCOPED-REFERRAL-USER-ONLY` · `docs/03_execution_log/20260617_F_ACTOR_SCOPED_REFERRAL_PREFLIGHT.md`.
+
+---
+
+## DECISION-0140 — Unidade canônica de taxa de método financeiro UnifyCard: `fee_rate_bps` (basis points)
+
+- **Data:** 2026-06-19
+- **Tipo:** Financeiro / Produto / Nomenclatura (DOCS-ONLY — promulgação de régua, NÃO implementação material)
+- **Frente:** F-FINANCIAL-DECISION-FEE-BPS-UNIFYCARD-METHOD · **HEAD:** `a258973c` · **dev:** 394 (sem migration)
+- **Contexto:** o trilho unifycard-method foi CONTIDO em R8Q (501 UNIFYCARD_METHOD_MONEY_DEFERRED_CONTAINED; tabela `unifycard_payment_methods` + enum `unifycard_method_type` ghost/archive-only no dev). O bug **299¢ vs 3¢** é exatamente a ambiguidade de UNIDADE de `fee_percentage`: o contrato declara decimal `0.0299`, mas o consumidor de settlement (`payment-execution.service`) divide por 100 e assume percentual `2.99` — divergência de unidade na raiz. A norma `07_NOMENCLATURA_CANONICA §4.8` já decide: taxas percentuais em **basis points (bps)**, sufixo obrigatório `_bps`, INTEGER (1% = 100 bps); `fee_percentage` é nome ❌ proibido/ambíguo.
+- **Decisão soberana (Clayton escolhe B — promulgada):** taxas percentuais de método financeiro UnifyCard **DEVEM** usar **`fee_rate_bps INTEGER`** no banco e **`feeRateBps`** no runtime/API. **`fee_percentage`/`feePercentage` é legado/deferred** — não deve ser expandido nem usado em novas implementações. `fee_rate_bps` INTEGER elimina a ambiguidade de unidade na raiz (sem decimal vs percentual; sem `/100`).
+- **Por que B (e não A/C/D):** **A** (manter `fee_percentage`) deixaria o legado divergente legítimo por omissão. **C** (corrigir/migrar agora) NÃO deve ser feito sem mapa de consumers + Evidence Pack financeiro + Yala + 3 paralelas. **D** (remover o trilho) é radical antes de provar que cartão/acquiring não reaproveita o trilho. **B** promulga a régua sem tocar dinheiro nem runtime (o trilho já está contido em R8Q). **Parecer IA-DINHEIRO: concorda com B** (a régua bps mata a ambiguidade na raiz; B não move dinheiro nem muda runtime porque o trilho está contido; C/D exigem Evidence Pack/prova de reuso).
+- **RESSALVA OBRIGATÓRIA (régua ≠ fechamento da DT financeira):** B é **promulgação de régua**, NÃO fechamento da DT de fee-unit/settlement. A DT do fee-unit permanece **OPEN**. A frente material futura só fecha com **Evidence Pack financeiro** (schema vivo, migration se aplicável, mapa de consumers, snapshot, **E2E provando 299¢**, guard, negative-proof, gates e Yala). Esta DECISION NÃO corrige `/100`, NÃO troca `fee_percentage`→`fee_rate_bps` no código, NÃO cria migration, NÃO toca settlement/Bank/payout/fee calculation, NÃO reativa o trilho UnifyCard/acquiring.
+- **Resíduo material:** `DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION` → **OPEN / DECISION MATERIAL REQUIRED** (régua promulgada; implementação pendente). Frente material deferida: `F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION` → **DEFERRED / REQUIRES EVIDENCE PACK FINANCEIRO**.
+- **Responsável:** Clayton / IA Diretora (executor: Claude). **Validação prévia:** Clayton (escolha soberana B) + parecer IA-DINHEIRO.
+- **Supera:** — (primeira promulgação da unidade de fee do trilho UnifyCard method; alinha o trilho à régua já existente `07_NOMENCLATURA_CANONICA §4.8`).
+- **Superada por:** —
+- **Referências:** `07_NOMENCLATURA_CANONICA §4.8` (bps/`_bps` INTEGER; `fee_percentage` proibido) · `DECISION-0113` (canal-1 CLOSED/baseline zero) · `DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION` · `DT-AUTHORITY-Z2-UNIFYCARD-METHOD-M5-MONEY-CONTAINMENT` (R8Q) · `docs/03_execution_log/20260619_F_AUTHORITY_Z2_R8Q_UNIFYCARD_METHOD_M5_CONTAINMENT.md` · `docs/03_execution_log/20260619_F_FINANCIAL_DECISION_FEE_BPS_UNIFYCARD_METHOD.md` · consumers conhecidos: `unifycard.service.ts` (299¢) / `payment-execution.service.ts` (`/100`→3¢).
