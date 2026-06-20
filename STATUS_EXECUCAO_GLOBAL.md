@@ -1,3 +1,17 @@
+## 2026-06-20 — F-ACTOR-WALLET-PAYOUT-GOLIVE-DECISION-PACK-CLOSEOUT (consolidação das paralelas A/B/C) · 🔒 CLOSED / DOCS-ONLY / DECISION-PACK / HOLD-GOLIVE (decisão soberana Clayton)
+
+**DOCS-ONLY (HEAD `c18473f1`, dev 394, sem migration/código/runtime/DB write/seed/worker/external payout/HTTP execution).** Consolida as 3 paralelas READ-ONLY do `F-ACTOR-WALLET-PAYOUT-GOLIVE-DECISION-PACK` e fixa a **decisão soberana Clayton**: payout **interno** provado (controlado) **OK**, **go-live em HOLD**. Re-verificação fail-closed READ-ONLY: payout dormente; nenhum STOP.
+
+**Verdicts:** A=`READY_FOR_DECISION` (não autoriza seed; PORTA-1 substrato-pronta/auto-limitante; policies/authorities 0/0; kill-switch/audit-arming/rollback MATERIAL_REQUIRED) · B=`HOLD_FOR_EXTERNAL_RAIL + HOLD_FOR_RLS` (rail externo inexiste; PIX mock/inbound; app superuser/BYPASSRLS → **RLS teatro**) · C=`HOLD_FOR_ROLLBACK + HOLD_FOR_TOCTOU + HOLD_FOR_E2E` (sem outbox/DLQ/retry/conciliação/compensação; sem kill-switch runtime; 3 TOCTOU: KYC intermediário, envelope de risco, recovery pending_approval).
+
+**Decisão:** Go-live **HOLD** · external payout **NOT AUTHORIZED** · PORTA-1 **NOT SEEDED** · worker **DEFAULT-OFF** · HTTP execution **disabled/403**. Nenhum dinheiro sai enquanto PORTA-1 + rail externo + kill-switch + KYC/ATL execute-time + RLS/DB-role não estiverem decididos e provados.
+
+**Ordem macro aprovada:** (1) **F-DB-ROLE-AND-RLS-HARDENING** ← próxima macro material (app role não-superuser; sem BYPASSRLS; grants mínimos; ENABLE/FORCE RLS payout/approval/recovery; boot pre-flight fail-closed) → (2) F-PAYOUT-TOCTOU-SAFETY-HARDENING → (3) F-ACTOR-WALLET-PAYOUT-EXTERNAL-RAIL-DESIGN → (4) só então PORTA-1 seed / worker arming / external payout real.
+
+**Estados:** `F-ACTOR-WALLET-PAYOUT-GOLIVE-DECISION-PACK` → **CLOSED / DOCS-ONLY / DECISION-PACK / HOLD-GOLIVE** · payout actor_wallet → **internal proof OK; external go-live HOLD** · `DT-SETTLEMENT-REGIONAL-FEE-BPS-DEAD-CODE-GUARD` permanece **OPEN**. **Gates:** actor-writer/bank-ledger OK · regression-guards 75 OK/0 FAIL · arch critical_new=0 · migrations 394/394 · baseline 0113 = 0. Detalhe: `docs/03_execution_log/F-ACTOR-WALLET-PAYOUT-GOLIVE-DECISION-PACK-CLOSEOUT.md`. **Bloqueado até:** DB role/RLS real · TOCTOU safety · external rail design · kill-switch/runtime rollback · decisão Clayton de seed.
+
+---
+
 ## 2026-06-20 — F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS-CLOSEOUT (registro Yala PASS + correção O1) · ✅ CLOSED / DOCS-ONLY / YALA PASS — macrofrente de prova fechada (payout NÃO autorizado)
 
 **DOCS-ONLY (HEAD `4a39150b`, dev 394, sem migration/código/runtime).** Registra o **Yala reseal material = PASS** da macrofrente `F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS` (commit `4a39150b`) e fecha a macrofrente + as DTs de E2E-proof. Re-verificação fail-closed READ-ONLY: payout dormente; nenhum STOP.
