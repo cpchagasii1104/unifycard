@@ -419,11 +419,14 @@ async function cleanupPayoutRequests(ids: string[]): Promise<void> {
     `DELETE FROM bank_transactions WHERE tenant_id=$1 AND reference_type='actor_wallet_payout' AND reference_id = ANY($2::text[])`,
     [TENANT_ID, ids]
   ).catch(() => {});
-  await q(`DELETE FROM actor_wallet_payout_requests WHERE id = ANY($1::uuid[])`, [ids]);
+  // best-effort: payout_requests é deletável (reseta o gate de request ativo); approval_requests/votes
+  // são imutáveis (governança DECISION-0128 / prevent_approval_request_delete) → .catch para não abortar
+  // o runner (em efêmero o DB é dropado).
+  await q(`DELETE FROM actor_wallet_payout_requests WHERE id = ANY($1::uuid[])`, [ids]).catch(() => {});
   const aIds = approvalIds.rows.map((r: any) => r.approval_request_id).filter(Boolean);
   if (aIds.length) {
-    await q(`DELETE FROM approval_votes WHERE approval_request_id = ANY($1::uuid[])`, [aIds]);
-    await q(`DELETE FROM approval_requests WHERE id = ANY($1::uuid[])`, [aIds]);
+    await q(`DELETE FROM approval_votes WHERE approval_request_id = ANY($1::uuid[])`, [aIds]).catch(() => {});
+    await q(`DELETE FROM approval_requests WHERE id = ANY($1::uuid[])`, [aIds]).catch(() => {});
   }
 }
 

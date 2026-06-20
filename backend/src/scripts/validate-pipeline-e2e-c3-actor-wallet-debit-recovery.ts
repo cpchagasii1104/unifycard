@@ -305,7 +305,7 @@ async function runTests() {
         fail('T1 saldo suficiente → recovered', String(e));
       } finally {
         await cleanupObligation(obligationId);
-        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
       }
     }
 
@@ -335,7 +335,7 @@ async function runTests() {
         fail('T2 saldo parcial → partially_recovered', String(e));
       } finally {
         await cleanupObligation(obligationId);
-        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
       }
     }
 
@@ -360,7 +360,7 @@ async function runTests() {
         fail('T3 segunda entry → recovered', String(e));
       } finally {
         await cleanupObligation(obligationId);
-        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
       }
     }
 
@@ -393,7 +393,7 @@ async function runTests() {
         fail('T10 Σ entries = recovered_amount_cents', String(e));
       } finally {
         await cleanupObligation(obligationId);
-        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
       }
     }
 
@@ -426,7 +426,7 @@ async function runTests() {
       }
 
       await cleanupObligation(obligationId);
-      await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+      await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
     }
 
     // ── T5: pending_approval → RECOVERY_APPROVAL_REQUIRED ────────────────────
@@ -461,7 +461,7 @@ async function runTests() {
         }
       } finally {
         await cleanupObligation(obligationId);
-        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
       }
     }
 
@@ -480,7 +480,7 @@ async function runTests() {
         }
       } finally {
         await cleanupObligation(obligationId);
-        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
       }
     }
 
@@ -500,7 +500,7 @@ async function runTests() {
           }
         } finally {
           await cleanupObligation(obligationId);
-          await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+          await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
         }
       }
     }
@@ -575,7 +575,7 @@ async function runTests() {
         fail('T11 ledger double-entry', String(e));
       } finally {
         await cleanupObligation(obligationId);
-        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
       }
     }
 
@@ -608,7 +608,7 @@ async function runTests() {
         fail('T13/T14 balance verification', String(e));
       } finally {
         await cleanupObligation(obligationId);
-        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+        await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
       }
     }
 

@@ -23,6 +23,7 @@ import { bankAccountService } from '../../modules/bank/bank-account.service';
 import { bankAccountRepository } from '../../modules/bank/bank-account.repository';
 import { bankTransactionService } from '../../modules/bank/bank-transaction.service';
 import { buildSystemAuthorship } from '../../modules/bank/financial-authorship.helper';
+import { identityValidationService } from '../../core/identity/identity-validation.service';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
@@ -100,6 +101,37 @@ async function fundSystemCoverage(tenantId: string, actingActorId: string): Prom
   console.log('   system coverage capacity mintada (caminho canônico; sem raw insert/trigger bypass).');
 }
 
+/**
+ * KYC CANÔNICO de teste (NÃO bypass): aprova a identity pelo workflow real submit→review
+ * (identityValidationService), que projeta identities.kyc_status='approved'. Sem raw UPDATE de
+ * kyc_status, sem constante global. Necessário porque a PF nasce kyc_status='pending' (Fatia C1) e
+ * o gate financeiro de debit-side (bank-transaction.service → requireFinancialRiskClearance) bloqueia
+ * KYC_PENDING_BLOCKS_FINANCIAL em QUALQUER transfer de actor_wallet (payout F3 + drain C3/C7). Roda só
+ * em DB efêmero (assertEphemeral no topo de ensurePayoutE2EBaseFixtures). Idempotente.
+ */
+async function approveKycCanonical(globalUserId: string, operatorUserId: string): Promise<void> {
+  const cur = (await pool.query<{ kyc_status: string }>(
+    `SELECT kyc_status FROM identities WHERE global_user_id=$1::uuid LIMIT 1`,
+    [globalUserId]
+  )).rows[0]?.kyc_status;
+  if (cur === 'approved') return;
+  const req = await identityValidationService.submitIdentityValidation(
+    globalUserId, operatorUserId, 'complete', 'e2e payout-proof fixture (ephemeral)'
+  );
+  await identityValidationService.reviewIdentityValidation(
+    req.id, 'approved', 'e2e payout-proof fixture (ephemeral)', operatorUserId
+  );
+  console.log(`   KYC aprovado (canônico submit+review) p/ global_user ${globalUserId.slice(0, 8)}…`);
+}
+
+async function resolveGlobalUserId(userId: string): Promise<string> {
+  const g = (await pool.query<{ g: string }>(
+    `SELECT global_user_id AS g FROM users WHERE id=$1 LIMIT 1`, [userId]
+  )).rows[0]?.g;
+  if (!g) throw new Error(`global_user_id ausente para user ${userId}`);
+  return g;
+}
+
 async function ensureRecoveryConcept(): Promise<void> {
   const client = await pool.connect();
   try {
@@ -127,6 +159,11 @@ export async function ensurePayoutE2EBaseFixtures(): Promise<string> {
   await ensureUserActor(tenantId, creditor.userId);
   const debtorActorId = await resolveActorId(tenantId, debtor.userId);
   const creditorActorId = await resolveActorId(tenantId, creditor.userId);
+
+  // KYC canônico (submit→review) — debit-side gate bloqueia KYC_PENDING em todo transfer de actor_wallet.
+  // Operador = a própria PF (fixture; reviewed_by_user_id é apenas FK de auditoria). Só em efêmero.
+  await approveKycCanonical(await resolveGlobalUserId(debtor.userId), debtor.userId);
+  await approveKycCanonical(await resolveGlobalUserId(creditor.userId), creditor.userId);
 
   // Contas via serviço canônico (sem referência direta a tabelas SSOT bancárias).
   const aw = await bankAccountService.ensureActorWalletAccount(tenantId, debtorActorId);

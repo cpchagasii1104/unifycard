@@ -68,6 +68,16 @@ const SELF_SEED = 'src/scripts/test-support/payout-e2e-self-seed.ts';
     if (!/createSimpleTransaction\s*\(/.test(code)) {
       failures.push(`${SELF_SEED}: não usa createSimpleTransaction (funding canônico coverage-aware).`);
     }
+    // KYC de teste DEVE ser canônico (workflow submit→review via identityValidationService), nunca bypass.
+    // raw UPDATE de identities.kyc_status = aprovar KYC "na marra" → proibido.
+    if (/UPDATE\s+identities\b[\s\S]*?\bkyc_status\b/i.test(code)) {
+      failures.push(`${SELF_SEED}: raw UPDATE identities.kyc_status — KYC de teste deve ser aprovado pelo caminho canônico (identityValidationService.reviewIdentityValidation), não bypass.`);
+    }
+    // self-seed DEVE aprovar KYC pelo caminho canônico (submit+review). Sem isso, o gate financeiro
+    // (debit-side) bloqueia KYC_PENDING e os E2Es de payout/recovery nunca rodam full-green.
+    if (!/reviewIdentityValidation\s*\(/.test(code)) {
+      failures.push(`${SELF_SEED}: não usa reviewIdentityValidation — KYC de teste deve ser aprovado pelo caminho canônico (submit→review), não constante/bypass.`);
+    }
   }
 }
 
@@ -76,4 +86,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [payout-e2e-ephemeral-guard] — F2/F3/C3/C7 + payout-approve definem e chamam assertEphemeral e bloqueiam unificard_dev; E2Es sensíveis de payout/recovery recusam DB não-efêmero (prova gateável sem ligar payout).');
+console.log('GATE OK [payout-e2e-ephemeral-guard] — F2/F3/C3/C7 + payout-approve definem e chamam assertEphemeral e bloqueiam unificard_dev; self-seed funda coverage por caminho canônico (createSimpleTransaction, sem raw bank insert/trigger bypass) e aprova KYC pelo workflow canônico (submit→review, sem raw kyc_status UPDATE); E2Es sensíveis de payout/recovery recusam DB não-efêmero (prova gateável sem ligar payout).');

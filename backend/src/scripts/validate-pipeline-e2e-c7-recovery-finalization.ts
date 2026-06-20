@@ -329,7 +329,7 @@ async function runTests() {
 
     await cleanupObligation(obligationId);
     await cleanupIntent(intentId);
-    await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+    await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
   }
 
   // ── T4: cancelled → intent permanece 'released_to_actor_wallet' ──────────────
@@ -433,7 +433,7 @@ async function runTests() {
     await q(`DELETE FROM bank_transactions WHERE id=$1`, [origTxId]);
     await cleanupObligation(obligationId);
     await cleanupIntent(intentId);
-    await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+    await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
   }
 
   // ── T8: rollback — falha induzida no outbox não deixa payment_intent alterado ─
@@ -467,7 +467,7 @@ async function runTests() {
 
     await cleanupObligation(obligationId);
     await cleanupIntent(intentId);
-    await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+    await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
   }
 
   // ── T9: zero escrita financeira durante toda a suite ─────────────────────────
@@ -546,7 +546,7 @@ async function runTests() {
 
     await cleanupObligation(obligationId);
     await cleanupIntent(intentId);
-    await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]);
+    await q(`DELETE FROM approval_requests WHERE id=$1`, [approvalId]).catch(() => {});
     await drainAccount(fixture.debtorAccountId, fixture.debtorActorId);
   }
 

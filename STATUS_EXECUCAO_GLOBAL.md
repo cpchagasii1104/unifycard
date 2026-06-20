@@ -1,3 +1,19 @@
+## 2026-06-20 — F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS (macrofrente) · ✅ EXECUTED / PENDING YALA — F2/F3/C3/C7 FULL-GREEN em DB efêmero (payout NÃO autorizado)
+
+**MACRO MATERIAL (HEAD before `9525cfa4`, dev 394, SEM migration).** Encerrou o ping-pong de microfrentes e deixou o payout de actor_wallet **tecnicamente GO-ready em prova**. Re-verificação fail-closed: baseline confirmou payout dormente + F2 20/20 + F3 falhando em KYC/cascata; nenhum STOP.
+
+**Causa-raiz única:** gate de **debit-side** (`bank-transaction.service → requireFinancialRiskClearance → evaluateKycLayer`) bloqueia `KYC_PENDING_BLOCKS_FINANCIAL` em todo transfer de actor_wallet; a PF self-seedada nasce `kyc_status='pending'` (C1). T2–T4 (request ativo) e T9–T16 (available=0/pending acumulado) eram **cascata**; o fatal de cleanup era `prevent_approval_request_delete` (DECISION-0128).
+
+**Correções (só test-support/E2E/guard/docs):** (A) **KYC canônico** — `approveKycCanonical` aprova a identity pelo workflow real **submit→review** (`identityValidationService`), `kyc_status='approved'` p/ debtor+creditor (global → desbloqueia F3 **e** C3/C7), **sem raw UPDATE / sem constante global / só efêmero**; (B) cleanup `approval_requests`/votes → **best-effort** em F3/C3(10×)/C7(4×). **Runner:** Preferência 2 (mesmo DB efêmero, isolamento por cenário + KYC/coverage globais).
+
+**Resultado:** **F2 20/20 · F3 18/18 · C3 18/18 · C7 14/14 — FULL-GREEN**; `validate:payout-proof-e2e` OK.
+
+**Guard/negative-proof:** `audit-payout-e2e-ephemeral-guard` estendido (exige `reviewIdentityValidation`; proíbe raw `UPDATE identities.kyc_status`) + `negative-proof-payout-e2e-kyc-canonical.ps1` (NP1 raw kyc UPDATE · NP2 remover review; pwsh 7 + WPS 5.1), somando ao funding NP.
+
+**Estados:** `F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS` → **EXECUTED / PENDING YALA** · `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED` → **EXECUTED / PENDING YALA** (4/4 green) · `DT-PAYOUT-E2E-EPHEMERAL-FUNDING-COVERAGE` → **EXECUTED / PENDING YALA** · **Payout NOT AUTHORIZED · PORTA-1 NÃO semeada · worker default-off · external payout NOT AUTHORIZED · Bank/Core runtime intocado · coverage/KYC/recovery não relaxados**. **Gates:** actor-writer/bank-ledger OK · regression-guards 75 OK/0 FAIL · arch critical_new=0 (warning_new=4 pré-existentes) · migrations 394/394 · baseline 0113 = 0 · tsc 34 (nenhum novo desta frente). Detalhe: `docs/03_execution_log/F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS-EXECUTION.md`. **GO-live = decisão soberana Clayton** (PORTA-1 seed · worker arming · TOCTOU KYC/ATL/risco · RLS hardening).
+
+---
+
 ## 2026-06-19 — DT-PAYOUT-E2E-EPHEMERAL-FUNDING-COVERAGE (funding coverage-aware) · 🟡 PARTIAL — coverage SOLVED · F2 20/20 FULL-GREEN · F3/C3/C7 remanescente (payout NÃO autorizado)
 
 **MATERIAL (HEAD before `c108c847`, dev 394, SEM migration).** Resolveu o muro `COVERAGE_EXCEEDED` por **funding coverage-aware canônico**, **sem burlar o Bank**. Re-verificação READ-ONLY: payout dormente; nenhum STOP.
