@@ -1,3 +1,17 @@
+## 2026-06-19 — F-UNIFYCARD-FEE-BPS-MATERIAL-YALA-WARNINGS (reconciliação W1/W2 + fechamento DT) · ✅ CLOSED / MATERIAL / YALA PASS_WITH_WARNINGS (path vivo; payout NÃO autorizado)
+
+**Docs-only / cartorial (HEAD `2d3065b8`, dev 394, sem migration/código).** Reconcilia o cartório após o **Yala reseal material = PASS_WITH_WARNINGS** do commit `2d3065b8` e fecha a DT material **no escopo do path vivo**.
+
+- **Commit material:** `2d3065b8` · **Yala:** PASS_WITH_WARNINGS · **Path vivo:** corrected (299 bps × 10000¢ = 299¢; regression-guards 73 OK/0 FAIL).
+- **W1 (precisão):** `*100`/`fee_percentage` removidos do **path VIVO** (payment-execution + unifycard service + snapshot bps) — **NÃO globalmente**. Persistem resíduos **dead-code**, sem impacto em dinheiro vivo, em `regional-fee.repository.ts:34` e `settlement.service.ts:154-166` (dead: regional_fees GHOST + settlement Proxy-dead; path vivo não passa por eles; guard cobre só os 3 arquivos do path vivo).
+- **W2 (follow-up):** criado `DT-SETTLEMENT-REGIONAL-FEE-BPS-DEAD-CODE-GUARD` → **OPEN / BLOCKER_BEFORE_SETTLEMENT_REACTIVATION** (antes de reativar settlement/regional_fees/DECISION-0114 D5/fundo regional: migrar p/ engine-bps ou tombstone + estender guard).
+
+**Estados:** `DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION` → **CLOSED / MATERIAL / YALA PASS_WITH_WARNINGS** (escopo path vivo; NÃO cobre settlement/regional_fees/fundo regional/payout/DECISION-0114 D5/actor_wallet payout/availableBalanceCents) · `F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION` → **CLOSED / MATERIAL / YALA PASS_WITH_WARNINGS** · `DT-SETTLEMENT-REGIONAL-FEE-BPS-DEAD-CODE-GUARD` → **OPEN / BLOCKER_BEFORE_SETTLEMENT_REACTIVATION** · Payout → **NOT AUTHORIZED** · R8Q → **501 PRESERVED**.
+
+**Residual:** regional-fee.repository.ts:34 + settlement.service.ts:154-166 (dead-code only) — tracked by `DT-SETTLEMENT-REGIONAL-FEE-BPS-DEAD-CODE-GUARD`. **Gates:** actor-writer/bank-ledger OK · regression-guards 73 OK/0 FAIL · arch critical_new=0 · migrations 394/394 · baseline 0113 = 0. Detalhe: `docs/03_execution_log/F-UNIFYCARD-FEE-BPS-MATERIAL-YALA-WARNINGS-RECONCILIATION.md`. **Fee material (path vivo) CLOSED · Payout NÃO autorizado.**
+
+---
+
 ## 2026-06-19 — F-UNIFYCARD-METHOD-FEE-BPS-MATERIAL-MIGRATION (fee via economic_policy_engine em bps) · 🟡 EXECUTED / MATERIAL / PENDING YALA (fee material executado; payout NÃO autorizado)
 
 **MATERIAL (HEAD before `0100fd17`, dev 394, SEM migration).** Cutover dos consumers de taxa UnifyCard/marketplace para resolver via **economic_policy_engine** em **bps** (DECISION-0141 schema-of-record + DECISION-0140 unidade), eliminando `gross*(feePercentage/100)` — o bug 299¢ vs 3¢. **Materialmente seguro:** os 2 sinks de fee são dead-at-code/db (settlementService Proxy-dead + `settlements` GHOST; unifyCardRepository Proxy-dead) → mudança não move dinheiro real. **NÃO toca Bank/payout; NÃO reativa settlement; NÃO reabre R8Q 501; NÃO cria migration.**
