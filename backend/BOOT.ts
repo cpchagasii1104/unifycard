@@ -97,6 +97,17 @@ export async function startServer(): Promise<void> {
     console.warn('⚠️ [BOOT] DB indisponível (não bloqueante):', err);
   }
 
+  // ── DB ROLE / RLS PRE-FLIGHT (F-DB-ROLE-AND-RLS-HARDENING) ──────────────────
+  // Fail-closed em produção se o runtime estiver como superuser/BYPASSRLS ou as tabelas
+  // financeiras não tiverem RLS+FORCE+policy (anti "RLS theatre"). Fora de produção: aviso alto.
+  try {
+    const { runDbRoleRlsPreflight } = await import('./src/core/database/db-role-rls-preflight');
+    await runDbRoleRlsPreflight();
+  } catch (err) {
+    console.error('❌ [BOOT] ERRO FATAL: DB role/RLS pre-flight fail-closed (money runtime inseguro):', err);
+    throw err;
+  }
+
   console.log('[BOOT] Construindo aplicação Fastify...');
   const app = await buildApp();
   console.log('[BOOT] Aplicação Fastify construída com sucesso');

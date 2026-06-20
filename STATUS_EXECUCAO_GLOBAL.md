@@ -1,3 +1,17 @@
+## 2026-06-20 — F-DB-ROLE-AND-RLS-HARDENING (macro material) · ✅ EXECUTED / PENDING YALA — RLS deixa de ser teatro (payout NÃO autorizado)
+
+**MACRO MATERIAL (HEAD before `654932ef`, dev 394→395, +1 migration).** Elimina o bloqueador #1 do Decision Pack ("RLS theatre": app conectava como postgres/superuser → bypassa RLS mesmo em FORCE). Re-verificação fail-closed: payout dormente; nenhum STOP.
+
+**Migration `20260620120000_db_role_rls_hardening.sql`:** cria role **`unificard_app` NOSUPERUSER/NOBYPASSRLS** (sem DDL/bypass/infra) + grants mínimos + **ENABLE+FORCE RLS + policy tenant-scoped** (`app.current_tenant`) nas 7 tabelas payout/approval/recovery + `*_infra_bypass TO unificard_infra` (só infra). bank_* (já endurecidas em 20260516100000) **não tocadas**.
+
+**Pre-flight `db-role-rls-preflight.ts` (wired em BOOT.ts):** inspeciona pg_roles (rolsuper/rolbypassrls)+RLS; `assertSecureDbRoleForMoneyRuntime` lança DB_ROLE_IS_SUPERUSER/BYPASSRLS/RLS_REQUIRED_*; **fail-closed em produção**, aviso alto em dev (dev ainda usa postgres até a troca operacional).
+
+**Provas (DB efêmero, 7/7):** admin superuser vê ambos tenants (teatro) · unificard_app NOSUPERUSER+NOBYPASSRLS · RLS isola por tenant (A→1/B→1) · cross-tenant INSERT bloqueado por WITH CHECK (42501) · preflight passa sob unificard_app, lança DB_ROLE_IS_SUPERUSER sob admin. **Guard** em regression (76 OK/0 FAIL) + **negative-proof** NP1–NP7 (pwsh 7 + WPS 5.1).
+
+**Estados:** `F-DB-ROLE-AND-RLS-HARDENING` → **EXECUTED / PENDING YALA** · **Payout NOT AUTHORIZED · PORTA-1 NOT SEEDED · worker default-off · external payout NOT AUTHORIZED · destination_type internal_settlement-only · Bank/Core/KYC/recovery runtime intocados · bank_* não relaxado** · `DT-SETTLEMENT-REGIONAL-FEE-BPS-DEAD-CODE-GUARD` permanece OPEN. **Gates:** actor-writer/bank-ledger OK · regression 76 OK/0 FAIL · arch critical_new=0 · migrations 395/395 · baseline 0113 = 0 · tsc 34 (nenhum novo; Yala consolida 43). Detalhe: `docs/03_execution_log/F-DB-ROLE-AND-RLS-HARDENING-EXECUTION.md`. **Operacional (fora do repo):** ops dá LOGIN+PASSWORD a unificard_app e aponta runtime p/ ela (postgres só p/ migrations). **Próxima macro: F-PAYOUT-TOCTOU-SAFETY-HARDENING** (não PORTA-1).
+
+---
+
 ## 2026-06-20 — F-ACTOR-WALLET-PAYOUT-GOLIVE-DECISION-PACK-CLOSEOUT (consolidação das paralelas A/B/C) · 🔒 CLOSED / DOCS-ONLY / DECISION-PACK / HOLD-GOLIVE (decisão soberana Clayton)
 
 **DOCS-ONLY (HEAD `c18473f1`, dev 394, sem migration/código/runtime/DB write/seed/worker/external payout/HTTP execution).** Consolida as 3 paralelas READ-ONLY do `F-ACTOR-WALLET-PAYOUT-GOLIVE-DECISION-PACK` e fixa a **decisão soberana Clayton**: payout **interno** provado (controlado) **OK**, **go-live em HOLD**. Re-verificação fail-closed READ-ONLY: payout dormente; nenhum STOP.
