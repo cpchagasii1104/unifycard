@@ -8,8 +8,11 @@ import type { GraphRelationType } from './graph.adapter';
 
 const RELATION_TYPES: ReadonlySet<string> = new Set<GraphRelationType>([
   'enables',
+  'requires',
   'evolves_to',
   'related_to',
+  'part_of',
+  'substitutes',
 ]);
 
 export function isGraphRelationType(value: string): value is GraphRelationType {

@@ -6,7 +6,13 @@
  */
 import { pool } from '@core/database/pool';
 
-export type GraphRelationType = 'enables' | 'evolves_to' | 'related_to';
+export type GraphRelationType =
+  | 'enables'
+  | 'requires'
+  | 'evolves_to'
+  | 'related_to'
+  | 'part_of'
+  | 'substitutes';
 
 export interface ConceptRelation {
   /** concept_id da categoria destino (to_category_id) */
