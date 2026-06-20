@@ -1,3 +1,15 @@
+## 2026-06-19 — DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED (E2E self-seed em DB efêmero) · 🟡 PARTIAL / MATERIAL_REMAINDER (base-graph concluído; coverage gap; payout NÃO autorizado)
+
+**MATERIAL (HEAD before `15cc3645`, dev 394, SEM migration).** Torna F2/F3/C3/C7 autossuficientes em DB efêmero, **sem ativar payout**. Re-verificação READ-ONLY: payout dormente/fail-closed (nenhum STOP).
+
+**Concluído:** novo `src/scripts/test-support/payout-e2e-self-seed.ts` semeia o grafo base por caminhos canônicos (register→global_users→users→identities→actor + ensureActorWalletAccount/ensureUserWalletForActor/ensurePlatformAccounts + concept actor-wallet-recovery), SÓ em DB efêmero (assertEphemeral; sem referência direta a tabelas SSOT bancárias — arch critical_new=0). **Problema não-óbvio resolvido:** register resolve o tenant SERVER-SIDE (unificard-inicial) ignorando o tenantId passado → o helper **descobre o tenant efetivo** e o repassa aos E2Es via `E2E_TENANT_ID` (runner). Verificado: actor_wallet/user_wallet/bank_settlement ok; **F2 passa o getFixtures** (antes falhava ali).
+
+**Remanescente (PARTIAL, não mascarado):** F2 falha em `seedWalletCreditF2` com **`COVERAGE_EXCEEDED`** — trigger de cobertura do Bank (`migrations/0003_bank_core.sql`) bloqueia credit "nu" em conta não-system em tenant novo. Para E2E full-green é preciso **funding coverage-aware** (transfer balanceado de conta system lastreada) nos seed credits dos 4 E2Es — money-seed mais profundo, NÃO feito aqui (não relaxar invariante financeiro). `validate:payout-proof-e2e` falha honestamente nesse muro (fora do regression default).
+
+**Estados:** `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED` → **PARTIAL / MATERIAL_REMAINDER** (OPEN) · `F-ACTOR-WALLET-PAYOUT-PROOF-WIRING` → CLOSED_WITH_REMAINDER (inalterado) · **Payout NOT AUTHORIZED · PORTA-1 não semeada · worker default-off · external payout NOT AUTHORIZED**. **Gates:** actor-writer/bank-ledger OK · regression-guards 75 OK/0 FAIL · arch critical_new=0 · migrations 394/394 · baseline 0113 = 0 · tsc 43. Detalhe: `docs/03_execution_log/DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED-EXECUTION.md`. Próximo: funding coverage-aware dos seed credits (frente própria) + Yala.
+
+---
+
 ## 2026-06-19 — F-ACTOR-WALLET-PAYOUT-PROOF-WIRING-YALA-CLOSEOUT (registro do reseal Yala + fechamento) · ✅ CLOSED_WITH_REMAINDER / MATERIAL / PROOF-WIRING / YALA PASS_WITH_WARNINGS (payout NÃO autorizado)
 
 **Docs-only / closeout (HEAD `db3d6248`, dev 394, sem migration/código).** Registra o **Yala reseal material = PASS_WITH_WARNINGS** do commit `db3d6248` e fecha `F-ACTOR-WALLET-PAYOUT-PROOF-WIRING` como **CLOSED_WITH_REMAINDER**, sem abrir payout.

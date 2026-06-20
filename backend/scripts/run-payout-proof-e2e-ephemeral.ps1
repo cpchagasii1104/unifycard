@@ -53,6 +53,17 @@ try {
   npx tsx src/core/db/migrate.ts
   if ($LASTEXITCODE -ne 0) { throw "migrate falhou (rc=$LASTEXITCODE)" }
 
+  Write-Host '🌱 Self-seed do grafo mínimo (canônico) na DB efêmera ...' -ForegroundColor Cyan
+  Remove-Item 'scripts/.tmp-payout-e2e-tenant.txt' -ErrorAction SilentlyContinue
+  npx tsx src/scripts/test-support/payout-e2e-self-seed.ts
+  if ($LASTEXITCODE -ne 0) { throw "self-seed falhou (rc=$LASTEXITCODE)" }
+
+  # tenant efetivo (resolvido server-side pelo register) → repassar aos E2Es.
+  $effTenant = (Get-Content 'scripts/.tmp-payout-e2e-tenant.txt' -Raw).Trim()
+  if (-not $effTenant) { throw 'tenant efetivo do self-seed não emitido' }
+  $env:E2E_TENANT_ID = $effTenant
+  Write-Host "🔗 E2E_TENANT_ID = $effTenant (tenant efetivo do self-seed)" -ForegroundColor Cyan
+
   foreach ($e2e in $E2ES) {
     Write-Host "🧪 Rodando $e2e ..." -ForegroundColor Cyan
     npx tsx $e2e
@@ -65,6 +76,7 @@ catch {
 }
 finally {
   Write-Host "🧹 Dropando DB efêmera $EPHEMERAL ..." -ForegroundColor Cyan
+  Remove-Item 'scripts/.tmp-payout-e2e-tenant.txt' -ErrorAction SilentlyContinue
   $env:DATABASE_URL = $baseUrl
   try { Invoke-Psql $adminUrl "DROP DATABASE IF EXISTS $EPHEMERAL WITH (FORCE)" } catch { Write-Host "aviso: drop falhou: $($_.Exception.Message)" -ForegroundColor Yellow }
 }
