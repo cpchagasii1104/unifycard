@@ -1,3 +1,21 @@
+## 2026-06-20 — F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS-CLOSEOUT (registro Yala PASS + correção O1) · ✅ CLOSED / DOCS-ONLY / YALA PASS — macrofrente de prova fechada (payout NÃO autorizado)
+
+**DOCS-ONLY (HEAD `4a39150b`, dev 394, sem migration/código/runtime).** Registra o **Yala reseal material = PASS** da macrofrente `F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS` (commit `4a39150b`) e fecha a macrofrente + as DTs de E2E-proof. Re-verificação fail-closed READ-ONLY: payout dormente; nenhum STOP.
+
+**Fecha:** `F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS` → **CLOSED / MATERIAL / E2E GO-READINESS / YALA PASS** · `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED` → **CLOSED / MATERIAL / YALA PASS** · `DT-PAYOUT-E2E-EPHEMERAL-FUNDING-COVERAGE` → **CLOSED / MATERIAL / YALA PASS**.
+
+**Motivo:** F2 20/20 · F3 18/18 · C3 18/18 · C7 14/14 full-green em DB efêmero; `validate:payout-proof-e2e` exit 0 (validado no commit `4a39150b`, Yala PASS — não re-rodado nesta frente docs-only). KYC resolvido por submit→review canônico (`identityValidationService`; sem raw UPDATE de kyc_status; sem relaxar runtime). Funding coverage-aware via createSimpleTransaction/mint-from-system (sem raw insert em bank_*; sem trigger bypass; sem session_replication_role). Recovery/governança: imutabilidade respeitada (sem delete bruto de obligations; sem relaxar trigger de governança).
+
+**O1 (correção cartorial):** `tsc 34` → **`tsc 43`** (Yala consolidou 43; mantida a frase "nenhum novo erro de typecheck desta frente"). Histórico preservado; estado consolidado corrigido.
+
+**GO-ready em prova NÃO é go-live:** Payout **NOT AUTHORIZED** · PORTA-1 **NOT SEEDED** (decisão soberana Clayton) · worker **DEFAULT-OFF** · external payout **NOT AUTHORIZED** · Bank/Core runtime **intocado** · financial approval real **não criado** · seller_available **não usado** p/ actor_wallet payout · availableBalanceCents segue **projeção de leitura** (não autoriza saque). `DT-SETTLEMENT-REGIONAL-FEE-BPS-DEAD-CODE-GUARD` permanece **OPEN** (inalterada).
+
+**Regra operacional de direção da frente (registro, NÃO norma permanente):** evitar ping-pong de microfrentes quando a cadeia for materialmente conectada; usar macrofrentes com checkpoints internos (a executora resolve teste/prova/fixture/runner/guard/cartório na mesma frente). A executora só para se bater em: decisão de negócio · ativação real · seed soberano · worker · external payout · runtime financeiro · mudança de norma · relaxamento de invariante. Não vira norma permanente sem decisão explícita de Clayton.
+
+**Gates:** actor-writer/bank-ledger OK · regression-guards 75 OK/0 FAIL · arch critical_new=0 · migrations 394/394 · baseline 0113 = 0 · tsc 43 (nenhum novo desta frente). Detalhe: `docs/03_execution_log/F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS-CLOSEOUT.md`. **Próxima fase = decisão soberana Clayton** (PORTA-1 seed · worker arming · TOCTOU KYC/ATL/risco · RLS hardening).
+
+---
+
 ## 2026-06-20 — F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS (macrofrente) · ✅ EXECUTED / PENDING YALA — F2/F3/C3/C7 FULL-GREEN em DB efêmero (payout NÃO autorizado)
 
 **MACRO MATERIAL (HEAD before `9525cfa4`, dev 394, SEM migration).** Encerrou o ping-pong de microfrentes e deixou o payout de actor_wallet **tecnicamente GO-ready em prova**. Re-verificação fail-closed: baseline confirmou payout dormente + F2 20/20 + F3 falhando em KYC/cascata; nenhum STOP.
@@ -10,7 +28,7 @@
 
 **Guard/negative-proof:** `audit-payout-e2e-ephemeral-guard` estendido (exige `reviewIdentityValidation`; proíbe raw `UPDATE identities.kyc_status`) + `negative-proof-payout-e2e-kyc-canonical.ps1` (NP1 raw kyc UPDATE · NP2 remover review; pwsh 7 + WPS 5.1), somando ao funding NP.
 
-**Estados:** `F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS` → **EXECUTED / PENDING YALA** · `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED` → **EXECUTED / PENDING YALA** (4/4 green) · `DT-PAYOUT-E2E-EPHEMERAL-FUNDING-COVERAGE` → **EXECUTED / PENDING YALA** · **Payout NOT AUTHORIZED · PORTA-1 NÃO semeada · worker default-off · external payout NOT AUTHORIZED · Bank/Core runtime intocado · coverage/KYC/recovery não relaxados**. **Gates:** actor-writer/bank-ledger OK · regression-guards 75 OK/0 FAIL · arch critical_new=0 (warning_new=4 pré-existentes) · migrations 394/394 · baseline 0113 = 0 · tsc 34 (nenhum novo desta frente). Detalhe: `docs/03_execution_log/F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS-EXECUTION.md`. **GO-live = decisão soberana Clayton** (PORTA-1 seed · worker arming · TOCTOU KYC/ATL/risco · RLS hardening).
+**Estados (fechados no closeout 2026-06-20 — ver entrada no topo):** `F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS` → **CLOSED / YALA PASS** · `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED` → **CLOSED / YALA PASS** (4/4 green) · `DT-PAYOUT-E2E-EPHEMERAL-FUNDING-COVERAGE` → **CLOSED / YALA PASS** · **Payout NOT AUTHORIZED · PORTA-1 NÃO semeada · worker default-off · external payout NOT AUTHORIZED · Bank/Core runtime intocado · coverage/KYC/recovery não relaxados**. **Gates:** actor-writer/bank-ledger OK · regression-guards 75 OK/0 FAIL · arch critical_new=0 (warning_new=4 pré-existentes) · migrations 394/394 · baseline 0113 = 0 · tsc 43 (Yala consolidou 43; nenhum novo desta frente). Detalhe: `docs/03_execution_log/F-ACTOR-WALLET-PAYOUT-E2E-GO-READINESS-EXECUTION.md`. **GO-live = decisão soberana Clayton** (PORTA-1 seed · worker arming · TOCTOU KYC/ATL/risco · RLS hardening).
 
 ---
 

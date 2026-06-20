@@ -72,8 +72,8 @@ availableBalanceCents: **não-autorizador** (segue projeção) · seller_availab
 
 ## Gates
 actor-writer OK · bank-ledger OK · regression-guards **75 OK / 0 FAIL** · arch `--strict` **critical_new=0**
-(warning_new=4 pré-existentes, nenhum nos arquivos desta frente) · check:migrations 394/394 · tsc 34 errors
-(nenhum novo nos arquivos desta frente; pré-existentes em event-rfq/event-settlement/account.routes/f6-5-6b) ·
+(warning_new=4 pré-existentes, nenhum nos arquivos desta frente) · check:migrations 394/394 · tsc 43 errors
+(O1: Yala consolidou tsc 43 — registro anterior dizia 34; nenhum novo nos arquivos desta frente; pré-existentes em event-rfq/event-settlement/account.routes/f6-5-6b) ·
 `validate:payout-proof-e2e` **OK**. Negative-proofs (funding + KYC) mordem em pwsh 7 + WPS 5.1.
 
 ## Estados
