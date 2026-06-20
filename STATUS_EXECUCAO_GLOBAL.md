@@ -1,3 +1,17 @@
+## 2026-06-20 — F-PAYOUT-TOCTOU-SAFETY-HARDENING (macro material) · ✅ EXECUTED / PENDING YALA — execute-time ≥ approval-time (payout NÃO autorizado)
+
+**MACRO MATERIAL (HEAD before `e0fe89b9`, dev 395, SEM migration).** Fecha os 3 TOCTOU do Decision Pack sob o axioma **execute-time nunca mais permissivo que approval-time**. Re-verificação fail-closed: payout dormente; nenhum STOP. (Sem ambiguidade de regra → sem DECISION_REQUIRED.)
+
+**Diagnóstico (código vivo):** cadeia actor_wallet payout sem gate de risco em approval-time; única verificação execute era via `bankTransactionService.transfer` com `action:'financial_transfer'` (envelope errado, usa maxTransfer nunca maxPayout); drain não bloqueava recovery `pending_approval`.
+
+**Correção (cirúrgica em `executeActorWalletPayout`, antes de processing/drain/transfer):** (1) `requireFinancialRiskClearance(action:'financial_payout', amountCents)` revalida ATL→KYC→KYB→GUARDA com **envelope de payout** (erros PAYOUT_KYC/ATL/RISK_*_AT_EXECUTE); (2) bloqueio recovery `pending_approval` FOR UPDATE (PAYOUT_RECOVERY_PENDING_APPROVAL_AT_EXECUTE). Preservado: saldo via bank_ledger; availableBalanceCents só projeção; locks/idempotência/concorrência; semântica de drain.
+
+**Provas (DB efêmero, 5/5):** T1 happy · T2 KYC pending pós-approval · T3 recovery pending_approval pós-approval · T4 envelope payout (limite payout 50 < 100 < transfer 1M) · T5 atl_level=0. **Regressão intacta:** F2 20/20 · F3 18/18 · C3 18/18 · C7 14/14. **Guard** em regression (77 OK/0 FAIL) + **negative-proof** NP1–NP4 (pwsh 7 + WPS 5.1).
+
+**Estados:** `F-PAYOUT-TOCTOU-SAFETY-HARDENING` → **EXECUTED / PENDING YALA** · **Payout NOT AUTHORIZED · PORTA-1 NOT SEEDED · worker default-off · HTTP execution 403/disabled · external payout NOT AUTHORIZED · destination_type internal_settlement-only · DB-role/RLS inalterado (NOT LIVE IN DEV) · Bank/Core não relaxado** · `DT-SETTLEMENT-REGIONAL-FEE-BPS-DEAD-CODE-GUARD` permanece OPEN. **Gates:** actor-writer/bank-ledger OK · regression 77 OK/0 FAIL · arch critical_new=0 · migrations 395/395 · baseline 0113 = 0 · tsc 34 (nenhum novo; Yala consolida 43). Detalhe: `docs/03_execution_log/F-PAYOUT-TOCTOU-SAFETY-HARDENING-EXECUTION.md`. **Próxima macro: F-ACTOR-WALLET-PAYOUT-EXTERNAL-RAIL-DESIGN.**
+
+---
+
 ## 2026-06-20 — F-DB-ROLE-AND-RLS-HARDENING-CLOSEOUT (registro Yala reseal + WM1) · ✅ CLOSED / DOCS-ONLY / YALA PASS_WITH_WARNINGS · READY/PROVEN-EPHEMERAL/PROD-FAIL-CLOSED · NOT LIVE IN DEV
 
 **DOCS-ONLY (HEAD `cd697da7`, dev 394 aplicadas / 395 arquivos, sem migration/código/runtime).** Registra o **Yala reseal material = PASS_WITH_WARNINGS** da macro `F-DB-ROLE-AND-RLS-HARDENING` (commit `cd697da7`) e corrige a precisão cartorial do **WM1**. Re-verificação fail-closed READ-ONLY: payout dormente; nenhum STOP.

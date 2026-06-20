@@ -58,6 +58,11 @@ export class ActorWalletPayoutError extends Error {
       | 'PAYOUT_APPROVAL_EXPIRED'
       | 'PAYOUT_SETTLEMENT_ACCOUNT_MISSING'
       | 'PAYOUT_MISSING_PERFORMED_BY'
+      // F-PAYOUT-TOCTOU-SAFETY-HARDENING: revalidação execute-time (≥ approval-time)
+      | 'PAYOUT_KYC_NOT_APPROVED_AT_EXECUTE'
+      | 'PAYOUT_ATL_NOT_CLEARED_AT_EXECUTE'
+      | 'PAYOUT_RISK_NOT_CLEARED_AT_EXECUTE'
+      | 'PAYOUT_RECOVERY_PENDING_APPROVAL_AT_EXECUTE'
       // approve bridge errors
       | 'PAYOUT_APPROVE_MISSING_APPROVER'
       | 'PAYOUT_APPROVE_NOT_PENDING'
@@ -557,6 +562,49 @@ class ActorWalletPayoutService {
         throw new ActorWalletPayoutError(
           'PAYOUT_APPROVAL_EXPIRED',
           `approval_request expirou em ${approval.expires_at.toISOString()}`
+        );
+      }
+
+      // ── 3.5 Revalidação EXECUTE-TIME (F-PAYOUT-TOCTOU-SAFETY-HARDENING) ───────
+      // AXIOMA: execute-time NUNCA pode ser mais permissivo que approval-time. Estados podem ter mudado
+      // entre a aprovação e a execução; revalidar fail-closed ANTES de mover dinheiro:
+      //   (a) KYC/ATL/risco com o ENVELOPE DE PAYOUT (action='financial_payout', maxPayoutCentsPerOperation)
+      //       — NÃO o envelope genérico 'financial_transfer' que o bankTransactionService.transfer aplica
+      //       (que usaria maxTransferCentsPerOperation). Bloqueia KYC pending/rejected (só 'approved' passa);
+      //       ATL inativo/bloqueado; risco/limite de payout excedido. Erro mapeado por camada.
+      //   (b) recovery 'pending_approval' nascida entre approval e execute — o drain só consome
+      //       'approved'/'partially_recovered'; obrigação pending_approval representa dívida em aberto e
+      //       DEVE bloquear o saque (não drenar como approved, não ignorar). Lock FOR UPDATE (consistente).
+      const intendedPayoutCents = Number(req.approved_amount_cents ?? req.requested_amount_cents);
+      try {
+        const { requireFinancialRiskClearance } = await import('@modules/risk-identity/risk-financial-gate');
+        await requireFinancialRiskClearance(tenantId, {
+          actorId: req.actor_id,
+          action: 'financial_payout',
+          amountCents: intendedPayoutCents,
+        });
+      } catch (e: any) {
+        if (e instanceof ActorWalletPayoutError) throw e;
+        const reason = String(e?.message ?? '');
+        if (/^KYC|^IDENTITY|^KYB/.test(reason)) {
+          throw new ActorWalletPayoutError('PAYOUT_KYC_NOT_APPROVED_AT_EXECUTE', `KYC/identidade não aprovado no execute-time: ${reason}`);
+        }
+        if (/ATL|AUTHORITY_ROOT|SSOT_ROOT/.test(reason)) {
+          throw new ActorWalletPayoutError('PAYOUT_ATL_NOT_CLEARED_AT_EXECUTE', `ATL/autoridade não liberada no execute-time: ${reason}`);
+        }
+        throw new ActorWalletPayoutError('PAYOUT_RISK_NOT_CLEARED_AT_EXECUTE', `Risco/limite de payout não liberado no execute-time (envelope payout): ${reason}`);
+      }
+      const pendingOblig = await client.query<{ id: string }>(
+        `SELECT id FROM actor_wallet_recovery_obligations
+          WHERE tenant_id = $1 AND debtor_actor_id = $2 AND status = 'pending_approval'
+          LIMIT 1
+          FOR UPDATE`,
+        [tenantId, req.actor_id]
+      );
+      if (pendingOblig.rows[0]) {
+        throw new ActorWalletPayoutError(
+          'PAYOUT_RECOVERY_PENDING_APPROVAL_AT_EXECUTE',
+          `recovery obligation pending_approval (${pendingOblig.rows[0].id}) — saque bloqueado até a obrigação ser resolvida (não drenável como approved).`
         );
       }
 
