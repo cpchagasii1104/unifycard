@@ -38,6 +38,7 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 - **Tier 2** = decisões `0001–0063` que só existem em `REMEDIATION_DECISIONS_LOG.md` (passada leve; verificado =
   `NÃO-AUDITADO`, salvo quando o LOG declara supersessão ou quando trivialmente checável).
 - **Contratos** = 4 docs de governança de Core (não numerados na série 0064–0111).
+- **Bloco 0112–0141** = 30 docs `DECISION_0112..0141` (reindex **A1**, 2026-06-20). DECLARADO = header do próprio `.md` (fonte soberana por linha); verificado = `NÃO-AUDITADO` (passada docs-only, sem re-checagem material).
 
 ---
 
@@ -93,6 +94,49 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 | 0109 | DECISION_0109_SERVICE_TRACK_B_TAXONOMY_BANKFREE_FOUNDATION | DOCS-ONLY (fundação) | PARCIAL | salão Bank-free selado (`SELO-SERVICE-SALON-BANK-FREE`); booking/payment bloqueados |
 | 0110 | DECISION_0110_SERVICE_FINANCIAL_POLICY | DOCS-ONLY (política) | PARCIAL | `service-financial-firewall.ts` vivo (rotas financeiras fail-closed); runtime OFF |
 | 0111 | DECISION_0111_SERVICE_RELEASE_CANCEL_DISPUTE_REFUND_POLICY | DOCS-ONLY (política) | NÃO-IMPLEMENTADO (esperado; flag OFF) | política fina; `SERVICE_FINANCIAL_RUNTIME_ENABLED` permanece OFF |
+
+---
+
+## Tabela mestra — Bloco 0112–0141 (pós-0111 · reindex A1 · 2026-06-20)
+
+> **Natureza desta passada (A1, docs-only):** **DECLARADO** = status do header do próprio
+> `DECISION_NNNN_*.md` (fonte soberana por linha; `REMEDIATION_DECISIONS_LOG.md` confirma
+> existência/cauda até 0141). **Verificado = NÃO-AUDITADO** em TODAS — esta passada **não**
+> re-checou runtime/schema; **não finge auditoria material**. Sem divergência header×LOG detectada.
+> Sequência 0112→0141 completa (30 decisões, sem buraco, sem duplicata). Próximo nº livre: **0142**.
+
+| Nº | Arquivo | Declarado (header do .md) | Verificado | 1-linha |
+|----|---------|---------------------------|------------|---------|
+| 0112 | DECISION_0112_PJ_DOCUMENT_STORAGE_PROVIDER | PROMULGADA (docs-only) | NÃO-AUDITADO | provider/porta canônica de documento PJ KYB |
+| 0113 | DECISION_0113_ACTIONCONTEXT_ACTORID_OWNERSHIP_BINDING | PROMULGADA (docs-only) — emenda contratos | NÃO-AUDITADO | actorId declarado = hint; binding ao principal autenticado |
+| 0114 | DECISION_0114_REGION_FUND_AND_AP_AR_INITIAL_AUTHORITY | PROMULGADA (docs-only) | NÃO-AUDITADO | autoridade inicial do fundo regional + AP/AR latente |
+| 0115 | DECISION_0115_HUMAN_BIRTH_VERTICAL_ROOT_DECISIONS | PROMULGADA (docs-only) | NÃO-AUDITADO | decisões-raiz do nascimento humano vertical (G10) |
+| 0116 | DECISION_0116_INTRA_TENANT_OWNERSHIP_VISIBILITY_POLICY | PROMULGADA (docs-only) | NÃO-AUDITADO | política canônica de ownership/visibilidade intra-tenant (8 classes) |
+| 0117 | DECISION_0117_CANONICAL_CATALOG_OFFERING_MODEL | PROMULGADA (produto A–H) | NÃO-AUDITADO | modelo canônico de catálogo/oferta |
+| 0118 | DECISION_0118_MEDIA_CONTEXTUAL_IDENTITY_AND_TEMPORAL_OWNER_AUTHORITY | PROMULGADA | NÃO-AUDITADO | identidade contextual de mídia + autoridade do owner temporal |
+| 0119 | DECISION_0119_REFERRAL_LINK_PURE_VINCULO | PROMULGADA | NÃO-AUDITADO | referral link = vínculo puro A→B (sem escrita Bank) |
+| 0120 | DECISION_0120_CIVIL_IDENTITY_CONFIRMATION_SSOT_SEPARATION | PROMULGADA | NÃO-AUDITADO | separação SSOT da confirmação de identidade civil |
+| 0121 | DECISION_0121_BOOKING_ORDER_AUTHORITY_BINDING_CANONICAL | PROMULGADA (executada) | NÃO-AUDITADO | authority binding canônico booking→decision→service_order |
+| 0122 | DECISION_0122_SERVICE_OFFERING_CANONICAL_BINDING | PROMULGADA (executada) | NÃO-AUDITADO | service_offering como recurso canônico de contratação |
+| 0123 | DECISION_0123_DISPUTE_REVERSAL_AUTHORITY_BINDING_MODEL | **DECISION_REQUIRED / HOLD** | NÃO-AUDITADO | modelo autoridade dispute/reversal (rotas seguem 403) |
+| 0124 | DECISION_0124_CLASSIC_CHANNEL_READERS_CLASSIFICATION | PROMULGADA (parcial) | NÃO-AUDITADO | classificação A–E dos classic-channel readers (params/query actorId) |
+| 0125 | DECISION_0125_R2_COMPANY_USERS_FINE_GRANTS | PROMULGADA | NÃO-AUDITADO | grants finos R2 via company_users.can_* |
+| 0126 | DECISION_0126_TENANT_LEVEL_OPERATOR_GRANTS | PROMULGADA | NÃO-AUDITADO | tenant-level operator grants (não company-scoped) |
+| 0127 | DECISION_0127_TRUST_TENANT_GRANTS_R24_UNFREEZE | PROMULGADA | NÃO-AUDITADO | trust tenant-level grants; R2.4 unfreeze (cartório) |
+| 0128 | DECISION_0128_CORE_FINANCIAL_APPROVAL_AUTHORITY | PROMULGADA/NORMATIVA — runtime NÃO implementado | NÃO-AUDITADO | core de aprovação financeira: grant não executa dinheiro |
+| 0129 | DECISION_0129_PAYOUT_APPROVAL_AUTHORITY | PROMULGADA/NORMATIVA — approve endpoint NÃO implementado | NÃO-AUDITADO | autoridade de aprovação de payout (solicita/aprova/segregação) |
+| 0130 | DECISION_0130_PAYOUT_APPROVAL_POLICY_MATERIALIZATION | PROMULGADA/NORMATIVA — runtime NÃO implementado | NÃO-AUDITADO | materialização da política de aprovação de payout |
+| 0131 | DECISION_0131_AUTHORITY_GRAMMAR | PROMULGADA/NORMATIVA — DOCS-ONLY | NÃO-AUDITADO | gramática de autoridade (cita 0013→0130 + promulga 7 itens) |
+| 0132 | DECISION_0132_TEMPORAL_PURPOSE_CONCEPT | PROMULGADA/NORMATIVA — DOCS-ONLY | NÃO-AUDITADO | finalidade temporal da agenda como CONCEPT |
+| 0133 | DECISION_0133_SUPPLIERS_COMPANY_OWNED_OWNER_ACTOR_ID | PROMULGADA/NORMATIVA — DOCS-ONLY | NÃO-AUDITADO | suppliers company-owned via owner_actor_id (page-actor) |
+| 0134 | DECISION_0134_ACTOR_REFERRAL_CAPABILITY_GRANTS_BASELINE | PROMULGADA/NORMATIVA (BASELINE) — DOCS-ONLY | NÃO-AUDITADO | baseline de capability grants do referral por actor |
+| 0135 | DECISION_0135_PERMISSION_KEYS_NOMENCLATURE_RFC | PROMULGADA/NORMATIVA (RFC docs-only) | NÃO-AUDITADO | nomenclatura canônica de permission keys (domain:action) |
+| 0136 | DECISION_0136_ACTOR_CAPABILITY_GRANTS_SUBSTRATE | PROMULGADA/NORMATIVA + MATERIALIZADA (Slice 1A) | NÃO-AUDITADO | substrato `actor_capability_grants` (cria tabela; grant ≠ representação) |
+| 0137 | DECISION_0137_PERMISSION_TRI_REGISTRY_RFC | PROMULGADA/NORMATIVA (RFC docs-only) — IMPLEMENTED / HOLD YALA | NÃO-AUDITADO | tri-registry de permissões (papel canônico de cada vocabulário) |
+| 0138 | DECISION_0138_CALENDAR_OPERATOR_GRANT_AUTHORITY_RFC | PROMULGADA/NORMATIVA (RFC docs-only) — CLOSED / YALA PASS | NÃO-AUDITADO | operador de agenda por grant explícito |
+| 0139 | DECISION_0139_ACTOR_SCOPED_REFERRAL_CODE_AND_EARNINGS | PROMULGADA / DOCS-ONLY | NÃO-AUDITADO | referral code + earnings com ownership econômico por actor |
+| 0140 | DECISION_0140_UNIFYCARD_FEE_BPS_RULING | DECIDED / DOCS-ONLY RULING / NOT MATERIAL | NÃO-AUDITADO | unidade canônica da taxa UnifyCard = fee em basis points (bps) |
+| 0141 | DECISION_0141_UNIFYCARD_FEE_SCHEMA_OF_RECORD | PROMULGADA / DOCS-ONLY / SCHEMA-OF-RECORD / NOT MATERIAL | NÃO-AUDITADO | fee bps como schema-of-record no economic_policy_engine |
 
 ---
 
