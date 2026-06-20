@@ -234,19 +234,20 @@ async function createObligation(
 }
 
 async function cleanupObligation(obligationId: string) {
+  // best-effort: registros financeiros/governança imutáveis (DECISION-0128); em efêmero o DB é dropado.
   const txRow = await q(
     `SELECT original_transaction_id FROM actor_wallet_recovery_obligations WHERE id=$1`, [obligationId]
   );
   const origTxId: string | null = txRow.rows[0]?.original_transaction_id ?? null;
-  await q(`DELETE FROM actor_wallet_recovery_obligation_entries WHERE obligation_id=$1`, [obligationId]);
-  await q(`DELETE FROM actor_wallet_recovery_obligations WHERE id=$1`, [obligationId]);
+  await q(`DELETE FROM actor_wallet_recovery_obligation_entries WHERE obligation_id=$1`, [obligationId]).catch(() => {});
+  await q(`DELETE FROM actor_wallet_recovery_obligations WHERE id=$1`, [obligationId]).catch(() => {});
   if (origTxId) {
-    await q(`DELETE FROM bank_transactions WHERE id=$1`, [origTxId]);
+    await q(`DELETE FROM bank_transactions WHERE id=$1`, [origTxId]).catch(() => {});
   }
 }
 
 async function cleanupIntent(intentId: string) {
-  await q(`DELETE FROM payment_intents WHERE id=$1`, [intentId]);
+  await q(`DELETE FROM payment_intents WHERE id=$1`, [intentId]).catch(() => {});
 }
 
 async function getOutboxEvent(eventType: string, obligationId: string): Promise<boolean> {

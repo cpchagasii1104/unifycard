@@ -244,8 +244,9 @@ async function getBalance(accountId: string): Promise<number> {
 }
 
 async function cleanupObligation(obligationId: string) {
-  await q(`DELETE FROM actor_wallet_recovery_obligation_entries WHERE obligation_id = $1`, [obligationId]);
-  await q(`DELETE FROM actor_wallet_recovery_obligations WHERE id = $1`, [obligationId]);
+  // best-effort: registros financeiros/governança imutáveis (DECISION-0128); em efêmero o DB é dropado.
+  await q(`DELETE FROM actor_wallet_recovery_obligation_entries WHERE obligation_id = $1`, [obligationId]).catch(() => {});
+  await q(`DELETE FROM actor_wallet_recovery_obligations WHERE id = $1`, [obligationId]).catch(() => {});
 }
 
 async function drainAccount(accountId: string, actorId: string): Promise<void> {

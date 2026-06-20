@@ -196,23 +196,25 @@ async function cleanupObligFixture(
   fakeTxId: string,
   fakeIntentId: string
 ): Promise<void> {
-  await q(`DELETE FROM actor_wallet_recovery_obligations WHERE id=$1`, [obligId]);
-  await q(`DELETE FROM payment_intents WHERE id=$1`, [fakeIntentId]);
-  await q(`DELETE FROM bank_transactions WHERE id=$1`, [fakeTxId]);
+  // best-effort: registros financeiros/governança são imutáveis (DECISION-0128); em efêmero o DB é dropado.
+  await q(`DELETE FROM actor_wallet_recovery_obligations WHERE id=$1`, [obligId]).catch(() => {});
+  await q(`DELETE FROM payment_intents WHERE id=$1`, [fakeIntentId]).catch(() => {});
+  await q(`DELETE FROM bank_transactions WHERE id=$1`, [fakeTxId]).catch(() => {});
 }
 
 async function cleanupPayoutRequests(ids: string[]): Promise<void> {
   if (!ids.length) return;
-  // limpar approval_requests vinculados primeiro
+  // best-effort: payout_requests é deletável (reseta o gate de request ativo); approval_requests/votes são
+  // imutáveis (governança DECISION-0128) → .catch para não abortar (em efêmero o DB é dropado).
   const approvalIds = await q(
     `SELECT approval_request_id FROM actor_wallet_payout_requests WHERE id = ANY($1::uuid[])`,
     [ids]
   );
-  await q(`DELETE FROM actor_wallet_payout_requests WHERE id = ANY($1::uuid[])`, [ids]);
+  await q(`DELETE FROM actor_wallet_payout_requests WHERE id = ANY($1::uuid[])`, [ids]).catch(() => {});
   const aIds = approvalIds.rows.map((r: any) => r.approval_request_id).filter(Boolean);
   if (aIds.length) {
-    await q(`DELETE FROM approval_votes WHERE approval_request_id = ANY($1::uuid[])`, [aIds]);
-    await q(`DELETE FROM approval_requests WHERE id = ANY($1::uuid[])`, [aIds]);
+    await q(`DELETE FROM approval_votes WHERE approval_request_id = ANY($1::uuid[])`, [aIds]).catch(() => {});
+    await q(`DELETE FROM approval_requests WHERE id = ANY($1::uuid[])`, [aIds]).catch(() => {});
   }
 }
 
@@ -593,10 +595,13 @@ async function main() {
     try {
       // Cria actor sem wallet
       const noWalletActorId = uuidv4();
+      // actor_organizational é isento de chk_actor_requires_identity (não-humano) e segue sem actor_wallet —
+      // preserva o intent do T12 (ACTOR_WALLET_NOT_FOUND por ausência de wallet). responsible_actor_id = actor
+      // da fixture (válido) p/ satisfazer a regra de actor não-humano (§4.8 LEI_COERENCIA_SISTEMICA).
       await q(
-        `INSERT INTO actors (id, tenant_id, actor_type, display_name)
-         VALUES ($1,$2,'user','no-wallet-actor')`,
-        [noWalletActorId, TENANT_ID]
+        `INSERT INTO actors (id, tenant_id, actor_type, display_name, responsible_actor_id)
+         VALUES ($1,$2,'actor_organizational','no-wallet-actor',$3)`,
+        [noWalletActorId, TENANT_ID, actorId]
       );
       try {
         await actorWalletPayoutService.requestActorWalletPayout({

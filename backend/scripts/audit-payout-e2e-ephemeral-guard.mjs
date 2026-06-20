@@ -46,6 +46,31 @@ for (const rel of SENSITIVE_E2ES) {
   }
 }
 
+// Self-seed/funding helper: funding COVERAGE-AWARE por caminho canônico, sem burlar o Bank.
+const SELF_SEED = 'src/scripts/test-support/payout-e2e-self-seed.ts';
+{
+  const p = join(ROOT, SELF_SEED);
+  if (!existsSync(p)) {
+    failures.push(`helper ausente: ${SELF_SEED}`);
+  } else {
+    const code = stripTs(readFileSync(p, 'utf-8'));
+    if (!/await\s+assertEphemeral\s*\(\s*\)/.test(code)) failures.push(`${SELF_SEED}: não chama await assertEphemeral() antes do seed.`);
+    if (!/unificard_dev/.test(code)) failures.push(`${SELF_SEED}: não bloqueia 'unificard_dev'.`);
+    // funding NÃO pode usar raw insert em tabelas SSOT bancárias.
+    if (/INSERT\s+INTO\s+bank_ledger|INSERT\s+INTO\s+bank_transactions|INSERT\s+INTO\s+bank_splits/i.test(code)) {
+      failures.push(`${SELF_SEED}: raw INSERT em bank_ledger/transactions/splits — funding deve ser via service canônico (createSimpleTransaction/transfer).`);
+    }
+    // funding NÃO pode burlar o invariant do Bank.
+    if (/DISABLE\s+TRIGGER|session_replication_role/i.test(code)) {
+      failures.push(`${SELF_SEED}: usa DISABLE TRIGGER/session_replication_role — proibido burlar o invariant de coverage do Bank.`);
+    }
+    // funding DEVE usar o caminho canônico (crédito a conta system é coverage-exempt).
+    if (!/createSimpleTransaction\s*\(/.test(code)) {
+      failures.push(`${SELF_SEED}: não usa createSimpleTransaction (funding canônico coverage-aware).`);
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error('GATE FAIL [payout-e2e-ephemeral-guard]:');
   for (const f of failures) console.error('   - ' + f);

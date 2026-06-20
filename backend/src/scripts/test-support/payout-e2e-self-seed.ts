@@ -14,11 +14,15 @@ import 'tsconfig-paths/register';
 import dotenv from 'dotenv';
 import { join } from 'path';
 import { writeFileSync } from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../../core/database/pool';
 import { rbacService } from '../../core/rbac/rbac.service';
 import { authService } from '../../core/auth/auth.service';
 import { ensureUserActor } from '../../modules/identity/actor-writer.service';
 import { bankAccountService } from '../../modules/bank/bank-account.service';
+import { bankAccountRepository } from '../../modules/bank/bank-account.repository';
+import { bankTransactionService } from '../../modules/bank/bank-transaction.service';
+import { buildSystemAuthorship } from '../../modules/bank/financial-authorship.helper';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
@@ -67,6 +71,35 @@ async function resolveActorId(tenantId: string, userId: string): Promise<string>
   return r.id;
 }
 
+/**
+ * Funding COVERAGE-AWARE (não burla o invariant): credita capacidade numa conta SYSTEM via caminho canônico
+ * (createSimpleTransaction → crédito a conta system é coverage-exempt). Com capacidade no system, os créditos de
+ * teste dos E2Es a contas não-system ficam sob o limite de 80% (system_coverage). NÃO usa raw insert em bank_*,
+ * NÃO desliga trigger, NÃO usa session_replication_role. "money de teste nasce lastreado por caminho canônico."
+ */
+async function fundSystemCoverage(tenantId: string, actingActorId: string): Promise<void> {
+  let sys = await bankAccountService.getSystemAccount(tenantId, 'reserve');
+  if (!sys) {
+    await bankAccountRepository.createAccount(tenantId, {
+      ownerId: `system:reserve:${tenantId}`, ownerType: 'system', accountType: 'credit', currency: 'BRL',
+    });
+    sys = await bankAccountService.getSystemAccount(tenantId, 'reserve');
+  }
+  if (!sys) throw new Error('SELF-SEED GAP: conta system:reserve ausente.');
+  await bankTransactionService.createSimpleTransaction(tenantId, {
+    eventId: uuidv4(),
+    referenceType: 'e2e_system_liquidity_mint',
+    toAccountId: sys.accountId,
+    amountCents: 50_000_000,
+    currency: 'BRL',
+    transactionType: 'deposit',
+    description: 'E2E payout-proof mint system coverage capacity',
+    concept_id: 'system-reserve-credit',
+    authorship: buildSystemAuthorship({ actingForAccountId: sys.accountId, actingForActorId: actingActorId }),
+  });
+  console.log('   system coverage capacity mintada (caminho canônico; sem raw insert/trigger bypass).');
+}
+
 async function ensureRecoveryConcept(): Promise<void> {
   const client = await pool.connect();
   try {
@@ -99,6 +132,7 @@ export async function ensurePayoutE2EBaseFixtures(): Promise<string> {
   const aw = await bankAccountService.ensureActorWalletAccount(tenantId, debtorActorId);
   const uw = await bankAccountService.ensureUserWalletForActor(tenantId, creditorActorId);
   await bankAccountService.ensurePlatformAccounts(tenantId);
+  await fundSystemCoverage(tenantId, debtorActorId);
   await ensureRecoveryConcept();
 
   // Verificação via serviço (getFixtures/buildFixture validam o join no runtime do E2E).

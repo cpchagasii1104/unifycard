@@ -1,3 +1,17 @@
+## 2026-06-19 — DT-PAYOUT-E2E-EPHEMERAL-FUNDING-COVERAGE (funding coverage-aware) · 🟡 PARTIAL — coverage SOLVED · F2 20/20 FULL-GREEN · F3/C3/C7 remanescente (payout NÃO autorizado)
+
+**MATERIAL (HEAD before `c108c847`, dev 394, SEM migration).** Resolveu o muro `COVERAGE_EXCEEDED` por **funding coverage-aware canônico**, **sem burlar o Bank**. Re-verificação READ-ONLY: payout dormente; nenhum STOP.
+
+**Funding (canônico):** `payout-e2e-self-seed.ts::fundSystemCoverage` minta capacidade numa conta **SYSTEM** via `bankTransactionService.createSimpleTransaction` (crédito a conta system é coverage-exempt no trigger `0003_bank_core.sql`) → créditos de teste dos E2Es a contas não-system passam sob 80%. **Sem raw insert em bank_*, sem DISABLE TRIGGER, sem session_replication_role.** Cleanup dos E2Es → **best-effort** (`.catch`; governança/financeiro imutável DECISION-0128; `payout_requests` deletável reseta gate). F2 T12 actor `'user'`→`'actor_organizational'`+responsible_actor_id.
+
+**Resultado:** **F2 (request) 20/20 FULL-GREEN** em DB efêmero. **F3 (execution) PARTIAL** — `KYC_PENDING_BLOCKS_FINANCIAL` (actor self-seedado nasce KYC pendente) + acúmulo de pending recovery (obligations imutáveis) + request ativo. **C3/C7 não alcançados** (runner sequencial para no F3). NÃO mascarado.
+
+**Guard/negative-proof:** `audit-payout-e2e-ephemeral-guard` estendido (proíbe raw bank insert/trigger bypass no funding; exige createSimpleTransaction) + `negative-proof-payout-e2e-funding-coverage.ps1` (NP1 raw insert · NP2 DISABLE TRIGGER · NP3 remover assertEphemeral; mordem pwsh 7 + WPS 5.1).
+
+**Estados:** `DT-PAYOUT-E2E-EPHEMERAL-FUNDING-COVERAGE` → **PARTIAL** (coverage SOLVED; F2 full-green; F3/C3/C7 remanescente KYC/recovery) · `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED` → **PARTIAL** (1/4 E2E green) · **Payout NOT AUTHORIZED · PORTA-1 não semeada · worker default-off · external payout NOT AUTHORIZED · Bank runtime intocado**. **Gates:** actor-writer/bank-ledger OK · regression-guards 75 OK/0 FAIL · arch critical_new=0 · migrations 394/394 · baseline 0113 = 0 · tsc 43. Detalhe: `docs/03_execution_log/DT-PAYOUT-E2E-EPHEMERAL-FUNDING-COVERAGE-EXECUTION.md`. Próximo: aprovar KYC canônico no self-seed + acúmulo recovery → F3/C3/C7 full-green; depois Yala.
+
+---
+
 ## 2026-06-19 — DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED (E2E self-seed em DB efêmero) · 🟡 PARTIAL / MATERIAL_REMAINDER (base-graph concluído; coverage gap; payout NÃO autorizado)
 
 **MATERIAL (HEAD before `15cc3645`, dev 394, SEM migration).** Torna F2/F3/C3/C7 autossuficientes em DB efêmero, **sem ativar payout**. Re-verificação READ-ONLY: payout dormente/fail-closed (nenhum STOP).
