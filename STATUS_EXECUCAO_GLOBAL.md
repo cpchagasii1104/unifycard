@@ -1,3 +1,17 @@
+## 2026-06-19 — F-ACTOR-WALLET-PAYOUT-PROOF-WIRING-YALA-CLOSEOUT (registro do reseal Yala + fechamento) · ✅ CLOSED_WITH_REMAINDER / MATERIAL / PROOF-WIRING / YALA PASS_WITH_WARNINGS (payout NÃO autorizado)
+
+**Docs-only / closeout (HEAD `db3d6248`, dev 394, sem migration/código).** Registra o **Yala reseal material = PASS_WITH_WARNINGS** do commit `db3d6248` e fecha `F-ACTOR-WALLET-PAYOUT-PROOF-WIRING` como **CLOSED_WITH_REMAINDER**, sem abrir payout.
+
+**Escopo fechado (proof-wiring estático):** assertEphemeral forte em F2/F3/C3/C7 (provado: recusa `unificard_dev`); runner efêmero dupla-barreira; guard `audit-payout-e2e-ephemeral-guard` + `audit-bank-ledger-boundaries` no **regression default**; regression-guards **75 OK / 0 FAIL**; negative-proofs (novo + production) mordem; **payout fail-closed preservado; PORTA-1 fechada; worker default-off; external payout NOT AUTHORIZED.**
+
+**Remainder aberto:** `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED` → **OPEN / MATERIAL_REQUIRED** — F2/F3/C3/C7 protegidos+wired mas ainda dependem de fixtures dev-seeded; falta self-seed efêmero para prova comportamental full-green em DB efêmero. (Também aberta: `DT-SETTLEMENT-REGIONAL-FEE-BPS-DEAD-CODE-GUARD` — inalterada.)
+
+**Estados:** `F-ACTOR-WALLET-PAYOUT-PROOF-WIRING` → **CLOSED_WITH_REMAINDER / MATERIAL / PROOF-WIRING / YALA PASS_WITH_WARNINGS** (commit db3d6248) · Payout → **NOT AUTHORIZED** · PORTA-1 → **CLOSED / NOT SEEDED / Clayton decision required** · Worker → **DEFAULT-OFF** · External payout → **NOT AUTHORIZED**.
+
+**Decisões Clayton pendentes:** PORTA-1 seed · worker arming · TOCTOU KYC/ATL/risco · possível RLS hardening. **Next technical front:** `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED`. **Gates:** actor-writer/bank-ledger OK · regression-guards 75 OK/0 FAIL · arch critical_new=0 · migrations 394/394 · baseline 0113 = 0. Detalhe: `docs/03_execution_log/F-ACTOR-WALLET-PAYOUT-PROOF-WIRING-YALA-CLOSEOUT.md`.
+
+---
+
 ## 2026-06-19 — F-ACTOR-WALLET-PAYOUT-PROOF-WIRING (gates de prova de payout, sem ligar payout) · 🟡 MATERIAL / PROOF-WIRING / PARTIAL / PENDING YALA (payout NÃO autorizado)
 
 **MATERIAL proof-wiring (HEAD before `5f4c5562`, dev 394, SEM migration).** Transforma a prova comportamental de payout em gate confiável **sem ativar payout, sem semear PORTA-1, sem ligar worker, sem mover dinheiro real**. Re-verificação READ-ONLY (3 paralelas): payout substrate provadamente dormente/fail-closed nos 8 eixos (worker default-off; HTTP 403; approval 0/0/0; seller_available isolado; availableBalanceCents não-autoridade; FOR UPDATE triplo; recovery drena antes; idempotência) — **nenhum STOP**.
