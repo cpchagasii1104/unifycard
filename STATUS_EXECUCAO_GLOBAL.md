@@ -1,3 +1,17 @@
+## 2026-06-20 — F-DB-ROLE-AND-RLS-HARDENING-CLOSEOUT (registro Yala reseal + WM1) · ✅ CLOSED / DOCS-ONLY / YALA PASS_WITH_WARNINGS · READY/PROVEN-EPHEMERAL/PROD-FAIL-CLOSED · NOT LIVE IN DEV
+
+**DOCS-ONLY (HEAD `cd697da7`, dev 394 aplicadas / 395 arquivos, sem migration/código/runtime).** Registra o **Yala reseal material = PASS_WITH_WARNINGS** da macro `F-DB-ROLE-AND-RLS-HARDENING` (commit `cd697da7`) e corrige a precisão cartorial do **WM1**. Re-verificação fail-closed READ-ONLY: payout dormente; nenhum STOP.
+
+**Confirmado pela Yala:** role unificard_app NOSUPERUSER/NOBYPASSRLS/NOLOGIN; grants mínimos; ENABLE+FORCE RLS + policy tenant-scoped nas 7 tabelas na migration; infra_bypass só TO unificard_infra; preflight em BOOT (prod fail-closed); guard em regression; NP1–NP7 mordem; teste efêmero prova SET ROLE + bloqueio cross-tenant (42501); bank_* não relaxado; payout fechado.
+
+**Warning WM1:** a migration `20260620120000` está **commitada (395 arquivos) mas NÃO aplicada ao unificard_dev** (394 aplicadas; 7 tabelas RLS OFF em dev). A role unificard_app no cluster é objeto **cluster-global** criado na execução **efêmera** — NÃO prova aplicação no dev. **Estado correto: READY / PROVEN-EPHEMERAL / PROD-FAIL-CLOSED — NOT LIVE IN DEV.** (RLS live-em-dev NÃO declarado.)
+
+**Ativação real (passo OPERACIONAL fora do repo; não executado):** aplicar migration no alvo · LOGIN/PASSWORD à unificard_app · repontar runtime · postgres só p/ migrations · validar preflight · confirmar RLS no alvo. **NÃO autoriza** PORTA-1 seed / worker / external payout / HTTP execution / PIX-out / TED / PSP / go-live.
+
+**Estados:** `F-DB-ROLE-AND-RLS-HARDENING` → **CLOSED / MATERIAL / YALA PASS_WITH_WARNINGS · READY/PROVEN-EPHEMERAL/PROD-FAIL-CLOSED · NOT LIVE IN DEV** · **Payout NOT AUTHORIZED · PORTA-1 NOT SEEDED · worker default-off · external payout NOT AUTHORIZED · destination_type internal_settlement-only · Bank/Core/KYC/recovery intocados · bank_* não relaxado** · `DT-SETTLEMENT-REGIONAL-FEE-BPS-DEAD-CODE-GUARD` permanece OPEN. **Gates:** actor-writer/bank-ledger OK · regression 76 OK/0 FAIL · arch critical_new=0 · migrations 395/395 · baseline 0113 = 0. Detalhe: `docs/03_execution_log/F-DB-ROLE-AND-RLS-HARDENING-CLOSEOUT.md`. **Próxima macro: F-PAYOUT-TOCTOU-SAFETY-HARDENING** (não PORTA-1).
+
+---
+
 ## 2026-06-20 — F-DB-ROLE-AND-RLS-HARDENING (macro material) · ✅ EXECUTED / PENDING YALA — RLS deixa de ser teatro (payout NÃO autorizado)
 
 **MACRO MATERIAL (HEAD before `654932ef`, dev 394→395, +1 migration).** Elimina o bloqueador #1 do Decision Pack ("RLS theatre": app conectava como postgres/superuser → bypassa RLS mesmo em FORCE). Re-verificação fail-closed: payout dormente; nenhum STOP.
