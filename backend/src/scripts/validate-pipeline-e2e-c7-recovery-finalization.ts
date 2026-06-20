@@ -39,6 +39,16 @@ dotenv.config({ path: join(process.cwd(), 'backend', '.env') });
 
 const TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
 
+// F-ACTOR-WALLET-PAYOUT-PROOF-WIRING: recusa rodar contra DB não-efêmero (nunca unificard_dev).
+const EXPECTED_DB = process.env.EXPECTED_DATABASE_NAME || '';
+async function assertEphemeral(): Promise<void> {
+  const db = (await pool.query<{ db: string }>('SELECT current_database() AS db')).rows[0]?.db;
+  if (db === 'unificard_dev') throw new Error('Refusing to run payout/recovery E2E against non-ephemeral database.');
+  if (!EXPECTED_DB || db !== EXPECTED_DB) throw new Error(`Refusing to run payout/recovery E2E against non-ephemeral database (db="${db}" != EXPECTED "${EXPECTED_DB}").`);
+  if (!/payout|approve|decision|recovery|wallet|test|ephemeral/i.test(db)) throw new Error(`Refusing to run payout/recovery E2E against non-ephemeral database (db="${db}" not ephemeral).`);
+  console.log(`🔒 DB efêmera confirmada: ${db}`);
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 let passed = 0;
@@ -264,6 +274,7 @@ async function resetRiskProfiles() {
 // ── test runner ───────────────────────────────────────────────────────────────
 
 async function runTests() {
+  await assertEphemeral();
   console.log('\n🔍 E2E C7 — Recovery Finalization\n');
 
   const fixture = await buildFixture();

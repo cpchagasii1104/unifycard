@@ -1,3 +1,15 @@
+## 2026-06-19 — F-ACTOR-WALLET-PAYOUT-PROOF-WIRING (gates de prova de payout, sem ligar payout) · 🟡 MATERIAL / PROOF-WIRING / PARTIAL / PENDING YALA (payout NÃO autorizado)
+
+**MATERIAL proof-wiring (HEAD before `5f4c5562`, dev 394, SEM migration).** Transforma a prova comportamental de payout em gate confiável **sem ativar payout, sem semear PORTA-1, sem ligar worker, sem mover dinheiro real**. Re-verificação READ-ONLY (3 paralelas): payout substrate provadamente dormente/fail-closed nos 8 eixos (worker default-off; HTTP 403; approval 0/0/0; seller_available isolado; availableBalanceCents não-autoridade; FOR UPDATE triplo; recovery drena antes; idempotência) — **nenhum STOP**.
+
+**Static proof-wiring (COMPLETO):** (1) `assertEphemeral` adicionado a F2/F3/C3/C7 (recusa `unificard_dev`; **provado** — F2 contra dev ⇒ "Refusing to run payout/recovery E2E against non-ephemeral database"); (2) guard `audit-payout-e2e-ephemeral-guard` (NEW, wired no regression default) exige assertEphemeral nos 5 E2Es sensíveis; (3) `audit-bank-ledger-boundaries` agora no **regression default** (bank_* fora de modules/bank falha no gate default); (4) negative-proofs: novo NPa/NPb mordem (pwsh 7 + WPS 5.1) + production existentes re-executados e mordem (execution-seal NP3/NP4/NP7, worker-system-only NP6, financial-workers-dormancy NP6, bank-http NP2). **E2E execução em efêmero (PARCIAL):** wired em `validate:payout-proof-e2e` (runner cria/migra FULL/dropa efêmera; assertEphemeral confirma efêmera), mas os E2Es dependem de fixtures dev-seeded (getFixtures) → F2 falha em efêmero novo. **Não mascarado** → follow-up `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED` (OPEN).
+
+**Estados:** `F-ACTOR-WALLET-PAYOUT-PROOF-WIRING` → **MATERIAL / PROOF-WIRING / PARTIAL / PENDING YALA** · `DT-PAYOUT-E2E-EPHEMERAL-SELF-SEED` → **OPEN** · **Payout → NOT AUTHORIZED** · **PORTA-1 → NÃO semeada (decisão Clayton)** · **Worker → default-off** · **External payout → NOT AUTHORIZED**. Follow-ups Clayton: PORTA-1 seed / worker arming / TOCTOU KYC-ATL-risco / RLS hardening.
+
+**Escopo negativo / gates:** zero produção-payout/seed/worker/Bank-runtime/migration; regional-fee.repository.ts e settlement.service.ts NÃO tocados. actor-writer/bank-ledger OK · regression-guards **75 OK / 0 FAIL** · arch critical_new=0 · migrations 394/394 · detector baseline 0 · tsc 43. Detalhe: `docs/03_execution_log/F-ACTOR-WALLET-PAYOUT-PROOF-WIRING-EXECUTION.md`. Próxima ação: **Yala reseal**.
+
+---
+
 ## 2026-06-19 — F-UNIFYCARD-FEE-BPS-MATERIAL-YALA-WARNINGS (reconciliação W1/W2 + fechamento DT) · ✅ CLOSED / MATERIAL / YALA PASS_WITH_WARNINGS (path vivo; payout NÃO autorizado)
 
 **Docs-only / cartorial (HEAD `2d3065b8`, dev 394, sem migration/código).** Reconcilia o cartório após o **Yala reseal material = PASS_WITH_WARNINGS** do commit `2d3065b8` e fecha a DT material **no escopo do path vivo**.
