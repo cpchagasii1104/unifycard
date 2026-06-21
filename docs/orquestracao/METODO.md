@@ -89,6 +89,11 @@ Contra os 2 vícios (pinball de frentes · profundidade sem corte): **menos "des
 - Que **teste/gate** provará o fechamento?
 - Que **arquivo/norma/SSOT** governa?
 
+**PREFLIGHT obrigatória ANTES de abrir frente/fatia (Clayton 2026-06-21):** `git status --short` e classificar o dirty —
+**NOSSO** (código/migration/guard/cartório/decisão da frente) sujo = **STOP** (resolver/commitar antes de abrir); **loose/
+memórias/opus/PNGs/outputs de outras frentes** = declarar **FORA do escopo** (nunca arrastar; protegidos `clayton.md`/
+`dividas.md`/`CRIACAO_DE_EMPRESAS.md`/`*.png` jamais tocados). Abrir só com NOSSO limpo.
+
 **Selo final = EVIDÊNCIA, não consenso de IA.** "Outra IA concordou" é parecer. Selo = teste passou · guard passou · schema confere · runtime confere · fluxo real confere · norma confere · commit limpo.
 
 **Contrato de saída rígido por instância:** ao ativar uma IA, ela recebe escopo · proibições · arquivos-alvo · critério PASS/FAIL · evidência obrigatória · o que NÃO pode fazer. Sem isso vira consultor tagarela (= dívida técnica em português bonito).
