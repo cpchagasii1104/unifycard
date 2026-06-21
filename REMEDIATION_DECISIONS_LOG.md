@@ -7346,3 +7346,20 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** —
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0143_OFFER_CHAIN_VOCABULARY.md` · `DECISION-0142` (folha-SSOT) · `DECISION-0117` (catálogo/oferta) · `DECISION-0122` (service_offering canônico) · `DECISION-0121` (booking authority) · `DECISION-0113` (actorId hint) · `DECISION-0132` (purpose temporal) · `docs/orquestracao/processo/cadeia-de-oferta/CONSOLIDADO.md` (Rodada 7).
+
+---
+
+## DECISION-0144 — Régua de elegibilidade declaração→service na cadeia de oferta (F-OFFER-2)
+
+- **Data:** 2026-06-21
+- **Tipo:** Arquitetural / régua de autoridade+elegibilidade (DOCS-ONLY) — **NÃO MATERIAL** (não toca runtime/migration/backend/frontend/`docs/01_normative`).
+- **Frente:** F-OFFER (F-OFFER-2) · **HEAD (pré-commit):** `4431b8fc` · **dev:** 398
+- **Status:** **PROMULGADA / DOCS-ONLY / RÉGUA DE ELEGIBILIDADE DECLARAÇÃO→SERVICE.**
+- **Contexto:** READ-FIRST curto F-OFFER-2 (3 elos — IA-ACTOR **FALTA_X** · IA-AUTORIDADE **FALTA_DECISAO** · IA-BANCO **PASS_PARA_GO_DE_DECISAO**) provou: substratos de declaração prontos+concept-keyed+gated; espinha de destino (`services`/`service_offerings`) VAZIA + FK forte (RESTRICT); e o **bypass KYB-transitivo** (criar `service` de company exige só `canManageCompany`, sem KYB/publicação). A ponte é **régua a promulgar**, não bug.
+- **Decisão soberana (Clayton):** régua D3 — `createService` **concept-keyed** + exige `canonical_service_id` (**NOT NULL**, após preflight) + exige **declaração/publicação ACTIVE do MESMO `concept_id`** (PF `actor_professional_concepts`; PJ `company_concept_publications` → **fecha o bypass KYB-transitivo**); declaração = **INSUMO somado** à autoridade server-side (**re-gateia, não herda**); **V1 = match EXATO de `concept_id`** (sem `domain`/`category`/`slug`/grafo); `actionContext.actorId` nunca é autoridade. **ENTRA:** D3-1/2/3 + **D3-6 Parte A** (FK `concept_id→concepts` NO ACTION→RESTRICT, se preflight provar 0 órfãos). **FORA:** D3-4 (operador via `actor_capability_grants`), D3-5 (PF KYC-lite/trust), D3-6 Parte B (ramo-4 legado `is_primary`/`role='admin'`), dinheiro/`availability`/`service_offerings`/discovery/presença. **+ 6 GUARDS de execução (§B-bis):** ACTIVE respeita schema vivo (senão `STOP_DECISION_REQUIRED`); owner PF/PJ server-side; PF×PJ ambíguo → STOP; `canonical_service` resolve `concept_id` material (senão STOP antes do runtime); zero expansão semântica em V1; declaração não substitui autoridade.
+- **Materialização/Prova:** **NENHUMA** (docs-only). Execução material após esta DECISION (GO próprio): **F-OFFER-2A** (schema: `canonical_service_id` NOT NULL após preflight + FK RESTRICT se seguro) + **F-OFFER-2B** (runtime: eligibility gate; PF/PJ sem declaração/publicação → 403 controlado; sem bypass por spoof de `actionContext`/category/domain). Gates: preflight + 4 E2E (PF/PJ com/sem) + 2 negative-proof (category/domain · actionContext) + 2 guards (service concept-less · createService sem eligibility) + `validate:actor-writer-boundaries`/`bank-ledger-boundaries`/`regression-guards`/`architectural-patterns --strict` + typecheck no_new_errors.
+- **Consequências:** F-OFFER-2 **DECISION PROMULGADA**; execução material (2A/2B) **HOLD** até GO próprio (volta ao ChatGPT antes de executar). F-OFFER-3..6 HOLD.
+- **Responsável:** Clayton / IA-DIRETORA (executor: Claude Opus 4.8). **Validação prévia:** Clayton (promulgação) + ChatGPT (APPROVED_WITH_GUARDS) + READ-FIRST F-OFFER-2 (IA-ACTOR/IA-AUTORIDADE/IA-BANCO).
+- **Supera:** —
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0144_DECLARATION_TO_SERVICE_ELIGIBILITY.md` · `DECISION-0143` (vocabulário) · `DECISION-0142` (folha-SSOT) · `DECISION-0117` (canonical_services) · `DECISION-0113` (actorId hint) · `DECISION-0100/0101` (publish PJ KYB) · `DECISION-0118` (canManageCompany) · `DECISION-0136` (actor_capability_grants) · `docs/orquestracao/processo/cadeia-de-oferta/CONSOLIDADO.md` (READ-FIRST F-OFFER-2).

@@ -38,7 +38,7 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 - **Tier 2** = decisões `0001–0063` que só existem em `REMEDIATION_DECISIONS_LOG.md` (passada leve; verificado =
   `NÃO-AUDITADO`, salvo quando o LOG declara supersessão ou quando trivialmente checável).
 - **Contratos** = 4 docs de governança de Core (não numerados na série 0064–0111).
-- **Bloco 0112–0143** = 32 docs `DECISION_0112..0143` (reindex **A1** + **DECISION-0142** + **DECISION-0143**, 2026-06-21). DECLARADO = header do próprio `.md` (fonte soberana por linha); verificado = `NÃO-AUDITADO` na passada docs-only A1, exceto **0142 = MATERIALIZADO** (U1b · IA-YALA PASS); **0143 = docs-only** (contrato F-OFFER-0, sem runtime).
+- **Bloco 0112–0144** = 33 docs `DECISION_0112..0144` (reindex **A1** + **DECISION-0142/0143/0144**, 2026-06-21). DECLARADO = header do próprio `.md` (fonte soberana por linha); verificado = `NÃO-AUDITADO` na passada docs-only A1, exceto **0142 = MATERIALIZADO** (U1b · IA-YALA PASS); **0143/0144 = docs-only** (contrato F-OFFER-0 / régua elegibilidade F-OFFER-2, sem runtime).
 
 ---
 
@@ -97,13 +97,13 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 
 ---
 
-## Tabela mestra — Bloco 0112–0143 (pós-0111 · reindex A1 + DECISION-0142 + DECISION-0143 · 2026-06-21)
+## Tabela mestra — Bloco 0112–0144 (pós-0111 · reindex A1 + DECISION-0142/0143/0144 · 2026-06-21)
 
 > **Natureza desta passada (A1, docs-only):** **DECLARADO** = status do header do próprio
 > `DECISION_NNNN_*.md` (fonte soberana por linha; `REMEDIATION_DECISIONS_LOG.md` confirma
 > existência/cauda até 0141). **Verificado = NÃO-AUDITADO** em TODAS — esta passada **não**
 > re-checou runtime/schema; **não finge auditoria material**. Sem divergência header×LOG detectada.
-> Sequência 0112→0143 (32 decisões, sem buraco, sem duplicata; **0142** materializada via U1b; **0143** docs-only/contrato F-OFFER-0). Próximo nº livre: **0144**.
+> Sequência 0112→0144 (33 decisões, sem buraco, sem duplicata; **0142** materializada via U1b; **0143** docs-only/contrato F-OFFER-0; **0144** docs-only/régua elegibilidade F-OFFER-2). Próximo nº livre: **0145**.
 
 | Nº | Arquivo | Declarado (header do .md) | Verificado | 1-linha |
 |----|---------|---------------------------|------------|---------|
@@ -139,6 +139,7 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 | 0141 | DECISION_0141_UNIFYCARD_FEE_SCHEMA_OF_RECORD | PROMULGADA / DOCS-ONLY / SCHEMA-OF-RECORD / NOT MATERIAL | NÃO-AUDITADO | fee bps como schema-of-record no economic_policy_engine |
 | 0142 | DECISION_0142_NEEDS_GRAPH_COMPOSITION_PILOT | PROMULGADA / MATERIALIZADA (Slice U1b) | MATERIALIZADO (U1b · IA-YALA PASS) | needs-graph piloto `festa-de-casamento` (4 reuso + 6 novo) + invariante folha-SSOT-global (casar por concept_id, nunca por domain) |
 | 0143 | DECISION_0143_OFFER_CHAIN_VOCABULARY | PROMULGADA / DOCS-ONLY / CONTRATO DE VOCABULÁRIO (F-OFFER-0) | NÃO-AUDITADO (docs-only; sem runtime) | contrato da cadeia CONCEPT→SERVICE→SERVICE_OFFERING→AVAILABILITY (4 camadas + invariantes; casar por concept_id) |
+| 0144 | DECISION_0144_DECLARATION_TO_SERVICE_ELIGIBILITY | PROMULGADA / DOCS-ONLY / RÉGUA DE ELEGIBILIDADE (F-OFFER-2) | NÃO-AUDITADO (docs-only; execução material HOLD) | régua declaração→service: createService exige declaração/publicação active do mesmo concept_id + canonical_service_id NOT NULL (V1 match exato; +6 guards) |
 
 ---
 
