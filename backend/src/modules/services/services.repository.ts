@@ -187,6 +187,7 @@ class ServicesRepository {
     tenantId: string,
     filters: {
       categoryId?: string;
+      conceptId?: string;
       cityId?: string;
       stateId?: string;
       countryId?: string;
@@ -209,7 +210,17 @@ class ServicesRepository {
       params.push(filters.actorType);
     }
 
-    // Filtros de localização
+    // 🔴 F-OFFER-4 / DECISION-0142+0145: matching MATERIAL por concept_id (folha = identidade soberana).
+    // category/domain são navegação (resolvidos a concept_id na camada de serviço — hop de LEITURA efêmero,
+    // NUNCA concept_ref persistido). JOIN canônico: services.canonical_service_id → canonical_services.concept_id.
+    if (filters.conceptId) {
+      joinClause += ' INNER JOIN canonical_services cs ON cs.id = s.canonical_service_id';
+      conditions.push(`cs.concept_id = $${paramIndex++}`);
+      params.push(filters.conceptId);
+    }
+
+    // Filtros de localização. (category_id mantido p/ callers de navegação por árvore — ex.: marketplace-search,
+    // FORA de F-OFFER-4 V1; as superfícies de discovery de serviços passam conceptId, não categoryId.)
     if (filters.categoryId) {
       conditions.push(`s.category_id = $${paramIndex++}`);
       params.push(filters.categoryId);

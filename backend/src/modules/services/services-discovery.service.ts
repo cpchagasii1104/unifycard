@@ -373,8 +373,15 @@ class ServicesDiscoveryService {
       throw new BadRequestError('datetime inválido (use ISO 8601)');
     }
 
+    // 🔴 F-OFFER-4 / DECISION-0142: discovery casa por concept_id. category = ENTRADA de navegação resolvida
+    // a concept_id (hop de LEITURA efêmero; V1 exige categoria-folha com concept_id; NUNCA persiste concept_ref).
+    const { resolveConceptFromCategory } = await import('@core/semantic/semantic.adapter');
+    const { conceptId } = await resolveConceptFromCategory(filters.categoryId);
+    if (!conceptId) {
+      throw new BadRequestError('CATEGORY_REQUIRES_LEAF_CONCEPT: a categoria precisa ser folha com concept_id (DECISION-0142); discovery casa por concept, não por category/domain.');
+    }
     const rows = await servicesRepository.discoverServices(tenantId, {
-      categoryId: filters.categoryId,
+      conceptId,
       cityId: filters.cityId || undefined,
       limit: 200,
       offset: 0,

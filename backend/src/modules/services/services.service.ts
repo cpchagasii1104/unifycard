@@ -309,9 +309,21 @@ class ServicesService {
     const startDate = filters.startDate ? new Date(filters.startDate) : undefined;
     const endDate = filters.endDate ? new Date(filters.endDate) : undefined;
 
-    // Buscar serviços com filtros básicos
+    // 🔴 F-OFFER-4 / DECISION-0142: matching por concept_id. category = entrada de navegação resolvida a
+    // concept_id (hop de LEITURA efêmero; V1 exige categoria-folha; NUNCA persiste concept_ref).
+    let conceptId: string | undefined;
+    if (filters.categoryId) {
+      const { resolveConceptFromCategory } = await import('@core/semantic/semantic.adapter');
+      const resolved = await resolveConceptFromCategory(filters.categoryId);
+      if (!resolved.conceptId) {
+        throw new BadRequestError('CATEGORY_REQUIRES_LEAF_CONCEPT: a categoria precisa ser folha com concept_id (DECISION-0142); discovery casa por concept, não por category/domain.');
+      }
+      conceptId = resolved.conceptId;
+    }
+
+    // Buscar serviços com filtros básicos (matching por concept_id; category não é identidade material)
     const services = await servicesRepository.discoverServices(tenantId, {
-      categoryId: filters.categoryId,
+      conceptId,
       cityId: filters.cityId,
       stateId: filters.stateId,
       countryId: filters.countryId,
