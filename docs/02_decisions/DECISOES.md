@@ -38,7 +38,7 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 - **Tier 2** = decisões `0001–0063` que só existem em `REMEDIATION_DECISIONS_LOG.md` (passada leve; verificado =
   `NÃO-AUDITADO`, salvo quando o LOG declara supersessão ou quando trivialmente checável).
 - **Contratos** = 4 docs de governança de Core (não numerados na série 0064–0111).
-- **Bloco 0112–0141** = 30 docs `DECISION_0112..0141` (reindex **A1**, 2026-06-20). DECLARADO = header do próprio `.md` (fonte soberana por linha); verificado = `NÃO-AUDITADO` (passada docs-only, sem re-checagem material).
+- **Bloco 0112–0142** = 31 docs `DECISION_0112..0142` (reindex **A1** + **DECISION-0142**, 2026-06-20). DECLARADO = header do próprio `.md` (fonte soberana por linha); verificado = `NÃO-AUDITADO` na passada docs-only A1, exceto **0142 = MATERIALIZADO** (U1b · IA-YALA PASS).
 
 ---
 
@@ -97,13 +97,13 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 
 ---
 
-## Tabela mestra — Bloco 0112–0141 (pós-0111 · reindex A1 · 2026-06-20)
+## Tabela mestra — Bloco 0112–0142 (pós-0111 · reindex A1 + DECISION-0142 · 2026-06-20)
 
 > **Natureza desta passada (A1, docs-only):** **DECLARADO** = status do header do próprio
 > `DECISION_NNNN_*.md` (fonte soberana por linha; `REMEDIATION_DECISIONS_LOG.md` confirma
 > existência/cauda até 0141). **Verificado = NÃO-AUDITADO** em TODAS — esta passada **não**
 > re-checou runtime/schema; **não finge auditoria material**. Sem divergência header×LOG detectada.
-> Sequência 0112→0141 completa (30 decisões, sem buraco, sem duplicata). Próximo nº livre: **0142**.
+> Sequência 0112→0142 (31 decisões, sem buraco, sem duplicata; **0142** materializada via U1b). Próximo nº livre: **0143**.
 
 | Nº | Arquivo | Declarado (header do .md) | Verificado | 1-linha |
 |----|---------|---------------------------|------------|---------|
@@ -137,6 +137,7 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 | 0139 | DECISION_0139_ACTOR_SCOPED_REFERRAL_CODE_AND_EARNINGS | PROMULGADA / DOCS-ONLY | NÃO-AUDITADO | referral code + earnings com ownership econômico por actor |
 | 0140 | DECISION_0140_UNIFYCARD_FEE_BPS_RULING | DECIDED / DOCS-ONLY RULING / NOT MATERIAL | NÃO-AUDITADO | unidade canônica da taxa UnifyCard = fee em basis points (bps) |
 | 0141 | DECISION_0141_UNIFYCARD_FEE_SCHEMA_OF_RECORD | PROMULGADA / DOCS-ONLY / SCHEMA-OF-RECORD / NOT MATERIAL | NÃO-AUDITADO | fee bps como schema-of-record no economic_policy_engine |
+| 0142 | DECISION_0142_NEEDS_GRAPH_COMPOSITION_PILOT | PROMULGADA / MATERIALIZADA (Slice U1b) | MATERIALIZADO (U1b · IA-YALA PASS) | needs-graph piloto `festa-de-casamento` (4 reuso + 6 novo) + invariante folha-SSOT-global (casar por concept_id, nunca por domain) |
 
 ---
 
