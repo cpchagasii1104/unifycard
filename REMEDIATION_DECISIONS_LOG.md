@@ -7329,3 +7329,20 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** —
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0142_NEEDS_GRAPH_COMPOSITION_PILOT.md` · migrations `20260620140000`/`20260620150000` · `backend/src/core/semantic/graph-governance.service.ts` · triggers `0075`/`0077` · `DECISION-0070` (taxonomia governada) · `DECISION-0092` (grafo global) · `DECISION-0105` (domain multi-camada) · `DECISION-0107` (labels D12) · U1 (widening 3→6) · seed de interesse `20260601130000` (precedente de reuso).
+
+---
+
+## DECISION-0143 — Contrato de vocabulário da cadeia de oferta (F-OFFER-0)
+
+- **Data:** 2026-06-21
+- **Tipo:** Arquitetural / contrato de vocabulário (DOCS-ONLY) — **NÃO MATERIAL** (não toca runtime/migration/backend/frontend/`docs/01_normative`).
+- **Frente:** F-OFFER (F-OFFER-0) · **HEAD (pré-commit):** `9f5e9c5e` · **dev:** 398
+- **Status:** **PROMULGADA / DOCS-ONLY / CONTRATO DE VOCABULÁRIO DA F-OFFER.**
+- **Contexto:** fecho da Rodada 7 `F-PROFILE-PJ-OFFER-CONFIGURATION-READINESS` (6 instâncias; veredito PASS_TO_CONVERGENCE; ChatGPT APPROVED_WITH_GUARDS). Fixa o vocabulário da cadeia **antes** de qualquer execução, para que F-OFFER-1..6 não virem "correção local sem contrato".
+- **Decisão soberana (Clayton):** cadeia `CONCEPT → SERVICE → SERVICE_OFFERING → AVAILABILITY` com 4 camadas — **(1) Declaração de capacidade:** PF `actor_professional_concepts` (gated `canRepresentActor`, sem preço) · PJ `company_concept_publications` (gated `canManageCompany`+KYB); **(2) Descoberta/capacidade operacional:** `services` (concept-keyed); **(3) Oferta contratável:** `service_offerings` (exige service canônico; `price_cents` BIGINT; duração; status); **(4) Disponibilidade real:** `availability` owner=`service_offering`. **Invariantes:** `concept_id`=identidade; `concept.domain` NÃO filtra matching; `category` NÃO é identidade; `actionContext.actorId` nunca é autoridade (server-side obrigatória); preço só `price_cents` BIGINT; tempo só no SSOT temporal; sem verdade paralela. "Eu faço isso" **não** é SSOT único — são camadas.
+- **Materialização/Prova:** **NENHUMA** (docs-only). Estado vivo (IA-BANCO, HEAD `9f5e9c5e`): espinha existe e VAZIA (services/service_offerings/publications=0; canonical_services=1; actor_professional_concepts=1) = janela virgem de baixo custo. Hoje `services` é concept-OPCIONAL e `service_offerings` não exige `services` (DECISION-0122 = dois caminhos); a 0143 declara o **ALVO**, materializado em **F-OFFER-2/3**.
+- **Consequências:** F-OFFER-0 **CLOSED/PROMULGADA**. Libera **F-OFFER-1** (conter ghosts: 501 explícito, sem 42P01/tabela fantasma) como próxima fatia, **a ratificar no ChatGPT antes de executar**. F-OFFER amplo **HOLD**. **Fora da macro:** slot material → **F-MATERIAL-CONVERGENCE** (frente própria) · presença · dinheiro/payout · RFQ complexo · engine universal · obra multi-etapa.
+- **Responsável:** Clayton / IA-DIRETORA (executor: Claude Opus 4.8). **Validação prévia:** Clayton (promulgação) + ChatGPT (APPROVED_WITH_GUARDS) + Rodada 7 (6 instâncias) + IA-BANCO (prova-viva).
+- **Supera:** —
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0143_OFFER_CHAIN_VOCABULARY.md` · `DECISION-0142` (folha-SSOT) · `DECISION-0117` (catálogo/oferta) · `DECISION-0122` (service_offering canônico) · `DECISION-0121` (booking authority) · `DECISION-0113` (actorId hint) · `DECISION-0132` (purpose temporal) · `docs/orquestracao/processo/cadeia-de-oferta/CONSOLIDADO.md` (Rodada 7).
