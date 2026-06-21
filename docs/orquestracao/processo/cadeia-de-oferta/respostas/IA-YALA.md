@@ -471,3 +471,77 @@ mão; zero dado alterado.
   NÃO misturar cartório no commit material.
 Working tree de código deixado idêntico ao entregue (services.service.ts restaurado do guard-NP; harness tsx apagado;
 só editei meu `respostas/IA-YALA.md`).
+
+---
+
+## RODADA 10 — RESEAL F-OFFER-3 (vínculo service→service_offering · DECISION-0145 · MODO B) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS (8/8).**
+**HEAD no momento:** `d100186c` (branch `rescue-structural`) — `decisions: DECISION-0145 service-to-offering binding`.
+  F-OFFER-3 no working tree (migration aplicada, id 403; não committada). F-OFFER-2B committado (`d2cf007c`); cartório limpo.
+**Revalidou no vivo:** SIM (total) — git + leitura de `service-offering.service.ts`/migration/guard + consultas
+  READ-ONLY + **createOffering REAL end-to-end** (harness tsx com ports injetados, descartável) + resolução/INSERT
+  replicados em ROLLBACK + guard-NP (edita→roda→reverte) + gates.
+**Fonte soberana:** `src/modules/services/service-offering.service.ts:83-160`;
+  `migrations/20260621120000_f_offer_3_service_offering_service_id_mandatory.sql`;
+  `scripts/audit-service-offering-binding.mjs`; `package.json`; `pg_constraint`/`information_schema` vivos; DECISION-0145 §A/§B-bis.
+**Status:** RESPONDIDO.
+
+### Os 8 itens
+1. **PÓS-APPLY → PASS.** `service_offerings.service_id` `is_nullable=NO`; FK `service_offerings_service_id_fkey`
+   `confdeltype='r'` (services(service_id) RESTRICT; era SET NULL); migration registrada (id 403); rowcounts so=0/svc=0.
+2. **createOffering END-TO-END → PASS.**
+   - (b) **SEM service** (provider PF REPRESENTÁVEL, ports injetados) → função REAL lança `ServiceOfferingError 403
+     SERVICE_OFFERING_REQUIRES_SERVICE` (não 500); nada persistiu (so/svc=0).
+   - (c) **>1 service** → resolução=2 (ROLLBACK) → o código lança `409 SERVICE_OFFERING_SERVICE_AMBIGUOUS`
+     (não há UNIQUE bloqueando 2 services p/ mesmo provider+canonical → o 409 é alcançável e necessário).
+   - (a)(d)(e)(f) via **réplica EXATA do INSERT em ROLLBACK** (com serviceId resolvido + company derivado):
+     cria com `service_id` preenchido, `status='draft'`, `company_id` derivado server-side (PF→NULL; PJ→company do actor),
+     `professional_actor_id=NULL` (body ignorado).
+3. **Resolução (ROLLBACK reproduzida) → PASS.** 0→block · 1→resolve · 2→ambíguo (SELECT por tenant+actor_id+canonical_service_id).
+4. **Sem bypass → PASS.** `input.companyId`/`input.professionalActorId` = **0 usos** no arquivo (grep); INSERT usa
+   `derivedCompanyId` (`SELECT company_id FROM actors WHERE id=provider`) e `null`. concept EXATO via `canonical.id`
+   (sem category/domain/slug/grafo). `canRepresentActor(tenantId,userId,providerActorId)` é **ANTES** (l.97-101,
+   fail-closed 403 NOT_REPRESENTABLE) — confirmado end-to-end (probe sem representação parou aí). Identidade
+   consistente: `actors.id==actor_id` (10/10), `services.actor_id` e `service_offerings.provider_actor_id` → `actors(id)`.
+5. **GUARD-NP → MORDE E VOLTA.** Baseline exit 0. Enfraqueci INSERT `'draft'`→`'active'` → guard **exit 1** (2 falhas:
+   não nasce draft / ainda crava active). Revertí → exit 0, `grep "'active')"`=0 (hash `077ac1f3`).
+6. **ESCOPO → PASS.** 4 material: `service-offering.service.ts` + migration + guard + `package.json` (append de 1 linha).
+   ZERO availability/discovery/dinheiro/grants/service_order/`docs/01_normative`; cartório limpo (nada sujo).
+   **ZERO dado alterado** (so=0/svc=0 antes e depois; todos os probes em ROLLBACK; harness só SELECT até o throw).
+7. **GATES → PASS.** typecheck=**34** (0 erros no arquivo). regression-guards=**EXIT 0** com `GATE OK [service-offering-binding]`.
+   architectural --strict in-situ: atual **33 == baseline 33, 0 hits** no arquivo → `critical_new=0`. Idempotência:
+   re-run da migration = só `NOTICE … ja … (idempotente)`, zero ALTER/erro.
+8. **price_cents → PASS.** `service_offerings.price_cents` = **bigint** (cents; não NUMERIC). Esta fatia NÃO move dinheiro
+   (nenhum bank_*/ledger/split/payout tocado).
+
+### TENTATIVAS DE REFUTAÇÃO (resultado)
+- "service_id não é mandatório/FK fraca" → REFUTADO (NOT NULL + RESTRICT no banco vivo).
+- "createOffering devolve 500 / cria sem service" → REFUTADO: função REAL lança 403 REQUIRES_SERVICE.
+- "company/professional vêm do body" → REFUTADO: 0 usos de input.companyId/professionalActorId; derivado/null no INSERT.
+- "nasce active" → REFUTADO: INSERT 'draft'; guard morde se voltar a 'active'.
+- "declaração substitui autoridade" → REFUTADO: canRepresentActor ANTES (fired em probe sem representação).
+- "concept por category/domain" → REFUTADO: resolve por canonical.id exato.
+- "vazou escopo / alterou dado / regrediu gate" → REFUTADO: 4 material, zero dado, typecheck 34, guards exit 0, critical_new=0, price bigint.
+
+### STOPs
+- Vínculo/binding com negative-proof que MORDE → presente e reproduzido (itens 2,3,5). ✔
+- Não toquei R2/delegação; DT-mãe 0113 OPEN respeitada (e reforçada: canRepresentActor antes); sem dinheiro/payout/presença/grants. ✔
+- **STOP de commit:** material = SÓ os 4 arquivos; cartório (STATUS/CONSOLIDADO/respostas) em commit próprio.
+- Veredito é INSUMO, não GO nem promulgação.
+
+### CONCLUSÃO + RECOMENDAÇÃO DE COMMIT
+**PASS (8/8).** F-OFFER-3 amarra a oferta ao `service` da cadeia única CONCEPT→SERVICE→SERVICE_OFFERING (DECISION-0145
+MODO B): `createOffering` exige/resolve um `service` do MESMO provider+canonical (0→403, >1→409), popula `service_id`,
+deriva `company_id` server-side (body não autoriza), nasce `draft`, não carimba professional do body; o schema torna
+`service_id` NOT NULL + FK RESTRICT (preflight fail-closed, idempotente, sem CASCADE); a elegibilidade da 0144 é
+HERDADA do service (não duplicada) e `canRepresentActor` permanece ANTES. Estado vivo, end-to-end na função real,
+resolução, réplica de INSERT, guard-NP e gates todos confirmados de 1ª mão; price_cents bigint; zero dado alterado.
+**Recomendação de commit (PASS):**
+- **Commit MATERIAL (4 arquivos):** `backend/src/modules/services/service-offering.service.ts` +
+  `backend/migrations/20260621120000_f_offer_3_service_offering_service_id_mandatory.sql` +
+  `backend/scripts/audit-service-offering-binding.mjs` + `backend/package.json`.
+- **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` + `CONSOLIDADO.md` + respostas da orquestração. Não misturar.
+Working tree de código deixado idêntico ao entregue (service-offering.service.ts restaurado do guard-NP; harness tsx
+apagado; só editei meu `respostas/IA-YALA.md`).

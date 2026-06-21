@@ -143,3 +143,47 @@ A ponte não herda — **re-gateia na travessia** (declarar ≠ permitir ≠ ele
 **Status: RESPONDIDO** — VEREDITO FALTA_DECISAO (autoridade de origem sólida; ponte = régua a decidir; gap KYB-transitivo nomeado; resíduo ramo-4 → IA-BANCO/IA-ACTOR). READ-ONLY, zero edição de código/schema/migration/cartório/commit. Insumo, não GO.
 
 *Carimbo: HEAD `4431b8fc` · branch `rescue-structural` · 2026-06-21 · 1ª mão (disco/rotas/serviços). Fontes: DECISION-0113 (canRepresentActor), DECISION-0118 (representação genérica ≠ dono de PJ), DECISION-0100/0101 (publish PJ = canManageCompany+KYB+operacional+concept==primary), DECISION-0109 (categoria do service por company_type), DECISION-0117 (canonical_services), DECISION-0136/0126 (actor_capability_grants/grants), DECISION-0143/F-OFFER §D3 (ponte exige declaração prévia), AUTHORITY_LAW Art.17 (role≠autoridade). — IA-AUTORIDADE, sob coordenação da IA-DIRETORA.*
+
+---
+
+## F-OFFER-3 — READ-FIRST curto: AUTORIDADE de criar/editar service_offering · IA-AUTORIDADE
+
+**Carimbo:** HEAD vivo **`74a04819`** · branch `rescue-structural` · 2026-06-21 · revalidou no disco: **SIM (1ª mão)**; banco vivo (rowcount/FK efetiva/RLS): **INCONCLUSIVE → IA-BANCO**.
+**Lidos 1ª mão:** `modules/services/service-offering.service.ts:83-162` (`createOffering` + `updateOwnOffering`) · `core/authorization/authorization.service.ts:333-367` (`canRepresentActor` ramo company→`canManageCompany`) · `DECISION-0144` (§A.6/§A.10/§A.12/§D/§F — `service_offerings` é FORA da régua 2B) · IA-OFERTA §F-OFFER-3 (FALTA_DECISAO). 
+**Re-baseline:** F-OFFER-2 promulgada (**DECISION-0144**), `createService` agora é o ponto onde a elegibilidade vive; **DECISION-0144 §A.12/§D põe `service_offerings` explicitamente FORA** → F-OFFER-3 = a régua análoga para a oferta. `actor_capability_grants` segue dormant.
+
+### (1) Autoridade VIVA de create/update offering — por caso (verificado 1ª mão)
+- **`createOffering` (service.ts:97):** gate ÚNICO = **`canRepresentActor(userId, providerActorId)`** fail-closed 403. `userId` server-side (route:401 se ausente). `providerActorId` = body/HINT.
+  - **PF self:** `providerActorId` = actor humano do user → `canRepresentActor` ramo 1 (ownership direto) = **basta. PRONTO.**
+  - **PJ:** `providerActorId` deve ser o **page-actor** (`actor.company_id`) → `canRepresentActor` ramo 2 resolve via **`canManageCompany`** (authorization.service:359-366). ✅ **CONFIRMO: a resolução de autoridade é a MESMA do 2B/createService — para PJ exige canManageCompany, não vaza representação genérica.** Condição: o provider PJ **tem** que ser o page-actor; se for outro actor representável, o canManageCompany não entra (ver buraco 2).
+- **`updateOwnOffering` (service.ts:148):** gate = **`canRepresentActor(userId, offering.providerActorId)`** — usa o **provider ARMAZENADO** (não o body) → cross-provider = 403 (`'Prestador só altera a própria oferta'`). ✅ **Gate de edição correto e own-only** (para PJ idem = canManageCompany via canRepresentActor).
+
+### (2) Buraco do `companyId`/`professionalActorId` do body — CONFIRMADO (provenance, não autoridade operacional)
+- O INSERT (service.ts:120-132) grava `company_id = input.companyId ?? null` (:127) e `professional_actor_id = input.professionalActorId ?? null` (:128) **crus, sem gate próprio**. A autoridade real está **só** em `canRepresentActor(providerActorId)`.
+- **Logo:** `companyId` **não confere autoridade** (corrobora IA-OFERTA: é FK/atributo, não gate). MAS é **proveniência livre** — um caller pode carimbar a oferta com `companyId` de uma empresa que **não gerencia**, e nomear um `professionalActorId` que **não representa**. Não é escalonamento de privilégio na escrita da oferta, mas é **mis-attribution** que pode envenenar a jusante (quem "executa", a quem a oferta "pertence"). Viola o espírito do G2/0144 ("owner derivado server-side, body nunca é owner").
+- **F-OFFER-3 deve:** fixar **provider PJ = page-actor representável**; **derivar `companyId` do provider server-side** (não confiar no body); **re-gatear `professionalActorId`** com `canRepresentActor` se ele carregar significado operacional (ou removê-lo do body).
+
+### (3) Autoridade da PONTE F-OFFER-3 (service→offering) — re-gateia, não herda
+Espelha DECISION-0144 §A.6/G6 (eligibilidade ≠ autoridade; SOMA, nunca herda):
+- **Opção A (recomendada): oferta exige um `services.service_id` válido do MESMO provider + MESMO concept.** Como o `service` já é gateado por 0144 (declaração PF / publicação PJ ACTIVE + KYB-transitivo), o rigor 2B passa a **proteger transitivamente a oferta** — single-chain, sem duplicar a checagem de elegibilidade. Hoje `service_offerings.service_id` é nullable/SET NULL/nunca populado (IA-OFERTA §2) → tornar **mandatório + match provider/concept** (schema+writer = fatia própria).
+- **Opção B: oferta re-checa elegibilidade própria** (declaração/publicação ACTIVE do `concept_id` do `canonical_service`). Funciona, mas **duplica** a régua 0144 na camada de oferta (2 lugares a manter coerentes).
+- **Invariante comum (não-negociável):** em qualquer opção, **`canRepresentActor(provider)` na escrita da oferta PERMANECE** — a elegibilidade do service não substitui a autoridade sobre o provider da oferta. `actionContext.actorId`/body nunca é autoridade (0144 §A.7/G2).
+
+### (4) Gate de edição (editar/suspender/preço)
+`updateOwnOffering` = `canRepresentActor(stored provider)`, own-only, cross-provider 403 — **suficiente e correto no eixo autoridade** (PF=self; PJ=canManageCompany). Decisão de produto pendente (não autoridade): transições de `status` (active↔suspended) e edição de `price_cents` por um representável bastam, ou suspensão por terceiro fiscal (ex.: revogação de KYB → retirar ofertas, análogo ao cascade de publish em 0101) deve existir? **Sinalizo** o paralelo com a cascata KYB do publish; não preencho.
+
+### (5) Operador via `actor_capability_grants` (`services:edit/disable`) — FORA agora
+**CONFIRMO FORA** para F-OFFER-3 V1, idêntico a DECISION-0144 §A.10/D3-4. Substrato **dormant** (sem reader vivo); ativar "operador edita/suspende oferta pela company via grant" = **DECISION + fatia + reseal próprios**, nunca por carona. Hoje só o representável (dono/gestor via canManageCompany ou self) opera a oferta.
+
+### VEREDITO: **FALTA_DECISAO** (autoridade de origem sólida; régua da ponte a promulgar; 1 buraco de proveniência a fechar)
+- **Sólido:** `createOffering`/`updateOwnOffering` são fail-closed por `canRepresentActor`, que para PJ **já é** `canManageCompany` (mesma resolução do 2B). Edição é own-only. **Não há buraco "criar/editar oferta de empresa sem canManageCompany"** (desde que provider=page-actor).
+- **Falta DECISÃO (régua análoga à 0144 p/ a oferta):** (a) oferta vincula a `service_id` válido herdando elegibilidade 2B (Opção A) **vs** re-check próprio (Opção B); (b) **derivar `companyId`/re-gatear `professionalActorId` server-side** (fechar o buraco de proveniência do body — alinhado a G2); (c) status nasce `active` vs `draft` (produto). São réguas de Clayton; depois viram FALTA_X executável (schema `service_offerings.service_id` mandatório + match + owner server-side).
+- **Mantém-se FORA (0144 §F):** operador via grants, availability owner, discovery re-key, dinheiro, presença.
+
+**Prova-viva → IA-BANCO:** rowcount `service_offerings`; quantos `service_id` NULL; FK efetiva de `service_id`/`company_id`/`professional_actor_id` (SET NULL? RESTRICT? ausente?); se `company_id` tem constraint que ligue ao provider; RLS por tenant.
+
+**FRONTEIRA:** IA-OFERTA (binding service↔offering, schema da oferta — dona da forma) · IA-ACTOR (page-actor/canRepresentActor) · IA-SEMANTICA (concept↔canonical_service) · IA-BANCO (prova-viva). **IA-DINHEIRO fora** (preço aqui é constraint de SSOT, não liquidação).
+
+**Status: RESPONDIDO** — VEREDITO FALTA_DECISAO (autoridade de origem sólida = `canRepresentActor`/`canManageCompany`; régua da ponte e fechamento do buraco `companyId` body = decisões a promulgar; operador FORA). READ-ONLY, zero edição de código/schema/migration/cartório/commit. Insumo, não GO.
+
+*Carimbo: HEAD `74a04819` · branch `rescue-structural` · 2026-06-21 · 1ª mão (disco/serviços/authorization). Fontes: `service-offering.service.ts:83-162`, `authorization.service.ts:333-367`, DECISION-0144 (§A.6/A.10/A.12/D/F · service_offerings FORA da régua 2B), DECISION-0113 (canRepresentActor/actorId=hint), DECISION-0118 (canManageCompany p/ PJ), DECISION-0100/0101 (publish+KYB+cascade), DECISION-0136 (grants dormant). — IA-AUTORIDADE, sob coordenação da IA-DIRETORA.*

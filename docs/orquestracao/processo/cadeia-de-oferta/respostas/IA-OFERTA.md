@@ -84,3 +84,46 @@ Em §14.12 declarei `services.price_cents = INTEGER`. **STALE** — a migration 
 **Carimbo:** HEAD `9f5e9c5e` · revalidou no vivo: parcial (disco 1ª mão / banco→IA-BANCO) · fonte: `arquivo:linha` acima + DECISION-0117/0122/0142/0099/0100 · **Status: RESPONDIDO** (VEREDITO BLOCKER; prova-viva de banco INCONCLUSIVE encaminhada à IA-BANCO).
 
 — **IA-OFERTA**, sob coordenação da IA-DIRETORA.
+
+---
+
+## F-OFFER-3 — READ-FIRST curto (service → service_offering)
+
+**HEAD vivo:** `74a04819` · branch `rescue-structural` · último commit `docs(orchestration): version IA-DIRETORA doc-system`. ⚠️ O HEAD `dd270f41` do gatilho e o `9f5e9c5e` do CONSOLIDADO estão STALE — revalidei `74a04819` de 1ª mão (`git rev-parse`).
+**Revalidou no vivo:** parcial (disco/código de 1ª mão SIM; banco vivo → IA-BANCO). **READ-ONLY, zero edição.**
+**Fontes:** `service-offering.service.ts:83-135` · `service-offerings.routes.ts:11-67` · migration `20260611180000_offerings_variant_sku_service.sql:66-90` · DECISION-0143 §A/§C/§D · DECISION-0144 §A/§C · CONSOLIDADO F-OFFER-2 (`d2cf007c`).
+
+### (1) Como `createOffering` nasce + gate + campos (vivo)
+- **Entry:** `POST /services/offerings` (`service-offerings.routes.ts:37`). `userId` = `req.user.userId` **server-side** (401 se ausente).
+- **Gate ÚNICO:** `canRepresentActor(tenantId, userId, providerActorId)` (`service.ts:97`). **NÃO** chama `canManageCompany`; **NÃO** checa declaração/publicação; **NÃO** reusa a elegibilidade do F-OFFER-2B.
+- **Identidade:** `canonicalServiceService.requireActiveForTenant(canonicalServiceId)` (`:110`) — exige canonical **ATIVO/curado**, fail-closed, resolve redirect de duplicata.
+- **Campos obrigatórios:** `providerActorId`(uuid) · `canonicalServiceId`(uuid) · `priceCents`(int ≥0) · `durationMinutes`(int >0). Opcionais: `companyId` · `professionalActorId` · `modality`(in_person/remote/home) · location/serviceArea/conditions(jsonb).
+- **status:** **hardcoded `'active'`** no INSERT (`:124`) — não há caminho draft na criação (schema default é `draft`; `updateOwnOffering` aceita draft/active/suspended).
+- **Idempotente:** UNIQUE `(provider_actor_id, canonical_service_id)` → 2ª chamada devolve a existente (`created:false`).
+
+### (2) Liga a `service` ou bypassa? → **BYPASSA (GAP central)**
+- O INSERT (`:120-124`) **NÃO popula `service_id`**; liga direto a `canonical_service_id` (DECISION-0122: `service_id` nunca populado na criação). **A oferta NÃO exige um `services.service_id`.**
+- Consequência material: **a elegibilidade do F-OFFER-2B (declaração PF / publicação PJ ACTIVE + KYB-transitivo) NÃO protege a oferta** — ela vive em `createService`, e `createOffering` não passa por `services`. Um provider pode criar `service_offering` para qualquer canonical ATIVO **sem ter declarado o concept**, bastando `canRepresentActor`. **O rigor 2B é contornável pela camada de oferta.** (= o GAP que F-OFFER-3 tem que fechar; já é o ALVO declarado em DECISION-0143 §C/§D.)
+
+### (3) O que falta p/ F-OFFER-3
+- **Binding service (FALTA + decisão de forma):** a oferta deve exigir um `services.service_id` válido do **mesmo provider + mesmo concept** (herda a elegibilidade 2B) **OU** re-checar elegibilidade própria (declaração/publicação ACTIVE do concept do canonical). Hoje `service_offerings.service_id` é **nullable + SET NULL + nunca populado** → tornar **mandatório + match provider/concept** = schema + writer (fatia 3A/3B). DECISION-0143 declara o ALVO; **falta a régua de execução análoga à 0144** (a 0144 fechou `createService`, não `createOffering`).
+- **Preço/duração/status — constraints VIVAS hoje (OK):** `price_cents` **BIGINT NOT NULL CHECK ≥0** (+ zod int≥0 + JS `Number.isInteger`) · `duration_minutes` **integer NOT NULL CHECK >0** · `status` **CHECK in (draft,active,suspended)** default draft · `modality` CHECK in_person/remote/home · UNIQUE(provider,canonical). **Faltam:** binding obrigatório a service (acima) e **decisão**: oferta nasce `active` direto (sem rascunho/curadoria) — está hardcoded `active`; é correto ou deve nascer `draft`? (decisão de produto, não bug). Nota menor: `Number.isInteger` limita a 2^53 (over-strict vs BIGINT pleno) — não é gap de segurança.
+
+### (4) Subject/owner
+- **Provider = `providerActorId`** (body = **HINT**), validado por `canRepresentActor(userId server-side)`. ✓ DECISION-0113/0144-G2: body/`actionContext.actorId` nunca é autoridade; gate real é server-side. **Conforme.**
+- `userId` server-side de `req.user.userId`. ✓
+- **Ponto de atenção:** `companyId` e `professionalActorId` vêm do body e **não têm gate próprio** (companyId **não** passa por `canManageCompany`; professional não é re-gated). Para PJ, a autoridade é só via `canRepresentActor` sobre o `providerActorId` (que deveria ser o page-actor); `companyId` solto é FK SET NULL/metadata e não confere autoridade. F-OFFER-3 deve fixar que o provider PJ é o page-actor representável (não confiar em `companyId` do body).
+
+### (5) Riscos
+- **ALTO — bypass de elegibilidade:** oferta pula `service` → rigor 2B (declaração/KYB-transitivo) não alcança a contratável; possível ofertar concept não declarado (verdade-paralela de capacidade na camada que VENDE).
+- **MÉDIO/decisão — status nasce `active`:** sem rascunho/curadoria; oferta pública imediata no INSERT.
+- **MÉDIO — owner PJ frouxo:** `companyId`/`professionalActorId` sem gate próprio; autoridade só sobre o provider.
+- **BAIXO — price JS `Number.isInteger`:** over-strict, não under (não aceita inválido); cosmético.
+- **BLINDAGEM mantida:** `createOffering` não escolhe fornecedor — é o próprio provider declarando a oferta dele.
+
+### (6) VEREDITO: **FALTA_DECISAO**
+A espinha de preço/duração/status já está **correta e gateada** no schema; o gate de autoridade (`canRepresentActor` server-side) está conforme. O que falta para F-OFFER-3 é **régua a promulgar** (análoga à DECISION-0144): a oferta exige um `service` válido herdando a elegibilidade 2B **vs** re-check próprio (forma a decidir), **+** decisão "status nasce active ou draft". São decisões de Clayton, não bugs — só depois delas vira FALTA_X executável (schema `service_offerings.service_id` mandatório + match provider/concept no writer). **Prova-viva** (rowcounts service/service_offerings, quantos `service_id` NULL, FK efetiva, drift) → **INCONCLUSIVE → IA-BANCO**.
+
+**Carimbo:** HEAD `74a04819` · revalidou parcial (disco 1ª mão / banco→IA-BANCO) · fontes `arquivo:linha` acima + DECISION-0143/0144/0122/0117/0113 · **Status: RESPONDIDO** (VEREDITO FALTA_DECISAO).
+
+— **IA-OFERTA**, sob coordenação da IA-DIRETORA.

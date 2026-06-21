@@ -148,3 +148,54 @@ Os substratos de declaração estão **estruturalmente prontos para a ponte** e 
 **STOPs (meu eixo):** READ-ONLY honrado — só catálogo/rowcount/grep; nenhum INSERT/UPDATE/DDL; nenhuma suíte; probes descartados; nada commitado. NÃO auditei oferta/discovery/availability/material/dinheiro (fora de escopo). NÃO proponho implementação. Aplicar qualquer coisa = EXECUTORA sob GO → ChatGPT → IA-YALA → Clayton. **Eu provo existência/contagem/FK/tipo/nullable/UNIQUE; a régua D3 é decisão de Clayton/donos de eixo.**
 
 **Status: RESPONDIDO** — VEREDITO **PASS_PARA_GO_DE_DECISAO** (substratos prontos+vazios; FK destino forte; ramo-4 resíduo=0 teórico; 3 inputs estruturais para a régua). HEAD `4431b8fc`, 1ª mão.
+
+---
+
+## F-OFFER-3 — PROVA-VIVA do schema de `service_offerings` · IA-BANCO
+
+**HEAD no momento:** `74a04819` · branch `rescue-structural` · 2026-06-21 (1ª mão `git rev-parse`; F-OFFER-2 promulgada = **DECISION-0144**, que pôs `service_offerings` FORA da régua 2B — F-OFFER-3 é a régua análoga da oferta).
+**Revalidou no vivo:** SIM — probe psql READ-ONLY em `unificard_dev` (pg_class/pg_policy/pg_constraint/pg_index/information_schema + rowcount); probes descartados; nada mutado.
+**Insumo cruzado:** `IA-OFERTA.md` §F-OFFER-3 (FALTA_DECISAO; bypass service_id; status hardcoded 'active') · `IA-AUTORIDADE.md` §F-OFFER-3 (FALTA_DECISAO; buraco company_id/professional_actor_id proveniência livre; Opção A recomendada).
+
+### 1. TABELA DE PROVA-VIVA (item · existe · rowcount · FK/tipo/CHECK · JANELA)
+
+| Item | Objeto | Existe? | Rowcount | FK / tipo / CHECK (catálogo vivo) | JANELA |
+|---|---|---|---|---|---|
+| 1 | `service_offerings` | SIM | **0** | rls=f/forced=f/0pol | **GRÁTIS** |
+| 1 | `services` | SIM | **0** | rls=f/forced=f/0pol | **GRÁTIS** |
+| 2 | `service_offerings.service_id` | SIM | NULL=**0** (de 0) | **is_nullable=YES**; FK→`services(service_id)` **SET NULL** (`n`) — fraca/legado, nunca populado | **GRÁTIS** tornar mandatório |
+| 3 | `canonical_service_id` | — | — | →`canonical_services(id)` **RESTRICT** (`r`) — forte; NOT NULL implícito (identidade da oferta) | ok |
+| 3 | `provider_actor_id` | — | — | →`actors(id)` **RESTRICT** (`r`) — forte; **NOT NULL** (âncora real do dono) | ok |
+| 3 | `company_id` | — | — | →`companies(company_id)` **SET NULL** (`n`); **NULLABLE**; **sem constraint p/ provider** | confirma buraco |
+| 3 | `professional_actor_id` | — | — | →`actors(id)` **SET NULL** (`n`); **NULLABLE**; sem gate | confirma buraco |
+| 3 | `tenant_id` | — | — | →`tenants(id)` **CASCADE** (`c`) | ok |
+| 4 | `price_cents` | — | — | **bigint NOT NULL** + CHECK **`price_cents >= 0`** | ok |
+| 4 | `duration_minutes` | — | — | integer NOT NULL + CHECK **`> 0`** | ok |
+| 4 | `status` | — | — | text NOT NULL + CHECK **IN (draft, active, suspended)** | ok |
+| 4 | `modality` | — | — | text NOT NULL + CHECK **IN (in_person, remote, home)** | ok |
+| 4 | UNIQUE | — | — | **UNIQUE(provider_actor_id, canonical_service_id)** (constraint + índice) | ok (idempotência por provider+canonical) |
+
+### 2. `service_id` (bypass do elo 2B — prova estrutural)
+- `service_offerings.service_id` **EXISTE**, **NULLABLE**, FK→`services(service_id)` **ON DELETE SET NULL** (fraca). Confirma IA-OFERTA §2: `createOffering` liga direto ao `canonical_service_id` (RESTRICT) e **nunca popula `service_id`**.
+- **Custo de torná-lo mandatório:** `service_id NULL` = **0 de 0 linhas** ⇒ **GRÁTIS agora** (NOT NULL + match provider/concept = schema+writer, 0 backfill). Janela virgem aberta.
+
+### 3. CONFIRMAÇÃO DO BURACO `company_id` (item 5)
+**NÃO existe NENHUMA constraint (FK/CHECK/UNIQUE/trigger) que ligue `company_id` ao `provider_actor_id`.** O único vínculo de `company_id` é FK→`companies` **SET NULL** — atributo/proveniência, **não autoridade nem integridade-de-coerência**. ⇒ **buraco CONFIRMADO estruturalmente:** o schema permite carimbar a oferta com um `company_id` (e `professional_actor_id`) **arbitrário**, sem prova de que pertencem ao provider. Idem `professional_actor_id` (FK→actors SET NULL, nullable, sem gate). A autoridade real está **só** em `provider_actor_id` (RESTRICT, NOT NULL) + `canRepresentActor` no writer (IA-AUTORIDADE). Corrobora IA-OFERTA + IA-AUTORIDADE: **proveniência livre** → F-OFFER-3 deve **derivar `companyId` do provider server-side** e re-gatear/remover `professional_actor_id`.
+
+### VEREDITO: **PASS_PARA_GO_DE_DECISAO**
+
+A espinha de **preço/duração/status/modality** está **correta e constrangida no banco** (price_cents BIGINT NOT NULL CHECK≥0 · duration>0 · status enum · modality enum · UNIQUE provider+canonical) — nada a corrigir aqui. A oferta está **VAZIA (0 linhas)** ⇒ janela virgem: as duas mudanças que a régua exige são **grátis agora**:
+1. **`service_id` mandatório + match provider/concept** (Opção A da IA-AUTORIDADE — herda elegibilidade 2B/0144 single-chain): hoje nullable+SET NULL+0 linhas → NOT NULL trivial (0 backfill).
+2. **Fechar o buraco de proveniência** `company_id`/`professional_actor_id` (derivar/re-gatear server-side): não há constraint a remover; é régua de writer + (opcional) integridade.
+
+**Não é BLOCKER. É régua a promulgar** (análoga à DECISION-0144), convergente com IA-OFERTA e IA-AUTORIDADE (ambas FALTA_DECISAO).
+
+**Inputs estruturais p/ a decisão (provados, não decididos por mim):**
+1. `service_id` NULLABLE + SET NULL + nunca populado → Opção A (mandatório) = grátis; eu provo o custo 0.
+2. `company_id`/`professional_actor_id` = SET NULL, nullable, **sem constraint p/ provider** → buraco de proveniência confirmado; fechar server-side (schema não expressa "company do provider" via FK simples — precisa gate de app ou derivação).
+3. `status` enum schema default = `draft`, mas o writer crava `active` (IA-OFERTA §1) → decisão produto active-vs-draft é de Clayton; o schema **suporta ambos**.
+4. `provider_actor_id` RESTRICT+NOT NULL = âncora forte e correta — manter.
+
+**STOPs (meu eixo):** READ-ONLY honrado — só catálogo/rowcount/grep; nenhum INSERT/UPDATE/DDL; nenhuma suíte; probes descartados; nada commitado. NÃO auditei availability/discovery/dinheiro/payout/presence (fora de escopo). NÃO proponho implementação. Aplicar = EXECUTORA sob GO → ChatGPT → IA-YALA → Clayton.
+
+**Status: RESPONDIDO** — VEREDITO **PASS_PARA_GO_DE_DECISAO** (espinha preço/duração/status já constrangida; `service_id`-mandatório e fecho-de-proveniência grátis na janela virgem; buraco company_id confirmado). HEAD `74a04819`, 1ª mão.
