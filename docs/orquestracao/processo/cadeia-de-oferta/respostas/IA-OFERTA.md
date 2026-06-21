@@ -127,3 +127,41 @@ A espinha de preço/duração/status já está **correta e gateada** no schema; 
 **Carimbo:** HEAD `74a04819` · revalidou parcial (disco 1ª mão / banco→IA-BANCO) · fontes `arquivo:linha` acima + DECISION-0143/0144/0122/0117/0113 · **Status: RESPONDIDO** (VEREDITO FALTA_DECISAO).
 
 — **IA-OFERTA**, sob coordenação da IA-DIRETORA.
+
+---
+
+## CAMINHO B — JORNADA PRÉ-DINHEIRO (síntese IA-DIRETORA · workflow 3 Explore READ-ONLY)
+
+### 1. Carimbo
+- **HEAD:** `b9429e72` · **git status:** nosso limpo (preflight STOP-free) · **READ-ONLY confirmado** (3 Explore agents; zero edição).
+- **Rotas/arquivos lidos:** service-offering.service.ts · service-offerings.routes.ts · services-discovery.{service,routes}.ts · services.service.ts · service-booking-decision.service.ts · unified-availability.{routes,service,repository}.ts · frontend service-discovery.ts/ServiceDiscoveryPage.tsx · migration 20260611180000 (offering status enum).
+
+### 2. Mapa da jornada
+| elo | estado | evidência | bloqueia jornada? |
+|---|---|---|---|
+| oferta existe (service_offering) | ✅ VIVO | status enum draft/active/suspended (`20260611180000:80`); nasce draft (`service-offering.service.ts:150`) | não |
+| **draft → active** | ⚠️ **VIVO MAS INSEGURO** | `PUT /offerings/:id`→`updateOwnOffering` (`service-offering.service.ts:174`): só `canRepresentActor`, **sem KYB/trust/marketplace** → provider AUTO-ativa | não bloqueia a prova; é risco (Caminho A) |
+| discovery encontra SERVICE | ✅ VIVO | `GET /services/discover`→`discoverServices` retorna `Service[]` (`services.service.ts:282`) | não |
+| **discovery → SELECIONAR service_offering contratável** | ❌ **GAP_OFFERING_SELECTION** | discovery retorna SERVICE, não offering; `DiscoveredService` não traz `canonical_service_id`/offerings; `by-canonical` existe mas exige id não exposto + só active + não integrado | **SIM — é o elo que quebra** |
+| offering → janelas (availability) | ✅ VIVO | `GET /availability` filtra `ownerType='service_offering'` (`unified-availability.routes.ts:317`) | não |
+| janela → booking requested (pré-$) | ✅ VIVO | `POST /availability/bookings` nasce `requested`, sem pagamento (`unified-availability.routes.ts:692`) | não |
+| requested → confirmed (guard conflito) | ✅ VIVO | `PUT /availability/bookings/:id` owner-only + `confirmBookingWithProviderLock` (F-OFFER-5/6) | não |
+
+### 3. Pergunta-chave draft→active: **EXISTE_MAS_INSEGURO**
+Endpoint vivo (`PUT /offerings/:id`), mas a transição é **self-serve** (só `canRepresentActor`; zero KYB/trust/gate de negócio). A oferta SOBE para `active` → **não bloqueia a jornada** — mas a *ativação pública sem gate* é exatamente o **Caminho A**.
+
+### 4. Discovery retorna o quê? **SERVICE** (não service_offering).
+### 5. Oferta contratável aparece p/ o usuário? **PARCIALMENTE** — existe `GET /services/offerings/by-canonical/:id` (só active), mas quem descobre um SERVICE **não recebe `canonical_service_id`** nem lista de offerings selecionáveis → sem caminho integrado discovery→oferta.
+
+### 6. Gaps de conexão
+- **GAP_OFFERING_SELECTION (wiring backend) — bloqueante:** discovery expõe SERVICE; falta o caminho à(s) `service_offering` contratável(is) (`canonical_service_id` no DTO de discovery + listagem integrada de offerings por service/concept). A metade temporal já fecha — falta ligar "vitrine"→"oferta".
+- **GAP_ATIVACAO/AUTHORITY (Caminho A) — não bloqueia a prova, mas é risco:** ativação self-serve sem KYB/trust.
+- **(menor) draft não-visível em discovery** — correto hoje (só active); relevante quando a seleção for ligada.
+
+### 7. VEREDITO FINAL: **FALTA_WIRING**
+A cadeia **NÃO fecha ponta-a-ponta hoje** por **um único elo**: discovery→seleção de `service_offering` (GAP_OFFERING_SELECTION). **Ativação NÃO é o bloqueio** (existe; Caminho A é por segurança). A metade temporal (offering→availability→booking→confirm, pré-dinheiro) está **viva e completa**. ⇒ B é alcançável com **wiring pequeno**; não precisa do Caminho A *para provar* a jornada — precisa dele *para abrir ao público com segurança*.
+
+### 8. Próximo elo recomendado
+**IA-BANCO** (prova-viva: `canonical_service_id` no caminho de discovery; rowcounts service/offering/availability; `by-canonical` retorna o esperado) **+ STOP_PARA_DECISAO** de Clayton: (a) fechar o wiring discovery→offering (B mínimo) agora, deixando ativação self-serve; OU (b) **Caminho A (ativação segura) ANTES**, já que a jornada pública depende de ativação confiável.
+
+**Carimbo final:** HEAD `b9429e72` · revalidou código vivo: SIM (disco, 3 Explore 1ª mão) / banco→IA-BANCO · **Status: RESPONDIDO** · **Veredito: FALTA_WIRING**.

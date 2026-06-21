@@ -337,3 +337,39 @@ O banco suporta a execução F-OFFER-5/6 **sem blocker**: (a) os **status bloque
 - **Arquivos lidos:** METODO.md · DECISION-0146 · IA-TEMPO.md (§F-OFFER-5/6 execução)
 - **SQL/probes:** `pg_get_functiondef` (detect_availability_conflicts) · `pg_constraint` (status CHECK/FK/EXCLUDE/confdeltype) · `pg_index`/`pg_get_indexdef` (bookings/availability/service_offerings) · `information_schema.columns` (bookings/availability) · `EXPLAIN` (não-EXECUTE) do rollup · `count(*)` exato (bookings por status / availability por owner_type) · `pg_proc` (advisory lock). Probes descartados; READ-ONLY estrito.
 - **Veredito:** **PASS_PARA_GO** — substrato sustenta confirm-guard + rollup por provider + lock advisory; 1 índice opcional em `bookings` (registrar, grátis); execução MODO C sob ciclo. **Sem STOP de status** (bloqueantes vivos = {confirmed,checked_in,checked_out}).
+
+---
+
+## CAMINHO B — JORNADA PRÉ-DINHEIRO / BANCO (síntese IA-DIRETORA · workflow 2 Explore READ-ONLY)
+
+### 1. Carimbo
+- **HEAD:** `b9429e72` · **banco:** `unificard_dev` · **schema_migrations:** 400 (drift 0) · **READ-ONLY confirmado** (psql catálogo/count(*)/pg_get_constraintdef + leitura de código; zero mutação).
+
+### 2. Tabela prova-viva
+| item | estado/rowcount | prova | impacto na jornada |
+|---|---|---|---|
+| cadeia FK discovery→offering | **100% RESTRICT, completa** | concepts←canonical_services.concept_id←service_offerings.canonical_service_id ; services.canonical_service_id→canonical_services ; service_offerings.service_id→services (todas RESTRICT) | schema PRONTO |
+| rowcounts | services=0 · service_offerings=0 · canonical_services=1 · concepts=150 · availability=48 (todas `user`) | count(*) exato | **VIRGEM** (custo grátis) |
+| **Service DTO carrega `canonical_service_id`** | **SIM, obrigatório** | `services.types.ts:54` + `repository.toService:25` (row.canonical_service_id→Service.canonicalServiceId) | **a "ponte" para a oferta JÁ viaja na discovery** |
+| **`GET /offerings/by-canonical/:id`** | **EXISTE e é CANÔNICO** (não legado) | `service-offerings.routes.ts:116-122` → `listActiveBycanonicalService` (`service-offering.service.ts:222`) | lista offerings contratáveis por identidade |
+| filtro de status | **`status='active'` HARDCODED** (SQL) | `service-offering.service.ts:225` | público **nunca** vê draft/suspended (seguro) |
+| service_offerings.status CHECK | `('draft','active','suspended')` | `pg_constraint chk` | ativação é transição controlada (Caminho A = app-layer, não banco) |
+| availability por `service_offering` | owner_type CHECK permite; resolução por (owner_type='service_offering', owner_id=offering.id) | `chk_availability_owner_type` | offering→janela pronto |
+| price_cents | bigint (cents) | catálogo | não move dinheiro |
+
+### 3. Resposta central — discovery→offering por identidade é materialmente possível? **SIM.**
+A "ponte" que a IA-OFERTA reportou como faltante **já existe no backend**: o `Service` da discovery carrega `canonical_service_id`, e `GET /services/offerings/by-canonical/:canonicalServiceId` lista as offerings **active**. ⇒ a sequência **discover → `service.canonicalServiceId` → by-canonical → offering → availability → booking → confirm** é **percorrível com os endpoints vivos de hoje**.
+
+### 4. O que bloqueia B-mínimo? **NADA_BLOQUEIA (no backend).**
+Não falta schema, não falta endpoint, não falta DTO no backend. O único trabalho real do B-mínimo é **(i) PROVAR a jornada ponta-a-ponta** (e2e exercendo a sequência acima) e **(ii) — se a UI for incluída — o frontend consumir `canonical_service_id` e chamar by-canonical** (frontend = GO próprio). Reconciliação com IA-OFERTA: o "GAP_OFFERING_SELECTION" era **integração/superfície (frontend/uso)**, **não um buraco de backend**.
+
+### 5. Relação com Caminho A
+- Caminho A (ativação segura) **NÃO toca banco** e **NÃO é pré-requisito da prova interna** (by-canonical já é active-only — draft nunca vaza).
+- Caminho A **É pré-requisito de público/dinheiro**: a ativação hoje é **self-serve** (só `canRepresentActor`, sem KYB/trust) — inseguro para abertura pública, **não** para provar a jornada pré-dinheiro.
+
+### 6. VEREDITO FINAL: **PASS_PARA_GO_B_MINIMO** (com cuidado-ativação registrado).
+Banco + endpoints sustentam a jornada inteira; o B-mínimo é **prova de jornada** (e2e), não construção de backend. Sem schema, sem migration, sem dinheiro. A ativação self-serve fica **explicitamente NÃO-abençoada** (Caminho A antes de público/dinheiro).
+
+### 7. Próximo elo recomendado: **GO_B_MINIMO** (e2e de jornada, backend, sem prod-change) + **STOP_PARA_DECISAO** se Clayton quiser incluir frontend (GO próprio).
+
+**Carimbo final:** HEAD `b9429e72` · revalidou schema+código vivo: SIM (1ª mão) · banco `unificard_dev` · **Status: RESPONDIDO** · **Veredito: PASS_PARA_GO_B_MINIMO**.

@@ -720,3 +720,66 @@ declarativa (não bloqueada); guard mira o confirm e morde. Tudo de 1ª mão; ze
 - **Promulgação:** ato MANUAL de Clayton (MODO C) — meu veredito é insumo, não a dispara.
 Working tree de código deixado idêntico ao entregue (repository/service restaurados dos guard-NP, hashes
 `76272d25`/`75074e3e`; harnesses tsx apagados; fixture da corrida revertida; só editei meu `respostas/IA-YALA.md`).
+
+---
+
+## RODADA 13 — RESEAL CAMINHO B1 (prova de jornada da oferta PRÉ-DINHEIRO · MODO B) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS (6/6) — jornada fecha 9/9, EXIT 0, zero dado alterado.**
+**HEAD no momento:** `b9429e72` (branch `rescue-structural`) — `docs(orchestration): version F-OFFER-5-6 temporal integrity evidence`.
+  B1 no working tree (não committado). F-OFFER-5/6 committado; cartório limpo.
+**Revalidou no vivo:** SIM (total) — git + leitura do e2e + **execução real** de `pnpm run e2e:offer-journey`
+  (funções reais, fixture committed + teardown) + verificação de baseline (zero dado) + gates.
+**Fonte soberana:** `src/scripts/e2e-offer-journey-pre-money.ts`; `package.json` (script `e2e:offer-journey`);
+  funções reais `servicesService.discoverServices` · `serviceOfferingService.listActiveBycanonicalService` ·
+  `unifiedAvailabilityService.createBooking/updateBooking`.
+**Status:** RESPONDIDO.
+
+### Os 6 itens
+1. **e2e 9/9 PASS, EXIT 0, funções REAIS → PASS.** Rodei `npm run -s e2e:offer-journey`: 9 asserts PASS, EXIT 0.
+   Exercita as funções reais (DI dos social ports injetada como no app.builder): discover→service→by-canonical→
+   availability→createBooking→confirm→2º confirm sobreposto→back-to-back. (bank_ledger inalterado: ledger=0.)
+2. **canonicalServiceId viaja na discovery (sem fix de DTO) → PASS.** Passo 2: `discoverServices` retornou o service
+   com `canonicalServiceId === CS` da fixture (`=f9590145…`) — o DTO de discovery JÁ carrega o canonical; não precisou
+   de correção.
+3. **Draft oculto + discriminação real (não trivial) → PASS.** Passo 3: by-canonical retornou a offering ACTIVE;
+   passo 4: **NÃO** retornou a DRAFT (active-only). Passo 8: 2º booking SOBREPOSTO `[11,13)` do MESMO provider →
+   **409 BOOKING_PROVIDER_TIME_CONFLICT** (mensagem real capturada); passo 9: back-to-back `[12,13)` vs `[10,12)` →
+   **confirmed**. A discriminação 409-vs-confirma é material (intervalos reais via guard F-OFFER-5/6), não assert trivial.
+4. **TEARDOWN restaura virgem / ZERO dado → PASS.** Baseline ANTES = svc=0/so=0/av=48/bk=0/cs=1; DEPOIS do e2e =
+   **svc=0/so=0/av=48/bk=0/cs=1** (idêntico). Teardown remove canonical/service/offerings(active+draft)/3 janelas/
+   bookings da fixture. Nada persistido.
+5. **ESCOPO → PASS.** **2 material**: `src/scripts/e2e-offer-journey-pre-money.ts` (novo) + `package.json` (append de
+   1 linha: `"e2e:offer-journey": "tsx src/scripts/e2e-offer-journey-pre-money.ts"`). `git diff --name-only` de código =
+   só `package.json`; untracked em `backend/src` = só o e2e. ZERO prod-code/migration/frontend/dinheiro/`docs/01_normative`.
+   A prova **NÃO ativa nada público** nem abençoa ativação self-serve — é um script de teste que cria+derruba fixture;
+   a lógica de ativação pública (Caminho A) **segue HOLD, intocada**.
+6. **GATES → PASS.** typecheck = **34** (== baseline; 0 erros no e2e). regression-guards = **EXIT 0**. architectural
+   --strict = **33 == baseline 33**, **0 hits** no e2e → `critical_new = 0`.
+
+### TENTATIVAS DE REFUTAÇÃO (resultado)
+- "É mock/não exercita o real" → REFUTADO: importa e chama os services reais (discover/by-canonical/booking/confirm) com ports injetados.
+- "canonicalServiceId não viaja (precisaria fix de DTO)" → REFUTADO: passo 2 PASS, canonId===CS no retorno do discover.
+- "Draft vaza / discriminação é trivial" → REFUTADO: draft oculto (passo 4); 409-sobreposto vs confirma-back-to-back são intervalos reais pelo guard.
+- "Deixa resíduo / altera dado" → REFUTADO: baseline idêntico antes/depois (svc/so/av/bk/cs); teardown no finally.
+- "Toca prod/ativa público" → REFUTADO: 2 arquivos (script+package.json); nenhum prod-code; Caminho A HOLD intocado.
+- "Quebra gate" → REFUTADO: typecheck 34, regression-guards EXIT 0, architectural critical_new=0.
+
+### STOPs
+- Prova de jornada com funções reais + teardown → DB virgem restaurado; zero dado. ✔
+- Não ativa ativação pública (Caminho A HOLD); não toca dinheiro/payout/presença. ✔
+- Não toquei R2/delegação; DT-mãe 0113 OPEN respeitada. ✔
+- Veredito é INSUMO. **MODO B: a promulgação/commit é decisão da IA-DIRETORA/Clayton — meu veredito não dispara.**
+
+### CONCLUSÃO + RECOMENDAÇÃO DE COMMIT
+**PASS (6/6).** O CAMINHO B1 prova de 1ª mão que a cadeia já construída CONECTA ponta-a-ponta pré-dinheiro:
+discover → `service.canonicalServiceId` → by-canonical (active-only, draft oculto) → offering → availability →
+`createBooking(requested)` → confirm → 2º confirm sobreposto do mesmo provider **bloqueia (409)** e back-to-back
+**confirma** — tudo via funções reais, sem tocar dinheiro/frontend/ativação pública, com fixture committed e teardown
+que restaura o DB virgem (zero dado alterado). Gates verdes.
+**Recomendação de commit (PASS):**
+- **Commit MATERIAL (2 arquivos):** `backend/src/scripts/e2e-offer-journey-pre-money.ts` + `backend/package.json` (git add explícito).
+- **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` + `CONSOLIDADO.md`. Não misturar.
+READ-ONLY: nenhuma edição de código (só rodei o e2e); fixture do e2e revertida pelo próprio teardown; baseline
+conferido idêntico; só editei meu `respostas/IA-YALA.md`. Nada commitado.
