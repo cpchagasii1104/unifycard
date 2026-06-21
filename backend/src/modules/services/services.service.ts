@@ -28,6 +28,61 @@ import { ServiceStatus, ServiceType } from './services.types';
 
 class ServicesService {
   /**
+   * 🔴 F-OFFER-2B (DECISION-0144 §A.4/5/6) — ELEGIBILIDADE declaração→service.
+   * Só permite criar um `service` descobrível se existir declaração/publicação ACTIVE do MESMO
+   * `concept_id` (resolvido do canonical_service; match EXATO). Re-gateia na travessia: é SOMADO ao
+   * gate de autoridade já provado (canRepresentActor) — declaração é INSUMO, NÃO substitui autoridade.
+   * PF (actor humano, actor_type='user'): exige `actor_professional_concepts.is_active=true` (tenant, actor, concept).
+   * PJ (page-actor de company, company_id setado): exige `company_concept_publications.status='active'` (tenant, company, concept).
+   * G1: usa o campo ACTIVE vivo (is_active / status='active'). G2/G6: subject = actor já provado server-side
+   * (sem actionContext.actorId). G3: PF×PJ indistinguível → erro controlado (não heurística). G5: concept EXATO.
+   */
+  private async assertDeclarationEligibility(
+    tenantId: string,
+    actor: { actor_id: string; actor_type: string; company_id: string | null },
+    conceptId: string
+  ): Promise<void> {
+    const { runQueryWithTenant } = await import('@core/database/pool');
+
+    // PJ: page-actor de company → publicação institucional ACTIVE do concept.
+    if (actor.company_id) {
+      const pub = await runQueryWithTenant<{ ok: number }>(
+        tenantId,
+        `SELECT 1 AS ok FROM company_concept_publications
+          WHERE tenant_id = $1 AND company_id = $2 AND concept_id = $3 AND status = 'active' LIMIT 1`,
+        [tenantId, actor.company_id, conceptId]
+      );
+      if (!pub) {
+        throw new ForbiddenError(
+          'SERVICE_ELIGIBILITY_PUBLICATION_REQUIRED: a empresa não tem publicação ATIVA deste concept (DECISION-0144); publique o concept antes de criar o serviço.'
+        );
+      }
+      return;
+    }
+
+    // PF: actor humano → declaração de capacidade ACTIVE do concept.
+    if (actor.actor_type === 'user') {
+      const decl = await runQueryWithTenant<{ ok: number }>(
+        tenantId,
+        `SELECT 1 AS ok FROM actor_professional_concepts
+          WHERE tenant_id = $1 AND actor_id = $2 AND concept_id = $3 AND is_active = true LIMIT 1`,
+        [tenantId, actor.actor_id, conceptId]
+      );
+      if (!decl) {
+        throw new ForbiddenError(
+          'SERVICE_ELIGIBILITY_DECLARATION_REQUIRED: o actor não declarou capacidade ATIVA neste concept (DECISION-0144); declare em /profile/professional/c1/concepts antes de criar o serviço.'
+        );
+      }
+      return;
+    }
+
+    // G3: PF×PJ indistinguível com segurança → não inventar heurística.
+    throw new ForbiddenError(
+      'SERVICE_ELIGIBILITY_SUBJECT_UNSUPPORTED: tipo de actor não suportado para criar serviço (esperado PF actor_type=user ou page-actor de company).'
+    );
+  }
+
+  /**
    * Cria um novo serviço
    * 🔴 BLINDAGEM: actorId é OBRIGATÓRIO
    * 🔴 BLINDAGEM: Serviço nasce de intents específicas (ex: OFFER_SERVICE)
@@ -96,6 +151,12 @@ class ServicesService {
       const { canonicalServiceService } = await import('@core/catalog/canonical/canonical-service.service');
       const canonical = await canonicalServiceService.requireActiveForTenant(tenantId, canonicalServiceId);
       canonicalServiceId = canonical.id;
+
+      // 🔴 F-OFFER-2B / DECISION-0144 §A.4/5/6: ELEGIBILIDADE declaração→service. Só cria service
+      // descobrível se houver declaração (PF) / publicação (PJ) ACTIVE do MESMO concept_id — resolvido
+      // do canonical (EXATO; sem domain/category/slug/grafo). Re-gateia na travessia (NÃO herda): é
+      // SOMADO ao canRepresentActor já provado acima; declaração é INSUMO, não substitui autoridade.
+      await this.assertDeclarationEligibility(tenantId, actor, canonical.conceptId);
     }
 
     // Criar serviço
