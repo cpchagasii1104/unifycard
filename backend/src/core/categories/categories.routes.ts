@@ -7,14 +7,26 @@ import {
   createCategorySchema,
   createManyCategoriesSchema,
   assignCategoryToCompanySchema,
-  assignSkillToUserSchema,
   classifyTextSchema,
   aiCreateCategorySchema,
   CATEGORY_CONTEXT_VALUES,
 } from './categories.schemas';
 import type { CategoryAutocompleteResult } from './categories.types';
-import { HttpError } from '@core/errors/http-error';
-import { resolveGlobalUserId } from '@core/identity/identity.utils';
+
+// F-OFFER-1 (DECISION-0143): contenção do ghost `assign-skill`. O substrato legado de skills-por-categoria
+// está AUSENTE do schema vivo (genesis) — o endpoint gravava em tabela inexistente (42P01). Conter ≠ matar:
+// 501 EXPLÍCITO antes de qualquer service/sink, com destino canônico de re-acoplamento (nome técnico da
+// tabela legada documentado no guard scripts/audit-assign-skill-ghost-containment.mjs e no cartório).
+const ASSIGN_SKILL_LEGACY_RECOUPLE_PAYLOAD = {
+  ok: false as const,
+  code: 'ASSIGN_SKILL_LEGACY_RECOUPLE_PENDING' as const,
+  message:
+    'Endpoint legado: o substrato legado de skills está ausente do schema vivo. A declaração de ' +
+    'capacidade ("eu faço isso") foi migrada para a cadeia canônica (DECISION-0143: CONCEPT->SERVICE->' +
+    'SERVICE_OFFERING->AVAILABILITY). Use POST /profile/professional/c1/concepts (actor_professional_concepts); ' +
+    'a ponte declaracao->service sera materializada em F-OFFER-2.',
+  replacement: '/profile/professional/c1/concepts' as const,
+} as const;
 
 const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -767,58 +779,15 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   /**
-   * POST /categories/assign-skill
-   * Associa skill/categoria a um usuário
+   * POST /categories/assign-skill — LEGADO CONTIDO (501 · F-OFFER-1 · DECISION-0143).
+   * O substrato legado de skills está AUSENTE do schema vivo (genesis): este endpoint gravava em tabela
+   * inexistente (42P01). Contido em 501 EXPLÍCITO ANTES de qualquer service/sink. NÃO amputado — o
+   * intento ("declarar que faço uma skill") será re-acoplado à declaração canônica de capacidade
+   * (`actor_professional_concepts`) via POST /profile/professional/c1/concepts (ponte F-OFFER-2).
    */
-  fastify.post<{
-    Body: {
-      categoryId: string;
-      skillLevel?: number;
-    };
-  }>(
-    '/assign-skill',
-    {
-      schema: {
-        body: {
-          type: 'object',
-          required: ['categoryId'],
-          properties: {
-            categoryId: { type: 'string' },
-            skillLevel: { type: 'number' },
-          },
-        },
-      },
-    },
-    async (req, reply) => {
-      if (!req.user) {
-        return reply.status(401).send({ ok: false, message: 'Não autenticado' });
-      }
-
-      if (!req.user.userId) {
-        return reply.status(400).send({ error: 'User ID não encontrado' });
-      }
-
-      try {
-        const validated = assignSkillToUserSchema.parse(req.body);
-        const globalUserId =
-          req.user.globalUserId ?? (await resolveGlobalUserId(req.user.userId, req.tenant?.id));
-        await categoriesService.assignSkillToUser(globalUserId, validated);
-        return reply.status(200).send({ success: true, message: 'Skill associada ao usuário' });
-      } catch (error) {
-        if (error instanceof HttpError) {
-          return reply.status(error.statusCode).send({ ok: false, message: error.message });
-        }
-        if (error instanceof Error) {
-          return reply.status(400).send({ ok: false, message: error.message });
-        }
-        return reply.status(500).send({ 
-          ok: false, 
-          message: 'Erro ao associar skill',
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
-    }
-  );
+  fastify.post('/assign-skill', async (_req, reply) => {
+    return reply.status(501).send(ASSIGN_SKILL_LEGACY_RECOUPLE_PAYLOAD);
+  });
 
   /**
    * POST /categories/classify-text
