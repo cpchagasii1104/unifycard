@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0141 (2026-06-19) |
+| Última entrada | DECISION-0146 (2026-06-21) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7380,3 +7380,20 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** —
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0145_SERVICE_TO_OFFERING_BINDING.md` · `DECISION-0144` (elegibilidade declaração→service) · `DECISION-0143` (vocabulário) · `DECISION-0122` (service_offering canônico) · `DECISION-0117` (canonical_services) · `DECISION-0113` (actorId hint) · `DECISION-0118` (canManageCompany) · `docs/orquestracao/processo/cadeia-de-oferta/CONSOLIDADO.md` (READ-FIRST F-OFFER-3).
+
+---
+
+## DECISION-0146 — Integridade temporal da oferta e conflito de booking por provider (F-OFFER-5 + F-OFFER-6)
+
+- **Data:** 2026-06-21
+- **Tipo:** Arquitetural / régua de integridade temporal (DOCS-ONLY) — **NÃO MATERIAL** (não toca runtime/migration/backend/frontend/`docs/01_normative`).
+- **Frente:** F-OFFER (F-OFFER-5 + F-OFFER-6 fundidos no nível decisório) · **HEAD (pré-commit):** `bca473fa` · **dev:** 400
+- **Status:** **PROMULGADA / DOCS-ONLY / INTEGRIDADE TEMPORAL DA OFERTA E CONFLITO DE BOOKING POR PROVIDER.**
+- **Contexto:** READ-FIRST 2 elos (IA-TEMPO **PARTIAL** · IA-BANCO **PASS_PARA_DECISAO**) provou: `availability` é SSOT único, `owner_type='service_offering'` já suportado (enum+policy→`provider_actor_id`+CHECK 6 tipos fail-closed), writer gated (`canRepresentActor`); **MAS sem garantia temporal** — trigger de overlap **FANTASMA** (comentário stale; nenhuma migration cria), `detect_availability_conflicts` **STUB** (`RETURN;`) só p/ `owner_type='user'`, `owner_id` polimórfico **SEM FK**, **nenhum rollup** por provider. Substrato **virgem** (`service_offering`=0/`service`=0/`user`=48) → endereçar é **grátis agora**. Diferente do F-OFFER-4 (GO direto): há **tensão soberana** Art. II × integridade econômica → exige DECISION.
+- **Decisão soberana (Clayton):** **distinguir DECLARAÇÃO de COMPROMISSO.** (1) `availability` = declaração → overlap = **FATO/ALERTA→humano, NUNCA bloqueia** (Art. II, todos os owners); **PROIBIDO `EXCLUDE` em availability**. (2) `booking` confirmado = compromisso → 2º booking em status de **compromisso real** sobre **mesmo `provider_actor_id`** + intervalo sobreposto **FALHA controlado** (`BOOKING_PROVIDER_TIME_CONFLICT`/padrão vivo; nunca 500) — recusa de slot já vendido, não auto-resolução. (3) **rollup por `provider_actor_id`**, não por `service_offering` isolada (cross-oferta do mesmo provider = F-OFFER-6). (4) **status bloqueantes vêm do SCHEMA VIVO** (mapear; ambiguidade → **STOP_DECISION_REQUIRED**; não inventar). (5) `service_offering` = owner canônico do tempo contratável; conter reader legado `service` (service-feed). (6) `owner_id` validado por tipo no writer (FK onde couber). (7) concorrência transacional à prova de corrida. **+ 5 GUARDS adicionais (ChatGPT):** **G8** intervalo `[start,end)` TIMESTAMPTZ (back-to-back ≠ conflito); **G9** `provider_actor_id` derivado server-side `booking→service_offering→service/provider` (nunca do body); **G10** sem `service_offering_id`/resolução ambígua → STOP; **G11** bloqueio na **transição p/ confirmado** (não só createBooking); **G12** status pagamento×confirmação misturado → mapear 1ª mão e parar em ambiguidade.
+- **Materialização/Prova:** **NENHUMA** (docs-only). Execução após (GO próprio): **F-OFFER-5A** (owner temporal `service_offering` + contenção legado + integridade `owner_id`) + **F-OFFER-6A** (booking conflict guard por `provider_actor_id`, transacional, status vivos), OU pacote único. **MODO C provável** (toca `createBooking`+concorrência) → **promulgação condicional NÃO autorizada**; GO explícito. READ-FIRST de execução começa por **mapear os status de booking vivos** + a cadeia `booking→service_offering→provider_actor_id`.
+- **Consequências:** F-OFFER-5 e F-OFFER-6 **DECISION PROMULGADA**; execução material **HOLD** até GO próprio. **FORA:** dinheiro · payout · `bank_ledger` · split · ranking · discovery · marketplace · preço · **remarcação/reschedule** · indenização · presença/check-in · operador/grants · **multi-recurso/capacidade/equipe** (V1 = `provider_actor_id`). `docs/01_normative` intocado.
+- **Responsável:** Clayton / IA-DIRETORA (executor: Claude Opus 4.8). **Validação prévia:** Clayton (promulgação) + ChatGPT (APPROVED_WITH_GUARDS, +G8–G12) + READ-FIRST F-OFFER-5 (IA-TEMPO PARTIAL · IA-BANCO PASS_PARA_DECISAO).
+- **Supera:** —
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0146_OFFER_TEMPORAL_INTEGRITY_AND_BOOKING_CONFLICT.md` · **Constituição temporal Art. II** (conflito=fato→alerta→humano) · `DECISION-0117` D (`availability.owner_type`) · `DECISION-0132` (purpose temporal/booking gate) · `DECISION-0143/0144/0145` (cadeia de oferta) · `DECISION-0113` (actorId hint) · `docs/orquestracao/processo/cadeia-de-oferta/respostas/IA-TEMPO.md` / `IA-BANCO.md` (READ-FIRST F-OFFER-5).
