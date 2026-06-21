@@ -294,3 +294,46 @@ O substrato temporal é **único (uma tabela SSOT `availability`)**, com `owner_
 - **Arquivos lidos:** METODO.md · IA-TEMPO.md (eixo TEMPO/§F-OFFER-5) · migration `20260612110000`
 - **SQL/probes:** `pg_constraint` (CHECK/FK/EXCLUDE + confdeltype) · `pg_trigger` (não-interno) · `pg_index` (gist/range) · `pg_get_functiondef` (detect_availability_conflicts) · `count(*)` exato por owner_type · `schema_migrations`. Probes descartados.
 - **Veredito:** **PASS_PARA_DECISAO** (substrato único+virgem+owner=service_offering fail-closed; garantia temporal de overlap **ausente no banco** = régua a decidir, grátis na janela virgem; mecanismo constrangido por Art. II → IA-TEMPO).
+
+---
+
+## F-OFFER-5/6 EXECUÇÃO — READ-FIRST BANCO (prova-viva de execução)
+
+**HEAD:** `891dfa87` · branch `rescue-structural` · **banco** `unificard_dev` · 2026-06-21 · **READ-ONLY** (catálogo/`count(*)`/`pg_get_functiondef`/`EXPLAIN` não-EXECUTE; probes descartados; nada mutado). Régua: **DECISION-0146** (availability declara/alerta · booking confirmado compromete/bloqueia · rollup por `provider_actor_id` · status bloqueantes do schema vivo · sem EXCLUDE · concorrência provada · MODO C). Insumo: IA-TEMPO PRONTO_PARA_GO (guard no CONFIRM; bloqueantes `{confirmed,checked_in,checked_out}`).
+
+### Tabela prova-viva
+
+| # | item | estado (prova SQL) | janela |
+|---|---|---|---|
+| 1 | `detect_availability_conflicts` | **STUB** vivo (`BEGIN RETURN; END;`) — não detecta nada. Call site = código (`service.ts:184`, só `owner_type='user'`) | — |
+| 2 | `availability.owner_id` FK | **SEM FK** (única FK = `fk_availability_purpose_concept`→concepts RESTRICT). `owner_id` uuid NOT NULL, polimórfico, **0 ON DELETE** | cuidado (validar no writer §A.6) |
+| 3 | `bookings` colunas | `booking_id` PK · `tenant_id` · **`availability_id` NOT NULL** · `requester_actor_id` · **`status` varchar DEFAULT `'requested'`** · `requested_at/confirmed_at/checked_in_at/checked_out_at/cancelled_at/expired_at` · metadata · timestamps | — |
+| 3b | `bookings` status CHECK | `chk_bookings_status` = **6 valores vivos**: `requested · confirmed · cancelled · expired · checked_in · checked_out`. **Bloqueantes `{confirmed,checked_in,checked_out}` EXISTEM e são inequívocos** (G4/§A.4 satisfeito — **sem STOP**); não-bloqueantes = requested/cancelled/expired. **Sem status de pagamento misturado** (G12 ok) | grátis |
+| 3c | `bookings` FK/índices | FK `availability_id→availability(availability_id)` **CASCADE**; `requester_actor_id→actors` CASCADE. Índices: pkey · `idx_bookings_tenant_availability (tenant_id, availability_id)` · `idx_bookings_tenant_requester`. **SEM índice em `status`** | cuidado-índice |
+| 4 | rollup F-OFFER-6 viável? | **SIM.** `bookings` **não tem coluna provider/service_offering** → provider DERIVADO via `b.availability_id→availability.owner_id (owner_type='service_offering')→service_offerings.id→provider_actor_id`. EXPLAIN: usa `idx_service_offerings_provider` na ponta do provider; seq scan em availability/bookings **porque tabelas vazias (0–48 linhas)**, não por falta de índice | grátis |
+| 5 | concorrência | `pg_advisory_xact_lock` / `pg_try_advisory_xact_lock` / `hashtext` / `hashtextextended` **TODOS disponíveis** | grátis |
+| 6 | rowcounts | `bookings`=**0** (nenhum status) · `availability`: **48 todas `user`** (`service_offering`=0) | grátis (virgem) |
+
+### Cadeia material confirmada (derivação do provider — G9)
+`booking.availability_id` → `availability.availability_id` (FK CASCADE) → `availability.owner_id` **quando `owner_type='service_offering'`** = `service_offerings.id` → `service_offerings.provider_actor_id`. O provider do booking é **100% derivável server-side** desta cadeia — **nunca do body** (G9 satisfeito estruturalmente; o booking não carrega provider/offering cru). Caveat: `availability.owner_id` é polimórfico **sem FK**, então a etapa `owner_id=service_offerings.id` depende de `owner_type='service_offering'` + validação no writer (§A.6/G5) — não há integridade referencial que garanta que um `owner_id` de tipo `service_offering` aponte para uma linha viva de `service_offerings`.
+
+### Índices — estado e necessidade (registrar, NÃO criar)
+- **JÁ presentes p/ o rollup:** `idx_service_offerings_provider (provider_actor_id)` ✓ · `idx_availability_tenant_owner (tenant_id, owner_type, owner_id)` ✓ (sustenta offering→availability quando tenant-scoped) · `idx_availability_tenant_window (tenant_id, start_datetime, end_datetime)` ✓ (janela) · `idx_bookings_tenant_availability (tenant_id, availability_id)` ✓ (availability→booking).
+- **FALTA (otimização, NÃO blocker):** índice em `bookings` cobrindo o filtro de status bloqueante — sugiro **registrar a necessidade** de `bookings (availability_id) WHERE status IN ('confirmed','checked_in','checked_out')` (parcial) ou `(tenant_id, availability_id, status)`, para o probe de conflito ser seletivo a escala. **Grátis adicionar na janela virgem (0 linhas).** NÃO criei.
+- O EXPLAIN mostrar seq scan **não** indica falta de índice — é cardinalidade trivial (0–48 linhas); o planner ignora índices nesse volume.
+
+### Recomendação de mecanismo de LOCK (ponto de vista de banco)
+- **Recomendado: `pg_advisory_xact_lock` keyed por `provider_actor_id`** no início da transação de **CONFIRM** (transição p/ `confirmed`/`checked_in`/`checked_out` — G11), ex.: `SELECT pg_advisory_xact_lock(hashtextextended(provider_actor_id::text, 0))`. Serializa **apenas** confirms do mesmo provider (sem contenção global), libera automático no commit/rollback (escopo de transação). É o mecanismo correto contra o **phantom** (a 2ª confirmação conflitante ainda não tem linha visível à 1ª).
+- **`SELECT … FOR UPDATE`** nas linhas de booking/availability do provider é **insuficiente sozinho**: trava linhas existentes, mas **não impede o INSERT/transição fantasma** da linha concorrente que ainda não existe no SELECT. Serve como complemento, não como garantia.
+- **`EXCLUDE` constraint: PROIBIDO** (§A.7/G1) — hard-block na declaração viola Art. II; a integridade de compromisso vive no **guard transacional do confirm**, não em constraint de availability.
+
+### VEREDITO: **PASS_PARA_GO**
+O banco suporta a execução F-OFFER-5/6 **sem blocker**: (a) os **status bloqueantes do schema vivo são exatamente `{confirmed,checked_in,checked_out}`** — mapeados, inequívocos, **sem STOP** (§A.4/G4/G12 satisfeitos); (b) o **provider é derivável server-side** pela cadeia material (G9), sem coluna crua no booking; (c) o **rollup é materialmente viável** e os índices do encadeamento já existem (falta só 1 índice **opcional** de performance em `bookings`, grátis na janela virgem); (d) **concorrência tem mecanismo** (`pg_advisory_xact_lock` por provider); (e) **virgem** (`bookings`=0, offer-availability=0) ⇒ todo o trabalho é grátis; (f) **sem EXCLUDE** em availability (correto). A execução é **MODO C** (toca `createBooking`/confirm + concorrência) e segue **GO→ChatGPT→IA-YALA→Clayton** — não é meu ato; eu provo que o substrato sustenta.
+
+**Itens que pertencem ao writer/semântica (não-blocker, donos):** validação `owner_id` por tipo no confirm (§A.6/G5 = código); guard incide na **transição** para confirmado, não só no create (G11 = código/IA-TEMPO); contenção do reader legado `service-feed` (G6 = código). Eu sinalizo; não implemento nem decido.
+
+### CARIMBO FINAL
+- **HEAD:** `891dfa87` · **Revalidou schema vivo:** SIM (1ª mão) · **Banco:** `unificard_dev` · **Status:** RESPONDIDO
+- **Arquivos lidos:** METODO.md · DECISION-0146 · IA-TEMPO.md (§F-OFFER-5/6 execução)
+- **SQL/probes:** `pg_get_functiondef` (detect_availability_conflicts) · `pg_constraint` (status CHECK/FK/EXCLUDE/confdeltype) · `pg_index`/`pg_get_indexdef` (bookings/availability/service_offerings) · `information_schema.columns` (bookings/availability) · `EXPLAIN` (não-EXECUTE) do rollup · `count(*)` exato (bookings por status / availability por owner_type) · `pg_proc` (advisory lock). Probes descartados; READ-ONLY estrito.
+- **Veredito:** **PASS_PARA_GO** — substrato sustenta confirm-guard + rollup por provider + lock advisory; 1 índice opcional em `bookings` (registrar, grátis); execução MODO C sob ciclo. **Sem STOP de status** (bloqueantes vivos = {confirmed,checked_in,checked_out}).

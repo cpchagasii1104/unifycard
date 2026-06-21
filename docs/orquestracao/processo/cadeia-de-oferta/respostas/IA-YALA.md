@@ -637,3 +637,86 @@ verdes; zero escopo proibido; zero dado alterado (probes em ROLLBACK; harness ap
 - **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` + `CONSOLIDADO.md` + respostas da orquestração. Não misturar.
 Working tree de código deixado idêntico ao entregue (services-discovery.service.ts restaurado do meu guard-NP, hash
 `d27993d6`; harnesses do workflow apagados; só editei meu `respostas/IA-YALA.md`).
+
+---
+
+## RODADA 12 — RESEAL F-OFFER-5/6 (integridade temporal + conflito de booking por provider · DECISION-0146 · MODO C) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS (6/6) — PROVA DE CORRIDA MODO C ESTÁVEL (8/8 exactly-one).**
+**HEAD no momento:** `891dfa87` (branch `rescue-structural`) — `docs(orchestration): version F-OFFER-5/6 read-first evidence (DECISION-0146)`.
+  F-OFFER-5/6 no working tree (não committado). F-OFFER-4 committado; cartório limpo.
+**Revalidou no vivo:** SIM (total) — git + leitura dos 5 arquivos + **prova de corrida e sub-testes na função REAL**
+  (`unifiedAvailabilityRepository.confirmBookingWithProviderLock`, harness tsx descartável + fixture committed +
+  teardown completo) + detecção em ROLLBACK + guard-NP (edita→roda→reverte) + gates.
+**Fonte soberana:** `unified-availability.repository.ts:354-411` (confirmBookingWithProviderLock);
+  `unified-availability.service.ts:301-329` (confirm → guard); `service-feed.plugin.ts:203-208` (contenção/comentário);
+  `availability-owner-authority.ts` (resolveAvailabilityOwner); `audit-booking-provider-conflict.mjs`; `package.json`.
+**Status:** RESPONDIDO.
+
+### Os 6 itens
+1. **END-TO-END na função REAL (fixture+teardown) → PASS (7/7 cenários).**
+   (a) confirm sem conflito → **confirmed**. (b) 2º booking sobreposto MESMO provider → **409 BOOKING_PROVIDER_TIME_CONFLICT**.
+   (c) back-to-back `[11,12)` vs `[10,11)` → **confirmed** (NÃO conflita; overlap meio-aberto). (d) **CROSS-OFERTA**
+   do mesmo provider (2 service_offerings) → **409** (rollup por provider). (e) provider DIFERENTE mesmo horário →
+   **confirmed**. (f) `owner_type≠service_offering` → **fora do guard** (service só chama o lock quando
+   `ownerType===SERVICE_OFFERING`; senão path normal — code-read l.314-326). (g) availability **sobreposta
+   (DECLARAÇÃO)** inserida sem bloqueio (sem EXCLUDE/trigger de overlap) → permitido.
+2. **PROVA DE CORRIDA (MODO C, obrigatória) → PASS, ESTÁVEL.** 2 confirms concorrentes (`Promise.all`), mesmo
+   provider, intervalos sobrepostos (cross-oferta), com RESET a cada iteração: **8/8 runs = EXATAMENTE 1 confirma /
+   1 conflito (409) / `dbConfirmed=1`**; `allExactlyOne=true`, `neverBoth=true`. `pg_advisory_xact_lock(tenant:provider)`
+   serializa → o 2º espera o commit do 1º e vê o compromisso → 409. NUNCA os dois em status bloqueante.
+   (Obs metodológica: numa 1ª passada sem reset, runs 1-4 deram 0-confirmados/2-conflitos — era **bug do meu
+   harness** (vencedor do run 0 persistia e bloqueava), NÃO falha do guard; corrigido com reset → 8/8 determinístico.)
+3. **Derivação server-side + self-exclusão → PASS.** Provider DERIVADO via `resolveAvailabilityOwner(tenant,
+   SERVICE_OFFERING, availability.ownerId)` → `service_offerings.provider_actor_id` (server-side, NUNCA do body).
+   Intervalo vem de `availability.startDatetime/endDatetime` (NUNCA do body). Self EXCLUÍDO (`b2.booking_id <> $3`):
+   reconfirmar um booking já confirmed deu **BOOKING_CONFIRM_INVALID_STATE** (não falso-positivo de conflito por si mesmo).
+4. **GUARD-NP → MORDE E VOLTA (reproduzido por mim).** Baseline exit 0. (i) removi `pg_advisory_xact_lock` →
+   guard **exit 1** ("sem pg_advisory_xact_lock — G7"). (ii) removi `checked_out` do conjunto bloqueante → guard
+   **exit 1** ("conjunto bloqueante não é {confirmed,checked_in,checked_out} — G4"). Ambos revertidos; hashes de volta
+   a `76272d25`/`75074e3e`, guard exit 0. (As demais NPs — provider do body, self-exclusion, overlap fechado, rollup
+   por offering — são cobertas pelos checks estáticos do guard l.29-31/52, lidos de 1ª mão.)
+5. **ESCOPO → PASS.** **5 material**: `unified-availability.repository.ts` + `unified-availability.service.ts` +
+   `service-feed.plugin.ts` + `package.json` (append de 1 linha) + `audit-booking-provider-conflict.mjs` (novo).
+   ZERO migration/01_normative/frontend/dinheiro(bank_ledger/splits/payout)/discovery/ranking/presence/service_order
+   (git diff name-only → nenhum path proibido). availability **sem EXCLUDE/bloqueio** (declaração livre).
+   `service-feed.plugin.ts` = **só comentário de contenção** (query intocada; grep do diff não-comentário = vazio).
+   `marketplace-search` e `assertServicosCategory` (def. em services-discovery.service.ts, fora do diff) **INTOCADOS**.
+   **ZERO dado alterado** (fixture da corrida 100% revertida; teardown restaurou baseline svc=0/so=0/av=48/bk=0).
+6. **GATES → PASS.** typecheck = **34** (== baseline; 0 erros nos arquivos da fatia). regression-guards = **EXIT 0**
+   com `GATE OK [booking-provider-conflict]`. architectural --strict in-situ (stash dos 3 .ts): **33 == baseline 33**,
+   **0 hits** nos arquivos da fatia → `critical_new = 0`.
+
+### TENTATIVAS DE REFUTAÇÃO (resultado)
+- "A corrida fura (os dois confirmam)" → REFUTADO: 8/8 exactly-one, neverBoth=true; advisory-lock serializa.
+- "Back-to-back conflita" → REFUTADO: `[11,12)` após `[10,11)` confirmou (overlap meio-aberto correto).
+- "Conflito é por offering, não por provider" → REFUTADO: cross-oferta (2 offerings, mesmo provider) deu 409.
+- "Provider/intervalo vêm do body" → REFUTADO: derivados de availability→service_offering server-side (code + guard).
+- "Self dá falso-positivo na reconfirmação" → REFUTADO: reconfirm deu INVALID_STATE, não conflito.
+- "availability é bloqueada" → REFUTADO: sem EXCLUDE/trigger; overlapping declarations inseridas sem erro.
+- "Guard não morde / vazou escopo / regrediu gate" → REFUTADO: guard mordeu (G7,G4); 5 material; zero dado; gates verdes.
+
+### STOPs
+- Integridade/conflito com negative-proof que MORDE **e prova de corrida** → presentes e reproduzidos por mim. ✔
+- Conflito = recusa fail-closed (Art. II: NUNCA auto-resolve/escolhe horário) — confirmado no código. ✔
+- Não toquei R2/delegação; DT-mãe 0113 OPEN respeitada; sem dinheiro/payout/presença. ✔
+- **STOP de commit:** material = SÓ os 5 arquivos (git add explícito); cartório (STATUS/CONSOLIDADO/respostas) em
+  commit próprio; working tree tem muito doc/cartório pré-existente sujo — `git add -A` violaria o recorte.
+- Veredito é INSUMO. **MODO C: a promulgação é ato MANUAL de Clayton — sem condicional automática.**
+
+### CONCLUSÃO + RECOMENDAÇÃO DE COMMIT
+**PASS (6/6), com a prova de corrida MODO C estável (8/8 exactly-one, never-both).** F-OFFER-5/6 torna o COMPROMISSO
+(confirm de booking) à prova de corrida e por-provider: `confirmBookingWithProviderLock` serializa por
+`pg_advisory_xact_lock(tenant:provider)`, recusa fail-closed um 2º booking do mesmo provider em status
+{confirmed,checked_in,checked_out} com intervalo `[start,end)` sobreposto (back-to-back livre, self excluído, rollup
+cross-oferta), checagem+gravação na MESMA transação; provider/intervalo derivados server-side; `availability` segue
+declarativa (não bloqueada); guard mira o confirm e morde. Tudo de 1ª mão; zero dado alterado; gates verdes.
+**Recomendação de commit (PASS):**
+- **Commit MATERIAL (5 arquivos):** `backend/src/core/availability/unified-availability.repository.ts` +
+  `backend/src/core/availability/unified-availability.service.ts` + `backend/src/modules/services/service-feed.plugin.ts` +
+  `backend/scripts/audit-booking-provider-conflict.mjs` + `backend/package.json` (git add explícito).
+- **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` + `CONSOLIDADO.md` + respostas. Não misturar.
+- **Promulgação:** ato MANUAL de Clayton (MODO C) — meu veredito é insumo, não a dispara.
+Working tree de código deixado idêntico ao entregue (repository/service restaurados dos guard-NP, hashes
+`76272d25`/`75074e3e`; harnesses tsx apagados; fixture da corrida revertida; só editei meu `respostas/IA-YALA.md`).
