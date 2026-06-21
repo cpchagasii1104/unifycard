@@ -7363,3 +7363,20 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** —
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0144_DECLARATION_TO_SERVICE_ELIGIBILITY.md` · `DECISION-0143` (vocabulário) · `DECISION-0142` (folha-SSOT) · `DECISION-0117` (canonical_services) · `DECISION-0113` (actorId hint) · `DECISION-0100/0101` (publish PJ KYB) · `DECISION-0118` (canManageCompany) · `DECISION-0136` (actor_capability_grants) · `docs/orquestracao/processo/cadeia-de-oferta/CONSOLIDADO.md` (READ-FIRST F-OFFER-2).
+
+---
+
+## DECISION-0145 — Régua de vínculo service→service_offering (F-OFFER-3)
+
+- **Data:** 2026-06-21
+- **Tipo:** Arquitetural / régua de vínculo+proveniência (DOCS-ONLY) — **NÃO MATERIAL** (não toca runtime/migration/backend/frontend/`docs/01_normative`).
+- **Frente:** F-OFFER (F-OFFER-3) · **HEAD (pré-commit):** `74a04819` · **dev:** 399
+- **Status:** **PROMULGADA / DOCS-ONLY / RÉGUA SERVICE→SERVICE_OFFERING.**
+- **Contexto:** READ-FIRST curto F-OFFER-3 (IA-OFERTA **FALTA_DECISAO** · IA-AUTORIDADE **FALTA_DECISAO** · IA-BANCO **PASS_PARA_GO_DE_DECISAO**) provou: `createOffering` liga direto ao `canonical_service` e **nunca popula `service_id`** → a elegibilidade da DECISION-0144 **não alcança a oferta**; `company_id`/`professional_actor_id` do body sem constraint p/ provider (**proveniência livre**). `service_offerings` vazio (janela virgem). A oferta é a régua análoga à 0144.
+- **Decisão soberana (Clayton):** **D-F3-1 Opção A** — `service_offering` exige `service_id` válido do **mesmo provider + mesmo concept**; **herda** a elegibilidade 2B (single-chain; **não duplica** apc/ccp em createOffering). **D-F3-2** — `company_id` **derivado server-side**; `professional_actor_id` removido/re-gateado (fecha o buraco de proveniência, G2/0144). **D-F3-3** — oferta nasce **`draft`** por padrão; `active`/activation pública = fatia/regra própria. **+ 5 GUARDS (§B-bis):** G1 `canonical_service_id` não é autoridade (derivado/validado do service); G2 `status='draft'` respeita schema vivo ou STOP; G3 `price_cents` BIGINT, nunca NUMERIC; G4 body não autoriza (server-side); G5 `service_id` incerto → STOP. Cadeia `CONCEPT→SERVICE→SERVICE_OFFERING`; `canRepresentActor`/`canManageCompany` permanece; preço = campo, **zero ledger**.
+- **Materialização/Prova:** **NENHUMA** (docs-only). Execução após (GO próprio): **F-OFFER-3A** (schema: `service_id` NOT NULL após preflight; sem corrigir dado; sem DROP CASCADE) + **F-OFFER-3B** (runtime: `createOffering` exige service válido match provider/concept + deriva `company_id` server-side + status `draft` + 403/400 controlado). MODO B + promulgação condicional possível; GO próprio antes de executar.
+- **Consequências:** F-OFFER-3 **DECISION PROMULGADA**; execução material (3A/3B) **HOLD** até GO próprio. **FORA:** operador via grants · cascata KYB-revoga→retira-oferta · `availability` · discovery · dinheiro/payout · presença · `service_order` · ranking · material · activation pública. F-OFFER-4..6 HOLD.
+- **Responsável:** Clayton / IA-DIRETORA (executor: Claude Opus 4.8). **Validação prévia:** Clayton (promulgação) + ChatGPT (APPROVED_WITH_GUARDS) + READ-FIRST F-OFFER-3 (IA-OFERTA/IA-AUTORIDADE/IA-BANCO).
+- **Supera:** —
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0145_SERVICE_TO_OFFERING_BINDING.md` · `DECISION-0144` (elegibilidade declaração→service) · `DECISION-0143` (vocabulário) · `DECISION-0122` (service_offering canônico) · `DECISION-0117` (canonical_services) · `DECISION-0113` (actorId hint) · `DECISION-0118` (canManageCompany) · `docs/orquestracao/processo/cadeia-de-oferta/CONSOLIDADO.md` (READ-FIRST F-OFFER-3).
