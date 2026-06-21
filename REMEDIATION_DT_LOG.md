@@ -14118,3 +14118,19 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
 - **Convergência (frente própria, futura):** unificar o namespace de membership/convite quando a frente de identidade
   (mapper `global_user_id`↔`user_id`↔`actor_id`) for aberta. Até lá: NÃO patch isolado (risco de inverter qual
   identidade o `group_members`/`group_invites` realmente indexam). **Requer READ-FIRST de identidade antes de tocar.**
+
+## DT-A1-CARTORIO-0119-0120-NO-LOG-ENTRY — `0119`/`0120` sem entrada `## DECISION-` própria no LOG (2026-06-20, A1 / reseal IA-DOCUMENTOS)
+
+- **Status:** **OPEN (dívida documental; NÃO bloqueia A1).** Descoberto no reseal da Rodada 4 (IA-DOCUMENTOS) sobre o A1.
+- **Achado:** A1 reindexou `DECISOES.md` 0112→0141 (índice). As decisões **0119** (referral link) e **0120** (civil identity SSOT separation) **existem como `.md`** em `docs/02_decisions/` e aparecem **citadas dentro do corpo da DECISION-0131**, mas **não têm cabeçalho `## DECISION-0119`/`## DECISION-0120` próprio** no `REMEDIATION_DECISIONS_LOG.md`. O índice agora as lista (correto, pelo header do `.md`); o LOG soberano é que tem o gap.
+- **Materialidade:** documental/cartorial, não runtime. O denominador cartorial fecha o **índice** (0112→0141), não o **gap LOG**. Sem risco material; é integridade de registro.
+- **Contenção:** A1 só mexeu no índice (`DECISOES.md`); o LOG e os `.md` ficaram intocados. O gap é pré-existente ao A1.
+- **Convergência (frente própria, dono = IA-DECISOES-DT + Clayton):** se for gap real, abrir **NOVA entrada append-only** `## DECISION-0119`/`0120` no `REMEDIATION_DECISIONS_LOG.md` (referenciando os `.md` existentes) — **nunca** inserir `##` no meio do histórico nem reescrever a 0131. Critério: LOG passa a ter cabeçalho próprio para 0119/0120, batendo com os `.md`.
+
+## DT-DRIFT1-RLS-HARDENING-OPS-ROLLOUT-PENDING — `db_role_rls_hardening` aplicada em dev, rollout de ops PENDENTE (2026-06-20, U1 pré-condição)
+
+- **Status:** **OPEN (operacional; não-bloqueante do código).** Surgiu no re-sync de drift exigido pela U1 (condição #7 do ChatGPT).
+- **Achado:** a migration `20260620120000_db_role_rls_hardening.sql` (committada/resealed antes) estava **não-aplicada em dev** (drift disco 395 × DB 394). No re-sync do U1 ela foi aplicada: criou role `unificard_app` (NOSUPERUSER/NOBYPASSRLS/**NOLOGIN**) + `unificard_infra` + **ENABLE/FORCE RLS + policy tenant-scoped** em 7 tabelas payout/approval/recovery. Migrations seguem rodando como `postgres` (admin); o runtime dev **ainda conecta como `postgres`** (superuser → bypassa RLS).
+- **Materialidade:** autoridade/dinheiro. O **RLS-hardening só vira proteção efetiva** após o **rollout de ops** (passos 2-4 do header da migration): `ALTER ROLE unificard_app WITH LOGIN PASSWORD '<segredo fora do repo>'` + apontar `DATABASE_URL` de runtime para `unificard_app` + manter `postgres` só para migrations. Enquanto runtime = superuser, o FORCE RLS é inerte (preflight `db-role-rls-preflight.ts` é fail-closed só em produção).
+- **Contenção:** a migration é idempotente, atômica e tem rollback documentado; em dev nada quebrou (runtime ainda postgres). Re-baseline RLS dos planos de autoridade atualizado: `financial_approval_authorities` flipou OFF→ON; os outros 5 planos (`company_users`/`actor_delegations`/`tenant_operator_grants`/`reconciliation_disputes`/`reversals`) seguem OFF (esta migration não os toca).
+- **Convergência (ATO OPERACIONAL de Clayton, NÃO fatia de código):** executar o rollout de ops (LOGIN + troca de `DATABASE_URL` de runtime para `unificard_app`) em dev/prod conforme o segredo fora do repo. Critério: runtime conecta como `unificard_app` (NOBYPASSRLS) e o preflight passa. **Eixo:** IA-AUTORIDADE/IA-DINHEIRO + IA-BANCO (prova-viva pós-rollout).
