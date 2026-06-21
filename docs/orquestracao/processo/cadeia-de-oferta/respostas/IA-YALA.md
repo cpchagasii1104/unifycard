@@ -545,3 +545,95 @@ resolução, réplica de INSERT, guard-NP e gates todos confirmados de 1ª mão;
 - **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` + `CONSOLIDADO.md` + respostas da orquestração. Não misturar.
 Working tree de código deixado idêntico ao entregue (service-offering.service.ts restaurado do guard-NP; harness tsx
 apagado; só editei meu `respostas/IA-YALA.md`).
+
+---
+
+## RODADA 11 — RESEAL F-OFFER-4 V1 (discovery re-key por concept_id · DECISION-0142 · MODO B) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS (6/6).**
+**HEAD no momento:** `f6c07742` (branch `rescue-structural`) — `docs(orchestration): add pre-front preflight rule`.
+  F-OFFER-4 V1 no working tree (não committado). F-OFFER-3 committado.
+**Revalidou no vivo:** SIM (total). Método: orquestração ultracode (workflow — 4 leitores estáticos em paralelo +
+  1 executor comportamental serializado no tree vivo) **e** re-verificação pessoal de 1ª mão dos pontos materiais
+  (régua-núcleo no código, guard-NP próprio, gates, restauração do working tree). Disco vence narrativa — não
+  homologo só pelo workflow.
+**Fonte soberana:** `src/modules/services/services-discovery.service.ts:375-388` (search);
+  `src/modules/services/services.service.ts:312-335` (wrapper discoverServices);
+  `src/modules/services/services.repository.ts:199-264` (discoverServices);
+  `src/core/semantic/semantic.adapter.ts:40-50` (resolveConceptFromCategory);
+  `scripts/audit-discovery-concept-rekey.mjs`; `package.json`. Régua DECISION-0142.
+**Status:** RESPONDIDO.
+
+### Os 6 itens
+1. **2 superfícies resolvem category→concept + gate folha → PASS.**
+   search (l.377-388): `resolveConceptFromCategory(filters.categoryId)` → `conceptId`; se null → `throw BadRequestError
+   'CATEGORY_REQUIRES_LEAF_CONCEPT…'`; passa `{ conceptId, … }` a `discoverServices` (NUNCA categoryId). Wrapper
+   (services.service.ts:314-335): mesma resolução, mesmo 403, passa `conceptId`. **End-to-end na função REAL**
+   (harness descartável, apagado): leaf `52f2c594` (concept NOT NULL) → resolve e casa por concept (rows=0, sem erro,
+   sem busca ampla); não-folha `1db3d9b9` (concept NULL) → `BadRequestError status=400 CATEGORY_REQUIRES_LEAF_CONCEPT`
+   (não 500, não busca ampla); wrapper idêntico. (DB: 77/147 categorias com concept, 70 NULL disparam o gate.)
+2. **Matching material por concept_id → PASS.** repo (l.213-220): `if (conceptId) INNER JOIN canonical_services cs ON
+   cs.id = s.canonical_service_id` + `cs.concept_id = $N`. Base conditions = só `s.tenant_id` + `s.status='active'`.
+   **ROLLBACK com fixture** (executor): service do PF `b682724c` ligado ao canonical `332e2164` (concept `6be2e6e3`)
+   → query material com `cs.concept_id='6be2e6e3'` retorna 1 row; com `7bf6c6a8` → 0 rows (sem falso-match). Nenhuma
+   das 2 superfícies passa categoryId/domain como identidade material (categoryId só chega ao repo por callers de
+   navegação, ex. marketplace-search, fora do V1).
+3. **Reuso cross-domain (invariante 0142) → PASS.** O matching READ **não referencia `domain`** (só comentário em
+   services.repository.ts:214; zero filtro `domain='servicos'`). **Prova por construção** (ROLLBACK): canonical ligado
+   ao concept `d914ff0c` cujo `domain='educacao-e-conhecimento'` (≠ servicos) + service → a mesma query por
+   `cs.concept_id='d914ff0c'` retornou o service. concept_id = identidade; domain = breadcrumb. Confirmado.
+4. **ESCOPO → PASS.** Exatamente **5 material**: `services-discovery.service.ts` + `services.service.ts` +
+   `services.repository.ts` + `package.json` (append de 1 linha do guard) + `audit-discovery-concept-rekey.mjs` (novo).
+   `marketplace-search.service.ts` **INTOCADO** (git diff vazio; segue category-tree). `assertServicosCategory`
+   **INTOCADO** (def em services-discovery.service.ts:305, write-path; diff só toca read-path ~373-388). ZERO
+   migration / docs/01_normative / frontend / dinheiro(bank_ledger/splits/payout) / availability / ranking / presence /
+   service_order. `categories.concept_id` usado **só como hop efêmero de leitura** (`semantic.adapter` é SELECT);
+   **nenhum concept_ref persistido** (services não tem coluna concept; nenhum INSERT/UPDATE de concept introduzido;
+   diff só usa conceptId como parâmetro de SELECT/JOIN).
+5. **GUARD-NP → MORDE E VOLTA (reproduzido por mim).** Baseline guard exit 0 (estável: rodei 2×). Reintroduzi
+   `categoryId: filters.categoryId` no call de `discoverServices` da search → guard **exit 1** com 2 falhas
+   ("search não passa conceptId" + "voltou a passar categoryId: filters.categoryId … matching por category é proibido"),
+   **na superfície certa** (services-discovery.service.ts), sem falso-positivo em marketplace-search. Revertí →
+   exit 0; diff-hash de volta a `d27993d6` (idêntico ao entregue); grep do token = 0.
+6. **GATES → PASS (1ª mão).** typecheck = **34** (== baseline; 0 erros nos 3 arquivos). regression-guards = **EXIT 0**
+   com `GATE OK [discovery-concept-rekey]`. architectural --strict = **33 CRITICAL == baseline 33**, **0 hits** nos 3
+   arquivos da fatia → `critical_new = 0` (corroborado pelo workflow via stash-pop delta 0). bank-ledger-boundaries e
+   actor-writer-boundaries = EXIT 0 (executor).
+
+### OBSERVAÇÕES (não-bloqueantes, não reprovam pela régua)
+- **Busca ampla quando concept ausente:** o wrapper `discoverServices` (/services/discover) tem `categoryId` OPCIONAL;
+  chamado SEM `category_id`, `conceptId` fica undefined, o JOIN é pulado e retorna serviços `active` filtrados só por
+  localização. Isso é "busca ampla sem concept" — **mas NÃO usa categoryId/domain como identidade material** (nenhum
+  categoryId chega ao repo pelas 2 superfícies V1), então **não fere a régua** (que só proíbe category/domain-como-identidade).
+  É comportamento de listagem pré-existente, não re-key por category. Registro para a IA-DIRETORA decidir se um V2
+  exigirá concept também no path sem-categoria.
+- **Assimetria do guard:** o wrapper é guardado por `resolveConceptFromCategory` + gate-folha + morder
+  `categoryId:filters.categoryId`, mas (diferente da search) não tem a checagem positiva "passa conceptId". Aresta mais
+  fraca; risco baixo no V1 (folha exigida + repo só casa por cs.concept_id). Sugestão de hardening futuro, não bloqueia.
+- **Guard estável:** o "FAIL transitório" notado na análise era artefato de cwd/env; rodado a partir de `backend/`
+  é determinístico exit 0 (confirmei 2×).
+
+### STOPs
+- Re-key/contenção de discovery com negative-proof que MORDE → presente e reproduzido por mim (item 5). ✔
+- Não toquei R2/delegação; DT-mãe 0113 OPEN respeitada; sem dinheiro/payout/presença/availability/service_order. ✔
+- **STOP de commit:** material = SÓ os 5 arquivos (git add explícito); cartório (STATUS/CONSOLIDADO/respostas) em
+  commit próprio. O working tree tem muito doc/memória/cartório sujo PRÉ-EXISTENTE — `git add -A` arrastaria tudo e
+  violaria o recorte; travar com add específico dos 5 caminhos.
+- Veredito é INSUMO, não GO nem promulgação.
+
+### CONCLUSÃO + RECOMENDAÇÃO DE COMMIT
+**PASS (6/6).** F-OFFER-4 V1 re-keya as 2 superfícies READ de discovery de serviços (search + wrapper discoverServices)
+para casar por `concept_id` material (services.canonical_service_id → canonical_services.concept_id), resolvendo
+`category→concept` como hop efêmero de leitura com gate de folha fail-closed (`CATEGORY_REQUIRES_LEAF_CONCEPT`), sem
+filtro `domain`/`category` como identidade, sem persistir concept_ref, reuso cross-domain provado (invariante 0142);
+`marketplace-search`/`assertServicosCategory` intocados; guard mira as superfícies READ de serviços e morde; gates
+verdes; zero escopo proibido; zero dado alterado (probes em ROLLBACK; harness apagado). Tudo confirmado de 1ª mão
+(workflow + re-verificação pessoal).
+**Recomendação de commit (PASS):**
+- **Commit MATERIAL (5 arquivos):** `backend/src/modules/services/services-discovery.service.ts` +
+  `backend/src/modules/services/services.service.ts` + `backend/src/modules/services/services.repository.ts` +
+  `backend/scripts/audit-discovery-concept-rekey.mjs` + `backend/package.json` (git add explícito).
+- **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` + `CONSOLIDADO.md` + respostas da orquestração. Não misturar.
+Working tree de código deixado idêntico ao entregue (services-discovery.service.ts restaurado do meu guard-NP, hash
+`d27993d6`; harnesses do workflow apagados; só editei meu `respostas/IA-YALA.md`).

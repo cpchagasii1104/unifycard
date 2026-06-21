@@ -199,3 +199,57 @@ A espinha de **preço/duração/status/modality** está **correta e constrangida
 **STOPs (meu eixo):** READ-ONLY honrado — só catálogo/rowcount/grep; nenhum INSERT/UPDATE/DDL; nenhuma suíte; probes descartados; nada commitado. NÃO auditei availability/discovery/dinheiro/payout/presence (fora de escopo). NÃO proponho implementação. Aplicar = EXECUTORA sob GO → ChatGPT → IA-YALA → Clayton.
 
 **Status: RESPONDIDO** — VEREDITO **PASS_PARA_GO_DE_DECISAO** (espinha preço/duração/status já constrangida; `service_id`-mandatório e fecho-de-proveniência grátis na janela virgem; buraco company_id confirmado). HEAD `74a04819`, 1ª mão.
+
+---
+
+## F-OFFER-4 — READ-FIRST BANCO (prova-viva do re-key por concept_id)
+
+### 1. Carimbo
+- **HEAD:** `f6c07742` · branch `rescue-structural` (verificado de 1ª mão por `git rev-parse`; o prompt citou `4431b8fc`, stale).
+- **Banco:** `unificard_dev` (`current_database()`).
+- **schema_migrations:** **400** · **disco = 400 → DRIFT=0**.
+- **READ-ONLY confirmado:** só SELECT/catálogo/EXPLAIN(não-EXECUTE)/grep; nenhum INSERT/UPDATE/DDL; probes descartados; nada commitado. (Apoio paralelo via workflow READ-ONLY; **os achados que contrariavam meu estado anterior foram reconfirmados por mim de 1ª mão** antes de publicar.)
+- ⚙️ **EVOLUÇÃO DE ESTADO (disco vence narrativa):** desde F-OFFER-2/3 (HEAD 4431b8fc/74a04819) duas migrations foram **EXECUTADAS** — `20260621100000_f_offer_2a_service_concept_mandatory_fk_restrict.sql` e `20260621120000_f_offer_3_service_offering_service_id_mandatory.sql`. Logo as réguas que eu havia marcado PASS_PARA_GO_DE_DECISAO **foram promulgadas e materializadas**. Minha prova de F-OFFER-2 ("`services.canonical_service_id` NULLABLE") era o **pré-estado**; hoje é **NOT NULL** (corrigido abaixo).
+
+### 2. Tabela prova-viva
+
+| item | rowcount/estado | prova SQL resumida | janela | observação |
+|---|---|---|---|---|
+| `services` | **0** | `count(*)=0` | grátis | base table única em `public` (sem homônima/view) |
+| `canonical_services` | **1** | `count(*)=1` | cuidado-leve | 1 linha seed; concept_id preenchido |
+| `service_offerings` | **0** | `count(*)=0` | grátis | — |
+| `categories` | **147** | `count(*)=147` | cuidado | 70 com `concept_id` NULL (branches level 0/1, by design) |
+| `tenant_concept_offerings` | **0** | `count(*)=0` | grátis | read-model concept-keyed vazio |
+| `services.canonical_service_id` | **NOT NULL**, NULL=0/0 | `is_nullable=NO`; FK→`canonical_services(id)` **RESTRICT** (`r`); índice parcial `idx_services_canonical_service` | grátis | ⬆️ **mudou** vs F-OFFER-2 (era NULLABLE) — F-OFFER-2A tornou mandatório. 0 services invisíveis no re-key |
+| `canonical_services.concept_id` | **NOT NULL**, NULL=0, órfãos=0 | FK→`concepts(concept_id)` **RESTRICT** (`r`); índice `idx_canonical_services_concept` | grátis | resolve concept_id **materialmente sem slug/category/domain** |
+| `categories.concept_id` | nullable; 147 total, **70 NULL**, órfãos=0 | índice `idx_categories_concept_id` + UNIQUE parcial `ux_category_concept_scope (concept_id,scope) WHERE level=2` | cuidado | hop de LEITURA só rende em **folha (level=2)**; serviços-raiz NULL |
+| FK/índices (4 colunas-chave) | **TODAS indexadas** | services.canonical_service_id ✓ · canonical_services.concept_id ✓ · categories.concept_id ✓ · tco.concept_id ✓ | grátis | nenhuma coluna do re-key sem índice |
+| join `services→canonical_services→concept_id` | joinável=0/não-joinável=0 (services vazia) | EXPLAIN = Nested Loop **index-only** (idx_canonical_services_concept ▸ idx_services_canonical_service), **sem seq scan** | grátis | filtro `WHERE cs.concept_id=:resolved` viável e eficiente; **não precisa índice novo** |
+
+### 3. Resolução da discrepância `services ~200 vs 0`
+**CLASSIFICAÇÃO: erro do 1º elo** (contagem sem objeto correspondente). Evidência independente: varredura por `count(*)` exato de TODAS as tabelas `public` → **nenhuma tabela na faixa 180–220**. `services`=**0** confirmado (2 probes independentes + minha reconfirmação). Candidatos mais próximos do domínio: `concepts`=**150**, `categories`=**147** (soma=297, não ~200); `canonical_products`=35; `canonical_services`=1. **Nenhuma migration faz `INSERT INTO services`** (grep 0 matches); só scripts e2e/seed-dev (transientes). O literal "200" no `seed-dev-companies-services.ts:62` é **"capacidade para até 200 pessoas"** (descrição de salão), não contagem. **Alerta de método:** `pg_stat_user_tables.n_live_tup` está **STALE** neste banco (mostrava concepts=6/categories=0) — auditorias devem usar `count(*)` exato, nunca `n_live_tup`.
+
+### 4. Viabilidade do re-key
+- **concept_id material disponível?** **SIM.** `canonical_services.concept_id` = NOT NULL + FK→concepts RESTRICT + índice + 0 órfãos → resolve identidade canônica **sem** slug/category/domain.
+- **Join é suficiente?** **SIM.** `services.canonical_service_id` NOT NULL+FK RESTRICT+índice ⇒ todo service é concept-ancorado por construção; `services JOIN canonical_services ON canonical_service_id=id` é total (0 órfãos possíveis). O EXPLAIN do filtro `WHERE cs.concept_id=:resolvedConceptId` é **index-only, sem seq scan**.
+- **Precisa schema antes?** **NÃO.** O encadeamento NOT NULL+RESTRICT já foi materializado por F-OFFER-2A/3.
+- **Precisa índice antes?** **NÃO.** As 4 colunas-chave já têm índice; o plano do filtro por concept_id já é index-only.
+- **Há blocker?** **NÃO** no banco. A violação viva (`assertServicosCategory` filtrando por `metadata->>'domain'='servicos'`, `services-discovery.service.ts:305-322`) é **CÓDIGO** (eixo IA-DESCOBERTA-FRONT/IA-SEMANTICA) — o banco oferece a alternativa correta (`canonical_services.concept_id`).
+- **`categories.concept_id` resolve filtro de leitura sem virar persistência?** **SIM, com limite:** é hop de leitura efêmero viável **apenas para categorias-folha (level=2)**; 70/147 categorias (branches level 0/1) têm `concept_id` NULL **por design**, e as categorias de serviço-raiz estão **todas NULL** (só 3 folhas `medico-*` preenchidas). ⇒ o hop navegação→concept_id cobre só a camada folha; é filtro, **NUNCA** fonte de `concept_ref` persistido (que vem só de `canonical_services.concept_id`). Cobertura esparsa = input para IA-DESCOBERTA-FRONT (resolução da entrada de navegação), **não** blocker de schema.
+
+### 5. VEREDITO FINAL: **PASS_PARA_GO**
+O schema suporta o re-key por `concept_id` **sem blocker e sem índice novo**: a cadeia `services.canonical_service_id (NOT NULL, FK RESTRICT, idx) → canonical_services.id → canonical_services.concept_id (NOT NULL, FK→concepts RESTRICT, idx) = :resolvedConceptId` é materialmente sólida, index-only no plano, e independe de slug/category/domain. `tco` é read-model concept-keyed vazio. As janelas `cuidado` (services vazia = prova por vacuidade; categories.concept_id esparso em folhas) **não são blockers de schema** — são, respectivamente, ausência-de-dado (grátis) e concern de **navegação/leitura** (eixo FRONT). Não é PASS_COM_CUIDADO_INDICE porque **nenhum índice falta**.
+
+### 6. Próxima recomendação: **GO_DIRETO_MODO_B_SEM_DECISION_NOVA**
+Do meu eixo (schema): o banco já sustenta o re-key e a régua semântica já está aprovada (IA-SEMANTICA: "nenhuma emenda normativa exigida"); **não há DECISION nova necessária por razão de schema**. A execução do re-key é **CÓDIGO** (trocar o filtro `domain='servicos'` de `assertServicosCategory` + as 3 superfícies de discovery por join em `canonical_services.concept_id`) e segue o ciclo normal **GO → ChatGPT → IA-YALA → Clayton** — não é meu ato. **Caveat para a FRONT (não-blocker):** a resolução da ENTRADA de navegação via `categories.concept_id` só funciona para folhas (level=2); serviços-raiz são NULL → a FRONT precisa de uma estratégia de resolução de entrada para não-folhas (o matching em si permanece por `canonical_services.concept_id`, intacto).
+
+---
+
+### CARIMBO FINAL
+- **HEAD:** `f6c07742`
+- **Revalidou código/schema vivo:** SIM (1ª mão — catálogo/rowcount/EXPLAIN; reconfirmei pessoalmente o NOT NULL de `services.canonical_service_id` e as 2 migrations novas, por contrariarem meu estado anterior)
+- **Banco:** `unificard_dev` · schema_migrations=400 · drift=0
+- **Status:** RESPONDIDO
+- **Arquivos lidos:** METODO.md · IA-DESCOBERTA-FRONT.md · IA-SEMANTICA.md §F-OFFER-4 · CONSOLIDADO cadeia-de-oferta · migrations 20260621100000/20260621120000 · `services-discovery.service.ts:305-322` (via apoio)
+- **SQL/probes usados:** `count(*)` exato (services/canonical_services/service_offerings/categories/tco/concepts/products/canonical_products); `information_schema.columns` (nullable); `pg_constraint` (FK+confdeltype); `pg_index`/`pg_get_indexdef`; `EXPLAIN` (não-EXECUTE) do join+filtro; `query_to_xml` varredura de counts; grep de seed. **Probes descartados; READ-ONLY estrito.**
+- **Veredito:** **PASS_PARA_GO** · próxima recomendação **GO_DIRETO_MODO_B_SEM_DECISION_NOVA** (execução = código sob ciclo; caveat de navegação não-folha → IA-DESCOBERTA-FRONT).

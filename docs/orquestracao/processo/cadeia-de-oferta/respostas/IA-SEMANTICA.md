@@ -260,3 +260,52 @@ ON CONFLICT DO NOTHING;   -- alvo = UNIQUE viva (subject,object,relation_type) p
 **Status: RESPONDIDO** — SET FINAL pela lente de reuso (4 REUSAR + 6 NOVO; contexto na aresta; folhas neutras), carimbado HEAD `6c93c648`, READ-ONLY. **Reverte o ponto 1 da RODADA 5 — decisão de Clayton.**
 
 — **IA-SEMANTICA**, sob coordenação da IA-DIRETORA.
+
+---
+
+## F-OFFER-4 (2º elo) — RÉGUA DE RESOLUÇÃO SEMÂNTICA (entrada humana → concept_id → discovery)
+
+**Carimbo:** HEAD no momento `f6c07742` · branch `rescue-structural` | **Revalidou no vivo:** **sim** (07 §18.14/§4262-4278, `semantic.adapter.ts`, DECISION-0142, IA-DESCOBERTA-FRONT — 1ª mão; rowcount/JOIN vivo = INCONCLUSIVO → IA-BANCO 3º elo) | **Status: RESPONDIDO** (INSUMO, não GO).
+
+> **Contexto recebido (IA-DESCOBERTA, 1º elo):** discovery viva casa por `category_id`/`domain` como IDENTIDADE em 3 superfícies (`discoverServices`/`assertServicosCategory`/`/services/discover`) → viola 0142 §B. Resolver `category→concept` EXISTE (`semantic.adapter.resolveConceptFromCategory/Slug`). `concept_id` vive em `canonical_services.concept_id`; `services` liga via `canonical_service_id`; `tenant_concept_offerings` já casa por concept. `categories.concept_id` marcado "proibido transacional" (07 §4262/4278).
+
+### A chave: SEPARAR **resolução-de-leitura** (filtro de busca) de **concept_ref-persistido** (linha transacional)
+
+O que 07 §18.14 proíbe (`:4260-4286`) é **derivar o `concept_ref` PERSISTIDO** dos fluxos **intent/pedido/oferta** a partir de `categories.concept_id` (`:4262` "exclusivamente a partir de `canonical_products.concept_id`"; `:4278` "Não é permitido derivar concept_ref de categories.concept_id, nem como fallback"; `:4286` "domínio de produto e oferta"). É proibição sobre **a identidade gravada numa linha** — porque `categories.concept_id` é navegação **mutável** e gravá-la como verdade transacional cria drift. **NÃO** é proibição de um **hop de leitura** navegação→concept que produz só um **parâmetro de query** efêmero. Discovery/search **não cria linha** de intent/pedido/oferta. Essa separação é o eixo de toda a régua.
+
+### (1) RÉGUA DE RESOLUÇÃO CANÔNICA — entrada humana → concept_id
+
+- **Entrada = navegação** (`category_id` | `category slug` | `categoryPath` | `domain`). A UI mantém isto (correto: navegação, não identidade) — o re-key é **server-side**.
+- **Resolução (read-only, p/ discovery):** `category_id`→`resolveConceptFromCategory` (lê `categories.concept_id`) ou `slug`→`resolveConceptFromSlug` → `concept_id` (`semantic.adapter.ts:40-73`). **PERMITIDO**: é hop navegação→concept que vira **filtro de query**, não `concept_ref` gravado. **07 §4262/4278 NÃO impede** (não é fluxo intent/pedido/oferta; nada é persistido).
+- **Resolução (transacional, quando vira oferta/intent/pedido):** aí sim a identidade gravada **DEVE** vir de `canonical_services.concept_id` (análogo serviço do `canonical_products.concept_id` de §18.14), **NUNCA** de `categories.concept_id`/`domain`. O ponto onde a oferta hoje usa `domain` como identidade (`assertServicosCategory`, `metadata->>'domain'='servicos'`) **é a violação a remover** — religar ao concept via `canonical_service`.
+- **Régua de uma linha (canônica):** *navegação resolve concept_id para FILTRAR (read); só `canonical_services.concept_id` carimba concept_ref para GRAVAR (write). `categories.concept_id` nunca é gravado nem é fallback de gravação.*
+
+### (2) MATCHING por concept_id sem esconder reuso
+
+- Discovery casa por **`concept_id`**: `services` JOIN `canonical_services` ON `services.canonical_service_id = canonical_services.id`, **`WHERE canonical_services.concept_id = :resolvedConceptId`**. `tenant_concept_offerings.concept_id` já é o padrão correto vivo (cross-tenant, concept-bound).
+- **PROIBIDO** `WHERE category_id = …` ou qualquer filtro por `concept.domain` como identidade (0142 **§B.3**, vinculante; `assertServicosCategory` é exatamente isso).
+- **Reuso cross-domain APARECE por construção:** as folhas reusadas (`fotografia`/`musica`/`decoracao` em `educacao-e-conhecimento`; `servicos-pessoais-beleza`) são casadas por `concept_id` — **agnóstico a domain** (0142 §B.2, ADENDO 2026-06-16). É o filtro-por-domain ATUAL que as **esconderia**; o re-key as **revela** (não é o re-key que quebra — o estado atual já está errado).
+- **Escopo V1 = single-concept:** entrada resolve UM `concept_id` → casa providers daquele concept. A **expansão needs-graph** (`festa-de-casamento` → 9 folhas via `concept_relations`) é o **motor de composição** (MACRO 1/5), **elo posterior** — não embutir em F-OFFER-4 V1.
+
+### (3) Status de 07 §4262/4278 — IMPEDE ou não?
+
+**NÃO impede o re-key de discovery; REFORÇA-o.** Confirmado de 1ª mão (`07:4260-4286`): a norma é sobre **`concept_ref` persistido em produto/oferta**, mandando `canonical_*.concept_id` e vetando `categories.concept_id`. Aplicada a F-OFFER-4: (a) discovery-read com hop `categories.concept_id` = **fora** da proibição (não persiste concept_ref); (b) oferta/intent/pedido = **dentro** → deve usar `canonical_services.concept_id` (a norma é §18.14 "Produtos", mas §4286 nomeia "produto e **oferta**" — o análogo serviço é direto). **Consistente com 0142 §B.** Único cuidado: a resolução-de-leitura **nunca** pode ser gravada como concept_ref — manter o hop estritamente efêmero.
+
+### (4) Texto livre `q` → concept
+
+**FUTURO, fora do V1.** Não há resolver `texto→concept` hoje (IA-DESCOBERTA `:29,35`; `SearchPage q` não integrado). V1 resolve só navegação estruturada (`category_id`/`slug`). Texto→concept exige fatia própria (normalização/desambiguação governada — DECISION-0070: não inventar taxonomia no runtime). **Não bloqueia F-OFFER-4.**
+
+### (5) VEREDITO
+
+**PRONTO_PARA_GO** — a régua é **determinável** das normas vigentes (0142 §B + 07 §18.14 lendo a distinção **read-filter × concept_ref-persistido**); **não exige DECISION soberana nova**. Condições do GO (não-bloqueantes de norma, são de execução/prova):
+1. **Registrar a clarificação de régua** (1 linha, insumo F-OFFER-4, não nova lei): *"resolução de leitura para discovery via `categories.concept_id` é hop navegação→concept (filtro efêmero), NÃO o `concept_ref` transacional vetado por 07 §4262/4278"*. Se a IA-DECISOES/Clayton julgarem a interpretação contenciosa, vira micro-ratificação — **avalio que não precisa**.
+2. **IA-BANCO (3º elo)** confirma prova-viva: rowcount `services`/`canonical_services`/`service_offerings` (a discrepância "~200 vs services=0" do 1º elo); viabilidade/índices do JOIN `services.canonical_service_id → canonical_services.concept_id`; `canonical_services.concept_id` NOT NULL vivo.
+3. **Escopo travado:** V1 = single-concept, server-side re-key, UI mantém navegação; `assertServicosCategory`→bind por `canonical_service`; `human-mvp` permanece ghost (não re-keyar código morto); marketplace-por-category = frente adjacente a decidir (não arrasto).
+
+### FRONTEIRA · STOPs
+- **FRONTEIRA:** **IA-BANCO** (3º elo — prova-viva acima). **IA-OFERTA** (dona de `services`/`canonical_services`/`service_offerings` — o re-key do filtro é execução dela/IA-DIRETORA sob GO). **IA-DECISOES-DT** (se quiser formalizar a clarificação da régua). **FRONT** só se a régua mudar o contrato da rota (não muda: entrada segue category/slug).
+- **STOPs honrados (proibições da tarefa):** não auditei availability/dinheiro/ranking/presence; não propus implementação (descrevi régua/JOIN como contrato semântico, não código a escrever); não toquei nada (READ-ONLY); análise = INSUMO, não GO.
+
+**Status: RESPONDIDO** — régua canônica entregue (read-filter × concept_ref; match por `canonical_services.concept_id`; reuso preservado; texto livre futuro), **VEREDITO PRONTO_PARA_GO** condicionado à prova-viva da IA-BANCO. Carimbado HEAD `f6c07742`, READ-ONLY.
+
+— **IA-SEMANTICA**, sob coordenação da IA-DIRETORA.
