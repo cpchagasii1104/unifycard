@@ -5,7 +5,7 @@
 // 🔴 BLINDAGEM: Availability NÃO faz matching
 // 🔴 BLINDAGEM: Evita sobreposição de horários por owner (via trigger)
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import type {
   UnifiedAvailability,
   UnifiedAvailabilityRow,
@@ -25,7 +25,7 @@ import type {
   AvailabilityConflict,
   ConflictDetectionResult,
 } from './unified-availability.types';
-import { BadRequestError, NotFoundError } from '@core/errors';
+import { BadRequestError, NotFoundError, ConflictError } from '@core/errors';
 import { UnifiedAvailabilityStatus, UnifiedBookingStatus, ParticipantRole } from './unified-availability.types';
 
 class UnifiedAvailabilityRepository {
@@ -346,6 +346,67 @@ class UnifiedAvailabilityRepository {
     }
 
     return this.toUnifiedBooking(row);
+  }
+
+  /**
+   * 🔴 F-OFFER-5/6 / DECISION-0146 — confirma um booking com GUARD de conflito por provider,
+   * TRANSACIONAL e à prova de corrida. `availability` declara (NUNCA bloqueia); o COMPROMISSO (confirm)
+   * recusa um 2º booking do MESMO `provider_actor_id` em status bloqueante {confirmed,checked_in,checked_out}
+   * com intervalo `[start,end)` sobreposto (meio-aberto: back-to-back NÃO conflita; o próprio booking é
+   * EXCLUÍDO). Rollup cross-oferta (provider, não service_offering isolada). `pg_advisory_xact_lock` por
+   * tenant+provider serializa confirms concorrentes (libera no commit/rollback) — correto contra phantom.
+   * Conflito = recusa fail-closed (Art. II: NUNCA auto-resolve/escolhe horário).
+   */
+  async confirmBookingWithProviderLock(
+    tenantId: string,
+    bookingId: string,
+    providerActorId: string,
+    startIso: string,
+    endIso: string
+  ): Promise<UnifiedBooking> {
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      // G7: lock xact-scoped por tenant+provider (libera automático no commit/rollback).
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${tenantId}:${providerActorId}`]);
+      // G2/G3/G8: conflito = MESMO provider (via availability→service_offering) em status bloqueante,
+      // intervalo [start,end) sobreposto, self EXCLUÍDO. (existing.start < cand.end AND existing.end > cand.start)
+      const conflict = await client.query(
+        `SELECT 1
+           FROM bookings b2
+           JOIN availability a2 ON a2.availability_id = b2.availability_id AND a2.tenant_id = b2.tenant_id
+           JOIN service_offerings so2 ON so2.id = a2.owner_id AND so2.tenant_id = a2.tenant_id
+          WHERE b2.tenant_id = $1
+            AND a2.owner_type = 'service_offering'
+            AND so2.provider_actor_id = $2
+            AND b2.status IN ('confirmed','checked_in','checked_out')
+            AND b2.booking_id <> $3
+            AND a2.start_datetime < $5
+            AND a2.end_datetime > $4
+          LIMIT 1`,
+        [tenantId, providerActorId, bookingId, startIso, endIso]
+      );
+      if (conflict.rows.length > 0) {
+        throw new ConflictError('BOOKING_PROVIDER_TIME_CONFLICT: já existe compromisso confirmado do mesmo provider neste intervalo.');
+      }
+      // G4 (transição p/ status comprometido) + G_atomicidade: checagem e gravação na MESMA transação.
+      const upd = await client.query(
+        `UPDATE bookings SET status = 'confirmed', confirmed_at = now()
+          WHERE tenant_id = $1 AND booking_id = $2 AND status = 'requested'
+          RETURNING *`,
+        [tenantId, bookingId]
+      );
+      if (upd.rows.length === 0) {
+        throw new ConflictError('BOOKING_CONFIRM_INVALID_STATE: booking não está em estado requested.');
+      }
+      await client.query('COMMIT');
+      return this.toUnifiedBooking(upd.rows[0] as UnifiedBookingRow);
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch { /* tx pode já não estar ativa */ }
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   /**

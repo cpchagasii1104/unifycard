@@ -10,6 +10,7 @@ import { createHash } from 'crypto';
 import { getClientWithTenant } from '@core/database/pool';
 import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { unifiedAvailabilityRepository } from './unified-availability.repository';
+import { resolveAvailabilityOwner } from './availability-owner-authority';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { BadRequestError, NotFoundError } from '@core/errors';
 import { getProtectedPurposeConceptIds } from './temporal-purpose';
@@ -32,7 +33,7 @@ import type {
   ConflictDetectionResult,
   AvailabilityConflict,
 } from './unified-availability.types';
-import { UnifiedBookingStatus } from './unified-availability.types';
+import { UnifiedBookingStatus, AvailabilityOwnerType } from './unified-availability.types';
 
 /** `event_outbox.event_id` estável — seed `${eventType}:${tenantId}:${entityId}`; entityId = bookingId | participantId conforme o fluxo */
 function deterministicAvailabilityEventId(
@@ -298,6 +299,32 @@ class UnifiedAvailabilityService {
     const existing = await unifiedAvailabilityRepository.findBookingById(tenantId, bookingId);
     if (!existing) {
       throw new NotFoundError('Booking não encontrado');
+    }
+
+    // 🔴 F-OFFER-5/6 / DECISION-0146: a transição p/ COMPROMISSO (confirm) passa pelo GUARD de conflito por
+    // provider, TRANSACIONAL e à prova de corrida. A entrada no conjunto bloqueante {confirmed,checked_in,
+    // checked_out} ocorre SÓ via confirm (checkIn exige confirmed; checkOut exige checked_in — state-machine),
+    // então confirm é o ponto ÚNICO. availability segue declarativa (não é tocada aqui).
+    if (input.status === UnifiedBookingStatus.CONFIRMED) {
+      const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, existing.availabilityId);
+      if (!availability) {
+        throw new NotFoundError('Disponibilidade do booking não encontrada');
+      }
+      // G10: owner_type ≠ service_offering → fora do guard cross-oferta (não adivinhar recurso); confirma normal.
+      if (availability.ownerType === AvailabilityOwnerType.SERVICE_OFFERING) {
+        // G9: provider DERIVADO server-side (availability(service_offering).owner_id → service_offerings.provider_actor_id);
+        //     NUNCA do body. Intervalo vem da availability ligada ao booking, NUNCA do body.
+        const owner = await resolveAvailabilityOwner(tenantId, AvailabilityOwnerType.SERVICE_OFFERING, availability.ownerId);
+        const startIso = new Date(availability.startDatetime).toISOString();
+        const endIso = new Date(availability.endDatetime).toISOString();
+        return await unifiedAvailabilityRepository.confirmBookingWithProviderLock(
+          tenantId,
+          bookingId,
+          owner.authorityActorId,
+          startIso,
+          endIso
+        );
+      }
     }
 
     // 🔴 BLINDAGEM: Atualizar booking (NÃO executa pagamento)

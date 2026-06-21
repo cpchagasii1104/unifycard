@@ -203,6 +203,11 @@ class ServicesFeedPlugin implements SocialFeedPlugin {
     // 🔴 BLINDAGEM: Verificar se existe availability para o serviço
     // Usamos Unified Availability Core (owner_type = 'service', owner_id = serviceId)
     // Apenas verificação, não execução
+    // 🟡 CONTENÇÃO F-OFFER-5/6 / DECISION-0146 §A.5: `owner_type='service'` é o eixo temporal LEGADO.
+    // O tempo CONTRATÁVEL da oferta é owned por `service_offering` (owner canônico) — esta leitura é só um
+    // badge "tem disponibilidade?" do feed (display, 0 linhas hoje), NÃO autoridade de oferta-tempo nem de
+    // booking. NÃO usar como fonte de compromisso. Re-key do feed para service_offering = resíduo (frente
+    // de discovery/feed própria, FORA de F-OFFER-5/6). Conter ≠ matar.
     const result = await pool.query<{ count: string }>(
       `
       SELECT COUNT(*) as count
