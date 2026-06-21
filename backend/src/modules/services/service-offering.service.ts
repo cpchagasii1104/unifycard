@@ -109,6 +109,31 @@ export const serviceOfferingService = {
     // Identidade compartilhada ATIVA (redirect resolvido; fail-closed).
     const canonical = await canonicalServiceService.requireActiveForTenant(input.tenantId, input.canonicalServiceId);
 
+    // 🔴 F-OFFER-3 / DECISION-0145: a oferta PERTENCE a um `service` VÁLIDO do MESMO provider + MESMO concept
+    // (resolvido via canonical). O `service` já carrega a elegibilidade da DECISION-0144 (declaração PF /
+    // publicação PJ ACTIVE) — HERDADA aqui, NÃO duplicada (single-chain CONCEPT→SERVICE→SERVICE_OFFERING).
+    const svc = await pool.query<{ service_id: string }>(
+      `SELECT service_id FROM services
+        WHERE tenant_id = $1::uuid AND actor_id = $2::uuid AND canonical_service_id = $3::uuid`,
+      [input.tenantId, input.providerActorId, canonical.id]
+    );
+    if (svc.rows.length === 0) {
+      throw new ServiceOfferingError(403, 'SERVICE_OFFERING_REQUIRES_SERVICE',
+        'A oferta exige um service do mesmo provider para este concept (DECISION-0145); crie o service antes — ele valida a declaração/publicação (DECISION-0144).');
+    }
+    if (svc.rows.length > 1) {
+      throw new ServiceOfferingError(409, 'SERVICE_OFFERING_SERVICE_AMBIGUOUS',
+        'Mais de um service do provider para este canonical: vínculo service→offering ambíguo (DECISION-0145 §B-bis G5).');
+    }
+    const serviceId = svc.rows[0].service_id;
+
+    // company_id DERIVADO server-side do provider (D-F3-2 / G4): body NUNCA define company/owner.
+    const provRow = await pool.query<{ company_id: string | null }>(
+      `SELECT company_id FROM actors WHERE id = $1::uuid LIMIT 1`,
+      [input.providerActorId]
+    );
+    const derivedCompanyId = provRow.rows[0]?.company_id ?? null;
+
     const existing = await pool.query<SoRow>(
       `SELECT ${SO_SELECT} FROM service_offerings
         WHERE provider_actor_id = $1::uuid AND canonical_service_id = $2::uuid LIMIT 1`,
@@ -116,16 +141,17 @@ export const serviceOfferingService = {
     );
     if (existing.rows[0]) return { offering: toOffering(existing.rows[0]), created: false };
 
+    // status nasce 'draft' (D-F3-3): criação ≠ ativação pública. professional_actor_id do body NÃO carimba (G4) → null.
     const ins = await pool.query<SoRow>(
       `INSERT INTO service_offerings (
-         tenant_id, canonical_service_id, provider_actor_id, company_id,
+         tenant_id, canonical_service_id, service_id, provider_actor_id, company_id,
          price_cents, duration_minutes, professional_actor_id, modality,
          location, service_area, conditions, status
-       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, 'active')
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, 'draft')
        RETURNING ${SO_SELECT}`,
       [
-        input.tenantId, canonical.id, input.providerActorId, input.companyId ?? null,
-        input.priceCents, input.durationMinutes, input.professionalActorId ?? null,
+        input.tenantId, canonical.id, serviceId, input.providerActorId, derivedCompanyId,
+        input.priceCents, input.durationMinutes, null,
         input.modality ?? 'in_person',
         JSON.stringify(input.location ?? {}), JSON.stringify(input.serviceArea ?? {}),
         JSON.stringify(input.conditions ?? {}),
