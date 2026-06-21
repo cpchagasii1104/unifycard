@@ -253,3 +253,44 @@ Do meu eixo (schema): o banco já sustenta o re-key e a régua semântica já es
 - **Arquivos lidos:** METODO.md · IA-DESCOBERTA-FRONT.md · IA-SEMANTICA.md §F-OFFER-4 · CONSOLIDADO cadeia-de-oferta · migrations 20260621100000/20260621120000 · `services-discovery.service.ts:305-322` (via apoio)
 - **SQL/probes usados:** `count(*)` exato (services/canonical_services/service_offerings/categories/tco/concepts/products/canonical_products); `information_schema.columns` (nullable); `pg_constraint` (FK+confdeltype); `pg_index`/`pg_get_indexdef`; `EXPLAIN` (não-EXECUTE) do join+filtro; `query_to_xml` varredura de counts; grep de seed. **Probes descartados; READ-ONLY estrito.**
 - **Veredito:** **PASS_PARA_GO** · próxima recomendação **GO_DIRETO_MODO_B_SEM_DECISION_NOVA** (execução = código sob ciclo; caveat de navegação não-folha → IA-DESCOBERTA-FRONT).
+
+---
+
+## F-OFFER-5 — READ-FIRST BANCO (prova-viva do substrato temporal)
+
+**HEAD:** `bca473fa` · branch `rescue-structural` · **banco** `unificard_dev` · 2026-06-21 · **READ-ONLY** (catálogo/`count(*)` exato/`pg_get_functiondef`; probes descartados; nada mutado). Insumo cruzado: `IA-TEMPO.md` (eixo TEMPO / §F-OFFER-5 = PARTIAL: substrato único e são; gap = garantia temporal).
+
+### Tabela prova-viva
+
+| # | item | estado (prova SQL) | janela |
+|---|---|---|---|
+| 1 | CHECK `owner_type` aplicado | `chk_availability_owner_type` VIVO = **6 tipos** (`user, service, event, group, page, service_offering`); migration `20260612110000_availability_owner_type_check.sql` em `schema_migrations`. **Fail-closed** (INSERT fora dos 6 = rejeitado por enumeração) | grátis |
+| 2 | `owner_id` tem FK? | **NÃO.** Única FK de `availability` = `fk_availability_purpose_concept` (purpose_concept_id→concepts RESTRICT). `owner_id` = uuid **NOT NULL, SEM FK** → polimórfico, **0 integridade referencial**, **sem ON DELETE por tipo** (service_offering deletado deixa availability órfã) | cuidado (estrutural) |
+| 3 | triggers de overlap em `availability` | **ZERO triggers** na tabela (pg_trigger não-interno = 0 linhas). **Overlap fantasma CONFIRMADO** | — |
+| 3b | EXCLUDE constraint (tstzrange) | **NENHUMA** (contype='x' = 0) | — |
+| 3c | índice gist/range | **NENHUM** | — |
+| 4 | `detect_availability_conflicts` | **STUB** vivo: corpo `BEGIN RETURN; END;` → não detecta nada. (Call site `service.ts:184` só `owner_type='user'` = código, IA-TEMPO) | — |
+| 5 | rowcount `availability` por owner_type | **`user`=48** · `page`=0 · `service`=0 · `service_offering`=0 · `event`=0 · `group`=0 · **total=48** | grátis (offer-time vazio) |
+| 6 | `service` vs `service_offering` como owner | **0 × 0** linhas (nenhum dos dois owners tem dado) → ambiguidade legado×canônico é **0 em dados** | grátis |
+
+### Achado central (garantia temporal)
+**O substrato temporal NÃO tem NENHUMA garantia de overlap no nível de banco:** não há trigger, não há `EXCLUDE` constraint (tstzrange), não há índice gist/range, e o detector (`detect_availability_conflicts`) é **STUB que retorna vazio**. Logo o "fotógrafo em 2 ofertas no mesmo horário" **não é prevenido em lugar nenhum do banco** — confirma IA-TEMPO. Não é corrupção (a tabela tem só 48 agendas de `user` e **0** linhas de `service`/`service_offering`); é **ausência de mecanismo**, totalmente **grátis de endereçar na janela virgem**.
+
+`owner_id` é **polimórfico sem FK** por design (suporta 6 tipos de owner numa coluna) — o preço é zero integridade referencial e zero `ON DELETE`; com 0 linhas de offer-owner, fortalecer/rollup é grátis agora.
+
+### VEREDITO: **PASS_PARA_DECISAO**
+O substrato temporal é **único (uma tabela SSOT `availability`)**, com `owner_type='service_offering'` **estruturalmente suportado e fail-closed** (CHECK 6 tipos aplicado), e **virgem** no que toca oferta (`service`=0, `service_offering`=0; só 48 agendas `user`). **Não é BLOCKER** para abrir F-OFFER-5. **Não é PASS limpo:** a **garantia temporal** que a oferta precisa (prevenção/alerta de overlap, rollup cross-oferta por `provider_actor_id`, integridade de `owner_id`) **não existe no banco hoje** — é régua/desenho a **DECIDIR**, tudo grátis na janela virgem (0 dados). Por isso **PASS_PARA_DECISAO**, não PASS_PARA_GO: há decisões materiais antes de executar, não só código mecânico.
+
+**Inputs estruturais para a decisão (provados; semântica = IA-TEMPO/Clayton):**
+1. **Mecanismo de overlap a escolher** — `EXCLUDE` constraint (tstzrange+GiST) **HARD-BLOQUEIA** no write, o que **colide com a Constituição Art. II** (conflito = fato→alerta→humano, NUNCA auto-bloquear/resolver — IA-TEMPO). ⇒ o caminho provável é **detector real (reativar `detect_availability_conflicts`) + emissão de FATO/alerta**, não constraint que barra. **Eu sinalizo o trade-off DB; a escolha é de IA-TEMPO/Clayton.**
+2. **Rollup cross-oferta por `provider_actor_id`** — hoje cada oferta tem `owner_id` próprio e **nenhuma query/estrutura agrega o tempo das ofertas do mesmo provider**; o link offering→provider vive só na policy de autoridade. Desenhar o rollup = grátis (0 linhas).
+3. **`owner_id` sem FK** — polimórfico; decidir se ganha integridade (ex.: FK condicional/validação por tipo no writer) ou permanece app-level. Grátis (0 offer-rows).
+4. **Convergir owner `service`(legado)×`service_offering`(canônico)** — 0×0 em dados ⇒ conter/migrar o reader legado (`service-feed.plugin`) é grátis; nenhum dado compete.
+
+**STOPs (meu eixo):** READ-ONLY honrado — só catálogo/`count(*)`/`pg_get_functiondef`/git; nenhum INSERT/UPDATE/DDL; probes descartados; nada commitado. NÃO auditei dinheiro/payout/ranking; NÃO proponho implementação; NÃO decido o mecanismo (Art. II = IA-TEMPO). Aplicar = EXECUTORA sob GO → ChatGPT → IA-YALA → Clayton.
+
+### CARIMBO FINAL
+- **HEAD:** `bca473fa` · **Revalidou schema vivo:** SIM (1ª mão) · **Banco:** `unificard_dev` · **Status:** RESPONDIDO
+- **Arquivos lidos:** METODO.md · IA-TEMPO.md (eixo TEMPO/§F-OFFER-5) · migration `20260612110000`
+- **SQL/probes:** `pg_constraint` (CHECK/FK/EXCLUDE + confdeltype) · `pg_trigger` (não-interno) · `pg_index` (gist/range) · `pg_get_functiondef` (detect_availability_conflicts) · `count(*)` exato por owner_type · `schema_migrations`. Probes descartados.
+- **Veredito:** **PASS_PARA_DECISAO** (substrato único+virgem+owner=service_offering fail-closed; garantia temporal de overlap **ausente no banco** = régua a decidir, grátis na janela virgem; mecanismo constrangido por Art. II → IA-TEMPO).

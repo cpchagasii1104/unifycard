@@ -87,3 +87,59 @@ Itens de **aplicação no banco** (stub vs real aplicado; CHECK aplicado; coluna
 **Encaminhamentos:** prova-viva DB → **IA-BANCO** (stub/real, CHECK, coluna, rowcounts por owner_type) · owner-vocabulário `service`×`service_offering` e price/concept → **IA-OFERTA** · `canRepresentActor`/representação do provider → **IA-ACTOR/IA-AUTORIDADE** · registro de DT (conflito stub; cross-oferta gap; profile-availability) → **IA-DECISOES-DT/IA-DOCUMENTOS**.
 
 **Carimbo:** HEAD `9f5e9c5e` · branch `rescue-structural` · revalidou no vivo: PARCIAL (disco SIM / banco INCONCLUSIVE→IA-BANCO) · **Status: RESPONDIDO** (com INCONCLUSIVE de banco delimitado). Análise = INSUMO, não GO.
+
+---
+
+## DRILL ("próximo", ciclo adaptativo) · ownership temporal · IA-TEMPO
+
+**HEAD vivo:** `bca473fa` (revalidei de 1ª mão; o `9f5e9c5e` da resposta anterior já moveu — último commit `docs(orchestration): version F-OFFER-4 read-first evidence`). Branch `rescue-structural`. Revalidou no vivo: disco **SIM** / banco **INCONCLUSIVE→IA-BANCO**.
+**Lidos:** `migrations/20260427120000_unified_availability_base.sql` · `migrations/20260530491000_create_unified_availability_tables.sql` · `availability-owner-authority.ts` (íntegro) · `unified-availability.service.ts:120-247` · `unified-availability.repository.ts:6,84,103-128,172-174,207,278,710-749`.
+> Nota de barramento: respondi no caminho novo `processo/cadeia-de-oferta/respostas/IA-TEMPO.md` (a pasta `respostas/` raiz foi migrada pela DIRETORA; disco venceu a narrativa do METODO §Estrutura, ainda apontando p/ raiz).
+
+### 1. Quem é o owner temporal HOJE (`availability.owner_type`/`owner_id`)
+DDL viva (`20260530491000:CREATE TABLE availability`): `owner_type VARCHAR(30) NOT NULL` · `owner_id UUID NOT NULL` · index `(tenant_id, owner_type, owner_id)`. **`(owner_type, owner_id)` identifica o RECURSO dono da janela — NÃO o actor** (`availability-owner-authority.ts:4-11`). Mapa vivo (policies, linhas 53-103):
+
+| owner_type | owner_id aponta p/ | authority actor derivado (schema vivo) |
+|---|---|---|
+| `user` | `actors.id` (actor_type=user) | o próprio actor |
+| `page` | `actors.id` (actor_type=page) | o próprio actor |
+| `service` | `services.service_id` | `services.actor_id` |
+| `service_offering` | `service_offerings.id` | `service_offerings.provider_actor_id` (0117 D) |
+| `event` | `events.id` | `events.actor_id` |
+| `group` | `groups.id` | `COALESCE(groups.owner_actor_id, actor_id)` |
+
+⇒ **owner temporal HOJE é polimórfico de 6 tipos**, agenda pessoal (`user`/`page`) e agenda de recurso/oferta (`service`/`service_offering`/`event`/`group`) na MESMA tabela SSOT.
+
+### 2. `availability` já suporta `owner='service_offering'`?
+**SIM, plenamente, no código/migration:** enum `unified-availability.types.ts:24` · policy `availability-owner-authority.ts:71-80` (→`provider_actor_id`) · CHECK físico `20260612110000:25,32` (6 tipos, fail-closed, espelhado no enum). **Fonte = DECISION-0117 D** (não 0132). Aplicação do CHECK no banco vivo → **IA-BANCO**.
+
+### 3. Quem ESCREVE janelas (writer/autoridade)
+- **Writer:** só services do domínio unified_availability — `repository.createAvailability` (exige `ownerType`+`ownerId`, `:103-128`) e `updateAvailability` (`:278`). Não há writer fora do core (confirmado Rodada 7: nada além de `core/availability` faz INSERT/UPDATE em `availability`).
+- **Autoridade (forte, fail-closed):** `resolveAvailabilityOwnerAuthority` (`:139-157`) resolve o recurso → deriva authority actor do schema vivo → **prova `canRepresentActor(req.user, authorityActorId)` server-side**. 404 (recurso/tipo) · 403 (sem representação). Proíbe explicitamente tratar `owner_id` como actor, `as never`, fallback de actor do cliente, `ensureUserActor`. As rotas chamam em todos os writes (`routes.ts:254,638,1080,1155,1240,1485…`).
+
+### 4. Como o BOOKING lê isso
+`service.createBooking` (`:134-177`): (a) `findAvailabilityById` lê a janela; (b) **GATE 0132 §4** — se `availability.purposeConceptId` ∈ protegidos (estudo/cuidados/lazer) → 400 `AVAILABILITY_PERSONAL_PROTECTED`; `trabalho`/NULL bookáveis; (c) `requesterActorId` obrigatório + validado; (d) `createBooking` **não executa pagamento**; (e) conflito detectado **APÓS**, não-bloqueia, só p/ `owner_type='user'`. Autoridade do booking = `canRepresentActor(requesterActorId)` (lado comprador, `routes.ts:734`). Oferta (`service_offering`) tem `purpose_concept_id=NULL` → o gate 0132 não a afeta (é semântica de agenda pessoal).
+
+### 5. Onde ainda há owner genérico/polimórfico PERIGOSO
+O polimorfismo em si é **CONTIDO** por `resolveAvailabilityOwnerAuthority` (uso correto). Os perigos REAIS:
+- **`owner_id UUID` SEM FK** (DDL): nenhuma integridade referencial — `owner_id` órfão/dangling fisicamente possível; um UUID coincidente de outro tipo só não autoriza porque a *policy* checa tipo (app-level, não DB). → integridade fraca; **IA-BANCO** confirma ausência de FK.
+- **Trigger de sobreposição FANTASMA:** `repository.ts:6,84,207` afirmam "Trigger previne sobreposição de horários por owner", mas **NENHUMA migration vigente cria esse trigger** (nem `20260427120000` nem `20260530491000`; nenhum `EXCLUDE/tstzrange/OVERLAPS`). Comentário stale → **NÃO há guarda de overlap no DB**. (Trigger stale só no banco vindo de archive `0576` = drift possível → **IA-BANCO** lista triggers de `availability`.)
+- **`detect_availability_conflicts` = STUB** (`20260530491000:RETURN;`) e só chamado p/ `owner_type='user'` → conflito nunca dispara.
+- **`unified-calendar`** filtra `owner_id = filters.actorId` cru (`:88-90`): correto p/ `user`/`page`, mas conceitualmente trata owner_id como actor — p/ `service_offering` (owner_id=offering.id) a agenda da oferta **não** aparece no calendário pessoal por actorId. Projeção, não vazamento; sinalizo.
+
+### 6. O que QUEBRA se a agenda passar de pessoa/service → oferta
+**Estruturalmente, nada quebra** — `service_offering` já é owner suportado (enum+policy+CHECK), authority mapeia p/ `provider_actor_id`, writes gated, booking lê por id. A migração de eixo é aditiva. **O que fica EXPOSTO/CRÍTICO ao virar oferta:**
+- **Double-booking da oferta NÃO é prevenido:** sem trigger de overlap + conflito stub + conflito só p/ `user` ⇒ a mesma `service_offering` (ou o mesmo provider em N ofertas) pode receber 2 bookings sobrepostos. Em agenda pessoal era tolerável (alerta); em **oferta contratável é falha econômica**.
+- **Conflito cross-oferta do mesmo provider continua GAP** (owner_id por-oferta, sem rollup por `provider_actor_id` — o link existe na policy, nenhuma query usa).
+- **Ambiguidade `service`×`service_offering`:** os DOIS são owner de oferta-tempo vivos (legado lido por `service-feed.plugin:211`); ao mover p/ oferta é preciso cravar `service_offering` como único e conter `service`.
+- **`owner_id` sem FK** vira risco maior: oferta apagada deixaria availability órfã apontando p/ offering inexistente (sem `ON DELETE`).
+- **Calendário/projeção:** agenda da oferta não casa com filtro `actorId` pessoal — a UI do provider precisaria projetar por `provider_actor_id`→offerings→availability.
+
+### VEREDITO do drill: **PARTIAL** (o substrato suporta a oferta; faltam 3 guardas materiais)
+Owner `service_offering` está pronto como ENDEREÇO temporal. **Antes de a agenda virar oferta de verdade, F-OFFER precisa LAÇAR (desenho, gated):** (1) guard de **overlap por owner** no DB (hoje fantasma) — FATO/ALERTA→humano onde a Constituição Art. II exigir, **bloqueio só onde for double-booking de oferta contratável** (decisão de Clayton: oferta tolera overlap? em geral NÃO); (2) **conflito cross-oferta por `provider_actor_id`** (rollup); (3) reativar `detect_availability_conflicts` (stub) com escopo correto; (4) **FK/ON DELETE** de `owner_id` por tipo (IA-BANCO/IA-OFERTA); (5) convergir `service`→`service_offering`.
+**Reverse-check (N→1, METODO):** para o fim "oferta contratável confiável no tempo" ser verdadeiro, a camada TEMPO precisa garantir *não-duplo-booking do recurso* — **hoje NÃO garante** (3 furos acima). Pelo `<` load-bearing, isso é **rachadura de fundação da camada 4 (TEMPO) sob ESTADO/FINANCEIRO** → **GOAL-BREAKER quando houver dado real**, mas **baixo custo agora** (janela virgem: 0 rows — confirmar rowcount `availability` por owner_type com IA-BANCO).
+**INCONCLUSIVE→IA-BANCO:** FK em `owner_id`; lista de triggers vivos em `availability` (overlap real vs fantasma); CHECK aplicado; função stub vs real; rowcount por owner_type (custo da janela virgem).
+
+**STOPs:** conflito = FATO→ALERTA→humano (Art. II) — **proibido auto-resolver/escolher horário**, mesmo virando oferta · não criar coluna de tempo na oferta (JOIN read-only) · não tratar `owner_id` como actor sem resolver tipo · writes só via core unified_availability sob `canRepresentActor` · 0132≠owner_type (0117 D é a fonte). Análise = INSUMO, não GO.
+
+**Carimbo:** HEAD `bca473fa` · branch `rescue-structural` · revalidou no vivo: PARCIAL (disco SIM / banco INCONCLUSIVE→IA-BANCO) · **Status: RESPONDIDO**.
