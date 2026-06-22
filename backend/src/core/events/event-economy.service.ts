@@ -17,6 +17,7 @@
 
 import { BadRequestError, NotFoundError } from '@core/errors';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
+import { assertCheckoutFinancialRuntimeEnabled } from '@core/checkout/checkout-financial-firewall';
 import { runQueryWithTenant } from '@core/database/pool';
 import { eventService } from './event.service';
 import type {
@@ -42,6 +43,10 @@ class EventEconomyService {
     tenantId: string,
     input: ProcessCheckoutInput
   ): Promise<CheckoutResult> {
+    // 🔴 F-CHECKOUT-FINANCIAL-RUNTIME-CONTAINMENT — fail-closed ANTES de qualquer delegação a bank-integration.
+    // Choke point do trilho /events/:id/checkout. default OFF; não move dinheiro enquanto OFF.
+    assertCheckoutFinancialRuntimeEnabled('eventEconomyService.processCheckout');
+
     const { eventId, attendeeActorId, quantity } = input;
 
     // 1. Validações específicas do domínio HTTP

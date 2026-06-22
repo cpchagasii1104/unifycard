@@ -4,6 +4,7 @@
 import { runTenantTransaction } from '@core/db';
 import { CheckoutRequest, CheckoutResult } from '@unificard/contracts';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
+import { assertCheckoutFinancialRuntimeEnabled } from './checkout-financial-firewall';
 
 /**
  * Serviço central de Checkout
@@ -18,6 +19,10 @@ export class CheckoutService {
     tenantId: string,
     input: CheckoutRequest
   ): Promise<CheckoutResult> {
+    // 🔴 F-CHECKOUT-FINANCIAL-RUNTIME-CONTAINMENT — fail-closed ANTES de mock/bank. default OFF.
+    // Choke point: todas as rotas /api/checkout/* passam por aqui. Não move dinheiro enquanto OFF.
+    assertCheckoutFinancialRuntimeEnabled('CheckoutService.processCheckout');
+
     // Validação básica
     if (input.amount <= 0) {
       throw new Error('Invalid amount');
