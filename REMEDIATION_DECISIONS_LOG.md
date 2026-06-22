@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0146 (2026-06-21) |
+| Última entrada | DECISION-0147 (2026-06-22) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7397,3 +7397,21 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** —
 - **Superada por:** —
 - **Referências:** `docs/02_decisions/DECISION_0146_OFFER_TEMPORAL_INTEGRITY_AND_BOOKING_CONFLICT.md` · **Constituição temporal Art. II** (conflito=fato→alerta→humano) · `DECISION-0117` D (`availability.owner_type`) · `DECISION-0132` (purpose temporal/booking gate) · `DECISION-0143/0144/0145` (cadeia de oferta) · `DECISION-0113` (actorId hint) · `docs/orquestracao/processo/cadeia-de-oferta/respostas/IA-TEMPO.md` / `IA-BANCO.md` (READ-FIRST F-OFFER-5).
+
+---
+
+## DECISION-0147 — Ativação segura de service_offering (draft→active) (F-SERVICE-OFFERING-ACTIVATION-SAFE-PUBLICATION · P3 / Caminho A)
+
+- **Data:** 2026-06-22
+- **Tipo:** Arquitetural / produto-autoritativo (DOCS-ONLY) — **NÃO MATERIAL** (não toca runtime/migration/backend/frontend/`docs/01_normative`).
+- **Frente:** P3 / Caminho A · **HEAD (pré-commit):** `1b6f1fea`
+- **Status:** **PROMULGADA / DOCS-ONLY / ATIVAÇÃO SEGURA DE SERVICE_OFFERING.**
+- **Contexto:** READ-FIRST 3 elos (READ-ONLY): superfície de ativação = FECHA_COM_RISCO (ativação só `canRepresentActor`; status free-form; elegibilidade só na criação) · gates KYB/trust = **DECISION_REQUIRED** · active-only/cascata = FECHA_COM_RISCO (discovery active-only ✓; cascata KYB→publicação/tco atômica ✓; **mas NÃO suspende `service_offerings.status`**). `active` não é status visual — é **autorização operacional de contratação**.
+- **Decisão soberana (Clayton · Modelo A):** **Q1** draft→active **revalida elegibilidade no momento da ativação**. **Q2** PJ = KYB-approved + operacional (0100 D6) + publicação ACTIVE + representável; PF = declaração ACTIVE + **KYC-lite/identidade mínima** + sem ATL/bloqueio + representável. **Q3** offering active **EXIGE** publicação(PJ)/declaração(PF) ACTIVE; **"contratável-direto sem publicação" NÃO autorizado** (modo private/limited futuro = decisão própria, nunca reusar `active`). **Q4** `status` = **state-machine fail-closed** (nunca free-form do body). **Q5** base revogada (KYB/publicação/declaração/canonical/operacional) → **suspende** offerings `active` afetadas (cascata; não apaga; não move dinheiro). **Invariante:** nenhuma offering fica `active` se a base que a autoriza caiu. **+7 guards (§B-bis).**
+- **Ressalva obrigatória (PF/KYC-lite):** se KYC-lite do PF **não for materialmente definível** no schema/runtime vivo, a execução deve **STOP_DECISION_REQUIRED** ou **fail-closed** para ativação PF — **não inventar** critério em código.
+- **Materialização/Prova:** **NENHUMA** (docs-only). Execução após (GO próprio, **MODO B/C**): harden `updateOwnOffering`/endpoint + state-machine + re-validação (draft→active, suspended→active) + estender cascata 0101 a `service_offerings.status` + active-only + guard/NP + E2E (draft invisível · active visível · revogação suspende · booking só em active).
+- **Consequências:** P3 **DECISION PROMULGADA**; execução material **HOLD** até GO. **FORA:** dinheiro/checkout/payment/payout/Bank/Core/ledger/split/migration/`docs/01_normative`/oferta-privada.
+- **Responsável:** Clayton / IA-DIRETORA (executor: Claude Opus 4.8). **Validação prévia:** Clayton (promulgação) + ChatGPT (ratificado) + READ-FIRST P3 (3 elos READ-ONLY).
+- **Supera:** —
+- **Superada por:** —
+- **Referências:** `docs/02_decisions/DECISION_0147_OFFER_ACTIVATION_SAFE_PUBLICATION.md` · DECISION-0100 D5/D6 (KYB+operacional p/ publicação) · DECISION-0101 (cascata KYB) · DECISION-0088 §3.6 (KYB strict) · DECISION-0117 D (oferta cria draft) · DECISION-0144/0145 (cadeia oferta) · DECISION-0113 (autoridade server-side).
