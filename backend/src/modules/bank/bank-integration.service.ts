@@ -11,6 +11,7 @@ import { bankAccountService } from './bank-account.service';
 import { bankTransactionService } from './bank-transaction.service';
 import { requestAndExecuteReversalSync } from '../reversal/reversal.service';
 import { buildFinancialAuthorshipFromRequest } from './financial-authorship.helper';
+import { assertCheckoutFinancialRuntimeEnabled } from '@core/checkout/checkout-financial-firewall';
 import type { BankTransactionContext } from './bank-split.types';
 import type { BankCurrency } from './bank-account.types';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
@@ -138,6 +139,10 @@ class BankIntegrationService {
       metadata?: Record<string, any>;
     }
   ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
+    // 🔴 DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK — gate NO SINK (defesa-em-profundidade; fecha por
+    // CONSTRUÇÃO: qualquer caller, presente/futuro/dead-code religado, bate aqui antes de tocar bank_*).
+    // Reusa a flag de checkout/eventos (default OFF); não move dinheiro enquanto OFF. Caller mantém seu gate.
+    assertCheckoutFinancialRuntimeEnabled('bankIntegration.processEventTicketPayment');
     const { eventId, buyerUserId, currency = 'BRL', idempotencyKey, metadata } = input;
     const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
 
@@ -237,6 +242,9 @@ class BankIntegrationService {
       metadata?: Record<string, any>;
     }
   ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
+    // 🔴 DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK — gate NO SINK (defesa-em-profundidade; fecha por construção).
+    // Reusa a flag de checkout/eventos (default OFF); não move dinheiro enquanto OFF. Caller mantém seu gate.
+    assertCheckoutFinancialRuntimeEnabled('bankIntegration.processEventConsumptionPayment');
     const { eventId, buyerUserId, currency = 'BRL', idempotencyKey, metadata } = input;
     const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
 

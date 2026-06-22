@@ -46,9 +46,28 @@ if (ee === null) fails.push(`arquivo ausente: ${EE}`);
 else before(ee, EE, /assertCheckoutFinancialRuntimeEnabled\(/, /bankIntegration|processEvent\w+Payment/,
   'processCheckout (event-economy) sem gate fail-closed antes da delegação ao banco');
 
+// ── SINK (DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK): gate NO sink de evento, ANTES da escrita bank_* ──
+// Fecha por construção: mesmo um caller futuro/dead-code religado bate no gate antes de createTransactionWithSplit.
+const BI = 'src/modules/bank/bank-integration.service.ts';
+const bi = read(BI);
+if (bi === null) fails.push(`arquivo ausente: ${BI}`);
+else {
+  for (const m of ['processEventTicketPayment', 'processEventConsumptionPayment']) {
+    const start = bi.indexOf(`async ${m}(`);
+    if (start === -1) { fails.push(`${BI}: método-sink ${m} ausente.`); continue; }
+    const rest = bi.slice(start + 1);
+    const nextAsync = rest.indexOf('\n  async ');
+    const body = nextAsync === -1 ? rest : rest.slice(0, nextAsync);
+    const g = body.search(/assertCheckoutFinancialRuntimeEnabled\(/);
+    const b = body.search(/createTransactionWithSplit\(/);
+    if (g === -1) fails.push(`${BI}: sink ${m} SEM gate fail-closed (DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK; gate no caller é disciplina, no sink é construção).`);
+    else if (b !== -1 && g > b) fails.push(`${BI}: sink ${m} com gate DEPOIS da escrita bank_* (createTransactionWithSplit).`);
+  }
+}
+
 if (fails.length > 0) {
   console.error('GATE FAIL [checkout-financial-containment]:');
   for (const f of fails) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [checkout-financial-containment] — runtime financeiro de checkout/eventos contido fail-closed (CHECKOUT_FINANCIAL_RUNTIME_ENABLED default OFF) ANTES de mock/bank em CheckoutService.processCheckout e eventEconomyService.processCheckout; separado do SERVICE_FINANCIAL_RUNTIME_ENABLED.');
+console.log('GATE OK [checkout-financial-containment] — runtime financeiro de checkout/eventos contido fail-closed (CHECKOUT_FINANCIAL_RUNTIME_ENABLED default OFF) no CALLER (CheckoutService/eventEconomyService) E no SINK (bankIntegration.processEvent{Ticket,Consumption}Payment, antes de createTransactionWithSplit) — defesa-em-profundidade; separado do SERVICE_FINANCIAL_RUNTIME_ENABLED; createTransactionWithSplit genérico intocado.');

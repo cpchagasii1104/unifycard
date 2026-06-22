@@ -22,6 +22,7 @@ async function main(): Promise<void> {
   const { pool } = await import('../core/database/pool');
   const { checkoutService } = await import('../core/checkout/CheckoutService');
   const { eventEconomyService } = await import('../core/events/event-economy.service');
+  const { bankIntegrationService } = await import('../modules/bank/bank-integration.service');
   const { isCheckoutFinancialRuntimeEnabled } = await import('../core/checkout/checkout-financial-firewall');
 
   const c = await pool.connect();
@@ -41,6 +42,14 @@ async function main(): Promise<void> {
     ok((await throwsDisabled(() => eventEconomyService.processCheckout(TENANT, {
       eventId: '00000000-0000-0000-0000-000000000000', attendeeActorId: '00000000-0000-0000-0000-000000000000', quantity: 1,
     } as any))) === 'OK', '2. eventEconomyService.processCheckout → CHECKOUT_FINANCIAL_RUNTIME_DISABLED');
+
+    // SINK direto (DT-...): bypassa o caller → o gate-no-sink fecha por construção
+    ok((await throwsDisabled(() => bankIntegrationService.processEventTicketPayment(TENANT, {
+      eventId: '00000000-0000-0000-0000-000000000000', buyerUserId: '00000000-0000-0000-0000-000000000000', amountCents: 5000,
+    } as any))) === 'OK', '2a. SINK bankIntegration.processEventTicketPayment DIRETO (flag OFF) → DISABLED');
+    ok((await throwsDisabled(() => bankIntegrationService.processEventConsumptionPayment(TENANT, {
+      eventId: '00000000-0000-0000-0000-000000000000', buyerUserId: '00000000-0000-0000-0000-000000000000', amountCents: 5000,
+    } as any))) === 'OK', '2b. SINK bankIntegration.processEventConsumptionPayment DIRETO (flag OFF) → DISABLED');
 
     const after = { l: await count('bank_ledger'), t: await count('bank_transactions'), s: await count('bank_splits') };
     console.log(`    bank_* depois: ledger=${after.l} tx=${after.t} splits=${after.s}`);
