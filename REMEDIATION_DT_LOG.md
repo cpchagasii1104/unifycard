@@ -45,6 +45,16 @@ Status values:
 
 ---
 
+## DT-BOOKING-CORE-USERID-SUBJECT-POLLUTION — OPEN / MÉDIA (2026-06-22)
+
+- **Status:** OPEN
+- **Origem:** F-BOOKING-CORE-AUTHORITY-HARDENING READ-FIRST + D1-GUARD-INTERIM (guard `e0d8ba3f`).
+- **Vinculada a:** DECISION-0113 (channel-1: rota gateia, core confia).
+- **Contexto:** `unifiedAvailabilityService.createBooking` valida que `requesterActorId` **EXISTE**, não que o caller tem **AUTORIDADE** sobre ele. O param `userId` é passado com **3 tipos de id inconsistentes** por caller: rota canônica → **actorId** (`actionContext.actorId`); checkout-ticket → **global_user_id**; service-hire → **user_id**. `canRepresentActor` casa por `actor.user_id === userId` → um `canRep` ingênuo no core daria FALSE p/ canonical+checkout (fail-closed que quebra fluxo legítimo). Por isso a Opção A foi DESCARTADA agora.
+- **Risco:** o core depende da disciplina de caller (não é auto-defensivo). Latente: caller futuro/bugado passa `requesterActorId` que o `userId` não representa, sem o core barrar.
+- **Mitigação atual:** guard `audit-booking-caller-authority.mjs` (D, em regression-guards) congela a disciplina — os 7 call-sites estão classificados (BOUND: rota canônica + bundle; FIREWALL_CONTAINED: service-hire/0110; SELF_BOOKING_ALLOWLIST: checkout-ticket/event-rfq derivam requester server-side; TEST_ONLY: e2e). Call-site novo inseguro / perda de binding-firewall-derivação → MORDE (NP 4×).
+- **Resolução prevista:** **F-BOOKING-CORE-SUBJECT-MODEL-DECISION (B)** — definir o subject canônico do core (subjectUserId normalizado / subject de sistema explícito / self vs represented) e tornar o core auto-defensivo (Opção B do READ-FIRST). Opção C (split `createBookingForRepresentedActor` vs `createSystemBooking`) só se B provar caller de sistema real.
+
 ## DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK — OPEN / MÉDIA (2026-06-22)
 
 - **Status:** OPEN
