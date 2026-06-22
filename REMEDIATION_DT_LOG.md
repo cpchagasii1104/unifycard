@@ -45,9 +45,10 @@ Status values:
 
 ---
 
-## DT-BOOKING-CORE-USERID-SUBJECT-POLLUTION — OPEN / MÉDIA (2026-06-22)
+## DT-BOOKING-CORE-USERID-SUBJECT-POLLUTION — CLOSED / MÉDIA (2026-06-22)
 
-- **Status:** OPEN
+- **CLOSED (2026-06-22, commit `aaee5359`, IA-YALA PASS):** materializada a DECISION-0148 (Opção B) — o core `createBooking` deixou de receber `userId` genérico e passou a receber `BookingSubject {subjectUserId, requesterActorId}`, **revalidando `canRepresentActor` server-side** (fail-closed). Os 5 callers normalizam o subject a `user_id` server-side (checkout: `global_user_id→user_id`); nenhum passa actorId/global_user_id como subjectUserId; nenhum aceita requester do body. Guard `audit-booking-caller-authority` atualizado (core revalida + subject por call-site; NP 4×). e2e-booking-subject-authority 6/6 + B1 9/9 + p3 6/6.
+- **Status:** CLOSED (era OPEN)
 - **Origem:** F-BOOKING-CORE-AUTHORITY-HARDENING READ-FIRST + D1-GUARD-INTERIM (guard `e0d8ba3f`).
 - **Vinculada a:** DECISION-0113 (channel-1: rota gateia, core confia).
 - **Contexto:** `unifiedAvailabilityService.createBooking` valida que `requesterActorId` **EXISTE**, não que o caller tem **AUTORIDADE** sobre ele. O param `userId` é passado com **3 tipos de id inconsistentes** por caller: rota canônica → **actorId** (`actionContext.actorId`); checkout-ticket → **global_user_id**; service-hire → **user_id**. `canRepresentActor` casa por `actor.user_id === userId` → um `canRep` ingênuo no core daria FALSE p/ canonical+checkout (fail-closed que quebra fluxo legítimo). Por isso a Opção A foi DESCARTADA agora.
