@@ -53,12 +53,13 @@ export default function ServicePostCard({ post, onScheduleSuccess, onPaymentSucc
 
       // 🔴 NOTA: Agendamento deve ser feito via domínio de services/booking
       // Este componente será substituído por FeedServiceItem que usa ações do plugin
-      console.warn('Agendamento: usar FeedServiceItem com ação BOOK do plugin');
+      // 🔴 B2 / F-OFFER: PLACEBO REMOVIDO. Este card NÃO cria booking — declarar "agendado com sucesso"
+      // sem chamar a API era verdade falsa (frontend nunca cria verdade). A reserva real acontece pela
+      // jornada canônica discovery → oferta → disponibilidade → reserva (ServiceOfferingSelector).
       setShowScheduleForm(false);
       setStartTime('');
       setEndTime('');
-      if (onScheduleSuccess) onScheduleSuccess();
-      alert('Serviço agendado com sucesso!');
+      setScheduleError('Agendamento por este card foi descontinuado — abra a página do serviço para reservar uma oferta.');
     } catch (err: any) {
       setScheduleError(err.message || 'Erro ao agendar serviço');
     } finally {

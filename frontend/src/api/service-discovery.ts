@@ -25,6 +25,9 @@ export interface ServiceDiscoveryFilters {
 export interface DiscoveredService {
   // Service fields (camelCase como retornado pelo backend)
   serviceId: string;
+  // B2 / F-OFFER: identidade canônica do serviço — TRANSPORTADA do backend (NÃO derivada no front).
+  // É a chave para listar as ofertas contratáveis via GET /services/offerings/by-canonical/:canonicalServiceId.
+  canonicalServiceId: string | null;
   tenantId: string;
   actorId: string;
   name: string;
@@ -142,6 +145,7 @@ export async function getServiceForDiscovery(serviceId: string): Promise<Discove
     // Mapear Service para DiscoveredService
     return {
       serviceId: service.id,
+      canonicalServiceId: (service as { canonicalServiceId?: string | null }).canonicalServiceId ?? null,
       tenantId: service.tenantId,
       actorId: service.actorId,
       name: service.name,

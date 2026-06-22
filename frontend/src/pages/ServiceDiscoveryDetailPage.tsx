@@ -7,6 +7,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getServiceForDiscovery, type DiscoveredService } from '../api/service-discovery';
 import { showToast } from '../components/common/Toast';
 import ServiceSetupSelector from '../components/compatibility/ServiceSetupSelector';
+import ServiceOfferingSelector from '../components/ServiceOfferingSelector';
 import CompatibilityChecklist from '../components/compatibility/CompatibilityChecklist';
 import CompatibilityModal from '../components/compatibility/CompatibilityModal';
 import { evaluateCompatibility } from '../api/compatibility';
@@ -257,6 +258,11 @@ export default function ServiceDiscoveryDetailPage() {
                 {service.countryId && <span> - {service.countryId}</span>}
               </div>
             </div>
+          )}
+
+          {/* B2 / F-OFFER: ofertas contratáveis (active-only) + jornada de reserva pré-dinheiro */}
+          {service.canonicalServiceId && (
+            <ServiceOfferingSelector canonicalServiceId={service.canonicalServiceId} />
           )}
 
           {/* Resumo de Disponibilidade */}
