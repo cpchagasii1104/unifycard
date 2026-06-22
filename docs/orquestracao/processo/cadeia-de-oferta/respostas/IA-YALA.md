@@ -1013,3 +1013,85 @@ gate real em todos os ramos + cascata + booking-gate + guard-NP 2×); gates verd
 - **Promulgação:** ato MANUAL de Clayton (MODO C) — meu veredito é insumo.
 READ-ONLY: harnesses tsx apagados; guard-NPs revertidos (svc `e009fe2e`, gate `a247d43f`); fixtures com teardown
 (zero resíduo: companies/actors Yala=0; svc/so/bk=0); só editei meu `respostas/IA-YALA.md`. Nada commitado.
+
+---
+
+## RODADA 17 — RESEAL ADVERSARIAL F-CHECKOUT-FINANCIAL-RUNTIME-CONTAINMENT (commit 823699e3 · DINHEIRO) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS** — nenhum caminho LIVE de checkout/eventos alcança bank_* com a flag OFF; contenção fail-closed
+provada (e2e 4/4 + Δ bank_*=0 + negative-proof posicional que MORDE). **1 RESÍDUO de defesa-em-profundidade** (writer
+morto ungated) → bloco IA-DINHEIRO abaixo.
+**HEAD no momento:** `823699e3` (branch `rescue-structural`) — `fix(checkout): fail-close event checkout financial runtime`
+  (a fatia É o HEAD; committada).
+**Revalidou no vivo:** SIM (total) — git + leitura do firewall/CheckoutService/event-economy/audit + **sweep de TODOS
+  os callers** dos métodos de bank-integration + `e2e:checkout-containment` rodado + negative-proof estático (audit) que
+  MORDE (remover gate / mover gate p/ depois do banco). ROLLBACK/READ-ONLY (NP estático = não moveu dinheiro).
+**Fonte soberana:** `checkout-financial-firewall.ts`; `CheckoutService.ts:24`; `event-economy.service.ts:48`;
+  `bank-integration.port.ts`/`bank-integration.service.ts` (sink); `audit-checkout-financial-containment.mjs`;
+  `e2e-checkout-financial-containment.ts`. DECISION-0110 (padrão fail-closed espelhado).
+**Status:** RESPONDIDO.
+
+### Refutação dos 3 pontos
+1. **Algum caminho ainda alcança bank_* com flag OFF? → NÃO (nenhum LIVE).** Sweep completo dos callers de
+   `processEventTicketPayment`/`processEventConsumptionPayment` (os 2 sinks reais): (a) `CheckoutService.processCheckout`
+   — gate l.24 ANTES de `mockUnifyCardCharge` (l.54) e `bankIntegration` (l.71/89) ✓; (b) `eventEconomyService.processCheckout`
+   — gate l.48 antes da delegação (l.84) ✓; (c) `bank-integration.service.ts` = a DEFINIÇÃO do sink; (d)
+   `events-payment.service.processEventPayment` = **MORTO** (único "caller" é um COMENTÁRIO em event-economy.service:14;
+   zero rota/importer vivo) — não alcança bank_* por não ser reachable. marketplace/organizer/bundle: **sem trilho bank**
+   (grep vazio). `e2e:checkout-containment` = **4/4 PASS** (flag default OFF · CheckoutService→DISABLED · eventEconomy→DISABLED ·
+   **Δ bank_ledger=0/tx=0/splits=0**). ⇒ Nenhuma rota viva escapa.
+2. **Negative-proof MORDE? → SIM (estático, sem mover dinheiro).** Audit faz checagem POSICIONAL (`gate-index < bank-index`).
+   NP1: removi o `assertCheckoutFinancialRuntimeEnabled` de CheckoutService → audit **exit 1** ("processCheckout sem gate …
+   gate ausente"). NP2: movi o gate p/ DEPOIS de `mockUnifyCardCharge`/`bankIntegration` → audit **exit 1** ("gate DEPOIS
+   da delegação ao banco"). Revertido via `git checkout` (diff vazio `e69de29b`, gate de volta na l.24, audit exit 0).
+   (Optei pelo NP estático: remover/mover o gate e rodar o caminho REAL escreveria em bank_* no SSOT — evitei mutação de dinheiro.)
+3. **Contenção não ligou dinheiro / não alterou ledger-split-payout / createBooking intocado? → CONFIRMADO.** Commit
+   823699e3 = 6 arquivos: firewall (novo) + audit (novo) + e2e (novo) + `CheckoutService.ts` (+5 = import+gate) +
+   `event-economy.service.ts` (+5 = import+gate) + `package.json` (script e2e). **NÃO** toca bookings/bank_ledger/
+   bank_splits/payout/migration. Flag **default OFF** (`=== 'true'`); **SEPARADO** de `SERVICE_FINANCIAL_RUNTIME_ENABLED`
+   (audit morde se conflacionar). createBooking intocado.
+
+### RISCOS / RESÍDUOS
+- **[RESÍDUO de defesa-em-profundidade — não-bloqueante, vira DT p/ IA-DINHEIRO]** O gate está na CAMADA DOS CALLERS
+  (CheckoutService + eventEconomy), não no SINK (`bank-integration.service.processEvent*Payment`). Há um caller
+  **ungated porém MORTO**: `events-payment.service.processEventPayment` (sem rota/importer). Hoje **não escapa** (morto),
+  mas é um bypass LATENTE: se alguém religar uma rota a ele, escreve bank_* sem passar pelo firewall. Recomendação
+  (IA-DINHEIRO): empurrar o gate p/ DENTRO de `bank-integration` (cobre TODOS os callers presentes/futuros) OU conter/
+  remover `events-payment.service` (dead-code) numa fatia própria. Registrar como DT.
+
+### STOPs
+- Contenção de dinheiro com negative-proof que MORDE → presente (posicional, 2 NPs). ✔
+- Flag default OFF; nenhum dinheiro movido; ledger/split/payout intocados; createBooking intocado. ✔
+- DT-mãe 0113 OPEN respeitada; payout externo fechado. ✔
+- Veredito é INSUMO; promulgação/abertura da flag (revalidando a cadeia real de pagamento) é ato soberano de Clayton.
+
+### CONCLUSÃO
+**PASS.** Os trilhos VIVOS de checkout/eventos que alcançavam bank_* (CheckoutService.processCheckout e
+eventEconomyService.processCheckout — rotas /api/checkout/event-ticket, /api/checkout/event-consumption, /events/:id/checkout)
+estão contidos fail-closed ANTES de qualquer mock/bank, com flag default OFF e separada do trilho de serviço; e2e prova
+4/4 + Δ bank_*=0; o negative-proof posicional MORDE (remover ou mover o gate). Nenhuma rota viva escapa. Único resíduo:
+um writer MORTO ungated (`events-payment.service`) — defesa-em-profundidade, tratado no bloco IA-DINHEIRO como DT.
+
+---
+
+### BLOCO PARA IA-DINHEIRO (de: IA-YALA)
+
+**RESPOSTA PARA: IA-DINHEIRO**
+**VEREDITO (eixo dinheiro): CONTENÇÃO VÁLIDA — zero dinheiro movido, com 1 DT de defesa-em-profundidade.**
+- **Δ bank_ledger/bank_transactions/bank_splits = 0** com a flag OFF (e2e + sweep). Flag `CHECKOUT_FINANCIAL_RUNTIME_ENABLED`
+  default OFF, fail-closed, SEPARADA de `SERVICE_FINANCIAL_RUNTIME_ENABLED` (DECISION-0110). Mock de cobrança (always-success)
+  NÃO destrava liquidação real enquanto OFF (gate antes do mock).
+- **Cadeia material confirmada:** rota → processCheckout (gateado) → `mockUnifyCardCharge` → `bankIntegration.processEvent*Payment`
+  → INSERT bank_ledger/transactions/splits. O gate intercepta ANTES do mock. A liquidação real (escrow/split) NÃO foi
+  alterada; o caminho fica preservado p/ a cadeia canônica futura (cobrança real → liquidação governada).
+- **DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK (OPEN, MÉDIA):** o gate vive nos callers, não no sink. `events-payment.service.
+  processEventPayment` é um writer de bank_* **ungated e MORTO** (sem rota). Não escapa hoje, mas é bypass latente.
+  **Convergência:** mover o `assert` p/ dentro de `bank-integration.service.processEvent*Payment` (defesa-em-profundidade,
+  cobre todo caller) e/ou conter/remover o dead-code `events-payment.service`. Critério: todo caminho a bank_* via
+  checkout/evento passa pelo gate por construção (não por disciplina de caller).
+- **Abertura da flag** (quando a cadeia real de pagamento existir) exige revalidar auth/autorização/idempotência da
+  liquidação — é ato soberano de Clayton, não desta fatia.
+
+READ-ONLY: negative-proof estático (não moveu dinheiro); CheckoutService restaurado (`git checkout`, diff vazio, audit exit 0);
+e2e self-contido (Δ bank_*=0); só editei meu `respostas/IA-YALA.md`. Nada commitado.
