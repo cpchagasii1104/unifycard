@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0147 (2026-06-22) |
+| Última entrada | DECISION-0148 (2026-06-22) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7399,6 +7399,13 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Referências:** `docs/02_decisions/DECISION_0146_OFFER_TEMPORAL_INTEGRITY_AND_BOOKING_CONFLICT.md` · **Constituição temporal Art. II** (conflito=fato→alerta→humano) · `DECISION-0117` D (`availability.owner_type`) · `DECISION-0132` (purpose temporal/booking gate) · `DECISION-0143/0144/0145` (cadeia de oferta) · `DECISION-0113` (actorId hint) · `docs/orquestracao/processo/cadeia-de-oferta/respostas/IA-TEMPO.md` / `IA-BANCO.md` (READ-FIRST F-OFFER-5).
 
 ---
+
+## DECISION-0148 — Booking Core Subject Model (Opção B) (F-BOOKING-CORE-SUBJECT-MODEL-DECISION)
+
+- **Data:** 2026-06-22 · **Status:** PROMULGADA / DOCS-ONLY · **HEAD (pré-commit):** `141870d1` · **Frente:** F-BOOKING-CORE-SUBJECT-MODEL-DECISION
+- **Decisão (Opção B):** o core `unifiedAvailabilityService.createBooking` **para de receber `userId` genérico** e passa a receber um subject normalizado `BookingSubject = { subjectUserId, requesterActorId }`, **revalidando** `canRepresentActor(tenantId, subjectUserId, requesterActorId)` (core auto-defensivo, fail-closed). `subjectUserId` = id do principal humano que casa com `actors.user_id` (NÃO actorId, NÃO global_user_id). Callers normalizam antes (canonical/bundle/hire → user_id real; checkout → global_user_id→user_id; rfq → organizer user_id). **A descartada** (userId poluído quebra canonical+checkout) · **C adiada** (READ-FIRST provou ZERO caller de sistema; `systemSubject` proibido até DECISION própria) · **D já feito** (guard interim `e0d8ba3f` = piso).
+- **Deriva de:** DECISION-0113 (channel-1) · DECISION-0118 D2 (autoridade server-side) · DECISION-0121. **Resolve:** DT-BOOKING-CORE-USERID-SUBJECT-POLLUTION.
+- **Materialização/Prova:** **NENHUMA** (docs-only). Execução após GO próprio (**MODO B/C**): `F-BOOKING-CORE-SUBJECT-MODEL-MATERIALIZATION` — tipo BookingSubject + revalidação no core + migrar 5 callers + guard atualizado + e2e + YALA. **ZERO** dinheiro/checkout/payout/fee/ledger/RLS/migration.
 
 ## DECISION-0147 — Ativação segura de service_offering (draft→active) (F-SERVICE-OFFERING-ACTIVATION-SAFE-PUBLICATION · P3 / Caminho A)
 
