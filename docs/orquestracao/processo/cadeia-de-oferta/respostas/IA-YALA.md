@@ -935,3 +935,81 @@ dinheiro). Gates verdes (front 0 / back 34 / e2e 9/9 / regression EXIT 0 / criti
 - **Promulgação:** ato de Clayton (MODO B) — meu veredito é insumo.
 READ-ONLY: não editei nenhum arquivo de código (só li + rodei typecheck/e2e/gates); o e2e do B1 se auto-limpou
 (baseline svc=0/so=0/av=48/bk=0); nenhum harness; só editei meu `respostas/IA-YALA.md`. Nada commitado.
+
+---
+
+## RODADA 16 — RESEAL P3 / F-SERVICE-OFFERING-ACTIVATION-SAFE-PUBLICATION (DECISION-0147 · MODO B/C) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS (8/8) — gate (todos os ramos PJ/PF na função real), state-machine, cascatas e booking-gate provados.**
+**HEAD no momento:** `e0e8e4ff` (branch `rescue-structural`) — `decisions: DECISION-0147 safe service offering activation`.
+  P3 no working tree (não committado). Cartório limpo.
+**Revalidou no vivo:** SIM (total) — git + leitura dos 8 + 2 e2e rodados + **gate REAL (assertOfferingActivationEligibility)
+  exercitado em TODOS os ramos** (harness descartável + fixtures committed + teardown) + guard-NP (2×) + gates.
+**Fonte soberana:** `services-offering-activation-gate.ts`; `service-offering.service.ts` (updateOwnOffering);
+  `unified-availability.service.ts` (booking-gate); `company-publications.service.ts` + `professional-c1.service.ts`
+  (cascatas); `audit-offering-activation-safe.mjs`; `e2e-offer-activation-p3.ts`; `package.json`. DECISION-0147 (Q1-Q5).
+**Status:** RESPONDIDO.
+
+### Os 8 itens
+1. **e2e → PASS.** `e2e:offer-activation-p3` = **6/6 PASS, EXIT 0** (PF válido · PF sem-decl→DECLARATION_REQUIRED ·
+   PF ATL→ACTOR_BLOCKED · PJ sem-pub→PUBLICATION_REQUIRED · cascata PF suspende active · booking-gate draft→OFFERING_NOT_ACTIVE).
+   `e2e:offer-journey` = **9/9 PASS** (não regrediu).
+2. **STATE-MACHINE → PASS (código + e2e).** updateOwnOffering: matriz explícita `to==='active' && from∈{draft,suspended}`
+   OU `to==='suspended' && from==='active'`; resto → **409 SERVICE_OFFERING_INVALID_TRANSITION** (active→draft cai aqui).
+   status só processado se `input.status != null && != atual` → não free-form do body; `→active` chama o gate.
+   (gate-on-active exercitado pelo e2e/harness; matriz é condicional puro pré-IO.)
+3. **GATE PJ → PASS (todos os ramos na função REAL, harness+teardown).** sem publicação→**PUBLICATION_REQUIRED** (e2e);
+   primary_company_type NULL→**COMPANY_NOT_OPERATIONAL**; operacional + page-actor sem fiscal_identity→**KYB_REQUIRED**;
+   tudo válido (publicação+operacional+KYB-approved)→**ativa** (NO_THROW). **Achado:** `evaluateKybLayer` aplica
+   SOMENTE a `actor_type='page'` (page→company→fiscal_identities.kyb_status, fail-closed) — confirmado: provider
+   user-actor pula KYB, page-actor sem fiscal → bloqueia. Correto.
+4. **GATE PF → PASS (todos os ramos na função REAL).** **civil-null** (global_user dedicado, `full_name`→NULL, com
+   declaração)→**CIVIL_MINIMUM_REQUIRED**; sem-declaração→**DECLARATION_REQUIRED** (e2e); ATL→**ACTOR_BLOCKED** (e2e);
+   válido (decl+CPF+full_name+identity+não-ATL)→**ativa** (NO_THROW). Sem metadata/inferência (lê SSOT vivo).
+5. **CASCATAS → PASS.** PF (e2e behavioral): base revogada (`retireConcept`) → offering active vira **suspended**,
+   ATÔMICO (BEGIN→retire decl→UPDATE service_offerings suspended→COMMIT, sem DELETE/dinheiro). PJ (código):
+   `retireAllActivePublicationsForCompanyTx` recebe o client da tx do KYB-revoke → `UPDATE service_offerings SET
+   status='suspended' ... company_id` na MESMA tx; guard proíbe `DELETE FROM service_offerings`.
+6. **BOOKING-GATE → PASS.** createBooking em offering draft → **OFFERING_NOT_ACTIVE** (e2e); em active → ok (journey
+   e2e passo 6). Código: ownerType=service_offering → SELECT status → `!== 'active'` → fail-closed.
+7. **ESCOPO + GUARD-NP → PASS.** **8 material** (5 modificados: unified-availability/company-publications/professional-c1/
+   service-offering.service + package.json; 3 novos: gate + guard + e2e). ZERO migration/frontend/dinheiro/Bank/Core/
+   payout/ledger; DECISION-0147 **intocada**. **GUARD-NP (2×):** removi o `SERVICE_OFFERING_INVALID_TRANSITION` →
+   guard **exit 1** ("sem state-machine"); quebrei `cpf IS NOT NULL`→`IS NULL` no gate → guard **exit 1** ("PF KYC-lite
+   sem CPF/full_name"). Ambos revertidos (svc `e009fe2e`, gate `a247d43f`, guard exit 0).
+8. **GATES → PASS.** typecheck = **34** (== baseline). regression-guards = **EXIT 0** com `GATE OK [offering-activation-safe]`.
+   actor-writer = **GATE OK [§4.8.1]**; bank-ledger = **GATE OK [§4.6]**. architectural --strict = **33 == baseline 33**,
+   **0 hits** nos arquivos da fatia → `critical_new = 0`.
+
+### TENTATIVAS DE REFUTAÇÃO (resultado)
+- "active→draft passa / status free-form" → REFUTADO: matriz → 409 INVALID_TRANSITION; status só transição controlada.
+- "Algum ramo do gate não fecha" → REFUTADO: TODOS os 8 ramos (PJ pub/operacional/KYB/válido; PF decl/civil/ATL/válido) provados na função real.
+- "civil/KYB são triviais" → REFUTADO: civil-null com global_user dedicado→CIVIL_MINIMUM; KYB com page-actor sem fiscal→KYB_REQUIRED.
+- "Cascata apaga/move dinheiro / não é atômica" → REFUTADO: suspend (não delete), mesma tx; PF behavioral, PJ código.
+- "Booking aceita offering não-active" → REFUTADO: draft→OFFERING_NOT_ACTIVE (e2e).
+- "Gate lê metadata" → REFUTADO: só SSOT vivo; guard proíbe profile.metadata/localStorage.
+- "Vazou escopo / quebrou gate / guard não morde" → REFUTADO: 8 material, zero proibido, gates verdes, guard mordeu 2×.
+
+### STOPs
+- Ativação/cascata/booking com negative-proof que MORDE + prova viva por função real → presentes e reproduzidos. ✔
+- Elegibilidade VIVA na ativação (não metadata); fail-closed; cascata suspende (não apaga); sem dinheiro/Bank/payout. ✔
+- Não toquei R2/delegação; DT-mãe 0113 OPEN respeitada. ✔
+- **STOP de commit:** material = os 8 (git add explícito); cartório (STATUS + DECISOES/REMEDIATION) em commit próprio.
+- Veredito é INSUMO. **MODO C: a promulgação é ato MANUAL de Clayton — sem condicional.**
+
+### CONCLUSÃO + RECOMENDAÇÃO DE COMMIT
+**PASS (8/8).** P3 torna a ATIVAÇÃO de service_offering segura (DECISION-0147): state-machine fail-closed
+(status nunca free-form; active→draft 409), gate de elegibilidade VIVA revalidada na ativação — PJ (publicação ACTIVE
++ empresa operacional + KYB approved, KYB só para page-actor) e PF (declaração ACTIVE + civil mínimo CPF/full_name/
+identity + não-ATL), sem metadata; cascata atômica que SUSPENDE (não apaga) offerings active quando a base cai
+(KYB/publicação revogada PJ; declaração retirada PF); e booking só em offering active. Tudo provado de 1ª mão (2 e2e +
+gate real em todos os ramos + cascata + booking-gate + guard-NP 2×); gates verdes; zero dado alterado (probes com teardown).
+**Recomendação de commit (PASS):**
+- **Commit MATERIAL (8):** `services-offering-activation-gate.ts` + `service-offering.service.ts` +
+  `unified-availability.service.ts` + `company-publications.service.ts` + `professional-c1.service.ts` +
+  `audit-offering-activation-safe.mjs` + `e2e-offer-activation-p3.ts` + `package.json` (git add explícito).
+- **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` (+ DECISOES/REMEDIATION se aplicável). Não misturar.
+- **Promulgação:** ato MANUAL de Clayton (MODO C) — meu veredito é insumo.
+READ-ONLY: harnesses tsx apagados; guard-NPs revertidos (svc `e009fe2e`, gate `a247d43f`); fixtures com teardown
+(zero resíduo: companies/actors Yala=0; svc/so/bk=0); só editei meu `respostas/IA-YALA.md`. Nada commitado.
