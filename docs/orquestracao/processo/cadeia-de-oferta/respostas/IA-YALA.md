@@ -853,3 +853,85 @@ intactos para um futuro caller seguro, guard que morde, e zero toque em Bank/Cor
 - **Promulgação:** ato MANUAL de Clayton (MODO C) — meu veredito é insumo, não a dispara.
 READ-ONLY: inject harness tsx apagado; guard-NP do freeze revertido (hash `af1b05f2`, guard exit 0); demais 6
 controllers não editados por mim (só registrados no inject); só editei meu `respostas/IA-YALA.md`. Nada commitado.
+
+---
+
+## RODADA 15 — RESEAL F-OFFER-B2-FRONTEND-SERVICE-OFFERING-WIRING (jornada de serviço pré-dinheiro · MODO B) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS (8/8) — com 1 RESÍDUO pré-existente registrado (handlePayment legado, fora do escopo B2).**
+**HEAD no momento:** `f67e1509` (branch `rescue-structural`) — `docs: record yala reseal for internal financial containment`.
+  B2 no working tree (não committado). Cartório limpo.
+**Revalidou no vivo:** SIM (total) — git + leitura dos 5 frontend + `availability.ts` (wrapper) + typecheck frontend
+  **e** backend + B1 e2e + gates backend. (Frontend-only: sem probe de DB próprio; o e2e usa o backend já provado.)
+**Fonte soberana:** `frontend/src/api/{service-discovery.ts,offerings.ts,availability.ts}`;
+  `frontend/src/components/{ServiceOfferingSelector.tsx,ServicePostCard.tsx}`;
+  `frontend/src/pages/ServiceDiscoveryDetailPage.tsx`. DECISION-0142/0144/0145/0146.
+**Status:** RESPONDIDO.
+
+### Os 8 itens
+1. **ZERO dinheiro/checkout/migration no DIFF → PASS (com resíduo pré-existente).** O diff dos 5 é money-free:
+   service-discovery `+canonicalServiceId`; ServicePostCard remove o placebo de agendamento; DetailPage renderiza o
+   selector; offerings.ts/Selector são novos e pré-dinheiro. **RESÍDUO (não-bloqueante, NÃO introduzido por B2):**
+   `ServicePostCard.handlePayment` (linha ~70) é **pré-existente** (FORA do diff B2 — único hunk é `@@ -53,12 +53,13`),
+   chama `confirmCTA` + `alert('Pagamento realizado com sucesso!')`. B2 não o tocou (escopo = booking pré-dinheiro);
+   recomendo tratá-lo numa frente própria de dinheiro/CTA (placebo de pagamento ainda vivo nesse card legado).
+2. **ZERO legado /services/:id/bookings → PASS.** Reserva só via `availability.ts`: `createBooking` → `POST
+   /availability/bookings`; `confirmBooking` → `PUT /availability/bookings/:id` (status='confirmed'). O Selector usa
+   esses wrappers; nenhum `/services/*/bookings` nos 5.
+3. **canonicalServiceId TRANSPORTADO + by-canonical → PASS.** `DiscoveredService.canonicalServiceId` adicionado ao DTO
+   e **mapeado do backend** (`service.canonicalServiceId ?? null`) — não derivado no front. `offerings.ts.getOfferingsByCanonical`
+   consome `GET /services/offerings/by-canonical/:id`; o Selector lista por ele.
+4. **ACTIVE-only + availability por service_offering → PASS.** by-canonical é active-only **no backend** (B1 passo 4
+   prova draft não vaza); o front não revalida nem mostra draft (apenas projeta o que o backend devolve). Slots via
+   `listAvailabilities({ ownerType: 'service_offering', ownerId: o.id, status: 'active' })`.
+5. **409 com UX específica + confirm OWNER-only → PASS.** `isProviderTimeConflict(e)` detecta `BOOKING_PROVIDER_TIME_CONFLICT`
+   → mensagem honesta ("já existe compromisso confirmado deste prestador…"). `confirm` só é chamado se
+   `activeActorId === selected.providerActorId`; para o cliente, a reserva fica **'requested'** ("aguardando confirmação
+   do prestador"). (Defesa real é server-side: backend liga canRepresentActor; o front só projeta.)
+6. **PLACEBO removido + requesterActorId só de sessão → PASS.** O `alert('Serviço agendado com sucesso!')` +
+   `onScheduleSuccess()` sem booking foi REMOVIDO (vira erro honesto "agendamento por este card descontinuado").
+   `requesterActorId` vem **só de `waitForActorContext()`** (actor ativo de sessão), nunca de input/hardcode/localStorage;
+   sem actor ativo → bloqueia ("entre/escolha um perfil"). Nenhum placebo de agendamento no Selector.
+7. **GATES → PASS.** frontend typecheck = **0** (0 erros nos 5). backend typecheck = **34** (B2 não toca backend).
+   **B1 e2e = 9/9 PASS** (a jornada que B2 liga está viva). regression-guards = **EXIT 0**. architectural --strict =
+   **33 == baseline 33** → `critical_new = 0` (B2 é frontend; backend intocado). actor-writer/bank-ledger: GATE OK
+   (inalterados — B2 não toca backend; confirmados verdes na RODADA 14 sobre o mesmo backend).
+8. **Front projeta verdade (não cria capability/saldo/autoridade) + valida response → PASS.** Os componentes só LEEM
+   (getOfferingsByCanonical, listAvailabilities) e criam booking via API canônica com actor de sessão; não concedem
+   capability/authority/saldo (o confirm OWNER-only é UX; a autoridade é server-side). `offerings.ts` valida
+   `res?.ok && Array.isArray(res.data)` antes de usar; `book()` usa as respostas reais da API para notice/error (sem
+   sucesso fabricado). `fmtPrice` apenas EXIBE o preço da oferta (projeção), não cobra.
+
+### TENTATIVAS DE REFUTAÇÃO (resultado)
+- "B2 adiciona dinheiro/checkout" → REFUTADO: diff money-free; o handlePayment é pré-existente, fora do diff (registrado como resíduo).
+- "Usa o legado /services/:id/bookings" → REFUTADO: só /availability/bookings (createBooking/confirmBooking).
+- "canonicalServiceId é derivado no front" → REFUTADO: transportado do DTO (mapeado do backend).
+- "Mostra/contrata draft" → REFUTADO: active-only no backend; front só projeta; B1 passo 4 prova.
+- "Cliente confirma / placebo de sucesso" → REFUTADO: confirm OWNER-only, cliente para em 'requested'; placebo removido.
+- "requesterActorId de input/hardcode" → REFUTADO: só waitForActorContext (sessão); bloqueia sem actor.
+- "Front cria autoridade / não valida response" → REFUTADO: só projeta; valida res.ok/Array antes de sucesso.
+- "Quebra typecheck/e2e/gate" → REFUTADO: front 0, back 34, e2e 9/9, regression EXIT 0, critical_new=0.
+
+### STOPs
+- Frontend nunca cria verdade — projeta verdade resolvida (Lei operacional) — confirmado. ✔
+- Pré-dinheiro: B2 não move dinheiro; ativação pública / checkout fora; payout fechado. ✔ (resíduo handlePayment = frente própria.)
+- Não toquei R2/delegação; DT-mãe 0113 OPEN respeitada. ✔
+- **STOP de commit:** material = os 5 frontend (git add explícito); cartório (STATUS/CONSOLIDADO) em commit próprio.
+- Veredito é INSUMO. **MODO B: promulgação/commit é ato de Clayton — meu veredito não dispara.**
+
+### CONCLUSÃO + RECOMENDAÇÃO DE COMMIT
+**PASS (8/8).** B2 conecta a jornada de serviço pré-dinheiro na tela usando o backend já provado (B1): discovery
+transporta `canonicalServiceId` → `ServiceOfferingSelector` lista ofertas ACTIVE via by-canonical → disponibilidade
+por `service_offering` → `createBooking('requested')` via `/availability/bookings` → confirm OWNER-only com UX honesta
+para o 409 por provider. Frontend projeta verdade (actor de sessão, sem placebo, valida response, não cria autoridade/
+dinheiro). Gates verdes (front 0 / back 34 / e2e 9/9 / regression EXIT 0 / critical_new 0). **Único resíduo:** o
+`handlePayment` legado pré-existente em ServicePostCard (fora do diff/escopo) — frente própria de dinheiro.
+**Recomendação de commit (PASS):**
+- **Commit MATERIAL (5 frontend):** `frontend/src/api/service-discovery.ts` + `frontend/src/api/offerings.ts` +
+  `frontend/src/components/ServiceOfferingSelector.tsx` + `frontend/src/components/ServicePostCard.tsx` +
+  `frontend/src/pages/ServiceDiscoveryDetailPage.tsx` (git add explícito).
+- **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` + `CONSOLIDADO.md`. Não misturar.
+- **Promulgação:** ato de Clayton (MODO B) — meu veredito é insumo.
+READ-ONLY: não editei nenhum arquivo de código (só li + rodei typecheck/e2e/gates); o e2e do B1 se auto-limpou
+(baseline svc=0/so=0/av=48/bk=0); nenhum harness; só editei meu `respostas/IA-YALA.md`. Nada commitado.
