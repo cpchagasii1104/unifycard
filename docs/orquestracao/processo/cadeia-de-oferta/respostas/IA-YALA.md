@@ -783,3 +783,73 @@ que restaura o DB virgem (zero dado alterado). Gates verdes.
 - **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` + `CONSOLIDADO.md`. Não misturar.
 READ-ONLY: nenhuma edição de código (só rodei o e2e); fixture do e2e revertida pelo próprio teardown; baseline
 conferido idêntico; só editei meu `respostas/IA-YALA.md`. Nada commitado.
+
+---
+
+## RODADA 14 — RESEAL F-INTERNAL-FINANCIAL-AUTHORITY-CONTAINMENT (P1 fail-closed · MODO C) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS (7/7) — 7 controllers /internal financeiros contidos a 501, provado por inject fastify REAL.**
+**HEAD no momento:** `aaeb50b5` (branch `rescue-structural`) — `docs(orchestration): add systemic x-ray consolidation`.
+  Fatia no working tree (não committada). Cartório limpo (desta fatia).
+**Revalidou no vivo:** SIM (total) — git + leitura dos 7 controllers + guard + precedente +
+  **inject fastify REAL nos 7** (harness tsx descartável, apagado) + guard-NP (edita→roda→reverte) + gates.
+**Fonte soberana:** os 7 controllers contidos; `scripts/audit-internal-financial-authority-containment.mjs`;
+  `package.json`; precedente `src/modules/disputes/financial-dispute.controller.ts`. DECISION-0113 (tenant de cliente ≠ autoridade).
+**Status:** RESPONDIDO.
+
+### Os 7 itens
+1. **501 na função REAL (inject fastify) → PASS.** Registrei cada um dos 7 plugins num fastify e injetei uma rota
+   representativa **com `tenant_id` forjado no body** → **ALL_CONTAINED=true**: os 7 retornam **HTTP 501 +
+   `code: INTERNAL_FINANCIAL_AUTHORITY_CONTAINED`** (audit GET /financial/audit/export, freeze POST /financial/freezes,
+   governance POST /governance/proposals, dashboard GET /financial/dashboard, ops-panel GET /financial/transactions,
+   simulator POST /financial/simulate-payment, treasury POST /treasury/accounts). Prova estrutural irrefutável: cada
+   handler é `async (_req, reply) => reply.status(501).send(CONTAINED)` — `_req` ignorado, **nenhum** service/SELECT antes do 501.
+2. **Services/repos/bank INTACTOS → PASS.** `git diff --name-only` (código) = **só os 7 controllers + `package.json`**
+   (guard untracked). Nenhum `*repository*`/`*.service.*`/`bank*`/`ledger`/`payout`/`worker`/`migration` no diff
+   (financial-freeze-repository/governance/treasury/bank* preservados para um futuro caller seguro).
+3. **ZERO entrada de cliente / service material nos 7 → PASS.** grep não-comentário nos 7 = **0** de
+   `req.body`/`req.query`/`pool.query`/`getClientWithTenant`/bank services. Além disso, os 7 têm **ZERO imports
+   material** (sem service/repository/pool). `tenant_id` declarado pelo cliente é ignorado (provado no inject com body forjado → 501).
+4. **Vazamentos específicos fechados → PASS.** audit-export NÃO exporta mais `bank_*` cross-tenant (501, sem pool.query);
+   simulator NÃO cria tenant/users/cadeia bancária por HTTP (269→sumiu para 501, sem service); dashboard/ops-panel NÃO
+   leem SSOT cross-tenant (501, sem pool.query). Todos cobertos por 501 + grep-proibidos=0 + zero-imports-material.
+5. **ZERO Bank/Core/ledger/splits/payout/worker/PORTA-1/migration → PASS.** Nenhum desses paths no diff; payout externo
+   permanece fechado (intocado). A fatia só DESLIGA superfície HTTP insegura; não toca causalidade financeira.
+6. **GUARD-NP → MORDE E VOLTA (reproduzido por mim).** Baseline guard exit 0. Reintroduzi `req.body` no POST do freeze →
+   guard **exit 1** ("lê req.body — a contenção vazou"). Revertí → exit 0; hash de volta a `af1b05f2`.
+7. **GATES → PASS.** typecheck = **34** (== baseline; 0 erros nos 7). regression-guards = **EXIT 0** com
+   `GATE OK [internal-financial-authority-containment]`. `validate:actor-writer-boundaries` = **GATE OK [actor-writer §4.8.1]**;
+   `validate:bank-ledger-boundaries` = **GATE OK [bank-ledger §4.6]**. architectural --strict = **33 == baseline 33**,
+   **0 hits** nos 7 → `critical_new = 0`.
+
+### TENTATIVAS DE REFUTAÇÃO (resultado)
+- "Algum caminho chama service/SELECT antes do 501" → REFUTADO: handlers são 501 puro; grep-proibidos=0; zero imports material; inject deu 501.
+- "tenant_id do body vira autoridade" → REFUTADO: inject com body `{tenant_id: deadbeef…}` → 501 (ignorado).
+- "Mexeram em repos/services/bank/migration" → REFUTADO: diff = só 7 controllers + package.json.
+- "audit-export/simulator/dashboard ainda vazam SSOT/criam cadeia" → REFUTADO: 501 puro, sem pool.query/service.
+- "Guard não morde" → REFUTADO: req.body reintroduzido → exit 1; revertido → exit 0.
+- "Quebra gate / toca dinheiro" → REFUTADO: typecheck 34, regression/actor-writer/bank-ledger OK, critical_new=0, zero path financeiro.
+
+### STOPs
+- Contenção/tombstone com negative-proof que MORDE → presente e reproduzido (item 6); + prova viva por inject (item 1). ✔
+- `tenant_id` de cliente ≠ autoridade (DECISION-0113) — respeitado e provado. ✔
+- DT-mãe 0113 OPEN respeitada; payout externo fechado; sem Bank/ledger/worker. ✔
+- **STOP de commit:** material = os 9 artefatos (7 controllers + guard + package.json) via git add explícito; cartório
+  (STATUS + REMEDIATION_DT_LOG) em commit próprio. (Obs: a diretiva diz "8 arquivos"; são **9** = 7 + guard + package.json.)
+- Veredito é INSUMO. **MODO C: a promulgação é ato MANUAL de Clayton — sem condicional.**
+
+### CONCLUSÃO + RECOMENDAÇÃO DE COMMIT
+**PASS (7/7).** Os 7 controllers financeiros `/internal` montados FORA do protectedScope (que liam `tenant_id` de
+body/query como autoridade e/ou liam/escreviam SSOT de dinheiro cross-tenant sem subject server-side) foram reduzidos
+a **501 `INTERNAL_FINANCIAL_AUTHORITY_CONTAINED`** — provado na função real (inject fastify, 7/7, mesmo com tenant_id
+forjado), com handlers 501-puros (zero req.body/req.query/pool.query/service/imports material), services/repos/bank
+intactos para um futuro caller seguro, guard que morde, e zero toque em Bank/Core/payout/migration. Gates verdes.
+**Recomendação de commit (PASS):**
+- **Commit MATERIAL (9 artefatos):** os 7 controllers (`audit/financial-audit-export`, `freezes/financial-freeze`,
+  `governance/governance-proposal`, `observability/{financial-dashboard,financial-operations-panel,financial-simulator}`,
+  `treasury/treasury-account`) + `scripts/audit-internal-financial-authority-containment.mjs` + `package.json` (git add explícito).
+- **Commit CARTÓRIO (separado):** `STATUS_EXECUCAO_GLOBAL.md` + `REMEDIATION_DT_LOG.md` (DT **CLOSED_AS_CONTAINED**). Não misturar.
+- **Promulgação:** ato MANUAL de Clayton (MODO C) — meu veredito é insumo, não a dispara.
+READ-ONLY: inject harness tsx apagado; guard-NP do freeze revertido (hash `af1b05f2`, guard exit 0); demais 6
+controllers não editados por mim (só registrados no inject); só editei meu `respostas/IA-YALA.md`. Nada commitado.
