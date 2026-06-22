@@ -138,6 +138,19 @@ export async function retireAllActivePublicationsForCompanyTx(
   for (const conceptId of concepts) {
     await refreshOfferingAfterRetire(client, tenantId, conceptId);
   }
+  // 🔴 P3 / DECISION-0147 Q5 — CASCATA: base revogada (KYB → publicações retiradas) SUSPENDE as service_offerings
+  // ACTIVE da empresa nos concepts afetados. NÃO apaga oferta/histórico; NÃO move dinheiro. Mesma transação do
+  // caller (atômico com o flip de kyb_status). Invariante: nenhuma offering fica active se a base que a autoriza caiu.
+  await client.query(
+    `UPDATE service_offerings so
+        SET status = 'suspended', updated_at = now()
+       FROM canonical_services cs
+      WHERE so.canonical_service_id = cs.id
+        AND so.tenant_id = $1 AND so.company_id = $2
+        AND cs.concept_id = ANY($3::uuid[])
+        AND so.status = 'active'`,
+    [tenantId, companyId, concepts]
+  );
   return { retired: rows.length, concepts };
 }
 

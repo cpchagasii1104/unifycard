@@ -13,6 +13,7 @@ import { authorizationService } from '@core/authorization/authorization.service'
 import { canonicalServiceService } from '@core/catalog/canonical/canonical-service.service';
 import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
 import { AvailabilityOwnerType, type UnifiedAvailability } from '@core/availability/unified-availability.types';
+import { assertOfferingActivationEligibility } from './services-offering-activation-gate';
 
 export class ServiceOfferingError extends Error {
   constructor(public readonly statusCode: number, public readonly code: string, message: string) {
@@ -176,6 +177,39 @@ export const serviceOfferingService = {
       throw new ServiceOfferingError(403, 'SERVICE_OFFERING_NOT_REPRESENTABLE',
         'Prestador só altera a própria oferta.');
     }
+
+    // 🔴 P3 / DECISION-0147 — STATE-MACHINE fail-closed (Q4: status NUNCA free-form do body) +
+    // GATE DE ATIVAÇÃO (Q1/Q2/Q3: revalida elegibilidade VIVA no momento da ativação). Só checa quando há
+    // transição real (status novo ≠ atual). active=público/contratável com base viva; nenhuma offering fica
+    // active se a base que a autoriza caiu (a queda em si é tratada pela cascata Q5, fatia P3-3).
+    if (input.status != null && input.status !== offering.status) {
+      const from = offering.status;
+      const to = input.status;
+      const allowed =
+        (to === 'active' && (from === 'draft' || from === 'suspended')) ||
+        (to === 'suspended' && from === 'active');
+      if (!allowed) {
+        throw new ServiceOfferingError(409, 'SERVICE_OFFERING_INVALID_TRANSITION',
+          `Transição de status ${from}→${to} não permitida (DECISION-0147 Q4; status não é free-form do body).`);
+      }
+      if (to === 'active') {
+        // canonical válido (re-resolve ACTIVE) → conceptId p/ a revalidação de elegibilidade.
+        const canonical = await canonicalServiceService.requireActiveForTenant(input.tenantId, offering.canonicalServiceId);
+        try {
+          await assertOfferingActivationEligibility({
+            tenantId: input.tenantId,
+            providerActorId: offering.providerActorId,
+            companyId: offering.companyId ?? null,
+            conceptId: canonical.conceptId,
+          });
+        } catch (e: any) {
+          // normaliza p/ ServiceOfferingError (a rota mapeia statusCode/code); preserva o code do gate.
+          throw new ServiceOfferingError(e?.statusCode ?? 403, e?.code ?? 'SERVICE_OFFERING_ACTIVATION_DENIED',
+            e?.message ?? 'Ativação negada (DECISION-0147).');
+        }
+      }
+    }
+
     await pool.query(
       `UPDATE service_offerings SET
          price_cents = COALESCE($3, price_cents),

@@ -7,7 +7,7 @@
 // 🔴 BLINDAGEM: NÃO cria lógica decisória automática
 
 import { createHash } from 'crypto';
-import { getClientWithTenant } from '@core/database/pool';
+import { getClientWithTenant, runQueryWithTenant } from '@core/database/pool';
 import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { unifiedAvailabilityRepository } from './unified-availability.repository';
 import { resolveAvailabilityOwner } from './availability-owner-authority';
@@ -147,6 +147,22 @@ class UnifiedAvailabilityService {
     const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, input.availabilityId);
     if (!availability) {
       throw new NotFoundError('Disponibilidade não encontrada');
+    }
+
+    // 🔴 P3 / DECISION-0147 (booking-gate): contratar SÓ oferta ACTIVE. Se a janela é de um service_offering,
+    // o booking só é aceito se a oferta estiver `active` — draft/suspended NÃO são contratáveis (active =
+    // autorização operacional de contratação, não status visual). Fail-closed.
+    if (availability.ownerType === AvailabilityOwnerType.SERVICE_OFFERING) {
+      const off = await runQueryWithTenant<{ status: string }>(
+        tenantId,
+        `SELECT status FROM service_offerings WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+        [availability.ownerId, tenantId]
+      );
+      if (!off || off.status !== 'active') {
+        throw new BadRequestError(
+          'OFFERING_NOT_ACTIVE: a oferta desta janela não está ativa/contratável (DECISION-0147); booking só em oferta active.'
+        );
+      }
     }
 
     // 🔴 DECISION-0132 §4 — GATE de finalidade: tempo pessoal PROTEGIDO (estudo/cuidados-pessoais/lazer)

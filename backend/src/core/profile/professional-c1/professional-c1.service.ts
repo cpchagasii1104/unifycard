@@ -146,9 +146,41 @@ class ProfessionalC1Service {
     userId: string
   ): Promise<ConceptDTO> {
     await this.resolveActorGuarded(tenantId, actorId, userId);
-    const row = await professionalC1Repository.retireConcept(tenantId, actorId, conceptId);
-    if (!row) throw HttpError.notFound('Competência ativa não encontrada');
-    return toConceptDTO(row);
+    // 🔴 P3 / DECISION-0147 Q5 — retire da declaração PF + CASCATA ATÔMICA: suspende as service_offerings ACTIVE
+    // do MESMO provider no concept (não apaga oferta/histórico; NÃO move dinheiro). Mesma transação → invariante
+    // "nenhuma offering fica active se a base que a autoriza caiu" também vale p/ PF.
+    const { getClientWithTenant } = await import('@core/database/pool');
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      const r = await client.query(
+        `UPDATE actor_professional_concepts
+            SET is_active = false, retired_at = now(), updated_at = now()
+          WHERE tenant_id = $1 AND actor_id = $2 AND concept_id = $3 AND is_active = true
+          RETURNING *`,
+        [tenantId, actorId, conceptId]
+      );
+      if (r.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw HttpError.notFound('Competência ativa não encontrada');
+      }
+      await client.query(
+        `UPDATE service_offerings so
+            SET status = 'suspended', updated_at = now()
+           FROM canonical_services cs
+          WHERE so.canonical_service_id = cs.id
+            AND so.tenant_id = $1 AND so.provider_actor_id = $2
+            AND cs.concept_id = $3 AND so.status = 'active'`,
+        [tenantId, actorId, conceptId]
+      );
+      await client.query('COMMIT');
+      return toConceptDTO(r.rows[0] as Parameters<typeof toConceptDTO>[0]);
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch { /* tx pode já não estar ativa */ }
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 }
 
