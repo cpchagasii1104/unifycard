@@ -587,11 +587,16 @@ class EventRFQService {
     });
 
     // 4. Criar booking
-    const booking = await unifiedAvailabilityService.createBooking(tenantId, organizerUserId, {
-      availabilityId: availability.availabilityId,
-      requesterActorId: organizerActorId,
-      metadata: { rfqId, quoteId, eventId, serviceId: quote.serviceId, source: 'rfq_accept' },
-    });
+    // 🔴 DECISION-0148 — subject normalizado: organizerUserId (user_id real) representa organizerActorId (self).
+    const booking = await unifiedAvailabilityService.createBooking(
+      tenantId,
+      { subjectUserId: organizerUserId, requesterActorId: organizerActorId },
+      {
+        availabilityId: availability.availabilityId,
+        requesterActorId: organizerActorId,
+        metadata: { rfqId, quoteId, eventId, serviceId: quote.serviceId, source: 'rfq_accept' },
+      }
+    );
 
     // 5. Aceitar booking (provider confirma via RFQ)
     const { serviceBookingDecisionService } = await import('../services/service-booking-decision.service');

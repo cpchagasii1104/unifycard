@@ -114,16 +114,19 @@ export class CheckoutTicketService {
 
       if (event.unified_availability_id) {
         // Caminho canônico: evento já vinculado ao SSOT temporal correto
+        // 🔴 DECISION-0148 — normaliza global_user_id → users.id (subjectUserId) na MESMA linha do actor.
+        // buyerUserId é global_user_id; o subject do core exige o user_id real (casa com actors.user_id).
         const actorResult = await trx.query({
-          text: `SELECT actor_id FROM actors WHERE global_user_id = $1 AND tenant_id = $2 LIMIT 1`,
+          text: `SELECT actor_id, user_id FROM actors WHERE global_user_id = $1 AND tenant_id = $2 LIMIT 1`,
           values: [buyerUserId, tenantId],
         });
         const requesterActorId: string | null = actorResult[0]?.actor_id ?? null;
+        const subjectUserId: string | null = actorResult[0]?.user_id ?? null;
 
-        if (requesterActorId) {
+        if (requesterActorId && subjectUserId) {
           const booking = await unifiedAvailabilityService.createBooking(
             tenantId,
-            buyerUserId,
+            { subjectUserId, requesterActorId }, // self-booking: comprador representa o próprio actor
             { availabilityId: event.unified_availability_id, requesterActorId },
             trx
           );

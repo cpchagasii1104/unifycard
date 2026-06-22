@@ -71,7 +71,8 @@ const serviceHireRoutes: FastifyPluginAsync = async (fastify) => {
 
       // PASSO 1 — Criar booking
       // 🔴 serviceId deve constar no metadata para que decision e payment-request o validem
-      const booking = await unifiedAvailabilityService.createBooking(tenantId, userId, {
+      // 🔴 DECISION-0148 — subject normalizado (userId = req.user.userId real). Rota fica atrás do firewall 0110.
+      const booking = await unifiedAvailabilityService.createBooking(tenantId, { subjectUserId: userId, requesterActorId }, {
         availabilityId,
         requesterActorId,
         metadata: { ...metadata, serviceId },

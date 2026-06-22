@@ -190,9 +190,20 @@ export interface UpdateUnifiedAvailabilityInput {
  */
 export interface CreateUnifiedBookingInput {
   availabilityId: string; // OBRIGATÓRIO
-  requesterActorId: string; // OBRIGATÓRIO
+  requesterActorId: string; // OBRIGATÓRIO (incremental; deve casar com BookingSubject.requesterActorId — DECISION-0148)
   notes?: string | null;
   metadata?: Record<string, any>;
+}
+
+/**
+ * 🔴 DECISION-0148 — Booking Core Subject Model (Opção B). Subject NORMALIZADO que o core de booking
+ * recebe e REVALIDA server-side (canRepresentActor). Substitui o `userId` genérico/poluído.
+ *  - subjectUserId: id real do principal humano (casa com `actors.user_id`; NÃO actorId, NÃO global_user_id).
+ *  - requesterActorId: actor em nome de quem o booking é criado.
+ */
+export interface BookingSubject {
+  subjectUserId: string;
+  requesterActorId: string;
 }
 
 /**

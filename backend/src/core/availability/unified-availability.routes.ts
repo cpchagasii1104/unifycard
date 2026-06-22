@@ -747,10 +747,12 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const booking = await unifiedAvailabilityService.createBooking(
           req.tenant.id,
-          req.actionContext.actorId,
+          // 🔴 DECISION-0148 — subject normalizado: subjectUserId = principal humano REAL (req.user.userId),
+          // não o actorId. O core revalida canRepresentActor (defesa-em-profundidade sobre o gate da rota).
+          { subjectUserId: userId, requesterActorId: parsed.data.requesterActorId },
           {
             availabilityId: parsed.data.availabilityId, // OBRIGATÓRIO
-            requesterActorId: parsed.data.requesterActorId, // OBRIGATÓRIO
+            requesterActorId: parsed.data.requesterActorId, // incremental (== subject.requesterActorId)
             notes: parsed.data.notes,
             metadata: parsed.data.metadata,
           }

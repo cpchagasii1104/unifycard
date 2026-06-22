@@ -38,6 +38,7 @@
     "e2e:offer-journey": "tsx src/scripts/e2e-offer-journey-pre-money.ts",
     "e2e:offer-activation-p3": "tsx src/scripts/e2e-offer-activation-p3.ts",
     "e2e:checkout-containment": "tsx src/scripts/e2e-checkout-financial-containment.ts",
+    "e2e:booking-subject-authority": "tsx src/scripts/e2e-booking-subject-authority.ts",
     "backfill:e2e-mint-ledger-debits": "tsx src/scripts/backfill-e2e-mint-ledger-debits.ts",
     "verify:simple-tx-double-entry": "tsx src/scripts/verify-simple-tx-double-entry.ts",
     "baseline:migrations": "tsx src/scripts/baseline-migrations.ts",

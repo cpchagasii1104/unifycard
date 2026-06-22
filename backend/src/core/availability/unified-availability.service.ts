@@ -12,7 +12,8 @@ import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { unifiedAvailabilityRepository } from './unified-availability.repository';
 import { resolveAvailabilityOwner } from './availability-owner-authority';
 import { socialPortsRegistry } from '@core/social/ports-registry';
-import { BadRequestError, NotFoundError } from '@core/errors';
+import { authorizationService } from '@core/authorization/authorization.service';
+import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
 import { getProtectedPurposeConceptIds } from './temporal-purpose';
 import { ActorEffect } from '@core/social/ports';
 import type {
@@ -21,6 +22,7 @@ import type {
   CreateUnifiedAvailabilityInput,
   UpdateUnifiedAvailabilityInput,
   CreateUnifiedBookingInput,
+  BookingSubject,
   UpdateUnifiedBookingInput,
   UnifiedAvailabilityFilters,
   UnifiedBookingFilters,
@@ -134,7 +136,7 @@ class UnifiedAvailabilityService {
    */
   async createBooking(
     tenantId: string,
-    userId: string,
+    subject: BookingSubject,
     input: CreateUnifiedBookingInput,
     trx?: { query: (q: { text: string; values?: any[] }) => Promise<any[]> }
   ): Promise<UnifiedBooking> {
@@ -178,20 +180,33 @@ class UnifiedAvailabilityService {
       }
     }
 
-    // 🔴 BLINDAGEM: Validar que requesterActorId foi fornecido
-    if (!input.requesterActorId) {
-      throw new BadRequestError('requesterActorId é obrigatório para criar booking');
+    // 🔴 DECISION-0148 — SUBJECT normalizado + AUTORIDADE revalidada NO CORE (não confia só no caller).
+    // subjectUserId = principal humano (casa com actors.user_id); requesterActorId = actor acted-for.
+    if (!subject?.subjectUserId || !subject?.requesterActorId) {
+      throw new BadRequestError('BOOKING_SUBJECT_REQUIRED: subjectUserId e requesterActorId são obrigatórios (DECISION-0148).');
+    }
+    // Incremental: input.requesterActorId (se presente) DEVE casar com o subject — subject é a verdade.
+    if (input.requesterActorId && input.requesterActorId !== subject.requesterActorId) {
+      throw new BadRequestError('BOOKING_SUBJECT_REQUESTER_MISMATCH: input.requesterActorId diverge de subject.requesterActorId (DECISION-0148).');
+    }
+    const requesterActorId = subject.requesterActorId;
+
+    // 🔴 BLINDAGEM (DECISION-0148): o subjectUserId precisa REPRESENTAR o requesterActorId — fail-closed.
+    // O core NÃO depende mais do caller para provar autoridade (defesa-em-profundidade sobre DECISION-0113).
+    const canRep = await authorizationService.canRepresentActor(tenantId, subject.subjectUserId, requesterActorId);
+    if (!canRep) {
+      throw new ForbiddenError('BOOKING_SUBJECT_NOT_AUTHORIZED: subjectUserId não pode representar requesterActorId (DECISION-0148; canRepresentActor fail-closed).');
     }
 
     // 🔴 BLINDAGEM: Validar que requester actor existe
     const actorRepository = socialPortsRegistry.getActorRepository();
-    const requesterActor = await actorRepository.findById(tenantId, input.requesterActorId);
+    const requesterActor = await actorRepository.findById(tenantId, requesterActorId);
     if (!requesterActor) {
       throw new NotFoundError('Actor solicitante não encontrado');
     }
 
-    // 🔴 BLINDAGEM: Criar booking (NÃO executa pagamento)
-    const booking = await unifiedAvailabilityRepository.createBooking(tenantId, input, trx);
+    // 🔴 BLINDAGEM: Criar booking (NÃO executa pagamento). requesterActorId canônico = do subject.
+    const booking = await unifiedAvailabilityRepository.createBooking(tenantId, { ...input, requesterActorId }, trx);
 
     // 🔴 BLINDAGEM: Detectar conflitos APÓS criar booking (não bloqueia)
     // Se booking envolver owner_type user e houver conflito, emitir effect AVAILABILITY_CONFLICT_DETECTED
@@ -211,7 +226,7 @@ class UnifiedAvailabilityService {
           structuredLogger.logEffectEmission('info', 'Emitindo effect AVAILABILITY_CONFLICT_DETECTED', {
             tenantId,
             actorId: input.requesterActorId,
-            userId,
+            userId: subject.subjectUserId,
             effectType: 'AVAILABILITY_CONFLICT_DETECTED',
             availabilityId: input.availabilityId,
             bookingId: booking.bookingId,
@@ -269,7 +284,7 @@ class UnifiedAvailabilityService {
       structuredLogger.logEffectEmission('error', 'Erro ao emitir effect AVAILABILITY_CONFLICT_DETECTED (não crítico)', {
         tenantId,
         actorId: availability.ownerId,
-        userId,
+        userId: subject.subjectUserId,
         effectType: 'AVAILABILITY_CONFLICT_DETECTED',
         availabilityId: input.availabilityId,
         bookingId: booking.bookingId,

@@ -82,7 +82,7 @@ async function main(): Promise<void> {
     await c.query(`UPDATE service_offerings SET status='draft' WHERE id=$1`, [OFF]);
     const AV = randomUUID();
     await c.query(`INSERT INTO availability (availability_id,tenant_id,owner_type,owner_id,start_datetime,end_datetime,status) VALUES ($1,$2,'service_offering',$3,'2026-10-01T10:00:00Z','2026-10-01T11:00:00Z','active')`, [AV, TENANT, OFF]);
-    const bgate = await threw(() => unifiedAvailabilityService.createBooking(TENANT, REQ, { availabilityId: AV, requesterActorId: REQ } as any), /OFFERING_NOT_ACTIVE/);
+    const bgate = await threw(() => unifiedAvailabilityService.createBooking(TENANT, { subjectUserId: REQ, requesterActorId: REQ }, { availabilityId: AV, requesterActorId: REQ } as any), /OFFERING_NOT_ACTIVE/);
     ok(bgate === 'OK', `6. booking-gate: createBooking em offering draft → OFFERING_NOT_ACTIVE [${bgate}]`);
     await c.query(`DELETE FROM bookings WHERE availability_id=$1`, [AV]);
     await c.query(`DELETE FROM availability WHERE availability_id=$1`, [AV]);

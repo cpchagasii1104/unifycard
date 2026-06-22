@@ -19,6 +19,7 @@ const CONCEPT = '323795e9-94b4-4c07-9c91-3b95fe0296e0';    // concept_id da CAT 
 // ids da fixture (gerados aqui p/ teardown determinístico)
 let P = '';                      // provider actor (reusa existente — evita cadeia de identidade)
 let R = '';                      // requester actor (reusa existente)
+let RU = '';                     // requester user_id (DECISION-0148: subjectUserId real)
 const CS = randomUUID();         // canonical_service
 const SVC = randomUUID();        // service
 const OFF = randomUUID();        // service_offering ACTIVE
@@ -55,10 +56,11 @@ async function main(): Promise<void> {
   try {
     // ───────── SETUP (fixture committed) ─────────
     // reusa 2 atores existentes do tenant (provider + requester) — a jornada não precisa de atores novos
-    const ar = await c.query<{ id: string }>(`SELECT id FROM actors WHERE tenant_id=$1 LIMIT 2`, [TENANT]);
-    if (ar.rows.length < 1) { console.error('sem atores no tenant p/ fixture'); process.exit(1); }
-    P = ar.rows[0].id; R = ar.rows[1]?.id || ar.rows[0].id;
-    console.log(`    fixture actors: provider=${P} requester=${R}`);
+    // DECISION-0148: requester precisa ser user-actor com user_id (core revalida canRepresentActor).
+    const ar = await c.query<{ id: string; user_id: string }>(`SELECT id, user_id FROM actors WHERE tenant_id=$1 AND actor_type='user' AND user_id IS NOT NULL LIMIT 2`, [TENANT]);
+    if (ar.rows.length < 1) { console.error('sem user-actor com user_id p/ fixture'); process.exit(1); }
+    P = ar.rows[0].id; R = ar.rows[1]?.id || ar.rows[0].id; RU = ar.rows[1]?.user_id || ar.rows[0].user_id;
+    console.log(`    fixture actors: provider=${P} requester=${R} requesterUser=${RU}`);
     await c.query(`INSERT INTO canonical_services (id, tenant_id, concept_id, name, slug, status) VALUES ($1,$4,$2,'B1 Canonical',$3,'active')`, [CS, CONCEPT, 'b1-canonical-' + CS.slice(0, 8), TENANT]);
     await c.query(`INSERT INTO services (service_id, tenant_id, actor_id, name, slug, canonical_service_id, status, category_id, service_type) VALUES ($1,$2,$3,'B1 Service',$4,$5,'active',$6,'service')`, [SVC, TENANT, P, 'b1-svc-' + SVC.slice(0, 8), CS, CAT]);
     // OFF = active (provider P); OFF_DRAFT = draft (provider R, mesmo canonical) — UNIQUE(provider,canonical) exige providers distintos
@@ -87,7 +89,7 @@ async function main(): Promise<void> {
     ok(av.rows.length === 3, `5. offering→availability resolve (${av.rows.length} janelas)`);
 
     // 6) createBooking requested (pré-dinheiro)
-    const b1 = await unifiedAvailabilityService.createBooking(TENANT, R, { availabilityId: AV1, requesterActorId: R } as any);
+    const b1 = await unifiedAvailabilityService.createBooking(TENANT, { subjectUserId: RU, requesterActorId: R }, { availabilityId: AV1, requesterActorId: R } as any);
     ok(b1.status === 'requested', `6. createBooking nasce requested (${b1.status})`);
 
     // 7) confirm → confirmed (guard roda; sem conflito)
@@ -95,7 +97,7 @@ async function main(): Promise<void> {
     ok(b1c.status === 'confirmed', `7. confirm → confirmed (${b1c.status})`);
 
     // 8) 2º booking sobreposto, MESMO provider → confirm BLOQUEIA (409 BOOKING_PROVIDER_TIME_CONFLICT)
-    const b2 = await unifiedAvailabilityService.createBooking(TENANT, R, { availabilityId: AV2, requesterActorId: R } as any);
+    const b2 = await unifiedAvailabilityService.createBooking(TENANT, { subjectUserId: RU, requesterActorId: R }, { availabilityId: AV2, requesterActorId: R } as any);
     let conflict409 = false, conflictMsg = '';
     try {
       await unifiedAvailabilityService.updateBooking(TENANT, b2.bookingId, P, { status: 'confirmed' } as any);
@@ -106,7 +108,7 @@ async function main(): Promise<void> {
     ok(conflict409, `8. 2º confirm sobreposto (mesmo provider) → 409 BOOKING_PROVIDER_TIME_CONFLICT [${conflictMsg}]`);
 
     // 9) back-to-back [12,13) NÃO conflita com [10,12)
-    const b3 = await unifiedAvailabilityService.createBooking(TENANT, R, { availabilityId: AV3, requesterActorId: R } as any);
+    const b3 = await unifiedAvailabilityService.createBooking(TENANT, { subjectUserId: RU, requesterActorId: R }, { availabilityId: AV3, requesterActorId: R } as any);
     let b3ok = false, b3msg = '';
     try { const r = await unifiedAvailabilityService.updateBooking(TENANT, b3.bookingId, P, { status: 'confirmed' } as any); b3ok = r.status === 'confirmed'; }
     catch (e: any) { b3msg = `${e?.statusCode} ${e?.message}`; }

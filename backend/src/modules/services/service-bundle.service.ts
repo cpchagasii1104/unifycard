@@ -217,7 +217,7 @@ class ServiceBundleService {
     // 6. Criar bookings vinculados ao bundle via Unified Availability
     const bookings = [];
     for (let i = 0; i < input.serviceIds.length; i++) {
-      const booking = await unifiedAvailabilityService.createBooking(tenantId, userId, {
+      const booking = await unifiedAvailabilityService.createBooking(tenantId, { subjectUserId: userId, requesterActorId: input.requesterActorId }, {
         availabilityId: input.availabilityIds[i],
         requesterActorId: input.requesterActorId,
         notes: input.notes || null,
