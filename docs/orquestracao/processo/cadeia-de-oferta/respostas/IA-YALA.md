@@ -1095,3 +1095,63 @@ um writer MORTO ungated (`events-payment.service`) — defesa-em-profundidade, t
 
 READ-ONLY: negative-proof estático (não moveu dinheiro); CheckoutService restaurado (`git checkout`, diff vazio, audit exit 0);
 e2e self-contido (Δ bank_*=0); só editei meu `respostas/IA-YALA.md`. Nada commitado.
+
+---
+
+## RODADA 18 — RESEAL ADVERSARIAL F-BOOKING-CORE-SUBJECT-MODEL-MATERIALIZATION Fatia 1 (DECISION-0148, commit aaee5359) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS** — o core auto-revalida canRepresentActor; nenhum caller fura (subject sempre user_id server-side;
+nenhum actorId/global_user_id como subject; nenhum requesterActorId arbitrário do body); B1 verde; dinheiro intocado.
+**HEAD no momento:** `aaee5359` (branch `rescue-structural`) — `fix(booking): enforce normalized subject in booking core`
+  (a fatia É o HEAD; committada).
+**Revalidou no vivo:** SIM (total) — git + leitura do core/types/5 callers/guard + 3 e2e rodados + sweep global +
+  negative-proof estático (guard morde ao remover canRep). READ-ONLY/ROLLBACK (NP estático; e2e self-contido Δ bank=0).
+**Fonte soberana:** `unified-availability.service.ts:137-199` (createBooking + canRep l.196); `.types.ts:204-206`
+  (BookingSubject {subjectUserId, requesterActorId}); callers checkout-ticket/event-rfq/service-bundle/service-hire.routes/
+  unified-availability.routes; `audit-booking-caller-authority.mjs`; `e2e-booking-subject-authority.ts`. DECISION-0148.
+**Status:** RESPONDIDO.
+
+### Refutação dos 5 pontos
+1. **O core revalida canRepresentActor? → SIM.** `createBooking(tenantId, subject, input)` (l.137) valida subject
+   obrigatório (BOOKING_SUBJECT_REQUIRED), exige `input.requesterActorId === subject.requesterActorId`
+   (BOOKING_SUBJECT_REQUESTER_MISMATCH) e **revalida** `canRepresentActor(tenantId, subject.subjectUserId,
+   requesterActorId)` (l.196) → fail-closed **BOOKING_SUBJECT_NOT_AUTHORIZED**. `e2e:booking-subject-authority` =
+   **6/6 PASS**. **NP:** troquei `canRep` por `true` no core → guard **exit 1** ("core createBooking NÃO revalida
+   canRepresentActor"). Revertido (diff vazio `e69de29b`, guard exit 0).
+2. **Algum caller passa actorId/global_user_id como subjectUserId? → NÃO.** Sweep global
+   `grep "subjectUserId: (actorId|global_user|...)"` = **VAZIO**. subjectUserId vem sempre de **user_id server-side**:
+   checkout-ticket **normaliza global_user_id→users.id** (`SELECT actor_id, user_id FROM actors WHERE global_user_id=$1`,
+   l.117-124; subjectUserId = user_id); service-hire.routes usa `req.user.userId` (l.46/74); service-bundle/event-rfq
+   recebem userId/organizerUserId server-side (BOUND via rota com canRepresentActor); a rota canônica idem. BookingSubject
+   doc: "subjectUserId = principal humano (casa com actors.user_id; NÃO actorId, NÃO global_user_id)".
+3. **Self-booking aceita requesterActorId arbitrário do body? → NÃO.** O core revalida
+   `canRepresentActor(subjectUserId, requesterActorId)` fail-closed — um requester do body só passa se o subject
+   autenticado o representar. SELF_BOOKING sites (checkout-ticket[user_id]/event-rfq) **derivam o subject server-side**;
+   o guard tem `FORBID_BODY_REQUESTER` (morde se allowlist aceitar requesterActorId do body); rota canônica gateia
+   `actionContext.actorId === requesterActorId` + `canRepresentActor(req.user.userId, requesterActorId)`.
+4. **B1 pré-money verde? → SIM.** `e2e:offer-journey` = **9/9 PASS**; `e2e:offer-activation-p3` = **6/6 PASS**.
+5. **Dinheiro intocado? → SIM.** `e2e:booking-subject-authority` mede **Δ bank_ledger=0**; commit aaee5359 **não toca**
+   migration/bank_*/payout/fee/ledger/split (stat: package.json, audit, routes, service, types, 4 callers, 3 e2e);
+   createBooking não chama banco (é reserva de availability).
+
+### TENTATIVAS DE REFUTAÇÃO (resultado)
+- "Core confia no caller (não revalida)" → REFUTADO: canRep no core (l.196); NP removendo-o faz o guard morder.
+- "Algum caller manda actorId/global como subject" → REFUTADO: sweep global vazio; checkout normaliza global→user_id.
+- "Requester arbitrário do body passa" → REFUTADO: core revalida canRep; guard proíbe body-requester em allowlist.
+- "B1 regrediu / dinheiro mexeu" → REFUTADO: journey 9/9, p3 6/6, Δ bank=0, zero arquivo de dinheiro/migration no commit.
+
+### STOPs
+- Subject-model com negative-proof que MORDE (core auto-defensivo) → presente e reproduzido. ✔
+- subjectUserId = user_id server-side (nunca actorId/global_user_id); requester nunca arbitrário do body. ✔
+- DT-mãe 0113 OPEN respeitada; sem dinheiro/migration/payout/fee. ✔
+- Veredito é INSUMO; nada commitado (fatia já é o HEAD).
+
+### CONCLUSÃO
+**PASS.** A Fatia 1 da DECISION-0148 materializa o subject-model do booking core: `createBooking` recebe
+`BookingSubject {subjectUserId, requesterActorId}` e **auto-revalida** `canRepresentActor(subjectUserId, requesterActorId)`
+fail-closed (não confia no caller); os 5 call-sites passam subject **normalizado a user_id server-side** (checkout
+normaliza global_user_id→user_id), nenhum manda actorId/global_user_id como subject e nenhum aceita requesterActorId
+arbitrário do body; B1 pré-money segue verde (journey 9/9, p3 6/6); dinheiro intocado (Δ bank_*=0; sem migration/payout/fee).
+Nenhum caller fura. READ-ONLY: NP estático revertido (core `e69de29b`, guard exit 0); e2e self-contidos; só editei meu
+`respostas/IA-YALA.md`. Nada commitado.
