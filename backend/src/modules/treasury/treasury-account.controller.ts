@@ -1,52 +1,26 @@
-// Treasury Account Controller — POST/GET /internal/treasury/accounts
-// Não altera bank_transactions nem bank_ledger. Apenas registra contas institucionais.
+// Treasury Account Controller — CONTIDO.
+//
+// 🔴 CONTENÇÃO P1 — F-INTERNAL-FINANCIAL-AUTHORITY-CONTAINMENT (fail-closed, 501).
+// Registrado em `/internal` FORA do protectedScope: lia `tenant_id` do BODY (POST) e da QUERY (GET) como
+// AUTORIDADE, criando/listando contas institucionais de treasury sem subject server-side. `tenant_id`
+// declarado pelo cliente NÃO é autoridade (DECISION-0113). As 2 rotas foram reduzidas a 501
+// INTERNAL_FINANCIAL_AUTHORITY_CONTAINED até existir subject interno autenticado server-side (frente
+// própria). Repositório (treasury-account-repository) permanece INTACTO. Zero Bank/Core/payout/worker.
 
 import type { FastifyPluginAsync } from 'fastify';
-import {
-  createTreasuryAccount,
-  listTreasuryAccounts,
-} from './treasury-account-repository';
+
+const CONTAINED = {
+  ok: false,
+  code: 'INTERNAL_FINANCIAL_AUTHORITY_CONTAINED',
+  message:
+    'Internal financial HTTP surface contained until server-side internal subject authority exists (no body/query tenant_id authority).',
+} as const;
 
 const treasuryAccountController: FastifyPluginAsync = async (app) => {
-  // POST /treasury/accounts
-  app.post<{
-    Body: {
-      tenant_id: string;
-      treasury_type: string;
-      account_id: string;
-      metadata?: Record<string, unknown>;
-    };
-  }>('/treasury/accounts', async (req, reply) => {
-    const { tenant_id, treasury_type, account_id, metadata } = req.body || {};
-    if (!tenant_id || !treasury_type || !account_id) {
-      return reply.status(400).send({
-        error: 'tenant_id, treasury_type and account_id are required',
-      });
-    }
-    try {
-      const account = await createTreasuryAccount(tenant_id, {
-        treasuryType: treasury_type,
-        accountId: account_id,
-        metadata: metadata ?? {},
-      });
-      return reply.status(201).send(account);
-    } catch (err) {
-      req.log.error(err);
-      return reply.status(500).send({ error: 'Failed to create treasury account' });
-    }
-  });
-
-  // GET /treasury/accounts?tenant_id= (opcional)
-  app.get<{ Querystring: { tenant_id?: string } }>('/treasury/accounts', async (req, reply) => {
-    const tenant_id = req.query.tenant_id;
-    try {
-      const accounts = await listTreasuryAccounts(tenant_id);
-      return reply.send({ accounts });
-    } catch (err) {
-      req.log.error(err);
-      return reply.status(500).send({ error: 'Failed to list treasury accounts' });
-    }
-  });
+  // POST /treasury/accounts — CONTIDO (lia tenant_id do body; createTreasuryAccount).
+  app.post('/treasury/accounts', async (_req, reply) => reply.status(501).send(CONTAINED));
+  // GET /treasury/accounts — CONTIDO (lia tenant_id da query; listTreasuryAccounts).
+  app.get('/treasury/accounts', async (_req, reply) => reply.status(501).send(CONTAINED));
 };
 
 export default treasuryAccountController;

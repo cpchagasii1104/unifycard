@@ -1,72 +1,29 @@
-// Financial Operations Panel — endpoints internos para visualizar o sistema financeiro.
-// GET /internal/financial/transactions | ledger | audit | metrics | health
-// Somente leitura (apenas SELECT). Nenhuma alteração em bank_transactions, bank_ledger, bank_accounts.
+// Financial Operations Panel — CONTIDO.
+//
+// 🔴 CONTENÇÃO P1 — F-INTERNAL-FINANCIAL-AUTHORITY-CONTAINMENT (fail-closed, 501).
+// Registrado em `/internal` FORA do protectedScope: GET /financial/{transactions,ledger,audit,metrics,health}
+// liam bank_transactions / bank_ledger / financial_audit_trail SEM escopo de tenant (cross-tenant) e sem
+// subject server-side — leitura do SSOT de dinheiro de TODOS os tenants por HTTP não autenticado. Reduzido
+// a 501 INTERNAL_FINANCIAL_AUTHORITY_CONTAINED até existir subject interno autenticado server-side dentro do
+// protectedScope (frente própria de observabilidade segura). Monitores subjacentes (financial-metrics,
+// financial-health) permanecem INTACTOS. Zero escrita; zero Bank/Core/payout/worker tocado.
 
 import type { FastifyPluginAsync } from 'fastify';
-import { pool } from '@core/database/pool';
-import { getFinancialMetrics } from '@core/observability/financial-metrics';
-import { getFinancialHealth } from '@core/observability/financial-health';
+
+const CONTAINED = {
+  ok: false,
+  code: 'INTERNAL_FINANCIAL_AUTHORITY_CONTAINED',
+  message:
+    'Internal financial HTTP surface contained until server-side internal subject authority exists (no cross-tenant read without authenticated subject).',
+} as const;
 
 const financialOperationsPanelController: FastifyPluginAsync = async (app) => {
-  // A) Listar transações
-  app.get('/financial/transactions', async (_req, reply) => {
-    const result = await pool.query(`
-      SELECT id, tenant_id, reference_type, reference_id, created_at
-      FROM bank_transactions
-      ORDER BY created_at DESC
-      LIMIT 100
-    `);
-    return reply.send({ transactions: result.rows });
-  });
-
-  // B) Listar ledger
-  app.get('/financial/ledger', async (_req, reply) => {
-    const result = await pool.query(`
-      SELECT transaction_id, account_id, direction, amount_cents, created_at
-      FROM bank_ledger
-      ORDER BY created_at DESC
-      LIMIT 100
-    `);
-    return reply.send({ ledger: result.rows.map((r: any) => ({
-      transaction_id: r.transaction_id,
-      account_id: r.account_id,
-      direction: r.direction,
-      amount_cents: r.amount_cents != null ? Number(r.amount_cents) : null,
-      created_at: r.created_at,
-    })) });
-  });
-
-  // C) Listar audit trail
-  app.get('/financial/audit', async (_req, reply) => {
-    try {
-      const result = await pool.query(`
-        SELECT event_type, transaction_id, account_id, amount_cents, created_at
-        FROM financial_audit_trail
-        ORDER BY created_at DESC
-        LIMIT 100
-      `);
-      return reply.send({ audit: result.rows.map((r: any) => ({
-        event_type: r.event_type,
-        transaction_id: r.transaction_id,
-        account_id: r.account_id,
-        amount_cents: r.amount_cents != null ? Number(r.amount_cents) : null,
-        created_at: r.created_at,
-      })) });
-    } catch {
-      return reply.send({ audit: [] });
-    }
-  });
-
-  // D) Métricas
-  app.get('/financial/metrics', async (_req, reply) => {
-    return reply.send({ metrics: getFinancialMetrics() });
-  });
-
-  // E) Health
-  app.get('/financial/health', async (_req, reply) => {
-    const health = await getFinancialHealth(pool);
-    return reply.send(health);
-  });
+  // Todas CONTIDAS — liam SSOT de dinheiro cross-tenant sem subject server-side.
+  app.get('/financial/transactions', async (_req, reply) => reply.status(501).send(CONTAINED));
+  app.get('/financial/ledger', async (_req, reply) => reply.status(501).send(CONTAINED));
+  app.get('/financial/audit', async (_req, reply) => reply.status(501).send(CONTAINED));
+  app.get('/financial/metrics', async (_req, reply) => reply.status(501).send(CONTAINED));
+  app.get('/financial/health', async (_req, reply) => reply.status(501).send(CONTAINED));
 };
 
 export default financialOperationsPanelController;

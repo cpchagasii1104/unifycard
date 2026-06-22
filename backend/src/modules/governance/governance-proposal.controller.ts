@@ -1,81 +1,28 @@
-// Governance Proposal Controller — POST/GET /internal/governance/proposals, POST .../proposals/:id/vote
-// Não altera bank_transactions nem bank_ledger.
+// Governance Proposal Controller — CONTIDO.
+//
+// 🔴 CONTENÇÃO P1 — F-INTERNAL-FINANCIAL-AUTHORITY-CONTAINMENT (fail-closed, 501).
+// Registrado em `/internal` FORA do protectedScope: lia `tenant_id` do BODY (POST proposal/vote) e da
+// QUERY (GET) como AUTORIDADE, gravando/lendo governance_proposals sem subject server-side. `tenant_id`
+// declarado pelo cliente NÃO é autoridade (DECISION-0113). As 3 rotas foram reduzidas a 501
+// INTERNAL_FINANCIAL_AUTHORITY_CONTAINED até existir subject interno autenticado server-side (frente
+// própria). Repositório (governance-proposal-repository) permanece INTACTO. Zero Bank/Core/payout/worker.
 
 import type { FastifyPluginAsync } from 'fastify';
-import {
-  createProposal,
-  voteProposal,
-  listOpenProposals,
-} from './governance-proposal-repository';
+
+const CONTAINED = {
+  ok: false,
+  code: 'INTERNAL_FINANCIAL_AUTHORITY_CONTAINED',
+  message:
+    'Internal financial HTTP surface contained until server-side internal subject authority exists (no body/query tenant_id authority).',
+} as const;
 
 const governanceProposalController: FastifyPluginAsync = async (app) => {
-  // POST /governance/proposals
-  app.post<{
-    Body: {
-      tenant_id: string;
-      proposal_type: string;
-      reference_id?: string | null;
-      payload?: Record<string, unknown>;
-      voting_deadline: string;
-    };
-  }>('/governance/proposals', async (req, reply) => {
-    const { tenant_id, proposal_type, reference_id, payload, voting_deadline } = req.body || {};
-    if (!tenant_id || !proposal_type || !voting_deadline) {
-      return reply.status(400).send({
-        error: 'tenant_id, proposal_type and voting_deadline are required',
-      });
-    }
-    const deadline = new Date(voting_deadline);
-    if (isNaN(deadline.getTime())) {
-      return reply.status(400).send({ error: 'voting_deadline must be a valid ISO date' });
-    }
-    try {
-      const proposal = await createProposal(tenant_id, {
-        proposalType: proposal_type,
-        referenceId: reference_id ?? null,
-        payload: payload ?? {},
-        votingDeadline: deadline,
-      });
-      return reply.status(201).send(proposal);
-    } catch (err) {
-      req.log.error(err);
-      return reply.status(500).send({ error: 'Failed to create proposal' });
-    }
-  });
-
-  // POST /governance/proposals/:id/vote
-  app.post<{
-    Params: { id: string };
-    Body: { tenant_id: string; vote: 'for' | 'against' };
-  }>('/governance/proposals/:id/vote', async (req, reply) => {
-    const { id } = req.params;
-    const { tenant_id, vote } = req.body || {};
-    if (!tenant_id || !vote) {
-      return reply.status(400).send({ error: 'tenant_id and vote (for|against) are required' });
-    }
-    if (vote !== 'for' && vote !== 'against') {
-      return reply.status(400).send({ error: 'vote must be "for" or "against"' });
-    }
-    try {
-      const proposal = await voteProposal(tenant_id, id, vote);
-      return reply.send(proposal);
-    } catch (err) {
-      req.log.error(err);
-      return reply.status(400).send({ error: 'Proposal not found or voting closed' });
-    }
-  });
-
-  // GET /governance/proposals?tenant_id= (opcional)
-  app.get<{ Querystring: { tenant_id?: string } }>('/governance/proposals', async (req, reply) => {
-    const tenant_id = req.query.tenant_id;
-    try {
-      const proposals = await listOpenProposals(tenant_id);
-      return reply.send({ proposals });
-    } catch (err) {
-      req.log.error(err);
-      return reply.status(500).send({ error: 'Failed to list proposals' });
-    }
-  });
+  // POST /governance/proposals — CONTIDO (lia tenant_id do body; createProposal).
+  app.post('/governance/proposals', async (_req, reply) => reply.status(501).send(CONTAINED));
+  // POST /governance/proposals/:id/vote — CONTIDO (lia tenant_id do body; voteProposal).
+  app.post('/governance/proposals/:id/vote', async (_req, reply) => reply.status(501).send(CONTAINED));
+  // GET /governance/proposals — CONTIDO (lia tenant_id da query; listOpenProposals).
+  app.get('/governance/proposals', async (_req, reply) => reply.status(501).send(CONTAINED));
 };
 
 export default governanceProposalController;
