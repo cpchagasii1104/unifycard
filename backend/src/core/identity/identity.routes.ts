@@ -114,7 +114,26 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       // `profile_personal_confirmed` agora é PROJEÇÃO DEPRECADA (= confirmação civil),
       // mantida só para compat de clientes antigos; não é mais autoridade.
       const profilePersonalConfirmed = civilDataConfirmed;
-      
+
+      // 🟢 F-ONBOARDING-MARCOS-PROJECTION-PJ: actorReady = actor humano do user EXISTE e NÃO está bloqueado.
+      // READ-ONLY: NÃO cria actor (GET é leitura pura — F-C1-AUTO-REACHABLE-READ-PURITY; nada de ensureUserActor).
+      // Projeção/diagnóstico, NÃO autoridade — o backend de risco usa isActorEffectivelyBlocked no ato, não isto.
+      let actorReady = false;
+      try {
+        const { runQueryWithTenant } = await import('@core/database/pool');
+        const humanActor = await runQueryWithTenant<{ actor_id: string }>(
+          req.tenant.id,
+          `SELECT actor_id FROM actors WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user' LIMIT 1`,
+          [req.tenant.id, userId]
+        );
+        if (humanActor?.actor_id) {
+          const { isActorEffectivelyBlocked } = await import('@modules/risk-identity/actor-effective-block');
+          actorReady = !(await isActorEffectivelyBlocked(req.tenant.id, humanActor.actor_id));
+        }
+      } catch {
+        actorReady = false; // fail-closed (diagnóstico read-only; NUNCA bloqueia a rota)
+      }
+
       // F2 GENDER (DECISION-0080): gender canônico vem de global_users.gender (profile.global.gender).
       // Espelha no metadata exposto ao frontend (que ainda espera metadata.gender), SEM depender do blob —
       // novos usuários não têm gender no blob. Blob é fallback transitório até o cleanup (F4).
@@ -151,10 +170,13 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
         civil_data_confirmed: civilDataConfirmed,
         profile_personal_confirmed: profilePersonalConfirmed,
         can_edit_personal_data: canEditPersonalData,
-        // 🟢 F-ONBOARDING-MARCOS-PROJECTION (DECISION-0150 / Opção B): marcos PF READ-ONLY (projeção, NÃO
-        // autoridade — lêem SSOTs já carregados, ZERO query nova). NÃO autorizam dinheiro, NÃO substituem
-        // identity/authority/KYB/P3/P5. UI consome só como hint. actorReady/companyReady/providerReady/
-        // sellerReady são por-actor/por-company (fora da sessão) → follow-up F-ONBOARDING-MARCOS-PROJECTION-PJ.
+        // 🟢 F-ONBOARDING-MARCOS-PROJECTION (DECISION-0150 / Opção B): marcos READ-ONLY (projeção, NÃO autoridade;
+        // NÃO autorizam dinheiro, NÃO substituem identity/authority/KYB/P3/P5; UI consome só como hint).
+        // SESSION-LEVEL: civilIdentity* + profileMinimumCompleted (zero query) + actorReady (actor humano do user).
+        // PER-COMPANY/PER-OFFERING (companyReady/providerReady/sellerReady) NÃO entram aqui — /identity/me é sessão
+        // de usuário, sem company context; expô-los como escalar seria enganoso → DECISION_REQUIRED: endpoint
+        // per-company próprio (F-COMPANY-READINESS-PROJECTION), lendo companies.primary_company_type_id +
+        // company_concept_publications + fiscal_identities.kyb_status (PJ) / actor_professional_concepts (provider).
         milestones: {
           civilIdentityPresent: Boolean(
             (profile.global as { cpf?: string | null; fullName?: string | null })?.cpf &&
@@ -164,6 +186,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
           ),
           civilIdentityConfirmed: civilDataConfirmed,
           profileMinimumCompleted: (userProfile?.metadata as { onboarding_completed?: boolean } | undefined)?.onboarding_completed === true,
+          actorReady,
         },
       };
 
