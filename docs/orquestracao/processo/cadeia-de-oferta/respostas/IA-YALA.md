@@ -1228,3 +1228,48 @@ NP morde. **DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK → CLOSED.**
 
 READ-ONLY: NP estático revertido (sink `e69de29b`, audit exit 0); e2e self-contido (Δ bank_*=0); só editei meu
 `respostas/IA-YALA.md`. Nada commitado.
+
+---
+
+## RODADA 20 — RESEAL LEVE F-UNIFYCARD-FEE-BPS-SSOT-LOCK-IN (commit 7a87fee2 · YALA+DINHEIRO) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA, eixo DINHEIRO)
+**VEREDITO: PASS** — lock-in do fee em bps confirmado: path vivo resolve via economic_policy_engine; nenhum reader
+vivo de fee_percentage; allowlist só ghost/dormant/snapshot; NP morde; zero dinheiro/migration.
+**HEAD no momento:** `0b102ff6` (branch `rescue-structural`); commit material `7a87fee2` (`test(money): guard fee bps ssot`) ancestral/committado.
+**Revalidou no vivo:** SIM (total) — git + leitura do guard + marketplace-fee-policy + payment-execution + ghosts +
+  `validate:regression-guards` + e2e fee-bps + NP1/NP2 (estáticos). READ-ONLY.
+**Fonte soberana:** `audit-fee-bps-ssot.mjs`; `marketplace-fee-policy.ts:44/52/61` (resolver bps);
+  `payment-execution.service.ts:308/465/721` (fee viva via bps); `validate-pipeline-e2e-unifycard-fee-bps.ts` (14/14). DECISION-0140/0141.
+**Status:** RESPONDIDO.
+
+### Refutação dos 4 pontos
+1. **Path vivo usa engine/bps + nenhum consumidor vivo lê fee_percentage? → SIM.** `resolveMarketplaceFeeViaPolicy`
+   usa `economicPolicyEngineService` + expõe `feeRateBps`, fail-closed fee=0 (sem fallback fee_percentage). O guard
+   varre TODO `src/` e MORDE qualquer `fee_percentage` fora da allowlist → `regression-guards` **EXIT 0** com
+   `GATE OK [fee-bps-ssot]` prova que não há reader vivo fora da allowlist. **e2e fee-bps = 14/14 verdes.**
+2. **Allowlist esconde reader VIVO? → NÃO.** A fee VIVA em `payment-execution.service` vem de
+   `resolveMarketplaceFeeViaPolicy` (l.308) e o snapshot grava `fee_rate_bps` (l.465/721). Ele importa 2 ghosts
+   allowlistados (`payment-intent.service`, `settlement.service`), mas as chamadas são `getIntentById`/`createFromPayment`/
+   `failPaymentIntent` — **nenhuma resolve a fee viva por fee_percentage**. Nos ghosts: `payment-intent` grava
+   fee_percentage só em snapshot deprecated; `settlement` (proxy-dead) DERIVA um `feePercentage` local a partir de valores
+   JÁ resolvidos em bps (não é SOURCE). Os dormant (`unifycard-method.*` R8Q-501) e archived (`payment-method.*`) são contidos.
+   ⇒ Nenhum allowlistado é SOURCE da fee viva.
+3. **NP morde? → SIM (2×).** NP1: criei arquivo VIVO novo com `fee_percentage` → guard **exit 1**
+   ("fee_percentage em código VIVO fora da allowlist"); probe apagado. NP2: tirei o `economicPolicyEngineService` do
+   resolver → guard **exit 1** ("resolver não usa economic_policy_engine"); revertido (diff vazio `e69de29b`, engine de volta, guard exit 0).
+4. **ZERO migration/schema/bank/dinheiro? → SIM.** Commit 7a87fee2 = só `audit-fee-bps-ssot.mjs` (+79) + `package.json`
+   (wiring no regression-guards). Nenhum `.sql`/migration/bank_*/payout/fee-column. Guard é estático (não move dinheiro).
+
+### RISCOS / RESÍDUOS (leves, já allowlistados c/ DT própria)
+- `settlement.service` (proxy-dead) é alcançável via `payment-execution` (`createFromPayment`) e deriva um `feePercentage`
+  local — porém a partir de valores já-bps (não SOURCE), e está allowlistado com DT própria. `payment-intent.service`
+  grava fee_percentage em snapshot deprecated. Ambos não furam o lock-in (fee viva é bps); monitorar nas frentes próprias.
+
+### CONCLUSÃO
+**PASS.** O lock-in da DECISION-0140/0141 está provado: a taxa do path vivo (marketplace/UnifyCard) resolve SEMPRE via
+`economic_policy_engine` em bps (`resolveMarketplaceFeeViaPolicy`/`feeRateBps`), nenhum consumidor vivo lê
+`fee_percentage`, e o guard varre todo `src/` confinando `fee_percentage` a ghost/dormant/snapshot allowlistados —
+com NP que morde (reader vivo novo / resolver sem engine). e2e 14/14; regression-guards EXIT 0; zero migration/bank/dinheiro.
+READ-ONLY: NP1 probe apagado; NP2 revertido (`marketplace-fee-policy.ts` `e69de29b`, guard exit 0); só editei meu
+`respostas/IA-YALA.md`. Nada commitado.
