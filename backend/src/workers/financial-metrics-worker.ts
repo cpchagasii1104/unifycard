@@ -3,6 +3,7 @@
 
 import { pool } from '@core/database/pool';
 import { recordMetric } from '@modules/metrics/financial-metrics-repository';
+import { isFinancialWorkerEnabled } from './financial-worker-gate';
 
 const INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -55,6 +56,13 @@ async function runMetricsCycle(): Promise<void> {
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 export function startFinancialMetricsWorker(): void {
+  // 🔴 F-RLS-OBSERVABILITY-WORKERS-RESOLVE (DECISION-0149): default-off. Faz agregação CROSS-TENANT crua
+  // (pool.query sem app.current_tenant) — sob unificard_app rodaria cego (0 linhas). Só liga com flag explícita;
+  // tenant-loop é frente própria ao reativar. (NÃO ligar nesta fatia.)
+  if (!isFinancialWorkerEnabled('ENABLE_FINANCIAL_METRICS_WORKER')) {
+    console.log('[FinancialMetricsWorker] DESLIGADO (default-off; ENABLE_FINANCIAL_METRICS_WORKER≠true).');
+    return;
+  }
   if (intervalId !== null) return;
   runMetricsCycle().catch((err) => console.error('[FinancialMetricsWorker] Initial run error:', err));
   intervalId = setInterval(runMetricsCycle, INTERVAL_MS);

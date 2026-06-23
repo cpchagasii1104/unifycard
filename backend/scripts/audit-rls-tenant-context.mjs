@@ -10,7 +10,7 @@
 // DRENO: ao converter um arquivo p/ runQueryWithTenant/getClientWithTenant, REMOVA-O do BASELINE. Meta = BASELINE vazio.
 // RLS-runtime-live OPS só vira a chave quando BASELINE = 0 (ou decisão de RLS-live escopado às tabelas já drenadas).
 
-import { readdirSync, readFileSync, statSync } from 'fs';
+import { readdirSync, readFileSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
 
 const ROOT = process.cwd();
@@ -62,6 +62,22 @@ for (const abs of walk(join(ROOT, 'src'))) {
 }
 // baseline que não bate mais = arquivo DRENADO → deve sair do BASELINE (mantém o backlog honesto).
 for (const r of staleBaseline) fails.push(`BASELINE stale: ${r} não tem mais acesso cru — remova do BASELINE em audit-rls-tenant-context.mjs (dreno concluído).`);
+
+// 🔴 F-RLS-OBSERVABILITY-WORKERS-RESOLVE (DECISION-0149): os 3 workers observability cross-tenant DEVEM ser
+// default-off (gate isFinancialWorkerEnabled). Sob unificard_app rodariam cegos (0 linhas). MORDE se algum perder o gate.
+const GATED_WORKERS = [
+  ['src/workers/financial-metrics-worker.ts', 'ENABLE_FINANCIAL_METRICS_WORKER'],
+  ['src/workers/risk-analysis-worker.ts', 'ENABLE_RISK_ANALYSIS_WORKER'],
+  ['src/workers/financial-alert-worker.ts', 'ENABLE_FINANCIAL_ALERT_WORKER'],
+];
+for (const [wf, flag] of GATED_WORKERS) {
+  const p = join(ROOT, wf);
+  const s = existsSync(p) ? readFileSync(p, 'utf-8') : null;
+  if (s === null) { fails.push(`worker ausente: ${wf}`); continue; }
+  if (!s.includes(`isFinancialWorkerEnabled('${flag}')`)) {
+    fails.push(`${wf}: worker observability cross-tenant SEM gate default-off (isFinancialWorkerEnabled('${flag}')) — rodaria cego sob unificard_app (DECISION-0149).`);
+  }
+}
 
 if (fails.length > 0) {
   console.error('GATE FAIL [rls-tenant-context]:');

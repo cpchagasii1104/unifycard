@@ -16,7 +16,12 @@
 export type FinancialWorkerFlag =
   | 'ENABLE_PAYOUT_WORKER'
   | 'ENABLE_REVERSAL_WORKER'
-  | 'ENABLE_BANK_SETTLEMENT_WORKER';
+  | 'ENABLE_BANK_SETTLEMENT_WORKER'
+  // F-RLS-OBSERVABILITY-WORKERS-RESOLVE (DECISION-0149): observability cross-tenant default-off
+  // até tenant-loop/RLS-runtime-live. Sob unificard_app rodariam cegos (0 linhas).
+  | 'ENABLE_FINANCIAL_METRICS_WORKER'
+  | 'ENABLE_RISK_ANALYSIS_WORKER'
+  | 'ENABLE_FINANCIAL_ALERT_WORKER';
 
 export function isFinancialWorkerEnabled(flag: FinancialWorkerFlag): boolean {
   // Estrito: só a string exata 'true' habilita. Tudo o mais (undefined/''/'TRUE'/'1'/'yes') = OFF.

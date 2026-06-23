@@ -2,6 +2,7 @@
 // Não altera bank_transactions, bank_ledger nem bank_accounts. Somente leitura + escrita em financial_risk_events e financial_alerts.
 
 import { pool } from '@core/database/pool';
+import { isFinancialWorkerEnabled } from './financial-worker-gate';
 import { recordRiskEvent } from '@modules/risk/financial-risk-repository';
 import { createFinancialAlert, hasUnresolvedAlert } from '@modules/alerts/financial-alert-repository';
 import { activateBreaker, isBreakerActive } from '@modules/circuit-breaker/financial-circuit-breaker-repository';
@@ -130,6 +131,12 @@ async function runRiskAnalysisCycle(): Promise<void> {
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 export function startRiskAnalysisWorker(): void {
+  // 🔴 F-RLS-OBSERVABILITY-WORKERS-RESOLVE (DECISION-0149): default-off. Detecção CROSS-TENANT crua —
+  // sob unificard_app rodaria cega (0 linhas). Só liga com flag explícita; tenant-loop ao reativar.
+  if (!isFinancialWorkerEnabled('ENABLE_RISK_ANALYSIS_WORKER')) {
+    console.log('[RiskAnalysisWorker] DESLIGADO (default-off; ENABLE_RISK_ANALYSIS_WORKER≠true).');
+    return;
+  }
   if (intervalId !== null) return;
   runRiskAnalysisCycle().catch((err) => console.error('[RiskAnalysisWorker] Initial run error:', err));
   intervalId = setInterval(runRiskAnalysisCycle, INTERVAL_MS);

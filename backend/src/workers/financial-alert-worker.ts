@@ -2,6 +2,7 @@
 // Não altera bank_transactions, bank_ledger nem bank_accounts. Somente leitura em dados financeiros + INSERT em financial_alerts.
 
 import { pool } from '@core/database/pool';
+import { isFinancialWorkerEnabled } from './financial-worker-gate';
 import {
   createFinancialAlert,
   hasUnresolvedAlert,
@@ -69,6 +70,12 @@ async function runAlertCycle(): Promise<void> {
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 export function startFinancialAlertWorker(): void {
+  // 🔴 F-RLS-OBSERVABILITY-WORKERS-RESOLVE (DECISION-0149): default-off. Varredura CROSS-TENANT crua —
+  // sob unificard_app rodaria cega (0 linhas). Só liga com flag explícita; tenant-loop ao reativar.
+  if (!isFinancialWorkerEnabled('ENABLE_FINANCIAL_ALERT_WORKER')) {
+    console.log('[FinancialAlertWorker] DESLIGADO (default-off; ENABLE_FINANCIAL_ALERT_WORKER≠true).');
+    return;
+  }
   if (intervalId !== null) return;
   runAlertCycle().catch((err) => console.error('[FinancialAlertWorker] Initial run error:', err));
   intervalId = setInterval(runAlertCycle, INTERVAL_MS);
