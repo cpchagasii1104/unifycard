@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0150 (2026-06-23) |
+| Última entrada | DECISION-0151 (2026-06-23) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7399,6 +7399,14 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Referências:** `docs/02_decisions/DECISION_0146_OFFER_TEMPORAL_INTEGRITY_AND_BOOKING_CONFLICT.md` · **Constituição temporal Art. II** (conflito=fato→alerta→humano) · `DECISION-0117` D (`availability.owner_type`) · `DECISION-0132` (purpose temporal/booking gate) · `DECISION-0143/0144/0145` (cadeia de oferta) · `DECISION-0113` (actorId hint) · `docs/orquestracao/processo/cadeia-de-oferta/respostas/IA-TEMPO.md` / `IA-BANCO.md` (READ-FIRST F-OFFER-5).
 
 ---
+
+## DECISION-0151 — Rental Model: Resource-Based (Opção B) (DECISION_RENTAL_MODEL)
+
+- **Data:** 2026-06-23 · **Status:** PROMULGADA / DECISÃO DE MODELO / DOCS-ONLY · **HEAD (pré-commit):** `8a16d2ac` · **Insumo:** docs/rental/RENTAL_MODEL_DECISION_PACK.md.
+- **Decisão (Opção B):** locação = **recurso específico bloqueado no tempo** (não produto, não serviço genérico). Base `rentable_resource` (registro). Disponibilidade **reusa** unified availability com `owner_type='rentable_resource'` + branch em availability-owner-authority. **Conflito por `resource_id`, NÃO por provider** (3 carros do mesmo dono = 3 locações simultâneas; conflito é no carro). Sem agenda/estoque/booking/ledger paralelos. Opção C (service_offering) é inadequada p/ item único (conflita por provider).
+- **Variações futuras (não substituem B):** A = fungível por quantidade/inventory; C = provider-bound/service_offering temporal.
+- **MVP pré-money:** registro + disponibilidade por recurso + reserva/booking (estado). **HOLD:** depositCents/multa/late-fee/no-show financeiro/checkout/payout/escrow/liquidação/bank_*.
+- **Materialização:** NENHUMA (docs-only). Frente própria `F-RENTAL-RESOURCE-CORE` sob GO futuro. **Δ dinheiro = 0; zero runtime/migration/RLS-live.**
 
 ## DECISION-0150 — Onboarding Enforcement Policy (Opção B+b1) (F-ONBOARDING-ENFORCEMENT-DECISION / F-ONBOARDING-MARCOS-PROJECTION)
 
