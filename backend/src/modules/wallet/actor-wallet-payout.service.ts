@@ -15,7 +15,7 @@
 //   - Authorship 'ownership' (NÃO 'system'): saque é voluntário do actor.
 
 import { v4 as uuidv4 } from 'uuid';
-import { pool, getClientWithTenant } from '@core/database/pool';
+import { getClientWithTenant, runQueryWithTenant } from '@core/database/pool';
 import { bankAccountService } from '@modules/bank/bank-account.service';
 import { bankTransactionService } from '@modules/bank/bank-transaction.service';
 import { bankLedgerRepository } from '@modules/bank/bank-ledger.repository';
@@ -169,14 +169,16 @@ class ActorWalletPayoutService {
 
     // ── 2. Idempotência — verificar antes de qualquer escrita ─────────────────
 
-    const existing = await pool.query<ActorWalletPayoutRequestRow>(
+    // 🔴 F-RLS-TENANT-CONTEXT-FIX: actor_wallet_payout_requests tem RLS+FORCE — tenant-context obrigatório.
+    const existing = await runQueryWithTenant<ActorWalletPayoutRequestRow>(
+      tenantId,
       `SELECT * FROM actor_wallet_payout_requests
         WHERE tenant_id = $1 AND idempotency_key = $2
         LIMIT 1`,
       [tenantId, idempotencyKey]
     );
-    if (existing.rows[0]) {
-      const existingRequest = toActorWalletPayoutRequest(existing.rows[0]);
+    if (existing) {
+      const existingRequest = toActorWalletPayoutRequest(existing);
       // Recalcular snapshot para retorno informativo (saldo pode ter mudado)
       const wallet = await bankAccountService.getActorWalletAccount(tenantId, actorId);
       const snapshot = wallet
@@ -189,17 +191,18 @@ class ActorWalletPayoutService {
     // Idempotência vem antes: mesma key não ativa este gate.
     // Previne exposição semântica a aprovação duplicada (DECISION-0058 hardening).
 
-    const activeRequest = await pool.query<{ id: string }>(
+    const activeRequest = await runQueryWithTenant<{ id: string }>(
+      tenantId,
       `SELECT id FROM actor_wallet_payout_requests
         WHERE tenant_id = $1 AND actor_id = $2
           AND status IN ('pending_approval', 'approved', 'processing')
         LIMIT 1`,
       [tenantId, actorId]
     );
-    if (activeRequest.rows[0]) {
+    if (activeRequest) {
       throw new ActorWalletPayoutError(
         'ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE',
-        `actor ${actorId} já possui request ativo (id=${activeRequest.rows[0].id}). ` +
+        `actor ${actorId} já possui request ativo (id=${activeRequest.id}). ` +
           `Cancele ou aguarde a resolução do pedido anterior antes de criar um novo.`
       );
     }
@@ -325,11 +328,12 @@ class ActorWalletPayoutService {
     payoutRequestId: string
   ): Promise<ActorWalletPayoutRequest | null> {
     if (!tenantId || !payoutRequestId) return null;
-    const res = await pool.query<ActorWalletPayoutRequestRow>(
+    const res = await runQueryWithTenant<ActorWalletPayoutRequestRow>(
+      tenantId,
       `SELECT * FROM actor_wallet_payout_requests WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
       [tenantId, payoutRequestId]
     );
-    return res.rows[0] ? toActorWalletPayoutRequest(res.rows[0]) : null;
+    return res ? toActorWalletPayoutRequest(res) : null;
   }
 
   /**

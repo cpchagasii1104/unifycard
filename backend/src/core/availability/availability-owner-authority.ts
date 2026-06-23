@@ -15,7 +15,7 @@
 // Owner type novo SÓ entra com policy material + norma + CHECK físico
 // (migration 20260612110000) + enum — o gate temporal compara os três.
 
-import { pool } from '../database/pool';
+import { runQueryWithTenant } from '../database/pool';
 import { authorizationService } from '../authorization/authorization.service';
 import { AvailabilityOwnerType } from './unified-availability.types';
 
@@ -36,13 +36,16 @@ export interface ResolvedAvailabilityOwner {
 type OwnerPolicy = (tenantId: string, ownerId: string) => Promise<string | null>;
 
 async function actorOfType(tenantId: string, actorId: string, actorType: 'user' | 'page'): Promise<string | null> {
-  const r = await pool.query<{ id: string }>(
+  // 🔴 F-RLS-TENANT-CONTEXT-FIX: actors tem RLS+FORCE — tenant-context obrigatório (sob unificard_app
+  // pool.query cru retornaria 0 linhas). runQueryWithTenant seta app.current_tenant.
+  const r = await runQueryWithTenant<{ id: string }>(
+    tenantId,
     `SELECT id::text AS id FROM actors
       WHERE id = $1::uuid AND tenant_id = $2::uuid AND actor_type = $3
       LIMIT 1`,
     [actorId, tenantId, actorType]
   );
-  return r.rows[0]?.id ?? null;
+  return r?.id ?? null;
 }
 
 /**
@@ -59,46 +62,50 @@ const OWNER_AUTHORITY_POLICIES: Record<AvailabilityOwnerType, OwnerPolicy> = {
 
   // service: services.actor_id é o dono material do serviço.
   [AvailabilityOwnerType.SERVICE]: async (tenantId, ownerId) => {
-    const r = await pool.query<{ actor_id: string | null }>(
+    const r = await runQueryWithTenant<{ actor_id: string | null }>(
+      tenantId,
       `SELECT actor_id::text AS actor_id FROM services
         WHERE service_id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
       [ownerId, tenantId]
     );
-    return r.rows[0]?.actor_id ?? null;
+    return r?.actor_id ?? null;
   },
 
   // service_offering: provider_actor_id é o prestador dono da oferta (DECISION-0117 D).
   [AvailabilityOwnerType.SERVICE_OFFERING]: async (tenantId, ownerId) => {
-    const r = await pool.query<{ provider_actor_id: string | null }>(
+    const r = await runQueryWithTenant<{ provider_actor_id: string | null }>(
+      tenantId,
       `SELECT provider_actor_id::text AS provider_actor_id FROM service_offerings
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
       [ownerId, tenantId]
     );
-    return r.rows[0]?.provider_actor_id ?? null;
+    return r?.provider_actor_id ?? null;
   },
 
   // event: events.actor_id é o organizador material.
   [AvailabilityOwnerType.EVENT]: async (tenantId, ownerId) => {
-    const r = await pool.query<{ actor_id: string | null }>(
+    const r = await runQueryWithTenant<{ actor_id: string | null }>(
+      tenantId,
       `SELECT actor_id::text AS actor_id FROM events
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
       [ownerId, tenantId]
     );
-    return r.rows[0]?.actor_id ?? null;
+    return r?.actor_id ?? null;
   },
 
   // group: owner_actor_id é o dono material do grupo (fallback actor_id criador).
   [AvailabilityOwnerType.GROUP]: async (tenantId, ownerId) => {
-    const r = await pool.query<{ authority: string | null }>(
+    const r = await runQueryWithTenant<{ authority: string | null }>(
+      tenantId,
       `SELECT COALESCE(owner_actor_id, actor_id)::text AS authority FROM groups
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
       [ownerId, tenantId]
     );
-    return r.rows[0]?.authority ?? null;
+    return r?.authority ?? null;
   },
 };
 
