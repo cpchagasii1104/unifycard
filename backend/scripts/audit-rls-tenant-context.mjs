@@ -30,13 +30,12 @@ const isAllowedPath = (r) =>
 // BASELINE = backlog de DRENO (runtime tenant-scoped com pool.query cru, ainda NÃO convertido). Encolher até 0.
 // (availability-owner-authority + actor-wallet-payout JÁ drenados → NÃO estão aqui; se regredirem, mordem.)
 const BASELINE = new Set([
-  // CROSS-TENANT (DECISION_REQUIRED — conexão infra vs tenant-loop; NÃO drenar por tenant-context):
-  'src/core/observability/ledger-integrity-monitor.ts',     // checkLedgerIntegrity(pool) — soma global bank_ledger (todos tenants)
-  'src/modules/reconciliation/reconciliation.repository.ts', // lista DISTINCT tenant_id (sweep cross-tenant)
-  // DRENADOS (removidos): Fatia 1 (availability-owner-authority · actor-wallet-payout.service) ·
-  //   LOTE 1 (actor-wallet-balance-projection · actor-bank-destination.service · regional-fund-governance · donation.service) ·
-  //   LOTE 2 (service-offering.service · media-asset.service · operational-address.helper · profile-education · profile-physical).
-  // Restam SÓ os 2 cross-tenant acima → decisão de conexão (infra vs loop) → baseline 0 → RLS-live OPS.
+  // 🟢 BASELINE = 0 (DECISION-0149 materializada). TODOS drenados:
+  //   Fatia 1: availability-owner-authority · actor-wallet-payout.service
+  //   LOTE 1 : actor-wallet-balance-projection · actor-bank-destination.service · regional-fund-governance · donation.service
+  //   LOTE 2 : service-offering.service · media-asset.service · operational-address.helper · profile-education · profile-physical
+  //   CROSS-TENANT (tenant-loop, DECISION-0149): reconciliation.repository (discovery via `tenants` não-RLS) ·
+  //     ledger-integrity-monitor (tenant-loop por-tenant). Nenhum baseline restante.
 ]);
 
 function walk(dir, acc = []) {
@@ -69,4 +68,4 @@ if (fails.length > 0) {
   for (const f of fails) console.error('   - ' + f);
   process.exit(1);
 }
-console.log(`GATE OK [rls-tenant-context] — 0 acesso cru NOVO; baseline de dreno = ${baselineHit.length} arquivo(s) runtime ainda com pool.query cru a tabela RLS (backlog rastreado; RLS-live OPS só com baseline=0 ou RLS-live escopado). Allowlist: scripts/__tests__/workers (admin/decisão) + fiscal-identity-kyb + bank-ledger admin.`);
+console.log(`GATE OK [rls-tenant-context] — BASELINE = 0 (dreno completo: runtime tenant-context + cross-tenant via tenant-loop, DECISION-0149); 0 acesso cru NOVO. ⚠ Allowlist HOLD/decision-pending (ainda blocker RLS-live OPS, fora do baseline): src/workers/* (metrics/risk/alert rodam default-on → tenant-loop OU gate default-off antes do repoint; payout-worker HOLD/PORTA-1) · fiscal-identity-kyb reviewer-check (DECISION_REQUIRED) · bank-ledger admin · scripts/__tests__. INFRA proibido sem DECISION própria.`);

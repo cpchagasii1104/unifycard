@@ -225,11 +225,14 @@ export async function markResolved(
   );
 }
 
-/** Tenants com contas bancárias (para worker). */
+/** Tenants para reconciliação (para worker). */
 export async function listTenantsForReconciliation(limit = 500): Promise<string[]> {
-  const r = await pool.query<{ tenant_id: string }>(
-    `SELECT DISTINCT tenant_id FROM bank_accounts ORDER BY tenant_id LIMIT $1`,
+  // 🔴 DECISION-0149: discovery via tabela `tenants` (registry NÃO-RLS), NÃO varrendo bank_accounts (RLS+FORCE)
+  // — sob unificard_app a varredura de bank_accounts retornaria 0. O loop por-tenant a jusante já usa
+  // getClientWithTenant (tenant-context). Cross-tenant = descobrir não-RLS + iterar por-tenant.
+  const r = await pool.query<{ id: string }>(
+    `SELECT id FROM tenants ORDER BY id LIMIT $1`,
     [limit]
   );
-  return r.rows.map((x) => x.tenant_id);
+  return r.rows.map((x) => x.id);
 }
