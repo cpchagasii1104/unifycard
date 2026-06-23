@@ -151,6 +151,20 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
         civil_data_confirmed: civilDataConfirmed,
         profile_personal_confirmed: profilePersonalConfirmed,
         can_edit_personal_data: canEditPersonalData,
+        // 🟢 F-ONBOARDING-MARCOS-PROJECTION (DECISION-0150 / Opção B): marcos PF READ-ONLY (projeção, NÃO
+        // autoridade — lêem SSOTs já carregados, ZERO query nova). NÃO autorizam dinheiro, NÃO substituem
+        // identity/authority/KYB/P3/P5. UI consome só como hint. actorReady/companyReady/providerReady/
+        // sellerReady são por-actor/por-company (fora da sessão) → follow-up F-ONBOARDING-MARCOS-PROJECTION-PJ.
+        milestones: {
+          civilIdentityPresent: Boolean(
+            (profile.global as { cpf?: string | null; fullName?: string | null })?.cpf &&
+              (profile.global as { cpf?: string | null; fullName?: string | null })?.fullName &&
+              serializedBirthdate &&
+              canonicalGender
+          ),
+          civilIdentityConfirmed: civilDataConfirmed,
+          profileMinimumCompleted: (userProfile?.metadata as { onboarding_completed?: boolean } | undefined)?.onboarding_completed === true,
+        },
       };
 
       return reply.send({ ok: true, data: serializedProfile });
