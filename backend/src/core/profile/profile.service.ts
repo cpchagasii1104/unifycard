@@ -210,9 +210,11 @@ class ProfileService {
     const existingProfile = await this.getProfile(tenantId, userId);
     const existingMetadata: Record<string, any> = existingProfile?.metadata || {};
 
-    // 🔧 FIX (first personal save locks identity fields): Verificar se dados pessoais estão bloqueados
-    // Fonte única de verdade: metadata.personal_data_locked
-    const personalDataLocked = existingMetadata?.personal_data_locked === true;
+    // 🔴 F-IDENTITY-CIVIL-LOCK-PROFILE-WRITER-PURITY (DECISION-0120 D6): a trava civil é decidida pela
+    // camada identity (identity_civil_confirmation_events), NÃO por profiles.metadata (projeção/tombstone).
+    // O writer de PROJEÇÃO (upsertProfile) respeita a MESMA autoridade — senão profiles.full_name divergiria
+    // de global_users.full_name (split-brain). canEditPersonalData delega ao SSOT identity.
+    const personalDataLocked = !(await this.canEditPersonalData(tenantId, userId));
 
     // 🔧 FIX (first personal save locks identity fields): fullName (só se veio no payload)
     let fullNameToUpdate: string | null | undefined = undefined;

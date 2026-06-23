@@ -992,8 +992,9 @@ export default function Profile() {
         );
       }
 
-      // 🔧 FIX (first personal save locks identity fields): Backend seta personal_data_locked automaticamente após primeiro salvamento
-      // Não precisa chamar completeOnboarding - o backend já bloqueia os campos após salvar
+      // 🔴 F-IDENTITY-CIVIL-LOCK (DECISION-0120): a trava civil é decidida pela camada identity (evento
+      // civil append-only), NÃO por profiles.metadata. O backend é a autoridade e bloqueia os campos civis;
+      // não chamar completeOnboarding — o frontend só projeta a verdade do backend.
       
       // Atualizar flags de imutabilidade apenas para controle local
       if (sanitizedFullName && sanitizedFullName.trim().length > 0) {
@@ -1006,8 +1007,8 @@ export default function Profile() {
         setHasGender(true);
       }
 
-      // 🔧 FIX (first personal save locks identity fields): Recarregar perfil para garantir sincronização com backend
-      // O backend retornará metadata.personal_data_locked que controla o cadeado
+      // Recarregar perfil para sincronizar com o backend. A autoridade da trava civil é a camada identity
+      // (projetada em canEditPersonalData); o cadeado reflete a verdade do backend, não decide nada local.
       console.log("[Profile] Recarregando perfil para sincronizar com backend...");
       await loadData();
       await loadProgress(); // 🔧 FIX: sincroniza barra de progresso após salvar
