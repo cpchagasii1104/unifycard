@@ -56,9 +56,10 @@ Status values:
 - **Mitigação atual:** guard `audit-booking-caller-authority.mjs` (D, em regression-guards) congela a disciplina — os 7 call-sites estão classificados (BOUND: rota canônica + bundle; FIREWALL_CONTAINED: service-hire/0110; SELF_BOOKING_ALLOWLIST: checkout-ticket/event-rfq derivam requester server-side; TEST_ONLY: e2e). Call-site novo inseguro / perda de binding-firewall-derivação → MORDE (NP 4×).
 - **Resolução prevista:** **F-BOOKING-CORE-SUBJECT-MODEL-DECISION (B)** — definir o subject canônico do core (subjectUserId normalizado / subject de sistema explícito / self vs represented) e tornar o core auto-defensivo (Opção B do READ-FIRST). Opção C (split `createBookingForRepresentedActor` vs `createSystemBooking`) só se B provar caller de sistema real.
 
-## DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK — OPEN / MÉDIA (2026-06-22)
+## DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK — CLOSED / MÉDIA (2026-06-22→2026-06-23)
 
-- **Status:** OPEN
+- **CLOSED (2026-06-23, commit `8ec57688`, IA-YALA PASS + IA-DINHEIRO DT FECHADO):** Opção A — gate movido p/ o SINK. `assertCheckoutFinancialRuntimeEnabled` (mesma flag `CHECKOUT_FINANCIAL_RUNTIME_ENABLED`, default OFF) no TOPO de `bankIntegration.processEventTicketPayment` + `processEventConsumptionPayment`, ANTES de `createTransactionWithSplit`. **Fecha por CONSTRUÇÃO:** todo caller de evento/checkout — presente, futuro ou o dead-code `events-payment.service` religado — bate no gate antes de tocar bank_*. `createTransactionWithSplit` genérico (p2p/service_booking) **intocado** (não-cimentação confirmada); callers mantêm gate (defesa-em-profundidade dupla). Guard `audit-checkout-financial-containment` estendido (exige gate no sink; NP morde). e2e 6/6 (sink direto 2a/2b → DISABLED + Δ bank_*=0). Dead-code NÃO removido (neutralizado). Zero migration/payout/fee.
+- **Status:** CLOSED (era OPEN)
 - **Origem:** F-CHECKOUT-FINANCIAL-RUNTIME-CONTAINMENT, reseal IA-DINHEIRO+YALA (2026-06-22; commit material `823699e3`).
 - **Vinculada a:** DECISION-0110 (firewall financeiro fail-closed — padrão espelhado).
 - **Contexto:** o gate de contenção (`assertCheckoutFinancialRuntimeEnabled`) vive na CAMADA DOS CALLERS (`CheckoutService.processCheckout` + `eventEconomyService.processCheckout`), NÃO no SINK (`bank-integration.processEvent*Payment`). Há um writer de bank_* **MORTO e ungated** — `events-payment.service.processEventPayment` — sem rota/importer vivo.
