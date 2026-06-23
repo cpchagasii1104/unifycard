@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-INTERNAL-SSOT-ADMIN-TENANT-QUERY-HYGIENE — OPEN / BAIXA / NÃO-DINHEIRO (2026-06-23)
+
+- **Origem:** F-INTERNAL-FINANCIAL-TENANT-BODY-SPOOF-CONTAINMENT (P1). Único `req.query.tenantId` em superfície não-teste fora das `/internal` financeiras (essas já 501/403-contidas + guardadas).
+- **Fato:** `src/core/categories/ssot-admin.routes.ts:36-37` — `if (req.query.tenantId) options.tenantId = req.query.tenantId`. **Authed** (registrado em protectedScope com authPlugin+tenantPlugin, prefix `/admin/ssot`; preHandler exige `req.user` + `req.tenant`). Domínio = **categorias/SSOT (NÃO-dinheiro)**.
+- **Risco:** baixo — sob RLS escopa por `req.tenant`; mas não valida explicitamente `query.tenantId === req.user.tenantId` (admin autenticado poderia passar tenantId de outro tenant como option). Não é caminho de dinheiro/governance/treasury (fora do escopo P1).
+- **Convergência:** validar `query.tenantId` contra `req.tenant` (ou derivar de `req.tenant`) na frente de catálogo/admin. Não bloqueia produto nem RLS-live.
+
 ## Objetivo
 
 Registrar dívidas técnicas (DTs) reconhecidas durante a remediação estrutural
