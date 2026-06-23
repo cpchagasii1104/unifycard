@@ -97,13 +97,13 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 
 ---
 
-## Tabela mestra — Bloco 0112–0148 (pós-0111 · reindex A1 + DECISION-0142/0143/0144/0145/0146/0147/0148 · 2026-06-22)
+## Tabela mestra — Bloco 0112–0149 (pós-0111 · reindex A1 + DECISION-0142..0149 · 2026-06-23)
 
 > **Natureza desta passada (A1, docs-only):** **DECLARADO** = status do header do próprio
 > `DECISION_NNNN_*.md` (fonte soberana por linha; `REMEDIATION_DECISIONS_LOG.md` confirma
 > existência/cauda até 0141). **Verificado = NÃO-AUDITADO** em TODAS — esta passada **não**
 > re-checou runtime/schema; **não finge auditoria material**. Sem divergência header×LOG detectada.
-> Sequência 0112→0148 (37 decisões, sem buraco, sem duplicata; **0142** materializada via U1b; **0143/0144/0145/0146/0147** docs-only/réguas F-OFFER-0/2/3/5+6 + ativação-segura P3; **0148** docs-only/contrato do core de booking — subject normalizado). Próximo nº livre: **0149**.
+> Sequência 0112→0148 (37 decisões, sem buraco, sem duplicata; **0142** materializada via U1b; **0143/0144/0145/0146/0147** docs-only/réguas F-OFFER-0/2/3/5+6 + ativação-segura P3; **0148** docs-only/contrato do core de booking — subject normalizado; **0149** docs-only/conexão cross-tenant RLS — tenant-loop canônico B-heavy). Próximo nº livre: **0150**.
 
 | Nº | Arquivo | Declarado (header do .md) | Verificado | 1-linha |
 |----|---------|---------------------------|------------|---------|
@@ -144,6 +144,7 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 | 0146 | DECISION_0146_OFFER_TEMPORAL_INTEGRITY_AND_BOOKING_CONFLICT | PROMULGADA / DOCS-ONLY / INTEGRIDADE TEMPORAL DA OFERTA E CONFLITO DE BOOKING POR PROVIDER (F-OFFER-5+6) | NÃO-AUDITADO (docs-only; execução material HOLD · MODO C) | availability declara→alerta · booking confirmado→bloqueia por provider_actor_id · service_offering=owner temporal · status do schema vivo (+12 guards G1–G12) |
 | 0147 | DECISION_0147_OFFER_ACTIVATION_SAFE_PUBLICATION | PROMULGADA / DOCS-ONLY / ATIVAÇÃO SEGURA DE SERVICE_OFFERING (P3/Caminho A) | NÃO-AUDITADO (docs-only; execução material HOLD · MODO B/C) | draft→active revalida elegibilidade+KYB(PJ)/KYC-lite(PF)+publicação ativa; state-machine fail-closed; cascata suspende active se base cair (+7 guards; ressalva PF=STOP se indefinível) |
 | 0148 | DECISION_0148_BOOKING_CORE_SUBJECT_MODEL | PROMULGADA / DOCS-ONLY / CONTRATO DO CORE DE BOOKING (Opção B) | NÃO-AUDITADO (docs-only; execução material HOLD · MODO B/C) | core createBooking para de receber `userId` genérico → recebe BookingSubject{subjectUserId,requesterActorId} e REVALIDA canRepresentActor (auto-defensivo); A descartada, C adiada (zero caller de sistema), D=guard piso; systemSubject proibido até DECISION própria |
+| 0149 | DECISION_0149_RLS_CROSS_TENANT_CONNECTION_MODEL | PROMULGADA / DOCS-ONLY / CONEXÃO CROSS-TENANT RLS (Opção B-heavy) | NÃO-AUDITADO (docs-only; materialização HOLD · MODO B) | tenant-loop canônico (descoberta via tabela `tenants` não-RLS + iterar por-tenant com app.current_tenant); runtime normal nunca usa bypass; `unificard_infra` NÃO ganha LOGIN/pool agora (não é chave pronta); ledger-monitor=ADMIN_ONLY/loop; payout-worker=HOLD; infra só com DECISION própria+wrapper+allowlist+log; RLS-live OPS bloqueado até baseline=0 |
 
 ---
 

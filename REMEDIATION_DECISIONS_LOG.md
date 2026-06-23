@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0148 (2026-06-22) |
+| Última entrada | DECISION-0149 (2026-06-23) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7399,6 +7399,14 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Referências:** `docs/02_decisions/DECISION_0146_OFFER_TEMPORAL_INTEGRITY_AND_BOOKING_CONFLICT.md` · **Constituição temporal Art. II** (conflito=fato→alerta→humano) · `DECISION-0117` D (`availability.owner_type`) · `DECISION-0132` (purpose temporal/booking gate) · `DECISION-0143/0144/0145` (cadeia de oferta) · `DECISION-0113` (actorId hint) · `docs/orquestracao/processo/cadeia-de-oferta/respostas/IA-TEMPO.md` / `IA-BANCO.md` (READ-FIRST F-OFFER-5).
 
 ---
+
+## DECISION-0149 — RLS Cross-Tenant Connection Model (Opção B-heavy) (F-RLS-CROSS-TENANT-CONNECTION-DECISION)
+
+- **Data:** 2026-06-23 · **Status:** PROMULGADA / DOCS-ONLY · **HEAD (pré-commit):** `9e372089` · **Frente:** F-RLS-CROSS-TENANT-CONNECTION-DECISION · **Ratificação:** Clayton + IA-DINHEIRO.
+- **Decisão (B-heavy):** **tenant-loop é o padrão canônico** p/ acessos cross-tenant sob RLS. Runtime normal NUNCA usa conexão global/bypass (sempre `app.current_tenant` via runQueryWithTenant/runQueriesWithTenant/getClientWithTenant). Jobs/monitores cross-tenant: **descobrir tenants por fonte NÃO-RLS** (tabela `tenants`) → iterar tenant-by-tenant → executar com tenant-context. **`unificard_infra` NÃO ganha LOGIN/pool agora** (verificado: rolbypassrls=false, rolcanlogin=false, sem DATABASE_INFRA_URL — não é chave pronta; usá-lo = fabricar chave-mestra). ledger-integrity-monitor = ADMIN_ONLY/tenant-loop; reconciliation = discovery via `tenants` + loop; workers metrics/risk/alert = tenant-loop; **actor-wallet-payout-worker = HOLD** (default-off, decide no PORTA-1). infra reservado p/ exceção com DECISION própria + wrapper nomeado + allowlist + log + prova de menor blast.
+- **Deriva de:** DECISION-0113/0118 · DECISION-0110 · F-DB-ROLE-AND-RLS-HARDENING. **Vinculada a:** DT-RLS-RUNTIME-TENANT-CONTEXT-BASELINE.
+- **BLOCKER p/ RLS-runtime-live OPS:** baseline=0 · reconciliation tenant-loop · ledger-monitor ADMIN_ONLY/loop · workers classificados/HOLD · guard atualizado · app sem repoint até novo GO OPS.
+- **Materialização/Prova:** **NENHUMA** (docs-only). Execução após GO próprio: `F-RLS-CROSS-TENANT-CONNECTION-MATERIALIZATION` (reconciliation+ledger+workers tenant-loop + guard baseline 2→0). **ZERO** dinheiro/migration/role/env/RLS-live.
 
 ## DECISION-0148 — Booking Core Subject Model (Opção B) (F-BOOKING-CORE-SUBJECT-MODEL-DECISION)
 
