@@ -2,10 +2,9 @@
 // Componente para exibir posts de serviços com ações de agendar e pagar
 
 import { useState } from 'react';
-import { type PostCardData, confirmCTA } from '../api/social';
+import { type PostCardData } from '../api/social';
 import { normalizeCategoryLabel } from '../utils/categoryLabelNormalizer';
-import { getExpectationText } from '../utils/canonical-language';
-import { IrreversibilityMarker } from '../utils/action-nature';
+import BlockedButton from './common/BlockedButton';
 import './ServicePostCard.css';
 
 interface ServicePostCardProps {
@@ -16,14 +15,10 @@ interface ServicePostCardProps {
 
 export default function ServicePostCard({ post, onScheduleSuccess, onPaymentSuccess }: ServicePostCardProps) {
   const [isScheduling, setIsScheduling] = useState(false);
-  const [isPaying, setIsPaying] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [showScheduleForm, setShowScheduleForm] = useState(false);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [paymentAmount, setPaymentAmount] = useState(post.cta?.price?.toString() || '');
 
   const formatCurrency = (value: number, currency: string = 'BRL'): string => {
     return new Intl.NumberFormat('pt-BR', {
@@ -67,33 +62,9 @@ export default function ServicePostCard({ post, onScheduleSuccess, onPaymentSucc
     }
   };
 
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const amount = parseFloat(paymentAmount);
-    if (!amount || amount <= 0) {
-      setPaymentError('Valor inválido');
-      return;
-    }
-
-    setIsPaying(true);
-    setPaymentError(null);
-
-    try {
-      if (post.cta?.cta_id) {
-        await confirmCTA(post.cta.cta_id, { notes: `Pagamento de ${amount}` });
-      } else {
-        throw new Error('CTA não disponível para pagamento');
-      }
-      setShowPaymentForm(false);
-      setPaymentAmount(post.cta?.price?.toString() || '');
-      if (onPaymentSuccess) onPaymentSuccess();
-      alert('Pagamento realizado com sucesso!');
-    } catch (err: any) {
-      setPaymentError(err.message || 'Erro ao processar pagamento');
-    } finally {
-      setIsPaying(false);
-    }
-  };
+  // 🔴 F-HANDLEPAYMENT (A+D): handlePayment REMOVIDO. Chamava confirmCTA (NOT_IMPLEMENTED) e tinha um
+  // alert('Pagamento realizado com sucesso!') morto/latente — o frontend nunca cria verdade financeira.
+  // Pagamento por card NÃO existe; dinheiro real está em HOLD. UI honesta abaixo (BlockedButton).
 
   // Verificar se é post de serviço baseado no intent e CTA
   if (post.intent !== 'service_offer' || !post.cta || post.cta.cta_type !== 'service') {
@@ -150,7 +121,7 @@ export default function ServicePostCard({ post, onScheduleSuccess, onPaymentSucc
               <button
                 className="btn-schedule"
                 onClick={() => setShowScheduleForm(true)}
-                disabled={isScheduling || isPaying}
+                disabled={isScheduling}
               >
                 📅 Agendar Serviço
               </button>
@@ -198,65 +169,16 @@ export default function ServicePostCard({ post, onScheduleSuccess, onPaymentSucc
         )}
 
         {serviceInfo.requiresPayment && (
-          <>
-            {!showPaymentForm ? (
-              <button
-                className="btn-pay"
-                onClick={() => setShowPaymentForm(true)}
-                disabled={isScheduling || isPaying}
-              >
-                💳 Pagar Agora
-              </button>
-            ) : (
-              <form onSubmit={handlePayment} className="payment-form">
-                <div className="form-group">
-                  <label>Valor a Pagar:</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    required
-                    disabled={isPaying}
-                    placeholder={serviceInfo.price?.toString() || '0.00'}
-                  />
-                  <span className="currency">{serviceInfo.currency || 'BRL'}</span>
-                </div>
-                {paymentError && <div className="error-message">{paymentError}</div>}
-                {/* SPRINT 17: Microtexto de expectativa */}
-                <div className="expectation-text" style={{ 
-                  marginBottom: '1rem', 
-                  padding: '0.75rem', 
-                  background: '#f8f9fa', 
-                  border: '1px solid #e0e0e0', 
-                  borderRadius: '4px',
-                  fontSize: '0.9rem',
-                  color: '#666',
-                  lineHeight: '1.4'
-                }}>
-                  {getExpectationText('executeFinancialAction')}
-                </div>
-                {/* SPRINT 18: Marcação de irreversibilidade */}
-                <IrreversibilityMarker />
-                <div className="form-actions">
-                  <button type="submit" disabled={isPaying} className="btn-primary">
-                    {isPaying ? 'Processando...' : 'Confirmar Pagamento'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPaymentForm(false);
-                      setPaymentError(null);
-                    }}
-                    className="btn-secondary"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            )}
-          </>
+          <div className="payment-unavailable">
+            {/* 🔴 F-HANDLEPAYMENT (A+D): pagamento por card NÃO existe e dinheiro real está em HOLD.
+                Sem fake-success, sem formulário enganoso — estado honesto reusando BlockedButton. */}
+            <BlockedButton
+              className="btn-pay"
+              reason="Fluxo financeiro em desenvolvimento. A reserva acontece pela página do serviço (descoberta → oferta → disponibilidade)."
+            >
+              💳 Pagamento indisponível nesta versão
+            </BlockedButton>
+          </div>
         )}
       </div>
     </div>

@@ -30,6 +30,15 @@ export default function PaymentMethodSelector({
     <div className="payment-method-selector">
       <h3>Selecione o método de pagamento</h3>
 
+      {/* 🔴 F-HANDLEPAYMENT (A): honestidade — dinheiro real em HOLD; métodos sujeitos a disponibilidade.
+          Não promete sucesso; o backend é fail-closed e devolve erro honesto se o runtime financeiro estiver OFF. */}
+      <div className="payment-method-notice" role="note" style={{
+        margin: '0 0 1rem', padding: '0.6rem 0.75rem', background: '#fff8e1',
+        border: '1px solid #ffe0a3', borderRadius: '4px', fontSize: '0.85rem', color: '#7a5b00', lineHeight: 1.4,
+      }}>
+        ⚠️ Fluxo financeiro em desenvolvimento nesta versão — métodos de pagamento sujeitos a disponibilidade.
+      </div>
+
       <div className="payment-methods">
         <button
           className={`payment-method ${selectedMethod === 'balance' ? 'selected' : ''}`}
