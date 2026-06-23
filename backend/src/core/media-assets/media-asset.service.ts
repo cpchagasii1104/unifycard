@@ -18,7 +18,7 @@
 // criador OU curador). Provider de produção FORA. Zero Bank writer.
 
 import { createHash } from 'crypto';
-import { pool } from '../database/pool';
+import { pool, runQueryWithTenant } from '../database/pool';
 import type { DocumentStoragePort } from '../document-storage/document-storage.port';
 import { resolveDocumentStorageProvider } from '../document-storage/document-storage.provider';
 import type { MalwareScanPort } from '../document-malware-scan/document-malware-scan.port';
@@ -675,11 +675,13 @@ export const mediaAssetService = {
       if (input.attachedToType === 'company') {
         targetCompanyId = input.attachedToId;
       } else {
-        const owner = await pool.query<{ company_id: string | null }>(
+        // 🔴 F-RLS-TENANT-CONTEXT: actors tem RLS+FORCE — tenant-context obrigatório.
+        const owner = await runQueryWithTenant<{ company_id: string | null }>(
+          input.tenantId,
           `SELECT company_id FROM actors WHERE id = $1::uuid AND tenant_id = $2::uuid LIMIT 1`,
           [input.ownerActorId, input.tenantId]
         );
-        targetCompanyId = owner.rows[0]?.company_id ?? null;
+        targetCompanyId = owner?.company_id ?? null;
       }
       const contextMatches =
         asset.contextType === 'company' &&

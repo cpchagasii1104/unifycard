@@ -8,7 +8,7 @@
 // NENHUM calendário paralelo. Booking transacional/pagamento FORA (0109/0117).
 // Autoridade: canRepresentActor(provider) server-side. Zero Bank writer.
 
-import { pool } from '@core/database/pool';
+import { pool, runQueryWithTenant } from '@core/database/pool';
 import { authorizationService } from '@core/authorization/authorization.service';
 import { canonicalServiceService } from '@core/catalog/canonical/canonical-service.service';
 import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
@@ -129,11 +129,13 @@ export const serviceOfferingService = {
     const serviceId = svc.rows[0].service_id;
 
     // company_id DERIVADO server-side do provider (D-F3-2 / G4): body NUNCA define company/owner.
-    const provRow = await pool.query<{ company_id: string | null }>(
+    // 🔴 F-RLS-TENANT-CONTEXT: actors tem RLS+FORCE — tenant-context obrigatório.
+    const provRow = await runQueryWithTenant<{ company_id: string | null }>(
+      input.tenantId,
       `SELECT company_id FROM actors WHERE id = $1::uuid LIMIT 1`,
       [input.providerActorId]
     );
-    const derivedCompanyId = provRow.rows[0]?.company_id ?? null;
+    const derivedCompanyId = provRow?.company_id ?? null;
 
     const existing = await pool.query<SoRow>(
       `SELECT ${SO_SELECT} FROM service_offerings

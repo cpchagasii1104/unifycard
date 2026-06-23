@@ -30,17 +30,13 @@ const isAllowedPath = (r) =>
 // BASELINE = backlog de DRENO (runtime tenant-scoped com pool.query cru, ainda NÃO convertido). Encolher até 0.
 // (availability-owner-authority + actor-wallet-payout JÁ drenados → NÃO estão aqui; se regredirem, mordem.)
 const BASELINE = new Set([
-  // LOTE 2 (produto/identidade/oferta — dreno tenant-context pendente):
-  'src/core/location/operational-address.helper.ts',
-  'src/core/media-assets/media-asset.service.ts',
-  'src/core/profile/profile-education.service.ts',
-  'src/core/profile/profile-physical.service.ts',
-  'src/modules/services/service-offering.service.ts',
-  // CROSS-TENANT (DECISION_REQUIRED — conexão infra vs tenant-loop, NÃO drenar por tenant-context):
+  // CROSS-TENANT (DECISION_REQUIRED — conexão infra vs tenant-loop; NÃO drenar por tenant-context):
   'src/core/observability/ledger-integrity-monitor.ts',     // checkLedgerIntegrity(pool) — soma global bank_ledger (todos tenants)
   'src/modules/reconciliation/reconciliation.repository.ts', // lista DISTINCT tenant_id (sweep cross-tenant)
-  // LOTE 1 DRENADOS (removidos): availability-owner-authority · actor-wallet-payout.service ·
-  //   actor-wallet-balance-projection · actor-bank-destination.service · regional-fund-governance · donation.service
+  // DRENADOS (removidos): Fatia 1 (availability-owner-authority · actor-wallet-payout.service) ·
+  //   LOTE 1 (actor-wallet-balance-projection · actor-bank-destination.service · regional-fund-governance · donation.service) ·
+  //   LOTE 2 (service-offering.service · media-asset.service · operational-address.helper · profile-education · profile-physical).
+  // Restam SÓ os 2 cross-tenant acima → decisão de conexão (infra vs loop) → baseline 0 → RLS-live OPS.
 ]);
 
 function walk(dir, acc = []) {

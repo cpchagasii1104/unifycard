@@ -60,11 +60,14 @@ class ProfilePhysicalService {
 
     // Dados de saúde (consentimento): falha propaga — sem retorno parcial silencioso
     let healthData: { height?: number; weight?: number; idealWeight?: number } | null = null;
-    const actorResult = await pool.query<{ actor_id: string }>(
+    // 🔴 F-RLS-TENANT-CONTEXT: actors tem RLS+FORCE — tenant-context obrigatório.
+    const { runQueryWithTenant } = await import('@core/database/pool');
+    const actorResult = await runQueryWithTenant<{ actor_id: string }>(
+      tenantId,
       `SELECT actor_id FROM actors WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user' LIMIT 1`,
       [tenantId, userId],
     );
-    const actorId = actorResult.rows[0]?.actor_id;
+    const actorId = actorResult?.actor_id;
     if (actorId) {
       const shareConsentTax = await profileHealthTaxonomyRepository.findBySlug(
         tenantId,

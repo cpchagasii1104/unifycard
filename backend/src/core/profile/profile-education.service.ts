@@ -38,8 +38,10 @@ class ProfileEducationService {
     const globalUserId = identity.global.globalUserId;
 
     // Buscar actor_id do usuário
-    const { pool } = await import('@core/database/pool');
-    const actorRow = await pool.query<{ actor_id: string }>(
+    // 🔴 F-RLS-TENANT-CONTEXT: actors tem RLS+FORCE — tenant-context obrigatório.
+    const { runQueryWithTenant } = await import('@core/database/pool');
+    const actorRow = await runQueryWithTenant<{ actor_id: string }>(
+      tenantId,
       `
       SELECT actor_id
       FROM actors
@@ -49,11 +51,11 @@ class ProfileEducationService {
       [tenantId, userId]
     );
 
-    if (!actorRow.rows[0]) {
+    if (!actorRow) {
       throw new Error('Actor não encontrado para o usuário');
     }
 
-    const actorId = actorRow.rows[0].actor_id;
+    const actorId = actorRow.actor_id;
 
     // Gerar educationId se não fornecido
     const educationId = input.payload.educationId || `edu-${uuidv4()}`;
@@ -118,8 +120,10 @@ class ProfileEducationService {
     const globalUserId = identity.global.globalUserId;
 
     // Buscar actor_id
-    const { pool } = await import('@core/database/pool');
-    const actorRow = await pool.query<{ actor_id: string }>(
+    // 🔴 F-RLS-TENANT-CONTEXT: actors tem RLS+FORCE — tenant-context obrigatório.
+    const { runQueryWithTenant } = await import('@core/database/pool');
+    const actorRow = await runQueryWithTenant<{ actor_id: string }>(
+      tenantId,
       `
       SELECT actor_id
       FROM actors
@@ -129,11 +133,11 @@ class ProfileEducationService {
       [tenantId, userId]
     );
 
-    if (!actorRow.rows[0]) {
+    if (!actorRow) {
       return [];
     }
 
-    const actorId = actorRow.rows[0].actor_id;
+    const actorId = actorRow.actor_id;
 
     // Buscar eventos educacionais do event_log
     const eventsRows = await runQueriesWithTenant<{

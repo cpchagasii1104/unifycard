@@ -32,7 +32,7 @@
 // NÃO bloqueia transação financeira (PE-5-RESOLVER plugará no
 // risk-financial-gate quando habilitado).
 
-import { pool } from '@core/database/pool';
+import { pool, runQueryWithTenant } from '@core/database/pool';
 import { locationRepository } from './location.repository';
 import type { Address, CreateAddressInput, AddressAssignment } from './location.types';
 
@@ -212,14 +212,16 @@ async function createOperationalAddressForActor(
   input: CreateOperationalAddressInput
 ): Promise<OperationalAssignmentWithAddress> {
   // 1. Valida actor + tenant
-  const actorRow = await pool.query<{ id: string; tenant_id: string; company_id: string | null }>(
+  // 🔴 F-RLS-TENANT-CONTEXT: actors tem RLS+FORCE — tenant-context obrigatório.
+  const actorRow = await runQueryWithTenant<{ id: string; tenant_id: string; company_id: string | null }>(
+    tenantId,
     `SELECT id::text, tenant_id::text, company_id::text
        FROM actors
       WHERE tenant_id = $1::uuid AND id = $2::uuid
       LIMIT 1`,
     [tenantId, actorId]
   );
-  if (actorRow.rows.length === 0) {
+  if (!actorRow) {
     const err = new Error(
       `${ACTOR_NOT_FOUND_OR_CROSS_TENANT}: actor ${actorId} não encontrado no tenant ${tenantId}`
     );
