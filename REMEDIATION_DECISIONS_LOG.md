@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0151 (2026-06-23) |
+| Última entrada | DECISION-0152 (2026-06-23) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7399,6 +7399,14 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Referências:** `docs/02_decisions/DECISION_0146_OFFER_TEMPORAL_INTEGRITY_AND_BOOKING_CONFLICT.md` · **Constituição temporal Art. II** (conflito=fato→alerta→humano) · `DECISION-0117` D (`availability.owner_type`) · `DECISION-0132` (purpose temporal/booking gate) · `DECISION-0143/0144/0145` (cadeia de oferta) · `DECISION-0113` (actorId hint) · `docs/orquestracao/processo/cadeia-de-oferta/respostas/IA-TEMPO.md` / `IA-BANCO.md` (READ-FIRST F-OFFER-5).
 
 ---
+
+## DECISION-0152 — Subscription/Recurring Billing HOLD + Quarentena (DECISION_SUBSCRIPTION_MODEL)
+
+- **Data:** 2026-06-23 · **Status:** PROMULGADA / DECISÃO DE MODELO (FINANCEIRO) / DOCS + GUARD · **HEAD (pré-commit):** `f699439e` · **Insumo:** docs/subscription/SUBSCRIPTION_MODEL_DECISION_PACK.md.
+- **Decisão:** assinatura recorrente = **cobrança recorrente = bank_ledger = MONEY → HOLD** até Camada 1 financeira (RLS-live + PORTA-1 + payment-execution). Pré-money **sem billing novo**; entitlement/membership = **`access_passes`** (não vira billing). Modelo futuro = **recurring-order reusando `order`+`bank_ledger`** (sem ledger paralelo). **Não reviver** Sprint87 module (DEAD, toca payment-execution) / marketplace-subscriptions stub / contrato frozen / rota frontend comentada.
+- **Quarentena (guard `audit-subscription-billing-quarantined`):** morde se Sprint87 for registrado · stub ganhar billing · frontend reabilitar `<Route path="subscriptions">`. NP 2× morde.
+- **HOLD:** ciclo de cobrança · PaymentIntent · invoice · recurring order · bank_* · gateway billing · worker/retry/dunning · payout/settlement.
+- **Materialização:** guard de quarentena (esta fatia). Billing-core = futuro pós-money. **Δ dinheiro = 0; zero runtime de billing/migration/RLS-live.**
 
 ## DECISION-0151 — Rental Model: Resource-Based (Opção B) (DECISION_RENTAL_MODEL)
 

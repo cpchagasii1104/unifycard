@@ -97,13 +97,13 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 
 ---
 
-## Tabela mestra — Bloco 0112–0151 (pós-0111 · reindex A1 + DECISION-0142..0151 · 2026-06-23)
+## Tabela mestra — Bloco 0112–0152 (pós-0111 · reindex A1 + DECISION-0142..0152 · 2026-06-23)
 
 > **Natureza desta passada (A1, docs-only):** **DECLARADO** = status do header do próprio
 > `DECISION_NNNN_*.md` (fonte soberana por linha; `REMEDIATION_DECISIONS_LOG.md` confirma
 > existência/cauda até 0141). **Verificado = NÃO-AUDITADO** em TODAS — esta passada **não**
 > re-checou runtime/schema; **não finge auditoria material**. Sem divergência header×LOG detectada.
-> Sequência 0112→0148 (37 decisões, sem buraco, sem duplicata; **0142** materializada via U1b; **0143/0144/0145/0146/0147** docs-only/réguas F-OFFER-0/2/3/5+6 + ativação-segura P3; **0148** docs-only/contrato do core de booking — subject normalizado; **0149** docs-only/conexão cross-tenant RLS — tenant-loop canônico B-heavy; **0150** política onboarding enforcement — Opção B+b1 progressivo/UX-hint + marcos read-only thin; **0151** modelo de locação resource-based — Opção B, recurso bloqueado no tempo). Próximo nº livre: **0152**.
+> Sequência 0112→0148 (37 decisões, sem buraco, sem duplicata; **0142** materializada via U1b; **0143/0144/0145/0146/0147** docs-only/réguas F-OFFER-0/2/3/5+6 + ativação-segura P3; **0148** docs-only/contrato do core de booking — subject normalizado; **0149** docs-only/conexão cross-tenant RLS — tenant-loop canônico B-heavy; **0150** política onboarding enforcement — Opção B+b1 progressivo/UX-hint + marcos read-only thin; **0151** modelo de locação resource-based — Opção B, recurso bloqueado no tempo; **0152** assinatura/billing recorrente HOLD até Camada 1 + quarentena de fragmentos). Próximo nº livre: **0153**.
 
 | Nº | Arquivo | Declarado (header do .md) | Verificado | 1-linha |
 |----|---------|---------------------------|------------|---------|
@@ -147,6 +147,7 @@ Legenda do verificado: `IMPLEMENTADO | PARCIAL | NÃO-IMPLEMENTADO | SUPERADA | 
 | 0149 | DECISION_0149_RLS_CROSS_TENANT_CONNECTION_MODEL | PROMULGADA / DOCS-ONLY / CONEXÃO CROSS-TENANT RLS (Opção B-heavy) | NÃO-AUDITADO (docs-only; materialização HOLD · MODO B) | tenant-loop canônico (descoberta via tabela `tenants` não-RLS + iterar por-tenant com app.current_tenant); runtime normal nunca usa bypass; `unificard_infra` NÃO ganha LOGIN/pool agora (não é chave pronta); ledger-monitor=ADMIN_ONLY/loop; payout-worker=HOLD; infra só com DECISION própria+wrapper+allowlist+log; RLS-live OPS bloqueado até baseline=0 |
 | 0150 | DECISION_0150_ONBOARDING_ENFORCEMENT_POLICY | PROMULGADA / POLÍTICA + PROJEÇÃO READ-ONLY THIN (Opção B+b1) | MATERIALIZADO-THIN (milestones em /identity/me + guard; sem enforcement novo) | onboarding PF = progressivo/UX-hint (nunca hard gate backend); ações de risco com gate próprio (P3/P5/KYB/payout/checkout-firewall); criar empresa = auth-only (b1); marcos read-only (civilIdentityPresent/Confirmed/profileMinimumCompleted) = projeção não-autoridade; actorReady/companyReady/providerReady/sellerReady diferidos (per-actor/company); guard audit-onboarding-not-backend-gate morde se onboarding virar catraca |
 | 0151 | DECISION_0151_RENTAL_RESOURCE_MODEL | PROMULGADA / DECISÃO DE MODELO (DOMÍNIO) / DOCS-ONLY (Opção B) | NÃO-IMPLEMENTADO (docs-only; materialização HOLD · F-RENTAL-RESOURCE-CORE) | locação = recurso específico bloqueado no tempo; base `rentable_resource`; disponibilidade reusa unified availability com owner_type='rentable_resource'; conflito por resource_id (não provider); sem agenda/estoque/booking/ledger paralelos; MVP pré-money = registro+disponibilidade+reserva; A (fungível/quantidade) e C (provider-bound/service_offering) = extensões futuras, não substituem B; HOLD: depositCents/multa/late-fee/checkout/payout/escrow/bank_* |
+| 0152 | DECISION_0152_SUBSCRIPTION_BILLING_HOLD_MODEL | PROMULGADA / DECISÃO DE MODELO (FINANCEIRO) / DOCS + GUARD | MATERIALIZADO-GUARD (quarentena; sem billing implementado) | assinatura recorrente = cobrança recorrente = bank_ledger = MONEY → HOLD até Camada 1 (RLS-live+PORTA-1+payment-execution); pré-money sem billing novo, entitlement = access_passes; modelo futuro = recurring-order reusando order+ledger (sem ledger paralelo); quarentena: Sprint87 module (DEAD) não-registrado + marketplace-subscriptions stub + frontend route comentada; guard audit-subscription-billing-quarantined morde se algum reviver puxando dinheiro |
 
 ---
 
