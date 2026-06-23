@@ -200,21 +200,12 @@ async function createRegionalFund(country: string, state: string, city: string):
 }
 
 async function cleanupTestData(prefix: string): Promise<void> {
-  // Limpa bank_splits dos E2Es. bank_ledger é append-only por trigger
-  // institucional (prevent_bank_ledger_modification) — rows de teste ficam
-  // como rastro inerte no DB dev (não vazam para produção; reference_type
-  // 'pe4_metrics_e2e_*' nunca aparece em consulta legítima).
-  //
-  // bank_transactions também NÃO pode ser deletado (FK do bank_ledger
-  // append-only). Permanecem como rastro de teste.
-  await pool.query(
-    `DELETE FROM bank_splits WHERE tenant_id = $1::uuid
-       AND transaction_id IN (
-         SELECT id FROM bank_transactions
-          WHERE tenant_id = $1::uuid AND reference_type LIKE $2
-       )`,
-    [TENANT_ID, `pe4_metrics_e2e_%`]
-  );
+  // 🔴 SPLIT-01: bank_splits agora é APPEND-ONLY por trigger institucional
+  // (prevent_bank_splits_modification), em simetria com bank_ledger
+  // (prevent_bank_ledger_modification) e bank_transactions (FK do ledger).
+  // NÃO deletar bank_splits — a trava física rejeita UPDATE/DELETE. As rows de
+  // teste ficam como rastro inerte no DB dev (não vazam para produção;
+  // reference_type 'pe4_metrics_e2e_*' nunca aparece em consulta legítima).
   void prefix;
 }
 
