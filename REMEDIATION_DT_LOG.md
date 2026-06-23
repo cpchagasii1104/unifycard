@@ -45,6 +45,15 @@ Status values:
 
 ---
 
+## DT-RLS-RUNTIME-TENANT-CONTEXT-BASELINE — OPEN / ALTA (pré-OPS RLS-runtime-live) (2026-06-23)
+
+- **Status:** OPEN (baseline-drain; 2 drenados, 11 no backlog).
+- **Origem:** F-RLS-TENANT-CONTEXT-FIX (commit `bd9a1345`). O preflight (3 agentes) amostrou 3 arquivos; o guard exaustivo `audit-rls-tenant-context.mjs` revelou que o gap é **SISTÊMICO**.
+- **Contexto:** sob a role de runtime `unificard_app` (NOBYPASSRLS), qualquer `pool.query` CRU (sem `app.current_tenant`) a tabela RLS-ON retorna **0 linhas** → apagão silencioso. Hoje o app conecta como `postgres` (superuser) que MASCARA o bug. Há **~11 arquivos de runtime tenant-scoped** ainda com acesso cru (backlog no BASELINE do guard) + tests/workers/fiscal-kyb/bank-ledger allowlistados (admin/decisão).
+- **Risco:** virar a chave RLS-live agora quebraria silenciosamente esses 11 caminhos (incl. financeiros: actor-wallet-balance-projection, actor-bank-destination, donation, regional-fund-governance, reconciliation, service-offering).
+- **Mitigação atual:** guard em modo BASELINE-DRAIN (canal-1 0113): MORDE acesso cru NOVO + não deixa drenado regredir; baseline rastreado. 2 drenados (availability-owner-authority, actor-wallet-payout.service).
+- **Resolução prevista:** drenar o BASELINE → 0 (cada arquivo: pool.query→runQueryWithTenant/getClientWithTenant, com verificação per-caso de tenantId-em-escopo) **OU** decisão de **RLS-live ESCOPADO** às tabelas já drenadas. Workers cross-tenant = decisão de conexão própria (unificard_infra vs tenant-loop). fiscal-identity-kyb reviewer-check = DECISION_REQUIRED (tenant resolvido depois + fallback sem-company). RLS-runtime-live OPS **bloqueado** até baseline=0 ou escopo decidido.
+
 ## SPLIT-01-BANK-SPLITS-APPEND-ONLY — CLOSED / MATERIAL / PROVEN-EPHEMERAL (2026-06-23)
 
 - **Status:** CLOSED (material; aplicação no dev = próxima migrate-run OPS, junto da RLS pendente).
