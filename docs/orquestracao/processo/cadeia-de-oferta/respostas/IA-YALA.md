@@ -1155,3 +1155,76 @@ normaliza global_user_id→user_id), nenhum manda actorId/global_user_id como su
 arbitrário do body; B1 pré-money segue verde (journey 9/9, p3 6/6); dinheiro intocado (Δ bank_*=0; sem migration/payout/fee).
 Nenhum caller fura. READ-ONLY: NP estático revertido (core `e69de29b`, guard exit 0); e2e self-contidos; só editei meu
 `respostas/IA-YALA.md`. Nada commitado.
+
+---
+
+## RODADA 19 — RESEAL ADVERSARIAL DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK (Opção A, commit 8ec57688 · DINHEIRO) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA)
+**VEREDITO: PASS — DT (que eu levantei na RODADA 17) FECHADO por construção: gate NO SINK, defesa-em-profundidade.**
+**HEAD no momento:** `8ec57688` (branch `rescue-structural`) — `fix(checkout): enforce event financial runtime at bank sink`
+  (a fatia É o HEAD; committada).
+**Revalidou no vivo:** SIM (total) — git + leitura do sink/audit/e2e + `e2e:checkout-containment` rodado + sweep de
+  callers + negative-proof estático (audit morde ao remover o gate do sink). READ-ONLY/ROLLBACK (NP estático = sem dinheiro).
+**Fonte soberana:** `bank-integration.service.ts:145/247` (gate no sink) + `:202/304` (createTransactionWithSplit);
+  `audit-checkout-financial-containment.mjs` (checagem-sink posicional); `e2e-checkout-financial-containment.ts` (2a/2b).
+**Status:** RESPONDIDO.
+
+### Refutação dos 5 pontos
+1. **Gate NO SINK antes de createTransactionWithSplit nos 2 métodos? → SIM.** `processEventTicketPayment`: gate l.145 <
+   createTransactionWithSplit l.202; `processEventConsumptionPayment`: gate l.247 < split l.304. `e2e:checkout-containment`
+   = **6/6 PASS** incluindo **2a** (`SINK processEventTicketPayment DIRETO, flag OFF → DISABLED`) e **2b**
+   (`processEventConsumptionPayment DIRETO → DISABLED`), **Δ bank_ledger=0/tx=0/splits=0**.
+2. **Ainda existe caminho a bank_* via evento/checkout SEM gate? → NÃO.** Sweep dos callers de `processEvent*Payment`:
+   CheckoutService (gate caller + sink), event-economy (gate caller + sink), `bank-integration.adapter` (delega ao
+   realService = sink gateado), e **`events-payment.service:49` (DEAD)** chama `bankIntegrationService.processEventTicketPayment`
+   = o **sink que agora tem o gate** → **se religado, BATE NO GATE**. Fecha por construção (não por disciplina de caller).
+3. **createTransactionWithSplit GENÉRICO intocado? → SIM.** O gate foi adicionado SÓ nos 2 métodos de evento; o
+   `createTransactionWithSplit` (em bank-transaction.service, chamado também em l.399/727 = p2p/service_booking) **não
+   recebeu gate de checkout** — p2p/service_booking NÃO foram cimentados.
+4. **NP morde ao remover o gate do sink? → SIM.** Removi o `assertCheckoutFinancialRuntimeEnabled` de
+   `processEventTicketPayment` → audit **exit 1** ("sink processEventTicketPayment SEM gate fail-closed"). Revertido
+   (diff vazio `e69de29b`, audit exit 0).
+5. **Dinheiro intocado? → SIM.** **MESMA** flag `CHECKOUT_FINANCIAL_RUNTIME_ENABLED` (reuso do firewall, NÃO nova),
+   default OFF. Δ bank_*=0. Commit 8ec57688 = só 3 arquivos (bank-integration.service +8, audit +21, e2e +9); **zero
+   migration/payout/fee/sql**.
+
+### TENTATIVAS DE REFUTAÇÃO (resultado)
+- "Gate ficou no caller (disciplina), não no sink" → REFUTADO: gate em ambos os métodos do sink, antes do split.
+- "Dead-code religado ainda fura" → REFUTADO: events-payment.service chama o sink gateado → bate no gate.
+- "Cimentaram createTransactionWithSplit genérico / p2p / service_booking" → REFUTADO: genérico sem gate; só os 2 métodos de evento.
+- "NP não morde" → REFUTADO: remover o gate do sink → audit exit 1.
+- "Ligou dinheiro / flag nova / mexeu migration-payout-fee" → REFUTADO: mesma flag default OFF, Δ bank=0, zero migration/payout/fee.
+
+### STOPs
+- Contenção de dinheiro com negative-proof que MORDE (posicional, no sink) → presente. ✔
+- Flag default OFF; mesma flag (não nova); nenhum dinheiro movido; genérico/p2p/service_booking livres. ✔
+- DT-mãe 0113 OPEN respeitada; payout externo fechado. ✔
+- Veredito é INSUMO; abertura da flag = ato soberano de Clayton.
+
+### CONCLUSÃO
+**PASS.** A Opção A move o gate do caller para o **SINK** (`bank-integration.service.processEvent{Ticket,Consumption}Payment`),
+ANTES de `createTransactionWithSplit`, reusando a MESMA flag default OFF. Fecha o DT **por construção**: todo caller de
+evento/checkout — presente, futuro ou dead-code religado (`events-payment.service`) — bate no gate antes de tocar bank_*;
+o `createTransactionWithSplit` genérico (p2p/service_booking) fica intocado; e2e 6/6 (sink-direto 2a/2b DISABLED + Δ bank=0);
+NP morde. **DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK → CLOSED.**
+
+---
+
+### BLOCO PARA IA-DINHEIRO (de: IA-YALA)
+
+**RESPOSTA PARA: IA-DINHEIRO**
+**VEREDITO (eixo dinheiro): DT FECHADO — contenção agora por CONSTRUÇÃO, zero dinheiro movido.**
+- O gate de checkout/eventos agora vive no **SINK** (`bank-integration.service.processEventTicketPayment` l.145 e
+  `processEventConsumptionPayment` l.247), ANTES de `createTransactionWithSplit` (l.202/304). Defesa-em-profundidade:
+  o caller mantém o seu gate E o sink tem o seu → dupla barreira.
+- **DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK = CLOSED.** O bypass latente que eu havia apontado na RODADA 17
+  (`events-payment.service` dead-code ungated) está **neutralizado**: ele chama o sink gateado → se religado, bate no gate.
+- **Δ bank_ledger/transactions/splits = 0** (e2e + sweep); **MESMA** flag `CHECKOUT_FINANCIAL_RUNTIME_ENABLED`
+  (default OFF), não criaram flag nova; nenhum migration/payout/fee.
+- **Não-cimentação confirmada:** `createTransactionWithSplit` genérico (p2p / service_booking, l.399/727) ficou SEM gate
+  de checkout — só os 2 trilhos de evento foram contidos. Os outros trilhos seguem livres (não foram colateralmente desligados).
+- Abertura da flag (cadeia real de pagamento) segue ato soberano de Clayton.
+
+READ-ONLY: NP estático revertido (sink `e69de29b`, audit exit 0); e2e self-contido (Δ bank_*=0); só editei meu
+`respostas/IA-YALA.md`. Nada commitado.
