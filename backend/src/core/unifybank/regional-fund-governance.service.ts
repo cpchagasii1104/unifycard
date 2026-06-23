@@ -4,7 +4,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { createHash } from 'crypto';
-import { pool } from '@core/database/pool';
+import { pool, runQueryWithTenant } from '@core/database/pool';
 import { getClientWithTenant } from '@core/database/pool';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
 import { tenantService } from '@core/tenants/tenant.service';
@@ -94,7 +94,8 @@ class RegionalFundGovernanceService {
    * Elegíveis: usuários da mesma região com >= 1 transação no Unify Bank
    */
   private async countEligibleUsers(tenantId: string, regionId: string): Promise<number> {
-    const result = await pool.query<{ count: string }>(
+    const result = await runQueryWithTenant<{ count: string }>(
+      tenantId,
       `
       SELECT COUNT(DISTINCT ba.owner_id)::text as count
       FROM bank_accounts ba
@@ -110,7 +111,7 @@ class RegionalFundGovernanceService {
       [tenantId]
     );
 
-    return parseInt(result.rows[0]?.count || '0', 10);
+    return parseInt(result?.count || '0', 10);
   }
 
   /**
@@ -128,7 +129,8 @@ class RegionalFundGovernanceService {
     }
 
     // Verificar se usuário tem pelo menos 1 transação no Unify Bank
-    const result = await pool.query<{ count: string }>(
+    const result = await runQueryWithTenant<{ count: string }>(
+      tenantId,
       `
       SELECT COUNT(*)::text as count
       FROM bank_ledger bl
@@ -140,7 +142,7 @@ class RegionalFundGovernanceService {
       [tenantId, userId]
     );
 
-    const transactionCount = parseInt(result.rows[0]?.count || '0', 10);
+    const transactionCount = parseInt(result?.count || '0', 10);
     return transactionCount >= this.MIN_ACTIVE_TRANSACTIONS;
   }
 

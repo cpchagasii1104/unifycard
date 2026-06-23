@@ -3,7 +3,7 @@
 // Serviço de doações via feed
 
 import { v4 as uuidv4 } from 'uuid';
-import { pool } from '@core/database/pool';
+import { pool, runQueryWithTenant } from '@core/database/pool';
 import { bankP2PTransferService } from './bank-p2p-transfer.service';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
@@ -144,7 +144,8 @@ class DonationService {
     }
 
     // Contar doações do dia usando bank_transactions
-    const result = await pool.query<{ count: string }>(
+    const result = await runQueryWithTenant<{ count: string }>(
+      tenantId,
       `
       SELECT COUNT(*)::text as count
       FROM bank_transactions t
@@ -156,7 +157,7 @@ class DonationService {
       [tenantId, userAccount.accountId, today]
     );
 
-    const count = parseInt(result.rows[0]?.count || '0', 10);
+    const count = parseInt(result?.count || '0', 10);
 
     if (count >= this.MAX_DONATIONS_PER_DAY) {
       const error = new Error(

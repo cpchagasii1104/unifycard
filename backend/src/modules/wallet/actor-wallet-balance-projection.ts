@@ -7,7 +7,7 @@
 //   availableBalanceCents é projeção de LEITURA — NÃO é SSOT financeiro.
 //   NÃO usar para executar movimentações. F3 recalcula com SELECT FOR UPDATE.
 
-import { pool } from '@core/database/pool';
+import { runQueryWithTenant } from '@core/database/pool';
 import { bankAccountService } from '@modules/bank/bank-account.service';
 
 export interface ActorWalletBalanceProjection {
@@ -26,7 +26,9 @@ export async function calculateActorWalletBalanceProjection(
 ): Promise<ActorWalletBalanceProjection> {
   const [balanceResult, obligResult] = await Promise.all([
     bankAccountService.getBalance(tenantId, accountId),
-    pool.query<{ pending_cents: string }>(
+    // 🔴 F-RLS-TENANT-CONTEXT: actor_wallet_recovery_obligations tem RLS+FORCE — tenant-context obrigatório.
+    runQueryWithTenant<{ pending_cents: string }>(
+      tenantId,
       `SELECT COALESCE(SUM(amount_cents - recovered_amount_cents), 0)::text AS pending_cents
          FROM actor_wallet_recovery_obligations
         WHERE tenant_id = $1
@@ -36,7 +38,7 @@ export async function calculateActorWalletBalanceProjection(
     ),
   ]);
   const grossBalanceCents = balanceResult.balanceCents;
-  const pendingRecoveryCents = parseInt(obligResult.rows[0]!.pending_cents, 10);
+  const pendingRecoveryCents = parseInt(obligResult!.pending_cents, 10);
   const availableBalanceCents = Math.max(0, grossBalanceCents - pendingRecoveryCents);
   return { grossBalanceCents, pendingRecoveryCents, availableBalanceCents };
 }

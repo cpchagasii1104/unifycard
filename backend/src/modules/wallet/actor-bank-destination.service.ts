@@ -18,7 +18,7 @@
 //   - Cadastro NÃO bloqueia por kyc_status='pending' (somente uso real exige strict).
 //   - kyc_status NULL (identity ausente) bloqueia — sem identity não há tax_id.
 
-import { pool } from '@core/database/pool';
+import { pool, runQueryWithTenant } from '@core/database/pool';
 import { normalizeTaxId, validateCPF, validateCNPJ } from '@core/kyc/kyc.validators';
 import {
   toActorBankDestination,
@@ -97,7 +97,9 @@ async function resolveActorIdentity(
   tenantId: string,
   actorId: string
 ): Promise<{ taxId: string; taxIdNormalized: string; taxIdType: 'cpf' | 'cnpj' }> {
-  const res = await pool.query<ActorIdentityRow>(
+  // 🔴 F-RLS-TENANT-CONTEXT: actors tem RLS+FORCE — tenant-context obrigatório.
+  const row = await runQueryWithTenant<ActorIdentityRow>(
+    tenantId,
     `SELECT a.global_user_id, i.tax_id, i.tax_id_type
        FROM actors a
        LEFT JOIN identities i ON i.global_user_id = a.global_user_id
@@ -105,7 +107,6 @@ async function resolveActorIdentity(
       LIMIT 1`,
     [tenantId, actorId]
   );
-  const row = res.rows[0];
   if (!row) {
     throw new ActorBankDestinationError(
       'ACTOR_BANK_DEST_ACTOR_NOT_FOUND',
