@@ -45,6 +45,14 @@ Status values:
 
 ---
 
+## SPLIT-01-BANK-SPLITS-APPEND-ONLY — CLOSED / MATERIAL / PROVEN-EPHEMERAL (2026-06-23)
+
+- **Status:** CLOSED (material; aplicação no dev = próxima migrate-run OPS, junto da RLS pendente).
+- **Origem:** triage F-MONEY-REAL-RUNTIME-READINESS (IA-DINHEIRO SPLIT-01: assimetria — `bank_ledger` append-only físico, `bank_splits` só com `validate_split_total`). READ-FIRST `SPLIT-01` → READY_FOR_MATERIAL_GO.
+- **Vinculada a:** `bank_ledger` 0021_ledger_append_only (modelo espelhado).
+- **Resolução (commit `2ff51fe0`):** migration `20260623120000_bank_splits_append_only.sql` — `prevent_bank_splits_modification()` + triggers `bank_splits_no_update` (BEFORE UPDATE) + `bank_splits_no_delete` (BEFORE DELETE), idempotente. READ-FIRST provou runtime vivo = INSERT only (zero UPDATE; DELETE só em cleanup de teste, refatorado p/ rastro inerte). Guard `audit-bank-splits-append-only.mjs` (regression-guards; NP morde 4×). E2E ephemeral `e2e-bank-splits-append-only` 3/3 (INSERT ok · UPDATE/DELETE bloqueados · ROLLBACK, Δ bank_*=0). **PROVEN-EPHEMERAL / NOT-LIVE-IN-DEV:** o trigger aplica na próxima migrate-run (OPS) — provado em tx revertida, dev não mutado. zero payout/fee/RLS/dinheiro/schema-de-coluna.
+- **Nota futura:** se as migrations archived de authorship (0167/0168, UPDATE bank_splits p/ backfill) forem reativadas, o backfill deverá `ALTER TABLE ... DISABLE TRIGGER` conscientemente na própria migration (padrão append-only), nunca via runtime.
+
 ## DT-BOOKING-CORE-USERID-SUBJECT-POLLUTION — CLOSED / MÉDIA (2026-06-22)
 
 - **CLOSED (2026-06-22, commit `aaee5359`, IA-YALA PASS):** materializada a DECISION-0148 (Opção B) — o core `createBooking` deixou de receber `userId` genérico e passou a receber `BookingSubject {subjectUserId, requesterActorId}`, **revalidando `canRepresentActor` server-side** (fail-closed). Os 5 callers normalizam o subject a `user_id` server-side (checkout: `global_user_id→user_id`); nenhum passa actorId/global_user_id como subjectUserId; nenhum aceita requester do body. Guard `audit-booking-caller-authority` atualizado (core revalida + subject por call-site; NP 4×). e2e-booking-subject-authority 6/6 + B1 9/9 + p3 6/6.
