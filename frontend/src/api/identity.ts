@@ -60,6 +60,15 @@ export interface IdentityProfile {
   first_access_notice_seen?: boolean;
   civil_data_confirmed?: boolean;
   can_edit_personal_data?: boolean;
+  // 🟢 F-ONBOARDING-MARCOS-PROJECTION (DECISION-0150): marcos READ-ONLY projetados pelo backend (não-autoridade;
+  // o frontend CONSOME como hint em vez de adivinhar por metadata/has*). companyReady/providerReady/sellerReady
+  // são per-company → endpoint próprio futuro (F-COMPANY-READINESS-PROJECTION), não vêm aqui.
+  milestones?: {
+    civilIdentityPresent: boolean;
+    civilIdentityConfirmed: boolean;
+    profileMinimumCompleted: boolean;
+    actorReady: boolean;
+  };
 }
 
 /**

@@ -559,9 +559,12 @@ export default function Profile() {
         birthPresent;
       setLockIdentityCore(lockTrio);
 
+      // 🟢 F-ONBOARDING-MARCOS-PROJECTION: projeta a verdade do backend (milestones.profileMinimumCompleted),
+      // não adivinha por metadata. Fallback p/ metadata só se um backend antigo não enviar milestones.
       const onboardingCompleted =
-        metadata?.onboarding_completed === true ||
-        identityData?.global?.metadata?.onboarding_completed === true;
+        identityData?.milestones?.profileMinimumCompleted ??
+        (metadata?.onboarding_completed === true ||
+          identityData?.global?.metadata?.onboarding_completed === true);
       setOnboardingCompleted(onboardingCompleted);
 
       // DECISION-0120 D2: o MODAL é controlado por AVISO VISTO (first_access_notice_seen),
