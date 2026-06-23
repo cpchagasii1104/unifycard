@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0149 (2026-06-23) |
+| Última entrada | DECISION-0150 (2026-06-23) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7399,6 +7399,14 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Referências:** `docs/02_decisions/DECISION_0146_OFFER_TEMPORAL_INTEGRITY_AND_BOOKING_CONFLICT.md` · **Constituição temporal Art. II** (conflito=fato→alerta→humano) · `DECISION-0117` D (`availability.owner_type`) · `DECISION-0132` (purpose temporal/booking gate) · `DECISION-0143/0144/0145` (cadeia de oferta) · `DECISION-0113` (actorId hint) · `docs/orquestracao/processo/cadeia-de-oferta/respostas/IA-TEMPO.md` / `IA-BANCO.md` (READ-FIRST F-OFFER-5).
 
 ---
+
+## DECISION-0150 — Onboarding Enforcement Policy (Opção B+b1) (F-ONBOARDING-ENFORCEMENT-DECISION / F-ONBOARDING-MARCOS-PROJECTION)
+
+- **Data:** 2026-06-23 · **Status:** PROMULGADA / POLÍTICA + PROJEÇÃO READ-ONLY THIN · **HEAD (pré-commit):** `1c3df5b4` · **Insumo:** docs/onboarding/ONBOARDING_ENFORCEMENT_DECISION_PACK.md (P10).
+- **Decisão (B+b1):** onboarding PF = **progressivo/UX-hint**, NUNCA hard gate backend (`requiresOnboarding`/`isOnboardingCompleted` = sinal de navegação; nenhum endpoint recusa por !onboarding; login/feed/browse/wallet day-1). Ações de **risco** têm hard gate **próprio** (P3 activation / P5 booking / KYB PJ / payout selado / checkout firewall DECISION-0110). **Criar empresa/page shell = auth-only (b1)** (civil-mínimo já no register; risco PJ gateado depois). Frontend nunca é catraca de risco; metadata nunca é autoridade civil (P4); marcos read-only ≠ autoridade.
+- **Materialização (thin):** `GET /identity/me` expõe `milestones` read-only (civilIdentityPresent/civilIdentityConfirmed/profileMinimumCompleted) — derivação pura, ZERO query nova. **Diferidos (per-actor/company):** actorReady/companyReady/providerReady/sellerReady → follow-up F-ONBOARDING-MARCOS-PROJECTION-PJ. **Guard:** `audit-onboarding-not-backend-gate.mjs` (cadeia regression-guards) morde se onboarding PF virar bloqueio backend.
+- **Prova:** tsc 34 · regression EXIT 0 (guard novo) · bank-ledger/actor-writer · architectural critical_new=0. NP morde gate em route. **Δ dinheiro = 0; zero checkout/payout/RLS-live/migration.**
+- **Fora de escopo/HOLD:** enforcement amplo · bloquear login/feed/browse · gate civil em criar-empresa · P3/P5/checkout/payout/PORTA-1/RLS-live.
 
 ## DECISION-0149 — RLS Cross-Tenant Connection Model (Opção B-heavy) (F-RLS-CROSS-TENANT-CONNECTION-DECISION)
 
