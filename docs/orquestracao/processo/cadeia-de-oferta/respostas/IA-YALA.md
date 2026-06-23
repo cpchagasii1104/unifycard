@@ -1273,3 +1273,53 @@ vivo de fee_percentage; allowlist só ghost/dormant/snapshot; NP morde; zero din
 com NP que morde (reader vivo novo / resolver sem engine). e2e 14/14; regression-guards EXIT 0; zero migration/bank/dinheiro.
 READ-ONLY: NP1 probe apagado; NP2 revertido (`marketplace-fee-policy.ts` `e69de29b`, guard exit 0); só editei meu
 `respostas/IA-YALA.md`. Nada commitado.
+
+---
+
+## RODADA 21 — RESEAL SPLIT-01 bank_splits append-only (commit 2ff51fe0 · YALA+DINHEIRO) · VEREDITO
+
+**RESPOSTA PARA:** IA-DIRETORA  (de: IA-YALA, eixo DINHEIRO)
+**VEREDITO: PASS** — bank_splits append-only por trigger (simetria com bank_ledger 0021); INSERT preservado;
+UPDATE/DELETE bloqueados; nenhuma mutação viva; PROVEN-EPHEMERAL; zero dinheiro.
+**HEAD no momento:** `ece6de7d` (branch `rescue-structural`); commit material `2ff51fe0` (`fix(bank): make bank_splits append-only`) ancestral/committado.
+**Revalidou no vivo:** SIM (total) — git + leitura da migration/audit/e2e + sweep src/ + `e2e:bank-splits-append-only` +
+  `validate:regression-guards` + NP1/NP2 (estáticos) + estado dos triggers no dev. READ-ONLY.
+**Fonte soberana:** `migrations/20260623120000_bank_splits_append_only.sql`; `audit-bank-splits-append-only.mjs`;
+  `e2e-bank-splits-append-only.ts`; `migrations/0021*` (bank_ledger, simetria). 
+**Status:** RESPONDIDO.
+
+### Refutação dos 2 pontos + extras
+1. **UPDATE/DELETE/TRUNCATE VIVO em bank_splits? → NÃO.** Sweep `src/` = nenhum `UPDATE/DELETE FROM/TRUNCATE bank_splits`
+   em runtime vivo. O **cleanup de teste FOI removido**: o commit tirou `DELETE FROM bank_splits WHERE tenant_id...` do
+   `validate-pipeline-e2e-policy-engine-metrics.ts` (substituído por comentário "bank_splits agora é APPEND-ONLY").
+   Único `UPDATE/DELETE bank_splits` que resta = no e2e que PROVA o bloqueio (allowlistado) + nos regex do próprio guard.
+2. **Trigger bloqueia mutação SEM quebrar INSERT? → SIM.** A migration cria `prevent_bank_splits_modification` +
+   triggers **BEFORE UPDATE** (`bank_splits_no_update`) e **BEFORE DELETE** (`bank_splits_no_delete`) → RAISE EXCEPTION;
+   INSERT não tem trigger → passa. `e2e:bank-splits-append-only` = **3/3**: (1) INSERT legítimo ok, (2) UPDATE bloqueado,
+   (3) DELETE bloqueado; **ROLLBACK Δ bank_*=0** (dev intocado). `validate:regression-guards` = **EXIT 0** com
+   `GATE OK [bank-splits-append-only]`. **NP (2×):** NP1 removi o bloco do trigger `no_update` → audit **exit 1**
+   ("trigger bank_splits_no_update ausente"); NP2 criei src vivo com `UPDATE bank_splits` → audit **exit 1**
+   ("UPDATE bank_splits em runtime vivo"). Ambos revertidos (migration `e69de29b`, probe apagado, audit exit 0).
+- **Simetria bank_ledger 0021 → CONFIRMADA:** padrão idêntico (`prevent_bank_ledger_modification` + `bank_ledger_no_update`/
+  `bank_ledger_no_delete`, BEFORE UPDATE/DELETE, RAISE "append-only").
+- **PROVEN-EPHEMERAL → CONFIRMADO:** no dev vivo só existe `bank_splits_validate_total` (pré-existente); os triggers
+  `bank_splits_no_update`/`no_delete` **NÃO estão aplicados no dev** (aplicam no migrate-run); o e2e prova em transação
+  efêmera com ROLLBACK (Δ bank_*=0, dev intocado).
+- **Zero payout/RLS/dinheiro/schema-de-coluna:** migration só cria função + 2 triggers (idempotente: DROP IF EXISTS +
+  CREATE OR REPLACE); não toca dados, colunas, RLS, payout nem move dinheiro. Commit = migration + audit + e2e +
+  package.json + remoção do cleanup de teste.
+
+### TENTATIVAS DE REFUTAÇÃO (resultado)
+- "Há mutação viva de bank_splits / cleanup de teste sobrou" → REFUTADO: sweep limpo; cleanup removido no commit.
+- "Trigger quebra INSERT" → REFUTADO: e2e passo 1 INSERT ok (BEFORE UPDATE/DELETE não afeta INSERT).
+- "Trigger não bloqueia / guard não morde" → REFUTADO: e2e 2/3 bloqueiam; NP1 (remove trigger) e NP2 (UPDATE vivo) mordem.
+- "Aplicaram no dev / mexeram em dinheiro" → REFUTADO: dev só tem validate_total; Δ bank_*=0; zero payout/RLS/dados.
+
+### CONCLUSÃO
+**PASS.** SPLIT-01 torna `bank_splits` **append-only** por trigger institucional (BEFORE UPDATE/DELETE → RAISE),
+preservando INSERT, em simetria exata com `bank_ledger` (0021). Nenhuma mutação física viva existe (e o cleanup de teste
+que apagava bank_splits foi removido); o e2e prova INSERT-ok + UPDATE/DELETE-bloqueados em transação efêmera (Δ bank_*=0);
+regression-guards EXIT 0; NP morde ao remover trigger ou introduzir UPDATE vivo; PROVEN-EPHEMERAL (não aplicado no dev);
+zero payout/RLS/dinheiro. **A nota fiscal do cofre (split) não é editável.**
+READ-ONLY: NP1 (trigger) revertido (`e69de29b`); NP2 probe apagado; audit/guard exit 0; working tree de código limpo
+(sujos remanescentes = cartório/memoria pré-existente de outras instâncias); só editei meu `respostas/IA-YALA.md`. Nada commitado.
