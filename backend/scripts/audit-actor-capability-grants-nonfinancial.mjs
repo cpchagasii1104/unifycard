@@ -203,8 +203,29 @@ const GRANT_ROUTES_REL = 'modules/authority/actor-capability-grant.routes.ts';
     if (!/hasCapabilityGrant\([^)]*['"]services:create['"]/.test(code)) {
       failures.push("GRANTS_REGRESSION: services.service.ts NÃO compõe hasCapabilityGrant('services:create') — enforcement Slice 1C ausente/regrediu (DECISION-0136/0138).");
     }
+    // edit/disable (F-...-SERVICES-EDIT-DISABLE): updateService compõe services:edit E services:disable,
+    // com disable = transição → 'paused' e exigência de TODAS as caps no caso misto (Set requiredCaps).
+    if (!/['"]services:edit['"]/.test(code)) {
+      failures.push("GRANTS_REGRESSION: services.service.ts NÃO referencia 'services:edit' — enforcement de edição ausente/regrediu.");
+    }
+    if (!/['"]services:disable['"]/.test(code)) {
+      failures.push("GRANTS_REGRESSION: services.service.ts NÃO referencia 'services:disable' — enforcement de desativação ausente/regrediu.");
+    }
+    if (!/isDisableTransition/.test(code) || !/requiredCaps/.test(code)) {
+      failures.push('GRANTS_REGRESSION: services.service.ts perdeu a classificação disable/edit (isDisableTransition/requiredCaps) — caso misto deixaria de exigir AMBAS as capabilities.');
+    }
+    if (!/hasCapabilityGrant\([^)]*ServiceStatus\.PAUSED|PAUSED/.test(code)) {
+      failures.push("GRANTS_REGRESSION: services.service.ts não amarra disable à transição 'paused' (ServiceStatus.PAUSED ausente na composição).");
+    }
     if (!/canRepresentActor\(/.test(code)) {
       failures.push('GRANTS_REGRESSION: services.service.ts perdeu canRepresentActor — composição aditiva exige owner/self ANTES do grant.');
+    }
+    // sem WILDCARD / PREFIX-MATCH de capability (match deve ser EXATO por key).
+    if (/['"]services:\*['"]/.test(code)) {
+      failures.push("GRANTS_REGRESSION: services.service.ts usa wildcard 'services:*' (match de capability deve ser EXATO).");
+    }
+    if (/\.startsWith\(\s*['"]services:/.test(code)) {
+      failures.push('GRANTS_REGRESSION: services.service.ts usa prefix-match de capability (.startsWith services:) — match deve ser EXATO.');
     }
     if (/referral_code/.test(code)) {
       failures.push('GRANTS_REGRESSION: services.service.ts usa referral_code (comercial ≠ authority — proibido).');

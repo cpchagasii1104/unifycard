@@ -42,7 +42,10 @@ $bites = @(
     @{ name = 'ep-financial';        file = $routes; find = 'const actorCapabilityGrantRoutes';      repl = "const _fin = 'financial:execute_payout';`r`nconst actorCapabilityGrantRoutes" },
     @{ name = 'ep-no-scope';         file = $routes; find = 'scopeActorId: z\.string\(\)\.uuid\(\),'; repl = 'scopeActorId: z.string().uuid().optional(),'; all = $true },
     @{ name = 'ep-requirepermission';file = $routes; find = 'const actorCapabilityGrantRoutes';      repl = "const _rp = requirePermission;`r`nconst actorCapabilityGrantRoutes" },
-    @{ name = '1c-enforcement-gone'; file = $svc;    find = "hasCapabilityGrant\(tenantId, grantee\.actor_id, 'services:create'"; repl = "hasCapabilityGrant(tenantId, grantee.actor_id, 'services:edit'" }
+    @{ name = '1c-enforcement-gone'; file = $svc;    find = "hasCapabilityGrant\(tenantId, grantee\.actor_id, 'services:create'"; repl = "hasCapabilityGrant(tenantId, grantee.actor_id, 'services:edit'" },
+    @{ name = 'edit-enforcement-gone';    file = $svc; find = "'services:edit'";    repl = "'services:editZZZ'"; all = $true },
+    @{ name = 'disable-enforcement-gone'; file = $svc; find = "'services:disable'"; repl = "'services:disableZZZ'"; all = $true },
+    @{ name = 'edit-disable-wildcard';    file = $svc; find = 'const isDisableTransition ='; repl = "const _wild = 'services:*';`r`n      const isDisableTransition =" }
 )
 
 # SNAPSHOT byte-seguro de cada arquivo-alvo DISTINTO antes de qualquer mutação (restore garantido).

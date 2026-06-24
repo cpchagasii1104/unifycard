@@ -245,9 +245,40 @@ class ServicesService {
     // caminho de delegação). Autoridade = representação do actor DONO (currentService.actorId) pelo
     // principal autenticado (userId), via canRepresentActor. Fail-closed (403). Defesa em profundidade:
     // a rota já vinculou; este check protege chamadas diretas ao service.
+    //
+    // 🔴 F-ACTOR-CAPABILITY-GRANTS-SERVICES-EDIT-DISABLE — composição ADITIVA por capability REQUERIDA PELA
+    // OPERAÇÃO (fail-closed; service layer). Owner/canRepresentActor faz tudo (preservado). Senão, o grantee
+    // (=actor do próprio chamador) precisa de TODAS as capabilities que a operação exige, no MESMO escopo
+    // (currentService.actorId):
+    //   • disable  = transição status → 'paused' (currentService.status !== 'paused')           → 'services:disable'
+    //   • edit     = qualquer campo editável (≠ status) OU mudança de status NÃO-disable
+    //                (reativar 'paused'→'active', ou draft↔active)                                → 'services:edit'
+    //   • misto (edita campos E pausa no mesmo PUT)                                               → EXIGE AS DUAS
+    // Grant é ADITIVO/ESCOPADO: NÃO troca dono/provider/tenant/concept (UpdateServiceInput não expõe esses
+    // campos — proteção ESTRUTURAL), NÃO vira representação global, NÃO bypassa os gates (categoria/ramo abaixo).
+    // services:disable NUNCA autoriza editar campo; services:edit NUNCA autoriza pausar. Referral fora.
     const canRepresentOwner = await authorizationService.canRepresentActor(tenantId, userId, currentService.actorId);
     if (!canRepresentOwner) {
-      throw new ForbiddenError('SERVICE_ACTOR_NOT_REPRESENTABLE: apenas quem representa o actor dono pode atualizar o serviço');
+      const isDisableTransition = input.status === ServiceStatus.PAUSED && currentService.status !== ServiceStatus.PAUSED;
+      const editableFieldKeys: (keyof UpdateServiceInput)[] = [
+        'name', 'description', 'shortDescription', 'serviceType', 'categoryId', 'priceCents',
+        'currency', 'pricingType', 'countryId', 'stateId', 'cityId', 'neighborhood', 'metadata',
+      ];
+      const hasFieldEdit = editableFieldKeys.some((k) => input[k] !== undefined);
+      const hasNonDisableStatusChange = input.status !== undefined && input.status !== currentService.status && !isDisableTransition;
+      const requiredCaps = new Set<string>();
+      if (isDisableTransition) requiredCaps.add('services:disable');
+      if (hasFieldEdit || hasNonDisableStatusChange) requiredCaps.add('services:edit');
+      if (requiredCaps.size === 0) requiredCaps.add('services:edit'); // update sem mudança reconhecida → trata como edit (fail-closed)
+      const grantee = await ensureUserActor(tenantId, userId);
+      let allGranted = true;
+      for (const cap of requiredCaps) {
+        const ok = await actorCapabilityGrantService.hasCapabilityGrant(tenantId, grantee.actor_id, cap, currentService.actorId);
+        if (!ok) { allGranted = false; break; }
+      }
+      if (!allGranted) {
+        throw new ForbiddenError('SERVICE_ACTOR_NOT_REPRESENTABLE: sem autoridade para esta operação (canRepresentActor, ou grants services:edit/services:disable exigidos pela operação) no escopo do actor dono');
+      }
     }
 
     // DECISION-0109: se o update troca a categoria, revalida domínio + ramo (service_type efetivo do
