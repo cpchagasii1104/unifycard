@@ -27,15 +27,22 @@ const ssotAdminRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // 🔴 F-BUCKET-A / DT-INTERNAL-SSOT-ADMIN-TENANT-QUERY-HYGIENE: /admin/ssot é TENANT-admin — `req.tenant`
+      // é a AUTORIDADE de escopo; `req.query.tenantId` NUNCA amplia. Antes: sem query → options.tenantId
+      // undefined → getMetrics CROSS-TENANT (vazamento). Agora: sempre escopa ao tenant autenticado; query
+      // divergente → 403. PLATFORM-admin cross-tenant exigiria DECISION/rota/autoridade próprias (não implícito).
+      if (req.query.tenantId && req.query.tenantId !== req.tenant.id) {
+        return reply.status(403).send({
+          ok: false,
+          code: 'SSOT_ADMIN_TENANT_SCOPE_FORBIDDEN',
+          message: 'tenantId fora do tenant autenticado (/admin/ssot é tenant-admin).',
+        });
+      }
       const options: {
         tenantId?: string;
         startDate?: Date;
         endDate?: Date;
-      } = {};
-
-      if (req.query.tenantId) {
-        options.tenantId = req.query.tenantId;
-      }
+      } = { tenantId: req.tenant.id };
 
       if (req.query.startDate) {
         options.startDate = new Date(req.query.startDate);
