@@ -151,6 +151,15 @@ class UnifiedAvailabilityService {
       throw new NotFoundError('Disponibilidade não encontrada');
     }
 
+    // 🔴 DECISION-0151 FASE 2a — booking de RECURSO ALUGÁVEL é FAIL-CLOSED. O substrato (rentable_resources +
+    // owner_type + authority) existe, mas a EXCLUSIVIDADE por resource_id BLOQUEANTE (impedir duplo-aluguel do
+    // mesmo recurso) só chega na FASE 2b. Habilitar booking antes disso permitiria duas reservas do mesmo carro.
+    if (availability.ownerType === AvailabilityOwnerType.RENTABLE_RESOURCE) {
+      throw new BadRequestError(
+        'RENTAL_RESOURCE_BOOKING_NOT_ENABLED: booking de recurso alugável ainda não habilitado (FASE 2a = substrato; exclusividade por resource_id bloqueante = FASE 2b — DECISION-0151). Fail-closed.'
+      );
+    }
+
     // 🔴 P3 / DECISION-0147 (booking-gate): contratar SÓ oferta ACTIVE. Se a janela é de um service_offering,
     // o booking só é aceito se a oferta estiver `active` — draft/suspended NÃO são contratáveis (active =
     // autorização operacional de contratação, não status visual). Fail-closed.

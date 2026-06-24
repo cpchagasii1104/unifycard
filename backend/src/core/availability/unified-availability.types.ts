@@ -22,6 +22,7 @@ export enum AvailabilityOwnerType {
   GROUP = 'group',   // Disponibilidade de grupo (owner_id = groups.id)
   PAGE = 'page',     // Disponibilidade de página (owner_id = actors.id page)
   SERVICE_OFFERING = 'service_offering', // Oferta de serviço (owner_id = service_offerings.id — DECISION-0117 D)
+  RENTABLE_RESOURCE = 'rentable_resource', // Recurso alugável (owner_id = rentable_resources.id — DECISION-0151 B; FASE 2a)
 }
 
 /**

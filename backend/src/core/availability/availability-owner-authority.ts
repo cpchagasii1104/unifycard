@@ -107,6 +107,18 @@ const OWNER_AUTHORITY_POLICIES: Record<AvailabilityOwnerType, OwnerPolicy> = {
     );
     return r?.authority ?? null;
   },
+
+  // rentable_resource: owner_actor_id é a autoridade operacional do recurso (DECISION-0151 B, FASE 2a).
+  [AvailabilityOwnerType.RENTABLE_RESOURCE]: async (tenantId, ownerId) => {
+    const r = await runQueryWithTenant<{ owner_actor_id: string | null }>(
+      tenantId,
+      `SELECT owner_actor_id::text AS owner_actor_id FROM rentable_resources
+        WHERE id = $1::uuid AND tenant_id = $2::uuid
+        LIMIT 1`,
+      [ownerId, tenantId]
+    );
+    return r?.owner_actor_id ?? null;
+  },
 };
 
 /**

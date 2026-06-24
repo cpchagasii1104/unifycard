@@ -46,8 +46,15 @@ const soService = read(join(SRC, 'modules/services/service-offering.service.ts')
 {
   const enumBlock = (types.match(/export enum AvailabilityOwnerType\s*\{([\s\S]*?)\}/) ?? [, ''])[1];
   const enumValues = [...enumBlock.matchAll(/=\s*'([a-z_]+)'/g)].map((m) => m[1]).sort();
-  const mig = readFileSync(join(MIGRATIONS, '20260612110000_availability_owner_type_check.sql'), 'utf-8');
-  const checkMatch = mig.match(/ADD CONSTRAINT chk_availability_owner_type\s+CHECK \(owner_type IN \(([^)]+)\)\)/);
+  // CHECK vigente = a ÚLTIMA migration (forward-only) que (re)define chk_availability_owner_type. Cada DROP+ADD
+  // redefine o vocabulário; a definição canônica migra de arquivo (ex.: 20260624 adiciona rentable_resource).
+  // Ler a fixa antiga daria falso "drift" quando um owner_type novo entra noutra migration.
+  const CHECK_RE = /ADD CONSTRAINT chk_availability_owner_type\s+CHECK \(owner_type IN \(([^)]+)\)\)/;
+  const defining = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql') && CHECK_RE.test(readFileSync(join(MIGRATIONS, f), 'utf-8')))
+    .sort();
+  const latest = defining[defining.length - 1];
+  const checkMatch = latest ? readFileSync(join(MIGRATIONS, latest), 'utf-8').match(CHECK_RE) : null;
   const checkValues = checkMatch ? [...checkMatch[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort() : [];
   check('temporal:enum-check-parity',
     enumValues.length > 0 && checkValues.length > 0 && JSON.stringify(enumValues) === JSON.stringify(checkValues),
