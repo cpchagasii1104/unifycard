@@ -3,7 +3,18 @@
 # substrato de grants e que a restauração é byte-idêntica (SHA256). Mordidas sobre arquivos REAIS; cada uma:
 # muta -> guard FALHA -> restaura -> guard PASSA + SHA256 igual.
 # Uso: pwsh -File scripts/negative-proof-actor-capability-grants-nonfinancial.ps1
+#
+# HARDENING (F-NEGATIVE-PROOF-HARNESS-HARDENING): o restore é GARANTIDO mesmo se uma bite falhar, se um
+# comando nativo (node) retornar exit!=0 (que é o ESPERADO quando o guard morde), ou se o processo sofrer
+# erro terminante no meio. Mecanismos: (1) $PSNativeCommandUseErrorActionPreference=$false p/ exit!=0 do
+# node NÃO lançar; (2) SNAPSHOT de cada arquivo-alvo ANTES de qualquer mutação; (3) try/finally POR BITE
+# (restore imediato); (4) try/finally GLOBAL backstop (restaura qualquer arquivo que não bata o snapshot).
 $ErrorActionPreference = 'Stop'
+# Em PS7 um nativo com exit!=0 lança quando ErrorActionPreference='Stop'. Aqui exit!=0 do guard é ESPERADO
+# (é a mordida). Neutralizar localmente evita abortar o harness no meio de uma bite (deixando arquivo mutado).
+if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 Set-Location $PSScriptRoot\..
 
 $mig    = Join-Path (Get-Location) 'migrations\20260616210000_create_actor_capability_grants.sql'
@@ -34,26 +45,53 @@ $bites = @(
     @{ name = '1c-enforcement-gone'; file = $svc;    find = "hasCapabilityGrant\(tenantId, grantee\.actor_id, 'services:create'"; repl = "hasCapabilityGrant(tenantId, grantee.actor_id, 'services:edit'" }
 )
 
+# SNAPSHOT byte-seguro de cada arquivo-alvo DISTINTO antes de qualquer mutação (restore garantido).
+$targets = @($bites | ForEach-Object { $_.file } | Select-Object -Unique)
+$snapshot = @{}
+foreach ($f in $targets) {
+    $snapshot[$f] = @{ content = (Get-Content $f -Raw); hash = (Get-FileHash $f -Algorithm SHA256).Hash }
+}
+function Restore-FromSnapshot([string]$file) {
+    Set-Content -Path $file -Value $snapshot[$file].content -NoNewline -Encoding UTF8
+}
+
 $allBitesOk = $true
 $details = @()
-foreach ($b in $bites) {
-    $orig = Get-Content $b.file -Raw
-    $origHash = (Get-FileHash $b.file -Algorithm SHA256).Hash
-    $rx = [regex]::new($b.find)
-    if ($b.all) { $mutated = $rx.Replace($orig, $b.repl) } else { $mutated = $rx.Replace($orig, $b.repl, 1) }
-    if ($mutated -eq $orig) { $allBitesOk = $false; $details += "$($b.name)=NAO_MUTOU"; continue }
-    Set-Content -Path $b.file -Value $mutated -NoNewline -Encoding UTF8
-    $bit = ((Invoke-Guard) -ne 0)
-    Set-Content -Path $b.file -Value $orig -NoNewline -Encoding UTF8
-    $restoredOk = ((Invoke-Guard) -eq 0)
-    $hashOk = ((Get-FileHash $b.file -Algorithm SHA256).Hash -eq $origHash)
-    if (-not ($bit -and $restoredOk -and $hashOk)) { $allBitesOk = $false }
-    $details += "$($b.name)=morde:$bit,restaura:$restoredOk,sha256:$hashOk"
+try {
+    foreach ($b in $bites) {
+        $origHash = $snapshot[$b.file].hash
+        $bit = $false
+        try {
+            $orig = $snapshot[$b.file].content
+            $rx = [regex]::new($b.find)
+            if ($b.all) { $mutated = $rx.Replace($orig, $b.repl) } else { $mutated = $rx.Replace($orig, $b.repl, 1) }
+            if ($mutated -eq $orig) { $allBitesOk = $false; $details += "$($b.name)=NAO_MUTOU"; continue }
+            Set-Content -Path $b.file -Value $mutated -NoNewline -Encoding UTF8
+            $bit = ((Invoke-Guard) -ne 0)
+        }
+        finally {
+            # RESTORE IMEDIATO E GARANTIDO deste arquivo — independe de erro/continue/exit dentro do try.
+            Restore-FromSnapshot $b.file
+        }
+        $restoredOk = ((Invoke-Guard) -eq 0)
+        $hashOk = ((Get-FileHash $b.file -Algorithm SHA256).Hash -eq $origHash)
+        if (-not ($bit -and $restoredOk -and $hashOk)) { $allBitesOk = $false }
+        $details += "$($b.name)=morde:$bit,restaura:$restoredOk,sha256:$hashOk"
+    }
+}
+finally {
+    # BACKSTOP: garante que TODO arquivo-alvo voltou ao snapshot (caso algo escape do finally por-bite).
+    foreach ($f in $targets) {
+        if ((Get-FileHash $f -Algorithm SHA256).Hash -ne $snapshot[$f].hash) {
+            Restore-FromSnapshot $f
+            Write-Host "  [restore-backstop] $f restaurado ao snapshot (byte-idêntico)" -ForegroundColor Yellow
+        }
+    }
 }
 
 $ok = $baseOk -and $allBitesOk
 Write-Host "[neg-proof actor-capability-grants-nonfinancial] baseOk=$baseOk"
 $details | ForEach-Object { Write-Host "  - $_" }
 if (-not $ok) { Write-Host 'NEGATIVE PROOF: FALHA' -ForegroundColor Red; exit 1 }
-Write-Host 'NEGATIVE PROOF: OK - guard morde cada regressão; restauração byte-idêntica (SHA256).' -ForegroundColor Green
+Write-Host 'NEGATIVE PROOF: OK - guard morde cada regressão; restauração byte-idêntica (SHA256); restore garantido (try/finally + backstop).' -ForegroundColor Green
 exit 0
