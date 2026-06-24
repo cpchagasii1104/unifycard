@@ -495,6 +495,38 @@ export async function activateCompanyOperationally(
   return result?.data ?? result;
 }
 
+/**
+ * F-PJ-ONBOARDING-WIZARD-ECONOMIC-ACTIVITY-SUGGESTION — sugestão de concept derivada da ATIVIDADE FISCAL da empresa.
+ * O frontend passa SÓ companyId (NUNCA CNAE cru); o backend resolve a evidência fiscal server-side e devolve a
+ * sugestão (ou null honesto com `reason`). CNAE é adapter local (classifierSystem='CNAE', countryCode='BR');
+ * CONCEPT é o SSOT semântico. É APENAS sugestão — não ativa nada; o usuário confirma. Read-only.
+ */
+export interface EconomicActivitySuggestion {
+  companyId: string;
+  countryCode: string;
+  classifierSystem: string;
+  suggestion: {
+    suggestedConceptId: string;
+    suggestedConceptSlug: string;
+    label: string | null;
+    confidence: string;
+    source: string;
+    version: string;
+    rationale: string;
+    companyTypeId: string | null;
+    companyTypeSlug: string | null;
+  } | null;
+  reason?: 'NO_FISCAL_IDENTITY' | 'NO_ECONOMIC_ACTIVITY_EVIDENCE' | 'AMBIGUOUS_ECONOMIC_ACTIVITY' | 'NO_APPROVED_SUGGESTION';
+}
+
+export async function getCompanyEconomicActivitySuggestion(
+  companyId: string
+): Promise<EconomicActivitySuggestion | null> {
+  const response = await apiFetch(`/companies/${companyId}/economic-activity-suggestion`);
+  const result = await response.json();
+  return result?.data ?? null;
+}
+
 // DECISION-0096 / Presential UX 2 (higiene): os exports de validação presencial FASE 12 foram
 // REMOVIDOS (requestCompanyValidation, getCompanyValidationHistory + tipos ValidationRequest/
 // CompanyValidation). O fluxo presencial PJ está reservado/desabilitado (backend 501, UI removida).

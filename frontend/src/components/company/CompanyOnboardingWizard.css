@@ -113,6 +113,44 @@
   background: #f0f7ff;
 }
 
+/* F-PJ-ONBOARDING-WIZARD-ECONOMIC-ACTIVITY-SUGGESTION: sugestão pela atividade fiscal (apresentação; não autoridade) */
+.business-type-card.suggested {
+  border-color: #ffc107;
+  background: #fffbf0;
+}
+.suggestion-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  background: #ffc107;
+  color: #333;
+  padding: 0.15rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.activity-suggestion-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  background: #fffbf0;
+  border: 1px solid #ffe08a;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.activity-suggestion-apply {
+  flex-shrink: 0;
+  background: #ffc107;
+  color: #333;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .business-type-card h3 {
   margin: 0 0 0.5rem 0;
   font-size: 1.1rem;

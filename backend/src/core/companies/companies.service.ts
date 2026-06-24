@@ -1314,6 +1314,66 @@ class CompaniesService {
     };
   }
 
+  /**
+   * F-PJ-ONBOARDING-WIZARD-ECONOMIC-ACTIVITY-SUGGESTION — sugestão de CONCEPT COMPANY-SCOPED, READ-ONLY.
+   * O frontend NÃO manuseia CNAE cru: pergunta "qual a sugestão econômica desta empresa?" passando companyId;
+   * o backend resolve a EVIDÊNCIA FISCAL já persistida (fiscal_identity_economic_activities), escolhe a atividade
+   * PRIMÁRIA (ou a única), e REUSA suggestConceptForCnae. CNAE = adapter BR (classifierSystem='CNAE', countryCode='BR');
+   * CONCEPT permanece SSOT semântico. Honest-empty com `reason` quando não houver evidência/primária/sugestão aprovada.
+   * NÃO escreve, NÃO ativa, NÃO publica, NÃO cria autoridade, NÃO consulta Receita em runtime — só lê o persistido.
+   */
+  async suggestEconomicActivityConceptForCompany(tenantId: string, companyId: string): Promise<{
+    companyId: string;
+    countryCode: 'BR';
+    classifierSystem: 'CNAE';
+    suggestion: {
+      suggestedConceptId: string;
+      suggestedConceptSlug: string;
+      label: string | null;
+      confidence: string;
+      source: string;
+      version: string;
+      rationale: string;
+      companyTypeId: string | null;
+      companyTypeSlug: string | null;
+    } | null;
+    reason?: 'NO_FISCAL_IDENTITY' | 'NO_ECONOMIC_ACTIVITY_EVIDENCE' | 'AMBIGUOUS_ECONOMIC_ACTIVITY' | 'NO_APPROVED_SUGGESTION';
+  }> {
+    const base = { companyId, countryCode: 'BR' as const, classifierSystem: 'CNAE' as const, suggestion: null };
+    const co = await pool.query<{ fid: string | null }>(
+      `SELECT fiscal_identity_id::text AS fid FROM companies WHERE company_id = $1::uuid AND tenant_id = $2::uuid LIMIT 1`,
+      [companyId, tenantId]
+    );
+    const fid = co.rows[0]?.fid ?? null;
+    if (!fid) return { ...base, reason: 'NO_FISCAL_IDENTITY' };
+
+    const acts = await pool.query<{ cnae_code: string; is_primary: boolean }>(
+      `SELECT cnae_code, is_primary FROM fiscal_identity_economic_activities WHERE fiscal_identity_id = $1::uuid`,
+      [fid]
+    );
+    if (acts.rows.length === 0) return { ...base, reason: 'NO_ECONOMIC_ACTIVITY_EVIDENCE' };
+    const primary = acts.rows.find((r) => r.is_primary);
+    const cnae = primary ? primary.cnae_code : (acts.rows.length === 1 ? acts.rows[0].cnae_code : null);
+    if (!cnae) return { ...base, reason: 'AMBIGUOUS_ECONOMIC_ACTIVITY' };
+
+    const res = await this.suggestConceptForCnae(cnae);
+    if (!res.suggestion) return { ...base, reason: 'NO_APPROVED_SUGGESTION' };
+    return {
+      ...base,
+      suggestion: {
+        suggestedConceptId: res.suggestion.suggestedConceptId,
+        suggestedConceptSlug: res.suggestion.suggestedConceptSlug,
+        label: res.suggestion.suggestedConceptDisplayName,
+        confidence: res.suggestion.confidence,
+        source: res.suggestion.source,
+        version: res.suggestion.version,
+        rationale: res.suggestion.description,
+        companyTypeId: res.suggestion.companyTypeId,
+        companyTypeSlug: res.suggestion.companyTypeSlug,
+      },
+    };
+  }
+
   private activationError(code: string, message: string, statusCode: number): HttpError {
     const err = new HttpError(`${code}: ${message}`, statusCode);
     (err as unknown as { code: string }).code = code;

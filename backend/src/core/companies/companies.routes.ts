@@ -233,6 +233,38 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   /**
+   * GET /companies/:companyId/economic-activity-suggestion
+   * 🟢 F-PJ-ONBOARDING-WIZARD-ECONOMIC-ACTIVITY-SUGGESTION — sugestão de CONCEPT COMPANY-SCOPED, READ-ONLY.
+   * O frontend passa SÓ companyId (nunca CNAE cru); o backend resolve a evidência fiscal persistida e reusa o
+   * resolver de sugestão. NÃO escreve, NÃO ativa, NÃO publica, NÃO consulta Receita. CNAE é sinal (adapter BR);
+   * CONCEPT governa. Autoridade = canManageCompany (mesmo padrão da ativação operacional). Honest-empty com `reason`.
+   */
+  fastify.get<{ Params: { companyId: string } }>('/:companyId/economic-activity-suggestion', async (req, reply) => {
+    if (!req.user?.globalUserId || !req.tenant?.id) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    try {
+      const canManage = await companiesService.canManageCompany(req.tenant.id, req.params.companyId, req.user.globalUserId);
+      if (!canManage) {
+        return reply.status(403).send({
+          ok: false,
+          code: 'ECONOMIC_ACTIVITY_SUGGESTION_FORBIDDEN',
+          message: 'Sem autoridade de gestão sobre esta empresa.',
+        });
+      }
+      const data = await companiesService.suggestEconomicActivityConceptForCompany(req.tenant.id, req.params.companyId);
+      return reply.send({ ok: true, data });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao sugerir concept por atividade econômica');
+      return reply.status(500).send({
+        ok: false,
+        message: 'Erro ao sugerir concept por atividade econômica',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
    * POST /companies
    * Cria nova empresa
    */

@@ -8,6 +8,7 @@ import {
   updateCompany,
   getOperationalCompanyTypes,
   getAllowedConceptsForCompanyType,
+  getCompanyEconomicActivitySuggestion,
   activateCompanyOperationally,
   submitCompanyKybDocument,
   submitCompanyKybRequest,
@@ -101,6 +102,14 @@ export default function CompanyOnboardingWizard({
   const [conceptsLoading, setConceptsLoading] = useState(false);
   const [conceptsError, setConceptsError] = useState<string | null>(null);
   const [selectedConceptId, setSelectedConceptId] = useState<string>('');
+  // F-PJ-ONBOARDING-WIZARD-ECONOMIC-ACTIVITY-SUGGESTION: sugestão derivada da ATIVIDADE FISCAL da empresa
+  // (resolvida server-side por companyId; o frontend NUNCA manuseia CNAE cru). É SÓ sugestão — o usuário confirma.
+  const [activitySuggestion, setActivitySuggestion] = useState<{
+    suggestedConceptId: string;
+    label: string | null;
+    suggestedConceptSlug: string;
+    companyTypeId: string | null;
+  } | null>(null);
 
   const [modules, setModules] = useState<CompanyModules>({
     services: false,
@@ -173,6 +182,37 @@ export default function CompanyOnboardingWizard({
       cancelled = true;
     };
   }, [selectedCompanyTypeId]);
+
+  // F-PJ-ONBOARDING-WIZARD-ECONOMIC-ACTIVITY-SUGGESTION: carrega a sugestão (company-scoped, server-side) em
+  // background ao montar. Falha/null NÃO bloqueia o onboarding — a seleção manual segue válida.
+  useEffect(() => {
+    let cancelled = false;
+    getCompanyEconomicActivitySuggestion(companyId)
+      .then((res) => {
+        if (cancelled) return;
+        const s = res?.suggestion ?? null;
+        setActivitySuggestion(s ? {
+          suggestedConceptId: s.suggestedConceptId,
+          label: s.label,
+          suggestedConceptSlug: s.suggestedConceptSlug,
+          companyTypeId: s.companyTypeId,
+        } : null);
+      })
+      .catch(() => { if (!cancelled) setActivitySuggestion(null); });
+    return () => { cancelled = true; };
+  }, [companyId]);
+
+  // Aplicar a sugestão é AÇÃO EXPLÍCITA do usuário (clique) — nunca auto-apply. Reusa o mecanismo de
+  // rehidratação (pendingInitialConceptRef) quando precisa trocar o company_type antes do concept.
+  const applyActivitySuggestion = () => {
+    if (!activitySuggestion) return;
+    if (activitySuggestion.companyTypeId && selectedCompanyTypeId !== activitySuggestion.companyTypeId) {
+      pendingInitialConceptRef.current = activitySuggestion.suggestedConceptId;
+      setSelectedCompanyTypeId(activitySuggestion.companyTypeId);
+    } else {
+      setSelectedConceptId(activitySuggestion.suggestedConceptId);
+    }
+  };
 
   // F-PJ-ONBOARDING-MODULES-DERIVED-FROM-CLASSIFICATION: o trilho/módulos são DERIVADOS do domínio do
   // concept classificado (projeção, não escolha). `modules` segue no payload só como compat de UX.
@@ -405,20 +445,37 @@ export default function CompanyOnboardingWizard({
                     Nenhuma atividade disponível para este tipo. Não é possível ativar a empresa.
                   </p>
                 )}
+                {/* F-PJ-ONBOARDING-WIZARD-ECONOMIC-ACTIVITY-SUGGESTION: sugestão baseada na atividade fiscal.
+                    É APENAS sugestão — exige confirmação explícita (clicar) e nunca autoaplica/autoativa. */}
+                {activitySuggestion && selectedConceptId !== activitySuggestion.suggestedConceptId && (
+                  <div className="activity-suggestion-banner" role="note">
+                    <span>
+                      Encontramos uma sugestão com base na atividade fiscal da empresa:{' '}
+                      <strong>{activitySuggestion.label ?? activitySuggestion.suggestedConceptSlug}</strong>. Confirme se faz sentido ou escolha outra opção.
+                    </span>
+                    <button type="button" className="activity-suggestion-apply" onClick={applyActivitySuggestion}>
+                      Usar sugestão
+                    </button>
+                  </div>
+                )}
                 {!conceptsLoading && !conceptsError && concepts.length > 0 && (
                   <div className="business-type-grid">
-                    {concepts.map((c) => (
-                      <button
-                        key={c.conceptId}
-                        className={`business-type-card ${selectedConceptId === c.conceptId ? 'selected' : ''}`}
-                        onClick={() => setSelectedConceptId(c.conceptId)}
-                      >
-                        {/* DECISION-0107: nome legível (concept_labels) com fallback técnico ao slug.
-                            Identidade/ativação seguem por c.conceptId — displayName é só apresentação. */}
-                        <h3>{c.displayName ?? c.slug}</h3>
-                        <p>{c.domain}</p>
-                      </button>
-                    ))}
+                    {concepts.map((c) => {
+                      const isSuggested = activitySuggestion?.suggestedConceptId === c.conceptId;
+                      return (
+                        <button
+                          key={c.conceptId}
+                          className={`business-type-card ${selectedConceptId === c.conceptId ? 'selected' : ''}${isSuggested ? ' suggested' : ''}`}
+                          onClick={() => setSelectedConceptId(c.conceptId)}
+                        >
+                          {/* DECISION-0107: nome legível (concept_labels) com fallback técnico ao slug.
+                              Identidade/ativação seguem por c.conceptId — displayName é só apresentação. */}
+                          <h3>{c.displayName ?? c.slug}</h3>
+                          <p>{c.domain}</p>
+                          {isSuggested && <span className="suggestion-badge">Sugerida pela atividade fiscal</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
