@@ -11,7 +11,7 @@
 
 ## 2. ESTADO OPERACIONAL CONSOLIDADO
 ```
-RLS-live ............ PROVADO/READY_FOR_OPS · físico NÃO VIRADO (gargalo estrutural — ato OPS Clayton)
+RLS-live ............ ✅ FÍSICO VIRADO / DEV PASS (2026-06-24, ato OPS Clayton) · runtime=unificard_app NOSUPERUSER/NOBYPASSRLS · row_security=on · RLS+FORCE financeiro OK · bank_* isolado por tenant · workers money/observability default-off
 PORTA-1 ............. NÃO semeada (0/0/0 fail-closed) · HOLD/decisão soberana
 dinheiro real ...... HOLD (firewalls OFF + workers off + 403)
 payout ............. request/approve PROVADO-contido · execute HOLD (worker default-off, TOCTOU selado) · externo INEXISTENTE
@@ -47,7 +47,7 @@ Origem: **A**=autoridade · **B**=semântica · **C**=cofre · **OVL**=overlap. 
 |16|referral earning material|OVL A·C|bank_splits/wallet|HOLD|**DECISÃO PEND.**|n|sim|sim|—|cascade actor→owner-user = financeiro|
 |17|3 workers observabilidade|OVL A·C|—|HOLD(off)|**HOLD**|n|—|sim(tenant-loop)|—|tenant-loop pós-flip antes de ligar|
 |18|PIX/webhook + payment-event-resolver|C|gateway_*/ledger|LIVE-ingest|**✅ FECHADO (G1)**|n|—|—|—|fechado junto com #35: dedup mapeado+provado; ghost SPRINT-85 DISCARD (D1)|
-|19|**RLS-live física**|OVL A·C|62 RLS tables|OPS|**OPS / DECISÃO**|**sim**|sim|**sim**|—|ato OPS Clayton (runbook)|
+|19|**RLS-live física**|OVL A·C|62 RLS tables|✅ VIRADO|**✅ DEV PASS**|**sim**|—|**feito**|—|VIRADO 2026-06-24 (runtime=unificard_app/f/f · row_security=on · backend subiu · gates pós-virada OK · carimbo Clayton RLS-live DEV PASS)|
 |20|**PORTA-1**|OVL A·C|financial_approval_*|HOLD|**DECISÃO PEND.**|sim(payout)|sim|—|**sim**|decision pack pós RLS-físico|
 |21|referral binding/codes/getActiveReferral (não-authority)|A|actor_referral_codes|LIVE|**PROVA**|n|—|—|—|confirmado todas superfícies|
 |22|canRepresentActor (createService/payout/availability owner)|A|canRepresentActor|LIVE|**PROVA**|n|—|—|—|—|
@@ -62,7 +62,7 @@ Origem: **A**=autoridade · **B**=semântica · **C**=cofre · **OVL**=overlap. 
 |31|booking-confirm locks (provider+resource)|seam A∩C|unified_availability|LIVE|**PROVA**|n|—|—|—|double-spend pré-money fechado (e2e 6/6)|
 |32|rental pré-money (rentable_resources)|B→disco|rentable_resources|LIVE|**PROVA**|n|—|—|—|⚠ B=stale; existe+aplicada|
 |33|tx↔ledger atomicidade (FK nullable)|C|bank_transactions|LIVE|**GATE**|n|sim|—|—|constraint de pareamento + reconciliação|
-|34|cross-tenant tenant-loop (0149)|seam|tenants registry|OPS|**OPS**|n|—|sim|—|surface pós-flip, ≠ worker-off|
+|34|cross-tenant tenant-loop (0149)|seam|tenants registry|LIVE-pós-flip|**GATE/HOLD**|n|—|feito|—|RLS agora VIVO: religar QUALQUER worker que claima cross-tenant (settlement/release/gov-funding-commitment/observability) exige tenant-loop + RLS em payment_intents/governance_funding_commitments. Workers default-off seguram. REVIVAL_REQUIRED.|
 |35|idempotência/outbox/event_log|seam|event_log|LIVE|**✅ FECHADO (G1)**|n|—|—|—|F-CAMADA-1-GATE-IDEMPOTENCIA-OUTBOX-G1: dedup por (tenant,reference_type,reference_id) — advisory lock + SELECT FOR UPDATE + 23505 idempotente (transfer); ingestão ON CONFLICT(provider,reference_id); guard `audit-webhook-resolver-idempotency` (NP 3×); E2E contido 3/3 (Δbank=0); D1 ghost SPRINT-85 DISCARD. **Ressalva (Clayton):** FECHADO COMO PROVA CONTIDA / SEM BANK WRITE — resolver→transfer provado por leitura estrutural + guard, não por execução runtime insert+rollback. **Requisito diferido** (quando Camada 1 material abrir): E2E efêmero de replay do transfer (1ª cria efeito em DB efêmero · 2ª idempotente · zero 2ª bank_transaction/ledger · rollback). NÃO é para agora.|
 
 **DESCARTE (ghost/dead/tombstone — não reviver sem decisão):** settlement core/region (proxy-dead) · event_settlements (GHOST status-only) · seller_payout/seller_available legado (tombstone, 403-prod) · marketplace/referral_codes (archive 0073) · AP/AR (proxy+403) · rides_referral_earnings (sem concept, legado) · concepts treasury/reversal/seller-funds seeded-sem-uso · channel_commission · actor_capability_grants (dormant) · external-payment-provider.mock · fee_rate_bps coluna (inexistente) · regional_fees archive (NUMERIC).
@@ -125,5 +125,5 @@ OPS:
 
 ---
 
-**LEMBRETE:** DINHEIRO FORA · RLS provado, não virado · PORTA-1 HOLD · payout HOLD · esta matriz é **mapa, não execução**.
-**Próximo recomendado:** OPS RLS-live física (#19) — o gargalo. GATES decisão-independentes fechados: #6 concept-coverage · #24/#25 ACTIONCTX/TENANT · **#35/#18 idempotência/outbox (G1)**. Restam no eixo técnico: #33 tx↔ledger constraint (encosta em cofre/schema — avaliar) · #8 recovery genesis (toca substrato financeiro → 3 paralelas). NÃO abrir bucket D sem RLS-físico + decisão Clayton.
+**LEMBRETE:** DINHEIRO FORA · **RLS-live FÍSICO VIRADO / DEV PASS (2026-06-24)** · PORTA-1 HOLD · payout HOLD · esta matriz é **mapa, não execução**.
+**Próximo recomendado:** o gargalo #19 (RLS-live física) está **FECHADO/VIRADO**. Próxima fase = **PORTA-1 decision pack** (decisão soberana Clayton + IA-DINHEIRO + 3 paralelas) — **NÃO abre dinheiro**. GATES decisão-independentes fechados: #6 · #24/#25 · #35/#18 (G1) · 35p+sweep workers default-off. Restam eixo técnico: #33 tx↔ledger · #8 recovery genesis (3P). **Bucket D segue HOLD até decisão Clayton + 3 paralelas, MESMO com RLS-live PASS** — RLS-live só blinda isolamento por tenant, não autoriza dinheiro. Religar worker = tenant-loop #34 primeiro.

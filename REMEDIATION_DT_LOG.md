@@ -1,5 +1,14 @@
 # REMEDIATION DT LOG
 
+## DT-RLS-RUNTIME-TENANT-CONTEXT-BASELINE — ✅ CLOSED / RLS-LIVE FÍSICO VIRADO (DEV PASS, 2026-06-24)
+
+- **Engenharia** já estava CLOSED (baseline tenant-context=0 · cross-tenant via tenant-loop DECISION-0149 · workers default-off via 35p + worker-dormancy sweep · pré-flight §1/§6.6 PASS). Faltava o **ato OPS** (a IA não aplica role/env/repoint).
+- **OPS EXECUTADO (Clayton, 2026-06-24):** backup → `ALTER ROLE unificard_app WITH LOGIN` (segredo do secret manager) → repoint `DATABASE_URL`→`unificard_app` → restart. **RLS-live DEV PASS** carimbado: runtime=`unificard_app` · `row_security=on` · NOSUPERUSER/NOBYPASSRLS · RLS+FORCE financeiro OK · bank_* isolado · backend subiu · workers money/observability default-off · gates pós-virada OK.
+- **Tentativa anterior FALHOU** (mesmo dia) por credencial: `$AdminDsn` com placeholder `<SENHA_ADMIN>` literal → admin auth FATAL → backup vazio (SHA256 de arquivo vazio) + `ALTER ROLE` não rodou + §6 retornou auth-fail (não isolamento). Corrigido (senha real do admin + senha real do app sem `<>`/`...`) e re-executado com sucesso.
+- **RESÍDUO VIVO (HOLD/REVIVAL_REQUIRED/#34):** com RLS VIVO, religar qualquer worker que claima cross-tenant (settlement/release/governance-funding-commitment/observability) exige tenant-loop + RLS em `payment_intents`/`governance_funding_commitments` (sem RLS hoje). Default-off segura.
+- **NÃO autoriza dinheiro:** RLS-live só blinda isolamento por tenant. Dinheiro/payout/PORTA-1/bucket D seguem HOLD. Próxima fase = PORTA-1 decision pack (decisão Clayton + IA-DINHEIRO + 3 paralelas).
+- **Segurança:** segredo manipulado em terminal durante o processo — manter fora do chat; rotacionar se exposto em log/print local.
+
 ## DT-WORKER-DORMANCY-SWEEP-RLS-PREFLIGHT — ✅ CLOSED / DEFAULT-OFF CONTAINED (F-RLS-PREFLIGHT-WORKER-DORMANCY-SWEEP, 2026-06-24)
 
 - **Contexto:** o preflight da virada RLS-live (HEAD `b8191bc7`) revelou que a contenção de workers que movem dinheiro estava INCOMPLETA — além de payout/reversal/bank-settlement (DECISION-0128) e settlement/release (35p), restava money-writer default-ON.

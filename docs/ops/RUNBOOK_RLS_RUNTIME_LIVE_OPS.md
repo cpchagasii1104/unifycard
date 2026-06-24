@@ -1,5 +1,8 @@
 # RUNBOOK OPS — RLS-RUNTIME-LIVE (virar o runtime de `postgres` → `unificard_app`)
 
+> ✅ **EXECUTADO / RLS-live DEV PASS — 2026-06-24 (ato OPS Clayton; carimbo Clayton).** Runtime=`unificard_app` · `row_security=on` · NOSUPERUSER/NOBYPASSRLS · RLS+FORCE financeiro OK · bank_* isolado por tenant · backend subiu (`localhost:3000`) · workers money-write E observability DESLIGADOS default-off · gates pós-virada OK. (1ª tentativa do dia falhou por credencial — `$AdminDsn` com placeholder não preenchido → admin auth FATAL → backup vazio + ALTER ROLE não executou + §6 auth-fail; corrigida e re-rodada.) **Dinheiro/payout/PORTA-1/bucket D seguem HOLD.** Resíduo: religar worker cross-tenant exige tenant-loop (DECISION-0149) + RLS em payment_intents/governance_funding_commitments. Segredo manipulado em terminal → manter fora do chat; rotacionar se exposto. Este runbook continua docs-only.
+
+
 **Frente:** F-RLS-RUNTIME-LIVE-OPS-CHECKLIST-FINAL · **Tipo:** runbook operacional (docs-only — este arquivo NÃO executa nada) · **Data:** 2026-06-23 · **Branch:** `rescue-structural`
 **Pré-condição de engenharia:** ✅ FECHADA. baseline RLS tenant-context = 0 · cross-tenant via tenant-loop (DECISION-0149) · 3 workers observability default-off · payout-worker HOLD · `unificard_infra` sem LOGIN/pool. **[[DT-RLS-RUNTIME-TENANT-CONTEXT-BASELINE]] CLOSED (engenharia).**
 **O que este runbook faz:** entrega o procedimento copiável para OPS/Clayton **virar a chave** com prova de RLS real e rollback. **Quem executa:** OPS/Clayton (NÃO a executora; a IA não aplica role/env/repoint).
