@@ -11,6 +11,7 @@ $types  = Join-Path (Get-Location) 'src\modules\authority\actor-capability-grant
 $lookup = Join-Path (Get-Location) 'src\modules\authority\actor-lookup.service.ts'
 $pk     = Join-Path (Get-Location) 'src\core\authorization\permission-keys.ts'
 $routes = Join-Path (Get-Location) 'src\modules\authority\actor-capability-grant.routes.ts'
+$svc    = Join-Path (Get-Location) 'src\modules\services\services.service.ts'
 
 function Invoke-Guard {
     node scripts/audit-actor-capability-grants-nonfinancial.mjs *> $null
@@ -29,7 +30,8 @@ $bites = @(
     @{ name = 'pk-misalign';         file = $pk;     find = "  'services:create': null,[^\r\n]*\r?\n"; repl = '' },
     @{ name = 'ep-financial';        file = $routes; find = 'const actorCapabilityGrantRoutes';      repl = "const _fin = 'financial:execute_payout';`r`nconst actorCapabilityGrantRoutes" },
     @{ name = 'ep-no-scope';         file = $routes; find = 'scopeActorId: z\.string\(\)\.uuid\(\),'; repl = 'scopeActorId: z.string().uuid().optional(),'; all = $true },
-    @{ name = 'ep-requirepermission';file = $routes; find = 'const actorCapabilityGrantRoutes';      repl = "const _rp = requirePermission;`r`nconst actorCapabilityGrantRoutes" }
+    @{ name = 'ep-requirepermission';file = $routes; find = 'const actorCapabilityGrantRoutes';      repl = "const _rp = requirePermission;`r`nconst actorCapabilityGrantRoutes" },
+    @{ name = '1c-enforcement-gone'; file = $svc;    find = "hasCapabilityGrant\(tenantId, grantee\.actor_id, 'services:create'"; repl = "hasCapabilityGrant(tenantId, grantee.actor_id, 'services:edit'" }
 )
 
 $allBitesOk = $true

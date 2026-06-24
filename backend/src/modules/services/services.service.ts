@@ -13,6 +13,8 @@ import { ActorIntent } from '@modules/social/actor-intents.types';
 import { ActorEffect } from '@modules/social/actor-effects.types';
 import { BadRequestError, ForbiddenError } from '@core/errors';
 import { authorizationService } from '@core/authorization/authorization.service';
+import { actorCapabilityGrantService } from '@modules/authority/actor-capability-grant.service';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 import { assertServiceCategoryAllowedForCompany } from './service-category-guard';
 import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
 import type {
@@ -107,9 +109,21 @@ class ServicesService {
     // 🔴 DECISION-0113 / DECISION-0131 §B7 / Z2-R6.1 — `userId` (principal autenticado server-side) DEVE
     // representar o actor dono declarado; existência do actor NÃO prova representação. Fail-closed (403).
     // Defesa em profundidade — a rota já vinculou; este check protege chamadas diretas ao service.
-    const canRepresentOwner = await authorizationService.canRepresentActor(tenantId, userId, input.actorId);
-    if (!canRepresentOwner) {
-      throw new ForbiddenError('SERVICE_ACTOR_NOT_REPRESENTABLE: apenas quem representa o actor pode criar serviço em seu nome');
+    //
+    // 🔴 F-ACTOR-CAPABILITY-GRANTS-MVP Slice 1C (DECISION-0136/0138) — composição de autoridade FAIL-CLOSED:
+    //   (A/B) owner/self via canRepresentActor(user, actor-alvo)  OU
+    //   (C)   grant ADITIVO escopado: o chamador (grantee = seu PRÓPRIO actor) recebeu `services:create`
+    //         no escopo do actor-alvo (`hasCapabilityGrant`). O grant é ADITIVO e ESCOPADO — autoriza só
+    //         ESTA ação NESTE escopo; NÃO vira canRepresentActor global, NÃO substitui owner, e NÃO bypassa
+    //         os gates semânticos abaixo (categoria/ramo, concept, declaração/publicação PJ, company operacional).
+    //   Referral/código de indicação NUNCA participa (grantee/escopo são actor_id, resolvidos server-side).
+    let authorized = await authorizationService.canRepresentActor(tenantId, userId, input.actorId);
+    if (!authorized) {
+      const grantee = await ensureUserActor(tenantId, userId); // grantee = actor do próprio chamador (server-side)
+      authorized = await actorCapabilityGrantService.hasCapabilityGrant(tenantId, grantee.actor_id, 'services:create', input.actorId);
+    }
+    if (!authorized) {
+      throw new ForbiddenError('SERVICE_ACTOR_NOT_REPRESENTABLE: apenas quem representa o actor (ou tem grant services:create no escopo) pode criar serviço em seu nome');
     }
 
     // 🔴 BLINDAGEM: Validar intent se fornecido

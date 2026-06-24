@@ -6,7 +6,10 @@
 //   - scope só 'actor' (sem 'global') no MVP;
 //   - grant é por actor_id (grantee/scope/concedente), nunca slug/users.referral_code;
 //   - lookup usa actors.slug, NUNCA users.referral_code;
-//   - NENHUMA rota de negócio importa o service (enforcement = Slice futuro; superfície selada intocada).
+//   - NENHUMA rota de negócio (.routes.ts) chama hasCapabilityGrant/importa o grant service —
+//     o enforcement vive no SERVICE layer (DECISION-0136/0138 Slice 1C);
+//   - Slice 1C ATIVO: services.service.ts.createService COMPÕE hasCapabilityGrant('services:create')
+//     de forma ADITIVA (não pode sumir silenciosamente — seção 7).
 // Integrado em validate:regression-guards. Heurística textual, não AST.
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
@@ -183,6 +186,28 @@ const GRANT_ROUTES_REL = 'modules/authority/actor-capability-grant.routes.ts';
     // permission-keys.ts não pode ganhar domínio financeiro errado 'finance:' (canônico é 'financial:').
     if (/'finance:[a-z_]+'/.test(pk)) {
       failures.push("GRANTS_REGRESSION: permission-keys.ts contém key 'finance:*' — o domínio canônico é 'financial:' (DECISION-0135).");
+    }
+  }
+}
+
+// 7) ENFORCEMENT Slice 1C (DECISION-0136/0138): services.service.ts.createService DEVE compor
+//    hasCapabilityGrant('services:create') de forma ADITIVA (fail-closed) — a capability não pode
+//    ficar SEM enforcement (regressão silenciosa). Aditivo = canRepresentActor OU grant, senão 403.
+{
+  const SVC_CREATE = join(SRC, 'modules/services/services.service.ts');
+  const code = read(SVC_CREATE) && stripTs(read(SVC_CREATE));
+  if (!code) {
+    failures.push('GRANTS_REGRESSION: services.service.ts ausente (enforcement Slice 1C não verificável).');
+  } else {
+    checked++;
+    if (!/hasCapabilityGrant\([^)]*['"]services:create['"]/.test(code)) {
+      failures.push("GRANTS_REGRESSION: services.service.ts NÃO compõe hasCapabilityGrant('services:create') — enforcement Slice 1C ausente/regrediu (DECISION-0136/0138).");
+    }
+    if (!/canRepresentActor\(/.test(code)) {
+      failures.push('GRANTS_REGRESSION: services.service.ts perdeu canRepresentActor — composição aditiva exige owner/self ANTES do grant.');
+    }
+    if (/referral_code/.test(code)) {
+      failures.push('GRANTS_REGRESSION: services.service.ts usa referral_code (comercial ≠ authority — proibido).');
     }
   }
 }

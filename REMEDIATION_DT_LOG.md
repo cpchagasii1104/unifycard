@@ -1,5 +1,13 @@
 # REMEDIATION DT LOG
 
+## DT-ACTOR-CAPABILITY-GRANTS-ENFORCEMENT — 🟢 SLICE 1C INICIADO / `services:create` ENFORCEADO (2026-06-24, F-ACTOR-CAPABILITY-GRANTS-MVP)
+
+- **Contexto:** o enforcement de capability grants estava DEFERRED (substrato Slice 1A/1B + rotas `/authority/grants` existiam; `hasCapabilityGrant` não era chamado por nenhuma ação). Slice 1C (DECISION-0136/0138) materializou a **primeira mordida**: `services:create` em `servicesService.createService`.
+- **Composição aprovada (Clayton/diretora) e implementada (fail-closed):** ALLOW se `canRepresentActor(user, actor-alvo)` OU `hasCapabilityGrant(grantee, 'services:create', scopeActor)`; senão 403. Grant **ADITIVO/ESCOPADO** — não vira representação global, não substitui owner, **não bypassa** categoria/concept/declaração-publicação-PJ/company-operacional. Referral fora (actor_id server-side).
+- **Provado:** E2E efêmero 11/11 (owner OK · sem-grant 403 · com-grant cria · revogado 403 · escopo errado 403 · capability errada 403 · gate semântico não bypassado · referral fora · Δbank=0 · zero availability/schedules). Guard §7 (assertiva positiva de enforcement) + negative-proof `1c-enforcement-gone` (muta→falha→restaura SHA256).
+- **DEFERRED (escopo NÃO aberto nesta fatia):** `calendar:block`/`unblock` e demais capabilities seguem **SEM enforcement** — `calendar`/`availability` é SSOT temporal owner-only lacrado (DECISION-0113/0118); fica para frente posterior (relação com [[DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION]], já CLOSED como baseline de produto). Enforcement vive no **service layer** (a rota não chama `hasCapabilityGrant` — ban do guard mantido). NÃO pluguei em `canActAs` global. Sem DECISION nova (0136/0138 cobrem).
+- **HOLD:** dinheiro/payout/PORTA-1/bucket D; allowlist de grants segue **não-financeira**. Ver [[STATUS_EXECUCAO_GLOBAL]] entrada 2026-06-24 F-ACTOR-CAPABILITY-GRANTS-MVP Slice 1C.
+
 ## DT-MVP-SERVICE-JOURNEY-SEED-RESIDUALS — 🟡 DEFERRED (nota de resíduo, F-MVP-SERVICE-JOURNEY-SEED-E2E, 2026-06-24)
 
 - **Contexto:** o E2E F-MVP-SERVICE-JOURNEY-SEED-E2E (PASS / money-free / DB efêmera, provider PF) provou a espinha mínima do MVP de serviço via writers canônicos. Esta nota apenas REGISTRA os resíduos — **nenhum é resolvido agora; nenhuma DECISION nova; nenhuma correção material**.
