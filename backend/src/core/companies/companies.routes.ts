@@ -179,6 +179,60 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /companies/:companyId/readiness?providerActorId=&conceptId=
+   * 🟢 F-COMPANY-READINESS-PROJECTION — projeção READ-ONLY de readiness de oferta (per-company/per-offering).
+   * Consome o predicado ÚNICO (mesma fonte do P3 gate); NÃO é autoridade, NÃO bloqueia, NÃO escreve.
+   * Autoridade de leitura server-side: o caller precisa poder representar o provider (canRepresentActor).
+   */
+  fastify.get<{ Params: { companyId: string }; Querystring: { providerActorId?: string; conceptId?: string } }>(
+    '/:companyId/readiness',
+    async (req, reply) => {
+      if (!req.user?.userId || !req.tenant?.id) {
+        return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+      }
+      const { companyId } = req.params;
+      const providerActorId = req.query.providerActorId;
+      const conceptId = req.query.conceptId;
+      if (!providerActorId || !conceptId) {
+        return reply.status(400).send({
+          ok: false,
+          code: 'READINESS_PARAMS_REQUIRED',
+          message: 'providerActorId e conceptId são obrigatórios (readiness é por oferta).',
+        });
+      }
+      try {
+        // Autoridade server-side: NÃO confiar em actorId do cliente como autoridade — provar representação.
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        const canRep = await authorizationService
+          .canRepresentActor(req.tenant.id, req.user.userId, providerActorId)
+          .catch(() => false);
+        if (!canRep) {
+          return reply.status(403).send({
+            ok: false,
+            code: 'READINESS_FORBIDDEN',
+            message: 'Sem autoridade sobre o provider deste readiness.',
+          });
+        }
+        const { getCompanyOfferingReadiness } = await import('./company-readiness.service');
+        const data = await getCompanyOfferingReadiness({
+          tenantId: req.tenant.id,
+          providerActorId,
+          companyId,
+          conceptId,
+        });
+        return reply.send({ ok: true, data });
+      } catch (error) {
+        fastify.log.error({ err: error }, 'Erro ao calcular company readiness');
+        return reply.status(500).send({
+          ok: false,
+          message: 'Erro ao calcular readiness',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  );
+
+  /**
    * POST /companies
    * Cria nova empresa
    */

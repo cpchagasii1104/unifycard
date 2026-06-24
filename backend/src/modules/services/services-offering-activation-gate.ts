@@ -18,17 +18,32 @@ import { ForbiddenError } from '@core/errors';
 import { authorityDecisionService } from '@core/compliance/authority-decision.service';
 import { isActorEffectivelyBlocked } from '../risk-identity/actor-effective-block';
 
-/**
- * Revalida, NO momento da ativação, a elegibilidade para `service_offering.status = 'active'`.
- * Lança ForbiddenError (403) com code `OFFERING_ACTIVATION_*` se qualquer pré-condição não estiver viva.
- */
-export async function assertOfferingActivationEligibility(input: {
+export interface OfferingActivationEligibilityInput {
   tenantId: string;
   providerActorId: string;
   companyId: string | null; // derivado server-side (offering.company_id); presente = PJ
   conceptId: string; // resolvido do canonical (match EXATO)
-}): Promise<void> {
+}
+
+/** Resultado READ-ONLY: ok + reasons (códigos OFFERING_ACTIVATION_* na ordem dos checks). */
+export interface OfferingActivationEligibility {
+  ok: boolean;
+  reasons: string[];
+}
+
+/**
+ * 🔴 PREDICADO ÚNICO de elegibilidade de ativação (READ-ONLY, NÃO lança). FONTE COMPARTILHADA:
+ *   • assertOfferingActivationEligibility (P3 gate) consome e dá throw (reasons[0]);
+ *   • company-readiness projection (F-COMPANY-READINESS-PROJECTION) consome e devolve boolean/reasons.
+ * NÃO existe segunda regra — UI e gate bebem da MESMA fonte (sem drift). Lê SSOT vivo; NUNCA
+ * profile.metadata/inferência. Reasons na MESMA ordem dos checks (PJ: pub→operacional→kyb; PF:
+ * declaração→civil→bloqueio) para preservar o erro lançado pelo gate (reasons[0]).
+ */
+export async function evaluateOfferingActivationEligibility(
+  input: OfferingActivationEligibilityInput
+): Promise<OfferingActivationEligibility> {
   const { tenantId, providerActorId, companyId, conceptId } = input;
+  const reasons: string[] = [];
 
   // ── PJ ──────────────────────────────────────────────────────────────────────
   if (companyId) {
@@ -39,9 +54,7 @@ export async function assertOfferingActivationEligibility(input: {
       [tenantId, companyId, conceptId]
     );
     if (!pub) {
-      throw new ForbiddenError(
-        'OFFERING_ACTIVATION_PUBLICATION_REQUIRED: ativar exige publicação ATIVA do concept pela empresa (DECISION-0147 Q3).'
-      );
+      reasons.push('OFFERING_ACTIVATION_PUBLICATION_REQUIRED: ativar exige publicação ATIVA do concept pela empresa (DECISION-0147 Q3).');
     }
     const co = await runQueryWithTenant<{ primary_company_type_id: string | null }>(
       tenantId,
@@ -49,17 +62,13 @@ export async function assertOfferingActivationEligibility(input: {
       [companyId, tenantId]
     );
     if (!co || co.primary_company_type_id === null) {
-      throw new ForbiddenError(
-        'OFFERING_ACTIVATION_COMPANY_NOT_OPERATIONAL: empresa não operacional (primary_company_type ausente — DECISION-0100 D6 / 0147 Q2).'
-      );
+      reasons.push('OFFERING_ACTIVATION_COMPANY_NOT_OPERATIONAL: empresa não operacional (primary_company_type ausente — DECISION-0100 D6 / 0147 Q2).');
     }
     const kyb = await authorityDecisionService.evaluatePageActorKybApproved(tenantId, providerActorId);
     if (!kyb.approved) {
-      throw new ForbiddenError(
-        `OFFERING_ACTIVATION_KYB_REQUIRED: KYB não aprovado (${kyb.reason}) — ativação fail-closed (DECISION-0147 Q2).`
-      );
+      reasons.push(`OFFERING_ACTIVATION_KYB_REQUIRED: KYB não aprovado (${kyb.reason}) — ativação fail-closed (DECISION-0147 Q2).`);
     }
-    return;
+    return { ok: reasons.length === 0, reasons };
   }
 
   // ── PF (elegibilidade civil mínima / KYC-lite civil V1) ──────────────────────
@@ -70,9 +79,7 @@ export async function assertOfferingActivationEligibility(input: {
     [tenantId, providerActorId, conceptId]
   );
   if (!decl) {
-    throw new ForbiddenError(
-      'OFFERING_ACTIVATION_DECLARATION_REQUIRED: ativar exige declaração profissional ATIVA do concept (DECISION-0147 Q2/Q3).'
-    );
+    reasons.push('OFFERING_ACTIVATION_DECLARATION_REQUIRED: ativar exige declaração profissional ATIVA do concept (DECISION-0147 Q2/Q3).');
   }
   // KYC-lite civil V1: derivável de SSOT civil vivo (sem metadata/inferência). birthdate FORA do V1.
   const civil = await runQueryWithTenant<{ ok: number }>(
@@ -90,13 +97,25 @@ export async function assertOfferingActivationEligibility(input: {
     [tenantId, providerActorId]
   );
   if (!civil) {
-    throw new ForbiddenError(
-      'OFFERING_ACTIVATION_CIVIL_MINIMUM_REQUIRED: elegibilidade civil mínima PF (KYC-lite civil V1) não satisfeita — exige global_user vinculado com CPF + nome civil + identity (DECISION-0147 Q2; birthdate fora do V1). Fail-closed.'
-    );
+    reasons.push('OFFERING_ACTIVATION_CIVIL_MINIMUM_REQUIRED: elegibilidade civil mínima PF (KYC-lite civil V1) não satisfeita — exige global_user vinculado com CPF + nome civil + identity (DECISION-0147 Q2; birthdate fora do V1). Fail-closed.');
   }
   if (await isActorEffectivelyBlocked(tenantId, providerActorId)) {
-    throw new ForbiddenError(
-      'OFFERING_ACTIVATION_ACTOR_BLOCKED: provider bloqueado (atl_blocked_actors) — ativação fail-closed (DECISION-0147 Q2).'
-    );
+    reasons.push('OFFERING_ACTIVATION_ACTOR_BLOCKED: provider bloqueado (atl_blocked_actors) — ativação fail-closed (DECISION-0147 Q2).');
+  }
+  return { ok: reasons.length === 0, reasons };
+}
+
+/**
+ * Revalida, NO momento da ativação, a elegibilidade para `service_offering.status = 'active'`.
+ * Lança ForbiddenError (403) com code `OFFERING_ACTIVATION_*` se qualquer pré-condição não estiver viva.
+ * DELEGA ao predicado único evaluateOfferingActivationEligibility (mesma fonte da readiness projection);
+ * lança reasons[0] = o primeiro elo faltante (preserva comportamento/códigos do P3).
+ */
+export async function assertOfferingActivationEligibility(
+  input: OfferingActivationEligibilityInput
+): Promise<void> {
+  const { ok, reasons } = await evaluateOfferingActivationEligibility(input);
+  if (!ok) {
+    throw new ForbiddenError(reasons[0]);
   }
 }

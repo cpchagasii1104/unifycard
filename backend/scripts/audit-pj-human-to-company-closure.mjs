@@ -105,6 +105,9 @@ const stripComments = (s) => s
   // Arquivo NOVO nos diretórios da jornada sem classificação → NEW_UNCLASSIFIED (falha).
   const CLASSIFIED_NON_RESOLVING = new Set([
     'companies.module.ts', 'companies.types.ts', 'company-members.types.ts', 'kyb-document-validation.ts',
+    // F-COMPANY-READINESS-PROJECTION: projeção READ-ONLY; NÃO resolve/escreve actor (autoridade via
+    // canRepresentActor na rota; regra de elegibilidade no predicado único do P3 gate).
+    'company-readiness.service.ts',
   ]);
   const familyShort = new Set(PJ_ACTOR_FAMILY.map((f) => f.split('/').pop()));
   const unclassified = [];
