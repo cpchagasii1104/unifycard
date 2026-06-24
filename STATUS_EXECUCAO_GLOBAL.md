@@ -1,3 +1,7 @@
+## 2026-06-24 — CAMADA-1 READ-FIRST · ✅ Passo 4 consolidado (matriz cartorial) · READY_FOR_DECISION / NÃO READY_FOR_EXECUTION
+
+**3 paralelas READ-ONLY (A autoridade · B semântica · C cofre) consolidadas (Passo 4) → matriz única em [`docs/04_audit/CAMADA_1_READINESS_MATRIX.md`](docs/04_audit/CAMADA_1_READINESS_MATRIX.md).** **VEREDITO: CAMADA 1 = READY_FOR_DECISION / NÃO READY_FOR_EXECUTION** — substrato pré-money provado e contido; nenhum fluxo move dinheiro real hoje. **Reconciliação de 1ª mão derrubou o único blocker "duro" alegado: BODY-01 (`/internal` financeiro) está CONTIDO 501** (achado A era stale); rental_resource "ausente" (B) também stale (rentable_resources existe+aplicada). Restam **GATES decisão-independentes** (concept-coverage intent_type/order→concept · tx↔ledger constraint · ACTIONCTX-01/TENANT-01 binding · recovery genesis · idempotência/outbox), **DECISÕES Clayton** (PORTA-1 · fee model · réguas de autoridade/ativação PF) e o **gargalo OPS = RLS-live física**. Tudo que move dinheiro = **HOLD + 3 paralelas + decisão**. Persistência docs-only; gates verdes. **RLS-live físico CONTINUA NÃO VIRADO · dinheiro/payout/worker/PORTA-1 HOLD.**
+
 ## 2026-06-24 — RLS-LIVE-OPS · ✅ PROVADO / READY_FOR_OPS · 🔑 físico AINDA NÃO VIRADO
 
 **A chave foi testada no miolo, não girada na fechadura.** Provas (sem mutação persistente — SET ROLE em tx+ROLLBACK · harness em DB efêmero · `ALTER ROLE` NÃO executado; `unificard_app` segue f|f|f; app segue em `postgres`):
