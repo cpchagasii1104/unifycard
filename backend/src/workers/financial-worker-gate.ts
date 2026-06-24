@@ -17,6 +17,13 @@ export type FinancialWorkerFlag =
   | 'ENABLE_PAYOUT_WORKER'
   | 'ENABLE_REVERSAL_WORKER'
   | 'ENABLE_BANK_SETTLEMENT_WORKER'
+  // F-RLS-PREFLIGHT-SETTLEMENT-RELEASE-WORKER-DEFAULT-OFF (35p): settlement/release claimam
+  // payment_intents CROSS-TENANT antes do tenant-context; payment_intents NÃO tem RLS, logo o
+  // flip RLS-físico NÃO os torna inertes (inércia atual = tabela vazia, não contenção estrutural).
+  // release move dinheiro (transfer seller_pending→seller_available → bank_ledger). Default-off
+  // até #34 tenant-loop. NÃO usar "tabela vazia" como prova de segurança.
+  | 'ENABLE_SETTLEMENT_WORKER'
+  | 'ENABLE_RELEASE_WORKER'
   // F-RLS-OBSERVABILITY-WORKERS-RESOLVE (DECISION-0149): observability cross-tenant default-off
   // até tenant-loop/RLS-runtime-live. Sob unificard_app rodariam cegos (0 linhas).
   | 'ENABLE_FINANCIAL_METRICS_WORKER'

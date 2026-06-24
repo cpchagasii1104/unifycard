@@ -28,6 +28,11 @@ const WORKERS = [
   { start: 'startActorWalletPayoutWorker', flag: 'ENABLE_PAYOUT_WORKER' },
   { start: 'startReversalWorker', flag: 'ENABLE_REVERSAL_WORKER' },
   { start: 'startBankSettlementWorker', flag: 'ENABLE_BANK_SETTLEMENT_WORKER' },
+  // F-RLS-PREFLIGHT-SETTLEMENT-RELEASE-WORKER-DEFAULT-OFF (35p): settlement/release claimam
+  // payment_intents cross-tenant antes do tenant-context, e payment_intents NÃO tem RLS → o flip
+  // RLS-físico NÃO os torna inertes. release move dinheiro (transfer→bank_ledger). Default-off.
+  { start: 'startSettlementWorker', flag: 'ENABLE_SETTLEMENT_WORKER' },
+  { start: 'startReleaseWorker', flag: 'ENABLE_RELEASE_WORKER' },
 ];
 
 function walkRoutes(dir, files = []) {
@@ -100,7 +105,7 @@ function runGuard() {
     failures.forEach((x) => console.error(`  ❌ ${x}`));
     process.exit(1);
   }
-  console.log('[financial-workers-dormancy] payout/reversal/bank-settlement workers gateados default-off (ENABLE_*_WORKER===\'true\' estrito; sem NODE_ENV auto-enable; sem fail-open); nenhum producer de payout_requests/bank_settlements em rota HTTP.');
+  console.log('[financial-workers-dormancy] payout/reversal/bank-settlement/settlement/release workers gateados default-off (ENABLE_*_WORKER===\'true\' estrito; sem NODE_ENV auto-enable; sem fail-open); nenhum producer de payout_requests/bank_settlements em rota HTTP.');
   console.log('GATE OK [financial-workers-dormancy] — workers financeiros NÃO iniciam por padrão (Core EXECUTION HOLD).');
 }
 

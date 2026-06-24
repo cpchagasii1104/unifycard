@@ -211,22 +211,36 @@ export async function startServer(): Promise<void> {
     console.warn('[BOOT] Aviso: Payment Worker não iniciado:', err);
   }
 
-  // Settlement Worker — processa PaymentIntents escrowed → settled (a cada 10s)
-  try {
-    const { startSettlementWorker } = await import('./src/workers/settlement-worker');
-    startSettlementWorker();
-    console.log('[BOOT] Settlement Worker iniciado (escrowed → seller_pending a cada 10s)');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Settlement Worker não iniciado:', err);
+  // Settlement Worker — processa PaymentIntents escrowed → seller_pending (a cada 10s).
+  // 🔒 DORMÊNCIA ESTRUTURAL (35p / F-RLS-PREFLIGHT-SETTLEMENT-RELEASE-WORKER-DEFAULT-OFF):
+  // claima payment_intents CROSS-TENANT antes do tenant-context; payment_intents NÃO tem RLS →
+  // o flip RLS-físico NÃO o torna inerte (inércia atual = tabela vazia, não contenção estrutural).
+  // settle escreve external_settled_at em bank_transactions. DEFAULT-OFF (ENABLE_SETTLEMENT_WORKER='true').
+  if (isFinancialWorkerEnabled('ENABLE_SETTLEMENT_WORKER')) {
+    try {
+      const { startSettlementWorker } = await import('./src/workers/settlement-worker');
+      startSettlementWorker();
+      console.log('[BOOT] Settlement Worker iniciado (ENABLE_SETTLEMENT_WORKER=true; escrowed → seller_pending a cada 10s)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Settlement Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Settlement Worker DESLIGADO (default-off; ENABLE_SETTLEMENT_WORKER≠true) — claim cross-tenant + payment_intents sem RLS; religar só após #34 tenant-loop.');
   }
 
-  // Release Worker — processa PaymentIntents settled → completed (seller_pending → seller_available, a cada 10s)
-  try {
-    const { startReleaseWorker } = await import('./src/workers/release-worker');
-    startReleaseWorker();
-    console.log('[BOOT] Release Worker iniciado (settled → seller_available a cada 10s)');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Release Worker não iniciado:', err);
+  // Release Worker — processa PaymentIntents settled → seller_available (a cada 10s); MOVE DINHEIRO.
+  // 🔒 DORMÊNCIA ESTRUTURAL (35p): mesmo claim cross-tenant + payment_intents sem RLS; release executa
+  // transfer seller_pending→seller_available (escreve bank_ledger). DEFAULT-OFF (ENABLE_RELEASE_WORKER='true').
+  if (isFinancialWorkerEnabled('ENABLE_RELEASE_WORKER')) {
+    try {
+      const { startReleaseWorker } = await import('./src/workers/release-worker');
+      startReleaseWorker();
+      console.log('[BOOT] Release Worker iniciado (ENABLE_RELEASE_WORKER=true; settled → seller_available a cada 10s)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Release Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Release Worker DESLIGADO (default-off; ENABLE_RELEASE_WORKER≠true) — move dinheiro (seller_pending→seller_available); religar só após #34 tenant-loop.');
   }
 
   // Idempotency keys cleanup — remove registros > 24h (função cleanup_idempotency_keys, a cada 1h)
