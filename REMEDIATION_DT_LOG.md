@@ -1,7 +1,8 @@
 # REMEDIATION DT LOG
 
-## DT-INTERNAL-SSOT-ADMIN-TENANT-QUERY-HYGIENE — OPEN / BAIXA / NÃO-DINHEIRO (2026-06-23)
+## DT-INTERNAL-SSOT-ADMIN-TENANT-QUERY-HYGIENE — ✅ CLOSED (F-BUCKET-A-HYGIENE-SWEEP, 2026-06-24)
 
+- **CLOSED:** `/admin/ssot/metrics` agora escopa SEMPRE a `req.tenant.id` (decisão: é TENANT-admin); `req.query.tenantId` divergente → **403 SSOT_ADMIN_TENANT_SCOPE_FORBIDDEN**; query ausente NÃO é mais cross-tenant (era o vazamento real). Guard `audit-ssot-admin-tenant-bound` (NP morde se voltar `options.tenantId = req.query.tenantId`). PLATFORM-admin cross-tenant = DECISION/rota/autoridade próprias (não implícito). _(Histórico OPEN abaixo.)_
 - **Origem:** F-INTERNAL-FINANCIAL-TENANT-BODY-SPOOF-CONTAINMENT (P1). Único `req.query.tenantId` em superfície não-teste fora das `/internal` financeiras (essas já 501/403-contidas + guardadas).
 - **Fato:** `src/core/categories/ssot-admin.routes.ts:36-37` — `if (req.query.tenantId) options.tenantId = req.query.tenantId`. **Authed** (registrado em protectedScope com authPlugin+tenantPlugin, prefix `/admin/ssot`; preHandler exige `req.user` + `req.tenant`). Domínio = **categorias/SSOT (NÃO-dinheiro)**.
 - **Risco:** baixo — sob RLS escopa por `req.tenant`; mas não valida explicitamente `query.tenantId === req.user.tenantId` (admin autenticado poderia passar tenantId de outro tenant como option). Não é caminho de dinheiro/governance/treasury (fora do escopo P1).
