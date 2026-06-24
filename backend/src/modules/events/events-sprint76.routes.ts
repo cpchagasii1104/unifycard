@@ -69,6 +69,17 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
+    // 🔴 F-CAMADA-1-GATE-ACTIONCTX (DECISION-0113): actionContext.actorId é HINT cliente-declarado, NÃO autoridade.
+    // O caller autenticado deve poder representar o actor declarado, senão forja authorship em nome de outro.
+    const userId = req.user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    if (!(await authorizationService.canRepresentActor(tenantId, userId, actionContext.actorId))) {
+      return reply.status(403).send({ error: 'ACTOR_REPRESENTATION_DENIED', code: 'ACTOR_REPRESENTATION_DENIED' });
+    }
+
     // Converter datas se necessário
     const body = req.body as any;
     if (body.startAt) {
@@ -86,7 +97,7 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       startAt: body.startAt,
       endAt: body.endAt,
       createdByActorId: actionContext.actorId,
-      createdByUserId: actionContext.actorId,
+      createdByUserId: userId,
       metadata: body.metadata || {},
     });
 
@@ -94,7 +105,7 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       eventType: 'EVENT_CREATED',
       eventId: event.id,
       createdByActorId: actionContext.actorId,
-      createdByUserId: actionContext.actorId,
+      createdByUserId: userId,
     });
 
     return reply.status(201).send(event);
@@ -251,12 +262,22 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
+    // 🔴 F-CAMADA-1-GATE-ACTIONCTX (DECISION-0113): actionContext.actorId é HINT, NÃO autoridade.
+    const userId = req.user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    if (!(await authorizationService.canRepresentActor(tenantId, userId, actionContext.actorId))) {
+      return reply.status(403).send({ error: 'ACTOR_REPRESENTATION_DENIED', code: 'ACTOR_REPRESENTATION_DENIED' });
+    }
+
     const ticket = await ticketService.createTicketType(
       tenantId,
       req.params.id,
       req.body,
       actionContext.actorId,
-      actionContext.actorId
+      userId
     );
 
     return reply.status(201).send(ticket);
@@ -280,12 +301,23 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
+    // 🔴 F-CAMADA-1-GATE-ACTIONCTX (DECISION-0113): actionContext.actorId é HINT, NÃO autoridade.
+    // Reserva cria PaymentIntent (money-adjacent) — caller deve poder representar o actor antes de qualquer trilho de dinheiro.
+    const userId = req.user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    if (!(await authorizationService.canRepresentActor(tenantId, userId, actionContext.actorId))) {
+      return reply.status(403).send({ error: 'ACTOR_REPRESENTATION_DENIED', code: 'ACTOR_REPRESENTATION_DENIED' });
+    }
+
     const result = await ticketService.reserveTicket(
       tenantId,
       req.params.id,
       req.body,
       actionContext.actorId,
-      actionContext.actorId
+      userId
     );
 
     return reply.status(201).send(result);
