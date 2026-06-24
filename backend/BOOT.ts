@@ -358,40 +358,61 @@ export async function startServer(): Promise<void> {
     console.warn('[BOOT] Aviso: Risk Identity Reconcile Worker não iniciado:', err);
   }
 
+  // Observabilidade financeira / SLA (alert · metrics · risk · sla-monitor) — leem tabelas financeiras
+  // CROSS-TENANT (sem tenant-context). 🔒 DORMÊNCIA (F-RLS-PREFLIGHT-WORKER-DORMANCY-SWEEP + DECISION-0149):
+  // sob unificard_app/NOBYPASSRLS rodariam CEGOS (0 linhas → métrica/alerta/risco/SLA falsos). NÃO movem
+  // dinheiro, mas default-off até #34 tenant-loop. Antes ligavam incondicionalmente (runbook §1.7 era inefetivo).
+
   // Financial Alert Worker — detecção de anomalias (LARGE_PAYOUT, SETTLEMENT_FAILED, PAYOUT_FAILED, a cada 60s)
-  try {
-    const { startFinancialAlertWorker } = await import('./src/workers/financial-alert-worker');
-    startFinancialAlertWorker();
-    console.log('[BOOT] Financial Alert Worker iniciado (anomaly alerts a cada 60s)');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Financial Alert Worker não iniciado:', err);
+  if (isFinancialWorkerEnabled('ENABLE_FINANCIAL_ALERT_WORKER')) {
+    try {
+      const { startFinancialAlertWorker } = await import('./src/workers/financial-alert-worker');
+      startFinancialAlertWorker();
+      console.log('[BOOT] Financial Alert Worker iniciado (ENABLE_FINANCIAL_ALERT_WORKER=true; anomaly alerts a cada 60s)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Financial Alert Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Financial Alert Worker DESLIGADO (default-off; ENABLE_FINANCIAL_ALERT_WORKER≠true) — leitura cross-tenant cega sob RLS; religar só após #34 tenant-loop.');
   }
 
   // Financial Metrics Worker — agregação de métricas (total_volume, total_payouts, total_settlements, total_transactions, a cada 5min)
-  try {
-    const { startFinancialMetricsWorker } = await import('./src/workers/financial-metrics-worker');
-    startFinancialMetricsWorker();
-    console.log('[BOOT] Financial Metrics Worker iniciado (aggregation a cada 5min)');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Financial Metrics Worker não iniciado:', err);
+  if (isFinancialWorkerEnabled('ENABLE_FINANCIAL_METRICS_WORKER')) {
+    try {
+      const { startFinancialMetricsWorker } = await import('./src/workers/financial-metrics-worker');
+      startFinancialMetricsWorker();
+      console.log('[BOOT] Financial Metrics Worker iniciado (ENABLE_FINANCIAL_METRICS_WORKER=true; aggregation a cada 5min)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Financial Metrics Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Financial Metrics Worker DESLIGADO (default-off; ENABLE_FINANCIAL_METRICS_WORKER≠true) — agregação cross-tenant cega sob RLS; religar só após #34 tenant-loop.');
   }
 
   // Risk Analysis Worker — detecção de risco (MANY_PAYOUTS, LARGE_TRANSACTION, MANY_PAYMENT_ATTEMPTS, a cada 60s)
-  try {
-    const { startRiskAnalysisWorker } = await import('./src/workers/risk-analysis-worker');
-    startRiskAnalysisWorker();
-    console.log('[BOOT] Risk Analysis Worker iniciado (risk detection a cada 60s)');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Risk Analysis Worker não iniciado:', err);
+  if (isFinancialWorkerEnabled('ENABLE_RISK_ANALYSIS_WORKER')) {
+    try {
+      const { startRiskAnalysisWorker } = await import('./src/workers/risk-analysis-worker');
+      startRiskAnalysisWorker();
+      console.log('[BOOT] Risk Analysis Worker iniciado (ENABLE_RISK_ANALYSIS_WORKER=true; risk detection a cada 60s)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Risk Analysis Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Risk Analysis Worker DESLIGADO (default-off; ENABLE_RISK_ANALYSIS_WORKER≠true) — análise cross-tenant cega sob RLS; religar só após #34 tenant-loop.');
   }
 
   // Financial SLA Monitor — atrasos operacionais (settlement_delay, payout_delay, bank_settlement_delay, a cada 60s)
-  try {
-    const { startSlaMonitorWorker } = await import('./src/workers/sla-monitor-worker');
-    startSlaMonitorWorker();
-    console.log('[BOOT] Financial SLA Monitor iniciado');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Financial SLA Monitor não iniciado:', err);
+  if (isFinancialWorkerEnabled('ENABLE_SLA_MONITOR_WORKER')) {
+    try {
+      const { startSlaMonitorWorker } = await import('./src/workers/sla-monitor-worker');
+      startSlaMonitorWorker();
+      console.log('[BOOT] Financial SLA Monitor iniciado (ENABLE_SLA_MONITOR_WORKER=true)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Financial SLA Monitor não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Financial SLA Monitor DESLIGADO (default-off; ENABLE_SLA_MONITOR_WORKER≠true) — monitor cross-tenant cego sob RLS; religar só após #34 tenant-loop.');
   }
 
   // Ledger Snapshot Worker — snapshots periódicos de saldo por conta (a cada 10 min)
@@ -448,13 +469,21 @@ export async function startServer(): Promise<void> {
     console.warn('[BOOT] Aviso: Governance Funding Worker não iniciado:', err);
   }
 
-  // Governance Funding Commitment Worker — commitment (intenção) → valida saldo → treasury→escrow → PaymentIntent
-  try {
-    const { startGovernanceFundingCommitmentWorker } = await import('./src/workers/governance-funding-commitment-worker');
-    startGovernanceFundingCommitmentWorker();
-    console.log('[BOOT] Governance Funding Commitment Worker iniciado');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Governance Funding Commitment Worker não iniciado:', err);
+  // Governance Funding Commitment Worker — commitment (intenção) → valida saldo → treasury→escrow → PaymentIntent.
+  // 🔒 DORMÊNCIA ESTRUTURAL (F-RLS-PREFLIGHT-WORKER-DORMANCY-SWEEP): MONEY-WRITE — executa
+  // bankTransactionService.transfer(treasury→escrow) (escreve bank_ledger) e claima commitments CROSS-TENANT
+  // antes do tenant-context; freio anterior = fila vazia (comportamental), não contenção. DEFAULT-OFF
+  // (ENABLE_GOVERNANCE_FUNDING_COMMITMENT_WORKER='true'); religar só após #34 tenant-loop.
+  if (isFinancialWorkerEnabled('ENABLE_GOVERNANCE_FUNDING_COMMITMENT_WORKER')) {
+    try {
+      const { startGovernanceFundingCommitmentWorker } = await import('./src/workers/governance-funding-commitment-worker');
+      startGovernanceFundingCommitmentWorker();
+      console.log('[BOOT] Governance Funding Commitment Worker iniciado (ENABLE_GOVERNANCE_FUNDING_COMMITMENT_WORKER=true)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Governance Funding Commitment Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Governance Funding Commitment Worker DESLIGADO (default-off; ENABLE_GOVERNANCE_FUNDING_COMMITMENT_WORKER≠true) — move dinheiro (treasury→escrow); religar só após #34 tenant-loop.');
   }
 }
 

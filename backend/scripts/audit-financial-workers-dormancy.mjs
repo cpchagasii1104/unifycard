@@ -33,6 +33,14 @@ const WORKERS = [
   // RLS-físico NÃO os torna inertes. release move dinheiro (transfer→bank_ledger). Default-off.
   { start: 'startSettlementWorker', flag: 'ENABLE_SETTLEMENT_WORKER' },
   { start: 'startReleaseWorker', flag: 'ENABLE_RELEASE_WORKER' },
+  // F-RLS-PREFLIGHT-WORKER-DORMANCY-SWEEP: governance-funding-commitment é MONEY-WRITE (transfer
+  // treasury→escrow → bank_ledger), claim cross-tenant; observability/SLA leem financeiro cross-tenant
+  // (cegos sob RLS, DECISION-0149). Todos default-off até #34 tenant-loop.
+  { start: 'startGovernanceFundingCommitmentWorker', flag: 'ENABLE_GOVERNANCE_FUNDING_COMMITMENT_WORKER' },
+  { start: 'startFinancialAlertWorker', flag: 'ENABLE_FINANCIAL_ALERT_WORKER' },
+  { start: 'startFinancialMetricsWorker', flag: 'ENABLE_FINANCIAL_METRICS_WORKER' },
+  { start: 'startRiskAnalysisWorker', flag: 'ENABLE_RISK_ANALYSIS_WORKER' },
+  { start: 'startSlaMonitorWorker', flag: 'ENABLE_SLA_MONITOR_WORKER' },
 ];
 
 function walkRoutes(dir, files = []) {
@@ -105,7 +113,7 @@ function runGuard() {
     failures.forEach((x) => console.error(`  ❌ ${x}`));
     process.exit(1);
   }
-  console.log('[financial-workers-dormancy] payout/reversal/bank-settlement/settlement/release workers gateados default-off (ENABLE_*_WORKER===\'true\' estrito; sem NODE_ENV auto-enable; sem fail-open); nenhum producer de payout_requests/bank_settlements em rota HTTP.');
+  console.log('[financial-workers-dormancy] payout/reversal/bank-settlement/settlement/release/governance-funding-commitment + observability(alert/metrics/risk/sla) gateados default-off (ENABLE_*_WORKER===\'true\' estrito; sem NODE_ENV auto-enable; sem fail-open); nenhum producer de payout_requests/bank_settlements em rota HTTP.');
   console.log('GATE OK [financial-workers-dormancy] — workers financeiros NÃO iniciam por padrão (Core EXECUTION HOLD).');
 }
 

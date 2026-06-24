@@ -24,11 +24,16 @@ export type FinancialWorkerFlag =
   // até #34 tenant-loop. NÃO usar "tabela vazia" como prova de segurança.
   | 'ENABLE_SETTLEMENT_WORKER'
   | 'ENABLE_RELEASE_WORKER'
-  // F-RLS-OBSERVABILITY-WORKERS-RESOLVE (DECISION-0149): observability cross-tenant default-off
-  // até tenant-loop/RLS-runtime-live. Sob unificard_app rodariam cegos (0 linhas).
+  // F-RLS-PREFLIGHT-WORKER-DORMANCY-SWEEP: governance-funding-commitment é MONEY-WRITE
+  // (claim cross-tenant → bankTransactionService.transfer treasury→escrow → bank_ledger), iniciava
+  // default-on; default-off até #34 tenant-loop. NÃO usar "fila vazia" como prova de segurança.
+  | 'ENABLE_GOVERNANCE_FUNDING_COMMITMENT_WORKER'
+  // F-RLS-OBSERVABILITY-WORKERS-RESOLVE (DECISION-0149) + sweep: observability/SLA financeiro cross-tenant
+  // default-off até tenant-loop/RLS-runtime-live. Sob unificard_app rodariam cegos (0 linhas → métrica/alerta falso).
   | 'ENABLE_FINANCIAL_METRICS_WORKER'
   | 'ENABLE_RISK_ANALYSIS_WORKER'
-  | 'ENABLE_FINANCIAL_ALERT_WORKER';
+  | 'ENABLE_FINANCIAL_ALERT_WORKER'
+  | 'ENABLE_SLA_MONITOR_WORKER';
 
 export function isFinancialWorkerEnabled(flag: FinancialWorkerFlag): boolean {
   // Estrito: só a string exata 'true' habilita. Tudo o mais (undefined/''/'TRUE'/'1'/'yes') = OFF.
