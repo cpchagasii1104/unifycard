@@ -34,7 +34,7 @@ Origem: **A**=autoridade · **B**=semântica · **C**=cofre · **OVL**=overlap. 
 |3|calculateSplits (engine)|OVL A·B·C|bank_splits|LIVE/HOLD|**PROVA+HOLD**|n|sim(earning)|—|—|resíduo float% event/p2p = DECISION-0048|
 |4|actor_wallet × user_wallet|OVL A·C|bank_accounts|LIVE|**PROVA**|n|—|—|—|—|
 |5|availableBalanceCents (projeção)|OVL A·C|(read-model)|LIVE|**PROVA**|n|—|—|—|—|
-|6|payment_intents · intent_type→concept|OVL B·C·A|concepts/ledger|LIVE|**GATE**|n|—|—|—|guard: todo intent/order que liquida resolve concept (no-fallback)|
+|6|payment_intents · intent_type→concept|OVL B·C·A|concepts/ledger|LIVE|**✅ FECHADO**|n|—|—|—|guard `audit-concept-coverage-financial` (`32c9b4b6`): ledger exige concept_id→resolver fail-closed→UUID seeded; 6 literais seeded+vivos; intent_type não vira concept; NP 2×|
 |7|recovery máquina (debit/drain/finalize)|OVL A·C|bank_ledger|LIVE-máquina|**DECISÃO PEND.**|n|sim|—|—|HOLD; só executa com decisão|
 |8|recovery **genesis** (criar obrigação)|OVL A·C|—|GHOST(prod)|**GATE**|n|sim|—|—|wiring resolver→INSERT antes de exercer|
 |9|payout request/approve|OVL A·C|approval_*|LIVE-contido|**PROVA**|n|sim|—|—|—|
