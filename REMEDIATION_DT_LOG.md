@@ -1,5 +1,14 @@
 # REMEDIATION DT LOG
 
+## DT-MVP-SERVICE-JOURNEY-SEED-RESIDUALS — 🟡 DEFERRED (nota de resíduo, F-MVP-SERVICE-JOURNEY-SEED-E2E, 2026-06-24)
+
+- **Contexto:** o E2E F-MVP-SERVICE-JOURNEY-SEED-E2E (PASS / money-free / DB efêmera, provider PF) provou a espinha mínima do MVP de serviço via writers canônicos. Esta nota apenas REGISTRA os resíduos — **nenhum é resolvido agora; nenhuma DECISION nova; nenhuma correção material**.
+- **DEFERRED — PJ provider E2E:** o cenário provado foi **PF** (`actor_type='user'` + `actor_professional_concepts`). O cenário **PJ/page-actor** (`company_concept_publications` ACTIVE + KYB approved + empresa operacional `primary_company_type_id`) fica para a **próxima frente** (`F-MVP-SERVICE-JOURNEY-PJ-PROVIDER-E2E`), ainda money-free. PF e PJ são ontologicamente equivalentes como ofertantes (PF_PRESTADOR_CANONICO D17).
+- **DEFERRED — auto-emit de inbox:** o `social_inbox_item` no nascimento da `service_order` ainda **não existe** (inbox é read-model derivado de effects; sem writer automático). No E2E o item foi inserido **test-only** (`upsert`, source_type='booking'). Materializar o auto-emit canônico = **patch futuro**, frente própria.
+- **FORA DESTA FRENTE (mantidos fora):** CRM / evidence / invoicing. `myOrdersService.listMyOrders` DECORA a ordem com `agreements`/evidence/invoice — não materializei nenhum fantasma; provei o consumer-view pela fonte canônica `serviceOrderRepository.listOrders` (customer view). Observação: tabela `agreements` ausente no perfil FULL migrado — decoração fora de escopo, não bloqueia a jornada.
+- **HOLD:** dinheiro real / payout / PORTA-1 / bucket D seguem HOLD. `settlement_flow='none'`; Δbank=0; flags financeiras off; workers off. O E2E **não abre dinheiro**.
+- **Estado:** PASS material contido — aguarda **YALA reseal adversarial** antes de abrir a frente PJ provider. Ver [[STATUS_EXECUCAO_GLOBAL]] entrada 2026-06-24 F-MVP-SERVICE-JOURNEY-SEED-E2E.
+
 ## DT-RLS-RUNTIME-TENANT-CONTEXT-BASELINE — ✅ CLOSED / RLS-LIVE FÍSICO VIRADO (DEV PASS, 2026-06-24)
 
 - **Engenharia** já estava CLOSED (baseline tenant-context=0 · cross-tenant via tenant-loop DECISION-0149 · workers default-off via 35p + worker-dormancy sweep · pré-flight §1/§6.6 PASS). Faltava o **ato OPS** (a IA não aplica role/env/repoint).
