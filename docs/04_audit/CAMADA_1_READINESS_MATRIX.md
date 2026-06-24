@@ -52,8 +52,8 @@ Origem: **A**=autoridade · **B**=semântica · **C**=cofre · **OVL**=overlap. 
 |21|referral binding/codes/getActiveReferral (não-authority)|A|actor_referral_codes|LIVE|**PROVA**|n|—|—|—|confirmado todas superfícies|
 |22|canRepresentActor (createService/payout/availability owner)|A|canRepresentActor|LIVE|**PROVA**|n|—|—|—|—|
 |23|**BODY-01** /internal financeiro|A→disco|—|**CONTIDO 501**|**PROVA(contido)**|**n**|—|—|—|⚠ A=stale; já contido (P1)|
-|24|ACTIONCTX-01 events-sprint76|A|canRepresentActor|LIVE|**GATE**|n|—|—|—|bind canRep / verificar canal-6 0113|
-|25|TENANT-01 services availability|A|canRepresentActor|?(path stale)|**GATE-verificar**|n|—|—|—|localizar handler real + bind/guard|
+|24|ACTIONCTX-01 events-sprint76|A|canRepresentActor|LIVE|**✅ FECHADO**|n|—|—|—|drenado em `55814a59`: 3 writes bindam canRepresentActor(req.user.userId, actionContext.actorId)+403; conflação actorId↔userId corrigida; guard audit-events-sprint76-actor-authority (NP 2×)|
+|25|TENANT-01 services availability|A|canRepresentActor|stale-confirmado|**✅ STALE**|n|—|—|—|services já bound (service-order/bundle); único resíduo = confirm-financial-terms (FINANCEIRO atrás de 503, DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF → frente financeira)|
 |26|canRepresentActor ramo-4 legado (AUTH-02)|A|—|LIVE|**GATE**|n|—|—|—|cleanup já deferido 0144 §B|
 |27|actor_has_permission stub (FASE 6)|A|—|HOLD|**HOLD**|n|—|—|—|religar = ato soberano (0113)|
 |28|concept_id ledger fail-closed|B|concepts|LIVE|**PROVA**|n|—|—|—|—|
