@@ -33,6 +33,7 @@ const ALLOW = {
   'src/scripts/e2e-booking-subject-authority.ts': { cls: 'TEST_ONLY' },
   'src/scripts/e2e-rental-resource-conflict.ts': { cls: 'TEST_ONLY' },
   'src/scripts/validate-pipeline-e2e-mvp-service-journey-seed.ts': { cls: 'TEST_ONLY' },
+  'src/scripts/validate-pipeline-e2e-mvp-service-journey-pj-provider.ts': { cls: 'TEST_ONLY' },
 };
 
 function walk(dir, acc = []) {
