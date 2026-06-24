@@ -1,10 +1,13 @@
 // src/modules/groups/votes.service.ts
+//
+// Identidade operacional do voto/votação = actor_id (resolvido por ensureUserActor).
+// O service NÃO duplica SQL de group_votes/group_vote_options — delega ao
+// votesRepository, passando o `trx` para preservar atomicidade. O INSERT em `posts`
+// permanece inline na mesma transação (fora do escopo desta fatia mover posts).
 
 import { votesRepository } from './votes.repository';
-import { groupsRepository } from './groups.repository';
 import { runTenantTransaction } from '@core/db';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
-import { toGroupVote, toGroupVoteOption } from './votes.types';
 import type {
   GroupVote,
   CreateVoteInput,
@@ -16,7 +19,6 @@ class VotesService {
   async createVote(
     tenantId: string,
     groupId: string,
-    createdByUserId: string,
     input: CreateVoteInput,
     userId: string,
     globalUserId: string
@@ -29,15 +31,11 @@ class VotesService {
       throw new Error('Votação deve ter no máximo 20 opções');
     }
 
-    const userActor = await ensureUserActor(tenantId, userId);
-    const actorId = userActor.actor_id;
-
     // Validar: title não vazio (CHECK constraint no banco garante 3-200 chars)
     if (!input.title || input.title.trim().length < 3) {
       throw new Error('Título da votação deve ter pelo menos 3 caracteres');
     }
 
-    // Validar: status === 'open' (será criado como 'open')
     // Validar: closesAt (se definido) deve ser futuro
     if (input.closesAt) {
       const closesAt = new Date(input.closesAt);
@@ -47,93 +45,19 @@ class VotesService {
       }
     }
 
-    // Executar tudo dentro de uma transação atômica
+    // Identidade operacional: resolver ANTES da transação (ensureUserActor usa conexão própria).
+    const userActor = await ensureUserActor(tenantId, userId);
+    const actorId = userActor.actor_id;
+
+    // Transação atômica: votação + opções + post no feed (mesma trx).
     return await runTenantTransaction(tenantId, async (trx) => {
-      // 1. Criar votação
-      const voteRows = await trx.query({
-        text: `
-          INSERT INTO group_votes (
-            tenant_id, group_id, created_by_user_id, title, description, status, closes_at
-          )
-          VALUES ($1, $2, $3, $4, $5, 'open', $6)
-          RETURNING vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closes_at, created_at, updated_at
-        `,
-        values: [
-          tenantId,
-          groupId,
-          createdByUserId,
-          input.title,
-          input.description ?? null,
-          input.closesAt ? new Date(input.closesAt) : null,
-        ],
-      });
+      // 1. Criar votação (created_by_actor_id = actorId) — SQL no repository.
+      const vote = await votesRepository.createVote(tenantId, groupId, actorId, input, trx);
 
-      if (!voteRows || voteRows.length === 0) {
-        throw new Error('Falha ao criar votação');
-      }
+      // 2. Criar opções — SQL no repository.
+      await votesRepository.createVoteOptions(tenantId, vote.voteId, input.options, trx);
 
-      const voteRow = voteRows[0] as {
-        vote_id: string;
-        tenant_id: string;
-        group_id: string;
-        created_by_user_id: string;
-        title: string;
-        description: string | null;
-        status: string;
-        closes_at: Date | null;
-        created_at: Date;
-        updated_at: Date;
-      };
-      const vote = toGroupVote({
-        vote_id: voteRow.vote_id,
-        tenant_id: voteRow.tenant_id,
-        group_id: voteRow.group_id,
-        created_by_user_id: voteRow.created_by_user_id,
-        title: voteRow.title,
-        description: voteRow.description,
-        status: voteRow.status,
-        closesAt: voteRow.closes_at,
-        createdAt: voteRow.created_at instanceof Date ? voteRow.created_at.toISOString() : String(voteRow.created_at),
-        updatedAt: voteRow.updated_at instanceof Date ? voteRow.updated_at.toISOString() : String(voteRow.updated_at),
-      });
-
-      // 2. Criar opções
-      const createdOptions = [];
-      for (let i = 0; i < input.options.length; i++) {
-        const optionRows = await trx.query({
-          text: `
-            INSERT INTO group_vote_options (
-              vote_id, tenant_id, text, display_order
-            )
-            VALUES ($1, $2, $3, $4)
-            RETURNING option_id, vote_id, tenant_id, text, display_order, created_at
-          `,
-          values: [vote.voteId, tenantId, input.options[i], i],
-        });
-
-        if (optionRows && optionRows.length > 0) {
-          const optionRow = optionRows[0] as {
-            option_id: string;
-            vote_id: string;
-            tenant_id: string;
-            text: string;
-            display_order: number;
-            created_at: Date;
-          };
-          createdOptions.push(toGroupVoteOption({
-            option_id: optionRow.option_id,
-            vote_id: optionRow.vote_id,
-            tenant_id: optionRow.tenant_id,
-            text: optionRow.text,
-            display_order: optionRow.display_order,
-            createdAt: optionRow.created_at instanceof Date ? optionRow.created_at.toISOString() : String(optionRow.created_at),
-          }));
-        }
-      }
-
-      // 3. Actor do usuário obtido antes da transação (ensureUserActor → actorId)
-
-      // 4. Criar post no feed com intent='vote' e intent_metadata enxuto
+      // 3. Criar post no feed com intent='vote' (INSERT inline mantido nesta fatia).
       const intentMetadata = {
         voteId: vote.voteId,
         title: input.title,
@@ -141,7 +65,6 @@ class VotesService {
         closesAt: input.closesAt || null,
       };
 
-      // Criar post dentro da transação usando query direta
       const postRows = await trx.query({
         text: `
           INSERT INTO posts (
@@ -190,7 +113,10 @@ class VotesService {
 
     const options = await votesRepository.getVoteOptions(tenantId, voteId);
     const counts = await votesRepository.getVoteCounts(tenantId, voteId);
-    const userVote = await votesRepository.getUserVote(tenantId, voteId, userId);
+
+    // "Eu votei?" resolvido pela identidade operacional (actor_id), não user_id.
+    const userActor = await ensureUserActor(tenantId, userId);
+    const actorVote = await votesRepository.getActorVote(tenantId, voteId, userActor.actor_id);
 
     const optionsWithCounts = options.map((opt) => ({
       ...opt,
@@ -203,19 +129,19 @@ class VotesService {
       ...vote,
       options: optionsWithCounts,
       totalVotes,
-      userVoted: !!userVote,
-      userVoteOptionId: userVote?.optionId || null,
+      userVoted: !!actorVote,
+      userVoteOptionId: actorVote?.optionId || null,
     };
 
-    // Se admin/owner, incluir lista de votantes
+    // Se admin/owner, incluir lista de votantes (por actor; anonimato NÃO aplicado — DT OPEN).
     if (isAdminOrOwner) {
       const votersRaw = await votesRepository.getVotersByOption(tenantId, voteId);
       const voteWithVoters: VoteWithVoters = {
         ...voteWithOptions,
         voters: votersRaw.map((v) => ({
           optionId: v.optionId,
-          userId: v.userId,
-          userName: v.userName,
+          actorId: v.actorId,
+          actorName: v.actorName,
           createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt),
         })),
       };
@@ -255,14 +181,18 @@ class VotesService {
       throw new Error('Opção inválida para esta votação');
     }
 
-    // Validar: usuário ainda não votou (UNIQUE constraint vai prevenir, mas validamos antes)
-    const existingVote = await votesRepository.getUserVote(tenantId, voteId, userId);
+    // Identidade operacional do voto = actor_id (resolvido por ensureUserActor).
+    const userActor = await ensureUserActor(tenantId, userId);
+    const actorId = userActor.actor_id;
+
+    // Validar: actor ainda não votou (UNIQUE(vote_id, actor_id) também previne).
+    const existingVote = await votesRepository.getActorVote(tenantId, voteId, actorId);
     if (existingVote) {
       throw new Error('Você já votou nesta votação');
     }
 
-    // Registrar voto
-    await votesRepository.createVoteResponse(tenantId, voteId, optionId, userId);
+    // Registrar voto (actor_id, não user_id).
+    await votesRepository.createVoteResponse(tenantId, voteId, optionId, actorId);
   }
 
   async closeVote(
@@ -282,4 +212,3 @@ class VotesService {
 }
 
 export const votesService = new VotesService();
-

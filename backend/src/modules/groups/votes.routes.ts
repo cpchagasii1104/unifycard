@@ -65,11 +65,12 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
       // Validar payload
       const validated = createVoteSchema.parse(req.body);
 
-      // Criar votação (transação atômica: votação + opções + post no feed)
+      // Criar votação (transação atômica: votação + opções + post no feed).
+      // userId (req.user.id) → ensureUserActor resolve created_by_actor_id server-side;
+      // globalUserId só alimenta o post do feed.
       const vote = await votesService.createVote(
         req.tenant.id,
         groupId,
-        req.user.globalUserId,
         validated as CreateVoteInput,
         userId,
         req.user.globalUserId
@@ -196,11 +197,11 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
         userId
       );
 
-      // Buscar votação com opções e contagem
+      // Buscar votação com opções e contagem (identidade operacional = req.user.id → actor)
       const vote = await votesService.getVoteWithOptions(
         req.tenant.id,
         voteId,
-        req.user.globalUserId,
+        userId,
         isAdminOrOwner
       );
 
@@ -252,13 +253,13 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
       // Validar payload
       const validated = voteSchema.parse(req.body);
 
-      // Registrar voto
+      // Registrar voto (identidade operacional = req.user.id → actor server-side)
       await votesService.vote(
         req.tenant.id,
         groupId,
         voteId,
         validated.option_id,
-        req.user.globalUserId
+        userId
       );
 
       // Retornar votação atualizada
@@ -271,7 +272,7 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
       const vote = await votesService.getVoteWithOptions(
         req.tenant.id,
         voteId,
-        req.user.globalUserId,
+        userId,
         isAdminOrOwner
       );
 
