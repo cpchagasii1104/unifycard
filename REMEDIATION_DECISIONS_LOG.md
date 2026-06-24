@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0152 (2026-06-23) |
+| Última entrada | DECISION-0153 (2026-06-23) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7399,6 +7399,14 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Referências:** `docs/02_decisions/DECISION_0146_OFFER_TEMPORAL_INTEGRITY_AND_BOOKING_CONFLICT.md` · **Constituição temporal Art. II** (conflito=fato→alerta→humano) · `DECISION-0117` D (`availability.owner_type`) · `DECISION-0132` (purpose temporal/booking gate) · `DECISION-0143/0144/0145` (cadeia de oferta) · `DECISION-0113` (actorId hint) · `docs/orquestracao/processo/cadeia-de-oferta/respostas/IA-TEMPO.md` / `IA-BANCO.md` (READ-FIRST F-OFFER-5).
 
 ---
+
+## DECISION-0153 — Referral Cascade Model: por-usuário (Modelo B) (F-REFERRAL-CASCADE-MODEL-DECISION)
+
+- **Data:** 2026-06-23 · **Status:** PROMULGADA / DECISÃO DE PRODUTO / DOCS + PROVA PRÉ-MONEY · **HEAD (pré-commit):** `cca6cb2a`.
+- **Decisão:** **Modelo B (por-usuário)** — indicador (owner_actor_id do `actor_referral_codes`) participa de receita elegível do indicado e (futuro) de actors economicamente operados por ele, resolução server-side actor→owner-user→getActiveReferral. **Modelo C (multinível) REJEITADO** (pirâmide). Referral=lookup não-autoridade; autoindicação/actor_system proibidos; split só no Bank.
+- **Estado vivo:** referral DIRETO user-level JÁ vivo (applyReferralCodeTx → user_referral_links → getActiveReferral(B)=A → calculateSplits 5% → bank_ledger/bank_splits/actor_wallet). **Cascade PLENO (actors de B → A) NÃO existe** (substrato só; sem resolver actor→owner-user).
+- **HOLD:** materialização do cascade (actor→owner-user no split-engine) = FINANCEIRO (toca bank_ledger/splits/wallet) → RLS-live + Camada 1 + 3 paralelas + GO próprio.
+- **Prova/Materialização:** e2e `e2e-referral-cascade-intent-premoney` (4/4 PASS, Δbank=0: vínculo+resolução, sem calculateSplits) + guard `audit-referral-cascade-model` (single-level, anti-multinível, cascade não-wired, split só no Bank). **Δ dinheiro = 0; zero ledger/splits/wallet write; zero migration/RLS-live/payout.**
 
 ## DECISION-0152 — Subscription/Recurring Billing HOLD + Quarentena (DECISION_SUBSCRIPTION_MODEL)
 
