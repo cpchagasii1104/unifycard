@@ -410,6 +410,60 @@ class UnifiedAvailabilityRepository {
   }
 
   /**
+   * 🔴 DECISION-0151 FASE 2b — confirma booking de RECURSO ALUGÁVEL com EXCLUSIVIDADE por resource_id.
+   * Análogo ao provider-lock, mas o conflito é por `availability.owner_id` (o recurso), NÃO por provider:
+   * lock xact-scoped por tenant+resource; conflito = MESMO recurso em status bloqueante {confirmed,checked_in,
+   * checked_out}, intervalo [start,end) sobreposto, self excluído; checagem+gravação na MESMA transação.
+   * Impede duplo-aluguel do mesmo recurso. ZERO dinheiro/checkout/order. NÃO altera o provider-lock (P3).
+   */
+  async confirmBookingWithResourceLock(
+    tenantId: string,
+    bookingId: string,
+    resourceId: string,
+    startIso: string,
+    endIso: string
+  ): Promise<UnifiedBooking> {
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${tenantId}:rentable_resource:${resourceId}`]);
+      const conflict = await client.query(
+        `SELECT 1
+           FROM bookings b2
+           JOIN availability a2 ON a2.availability_id = b2.availability_id AND a2.tenant_id = b2.tenant_id
+          WHERE b2.tenant_id = $1
+            AND a2.owner_type = 'rentable_resource'
+            AND a2.owner_id = $2
+            AND b2.status IN ('confirmed','checked_in','checked_out')
+            AND b2.booking_id <> $3
+            AND a2.start_datetime < $5
+            AND a2.end_datetime > $4
+          LIMIT 1`,
+        [tenantId, resourceId, bookingId, startIso, endIso]
+      );
+      if (conflict.rows.length > 0) {
+        throw new ConflictError('RENTAL_RESOURCE_TIME_CONFLICT: já existe reserva confirmada deste recurso neste intervalo (DECISION-0151).');
+      }
+      const upd = await client.query(
+        `UPDATE bookings SET status = 'confirmed', confirmed_at = now()
+          WHERE tenant_id = $1 AND booking_id = $2 AND status = 'requested'
+          RETURNING *`,
+        [tenantId, bookingId]
+      );
+      if (upd.rows.length === 0) {
+        throw new ConflictError('BOOKING_CONFIRM_INVALID_STATE: booking não está em estado requested.');
+      }
+      await client.query('COMMIT');
+      return this.toUnifiedBooking(upd.rows[0] as UnifiedBookingRow);
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch { /* tx pode já não estar ativa */ }
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Busca booking por ID
    */
   async findBookingById(tenantId: string, bookingId: string): Promise<UnifiedBooking | null> {

@@ -31,6 +31,7 @@ const ALLOW = {
   'src/scripts/e2e-offer-activation-p3.ts': { cls: 'TEST_ONLY' },
   'src/scripts/e2e-offer-journey-pre-money.ts': { cls: 'TEST_ONLY' },
   'src/scripts/e2e-booking-subject-authority.ts': { cls: 'TEST_ONLY' },
+  'src/scripts/e2e-rental-resource-conflict.ts': { cls: 'TEST_ONLY' },
 };
 
 function walk(dir, acc = []) {

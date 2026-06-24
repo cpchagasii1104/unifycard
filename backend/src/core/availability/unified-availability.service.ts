@@ -151,14 +151,10 @@ class UnifiedAvailabilityService {
       throw new NotFoundError('Disponibilidade não encontrada');
     }
 
-    // 🔴 DECISION-0151 FASE 2a — booking de RECURSO ALUGÁVEL é FAIL-CLOSED. O substrato (rentable_resources +
-    // owner_type + authority) existe, mas a EXCLUSIVIDADE por resource_id BLOQUEANTE (impedir duplo-aluguel do
-    // mesmo recurso) só chega na FASE 2b. Habilitar booking antes disso permitiria duas reservas do mesmo carro.
-    if (availability.ownerType === AvailabilityOwnerType.RENTABLE_RESOURCE) {
-      throw new BadRequestError(
-        'RENTAL_RESOURCE_BOOKING_NOT_ENABLED: booking de recurso alugável ainda não habilitado (FASE 2a = substrato; exclusividade por resource_id bloqueante = FASE 2b — DECISION-0151). Fail-closed.'
-      );
-    }
+    // 🔴 DECISION-0151 FASE 2b — booking de RECURSO ALUGÁVEL HABILITADO (estado `requested`). A EXCLUSIVIDADE por
+    // resource_id é aplicada no CONFIRM (confirmBookingWithResourceLock — ponto único, transacional, à prova de
+    // corrida): dois `requested` podem coexistir, mas só UM confirma; o 2º sobreposto recebe 409
+    // RENTAL_RESOURCE_TIME_CONFLICT. Create segue estado puro (sem dinheiro, sem reservar exclusividade ainda).
 
     // 🔴 P3 / DECISION-0147 (booking-gate): contratar SÓ oferta ACTIVE. Se a janela é de um service_offering,
     // o booking só é aceito se a oferta estiver `active` — draft/suspended NÃO são contratáveis (active =
@@ -361,6 +357,20 @@ class UnifiedAvailabilityService {
           tenantId,
           bookingId,
           owner.authorityActorId,
+          startIso,
+          endIso
+        );
+      }
+      // 🔴 DECISION-0151 FASE 2b: RECURSO ALUGÁVEL — exclusividade por RESOURCE (owner_id), NÃO provider.
+      //    Confirm é o ponto ÚNICO; lock transacional por resource_id + conflito por owner_id em status
+      //    bloqueante {confirmed,checked_in,checked_out}, self excluído, intervalo da availability (nunca do body).
+      if (availability.ownerType === AvailabilityOwnerType.RENTABLE_RESOURCE) {
+        const startIso = new Date(availability.startDatetime).toISOString();
+        const endIso = new Date(availability.endDatetime).toISOString();
+        return await unifiedAvailabilityRepository.confirmBookingWithResourceLock(
+          tenantId,
+          bookingId,
+          availability.ownerId, // = rentable_resources.id (o recurso)
           startIso,
           endIso
         );

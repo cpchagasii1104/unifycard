@@ -18,6 +18,7 @@ const failures = [];
 const TYPES = read('src/core/availability/unified-availability.types.ts') || '';
 const AUTH = read('src/core/availability/availability-owner-authority.ts') || '';
 const SVC = read('src/core/availability/unified-availability.service.ts') || '';
+const REPO = read('src/core/availability/unified-availability.repository.ts') || '';
 
 // 1) enum ⇆ CHECK ⇆ policy em uníssono p/ rentable_resource.
 if (!/RENTABLE_RESOURCE\s*=\s*'rentable_resource'/.test(TYPES)) {
@@ -45,9 +46,29 @@ if (!substrate) {
   }
 }
 
-// 2) booking de rental FAIL-CLOSED (até FASE 2b).
-if (!/RENTABLE_RESOURCE[\s\S]{0,200}?RENTAL_RESOURCE_BOOKING_NOT_ENABLED/.test(SVC)) {
-  failures.push('createBooking: booking de owner_type rentable_resource NÃO é fail-closed (RENTAL_RESOURCE_BOOKING_NOT_ENABLED) — risco de duplo-aluguel sem conflito bloqueante (FASE 2b).');
+// 2) FASE 2b: booking de rental HABILITADO, mas a EXCLUSIVIDADE por resource_id é BLOQUEANTE no confirm.
+//    (a) confirm dispatcha RENTABLE_RESOURCE → confirmBookingWithResourceLock.
+if (!/RENTABLE_RESOURCE[\s\S]{0,600}?confirmBookingWithResourceLock/.test(SVC)) {
+  failures.push('confirm: owner_type rentable_resource NÃO usa confirmBookingWithResourceLock — booking de rental ficaria sem exclusividade bloqueante (risco de duplo-aluguel).');
+}
+//    (b) o lock existe no repo, é por RESOURCE (owner_id, NÃO provider) e lança RENTAL_RESOURCE_TIME_CONFLICT.
+if (!/async confirmBookingWithResourceLock/.test(REPO)) {
+  failures.push('repository sem confirmBookingWithResourceLock (lock de exclusividade por recurso).');
+} else {
+  const block = REPO.slice(REPO.indexOf('async confirmBookingWithResourceLock'), REPO.indexOf('async confirmBookingWithResourceLock') + 1400);
+  if (!/owner_type\s*=\s*'rentable_resource'/.test(block) || !/a2\.owner_id\s*=\s*\$2/.test(block)) {
+    failures.push('confirmBookingWithResourceLock: conflito NÃO é por owner_id/recurso (DECISION-0151: conflito por resource_id, não provider).');
+  }
+  if (/provider_actor_id/.test(block)) {
+    failures.push('confirmBookingWithResourceLock: usa provider_actor_id — rental deve conflitar por RESOURCE, não provider.');
+  }
+  if (!/RENTAL_RESOURCE_TIME_CONFLICT/.test(block)) {
+    failures.push('confirmBookingWithResourceLock: sem 409 RENTAL_RESOURCE_TIME_CONFLICT.');
+  }
+}
+//    (c) P3 NÃO relaxado: provider-lock do service_offering preservado.
+if (!/async confirmBookingWithProviderLock/.test(REPO) || !/SERVICE_OFFERING[\s\S]{0,600}?confirmBookingWithProviderLock/.test(SVC)) {
+  failures.push('provider-lock do service_offering (P3) foi relaxado/removido — proibido (preservar DECISION-0146/0147).');
 }
 
 // 3) sem tabela/agenda/booking paralela de rental.
@@ -70,4 +91,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [rental-resource-substrate] — rentable_resource coberto em uníssono (enum⇆CHECK⇆policy); booking de rental FAIL-CLOSED até FASE 2b; sem coluna financeira; sem agenda paralela; DDL cita DECISION-0151. Substrato pré-money seguro.');
+console.log('GATE OK [rental-resource-substrate] — rentable_resource em uníssono (enum⇆CHECK⇆policy); booking de rental confirma via confirmBookingWithResourceLock (exclusividade por resource_id, 409 RENTAL_RESOURCE_TIME_CONFLICT, não-provider); P3 provider-lock preservado; sem coluna financeira; sem agenda paralela; DDL cita DECISION-0151. FASE 2b.');

@@ -36,6 +36,7 @@
     "fund:regional-fund-bank": "tsx src/scripts/fund-regional-fund-bank-from-reserve.ts",
     "e2e:incentive-bank-checklist": "tsx src/scripts/e2e-incentive-bank-checklist.ts",
     "e2e:offer-journey": "tsx src/scripts/e2e-offer-journey-pre-money.ts",
+    "e2e:rental-conflict": "tsx src/scripts/e2e-rental-resource-conflict.ts",
     "e2e:offer-activation-p3": "tsx src/scripts/e2e-offer-activation-p3.ts",
     "e2e:checkout-containment": "tsx src/scripts/e2e-checkout-financial-containment.ts",
     "e2e:booking-subject-authority": "tsx src/scripts/e2e-booking-subject-authority.ts",
