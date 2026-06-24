@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-PIX-WEBHOOK-SPRINT85-GHOST — ✅ CLOSED/DISCARD (F-CAMADA-1-GATE-IDEMPOTENCIA-OUTBOX-G1 / D1 / DECISION-0154, 2026-06-24)
+
+- **CLOSED por DISCARD (decisão Clayton D1):** o webhook PIX da SPRINT-85 — rota `POST /webhooks/pix/:provider` (`pixWebhookRoutes` em `src/modules/payments/pix.routes.ts`) + repositório `src/modules/payments/pix-webhook.repository.ts` (`pixWebhookEventRepository`) — era **GHOST/DEAD**: dependia da tabela **`pix_webhook_events`, que NUNCA foi criada em nenhuma migration** → o caminho quebrava em runtime se exercido.
+- **Ação (mínima, segura, não-financeira):** removido o registro em `src/app.builder.ts` (era `register(pixWebhookRoutes, {prefix:'/webhooks'})`), removida a export `pixWebhookRoutes` de `pix.routes.ts` (mantida só a leitura GET de status de cobrança, usada por `marketplace.routes`), e deletado o repositório órfão. **Nenhuma migration criada, nenhuma tabela criada, ghost NÃO revivido.**
+- **Caminho canônico vivo (intocado):** `POST /gateway/pix/webhook` (`src/modules/gateway/pix-webhook.controller.ts`) — HMAC-SHA256 fail-closed em produção + idempotência de ingestão por `gateway_webhook_events` ON CONFLICT (provider, reference_id).
+- **Anti-revival:** guard `audit-webhook-resolver-idempotency` morde se ALGUMA migration criar `pix_webhook_events`, se `app.builder` voltar a registrar `pixWebhookRoutes`/`/webhooks/pix`, ou se `pix.routes` re-exportar `pixWebhookRoutes` (NP provado). Reabrir = REVIVAL_REQUIRED (exige migration + decisão).
+
 ## DT-INTERNAL-SSOT-ADMIN-TENANT-QUERY-HYGIENE — ✅ CLOSED (F-BUCKET-A-HYGIENE-SWEEP, 2026-06-24)
 
 - **CLOSED:** `/admin/ssot/metrics` agora escopa SEMPRE a `req.tenant.id` (decisão: é TENANT-admin); `req.query.tenantId` divergente → **403 SSOT_ADMIN_TENANT_SCOPE_FORBIDDEN**; query ausente NÃO é mais cross-tenant (era o vazamento real). Guard `audit-ssot-admin-tenant-bound` (NP morde se voltar `options.tenantId = req.query.tenantId`). PLATFORM-admin cross-tenant = DECISION/rota/autoridade próprias (não implícito). _(Histórico OPEN abaixo.)_

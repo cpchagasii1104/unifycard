@@ -46,7 +46,7 @@ Origem: **A**=autoridade · **B**=semântica · **C**=cofre · **OVL**=overlap. 
 |15|referral Model B intent|OVL A·B·C|user_referral_links|LIVE-intent|**PROVA**|n|—|—|—|Δbank=0 provado|
 |16|referral earning material|OVL A·C|bank_splits/wallet|HOLD|**DECISÃO PEND.**|n|sim|sim|—|cascade actor→owner-user = financeiro|
 |17|3 workers observabilidade|OVL A·C|—|HOLD(off)|**HOLD**|n|—|sim(tenant-loop)|—|tenant-loop pós-flip antes de ligar|
-|18|PIX/webhook + payment-event-resolver|C|gateway_*/ledger|LIVE-ingest|**GATE**|n|sim|—|—|mapear idempotência/replay/ordenação|
+|18|PIX/webhook + payment-event-resolver|C|gateway_*/ledger|LIVE-ingest|**✅ FECHADO (G1)**|n|—|—|—|fechado junto com #35: dedup mapeado+provado; ghost SPRINT-85 DISCARD (D1)|
 |19|**RLS-live física**|OVL A·C|62 RLS tables|OPS|**OPS / DECISÃO**|**sim**|sim|**sim**|—|ato OPS Clayton (runbook)|
 |20|**PORTA-1**|OVL A·C|financial_approval_*|HOLD|**DECISÃO PEND.**|sim(payout)|sim|—|**sim**|decision pack pós RLS-físico|
 |21|referral binding/codes/getActiveReferral (não-authority)|A|actor_referral_codes|LIVE|**PROVA**|n|—|—|—|confirmado todas superfícies|
@@ -63,7 +63,7 @@ Origem: **A**=autoridade · **B**=semântica · **C**=cofre · **OVL**=overlap. 
 |32|rental pré-money (rentable_resources)|B→disco|rentable_resources|LIVE|**PROVA**|n|—|—|—|⚠ B=stale; existe+aplicada|
 |33|tx↔ledger atomicidade (FK nullable)|C|bank_transactions|LIVE|**GATE**|n|sim|—|—|constraint de pareamento + reconciliação|
 |34|cross-tenant tenant-loop (0149)|seam|tenants registry|OPS|**OPS**|n|—|sim|—|surface pós-flip, ≠ worker-off|
-|35|idempotência/outbox/event_log|seam|event_log|LIVE|**GATE**|n|—|—|—|provar replay/dedupe em fluxo money-adjacent|
+|35|idempotência/outbox/event_log|seam|event_log|LIVE|**✅ FECHADO (G1)**|n|—|—|—|F-CAMADA-1-GATE-IDEMPOTENCIA-OUTBOX-G1: dedup por (tenant,reference_type,reference_id) — advisory lock + SELECT FOR UPDATE + 23505 idempotente (transfer); ingestão ON CONFLICT(provider,reference_id); guard `audit-webhook-resolver-idempotency` (NP 3×); E2E contido 3/3 (Δbank=0); D1 ghost SPRINT-85 DISCARD|
 
 **DESCARTE (ghost/dead/tombstone — não reviver sem decisão):** settlement core/region (proxy-dead) · event_settlements (GHOST status-only) · seller_payout/seller_available legado (tombstone, 403-prod) · marketplace/referral_codes (archive 0073) · AP/AR (proxy+403) · rides_referral_earnings (sem concept, legado) · concepts treasury/reversal/seller-funds seeded-sem-uso · channel_commission · actor_capability_grants (dormant) · external-payment-provider.mock · fee_rate_bps coluna (inexistente) · regional_fees archive (NUMERIC).
 **REVIVAL_REQUIRED:** regional fund (flag `USE_BANK_REGIONAL_FUND`) · settlement/event_settlements · qualquer item DESCARTE se reaberto.
@@ -113,7 +113,7 @@ OPS:
 ## COSTURAS (classificadas)
 1. **Booking-confirm locks** — A∩C, **PROVA**, double-spend pré-money fechado (provider+resource advisory-lock+409; e2e 6/6).
 2. **Cross-tenant tenant-loop (0149)** — **OPS**, surface pós-flip distinta de worker-off; exige RLS-físico.
-3. **Idempotência/outbox/event_log** — **GATE**, mapear replay/dedupe/ordenação em webhook+resolver.
+3. **Idempotência/outbox/event_log** — **✅ FECHADO (G1, 2026-06-24)**, replay/dedup mapeado+provado em webhook→resolver→bank (dedup por reference; ingestão ON CONFLICT; guard+NP3×+E2E 3/3 Δbank=0). Ghost SPRINT-85 (`/webhooks/pix/:provider`+`pix_webhook_events`) **DISCARD (D1)**; canônico `/gateway/pix/webhook` vivo. Outbox transacional (event_outbox/event_log/handler_failures) já era PROVA-por-construção (read-first #35).
 4. **Referral** — intent **PROVA**; earning material **HOLD+3P**.
 5. **Fee** — bps vivo **PROVA**; captura/settlement/regional = revival/decisão própria.
 6. **Recovery** — máquina **PROVA**; reversal-pós-D-money proibido por design (mantém); genesis **GATE**.
@@ -123,4 +123,4 @@ OPS:
 ---
 
 **LEMBRETE:** DINHEIRO FORA · RLS provado, não virado · PORTA-1 HOLD · payout HOLD · esta matriz é **mapa, não execução**.
-**Próximo recomendado:** OPS RLS-live física (#19) **ou** um GATE decisão-independente (sugeridos: concept-coverage #6, ACTIONCTX/TENANT binding #24/#25) — ambos sem dinheiro, MODO B. NÃO abrir bucket D sem RLS-físico + decisão Clayton.
+**Próximo recomendado:** OPS RLS-live física (#19) — o gargalo. GATES decisão-independentes fechados: #6 concept-coverage · #24/#25 ACTIONCTX/TENANT · **#35/#18 idempotência/outbox (G1)**. Restam no eixo técnico: #33 tx↔ledger constraint (encosta em cofre/schema — avaliar) · #8 recovery genesis (toca substrato financeiro → 3 paralelas). NÃO abrir bucket D sem RLS-físico + decisão Clayton.

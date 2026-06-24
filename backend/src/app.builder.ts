@@ -200,14 +200,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     console.warn('[BOOT] Aviso: Erro ao registrar Gateway PIX (não bloqueante):', err);
   }
 
-  // SPRINT 85: Webhook PIX (rota pública)
-  try {
-    const { pixWebhookRoutes } = await import('./modules/payments/pix.routes');
-    await app.register(pixWebhookRoutes, { prefix: '/webhooks' });
-    console.log('[BOOT] Webhook PIX registrado: /webhooks/pix/:provider');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Erro ao registrar webhook PIX (não bloqueante):', err);
-  }
+  // SPRINT 85 webhook PIX (/webhooks/pix/:provider) — DESCARTADO (DECISION-0154 / F-CAMADA-1-GATE-IDEMPOTENCIA-OUTBOX-G1 / D1).
+  // Caminho GHOST/DEAD: dependia da tabela `pix_webhook_events`, que NUNCA foi criada em migrations → quebrava em runtime.
+  // Caminho canônico vivo de webhook PIX = `/gateway/pix/webhook` (pix-webhook.controller, acima): HMAC-SHA256 fail-closed
+  // + idempotência de ingestão por `gateway_webhook_events` ON CONFLICT (provider, reference_id). Anti-revival:
+  // guard `audit-webhook-resolver-idempotency`. NÃO reviver sem migration + decisão.
 
   // SPRINT 86: Payment Links (rotas públicas)
   try {
