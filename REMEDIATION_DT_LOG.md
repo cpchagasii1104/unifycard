@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-REPORTS-TRANSFERS-SLA-NO-REPRESENTATION — ✅ CLOSED / MATERIAL / YALA_PENDING (F-REPORTS-TRANSFERS-SLA-REPRESENTATION, 2026-06-25)
+
+- **Achado (READ-FIRST):** `GET /reports/transfers/sla` lia SLA logístico de transferências de estoque (tabelas VIVAS: stock_transfers/stock_transfer_receipts/inventory_movements) filtrando por `fromActorId`/`toActorId` CRUS com só `reports:view_operational` (tenant-wide), SEM `canRepresentActor` — divergência §9 das rotas irmãs `/reports` que aplicam o helper DECISION-0113. AUTHORITY_BYPASS_RISK / CROSS_ACTOR_READ_RISK dentro do tenant (não cross-tenant), money-free, baixa-média.
+- **CORRIGIDO (material pequena, sem migration, executa DECISION-0113):** fromActorId/toActorId → HINTs com canRepresentActor (403 REPORT_ACTOR_NOT_REPRESENTABLE senão); sem filtro → self-scoped via resolveReportActorId + options.participantActorId (from OU to = self). Sem DECISION nova.
+- **Provas:** E2E 7/7 com HTTP real (fastify.inject) — alheio → 403 mesmo com a permissão; sem filtro → self-scoped; Δbank=0 · guard reports-transfers-sla-representation (checked=1) + negative-proof 3/3 · regression EXIT 0 (irmã reports-actor-filter-requires-representation não regrediu).
+- **DEFERRED:** frente maior de fachada/quarentena (cobertura de ações sensíveis) segue pendente. Dinheiro/PORTA-1 = HOLD.
+
 ## DT-EVENT-SETTLEMENT-STATUS-NO-FIREWALL — ✅ CLOSED / MATERIAL / YALA PASS (F-EVENT-SETTLEMENT-STATUS-HOLD-CONTAINMENT, 2026-06-24)
 
 - **Achado (READ-FIRST F-AUTHORITY-FACADE-COVERAGE-READINESS):** `POST /events/:id/settlement/settle` (montada) → `settleEvent` → `markAsSettled` = `UPDATE event_settlements SET status='SETTLED'`, gateado SÓ por `canRepresentActor`, sem firewall/quarentena. **Reclassificado:** NÃO é money-write em `bank_*` (corrige a super-afirmação "único money-write sem firewall"); é flip de ESTADO financeiro sensível. Nenhum worker vivo consome SETTLED p/ mover dinheiro. `event_settlements` é GHOST no schema vivo (DDL só em migrations_archive) → rota já contida acidentalmente (42P01).

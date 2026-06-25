@@ -213,12 +213,35 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
     const options: GetTransferSlaOptions = {};
     const config: SlaConfig = {};
 
-    if (query.fromActorId) {
-      options.fromActorId = query.fromActorId;
+    // 🔴 DECISION-0113 / F-REPORTS-TRANSFERS-SLA-REPRESENTATION — `reports:view_operational` prova acesso ao MÓDULO,
+    // NÃO autoridade sobre o actor filtrado. fromActorId/toActorId são HINTs → exigem canRepresentActor (igual às
+    // rotas irmãs). Sem filtro de actor → NÃO tenant-wide → escopa ao actor representado (self) como parte (from OU to).
+    const userId = (req as any).user?.userId as string | undefined;
+    if (!userId) {
+      return reply.status(401).send({ ok: false, error: 'Autenticação obrigatória (req.user.userId)' });
     }
-
+    const canRepresent = async (actorId: string): Promise<boolean> => {
+      try { return await authorizationService.canRepresentActor(tenantId, userId, actorId); } catch { return false; }
+    };
+    let actorScoped = false;
+    if (query.fromActorId) {
+      if (!(await canRepresent(String(query.fromActorId)))) {
+        return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre fromActorId (canRepresentActor)', code: 'REPORT_ACTOR_NOT_REPRESENTABLE' });
+      }
+      options.fromActorId = String(query.fromActorId);
+      actorScoped = true;
+    }
     if (query.toActorId) {
-      options.toActorId = query.toActorId;
+      if (!(await canRepresent(String(query.toActorId)))) {
+        return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre toActorId (canRepresentActor)', code: 'REPORT_ACTOR_NOT_REPRESENTABLE' });
+      }
+      options.toActorId = String(query.toActorId);
+      actorScoped = true;
+    }
+    if (!actorScoped) {
+      const self = await resolveReportActorId(req, reply);
+      if (self === null) return; // 401/403/400 já enviado
+      options.participantActorId = self;
     }
 
     if (query.status) {

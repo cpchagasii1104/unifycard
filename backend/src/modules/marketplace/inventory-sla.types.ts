@@ -58,6 +58,8 @@ export interface TransferSla {
 export interface GetTransferSlaOptions {
   fromActorId?: string;
   toActorId?: string;
+  /** F-REPORTS-TRANSFERS-SLA-REPRESENTATION: escopo self (from OU to = este actor) p/ leitura sem filtro tenant-wide. */
+  participantActorId?: string;
   status?: 'DRAFT' | 'PENDING' | 'SHIPPED' | 'RECEIVED' | 'CANCELLED';
   onlyOverdue?: boolean; // Apenas transferências atrasadas
   maxDaysShippedToReceiving?: number; // SLA SHIPPED → início conferência

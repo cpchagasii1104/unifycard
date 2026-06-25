@@ -172,6 +172,13 @@ class InventorySlaService {
       paramIndex++;
     }
 
+    // F-REPORTS-TRANSFERS-SLA-REPRESENTATION: escopo self — transferências em que o actor é PARTE (origem OU destino).
+    if (options.participantActorId) {
+      conditions.push(`(st.from_actor_id = $${paramIndex} OR st.to_actor_id = $${paramIndex})`);
+      params.push(options.participantActorId);
+      paramIndex++;
+    }
+
     if (options.status) {
       conditions.push(`st.status = $${paramIndex}`);
       params.push(options.status);
