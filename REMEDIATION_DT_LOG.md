@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-SERVICE-MUTATIONS-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-SERVICE-MUTATIONS-QUARANTINE-GATE, 2026-06-25)
+
+- **Achado (READ-FIRST, 5ª fatia):** services.service createService/updateService autorizavam por canRepresentActor OR hasCapabilityGrant (services:create/edit/disable), mas NÃO checavam quarentena → actor bloqueado (dono OU operador com grant antigo) criava/editava/pausava serviço. Non-money.
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined (isActorEffectivelyBlocked, actorId resolvido nunca userId cru) em create e update, APÓS autorização e ANTES do write, sobre scopeActor (dono) SEMPRE + grantee (operador via grant). 403 ACTOR_EFFECTIVELY_BLOCKED. Grant antigo NÃO atravessa ATL. canRepresentActor PURO; composição capability + required caps edit/disable exatas + disable=status→paused preservados.
+- **Provas:** E2E 17/17 (scope/grantee/owner bloqueado→403; grant não atravessa ATL T9; edit-only não pausa T7; nenhum service novo; canRepresentActor TRUE; Δbank=0) · guard service-mutations-quarantine-gate (checked=4) + negative-proof 7/7 · regression EXIT 0 (actor-capability-grants-nonfinancial + services-actor-binding + createservice-eligibility não regrediram).
+- **DEFERRED (cobertura de quarentena incremental):** payment-method · purchase-order/supplier · social-post-intent · events/RFQ. NÃO meter quarentena em canRepresentActor. Dinheiro/PORTA-1 = HOLD.
+
 ## DT-SERVICE-BOOKING-DECISION-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-SERVICE-BOOKING-DECISION-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST adversarial, 4ª fatia):** `createDecision` JÁ estava protegido por canPerformAction(decidedByActorId,'manage_bookings') incondicional (linha 60) + binding decidedBy===authorityActorId. **`confirmBookingFromDecision` tinha GAP REAL:** seu canPerformAction (linha 1356) é gated por `if(confirmedByUserId)` → caminho SEM userId pulava quarentena e criava service_order. Non-money (settlement_flow='none').

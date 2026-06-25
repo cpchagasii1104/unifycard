@@ -15,6 +15,7 @@ import { BadRequestError, ForbiddenError } from '@core/errors';
 import { authorizationService } from '@core/authorization/authorization.service';
 import { actorCapabilityGrantService } from '@modules/authority/actor-capability-grant.service';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import { assertServiceCategoryAllowedForCompany } from './service-category-guard';
 import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
 import type {
@@ -29,6 +30,21 @@ import { ServiceStatus, ServiceType } from './services.types';
 // Toda lógica temporal agora usa unifiedAvailabilityService
 
 class ServicesService {
+  /**
+   * 🔴 F-SERVICE-MUTATIONS-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA. capability/representação DECIDE permissão;
+   * quarentena DECIDE se o actor está ATIVO para agir. Se o actor (ou sua âncora humana, via cascata de
+   * isActorEffectivelyBlocked) está bloqueado, a mutação de serviço é congelada — grant antigo NÃO atravessa ATL.
+   * Recebe um actorId JÁ RESOLVIDO server-side (scopeActor dono OU grantee/operador), NUNCA userId cru/referral.
+   * Chamar ANTES de qualquer escrita (servicesRepository.create/update). NÃO toca canRepresentActor (que segue puro).
+   */
+  private async assertActorNotQuarantined(tenantId: string, actorId: string): Promise<void> {
+    if (await isActorEffectivelyBlocked(tenantId, actorId)) {
+      throw new ForbiddenError(
+        'ACTOR_EFFECTIVELY_BLOCKED: actor em quarentena (ou âncora humana bloqueada) — mutação de serviço bloqueada (§4.8.4).'
+      );
+    }
+  }
+
   /**
    * 🔴 F-OFFER-2B (DECISION-0144 §A.4/5/6) — ELEGIBILIDADE declaração→service.
    * Só permite criar um `service` descobrível se existir declaração/publicação ACTIVE do MESMO
@@ -118,12 +134,21 @@ class ServicesService {
     //         os gates semânticos abaixo (categoria/ramo, concept, declaração/publicação PJ, company operacional).
     //   Referral/código de indicação NUNCA participa (grantee/escopo são actor_id, resolvidos server-side).
     let authorized = await authorizationService.canRepresentActor(tenantId, userId, input.actorId);
+    let granteeActorId: string | null = null;
     if (!authorized) {
       const grantee = await ensureUserActor(tenantId, userId); // grantee = actor do próprio chamador (server-side)
-      authorized = await actorCapabilityGrantService.hasCapabilityGrant(tenantId, grantee.actor_id, 'services:create', input.actorId);
+      granteeActorId = grantee.actor_id;
+      authorized = await actorCapabilityGrantService.hasCapabilityGrant(tenantId, granteeActorId, 'services:create', input.actorId);
     }
     if (!authorized) {
       throw new ForbiddenError('SERVICE_ACTOR_NOT_REPRESENTABLE: apenas quem representa o actor (ou tem grant services:create no escopo) pode criar serviço em seu nome');
+    }
+
+    // 🔴 F-SERVICE-MUTATIONS-QUARANTINE-GATE: scopeActor (dono) bloqueado → não cria serviço em seu nome; e o
+    // operador/grantee (caminho de grant) bloqueado → grant antigo NÃO atravessa ATL. ANTES de qualquer escrita.
+    await this.assertActorNotQuarantined(tenantId, input.actorId);
+    if (granteeActorId && granteeActorId !== input.actorId) {
+      await this.assertActorNotQuarantined(tenantId, granteeActorId);
     }
 
     // 🔴 BLINDAGEM: Validar intent se fornecido
@@ -258,6 +283,7 @@ class ServicesService {
     // campos — proteção ESTRUTURAL), NÃO vira representação global, NÃO bypassa os gates (categoria/ramo abaixo).
     // services:disable NUNCA autoriza editar campo; services:edit NUNCA autoriza pausar. Referral fora.
     const canRepresentOwner = await authorizationService.canRepresentActor(tenantId, userId, currentService.actorId);
+    let granteeActorId: string | null = null;
     if (!canRepresentOwner) {
       const isDisableTransition = input.status === ServiceStatus.PAUSED && currentService.status !== ServiceStatus.PAUSED;
       const editableFieldKeys: (keyof UpdateServiceInput)[] = [
@@ -271,14 +297,22 @@ class ServicesService {
       if (hasFieldEdit || hasNonDisableStatusChange) requiredCaps.add('services:edit');
       if (requiredCaps.size === 0) requiredCaps.add('services:edit'); // update sem mudança reconhecida → trata como edit (fail-closed)
       const grantee = await ensureUserActor(tenantId, userId);
+      granteeActorId = grantee.actor_id;
       let allGranted = true;
       for (const cap of requiredCaps) {
-        const ok = await actorCapabilityGrantService.hasCapabilityGrant(tenantId, grantee.actor_id, cap, currentService.actorId);
+        const ok = await actorCapabilityGrantService.hasCapabilityGrant(tenantId, granteeActorId, cap, currentService.actorId);
         if (!ok) { allGranted = false; break; }
       }
       if (!allGranted) {
         throw new ForbiddenError('SERVICE_ACTOR_NOT_REPRESENTABLE: sem autoridade para esta operação (canRepresentActor, ou grants services:edit/services:disable exigidos pela operação) no escopo do actor dono');
       }
+    }
+
+    // 🔴 F-SERVICE-MUTATIONS-QUARANTINE-GATE: scopeActor (dono) bloqueado → não edita/pausa em seu nome; e o
+    // operador/grantee (caminho de grant) bloqueado → grant antigo NÃO atravessa ATL. ANTES de qualquer escrita.
+    await this.assertActorNotQuarantined(tenantId, currentService.actorId);
+    if (granteeActorId && granteeActorId !== currentService.actorId) {
+      await this.assertActorNotQuarantined(tenantId, granteeActorId);
     }
 
     // DECISION-0109: se o update troca a categoria, revalida domínio + ramo (service_type efetivo do
