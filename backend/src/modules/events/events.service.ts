@@ -23,6 +23,8 @@ import type {
 } from './events.types';
 import type { CreateOccupancyModelInput, OccupancyType } from './occupancy.types';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
+import { HttpError } from '@core/errors/http-error';
 
 type EventStatusForModule = 'draft' | 'published' | 'cancelled' | 'finished' | 'completed' | 'archived';
 
@@ -37,6 +39,33 @@ function mapRowStatusToEventStatus(s: string | undefined): EventStatusForModule 
 }
 
 class EventsService {
+  /**
+   * 🔴 F-EVENTS-LIFECYCLE-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA. A rota/representação DECIDE permissão;
+   * quarentena DECIDE se o actor está ATIVO. Criar/mutar evento (lifecycle declarativo) é a NASCENTE do feed
+   * (event.created/published → event-feed downstream). Recebe um actorId JÁ RESOLVIDO, NUNCA actionContext/userId cru.
+   * Chamar ANTES da 1ª escrita (events/event_sessions/event_staff/event_attendees) e de qualquer event-bus emit.
+   * NÃO toca canRepresentActor (que segue puro). 403 ACTOR_EFFECTIVELY_BLOCKED.
+   */
+  private async assertActorNotQuarantined(tenantId: string, actorId: string): Promise<void> {
+    if (await isActorEffectivelyBlocked(tenantId, actorId)) {
+      throw HttpError.forbidden(
+        'ACTOR_EFFECTIVELY_BLOCKED: actor em quarentena (ou âncora humana bloqueada) — operação de evento bloqueada (§4.8.4).'
+      );
+    }
+  }
+
+  /** Resolve a identidade operacional (actor) do humano caller (global_user_id) e aplica o gate de quarentena. */
+  private async assertGlobalUserNotQuarantined(tenantId: string, globalUserId: string): Promise<void> {
+    const userResult = await runQueryWithTenant<{ user_id: string }>(
+      tenantId,
+      `SELECT user_id FROM users WHERE global_user_id = $1 AND tenant_id = $2 LIMIT 1`,
+      [globalUserId, tenantId]
+    );
+    if (!userResult?.user_id) return; // sem user no tenant → outras validações tratam; não é o gate de quarentena
+    const actor = await ensureUserActor(tenantId, userResult.user_id);
+    await this.assertActorNotQuarantined(tenantId, actor.actor_id);
+  }
+
   private toEvent(row: EventRow): Event {
     const meta =
       row.metadata && typeof row.metadata === 'object'
@@ -214,6 +243,11 @@ class EventsService {
       actorIdForEvent = userActor.actor_id;
       actorTypeForEvent = userActor.actor_type;
     }
+
+    // 🔴 F-EVENTS-LIFECYCLE-QUARANTINE-GATE: scope (dono declarado do evento) + acting (humano caller) bloqueado
+    // não cria evento. ANTES do INSERT INTO events e de qualquer event.created → nenhum feed downstream nasce.
+    await this.assertActorNotQuarantined(tenantId, actorIdForEvent);
+    await this.assertGlobalUserNotQuarantined(tenantId, createdByGlobalUserId);
 
     /** Shape estável em JSON: só UUIDs preenchidos (sem strings vazias). */
     let regionalBlock: { city_id?: string; state_id?: string; country_id?: string } | undefined;
@@ -405,13 +439,17 @@ class EventsService {
   async addSession(
     tenantId: string,
     eventId: string,
-    input: AddSessionInput
+    input: AddSessionInput,
+    actingGlobalUserId: string
   ): Promise<EventSession> {
     // Verificar se evento existe
     const event = await this.getEvent(tenantId, eventId);
     if (!event) {
       throw new Error('Evento não encontrado');
     }
+
+    // 🔴 F-EVENTS-LIFECYCLE-QUARANTINE-GATE: humano bloqueado não adiciona sessão. ANTES do INSERT.
+    await this.assertGlobalUserNotQuarantined(tenantId, actingGlobalUserId);
 
     // Validar que endTime > startTime
     const startTime = input.startTime;
@@ -459,6 +497,9 @@ class EventsService {
     if (!event) {
       throw new Error('Evento não encontrado');
     }
+
+    // 🔴 F-EVENTS-LIFECYCLE-QUARANTINE-GATE: humano que designa (acting) bloqueado não atribui staff. ANTES do INSERT.
+    await this.assertGlobalUserNotQuarantined(tenantId, assignedByGlobalUserId);
 
     const globalUserId = input.globalUserId;
     if (!globalUserId) {
@@ -520,6 +561,9 @@ class EventsService {
     if (event.status === 'cancelled' || event.status === 'completed' || event.status === 'archived') {
       throw new Error(`Evento com status '${event.status}' não aceita check-in`);
     }
+
+    // 🔴 F-EVENTS-LIFECYCLE-QUARANTINE-GATE: participante bloqueado não faz check-in. ANTES do INSERT/UPDATE.
+    await this.assertGlobalUserNotQuarantined(tenantId, globalUserId);
 
     // Verificar se já está inscrito
     const existing = await runQueryWithTenant<EventAttendeeRow>(

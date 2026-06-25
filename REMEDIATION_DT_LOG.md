@@ -1,5 +1,19 @@
 # REMEDIATION DT LOG
 
+## DT-EVENTS-LIFECYCLE-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-EVENTS-LIFECYCLE-QUARANTINE-GATE, 2026-06-25)
+- **Achado (READ-FIRST, subfatia 1/3 de events/RFQ):** eventsService.createEvent (nascente; INSERT INTO events → event.created → event-feed downstream) + addSession/assignStaff/checkIn não tinham quarentena. event-feed.handlers = event-bus/system; gate correto é upstream no writer de evento.
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helpers assertActorNotQuarantined + assertGlobalUserNotQuarantined; createEvent gateia scope (actorIdForEvent) + acting (createdByGlobalUserId) ANTES do INSERT; addSession (param threaded)/assignStaff/checkIn gateiam o humano acting ANTES da escrita. 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; sem RFQ/acceptQuote/booking/payment.
+- **Provas:** E2E 15/15 (createEvent scope/acting bloqueado→403 sem linha em events; addSession/assignStaff/checkIn bloqueado→403; ativos passam o gate; canRep TRUE; Δbank=0; zero payment_intents/booking) · guard events-lifecycle-quarantine-gate (checked=6) + negative-proof 10/10 · regression EXIT 0.
+- **DEFERRED:** subfatia 2 (F-EVENT-RFQ-DECLARATIVE) · subfatia 3 (F-EVENT-RFQ-ACCEPTQUOTE-DISPATCH, money-adjacent). PORTA-1/dinheiro = HOLD.
+
+## DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT — 🟠 OPEN / DESCOBERTO (não corrigido nesta fatia — fora do escopo de quarentena, 2026-06-25)
+- **Achado (durante o E2E da subfatia 1):** addSession e checkIn estão latentemente quebrados contra o schema vivo:
+  - addSession: INSERT INTO event_sessions usa `name, start_time, end_time` — schema vivo tem `title, starts_at, ends_at` (+ tenant_id NOT NULL omitido) → 42703.
+  - checkIn: INSERT INTO event_attendees omite `tenant_id` (NOT NULL) → 23502.
+- **Por que não corrigido aqui:** fora do escopo da subfatia de quarentena (igual ao padrão DT-GROUPS-VOTES-POST-INSERT-SCHEMA-DRIFT). O gate de quarentena fica ANTES do insert e morde p/ bloqueado (provado). Bug PRÉ-EXISTENTE, não introduzido aqui.
+- **AÇÃO RECOMENDADA (fatia funcional própria):** alinhar os INSERTs de addSession/checkIn ao schema vivo (title/starts_at/ends_at + tenant_id; tenant_id em event_attendees). createEvent NÃO tem esse drift (cria evento OK).
+
+
 ## DT-GROUPS-VOTES-POST-INTENT-QUARANTINE-GAP — ⚠️ CLOSED_WITH_REMAINDER / MATERIAL / YALA PASS_WITH_REMAINDER (F-GROUPS-VOTES-POST-INTENT-QUARANTINE-GATE, 2026-06-25)
 - **Achado (READ-FIRST, 9ª fatia):** votesService.createVote cria group_votes/group_vote_options E post inline intent='vote' (porta lateral fora do gate canônico social 2.0); votesService.vote registra voto. Ambos resolviam actorId via ensureUserActor mas NÃO checavam quarentena.
 - **CORRIGIDO + PROVADO (createVote + vote):** helper assertActorNotQuarantined (isActorEffectivelyBlocked, actorId resolvido) em createVote ANTES de runTenantTransaction (atomicidade: nenhuma escrita parcial) + vote ANTES de createVoteResponse. 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; INSERT posts inline + intent='vote' preservados; atomicidade intacta. E2E 13/13 · guard checked=4 · negative-proof 10/10 · regression EXIT 0.

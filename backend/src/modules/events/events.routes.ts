@@ -146,12 +146,17 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant não encontrado' });
       }
 
+      if (!req.user.globalUserId) {
+        return reply.status(400).send({ error: 'Global user ID required' });
+      }
+
       try {
         const validated = addSessionSchema.parse(req.body);
         const session = await eventsService.addSession(
           req.tenant.id,
           req.params.eventId,
-          validated
+          validated,
+          req.user.globalUserId
         );
         return reply.status(201).send(session);
       } catch (error) {
