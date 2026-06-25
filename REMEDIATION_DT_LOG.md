@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-PAYMENT-METHOD-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-PAYMENT-METHOD-QUARANTINE-GATE, 2026-06-25)
+## DT-PAYMENT-METHOD-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-PAYMENT-METHOD-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST, 6ª fatia):** paymentMethodService.createMethod (único writer; payment-method DECLARATIVO, money-free) não checava quarentena. Armadilha das duas tábuas: isDefault=true → unsetDefaultForActor (UPDATE) ANTES do INSERT. payment_methods é GHOST no FULL (DDL só em migrations_archive) → contenção acidental (42P01).
 - **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined na 1ª linha de createMethod, ANTES de unsetDefaultForActor E do INSERT, sobre scopeActor (input.actorId) + acting (createdByActorId quando difere). 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; payment-method segue declarativo. Contenção EXPLÍCITA por quarentena em vez de acidental.
