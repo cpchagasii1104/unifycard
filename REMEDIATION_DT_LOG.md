@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-EVENT-RFQ-DISPATCH-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-EVENT-RFQ-DISPATCH-QUARANTINE-GATE, 2026-06-25)
+- **Achado (READ-FIRST/money-boundary checkpoint, subfatia 3a):** dispatchRFQToCompanies (opportunity/notification, money-free) não tinha quarentena. acceptQuote (o sink money-adjacent) JÁ está hard-stopped (403 EVENT_RFQ_ACCEPT_QUOTE_CONTAINED, R7b) → unreachable; gatear seria teatro; quarentena diferida ao redesenho R7b.
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined; dispatchRFQToCompanies gateia rfq.organizerActorId (scope, actor já bound) ANTES do loop/createDispatch. 403 ACTOR_EFFECTIVELY_BLOCKED. companyActorIds = targets passivos (NÃO gateados). canRepresentActor PURO; sem booking/payment_request/payment_intent/Bank.
+- **Provas:** E2E 10/10 (organizer ativo passa o gate; bloqueado→403 zero dispatch; company target bloqueada NÃO bloqueia organizer ativo; acceptQuote→403 CONTAINED via inject; canRep TRUE; Δbank=0) · guard event-rfq-dispatch-quarantine-gate (checked=4) + negative-proof 8/8 (inclui gatear-target-company + remover-containment-acceptQuote) · regression EXIT 0 (event-rfq-acceptquote-containment não regrediu).
+- **RESÍDUO:** opportunity_dispatches é GHOST (42P01) — dispatch contido-por-acidente; gate torna explícito p/ bloqueado. acceptQuote = quarentena diferida ao redesenho R7b (DECISION soberana). DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT segue OPEN. PORTA-1/dinheiro = HOLD.
+
+
 ## DT-EVENT-RFQ-DECLARATIVE-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-EVENT-RFQ-DECLARATIVE-QUARANTINE-GATE, 2026-06-25)
 - **YALA PASS (reseal de `e734f09c`):** 3 writers declarativos cobertos (createRFQ/closeRFQ/createQuote), gate antes do UPDATE event.metadata.rfqs; bloqueado→403; metadata/quotes não mudam. V4 provado: organizerActorId/closedByActorId/providerActorId são actor já bound (não fantasia crua; gate aditivo); actionContext/userId não viram autoridade. acceptQuote/dispatch NÃO cobertos (subfatia 3, money-adjacent). canRepresentActor puro; Δbank=0; sem migration. Resíduo herdado DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT segue OPEN (addSession/checkIn não funcionais).
 - **Achado (READ-FIRST, subfatia 2/3 de events/RFQ):** createRFQ (organizer)/closeRFQ (closedByActor)/createQuote (provider) mutam event.metadata.rfqs (procurement declarativo) sem gate de quarentena explícito. acceptQuote = materializador money-adjacent (booking+paymentRequest) → fica p/ subfatia 3.
