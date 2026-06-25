@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-SERVICE-BOOKING-DECISION-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-SERVICE-BOOKING-DECISION-QUARANTINE-GATE, 2026-06-25)
+
+- **Achado (READ-FIRST adversarial, 4ª fatia):** `createDecision` JÁ estava protegido por canPerformAction(decidedByActorId,'manage_bookings') incondicional (linha 60) + binding decidedBy===authorityActorId. **`confirmBookingFromDecision` tinha GAP REAL:** seu canPerformAction (linha 1356) é gated por `if(confirmedByUserId)` → caminho SEM userId pulava quarentena e criava service_order. Non-money (settlement_flow='none').
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertAuthorityActorActive(authorityActorId JÁ RESOLVIDO) + isActorEffectivelyBlocked → 403. Em createDecision (defesa-em-profundidade) E em confirmBookingFromDecision INCONDICIONAL (fecha o gap sem-userId). canRepresentActor PURO; authorityService/offering-gate intactos.
+- **Provas:** E2E 10/10 (inclui T5b: confirm SEM userId → 403 pelo meu gate, fachada pulada; createDecision accept/reject→403; nenhuma decision/order; Δbank=0) · guard service-booking-decision-quarantine-gate (checked=3) + negative-proof 6/6 · regression EXIT 0 (booking-order-authority-binding + service-order-write-authorship-binding + booking-caller-authority não regrediram; novo E2E classificado TEST_ONLY). Honesto: createDecision já cobria; o valor único da frente = fechar o confirm sem-userId.
+- **DEFERRED (cobertura de quarentena incremental):** service create/edit/disable · payment-method · purchase-order/supplier · social-post-intent · events/RFQ. NÃO meter quarentena em canRepresentActor. POST /service-orders direto segue contido (regra própria). Dinheiro/PORTA-1 = HOLD.
+
 ## DT-AVAILABILITY-WRITE-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-AVAILABILITY-WRITE-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST F-AUTHORITY-QUARANTINE-ACTION-COVERAGE, 3ª fatia):** writers de `availability` (SSOT temporal, owner authority POLIMÓRFICA DECISION-0118) escreviam sem quarentena — só canRepresentActor inline nas rotas. Escopo correto = TODO writer vivo, não só declareAvailability. Chokepoint de write = unifiedAvailabilityService.create/updateAvailability (único caller do repository.create/update).

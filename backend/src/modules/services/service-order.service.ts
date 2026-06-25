@@ -1398,7 +1398,7 @@ class ServiceOrderService {
     // 🔴 CONFUSED-DEPUTY FIX (F-BOOKING-ORDER-BINDING-CANONICAL): o provider (worker) da order
     // deriva do DONO SOBERANO da availability (SSOT temporal), não de booking.metadata.serviceId
     // (hint cliente-declarado — DECISION-0113). Resolução server-side via primitivo canônico.
-    const { resolveAvailabilityOwner } = await import('@core/availability/availability-owner-authority');
+    const { resolveAvailabilityOwner, assertAuthorityActorActive } = await import('@core/availability/availability-owner-authority');
     const { authorizationService } = await import('@core/authorization/authorization.service');
     const owner = await resolveAvailabilityOwner(tenantId, availability.ownerType, availability.ownerId);
 
@@ -1417,6 +1417,10 @@ class ServiceOrderService {
         throw HttpError.forbidden('Sem autoridade para representar o dono da disponibilidade');
       }
     }
+    // 🔴 F-SERVICE-BOOKING-DECISION-QUARANTINE-GATE (§4.8.4): a confirmação operacional (decisão→service_order) é a
+    // "sala atrás da porta". Se o dono soberano (authority actor resolvido, NUNCA metadata.serviceId cru) está em
+    // quarentena, NÃO nasce service_order. Gate ANTES da criação da order. canRepresentActor segue puro.
+    await assertAuthorityActorActive(tenantId, owner.authorityActorId);
 
     // 🔴 F-SERVICE-OFFERING-CANONICAL-BINDING (DECISION-0122): quando o recurso temporal é uma OFERTA
     // (owner_type='service_offering'), ela é o recurso comercial/agendável CANÔNICO da order — gravada

@@ -97,7 +97,7 @@ class ServiceBookingDecisionService {
     if (!availability) {
       throw new BadRequestError('Disponibilidade do booking não encontrada');
     }
-    const { resolveAvailabilityOwner } = await import('@core/availability/availability-owner-authority');
+    const { resolveAvailabilityOwner, assertAuthorityActorActive } = await import('@core/availability/availability-owner-authority');
     const { authorizationService } = await import('@core/authorization/authorization.service');
     const owner = await resolveAvailabilityOwner(tenantId, availability.ownerType, availability.ownerId);
 
@@ -115,6 +115,10 @@ class ServiceBookingDecisionService {
     if (!canRepOwner) {
       throw HttpError.forbidden('Sem autoridade para representar o dono da disponibilidade');
     }
+    // 🔴 F-SERVICE-BOOKING-DECISION-QUARANTINE-GATE (§4.8.4): representação ≠ autoridade-ativa. Se o dono soberano
+    // (authority actor resolvido, NUNCA decidedByActorId/metadata cru) está em quarentena, a decisão é congelada
+    // ANTES de gravar service_booking_decisions / disparar outbox. canRepresentActor segue puro.
+    await assertAuthorityActorActive(tenantId, owner.authorityActorId);
 
     // 🔴 F-SERVICE-OFFERING-CANONICAL-BINDING (DECISION-0122): a oferta canônica é gravada a partir do
     // SSOT availability (owner_id) quando owner_type='service_offering' — NUNCA do cliente/metadata.

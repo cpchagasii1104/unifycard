@@ -195,3 +195,18 @@ export async function assertAvailabilityOwnerAuthorityActive(
       'Autoridade do owner temporal em quarentena (actor ou âncora humana bloqueada) — escrita de availability bloqueada (§4.8.4).');
   }
 }
+
+/**
+ * 🔴 F-SERVICE-BOOKING-DECISION-QUARANTINE-GATE (§4.8.4) — gate de quarentena sobre um `authorityActorId` JÁ
+ * RESOLVIDO (o caller — booking decision / service-order confirm — já chamou resolveAvailabilityOwner e validou
+ * `decidedBy/confirmedBy === owner.authorityActorId`). Recusa fail-closed se o authority actor (ou sua âncora
+ * humana, via cascata) está bloqueado. Usar SEMPRE com `owner.authorityActorId` (nunca ownerId/actorId de cliente
+ * cru). Chamar ANTES de qualquer escrita decisória (decisão de booking / ordem de serviço / outbox).
+ * NÃO toca canRepresentActor (que segue puro). 403 ACTOR_EFFECTIVELY_BLOCKED.
+ */
+export async function assertAuthorityActorActive(tenantId: string, authorityActorId: string): Promise<void> {
+  if (await isActorEffectivelyBlocked(tenantId, authorityActorId)) {
+    throw new AvailabilityOwnerAuthorityError(403, 'ACTOR_EFFECTIVELY_BLOCKED',
+      'Autoridade do recurso em quarentena (actor ou âncora humana bloqueada) — ação operacional bloqueada (§4.8.4).');
+  }
+}
