@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-EVENT-SETTLEMENT-STATUS-NO-FIREWALL — ✅ CLOSED / MATERIAL / YALA_PENDING (F-EVENT-SETTLEMENT-STATUS-HOLD-CONTAINMENT, 2026-06-24)
+## DT-EVENT-SETTLEMENT-STATUS-NO-FIREWALL — ✅ CLOSED / MATERIAL / YALA PASS (F-EVENT-SETTLEMENT-STATUS-HOLD-CONTAINMENT, 2026-06-24)
 
 - **Achado (READ-FIRST F-AUTHORITY-FACADE-COVERAGE-READINESS):** `POST /events/:id/settlement/settle` (montada) → `settleEvent` → `markAsSettled` = `UPDATE event_settlements SET status='SETTLED'`, gateado SÓ por `canRepresentActor`, sem firewall/quarentena. **Reclassificado:** NÃO é money-write em `bank_*` (corrige a super-afirmação "único money-write sem firewall"); é flip de ESTADO financeiro sensível. Nenhum worker vivo consome SETTLED p/ mover dinheiro. `event_settlements` é GHOST no schema vivo (DDL só em migrations_archive) → rota já contida acidentalmente (42P01).
 - **CORRIGIDO (money-free, sem migration):** firewall default-off `EVENT_SETTLEMENT_RUNTIME_ENABLED` (estrito `=== 'true'`) + assert na 1ª linha de `settleEvent` → 403 ANTES de markAsSettled. Contenção EXPLÍCITA por HOLD em vez de acidental.
