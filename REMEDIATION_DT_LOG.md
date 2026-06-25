@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-BANK-LOCK-BOUNDARY-§4.7 — ✅ CLOSED / MATERIAL / YALA_PENDING (F-BANK-LOCK-BOUNDARY-MATERIAL, 2026-06-24)
+
+- **Achado (READ-FIRST §4.7):** único `FROM bank_* … FOR UPDATE` fora do Bank = `modules/gateway/payment-event-resolver.ts` (lock anti-double-settlement em `bank_transactions` inline). §4.7: quem encosta fisicamente no cofre (FOR UPDATE em bank_*) deve ser o Bank.
+- **CORRIGIDO (sem abrir dinheiro):** novo método canônico `bankTransactionService.lockTransactionByReferenceForSettlement` (DENTRO de modules/bank/) faz o FOR UPDATE; o gateway chama o método e removeu o SQL inline. Semântica anti-double-settlement IDÊNTICA (mesma query relocada, mesmo abort). Read+lock only; sem escrita/status/amount/dinheiro; tenant-scoped; na transação do caller.
+- **Provas:** E2E 5/5 (inclui concorrência: B não obtém o FOR UPDATE enquanto A segura) · guard `bank-lock-boundary` (1672 scanned, 0 violação) + negative-proof (re-inline → FAIL) · `bank-ledger-boundaries` (escrita) não regrediu · regression EXIT 0. Sem DECISION nova (§4.7 já-lei); sem migration/schema; PDV/checkout firewall não regrediu.
+- **DEFERRED (próximas frentes):** §4.6-READ (allowlist observability×inferência fora do Bank — sem guard ainda); authority/fachada/quarentena (event-settlement = único money-write sem firewall; cobertura da fachada antes de PORTA-1). Dinheiro/PORTA-1/bucket D = HOLD.
+
 ## DT-PDV-PAY-MONEY-LATENT — ✅ CLOSED / CONTAINED / YALA PASS (F-PDV-PAY-MONEY-HOLD-CONTAINMENT, 2026-06-24)
 
 - **Achado (3 paralelas READ-ONLY de F-UNIFIED-INVENTORY-PDV-READINESS):** `POST /pdv/orders/:orderId/pay` → `pdvService.payOrderFromPdv` alcançava `payment_intents`/`bank_transactions`/`bank_ledger`/`bank_splits` via createPaymentIntent+authorize+executePayment — **sem firewall default-off** (diferente de checkout/eventos). Caminho vivo para dinheiro com dinheiro = HOLD.

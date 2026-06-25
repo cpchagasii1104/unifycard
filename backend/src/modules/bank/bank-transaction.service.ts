@@ -827,6 +827,34 @@ class BankTransactionService {
   }
 
   /**
+   * 🔴 LEI §4.7 (F-BANK-LOCK-BOUNDARY-MATERIAL) — lock pessimista por REFERÊNCIA em `bank_transactions`,
+   * DENTRO do domínio Bank. Usado pelo resolver de settlement do gateway (assertSettlementExecutionAllowed)
+   * para o pré-check anti-double-settlement: quem encosta FISICAMENTE no cofre (FOR UPDATE em bank_*) é o Bank.
+   * READ + LOCK only — NÃO escreve, NÃO altera status/amount, NÃO move dinheiro. Roda na transação do caller
+   * (`client`). Tenant-scoped (WHERE tenant_id). Retorna a última transação da referência (ou null se não houver),
+   * com `externalSettledAt` para o caller decidir abortar. Semântica idêntica ao SELECT … FOR UPDATE que vivia
+   * inline no gateway (preserva o serialize de concorrência por referência).
+   */
+  async lockTransactionByReferenceForSettlement(
+    client: PoolClient,
+    tenantId: string,
+    referenceId: string
+  ): Promise<{ externalSettledAt: Date | null } | null> {
+    const r = await client.query<{ external_settled_at: Date | null }>(
+      `SELECT external_settled_at
+         FROM bank_transactions
+        WHERE tenant_id = $1
+          AND reference_id = $2
+        ORDER BY created_at DESC
+        LIMIT 1
+        FOR UPDATE`,
+      [tenantId, referenceId]
+    );
+    if (r.rows.length === 0) return null;
+    return { externalSettledAt: r.rows[0].external_settled_at };
+  }
+
+  /**
    * Cria transação simples (sem splits)
    *
    * REGRAS ARQUITETURAIS:

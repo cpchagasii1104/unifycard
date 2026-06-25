@@ -96,18 +96,14 @@ async function assertSettlementExecutionAllowed(
     throw err;
   }
 
-  // Se já existe settlement externo para a referência, aborta.
-  const existingSettlement = await queryable.query<{ external_settled_at: Date | null }>(
-    `SELECT external_settled_at
-     FROM bank_transactions
-     WHERE tenant_id = $1
-       AND reference_id = $2
-     ORDER BY created_at DESC
-     LIMIT 1
-     FOR UPDATE`,
-    [tenantId, intent.referenceId]
+  // 🔴 LEI §4.7 (F-BANK-LOCK-BOUNDARY-MATERIAL): o lock físico (FOR UPDATE) em `bank_transactions` vive DENTRO
+  // do Bank — o gateway PEDE o lock ao domínio Bank, não trava inline. Semântica anti-double-settlement preservada.
+  const existingSettlement = await bankTransactionService.lockTransactionByReferenceForSettlement(
+    queryable,
+    tenantId,
+    intent.referenceId
   );
-  if (existingSettlement.rows[0]?.external_settled_at) {
+  if (existingSettlement?.externalSettledAt) {
     throw new Error('SETTLEMENT_ALREADY_EXTERNALLY_SETTLED');
   }
 }
