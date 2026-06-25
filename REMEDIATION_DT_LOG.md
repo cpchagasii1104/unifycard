@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-CAPABILITY-GRANT-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-CAPABILITY-GRANT-QUARANTINE-GATE, 2026-06-25)
+
+- **Achado (READ-FIRST F-AUTHORITY-QUARANTINE-ACTION-COVERAGE):** quarentena (`isActorEffectivelyBlocked`) aplicada só em 3 lugares (façade authority.service + offering-activation-gate + identity.routes-read); os 133 canRepresentActor são pura representação. Dinheiro contido (firewalls/hard-stops) e offering-activation já barra quarentenado → SEM blocker money. Gap non-money de maior risco: `actor-capability-grant.service` grant/revoke SEM quarentena → actor bloqueado concede/revoga capabilities de terceiros (manipulação de autoridade).
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper `assertScopeAuthorityNotQuarantined` (reusa isActorEffectivelyBlocked) em grant() e revoke(), APÓS canRepresentActor e ANTES da escrita → 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor permaneceu PURO (representação ≠ autoridade-ativa). Sem DECISION nova.
+- **Provas:** E2E 7/7 (bloqueado → grant/revoke 403; grant existente intacto; canRepresentActor segue TRUE; Δbank=0) · guard capability-grant-quarantine (checked=3) + negative-proof 4/4 · regression EXIT 0 (actor-capability-grants-nonfinancial não regrediu).
+- **DEFERRED (cobertura de quarentena incremental, próximas fatias):** company operational-activation · declareAvailability · service-booking-decision · service create/edit/disable · payment-method · purchase-order/supplier create · social-post-intent · events/RFQ. NÃO meter quarentena em canRepresentActor. Dinheiro/PORTA-1 = HOLD.
+
 ## DT-REPORTS-TRANSFERS-SLA-NO-REPRESENTATION — ✅ CLOSED / MATERIAL / YALA PASS (F-REPORTS-TRANSFERS-SLA-REPRESENTATION, 2026-06-25)
 
 - **Achado (READ-FIRST):** `GET /reports/transfers/sla` lia SLA logístico de transferências de estoque (tabelas VIVAS: stock_transfers/stock_transfer_receipts/inventory_movements) filtrando por `fromActorId`/`toActorId` CRUS com só `reports:view_operational` (tenant-wide), SEM `canRepresentActor` — divergência §9 das rotas irmãs `/reports` que aplicam o helper DECISION-0113. AUTHORITY_BYPASS_RISK / CROSS_ACTOR_READ_RISK dentro do tenant (não cross-tenant), money-free, baixa-média.

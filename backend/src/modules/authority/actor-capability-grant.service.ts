@@ -11,6 +11,7 @@
 
 import { authorizationService } from '@core/authorization/authorization.service';
 import { HttpError } from '@core/errors/http-error';
+import { isActorEffectivelyBlocked } from '../risk-identity/actor-effective-block';
 import { actorCapabilityGrantRepository } from './actor-capability-grant.repository';
 import {
   NON_FINANCIAL_CAPABILITY_ALLOWLIST,
@@ -23,6 +24,20 @@ function assertNonFinancialAllowlisted(capabilityKey: string): void {
     throw HttpError.forbidden(
       `Capability '${capabilityKey}' não é concedível neste Slice (allowlist não-financeira MVP). ` +
         'Financeiro é CRITICAL e exige frente própria (3 paralelas).'
+    );
+  }
+}
+
+// 🔴 F-CAPABILITY-GRANT-QUARANTINE-GATE (§4.8.4) — representação ≠ autoridade-ativa. `canRepresentActor` prova que
+// o concedente pode VESTIR o escopo; NÃO prova que a autoridade do escopo está ATIVA. Se o actor de escopo (ou sua
+// âncora humana) está efetivamente bloqueado (atl_blocked_actors, via isActorEffectivelyBlocked — mesmo primitivo do
+// offering-activation-gate), a autoridade está CONGELADA → não pode conceder/revogar capability. Fail-closed, ANTES
+// de qualquer escrita. NÃO toca canRepresentActor (que segue puro).
+async function assertScopeAuthorityNotQuarantined(tenantId: string, scopeActorId: string): Promise<void> {
+  if (await isActorEffectivelyBlocked(tenantId, scopeActorId)) {
+    throw HttpError.forbidden(
+      'ACTOR_EFFECTIVELY_BLOCKED: actor de escopo em quarentena (ou âncora humana bloqueada) — ' +
+        'autoridade congelada; não pode conceder/revogar capability (§4.8.4).'
     );
   }
 }
@@ -57,6 +72,9 @@ export const actorCapabilityGrantService = {
         'Concedente sem autoridade sobre o escopo (scope_actor não representável) — DECISION-0113.'
       );
     }
+
+    // 🔴 F-CAPABILITY-GRANT-QUARANTINE-GATE: autoridade do escopo congelada se bloqueado → 403 ANTES do INSERT.
+    await assertScopeAuthorityNotQuarantined(tenantId, input.scopeActorId);
 
     return actorCapabilityGrantRepository.insert(tenantId, {
       granteeActorId: input.granteeActorId,
@@ -98,6 +116,9 @@ export const actorCapabilityGrantService = {
     if (!canRep) {
       throw HttpError.forbidden('Sem autoridade sobre o escopo do grant (scope_actor não representável).');
     }
+
+    // 🔴 F-CAPABILITY-GRANT-QUARANTINE-GATE: autoridade do escopo congelada se bloqueado → 403 ANTES do revoke.
+    await assertScopeAuthorityNotQuarantined(tenantId, existing.scopeActorId);
 
     const revoked = await actorCapabilityGrantRepository.revoke(tenantId, grantId, revoker.actorId, reason ?? null);
     if (!revoked) throw HttpError.forbidden('Grant não pôde ser revogado (já revogado/expirado?).');
