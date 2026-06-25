@@ -37,8 +37,7 @@ class VotesService {
     tenantId: string,
     groupId: string,
     input: CreateVoteInput,
-    userId: string,
-    globalUserId: string
+    userId: string
   ): Promise<GroupVote> {
     // Validar: options.length >= 2 e <= 20 (validação app-level)
     if (!input.options || input.options.length < 2) {
@@ -86,17 +85,18 @@ class VotesService {
         closesAt: input.closesAt || null,
       };
 
+      // Schema vivo de `posts` é actor-keyed: actor_id + media_ids (UUID[], default '{}'); NÃO existe
+      // global_user_id nem coluna `media`; PK é `id`. (DT-GROUPS-VOTES-POST-INSERT-SCHEMA-DRIFT)
       const postRows = await trx.query({
         text: `
           INSERT INTO posts (
-            tenant_id, global_user_id, actor_id, content, media, intent, intent_metadata, targeting, metadata
+            tenant_id, actor_id, content, intent, intent_metadata, targeting, metadata
           )
-          VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, $6::jsonb, '{}'::jsonb, $7::jsonb)
-          RETURNING post_id, created_at, updated_at
+          VALUES ($1, $2, $3, $4, $5::jsonb, '{}'::jsonb, $6::jsonb)
+          RETURNING id, created_at, updated_at
         `,
         values: [
           tenantId,
-          globalUserId,
           actorId,
           `Nova votação criada: ${input.title}`,
           'vote',

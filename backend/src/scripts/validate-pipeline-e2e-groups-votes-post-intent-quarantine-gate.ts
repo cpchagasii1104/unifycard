@@ -68,8 +68,8 @@ async function main(): Promise<void> {
 
   const GROUP_ID = (await pool.query<{ id: string }>(`INSERT INTO groups (tenant_id, name, owner_actor_id) VALUES ($1::uuid,'E2E Group',$2::uuid) RETURNING id::text AS id`, [TENANT_ID, oA.actorId])).rows[0].id;
 
-  const createVote = (a: { userId: string; globalUserId: string }) =>
-    votesService.createVote(TENANT_ID, GROUP_ID, { title: `Votação ${seq++}`, options: ['Opção A', 'Opção B'] } as any, a.userId, a.globalUserId)
+  const createVote = (a: { userId: string }) =>
+    votesService.createVote(TENANT_ID, GROUP_ID, { title: `Votação ${seq++}`, options: ['Opção A', 'Opção B'] } as any, a.userId)
       .then((v) => ({ ok: true, voteId: (v as any).voteId } as any)).catch((e) => ({ ok: false, err: errOf(e) }));
   const castVote = (voteId: string, optionId: string, userId: string) =>
     votesService.vote(TENANT_ID, GROUP_ID, voteId, optionId, userId).then(() => ({ ok: true } as any)).catch((e) => ({ ok: false, err: errOf(e) }));
@@ -83,14 +83,12 @@ async function main(): Promise<void> {
   const bankBefore = await count(bankSql);
   const piBefore = await count(piSql).catch(() => 0);
 
-  // ── T1: createVote NÃO-BLOQUEADO passa o gate de quarentena ──
-  // ⚠️ RESÍDUO DESCOBERTO: o INSERT INTO posts inline de votes.service referencia colunas inexistentes no schema
-  // atual de `posts` (global_user_id / media) → createVote falha (42703) e a transação faz ROLLBACK atômico.
-  // Bug PRÉ-EXISTENTE, fora do escopo desta fatia (quarentena). T1 prova: não-bloqueado PASSA o gate (erro ≠
-  // quarentena) e a falha pós-gate NÃO deixa escrita parcial (atomicidade).
+  // ── T1: createVote NÃO-BLOQUEADO cria votação ponta-a-ponta ──
+  // (schema-drift do posts-insert corrigido em F-GROUPS-VOTES-POST-INSERT-SCHEMA-DRIFT → createVote SUCEDE:
+  //  group_votes + group_vote_options + post inline intent='vote', tudo na mesma transação.)
   const v1 = await createVote(oA);
-  record('T1 não-bloqueado PASSA o gate de quarentena (erro ≠ ACTOR_EFFECTIVELY_BLOCKED; drift posts PRÉ-EXISTENTE)', v1.ok === true || (v1.ok === false && !isBlocked403(v1.err)), JSON.stringify(v1.err));
-  record('T1b atomicidade: falha pós-gate faz ROLLBACK (nenhuma group_votes parcial de oA)', (await votesOf(oA.actorId)) === 0);
+  record('T1 não-bloqueado cria votação → OK (group_votes + opções + post intent=vote)', v1.ok === true && !!v1.voteId, JSON.stringify(v1.err));
+  record('T1b post intent=vote nasceu p/ a votação (schema-drift corrigido)', (await votePostsOf(oA.actorId)) === 1);
 
   const votesBefore = await votesOf(oA.actorId);
   const optionsBefore = await optionsCount();

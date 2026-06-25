@@ -72,8 +72,7 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
         req.tenant.id,
         groupId,
         validated as CreateVoteInput,
-        userId,
-        req.user.globalUserId
+        userId
       );
 
       // Buscar opções criadas
