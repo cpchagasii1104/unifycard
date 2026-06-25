@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE, 2026-06-25)
+## DT-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST, 7ª fatia):** writers declarativos supplierService.createSupplier + purchaseOrderService createPO/addItem/submitPO/cancelPO (tabelas LIVE) autorizavam via canRepresentActor(owner) mas NÃO checavam quarentena → actor empresarial bloqueado (owner) ou acting bloqueado criava/mutava supplier/PO. Money-free + inventory-free. receivePO já era hard-stop (não tocado).
 - **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined (isActorEffectivelyBlocked, actorId resolvido) em cada writer, ANTES da escrita, sobre owner_actor_id (autoridade) SEMPRE + acting (createdBy/submittedBy/cancelledBy quando difere). 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; owner=autoridade/created_by=autoria; status lowercase; receivePO hard-stop intacto.
