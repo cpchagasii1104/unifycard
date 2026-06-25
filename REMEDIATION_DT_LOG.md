@@ -1,6 +1,8 @@
 # REMEDIATION DT LOG
 
-## DT-SOCIAL-POST-INTENT-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-SOCIAL-POST-INTENT-QUARANTINE-GATE, 2026-06-25)
+## DT-SOCIAL-POST-INTENT-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-SOCIAL-POST-INTENT-QUARANTINE-GATE, 2026-06-25)
+- **ESCOPO HONESTO (cobertura NÃO universal):** fecha SÓ o writer canônico Social2Service.createPost (POST /social/posts), não todos os INSERT INTO posts. Baseline não-bloqueado: actor ativo passa o gate de quarentena e cai em erro posterior de capability/intent (não vendido como "post OK").
+- **RESÍDUO EXPLÍCITO (próximas fatias, outros writers vivos de posts):** groups/votes.service.ts:70 (INSERT INTO posts intent='vote', alcançável por usuário, SEM quarentena → DT-GROUPS-VOTES-POST-INTENT-QUARANTINE-GAP, próxima fatia urgente) · social/event-feed.handlers.ts (sistema/event-bus — avaliar user-triggerability). NÃO refuta o PASS (cartório escopa social 2.0 canônico).
 
 - **Achado (READ-FIRST, 8ª fatia):** Social2Service.createPost (writer canônico social 2.0) autorizava via canRepresentActor(author) mas NÃO checava quarentena → actor bloqueado publicava post/intent. Intent é semântica (pode gerar effect/CTA/promessa). Legado /social/posts/create já 501 (não tocado).
 - **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined (isActorEffectivelyBlocked, actorId resolvido) na 1ª etapa de createPost, ANTES de validateIntent e de qualquer escrita/effect, sobre author (actor.actor_id) + acting (createdAsActorId quando difere). 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; validateIntent centralizado preservado; SEND_CTA/RECEIVE_PAYMENT não abrem money runtime.
