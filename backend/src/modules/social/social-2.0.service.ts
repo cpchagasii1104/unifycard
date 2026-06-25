@@ -6,6 +6,7 @@ import { actorRepository } from './actor.repository';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
 import { impactService } from './impact.service';
 import { HttpError } from '@core/errors/http-error';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import type { PermissionKey } from '@core/authorization/permission-keys';
 
 function tsIso(v: string | Date): string {
@@ -111,6 +112,21 @@ export interface CommentResponse {
 }
 
 export class Social2Service {
+  /**
+   * 🔴 F-SOCIAL-POST-INTENT-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA. canRepresentActor (na rota) DECIDE
+   * permissão de publicar como o author; quarentena DECIDE se o actor está ATIVO. Intent é SEMÂNTICA da ação
+   * (pode gerar effect/CTA/promessa social) — actor bloqueado não publica. Recebe actorId JÁ RESOLVIDO server-side
+   * (author OU acting/createdAs), NUNCA userId cru/actionContext cru/referral. Chamar ANTES da 1ª escrita (post/
+   * effect/outbox) e da validação de intent. NÃO toca canRepresentActor (que segue puro). 403 ACTOR_EFFECTIVELY_BLOCKED.
+   */
+  private async assertActorNotQuarantined(tenantId: string, actorId: string): Promise<void> {
+    if (await isActorEffectivelyBlocked(tenantId, actorId)) {
+      throw HttpError.forbidden(
+        'ACTOR_EFFECTIVELY_BLOCKED: actor em quarentena (ou âncora humana bloqueada) — publicação de post/intent bloqueada (§4.8.4).'
+      );
+    }
+  }
+
   /**
    * Busca feed com cursor pagination (prioriza posts conforme modo de atuação)
    * REGRA: actor_type é OBRIGATÓRIO - não existe feed genérico
@@ -687,6 +703,13 @@ export class Social2Service {
       }
     } else {
       actor = await ensureUserActor(tenantId, userId);
+    }
+
+    // 🔴 F-SOCIAL-POST-INTENT-QUARANTINE-GATE: author (actor.actor_id) bloqueado → não publica post/intent em seu
+    // nome; e o acting/createdAs bloqueado → não opera. ANTES da validação de intent e de QUALQUER escrita/effect.
+    await this.assertActorNotQuarantined(tenantId, actor.actor_id);
+    if (createdAsActorId && createdAsActorId !== actor.actor_id) {
+      await this.assertActorNotQuarantined(tenantId, createdAsActorId);
     }
 
     // 🔴 BLINDAGEM: Validar Intent em um único lugar centralizado

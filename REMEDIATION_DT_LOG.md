@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-SOCIAL-POST-INTENT-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-SOCIAL-POST-INTENT-QUARANTINE-GATE, 2026-06-25)
+
+- **Achado (READ-FIRST, 8ª fatia):** Social2Service.createPost (writer canônico social 2.0) autorizava via canRepresentActor(author) mas NÃO checava quarentena → actor bloqueado publicava post/intent. Intent é semântica (pode gerar effect/CTA/promessa). Legado /social/posts/create já 501 (não tocado).
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined (isActorEffectivelyBlocked, actorId resolvido) na 1ª etapa de createPost, ANTES de validateIntent e de qualquer escrita/effect, sobre author (actor.actor_id) + acting (createdAsActorId quando difere). 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; validateIntent centralizado preservado; SEND_CTA/RECEIVE_PAYMENT não abrem money runtime.
+- **Provas:** E2E 10/10 (não-bloqueado passa o gate (erro=capability≠quarentena); author/acting/intent bloqueado→403; legado 501 via inject; zero payment_intents; canRepresentActor TRUE; Δbank=0) · guard social-post-intent-quarantine-gate (checked=4) + negative-proof 8/8 (inclui payment-runtime-leak + religar-legado) · regression EXIT 0 (social-posts-actor-binding + social-legacy-post-create-containment não regrediram).
+- **DEFERRED (cobertura de quarentena incremental):** events/RFQ (última fatia mapeada). intents money-adjacent (SEND_CTA/RECEIVE_PAYMENT) = porta de dinheiro futura, segue HOLD. NÃO meter quarentena em canRepresentActor. Dinheiro/PORTA-1 = HOLD.
+
 ## DT-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST, 7ª fatia):** writers declarativos supplierService.createSupplier + purchaseOrderService createPO/addItem/submitPO/cancelPO (tabelas LIVE) autorizavam via canRepresentActor(owner) mas NÃO checavam quarentena → actor empresarial bloqueado (owner) ou acting bloqueado criava/mutava supplier/PO. Money-free + inventory-free. receivePO já era hard-stop (não tocado).
