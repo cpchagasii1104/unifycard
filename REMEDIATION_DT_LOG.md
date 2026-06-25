@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-REPORTS-TRANSFERS-SLA-NO-REPRESENTATION — ✅ CLOSED / MATERIAL / YALA_PENDING (F-REPORTS-TRANSFERS-SLA-REPRESENTATION, 2026-06-25)
+## DT-REPORTS-TRANSFERS-SLA-NO-REPRESENTATION — ✅ CLOSED / MATERIAL / YALA PASS (F-REPORTS-TRANSFERS-SLA-REPRESENTATION, 2026-06-25)
 
 - **Achado (READ-FIRST):** `GET /reports/transfers/sla` lia SLA logístico de transferências de estoque (tabelas VIVAS: stock_transfers/stock_transfer_receipts/inventory_movements) filtrando por `fromActorId`/`toActorId` CRUS com só `reports:view_operational` (tenant-wide), SEM `canRepresentActor` — divergência §9 das rotas irmãs `/reports` que aplicam o helper DECISION-0113. AUTHORITY_BYPASS_RISK / CROSS_ACTOR_READ_RISK dentro do tenant (não cross-tenant), money-free, baixa-média.
 - **CORRIGIDO (material pequena, sem migration, executa DECISION-0113):** fromActorId/toActorId → HINTs com canRepresentActor (403 REPORT_ACTOR_NOT_REPRESENTABLE senão); sem filtro → self-scoped via resolveReportActorId + options.participantActorId (from OU to = self). Sem DECISION nova.
