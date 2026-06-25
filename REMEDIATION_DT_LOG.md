@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-PDV-PAY-MONEY-LATENT — ✅ CLOSED / CONTAINED (F-PDV-PAY-MONEY-HOLD-CONTAINMENT, 2026-06-24)
+
+- **Achado (3 paralelas READ-ONLY de F-UNIFIED-INVENTORY-PDV-READINESS):** `POST /pdv/orders/:orderId/pay` → `pdvService.payOrderFromPdv` alcançava `payment_intents`/`bank_transactions`/`bank_ledger`/`bank_splits` via createPaymentIntent+authorize+executePayment — **sem firewall default-off** (diferente de checkout/eventos). Caminho vivo para dinheiro com dinheiro = HOLD.
+- **CONTIDO:** `pdv-financial-firewall.ts` (flag `PDV_FINANCIAL_RUNTIME_ENABLED` estrita `=== 'true'`, default-off, sem NODE_ENV/fail-open) + `assertPdvFinancialRuntimeEnabled` na 1ª linha de `payOrderFromPdv` → 403 `PDV_FINANCIAL_RUNTIME_DISABLED` ANTES de payment_intent/bank_*. Espelha checkout-financial-firewall (DECISION-0110), trilho separado. PDV vivo como canal; só o pagamento contido. Código preservado (reabrir = flag, não reescrever).
+- **Provas:** E2E 6/6 (Δbank=0, zero payment_intents, estoque intocado, flag estrita) · guard `pdv-pay-financial-containment` (checked=3/0, checkout firewall não regrediu) · negative-proof 4/4. Sem DECISION nova; sem migration/worker/RLS.
+- **Resíduo (DEFERRED, próxima frente):** blindar ledger físico (guards inventory_movements append-only + no-direct-balance-write + E2E money-free IN→reserva→ship OUT, Δbank=0) e decision-pack de ciclo (reserva/baixa/devolução/ajuste/transferência). **Venda PDV material / executePayment real = HOLD até PORTA-1.** product_offers.price NUMERIC (RFC-003) e offer.stock-cache×inventory_movements seguem como débitos conhecidos.
+
 ## DT-ACTOR-CAPABILITY-GRANTS-ENFORCEMENT — ✅ CLOSED / MATERIAL / YALA PASS — CONJUNTO BÁSICO DE SERVIÇO COMPLETO (create+edit+disable) (2026-06-24, F-ACTOR-CAPABILITY-GRANTS-MVP)
 
 - **Selo:** os três slices estão SELADOS / YALA PASS — `services:create` (commit `966134fd`), `services:edit`+`services:disable` (commit `0d4f8f12`, reseal adversarial PASS sem warnings não declarados). Bloco básico de autoridade operacional de serviço **COMPLETO**. Calendar:* e demais capabilities seguem SEM enforcement (futuro, sob GO). Dinheiro/PORTA-1/bucket D = HOLD; referral como autoridade proibido.

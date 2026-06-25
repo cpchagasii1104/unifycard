@@ -3,6 +3,7 @@
 // PDV é apenas um canal de entrada para o marketplace
 
 import { pdvSessionRepository } from './pdv.repository';
+import { assertPdvFinancialRuntimeEnabled } from './pdv-financial-firewall';
 import { orderService } from '../marketplace/order.service';
 import type { PaymentCurrency } from '../marketplace/payment-intent.types';
 import type {
@@ -221,6 +222,11 @@ class PdvService {
     tenantId: string,
     input: PayOrderFromPdvInput
   ) {
+    // 🔴 F-PDV-PAY-MONEY-HOLD-CONTAINMENT — FAIL-CLOSED default-off ANTES de qualquer side-effect financeiro
+    // (createPaymentIntent / authorizePaymentIntent / executePayment → payment_intents/bank_*). PDV segue vivo
+    // como canal; só o PAGAMENTO está contido enquanto dinheiro está HOLD (PORTA-1). Reabrir = flag, não reescrever.
+    assertPdvFinancialRuntimeEnabled('POST /pdv/orders/:orderId/pay');
+
     // 1. Validar sessão
     const session = await this.getSessionById(tenantId, input.sessionId);
     
