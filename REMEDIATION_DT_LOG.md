@@ -1,10 +1,20 @@
 # REMEDIATION DT LOG
 
-## DT-GROUPS-VOTES-POST-INTENT-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-GROUPS-VOTES-POST-INTENT-QUARANTINE-GATE, 2026-06-25)
+## DT-GROUPS-VOTES-POST-INTENT-QUARANTINE-GAP — ⚠️ CLOSED_WITH_REMAINDER / MATERIAL / YALA PASS_WITH_REMAINDER (F-GROUPS-VOTES-POST-INTENT-QUARANTINE-GATE, 2026-06-25)
 - **Achado (READ-FIRST, 9ª fatia):** votesService.createVote cria group_votes/group_vote_options E post inline intent='vote' (porta lateral fora do gate canônico social 2.0); votesService.vote registra voto. Ambos resolviam actorId via ensureUserActor mas NÃO checavam quarentena.
-- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined (isActorEffectivelyBlocked, actorId resolvido) em createVote ANTES de runTenantTransaction (atomicidade: nenhuma escrita parcial) + vote ANTES de createVoteResponse. 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; INSERT posts inline + intent='vote' preservados; atomicidade intacta.
-- **Provas:** E2E 13/13 (não-bloqueado passa o gate + rollback atômico; bloqueado createVote/vote→403 sem escrita; ativo vota OK; canRep TRUE; Δbank=0) · guard groups-votes-post-intent-quarantine-gate (checked=4) + negative-proof 10/10 (inclui atomicity-broken + intent-vote-broken + payment-leak) · regression EXIT 0 (votes-writes-containment + groups-votes-schema-drift + social-post-intent não regrediram).
-- **DEFERRED:** events/RFQ (próxima). PORTA-1/dinheiro = HOLD.
+- **CORRIGIDO + PROVADO (createVote + vote):** helper assertActorNotQuarantined (isActorEffectivelyBlocked, actorId resolvido) em createVote ANTES de runTenantTransaction (atomicidade: nenhuma escrita parcial) + vote ANTES de createVoteResponse. 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; INSERT posts inline + intent='vote' preservados; atomicidade intacta. E2E 13/13 · guard checked=4 · negative-proof 10/10 · regression EXIT 0.
+- **⚠️ REMAINDER (a YALA achou — PASS NÃO cobre):** `closeVote` é user-alcançável (rota PATCH /:groupId/votes/:voteId/close, autorizada admin/owner por userId), state-changing (UPDATE group_votes SET status='closed'), SEM gate de quarentena. NÃO coberto por 82d792f2. → DT-GROUPS-VOTES-CLOSEVOTE-QUARANTINE-GAP (OPEN). NÃO carimbado como PASS limpo.
+- **DEFERRED:** F-GROUPS-VOTES-CLOSEVOTE-QUARANTINE-GATE · schema-drift · events/RFQ. PORTA-1/dinheiro = HOLD.
+
+## DT-GROUPS-VOTES-CLOSEVOTE-QUARANTINE-GAP — 🟠 OPEN (remainder do reseal YALA da 9ª fatia, 2026-06-25)
+- **Achado (reseal YALA de F-GROUPS-VOTES-POST-INTENT-QUARANTINE-GATE):** votesService.closeVote NÃO tem gate de quarentena, embora seja:
+  - **user-alcançável:** rota PATCH /:groupId/votes/:voteId/close;
+  - **autorizado** por admin/owner do grupo via userId (isUserAdminOrOwner);
+  - **state-changing:** votesRepository.closeVote → `UPDATE group_votes SET status='closed', updated_at=now()`.
+- **Violação:** actor bloqueado que ainda passe admin/owner pode FECHAR votação — ATL diz que actor bloqueado não executa ação operacional state-changing. Representação/admin/owner não atravessam quarentena.
+- **Severidade:** baixa/média — é toggle de status (open→closed); NÃO cria post, NÃO cria intent, NÃO toca dinheiro. Por isso não bloqueia MTP, mas é gap real de quarentena.
+- **Por que ficou de fora de 82d792f2:** closeVote(tenantId, groupId, voteId) NÃO resolve actor no service (sem userId/actorId), diferente de createVote/vote. Gatear exige plumbing do userId→ensureUserActor→gate (mudança de assinatura). A 9ª fatia o classificou como residue mas NÃO o registrou como DT próprio — a YALA corrigiu (PASS_WITH_REMAINDER).
+- **AÇÃO (fatia própria F-GROUPS-VOTES-CLOSEVOTE-QUARANTINE-GATE):** threadar o userId da rota até closeVote → ensureUserActor → assertActorNotQuarantined ANTES do UPDATE; E2E (bloqueado não fecha / ativo fecha) + guard + negative-proof. Sem migration, money-free.
 
 ## DT-GROUPS-VOTES-POST-INSERT-SCHEMA-DRIFT — 🟠 OPEN / DESCOBERTO (não corrigido nesta fatia — fora do escopo de quarentena, 2026-06-25)
 - **Achado (durante o E2E da 9ª fatia):** o INSERT INTO posts inline de votes.service (createVote) referencia colunas INEXISTENTES no schema atual de `posts`: `global_user_id` (posts usa actor_id) e `media` (posts usa media_ids UUID[]). Resultado: createVote falha `42703` no passo 3 e a transação inteira faz ROLLBACK → **createVote está latentemente quebrado contra o schema vivo** (nenhuma votação é criada em produção).
