@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-PAYMENT-METHOD-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-PAYMENT-METHOD-QUARANTINE-GATE, 2026-06-25)
+
+- **Achado (READ-FIRST, 6ª fatia):** paymentMethodService.createMethod (único writer; payment-method DECLARATIVO, money-free) não checava quarentena. Armadilha das duas tábuas: isDefault=true → unsetDefaultForActor (UPDATE) ANTES do INSERT. payment_methods é GHOST no FULL (DDL só em migrations_archive) → contenção acidental (42P01).
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined na 1ª linha de createMethod, ANTES de unsetDefaultForActor E do INSERT, sobre scopeActor (input.actorId) + acting (createdByActorId quando difere). 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; payment-method segue declarativo. Contenção EXPLÍCITA por quarentena em vez de acidental.
+- **Provas:** E2E 10/10 (scope/acting bloqueado→403; isDefault=true bloqueado→403 tábua do default não abre; não-bloqueado→gate deixa passar p/ ghost; payment_methods ghost; canRepresentActor TRUE; zero payment_intents; Δbank=0) · guard payment-method-quarantine-gate (checked=4) + negative-proof 6/6 (inclui gate-após-unsetDefault e payment-execution-leak) · regression EXIT 0.
+- **DEFERRED (cobertura de quarentena incremental):** purchase-order/supplier · social-post-intent · events/RFQ. payment_methods ghost = decisão de produto futura (resgatar a tabela ou aposentar a rota). NÃO meter quarentena em canRepresentActor. Dinheiro/PORTA-1 = HOLD.
+
 ## DT-SERVICE-MUTATIONS-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-SERVICE-MUTATIONS-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST, 5ª fatia):** services.service createService/updateService autorizavam por canRepresentActor OR hasCapabilityGrant (services:create/edit/disable), mas NÃO checavam quarentena → actor bloqueado (dono OU operador com grant antigo) criava/editava/pausava serviço. Non-money.

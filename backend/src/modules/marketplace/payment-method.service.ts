@@ -2,6 +2,8 @@
 // SPRINT 72: PAYMENT METHODS + UNIFYCARD CORE
 
 import { paymentMethodRepository } from './payment-method.repository';
+import { ForbiddenError } from '@core/errors';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import type {
   PaymentMethod,
   CreatePaymentMethodInput,
@@ -21,8 +23,23 @@ import type {
  */
 class PaymentMethodService {
   /**
+   * 🔴 F-PAYMENT-METHOD-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA. canRepresentActor (na rota) DECIDE permissão;
+   * quarentena DECIDE se o actor está ATIVO para agir. Payment Method é DECLARATIVO (≠ acquirer/execução); este
+   * gate NÃO toca dinheiro. Recebe actorId JÁ RESOLVIDO server-side (scopeActor dono OU acting/createdBy), NUNCA
+   * userId cru/referral. Chamar ANTES de qualquer escrita (unsetDefaultForActor / createMethod). NÃO toca
+   * canRepresentActor (que segue puro). 403 ACTOR_EFFECTIVELY_BLOCKED.
+   */
+  private async assertActorNotQuarantined(tenantId: string, actorId: string): Promise<void> {
+    if (await isActorEffectivelyBlocked(tenantId, actorId)) {
+      throw new ForbiddenError(
+        'ACTOR_EFFECTIVELY_BLOCKED: actor em quarentena (ou âncora humana bloqueada) — mutação de método de pagamento bloqueada (§4.8.4).'
+      );
+    }
+  }
+
+  /**
    * Cria método de pagamento
-   * 
+   *
    * Se is_default = true, remove default anterior do actor
    */
   async createMethod(
@@ -31,6 +48,14 @@ class PaymentMethodService {
     createdByActorId: string,
     createdByUserId?: string
   ): Promise<PaymentMethod> {
+    // 🔴 F-PAYMENT-METHOD-QUARANTINE-GATE: scopeActor (dono) bloqueado → não cria/defaulta em seu nome; e o
+    // acting/createdBy bloqueado → grant/representação antiga NÃO atravessa ATL. ANTES de QUALQUER escrita —
+    // inclusive antes do unsetDefaultForActor (UPDATE quando isDefault=true), não só do INSERT.
+    await this.assertActorNotQuarantined(tenantId, input.actorId);
+    if (createdByActorId && createdByActorId !== input.actorId) {
+      await this.assertActorNotQuarantined(tenantId, createdByActorId);
+    }
+
     // Determinar provider baseado no type se não fornecido
     let provider = input.provider;
     if (!provider) {
