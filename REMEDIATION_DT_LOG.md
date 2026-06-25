@@ -1,6 +1,7 @@
 # REMEDIATION DT LOG
 
-## DT-EVENTS-LIFECYCLE-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-EVENTS-LIFECYCLE-QUARANTINE-GATE, 2026-06-25)
+## DT-EVENTS-LIFECYCLE-QUARANTINE-GAP — ⚠️ CLOSED_WITH_REMAINDER / MATERIAL / YALA PASS_WITH_REMAINDER (F-EVENTS-LIFECYCLE-QUARANTINE-GATE, 2026-06-25)
+- **YALA PASS_WITH_REMAINDER (reseal de `8d71136e`):** a QUARENTENA ATL passou nos 4 writers (createEvent scope+acting · addSession · assignStaff · checkIn). MAS o PASS NÃO vende addSession/checkIn como funcionais — seguem quebrados por drift pré-existente (gate roda ANTES do insert: bloqueado→403 antes do drift; ativo passa o gate e cai no drift). Remainder = DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT (OPEN). NÃO carimbado como PASS limpo funcional.
 - **Achado (READ-FIRST, subfatia 1/3 de events/RFQ):** eventsService.createEvent (nascente; INSERT INTO events → event.created → event-feed downstream) + addSession/assignStaff/checkIn não tinham quarentena. event-feed.handlers = event-bus/system; gate correto é upstream no writer de evento.
 - **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helpers assertActorNotQuarantined + assertGlobalUserNotQuarantined; createEvent gateia scope (actorIdForEvent) + acting (createdByGlobalUserId) ANTES do INSERT; addSession (param threaded)/assignStaff/checkIn gateiam o humano acting ANTES da escrita. 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; sem RFQ/acceptQuote/booking/payment.
 - **Provas:** E2E 15/15 (createEvent scope/acting bloqueado→403 sem linha em events; addSession/assignStaff/checkIn bloqueado→403; ativos passam o gate; canRep TRUE; Δbank=0; zero payment_intents/booking) · guard events-lifecycle-quarantine-gate (checked=6) + negative-proof 10/10 · regression EXIT 0.
