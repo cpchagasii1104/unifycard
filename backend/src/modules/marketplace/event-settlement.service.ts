@@ -3,6 +3,7 @@
 
 import type { AuditEventInput } from '@core/audit/audit.service';
 import { eventSettlementRepository } from './event-settlement.repository';
+import { assertEventSettlementRuntimeEnabled } from './event-settlement-financial-firewall';
 import type {
   EventSettlement,
   CreateEventSettlementInput,
@@ -81,6 +82,11 @@ class EventSettlementService {
     settledByActorId: string,
     settledByUserId?: string
   ): Promise<EventSettlement> {
+    // 🔴 F-EVENT-SETTLEMENT-STATUS-HOLD-CONTAINMENT — FAIL-CLOSED default-off ANTES de qualquer leitura/transição
+    // de estado financeiro (markAsSettled: event_settlements.status='SETTLED'). NÃO é money-write em bank_*, mas
+    // é estado financeiro sensível; contido enquanto dinheiro/event-settlement está HOLD (PORTA-1). Reabrir = flag.
+    assertEventSettlementRuntimeEnabled('POST /events/:id/settlement/settle');
+
     // Buscar settlement
     const settlement = await eventSettlementRepository.getSettlementById(tenantId, settlementId);
     if (!settlement) {

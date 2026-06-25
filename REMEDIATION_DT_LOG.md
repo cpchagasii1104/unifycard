@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-EVENT-SETTLEMENT-STATUS-NO-FIREWALL — ✅ CLOSED / MATERIAL / YALA_PENDING (F-EVENT-SETTLEMENT-STATUS-HOLD-CONTAINMENT, 2026-06-24)
+
+- **Achado (READ-FIRST F-AUTHORITY-FACADE-COVERAGE-READINESS):** `POST /events/:id/settlement/settle` (montada) → `settleEvent` → `markAsSettled` = `UPDATE event_settlements SET status='SETTLED'`, gateado SÓ por `canRepresentActor`, sem firewall/quarentena. **Reclassificado:** NÃO é money-write em `bank_*` (corrige a super-afirmação "único money-write sem firewall"); é flip de ESTADO financeiro sensível. Nenhum worker vivo consome SETTLED p/ mover dinheiro. `event_settlements` é GHOST no schema vivo (DDL só em migrations_archive) → rota já contida acidentalmente (42P01).
+- **CORRIGIDO (money-free, sem migration):** firewall default-off `EVENT_SETTLEMENT_RUNTIME_ENABLED` (estrito `=== 'true'`) + assert na 1ª linha de `settleEvent` → 403 ANTES de markAsSettled. Contenção EXPLÍCITA por HOLD em vez de acidental.
+- **Provas:** E2E 8/8 (flag ausente→403; `1`/`TRUE`/`yes`→OFF; `true`→deixa passar; Δbank=0; ghost confirmado) · guard `event-settlement-financial-containment` (checked=5) + negative-proof 4/4 · regression EXIT 0; checkout/pdv firewalls não regrediram. Sem DECISION nova.
+- **DEFERRED:** não mexi em canRepresentActor/quarentena/fachada (frente maior). reports/transfers/sla representation pendente. event_settlements ghost = decisão de produto futura (resgatar a tabela ou aposentar a rota). Dinheiro/PORTA-1 = HOLD.
+
 ## DT-REGISTER-CPF-CLAIM-DEDUP — ✅ CLOSED / MATERIAL / YALA PASS (F-REGISTER-CPF-CLAIM-DEDUP, 2026-06-24)
 
 - **Furo ALTA (auditoria adversarial + verificação independente):** `register` (auth.service.ts) fazia `INSERT global_users … ON CONFLICT (cpf) DO UPDATE RETURNING global_user_id` → CPF já existente reusava o `global_user_id` da vítima; `users.global_user_id` índice não-único; `profiles` sem unique em cpf (a única unique de CPF é `global_users_cpf_key`); handler 23505 de `profiles.cpf` = **código morto**; sem pré-check de CPF. → 2ª conta (e-mail novo) ligada à identidade civil de outra pessoa, lendo wallet/reputação/PII por `global_user_id`. Explorável só com o CPF. Sem takeover de senha, sem mover dinheiro, mas quebra de confidencialidade + poluição do grafo actor-first.
