@@ -466,14 +466,16 @@ class EventsService {
       throw new Error('Sessão deve estar dentro do período do evento');
     }
 
+    // Schema vivo de event_sessions é tenant_id/title/starts_at/ends_at (sem created_at/updated_at); alias mantém
+    // EventSessionRow/toEventSession inalterados. (DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT)
     const row = await runQueryWithTenant<EventSessionRow>(
       tenantId,
       `
-      INSERT INTO event_sessions (event_id, name, start_time, end_time)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, event_id, name, start_time, end_time, created_at, updated_at
+      INSERT INTO event_sessions (tenant_id, event_id, title, starts_at, ends_at)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, event_id, title AS name, starts_at AS start_time, ends_at AS end_time, now() AS created_at, now() AS updated_at
       `,
-      [eventId, input.name, startTime, endTime]
+      [tenantId, eventId, input.name, startTime, endTime]
     );
 
     if (!row) {
@@ -565,7 +567,8 @@ class EventsService {
     // 🔴 F-EVENTS-LIFECYCLE-QUARANTINE-GATE: participante bloqueado não faz check-in. ANTES do INSERT/UPDATE.
     await this.assertGlobalUserNotQuarantined(tenantId, globalUserId);
 
-    // Verificar se já está inscrito
+    // Schema vivo de event_attendees: tenant_id NOT NULL (drift = INSERT omitia tenant_id → 23502). Coluna de
+    // check-in é checked_in_at (renomeada de check_in_time pela migration 20260530151000). (DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT)
     const existing = await runQueryWithTenant<EventAttendeeRow>(
       tenantId,
       `
@@ -582,11 +585,11 @@ class EventsService {
       await runQueryWithTenant<EventAttendeeRow>(
         tenantId,
         `
-        INSERT INTO event_attendees (event_id, global_user_id, checked_in_at)
-        VALUES ($1, $2, now())
+        INSERT INTO event_attendees (tenant_id, event_id, global_user_id, checked_in_at)
+        VALUES ($1, $2, $3, now())
         RETURNING id, event_id, global_user_id, checked_in_at, created_at
         `,
-        [eventId, globalUserId]
+        [tenantId, eventId, globalUserId]
       );
     } else if (!existing.checked_in_at) {
       // Atualizar check-in

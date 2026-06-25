@@ -30,12 +30,18 @@
 - **Provas:** E2E 15/15 (createEvent scope/acting bloqueado→403 sem linha em events; addSession/assignStaff/checkIn bloqueado→403; ativos passam o gate; canRep TRUE; Δbank=0; zero payment_intents/booking) · guard events-lifecycle-quarantine-gate (checked=6) + negative-proof 10/10 · regression EXIT 0.
 - **DEFERRED:** subfatia 2 (F-EVENT-RFQ-DECLARATIVE) · subfatia 3 (F-EVENT-RFQ-ACCEPTQUOTE-DISPATCH, money-adjacent). PORTA-1/dinheiro = HOLD.
 
-## DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT — 🟠 OPEN / DESCOBERTO (não corrigido nesta fatia — fora do escopo de quarentena, 2026-06-25)
-- **Achado (durante o E2E da subfatia 1):** addSession e checkIn estão latentemente quebrados contra o schema vivo:
-  - addSession: INSERT INTO event_sessions usa `name, start_time, end_time` — schema vivo tem `title, starts_at, ends_at` (+ tenant_id NOT NULL omitido) → 42703.
-  - checkIn: INSERT INTO event_attendees omite `tenant_id` (NOT NULL) → 23502.
-- **Por que não corrigido aqui:** fora do escopo da subfatia de quarentena (igual ao padrão DT-GROUPS-VOTES-POST-INSERT-SCHEMA-DRIFT). O gate de quarentena fica ANTES do insert e morde p/ bloqueado (provado). Bug PRÉ-EXISTENTE, não introduzido aqui.
-- **AÇÃO RECOMENDADA (fatia funcional própria):** alinhar os INSERTs de addSession/checkIn ao schema vivo (title/starts_at/ends_at + tenant_id; tenant_id em event_attendees). createEvent NÃO tem esse drift (cria evento OK).
+## DT-EVENTS-ASSIGNSTAFF-SESSIONREAD-SCHEMA-DRIFT — 🟠 OPEN / DESCOBERTO (resíduo da mesma classe, fora do escopo da fatia addSession/checkIn, 2026-06-25)
+- **Achado (READ-FIRST de F-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT):** mesma classe de drift em writers/readers não escopados:
+  - `assignStaff`: INSERT INTO event_staff omite `tenant_id` (NOT NULL) + `responsible_actor_id`/`responsible_actor_type` (NOT NULL). Schema vivo é actor-keyed (responsible_actor_id) — o código é global_user_id-keyed. Fix NÃO é rename trivial (exige resolver o actor do staff).
+  - `getEventWithDetails` (reader): SELECT em event_sessions usa `name/start_time/end_time` (schema vivo é title/starts_at/ends_at) → 42703 ao listar sessões.
+- **Por que não corrigido aqui:** a diretora escopou SÓ addSession/checkIn. assignStaff exige mudança semântica (actor-keyed), não cosmética; o reader é superfície separada.
+- **AÇÃO RECOMENDADA (fatia própria):** alinhar assignStaff (tenant_id + responsible_actor_id/type, resolvendo o actor) e o SELECT de getEventWithDetails (title/starts_at/ends_at AS aliases). Preservar gates de quarentena.
+
+## DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT — ✅ CLOSED / MATERIAL / YALA_PENDING (F-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT, 2026-06-25)
+- **Achado (E2E da 12ª fatia):** addSession (INSERT event_sessions name/start_time/end_time, sem tenant_id → 42703) e checkIn (INSERT event_attendees sem tenant_id → 23502) latentemente quebrados.
+- **CORRIGIDO (material pequena, money-free, sem migration):** addSession → event_sessions(tenant_id, event_id, title, starts_at, ends_at) com RETURNING aliasado (title AS name etc; now() AS created_at/updated_at) — mantém EventSessionRow/toEventSession; checkIn → adiciona tenant_id ao INSERT (coluna checked_in_at é a viva, renomeada de check_in_time pela migration 20260530151000 — código original já certo nela). Gates de quarentena preservados ANTES da escrita; canRepresentActor puro.
+- **Provas:** E2E novo 12/12 (addSession/checkIn ativos→OK gravam tenant_id; bloqueado→403 antes do insert; Δbank=0) · E2E lifecycle 15/15 (re-rodado) · guard events-session-checkin-schema-drift (checked=4) + negative-proof 9/9 · regression EXIT 0.
+- **DEFERRED:** DT-EVENTS-ASSIGNSTAFF-SESSIONREAD-SCHEMA-DRIFT (mesma classe, assignStaff actor-keyed + reader). PORTA-1/dinheiro = HOLD.
 
 
 ## DT-GROUPS-VOTES-POST-INTENT-QUARANTINE-GAP — ⚠️ CLOSED_WITH_REMAINDER / MATERIAL / YALA PASS_WITH_REMAINDER (F-GROUPS-VOTES-POST-INTENT-QUARANTINE-GATE, 2026-06-25)
