@@ -8,6 +8,8 @@
 import { votesRepository } from './votes.repository';
 import { runTenantTransaction } from '@core/db';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { HttpError } from '@core/errors/http-error';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import type {
   GroupVote,
   CreateVoteInput,
@@ -16,6 +18,21 @@ import type {
 } from './votes.types';
 
 class VotesService {
+  /**
+   * 🔴 F-GROUPS-VOTES-POST-INTENT-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA. A rota autoriza admin/owner do grupo;
+   * quarentena DECIDE se o actor está ATIVO. Criar votação cria estado (group_votes/group_vote_options) E um post
+   * social inline com intent='vote' — porta lateral fora do gate canônico de social 2.0. Recebe o actorId JÁ
+   * RESOLVIDO por ensureUserActor (NUNCA userId/globalUserId/createdByUserId cru). Chamar ANTES da transação/escrita.
+   * NÃO toca canRepresentActor (que segue puro). 403 ACTOR_EFFECTIVELY_BLOCKED.
+   */
+  private async assertActorNotQuarantined(tenantId: string, actorId: string): Promise<void> {
+    if (await isActorEffectivelyBlocked(tenantId, actorId)) {
+      throw HttpError.forbidden(
+        'ACTOR_EFFECTIVELY_BLOCKED: actor em quarentena (ou âncora humana bloqueada) — criação/voto de votação bloqueado (§4.8.4).'
+      );
+    }
+  }
+
   async createVote(
     tenantId: string,
     groupId: string,
@@ -48,6 +65,10 @@ class VotesService {
     // Identidade operacional: resolver ANTES da transação (ensureUserActor usa conexão própria).
     const userActor = await ensureUserActor(tenantId, userId);
     const actorId = userActor.actor_id;
+
+    // 🔴 F-GROUPS-VOTES-POST-INTENT-QUARANTINE-GATE: actor bloqueado não cria votação/opções/post intent='vote'.
+    // ANTES da transação → nenhuma escrita parcial em group_votes/group_vote_options/posts. Atomicidade preservada.
+    await this.assertActorNotQuarantined(tenantId, actorId);
 
     // Transação atômica: votação + opções + post no feed (mesma trx).
     return await runTenantTransaction(tenantId, async (trx) => {
@@ -184,6 +205,9 @@ class VotesService {
     // Identidade operacional do voto = actor_id (resolvido por ensureUserActor).
     const userActor = await ensureUserActor(tenantId, userId);
     const actorId = userActor.actor_id;
+
+    // 🔴 F-GROUPS-VOTES-POST-INTENT-QUARANTINE-GATE: actor bloqueado não registra voto (createVoteResponse).
+    await this.assertActorNotQuarantined(tenantId, actorId);
 
     // Validar: actor ainda não votou (UNIQUE(vote_id, actor_id) também previne).
     const existingVote = await votesRepository.getActorVote(tenantId, voteId, actorId);
