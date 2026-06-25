@@ -322,8 +322,8 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Fechar votação
-      const vote = await votesService.closeVote(req.tenant.id, groupId, voteId);
+      // Fechar votação (admin/owner já validado; quarentena checada server-side no service via ensureUserActor)
+      const vote = await votesService.closeVote(req.tenant.id, groupId, voteId, userId);
 
       return reply.send({ vote });
     } catch (error) {

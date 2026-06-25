@@ -222,13 +222,19 @@ class VotesService {
   async closeVote(
     tenantId: string,
     groupId: string,
-    voteId: string
+    voteId: string,
+    userId: string
   ): Promise<GroupVote> {
     // Validar: votação existe
     const vote = await votesRepository.getVote(tenantId, voteId);
     if (!vote || vote.groupId !== groupId) {
       throw new Error('Votação não encontrada');
     }
+
+    // 🔴 F-GROUPS-VOTES-CLOSEVOTE-QUARANTINE-GATE: admin/owner (rota) DECIDE permissão; quarentena DECIDE se o actor
+    // está ATIVO. Resolver a identidade operacional e gatear ANTES do UPDATE group_votes SET status='closed'.
+    const userActor = await ensureUserActor(tenantId, userId);
+    await this.assertActorNotQuarantined(tenantId, userActor.actor_id);
 
     // Fechar votação
     return votesRepository.closeVote(tenantId, voteId);
