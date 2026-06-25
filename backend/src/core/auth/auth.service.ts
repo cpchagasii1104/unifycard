@@ -311,6 +311,23 @@ class AuthService {
         throw new Error('Failed to create or retrieve global user');
       }
 
+      // 🔴 F-REGISTER-CPF-CLAIM-DEDUP — 1 CPF = 1 identidade global (DECISION-0062). `global_users.cpf` é a
+      // trava civil (UNIQUE global); o ON CONFLICT acima REUSARIA o `global_user_id` de uma identidade já
+      // RECLAMADA, ligando um cadastro NOVO (e-mail/senha novos) à identidade de outra pessoa. Aqui, ANTES de
+      // criar users/profile/actor, recusamos FAIL-CLOSED se o CPF já tem QUALQUER `user` ligado. NÃO dependemos
+      // de `profiles.cpf` (não há unique) nem do handler 23505 (código morto). Concorrência-segura: o UPSERT
+      // acima trava a linha civil até o COMMIT → uma tentativa vence, a outra vê o user e cai aqui. Erro SEM PII.
+      const cpfClaim = await client.query(
+        `SELECT 1 FROM users WHERE global_user_id = $1 LIMIT 1`,
+        [globalUserId]
+      );
+      if (cpfClaim.rows.length > 0) {
+        const error = new Error('CPF já cadastrado') as Error & { statusCode?: number; code?: string };
+        error.statusCode = 409;
+        error.code = 'CPF_ALREADY_REGISTERED';
+        throw error;
+      }
+
       // users INSERT (global_user_id no INSERT — SSOT)
       let userRow: UserRow;
       try {

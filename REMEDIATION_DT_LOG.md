@@ -1,6 +1,13 @@
 # REMEDIATION DT LOG
 
-## DT-BANK-LOCK-BOUNDARY-§4.7 — ✅ CLOSED / MATERIAL / YALA_PENDING (F-BANK-LOCK-BOUNDARY-MATERIAL, 2026-06-24)
+## DT-REGISTER-CPF-CLAIM-DEDUP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-REGISTER-CPF-CLAIM-DEDUP, 2026-06-24)
+
+- **Furo ALTA (auditoria adversarial + verificação independente):** `register` (auth.service.ts) fazia `INSERT global_users … ON CONFLICT (cpf) DO UPDATE RETURNING global_user_id` → CPF já existente reusava o `global_user_id` da vítima; `users.global_user_id` índice não-único; `profiles` sem unique em cpf (a única unique de CPF é `global_users_cpf_key`); handler 23505 de `profiles.cpf` = **código morto**; sem pré-check de CPF. → 2ª conta (e-mail novo) ligada à identidade civil de outra pessoa, lendo wallet/reputação/PII por `global_user_id`. Explorável só com o CPF. Sem takeover de senha, sem mover dinheiro, mas quebra de confidencialidade + poluição do grafo actor-first.
+- **CORRIGIDO (code-only, sem migration; DECISION-0062 1 CPF=1 identidade):** claim-check FAIL-CLOSED — após o UPSERT (row-lock da linha civil), ANTES de users/profile/actor, `SELECT 1 FROM users WHERE global_user_id=$1` → se há user → 409 `CPF_ALREADY_REGISTERED` sem PII. Concorrência-segura (serializa no UPSERT). Não depende de profiles.cpf/23505.
+- **Provas:** E2E 8/8 (mesmo CPF+e-mail novo→409 · 1/1/1 user/profile/actor · concorrência 1 OK/1 409 · Δbank=0) · guard `register-cpf-claim` + negative-proof 3/3 · regression EXIT 0 (register-birth-atomicity não regrediu). Sem DECISION nova; re-onboarding do próprio CPF = recovery/capability-additive futuro.
+- **DEFERRED:** trava global durável (claim-ledger / UNIQUE com dedup de dado existente) = frente própria; authority/fachada/quarentena (event-settlement sem firewall) antes de PORTA-1. Dinheiro/PORTA-1 = HOLD.
+
+## DT-BANK-LOCK-BOUNDARY-§4.7 — ✅ CLOSED / MATERIAL / YALA PASS (F-BANK-LOCK-BOUNDARY-MATERIAL, 2026-06-24)
 
 - **Achado (READ-FIRST §4.7):** único `FROM bank_* … FOR UPDATE` fora do Bank = `modules/gateway/payment-event-resolver.ts` (lock anti-double-settlement em `bank_transactions` inline). §4.7: quem encosta fisicamente no cofre (FOR UPDATE em bank_*) deve ser o Bank.
 - **CORRIGIDO (sem abrir dinheiro):** novo método canônico `bankTransactionService.lockTransactionByReferenceForSettlement` (DENTRO de modules/bank/) faz o FOR UPDATE; o gateway chama o método e removeu o SQL inline. Semântica anti-double-settlement IDÊNTICA (mesma query relocada, mesmo abort). Read+lock only; sem escrita/status/amount/dinheiro; tenant-scoped; na transação do caller.
