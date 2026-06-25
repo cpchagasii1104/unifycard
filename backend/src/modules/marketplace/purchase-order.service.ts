@@ -4,6 +4,7 @@
 import { purchaseOrderRepository } from './purchase-order.repository';
 import { inventoryService } from './inventory.service';
 import { AppError } from '@core/errors';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import type {
   PurchaseOrder,
   PurchaseOrderItem,
@@ -27,6 +28,19 @@ import type {
  */
 class PurchaseOrderService {
   /**
+   * 🔴 F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA. canRepresentActor (na rota) DECIDE
+   * permissão sobre o owner empresarial; quarentena DECIDE se o actor está ATIVO. PO declarativa é money-free
+   * (receivePO/inventory/AP seguem CONTIDOS, fora desta fatia). Recebe actorId JÁ RESOLVIDO (owner_actor_id
+   * autoridade OU acting/createdBy/submittedBy/cancelledBy autoria), NUNCA userId cru/referral/created_by-como-autoridade.
+   * Chamar ANTES de qualquer escrita declarativa (purchase_orders / purchase_order_items). NÃO toca canRepresentActor.
+   */
+  private async assertActorNotQuarantined(tenantId: string, actorId: string): Promise<void> {
+    if (await isActorEffectivelyBlocked(tenantId, actorId)) {
+      throw new AppError(403, 'ACTOR_EFFECTIVELY_BLOCKED: actor em quarentena (ou âncora humana bloqueada) — mutação de purchase order bloqueada (§4.8.4).', 'ACTOR_EFFECTIVELY_BLOCKED');
+    }
+  }
+
+  /**
    * Cria ordem de compra (status: DRAFT)
    */
   async createPO(
@@ -39,6 +53,13 @@ class PurchaseOrderService {
     // representável). Defesa em profundidade: o service NUNCA persiste PO sem owner empresarial material.
     if (!input.ownerActorId) {
       throw new AppError(400, 'PURCHASE_ORDER_OWNER_REQUIRED: purchase_order exige owner empresarial material (owner_actor_id) resolvido e validado server-side.', 'PURCHASE_ORDER_OWNER_REQUIRED');
+    }
+
+    // 🔴 F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE: owner empresarial bloqueado → não cria PO em seu nome; e o
+    // acting/createdBy bloqueado → não opera. ANTES da escrita. (created_by é AUTORIA, não autoridade.)
+    await this.assertActorNotQuarantined(tenantId, input.ownerActorId);
+    if (createdByActorId && createdByActorId !== input.ownerActorId) {
+      await this.assertActorNotQuarantined(tenantId, createdByActorId);
     }
 
     // Converter datas se necessário
@@ -95,6 +116,13 @@ class PurchaseOrderService {
       throw new Error(`Ordem não está em DRAFT (status: ${order.status})`);
     }
 
+    // 🔴 F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE: owner empresarial da PO (order.ownerActorId, autoridade) ou
+    // o acting/createdBy bloqueado → 403 ANTES de gravar item.
+    await this.assertActorNotQuarantined(tenantId, order.ownerActorId);
+    if (createdByActorId && createdByActorId !== order.ownerActorId) {
+      await this.assertActorNotQuarantined(tenantId, createdByActorId);
+    }
+
     // Calcular total se unitPriceCents fornecido
     const totalPriceCents = input.unitPriceCents ? Math.round(input.unitPriceCents * input.quantityOrdered) : null;
 
@@ -147,6 +175,12 @@ class PurchaseOrderService {
     const items = await purchaseOrderRepository.getItemsByOrderId(tenantId, orderId);
     if (items.length === 0) {
       throw new Error('Ordem não pode ser submetida sem itens');
+    }
+
+    // 🔴 F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE: owner empresarial ou o acting/submittedBy bloqueado → 403 ANTES de submeter.
+    await this.assertActorNotQuarantined(tenantId, order.ownerActorId);
+    if (submittedByActorId && submittedByActorId !== order.ownerActorId) {
+      await this.assertActorNotQuarantined(tenantId, submittedByActorId);
     }
 
     // Submeter ordem
@@ -366,6 +400,12 @@ class PurchaseOrderService {
 
     if (!['DRAFT', 'SUBMITTED', 'CONFIRMED'].includes(order.status)) {
       throw new Error(`Ordem não pode ser cancelada (status: ${order.status})`);
+    }
+
+    // 🔴 F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE: owner empresarial ou o acting/cancelledBy bloqueado → 403 ANTES de cancelar.
+    await this.assertActorNotQuarantined(tenantId, order.ownerActorId);
+    if (cancelledByActorId && cancelledByActorId !== order.ownerActorId) {
+      await this.assertActorNotQuarantined(tenantId, cancelledByActorId);
     }
 
     // Cancelar ordem

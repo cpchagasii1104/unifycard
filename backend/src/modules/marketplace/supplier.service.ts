@@ -2,6 +2,8 @@
 // SPRINT 69: SUPPLIERS + PURCHASE ORDERS
 
 import { supplierRepository } from './supplier.repository';
+import { ForbiddenError } from '@core/errors';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import type {
   Supplier,
   CreateSupplierInput,
@@ -31,6 +33,20 @@ export function normalizeSupplierStatus(raw: string | null | undefined): Supplie
  */
 class SupplierService {
   /**
+   * 🔴 F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA. canRepresentActor (na rota) DECIDE
+   * permissão sobre o owner empresarial; quarentena DECIDE se o actor está ATIVO. Recebe actorId JÁ RESOLVIDO
+   * (owner_actor_id autoridade OU createdBy autoria), NUNCA userId cru/referral/created_by-como-autoridade.
+   * Chamar ANTES da escrita em `suppliers`. NÃO toca canRepresentActor (que segue puro). 403 ACTOR_EFFECTIVELY_BLOCKED.
+   */
+  private async assertActorNotQuarantined(tenantId: string, actorId: string): Promise<void> {
+    if (await isActorEffectivelyBlocked(tenantId, actorId)) {
+      throw new ForbiddenError(
+        'ACTOR_EFFECTIVELY_BLOCKED: actor em quarentena (ou âncora humana bloqueada) — mutação de fornecedor bloqueada (§4.8.4).'
+      );
+    }
+  }
+
+  /**
    * Cria fornecedor
    */
   async createSupplier(
@@ -55,6 +71,13 @@ class SupplierService {
     // 'active'/'inactive' (minúsculo). Normalizamos o input para o vocabulário CANÔNICO lowercase (default
     // 'active' quando ausente); valor fora do canônico é REJEITADO antes de bater no CHECK (falha honesta).
     const status = normalizeSupplierStatus(input.status);
+
+    // 🔴 F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE: owner empresarial bloqueado → não cria fornecedor em seu nome;
+    // e o acting/createdBy bloqueado → não opera. ANTES da escrita. (created_by é AUTORIA, não autoridade.)
+    await this.assertActorNotQuarantined(tenantId, input.ownerActorId);
+    if (createdByActorId && createdByActorId !== input.ownerActorId) {
+      await this.assertActorNotQuarantined(tenantId, createdByActorId);
+    }
 
     // Criar fornecedor
     const supplier = await supplierRepository.createSupplier(tenantId, {

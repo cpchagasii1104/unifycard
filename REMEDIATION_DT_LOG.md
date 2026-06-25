@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-PURCHASE-ORDER-SUPPLIER-QUARANTINE-GATE, 2026-06-25)
+
+- **Achado (READ-FIRST, 7ª fatia):** writers declarativos supplierService.createSupplier + purchaseOrderService createPO/addItem/submitPO/cancelPO (tabelas LIVE) autorizavam via canRepresentActor(owner) mas NÃO checavam quarentena → actor empresarial bloqueado (owner) ou acting bloqueado criava/mutava supplier/PO. Money-free + inventory-free. receivePO já era hard-stop (não tocado).
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined (isActorEffectivelyBlocked, actorId resolvido) em cada writer, ANTES da escrita, sobre owner_actor_id (autoridade) SEMPRE + acting (createdBy/submittedBy/cancelledBy quando difere). 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; owner=autoridade/created_by=autoria; status lowercase; receivePO hard-stop intacto.
+- **Provas:** E2E 21/21 (owner/acting bloqueado→403 em supplier/PO create/addItem/submit/cancel; receivePO→403 CONTAINED; zero inventory_movements; canRepresentActor TRUE; Δbank=0) · guard purchase-order-supplier-quarantine-gate (checked=7) + negative-proof 9/9 (inclui reabrir-receivePO + caller-do-containedImpl + status-lowercase) · regression EXIT 0 (po-receive-containment + po-owner-authority + supplier-owner-authority não regrediram).
+- **DEFERRED (cobertura de quarentena incremental):** social-post-intent · events/RFQ. PO com dinheiro real (receive/AP/inventory) = frente crítica financeira futura, segue HOLD. amount_cents segue BIGINT (sem NUMERIC). NÃO meter quarentena em canRepresentActor. Dinheiro/PORTA-1 = HOLD.
+
 ## DT-PAYMENT-METHOD-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-PAYMENT-METHOD-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST, 6ª fatia):** paymentMethodService.createMethod (único writer; payment-method DECLARATIVO, money-free) não checava quarentena. Armadilha das duas tábuas: isDefault=true → unsetDefaultForActor (UPDATE) ANTES do INSERT. payment_methods é GHOST no FULL (DDL só em migrations_archive) → contenção acidental (42P01).
