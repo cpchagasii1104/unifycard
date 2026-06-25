@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { CompanyStatus } from '@unificard/contracts';
 import { pool } from '@core/database/pool';
 import { ensurePageActorTx } from '@modules/identity/actor-writer.service';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { isTestOverrideUser } from '../../utils/isTestOverrideUser';
 import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
@@ -889,6 +890,22 @@ class CompaniesService {
         'PAGE_ACTOR_AMBIGUOUS',
         `page-actor da empresa ${companyId} ausente/inesperado — deveria ter nascido na criação (ativação não cria/cura actors)`,
         500
+      );
+    }
+
+    // 🔴 F-COMPANY-OPERATIONAL-ACTIVATION-QUARANTINE-GATE (§4.8.4) — gestão/representação ≠ autoridade-ativa.
+    // canManageCompany (rota) prova membership; NÃO prova que a autoridade está ATIVA. Se o actor institucional
+    // da empresa (page-actor — sua âncora humana cascateia) OU o responsável que ativa estão efetivamente
+    // bloqueados (atl_blocked_actors, via isActorEffectivelyBlocked — mesmo primitivo do offering-gate/capability-grant),
+    // a ativação operacional é CONGELADA. Fail-closed, ANTES de qualquer escrita (BEGIN/SELECT FOR UPDATE/UPDATE).
+    if (
+      (await isActorEffectivelyBlocked(tenantId, pageActor.actor_id)) ||
+      (await isActorEffectivelyBlocked(tenantId, responsibleActor.actor_id))
+    ) {
+      throw this.activationError(
+        'ACTOR_EFFECTIVELY_BLOCKED',
+        'autoridade institucional/responsável em quarentena — ativação operacional bloqueada',
+        403
       );
     }
 

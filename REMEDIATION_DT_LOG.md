@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-COMPANY-ACTIVATION-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-COMPANY-OPERATIONAL-ACTIVATION-QUARANTINE-GATE, 2026-06-25)
+
+- **Achado (READ-FIRST F-AUTHORITY-QUARANTINE-ACTION-COVERAGE):** `activateCompanyOperationally` (companies.service) tornava empresa operacional gateado só por canManageCompany (rota), SEM quarentena → actor institucional bloqueado podia ativar empresa. Non-money. 2ª fatia da cobertura de quarentena (após capability-grant).
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** gate isActorEffectivelyBlocked sobre page-actor (institucional, âncora humana cascateia) OU responsável, APÓS FASE 2 (read-only) e ANTES de FASE 3 (BEGIN/FOR UPDATE/UPDATE) → 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; offering-activation-gate intacto. Sem DECISION nova.
+- **Provas:** E2E 6/6 (page-actor bloqueado→403; empresa não vira operacional; responsável bloqueado→403; canRepresentActor TRUE; Δbank=0) · guard company-activation-quarantine (checked=3) + negative-proof 3/3 · regression EXIT 0 (capability-grant-quarantine + offering-activation-safe + pj-human-to-company não regrediram).
+- **DEFERRED (cobertura de quarentena incremental):** declareAvailability · service-booking-decision · service create/edit/disable · payment-method · purchase-order/supplier · social-post-intent · events/RFQ. NÃO meter quarentena em canRepresentActor. Dinheiro/PORTA-1 = HOLD.
+
 ## DT-CAPABILITY-GRANT-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-CAPABILITY-GRANT-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST F-AUTHORITY-QUARANTINE-ACTION-COVERAGE):** quarentena (`isActorEffectivelyBlocked`) aplicada só em 3 lugares (façade authority.service + offering-activation-gate + identity.routes-read); os 133 canRepresentActor são pura representação. Dinheiro contido (firewalls/hard-stops) e offering-activation já barra quarentenado → SEM blocker money. Gap non-money de maior risco: `actor-capability-grant.service` grant/revoke SEM quarentena → actor bloqueado concede/revoga capabilities de terceiros (manipulação de autoridade).
