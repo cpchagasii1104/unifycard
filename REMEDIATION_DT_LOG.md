@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-AVAILABILITY-WRITE-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-AVAILABILITY-WRITE-QUARANTINE-GATE, 2026-06-25)
+## DT-AVAILABILITY-WRITE-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-AVAILABILITY-WRITE-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST F-AUTHORITY-QUARANTINE-ACTION-COVERAGE, 3ª fatia):** writers de `availability` (SSOT temporal, owner authority POLIMÓRFICA DECISION-0118) escreviam sem quarentena — só canRepresentActor inline nas rotas. Escopo correto = TODO writer vivo, não só declareAvailability. Chokepoint de write = unifiedAvailabilityService.create/updateAvailability (único caller do repository.create/update).
 - **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertAvailabilityOwnerAuthorityActive (junto da policy) resolve authorityActorId via resolveAvailabilityOwner (nunca ownerId cru) + isActorEffectivelyBlocked → 403 ACTOR_EFFECTIVELY_BLOCKED, chamado em create (input.owner*) e update (existing.owner*) ANTES do write. canRepresentActor PURO; resolveAvailabilityOwnerAuthority (morto) intocado.
