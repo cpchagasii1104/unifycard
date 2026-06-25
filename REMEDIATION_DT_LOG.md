@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-COMPANY-ACTIVATION-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-COMPANY-OPERATIONAL-ACTIVATION-QUARANTINE-GATE, 2026-06-25)
+## DT-COMPANY-ACTIVATION-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-COMPANY-OPERATIONAL-ACTIVATION-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST F-AUTHORITY-QUARANTINE-ACTION-COVERAGE):** `activateCompanyOperationally` (companies.service) tornava empresa operacional gateado só por canManageCompany (rota), SEM quarentena → actor institucional bloqueado podia ativar empresa. Non-money. 2ª fatia da cobertura de quarentena (após capability-grant).
 - **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** gate isActorEffectivelyBlocked sobre page-actor (institucional, âncora humana cascateia) OU responsável, APÓS FASE 2 (read-only) e ANTES de FASE 3 (BEGIN/FOR UPDATE/UPDATE) → 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; offering-activation-gate intacto. Sem DECISION nova.
