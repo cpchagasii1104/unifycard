@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-CAPABILITY-GRANT-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-CAPABILITY-GRANT-QUARANTINE-GATE, 2026-06-25)
+## DT-CAPABILITY-GRANT-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-CAPABILITY-GRANT-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST F-AUTHORITY-QUARANTINE-ACTION-COVERAGE):** quarentena (`isActorEffectivelyBlocked`) aplicada só em 3 lugares (façade authority.service + offering-activation-gate + identity.routes-read); os 133 canRepresentActor são pura representação. Dinheiro contido (firewalls/hard-stops) e offering-activation já barra quarentenado → SEM blocker money. Gap non-money de maior risco: `actor-capability-grant.service` grant/revoke SEM quarentena → actor bloqueado concede/revoga capabilities de terceiros (manipulação de autoridade).
 - **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper `assertScopeAuthorityNotQuarantined` (reusa isActorEffectivelyBlocked) em grant() e revoke(), APÓS canRepresentActor e ANTES da escrita → 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor permaneceu PURO (representação ≠ autoridade-ativa). Sem DECISION nova.
