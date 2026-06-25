@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-REGISTER-CPF-CLAIM-DEDUP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-REGISTER-CPF-CLAIM-DEDUP, 2026-06-24)
+## DT-REGISTER-CPF-CLAIM-DEDUP — ✅ CLOSED / MATERIAL / YALA PASS (F-REGISTER-CPF-CLAIM-DEDUP, 2026-06-24)
 
 - **Furo ALTA (auditoria adversarial + verificação independente):** `register` (auth.service.ts) fazia `INSERT global_users … ON CONFLICT (cpf) DO UPDATE RETURNING global_user_id` → CPF já existente reusava o `global_user_id` da vítima; `users.global_user_id` índice não-único; `profiles` sem unique em cpf (a única unique de CPF é `global_users_cpf_key`); handler 23505 de `profiles.cpf` = **código morto**; sem pré-check de CPF. → 2ª conta (e-mail novo) ligada à identidade civil de outra pessoa, lendo wallet/reputação/PII por `global_user_id`. Explorável só com o CPF. Sem takeover de senha, sem mover dinheiro, mas quebra de confidencialidade + poluição do grafo actor-first.
 - **CORRIGIDO (code-only, sem migration; DECISION-0062 1 CPF=1 identidade):** claim-check FAIL-CLOSED — após o UPSERT (row-lock da linha civil), ANTES de users/profile/actor, `SELECT 1 FROM users WHERE global_user_id=$1` → se há user → 409 `CPF_ALREADY_REGISTERED` sem PII. Concorrência-segura (serializa no UPSERT). Não depende de profiles.cpf/23505.
