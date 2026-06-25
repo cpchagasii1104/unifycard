@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-SERVICE-BOOKING-DECISION-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-SERVICE-BOOKING-DECISION-QUARANTINE-GATE, 2026-06-25)
+## DT-SERVICE-BOOKING-DECISION-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-SERVICE-BOOKING-DECISION-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST adversarial, 4ª fatia):** `createDecision` JÁ estava protegido por canPerformAction(decidedByActorId,'manage_bookings') incondicional (linha 60) + binding decidedBy===authorityActorId. **`confirmBookingFromDecision` tinha GAP REAL:** seu canPerformAction (linha 1356) é gated por `if(confirmedByUserId)` → caminho SEM userId pulava quarentena e criava service_order. Non-money (settlement_flow='none').
 - **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertAuthorityActorActive(authorityActorId JÁ RESOLVIDO) + isActorEffectivelyBlocked → 403. Em createDecision (defesa-em-profundidade) E em confirmBookingFromDecision INCONDICIONAL (fecha o gap sem-userId). canRepresentActor PURO; authorityService/offering-gate intactos.
