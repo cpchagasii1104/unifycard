@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-EVENT-RFQ-DECLARATIVE-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-EVENT-RFQ-DECLARATIVE-QUARANTINE-GATE, 2026-06-25)
+- **Achado (READ-FIRST, subfatia 2/3 de events/RFQ):** createRFQ (organizer)/closeRFQ (closedByActor)/createQuote (provider) mutam event.metadata.rfqs (procurement declarativo) sem gate de quarentena explícito. acceptQuote = materializador money-adjacent (booking+paymentRequest) → fica p/ subfatia 3.
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertActorNotQuarantined; createRFQ/closeRFQ/createQuote gateiam o scope (organizer/closedBy/provider) ANTES do UPDATE events SET metadata. 403 ACTOR_EFFECTIVELY_BLOCKED. canRepresentActor PURO; actorId resolvido; acceptQuote/dispatch/booking/payment_request não tocados.
+- **Provas:** E2E 14/14 (organizer bloqueado não cria/fecha RFQ; provider bloqueado não cria quote; metadata/quotes não mudam; ativos OK; canRep TRUE; Δbank=0; zero booking/payment_request/payment_intents) · guard event-rfq-declarative-quarantine-gate (checked=5) + negative-proof 8/8 (inclui acceptquote-gated-here) · regression EXIT 0 (event-rfq-actor-binding + event-rfq-acceptquote-containment + events-lifecycle não regrediram).
+- **DEFERRED:** subfatia 3 (F-EVENT-RFQ-ACCEPTQUOTE-DISPATCH, money-adjacent) · DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT (drift funcional OPEN). PORTA-1/dinheiro = HOLD.
+
+
 ## DT-EVENTS-LIFECYCLE-QUARANTINE-GAP — ⚠️ CLOSED_WITH_REMAINDER / MATERIAL / YALA PASS_WITH_REMAINDER (F-EVENTS-LIFECYCLE-QUARANTINE-GATE, 2026-06-25)
 - **YALA PASS_WITH_REMAINDER (reseal de `8d71136e`):** a QUARENTENA ATL passou nos 4 writers (createEvent scope+acting · addSession · assignStaff · checkIn). MAS o PASS NÃO vende addSession/checkIn como funcionais — seguem quebrados por drift pré-existente (gate roda ANTES do insert: bloqueado→403 antes do drift; ativo passa o gate e cai no drift). Remainder = DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT (OPEN). NÃO carimbado como PASS limpo funcional.
 - **Achado (READ-FIRST, subfatia 1/3 de events/RFQ):** eventsService.createEvent (nascente; INSERT INTO events → event.created → event-feed downstream) + addSession/assignStaff/checkIn não tinham quarentena. event-feed.handlers = event-bus/system; gate correto é upstream no writer de evento.

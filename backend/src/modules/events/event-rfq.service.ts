@@ -11,6 +11,7 @@ import { BadRequestError, NotFoundError } from '@core/errors';
 import { HttpError } from '@core/errors/http-error';
 import type { PermissionKey } from '@core/authorization/permission-keys';
 import { runQueryWithTenant } from '@core/database/pool';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import type {
   EventRFQ,
   CreateEventRFQInput,
@@ -33,6 +34,21 @@ import { AvailabilityOwnerType, UnifiedAvailabilityType } from '@core/availabili
  * - Nenhuma automação silenciosa
  */
 class EventRFQService {
+  /**
+   * 🔴 F-EVENT-RFQ-DECLARATIVE-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA. canRepresentActor/canPerformAction
+   * (rota) DECIDE permissão; quarentena DECIDE se o actor está ATIVO. RFQ declarativo é procurement/metadata
+   * (event.metadata.rfqs); quote é PROPOSTA — NÃO aceita quote, NÃO agenda booking, NÃO cria payment_request.
+   * Recebe um actorId JÁ RESOLVIDO (organizer/closedBy/provider), NUNCA actionContext/userId cru. Chamar ANTES da
+   * 1ª escrita (UPDATE events SET metadata). NÃO toca canRepresentActor (que segue puro). 403 ACTOR_EFFECTIVELY_BLOCKED.
+   */
+  private async assertActorNotQuarantined(tenantId: string, actorId: string): Promise<void> {
+    if (await isActorEffectivelyBlocked(tenantId, actorId)) {
+      throw HttpError.forbidden(
+        'ACTOR_EFFECTIVELY_BLOCKED: actor em quarentena (ou âncora humana bloqueada) — operação de RFQ/quote bloqueada (§4.8.4).'
+      );
+    }
+  }
+
   /**
    * Cria novo RFQ para um evento
    * 
@@ -117,6 +133,9 @@ class EventRFQService {
         }
       }
     }
+
+    // 🔴 F-EVENT-RFQ-DECLARATIVE-QUARANTINE-GATE: organizer (scope) bloqueado não cria RFQ. ANTES do UPDATE metadata.
+    await this.assertActorNotQuarantined(tenantId, organizerActorId);
 
     // 4. Criar RFQ
     const rfqId = `rfq_${uuidv4()}`;
@@ -282,6 +301,9 @@ class EventRFQService {
       throw new BadRequestError('RFQ já está fechado');
     }
 
+    // 🔴 F-EVENT-RFQ-DECLARATIVE-QUARANTINE-GATE: quem fecha (scope) bloqueado não fecha RFQ. ANTES do UPDATE metadata.
+    await this.assertActorNotQuarantined(tenantId, closedByActorId);
+
     // Atualizar RFQ
     rfq.status = RFQStatus.CLOSED;
     rfq.closedAt = new Date();
@@ -386,6 +408,9 @@ class EventRFQService {
     if (!service) {
       throw new NotFoundError(`Serviço não encontrado: ${input.serviceId}`);
     }
+
+    // 🔴 F-EVENT-RFQ-DECLARATIVE-QUARANTINE-GATE: provider (scope) bloqueado não cria quote. ANTES do UPDATE metadata.
+    await this.assertActorNotQuarantined(tenantId, providerActorId);
 
     // 4. Criar proposta
     const quoteId = `quote_${uuidv4()}`;
