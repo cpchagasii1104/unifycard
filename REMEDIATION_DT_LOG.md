@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## DT-PDV-PAY-MONEY-LATENT — ✅ CLOSED / CONTAINED (F-PDV-PAY-MONEY-HOLD-CONTAINMENT, 2026-06-24)
+## DT-PDV-PAY-MONEY-LATENT — ✅ CLOSED / CONTAINED / YALA PASS (F-PDV-PAY-MONEY-HOLD-CONTAINMENT, 2026-06-24)
 
 - **Achado (3 paralelas READ-ONLY de F-UNIFIED-INVENTORY-PDV-READINESS):** `POST /pdv/orders/:orderId/pay` → `pdvService.payOrderFromPdv` alcançava `payment_intents`/`bank_transactions`/`bank_ledger`/`bank_splits` via createPaymentIntent+authorize+executePayment — **sem firewall default-off** (diferente de checkout/eventos). Caminho vivo para dinheiro com dinheiro = HOLD.
 - **CONTIDO:** `pdv-financial-firewall.ts` (flag `PDV_FINANCIAL_RUNTIME_ENABLED` estrita `=== 'true'`, default-off, sem NODE_ENV/fail-open) + `assertPdvFinancialRuntimeEnabled` na 1ª linha de `payOrderFromPdv` → 403 `PDV_FINANCIAL_RUNTIME_DISABLED` ANTES de payment_intent/bank_*. Espelha checkout-financial-firewall (DECISION-0110), trilho separado. PDV vivo como canal; só o pagamento contido. Código preservado (reabrir = flag, não reescrever).
