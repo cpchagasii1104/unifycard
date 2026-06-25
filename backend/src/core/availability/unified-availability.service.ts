@@ -10,7 +10,7 @@ import { createHash } from 'crypto';
 import { getClientWithTenant, runQueryWithTenant } from '@core/database/pool';
 import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { unifiedAvailabilityRepository } from './unified-availability.repository';
-import { resolveAvailabilityOwner } from './availability-owner-authority';
+import { resolveAvailabilityOwner, assertAvailabilityOwnerAuthorityActive } from './availability-owner-authority';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { authorizationService } from '@core/authorization/authorization.service';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
@@ -81,6 +81,11 @@ class UnifiedAvailabilityService {
       throw new BadRequestError('endDatetime deve ser posterior a startDatetime');
     }
 
+    // 🔴 F-AVAILABILITY-WRITE-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA do owner ANTES da escrita. Chokepoint único
+    // de WRITE (todo writer vivo passa por aqui). Resolve authorityActorId polimórfico (nunca ownerId cru) e recusa
+    // se quarentenado. canRepresentActor (rota) prova representação; isto prova autoridade ATIVA. NÃO toca canRepresentActor.
+    await assertAvailabilityOwnerAuthorityActive(tenantId, input.ownerType, input.ownerId);
+
     // 🔴 BLINDAGEM: Criar disponibilidade (trigger previne sobreposição)
     // NÃO decide quem pode agendar, apenas expõe janelas
     return await unifiedAvailabilityRepository.create(tenantId, input);
@@ -123,6 +128,9 @@ class UnifiedAvailabilityService {
     if (!existing) {
       throw new NotFoundError('Disponibilidade não encontrada');
     }
+
+    // 🔴 F-AVAILABILITY-WRITE-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA do owner do recurso existente ANTES do UPDATE.
+    await assertAvailabilityOwnerAuthorityActive(tenantId, existing.ownerType, existing.ownerId);
 
     // 🔴 BLINDAGEM: Atualizar disponibilidade (trigger previne sobreposição)
     return await unifiedAvailabilityRepository.updateAvailability(tenantId, availabilityId, input);

@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## DT-AVAILABILITY-WRITE-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA_PENDING (F-AVAILABILITY-WRITE-QUARANTINE-GATE, 2026-06-25)
+
+- **Achado (READ-FIRST F-AUTHORITY-QUARANTINE-ACTION-COVERAGE, 3ª fatia):** writers de `availability` (SSOT temporal, owner authority POLIMÓRFICA DECISION-0118) escreviam sem quarentena — só canRepresentActor inline nas rotas. Escopo correto = TODO writer vivo, não só declareAvailability. Chokepoint de write = unifiedAvailabilityService.create/updateAvailability (único caller do repository.create/update).
+- **CORRIGIDO (material pequena, money-free, sem migration, executa §4.8.4):** helper assertAvailabilityOwnerAuthorityActive (junto da policy) resolve authorityActorId via resolveAvailabilityOwner (nunca ownerId cru) + isActorEffectivelyBlocked → 403 ACTOR_EFFECTIVELY_BLOCKED, chamado em create (input.owner*) e update (existing.owner*) ANTES do write. canRepresentActor PURO; resolveAvailabilityOwnerAuthority (morto) intocado.
+- **Provas:** E2E 9/9 (owner=user e owner=group bloqueado→403; polimórfico resolve owner_actor_id≠groupId; update→403 janela intacta; sem INSERT; canRepresentActor TRUE; schedules sem write; Δbank=0) · guard availability-quarantine-gate (checked=5) + negative-proof 5/5 · regression EXIT 0 (availability-owner-authority CLOSED=26 + booking-provider-conflict não regrediram).
+- **DEFERRED (cobertura de quarentena incremental):** service-booking-decision · service create/edit/disable · payment-method · purchase-order/supplier · social-post-intent · events/RFQ. NÃO meter quarentena em canRepresentActor. Dinheiro/PORTA-1 = HOLD.
+
 ## DT-COMPANY-ACTIVATION-QUARANTINE-GAP — ✅ CLOSED / MATERIAL / YALA PASS (F-COMPANY-OPERATIONAL-ACTIVATION-QUARANTINE-GATE, 2026-06-25)
 
 - **Achado (READ-FIRST F-AUTHORITY-QUARANTINE-ACTION-COVERAGE):** `activateCompanyOperationally` (companies.service) tornava empresa operacional gateado só por canManageCompany (rota), SEM quarentena → actor institucional bloqueado podia ativar empresa. Non-money. 2ª fatia da cobertura de quarentena (após capability-grant).

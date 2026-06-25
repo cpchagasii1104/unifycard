@@ -17,6 +17,7 @@
 
 import { runQueryWithTenant } from '../database/pool';
 import { authorizationService } from '../authorization/authorization.service';
+import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import { AvailabilityOwnerType } from './unified-availability.types';
 
 export class AvailabilityOwnerAuthorityError extends Error {
@@ -173,4 +174,24 @@ export async function resolveAvailabilityOwnerAuthority(input: {
       'Sem autoridade sobre o recurso owner desta availability (authority actor não representável).');
   }
   return owner;
+}
+
+/**
+ * 🔴 F-AVAILABILITY-WRITE-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA do owner temporal.
+ * Resolve o `authorityActorId` POLIMÓRFICO (resolveAvailabilityOwner — NUNCA o ownerId cru) e recusa fail-closed
+ * se ele (ou sua âncora humana, via cascata de isActorEffectivelyBlocked) está efetivamente bloqueado.
+ * Representação (canRepresentActor, na rota) prova que o sujeito pode VESTIR o owner; isto prova que a autoridade
+ * está ATIVA. Chamar ANTES de qualquer INSERT/UPDATE em `availability` (chokepoint = service create/update).
+ * NÃO toca canRepresentActor (que segue puro). 403 ACTOR_EFFECTIVELY_BLOCKED.
+ */
+export async function assertAvailabilityOwnerAuthorityActive(
+  tenantId: string,
+  ownerType: string,
+  ownerId: string
+): Promise<void> {
+  const owner = await resolveAvailabilityOwner(tenantId, ownerType, ownerId);
+  if (await isActorEffectivelyBlocked(tenantId, owner.authorityActorId)) {
+    throw new AvailabilityOwnerAuthorityError(403, 'ACTOR_EFFECTIVELY_BLOCKED',
+      'Autoridade do owner temporal em quarentena (actor ou âncora humana bloqueada) — escrita de availability bloqueada (§4.8.4).');
+  }
 }
