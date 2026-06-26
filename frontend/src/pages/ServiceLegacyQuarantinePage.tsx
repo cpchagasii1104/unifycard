@@ -9,14 +9,22 @@
 // Esta página é o TERMINAL HONESTO das rotas legadas de criação direta / System-A:
 //   - /service-orders/new   (antiga CreateServiceOrderPage, formulário de criação direta)
 //   - /booking-requests     (antiga ServiceBookingRequestsPage, lista System-A)
+//   - /services/:id/bookings (antiga ServiceBookingsPage, gestão/cancelamento direto de reserva)
 // Ela NÃO cria ordem, NÃO faz POST, NÃO navega para /service-orders/new, NÃO reabre o 403.
 // Apenas explica a lei e oferece CTAs canônicos conforme a persona do actor ativo.
+//
+// F-SERVICE-BOOKING-ORPHAN-SURFACE-QUARANTINE (2026-06-26): a variante 'bookings-manage'
+// quarentena /services/:id/bookings. O writer daquela página (updateServiceBooking →
+// PUT /services/:serviceId/bookings/:bookingId) bate em rota INEXISTENTE no backend (404):
+// não há writer vivo concorrente, apenas uma superfície oca alcançável. O cancel canônico
+// vive no core (/availability/bookings/:id) e as reservas pendentes vivem na Central do
+// prestador (fluxo de decisão). Esta página NÃO chama listServiceBooking/updateServiceBooking.
 
 import { useNavigate } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import './ServiceLegacyQuarantinePage.css';
 
-type QuarantineVariant = 'order-create' | 'booking-requests';
+type QuarantineVariant = 'order-create' | 'booking-requests' | 'bookings-manage';
 
 interface ServiceLegacyQuarantinePageProps {
   variant: QuarantineVariant;
@@ -34,6 +42,13 @@ const COPY: Record<QuarantineVariant, { title: string; lead: string }> = {
     lead:
       'A lista de solicitações de reserva foi unificada na Central do prestador. ' +
       'É lá que você decide cada reserva (aceitar ou recusar) — e a ordem de serviço nasce do aceite.',
+  },
+  'bookings-manage': {
+    title: 'A gestão direta de reservas foi encerrada',
+    lead:
+      'Esta tela antiga listava e cancelava reservas por um caminho que o backend não oferece mais. ' +
+      'As reservas agora seguem o fluxo canônico: o cliente reserva uma oferta e você decide cada ' +
+      'reserva pendente na Central do prestador — onde o aceite gera a ordem de serviço automaticamente.',
   },
 };
 

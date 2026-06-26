@@ -67,7 +67,12 @@ import OrganizationUnitsPage from './pages/OrganizationUnitsPage'; // Organizati
 // disco (compatibilidade interna), import removido para manter o typecheck limpo (noUnusedLocals).
 import ServiceDetailPage from './pages/ServiceDetailPage'; // Services MVP
 import ServiceAvailabilityPage from './pages/ServiceAvailabilityPage'; // Services MVP
-import ServiceBookingsPage from './pages/ServiceBookingsPage'; // Services MVP
+// F-SERVICE-BOOKING-ORPHAN-SURFACE-QUARANTINE (2026-06-26): ServiceBookingsPage deixou de
+// renderizar /services/:id/bookings (superfície órfã/oca: chamava PUT /services/:serviceId/
+// bookings/:bookingId, rota inexistente → 404). Rota passa a render terminal honesto
+// (ServiceLegacyQuarantinePage variant="bookings-manage"). Arquivo preservado órfão em disco;
+// client api/service-bookings.ts preservado (usado por modais de eventos/RFQ). Import removido
+// para manter o typecheck limpo (noUnusedLocals).
 import GroupTimelinePage from './pages/GroupTimelinePage'; // Groups MVP
 import GroupVotesPage from './pages/GroupVotesPage'; // Groups MVP
 import GroupVoteDetailPage from './pages/GroupVoteDetailPage'; // Groups MVP
@@ -352,7 +357,12 @@ function AppContent() {
           <Route path="services/new" element={<ServiceCreatePage />} />
           <Route path="services/:id" element={<ServiceDetailPage />} />
           <Route path="services/:id/availability" element={<ServiceAvailabilityPage />} />
-          <Route path="services/:id/bookings" element={<ServiceBookingsPage />} />
+          {/* F-SERVICE-BOOKING-ORPHAN-SURFACE-QUARANTINE (2026-06-26): /services/:id/bookings era
+              uma superfície ÓRFÃ/OCA — listava e "cancelava" reservas via rota backend inexistente
+              (PUT /services/:serviceId/bookings/:bookingId → 404). NÃO é writer vivo concorrente.
+              Vira terminal honesto: orienta para /services (Central do prestador) e o fluxo canônico
+              de decisão. O cancel canônico vive no core (/availability/bookings/:id) — intocado. */}
+          <Route path="services/:id/bookings" element={<ServiceLegacyQuarantinePage variant="bookings-manage" />} />
           {/* F-MVP-SERVICE-CHAIN-UX-DEAD-END-SWEEP (2026-06-26): lista System-A unificada na
               Central do prestador (/provider/services). Rota legada vira terminal honesto. */}
           <Route path="booking-requests" element={<ServiceLegacyQuarantinePage variant="booking-requests" />} />

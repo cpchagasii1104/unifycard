@@ -145,12 +145,9 @@ export default function ServiceDetailPage() {
             >
               Disponibilidade
             </button>
-            <button
-              onClick={() => navigate(`/services/${service.id}/bookings`)}
-              className="btn-action"
-            >
-              Reservas
-            </button>
+            {/* F-SERVICE-BOOKING-ORPHAN-SURFACE-QUARANTINE (2026-06-26): CTA "Reservas" removido —
+                levava a /services/:id/bookings (superfície órfã/oca, writer em rota 404). As reservas
+                pendentes vivem na Central do prestador (/services) pelo fluxo canônico de decisão. */}
           </div>
         </div>
       </div>
