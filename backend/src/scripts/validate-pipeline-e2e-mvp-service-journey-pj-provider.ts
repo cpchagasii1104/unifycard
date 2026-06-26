@@ -14,14 +14,14 @@
  *   offering DRAFT → ATIVAÇÃO via GATE PJ REAL (publicação + empresa operacional + KYB approved — NÃO bypass)
  *   → availability (owner='service_offering') → booking requested (consumidor) → decision ACCEPTED
  *   (page-actor, dono soberano) → service_order via confirmBookingFromDecision (settlement_flow='none')
- *   → my-orders (consumidor) + service-orders worker view (empresa/page-actor) → atendimento mínimo (inbox test-only).
+ *   → my-orders (consumidor) + service-orders worker view (empresa/page-actor) → atendimento mínimo (inbox AUTO-EMITIDO, sem test-only).
  *
  * Actor-first: consumidor é actor_type='user'; o operador da empresa é o PAGE-ACTOR (actor da empresa), e a
  * autoridade do humano sobre ele deriva de company_users (membership owner), NUNCA de referral/user_id/actorId-do-cliente.
  * Semântica: UM concept_id (seedado, governado, ∈ company_type_allowed_concepts) atravessa ativação → publicação →
  * canonical_service → declaração-via-publicação → gate de ativação da offering. CNAE/company_type sugere, não autoriza.
  * TEMPO: availability/bookings (zero schedules/schedule_slots). FINANCEIRO: settlement_flow='none'; Δbank=0; flags off.
- * POST /service-orders direto continua 403. CRM/evidence/invoicing FORA; auto-emit inbox = patch futuro. Dinheiro HOLD.
+ * POST /service-orders direto continua 403. CRM/evidence/invoicing FORA; inbox AUTO-EMITIDO (money/CRM-free). Dinheiro HOLD.
  */
 import 'tsconfig-paths/register';
 import Fastify from 'fastify';
@@ -40,7 +40,6 @@ import { BookingDecisionStatus } from '../modules/services/service-booking-decis
 import { serviceOrderService } from '../modules/services/service-order.service';
 import { serviceOrderRepository } from '../modules/services/service-order.repository';
 import { socialInboxService } from '../modules/inbox/social-inbox.service';
-import { socialInboxRepository } from '../modules/inbox/social-inbox.repository';
 import { InboxSourceType } from '../modules/inbox/social-inbox.types';
 import serviceOrderRoutes from '../modules/services/service-order.routes';
 
@@ -265,10 +264,20 @@ async function main(): Promise<void> {
   const companyOrders = await serviceOrderRepository.listOrders(TENANT_ID, { workerActorId: pageActor.actor_id, limit: 1000 });
   record('G7b service-orders worker view retorna a ordem para a EMPRESA/page-actor', companyOrders.some((o) => o.id === order.id), `itens=${companyOrders.length}`);
 
-  // ── atendimento mínimo: inbox item TEST-ONLY p/ o page-actor (auto-emit = patch futuro) ──
-  await socialInboxRepository.upsert(TENANT_ID, pageActor.actor_id, InboxSourceType.BOOKING, order.id, { origin: 'e2e-test-only', orderId: order.id });
+  // ── atendimento mínimo: inbox AUTO-EMITIDO no nascimento da service_order p/ o page-actor (F-SERVICE-ORDER-INBOX-AUTO-EMIT) ──
+  // SEM insert test-only: o item nasce DENTRO de confirmBookingFromDecision (read-model do provider/worker = empresa/page-actor).
   const inbox = await socialInboxService.getInboxItems(TENANT_ID, pageActor.actor_id);
-  record('G7c atendimento mínimo: inbox-read retorna o item test-only para o page-actor', inbox.some((i) => i.sourceId === order.id && i.sourceType === InboxSourceType.BOOKING), `itens=${inbox.length}`);
+  const orderItem = inbox.find((i) => i.sourceId === order.id && i.sourceType === InboxSourceType.ORDER);
+  record('G7c atendimento mínimo: inbox AUTO-EMITIDO (sourceType=ORDER, sourceId=order.id) para o page-actor',
+    !!orderItem, `itens=${inbox.length} effect=${orderItem?.metadata?.effectType}`);
+  record('G7d inbox auto-emitido é canônico (effectType=SERVICE_ORDER_CONFIRMED, NÃO e2e-test-only)',
+    !!orderItem && orderItem.metadata?.effectType === 'SERVICE_ORDER_CONFIRMED' && orderItem.metadata?.origin !== 'e2e-test-only');
+  // Idempotência por referência: reprojetar o MESMO nascimento NÃO duplica (ON CONFLICT actor_id+source_type+source_id).
+  const { socialInboxProjector } = await import('../modules/inbox/social-inbox.projector');
+  await socialInboxProjector.projectServiceOrderConfirmed(TENANT_ID, { serviceOrderId: order.id, providerActorId: pageActor.actor_id, bookingId: booking.bookingId, decisionId: decision.decisionId, serviceId: service.serviceId });
+  const inboxAfter = await socialInboxService.getInboxItems(TENANT_ID, pageActor.actor_id);
+  const orderItems = inboxAfter.filter((i) => i.sourceId === order.id && i.sourceType === InboxSourceType.ORDER);
+  record('G7e idempotência: reprojetar o mesmo service_order NÃO duplica inbox (exatamente 1 item ORDER)', orderItems.length === 1, `itens_order=${orderItems.length}`);
 
   // ── CONTENÇÃO — POST /service-orders direto continua 403 ──
   {

@@ -13,6 +13,7 @@ export enum InboxSourceType {
   DISPATCH = 'dispatch',  // Oportunidade despachada
   BOOKING = 'booking',    // Booking solicitado
   DECISION = 'decision',  // Decisão de booking
+  ORDER = 'order',        // Service order confirmada (atendimento mínimo — read-model derivado do nascimento da ordem)
   PAYMENT = 'payment',    // Pagamento solicitado/executado
   AVAILABILITY_CONFLICT = 'availability_conflict', // Conflito de disponibilidade detectado (alerta, não bloqueio)
 }

@@ -13,7 +13,7 @@
  *   availability (owner='service_offering') → booking 'requested' (consumidor) →
  *   decision ACCEPTED (operador, dono soberano) → service_order via confirmBookingFromDecision
  *   (settlement_flow='none') → my-orders (consumidor) + service-orders worker (operador) →
- *   atendimento mínimo via inbox item test-only.
+ *   atendimento mínimo via inbox AUTO-EMITIDO no nascimento da service_order (read-model, sem test-only).
  *
  * Actor-first: MESMO actor_type='user' para consumidor e operador; a distinção é por PAPEL/CONTEXTO
  * (quem declara/decide a oferta = operação; quem requisita = consumo), nunca por hardcode/tipo paralelo.
@@ -23,7 +23,7 @@
  * PJ provider (publicação + KYB + empresa operacional) fica para o próximo cenário (ver relatório).
  *
  * NÃO toca dinheiro/payout/ledger; settlement_flow='none'; Δbank=0; flags financeiras off; workers off.
- * POST /service-orders direto continua 403. CRM/evidence/invoicing FORA (auto-emit de inbox = patch futuro).
+ * POST /service-orders direto continua 403. CRM/evidence/invoicing FORA. Inbox AUTO-EMITIDO (money/CRM-free).
  */
 import 'tsconfig-paths/register';
 import Fastify from 'fastify';
@@ -41,7 +41,6 @@ import { BookingDecisionStatus } from '../modules/services/service-booking-decis
 import { serviceOrderService } from '../modules/services/service-order.service';
 import { serviceOrderRepository } from '../modules/services/service-order.repository';
 import { socialInboxService } from '../modules/inbox/social-inbox.service';
-import { socialInboxRepository } from '../modules/inbox/social-inbox.repository';
 import { InboxSourceType } from '../modules/inbox/social-inbox.types';
 import serviceOrderRoutes from '../modules/services/service-order.routes';
 
@@ -231,11 +230,20 @@ async function main(): Promise<void> {
   const operatorSees = operatorOrders.some((o) => o.id === order.id);
   record('H2 service-orders worker view retorna a ordem para o OPERADOR (provider view)', operatorSees, `itens=${operatorOrders.length}`);
 
-  // ── HANDOFF-6 — atendimento mínimo: inbox item TEST-ONLY (auto-emit no nascimento da ordem = patch futuro) ──
-  await socialInboxRepository.upsert(TENANT_ID, operator.actorId, InboxSourceType.BOOKING, order.id, { origin: 'e2e-test-only', orderId: order.id });
+  // ── HANDOFF-6 — atendimento mínimo: inbox AUTO-EMITIDO no nascimento da service_order (F-SERVICE-ORDER-INBOX-AUTO-EMIT) ──
+  // SEM insert test-only: o item nasce DENTRO de confirmBookingFromDecision (read-model do provider/worker).
   const inbox = await socialInboxService.getInboxItems(TENANT_ID, operator.actorId);
-  const inboxSees = inbox.some((i) => i.sourceId === order.id && i.sourceType === InboxSourceType.BOOKING);
-  record('I atendimento mínimo: inbox-read retorna o item test-only para o operador', inboxSees, `itens=${inbox.length}`);
+  const orderItem = inbox.find((i) => i.sourceId === order.id && i.sourceType === InboxSourceType.ORDER);
+  record('I atendimento mínimo: inbox AUTO-EMITIDO (sourceType=ORDER, sourceId=order.id) para o operador/provider',
+    !!orderItem, `itens=${inbox.length} effect=${orderItem?.metadata?.effectType}`);
+  record('I2 inbox auto-emitido é canônico (effectType=SERVICE_ORDER_CONFIRMED, NÃO e2e-test-only)',
+    !!orderItem && orderItem.metadata?.effectType === 'SERVICE_ORDER_CONFIRMED' && orderItem.metadata?.origin !== 'e2e-test-only');
+  // Idempotência por referência: reprojetar o MESMO nascimento NÃO duplica (ON CONFLICT actor_id+source_type+source_id).
+  const { socialInboxProjector } = await import('../modules/inbox/social-inbox.projector');
+  await socialInboxProjector.projectServiceOrderConfirmed(TENANT_ID, { serviceOrderId: order.id, providerActorId: operator.actorId, bookingId: booking.bookingId, decisionId: decision.decisionId, serviceId: service.serviceId });
+  const inboxAfter = await socialInboxService.getInboxItems(TENANT_ID, operator.actorId);
+  const orderItems = inboxAfter.filter((i) => i.sourceId === order.id && i.sourceType === InboxSourceType.ORDER);
+  record('I3 idempotência: reprojetar o mesmo service_order NÃO duplica inbox (exatamente 1 item ORDER)', orderItems.length === 1, `itens_order=${orderItems.length}`);
 
   // ── CONTENÇÃO — POST /service-orders direto continua 403 (companion) ──
   {

@@ -133,6 +133,56 @@ class SocialInboxProjector {
       });
     }
   }
+  /**
+   * Projeta o item de inbox do NASCIMENTO de uma service_order confirmada.
+   * 🔴 BLINDAGEM: Inbox é READ MODEL — a ordem JÁ existe (efeito = nascimento da service_order);
+   * este projector apenas ORGANIZA o que já aconteceu, NÃO decide nada e NÃO cria ação.
+   * 🔴 BLINDAGEM: NADA financeiro entra no item — sem amount/price/split/payment; sem CRM
+   * (agreements/evidence/invoice). Destinatário = provider/worker (atendimento mínimo).
+   * Idempotente por design: socialInboxRepository.upsert usa ON CONFLICT (actor_id, source_type, source_id)
+   * → reprocessar o mesmo service_order NÃO duplica o item.
+   */
+  async projectServiceOrderConfirmed(
+    tenantId: string,
+    params: {
+      serviceOrderId: string;
+      providerActorId: string;
+      bookingId?: string | null;
+      decisionId?: string | null;
+      serviceId?: string | null;
+    }
+  ): Promise<void> {
+    const { serviceOrderId, providerActorId, bookingId, decisionId, serviceId } = params;
+    if (!serviceOrderId || !providerActorId) {
+      return; // dados incompletos: não cria item
+    }
+    try {
+      await socialInboxRepository.upsert(
+        tenantId,
+        providerActorId,
+        InboxSourceType.ORDER,
+        serviceOrderId,
+        {
+          effectType: 'SERVICE_ORDER_CONFIRMED',
+          serviceOrderId,
+          ...(bookingId != null && { bookingId }),
+          ...(decisionId != null && { decisionId }),
+          ...(serviceId != null && { serviceId }),
+        }
+      );
+    } catch (error) {
+      // 🔴 BLINDAGEM: não quebra o fluxo principal se a projeção do read-model falhar.
+      const { structuredLogger } = await import('@core/utils/structured-logger');
+      structuredLogger.logInboxProjection('error', 'Erro ao projetar inbox de service_order (não crítico)', {
+        tenantId,
+        actorId: providerActorId,
+        effectType: 'SERVICE_ORDER_CONFIRMED',
+        sourceType: InboxSourceType.ORDER,
+        sourceId: serviceOrderId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 }
 
 export const socialInboxProjector = new SocialInboxProjector();

@@ -1632,6 +1632,24 @@ class ServiceOrderService {
     // 🔴 CORREÇÃO FASE 1B: Removida criação de calendar event (agenda paralela proibida)
     // Service order não cria agenda própria, apenas referencia Unified Availability via booking
 
+    // 12.5. 🔵 AUTO-EMIT INBOX (read-model) — F-SERVICE-ORDER-INBOX-AUTO-EMIT
+    // A service_order JÁ nasceu (efeito canônico). O inbox é READ MODEL: organiza o que já aconteceu,
+    // dando ao PROVIDER/worker o item de "atendimento mínimo" sem depender de seed/test-only.
+    // Writer canônico = socialInboxProjector (módulo inbox), idempotente por ON CONFLICT. Money/CRM-free.
+    // Não-bloqueante: falha de projeção não impede o nascimento da ordem (mesma postura do audit).
+    try {
+      const { socialInboxProjector } = await import('@modules/inbox/social-inbox.projector');
+      await socialInboxProjector.projectServiceOrderConfirmed(tenantId, {
+        serviceOrderId: confirmedOrder.id,
+        providerActorId: owner.authorityActorId, // provider SOBERANO (dono da availability)
+        bookingId: booking.bookingId,
+        decisionId: decision.decisionId,
+        serviceId: bookingServiceId,
+      });
+    } catch (inboxError) {
+      console.warn('[ServiceOrder] Erro ao auto-emitir inbox (não bloqueante):', inboxError);
+    }
+
     // 13. Registrar auditoria (sistema antigo)
     await this.recordAudit(tenantId, {
       eventType: 'SERVICE_ORDER_CREATED_FROM_BOOKING',
