@@ -19,11 +19,18 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
   // actor. Espelha a regra que o write já usa (`buyer-confirm`: `order.customerActorId === buyerActorId`).
   // `:id` na URL é ENDEREÇO, não autorização. fail-closed → 403 não-leak (uniforme com ordem inexistente).
   // NÃO toca os writes (handlers separados; write-spoof fica em DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF).
+  // 🔴 F-OPERATOR-SERVICE-ORDER-VIEW-GRANT: a LEITURA operacional (GET :id) aceita autoridade ADITIVA —
+  // owner/`canRepresentActor` OU grant ATIVO `service_order:view` escopado ao actor-parte. O grant é
+  // resolvido no SERVICE layer (`serviceOrderService.canViewOrderForParty`); a rota NUNCA chama
+  // `hasCapabilityGrant`/importa o grant service (enforcement vive no service — guard grants-nonfinancial §4).
+  // Opt-in via `opts.allowViewGrant`: SÓ o read operacional liga o fallback. `financial-terms` NÃO liga →
+  // permanece PARTE-representável estrita (grant NÃO estende visão financeira). Money-free de ponta a ponta.
   const assertOrderParty = async (
     req: any,
     reply: any,
     tenantId: string,
-    order: { customerActorId?: string; workerActorId?: string } | null
+    order: { customerActorId?: string; workerActorId?: string } | null,
+    opts?: { allowViewGrant?: boolean }
   ): Promise<boolean> => {
     const userId = req.user?.userId as string | undefined;
     const actorId = req.actionContext?.actorId as string | undefined;
@@ -40,14 +47,20 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
       reply.status(403).send({ error: 'Ordem não acessível' });
       return false;
     }
-    let canRepresent = false;
+    let authorized = false;
     try {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      canRepresent = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+      if (opts?.allowViewGrant) {
+        // read operacional: owner/representação OU grant service_order:view escopado ao actor-parte.
+        authorized = await serviceOrderService.canViewOrderForParty(tenantId, userId, actorId);
+      } else {
+        // estrito (financial-terms): SÓ parte representável; grant não participa da visão financeira.
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        authorized = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+      }
     } catch {
-      canRepresent = false;
+      authorized = false;
     }
-    if (!canRepresent) {
+    if (!authorized) {
       reply.status(403).send({ error: 'Actor não representável pelo usuário autenticado' });
       return false;
     }
@@ -209,15 +222,16 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
         error: 'Listagem exige filtrar por workerActorId ou customerActorId que você representa',
       });
     }
-    const { authorizationService } = await import('@core/authorization/authorization.service');
+    // 🔴 F-OPERATOR-SERVICE-ORDER-VIEW-GRANT: cada filtro de parte deve ser representável OU coberto por grant
+    // ATIVO service_order:view escopado àquela parte (autoridade ADITIVA, resolvida no SERVICE layer).
     for (const partyId of partyFilters) {
-      let canRepresent = false;
+      let authorized = false;
       try {
-        canRepresent = await authorizationService.canRepresentActor(tenantId, userId, partyId);
+        authorized = await serviceOrderService.canViewOrderForParty(tenantId, userId, partyId);
       } catch {
-        canRepresent = false;
+        authorized = false;
       }
-      if (!canRepresent) {
+      if (!authorized) {
         return reply.status(403).send({ error: 'Sem autoridade sobre o actor filtrado' });
       }
     }
@@ -235,8 +249,9 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     const { id } = req.params;
 
     const order = await serviceOrderService.getOrderById(tenantId, id);
-    // 🔴 F6.5.6a: só parte legítima (customer/worker) representável lê a ordem. Ordem inexistente → 403 não-leak.
-    if (!(await assertOrderParty(req, reply, tenantId, order))) return reply;
+    // 🔴 F6.5.6a + F-OPERATOR-SERVICE-ORDER-VIEW-GRANT: parte legítima (customer/worker) representável OU
+    // operador com grant service_order:view escopado à parte lê a ordem (allowViewGrant). Inexistente → 403 não-leak.
+    if (!(await assertOrderParty(req, reply, tenantId, order, { allowViewGrant: true }))) return reply;
 
     return order;
   });

@@ -1267,6 +1267,42 @@ class ServiceOrderService {
     return await serviceOrderRepository.getOrderById(tenantId, orderId);
   }
 
+  /**
+   * 🔴 F-OPERATOR-SERVICE-ORDER-VIEW-GRANT — autoridade de LEITURA operacional de ordem de serviço,
+   * resolvida no SERVICE layer (enforcement de capability NÃO vive em rota — guard
+   * audit-actor-capability-grants-nonfinancial §4). Compõe, ADITIVO e FAIL-CLOSED:
+   *   (A) canRepresentActor(user, partyActor)  — owner/representação nativa preservada; OU
+   *   (B) o PRÓPRIO actor do caller (ensureUserActor) tem grant ATIVO 'service_order:view'
+   *       ESCOPADO ao partyActor (provider/worker da ordem).
+   * É SÓ leitura: não concede write/status/start/complete/cancel, não vira represent global, não toca
+   * dinheiro. `partyActorId` é parte da ordem, resolvido server-side (nunca actionContext cru / referral /
+   * role visual). Match de capability EXATO. Revogação remove acesso (findActive → null → false).
+   */
+  async canViewOrderForParty(tenantId: string, userId: string, partyActorId: string): Promise<boolean> {
+    if (!tenantId || !userId || !partyActorId) return false;
+    let canRepresent = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      canRepresent = await authorizationService.canRepresentActor(tenantId, userId, partyActorId);
+    } catch {
+      canRepresent = false;
+    }
+    if (canRepresent) return true;
+    try {
+      const { ensureUserActor } = await import('@modules/identity/actor-writer.service');
+      const { actorCapabilityGrantService } = await import('@modules/authority/actor-capability-grant.service');
+      const grantee = await ensureUserActor(tenantId, userId);
+      return await actorCapabilityGrantService.hasCapabilityGrant(
+        tenantId,
+        grantee.actor_id,
+        'service_order:view',
+        partyActorId
+      );
+    } catch {
+      return false;
+    }
+  }
+
   // ============================================================
   // MÉTODOS PRIVADOS
   // ============================================================

@@ -9,6 +9,9 @@ export const NON_FINANCIAL_CAPABILITY_ALLOWLIST = [
   'services:create',
   'services:edit',
   'services:disable',
+  // 🔴 F-OPERATOR-SERVICE-ORDER-VIEW-GRANT — LEITURA operacional de ordem de serviço (não-financeira).
+  // Espelha o CHECK chk_acg_capability_nonfinancial (migration 20260626120000) e permission-keys.ts.
+  'service_order:view',
 ] as const;
 
 export type GrantableCapabilityKey = (typeof NON_FINANCIAL_CAPABILITY_ALLOWLIST)[number];
