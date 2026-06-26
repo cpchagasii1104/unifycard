@@ -9,6 +9,7 @@
 // o provider da oferta); o 409 BOOKING_PROVIDER_TIME_CONFLICT recebe UX honesta. SEM dinheiro/checkout.
 
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getOfferingsByCanonical, isProviderTimeConflict, type ServiceOffering } from '../api/offerings';
 import { listAvailabilities, createBooking, confirmBooking, type UnifiedAvailability } from '../api/availability';
 import { waitForActorContext } from '../api/client';
@@ -36,6 +37,10 @@ export default function ServiceOfferingSelector({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Pós-reserva do cliente: oferece acompanhamento na área de ordens já existente.
+  // NÃO cria ordem nem chama endpoint financeiro — só projeta um atalho de navegação honesto.
+  const [booked, setBooked] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let alive = true;
@@ -85,6 +90,7 @@ export default function ServiceOfferingSelector({
     setBusy(true);
     setError(null);
     setNotice(null);
+    setBooked(false);
     try {
       const booking = await createBooking({
         availabilityId: slot.availabilityId,
@@ -97,6 +103,7 @@ export default function ServiceOfferingSelector({
         try {
           await confirmBooking(booking.bookingId);
           setNotice('Reserva confirmada.');
+          setBooked(true);
         } catch (e) {
           if (isProviderTimeConflict(e)) {
             setError('Horário indisponível: já existe um compromisso confirmado deste prestador nesse intervalo.');
@@ -106,6 +113,7 @@ export default function ServiceOfferingSelector({
         }
       } else {
         setNotice('Solicitação de reserva enviada — aguardando confirmação do prestador.');
+        setBooked(true);
       }
     } catch (e) {
       if (isProviderTimeConflict(e)) {
@@ -161,6 +169,11 @@ export default function ServiceOfferingSelector({
       )}
 
       {notice && <p role="status" className="offering-notice">{notice}</p>}
+      {booked && (
+        <button type="button" className="offering-track-cta" onClick={() => navigate('/service-orders')}>
+          Acompanhar pedido
+        </button>
+      )}
       {error && <p role="alert" className="offering-error">{error}</p>}
     </div>
   );

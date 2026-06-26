@@ -41,7 +41,8 @@ export default function ServiceCreatePage() {
       setResults(data);
       if (data.length === 0) setError('Nenhum serviço canônico encontrado para esse termo.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao buscar serviços canônicos');
+      console.error('[ServiceCreate] erro ao buscar serviços canônicos:', err);
+      setError(err instanceof Error ? err.message : 'Não foi possível buscar serviços canônicos. Tente novamente.');
     } finally {
       setSearching(false);
     }
@@ -114,7 +115,8 @@ export default function ServiceCreatePage() {
       showToast('Serviço publicado com oferta e agenda.', 'success');
       navigate(`/discover/services/${service.id}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao publicar serviço';
+      console.error('[ServiceCreate] erro ao publicar serviço:', err);
+      const message = err instanceof Error ? err.message : 'Não foi possível publicar o serviço. Tente novamente.';
       setError(message);
       showToast(message, 'error');
     } finally {

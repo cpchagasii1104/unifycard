@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getServiceForDiscovery, type DiscoveredService } from '../api/service-discovery';
+import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
 import ServiceSetupSelector from '../components/compatibility/ServiceSetupSelector';
 import ServiceOfferingSelector from '../components/ServiceOfferingSelector';
@@ -20,6 +21,7 @@ export default function ServiceDiscoveryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { activeActor } = useActiveActor();
   const [service, setService] = useState<DiscoveredService | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,16 +152,19 @@ export default function ServiceDiscoveryDetailPage() {
     return new Date(dateString).toLocaleString('pt-BR');
   };
 
+  // Caminho de EVENTO (frente de eventos — fora do escopo desta polish): abre o modal de
+  // compatibilidade. NÃO navega mais para /service-orders/new pela jornada de serviço:
+  // a reserva canônica nasce pelo ServiceOfferingSelector (POST /service-orders direto = 403).
   const handleRequestContact = () => {
-    // Se há contexto de evento e setups, mostrar modal de compatibilidade
     if (eventId && eventCapacity && venueInfrastructure && serviceSetups.length > 0) {
       setShowCompatibilityModal(true);
-    } else {
-      // Navegar para criação de service order
-      if (service?.serviceId) {
-        navigate(`/service-orders/new?serviceId=${service.serviceId}`);
-      }
     }
+  };
+
+  // CTA canônico: leva o cliente à seção de ofertas (reserva real), sem rota de criação direta de ordem.
+  const handleScheduleCanonical = () => {
+    showToast('Escolha uma oferta e um horário na seção "Ofertas disponíveis" para agendar.', 'info');
+    document.getElementById('canonical-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleCompatibilityConfirm = (setupId: string, compatibility: CompatibilityResult) => {
@@ -208,6 +213,17 @@ export default function ServiceDiscoveryDetailPage() {
         <button onClick={() => navigate('/discover/services')}>← Voltar</button>
         <h1>{service.name}</h1>
       </div>
+
+      {/* Costura frontend: o dono do serviço chega à Central do prestador (hub) a partir
+          da própria vitrine. Projeção — não concede autoridade (revalidada no backend). */}
+      {activeActor && service.actorId === activeActor.actor_id && (
+        <div className="owner-stitch">
+          <span>Este serviço é seu.</span>
+          <button className="stitch-link" onClick={() => navigate('/provider/services')}>
+            Gerenciar na Central do prestador →
+          </button>
+        </div>
+      )}
 
       <div className="service-detail-content">
         <div className="service-main">
@@ -262,10 +278,12 @@ export default function ServiceDiscoveryDetailPage() {
 
           {/* B2 / F-OFFER: ofertas contratáveis (active-only) + jornada de reserva pré-dinheiro */}
           {service.canonicalServiceId && (
-            <ServiceOfferingSelector
-              canonicalServiceId={service.canonicalServiceId}
-              serviceId={service.serviceId}
-            />
+            <div id="canonical-offers">
+              <ServiceOfferingSelector
+                canonicalServiceId={service.canonicalServiceId}
+                serviceId={service.serviceId}
+              />
+            </div>
           )}
 
           {/* Resumo de Disponibilidade */}
@@ -314,11 +332,26 @@ export default function ServiceDiscoveryDetailPage() {
             <button onClick={handleViewAvailability} className="btn-primary">
               Ver Disponibilidade Completa
             </button>
-            <button onClick={handleRequestContact} className="btn-secondary">
-              {eventId && eventCapacity && venueInfrastructure && serviceSetups.length > 0
-                ? 'Verificar Compatibilidade e Solicitar'
-                : 'Solicitar Contato'}
-            </button>
+            {/* CTA legado "Solicitar Contato" CONTIDO: na jornada de serviço o agendamento é
+                pela seção de ofertas (reserva canônica). O caminho de evento (compatibilidade)
+                permanece como feature própria, fora desta polish. */}
+            {eventId && eventCapacity && venueInfrastructure && serviceSetups.length > 0 ? (
+              <button onClick={handleRequestContact} className="btn-secondary">
+                Verificar Compatibilidade e Solicitar
+              </button>
+            ) : service.canonicalServiceId ? (
+              <button onClick={handleScheduleCanonical} className="btn-secondary">
+                Agendar pelo fluxo de reserva
+              </button>
+            ) : (
+              <button
+                className="btn-secondary"
+                disabled
+                title="Agendamento online indisponível para este serviço no momento."
+              >
+                Agendamento indisponível
+              </button>
+            )}
           </div>
         </div>
       </div>

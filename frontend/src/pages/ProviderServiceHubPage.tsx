@@ -15,6 +15,7 @@ import { listActorServices, type Service } from '../api/services';
 import { getOfferingsByCanonical } from '../api/offerings';
 import { listAvailabilities, listBookings, type UnifiedBooking } from '../api/availability';
 import { getOrderInbox, type InboxItem } from '../api/inbox';
+import { shortId } from '../utils/service-orders-helpers';
 import './ProviderServiceHubPage.css';
 
 interface PendingBooking {
@@ -81,7 +82,8 @@ export default function ProviderServiceHubPage() {
       const items = await getOrderInbox(actorId);
       setInbox(items.filter((i) => i.status !== 'archived'));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao carregar a central do prestador';
+      console.error('[ProviderServiceHub] erro ao carregar central do prestador:', err);
+      const message = err instanceof Error ? err.message : 'Não foi possível carregar a central do prestador. Tente atualizar.';
       setError(message);
       showToast(message, 'error');
     } finally {
@@ -144,7 +146,9 @@ export default function ProviderServiceHubPage() {
                 <div className="pending-info">
                   <strong>{row.serviceName}</strong>
                   <span>{fmtDt(row.startDatetime)} → {fmtDt(row.endDatetime)}</span>
-                  <span className="muted">solicitante: {row.booking.requesterActorId}</span>
+                  <span className="muted" title={row.booking.requesterActorId}>
+                    solicitante: {shortId(row.booking.requesterActorId)}
+                  </span>
                 </div>
                 <button className="btn-primary" onClick={() => goDecide(row)}>Decidir</button>
               </li>
@@ -166,7 +170,10 @@ export default function ProviderServiceHubPage() {
             {inbox.map((item) => (
               <li key={item.inboxItemId} className={`inbox-row ${item.status === 'unread' ? 'unread' : ''}`}>
                 <div className="inbox-info">
-                  <strong>Ordem de serviço confirmada</strong>
+                  <strong>
+                    Ordem de serviço confirmada
+                    {item.status === 'unread' && <span className="badge-unread">novo</span>}
+                  </strong>
                   <span className="muted">{fmtDt(item.createdAt)}</span>
                 </div>
                 <button className="btn-secondary" onClick={() => navigate(`/service-orders/${item.sourceId}`)}>

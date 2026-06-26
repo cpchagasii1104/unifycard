@@ -75,6 +75,15 @@ export function formatEntityDisplay(id: string, name: string | null | undefined)
 }
 
 /**
+ * Id curto para projeção amigável na UI. O UUID completo permanece disponível
+ * (title/console) — aqui só encurtamos a exibição. NÃO altera payload nem semântica.
+ */
+export function shortId(id: string | null | undefined): string {
+  if (!id) return '—';
+  return id.length > 8 ? `#${id.substring(0, 8)}` : `#${id}`;
+}
+
+/**
  * Limpa cache (útil para testes ou refresh)
  */
 export function clearCache(): void {

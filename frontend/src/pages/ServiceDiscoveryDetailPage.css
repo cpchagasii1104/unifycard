@@ -200,3 +200,56 @@
   cursor: pointer;
 }
 
+/* Costura frontend p/ a Central do prestador (dono do serviço) — projeção, não autoridade. */
+.service-discovery-detail-page .owner-stitch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: #1e40af;
+  font-size: 0.9rem;
+}
+.service-discovery-detail-page .stitch-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.9rem;
+}
+
+/* CTA pós-reserva do cliente (acompanhar pedido) — atalho de navegação honesto. */
+.service-discovery-detail-page .offering-track-cta {
+  margin-top: 0.75rem;
+  padding: 0.6rem 1.1rem;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.service-discovery-detail-page .btn-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .service-discovery-detail-page {
+    padding: 1rem;
+  }
+  .service-discovery-detail-page .service-actions {
+    flex-wrap: wrap;
+  }
+  .service-discovery-detail-page .page-header {
+    flex-wrap: wrap;
+  }
+}
+

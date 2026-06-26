@@ -69,7 +69,8 @@ export default function ServiceOrdersPage() {
       const data = await listServiceOrders(filters);
       setOrders(data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao carregar ordens';
+      console.error('[ServiceOrders] erro ao carregar ordens:', err);
+      const message = err instanceof Error ? err.message : 'Não foi possível carregar as ordens. Tente novamente.';
       setError(message);
       showToast(message, 'error');
     } finally {
@@ -170,18 +171,33 @@ export default function ServiceOrdersPage() {
       <div className="page-header">
         <div>
           <h1>Ordens de Serviço</h1>
+          {activeActor && (
+            <p className="acting-as">
+              Operando como: <strong>{activeActor.display_name}</strong>
+            </p>
+          )}
           {activeActor?.actor_type === 'page' && pendingCount > 0 && (
             <span className="pending-badge">
               {pendingCount} {pendingCount === 1 ? 'ordem pendente' : 'ordens pendentes'}
             </span>
           )}
         </div>
-        <button 
-          className="btn-primary"
-          onClick={() => navigate('/service-orders/new')}
-        >
-          Nova Ordem
-        </button>
+        <div className="header-actions">
+          {activeActor?.actor_type === 'page' && (
+            <button
+              className="btn-secondary"
+              onClick={() => navigate('/provider/services')}
+            >
+              Central do prestador
+            </button>
+          )}
+          <button
+            className="btn-primary"
+            onClick={() => navigate('/service-orders/new')}
+          >
+            Nova Ordem
+          </button>
+        </div>
       </div>
 
       <div className="filters">
@@ -202,6 +218,15 @@ export default function ServiceOrdersPage() {
       {orders.length === 0 ? (
         <div className="empty-state">
           <p>Nenhuma ordem encontrada.</p>
+          {activeActor?.actor_type === 'page' ? (
+            <button className="btn-secondary" onClick={() => navigate('/provider/services')}>
+              Ir para a Central do prestador
+            </button>
+          ) : (
+            <button className="btn-secondary" onClick={() => navigate('/discover/services')}>
+              Explorar serviços
+            </button>
+          )}
         </div>
       ) : (
         <div className="orders-list">

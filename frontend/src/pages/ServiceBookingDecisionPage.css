@@ -21,7 +21,29 @@
   padding: 1rem 1.25rem;
   margin-bottom: 1.25rem;
   line-height: 1.7;
-  word-break: break-all;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.booking-decision-page .deep-link-notice {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.booking-decision-page .deep-link-notice p {
+  margin: 0 0 0.85rem;
+  color: #1e40af;
+  line-height: 1.5;
+}
+.booking-decision-page .btn-primary {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.95rem;
+  cursor: pointer;
 }
 .booking-decision-page .reject-reason {
   display: block;
@@ -45,6 +67,18 @@
 .booking-decision-page .decision-actions {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+.booking-decision-page .page-header {
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .booking-decision-page {
+    padding: 1rem;
+  }
+  .booking-decision-page .decision-actions button {
+    flex: 1 1 auto;
+  }
 }
 .booking-decision-page .btn-accept {
   background: #1a7f37;

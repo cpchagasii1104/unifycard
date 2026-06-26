@@ -13,6 +13,7 @@ import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
 import { createBookingDecision } from '../api/service-booking-decisions';
 import { confirmBookingFromDecision } from '../api/service-orders';
+import { shortId } from '../utils/service-orders-helpers';
 import './ServiceBookingDecisionPage.css';
 
 interface DecisionNavState {
@@ -34,6 +35,11 @@ export default function ServiceBookingDecisionPage() {
   const [busy, setBusy] = useState<'accept' | 'reject' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Deep-link sem contexto: a decisão depende do serviço da reserva, que a Central do
+  // prestador conhece (nav-state). Sem ele NÃO resolvemos autoridade pela URL — orientamos
+  // o usuário gentilmente de volta à Central, onde a reserva é aberta com contexto.
+  const missingContext = !nav.serviceId;
+
   const fmtDt = (iso?: string) => (iso ? new Date(iso).toLocaleString('pt-BR') : null);
 
   const guard = (): { serviceId: string; actorId: string } | null => {
@@ -47,7 +53,7 @@ export default function ServiceBookingDecisionPage() {
       return null;
     }
     if (!nav.serviceId) {
-      setError('Abra esta decisão pela Central do prestador (serviço da reserva não informado).');
+      setError('Para decidir, abra a reserva pela Central do prestador — assim trazemos o serviço vinculado.');
       return null;
     }
     return { serviceId: nav.serviceId, actorId: activeActor.actor_id };
@@ -68,7 +74,8 @@ export default function ServiceBookingDecisionPage() {
       const orderId = (order as { id?: string })?.id;
       navigate(orderId ? `/service-orders/${orderId}` : '/service-orders');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao aceitar reserva';
+      console.error('[BookingDecision] erro ao aceitar reserva:', err);
+      const message = err instanceof Error ? err.message : 'Não foi possível aceitar a reserva. Tente novamente.';
       setError(message);
       showToast(message, 'error');
     } finally {
@@ -90,7 +97,8 @@ export default function ServiceBookingDecisionPage() {
       showToast('Reserva recusada.', 'info');
       navigate('/provider/services');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao recusar reserva';
+      console.error('[BookingDecision] erro ao recusar reserva:', err);
+      const message = err instanceof Error ? err.message : 'Não foi possível recusar a reserva. Tente novamente.';
       setError(message);
       showToast(message, 'error');
     } finally {
@@ -111,30 +119,52 @@ export default function ServiceBookingDecisionPage() {
         Decidindo como: <strong>{activeActor ? activeActor.display_name : '— sem perfil —'}</strong>
       </p>
 
-      <div className="booking-card">
-        <div><strong>Reserva:</strong> {bookingId}</div>
-        {nav.serviceName && <div><strong>Serviço:</strong> {nav.serviceName}</div>}
-        {nav.requesterActorId && <div><strong>Solicitante:</strong> {nav.requesterActorId}</div>}
-        {fmtDt(nav.startDatetime) && (
-          <div><strong>Horário:</strong> {fmtDt(nav.startDatetime)}{nav.endDatetime ? ` → ${fmtDt(nav.endDatetime)}` : ''}</div>
-        )}
-      </div>
+      {missingContext ? (
+        <div className="deep-link-notice" role="status">
+          <p>
+            Esta decisão precisa ser aberta pela <strong>Central do prestador</strong> — é lá que a
+            reserva carrega o serviço vinculado. Abra a reserva por lá para aceitar ou recusar.
+          </p>
+          <button className="btn-primary" onClick={() => navigate('/provider/services')}>
+            Ir para a Central do prestador
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="booking-card">
+            <div>
+              <strong>Reserva:</strong>{' '}
+              <span title={bookingId}>{shortId(bookingId)}</span>
+            </div>
+            {nav.serviceName && <div><strong>Serviço:</strong> {nav.serviceName}</div>}
+            {nav.requesterActorId && (
+              <div>
+                <strong>Solicitante:</strong>{' '}
+                <span title={nav.requesterActorId}>{shortId(nav.requesterActorId)}</span>
+              </div>
+            )}
+            {fmtDt(nav.startDatetime) && (
+              <div><strong>Horário:</strong> {fmtDt(nav.startDatetime)}{nav.endDatetime ? ` → ${fmtDt(nav.endDatetime)}` : ''}</div>
+            )}
+          </div>
 
-      <label className="reject-reason">
-        Motivo (opcional, usado se recusar)
-        <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
-      </label>
+          <label className="reject-reason">
+            Motivo (opcional, usado se recusar)
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
+          </label>
 
-      {error && <p className="form-error" role="alert">{error}</p>}
+          {error && <p className="form-error" role="alert">{error}</p>}
 
-      <div className="decision-actions">
-        <button className="btn-accept" onClick={handleAccept} disabled={busy !== null}>
-          {busy === 'accept' ? 'Aceitando…' : 'Aceitar e criar ordem'}
-        </button>
-        <button className="btn-reject" onClick={handleReject} disabled={busy !== null}>
-          {busy === 'reject' ? 'Recusando…' : 'Recusar'}
-        </button>
-      </div>
+          <div className="decision-actions">
+            <button className="btn-accept" onClick={handleAccept} disabled={busy !== null}>
+              {busy === 'accept' ? 'Aceitando…' : 'Aceitar e criar ordem'}
+            </button>
+            <button className="btn-reject" onClick={handleReject} disabled={busy !== null}>
+              {busy === 'reject' ? 'Recusando…' : 'Recusar'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

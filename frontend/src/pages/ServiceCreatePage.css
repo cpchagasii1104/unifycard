@@ -9,6 +9,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 .service-create-page .acting-as {
   color: #555;
@@ -96,9 +97,19 @@
 .service-create-page .form-row {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 .service-create-page .form-row label {
-  flex: 1;
+  flex: 1 1 12rem;
+}
+@media (max-width: 600px) {
+  .service-create-page {
+    padding: 1rem;
+  }
+  .service-create-page section,
+  .service-create-page .offer-form {
+    padding: 1rem;
+  }
 }
 .service-create-page .form-error {
   color: #b91c1c;
