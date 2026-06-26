@@ -198,9 +198,17 @@ export default function ProviderServiceHubPage() {
                   <strong>{svc.name}</strong>
                   <span className={`status-pill status-${svc.status}`}>{svc.status}</span>
                 </div>
-                <button className="btn-link" onClick={() => navigate(`/discover/services/${svc.id}`)}>
-                  ver vitrine →
-                </button>
+                {/* F-MVP-SERVICE-CHAIN-PROVIDER-SURFACE-CONSOLIDATION (2026-06-26): porta de
+                    gestão por serviço — a árvore /services/:id (detalhe → disponibilidade →
+                    reservas) é preservada como está, apenas alcançável daqui. */}
+                <div className="service-row-actions">
+                  <button className="btn-link" onClick={() => navigate(`/services/${svc.id}`)}>
+                    gerir →
+                  </button>
+                  <button className="btn-link" onClick={() => navigate(`/discover/services/${svc.id}`)}>
+                    ver vitrine →
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

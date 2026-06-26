@@ -129,7 +129,7 @@ export default function ServiceCreatePage() {
     <div className="service-create-page">
       <div className="page-header">
         <h1>Publicar serviço</h1>
-        <button className="btn-secondary" onClick={() => navigate('/provider/services')}>
+        <button className="btn-secondary" onClick={() => navigate('/services')}>
           Central do prestador
         </button>
       </div>

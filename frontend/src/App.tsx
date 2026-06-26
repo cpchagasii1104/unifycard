@@ -62,7 +62,9 @@ import OrganizationInvitePage from './pages/OrganizationInvitePage'; // Organiza
 import OrganizationInvitesPage from './pages/OrganizationInvitesPage'; // Organization MVP
 import OrganizationRolesPage from './pages/OrganizationRolesPage'; // Organization MVP
 import OrganizationUnitsPage from './pages/OrganizationUnitsPage'; // Organization MVP
-import ServicesListPage from './pages/ServicesListPage'; // Services MVP
+// F-MVP-SERVICE-CHAIN-PROVIDER-SURFACE-CONSOLIDATION (2026-06-26, opção B): ServicesListPage
+// deixou de ser a renderização da rota /services (agora é o hub). Arquivo preservado órfão em
+// disco (compatibilidade interna), import removido para manter o typecheck limpo (noUnusedLocals).
 import ServiceDetailPage from './pages/ServiceDetailPage'; // Services MVP
 import ServiceAvailabilityPage from './pages/ServiceAvailabilityPage'; // Services MVP
 import ServiceBookingsPage from './pages/ServiceBookingsPage'; // Services MVP
@@ -339,7 +341,13 @@ function AppContent() {
           {/* <Route path="organization/roles" element={<OrganizationRolesPage />} /> */}
           {/* <Route path="organization/units" element={<OrganizationUnitsPage />} /> */}
           {/* Services MVP */}
-          <Route path="services" element={<ServicesListPage />} />
+          {/* F-MVP-SERVICE-CHAIN-PROVIDER-SURFACE-CONSOLIDATION (2026-06-26, opção B):
+              /services é a rota GOVERNADA pelo menu (module-registry 'services') e pelos
+              catálogos de projeção — logo ELA absorve o hub operacional. /services passa a
+              renderizar a Central do prestador (ProviderServiceHubPage); /provider/services
+              vira alias/redirect compatível (abaixo). ServicesListPage fica órfã em disco.
+              NÃO tocamos menu/registry backend nem a árvore de gestão /services/:id/*. */}
+          <Route path="services" element={<ProviderServiceHubPage />} />
           {/* F-MVP-SERVICE-CHAIN GAP-1: publicar serviço/oferta/agenda (estática antes de :id) */}
           <Route path="services/new" element={<ServiceCreatePage />} />
           <Route path="services/:id" element={<ServiceDetailPage />} />
@@ -350,7 +358,10 @@ function AppContent() {
           <Route path="booking-requests" element={<ServiceLegacyQuarantinePage variant="booking-requests" />} />
           {/* F-MVP-SERVICE-CHAIN GAP-2/3/4: decisão canônica da reserva + central do prestador (member-as-company) */}
           <Route path="service-bookings/:bookingId/decision" element={<ServiceBookingDecisionPage />} />
-          <Route path="provider/services" element={<ProviderServiceHubPage />} />
+          {/* F-MVP-SERVICE-CHAIN-PROVIDER-SURFACE-CONSOLIDATION (2026-06-26): /provider/services
+              vira ALIAS/redirect compatível para /services (superfície soberana). Sem experiência
+              divergente, sem lógica duplicada; links antigos continuam funcionando. */}
+          <Route path="provider/services" element={<Navigate to="/services" replace />} />
           {/* Service Discovery MVP */}
           <Route path="discover/services" element={<ServiceDiscoveryPage />} />
           <Route path="discover/services/:id" element={<ServiceDiscoveryDetailPage />} />

@@ -190,7 +190,7 @@ export default function ServiceOrdersPage() {
             <>
               <button
                 className="btn-primary"
-                onClick={() => navigate('/provider/services')}
+                onClick={() => navigate('/services')}
               >
                 Central do prestador
               </button>
@@ -231,7 +231,7 @@ export default function ServiceOrdersPage() {
         <div className="empty-state">
           <p>Nenhuma ordem encontrada.</p>
           {activeActor?.actor_type === 'page' ? (
-            <button className="btn-secondary" onClick={() => navigate('/provider/services')}>
+            <button className="btn-secondary" onClick={() => navigate('/services')}>
               Ir para a Central do prestador
             </button>
           ) : (

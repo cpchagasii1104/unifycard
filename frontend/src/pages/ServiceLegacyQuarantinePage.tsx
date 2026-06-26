@@ -59,7 +59,7 @@ export default function ServiceLegacyQuarantinePage({ variant }: ServiceLegacyQu
         <div className="quarantine-actions">
           {isProvider ? (
             <>
-              <button className="btn-primary" onClick={() => navigate('/provider/services')}>
+              <button className="btn-primary" onClick={() => navigate('/services')}>
                 Ir para a Central do prestador
               </button>
               <button className="btn-secondary" onClick={() => navigate('/services/new')}>

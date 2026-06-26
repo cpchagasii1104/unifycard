@@ -64,6 +64,13 @@
 .provider-hub-page .service-row:first-child {
   border-top: none;
 }
+/* F-MVP-SERVICE-CHAIN-PROVIDER-SURFACE-CONSOLIDATION (2026-06-26): ações por serviço (gerir / vitrine) */
+.provider-hub-page .service-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
 .provider-hub-page .pending-info,
 .provider-hub-page .inbox-info,
 .provider-hub-page .service-info {

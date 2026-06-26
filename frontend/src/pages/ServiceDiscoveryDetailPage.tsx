@@ -220,7 +220,7 @@ export default function ServiceDiscoveryDetailPage() {
       {activeActor && service.actorId === activeActor.actor_id && (
         <div className="owner-stitch">
           <span>Este serviço é seu.</span>
-          <button className="stitch-link" onClick={() => navigate('/provider/services')}>
+          <button className="stitch-link" onClick={() => navigate('/services')}>
             Gerenciar na Central do prestador →
           </button>
         </div>

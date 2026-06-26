@@ -95,7 +95,7 @@ export default function ServiceBookingDecisionPage() {
         reason: reason.trim() || undefined,
       });
       showToast('Reserva recusada.', 'info');
-      navigate('/provider/services');
+      navigate('/services');
     } catch (err) {
       console.error('[BookingDecision] erro ao recusar reserva:', err);
       const message = err instanceof Error ? err.message : 'Não foi possível recusar a reserva. Tente novamente.';
@@ -110,7 +110,7 @@ export default function ServiceBookingDecisionPage() {
     <div className="booking-decision-page">
       <div className="page-header">
         <h1>Decisão da reserva</h1>
-        <button className="btn-secondary" onClick={() => navigate('/provider/services')}>
+        <button className="btn-secondary" onClick={() => navigate('/services')}>
           Voltar
         </button>
       </div>
@@ -125,7 +125,7 @@ export default function ServiceBookingDecisionPage() {
             Esta decisão precisa ser aberta pela <strong>Central do prestador</strong> — é lá que a
             reserva carrega o serviço vinculado. Abra a reserva por lá para aceitar ou recusar.
           </p>
-          <button className="btn-primary" onClick={() => navigate('/provider/services')}>
+          <button className="btn-primary" onClick={() => navigate('/services')}>
             Ir para a Central do prestador
           </button>
         </div>
