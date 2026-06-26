@@ -688,7 +688,18 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
       const globalUserId = await resolveGlobalUserId(actor.user_id, req.tenant.id);
 
-      const reputation = await reputationService.getScoreByGlobalUserId(globalUserId);
+      let reputation: Awaited<ReturnType<typeof reputationService.getScoreByGlobalUserId>> = null;
+      try {
+        reputation = await reputationService.getScoreByGlobalUserId(globalUserId);
+      } catch (repErr) {
+        // F-EVENTS-GHOST-CONTAINMENT: reputation_scores é GHOST no schema vivo (sem migration viva;
+        // ver DT-EVENTS-REPUTATION-SCORES-GHOST). CONTENÇÃO: não vazar 500 bruto por tabela ausente.
+        // 501 semântico = fonte de reputação não provisionada (decisão de modelo pendente). NÃO materializar.
+        if (typeof repErr === 'object' && repErr !== null && 'code' in repErr && (repErr as { code: string }).code === '42P01') {
+          return reply.status(501).send({ error: 'Reputação indisponível: fonte não provisionada', code: 'REPUTATION_SOURCE_UNAVAILABLE' });
+        }
+        throw repErr;
+      }
 
       if (!reputation) {
         return reply.status(404).send({ error: 'Reputação não encontrada' });

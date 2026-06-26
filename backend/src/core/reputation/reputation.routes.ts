@@ -17,13 +17,24 @@ const reputationRoutes: FastifyPluginAsync = async (fastify) => {
     Params: z.infer<typeof entityParamsSchema>;
   }>('/:entityType/:entityId', {
     preHandler: fastify.requirePermission(['reputation:read']),
-  }, async (req) => {
+  }, async (req, reply) => {
     // Validação manual com Zod
     const params = entityParamsSchema.parse(req.params);
     const tenantId = req.tenant!.id;
     const { entityType, entityId } = params;
 
-    const score = await reputationService.getScore(tenantId, entityType, entityId);
+    // F-EVENTS-GHOST-CONTAINMENT: reputation_scores é GHOST no schema vivo (sem migration viva;
+    // ver DT-EVENTS-REPUTATION-SCORES-GHOST). CONTENÇÃO: não vazar 500 bruto por tabela ausente.
+    // 501 semântico = fonte de reputação não provisionada (decisão de modelo pendente). NÃO materializar.
+    let score;
+    try {
+      score = await reputationService.getScore(tenantId, entityType, entityId);
+    } catch (err) {
+      if (typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === '42P01') {
+        return reply.status(501).send({ error: 'Reputação indisponível: fonte não provisionada', code: 'REPUTATION_SOURCE_UNAVAILABLE' });
+      }
+      throw err;
+    }
 
     return {
       entityType,

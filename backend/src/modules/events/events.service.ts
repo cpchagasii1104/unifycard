@@ -26,6 +26,13 @@ import { ensureUserActor } from '@modules/identity/actor-writer.service';
 import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
 import { HttpError } from '@core/errors/http-error';
 
+// F-EVENTS-GHOST-CONTAINMENT: relação ausente no schema vivo (Postgres 42P01).
+// reputation_scores e event_locations são GHOST (sem migration viva; vivem em migrations_archive).
+// Convenção do projeto (ver core/compliance/authority-decision.service.ts isMissingRelation).
+function isMissingRelation(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === '42P01';
+}
+
 type EventStatusForModule = 'draft' | 'published' | 'cancelled' | 'finished' | 'completed' | 'archived';
 
 function mapRowStatusToEventStatus(s: string | undefined): EventStatusForModule {
@@ -508,10 +515,17 @@ class EventsService {
       throw new Error('globalUserId é obrigatório');
     }
 
-    // Validar reputação mínima (exemplo: score >= 3.0)
-    const reputation = await reputationService.getScoreByGlobalUserId(globalUserId);
-    if (!reputation || reputation.scores.global < 3.0) {
-      throw new Error('Usuário não possui reputação suficiente para ser designado como staff');
+    // F-EVENTS-GHOST-CONTAINMENT: a "reputação mínima" era um gate aspiracional sobre reputation_scores,
+    // que é GHOST no schema vivo (nenhuma migration viva cria a tabela; ver DT-EVENTS-REPUTATION-SCORES-GHOST).
+    // CONTENÇÃO (decisão da direção 2026-06-25): a indisponibilidade da fonte (42P01) NÃO bloqueia a
+    // designação — o score mínimo fica DIFERIDO para a decisão futura de modelo de reputação. NÃO reintroduzir
+    // hard-fail aqui. As travas reais de assignStaff são: autorização, quarentena ATL (acima), actor resolution
+    // e schema actor-keyed (abaixo). NÃO materializar reputation_scores nem migrar para actor_reputation (social).
+    try {
+      await reputationService.getScoreByGlobalUserId(globalUserId);
+    } catch (err) {
+      if (!isMissingRelation(err)) throw err;
+      // reputation_scores ausente — segue sem o gate aspiracional (contenção, não materialização).
     }
 
     // Verificar se já está designado
@@ -684,17 +698,28 @@ class EventsService {
       [eventId]
     );
 
-    // Buscar locais
-    const locationsRows = await runQueriesWithTenant<EventLocationRow>(
-      tenantId,
-      `
-      SELECT id, event_id, name, capacity, created_at, updated_at
-      FROM event_locations
-      WHERE event_id = $1
-      ORDER BY name ASC
-      `,
-      [eventId]
-    );
+    // Buscar locais — F-EVENTS-GHOST-CONTAINMENT: event_locations é GHOST no schema vivo (nenhuma migration
+    // viva cria a tabela; ver DT-EVENTS-LOCATIONS-GHOST). CONTENÇÃO (decisão da direção 2026-06-25): se a
+    // relação estiver ausente (42P01) o método NÃO crasha — locations=[]. O campo EventWithDetails.locations é
+    // opcional, então [] preserva o contrato. NÃO materializar event_locations nem mesclar com
+    // address_assignments aqui — o modelo de localização (sala interna vs endereço) é decisão futura.
+    let locationsRows: EventLocationRow[] = [];
+    try {
+      locationsRows = await runQueriesWithTenant<EventLocationRow>(
+        tenantId,
+        `
+        SELECT id, event_id, name, capacity, created_at, updated_at
+        FROM event_locations
+        WHERE event_id = $1
+        ORDER BY name ASC
+        `,
+        [eventId]
+      );
+    } catch (err) {
+      if (!isMissingRelation(err)) throw err;
+      // event_locations ausente — contenção: locations=[] (não materializar).
+      locationsRows = [];
+    }
 
     // Buscar staff
     const staffRows = await runQueriesWithTenant<EventStaffRow>(
