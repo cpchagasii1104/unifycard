@@ -174,10 +174,11 @@ export default function ServiceDiscoveryDetailPage() {
       return;
     }
 
-    // Navegar para criação de service order com setup selecionado
-    if (service?.serviceId) {
-      navigate(`/service-orders/new?serviceId=${service.serviceId}&setupId=${setupId}`);
-    }
+    // F-MVP-SERVICE-CHAIN-UX-DEAD-END-SWEEP (2026-06-26): NÃO navega mais para a criação direta
+    // de ordem (/service-orders/new encerrada). O caminho de EVENTO (RFQ/compatibilidade) é uma
+    // frente própria ainda não ligada à jornada de serviço — estado honesto, sem dead-end.
+    void setupId;
+    showToast('Contratação por evento ainda não está disponível por aqui — em breve.', 'info');
     setShowCompatibilityModal(false);
   };
 

@@ -3,7 +3,6 @@
 // SPRINT: Eventos Assistidos
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import './EventNeedsList.css';
 
 export interface EventNeed {
@@ -22,7 +21,6 @@ export interface EventNeedsListProps {
 }
 
 export default function EventNeedsList({ needs, onUpdate, canEdit = true, eventId }: EventNeedsListProps) {
-  const navigate = useNavigate();
   const [isAdding, setIsAdding] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -53,14 +51,12 @@ export default function EventNeedsList({ needs, onUpdate, canEdit = true, eventI
     setIsAdding(false);
   };
 
-  const handleCreateServiceOrder = (need: EventNeed) => {
-    if (!eventId) {
-      alert('ID do evento não disponível');
-      return;
-    }
-
-    // Navegar para criar Service Order com informações da necessidade
-    navigate(`/service-orders/new?eventId=${eventId}&needId=${need.id}&needCategory=${encodeURIComponent(need.category)}&needDescription=${encodeURIComponent(need.description || '')}`);
+  // F-MVP-SERVICE-CHAIN-UX-DEAD-END-SWEEP (2026-06-26): a criação direta de ordem foi encerrada
+  // (/service-orders/new é terminal honesto; POST /service-orders direto = 403). Atender uma
+  // necessidade de evento via RFQ/serviço é frente própria, ainda não ligada — estado honesto,
+  // sem navegar para dead-end.
+  const handleCreateServiceOrder = (_need: EventNeed) => {
+    alert('Atender necessidades do evento por serviço ainda não está disponível — em breve.');
   };
 
   if (needs.length === 0 && !isAdding) {

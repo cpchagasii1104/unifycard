@@ -55,7 +55,7 @@ import CrmPage from './pages/CrmPage'; // SPRINT 88
 import CrmContactDetailPage from './pages/CrmContactDetailPage'; // SPRINT 88
 import ServiceOrdersPage from './pages/ServiceOrdersPage'; // SPRINT 68
 import ServiceOrderDetailPage from './pages/ServiceOrderDetailPage'; // SPRINT 68
-import CreateServiceOrderPage from './pages/CreateServiceOrderPage'; // SPRINT 68
+import ServiceLegacyQuarantinePage from './pages/ServiceLegacyQuarantinePage'; // F-MVP-SERVICE-CHAIN-UX-DEAD-END-SWEEP (substitui CreateServiceOrderPage como rota viva)
 import CalendarPage from './pages/CalendarPage'; // SPRINT 68
 import OrganizationMembersPage from './pages/OrganizationMembersPage'; // Organization MVP
 import OrganizationInvitePage from './pages/OrganizationInvitePage'; // Organization MVP
@@ -66,7 +66,6 @@ import ServicesListPage from './pages/ServicesListPage'; // Services MVP
 import ServiceDetailPage from './pages/ServiceDetailPage'; // Services MVP
 import ServiceAvailabilityPage from './pages/ServiceAvailabilityPage'; // Services MVP
 import ServiceBookingsPage from './pages/ServiceBookingsPage'; // Services MVP
-import ServiceBookingRequestsPage from './pages/ServiceBookingRequestsPage'; // Visão do Prestador
 import GroupTimelinePage from './pages/GroupTimelinePage'; // Groups MVP
 import GroupVotesPage from './pages/GroupVotesPage'; // Groups MVP
 import GroupVoteDetailPage from './pages/GroupVoteDetailPage'; // Groups MVP
@@ -312,7 +311,10 @@ function AppContent() {
           <Route path="crm" element={<CrmPage />} />
           {/* SPRINT 68: Service Orders + Agenda */}
           <Route path="service-orders" element={<ServiceOrdersPage />} />
-          <Route path="service-orders/new" element={<CreateServiceOrderPage />} />
+          {/* F-MVP-SERVICE-CHAIN-UX-DEAD-END-SWEEP (2026-06-26): criação direta de ordem ENCERRADA.
+              A ordem nasce só pelo fluxo canônico (reserva → aceite → confirmBookingFromDecision).
+              Rota legada vira terminal honesto (quarentena), NÃO formulário de criação direta. */}
+          <Route path="service-orders/new" element={<ServiceLegacyQuarantinePage variant="order-create" />} />
           <Route path="service-orders/:id" element={<ServiceOrderDetailPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="crm/contacts/:id" element={<CrmContactDetailPage />} />
@@ -343,7 +345,9 @@ function AppContent() {
           <Route path="services/:id" element={<ServiceDetailPage />} />
           <Route path="services/:id/availability" element={<ServiceAvailabilityPage />} />
           <Route path="services/:id/bookings" element={<ServiceBookingsPage />} />
-          <Route path="booking-requests" element={<ServiceBookingRequestsPage />} />
+          {/* F-MVP-SERVICE-CHAIN-UX-DEAD-END-SWEEP (2026-06-26): lista System-A unificada na
+              Central do prestador (/provider/services). Rota legada vira terminal honesto. */}
+          <Route path="booking-requests" element={<ServiceLegacyQuarantinePage variant="booking-requests" />} />
           {/* F-MVP-SERVICE-CHAIN GAP-2/3/4: decisão canônica da reserva + central do prestador (member-as-company) */}
           <Route path="service-bookings/:bookingId/decision" element={<ServiceBookingDecisionPage />} />
           <Route path="provider/services" element={<ProviderServiceHubPage />} />

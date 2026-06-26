@@ -182,21 +182,33 @@ export default function ServiceOrdersPage() {
             </span>
           )}
         </div>
+        {/* F-MVP-SERVICE-CHAIN-UX-DEAD-END-SWEEP (2026-06-26): a ordem nasce só pelo fluxo canônico
+            (reserva → aceite). CTA legado "Nova Ordem" (criação direta) REMOVIDO; aqui só atalhos
+            canônicos por persona. Prestador opera pela Central; cliente reserva pela descoberta. */}
         <div className="header-actions">
-          {activeActor?.actor_type === 'page' && (
+          {activeActor?.actor_type === 'page' ? (
+            <>
+              <button
+                className="btn-primary"
+                onClick={() => navigate('/provider/services')}
+              >
+                Central do prestador
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => navigate('/services/new')}
+              >
+                Publicar serviço
+              </button>
+            </>
+          ) : (
             <button
-              className="btn-secondary"
-              onClick={() => navigate('/provider/services')}
+              className="btn-primary"
+              onClick={() => navigate('/discover/services')}
             >
-              Central do prestador
+              Explorar serviços
             </button>
           )}
-          <button
-            className="btn-primary"
-            onClick={() => navigate('/service-orders/new')}
-          >
-            Nova Ordem
-          </button>
         </div>
       </div>
 
