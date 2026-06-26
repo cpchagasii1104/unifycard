@@ -30,12 +30,18 @@
 - **Provas:** E2E 15/15 (createEvent scope/acting bloqueado→403 sem linha em events; addSession/assignStaff/checkIn bloqueado→403; ativos passam o gate; canRep TRUE; Δbank=0; zero payment_intents/booking) · guard events-lifecycle-quarantine-gate (checked=6) + negative-proof 10/10 · regression EXIT 0.
 - **DEFERRED:** subfatia 2 (F-EVENT-RFQ-DECLARATIVE) · subfatia 3 (F-EVENT-RFQ-ACCEPTQUOTE-DISPATCH, money-adjacent). PORTA-1/dinheiro = HOLD.
 
-## DT-EVENTS-ASSIGNSTAFF-SESSIONREAD-SCHEMA-DRIFT — 🟠 OPEN / DESCOBERTO (resíduo da mesma classe, fora do escopo da fatia addSession/checkIn, 2026-06-25)
-- **Achado (READ-FIRST de F-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT):** mesma classe de drift em writers/readers não escopados:
-  - `assignStaff`: INSERT INTO event_staff omite `tenant_id` (NOT NULL) + `responsible_actor_id`/`responsible_actor_type` (NOT NULL). Schema vivo é actor-keyed (responsible_actor_id) — o código é global_user_id-keyed. Fix NÃO é rename trivial (exige resolver o actor do staff).
-  - `getEventWithDetails` (reader): SELECT em event_sessions usa `name/start_time/end_time` (schema vivo é title/starts_at/ends_at) → 42703 ao listar sessões.
-- **Por que não corrigido aqui:** a diretora escopou SÓ addSession/checkIn. assignStaff exige mudança semântica (actor-keyed), não cosmética; o reader é superfície separada.
-- **AÇÃO RECOMENDADA (fatia própria):** alinhar assignStaff (tenant_id + responsible_actor_id/type, resolvendo o actor) e o SELECT de getEventWithDetails (title/starts_at/ends_at AS aliases). Preservar gates de quarentena.
+## DT-EVENTS-REPUTATION-LOCATIONS-GHOST — 🟠 OPEN / DESCOBERTO (ghosts a montante bloqueiam o caminho ativo, 2026-06-25)
+- **Achado (E2E de F-EVENTS-ASSIGNSTAFF-SESSIONREAD-SCHEMA-DRIFT):** mesmo com o INSERT/SELECT alinhados ao schema vivo, o caminho ATIVO de assignStaff e getEventWithDetails não executa por ghosts a montante:
+  - `reputation_scores` é GHOST (to_regclass IS NULL; 42P01): assignStaff chama reputationService.getScoreByGlobalUserId ANTES do INSERT → crasha (gate-passthrough: ativo passa a quarentena e cai no ghost).
+  - `event_locations` é GHOST (42P01): getEventWithDetails crasha na query de event_locations DEPOIS da query de sessões (já fixada).
+- **Por que não corrigido aqui:** substrato/ghost, fora do escopo do alinhamento de colunas. O alinhamento de schema é estrutural e provado (guard + neg-proof); a execução ativa depende desses ghosts.
+- **AÇÃO RECOMENDADA (fatia própria, se Clayton quiser os fluxos vivos):** materializar reputation_scores + event_locations (migration/substrato) OU conter explicitamente. Decisão de produto: reputação de staff e locais de evento devem existir?
+
+## DT-EVENTS-ASSIGNSTAFF-SESSIONREAD-SCHEMA-DRIFT — ⚠️ CLOSED_WITH_REMAINDER / MATERIAL / YALA_PENDING (F-EVENTS-ASSIGNSTAFF-SESSIONREAD-SCHEMA-DRIFT, 2026-06-25)
+- **Achado (READ-FIRST):** assignStaff INSERT event_staff omitia tenant_id + responsible_actor_id + responsible_actor_type (actor-keyed); reader getEventWithDetails SELECT event_sessions usava name/start_time/end_time.
+- **CORRIGIDO ESTRUTURALMENTE (material pequena, money-free, sem migration):** assignStaff resolve o actor do staff via ensureUserActor (não global_user_id cru) e grava tenant_id/responsible_actor_id/responsible_actor_type; reader usa title AS name/starts_at AS start_time/ends_at AS end_time. Gate de quarentena (assigner) preservado ANTES do insert; canRep puro.
+- **Provas:** E2E 12/12 (reader de sessões fixado lê a sessão; assigner bloqueado→403 antes do insert; checkIn não regrediu; Δbank=0) · guard events-assignstaff-sessionread-schema-drift (checked=4) + negative-proof 10/10 · regression EXIT 0.
+- **⚠️ REMAINDER:** o caminho ATIVO não é funcional end-to-end — bloqueado por reputation_scores GHOST (assignStaff) e event_locations GHOST (getEventWithDetails) → DT-EVENTS-REPUTATION-LOCATIONS-GHOST (OPEN). NÃO vendido como funcional end-to-end.
 
 ## DT-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT — ⚠️ CLOSED_WITH_REMAINDER / MATERIAL / YALA PASS_WITH_REMAINDER (F-EVENTS-SESSION-CHECKIN-SCHEMA-DRIFT, 2026-06-25)
 - **YALA PASS_WITH_REMAINDER (reseal de `e45ca128`):** os WRITES addSession (tenant_id/title/starts_at/ends_at; RETURNING aliasado) e checkIn (tenant_id; checked_in_at preservado, NÃO check_in_time) foram corrigidos e funcionam (ativo OK; bloqueado→403 antes do insert; gates preservados; canRep puro; Δbank=0). MAS NÃO vende lifecycle 100% funcional — assignStaff (event_staff omite tenant_id/responsible_actor_id/responsible_actor_type, fix actor-keyed) e o reader getEventWithDetails (SELECT name/start_time/end_time) seguem com drift → DT-EVENTS-ASSIGNSTAFF-SESSIONREAD-SCHEMA-DRIFT (OPEN). A sessão é gravada certa mas ainda não plenamente legível pelo caminho de detalhes.

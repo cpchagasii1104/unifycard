@@ -530,14 +530,27 @@ class EventsService {
       throw new Error('Usuário já está designado como staff deste evento');
     }
 
+    // Schema vivo de event_staff é actor-keyed: tenant_id(NN) + responsible_actor_id(NN, FK actors) +
+    // responsible_actor_type(NN). Resolver o actor do staff designado pelo caminho canônico (ensureUserActor),
+    // NUNCA usar global_user_id cru como responsible_actor_id. (DT-EVENTS-ASSIGNSTAFF-SESSIONREAD-SCHEMA-DRIFT)
+    const staffUser = await runQueryWithTenant<{ user_id: string }>(
+      tenantId,
+      `SELECT user_id FROM users WHERE global_user_id = $1 AND tenant_id = $2 LIMIT 1`,
+      [globalUserId, tenantId]
+    );
+    if (!staffUser?.user_id) {
+      throw new Error('Staff designado não é usuário do tenant');
+    }
+    const staffActor = await ensureUserActor(tenantId, staffUser.user_id);
+
     const row = await runQueryWithTenant<EventStaffRow>(
       tenantId,
       `
-      INSERT INTO event_staff (event_id, global_user_id, role, assigned_by_global_user_id)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO event_staff (tenant_id, event_id, responsible_actor_id, responsible_actor_type, role, global_user_id, assigned_by_global_user_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, event_id, global_user_id, role, assigned_by_global_user_id, created_at
       `,
-      [eventId, globalUserId, input.role, assignedByGlobalUserId]
+      [tenantId, eventId, staffActor.actor_id, staffActor.actor_type, input.role, globalUserId, assignedByGlobalUserId]
     );
 
     if (!row) {
@@ -658,14 +671,15 @@ class EventsService {
       return null;
     }
 
-    // Buscar sessões
+    // Buscar sessões — schema vivo é title/starts_at/ends_at (sem created_at/updated_at); alias mantém
+    // EventSessionRow/toEventSession inalterados. (DT-EVENTS-ASSIGNSTAFF-SESSIONREAD-SCHEMA-DRIFT)
     const sessionsRows = await runQueriesWithTenant<EventSessionRow>(
       tenantId,
       `
-      SELECT id, event_id, name, start_time, end_time, created_at, updated_at
+      SELECT id, event_id, title AS name, starts_at AS start_time, ends_at AS end_time, now() AS created_at, now() AS updated_at
       FROM event_sessions
       WHERE event_id = $1
-      ORDER BY start_time ASC
+      ORDER BY starts_at ASC
       `,
       [eventId]
     );
