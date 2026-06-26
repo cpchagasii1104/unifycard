@@ -262,7 +262,10 @@ export default function ServiceDiscoveryDetailPage() {
 
           {/* B2 / F-OFFER: ofertas contratáveis (active-only) + jornada de reserva pré-dinheiro */}
           {service.canonicalServiceId && (
-            <ServiceOfferingSelector canonicalServiceId={service.canonicalServiceId} />
+            <ServiceOfferingSelector
+              canonicalServiceId={service.canonicalServiceId}
+              serviceId={service.serviceId}
+            />
           )}
 
           {/* Resumo de Disponibilidade */}

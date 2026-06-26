@@ -1,0 +1,77 @@
+/* ServiceBookingDecisionPage.css — GAP-2 decisão canônica da reserva (member-as-company). Sem dinheiro. */
+.booking-decision-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+.booking-decision-page .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.booking-decision-page .acting-as {
+  color: #555;
+  margin: 0.25rem 0 1.25rem;
+}
+.booking-decision-page .booking-card {
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.7;
+  word-break: break-all;
+}
+.booking-decision-page .reject-reason {
+  display: block;
+  font-size: 0.9rem;
+  color: #333;
+  margin-bottom: 1.25rem;
+}
+.booking-decision-page textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.3rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+.booking-decision-page .form-error {
+  color: #b91c1c;
+}
+.booking-decision-page .decision-actions {
+  display: flex;
+  gap: 1rem;
+}
+.booking-decision-page .btn-accept {
+  background: #1a7f37;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.booking-decision-page .btn-reject {
+  background: #fff;
+  color: #b91c1c;
+  border: 1px solid #e5b4b4;
+  border-radius: 8px;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.booking-decision-page button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.booking-decision-page .btn-secondary {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}

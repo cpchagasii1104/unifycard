@@ -32,6 +32,56 @@ export async function getOfferingsByCanonical(canonicalServiceId: string): Promi
 }
 
 /**
+ * Cria uma oferta contratável para um service canônico (provider = actor ativo representando a empresa).
+ * POST /services/offerings → { ok, data: ServiceOffering, created }. Nasce DRAFT (criação ≠ ativação).
+ * O backend resolve o service_id soberano (actor+canonical) e exige req.user representar providerActorId.
+ */
+export async function createOffering(input: {
+  providerActorId: string;
+  canonicalServiceId: string;
+  priceCents: number;
+  durationMinutes: number;
+  companyId?: string | null;
+  professionalActorId?: string | null;
+  modality?: 'in_person' | 'remote' | 'home';
+}): Promise<ServiceOffering> {
+  const res = await apiFetchJson<{ ok: boolean; data: ServiceOffering; created?: boolean }>(
+    '/services/offerings',
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  if (!res?.ok || !res.data) throw new Error('Erro ao criar oferta');
+  return res.data;
+}
+
+/**
+ * Ativa a oferta (DRAFT → ACTIVE) — GATE de elegibilidade PJ é avaliado no backend (DECISION canônica).
+ * PUT /services/offerings/:offeringId { status:'active' } → { ok }.
+ */
+export async function activateOffering(offeringId: string): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'active' }),
+  });
+  if (!res?.ok) throw new Error('Erro ao ativar oferta');
+}
+
+/**
+ * Declara uma janela de disponibilidade física da oferta (owner=service_offering — SSOT temporal).
+ * POST /services/offerings/:offeringId/availability { startDatetime, endDatetime, capacity? } → { ok, data }.
+ */
+export async function declareOfferingAvailability(
+  offeringId: string,
+  input: { startDatetime: string; endDatetime: string; capacity?: number }
+): Promise<{ availabilityId?: string } & Record<string, any>> {
+  const res = await apiFetchJson<{ ok: boolean; data: Record<string, any> }>(
+    `/services/offerings/${offeringId}/availability`,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  if (!res?.ok || !res.data) throw new Error('Erro ao declarar disponibilidade da oferta');
+  return res.data;
+}
+
+/**
  * true se o erro for o conflito de horário por provider (DECISION-0146 / F-OFFER-5/6, HTTP 409
  * BOOKING_PROVIDER_TIME_CONFLICT). Usado para dar UX honesta específica em vez de erro genérico.
  */

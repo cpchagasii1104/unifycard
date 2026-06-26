@@ -1,0 +1,128 @@
+/* ProviderServiceHubPage.css — central do prestador (member-as-company). Sem dinheiro/console paralelo. */
+.provider-hub-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+.provider-hub-page .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.provider-hub-page .acting-as {
+  color: #555;
+  margin: 0.25rem 0 0;
+}
+.provider-hub-page .header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.provider-hub-page .hub-loading,
+.provider-hub-page .hub-empty {
+  color: #777;
+}
+.provider-hub-page .form-error {
+  color: #b91c1c;
+}
+.provider-hub-page .hub-section {
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  margin-top: 1.25rem;
+}
+.provider-hub-page .hub-section h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+.provider-hub-page .section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.provider-hub-page ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.provider-hub-page .pending-row,
+.provider-hub-page .inbox-row,
+.provider-hub-page .service-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid #f0f0f0;
+}
+.provider-hub-page .pending-row:first-child,
+.provider-hub-page .inbox-row:first-child,
+.provider-hub-page .service-row:first-child {
+  border-top: none;
+}
+.provider-hub-page .pending-info,
+.provider-hub-page .inbox-info,
+.provider-hub-page .service-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.provider-hub-page .service-info {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+}
+.provider-hub-page .muted {
+  color: #999;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+.provider-hub-page .inbox-row.unread strong::before {
+  content: '● ';
+  color: #2563eb;
+}
+.provider-hub-page .status-pill {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  text-transform: uppercase;
+}
+.provider-hub-page .status-active { background: #dcfce7; color: #166534; }
+.provider-hub-page .status-draft { background: #f3f4f6; color: #6b7280; }
+.provider-hub-page .status-paused { background: #fef3c7; color: #92400e; }
+.provider-hub-page .btn-primary {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.provider-hub-page .btn-secondary {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.provider-hub-page .btn-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+  white-space: nowrap;
+}
+.provider-hub-page button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

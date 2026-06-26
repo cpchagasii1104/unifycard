@@ -19,6 +19,8 @@ export interface Service {
   serviceType: ServiceType;
   status: ServiceStatus;
   categoryId: string | null;
+  // Backend mapeia services.canonical_service_id no DTO (services.repository) — chave p/ listar ofertas by-canonical.
+  canonicalServiceId: string | null;
   priceCents: number | null;
   currency: string | null;
   pricingType: PricingType | null;
@@ -39,6 +41,9 @@ export interface CreateServiceInput {
   shortDescription?: string | null;
   serviceType?: ServiceType;
   status?: ServiceStatus;
+  // Vínculo com o serviço CANÔNICO (catálogo governado). Backend aceita em createServiceSchema
+  // (z.string().uuid().nullable().optional()). É a chave que liga discovery → ofertas by-canonical.
+  canonicalServiceId?: string | null;
   categoryId?: string | null;
   priceCents?: number | null;
   currency?: string;

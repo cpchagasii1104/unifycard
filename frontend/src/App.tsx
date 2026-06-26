@@ -74,6 +74,9 @@ import GroupCampaignsPage from './pages/GroupCampaignsPage'; // Groups MVP
 import GroupCampaignDetailPage from './pages/GroupCampaignDetailPage'; // Groups MVP
 import ServiceDiscoveryPage from './pages/ServiceDiscoveryPage'; // Service Discovery MVP
 import ServiceDiscoveryDetailPage from './pages/ServiceDiscoveryDetailPage'; // Service Discovery MVP
+import ServiceCreatePage from './pages/ServiceCreatePage'; // F-MVP-SERVICE-CHAIN GAP-1
+import ServiceBookingDecisionPage from './pages/ServiceBookingDecisionPage'; // F-MVP-SERVICE-CHAIN GAP-2
+import ProviderServiceHubPage from './pages/ProviderServiceHubPage'; // F-MVP-SERVICE-CHAIN GAP-2/3/4 hub
 import SubscriptionsPage from './pages/SubscriptionsPage'; // SPRINT 87
 import VenuePublicPage from './pages/VenuePublicPage'; // SPRINT 92
 import TabPage from './pages/TabPage'; // SPRINT 92
@@ -335,10 +338,15 @@ function AppContent() {
           {/* <Route path="organization/units" element={<OrganizationUnitsPage />} /> */}
           {/* Services MVP */}
           <Route path="services" element={<ServicesListPage />} />
+          {/* F-MVP-SERVICE-CHAIN GAP-1: publicar serviço/oferta/agenda (estática antes de :id) */}
+          <Route path="services/new" element={<ServiceCreatePage />} />
           <Route path="services/:id" element={<ServiceDetailPage />} />
           <Route path="services/:id/availability" element={<ServiceAvailabilityPage />} />
           <Route path="services/:id/bookings" element={<ServiceBookingsPage />} />
           <Route path="booking-requests" element={<ServiceBookingRequestsPage />} />
+          {/* F-MVP-SERVICE-CHAIN GAP-2/3/4: decisão canônica da reserva + central do prestador (member-as-company) */}
+          <Route path="service-bookings/:bookingId/decision" element={<ServiceBookingDecisionPage />} />
+          <Route path="provider/services" element={<ProviderServiceHubPage />} />
           {/* Service Discovery MVP */}
           <Route path="discover/services" element={<ServiceDiscoveryPage />} />
           <Route path="discover/services/:id" element={<ServiceDiscoveryDetailPage />} />

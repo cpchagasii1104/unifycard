@@ -17,7 +17,17 @@ const fmtPrice = (cents: number) =>
   (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDt = (iso: string) => new Date(iso).toLocaleString('pt-BR');
 
-export default function ServiceOfferingSelector({ canonicalServiceId }: { canonicalServiceId: string }) {
+export default function ServiceOfferingSelector({
+  canonicalServiceId,
+  serviceId,
+}: {
+  canonicalServiceId: string;
+  // serviceId do serviço em tela (DiscoveredService.serviceId). Transportado para o booking como
+  // metadata.serviceId — é a HINT exigida por confirmBookingFromDecision p/ a reserva virar service_order
+  // (o backend valida que o serviço pertence ao dono soberano da disponibilidade — DECISION-0113). Sem ele,
+  // a reserva nasce mas NUNCA vira ordem. Opcional: discovery legado sem serviceId continua reservando.
+  serviceId?: string | null;
+}) {
   const [offerings, setOfferings] = useState<ServiceOffering[]>([]);
   const [selected, setSelected] = useState<ServiceOffering | null>(null);
   const [slots, setSlots] = useState<UnifiedAvailability[]>([]);
@@ -76,7 +86,12 @@ export default function ServiceOfferingSelector({ canonicalServiceId }: { canoni
     setError(null);
     setNotice(null);
     try {
-      const booking = await createBooking({ availabilityId: slot.availabilityId, requesterActorId: activeActorId });
+      const booking = await createBooking({
+        availabilityId: slot.availabilityId,
+        requesterActorId: activeActorId,
+        // metadata.serviceId é a ponte reserva→ordem (confirmBookingFromDecision exige). Só envia se houver.
+        ...(serviceId ? { metadata: { serviceId } } : {}),
+      });
       // confirm é OWNER-only: só o provider da oferta confirma. Para o cliente, fica 'requested'.
       if (activeActorId === selected.providerActorId) {
         try {

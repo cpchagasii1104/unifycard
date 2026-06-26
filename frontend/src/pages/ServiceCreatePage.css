@@ -1,0 +1,128 @@
+/* ServiceCreatePage.css — GAP-1 publicação da cadeia vendável (member-as-company). Sem dinheiro. */
+.service-create-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+.service-create-page .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.service-create-page .acting-as {
+  color: #555;
+  margin: 0.25rem 0 1.25rem;
+}
+.service-create-page section,
+.service-create-page .offer-form {
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.service-create-page h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+.service-create-page .search-row {
+  display: flex;
+  gap: 0.5rem;
+}
+.service-create-page .search-row input {
+  flex: 1;
+}
+.service-create-page input {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+.service-create-page .canonical-results {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.service-create-page .canonical-results li + li {
+  border-top: 1px solid #f0f0f0;
+}
+.service-create-page .canonical-results button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.service-create-page .canonical-results button:hover {
+  background: #f7f7f7;
+}
+.service-create-page .canonical-results .slug {
+  color: #999;
+  font-size: 0.85rem;
+}
+.service-create-page .canonical-chosen {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #1a7f37;
+  font-weight: 600;
+}
+.service-create-page .btn-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 400;
+  padding: 0;
+}
+.service-create-page label {
+  display: block;
+  font-size: 0.9rem;
+  color: #333;
+  margin-bottom: 0.75rem;
+}
+.service-create-page label input {
+  margin-top: 0.3rem;
+}
+.service-create-page .form-row {
+  display: flex;
+  gap: 1rem;
+}
+.service-create-page .form-row label {
+  flex: 1;
+}
+.service-create-page .form-error {
+  color: #b91c1c;
+}
+.service-create-page .form-step {
+  color: #2563eb;
+}
+.service-create-page .btn-primary {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.service-create-page .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.service-create-page .btn-secondary {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
