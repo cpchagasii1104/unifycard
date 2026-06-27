@@ -68,7 +68,7 @@ export default function ProviderServiceHubPage() {
             for (const b of bookings) {
               pendingRows.push({
                 booking: b,
-                serviceId: svc.id,
+                serviceId: svc.serviceId,
                 serviceName: svc.name,
                 startDatetime: av.startDatetime,
                 endDatetime: av.endDatetime,
@@ -194,7 +194,7 @@ export default function ProviderServiceHubPage() {
         ) : (
           <ul className="services-list">
             {services.map((svc) => (
-              <li key={svc.id} className="service-row">
+              <li key={svc.serviceId} className="service-row">
                 <div className="service-info">
                   <strong>{svc.name}</strong>
                   <span className={`status-pill status-${svc.status}`}>{svc.status}</span>
@@ -203,10 +203,10 @@ export default function ProviderServiceHubPage() {
                     gestão por serviço — a árvore /services/:id (detalhe → disponibilidade →
                     reservas) é preservada como está, apenas alcançável daqui. */}
                 <div className="service-row-actions">
-                  <button className="btn-link" onClick={() => navigate(`/services/${svc.id}`)}>
+                  <button className="btn-link" onClick={() => navigate(`/services/${svc.serviceId}`)}>
                     gerir →
                   </button>
-                  <button className="btn-link" onClick={() => navigate(`/discover/services/${svc.id}`)}>
+                  <button className="btn-link" onClick={() => navigate(`/discover/services/${svc.serviceId}`)}>
                     ver vitrine →
                   </button>
                 </div>

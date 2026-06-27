@@ -79,8 +79,8 @@ export default function ServiceBundleBookingModal({
       // Carregar disponibilidades de cada serviço
       const availabilitiesData: Record<string, ServiceAvailability[]> = {};
       for (const service of servicesData) {
-        const avails = await listServiceAvailabilities(service.id);
-        availabilitiesData[service.id] = avails;
+        const avails = await listServiceAvailabilities(service.serviceId);
+        availabilitiesData[service.serviceId] = avails;
       }
       setAvailabilities(availabilitiesData);
 
@@ -230,7 +230,7 @@ export default function ServiceBundleBookingModal({
                 <h3>Serviços do Bundle</h3>
                 <div className="services-list">
                   {services.map((service) => (
-                    <div key={service.id} className="service-item">
+                    <div key={service.serviceId} className="service-item">
                       <div className="service-info">
                         <h4>{service.name}</h4>
                         <p>{service.description || 'Sem descrição'}</p>
@@ -238,16 +238,16 @@ export default function ServiceBundleBookingModal({
                       <div className="availability-selector">
                         <label>Disponibilidade:</label>
                         <select
-                          value={selectedAvailabilities[service.id] || ''}
+                          value={selectedAvailabilities[service.serviceId] || ''}
                           onChange={(e) =>
                             setSelectedAvailabilities({
                               ...selectedAvailabilities,
-                              [service.id]: e.target.value,
+                              [service.serviceId]: e.target.value,
                             })
                           }
                         >
                           <option value="">Selecione...</option>
-                          {(availabilities[service.id] || []).map((avail) => (
+                          {(availabilities[service.serviceId] || []).map((avail) => (
                             <option key={avail.id} value={avail.id}>
                               {new Date(avail.startDatetime).toLocaleString('pt-BR')} -{' '}
                               {new Date(avail.endDatetime).toLocaleString('pt-BR')}
@@ -408,7 +408,7 @@ export default function ServiceBundleBookingModal({
           venueInfrastructure={venueInfrastructure || undefined}
           serviceSetups={firstServiceSetups}
           basePriceCents={services[0]?.priceCents || undefined}
-          serviceId={services[0]?.id || ''}
+          serviceId={services[0]?.serviceId || ''}
         />
       )}
     </div>

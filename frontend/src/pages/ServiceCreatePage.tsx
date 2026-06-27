@@ -130,7 +130,7 @@ export default function ServiceCreatePage() {
       await declareOfferingAvailability(offering.id, { startDatetime, endDatetime });
 
       showToast('Serviço publicado com oferta e agenda.', 'success');
-      navigate(`/discover/services/${service.id}`);
+      navigate(`/discover/services/${service.serviceId}`);
     } catch (err) {
       console.error('[ServiceCreate] erro ao publicar serviço:', err);
       const message = err instanceof Error ? err.message : 'Não foi possível publicar o serviço. Tente novamente.';

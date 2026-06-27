@@ -132,9 +132,9 @@ export default function ServicesListPage() {
         <div className="services-grid">
           {services.map((service) => (
             <div
-              key={service.id}
+              key={service.serviceId}
               className="service-card"
-              onClick={() => navigate(`/services/${service.id}`)}
+              onClick={() => navigate(`/services/${service.serviceId}`)}
             >
               <div className="service-header">
                 <h3 className="service-name">{service.name}</h3>

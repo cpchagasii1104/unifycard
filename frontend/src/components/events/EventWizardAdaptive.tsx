@@ -347,7 +347,7 @@ export default function EventWizardAdaptive({
             <h4>Serviços Encontrados ({suggestedServices.length}):</h4>
             <div className="services-preview">
               {suggestedServices.slice(0, 5).map((service) => (
-                <div key={service.id} className="service-preview-card">
+                <div key={service.serviceId} className="service-preview-card">
                   <h5>{service.name}</h5>
                   <p>{service.shortDescription || service.description || 'Sem descrição'}</p>
                 </div>

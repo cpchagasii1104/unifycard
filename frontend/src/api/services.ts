@@ -9,7 +9,9 @@ export type ServiceType = 'service' | 'rental' | 'event' | 'job';
 export type PricingType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'fixed' | 'quote';
 
 export interface Service {
-  id: string;
+  // Contrato vivo = backend DTO (services.repository.toService): a chave é `serviceId`
+  // (row.service_id), NÃO `id`. O frontend projeta esse contrato; não inventa `id` paralelo.
+  serviceId: string;
   tenantId: string;
   actorId: string;
   name: string;

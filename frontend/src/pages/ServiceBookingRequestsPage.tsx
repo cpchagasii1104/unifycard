@@ -45,7 +45,8 @@ export default function ServiceBookingRequestsPage() {
 
     try {
       const servicesData = await listActorServices(activeActor.actor_id, { status: 'active' });
-      setServices(servicesData.map(s => ({ id: s.id, name: s.name })));
+      // View-model local {id,name}: o `id` é a chave de rota e DEVE vir do contrato vivo `serviceId`.
+      setServices(servicesData.map(s => ({ id: s.serviceId, name: s.name })));
     } catch (err: any) {
       console.error('Erro ao carregar serviços:', err);
     }

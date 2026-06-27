@@ -140,7 +140,7 @@ export default function ServiceDetailPage() {
           <div className="action-section">
             <h3>Gerenciar</h3>
             <button
-              onClick={() => navigate(`/services/${service.id}/availability`)}
+              onClick={() => navigate(`/services/${service.serviceId}/availability`)}
               className="btn-action"
             >
               Disponibilidade

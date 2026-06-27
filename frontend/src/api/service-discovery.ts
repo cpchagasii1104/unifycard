@@ -48,7 +48,7 @@ export interface DiscoveredService {
   createdAt: string; // ISO 8601 string
   updatedAt: string; // ISO 8601 string
   activatedAt: string | null; // ISO 8601 string
-  
+
   // Enriched fields
   actor?: {
     actor_id: string;
@@ -60,9 +60,6 @@ export interface DiscoveredService {
     has_availability: boolean;
     next_available_date: string | null; // ISO 8601 string
   };
-  
-  // Compatibilidade com Service interface (para getServiceForDiscovery)
-  id?: string; // Alias para serviceId
 }
 
 export interface ServiceDiscoveryResponse {
@@ -122,9 +119,9 @@ export async function discoverServices(filters: ServiceDiscoveryFilters = {}): P
 export async function getServiceForDiscovery(serviceId: string): Promise<DiscoveredService | null> {
   try {
     const service = await getService(serviceId);
-    
+
     // Buscar disponibilidades
-    const availabilities = await listServiceAvailabilities(service.id).catch(() => []);
+    const availabilities = await listServiceAvailabilities(service.serviceId).catch(() => []);
 
     const hasOpenAvailability = availabilities.some(
       av => av.status === 'active' && (!av.endDatetime || new Date(av.endDatetime) > new Date())
@@ -144,8 +141,8 @@ export async function getServiceForDiscovery(serviceId: string): Promise<Discove
 
     // Mapear Service para DiscoveredService
     return {
-      serviceId: service.id,
-      canonicalServiceId: (service as { canonicalServiceId?: string | null }).canonicalServiceId ?? null,
+      serviceId: service.serviceId,
+      canonicalServiceId: service.canonicalServiceId ?? null,
       tenantId: service.tenantId,
       actorId: service.actorId,
       name: service.name,
@@ -165,8 +162,7 @@ export async function getServiceForDiscovery(serviceId: string): Promise<Discove
       metadata: service.metadata,
       createdAt: service.createdAt,
       updatedAt: service.updatedAt,
-      activatedAt: null, // Service interface não tem este campo
-      id: service.id, // Alias para compatibilidade
+      activatedAt: null,
       availability_summary: {
         has_availability: hasOpenAvailability,
         next_available_date: nextAvailableDate,
