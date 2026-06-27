@@ -1,13 +1,17 @@
 // frontend/src/components/timeline/ActivityDetailModal.tsx
 // CONTINUOUS PRODUCTION: Modal de Detalhes de Atividade - SPRINT 10
 // Exibe informações completas de responsabilidade e autoridade
+//
+// F-DISPUTES-FRONTEND-HONEST-CONTAINMENT (2026-06-27):
+//   ANTES este modal abria DisputeFormModal e chamava createDispute() (api/disputes.ts),
+//   que fabricava um "protocolo" de disputa no localStorage do browser, aparentando uma
+//   solicitação oficial registrada — sem backend (o cano está fail-closed por DECISION-0123).
+//   "Frontend nunca cria verdade": removida a criação de disputa. Este modal volta a ser o que
+//   é honestamente — leitura de responsabilidade/autoridade da atividade. Nenhuma disputa é
+//   criada/registrada por aqui. Religar disputa real = frente própria sob IA-DINHEIRO (HOLD).
 
-import { useState } from 'react';
 import { ActivityItem } from '../../services/activity-aggregation.service';
 import { getAuthoritySourceLabel, getAuthoritySourceDescription, type AuthoritySource } from '../../types/authority-context';
-import { useSession } from '../../contexts/SessionProvider';
-import DisputeFormModal from '../dispute/DisputeFormModal';
-import { createDispute } from '../../api/disputes';
 import './ActivityDetailModal.css';
 
 interface ActivityDetailModalProps {
@@ -15,13 +19,7 @@ interface ActivityDetailModalProps {
   onClose: () => void;
 }
 
-// Tipos de atividades que podem ser contestadas
-const DISPUTABLE_ACTIVITY_TYPES = ['transaction', 'member_added', 'member_removed', 'member_updated'] as const;
-
 export default function ActivityDetailModal({ activity, onClose }: ActivityDetailModalProps) {
-  const { activeActor } = useSession();
-  const [showDisputeForm, setShowDisputeForm] = useState(false);
-  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('pt-BR', {
@@ -38,33 +36,6 @@ export default function ActivityDetailModal({ activity, onClose }: ActivityDetai
   const authoritySource = activity.metadata?.authority_source as AuthoritySource | undefined;
   const permissionUsed = activity.metadata?.permission_used as string | undefined;
   const scope = activity.metadata?.scope as string | undefined;
-
-  // Verificar se a atividade pode ser contestada
-  const canDispute = DISPUTABLE_ACTIVITY_TYPES.includes(activity.type as any) && 
-                     activeActor && 
-                     activity.actorId && 
-                     activity.actorId !== 'unknown';
-
-  const handleDisputeSubmit = async (reason: any, description: string) => {
-    if (!activeActor) {
-      throw new Error('Actor não disponível');
-    }
-
-    setDisputeSubmitting(true);
-    try {
-      await createDispute(
-        activity.id,
-        activity.actorId,
-        activeActor.user_id || activeActor.actor_id,
-        reason,
-        description
-      );
-      // Disparar evento para atualizar UI
-      window.dispatchEvent(new CustomEvent('invalidate-queries'));
-    } finally {
-      setDisputeSubmitting(false);
-    }
-  };
 
   return (
     <div className="activity-detail-modal-overlay" onClick={onClose}>
@@ -146,34 +117,7 @@ export default function ActivityDetailModal({ activity, onClose }: ActivityDetai
             </div>
           )}
         </div>
-
-        {canDispute && (
-          <div className="activity-detail-actions">
-            <button
-              onClick={() => setShowDisputeForm(true)}
-              className="activity-detail-dispute-button"
-              type="button"
-            >
-              Solicitar Revisão
-            </button>
-          </div>
-        )}
       </div>
-
-      {showDisputeForm && (
-        <DisputeFormModal
-          activity={activity}
-          onClose={() => setShowDisputeForm(false)}
-          onSubmit={handleDisputeSubmit}
-        />
-      )}
     </div>
   );
 }
-
-
-
-
-
-
-

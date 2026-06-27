@@ -63,14 +63,14 @@ export default function TrustTransparencyCard({ showFullContent = false }: Trust
           <div className="trust-transparency-point">
             <div className="trust-transparency-icon">🔍</div>
             <div className="trust-transparency-content">
-              <h3>Ações podem ser revisadas</h3>
+              <h3>Ações ficam registradas e auditáveis</h3>
               <p>
-                Se algo não está certo, você pode solicitar revisão. 
-                Disputas ficam registradas e podem ser resolvidas.
+                Toda ação fica registrada de forma auditável. A contestação formal de
+                ações está em revisão institucional e ainda não disponível por aqui.
               </p>
               <button
                 onClick={() => {
-                  // Navegar para página de disputas ou mostrar modal
+                  // Rola até a seção de disputas (terminal honesto — recurso em revisão).
                   const disputesSection = document.querySelector('.overview-disputes');
                   if (disputesSection) {
                     disputesSection.scrollIntoView({ behavior: 'smooth' });
@@ -79,7 +79,7 @@ export default function TrustTransparencyCard({ showFullContent = false }: Trust
                 className="trust-transparency-link"
                 type="button"
               >
-                Ver disputas →
+                Ver contestações →
               </button>
             </div>
           </div>

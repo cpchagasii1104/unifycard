@@ -1,235 +1,38 @@
 // frontend/src/api/disputes.ts
-// CONTINUOUS PRODUCTION: API Client para Disputas - SPRINT 11
-// Cliente frontend para gerenciar disputas (usando localStorage como persistência temporária)
+// F-DISPUTES-FRONTEND-HONEST-CONTAINMENT (2026-06-27):
+//   Este client ANTES usava localStorage como "verdade" e fabricava resolução/reversão
+//   no browser (status='resolved'/'rejected'/'reverted', revertedTransactionId) SEM Bank —
+//   uma mentira operacional. O backend de disputas/reversão É completo e DELIBERADAMENTE
+//   fail-closed em 403 (DECISION-0123: dispute/reversal HTTP = DECISION_REQUIRED / P1).
+//   "Frontend nunca cria verdade — projeta verdade resolvida": o frontend NÃO tem fonte de
+//   verdade de disputa. Enquanto o cano permanece fechado (HOLD), este módulo é um TERMINAL
+//   HONESTO de LEITURA: não persiste nada, não muta nada, não fabrica reversão financeira.
+//   - NÃO usa localStorage como verdade operacional (nem para draft que aparente oficial).
+//   - NÃO expõe createDispute/resolveDispute/rejectDispute/revertDispute (removidos).
+//   - NÃO chama Bank, NÃO reverte transação, NÃO grava revertedTransactionId, NÃO marca 'reverted'.
+//   - NÃO chama as rotas backend contidas esperando sucesso (seguem 403 por DECISION-0123).
+//   Religar disputa/reversão real = frente própria sob IA-DINHEIRO + desenhos (HOLD).
 
-import { observePilotEvent } from '../services/pilot-observer.service';
+import type { Dispute } from '../types/dispute';
 
-import { apiFetch } from './client';
-import type { Dispute, DisputeReason, DisputeStatus } from '../types/dispute';
-
-// NOTA: Esta implementação usa localStorage como persistência temporária
-// Em produção, isso deve ser substituído por endpoints backend reais
-const DISPUTES_STORAGE_KEY = 'unify_disputes';
-
-function getStoredDisputes(): Dispute[] {
-  try {
-    const stored = localStorage.getItem(DISPUTES_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveDisputes(disputes: Dispute[]): void {
-  try {
-    localStorage.setItem(DISPUTES_STORAGE_KEY, JSON.stringify(disputes));
-  } catch (err) {
-    console.error('Erro ao salvar disputas:', err);
-  }
+/**
+ * Lista disputas para um actor — SEM fonte de verdade de frontend.
+ * Retorna vazio honesto enquanto o backend de disputas permanece fail-closed (DECISION-0123).
+ */
+export async function listDisputes(_actorId: string): Promise<Dispute[]> {
+  return [];
 }
 
 /**
- * Lista disputas para um actor específico
+ * Lista disputas abertas — vazio honesto (sem verdade de frontend; backend contido / 403).
  */
-export async function listDisputes(actorId: string): Promise<Dispute[]> {
-  // TODO: Substituir por chamada real ao backend quando disponível
-  // const response = await apiFetch(`/disputes?actor_id=${actorId}`, {}, { silent401: true });
-  // return response.json();
-  
-  const disputes = getStoredDisputes();
-  return disputes.filter(d => d.actorId === actorId);
+export async function listOpenDisputes(_actorId: string): Promise<Dispute[]> {
+  return [];
 }
 
 /**
- * Lista disputas abertas para um actor
+ * Obtém uma disputa por ID — sem verdade de frontend; nada a projetar enquanto contido.
  */
-export async function listOpenDisputes(actorId: string): Promise<Dispute[]> {
-  const disputes = await listDisputes(actorId);
-  return disputes.filter(d => d.status === 'open');
+export async function getDispute(_disputeId: string): Promise<Dispute | null> {
+  return null;
 }
-
-/**
- * Obtém uma disputa por ID
- */
-export async function getDispute(disputeId: string): Promise<Dispute | null> {
-  // TODO: Substituir por chamada real ao backend quando disponível
-  // const response = await apiFetch(`/disputes/${disputeId}`, {}, { silent401: true });
-  // return response.json();
-  
-  const disputes = getStoredDisputes();
-  return disputes.find(d => d.id === disputeId) || null;
-}
-
-/**
- * Cria uma nova disputa
- */
-export async function createDispute(
-  relatedActivityId: string,
-  actorId: string,
-  openedByUserId: string,
-  reason: DisputeReason,
-  description: string
-): Promise<Dispute> {
-  // TODO: Substituir por chamada real ao backend quando disponível
-  // const response = await apiFetch('/disputes', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({
-  //     related_activity_id: relatedActivityId,
-  //     actor_id: actorId,
-  //     opened_by_user_id: openedByUserId,
-  //     reason,
-  //     description,
-  //   }),
-  // }, { silent401: false });
-  // return response.json();
-  
-  const disputes = getStoredDisputes();
-  const newDispute: Dispute = {
-    id: `dispute_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    relatedActivityId,
-    actorId,
-    openedByUserId,
-    openedAt: new Date().toISOString(),
-    reason,
-    description,
-    status: 'open',
-    metadata: {},
-  };
-  
-  disputes.push(newDispute);
-  saveDisputes(disputes);
-  
-  // Observar primeiro evento de disputa aberta
-  observePilotEvent('first_dispute_opened', actorId, 'user', {
-    reason,
-  });
-  
-  return newDispute;
-}
-
-/**
- * Resolve uma disputa (marca como resolvida sem reversão)
- */
-export async function resolveDispute(
-  disputeId: string,
-  resolvedByUserId: string,
-  resolutionNote?: string
-): Promise<Dispute> {
-  // TODO: Substituir por chamada real ao backend quando disponível
-  // const response = await apiFetch(`/disputes/${disputeId}/resolve`, {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({
-  //     resolved_by_user_id: resolvedByUserId,
-  //     resolution_note: resolutionNote,
-  //   }),
-  // }, { silent401: false });
-  // return response.json();
-  
-  const disputes = getStoredDisputes();
-  const dispute = disputes.find(d => d.id === disputeId);
-  if (!dispute) {
-    throw new Error('Disputa não encontrada');
-  }
-  
-  dispute.status = 'resolved';
-  dispute.resolvedByUserId = resolvedByUserId;
-  dispute.resolvedAt = new Date().toISOString();
-  dispute.resolutionNote = resolutionNote;
-  
-  saveDisputes(disputes);
-  
-  return dispute;
-}
-
-/**
- * Rejeita uma disputa
- */
-export async function rejectDispute(
-  disputeId: string,
-  resolvedByUserId: string,
-  resolutionNote?: string
-): Promise<Dispute> {
-  // TODO: Substituir por chamada real ao backend quando disponível
-  // const response = await apiFetch(`/disputes/${disputeId}/reject`, {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({
-  //     resolved_by_user_id: resolvedByUserId,
-  //     resolution_note: resolutionNote,
-  //   }),
-  // }, { silent401: false });
-  // return response.json();
-  
-  const disputes = getStoredDisputes();
-  const dispute = disputes.find(d => d.id === disputeId);
-  if (!dispute) {
-    throw new Error('Disputa não encontrada');
-  }
-  
-  dispute.status = 'rejected';
-  dispute.resolvedByUserId = resolvedByUserId;
-  dispute.resolvedAt = new Date().toISOString();
-  dispute.resolutionNote = resolutionNote;
-  
-  saveDisputes(disputes);
-  
-  return dispute;
-}
-
-/**
- * Reverte uma disputa (aciona reversão técnica)
- */
-export async function revertDispute(
-  disputeId: string,
-  resolvedByUserId: string,
-  transactionId: string,
-  resolutionNote?: string
-): Promise<Dispute> {
-  // TODO: Substituir por chamada real ao backend quando disponível
-  // Primeiro, reverter a transação usando a API existente
-  // await apiFetch(`/bank/transactions/${transactionId}/reverse`, {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({
-  //     reason: 'dispute_resolution',
-  //     dispute_id: disputeId,
-  //   }),
-  // }, { silent401: false });
-  // 
-  // Depois, atualizar a disputa
-  // const response = await apiFetch(`/disputes/${disputeId}/revert`, {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({
-  //     resolved_by_user_id: resolvedByUserId,
-  //     reverted_transaction_id: transactionId,
-  //     resolution_note: resolutionNote,
-  //   }),
-  // }, { silent401: false });
-  // return response.json();
-  
-  const disputes = getStoredDisputes();
-  const dispute = disputes.find(d => d.id === disputeId);
-  if (!dispute) {
-    throw new Error('Disputa não encontrada');
-  }
-  
-  dispute.status = 'reverted';
-  dispute.resolvedByUserId = resolvedByUserId;
-  dispute.resolvedAt = new Date().toISOString();
-  dispute.revertedTransactionId = transactionId;
-  dispute.resolutionNote = resolutionNote;
-  
-  saveDisputes(disputes);
-  
-  return dispute;
-}
-
-
-
-
-
-
-
