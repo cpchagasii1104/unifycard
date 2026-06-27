@@ -15,6 +15,7 @@ import { catalogCurationService, CatalogCurationError } from './curation/catalog
 import { canonicalServiceService, CanonicalServiceError } from './canonical/canonical-service.service';
 import { canonicalVariantService, CanonicalVariantError } from './canonical/canonical-variant.service';
 import { canonicalUnitsService, CanonicalUnitError } from './canonical/canonical-units.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 
 const variantSchema = z.object({
   variantName: z.string().min(1),
@@ -197,6 +198,25 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get<{ Querystring: { q?: string } }>('/services/search', async (req, reply) => {
     const data = await canonicalServiceService.searchVisible(req.tenant.id, req.query.q);
+    return reply.send({ ok: true, data });
+  });
+
+  // F-MVP-SERVICE-PUBLISH-OFFERABLE-AUTOCOMPLETE (Opção A — ESTRITO): catálogo canônico filtrado ao que o
+  // ACTOR ATIVO PODE PUBLICAR AGORA (concept declarado/publicado ATIVO). Fecha o beco de UX da publicação:
+  // a tela só oferece o que o gate DECISION-0144 aceita.
+  // 🔴 DECISION-0113: actor ATIVO = actionContext.actorId (HINT cliente-declarado), validado server-side por
+  // canRepresentActor — NUNCA confia em actor_id livre como autoridade. A elegibilidade (PF/PJ) é resolvida no
+  // backend (mesmo predicado do gate); o frontend só projeta a lista.
+  fastify.get<{ Querystring: { q?: string } }>('/services/offerable', async (req, reply) => {
+    const sub = subject(req as never);
+    if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+    const hintActorId = req.actionContext?.actorId;
+    if (!hintActorId) return reply.status(400).send({ ok: false, code: 'OFFERABLE_ACTION_CONTEXT_REQUIRED' });
+    const canRep = await authorizationService.canRepresentActor(req.tenant.id, sub.userId, hintActorId);
+    if (!canRep) return reply.status(403).send({ ok: false, code: 'OFFERABLE_ACTOR_NOT_REPRESENTABLE' });
+    const actor = await socialPortsRegistry.getActorRepository().findById(req.tenant.id, hintActorId);
+    if (!actor) return reply.status(403).send({ ok: false, code: 'OFFERABLE_ACTOR_NOT_ACCESSIBLE' });
+    const data = await canonicalServiceService.searchOfferable(req.tenant.id, actor, req.query.q);
     return reply.send({ ok: true, data });
   });
 

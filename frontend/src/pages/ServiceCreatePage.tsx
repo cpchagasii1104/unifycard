@@ -5,11 +5,11 @@
 // Disciplina: frontend PROJETA verdade resolvida. O provider é o ACTOR ATIVO de sessão (não input/hardcode);
 // o backend liga actionContext + canRepresentActor. SEM dinheiro/checkout/split — só catálogo + agenda.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
-import { searchCanonicalServices, type CanonicalService } from '../api/canonical-services';
+import { searchOfferableCanonicalServices, type CanonicalService } from '../api/canonical-services';
 import { createService } from '../api/services';
 import { createOffering, activateOffering, declareOfferingAvailability } from '../api/offerings';
 import './ServiceCreatePage.css';
@@ -20,8 +20,10 @@ export default function ServiceCreatePage() {
 
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<CanonicalService[]>([]);
   const [canonical, setCanonical] = useState<CanonicalService | null>(null);
+  const activeActorId = activeActor?.actor_id ?? null;
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -33,24 +35,39 @@ export default function ServiceCreatePage() {
   const [step, setStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = async () => {
-    setError(null);
+  // Autocomplete ESTRITO (Opção A): sugere SOMENTE serviços que o actor ativo pode publicar AGORA.
+  // A elegibilidade (concept declarado no Profissional/C1 ou publicado pela empresa, ATIVO) é resolvida no
+  // BACKEND com o mesmo predicado do gate DECISION-0144. O frontend só projeta — não cruza listas localmente.
+  useEffect(() => {
+    if (canonical) return; // já escolhido — não busca
+    const term = query.trim();
+    if (!activeActorId) { setResults([]); setSearched(false); return; }
+    if (term.length < 2) { setResults([]); setSearched(false); setError(null); return; }
+    let cancelled = false;
     setSearching(true);
-    try {
-      const data = await searchCanonicalServices(query);
-      setResults(data);
-      if (data.length === 0) setError('Nenhum serviço canônico encontrado para esse termo.');
-    } catch (err) {
-      console.error('[ServiceCreate] erro ao buscar serviços canônicos:', err);
-      setError(err instanceof Error ? err.message : 'Não foi possível buscar serviços canônicos. Tente novamente.');
-    } finally {
-      setSearching(false);
-    }
-  };
+    setError(null);
+    const handle = setTimeout(async () => {
+      try {
+        const data = await searchOfferableCanonicalServices(term);
+        if (cancelled) return;
+        setResults(data);
+        setSearched(true);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[ServiceCreate] erro ao buscar serviços publicáveis:', err);
+        setError(err instanceof Error ? err.message : 'Não foi possível buscar serviços publicáveis. Tente novamente.');
+        setResults([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [query, activeActorId, canonical]);
 
   const pickCanonical = (c: CanonicalService) => {
     setCanonical(c);
     setResults([]);
+    setSearched(false);
     if (!name) setName(c.name);
   };
 
@@ -150,22 +167,20 @@ export default function ServiceCreatePage() {
           </div>
         ) : (
           <>
+            <p className="canonical-hint">
+              Mostramos só os serviços que <strong>você já pode publicar</strong> — os que têm uma
+              capacidade declarada em Perfil &gt; Profissional (ou publicada pela empresa).
+            </p>
             <div className="search-row">
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ex: corte de cabelo, manutenção…"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleSearch();
-                  }
-                }}
+                placeholder="Digite para buscar entre o que você pode publicar…"
+                autoComplete="off"
+                disabled={!activeActor}
               />
-              <button type="button" onClick={handleSearch} disabled={searching}>
-                {searching ? 'Buscando…' : 'Buscar'}
-              </button>
+              {searching && <span className="search-hint" role="status">Buscando…</span>}
             </div>
             {results.length > 0 && (
               <ul className="canonical-results">
@@ -178,6 +193,12 @@ export default function ServiceCreatePage() {
                   </li>
                 ))}
               </ul>
+            )}
+            {searched && !searching && results.length === 0 && query.trim().length >= 2 && (
+              <p className="canonical-empty" role="status">
+                Nenhum serviço publicável encontrado para esse termo. Declare uma capacidade
+                profissional em <strong>Perfil &gt; Profissional</strong> antes de publicar este serviço.
+              </p>
             )}
           </>
         )}

@@ -140,6 +140,66 @@ export const canonicalServiceService = {
   },
 
   /**
+   * F-MVP-SERVICE-PUBLISH-OFFERABLE-AUTOCOMPLETE (Opção A — ESTRITO).
+   * Serviços canônicos visíveis que o ACTOR ATIVO PODE PUBLICAR AGORA — i.e. cujo concept_id o actor já
+   * declarou (PF) ou a empresa já publicou (PJ) como ATIVO. É um SUBCONJUNTO de searchVisible: a única
+   * diferença é o predicado de elegibilidade, que ESPELHA EXATAMENTE o gate
+   * services.service.ts::assertDeclarationEligibility (DECISION-0144):
+   *   PF (actor_type='user'):  EXISTS actor_professional_concepts  (tenant, actor,   concept) AND is_active = true
+   *   PJ (company_id setado):  EXISTS company_concept_publications  (tenant, company, concept) AND status   = 'active'
+   * Subject não suportado (nem PF user nem page-actor de company) → conjunto VAZIO (fail-closed, igual ao
+   * gate que recusaria a criação). Read-only: NÃO cria/altera declaração, NÃO cria serviço, NÃO relaxa o
+   * gate. O frontend só PROJETA esta lista — a interseção é resolvida no servidor (SSOT), nunca no browser.
+   * Mantém o predicado de elegibilidade numa só camada (backend), evitando lógica PF/PJ paralela no cliente.
+   */
+  async searchOfferable(
+    tenantId: string,
+    actor: { actor_id: string; actor_type: string; company_id: string | null },
+    query?: string
+  ): Promise<CanonicalService[]> {
+    const q = String(query ?? '').trim();
+    const params: unknown[] = [tenantId];
+    let eligibilitySql: string;
+
+    // Espelho 1:1 do gate. PJ tem precedência (page-actor de company tem company_id setado), igual a
+    // assertDeclarationEligibility, que checa company_id ANTES de actor_type='user'.
+    if (actor.company_id) {
+      params.push(actor.company_id);
+      eligibilitySql = `EXISTS (
+        SELECT 1 FROM company_concept_publications ccp
+         WHERE ccp.tenant_id = $1::uuid AND ccp.company_id = $${params.length}::uuid
+           AND ccp.concept_id = cs.concept_id AND ccp.status = 'active')`;
+    } else if (actor.actor_type === 'user') {
+      params.push(actor.actor_id);
+      eligibilitySql = `EXISTS (
+        SELECT 1 FROM actor_professional_concepts apc
+         WHERE apc.tenant_id = $1::uuid AND apc.actor_id = $${params.length}::uuid
+           AND apc.concept_id = cs.concept_id AND apc.is_active = true)`;
+    } else {
+      // G3 do gate: subject indistinguível/sem suporte → nada publicável.
+      return [];
+    }
+
+    let termSql = '';
+    if (q) {
+      params.push(q);
+      termSql = `AND LOWER(cs.name) LIKE '%' || LOWER($${params.length}) || '%'`;
+    }
+
+    const r = await pool.query<CsRow>(
+      `SELECT ${CS_SELECT} FROM canonical_services cs
+        WHERE ${CS_VISIBLE} AND cs.status = 'active'
+          AND cs.concept_id IS NOT NULL
+          AND ${eligibilitySql}
+          ${termSql}
+        ORDER BY (cs.scope = 'scoped') DESC, cs.created_at ASC
+        LIMIT 50`,
+      params
+    );
+    return r.rows.map(toCanonicalService);
+  },
+
+  /**
    * Sugestão GOVERNADA (DECISION-0117 B análogo): nasce scoped + pending_curation.
    * Dedup por slug normalizado no escopo visível (mesma semântica não duplica
    * por prestador). concept obrigatório e domain='servicos' (0109).
