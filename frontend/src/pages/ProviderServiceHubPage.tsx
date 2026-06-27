@@ -16,6 +16,7 @@ import { getOfferingsByCanonical } from '../api/offerings';
 import { listAvailabilities, listBookings, type UnifiedBooking } from '../api/availability';
 import { getOrderInbox, type InboxItem } from '../api/inbox';
 import { shortId } from '../utils/service-orders-helpers';
+import OperatorGrantsManager from '../components/authority/OperatorGrantsManager';
 import './ProviderServiceHubPage.css';
 
 interface PendingBooking {
@@ -214,6 +215,11 @@ export default function ProviderServiceHubPage() {
           </ul>
         )}
       </section>
+
+      {/* F-MVP-SERVICE-CHAIN-FRONTEND-WIRING-SLICE-1 (GAP-B): conceder a operadores acesso de LEITURA
+          às ordens desta empresa (service_order:view, DECISION-0136). Escopo = actor ativo. Read-grant,
+          money-free; o backend decide a autoridade (canRepresentActor). */}
+      <OperatorGrantsManager scopeActorId={activeActor.actor_id} scopeActorName={activeActor.display_name} />
     </div>
   );
 }

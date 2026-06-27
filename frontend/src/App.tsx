@@ -55,6 +55,7 @@ import CrmPage from './pages/CrmPage'; // SPRINT 88
 import CrmContactDetailPage from './pages/CrmContactDetailPage'; // SPRINT 88
 import ServiceOrdersPage from './pages/ServiceOrdersPage'; // SPRINT 68
 import ServiceOrderDetailPage from './pages/ServiceOrderDetailPage'; // SPRINT 68
+import OperatorOrdersPage from './pages/OperatorOrdersPage'; // F-MVP-SERVICE-CHAIN-SLICE-1 (GAP-C)
 import ServiceLegacyQuarantinePage from './pages/ServiceLegacyQuarantinePage'; // F-MVP-SERVICE-CHAIN-UX-DEAD-END-SWEEP (substitui CreateServiceOrderPage como rota viva)
 import CalendarPage from './pages/CalendarPage'; // SPRINT 68
 import OrganizationMembersPage from './pages/OrganizationMembersPage'; // Organization MVP
@@ -323,6 +324,10 @@ function AppContent() {
               Rota legada vira terminal honesto (quarentena), NÃO formulário de criação direta. */}
           <Route path="service-orders/new" element={<ServiceLegacyQuarantinePage variant="order-create" />} />
           <Route path="service-orders/:id" element={<ServiceOrderDetailPage />} />
+          {/* F-MVP-SERVICE-CHAIN-FRONTEND-WIRING-SLICE-1 (GAP-C): operador NÃO-party vê ordens de um
+              prestador que lhe concedeu service_order:view (DECISION-0136). Read-only, money-free;
+              o backend autoriza por grant (canViewOrderForParty). Detalhe reusa /service-orders/:id. */}
+          <Route path="operator/service-orders" element={<OperatorOrdersPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="crm/contacts/:id" element={<CrmContactDetailPage />} />
 {/* SPRINT 87: Assinaturas

@@ -1,0 +1,80 @@
+/* OperatorGrantsManager.css — F-MVP-SERVICE-CHAIN-FRONTEND-WIRING-SLICE-1 (GAP-B) */
+.operator-grants {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.operator-grants-head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.operator-grants-sub {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.operator-grants-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.operator-grants-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: #444;
+  flex: 1 1 220px;
+}
+
+.operator-grants-form input {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.operator-grants-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.operator-grants-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.operator-grants-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.operator-grants-info .muted {
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.operator-grants-empty {
+  font-size: 0.85rem;
+  color: #888;
+  font-style: italic;
+}

@@ -209,6 +209,15 @@ export default function ServiceOrdersPage() {
               Explorar serviços
             </button>
           )}
+          {/* F-MVP-SERVICE-CHAIN-FRONTEND-WIRING-SLICE-1 (GAP-C): esta tela mostra as ordens em que o
+              actor ativo é PARTE (cliente/prestador). Quem recebeu service_order:view de OUTRO
+              prestador vê aquelas ordens na tela de operador (read-only, por concessão). */}
+          <button
+            className="btn-secondary"
+            onClick={() => navigate('/operator/service-orders')}
+          >
+            Ordens por concessão
+          </button>
         </div>
       </div>
 
