@@ -24,7 +24,15 @@ import { useNavigate } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import './ServiceLegacyQuarantinePage.css';
 
-type QuarantineVariant = 'order-create' | 'booking-requests' | 'bookings-manage';
+// F-MVP-SERVICE-CHAIN-W1-OFFERING-AVAILABILITY-UX-CONTAINMENT (2026-06-27): a variante
+//   'availability-offering-managed' quarentena /services/:id/availability (antiga ServiceAvailabilityPage,
+//   que criava availability SERVICE-level via POST /services/:id/availability, owner=service). Essa agenda
+//   é INVISÍVEL ao consumer, que reserva pela availability da OFERTA (owner_type='service_offering', lida
+//   pelo ServiceOfferingSelector). Decisão de produto soberana (Clayton): no MVP a disponibilidade
+//   reservável = availability da OFERTA, definida ao publicar o serviço (ServiceCreatePage →
+//   declareOfferingAvailability). Esta página NÃO chama createServiceAvailability/listServiceAvailabilities;
+//   apenas explica a lei e devolve para a superfície viva (Central do prestador / publicar serviço).
+type QuarantineVariant = 'order-create' | 'booking-requests' | 'bookings-manage' | 'availability-offering-managed';
 
 interface ServiceLegacyQuarantinePageProps {
   variant: QuarantineVariant;
@@ -49,6 +57,13 @@ const COPY: Record<QuarantineVariant, { title: string; lead: string }> = {
       'Esta tela antiga listava e cancelava reservas por um caminho que o backend não oferece mais. ' +
       'As reservas agora seguem o fluxo canônico: o cliente reserva uma oferta e você decide cada ' +
       'reserva pendente na Central do prestador — onde o aceite gera a ordem de serviço automaticamente.',
+  },
+  'availability-offering-managed': {
+    title: 'A agenda reservável é a da oferta',
+    lead:
+      'A disponibilidade que o cliente reserva é a da OFERTA do serviço — definida quando você publica o ' +
+      'serviço. Não existe uma agenda separada por serviço: uma agenda paralela aqui ficaria invisível para ' +
+      'quem tenta reservar. Para abrir ou ajustar horários reserváveis, publique/gerencie a oferta na Central.',
   },
 };
 

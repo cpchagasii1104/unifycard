@@ -67,7 +67,13 @@ import OrganizationUnitsPage from './pages/OrganizationUnitsPage'; // Organizati
 // deixou de ser a renderização da rota /services (agora é o hub). Arquivo preservado órfão em
 // disco (compatibilidade interna), import removido para manter o typecheck limpo (noUnusedLocals).
 import ServiceDetailPage from './pages/ServiceDetailPage'; // Services MVP
-import ServiceAvailabilityPage from './pages/ServiceAvailabilityPage'; // Services MVP
+// F-MVP-SERVICE-CHAIN-W1-OFFERING-AVAILABILITY-UX-CONTAINMENT (2026-06-27): ServiceAvailabilityPage
+// (agenda SERVICE-level via POST /services/:id/availability, owner=service) deixou de ser roteada.
+// No MVP a disponibilidade reservável = availability da OFERTA (owner_type='service_offering', lida pelo
+// ServiceOfferingSelector). A rota /services/:id/availability vira terminal honesto (Lei da Rota, não do
+// botão): contém de uma vez os DOIS vetores que apontavam para a agenda invisível ao consumer
+// (ServiceDetailPage "Disponibilidade" + ServiceDiscoveryDetailPage "Ver Disponibilidade Completa").
+// ServiceAvailabilityPage fica órfã em disco (compila, não roteada); import removido (noUnusedLocals).
 // F-SERVICE-BOOKING-ORPHAN-SURFACE-QUARANTINE (2026-06-26): ServiceBookingsPage deixou de
 // renderizar /services/:id/bookings (superfície órfã/oca: chamava PUT /services/:serviceId/
 // bookings/:bookingId, rota inexistente → 404). Rota passa a render terminal honesto
@@ -361,7 +367,12 @@ function AppContent() {
           {/* F-MVP-SERVICE-CHAIN GAP-1: publicar serviço/oferta/agenda (estática antes de :id) */}
           <Route path="services/new" element={<ServiceCreatePage />} />
           <Route path="services/:id" element={<ServiceDetailPage />} />
-          <Route path="services/:id/availability" element={<ServiceAvailabilityPage />} />
+          {/* F-MVP-SERVICE-CHAIN-W1-OFFERING-AVAILABILITY-UX-CONTAINMENT (2026-06-27): a agenda
+              SERVICE-level (owner=service) é invisível ao consumer (que lê owner='service_offering' no
+              ServiceOfferingSelector). Decisão de produto soberana (Clayton): no MVP a disponibilidade
+              operacional reservável = availability da OFERTA, definida ao publicar o serviço. Esta rota
+              vira terminal honesto — NÃO leva mais à criação de availability service-level divergente. */}
+          <Route path="services/:id/availability" element={<ServiceLegacyQuarantinePage variant="availability-offering-managed" />} />
           {/* F-SERVICE-BOOKING-ORPHAN-SURFACE-QUARANTINE (2026-06-26): /services/:id/bookings era
               uma superfície ÓRFÃ/OCA — listava e "cancelava" reservas via rota backend inexistente
               (PUT /services/:serviceId/bookings/:bookingId → 404). NÃO é writer vivo concorrente.
