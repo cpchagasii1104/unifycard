@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0154 (2026-06-24) |
+| Última entrada | DECISION-0155 (2026-06-28) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -7477,3 +7477,24 @@ Detalhe: `docs/02_decisions/DECISION_0131_AUTHORITY_GRAMMAR.md`.
 - **Supera:** —
 - **Superada por:** —
 - **Referências:** `docs/04_audit/CAMADA_1_READINESS_MATRIX.md` (#35/#18) · `EVENT_OUTBOX_E_ENTREGA_CANONICO.md` · `HANDLER_EXECUTION_AND_RELIABILITY.md` · `07_NOMENCLATURA_CANONICA.md` §4.12.1.
+
+## DECISION-0155 — Produto PJ-only no MVP inicial (Opção PJ-only) (F-PRODUCT-PUBLISH-W2-PJ-ONLY-DECISION)
+
+- **Data:** 2026-06-28
+- **Tipo:** Arquitetural / produto-autoritativo (DOCS-ONLY) — **NÃO MATERIAL** (não toca runtime/migration/backend/frontend/schema/`docs/01_normative`). Promulga política; bloqueio em código é fatia material futura.
+- **Frente:** F-PRODUCT-PUBLISH-W2-PJ-ONLY-DECISION (W2 do arco F-PRODUCT-PUBLISH-COMPANY-BIND) · **HEAD (pré-commit):** `f3c9d01e`
+- **Status:** **PROMULGADA / DOCS-ONLY / DECISION_PROMULGATED.** Resolve a pergunta de paridade W2 deixada aberta nas DECISION-0143/0144/0145 e no fechamento de W1 (DECISION-0108-bind).
+- **Contexto:** W1 (DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR) fechou o crachá-de-empresa: `companyId` que governa o guard de ramo é DERIVADO server-side do actor representado. Restava W2: produto entra no modelo **actor-first/concept** (paridade com serviço — PF declara concept, PJ publica) ou fica governado por **ramo/categoria** (taxonômico)? Coexistir os dois = dois modelos de autoridade respondendo à MESMA pergunta material (anti-padrão "frontend nunca cria verdade" / tensão com actor-unidade-soberana). Clayton decide a fronteira do MVP inicial.
+- **Decisão soberana (Clayton · Opção PJ-only):**
+  1. **Regra principal:** no MVP inicial, **publicação/oferta de PRODUTO é PJ/CNPJ-only**. Actor **PF/user NÃO publica/oferta produto**. Actor **PJ/page-company publica/oferta produto**. PF/user **continua prestando SERVIÇO** conforme os gates de serviço (DECISION-0147 etc.) — serviço NÃO é afetado.
+  2. **Elegibilidade PJ:** PJ segue governada por **ramo/CNAE/company_type/categorias pré-moldadas** conforme **DECISION-0108** (mantida). Produto **NÃO exige**, neste MVP, gate por concept-publication igual ao serviço. **Categoria/ramo = recorte de ELEGIBILIDADE de produto, NÃO SSOT semântico.** Identidade do produto permanece canônica: **CONCEPT → canonical_product → product/product_variant → product_offer**.
+  3. **NÃO criar agora:** **não** criar `actor_product_concepts`; **não** criar `company_product_concepts`; **não** estender `company_concept_publications` para produto; **não** aplicar paridade total serviço→produto neste MVP.
+  4. **Separação serviço vs produto:** serviço pode ser PF/autônomo OU PJ (cumpridos os gates de serviço); produto é **PJ-only** no MVP inicial. Uma mesma pessoa pode operar como **PF para serviço** e como **PJ para produto**, mas a **publicação de produto exige actor PJ/company** (não é o crachá do body — é o actor representado server-side, cf. W1).
+- **Deriva de / mantém:** DECISION-0108 (produto PJ por ramo/CNAE/company_type) · DECISION-0143 (produto/material diferido) · DECISION-0113 (autoridade server-side, companyId derivado do actor) · W1 (DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR CLOSED). **Resolve a paridade aberta em** DECISION-0144/0145 (cadeia de oferta).
+- **Efeito sobre a DT:** [[DT-PRODUCT-PUBLISH-NO-PF-PJ-ELIGIBILITY-GATE]] passa de **DECISION_REQUIRED / CLAYTON** para **DECISION_PROMULGATED / MATERIAL_REQUIRED**. **NÃO fecha como CLOSED** — falta a microfatia material que bloqueia PF no caminho de publicação/oferta de produto.
+- **Materialização/Prova:** **NENHUMA** (docs-only). Execução material após GO próprio: **F-PRODUCT-PUBLISH-PF-BLOCK-SLICE-A** — bloquear actor PF/user em publicação/oferta de produto nos dois caminhos vivos já conhecidos (endpoint direto `product-offering.service` + `store-onboarding.service`), mantendo PJ por ramo/CNAE/company_type, com guard + E2E + YALA. **ZERO** dinheiro/checkout/order/payment-plan/pagamento-PDV/payout/PORTA-1/bucket D/migration/runtime nesta promulgação.
+- **Consequências:** W2 **DECISION PROMULGADA**; PF-block material **HOLD** até GO. **FORA/HOLD:** dinheiro · checkout/order/payment-plan de comprador · pagamento PDV · payout/PORTA-1/bucket D · concept-publication para produto · paridade total serviço→produto.
+- **Responsável:** Clayton / IA-DIRETORA (executor: Claude Opus 4.8). **Validação prévia:** Clayton (promulgação soberana).
+- **Supera:** —
+- **Superada por:** —
+- **Referências:** `REMEDIATION_DT_LOG.md` (DT-PRODUCT-PUBLISH-NO-PF-PJ-ELIGIBILITY-GATE) · `STATUS_EXECUCAO_GLOBAL.md` (arco F-PRODUCT-PUBLISH-COMPANY-BIND) · DECISION-0108 · DECISION-0143 · DECISION-0113 · DECISION-0144/0145.

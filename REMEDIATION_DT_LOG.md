@@ -1,5 +1,16 @@
 # REMEDIATION DT LOG
 
+## DT-PRODUCT-PUBLISH-NO-PF-PJ-ELIGIBILITY-GATE — ✅ DECISION_PROMULGATED / MATERIAL_REQUIRED (W2 decidida por Clayton: produto PJ-only no MVP) (2026-06-28)
+- **Status:** **DECISION_PROMULGATED / MATERIAL_REQUIRED** (sai de **DECISION_REQUIRED / CLAYTON**). **NÃO CLOSED** — falta a microfatia material que bloqueia PF no caminho de publicação/oferta de produto. HEAD (pré-commit) `f3c9d01e`. **Natureza:** DOCS-ONLY · decisão de produto · zero código · zero migration · zero DB write · zero dinheiro.
+- **Decisão soberana (Clayton):** promulgada como **[[DECISION-0155]]** (Produto PJ-only no MVP inicial) no `REMEDIATION_DECISIONS_LOG.md`.
+  - **Regra principal:** produto no MVP inicial é **PJ/CNPJ-only**; actor PF/user **NÃO publica/oferta produto**; PF/user **continua prestando serviço** (gates de serviço inalterados); PJ/page-company publica/oferta produto.
+  - **Elegibilidade PJ:** governada por **ramo/CNAE/company_type/categorias pré-moldadas** (DECISION-0108 mantida); produto **NÃO exige** gate por concept-publication igual ao serviço neste MVP; categoria/ramo = recorte de **elegibilidade**, NÃO SSOT semântico; identidade canônica preservada `CONCEPT → canonical_product → product/product_variant → product_offer`.
+  - **NÃO criado agora:** `actor_product_concepts` · `company_product_concepts` · extensão de `company_concept_publications` para produto · paridade total serviço→produto.
+  - **Separação serviço×produto:** serviço = PF/autônomo OU PJ (gates de serviço); produto = PJ-only no MVP; mesma pessoa pode operar PF p/ serviço e PJ p/ produto, mas publicação de produto exige actor PJ/company (derivado server-side, cf. W1).
+- **Próxima frente material (HOLD até GO próprio):** **F-PRODUCT-PUBLISH-PF-BLOCK-SLICE-A** — bloquear actor PF/user em publicação/oferta de produto nos dois caminhos vivos já conhecidos (endpoint direto `product-offering.service` + `store-onboarding.service`), mantendo PJ por ramo/CNAE/company_type, com guard + E2E + YALA.
+- **Relação com W1:** [[DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR]] = CLOSED (crachá-de-empresa derivado server-side); W2 agora promulgada e aguardando materialização do bloqueio PF.
+- **Fronteiras:** dinheiro · checkout/order/payment-plan de comprador · pagamento PDV · payout/PORTA-1/bucket D = **HOLD**; sem runtime/código/migration nesta promulgação. Closeout docs-only `docs(products): decide pj-only product publishing for mvp`.
+
 ## F-PRODUCT-DISCOVERY-SURFACE-READONLY — ⚠️ READ-ONLY / PASS_WITH_WARNINGS / CLOSEOUT — vitrine honesta; PDV roteado vivo com pagamento contido por firewall (2026-06-28)
 - **Status:** **READ-ONLY / PASS_WITH_WARNINGS.** HEAD auditado `d66fd747`. **Natureza:** zero código · zero migration · zero DB write · zero dinheiro · zero E2E material · zero correção. Cartório completo no `STATUS_EXECUCAO_GLOBAL.md` (mesma data). Closeout docs-only `docs(products): record discovery surface audit`.
 - **Veredito = PASS_WITH_WARNINGS:** o comprador NÃO cai em checkout falso, rota fantasma nem autoridade client-side; dinheiro do comprador FORA; o único caminho de ordem+pagamento vivo (PDV/vendedor) tem autoridade server-side e pagamento firewall-contido default-OFF.
