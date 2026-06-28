@@ -1,5 +1,16 @@
 # REMEDIATION DT LOG
 
+## F-PRODUCTS-SALES-MVP-READINESS-AUDIT — ⚠️ READ-ONLY / PARTIAL_NEEDS_CARTOGRAPHY — abre DT do drift frontend↔backend de checkout (2026-06-28)
+- **Status:** **READ-ONLY / PARTIAL_NEEDS_CARTOGRAPHY.** HEAD auditado `12d6a27f`. Auditoria pura: zero código · zero migration · zero DB write · money-free. Cartório completo no `STATUS_EXECUCAO_GLOBAL.md` (mesma data).
+- **Síntese:** fundação de produtos MADURA e guardada (catálogo CONCEPT-semântico, oferta cents/BIGINT, estoque `inventory_movements` append-only + reservations + lock + oversell guard, autoridade `canRepresentActor`, pedido actor-agnóstico, dinheiro contido por stubs/firewall/HOLD). Quebra material: frontend de compra ligado a rotas backend stubadas/desabilitadas.
+- **DT NOVA — [[DT-MARKETPLACE-CHECKOUT-FRONTEND-WIRED-TO-BACKEND-STUBS]] = OPEN / FRONTEND_BACKEND_CONTRACT_DRIFT / MONEY-HOLD-CONTAINMENT_REQUIRED.**
+  - **Descrição:** o frontend de compra do marketplace (`MarketplaceStorePage` carrinho, `CheckoutPage`) está conectado a rotas de checkout/payment-plan/order que no backend estão **stubadas ou deliberadamente desabilitadas**:
+    - `/marketplace/order` · `/marketplace/checkout/from-order` · `/marketplace/payment-plan/.../execute`.
+    - módulos backend `marketplace-checkout.routes.ts`, `marketplace-payments.routes.ts`, `marketplace-payment-plan.routes.ts`, `b2b-supply-order.routes.ts` = STUB VAZIO `{}`; `MarketplaceService.executePaymentPlan()` lança `LEGACY_FINANCIAL_PATH_DISABLED` (marketplace-orders.service.ts:610).
+  - **Risco:** NÃO é movimento financeiro (dinheiro contido em 4 camadas independentes) — é **UX mentirosa / contrato de compra falso** (tela viva que fabrica funcionalidade inexistente; viola "frontend nunca cria verdade").
+  - **Contenção planejada:** `F-MARKETPLACE-CHECKOUT-STUB-CONTRACT-CONTAINMENT-SLICE-A` (frontend-first, money-free) — trocar fluxo de compra por terminal honesto; nada de checkout/order/payment-plan fake.
+  - **Observações:** checkout/pagamento/split/settlement seguem **HOLD**; abrir checkout real exige DECISION-0114 + PORTA-1/bucket D + três paralelas. Resíduo de estoque sem CHECK DB saldo≥0 fica REGISTRADO como risco futuro, não atacar agora.
+
 ## F-CREATE-CATEGORY-FROM-CONCEPT-COLUMN-DRIFT-FIX — ✅ MATERIAL / YALA PASS / FECHADA — função governada `create_category_from_concept` realinhada à coluna viva `is_created_by_ai` (2026-06-28)
 - **Status:** **MATERIAL / YALA PASS / FECHADA.** Commit material `0a4d4735` (`fix(catalog): repair create category from concept function drift`) — 1 arquivo (migration), +187. HEAD antes `037b2e5b` → depois `0a4d4735`. **Natureza:** schema/function alterado via **migration canônica** · **zero DB write manual** · **zero catálogo persistido** · **Δcategories=0** · **money-free**.
 - **DT — [[DT-CREATE-CATEGORY-FROM-CONCEPT-COLUMN-DRIFT]] = CLOSED / MATERIAL / YALA PASS.** (Aberta durante `F-MVP-C1-SERVICE-CONCEPT-SEED-BRIDGE`.)
