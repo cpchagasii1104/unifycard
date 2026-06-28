@@ -141,6 +141,34 @@ async function main(): Promise<void> {
   const e = await onboard(TENANT_ID, { actorId: storeSuper2, companyId: companySuper2, departmentCategoryId: alimentacao, selectedCategoryIds: [carnes], hasOwnProducts: false }, humanId);
   record('E sem preço real → products materializados, ZERO offers', e.ok && e.offers === 0 && e.imported > 0, JSON.stringify(e));
 
+  // ═══ W1 SLICE-B — companyId de AUTORIDADE é derivado do store actor, não do cliente ═══
+  // G — crachá alheio: super representa SEU store mas envia companyId de OUTRA empresa (super2,
+  //     mesmo ramo, que ANTES passaria o guard) → COMPANY_MISMATCH fail-closed, zero offer.
+  const g = await onboard(TENANT_ID, { actorId: storeSuper, companyId: companySuper2, departmentCategoryId: alimentacao, selectedCategoryIds: [hortifruti], hasOwnProducts: false, defaultSalePrice: 5 }, humanId);
+  record('G W1: companyId de OUTRA empresa (mesmo ramo) → fail-closed (ForbiddenError)', g.forbidden, g.err);
+  record('G zero offer fabricada com crachá alheio', g.offers === 0, JSON.stringify(g));
+
+  // H — PF tenta vestir crachá de empresa: actor user (company NULL) envia companyId do super
+  //     → derivado é NULL, body diverge → COMPANY_MISMATCH fail-closed.
+  const h = await onboard(TENANT_ID, { actorId: humanId, companyId: companySuper, departmentCategoryId: alimentacao, selectedCategoryIds: [hortifruti], hasOwnProducts: false, defaultSalePrice: 5 }, humanId);
+  record('H W1: PF (company NULL) enviando companyId de empresa → fail-closed (ForbiddenError)', h.forbidden, h.err);
+  record('H PF não cria offer com crachá de empresa', h.offers === 0, JSON.stringify(h));
+
+  // I — bypass por OMISSÃO fechado: farmácia OMITE companyId e tenta a banana reusada; ANTES o guard
+  //     bypassava (tenant company_type NULL) → AGORA o company é derivado do store actor (farma) e o
+  //     guard de ramo BARRA. Zero offer indevida.
+  const farmaOffersBeforeI = await count(`SELECT count(*)::int AS n FROM product_offers WHERE tenant_id=$1 AND merchant_id=$2`, [TENANT_ID, storeFarma]);
+  const i = await onboard(TENANT_ID, { actorId: storeFarma, departmentCategoryId: alimentacao, selectedCategoryIds: [hortifruti], hasOwnProducts: false, defaultSalePrice: 5 }, humanId);
+  record('I W1: companyId OMITIDO não bypassa o guard p/ actor de empresa (farma+banana barrada)', i.forbidden, i.err);
+  const farmaHortifrutiOffersI = await count(
+    `SELECT count(*)::int AS n FROM product_offers o JOIN products p ON p.id=o.product_id
+       WHERE o.tenant_id=$1 AND o.merchant_id=$2 AND p.category_id=$3`,
+    [TENANT_ID, storeFarma, hortifruti]
+  );
+  const farmaOffersAfterI = await count(`SELECT count(*)::int AS n FROM product_offers WHERE tenant_id=$1 AND merchant_id=$2`, [TENANT_ID, storeFarma]);
+  record('I farmácia: ZERO offer de hortifruti (omissão não vira fresta; medicamentos do cenário C preservados)',
+    farmaHortifrutiOffersI === 0 && farmaOffersAfterI === farmaOffersBeforeI, `hortifruti=${farmaHortifrutiOffersI} total ${farmaOffersBeforeI}→${farmaOffersAfterI}`);
+
   // ═══ F — não-toque ═══
   record('F1 nenhuma offer com price_cents=0 fabricada em todo o tenant', (await count(`SELECT count(*)::int AS n FROM product_offers WHERE tenant_id=$1 AND price_cents=0`, [TENANT_ID])) === 0);
   record('F2 nenhum canonical_product novo', (await count(`SELECT count(*)::int AS n FROM canonical_products`)) === canonBefore);

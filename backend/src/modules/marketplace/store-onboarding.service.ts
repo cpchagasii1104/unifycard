@@ -14,6 +14,8 @@ import { marketplaceCategoriesService } from './marketplace-categories.service';
 import { productCatalogService } from './product-catalog.service';
 import { assertProductCategoryAllowedForCompany } from './product-concept-guard';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { ForbiddenError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 import {
   logGovernanceCategoryMissingN1,
   logGovernanceCategoryValidationFailed,
@@ -277,13 +279,48 @@ class StoreOnboardingService {
     createdByUserId?: string,
     logContext?: StoreOnboardingLogContext
   ): Promise<StoreOnboardingResult> {
-    const auditCtx = await this.loadTenantOnboardingAuditContext(tenantId, input.companyId);
+    // ── W1 SLICE-B / DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR ──────────────────
+    // O companyId que governa o guard de ramo (DECISION-0108) é DERIVADO server-side do
+    // STORE ACTOR representado (input.actorId — já provado por canRepresentActor na rota),
+    // NUNCA aceito do cliente como autoridade. input.companyId vira compat-check.
+    const storeActorRow = await runQueryWithTenant<{ actor_type: string; company_id: string | null }>(
+      tenantId,
+      `SELECT actor_type, company_id::text AS company_id FROM actors WHERE id = $1::uuid LIMIT 1`,
+      [input.actorId]
+    );
+    if (!storeActorRow) {
+      throw new ForbiddenError(
+        'STORE_ONBOARDING_ACTOR_NOT_FOUND: store actor inexistente neste tenant',
+        ErrorCode.FORBIDDEN
+      );
+    }
+    if (storeActorRow.actor_type !== 'user' && storeActorRow.actor_type !== 'page') {
+      throw new ForbiddenError(
+        `STORE_ONBOARDING_ACTOR_TYPE_UNSUPPORTED: actor_type '${storeActorRow.actor_type}' não suporta onboarding de loja`,
+        ErrorCode.FORBIDDEN
+      );
+    }
+    const derivedCompanyId: string | undefined = storeActorRow.company_id ?? undefined;
+    if (storeActorRow.actor_type === 'page' && !derivedCompanyId) {
+      throw new ForbiddenError(
+        'STORE_ONBOARDING_PAGE_WITHOUT_COMPANY: page-actor sem company_id não pode onboardar loja (DECISION-0108)',
+        ErrorCode.FORBIDDEN
+      );
+    }
+    if (input.companyId != null && input.companyId !== derivedCompanyId) {
+      throw new ForbiddenError(
+        'STORE_ONBOARDING_COMPANY_MISMATCH: companyId enviado não corresponde à empresa do store actor representado (autoridade server-side, W1)',
+        ErrorCode.FORBIDDEN
+      );
+    }
+
+    const auditCtx = await this.loadTenantOnboardingAuditContext(tenantId, derivedCompanyId);
 
     let resolvedInput: StoreOnboardingInput = input;
     let inheritedApplied = false;
     if (!input.departmentCategoryId) {
       // PONTE: deriva da empresa classificada (companies.primary_company_type_id) quando há companyId.
-      const inherited = await this.resolveOnboardingCategories(tenantId, input.companyId);
+      const inherited = await this.resolveOnboardingCategories(tenantId, derivedCompanyId);
       if (inherited) {
         resolvedInput = {
           ...input,
@@ -384,7 +421,8 @@ class StoreOnboardingService {
           canonicalProductId: canonical.id,
           // DECISION-0108: empresa CLASSIFICADA governa o recorte por categoria/ramo no guard
           // (companies.primary_company_type_id; nunca tenants.company_type_id no fluxo PJ novo).
-          companyId: resolvedInput.companyId,
+          // W1 Slice-B: company DERIVADO server-side do store actor (não client-asserted).
+          companyId: derivedCompanyId,
           productType: 'industrial',
           isActive: true,
           metadata: {
@@ -413,11 +451,11 @@ class StoreOnboardingService {
         // DECISION-0108 na camada de OFERTA (prateleira): reaplica o recorte por categoria/ramo ANTES de
         // ativar a `product_offer`. Fecha a fresta do REUSO — quando o `product` já existia no tenant
         // (`createProduct` pulado), o guard de MATERIALIZAÇÃO não rodou; aqui a empresa só ATIVA na
-        // prateleira itens elegíveis pelos seus ramos. `companyId` presente → fail-closed por categoria
-        // fora do ramo; ausente (PF/legado) → bypass compat (mesma régua do product guard).
-        // Hardening futuro (registrado): derivar company por `merchant_id → actors.company_id` para
-        // caminhos que venham a criar offer sem `companyId`.
-        await assertProductCategoryAllowedForCompany(tenantId, canonical.id, resolvedInput.companyId);
+        // prateleira itens elegíveis pelos seus ramos. `derivedCompanyId` (W1 Slice-B) presente →
+        // fail-closed por categoria fora do ramo; ausente (PF/legado, derivado NULL) → bypass compat.
+        // HARDENING FEITO (W1 Slice-B): company derivado server-side de `actors.company_id` via store
+        // actor (input.actorId); companyId omitido pelo cliente NÃO bypassa o guard para actor de empresa.
+        await assertProductCategoryAllowedForCompany(tenantId, canonical.id, derivedCompanyId);
         await this.createProductOffer(tenantId, {
           productId: tenantProductId,
           merchantId: resolvedInput.actorId,

@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-// Guard estrutural — F-PRODUCT-PUBLISH-COMPANY-BIND-SLICE-A
+// Guard estrutural — F-PRODUCT-PUBLISH-COMPANY-BIND-SLICE-A + SLICE-B
 // (DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR / W1; DECISION-0108 input bound; DECISION-0113).
 //
-// O caminho direto de oferta de produto (productOfferingService.activateVariantAndCreateOffer)
-// deve DERIVAR o "crachá de empresa" (companyId) que governa o guard de ramo a partir do ACTOR
-// representado (server-side), nunca confiar no companyId do cliente como autoridade. MORDE se:
-// a derivação por actors.company_id sumir; o createProduct ou o guard de ramo voltarem a usar
-// input.companyId como fonte de verdade; o compat-check (companyId do body ≠ derivado → 403)
-// sumir; os códigos fail-closed sumirem; ou o branch já-materializado voltar a guardear só quando
-// o cliente envia companyId (bypass por omissão). Estático (lê product-offering.service.ts,
+// Os DOIS caminhos de publicação de produto devem DERIVAR o "crachá de empresa" (companyId) que
+// governa o guard de ramo a partir do ACTOR representado (server-side), nunca confiar no companyId
+// do cliente como autoridade:
+//   • Slice-A: caminho direto  productOfferingService.activateVariantAndCreateOffer
+//   • Slice-B: caminho gêmeo   storeOnboardingService.createStoreOnboarding (import em massa)
+// MORDE se: a derivação por actors.company_id sumir; o createProduct ou o guard de ramo voltarem a
+// usar o companyId do cliente como fonte de verdade; o compat-check (companyId do body ≠ derivado →
+// fail-closed) sumir; os códigos fail-closed sumirem; ou o branch já-materializado voltar a guardear
+// só quando o cliente envia companyId (bypass por omissão). Estático (lê os dois services,
 // comment-stripped). Em regression-guards.
 
 import { readFileSync, existsSync } from 'fs';
@@ -61,9 +63,44 @@ if (!existsSync(p)) {
     failures.push('canRepresentActor ausente — representação (DECISION-0113) deve preceder a derivação.');
 }
 
+// ── SLICE-B — caminho gêmeo store-onboarding.service.ts (import em massa) ─────────────
+const FILE_B = 'src/modules/marketplace/store-onboarding.service.ts';
+const pB = join(ROOT, FILE_B);
+if (!existsSync(pB)) {
+  failures.push(`arquivo ausente: ${FILE_B}`);
+} else {
+  const src = stripTs(readFileSync(pB, 'utf-8'));
+
+  // 1) Derivação server-side: company_id vem de actors pelo store actor (input.actorId).
+  if (!/company_id[\s\S]{0,40}FROM\s+actors\b/i.test(src))
+    failures.push('[slice-b] não deriva company_id de actors (SELECT ... company_id ... FROM actors).');
+  if (!/FROM\s+actors[\s\S]{0,120}input\.actorId/i.test(src) && !/input\.actorId[\s\S]{0,200}FROM\s+actors\b/i.test(src))
+    failures.push('[slice-b] derivação não usa input.actorId — store actor representado deve ser a chave.');
+  if (!/const\s+derivedCompanyId\b/.test(src))
+    failures.push('[slice-b] derivedCompanyId ausente — companyId de autoridade precisa ser derivado server-side.');
+
+  // 2) Autoridade usa o derivado, NÃO o body, no createProduct e no guard de ramo.
+  if (!/companyId:\s*derivedCompanyId/.test(src))
+    failures.push('[slice-b] createProduct não recebe companyId: derivedCompanyId.');
+  if (!/assertProductCategoryAllowedForCompany\([^)]*derivedCompanyId\s*\)/.test(src))
+    failures.push('[slice-b] guard de ramo (assertProductCategoryAllowedForCompany) não usa derivedCompanyId.');
+  if (/assertProductCategoryAllowedForCompany\([^)]*(?:resolvedInput|input)\.companyId\s*\)/.test(src))
+    failures.push('[slice-b] guard de ramo ainda usa companyId do cliente como autoridade — PROIBIDO (W1).');
+  if (/companyId:\s*(?:resolvedInput|input)\.companyId/.test(src))
+    failures.push('[slice-b] createProduct ainda usa companyId do cliente como autoridade — PROIBIDO (W1).');
+
+  // 3) Compat-check + fail-closed codes (mesma régua da Slice-A).
+  if (!/input\.companyId\s*!=\s*null[\s\S]{0,80}!==\s*derivedCompanyId/.test(src))
+    failures.push('[slice-b] compat-check ausente (input.companyId != null && input.companyId !== derivedCompanyId).');
+  if (!/STORE_ONBOARDING_COMPANY_MISMATCH/.test(src))
+    failures.push('[slice-b] falta fail-closed STORE_ONBOARDING_COMPANY_MISMATCH (companyId do body ≠ derivado).');
+  if (!/STORE_ONBOARDING_ACTOR_TYPE_UNSUPPORTED/.test(src))
+    failures.push('[slice-b] falta fail-closed STORE_ONBOARDING_ACTOR_TYPE_UNSUPPORTED (group/unsupported).');
+}
+
 if (failures.length > 0) {
   console.error('GATE FAIL [product-offer-actor-company-bind]:');
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log("GATE OK [product-offer-actor-company-bind] — oferta direta de produto deriva companyId do actor representado (actors.company_id via storeActorId), usa derivedCompanyId em createProduct e no guard de ramo (DECISION-0108), trata companyId do body só como compat-check (≠ derivado → 403 OFFER_COMPANY_MISMATCH), falha fechado em actor_type não suportado, e guardeia o branch já-materializado pelo derivado (sem bypass por omissão). W1/DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR blindada.");
+console.log("GATE OK [product-offer-actor-company-bind] — AMBOS os caminhos de publicação de produto derivam companyId do actor representado (actors.company_id): Slice-A (oferta direta, via storeActorId) e Slice-B (store-onboarding/import em massa, via input.actorId). Os dois usam derivedCompanyId em createProduct e no guard de ramo (DECISION-0108), tratam companyId do body só como compat-check (≠ derivado → fail-closed OFFER_/STORE_ONBOARDING_COMPANY_MISMATCH), falham fechado em actor_type não suportado, e não permitem bypass por omissão. W1/DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR blindada nos dois caminhos.");
