@@ -1,5 +1,14 @@
 # REMEDIATION DT LOG
 
+## F-PRODUCT-PUBLISHING-AUTHORITY-WARNINGS-READONLY — ⚠️ READ-ONLY / CONSOLIDATED — rodada 3 lentes (A/B/C); W1 vira material, W2 fica para Clayton (2026-06-28)
+- **Status:** **READ-ONLY / CONSOLIDATED.** HEAD auditado `30e8fc52`. Rodada adversarial pura: zero código · zero migration · zero DB write · money-free. Cartório completo no `STATUS_EXECUCAO_GLOBAL.md` (mesma data).
+- **Veredito A (norma/política) = DECISION_REQUIRED:** W2 não é bug puro nem design fechado — PJ-produto por ramo = DECISION-0108; produto/material diferido por DECISION-0143; PF-produto normativamente silente; Clayton decide paridade-com-serviço vs. ramo/categoria-basta.
+- **Veredito B (código/schema) = NOT_BOUND:** `storeActorId` selado por `canRepresentActor`; `companyId` vem do cliente; vínculo `companyId↔storeActorId` não provado server-side; risco = representar actor A + mandar `companyId` B do mesmo tenant para passar no guard de ramo.
+- **Veredito C (segurança/blast-radius) = GUARD_GAP:** identidade do vendedor selada; gap está na elegibilidade/ramo; W1 = safe with guards; W2 exige decisão antes de teste.
+- **[[DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR]] = CONFIRMADA / MATERIAL_REQUIRED / SAFE_WITH_GUARDS** → vira microfatia material `F-PRODUCT-PUBLISH-COMPANY-BIND-SLICE-A` (derivar companyId server-side do storeActorId; guard `audit-product-offer-actor-company-bind` + E2E).
+- **[[DT-PRODUCT-PUBLISH-NO-PF-PJ-ELIGIBILITY-GATE]] = DECISION_REQUIRED / CLAYTON** → NÃO mexe em código; aguarda decisão de paridade. Fora do escopo da fatia W1.
+- **Fronteiras:** checkout/compra/order real seguem HOLD; dinheiro/payout/PORTA-1/bucket D em HOLD; produto read-only/discovery pode seguir; venda real não segue sem W1 fechado + W2 decidido.
+
 ## F-PRODUCT-PUBLISHING-PF-PJ-SSOT-AUDIT — ⚠️ READ-ONLY / PASS_WITH_WARNINGS — abre 2 DTs de autoridade da publicação de produto (2026-06-28)
 - **Status:** **READ-ONLY / PASS_WITH_WARNINGS.** HEAD auditado `17d49b74` (inalterado). Auditoria pura: zero código · zero migration · zero DB write · money-free. Cartório completo no `STATUS_EXECUCAO_GLOBAL.md` (mesma data).
 - **Síntese:** porta do vendedor (publicar/ofertar PRODUTO PF/PJ) é honesta, server-side e money-free — CONCEPT é raiz (`canonical_products.product_concept_id → product_concepts → concepts`); categoria/slug não são autoridade de identidade; oferta viva `product_offers.price_cents` BIGINT/cents; `canRepresentActor(storeActorId)` cerca representação (fail-closed 403); canônico precisa READY; guard de ramo PJ DECISION-0108; estoque desacoplado da publicação (oversell só no checkout); dinheiro/checkout/order real em HOLD; zero Bank no caminho de publicação. **MAS 2 warnings de autoridade — assimetria de rigor vs. serviços.**

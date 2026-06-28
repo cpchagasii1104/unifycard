@@ -1,3 +1,20 @@
+## 2026-06-28 — F-PRODUCT-PUBLISHING-AUTHORITY-WARNINGS-READONLY · ⚠️ READ-ONLY / CONSOLIDATED — rodada adversarial 3 lentes (A/B/C) bateu no mesmo ponto: W1 vira material, W2 fica para Clayton
+
+**Rodada adversarial pura, sem alterar código.** HEAD auditado `30e8fc52`. **Natureza:** READ-ONLY · zero código · zero migration · zero DB write · money-free. **Objetivo:** dar lupa nos 2 warnings de autoridade da publicação de produto (W1 vínculo companyId↔actor; W2 ausência de gate PF/PJ) por 3 lentes independentes antes de tocar qualquer código. **RESULTADO = CONSOLIDATED** — as três lentes convergiram no mesmo ponto: identidade do vendedor está selada (`canRepresentActor`), o gap é elegibilidade/ramo.
+
+**VEREDITO A: DECISION_REQUIRED (norma/política).** W2 não é bug puro nem design fechado: produto PJ por ramo vem de **DECISION-0108**; produto/material foi **diferido por DECISION-0143**; PF-produto está normativamente **silente**. Clayton precisa decidir se produto segue paridade com serviços (concept-publication/declaração) ou se ramo/categoria basta.
+
+**VEREDITO B: NOT_BOUND (código/schema).** `storeActorId` é validado por `canRepresentActor` (selado); `companyId` vem do cliente; o vínculo `companyId ↔ storeActorId` **não foi provado server-side**. Risco concreto: representar actor A e mandar `companyId` B do **mesmo tenant** para passar no guard de ramo com crachá alheio.
+
+**VEREDITO C: GUARD_GAP (segurança/blast-radius).** Identidade do vendedor está selada; o gap está na elegibilidade/ramo. **W1 = safe with guards** (concreto, fechável com derivação server-side + guard/E2E). **W2 exige decisão antes de teste** (não dá para escrever prova sem saber a política).
+
+**CONSOLIDAÇÃO / VEREDITO DIRETIVO (Clayton):**
+- **W1 — [[DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR]] = CONFIRMADA / MATERIAL_REQUIRED / SAFE_WITH_GUARDS** → vira microfatia material agora.
+- **W2 — [[DT-PRODUCT-PUBLISH-NO-PF-PJ-ELIGIBILITY-GATE]] = DECISION_REQUIRED / CLAYTON** → NÃO mexe em código; aguarda decisão de paridade (produto = rigor de serviço OU ramo/categoria basta).
+- checkout/compra/order real seguem **HOLD**; dinheiro/payout/PORTA-1/bucket D em **HOLD**; produto read-only/discovery pode seguir.
+
+**PRÓXIMA FRENTE:** `F-PRODUCT-PUBLISH-COMPANY-BIND-SLICE-A` (material, backend-first, money-free) — derivar `companyId` server-side a partir do `storeActorId` representado; não confiar em `companyId` client-asserted; incluir guard `audit-product-offer-actor-company-bind` + E2E. **W2 fora do escopo dessa fatia** (não criar `actor_product_concepts`/`company_product_concepts`/estender `company_concept_publications` para produto). **Resumo seco:** as três lentes apontaram para o mesmo crachá falso — W1 é só fechar o crachá; W2 é a decisão de rigor que pode esperar Clayton com calma.
+
 ## 2026-06-28 — F-PRODUCT-PUBLISHING-PF-PJ-SSOT-AUDIT · ⚠️ READ-ONLY / PASS_WITH_WARNINGS — porta do vendedor (publicar/ofertar produto PF/PJ) é honesta, server-side e money-free; 2 warnings de autoridade a fechar antes de VENDER
 
 **Auditoria pura, sem alterar nada.** HEAD auditado `17d49b74` (inalterado — auditoria não escreveu nada). **Natureza:** READ-ONLY · zero código · zero migration · zero DB write · money-free · working tree sem alteração da frente. **Método:** 4 cartografias READ-ONLY paralelas (CONCEPT/oferta · autoridade PF/PJ · frontend vendedor · estoque/guards) + verificação adversarial DIRETA do código crítico (`product-offering.service.ts:71-159` e `services.service.ts:58-101`). **Pergunta certificada:** publicação/oferta de PRODUTO respeita SSOT semântico (CONCEPT), actor ativo, autoridade server-side e isolamento PF/PJ — igual aos serviços? **VEREDITO = PASS_WITH_WARNINGS** (não PASS limpo).
