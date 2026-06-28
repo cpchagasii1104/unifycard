@@ -11,7 +11,12 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getStores, getStoreCatalog, getStoreProducts, createOrder, addOrderItem, type MarketplaceStore, type StoreCatalog, type StoreProduct, type Order } from '../api/marketplace';
+// F-MARKETPLACE-CHECKOUT-STUB-CONTRACT-CONTAINMENT-SLICE-A (2026-06-28)
+// DT-MARKETPLACE-CHECKOUT-FRONTEND-WIRED-TO-BACKEND-STUBS: a descoberta (getStores/
+// getStoreCatalog/getStoreProducts) é leitura VIVA e fica. Carrinho/checkout (createOrder/
+// addOrderItem → /marketplace/order*, hoje STUB VAZIO no backend) foram REMOVIDOS daqui:
+// não se monta carrinho que liga em rota inexistente. Compra segue em HOLD.
+import { getStores, getStoreCatalog, getStoreProducts, type MarketplaceStore, type StoreCatalog, type StoreProduct } from '../api/marketplace';
 import { getOfferCategoriesByStore, type MarketplaceCategory } from '../api/marketplace-categories';
 import Breadcrumb from '../components/marketplace/Breadcrumb';
 import { checkBackendHealth } from '../api/health';
@@ -24,8 +29,6 @@ export default function MarketplaceStorePage() {
   const [catalog, setCatalog] = useState<StoreCatalog | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<StoreProduct[]>([]);
-  const [order, setOrder] = useState<Order | null>(null);
-  const [isAddingToCart, setIsAddingToCart] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'branches' | 'catalog'>('branches');
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
@@ -144,43 +147,10 @@ export default function MarketplaceStorePage() {
     }
   };
 
-  // 🔴 ENTITY DETAIL PAGE: Adicionar ao carrinho (cria ordem se não existir)
-  const handleAddToCart = async (productId: string) => {
-    if (!storeId) return;
-
-    setIsAddingToCart(productId);
-    
-    try {
-      // Criar ordem se não existir
-      let currentOrder = order;
-      if (!currentOrder) {
-        currentOrder = await createOrder({ store_id: storeId });
-        setOrder(currentOrder);
-      }
-      
-      // Adicionar item ao carrinho
-      const updatedOrder = await addOrderItem(currentOrder.order_id, {
-        product_id: productId,
-        quantity: 1,
-      });
-      setOrder(updatedOrder);
-    } catch (err: any) {
-      alert(err.message || 'Erro ao adicionar ao carrinho');
-      console.error('Erro ao adicionar ao carrinho:', err);
-    } finally {
-      setIsAddingToCart(null);
-    }
-  };
-
-  // 🔴 ENTITY DETAIL PAGE: CTA explícito para navegar para checkout (Action Page)
-  const handleGoToCheckout = () => {
-    if (!order || order.items.length === 0) {
-      alert('Adicione produtos ao carrinho antes de ir para checkout');
-      return;
-    }
-    // Navegar para página de checkout dedicada
-    navigate(`/checkout/${order.order_id}`);
-  };
+  // F-MARKETPLACE-CHECKOUT-STUB-CONTRACT-CONTAINMENT-SLICE-A: carrinho/checkout removidos.
+  // O backend de criação de pedido público (/marketplace/order*) é STUB VAZIO; montar
+  // carrinho aqui acenderia botão que não liga no motor. Compra em HOLD (DECISION-0114 +
+  // PORTA-1). Esta tela permanece descoberta/visualização read-only.
 
   if (isLoading) {
     return (
@@ -353,8 +323,7 @@ export default function MarketplaceStorePage() {
                         {products.map((product) => {
                           const isUnavailable = product.stock?.quantity === 0;
                           const hasPrice = product.price !== null;
-                          const isAdding = isAddingToCart === product.product_id;
-                          
+
                           return (
                             <div key={product.product_id} className="marketplace-store-product">
                               <div className="marketplace-store-product-info">
@@ -379,13 +348,16 @@ export default function MarketplaceStorePage() {
                                 ) : !hasPrice ? (
                                   <span className="marketplace-store-product-no-price">Sem preço</span>
                                 ) : (
+                                  /* F-MARKETPLACE-CHECKOUT-STUB-CONTRACT-CONTAINMENT-SLICE-A:
+                                     compra em HOLD (backend de pedido = stub). CTA honesto
+                                     desabilitado em vez de botão que liga em rota inexistente. */
                                   <button
                                     className="marketplace-store-product-add-button"
-                                    onClick={() => handleAddToCart(product.product_id)}
-                                    disabled={isAdding}
+                                    disabled
+                                    title="A compra de produtos ainda não está habilitada neste MVP."
                                     type="button"
                                   >
-                                    {isAdding ? 'Adicionando...' : 'Adicionar ao carrinho'}
+                                    Indisponível no MVP atual
                                   </button>
                                 )}
                               </div>
@@ -402,38 +374,14 @@ export default function MarketplaceStorePage() {
         )}
       </div>
 
-      {/* 🔴 ENTITY DETAIL PAGE: Resumo do Pedido (apenas visual) */}
-      {order && order.items.length > 0 && (
-        <div className="marketplace-store-order-summary">
-          <h2>Carrinho</h2>
-          <div className="marketplace-store-order-items">
-            {order.items.map((item) => (
-              <div key={item.product_id} className="marketplace-store-order-item">
-                <div className="marketplace-store-order-item-info">
-                  <h4>{item.name}</h4>
-                  <p className="marketplace-store-order-item-quantity">
-                    {item.quantity}x {item.price.currency} {item.price.amount.toFixed(2)}
-                  </p>
-                </div>
-                <div className="marketplace-store-order-item-subtotal">
-                  {item.price.currency} {item.subtotal.toFixed(2)}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="marketplace-store-order-total">
-            <strong>Total: {order.items[0]?.price.currency || 'BRL'} {order.total.toFixed(2)}</strong>
-          </div>
-          {/* 🔴 ENTITY DETAIL PAGE: CTA explícito para navegar para Action Page (Checkout) */}
-          <button
-            className="marketplace-store-checkout-button"
-            onClick={handleGoToCheckout}
-            type="button"
-          >
-            Ir para checkout
-          </button>
-        </div>
-      )}
+      {/* F-MARKETPLACE-CHECKOUT-STUB-CONTRACT-CONTAINMENT-SLICE-A: resumo de carrinho/CTA
+          "Ir para checkout" REMOVIDOS — ligavam em backend stub. Aviso honesto no lugar. */}
+      <div className="marketplace-store-purchase-hold">
+        <p>
+          A compra de produtos ainda não está habilitada neste MVP. O catálogo, a oferta e o
+          estoque estão em preparação; pagamento e checkout seguem em HOLD.
+        </p>
+      </div>
     </div>
   );
 }
