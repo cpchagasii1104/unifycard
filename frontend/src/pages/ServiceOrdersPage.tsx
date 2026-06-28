@@ -160,6 +160,8 @@ export default function ServiceOrdersPage() {
   if (error) {
     return (
       <div className="service-orders-page">
+        {/* DT-UX-BACK-BUTTON-COVERAGE (#9): tela de erro também tem saída segura, não history do navegador. */}
+        <button className="btn-back" onClick={() => navigate('/services')}>← Voltar</button>
         <div className="error">{error}</div>
         <button onClick={loadOrders}>Tentar novamente</button>
       </div>
@@ -168,6 +170,8 @@ export default function ServiceOrdersPage() {
 
   return (
     <div className="service-orders-page">
+      {/* DT-UX-BACK-BUTTON-COVERAGE (#9): /service-orders era tela-folha sem volta. Rota segura = /services. */}
+      <button className="btn-back" onClick={() => navigate('/services')}>← Voltar</button>
       <div className="page-header">
         <div>
           <h1>Ordens de Serviço</h1>

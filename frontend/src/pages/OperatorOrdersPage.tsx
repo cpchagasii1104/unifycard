@@ -78,6 +78,8 @@ export default function OperatorOrdersPage() {
 
   return (
     <div className="service-orders-page">
+      {/* DT-UX-BACK-BUTTON-COVERAGE (#11): tela alcançada de /service-orders; volta explícita p/ lá. */}
+      <button className="btn-back" onClick={() => navigate('/service-orders')}>← Voltar</button>
       <div className="page-header">
         <div>
           <h1>Ordens por concessão (operador)</h1>

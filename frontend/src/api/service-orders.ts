@@ -4,6 +4,14 @@
 
 import { apiFetch, apiFetchJson } from './client';
 
+// 🔴 F-MVP-SERVICE-ORDERS-CLIENT-PREFIX-AND-BACK-UX-SLICE-A (DT-MVP-SERVICE-ORDERS-LIST-ROUTE-MISMATCH):
+// o backend monta serviceOrderRoutes DENTRO do módulo de serviços (app.builder → register(servicesModule,
+// { prefix: '/services' }) → services.module → register(serviceOrderRoutes) sem prefixo extra). Logo o
+// contrato VIVO é '/services/service-orders' — não '/service-orders'. O client antigo omitia o '/services'
+// e o app real devolvia 404 ("Route GET /service-orders ... not found"). Esta base é a única fonte do prefixo.
+// (offerings.ts já segue o mesmo padrão '/services/offerings'.) NÃO montar rota raiz no backend.
+const SERVICE_ORDERS_BASE = '/services/service-orders';
+
 export type ServiceOrderStatus = 'DRAFT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 export interface ServiceOrder {
@@ -68,7 +76,7 @@ export interface ServiceOrderFilters {
  * Criar nova ordem de serviço (status: DRAFT)
  */
 export async function createServiceOrder(input: CreateServiceOrderInput): Promise<ServiceOrder> {
-  const response = await apiFetch('/service-orders', {
+  const response = await apiFetch(SERVICE_ORDERS_BASE, {
     method: 'POST',
     body: JSON.stringify(input),
   });
@@ -97,7 +105,7 @@ export async function listServiceOrders(filters?: ServiceOrderFilters): Promise<
   if (filters?.offset) queryParams.append('offset', filters.offset.toString());
 
   const queryString = queryParams.toString();
-  const url = `/service-orders${queryString ? `?${queryString}` : ''}`;
+  const url = `${SERVICE_ORDERS_BASE}${queryString ? `?${queryString}` : ''}`;
 
   const response = await apiFetch(url);
   if (!response.ok) {
@@ -112,8 +120,8 @@ export async function listServiceOrders(filters?: ServiceOrderFilters): Promise<
  * Buscar ordem de serviço por ID
  */
 export async function getServiceOrder(orderId: string): Promise<ServiceOrder> {
-  const response = await apiFetch(`/service-orders/${orderId}`);
-  
+  const response = await apiFetch(`${SERVICE_ORDERS_BASE}/${orderId}`);
+
   if (!response.ok) {
     if (response.status === 404) {
       throw new Error('Ordem de serviço não encontrada');
@@ -133,7 +141,7 @@ export async function confirmServiceOrder(
   confirmedByActorId: string,
   confirmedByUserId?: string
 ): Promise<ServiceOrder> {
-  const response = await apiFetch(`/service-orders/${orderId}/confirm`, {
+  const response = await apiFetch(`${SERVICE_ORDERS_BASE}/${orderId}/confirm`, {
     method: 'POST',
     body: JSON.stringify({
       confirmedByActorId,
@@ -158,7 +166,7 @@ export async function startServiceOrder(
   startedByUserId?: string,
   workerNotes?: string
 ): Promise<ServiceOrder> {
-  const response = await apiFetch(`/service-orders/${orderId}/start`, {
+  const response = await apiFetch(`${SERVICE_ORDERS_BASE}/${orderId}/start`, {
     method: 'POST',
     body: JSON.stringify({
       startedByActorId,
@@ -184,7 +192,7 @@ export async function completeServiceOrder(
   completedByUserId?: string,
   workerNotes?: string
 ): Promise<ServiceOrder> {
-  const response = await apiFetch(`/service-orders/${orderId}/complete`, {
+  const response = await apiFetch(`${SERVICE_ORDERS_BASE}/${orderId}/complete`, {
     method: 'POST',
     body: JSON.stringify({
       completedByActorId,
@@ -210,7 +218,7 @@ export async function cancelServiceOrder(
   cancelledByUserId?: string,
   cancellationReason?: string
 ): Promise<ServiceOrder> {
-  const response = await apiFetch(`/service-orders/${orderId}/cancel`, {
+  const response = await apiFetch(`${SERVICE_ORDERS_BASE}/${orderId}/cancel`, {
     method: 'POST',
     body: JSON.stringify({
       cancelledByActorId,
@@ -252,7 +260,7 @@ export interface ServiceOrderFinancialTerms {
 export async function getServiceOrderFinancialTerms(
   orderId: string
 ): Promise<ServiceOrderFinancialTerms> {
-  const response = await apiFetch(`/service-orders/${orderId}/financial-terms`);
+  const response = await apiFetch(`${SERVICE_ORDERS_BASE}/${orderId}/financial-terms`);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Erro ao buscar termos financeiros' }));
@@ -274,7 +282,7 @@ export async function getServiceOrderFinancialTerms(
 export async function confirmServiceOrderFinancialTerms(
   orderId: string
 ): Promise<{ splits: any[] }> {
-  const response = await apiFetch(`/service-orders/${orderId}/confirm-financial-terms`, {
+  const response = await apiFetch(`${SERVICE_ORDERS_BASE}/${orderId}/confirm-financial-terms`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
@@ -301,7 +309,7 @@ export async function confirmBookingFromDecision(
   bookingId: string,
   decisionId: string
 ): Promise<ServiceOrder> {
-  const response = await apiFetch('/service-orders/confirm-booking', {
+  const response = await apiFetch(`${SERVICE_ORDERS_BASE}/confirm-booking`, {
     method: 'POST',
     body: JSON.stringify({
       bookingId,

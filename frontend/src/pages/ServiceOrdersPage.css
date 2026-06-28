@@ -4,6 +4,21 @@
   margin: 0 auto;
 }
 
+/* DT-UX-BACK-BUTTON-COVERAGE: saída segura explícita (não terceiriza navegação ao browser). */
+.service-orders-page .btn-back {
+  background: none;
+  border: none;
+  color: #4b5563;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+.service-orders-page .btn-back:hover {
+  color: #111827;
+  text-decoration: underline;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
