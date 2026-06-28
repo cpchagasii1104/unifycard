@@ -1,5 +1,14 @@
 # REMEDIATION DT LOG
 
+## F-MARKETPLACE-CHECKOUT-STUB-CONTRACT-CONTAINMENT-SLICE-A — ✅ MATERIAL / YALA PASS / FECHADA — frontend de compra contido honestamente (2026-06-28)
+- **Status:** **MATERIAL / YALA PASS / FECHADA.** HEAD `34c44281`. Commits: `813ebe16` (`docs(products): record sales readiness audit`) + `34c44281` (`fix(marketplace): contain checkout stubs with honest terminal`, 2 arquivos frontend, +51/−184). **Natureza:** frontend-first · zero backend · zero migration · zero DB write · money-free.
+- **DT — [[DT-MARKETPLACE-CHECKOUT-FRONTEND-WIRED-TO-BACKEND-STUBS]] = CLOSED / MATERIAL / YALA PASS / CONTAINED.**
+  - **Problema:** o frontend de marketplace chamava rotas backend stub/desabilitadas (`/marketplace/order`, `/marketplace/checkout`, `/marketplace/payment-plan`) — criava UX falsa de compra, embora checkout/payment/order reais estejam deliberadamente em HOLD.
+  - **Correção:** `CheckoutPage` virou TERMINAL HONESTO — não dispara API; não chama `createPaymentPlan`/`executePaymentPlan`/`getCheckout`/`confirmCheckout`; não cria order; botão "← Voltar ao Marketplace". `MarketplaceStorePage`: descoberta read-only preservada (catálogo/loja/produtos seguem leitura); carrinho/checkout removidos/contidos; "Adicionar ao carrinho" não inicia compra (CTA desabilitado); CTA de checkout → aviso honesto de HOLD; usuário não consegue iniciar compra real; sem localStorage/sessionStorage como verdade.
+  - **Provas:** YALA PASS · frontend tsc EXIT 0 · actor-writer OK · bank-ledger OK · regression OK · architectural-patterns strict EXIT 0 / critical_new=0 · git diff --check limpo · zero warning novo nos arquivos da fatia.
+  - **Fronteiras:** frontend-only; zero Bank/ledger/payout/checkout/settlement/reversal/disputes/workers; dinheiro/payout/PORTA-1/bucket D em HOLD; checkout real / carrinho real / pedido real / DECISION-0114 / publicação de produto / product offerable PF/PJ / estoque = fora de escopo.
+  - **Observação:** compra real de produtos só reabre em frente própria, com DECISION-0114 + PORTA-1/bucket D + três paralelas (toca checkout/payment/order/dinheiro).
+
 ## F-PRODUCTS-SALES-MVP-READINESS-AUDIT — ⚠️ READ-ONLY / PARTIAL_NEEDS_CARTOGRAPHY — abre DT do drift frontend↔backend de checkout (2026-06-28)
 - **Status:** **READ-ONLY / PARTIAL_NEEDS_CARTOGRAPHY.** HEAD auditado `12d6a27f`. Auditoria pura: zero código · zero migration · zero DB write · money-free. Cartório completo no `STATUS_EXECUCAO_GLOBAL.md` (mesma data).
 - **Síntese:** fundação de produtos MADURA e guardada (catálogo CONCEPT-semântico, oferta cents/BIGINT, estoque `inventory_movements` append-only + reservations + lock + oversell guard, autoridade `canRepresentActor`, pedido actor-agnóstico, dinheiro contido por stubs/firewall/HOLD). Quebra material: frontend de compra ligado a rotas backend stubadas/desabilitadas.
