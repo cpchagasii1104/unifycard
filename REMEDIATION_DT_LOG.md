@@ -1,5 +1,21 @@
 # REMEDIATION DT LOG
 
+## F-PRODUCT-DISCOVERY-SURFACE-READONLY — ⚠️ READ-ONLY / PASS_WITH_WARNINGS / CLOSEOUT — vitrine honesta; PDV roteado vivo com pagamento contido por firewall (2026-06-28)
+- **Status:** **READ-ONLY / PASS_WITH_WARNINGS.** HEAD auditado `d66fd747`. **Natureza:** zero código · zero migration · zero DB write · zero dinheiro · zero E2E material · zero correção. Cartório completo no `STATUS_EXECUCAO_GLOBAL.md` (mesma data). Closeout docs-only `docs(products): record discovery surface audit`.
+- **Veredito = PASS_WITH_WARNINGS:** o comprador NÃO cai em checkout falso, rota fantasma nem autoridade client-side; dinheiro do comprador FORA; o único caminho de ordem+pagamento vivo (PDV/vendedor) tem autoridade server-side e pagamento firewall-contido default-OFF.
+- **Buyer marketplace = HONESTO:** vitrine de produto/loja honesta; `MarketplaceStorePage` mantém compra DESABILITADA; `CheckoutPage` é terminal honesto e NÃO chama API; comprador não cai em checkout falso; stubs de order/checkout/payment-plan existem em `api/marketplace.ts` mas NÃO são chamados por tela viva do marketplace-buyer; discovery/read-only é money-free; `localStorage` só `active_actor_id`+token+prefs (sem autoridade/preço/saldo).
+- **Backend discovery = SAFE_READONLY:** ~20 endpoints de leitura `SAFE_READONLY`; cadeia semântica preservada `canonical_products → products → product_offers → product_variants`; identidade por UUID/canônico; `category/slug` só navegação/filtro, não SSOT; `price_cents` é dado de oferta, não transação; zero Bank/ledger/payout/settlement; gate KYB+publicação; order/checkout/payment-plan = 410 GONE (flag off) ou stub vazio (NOT_LIVE).
+- **Achado PDV (registrado explicitamente):**
+  - `PdvPage.tsx` está **roteado vivo** (`App.tsx:326`); PDV chama **`POST /pdv/orders`** e **`POST /pdv/orders/:id/pay`**.
+  - criação de ordem PDV é **viva, seller-side, permissionada** (`marketplace_manage_orders`, representação do operador da sessão server-side) e **money-free**;
+  - pagamento PDV está **contido** por `PDV_FINANCIAL_RUNTIME_ENABLED` **default-OFF**; firewall `assertPdvFinancialRuntimeEnabled` retorna **403 ANTES** de `createPaymentIntent`/`executePayment` (`pdv.service.ts:228`; front próprio já fechado [[F-PDV-PAY-MONEY-HOLD-CONTAINMENT]] firewall+e2e);
+  - autoridade PDV é **derivada da ordem/seller e validada server-side** (PDV-F2A seller-da-ordem + `canRepresentActor`→403 + body-deve-casar-com-a-ordem→403; PDV-F2C defesa no service);
+  - **NÃO é money leak;** isso corrige a narrativa: "buyer marketplace sem checkout" NÃO significa "frontend inteiro sem ordem".
+- **Resíduos não bloqueantes:** (a) `api/pdv.ts` envia `amount`, backend lê `amountCents` — drift **inerte** enquanto pay=403; carregar para futura frente PDV/dinheiro. (b) `GET /marketplace/search` com `trustLevel/actorType` merece leitura futura de baixo risco. (c) `root-filtered` usa `actorId` como **filtro** de categoria importada, **não autoridade** — `SAFE_READONLY` com nota UX de enumeração não-sensível.
+- **DTs:** nenhuma DT nova obrigatória; NÃO duplicar a contenção PDV money-hold já existente; registrado apenas como warning/cartório.
+- **⚠️ Lição de processo:** a lente de frontend declarou "money-free / nenhum caminho de ordem" e PERDEU o `PdvPage` inteiro — verificação adversarial direta (leitura própria da fonte) segurou o veredito.
+- **Fronteiras:** W2 = **DECISION_REQUIRED / Clayton**; checkout/order/payment-plan real de comprador + pagamento PDV + payout/PORTA-1/bucket D = HOLD; nenhum dinheiro aberto; nenhuma correção material feita.
+
 ## F-AUTHORITY-BADGE-SPOOF-SWEEP-READONLY — ⚠️ READ-ONLY / MAP_WITH_OPEN_FINDINGS / CLOSEOUT — varredura do padrão "crachá-alheio" pós-W1; ZERO vetor VIVO (2026-06-28)
 - **Status:** **READ-ONLY / MAP_WITH_OPEN_FINDINGS.** HEAD auditado `242a8c2f`. **Natureza:** zero código · zero commit material · zero migration · zero DB write · zero dinheiro · zero E2E material. Cartório completo no `STATUS_EXECUCAO_GLOBAL.md` (mesma data). Closeout docs-only `docs(authority): record badge spoof sweep baseline`.
 - **Veredito = MAP_WITH_OPEN_FINDINGS:** **ZERO vetor "crachá-alheio" VIVO fora do W1 já fechado.** Padrão canônico dominante = `canRepresentActor + derivação server-side + fail-closed` (norma pós-DECISION-0113, não exceção); a W1 de produto confirmou a doutrina para `companyId`.
