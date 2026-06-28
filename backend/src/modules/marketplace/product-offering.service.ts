@@ -13,7 +13,7 @@
 // productRepository.createProduct). Empresa só altera a PRÓPRIA oferta.
 // Zero Bank writer; estoque permanece SSOT em inventory_movements (actor).
 
-import { pool } from '@core/database/pool';
+import { pool, runQueryWithTenant } from '@core/database/pool';
 import { authorizationService } from '@core/authorization/authorization.service';
 import { canonicalVariantService } from '@core/catalog/canonical/canonical-variant.service';
 import { canonicalUnitsService } from '@core/catalog/canonical/canonical-units.service';
@@ -73,6 +73,34 @@ export const productOfferingService = {
       throw new ProductOfferingError(403, 'OFFER_ACTOR_NOT_REPRESENTABLE',
         'Sem autoridade para representar o actor da loja (DECISION-0113).');
     }
+
+    // ── W1 / DT-PRODUCT-PUBLISH-COMPANYID-NOT-BOUND-TO-ACTOR ──────────────────────
+    // O "crachá de empresa" (companyId) que governa o guard de ramo (DECISION-0108) é
+    // DERIVADO server-side do actor representado — NUNCA aceito do cliente como autoridade.
+    // `input.companyId`, se vier, é só compat-check: igual ao derivado passa; diferente → 403.
+    const sa = await runQueryWithTenant<{ actor_type: string; company_id: string | null }>(
+      input.tenantId,
+      `SELECT actor_type, company_id::text AS company_id FROM actors WHERE id = $1::uuid LIMIT 1`,
+      [input.storeActorId]
+    );
+    if (!sa) {
+      throw new ProductOfferingError(404, 'OFFER_STORE_ACTOR_NOT_FOUND',
+        'Actor da loja inexistente neste tenant.');
+    }
+    if (sa.actor_type !== 'user' && sa.actor_type !== 'page') {
+      throw new ProductOfferingError(403, 'OFFER_ACTOR_TYPE_UNSUPPORTED',
+        `Tipo de actor '${sa.actor_type}' não suporta ofertar produto (esperado PF user ou page de company).`);
+    }
+    const derivedCompanyId: string | null = sa.company_id ?? null;
+    if (sa.actor_type === 'page' && !derivedCompanyId) {
+      throw new ProductOfferingError(403, 'OFFER_PAGE_WITHOUT_COMPANY',
+        'Page-actor sem company_id não pode ofertar produto (DECISION-0108).');
+    }
+    if (input.companyId != null && input.companyId !== derivedCompanyId) {
+      throw new ProductOfferingError(403, 'OFFER_COMPANY_MISMATCH',
+        'companyId enviado não corresponde à empresa do actor representado — autoridade é server-side (W1).');
+    }
+
     const sku = String(input.internalSku ?? '').trim();
     if (!sku) throw new ProductOfferingError(400, 'OFFER_SKU_REQUIRED', 'internalSku é obrigatório.');
     if (!Number.isInteger(input.priceCents) || input.priceCents < 0) {
@@ -148,14 +176,15 @@ export const productOfferingService = {
         name: cpRow.name,
         categoryId: cpRow.category_id,
         canonicalProductId: cpRow.id,
-        companyId: input.companyId ?? null,
+        companyId: derivedCompanyId,
         productType: 'INDUSTRIAL' as never,
       } as never);
       productId = (created as { id: string }).id;
-    } else if (input.companyId) {
-      // Produto já materializado por outra empresa: o RAMO da empresa atual ainda governa.
+    } else if (derivedCompanyId) {
+      // Produto já materializado por outra empresa: o RAMO da empresa atual (derivada do
+      // actor, W1) ainda governa. companyId omitido pelo cliente NÃO vira bypass.
       const { assertProductCategoryAllowedForCompany } = await import('./product-concept-guard');
-      await assertProductCategoryAllowedForCompany(input.tenantId, cpRow.id, input.companyId);
+      await assertProductCategoryAllowedForCompany(input.tenantId, cpRow.id, derivedCompanyId);
     }
 
     // 2) variante do TENANT (dona do estoque actor-scoped) com a PONTE canônica.
