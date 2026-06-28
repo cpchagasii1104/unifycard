@@ -66,6 +66,24 @@ export async function activateOffering(offeringId: string): Promise<void> {
 }
 
 /**
+ * Atualiza campos editáveis da oferta JÁ publicada (preço/duração/status) — pós-publicação.
+ * Usa o PUT já existente no backend (service-offerings.routes.ts → updateSchema
+ * { priceCents?, durationMinutes?, status? }); autoridade server-side = canRepresentActor(provider).
+ * priceCents é SEMPRE centavo inteiro (nunca float como verdade). PUT /services/offerings/:offeringId → { ok }.
+ * (activateOffering acima é o caso particular status:'active'; este wrapper é o genérico de edição.)
+ */
+export async function updateOffering(
+  offeringId: string,
+  input: { priceCents?: number; durationMinutes?: number; status?: 'draft' | 'active' | 'suspended' }
+): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  if (!res?.ok) throw new Error('Erro ao atualizar oferta');
+}
+
+/**
  * Declara uma janela de disponibilidade física da oferta (owner=service_offering — SSOT temporal).
  * POST /services/offerings/:offeringId/availability { startDatetime, endDatetime, capacity? } → { ok, data }.
  */

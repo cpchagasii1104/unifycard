@@ -67,6 +67,9 @@ import OrganizationUnitsPage from './pages/OrganizationUnitsPage'; // Organizati
 // deixou de ser a renderização da rota /services (agora é o hub). Arquivo preservado órfão em
 // disco (compatibilidade interna), import removido para manter o typecheck limpo (noUnusedLocals).
 import ServiceDetailPage from './pages/ServiceDetailPage'; // Services MVP
+// F-MVP-SERVICE-OFFERING-MANAGEMENT-SURFACE-SLICE-A (2026-06-27): porta VIVA de gestão da oferta
+// pós-publicação (editar preço/duração + adicionar janela da OFERTA, owner_type='service_offering').
+import ServiceOfferingManagePage from './pages/ServiceOfferingManagePage';
 // F-MVP-SERVICE-CHAIN-W1-OFFERING-AVAILABILITY-UX-CONTAINMENT (2026-06-27): ServiceAvailabilityPage
 // (agenda SERVICE-level via POST /services/:id/availability, owner=service) deixou de ser roteada.
 // No MVP a disponibilidade reservável = availability da OFERTA (owner_type='service_offering', lida pelo
@@ -367,6 +370,10 @@ function AppContent() {
           {/* F-MVP-SERVICE-CHAIN GAP-1: publicar serviço/oferta/agenda (estática antes de :id) */}
           <Route path="services/new" element={<ServiceCreatePage />} />
           <Route path="services/:id" element={<ServiceDetailPage />} />
+          {/* F-MVP-SERVICE-OFFERING-MANAGEMENT-SURFACE-SLICE-A (2026-06-27): gestão VIVA da oferta
+              (preço/duração + janela da OFERTA owner_type='service_offering'). NÃO ressuscita agenda
+              service-level; a rota /availability abaixo segue terminal honesto. */}
+          <Route path="services/:id/offering" element={<ServiceOfferingManagePage />} />
           {/* F-MVP-SERVICE-CHAIN-W1-OFFERING-AVAILABILITY-UX-CONTAINMENT (2026-06-27): a agenda
               SERVICE-level (owner=service) é invisível ao consumer (que lê owner='service_offering' no
               ServiceOfferingSelector). Decisão de produto soberana (Clayton): no MVP a disponibilidade

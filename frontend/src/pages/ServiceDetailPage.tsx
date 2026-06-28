@@ -139,6 +139,17 @@ export default function ServiceDetailPage() {
         <div className="service-actions">
           <div className="action-section">
             <h3>Gerenciar</h3>
+            {/* F-MVP-SERVICE-OFFERING-MANAGEMENT-SURFACE-SLICE-A (2026-06-27): porta VIVA da oferta —
+                editar preço/duração e adicionar janela de disponibilidade da OFERTA pós-publicação
+                (owner_type='service_offering'). Substitui o beco onde só havia o terminal honesto. */}
+            <button
+              onClick={() => navigate(`/services/${service.serviceId}/offering`)}
+              className="btn-action"
+            >
+              Gerenciar oferta e agenda
+            </button>
+            {/* Terminal honesto preservado: explica a LEI (a agenda reservável é a da oferta, não do
+                service). Não ressuscita agenda service-level. */}
             <button
               onClick={() => navigate(`/services/${service.serviceId}/availability`)}
               className="btn-action"
