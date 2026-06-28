@@ -89,7 +89,15 @@ export const productOfferingService = {
     }
     if (sa.actor_type !== 'user' && sa.actor_type !== 'page') {
       throw new ProductOfferingError(403, 'OFFER_ACTOR_TYPE_UNSUPPORTED',
-        `Tipo de actor '${sa.actor_type}' não suporta ofertar produto (esperado PF user ou page de company).`);
+        `Tipo de actor '${sa.actor_type}' não suporta ofertar produto (esperado page de company).`);
+    }
+    // DECISION-0155 (W2 promulgada): produto é PJ/CNPJ-only no MVP inicial. Actor PF/user NÃO publica/oferta
+    // produto (segue prestando SERVIÇO conforme gates próprios). Fail-closed ANTES de qualquer materialização/
+    // oferta. Só actor 'page' de company segue para o guard de ramo (DECISION-0108). Não reabre W1: companyId
+    // continua derivado server-side; este gate só restringe QUEM pode publicar (PJ-only).
+    if (sa.actor_type === 'user') {
+      throw new ProductOfferingError(403, 'PRODUCT_PUBLISH_PJ_ONLY',
+        'Publicação/oferta de produto é exclusiva de PJ/empresa no MVP inicial (DECISION-0155); actor PF/user não publica produto. Serviço segue permitido.');
     }
     const derivedCompanyId: string | null = sa.company_id ?? null;
     if (sa.actor_type === 'page' && !derivedCompanyId) {

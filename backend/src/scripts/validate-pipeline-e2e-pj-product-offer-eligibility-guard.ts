@@ -8,7 +8,9 @@
  * a farmácia no MESMO tenant tenta OFERTAR a banana já materializada — `getProductByCanonicalId` reusa o
  * `product` (o guard de MATERIALIZAÇÃO não roda) — MAS antes de criar a `product_offer` o guard por
  * categoria/ramo BARRA a farmácia (ForbiddenError). Resultado: zero product_offer indevida.
- * `companyId` presente → fail-closed; ausente (PF/legado) → bypass compat. Sem preço real → sem offer.
+ * `companyId` presente → fail-closed; PJ fora do ramo → barrada. Sem preço real → sem offer.
+ * DECISION-0155 (W2): produto é PJ/CNPJ-only no MVP — actor PF/user é BARRADO de publicar/ofertar produto
+ * (cenários D/H), nos DOIS caminhos; PF segue podendo prestar serviço (fora do escopo deste E2E).
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
@@ -106,8 +108,9 @@ async function main(): Promise<void> {
   const storeSuper2 = await mkStore('Loja Super2', companySuper2);
   const storeFarma = await mkStore('Loja Farma', companyFarma);
 
-  // tenants.company_type_id NÃO é setado (fica NULL) → no cenário D (sem companyId) o guard bypassa (compat);
-  // nos cenários com companyId, a empresa é a única fonte (prova que o tenant NÃO é autoridade).
+  // tenants.company_type_id NÃO é setado (fica NULL) → nos cenários com companyId a empresa é a única fonte
+  // (prova que o tenant NÃO é autoridade). Pós-DECISION-0155, o actor PF/user (humanId) nem chega ao guard de
+  // ramo: é barrado antes por PRODUCT_PUBLISH_PJ_ONLY (cenários D/H).
 
   const canonBefore = await count(`SELECT count(*)::int AS n FROM canonical_products`);
   const ctacBefore = await count(`SELECT count(*)::int AS n FROM company_type_allowed_concepts`);
@@ -133,9 +136,13 @@ async function main(): Promise<void> {
   const c = await onboard(TENANT_ID, { actorId: storeFarma, companyId: companyFarma, departmentCategoryId: saudeBeleza, selectedCategoryIds: [medicamentos], hasOwnProducts: false, defaultSalePrice: 2 }, humanId);
   record('C farmácia oferta item do seu ramo (medicamentos) → OK, offers > 0', c.ok && c.offers > 0, JSON.stringify(c));
 
-  // ═══ D — PF SEM companyId → bypass compat (sem company não há ramo); oferta a banana reusada ═══
+  // ═══ D — DECISION-0155: PF/user (sem companyId) é BARRADO de publicar produto → fail-closed, zero offer ═══
+  // (ANTES desta decisão, PF sem company bypassava o compat e criava oferta; W2 PJ-only fecha isso.)
   const d = await onboard(TENANT_ID, { actorId: humanId, departmentCategoryId: alimentacao, selectedCategoryIds: [hortifruti], hasOwnProducts: false, defaultSalePrice: 1 }, humanId);
-  record('D PF sem companyId → bypass compat (não lança), oferta criada', d.ok && d.offers > 0, JSON.stringify(d));
+  record('D DECISION-0155: PF/user via store-onboarding → fail-closed (ForbiddenError)', d.forbidden, d.err);
+  record('D bloqueio é PRODUCT_PUBLISH_PJ_ONLY (PJ-only, não mismatch)', /PRODUCT_PUBLISH_PJ_ONLY/.test(d.err ?? ''), d.err);
+  const pfOffersD = await count(`SELECT count(*)::int AS n FROM product_offers WHERE tenant_id=$1 AND merchant_id=$2`, [TENANT_ID, humanId]);
+  record('D PF/user cria ZERO product_offer', pfOffersD === 0, `offers=${pfOffersD}`);
 
   // ═══ E — supermercado2 SEM preço real → produto na prateleira, ZERO offer (Op2 preservado) ═══
   const e = await onboard(TENANT_ID, { actorId: storeSuper2, companyId: companySuper2, departmentCategoryId: alimentacao, selectedCategoryIds: [carnes], hasOwnProducts: false }, humanId);
@@ -148,11 +155,11 @@ async function main(): Promise<void> {
   record('G W1: companyId de OUTRA empresa (mesmo ramo) → fail-closed (ForbiddenError)', g.forbidden, g.err);
   record('G zero offer fabricada com crachá alheio', g.offers === 0, JSON.stringify(g));
 
-  // H — PF tenta vestir crachá de empresa: actor user (company NULL) envia companyId do super
-  //     → derivado é NULL, body diverge → COMPANY_MISMATCH fail-closed.
+  // H — PF tenta vestir crachá de empresa: actor user (company NULL) envia companyId do super.
+  //     Pós-DECISION-0155, o PF é barrado por PJ-only ANTES do compat-check; de toda forma → fail-closed, zero offer.
   const h = await onboard(TENANT_ID, { actorId: humanId, companyId: companySuper, departmentCategoryId: alimentacao, selectedCategoryIds: [hortifruti], hasOwnProducts: false, defaultSalePrice: 5 }, humanId);
-  record('H W1: PF (company NULL) enviando companyId de empresa → fail-closed (ForbiddenError)', h.forbidden, h.err);
-  record('H PF não cria offer com crachá de empresa', h.offers === 0, JSON.stringify(h));
+  record('H DECISION-0155/W1: PF enviando companyId de empresa → fail-closed (ForbiddenError)', h.forbidden, h.err);
+  record('H PF não cria offer (PJ-only barra antes do crachá)', h.offers === 0, JSON.stringify(h));
 
   // I — bypass por OMISSÃO fechado: farmácia OMITE companyId e tenta a banana reusada; ANTES o guard
   //     bypassava (tenant company_type NULL) → AGORA o company é derivado do store actor (farma) e o

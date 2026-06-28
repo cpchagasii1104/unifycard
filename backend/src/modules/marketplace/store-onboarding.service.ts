@@ -300,6 +300,16 @@ class StoreOnboardingService {
         ErrorCode.FORBIDDEN
       );
     }
+    // DECISION-0155 (W2 promulgada): produto é PJ/CNPJ-only no MVP inicial. Actor PF/user NÃO onboarda/publica/
+    // oferta produto (segue prestando SERVIÇO conforme gates próprios). Fail-closed ANTES de derivar company,
+    // resolver categorias ou criar product/offer. Só actor 'page' de company segue. Não reabre W1 (Slice-B):
+    // companyId continua derivado server-side; este gate só restringe QUEM publica (PJ-only).
+    if (storeActorRow.actor_type === 'user') {
+      throw new ForbiddenError(
+        'PRODUCT_PUBLISH_PJ_ONLY: publicação/oferta de produto é exclusiva de PJ/empresa no MVP inicial (DECISION-0155); actor PF/user não publica produto. Serviço segue permitido.',
+        ErrorCode.FORBIDDEN
+      );
+    }
     const derivedCompanyId: string | undefined = storeActorRow.company_id ?? undefined;
     if (storeActorRow.actor_type === 'page' && !derivedCompanyId) {
       throw new ForbiddenError(
