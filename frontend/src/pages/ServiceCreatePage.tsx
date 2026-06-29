@@ -24,6 +24,9 @@ export default function ServiceCreatePage() {
   const [results, setResults] = useState<CanonicalService[]>([]);
   const [canonical, setCanonical] = useState<CanonicalService | null>(null);
   const activeActorId = activeActor?.actor_id ?? null;
+  // PF declara capacidade no Perfil > Profissional; a empresa (actor 'page') publica o ramo
+  // na própria página. A distinção só muda o CTA de navegação — frontend NÃO concede capability.
+  const isCompanyActor = activeActor?.actor_type === 'page' && !!activeActor.company_id;
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -195,10 +198,44 @@ export default function ServiceCreatePage() {
               </ul>
             )}
             {searched && !searching && results.length === 0 && query.trim().length >= 2 && (
-              <p className="canonical-empty" role="status">
-                Nenhum serviço publicável encontrado para esse termo. Declare uma capacidade
-                profissional em <strong>Perfil &gt; Profissional</strong> antes de publicar este serviço.
-              </p>
+              <div className="canonical-empty" role="status">
+                <p className="canonical-empty-title">
+                  Nenhum serviço publicável encontrado para “<strong>{query.trim()}</strong>”.
+                </p>
+                <p className="canonical-empty-reason">
+                  Você só pode publicar serviços ligados às{' '}
+                  <strong>capacidades profissionais já declaradas</strong>. Também pode acontecer de
+                  o serviço ainda não existir no catálogo canônico.
+                </p>
+                <p className="canonical-empty-hint">
+                  Dica: a busca casa pelo <strong>nome do serviço</strong>, não pela profissão —
+                  termos como “cabeleireiro” podem não encontrar “corte de cabelo” enquanto a camada
+                  de sinônimos não existir. Tente o nome do serviço em si.
+                </p>
+                <div className="canonical-empty-actions">
+                  {isCompanyActor ? (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => navigate(`/empresa/${activeActor!.company_id}`)}
+                    >
+                      Publicar capacidade pela empresa
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => navigate('/perfil?tab=professional')}
+                    >
+                      Declarar capacidade profissional
+                    </button>
+                  )}
+                </div>
+                <p className="canonical-empty-curation">
+                  Não encontrou o serviço certo? A sugestão de novos serviços ao catálogo passa por
+                  curadoria e será liberada em etapa própria.
+                </p>
+              </div>
             )}
           </>
         )}

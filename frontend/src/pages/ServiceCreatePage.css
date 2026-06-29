@@ -137,3 +137,32 @@
   padding: 0.5rem 0.9rem;
   cursor: pointer;
 }
+/* Empty-state acionável da busca de serviço canônico (DT-SERVICE-PUBLISH-EMPTY-STATE-DEADEND). */
+.service-create-page .canonical-empty {
+  margin-top: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: #fafafa;
+  border: 1px solid #ececec;
+  border-radius: 8px;
+}
+.service-create-page .canonical-empty p {
+  margin: 0 0 0.55rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.service-create-page .canonical-empty-title {
+  color: #333;
+  font-weight: 600;
+}
+.service-create-page .canonical-empty-reason,
+.service-create-page .canonical-empty-hint {
+  color: #555;
+}
+.service-create-page .canonical-empty-actions {
+  margin: 0.75rem 0;
+}
+.service-create-page .canonical-empty-curation {
+  margin-bottom: 0;
+  color: #777;
+  font-size: 0.82rem;
+}
