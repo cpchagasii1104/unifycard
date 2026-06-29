@@ -398,6 +398,45 @@ class ServicesDiscoveryService {
     });
   }
 
+  // 🔵 F-SERVICE-SEARCH-ALIAS-DISCOVERY: descoberta por TERMO livre de ocupação ("cabeleireiro",
+  // "barbeiro"). O termo é resolvido para concept(s) via ponte advisory service_search_aliases
+  // (READ-ONLY) e cada concept reusa a MESMA descoberta concept-keyed de search() (DECISION-0142).
+  // NÃO é a busca por categoria (search() acima é intocada). NÃO toca publicação gated (DECISION-0144):
+  // descobrir uma oferta ≠ poder publicá-la. Miss de alias → lista vazia honesta. Runtime NUNCA
+  // insere alias; o texto digitado nunca vira concept.
+  async searchByTerm(
+    tenantId: string,
+    filters: { term: string; cityId?: string | null }
+  ) {
+    const { resolveConceptsFromSearchTerm } = await import('@core/semantic/semantic.adapter');
+    const { normalizedTerm, conceptIds } = await resolveConceptsFromSearchTerm(filters.term);
+
+    // Miss honesto: termo desconhecido/sem ponte curada → vazio. Sem fabricar concept/serviço.
+    if (conceptIds.length === 0) {
+      return { term: filters.term, normalizedTerm, conceptIds: [] as string[], results: [] as Awaited<ReturnType<typeof servicesRepository.discoverServices>> };
+    }
+
+    // Fan-out: reusa a descoberta concept-keyed por concept e deduplica por id de serviço,
+    // preservando a ordem de prioridade dos concepts (confidence) vinda da ponte.
+    const seen = new Set<string>();
+    const merged: Awaited<ReturnType<typeof servicesRepository.discoverServices>> = [];
+    for (const conceptId of conceptIds) {
+      const rows = await servicesRepository.discoverServices(tenantId, {
+        conceptId,
+        cityId: filters.cityId || undefined,
+        limit: 200,
+        offset: 0,
+      });
+      for (const row of rows) {
+        if (seen.has(row.serviceId)) continue;
+        seen.add(row.serviceId);
+        merged.push(row);
+      }
+    }
+
+    return { term: filters.term, normalizedTerm, conceptIds, results: merged };
+  }
+
   async createRequest(
     tenantId: string,
     actionActorId: string,

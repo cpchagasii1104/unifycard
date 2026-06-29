@@ -35,6 +35,13 @@ const searchQuerySchema = z.object({
   datetime: z.string().min(1).optional(),
 });
 
+// 🔵 F-SERVICE-SEARCH-ALIAS-DISCOVERY: busca por TERMO livre de ocupação ("cabeleireiro").
+// term é texto livre (não uuid) — resolvido a concept(s) via ponte advisory, nunca persistido.
+const searchByTermQuerySchema = z.object({
+  term: z.string().min(1).max(120),
+  cityId: z.string().uuid().optional(),
+});
+
 const listRequestsQuerySchema = z.object({
   status: z.enum(['pending', 'accepted', 'rejected']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -186,6 +193,47 @@ const servicesDiscoveryRoutes: FastifyPluginAsync = async (fastify) => {
       }
       return reply.status(500).send({
         error: 'Erro na busca',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
+  // 🔵 F-SERVICE-SEARCH-ALIAS-DISCOVERY: GET /services/search-by-term — descoberta por TERMO livre
+  // de ocupação ("cabeleireiro", "barbeiro"). Espelha /search (ungated p/ representação: descoberta
+  // é leitura; exige só actionContext+tenant). O termo é resolvido a concept(s) via ponte advisory
+  // service_search_aliases (READ-ONLY) e reusa a descoberta concept-keyed. NÃO toca a publicação gated
+  // (/services/offerable, DECISION-0144): descobrir uma oferta ≠ poder publicá-la. Miss → results vazio.
+  fastify.get('/search-by-term', async (req, reply) => {
+    if (!req.actionContext?.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+    if (!req.tenant?.id) {
+      return reply.status(400).send({ error: 'Tenant not found' });
+    }
+
+    let query: z.output<typeof searchByTermQuerySchema>;
+    try {
+      query = searchByTermQuerySchema.parse(req.query);
+    } catch (e) {
+      if (e instanceof ZodError) {
+        return zodBadRequest(reply, e);
+      }
+      throw e;
+    }
+
+    try {
+      const data = await servicesDiscoveryService.searchByTerm(req.tenant.id, {
+        term: query.term,
+        cityId: query.cityId ?? null,
+      });
+      return reply.send({ ok: true, data });
+    } catch (err) {
+      fastify.log.error({ err }, 'services-discovery search-by-term');
+      if (err instanceof AppError) {
+        return reply.status(err.statusCode).send({ error: err.message });
+      }
+      return reply.status(500).send({
+        error: 'Erro na busca por termo',
         message: err instanceof Error ? err.message : String(err),
       });
     }
