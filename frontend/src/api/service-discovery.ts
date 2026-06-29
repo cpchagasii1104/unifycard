@@ -112,6 +112,64 @@ export async function discoverServices(filters: ServiceDiscoveryFilters = {}): P
   }
 }
 
+// 🔵 F-SERVICE-DISCOVERY-SEARCH-FRONTEND-WIRING: busca por TERMO livre de ocupação
+// ("cabeleireiro", "barbeiro"). Consome o endpoint já selado GET /services/search-by-term.
+// O termo é resolvido a concept(s) no BACKEND via ponte advisory; o frontend SÓ projeta a
+// verdade resolvida — NÃO cria concept/alias/category/canonical_service nem decide elegibilidade.
+// `conceptIds` é diagnóstico (distingue "termo desconhecido" de "termo conhecido sem oferta"),
+// nunca persistido. Descobrir oferta ≠ poder publicar (publicação gated segue server-side).
+export interface ServiceTermSearchResult {
+  term: string;
+  normalizedTerm: string;
+  conceptIds: string[];
+  results: DiscoveredService[];
+}
+
+interface ServiceTermSearchEnvelope {
+  ok: boolean;
+  data: {
+    term: string;
+    normalizedTerm: string;
+    conceptIds: string[];
+    results: DiscoveredService[];
+  };
+}
+
+/**
+ * Descobrir serviços por TERMO de ocupação digitado pelo usuário.
+ * 🔴 BLINDAGEM: o frontend não normaliza nem mapeia o termo — quem resolve termo→concept é o backend.
+ * 🔴 BLINDAGEM: nenhum ranking/score/recomendação; ordem é a recebida do servidor.
+ */
+export async function searchServicesByTerm(
+  term: string,
+  cityId?: string
+): Promise<ServiceTermSearchResult> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('term', term);
+  if (cityId) queryParams.append('cityId', cityId);
+
+  const response = await apiFetch(`/services/search-by-term?${queryParams.toString()}`);
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ error: 'Erro ao buscar serviços por termo' }));
+    throw new Error(error.error || error.message || 'Erro ao buscar serviços por termo');
+  }
+
+  const result: ServiceTermSearchEnvelope = await response.json();
+  if (!result.ok || !result.data) {
+    throw new Error('Resposta inválida do servidor');
+  }
+
+  return {
+    term: result.data.term,
+    normalizedTerm: result.data.normalizedTerm,
+    conceptIds: Array.isArray(result.data.conceptIds) ? result.data.conceptIds : [],
+    results: Array.isArray(result.data.results) ? result.data.results : [],
+  };
+}
+
 /**
  * Buscar serviço com detalhes completos para descoberta
  * Nota: Usa endpoint de serviço individual e enriquece com disponibilidades

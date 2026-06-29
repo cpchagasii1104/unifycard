@@ -3,9 +3,15 @@
 // SPRINT: Service Discovery MVP
 // Conectado ao endpoint backend canônico GET /services/discover
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { discoverServices, type DiscoveredService, type ServiceDiscoveryFilters } from '../api/service-discovery';
+import {
+  discoverServices,
+  searchServicesByTerm,
+  type DiscoveredService,
+  type ServiceDiscoveryFilters,
+  type ServiceTermSearchResult,
+} from '../api/service-discovery';
 import { showToast } from '../components/common/Toast';
 import './ServiceDiscoveryPage.css';
 
@@ -28,6 +34,14 @@ export default function ServiceDiscoveryPage() {
   // Paginação
   const [limit] = useState<number>(20);
   const [offset, setOffset] = useState<number>(0);
+
+  // 🔵 F-SERVICE-DISCOVERY-SEARCH-FRONTEND-WIRING: busca por TERMO de ocupação.
+  // O frontend só projeta a verdade resolvida pelo backend (termo→concept via ponte advisory).
+  const [term, setTerm] = useState<string>('');
+  const [termSearched, setTermSearched] = useState<boolean>(false);
+  const [termLoading, setTermLoading] = useState<boolean>(false);
+  const [termError, setTermError] = useState<string | null>(null);
+  const [termResult, setTermResult] = useState<ServiceTermSearchResult | null>(null);
 
   useEffect(() => {
     loadServices();
@@ -61,6 +75,41 @@ export default function ServiceDiscoveryPage() {
     }
   };
 
+  // Busca por termo: chama GET /services/search-by-term e projeta o resultado resolvido.
+  // O termo NÃO é normalizado/mapeado aqui — quem resolve termo→concept é o backend.
+  const handleTermSearch = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = term.trim();
+    if (!trimmed) {
+      setTermSearched(false);
+      setTermResult(null);
+      setTermError(null);
+      return;
+    }
+
+    setTermSearched(true);
+    setTermLoading(true);
+    setTermError(null);
+
+    try {
+      const data = await searchServicesByTerm(trimmed, cityId.trim() || undefined);
+      setTermResult(data);
+    } catch (err: any) {
+      setTermError(err.message || 'Erro ao buscar serviços por termo');
+      setTermResult(null);
+      showToast(err.message || 'Erro ao buscar serviços por termo', 'error');
+    } finally {
+      setTermLoading(false);
+    }
+  };
+
+  const clearTermSearch = () => {
+    setTerm('');
+    setTermSearched(false);
+    setTermResult(null);
+    setTermError(null);
+  };
+
   const clearFilters = () => {
     setCategoryId('');
     setCityId('');
@@ -88,6 +137,47 @@ export default function ServiceDiscoveryPage() {
       currency: currency || 'BRL',
     }).format(value);
   };
+
+  const renderServiceCard = (service: DiscoveredService) => (
+    <div
+      key={service.serviceId}
+      className="service-card"
+      onClick={() => navigate(`/discover/services/${service.serviceId}`)}
+    >
+      <div className="service-card-header">
+        <h3 className="service-name">{service.name}</h3>
+        {service.availability_summary?.has_availability && (
+          <span className="availability-badge">Agenda aberta</span>
+        )}
+      </div>
+      {service.actor && (
+        <div className="service-actor">
+          Por: {service.actor.display_name || service.actor.actor_id}
+        </div>
+      )}
+      {service.shortDescription && (
+        <p className="service-description">{service.shortDescription}</p>
+      )}
+      {service.priceCents && (
+        <div className="service-price">
+          {formatCurrency(service.priceCents, service.currency)}
+          {service.pricingType && (
+            <span className="pricing-type"> / {service.pricingType}</span>
+          )}
+        </div>
+      )}
+      {service.cityId && (
+        <div className="service-location">
+          📍 Localização: {service.cityId}
+        </div>
+      )}
+      {service.availability_summary?.next_available_date && (
+        <div className="service-next-availability">
+          Próxima disponibilidade: {new Date(service.availability_summary.next_available_date).toLocaleDateString('pt-BR')}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="service-discovery-page">
@@ -195,7 +285,68 @@ export default function ServiceDiscoveryPage() {
 
         {/* Lista de Serviços */}
         <div className="services-content">
-          {isLoading ? (
+          {/* 🔵 Busca por TERMO de ocupação (F-SERVICE-DISCOVERY-SEARCH-FRONTEND-WIRING).
+              Projeta a verdade resolvida pelo backend; não cria taxonomia no front. */}
+          <form className="term-search-bar" onSubmit={handleTermSearch}>
+            <input
+              type="text"
+              className="term-search-input"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Buscar por profissão ou serviço (ex.: cabeleireiro, barbeiro, manicure)"
+              aria-label="Buscar serviços por termo"
+            />
+            <button type="submit" className="btn-term-search">Buscar</button>
+            {termSearched && (
+              <button type="button" className="btn-term-clear" onClick={clearTermSearch}>
+                Limpar busca
+              </button>
+            )}
+          </form>
+
+          {termSearched ? (
+            /* ── MODO BUSCA POR TERMO ── */
+            termLoading ? (
+              <div className="loading">Buscando serviços...</div>
+            ) : termError ? (
+              <div className="error">
+                <p>{termError}</p>
+                <button onClick={() => handleTermSearch()}>Tentar novamente</button>
+              </div>
+            ) : termResult && termResult.results.length > 0 ? (
+              <>
+                <div className="results-header">
+                  <span className="results-count">
+                    {termResult.results.length}{' '}
+                    {termResult.results.length === 1 ? 'serviço encontrado' : 'serviços encontrados'}
+                    {' '}para “{termResult.term}”
+                  </span>
+                </div>
+                <div className="services-grid">
+                  {termResult.results.map((service) => renderServiceCard(service))}
+                </div>
+              </>
+            ) : termResult && termResult.conceptIds.length > 0 ? (
+              /* Vazio honesto: o termo resolveu para categoria/serviço, mas não há oferta ativa. */
+              <div className="empty-state empty-state--has-concept">
+                <p>
+                  Encontramos a categoria/serviço, mas ainda não há ofertas ativas para
+                  “{termResult.term}” na sua região.
+                </p>
+                <p className="empty-hint">
+                  Assim que um profissional publicar uma oferta para este serviço, ela aparece aqui.
+                </p>
+              </div>
+            ) : (
+              /* Vazio honesto: termo desconhecido (sem ponte de busca para ele ainda). */
+              <div className="empty-state">
+                <p>Não encontramos esse termo na busca.</p>
+                <p className="empty-hint">
+                  Tente outro termo de profissão ou serviço (ex.: cabeleireiro, barbeiro, manicure).
+                </p>
+              </div>
+            )
+          ) : isLoading ? (
             <div className="loading">Carregando serviços...</div>
           ) : error ? (
             <div className="error">
@@ -217,48 +368,9 @@ export default function ServiceDiscoveryPage() {
                 </span>
               </div>
               <div className="services-grid">
-                {services.map((service) => (
-                  <div
-                    key={service.serviceId}
-                    className="service-card"
-                    onClick={() => navigate(`/discover/services/${service.serviceId}`)}
-                  >
-                    <div className="service-card-header">
-                      <h3 className="service-name">{service.name}</h3>
-                      {service.availability_summary?.has_availability && (
-                        <span className="availability-badge">Agenda aberta</span>
-                      )}
-                    </div>
-                    {service.actor && (
-                      <div className="service-actor">
-                        Por: {service.actor.display_name || service.actor.actor_id}
-                      </div>
-                    )}
-                    {service.shortDescription && (
-                      <p className="service-description">{service.shortDescription}</p>
-                    )}
-                    {service.priceCents && (
-                      <div className="service-price">
-                        {formatCurrency(service.priceCents, service.currency)}
-                        {service.pricingType && (
-                          <span className="pricing-type"> / {service.pricingType}</span>
-                        )}
-                      </div>
-                    )}
-                    {service.cityId && (
-                      <div className="service-location">
-                        📍 Localização: {service.cityId}
-                      </div>
-                    )}
-                    {service.availability_summary?.next_available_date && (
-                      <div className="service-next-availability">
-                        Próxima disponibilidade: {new Date(service.availability_summary.next_available_date).toLocaleDateString('pt-BR')}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {services.map((service) => renderServiceCard(service))}
               </div>
-              
+
               {/* Paginação */}
               <div className="pagination">
                 <button

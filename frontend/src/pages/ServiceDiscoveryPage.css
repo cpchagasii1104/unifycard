@@ -277,6 +277,67 @@
   cursor: not-allowed;
 }
 
+/* 🔵 Busca por termo (F-SERVICE-DISCOVERY-SEARCH-FRONTEND-WIRING) */
+.term-search-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.term-search-input {
+  flex: 1 1 280px;
+  min-width: 0;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+}
+
+.term-search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.btn-term-search {
+  padding: 0.625rem 1.25rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  transition: background 0.2s;
+}
+
+.btn-term-search:hover {
+  background: #2563eb;
+}
+
+.btn-term-clear {
+  padding: 0.625rem 1rem;
+  background: white;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  transition: all 0.2s;
+}
+
+.btn-term-clear:hover {
+  background: #f9fafb;
+  color: #374151;
+}
+
+/* Vazio honesto quando o termo resolve concept/serviço mas não há oferta ativa */
+.empty-state--has-concept {
+  border-left: 3px solid #3b82f6;
+  background: #eff6ff;
+}
+
 @media (max-width: 1024px) {
   .discovery-layout {
     grid-template-columns: 1fr;
