@@ -6809,7 +6809,7 @@ Tentativa de **fechar/reduzir** este drift nesta frente foi auditada e **recusad
 
 **Escopo B desta frente — `pricing_type` em `service_offerings` = MANTIDO IMPLÍCITO (justificado):** a entidade canônica de oferta (`service_offerings`) já é fixed-price por construção (`price_cents BIGINT NOT NULL CHECK(≥0)` + `duration_minutes` + `modality`, sem `pricing_type`). Adicionar a coluna agora (a) criaria uma **3ª ilha de vocabulário** sobre entidade money-adjacent, e (b) seria **coluna dormente não consumida** — o caminho monetário com o landmine lê `services.price_cents`, não `service_offerings`. A garantia de "preço firme" onde importa (a porta do dinheiro) é dada pelo **Escopo A** (guard `priceNum <= 0 → throw`), não por um enum na oferta.
 
-**Escopo A (entregue):** fallback artificial R$10 (`SERVICE_DISCOVERY_DEFAULT_PAYMENT_CENTS=1000`) removido de `payAcceptedRequest`; preço inválido falha honesta antes de mutação/banco (Δbank=0); guard anti-reativação `audit-service-discovery-firm-price-no-artificial-fallback.mjs` em `validate:regression-guards`. Ver STATUS_EXECUCAO_GLOBAL.md.
+**Escopo A (entregue + selado):** fallback artificial R$10 (`SERVICE_DISCOVERY_DEFAULT_PAYMENT_CENTS=1000`) removido de `payAcceptedRequest`; preço inválido falha honesta antes de mutação/banco (Δbank=0); guard anti-reativação `audit-service-discovery-firm-price-no-artificial-fallback.mjs` em `validate:regression-guards`. **F-SERVICE-PRICING-FIXED-MVP-HARDENING · ESCOPO A = MATERIAL / YALA PASS / FECHADO** (HEAD material `4012a2b4b`). Esta DT segue **OPEN / CONTIDA** — fechá-la exige frente própria de convergência de vocabulário (não é correção mecânica de executora). Ver STATUS_EXECUCAO_GLOBAL.md.
 
 ---
 
