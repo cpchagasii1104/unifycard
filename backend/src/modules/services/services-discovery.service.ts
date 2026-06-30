@@ -98,8 +98,10 @@ function iso(d: Date | string | null | undefined): string | null {
   return String(d);
 }
 
-/** Fallback quando a oferta não tem price_cents > 0 (MVP integração bank). */
-const SERVICE_DISCOVERY_DEFAULT_PAYMENT_CENTS = 1000;
+// F-SERVICE-PRICING-FIXED-MVP-HARDENING: o antigo fallback artificial
+// SERVICE_DISCOVERY_DEFAULT_PAYMENT_CENTS = 1000 (R$10,00) foi REMOVIDO. Preço
+// ausente/nulo/zero/inválido NÃO pode virar valor financeiro silencioso — o
+// pagamento falha honestamente (ver payAcceptedRequest). Não reintroduzir.
 
 class ServicesDiscoveryService {
   /**
@@ -198,12 +200,19 @@ class ServicesDiscoveryService {
       throw new ConflictError('Pagamento em curso; tente novamente em instantes');
     }
 
+    // F-SERVICE-PRICING-FIXED-MVP-HARDENING: sem preço firme válido o pagamento
+    // falha honestamente AQUI — antes de qualquer mutação de estado ou movimento
+    // bancário. Nada de valor artificial: Δbank=0, sem bank_ledger, sem
+    // bank_transaction, sem payment_intent, sem cobrança. O caminho só prossegue
+    // com price_cents inteiro estritamente positivo (fixed-price firme).
     const priceNum =
       row.price_cents != null ? Math.trunc(Number(row.price_cents)) : NaN;
-    const amountCents =
-      Number.isFinite(priceNum) && priceNum > 0
-        ? priceNum
-        : SERVICE_DISCOVERY_DEFAULT_PAYMENT_CENTS;
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      throw new BadRequestError(
+        'Esta oferta não tem preço firme válido; o pagamento não pode ser iniciado.'
+      );
+    }
+    const amountCents = priceNum;
 
     const pendingRow = await runQueryWithTenant<{ id: string }>(
       tenantId,
