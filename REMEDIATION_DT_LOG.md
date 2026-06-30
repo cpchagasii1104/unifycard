@@ -6796,6 +6796,21 @@ F1 **NÃO** usa `services.pricing_type` como discriminador primário. O discrimi
 - E2E F1 21/21 verdes sem tocar `pricing_type`.
 - Marketplace continua funcionando.
 
+### ADENDO 2026-06-30 — F-SERVICE-PRICING-FIXED-MVP-HARDENING: CONTIDO, NÃO FECHADO (achado material)
+
+Tentativa de **fechar/reduzir** este drift nesta frente foi auditada e **recusada com base material** (HEAD `4012a2b4b`). A varredura textual (`'weekly'|'monthly'|'quote'`) provou que os valores não-canônicos **NÃO são legado morto — são consumidos por fluxos VIVOS**:
+- `social.service.ts:101` → `pricingType: input.serviceInfo.pricingType || 'quote'` (post social de serviço **default 'quote'**); enum vivo em `social.routes.ts`/`social.types.ts`.
+- `profile-professional.service.ts:179` → `(row.pricing_type || 'hourly')`; `profile-professional.types.ts` usa weekly/monthly/quote.
+- Frontend vivo: `ServicePostCard.tsx`, `feed/FeedServiceItem.tsx`, `api/categories.ts` renderizam quote/weekly/monthly.
+
+**Consequência:** adicionar um CHECK canônico em `services.pricing_type` (§4.68 = `fixed|hourly|daily|per_unit|percentage|tiered`) OU estreitar o enum zod/TS para o canônico **quebraria** social/profile vivos (ex.: INSERT com `'quote'` → violação de CHECK; remoção de `'quote'` do enum → 400 em fluxo que hoje passa). Aplica-se a lei operacional *ampliar-vigilância-inclui-universo-HOJE* + *não-agir-como-resposta-certa* (curinga em substrato com fluxo vivo). **Status mantido OPEN / contido.**
+
+**Convergência real (frente própria, fora deste MVP):** reconciliar os 3 vocabulários-ilha (`services` / `social` / `profile-professional`) com §4.68 ANTES de aplicar CHECK — decisão de produto (o que vira `per_unit`/`percentage`/`tiered`? `quote`/`weekly`/`monthly` migram para quê?). Só então CHECK + normalização + helper `pricingTypeFromService`.
+
+**Escopo B desta frente — `pricing_type` em `service_offerings` = MANTIDO IMPLÍCITO (justificado):** a entidade canônica de oferta (`service_offerings`) já é fixed-price por construção (`price_cents BIGINT NOT NULL CHECK(≥0)` + `duration_minutes` + `modality`, sem `pricing_type`). Adicionar a coluna agora (a) criaria uma **3ª ilha de vocabulário** sobre entidade money-adjacent, e (b) seria **coluna dormente não consumida** — o caminho monetário com o landmine lê `services.price_cents`, não `service_offerings`. A garantia de "preço firme" onde importa (a porta do dinheiro) é dada pelo **Escopo A** (guard `priceNum <= 0 → throw`), não por um enum na oferta.
+
+**Escopo A (entregue):** fallback artificial R$10 (`SERVICE_DISCOVERY_DEFAULT_PAYMENT_CENTS=1000`) removido de `payAcceptedRequest`; preço inválido falha honesta antes de mutação/banco (Δbank=0); guard anti-reativação `audit-service-discovery-firm-price-no-artificial-fallback.mjs` em `validate:regression-guards`. Ver STATUS_EXECUCAO_GLOBAL.md.
+
 ---
 
 ## DT-D2-WIRING-MONEY-PENDING
