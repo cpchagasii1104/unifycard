@@ -149,19 +149,27 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         created_at: Date;
       }>(
         tenantId,
+        // 🔴 F-SERVICE-AVAILABILITY-PROVIDER-READERS-CONTAINMENT-SLICE-A2E (DECISION-0156 /
+        //    DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT R4): a contagem de pendências do prestador resolve
+        //    pelo SSOT canônico — availability owner_type='service_offering' → service_offerings.provider_actor_id
+        //    — NUNCA pelo escopo legado owner_type='service'→services.owner_actor_id (coluna INEXISTENTE:
+        //    services tem actor_id/name, não owner_actor_id/title → a query legada quebrava). Correção local
+        //    obrigatória: s.owner_actor_id→s.actor_id, s.title→s.name.
         `
-        SELECT 
+        SELECT
           s.service_id,
-          s.title,
+          s.name AS title,
           s.status,
           COUNT(b.booking_id) as booking_count,
           MAX(s.created_at) as created_at
         FROM services s
-        INNER JOIN availability a ON a.owner_type = 'service' AND a.owner_id = s.service_id
+        INNER JOIN service_offerings so ON so.provider_actor_id = $2
+          AND (so.service_id = s.service_id OR so.canonical_service_id = s.canonical_service_id)
+        INNER JOIN availability a ON a.owner_type = 'service_offering' AND a.owner_id = so.id
         INNER JOIN bookings b ON b.availability_id = a.availability_id AND b.status = 'requested'
         WHERE s.tenant_id = $1
-          AND s.owner_actor_id = $2
-        GROUP BY s.service_id, s.title, s.status, s.created_at
+          AND s.actor_id = $2
+        GROUP BY s.service_id, s.name, s.status, s.created_at
         HAVING COUNT(b.booking_id) > 0
         ORDER BY MAX(s.created_at) DESC
         LIMIT 20
@@ -249,14 +257,16 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
           AND b.status = 'requested'
           AND (
             (a.owner_type = 'user' AND a.owner_id = $2)
-            OR (a.owner_type = 'service' AND EXISTS (
-              SELECT 1 FROM services s 
-              WHERE s.service_id = a.owner_id 
-              AND s.owner_actor_id = $2
+            -- A2E: ownership do prestador via SSOT canonico (service_offering -> provider_actor_id);
+            --    o eixo legado de servico foi removido (coluna morta corrigida na A2E).
+            OR (a.owner_type = 'service_offering' AND EXISTS (
+              SELECT 1 FROM service_offerings so
+              WHERE so.id = a.owner_id
+              AND so.provider_actor_id = $2
             ))
             OR (a.owner_type = 'group' AND EXISTS (
-              SELECT 1 FROM groups g 
-              WHERE g.group_id = a.owner_id 
+              SELECT 1 FROM groups g
+              WHERE g.group_id = a.owner_id
               AND (g.owner_user_id = $3 OR g.owner_user_id = $4)
             ))
           )

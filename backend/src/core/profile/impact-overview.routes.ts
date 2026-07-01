@@ -116,14 +116,16 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
           AND b.status = 'requested'
           AND (
             (a.owner_type = 'user' AND a.owner_id = $2)
-            OR (a.owner_type = 'service' AND EXISTS (
-              SELECT 1 FROM services s 
-              WHERE s.service_id = a.owner_id 
-              AND s.owner_actor_id = $2
+            -- A2E (DECISION-0156 R5): ownership do prestador via SSOT canonico
+            --    (service_offering -> provider_actor_id); eixo legado de servico removido.
+            OR (a.owner_type = 'service_offering' AND EXISTS (
+              SELECT 1 FROM service_offerings so
+              WHERE so.id = a.owner_id
+              AND so.provider_actor_id = $2
             ))
             OR (a.owner_type = 'group' AND EXISTS (
-              SELECT 1 FROM groups g 
-              WHERE g.group_id = a.owner_id 
+              SELECT 1 FROM groups g
+              WHERE g.group_id = a.owner_id
               AND (g.owner_user_id = $3 OR g.owner_user_id = $4)
             ))
           )
