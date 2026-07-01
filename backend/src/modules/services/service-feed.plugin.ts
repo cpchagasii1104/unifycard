@@ -200,14 +200,20 @@ class ServicesFeedPlugin implements SocialFeedPlugin {
    * @returns true se tem availability, false caso contrário
    */
   private async hasAvailability(tenantId: string, serviceId: string): Promise<boolean> {
-    // 🔴 BLINDAGEM: Verificar se existe availability para o serviço
-    // Usamos Unified Availability Core (owner_type = 'service', owner_id = serviceId)
-    // Apenas verificação, não execução
-    // 🟡 CONTENÇÃO F-OFFER-5/6 / DECISION-0146 §A.5: `owner_type='service'` é o eixo temporal LEGADO.
-    // O tempo CONTRATÁVEL da oferta é owned por `service_offering` (owner canônico) — esta leitura é só um
-    // badge "tem disponibilidade?" do feed (display, 0 linhas hoje), NÃO autoridade de oferta-tempo nem de
-    // booking. NÃO usar como fonte de compromisso. Re-key do feed para service_offering = resíduo (frente
-    // de discovery/feed própria, FORA de F-OFFER-5/6). Conter ≠ matar.
+    // 🔴 F-SERVICE-AVAILABILITY-LEGACY-FEED-BADGE-CONTAINMENT-SLICE-A2C (DECISION-0156 /
+    //    DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT R3): o feed empurra `FeedAction.BOOK` quando este
+    //    sinal é true. Para serviço canônico-bound o SSOT temporal reservável é a OFERTA
+    //    (owner_type='service_offering'), NUNCA o escopo legado owner_type='service' — então NÃO habilitamos a
+    //    CTA de booking do feed a partir do sinal legado (ele parecia agenda reservável real e não é). Contenção
+    //    fail-closed: canônico ⇒ false. Dado legado preservado; enum e writers intactos; re-key do feed para
+    //    service_offering = resíduo (frente de feed/discovery própria). Conter ≠ matar.
+    const service = await servicesService.getService(tenantId, serviceId);
+    if (service?.canonicalServiceId) {
+      return false;
+    }
+    // 🟡 Serviço sem canonical (legado puro, inexistente sob F-OFFER-2A) preserva a leitura legada abaixo.
+    // Usamos Unified Availability Core (owner_type = 'service', owner_id = serviceId). Apenas verificação,
+    // não execução; NÃO autoridade de oferta-tempo nem de booking.
     const result = await pool.query<{ count: string }>(
       `
       SELECT COUNT(*) as count
