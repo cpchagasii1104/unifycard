@@ -82,6 +82,15 @@ async function main(): Promise<void> {
       const before = await canonicalServiceService.searchOfferable(TENANT, pfActor, 'corte');
       ok(!before.some((s) => s.conceptId === pfConcept), `1. PF sem C1 ativa → '${PF_CONCEPT_SLUG}' NÃO surge no offerable (#1)`);
 
+      // 1b) SLICE B — alias é LENTE, não elegibilidade: 'barbeiro' resolve p/ concepts (incl. o alvo) via ponte,
+      // mas SEM C1 ativa o gate segue barrando → NADA aparece. Prova que o alias NÃO concede autoridade.
+      const { resolveConceptsFromSearchTerm } = await import('../core/semantic/semantic.adapter');
+      const aliasRes = await resolveConceptsFromSearchTerm('barbeiro');
+      console.log(`    alias 'barbeiro' → ${aliasRes.conceptIds.length} concept(s); alvo incluso=${aliasRes.conceptIds.includes(pfConcept)}`);
+      const beforeAlias = await canonicalServiceService.searchOfferable(TENANT, pfActor, 'barbeiro');
+      ok(!beforeAlias.some((s) => s.conceptId === pfConcept),
+        `1b. PF SEM C1 + termo HUMANO 'barbeiro' → alvo NÃO surge (alias=LENTE, eligibilitySql segue AND obrigatório)`);
+
       // declara C1 ACTIVE
       await c.query(`INSERT INTO actor_professional_concepts (tenant_id,actor_id,concept_id,skill_level,is_active,declared_at) VALUES ($1,$2,$3,3,true,now())`, [TENANT, PF, pfConcept]);
       pfDeclInserted = true;
@@ -89,6 +98,27 @@ async function main(): Promise<void> {
       // 2) COM C1 ativa: o serviço aparece (criterion #2 + #3 PF usa actor_professional_concepts)
       const after = await canonicalServiceService.searchOfferable(TENANT, pfActor, 'corte');
       ok(after.some((s) => s.conceptId === pfConcept), `2. PF com C1 ativa → '${PF_CONCEPT_SLUG}' surge no offerable (#2/#3 actor_professional_concepts)`);
+
+      // 2b) SLICE B — COM C1 ativa, termo HUMANO 'barbeiro' (que NÃO casa por nome com 'Corte de cabelo
+      // masculino') encontra o serviço via ponte de alias no termSql alargado.
+      const afterAlias = await canonicalServiceService.searchOfferable(TENANT, pfActor, 'barbeiro');
+      ok(!/barbeiro/i.test(pfCanonName) && afterAlias.some((s) => s.conceptId === pfConcept),
+        `2b. PF com C1 ativa + termo HUMANO 'barbeiro' → '${PF_CONCEPT_SLUG}' surge via ponte (nome NÃO contém 'barbeiro')`);
+
+      // 3b) COLISÃO — 'barbeiro' resolve p/ >1 concept; os NÃO declarados pelo PF (ex. 'barba') seguem
+      // barrados: só o concept elegível aparece. Prova que alias amplia termSql, não elegibilidade.
+      const otherAliasConcepts = aliasRes.conceptIds.filter((cid) => cid !== pfConcept);
+      const surfacedOther = afterAlias.filter((s) => s.conceptId && otherAliasConcepts.includes(s.conceptId));
+      ok(surfacedOther.length === 0,
+        `3b. colisão: ${otherAliasConcepts.length} concept(s) do alias NÃO declarados pelo PF NÃO surgem (eligibilitySql AND obrigatório)`);
+
+      // 4b) TERMO LITERAL ANTIGO — busca pelo nome canônico continua casando por LOWER(name) LIKE.
+      const literal = await canonicalServiceService.searchOfferable(TENANT, pfActor, pfCanonName);
+      ok(literal.some((s) => s.conceptId === pfConcept), `4b. termo literal antigo '${pfCanonName}' continua casando por nome`);
+
+      // 5b) TERMO INEXISTENTE — sem alias e sem match de nome → vazio honesto (alias não fabrica nada).
+      const nonsense = await canonicalServiceService.searchOfferable(TENANT, pfActor, 'zzqxinexistente0000');
+      ok(nonsense.length === 0, `5b. termo inexistente → vazio honesto (${nonsense.length} itens)`);
 
       // 3) is_active=false → some de novo (predicado ACTIVE, espelha o gate)
       await c.query(`UPDATE actor_professional_concepts SET is_active=false, retired_at=now() WHERE tenant_id=$1 AND actor_id=$2 AND concept_id=$3`, [TENANT, PF, pfConcept]);

@@ -8,6 +8,7 @@
 import { pool } from '../../database/pool';
 import { insertCatalogEvent } from './canonical-variant.service';
 import { normalizeForIdentity } from './catalog-identity';
+import { resolveConceptsFromSearchTerm } from '../../semantic/semantic.adapter';
 
 export class CanonicalServiceError extends Error {
   constructor(public readonly statusCode: number, public readonly code: string, message: string) {
@@ -180,10 +181,23 @@ export const canonicalServiceService = {
       return [];
     }
 
+    // F-SERVICE-PUBLISH-OFFERABLE-ALIAS-SLICE-B: alias = LENTE de descoberta, nunca autoridade.
+    // Se o termo humano ("barbeiro") resolver para concept(s) via ponte advisory (service_search_aliases
+    // aprovadas, READ-ONLY), o predicado TEXTUAL passa a casar por NOME **OU** por concept_id resolvido.
+    // O eligibilitySql acima permanece AND OBRIGATÓRIO (DECISION-0144/0147 intactas): o alias só amplia
+    // o QUE é textualmente encontrável — nunca o QUE o actor pode publicar. Miss/colisão do alias é
+    // irrelevante à autoridade: conceito resolvido mas NÃO declarado/publicado segue barrado pelo gate.
     let termSql = '';
     if (q) {
+      const { conceptIds: aliasConceptIds } = await resolveConceptsFromSearchTerm(q);
       params.push(q);
-      termSql = `AND LOWER(cs.name) LIKE '%' || LOWER($${params.length}) || '%'`;
+      const nameIdx = params.length;
+      params.push(aliasConceptIds);
+      const conceptIdx = params.length;
+      termSql = `AND (
+          LOWER(cs.name) LIKE '%' || LOWER($${nameIdx}) || '%'
+          OR cs.concept_id = ANY($${conceptIdx}::uuid[])
+        )`;
     }
 
     const r = await pool.query<CsRow>(
