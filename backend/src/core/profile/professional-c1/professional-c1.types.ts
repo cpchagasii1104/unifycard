@@ -56,6 +56,18 @@ export interface BioDTO {
   professional_bio: string | null;
 }
 
+// F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A — candidato de concept resolvido a partir de
+// um TERMO humano ("barbeiro") via ponte de alias advisory. Read-only/projeção: displayName é
+// APRESENTAÇÃO (concept_labels; DECISION-0107), conceptId/slug seguem sendo a identidade/SSOT. O usuário
+// ESCOLHE 1 (desambiguação obrigatória no frontend); nada aqui declara ou concede autoridade.
+export interface DeclarableConceptCandidate {
+  conceptId: string;
+  slug: string;
+  domain: string;
+  displayName: string | null;
+  shortLabel: string | null;
+}
+
 // ── Inputs ────────────────────────────────────────────────────────────────────
 export interface DeclareConceptInput {
   conceptId: string;

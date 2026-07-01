@@ -60,6 +60,9 @@ export function isEmptyPatch(data: z.infer<typeof patchSchema>): boolean {
 
 export const conceptParamSchema = z.object({ conceptId: z.string().uuid() });
 
+// F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A — query da busca READ-ONLY termo→concept(s).
+const conceptSearchQuerySchema = z.object({ term: z.string().min(1).max(120) });
+
 const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
   // R1 — GET /profile/professional/c1
   fastify.get('/professional/c1', async (req, reply) => {
@@ -67,6 +70,25 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
       const { tenantId, actorId, userId } = requireContext(req);
       const result = await professionalC1Service.getProfessionalC1(tenantId, actorId, userId);
       return reply.status(200).send(result);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // R6 — GET /profile/professional/c1/concept-search?term=barbeiro  (READ-ONLY / ADVISORY)
+  // F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A: resolve termo humano → concept(s) candidatos
+  // declaráveis via ponte de alias advisory. NÃO declara, NÃO concede autoridade — só PROJETA candidatos
+  // p/ o usuário ESCOLHER (desambiguação no frontend). Autoridade segue em requireContext + resolveActorGuarded
+  // (canRepresentActor) no service; DECISION-0144/0147 intocadas. Miss → data:[] honesto.
+  fastify.get('/professional/c1/concept-search', async (req, reply) => {
+    try {
+      const { tenantId, actorId, userId } = requireContext(req);
+      const parsed = conceptSearchQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'Query inválida', details: parsed.error.issues });
+      }
+      const data = await professionalC1Service.searchDeclarableConcepts(tenantId, actorId, userId, parsed.data.term);
+      return reply.status(200).send({ ok: true, data });
     } catch (error) {
       return fail(reply, error);
     }

@@ -34,6 +34,27 @@ export async function getProfessionalC1(): Promise<ProfessionalC1> {
   return parseC1<ProfessionalC1>(res);
 }
 
+// F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A — candidato de concept resolvido a partir de
+// um TERMO humano ("barbeiro") via ponte de alias advisory (read-only). displayName é APRESENTAÇÃO
+// (concept_labels); conceptId é a identidade que será declarada. O usuário ESCOLHE 1 na tela.
+export interface ProfessionalConceptCandidate {
+  conceptId: string;
+  slug: string;
+  domain: string;
+  displayName: string | null;
+  shortLabel: string | null;
+}
+
+// Busca READ-ONLY de concept(s) candidatos por termo humano. NÃO declara nada: projeta candidatos p/ o
+// usuário desambiguar. Miss (termo sem alias/aprovação) → [] honesto.
+export async function searchProfessionalConceptCandidates(
+  term: string
+): Promise<ProfessionalConceptCandidate[]> {
+  const res = await apiFetch(`/profile/professional/c1/concept-search?term=${encodeURIComponent(term)}`);
+  const body = await parseC1<{ ok: boolean; data: ProfessionalConceptCandidate[] }>(res);
+  return body?.data ?? [];
+}
+
 export async function updateProfessionalBioC1(
   professionalBio: string | null
 ): Promise<{ professional_bio: string | null }> {

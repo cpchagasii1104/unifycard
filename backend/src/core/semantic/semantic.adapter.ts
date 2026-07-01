@@ -160,3 +160,49 @@ export async function resolveConceptsFromSearchTerm(
     conceptIds: result.rows.map((r) => r.concept_id),
   };
 }
+
+export interface ConceptLabelRow {
+  conceptId: string;
+  slug: string;
+  domain: string;
+  /** Display name governado (concept_labels primária pt-BR/default) — APRESENTAÇÃO, nunca identidade. */
+  displayName: string | null;
+  shortLabel: string | null;
+}
+
+/**
+ * Resolve rótulo de APRESENTAÇÃO (concept_labels primária pt-BR/default) + slug/domain para um conjunto
+ * de concept_ids. READ-ONLY (só SELECT). Label é apresentação, NÃO identidade (DECISION-0107): o value
+ * segue concept_id/slug; o WHERE é por concept_id (nunca por label). Fallback honesto: sem label → null
+ * (frontend faz displayName ?? slug). concepts/concept_labels são GLOBAIS (sem tenant) — pool direto,
+ * igual a resolveConceptsFromSearchTerm. NÃO ordena (o caller preserva a ordem de confiança do alias).
+ */
+export async function resolveConceptLabels(conceptIds: string[]): Promise<ConceptLabelRow[]> {
+  if (!conceptIds.length) {
+    return [];
+  }
+  const result = await pool.query<{
+    concept_id: string;
+    slug: string;
+    domain: string;
+    display_name: string | null;
+    short_label: string | null;
+  }>(
+    `
+    SELECT c.concept_id, c.slug, c.domain, cl.label AS display_name, cl.short_label
+    FROM concepts c
+    LEFT JOIN concept_labels cl
+      ON cl.concept_id = c.concept_id
+     AND cl.locale = 'pt-BR' AND cl.context_key = 'default' AND cl.is_primary = true
+    WHERE c.concept_id = ANY($1::uuid[])
+    `,
+    [conceptIds],
+  );
+  return result.rows.map((r) => ({
+    conceptId: r.concept_id,
+    slug: r.slug,
+    domain: r.domain,
+    displayName: r.display_name ?? null,
+    shortLabel: r.short_label ?? null,
+  }));
+}

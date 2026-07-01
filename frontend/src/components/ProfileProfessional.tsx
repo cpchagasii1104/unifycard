@@ -19,6 +19,8 @@ import {
   declareProfessionalConceptC1,
   updateProfessionalConceptC1,
   retireProfessionalConceptC1,
+  searchProfessionalConceptCandidates,
+  type ProfessionalConceptCandidate,
 } from '../api/professionalC1';
 import type { ProfessionalInitialSnapshot } from '../hooks/useProfessionalCategories';
 import { type UserPlan } from '../config/features';
@@ -93,6 +95,12 @@ export default function ProfileProfessional() {
     loadingChildren,
     setLoadingChildren,
   } = state;
+
+  // F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A — fallback advisory quando a busca de
+  // CATEGORIA não entende o termo humano ("barbeiro"): a ponte de alias projeta concept(s) candidatos.
+  // Estado LOCAL (não persiste, não é verdade) — o usuário desambigua e escolhe 1; nada auto-declara.
+  const [aliasConceptResults, setAliasConceptResults] = useState<ProfessionalConceptCandidate[]>([]);
+  const [aliasSearching, setAliasSearching] = useState(false);
 
   // Feature flag para microfone (versão paga)
   const [_userPlan, setUserPlan] = useState<UserPlan>('free');
@@ -216,6 +224,7 @@ export default function ProfileProfessional() {
       setSearchResults([]);
       setAutocompleteResults([]);
       setShowAutocomplete(false);
+      setAliasConceptResults([]);
       return;
     }
 
@@ -241,10 +250,29 @@ export default function ProfileProfessional() {
           // Mostrar dropdown se houver resultados
           if (results.length > 0) {
             setShowAutocomplete(true);
+            // Categoria entendeu o termo → não precisa da ponte de alias.
+            setAliasConceptResults([]);
           } else {
             setShowAutocomplete(false);
+            // Fallback advisory: a taxonomia de CATEGORIA não entende "barbeiro", mas a ponte de alias
+            // pode apontar concept(s). READ-ONLY, só projeta candidatos p/ o usuário ESCOLHER (nada
+            // é declarado aqui). Miss → [] honesto (aí o bloco "Solicitar Inclusão" reaparece).
+            if (term.trim().length >= 2) {
+              try {
+                setAliasSearching(true);
+                const candidates = await searchProfessionalConceptCandidates(term.trim());
+                setAliasConceptResults(candidates);
+              } catch (aliasErr) {
+                console.warn('[ProfileProfessional] alias concept-search falhou:', aliasErr);
+                setAliasConceptResults([]);
+              } finally {
+                setAliasSearching(false);
+              }
+            } else {
+              setAliasConceptResults([]);
+            }
           }
-          
+
           // Também manter searchResults para compatibilidade
           setSearchResults(results.map(r => ({
             categoryId: r.id,
@@ -264,6 +292,7 @@ export default function ProfileProfessional() {
             setAutocompleteResults([]);
             setSearchResults([]);
             setShowAutocomplete(false);
+            setAliasConceptResults([]);
             setAutocompleteError(null); // Não mostrar erro para rate limit
             setIsSearching(false);
             return;
@@ -283,6 +312,7 @@ export default function ProfileProfessional() {
           setAutocompleteResults([]);
           setSearchResults([]);
           setShowAutocomplete(false);
+          setAliasConceptResults([]);
         } finally {
           setIsSearching(false);
         }
@@ -324,7 +354,41 @@ export default function ProfileProfessional() {
     setSearchTerm('');
     setAutocompleteResults([]);
     setShowAutocomplete(false);
+    setAliasConceptResults([]);
     setSearchFieldError(null); // Limpar erro ao selecionar
+  };
+
+  // F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A — DESAMBIGUAÇÃO: o usuário escolheu
+  // EXATAMENTE 1 concept candidato vindo da ponte de alias. NUNCA first-match, NUNCA declara N: só
+  // dispara ao clique. O concept_id continua sendo a identidade; sourceCategoryId=null (veio de alias,
+  // não de navegação por categoria). Persistência real acontece no handleSave (POST declareConcept)
+  // sob a autoridade do fluxo existente — alias NÃO concede permissão.
+  const addSkillFromConcept = (candidate: ProfessionalConceptCandidate) => {
+    // Dedupe por conceptId (identidade), não por categoryId sintético.
+    if (selectedSkills.some((s) => s.conceptId === candidate.conceptId)) {
+      setSearchTerm('');
+      setAliasConceptResults([]);
+      setSearchFieldError(null);
+      return;
+    }
+    const label = candidate.displayName ?? candidate.slug;
+    const syntheticKey = `concept:${candidate.conceptId}`; // chave de UI (sem categoria de origem)
+    const newSkill: SelectedSkill = {
+      categoryId: syntheticKey,
+      conceptId: candidate.conceptId,
+      sourceCategoryId: null, // origem = alias, não navegação de categoria → sem breadcrumb
+      categoryName: label,
+      categoryPath: [],
+      skillLevel: 3, // Default: intermediário (igual ao fluxo de categoria)
+      yearsExperience: 0,
+    };
+    setSelectedSkills([...selectedSkills, newSkill]);
+    setSearchTerm('');
+    setSearchResults([]);
+    setAliasConceptResults([]);
+    setSearchFieldError(null);
+    setNewlyAddedSkillId(syntheticKey);
+    setTimeout(() => setNewlyAddedSkillId(null), 3000);
   };
 
   const handleSuggestCategory = async () => {
@@ -515,6 +579,7 @@ export default function ProfileProfessional() {
     setSelectedSkills([...selectedSkills, newSkill]);
     setSearchTerm('');
     setSearchResults([]);
+    setAliasConceptResults([]);
     setSearchFieldError(null); // Limpar erro ao adicionar profissão
 
     // Destacar a competência recém-adicionada por alguns segundos.
@@ -758,6 +823,9 @@ export default function ProfileProfessional() {
       setSearchFieldError={setSearchFieldError}
       handleSearch={handleSearch}
       handleSelectAutocomplete={handleSelectAutocomplete}
+      aliasConceptResults={aliasConceptResults}
+      aliasSearching={aliasSearching}
+      addSkillFromConcept={addSkillFromConcept}
       handleSuggestCategory={handleSuggestCategory}
       isSuggesting={isSuggesting}
       suggestionError={suggestionError}

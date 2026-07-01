@@ -14,6 +14,7 @@ import type {
   BioDTO,
   DeclareConceptInput,
   UpdateConceptInput,
+  DeclarableConceptCandidate,
 } from './professional-c1.types';
 
 // ── Mapeamento de erro de integridade do banco → status limpo [REPARO 3] ──────
@@ -82,6 +83,38 @@ class ProfessionalC1Service {
       // defesa-em-profundidade (banco já força via chk_actors_actor_id_equals_id); fail-closed.
       throw new HttpError('ACTOR_ID_INVARIANT_BROKEN', 500);
     }
+  }
+
+  // F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A — READ-ONLY / ADVISORY.
+  // Resolve um TERMO humano ("barbeiro") → concept(s) candidatos a DECLARAR, via ponte de alias advisory
+  // (resolveConceptsFromSearchTerm) + rótulo de apresentação (resolveConceptLabels). NÃO declara, NÃO cria
+  // capability, NÃO relaxa gate, NÃO escreve DB: o alias é LENTE de busca; o concept_id segue verdade/SSOT;
+  // a autoridade segue em canRepresentActor (resolveActorGuarded) + no fluxo de declaração R3 (DECISION-0144/
+  // 0147 intocadas). Colisão PRESERVADA: retorna N candidatos ordenados por confiança do alias — a ESCOLHA
+  // é do usuário (frontend desambigua; NUNCA first-match, NUNCA declara N). Miss → [] honesto.
+  async searchDeclarableConcepts(
+    tenantId: string,
+    actorId: string,
+    userId: string,
+    term: string
+  ): Promise<DeclarableConceptCandidate[]> {
+    await this.resolveActorGuarded(tenantId, actorId, userId);
+    const { resolveConceptsFromSearchTerm, resolveConceptLabels } = await import('@core/semantic/semantic.adapter');
+    const { conceptIds } = await resolveConceptsFromSearchTerm(term);
+    if (!conceptIds.length) return [];
+    const labels = await resolveConceptLabels(conceptIds);
+    const byId = new Map(labels.map((l) => [l.conceptId, l]));
+    // Preserva a ordem de confiança do resolvedor de alias; descarta ids sem linha em concepts (defesa).
+    return conceptIds
+      .map((id) => byId.get(id))
+      .filter((l): l is NonNullable<typeof l> => Boolean(l))
+      .map((l) => ({
+        conceptId: l.conceptId,
+        slug: l.slug,
+        domain: l.domain,
+        displayName: l.displayName,
+        shortLabel: l.shortLabel,
+      }));
   }
 
   async getProfessionalC1(tenantId: string, actorId: string, userId: string): Promise<ProfessionalC1DTO> {

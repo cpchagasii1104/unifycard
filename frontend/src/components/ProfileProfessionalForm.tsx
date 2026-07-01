@@ -1,4 +1,5 @@
 import type { Category, CategoryAutocompleteResult, CategoryTree, CategoryPathSuggestion } from '../api/categories';
+import type { ProfessionalConceptCandidate } from '../api/professionalC1';
 import { normalizeCategoryLabel, normalizeCategoryPath } from '../utils/categoryLabelNormalizer';
 
 // A3.2 tab-only / C1: aba Profissional só renderiza bio + competências (conceptId/skillLevel/yearsExperience).
@@ -31,6 +32,11 @@ interface ProfileProfessionalFormProps {
   setSearchFieldError: (error: string | null) => void;
   handleSearch: (term: string) => void;
   handleSelectAutocomplete: (result: CategoryAutocompleteResult) => void;
+  // F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A — candidatos de concept vindos da ponte de
+  // alias (fallback quando a CATEGORIA não entende o termo). O usuário escolhe 1 → addSkillFromConcept.
+  aliasConceptResults: ProfessionalConceptCandidate[];
+  aliasSearching: boolean;
+  addSkillFromConcept: (candidate: ProfessionalConceptCandidate) => void;
   handleSuggestCategory: () => void;
   isSuggesting: boolean;
   suggestionError: string | null;
@@ -76,6 +82,9 @@ export default function ProfileProfessionalForm({
   setSearchFieldError,
   handleSearch,
   handleSelectAutocomplete,
+  aliasConceptResults,
+  aliasSearching,
+  addSkillFromConcept,
   handleSuggestCategory,
   isSuggesting,
   suggestionError,
@@ -264,17 +273,75 @@ export default function ProfileProfessionalForm({
           </div>
         )}
 
+        {/* F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A — indicador de busca da ponte de alias
+            (categoria não entendeu o termo; tentando "barbeiro" → concept). */}
+        {aliasSearching && aliasConceptResults.length === 0 && !showAutocomplete && (
+          <div className="search-loading" style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
+            Procurando competências para "{searchTerm}"...
+          </div>
+        )}
+
+        {/* F-SERVICE-PROFESSIONAL-CAPABILITY-ALIAS-SELECTOR-SLICE-A — DESAMBIGUAÇÃO OBRIGATÓRIA.
+            A busca por CATEGORIA não entendeu o termo humano, mas a ponte de alias (advisory, read-only)
+            apontou concept(s). Regra dura: o usuário ESCOLHE exatamente 1 (mesmo quando há só 1 candidato,
+            exige clique) — NUNCA first-match, NUNCA declara N. displayName é apresentação (fallback slug);
+            concept_id é a identidade declarada. Nada é gravado aqui — só ao clicar + salvar (fluxo R3). */}
+        {!showAutocomplete && aliasConceptResults.length > 0 && (
+          <div className="alias-concept-disambiguation" style={{
+            marginTop: '0.5rem',
+            padding: '0.75rem',
+            backgroundColor: '#eff6ff',
+            border: '1px solid #3b82f6',
+            borderRadius: '0.375rem',
+          }}>
+            <p style={{ margin: 0, fontWeight: 600, color: '#1e3a8a' }}>
+              {aliasConceptResults.length === 1
+                ? `Encontramos 1 competência relacionada a "${searchTerm}":`
+                : `Encontramos ${aliasConceptResults.length} competências relacionadas a "${searchTerm}":`}
+            </p>
+            <p style={{ margin: '0.25rem 0 0.5rem', fontSize: '0.8125rem', color: '#6b7280' }}>
+              Escolha a que corresponde ao que você faz. É preciso selecionar — nada é declarado
+              automaticamente.
+            </p>
+            <div className="alias-concept-list">
+              {aliasConceptResults.map((candidate) => {
+                const label = candidate.displayName ?? candidate.slug;
+                const already = isSkillSelected(`concept:${candidate.conceptId}`);
+                return (
+                  <div
+                    key={candidate.conceptId}
+                    className={`search-result-item ${already ? 'selected' : ''}`}
+                    onClick={() => !already && addSkillFromConcept(candidate)}
+                    onMouseDown={(e) => e.preventDefault()} // prevenir blur antes do clique
+                    style={{ cursor: already ? 'default' : 'pointer' }}
+                  >
+                    <div className="result-path">{normalizeCategoryLabel(label)}</div>
+                    {already ? (
+                      <span className="skill-badge">✓ Já adicionada</span>
+                    ) : (
+                      <button type="button" className="add-button-small">+ Selecionar</button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* REGRA FINAL: Mostrar "Sugerir Profissão" APENAS se:
             - Termo tem 2+ caracteres
             - NÃO houve erro (erro ≠ ausência de dado)
             - Autocomplete retornou 0 resultados (legítimos)
-            - NÃO está buscando
+            - A ponte de alias TAMBÉM não achou concept (senão o usuário desambigua acima)
+            - NÃO está buscando (categoria nem alias)
             - NÃO está mostrando dropdown
             CRÍTICO: Se há erro, mostrar erro. Não sugerir criação quando há problema de rede/auth. */}
-        {searchTerm.trim().length >= 2 && 
-         !autocompleteError && 
-         autocompleteResults.length === 0 && 
-         !isSearching && 
+        {searchTerm.trim().length >= 2 &&
+         !autocompleteError &&
+         autocompleteResults.length === 0 &&
+         aliasConceptResults.length === 0 &&
+         !aliasSearching &&
+         !isSearching &&
          !showAutocomplete && (
           <div className="ai-create-suggestion">
             <p>Nenhuma profissão encontrada para "{searchTerm}"</p>
