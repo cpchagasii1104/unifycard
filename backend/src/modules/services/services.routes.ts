@@ -347,7 +347,7 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  /** GET /services/:serviceId/availability — lista agenda do serviço (leitura pública, delega ao core). */
+  /** GET /services/:serviceId/availability — leitura pública LEGADA (owner_type='service'), CONTIDA. */
   fastify.get<{ Params: { serviceId: string }; Querystring: { status?: string } }>(
     '/:serviceId/availability',
     async (req, reply) => {
@@ -355,6 +355,25 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Tenant not found' });
       }
       try {
+        // 🔴 F-SERVICE-AVAILABILITY-LEGACY-PUBLIC-ENDPOINT-CONTAINMENT-SLICE-A2B (DECISION-0156 /
+        //    DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT R2): endpoint público legado. Para serviço
+        //    canônico-bound, o SSOT temporal reservável é a OFERTA (owner_type='service_offering'), NUNCA o
+        //    escopo legado owner_type='service' — então NÃO expomos as janelas 'service' como agenda reservável
+        //    verdadeira. Terminal honesto + vazio controlado. O dado legado NÃO é apagado, o enum e os writers
+        //    seguem intactos, e a agenda reservável real vive na oferta. Consumidores do endpoint são órfãos ou
+        //    tratam vazio (getServiceForDiscovery usa `.catch(() => [])`), então nada vivo quebra.
+        const service = await servicesService.getService(req.tenant.id, req.params.serviceId);
+        if (service?.canonicalServiceId) {
+          return reply.send({
+            ok: true,
+            data: [],
+            contained: true,
+            reason: 'SERVICE_LEVEL_AVAILABILITY_LEGACY_CONTAINED',
+            message:
+              'Disponibilidade reservável vive na oferta (service_offering). O endpoint service-level (owner_type=service) é legado/contido (DECISION-0156).',
+          });
+        }
+        // Serviço sem canonical (legado puro, inexistente sob F-OFFER-2A) preserva o comportamento anterior.
         const list = await servicesService.listServiceAvailabilities(req.tenant.id, req.params.serviceId, {
           status: req.query.status as any,
         });
