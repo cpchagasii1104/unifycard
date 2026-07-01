@@ -1507,22 +1507,23 @@ class ServiceOrderService {
       return new Date(scheduledStart.getTime() + defaultDurationMinutes * 60 * 1000);
     })();
 
-    // 9. 🔴 CORREÇÃO FASE 1B: Verificar conflitos (apenas alerta, não bloqueia)
-    try {
-      const conflictResult = await unifiedAvailabilityService.detectConflicts(
-        tenantId,
-        booking.availabilityId,
-        service.actorId
-      );
-      
-      if (conflictResult.hasConflicts) {
-        // Apenas logar alerta, não bloquear
-        console.warn(`[ServiceOrder] Conflitos detectados ao confirmar booking ${bookingId}:`, conflictResult.conflicts);
-      }
-    } catch (conflictError) {
-      // Não bloquear se detecção de conflito falhar
-      console.warn(`[ServiceOrder] Erro ao detectar conflitos para booking ${bookingId}:`, conflictError);
-    }
+    // 9. 🔴 F-SERVICE-BOOKING-CONFIRM-CANONICAL-LOCK-SLICE-A1 (DECISION-0156 D7 / DT-SERVICE-BOOKING-CONFIRM-BYPASSES-LOCK):
+    //    a transição do booking aceito em COMPROMISSO passa OBRIGATORIAMENTE pelo lock/conflito canônico da Unified
+    //    Availability ANTES de nascer a service_order. Delega ao MESMO caminho da confirmação segura (Superfície A):
+    //    updateBooking(status=CONFIRMED) → confirmBookingWithProviderLock (owner_type='service_offering') /
+    //    confirmBookingWithResourceLock (owner_type='rentable_resource'): advisory lock xact-scoped por provider/recurso
+    //    + predicado de conflito transacional + transição requested→confirmed atômica. Conflito = fail-closed
+    //    (BOOKING_PROVIDER_TIME_CONFLICT / RENTAL_RESOURCE_TIME_CONFLICT) → a order NÃO nasce. Substitui a antiga
+    //    detecção não-bloqueante (que dependia da função SQL detect_availability_conflicts, hoje STUB vazio). Provider/
+    //    intervalo derivam do SSOT (availability→service_offering), NUNCA do body; NÃO usa services.metadata.availability
+    //    nem owner_type='service' como autoridade. Autoria/quarentena já validadas acima (defesa em profundidade).
+    const { UnifiedBookingStatus } = await import('@core/availability/unified-availability.types');
+    await unifiedAvailabilityService.updateBooking(
+      tenantId,
+      bookingId,
+      confirmedByUserId ?? '',
+      { status: UnifiedBookingStatus.CONFIRMED }
+    );
 
     // 9.5. 🔴 BLINDAGEM: Validar acordo finalizado antes de confirmar booking
     // Se houver thread de negociação ou contexto de evento, exige acordo FINALIZED
