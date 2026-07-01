@@ -288,7 +288,10 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Encaminhamento: chamar EXCLUSIVAMENTE método canônico
-      const tree = await categoriesService.getCategoriesForTenant(tenantId, context);
+      // D1 (F-PROFESSIONAL-BROWSE-EMPTY-SCAFFOLD-CONTAINMENT-SLICE-A): no browse do produtor,
+      // esconder buckets L1 professional vazios (filtro de leitura; não apaga/funde/reparenta).
+      const rawTree = await categoriesService.getCategoriesForTenant(tenantId, context);
+      const tree = categoriesService.pruneEmptyProfessionalScaffolds(rawTree, context);
       
       fastify.log.info({ 
         tenantId,

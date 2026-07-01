@@ -560,6 +560,47 @@ if (!hasReadAccess) {
   }
 
   /**
+   * F-PROFESSIONAL-BROWSE-EMPTY-SCAFFOLD-CONTAINMENT-SLICE-A (D1 · READ-FIRST BROWSE_COM_WARNING).
+   * FILTRO DE LEITURA (navegação, NÃO identidade): no browse do PRODUTOR (context='professional'),
+   * buckets L1 professional VAZIOS — `scope='professional' ∧ level=1 ∧ concept_id NULL ∧ 0 filhos
+   * navegáveis` — são "armários vazios" (scaffolds N1 pré-semeados sem grão). Deixam de aparecer
+   * como nó navegável enquanto não tiverem filhos.
+   *
+   * Isto NÃO apaga / funde / reparenta / altera nada: o bucket permanece no DB (scaffold intacto)
+   * e volta a aparecer assim que ganhar uma folha L2 concept-bound. NÃO toca
+   * concept/canonical/alias/label/authority/path/parent_id.
+   *
+   * GUARDA-TRILHO: nunca remove bucket com ≥1 filho (ex.: beleza-estetica/limpeza-conservacao/
+   * medicina), nunca remove folha L2 (a regra mira level=1), nunca remove nó concept-bound. Só age
+   * em context='professional'; qualquer outro context retorna a árvore INTACTA (validadores como
+   * human-mvp continuam usando `getCategoriesForTenant` cru, sem este filtro).
+   */
+  pruneEmptyProfessionalScaffolds(
+    nodes: CategoryTree[],
+    context: CategoryContext
+  ): CategoryTree[] {
+    if (context !== 'professional' || !Array.isArray(nodes)) {
+      return nodes;
+    }
+    const isEmptyProfessionalScaffold = (node: CategoryTree): boolean =>
+      node.scope === 'professional' &&
+      node.level === 1 &&
+      (node.conceptId === null || node.conceptId === undefined) &&
+      (!node.children || node.children.length === 0);
+
+    const prune = (list: CategoryTree[]): CategoryTree[] =>
+      list
+        .filter((node) => !isEmptyProfessionalScaffold(node))
+        .map((node) =>
+          node.children && node.children.length > 0
+            ? { ...node, children: prune(node.children) }
+            : node
+        );
+
+    return prune(nodes);
+  }
+
+  /**
    * @deprecated Use getCategoriesForTenant(tenantId, context) instead.
    * Este método será removido quando ENFORCE_CANONICAL_ONLY=true.
    * 
@@ -854,8 +895,12 @@ if (!hasReadAccess) {
     }
 
     // SSOT: Obter a MESMA árvore canônica usada pela navegação
-    const tree = await this.getCategoriesForTenant(tenantId, context);
-    
+    // D1 (SLICE-A): esconder do browse do produtor buckets L1 professional vazios (filtro de leitura).
+    const tree = this.pruneEmptyProfessionalScaffolds(
+      await this.getCategoriesForTenant(tenantId, context),
+      context
+    );
+
     // Aplicar filtro de busca em memória sobre a árvore completa
     const searchTerm = term.toLowerCase().trim();
     const normalizedTerm = searchTerm
@@ -980,8 +1025,12 @@ if (!hasReadAccess) {
     }
 
     // SSOT: Obter a MESMA árvore canônica usada pela navegação
-    const tree = await this.getCategoriesForTenant(tenantId, context);
-    
+    // D1 (SLICE-A): esconder do autocomplete do produtor buckets L1 professional vazios (filtro de leitura).
+    const tree = this.pruneEmptyProfessionalScaffolds(
+      await this.getCategoriesForTenant(tenantId, context),
+      context
+    );
+
     // Aplicar filtragem em memória sobre a árvore completa
     const searchTerm = query.toLowerCase().trim();
     const normalizedTerm = searchTerm
