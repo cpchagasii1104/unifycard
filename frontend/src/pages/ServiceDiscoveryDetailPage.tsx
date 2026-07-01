@@ -287,8 +287,17 @@ export default function ServiceDiscoveryDetailPage() {
             </div>
           )}
 
-          {/* Resumo de Disponibilidade */}
-          {service.availability_summary && (
+          {/* Resumo de Disponibilidade (eixo LEGADO owner_type='service').
+              F-SERVICE-DETAIL-AVAILABILITY-SUMMARY-CONVERGE (GO A, frontend-only):
+              quando o serviço tem superfície canônica de oferta (canonicalServiceId →
+              ServiceOfferingSelector acima), a agenda CONTRATÁVEL soberana é o eixo
+              OFFERING (owner_type='service_offering'). Este resumo lê o eixo SERVICE
+              legado/display (DECISION-0146 §A.5), vazio nesses casos, e imprimiria um
+              falso "Sem disponibilidade" ao lado das janelas reais da oferta. Suprimir
+              a superfície contraditória — NÃO recalcular, NÃO unir agendas, NÃO tocar o
+              eixo legado (vivo em /services/:id/availability, eventos, pendências).
+              Serviço SEM canonical/oferta mantém o comportamento legado. */}
+          {!service.canonicalServiceId && service.availability_summary && (
             <div className="service-section">
               <h2>Disponibilidade</h2>
               <div className="availability-summary">
