@@ -493,10 +493,21 @@ class ServicesService {
                 city_id: actor.metadata?.city_id || null,
               }
             : undefined,
-          availability_summary: {
-            has_availability: hasAvailability,
-            next_available_date: nextAvailableDate,
-          },
+          // 🔴 F-SERVICE-AVAILABILITY-LEGACY-SERVICE-OWNER-READER-CONTAINMENT-SLICE-A2
+          //    (DECISION-0156 / DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT): o SSOT temporal reservável de
+          //    um serviço canônico-bound é a OFERTA (owner_type='service_offering'), NUNCA o escopo legado
+          //    owner_type='service'. Por isso o summary legado (this-scope='service') NÃO é apresentado como
+          //    agenda reservável verdadeira quando o serviço tem `canonicalServiceId` — espelho velho contido.
+          //    Espelha a regra DECISION-0146 já vigente no detalhe (`ServiceDiscoveryDetailPage`), fechando a
+          //    inconsistência da LISTA. Contenção de READ-MODEL apenas: a janela legada NÃO é apagada, o filtro
+          //    de membership NÃO muda (calculado acima), e a agenda reservável real continua vindo da oferta.
+          //    Serviço sem canonical (legado puro, inexistente sob F-OFFER-2A) preserva o comportamento anterior.
+          availability_summary: service.canonicalServiceId
+            ? undefined
+            : {
+                has_availability: hasAvailability,
+                next_available_date: nextAvailableDate,
+              },
         };
       })
     );
