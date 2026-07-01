@@ -478,9 +478,21 @@ class ServicesService {
           }
         }
 
-        // Filtrar por has_availability se especificado
-        if (filters.hasAvailability === true && !hasAvailability) {
-          return null;
+        // 🔴 F-SERVICE-DISCOVERY-HAS-AVAILABILITY-CANONICAL-FILTER-SLICE-A2D (DECISION-0156 /
+        //    DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT R1): o filtro "Agenda aberta" (has_availability=true)
+        //    mede disponibilidade pelo SSOT CANÔNICO — ≥1 service_offering ativa do serviço/canonical (mesmo
+        //    provider) com availability owner_type='service_offering' e janela FUTURA (end>now) — NUNCA pelo escopo
+        //    legado owner_type='service' (que hoje ESVAZIARIA a busca ao marcar o checkbox). Martelo semântico
+        //    ratificado: ANY offering + future window; conflito de booking NÃO exclui (resolve no lock A1); sem
+        //    filtro por data (isso é Slice B). Serviço legado puro (sem canonical, inexistente sob F-OFFER-2A)
+        //    preserva o predicado anterior.
+        if (filters.hasAvailability === true) {
+          const passesAvailabilityFilter = service.canonicalServiceId
+            ? await servicesRepository.hasCanonicalOfferingFutureAvailability(tenantId, service)
+            : hasAvailability;
+          if (!passesAvailabilityFilter) {
+            return null;
+          }
         }
 
         return {

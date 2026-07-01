@@ -265,6 +265,41 @@ class ServicesRepository {
   }
 
   /**
+   * 🔴 F-SERVICE-DISCOVERY-HAS-AVAILABILITY-CANONICAL-FILTER-SLICE-A2D (DECISION-0156 /
+   * DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT R1): predicado CANÔNICO do filtro "has_availability=true"
+   * da descoberta. Martelo semântico ratificado por Clayton: um SERVIÇO tem disponibilidade se existe ≥1
+   * `service_offering` ATIVA do serviço/canonical (MESMO provider) com `availability` owner_type='service_offering'
+   * e janela FUTURA (`end_datetime > now()`). NÃO usa `owner_type='service'` nem `services.metadata.availability`;
+   * NÃO desconta booking/conflito (isso resolve no lock canônico A1); NÃO filtra por data (isso é Slice B).
+   * ANY offering + future window.
+   */
+  async hasCanonicalOfferingFutureAvailability(
+    tenantId: string,
+    service: { serviceId: string; actorId: string; canonicalServiceId?: string | null }
+  ): Promise<boolean> {
+    const rows = await runQueriesWithTenant<{ has: boolean }>(
+      tenantId,
+      `SELECT EXISTS (
+         SELECT 1
+           FROM service_offerings so
+           JOIN availability a
+             ON a.tenant_id = so.tenant_id
+            AND a.owner_type = 'service_offering'
+            AND a.owner_id = so.id
+          WHERE so.tenant_id = $1
+            AND so.status = 'active'
+            AND so.provider_actor_id = $2
+            AND (so.service_id = $3 OR ($4::uuid IS NOT NULL AND so.canonical_service_id = $4))
+            AND a.status = 'active'
+            AND a.end_datetime > now()
+          LIMIT 1
+       ) AS has`,
+      [tenantId, service.actorId, service.serviceId, service.canonicalServiceId ?? null]
+    );
+    return rows[0]?.has === true;
+  }
+
+  /**
    * Atualiza serviço
    */
   async update(tenantId: string, serviceId: string, input: UpdateServiceInput): Promise<Service> {
