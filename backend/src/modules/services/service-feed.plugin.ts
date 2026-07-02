@@ -170,6 +170,10 @@ class ServicesFeedPlugin implements SocialFeedPlugin {
     // 🔴 BLINDAGEM: Buscar post usando query direta (apenas leitura)
     // Não usamos serviço de posts para evitar dependência circular
     // Usamos pool.query diretamente pois não temos tenantId aqui
+    // 🔴 F-SERVICE-FEED-GETPOST-COLUMN-FIX (DT-SERVICE-FEED-BOOK-CTA-POST-ID-SCHEMA-MISMATCH):
+    // posts usa PK `id` (migration 20260530300000); não existe coluna `post_id`. WHERE post_id=$1
+    // quebrava com coluna inexistente, tornando este caminho (renderFeedItem/getAvailableActions)
+    // inalcançável. WHERE id=$1 corrige a query; contrato de retorno (tenant_id, metadata) preservado.
     const result = await pool.query<{
       tenant_id: string;
       metadata: Record<string, any>;
@@ -177,7 +181,7 @@ class ServicesFeedPlugin implements SocialFeedPlugin {
       `
       SELECT tenant_id, COALESCE(metadata, '{}'::jsonb) as metadata
       FROM posts
-      WHERE post_id = $1
+      WHERE id = $1
       LIMIT 1
       `,
       [postId]
