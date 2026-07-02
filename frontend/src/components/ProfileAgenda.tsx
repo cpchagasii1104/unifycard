@@ -4,7 +4,6 @@
 // 🔴 REGRA: Agenda pertence ao activeActor, não à pessoa física/jurídica
 
 import { useEffect, useCallback, useState } from 'react';
-import { DateTime } from 'luxon';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import {
   listAvailabilities,
@@ -22,6 +21,7 @@ import {
   type TemporalPurpose,
 } from '../api/availability';
 import { type AvailabilitySchedule } from '../api/categories';
+import { reconstructWeeklySchedule } from '../utils/temporal/reconstructWeeklySchedule';
 import { useProfileAgendaState } from '../hooks/useProfileAgendaState';
 import { useProfileAgendaLogic } from '../hooks/useProfileAgendaLogic';
 import ProfileAgendaForm from './ProfileAgendaForm';
@@ -32,50 +32,8 @@ import './ProfileAgenda.css';
 // F2 (DECISION-0072 B1): o save materializa a grade no SSOT `availability` via
 // PUT /availability/weekly-template; o read-back reconstrói a grade a partir das janelas
 // materializadas (metadata.source==='profile_weekly_template'), nunca de bookings nem de profile.
-
-/** Marcador de procedência das janelas geradas pelo materializador semanal (F1). */
-const WEEKLY_TEMPLATE_SOURCE = 'profile_weekly_template';
-
-/** luxon weekday (1=Mon..7=Sun) → chave da grade. */
-const LUXON_WEEKDAY_TO_KEY: Record<number, string> = {
-  1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday', 7: 'sunday',
-};
-
-/**
- * Reconstrói a grade semanal declarativa a partir das janelas CONCRETAS materializadas no SSOT
- * `availability` (apenas as marcadas como template recorrente e ativas). Converte start/end para
- * dia-da-semana + "HH:mm-HH:mm" na timezone de cada janela. NÃO usa bookings nem metadata.schedule.
- */
-function reconstructWeeklySchedule(
-  avs: UnifiedAvailability[],
-  conceptIdToSlug: Map<string, string>
-): { schedule: AvailabilitySchedule; purposes: Record<string, string> } {
-  const byDay: Record<string, Set<string>> = {};
-  // 🔴 DECISION-0132: read-back da finalidade por faixa, keyed `${dayKey}|${range}` (estável).
-  const purposes: Record<string, string> = {};
-  for (const a of avs) {
-    if (a.metadata?.source !== WEEKLY_TEMPLATE_SOURCE) continue;
-    if (a.availabilityType !== 'recurring') continue;
-    if (a.status !== 'active') continue;
-    const tz = a.timezone || 'America/Sao_Paulo';
-    const start = DateTime.fromISO(a.startDatetime, { zone: tz });
-    const end = DateTime.fromISO(a.endDatetime, { zone: tz });
-    if (!start.isValid || !end.isValid) continue;
-    const dayKey = LUXON_WEEKDAY_TO_KEY[start.weekday];
-    if (!dayKey) continue;
-    const range = `${start.toFormat('HH:mm')}-${end.toFormat('HH:mm')}`;
-    (byDay[dayKey] ??= new Set<string>()).add(range);
-    if (a.purposeConceptId) {
-      const slug = conceptIdToSlug.get(a.purposeConceptId);
-      if (slug) purposes[`${dayKey}|${range}`] = slug;
-    }
-  }
-  const schedule: AvailabilitySchedule = {};
-  for (const [day, ranges] of Object.entries(byDay)) {
-    schedule[day] = Array.from(ranges).sort();
-  }
-  return { schedule, purposes };
-}
+// F-COMPANY-AGENDA-REAL-WIRING: reconstructWeeklySchedule extraída para
+// utils/temporal/reconstructWeeklySchedule.ts (reuso pelo wizard de onboarding de empresa).
 
 export default function ProfileAgenda() {
   const { activeActor } = useActiveActor();

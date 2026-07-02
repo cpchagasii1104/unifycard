@@ -28,7 +28,12 @@ export interface CompanyInitialRoles {
 }
 
 /**
- * Configuração inicial de agenda
+ * Configuração inicial de agenda.
+ * F-COMPANY-AGENDA-REAL-WIRING: DEPRECATED — a agenda real da empresa passou a materializar de
+ * verdade no SSOT temporal (unified_availability, ownerType='page') via o editor rico
+ * (AvailabilityScheduleEnhanced) já na Etapa 4 do wizard, não mais horário único aplicado a todos
+ * os dias. Este shape só é mantido para ler registros ANTIGOS salvos em metadata.onboarding antes
+ * desta frente — novos onboardings não gravam mais este campo.
  */
 export interface CompanyCalendarConfig {
   defaultStartTime: string;  // HH:mm (ex: "09:00")
@@ -44,7 +49,9 @@ export interface CompanyCalendarConfig {
 export interface CompanyOnboardingConfig {
   modules: CompanyModules;
   initialRoles: CompanyInitialRoles;
-  calendarConfig: CompanyCalendarConfig;
+  // F-COMPANY-AGENDA-REAL-WIRING: opcional — a agenda real vive em unified_availability agora
+  // (ver CompanyCalendarConfig acima). Onboardings novos não populam mais este campo.
+  calendarConfig?: CompanyCalendarConfig;
   completedAt?: string;     // ISO 8601
   completedBy?: string;      // userId
 }

@@ -265,6 +265,43 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /companies/:companyId/page-actor
+   * F-COMPANY-AGENDA-REAL-WIRING: resolve o actor_id da PÁGINA da empresa. Superfície mínima para o
+   * wizard de onboarding (Etapa "agenda") materializar disponibilidade REAL (PUT /availability/
+   * weekly-template, ownerType='page') ANTES de activateCompanyOperationally — o page-actor nasce
+   * atomicamente na criação da empresa (F-ATOMIC-COMPANY-BIRTH), não na ativação, e a autoridade
+   * (canManageCompany) também não depende de company_status. LEITURA PURA, não cria/cura actor.
+   * Autoridade = canManageCompany (mesmo padrão de economic-activity-suggestion acima).
+   */
+  fastify.get<{ Params: { companyId: string } }>('/:companyId/page-actor', async (req, reply) => {
+    if (!req.user?.globalUserId || !req.tenant?.id) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    try {
+      const canManage = await companiesService.canManageCompany(req.tenant.id, req.params.companyId, req.user.globalUserId);
+      if (!canManage) {
+        return reply.status(403).send({
+          ok: false,
+          code: 'COMPANY_PAGE_ACTOR_FORBIDDEN',
+          message: 'Sem autoridade de gestão sobre esta empresa.',
+        });
+      }
+      const actorId = await companiesService.getPageActorId(req.tenant.id, req.params.companyId);
+      if (!actorId) {
+        return reply.status(404).send({ ok: false, code: 'COMPANY_PAGE_ACTOR_NOT_FOUND', message: 'Page-actor não encontrado para esta empresa.' });
+      }
+      return reply.send({ ok: true, data: { actorId } });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao resolver page-actor da empresa');
+      return reply.status(500).send({
+        ok: false,
+        message: 'Erro ao resolver page-actor da empresa',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
    * POST /companies
    * Cria nova empresa
    */

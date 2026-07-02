@@ -1,19 +1,25 @@
 #!/usr/bin/env node
-// Guard estrutural — F-COMPANY-AGENDA-REAL-WIRING. A etapa "Configure sua agenda inicial" do wizard
-// de empresa salvava só metadado decorativo (companies.metadata.onboarding) — nunca materializava a
-// grade no SSOT temporal real (unified_availability). O backend JÁ suportava ownerType='page' em
-// PUT /availability/weekly-template (unified-availability.routes.ts restringe a user/page, autoridade
-// real via canRepresentActor) — o gap era 100% frontend: getOwnerType mapeava 'page'→'user' por
-// engano, e ProfileAgendaForm bloqueava qualquer actor não-user do editor rico.
+// Guard estrutural — F-COMPANY-AGENDA-REAL-WIRING. A etapa "Configure sua agenda" do wizard de
+// empresa salvava só metadado decorativo (companies.metadata.onboarding.calendarConfig, horário
+// único p/ todos os dias) — nunca materializava a grade no SSOT temporal real (unified_availability).
 //
-// MORDE (regressão real), em CADA um dos 5 arquivos:
-//   (A) useProfileAgendaLogic.ts: getOwnerType volta a mapear 'page'→'user';
+// Arquitetura final: o wizard usa o MESMO editor rico por dia (AvailabilityScheduleEnhanced) já
+// usado em /perfil, materializando de verdade a cada "Salvar" JÁ NA ETAPA 4 — não precisa esperar
+// activateCompanyOperationally (Etapa 6), porque o page-actor nasce atomicamente na CRIAÇÃO da
+// empresa (F-ATOMIC-COMPANY-BIRTH) e a autoridade (canManageCompany) não depende de company_status.
+// Endpoint novo GET /companies/:companyId/page-actor (autoridade canManageCompany) resolve o
+// pageActorId sem depender de findAvailableActors (que só lista empresa OPERACIONAL).
+//
+// MORDE (regressão real):
+//   (A) useProfileAgendaLogic.ts: getOwnerType volta a mapear 'page'->'user';
 //   (B) ProfileAgenda.tsx: handleSaveSchedule volta a bloquear 'page' OU para de enviar ownerType;
-//   (C) ProfileAgendaForm.tsx: editor volta a ficar restrito só a 'user' (isEditableActorType some);
-//   (D) api/availability.ts: putWeeklyAvailabilityTemplate perde o suporte a ownerType/actorIdOverride
-//       (a construção do header x-action-context some);
-//   (E) CompanyOnboardingWizard.tsx: handleSubmit para de chamar putWeeklyAvailabilityTemplate após
-//       activateCompanyOperationally (a agenda volta a ser só decorativa).
+//   (C) ProfileAgendaForm.tsx: editor volta a ficar restrito só a 'user';
+//   (D) api/availability.ts: putWeeklyAvailabilityTemplate perde ownerType/actorIdOverride;
+//   (E) companies.routes.ts: GET /:companyId/page-actor sumir OU perder o gate canManageCompany;
+//   (F) companies.service.ts: getPageActorId sumir;
+//   (G) api/companies.ts: getCompanyPageActorId (client) sumir;
+//   (H) CompanyOnboardingWizard.tsx: parar de usar AvailabilityScheduleEnhanced na Etapa 4, OU o
+//       onSave parar de chamar putWeeklyAvailabilityTemplate com ownerType='page' + actorIdOverride.
 // Heurística textual comment-stripped. Em validate:regression-guards. NÃO altera runtime.
 
 import { readFileSync, existsSync } from 'fs';
@@ -26,79 +32,93 @@ const stripTs = (s) => s
   .replace(/\/\*[\s\S]*?\*\//g, '');
 
 const failures = [];
-const read = (p) => { if (!existsSync(p)) { failures.push(`arquivo ausente: ${p}`); return null; } return stripTs(readFileSync(p, 'utf-8')); };
+const read = (p, base = ROOT) => {
+  const full = join(base, p);
+  if (!existsSync(full)) { failures.push(`arquivo ausente: ${full}`); return null; }
+  return stripTs(readFileSync(full, 'utf-8'));
+};
 
 // (A) getOwnerType mapeia 'page' -> 'page'.
-const logicPath = join(FE_SRC, 'hooks', 'useProfileAgendaLogic.ts');
-const logic = read(logicPath);
+const logic = read(join('hooks', 'useProfileAgendaLogic.ts'), FE_SRC);
 if (logic !== null) {
   const fnIdx = logic.indexOf('getOwnerType');
   const body = fnIdx >= 0 ? logic.slice(fnIdx, fnIdx + 500) : '';
   if (!/actor_type === 'page'\)\s*return 'page'/.test(body)) {
-    failures.push(`${logicPath}: getOwnerType não mapeia mais 'page' -> 'page' (regrediu para 'user' ou removido).`);
+    failures.push(`useProfileAgendaLogic.ts: getOwnerType não mapeia mais 'page' -> 'page'.`);
   }
 }
 
 // (B) ProfileAgenda.tsx: handleSaveSchedule aceita 'page' e envia ownerType.
-const agendaPath = join(FE_SRC, 'components', 'ProfileAgenda.tsx');
-const agenda = read(agendaPath);
+const agenda = read(join('components', 'ProfileAgenda.tsx'), FE_SRC);
 if (agenda !== null) {
   const fnIdx = agenda.indexOf('handleSaveSchedule');
   const body = fnIdx >= 0 ? agenda.slice(fnIdx, fnIdx + 2000) : '';
   if (!/actor_type !== 'user' && activeActor\.actor_type !== 'page'/.test(body)) {
-    failures.push(`${agendaPath}: handleSaveSchedule voltou a bloquear 'page' (guarda de tipo não permite mais empresa).`);
+    failures.push(`ProfileAgenda.tsx: handleSaveSchedule voltou a bloquear 'page'.`);
   }
   if (!/ownerType:\s*getOwnerType\(\)/.test(body)) {
-    failures.push(`${agendaPath}: handleSaveSchedule parou de enviar ownerType explícito ao salvar — backend assumiria 'user' por default.`);
+    failures.push(`ProfileAgenda.tsx: handleSaveSchedule parou de enviar ownerType explícito.`);
   }
 }
 
 // (C) ProfileAgendaForm.tsx: editor aceita 'page'.
-const formPath = join(FE_SRC, 'components', 'ProfileAgendaForm.tsx');
-const form = read(formPath);
+const form = read(join('components', 'ProfileAgendaForm.tsx'), FE_SRC);
 if (form !== null) {
   if (!/isEditableActorType\s*=\s*activeActor\?\.\s*actor_type\s*===\s*'user'\s*\|\|\s*activeActor\?\.\s*actor_type\s*===\s*'page'/.test(form)) {
-    failures.push(`${formPath}: isEditableActorType não cobre mais 'page' — editor voltaria a bloquear empresa.`);
-  }
-  if (!/isEditableActorType\s*\?/.test(form)) {
-    failures.push(`${formPath}: render condicional não usa mais isEditableActorType para decidir editor vs bloqueio.`);
+    failures.push(`ProfileAgendaForm.tsx: isEditableActorType não cobre mais 'page'.`);
   }
 }
 
 // (D) api/availability.ts: putWeeklyAvailabilityTemplate suporta ownerType + actorIdOverride.
-const availPath = join(FE_SRC, 'api', 'availability.ts');
-const avail = read(availPath);
+const avail = read(join('api', 'availability.ts'), FE_SRC);
 if (avail !== null) {
   const fnIdx = avail.indexOf('async function putWeeklyAvailabilityTemplate');
   const body = fnIdx >= 0 ? avail.slice(fnIdx, fnIdx + 2500) : '';
-  if (!/ownerType\?:\s*'user'\s*\|\s*'page'/.test(body)) {
-    failures.push(`${availPath}: putWeeklyAvailabilityTemplate perdeu o parâmetro ownerType.`);
-  }
-  if (!/actorIdOverride\?:\s*string/.test(body)) {
-    failures.push(`${availPath}: putWeeklyAvailabilityTemplate perdeu o parâmetro actorIdOverride.`);
-  }
-  if (!/x-action-context/.test(body)) {
-    failures.push(`${availPath}: construção do header x-action-context sumiu — actorIdOverride ficaria sem efeito.`);
+  if (!/ownerType\?:\s*'user'\s*\|\s*'page'/.test(body)) failures.push(`api/availability.ts: perdeu ownerType.`);
+  if (!/actorIdOverride\?:\s*string/.test(body)) failures.push(`api/availability.ts: perdeu actorIdOverride.`);
+  if (!/x-action-context/.test(body)) failures.push(`api/availability.ts: construção do header x-action-context sumiu.`);
+}
+
+// (E) companies.routes.ts: GET /:companyId/page-actor com gate canManageCompany.
+const routes = read(join('src', 'core', 'companies', 'companies.routes.ts'));
+if (routes !== null) {
+  const idx = routes.indexOf(`'/:companyId/page-actor'`);
+  if (idx < 0) {
+    failures.push(`companies.routes.ts: rota GET /:companyId/page-actor sumiu.`);
+  } else {
+    const body = routes.slice(idx, idx + 1500);
+    if (!/canManageCompany/.test(body)) failures.push(`companies.routes.ts: GET /:companyId/page-actor perdeu o gate canManageCompany.`);
+    if (!/status\(403\)/.test(body)) failures.push(`companies.routes.ts: GET /:companyId/page-actor não recusa fail-closed (403) sem autoridade.`);
   }
 }
 
-// (E) CompanyOnboardingWizard.tsx: handleSubmit chama putWeeklyAvailabilityTemplate após activation.
-const wizardPath = join(FE_SRC, 'components', 'company', 'CompanyOnboardingWizard.tsx');
-const wizard = read(wizardPath);
+// (F) companies.service.ts: getPageActorId.
+const service = read(join('src', 'core', 'companies', 'companies.service.ts'));
+if (service !== null && !/async getPageActorId\(/.test(service)) {
+  failures.push(`companies.service.ts: getPageActorId sumiu.`);
+}
+
+// (G) api/companies.ts (frontend): getCompanyPageActorId.
+const feCompanies = read(join('api', 'companies.ts'), FE_SRC);
+if (feCompanies !== null && !/export async function getCompanyPageActorId/.test(feCompanies)) {
+  failures.push(`api/companies.ts: getCompanyPageActorId (client) sumiu.`);
+}
+
+// (H) CompanyOnboardingWizard.tsx: usa o editor rico + onSave chama putWeeklyAvailabilityTemplate
+//     com ownerType='page' + actorIdOverride, resolvido via getCompanyPageActorId (NÃO depende de
+//     activateCompanyOperationally nem de findAvailableActors/getAvailableActors).
+const wizard = read(join('components', 'company', 'CompanyOnboardingWizard.tsx'), FE_SRC);
 if (wizard !== null) {
-  const actIdx = wizard.indexOf('activateCompanyOperationally(companyId');
-  const putIdx = wizard.indexOf('putWeeklyAvailabilityTemplate(', actIdx + 1);
-  if (actIdx < 0) {
-    failures.push(`${wizardPath}: chamada a activateCompanyOperationally não encontrada — âncora de ordem quebrada.`);
-  } else if (putIdx < 0 || putIdx < actIdx) {
-    failures.push(`${wizardPath}: putWeeklyAvailabilityTemplate não é chamado DEPOIS de activateCompanyOperationally — agenda real da empresa não seria materializada, ou seria chamada antes da empresa virar operacional (page-actor ainda não existiria em findAvailableActors).`);
+  if (!/AvailabilityScheduleEnhanced/.test(wizard)) {
+    failures.push(`CompanyOnboardingWizard.tsx: parou de usar o editor rico (AvailabilityScheduleEnhanced) — voltaria ao horário único decorativo.`);
   }
-  if (!/ownerType:\s*'page'/.test(wizard)) {
-    failures.push(`${wizardPath}: chamada não declara ownerType:'page'.`);
+  if (!/getCompanyPageActorId\(companyId\)/.test(wizard)) {
+    failures.push(`CompanyOnboardingWizard.tsx: parou de resolver o pageActorId via getCompanyPageActorId — dependeria de novo do timing frágil pós-ativação.`);
   }
-  if (!/actorIdOverride:\s*pageActor\.actor_id/.test(wizard)) {
-    failures.push(`${wizardPath}: chamada não passa actorIdOverride (dependeria do actor ativo no React state, frágil/assíncrono).`);
-  }
+  const saveIdx = wizard.indexOf('handleSaveCompanySchedule');
+  const saveBody = saveIdx >= 0 ? wizard.slice(saveIdx, saveIdx + 1200) : '';
+  if (!/ownerType:\s*'page'/.test(saveBody)) failures.push(`CompanyOnboardingWizard.tsx: handleSaveCompanySchedule não declara ownerType:'page'.`);
+  if (!/actorIdOverride:\s*pageActorId/.test(saveBody)) failures.push(`CompanyOnboardingWizard.tsx: handleSaveCompanySchedule não passa actorIdOverride.`);
 }
 
 if (failures.length > 0) {
@@ -106,4 +126,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [company-agenda-real-wiring] — agenda de empresa materializa de verdade no SSOT temporal (ownerType=page, autoridade real via canRepresentActor); editor rico destravado para page; wizard chama após ativação com actorIdOverride explícito. F-COMPANY-AGENDA-REAL-WIRING blindada.');
+console.log('GATE OK [company-agenda-real-wiring] — agenda de empresa materializa de verdade no SSOT temporal JÁ NA ETAPA 4 (editor rico por dia, ownerType=page, autoridade real via canManageCompany/canRepresentActor), sem depender de activateCompanyOperationally. F-COMPANY-AGENDA-REAL-WIRING blindada.');

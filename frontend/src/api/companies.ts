@@ -532,6 +532,20 @@ export async function getCompanyEconomicActivitySuggestion(
 // CompanyValidation). O fluxo presencial PJ está reservado/desabilitado (backend 501, UI removida).
 // A verificação PJ ocorre pelo fluxo KYB/documental.
 
+/**
+ * F-COMPANY-AGENDA-REAL-WIRING: resolve o actor_id da PÁGINA da empresa (GET /companies/:companyId/
+ * page-actor). O page-actor nasce atomicamente na criação da empresa — disponível ANTES da ativação
+ * operacional (Momento 2). Autoridade = canManageCompany (mesma da rota).
+ */
+export async function getCompanyPageActorId(companyId: string): Promise<string> {
+  const response = await apiFetch(`/companies/${companyId}/page-actor`);
+  const result = await response.json();
+  if (!result?.ok || !result?.data?.actorId) {
+    throw new Error(result?.message || 'Erro ao resolver o actor da empresa');
+  }
+  return result.data.actorId;
+}
+
 
 
 

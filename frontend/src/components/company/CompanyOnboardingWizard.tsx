@@ -12,6 +12,7 @@ import {
   activateCompanyOperationally,
   submitCompanyKybDocument,
   submitCompanyKybRequest,
+  getCompanyPageActorId,
   type OperationalCompanyType,
   type AllowedOperationalConcept,
   type CompanyUserRole,
@@ -21,12 +22,19 @@ import { showToast } from '../common/Toast';
 import type {
   CompanyModules,
   CompanyInitialRoles,
-  CompanyCalendarConfig,
   CompanyOnboardingConfig,
 } from '../../types/company-onboarding';
 import { deriveOnboardingTrackFromConceptDomain } from '../../utils/onboarding-track';
-import { getAvailableActors } from '../../api/social';
-import { putWeeklyAvailabilityTemplate, type WeeklyAvailabilitySchedule } from '../../api/availability';
+import {
+  listAvailabilities,
+  putWeeklyAvailabilityTemplate,
+  fetchTemporalPurposes,
+  type MaterializeWeeklyTemplateResult,
+  type TemporalPurpose,
+} from '../../api/availability';
+import { type AvailabilitySchedule } from '../../api/categories';
+import { reconstructWeeklySchedule } from '../../utils/temporal/reconstructWeeklySchedule';
+import AvailabilityScheduleEnhanced from '../AvailabilityScheduleEnhanced';
 import './CompanyOnboardingWizard.css';
 
 interface CompanyOnboardingWizardProps {
@@ -124,12 +132,70 @@ export default function CompanyOnboardingWizard({
     manager: false,
     staff: false,
   });
-  const [calendarConfig, setCalendarConfig] = useState<CompanyCalendarConfig>({
-    defaultStartTime: '09:00',
-    defaultEndTime: '18:00',
-    activeDays: [1, 2, 3, 4, 5], // Segunda a sexta
-    timezone: 'America/Sao_Paulo',
-  });
+  // F-COMPANY-AGENDA-REAL-WIRING: substitui o antigo calendarConfig (horário único p/ todos os
+  // dias, só metadado decorativo) pelo MESMO editor rico por dia usado em /perfil
+  // (AvailabilityScheduleEnhanced), materializando de verdade no SSOT temporal desde a Etapa 4 —
+  // o page-actor já existe desde a criação da empresa (F-ATOMIC-COMPANY-BIRTH), não precisa esperar
+  // a ativação operacional (Etapa 6).
+  const [pageActorId, setPageActorId] = useState<string | null>(null);
+  const [weeklySchedule, setWeeklySchedule] = useState<AvailabilitySchedule>({});
+  const [temporalPurposes, setTemporalPurposes] = useState<TemporalPurpose[]>([]);
+  const [initialPurposes, setInitialPurposes] = useState<Record<string, string>>({});
+  const [agendaLoading, setAgendaLoading] = useState(true);
+
+  // Resolve o page-actor + carrega a agenda já materializada (se houver — reabertura do wizard)
+  // assim que sabemos o companyId. Não depende de ativação operacional.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const actorId = await getCompanyPageActorId(companyId);
+        if (cancelled) return;
+        setPageActorId(actorId);
+
+        const purposesCatalog = await fetchTemporalPurposes();
+        if (cancelled) return;
+        setTemporalPurposes(purposesCatalog);
+        const conceptIdToSlug = new Map(purposesCatalog.map((p) => [p.conceptId, p.slug]));
+
+        const availabilitiesData = await listAvailabilities({
+          ownerType: 'page',
+          ownerId: actorId,
+          status: 'active',
+        });
+        if (cancelled) return;
+        const { schedule, purposes } = reconstructWeeklySchedule(availabilitiesData, conceptIdToSlug);
+        setWeeklySchedule(schedule);
+        setInitialPurposes(purposes);
+      } catch (err) {
+        console.error('[CompanyOnboardingWizard] Erro ao carregar agenda da empresa:', err);
+      } finally {
+        if (!cancelled) setAgendaLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+
+  // 🔴 DECISION-0072 §3.4: timezone EXPLÍCITA, sem fallback silencioso — mesma regra de ProfileAgenda.
+  const handleSaveCompanySchedule = async (
+    newSchedule: AvailabilitySchedule,
+    purposes: Record<string, string>
+  ): Promise<MaterializeWeeklyTemplateResult> => {
+    if (!pageActorId) {
+      throw new Error('Actor da empresa ainda não resolvido. Aguarde e tente novamente.');
+    }
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timezone) {
+      throw new Error('Não foi possível detectar o fuso horário. A agenda não foi salva.');
+    }
+    return await putWeeklyAvailabilityTemplate({
+      schedule: newSchedule,
+      timezone,
+      purposes,
+      ownerType: 'page',
+      actorIdOverride: pageActorId,
+    });
+  };
 
   // Carrega o catálogo governado de company_types (Momento 2) ao montar.
   useEffect(() => {
@@ -276,15 +342,6 @@ export default function CompanyOnboardingWizard({
     }
   };
 
-  const handleDayToggle = (day: number) => {
-    setCalendarConfig((prev) => {
-      const newDays = prev.activeDays.includes(day)
-        ? prev.activeDays.filter((d) => d !== day)
-        : [...prev.activeDays, day].sort();
-      return { ...prev, activeDays: newDays };
-    });
-  };
-
   // F-PJ-KYB-DOCUMENTS-WIZARD-FRONTEND: envia 1 documento pela rota canônica. Frontend só anexa o
   // arquivo; autoria/autoridade/validação/scan são do backend. Sucesso = "enviado/aguardando análise"
   // (NUNCA "aprovado"). Erro do backend aparece no campo.
@@ -356,11 +413,12 @@ export default function CompanyOnboardingWizard({
         return;
       }
 
-      // ── Config de UX (NÃO é verdade operacional): módulos/papéis/agenda + marcador ──
+      // ── Config de UX (NÃO é verdade operacional): módulos/papéis + marcador. A agenda REAL já
+      // foi materializada ao vivo na Etapa 4 (handleSaveCompanySchedule, SSOT unified_availability)
+      // — calendarConfig não existe mais aqui (F-COMPANY-AGENDA-REAL-WIRING).
       const config: CompanyOnboardingConfig = {
         modules,
         initialRoles,
-        calendarConfig,
         completedAt: new Date().toISOString(),
         completedBy: activeActor?.user_id,
       };
@@ -372,42 +430,11 @@ export default function CompanyOnboardingWizard({
         },
       });
 
-      // ── F-COMPANY-AGENDA-REAL-WIRING: materializa a grade semanal DE VERDADE no SSOT temporal
-      // (unified_availability, ownerType='page'), não só no metadado decorativo acima. A empresa só
-      // vira "operacional" (e o page-actor só aparece em findAvailableActors) NESTE PONTO — depois de
-      // activateCompanyOperationally, um instante atrás. Por isso buscamos os actors FRESCOS aqui
-      // (getAvailableActors direto, sem depender do estado React do switcher já ter propagado) em vez
-      // de usar `activeActor` do hook (que ainda seria a Pessoa Física que fez o onboarding).
-      // Não-bloqueante: se falhar, a empresa já foi criada/ativada — falha aqui não deve abortar o
-      // onboarding (mesmo padrão de "erro não-bloqueante" usado no fetch de Receita/opportunity-prefs).
+      // Refresh não-bloqueante: a empresa agora é operacional e fica disponível no switcher.
       try {
-        const freshActors = await getAvailableActors();
-        const pageActor = freshActors.find(
-          (a) => a.actor_type === 'page' && a.company_id === companyId
-        );
-        if (pageActor) {
-          const DAY_INDEX_TO_KEY = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-          const range = `${calendarConfig.defaultStartTime}-${calendarConfig.defaultEndTime}`;
-          const schedule: WeeklyAvailabilitySchedule = {};
-          for (const dayIndex of calendarConfig.activeDays) {
-            const key = DAY_INDEX_TO_KEY[dayIndex];
-            if (key) schedule[key] = [range];
-          }
-          if (Object.keys(schedule).length > 0) {
-            await putWeeklyAvailabilityTemplate({
-              schedule,
-              timezone: calendarConfig.timezone,
-              ownerType: 'page',
-              actorIdOverride: pageActor.actor_id,
-            });
-          }
-        } else {
-          console.warn('[CompanyOnboardingWizard] page-actor não encontrado após ativação — agenda real não materializada (metadado de UX preservado).');
-        }
-        // Actors frescos (a empresa agora aparece) ficam disponíveis para o switcher na próxima leitura.
         await refreshActors();
-      } catch (agendaError) {
-        console.error('[CompanyOnboardingWizard] Erro ao materializar agenda real da empresa (não-bloqueante):', agendaError);
+      } catch (refreshError) {
+        console.error('[CompanyOnboardingWizard] Erro ao atualizar lista de actors (não-bloqueante):', refreshError);
       }
 
       showToast('Empresa ativada e configuração salva!', 'success');
@@ -423,8 +450,6 @@ export default function CompanyOnboardingWizard({
       setIsSubmitting(false);
     }
   };
-
-  const dayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
     <div className="company-onboarding-wizard">
@@ -580,75 +605,34 @@ export default function CompanyOnboardingWizard({
           </div>
         )}
 
-        {/* Etapa 4: Agenda */}
+        {/* Etapa 4: Agenda — F-COMPANY-AGENDA-REAL-WIRING: mesmo editor rico por dia usado em
+            /perfil (AvailabilityScheduleEnhanced), materializando de verdade no SSOT temporal
+            (unified_availability, ownerType='page') a cada "Salvar" — não mais horário único
+            aplicado a todos os dias. */}
         {currentStep === 4 && (
           <div className="wizard-step">
-            <h2>Configure sua agenda inicial</h2>
+            <h2>Configure sua agenda</h2>
             <p className="step-description">
-              Defina os horários padrão e dias de funcionamento. Você pode ajustar depois.
+              Defina os horários da empresa — pode variar por dia da semana, com múltiplos blocos
+              (ex.: manhã e tarde). Cada dia salvo aqui já grava de verdade; você pode ajustar
+              depois em Meu Perfil, operando como esta empresa.
             </p>
-            <div className="calendar-config">
-              <div className="config-group">
-                <label>Horário de Início</label>
-                <input
-                  type="time"
-                  value={calendarConfig.defaultStartTime}
-                  onChange={(e) =>
-                    setCalendarConfig((prev) => ({
-                      ...prev,
-                      defaultStartTime: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="config-group">
-                <label>Horário de Fim</label>
-                <input
-                  type="time"
-                  value={calendarConfig.defaultEndTime}
-                  onChange={(e) =>
-                    setCalendarConfig((prev) => ({
-                      ...prev,
-                      defaultEndTime: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="config-group">
-                <label>Dias Ativos</label>
-                <div className="days-selector">
-                  {dayLabels.map((label, index) => (
-                    <button
-                      key={index}
-                      className={`day-button ${calendarConfig.activeDays.includes(index) ? 'active' : ''}`}
-                      onClick={() => handleDayToggle(index)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="config-group">
-                <label>Fuso Horário</label>
-                <select
-                  value={calendarConfig.timezone}
-                  onChange={(e) =>
-                    setCalendarConfig((prev) => ({
-                      ...prev,
-                      timezone: e.target.value,
-                    }))
-                  }
-                >
-                  <option value="America/Sao_Paulo">Brasil (São Paulo)</option>
-                  <option value="America/Manaus">Brasil (Manaus)</option>
-                  <option value="America/Fortaleza">Brasil (Fortaleza)</option>
-                  <option value="America/Recife">Brasil (Recife)</option>
-                </select>
-              </div>
-            </div>
+            {agendaLoading ? (
+              <p className="step-description">Carregando agenda…</p>
+            ) : !pageActorId ? (
+              <p className="step-description">
+                Não foi possível carregar o actor desta empresa agora. Tente voltar e avançar
+                novamente, ou configure a agenda depois em Meu Perfil.
+              </p>
+            ) : (
+              <AvailabilityScheduleEnhanced
+                availability={weeklySchedule}
+                onSave={handleSaveCompanySchedule}
+                temporalPurposes={temporalPurposes}
+                initialPurposes={initialPurposes}
+                showContextSelector={false}
+              />
+            )}
           </div>
         )}
 
@@ -760,8 +744,9 @@ export default function CompanyOnboardingWizard({
               <div className="summary-item">
                 <strong>Agenda:</strong>
                 <span>
-                  {calendarConfig.defaultStartTime} - {calendarConfig.defaultEndTime}
-                  {' '}({calendarConfig.activeDays.length} dias por semana)
+                  {Object.keys(weeklySchedule).length > 0
+                    ? `${Object.keys(weeklySchedule).length} dia(s) configurado(s)`
+                    : 'Nenhum horário configurado ainda — você pode configurar depois em Meu Perfil'}
                 </span>
               </div>
 

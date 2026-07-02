@@ -1010,6 +1010,19 @@ class CompaniesService {
   }
 
   /**
+   * F-COMPANY-AGENDA-REAL-WIRING: resolve o page-actor de uma empresa, para superfícies (ex.: o
+   * wizard de onboarding, ANTES de activateCompanyOperationally) que precisam materializar dados
+   * ligados ao actor (agenda) sem esperar a empresa virar "operacional" — o page-actor nasce
+   * atomicamente na criação da empresa (F-ATOMIC-COMPANY-BIRTH), NÃO na ativação; e canManageCompany
+   * (a autoridade real) também não depende de company_status/ativação. LEITURA PURA, não cria/cura.
+   */
+  async getPageActorId(tenantId: string, companyId: string): Promise<string | null> {
+    const actorRepo = socialPortsRegistry.getActorRepository();
+    const pageActor = await actorRepo.findByCompanyId(tenantId, companyId);
+    return pageActor?.actor_id ?? null;
+  }
+
+  /**
    * Autorizador da projeção consolidada de estoque (DECISION-0116 adendo COMPANY_INTERNAL).
    * Autorizado quando há vínculo ATIVO em company_users com:
    *   can_manage_company (mesma semântica de canManageCompany, incl. role='owner')
