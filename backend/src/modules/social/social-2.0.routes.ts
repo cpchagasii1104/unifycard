@@ -428,17 +428,14 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const userId = req.user!.id as string;
-      // findAvailableActors espera users.user_id. actorId no ActionContext é actors.actor_id.
-      let listingUserId = userId;
-      if (req.actionContext?.actorId) {
-        const actor = await actorRepository.findById(req.tenant.id, req.actionContext.actorId);
-        if (actor?.user_id) {
-          listingUserId = actor.user_id;
-        } else if (req.actionContext.actorId === userId) {
-          listingUserId = userId;
-        }
-      }
+      // 🔴 F-SOCIAL-ACTORS-AVAILABLE-DEAD-HINT-BRANCH-HYGIENE
+      // (DT-SOCIAL-ACTORS-AVAILABLE-DEAD-HINT-BRANCH): o subject da listagem é SEMPRE o principal
+      // autenticado server-side (req.user.id). req.actionContext.actorId é HINT do cliente, NUNCA
+      // autoridade — derivar listingUserId dele listaria os actors/empresas representáveis de OUTRO
+      // user (cross-user leak). Esta rota lista "actors disponíveis PARA O USUÁRIO" (o próprio). O branch
+      // morto que flipava o subject pelo hint (contido por skip do action-context middleware, mas
+      // armadilha latente) foi REMOVIDO — ancoragem incondicional no principal, fail-closed por construção.
+      const listingUserId = req.user!.id as string;
 
       const actors = await actorRepository.findAvailableActors(req.tenant.id, listingUserId);
 
