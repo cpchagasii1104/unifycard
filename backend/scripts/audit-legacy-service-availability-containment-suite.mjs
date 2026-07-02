@@ -33,6 +33,7 @@ const guards = [
   'audit-category-input-audit-schema-ghost-fix.mjs',               // category_input_audit aplicada sem reviver occupations_reference
   'audit-hobby-matcher-dirname-esm-fix.mjs',                       // hobby-matcher sem __dirname (crash sob tsx/ESM), dataset self-contained
   'audit-catalog-rls-scoped-isolation.mjs',                        // canonical_services/canonical_catalog_events RLS scoped isolation + admin-bypass
+  'audit-service-discovery-future-availability-slice-b.mjs',       // discoverServices liga D2+D3 (SSOT canônico); frontend manda starts_at/ends_at
 ];
 
 let failed = false;
@@ -48,4 +49,4 @@ if (failed) {
   console.error('GATE FAIL [legacy-service-availability-containment-suite] — ao menos um guard de contenção legada falhou (ver acima).');
   process.exit(1);
 }
-console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity + group coverage + company agenda real wiring + getCompany unwrap fix + company metadata ghost cleanup + cbo-matcher removal + category_input_audit schema ghost fix + hobby-matcher dirname/ESM fix + catalog RLS scoped isolation blindados.');
+console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity + group coverage + company agenda real wiring + getCompany unwrap fix + company metadata ghost cleanup + cbo-matcher removal + category_input_audit schema ghost fix + hobby-matcher dirname/ESM fix + catalog RLS scoped isolation + discovery future availability (D2+D3) blindados.');

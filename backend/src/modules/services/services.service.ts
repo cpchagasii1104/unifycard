@@ -479,16 +479,23 @@ class ServicesService {
         }
 
         // 🔴 F-SERVICE-DISCOVERY-HAS-AVAILABILITY-CANONICAL-FILTER-SLICE-A2D (DECISION-0156 /
-        //    DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT R1): o filtro "Agenda aberta" (has_availability=true)
-        //    mede disponibilidade pelo SSOT CANÔNICO — ≥1 service_offering ativa do serviço/canonical (mesmo
-        //    provider) com availability owner_type='service_offering' e janela FUTURA (end>now) — NUNCA pelo escopo
-        //    legado owner_type='service' (que hoje ESVAZIARIA a busca ao marcar o checkbox). Martelo semântico
-        //    ratificado: ANY offering + future window; conflito de booking NÃO exclui (resolve no lock A1); sem
-        //    filtro por data (isso é Slice B). Serviço legado puro (sem canonical, inexistente sob F-OFFER-2A)
-        //    preserva o predicado anterior.
-        if (filters.hasAvailability === true) {
+        //    DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT R1) + F-SERVICE-DISCOVERY-FUTURE-AVAILABILITY-
+        //    SLICE-B (DT-SERVICE-DISCOVERY-IGNORES-FUTURE-AVAILABILITY D2+D3): o filtro mede disponibilidade
+        //    pelo SSOT CANÔNICO — ≥1 service_offering ativa do serviço/canonical (mesmo provider) com
+        //    availability owner_type='service_offering' e janela FUTURA — NUNCA pelo escopo legado
+        //    owner_type='service' (que hoje ESVAZIARIA a busca ao marcar o checkbox). Martelo semântico
+        //    ratificado: ANY offering + future window (D2); com startDate/endDate, a janela também precisa
+        //    SOBREPOR o range pedido (D3). Dispara em DOIS casos: hasAvailability=true EXPLÍCITO ("agenda
+        //    aberta agora"), OU startDate/endDate fornecidos (pedir um range e receber resultado sem
+        //    disponibilidade nele seria UX quebrada — mesmo padrão de qualquer busca por data em
+        //    marketplace de reserva). SEM data e SEM o flag, browse padrão continua mostrando todos
+        //    (prateleira atual não é gateada por agenda — decisão preservada, não alterada aqui). Serviço
+        //    legado puro (sem canonical, inexistente sob F-OFFER-2A) preserva o predicado anterior
+        //    (hasAvailability já calculado acima considerando startDate/endDate).
+        const wantsAvailabilityFilter = filters.hasAvailability === true || !!startDate || !!endDate;
+        if (wantsAvailabilityFilter) {
           const passesAvailabilityFilter = service.canonicalServiceId
-            ? await servicesRepository.hasCanonicalOfferingFutureAvailability(tenantId, service)
+            ? await servicesRepository.hasCanonicalOfferingFutureAvailability(tenantId, service, { windowStart: startDate, windowEnd: endDate })
             : hasAvailability;
           if (!passesAvailabilityFilter) {
             return null;

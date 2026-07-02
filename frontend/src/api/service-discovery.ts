@@ -81,8 +81,11 @@ export async function discoverServices(filters: ServiceDiscoveryFilters = {}): P
     if (filters.city_id) queryParams.append('city_id', filters.city_id);
     if (filters.state_id) queryParams.append('state_id', filters.state_id);
     if (filters.country_id) queryParams.append('country_id', filters.country_id);
-    if (filters.start_date) queryParams.append('start_date', filters.start_date);
-    if (filters.end_date) queryParams.append('end_date', filters.end_date);
+    // F-SERVICE-DISCOVERY-FUTURE-AVAILABILITY-SLICE-B: nomes de query param devem casar com o backend
+    // (services.routes.ts GET /discover espera starts_at/ends_at) -- start_date/end_date nunca chegavam
+    // ao backend (mismatch de nome, achado ao fechar DT-SERVICE-DISCOVERY-IGNORES-FUTURE-AVAILABILITY).
+    if (filters.start_date) queryParams.append('starts_at', filters.start_date);
+    if (filters.end_date) queryParams.append('ends_at', filters.end_date);
     if (filters.has_availability !== undefined) {
       queryParams.append('has_availability', filters.has_availability ? 'true' : 'false');
     }

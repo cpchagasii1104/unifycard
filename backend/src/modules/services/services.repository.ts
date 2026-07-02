@@ -266,16 +266,22 @@ class ServicesRepository {
 
   /**
    * 🔴 F-SERVICE-DISCOVERY-HAS-AVAILABILITY-CANONICAL-FILTER-SLICE-A2D (DECISION-0156 /
-   * DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT R1): predicado CANÔNICO do filtro "has_availability=true"
-   * da descoberta. Martelo semântico ratificado por Clayton: um SERVIÇO tem disponibilidade se existe ≥1
+   * DT-SERVICE-AVAILABILITY-RUNTIME-DRIFT-FROM-SSOT R1) + F-SERVICE-DISCOVERY-FUTURE-AVAILABILITY-SLICE-B
+   * (DT-SERVICE-DISCOVERY-IGNORES-FUTURE-AVAILABILITY D2+D3): predicado CANÔNICO de disponibilidade da
+   * descoberta. Martelo semântico ratificado por Clayton: um SERVIÇO tem disponibilidade se existe ≥1
    * `service_offering` ATIVA do serviço/canonical (MESMO provider) com `availability` owner_type='service_offering'
    * e janela FUTURA (`end_datetime > now()`). NÃO usa `owner_type='service'` nem `services.metadata.availability`;
-   * NÃO desconta booking/conflito (isso resolve no lock canônico A1); NÃO filtra por data (isso é Slice B).
-   * ANY offering + future window.
+   * NÃO desconta booking/conflito (isso resolve no lock canônico A1).
+   *   D2 (sem window): ANY offering + future window — comportamento original, intocado se window omitido.
+   *   D3 (com window): ALÉM de futura, a janela precisa SOBREPOR [windowStart, windowEnd] — overlap de
+   *     intervalo padrão (a.end_datetime > windowStart AND a.start_datetime < windowEnd). Comparação via
+   *     timestamptz (epoch), sem componente de dia/hora extraído em UTC — sem o bug de fuso do trilho
+   *     paralelo do blob (ver DT-SERVICE-METADATA-AVAILABILITY-BLOB-PARALLEL, NÃO tocado nesta fatia).
    */
   async hasCanonicalOfferingFutureAvailability(
     tenantId: string,
-    service: { serviceId: string; actorId: string; canonicalServiceId?: string | null }
+    service: { serviceId: string; actorId: string; canonicalServiceId?: string | null },
+    window?: { windowStart?: Date; windowEnd?: Date }
   ): Promise<boolean> {
     const rows = await runQueriesWithTenant<{ has: boolean }>(
       tenantId,
@@ -292,9 +298,18 @@ class ServicesRepository {
             AND (so.service_id = $3 OR ($4::uuid IS NOT NULL AND so.canonical_service_id = $4))
             AND a.status = 'active'
             AND a.end_datetime > now()
+            AND ($5::timestamptz IS NULL OR a.end_datetime > $5::timestamptz)
+            AND ($6::timestamptz IS NULL OR a.start_datetime < $6::timestamptz)
           LIMIT 1
        ) AS has`,
-      [tenantId, service.actorId, service.serviceId, service.canonicalServiceId ?? null]
+      [
+        tenantId,
+        service.actorId,
+        service.serviceId,
+        service.canonicalServiceId ?? null,
+        window?.windowStart ?? null,
+        window?.windowEnd ?? null,
+      ]
     );
     return rows[0]?.has === true;
   }
