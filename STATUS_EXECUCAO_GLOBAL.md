@@ -1,3 +1,17 @@
+## 2026-07-02 — F-SERVICE-BOOKING-REQUESTED-EFFECT-EMISSION · ✅ MATERIAL / CLOSEOUT — fecha DT-SERVICE-BOOKING-REQUESTED-EFFECT-NOT-EMITTED · 🏁 10ª e ÚLTIMA dívida técnica resolvida hoje — fecha TODAS as 10 DTs confirmadas vivas no raio-X original de 2026-07-01 (DECISION-0156)
+
+Era a única que dependia de ordem — a norma dizia "só emitir o aviso depois que agenda e busca estiverem honestas" (senão o prestador seria avisado de uma reserva que na verdade não tinha horário real por trás). As duas dependências já tinham fechado hoje mesmo, então essa liberou sozinha.
+
+O evento já existia definido no código e o painel do prestador já sabia processá-lo — só ninguém nunca mandava o aviso. O prestador só ficava sabendo de pedido novo dando refresh na tela manualmente.
+
+**Trabalho:** logo depois de criar a reserva, o sistema agora manda o aviso — pro prestador certo, resolvido no servidor (nunca confiando em quem o cliente diz que é o prestador). Segue o mesmo padrão de outros avisos que já existiam nesse mesmo arquivo (cancelamento, conflito de agenda). Se o aviso falhar por algum motivo, a reserva continua valendo — só o aviso é que não chega, nunca desfaz o que já foi criado. Continua sendo "avise e deixe o prestador decidir manualmente" — não vira aceite automático nem despacho tipo aplicativo de transporte (isso continua fora de escopo, como sempre foi).
+
+E2E via chamada real 8/8. HEAD material `24a2ffbc9`.
+
+**Balanço final do dia:** 10 dívidas técnicas fechadas — todas as 10 do raio-X original de ontem, mais 2 achadas como efeito colateral no meio do caminho. Zero pendência da lista original.
+
+---
+
 ## 2026-07-02 — F-SERVICE-DISCOVERY-REQUEST-TRACK-RETIREMENT · ✅ MATERIAL / CLOSEOUT — fecha DT-SERVICE-METADATA-AVAILABILITY-BLOB-PARALLEL + DT-SERVICE-DISCOVERY-REQUESTS-PARALLEL-TRAIL (4ª e 5ª das 10 do raio-X original, mesmo commit) · 8ª e 9ª dívidas técnicas resolvidas hoje · desbloqueia DT-SERVICE-BOOKING-REQUESTED-EFFECT-NOT-EMITTED
 
 Clayton mandou o pôster de arquitetura do UnifiCard e perguntou se eu já sabia resolver essas 3, seguindo as leis do projeto. A norma (DECISION-0156, martelada em 2026-07-01) já tinha decidido tudo: blob = aposentar; trilho paralelo = convergir OU aposentar. O pôster é a mesma lei em forma visual — "segunda fonte de verdade" e "evento que cria estado" são anti-padrões nomeados explicitamente, e é exatamente isso que essas duas dívidas eram.
