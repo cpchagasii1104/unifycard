@@ -1,3 +1,17 @@
+## 2026-07-02 — F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX · ✅ MATERIAL / CRÍTICO — fecha DT-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-BUG · 15ª dívida técnica resolvida hoje · achado FORA do auditoria.md, mais sério que tudo que veio dele
+
+Clayton disse "execute o próximo passo" pra eu continuar pro Grupo B (as 6 tabelas com workers financeiros ativos). Ao desenhar o helper de bypass que esses workers precisariam (a mesma ideia usada no catálogo mais cedo hoje), testei se o padrão existente realmente funcionava — e não funcionava.
+
+**O achado:** os 4 jeitos mais usados no projeto inteiro de "rodar uma query como um tenant específico" (`getClientWithTenant`, `getClientWithPlatformAdmin`, `runQueryWithTenant`, `runQueriesWithTenant`) têm um defeito sutil de Postgres: eles marcam "essa conexão é do tenant X" de um jeito que só dura até o fim da transação, mas nunca abrem uma transação — então essa marcação desaparece ANTES da consulta de verdade rodar. Testei isso direto contra o código real do projeto (não uma simulação) e confirmei: a marcação já estava vazia na consulta seguinte.
+
+**Por que isso passou despercebido até agora:** o banco local conecta com um usuário que tem poder de "ver tudo, ignorar as regras de isolamento" — então esse defeito é invisível em desenvolvimento. Mas a memória deste projeto confirma que, em produção, desde 24 de junho, a conexão passou a usar um usuário SEM esse poder especial (foi uma virada de chave deliberada, pra isolamento de verdade entre clientes). Se isso é literal, esse defeito pode estar impedindo — silenciosamente, sem erro visível — que usuários vejam seus PRÓPRIOS dados em qualquer tabela que tenha a proteção de isolamento ligada, desde aquela data. Não é vazamento de dado (o oposto do problema de segurança que eu andei corrigindo o dia inteiro) — é negar acesso a quem tem direito.
+
+**Correção:** um ajuste de 4 linhas (trocar `true` por `false` num parâmetro técnico do Postgres), mas testei com um rigor que não usei em nenhuma outra fatia hoje: criei um usuário de banco de verdade, com as MESMAS restrições que a produção usaria, rodei os 4 helpers reais contra ele num processo separado — 11 de 11 passou. Pra confirmar que o defeito era mesmo real (não só uma suspeita), rodei o MESMO teste contra o código de ANTES da correção — falhou exatamente como eu esperava (a pessoa não conseguia ver os próprios dados). Reverti, restaurei a correção, re-rodei um teste de mais cedo hoje pra garantir que nada quebrou.
+
+**Trabalho pausado:** o Grupo B (as 6 tabelas com workers ativos) continua sem começar — esse achado era mais importante e interrompeu aquele plano. HEAD material `6850235cc`.
+
+---
+
 ## 2026-07-02 — F-GROUP-A-FINANCIAL-TABLES-RLS · ✅ MATERIAL / PARCIAL — fecha DT-GROUP-A-FINANCIAL-TABLES-RLS-GAP · 14ª dívida técnica resolvida hoje · terceiro item do `auditoria.md` (continuação do B3)
 
 Clayton perguntou "qual o próximo passo certo" depois que fechei as 2 tabelas originais do achado B3. Expliquei meu raciocínio (a lacuna de RLS é o item de maior risco real hoje, entre os que não dependem de decisão dele) e segui rastreando as ~23 tabelas restantes.
