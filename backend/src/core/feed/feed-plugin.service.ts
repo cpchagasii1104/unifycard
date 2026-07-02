@@ -13,7 +13,7 @@ import type {
   FeedAction,
   PluginResolutionResult,
 } from './feed-plugin.types';
-import { ActorIntent } from '@core/social/ports';
+import { ActorIntent, LEGACY_INTENT_MAP } from '@core/social/ports';
 import { pool } from '@core/database/pool';
 
 /**
@@ -186,7 +186,14 @@ class FeedPluginService {
       }
 
       // 4. Resolver plugin
-      const intent = post.intent as ActorIntent | null;
+      // 🔴 F-CORE-FEED-BATCH-INTENT-LEGACY-MAP-FIX (achado colateral do fix do post_id, Opção 2):
+      // posts.intent grava a string legada (ex.: 'service_offer'), NÃO o valor do enum ActorIntent
+      // (ex.: 'OFFER_SERVICE') — o cast direto `as ActorIntent` nunca batia com canHandle dos plugins
+      // (comparação estrita ao enum), então NENHUM plugin resolvia via renderBatch. LEGACY_INTENT_MAP
+      // converte a string legada para o enum; se já vier no formato do enum (ou for desconhecido),
+      // o valor original é preservado (fallback ortogonal, sem mudar comportamento de posts já corretos).
+      const rawIntent = post.intent;
+      const intent = rawIntent ? (LEGACY_INTENT_MAP[rawIntent] ?? (rawIntent as ActorIntent)) : null;
       if (!intent) {
         // Post sem intent, não tem plugin
         results.set(postId, { pluginId: null, dto: null, actions: [] });
@@ -266,6 +273,11 @@ class FeedPluginService {
 
     // 🔴 BLINDAGEM: Buscar posts em batch usando query direta
     // Não usamos serviço de posts para evitar dependência circular
+    // 🔴 F-CORE-FEED-BATCH-GETPOSTSBATCH-COLUMN-FIX (DT-CORE-FEED-BATCH-POST-ID-SCHEMA-MISMATCH):
+    // posts usa PK `id` (migration 20260530300000); não existe coluna `post_id`. WHERE post_id=ANY($1)
+    // quebrava com coluna inexistente, derrubando POST /feed/plugin/render-batch para TODOS os plugins
+    // de feed. `id AS post_id` preserva o contrato downstream (postsMap por p.post_id, tipo de retorno,
+    // cache) sem tocar mais nada no método renderBatch.
     const result = await pool.query<{
       post_id: string;
       tenant_id: string;
@@ -274,9 +286,9 @@ class FeedPluginService {
       updated_at: Date;
     }>(
       `
-      SELECT post_id, tenant_id, intent, COALESCE(metadata, '{}'::jsonb) as metadata, updated_at
+      SELECT id AS post_id, tenant_id, intent, COALESCE(metadata, '{}'::jsonb) as metadata, updated_at
       FROM posts
-      WHERE post_id = ANY($1)
+      WHERE id = ANY($1)
       `,
       [postIds]
     );

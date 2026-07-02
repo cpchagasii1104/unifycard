@@ -15,6 +15,7 @@ const guards = [
   'audit-provider-availability-readers-canonical.mjs',            // A2e — readers do prestador (R4/R5)
   'audit-event-rfq-legacy-availability-antirevival-guard.mjs',    // RFQ — writer legado rfq_accept congelado
   'audit-service-feed-getpost-column-fix.mjs',                    // getPost — WHERE id=$1; A2c continua intacto
+  'audit-core-feed-batch-post-id-column-fix.mjs',                 // getPostsBatch + renderBatch — id AS post_id; intent via LEGACY_INTENT_MAP
 ];
 
 let failed = false;
@@ -30,4 +31,4 @@ if (failed) {
   console.error('GATE FAIL [legacy-service-availability-containment-suite] — ao menos um guard de contenção legada falhou (ver acima).');
   process.exit(1);
 }
-console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost column fix blindados.');
+console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch column fixes blindados.');
