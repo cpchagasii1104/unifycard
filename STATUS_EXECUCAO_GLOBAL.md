@@ -1,3 +1,17 @@
+## 2026-07-02 — F-GROUP-A-FINANCIAL-TABLES-RLS · ✅ MATERIAL / PARCIAL — fecha DT-GROUP-A-FINANCIAL-TABLES-RLS-GAP · 14ª dívida técnica resolvida hoje · terceiro item do `auditoria.md` (continuação do B3)
+
+Clayton perguntou "qual o próximo passo certo" depois que fechei as 2 tabelas originais do achado B3. Expliquei meu raciocínio (a lacuna de RLS é o item de maior risco real hoje, entre os que não dependem de decisão dele) e segui rastreando as ~23 tabelas restantes.
+
+O rastreamento revelou algo mais estruturado do que "23 casos soltos": 15 delas seguem exatamente o mesmo padrão seguro que já tinha visto em `payment_intents` — cada uma tem um worker financeiro correspondente, e todos esses workers já têm um comentário idêntico no `BOOT.ts` dizendo "cross-tenant cego sob RLS; religar só após #34 tenant-loop". Ou seja, o projeto já sabia dessa pendência, já tinha nomeado ela, só faltava alguém fechar o RLS que os próprios comentários pediam. Confirmei cada um dos workers como desligado antes de aplicar.
+
+As outras 6 (`governance_funding`, `governance_financial_actions`, `treasury_distributions`, `treasury_split_config`, `treasury_split_executions`, `treasury_accounts`) são o oposto — os workers que leem essas tabelas cross-tenant rodam sem parar desde o boot, sem nenhuma flag de desligamento. Essas eu não toquei; aplicar RLS ali quebraria algo que está funcionando agora, não dormente.
+
+**Trabalho:** migration em lote pras 15 tabelas seguras, E2E genérico provando isolamento real (`SET ROLE unificard_app`) em cada uma — 32/32 verde. Levei algumas iterações pra acertar o fixture de teste (constraints escondidos numa migration separada, um trigger de titularidade que exige o documento bater com o CPF real do actor, chaves primárias com nomes não-padrão em 3 tabelas) — cada erro foi diagnosticado e corrigido, não contornado. HEAD material `5dccea1f2`.
+
+**Balanço do achado B3 até aqui:** 17 das 25 tabelas fechadas (2 + 15), 6 abertas como frente própria (redesenho de conexão de worker), 2 (`payment_execution_lock`, `financial_metrics`, `risk_financial_limits_by_level` — na verdade 3) corretamente identificadas como configuração global sem `tenant_id`.
+
+---
+
 ## 2026-07-02 — F-PAYMENT-INTENTS-GOVERNANCE-FUNDING-RLS · ✅ MATERIAL / PARCIAL — fecha DT-PAYMENT-INTENTS-GOVERNANCE-FUNDING-RLS-GAP · 13ª dívida técnica resolvida hoje · segundo item corrigido do `auditoria.md` (achado B3)
 
 Clayton pediu pra continuar "em nível Enterprise" nos achados do laudo. Ao investigar B3 (RLS ausente em `payment_intents`/`governance_funding_commitments`, as 2 tabelas que o laudo citou), a varredura sistemática achou que o problema real é bem maior: **25 tabelas financeiras sem RLS**, não 2 — o laudo tinha sido conservador na estimativa de "correlatas prováveis". Parei o trabalho, expliquei o achado maior pro Clayton com uma proposta de sequenciamento, e ele disse "faça o que consegue resolver agora".
