@@ -1,3 +1,22 @@
+## 2026-07-02 — F-CATALOG-RLS-SCOPED-ISOLATION · ✅ MATERIAL / CLOSEOUT — fecha DT-CATALOG-RLS-SCOPED-NO-ISOLATION (MED-HIGH, 2ª das 10 do raio-X original) · 6ª dívida técnica resolvida hoje · maior fatia do dia (refactor de camada de serviço + RLS + admin-bypass)
+
+Clayton pediu pra seguir "o método Enterprise" pra esta. READ-FIRST revelou que o texto original da dívida (fórmula pronta de RLS) SUBESTIMAVA o escopo real — dois achados pararam a execução duas vezes:
+
+1. `canonical-service.service.ts` usava `pool.query` cru em toda parte, sem contexto de tenant setado. Aplicar RLS ingenuamente quebraria a BUSCA NORMAL de serviço inteira, não só o leak.
+2. A curadoria de catálogo pelo admin (`/catalog/governance/curation/*`) é CROSS-TENANT POR DESENHO — um curador de plataforma revisa sugestões de todos os tenants. Uma policy só-tenant quebraria a curadoria silenciosamente (0 linhas afetadas, sem erro).
+
+Consultei Clayton nos dois pontos (perguntas objetivas, não travei sem decisão dele): confirmou que a curadoria cross-tenant é intencional, e escolheu o pacote completo em vez de uma correção parcial.
+
+**Trabalho:** refatorei `canonical-service.service.ts` inteiro — toda query passa por `getClientWithTenant` (tenant) ou o novo `getClientWithPlatformAdmin` (curadoria, só atrás de rota já gated por role admin). Migration aplica RLS+FORCE em `canonical_services` (leitura+escrita, 3 vias: global/scoped-do-tenant/admin-bypass) e `canonical_catalog_events` (só leitura — escrita fica permissiva, pois o fluxo de PRODUTO, fora de escopo, também escreve ali sem contexto; não piora nada, já era 100% aberto).
+
+**Prova de isolamento REAL:** usei `SET ROLE unificard_app` (a role de aplicação de verdade) — chamar os métodos do serviço direto NÃO prova isolamento, porque a conexão de admin é sempre superuser e bypassa RLS. Sob a role real: tenant A não vê linha scoped de tenant B; INSERT cross-tenant é bloqueado pela policy (`42501`); admin-bypass continua vendo tudo (curadoria preservada). 16/16 verde.
+
+**Regressão:** rodei 2 E2Es pré-existentes que exercitam pesado `searchOfferable`/`searchVisible` (offerable-autocomplete 18/18, cleaning-catalog 20/20) — zero regressão. Migration aplicada em `unificard_dev`, e as MESMAS 2 E2Es re-rodadas ali DEPOIS, com RLS agora realmente ativo no ambiente real — 100% verdes de novo. HEAD material `a40f3d5e8`.
+
+**Balanço do dia:** 6 DTs fechadas — a maior (esta) exigiu 2 paradas pra consulta, refactor de arquitetura de camada de serviço, e prova de segurança sob role real. Restam 4 do raio-X original (todas arquiteturais/CONTAINED, sem urgência).
+
+---
+
 ## 2026-07-02 — F-SERVICE-SEARCH-ALIAS-SELFNAME-BACKFILL · ✅ MATERIAL / CLOSEOUT — fecha DT-SERVICE-SEARCH-ALIAS-SELFNAME-GAP (1ª das 10 do raio-X original, decisão de desenho híbrida) · 5ª dívida técnica resolvida hoje
 
 Clayton pediu recomendação: "como uma Enterprise faria?" — respondi com o padrão real de busca (Amazon/Algolia): achar o próprio nome do catálogo é garantia estrutural (SLA), sinônimo/gíria é editorial (exige julgamento humano). Clayton aprovou o híbrido.
