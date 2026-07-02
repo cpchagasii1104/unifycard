@@ -1,3 +1,17 @@
+## 2026-07-02 — F-SERVICE-SEARCH-ALIAS-SELFNAME-BACKFILL · ✅ MATERIAL / CLOSEOUT — fecha DT-SERVICE-SEARCH-ALIAS-SELFNAME-GAP (1ª das 10 do raio-X original, decisão de desenho híbrida) · 5ª dívida técnica resolvida hoje
+
+Clayton pediu recomendação: "como uma Enterprise faria?" — respondi com o padrão real de busca (Amazon/Algolia): achar o próprio nome do catálogo é garantia estrutural (SLA), sinônimo/gíria é editorial (exige julgamento humano). Clayton aprovou o híbrido.
+
+**Parte 1:** migration `20260702120000` backfilla self-name alias pros 12 (de 20) `canonical_services` que faltavam — incluindo "barba", o termo exato que Clayton digitou no browser e caiu em "termo desconhecido". Mesmo molde da Slice de Limpeza.
+
+**Parte 2:** novo gate `validate:service-search-alias-selfname-invariant` (DB-connecting) garante que NENHUMA vertical futura (Manutenção, Mecânica) fecha sem cobrir self-name — sem depender de alguém lembrar. Achado no processo: esse tipo de check DB-live não pertence ao `validate:regression-guards` (propositalmente estático/portável) — encontrei o precedente certo (`validate:schema-invariants`, já existia, gate dedicado que conecta no banco) e segui o mesmo padrão, em vez de forçar a categoria errada.
+
+Negative-proof natural: o gate falhou nos 12 slugs exatos ANTES da migration, passou 20/20 DEPOIS. E2E via resolver real 7/7 — "barba" agora resolve pro próprio concept; alias≠autoridade preservado (resolver achar não implica C1 ativo); sinônimos antigos intactos; idempotente; Δbank=0. Aplicada em `unificard_dev` (aditiva, comunicado). HEAD material `88c009bdd`.
+
+**Balanço do dia:** 5 DTs fechadas — 1 pedida pelo Clayton (cultural-checkin), 1 escolhida com GO explícito entre opções (cbo-matcher), 2 achadas como efeito colateral (audit schema-ghost, hobby-matcher), 1 com decisão de desenho consultada e aprovada (search-alias-selfname). Restam 6 do raio-X original.
+
+---
+
 ## 2026-07-02 — F-HOBBY-MATCHER-DIRNAME-ESM-FIX · ✅ MATERIAL / CLOSEOUT — fecha DT-HOBBY-MATCHER-DIRNAME-ESM-CRASH (achado colateral de F-CATEGORY-INPUT-AUDIT-SCHEMA-GHOST-FIX, mesma sessão) · 4ª dívida técnica resolvida hoje
 
 `hobby-matcher.service.ts` usava `__dirname` (indisponível sob `tsx`/ESM, como `dev` roda) para montar candidatos de caminho — a construção do array literal lançava `ReferenceError` ANTES de qualquer fallback, quebrando TODA validação de hobby no servidor real (não era rota latente). Achado adicional: nenhum dos 3 caminhos antigos apontava a um arquivo que realmente existisse — `docs/seed/hobbies.json` nunca existiu no repo vivo; o dataset real estava duplicado em `docs/03_technical/` e `docs/06_technical/` (raiz do repo, byte-idênticos, achado tangencial de organização de docs, fora de escopo).
