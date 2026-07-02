@@ -1,3 +1,21 @@
+## 2026-07-02 — F-SERVICE-DISCOVERY-REQUEST-TRACK-RETIREMENT · ✅ MATERIAL / CLOSEOUT — fecha DT-SERVICE-METADATA-AVAILABILITY-BLOB-PARALLEL + DT-SERVICE-DISCOVERY-REQUESTS-PARALLEL-TRAIL (4ª e 5ª das 10 do raio-X original, mesmo commit) · 8ª e 9ª dívidas técnicas resolvidas hoje · desbloqueia DT-SERVICE-BOOKING-REQUESTED-EFFECT-NOT-EMITTED
+
+Clayton mandou o pôster de arquitetura do UnifiCard e perguntou se eu já sabia resolver essas 3, seguindo as leis do projeto. A norma (DECISION-0156, martelada em 2026-07-01) já tinha decidido tudo: blob = aposentar; trilho paralelo = convergir OU aposentar. O pôster é a mesma lei em forma visual — "segunda fonte de verdade" e "evento que cria estado" são anti-padrões nomeados explicitamente, e é exatamente isso que essas duas dívidas eram.
+
+Clayton me lembrou de um ponto importante: eu tinha usado "o frontend não chama essa rota" como sinal de "está morto" — ele corrigiu que o frontend não é fonte de verdade, é o backend que manda. Fui verificar do lado backend antes de decidir: zero linhas na tabela do trilho paralelo, zero campo de blob preenchido, zero worker ou outro módulo lendo qualquer um dos dois. Isso confirmou que "aposentar" é seguro — não tem dado real pra migrar, não tem cliente ativo pra quebrar.
+
+**Achado sério no meio do caminho:** uma das rotas desse trilho (`payAcceptedRequest`) move dinheiro de verdade, por fora do checkout oficial. Achei que teria que conter isso com cuidado extra — mas descobri que essa rota específica já tinha sido desligada numa frente anterior e completamente separada (R8J, semana passada). Só precisei confirmar que continuava assim, não mexer nela.
+
+**Trabalho:** as outras 8 rotas desse módulo (a que sobra fora do dinheiro) passam a recusar com uma mensagem clara e honesta, sem tocar banco. Os métodos internos continuam no código, intocados — não apago nada, só corto o acesso (norma do projeto: nunca apagar, sempre conter). A única rota realmente usada pelo app hoje (`/search-by-term`) continua funcionando exatamente igual.
+
+Precisei também atualizar 2 verificações automáticas antigas que checavam um jeito de proteção que não existe mais nessas rotas (porque agora elas nem chegam a olhar quem está pedindo) — troquei a checagem por uma que reflete a realidade nova.
+
+E2E via rota real 7/7 + duas E2Es antigas que já existiam pra esse mesmo arquivo continuam passando sem problema. HEAD material `00c495f9c`.
+
+**Resta 1 do raio-X original:** `DT-SERVICE-BOOKING-REQUESTED-EFFECT-NOT-EMITTED`, agora sem nenhum bloqueio.
+
+---
+
 ## 2026-07-02 — F-SERVICE-DISCOVERY-FUTURE-AVAILABILITY-SLICE-B · ✅ MATERIAL / CLOSEOUT — fecha DT-SERVICE-DISCOVERY-IGNORES-FUTURE-AVAILABILITY (MEDIUM-HIGH, 3ª das 10 do raio-X original) · 7ª dívida técnica resolvida hoje · desbloqueia DT-SERVICE-BOOKING-REQUESTED-EFFECT-NOT-EMITTED
 
 READ-FIRST ("tratamento Enterprise") revelou que o problema real era menor do que parecia: a vitrine do frontend usa só `GET /services/discover` (canônico, já parcialmente corrigido em frente anterior) — o trilho paralelo do blob com bug de timezone (`services-discovery.service.ts`) não é chamado pelo frontend pra descoberta principal. Isso evitou expandir escopo pra 2 outras dívidas (blob paralelo, trilho de reserva paralelo) que ficam próprias.
