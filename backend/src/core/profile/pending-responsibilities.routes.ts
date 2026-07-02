@@ -67,24 +67,29 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         id: string;
         title: string;
         status: string;
-        starts_at: Date;
-        ends_at: Date;
+        starts_at: Date | null;
+        ends_at: Date | null;
         created_at: Date;
       }>(
         tenantId,
+        // 🔴 F-PROFILE-READERS-BROKEN-COLUMNS-FIX: colunas mortas mapeadas p/ o schema vivo de events
+        //    (20260525100000): created_by_global_user_id (inexistente)→actor_id (organizer actor-first) ·
+        //    starts_at/ends_at→datetime_start/datetime_end (nullable; alias preserva contrato) ·
+        //    'completed'/'archived' não existem no CHECK de status (lifecycle vivo: draft/declared/published/
+        //    active/ended/cancelled) — predicado equivalente sem os valores mortos.
         `
-        SELECT id, title, status, starts_at, ends_at, created_at
+        SELECT id, title, status, datetime_start AS starts_at, datetime_end AS ends_at, created_at
         FROM events
         WHERE tenant_id = $1
-          AND created_by_global_user_id = $2
+          AND actor_id = $2
           AND (
             status = 'draft'
-            OR (status = 'published' AND ends_at < now() AND status != 'completed' AND status != 'archived')
+            OR (status = 'published' AND datetime_end < now())
           )
         ORDER BY created_at DESC
         LIMIT 20
         `,
-        [tenantId, globalUserId]
+        [tenantId, actor.actor_id]
       );
 
       const pendingEvents = pendingEventsRows.map((row) => ({
@@ -92,8 +97,8 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         title: row.title,
         type: 'event',
         status: row.status,
-        startTime: row.starts_at.toISOString(),
-        endTime: row.ends_at.toISOString(),
+        startTime: row.starts_at ? row.starts_at.toISOString() : null,
+        endTime: row.ends_at ? row.ends_at.toISOString() : null,
         createdAt: row.created_at.toISOString(),
       }));
 
@@ -107,28 +112,33 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         created_at: Date;
       }>(
         tenantId,
+        // 🔴 F-PROFILE-READERS-BROKEN-COLUMNS-FIX (DT-PROFILE-PENDING-IMPACT-READERS-BROKEN-COLUMNS):
+        //    colunas mortas mapeadas p/ o schema vivo de groups (20260530180000 + C36 + COE-2):
+        //    group_id→id AS group_id · is_active→status IN ('active','inactive') · financial_purpose→
+        //    metadata->>'financialPurpose' · owner_user_id (inexistente)→owner_actor_id (âncora civil viva).
+        //    Contrato da resposta preservado; mesmo dono (grupo do actor representado).
         `
-        SELECT 
-          group_id, 
-          name, 
-          is_active, 
+        SELECT
+          id AS group_id,
+          name,
+          (status = 'active') AS is_active,
           COALESCE((metadata->>'hasFinancialIntent')::boolean, false) as has_financial_intent,
-          financial_purpose,
+          NULLIF(metadata->>'financialPurpose', '') AS financial_purpose,
           created_at
         FROM groups
         WHERE tenant_id = $1
-          AND (owner_user_id = $2 OR owner_user_id = $3)
+          AND owner_actor_id = $2
           AND (
-            is_active = false
+            status = 'inactive'
             OR (
               COALESCE((metadata->>'hasFinancialIntent')::boolean, false) = true
-              AND (financial_purpose IS NULL OR financial_purpose = '')
+              AND COALESCE(metadata->>'financialPurpose', '') = ''
             )
           )
         ORDER BY created_at DESC
         LIMIT 20
         `,
-        [tenantId, userId, globalUserId]
+        [tenantId, actor.actor_id]
       );
 
       const pendingGroups = pendingGroupsRows.map((row) => ({
@@ -198,19 +208,19 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
       }>(
         tenantId,
         `
-        SELECT 
+        SELECT
           pr.payment_request_id,
           pr.amount_cents AS "amountCents",
           pr.currency,
           pr.payment_request_status AS status,
-          pr.requestedAt,
+          pr.requested_at AS "requestedAt",
           pr.service_id,
           pr.booking_id
         FROM service_payment_requests pr
         WHERE pr.tenant_id = $1
           AND pr.payer_actor_id = $2
           AND pr.payment_request_status = 'pending'
-        ORDER BY pr.requestedAt DESC
+        ORDER BY pr.requested_at DESC
         LIMIT 20
         `,
         [tenantId, actor.actor_id]
@@ -241,12 +251,12 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
       }>(
         tenantId,
         `
-        SELECT 
+        SELECT
           b.booking_id,
           b.availability_id,
           b.requester_actor_id,
           b.status,
-          b.requestedAt,
+          b.requested_at AS "requestedAt",
           a.owner_type,
           a.owner_id,
           a.start_datetime,
@@ -264,16 +274,18 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
               WHERE so.id = a.owner_id
               AND so.provider_actor_id = $2
             ))
+            -- F-PROFILE-READERS-BROKEN-COLUMNS-FIX: groups usa PK id (nao group_id) e dono vivo
+            --    owner_actor_id (owner_user_id nunca existiu no schema vivo).
             OR (a.owner_type = 'group' AND EXISTS (
               SELECT 1 FROM groups g
-              WHERE g.group_id = a.owner_id
-              AND (g.owner_user_id = $3 OR g.owner_user_id = $4)
+              WHERE g.id = a.owner_id
+              AND g.owner_actor_id = $2
             ))
           )
-        ORDER BY b.requestedAt DESC
+        ORDER BY b.requested_at DESC
         LIMIT 20
         `,
-        [tenantId, actor.actor_id, userId, globalUserId]
+        [tenantId, actor.actor_id]
       );
 
       const pendingBookings = pendingBookingsRows.map((row) => ({

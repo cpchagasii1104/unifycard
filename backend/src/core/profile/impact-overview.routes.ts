@@ -61,13 +61,15 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::text as count
         FROM events
         WHERE tenant_id = $1
-          AND created_by_global_user_id = $2
+          AND actor_id = $2
           AND (
             status = 'draft'
-            OR (status = 'published' AND ends_at < now() AND status != 'completed' AND status != 'archived')
+            OR (status = 'published' AND datetime_end < now())
           )
         `,
-        [tenantId, globalUserId]
+        // 🔴 F-PROFILE-READERS-BROKEN-COLUMNS-FIX: created_by_global_user_id (inexistente)→actor_id ·
+        //    ends_at→datetime_end · 'completed'/'archived' fora do CHECK vivo de status.
+        [tenantId, actor.actor_id]
       );
       const eventsAffected = eventsAffectedRow ? Number(eventsAffectedRow.count) : 0;
 
@@ -80,13 +82,14 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
         FROM event_attendees ea
         INNER JOIN events e ON ea.event_id = e.id
         WHERE e.tenant_id = $1
-          AND e.created_by_global_user_id = $2
+          AND e.actor_id = $2
           AND (
             e.status = 'draft'
-            OR (e.status = 'published' AND e.ends_at < now() AND e.status != 'completed' AND e.status != 'archived')
+            OR (e.status = 'published' AND e.datetime_end < now())
           )
         `,
-        [tenantId, globalUserId]
+        // 🔴 F-PROFILE-READERS-BROKEN-COLUMNS-FIX: e.created_by_global_user_id→e.actor_id · e.ends_at→e.datetime_end.
+        [tenantId, actor.actor_id]
       );
       const peopleWaitingEvents = peopleWaitingEventsRow ? Number(peopleWaitingEventsRow.count) : 0;
 
@@ -96,12 +99,14 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
         `
         SELECT COUNT(DISTINCT gm.user_id)::text as count
         FROM group_members gm
-        INNER JOIN groups g ON gm.group_id = g.group_id
+        INNER JOIN groups g ON gm.group_id = g.id
         WHERE g.tenant_id = $1
-          AND (g.owner_user_id = $2 OR g.owner_user_id = $3)
-          AND g.is_active = false
+          AND g.owner_actor_id = $2
+          AND g.status = 'inactive'
         `,
-        [tenantId, userId, globalUserId]
+        // 🔴 F-PROFILE-READERS-BROKEN-COLUMNS-FIX: groups PK id · dono vivo owner_actor_id ·
+        //    is_active→status ('active'/'inactive', CHECK C36). Mesmo dono (grupos do actor representado).
+        [tenantId, actor.actor_id]
       );
       const peopleWaitingGroups = peopleWaitingGroupsRow ? Number(peopleWaitingGroupsRow.count) : 0;
 
@@ -123,14 +128,15 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
               WHERE so.id = a.owner_id
               AND so.provider_actor_id = $2
             ))
+            -- F-PROFILE-READERS-BROKEN-COLUMNS-FIX: groups PK id · dono vivo owner_actor_id.
             OR (a.owner_type = 'group' AND EXISTS (
               SELECT 1 FROM groups g
-              WHERE g.group_id = a.owner_id
-              AND (g.owner_user_id = $3 OR g.owner_user_id = $4)
+              WHERE g.id = a.owner_id
+              AND g.owner_actor_id = $2
             ))
           )
         `,
-        [tenantId, actor.actor_id, userId, globalUserId]
+        [tenantId, actor.actor_id]
       );
       const peopleWaitingBookings = peopleWaitingBookingsRow ? Number(peopleWaitingBookingsRow.count) : 0;
 
@@ -162,12 +168,14 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::text as count
         FROM events
         WHERE tenant_id = $1
-          AND created_by_global_user_id = $2
-          AND status IN ('published', 'ongoing')
-          AND starts_at <= now()
-          AND ends_at >= now()
+          AND actor_id = $2
+          AND status IN ('published', 'active')
+          AND datetime_start <= now()
+          AND datetime_end >= now()
         `,
-        [tenantId, globalUserId]
+        // 🔴 F-PROFILE-READERS-BROKEN-COLUMNS-FIX: created_by_global_user_id→actor_id · starts_at/ends_at→
+        //    datetime_start/datetime_end · 'ongoing' fora do CHECK vivo (em-andamento vivo = 'active').
+        [tenantId, actor.actor_id]
       );
       const ongoingEvents = ongoingEventsRow ? Number(ongoingEventsRow.count) : 0;
 
@@ -178,10 +186,11 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::text as count
         FROM groups
         WHERE tenant_id = $1
-          AND (owner_user_id = $2 OR owner_user_id = $3)
-          AND is_active = true
+          AND owner_actor_id = $2
+          AND status = 'active'
         `,
-        [tenantId, userId, globalUserId]
+        // 🔴 F-PROFILE-READERS-BROKEN-COLUMNS-FIX: dono vivo owner_actor_id · is_active→status.
+        [tenantId, actor.actor_id]
       );
       const activeGroups = activeGroupsRow ? Number(activeGroupsRow.count) : 0;
 
