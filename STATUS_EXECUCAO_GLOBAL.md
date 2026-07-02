@@ -1,3 +1,13 @@
+## 2026-07-02 — F-CRM-MYORDERS-ROUTE-PREFIX-FIX · ✅ MATERIAL — fecha DT-CRM-MYORDERS-ROUTE-PREFIX-MISMATCH · 12ª dívida técnica resolvida hoje · primeiro item corrigido do `auditoria.md` (achado B5)
+
+A Fable 5 entregou um laudo forense institucional completo (`auditoria.md`, due diligence pré-abertura ao público) — revisei o plano dela em 2 rodadas antes de aprovar (achei o HEAD âncora desatualizado e o número de erros de typecheck citando uma fotografia antiga; ela corrigiu os dois nos lugares certos, incluindo a seção que realmente vira o documento, não só numa nota à parte). Depois de publicado, Clayton pediu prioridade de correção — propus 3 níveis (fast-path sem decisão, money-free com investigação, e itens que exigem decisão arquitetural dele antes de eu tocar) e ele escolheu começar pelo mais simples: o achado B5.
+
+**O achado:** duas páginas vivas do frontend (CRM de contato, My Orders) chamavam prefixo de rota errado e recebiam 404 silencioso. Confirmei ao vivo com o backend rodando antes de mexer — rota errada dava 404, rota certa dava 401 (existe, só pede login) — não era falso-positivo de auditoria estática.
+
+**Correção:** 9 ocorrências em `crm.ts`, 2 em `my-orders.ts`, guard com negative-proof (rodei contra o código antigo via `git stash` pra confirmar que ele morde de verdade). Mudança isolada ao cliente HTTP do frontend — zero backend, zero migration, zero autoridade, zero dinheiro. HEAD material `adf2893cb`.
+
+---
+
 ## 2026-07-02 — F-AVAILABILITY-CONFLICT-DETECTION-STUB-FIX · ✅ MATERIAL / CLOSEOUT — fecha DT-AVAILABILITY-CONFLICT-DETECTION-STUB · 🏁 11ª dívida técnica resolvida hoje — fecha a ÚLTIMA das 7 DTs originais da DECISION-0156
 
 Clayton trouxe 3 relatórios de ontem (auditoria de busca/orquestração/dispatch + o READ-FIRST completo que virou a DECISION-0156) e pediu pra analisar se sobrava alguma frente. Cruzei os 7 achados originais da DECISION-0156 contra o que já tinha sido fechado hoje: 6 das 7 já estavam resolvidas (5 nesta sessão + 1 numa fatia anterior no mesmo dia, o double-booking HIGH). Sobrou exatamente 1: a função de detecção de conflito pessoal de agenda, que era um corpo vazio (sempre retornava "nenhum conflito", mesmo quando havia).
