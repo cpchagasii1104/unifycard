@@ -67,6 +67,24 @@
   color: #4b5563;
 }
 
+/* F-GLOBAL-SEARCH-DEADEND-REWIRE-SLICE-A: CTA honesto para a busca real de serviços. */
+.search-go-services {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: #4f46e5;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.search-go-services:hover {
+  background: #4338ca;
+}
+
 @media (max-width: 768px) {
   .search-page {
     padding: 1rem 0.5rem;

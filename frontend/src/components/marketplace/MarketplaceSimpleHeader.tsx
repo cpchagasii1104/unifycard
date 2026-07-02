@@ -19,9 +19,11 @@ export default function MarketplaceSimpleHeader() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      // TODO: Implementar busca global
-      console.log('Busca:', searchQuery);
+    const trimmed = searchQuery.trim();
+    if (trimmed) {
+      // 🔎 F-GLOBAL-SEARCH-DEADEND-REWIRE-SLICE-A: dead-end antigo (console.log) removido. A busca universal
+      // ainda não existe; reaponta para a busca real de serviços (termo→concept→discovery no backend).
+      navigate(`/discover/services?term=${encodeURIComponent(trimmed)}`);
     }
   };
 
@@ -37,7 +39,7 @@ export default function MarketplaceSimpleHeader() {
           <input
             type="text"
             className="marketplace-search-input"
-            placeholder="Buscar produtos, serviços, eventos..."
+            placeholder="Buscar serviços..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />

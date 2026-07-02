@@ -4,7 +4,7 @@
 // Conectado ao endpoint backend canônico GET /services/discover
 
 import { useState, useEffect, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   discoverServices,
   searchServicesByTerm,
@@ -17,6 +17,7 @@ import './ServiceDiscoveryPage.css';
 
 export default function ServiceDiscoveryPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [services, setServices] = useState<DiscoveredService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,18 @@ export default function ServiceDiscoveryPage() {
   useEffect(() => {
     loadServices();
   }, [categoryId, cityId, stateId, startDate, endDate, hasAvailability, actorType, offset]);
+
+  // 🔎 F-GLOBAL-SEARCH-DEADEND-REWIRE-SLICE-A: consome o termo vindo da URL (?term=) — a busca do header
+  // global / marketplace agora aponta para cá. Preenche o campo e dispara a busca real de serviços no mount,
+  // sem exigir redigitar. Termo explícito evita corrida com o setState (o backend resolve termo→concept).
+  useEffect(() => {
+    const urlTerm = (searchParams.get('term') || '').trim();
+    if (urlTerm) {
+      setTerm(urlTerm);
+      void handleTermSearch(undefined, urlTerm);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const loadServices = async () => {
     setIsLoading(true);
@@ -77,9 +90,9 @@ export default function ServiceDiscoveryPage() {
 
   // Busca por termo: chama GET /services/search-by-term e projeta o resultado resolvido.
   // O termo NÃO é normalizado/mapeado aqui — quem resolve termo→concept é o backend.
-  const handleTermSearch = async (e?: FormEvent) => {
+  const handleTermSearch = async (e?: FormEvent, explicitTerm?: string) => {
     if (e) e.preventDefault();
-    const trimmed = term.trim();
+    const trimmed = (explicitTerm ?? term).trim();
     if (!trimmed) {
       setTermSearched(false);
       setTermResult(null);

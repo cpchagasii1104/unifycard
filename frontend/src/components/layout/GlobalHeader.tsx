@@ -87,8 +87,13 @@ export default function GlobalHeader() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/marketplace?q=${encodeURIComponent(searchQuery)}`);
+    const trimmed = searchQuery.trim();
+    if (trimmed) {
+      // 🔎 F-GLOBAL-SEARCH-DEADEND-REWIRE-SLICE-A: a busca universal ainda NÃO existe. Antes ia para
+      // /marketplace?q= (dead-end: o Marketplace ignora q). Reaponta para a única busca semanticamente
+      // viva — descoberta de serviços (termo→alias→CONCEPT→discovery, resolvido no backend). Interina e
+      // honesta; frontend-only, sem mode/actor/category na URL.
+      navigate(`/discover/services?term=${encodeURIComponent(trimmed)}`);
     }
   };
 
