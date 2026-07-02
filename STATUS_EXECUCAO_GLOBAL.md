@@ -1,3 +1,17 @@
+## 2026-07-02 — F-GROUP-B-FINANCIAL-WORKERS-TENANT-LOOP-RLS · ✅ MATERIAL — fecha DT-GROUP-B-FINANCIAL-WORKERS-ACTIVE-CROSS-TENANT-RLS-GAP · 16ª dívida técnica resolvida hoje · 🏁 achado B3 do `auditoria.md` INTEGRALMENTE resolvido (23/25 tabelas; as 3 restantes são config global sem tenant, correto)
+
+Clayton confirmou que eu seguisse daqui (agora como Fable 5/ultracode) em vez de transferir pra outra instância — a outra Fable fica com o papel de re-auditora adversarial. Retomei o Grupo B, que tinha sido interrompido pelo achado do GUC.
+
+**A norma já tinha decidido tudo:** a DECISION-0149 (promulgada por Clayton + IA-DINHEIRO em junho) já mandava exatamente isso — workers que precisam varrer todos os clientes NÃO usam conexão privilegiada; descobrem a lista de clientes numa tabela sem restrição e processam um por um, cada um com o próprio contexto. Eu só materializei o que já estava batido. Nenhuma decisão nova inventada.
+
+**O que mudou:** os 4 workers financeiros ativos (funding de governança, ações financeiras, distribuição e split de tesouraria) pararam de pegar pendências de todos os clientes numa query só; agora iteram cliente a cliente. As 6 tabelas que eles usam ganharam a proteção de isolamento. Funções de listagem antigas que ninguém chamava foram removidas.
+
+**Achado no caminho (o mais importante da fatia):** a verificação que impede um split de dinheiro ser executado DUAS vezes consultava o banco sem dizer de qual cliente era — sob a proteção de isolamento, essa consulta retornaria "nunca executado" sempre, e o split rodaria de novo. Silenciosamente. Corrigido junto.
+
+E2E 15/15 (isolamento real + as funções reais dos 4 trilhos), guard com prova negativa em 19 pontos, braço econômico intocado (dinheiro segue HOLD). HEAD material `683095a55`.
+
+---
+
 ## 2026-07-02 — F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX · ✅ MATERIAL / CRÍTICO — fecha DT-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-BUG · 15ª dívida técnica resolvida hoje · achado FORA do auditoria.md, mais sério que tudo que veio dele
 
 Clayton disse "execute o próximo passo" pra eu continuar pro Grupo B (as 6 tabelas com workers financeiros ativos). Ao desenhar o helper de bypass que esses workers precisariam (a mesma ideia usada no catálogo mais cedo hoje), testei se o padrão existente realmente funcionava — e não funcionava.
