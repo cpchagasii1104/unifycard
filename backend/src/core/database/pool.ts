@@ -134,11 +134,18 @@ export async function getDatabaseInfo(): Promise<{
 }
 
 // Secure tenant injection
+// 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02): is_local=false (sessão), NÃO true
+// (transação). Sem BEGIN explícito, cada client.query() roda em transação implícita própria —
+// is_local=true faria o GUC evaporar ANTES da query real do caller rodar (confirmado empiricamente:
+// current_setting() retornava vazio na query seguinte). Sob unificard_app (NOBYPASSRLS, RLS-live),
+// isso faria toda tabela com FORCE ROW LEVEL SECURITY retornar 0 linhas — fail-closed, mas quebrado.
+// is_local=false é seguro aqui: cada caller pega client NOVO via pool.connect() e seta o GUC como
+// PRIMEIRA ação antes de qualquer query — nenhuma leitura acontece antes do set_config.
 export async function getClientWithTenant(tenantId: string): Promise<PoolClient> {
   const client = await pool.connect();
   try {
     // PostgreSQL não aceita bind parameters em SET, usar set_config
-    await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
+    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
     return client;
   } catch (err) {
     client.release();
@@ -155,11 +162,14 @@ export async function getClientWithTenant(tenantId: string): Promise<PoolClient>
  * ao lado de global (tenant_id IS NULL) e scoped-do-próprio-tenant. Chamar isto fora de uma rota
  * já autorizada por role admin é uma violação de autoridade — não há verificação de role aqui,
  * o caller é responsável por já ter validado.
+ *
+ * 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02): is_local=false, mesma razão de
+ * getClientWithTenant acima — sem BEGIN, is_local=true evapora antes da query real do caller.
  */
 export async function getClientWithPlatformAdmin(): Promise<PoolClient> {
   const client = await pool.connect();
   try {
-    await client.query("SELECT set_config('app.is_platform_admin', 'true', true)");
+    await client.query("SELECT set_config('app.is_platform_admin', 'true', false)");
     return client;
   } catch (err) {
     client.release();
@@ -186,6 +196,8 @@ function sanitizeParams(params: any[]): any[] {
   return params.map((param) => (param === undefined ? null : param));
 }
 
+// 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02): is_local=false, mesma razão de
+// getClientWithTenant acima.
 export async function runQueryWithTenant<T>(
   tenantId: string,
   query: string | { text: string; values?: any[] },
@@ -194,7 +206,7 @@ export async function runQueryWithTenant<T>(
   const client = await pool.connect();
   try {
     // PostgreSQL não aceita bind parameters em SET, usar set_config
-    await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
+    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
 
     const text = typeof query === 'string' ? query : query.text;
     const values = typeof query === 'string' ? (params || []) : (query.values || []);
@@ -234,6 +246,8 @@ export async function runQueryWithTenant<T>(
 /**
  * Executa query que retorna MÚLTIPLAS ROWS com tenant context
  * Use esta função quando esperar array de resultados
+ * 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02): is_local=false, mesma razão de
+ * getClientWithTenant acima.
  */
 export async function runQueriesWithTenant<T>(
   tenantId: string,
@@ -243,7 +257,7 @@ export async function runQueriesWithTenant<T>(
   const client = await pool.connect();
   try {
     // PostgreSQL não aceita bind parameters em SET, usar set_config
-    await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
+    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
 
     const text = typeof query === 'string' ? query : query.text;
     const values = typeof query === 'string' ? (params || []) : (query.values || []);
