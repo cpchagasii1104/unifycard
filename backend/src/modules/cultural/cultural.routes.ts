@@ -514,7 +514,31 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
       // Resolve actor_id real via identity service (C50 fix)
       const actor = await ensureUserActor(req.tenant.id, req.user.id);
       const actorId = req.body.target_actor_id || actor.actor_id;
-      const actorType = req.body.target_actor_type || 'user';
+
+      // 🔴 F-CULTURAL-CHECKIN-TARGET-ACTOR-TYPE-DERIVED (DT-CULTURAL-CHECKIN-TARGET-ACTOR-TYPE-SELF-
+      // DIVERGENCE): actor_type é SEMPRE derivado SERVER-SIDE do actor real, nunca do body. Antes,
+      // `req.body.target_actor_type` era usado sem validar coerência com o actor_id resolvido — com
+      // target=self (ou omitido), permitia gravar `actor_id` correto (o próprio caller) porém
+      // `actor_type` divergente (ex.: 'page'); como a UNIQUE é (tenant,event,actor_id,actor_type), o
+      // mesmo actor "dobrava" presença sob tipos distintos. NÃO é brecha de autoridade (actor_id já
+      // era sempre correto) — é integridade de dado/read-model. Mesma derivação cobre também o caso
+      // representável (actorId !== actor.actor_id): o tipo vem do actor-alvo REAL, não do que o
+      // cliente declarou. 404 honesto se o actor-alvo declarado não existir (antes seguiria com um
+      // actor_type arbitrário para um actor_id potencialmente inexistente).
+      let actorType: 'user' | 'page' | 'cultural_profile';
+      if (actorId === actor.actor_id) {
+        actorType = (actor.actor_type as 'user' | 'page' | 'cultural_profile') || 'user';
+      } else {
+        const { socialPortsRegistry } = await import('@core/social/ports-registry');
+        const targetActor = await socialPortsRegistry.getActorRepository().findById(req.tenant.id, actorId);
+        if (!targetActor) {
+          return reply.status(404).send({
+            error: 'Actor-alvo do check-in não encontrado',
+            code: 'CULTURAL_CHECKIN_TARGET_NOT_FOUND',
+          });
+        }
+        actorType = targetActor.actor_type as 'user' | 'page' | 'cultural_profile';
+      }
 
       // 🔴 F-CULTURAL-CHECKIN-TARGET-AUTHORITY-BINDING-SLICE-A (DECISION-0113 residual · authority · money-free):
       // AUTO/QR_CODE NÃO podem gravar presença em nome de actor alheio declarado no body (target_actor_id é
