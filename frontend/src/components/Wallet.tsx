@@ -145,7 +145,15 @@ export default function Wallet({ onTransactionClick }: WalletProps) {
   return (
     <div className="wallet-container">
       <div className="wallet-header">
-        <h2>Carteira</h2>
+        <div className="wallet-header-title">
+          <h2>Carteira</h2>
+          {/* F-ACTOR-MODE-SURFACE-CLARITY-SLICE (H6): dono explícito do extrato — ao trocar de
+              actor, o usuário não deve ficar em dúvida "de quem é esse saldo". Cosmético/label,
+              não toca o backend (fail-closed por canRepresentActor já garante isolamento real). */}
+          {activeActor?.display_name && (
+            <p className="wallet-owner-label">Extrato de {activeActor.display_name}</p>
+          )}
+        </div>
         <div className="wallet-header-actions">
           <button
             onClick={() => setShowP2P(true)}

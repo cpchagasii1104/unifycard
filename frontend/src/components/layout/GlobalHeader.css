@@ -166,6 +166,30 @@
   background: #f3f4f6;
 }
 
+/* F-ACTOR-MODE-SURFACE-CLARITY-SLICE: pílula única "quem × modo" — agrupa visualmente o badge de
+   modo (OperatingModeBadge) e o switcher de actor (avatar) num container com fundo/borda
+   compartilhados, para que a combinação leia como UMA declaração de estado ("Operando como
+   {actor} · {modo}"), não dois widgets desconexos. Puramente visual — cada subcomponente interno
+   mantém seu próprio markup/comportamento (clique do avatar continua abrindo o dropdown). */
+.gh-identity-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+}
+
+.gh-identity-pill .gh-avatar-button {
+  border: none;
+  background: transparent;
+}
+
+.gh-identity-pill .gh-avatar-button:hover {
+  background: white;
+}
+
 /* Avatar + Dropdown */
 .gh-avatar-container {
   position: relative;

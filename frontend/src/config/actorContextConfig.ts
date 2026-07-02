@@ -524,6 +524,15 @@ const INTENT_GROUPS_CHANNEL: IntentGroup[] = [
   },
 ];
 
+// 🔴 F-ACTOR-MODE-SURFACE-CLARITY-SLICE (H2 / D-C2 pendente): 'channel' NÃO é actor_type
+// alcançável hoje — actors.actor_type IN (...'channel') existe no CHECK do enum, mas ZERO writer
+// no backend cria um actor de canal (grep confirmado). Este profile é código MORTO por construção
+// (getActorContextProfile('channel') nunca é chamado com dado real; o switcher do GlobalHeader só
+// renderiza a seção "Canais" se channelActors.length > 0, que nunca é true). Mantido como scaffold
+// para quando D-C2 (ontologia channel/artista/banda: actor_type novo? subtype de page? capability?)
+// for decidida — NÃO expandir/completar este profile antes da decisão (não construir, não indexar,
+// não prometer). O único ponto de contato hoje com o usuário ("Cadastrar um canal") já é honesto
+// ("em breve" — não finge que o canal existe).
 const PROFILE_CHANNEL: ActorContextProfile = {
   context: 'channel',
   modeName: 'Canal',

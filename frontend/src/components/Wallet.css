@@ -20,6 +20,19 @@
   color: #1a1a1a;
 }
 
+.wallet-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* F-ACTOR-MODE-SURFACE-CLARITY-SLICE (H6): dono explícito do extrato. */
+.wallet-owner-label {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
 .wallet-balance-section {
   background: white;
   border: 1px solid #e0e0e0;

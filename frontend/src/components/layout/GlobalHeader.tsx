@@ -26,7 +26,7 @@ import OperatingModeToggle from './OperatingModeToggle';
 import OperatingModeBadge from './OperatingModeBadge';
 import { useActorMode } from '../../hooks/useActorMode';
 import { useBusinessProfile } from '../../hooks/useBusinessProfile';
-import { getActorGreetingSubtitle } from '../../config/actorContextConfig';
+import { getActorGreetingSubtitle, profileHasTwoOperatingModes } from '../../config/actorContextConfig';
 import './GlobalHeader.css';
 
 export default function GlobalHeader() {
@@ -106,6 +106,14 @@ export default function GlobalHeader() {
       default: return activeActor.actor_type;
     }
   })();
+
+  // F-ACTOR-MODE-SURFACE-CLARITY-SLICE (peça única "quem × modo"): badge de modo + switcher de
+  // actor agrupados visualmente numa mesma pílula (identidade combinada, leitura de estado). O
+  // toggle (controle de troca) permanece separado — pílula é declarativa, não interativa em si.
+  // aria-label unifica a leitura para tecnologia assistiva mesmo com os 2 subcomponentes internos.
+  const identityPillLabel = profileHasTwoOperatingModes(actorProfile)
+    ? `Operando como ${activeActor.display_name} · ${mode === 'operar' ? 'Operando' : 'Consumindo'}`
+    : `Operando como ${activeActor.display_name}`;
 
   const availableActors = Array.isArray(actors) ? actors : [];
   const personalActor = availableActors.find((a) => a.actor_type === 'user');
@@ -219,31 +227,37 @@ export default function GlobalHeader() {
         </button>
 
         <OperatingModeToggle />
-        {/* 2026-05-18 RC6: badge discreto persistente do modo operante.
-            Sinaliza contexto operacional mesmo fora da home. */}
-        <OperatingModeBadge />
 
-        <div className="gh-avatar-container" ref={dropdownRef}>
-          <button
-            type="button"
-            className="gh-avatar-button"
-            onClick={() => setIsDropdownOpen((prev) => !prev)}
-            aria-label="Trocar perfil ativo"
-            aria-expanded={isDropdownOpen}
-          >
-            <div className="gh-avatar-circle" aria-hidden="true">
-              {firstName ? firstName[0].toUpperCase() : '?'}
-            </div>
-            <div className="gh-avatar-text">
-              <div className="gh-avatar-name">{activeActor.display_name}</div>
-              <div className="gh-avatar-role">
-                {actorRole} {isDropdownOpen ? '▲' : '▼'}
+        {/* F-ACTOR-MODE-SURFACE-CLARITY-SLICE: pílula única "quem × modo". Badge (leitura do modo)
+            + switcher de actor (leitura do quem + controle de troca) agrupados visualmente com
+            fundo/borda compartilhados. aria-label no wrapper declara o estado combinado inteiro
+            para leitores de tela; os 2 subcomponentes internos preservam seus próprios rótulos. */}
+        <div className="gh-identity-pill" role="group" aria-label={identityPillLabel}>
+          {/* 2026-05-18 RC6: badge discreto persistente do modo operante.
+              Sinaliza contexto operacional mesmo fora da home. */}
+          <OperatingModeBadge />
+
+          <div className="gh-avatar-container" ref={dropdownRef}>
+            <button
+              type="button"
+              className="gh-avatar-button"
+              onClick={() => setIsDropdownOpen((prev) => !prev)}
+              aria-label="Trocar perfil ativo"
+              aria-expanded={isDropdownOpen}
+            >
+              <div className="gh-avatar-circle" aria-hidden="true">
+                {firstName ? firstName[0].toUpperCase() : '?'}
               </div>
-            </div>
-          </button>
+              <div className="gh-avatar-text">
+                <div className="gh-avatar-name">{activeActor.display_name}</div>
+                <div className="gh-avatar-role">
+                  {actorRole} {isDropdownOpen ? '▲' : '▼'}
+                </div>
+              </div>
+            </button>
 
-          {isDropdownOpen && (
-            <div className="gh-dd-menu">
+            {isDropdownOpen && (
+              <div className="gh-dd-menu">
               {/* Pessoal */}
               {personalActor && (
                 <>
@@ -343,6 +357,7 @@ export default function GlobalHeader() {
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
     </header>

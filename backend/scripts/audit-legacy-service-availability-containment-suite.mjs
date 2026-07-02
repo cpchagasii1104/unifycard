@@ -5,9 +5,11 @@
 // Cada guard segue executável standalone (usado nos gates individuais). Falha do agregador = falha de qualquer guard.
 //
 // NOTA DE ESCOPO (honesta): o nome do agregador é histórico (DECISION-0156). Na prática, virou o ponto
-// de wiring de guards de FIX pequenos que a DT-mãe 0156 revelou no caminho (getPost, getPostsBatch,
-// unread-counts) — mesmo limite de linha do Windows, mesmo padrão pragmático. Cada guard permanece
-// standalone e testável isoladamente; o agregador é só o ponto único de chamada.
+// de wiring de guards PEQUENOS que não coubessem em nenhum agregador temático existente — fixes de
+// schema (getPost, getPostsBatch, unread-counts) e agora também clareza de UX (actor-mode-surface-
+// clarity-slice, Slice 2 do blueprint actor×modo×busca) — mesmo limite de linha do Windows, mesmo
+// padrão pragmático. Cada guard permanece standalone e testável isoladamente; o agregador é só o
+// ponto único de chamada.
 
 import { execFileSync } from 'child_process';
 import { join } from 'path';
@@ -22,6 +24,7 @@ const guards = [
   'audit-service-feed-getpost-column-fix.mjs',                    // getPost — WHERE id=$1; A2c continua intacto
   'audit-core-feed-batch-post-id-column-fix.mjs',                 // getPostsBatch + renderBatch — id AS post_id; intent via LEGACY_INTENT_MAP
   'audit-unread-counts-feed-visibility-fix.mjs',                  // unread-counts feed/social — predicado vivo, sem visibility fantasma
+  'audit-actor-mode-surface-clarity-slice.mjs',                   // Slice 2 — pílula quem×modo + dono do extrato + PROFILE_CHANNEL contido
 ];
 
 let failed = false;
@@ -37,4 +40,4 @@ if (failed) {
   console.error('GATE FAIL [legacy-service-availability-containment-suite] — ao menos um guard de contenção legada falhou (ver acima).');
   process.exit(1);
 }
-console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes blindados.');
+console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity blindados.');
