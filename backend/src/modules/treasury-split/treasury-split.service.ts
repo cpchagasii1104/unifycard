@@ -63,7 +63,7 @@ export interface ExecuteSplitParams {
 export async function executeSplit(params: ExecuteSplitParams): Promise<void> {
   const { settlementId, tenantId, amountCents, currency, idempotencyKey } = params;
 
-  if (await hasExecutionForSettlement(settlementId)) {
+  if (await hasExecutionForSettlement(tenantId, settlementId)) {
     return;
   }
   if (idempotencyKey && (await hasExecutionForIdempotencyKey(tenantId, idempotencyKey))) {

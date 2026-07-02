@@ -1,7 +1,10 @@
 // Governance Funding Repository — tabela governance_funding.
 // Não escreve em bank_transactions nem bank_ledger.
+// F-GROUP-B-FINANCIAL-WORKERS-TENANT-LOOP-RLS (DECISION-0149): claim é TENANT-SCOPED — o worker
+// itera tenants (tenant-loop) e claima por tenant com tenant-context; não há mais leitura
+// cross-tenant nesta tabela (governance_funding está sob RLS+FORCE desde 20260702170000).
 
-import { runQueryWithTenant, pool } from '@core/database/pool';
+import { runQueryWithTenant, getClientWithTenant } from '@core/database/pool';
 
 export type GovernanceFundingStatus = 'pending' | 'processing' | 'funded' | 'failed';
 
@@ -99,39 +102,31 @@ export async function getFundingByProposalId(
 }
 
 /**
- * Lista pedidos com status 'pending' (para o worker).
+ * Captura atômica de funding requests pending DE UM TENANT: FOR UPDATE SKIP LOCKED + marca
+ * processing. Apenas um worker pode processar cada registro. Anti-duplicação.
+ * TENANT-SCOPED (DECISION-0149): o worker chama isto dentro do tenant-loop, um tenant por vez,
+ * com tenant-context real (getClientWithTenant) — compatível com RLS+FORCE em governance_funding.
+ * (A antiga listPendingFundingRequests cross-tenant foi removida: zero callers — código morto —
+ * e violaria o invariante tenant-scoped desta tabela sob RLS.)
  */
-export async function listPendingFundingRequests(limit = 50): Promise<GovernanceFunding[]> {
-  const result = await pool.query<GovernanceFundingRow>(
-    `SELECT id, tenant_id, proposal_id, treasury_account_id, project_reference, amount_cents, currency, status, created_at, processed_at
-     FROM governance_funding
-     WHERE status = 'pending'
-     ORDER BY created_at ASC
-     LIMIT $1`,
-    [limit]
-  );
-  return result.rows.map(toFunding);
-}
-
-/**
- * Captura atômica de funding requests pending: FOR UPDATE SKIP LOCKED + marca processing.
- * Apenas um worker pode processar cada registro. Anti-duplicação.
- */
-export async function claimNextPendingFundingRequests(limit = 50): Promise<GovernanceFunding[]> {
-  const client = await pool.connect();
+export async function claimNextPendingFundingRequests(
+  tenantId: string,
+  limit = 50
+): Promise<GovernanceFunding[]> {
+  const client = await getClientWithTenant(tenantId);
   try {
     await client.query('BEGIN');
     const result = await client.query<GovernanceFundingRow>(
       `UPDATE governance_funding SET status = 'processing'
        WHERE id IN (
          SELECT id FROM governance_funding
-         WHERE status = 'pending'
+         WHERE status = 'pending' AND tenant_id = $2
          ORDER BY created_at ASC
          LIMIT $1
          FOR UPDATE SKIP LOCKED
        )
        RETURNING id, tenant_id, proposal_id, treasury_account_id, project_reference, amount_cents, currency, status, created_at, processed_at`,
-      [limit]
+      [limit, tenantId]
     );
     await client.query('COMMIT');
     return result.rows.map(toFunding);

@@ -1,7 +1,10 @@
 // Treasury Account Repository — tabela treasury_accounts (contas institucionais).
 // Não escreve em bank_transactions nem bank_ledger. Apenas registra vínculo com bank_accounts.
+// F-GROUP-B-FINANCIAL-WORKERS-TENANT-LOOP-RLS (DECISION-0149): listagem é TENANT-SCOPED
+// obrigatória (o ramo cross-tenant opcional foi removido: zero callers usavam sem tenantId —
+// código morto — e treasury_accounts está sob RLS+FORCE desde 20260702170000).
 
-import { runQueryWithTenant, pool } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export interface TreasuryAccount {
   id: string;
@@ -74,20 +77,16 @@ export async function getTreasuryAccount(
 }
 
 /**
- * Lista contas de tesouraria. Opcionalmente por tenant.
+ * Lista contas de tesouraria DE UM TENANT (tenant obrigatório — DECISION-0149).
  */
 export async function listTreasuryAccounts(
-  tenantId?: string
+  tenantId: string
 ): Promise<TreasuryAccount[]> {
-  const query =
-    tenantId === undefined
-      ? `SELECT id, tenant_id, treasury_type, account_id, metadata, created_at
-         FROM treasury_accounts ORDER BY created_at DESC`
-      : `SELECT id, tenant_id, treasury_type, account_id, metadata, created_at
-         FROM treasury_accounts WHERE tenant_id = $1 ORDER BY created_at DESC`;
-  const result = await pool.query<TreasuryAccountRow>(
-    query,
-    tenantId === undefined ? [] : [tenantId]
+  const rows = await runQueriesWithTenant<TreasuryAccountRow>(
+    tenantId,
+    `SELECT id, tenant_id, treasury_type, account_id, metadata, created_at
+     FROM treasury_accounts WHERE tenant_id = $1 ORDER BY created_at DESC`,
+    [tenantId]
   );
-  return result.rows.map(toTreasuryAccount);
+  return rows.map(toTreasuryAccount);
 }

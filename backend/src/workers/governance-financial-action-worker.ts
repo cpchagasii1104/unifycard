@@ -1,11 +1,14 @@
 // Governance Financial Action Worker — processa ações financeiras de governança via PaymentIntent.
 // Não escreve em bank_transactions nem bank_ledger. Apenas utiliza o PaymentIntent Engine existente.
+// F-GROUP-B-FINANCIAL-WORKERS-TENANT-LOOP-RLS (DECISION-0149 tenant-loop): descobre tenants por
+// fonte NÃO-RLS (`tenants`) e lista pendências POR TENANT com tenant-context.
 
 import {
   listPendingActions,
   markActionProcessed,
   markActionFailed,
 } from '@modules/governance/governance-financial-action-repository';
+import { listTenantIdsForWorkerLoop } from '@core/database/tenant-loop';
 
 const INTERVAL_MS = 60_000;
 const BATCH_LIMIT = 50;
@@ -43,16 +46,19 @@ async function processAction(
 
 async function runGovernanceFinancialActionCycle(): Promise<void> {
   try {
-    const pending = await listPendingActions(BATCH_LIMIT);
-    for (const action of pending) {
-      try {
-        await processAction(action);
-      } catch (err) {
-        console.error('[GovernanceFinancialActionWorker] Action failed', action.id, err);
+    const tenantIds = await listTenantIdsForWorkerLoop();
+    for (const tenantId of tenantIds) {
+      const pending = await listPendingActions(tenantId, BATCH_LIMIT);
+      for (const action of pending) {
         try {
-          await markActionFailed(action.tenantId, action.id);
-        } catch (e) {
-          console.error('[GovernanceFinancialActionWorker] markActionFailed error', action.id, e);
+          await processAction(action);
+        } catch (err) {
+          console.error('[GovernanceFinancialActionWorker] Action failed', action.id, err);
+          try {
+            await markActionFailed(action.tenantId, action.id);
+          } catch (e) {
+            console.error('[GovernanceFinancialActionWorker] markActionFailed error', action.id, e);
+          }
         }
       }
     }

@@ -1,8 +1,11 @@
 // Treasury Distribution Repository — tabela treasury_distributions.
 // Não escreve em bank_transactions nem bank_ledger. Processado via governance_financial_actions.
+// F-GROUP-B-FINANCIAL-WORKERS-TENANT-LOOP-RLS (DECISION-0149): claim é TENANT-SCOPED — o worker
+// itera tenants (tenant-loop) com client de tenant-context; treasury_distributions está sob
+// RLS+FORCE desde 20260702170000.
 
 import type { PoolClient } from 'pg';
-import { runQueryWithTenant, pool } from '@core/database/pool';
+import { runQueryWithTenant } from '@core/database/pool';
 
 export type TreasuryDistributionStatus = 'pending' | 'processed' | 'failed';
 
@@ -107,36 +110,25 @@ export async function createProcessedDistribution(
 }
 
 /**
- * Lista distribuições com status 'pending' (para o worker).
- */
-export async function listPendingDistributions(limit = 50): Promise<TreasuryDistribution[]> {
-  const result = await pool.query<TreasuryDistributionRow>(
-    `SELECT id, tenant_id, treasury_account_id, proposal_id, reference_id, amount_cents, distribution_type, status, created_at, processed_at
-     FROM treasury_distributions
-     WHERE status = 'pending'
-     ORDER BY created_at ASC
-     LIMIT $1`,
-    [limit]
-  );
-  return result.rows.map(toDistribution);
-}
-
-/**
- * Captura atômica de distribuições pending: FOR UPDATE SKIP LOCKED na transação do client.
- * Anti-duplicação: apenas um worker processa cada registro.
+ * Captura atômica de distribuições pending DE UM TENANT: FOR UPDATE SKIP LOCKED na transação do
+ * client. Anti-duplicação: apenas um worker processa cada registro.
+ * TENANT-SCOPED (DECISION-0149): o client deve vir de getClientWithTenant(tenantId) — o worker
+ * chama isto dentro do tenant-loop. (A antiga listPendingDistributions cross-tenant foi removida:
+ * zero callers — código morto — e violaria o invariante tenant-scoped sob RLS.)
  */
 export async function claimNextPendingDistributions(
   client: PoolClient,
+  tenantId: string,
   limit: number
 ): Promise<TreasuryDistribution[]> {
   const result = await client.query<TreasuryDistributionRow>(
     `SELECT id, tenant_id, treasury_account_id, proposal_id, reference_id, amount_cents, distribution_type, status, created_at, processed_at
      FROM treasury_distributions
-     WHERE status = 'pending'
+     WHERE status = 'pending' AND tenant_id = $2
      ORDER BY created_at ASC
      LIMIT $1
      FOR UPDATE SKIP LOCKED`,
-    [limit]
+    [limit, tenantId]
   );
   return result.rows.map(toDistribution);
 }

@@ -1,8 +1,12 @@
 // Treasury Split Config Repository — tabelas treasury_split_config e treasury_split_executions.
 // Não escreve em bank_transactions nem bank_ledger.
+// F-GROUP-B-FINANCIAL-WORKERS-TENANT-LOOP-RLS (DECISION-0149): claim e cheques de idempotência
+// são TENANT-SCOPED — o worker itera tenants (tenant-loop) com client de tenant-context;
+// treasury_split_config/treasury_split_executions estão sob RLS+FORCE desde 20260702170000
+// (bank_settlements já estava desde 20260702160000).
 
 import type { PoolClient } from 'pg';
-import { runQueryWithTenant, pool } from '@core/database/pool';
+import { runQueryWithTenant } from '@core/database/pool';
 
 const DEFAULT_SLUG = 'default';
 const DEFAULT_PCT_REGIONAL = 5.0;
@@ -114,13 +118,19 @@ export interface TreasurySplitExecutionRow {
 
 /**
  * Verifica se já existe execução para este settlement_id (idempotência).
+ * 🔴 TENANT-SCOPED: sob RLS+FORCE, um cheque de idempotência com pool cru retornaria vazio SEMPRE
+ * no role restrito — quebrando a proteção anti-split-duplo silenciosamente. tenantId obrigatório.
  */
-export async function hasExecutionForSettlement(settlementId: string): Promise<boolean> {
-  const result = await pool.query<{ id: string }>(
-    `SELECT id FROM treasury_split_executions WHERE settlement_id = $1`,
-    [settlementId]
+export async function hasExecutionForSettlement(
+  tenantId: string,
+  settlementId: string
+): Promise<boolean> {
+  const row = await runQueryWithTenant<{ id: string }>(
+    tenantId,
+    `SELECT id FROM treasury_split_executions WHERE tenant_id = $1 AND settlement_id = $2`,
+    [tenantId, settlementId]
   );
-  return result.rows.length > 0;
+  return !!row;
 }
 
 /**
@@ -130,11 +140,12 @@ export async function hasExecutionForIdempotencyKey(
   tenantId: string,
   idempotencyKey: string
 ): Promise<boolean> {
-  const result = await pool.query<{ id: string }>(
+  const row = await runQueryWithTenant<{ id: string }>(
+    tenantId,
     `SELECT id FROM treasury_split_executions WHERE tenant_id = $1 AND idempotency_key = $2`,
     [tenantId, idempotencyKey]
   );
-  return result.rows.length > 0;
+  return !!row;
 }
 
 /**
@@ -148,35 +159,15 @@ export interface SettlementPendingSplit {
   currency: string;
 }
 
-export async function listSettlementsPendingSplit(limit: number): Promise<SettlementPendingSplit[]> {
-  const result = await pool.query<{
-    id: string;
-    tenant_id: string;
-    amount_cents: string;
-    currency: string;
-  }>(
-    `SELECT s.id, s.tenant_id, s.amount_cents, s.currency
-     FROM bank_settlements s
-     LEFT JOIN treasury_split_executions e ON e.settlement_id = s.id
-     WHERE s.status = 'sent' AND e.id IS NULL
-     ORDER BY s.created_at ASC
-     LIMIT $1`,
-    [limit]
-  );
-  return result.rows.map((r) => ({
-    settlementId: r.id,
-    tenantId: r.tenant_id,
-    amountCents: parseInt(String(r.amount_cents), 10),
-    currency: r.currency,
-  }));
-}
-
 /**
- * Captura atômica de settlements pendentes de split: FOR UPDATE SKIP LOCKED.
- * O client deve estar em transação; o lock é mantido até COMMIT/ROLLBACK.
+ * Captura atômica de settlements pendentes de split DE UM TENANT: FOR UPDATE SKIP LOCKED.
+ * O client deve estar em transação E vir de getClientWithTenant(tenantId) — o worker chama isto
+ * dentro do tenant-loop (DECISION-0149). Lê bank_settlements (RLS+FORCE desde 20260702160000).
+ * (A antiga listSettlementsPendingSplit cross-tenant foi removida: zero callers — código morto.)
  */
 export async function claimNextSettlementsPendingSplit(
   client: PoolClient,
+  tenantId: string,
   limit: number
 ): Promise<SettlementPendingSplit[]> {
   const result = await client.query<{
@@ -188,11 +179,11 @@ export async function claimNextSettlementsPendingSplit(
     `SELECT s.id, s.tenant_id, s.amount_cents, s.currency
      FROM bank_settlements s
      LEFT JOIN treasury_split_executions e ON e.settlement_id = s.id
-     WHERE s.status = 'sent' AND e.id IS NULL
+     WHERE s.status = 'sent' AND e.id IS NULL AND s.tenant_id = $2
      ORDER BY s.created_at ASC
      LIMIT $1
      FOR UPDATE OF s SKIP LOCKED`,
-    [limit]
+    [limit, tenantId]
   );
   return result.rows.map((r) => ({
     settlementId: r.id,

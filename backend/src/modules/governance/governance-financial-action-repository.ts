@@ -1,7 +1,10 @@
 // Governance Financial Action Repository — tabela governance_financial_actions.
 // Não escreve em bank_transactions nem bank_ledger. Ações são processadas via PaymentIntent.
+// F-GROUP-B-FINANCIAL-WORKERS-TENANT-LOOP-RLS (DECISION-0149): listagem de pendências é
+// TENANT-SCOPED — o worker itera tenants (tenant-loop); governance_financial_actions está sob
+// RLS+FORCE desde 20260702170000.
 
-import { runQueryWithTenant, pool } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export type GovernanceActionStatus = 'pending' | 'processed' | 'failed';
 
@@ -75,18 +78,23 @@ export async function createFinancialAction(
 }
 
 /**
- * Lista ações com status 'pending' (para o worker).
+ * Lista ações com status 'pending' DE UM TENANT (para o worker, dentro do tenant-loop).
+ * TENANT-SCOPED (DECISION-0149) — compatível com RLS+FORCE em governance_financial_actions.
  */
-export async function listPendingActions(limit = 50): Promise<GovernanceFinancialAction[]> {
-  const result = await pool.query<GovernanceFinancialActionRow>(
+export async function listPendingActions(
+  tenantId: string,
+  limit = 50
+): Promise<GovernanceFinancialAction[]> {
+  const rows = await runQueriesWithTenant<GovernanceFinancialActionRow>(
+    tenantId,
     `SELECT id, tenant_id, proposal_id, action_type, reference_id, payload, status, created_at, processed_at
      FROM governance_financial_actions
-     WHERE status = 'pending'
+     WHERE status = 'pending' AND tenant_id = $1
      ORDER BY created_at ASC
-     LIMIT $1`,
-    [limit]
+     LIMIT $2`,
+    [tenantId, limit]
   );
-  return result.rows.map(toAction);
+  return rows.map(toAction);
 }
 
 /**
