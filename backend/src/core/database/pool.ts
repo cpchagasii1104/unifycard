@@ -147,6 +147,27 @@ export async function getClientWithTenant(tenantId: string): Promise<PoolClient>
 }
 
 /**
+ * F-CATALOG-RLS-SCOPED-ISOLATION (DT-CATALOG-RLS-SCOPED-NO-ISOLATION): bypass de tenant para
+ * curadoria PLATAFORMA-WIDE (admin), espelhando getClientWithTenant. SOMENTE para código
+ * já gated por fastify.requireRole(['admin']) NA ROTA — nunca deriva de input do cliente.
+ * A policy de RLS (canonical_services/canonical_catalog_events) reconhece
+ * current_setting('app.is_platform_admin', true) = 'true' como 3ª condição de visibilidade,
+ * ao lado de global (tenant_id IS NULL) e scoped-do-próprio-tenant. Chamar isto fora de uma rota
+ * já autorizada por role admin é uma violação de autoridade — não há verificação de role aqui,
+ * o caller é responsável por já ter validado.
+ */
+export async function getClientWithPlatformAdmin(): Promise<PoolClient> {
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT set_config('app.is_platform_admin', 'true', true)");
+    return client;
+  } catch (err) {
+    client.release();
+    throw err;
+  }
+}
+
+/**
  * Executa query que retorna UMA ÚNICA ROW com tenant context
  * Retorna undefined se não encontrar nada
  */

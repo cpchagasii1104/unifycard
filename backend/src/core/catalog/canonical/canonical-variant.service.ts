@@ -5,6 +5,7 @@
 // Sem preço; sem estoque (oferta/actor). Dedup concorrente fail-closed via
 // UNIQUE + retry de leitura. Trilha em canonical_catalog_events (append-only).
 
+import type { PoolClient } from 'pg';
 import { pool } from '../../database/pool';
 import { canonicalUnitsService } from './canonical-units.service';
 import { computeVariantFingerprintV1 } from './catalog-identity';
@@ -78,15 +79,27 @@ function isUniqueViolation(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505';
 }
 
-async function insertCatalogEvent(input: {
-  entityType: 'canonical_product' | 'canonical_variant' | 'canonical_service' | 'media_asset';
-  entityId: string;
-  eventType: string;
-  payload?: Record<string, unknown>;
-  actorId?: string | null;
-  tenantId?: string | null;
-}): Promise<void> {
-  await pool.query(
+/**
+ * F-CATALOG-RLS-SCOPED-ISOLATION: canonical_catalog_events tem RLS (leitura tenant-scoped +
+ * admin-bypass; escrita permanece permissiva — WITH CHECK(true), ver migration 20260702130000).
+ * `client` opcional: se o caller já tem um client com contexto setado (tenant ou admin — ex.
+ * canonical-service.service.ts), passa aqui para reaproveitar a MESMA transação/sessão. Callers
+ * de produto (canonical-variant.service.ts, OUT of scope desta DT) continuam sem passar client —
+ * caem no pool.query cru de sempre; a leitura é o que a DT protege, a escrita permanece aberta.
+ */
+async function insertCatalogEvent(
+  input: {
+    entityType: 'canonical_product' | 'canonical_variant' | 'canonical_service' | 'media_asset';
+    entityId: string;
+    eventType: string;
+    payload?: Record<string, unknown>;
+    actorId?: string | null;
+    tenantId?: string | null;
+  },
+  client?: PoolClient
+): Promise<void> {
+  const runner = client ?? pool;
+  await runner.query(
     `INSERT INTO canonical_catalog_events (entity_type, entity_id, event_type, payload, actor_id, tenant_id)
      VALUES ($1, $2::uuid, $3, $4::jsonb, $5, $6)`,
     [

@@ -7,7 +7,7 @@
 // pode promover scoped→global. Merge é redirect append-only (sem rewrite):
 // referências antigas resolvem para o vencedor; ofertas não são destruídas.
 
-import { pool } from '../../database/pool';
+import { pool, getClientWithPlatformAdmin } from '../../database/pool';
 import { recordConceptResolutionHumanConfirmedAudit } from '../canonical/canonical-concept-resolution-audit';
 import { insertCatalogEvent } from '../canonical/canonical-variant.service';
 
@@ -60,10 +60,19 @@ export const catalogCurationService = {
         WHERE q.status = 'pending'
         ORDER BY q.created_at ASC`
     );
-    const services = await pool.query<{ id: string; name: string; slug: string; tenant_id: string | null; concept_id: string }>(
-      `SELECT id, name, slug, tenant_id, concept_id FROM canonical_services
-        WHERE status = 'pending_curation' ORDER BY created_at ASC`
-    );
+    // F-CATALOG-RLS-SCOPED-ISOLATION: canonical_services tem RLS+FORCE — fila de curadoria é
+    // ADMIN-ONLY (rota /curation/queue exige requireRole(['admin'])) e É plataforma-wide POR
+    // DESENHO (curador vê sugestões de TODOS os tenants); usa admin-bypass, não tenant-context.
+    const adminClient = await getClientWithPlatformAdmin();
+    let services: { rows: Array<{ id: string; name: string; slug: string; tenant_id: string | null; concept_id: string }> };
+    try {
+      services = await adminClient.query<{ id: string; name: string; slug: string; tenant_id: string | null; concept_id: string }>(
+        `SELECT id, name, slug, tenant_id, concept_id FROM canonical_services
+          WHERE status = 'pending_curation' ORDER BY created_at ASC`
+      );
+    } finally {
+      adminClient.release();
+    }
     return {
       products: products.rows.map((r) => ({
         queueId: r.queue_id,

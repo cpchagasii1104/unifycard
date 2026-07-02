@@ -4,8 +4,17 @@
 // governados (ex.: duração-base); SEM preço empresarial; SEM agenda empresarial.
 // global ∪ scoped (contrato 2B). Empresa SUGERE (pending_curation); curador
 // humano ativa. Merge por redirect (G). Trilha append-only.
+//
+// F-CATALOG-RLS-SCOPED-ISOLATION (DT-CATALOG-RLS-SCOPED-NO-ISOLATION): canonical_services tem
+// RLS+FORCE (migration 20260702130000). Toda query passa por um client com contexto explícito —
+// tenant (getClientWithTenant) para leitura/escrita do PRÓPRIO tenant, ou admin-bypass
+// (getClientWithPlatformAdmin) para curadoria plataforma-wide (approve/mergeInto/listPending,
+// SEMPRE atrás de fastify.requireRole(['admin']) na rota). pool.query cru NUNCA mais toca esta
+// tabela — sem contexto, RLS devolveria 0 linhas (scope='global' continua visível, mas 'scoped'
+// exigiria tenant_id::text = current_setting('app.current_tenant') que nunca seria setado).
 
-import { pool } from '../../database/pool';
+import { PoolClient } from 'pg';
+import { pool, getClientWithTenant, getClientWithPlatformAdmin } from '../../database/pool';
 import { insertCatalogEvent } from './canonical-variant.service';
 import { normalizeForIdentity } from './catalog-identity';
 import { resolveConceptsFromSearchTerm } from '../../semantic/semantic.adapter';
@@ -75,39 +84,54 @@ function slugify(name: string): string {
   return normalizeForIdentity(name).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-/** Visibilidade 2B: global (tenant NULL) ∪ scoped do tenant do contexto. */
+/** Visibilidade 2B: global (tenant NULL) ∪ scoped do tenant do contexto. Redundante com a RLS
+ * (defesa em profundidade) — RLS já filtra as linhas antes desta cláusula rodar. */
 const CS_VISIBLE = `((cs.scope = 'global' AND cs.tenant_id IS NULL) OR (cs.scope = 'scoped' AND cs.tenant_id = $1::uuid))`;
 
-export const canonicalServiceService = {
-  async findById(canonicalServiceId: string): Promise<CanonicalService | null> {
-    const r = await pool.query<CsRow>(
+type QueryCtx = { kind: 'tenant'; tenantId: string } | { kind: 'admin' };
+
+async function withCtx<T>(ctx: QueryCtx, fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = ctx.kind === 'admin' ? await getClientWithPlatformAdmin() : await getClientWithTenant(ctx.tenantId);
+  try {
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}
+
+async function findByIdCtx(ctx: QueryCtx, canonicalServiceId: string): Promise<CanonicalService | null> {
+  return withCtx(ctx, async (client) => {
+    const r = await client.query<CsRow>(
       `SELECT ${CS_SELECT} FROM canonical_services WHERE id = $1::uuid LIMIT 1`,
       [canonicalServiceId]
     );
     return r.rows[0] ? toCanonicalService(r.rows[0]) : null;
-  },
+  });
+}
 
-  /** Resolve redirect de merge até o vencedor (máx. 5 saltos, loop-safe). */
-  async resolveRedirect(canonicalServiceId: string): Promise<CanonicalService | null> {
-    let current = await this.findById(canonicalServiceId);
-    const seen = new Set<string>();
-    let hops = 0;
-    while (current?.duplicateOfCanonicalServiceId && hops < 5 && !seen.has(current.id)) {
-      seen.add(current.id);
-      const next = await this.findById(current.duplicateOfCanonicalServiceId);
-      if (!next) break;
-      current = next;
-      hops += 1;
-    }
-    return current;
-  },
+/** Resolve redirect de merge até o vencedor (máx. 5 saltos, loop-safe), dentro do contexto dado. */
+async function resolveRedirectCtx(ctx: QueryCtx, canonicalServiceId: string): Promise<CanonicalService | null> {
+  let current = await findByIdCtx(ctx, canonicalServiceId);
+  const seen = new Set<string>();
+  let hops = 0;
+  while (current?.duplicateOfCanonicalServiceId && hops < 5 && !seen.has(current.id)) {
+    seen.add(current.id);
+    const next = await findByIdCtx(ctx, current.duplicateOfCanonicalServiceId);
+    if (!next) break;
+    current = next;
+    hops += 1;
+  }
+  return current;
+}
 
+export const canonicalServiceService = {
   /**
    * Identidade ATIVA visível para o tenant (uso comercial — writer de services
    * e ofertas). Resolve redirect; exige status='active'. Fail-closed.
    */
   async requireActiveForTenant(tenantId: string, canonicalServiceId: string): Promise<CanonicalService> {
-    const resolved = await this.resolveRedirect(canonicalServiceId);
+    const ctx: QueryCtx = { kind: 'tenant', tenantId };
+    const resolved = await resolveRedirectCtx(ctx, canonicalServiceId);
     if (!resolved) {
       throw new CanonicalServiceError(404, 'CANONICAL_SERVICE_NOT_FOUND', 'Serviço canônico inexistente.');
     }
@@ -129,15 +153,17 @@ export const canonicalServiceService = {
 
   async searchVisible(tenantId: string, query?: string): Promise<CanonicalService[]> {
     const q = String(query ?? '').trim();
-    const r = await pool.query<CsRow>(
-      `SELECT ${CS_SELECT} FROM canonical_services cs
-        WHERE ${CS_VISIBLE} AND cs.status = 'active'
-          ${q ? `AND LOWER(cs.name) LIKE '%' || LOWER($2) || '%'` : ''}
-        ORDER BY (cs.scope = 'scoped') DESC, cs.created_at ASC
-        LIMIT 50`,
-      q ? [tenantId, q] : [tenantId]
-    );
-    return r.rows.map(toCanonicalService);
+    return withCtx({ kind: 'tenant', tenantId }, async (client) => {
+      const r = await client.query<CsRow>(
+        `SELECT ${CS_SELECT} FROM canonical_services cs
+          WHERE ${CS_VISIBLE} AND cs.status = 'active'
+            ${q ? `AND LOWER(cs.name) LIKE '%' || LOWER($2) || '%'` : ''}
+          ORDER BY (cs.scope = 'scoped') DESC, cs.created_at ASC
+          LIMIT 50`,
+        q ? [tenantId, q] : [tenantId]
+      );
+      return r.rows.map(toCanonicalService);
+    });
   },
 
   /**
@@ -200,17 +226,19 @@ export const canonicalServiceService = {
         )`;
     }
 
-    const r = await pool.query<CsRow>(
-      `SELECT ${CS_SELECT} FROM canonical_services cs
-        WHERE ${CS_VISIBLE} AND cs.status = 'active'
-          AND cs.concept_id IS NOT NULL
-          AND ${eligibilitySql}
-          ${termSql}
-        ORDER BY (cs.scope = 'scoped') DESC, cs.created_at ASC
-        LIMIT 50`,
-      params
-    );
-    return r.rows.map(toCanonicalService);
+    return withCtx({ kind: 'tenant', tenantId }, async (client) => {
+      const r = await client.query<CsRow>(
+        `SELECT ${CS_SELECT} FROM canonical_services cs
+          WHERE ${CS_VISIBLE} AND cs.status = 'active'
+            AND cs.concept_id IS NOT NULL
+            AND ${eligibilitySql}
+            ${termSql}
+          ORDER BY (cs.scope = 'scoped') DESC, cs.created_at ASC
+          LIMIT 50`,
+        params
+      );
+      return r.rows.map(toCanonicalService);
+    });
   },
 
   /**
@@ -245,101 +273,127 @@ export const canonicalServiceService = {
     }
 
     const slug = slugify(name);
-    const existing = await pool.query<CsRow>(
-      `SELECT ${CS_SELECT} FROM canonical_services cs
-        WHERE ${CS_VISIBLE} AND cs.slug = $2
-        ORDER BY (cs.scope = 'global') DESC LIMIT 1`,
-      [input.tenantId, slug]
-    );
-    if (existing.rows[0]) {
-      return { canonicalService: toCanonicalService(existing.rows[0]), created: false };
-    }
+    const ctx: QueryCtx = { kind: 'tenant', tenantId: input.tenantId };
 
-    try {
-      const ins = await pool.query<CsRow>(
-        `INSERT INTO canonical_services (
-           tenant_id, scope, concept_id, name, slug, description, base_duration_minutes,
-           status, created_by_actor_id
-         ) VALUES ($1::uuid, 'scoped', $2::uuid, $3, $4, $5, $6, 'pending_curation', $7)
-         RETURNING ${CS_SELECT}`,
-        [
-          input.tenantId,
-          input.conceptId,
-          name,
-          slug,
-          input.description ?? null,
-          input.baseDurationMinutes ?? null,
-          input.createdByActorId ?? null,
-        ]
+    return withCtx(ctx, async (client) => {
+      const existing = await client.query<CsRow>(
+        `SELECT ${CS_SELECT} FROM canonical_services cs
+          WHERE ${CS_VISIBLE} AND cs.slug = $2
+          ORDER BY (cs.scope = 'global') DESC LIMIT 1`,
+        [input.tenantId, slug]
       );
-      const cs = toCanonicalService(ins.rows[0]);
-      await insertCatalogEvent({
-        entityType: 'canonical_service',
-        entityId: cs.id,
-        eventType: 'service_suggested',
-        payload: { slug, conceptId: input.conceptId },
-        actorId: input.createdByActorId ?? null,
-        tenantId: input.tenantId,
-      });
-      return { canonicalService: cs, created: true };
-    } catch (err) {
-      if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505') {
-        const retry = await pool.query<CsRow>(
-          `SELECT ${CS_SELECT} FROM canonical_services cs
-            WHERE ${CS_VISIBLE} AND cs.slug = $2 LIMIT 1`,
-          [input.tenantId, slug]
-        );
-        if (retry.rows[0]) return { canonicalService: toCanonicalService(retry.rows[0]), created: false };
+      if (existing.rows[0]) {
+        return { canonicalService: toCanonicalService(existing.rows[0]), created: false };
       }
-      throw err;
-    }
+
+      try {
+        const ins = await client.query<CsRow>(
+          `INSERT INTO canonical_services (
+             tenant_id, scope, concept_id, name, slug, description, base_duration_minutes,
+             status, created_by_actor_id
+           ) VALUES ($1::uuid, 'scoped', $2::uuid, $3, $4, $5, $6, 'pending_curation', $7)
+           RETURNING ${CS_SELECT}`,
+          [
+            input.tenantId,
+            input.conceptId,
+            name,
+            slug,
+            input.description ?? null,
+            input.baseDurationMinutes ?? null,
+            input.createdByActorId ?? null,
+          ]
+        );
+        const cs = toCanonicalService(ins.rows[0]);
+        await insertCatalogEvent(
+          {
+            entityType: 'canonical_service',
+            entityId: cs.id,
+            eventType: 'service_suggested',
+            payload: { slug, conceptId: input.conceptId },
+            actorId: input.createdByActorId ?? null,
+            tenantId: input.tenantId,
+          },
+          client
+        );
+        return { canonicalService: cs, created: true };
+      } catch (err) {
+        if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505') {
+          const retry = await client.query<CsRow>(
+            `SELECT ${CS_SELECT} FROM canonical_services cs
+              WHERE ${CS_VISIBLE} AND cs.slug = $2 LIMIT 1`,
+            [input.tenantId, slug]
+          );
+          if (retry.rows[0]) return { canonicalService: toCanonicalService(retry.rows[0]), created: false };
+        }
+        throw err;
+      }
+    });
   },
 
-  /** Curadoria: ativa serviço canônico pendente (curador humano explícito). */
+  /**
+   * Curadoria (ADMIN-ONLY — a rota exige fastify.requireRole(['admin'])): ativa serviço canônico
+   * pendente. Cross-tenant por desenho (curador de plataforma cura vocabulário compartilhado de
+   * TODOS os tenants) — usa admin-bypass, nunca tenant-context.
+   */
   async approve(input: { canonicalServiceId: string; actorId: string }): Promise<CanonicalService> {
-    const cs = await this.findById(input.canonicalServiceId);
+    const ctx: QueryCtx = { kind: 'admin' };
+    const cs = await findByIdCtx(ctx, input.canonicalServiceId);
     if (!cs) throw new CanonicalServiceError(404, 'CANONICAL_SERVICE_NOT_FOUND', 'Serviço canônico inexistente.');
     if (cs.status === 'active') return cs; // idempotente
-    await pool.query(
-      `UPDATE canonical_services SET status = 'active', updated_at = NOW() WHERE id = $1::uuid`,
-      [cs.id]
-    );
-    await insertCatalogEvent({
-      entityType: 'canonical_service',
-      entityId: cs.id,
-      eventType: 'service_curation_approved',
-      payload: {},
-      actorId: input.actorId,
-      tenantId: cs.tenantId,
+    await withCtx(ctx, async (client) => {
+      await client.query(
+        `UPDATE canonical_services SET status = 'active', updated_at = NOW() WHERE id = $1::uuid`,
+        [cs.id]
+      );
+      await insertCatalogEvent(
+        {
+          entityType: 'canonical_service',
+          entityId: cs.id,
+          eventType: 'service_curation_approved',
+          payload: {},
+          actorId: input.actorId,
+          tenantId: cs.tenantId,
+        },
+        client
+      );
     });
     return { ...cs, status: 'active' };
   },
 
-  /** Merge curatorial (G): duplicate → winner por redirect; append-only; idempotente. */
+  /**
+   * Merge curatorial (G, ADMIN-ONLY): duplicate → winner por redirect; append-only; idempotente.
+   * Cross-tenant por desenho, mesma justificativa de approve() — admin-bypass.
+   */
   async mergeInto(input: { duplicateId: string; winnerId: string; actorId: string }): Promise<void> {
     if (input.duplicateId === input.winnerId) {
       throw new CanonicalServiceError(400, 'MERGE_SELF', 'Serviço canônico não pode ser merge de si mesmo.');
     }
-    const dup = await this.findById(input.duplicateId);
-    const winner = await this.findById(input.winnerId);
+    const ctx: QueryCtx = { kind: 'admin' };
+    const dup = await findByIdCtx(ctx, input.duplicateId);
+    const winner = await findByIdCtx(ctx, input.winnerId);
     if (!dup || !winner) throw new CanonicalServiceError(404, 'CANONICAL_SERVICE_NOT_FOUND', 'Serviço inexistente no merge.');
     if (dup.duplicateOfCanonicalServiceId === winner.id) return; // idempotente
     if (winner.duplicateOfCanonicalServiceId) {
       throw new CanonicalServiceError(409, 'MERGE_WINNER_IS_DUPLICATE', 'Vencedor já é redirect de outro serviço.');
     }
-    await pool.query(
-      `UPDATE canonical_services
-          SET duplicate_of_canonical_service_id = $2::uuid, status = 'retired', updated_at = NOW()
-        WHERE id = $1::uuid`,
-      [dup.id, winner.id]
-    );
-    await insertCatalogEvent({
-      entityType: 'canonical_service',
-      entityId: dup.id,
-      eventType: 'service_merged_into',
-      payload: { winnerId: winner.id },
-      actorId: input.actorId,
-      tenantId: dup.tenantId,
+    await withCtx(ctx, async (client) => {
+      await client.query(
+        `UPDATE canonical_services
+            SET duplicate_of_canonical_service_id = $2::uuid, status = 'retired', updated_at = NOW()
+          WHERE id = $1::uuid`,
+        [dup.id, winner.id]
+      );
+      await insertCatalogEvent(
+        {
+          entityType: 'canonical_service',
+          entityId: dup.id,
+          eventType: 'service_merged_into',
+          payload: { winnerId: winner.id },
+          actorId: input.actorId,
+          tenantId: dup.tenantId,
+        },
+        client
+      );
     });
   },
 };
