@@ -1,3 +1,17 @@
+## 2026-07-02 — F-SERVICE-DISCOVERY-FUTURE-AVAILABILITY-SLICE-B · ✅ MATERIAL / CLOSEOUT — fecha DT-SERVICE-DISCOVERY-IGNORES-FUTURE-AVAILABILITY (MEDIUM-HIGH, 3ª das 10 do raio-X original) · 7ª dívida técnica resolvida hoje · desbloqueia DT-SERVICE-BOOKING-REQUESTED-EFFECT-NOT-EMITTED
+
+READ-FIRST ("tratamento Enterprise") revelou que o problema real era menor do que parecia: a vitrine do frontend usa só `GET /services/discover` (canônico, já parcialmente corrigido em frente anterior) — o trilho paralelo do blob com bug de timezone (`services-discovery.service.ts`) não é chamado pelo frontend pra descoberta principal. Isso evitou expandir escopo pra 2 outras dívidas (blob paralelo, trilho de reserva paralelo) que ficam próprias.
+
+**Trabalho:** a função canônica que já verificava "tem agenda futura" (D2, de frente anterior) ganhou um parâmetro de janela opcional pra também verificar "tem agenda que sobrepõe ESSE range de data" (D3). O filtro agora dispara sozinho quando `starts_at`/`ends_at` são passados — antes, só disparava se o front TAMBÉM mandasse um flag `has_availability=true` explícito, que quase nunca acontecia na prática.
+
+**Achado extra:** o frontend mandava a data com nome errado (`start_date`/`end_date`) pro backend, que espera `starts_at`/`ends_at` — os filtros de data nunca chegavam ao backend, independente do resto do fix. Corrigido junto.
+
+Browse padrão (sem data, sem flag) continua mostrando todo mundo — não mudei esse comportamento, só ativei o filtro quando o cliente pede um range específico. E2E via rota real 5/5, incluindo o teste que prova exatamente o bug relatado: pedir uma data sem marcar o checkbox agora filtra corretamente. HEAD material `52a3f52ba`.
+
+**Restam 3 do raio-X original**, todas sobre o MESMO arquivo (`services-discovery.service.ts`) e intertravadas entre si: blob paralelo com bug de TZ, trilho de reserva paralelo, e o effect de notificação que agora está desbloqueado (dependia desta fatia + da anterior, ambas fechadas).
+
+---
+
 ## 2026-07-02 — F-CATALOG-RLS-SCOPED-ISOLATION · ✅ MATERIAL / CLOSEOUT — fecha DT-CATALOG-RLS-SCOPED-NO-ISOLATION (MED-HIGH, 2ª das 10 do raio-X original) · 6ª dívida técnica resolvida hoje · maior fatia do dia (refactor de camada de serviço + RLS + admin-bypass)
 
 Clayton pediu pra seguir "o método Enterprise" pra esta. READ-FIRST revelou que o texto original da dívida (fórmula pronta de RLS) SUBESTIMAVA o escopo real — dois achados pararam a execução duas vezes:
