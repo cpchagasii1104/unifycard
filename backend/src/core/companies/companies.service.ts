@@ -2094,11 +2094,17 @@ class CompaniesService {
       paramIdx++;
     }
 
-    if (input.metadata !== undefined) {
-      updates.push(`metadata = $${paramIdx}`);
-      values.push(JSON.stringify(input.metadata));
-      paramIdx++;
-    }
+    // F-COMPANY-METADATA-GHOST-CLEANUP: bloco `input.metadata` REMOVIDO — montava
+    // `UPDATE companies SET metadata = ...` numa coluna INEXISTENTE (42703 real, reproduzido: o wizard
+    // de onboarding NUNCA conseguiu concluir "Finalizar Configuração" — todo submit quebrava aqui).
+    // Mesma classe de ghost já tratada para `activity` (DECISION-0103 D12, comentário acima). O zod
+    // schema (updateCompanySchema, companies.routes.ts) continua aceitando `metadata` no body — mantido
+    // por consistência com `activity`, que também segue aceito e silenciosamente não-persistido — mas
+    // o service não tenta mais escrevê-lo. `companies.metadata.onboarding` (config de UX do wizard —
+    // módulos/papéis) NUNCA teve leitor (grep confirmado). `onboardingCompleted` TEM leitor
+    // (CompanyOnboardingPage.tsx, gate "onboarding já concluído") mas SEMPRE avaliava falso — a coluna
+    // nunca existiu nem para leitura. Esse gate nunca funcionou; DT registrada separadamente
+    // (não é crítico: usuário só reabre o wizard, não perde dado nenhum).
 
     // DECISION-0090 Fase 2.1: branch latente de `company_status` REMOVIDO. updateCompany não escreve
     // mais company_status por input — verificação fiscal tem fonte única (fiscal_identities.kyb_status)
