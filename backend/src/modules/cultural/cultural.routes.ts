@@ -516,6 +516,26 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
       const actorId = req.body.target_actor_id || actor.actor_id;
       const actorType = req.body.target_actor_type || 'user';
 
+      // 🔴 F-CULTURAL-CHECKIN-TARGET-AUTHORITY-BINDING-SLICE-A (DECISION-0113 residual · authority · money-free):
+      // AUTO/QR_CODE NÃO podem gravar presença em nome de actor alheio declarado no body (target_actor_id é
+      // HINT/target, NUNCA autoridade). Política: self permitido; actor representável permitido
+      // (canRepresentActor resolvido SERVER-SIDE a partir de req.user.id); alheio não representável → 403
+      // fail-closed ANTES de qualquer escrita em cultural_event_checkins. MANUAL é preservado: o gate de
+      // validador/portaria (canValidateCheckIn) vive no service e continua sendo a autoridade daquele fluxo.
+      if (
+        (req.body.method === 'AUTO' || req.body.method === 'QR_CODE') &&
+        actorId !== actor.actor_id
+      ) {
+        const { authorizationService } = await import('@core/authorization/authorization.service');
+        const canRepresent = await authorizationService.canRepresentActor(req.tenant.id, req.user.id, actorId);
+        if (!canRepresent) {
+          return reply.status(403).send({
+            error: 'Sem autoridade para fazer check-in em nome do actor declarado',
+            code: 'CULTURAL_CHECKIN_TARGET_NOT_REPRESENTABLE',
+          });
+        }
+      }
+
       const result = await culturalEventService.checkIn(
         req.tenant.id,
         req.params.eventId,
