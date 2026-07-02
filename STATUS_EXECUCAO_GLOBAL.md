@@ -1,3 +1,17 @@
+## 2026-07-02 — F-AVAILABILITY-CONFLICT-DETECTION-STUB-FIX · ✅ MATERIAL / CLOSEOUT — fecha DT-AVAILABILITY-CONFLICT-DETECTION-STUB · 🏁 11ª dívida técnica resolvida hoje — fecha a ÚLTIMA das 7 DTs originais da DECISION-0156
+
+Clayton trouxe 3 relatórios de ontem (auditoria de busca/orquestração/dispatch + o READ-FIRST completo que virou a DECISION-0156) e pediu pra analisar se sobrava alguma frente. Cruzei os 7 achados originais da DECISION-0156 contra o que já tinha sido fechado hoje: 6 das 7 já estavam resolvidas (5 nesta sessão + 1 numa fatia anterior no mesmo dia, o double-booking HIGH). Sobrou exatamente 1: a função de detecção de conflito pessoal de agenda, que era um corpo vazio (sempre retornava "nenhum conflito", mesmo quando havia).
+
+O resto do material que ele trouxe (busca fragmentada em 14 sistemas separados, motor de despacho automático tipo Uber morto/latente) já vinha classificado no próprio relatório como "não mexer agora" — não virou fatia.
+
+**Trabalho:** entendi a semântica exata lendo o único lugar que chama essa função (o mesmo trecho de código que toquei mais cedo hoje, ao lado da emissão do aviso ao prestador) — ela avisa a PESSOA QUE ESTÁ RESERVANDO se ela já tem outro compromisso pessoal no mesmo horário, não é o mesmo guard que impede dois clientes reservarem o mesmo prestador ao mesmo tempo (esse já estava resolvido). Escrevi a lógica real e corrigi 3 comentários que afirmavam existir uma proteção automática que nunca existiu.
+
+E2E 9/9, incluindo a prova de que o aviso chega pra pessoa certa. Migration aplicada em `unificard_dev`. HEAD material `7903224c1`.
+
+**Marco:** com essa, as 7 dívidas que a DECISION-0156 abriu ontem estão todas fechadas. Somando com a leva de 10 fechada mais cedo hoje (raio-X mais amplo do mesmo dia), a cadeia de achados de 2026-07-01 está integralmente resolvida.
+
+---
+
 ## 2026-07-02 — F-SERVICE-BOOKING-REQUESTED-EFFECT-EMISSION · ✅ MATERIAL / CLOSEOUT — fecha DT-SERVICE-BOOKING-REQUESTED-EFFECT-NOT-EMITTED · 🏁 10ª e ÚLTIMA dívida técnica resolvida hoje — fecha TODAS as 10 DTs confirmadas vivas no raio-X original de 2026-07-01 (DECISION-0156)
 
 Era a única que dependia de ordem — a norma dizia "só emitir o aviso depois que agenda e busca estiverem honestas" (senão o prestador seria avisado de uma reserva que na verdade não tinha horário real por trás). As duas dependências já tinham fechado hoje mesmo, então essa liberou sozinha.
