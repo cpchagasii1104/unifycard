@@ -733,6 +733,39 @@ export class ActorRepository {
       } as ActorRow & { user_role?: string; can_post?: boolean; company_status?: string });
     }
 
+    // 3. Actors de grupos onde o usuário é membro
+    // F-ACTOR-AVAILABLE-GROUP-COVERAGE (2026-07-02): a "Fase 3C.3" (2026-05-30) já materializa o
+    // group-actor atomicamente em ensureGroupActor (createGroup), mas esta listagem NUNCA foi
+    // estendida para incluí-lo — diferente de empresa (que tem um gate operacional DELIBERADO,
+    // Momento 1 vs Momento 2), grupo não tinha NENHUM caminho de listagem: lacuna, não decisão.
+    // Espelha o padrão de empresa (tenant-scoped, membership real), sem gate de "momento" análogo
+    // (não existe Momento 2 documentado para grupo — group_members.role já é a autoridade viva).
+    const groupActors = await runQueriesWithTenant<ActorRow & { role: string }>(
+      tenantId,
+      `
+      SELECT
+        a.*,
+        gm.role
+      FROM actors a
+      INNER JOIN groups g ON a.group_id = g.id AND g.tenant_id = $1
+      INNER JOIN group_members gm ON gm.group_id = g.id AND gm.tenant_id = $1
+      WHERE a.tenant_id = $1
+        AND a.actor_type = 'group'
+        AND gm.user_id = $2
+        AND g.status = 'active'
+      ORDER BY g.created_at DESC
+      `,
+      [tenantId, userId]
+    );
+
+    for (const groupActor of groupActors) {
+      actors.push({
+        ...groupActor,
+        user_role: groupActor.role,
+        can_post: true, // membro de grupo pode postar em nome do grupo (mesma semântica de PF)
+      } as ActorRow & { user_role?: string; can_post?: boolean });
+    }
+
     return actors;
   }
 

@@ -25,6 +25,7 @@ const guards = [
   'audit-core-feed-batch-post-id-column-fix.mjs',                 // getPostsBatch + renderBatch — id AS post_id; intent via LEGACY_INTENT_MAP
   'audit-unread-counts-feed-visibility-fix.mjs',                  // unread-counts feed/social — predicado vivo, sem visibility fantasma
   'audit-actor-mode-surface-clarity-slice.mjs',                   // Slice 2 — pílula quem×modo + dono do extrato + PROFILE_CHANNEL contido
+  'audit-actor-available-group-coverage.mjs',                     // findAvailableActors lista grupos (membership real, tenant-scoped, active)
 ];
 
 let failed = false;
