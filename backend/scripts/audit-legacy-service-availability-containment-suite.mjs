@@ -13,6 +13,7 @@ const guards = [
   'audit-legacy-service-availability-feed-badge-containment.mjs', // A2c — service-feed badge/BOOK
   'audit-discovery-has-availability-canonical-filter.mjs',        // A2d — filtro has_availability canônico
   'audit-provider-availability-readers-canonical.mjs',            // A2e — readers do prestador (R4/R5)
+  'audit-event-rfq-legacy-availability-antirevival-guard.mjs',    // RFQ — writer legado rfq_accept congelado
 ];
 
 let failed = false;
@@ -28,4 +29,4 @@ if (failed) {
   console.error('GATE FAIL [legacy-service-availability-containment-suite] — ao menos um guard de contenção legada falhou (ver acima).');
   process.exit(1);
 }
-console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) blindados.');
+console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação blindados.');
