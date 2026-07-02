@@ -170,10 +170,9 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
     const { runQueryWithTenant } = await import('@core/database/pool');
 
     // F-C1-AUTO-REACHABLE-READ-PURITY: erro estrutural NÃO vira ZERO FALSO. Cada contador é
-    // isolado; falha (ex.: a query legada de `feed` referencia `posts.visibility`, coluna fantasma
-    // no schema vivo — DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN) retorna **null**
-    // (indisponível/honesto), NÃO 0. O frontend distingue "0 novas" (contado) de "indisponível"
-    // (null). Member-scoping de groups/services segue executando.
+    // isolado; falha retorna **null** (indisponível/honesto), NÃO 0. O frontend distingue "0 novas"
+    // (contado) de "indisponível" (null). Member-scoping de groups/services segue executando. Defesa
+    // em profundidade preservada mesmo após o fix abaixo (F-UNREAD-COUNTS-FEED-VISIBILITY-FIX).
     const countOrNull = async (counter: string, sql: string, params: unknown[]): Promise<number | null> => {
       try {
         const row = await runQueryWithTenant<{ count: string }>(tenantId, sql, params);
@@ -184,7 +183,12 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
       }
     };
 
-    // Feed: posts das últimas 24h (INTOCADO — tenant-wide público por decisão de produto)
+    // 🔴 F-UNREAD-COUNTS-FEED-VISIBILITY-FIX (DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN):
+    // Feed: posts das últimas 24h, tenant-wide público (escopo JÁ ratificado no GO do Cluster 1,
+    // DECISION-0115 D1). `posts.visibility` NUNCA existiu no schema vivo (20260530300000) — o
+    // predicado quebrava sempre (countOrNull mascarava como null). Corrigido para o MESMO predicado
+    // já usado pelo contador `services` abaixo, na mesma tabela, para a mesma pergunta ("isto é
+    // público?"): publicado + não deletado + fora de grupo (fronteira não-pública materializada hoje).
     const oneDayAgo = new Date();
     oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
@@ -195,7 +199,9 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
       FROM posts
       WHERE tenant_id = $1
         AND created_at >= $2
-        AND visibility = 'PUBLIC'
+        AND is_published = true
+        AND is_deleted = false
+        AND metadata->>'groupId' IS NULL
       `,
       [tenantId, oneDayAgo]
     );

@@ -10,7 +10,10 @@
  *   - `groups`   → MEMBER-SCOPED via group_members (sujeito = req.user server-side, nunca actorId de cliente);
  *   - `services` → conta apenas conteúdo público (publicado, não deletado, fora de grupo — schema vivo de
  *                  posts NÃO tem coluna `visibility`; fronteira não-pública materializada = grupo);
- *   - `feed`/`events` → continuam tenant-wide públicos por enquanto (INTOCADOS byte-a-byte);
+ *   - `feed`     → tenant-wide público (escopo JÁ ratificado); predicado CORRIGIDO em
+ *                  F-UNREAD-COUNTS-FEED-VISIBILITY-FIX (DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN)
+ *                  para o MESMO predicado de `services` (posts.visibility nunca existiu — coluna fantasma);
+ *   - `events`   → continua tenant-wide público (INTOCADO byte-a-byte, fora do escopo desta fatia);
  *   - contrato `{ feed, groups, events, services }` preservado.
  *
  * Prova:
@@ -179,8 +182,13 @@ async function main(): Promise<void> {
       /is_published = true/.test(servicesBlock)
       && /is_deleted = false/.test(servicesBlock)
       && /metadata->>'groupId' IS NULL/.test(servicesBlock));
-    record(`B3[${name}] feed INTOCADO (tenant-wide público; predicado visibility = 'PUBLIC' preservado byte-a-byte)`,
-      /visibility = 'PUBLIC'/.test(feedBlock) && !/group_members/.test(feedBlock));
+    // 🔴 F-UNREAD-COUNTS-FEED-VISIBILITY-FIX (DT-UNREAD-COUNTS-FEED-VISIBILITY-PHANTOM-COLUMN):
+    // predicado antigo (`visibility = 'PUBLIC'`) NUNCA funcionou (coluna inexistente — countOrNull
+    // mascarava como null). Corrigido para o MESMO predicado de `services` (is_published + not
+    // deleted + fora de grupo). B3 agora prova: feed segue TENANT-WIDE PÚBLICO (sem member-scoping
+    // de group_members) e usa o predicado vivo, não mais o fantasma.
+    record(`B3[${name}] feed TENANT-WIDE PÚBLICO (predicado vivo: is_published + not deleted + fora de grupo; sem member-scoping)`,
+      /is_published = true/.test(feedBlock) && /is_deleted = false/.test(feedBlock) && /metadata->>'groupId' IS NULL/.test(feedBlock) && !/group_members/.test(feedBlock));
     record(`B4[${name}] events INTOCADO (tenant-wide público; FROM events sem membership)`,
       /FROM events/.test(eventsBlock) && /status IN \('published', 'active'\)/.test(eventsBlock) && !/group_members/.test(eventsBlock));
     record(`B5[${name}] contrato preservado: { feed, groups, events, services }`,

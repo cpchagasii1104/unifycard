@@ -95,8 +95,14 @@ async function main(): Promise<void> {
     /if \(!req\.user\)/.test(src) && /if \(!req\.actionContext\?\.actorId\)/.test(src) && /if \(!canReadFeed\)/.test(src) && /status\(403\)/.test(src));
   record('C3 não altera ranking/algoritmo: a chamada a getContextualFeed permanece (tenant, actionContext.actorId, limit)',
     /getContextualFeed\(\s*req\.tenant\.id,\s*req\.actionContext\.actorId,\s*limit/.test(src));
-  record('C4 /feed/unread-counts (público, visibility=PUBLIC) NÃO foi gateado (fora de escopo)',
-    /visibility = 'PUBLIC'/.test(src) && /unread-counts/.test(src));
+  // 🔴 F-UNREAD-COUNTS-FEED-VISIBILITY-FIX: âncora original (`visibility = 'PUBLIC'`) era o predicado
+  // QUEBRADO do contador feed (posts.visibility nunca existiu — DT-UNREAD-COUNTS-FEED-VISIBILITY-
+  // PHANTOM-COLUMN, corrigido). C4 nunca testou a semântica do predicado — testava que o handler
+  // /unread-counts NÃO foi gateado por F6.5.4 (fora de escopo daquela fatia). Âncora trocada para a
+  // identidade estável do bloco (countOrNull('feed' + rota unread-counts), sem depender do predicado.
+  const unreadCountsHandler = src.slice(src.indexOf(`'/unread-counts'`));
+  record("C4 /feed/unread-counts (contador 'feed', tenant-wide público) NÃO foi gateado (fora de escopo)",
+    /unread-counts/.test(src) && /countOrNull\(\s*\n?\s*'feed'/.test(unreadCountsHandler) && !/canRepresentActor/.test(unreadCountsHandler));
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(60)}`);
