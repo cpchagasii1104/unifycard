@@ -5,7 +5,6 @@
 import { CategoryContext } from '@unificard/contracts';
 import { categoryLexicalGateService } from './category-lexical-gate.service';
 import { occupationFormCheckerService } from './occupation-form-checker.service';
-import { cboMatcherService } from './cbo-matcher.service';
 import { categoryInputAuditService } from './category-input-audit.service';
 import { hobbyVerbHeuristicService } from './hobby-verb-heuristic.service';
 import { hobbyMatcherService } from './hobby-matcher.service';
@@ -14,8 +13,6 @@ interface GateResult {
   decision: 'ALLOW' | 'DENY' | 'REVIEW';
   reasonCode?: string;
   suggestion?: string;
-  canonicalId?: string;
-  cboCode?: string;
   confidence?: number;
   canonicalHobby?: string; // Para hobbies: hobby canônico do dataset
 }
@@ -23,7 +20,6 @@ interface GateResult {
 interface GateOptions {
   context: CategoryContext;
   skipFormCheck?: boolean; // Para admin/manual, pode pular form check
-  skipCBO?: boolean; // Para admin/manual, pode pular CBO
   tenantId?: string;
   actorId?: string;
   globalUserId?: string;
@@ -38,7 +34,7 @@ class CategoryInputGateService {
     input: string,
     options: GateOptions
   ): Promise<GateResult> {
-    const { context, skipFormCheck = false, skipCBO = false, tenantId, actorId, globalUserId } = options;
+    const { context, skipFormCheck = false, tenantId, actorId, globalUserId } = options;
 
     // ETAPA 1: Bloqueio Léxico Seguro (0-2ms)
     const lexicalCheck = categoryLexicalGateService.validate(input);
@@ -179,23 +175,15 @@ class CategoryInputGateService {
       }
     }
 
-    // ETAPA 4: CBO Match (<50ms)
-    // Aplicar para professional e education (não para company, não para hobby)
-    let cboMatch: { matched: boolean; canonicalId?: string; cboCode?: string; similarity?: number } | null = null;
-    if (!skipCBO && (context === 'professional' || context === 'education')) {
-      try {
-        cboMatch = await cboMatcherService.findMatch(input);
-      } catch (error) {
-        console.warn('[CategoryInputGate] Erro ao buscar no CBO:', error);
-      }
-    }
+    // F-CBO-MATCHER-DORMANT-LANDMINE-REMOVAL (DT-CBO-MATCHER-DORMANT-LANDMINE, Opção A):
+    // ETAPA 4 (CBO Match) removida — cboMatcherService consultava `occupations_reference`, tabela
+    // que nunca foi aplicada no schema vivo (só em migrations_archive). Toda chamada falhava em
+    // silêncio (try/catch) e devolvia null — canonicalId/cboCode/confidence sempre undefined aqui.
+    // Comportamento externo idêntico (campos já eram sempre ausentes); só o wiring morto foi retirado.
 
     // Resultado final
     return {
       decision: 'ALLOW',
-      canonicalId: cboMatch?.canonicalId,
-      cboCode: cboMatch?.cboCode,
-      confidence: cboMatch?.similarity,
     };
   }
 }

@@ -8,7 +8,6 @@ import { CategoryModel } from './categories.model';
 import { categoryAdmissionPolicyService } from './policies/category-admission-policy.service';
 import { categoryLexicalGateService } from './category-lexical-gate.service';
 import { occupationFormCheckerService } from './occupation-form-checker.service';
-import { cboMatcherService } from './cbo-matcher.service';
 import { categoryInputAuditService } from './category-input-audit.service';
 import { categoryInputGateService } from './category-input-gate.service';
 import { tenantService } from '@core/tenants/tenant.service';
@@ -222,7 +221,6 @@ class CategoriesService {
         const gateResult = await categoryInputGateService.validate(sanitized, {
           context: options.context,
           skipFormCheck: false,
-          skipCBO: false,
           tenantId: options.tenantId,
           actorId: undefined,
           globalUserId: options.userId,
@@ -2552,18 +2550,10 @@ Responda em JSON com:
       }
     }
 
-    // 3.7. CATEGORY INPUT GATE - ETAPA 3: Busca no CBO (Fuzzy Match)
-    // Aplicar apenas para professional e education (não para company)
-    let cboMatch: { matched: boolean; canonicalId?: string; cboCode?: string; similarity?: number } | null = null;
-    if (context === 'professional' || context === 'education') {
-      try {
-        cboMatch = await cboMatcherService.findMatch(sanitizedText);
-        // Se encontrou match forte no CBO, usar canonical_id (não bloqueia se não encontrar)
-      } catch (error) {
-        // Erro no CBO não bloqueia - continuar sem match
-        console.warn('[CategoryInputGate] Erro ao buscar no CBO:', error);
-      }
-    }
+    // F-CBO-MATCHER-DORMANT-LANDMINE-REMOVAL (DT-CBO-MATCHER-DORMANT-LANDMINE, Opção A):
+    // ETAPA 3 (CBO Fuzzy Match) removida — cboMatcherService consultava `occupations_reference`,
+    // tabela que nunca foi aplicada no schema vivo. Toda chamada falhava em silêncio e devolvia
+    // null — o audit log abaixo já sempre gravava canonicalId/cboMatchCode ausentes.
 
     // 4. IA COMO CLASSIFICADORA: Usar suggestCategoryPath
     const pathSuggestion = await this.suggestCategoryPath(sanitizedText, context, countryCode);
@@ -2795,10 +2785,8 @@ Responda em JSON com:
       context,
       decision: 'ALLOW',
       confidence: aggregatedConfidence,
-      canonicalId: cboMatch?.canonicalId,
       lexicalDecision: 'ALLOW',
       formCheckDecision,
-      cboMatchCode: cboMatch?.cboCode,
       tenantId,
       actorId,
       globalUserId,
