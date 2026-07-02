@@ -1,3 +1,15 @@
+## 2026-07-02 — F-PAYMENT-INTENTS-GOVERNANCE-FUNDING-RLS · ✅ MATERIAL / PARCIAL — fecha DT-PAYMENT-INTENTS-GOVERNANCE-FUNDING-RLS-GAP · 13ª dívida técnica resolvida hoje · segundo item corrigido do `auditoria.md` (achado B3)
+
+Clayton pediu pra continuar "em nível Enterprise" nos achados do laudo. Ao investigar B3 (RLS ausente em `payment_intents`/`governance_funding_commitments`, as 2 tabelas que o laudo citou), a varredura sistemática achou que o problema real é bem maior: **25 tabelas financeiras sem RLS**, não 2 — o laudo tinha sido conservador na estimativa de "correlatas prováveis". Parei o trabalho, expliquei o achado maior pro Clayton com uma proposta de sequenciamento, e ele disse "faça o que consegue resolver agora".
+
+Rastreei consumidor por consumidor das 2 tabelas originais antes de tocar em qualquer coisa — `payment_intents` tem 10 pontos de leitura/escrita no código; achei que 2 deles (usados por 2 workers financeiros — Settlement e Release) leem cross-tenant **de propósito**, e isso já estava documentado no próprio `BOOT.ts` como pendência conhecida (esses workers estão desligados por flag hoje justamente por causa dessa lacuna de RLS). Confirmei que ambos os workers estão realmente desligados no ambiente atual antes de prosseguir — aplicar RLS agora não quebra nada vivo, e é exatamente o pré-requisito que o comentário no código já pedia.
+
+No meio do rastreamento achei mais 2 tabelas (`governance_funding` — não confundir com `governance_funding_commitments`, são tabelas diferentes — e `treasury_accounts`) que têm leitura cross-tenant intencional e ATIVA (não é só workers desligados). Essas eu NÃO toquei — precisam do mesmo tipo de redesenho que fiz no catálogo mais cedo hoje, não é um RLS simples. Ficam registradas como trabalho futuro, não escondidas.
+
+**Resultado:** as 2 tabelas do achado B3 original agora têm RLS+FORCE, provado com `SET ROLE unificard_app` real (não simulação) — tenant A não vê nem consegue alterar linhas de tenant B, e vice-versa. HEAD material `37f7754a9`.
+
+---
+
 ## 2026-07-02 — F-CRM-MYORDERS-ROUTE-PREFIX-FIX · ✅ MATERIAL — fecha DT-CRM-MYORDERS-ROUTE-PREFIX-MISMATCH · 12ª dívida técnica resolvida hoje · primeiro item corrigido do `auditoria.md` (achado B5)
 
 A Fable 5 entregou um laudo forense institucional completo (`auditoria.md`, due diligence pré-abertura ao público) — revisei o plano dela em 2 rodadas antes de aprovar (achei o HEAD âncora desatualizado e o número de erros de typecheck citando uma fotografia antiga; ela corrigiu os dois nos lugares certos, incluindo a seção que realmente vira o documento, não só numa nota à parte). Depois de publicado, Clayton pediu prioridade de correção — propus 3 níveis (fast-path sem decisão, money-free com investigação, e itens que exigem decisão arquitetural dele antes de eu tocar) e ele escolheu começar pelo mais simples: o achado B5.
