@@ -3,7 +3,13 @@
 // 🔴 BLINDAGEM: Availability NÃO decide quem pode agendar
 // 🔴 BLINDAGEM: Availability NÃO faz pagamento
 // 🔴 BLINDAGEM: Availability NÃO faz matching
-// 🔴 BLINDAGEM: Evita sobreposição de horários por owner (via trigger)
+// 🔴 F-AVAILABILITY-CONFLICT-DETECTION-STUB-FIX (DT-AVAILABILITY-CONFLICT-DETECTION-STUB, 2026-07-02):
+// NÃO há trigger/CHECK/EXCLUDE de overlap na criação/atualização de availability (comentário antigo
+// era FALSO perante o schema vivo). Duas garantias REAIS e distintas: (1) o guard de double-booking
+// do PRESTADOR é o advisory lock TRANSACIONAL no confirm canônico (confirmBookingWithProviderLock/
+// confirmBookingWithResourceLock — DT-SERVICE-BOOKING-CONFIRM-BYPASSES-LOCK, CLOSED); (2) o aviso de
+// conflito PESSOAL (owner_type='user') é `detect_availability_conflicts()`, materializada em
+// 20260702140000, não-bloqueante — a decisão cabe sempre ao usuário.
 
 import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import type {
@@ -81,7 +87,10 @@ class UnifiedAvailabilityRepository {
   /**
    * Cria uma nova disponibilidade
    * 🔴 BLINDAGEM: ownerType e ownerId são OBRIGATÓRIOS
-   * 🔴 BLINDAGEM: Trigger previne sobreposição de horários por owner
+   * 🔴 NÃO há trigger de overlap na criação (DT-AVAILABILITY-CONFLICT-DETECTION-STUB) — janelas
+   *    sobrepostas do mesmo owner são permitidas aqui; o aviso (não-bloqueante) vem de
+   *    detect_availability_conflicts() no booking, e o guard real de double-booking é o advisory
+   *    lock do confirm canônico.
    */
   async create(
     tenantId: string,
@@ -204,7 +213,8 @@ class UnifiedAvailabilityRepository {
 
   /**
    * Atualiza disponibilidade
-   * 🔴 BLINDAGEM: Trigger previne sobreposição de horários por owner
+   * 🔴 NÃO há trigger de overlap na atualização (DT-AVAILABILITY-CONFLICT-DETECTION-STUB) — mesma
+   *    nota de create() acima.
    */
   async updateAvailability(
     tenantId: string,
