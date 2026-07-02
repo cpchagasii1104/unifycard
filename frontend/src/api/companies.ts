@@ -176,11 +176,19 @@ export async function listCompanies(): Promise<Company[]> {
 }
 
 /**
- * Busca empresa por ID
+ * Busca empresa por ID.
+ * F-COMPANY-GETCOMPANY-RESPONSE-UNWRAP-FIX: o backend (GET /companies/:companyId) sempre respondia
+ * `{ ok: true, data: Company }`, mas esta função devolvia o WRAPPER inteiro (não `.data`), tipado
+ * incorretamente como `Company` — `company.companyId` era SEMPRE undefined para todo caller
+ * (CompanyOnboardingPage, CompanyDashboard). Efeito em cascata: o wizard de onboarding recebia
+ * `companyId=undefined` como prop, quebrando toda chamada que dependia dele (KYB upload →
+ * "companyId inválido"; resolução do page-actor da agenda). apiFetch já lança erro para
+ * !response.ok — por aqui sempre chega ok:true.
  */
 export async function getCompany(companyId: string): Promise<Company> {
   const response = await apiFetch(`/companies/${companyId}`);
-  return response.json();
+  const result = await response.json();
+  return result?.data ?? result;
 }
 
 /**
