@@ -221,6 +221,64 @@ class UnifiedAvailabilityService {
     // 🔴 BLINDAGEM: Criar booking (NÃO executa pagamento). requesterActorId canônico = do subject.
     const booking = await unifiedAvailabilityRepository.createBooking(tenantId, { ...input, requesterActorId }, trx);
 
+    // 🔴 F-SERVICE-BOOKING-REQUESTED-EFFECT-EMISSION (DECISION-0156 D4, Slice C — SÓ depois de A+B,
+    // agenda/discovery honestos, ambas fechadas): aviso honesto ao prestador de que um booking foi
+    // solicitado. O effect já era definido/consumido pelo projetor de inbox, mas NUNCA era emitido —
+    // o prestador só descobria por PULL manual (polling on-mount do hub). Alvo = resolveAvailabilityOwner
+    // (para service_offering, provider_actor_id) — NUNCA payload.actorId cru nem o requester. Push =
+    // "pull + aviso" (registra no inbox/feed via read-model projector), NÃO dispatch/auto-aceite — o
+    // prestador ainda decide manualmente (aceitar/recusar continua em service-booking-decision.service.ts).
+    // Não crítico: falha na emissão não desfaz o booking já criado (mesmo padrão de AVAILABILITY_CONFLICT_
+    // DETECTED/SERVICE_BOOKING_CANCELLED abaixo). Money-free.
+    try {
+      const owner = await resolveAvailabilityOwner(tenantId, availability.ownerType, availability.ownerId);
+      const outboxClient = await getClientWithTenant(tenantId);
+      try {
+        await outboxClient.query('BEGIN');
+        await insertEventOutboxRow(outboxClient, {
+          tenantId,
+          eventId: deterministicAvailabilityEventId(
+            tenantId,
+            booking.bookingId,
+            ActorEffect.SERVICE_BOOKING_REQUESTED
+          ),
+          eventType: ActorEffect.SERVICE_BOOKING_REQUESTED,
+          eventVersion: 1,
+          payload: {
+            actorId: owner.authorityActorId, // Prestador a avisar — resolvido server-side, nunca do body/hint.
+            actorType: 'user' as any, // Resolvido em Fase 7 se necessário (mesmo padrão de SERVICE_BOOKING_CANCELLED acima).
+            intent: 'SERVICE_BOOKING_REQUESTED',
+            sourceId: booking.bookingId,
+            sourceType: 'unified_booking',
+            metadata: {
+              bookingId: booking.bookingId,
+              availabilityId: input.availabilityId,
+              requesterActorId,
+              ownerType: availability.ownerType,
+              ownerId: availability.ownerId,
+              windowStart: availability.startDatetime.toISOString(),
+              windowEnd: availability.endDatetime.toISOString(),
+            },
+          },
+          metadata: {
+            userId: subject.subjectUserId,
+            bookingId: booking.bookingId,
+            availabilityId: input.availabilityId,
+          },
+        });
+        await outboxClient.query('COMMIT');
+      } catch (outboxErr) {
+        await outboxClient.query('ROLLBACK');
+        throw outboxErr;
+      } finally {
+        outboxClient.release();
+      }
+    } catch (error) {
+      // 🔴 BLINDAGEM: Não quebrar fluxo principal se enfileiramento falhar — booking já foi criado,
+      // apenas o aviso ao prestador não foi emitido.
+      console.error('[createBooking] Erro ao enfileirar effect SERVICE_BOOKING_REQUESTED (não crítico):', error);
+    }
+
     // 🔴 BLINDAGEM: Detectar conflitos APÓS criar booking (não bloqueia)
     // Se booking envolver owner_type user e houver conflito, emitir effect AVAILABILITY_CONFLICT_DETECTED
     try {

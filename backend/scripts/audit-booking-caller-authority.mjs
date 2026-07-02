@@ -35,6 +35,7 @@ const ALLOW = {
   'src/scripts/validate-pipeline-e2e-mvp-service-journey-seed.ts': { cls: 'TEST_ONLY' },
   'src/scripts/validate-pipeline-e2e-mvp-service-journey-pj-provider.ts': { cls: 'TEST_ONLY' },
   'src/scripts/validate-pipeline-e2e-service-booking-decision-quarantine-gate.ts': { cls: 'TEST_ONLY' },
+  'src/scripts/validate-pipeline-e2e-service-booking-requested-effect-emission.ts': { cls: 'TEST_ONLY' },
 };
 
 function walk(dir, acc = []) {
