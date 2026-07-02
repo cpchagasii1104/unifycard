@@ -24,27 +24,19 @@ class HobbyMatcherService {
     if (this.initialized) return;
 
     try {
-      // Tentar múltiplos caminhos possíveis (desenvolvimento e produção)
-      const possiblePaths = [
-        path.join(process.cwd(), 'docs/seed/hobbies.json'),
-        path.join(__dirname, '../../../docs/seed/hobbies.json'),
-        path.join(__dirname, '../../../../docs/seed/hobbies.json'),
-      ];
-
-      let fileContent: string | null = null;
-      for (const hobbiesPath of possiblePaths) {
-        try {
-          if (fs.existsSync(hobbiesPath)) {
-            fileContent = fs.readFileSync(hobbiesPath, 'utf-8');
-            break;
-          }
-        } catch (err) {
-          // Continuar tentando próximo caminho
-        }
-      }
+      // F-HOBBY-MATCHER-DIRNAME-ESM-FIX (DT-HOBBY-MATCHER-DIRNAME-ESM-CRASH): __dirname não existe
+      // sob tsx/ESM (como `dev` roda — `tsx watch BOOT.ts`) — a construção do array de candidatos
+      // lançava ReferenceError ANTES de qualquer fallback rodar. process.cwd() funciona sob
+      // tsx (dev) E node dist/server.js (prod, CJS) igualmente, desde que invocado a partir de
+      // backend/ (convenção já usada por todo o resto do projeto). Dataset agora self-contained em
+      // backend/docs/seed/hobbies.json (antes dependia de docs/seed/hobbies.json na raiz do repo,
+      // que nunca existiu — só docs/03_technical|06_technical/hobbies.json, achado duplicado e fora
+      // de escopo desta fatia).
+      const hobbiesPath = path.join(process.cwd(), 'docs/seed/hobbies.json');
+      const fileContent = fs.existsSync(hobbiesPath) ? fs.readFileSync(hobbiesPath, 'utf-8') : null;
 
       if (!fileContent) {
-        console.error('[HobbyMatcher] Arquivo hobbies.json não encontrado em nenhum caminho');
+        console.error('[HobbyMatcher] Arquivo hobbies.json não encontrado em', hobbiesPath);
         this.hobbies = [];
         this.initialized = true;
         return;

@@ -31,6 +31,7 @@ const guards = [
   'audit-company-metadata-ghost-cleanup.mjs',                     // updateCompany não escreve companies.metadata (coluna inexistente, 42703 latente)
   'audit-cbo-matcher-dormant-landmine-removal.mjs',                // cbo-matcher removido (occupations_reference nunca existiu, wiring morto)
   'audit-category-input-audit-schema-ghost-fix.mjs',               // category_input_audit aplicada sem reviver occupations_reference
+  'audit-hobby-matcher-dirname-esm-fix.mjs',                       // hobby-matcher sem __dirname (crash sob tsx/ESM), dataset self-contained
 ];
 
 let failed = false;
@@ -46,4 +47,4 @@ if (failed) {
   console.error('GATE FAIL [legacy-service-availability-containment-suite] — ao menos um guard de contenção legada falhou (ver acima).');
   process.exit(1);
 }
-console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity + group coverage + company agenda real wiring + getCompany unwrap fix + company metadata ghost cleanup + cbo-matcher removal + category_input_audit schema ghost fix blindados.');
+console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity + group coverage + company agenda real wiring + getCompany unwrap fix + company metadata ghost cleanup + cbo-matcher removal + category_input_audit schema ghost fix + hobby-matcher dirname/ESM fix blindados.');
