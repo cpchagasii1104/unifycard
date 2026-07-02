@@ -13689,19 +13689,13 @@ _(Histórico OPEN abaixo.)_
 
 ---
 
-## DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT — OPEN (transversal, 2026-06-16)
+## DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT — ✅ CLOSED / MATERIAL (JÁ APLICADO, cartório defasado) — precondição satisfeita pelo flip RLS-live (2026-06-16 → CLOSED 2026-07-02)
 
-- **Status:** **OPEN (2026-06-16)** — alerta transversal registrado por **F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO**
-  (DECISION-0133). Não é frente própria; é **invariante de prova** para qualquer frente que invoque RLS como defesa.
-- **Texto:** Enquanto a aplicação conectar como `postgres`/superuser/`bypassrls`, **RLS não é defesa efetiva de runtime**
-  e **não pode ser citada como prova de autoridade**. Qualquer frente que use RLS como defesa deve **primeiro provar o
-  role real da aplicação SEM `bypassrls`**. **Authority app-level server-side continua obrigatória** (RLS = defesa em
-  profundidade futura, nunca substituto). Aplica-se a suppliers, contacts, inventory, purchase_orders e a todo reader
-  de recurso privado.
-- **Resolução prevista:** frente própria futura de **DB app role hardening** (criar role de aplicação sem `bypassrls`,
-  validar smoke worker/seed/migration sob RLS — paridade com EMENDA 3 de DECISION-0131 B5). Fora desta frente.
-- **Vinculada a:** `DECISION-0133` (§4/§6), `DECISION-0116`, `DECISION-0131 B5` (RLS direção + pre-flight bloqueante),
-  `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY`.
+- **FECHAMENTO (2026-07-02, higiene de cartório — PACK-1, achado via triagem de DTs OPEN disparada pela mesma classe de defasagem encontrada em `DT-CREATE-CATEGORY-FROM-CONCEPT-COLUMN-DRIFT`):** a precondição que esta DT exigia — "provar o role real da aplicação SEM `bypassrls`" — foi satisfeita pelo **ato OPS RLS-live** de Clayton em **2026-06-24** (commit `d1fa27db2`, `docs(rls): record RLS-live DEV PASS milestone`): runtime `unificard_app` virou `NOSUPERUSER`/`NOBYPASSRLS`, `row_security=on`, RLS+FORCE financeiro OK, `bank_*` isolado por tenant, backend subiu rodando com esse role, gates pós-virada OK. Essa frente (RLS-runtime-live) já estava fechada na minha memória de sessão, mas esta DT específica — que é a que GATEIA "RLS pode ser citada como prova de autoridade" — nunca foi marcada CLOSED no log, apesar do próprio evento que ela pedia já ter acontecido 8 dias antes.
+- **Verificação independente (2026-07-02, leitura-only, sem escrita):** `pg_roles` confirma `unificard_app`: `rolsuper=false`, `rolbypassrls=false`, `rolcanlogin=true` — exatamente o role sem bypass que a DT exigia. `SHOW row_security` = `on`. (Nota: o `.env` local usado para scripts ad-hoc desta sessão conecta como `postgres`/superuser por conveniência de dev — isso é config LOCAL, não o runtime deployado; não invalida o fix, que é sobre o role `unificard_app` real.)
+- **Efeito da virada:** RLS **agora É** defesa efetiva de runtime para qualquer frente que a invoque — a partir de 2026-06-24, não antes. **Authority app-level server-side continua obrigatória** (RLS é defesa em profundidade, nunca substituto — isso não mudou). Qualquer DT/frente que dependia deste alerta (ex.: `DT-CATALOG-RLS-SCOPED-NO-ISOLATION`, ainda genuinamente OPEN — falta de RLS ali é ausência de POLICY, não do role) pode agora citar RLS como camada real, desde que a policy specific exista.
+- **Texto original (preservado):** Enquanto a aplicação conectasse como `postgres`/superuser/`bypassrls`, RLS não era defesa efetiva de runtime e não podia ser citada como prova de autoridade. Aplicava-se a suppliers, contacts, inventory, purchase_orders e a todo reader de recurso privado.
+- **Vinculada a:** `DECISION-0133` (§4/§6), `DECISION-0116`, `DECISION-0131 B5` (RLS direção + pre-flight bloqueante), `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY` (ainda OPEN — policy de ownership é dívida separada do role).
 
 ---
 
