@@ -89,7 +89,7 @@ export async function listMyOrders(filters: MyOrdersFilters = {}): Promise<MyOrd
   if (filters.limit) queryParams.append('limit', filters.limit.toString());
   if (filters.offset) queryParams.append('offset', filters.offset.toString());
 
-  const data = await apiFetchJson<{ orders: MyOrderItem[] }>(`/my-orders?${queryParams.toString()}`);
+  const data = await apiFetchJson<{ orders: MyOrderItem[] }>(`/api/my-orders?${queryParams.toString()}`);
   return data.orders;
 }
 
@@ -97,7 +97,7 @@ export async function listMyOrders(filters: MyOrdersFilters = {}): Promise<MyOrd
  * Busca estatísticas do My Orders Hub
  */
 export async function getMyOrdersStats(): Promise<MyOrdersStats> {
-  const data = await apiFetchJson<{ stats: MyOrdersStats }>('/my-orders/stats');
+  const data = await apiFetchJson<{ stats: MyOrdersStats }>('/api/my-orders/stats');
   return data.stats;
 }
 

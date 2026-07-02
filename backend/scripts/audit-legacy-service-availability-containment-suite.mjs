@@ -36,6 +36,7 @@ const guards = [
   'audit-service-discovery-future-availability-slice-b.mjs',       // discoverServices liga D2+D3 (SSOT canônico); frontend manda starts_at/ends_at
   'audit-service-booking-requested-effect-emission.mjs',           // SERVICE_BOOKING_REQUESTED emitido no create booking, alvo=resolveAvailabilityOwner
   'audit-availability-conflict-detection-materialized.mjs',        // detect_availability_conflicts() materializada (overlap real, owner_type=user)
+  'audit-crm-myorders-route-prefix-contract.mjs',                   // achado B5 auditoria.md: api/crm.ts -> /marketplace/crm/*, api/my-orders.ts -> /api/my-orders*
 ];
 
 let failed = false;
@@ -51,4 +52,4 @@ if (failed) {
   console.error('GATE FAIL [legacy-service-availability-containment-suite] — ao menos um guard de contenção legada falhou (ver acima).');
   process.exit(1);
 }
-console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity + group coverage + company agenda real wiring + getCompany unwrap fix + company metadata ghost cleanup + cbo-matcher removal + category_input_audit schema ghost fix + hobby-matcher dirname/ESM fix + catalog RLS scoped isolation + discovery future availability (D2+D3) + booking requested effect emission (D4) + availability conflict detection materialized blindados.');
+console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity + group coverage + company agenda real wiring + getCompany unwrap fix + company metadata ghost cleanup + cbo-matcher removal + category_input_audit schema ghost fix + hobby-matcher dirname/ESM fix + catalog RLS scoped isolation + discovery future availability (D2+D3) + booking requested effect emission (D4) + availability conflict detection materialized + crm/my-orders route prefix contract (B5) blindados.');
