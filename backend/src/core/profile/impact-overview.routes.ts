@@ -157,9 +157,12 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
       );
       const moneyLockedPayments = moneyLockedPaymentsRow ? Number(moneyLockedPaymentsRow.total) : 0;
 
-      // Bookings pendentes (valor estimado baseado em serviços, se disponível)
-      // Por enquanto, não temos valor direto em bookings, então usamos apenas pagamentos
-      const moneyLockedCents = Math.round(moneyLockedPayments * 100); // Converter para centavos se necessário
+      // 🔴 F-IMPACT-OVERVIEW-MONEYLOCKED-CENTS-FIX (DT-IMPACT-OVERVIEW-MONEYLOCKED-CENTS-100X-INFLATION):
+      // SUM(amount_cents) JÁ está em centavos (nomenclatura 07, pós rename amount→amount_cents). O
+      // `* 100` legado (comentário "converter se necessário" partia da premissa antiga de valor inteiro)
+      // inflava o display em 100×. moneyLockedCents = a soma direta. Display/read-model — NÃO escreve
+      // bank_ledger (SSOT financeiro intocado; Δbank=0).
+      const moneyLockedCents = moneyLockedPayments;
 
       // 4. Eventos em andamento (published ou ongoing)
       const ongoingEventsRow = await runQueryWithTenant<{ count: string }>(

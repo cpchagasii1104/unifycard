@@ -55,6 +55,12 @@ for (const rel of FILES) {
   if (/\bcreated_by_global_user_id\b/.test(src)) failures.push(`${rel}: reapareceu created_by_global_user_id (coluna inexistente em events; organizer vivo = actor_id).`);
   if (/(?<!AS\s)\b(?:e\.)?(starts_at|ends_at)\s*[<>=]/.test(src)) failures.push(`${rel}: starts_at/ends_at usado como coluna crua de events em predicado (vivo: datetime_start/datetime_end; alias AS é permitido).`);
   if (/status\s*(!?=|IN)\s*[^)\n]*'(completed|archived|ongoing)'/.test(src)) failures.push(`${rel}: status morto ('completed'/'archived'/'ongoing') em query de events (CHECK vivo: draft/declared/published/active/ended/cancelled).`);
+  // (2d) F-IMPACT-OVERVIEW-MONEYLOCKED-CENTS-FIX (DT-IMPACT-OVERVIEW-MONEYLOCKED-CENTS-100X-INFLATION):
+  //      amount_cents JÁ é centavos (nomenclatura 07) — moneyLocked NÃO pode multiplicar por 100 (inflava
+  //      o display 100×). Só se aplica ao impact-overview (dono do moneyLockedCents).
+  if (rel.endsWith('impact-overview.routes.ts') && /moneyLocked\w*\s*\*\s*100\b/.test(src)) {
+    failures.push(`${rel}: moneyLocked * 100 reapareceu — amount_cents já é centavos; multiplicar infla o display 100× (display-only, não toca ledger).`);
+  }
   // (3) predicado canônico presente
   if (!/service_offerings/.test(src)) failures.push(`${rel}: não consulta service_offerings (SSOT canônico ausente).`);
   if (!/provider_actor_id/.test(src)) failures.push(`${rel}: não resolve ownership por provider_actor_id (SSOT canônico).`);
