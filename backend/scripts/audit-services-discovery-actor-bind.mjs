@@ -1,13 +1,24 @@
 #!/usr/bin/env node
-// Guard estrutural — F-AUTHORITY-Z2-R8P-SERVICES-DISCOVERY-NON-MONEY-AUTHORITY-BIND (DECISION-0113 / Z2).
+// Guard estrutural — F-SERVICE-DISCOVERY-REQUEST-TRACK-RETIREMENT (DECISION-0156 D5+D6).
 //
-// As 6 rotas actor-scoped não-money (/offers, /request, /request/respond, /my-requests, /provider-requests,
-// /request/:requestId) usavam actionContext.actorId (client-declared) como actor operacional/filtro — spoofável.
-// BIND: helper assertActorRepresentable → canRepresentActor(req.tenant.id, req.user.id, actionContext.actorId)
-// fail-closed (401/403 SERVICE_DISCOVERY_ACTOR_AUTHORITY_REQUIRED) ANTES de qualquer write/leitura. MORDE se: o
-// helper sumir/deixar de usar canRepresentActor; o nº de call-sites do bind cair abaixo de 6 (alguma rota
-// regrediu); /request/pay deixar de estar retired (R8J) ou perder o firewall; a rota voltar a chamar
-// payAcceptedRequest/createSimpleTransaction; ou aparecer bank_*. Comment-stripped. Em validate:regression-guards.
+// SUPERSEDE F-AUTHORITY-Z2-R8P-SERVICES-DISCOVERY-NON-MONEY-AUTHORITY-BIND (DECISION-0113 / Z2):
+// as 6 rotas actor-scoped que o bind R8P protegia (/offers, /request, /request/respond,
+// /my-requests, /provider-requests, /request/:requestId) — MAIS /search e /metrics (D5, blob e
+// métricas derivadas do trilho aposentado) — foram APOSENTADAS INCONDICIONALMENTE por
+// DECISION-0156 D5 (services.metadata.availability = 2ª fonte de TEMPO) + D6
+// (service_discovery_requests = 2ª fonte de ESTADO). Não há mais write/leitura actor-scoped
+// alcançável — o bind de autoridade ficou sem alvo e foi removido junto com os handlers.
+//
+// MORDE:
+//   (A) qualquer uma das 8 rotas voltar a ter lógica real (deixar de retornar
+//       serviceDiscoveryTrackRetiredBody 403 incondicional);
+//   (B) /search-by-term (a ÚNICA rota viva do módulo — não toca blob nem service_discovery_requests)
+//       perder seu comportamento real ou ganhar o retirement por engano;
+//   (C) /request/pay perder o retired R8J (SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110)
+//       ou o firewall (isServiceFinancialRuntimeEnabled) como 1º gate — preservado desta fatia;
+//   (D) reabertura do trilho money/sink (payAcceptedRequest/createSimpleTransaction/bank_*)
+//       referenciado nas rotas.
+// Heurística textual comment-stripped. Em validate:regression-guards. NÃO altera runtime.
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -26,33 +37,43 @@ if (!existsSync(p)) {
 }
 const code = stripTs(readFileSync(p, 'utf-8'));
 
-// 1) helper de bind presente: canRepresentActor(req.tenant.id, req.user.id, actionContext.actorId) + fail-closed nomeado.
-if (!/const\s+assertActorRepresentable\s*=/.test(code)) {
-  failures.push(`${REL}: helper assertActorRepresentable removido.`);
+// (A) as 8 rotas retiradas devem chamar serviceDiscoveryTrackRetiredBody.
+const retiredRouteBodies = [
+  { name: "POST '/offers'", re: /fastify\.post\('\/offers'[\s\S]{0,300}?serviceDiscoveryTrackRetiredBody\('POST \/services\/offers'\)/ },
+  { name: "GET '/metrics'", re: /fastify\.get\('\/metrics'[\s\S]{0,300}?serviceDiscoveryTrackRetiredBody\('GET \/services\/metrics'\)/ },
+  { name: "GET '/search'", re: /fastify\.get\('\/search'[\s\S]{0,300}?serviceDiscoveryTrackRetiredBody\('GET \/services\/search'\)/ },
+  { name: "GET '/my-requests'", re: /fastify\.get\('\/my-requests'[\s\S]{0,300}?serviceDiscoveryTrackRetiredBody\('GET \/services\/my-requests'\)/ },
+  { name: "GET '/provider-requests'", re: /fastify\.get\('\/provider-requests'[\s\S]{0,300}?serviceDiscoveryTrackRetiredBody\('GET \/services\/provider-requests'\)/ },
+  { name: "POST '/request/respond'", re: /fastify\.post\('\/request\/respond'[\s\S]{0,300}?serviceDiscoveryTrackRetiredBody\('POST \/services\/request\/respond'\)/ },
+  { name: "GET '/request/:requestId'", re: /fastify\.get<[\s\S]{0,60}?>\('\/request\/:requestId'[\s\S]{0,300}?serviceDiscoveryTrackRetiredBody\('GET \/services\/request\/:requestId'\)/ },
+  { name: "POST '/request'", re: /fastify\.post\('\/request'[\s\S]{0,300}?serviceDiscoveryTrackRetiredBody\('POST \/services\/request'\)/ },
+];
+for (const { name, re } of retiredRouteBodies) {
+  if (!re.test(code)) {
+    failures.push(`${REL}: rota ${name} não retorna serviceDiscoveryTrackRetiredBody 403 incondicional — aposentadoria D5/D6 regrediu.`);
+  }
 }
-if (!/canRepresentActor\(\s*req\.tenant\.id\s*,\s*req\.user\.id\s*,\s*req\.actionContext\.actorId\s*\)/.test(code)) {
-  failures.push(`${REL}: o bind deve ser canRepresentActor(req.tenant.id, req.user.id, req.actionContext.actorId).`);
+
+// (B) /search-by-term continua viva (não deve retornar o retirement).
+const searchByTermIdx = code.indexOf(`fastify.get('/search-by-term'`);
+const nextRouteIdx = code.indexOf(`fastify.get('/my-requests'`);
+const searchByTermBody = searchByTermIdx >= 0 && nextRouteIdx > searchByTermIdx ? code.slice(searchByTermIdx, nextRouteIdx) : '';
+if (!/servicesDiscoveryService\.searchByTerm/.test(searchByTermBody)) {
+  failures.push(`${REL}: /search-by-term perdeu a chamada real a servicesDiscoveryService.searchByTerm — única rota viva do módulo.`);
 }
-if (!/SERVICE_DISCOVERY_ACTOR_AUTHORITY_REQUIRED/.test(code)) {
-  failures.push(`${REL}: perdeu o fail-closed nomeado SERVICE_DISCOVERY_ACTOR_AUTHORITY_REQUIRED.`);
+if (/serviceDiscoveryTrackRetiredBody/.test(searchByTermBody)) {
+  failures.push(`${REL}: /search-by-term ganhou o retirement por engano — essa rota é viva (usada pelo frontend), não deve ser aposentada.`);
 }
-// 2) as 6 rotas actor-scoped DEVEM chamar o helper (1 def + 6 call-sites = 7 ocorrências).
-const occurrences = (code.match(/assertActorRepresentable/g) || []).length;
-if (occurrences < 7) {
-  failures.push(`${REL}: esperado >= 7 ocorrências de assertActorRepresentable (1 def + 6 rotas actor-scoped), achadas ${occurrences} — alguma rota regrediu o bind.`);
-}
-const callSites = (code.match(/if\s*\(\s*!\s*\(\s*await\s+assertActorRepresentable\(\s*req\s*,\s*reply\s*\)\s*\)\s*\)\s*return\s+reply\s*;/g) || []).length;
-if (callSites < 6) {
-  failures.push(`${REL}: esperado >= 6 call-sites do bind fail-closed (await assertActorRepresentable), achados ${callSites}.`);
-}
-// 3) /request/pay PRESERVA retired (R8J) + firewall como 1º gate.
+
+// (C) /request/pay preserva retired R8J + firewall.
 if (!/SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110/.test(code)) {
   failures.push(`${REL}: /request/pay perdeu o retired R8J (SERVICE_DISCOVERY_DIRECT_PAY_RETIRED_BY_DECISION_0110).`);
 }
 if (!/isServiceFinancialRuntimeEnabled\(\)/.test(code)) {
   failures.push(`${REL}: /request/pay perdeu o firewall (isServiceFinancialRuntimeEnabled) como 1º gate.`);
 }
-// 4) PROIBIDO reabrir o trilho money/sink.
+
+// (D) PROIBIDO reabrir o trilho money/sink.
 for (const re of [/payAcceptedRequest\s*\(/, /createSimpleTransaction/, /bank_ledger|bank_transactions|bank_splits/]) {
   if (re.test(code)) failures.push(`${REL}: voltou a referenciar trilho money/sink (${re}) — proibido (não reabrir direct-pay; zero bank_*).`);
 }
@@ -62,4 +83,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [services-discovery-actor-bind] — 6 rotas actor-scoped (offers/request/respond/my-requests/provider-requests/request/:id) bound por assertActorRepresentable → canRepresentActor(req.tenant.id, req.user.id, actionContext.actorId) fail-closed; /request/pay retired (R8J) + firewall preservados; zero payAcceptedRequest/createSimpleTransaction/bank_*. Non-money authority bound.');
+console.log('GATE OK [services-discovery-actor-bind] — 8 rotas do trilho paralelo (offers/metrics/search/request/respond/my-requests/provider-requests/request/:id) aposentadas incondicionalmente por DECISION-0156 D5+D6; /search-by-term (única viva) intacta; /request/pay retired (R8J) + firewall preservados; zero payAcceptedRequest/createSimpleTransaction/bank_*.');

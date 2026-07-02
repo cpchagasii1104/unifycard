@@ -230,6 +230,7 @@ function selfBoundProof(rel, rawCode) {
 // arquivo re-flagga e, FORA do baseline, FALHA. Guard dedicado: audit-feed-plugin-not-authority.mjs.
 const NON_AUTHORITY_READONLY = {
   'core/feed/feed-plugin.routes.ts': 'orquestrador visual read-only (BLINDAGEM): actionContext.actorId só presence-gate (400-if-missing), nunca threadado a feedPluginService, sem write/DB. Guard: audit-feed-plugin-not-authority.mjs.',
+  'modules/services/services-discovery.routes.ts': 'F-SERVICE-DISCOVERY-REQUEST-TRACK-RETIREMENT (DECISION-0156 D5+D6, 2026-07-02): as 8 rotas do trilho paralelo (offers/metrics/search/my-requests/provider-requests/request/respond/request/:id/request) foram APOSENTADAS INCONDICIONALMENTE — nenhuma delas mais referencia actionContext.actorId (handlers recebem _req, não lido). A ÚNICA ocorrência restante no arquivo é a rota viva /search-by-term, presence-gate (400-if-missing), nunca threadada a service com escrita (searchByTerm é read-only, chama discoverServices via outro arquivo). Guard dedicado: audit-services-discovery-actor-bind.mjs (morde se as 8 rotas deixarem de estar retiradas, ou se /search-by-term ganhar write/authority).',
 };
 
 // Prova: sem write sink + toda ocorrência de actionContext.actorId está em presence-gate (`!`).
