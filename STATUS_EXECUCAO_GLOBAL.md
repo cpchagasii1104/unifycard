@@ -1,3 +1,13 @@
+## 2026-07-02 — F-HOBBY-MATCHER-DIRNAME-ESM-FIX · ✅ MATERIAL / CLOSEOUT — fecha DT-HOBBY-MATCHER-DIRNAME-ESM-CRASH (achado colateral de F-CATEGORY-INPUT-AUDIT-SCHEMA-GHOST-FIX, mesma sessão) · 4ª dívida técnica resolvida hoje
+
+`hobby-matcher.service.ts` usava `__dirname` (indisponível sob `tsx`/ESM, como `dev` roda) para montar candidatos de caminho — a construção do array literal lançava `ReferenceError` ANTES de qualquer fallback, quebrando TODA validação de hobby no servidor real (não era rota latente). Achado adicional: nenhum dos 3 caminhos antigos apontava a um arquivo que realmente existisse — `docs/seed/hobbies.json` nunca existiu no repo vivo; o dataset real estava duplicado em `docs/03_technical/` e `docs/06_technical/` (raiz do repo, byte-idênticos, achado tangencial de organização de docs, fora de escopo).
+
+Fix: dataset copiado para `backend/docs/seed/hobbies.json` (self-contained, backend não depende mais de alcançar `docs/` na raiz do repo). Resolução simplificada para só `process.cwd()` (funciona sob `tsx` dev e `node dist/server.js` prod). E2E via `categoryInputGateService.validate()` (context=hobby) 6/6: hobby válido casa sem crash; inválido nega corretamente por ausência real (não por erro de carregamento); auditoria grava para ambos, confirmando que os 2 fixes desta sessão (schema-ghost audit + dirname) compõem corretamente. HEAD material `47b17cf73`.
+
+**Balanço do dia (diretiva "resolver dívidas técnicas, ordem a critério, sistema virgem"):** 4 DTs fechadas em sequência (cultural-checkin, cbo-matcher, category-input-audit schema-ghost, hobby-matcher dirname) — 2 delas nasceram como achados colaterais das anteriores, não do raio-X original. Restam ~7 das 10 do raio-X original + duplicação docs/03↔06_technical (não-DT, tangencial).
+
+---
+
 ## 2026-07-02 — F-CATEGORY-INPUT-AUDIT-SCHEMA-GHOST-FIX · ✅ MATERIAL / CLOSEOUT — fecha DT-CATEGORY-INPUT-AUDIT-SCHEMA-GHOST (achado colateral de F-CBO-MATCHER-DORMANT-LANDMINE-REMOVAL, mesma sessão) · ⚠️ migration aplicada em unificard_dev (real, aditiva, comunicado) · 🔍 novo achado colateral: hobby-matcher quebrado sob ESM (nova DT)
 
 Achado crítico ANTES de aplicar: a migration arquivada (`0352_occupations_reference.sql`) tinha `category_input_audit.canonical_id` como FK para `occupations_reference` — a MESMA tabela que a Opção A (escolhida por Clayton minutos antes, mesma sessão) decidiu NÃO reviver. Aplicar ao pé da letra teria revertido essa decisão sem querer. Migration nova (`20260702110000`) aplica a tabela sem essa FK e sem os 3 campos mortos (`canonical_id`, `cbo_match_code`, `embedding_similarity` — nenhum caller jamais escrevia neles).
