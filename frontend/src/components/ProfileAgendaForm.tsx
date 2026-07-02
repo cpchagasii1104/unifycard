@@ -43,11 +43,16 @@ export default function ProfileAgendaForm({
   temporalPurposes,
   initialPurposes,
 }: ProfileAgendaFormProps) {
-  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: esta tela é a agenda PESSOAL (Pessoa Física). Para
-  // actor não-user (page/group/service) NÃO existe fluxo próprio aqui — bloquear explicitamente em
-  // vez de mostrar um editor que finge persistir. (Unified Availability suporta outros owners no
-  // backend; esta tela só não inventa esse fluxo.)
-  const isPersonalUserActor = activeActor?.actor_type === 'user';
+  // 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2 + F-COMPANY-AGENDA-REAL-WIRING: esta tela edita a agenda
+  // de Pessoa Física OU Empresa (page) — os dois tipos que o backend aceita nesta rota
+  // (unified-availability.routes.ts restringe ownerType a user/page). Grupo NÃO tem fluxo aqui
+  // (backend rejeitaria 400) — bloquear explicitamente em vez de mostrar um editor que finge persistir.
+  const isEditableActorType = activeActor?.actor_type === 'user' || activeActor?.actor_type === 'page';
+  const actorTypeLabel =
+    activeActor?.actor_type === 'page' ? 'Empresa'
+    : activeActor?.actor_type === 'group' ? 'Grupo'
+    : activeActor?.actor_type === 'user' ? 'Pessoa Física'
+    : (activeActor?.actor_type ?? 'desconhecido');
   return (
     <div className="profile-agenda">
       {/* 🔴 REGRA: Exibir claramente o actor da agenda */}
@@ -56,26 +61,21 @@ export default function ProfileAgendaForm({
         paddingBottom: '1rem',
         borderBottom: '2px solid #e5e7eb',
       }}>
-        <h2 style={{ 
-          fontSize: '1.5rem', 
-          fontWeight: '600', 
+        <h2 style={{
+          fontSize: '1.5rem',
+          fontWeight: '600',
           color: '#111827',
           margin: 0,
           marginBottom: '0.5rem',
         }}>
-          Agenda do Ator – Pessoa Física
+          Agenda do Ator – {actorTypeLabel}
         </h2>
-        <p style={{ 
-          fontSize: '0.875rem', 
+        <p style={{
+          fontSize: '0.875rem',
           color: '#6b7280',
           margin: 0,
         }}>
-          <strong>Ator:</strong> {activeActor.display_name || activeActor.actor_id} (Pessoa Física)
-          {activeActor.actor_type !== 'user' && (
-            <span style={{ marginLeft: '0.5rem', fontStyle: 'italic' }}>
-              ({activeActor.actor_type === 'page' ? 'Empresa' : activeActor.actor_type === 'group' ? 'Grupo' : activeActor.actor_type})
-            </span>
-          )}
+          <strong>Ator:</strong> {activeActor.display_name || activeActor.actor_id} ({actorTypeLabel})
         </p>
       </div>
 
@@ -105,14 +105,17 @@ export default function ProfileAgendaForm({
             margin: '0 auto',
           }}>
             Configure seus horários disponíveis.
-            Esta é a agenda base do seu perfil como Pessoa Física e será usada para trabalho, convites, eventos, lazer, estudos e cuidados pessoais.
+            {activeActor?.actor_type === 'page'
+              ? ' Esta é a agenda base da empresa e será usada para atendimentos e reservas.'
+              : ' Esta é a agenda base do seu perfil como Pessoa Física e será usada para trabalho, convites, eventos, lazer, estudos e cuidados pessoais.'}
           </p>
         </div>
       )}
 
-      {/* 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2: agenda pessoal só edita como Pessoa Física (user).
-          Non-user é bloqueado com mensagem explícita — sem editor que finja persistir. */}
-      {isPersonalUserActor ? (
+      {/* 🔴 F-AGENDA-EDITING-UX-TRUTHFULNESS-V2 + F-COMPANY-AGENDA-REAL-WIRING: edita como Pessoa
+          Física OU Empresa (page) — os dois tipos aceitos pelo backend nesta rota. Grupo é bloqueado
+          com mensagem explícita — sem editor que finja persistir (backend rejeitaria 400). */}
+      {isEditableActorType ? (
         <AvailabilityScheduleEnhanced
           availability={schedule}
           onSave={onSave}
@@ -135,14 +138,11 @@ export default function ProfileAgendaForm({
             lineHeight: 1.5,
           }}
         >
-          <strong>🔒 Esta é a agenda pessoal (Pessoa Física).</strong>
+          <strong>🔒 Esta agenda edita Pessoa Física ou Empresa.</strong>
           <p style={{ margin: '0.5rem 0 0' }}>
-            O ator ativo é{' '}
-            <strong>
-              {activeActor?.actor_type === 'page' ? 'uma empresa' : activeActor?.actor_type === 'group' ? 'um grupo' : `do tipo ${activeActor?.actor_type ?? 'desconhecido'}`}
-            </strong>
-            , que tem fluxo próprio de disponibilidade — não editável por aqui. Para configurar sua agenda
-            pessoal, selecione seu ator de Pessoa Física.
+            O ator ativo é <strong>um grupo</strong>, que tem fluxo próprio de disponibilidade — não
+            editável por aqui. Para configurar sua agenda, selecione seu ator de Pessoa Física ou
+            de Empresa.
           </p>
         </div>
       )}

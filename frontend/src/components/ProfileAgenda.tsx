@@ -207,10 +207,12 @@ export default function ProfileAgenda() {
       if (!activeActor) {
         throw new Error('Ator não encontrado. Selecione um ator para editar a agenda.');
       }
-      // Defesa em profundidade: a UI já bloqueia non-user; aqui falhamos ALTO (não em silêncio).
-      // Schedule é dimensão da PESSOA — agenda de empresa/grupo tem fluxo próprio, não esta tela.
-      if (activeActor.actor_type !== 'user') {
-        throw new Error('Esta agenda pessoal só pode ser salva como Pessoa Física. Selecione seu ator pessoal.');
+      // Defesa em profundidade: a UI já bloqueia tipos não suportados; aqui falhamos ALTO (não em
+      // silêncio). F-COMPANY-AGENDA-REAL-WIRING: 'page' (empresa) agora é suportado, espelhando o
+      // backend (unified-availability.routes.ts restringe ownerType a user/page). 'group' segue FORA
+      // — backend não aceita esse ownerType nesta rota (rejeitaria com 400).
+      if (activeActor.actor_type !== 'user' && activeActor.actor_type !== 'page') {
+        throw new Error('Esta agenda só pode ser salva como Pessoa Física ou Empresa. Selecione um ator desse tipo.');
       }
       // Timezone EXPLÍCITA (DECISION-0072 §3.4): sem fallback silencioso.
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -218,9 +220,16 @@ export default function ProfileAgenda() {
         throw new Error('Não foi possível detectar seu fuso horário. A agenda não foi salva.');
       }
       // 🔴 DECISION-0132: envia a finalidade por faixa (purposes). Backend valida slug (z.enum) e resolve concept_id.
-      return await putWeeklyAvailabilityTemplate({ schedule: newSchedule, timezone, purposes });
+      // ownerType explícito (getOwnerType já mapeia 'page' corretamente) — sem isso o backend assumiria
+      // 'user' por default e gravaria a grade no actor errado.
+      return await putWeeklyAvailabilityTemplate({
+        schedule: newSchedule,
+        timezone,
+        purposes,
+        ownerType: getOwnerType() as 'user' | 'page',
+      });
     },
-    [activeActor]
+    [activeActor, getOwnerType]
   );
 
 

@@ -3,6 +3,7 @@
 // Integra frontend com backend Unified Availability Core
 
 import { apiFetchJson } from './client';
+import { getTenantId } from '../config/auth';
 
 /**
  * Backend tem 2 shapes de response convivendo:
@@ -181,12 +182,36 @@ export async function putWeeklyAvailabilityTemplate(input: {
   // 🔴 DECISION-0132: finalidade por faixa. Chave = `${dayKey|specific}|${range}`, valor = slug.
   // O backend valida (z.enum dos 4) e resolve a concept_id. Ausência → janela sem finalidade.
   purposes?: Record<string, string>;
+  // F-COMPANY-AGENDA-REAL-WIRING: restrito a user/page no backend (unified-availability.routes.ts).
+  // ownerId NUNCA vai aqui — o backend resolve do actionContext (actor-first). Ausente → 'user' (default).
+  ownerType?: 'user' | 'page';
+  // F-COMPANY-AGENDA-REAL-WIRING: override EXPLÍCITO do actor-alvo, para chamadas fora do fluxo normal
+  // (ex.: wizard de onboarding de empresa, chamado ANTES do usuário trocar o actor ativo no switcher —
+  // esperar o estado React do actor ativo propagar seria frágil/assíncrono). Constrói o header
+  // x-action-context diretamente, sem tocar localStorage nem o actor ativo da sessão. A AUTORIDADE
+  // REAL é sempre verificada no backend (canRepresentActor) — este campo é só DECLARAÇÃO, igual a
+  // qualquer actionContext.actorId em qualquer outra rota (DECISION-0113: client-declared, nunca
+  // confiável por si só).
+  actorIdOverride?: string;
 }): Promise<MaterializeWeeklyTemplateResult> {
+  const { actorIdOverride, ...body } = input;
+  const headers: Record<string, string> | undefined = actorIdOverride
+    ? {
+        'x-action-context': JSON.stringify({
+          actorId: actorIdOverride,
+          intent: 'user_action',
+          source: 'frontend',
+          scope: `tenant:${getTenantId() ?? ''}`,
+        }),
+      }
+    : undefined;
+
   const result = await apiFetchJson<{ ok: boolean; data: MaterializeWeeklyTemplateResult }>(
     '/availability/weekly-template',
     {
       method: 'PUT',
-      body: JSON.stringify(input),
+      body: JSON.stringify(body),
+      ...(headers ? { headers } : {}),
     }
   );
 

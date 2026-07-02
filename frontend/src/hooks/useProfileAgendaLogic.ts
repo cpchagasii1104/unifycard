@@ -43,7 +43,11 @@ export function useProfileAgendaLogic() {
   const getOwnerType = (activeActor: any): AvailabilityOwnerType => {
     if (!activeActor) return 'user';
     if (activeActor.actor_type === 'group') return 'group';
-    if (activeActor.actor_type === 'page') return 'user';
+    // F-COMPANY-AGENDA-REAL-WIRING: antes mapeava 'page'→'user' (só existia leitura/UI bloqueada
+    // para não-user; qualquer leitura "como página" sempre voltava vazia por engano de tipo). O
+    // backend já suporta AvailabilityOwnerType.PAGE nativamente (unified-availability.routes.ts) —
+    // agora a leitura reflete o tipo real do actor.
+    if (activeActor.actor_type === 'page') return 'page';
     return 'user';
   };
 

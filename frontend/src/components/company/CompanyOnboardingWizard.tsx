@@ -25,6 +25,8 @@ import type {
   CompanyOnboardingConfig,
 } from '../../types/company-onboarding';
 import { deriveOnboardingTrackFromConceptDomain } from '../../utils/onboarding-track';
+import { getAvailableActors } from '../../api/social';
+import { putWeeklyAvailabilityTemplate, type WeeklyAvailabilitySchedule } from '../../api/availability';
 import './CompanyOnboardingWizard.css';
 
 interface CompanyOnboardingWizardProps {
@@ -72,7 +74,7 @@ export default function CompanyOnboardingWizard({
   onCancel,
 }: CompanyOnboardingWizardProps) {
   const navigate = useNavigate();
-  const { activeActor } = useActiveActor();
+  const { activeActor, refreshActors } = useActiveActor();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -369,6 +371,44 @@ export default function CompanyOnboardingWizard({
           onboardingCompleted: true,
         },
       });
+
+      // ── F-COMPANY-AGENDA-REAL-WIRING: materializa a grade semanal DE VERDADE no SSOT temporal
+      // (unified_availability, ownerType='page'), não só no metadado decorativo acima. A empresa só
+      // vira "operacional" (e o page-actor só aparece em findAvailableActors) NESTE PONTO — depois de
+      // activateCompanyOperationally, um instante atrás. Por isso buscamos os actors FRESCOS aqui
+      // (getAvailableActors direto, sem depender do estado React do switcher já ter propagado) em vez
+      // de usar `activeActor` do hook (que ainda seria a Pessoa Física que fez o onboarding).
+      // Não-bloqueante: se falhar, a empresa já foi criada/ativada — falha aqui não deve abortar o
+      // onboarding (mesmo padrão de "erro não-bloqueante" usado no fetch de Receita/opportunity-prefs).
+      try {
+        const freshActors = await getAvailableActors();
+        const pageActor = freshActors.find(
+          (a) => a.actor_type === 'page' && a.company_id === companyId
+        );
+        if (pageActor) {
+          const DAY_INDEX_TO_KEY = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+          const range = `${calendarConfig.defaultStartTime}-${calendarConfig.defaultEndTime}`;
+          const schedule: WeeklyAvailabilitySchedule = {};
+          for (const dayIndex of calendarConfig.activeDays) {
+            const key = DAY_INDEX_TO_KEY[dayIndex];
+            if (key) schedule[key] = [range];
+          }
+          if (Object.keys(schedule).length > 0) {
+            await putWeeklyAvailabilityTemplate({
+              schedule,
+              timezone: calendarConfig.timezone,
+              ownerType: 'page',
+              actorIdOverride: pageActor.actor_id,
+            });
+          }
+        } else {
+          console.warn('[CompanyOnboardingWizard] page-actor não encontrado após ativação — agenda real não materializada (metadado de UX preservado).');
+        }
+        // Actors frescos (a empresa agora aparece) ficam disponíveis para o switcher na próxima leitura.
+        await refreshActors();
+      } catch (agendaError) {
+        console.error('[CompanyOnboardingWizard] Erro ao materializar agenda real da empresa (não-bloqueante):', agendaError);
+      }
 
       showToast('Empresa ativada e configuração salva!', 'success');
 

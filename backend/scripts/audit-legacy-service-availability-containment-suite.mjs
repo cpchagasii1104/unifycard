@@ -26,6 +26,7 @@ const guards = [
   'audit-unread-counts-feed-visibility-fix.mjs',                  // unread-counts feed/social — predicado vivo, sem visibility fantasma
   'audit-actor-mode-surface-clarity-slice.mjs',                   // Slice 2 — pílula quem×modo + dono do extrato + PROFILE_CHANNEL contido
   'audit-actor-available-group-coverage.mjs',                     // findAvailableActors lista grupos (membership real, tenant-scoped, active)
+  'audit-company-agenda-real-wiring.mjs',                         // agenda de empresa materializa de verdade (ownerType=page), não só metadado decorativo
 ];
 
 let failed = false;
@@ -41,4 +42,4 @@ if (failed) {
   console.error('GATE FAIL [legacy-service-availability-containment-suite] — ao menos um guard de contenção legada falhou (ver acima).');
   process.exit(1);
 }
-console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity blindados.');
+console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity + group coverage + company agenda real wiring blindados.');
