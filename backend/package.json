@@ -111,6 +111,7 @@
     "verify:context-nutricao-removal": "node scripts/verify-context-nutricao-removal.mjs",
     "verify:n2-expansion": "node scripts/verify-n2-expansion.mjs",
     "validate:schema-invariants": "tsx scripts/validate-schema-invariants.ts",
+    "validate:service-search-alias-selfname-invariant": "tsx scripts/validate-service-search-alias-selfname-invariant.ts",
     "identity:precheck:a1-a4": "tsx scripts/identity-precheck-a1-a4.ts",
     "identity:cp5:export-a2": "tsx scripts/identity-cp5-export-a2.ts",
     "identity:batch1:create-identities": "tsx scripts/identity-batch1-create-identities.ts",
