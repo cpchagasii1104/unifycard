@@ -1,3 +1,19 @@
+## 2026-07-02 — F-ROUND2-AUDIT-REMEDIATION · ✅ MATERIAL — fecha DT-ROUND2-AUDIT-REMEDIATION-N1-N2-N3 · 19ª dívida técnica resolvida hoje · remedia a segunda rodada de re-auditoria adversarial
+
+Mandei a segunda rodada de re-auditoria pra outra instância (foco no que entrou depois da primeira: as correções A1/A2 e a contenção B2). Ela deu PASS nos 4 itens auditados — nenhuma regressão de dinheiro, nenhum vazamento novo — mas achou 4 resíduos, todos da mesma raiz (contexto de conexão × pool × isolamento). Corrigi os 3 acionáveis; o 4º (estrutural) virou dívida própria registrada.
+
+**O mais sério (N1) era uma regressão que EU introduzi hoje:** quando pus a proteção de isolamento na tabela de trilha de auditoria financeira (fatia de mais cedo), o código que ESCREVE nessa trilha — no caminho de transferência bancária — passou a ser rejeitado silenciosamente sob o usuário restrito de produção. Resultado: a auditoria financeira pararia de ser gravada, sem erro visível (engolida por um try/catch). É o tipo de coisa invisível em desenvolvimento (onde o usuário é privilegiado) que quebra só em produção. Corrigi o escritor pra usar contexto de tenant, e o try/catch agora loga em vez de silenciar. Provei sob o mesmo usuário restrito real que a gravação volta a funcionar.
+
+**O segundo (N2):** a correção A1 de mais cedo resetava o contexto pra string vazia — e descobri (via auditoria) que ~10 políticas de isolamento fazem uma conversão que ESTOURA com string vazia. Troquei por um valor sentinela seguro (UUID nulo) que nunca casa com tenant real nem estoura. Isso também deixa o resíduo estrutural (N4) mais seguro.
+
+**O terceiro (N3):** a regra automática que impede alguém de "materializar" a tabela-fantasma de eventos por acidente tinha um furo de sintaxe (não pegava um formato alternativo de comando). Fechei o furo.
+
+**O 4º achado (N4)** é estrutural — a proteção contra vazamento de contexto entre conexões só cobre quem usa os atalhos oficiais; código que acessa o banco "na mão" ainda pode herdar contexto velho. A auditora classificou como baixo risco (a superfície viva hoje é código órfão + dados de baixa sensibilidade). Registrei como dívida estrutural própria em vez de forçar uma correção grande agora. HEAD material `a2f8c9fb9`.
+
+**Meta-observação:** a rodada 1 achou um bug DENTRO da minha correção; a rodada 2 achou uma regressão que a minha fatia de RLS introduziu. Isso valida ter um auditor separado do executor — eu não teria pego o N1 sozinho, porque em dev (superuser) ele é invisível.
+
+---
+
 ## 2026-07-02 — F-EVENT-SETTLEMENT-GHOST-CONTAINMENT · ✅ MATERIAL / CONTAINED — fecha DT-EVENT-SETTLEMENTS-GHOST-TABLE-LIVE-SURFACES · 18ª dívida técnica resolvida hoje · achado B2 do `auditoria.md`
 
 Clayton pediu pra executar o B2. Fiz o READ-FIRST antes de tocar em qualquer coisa — e parei pra decisão, porque B2 é money-adjacent e o próprio laudo o marca como decisão de PORTA-1, não fatia autônoma de executora.
