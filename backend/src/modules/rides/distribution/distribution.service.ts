@@ -18,6 +18,7 @@ import { runQueryWithTenant, runTenantTransactionWithClient } from "@core/db";
 import { BadRequestError, NotFoundError } from "@core/errors";
 import { publishRideEventOutbox } from "../shared/publish-ride-event";
 import { bankIntegrationService } from "../../bank/bank-integration.service";
+import { assertRidesFinancialRuntimeEnabled } from "@core/rides/rides-financial-firewall";
 
 export class DistributionService {
 
@@ -25,6 +26,11 @@ export class DistributionService {
   // 🔹 1. Processar pagamento final da corrida (INTEGRADO COM UNIFY BANK)
   // ========================================================================
   async processRidePayment(tenantId: string, ride: any, price: any) {
+    // 🔴 F-RIDES-FINANCIAL-FIREWALL (achado B1, 2026-07-02): fail-closed default-off no CALLER, antes
+    // de qualquer leitura/split/ledger. Gate DUPLO (defesa-em-profundidade): o SINK
+    // bankIntegrationService.processRidePayment também é gated. Reabrir = flag (PORTA-1).
+    assertRidesFinancialRuntimeEnabled('distributionService.processRidePayment');
+
     const rideId = ride.ride_id ?? ride.id;
     const passengerUserId = ride.passenger_user_id;
     const driverId = ride.driver_id;

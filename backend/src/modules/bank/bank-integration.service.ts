@@ -12,6 +12,7 @@ import { bankTransactionService } from './bank-transaction.service';
 import { requestAndExecuteReversalSync } from '../reversal/reversal.service';
 import { buildFinancialAuthorshipFromRequest } from './financial-authorship.helper';
 import { assertCheckoutFinancialRuntimeEnabled } from '@core/checkout/checkout-financial-firewall';
+import { assertRidesFinancialRuntimeEnabled } from '@core/rides/rides-financial-firewall';
 import type { BankTransactionContext } from './bank-split.types';
 import type { BankCurrency } from './bank-account.types';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
@@ -927,6 +928,12 @@ class BankIntegrationService {
     transactionId: string;
     splits: Array<{ accountId: string; amountCents: number; splitType: string }>;
   }> {
+    // 🔴 F-RIDES-FINANCIAL-FIREWALL (achado B1, 2026-07-02): fail-closed default-off ANTES de
+    // qualquer resolução de conta / split / ledger. SINK do gate duplo (o CALLER
+    // distributionService.processRidePayment também é gated — defesa-em-profundidade). Este era o
+    // único método money-sink do bank-integration sem firewall. Reabrir = flag (PORTA-1).
+    assertRidesFinancialRuntimeEnabled('bankIntegration.processRidePayment');
+
     const {
       rideId,
       passengerUserId,

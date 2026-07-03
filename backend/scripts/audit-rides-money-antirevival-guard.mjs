@@ -6,8 +6,12 @@
 //   • rides NÃO vaza dinheiro hoje: o writer financeiro processRidePayment existe e toca o Bank
 //     (distributionService.processRidePayment -> bankIntegrationService.processRidePayment -> ledger),
 //     MAS só é alcançável por rotas MORTAS/não-registradas.
-//   • processRidePayment NÃO tem firewall/flag default-OFF própria (não chama assertCheckoutFinancialRuntimeEnabled —
-//     esse gate cobre só os métodos de EVENTOS do bankIntegration). A contenção atual é PURO dead-code/não-registro.
+//   • processRidePayment NÃO tinha firewall/flag default-OFF própria (só dead-code/não-registro). 🔴 ATUALIZAÇÃO
+//     2026-07-02 (achado B1 / F-RIDES-FINANCIAL-FIREWALL, Clayton GO): AGORA TEM — assertRidesFinancialRuntimeEnabled
+//     (RIDES_FINANCIAL_RUNTIME_ENABLED default-off) no SINK (bankIntegration.processRidePayment) E no CALLER
+//     (distributionService.processRidePayment), gate duplo. Este guard (dead-code/não-registro) SEGUE valendo como
+//     defesa-em-profundidade: reativar rides financeiro agora exige DOIS atos deliberados — registrar as rotas mortas
+//     (que este guard morde) E ligar o flag (que o firewall exige). Nenhum sozinho basta.
 //   • rides.module.ts monta só rotas operacionais/admin; o agregador financeiro rides.routes.ts (que registra
 //     distribution/lifecycle/matching/pricing/promotions/referrals) está COMENTADO no rides.module.ts.
 //
@@ -77,6 +81,9 @@ const PRP_ALLOWLIST = new Set([
   'src/modules/rides/lifecycle/lifecycle.routes.ts',
   'src/modules/rides/services/lifecycle.service.ts',
   'src/modules/rides/rides/rides.service.ts',
+  // TEST_ONLY (F-RIDES-FINANCIAL-FIREWALL, achado B1, 2026-07-02): E2E que exercita os DOIS gates do
+  // firewall (chama sink+caller esperando 403 fail-closed). Não é reativação — prova a contenção.
+  'src/scripts/validate-pipeline-e2e-rides-financial-firewall.ts',
 ]);
 // Arquivos rides MORTOS que podem escrever bank_transaction_id.
 const BTXID_RIDES_ALLOWLIST = new Set([
