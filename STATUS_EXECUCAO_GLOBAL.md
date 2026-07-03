@@ -1,3 +1,19 @@
+## 2026-07-02 — F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX · ✅ MATERIAL / CRÍTICO — fecha DT-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX · 17ª dívida técnica resolvida hoje · achado de uma re-auditoria adversarial que EU MESMO pedi
+
+Clayton perguntou se devia trocar de instância pra continuar (tinha acabado de me mudar pra Fable 5/ultracode) ou me passar o prompt de re-auditoria da outra Fable. Recomendei eu continuar (contexto quente decide aqui) e que a outra instância fizesse o papel de revisora — separação entre quem executa e quem audita. Escrevi um prompt de re-auditoria específico pros 4 itens mais arriscados do dia e sugeri ele mandar pra ela.
+
+**Ela voltou com 3 achados novos**, todos derivados do MESMO mecanismo que corrigi mais cedo hoje — e um deles (A1) é mais grave que o bug original: não é "nega acesso a quem tem direito", é **vazamento real entre clientes**. O fix de hoje cedo trocou "a marcação desaparece rápido demais" por "a marcação dura a sessão inteira" — mas nunca limpei essa marcação quando a conexão volta pro estoque compartilhado. Se uma conexão serviu um pedido de curadoria (que enxerga tudo) e depois é reaproveitada — o que acontece o tempo todo, é assim que pool de conexão funciona — pro pedido de um cliente comum, esse cliente comum HERDA o "enxerga tudo" que sobrou. É reabrir, por reaproveitamento de conexão, o mesmo vazamento que fechei ontem no catálogo.
+
+**O segundo achado (A2):** encontrei o bug ORIGINAL (antes de qualquer correção) sobrevivendo intacto num arquivo diferente — uma segunda "porta de entrada" pro banco que faz a mesma coisa com nome parecido, que eu nunca tinha olhado. 23 lugares vivos usam essa porta hoje (a maioria rotas de transporte). Não morde ainda porque essas tabelas não têm a proteção de isolamento ligada — mas é a mesma bomba-relógio, só que noutro lugar.
+
+**Verifiquei um terceiro achado (A3) antes de aceitar a classificação da auditoria** — ela disse que era "risco dormente, sem impacto hoje" pra um detector de anomalia financeira; conferi eu mesmo no banco (a tabela está vazia, o único processo que a alimentaria está desligado) antes de concordar e registrar como dívida sem corrigir agora.
+
+**Correção:** toda função que marca "essa conexão é do cliente X" agora também apaga explicitamente a marcação "essa conexão é de curadoria", e vice-versa — nos 2 arquivos (o original + a porta paralela) + mais 4 lugares que usavam o padrão errado por outro motivo (misturaram os dois estilos de marcação). Prova mais forte que fiz o dia inteiro: forcei o sistema a reusar a MESMA conexão física de propósito (confirmei pelo identificador interno do Postgres, não por suposição) e mostrei que o vazamento não acontece mais, sob a mesma restrição real de segurança que a produção usaria. 7 de 7 passou.
+
+HEAD material `1fd4d632b`.
+
+---
+
 ## 2026-07-02 — F-GROUP-B-FINANCIAL-WORKERS-TENANT-LOOP-RLS · ✅ MATERIAL — fecha DT-GROUP-B-FINANCIAL-WORKERS-ACTIVE-CROSS-TENANT-RLS-GAP · 16ª dívida técnica resolvida hoje · 🏁 achado B3 do `auditoria.md` INTEGRALMENTE resolvido (23/25 tabelas; as 3 restantes são config global sem tenant, correto)
 
 Clayton confirmou que eu seguisse daqui (agora como Fable 5/ultracode) em vez de transferir pra outra instância — a outra Fable fica com o papel de re-auditora adversarial. Retomei o Grupo B, que tinha sido interrompido pelo achado do GUC.
