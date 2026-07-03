@@ -1,3 +1,11 @@
+## 2026-07-03 — F-GLOBAL-SEARCH-OMNI SLICE B · ✅ MATERIAL — Ctrl-K vira omnibox de verdade (frontend)
+
+Continuação imediata da Slice A com GO. A barra do header (Ctrl-K) deixou de ser funil de uma vertical: 2+ caracteres abrem dropdown com **7 seções federadas** — IR PARA (command palette sobre a projeção `GET /navigation/modules`; módulo que o actor não vê na sidebar não aparece na busca) + Pessoas + Empresas + Grupos + Serviços + Produtos + Eventos, cada uma navegando pro destino certo (`/profile/:id`, `/company/:id`, `/grupos/:id`, `/discover/services/:id`, `/events/:id`; produtos = fallback honesto `/marketplace` até existir página de item canônico). Enter preservado como fallback de página cheia (o rewire do deadend de 2026-07-01 segue honrado). Debounce 300ms + guarda anti-race + Escape/clique-fora. Frontend só renderiza e navega — as seções vêm resolvidas do backend (Slice A). HEAD `bbc296d93`.
+
+Guard do deadend **evoluído** (cheque E: omnibox wired + 7 seções presentes, NP provada). Frontend tsc 0 · backend tsc 0 · cadeia EXIT 0. **Buscar "Clayton" agora mostra a pessoa Clayton — o caso que abriu a frente.** Visual sign-off = Clayton no browser. Resta Slice C (SearchPage filtros nomeados) com GO.
+
+---
+
 ## 2026-07-03 — F-GLOBAL-SEARCH-OMNI SLICE A · ✅ MATERIAL — omnibox federado GET /search?q= (backend)
 
 Clayton buscou "Clayton" na barra global e caiu em "Descobrir Serviços" com miss — sintoma do estado interino documentado (a barra apontava pra única busca viva; busca de QUEM não existia NENHUMA). Design aprovado (omnibox 3 pistas: IR PARA / QUEM / O QUÊ, filtros só quando o substrato não mente) + GO.
