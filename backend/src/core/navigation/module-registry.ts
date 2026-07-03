@@ -48,7 +48,7 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
   // Histórico do sidebar hardcoded — rotas /em-desenvolvimento (NÃO operacionais):
   { moduleKey: 'mobility', label: 'Pedir um carro', icon: '🚗', route: '/em-desenvolvimento?feature=mobility', group: 'Comércio', contexts: ['personal'], status: 'STUB' },
   { moduleKey: 'food', label: 'Pedir comida', icon: '🍕', route: '/em-desenvolvimento?feature=food', group: 'Comércio', contexts: ['personal'], status: 'STUB' },
-  { moduleKey: 'rentals', label: 'Locações', icon: '🔑', route: '/em-desenvolvimento?feature=locacoes', group: 'Comércio', contexts: ['personal'], status: 'STUB' },
+  { moduleKey: 'rentals', label: 'Locações', icon: '🔑', route: '/locacoes', group: 'Comércio', contexts: ['personal'], status: 'LIVE' }, // F-RENTAL-RESOURCE-SURFACE-SLICE-B
 
   // ── Social ───────────────────────────────────────────────────────────────
   { moduleKey: 'social', label: 'Rede Social', icon: '💬', route: '/social', group: 'Social', contexts: ['personal'], status: 'LIVE' },

@@ -1,0 +1,36 @@
+/* RentalResourceDetailPage.css — detalhe do recurso alugável (F-RENTAL-RESOURCE-SURFACE-SLICE-B) */
+.rrd-page { max-width: 860px; margin: 0 auto; padding: 1.5rem; }
+.rrd-back { border: none; background: none; color: #4f5bd5; cursor: pointer; font-size: 0.875rem; padding: 0; margin-bottom: 1rem; }
+.rrd-error { color: #b91c1c; }
+
+.rrd-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.rrd-title { font-size: 1.375rem; margin: 0.35rem 0 0.25rem; }
+.rrd-subtitle { color: #666; margin: 0; font-size: 0.875rem; }
+.rrd-status-badge { display: inline-block; font-size: 0.6875rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; }
+.rrd-status-active { background: #dcefe0; color: #2f7a3f; }
+.rrd-status-paused { background: #f0e2c6; color: #9c6a1e; }
+.rrd-status-retired { background: #eadad2; color: #7a3e32; }
+.rrd-status-actions { display: flex; gap: 0.4rem; }
+.rrd-status-actions button { padding: 0.35rem 0.75rem; border: 1px solid #d9dbe4; border-radius: 6px; background: #fff; cursor: pointer; font-size: 0.8125rem; }
+.rrd-status-actions button:disabled { background: #f3f4f9; color: #8a8fa3; cursor: default; }
+
+.rrd-section { margin-bottom: 1.75rem; }
+.rrd-section h2 { font-size: 1rem; margin: 0 0 0.65rem; }
+.rrd-status-text { color: #777; font-size: 0.875rem; }
+
+.rrd-window-form { display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap; padding: 1rem; border: 1px solid #e2e4ea; border-radius: 10px; background: #fafbfc; }
+.rrd-window-form label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8125rem; font-weight: 600; color: #444; }
+.rrd-window-form input { padding: 0.45rem 0.6rem; border: 1px solid #d9dbe4; border-radius: 6px; font-size: 0.875rem; font-weight: 400; }
+.rrd-window-form button { padding: 0.5rem 1.1rem; border: none; border-radius: 8px; background: #2f7a3f; color: #fff; font-weight: 600; cursor: pointer; }
+.rrd-window-form button:disabled { opacity: 0.6; }
+
+.rrd-windows { display: flex; flex-direction: column; gap: 0.6rem; }
+.rrd-window-card { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.85rem 1rem; border: 1px solid #e2e4ea; border-radius: 10px; background: #fff; }
+.rrd-window-range { font-size: 0.875rem; font-weight: 600; }
+.rrd-window-tag { align-self: flex-start; font-size: 0.6875rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; }
+.rrd-tag-open { background: #dcefe0; color: #2f7a3f; }
+.rrd-tag-requested { background: #f0e2c6; color: #9c6a1e; }
+.rrd-tag-confirmed { background: #dce5de; color: #3c5a48; }
+.rrd-booking-row { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.65rem; background: #fafbfc; border-radius: 6px; font-size: 0.8125rem; }
+.rrd-booking-row button { padding: 0.3rem 0.75rem; border: none; border-radius: 6px; background: #2f7a3f; color: #fff; font-weight: 600; cursor: pointer; }
+.rrd-request-btn { align-self: flex-start; padding: 0.4rem 0.9rem; border: none; border-radius: 8px; background: #4f5bd5; color: #fff; font-weight: 600; cursor: pointer; }

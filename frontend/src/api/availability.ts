@@ -23,8 +23,10 @@ function unwrapResponse<T>(raw: any): T {
 /**
  * Tipo de owner da disponibilidade
  */
-// DECISION-0118 D2 — vocabulário ESPELHADO no enum backend + CHECK físico (page e service_offering incluídos).
-export type AvailabilityOwnerType = 'user' | 'service' | 'event' | 'group' | 'page' | 'service_offering';
+// DECISION-0118 D2 — vocabulário ESPELHADO no enum backend + CHECK físico. 'rentable_resource'
+// adicionado por DECISION-0151 (F-RENTAL-RESOURCE-SURFACE-SLICE-A/B) — o mesmo owner_type que o
+// backend já aceitava, sem mudança na rota; só o frontend precisava conhecer o valor.
+export type AvailabilityOwnerType = 'user' | 'service' | 'event' | 'group' | 'page' | 'service_offering' | 'rentable_resource';
 
 /**
  * Tipo de disponibilidade

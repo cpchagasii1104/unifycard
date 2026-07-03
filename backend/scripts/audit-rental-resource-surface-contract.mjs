@@ -76,11 +76,35 @@ function stripComments(s) {
   }
 }
 
-// ── 4: wiring ──
+// ── 4: wiring (backend) ──
 {
   const builder = stripComments(read('src/app.builder.ts'));
   if (!/rentals\.module/.test(builder)) {
     failures.push('app.builder não registra rentalsModule — a rota de recurso alugável morreu sem decisão.');
+  }
+}
+
+// ── 5: wiring (frontend, F-RENTAL-RESOURCE-SURFACE-SLICE-B) ──
+// module-registry deixou de ser STUB (a UI real existe agora); as páginas + rotas devem seguir vivas.
+{
+  const registry = stripComments(read('src/core/navigation/module-registry.ts'));
+  if (/moduleKey:\s*'rentals'[\s\S]{0,120}?status:\s*'STUB'/.test(registry)) {
+    failures.push("module-registry: 'rentals' voltou a STUB — a Slice B já entregou UI real; reverter exige decisão, não regressão silenciosa.");
+  }
+  const FE = join('..', 'frontend', 'src');
+  const listPage = read(join(FE, 'pages', 'RentalResourceListPage.tsx'));
+  const detailPage = read(join(FE, 'pages', 'RentalResourceDetailPage.tsx'));
+  const appTsx = stripComments(read(join(FE, 'App.tsx')));
+  if (!listPage) failures.push('RentalResourceListPage.tsx ausente — Slice B removida sem decisão.');
+  if (!detailPage) failures.push('RentalResourceDetailPage.tsx ausente — Slice B removida sem decisão.');
+  if (!/path="locacoes"/.test(appTsx) || !/path="locacoes\/:id"/.test(appTsx)) {
+    failures.push('App.tsx perdeu as rotas locacoes/locacoes/:id — módulo LIVE no registry sem rota real seria dead-end.');
+  }
+  if (!/createRentableResource/.test(listPage) || !/searchCanonicalServices/.test(listPage)) {
+    failures.push('RentalResourceListPage.tsx: criação de recurso ou busca de concept governado sumiu — risco de reintroduzir taxonomia inventada no cliente.');
+  }
+  if (!/createAvailability|confirmBooking|createBooking/.test(detailPage)) {
+    failures.push('RentalResourceDetailPage.tsx deixou de usar o client de availability existente — se reimplementou booking próprio, é segunda fonte de verdade (DECISION-0159).');
   }
 }
 

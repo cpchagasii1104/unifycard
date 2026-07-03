@@ -93,6 +93,8 @@ import ServiceDiscoveryDetailPage from './pages/ServiceDiscoveryDetailPage'; // 
 import ServiceCreatePage from './pages/ServiceCreatePage'; // F-MVP-SERVICE-CHAIN GAP-1
 import ServiceBookingDecisionPage from './pages/ServiceBookingDecisionPage'; // F-MVP-SERVICE-CHAIN GAP-2
 import ProviderServiceHubPage from './pages/ProviderServiceHubPage'; // F-MVP-SERVICE-CHAIN GAP-2/3/4 hub
+import RentalResourceListPage from './pages/RentalResourceListPage'; // F-RENTAL-RESOURCE-SURFACE-SLICE-B
+import RentalResourceDetailPage from './pages/RentalResourceDetailPage'; // F-RENTAL-RESOURCE-SURFACE-SLICE-B
 import SubscriptionsPage from './pages/SubscriptionsPage'; // SPRINT 87
 import VenuePublicPage from './pages/VenuePublicPage'; // SPRINT 92
 import TabPage from './pages/TabPage'; // SPRINT 92
@@ -248,6 +250,7 @@ function AppContent() {
             }
           />
 
+
           {/* Rota de Observação de Piloto (apenas em modo piloto) */}
           <Route
             path="/admin/pilot"
@@ -367,6 +370,9 @@ function AppContent() {
               vira alias/redirect compatível (abaixo). ServicesListPage fica órfã em disco.
               NÃO tocamos menu/registry backend nem a árvore de gestão /services/:id/*. */}
           <Route path="services" element={<ProviderServiceHubPage />} />
+          {/* F-RENTAL-RESOURCE-SURFACE-SLICE-B: locações deixa de ser STUB (module-registry atualizado) */}
+          <Route path="locacoes" element={<RentalResourceListPage />} />
+          <Route path="locacoes/:id" element={<RentalResourceDetailPage />} />
           {/* F-MVP-SERVICE-CHAIN GAP-1: publicar serviço/oferta/agenda (estática antes de :id) */}
           <Route path="services/new" element={<ServiceCreatePage />} />
           <Route path="services/:id" element={<ServiceDetailPage />} />
