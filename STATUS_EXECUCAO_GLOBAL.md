@@ -1,3 +1,17 @@
+## 2026-07-03 — F-EVENT-RESERVATIONS-MISLABELED-FK-CONTAIN (B7 parte c) · ✅ MATERIAL — a "FK que mente" eliminada · 25ª dívida técnica da campanha
+
+Clayton deu GO no B7 ("vamos fazer o que precisa ser feito, respeite normas"). B7 tem 4 partes; a norma decidiu o escopo por mim: **F4/F5 da tríade CPF estão bloqueados pela própria DECISION-0062** (D9: sem audit+backfill provados a F4 não pode iniciar; D10: cada fase exige GO próprio; e o audit precisa do banco vivo, inacessível). Respeitar a sequência da norma É fazer o que o B7 pede. A parte destravável — **a FK que mente** — é eixo separado do CPF, e foi a que fechei.
+
+**A descoberta do READ-FIRST:** `event_reservations` tinha DUAS colunas apontando para `actors(id)` — o `actor_id` genesis (NOT NULL, actor-first, o mesmo que toda tabela-irmã de eventos usa e o mesmo que o único leitor vivo, o home-feed, já consulta) e um `global_user_id` mentiroso adicionado depois. A coluna mentirosa era escrita **só por código morto** (sem caller) que nunca nem funcionou (omitia o `actor_id` NOT NULL → crash). Ou seja: o mundo vivo já falava `actor_id`; a coluna mentirosa era um duplicado redundante e vazio. Os "irmãos" `event_attendees`/`event_staff.global_user_id` são legítimos (apontam global_users de verdade) — fora de escopo.
+
+**O que fiz:** (1) apontei o código morto para o `actor_id` canônico (de quebra conserta o crash latente); (2) migration que dropa a coluna mentirosa **fail-closed** — só derruba se ela for provadamente redundante, senão aborta (substrato de identidade não se destrói sob incerteza; sem banco vivo, a migration se autoverifica); (3) guard anti-regressão. Provado em DB efêmera com migração FULL real (421/421 migrations, 7/7 checks) + negative-proof do guard. HEAD material `f63c8e7e8`. Δbank=0.
+
+**Detalhe honesto de processo:** meu e2e inicialmente checava Δbank consultando as tabelas de valor do Bank — isso fez o teto de vocabulário financeiro de DECISION-0158 (que ratifiquei ontem) subir +6. A catraca mordeu meu próprio trabalho, como projetada. Removi a asserção redundante (a mudança é money-free por construção — dropa coluna não-monetária) e o teto voltou ao lugar.
+
+**Resta do B7:** a convergência da tríade CPF (F4/F5) segue como frente norm-sequenced sob GO por fase, quando houver banco vivo para o audit. A armadilha de join mais aguda (a FK que mentia) já não existe.
+
+---
+
 ## 2026-07-03 — F-RED-GATES-BASELINE (DECISION-0158) · ✅ MATERIAL — fecha DT-RED-GATES-BLIND-SPOT (achado B4) · 24ª dívida técnica da campanha · 🏁 TODOS os pré-requisitos técnicos de PORTA-1 do laudo fechados/contidos
 
 Clayton perguntou o que faltava pra resolver tudo do laudo antes de pensar em PORTA-1. Cruzei item a item: faltava só o B4 (os 3 gates vermelhos). Ele escolheu "baseline formal + drenar typecheck" (zeragem das 4.4 mil violações financeiras mexeria em código de dinheiro congelado — contra a norma de não-agir em dívida classificada).
