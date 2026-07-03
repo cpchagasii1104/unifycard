@@ -14,7 +14,10 @@
  *   H  · O QUÊ/serviços: vocabulário controlado — "faxina" resolve concept (seed vivo de migration)
  *        com results=[] honesto (sem oferta ativa); termo sem ponte → conceptIds=[];
  *   I  · nenhuma seção com erro (fail-soft não disparou) + products responde array;
- *   J  · limit clampa (limit=99 → 200 sem erro).
+ *   J  · limit clampa (limit=99 → 200 sem erro);
+ *   K  · scaffolds N1-root FORA da descoberta: âncora marcada catalog_scaffold=true não aparece
+ *        na seção produtos; gêmea SEM marca (mesma prontidão) aparece — o filtro é o marcador,
+ *        não o nome. Migration 20260703140000 marcou as 6 âncoras do bloco3 no caminho FULL.
  */
 
 import 'tsconfig-paths/register';
@@ -213,6 +216,41 @@ async function main(): Promise<void> {
     // J · limit clamp
     const rBig = await search('omni', { limit: '99' });
     record('J limit=99 clampa sem erro (200)', rBig.statusCode === 200, `status=${rBig.statusCode}`);
+
+    // K · scaffold N1-root fora da descoberta (marcador, não nome)
+    // pega uma âncora real do bloco3 (migration FULL) p/ herdar concept/category com prontidão válida
+    const anchor = await pool.query<{ concept_id: string; category_id: string }>(
+      `SELECT concept_id, category_id FROM canonical_products
+        WHERE name LIKE 'Catálogo global (N1 raiz) — %' AND attributes->>'catalog_scaffold' = 'true' LIMIT 1`
+    );
+    if (anchor.rows.length === 0) {
+      record('K âncoras N1-root marcadas pela migration 20260703140000 no FULL', false, 'nenhuma âncora marcada encontrada');
+    } else {
+      const { concept_id, category_id } = anchor.rows[0];
+      // gêmeas com MESMA prontidão (INDUSTRIAL, concept confirmado, category) — só o marcador difere
+      await pool.query(
+        `INSERT INTO canonical_products (tenant_id, scope, type, name, brand, images, attributes, category_id, concept_id, concept_resolution_status, gtin)
+         VALUES (NULL,'global','INDUSTRIAL','Vassoura OmniTest Scaffold',NULL,'[]'::jsonb,'{"catalog_scaffold": true}'::jsonb,$1,$2,'confirmed',NULL),
+                (NULL,'global','INDUSTRIAL','Vassoura OmniTest Real',NULL,'[]'::jsonb,'{}'::jsonb,$1,$2,'confirmed',NULL)`,
+        [category_id, concept_id]
+      );
+      const rVass = await search('Vassoura OmniTest');
+      const bVass = JSON.parse(rVass.body);
+      const names = (bVass.data.sections.products ?? []).map((p: any) => p.name);
+      record(
+        'K scaffold marcado FORA · gêmea sem marca DENTRO (filtro = marcador catalog_scaffold, não nome)',
+        names.includes('Vassoura OmniTest Real') && !names.includes('Vassoura OmniTest Scaffold'),
+        `products=${JSON.stringify(names)}`
+      );
+      // e a âncora original do bloco3 não aparece buscando o próprio nome dela
+      const rAnc = await search('Catálogo global');
+      const bAnc = JSON.parse(rAnc.body);
+      record(
+        'K2 âncoras reais do bloco3 não poluem a busca ("Catálogo global" → produtos vazio)',
+        (bAnc.data.sections.products ?? []).length === 0,
+        JSON.stringify(bAnc.data.sections.products)
+      );
+    }
   } finally {
     await app.close();
     await pool.end();

@@ -15,7 +15,7 @@ const searchOmniRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /?q=clayton&limit=5 → seções tipadas: people/companies/groups/services/products/events.
    * (montado sob prefix /search → GET /search?q=...)
    */
-  fastify.get<{ Querystring: { q?: string; limit?: string } }>('/', async (req, reply) => {
+  fastify.get<{ Querystring: { q?: string; limit?: string; cityId?: string } }>('/', async (req, reply) => {
     if (!req.user) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
@@ -25,12 +25,15 @@ const searchOmniRoutes: FastifyPluginAsync = async (fastify) => {
 
     const q = String(req.query.q ?? '').trim();
     const limit = Math.min(Math.max(parseInt(req.query.limit ?? '5', 10) || 5, 1), 10);
+    // filtro pós-busca de cidade (aplica às seções com substrato: serviços + eventos)
+    const cityId = String(req.query.cityId ?? '').trim() || null;
 
     try {
       const data = await searchOmniService.searchOmni(req.tenant.id, {
         q,
         perSection: limit,
         discoveryUserId: (req.user as { userId?: string }).userId,
+        cityId,
       });
       return reply.send({ ok: true, data });
     } catch (err) {

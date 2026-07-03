@@ -52,9 +52,13 @@ export async function searchCanonicalItems(
        FROM canonical_products cp
       WHERE ${cpVis} AND cp.type = 'INDUSTRIAL' AND ${cpReady}
         AND cp.duplicate_of_canonical_product_id IS NULL
+        AND COALESCE(cp.attributes->>'catalog_scaffold', '') <> 'true'
         ${filter}
       ORDER BY ${cpOrder}, cp.name ASC
       LIMIT $2`,
     params
   );
+  // ↑ catalog_scaffold: âncoras N1-root do bloco3 (data-repair 20260518120000) são estrutura de
+  //   catálogo, não produto vendável — marcadas por 20260703140000 e EXCLUÍDAS da descoberta
+  //   (as duas superfícies: /catalog/items/search + omnibox). A âncora segue viva no dado.
 }

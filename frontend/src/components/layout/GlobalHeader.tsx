@@ -167,11 +167,11 @@ export default function GlobalHeader() {
     e.preventDefault();
     const trimmed = searchQuery.trim();
     if (trimmed) {
-      // 🔎 F-GLOBAL-SEARCH-DEADEND-REWIRE-SLICE-A: a busca universal ainda NÃO existe. Antes ia para
-      // /marketplace?q= (dead-end: o Marketplace ignora q). Reaponta para a única busca semanticamente
-      // viva — descoberta de serviços (termo→alias→CONCEPT→discovery, resolvido no backend). Interina e
-      // honesta; frontend-only, sem mode/actor/category na URL.
-      navigate(`/discover/services?term=${encodeURIComponent(trimmed)}`);
+      // 🔎 F-GLOBAL-SEARCH-OMNI Slice C: a busca universal AGORA EXISTE — Enter leva à página
+      // federada /search?q= (histórico: o rewire interino de 2026-07-01 apontava para
+      // /discover/services?term=, que segue viva como vertical de serviços linkada de lá).
+      setOmniOpen(false);
+      navigate(`/search?q=${encodeURIComponent(trimmed)}`);
     }
   };
 
@@ -287,10 +287,11 @@ export default function GlobalHeader() {
             result={omniResult}
             navHits={omniNavHits}
             loading={omniLoading}
+            mode={mode}
             onNavigate={handleOmniNavigate}
             onFullSearch={() => {
               setOmniOpen(false);
-              navigate(`/discover/services?term=${encodeURIComponent(searchQuery.trim())}`);
+              navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
             }}
           />
         )}

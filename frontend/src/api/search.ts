@@ -51,9 +51,10 @@ export interface OmniSearchResult {
   sectionErrors: string[];
 }
 
-export async function searchOmni(q: string, limit = 5): Promise<OmniSearchResult> {
-  const res = await apiFetchJson<{ ok: boolean; data: OmniSearchResult }>(
-    `/search?q=${encodeURIComponent(q)}&limit=${limit}`
-  );
+export async function searchOmni(q: string, limit = 5, cityId?: string | null): Promise<OmniSearchResult> {
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  // filtro pós-busca de cidade — o backend o aplica SÓ às seções com substrato (serviços/eventos)
+  if (cityId) params.set('cityId', cityId);
+  const res = await apiFetchJson<{ ok: boolean; data: OmniSearchResult }>(`/search?${params.toString()}`);
   return res.data;
 }

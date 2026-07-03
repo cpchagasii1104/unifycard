@@ -36,11 +36,16 @@ const read = (p) => { if (!existsSync(p)) { failures.push(`arquivo ausente: ${p}
 const failures = [];
 const DISCOVERY_TARGET = /\/discover\/services\?term=/;
 
-// (A) GlobalHeader — sem /marketplace?q= ; com destino de discovery.
+// (A) GlobalHeader — sem /marketplace?q= ; com destino REAL de busca.
+// EVOLUÇÃO Slice C (2026-07-03): a busca universal EXISTE (/search?q= federada). O header agora
+// mira a página universal; o destino de discovery de serviços segue válido como alternativa
+// (a SearchPage linka pra ele). Regressão = header sem NENHUM destino real ou de volta ao
+// /marketplace?q= que ignora o termo.
+const UNIVERSAL_TARGET = /\/search\?q=/;
 const gh = read(GLOBAL_HEADER);
 if (gh !== null) {
-  if (/\/marketplace\?q=/.test(gh)) failures.push('GlobalHeader.tsx: navigate(/marketplace?q=…) reapareceu — dead-end (Marketplace ignora q). Apontar para /discover/services?term=.');
-  if (!DISCOVERY_TARGET.test(gh)) failures.push('GlobalHeader.tsx: a busca do header não aponta mais para /discover/services?term= (rewire perdido).');
+  if (/\/marketplace\?q=/.test(gh)) failures.push('GlobalHeader.tsx: navigate(/marketplace?q=…) reapareceu — dead-end (Marketplace ignora q).');
+  if (!UNIVERSAL_TARGET.test(gh) && !DISCOVERY_TARGET.test(gh)) failures.push('GlobalHeader.tsx: a busca do header não aponta nem para /search?q= (universal) nem para /discover/services?term= — voltou a ser dead-end.');
 }
 
 // (B) MarketplaceSimpleHeader — handleSearch sem console.log ; com destino de discovery.
@@ -74,14 +79,25 @@ if (dp !== null) {
 const OMNI_CLIENT = join(FE_SRC, 'api', 'search.ts');
 const OMNI_DROPDOWN = join(FE_SRC, 'components', 'layout', 'OmniSearchDropdown.tsx');
 const oc = read(OMNI_CLIENT);
-if (oc !== null && !/\/search\?q=/.test(oc)) {
-  failures.push('api/search.ts: client do omnibox não bate mais em /search?q= (§9.3) — contrato com o gateway federado quebrado.');
+// o client monta /search?<URLSearchParams com q=...> — o contrato exigido é rota /search + param q
+if (oc !== null && !(/\/search\?/.test(oc) && /\bq\b/.test(oc))) {
+  failures.push('api/search.ts: client do omnibox não bate mais em /search com param q (§9.3) — contrato com o gateway federado quebrado.');
 }
 const od = read(OMNI_DROPDOWN);
 if (od !== null) {
   for (const section of ['Ir para', 'Pessoas', 'Empresas', 'Grupos', 'Serviços', 'Produtos', 'Eventos']) {
     if (!od.includes(section)) failures.push(`OmniSearchDropdown.tsx: seção "${section}" sumiu do omnibox — pista removida sem decisão.`);
   }
+  // DOUTRINA MODO×BUSCA: o modo só reordena APRESENTAÇÃO — o dropdown deve ter as duas ordens
+  // (consumir prioriza O QUÊ; operar prioriza QUEM) e NUNCA condicionar conteúdo ao modo.
+  if (!/SECTION_ORDER_BY_MODE/.test(od)) failures.push('OmniSearchDropdown.tsx: doutrina modo×busca perdida (SECTION_ORDER_BY_MODE sumiu) — ou o modo deixou de reordenar, ou passou a fazer algo além de reordenar.');
+}
+
+// (F) Slice C — SearchPage é a busca UNIVERSAL federada: consome searchOmni + filtros nomeados
+// do Location Core (não campos de ID cru) + mantém link pra vertical de serviços.
+if (sp !== null) {
+  if (!/searchOmni/.test(sp)) failures.push('SearchPage.tsx: deixou de consumir searchOmni — a página universal regrediu a dead-end/redirect.');
+  if (!/getCitiesByState|getStatesByCountry/.test(sp)) failures.push('SearchPage.tsx: filtros de cidade/estado deixaram de usar os seletores NOMEADOS do Location Core (getStatesByCountry/getCitiesByState) — voltaria ao anti-padrão de campo de ID cru.');
 }
 if (gh !== null) {
   if (!/searchOmni/.test(gh)) failures.push('GlobalHeader.tsx: deixou de consumir searchOmni — o omnibox federado (Slice B) foi deswired; a barra voltou a ser funil de uma vertical só.');

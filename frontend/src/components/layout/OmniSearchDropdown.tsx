@@ -7,6 +7,7 @@
 //   O QUÊ    → serviços (termo→alias→CONCEPT) / produtos (item canônico) / eventos (piso discovery).
 // O componente só RENDERIZA e NAVEGA — zero decisão material no cliente.
 
+import type { ReactNode } from 'react';
 import type { NavModuleItem } from '../../api/navigation';
 import type { OmniSearchResult } from '../../api/search';
 
@@ -15,11 +16,24 @@ interface OmniSearchDropdownProps {
   result: OmniSearchResult | null;
   navHits: NavModuleItem[];
   loading: boolean;
+  /** DOUTRINA MODO×BUSCA (ratificada por Clayton 2026-07-03): o modo Consumir/Operar NUNCA muda
+   *  O QUE a busca encontra (retrieval = tenant + visibilidade + eligibility, tudo server-side,
+   *  modo-independente). O modo só reordena a APRESENTAÇÃO das seções DEPOIS do buscador trabalhar
+   *  (lei "frontend pode ordenar/priorizar visualmente"): Consumir prioriza O QUÊ (ofertas);
+   *  Operar prioriza QUEM/navegação operacional. Mesmos resultados, ênfase diferente. */
+  mode?: 'consumir' | 'operar' | string;
   onNavigate: (route: string) => void;
   onFullSearch: () => void;
 }
 
-export default function OmniSearchDropdown({ q, result, navHits, loading, onNavigate, onFullSearch }: OmniSearchDropdownProps) {
+type OmniSectionKey = 'nav' | 'people' | 'companies' | 'groups' | 'services' | 'products' | 'events';
+
+const SECTION_ORDER_BY_MODE: Record<'consumir' | 'operar', OmniSectionKey[]> = {
+  consumir: ['nav', 'services', 'products', 'events', 'people', 'companies', 'groups'],
+  operar: ['nav', 'people', 'companies', 'groups', 'services', 'products', 'events'],
+};
+
+export default function OmniSearchDropdown({ q, result, navHits, loading, mode, onNavigate, onFullSearch }: OmniSearchDropdownProps) {
   const s = result?.sections;
   const hasAny =
     navHits.length > 0 ||
@@ -31,10 +45,11 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, onNavi
         s.products.length > 0 ||
         s.events.length > 0));
 
-  return (
-    <div className="omni-dropdown" role="listbox" aria-label="Resultados da busca">
-      {navHits.length > 0 && (
-        <div className="omni-section">
+  // renderers por seção — a ORDEM de exibição vem do modo (apresentação); o CONTEÚDO nunca muda
+  const sectionRenderers: Record<OmniSectionKey, () => ReactNode> = {
+    nav: () =>
+      navHits.length > 0 && (
+        <div className="omni-section" key="nav">
           <div className="omni-section-title">Ir para</div>
           {navHits.map((m) => (
             <button key={m.moduleKey} type="button" className="omni-item" onClick={() => onNavigate(m.route)}>
@@ -43,10 +58,10 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, onNavi
             </button>
           ))}
         </div>
-      )}
-
-      {s && s.people.length > 0 && (
-        <div className="omni-section">
+      ),
+    people: () =>
+      s && s.people.length > 0 && (
+        <div className="omni-section" key="people">
           <div className="omni-section-title">Pessoas</div>
           {s.people.map((p) => (
             <button key={p.actorId} type="button" className="omni-item" onClick={() => onNavigate(`/profile/${p.actorId}`)}>
@@ -59,10 +74,10 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, onNavi
             </button>
           ))}
         </div>
-      )}
-
-      {s && s.companies.length > 0 && (
-        <div className="omni-section">
+      ),
+    companies: () =>
+      s && s.companies.length > 0 && (
+        <div className="omni-section" key="companies">
           <div className="omni-section-title">Empresas</div>
           {s.companies.map((c) => (
             <button key={c.actorId} type="button" className="omni-item" onClick={() => onNavigate(`/company/${c.actorId}`)}>
@@ -75,10 +90,10 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, onNavi
             </button>
           ))}
         </div>
-      )}
-
-      {s && s.groups.length > 0 && (
-        <div className="omni-section">
+      ),
+    groups: () =>
+      s && s.groups.length > 0 && (
+        <div className="omni-section" key="groups">
           <div className="omni-section-title">Grupos</div>
           {s.groups.map((g) => (
             <button key={g.groupId} type="button" className="omni-item" onClick={() => onNavigate(`/grupos/${g.groupId}`)}>
@@ -87,10 +102,10 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, onNavi
             </button>
           ))}
         </div>
-      )}
-
-      {s && s.services.results.length > 0 && (
-        <div className="omni-section">
+      ),
+    services: () =>
+      s && s.services.results.length > 0 && (
+        <div className="omni-section" key="services">
           <div className="omni-section-title">Serviços</div>
           {s.services.results.map((r) => (
             <button key={r.serviceId} type="button" className="omni-item" onClick={() => onNavigate(`/discover/services/${r.serviceId}`)}>
@@ -99,10 +114,10 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, onNavi
             </button>
           ))}
         </div>
-      )}
-
-      {s && s.products.length > 0 && (
-        <div className="omni-section">
+      ),
+    products: () =>
+      s && s.products.length > 0 && (
+        <div className="omni-section" key="products">
           <div className="omni-section-title">Produtos</div>
           {s.products.map((p) => (
             // sem página de item canônico no frontend ainda — deep-link honesto pro marketplace
@@ -112,10 +127,10 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, onNavi
             </button>
           ))}
         </div>
-      )}
-
-      {s && s.events.length > 0 && (
-        <div className="omni-section">
+      ),
+    events: () =>
+      s && s.events.length > 0 && (
+        <div className="omni-section" key="events">
           <div className="omni-section-title">Eventos</div>
           {s.events.map((e) => (
             <button key={e.eventId} type="button" className="omni-item" onClick={() => onNavigate(`/events/${e.eventId}`)}>
@@ -127,7 +142,14 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, onNavi
             </button>
           ))}
         </div>
-      )}
+      ),
+  };
+
+  const order = SECTION_ORDER_BY_MODE[mode === 'operar' ? 'operar' : 'consumir'];
+
+  return (
+    <div className="omni-dropdown" role="listbox" aria-label="Resultados da busca">
+      {order.map((k) => sectionRenderers[k]())}
 
       {!loading && !hasAny && (
         <div className="omni-empty">Nada encontrado para “{q}”.</div>
@@ -135,7 +157,7 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, onNavi
       {loading && <div className="omni-empty">Buscando…</div>}
 
       <button type="button" className="omni-footer" onClick={onFullSearch}>
-        Buscar serviços por “{q}” →
+        Ver todos os resultados para “{q}” →
       </button>
     </div>
   );

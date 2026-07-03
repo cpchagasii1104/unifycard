@@ -126,7 +126,9 @@ class SearchOmniService {
 
   async searchOmni(
     tenantId: string,
-    input: { q: string; perSection?: number; discoveryUserId?: string }
+    // cityId: filtro pós-busca OPCIONAL (aplicado só às seções cujo substrato o suporta HOJE:
+    // serviços e eventos — regra de ouro: nenhum filtro prometido sem substrato verdadeiro).
+    input: { q: string; perSection?: number; discoveryUserId?: string; cityId?: string | null }
   ): Promise<OmniSearchResult> {
     const q = input.q.trim();
     const perSection = Math.min(Math.max(input.perSection ?? 5, 1), 10);
@@ -173,7 +175,7 @@ class SearchOmniService {
 
     // ── O QUÊ: serviços (vocabulário controlado termo→alias→CONCEPT; miss honesto = vazio) ──
     try {
-      const data = await servicesDiscoveryService.searchByTerm(tenantId, { term: q, cityId: null });
+      const data = await servicesDiscoveryService.searchByTerm(tenantId, { term: q, cityId: input.cityId ?? null });
       result.sections.services = {
         conceptIds: data.conceptIds,
         results: data.results.slice(0, perSection),
@@ -200,6 +202,7 @@ class SearchOmniService {
         term: q,
         limit: perSection,
         discoveryUserId: input.discoveryUserId,
+        cityId: input.cityId ?? undefined,
       });
       result.sections.events = events.map((e) => ({
         eventId: e.id,
