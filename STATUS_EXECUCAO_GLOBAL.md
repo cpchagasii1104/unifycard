@@ -1,3 +1,15 @@
+## 2026-07-02 — F-RIDES-FINANCIAL-FIREWALL · ✅ MATERIAL — fecha DT-RIDES-MONEY-NO-FIREWALL-DEAD-CODE-ONLY-CONTAINMENT · 20ª dívida técnica resolvida hoje · achado B1 do `auditoria.md` (primeiro dos 3 de Nível-3)
+
+Clayton mandou continuar; propus começar pelo B1 (rides sem firewall) por ser o de maior risco de segurança financeira. Fiz o READ-FIRST e parei pra decisão — B1 é money-adjacent E numa sessão anterior o Clayton tinha escolhido explicitamente "guard-first, firewall depois". O laudo re-flagou, então trouxe a escolha de volta: adicionar o firewall agora ou manter só o guard. Ele escolheu adicionar.
+
+**O achado:** o trilho de "corridas" (transporte, estilo Uber) tem um ponto que move dinheiro de verdade (split 3% taxa / 97% motorista) — e era o único ponto de dinheiro do sistema SEM a "chave-geral" (kill-switch) que todos os outros têm. Estava contido só por o código estar morto (rotas desligadas) + um guard que impede religar por acidente. Contenção de uma camada só.
+
+**O que fiz:** adicionei a chave-geral (desligada por padrão) em DOIS pontos — no lugar que escreve o dinheiro E no lugar que chama esse escritor (defesa em profundidade, mesmo padrão dos outros trilhos). Agora religar o dinheiro de corridas exige DOIS atos deliberados (religar as rotas E ligar a chave), nunca acidental. Como o caminho já estava morto, isso não move um centavo — só adiciona a barreira que faltava.
+
+E2E 9/9 (os dois pontos barram com 403 quando a chave está desligada; quando ligada, deixa passar pro resto — prova que não é uma barreira falsa). Achei e corrigi de passagem um falso-positivo do scanner de arquitetura (a palavra "bank_ledger" na mensagem de erro disparava um detector textual). HEAD material `b9f7632b1`. Ativar corridas de verdade continua sendo assunto de PORTA-1.
+
+---
+
 ## 2026-07-02 — F-ROUND2-AUDIT-REMEDIATION · ✅ MATERIAL — fecha DT-ROUND2-AUDIT-REMEDIATION-N1-N2-N3 · 19ª dívida técnica resolvida hoje · remedia a segunda rodada de re-auditoria adversarial
 
 Mandei a segunda rodada de re-auditoria pra outra instância (foco no que entrou depois da primeira: as correções A1/A2 e a contenção B2). Ela deu PASS nos 4 itens auditados — nenhuma regressão de dinheiro, nenhum vazamento novo — mas achou 4 resíduos, todos da mesma raiz (contexto de conexão × pool × isolamento). Corrigi os 3 acionáveis; o 4º (estrutural) virou dívida própria registrada.
