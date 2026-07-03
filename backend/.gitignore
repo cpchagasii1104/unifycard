@@ -50,6 +50,14 @@ tmp/
 temp/
 *.tmp
 
+# Saídas de gate/E2E/YALA geradas em runs locais (ruído — não versionar).
+# Achado do laudo auditoria.md ("drift documental na raiz": dezenas de *_output.txt untracked).
+output_*.txt
+gate*_output.txt
+e2e_test_output.txt
+yala_*.txt
+*_e2e.txt
+
 # CP-5 identity exports (PII / operação local)
 artifacts/identity-cp5-a2-export*.csv
 
