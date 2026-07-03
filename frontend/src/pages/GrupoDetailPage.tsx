@@ -177,11 +177,13 @@ export default function GrupoDetailPage() {
         // Por enquanto, verificamos apenas se há correspondência
         // TODO: Melhorar verificação quando API de permissões estiver disponível
         const actorId = profile.actor.actor_id;
-        // Verificação básica: se o ownerUserId contém o actorId ou vice-versa
-        // Isso é uma aproximação - a verificação completa deve ser feita no backend
-        const isOwner = group.ownerUserId === actorId || 
-                       group.ownerUserId.includes(actorId) ||
-                       actorId.includes(group.ownerUserId);
+        // Match EXATO do actor canônico. Ambos são actor_id (owner_actor_id do backend vs
+        // actor.actor_id do perfil). O `.includes()` fuzzy anterior era bug duplo: (1) casava
+        // por substring de UUID (false-positive: config a não-dono) e (2) lia group.ownerUserId
+        // que era undefined (backend serializa ownerActorId) → crash engolido → dono nunca via
+        // config. A autoridade REAL é server-side (updateGroup → requesterMatchesOwnerActor);
+        // esta flag é só afordância de UI. (frontend nunca cria verdade — projeta a resolvida)
+        const isOwner = group.ownerActorId === actorId;
         setIsOwnerOrAdmin(isOwner);
         
         // Salvar userId atual para comparação
@@ -280,8 +282,9 @@ export default function GrupoDetailPage() {
   const canManageMember = (member: GroupMember): boolean => {
     if (!isOwnerOrAdmin) return false;
     if (!group) return false;
-    // Não pode gerenciar o próprio owner
-    return member.userId !== group.ownerUserId;
+    // Não pode gerenciar o próprio owner — usa a role da verdade do backend (era comparação
+    // com group.ownerUserId=undefined → todo membro parecia removível, inclusive o dono).
+    return member.role !== 'owner';
   };
 
   const formatDateTime = (isoString: string): string => {
@@ -988,9 +991,9 @@ export default function GrupoDetailPage() {
               ) : (
                 <div className="group-members-list">
                   {members.map((member) => {
-                    const isOwner = group.ownerUserId === member.userId;
+                    const isOwner = member.role === 'owner'; // verdade do backend (era ownerUserId=undefined === userId → nunca marcava)
                     const canManage = canManageMember(member);
-                    const isCurrentUser = currentUserId && (member.userId === currentUserId || member.userId.includes(currentUserId));
+                    const isCurrentUser = !!currentUserId && member.userId === currentUserId; // match exato (removido substring fuzzy de UUID)
 
                     return (
                       <div key={member.userId} className="group-member-card">

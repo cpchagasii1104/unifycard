@@ -21,7 +21,7 @@ export interface Group {
   name: string;
   description?: string;
   audienceDescription?: string;
-  ownerUserId: string;
+  ownerActorId: string; // contrato do backend (groups.routes serializa ownerActorId ← owner_actor_id canônico; era ownerUserId=undefined, B7-adjacente)
   isActive: boolean;
   profitPercentage?: number;
   financialPurpose?: string; // Finalidade dos recursos financeiros
