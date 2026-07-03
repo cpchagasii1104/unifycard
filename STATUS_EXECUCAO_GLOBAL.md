@@ -1,3 +1,17 @@
+## 2026-07-02 — F-ACTOR-TYPE-VOCABULARY-CANONICAL (DECISION-0157 / D-C2) · ✅ MATERIAL + DECISION PROMULGADA — congela DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION + documenta DT-IDENTITY-TRIAD-AND-MISLABELED-FK · 21ª dívida técnica resolvida hoje · achados B6 (contido) + B7 (documentado) do `auditoria.md`
+
+Clayton mandou continuar respeitando as leis do sistema. Os 2 blockers que sobravam (B6 actor_type, B7 tríade de identidade) tocam o substrato mais sensível — identidade — e a hierarquia do projeto é clara: norma/DECISION vence código. B6 dependia de uma decisão ontológica soberana (D-C2) que nunca tinha sido promulgada; inventá-la em código seria violar exatamente as leis. Então fiz o READ-FIRST e trouxe a decisão.
+
+**O READ-FIRST refinou o laudo de forma importante:** o `actor_type` tem 10 valores possíveis de 3 gerações de vocabulário no CHECK, mas os DADOS reais já convergiram — só 3 valores (`user`/`page`/`group`) têm linhas, zero nos legados. A fragmentação vive no CHECK permissivo + nos leitores defensivos, não nos dados. Os dados já "votaram".
+
+**B6 — Clayton ratificou D-C2:** `user/page/group/channel` é o vocabulário canônico oficial. E escolheu congelar a fragmentação agora (proibir writers novos de valores legados) sem drenar os leitores/CHECK ainda — princípio da "norma assintótica": conter o drift agora, drenar depois com prova. Escrevi o guard que trava isso: nenhum código novo pode escrever um valor legado (achei que há exatamente 1 writer legado vivo — um caminho de identidade "Genesis" — e o allowlistei como exceção documentada, porque convergi-lo mexe no modelo de dados, não é troca de string). A decisão em si virou DECISION-0157 no cartório de decisões.
+
+**B7 — Clayton escolheu só documentar:** a tríade de identidade + a FK que mente (`event_reservations.global_user_id` se chama assim mas aponta pra `actors.id`) são substrato de identidade puro; o laudo pede revisão adversarial pra renomear. Registrei a DT com a evidência viva e a direção já decidida (DECISION-0062, com F4.1-F4.4 explicitamente não-autorizadas). Não toquei schema de identidade sem GO. A execução vira frente própria.
+
+Guard verde, negative-proof, arch strict critical_new=0, Δbank=0. HEAD material `666d7b3c0`.
+
+---
+
 ## 2026-07-02 — F-RIDES-FINANCIAL-FIREWALL · ✅ MATERIAL — fecha DT-RIDES-MONEY-NO-FIREWALL-DEAD-CODE-ONLY-CONTAINMENT · 20ª dívida técnica resolvida hoje · achado B1 do `auditoria.md` (primeiro dos 3 de Nível-3)
 
 Clayton mandou continuar; propus começar pelo B1 (rides sem firewall) por ser o de maior risco de segurança financeira. Fiz o READ-FIRST e parei pra decisão — B1 é money-adjacent E numa sessão anterior o Clayton tinha escolhido explicitamente "guard-first, firewall depois". O laudo re-flagou, então trouxe a escolha de volta: adicionar o firewall agora ou manter só o guard. Ele escolheu adicionar.
