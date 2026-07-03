@@ -862,6 +862,7 @@ class EventsService {
       limit = 50,
       offset = 0,
       discoveryUserId,
+      term,
     } = options;
 
     let query = `
@@ -892,6 +893,14 @@ class EventsService {
     if (countryId) {
       query += ` AND metadata->'regional'->>'country_id' = $${paramIndex}`;
       params.push(countryId);
+      paramIndex++;
+    }
+
+    // 🔵 F-GLOBAL-SEARCH-OMNI: match textual no title, accent-insensitive (extensão unaccent,
+    // criada em migration). Filtro ADITIVO — o piso de discovery abaixo permanece intacto.
+    if (term) {
+      query += ` AND unaccent(title) ILIKE unaccent($${paramIndex})`;
+      params.push(`%${term}%`);
       paramIndex++;
     }
 

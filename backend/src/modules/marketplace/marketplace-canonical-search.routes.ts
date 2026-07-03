@@ -10,23 +10,8 @@
 // Filtros/categorias seguem vindo da ontologia (/navigation/n2) — não daqui.
 
 import type { FastifyPluginAsync } from 'fastify';
-import { runQueriesWithTenant } from '@core/database/pool';
-import {
-  sqlCanonicalIndustrialOperationalReady,
-  sqlCanonicalIdMatchesTenantContext,
-  sqlOrderScopedCanonicalFirst,
-} from '@core/catalog/canonical/canonical-product-readiness';
+import { searchCanonicalItems } from './canonical-item-search.service';
 import { listVisibleProducts } from './product-visibility.service';
-
-interface CanonicalItemRow {
-  id: string;
-  name: string;
-  brand: string | null;
-  gtin: string | null;
-  category_id: string | null;
-  scope: string;
-  images: unknown;
-}
 
 const marketplaceCanonicalSearchRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -40,31 +25,13 @@ const marketplaceCanonicalSearchRoutes: FastifyPluginAsync = async (fastify) => 
       const q = String(req.query.q ?? '').trim();
       const limit = Math.min(parseInt(req.query.limit ?? '20', 10) || 20, 50);
 
-      const cpVis = sqlCanonicalIdMatchesTenantContext('cp', '$1::uuid');
-      const cpReady = sqlCanonicalIndustrialOperationalReady('cp');
-      const cpOrder = sqlOrderScopedCanonicalFirst('cp');
-      const params: unknown[] = [tenantId, limit];
-      let filter = '';
-      if (q) {
-        params.push(`%${q}%`);
-        filter += ` AND (cp.name ILIKE $${params.length} OR cp.brand ILIKE $${params.length})`;
-      }
-      if (req.query.categoryId) {
-        params.push(req.query.categoryId);
-        filter += ` AND cp.category_id = $${params.length}::uuid`;
-      }
-
-      const items = await runQueriesWithTenant<CanonicalItemRow>(
-        tenantId,
-        `SELECT cp.id, cp.name, cp.brand, cp.gtin, cp.category_id, cp.scope, cp.images
-           FROM canonical_products cp
-          WHERE ${cpVis} AND cp.type = 'INDUSTRIAL' AND ${cpReady}
-            AND cp.duplicate_of_canonical_product_id IS NULL
-            ${filter}
-          ORDER BY ${cpOrder}, cp.name ASC
-          LIMIT $2`,
-        params
-      );
+      // 🔵 F-GLOBAL-SEARCH-OMNI: SELECT canônico extraído p/ canonical-item-search.service
+      // (Lei de Coerência — 1 verdade, 2 callers: esta rota + o omnibox /search).
+      const items = await searchCanonicalItems(tenantId, {
+        q,
+        categoryId: req.query.categoryId,
+        limit,
+      });
 
       const data = [];
       for (const item of items) {

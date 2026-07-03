@@ -602,6 +602,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     // My Orders & Purchases Hub
     const myOrdersModule = await import('./modules/my-orders/my-orders.module');
     await protectedScope.register(myOrdersModule.default);
+
+    // 🔵 F-GLOBAL-SEARCH-OMNI — busca federada (omnibox): GET /search?q= (§9.3 nomenclatura).
+    // READ-ONLY; federa readers canônicos existentes (Lei de Coerência — zero verdade paralela).
+    const searchModule = await import('./modules/search/search.module');
+    await protectedScope.register(searchModule.default, { prefix: '/search' });
     console.log('[BOOT] Contextual Messaging module registered');
     
     // Notificações In-App

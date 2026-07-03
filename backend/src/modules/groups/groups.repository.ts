@@ -261,7 +261,10 @@ class GroupsRepository {
 
     if (filters?.isActive !== undefined) {
       query += ` AND status = $${paramIndex}`;
-      params.push(filters.isActive);
+      // 🔵 fix (achado no caminho de F-GLOBAL-SEARCH-OMNI): o contrato do filtro é boolean mas a
+      // coluna é TEXT ('active'/'inactive'). Antes empurrava o boolean cru → status = 'true' nunca
+      // casa → listGroups({isActive:true}) retornava SEMPRE vazio para qualquer caller (bug latente).
+      params.push(filters.isActive ? 'active' : 'inactive');
       paramIndex++;
     }
 

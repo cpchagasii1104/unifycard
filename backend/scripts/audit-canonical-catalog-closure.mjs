@@ -381,10 +381,15 @@ for (const f of FAMILY) {
   check('canonical:visibility-kyb-publication-gate',
     /kyb_status\s*=\s*'approved'/.test(vis) && /company_concept_publications/.test(vis),
     'discovery contornou KYB/publicação (defesa direta do reader removida — DECISION-0099/0101/0117).');
+  // F-GLOBAL-SEARCH-OMNI: o SELECT canônico foi extraído p/ canonical-item-search.service.ts
+  // (Lei de Coerência — 1 verdade, 2 callers: rota + omnibox). O invariante NÃO mudou; mudou de
+  // endereço. O cheque segue a verdade: predicado de identidade no SERVICE compartilhado +
+  // rota consumindo o service + agregação por unidade permanecendo na rota.
   const search = read(join(SRC, 'modules/marketplace/marketplace-canonical-search.routes.ts'));
+  const itemSearchSvc = read(join(SRC, 'modules/marketplace/canonical-item-search.service.ts'));
   check('canonical:search-groups-by-identity',
-    /duplicate_of_canonical_product_id IS NULL/.test(search) && /byUnit/.test(search),
-    'busca deixou de agrupar por identidade canônica e/ou de separar preços por unidade.');
+    /duplicate_of_canonical_product_id IS NULL/.test(itemSearchSvc) && /searchCanonicalItems/.test(search) && /byUnit/.test(search),
+    'busca deixou de agrupar por identidade canônica (predicado fora do canonical-item-search.service) e/ou a rota deixou de consumir o service compartilhado e/ou de separar preços por unidade.');
 }
 
 // 11) UNIDADES fail-closed.

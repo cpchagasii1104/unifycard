@@ -153,6 +153,10 @@ export interface SearchEventsOptions {
   // 🔵 F6.5.6b-CANAL5-C: userId do CALLER (derivado de req.user — NUNCA actorId declarado), p/ abrir
   // group/followers no piso de discovery do search (mesma régua B1–B4). Sem ele → só public.
   discoveryUserId?: string;
+  // 🔵 F-GLOBAL-SEARCH-OMNI: termo textual (match no title, accent-insensitive). Evolução do reader
+  // canônico ÚNICO (Lei de Coerência — sem 2º SQL de busca de eventos). O piso de discovery
+  // (status published/active + visibility material) permanece intacto.
+  term?: string;
 }
 
 // ===========================

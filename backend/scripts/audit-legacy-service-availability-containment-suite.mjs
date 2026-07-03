@@ -46,6 +46,7 @@ const guards = [
   'audit-rides-financial-firewall.mjs',                               // achado B1: rides money com firewall runtime default-off, gate duplo (sink+caller)
   'audit-actor-type-vocabulary-freeze.mjs',                           // achado B6 / DECISION-0157 (D-C2): congela vocabulário actor_type (nenhum writer legado novo)
   'audit-event-reservations-mislabeled-fk-containment.mjs',           // achado B7 (parte c): FK que mentia (event_reservations.global_user_id→actors) dropada; código usa actor_id
+  'audit-search-omni-federation-contract.mjs',                        // F-GLOBAL-SEARCH-OMNI: omnibox federado — anti-PII, vocabulário canônico, coerência (readers canônicos), piso de discovery
   // ⚠️ EXCEÇÃO de custo (achado B4 / DECISION-0158): este NÃO é guard pequeno — roda tsc (tsconfig.build)
   // + os 2 validadores financeiros (~60-90s). Entrou aqui porque a cadeia validate:regression-guards
   // estourou o limite de linha de comando do Windows ao ser estendida diretamente. O custo é o preço
