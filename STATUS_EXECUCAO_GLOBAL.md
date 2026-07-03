@@ -1,3 +1,22 @@
+## 2026-07-03 — CAMPANHA DE HIGIENE FAST-PATH DO LAUDO · ✅ concluída — todo item não-blocker resolvido ou com disposição final registrada
+
+Clayton: "fazer tudo o que falta antes de PORTA-1". Varri os itens FAST-PATH/higiene do laudo que não eram blockers. Fronteira honesta declarada de saída: F4/F5 (tríade CPF) e drenagem financeira em massa são norm-blocked / norma-inadvisável antes de PORTA-1 — não os toquei.
+
+**Feito (5 commits):**
+- `4673a77f6` — arquivos canônicos das DECISIONs 0154–0158 em `02_decisions/` (viviam só no log; lacuna que eu criei ao promulgar 0157/0158).
+- `1dcf7f00d` — **GrupoDetailPage**: a autorização fuzzy `.includes()` era na verdade 3 bugs latentes de UM contrato desalinhado (frontend lia `group.ownerUserId`=undefined; backend serializa `ownerActorId`). Alinhei ao contrato real + match exato do actor + role da verdade do backend. O typecheck virou o guard (campo antigo não existe mais).
+- `072c7f62e` — **MarketplaceSegmentPage**: removido o `setTimeout(500)` que fingia carregar empresas inexistentes (empty-state já era honesto). **DomainSelector**: reclassificado — não é taxonomia criada, é apresentação do enum fixo `MarketplaceDomain` (DECISION-0106); comentado.
+- `528fed78b` — drift documental: `backend/.ts` (0 bytes) removido + padrões de output gitignorados (24 arquivos de ruído saíram do git status).
+- **4 rotas de borda de autoridade CONFIRMADAS BOUND** (verificação, sem código): event/marketplace-categories/marketplace-identity/social-2.0 todas ligam `canRepresentActor` fail-closed nos writes. DECISION-0113 honrada na borda.
+
+**Disposição final dos resíduos aceitos (documentado na Seção 0 do `auditoria.md`):** taxonomia `EventNeedsWizard` (leve, drenar=feature), prefixo `/api/events` (latente, app sobe), ~40 órfãos FE (peso morto, bulk-delete=risco>valor), 25 guards fora da cadeia (maioria one-off, correto por design), cobertura de teste FE (dívida aceita). Todos são higiene, nenhum bloqueia PORTA-1.
+
+**Norm-blocked (honesto):** B7 F4/F5 (banco vivo + DECISION-0062 D9/D10), drenagem das 4.4k violações financeiras (money-HOLD), drenagem actor_type legado (frente com GO), auto-baseline do runner (credencial viva).
+
+Resultado: **o laudo está concluído em tudo que é concluível antes de PORTA-1.** O que resta é a própria PORTA-1 (B8/B9 + rail, decisão soberana com IA-DINHEIRO) e frentes explicitamente sequenciadas por norma. Δbank=0 em toda a campanha.
+
+---
+
 ## 2026-07-03 — F-EVENT-RESERVATIONS-MISLABELED-FK-CONTAIN (B7 parte c) · ✅ MATERIAL — a "FK que mente" eliminada · 25ª dívida técnica da campanha
 
 Clayton deu GO no B7 ("vamos fazer o que precisa ser feito, respeite normas"). B7 tem 4 partes; a norma decidiu o escopo por mim: **F4/F5 da tríade CPF estão bloqueados pela própria DECISION-0062** (D9: sem audit+backfill provados a F4 não pode iniciar; D10: cada fase exige GO próprio; e o audit precisa do banco vivo, inacessível). Respeitar a sequência da norma É fazer o que o B7 pede. A parte destravável — **a FK que mente** — é eixo separado do CPF, e foi a que fechei.

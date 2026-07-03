@@ -37,7 +37,30 @@
 1. **B7 — convergência da tríade CPF (F4/F5)** — a parte (c), a FK que mente, foi FECHADA MATERIAL em 2026-07-03 (`f63c8e7e8`). Resta a convergência `user_id`/`global_user_id`/`actor_id` (DECISION-0062 F4/F5), **norm-blocked** pela própria 0062 (D9/D10) + exige banco vivo para o audit de backfill. Segue como frente sequenciada sob GO por fase.
 2. **Drenagem real das ~4.4 mil violações financeiras** (`financial-vocabulary` + `financial-ssot`) — hoje contidas sob teto (DECISION-0158), não eliminadas.
 3. **Drenagem dos 10 valores legados de `actor_type`** já existentes em produção — o freeze (DECISION-0157) impede crescer, não encolhe o que já existe.
-4. Itens de higiene do laudo nunca classificados como blocker: 4 rotas de borda de autoridade a confirmar, ~40 componentes/páginas órfãs no frontend, `MarketplaceSegmentPage` com mock em rota pública, prefixo `/api/events` triplicado, DECISIONs 0154–0157 sem arquivo em `02_decisions/`, cobertura de teste frontend quase zero.
+### Campanha de higiene FAST-PATH (2026-07-03) — disposição final de cada item não-blocker
+
+Com GO de Clayton ("fazer tudo o que falta antes de PORTA-1"), os itens de higiene do laudo foram resolvidos ou classificados com disposição final:
+
+| Item do laudo | Disposição (2026-07-03) |
+|---|---|
+| DECISIONs 0154–0158 sem arquivo em `02_decisions/` | ✅ **FEITO** — 5 arquivos canônicos criados (`4673a77f6`), extração fiel do log-mestre |
+| `GrupoDetailPage` autorização fuzzy `.includes()` | ✅ **FEITO** (`1dcf7f00d`) — eram 3 bugs de UM contrato desalinhado (`ownerUserId` undefined vs `ownerActorId` real); match exato + role do backend; typecheck vira o guard |
+| `MarketplaceSegmentPage` mock em rota pública | ✅ **FEITO** (`072c7f62e`) — removido o teatro de `setTimeout(500)` que fingia carregar empresas inexistentes; empty-state já era honesto |
+| Taxonomia hardcoded (DomainSelector ×2) | ✅ **RECLASSIFICADO** (`072c7f62e`) — NÃO é taxonomia criada; é apresentação do enum FIXO `MarketplaceDomain` (DECISION-0106). Comentado p/ não re-flagar |
+| 4 rotas de borda de autoridade "a confirmar" | ✅ **CONFIRMADAS BOUND** — `event.routes`/`marketplace-categories`/`marketplace-identity`/`social-2.0` todas ligam `canRepresentActor` fail-closed nos writes (DECISION-0113 honrada); GET /feed usa `actor_id` só como filtro de leitura. Verificação, sem fix |
+| Drift documental (`backend/.ts` 0 bytes, dezenas de `*_output.txt`) | ✅ **FEITO** (`528fed78b`) — `backend/.ts` removido; padrões de output gitignorados |
+| Taxonomia `EventNeedsWizard` (8 categorias pt-BR) | 📌 **RESÍDUO LEVE ACEITO** — violação real mas leve (labels de necessidade inventadas no cliente com id random). Drenar = endpoint governado (feature), desproporcional pré-PORTA-1. Documentado |
+| Prefixo `/api/events` (2 módulos coexistindo) | 📌 **LATENTE ACEITO** — app sobe e E2Es passam (rotas não conflitam); consolidar prefixo vivo tem risco > valor antes de PORTA-1. Auto-admitido com nota 🔴 no `app.builder.ts` |
+| ~40 componentes/páginas FE órfãos | 📌 **PESO MORTO ACEITO** — zero impacto funcional; bulk-delete de 40 arquivos sem verificar cada import é risco > valor cosmético. Deferido |
+| 25/165 guards fora da cadeia | 📌 **MAJORITARIAMENTE CORRETO** — o próprio laudo diz "maioria one-off"; guards standalone (negative-proofs) NÃO devem rodar na cadeia contínua. Nada a religar em massa |
+| Cobertura de teste frontend (~2 arquivos) | 📌 **DÍVIDA ACEITA** — frente própria, não-blocker |
+
+### Não-concluível antes de PORTA-1 (norm-blocked ou norma-inadvisável)
+
+- **B7 F4/F5** (convergência tríade CPF): DECISION-0062 D9/D10 + exige banco vivo (senha redigida). A parte (c), a FK que mente, foi FECHADA em `f63c8e7e8`.
+- **Drenar as ~4.4k violações financeiras** (`financial-vocabulary`/`financial-ssot`): código money-adjacent em HOLD; drenar em massa antes de PORTA-1 viola "não-agir em dívida classificada". Contido sob teto (DECISION-0158).
+- **Drenar 10 valores legados de `actor_type`**: freeze (DECISION-0157) impede crescer; drenar o existente = frente `F-ACTOR-TYPE-VOCABULARY-DRAIN-*` com GO.
+- **Auto-baseline do runner (001–088)**: verificação exige credencial viva.
 
 ### O que NÃO ficou faltando (marco fechado)
 
