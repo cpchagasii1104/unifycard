@@ -67,9 +67,31 @@ if (dp !== null) {
   if (!/get\(\s*['"]term['"]\s*\)/.test(dp)) failures.push("ServiceDiscoveryPage.tsx: não lê searchParams.get('term') — header manda termo e a página o ignora (dead-end silencioso).");
 }
 
+// (E) F-GLOBAL-SEARCH-OMNI Slice B — a busca universal AGORA EXISTE (nota histórica do topo superada):
+// o GlobalHeader deve manter o omnibox federado wired (client searchOmni de api/search →
+// GET /search?q= do backend + OmniSearchDropdown com a pista IR PARA vinda da projeção
+// getNavigationModules). Sumir qualquer peça = regressão ao estado dead-end.
+const OMNI_CLIENT = join(FE_SRC, 'api', 'search.ts');
+const OMNI_DROPDOWN = join(FE_SRC, 'components', 'layout', 'OmniSearchDropdown.tsx');
+const oc = read(OMNI_CLIENT);
+if (oc !== null && !/\/search\?q=/.test(oc)) {
+  failures.push('api/search.ts: client do omnibox não bate mais em /search?q= (§9.3) — contrato com o gateway federado quebrado.');
+}
+const od = read(OMNI_DROPDOWN);
+if (od !== null) {
+  for (const section of ['Ir para', 'Pessoas', 'Empresas', 'Grupos', 'Serviços', 'Produtos', 'Eventos']) {
+    if (!od.includes(section)) failures.push(`OmniSearchDropdown.tsx: seção "${section}" sumiu do omnibox — pista removida sem decisão.`);
+  }
+}
+if (gh !== null) {
+  if (!/searchOmni/.test(gh)) failures.push('GlobalHeader.tsx: deixou de consumir searchOmni — o omnibox federado (Slice B) foi deswired; a barra voltou a ser funil de uma vertical só.');
+  if (!/getNavigationModules/.test(gh)) failures.push('GlobalHeader.tsx: pista IR PARA perdeu a projeção getNavigationModules — ou virou rota hardcoded (violaria "navegação organiza, não define verdade") ou sumiu.');
+  if (!/OmniSearchDropdown/.test(gh)) failures.push('GlobalHeader.tsx: OmniSearchDropdown não é mais renderizado — omnibox morto no header.');
+}
+
 if (failures.length > 0) {
   console.error('GATE FAIL [global-search-deadend-rewire-frontend]:');
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [global-search-deadend-rewire-frontend] — busca do header/marketplace/search reaponta p/ /discover/services?term= (busca real de serviços); GlobalHeader sem /marketplace?q=; MarketplaceSimpleHeader sem console.log; SearchPage com caminho real; ServiceDiscoveryPage consome o termo da URL. Busca universal = frente futura.');
+console.log('GATE OK [global-search-deadend-rewire-frontend] — omnibox federado wired no GlobalHeader (searchOmni → GET /search?q= + IR PARA via projeção de navegação + 7 seções no dropdown); fallback de página cheia (/discover/services?term=) preservado; MarketplaceSimpleHeader/SearchPage/ServiceDiscoveryPage íntegros.');

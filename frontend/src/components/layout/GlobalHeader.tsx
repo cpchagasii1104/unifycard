@@ -27,7 +27,15 @@ import OperatingModeBadge from './OperatingModeBadge';
 import { useActorMode } from '../../hooks/useActorMode';
 import { useBusinessProfile } from '../../hooks/useBusinessProfile';
 import { getActorGreetingSubtitle, profileHasTwoOperatingModes } from '../../config/actorContextConfig';
+import OmniSearchDropdown from './OmniSearchDropdown';
+import { searchOmni, type OmniSearchResult } from '../../api/search';
+import { getNavigationModules, type NavModuleItem } from '../../api/navigation';
 import './GlobalHeader.css';
+
+// normalização accent-insensitive p/ a pista IR PARA (filtro local sobre a projeção de navegação)
+function normalizeSearch(s: string): string {
+  return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+}
 
 export default function GlobalHeader() {
   const navigate = useNavigate();
@@ -39,6 +47,14 @@ export default function GlobalHeader() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // ── F-GLOBAL-SEARCH-OMNI Slice B: estado do omnibox ──
+  const [omniOpen, setOmniOpen] = useState(false);
+  const [omniLoading, setOmniLoading] = useState(false);
+  const [omniResult, setOmniResult] = useState<OmniSearchResult | null>(null);
+  const [navItems, setNavItems] = useState<NavModuleItem[] | null>(null); // lazy: projeção /navigation/modules
+  const searchRef = useRef<HTMLFormElement>(null);
+  const omniSeq = useRef(0); // descarta respostas fora de ordem (race de debounce)
 
   useEffect(() => {
     if (!sessionReady || !isAuthenticated() || !getTenantId() || !activeActor) return;
@@ -71,6 +87,68 @@ export default function GlobalHeader() {
     window.addEventListener('open-actor-dropdown', handler);
     return () => window.removeEventListener('open-actor-dropdown', handler);
   }, []);
+
+  // ── omnibox: debounce 300ms → GET /search?q= (seções resolvidas pelo backend) ──
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setOmniOpen(false);
+      setOmniResult(null);
+      return;
+    }
+    setOmniLoading(true);
+    setOmniOpen(true);
+    const seq = ++omniSeq.current;
+    const t = setTimeout(() => {
+      searchOmni(q)
+        .then((r) => {
+          if (omniSeq.current === seq) setOmniResult(r);
+        })
+        .catch(() => {
+          if (omniSeq.current === seq) setOmniResult(null);
+        })
+        .finally(() => {
+          if (omniSeq.current === seq) setOmniLoading(false);
+        });
+      // pista IR PARA: projeção de navegação carregada 1× (lazy) — módulos que o actor
+      // não vê na sidebar também não aparecem na busca (mesma projeção governada).
+      if (navItems === null) {
+        getNavigationModules()
+          .then((proj) => setNavItems(proj.groups.flatMap((g) => g.items)))
+          .catch(() => setNavItems([]));
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // omnibox: fechar com Escape e clique-fora
+  useEffect(() => {
+    if (!omniOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOmniOpen(false);
+    };
+    const onClick = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setOmniOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onClick);
+    };
+  }, [omniOpen]);
+
+  const omniNavHits = (() => {
+    const q = normalizeSearch(searchQuery.trim());
+    if (q.length < 2 || !navItems) return [];
+    return navItems.filter((m) => normalizeSearch(m.label).includes(q)).slice(0, 5);
+  })();
+
+  const handleOmniNavigate = (route: string) => {
+    setOmniOpen(false);
+    setSearchQuery('');
+    navigate(route);
+  };
 
   if (!activeActor) return null;
 
@@ -188,17 +266,34 @@ export default function GlobalHeader() {
         <p className="gh-greeting-subtitle">{greetingSubtitle}</p>
       </div>
 
-      <form className="gh-search" onSubmit={handleSearch} role="search">
+      <form className="gh-search" onSubmit={handleSearch} role="search" ref={searchRef}>
         <span className="gh-search-icon" aria-hidden="true">🔍</span>
         <input
           type="text"
           placeholder="Buscar no UnifiCard..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={() => { if (searchQuery.trim().length >= 2) setOmniOpen(true); }}
           className="gh-search-input"
           aria-label="Buscar"
+          aria-expanded={omniOpen}
         />
         <span className="gh-search-shortcut" aria-hidden="true">Ctrl K</span>
+        {/* F-GLOBAL-SEARCH-OMNI Slice B: seções federadas (backend decide o que aparece);
+            Enter continua caindo no fallback de página cheia (discovery de serviços). */}
+        {omniOpen && (
+          <OmniSearchDropdown
+            q={searchQuery.trim()}
+            result={omniResult}
+            navHits={omniNavHits}
+            loading={omniLoading}
+            onNavigate={handleOmniNavigate}
+            onFullSearch={() => {
+              setOmniOpen(false);
+              navigate(`/discover/services?term=${encodeURIComponent(searchQuery.trim())}`);
+            }}
+          />
+        )}
       </form>
 
       <div className="gh-actions">
