@@ -607,6 +607,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     // READ-ONLY; federa readers canônicos existentes (Lei de Coerência — zero verdade paralela).
     const searchModule = await import('./modules/search/search.module');
     await protectedScope.register(searchModule.default, { prefix: '/search' });
+
+    // 🔵 F-RENTAL-RESOURCE-SURFACE-SLICE-A (DECISION-0151/0159) — registro de recurso alugável.
+    // Availability/booking/confirm já são genéricos por owner_type='rentable_resource' (sem
+    // mudança); esta é a única peça HTTP que faltava. Money-free (DECISION-0151 §D).
+    const rentalsModule = await import('./modules/rentals/rentals.module');
+    await protectedScope.register(rentalsModule.default);
     console.log('[BOOT] Contextual Messaging module registered');
     
     // Notificações In-App
