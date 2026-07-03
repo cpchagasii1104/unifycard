@@ -129,6 +129,7 @@
     "test:event-replay": "tsx scripts/test-event-replay.ts",
     "check:fastify-schema": "node scripts/check-fastify-schema.js",
     "check:economy-imports": "node scripts/check-economy-imports.js",
+    "validate:red-gates-baseline": "node scripts/audit-red-gates-baseline.mjs",
     "validate:financial-vocabulary": "node scripts/validate-financial-vocabulary.js",
     "validate:financial-ssot": "node scripts/validate-financial-ssot.js",
     "check:core-imports": "node scripts/check-core-imports.js",

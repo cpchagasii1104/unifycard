@@ -1,0 +1,13 @@
+{
+  "_doc": "Baseline formal dos gates vermelhos (achado B4 do auditoria.md, DECISION-0158). Teto ratificado por Clayton em 2026-07-02 — o número SÓ PODE DESCER. Violação NOVA (count > baseline) = GATE FAIL. Ao drenar, ABAIXE o baseline no mesmo commit (ratchet). NUNCA suba estes números sem DECISION própria.",
+  "financial_vocabulary_max": 3846,
+  "financial_ssot_max": 587,
+  "typecheck_build_max": 0,
+  "measured_at": "2026-07-02",
+  "measured_head": "f2e7680ef",
+  "notes": {
+    "financial_vocabulary": "3.814 no laudo auditoria.md; 3.846 na ratificação (delta +32 = menções em firewalls/guards criados na própria remediação do laudo — transparente, não drift).",
+    "financial_ssot": "577 no laudo; 587 na ratificação (mesmo motivo).",
+    "typecheck_build": "35 no laudo; ZERADO na fatia F-RED-GATES-BASELINE (34 = fix status?:never nos 3 producers de união discriminada sob strict:false; 1 = anotação string em E2E). Baseline 0 = qualquer erro novo no tsconfig.build FALHA."
+  }
+}

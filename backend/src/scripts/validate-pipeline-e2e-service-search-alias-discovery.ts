@@ -46,7 +46,7 @@ async function count(table: string): Promise<number | null> {
 
 async function main(): Promise<void> {
   // ── 0) Tenant real (para discoverServices); fallback random (resultados vazios, delta ainda válido).
-  let tenantId = randomUUID();
+  let tenantId: string = randomUUID(); // anotação string: a inferência do template-literal UUID rejeitava o reassign vindo do DB (achado B4)
   try {
     const t = await pool.query<{ tenant_id: string }>(`SELECT tenant_id FROM tenants LIMIT 1`);
     if (t.rows[0]?.tenant_id) tenantId = t.rows[0].tenant_id;

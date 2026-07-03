@@ -97,10 +97,13 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
   // 🔴 DECISION-0113 canal-5 financeiro: LISTAGEM cross-actor/cross-owner com saldo NÃO é self-read (self tem /me;
   // conta única tem /:accountId). ownerId legado NÃO é actor → NÃO canRepresentActor. Exige permissão financeira
   // admin existente (financial:view_all_ledger); senão fail-closed (403). 401 sem user.
+  // status?: never no braço ok:true — com strict:false (tsconfig.build, config do GATE) o narrowing
+  // de união discriminada por `if (!auth.ok)` NÃO funciona e `.status` ficava inacessível (parte dos
+  // 34 erros do gate, achado B4 do auditoria.md). Acesso legal nos 2 configs; zero mudança de runtime.
   async function assertFinancialAdmin(
     tenantId: string,
     callerUserId: string | undefined,
-  ): Promise<{ ok: true } | { ok: false; status: 401 | 403 }> {
+  ): Promise<{ ok: true; status?: never } | { ok: false; status: 401 | 403 }> {
     if (!callerUserId) return { ok: false, status: 401 };
     try {
       const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
@@ -149,7 +152,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
     tenantId: string,
     callerUserId: string | undefined,
     accountId: string,
-  ): Promise<{ ok: true } | { ok: false; status: 401 | 403 | 404 }> {
+  ): Promise<{ ok: true; status?: never } | { ok: false; status: 401 | 403 | 404 }> {
     if (!callerUserId) return { ok: false, status: 401 };
     const { bankAccountService } = await import('@modules/bank/bank-account.service');
     const account = await bankAccountService.getAccountById(tenantId, accountId);

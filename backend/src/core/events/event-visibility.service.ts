@@ -79,7 +79,9 @@ export async function assertCanReadEventMoney(
   tenantId: string,
   eventId: string,
   callerUserId: string | null | undefined
-): Promise<{ ok: true } | { ok: false; status: 404 | 403 }> {
+  // status?: never no braço ok:true — fix do achado B4 do auditoria.md (narrowing de união
+  // discriminada quebrado sob strict:false do tsconfig.build/gate). Zero mudança de runtime.
+): Promise<{ ok: true; status?: never } | { ok: false; status: 404 | 403 }> {
   // camada 404: inexistente ou invisível pelo modelo de visibility (não-leak de existência).
   if (!(await canViewEvent(tenantId, eventId, callerUserId))) return { ok: false, status: 404 };
   // camada 403: visível, mas dado financeiro exige REPRESENTAR o organizer (event.actor_id) — não canViewEvent.
