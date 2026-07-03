@@ -1,3 +1,17 @@
+## 2026-07-03 — DECISION-0159 promulgada · fecha DT-ERP-CRM-CANONICAL-ORDER-CONVERGENCE · abre DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK · docs-only
+
+Clayton pediu para eu, como diretora executora, entender a doutrina antes de tocar em código — apontou as 6 imagens da raiz como visão macro/micro do sistema. Li todas, cruzei contra o que os 4 agentes de pesquisa (actor/modo, CRM, ERP/PDV, locações) tinham achado no dia anterior, escrevi um parecer técnico, e Clayton deu GO para cartorializar.
+
+**Achado central do cruzamento:** a tensão que eu tinha sinalizado entre a DT de convergência e a doutrina não existia — a própria DT já media o sistema pelos mesmos 7 substratos soberanos dos diagramas, e já apontava o caminho certo (trilhos separados + substrato comum), só faltava promulgação. **DECISION-0159** ratifica isso e rejeita formalmente uma "ordem canônica única" (violaria os freios explícitos "sem terceira entidade"/"sem engine universal" dos próprios diagramas) — e define com precisão que "ERP Social" não é módulo a construir, é a composição Identidade+Autoridade+Settlement+Publication já nomeada em `mapa.png`.
+
+**Achado novo, sério, não previsto na DT original:** a tabela arquivada `contacts` (substrato do CRM) declara CPF/CNPJ próprio com vínculo a `users` sem FK — candidata a quinta fonte paralela de documento fiscal, fora do raio da auditoria B7/DECISION-0062 porque a tabela é fantasma. Registrado como `DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK` (OPEN/LOW, dormente — não bloqueia nada hoje, mas é precondição obrigatória antes de CRM sair do arquivo).
+
+**Bônus de precisão:** o item "rides fora da doutrina" da DT original (28/06) já estava parcialmente resolvido pelo meu próprio trabalho de firewall (B1, 02/07) — cross-referenciado, não duplicado.
+
+Nada de código tocado. HEAD deste commit é o fechamento formal; a próxima fatia autorizada por Clayton é `F-RENTAL-RESOURCE-SURFACE-SLICE-A` (rotas HTTP de locação).
+
+---
+
 ## 2026-07-03 — F-GLOBAL-SEARCH-OMNI SLICE C · ✅ MATERIAL — busca universal completa: SearchPage federada + doutrina modo×busca + scaffolds fora da descoberta
 
 Mandato amplo de Clayton ("buscador Google interno enterprise, filtros pós-busca, descubra como Consumir/Operar influencia"). Três eixos em `3293183d1`:
