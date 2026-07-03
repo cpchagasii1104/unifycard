@@ -1,3 +1,17 @@
+## 2026-07-03 — F-GLOBAL-SEARCH-OMNI SLICE C · ✅ MATERIAL — busca universal completa: SearchPage federada + doutrina modo×busca + scaffolds fora da descoberta
+
+Mandato amplo de Clayton ("buscador Google interno enterprise, filtros pós-busca, descubra como Consumir/Operar influencia"). Três eixos em `3293183d1`:
+
+**1. Scaffolds N1-root fora da descoberta.** A exploração visual de Clayton revelou 6 `canonical_products` sintéticos ("Catálogo global (N1 raiz) — …", âncoras da migration bloco3) poluindo a busca de produtos nas DUAS superfícies. Fix: migration `20260703140000` (data-repair da mesma natureza do seed) marca `catalog_scaffold=true` por duplo predicado estrutural + gate fail-closed; reader compartilhado exclui da descoberta. E2E prova que o filtro é o MARCADOR, não o nome (gêmeas de mesma prontidão: marcada FORA, sem marca DENTRO). **Aplicada em `unificard_dev`** (6 marcadas, comunicado).
+
+**2. Doutrina modo×busca promulgada em código:** Consumir/Operar **nunca muda o que a busca encontra** (retrieval = tenant+visibilidade+eligibility, server-side, modo-independente); o modo só **reordena a apresentação** das seções depois do buscador trabalhar — Consumir prioriza O QUÊ, Operar prioriza QUEM. `SECTION_ORDER_BY_MODE` no dropdown e na SearchPage; guard morde se a doutrina sumir.
+
+**3. SearchPage universal (página cheia):** Enter/rodapé do header → `/search?q=` com abas + contagens, filtros **nomeados** de estado/cidade via Location Core (mata o anti-padrão de campo de ID cru da tela de Clayton) aplicados às seções com substrato (serviços+eventos, rotulado honestamente). Distância/avaliações NÃO aparecem (substrato não-vivo — nenhum filtro que mente). Backend: omni ganha `cityId` repassado aos readers canônicos.
+
+Nota honesta de processo: a 1ª negative-proof do guard foi mal construída (sed deixou substring viva + `git checkout` reverteu a página nova rastreada) — refeita com rename de token inteiro e restore manual; NP agora morde de verdade. E2E 12/12 · FE/BE tsc 0 · cadeia EXIT 0 · Δbank=0. Visual sign-off = Clayton.
+
+---
+
 ## 2026-07-03 — F-GLOBAL-SEARCH-OMNI SLICE B · ✅ MATERIAL — Ctrl-K vira omnibox de verdade (frontend)
 
 Continuação imediata da Slice A com GO. A barra do header (Ctrl-K) deixou de ser funil de uma vertical: 2+ caracteres abrem dropdown com **7 seções federadas** — IR PARA (command palette sobre a projeção `GET /navigation/modules`; módulo que o actor não vê na sidebar não aparece na busca) + Pessoas + Empresas + Grupos + Serviços + Produtos + Eventos, cada uma navegando pro destino certo (`/profile/:id`, `/company/:id`, `/grupos/:id`, `/discover/services/:id`, `/events/:id`; produtos = fallback honesto `/marketplace` até existir página de item canônico). Enter preservado como fallback de página cheia (o rewire do deadend de 2026-07-01 segue honrado). Debounce 300ms + guarda anti-race + Escape/clique-fora. Frontend só renderiza e navega — as seções vêm resolvidas do backend (Slice A). HEAD `bbc296d93`.
