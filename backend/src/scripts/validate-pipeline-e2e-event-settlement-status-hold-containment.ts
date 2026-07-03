@@ -1,17 +1,18 @@
 /**
- * E2E F-EVENT-SETTLEMENT-STATUS-HOLD-CONTAINMENT.
+ * E2E F-EVENT-SETTLEMENT-STATUS-HOLD-CONTAINMENT (estendido pelo achado B2, 2026-07-02).
  *
  * 🔒 DB EFÊMERA. Orquestrado por scripts/run-event-settlement-status-hold-containment-ephemeral.ps1.
  *
- * Prova que a transição de estado do settlement de evento (settleEvent → markAsSettled:
- * event_settlements.status='SETTLED') está FAIL-CLOSED default-off ANTES de qualquer side-effect:
- *   • flag ausente → 403 EVENT_SETTLEMENT_RUNTIME_DISABLED (o firewall é a 1ª linha de settleEvent);
- *   • flag '1' / 'TRUE' / 'yes' → ainda OFF (estrito === 'true');
- *   • flag 'true' → o firewall DEIXA PASSAR → settleEvent segue para o downstream (erro DIFERENTE do firewall) —
- *     prova que o gate não é fail-open e não é a única defesa, sem mover dinheiro;
- *   • Δbank=0 em todos os casos (settle NÃO toca bank_*).
- * NOTA: event_settlements é GHOST no schema vivo (DDL só em migrations_archive); este firewall torna a
- * contenção EXPLÍCITA (403 por HOLD) em vez de acidental (42P01 da tabela ausente). Money-free.
+ * Prova que TODAS AS TRÊS superfícies do trilho de settlement de evento (tabela-fantasma
+ * event_settlements, sem migration viva) estão FAIL-CLOSED default-off ANTES de qualquer acesso à tabela:
+ *   • SETTLE (settleEvent → markAsSettled: UPDATE) — T1..T4;
+ *   • CREATE (createFromEvent → INSERT) — T7 (achado B2: antes SEM firewall, mascarado só por try/catch);
+ *   • READ  (getSettlementByEvent → SELECT) — T8 (achado B2: antes SEM firewall e SEM try/catch → 500 vivo);
+ * em todos: flag ausente → 403 EVENT_SETTLEMENT_RUNTIME_DISABLED; flag estrito === 'true' ('1'/'TRUE'/'yes'
+ * = OFF); flag 'true' deixa passar p/ downstream (não fail-open); Δbank=0 (nada toca bank_*).
+ * NOTA: event_settlements é GHOST no schema vivo (DDL só em migrations_archive, com 4 drifts); este firewall
+ * torna a contenção EXPLÍCITA (403 por HOLD) em vez de acidental (42P01 no INSERT/UPDATE, 500 no READ).
+ * Materializar a tabela + ligar o flag = decisão de PORTA-1/IA-DINHEIRO. Money-free.
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
@@ -40,6 +41,18 @@ async function assertEphemeralDb(): Promise<void> {
 // chama settleEvent com argumentos arbitrários (o firewall fira ANTES de qualquer leitura de settlement).
 const callSettle = () =>
   eventSettlementService.settleEvent(randomUUID(), randomUUID(), { settlementId: undefined }, randomUUID(), randomUUID())
+    .then(() => ({ threw: false } as any))
+    .catch((e) => ({ threw: true, err: errOf(e) }));
+
+// chama createFromEvent (INSERT event_settlements) — o firewall fira ANTES do INSERT (achado B2).
+const callCreate = () =>
+  eventSettlementService.createFromEvent(randomUUID(), { eventId: randomUUID(), grossRevenue: 1000 }, randomUUID(), undefined)
+    .then(() => ({ threw: false } as any))
+    .catch((e) => ({ threw: true, err: errOf(e) }));
+
+// chama getSettlementByEvent (SELECT event_settlements) — o firewall fira ANTES do SELECT (achado B2).
+const callRead = () =>
+  eventSettlementService.getSettlementByEvent(randomUUID(), randomUUID())
     .then(() => ({ threw: false } as any))
     .catch((e) => ({ threw: true, err: errOf(e) }));
 
@@ -83,6 +96,36 @@ async function main(): Promise<void> {
     record('T6 event_settlements ghost no FULL → o firewall é a contenção EXPLÍCITA (403), não a acidental (42P01)', exists === 0, `to_regclass!=null? ${exists}`);
   }
 
+  // ── T7 (achado B2) — CREATE (INSERT) fail-closed default-off ANTES do INSERT ──
+  delete process.env[EVENT_SETTLEMENT_RUNTIME_FLAG];
+  {
+    const r = await callCreate();
+    record('T7 createFromEvent flag ausente → 403 firewall ANTES do INSERT (antes: sem firewall, só try/catch engolia 42P01)',
+      r.threw && r.err?.code === FW_CODE && r.err?.status === 403, JSON.stringify(r.err));
+  }
+  process.env[EVENT_SETTLEMENT_RUNTIME_FLAG] = '1';
+  {
+    const r = await callCreate();
+    record("T7b createFromEvent flag='1' → ainda OFF (estrito === 'true')", r.threw && r.err?.code === FW_CODE, JSON.stringify(r.err));
+  }
+  delete process.env[EVENT_SETTLEMENT_RUNTIME_FLAG];
+
+  // ── T8 (achado B2) — READ (SELECT) fail-closed default-off ANTES do SELECT (era 500 vivo) ──
+  {
+    const r = await callRead();
+    record('T8 getSettlementByEvent flag ausente → 403 firewall ANTES do SELECT (antes: sem firewall/try-catch → 500 vivo)',
+      r.threw && r.err?.code === FW_CODE && r.err?.status === 403, JSON.stringify(r.err));
+  }
+  process.env[EVENT_SETTLEMENT_RUNTIME_FLAG] = 'TRUE';
+  {
+    const r = await callRead();
+    record("T8b getSettlementByEvent flag='TRUE' → ainda OFF (estrito === 'true')", r.threw && r.err?.code === FW_CODE, JSON.stringify(r.err));
+  }
+  delete process.env[EVENT_SETTLEMENT_RUNTIME_FLAG];
+
+  // ── T9 — Δbank=0 após TODAS as superfícies exercitadas ──
+  record('T9 Δbank=0 após create+read+settle exercitados (nenhuma superfície move dinheiro)', (await count(bankSql)) === bankBefore, `before=${bankBefore}`);
+
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${'═'.repeat(64)}`);
   console.log(`RESULTADO: ${results.length - failed.length}/${results.length} verdes`);
@@ -91,7 +134,7 @@ async function main(): Promise<void> {
     await pool.end(); process.exit(1);
   }
   await pool.end();
-  console.log('✨ settle fail-closed default-off (403 antes de markAsSettled); estrito; flag-on deixa passar p/ downstream ghost; Δbank=0.');
+  console.log('✨ TRÊS superfícies (settle+create+read) fail-closed default-off (403 antes de tocar event_settlements); estrito; flag-on deixa passar p/ downstream ghost; Δbank=0. Achado B2 contido.');
 }
 
 main().catch(async (e) => { console.error('💥 Erro não tratado:', e); try { await pool.end(); } catch { /* noop */ } process.exit(1); });

@@ -31,6 +31,12 @@ class EventSettlementService {
     createdByActorId: string,
     createdByUserId?: string
   ): Promise<EventSettlement> {
+    // 🔴 F-EVENT-SETTLEMENT-GHOST-CONTAINMENT (achado B2, 2026-07-02): fail-closed ANTES do INSERT em
+    // event_settlements (tabela-fantasma sem migration viva). Antes SEM firewall — mascarado só por um
+    // try/catch no caller (ticket.service.confirmTicketPayment) que engolia o erro "relation does not exist".
+    // Agora contido honestamente. Reabrir = flag + materializar a tabela (PORTA-1).
+    assertEventSettlementRuntimeEnabled('createFromEvent (INSERT event_settlements)');
+
     // Validar valores
     if (input.grossRevenue < 0) {
       throw new Error('grossRevenue deve ser maior ou igual a zero');
@@ -126,6 +132,11 @@ class EventSettlementService {
     tenantId: string,
     eventId: string
   ): Promise<EventSettlement | null> {
+    // 🔴 F-EVENT-SETTLEMENT-GHOST-CONTAINMENT (achado B2, 2026-07-02): fail-closed ANTES do SELECT em
+    // event_settlements (tabela-fantasma sem migration viva). Antes SEM firewall e SEM try/catch na rota
+    // GET /events/:id/settlement → SELECT numa relação inexistente estourava 500 VIVO pro usuário. Agora
+    // retorna 403 contido (AppError → error handler global), não 500. Reabrir = flag + materializar (PORTA-1).
+    assertEventSettlementRuntimeEnabled('getSettlementByEvent (SELECT event_settlements)');
     return eventSettlementRepository.getSettlementByEvent(tenantId, eventId);
   }
 
