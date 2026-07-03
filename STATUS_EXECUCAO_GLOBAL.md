@@ -1,3 +1,19 @@
+## 2026-07-03 — F-GLOBAL-SEARCH-OMNI SLICE A · ✅ MATERIAL — omnibox federado GET /search?q= (backend)
+
+Clayton buscou "Clayton" na barra global e caiu em "Descobrir Serviços" com miss — sintoma do estado interino documentado (a barra apontava pra única busca viva; busca de QUEM não existia NENHUMA). Design aprovado (omnibox 3 pistas: IR PARA / QUEM / O QUÊ, filtros só quando o substrato não mente) + GO.
+
+**Slice A entregue (`d6b876f21`):** `GET /search?q=` federando 6 seções — pessoas/empresas (reader NOVO sobre `actors`, projeção segura SEM PII, vocabulário canônico user/page D-C2), grupos (reusa listGroups), serviços (reusa termo→alias→concept), produtos (SELECT canônico extraído p/ service compartilhado — 1 verdade, 2 callers), eventos (searchEvents evoluído com `term`, piso de discovery intacto). Nomenclatura §9.3 (`?q=`), SSOT registry já antecipava o reader ("busca/matching via service"), fail-soft por seção nomeado.
+
+**Decisão de substrato honesta:** `public_profiles` existe mas está VAZIA (0 rows) — construir o QUEM sobre ela seria busca que mente; `actors.display_name` é a projeção viva. Quando public_profiles materializar, troca-se o reader, não o contrato.
+
+**Achado no caminho (consertado):** `groups.repository.findAll({isActive})` empurrava boolean cru em coluna TEXT → `status='true'` nunca casa → listGroups sempre vazio p/ qualquer caller (incl. `GET /groups?isActive=`). Bug latente real.
+
+**Prova:** e2e efêmero 10/10 (federação real: 1 GET "omni" acerta companies+groups+events; anti-PII; unaccent; piso draft/private OUT; vocabulário controlado com miss honesto). Guard `audit-search-omni-federation-contract` (anti-PII/vocabulário/coerência/piso) + guard do catálogo evoluído seguindo a verdade ao novo endereço. Gates todos verdes. Δbank=0.
+
+**Próximas fatias (GO próprio):** Slice B = frontend Ctrl-K com seções + pista IR PARA (via GET /navigation/modules). Slice C = SearchPage com filtros nomeados cidade/estado. Gated por substrato: raio-km (endereços esparsos), avaliações (reputação NÃO-VIVA), conteúdo/posts (indexação).
+
+---
+
 ## 2026-07-03 — CAMPANHA DE HIGIENE FAST-PATH DO LAUDO · ✅ concluída — todo item não-blocker resolvido ou com disposição final registrada
 
 Clayton: "fazer tudo o que falta antes de PORTA-1". Varri os itens FAST-PATH/higiene do laudo que não eram blockers. Fronteira honesta declarada de saída: F4/F5 (tríade CPF) e drenagem financeira em massa são norm-blocked / norma-inadvisável antes de PORTA-1 — não os toquei.
