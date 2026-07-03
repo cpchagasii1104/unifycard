@@ -1,3 +1,15 @@
+## 2026-07-02 — F-EVENT-SETTLEMENT-GHOST-CONTAINMENT · ✅ MATERIAL / CONTAINED — fecha DT-EVENT-SETTLEMENTS-GHOST-TABLE-LIVE-SURFACES · 18ª dívida técnica resolvida hoje · achado B2 do `auditoria.md`
+
+Clayton pediu pra executar o B2. Fiz o READ-FIRST antes de tocar em qualquer coisa — e parei pra decisão, porque B2 é money-adjacent e o próprio laudo o marca como decisão de PORTA-1, não fatia autônoma de executora.
+
+**O que achei:** `event_settlements` é uma "tabela-fantasma" (existe no código, mas nunca foi criada de verdade no banco). O laudo tinha simplificado dizendo que o firewall desligado mascarava isso — mas na real havia TRÊS portas de entrada vivas, não uma: uma que tenta gravar a cada venda de ingresso (o erro era engolido silenciosamente por um try/catch), uma de leitura que dava erro 500 direto pro usuário, e a de liquidação que já estava contida. E a versão arquivada da tabela nem seria aplicável — tem 4 pontos de incompatibilidade com o schema atual.
+
+**A decisão era sua:** materializar a tabela (abrir o ciclo econômico de eventos de verdade — isso é dinheiro, território PORTA-1) ou conter formalmente e deixar a materialização pra depois. Você escolheu conter.
+
+**O que fiz:** as três portas agora passam pela mesma trava fail-closed que já protegia a liquidação. Com a trava desligada (padrão), nada toca a tabela — o fantasma fica inerte por contenção explícita, não por acidente. Documentei que ligar a trava exige antes criar a tabela de verdade (senão quebra), e isso é decisão de PORTA-1. Zero código apagado, zero dinheiro movido, tabela intocada. E2E 13/13, incluindo a prova de que a leitura agora dá 403 contido em vez de 500. HEAD material `d048ea00e`.
+
+---
+
 ## 2026-07-02 — F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX · ✅ MATERIAL / CRÍTICO — fecha DT-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX · 17ª dívida técnica resolvida hoje · achado de uma re-auditoria adversarial que EU MESMO pedi
 
 Clayton perguntou se devia trocar de instância pra continuar (tinha acabado de me mudar pra Fable 5/ultracode) ou me passar o prompt de re-auditoria da outra Fable. Recomendei eu continuar (contexto quente decide aqui) e que a outra instância fizesse o papel de revisora — separação entre quem executa e quem audita. Escrevi um prompt de re-auditoria específico pros 4 itens mais arriscados do dia e sugeri ele mandar pra ela.
