@@ -50,7 +50,7 @@ interface ReservationRow {
   event_id: string;
   tenant_id: string;
   occupancy_model_id: string;
-  global_user_id: string;
+  actor_id: string; // canonico actor-first (era global_user_id: FK que mentia → actors(id); B7)
   resource_type: string;
   resource_id: string | null;
   resource_name: string | null;
@@ -200,7 +200,7 @@ export class OccupancyService {
    */
   async createReservation(
     tenantId: string,
-    globalUserId: string,
+    reservedByActorId: string, // actor-first canonico (era globalUserId; a coluna FK mentia — B7/DECISION-0062)
     input: CreateReservationInput
   ): Promise<EventReservation> {
     // Buscar modelo de ocupação
@@ -226,13 +226,13 @@ export class OccupancyService {
       tenantId,
       `
       INSERT INTO event_reservations (
-        event_id, tenant_id, occupancy_model_id, global_user_id,
+        event_id, tenant_id, occupancy_model_id, actor_id,
         resource_type, resource_id, resource_name,
         status, reservation_price_cents, reservation_currency
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9)
       RETURNING
-        id, event_id, tenant_id, occupancy_model_id, global_user_id,
+        id, event_id, tenant_id, occupancy_model_id, actor_id,
         resource_type, resource_id, resource_name, status,
         reservation_price_cents, reservation_currency,
         transaction_id, checked_in_at, no_show_time, metadata,
@@ -242,7 +242,7 @@ export class OccupancyService {
         input.event_id,
         event.tenant_id,
         model.id,
-        globalUserId,
+        reservedByActorId,
         input.resource_type,
         input.resource_id || null,
         input.resource_name || null,
@@ -344,7 +344,7 @@ export class OccupancyService {
       event_id: row.event_id,
       tenant_id: row.tenant_id,
       occupancy_model_id: row.occupancy_model_id,
-      global_user_id: row.global_user_id,
+      actor_id: row.actor_id,
       resource_type: row.resource_type as any,
       resource_id: row.resource_id,
       resource_name: row.resource_name,

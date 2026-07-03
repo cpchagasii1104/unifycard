@@ -82,7 +82,7 @@ export interface EventReservation {
   event_id: string;
   tenant_id: string;
   occupancy_model_id: string;
-  global_user_id: string;
+  actor_id: string; // canonico actor-first (era global_user_id: a FK mentia → actors(id); B7/DECISION-0062)
   resource_type: ResourceType;
   resource_id: string | null;
   resource_name: string | null;
