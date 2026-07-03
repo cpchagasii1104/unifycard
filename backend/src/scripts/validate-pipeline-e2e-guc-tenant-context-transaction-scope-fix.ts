@@ -124,6 +124,7 @@ async function main(): Promise<void> {
     record('getClientWithTenant: tenant A acha o próprio payment_intent (client multi-query)', probe.getClientWithTenant_ownTenant_found === true);
     record('getClientWithTenant: tenant A NÃO acha payment_intent de B', probe.getClientWithTenant_crossTenant_blocked === true);
     record('getClientWithPlatformAdmin: vê canonical_service scoped de A (bypass admin funcionando)', probe.getClientWithPlatformAdmin_seesScoped === true);
+    record('recordFinancialAudit (N1): escreve financial_audit_trail sob RLS real (antes: pool cru → WITH CHECK rejeitava, trilha parava silenciosa)', probe.recordFinancialAudit_writesUnderRls === true, `err=${probe.recordFinancialAudit_error ?? ''}`);
   } finally {
     await pool.query(`DROP ROLE IF EXISTS ${probeRole}`);
     console.log(`🧹 role probe ${probeRole} removido.`);

@@ -34,8 +34,17 @@ if (!existsSync(POOL)) {
   if (bothCount < 3) {
     failures.push(`${POOL}: esperava 3 ocorrências de reset duplo em getClientWithTenant/runQueryWithTenant/runQueriesWithTenant, achou ${bothCount}.`);
   }
-  if (!/set_config\('app\.is_platform_admin',\s*'true',\s*false\),\s*set_config\('app\.current_tenant',\s*''/.test(src)) {
-    failures.push(`${POOL}: getClientWithPlatformAdmin não reseta app.current_tenant.`);
+  // getClientWithPlatformAdmin reseta is_platform_admin='true' + current_tenant via
+  // NO_TENANT_SENTINEL (nil-UUID cast-safe, achado N2). Aceita a forma parametrizada ($1 =
+  // NO_TENANT_SENTINEL) e rejeita o retorno ao literal '' (que estoura ''::uuid nas policies ::uuid).
+  if (!/set_config\('app\.is_platform_admin',\s*'true',\s*false\),\s*set_config\('app\.current_tenant',\s*\$1,\s*false\)/.test(src)) {
+    failures.push(`${POOL}: getClientWithPlatformAdmin não reseta app.current_tenant (esperado via NO_TENANT_SENTINEL nil-UUID).`);
+  }
+  if (/set_config\('app\.current_tenant',\s*''/.test(src)) {
+    failures.push(`${POOL}: reset de current_tenant com '' reapareceu — ''::uuid estoura 22P02 em policies com CAST ::uuid (achado N2); usar NO_TENANT_SENTINEL nil-UUID.`);
+  }
+  if (!/NO_TENANT_SENTINEL\s*=\s*'00000000-0000-0000-0000-000000000000'/.test(src)) {
+    failures.push(`${POOL}: NO_TENANT_SENTINEL (nil-UUID) ausente ou alterado — sentinel cast-safe do reset admin (achado N2).`);
   }
 }
 
@@ -61,9 +70,25 @@ if (!existsSync(DB_TS)) {
   }
 }
 
+// (N1) financial-audit.ts::recordFinancialAudit escreve financial_audit_trail (RLS+FORCE desde
+// 20260702160000) via tenant-context, NÃO pool cru — senão o WITH CHECK rejeita a trilha sob
+// unificard_app e a auditoria financeira para silenciosamente.
+const FIN_AUDIT = join(ROOT, 'src', 'core', 'observability', 'financial-audit.ts');
+if (!existsSync(FIN_AUDIT)) {
+  failures.push(`arquivo ausente: ${FIN_AUDIT}`);
+} else {
+  const src = stripTs(readFileSync(FIN_AUDIT, 'utf-8'));
+  if (/\bpool\.query\(|\bpool\.connect\(/.test(src)) {
+    failures.push(`${FIN_AUDIT}: recordFinancialAudit usa pool cru — sob RLS o INSERT em financial_audit_trail é rejeitado e a trilha de auditoria para silenciosa (achado N1). Usar runQueryWithTenant.`);
+  }
+  if (!/runQueryWithTenant\(/.test(src)) {
+    failures.push(`${FIN_AUDIT}: recordFinancialAudit não usa runQueryWithTenant — trilha de auditoria não é tenant-scoped (achado N1).`);
+  }
+}
+
 if (failures.length > 0) {
   console.error('GATE FAIL [guc-cross-context-reset-on-reuse]:');
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [guc-cross-context-reset-on-reuse] — os 4 helpers de pool.ts + core/db.ts::runQueryWithTenant resetam AMBOS os GUCs (current_tenant/is_platform_admin) em toda chamada — sem herança de estado stale entre usos da mesma conexão pooled. Achados A1+A2 da re-auditoria blindados.');
+console.log('GATE OK [guc-cross-context-reset-on-reuse] — os 4 helpers de pool.ts + core/db.ts::runQueryWithTenant resetam AMBOS os GUCs (current_tenant nil-UUID cast-safe / is_platform_admin) em toda chamada; recordFinancialAudit tenant-scoped. Achados A1+A2 + N1+N2 da re-auditoria blindados.');

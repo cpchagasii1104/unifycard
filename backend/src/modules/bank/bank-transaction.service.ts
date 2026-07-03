@@ -4,7 +4,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import type { PoolClient } from 'pg';
-import { getClientWithTenant, runQueryWithTenant, pool } from '@core/database/pool';
+import { getClientWithTenant, runQueryWithTenant } from '@core/database/pool';
 import { resolveFinancialConceptId as resolveConceptId } from '@modules/concept-resolution/concept-financial-resolver.service';
 import { enqueueReconciliation } from '@core/events/payment-events-queue';
 import { bankAccountRepository } from './bank-account.repository';
@@ -558,7 +558,7 @@ class BankTransactionService {
         });
         recordTransactionForFragmentation(tenantId, actorId, fromAccountId, amountCents);
         try {
-          await recordFinancialAudit(pool, {
+          await recordFinancialAudit({
             event_type: 'transaction_created',
             tenant_id: tenantId,
             transaction_id: transactionId,
@@ -566,8 +566,15 @@ class BankTransactionService {
             actor_id: actorId,
             amount_cents: amountCents,
           });
-        } catch (_auditErr) {
-          // Best-effort: não falha a transação se a trilha de auditoria falhar (ex.: tabela ainda não criada)
+        } catch (auditErr) {
+          // Best-effort: não falha a transação se a trilha de auditoria falhar. 🔴 F-ROUND2-AUDIT-
+          // REMEDIATION (N1): o swallow silencioso mascarava a trilha de auditoria PARANDO sob RLS;
+          // agora loga com WARN para que uma falha de auditoria (garantia institucional) seja visível.
+          console.warn(
+            `[bank-transaction] Falha ao escrever financial_audit_trail (best-effort, não bloqueia a transação; ` +
+              `transaction_id=${transactionId}):`,
+            auditErr
+          );
         }
       } catch (insertErr: unknown) {
         if (isUniqueViolation(insertErr)) {

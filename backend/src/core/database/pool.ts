@@ -56,6 +56,14 @@ export const pool = new Pool({
   max: Number(process.env.DATABASE_POOL_MAX || 10),
 });
 
+// 🔴 F-ROUND2-AUDIT-REMEDIATION (achado N2 da re-auditoria adversarial rodada 2, 2026-07-02):
+// sentinel de "nenhum tenant" para o reset de app.current_tenant em contexto admin. NÃO usar '' —
+// ~10 policies comparam com CAST ::uuid (`current_setting('app.current_tenant')::uuid`) e ''::uuid
+// LANÇA 22P02 em runtime (nil-UUID não: é cast-safe). O nil-UUID nunca casa um tenant real
+// (gen_random_uuid jamais produz all-zeros) tanto sob comparação ::text quanto ::uuid → fail-closed
+// limpo em vez de fail-noisy. Reset seguro para AMBOS os estilos de policy.
+const NO_TENANT_SENTINEL = '00000000-0000-0000-0000-000000000000';
+
 // 🔴 Configurar encoding UTF-8 e search_path para todas as conexões
 pool.on('connect', async (client) => {
   try {
@@ -177,14 +185,17 @@ export async function getClientWithTenant(tenantId: string): Promise<PoolClient>
  * 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02): is_local=false, mesma razão de
  * getClientWithTenant acima — sem BEGIN, is_local=true evapora antes da query real do caller.
  * 🔴 F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX (2026-07-02, achado A1): também reseta
- * app.current_tenant (string vazia — nunca bate tenant_id real) para não herdar tenant stale de
+ * app.current_tenant (sentinel nil-UUID — nunca bate tenant_id real) para não herdar tenant stale de
  * uso anterior da mesma conexão pooled.
+ * 🔴 F-ROUND2-AUDIT-REMEDIATION (2026-07-02, achado N2): o reset usa NO_TENANT_SENTINEL (nil-UUID),
+ * NÃO '' — policies com CAST ::uuid estouram 22P02 em ''::uuid; nil-UUID é cast-safe e never-match.
  */
 export async function getClientWithPlatformAdmin(): Promise<PoolClient> {
   const client = await pool.connect();
   try {
     await client.query(
-      "SELECT set_config('app.is_platform_admin', 'true', false), set_config('app.current_tenant', '', false)"
+      "SELECT set_config('app.is_platform_admin', 'true', false), set_config('app.current_tenant', $1, false)",
+      [NO_TENANT_SENTINEL]
     );
     return client;
   } catch (err) {

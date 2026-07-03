@@ -61,7 +61,11 @@ async function main(): Promise<void> {
   tenantClient2.release();
   const adminClient2 = await getClientWithPlatformAdmin();
   const tenantFlagAfterReuse = (await adminClient2.query<{ v: string }>(`SELECT current_setting('app.current_tenant', true) AS v`)).rows[0].v;
-  record('B app.current_tenant lido como "" após reuso (NÃO herda tenantId de A)', tenantFlagAfterReuse === '', `v=${JSON.stringify(tenantFlagAfterReuse)}`);
+  // Achado N2: o reset admin usa NO_TENANT_SENTINEL (nil-UUID cast-safe), NÃO '' (que estouraria
+  // ''::uuid em policies com CAST). Prova: não herda o tenantId de A E é o sentinel nil-UUID.
+  const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+  record('B app.current_tenant reset p/ nil-UUID sentinel após reuso (NÃO herda tenantId de A; cast-safe, achado N2)',
+    tenantFlagAfterReuse === NIL_UUID && tenantFlagAfterReuse !== TENANT_A, `v=${JSON.stringify(tenantFlagAfterReuse)}`);
   adminClient2.release();
 
   // ── C: PROVA DE SEGURANÇA REAL sob SET ROLE unificard_app ──
@@ -101,8 +105,12 @@ async function main(): Promise<void> {
     const seenAsAdmin = (await securityClient.query<{ id: string }>(`SELECT id::text AS id FROM canonical_services WHERE id = $1::uuid`, [csScopedA])).rows;
     record('(pré-condição) curadoria admin vê scoped de A nesta conexão', seenAsAdmin.length === 1);
 
-    // Passo 2: MESMA sessão/conexão agora serve um pedido de TENANT B comum, via getClientWithTenant
-    // real (não simulação) — deve resetar is_platform_admin, NÃO deve enxergar scoped de A.
+    // Passo 2: MESMA sessão/conexão agora serve um pedido de TENANT B comum. NOTA DE HONESTIDADE
+    // (achado da re-auditoria): aqui reproduzimos o SQL byte-idêntico ao que getClientWithTenant emite
+    // (não chamamos o helper direto porque, sob SET ROLE nesta MESMA conexão + POOL_MAX=1, adquirir
+    // outro client via helper deadlockaria o pool). O guard audit-guc-cross-context-reset-on-reuse.mjs
+    // trava drift do SQL do helper, então o SQL testado aqui = o SQL de produção. Prova o mecanismo:
+    // reset de is_platform_admin='false' → tenant B NÃO enxerga scoped de A na mesma conexão física.
     await securityClient.query(
       "SELECT set_config('app.current_tenant', $1, false), set_config('app.is_platform_admin', 'false', false)",
       [T_B]

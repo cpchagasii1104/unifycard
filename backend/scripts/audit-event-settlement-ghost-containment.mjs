@@ -51,7 +51,9 @@ if (existsSync(MIG_DIR)) {
   for (const f of readdirSync(MIG_DIR)) {
     if (!f.endsWith('.sql')) continue;
     const sql = readFileSync(join(MIG_DIR, f), 'utf-8');
-    if (/CREATE TABLE\s+(IF NOT EXISTS\s+)?event_settlements\b/i.test(sql)) {
+    // Achado N3 da re-auditoria rodada 2: pega também schema-qualified (public.event_settlements) e
+    // aspas — antes a regex cega para `CREATE TABLE public.event_settlements` deixava um contorno trivial.
+    if (/CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(?:"?[a-zA-Z_][\w$]*"?\.)?"?event_settlements"?\b/i.test(sql)) {
       failures.push(`migrations/${f}: CREATE TABLE event_settlements numa migration VIVA — materializar a tabela-fantasma é decisão soberana de PORTA-1/IA-DINHEIRO, não pode entrar sozinha. Se foi decidido materializar, atualize este guard junto com a DECISION.`);
     }
   }

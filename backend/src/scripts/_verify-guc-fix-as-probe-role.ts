@@ -7,6 +7,7 @@
  */
 import 'tsconfig-paths/register';
 import { pool, getClientWithTenant, getClientWithPlatformAdmin, runQueryWithTenant, runQueriesWithTenant } from '../core/database/pool';
+import { recordFinancialAudit } from '../core/observability/financial-audit';
 
 const TENANT_A = process.env.PROBE_TENANT_A!;
 const TENANT_B = process.env.PROBE_TENANT_B!;
@@ -66,6 +67,30 @@ async function main() {
   out.probeRole_isNotSuperuser = roleCheck.rows[0]?.usesuper === false;
   const bypassCheck = await pool.query<{ rolbypassrls: boolean }>(`SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user`);
   out.probeRole_isNotBypassRls = bypassCheck.rows[0]?.rolbypassrls === false;
+
+  // 7. (achado N1) recordFinancialAudit REAL sob RLS: financial_audit_trail tem RLS+FORCE; a função
+  //    re-keyada (runQueryWithTenant) deve conseguir ESCREVER a trilha. ANTES do fix (pool cru) o
+  //    WITH CHECK rejeitaria o INSERT sob o probe role → trilha de auditoria parava silenciosamente.
+  try {
+    await recordFinancialAudit({
+      tenant_id: TENANT_A,
+      event_type: 'round2_probe_audit_write',
+      transaction_id: null,
+      account_id: null,
+      actor_id: null,
+      amount_cents: 100,
+      metadata: { probe: true },
+    });
+    const rows = await runQueriesWithTenant<{ n: string }>(
+      TENANT_A,
+      `SELECT count(*)::text AS n FROM financial_audit_trail WHERE tenant_id = $1::uuid AND event_type = 'round2_probe_audit_write'`,
+      [TENANT_A]
+    );
+    out.recordFinancialAudit_writesUnderRls = Number(rows[0]?.n ?? '0') === 1;
+  } catch (e) {
+    out.recordFinancialAudit_writesUnderRls = false;
+    out.recordFinancialAudit_error = (e as Error).message;
+  }
 
   console.log('PROBE_RESULT_JSON:' + JSON.stringify(out));
   await pool.end();
