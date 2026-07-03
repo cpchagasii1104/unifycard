@@ -1,3 +1,19 @@
+## 2026-07-03 — F-RENTAL-RESOURCE-SURFACE-SLICE-A · ✅ MATERIAL — locação sai do backend-mudo: rota HTTP para registrar recurso alugável, Trilho B completo ponta-a-ponta
+
+Segunda fatia da ordem que Clayton confirmou (cartório da doutrina → locações). O READ-FIRST reduziu drasticamente o escopo esperado: `POST /availability` e `POST /bookings` **já são genéricos por `owner_type`** e já aceitam `'rentable_resource'` sem nenhuma mudança — e o confirm com exclusividade real por recurso (`confirmBookingWithResourceLock`, advisory lock transacional) **já existe** desde a FASE 2b da DECISION-0151. A única peça que faltava: **registrar o próprio recurso**. `rentable_resources` tinha substrato vivo desde 24/06, mas zero rota HTTP — só o script E2E escrevia direto no banco.
+
+**Módulo novo `backend/src/modules/rentals/`:** CRUD do recurso (criar/listar/ler/mudar status), com autoridade espelhando exatamente o padrão de `POST /availability` — `owner_actor_id` nunca vem do body, é `actionContext.actorId` provado por `canRepresentActor` antes de persistir. Aceita actor `user` OU `page` (empresa pode ser dona de recurso, ao contrário de grupos que são só-pessoa). `concept_id` validado contra `concepts` existente — rota nunca inventa taxonomia.
+
+**Prova:** e2e efêmero 10/10 provando o **Trilho B inteiro ponta-a-ponta para recurso** — criar recurso → criar disponibilidade (rota existente) → solicitar reserva (rota existente) → confirmar (rota existente, dispara o lock) → um segundo aluguel do mesmo recurso no mesmo intervalo → **409 real, não simulado**. Δbank=0.
+
+**3 bugs de fixture E2E no caminho** (não runtime): `concepts` é vocabulário governado e exige a flag de teste que outras fixtures já usam; `canRepresentActor` depende do ports-registry social (faltava inicializar); as rotas de booking devolvem corpo plano, sem envelope `{ok,data}` — diferente do padrão de `/availability`, ajustado só no E2E.
+
+**Nota de disciplina:** um regression temporário de 39 erros de typecheck (no próprio arquivo de E2E, tipagem do payload do `fastify.inject`) foi pego pela **catraca do B4/DECISION-0158 antes de eu perceber** — a prova de que aquele guard funciona de verdade, não só em teoria. Corrigido, typecheck de volta a 0.
+
+**Escopo desta fatia = backend only**, mesmo padrão da busca (Slice A). Frontend/UI de locação fica para uma Slice B com GO próprio. HEAD material `21e193433`.
+
+---
+
 ## 2026-07-03 — DECISION-0159 promulgada · fecha DT-ERP-CRM-CANONICAL-ORDER-CONVERGENCE · abre DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK · docs-only
 
 Clayton pediu para eu, como diretora executora, entender a doutrina antes de tocar em código — apontou as 6 imagens da raiz como visão macro/micro do sistema. Li todas, cruzei contra o que os 4 agentes de pesquisa (actor/modo, CRM, ERP/PDV, locações) tinham achado no dia anterior, escrevi um parecer técnico, e Clayton deu GO para cartorializar.
