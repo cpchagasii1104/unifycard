@@ -201,7 +201,12 @@ export const canonicalProductRepository = {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query("SELECT set_config('app.current_tenant', $1, false)", [params.tenantId]);
+      // 🔴 F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX (2026-07-02, achado A1 da re-auditoria
+      // adversarial): is_local=TRUE aqui (não false) — dentro de BEGIN...COMMIT explícito, o GUC
+      // reverte sozinho no COMMIT/ROLLBACK e nunca sobrevive ao client.release(); is_local=false
+      // ficaria PRESO na conexão pooled além desta transação, vazando pro próximo uso da mesma
+      // conexão física (mesma classe do achado A1 em pool.ts).
+      await client.query("SELECT set_config('app.current_tenant', $1, true)", [params.tenantId]);
 
       const ins = await client.query<CanonicalProductDbRow>(
         `

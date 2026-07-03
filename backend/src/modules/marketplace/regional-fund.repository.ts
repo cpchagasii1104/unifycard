@@ -77,8 +77,12 @@ class RegionalFundRepository {
   async allocate(tenantId: string, input: AllocateInput): Promise<RegionalFundAllocationRow> {
     const client = await pool.connect();
     try {
-      await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
+      // 🔴 F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX (2026-07-02, achado A1): is_local=TRUE, setado
+      // DEPOIS do BEGIN — dentro da transação o GUC reverte sozinho no COMMIT/ROLLBACK e nunca
+      // sobrevive ao client.release(); is_local=false ANTES do BEGIN ficaria preso na conexão
+      // pooled além desta transação (mesma classe do achado A1 em pool.ts).
       await client.query('BEGIN');
+      await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
       const fundRow = await client.query(
         `SELECT id, total_balance_cents FROM regional_funds WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
         [tenantId, input.regionalFundId]

@@ -41,6 +41,7 @@ const guards = [
   'audit-group-a-financial-tables-rls.mjs',                         // achado B3 (varredura colateral): RLS+FORCE em 15 tabelas financeiras Grupo A
   'audit-guc-tenant-context-transaction-scope-fix.mjs',              // GUC tenant/admin sobrevive à query real (is_local=false), achado colateral do B3
   'audit-group-b-financial-workers-tenant-loop-rls.mjs',             // DECISION-0149: 4 workers financeiros ativos em tenant-loop + RLS nas 6 tabelas Grupo B
+  'audit-guc-cross-context-reset-on-reuse.mjs',                       // achados A1+A2 da re-auditoria: GUC não vaza entre usos da mesma conexão pooled
 ];
 
 let failed = false;
@@ -56,4 +57,4 @@ if (failed) {
   console.error('GATE FAIL [legacy-service-availability-containment-suite] — ao menos um guard de contenção legada falhou (ver acima).');
   process.exit(1);
 }
-console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity + group coverage + company agenda real wiring + getCompany unwrap fix + company metadata ghost cleanup + cbo-matcher removal + category_input_audit schema ghost fix + hobby-matcher dirname/ESM fix + catalog RLS scoped isolation + discovery future availability (D2+D3) + booking requested effect emission (D4) + availability conflict detection materialized + crm/my-orders route prefix contract (B5) + payment_intents/governance_funding_commitments RLS (B3) + group A financial tables RLS (15 tabelas, B3) + GUC tenant context transaction scope fix + group B financial workers tenant-loop RLS (DECISION-0149) blindados.');
+console.log('GATE OK [legacy-service-availability-containment-suite] — reader (A2) + endpoint (A2b) + feed badge (A2c) + discovery filter (A2d) + provider readers (A2e) + writer RFQ anti-reativação + getPost/getPostsBatch/unread-counts column fixes + actor-mode surface clarity + group coverage + company agenda real wiring + getCompany unwrap fix + company metadata ghost cleanup + cbo-matcher removal + category_input_audit schema ghost fix + hobby-matcher dirname/ESM fix + catalog RLS scoped isolation + discovery future availability (D2+D3) + booking requested effect emission (D4) + availability conflict detection materialized + crm/my-orders route prefix contract (B5) + payment_intents/governance_funding_commitments RLS (B3) + group A financial tables RLS (15 tabelas, B3) + GUC tenant context transaction scope fix + group B financial workers tenant-loop RLS (DECISION-0149) + GUC cross-context reset on reuse (achados A1+A2 re-auditoria) blindados.');

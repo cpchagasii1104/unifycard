@@ -54,6 +54,17 @@ export async function runSystemQuery<T extends QueryResultRow = any>(
  * IMPORTANTE:
  *  - Só use para tabelas multi-tenant
  *  - Nunca use para decidir estado financeiro
+ *
+ * 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02, achado A2 da re-auditoria
+ * adversarial): esta função era uma FACHADA PARALELA com o mesmo bug fechado em
+ * core/database/pool.ts::runQueryWithTenant — set_config(...,true) (is_local=true, escopo de
+ * TRANSAÇÃO) sem BEGIN explícito evapora antes da query real rodar (statement seguinte roda em
+ * transação implícita própria sob autocommit). Sob unificard_app (RLS-live), qualquer tabela com
+ * FORCE ROW LEVEL SECURITY lida por aqui retornaria 0 linhas sempre. Fix: is_local=false +
+ * reset explícito de app.is_platform_admin (mesma razão de F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-
+ * FIX — a conexão pooled pode ter servido um caller anterior com GUC diferente setado).
+ * Dormente hoje: nenhuma das tabelas lidas pelos 23 callers vivos (rides/checkout-ticket/
+ * event-lifecycle) tem RLS ainda — mas landmine idêntica se essas tabelas ganharem RLS no futuro.
  */
 export async function runQueryWithTenant<T extends QueryResultRow = any>(
   tenantId: string,
@@ -61,9 +72,9 @@ export async function runQueryWithTenant<T extends QueryResultRow = any>(
 ): Promise<T | undefined> {
   const client = await pool.connect();
   try {
-    // PostgreSQL não aceita bind parameters em SET LOCAL
+    // PostgreSQL não aceita bind parameters em SET
     await client.query(
-      "SELECT set_config('app.current_tenant', $1, true)",
+      "SELECT set_config('app.current_tenant', $1, false), set_config('app.is_platform_admin', 'false', false)",
       [tenantId]
     );
 

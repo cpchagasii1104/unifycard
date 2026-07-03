@@ -20,7 +20,14 @@ async function runSettlementCycle(): Promise<void> {
     const settledForReconciliation: { tenantId: string; intentId: string }[] = [];
     for (const intent of intents) {
       try {
-        await client.query("SELECT set_config('app.current_tenant', $1, false)", [intent.tenantId]);
+        // 🔴 F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX (2026-07-02, achado A1): reset explícito de
+        // app.is_platform_admin junto — consistência com pool.ts. Worker default-off (HOLD,
+        // religa só após #34 tenant-loop); claimEscrowedPaymentIntents cross-tenant é dívida
+        // separada e já documentada (payment-intent-repository.ts), não fechada aqui.
+        await client.query(
+          "SELECT set_config('app.current_tenant', $1, false), set_config('app.is_platform_admin', 'false', false)",
+          [intent.tenantId]
+        );
         console.log('PROCESSING_ESCROWED_INTENT', intent.id);
         await settleEscrowedPaymentIntent(intent.tenantId, intent, client);
         settledForReconciliation.push({ tenantId: intent.tenantId, intentId: intent.id });

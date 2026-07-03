@@ -139,13 +139,24 @@ export async function getDatabaseInfo(): Promise<{
 // is_local=true faria o GUC evaporar ANTES da query real do caller rodar (confirmado empiricamente:
 // current_setting() retornava vazio na query seguinte). Sob unificard_app (NOBYPASSRLS, RLS-live),
 // isso faria toda tabela com FORCE ROW LEVEL SECURITY retornar 0 linhas — fail-closed, mas quebrado.
-// is_local=false é seguro aqui: cada caller pega client NOVO via pool.connect() e seta o GUC como
-// PRIMEIRA ação antes de qualquer query — nenhuma leitura acontece antes do set_config.
+//
+// 🔴 F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX (2026-07-02, achado A1 da re-auditoria adversarial):
+// is_local=false sozinho NÃO basta — o GUC de sessão sobrevive ao client.release() e o pool
+// REUTILIZA a mesma conexão física para o PRÓXIMO caller (pool.on('connect') só roda em conexão
+// NOVA, não em reuso). Setar SÓ app.current_tenant aqui deixava app.is_platform_admin com o valor
+// STALE de um uso anterior da mesma conexão pooled — se essa conexão tivesse servido uma chamada
+// getClientWithPlatformAdmin antes, o tenant seguinte herdaria o bypass de admin (vazamento
+// cross-tenant real em canonical_services, reintroduzindo parcialmente o que
+// DT-CATALOG-RLS-SCOPED-NO-ISOLATION fechou). Fix: RESETAR explicitamente os DOIS GUCs em toda
+// chamada — cada helper zera o que NÃO é seu antes de setar o que É seu, num único round-trip.
 export async function getClientWithTenant(tenantId: string): Promise<PoolClient> {
   const client = await pool.connect();
   try {
     // PostgreSQL não aceita bind parameters em SET, usar set_config
-    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
+    await client.query(
+      "SELECT set_config('app.current_tenant', $1, false), set_config('app.is_platform_admin', 'false', false)",
+      [tenantId]
+    );
     return client;
   } catch (err) {
     client.release();
@@ -165,11 +176,16 @@ export async function getClientWithTenant(tenantId: string): Promise<PoolClient>
  *
  * 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02): is_local=false, mesma razão de
  * getClientWithTenant acima — sem BEGIN, is_local=true evapora antes da query real do caller.
+ * 🔴 F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX (2026-07-02, achado A1): também reseta
+ * app.current_tenant (string vazia — nunca bate tenant_id real) para não herdar tenant stale de
+ * uso anterior da mesma conexão pooled.
  */
 export async function getClientWithPlatformAdmin(): Promise<PoolClient> {
   const client = await pool.connect();
   try {
-    await client.query("SELECT set_config('app.is_platform_admin', 'true', false)");
+    await client.query(
+      "SELECT set_config('app.is_platform_admin', 'true', false), set_config('app.current_tenant', '', false)"
+    );
     return client;
   } catch (err) {
     client.release();
@@ -197,7 +213,8 @@ function sanitizeParams(params: any[]): any[] {
 }
 
 // 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02): is_local=false, mesma razão de
-// getClientWithTenant acima.
+// getClientWithTenant acima. 🔴 F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX (achado A1): também
+// reseta app.is_platform_admin — não herdar bypass stale de uso anterior da conexão pooled.
 export async function runQueryWithTenant<T>(
   tenantId: string,
   query: string | { text: string; values?: any[] },
@@ -206,7 +223,10 @@ export async function runQueryWithTenant<T>(
   const client = await pool.connect();
   try {
     // PostgreSQL não aceita bind parameters em SET, usar set_config
-    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
+    await client.query(
+      "SELECT set_config('app.current_tenant', $1, false), set_config('app.is_platform_admin', 'false', false)",
+      [tenantId]
+    );
 
     const text = typeof query === 'string' ? query : query.text;
     const values = typeof query === 'string' ? (params || []) : (query.values || []);
@@ -247,7 +267,8 @@ export async function runQueryWithTenant<T>(
  * Executa query que retorna MÚLTIPLAS ROWS com tenant context
  * Use esta função quando esperar array de resultados
  * 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02): is_local=false, mesma razão de
- * getClientWithTenant acima.
+ * getClientWithTenant acima. 🔴 F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-FIX (achado A1): também
+ * reseta app.is_platform_admin — não herdar bypass stale de uso anterior da conexão pooled.
  */
 export async function runQueriesWithTenant<T>(
   tenantId: string,
@@ -257,7 +278,10 @@ export async function runQueriesWithTenant<T>(
   const client = await pool.connect();
   try {
     // PostgreSQL não aceita bind parameters em SET, usar set_config
-    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
+    await client.query(
+      "SELECT set_config('app.current_tenant', $1, false), set_config('app.is_platform_admin', 'false', false)",
+      [tenantId]
+    );
 
     const text = typeof query === 'string' ? query : query.text;
     const values = typeof query === 'string' ? (params || []) : (query.values || []);
