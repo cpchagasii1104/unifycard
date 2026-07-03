@@ -1,3 +1,19 @@
+## 2026-07-02 — F-ACTOR-TYPE-VOCABULARY-CANONICAL · remediação R3 · ✅ MATERIAL — corrige achados R3-1/R3-2/R3-3 da re-auditoria adversarial rodada 3 · 22ª dívida técnica resolvida hoje
+
+Mandei a 3ª rodada de re-auditoria adversarial pra outra instância, focada no trabalho de hoje (B1 rides, B6 actor_type, N1/N2/N3). Ela deu PASS nos 4 itens, mas — pela 3ª vez consecutiva — achou algo DENTRO da minha própria correção. Desta vez com severidade decrescente (rodada 1: vazamento real de autoridade; rodada 2: degradação de auditoria; rodada 3: um fixture legado que escapou do congelamento).
+
+**O achado principal (R3-1) provou minha afirmação "existe exatamente 1 writer legado" FALSA.** Havia um segundo: um seed de teste (fixture C52) que cria um actor com o valor legado 'company'. Meu guard de congelamento não o via por dois motivos independentes: (1) ele não vasculhava a pasta de seeds, só código e migrations; (2) mesmo se vasculhasse, minha detecção só pegava os valores legados "inequívocos" (os que começam com actor_*), deixando passar os genéricos como 'company' quando escritos de forma posicional. Corrigi as duas cegueiras.
+
+**Achado secundário (R3-2):** o único writer legado que eu tinha achado (um caminho de identidade "Genesis") não é código de produção — é chamado só por um gate de teste. Ou seja, produção nasce só com vocabulário canônico (melhor do que eu tinha descrito). Corrigi a imprecisão no cartório.
+
+**Achado terciário (R3-3):** o valor-sentinela que usei na correção anterior (UUID nulo) tem um caminho teórico onde poderia virar escrita real se alguém criasse um tenant com esse UUID — hoje bloqueado por uma FK, mas registrei como limite conhecido.
+
+A decisão soberana (vocabulário canônico) não mudou — só o inventário de exceções ficou correto e o guard ficou completo. Respeitei o append-only do log de decisões (adicionei um adendo, não editei a DECISION-0157). Negative-proof confirma o guard agora pega o fixture que antes escapava. HEAD material `7d311484e`. Δbank=0.
+
+**Padrão recursivo (3 rodadas):** cada re-auditoria achou um problema dentro da correção anterior, com severidade decrescente. Isso continua validando ter auditor separado do executor — mas a curva descendente sugere que a superfície está estabilizando.
+
+---
+
 ## 2026-07-02 — F-ACTOR-TYPE-VOCABULARY-CANONICAL (DECISION-0157 / D-C2) · ✅ MATERIAL + DECISION PROMULGADA — congela DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION + documenta DT-IDENTITY-TRIAD-AND-MISLABELED-FK · 21ª dívida técnica resolvida hoje · achados B6 (contido) + B7 (documentado) do `auditoria.md`
 
 Clayton mandou continuar respeitando as leis do sistema. Os 2 blockers que sobravam (B6 actor_type, B7 tríade de identidade) tocam o substrato mais sensível — identidade — e a hierarquia do projeto é clara: norma/DECISION vence código. B6 dependia de uma decisão ontológica soberana (D-C2) que nunca tinha sido promulgada; inventá-la em código seria violar exatamente as leis. Então fiz o READ-FIRST e trouxe a decisão.
