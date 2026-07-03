@@ -13,15 +13,24 @@
 // MORDE: um arquivo FORA do allowlist ESCREVER actor_type legado, em qualquer das 3 formas:
 //   (P1) objeto literal:  actor_type: 'legado'
 //   (P2) SQL update:      SET actor_type = 'legado'
-//   (P3) INSERT VALUES contendo um token legado ATOR-INEQUÍVOCO (actor_human/actor_organizational/
-//        actor_system) — os genéricos (person/company/system) são palavras comuns; para eles só as
-//        formas P1/P2 (inequívocas de escrita) mordem.
+//   (P4) INSERT INTO actors ... VALUES contendo QUALQUER token legado (inclusive os genéricos
+//        person/company/system) — escopado ao bloco `INSERT INTO actors` para não flagar 'system'/
+//        'company' de outras tabelas. (Substitui a P3 antiga, que só pegava tokens ator-inequívocos
+//        e por isso deixava passar um INSERT posicional de 'company' — achado R3-1 da re-auditoria
+//        rodada 3.)
 // NÃO morde READERS (comparações ===/==/IN/WHERE) — esses ramos legados ficam até a drenagem.
 //
-// ALLOWLIST (writers legados PRÉ-EXISTENTES, documentados na DECISION-0157):
+// ALLOWLIST (writers legados PRÉ-EXISTENTES, documentados na DECISION-0157; convergência = frente de
+// drenagem, não esta fatia):
 //   • src/core/identity/identity.service.ts — ensureGenesisActorForUser escreve 'actor_human'
-//     (schema Genesis, actor.id=user.id); convergência = frente de drenagem, não esta fatia.
+//     (schema Genesis, actor.id=user.id). ⚠️ SCRIPT-ONLY (achado R3-2): private, chamado só por
+//     ensureCanonicalActorChain, cujo único caller é validate-financial-flow-real.ts (gate
+//     validate:financial-e2e). Produção NÃO nasce actor_human — mas rodar o gate financeiro semeia.
 //   • migrations/0012_unify_actor_and_kyc_ontology.sql — normalização histórica (imutável, aplicada).
+//   • seeds/036_seed_e2e_c52_payment_intents.sql — fixture E2E C52 escreve seller 'company' (achado
+//     R3-1). Reader inventory-unit-actor.ts:28 depende de actor_type='company' p/ o fixture; converter
+//     p/ 'page' tem risco — allowlistado como legado fixture conhecido, convergência = drenagem.
+// Percorre src/ + migrations/ + seeds/ (seeds/ estava fora do walk — cegueira do achado R3-1).
 // Heurística textual comment-stripped. Em validate:regression-guards. NÃO altera runtime/CHECK/dados.
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
@@ -37,17 +46,29 @@ const stripSql = (s) => s.split('\n').map((l) => l.replace(/--.*$/, '')).join('\
 const ALLOWLIST = new Set([
   'src/core/identity/identity.service.ts',
   'migrations/0012_unify_actor_and_kyc_ontology.sql',
+  'seeds/036_seed_e2e_c52_payment_intents.sql',
 ]);
 
 const LEGACY = 'person|company|system|actor_human|actor_organizational|actor_system';
-const LEGACY_UNAMBIG = 'actor_human|actor_organizational|actor_system';
+const LEGACY_TOKEN = new RegExp(`'(?:${LEGACY})'`, 'i');
 
 const P1 = new RegExp(`actor_type\\s*:\\s*'(?:${LEGACY})'`);           // objeto literal
 const P2 = new RegExp(`SET\\s+actor_type\\s*=\\s*'(?:${LEGACY})'`, 'i'); // SQL update
-const P3 = new RegExp(`VALUES\\s*\\([^)]*'(?:${LEGACY_UNAMBIG})'`, 'i'); // INSERT VALUES (inequívoco)
+
+// P4: dentro de cada bloco `INSERT INTO actors ... VALUES(...)`, qualquer token legado (inclusive
+// genéricos), escopado ao INSERT de actors — não flaga 'system'/'company' de outras tabelas.
+function insertIntoActorsHasLegacy(content) {
+  const re = /INSERT\s+INTO\s+actors\b/gi;
+  let m;
+  while ((m = re.exec(content)) !== null) {
+    const window = content.slice(m.index, m.index + 700);
+    if (LEGACY_TOKEN.test(window)) return true;
+  }
+  return false;
+}
 
 function hasLegacyWrite(content) {
-  return P1.test(content) || P2.test(content) || P3.test(content);
+  return P1.test(content) || P2.test(content) || insertIntoActorsHasLegacy(content);
 }
 
 const failures = [];
@@ -66,6 +87,7 @@ function walk(dir) {
 }
 walk(join(ROOT, 'src'));
 walk(join(ROOT, 'migrations'));
+walk(join(ROOT, 'seeds')); // achado R3-1: seeds/ estava fora do walk — cegueira que escondia o writer C52.
 
 for (const { full, kind } of files) {
   const rel = norm(relative(ROOT, full));
@@ -94,4 +116,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [actor-type-vocabulary-freeze] — vocabulário de actor_type CONGELADO (DECISION-0157/D-C2): canônico user/page/group/channel; nenhum writer NOVO de valor legado; 2 writers legados pré-existentes allowlistados (Genesis identity.service + migration histórica 0012). Readers/CHECK legados intocados (drenagem = frente própria). Achado B6 do auditoria.md contido.');
+console.log('GATE OK [actor-type-vocabulary-freeze] — vocabulário de actor_type CONGELADO (DECISION-0157/D-C2): canônico user/page/group/channel; nenhum writer NOVO de valor legado; 3 writers legados pré-existentes allowlistados (Genesis identity.service [script-only] + migration histórica 0012 + fixture C52 seed); walk cobre src+migrations+seeds; INSERT INTO actors posicional detectado. Readers/CHECK legados intocados (drenagem = frente própria). Achados B6 + R3-1/R3-2 contidos.');
