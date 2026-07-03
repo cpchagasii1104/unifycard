@@ -11,6 +11,8 @@ interface DomainSelectorProps {
 }
 
 const DOMAINS: Array<{ id: MarketplaceDomain; name: string; icon: string; description: string }> = [
+  // NÃO é taxonomia criada no frontend: metadata de APRESENTAÇÃO do enum FIXO MarketplaceDomain
+  // (6 domínios raiz = constantes arquiteturais, DECISION-0106). Frontend projeta, não inventa.
   { id: 'market', name: 'Mercado & Shop', icon: '🛒', description: 'Venda de produtos físicos' },
   { id: 'services', name: 'Serviços', icon: '🔧', description: 'Prestação de serviços com agenda' },
   { id: 'events', name: 'Eventos', icon: '🎪', description: 'Shows, ingressos, vida noturna' },

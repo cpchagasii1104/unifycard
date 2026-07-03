@@ -64,9 +64,10 @@ export default function MarketplaceSegmentPage() {
           setError('Segmento não encontrado');
         }
 
-        // TODO: Implementar API para buscar empresas por segmento
-        // Por enquanto, mock data
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Empresas-por-segmento ainda não tem endpoint governado no backend. Honestamente
+        // vazio — sem teatro de loading falso (o setTimeout(500) anterior fingia carregar uma
+        // lista que não existe). O empty-state ("Nenhuma empresa encontrada") já é verdadeiro.
+        // Quando o endpoint existir, resolver a lista real aqui. (frontend nunca cria verdade)
         setStores([]);
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar dados');
