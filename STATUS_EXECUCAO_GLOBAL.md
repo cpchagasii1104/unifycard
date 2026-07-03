@@ -1,3 +1,17 @@
+## 2026-07-03 — F-RED-GATES-BASELINE (DECISION-0158) · ✅ MATERIAL — fecha DT-RED-GATES-BLIND-SPOT (achado B4) · 24ª dívida técnica da campanha · 🏁 TODOS os pré-requisitos técnicos de PORTA-1 do laudo fechados/contidos
+
+Clayton perguntou o que faltava pra resolver tudo do laudo antes de pensar em PORTA-1. Cruzei item a item: faltava só o B4 (os 3 gates vermelhos). Ele escolheu "baseline formal + drenar typecheck" (zeragem das 4.4 mil violações financeiras mexeria em código de dinheiro congelado — contra a norma de não-agir em dívida classificada).
+
+**Surpresa boa do READ-FIRST:** os "35 erros de typecheck" não eram 35 problemas — eram UM problema repetido 34 vezes. Uma pegadinha do TypeScript: o config do gate roda com checagem relaxada, e nesse modo o compilador não entende um padrão de código que o modo estrito entende — por isso os erros só existiam no gate. Consertei na raiz (3 funções, mudança só de tipo, zero mudança de comportamento) + 1 anotação num teste. **Typecheck do gate: 35 → 0.**
+
+**Pros 2 validadores financeiros** (3.846 + 587 violações — números grandes demais pra drenar com os trilhos de dinheiro em HOLD): criei o teto ratificado + um guard "catraca" — o número só pode DESCER; qualquer violação NOVA derruba o pipeline; baixou, abaixa-se o teto junto. E o guard entrou na cadeia de regressão — **o pipeline parou de estar "verde mentindo"**, que era a essência do achado B4.
+
+Nota honesta de processo: a primeira tentativa de wiring estendeu a cadeia de comandos diretamente e estourou o limite de linha do Windows — revertida, refeita via agregador com o custo (~90s/rodada) documentado como exceção consciente.
+
+**Marco: com o B4 fechado, TODOS os pré-requisitos técnicos de PORTA-1 listados no laudo (§2) estão resolvidos ou contidos** — B1 (firewall rides), B2 (event_settlements contido), B3 (RLS 23/25 tabelas), B4 (baseline), B5 (contratos). O que resta do laudo é a PORTA-1 em si (split + payout + rail bancário externo — decisão soberana com IA-DINHEIRO) e frentes de drenagem documentadas, nenhuma bloqueante. HEAD material `8ce514db3`. Δbank=0.
+
+---
+
 ## 2026-07-02 — F-ACTOR-TYPE-VOCABULARY-CANONICAL · remediação R3 · ✅ MATERIAL — corrige achados R3-1/R3-2/R3-3 da re-auditoria adversarial rodada 3 · 22ª dívida técnica resolvida hoje
 
 Mandei a 3ª rodada de re-auditoria adversarial pra outra instância, focada no trabalho de hoje (B1 rides, B6 actor_type, N1/N2/N3). Ela deu PASS nos 4 itens, mas — pela 3ª vez consecutiva — achou algo DENTRO da minha própria correção. Desta vez com severidade decrescente (rodada 1: vazamento real de autoridade; rodada 2: degradação de auditoria; rodada 3: um fixture legado que escapou do congelamento).
