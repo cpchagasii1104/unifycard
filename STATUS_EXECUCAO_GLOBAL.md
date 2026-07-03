@@ -1,3 +1,17 @@
+## 2026-07-03 — F-RENTAL-RESOURCE-SURFACE-SLICE-B · ✅ MATERIAL — locação sai do STUB: `/locacoes` viva, dono gerencia recurso e agenda, visitante reserva por link
+
+Continuação direta da Slice A, mesmo dia. Perguntei a Clayton se pausávamos pra ele testar o que já tinha (busca + backend de locações) ou seguíamos construindo; ele escolheu seguir.
+
+**Escopo deliberadamente contido pela doutrina:** o painel de freios dos diagramas lista **"sem discovery"** explicitamente — não construí uma vitrine de "buscar recursos de terceiros". A fatia cobre só o Trilho B do `fluxo.png`: gestão do dono (criar/listar recursos + declarar agenda) + reserva via link direto do recurso + confirmação do dono. Achar o recurso de outra pessoa é por link compartilhado, não busca.
+
+**Zero rota nova de availability/booking** — reusa 100% o client já existente (`listAvailabilities`, `createAvailability`, `createBooking`, `confirmBooking`), só adicionando `'rentable_resource'` ao union de tipos do frontend (o backend já aceitava desde a Slice A). Concept escolhido do catálogo governado (`searchCanonicalServices`), nunca inventado no cliente.
+
+Módulo de navegação `rentals` sai de STUB para LIVE (`/locacoes`), espelhando o padrão de `services`. Guard estendido protege contra regressão pra STUB e contra reimplementação paralela de booking. FE/BE tsc 0, cadeia EXIT 0. HEAD material `4afa4b69b`.
+
+**As duas superfícies inteiras de hoje (busca + locações) aguardam agora seu teste — recomendo pausar construção nova até você validar as duas.**
+
+---
+
 ## 2026-07-03 — F-RENTAL-RESOURCE-SURFACE-SLICE-A · ✅ MATERIAL — locação sai do backend-mudo: rota HTTP para registrar recurso alugável, Trilho B completo ponta-a-ponta
 
 Segunda fatia da ordem que Clayton confirmou (cartório da doutrina → locações). O READ-FIRST reduziu drasticamente o escopo esperado: `POST /availability` e `POST /bookings` **já são genéricos por `owner_type`** e já aceitam `'rentable_resource'` sem nenhuma mudança — e o confirm com exclusividade real por recurso (`confirmBookingWithResourceLock`, advisory lock transacional) **já existe** desde a FASE 2b da DECISION-0151. A única peça que faltava: **registrar o próprio recurso**. `rentable_resources` tinha substrato vivo desde 24/06, mas zero rota HTTP — só o script E2E escrevia direto no banco.
