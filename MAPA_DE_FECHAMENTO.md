@@ -13,6 +13,31 @@
 
 ---
 
+## ⚡ ATUALIZAÇÃO 2026-07-04 (pós-campanha de autoridade — HEAD `a81dd67cf`)
+
+**O CLUSTER AUTORIDADE ESTÁ ESGOTADO E BLINDADO.** Tudo abaixo foi FECHADO com prova adversarial
+(E2E) + guard de regressão (negative-proof), e agora vigiado por um **GATE baseline-ratchet**
+(`measure-handler-authority-gap`, wired no `validate:regression-guards`) que morde qualquer handler
+de mutação NOVO (ou regressão) com ator client-declared sem prova:
+
+| Item | Estado | Onde |
+|---|---|---|
+| V1/V4 eventos IDOR · V2 vitrine confused-deputy | ✅ FECHADO | E2E 4/4 · 8/8 |
+| YALA #1 F1-F5 (irmãos + guard cego + vitrine slug) | ✅ FECHADO | E2E 7/7 · 9/9 |
+| KYC-âncora (gate na ATIVAÇÃO, Art.4.2) | ✅ FECHADO | E2E 16/16 |
+| Triagem fila (identity /update BOLA civil + social + feed) | ✅ FECHADO | E2E 3/3 |
+| Delegação-escopo (canRepresentActor exige escopo FULL) | ✅ CONTIDA | E2E 5/5 |
+| YALA #2 G1 (guard estreito → gate baseline-ratchet) + 4 impersonações (me-active, inbox) | ✅ FECHADO | negative-proof |
+
+**Resíduos de autoridade documentados (não-bloqueantes):** G2 (KYB attribution spoof, admin-only=BAIXA)
+· G3 (page-actor nasce DRAFT pré-KYC, latente/inerte — mapear ao ligar capability PJ).
+
+**➡️ NÃO HÁ MAIS DÍVIDA DE AUTORIDADE FECHÁVEL SEM TOCAR DINHEIRO.** A única frente restante é o
+**cluster PORTA-1 (dinheiro)** — decisão soberana de Clayton. Read-first detalhado (read-only,
+verificado no disco 2026-07-04) em **`READINESS_PORTA1.md`**.
+
+---
+
 ## 0. RETRATO DO CARTÓRIO (a notícia boa primeiro)
 
 - **524 DTs registradas; a esmagadora maioria CLOSED.** A dívida VIVA é pequena e nomeada:
