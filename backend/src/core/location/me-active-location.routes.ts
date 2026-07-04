@@ -84,6 +84,13 @@ const meActiveLocationRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // 🔴 IMPERSONATION FIX (triagem YALA G1, 2026-07-04): actionContext.actorId é client-declared;
+      // sem prova, qualquer autenticado definiria a localização ativa (contexto espacial) de OUTRO
+      // actor. Provar representação (DECISION-0113), fail-closed.
+      const { authorizationService: authzLoc } = await import('@core/authorization/authorization.service');
+      if (!(await authzLoc.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId))) {
+        return reply.status(403).send({ error: 'Sem autoridade para representar o actor declarado' });
+      }
       const location = await actorActiveLocationRepository.setActive(
         req.tenant.id,
         req.actionContext.actorId,
@@ -123,6 +130,12 @@ const meActiveLocationRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // 🔴 IMPERSONATION FIX (triagem YALA G1): provar representação antes de limpar a localização
+      // ativa do actor declarado (senão qualquer autenticado apagaria o contexto espacial de outro).
+      const { authorizationService: authzLocDel } = await import('@core/authorization/authorization.service');
+      if (!(await authzLocDel.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId))) {
+        return reply.status(403).send({ error: 'Sem autoridade para representar o actor declarado' });
+      }
       await actorActiveLocationRepository.clearActive(
         req.tenant.id,
         req.actionContext.actorId

@@ -152,6 +152,13 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // 🔴 IMPERSONATION FIX (triagem YALA G1): actionContext.actorId é client-declared; provar
+      // representação antes de marcar item de inbox como lido COMO esse actor (senão qualquer
+      // autenticado mexeria no inbox de outro). Fail-closed.
+      const { authorizationService: authzInboxRead } = await import('@core/authorization/authorization.service');
+      if (!(await authzInboxRead.canRepresentActor(req.tenant.id, req.user?.userId, req.actionContext.actorId))) {
+        return reply.status(403).send({ error: 'Sem autoridade para representar o actor declarado' });
+      }
       const item = await socialInboxService.markAsRead(
         req.tenant.id,
         req.params.itemId,
@@ -190,6 +197,12 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // 🔴 IMPERSONATION FIX (triagem YALA G1): provar representação antes de arquivar item de inbox
+      // COMO o actor declarado (fail-closed).
+      const { authorizationService: authzInboxArch } = await import('@core/authorization/authorization.service');
+      if (!(await authzInboxArch.canRepresentActor(req.tenant.id, req.user?.userId, req.actionContext.actorId))) {
+        return reply.status(403).send({ error: 'Sem autoridade para representar o actor declarado' });
+      }
       const item = await socialInboxService.archive(
         req.tenant.id,
         req.params.itemId,

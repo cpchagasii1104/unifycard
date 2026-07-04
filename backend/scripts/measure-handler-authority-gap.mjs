@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-// MEDIDOR handler-level da dívida de autoridade (passo 1 do MAPA_DE_FECHAMENTO).
+// GATE handler-level da dívida de autoridade (baseline-ratchet). Nasceu como MEDIDOR (passo 1 do
+// MAPA_DE_FECHAMENTO); promovido a GATE pela auditoria YALA #2 (fix G1): agora FALHA se surgir um
+// handler de mutação novo (ou regressão de fix) com canal de ator client-declared e SEM binding no
+// segmento, fora do baseline triado em 1ª pessoa. Fecha o falso-negativo estrutural (o "5º handler").
 //
 // O guard file-level `audit-actor-authority-boundary.mjs` sela o CANAL (baseline zerado), mas é
 // file-level: um arquivo que TEM o helper de binding em ALGUM lugar passa, mesmo que um handler
@@ -119,6 +122,69 @@ for (const s of suspects) {
 console.log('═══════════════════════════════════════════════════════════════');
 console.log('MEDIÇÃO handler-level da dívida de autoridade (READ-ONLY, não-gate)');
 console.log('═══════════════════════════════════════════════════════════════');
+// chave estável por handler (arquivo + método + path) para baseline-ratchet do gate
+const uncoveredKeys = suspects.filter((s) => !COVERED.has(s.rel)).map((s) => `${s.rel}::${s.method} ${s.path}`).sort();
+if (process.env.DUMP_KEYS) { console.log(JSON.stringify(uncoveredKeys, null, 2)); process.exit(0); }
+
+// 🔴 BASELINE-RATCHET (fix G1 da auditoria YALA #2, generaliza F5): os 39 handlers abaixo foram
+// TRIADOS em 1ª pessoa (executora + YALA) como FALSO-POSITIVO da heurística de segmento — cada um
+// tem binding cross-file / preHandler / guard dedicado / subject server-side que o medidor não vê
+// (razões por arquivo no bloco de comentário abaixo). O gate FALHA se surgir um handler de mutação
+// NOVO com canal client-declared e SEM binding no segmento fora deste baseline — OU se um fix
+// existente regredir (perde o binding in-segment e reaparece aqui). Só DESCE: ao ligar binding num
+// destes, remova a linha. Ver DT-AUTHORITY-HANDLER-FILA-TRIAGE.
+// Razões da triagem por arquivo:
+//   identity KYB admin (requireRole['admin']) + confirm/config (subject=req.user server-side);
+//   groups (preHandler requireGroupOwnerOrPermission, F-AUTHORITY-Z2-R1 + guard dedicado);
+//   social follow/unfollow (ensureUserActor=self) / switch (findAvailableActors) / vote
+//     (resolveActiveActorFromRequest) / cta (req.user.globalUserId);
+//   event-rfq (canRepresentActor + assertCanReadEventMoney + guards dedicados);
+//   company-members (canManageCompany fail-closed); events-sprint76/purchase-order/services/
+//   service-order/service-bundle (guards dedicados próprios); actor-capability-grant (canRepresentActor
+//     sobre scopeActorId + guards).
+const BASELINE_UNCOVERED = new Set([
+  'core/companies/company-members.routes.ts::DELETE /:companyId/members/:memberId',
+  'core/companies/company-members.routes.ts::POST /:companyId/members',
+  'core/companies/company-members.routes.ts::PUT /:companyId/members/:memberId',
+  'core/identity/identity.routes.ts::PATCH /pj/kyb/admin/requests/:requestId/review',
+  'core/identity/identity.routes.ts::PATCH /pj/kyb/documents/:documentId/review',
+  'core/identity/identity.routes.ts::POST /confirm-civil-data',
+  'core/identity/identity.routes.ts::POST /confirm-first-access',
+  'core/identity/identity.routes.ts::POST /pj/kyb/admin/fiscal-identities/:fiscalIdentityId/revoke',
+  'core/identity/identity.routes.ts::POST /pj/kyb/documents',
+  'core/identity/identity.routes.ts::POST /pj/kyb/documents/:documentId/supersede',
+  'core/identity/identity.routes.ts::POST /pj/kyb/requests',
+  'core/identity/identity.routes.ts::PUT /configurations',
+  'modules/authority/actor-capability-grant.routes.ts::POST /grants',
+  'modules/authority/actor-capability-grant.routes.ts::POST /grants/:grantId/revoke',
+  'modules/events/event-rfq.routes.ts::POST /events/:eventId/rfqs/:rfqId/close',
+  'modules/events/event-rfq.routes.ts::POST /events/:eventId/rfqs/:rfqId/dispatch',
+  'modules/events/event-rfq.routes.ts::POST /events/:eventId/rfqs/:rfqId/quotes/:quoteId/accept',
+  'modules/events/event-rfq.routes.ts::POST /events/:eventId/rfqs/from-spec/:specId',
+  'modules/events/events-sprint76.routes.ts::POST /checkin/:ticketSaleId',
+  'modules/events/events-sprint76.routes.ts::POST /checkout/:ticketSaleId',
+  'modules/events/events-sprint76.routes.ts::POST /tickets/:id/cancel',
+  'modules/groups/groups.routes.ts::DELETE /:id',
+  'modules/groups/groups.routes.ts::DELETE /:id/members/:userId',
+  'modules/groups/groups.routes.ts::PATCH /:id/members/:userId',
+  'modules/groups/groups.routes.ts::POST /:groupId/media',
+  'modules/groups/groups.routes.ts::PUT /:id',
+  'modules/marketplace/purchase-order.routes.ts::POST /purchase-orders/:id/cancel',
+  'modules/marketplace/purchase-order.routes.ts::POST /purchase-orders/:id/items',
+  'modules/marketplace/purchase-order.routes.ts::POST /purchase-orders/:id/submit',
+  'modules/services/service-bundle.routes.ts::POST /service-bundles/confirm',
+  'modules/services/service-order.routes.ts::POST /service-orders/:id/confirm-financial-terms',
+  'modules/services/service-order.routes.ts::POST /service-orders/confirm-booking',
+  'modules/services/services.routes.ts::POST /:serviceId/availability',
+  'modules/services/services.routes.ts::PUT /:serviceId/availability/:availabilityId',
+  'modules/social/social-2.0.routes.ts::POST /actors/:id/follow',
+  'modules/social/social-2.0.routes.ts::POST /actors/:id/unfollow',
+  'modules/social/social-2.0.routes.ts::POST /actors/switch',
+  'modules/social/social-2.0.routes.ts::POST /cta/:cta_id/confirm',
+  'modules/social/social-2.0.routes.ts::POST /posts/:post_id/vote',
+]);
+const newDebt = uncoveredKeys.filter((k) => !BASELINE_UNCOVERED.has(k));
+
 const uncoveredFiles = [...byFile.entries()].filter(([rel]) => !COVERED.has(rel));
 const coveredFiles = [...byFile.entries()].filter(([rel]) => COVERED.has(rel));
 const uncoveredHandlers = uncoveredFiles.reduce((n, [, l]) => n + l.length, 0);
@@ -147,6 +213,15 @@ coveredFiles
   .sort((a, b) => b[1].length - a[1].length)
   .forEach(([rel, list]) => console.log(`   · ${rel}  (${list.length})`));
 console.log('\n───────────────────────────────────────────────────────────────');
-console.log('NOTA: teto SUPERIOR (heurística de segmento; alguns podem ter binding cross-file');
-console.log('em service, como os profile-c1 já reconhecidos). Revisão humana confirma cada um.');
-console.log('É a base do passo 2 (corrigir V1) e do guard permanente que substituirá esta régua.');
+console.log(`GATE baseline-ratchet: baseline=${BASELINE_UNCOVERED.size} triados · atuais não-cobertos=${uncoveredKeys.length} · NOVOS=${newDebt.length}`);
+if (newDebt.length > 0) {
+  console.error('\n🔴 GATE FAIL [handler-authority-baseline]: handler de mutação NOVO com canal de ator');
+  console.error('   client-declared e SEM binding no segmento, fora do baseline triado (possível');
+  console.error('   impersonação/BOLA — irmão de V1). Vincule (canRepresentActor/canActAs) OU, se for');
+  console.error('   falso-positivo verificado (binding cross-file/preHandler/guard), adicione ao');
+  console.error('   BASELINE_UNCOVERED com a razão no bloco de triagem:');
+  newDebt.forEach((k) => console.error(`     ❌ ${k}`));
+  process.exit(1);
+}
+console.log('GATE OK [handler-authority-baseline] — nenhum handler novo fora do baseline triado.');
+console.log('NOTA: heurística de segmento (teto superior); o baseline é a triagem 1ª-pessoa (DT-AUTHORITY-HANDLER-FILA-TRIAGE).');

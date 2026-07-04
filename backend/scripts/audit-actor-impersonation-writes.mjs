@@ -18,6 +18,8 @@ const check = (label, ok) => { if (!ok) fails.push(label); console.log(`  ${ok ?
 const identity = read('src/core/identity/identity.routes.ts');
 const social = read('src/modules/social/social-2.0.routes.ts');
 const feed = read('src/core/feed/feed.routes.ts');
+const loc = read('src/core/location/me-active-location.routes.ts');
+const inbox = read('src/modules/inbox/social-inbox.routes.ts');
 
 // código sem comentários (o gate é código, não menção em comentário)
 const strip = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -37,6 +39,16 @@ check('social /comments prova canRepresentActor (gate anti-impersonação presen
 // feed POST /action: canRepresentActor antes do recordContentAction
 check('feed /action prova canRepresentActor sobre o actor declarado',
   /canRepresentActor\(\s*req\.tenant\.id,\s*req\.user\.userId,\s*actorId\s*\)/.test(fdC) && fdC.includes('recordContentAction'));
+
+// me-active-location POST/DELETE (YALA G1: o 5º handler achado na triagem) provam representação
+check('me-active-location setActive/clearActive provam canRepresentActor (2 gates)',
+  (loc.match(/canRepresentActor\([^)]*req\.actionContext\.actorId\)/g) || []).length >= 2 &&
+  loc.includes('setActive') && loc.includes('clearActive'));
+
+// social-inbox read/archive provam representação antes de mutar o inbox
+check('social-inbox markAsRead/archive provam canRepresentActor (2 gates)',
+  (inbox.match(/canRepresentActor\([^)]*req\.actionContext\.actorId\)/g) || []).length >= 2 &&
+  inbox.includes('markAsRead') && inbox.includes('archive'));
 
 if (fails.length) {
   console.error(`\nACTOR-IMPERSONATION-WRITES: ${fails.length} FAIL`);
