@@ -54,6 +54,19 @@ capa · avatar · nome · tipo (PF/PJ/grupo/canal…) · descrição · **barra 
 `Sobre` · `Posts` (social) · `Produtos` (catálogo) · `Serviços` (services) · `Agenda/Horário`
 (availability) · `Localização + aberto-agora` (Location Core + agenda) · `Programação` (eventos) · …
 
+### 2.2b AS ABAS SÃO O NAVEGADOR DE BLOCOS ADAPTATIVO (Clayton 2026-07-04)
+A barra de abas (no Facebook: Tudo · Sobre · Reels · Fotos · Amigos) é, aqui, o **navegador de
+blocos** — e o CONJUNTO de abas NÃO é fixo: é **montado do que o actor publicou + modo operante**.
+- **Tudo** (aba âncora, sempre existe — visão consolidada) · depois as abas dos blocos ACESOS.
+- **PF:** Tudo · Sobre · Posts · Fotos · (Interesses).
+- **PJ padaria:** Tudo · **Produtos** · Sobre · Localização · Posts.
+- **PJ clínica:** Tudo · **Serviços** · **Agenda** · Sobre · Localização.
+- **Banda:** Tudo · **Programação** · Posts · Fotos.
+- **Modo Operando (o dono):** as mesmas abas viram gestão (Produtos→gerenciar catálogo, Agenda→abrir/
+  fechar horários). Mesma barra, ação diferente.
+A regra: **a aba existe se o bloco está aceso** (capability/concept publicado) — nunca aba hardcoded
+por vertical. Adicionar vertical = registrar concept/bloco → a aba aparece sozinha.
+
 ### 2.3 A PÁGINA É A ESTRUTURA ÚNICA (Clayton 2026-07-04) — rede social + comércio + hub
 - **NÃO há "página social" separada de "loja"/"catálogo"/"serviços".** A MESMA página que já é rede
   social (ver publicações) projeta produtos, serviços, loja — como BLOCOS da mesma casca. Uma
