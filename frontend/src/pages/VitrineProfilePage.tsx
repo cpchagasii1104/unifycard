@@ -72,6 +72,7 @@ export default function VitrineProfilePage() {
 
           <div className="vitrine-identity">
             <h1 className="vitrine-name">{profile.displayName}</h1>
+            {profile.headline && <p className="vitrine-headline">{profile.headline}</p>}
             <div className="vitrine-meta">
               <span className="vitrine-type">{TYPE_LABEL[profile.profileType]}</span>
               <span className="vitrine-dot">·</span>
@@ -105,6 +106,11 @@ export default function VitrineProfilePage() {
             {profile.bio
               ? <p className="vitrine-bio">{profile.bio}</p>
               : <p className="vitrine-bio vitrine-muted">Este perfil ainda não escreveu uma bio.</p>}
+            {profile.link && (
+              <p className="vitrine-link">
+                🔗 <a href={profile.link} target="_blank" rel="noopener noreferrer nofollow">{profile.link.replace(/^https?:\/\//, '')}</a>
+              </p>
+            )}
             <p className="vitrine-note">
               🌐 Esta é a plaquinha pública de {profile.displayName} em outra comunidade do UnifiCard.
               Só o cartão público (nome, foto e bio) é visível — dados privados, dinheiro e agenda ficam

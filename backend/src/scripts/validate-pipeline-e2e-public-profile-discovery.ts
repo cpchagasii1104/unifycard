@@ -96,7 +96,7 @@ async function main(): Promise<void> {
   await app.register(publicProfileRoutes);
   await app.ready();
 
-  const call = (method: 'GET' | 'POST', url: string, opts: { userId?: string; actorId?: string; tenantId?: string; body?: unknown } = {}) =>
+  const call = (method: 'GET' | 'POST' | 'PUT', url: string, opts: { userId?: string; actorId?: string; tenantId?: string; body?: unknown } = {}) =>
     app.inject({
       method,
       url,
@@ -218,6 +218,28 @@ async function main(): Promise<void> {
     const rGlobalPriv = await call('GET', `/public-profiles/global/${clayton.actorId}`, { userId: devB.userId, actorId: devB.actorId, tenantId: TENANT_B });
     record('H2 plaquinha privada → 404 no destino do clique', rGlobalPriv.statusCode === 404, `status=${rGlobalPriv.statusCode}`);
     await call('POST', '/public-profiles/publish', { userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A, body: { visibility: 'public' } });
+
+    // I · CARTÃO PÚBLICO: o Clayton escolhe o que aparece — oculta a bio, adiciona headline + link.
+    const rCard = await call('PUT', '/public-profiles/mine/card', {
+      userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A,
+      body: { showAvatar: true, showBio: false, headline: 'Cabeleireiro em Curitiba', link: 'mercadoeshop.com' },
+    });
+    const rAfterCard = await call('GET', `/public-profiles/global/${clayton.actorId}`, { userId: devB.userId, actorId: devB.actorId, tenantId: TENANT_B });
+    const cardBody = rAfterCard.json() as any;
+    const cardData = cardBody?.data ?? {};
+    record('I cartão: Dev vê headline/link e bio OCULTA (escolha do usuário respeitada cross-tenant)',
+      rCard.statusCode === 200 && rAfterCard.statusCode === 200 &&
+      cardData.headline === 'Cabeleireiro em Curitiba' && cardData.link === 'https://mercadoeshop.com' && cardData.bio === null,
+      `card=${rCard.statusCode} headline=${cardData.headline} link=${cardData.link} bio=${JSON.stringify(cardData.bio)}`);
+
+    // I2 · o cartão NÃO vaza PII/tenant no payload cross-tenant
+    const cardRaw = JSON.stringify(cardBody);
+    record('I2 payload do cartão sem PII/tenant_id',
+      !/tenant_id|tenantId|user_id|global_user_id|kyc|cpf|birthdate|metadata/i.test(cardRaw),
+      cardRaw.slice(0, 160));
+
+    // restaura mostrar-bio para não interferir em passos seguintes
+    await call('PUT', '/public-profiles/mine/card', { userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A, body: { showAvatar: true, showBio: true, headline: null, link: null } });
 
     // V2 · CONFUSED-DEPUTY na POST legada (auditoria forense 2026-07-04): o Dev, representando o
     // PRÓPRIO actor (passa o gate), tenta criar a vitrine sob o actorId do Clayton (vítima) via body.

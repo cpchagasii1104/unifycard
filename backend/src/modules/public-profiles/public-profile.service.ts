@@ -184,13 +184,16 @@ class PublicProfileService {
       throw err;
     }
 
+    // Cartão público existente dirige quais campos aparecem (default: mostra foto/bio se existirem).
+    const card = await this.getCardForActor(tenantId, actorId);
     const profile = await publicProfileRepository.upsertByActor(tenantId, {
       actorId,
       profileType: proj.actor_type,
       displayName: proj.display_name,
-      bio: proj.bio,
-      avatarUrl: proj.avatar_url,
+      bio: card.showBio ? proj.bio : null,
+      avatarUrl: card.showAvatar ? proj.avatar_url : null,
       visibility,
+      metadata: { card },
     });
 
     await this.recordAudit(tenantId, {
@@ -202,6 +205,68 @@ class PublicProfileService {
     });
 
     return profile;
+  }
+
+  /**
+   * Cartão público atual do actor (metadata.card), com defaults sensatos (mostra foto/bio se existem).
+   */
+  async getCardForActor(tenantId: string, actorId: string): Promise<import('./public-profile.types').PublicCard> {
+    const mine = await this.getMineByActor(tenantId, actorId);
+    const c = (mine?.metadata as any)?.card ?? {};
+    return {
+      showAvatar: c.showAvatar !== false,
+      showBio: c.showBio !== false,
+      headline: typeof c.headline === 'string' && c.headline.trim() ? c.headline : null,
+      link: typeof c.link === 'string' && c.link.trim() ? c.link : null,
+    };
+  }
+
+  /** Normaliza/valida o cartão (anti-PII por construção: só autodescrição curta + link http/https). */
+  private normalizeCard(input: Partial<import('./public-profile.types').PublicCard>): import('./public-profile.types').PublicCard {
+    const clean = (v: unknown, max: number): string | null => {
+      if (typeof v !== 'string') return null;
+      const t = v.trim().slice(0, max);
+      return t.length ? t : null;
+    };
+    let link = clean(input.link, 200);
+    if (link && !/^https?:\/\//i.test(link)) link = `https://${link}`; // normaliza para URL clicável
+    return {
+      showAvatar: input.showAvatar !== false,
+      showBio: input.showBio !== false,
+      headline: clean(input.headline, 120),
+      link,
+    };
+  }
+
+  /**
+   * Atualiza o cartão público do actor (o usuário escolhe o que aparece). Materializa foto/bio
+   * conforme os toggles e grava headline/link. Preserva a visibilidade atual (private se ainda não
+   * publicou). O sujeito é o actor PROVADO na rota (canRepresentActor) — nunca client-declared.
+   */
+  async updateMyPublicCard(
+    tenantId: string,
+    actorId: string,
+    cardInput: Partial<import('./public-profile.types').PublicCard>
+  ): Promise<import('./public-profile.types').PublicProfile> {
+    const proj = await publicProfileRepository.getActorProjection(tenantId, actorId);
+    if (!proj) {
+      const err: any = new Error('Actor não encontrado'); err.statusCode = 404; throw err;
+    }
+    if (proj.actor_type !== 'user' && proj.actor_type !== 'page') {
+      const err: any = new Error(`actor_type '${proj.actor_type}' não publicável na vitrine`); err.statusCode = 422; throw err;
+    }
+    const card = this.normalizeCard(cardInput);
+    const mine = await this.getMineByActor(tenantId, actorId);
+    const visibility = mine?.visibility === 'public' ? 'public' : 'private';
+    return await publicProfileRepository.upsertByActor(tenantId, {
+      actorId,
+      profileType: proj.actor_type,
+      displayName: proj.display_name,
+      bio: card.showBio ? proj.bio : null,
+      avatarUrl: card.showAvatar ? proj.avatar_url : null,
+      visibility,
+      metadata: { ...(mine?.metadata as any ?? {}), card },
+    });
   }
 
   /** Plaquinha do próprio actor (ou null se nunca publicou). */

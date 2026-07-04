@@ -29,6 +29,14 @@ const routesCode = routes.split('\n').filter((l) => !l.trim().startsWith('//')).
 check('routes: nenhum handler LÊ actorId do body (req.body.actorId / body?.actorId)',
   !/\breq\.body\.actorId\b|\bbody\?\.actorId\b|\bbody\.actorId\b/.test(routesCode));
 
+// 1b · CARTÃO PÚBLICO: o usuário escolhe o que aparece; sujeito PROVADO server-side, só campos seguros
+check('routes: PUT /public-profiles/mine/card exige assertRepresentsActor (sujeito provado, não body)',
+  /'\/public-profiles\/mine\/card'[\s\S]{0,400}assertRepresentsActor/.test(routes));
+const svcPP = read('src/modules/public-profiles/public-profile.service.ts');
+check('service: normalizeCard só emite showAvatar/showBio/headline/link (anti-PII por construção)',
+  /normalizeCard/.test(svcPP) && /showAvatar[\s\S]{0,200}showBio[\s\S]{0,200}headline[\s\S]{0,200}link/.test(svcPP) &&
+  !/cpf|birthdate|nascimento|tax_id|kyc/i.test(svcPP.slice(svcPP.indexOf('normalizeCard'), svcPP.indexOf('normalizeCard') + 600)));
+
 // 2 · leitura global: só plaquinha pública, zero PII
 const globalFn = repo.slice(repo.indexOf('searchGlobalPublic'));
 check("repository: searchGlobalPublic filtra visibility = 'public'", /visibility\s*=\s*'public'/.test(globalFn));
@@ -41,8 +49,14 @@ const singleFn = repo.slice(repo.indexOf('getGlobalPublicProfileByActor'));
 const singleSelect = singleFn.slice(0, singleFn.indexOf('LIMIT'));
 check("repository: getGlobalPublicProfileByActor filtra visibility = 'public' (cross-tenant público-only)",
   /visibility\s*=\s*'public'/.test(singleSelect));
-check('repository: getGlobalPublicProfileByActor sem PII e sem tenant_id no SELECT (anti-leak)',
-  !/user_id|global_user_id|external_id|kyc|metadata|tenant_id/.test(singleSelect));
+// permite a EXTRAÇÃO explícita dos 2 campos seguros do cartão, mas NUNCA o blob metadata inteiro nem PII.
+// (mira o SQL, não comentários — o comentário explicativo cita "metadata" legitimamente.)
+const singleSelectSansCard = singleSelect
+  .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n')
+  .replace(/metadata->'card'->>'headline'/g, '')
+  .replace(/metadata->'card'->>'link'/g, '');
+check('repository: getGlobalPublicProfileByActor sem PII/tenant_id e sem o blob metadata (só card.headline/link extraídos)',
+  !/user_id|global_user_id|external_id|kyc|metadata|tenant_id/.test(singleSelectSansCard));
 
 // 3 · pista global na busca com dedupe
 check('search-omni: pista global chama searchGlobalPublic', omni.includes('searchGlobalPublic'));

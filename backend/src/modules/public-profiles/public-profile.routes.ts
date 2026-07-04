@@ -87,6 +87,39 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
   });
 
   /**
+   * GET /public-profiles/mine/card — o cartão público atual (o que o usuário escolheu mostrar).
+   */
+  fastify.get('/public-profiles/mine/card', async (req, reply) => {
+    const tenantId = req.tenant!.id;
+    const actionContext = (req as any).actionContext;
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+    }
+    if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
+    const card = await publicProfileService.getCardForActor(tenantId, actionContext.actorId);
+    return reply.send({ ok: true, data: card });
+  });
+
+  /**
+   * PUT /public-profiles/mine/card — o usuário escolhe o que aparece na sua página pública
+   * (mostrar/ocultar foto e bio; autodescrição headline; link). Sujeito PROVADO server-side
+   * (canRepresentActor). Anti-PII por construção (nunca CPF/nascimento/dinheiro).
+   */
+  fastify.put<{ Body: { showAvatar?: boolean; showBio?: boolean; headline?: string | null; link?: string | null } }>(
+    '/public-profiles/mine/card',
+    async (req, reply) => {
+      const tenantId = req.tenant!.id;
+      const actionContext = (req as any).actionContext;
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+      }
+      if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
+      const profile = await publicProfileService.updateMyPublicCard(tenantId, actionContext.actorId, req.body ?? {});
+      return reply.send({ ok: true, data: profile });
+    }
+  );
+
+  /**
    * GET /public-profiles/global/:actorId
    * Destino do clique no hit global da busca: a página da plaquinha (vitrine) de um actor de
    * QUALQUER comunidade. Cross-tenant por design (só plaquinha pública opt-in, anti-PII/anti-tenant-

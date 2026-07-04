@@ -41,6 +41,27 @@ export interface GlobalPublicProfile {
   coverUrl: string | null;
   bio: string | null;
   profileType: 'user' | 'page' | 'group' | 'cultural_profile';
+  headline: string | null;
+  link: string | null;
+}
+
+/** Cartão público: o que o usuário escolheu mostrar na sua página da vitrine. */
+export interface PublicCard {
+  showAvatar: boolean;
+  showBio: boolean;
+  headline: string | null;
+  link: string | null;
+}
+
+/** Lê o cartão atual (o que aparece hoje na página pública). */
+export async function getMyPublicCard(): Promise<PublicCard> {
+  const res = await apiFetchJson<{ ok: boolean; data: PublicCard }>('/public-profiles/mine/card');
+  return res.data;
+}
+
+/** Salva a escolha do usuário (o que aparece na página pública). Anti-PII no backend. */
+export async function updateMyPublicCard(card: PublicCard): Promise<void> {
+  await apiFetchJson('/public-profiles/mine/card', { method: 'PUT', body: JSON.stringify(card) });
 }
 
 export async function getGlobalPublicProfile(actorId: string): Promise<GlobalPublicProfile | null> {

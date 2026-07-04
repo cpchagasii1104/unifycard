@@ -93,4 +93,20 @@ export interface GlobalPublicProfileView {
   coverUrl: string | null;
   bio: string | null;
   profileType: PublicProfileType;
+  headline: string | null;
+  link: string | null;
+}
+
+/**
+ * CARTÃO PÚBLICO — o usuário escolhe, campo a campo, o que aparece na sua página da vitrine
+ * (respeito à privacidade). SÓ campos NÃO-sensíveis por construção: mostrar/ocultar foto e bio +
+ * autodescrição (headline) e um link. NUNCA CPF/nascimento/dinheiro/agenda/documentos (esses jamais
+ * entram na vitrine). O nome sempre aparece (é a identidade sendo descoberta). Vive em
+ * `public_profiles.metadata.card`.
+ */
+export interface PublicCard {
+  showAvatar: boolean;
+  showBio: boolean;
+  headline: string | null;
+  link: string | null;
 }

@@ -369,27 +369,30 @@ class PublicProfileRepository {
       bio: string | null;
       avatarUrl: string | null;
       visibility: PublishVisibility;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<PublicProfile> {
     const baseSlug = this.generateSlug(input.displayName);
     const slug = await this.generateUniqueSlug(tenantId, baseSlug);
+    const metadataJson = JSON.stringify(input.metadata ?? {});
 
     const row = await runQueryWithTenant<PublicProfileRow>(
       tenantId,
       `INSERT INTO public_profiles (
          tenant_id, actor_id, profile_type, slug, display_name, bio, avatar_url, visibility, metadata
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '{}'::jsonb)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
        ON CONFLICT (tenant_id, actor_id) DO UPDATE SET
          profile_type = EXCLUDED.profile_type,
          display_name = EXCLUDED.display_name,
          bio          = EXCLUDED.bio,
          avatar_url   = EXCLUDED.avatar_url,
          visibility   = EXCLUDED.visibility,
+         metadata     = EXCLUDED.metadata,
          updated_at   = NOW()
        RETURNING id, tenant_id, actor_id, profile_type, slug, display_name,
          bio, avatar_url, cover_url, visibility, metadata, created_at, updated_at`,
-      [tenantId, input.actorId, input.profileType, slug, input.displayName, input.bio, input.avatarUrl, input.visibility]
+      [tenantId, input.actorId, input.profileType, slug, input.displayName, input.bio, input.avatarUrl, input.visibility, metadataJson]
     );
 
     if (!row) {
@@ -445,6 +448,8 @@ class PublicProfileRepository {
    * visibility='public', tenant_id NÃO retornado (anti-leak de origem). NUNCA PII/dinheiro/agenda.
    */
   async getGlobalPublicProfileByActor(actorId: string): Promise<GlobalPublicProfileView | null> {
+    // headline/link são EXTRAÍDOS explicitamente do cartão (metadata->'card') — só esses 2 campos
+    // seguros, NUNCA o blob metadata inteiro (anti-PII/anti-leak; o guard vigia).
     const res = await pool.query<{
       actor_id: string;
       display_name: string;
@@ -453,8 +458,12 @@ class PublicProfileRepository {
       cover_url: string | null;
       bio: string | null;
       profile_type: string;
+      headline: string | null;
+      link: string | null;
     }>(
-      `SELECT actor_id, display_name, slug, avatar_url, cover_url, bio, profile_type
+      `SELECT actor_id, display_name, slug, avatar_url, cover_url, bio, profile_type,
+              metadata->'card'->>'headline' AS headline,
+              metadata->'card'->>'link'     AS link
          FROM public_profiles
         WHERE actor_id = $1 AND visibility = 'public'
         LIMIT 1`,
@@ -470,6 +479,8 @@ class PublicProfileRepository {
       coverUrl: r.cover_url,
       bio: r.bio,
       profileType: r.profile_type as PublicProfileType,
+      headline: r.headline,
+      link: r.link,
     };
   }
 }
