@@ -1,7 +1,12 @@
 # DESENHO CANÔNICO — PÁGINA DO ACTOR (perfil universal adaptativo)
 
-> **Status:** 🟡 DRAFT — aguarda SELO de Clayton + 3 decisões de relação (§7). **Read-only: zero código
-> até selar.** Origem: wireframe de Clayton (2026-07-04) + conversa de estrutura de perfil.
+> **Status:** ✅ SELADO na arquitetura (2026-07-04, Clayton escolheu caminho A) — modelo de blocos +
+> relação tipada/assimétrica + CRM-substrato + colaborador/onboarding + chamado-por-fato + orquestração
+> (horizonte) + norte RATIFICADOS. Conjunto inicial de tipos de relação APROVADO (§7). As 2 decisões
+> da PÁGINA (barra de ações inicial; refino de blocos) são resolvidas NA fatia da página (fatia 3),
+> não bloqueiam a fatia 1. **Fatia 1 (substrato de relação) especificada em
+> `SPEC_FATIA1_RELACAO_TIPADA.md` — aguarda REVISÃO de Clayton antes do código.**
+> Origem: wireframe de Clayton (2026-07-04) + conversa de estrutura de perfil.
 >
 > **Fundamento normativo (vinculante):**
 > - LEI DE COERÊNCIA §2 ("o sistema é único; nenhuma camada cria realidade paralela"), §7 (ordem de
@@ -170,14 +175,17 @@ Hoje só existe `follows` (seguir assimétrico). O wireframe pede **conexão + c
 - **Colaborador:** rótulo de relação; ao aceitar, o dono pode atribuir permissões ali mesmo — via o
   substrato REAL de autoridade (`company_users` + mapa canônico), nunca por aceite social implícito.
 
-**🔴 Ainda pendentes (o desenho só sela com elas):**
-1. **Confirma o modelo de blocos** (casca universal + blocos-projeção por capability) como a
-   arquitetura da página do actor?
-2. **Conjunto canônico inicial de tipos de relação** por par (proposta mínima pra editar: PF↔PF
-   {amigo, conhecido, familiar}; PF↔PJ {cliente, colaborador, fornecedor}; PJ↔PJ {fornecedor,
-   cliente, parceiro}).
-3. **Primeira barra de ações:** começar pelas ações **sem dinheiro** (Conectar, Mensagem, Agendar,
-   ver Produtos/Serviços, Chamado) e deixar Comprar/Contratar renderizando mas gated na PORTA-1?
+**✅ Modelo de blocos** (casca universal + blocos-projeção por capability) = arquitetura da página
+(ratificado no caminho A).
+
+**✅ Conjunto inicial de tipos de relação APROVADO** (ponto de partida governado, extensível por RFC):
+- PF↔PF: {amigo, conhecido, familiar}
+- PF↔PJ: {cliente, colaborador, fornecedor}
+- PJ↔PJ: {fornecedor, cliente, parceiro}
+
+**🟡 Resolvidas NA fatia da página (fatia 3), não bloqueiam a fatia 1:**
+- Barra de ações inicial (recomendação: começar sem-dinheiro — Conectar, Mensagem, Agendar,
+  ver Produtos/Serviços, Chamado; Comprar/Contratar renderizam mas gated na PORTA-1).
 
 ---
 
