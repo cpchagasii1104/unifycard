@@ -108,6 +108,19 @@ GET /actor-page/:actorId?mode=consuming|operating  →
 - Alinha Lei §9 (mesmo pilar → mesmo resultado): web e app **não podem** divergir porque leem a
   mesma descrição.
 
+## 2.5 OS BLOCOS/CATEGORIAS ANCORAM NA ONTOLOGIA EXISTENTE — N0/N1/N2 (Clayton 2026-07-04)
+**Nenhum bloco/aba/categoria inventa taxonomia.** Tudo ancora na ontologia CONGELADA do sistema
+(`18_DOMAIN_ONTOLOGY`: 12 domínios N0 lista fechada + N1/N2) e no substrato semântico vivo
+(`concepts`/`canonical_*`). Consequências (Lei §8, sem texto livre):
+- **qual bloco/aba acende** = derivado dos concepts/capabilities que o actor publicou (N1/N2 do ramo);
+- **produtos/serviços no carrossel/loja** = `canonical_products`/offerings, categorizados pelo N0/N1
+  já semeado (ex.: padaria→`produtos-e-comercio`; clínica→saúde→N1 correspondente);
+- **o "modo operante"** (Consumir/Operar) = LAYER 3 CONTEXT (`personal`/`professional`/`institutional`)
+  já formalizado; **filtros** = LAYER 5 ATTRIBUTES; **produto+serviço juntos** = LAYER 6 GRAPH
+  (`enables`/`requires`, sem colapsar em CONCEPT híbrido).
+- **Regra:** vertical/categoria nova = ativar N1/N2 existente + concept, NUNCA aba/tabela hardcoded.
+  A página é a projeção da ontologia por actor — não uma taxonomia própria.
+
 ## 3. MAPA BLOCO/AÇÃO → PILAR (nenhum SSOT novo; cada bloco PROJETA algo que já existe)
 
 | Bloco / Ação | Projeta (pilar/módulo vivo) | Move dinheiro? |
@@ -256,6 +269,42 @@ Notas de coerência para o decision pack de PORTA-1:
   mostrar/ocultar do **cartão público** (o mecanismo por-campo JÁ VIVO desta sessão: `metadata.card`
   + toggle Mostrar/Ocultar). Default sugerido: oculto (é dado sensível de contribuição). O actor
   liga se quiser exibir orgulho/transparência. Frontend não decide — projeta a escolha do backend.
+
+## 5D. CONFIGURAÇÕES DA PÁGINA (modo OPERANDO) — Clayton 2026-07-04
+
+As configurações NÃO são tela separada: são a **página no modo Operando** (o dono editando a própria
+casca). Mesma casca, ação de gestão (§4). O que se configura:
+
+- **Foto de perfil (avatar) + foto de capa:** editadas ali no cabeçalho da própria página (ícone de
+  câmera no avatar/capa, como o wireframe já mostrava). Acoplar ao **substrato de mídia JÁ EXISTENTE**
+  (verificar `media`/upload vivo antes de construir — NÃO criar armazenamento paralelo, Lei §5); a URL
+  resultante alimenta `avatar_url`/`cover_url` da projeção (que a vitrine/cartão já leem).
+- **Capa com BANNERS (capability de empresa — page-actor):** uma empresa pode trocar a capa estática
+  por um **carrossel de banners**. Configurável pelo dono (modo Operando):
+  - **quantos banners** (com um teto sensato, ex.: até 5 — evita abuso/peso);
+  - **duração de cada** (segundos até passar ao próximo, ex.: 3–10s; com default);
+  - ordem, link opcional de cada banner (deeplink pra bloco/produto/oferta — reusa o hub §2.3).
+- **Onde vive a config:** estende o `metadata` do perfil (`metadata.cover = { mode:'image'|'carousel',
+  banners:[{url, seconds, link?}], ... }`) — **mesmo mecanismo do cartão público** (`metadata.card`),
+  sem tabela nova. O carrossel é **capability por actor_type** (PF: capa simples; PJ: carrossel
+  liberado) — coerente com "a página se molda ao actor".
+- **Server-driven (§2.4):** a config entra no contrato `header.cover` → web e app renderizam o
+  carrossel igual, cliente só executa o timing declarado. Frontend não cria verdade (lê a config).
+- **Fronteira:** banner é apresentação, NÃO anúncio pago (boost proibido no MVP — coerente com
+  ranking pack). Sem dinheiro. Anti-PII (é imagem pública escolhida pelo dono).
+
+### 5D.1 CARROSSEL DE PRODUTOS EM PROMOÇÃO (bloco — Clayton 2026-07-04)
+O dono pode incluir na página um **carrossel de produtos em promoção** (uma vitrine de destaque).
+- **É PROJEÇÃO, não dado novo (Lei §5):** lê o catálogo/ofertas JÁ VIVAS (`product_offers`/canonical)
+  filtrando os que estão em promoção (preço promocional/flag). NÃO cria tabela de "promoção" paralela
+  — se "promoção" ainda não é atributo canônico da oferta, é atributo da OFERTA (a modelar no domínio
+  de catálogo/preço), nunca na página. O carrossel só SELECIONA/ORDENA o que projetar.
+- **Config (modo Operando):** o dono escolhe quais ofertas destacar + ordem → vive em `metadata`
+  (ex.: `metadata.blocks.promoCarousel = { offerIds:[...], seconds }`), mesmo mecanismo, sem SSOT novo.
+- **Server-driven (§2.4):** entra no contrato como um `block { type:'promo_carousel', data:[offers],
+  deeplink }`; clicar → vai pra oferta (hub). Comprar = PORTA-1 (o card renderiza, checkout gated).
+- **Preço/dinheiro:** o preço exibido é leitura do catálogo; a TRANSAÇÃO é PORTA-1. A página projeta,
+  o Bank move.
 
 ## 6. FRONTEIRAS (invioláveis)
 
