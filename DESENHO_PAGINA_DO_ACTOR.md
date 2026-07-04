@@ -235,6 +235,28 @@ materializar reputação como frente dedicada, (c) o guard de ancoragem (review 
 NÃO é fatia da página; é composição que a página PROJETA quando existir. Δbank=0 (avaliação não é
 dinheiro), mas depende de bookings/ledger reais (logo, cruza com PORTA-1 no fluxo de compra/contrato).
 
+## 5C. BLOCO DE CONTRIBUIÇÃO / TRANSPARÊNCIA REGIONAL (Clayton 2026-07-04) — "dinheiro voltando às regiões" visível
+
+Um bloco na página pode **mostrar quanto aquele actor (empresa OU usuário) já contribuiu para o
+Fundo Regional** — o "dinheiro voltando às regiões" ficando VISÍVEL e auditável. É **projeção** do
+substrato JÁ VIVO (`regional_funds`, `regional_fund_allocations`, `regional_impact_snapshots`,
+`governance_funding`) — **não modelo novo** (Lei §5). Read-model, Δbank direto=0 (só lê).
+
+**O SPLIT (destino do dinheiro) — Clayton: divide para (1) código de indicação, (2) até 3 grupos de
+que o actor faz parte, (3) Fundo Regional.** 🔴 Isto é **DINHEIRO = PORTA-1 (soberano)** e o motor de
+split é STUB (bank_splits existe; treasury split não materializado — ver `READINESS_PORTA1.md`).
+Notas de coerência para o decision pack de PORTA-1:
+- destino "grupos" (até 3) é **novo recipient de split** — hoje o split não tem grupo como destino
+  (a modelar em PORTA-1, sem SSOT paralelo; split canônico = `bank_splits`, append-only, guard ativo);
+- destino "indicação" cruza com a dívida conhecida (referral hoje user-scoped, não actor — reconciliar);
+- destino "fundo regional" tem substrato vivo (acoplar, não recriar);
+- **regra de ouro:** o cálculo/movimento do split é 100% no Bank (Lei §4.6); a página só PROJETA o
+  resultado. O bloco de contribuição pode existir cedo (read-only); o split real é PORTA-1.
+- **OPT-IN (Clayton 2026-07-04):** mostrar a contribuição é ESCOLHA do actor — mais um campo
+  mostrar/ocultar do **cartão público** (o mecanismo por-campo JÁ VIVO desta sessão: `metadata.card`
+  + toggle Mostrar/Ocultar). Default sugerido: oculto (é dado sensível de contribuição). O actor
+  liga se quiser exibir orgulho/transparência. Frontend não decide — projeta a escolha do backend.
+
 ## 6. FRONTEIRAS (invioláveis)
 
 - **Dinheiro:** blocos "Comprar/Contratar" **renderizam**, mas a transação fica **atrás da PORTA-1**
