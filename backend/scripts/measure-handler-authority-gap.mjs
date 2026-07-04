@@ -42,7 +42,7 @@ const stripComments = (s) => s
   .replace(/\/\*[\s\S]*?\*\//g, '');
 
 const CLIENT_CHANNEL = /req\.actionContext\??\.\s*actorId\b|actionContext\??\.\s*actorId\b|req\.params\??\.actorId\b|req\.body\??\.(actorId|actor_id)\b|req\.query\??\.actorId\b/;
-const BINDING = /\bcanRepresentActor\b|\bcanActAs\b|\brequirePermission\b|\buserRepresentsActor\b|\bassertRepresentsActor\b|\bcanManageCompany\b|\bcanUserPerform\w+\b|\bcanPerformAction\b/;
+const BINDING = /\bcanRepresentActor\b|\bcanActAs\b|\brequirePermission\b|\buserRepresentsActor\b|\bassertRepresentsActor\b|\bresolveRepresentedActor\b|\bcanManageCompany\b|\bcanUserPerform\w+\b|\bcanPerformAction\b/;
 // resolvedores de nome enganoso: sugerem autoridade mas (no helper) só fazem findById
 const WEAK_RESOLVER = /\bgetAuthenticated\w*Actor\b|\bgetActorFromContext\b|\bresolveActorFromRequest\b/;
 const MUTATION = /^(post|put|patch|delete)$/;

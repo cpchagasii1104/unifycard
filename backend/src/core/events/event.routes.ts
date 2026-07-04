@@ -176,11 +176,34 @@ function toSetTimeWindowsInput(eventId: string, body: SetTimeWindowsBodyRaw): Se
  * Helper: Obtém actor do ActionContext
  * Conforme ACTIONCONTEXT_CONTRACT.md: ActionContext é SSOT
  */
-async function getAuthenticatedUserActor(
+// 🔴 V1 FIX (auditoria forense 2026-07-04, DT-AUTHORITY-REGUA-PELA-METADE): resolve o actor
+// declarado E PROVA que o usuário autenticado o REPRESENTA (canRepresentActor, DECISION-0113) —
+// fail-closed. Substitui o antigo `getAuthenticatedUserActor`, que só fazia `findById` (nome
+// enganoso: "Authenticated" mas NÃO provava representação) → BOLA/IDOR no lifecycle de eventos:
+// qualquer autenticado punha o actorId do dono em x-action-context e editava/cancelava/reprecificava
+// evento alheio (o service só comparava event.actorId === actorId, ambos client-controlled). Agora
+// TODO handler de mutação de evento passa por esta catraca antes de tocar o service.
+async function resolveRepresentedActor(
   tenantId: string,
+  userId: string | undefined,
   actorId: string
 ): Promise<{ actor_id: string; actor_type: 'user' }> {
-  // Verificar se actor existe
+  if (!userId) {
+    throw new ForbiddenError('Autenticação obrigatória para representar o actor');
+  }
+  // PROVA de representação server-side (o único fato de autoridade; actorId declarado é HINT).
+  const { authorizationService } = await import('@core/authorization/authorization.service');
+  let represents = false;
+  try {
+    represents = await authorizationService.canRepresentActor(tenantId, userId, actorId);
+  } catch {
+    represents = false;
+  }
+  if (!represents) {
+    throw new ForbiddenError('Usuário não representa o actor declarado (canRepresentActor)');
+  }
+  // Só então resolve a projeção do actor (existência garantida pela representabilidade, mas mantido
+  // o findById para o actor_type canônico).
   const { socialPortsRegistry } = await import('@core/social/ports-registry');
   const actorRepository = socialPortsRegistry.getActorRepository();
   const actor = await actorRepository.findById(tenantId, actorId);
@@ -271,8 +294,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         // Obter actor do ActionContext
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -469,8 +493,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
         
@@ -570,8 +595,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -716,8 +742,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
         
@@ -876,8 +903,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -1161,8 +1189,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -1231,8 +1260,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -1300,8 +1330,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -1369,8 +1400,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -1860,8 +1892,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -1950,8 +1983,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -2048,8 +2082,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -2180,8 +2215,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -2526,8 +2562,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -2682,8 +2719,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -2810,8 +2848,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -2888,8 +2927,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
@@ -2971,8 +3011,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        const userActor = await getAuthenticatedUserActor(
+        const userActor = await resolveRepresentedActor(
           req.tenant.id,
+          req.user?.userId,
           req.actionContext.actorId
         );
 
