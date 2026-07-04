@@ -108,6 +108,19 @@ GET /actor-page/:actorId?mode=consuming|operating  →
 - Alinha Lei §9 (mesmo pilar → mesmo resultado): web e app **não podem** divergir porque leem a
   mesma descrição.
 
+## 2.4b REELS + FEED (Clayton 2026-07-04) — composição pura, sem canal de vídeo paralelo
+**Reels NÃO é um sistema novo de vídeo** (Lei §5). O substrato já existe:
+- **posts** já têm `post_type` (CHECK) + `media_ids UUID[]` (+ 'video' já referenciado). **Reel = um
+  post de vídeo curto** — estender o vocabulário `post_type` (CHECK: `...,'reel'`) OU marcar mídia como
+  vídeo curto; **acoplar ao substrato de mídia vivo**, nunca armazenamento paralelo.
+- **Bloco/aba "Reels"** na página = projeta os posts-vídeo daquele actor (acende se ele publicou),
+  igual aos outros blocos (§2.2b). Renderização "vertical/rápida" é só UX do cliente.
+- **FEED já é vivo e contextual:** `GET /feed/contextual` — personalizado pelo estado inferido do
+  actor (DECISION-0113 F6.5.4; autoridade: só lê o feed que o actor pode representar). O que aparece
+  no feed = posts/reels dos actors, **filtrado por actor + modo operante** (Consumir vê descoberta/
+  seguidos; Operar vê o que importa ao negócio). Ranking = pilar de descoberta (ranking pack; boost
+  proibido no MVP). **Não construir feed novo — acoplar/estender o vivo.**
+
 ## 2.5 OS BLOCOS/CATEGORIAS ANCORAM NA ONTOLOGIA EXISTENTE — N0/N1/N2 (Clayton 2026-07-04)
 **Nenhum bloco/aba/categoria inventa taxonomia.** Tudo ancora na ontologia CONGELADA do sistema
 (`18_DOMAIN_ONTOLOGY`: 12 domínios N0 lista fechada + N1/N2) e no substrato semântico vivo
