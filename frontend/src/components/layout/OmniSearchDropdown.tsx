@@ -64,13 +64,24 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, mode, 
         <div className="omni-section" key="people">
           <div className="omni-section-title">Pessoas</div>
           {s.people.map((p) => (
-            <button key={p.actorId} type="button" className="omni-item" onClick={() => onNavigate(`/profile/${p.actorId}`)}>
+            // origin='global' = plaquinha da vitrine (outra comunidade): a página de perfil
+            // local não existe pra esse actor — navegar seria fantasma. Slice B mostra o hit
+            // com selo 🌐 sem navegação; a página da plaquinha é a próxima fatia.
+            <button
+              key={p.actorId}
+              type="button"
+              className="omni-item"
+              title={p.origin === 'global' ? 'Perfil de outra comunidade — página da vitrine em breve' : undefined}
+              style={p.origin === 'global' ? { cursor: 'default' } : undefined}
+              onClick={p.origin === 'global' ? undefined : () => onNavigate(`/profile/${p.actorId}`)}
+            >
               {p.avatarUrl ? (
                 <img className="omni-item-avatar" src={p.avatarUrl} alt="" />
               ) : (
                 <span className="omni-item-icon" aria-hidden="true">👤</span>
               )}
               <span className="omni-item-label">{p.displayName}</span>
+              {p.origin === 'global' && <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: '#4f5bd5', fontWeight: 700 }}>🌐 outra comunidade</span>}
             </button>
           ))}
         </div>
@@ -80,13 +91,21 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, mode, 
         <div className="omni-section" key="companies">
           <div className="omni-section-title">Empresas</div>
           {s.companies.map((c) => (
-            <button key={c.actorId} type="button" className="omni-item" onClick={() => onNavigate(`/company/${c.actorId}`)}>
+            <button
+              key={c.actorId}
+              type="button"
+              className="omni-item"
+              title={c.origin === 'global' ? 'Empresa de outra comunidade — página da vitrine em breve' : undefined}
+              style={c.origin === 'global' ? { cursor: 'default' } : undefined}
+              onClick={c.origin === 'global' ? undefined : () => onNavigate(`/company/${c.actorId}`)}
+            >
               {c.avatarUrl ? (
                 <img className="omni-item-avatar" src={c.avatarUrl} alt="" />
               ) : (
                 <span className="omni-item-icon" aria-hidden="true">🏢</span>
               )}
               <span className="omni-item-label">{c.displayName}</span>
+              {c.origin === 'global' && <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: '#4f5bd5', fontWeight: 700 }}>🌐 outra comunidade</span>}
             </button>
           ))}
         </div>

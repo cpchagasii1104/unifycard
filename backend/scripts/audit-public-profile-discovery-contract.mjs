@@ -46,6 +46,24 @@ check("routes/service: sem visibility maiúscula viva", !/'PUBLIC'/.test(routes)
 check('routes: PATCH/visibility verificam que o perfil pertence ao actor representado',
   (routes.match(/não pertence ao actor representado/g) || []).length >= 2);
 
+// 6 · Slice B — wiring frontend protegido (toggle sem verdade local; hits globais sem navegação fantasma)
+const FRONT = resolve(ROOT, '..', 'frontend', 'src');
+const readF = (p) => readFileSync(resolve(FRONT, p), 'utf8');
+try {
+  const card = readF('components/PublicProfileVisibilityCard.tsx');
+  const apiPP = readF('api/public-profiles.ts');
+  const dropdown = readF('components/layout/OmniSearchDropdown.tsx');
+  const searchPage = readF('pages/SearchPage.tsx');
+  check('frontend: toggle lê/grava via API (getMyPublicProfile/publishMyProfile), sem localStorage',
+    card.includes('getMyPublicProfile') && card.includes('publishMyProfile') && !card.includes('localStorage'));
+  check('frontend: body do publish é só { visibility } (actor NUNCA enviado — autoridade server-side)',
+    apiPP.includes('JSON.stringify({ visibility })') && !/stringify\([^)]*actorId/.test(apiPP));
+  check("frontend: hits origin='global' NÃO navegam (dropdown + SearchPage)",
+    dropdown.includes("origin === 'global' ? undefined") && searchPage.includes("origin === 'global' ? undefined"));
+} catch (e) {
+  check(`frontend: arquivos da Slice B legíveis (${e.message})`, false);
+}
+
 if (fails.length) {
   console.error(`\nPUBLIC-PROFILE-DISCOVERY-CONTRACT: ${fails.length} FAIL`);
   process.exit(1);

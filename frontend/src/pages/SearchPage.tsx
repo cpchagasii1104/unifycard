@@ -125,20 +125,42 @@ export default function SearchPage() {
         <div className="sp-results">
           {key === 'people' &&
             s.people.map((p) => (
-              <button key={p.actorId} type="button" className="sp-card" onClick={() => navigate(`/profile/${p.actorId}`)}>
+              // origin='global' = vitrine (outra comunidade): sem página local → sem navegação
+              // (selo 🌐 honesto; página da plaquinha = próxima fatia)
+              <button
+                key={p.actorId}
+                type="button"
+                className="sp-card"
+                title={p.origin === 'global' ? 'Perfil de outra comunidade — página da vitrine em breve' : undefined}
+                style={p.origin === 'global' ? { cursor: 'default' } : undefined}
+                onClick={p.origin === 'global' ? undefined : () => navigate(`/profile/${p.actorId}`)}
+              >
                 <span className="sp-card-icon">👤</span>
                 <span className="sp-card-body">
-                  <span className="sp-card-title">{p.displayName}</span>
+                  <span className="sp-card-title">
+                    {p.displayName}
+                    {p.origin === 'global' && <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#4f5bd5', fontWeight: 700 }}>🌐 outra comunidade</span>}
+                  </span>
                   {p.bio && <span className="sp-card-sub">{p.bio}</span>}
                 </span>
               </button>
             ))}
           {key === 'companies' &&
             s.companies.map((c) => (
-              <button key={c.actorId} type="button" className="sp-card" onClick={() => navigate(`/company/${c.actorId}`)}>
+              <button
+                key={c.actorId}
+                type="button"
+                className="sp-card"
+                title={c.origin === 'global' ? 'Empresa de outra comunidade — página da vitrine em breve' : undefined}
+                style={c.origin === 'global' ? { cursor: 'default' } : undefined}
+                onClick={c.origin === 'global' ? undefined : () => navigate(`/company/${c.actorId}`)}
+              >
                 <span className="sp-card-icon">🏢</span>
                 <span className="sp-card-body">
-                  <span className="sp-card-title">{c.displayName}</span>
+                  <span className="sp-card-title">
+                    {c.displayName}
+                    {c.origin === 'global' && <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#4f5bd5', fontWeight: 700 }}>🌐 outra comunidade</span>}
+                  </span>
                   {c.bio && <span className="sp-card-sub">{c.bio}</span>}
                 </span>
               </button>

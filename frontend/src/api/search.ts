@@ -12,6 +12,8 @@ export interface OmniIdentityHit {
   slug: string | null;
   avatarUrl: string | null;
   bio: string | null;
+  /** 'local' = mesma comunidade; 'global' = plaquinha da vitrine (outra comunidade). */
+  origin?: 'local' | 'global';
 }
 
 export interface OmniGroupHit {
