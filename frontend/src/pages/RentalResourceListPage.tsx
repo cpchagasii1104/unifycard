@@ -5,10 +5,11 @@
 // ver mapa.png/BASE.png — essa fatia é só gestão do dono; achar recurso de terceiro é via link direto,
 // não vitrine).
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
+import PublishProfileIntentPrompt from '../components/PublishProfileIntentPrompt';
 import {
   createRentableResource,
   listMyRentableResources,
@@ -49,6 +50,8 @@ export default function RentalResourceListPage() {
   const [conceptOptions, setConceptOptions] = useState<CanonicalService[]>([]);
   const [selectedConcept, setSelectedConcept] = useState<CanonicalService | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // F-DISCOVERY-INTENT-PROMPT: publica o perfil junto da criação, se o dono manteve marcado
+  const publishProfileRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
     if (!activeActor) {
@@ -101,6 +104,7 @@ export default function RentalResourceListPage() {
         label: label.trim(),
         description: description.trim() || null,
       });
+      await publishProfileRef.current();
       showToast('Recurso cadastrado.', 'success');
       setShowForm(false);
       setLabel('');
@@ -173,6 +177,11 @@ export default function RentalResourceListPage() {
             Descrição (opcional)
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} rows={3} />
           </label>
+
+          <PublishProfileIntentPrompt
+            contextLabel="Seu recurso será achável para locação."
+            onRegister={(fn) => { publishProfileRef.current = fn; }}
+          />
 
           <button type="submit" className="rrl-submit-btn" disabled={submitting}>
             {submitting ? 'Cadastrando…' : 'Cadastrar recurso'}

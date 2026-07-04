@@ -5,18 +5,21 @@
 // Disciplina: frontend PROJETA verdade resolvida. O provider é o ACTOR ATIVO de sessão (não input/hardcode);
 // o backend liga actionContext + canRepresentActor. SEM dinheiro/checkout/split — só catálogo + agenda.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
 import { searchOfferableCanonicalServices, type CanonicalService } from '../api/canonical-services';
 import { createService } from '../api/services';
 import { createOffering, activateOffering, declareOfferingAvailability } from '../api/offerings';
+import PublishProfileIntentPrompt from '../components/PublishProfileIntentPrompt';
 import './ServiceCreatePage.css';
 
 export default function ServiceCreatePage() {
   const navigate = useNavigate();
   const { activeActor } = useActiveActor();
+  // F-DISCOVERY-INTENT-PROMPT: callback registrado pelo prompt (publica perfil se marcado)
+  const publishProfileRef = useRef<() => Promise<void>>(async () => {});
 
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -131,6 +134,10 @@ export default function ServiceCreatePage() {
 
       setStep('Publicando disponibilidade…');
       await declareOfferingAvailability(offering.id, { startDatetime, endDatetime });
+
+      // F-DISCOVERY-INTENT-PROMPT: publicar perfil junto, se o criador manteve marcado
+      // (regra Clayton: a pergunta de visibilidade nasce da intenção — criar oferta = quer ser achado)
+      await publishProfileRef.current();
 
       showToast('Serviço publicado com oferta e agenda.', 'success');
       navigate(`/discover/services/${service.serviceId}`);
@@ -300,6 +307,11 @@ export default function ServiceCreatePage() {
             />
           </label>
         </div>
+
+        <PublishProfileIntentPrompt
+          contextLabel="Seu serviço será achável na busca."
+          onRegister={(fn) => { publishProfileRef.current = fn; }}
+        />
 
         {error && <p className="form-error" role="alert">{error}</p>}
         {step && <p className="form-step" role="status">{step}</p>}
