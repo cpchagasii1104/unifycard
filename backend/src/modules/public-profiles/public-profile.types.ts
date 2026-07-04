@@ -79,3 +79,18 @@ export interface GlobalDiscoveryHit {
   bio: string | null;
   profileType: PublicProfileType;
 }
+
+/**
+ * Projeção pública de UM perfil da vitrine (destino do clique no hit global). SÓ a plaquinha —
+ * NUNCA tenant_id (anti-leak de origem), NUNCA PII/dinheiro/agenda/documentos. Cross-tenant LEGAL
+ * pelo mesmo desenho selado de `searchGlobalPublic` (public_profiles sem RLS, só visibility='public').
+ */
+export interface GlobalPublicProfileView {
+  actorId: string;
+  displayName: string;
+  slug: string | null;
+  avatarUrl: string | null;
+  coverUrl: string | null;
+  bio: string | null;
+  profileType: PublicProfileType;
+}

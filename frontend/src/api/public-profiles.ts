@@ -29,6 +29,29 @@ export async function getMyPublicProfile(): Promise<MyPublicProfile | null> {
   return res.data;
 }
 
+/**
+ * Projeção pública de UM perfil da vitrine (destino do clique no hit global da busca). Só a
+ * plaquinha — nunca PII/tenant/dinheiro. Cross-tenant por design. null (404) se não for público.
+ */
+export interface GlobalPublicProfile {
+  actorId: string;
+  displayName: string;
+  slug: string | null;
+  avatarUrl: string | null;
+  coverUrl: string | null;
+  bio: string | null;
+  profileType: 'user' | 'page' | 'group' | 'cultural_profile';
+}
+
+export async function getGlobalPublicProfile(actorId: string): Promise<GlobalPublicProfile | null> {
+  try {
+    const res = await apiFetchJson<{ ok: boolean; data: GlobalPublicProfile }>(`/public-profiles/global/${actorId}`);
+    return res.data;
+  } catch {
+    return null; // 404 (não publicou público) ou erro → sem plaquinha
+  }
+}
+
 /** Publica ('public' = achável por todos) ou despublica ('private' = só eu) a plaquinha. */
 export async function publishMyProfile(visibility: PublishVisibility): Promise<MyPublicProfile> {
   const res = await apiFetchJson<{ ok: boolean; data: MyPublicProfile }>('/public-profiles/publish', {

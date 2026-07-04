@@ -2,7 +2,7 @@
 // SPRINT 79: Repository para public_profiles
 
 import { runQueryWithTenant, runQueriesWithTenant, pool } from '@core/database/pool';
-import type { PublicProfile, CreatePublicProfileInput, UpdatePublicProfileInput, PublicProfileFilters, GlobalDiscoveryHit, PublicProfileType, PublishVisibility } from './public-profile.types';
+import type { PublicProfile, CreatePublicProfileInput, UpdatePublicProfileInput, PublicProfileFilters, GlobalDiscoveryHit, GlobalPublicProfileView, PublicProfileType, PublishVisibility } from './public-profile.types';
 
 interface PublicProfileRow {
   id: string;
@@ -437,6 +437,40 @@ class PublicProfileRepository {
       bio: r.bio,
       profileType: r.profile_type as PublicProfileType,
     }));
+  }
+
+  /**
+   * LEITURA DA VITRINE (perfil único, destino do clique no hit global) — mesma legalidade cross-tenant
+   * de `searchGlobalPublic`: `pool.query` direto (semântica global), SÓ a plaquinha, SÓ
+   * visibility='public', tenant_id NÃO retornado (anti-leak de origem). NUNCA PII/dinheiro/agenda.
+   */
+  async getGlobalPublicProfileByActor(actorId: string): Promise<GlobalPublicProfileView | null> {
+    const res = await pool.query<{
+      actor_id: string;
+      display_name: string;
+      slug: string | null;
+      avatar_url: string | null;
+      cover_url: string | null;
+      bio: string | null;
+      profile_type: string;
+    }>(
+      `SELECT actor_id, display_name, slug, avatar_url, cover_url, bio, profile_type
+         FROM public_profiles
+        WHERE actor_id = $1 AND visibility = 'public'
+        LIMIT 1`,
+      [actorId]
+    );
+    const r = res.rows[0];
+    if (!r) return null;
+    return {
+      actorId: r.actor_id,
+      displayName: r.display_name,
+      slug: r.slug,
+      avatarUrl: r.avatar_url,
+      coverUrl: r.cover_url,
+      bio: r.bio,
+      profileType: r.profile_type as PublicProfileType,
+    };
   }
 }
 

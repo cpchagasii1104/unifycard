@@ -25,6 +25,7 @@ import InvitesPage from './pages/InvitesPage';
 import WalletPage from './pages/WalletPage';
 import TransactionDetailPage from './pages/TransactionDetailPage';
 import SocialProfilePage from './pages/SocialProfilePage';
+import VitrineProfilePage from './pages/VitrineProfilePage';
 import SocialCompanyPage from './pages/SocialCompanyPage';
 import EventDetailPage from './pages/EventDetailPage';
 import EventCreationPage from './pages/EventCreationPage';
@@ -304,6 +305,7 @@ function AppContent() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="ledger" element={<SocialLedger />} />
           <Route path="profile/:id" element={<SocialProfilePage />} />
+          <Route path="vitrine/:actorId" element={<VitrineProfilePage />} />
           <Route path="company/:id" element={<SocialCompanyPage />} />
           <Route path="empresa/:companyId" element={<CompanyDashboardPage />} />
           <Route path="eventos" element={<EventosPage />} />

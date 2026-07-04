@@ -201,6 +201,24 @@ async function main(): Promise<void> {
       userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A, body: { visibility: 'public' },
     });
 
+    // H · O DESTINO DO CLIQUE: o Dev (tenant B) lê a plaquinha do Clayton (tenant A) via
+    // GET /public-profiles/global/:actorId — CROSS-TENANT, só a plaquinha, sem tenant_id/PII.
+    const rGlobal = await call('GET', `/public-profiles/global/${clayton.actorId}`, {
+      userId: devB.userId, actorId: devB.actorId, tenantId: TENANT_B,
+    });
+    const gBody = rGlobal.json() as any;
+    const gRaw = JSON.stringify(gBody);
+    const gLeak = /tenant_id|tenantId|user_id|global_user_id|kyc|metadata/i.test(gRaw);
+    record('H Dev (tenant B) lê a plaquinha do Clayton (tenant A) cross-tenant, sem PII/tenant_id',
+      rGlobal.statusCode === 200 && gBody?.data?.displayName === 'Clayton Corte E2E' && gBody?.data?.actorId === clayton.actorId && !gLeak,
+      `status=${rGlobal.statusCode} leak=${gLeak} body=${gRaw.slice(0, 160)}`);
+
+    // H2 · perfil privado NÃO resolve pelo destino do clique (404)
+    await call('POST', '/public-profiles/publish', { userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A, body: { visibility: 'private' } });
+    const rGlobalPriv = await call('GET', `/public-profiles/global/${clayton.actorId}`, { userId: devB.userId, actorId: devB.actorId, tenantId: TENANT_B });
+    record('H2 plaquinha privada → 404 no destino do clique', rGlobalPriv.statusCode === 404, `status=${rGlobalPriv.statusCode}`);
+    await call('POST', '/public-profiles/publish', { userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A, body: { visibility: 'public' } });
+
     // V2 · CONFUSED-DEPUTY na POST legada (auditoria forense 2026-07-04): o Dev, representando o
     // PRÓPRIO actor (passa o gate), tenta criar a vitrine sob o actorId do Clayton (vítima) via body.
     // Fix: o sujeito é SEMPRE o actor provado → a linha nasce sob devB, NUNCA sob clayton.

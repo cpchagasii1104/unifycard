@@ -125,15 +125,14 @@ export default function SearchPage() {
         <div className="sp-results">
           {key === 'people' &&
             s.people.map((p) => (
-              // origin='global' = vitrine (outra comunidade): sem página local → sem navegação
-              // (selo 🌐 honesto; página da plaquinha = próxima fatia)
+              // origin='global' = vitrine (outra comunidade) → /vitrine/:actorId (plaquinha pública
+              // cross-tenant). origin='local' → perfil interno completo (/profile/:actorId).
               <button
                 key={p.actorId}
                 type="button"
                 className="sp-card"
-                title={p.origin === 'global' ? 'Perfil de outra comunidade — página da vitrine em breve' : undefined}
-                style={p.origin === 'global' ? { cursor: 'default' } : undefined}
-                onClick={p.origin === 'global' ? undefined : () => navigate(`/profile/${p.actorId}`)}
+                title={p.origin === 'global' ? 'Ver perfil público (outra comunidade)' : undefined}
+                onClick={() => navigate(p.origin === 'global' ? `/vitrine/${p.actorId}` : `/profile/${p.actorId}`)}
               >
                 <span className="sp-card-icon">👤</span>
                 <span className="sp-card-body">

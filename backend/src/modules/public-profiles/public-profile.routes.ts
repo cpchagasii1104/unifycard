@@ -87,6 +87,24 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
   });
 
   /**
+   * GET /public-profiles/global/:actorId
+   * Destino do clique no hit global da busca: a página da plaquinha (vitrine) de um actor de
+   * QUALQUER comunidade. Cross-tenant por design (só plaquinha pública opt-in, anti-PII/anti-tenant-
+   * leak). Exige usuário autenticado (a vitrine é para membros descobrindo membros), mas NÃO exige
+   * mesmo tenant. 404 se o actor não publicou perfil público.
+   */
+  fastify.get<{ Params: { actorId: string } }>('/public-profiles/global/:actorId', async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    const profile = await publicProfileService.getGlobalPublicProfile(req.params.actorId);
+    if (!profile) {
+      return reply.status(404).send({ error: 'Perfil público não encontrado' });
+    }
+    return reply.send({ ok: true, data: profile });
+  });
+
+  /**
    * POST /public-profiles
    * Cria perfil público
    */

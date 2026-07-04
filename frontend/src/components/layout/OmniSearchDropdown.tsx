@@ -64,16 +64,15 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, mode, 
         <div className="omni-section" key="people">
           <div className="omni-section-title">Pessoas</div>
           {s.people.map((p) => (
-            // origin='global' = plaquinha da vitrine (outra comunidade): a página de perfil
-            // local não existe pra esse actor — navegar seria fantasma. Slice B mostra o hit
-            // com selo 🌐 sem navegação; a página da plaquinha é a próxima fatia.
+            // origin='global' = plaquinha da vitrine (outra comunidade) → página da vitrine
+            // (/vitrine/:actorId, leitura cross-tenant só da plaquinha pública). origin='local' →
+            // perfil interno completo (/profile/:actorId).
             <button
               key={p.actorId}
               type="button"
               className="omni-item"
-              title={p.origin === 'global' ? 'Perfil de outra comunidade — página da vitrine em breve' : undefined}
-              style={p.origin === 'global' ? { cursor: 'default' } : undefined}
-              onClick={p.origin === 'global' ? undefined : () => onNavigate(`/profile/${p.actorId}`)}
+              title={p.origin === 'global' ? 'Ver perfil público (outra comunidade)' : undefined}
+              onClick={() => onNavigate(p.origin === 'global' ? `/vitrine/${p.actorId}` : `/profile/${p.actorId}`)}
             >
               {p.avatarUrl ? (
                 <img className="omni-item-avatar" src={p.avatarUrl} alt="" />

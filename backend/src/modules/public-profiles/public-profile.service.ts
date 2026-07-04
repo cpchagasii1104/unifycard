@@ -211,6 +211,14 @@ class PublicProfileService {
   }
 
   /**
+   * Leitura da vitrine — perfil público único (destino do clique no hit global). Cross-tenant por
+   * design (só plaquinha pública opt-in); null se o actor não publicou público.
+   */
+  async getGlobalPublicProfile(actorId: string): Promise<import('./public-profile.types').GlobalPublicProfileView | null> {
+    return await publicProfileRepository.getGlobalPublicProfileByActor(actorId);
+  }
+
+  /**
    * Lista perfis por actor
    */
   async listProfilesByActor(

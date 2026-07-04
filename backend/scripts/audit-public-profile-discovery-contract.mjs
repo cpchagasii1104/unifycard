@@ -35,6 +35,15 @@ check("repository: searchGlobalPublic filtra visibility = 'public'", /visibility
 check('repository: searchGlobalPublic sem PII (user_id/global_user_id/external_id/kyc/metadata)',
   !/user_id|global_user_id|external_id|kyc|metadata/.test(globalFn.slice(0, globalFn.indexOf('LIMIT'))));
 
+// 2b · leitura de perfil único (destino do clique global): cross-tenant público-only, anti-PII e
+// SEM retornar tenant_id ao cliente (anti-leak de origem).
+const singleFn = repo.slice(repo.indexOf('getGlobalPublicProfileByActor'));
+const singleSelect = singleFn.slice(0, singleFn.indexOf('LIMIT'));
+check("repository: getGlobalPublicProfileByActor filtra visibility = 'public' (cross-tenant público-only)",
+  /visibility\s*=\s*'public'/.test(singleSelect));
+check('repository: getGlobalPublicProfileByActor sem PII e sem tenant_id no SELECT (anti-leak)',
+  !/user_id|global_user_id|external_id|kyc|metadata|tenant_id/.test(singleSelect));
+
 // 3 · pista global na busca com dedupe
 check('search-omni: pista global chama searchGlobalPublic', omni.includes('searchGlobalPublic'));
 check('search-omni: dedupe por actorId (local vence)', /seen\.has\(/.test(omni));
@@ -65,12 +74,19 @@ try {
   const apiPP = readF('api/public-profiles.ts');
   const dropdown = readF('components/layout/OmniSearchDropdown.tsx');
   const searchPage = readF('pages/SearchPage.tsx');
+  const vitrinePage = readF('pages/VitrineProfilePage.tsx');
   check('frontend: toggle lê/grava via API (getMyPublicProfile/publishMyProfile), sem localStorage',
     card.includes('getMyPublicProfile') && card.includes('publishMyProfile') && !card.includes('localStorage'));
   check('frontend: body do publish é só { visibility } (actor NUNCA enviado — autoridade server-side)',
     apiPP.includes('JSON.stringify({ visibility })') && !/stringify\([^)]*actorId/.test(apiPP));
-  check("frontend: hits origin='global' NÃO navegam (dropdown + SearchPage)",
-    dropdown.includes("origin === 'global' ? undefined") && searchPage.includes("origin === 'global' ? undefined"));
+  // 6b · hit global de PESSOA navega para /vitrine/ (página da plaquinha cross-tenant), NUNCA para
+  // /profile/ (rota interna = fantasma para actor de outro tenant).
+  check("frontend: hits origin='global' navegam para /vitrine/ (dropdown + SearchPage)",
+    /origin === 'global' \? `\/vitrine\/\$\{p\.actorId\}`/.test(dropdown) &&
+    /origin === 'global' \? `\/vitrine\/\$\{p\.actorId\}`/.test(searchPage));
+  // 6c · a página da vitrine é PROJEÇÃO pura (GET /global/:actorId) e não cria capability (ações "em breve")
+  check('frontend: VitrineProfilePage projeta getGlobalPublicProfile e não cria capability (Seguir/Mensagem disabled)',
+    vitrinePage.includes('getGlobalPublicProfile') && vitrinePage.includes('disabled') && !vitrinePage.includes('localStorage'));
 } catch (e) {
   check(`frontend: arquivos da Slice B legíveis (${e.message})`, false);
 }
