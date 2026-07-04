@@ -338,6 +338,14 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
         if (!actor || !actor.user_id) {
           throw new NotFoundError('Actor não encontrado ou não é do tipo user');
         }
+        // 🔴 BOLA FIX (triagem de autoridade 2026-07-04): o actorId vem do actionContext
+        // (client-declared). Sem prova de representação, qualquer autenticado editaria a identidade
+        // CIVIL de outra pessoa (fullName/birthdate/avatar). Exige canRepresentActor server-side
+        // (DECISION-0113), fail-closed — para 'user' actor reduz a self-ownership.
+        const { authorizationService: authzSvc } = await import('@core/authorization/authorization.service');
+        if (!(await authzSvc.canRepresentActor(req.tenant.id, req.user.userId, actorId))) {
+          return reply.status(403).send({ error: 'Sem autoridade para representar o actor declarado' });
+        }
         const userId = actor.user_id;
         // NUNCA criar global_user em fluxo de update
         let profile: IdentityProfile;

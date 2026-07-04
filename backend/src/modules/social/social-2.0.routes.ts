@@ -312,9 +312,14 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     try {
       const validated = reactionSchema.parse(req.body);
 
-      // ActionContext.actorId é a identidade soberana da escrita (DECISION-0031 §3.2).
-      // Query params actor_id/actor_type opcionais foram removidos: o caller já tem
-      // actorId resolvido via plugin de ActionContext.
+      // 🔴 IMPERSONATION FIX (triagem de autoridade 2026-07-04): o actionContext.actorId é
+      // client-declared; o service assume actorId "JÁ RESOLVIDO server-side". Sem prova, qualquer
+      // autenticado reagiria COMO outro actor. Provar representação (DECISION-0113), fail-closed —
+      // idêntico ao gate de createPost neste arquivo.
+      const { authorizationService: authzReact } = await import('@core/authorization/authorization.service');
+      if (!(await authzReact.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId))) {
+        return reply.status(403).send({ error: 'Sem autoridade para reagir como o actor declarado' });
+      }
       const reaction = await social2Service.toggleReaction(
         req.tenant.id,
         req.params.id,
@@ -396,6 +401,12 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const validated = commentSchema.parse(req.body);
+      // 🔴 IMPERSONATION FIX (triagem 2026-07-04): provar representação do actor declarado antes de
+      // comentar COMO ele (o service assume actorId já resolvido server-side). Fail-closed.
+      const { authorizationService: authzComment } = await import('@core/authorization/authorization.service');
+      if (!(await authzComment.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId))) {
+        return reply.status(403).send({ error: 'Sem autoridade para comentar como o actor declarado' });
+      }
       const comment = await social2Service.createComment(
         req.tenant.id,
         req.params.id,

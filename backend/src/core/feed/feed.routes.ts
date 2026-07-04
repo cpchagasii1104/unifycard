@@ -97,6 +97,14 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
 
       const actorId = req.actionContext.actorId;
 
+      // 🔴 IMPERSONATION FIX (triagem 2026-07-04): actionContext.actorId é client-declared; sem prova,
+      // qualquer autenticado gravaria ação de conteúdo (like/save/hide) sob o globalUserId de OUTRO
+      // (poluindo a personalização de feed alheia). Provar representação (DECISION-0113), fail-closed.
+      const { authorizationService: authzFeedAction } = await import('@core/authorization/authorization.service');
+      if (!(await authzFeedAction.canRepresentActor(req.tenant.id, req.user.userId, actorId))) {
+        return reply.status(403).send({ ok: false, message: 'Sem autoridade para agir como o actor declarado' });
+      }
+
       // Resolver globalUserId a partir do actorId (se necessário para o service)
       // TODO: Refatorar feedService para usar actorId diretamente
       const { socialPortsRegistry } = await import('@core/social/ports-registry');
