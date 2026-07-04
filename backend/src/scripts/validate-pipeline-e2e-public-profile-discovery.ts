@@ -184,6 +184,27 @@ async function main(): Promise<void> {
       !!hitF && hitF.origin === 'local',
       `people=${JSON.stringify(searchB4.sections.people)}`);
 
+    // V2 · CONFUSED-DEPUTY na POST legada (auditoria forense 2026-07-04): o Dev, representando o
+    // PRÓPRIO actor (passa o gate), tenta criar a vitrine sob o actorId do Clayton (vítima) via body.
+    // Fix: o sujeito é SEMPRE o actor provado → a linha nasce sob devB, NUNCA sob clayton.
+    const rConfused = await call('POST', '/public-profiles', {
+      userId: devB.userId,
+      actorId: devB.actorId, // o Dev representa o PRÓPRIO actor (gate passa)
+      tenantId: TENANT_B,
+      body: { actorId: clayton.actorId, profileType: 'user', displayName: 'FAKE Clayton', visibility: 'public' },
+    });
+    const victimRow = await pool.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM public_profiles WHERE actor_id = $1 AND display_name = 'FAKE Clayton'`,
+      [clayton.actorId]
+    );
+    const attackerRow = await pool.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM public_profiles WHERE actor_id = $1`,
+      [devB.actorId]
+    );
+    record('V2 POST legada NÃO escreve sob o actor da vítima (confused-deputy fechado)',
+      rConfused.statusCode < 500 && victimRow.rows[0].n === '0' && attackerRow.rows[0].n === '1',
+      `status=${rConfused.statusCode} vitima=${victimRow.rows[0].n} atacante=${attackerRow.rows[0].n}`);
+
     // G · Δbank = 0
     const bankAfter = await pool.query<{ n: string }>(
       `SELECT (SELECT COUNT(*) FROM bank_ledger) || ':' || (SELECT COUNT(*) FROM bank_transactions) AS n`

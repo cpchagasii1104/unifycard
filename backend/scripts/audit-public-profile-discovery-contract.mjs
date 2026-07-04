@@ -19,12 +19,15 @@ const routes = read('src/modules/public-profiles/public-profile.routes.ts');
 const repo = read('src/modules/public-profiles/public-profile.repository.ts');
 const types = read('src/modules/public-profiles/public-profile.types.ts');
 const omni = read('src/modules/search/search-omni.service.ts');
+const service = read('src/modules/public-profiles/public-profile.service.ts');
 
 // 1 · autoridade server-side no publish/mine
 check('routes: /publish existe e usa assertRepresentsActor/canRepresentActor',
   routes.includes("'/public-profiles/publish'") && /assertRepresentsActor|canRepresentActor/.test(routes));
-check('routes: actor NUNCA aceito do body (publish lê só actionContext.actorId)',
-  !/body[^\n]*actorId/i.test(routes));
+// mira o padrão PERIGOSO real (LER actorId do body em código), ignorando comentários explicativos
+const routesCode = routes.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+check('routes: nenhum handler LÊ actorId do body (req.body.actorId / body?.actorId)',
+  !/\breq\.body\.actorId\b|\bbody\?\.actorId\b|\bbody\.actorId\b/.test(routesCode));
 
 // 2 · leitura global: só plaquinha pública, zero PII
 const globalFn = repo.slice(repo.indexOf('searchGlobalPublic'));
@@ -45,6 +48,10 @@ check("routes/service: sem visibility maiúscula viva", !/'PUBLIC'/.test(routes)
 // 5 · hardening de ownership nas rotas por id
 check('routes: PATCH/visibility verificam que o perfil pertence ao actor representado',
   (routes.match(/não pertence ao actor representado/g) || []).length >= 2);
+
+// 7 · V2 confused-deputy fix: createProfile escreve sob o actor PROVADO, nunca body.actorId
+check('service: createProfile força o actor provado (authorizedActorId), descarta input.actorId',
+  service.includes('authorizedActorId') && service.includes('actorId: authorizedActorId'));
 
 // 6 · Slice B — wiring frontend protegido (toggle sem verdade local; hits globais sem navegação fantasma)
 const FRONT = resolve(ROOT, '..', 'frontend', 'src');

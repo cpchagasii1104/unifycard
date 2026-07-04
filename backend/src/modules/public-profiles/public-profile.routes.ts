@@ -100,6 +100,8 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
     }
     if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
 
+    // 🔴 V2 fix: o sujeito é o actor PROVADO (actionContext.actorId), nunca req.body.actorId.
+    // O service força isso de novo (defense-in-depth), mas passamos o correto por clareza.
     const profile = await publicProfileService.createProfile(
       tenantId,
       req.body,

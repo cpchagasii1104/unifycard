@@ -25,29 +25,39 @@ import type {
  */
 class PublicProfileService {
   /**
-   * Cria perfil público
+   * Cria perfil público.
+   *
+   * 🔴 V2 CONFUSED-DEPUTY FIX (auditoria forense 2026-07-04): o SUJEITO do perfil (actorId)
+   * é SEMPRE `authorizedActorId` — o actor cuja representação foi PROVADA na rota via
+   * canRepresentActor (DECISION-0113) — NUNCA `input.actorId` (client-controlled). Antes, a rota
+   * provava autoridade sobre actionContext.actorId mas o service escrevia sob req.body.actorId:
+   * um atacante representando o próprio actor criava a vitrine sob o actor de uma VÍTIMA
+   * (impersonação, amplificada cross-tenant pela leitura da vitrine). Defense-in-depth: o override
+   * mora no SERVICE, não só na rota — qualquer caller herda a contenção.
    */
   async createProfile(
     tenantId: string,
     input: CreatePublicProfileInput,
-    createdByUserId: string
+    authorizedActorId: string
   ): Promise<PublicProfile> {
-    // Validar que actor existe
+    // Validar que o actor PROVADO existe (não o do body)
     const { actorRepository } = await import('@modules/social/actor.repository');
-    const actor = await actorRepository.findById(tenantId, input.actorId);
+    const actor = await actorRepository.findById(tenantId, authorizedActorId);
     if (!actor) {
       throw new Error('Actor não encontrado');
     }
 
-    const profile = await publicProfileRepository.createProfile(tenantId, input);
+    // O sujeito é o actor provado — input.actorId é DESCARTADO para a escrita.
+    const safeInput: CreatePublicProfileInput = { ...input, actorId: authorizedActorId };
+    const profile = await publicProfileRepository.createProfile(tenantId, safeInput);
 
     // Registrar auditoria
     await this.recordAudit(tenantId, {
       eventType: 'PUBLIC_PROFILE_CREATED',
       profileId: profile.id,
-      actorId: input.actorId,
-      profileType: input.profileType,
-      createdByUserId,
+      actorId: authorizedActorId,
+      profileType: safeInput.profileType,
+      createdByUserId: authorizedActorId,
     });
 
     return profile;
