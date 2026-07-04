@@ -93,18 +93,50 @@ produtos, abrir/fechar agenda, responder chamados) — capability-additive, mesm
 
 ---
 
-## 5. RELAÇÃO ENTRE ACTORS (o substrato que falta — e que gate o chamado/plateias)
+## 5. RELAÇÃO ENTRE ACTORS — substrato ÚNICO (social + CRM + B2B) — ✅ RATIFICADO por Clayton 2026-07-04
 
-Hoje só existe `follows` (seguir assimétrico). O wireframe pede **conexão + aceite classificado** +
-**chamado gated por conexão**. Proposta:
-- Uma **relação = aresta entre 2 actors**, com **tipo governado** (Lei §8 — sem texto livre).
-- **Assimétrica:** cada lado classifica o outro (você=fornecedor; eu=cliente) — o Facebook (amizade
-  simétrica) não expressa isso; a força do actor está aqui.
-- **Relação ≠ autoridade:** aceitar conexão **nunca** concede `canManageCompany`/operar. Autoridade
-  segue em `company_users`/delegação (blindado). Conexão = contexto/plateia, não poder.
+Hoje só existe `follows` (seguir assimétrico). O wireframe pede **conexão + classificação** +
+**chamado gated por conexão**. Decisões de Clayton (2026-07-04):
+
+- **Uma relação = aresta entre 2 actors**, com **tipo governado** (Lei §8 — sem texto livre; "fornecedor
+  é fornecedor", igual "terno é terno").
+- **B2B confirmado** — empresa↔empresa é caso de primeira classe (o modelo actor↔actor já cobre;
+  o Facebook, amizade PF-PF, não expressa negócio entre empresas).
+- **ASSIMÉTRICA (confirmado):** cada lado classifica o outro pela SUA ótica, **no envio E no aceite**
+  (A envia pedido classificando B como "fornecedor"; B aceita classificando A como "cliente"). Uma
+  aresta, duas perspectivas — a força incopiável do actor.
+- **SUBSTRATO ÚNICO = também é o CRM (Lei §5, não-duplicação):** a MESMA aresta serve social (conectar/
+  plateias), **CRM** (meus clientes/fornecedores/colaboradores = a agenda de contatos da empresa) e
+  B2B. Aceitar uma empresa como "fornecedor" já a coloca no CRM como fornecedor — **um dado, N usos**.
+  **Aposenta o `contacts` fantasma** (não se cria tabela de CRM paralela). Alinha DECISION-0159
+  ("ERP Social" = composição, não módulo novo).
+- **🔴 RELAÇÃO ≠ AUTORIDADE (regra dura):** aceitar conexão **NUNCA** concede `canManageCompany`/operar.
+  "Colaborador/funcionário" tem DOIS sentidos que a arquitetura separa:
+  - *rótulo de relação* (CRM: "é meu funcionário") — contexto/plateia, **zero poder**;
+  - *operar a empresa* (postar como page, estoque, dinheiro) — **sempre** `company_users` +
+    `canManageCompany` (a catraca blindada contra IDOR).
+  Um convite "funcionário" pode DISPARAR o fluxo de virar operador, mas o **grant é ato separado e
+  explícito do dono** (fluxo real de membros), **nunca** implícito no aceite social. Isto protege
+  os IDORs que fechamos (DT-AUTHORITY-*).
+  - **✅ Clayton 2026-07-04 — "ao aceitar o colaborador, já poder colocar as permissões":** o aceite
+    de uma conexão tipo *colaborador* **abre o painel de permissões** e o dono atribui ali mesmo (UX
+    fluida, um passo). MAS as travas seguem invioláveis: **(a)** só quem tem `canManageCompany` sobre
+    a empresa pode conceder (o aceite é o gatilho; o grant revalida a autoridade do dono server-side);
+    **(b)** as permissões vêm do **mapa canônico** (`MAPA_CANONICO_PERMISSIONS_v1`, Lei §4.9.4) — sem
+    chave inventada, sem texto livre; **(c)** escreve o substrato REAL (`company_users` + permissões
+    canônicas), nunca um paralelo (Lei §5); **(d)** herda a contenção de escopo já blindada
+    (canRepresentActor só por delegação FULL; permissões finas via `checkPermission`/`can_*`).
+    Resultado: conveniência de UI (aceitar + permissionar num fluxo) **sem** que o aceite social, por
+    si, conceda poder — o poder vem do ato explícito e autorizado do dono.
 - **Plateias** (privacidade por camada: público → conexões-de-tipo-X → só eu) leem essa relação.
   Precondição técnica: fechar `DT-SOCIAL-POST-VISIBILITY-NOT-ENFORCED-ON-READ` (hoje a visibilidade
   é gravada mas ignorada na leitura).
+- **🔴 Chamado gated por FATO DE NEGÓCIO (Clayton 2026-07-04, refinado):** só existe chamado se houver
+  **negócio real entre as partes** (uma transação/pedido/serviço contratado no ledger/bookings) — não
+  basta conexão. Sem fato de negócio, as ações disponíveis são **Mensagem** ou **Agendamento**. O
+  chamado **referencia** o evento de negócio específico ("comprei X e deu problema"). Isto ancora o
+  chamado na verdade causal (segmentos.md #5 "Confiança causal" — tudo ancora em evento REAL do
+  ledger/booking) e é a *porta de entrada por FATO* da Escada de Reciprocidade. Gate server-side.
 
 ---
 
@@ -118,16 +150,47 @@ Hoje só existe `follows` (seguir assimétrico). O wireframe pede **conexão + a
 
 ---
 
-## 7. 🔴 DECISÕES PENDENTES (Clayton — o desenho só sela com elas)
+## 7. DECISÕES
 
-1. **Confirma o modelo de blocos** (casca universal + blocos-projeção dirigidos por capability) como
-   a arquitetura da página do actor?
-2. **Relação simétrica ou assimétrica?** (recomendo assimétrica — cada lado classifica o outro).
-3. **Conjunto canônico inicial de tipos de relação** por par de actor (proponho uma lista mínima
-   pra você editar: PF↔PF {amigo, conhecido, familiar}; PF↔PJ {cliente, colaborador, fornecedor};
-   PJ↔PJ {fornecedor, cliente, parceiro}).
-4. **Primeira barra de ações:** começar pelas ações **sem dinheiro** (Conectar, Mensagem, Agendar,
+**✅ Ratificadas por Clayton (2026-07-04):**
+- Relação **assimétrica** (cada lado classifica, no envio E no aceite).
+- **B2B** primeira classe (empresa↔empresa).
+- Substrato de relação = **também o CRM** (um dado, N usos; aposenta `contacts` fantasma).
+- **Colaborador:** rótulo de relação; ao aceitar, o dono pode atribuir permissões ali mesmo — via o
+  substrato REAL de autoridade (`company_users` + mapa canônico), nunca por aceite social implícito.
+
+**🔴 Ainda pendentes (o desenho só sela com elas):**
+1. **Confirma o modelo de blocos** (casca universal + blocos-projeção por capability) como a
+   arquitetura da página do actor?
+2. **Conjunto canônico inicial de tipos de relação** por par (proposta mínima pra editar: PF↔PF
+   {amigo, conhecido, familiar}; PF↔PJ {cliente, colaborador, fornecedor}; PJ↔PJ {fornecedor,
+   cliente, parceiro}).
+3. **Primeira barra de ações:** começar pelas ações **sem dinheiro** (Conectar, Mensagem, Agendar,
    ver Produtos/Serviços, Chamado) e deixar Comprar/Contratar renderizando mas gated na PORTA-1?
+
+---
+
+## 8B. HORIZONTE — ORQUESTRAÇÃO B2B (Clayton 2026-07-04, NOMEADO, NÃO construir agora)
+
+A aresta actor↔actor entre empresas não é só rótulo de CRM — pode virar **canal operacional vivo**:
+quando A é fornecedor de B, a relação carrega **orquestração** (config na aresta): estoque de B cai
+do limiar → o sistema **abre solicitação de orçamento (RFQ)** para A, ou **faz a compra** → pedido →
+envio → recebimento → baixa/entrada de estoque automática. É o **ERP/cadeia de suprimentos** da visão
+("empresas fazendo negócio entre si dentro do UnifiCard"; cadeia multi-elo fábrica→CD→loja→cliente).
+
+**É composição, não arquitetura nova** (Lei §5): usa `inventory_movements` (LIVE) + a aresta de
+relação + pedidos + agenda + ledger. Alinha `segmentos.md` #1 (mercado de ociosidade) / #2 (intenção
+composta) e DECISION-0159 ("ERP Social" = composição).
+
+**DISCIPLINA (segmentos.md):** *"a grandeza da visão é razão para mais disciplina, não menos."* Isto
+é o **horizonte**, não a próxima fatia. Gated por: (a) o substrato de relação existir; (b) inventário
+ligado à aresta; (c) **PORTA-1** (a compra move dinheiro = decisão soberana). O desenho só exige que
+a aresta seja **desenhada para SUPORTAR** config de orquestração no futuro — **não** que se construa
+agora. Constrói-se muito depois, quando as fundações estiverem de pé + GO explícito.
+
+**NORTE (Clayton):** tudo isso serve a uma coisa — **facilitar a vida das pessoas.** Um sistema só,
+menos atrito; a máquina faz o repetitivo (recompra automática, RFQ, baixa de estoque) para a pessoa
+cuidar do que importa. Perfil unificado + relação + orquestração = menos telas, menos apps, mais vida.
 
 ---
 
