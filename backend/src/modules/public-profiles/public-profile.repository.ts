@@ -255,6 +255,11 @@ class PublicProfileRepository {
   }
 
   async getProfileBySlug(tenantId: string, slug: string): Promise<PublicProfile | null> {
+    // 🔴 F4 FIX (YALA 2026-07-04): resolução por slug é caminho PÚBLICO (rota pública GET /:slug e
+    // storefront de venue /v/:slug). Antes NÃO filtrava visibility → perfil 'private'/'followers_only'
+    // (ou despublicado) seguia legível por quem adivinhasse o slug (slug deriva do display_name =
+    // enumerável), anulando o "unpublish". Só perfil PÚBLICO resolve por slug; a visão do dono do
+    // próprio perfil não-público vive em GET /mine (autenticado), não aqui.
     const row = await runQueryWithTenant<PublicProfileRow>(
       tenantId,
       `
@@ -262,7 +267,7 @@ class PublicProfileRepository {
         bio, avatar_url, cover_url, visibility, metadata,
         created_at, updated_at
       FROM public_profiles
-      WHERE tenant_id = $1 AND slug = $2
+      WHERE tenant_id = $1 AND slug = $2 AND visibility = 'public'
       `,
       [tenantId, slug]
     );

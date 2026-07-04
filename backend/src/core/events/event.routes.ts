@@ -240,6 +240,32 @@ async function userRepresentsActor(
   }
 }
 
+/**
+ * 🔴 F1/F2/F3 FIX (auditoria YALA 2026-07-04, DT-AUTHORITY-REGUA-PELA-METADE): handlers de mutação
+ * que roteiam para services OUTROS que `eventService` (payment/revoke → eventPaymentPreparedService;
+ * commitments/fail|check-in|check-out → operationalCommitmentsService) NÃO passavam pela catraca de
+ * V1 (`resolveRepresentedActor` sobre actionContext) — a "régua pela metade" reaparecendo num
+ * service com outro nome. Esta prova, fail-closed, que o utilizador autenticado REPRESENTA o dono do
+ * EVENTO ao qual o objeto-alvo (autorização/commitment) pertence — o mesmo direito de autoridade que
+ * o `authorize` já exige. Lança ForbiddenError/NotFoundError (mapear p/ 403/404 no handler).
+ */
+async function assertRepresentsEventOwner(
+  tenantId: string,
+  userId: string | undefined,
+  eventId: string
+): Promise<void> {
+  if (!userId) {
+    throw new ForbiddenError('Autenticação obrigatória para agir sobre o evento');
+  }
+  const event = await eventService.getEvent(tenantId, eventId);
+  if (!event) {
+    throw new NotFoundError('Evento não encontrado');
+  }
+  if (!(await userRepresentsActor(tenantId, userId, event.actorId))) {
+    throw new ForbiddenError('Usuário não representa o dono do evento');
+  }
+}
+
 const eventRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /events
@@ -1709,6 +1735,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔴 F3 FIX (YALA): a catraca ANTES só existia SE observed_by_actor_id viesse no body —
+        // omitindo-o, o check-in rodava SEM autoridade (a catraca protegia o eixo errado). Agora
+        // prova-se INCONDICIONALMENTE que o caller representa o dono do evento do commitment.
+        const commitment0 = await operationalCommitmentsService.getCommitment(req.tenant.id, req.params.id);
+        if (!commitment0) {
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Commitment não encontrado');
+        }
+        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, commitment0.eventId);
+
         // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: se observed_by_actor_id for declarado no body (schema
         // runtime snake_case), o utilizador autenticado DEVE representá-lo (fail-closed).
         const checkInObservedBy = (req.body as { observed_by_actor_id?: string }).observed_by_actor_id;
@@ -1728,6 +1763,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         }
         if (error instanceof NotFoundError) {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
+        }
+        if (error instanceof ForbiddenError) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao fazer check-in');
         return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error during check-in');
@@ -1773,6 +1811,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔴 F3 FIX (YALA): prova incondicional de representação do dono do evento (ver check-in).
+        const commitment0 = await operationalCommitmentsService.getCommitment(req.tenant.id, req.params.id);
+        if (!commitment0) {
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Commitment não encontrado');
+        }
+        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, commitment0.eventId);
+
         // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: se observed_by_actor_id for declarado no body (schema
         // runtime snake_case), o utilizador autenticado DEVE representá-lo (fail-closed).
         const checkOutObservedBy = (req.body as { observed_by_actor_id?: string }).observed_by_actor_id;
@@ -1792,6 +1837,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         }
         if (error instanceof NotFoundError) {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
+        }
+        if (error instanceof ForbiddenError) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao fazer check-out');
         return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error during check-out');
@@ -1837,6 +1885,14 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔴 F2 FIX (YALA): antes qualquer autenticado marcava commitment/staff alheio como failed
+        // (sabotagem de operação). Prova incondicional de representação do dono do evento.
+        const commitment0 = await operationalCommitmentsService.getCommitment(req.tenant.id, req.params.id);
+        if (!commitment0) {
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Commitment não encontrado');
+        }
+        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, commitment0.eventId);
+
         const commitment = await operationalCommitmentsService.markFailed(
           req.tenant.id,
           req.params.id,
@@ -1850,6 +1906,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         }
         if (error instanceof NotFoundError) {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
+        }
+        if (error instanceof ForbiddenError) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao marcar como failed');
         return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while marking as failed');
@@ -2632,6 +2691,21 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // 🔴 F1 FIX (YALA): provar autoridade sobre o DONO DO EVENTO da autorização e cruzar o
+        // :eventId da URL (antes decorativo) com o event_id real — antes, qualquer autenticado
+        // revogava autorização de pagamento alheia (BOLA/IDOR money-domain, irmão de V1).
+        const existing = await eventPaymentPreparedService.getAuthorization(
+          req.tenant.id,
+          req.body.authorization_id
+        );
+        if (!existing) {
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Autorização de pagamento não encontrada');
+        }
+        if (existing.event_id !== req.params.eventId) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, 'Autorização não pertence ao evento informado');
+        }
+        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, existing.event_id);
+
         const authorization = await eventPaymentPreparedService.revokeAuthorization(
           req.tenant.id,
           req.body.authorization_id,
@@ -2648,6 +2722,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         }
         if (error instanceof NotFoundError) {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
+        }
+        if (error instanceof ForbiddenError) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao revogar autorização');
         return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while revoking authorization');

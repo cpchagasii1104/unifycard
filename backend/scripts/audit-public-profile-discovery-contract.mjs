@@ -53,6 +53,10 @@ check('routes: PATCH/visibility verificam que o perfil pertence ao actor represe
 check('service: createProfile força o actor provado (authorizedActorId), descarta input.actorId',
   service.includes('authorizedActorId') && service.includes('actorId: authorizedActorId'));
 
+// 8 · F4 (YALA): resolução por slug (caminho público + venue /v/:slug) filtra visibility='public'
+check("repo: getProfileBySlug filtra visibility='public' (não serve private/despublicado por slug)",
+  /getProfileBySlug[\s\S]*?WHERE tenant_id = \$1 AND slug = \$2 AND visibility = 'public'/.test(repo));
+
 // 6 · Slice B — wiring frontend protegido (toggle sem verdade local; hits globais sem navegação fantasma)
 const FRONT = resolve(ROOT, '..', 'frontend', 'src');
 const readF = (p) => readFileSync(resolve(FRONT, p), 'utf8');

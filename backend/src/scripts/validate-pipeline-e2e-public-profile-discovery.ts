@@ -184,6 +184,23 @@ async function main(): Promise<void> {
       !!hitF && hitF.origin === 'local',
       `people=${JSON.stringify(searchB4.sections.people)}`);
 
+    // F4 · (YALA) GET /public-profiles/:slug NÃO serve perfil não-público. Com o perfil public,
+    // resolve por slug; ao virar private, o MESMO slug passa a 404 (o "unpublish" vale também no
+    // caminho by-slug, antes furado).
+    const slug = mineBody?.data?.slug as string | undefined;
+    const rSlugPublic = await call('GET', `/public-profiles/${slug}`, { userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A });
+    await call('POST', '/public-profiles/publish', {
+      userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A, body: { visibility: 'private' },
+    });
+    const rSlugPrivate = await call('GET', `/public-profiles/${slug}`, { userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A });
+    record('F4 GET /:slug serve public (200) mas NÃO serve private (404) — unpublish vale by-slug',
+      !!slug && rSlugPublic.statusCode === 200 && rSlugPrivate.statusCode === 404,
+      `slug=${slug} public=${rSlugPublic.statusCode} private=${rSlugPrivate.statusCode}`);
+    // restaura public para os passos seguintes
+    await call('POST', '/public-profiles/publish', {
+      userId: clayton.userId, actorId: clayton.actorId, tenantId: TENANT_A, body: { visibility: 'public' },
+    });
+
     // V2 · CONFUSED-DEPUTY na POST legada (auditoria forense 2026-07-04): o Dev, representando o
     // PRÓPRIO actor (passa o gate), tenta criar a vitrine sob o actorId do Clayton (vítima) via body.
     // Fix: o sujeito é SEMPRE o actor provado → a linha nasce sob devB, NUNCA sob clayton.

@@ -79,6 +79,16 @@ async function main(): Promise<void> {
     [eventId, TENANT, owner.actorId]
   );
 
+  // Commitment (event_staff) do evento do DONO — para F2 (markFailed) e F3 (check-in) — event_staff
+  // EXISTE no schema vivo (o path economico/v2 de autorizacao/custodia/repasse e schema-ghost, por
+  // isso F1 revoke fica CONTIDO por ghost hoje; o fix de F1 usa o MESMO helper provado aqui).
+  const commitmentId = randomUUID();
+  await pool.query(
+    `INSERT INTO event_staff (id, tenant_id, event_id, responsible_actor_id, responsible_actor_type, role, status, created_at, updated_at)
+     VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,'user','staff','active',NOW(),NOW())`,
+    [commitmentId, TENANT, eventId, owner.actorId]
+  );
+
   const eventRoutes = (await import('../core/events/event.routes')).default;
   const app = Fastify();
   app.decorateRequest('user', null);
@@ -145,6 +155,38 @@ async function main(): Promise<void> {
     record('C PATCH pelo DONO (representa a si mesmo) → NÃO-403',
       rOwnerEdit.statusCode !== 403,
       `status=${rOwnerEdit.statusCode} body=${rOwnerEdit.body?.slice(0, 160)}`);
+
+    const staffStatus = async () => (await pool.query<{ status: string }>(`SELECT status FROM event_staff WHERE id=$1`, [commitmentId])).rows[0]?.status;
+
+    // F2 · ATACANTE marca commitment alheio como failed → 403, status inalterado
+    const rHackFail = await call('POST', `/commitments/${commitmentId}/v2/fail`, {
+      userId: attacker.userId,
+      actorId: attacker.actorId,
+      body: { failure_reason: 'sabotagem' },
+    });
+    record('F2 POST /commitments/:id/fail por ATACANTE → 403, status inalterado',
+      rHackFail.statusCode === 403 && (await staffStatus()) === 'active',
+      `status=${rHackFail.statusCode} staff=${await staffStatus()}`);
+
+    // F3 · ATACANTE faz check-in em commitment alheio OMITINDO observed_by (o bypass) → 403
+    const rHackCheckin = await call('POST', `/commitments/${commitmentId}/v2/check-in`, {
+      userId: attacker.userId,
+      actorId: attacker.actorId,
+      body: {}, // sem observed_by_actor_id: o bypass que a catraca antiga permitia
+    });
+    record('F3 POST /commitments/:id/check-in por ATACANTE (sem observed_by) → 403, status inalterado',
+      rHackCheckin.statusCode === 403 && (await staffStatus()) === 'active',
+      `status=${rHackCheckin.statusCode} staff=${await staffStatus()}`);
+
+    // F3b · DONO faz check-in no próprio commitment → NÃO-403 (catraca deixa o legítimo passar)
+    const rOwnerCheckin = await call('POST', `/commitments/${commitmentId}/v2/check-in`, {
+      userId: owner.userId,
+      actorId: owner.actorId,
+      body: {},
+    });
+    record('F3b check-in pelo DONO → NÃO-403',
+      rOwnerCheckin.statusCode !== 403,
+      `status=${rOwnerCheckin.statusCode} body=${rOwnerCheckin.body?.slice(0, 160)}`);
 
     // D · Δbank = 0
     const bankAfter = await pool.query<{ n: string }>(
