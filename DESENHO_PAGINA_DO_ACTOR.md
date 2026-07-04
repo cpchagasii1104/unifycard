@@ -121,6 +121,19 @@ GET /actor-page/:actorId?mode=consuming|operating  →
   seguidos; Operar vê o que importa ao negócio). Ranking = pilar de descoberta (ranking pack; boost
   proibido no MVP). **Não construir feed novo — acoplar/estender o vivo.**
 
+## 2.4c COMPOSER (criar post) ADAPTATIVO — Clayton 2026-07-04
+As variáveis de criação de post mudam por **actor + modo operante** (como no Facebook: Foto/vídeo,
+marcar, check-in, colaborador, ao vivo… + seletor de plateia). No UnifiCard:
+- **Opções do composer = capabilities do actor no modo atual** (server-driven, §2.4). PF/Consumir:
+  texto, foto/vídeo (post/reel), sentimento, check-in. PJ/Operar acende extras: **anexar produto/
+  oferta, serviço, evento, promoção** — cada um projetando o pilar vivo (catálogo/services/eventos),
+  nunca campo novo. "Convidar colaborador" = ponte pro fluxo de membros (autoridade, §5, não aceite social).
+- **Seletor de plateia = as PLATEIAS da relação tipada** (§5): Público · conexões-de-tipo-X · grupo ·
+  Só eu · lista custom (amigos próximos). NÃO é enum de UI hardcoded — deriva do substrato de relação
+  + a precondição de leitura (Fatia 5, fecha DT-SOCIAL-POST-VISIBILITY). Plateia é gravada E obedecida.
+- **Regra:** o composer é PROJEÇÃO das capabilities+plateias resolvidas server-side; o cliente só
+  renderiza as opções que o contrato mandou (web e app iguais). Frontend não decide o que pode postar.
+
 ## 2.5 OS BLOCOS/CATEGORIAS ANCORAM NA ONTOLOGIA EXISTENTE — N0/N1/N2 (Clayton 2026-07-04)
 **Nenhum bloco/aba/categoria inventa taxonomia.** Tudo ancora na ontologia CONGELADA do sistema
 (`18_DOMAIN_ONTOLOGY`: 12 domínios N0 lista fechada + N1/N2) e no substrato semântico vivo
