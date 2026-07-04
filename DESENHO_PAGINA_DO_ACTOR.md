@@ -208,6 +208,33 @@ Hoje só existe `follows` (seguir assimétrico). O wireframe pede **conexão + c
 
 ---
 
+## 5B. EXPERIÊNCIA / AVALIAÇÃO ANCORADA EM FATO DE NEGÓCIO (Clayton 2026-07-04) — "confiança causal"
+
+Quem **comprou ou contratou** pode acessar um espaço para **postar a experiência** (avaliação/review)
+sobre aquele negócio. Regra igual à do chamado — **gated por FATO DE NEGÓCIO**, não por conexão:
+- só posta experiência quem tem uma **transação/booking REAL** no ledger/bookings com aquele actor;
+- a avaliação **referencia o evento de negócio específico** ("comprei X / contratei Y") → impossível
+  falsificar (é a composição #5 "confiança causal" de `segmentos.md`: review solta é falsificável;
+  ancorada na transação, não);
+- aparece como um **bloco** na página do actor avaliado (aba "Avaliações"/dentro de "Tudo"), acende
+  quando há avaliações reais — mesma mecânica de bloco adaptativo (§2.2b);
+- é a *porta de entrada por FATO* da Escada de Reciprocidade (cliente = quem transacionou).
+- **INCENTIVO (Clayton 2026-07-04):** como a avaliação é ancorada e incopiável, a única forma de
+  manter reputação boa é **entregar bem de verdade** → alinha o interesse de todos com o comportamento
+  certo. Reputação = mérito por participação real, nunca por boost pago (coerente com o ranking pack
+  que PROÍBE boost no MVP). É um dos motores de qualidade do ecossistema.
+- **ALIMENTA A PESQUISA (Clayton 2026-07-04):** a experiência ancorada serve de **pesquisa para quem
+  vai contratar/comprar** — o comprador consulta a reputação REAL antes de decidir. Fecha o ciclo:
+  fato de negócio → avaliação ancorada → descoberta/ranking → nova decisão de compra informada.
+  Conecta com o marketplace ranking pack (reputação causal como sinal de relevância, não boost pago).
+
+**🔴 GATED — substrato de reputação NÃO-VIVO:** `segmentos.md` #5 registra que o substrato de
+reputação só existe em `migrations_archive` (não materializado). Portanto isto é **frente própria
+futura** (nomeada, não construída agora): exige (a) o substrato de relação/booking maduro, (b)
+materializar reputação como frente dedicada, (c) o guard de ancoragem (review sempre → evento real).
+NÃO é fatia da página; é composição que a página PROJETA quando existir. Δbank=0 (avaliação não é
+dinheiro), mas depende de bookings/ledger reais (logo, cruza com PORTA-1 no fluxo de compra/contrato).
+
 ## 6. FRONTEIRAS (invioláveis)
 
 - **Dinheiro:** blocos "Comprar/Contratar" **renderizam**, mas a transação fica **atrás da PORTA-1**
