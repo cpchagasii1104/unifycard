@@ -54,6 +54,19 @@ capa · avatar · nome · tipo (PF/PJ/grupo/canal…) · descrição · **barra 
 `Sobre` · `Posts` (social) · `Produtos` (catálogo) · `Serviços` (services) · `Agenda/Horário`
 (availability) · `Localização + aberto-agora` (Location Core + agenda) · `Programação` (eventos) · …
 
+### 2.3 A PÁGINA É A ESTRUTURA ÚNICA (Clayton 2026-07-04) — rede social + comércio + hub
+- **NÃO há "página social" separada de "loja"/"catálogo"/"serviços".** A MESMA página que já é rede
+  social (ver publicações) projeta produtos, serviços, loja — como BLOCOS da mesma casca. Uma
+  estrutura, todos os contextos.
+- **A página é o HUB / launchpad:** dela o usuário **navega para o destino** (clicar "Produtos" → ver
+  a loja; "Serviços" → contratar; "Agenda" → agendar; um post → abrir; "Comprar" → checkout). Os
+  blocos são conteúdo **E** porta de entrada pros fluxos vivos (que já existem).
+- **CONVERGÊNCIA (anti-página-paralela, Lei §2):** as páginas de perfil que já existem —
+  `SocialProfilePage` (/profile/:id, fina), `SocialCompanyPage` (/company/:id, fina) e
+  `VitrineProfilePage` (/vitrine/:actorId, esta sessão) — **convergem numa casca única**. Nada de
+  criar uma 4ª página; a casca ABSORVE o papel delas (local vs vitrine cross-tenant = a mesma casca
+  com fonte de dados diferente). Reconciliação faz parte da Fatia 3.
+
 ---
 
 ## 3. MAPA BLOCO/AÇÃO → PILAR (nenhum SSOT novo; cada bloco PROJETA algo que já existe)
