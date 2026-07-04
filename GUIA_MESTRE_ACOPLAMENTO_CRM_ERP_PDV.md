@@ -193,13 +193,38 @@ triagem 4 impersonações, delegação-escopo, página da vitrine + cartão púb
 
 ---
 
-## 8. REGRA DE OURO PARA A PRÓXIMA AÇÃO
+## 8. RE-ENTRADA PÓS-COMPACTAÇÃO — LEIA NESTA ORDEM (auto-orientação da executora)
 
-Antes de escrever 1 linha de código nesta missão:
-1. Reler §1 (leis) e §2 (o que já existe).
-2. Perguntar: "isso já existe como SSOT?" → se sim, ACOPLAR.
-3. Confirmar a decisão §4 tomada por Clayton.
-4. Spec → revisão → código só com guard+E2E → cartório → commit.
-5. Rodar `validate:regression-guards` (nunca quebrar os guards de autoridade).
+**Contexto foi compactado. Você é a executora retomando a missão. NÃO re-descubra — siga:**
 
-**Se o impulso for "construir tudo agora" → PARAR.** A visão é grande; a disciplina que a torna real.
+**PASSO 1 — reancorar (ler, nesta ordem):**
+1. Este guia INTEIRO (§1 leis · §2 substrato vivo · §2B raio-x profundo · §4 decisão · §5 fatias).
+2. `DESENHO_PAGINA_DO_ACTOR.md` (SELADO) — a arquitetura da página/relação/blocos.
+3. `SPEC_FATIA1_RELACAO_TIPADA.md` — o spec da fatia que vamos construir.
+4. Memória: `project_frente_acoplamento_crm_erp_pdv` + `project_frente_auditoria_forense_autoridade`
+   (autoridade blindada — NÃO regredir) + `project_frente_visibilidade_descoberta` (vitrine viva).
+
+**PASSO 2 — confirmar o fork §4 com Clayton** (reconciliação CRM). Recomendação registrada = **Opção B**
+(unificação actor-first: aresta = CRM; `suppliers` ganha `actor_id` ponte SEM quebrar
+`purchase_orders.supplier_id`; `contacts` ghost morre → fecha DT). Se Clayton confirmar B, seguir.
+
+**PASSO 3 — EXECUTAR A FATIA 1** (o plano JÁ decidido — "como fazer" abaixo):
+- **Migração** (numeração canônica §15): `actor_relationships` (aresta assimétrica: `from_actor_id`,
+  `to_actor_id`, `status` CHECK[pending/accepted/rejected/removed/blocked], `requester_label`,
+  `target_label`, audit fields §4.13, UNIQUE par não-ordenado, `from<>to`); tipos via **CHECK**
+  (não tabela nova) com o seed aprovado §7 do desenho. + `suppliers.actor_id` (nullable, ponte).
+- **Repo/Service:** criar aresta (envio) + responder (aceite classificado); `canRepresentActor` no
+  envio E no aceite (fail-closed 403); NUNCA tocar `company_users`/`bank_*` (relação≠autoridade).
+- **Guard** `audit-actor-relationship-boundary.mjs`: aresta nunca importa/escreve company_users/
+  bank_*; labels sempre ∈ vocabulário; + adicionar ao agregador `validate:regression-guards`.
+- **E2E adversarial** (ephemeral, NUNCA unificard_dev): enviar/aceitar AS actor alheio→403; tipo fora
+  do vocab→rejeitado; aceite NÃO cria linha em company_users; auto-conexão→rejeitada; Δbank=0.
+- **Ciclo:** typecheck → guard → E2E → `validate:regression-guards` (verde) → cartório
+  (`REMEDIATION_DT_LOG`) → commit. Só então Fatia 2.
+
+**PASSO 4 — regras que não mudam:** §1 (leis). Dinheiro/split = PORTA-1 (não tocar). "impulso de
+construir tudo" → PARAR. Substrato antes de superfície. Cada fatia: spec→revisão→código+guard+E2E.
+
+**Ordem das fatias (§5):** 1 relação(+ponte suppliers) → 2 aceite classificado → 3 casca+blocos+
+contrato server-driven → 4 blocos sem-dinheiro → 5 plateias na leitura → 6 chamado → 7 CRM projetado
+(mata contacts ghost) → 8 ERP composto → 9 PDV+orquestração+split (PORTA-1).
