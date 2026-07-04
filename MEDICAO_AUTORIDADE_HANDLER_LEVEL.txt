@@ -1,0 +1,118 @@
+═══════════════════════════════════════════════════════════════
+MEDIÇÃO handler-level da dívida de autoridade (READ-ONLY, não-gate)
+═══════════════════════════════════════════════════════════════
+handlers totais varridos: 1163  ·  mutações (post/put/patch/delete): 582
+suspeitos (teto superior): 68 handlers em 18 arquivos
+  ├─ JÁ COBERTOS por guard/baseline/allowlist (falso-positivo esperado): 3 handlers / 3 arquivos
+  └─ 🔴 NÃO-COBERTOS (dívida real candidata a triagem): 65 handlers / 15 arquivos
+arquivos com resolvedor de nome enganoso (getAuthenticated*Actor etc): 1
+
+⚠️  RESOLVEDORES FRACOS (nome sugere autoridade, corpo só faz findById — o padrão de V1):
+   · core/events/event.routes.ts  🔴 NÃO-COBERTO
+
+🔴 NÃO-COBERTOS por arquivo (15 arquivos — a fila real):
+
+  core/events/event.routes.ts  (18 handlers)
+     POST /  — resolvedor-fraco (nome sugere autoridade, só findById) mesmo com binding presente
+     PATCH /:id  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:id/publish  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:id/cancel  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:id/checkout  — resolvedor-fraco (nome sugere autoridade, só findById) mesmo com binding presente
+     POST /:id/v2/declare  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:id/v2/publish  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:id/v2/activate  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:id/v2/end  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:id/v2/cancel  — canal + resolvedor-fraco + SEM binding no handler
+     POST /v2/create  — resolvedor-fraco (nome sugere autoridade, só findById) mesmo com binding presente
+     POST /:id/v2/time-windows  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:eventId/economic/v2/advance  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:eventId/economic/v2/payment/authorize  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:eventId/economic/v2/payment/execute  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:eventId/economic/v2/refund  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:eventId/economic/v2/chargeback  — canal + resolvedor-fraco + SEM binding no handler
+     POST /:eventId/economic/v2/chargeback/resolve  — canal + resolvedor-fraco + SEM binding no handler
+
+  core/identity/identity.routes.ts  (10 handlers)
+     POST /update  — canal client-declared + SEM binding no handler
+     PUT /configurations  — canal client-declared + SEM binding no handler
+     POST /confirm-first-access  — canal client-declared + SEM binding no handler
+     POST /confirm-civil-data  — canal client-declared + SEM binding no handler
+     POST /pj/kyb/requests  — canal client-declared + SEM binding no handler
+     PATCH /pj/kyb/admin/requests/:requestId/review  — canal client-declared + SEM binding no handler
+     POST /pj/kyb/admin/fiscal-identities/:fiscalIdentityId/revoke  — canal client-declared + SEM binding no handler
+     POST /pj/kyb/documents  — canal client-declared + SEM binding no handler
+     PATCH /pj/kyb/documents/:documentId/review  — canal client-declared + SEM binding no handler
+     POST /pj/kyb/documents/:documentId/supersede  — canal client-declared + SEM binding no handler
+
+  modules/social/social-2.0.routes.ts  (7 handlers)
+     POST /posts/:id/reactions  — canal client-declared + SEM binding no handler
+     POST /posts/:id/comments  — canal client-declared + SEM binding no handler
+     POST /actors/switch  — canal client-declared + SEM binding no handler
+     POST /actors/:id/follow  — canal client-declared + SEM binding no handler
+     POST /actors/:id/unfollow  — canal client-declared + SEM binding no handler
+     POST /cta/:cta_id/confirm  — canal client-declared + SEM binding no handler
+     POST /posts/:post_id/vote  — canal client-declared + SEM binding no handler
+
+  modules/groups/groups.routes.ts  (5 handlers)
+     POST /:groupId/media  — canal client-declared + SEM binding no handler
+     PUT /:id  — canal client-declared + SEM binding no handler
+     DELETE /:id  — canal client-declared + SEM binding no handler
+     PATCH /:id/members/:userId  — canal client-declared + SEM binding no handler
+     DELETE /:id/members/:userId  — canal client-declared + SEM binding no handler
+
+  modules/events/event-rfq.routes.ts  (4 handlers)
+     POST /events/:eventId/rfqs/:rfqId/close  — canal client-declared + SEM binding no handler
+     POST /events/:eventId/rfqs/from-spec/:specId  — canal client-declared + SEM binding no handler
+     POST /events/:eventId/rfqs/:rfqId/dispatch  — canal client-declared + SEM binding no handler
+     POST /events/:eventId/rfqs/:rfqId/quotes/:quoteId/accept  — canal client-declared + SEM binding no handler
+
+  core/companies/company-members.routes.ts  (3 handlers)
+     POST /:companyId/members  — canal client-declared + SEM binding no handler
+     PUT /:companyId/members/:memberId  — canal client-declared + SEM binding no handler
+     DELETE /:companyId/members/:memberId  — canal client-declared + SEM binding no handler
+
+  modules/events/events-sprint76.routes.ts  (3 handlers)
+     POST /tickets/:id/cancel  — canal client-declared + SEM binding no handler
+     POST /checkin/:ticketSaleId  — canal client-declared + SEM binding no handler
+     POST /checkout/:ticketSaleId  — canal client-declared + SEM binding no handler
+
+  modules/marketplace/purchase-order.routes.ts  (3 handlers)
+     POST /purchase-orders/:id/items  — canal client-declared + SEM binding no handler
+     POST /purchase-orders/:id/submit  — canal client-declared + SEM binding no handler
+     POST /purchase-orders/:id/cancel  — canal client-declared + SEM binding no handler
+
+  core/location/me-active-location.routes.ts  (2 handlers)
+     POST /active-location  — canal client-declared + SEM binding no handler
+     DELETE /active-location  — canal client-declared + SEM binding no handler
+
+  modules/authority/actor-capability-grant.routes.ts  (2 handlers)
+     POST /grants  — canal client-declared + SEM binding no handler
+     POST /grants/:grantId/revoke  — canal client-declared + SEM binding no handler
+
+  modules/inbox/social-inbox.routes.ts  (2 handlers)
+     POST /:itemId/read  — canal client-declared + SEM binding no handler
+     POST /:itemId/archive  — canal client-declared + SEM binding no handler
+
+  modules/services/service-order.routes.ts  (2 handlers)
+     POST /service-orders/confirm-booking  — canal client-declared + SEM binding no handler
+     POST /service-orders/:id/confirm-financial-terms  — canal client-declared + SEM binding no handler
+
+  modules/services/services.routes.ts  (2 handlers)
+     POST /:serviceId/availability  — canal client-declared + SEM binding no handler
+     PUT /:serviceId/availability/:availabilityId  — canal client-declared + SEM binding no handler
+
+  core/feed/feed.routes.ts  (1 handler)
+     POST /action  — canal client-declared + SEM binding no handler
+
+  modules/services/service-bundle.routes.ts  (1 handler)
+     POST /service-bundles/confirm  — canal client-declared + SEM binding no handler
+
+ℹ️  JÁ COBERTOS (3 arquivos — binding cross-file/containment/allowlist; heurística de segmento não vê):
+   · core/feed/feed-plugin.routes.ts  (1)
+   · core/plan/plan.routes.ts  (1)
+   · modules/trust/trust.routes.ts  (1)
+
+───────────────────────────────────────────────────────────────
+NOTA: teto SUPERIOR (heurística de segmento; alguns podem ter binding cross-file
+em service, como os profile-c1 já reconhecidos). Revisão humana confirma cada um.
+É a base do passo 2 (corrigir V1) e do guard permanente que substituirá esta régua.
