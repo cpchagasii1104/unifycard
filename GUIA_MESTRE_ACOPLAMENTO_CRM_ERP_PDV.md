@@ -51,7 +51,18 @@ blindada). Norte: **facilitar a vida das pessoas** + **dinheiro voltando às reg
 | **Fornecedor** | **`suppliers` VIVO** (repo/rotas/service) | ⚠️ registro DIGITADO (nome/tax_id), NÃO actor — modelo FRAGMENTADO antigo |
 | B2B | `b2b_supply_orders`/`b2b_order_items`/b2b payment intents | maioria ghost (live=0), mas nomeado |
 | CRM `contacts` | ⚫ FANTASMA (`DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK`) | identidade paralela — candidato a matar |
-| PDV | `pdv.service` (firewall no caller `:228`) | LIVE, money gated |
+| PDV | `pdv_sessions` + módulo completo (service/repo/routes/firewall) | 🟢 VIVO, money-gated |
+
+**RAIO-X PARCIAL CRM/ERP/PDV (varredura 2026-07-04 — INCOMPLETO, falta raio-x dedicado):**
+- **PDV** 🟢 VIVO (`pdv_sessions`, módulo completo).
+- **ERP inventário** 🟢 VIVO+wired (`inventory_movements/balances/reservations/lots`).
+- **ERP `purchase_orders`** 🟢 VIVO+wired (2 arquivos runtime).
+- **ERP `b2b_orders`** 🟡 VIVO mas MORTO (tabela live, zero runtime — reativar exige frente própria).
+- **CRM** (`contacts`/`crm_notes`/`crm_tags`/`crm_consents`/`crm_contact_tags`) ⚫ FANTASMA (só
+  `migrations_archive`; código referencia, tabela ausente = `DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK`).
+- **`suppliers`** 🟢 VIVO (modelo fragmentado: nome/tax_id digitado, não actor).
+- **⚠️ PRÓXIMA AÇÃO OBRIGATÓRIA:** RAIO-X DEDICADO (read-first arquivo-por-arquivo, contexto fresco)
+  produzindo o MAPA DE ACOPLAMENTO antes de qualquer código. Não fingir que já se sabe.
 
 **Guards de autoridade ativos** (não quebrar): `audit-actor-authority-boundary`,
 `measure-handler-authority-gap` (GATE baseline-ratchet), `audit-actor-impersonation-writes`,
