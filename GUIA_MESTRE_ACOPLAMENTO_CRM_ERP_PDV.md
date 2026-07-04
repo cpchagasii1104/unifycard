@@ -72,6 +72,47 @@ blindada). Norte: **facilitar a vida das pessoas** + **dinheiro voltando às reg
 
 ---
 
+## 2B. RAIO-X PROFUNDO CRM/ERP/PDV (2026-07-04, verificado arquivo/schema) — BASE DA EXECUÇÃO
+
+### PDV 🟢 VIVO e coerente (o mais pronto)
+- `pdv_sessions` **actor-anchored** (`actor_id` NOT NULL; UNIQUE 1 sessão OPEN por actor via EXCLUDE);
+  status OPEN/CLOSED; module completo (`src/modules/pdv/`: service/repo/routes/**firewall**/types).
+- Rotas: abrir/fechar sessão · criar pedido do PDV · add item por variante/peso · **pagar** (money-gated
+  pelo firewall). Consome catálogo + inventário + Bank.
+- **Acoplamento:** PDV = a superfície **Operar** de venda da página do actor (bloco "PDV/Vender" no
+  modo Operando). Já é actor-first → acopla direto, sem reescrever.
+
+### ERP 🟢 PARCIALMENTE VIVO (base real, ancorada no modelo fragmentado)
+- **Inventário** VIVO+wired: `inventory_movements` (SSOT físico) + `balances/lots/reservations`.
+- **`purchase_orders`** VIVO+wired: `supplier_id`→**`suppliers`** (FK dura), `created_by_actor_id`→actors,
+  status DRAFT. Runtime: `purchase-order.service`, `accounts-payable.service`, `inventory-movement.repo`,
+  `marketplace.routes`. É um fluxo de compra REAL (PO→recebimento→inventário→a-pagar).
+- **`b2b_orders`** 🟡 VIVO mas MORTO (tabela existe, zero runtime).
+- **Acoplamento:** ERP = **composição** (inventário + purchase_orders + accounts-payable + agenda +
+  bank) projetada no modo **Operar** da página. **PROBLEMA:** o PO ancora em `suppliers` (fragmentado,
+  não actor) — a reconciliação (§4) precisa dar ao `suppliers` uma **ponte para actor** SEM quebrar o
+  fluxo vivo (FK `purchase_orders.supplier_id` não pode sumir).
+
+### CRM ⚫ FANTASMA + fragmentado (a maior dívida a curar)
+- `contacts` (archive/ghost): `name, tax_id (CPF/CNPJ), email, phone, user_id (SEM FK)` = **identidade
+  PARALELA** (a `DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK`, mesma classe do `suppliers`).
+- **DOIS caminhos de código** referenciam o ghost: `src/modules/crm/` (crm.repo/routes) E
+  `src/modules/marketplace/contact.*` (contact-feature.guard/repo/service/routes) — ambos contidos
+  (feature guard schema-ghost).
+- **Acoplamento:** CRM = a **aresta de relação tipada projetada** ("meus clientes/fornecedores/
+  colaboradores"). Ela **absorve** o ghost `contacts` e **reconcilia** `suppliers`. Um dado, N vistas.
+
+### A CRUX DA RECONCILIAÇÃO (agora com fatos)
+Hoje `suppliers` (fragmentado) é âncora de CRM E do ERP (purchase_orders FK). A visão quer a **aresta
+actor↔actor** como CRM único. Custo real da unificação (Opção B, recomendada):
+- adicionar `suppliers.actor_id` (nullable): quando o fornecedor É actor na plataforma, liga; a aresta
+  de relação (tipo=fornecedor) referencia; quando é off-platform, `suppliers` vira **actor leve**
+  (não-usuário) OU permanece registro externo com a aresta apontando pra ele;
+- `purchase_orders.supplier_id` **continua vivo** (não quebra); ganha resolução via actor quando houver;
+- `contacts` ghost **morre** (código migra pra ler a aresta) — fecha a DT.
+Isto é migração + wiring cuidadoso, NÃO rip-replace. Guard + E2E provando que o fluxo vivo (PO→
+inventário→a-pagar) não regride.
+
 ## 3. A TESE DE ACOPLAMENTO (como CRM/ERP/PDV se encaixam SEM módulo novo)
 
 **CRM, ERP e PDV NÃO são módulos novos — são COMPOSIÇÕES/PROJEÇÕES do substrato** (DECISION-0159
