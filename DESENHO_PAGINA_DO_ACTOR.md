@@ -128,6 +128,17 @@ Hoje só existe `follows` (seguir assimétrico). O wireframe pede **conexão + c
     (canRepresentActor só por delegação FULL; permissões finas via `checkPermission`/`can_*`).
     Resultado: conveniência de UI (aceitar + permissionar num fluxo) **sem** que o aceite social, por
     si, conceda poder — o poder vem do ato explícito e autorizado do dono.
+  - **✅ Clayton 2026-07-04 — fluxo bidirecional de onboarding de funcionário:** o pedido pode nascer
+    de qualquer lado: (i) a empresa CONVIDA o funcionário, ou (ii) o patrão PEDE ao funcionário que
+    ENVIE a solicitação, e o patrão aprova. Nos DOIS casos converge no mesmo ponto: **quem concede o
+    acesso é o ato autorizado do patrão** (com `canManageCompany`), atribuindo **função → permissões**.
+    O "conecta automaticamente ao sistema da empresa de acordo com as permissões/função" = a
+    MATERIALIZAÇÃO do acesso **depois** do grant autorizado — a solicitação/aceite é só o gatilho, a
+    autoridade vem da atribuição. **O funcionário enviar a solicitação NÃO concede nada a si mesmo**
+    (fail-closed; senão seria auto-escalonamento). **Função** é papel GOVERNADO (`company_users.role`
+    + fine-grants DECISION-0125), mapeando para um pacote de permissões do mapa canônico — nunca
+    texto livre. A "conexão ao sistema" = as superfícies de OPERAR da empresa acesas conforme as
+    permissões daquela função (modo Operando; §4).
 - **Plateias** (privacidade por camada: público → conexões-de-tipo-X → só eu) leem essa relação.
   Precondição técnica: fechar `DT-SOCIAL-POST-VISIBILITY-NOT-ENFORCED-ON-READ` (hoje a visibilidade
   é gravada mas ignorada na leitura).
