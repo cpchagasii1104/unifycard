@@ -1,8 +1,8 @@
 // backend/src/modules/public-profiles/public-profile.repository.ts
 // SPRINT 79: Repository para public_profiles
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import type { PublicProfile, CreatePublicProfileInput, UpdatePublicProfileInput, PublicProfileFilters } from './public-profile.types';
+import { runQueryWithTenant, runQueriesWithTenant, pool } from '@core/database/pool';
+import type { PublicProfile, CreatePublicProfileInput, UpdatePublicProfileInput, PublicProfileFilters, GlobalDiscoveryHit, PublicProfileType, PublishVisibility } from './public-profile.types';
 
 interface PublicProfileRow {
   id: string;
@@ -144,7 +144,9 @@ class PublicProfileRepository {
         input.bio || null,
         input.avatarUrl || null,
         input.coverUrl || null,
-        input.visibility || 'PUBLIC',
+        // alinhado ao CHECK da tabela ('public'/'private'/'followers_only' minúsculo) —
+        // o default antigo 'PUBLIC' violava o CHECK (módulo dormente nunca rodou).
+        input.visibility || 'public',
         JSON.stringify(input.metadata || {}),
       ]
     );
@@ -316,6 +318,120 @@ class PublicProfileRepository {
     );
 
     return rows.map((row) => this.toProfile(row));
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // F-DISCOVERY-PUBLIC-PROFILE-SLICE-A (VISIBILIDADE_E_DESCOBERTA_DESENHO_CANONICO.md)
+  // ────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Projeção SEGURA do actor para materializar a plaquinha (leitura prevista pelo SSOT registry:
+   * "Leitores futuros: busca/matching (read), via service"). NUNCA seleciona user_id/
+   * global_user_id/external_id/metadata — anti-PII por construção.
+   */
+  async getActorProjection(
+    tenantId: string,
+    actorId: string
+  ): Promise<{ id: string; display_name: string; slug: string | null; avatar_url: string | null; bio: string | null; actor_type: string } | null> {
+    const row = await runQueryWithTenant<{
+      id: string;
+      display_name: string;
+      slug: string | null;
+      avatar_url: string | null;
+      bio: string | null;
+      actor_type: string;
+    }>(
+      tenantId,
+      `SELECT id, display_name, slug, avatar_url, bio, actor_type
+         FROM actors
+        WHERE tenant_id = $1 AND id = $2`,
+      [tenantId, actorId]
+    );
+    return row ?? null;
+  }
+
+  /**
+   * Publica/atualiza a plaquinha do actor na vitrine (1 perfil por actor — uq_public_profiles_actor).
+   * Idempotente: ON CONFLICT atualiza projeção + visibility. Slug gerado no primeiro publish e
+   * PRESERVADO nos seguintes (identidade de URL estável).
+   */
+  async upsertByActor(
+    tenantId: string,
+    input: {
+      actorId: string;
+      profileType: PublicProfileType;
+      displayName: string;
+      bio: string | null;
+      avatarUrl: string | null;
+      visibility: PublishVisibility;
+    }
+  ): Promise<PublicProfile> {
+    const baseSlug = this.generateSlug(input.displayName);
+    const slug = await this.generateUniqueSlug(tenantId, baseSlug);
+
+    const row = await runQueryWithTenant<PublicProfileRow>(
+      tenantId,
+      `INSERT INTO public_profiles (
+         tenant_id, actor_id, profile_type, slug, display_name, bio, avatar_url, visibility, metadata
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '{}'::jsonb)
+       ON CONFLICT (tenant_id, actor_id) DO UPDATE SET
+         profile_type = EXCLUDED.profile_type,
+         display_name = EXCLUDED.display_name,
+         bio          = EXCLUDED.bio,
+         avatar_url   = EXCLUDED.avatar_url,
+         visibility   = EXCLUDED.visibility,
+         updated_at   = NOW()
+       RETURNING id, tenant_id, actor_id, profile_type, slug, display_name,
+         bio, avatar_url, cover_url, visibility, metadata, created_at, updated_at`,
+      [tenantId, input.actorId, input.profileType, slug, input.displayName, input.bio, input.avatarUrl, input.visibility]
+    );
+
+    if (!row) {
+      throw new Error('Erro ao publicar perfil na vitrine');
+    }
+    return this.toProfile(row);
+  }
+
+  /**
+   * LEITURA DA VITRINE — deliberadamente SEM filtro de tenant.
+   *
+   * Esta é a única query cross-tenant do módulo, e é LEGAL por construção (desenho canônico
+   * selado): public_profiles NÃO tem RLS (criada após 20260516100000_rls_critical_tables, fora
+   * da lista), só recebe PLAQUINHA (projeção pública publicada por ESCOLHA do dono via
+   * canRepresentActor), e visibility='public' é o único degrau exposto. Mesmo padrão de
+   * canonical_products scope='global' (Lei de Coerência §4.10.3). Dinheiro/agenda/documentos
+   * NUNCA passam por aqui. `pool.query` direto (não runQueryWithTenant) porque a semântica é
+   * global — usar o helper de tenant mentiria sobre a intenção.
+   */
+  async searchGlobalPublic(q: string, limit: number): Promise<GlobalDiscoveryHit[]> {
+    const res = await pool.query<{
+      actor_id: string;
+      tenant_id: string;
+      display_name: string;
+      slug: string | null;
+      avatar_url: string | null;
+      bio: string | null;
+      profile_type: string;
+    }>(
+      `SELECT actor_id, tenant_id, display_name, slug, avatar_url, bio, profile_type
+         FROM public_profiles
+        WHERE visibility = 'public'
+          AND profile_type IN ('user', 'page')
+          AND unaccent(display_name) ILIKE unaccent($1)
+        ORDER BY display_name ASC
+        LIMIT $2`,
+      [`%${q}%`, limit]
+    );
+    return res.rows.map((r) => ({
+      actorId: r.actor_id,
+      tenantId: r.tenant_id,
+      displayName: r.display_name,
+      slug: r.slug,
+      avatarUrl: r.avatar_url,
+      bio: r.bio,
+      profileType: r.profile_type as PublicProfileType,
+    }));
   }
 }
 

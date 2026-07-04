@@ -36,6 +36,56 @@ async function assertRepresentsActor(req: any, reply: any, actorId: string): Pro
 }
 
 const publicProfileRoutes = async (fastify: FastifyInstance) => {
+  // ──────────────────────────────────────────────────────────────────────────
+  // F-DISCOVERY-PUBLIC-PROFILE-SLICE-A (VISIBILIDADE_E_DESCOBERTA_DESENHO_CANONICO.md,
+  // selado por Clayton 2026-07-03) — publicar/tirar a PLAQUINHA do actor ativo na vitrine.
+  // O actor NUNCA vem do body (actionContext + canRepresentActor, DECISION-0113).
+  // Fase 1: 'public' | 'private' ('followers_only' = Fase 2, gated por
+  // DT-SOCIAL-POST-VISIBILITY-NOT-ENFORCED-ON-READ). Visibilidade NUNCA concede autoridade.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * POST /public-profiles/publish — publica ('public') ou despublica ('private') a plaquinha
+   * do PRÓPRIO actor ativo (upsert idempotente; 1 perfil por actor).
+   */
+  fastify.post<{ Body: { visibility?: string } }>('/public-profiles/publish', async (req, reply) => {
+    const tenantId = req.tenant!.id;
+    const actionContext = (req as any).actionContext;
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+    }
+    if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
+
+    const visibility = req.body?.visibility;
+    if (visibility !== 'public' && visibility !== 'private') {
+      return reply.status(400).send({ error: "visibility deve ser 'public' ou 'private'" });
+    }
+
+    const userId = (req as any).user?.userId ?? (req as any).user?.id;
+    try {
+      const profile = await publicProfileService.publishForActor(tenantId, actionContext.actorId, visibility, userId);
+      return reply.status(201).send({ ok: true, data: profile });
+    } catch (err: any) {
+      const status = err?.statusCode ?? 500;
+      return reply.status(status).send({ ok: false, error: err?.message ?? 'Erro ao publicar perfil' });
+    }
+  });
+
+  /**
+   * GET /public-profiles/mine — a plaquinha do próprio actor ativo (null se nunca publicou).
+   */
+  fastify.get('/public-profiles/mine', async (req, reply) => {
+    const tenantId = req.tenant!.id;
+    const actionContext = (req as any).actionContext;
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+    }
+    if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
+
+    const profile = await publicProfileService.getMineByActor(tenantId, actionContext.actorId);
+    return reply.send({ ok: true, data: profile });
+  });
+
   /**
    * POST /public-profiles
    * Cria perfil público
@@ -75,6 +125,17 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
     if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
+
+    // 🔴 F-DISCOVERY-SLICE-A hardening: representar o actor declarado NÃO basta — o perfil
+    // alvo precisa PERTENCER a esse actor (senão user A, representando o próprio actor,
+    // editaria perfil de actor alheio por id). Fail-closed.
+    const existing = await publicProfileService.getById(tenantId, req.params.id);
+    if (!existing) {
+      return reply.status(404).send({ error: 'Perfil não encontrado' });
+    }
+    if (existing.actorId !== actionContext.actorId) {
+      return reply.status(403).send({ error: 'Perfil não pertence ao actor representado' });
+    }
 
     const profile = await publicProfileService.updateProfile(
       tenantId,
@@ -121,9 +182,10 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
     if (req.query.profileType) {
       filters.profileType = req.query.profileType as any;
     }
-    // 🔴 F-0113: listagem PÚBLICA — visibility FORÇADA a PUBLIC server-side (cliente NÃO pode pedir
-    // PRIVATE e vazar perfis privados). actorId segue como filtro de recurso público (não autoridade).
-    filters.visibility = 'PUBLIC' as any;
+    // 🔴 F-0113: listagem PÚBLICA — visibility FORÇADA a public server-side (cliente NÃO pode pedir
+    // private e vazar perfis privados). actorId segue como filtro de recurso público (não autoridade).
+    // (minúsculo = CHECK da tabela; o valor maiúsculo antigo nunca casava com linha nenhuma)
+    filters.visibility = 'public';
     if (req.query.actorId) {
       filters.actorId = req.query.actorId;
     }
@@ -136,7 +198,8 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
 
     const profiles = await publicProfileService.listPublicProfiles(tenantId, filters);
 
-    return reply.send({ profiles, totalCents: profiles.length });
+    // 'total' (contagem) — o 'totalCents' antigo era vocabulário financeiro indevido num count
+    return reply.send({ profiles, total: profiles.length });
   });
 
   /**
@@ -145,7 +208,7 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.post<{
     Params: { id: string };
-    Body: { visibility: 'PUBLIC' | 'PRIVATE' };
+    Body: { visibility: 'public' | 'private' };
   }>('/public-profiles/:id/visibility', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
@@ -155,6 +218,19 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
     if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
+
+    if (req.body?.visibility !== 'public' && req.body?.visibility !== 'private') {
+      return reply.status(400).send({ error: "visibility deve ser 'public' ou 'private'" });
+    }
+
+    // 🔴 F-DISCOVERY-SLICE-A hardening: perfil alvo precisa pertencer ao actor representado
+    const target = await publicProfileService.getById(tenantId, req.params.id);
+    if (!target) {
+      return reply.status(404).send({ error: 'Perfil não encontrado' });
+    }
+    if (target.actorId !== actionContext.actorId) {
+      return reply.status(403).send({ error: 'Perfil não pertence ao actor representado' });
+    }
 
     const profile = await publicProfileService.changeVisibility(
       tenantId,

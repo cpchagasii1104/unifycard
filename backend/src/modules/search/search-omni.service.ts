@@ -19,10 +19,13 @@
 //                 id/display_name/slug/avatar_url/bio/actor_type. NUNCA user_id/global_user_id/
 //                 external_id/kyc_*/metadata (D13/IDENTITY_SSOT_PRECEDENCE: PII fora de payload).
 //
-// NOTA public_profiles: a tabela existe mas está VAZIA (0 rows, módulo dormente) — construir o QUEM
-// sobre ela seria busca que mente. `actors.display_name` é a projeção viva (já exposta a autenticados
-// via GET /social/actors/:id). Quando public_profiles materializar (visibility/followers_only), o
-// resolver de identidades migra pra lá — trocando O READER, não o contrato do gateway.
+// NOTA public_profiles (ATUALIZADA por F-DISCOVERY-PUBLIC-PROFILE-SLICE-A, 2026-07-03): a vitrine
+// MATERIALIZOU — POST /public-profiles/publish põe a plaquinha (visibility='public') na vitrine.
+// O QUEM agora tem DUAS pistas compostas: (a) LOCAL — actors do próprio tenant (comportamento
+// original intacto); (b) GLOBAL — public_profiles com visibility='public', CROSS-TENANT por
+// construção (tabela sem RLS, só plaquinha publicada por escolha do dono via canRepresentActor —
+// mesmo padrão canonical_products scope='global', Lei de Coerência §4.10.3). Dedupe por actorId
+// (local vence). Ver VISIBILIDADE_E_DESCOBERTA_DESENHO_CANONICO.md (selado por Clayton).
 //
 // FAIL-SOFT por seção (padrão enterprise de omnibox): uma pista quebrada não derruba as outras;
 // a seção falha vai nomeada em sectionErrors (transparente, nunca silencioso).
@@ -49,6 +52,8 @@ export interface OmniIdentityHit {
   slug: string | null;
   avatarUrl: string | null;
   bio: string | null;
+  /** 'local' = actor do próprio tenant; 'global' = plaquinha da vitrine (outro tenant). */
+  origin?: 'local' | 'global';
 }
 
 export interface OmniGroupHit {
@@ -116,11 +121,29 @@ class SearchOmniService {
       slug: r.slug,
       avatarUrl: r.avatar_url,
       bio: r.bio,
+      origin: 'local',
     });
 
+    // ── pista GLOBAL: a vitrine (public_profiles visibility='public', cross-tenant) ──
+    // Plaquinha publicada por ESCOLHA do dono (POST /public-profiles/publish, canRepresentActor).
+    // Dedupe por actorId — o hit local (mesmo tenant) vence o da vitrine.
+    const { publicProfileRepository } = await import('@modules/public-profiles/public-profile.repository');
+    const globalHits = await publicProfileRepository.searchGlobalPublic(q, perSection * 2);
+    const seen = new Set(rows.map((r) => r.id));
+    const toGlobalHit = (g: { actorId: string; displayName: string; slug: string | null; avatarUrl: string | null; bio: string | null }): OmniIdentityHit => ({
+      actorId: g.actorId,
+      displayName: g.displayName,
+      slug: g.slug,
+      avatarUrl: g.avatarUrl,
+      bio: g.bio,
+      origin: 'global',
+    });
+    const globalPeople = globalHits.filter((g) => g.profileType === 'user' && !seen.has(g.actorId)).map(toGlobalHit);
+    const globalCompanies = globalHits.filter((g) => g.profileType === 'page' && !seen.has(g.actorId)).map(toGlobalHit);
+
     return {
-      people: rows.filter((r) => r.actor_type === 'user').slice(0, perSection).map(toHit),
-      companies: rows.filter((r) => r.actor_type === 'page').slice(0, perSection).map(toHit),
+      people: [...rows.filter((r) => r.actor_type === 'user').map(toHit), ...globalPeople].slice(0, perSection),
+      companies: [...rows.filter((r) => r.actor_type === 'page').map(toHit), ...globalCompanies].slice(0, perSection),
     };
   }
 

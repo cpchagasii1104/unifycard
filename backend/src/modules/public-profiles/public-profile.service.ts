@@ -101,9 +101,9 @@ class PublicProfileService {
     tenantId: string,
     filters: PublicProfileFilters = {}
   ): Promise<PublicProfile[]> {
-    // Por padrão, listar apenas públicos se não especificado
+    // Por padrão, listar apenas públicos se não especificado (minúsculo = CHECK da tabela)
     if (filters.visibility === undefined) {
-      filters.visibility = 'PUBLIC';
+      filters.visibility = 'public';
     }
 
     return await publicProfileRepository.listProfiles(tenantId, filters);
@@ -115,7 +115,7 @@ class PublicProfileService {
   async changeVisibility(
     tenantId: string,
     profileId: string,
-    visibility: 'PUBLIC' | 'PRIVATE',
+    visibility: 'public' | 'private',
     changedByUserId: string
   ): Promise<PublicProfile> {
     // Buscar perfil atual para pegar visibilidade antiga
@@ -142,6 +142,62 @@ class PublicProfileService {
     });
 
     return profile;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // F-DISCOVERY-PUBLIC-PROFILE-SLICE-A (VISIBILIDADE_E_DESCOBERTA_DESENHO_CANONICO.md)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Publica (ou despublica) a plaquinha do actor na vitrine.
+   * A AUTORIDADE (canRepresentActor) é provada NA ROTA antes de chegar aqui — este método
+   * assume actorId já autorizado. A plaquinha é PROJEÇÃO do actor (display_name/bio/avatar
+   * copiados na hora do publish) — nunca inventa dado novo, nunca expõe PII.
+   * Fase 1: visibility 'public' (vitrine) ou 'private' ("só eu"). 'followers_only' = Fase 2.
+   */
+  async publishForActor(
+    tenantId: string,
+    actorId: string,
+    visibility: 'public' | 'private',
+    publishedByUserId: string
+  ): Promise<import('./public-profile.types').PublicProfile> {
+    const proj = await publicProfileRepository.getActorProjection(tenantId, actorId);
+    if (!proj) {
+      const err: any = new Error('Actor não encontrado');
+      err.statusCode = 404;
+      throw err;
+    }
+    // Vocabulário canônico DECISION-0157: só 'user' (Pessoas) e 'page' (Empresas) na vitrine.
+    if (proj.actor_type !== 'user' && proj.actor_type !== 'page') {
+      const err: any = new Error(`actor_type '${proj.actor_type}' não publicável na vitrine (Fase 1: user/page)`);
+      err.statusCode = 422;
+      throw err;
+    }
+
+    const profile = await publicProfileRepository.upsertByActor(tenantId, {
+      actorId,
+      profileType: proj.actor_type,
+      displayName: proj.display_name,
+      bio: proj.bio,
+      avatarUrl: proj.avatar_url,
+      visibility,
+    });
+
+    await this.recordAudit(tenantId, {
+      eventType: 'PUBLIC_PROFILE_PUBLISHED',
+      profileId: profile.id,
+      actorId,
+      newVisibility: visibility,
+      changedByUserId: publishedByUserId,
+    });
+
+    return profile;
+  }
+
+  /** Plaquinha do próprio actor (ou null se nunca publicou). */
+  async getMineByActor(tenantId: string, actorId: string): Promise<import('./public-profile.types').PublicProfile | null> {
+    const rows = await publicProfileRepository.listProfiles(tenantId, { actorId, limit: 1 });
+    return rows[0] ?? null;
   }
 
   /**
