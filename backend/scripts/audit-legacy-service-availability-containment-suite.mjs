@@ -52,6 +52,7 @@ const guards = [
   'audit-event-lifecycle-authority.mjs',                              // V1 (auditoria forense): BOLA/IDOR no lifecycle de eventos fechado — resolveRepresentedActor prova canRepresentActor, resolvedor fraco morto
   'audit-company-activation-kyc-gate.mjs',                            // F-CNPJ-ACTIVATE-KYC-GATE (AUTHORITY_LAW Art.4.2): ativar empresa (controlar CNPJ) exige KYC mínimo do responsável
   'audit-actor-impersonation-writes.mjs',                             // triagem handler-level: identity /update (BOLA civil) + social reactions/comments + feed /action provam representação (0113)
+  'audit-delegation-scope-containment.mjs',                           // DT-AUTHORITY-LATENTS-PASSO-3 ①: canRepresentActor por delegação exige escopo FULL (*); escopada não concede representação em branco
   // ⚠️ EXCEÇÃO de custo (achado B4 / DECISION-0158): este NÃO é guard pequeno — roda tsc (tsconfig.build)
   // + os 2 validadores financeiros (~60-90s). Entrou aqui porque a cadeia validate:regression-guards
   // estourou o limite de linha de comando do Windows ao ser estendida diretamente. O custo é o preço

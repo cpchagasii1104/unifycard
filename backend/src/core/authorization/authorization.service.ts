@@ -383,7 +383,18 @@ class AuthorizationService {
     }
 
     // 5. Delegação ativa (não-expirada/não-revogada — garantido pelo repositório).
-    if (await this.findActiveDelegation(tenantId, userId, actorId)) {
+    // 🔴 SCOPE-CONTAINMENT FIX (DT-AUTHORITY-LATENTS-PASSO-3 ①; ratifica DECISION-0125 §escopo:
+    // "autoridade é ESCOPADA, blanket-sem-escopo = fail-closed"). REPRESENTAÇÃO (vestir o actor,
+    // permission-agnostic) só é concedida por delegação FULL (`scopes` inclui '*'). Uma delegação
+    // ESCOPADA (ex.: ['post:create']) NÃO concede representação em branco — concede APENAS aquelas
+    // permissões, via checkPermission/canActAs (checkDelegationPermission, scope-aware). Antes, QUALQUER
+    // delegação ativa retornava true aqui, tornando um delegado de escopo estreito over-privileged em
+    // TODA rota canRepresentActor-gated (inclui eventos/vitrine/social/etc). Fail-closed: escopo estreito
+    // fica limitado às rotas que checam a PermissionKey específica (canActAs), não à representação ampla.
+    // Latente hoje (0 delegações ativas). O afrouxamento correto por-rota (canActAs com PermissionKey)
+    // é a frente F-CANREPRESENTACTOR-SCOPE-AWARE / PORTA-3.
+    const delegation = await this.findActiveDelegation(tenantId, userId, actorId);
+    if (delegation && Array.isArray(delegation.scopes) && delegation.scopes.includes('*')) {
       return true;
     }
 
