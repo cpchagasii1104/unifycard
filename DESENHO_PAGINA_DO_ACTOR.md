@@ -82,6 +82,32 @@ por vertical. Adicionar vertical = registrar concept/bloco → a aba aparece soz
 
 ---
 
+## 2.4 CONTRATO ÚNICO WEB+APP — SERVER-DRIVEN (Clayton 2026-07-04: "modelo que encaixe fácil no app")
+
+Para o app encaixar sem reescrever a lógica, a página é **descrita pelo backend, renderizada pelo
+cliente** (server-driven UI). O backend expõe **UM contrato** que diz *quais blocos/abas existem,
+em que ordem, com que dados e que ações* — e **web e app consomem o MESMO contrato**. Nenhum cliente
+decide quais abas acendem (isso é verdade do servidor, capability-driven; frontend não cria verdade).
+
+**Forma do contrato (conceitual — a materializar na Fatia 3, sem SSOT novo):**
+```
+GET /actor-page/:actorId?mode=consuming|operating  →
+{
+  header: { name, avatarUrl, coverUrl, type, headline, location, openNow? },
+  actions: [ { key:'connect'|'message'|'schedule'|'ticket'|'buy'|'contract', enabled, gatedBy? } ],
+  tabs:    [ { key:'all'|'about'|'products'|'services'|'agenda'|'posts'|…, label } ],
+  blocks:  [ { type, tab, data, deeplink } ]   // cada bloco = projeção de um pilar vivo
+}
+```
+- **Contrato estável, verdade no servidor** → app novo (ou aba nova) não exige mudar o cliente: some
+  do contrato, some da tela. Web e mobile ficam "burros de propósito" (renderizadores).
+- **Cada bloco carrega seu `deeplink`** (o HUB, §2.3): o cliente navega pro fluxo vivo (loja/agendar/
+  checkout) por rota declarada, não hardcoded. Mesma navegação em web e app.
+- **`enabled`/`gatedBy`** vêm resolvidos server-side (autoridade, PORTA-1, fato-de-negócio): o cliente
+  só mostra habilitado/‘em breve’; nunca decide permissão (relação ≠ autoridade preservado).
+- Alinha Lei §9 (mesmo pilar → mesmo resultado): web e app **não podem** divergir porque leem a
+  mesma descrição.
+
 ## 3. MAPA BLOCO/AÇÃO → PILAR (nenhum SSOT novo; cada bloco PROJETA algo que já existe)
 
 | Bloco / Ação | Projeta (pilar/módulo vivo) | Move dinheiro? |
