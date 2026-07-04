@@ -50,6 +50,7 @@ const guards = [
   'audit-rental-resource-surface-contract.mjs',                       // F-RENTAL-RESOURCE-SURFACE-SLICE-A (DECISION-0151/0159): owner server-side, money-free, availability genérico intacto
   'audit-public-profile-discovery-contract.mjs',                      // F-DISCOVERY-PUBLIC-PROFILE-SLICE-A: vitrine cross-tenant só plaquinha public, anti-PII, canRepresentActor, dedupe local-vence
   'audit-event-lifecycle-authority.mjs',                              // V1 (auditoria forense): BOLA/IDOR no lifecycle de eventos fechado — resolveRepresentedActor prova canRepresentActor, resolvedor fraco morto
+  'audit-company-activation-kyc-gate.mjs',                            // F-CNPJ-ACTIVATE-KYC-GATE (AUTHORITY_LAW Art.4.2): ativar empresa (controlar CNPJ) exige KYC mínimo do responsável
   // ⚠️ EXCEÇÃO de custo (achado B4 / DECISION-0158): este NÃO é guard pequeno — roda tsc (tsconfig.build)
   // + os 2 validadores financeiros (~60-90s). Entrou aqui porque a cadeia validate:regression-guards
   // estourou o limite de linha de comando do Windows ao ser estendida diretamente. O custo é o preço

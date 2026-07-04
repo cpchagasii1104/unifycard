@@ -155,6 +155,15 @@ async function main(): Promise<void> {
     app.inject({ method: 'POST', url: `/companies/${companyId}/operational-activation`, headers, payload: body as object });
 
   try {
+    // T0 — F-CNPJ-ACTIVATE-KYC-GATE (AUTHORITY_LAW Art.4.2): o owner nasceu kyc_status='pending'
+    // (setup acima). Ativar (CONTROLAR o CNPJ) sem KYC mínimo → 403 COMPANY_ACTIVATION_REQUIRES_KYC.
+    const rKyc = await post(c1, { companyTypeId: typeA, conceptId: conceptA });
+    record('T0 ativar com owner KYC=pending → 403 COMPANY_ACTIVATION_REQUIRES_KYC',
+      rKyc.statusCode === 403 && rKyc.json()?.code === 'COMPANY_ACTIVATION_REQUIRES_KYC',
+      `status=${rKyc.statusCode} body=${JSON.stringify(rKyc.json())}`);
+    // Owner conclui o KYC mínimo (identities.kyc_status='approved') — só então pode ATIVAR.
+    await pool.query(`UPDATE identities SET kyc_status='approved', kyc_level='basic' WHERE global_user_id=$1`, [ownerGlobalId]);
+
     // T1 — par válido → 200, alreadyActive=false, par gravado, page-actor presente
     const r1 = await post(c1, { companyTypeId: typeA, conceptId: conceptA });
     const b1 = r1.json();

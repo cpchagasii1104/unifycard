@@ -234,6 +234,8 @@ async function main(): Promise<void> {
     });
     cleanupState.globalUserId = guRes.rows[0]!.global_user_id;
     const globalUserId = cleanupState.globalUserId!;
+    // F-CNPJ-ACTIVATE-KYC-GATE (Art.4.2): o founder conclui o KYC mínimo antes de ATIVAR a empresa.
+    await pool.query(`UPDATE identities SET kyc_status='approved', kyc_level='basic' WHERE global_user_id=$1::uuid`, [globalUserId]);
 
     // SELECT 1b: users gravado no tenant, global_user_id ligado.
     const uRes = await pool.query<{

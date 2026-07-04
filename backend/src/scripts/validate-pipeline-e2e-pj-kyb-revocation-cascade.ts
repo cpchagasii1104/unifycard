@@ -103,6 +103,8 @@ async function makeUser(tag: string, cpfSeed: number): Promise<{ userId: string;
   }
   const actor = await ensureUserActor(TENANT_ID, u.user_id);
   await rbacService.assignRoleByName(TENANT_ID, u.user_id, 'admin');
+  // F-CNPJ-ACTIVATE-KYC-GATE (Art.4.2): o founder conclui o KYC mínimo antes de ATIVAR a empresa.
+  await pool.query(`UPDATE identities SET kyc_status='approved', kyc_level='basic' WHERE global_user_id=$1::uuid`, [u.global_user_id]);
   return { userId: u.user_id, globalUserId: u.global_user_id, humanActorId: actor.actor_id };
 }
 

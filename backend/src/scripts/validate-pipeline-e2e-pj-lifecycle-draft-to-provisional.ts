@@ -84,6 +84,8 @@ async function main(): Promise<void> {
   }
   const devUserId = dev.rows[0].user_id;
   const devGlobalUserId = dev.rows[0].global_user_id;
+  // F-CNPJ-ACTIVATE-KYC-GATE (Art.4.2): ativar exige KYC mínimo do responsável (fundador conclui KYC).
+  await pool.query(`UPDATE identities SET kyc_status='approved', kyc_level='basic' WHERE global_user_id=$1`, [devGlobalUserId]);
 
   const pairRes = await pool.query<{ company_type_id: string; concept_id: string }>(
     `SELECT ctac.company_type_id::text, ctac.concept_id::text

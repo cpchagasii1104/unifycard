@@ -825,6 +825,28 @@ class CompaniesService {
       throw this.activationError('COMPANY_NOT_FOUND', `Empresa ${companyId} não encontrada no tenant`, 404);
     }
 
+    // 🔴 F-CNPJ-ACTIVATE-KYC-GATE (AUTHORITY_LAW Art.4.2): "sem KYC mínimo é PROIBIDO criar ou
+    // CONTROLAR CNPJ". A empresa pode NASCER inerte (DRAFT) sem KYC — existência (Art.4.1) —, mas a
+    // ATIVAÇÃO operacional (DRAFT→PROVISIONAL/ACTIVE) é o momento em que o CNPJ passa a ser CONTROLADO.
+    // Exige que o responsável humano tenha KYC mínimo: identities.kyc_status='approved' (SSOT canônica;
+    // 'pending'/'rejected'/ausente = sem KYC mínimo). Fail-closed: sem identity/global_user_id → nega.
+    const kycRow = await runQueryWithTenant<{ kyc_status: string }>(
+      tenantId,
+      `SELECT i.kyc_status
+         FROM users u
+         JOIN identities i ON i.global_user_id = u.global_user_id
+        WHERE (u.user_id = $1 OR u.id = $1) AND u.tenant_id = $2
+        LIMIT 1`,
+      [responsibleUserId, tenantId]
+    );
+    if (!kycRow || kycRow.kyc_status !== 'approved') {
+      throw this.activationError(
+        'COMPANY_ACTIVATION_REQUIRES_KYC',
+        `Ativação de empresa exige KYC mínimo do responsável (AUTHORITY_LAW Art.4.2): identities.kyc_status='approved'. Atual='${kycRow?.kyc_status ?? 'ausente'}'. Conclua a verificação de identidade antes de ativar a empresa.`,
+        403
+      );
+    }
+
     const companyType = await runQueryWithTenant<{ id: string }>(
       tenantId,
       `SELECT id FROM company_types WHERE id = $1 LIMIT 1`,
