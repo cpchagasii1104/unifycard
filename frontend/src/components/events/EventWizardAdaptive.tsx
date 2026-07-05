@@ -158,7 +158,9 @@ export default function EventWizardAdaptive({
       moduleActivations: wizardConfig.moduleActivations,
       needsAssistance: answers.needs_assistance === true,
       completedAt: new Date().toISOString(),
-      completedBy: activeActor?.user_id || '',
+      // DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK: activeActor.user_id é NULL pra actor_type='page'
+      // (empresa organizadora) — cenário comum de criação de evento. actor_id é sempre populado.
+      completedBy: activeActor?.actor_id || '',
       // Incluir capacidade e infraestrutura no config
       capacity: expectedAttendance
         ? {

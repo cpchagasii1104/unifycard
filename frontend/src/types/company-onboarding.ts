@@ -53,7 +53,7 @@ export interface CompanyOnboardingConfig {
   // (ver CompanyCalendarConfig acima). Onboardings novos não populam mais este campo.
   calendarConfig?: CompanyCalendarConfig;
   completedAt?: string;     // ISO 8601
-  completedBy?: string;      // userId
+  completedBy?: string;      // actorId (DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK: era userId, NULL pra actor_type='page')
 }
 
 /**

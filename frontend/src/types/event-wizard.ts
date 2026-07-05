@@ -99,7 +99,7 @@ export interface EventWizardConfig {
   moduleActivations: ModuleActivation[];
   needsAssistance: boolean; // Se usuário quer ajuda para organizar
   completedAt: string; // ISO 8601
-  completedBy: string; // userId
+  completedBy: string; // actorId (DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK: era userId, NULL pra actor_type='page')
   capacity?: {
     expectedAttendance: number;
     capacityClass: 'S' | 'M' | 'L' | 'XL' | 'XXL';

@@ -9081,7 +9081,15 @@ consumer frontend ativo. Raio-X confirmou que essa leitura era incorreta materia
 
 ---
 
-## DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK
+## DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK — ✅ CLOSED (2026-07-05) — Onda 1 (zeragem de DT), item 14/20 — bug real confirmado e corrigido
+- **Achado confirmado após a pausa:** consulta ao schema vivo de `unificard_dev` (leitura) provou que `actors.user_id` é **NULL para TODO actor_type='page'/'group'** — só `user` tem o campo populado. Isso tornava o bug MAIS grave do que a suspeita inicial: `CompanyOnboardingWizard.tsx` e `EventWizardAdaptive.tsx` liam `activeActor?.user_id` num campo de atribuição (`completedBy`) exatamente nos fluxos onde o actor ativo tipicamente É uma página/empresa — gravando `undefined`/`''` no cenário mais comum, não um valor "só semanticamente estranho".
+- **Confirmado que o valor é persistido de verdade e sem leitor downstream que dependa da forma antiga:** `companies.routes.ts` aceita `metadata: z.record(z.any())` sem contrato de forma; `companies.service.ts` grava em `actors.metadata` via `jsonb_build_object`. Grep exaustivo (backend+frontend) não achou nenhum leitor de `completedBy` além do próprio write — seguro trocar a semântica do valor sem quebrar consumidor.
+- **Fix:** os 2 sites trocaram `activeActor?.user_id` → `activeActor?.actor_id` (sempre populado, `user` E `page`). Tipos `CompanyOnboardingConfig.completedBy`/`EventWizardConfig.completedBy` (antes comentados `// userId`) atualizados pra `// actorId`.
+- **Guard novo:** `audit-available-actor-user-id-misuse.mjs` varre TODO `frontend/src` por `(activeActor|selectedActor)?.user_id` — morde se o padrão reaparecer em qualquer arquivo, não só os 2 corrigidos. Negative-proof: mutação reintroduzindo `.user_id` mordida, restauração byte-idêntica confirmada.
+- **Prova:** frontend `tsc --noEmit` EXIT 0 · `vite build` EXIT 0 · backend `validate:regression-guards` EXIT 0 integral.
+- **Status:** ✅ CLOSED. Zero campo removido — a dívida original oferecia "remover/renomear/documentar"; a raiz real (contradizia a mitigação "nenhum misuse confirmado") era pior que as 3 opções previam, então a correção foi a troca de identidade (`user_id`→`actor_id`), que é o fix correto dentro do próprio espírito das opções propostas. **Cruza com:** doutrina "actor como unidade operacional soberana" · classe `DT-AUTHORITY-Z2-*-ACTOR-BINDING-UNBOUND` (mesmo padrão de bug, tratado com o mesmo rigor).
+
+## DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK (entrada original, histórico)
 
 - **Status:** OPEN (2026-05-28)
 - **Severidade:** LOW

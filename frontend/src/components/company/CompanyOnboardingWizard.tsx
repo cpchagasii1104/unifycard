@@ -420,7 +420,9 @@ export default function CompanyOnboardingWizard({
         modules,
         initialRoles,
         completedAt: new Date().toISOString(),
-        completedBy: activeActor?.user_id,
+        // DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK: activeActor.user_id é NULL pra actor_type='page'
+        // (empresa) — exatamente o caso deste wizard. actor_id é sempre populado (user E page).
+        completedBy: activeActor?.actor_id,
       };
 
       await updateCompany(companyId, {
