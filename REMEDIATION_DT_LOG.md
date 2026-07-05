@@ -7790,7 +7790,7 @@ Se o frontend ou o sistema downstream NÃO listar `actor_wallet`:
 ---
 
 ## DT-CANONICAL-WALLET-GUARD-PENDING
-
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/M. A própria entrada já diz "não é trivial... exige modelar o que é 'release context' sem falso-positivo" — uma heurística de lint malfeita aqui bloquearia PRs legítimos futuros (conta `credit` é destino válido em contextos não-canônicos). Design de detecção precisa, não fix mecânico. Reclassificada **D_FIX → A_DECISION/frente-própria de design**. NÃO tocado.
 - **Status:** OPEN (LOW — enforcement automatizado de canonicidade do wallet é frente futura)
 - **Origem:** Canonicalização 2026-05-26. DECISION-0046 fixou `actor_wallet` como destino canônico de recebíveis, mas o enforcement hoje é apenas:
   - Documental (BANK_SEMANTICS.md, DECISION-0046).
@@ -14584,6 +14584,7 @@ merge = redirect append-only; unidades fail-closed; zero Bank writer; zero actor
 canônica no regime PJ-B3, vigiada por gate).
 
 ## DT-MARKETPLACE-LEGACY-MEMORY-PRODUCT-ROUTES — OPEN (2026-06-11)
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/M. Read-first achou apenas **1 consumidor real** (`MarketplaceStorePage.tsx`), mas essa mesma página tem comentário EXPLÍCITO e mais recente (2026-06-28, `F-MARKETPLACE-CHECKOUT-STUB-CONTRACT-CONTAINMENT-SLICE-A`): "a descoberta (getStores/getStoreCatalog/**getStoreProducts**) é leitura VIVA e **fica** — só carrinho/checkout foram removidos (ligavam a rota inexistente)". Isso é uma decisão POSTERIOR à dívida (2026-06-28 > 2026-06-11) que mantém deliberadamente o mecanismo legado como leitura funcional por ora. Migrar a página pro shape canônico (`/marketplace/catalog/items/search`+`/offers`, que tem forma DIFERENTE — ofertas separadas de item, sem os campos `price`/`stock`/`industry_id` diretos que `StoreProduct` expõe) é redesenho de página viva, não troca de 1 chamada de API. Reclassificada **D_FIX → frente própria de migração de UI**, respeitando a decisão mais recente de manter a leitura como está. NÃO tocado.
 
 - **Status:** **OPEN** — auditada (não removida) pela frente canônica, conforme GO §11.4 ("não
   remover sem provar zero caller"): `GET /marketplace/store/:storeId/products` e
