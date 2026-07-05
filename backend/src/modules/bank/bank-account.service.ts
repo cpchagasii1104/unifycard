@@ -272,13 +272,34 @@ class BankAccountService {
     if (existing) {
       return existing;
     }
-    // Cria a conta canônica.
-    return bankAccountRepository.createAccount(tenantId, {
-      ownerId: compositeOwnerId,
-      ownerType: 'user', // toDbOwnerType('user') → 'actor' no DB
-      accountType: 'actor_wallet',
-      currency,
-    });
+    // DT-ENSURE-ACTOR-WALLET-NOT-IDEMPOTENT-UNDER-RACE (corrigido D_FIX Onda 2, 2026-07-05):
+    // check-then-insert sem lock — duas chamadas concorrentes podiam colidir no
+    // UNIQUE(tenant_id, owner_type, owner_id) e a 2ª explodia com erro cru de constraint em vez
+    // de devolver a conta que a 1ª acabou de criar. Fix TARGETED aqui (não em createAccount, que
+    // é compartilhado por outros callers com semântica própria): captura especificamente a
+    // violação de unicidade (23505) e re-busca a conta que venceu a corrida — idempotência real
+    // sem mudar a criação da conta em si nem tocar bank_ledger.
+    try {
+      return await bankAccountRepository.createAccount(tenantId, {
+        ownerId: compositeOwnerId,
+        ownerType: 'user', // toDbOwnerType('user') → 'actor' no DB
+        accountType: 'actor_wallet',
+        currency,
+      });
+    } catch (err: unknown) {
+      const code = typeof err === 'object' && err !== null && 'code' in err ? (err as { code?: string }).code : undefined;
+      if (code === '23505') {
+        const winner = await bankAccountRepository.getAccountByOwnerAndType(
+          tenantId,
+          compositeOwnerId,
+          'user',
+          'actor_wallet',
+          currency
+        );
+        if (winner) return winner;
+      }
+      throw err;
+    }
   }
 
   /** C4b (DECISION-0057) — provisiona user_wallet canonicamente a partir do actorId. Idempotente. */

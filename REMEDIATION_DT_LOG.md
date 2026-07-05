@@ -12029,7 +12029,13 @@ fungibilidade/natureza do dinheiro de grupo.
 **Resolução prevista:** redesenhar ECON-1 como "Convergência da conta monetária de grupo",
 decidindo qual substrato sobrevive e como os demais serão aposentados/migrados/isolados.
 
-### DT-ENSURE-ACTOR-WALLET-NOT-IDEMPOTENT-UNDER-RACE (OPEN) — paralela C (2026-05-30)
+### DT-ENSURE-ACTOR-WALLET-NOT-IDEMPOTENT-UNDER-RACE — ✅ CLOSED (2026-07-05) — D_FIX (Onda 2, zeragem de DT), item 6
+- **Fix TARGETED** (não em `createAccount`, compartilhado por outros callers com semântica própria): `ensureActorWalletAccount` (`bank-account.service.ts`) agora captura especificamente a violação de unicidade (`23505`) do check-then-insert e re-busca a conta que venceu a corrida, em vez de deixar o erro cru propagar. Zero mudança na criação da conta em si, zero toque em `bank_ledger`.
+- **Provas reais de concorrência (não só typecheck), positiva E negativa:** E2E novo `validate-pipeline-e2e-ensure-actor-wallet-race-idempotency.ts` + runner `run-ensure-actor-wallet-race-idempotency-ephemeral.ps1`, DB efêmera. Com 5 chamadas concorrentes o bug NÃO se manifestava de forma confiável (achado empírico registrado no próprio runner); subindo pra **60 chamadas concorrentes**: código ANTIGO falhou de verdade (59 erros crus de `duplicar valor da chave viola a restrição de unicidade`); código CORRIGIDO — **3/3 verdes** (nenhuma rejeição, todas as 60 devolvem a MESMA conta via `accountId`, só 1 linha física em `bank_accounts`). Runner default ajustado pra 60 (5 não reproduz).
+- **Prova adicional:** backend `tsc --noEmit` EXIT 0; `validate:regression-guards` EXIT 0 integral; ratchet financeiro (`red-gates-baseline`) inalterado.
+- **Status:** ✅ CLOSED. **Cruza com:** `DT-BANK-ACCOUNTS-UNIQUE-INDEX-INSUFFICIENT` (permanece OPEN — questão distinta, sobre a UNIQUE não capturar "uma conta canônica por grupo" semanticamente, não sobre a corrida).
+---
+### DT-ENSURE-ACTOR-WALLET-NOT-IDEMPOTENT-UNDER-RACE (entrada original, histórico) — paralela C (2026-05-30)
 **Status:** OPEN.
 **Origem:** paralela C.
 **Contexto:** `ensureActorWalletAccount` (bank-account.service.ts:256-281) usa padrão
