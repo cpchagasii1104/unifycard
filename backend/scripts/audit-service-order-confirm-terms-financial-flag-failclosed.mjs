@@ -11,7 +11,10 @@
 // 22P02 antes do INSERT), não por design. MORDE se:
 //   (a) isFinancialEnabled() voltar a delegar a isFeatureEnabled('FEATURE_FINANCIAL_ENABLED')
 //       (reintroduz fail-open);
-//   (b) isFinancialEnabled() parar de exigir a string exata 'true' (fail-open por '1'/'TRUE'/etc).
+//   (b) isFinancialEnabled() parar de exigir a string exata 'true' (fail-open por '1'/'TRUE'/etc);
+//   (c) 'FEATURE_FINANCIAL_ENABLED' voltar ao union type FeatureFlag (2ª rodada da auditoria
+//       Yala: removida de propósito pra fechar em COMPILAÇÃO a porta de
+//       isFeatureEnabled('FEATURE_FINANCIAL_ENABLED') retornar fail-open por engano).
 // Em validate:regression-guards. Heurística textual comment-stripped. NÃO altera runtime.
 
 import { readFileSync, existsSync } from 'fs';
@@ -40,6 +43,16 @@ if (!existsSync(FILE)) {
       failures.push(`${FILE}: isFinancialEnabled não exige a string exata 'true' — risco de fail-open por '1'/'TRUE'/etc.`);
     }
   }
+
+  const unionIdx = src.indexOf('type FeatureFlag');
+  if (unionIdx < 0) {
+    failures.push(`${FILE}: union type FeatureFlag não encontrado.`);
+  } else {
+    const unionBody = src.slice(unionIdx, unionIdx + 200);
+    if (/FEATURE_FINANCIAL_ENABLED/.test(unionBody)) {
+      failures.push(`${FILE}: 'FEATURE_FINANCIAL_ENABLED' voltou ao union FeatureFlag — reabre a porta de isFeatureEnabled('FEATURE_FINANCIAL_ENABLED') retornar fail-open por engano.`);
+    }
+  }
 }
 
 if (failures.length) {
@@ -47,4 +60,4 @@ if (failures.length) {
   for (const f of failures) console.error('  - ' + f);
   process.exit(1);
 }
-console.log("GATE OK [service-order-confirm-terms-financial-flag-failclosed] — isFinancialEnabled() é fail-closed real (=== 'true' exato), não delega mais ao helper genérico fail-open. Achado da auditoria Yala fechado.");
+console.log("GATE OK [service-order-confirm-terms-financial-flag-failclosed] — isFinancialEnabled() é fail-closed real (=== 'true' exato), não delega mais ao helper genérico fail-open; 'FEATURE_FINANCIAL_ENABLED' fora do union FeatureFlag (fechado em compilação). Achados da auditoria Yala (1ª+2ª rodada) fechados.");

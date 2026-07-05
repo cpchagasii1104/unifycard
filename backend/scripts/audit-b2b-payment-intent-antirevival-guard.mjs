@@ -20,6 +20,14 @@
 //       (commands/financial.commands.ts, commands/index.ts — a própria definição/reexport);
 //   (b) createTransactionFromIntent ganhar um caller novo fora de bank-ledger.service.ts (própria
 //       definição) e commands/financial.commands.ts (o wrapper já mapeado).
+//
+// FIX (2ª rodada da auditoria Yala, 2026-07-05): o check (b) original exigia `createTransaction
+// FromIntent\(` (parêntese colado) — um `import { createTransactionFromIntent as settleB2b }` +
+// chamada via alias (`settleB2b(...)`) evadia o guard (nem a linha de import nem a chamada casam
+// com o nome seguido de parêntese). Trocado por `\bcreateTransactionFromIntent\b` (sem parêntese)
+// — pega QUALQUER menção ao nome original, inclusive em import/alias, sem falso positivo (o único
+// texto que colide por prefixo, `CreateTransactionFromIntentInput`/`...Result`, começa com C
+// maiúsculo — token diferente, `\b` não confunde).
 // Em validate:regression-guards. Heurística textual comment-stripped. NÃO altera runtime.
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
@@ -59,7 +67,7 @@ for (const file of files) {
   if (/\bcompleteB2bPaymentFromIntentCommand\b/.test(src) && !ALLOW_COMMAND_CALLER.has(rel)) {
     failures.push(`${rel}: referencia completeB2bPaymentFromIntentCommand fora da allowlist — B2B payment intent (dead code) ganhando caller novo sem firewall próprio.`);
   }
-  if (/\bcreateTransactionFromIntent\(/.test(src) && !ALLOW_FUNCTION_CALLER.has(rel)) {
+  if (/\bcreateTransactionFromIntent\b/.test(src) && !ALLOW_FUNCTION_CALLER.has(rel)) {
     failures.push(`${rel}: chama createTransactionFromIntent fora da allowlist — grava bank_transactions/bank_ledger DIRETO, fora do sink compartilhado (sem proteção do firewall).`);
   }
 }

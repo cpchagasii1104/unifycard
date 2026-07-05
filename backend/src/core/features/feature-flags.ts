@@ -5,10 +5,15 @@
 /**
  * Feature Flags disponíveis
  */
-export type FeatureFlag = 
+// 🔴 F-SERVICE-ORDER-CONFIRM-TERMS-DEFAULT-ON-FLAG-FIX (2ª rodada da auditoria Yala, 2026-07-05):
+// 'FEATURE_FINANCIAL_ENABLED' foi REMOVIDA deste union de propósito. `isFeatureEnabled` (abaixo) é
+// fail-OPEN por padrão — correto pras 3 flags não-financeiras que restam, ERRADO pra dinheiro.
+// Removê-la do union fecha em tempo de COMPILAÇÃO a porta que a 1ª correção só fechou em
+// runtime: código futuro não consegue mais chamar `isFeatureEnabled('FEATURE_FINANCIAL_ENABLED')`
+// e obter fail-open por engano — só `isFinancialEnabled()` (fail-closed real) resolve essa flag.
+export type FeatureFlag =
   | 'FEATURE_RFQ_ENABLED'
   | 'FEATURE_BUNDLES_ENABLED'
-  | 'FEATURE_FINANCIAL_ENABLED'
   | 'FEATURE_MESSAGING_ENABLED';
 
 /**

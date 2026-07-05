@@ -352,6 +352,23 @@ RESPONSE` pro relato completo. typecheck 0 · regression-guards exit=0.
 (o passo 2 mudou materialmente desde a 1ª auditoria) **ou se a resposta acima já é suficiente
 pra liberar.**
 
+**✅ 2ª RODADA DA YALA RODOU — APROVADO, 2 RESÍDUOS BAIXOS FECHADOS (2026-07-05).** Clayton
+escolheu explicitamente "rodar nova Yala antes de qualquer coisa" (via pergunta). Auditou só o
+commit de correção (`8a0d10ad3`), remapeando os escritores de `bank_*` do zero e reexecutando
+tudo com provas negativas PRÓPRIAS. **Veredito: o bloqueador está genuinamente fechado — PORTA-1
+passos 1-3 CONFIRMADOS PRONTOS pro passo 4.** 2 gaps baixos achados e já fechados no mesmo lote:
+(1) o guard anti-revival do B2B era evadível por `import ... as alias` — fix de regex (sem
+parêntese) + negative-proof com decoy de alias; (2) `FEATURE_FINANCIAL_ENABLED` ainda estava no
+union `FeatureFlag`, permitindo `isFeatureEnabled('FEATURE_FINANCIAL_ENABLED')` retornar
+fail-open por engano no futuro — removida do union, fecha em compilação. Ratchet financeiro
+**inalterado** (3877/591, correções puramente estruturais). typecheck 0 · regression-guards
+exit=0. Ver `REMEDIATION_DT_LOG.md` → "2ª rodada da auditoria Yala" pro relato completo.
+
+**Passo 4 (semear saldo real) aguarda decisão de ESCOPO de Clayton** — não é mais gated por
+auditoria pendente, é gated por decidir: (a) só mecanismo em DB efêmera (recomendado, mesmo
+padrão de toda a sessão) vs. (b) semear saldo real em `unificard_dev` vs. (c) outro escopo. A
+abertura de fato de dinheiro é ato soberano de Clayton (mesmo padrão do flip do RLS-live).
+
 ---
 
 ## 5. SEQUÊNCIA DE FATIAS (do `DESENHO`, só após selo + decisão §4)
