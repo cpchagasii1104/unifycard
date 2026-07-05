@@ -2,6 +2,11 @@
 //
 // Testes de hardening para checkout de eventos
 // Valida: split para organizador, idempotência, concorrência
+//
+// STALE (achado R-baixa 2 da re-auditoria Yala, 2026-07-05): exercita POST
+// /api/checkout/event-ticket, CONTIDO fail-closed (F-CHECKOUT-EVENT-TICKET-LEGACY-INSERT-
+// SCHEMA-GHOST-CONTAINMENT). Skipped até reescrever contra o caminho canônico
+// (POST /api/events/:id/checkout) ou o arquivo ser desmontado.
 
 import { buildApp } from '../../../server';
 import type { FastifyInstance } from 'fastify';
@@ -36,7 +41,7 @@ interface TestEvent {
 // SETUP E TEARDOWN
 // ============================================================
 
-describe('Event Checkout Hardening', () => {
+describe.skip('Event Checkout Hardening', () => {
   let app: FastifyInstance;
   let tenantId: string;
   let cityId: string;

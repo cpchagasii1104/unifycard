@@ -9,9 +9,13 @@
 // MONTADA sem firewall. Frontend já rerroteado pro caminho canônico (/api/events/:id/checkout).
 // Contido fail-closed: throw honesto como PRIMEIRA instrução, antes de qualquer SQL.
 //
-// MORDE se o throw sumir OU se o INSERT em event_tickets (com as colunas fantasma) voltar a
-// ficar alcançável ANTES do throw. Heurística textual comment-stripped. Em
-// validate:regression-guards. NÃO altera runtime.
+// EXTENSÃO (achado R-baixa 1 da re-auditoria Yala, 2026-07-05): checkIn é MÉTODO IRMÃO — mesma
+// classe de bug (lê qr_code/status, colunas fantasma), rota POST /api/events/checkin também
+// MONTADA. Mesma contenção aplicada; guard estendido pra cobrir os dois métodos.
+//
+// MORDE se qualquer um dos 2 throws sumir OU se o SQL contra event_tickets (INSERT/SELECT com as
+// colunas fantasma) voltar a ficar alcançável ANTES do throw correspondente. Heurística textual
+// comment-stripped. Em validate:regression-guards. NÃO altera runtime.
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -20,24 +24,32 @@ const ROOT = process.cwd();
 const FILE = join(ROOT, 'src', 'modules', 'events', 'checkout-ticket.service.ts');
 const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
 
+function checkMethod(src, methodSignature, sqlMarker, label, failures) {
+  const fnStart = src.indexOf(methodSignature);
+  if (fnStart < 0) {
+    failures.push(`${label}: método não encontrado (assinatura "${methodSignature}").`);
+    return;
+  }
+  // Escopo até o próximo método de classe (linha "  async " seguinte) ou fim do arquivo.
+  const nextMethod = src.indexOf('\n  async ', fnStart + methodSignature.length);
+  const scope = src.slice(fnStart, nextMethod >= 0 ? nextMethod : undefined);
+  const throwIdx = scope.indexOf('CHECKOUT_EVENT_TICKET_LEGACY_SCHEMA_GHOST_CONTAINED');
+  const sqlIdx = scope.indexOf(sqlMarker);
+  if (throwIdx < 0) {
+    failures.push(`${label}: throw CHECKOUT_EVENT_TICKET_LEGACY_SCHEMA_GHOST_CONTAINED ausente — contenção removida.`);
+  }
+  if (sqlIdx >= 0 && (throwIdx < 0 || sqlIdx < throwIdx)) {
+    failures.push(`${label}: "${sqlMarker}" fica ANTES (ou sem) o throw de contenção — reabre o schema ghost.`);
+  }
+}
+
 const failures = [];
 if (!existsSync(FILE)) {
   failures.push(`arquivo ausente: ${FILE}`);
 } else {
   const src = stripTs(readFileSync(FILE, 'utf8'));
-  const fnStart = src.indexOf('async purchaseTicket(');
-  if (fnStart < 0) {
-    failures.push(`${FILE}: purchaseTicket não encontrado.`);
-  } else {
-    const throwIdx = src.indexOf('CHECKOUT_EVENT_TICKET_LEGACY_SCHEMA_GHOST_CONTAINED', fnStart);
-    const insertIdx = src.indexOf('INSERT INTO event_tickets', fnStart);
-    if (throwIdx < 0) {
-      failures.push(`${FILE}: throw CHECKOUT_EVENT_TICKET_LEGACY_SCHEMA_GHOST_CONTAINED ausente em purchaseTicket — contenção removida.`);
-    }
-    if (insertIdx >= 0 && (throwIdx < 0 || insertIdx < throwIdx)) {
-      failures.push(`${FILE}: INSERT INTO event_tickets fica ANTES (ou sem) o throw de contenção — reabre o schema ghost.`);
-    }
-  }
+  checkMethod(src, 'async purchaseTicket(', 'INSERT INTO event_tickets', `${FILE} :: purchaseTicket`, failures);
+  checkMethod(src, 'async checkIn(', 'FROM event_tickets', `${FILE} :: checkIn`, failures);
 }
 
 if (failures.length) {

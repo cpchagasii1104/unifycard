@@ -1,5 +1,10 @@
 // backend/tests/integration/checkout-race-condition.test.ts
 // Teste de race condition para POST /api/checkout/event-ticket
+//
+// STALE (achado R-baixa 2 da re-auditoria Yala, 2026-07-05): mesma causa de
+// checkout-idempotency.test.ts — rota legada CONTIDA fail-closed
+// (F-CHECKOUT-EVENT-TICKET-LEGACY-INSERT-SCHEMA-GHOST-CONTAINMENT). Skipped até reescrever
+// contra o caminho canônico (POST /api/events/:id/checkout) ou o arquivo ser desmontado.
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { buildApp } from '../../src/server';
@@ -11,7 +16,7 @@ import bcrypt from 'bcrypt';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key-change-in-production';
 
-describe('Checkout Race Condition - POST /api/checkout/event-ticket', () => {
+describe.skip('Checkout Race Condition - POST /api/checkout/event-ticket', () => {
   let app: FastifyInstance;
   const tenantId = uuidv4();
   let buyerUserId: string;

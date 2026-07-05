@@ -1,5 +1,14 @@
 // backend/tests/integration/checkout-idempotency.test.ts
 // Teste de idempotência para POST /api/checkout/event-ticket
+//
+// STALE (achado R-baixa 2 da re-auditoria Yala, 2026-07-05): a rota legada
+// /api/checkout/event-ticket foi CONTIDA fail-closed (F-CHECKOUT-EVENT-TICKET-LEGACY-INSERT-
+// SCHEMA-GHOST-CONTAINMENT) — purchaseTicket lança CHECKOUT_EVENT_TICKET_LEGACY_SCHEMA_GHOST_
+// CONTAINED antes de qualquer SQL, pois o INSERT usava colunas que nunca existiram em
+// event_tickets. Este teste esperava sucesso no caminho legado; hoje o comportamento correto é
+// falhar com esse erro. Caminho canônico atual: POST /api/events/:id/checkout. Skipped (não
+// deletado — preserva a intenção original de teste de idempotência) até reescrever contra o
+// caminho canônico ou o próprio arquivo ser desmontado numa frente própria.
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { buildApp } from '../../src/server';
@@ -11,7 +20,7 @@ import bcrypt from 'bcrypt';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key-change-in-production';
 
-describe('Checkout Idempotency - POST /api/checkout/event-ticket', () => {
+describe.skip('Checkout Idempotency - POST /api/checkout/event-ticket', () => {
   let app: FastifyInstance;
   const tenantId = uuidv4();
   let buyerUserId: string;

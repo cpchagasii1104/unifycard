@@ -270,6 +270,19 @@ export class CheckoutTicketService {
       starts_at: Date;
     };
   }> {
+    // F-CHECKOUT-EVENT-TICKET-LEGACY-INSERT-SCHEMA-GHOST-CONTAINMENT (achado da re-auditoria Yala,
+    // 2026-07-05, R-baixa 1 sobre a contenção de purchaseTicket): checkIn é MÉTODO IRMÃO do mesmo
+    // service, mesma classe de bug — lê `qr_code`/`status` de `event_tickets`, colunas que NUNCA
+    // existiram na tabela real (única migration que a cria, `20260530120000_event_tickets.sql`, tem
+    // shape de "tipo de ingresso": ticket_type/price_cents/quantity_total). Se executado, falharia
+    // com erro de SQL (coluna inexistente). Rota `POST /api/events/checkin` está MONTADA
+    // (`event-lifecycle.routes.ts`) e alcança este método diretamente. Throw honesto ANTES de
+    // qualquer SQL — mesmo padrão de `purchaseTicket` acima.
+    throw new Error(
+      'CHECKOUT_EVENT_TICKET_LEGACY_SCHEMA_GHOST_CONTAINED: check-in de ingresso pelo caminho legado ' +
+        'está desativado — a leitura usa um schema de event_tickets que nunca existiu no banco.'
+    );
+
     return runTenantTransaction(tenantId, async (trx) => {
       const ticketResult = await trx.query({
         text: `
