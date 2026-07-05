@@ -83,13 +83,19 @@ class ActorPageRepository {
     );
   }
 
-  /** disponibilidade futura do actor como dono da agenda (pilar tempo) */
-  countFutureAvailability(tenantId: string, actorId: string): Promise<number> {
+  /**
+   * Disponibilidade futura do actor como dono da agenda (pilar tempo).
+   * FIX (Fatia 4, achado no read-first): `ownerType` é OBRIGATÓRIO no CHECK físico
+   * (`chk_availability_owner_type`) — sem ele, a contagem misturava owners de tipos diferentes
+   * (o mesmo `owner_id` pode existir para `service`/`service_offering`/`rentable_resource`, que já
+   * têm probes próprios). PF usa `AvailabilityOwnerType.USER`, PJ usa `PAGE` — o caller resolve.
+   */
+  countFutureAvailability(tenantId: string, actorId: string, ownerType: 'user' | 'page'): Promise<number> {
     return this.countOf(
       tenantId,
       `SELECT COUNT(*)::text AS n FROM availability
-        WHERE tenant_id = $1 AND owner_id = $2 AND end_datetime > now()`,
-      [tenantId, actorId]
+        WHERE tenant_id = $1 AND owner_id = $2 AND owner_type = $3 AND end_datetime > now()`,
+      [tenantId, actorId, ownerType]
     );
   }
 

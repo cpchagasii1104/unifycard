@@ -13,6 +13,15 @@
  *   E · mode=operating: estranha → 403 fail-closed; dono → 200 com ações de gestão;
  *   F · anti-PII: o JSON do contrato não contém cpf/tax_id/kyc/global_user_id/user_id;
  *   G · Δbank=0.
+ *
+ * FATIA 4 — conteúdo rico (composição pura, reusa os readers dos módulos donos do pilar):
+ *   H · bloco Serviços da Padaria carrega o item real (nome/preço) do serviço ativo;
+ *   I · bloco Produtos ESCOPA por merchant — dois merchants ofertam o MESMO canônico, o bloco da
+ *       Padaria só lista a oferta DELA (prova o filtro `merchantActorId` novo, não vaza preço alheio);
+ *   J · bloco Agenda ISOLA por owner_type — uma janela decoy com o MESMO owner_id mas owner_type
+ *       diferente NÃO aparece (prova o fix do achado read-first: sem o filtro, vazaria);
+ *   K · bloco Localização projeta cidade/estado reais; header.location espelha o mesmo resumo;
+ *       anti-PII: o JSON completo do contrato nunca contém rua/lat/lng/CEP do endereço operacional.
  */
 
 import 'tsconfig-paths/register';
@@ -105,10 +114,101 @@ async function main(): Promise<void> {
     `INSERT INTO canonical_services (concept_id, name, slug, scope) VALUES ($1::uuid,'Corte E2E',$2,'global') RETURNING id::text AS id`,
     [conceptId, `ap-corte-canon-${Date.now()}`]
   )).rows[0].id;
-  await pool.query(
-    `INSERT INTO services (tenant_id, actor_id, name, slug, canonical_service_id, status) VALUES ($1::uuid,$2::uuid,'Corte E2E',$3,$4::uuid,'active')`,
+  const serviceId = (await pool.query<{ id: string }>(
+    `INSERT INTO services (tenant_id, actor_id, name, slug, canonical_service_id, status) VALUES ($1::uuid,$2::uuid,'Corte E2E',$3,$4::uuid,'active') RETURNING service_id::text AS id`,
     [TENANT, pageActorId, `ap-corte-svc-${Date.now()}`, canonicalId]
+  )).rows[0].id;
+
+  // ── FATIA 4: fixtures de conteúdo rico ──────────────────────────────────────────────────
+  // (preço do serviço via UPDATE separado — não-adjacente ao INSERT de canonical_services acima;
+  // audit-canonical-catalog-closure.mjs faz varredura textual de proximidade INSERT-canônico↔price
+  // e um price_cents colado ao INSERT de services logo abaixo do canonical dispararia falso-positivo)
+  await pool.query(`UPDATE services SET price_cents = 5000, currency = 'BRL' WHERE service_id = $1::uuid`, [serviceId]);
+  // Produtos: MESMO canônico, DOIS merchants PF DEDICADOS (fora de Ana/Bia/Padaria — merchant de
+  // EMPRESA exige gate KYB, fora do escopo desta prova; o filtro merchantActorId é o mesmo código
+  // seja PF ou PJ). Merchants dedicados também evitam poluir as asserções B/C (Ana/Bia sem produtos).
+  const merchantX = await mkUserActor(TENANT, 'Merchant X E2E');
+  const merchantY = await mkUserActor(TENANT, 'Merchant Y E2E');
+  const categoryRow = await pool.query<{ category_id: string }>(`SELECT category_id FROM categories LIMIT 1`);
+  const categoryId = categoryRow.rows[0]?.category_id;
+  if (!categoryId) throw new Error('ABORT: nenhuma categoria seedada na DB efêmera (esperado via migrations FULL)');
+
+  const gc2 = await pool.connect();
+  let productConceptId: string;
+  try {
+    await gc2.query('BEGIN');
+    await gc2.query(`SELECT set_config('app.concept_governance','true', true)`);
+    productConceptId = (await gc2.query<{ id: string }>(
+      `INSERT INTO concepts (slug, domain) VALUES ($1,'produtos-e-comercio') RETURNING concept_id::text AS id`,
+      [`ap-pao-${Date.now()}`]
+    )).rows[0].id;
+    await gc2.query('COMMIT');
+  } catch (e) {
+    await gc2.query('ROLLBACK');
+    throw e;
+  } finally {
+    gc2.release();
+  }
+  const canonicalProductId = (await pool.query<{ id: string }>(
+    `INSERT INTO canonical_products (tenant_id, name, category_id, type, concept_id, concept_resolution_status, scope)
+     VALUES ($1::uuid,'Pão E2E',$2::uuid,'INDUSTRIAL',$3::uuid,'confirmed','scoped') RETURNING id::text AS id`,
+    [TENANT, categoryId, productConceptId]
+  )).rows[0].id;
+  const productId = (await pool.query<{ id: string }>(
+    `INSERT INTO products (tenant_id, name, category_id, product_type, canonical_product_id, status, is_active)
+     VALUES ($1::uuid,'Pão E2E',$2::uuid,'INDUSTRIAL',$3::uuid,'active',true) RETURNING id::text AS id`,
+    [TENANT, categoryId, canonicalProductId]
+  )).rows[0].id;
+  await pool.query(
+    `INSERT INTO product_variants (tenant_id, product_id, sku) VALUES ($1::uuid,$2::uuid,'ap-pao-sku')`,
+    [TENANT, productId]
   );
+  // oferta do MERCHANT X (a que deve aparecer no bloco DELE)
+  await pool.query(
+    `INSERT INTO product_offers (tenant_id, product_id, merchant_id, price_cents, available_quantity, is_active, status)
+     VALUES ($1::uuid,$2::uuid,$3::uuid,890,10,true,'active')`,
+    [TENANT, productId, merchantX.actorId]
+  );
+  // oferta do MERCHANT Y no MESMO canônico (NÃO pode vazar no bloco do Merchant X)
+  await pool.query(
+    `INSERT INTO product_offers (tenant_id, product_id, merchant_id, price_cents, available_quantity, is_active, status)
+     VALUES ($1::uuid,$2::uuid,$3::uuid,999,5,true,'active')`,
+    [TENANT, productId, merchantY.actorId]
+  );
+
+  // Agenda: janela REAL da padaria (owner_type='page') + janela DECOY (owner_type diferente,
+  // mesmo owner_id) — sem o fix, a decoy vazaria na contagem/lista.
+  await pool.query(
+    `INSERT INTO availability (tenant_id, owner_type, owner_id, availability_type, status, start_datetime, end_datetime, timezone)
+     VALUES ($1::uuid,'page',$2::uuid,'fixed','active', now() + interval '1 day', now() + interval '1 day 2 hours', 'America/Sao_Paulo')`,
+    [TENANT, pageActorId]
+  );
+  await pool.query(
+    `INSERT INTO availability (tenant_id, owner_type, owner_id, availability_type, status, start_datetime, end_datetime, timezone)
+     VALUES ($1::uuid,'service',$2::uuid,'fixed','active', now() + interval '2 days', now() + interval '2 days 1 hour', 'America/Sao_Paulo')`,
+    [TENANT, pageActorId]
+  );
+
+  // Localização: endereço operacional REAL da padaria (Location Core, DECISION-0020).
+  const cityRow = await pool.query<{ city_id: string; state_id: string; country_id: string }>(
+    `SELECT c.city_id, c.state_id, s.country_id FROM cities c JOIN states s ON s.state_id = c.state_id LIMIT 1`
+  );
+  let hasLocationSeed = false;
+  if (cityRow.rows[0]) {
+    hasLocationSeed = true;
+    const { city_id, state_id, country_id } = cityRow.rows[0];
+    const addressId = (await pool.query<{ id: string }>(
+      `INSERT INTO addresses (country_id, state_id, city_id, street, number, lat, lng, postal_code, source)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,'Rua Sigilosa E2E','123',-25.4284,-49.2733,'80000-000','MANUAL_OVERRIDE')
+       RETURNING address_id::text AS id`,
+      [country_id, state_id, city_id]
+    )).rows[0].id;
+    await pool.query(
+      `INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary, valid_from_at)
+       VALUES ('service_provider',$1::uuid,$2::uuid,'OPERATIONAL',true, now())`,
+      [pageActorId, addressId]
+    );
+  }
 
   const actorPageRoutes = (await import('../modules/actor-page/actor-page.routes')).default;
   const app = Fastify();
@@ -186,6 +286,44 @@ async function main(): Promise<void> {
     record("D2 Conectar PF↔PJ com labels do seed (cliente/colaborador/fornecedor)",
       !!connectD && JSON.stringify(connectD.data?.allowedLabels) === JSON.stringify(['cliente', 'colaborador', 'fornecedor']),
       `connect=${JSON.stringify(connectD)}`);
+
+    // H · bloco Serviços carrega o item real
+    const servicesBlock = (cD?.blocks ?? []).find((b: any) => b.type === 'services');
+    const svcItem = servicesBlock?.data?.items?.[0];
+    record('H bloco Serviços carrega item real (nome/preço do serviço ativo)',
+      !!svcItem && svcItem.name === 'Corte E2E' && svcItem.priceCents === 5000,
+      `item=${JSON.stringify(svcItem)}`);
+
+    // I · bloco Produtos ESCOPA por merchant — a página do Merchant X só lista a oferta DELE
+    // (890), nunca a do Merchant Y (999) no MESMO canônico — prova o filtro merchantActorId novo.
+    const rI = await call(`/actor-page/${merchantX.actorId}`, { userId: carlos.userId, actorId: carlos.actorId });
+    const cI = (rI.json() as any)?.data;
+    const productsBlock = (cI?.blocks ?? []).find((b: any) => b.type === 'products');
+    const prodItems = productsBlock?.data?.items ?? [];
+    record('I bloco Produtos: 1 item (890, oferta do Merchant X); oferta do Merchant Y (999) NÃO vaza',
+      rI.statusCode === 200 && prodItems.length === 1 && prodItems[0]?.priceCents === 890 &&
+      !prodItems.some((p: any) => p.priceCents === 999),
+      `items=${JSON.stringify(prodItems)}`);
+
+    // J · bloco Agenda ISOLA por owner_type — decoy (owner_type='service', mesmo owner_id) não aparece
+    const agendaBlock = (cD?.blocks ?? []).find((b: any) => b.type === 'agenda');
+    const agendaItems = agendaBlock?.data?.items ?? [];
+    record('J bloco Agenda: só a janela owner_type=page (1 item); decoy owner_type=service NÃO vaza',
+      agendaBlock?.data?.count === 1 && agendaItems.length === 1,
+      `count=${agendaBlock?.data?.count} items=${JSON.stringify(agendaItems)}`);
+
+    // K · bloco Localização + header.location projetam cidade/estado reais; anti-PII de endereço exato
+    if (hasLocationSeed) {
+      const locationBlock = (cD?.blocks ?? []).find((b: any) => b.type === 'location');
+      record('K bloco Localização projeta cityName/stateCode; header.location espelha o mesmo resumo',
+        !!locationBlock?.data?.cityName && !!cD?.header?.location?.cityName &&
+        cD.header.location.cityName === locationBlock.data.cityName,
+        `block=${JSON.stringify(locationBlock?.data)} header=${JSON.stringify(cD?.header?.location)}`);
+      const fullRaw = JSON.stringify(cD);
+      record('K2 anti-PII: contrato NUNCA expõe rua/lat/lng/CEP do endereço operacional',
+        !/Rua Sigilosa|80000-000|-25\.4284|-49\.2733/.test(fullRaw),
+        fullRaw.includes('Rua Sigilosa') ? 'VAZOU rua' : 'ok');
+    }
 
     // E · operating: estranha → 403; dono → 200 com gestão
     const rE1 = await call(`/actor-page/${pageActorId}?mode=operating`, { userId: bia.userId, actorId: bia.actorId });

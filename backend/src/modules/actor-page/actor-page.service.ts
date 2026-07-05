@@ -20,9 +20,24 @@ import type {
   ActorPageAction,
   ActorPageBlock,
   ActorPageContract,
+  ActorPageHeader,
   ActorPageMode,
   ActorPageTab,
 } from './actor-page.types';
+// F-ACTOR-PAGE-SHELL-SLICE-4 — COMPOSIÇÃO (Lei de Coerência §5): o conteúdo rico dos blocos
+// SEMPRE reusa o reader do módulo dono do pilar — este arquivo NUNCA escreve SQL novo para
+// services/products/agenda/localização (guard audit-actor-page-contract.mjs trava isso).
+import { servicesRepository } from '@modules/services/services.repository';
+import { ServiceStatus } from '@modules/services/services.types';
+import { listVisibleProducts } from '@modules/marketplace/product-visibility.service';
+import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
+import { AvailabilityOwnerType, UnifiedAvailabilityStatus } from '@core/availability/unified-availability.types';
+import { resolveTemporalPurposeSlugById } from '@core/availability/temporal-purpose';
+import { operationalAddressHelper } from '@core/location/operational-address.helper';
+import { getFullAddress } from '@core/location/address-helpers';
+
+/** Teto de itens por bloco nesta fatia — sem paginação ainda (conteúdo cabe numa página inicial). */
+const BLOCK_ITEMS_LIMIT = 10;
 
 class ActorPageError extends Error {
   statusCode: number;
@@ -43,9 +58,14 @@ interface BlockDefinition {
   type: string;
   tab: ActorPageTab['key'];
   tabLabel: string;
-  probe: (tenantId: string, actorId: string) => Promise<number>;
+  /** actor = header já resolvido (evita 2ª query; dá o actor_type pra probes que precisam dele) */
+  probe: (tenantId: string, actorId: string, actor: ActorHeaderRow) => Promise<number>;
   /** rota REAL do fluxo vivo (hub §2.3) ou null (conteúdo in-page) */
   deeplink: (actorId: string) => string | null;
+}
+
+function availabilityOwnerType(actor: ActorHeaderRow): 'user' | 'page' {
+  return kindOf(actor) === 'pj' ? 'page' : 'user';
 }
 
 const BLOCK_REGISTRY: BlockDefinition[] = [
@@ -57,7 +77,7 @@ const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: 'products', tab: 'products', tabLabel: 'Produtos',
     probe: (t, a) => actorPageRepository.countActiveProductOffers(t, a),
-    deeplink: () => null, // conteúdo rico = Fatia 4
+    deeplink: () => null, // conteúdo rico in-page (Fatia 4)
   },
   {
     type: 'services', tab: 'services', tabLabel: 'Serviços',
@@ -71,8 +91,8 @@ const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: 'agenda', tab: 'agenda', tabLabel: 'Agenda',
-    probe: (t, a) => actorPageRepository.countFutureAvailability(t, a),
-    deeplink: () => null,
+    probe: (t, a, actor) => actorPageRepository.countFutureAvailability(t, a, availabilityOwnerType(actor)),
+    deeplink: () => null, // conteúdo rico in-page (Fatia 4)
   },
   {
     type: 'schedule_events', tab: 'schedule_events', tabLabel: 'Programação',
@@ -99,7 +119,7 @@ class ActorPageService {
     const headline = await actorPageRepository.getPublicCardHeadline(tenantId, actorId);
 
     // probes em paralelo — o que o actor publicou decide o que acende
-    const counts = await Promise.all(BLOCK_REGISTRY.map((b) => b.probe(tenantId, actorId)));
+    const counts = await Promise.all(BLOCK_REGISTRY.map((b) => b.probe(tenantId, actorId, actor)));
 
     const blocks: ActorPageBlock[] = [
       // Sobre sempre existe (projeção do próprio actor)
@@ -110,12 +130,25 @@ class ActorPageService {
       { key: 'about', label: 'Sobre' },
     ];
 
-    BLOCK_REGISTRY.forEach((def, i) => {
+    for (const [i, def] of BLOCK_REGISTRY.entries()) {
       if (counts[i] > 0) {
-        blocks.push({ type: def.type, tab: def.tab, deeplink: def.deeplink(actorId), data: { count: counts[i] } });
+        const base: ActorPageBlock = { type: def.type, tab: def.tab, deeplink: def.deeplink(actorId), data: { count: counts[i] } };
+        // F-ACTOR-PAGE-SHELL-SLICE-4: hidrata conteúdo rico só para os 3 blocos desta fatia
+        // (Sobre já é rico; Locações/Programação seguem count-only, fora de escopo aqui).
+        blocks.push(await this.hydrateBlock(tenantId, actorId, actor, base));
         tabs.push({ key: def.tab, label: def.tabLabel });
       }
-    });
+    }
+
+    // Localização (Fatia 4) — bloco condicional fora do BLOCK_REGISTRY (não é "contagem de itens",
+    // é presença/ausência de endereço operacional; DECISION-0020). Anti-PII: só cidade/estado/bairro,
+    // NUNCA rua/número/lat-lng na página pública. "Aberto agora" não existe (sem schema de horário
+    // de funcionamento) — nomeado, não construído.
+    const location = await this.resolvePublicLocation(tenantId, actorId);
+    if (location) {
+      blocks.push({ type: 'location', tab: 'location', deeplink: null, data: { ...location } });
+      tabs.push({ key: 'location', label: 'Localização' });
+    }
 
     const lit = new Set(blocks.map((b) => b.type));
     const actions =
@@ -135,10 +168,110 @@ class ActorPageService {
         coverUrl: actor.cover_url,
         bio: actor.bio,
         headline,
+        location,
       },
       actions,
       tabs,
       blocks,
+    };
+  }
+
+  /**
+   * F-ACTOR-PAGE-SHELL-SLICE-4 — conteúdo rico. COMPOSIÇÃO PURA: cada ramo chama o reader do
+   * módulo dono do pilar (nunca SQL novo aqui). Teto `BLOCK_ITEMS_LIMIT` — sem paginação ainda.
+   */
+  private async hydrateBlock(
+    tenantId: string,
+    actorId: string,
+    actor: ActorHeaderRow,
+    base: ActorPageBlock
+  ): Promise<ActorPageBlock> {
+    switch (base.type) {
+      case 'services': {
+        const services = await servicesRepository.findByActor(tenantId, actorId, { status: ServiceStatus.ACTIVE });
+        return {
+          ...base,
+          data: {
+            ...base.data,
+            items: services.slice(0, BLOCK_ITEMS_LIMIT).map((s) => ({
+              serviceId: s.serviceId,
+              name: s.name,
+              slug: s.slug,
+              shortDescription: s.shortDescription,
+              priceCents: s.priceCents,
+              currency: s.currency,
+              pricingType: s.pricingType,
+            })),
+          },
+        };
+      }
+      case 'products': {
+        const products = await listVisibleProducts(tenantId, { merchantActorId: actorId, limit: BLOCK_ITEMS_LIMIT });
+        return {
+          ...base,
+          data: {
+            ...base.data,
+            items: products.map((p) => ({
+              offerId: p.offerId,
+              name: p.name,
+              brand: p.brand,
+              priceCents: p.priceCents,
+              availableQuantity: p.availableQuantity,
+              imageUrl: p.images[0] ?? null,
+            })),
+          },
+        };
+      }
+      case 'agenda': {
+        const ownerType = availabilityOwnerType(actor) === 'page' ? AvailabilityOwnerType.PAGE : AvailabilityOwnerType.USER;
+        const windows = await unifiedAvailabilityService.listAvailabilities(tenantId, {
+          ownerId: actorId,
+          ownerType,
+          status: UnifiedAvailabilityStatus.ACTIVE,
+          startDatetime: new Date(),
+        });
+        const purposeSlugById = await resolveTemporalPurposeSlugById();
+        return {
+          ...base,
+          data: {
+            ...base.data,
+            items: windows.slice(0, BLOCK_ITEMS_LIMIT).map((w) => ({
+              availabilityId: w.availabilityId,
+              startDatetime: w.startDatetime,
+              endDatetime: w.endDatetime,
+              timezone: w.timezone,
+              capacity: w.capacity ?? null,
+              purposeSlug: w.purposeConceptId ? purposeSlugById.get(w.purposeConceptId) ?? null : null,
+            })),
+          },
+        };
+      }
+      default:
+        return base;
+    }
+  }
+
+  /**
+   * Localização pública (Location Core, DECISION-0020) — só cidade/estado/bairro. NUNCA rua/
+   * número/lat-lng nem `postal_code` na página pública (endereço exato não é dado público).
+   */
+  private async resolvePublicLocation(
+    tenantId: string,
+    actorId: string
+  ): Promise<ActorPageHeader['location']> {
+    const assignment = await operationalAddressHelper.getOperationalAddressForActor(tenantId, actorId);
+    if (!assignment) return null;
+    const full = await getFullAddress({
+      country_id: assignment.address.countryId,
+      state_id: assignment.address.stateId ?? undefined,
+      city_id: assignment.address.cityId ?? undefined,
+      neighborhood_id: assignment.address.neighborhoodId ?? undefined,
+    });
+    if (!full?.city && !full?.state) return null;
+    return {
+      cityName: full?.city?.name ?? null,
+      stateCode: full?.state?.code ?? null,
+      neighborhoodName: full?.neighborhood?.name ?? null,
     };
   }
 

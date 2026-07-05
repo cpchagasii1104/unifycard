@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // audit-actor-page-contract.mjs
-// Guard F-ACTOR-PAGE-SHELL-SLICE-3 (DESENHO_PAGINA_DO_ACTOR.md §2.4 SELADO).
+// Guard F-ACTOR-PAGE-SHELL-SLICE-3/4 (DESENHO_PAGINA_DO_ACTOR.md §2.4 SELADO).
 // Congela os invariantes do contrato server-driven da página do actor:
 //   1 · READ-MODEL puro — o módulo nunca escreve (zero INSERT/UPDATE/DELETE);
 //   2 · autoridade — GET exige req.user; mode=operating exige canRepresentActor fail-closed
@@ -11,6 +11,10 @@
 //   5 · blocos derivados de PROBES no substrato (registro §2.2b), nunca aba hardcoded por vertical;
 //   6 · frontend = renderizador do contrato — abas do contrato, zero localStorage, convergência
 //       /profile/:id + /company/:id → ActorPage (anti-página-paralela §2.3).
+//   7 · FATIA 4 — conteúdo rico é COMPOSIÇÃO PURA: service.ts NUNCA escreve SQL novo (zero
+//       SELECT/FROM), só reusa os readers dos módulos donos do pilar (services/marketplace/
+//       availability/location); anti-PII também em service.ts; localização pública NUNCA expõe
+//       rua/número/lat-lng (só cidade/estado/bairro).
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -68,6 +72,27 @@ check('service: abas base = Tudo + Sobre (âncoras universais)',
 check('service: labels do Conectar vêm do vocabulário governado (PAIR_ALLOWED_LABELS da Fatia 1)',
   /PAIR_ALLOWED_LABELS/.test(service) && /allowedLabels/.test(service));
 
+// 7 · FATIA 4 — conteúdo rico é composição pura (nunca SQL novo em service.ts)
+const serviceCode = stripComments(service);
+check('service.ts: ZERO acesso a DB primitivo (composição pura — nunca runQueryWithTenant/pool.query aqui)',
+  !/runQueryWithTenant|runQueriesWithTenant|pool\.query|getClientWithTenant/.test(serviceCode));
+check('service.ts: reusa os readers dos módulos donos do pilar (services/marketplace/availability/location)',
+  /servicesRepository\.findByActor/.test(service) &&
+  /listVisibleProducts\(/.test(service) &&
+  /unifiedAvailabilityService\.listAvailabilities/.test(service) &&
+  /operationalAddressHelper\.getOperationalAddressForActor/.test(service));
+check('service.ts: anti-PII (zero cpf/tax_id/kyc/global_user_id/birthdate no conteúdo rico)',
+  !/cpf|tax_id|kyc|global_user_id|birthdate/i.test(serviceCode));
+check('service.ts: localização pública NUNCA expõe rua/número/lat/lng/CEP (só cidade/estado/bairro)',
+  !/\.street\b|\.number\b|\.lat\b|\.lng\b|postalCode/.test(serviceCode));
+check('types: header.location tipado só com cityName/stateCode/neighborhoodName (sem rua/lat/lng)',
+  /location: \{ cityName: string \| null; stateCode: string \| null; neighborhoodName: string \| null \}/.test(types));
+check("service.ts: agenda usa ownerType resolvido (USER/PAGE) — não mistura owners de tipos diferentes",
+  /AvailabilityOwnerType\.PAGE : AvailabilityOwnerType\.USER/.test(service));
+check('repository: countFutureAvailability exige ownerType explícito (fix do achado read-first — não mistura owners)',
+  /countFutureAvailability\(tenantId: string, actorId: string, ownerType: 'user' \| 'page'\)/.test(repo) &&
+  /AND owner_type = \$3/.test(repo));
+
 // 6 · frontend renderizador do contrato
 const FRONT = resolve(ROOT, '..', 'frontend', 'src');
 const readF = (p) => readFileSync(resolve(FRONT, p), 'utf8');
@@ -91,6 +116,16 @@ try {
   check('frontend: connect envia só toActorId+requesterLabel (actor de origem NUNCA no body)',
     /JSON\.stringify\(\{ toActorId, requesterLabel \}\)/.test(apiRel) &&
     !/stringify\([^)]*fromActorId/.test(apiRel));
+  // Fatia 4 — blocos ricos renderizados a partir de block.data.items (projeção pura do contrato)
+  check('frontend: bloco services renderiza items do contrato (sem "em breve" hardcoded)',
+    /case 'services':[\s\S]{0,200}block\.data\.items/.test(page));
+  check('frontend: bloco products renderiza items do contrato',
+    /case 'products':[\s\S]{0,200}block\.data\.items/.test(page));
+  check('frontend: bloco agenda renderiza items do contrato',
+    /case 'agenda':[\s\S]{0,200}block\.data\.items/.test(page));
+  check('frontend: bloco location renderiza cityName/stateCode do contrato, NUNCA rua/lat/lng',
+    /case 'location':/.test(page) && /cityName, stateCode, neighborhoodName/.test(page) &&
+    !/\.street\b|\.lat\b|\.lng\b/.test(page));
 } catch (e) {
   check(`frontend: arquivos da casca legíveis (${e.message})`, false);
 }

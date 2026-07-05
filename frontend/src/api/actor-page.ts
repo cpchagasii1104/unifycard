@@ -16,6 +16,8 @@ export interface ActorPageHeader {
   coverUrl: string | null;
   bio: string | null;
   headline: string | null;
+  /** F-ACTOR-PAGE-SHELL-SLICE-4: resumo de localização — só cidade/estado/bairro (anti-PII). */
+  location: { cityName: string | null; stateCode: string | null; neighborhoodName: string | null } | null;
 }
 
 export interface ActorPageAction {
@@ -32,11 +34,50 @@ export interface ActorPageTab {
   label: string;
 }
 
+/** F-ACTOR-PAGE-SHELL-SLICE-4: item leve do bloco Serviços (projeção pública, sem PII). */
+export interface ActorPageServiceItem {
+  serviceId: string;
+  name: string;
+  slug: string;
+  shortDescription: string | null;
+  priceCents: number | null;
+  currency: string;
+  pricingType: string;
+}
+
+/** Item leve do bloco Produtos. */
+export interface ActorPageProductItem {
+  offerId: string;
+  name: string;
+  brand: string | null;
+  priceCents: number;
+  availableQuantity: number;
+  imageUrl: string | null;
+}
+
+/** Janela leve do bloco Agenda. */
+export interface ActorPageAgendaItem {
+  availabilityId: string;
+  startDatetime: string;
+  endDatetime: string;
+  timezone: string;
+  capacity: number | null;
+  purposeSlug: string | null;
+}
+
 export interface ActorPageBlock {
   type: string;
   tab: string;
   deeplink: string | null;
-  data: { count?: number; bio?: string | null; headline?: string | null } & Record<string, unknown>;
+  data: {
+    count?: number;
+    bio?: string | null;
+    headline?: string | null;
+    items?: ActorPageServiceItem[] | ActorPageProductItem[] | ActorPageAgendaItem[];
+    cityName?: string | null;
+    stateCode?: string | null;
+    neighborhoodName?: string | null;
+  } & Record<string, unknown>;
 }
 
 export interface ActorPageContract {

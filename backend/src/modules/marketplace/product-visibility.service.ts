@@ -48,6 +48,8 @@ export interface ListVisibleProductsOptions {
   categoryIds?: string[];
   /** Página do ITEM canônico (CP5): lista só as ofertas desta identidade. */
   canonicalProductId?: string;
+  /** F-ACTOR-PAGE-SHELL-SLICE-4: bloco Produtos da página do actor — lista só as ofertas DESTE merchant. */
+  merchantActorId?: string;
   limit?: number;
   offset?: number;
 }
@@ -72,6 +74,10 @@ export async function listVisibleProducts(
   if (options.canonicalProductId) {
     params.push(options.canonicalProductId);
     categoryFilter += ` AND cp.id = $${params.length}::uuid`;
+  }
+  if (options.merchantActorId) {
+    params.push(options.merchantActorId);
+    categoryFilter += ` AND po.merchant_id = $${params.length}::uuid`;
   }
 
   const query = `

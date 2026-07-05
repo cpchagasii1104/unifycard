@@ -13,11 +13,30 @@ import { useParams } from 'react-router-dom';
 import EntityHero, { type EntityHeroStat, type EntityHeroAction } from '../components/entity/EntityHero';
 import PostCard, { type PostCardData } from '../components/social/PostCard';
 import SalesHistory from '../components/social/SalesHistory';
-import { getActorPage, type ActorPageContract } from '../api/actor-page';
+import {
+  getActorPage,
+  type ActorPageContract,
+  type ActorPageServiceItem,
+  type ActorPageProductItem,
+  type ActorPageAgendaItem,
+} from '../api/actor-page';
 import { sendRelationshipRequest, type RelationshipLabel } from '../api/relationships';
 import { getActor, toggleReaction, createComment, followActor, unfollowActor } from '../api/social';
 import { showToast } from '../components/common/Toast';
+import { formatCentsAsBRL } from '../utils/money';
 import './ActorPage.css';
+
+const PURPOSE_LABEL_PT: Record<string, string> = {
+  trabalho: 'Trabalho', estudo: 'Estudo', 'cuidados-pessoais': 'Cuidados pessoais', lazer: 'Lazer',
+};
+
+function formatWindow(startIso: string, endIso: string): string {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
+  const timeFmt = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `${dateFmt.format(start)} · ${timeFmt.format(start)}–${timeFmt.format(end)}`;
+}
 
 const LABEL_PT: Record<string, string> = {
   amigo: 'Amigo', conhecido: 'Conhecido', familiar: 'Familiar',
@@ -213,13 +232,97 @@ export default function ActorPage() {
             )}
           </section>
         );
+      case 'services': {
+        const items = (block.data.items ?? []) as ActorPageServiceItem[];
+        return (
+          <section key="services" className="actor-block">
+            <h2>Serviços</h2>
+            {items.length === 0 ? (
+              <p className="muted">Nenhum serviço ativo no momento.</p>
+            ) : (
+              <ul className="actor-item-list">
+                {items.map((s) => (
+                  <li key={s.serviceId} className="actor-item-card">
+                    <div className="actor-item-main">
+                      <strong>{s.name}</strong>
+                      {s.shortDescription && <p className="actor-item-desc">{s.shortDescription}</p>}
+                    </div>
+                    <div className="actor-item-price">
+                      {s.priceCents != null ? formatCentsAsBRL(s.priceCents) : 'Sob consulta'}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {block.deeplink && <a className="actor-deeplink" href={block.deeplink}>Ver todos →</a>}
+          </section>
+        );
+      }
+      case 'products': {
+        const items = (block.data.items ?? []) as ActorPageProductItem[];
+        return (
+          <section key="products" className="actor-block">
+            <h2>Produtos</h2>
+            {items.length === 0 ? (
+              <p className="muted">Nenhum produto disponível no momento.</p>
+            ) : (
+              <ul className="actor-item-list">
+                {items.map((p) => (
+                  <li key={p.offerId} className="actor-item-card">
+                    {p.imageUrl && <img className="actor-item-thumb" src={p.imageUrl} alt={p.name} />}
+                    <div className="actor-item-main">
+                      <strong>{p.name}</strong>
+                      {p.brand && <p className="actor-item-desc">{p.brand}</p>}
+                      <p className="actor-item-desc muted">{p.availableQuantity} em estoque</p>
+                    </div>
+                    <div className="actor-item-price">{formatCentsAsBRL(p.priceCents)}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      }
+      case 'agenda': {
+        const items = (block.data.items ?? []) as ActorPageAgendaItem[];
+        return (
+          <section key="agenda" className="actor-block">
+            <h2>Agenda</h2>
+            {items.length === 0 ? (
+              <p className="muted">Nenhum horário futuro publicado.</p>
+            ) : (
+              <ul className="actor-item-list">
+                {items.map((w) => (
+                  <li key={w.availabilityId} className="actor-item-card actor-agenda-item">
+                    <span>{formatWindow(w.startDatetime, w.endDatetime)}</span>
+                    {w.purposeSlug && (
+                      <span className="actor-agenda-purpose">{PURPOSE_LABEL_PT[w.purposeSlug] ?? w.purposeSlug}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      }
+      case 'location': {
+        const { cityName, stateCode, neighborhoodName } = block.data;
+        const parts = [neighborhoodName, cityName, stateCode].filter(Boolean);
+        return (
+          <section key="location" className="actor-block">
+            <h2>Localização</h2>
+            <p>{parts.length > 0 ? parts.join(', ') : 'Localização não informada.'}</p>
+            <p className="muted actor-location-note">Endereço exato não é exibido publicamente.</p>
+          </section>
+        );
+      }
       default:
         return (
           <section key={block.type} className="actor-block">
             <h2>{tabs.find((t) => t.key === block.tab)?.label ?? block.type}</h2>
             <p className="muted">
               {typeof block.data.count === 'number' ? `${block.data.count} item(ns) publicado(s). ` : ''}
-              O conteúdo completo deste bloco chega na próxima fatia.
+              O conteúdo completo deste bloco chega em breve.
             </p>
             {block.deeplink && (
               <a className="actor-deeplink" href={block.deeplink}>Ver no fluxo →</a>
@@ -242,6 +345,12 @@ export default function ActorPage() {
         stats={stats}
         actions={heroActions.slice(0, 3)}
       />
+
+      {header.location && (header.location.cityName || header.location.stateCode) && (
+        <p className="actor-location-chip">
+          📍 {[header.location.cityName, header.location.stateCode].filter(Boolean).join(', ')}
+        </p>
+      )}
 
       {connectOpen && (
         <div className="actor-connect-dialog" role="dialog" aria-label="Conectar">

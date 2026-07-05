@@ -22,6 +22,10 @@ export interface ActorPageHeader {
   bio: string | null;
   /** autodescrição do cartão público (metadata.card.headline), se publicada */
   headline: string | null;
+  /** F-ACTOR-PAGE-SHELL-SLICE-4: resumo de localização (Location Core, DECISION-0020).
+   *  Só cidade/estado/bairro — NUNCA rua/número/lat-lng na página pública (anti-PII/anti-exposição
+   *  de endereço exato). null quando o actor não tem endereço operacional cadastrado. */
+  location: { cityName: string | null; stateCode: string | null; neighborhoodName: string | null } | null;
 }
 
 export interface ActorPageAction {
@@ -37,7 +41,7 @@ export interface ActorPageAction {
 }
 
 export interface ActorPageTab {
-  key: 'all' | 'about' | 'posts' | 'products' | 'services' | 'rentals' | 'agenda' | 'schedule_events';
+  key: 'all' | 'about' | 'posts' | 'products' | 'services' | 'rentals' | 'agenda' | 'schedule_events' | 'location';
   label: string;
 }
 
@@ -47,7 +51,16 @@ export interface ActorPageBlock {
   tab: ActorPageTab['key'];
   /** rota REAL do fluxo vivo, ou null quando o conteúdo é renderizado in-page */
   deeplink: string | null;
-  /** dados leves (contagens) — o conteúdo rico dos blocos é a Fatia 4 */
+  /**
+   * F-ACTOR-PAGE-SHELL-SLICE-4 — dados do bloco. Sempre tem `count`. A partir da Fatia 4,
+   * services/products/agenda também carregam `items` (projeção leve do pilar vivo — sempre
+   * `servicesRepository`/`listVisibleProducts`/`unifiedAvailabilityService`, NUNCA SQL novo aqui):
+   *   services  → items: { serviceId, name, shortDescription, priceCents, currency, pricingType, slug }[]
+   *   products  → items: { offerId, name, brand, priceCents, availableQuantity, imageUrl }[]
+   *   agenda    → items: { availabilityId, startDatetime, endDatetime, timezone, capacity, purposeSlug }[]
+   *   location  → { cityName, stateCode, neighborhoodName } (sem rua/número/lat-lng — anti-PII)
+   * "Aberto agora" NÃO existe (sem schema de horário de funcionamento) — nomeado, não construído.
+   */
   data: Record<string, unknown>;
 }
 

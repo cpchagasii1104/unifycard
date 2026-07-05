@@ -182,9 +182,26 @@ grupo Conta, rota `/minha-pagina` + `MyPageRedirect` que projeta o actor ATIVO �
 /company; distinção ratificada por Clayton: /perfil = configurar · Minha Página = como apareço);
 (b) `/services` não reagia ao modo operante → `ProviderServiceHubPage` agora lê `useOperatingMode`
 (doutrina D1: Consumindo = banner descoberta-primeiro "Buscar serviços" + hub reframeado abaixo;
-Operando = central do prestador como está; nada escondido). **Próxima fatia = 4 (blocos
-sem-dinheiro: conteúdo rico de Sobre/Produtos-ver/Serviços-ver/Agenda/Localização) sob GO de
-Clayton.**
+Operando = central do prestador como está; nada escondido).
+
+**✅ ACHADO E FECHADO ENTRE FATIAS (2026-07-05):** `DT-CANACTAS-REGISTRY-CAPABILITY-BLOCKS-ALL-PF`
+— nenhuma pessoa física conseguia postar/criar evento/criar grupo (bug sistêmico pré-existente,
+`canActAs` exigia capability de `actor_registry` institucional até para ownership direto de PF, que
+por desenho nunca tem essa linha). Corrigido em `authorization.service.ts`; zero risco de IDOR
+(ownership já provada por `user_id===userId`). Composer (`IntentComposer.tsx`) também corrigido
+(textarea sumia no meio da digitação).
+
+**✅ FATIA 4 EXECUTADA E FECHADA (2026-07-05, GO "execute a fatia 4"):** conteúdo rico dos blocos
+— COMPOSIÇÃO PURA (zero SQL novo em `actor-page.service.ts`): Serviços via `servicesRepository.
+findByActor` · Produtos via `listVisibleProducts` (+ `merchantActorId?` novo, extensão aditiva) ·
+Agenda via `unifiedAvailabilityService.listAvailabilities` (fix colateral: probe de contagem agora
+exige `ownerType` explícito — sem isso misturava owners de tipos diferentes) · Localização via
+`operationalAddressHelper`+`getFullAddress` (Location Core DECISION-0020; só cidade/estado/bairro,
+NUNCA rua/lat/lng/CEP; "aberto agora" NÃO construído — sem schema de horário, nomeado). Guard +11
+checks (31 total) · negative-proof mordeu 3 mutações · E2E 14/14 (escopo por merchant provado;
+isolamento por owner_type provado; anti-PII de endereço provado; Δbank=0) · typecheck 0 ·
+regression-guards exit=0. **Próxima fatia = 5 (plateias na leitura — fecha DT-SOCIAL-POST-
+VISIBILITY-NOT-ENFORCED-ON-READ, precondição da Fase 2 de descoberta) sob GO de Clayton.**
 
 ---
 
