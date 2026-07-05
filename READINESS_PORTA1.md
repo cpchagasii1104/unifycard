@@ -20,7 +20,33 @@ dinheiro" — é *fechar as facas antes de cortar a corda*. A doutrina do própr
 
 ---
 
-## O CLUSTER (5 itens, cada um com estado VERIFICADO no disco)
+## 🔴 CORREÇÃO YALA #3 (2026-07-04) — A CONTENÇÃO NÃO ERA COMPLETA (a faca não-mapeada)
+
+A afirmação "todo write de dinheiro está contido por design" era **FALSA** para **P2P transfer** — a
+YALA achou (e confirmei no disco). **BLOQUEADOR DE PORTA-1 antes de semear qualquer saldo:**
+
+- **A1 · `POST /bank/p2p-transfer` — 🔴 ALTA, contido SÓ por ledger-vazio:** rota VIVA
+  (`bank-p2p-transfer.routes.ts:40`, registrada em `unifybank.module.ts:26` → `/bank/p2p-transfer` e
+  `/admin/bank/p2p-transfer`). `transferP2P` (service:48) só checa `balanceCents < amountCents`
+  (:107) e chama o write real `createTransactionWithSplit` (:145). **SEM firewall.** `fromUserId =
+  req.user.id` (self, sem impersonação) → pós-PORTA-1 qualquer autenticado drena o PRÓPRIO saldo p/
+  qualquer `toUserId`. NÃO usa `executePayment` → **fora do meu plano de firewall** (que cobria só V3).
+- **A2 · o SINK está descoberto (generaliza):** o firewall (`CHECKOUT_FINANCIAL_RUNTIME_ENABLED`) só
+  existe no `CheckoutService`. ≥8 callers diretos de `transfer()`/`createTransactionWithSplit`
+  (p2p, split, escrow, payout, regional-fund, event-payment, gateway-resolver, payment-execution)
+  ficam SEM firewall, contidos só por vazio. É o mesmo padrão G1/F5 (contenção por-caller, sink cego).
+- **A4 · 🟡 gateway PIX webhook** (`payment-event-resolver.ts:159/234` `transfer()`): sem firewall
+  próprio; contido por HMAC fail-closed + adapter simulado + intent settle-able só do checkout + vazio.
+- **PENDING:** Core de aprovação (#3) — não confirmado se writer materializa autoridade em policy viva
+  sem 4-olhos. Verificar antes de PORTA-1.
+
+**FIX ESTRUTURAL (para o decision pack, NÃO construído aqui — é dinheiro/soberano):** firewall
+default-OFF **DENTRO do SINK** (`createTransactionWithSplit` + `transfer`), **não por-caller** — assim
+P2P + os ≥8 callers herdam a contenção de uma vez. (A YALA #1/#2 já ensinou: catraca no sink, não na
+borda.) A Parte B do baseline-ratchet foi verificada na amostra sensível (membership/KYB/social) e é
+**honesta** — nenhum mis-rótulo; a fragilidade lá é de processo (baseline estático não morde 40º handler novo).
+
+## O CLUSTER (agora 6+ itens — V3 era só 1 de vários sinks descobertos)
 
 ### 1. V3 — sink `executePayment` sem firewall interno · 🔴 ALTA
 - **Disco:** `payment-execution.service.ts:96` — `executePayment` NÃO tem assert de firewall no corpo
