@@ -137,15 +137,23 @@ async function main(): Promise<void> {
   const app = await buildApp();
 
   // ── FIXTURES de recursos owner (cada um com autoridade material de P1) ──────
-  const offeringId = (await pool.query<{ id: string }>(
-    `INSERT INTO service_offerings (tenant_id, canonical_service_id, provider_actor_id, price_cents, duration_minutes, modality, status)
-     SELECT $1::uuid, id, $2::uuid, 5000, 45, 'in_person', 'active' FROM canonical_services WHERE scope='global' AND slug='corte-de-cabelo-masculino' LIMIT 1
-     RETURNING id::text AS id`,
-    [TENANT_ID, P1.actorId])).rows[0].id;
+  // DT-AVAILABILITY-OWNER-AUTHORITY-EXEMPLAR-RESIDUES (R1, Onda 1 zeragem de DT, 2026-07-05):
+  // fixture estava stale contra 2 migrations mandatórias posteriores: service_offerings.service_id
+  // NOT NULL (20260621120000, DECISION-0145 "offering pertence a um service") e
+  // services.canonical_service_id NOT NULL (20260621100000, F-OFFER-2A). Resolve o concept UMA vez,
+  // cria o `service` primeiro (com canonical_service_id), offering referencia ambos.
+  const canonicalServiceId = (await pool.query<{ id: string }>(
+    `SELECT id::text AS id FROM canonical_services WHERE scope='global' AND slug='corte-de-cabelo-masculino' LIMIT 1`
+  )).rows[0].id;
   const serviceId = (await pool.query<{ id: string }>(
-    `INSERT INTO services (tenant_id, actor_id, name, slug) VALUES ($1::uuid, $2::uuid, 'Svc Owner Auth', $3)
+    `INSERT INTO services (tenant_id, actor_id, name, slug, canonical_service_id) VALUES ($1::uuid, $2::uuid, 'Svc Owner Auth', $3, $4::uuid)
      RETURNING service_id::text AS id`,
-    [TENANT_ID, P1.actorId, `svc-owner-auth-${Date.now()}`])).rows[0].id;
+    [TENANT_ID, P1.actorId, `svc-owner-auth-${Date.now()}`, canonicalServiceId])).rows[0].id;
+  const offeringId = (await pool.query<{ id: string }>(
+    `INSERT INTO service_offerings (tenant_id, canonical_service_id, service_id, provider_actor_id, price_cents, duration_minutes, modality, status)
+     VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 5000, 45, 'in_person', 'active')
+     RETURNING id::text AS id`,
+    [TENANT_ID, canonicalServiceId, serviceId, P1.actorId])).rows[0].id;
   const eventId = (await pool.query<{ id: string }>(
     `INSERT INTO events (tenant_id, actor_id, actor_type, event_type, title) VALUES ($1::uuid, $2::uuid, 'user', 'meetup', 'Evento Owner Auth')
      RETURNING id::text AS id`,

@@ -15610,7 +15610,12 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
   owner em runtime; a garantia EFETIVA contra write legado é CÓDIGO (zero writer) — exatamente o que o guard E2 trava.
   O REVOKE statement revoga só INSERT,UPDATE (não DELETE), mas PUBLIC.DELETE já é negado por default → sem efeito prático.
 
-## DT-AVAILABILITY-OWNER-AUTHORITY-EXEMPLAR-RESIDUES — resíduos do exemplar (NÃO no padrão de autoridade) (2026-06-15, E1 / ONDA DECISION-0131)
+## DT-AVAILABILITY-OWNER-AUTHORITY-EXEMPLAR-RESIDUES — 🟢 R1 CLOSED / R2-R4 permanecem OPEN (2026-07-05) — Onda 1 (zeragem de DT), item 17/20
+- **R1 (prova órfã) — ✅ CLOSED:** criado `scripts/run-availability-owner-authority-ephemeral.ps1` (mirror do template `run-groups-owner-gate-ephemeral.ps1`), DB efêmera própria, nunca toca `unificard_dev`.
+- **Achado durante a execução real do runner (não estava na dívida original):** ao rodar de fato, a fixture do e2e estava **stale contra 2 migrations mandatórias posteriores** — `service_offerings.service_id NOT NULL` (20260621120000, DECISION-0145) e `services.canonical_service_id NOT NULL` (20260621100000, F-OFFER-2A). O e2e criava a offering ANTES do service (ordem invertida do que a FK exige hoje) e nunca preenchia `canonical_service_id` no `services`. Corrigido: resolve o concept uma vez, cria `services` primeiro (com `canonical_service_id`), `service_offerings` referencia ambos os IDs.
+- **Prova:** runner rodado 3x até estabilizar (2 falhas de fixture stale corrigidas incrementalmente, cada uma com erro `23502` explícito apontando a coluna exata) — resultado final **24/24 verdes**, incluindo os 5 owner_types (user/page/service/event/group), autoridade polimórfica, forjamento de actionContext rejeitado (403), zero Bank writer. Backend `tsc --noEmit` EXIT 0; `validate:regression-guards` EXIT 0 integral.
+- **R2 (gate não enumera writers fora de core/availability), R3 (heurística de nome fixo evadível), R4 (rotas reimplementam helper em vez de importar o primitivo combinado):** a própria dívida já rotulava cada um como "frente própria" (mudança de guard/rota, não housekeeping). **Permanecem OPEN**, não tocados nesta sessão.
+- **Status:** 🟢 R1 CLOSED, R2-R4 OPEN (dívida composta — só a parte de reprodutibilidade fechou). **Cruza com:** `audit-availability-owner-authority.mjs` (guard estrutural, CLOSED=26, intocado).
 
 - **Status:** **OPEN (resíduos REAIS fora do padrão de autoridade; NÃO corrigir em E1).** O padrão owner-authority está
   CORRETO e travado (guard `audit-availability-owner-authority.mjs`, CLOSED=26). Estes resíduos são de
