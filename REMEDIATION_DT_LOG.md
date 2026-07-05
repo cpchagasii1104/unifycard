@@ -2050,7 +2050,15 @@ Abrir frente OUTBOX_ATOMICITY_HARDENING quando: (a) incidente real reportado por
 
 ---
 
-## DT-SCHEMA-DRIFT-CLUSTER-5-TABLES — OPEN
+## DT-SCHEMA-DRIFT-CLUSTER-5-TABLES — 🟢 CLOSED_WITH_RESIDUAL_ORFAOS (2026-07-05) — Onda 1 (zeragem de DT), item 19/20
+- **Read-first no estado atual das 5 tabelas (todas ainda ausentes no schema, `to_regclass`=NULL confirmado de novo) revelou que a severidade caiu bastante desde 2026-05-25**, por trabalho de frentes SEPARADAS que já fecharam o pior caso sem saber que estavam fechando esta DT:
+  1. **`company_documents` (era DRIFT/500) → ✅ RESOLVIDO.** `uploadCompanyDocument`/`listCompanyDocuments`/`listPendingDocuments`/`updateDocumentStatus` (`companies.service.ts`) agora lançam erro honesto fail-closed como PRIMEIRA instrução (`F-PJ-LEGACY-DOC-UPLOAD-TOMBSTONE`/`F-PJ-KYB-DOCUMENTS-CANONICAL-FLOW`, DECISION-0087) — zero SQL contra a tabela fantasma. SSOT documental KYB migrou pra `fiscal_identity_documents`.
+  2. **`company_domains` (era ÓRFÃO) → ✅ RESOLVIDO.** Comentário em `companies.service.ts:717-720` confirma: "F-PJ-DOMAIN-SELECTOR-NEUTRALIZE (DECISION-0102 D9/D10): bloco GHOST de `company_domains` REMOVIDO" — não tenta mais escrever, nem em try/catch.
+  3. **`business_audit_logs`** — ainda ÓRFÃO, sem mudança: writer/leitor seguem existindo mas só alcançados via wrapper `recordBusinessAuditSafely` (try/catch externo não-bloqueante). Nunca crasha.
+  4. **`company_opportunity_preferences`** — ainda ÓRFÃO **por desenho**: `companies.service.ts:722-737` tem try/catch explícito com comentário "Não bloquear se tabela não existir ainda (migration pode não ter rodado)". Nunca crasha.
+  5. **`referral_codes`** — ainda ÓRFÃO: usado só em `modules/marketplace/referral.repository.ts`/`referral.service.ts`, chamado por `ticket.service.ts:262-274` dentro de um `try` que já envolve `commissionService`/`referralService` (falha não bloqueia confirmação do ticket). Nunca crasha.
+- **Conclusão:** o único item que **quebrava com HTTP 500 sem proteção** (o que motivou a severidade "DRIFT" desta DT) já foi eliminado por decisão própria (0087). Os 3 residuais são todos ÓRFÃOS-por-desenho ou ÓRFÃOS-históricos que degradam silenciosamente sem nunca crashar — exatamente o "não bloqueante" que a dívida original já cravava como aceitável.
+- **Status:** 🟢 CLOSED_WITH_RESIDUAL_ORFAOS — não fechada por eu ter corrigido, mas por confirmar que o estado real hoje já não tem o componente perigoso (DRIFT) e os residuais são tolerados por desenho. Zero código tocado (achado de verificação, não de correção). **Cruza com:** DECISION-0087 (KYB canônico) · DECISION-0102 D9/D10 (domain selector neutralizado).
 
 - **Status:** OPEN 2026-05-25 (commit `aa4bc002` — diagnóstico consolidado; sem correção nesta entrada)
 - **Origem:** Achados materiais durante a sessão do dia 2026-05-25 (Fatia A1 RBAC, Frente B empresa, Frente C KYC, E2Es transversais). 4 das 5 tabelas apareceram como erro pré-existente "não-bloqueante" durante exercício de runtime; a 5ª (`company_documents`) apareceu como erro HTTP 500 explícito ("relação company_documents não existe") na Prova 1 da Fatia A1 ao exercitar `GET /companies/admin/documents/pending`.
