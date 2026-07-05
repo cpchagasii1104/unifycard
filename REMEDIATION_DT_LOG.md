@@ -12201,6 +12201,7 @@ o invariante. **Consequência:** a guarda REPARO 2 do C1 (`id !== actor_id ⇒ A
 proíbe id≠actor_id). Status: a "DT de invariante ausente" está RESOLVIDA pelo schema vivo.
 
 ### DT-CORE-PROFILE-GET-CREATES-ACTOR (OPEN — origem: diagnóstico A1/P2)
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/L. Read-first confirmou que o denominador foi ampliado e a decisão já foi tomada em `DT-READ-PATH-ENSUREUSERACTOR-DIFFUSE-CURE` (governada por DECISION-0115 §2.1): criação de actor em GET é "cura transitória, não modelo canônico" — **explicitamente proibido remover antes de D2 (nascimento garantido) existir** ("não remover GETs curativos antes de o reparo legítimo existir", STOP R6↔R8 do G10). Bloqueada por pré-requisito não concluído. Reclassificada **D_FIX → E_BLOCKED** (aguarda D2). NÃO tocado.
 **Contexto.** Diagnóstico A1 (pesquisa P2) apontou que o caminho de leitura de perfil legado pode
 disparar criação de actor (side effect proibido em leitura, §4.8.1 / DECISION-0063 §11). Referências
 citadas pelo desenho: `core.service.ts:348`, `profile-inference.service.ts:245`. **Não verificado
@@ -12224,6 +12225,7 @@ de CONCEPT-como-SSOT. Ancoragem normativa formal do número da "Lei 7" fica para
 própria (não-bloqueante).
 
 ### DT-VALIDATE-ARCHITECTURAL-20-LEGADO (OPEN — registrada no selo A2, 2026-05-31)
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/M. Read-first rodou o scanner de novo: as regras mudaram de nome desde 2026-05-31 (REGRA 2/3 → `NO_MANUAL_MONEY_CALCULATION`/`NO_DIRECT_BANK_TABLE_ACCESS`, hoje 31 no total: 19+12, não mais 20) — o scanner em si JÁ foi corrigido nesta mesma sessão (Onda 1 item 5, `DT-GATE-DOCSTRING-FALSE-POSITIVE`, eliminou falsos-positivos de docstring). `critical_new=0`/`warning_new=0` confirmado — baseline correto, nada bloqueando. As 31 violações remanescentes são candidatas reais (não mais ruído de parser) e cada uma precisa de triagem individual antes de decidir fix vs. aceitar-como-legado — exatamente o que a própria entrada já pedia ("frente read-only própria para mapear"). Reclassificada **D_FIX → frente read-only própria**. NÃO tocado (além da correção do scanner já feita antes, nesta mesma sessão).
 **Contexto.** O gate `validate:architectural` (versão CI não-baseline) sai com exit 1 porque conta
 `Total=20` violações arquiteturais PRÉ-EXISTENTES (dívida de perfil legado): majoritariamente
 REGRA 3 "Categorias no perfil devem ter evento versionado associado" + 1 REGRA 2 "Perfil do Usuário
