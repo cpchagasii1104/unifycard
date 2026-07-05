@@ -15501,7 +15501,7 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   financeiro/seed/RBAC-ativação.
 
 ## DT-ROLE-FALLBACK-TRANSITIONAL-ADAPTER — callers com primitivo canônico + fallback por role (2026-06-15, F-RBAC-ROLE-AS-AUTHORITY-CONTAINMENT / Art.17)
-
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/M. Já está corretamente CONTIDA (guard `audit-role-as-authority-containment.mjs` ativo, classificação `ADAPTER_TRANSITIONAL` correta, bloqueia regressão). A convergência exige desenhar um mecanismo de grant/capability NOVO por rota ("cada um com tripé", 4 rotas distintas) pra substituir o fallback de role — decisão de modelo de autoridade, não fix mecânico. Reclassificada **D_FIX → A_DECISION**. NÃO tocado — contenção já é suficiente, sem urgência.
 - **Status:** **OPEN (CONTIDO; convergência futura).** _(Correção do FAIL Yala de WAVE-1 BATCH-3: estes 4 callers
   estavam rotulados CANONICAL indevidamente.)_ São **ADAPTADOR_TRANSITÓRIO**, não CANÔNICO definitivo: têm primitivo
   canônico **PRIMÁRIO**, mas mantêm **fallback por role** (`primitivo OR userHasAnyRole(['admin','owner'])`), logo role
