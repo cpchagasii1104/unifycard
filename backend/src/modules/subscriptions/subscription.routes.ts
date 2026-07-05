@@ -184,18 +184,28 @@ const subscriptionRoutes = async (fastify: FastifyInstance) => {
   /**
    * POST /subscriptions/run-due
    * Agenda execuções de assinaturas vencidas (admin/internal)
+   *
+   * 🔴 CONTENÇÃO (achado da verificação de V3 do parecer sobre a re-auditoria Yala, 2026-07-05):
+   * o comentário "admin/internal" era um FALSO SENSO DE SEGURANÇA — o handler não tinha NENHUMA
+   * checagem de autenticação/permissão. `runDueSubscriptions` → `executeSubscriptionAction` →
+   * `paymentExecutionService.executePayment`, e como esta rota nunca seta `payment_method_snapshot`
+   * no intent, o fluxo cai no branch REAL de movimentação (user_wallet → escrow_payments via
+   * `bankAccountService`), não no simulado. Zero caller legítimo hoje (grep exaustivo). Mesmo
+   * padrão JÁ aplicado em `automation/schedule/run-due` (`F-FINANCIAL-INTERNAL-SURFACES-P1-
+   * CONTAINMENT`) para a MESMA classe de rota — replicado aqui. `runDueSubscriptions`/
+   * `executeSubscriptionAction` permanecem intactos no service para um futuro worker/internal
+   * caller; a contenção é só na BORDA.
    */
   fastify.post<{
     Body: {
       limit?: number;
     };
-  }>('/run-due', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const limit = req.body.limit || 50;
-
-    const result = await subscriptionService.runDueSubscriptions(tenantId, limit);
-
-    return reply.send(result);
+  }>('/run-due', async (_req, reply) => {
+    return reply.status(403).send({
+      ok: false,
+      code: 'SUBSCRIPTIONS_RUN_DUE_HTTP_DISABLED',
+      message: 'Scheduled due-subscription execution through this HTTP route is disabled; it must run via an internal/worker caller.',
+    });
   });
 };
 

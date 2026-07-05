@@ -11,6 +11,7 @@ import { orderService } from '../marketplace/order.service';
 import { paymentIntentService } from '../marketplace/payment-intent.service';
 import { paymentExecutionService } from '../marketplace/payment-execution.service';
 import { publicProfileService } from '../public-profiles/public-profile.service';
+import { assertVenueFinancialRuntimeEnabled } from './venue-financial-firewall';
 
 /**
  * Rotas ADMIN/AUTH para Venue
@@ -437,6 +438,12 @@ const venuePublicRoutes = async (fastify: FastifyInstance) => {
       paymentMethodId?: string;
     };
   }>('/t/:qrToken/orders/:orderId/pay', async (req, reply) => {
+    // F-VENUE-PAY-MONEY-HOLD-CONTAINMENT — FAIL-CLOSED default-off ANTES de qualquer side-effect
+    // financeiro (createPaymentIntent/authorizePaymentIntent/executePayment → payment_intents/
+    // bank_*). Mesmo padrão do PDV (assertPdvFinancialRuntimeEnabled). Venue segue vivo como
+    // canal (comanda/QR); só o pagamento está contido enquanto dinheiro está HOLD (PORTA-1).
+    assertVenueFinancialRuntimeEnabled('POST /t/:qrToken/orders/:orderId/pay');
+
     const tenantId = req.tenant!.id;
     const { qrToken, orderId } = req.params;
     const { paymentMethod, paymentMethodId } = req.body;
