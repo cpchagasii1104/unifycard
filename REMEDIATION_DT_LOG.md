@@ -632,6 +632,7 @@
 - **Fronteiras:** [[DT-SERVICE-CLEANING-PROFESSIONAL-BUCKET-DUPLICATE]] (W-M2) permanece **OPEN / NAVIGATION / LOW-MEDIUM / CONTAINED** — o bucket vazio pré-existente `limpeza-servicos` NÃO foi tocado, escondido, aposentado nem fundido (fatia própria). Dinheiro/checkout/PORTA-1/payout/ranking/2º provider/produto físico = HOLD.
 
 ## DT-SERVICE-CLEANING-PROFESSIONAL-BUCKET-DUPLICATE — 🟡 OPEN / NAVIGATION / LOW-MEDIUM / CONTAINED (já existia antes da slice um bucket professional level-1 vazio `limpeza-servicos` "Limpeza e facilities", sibling do novo `limpeza-conservacao`; coexistência pode gerar ambiguidade de browse no `/perfil`) (2026-07-01)
+- **🟡 RECLASSIFICADA (Onda 1 de zeragem de DT, 2026-07-05):** triagem tinha marcado como C_CLEANUP/S. A própria entrada já diz "docs-only; proibido apagar/fundir/mexer" e "decisão soberana (envolve navegação/taxonomia), money-free" — não é limpeza mecânica, é escolha de produto entre 4 opções (esconder/aposentar/fundir/normalizar). Reclassificada **C_CLEANUP → A_DECISION**. NÃO executada nesta sessão — aguarda GO de Clayton.
 - **Origem:** warning material **W-M2** da YALA sobre `64d62df93` (`F-SERVICE-VERTICAL-SEED-CLEANING-SLICE`) + correção honesta do READ-FIRST (que o listara como global). Confirmado por leitura READ-ONLY.
 - **Descrição / raiz:** existia **antes** da slice o bucket professional level-1 `limpeza-servicos` ("Limpeza e facilities") — professional · level 1 · **sem** `concept_id` · **vazio** (sem grãos pendurados) · sibling do novo `limpeza-conservacao`. A migration nova **NÃO** o alterou e **NÃO** pendurou grãos nele (e2e prova: umbrellas pré-existentes não viraram grão nem são parent dos meus grãos). Mas a **coexistência** de dois buckets professional de limpeza pode gerar ambiguidade de navegação/browse no `/perfil` se ambos aparecerem ao produtor.
 - **Classificação:** não afeta identidade semântica · não afeta canonical_service · não afeta aliases · não afeta autoridade · não afeta dinheiro · **impacto possível = UX/onboarding por browse de categoria**; o caminho principal (busca por termo humano → alias → concept) permanece íntegro (não passa por browse de bucket).
@@ -12213,7 +12214,7 @@ exige read-only/ratificação própria + decisão de Clayton. Nenhum achado vira
 - **DT-PROFILE-PERSONAL-METADATA-NO-CONTRACT** — gênero/onboarding em JSONB sem contrato. (C)
 - **DT-PJ-PROFILE-BOUNDARY-UNVERIFIED** — fronteira PJ/CompaniesManager INCONCLUSIVA; exige passe
   read-only próprio. (A,B,C,D)
-- **DT-AVAILABILITY-SSOT-NAME-DRIFT** — ver achado #7. (C,D)
+- **DT-AVAILABILITY-SSOT-NAME-DRIFT** — ver achado #7. (C,D) — 🟡 **RECLASSIFICADA (Onda 1 de zeragem de DT, 2026-07-05):** triagem tinha marcado como C_CLEANUP/S ("alinhar referência normativa"). Mas esta entrada está debaixo do cabeçalho explícito "MAPA (diagnóstico), NÃO autorização de correção... cada correção exige read-only/ratificação própria + decisão de Clayton" — mesmo sendo aparentemente mecânica (ajustar nome em doc), a norma do próprio cartório proíbe tocar sem esse passo prévio. Reclassificada **C_CLEANUP → A_DECISION** (ou, mais precisamente, "aguarda frente read-only própria"). NÃO executada nesta sessão.
 
 ### Decisões PENDENTES de Clayton / frente própria (NÃO decidir aqui)
 - Interesse/Aprendizado = CONCEPT? (modelar identidade semântica)
