@@ -9106,6 +9106,14 @@ actor-scoped.
 
 - Nenhum misuse confirmado em auditoria. Risco é preventivo.
 
+### 🔴 ACHADO NA ONDA 1 (zeragem de DT, 2026-07-05) — misuse REAL encontrado, contradiz a mitigação acima
+- **Contexto:** triagem marcou esta dívida como C_CLEANUP/S ("audit grep + remover/renomear/documentar"). Read-first foi além do grep raso feito em 2026-05-28 e achou **2 usos reais** de `activeActor?.user_id` (tipado `AvailableActor | null` via `useActiveActor()`) num campo `completedBy` de config de onboarding:
+  - `CompanyOnboardingWizard.tsx:423` — `completedBy: activeActor?.user_id` dentro de `CompanyOnboardingConfig`, enviado via `updateCompany(companyId, {...})` → `PUT /companies/:companyId`.
+  - `EventWizardAdaptive.tsx:161` — mesmo padrão, `completedBy: activeActor?.user_id || ''`.
+- **Confirmado que o valor é persistido de verdade:** `companies.routes.ts:84` aceita `metadata: z.record(z.any())` sem validação de forma; `companies.service.ts:637-643` grava esse metadata (incluindo o objeto de onboarding aninhado) em `actors.metadata` via `jsonb_build_object('onboarding', $2::jsonb)` — não é campo solto ignorado, o `user_id` (em vez de `actor_id`) entra de fato no banco.
+- **Por que não corrigi na hora:** isso é exatamente a classe de bug que esta sessão tratou com o máximo cuidado — dezenas de `DT-AUTHORITY-Z2-*-ACTOR-BINDING-UNBOUND`/`DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF` foram fechadas com binding server-side rigoroso e prova E2E, não com um rename rápido no frontend. Trocar `user_id`→`actor_id` aqui exige confirmar: (a) se algum consumidor do lado backend já espera `user_id` neste campo específico (mudança quebraria isso); (b) se `completedBy` tem algum papel em decisão de autoridade além de metadado informativo de "quem completou o wizard"; (c) o mesmo para o wizard de eventos. Isso é investigação própria, não os "poucos minutos" de uma limpeza mecânica.
+- **Reclassificada C_CLEANUP → D_FIX** (correção real de engenharia, não mecânica) — **NÃO executada nesta sessão**. Fica registrado como achado confirmado (não mais "risco preventivo sem misuse") pra próxima sessão investigar e corrigir com o mesmo rigor usado nos outros achados de authorship desta sessão.
+
 ### Resolução prevista
 
 - Audit grep de consumers de `AvailableActor.user_id` no frontend.
