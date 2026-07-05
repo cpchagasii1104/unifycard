@@ -35,6 +35,7 @@ import { AvailabilityOwnerType, UnifiedAvailabilityStatus } from '@core/availabi
 import { resolveTemporalPurposeSlugById } from '@core/availability/temporal-purpose';
 import { operationalAddressHelper } from '@core/location/operational-address.helper';
 import { getFullAddress } from '@core/location/address-helpers';
+import { supportTicketRepository } from '@modules/support-tickets/support-ticket.repository';
 
 /** Teto de itens por bloco nesta fatia — sem paginação ainda (conteúdo cabe numa página inicial). */
 const BLOCK_ITEMS_LIMIT = 10;
@@ -299,6 +300,19 @@ class ActorPageService {
     }
 
     actions.push({ key: 'message', label: 'Mensagem', enabled: false, gatedBy: 'EM_BREVE', deeplink: null });
+
+    // Abrir chamado — F-SUPPORT-TICKET-BUSINESS-FACT-GATE (Fatia 6, DESENHO §5/§5B SELADO):
+    // gated por FATO DE NEGÓCIO real (não por conexão). Composição pura: reusa o mesmo resolver
+    // do módulo support-tickets — nunca reinventa a checagem aqui. Acende SÓ se existir ≥1
+    // pedido/serviço/reserva REAL entre o viewer e este actor (qualquer um serve pra habilitar;
+    // a escolha de QUAL referenciar é feita na abertura do chamado).
+    if (viewerActorId && viewerActorId !== target.id) {
+      const hasFact = await supportTicketRepository.hasAnyBusinessFact(tenantId, viewerActorId, target.id);
+      actions.push({
+        key: 'support_ticket', label: 'Abrir chamado', enabled: hasFact,
+        gatedBy: hasFact ? undefined : 'SEM_FATO_DE_NEGOCIO', deeplink: null,
+      });
+    }
 
     if (lit.has('agenda')) {
       actions.push({ key: 'schedule', label: 'Agendar', enabled: false, gatedBy: 'EM_BREVE', deeplink: null });

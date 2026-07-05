@@ -29,7 +29,7 @@ export interface ActorPageHeader {
 }
 
 export interface ActorPageAction {
-  key: 'connect' | 'message' | 'schedule' | 'buy' | 'contract' | 'edit_profile' | 'create_service' | 'manage_rentals';
+  key: 'connect' | 'message' | 'schedule' | 'buy' | 'contract' | 'edit_profile' | 'create_service' | 'manage_rentals' | 'support_ticket';
   label: string;
   enabled: boolean;
   /** por que está desabilitada (ex.: 'PORTA-1' dinheiro soberano; 'EM_BREVE' fluxo ainda não vivo) */

@@ -216,7 +216,28 @@ ANTES de confiar nele (senão o próprio fix abriria impersonação de leitura).
 `PostComposer` ganhou "Só eu"; `IntentComposer` passou a usar a heurística de audiência que já
 existia mas era descartada. Guard 19 checks + negative-proof (2 mutações mordidas) · E2E 9/9
 (inclui prova adversarial do vetor de impersonação fechado) · typecheck 0 · regression-guards
-exit=0. **Próxima fatia = 6 (Chamado gated por FATO DE NEGÓCIO) sob GO de Clayton.**
+exit=0.
+
+**✅ FATIA 6 EXECUTADA E FECHADA (2026-07-05, GO "execute a próxima fatia"):** o Chamado, gated
+por FATO DE NEGÓCIO real (não por conexão). Greenfield total — read-first confirmou que nenhum
+módulo "Chamado" existia; os módulos `disputes`/`reconciliation` são disputa financeira/reversão
+contábil interna, domínio DIFERENTE, conscientemente não reusado. A catraca causal: o chamado
+referencia um evento de negócio ESPECÍFICO (`order`/`service_order`/`booking`) e o par
+`{from,to}` declarado precisa bater EXATAMENTE com as duas partes reais resolvidas da fonte viva
+(fail-closed 422 senão) — nunca "qualquer negócio", nunca confia no toActorId do cliente. Resolve
+owner polimórfico de booking (`user`/`page` direto; `service_offering`/`service`/
+`rentable_resource` via join; `event`/`group` fora de escopo, 404 fail-closed). Migration
+`20260705130000_support_tickets_business_fact_gate.sql` + módulo `support-tickets/` (repository
+100% composição — só lê as fontes vivas, nunca duplica). Nova ação `support_ticket` no contrato
+da página do actor (reusa `hasAnyBusinessFact`). Frontend: modal na ActorPage (padrão do diálogo
+Conectar). Achado colateral resolvido sem gambiarra: o fixture do E2E precisava de
+`orders.total_cents` (NOT NULL) — em vez de INSERT bruto (bateria no ratchet financeiro
+B4/DECISION-0158), passou a reusar `orderRepository.createOrder` real (composição, Lei §5),
+baseline manteve 3846/3846. Guard 20 checks + negative-proof (2 mutações mordidas) · E2E 14/14
+(3 tipos de fato + cadeia de join + 5 vetores adversariais fechados) · typecheck 0 ·
+regression-guards exit=0. Frontend aguarda sign-off visual (mesmo padrão das Fatias 1-5).
+**Próxima fatia = 7 (CRM projetado + reconciliar suppliers, morte do ghost `contacts`) sob GO de
+Clayton.**
 
 ---
 

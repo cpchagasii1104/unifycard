@@ -185,3 +185,31 @@
   font-size: 0.8rem;
   margin-top: 4px;
 }
+
+/* F-SUPPORT-TICKET-BUSINESS-FACT-GATE (Fatia 6) — modal do Chamado */
+
+.actor-ticket-ref-select,
+.actor-ticket-input,
+.actor-ticket-textarea {
+  width: 100%;
+  border: 1px solid #d7dbe0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 6px 0;
+  font: inherit;
+}
+
+.actor-ticket-submit {
+  border: none;
+  background: #1877f2;
+  color: #fff;
+  border-radius: 18px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.actor-ticket-submit:disabled {
+  background: #b9d3f7;
+  cursor: not-allowed;
+}

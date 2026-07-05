@@ -719,7 +719,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     const actorPageModule = await import('./modules/actor-page/actor-page.routes');
     await protectedScope.register(actorPageModule.default);
     console.log('[BOOT] Actor Page contract registered: /actor-page/:actorId');
-    
+    // F-SUPPORT-TICKET-BUSINESS-FACT-GATE (Fatia 6): Chamado gated por fato de negócio real
+    const supportTicketModule = await import('./modules/support-tickets/support-ticket.routes');
+    await protectedScope.register(supportTicketModule.default);
+    console.log('[BOOT] Support Tickets (Chamado) registered: /support-tickets');
+
     console.log('[BOOT] Todos os módulos protegidos registrados');
   });
   

@@ -21,6 +21,11 @@ import {
   type ActorPageAgendaItem,
 } from '../api/actor-page';
 import { sendRelationshipRequest, type RelationshipLabel } from '../api/relationships';
+import {
+  listEligibleReferences,
+  openSupportTicket,
+  type EligibleBusinessFactReference,
+} from '../api/support-tickets';
 import { getActor, toggleReaction, createComment, followActor, unfollowActor } from '../api/social';
 import { showToast } from '../components/common/Toast';
 import { formatCentsAsBRL } from '../utils/money';
@@ -46,6 +51,7 @@ const LABEL_PT: Record<string, string> = {
 const GATE_HINT: Record<string, string> = {
   'PORTA-1': 'Transações chegam em breve',
   EM_BREVE: 'Em breve',
+  SEM_FATO_DE_NEGOCIO: 'Só após comprar/contratar',
 };
 
 interface SocialData {
@@ -66,6 +72,14 @@ export default function ActorPage() {
   const [error, setError] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+
+  // F-SUPPORT-TICKET-BUSINESS-FACT-GATE (Fatia 6) — modal do Chamado
+  const [ticketOpen, setTicketOpen] = useState(false);
+  const [ticketRefs, setTicketRefs] = useState<EligibleBusinessFactReference[] | null>(null);
+  const [ticketRefIdx, setTicketRefIdx] = useState(0);
+  const [ticketSubject, setTicketSubject] = useState('');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [ticketBusy, setTicketBusy] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -103,6 +117,42 @@ export default function ActorPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       showToast(msg.includes('Já existe') ? 'Vocês já têm uma conexão.' : 'Não foi possível enviar o pedido.', 'error');
+    }
+  };
+
+  const handleOpenTicketDialog = async () => {
+    setTicketOpen(true);
+    setTicketRefs(null);
+    setTicketSubject('');
+    setTicketMessage('');
+    try {
+      const refs = await listEligibleReferences(actorId);
+      setTicketRefs(refs);
+      setTicketRefIdx(0);
+    } catch {
+      setTicketRefs([]);
+      showToast('Não foi possível carregar os negócios elegíveis.', 'error');
+    }
+  };
+
+  const handleSubmitTicket = async () => {
+    const ref = ticketRefs?.[ticketRefIdx];
+    if (!ref || !ticketSubject.trim() || !ticketMessage.trim() || ticketBusy) return;
+    setTicketBusy(true);
+    try {
+      await openSupportTicket({
+        referenceType: ref.referenceType,
+        referenceId: ref.referenceId,
+        toActorId: ref.counterpartActorId,
+        subject: ticketSubject.trim(),
+        message: ticketMessage.trim(),
+      });
+      setTicketOpen(false);
+      showToast('Chamado aberto.', 'success');
+    } catch {
+      showToast('Não foi possível abrir o chamado. Tente novamente.', 'error');
+    } finally {
+      setTicketBusy(false);
     }
   };
 
@@ -180,8 +230,13 @@ export default function ActorPage() {
   if (connectAction?.enabled) {
     heroActions.push({ label: 'Conectar', onClick: () => setConnectOpen(true), variant: 'secondary' });
   }
+  const supportTicketAction = actions.find((a) => a.key === 'support_ticket');
+  if (supportTicketAction?.enabled) {
+    heroActions.push({ label: 'Abrir chamado', onClick: handleOpenTicketDialog, variant: 'secondary' });
+  }
   for (const a of actions) {
     if (a.key === 'connect') continue;
+    if (a.key === 'support_ticket' && a.enabled) continue; // já tratado acima (abre modal)
     if (a.enabled && a.deeplink) {
       heroActions.push({ label: a.label, onClick: () => { window.location.href = a.deeplink!; }, variant: 'secondary' });
     } else if (!a.enabled) {
@@ -361,6 +416,50 @@ export default function ActorPage() {
             ))}
           </div>
           <button className="actor-connect-cancel" onClick={() => setConnectOpen(false)}>Cancelar</button>
+        </div>
+      )}
+
+      {ticketOpen && (
+        <div className="actor-connect-dialog" role="dialog" aria-label="Abrir chamado">
+          <p>Abrir chamado com <strong>{header.displayName}</strong> sobre:</p>
+          {ticketRefs === null ? (
+            <p className="muted">Carregando negócios elegíveis…</p>
+          ) : ticketRefs.length === 0 ? (
+            <p className="muted">Nenhum negócio elegível encontrado no momento.</p>
+          ) : (
+            <>
+              <select
+                className="actor-ticket-ref-select"
+                value={ticketRefIdx}
+                onChange={(e) => setTicketRefIdx(Number(e.target.value))}
+              >
+                {ticketRefs.map((r, i) => (
+                  <option key={`${r.referenceType}-${r.referenceId}`} value={i}>{r.label}</option>
+                ))}
+              </select>
+              <input
+                className="actor-ticket-input"
+                placeholder="Assunto"
+                value={ticketSubject}
+                onChange={(e) => setTicketSubject(e.target.value)}
+              />
+              <textarea
+                className="actor-ticket-textarea"
+                placeholder="O que aconteceu?"
+                value={ticketMessage}
+                onChange={(e) => setTicketMessage(e.target.value)}
+                rows={3}
+              />
+              <button
+                className="actor-ticket-submit"
+                disabled={!ticketSubject.trim() || !ticketMessage.trim() || ticketBusy}
+                onClick={handleSubmitTicket}
+              >
+                {ticketBusy ? 'Enviando…' : 'Abrir chamado'}
+              </button>
+            </>
+          )}
+          <button className="actor-connect-cancel" onClick={() => setTicketOpen(false)}>Cancelar</button>
         </div>
       )}
 
