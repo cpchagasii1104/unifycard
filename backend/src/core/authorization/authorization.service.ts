@@ -123,28 +123,30 @@ class AuthorizationService {
 
     // 2. Verificar ownership (user é o próprio actor)
     // Inclui actor_human / person (schema 0064) além do canónico 'user' (LEI §4.8.7).
+    //
+    // 🔴 FIX (2026-07-05, achado ao testar a Fatia 3 — Clayton não conseguia criar NENHUM post
+    // como PF; zero posts existiam em dev): `ActorRegistryType` ('company'|'event'|'group'|
+    // 'service'|'project') EXCLUI 'user'/'actor_human'/'person' por design — o registry só é
+    // populado (lazy) para actors INSTITUCIONAIS (`actorRegistryService.register`, ver
+    // company-members.service.ts). Um actor PF nunca ganha linha em `actor_registry`. Antes,
+    // este branch (ownership direto de si mesmo) exigia `denyIfMissingRequiredRegistryCapability`
+    // — que SEMPRE nega (registry null) para QUALQUER PF, em QUALQUER permissão com capability
+    // requerida (ex.: publish_feed→can_publish_feed). Isso bloqueava toda pessoa física de postar,
+    // criar evento, criar grupo etc. — desde sempre (dev tinha 0 posts). O primitivo irmão
+    // `canRepresentActor` (mesma condição de ownership, linha ~345) já é documentado como
+    // "registry-INDEPENDENTE" — a inconsistência era só aqui. Fix: dono do PRÓPRIO actor (já
+    // provado via `actor.user_id === userId`) não passa pelo modelo de capability do registry
+    // institucional — não introduz autoridade sobre OUTRO actor (zero risco de IDOR/impersonação;
+    // a igualdade `user_id === userId` já é a prova). Institucional (ramo 3) e delegação (ramo 4)
+    // seguem exigindo a capability normalmente.
     if (
       actor.user_id === userId &&
       (actor.actor_type === 'user' ||
         actor.actor_type === 'actor_human' ||
         actor.actor_type === 'person')
     ) {
-      const capDeny = this.denyIfMissingRequiredRegistryCapability(permissionKey, registry);
-      if (capDeny) {
-        canonicalLogger.authzDeny(null, 'Permissão negada: capability obrigatória ausente no registry', {
-          tenantId,
-          userId,
-          actorId,
-          permissionKey,
-          reason: capDeny.reason,
-        });
-        this.calculateAndLogShadowDivergence(tenantId, userId, actorId, permissionKey, scope, capDeny)
-          .catch(() => {});
-        return capDeny;
-      }
-
-      const result: AuthorizationResult = { 
-        allowed: true, 
+      const result: AuthorizationResult = {
+        allowed: true,
         authoritySource: 'ownership',
       };
       

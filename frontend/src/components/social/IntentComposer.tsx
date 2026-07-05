@@ -680,6 +680,15 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
         </div>
       )}
 
+      {/*
+        FIX (2026-07-04, achado de Clayton testando a Fatia 3): a caixa de texto livre NUNCA pode
+        desaparecer enquanto o usuário digita. Antes, os painéis abaixo (collecting_info/
+        ready_to_create) SUBSTITUÍAM a textarea assim que o backend respondia — se a análise
+        (debounce 800ms) retornasse no meio da digitação, o resto do texto era perdido (foi
+        escrever para uma caixa que já não existia mais). Agora os painéis são AUXILIARES,
+        renderizados ACIMA da textarea (que segue §749 sempre montada em modo 'intent') — a
+        sugestão da IA aparece, mas o usuário nunca perde o que estava escrevendo.
+      */}
       {/* Modo: Coletando informações (perguntas) */}
       {backendAnalysis && backendAnalysis.conversationState === 'collecting_info' && (
         <div className="conversation-questions">
@@ -746,10 +755,10 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
         </div>
       )}
 
-      {/* Campo de texto livre (inicial ou quando não há conversa ativa) */}
-      {(!backendAnalysis || backendAnalysis.conversationState === 'needs_clarification') && (
-        <div className="intent-input-wrapper">
-          <div className="intent-textarea-container">
+      {/* Campo de texto livre — SEMPRE montado em modo 'intent' (ver nota acima). Os painéis de
+          conversa (collecting_info/ready_to_create) aparecem ACIMA, nunca no lugar dela. */}
+      <div className="intent-input-wrapper">
+        <div className="intent-textarea-container">
             <textarea
               value={textInput}
               onChange={(e) => {
@@ -787,55 +796,54 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Indicador de classificação */}
-          {(isClassifying || isAnalyzing) && (
-            <div className="classifying-indicator">
-              <span className="spinner"></span>
-              <span>{isAnalyzing ? 'Analisando com IA...' : 'Analisando...'}</span>
-            </div>
-          )}
-
-          {/* Preview de classificação local (fallback) */}
-          {classifiedIntent && !isClassifying && !backendAnalysis && (
-            <div className="classification-preview">
-              <div className="classification-badge">
-                {classifiedIntent.intent === 'event' && classifiedIntent.eventSubtype && (
-                  <span>🎉 Evento: {classifiedIntent.eventSubtype}</span>
-                )}
-                {classifiedIntent.intent === 'booking' && <span>📅 Agendamento</span>}
-                {classifiedIntent.intent === 'service_offer' && <span>💼 Serviço</span>}
-                {classifiedIntent.intent === 'product_offer' && <span>🛒 Produto</span>}
-                {classifiedIntent.intent === 'personal' && <span>💬 Pessoal</span>}
-                {classifiedIntent.confidence < 0.7 && (
-                  <span className="confidence-low"> (confiança baixa)</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Ações */}
-          <div className="intent-actions">
-            <button
-              type="button"
-              onClick={() => setMode('manual')}
-              className="btn-manual-mode"
-              title="Modo manual com todas as opções"
-            >
-              ⚙️ Modo Avançado
-            </button>
-            <button
-              type="button"
-              onClick={handleTextSubmit}
-              disabled={!textInput.trim() || !activeActor?.actor_id || isClassifying || isAnalyzing}
-              className="btn-continue"
-            >
-              {classifiedIntent && classifiedIntent.confidence >= 0.5 ? '✅ Continuar' : '📝 Continuar'}
-            </button>
-          </div>
         </div>
-      )}
+
+        {/* Indicador de classificação */}
+        {(isClassifying || isAnalyzing) && (
+          <div className="classifying-indicator">
+            <span className="spinner"></span>
+            <span>{isAnalyzing ? 'Analisando com IA...' : 'Analisando...'}</span>
+          </div>
+        )}
+
+        {/* Preview de classificação local (fallback) */}
+        {classifiedIntent && !isClassifying && !backendAnalysis && (
+          <div className="classification-preview">
+            <div className="classification-badge">
+              {classifiedIntent.intent === 'event' && classifiedIntent.eventSubtype && (
+                <span>🎉 Evento: {classifiedIntent.eventSubtype}</span>
+              )}
+              {classifiedIntent.intent === 'booking' && <span>📅 Agendamento</span>}
+              {classifiedIntent.intent === 'service_offer' && <span>💼 Serviço</span>}
+              {classifiedIntent.intent === 'product_offer' && <span>🛒 Produto</span>}
+              {classifiedIntent.intent === 'personal' && <span>💬 Pessoal</span>}
+              {classifiedIntent.confidence < 0.7 && (
+                <span className="confidence-low"> (confiança baixa)</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Ações */}
+        <div className="intent-actions">
+          <button
+            type="button"
+            onClick={() => setMode('manual')}
+            className="btn-manual-mode"
+            title="Modo manual com todas as opções"
+          >
+            ⚙️ Modo Avançado
+          </button>
+          <button
+            type="button"
+            onClick={handleTextSubmit}
+            disabled={!textInput.trim() || !activeActor?.actor_id || isClassifying || isAnalyzing}
+            className="btn-continue"
+          >
+            {classifiedIntent && classifiedIntent.confidence >= 0.5 ? '✅ Continuar' : '📝 Continuar'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
