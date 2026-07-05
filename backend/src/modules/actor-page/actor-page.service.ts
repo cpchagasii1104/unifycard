@@ -171,11 +171,14 @@ class ActorPageService {
       actions.push({ key: 'schedule', label: 'Agendar', enabled: false, gatedBy: 'EM_BREVE', deeplink: null });
     }
     // Comprar/Contratar RENDERIZAM mas o dinheiro é PORTA-1 (decisão soberana) — sempre gated.
+    // Rótulos desambiguados (feedback Clayton 2026-07-04): "Contratar serviço" = contratar o
+    // serviço que ESTE actor oferece (aparece em quem publicou serviço, PF ou PJ prestadora) —
+    // NÃO é oferta de vaga/emprego (isso é outro fluxo, colaborador/onboarding).
     if (lit.has('products')) {
-      actions.push({ key: 'buy', label: 'Comprar', enabled: false, gatedBy: 'PORTA-1', deeplink: null });
+      actions.push({ key: 'buy', label: 'Comprar produtos', enabled: false, gatedBy: 'PORTA-1', deeplink: null });
     }
     if (lit.has('services')) {
-      actions.push({ key: 'contract', label: 'Contratar', enabled: false, gatedBy: 'PORTA-1', deeplink: null });
+      actions.push({ key: 'contract', label: 'Contratar serviço', enabled: false, gatedBy: 'PORTA-1', deeplink: null });
     }
     return actions;
   }
