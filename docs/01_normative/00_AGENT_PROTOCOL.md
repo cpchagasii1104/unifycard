@@ -5,9 +5,11 @@
 STATUS:
 CANÔNICO · VIGENTE · NÃO INTERPRETÁVEL · NÃO FLEXÍVEL
 
-> **ESTADO OPERACIONAL DO §GLOBAL BLOCK:** ver `STATUS_EXECUCAO_GLOBAL.md` (raiz do repositório)  
-> **REGRA NORMATIVA:** definida em `PLANO_BASE_MODULO.md` (secção §GLOBAL BLOCK).  
-> ⚠️ **Estado operacional pode variar por data.** Ver sempre `STATUS_EXECUCAO_GLOBAL.md` antes de decisões de execução.
+> **ESTADO OPERACIONAL DO §GLOBAL BLOCK:** ver `REMEDIATION_DT_LOG.md` (raiz do repositório)  
+> **REGRA NORMATIVA:** o cartório de execução vigente é `REMEDIATION_DT_LOG.md` — toda dívida técnica (DT-*) e fatia (F-*) é registrada lá, com status explícito no cabeçalho da entrada.  
+> ⚠️ **Estado operacional pode variar por data.** Ver sempre `REMEDIATION_DT_LOG.md` antes de decisões de execução.
+>
+> **NOTA DE MIGRAÇÃO (2026-07-05):** `STATUS_EXECUCAO_GLOBAL.md` e `PLANO_BASE_MODULO.md` (citados originalmente aqui) foram arquivados em `docs/_arquivo/` na consolidação de raiz de 2026-07-03 (commit `0b4579007`) e NÃO são mais atualizados — não seguir mais nenhuma referência a eles neste documento como apontando pro cartório vivo. `REMEDIATION_DT_LOG.md` os sucede como fonte operacional de execução.
 
 ---
 
@@ -422,7 +424,7 @@ após conclusão formal registrada em REMEDIATION_DECISIONS_LOG como "conclusao_
 ## 3. LEITURA DO PLANO MESTRE (CONTEXTO OPERACIONAL)
 
 > ⚠️ **EXECUÇÃO DE PLANOS DESABILITADA (POLÍTICA DE PROTECÇÃO)**  
-> Planos com nome `UNIFICARD_PLANO_*` na raiz podem ser **placeholders** ou **histórico**. **Não** executar pipelines, scripts ou migrações **porque** um plano os menciona. Toda decisão de alteração estrutural segue `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md`, `docs/01_normative/CONTRACTS.md` (quando aplicável) e `STATUS_EXECUCAO_GLOBAL.md`. Leitura do ficheiro **v7** abaixo é **contexto**, não ordem de execução.
+> Planos com nome `UNIFICARD_PLANO_*` (histórico, não existe mais na raiz — ver nota de migração acima) podem ser **placeholders** ou **histórico**. **Não** executar pipelines, scripts ou migrações **porque** um plano os menciona. Toda decisão de alteração estrutural segue `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md`, `docs/01_normative/CONTRACTS.md` (quando aplicável) e `REMEDIATION_DT_LOG.md`. Leitura do ficheiro **v7** abaixo (se ainda existir) é **contexto**, não ordem de execução.
 
 Após cumprir o **bootstrap (2.2.1)**, a **prova (2.2.2)**, o **carregamento modular** exigido pelo domínio (2.2.3, **incluindo leitura completa** de cada linha aplicável), e **2.2.5–2.2.6** quando aplicável — e, quando a tarefa for de **execução** ou cruzar o plano — o agente **DEVE** ler (somente como documento de contexto, sem executar os passos nele descritos salvo ordem humana explícita):
 
@@ -559,7 +561,7 @@ Ausência de âncora explícita
 ## 4.3 GESTÃO DE ARTEFATOS ABERTOS
 
 Antes de criar novo relatório, hipótese, plano, auditoria, decisão, registry
-ou arquivo de transição, o agente deve verificar em `STATUS_EXECUCAO_GLOBAL.md`
+ou arquivo de transição, o agente deve verificar em `REMEDIATION_DT_LOG.md`
 se já existe artefato aberto para o mesmo assunto.
 
 Todo artefato aberto deve ter exatamente um dos estados:
@@ -589,13 +591,13 @@ Ao concluir um artefato:
 - se não tem valor institucional, só pode ser removido com autorização explícita do operador humano.
 
 Nenhuma sessão deve terminar aumentando a quantidade de artefatos abertos sem
-justificar em `STATUS_EXECUCAO_GLOBAL.md`.
+justificar em `REMEDIATION_DT_LOG.md`.
 
 ### 4.3.1 CHECAGEM INICIAL DE ARTEFATOS ABERTOS
 
 Ao iniciar qualquer sessão, o agente deve:
 
-1. Ler `STATUS_EXECUCAO_GLOBAL.md`
+1. Ler `REMEDIATION_DT_LOG.md`
 2. Identificar artefatos em estado:
    - EM EXECUÇÃO
    - BLOQUEADO
@@ -604,7 +606,7 @@ Ao iniciar qualquer sessão, o agente deve:
 É proibido iniciar nova frente de trabalho sem avaliar as já abertas.
 
 Se uma nova frente for inevitável, o agente deve registrar em
-`STATUS_EXECUCAO_GLOBAL.md` por que ela tem prioridade sobre os artefatos já abertos.
+`REMEDIATION_DT_LOG.md` por que ela tem prioridade sobre os artefatos já abertos.
 
 ---
 
