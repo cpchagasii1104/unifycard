@@ -5002,7 +5002,8 @@ Contradição temporal do mesmo autor (jan 2026 BLINDAGEM cega / mai 2026 gap a 
 ---
 
 ## DT-DRIFT-STATUS-CASE-SYSTEMIC
-
+- **🟢 BUG CONFIRMADO — ✅ JÁ RESOLVIDO (verificado D_FIX Onda 3, 2026-07-05):** o único bug CONCRETO citado (`supplier.service.ts:48`, `status: input.status || 'ACTIVE'` batendo em CHECK lowercase) não existe mais — código atual usa `SUPPLIER_STATUSES = ['active', 'inactive']` (lowercase) com normalização explícita (default `'active'` se ausente, erro honesto `SUPPLIER_STATUS_INVALID` se inválido). Zero código tocado — já corrigido por outra frente.
+- **🟡 RESTO (76 arquivos, drift sistêmico não-confirmado) — RECLASSIFICADA:** triagem marcou D_FIX/L. Os "bugs latentes prováveis" (subscriptions, reversals, b2b_orders, regional_fund, bank_limits, order_saga, reconciliation) são explicitamente "não confirmados em runtime — tabelas vazias" — auditar 76 arquivos individualmente pra achar quais têm o mesmo drift é uma investigação massiva, muito além de M/L de uma sessão. Reclassificada **D_FIX → backlog priorizado por dor material** (mesmo padrão do DECISION-0032 acima — cada feature só vira fatia quando exercitada). NÃO tocado.
 - **Status:** OPEN
 - **Origem:** PASSO 6b (smoke supply chain 2026-05-17, ELO 1) — descoberta institucional via runtime real
 - **Vinculada a:** nenhuma DECISION arbitrando convenção de status canônica
