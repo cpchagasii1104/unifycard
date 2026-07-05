@@ -2566,6 +2566,8 @@ Migration forward-only `20260530551000_restore_actor_has_any_role.sql` aplicada 
 
 ## DT-C36-deferred-tables
 
+- **🟡 VERIFICAÇÃO NA FRENTE D_FIX (Onda 2, 2026-07-05):** triagem marcou D_FIX/S ("adicionar CHECK constraint"). Read-first no estado atual (2 meses depois) reduziu a urgência de 2 das 3 tabelas: `company_validations` está **0 linhas E sem writer vivo** (comentário em `companies.routes.ts:945` confirma o reader foi removido por estar órfão); `unifycard_transactions` está **0 linhas, 0 valores distintos de status** — nenhuma das duas tem dado real em risco hoje. `categories.status` segue LIVE (múltiplos arquivos ativos: `categories.repository.ts`, rotas, `marketplace-public.routes.ts`) — mas a própria dívida já a rotulava prioridade BAIXA e "requer revisão separada" (ontologia central, CHECK errado pode travar criação de categoria legítima).
+- **Por que não corrigi:** adicionar CHECK a uma tabela vazia é tecnicamente seguro hoje, mas exige decidir o enum COMPLETO de valores válidos antes — decisão de produto/schema, não housekeeping. A dívida original já pedia exatamente isso ("investigar cada tabela em sessão dedicada antes de adicionar CHECK"). Reclassificada permanece **A_DECISION**, mas com urgência **reduzida** (2 das 3 tabelas são vazias/mortas; só `categories` é viva e já era BAIXA prioridade). NÃO tocado.
 - **Status:** DEFERRED
 - **Origem:** C36 remediação (2026-05-12)
 - **Vinculada a:** C36
