@@ -6898,7 +6898,7 @@ Opções iniciais (a confirmar com fluxo na mão):
 ---
 
 ## DT-RESOLVER-PIX-BRANCH-DEAD
-
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/M. A própria entrada já registra "decisão de escopo Clayton 2026-05-24": destravar o branch PIX é mudança de comportamento financeiro real (fluxo dormente passaria a executar pela 1ª vez), exigindo leitura do fluxo completo + decisão de produto sobre estado inicial + validação com fixture — não é fix mecânico. Respeitando a decisão já tomada por Clayton (não misturar destrave-de-fluxo com convergência de nomenclatura). Reclassificada **D_FIX → B_MONEY/A_DECISION**. NÃO tocado — `@ts-expect-error` de contenção permanece.
 - **Status:** OPEN
 - **Severidade:** ALTA (se PIX é usado em produção, o handler `PIX_PAYMENT_CONFIRMED` nunca processa um pagamento — dropped silenciosamente)
 - **Origem:** Sessão 2026-05-24 — descoberto durante a leitura dirigida do `payment-event-resolver.ts` para a Fase 1 da DECISION-0032 e capturado pelo `tsc` após alinhamento do tipo `PaymentIntentStatus`.
