@@ -315,8 +315,23 @@ banco — mesma classe do achado crm.* da Fatia 7, mas tangencial ao pedido dest
 documentado (não corrigido), aguardando GO. 2 guards + negative-proof · E2E 3/3 novo (prova PF
 resolve pra cidade certa, payer≠receiver) + E2E irmão (PE-5 PJ) corrigido · ratchet subiu
 deliberadamente e documentado (3865→3869/590→591) · typecheck 0 · regression-guards exit=0.
-**Próximo = passo 4 (semear saldo + E2E de dinheiro real em ambiente vivo) sob GO de Clayton — OU
-decidir o achado da governança primeiro.**
+**✅ ACHADO DA GOVERNANÇA FECHADO POR CONTENÇÃO (2026-07-05, GO "execute o próximo passo").**
+`DT-REGIONAL-FUND-GOVERNANCE-LIVE-SCHEMA-GHOST` — mesma classe do crm.* (Fatia 7): rota VIVA+
+registrada, zero guard, lendo `regional_fund_proposals`/`regional_fund_votes` inexistentes. Contida
+na borda (mesmo padrão `contact.routes.ts`, 501 fail-closed) — os 7 endpoints agora respondem
+honesto, `regional-fund-governance.service.ts` (lógica de voto) intacta, religa sozinha quando o
+schema nascer (frente própria `F-REGIONAL-FUND-GOVERNANCE-SCHEMA-GENESIS`). Guard + negative-proof
+· E2E 9/9 HTTP real (`app.inject`) provando os 7 endpoints + confirmando que as tabelas realmente
+não existem (contenção honesta, não decorativa) · ratchet financeiro baixou 1 ponto (contenção
+removeu lógica real da borda), documentado. typecheck 0 · regression-guards exit=0.
+
+**⚠️ Instrução de Clayton (2026-07-05): a Yala precisa auditar TUDO desde o passo 1 do decision
+pack PORTA-1** (Core de Aprovação confirmado · firewall no sink · split-mecanismo+PF ·
+contenção da governança) antes de qualquer avanço adicional ser considerado confiável. Não é
+auto-executável por mim — é auditoria externa/multi-agente sob acionamento do Clayton
+(`/code-review ultra`). **Próximo = passo 4 (semear saldo + E2E de dinheiro real em ambiente
+vivo) SOB GO de Clayton — mas só depois da auditoria da Yala confirmar os passos 1-3+achado da
+governança.**
 
 ---
 
