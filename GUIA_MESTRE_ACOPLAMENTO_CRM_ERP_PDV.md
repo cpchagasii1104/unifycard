@@ -272,8 +272,30 @@ leitura nova); pedidos usa o único reader novo (`purchaseOrderRepository.listBy
 em SQL por owner_actor_id). Guard 11 checks + negative-proof (2 mutações mordidas: gate operating
 removido, campo de saldo vazando) · E2E 7/7 (isolamento entre empresas provado; financeiro com
 EXATAMENTE a chave `deeplink`, prova formal de zero dinheiro) · typecheck 0 · regression-guards
-exit=0. Frontend aguarda sign-off visual. **Próxima fatia = 9 (PDV acoplado + orquestração B2B —
-PORTA-1, dinheiro soberano) sob GO de Clayton.**
+exit=0. Frontend aguarda sign-off visual.
+
+**🔴 FATIA 9 = PORTA-1 (dinheiro soberano) — decision pack em 4 passos, NÃO um GO simples.** GO
+"execute o próximo passo" acionou 2 rodadas de AskUserQuestion (o `READINESS_PORTA1.md` prescreve:
+"nada disto é executável sem a decisão soberana de Clayton"). Decisões tomadas: (1) Core de
+Aprovação COMPLETO — **já existia e já está construído** (DECISION-0128/0129/0130, payout
+request→aprovação-4-olhos→execução, migration `20260614150000` aplicada, E2E já passando; o
+`READINESS_PORTA1.md` citava nomes de tabela errados — os reais são `approval_requests`/
+`approval_votes`); (2) firewall default-OFF DENTRO do sink (não por-caller); (3) split completo.
+**PDV NÃO usa aprovação humana** (Clayton, 2ª pergunta): venda se autoaprova pelo ato de pagar,
+diferente de payout (saída de dinheiro).
+
+**✅ PASSO 2/4 FECHADO (2026-07-05): firewall no sink.** Achado (READINESS YALA #3): ≥18 módulos
+de produção chamam `transfer`/`createTransactionWithSplit` DIRETO (P2P/escrow/payout/regional-
+fund/gateway/workers), maioria sem firewall próprio, contida só pelo ledger vazio. Achado NOVO
+durante a implementação: um 3º entrypoint (`createSimpleTransaction`) não mapeado pelo READINESS
+também grava ledger direto. Novo `bank-transaction-sink-firewall.ts` (mesmo padrão
+checkout/rides) — gate nos TRÊS entrypoints, protege todos os callers de uma vez (inclusive os
+que já têm firewall próprio, defesa-em-profundidade dupla). 4 E2Es pré-existentes que chamavam o
+sink direto ganharam o flag explícito pra preservar sua intenção original. Guard + negative-proof
+(3 mutações mordidas) · E2E 7/7 (prova as DUAS pontas: default-off bloqueia, flag=true move
+dinheiro real) · ratchet financeiro subiu deliberadamente (3830→3865/586→590, documentado —
+vocabulário genuíno de payout/split/ledger no firewall, não wording incidental) · typecheck 0 ·
+regression-guards exit=0. **Próximo = passo 3 (materializar split completo) sob GO de Clayton.**
 
 ---
 

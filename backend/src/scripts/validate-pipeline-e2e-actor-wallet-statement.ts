@@ -30,6 +30,11 @@ import { actorWalletStatementService } from '../modules/wallet/actor-wallet-stat
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
+// F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9): este E2E chama bankTransactionService.transfer
+// DIRETO (testa o sink, não um caller com firewall próprio) — precisa ligar o novo gate default-off
+// pra continuar exercitando o fluxo real que este arquivo sempre testou.
+process.env.BANK_TRANSACTION_SINK_FIREWALL_ENABLED = 'true';
+
 const TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
 
 type CheckResult = { ok: true; detail?: any } | { ok: false; reason: string; detail?: any };

@@ -43,6 +43,11 @@ import {
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
+// F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9): este E2E chama bankTransactionService.transfer
+// DIRETO (testa o sink, não um caller com firewall próprio) — precisa ligar o novo gate default-off
+// pra continuar exercitando o fluxo real que este arquivo sempre testou.
+process.env.BANK_TRANSACTION_SINK_FIREWALL_ENABLED = 'true';
+
 const TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
 const ADMIN_USER_ID = process.env.E2E_ADMIN_USER_ID || 'beb7b5e4-2d22-4782-83c9-6e006da53713';
 

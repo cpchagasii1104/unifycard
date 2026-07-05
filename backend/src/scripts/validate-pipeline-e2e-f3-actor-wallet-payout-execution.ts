@@ -47,6 +47,11 @@ import {
 
 dotenv.config({ path: join(process.cwd(), 'backend', '.env') });
 
+// F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9): executeActorWalletPayout chama
+// bankTransactionService.transfer no fim da cadeia — precisa ligar o novo gate default-off pra
+// continuar exercitando a execução real de payout que este arquivo sempre testou.
+process.env.BANK_TRANSACTION_SINK_FIREWALL_ENABLED = 'true';
+
 const TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
 
 // F-ACTOR-WALLET-PAYOUT-PROOF-WIRING: recusa rodar contra DB não-efêmero (nunca unificard_dev).

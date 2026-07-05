@@ -5,6 +5,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { PoolClient } from 'pg';
 import { getClientWithTenant, runQueryWithTenant } from '@core/database/pool';
+import { assertBankTransactionSinkFirewallEnabled } from './bank-transaction-sink-firewall';
 import { resolveFinancialConceptId as resolveConceptId } from '@modules/concept-resolution/concept-financial-resolver.service';
 import { enqueueReconciliation } from '@core/events/payment-events-queue';
 import { bankAccountRepository } from './bank-account.repository';
@@ -206,6 +207,10 @@ class BankTransactionService {
     input: CreateBankTransactionInput,
     existingClient?: PoolClient
   ): Promise<BankTransferResult> {
+    // 🔴 F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9): gate no SINK, antes de qualquer coisa — nenhum
+    // caller (P2P/payout/escrow/checkout/PDV/rides/workers/etc) contorna isto.
+    assertBankTransactionSinkFirewallEnabled('transfer');
+
     let {
       eventId = uuidv4(),
       fromAccountId,
@@ -898,6 +903,11 @@ class BankTransactionService {
     transaction: BankTransaction;
     ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit' }>;
   }> {
+    // 🔴 F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9): 3º entrypoint do sink compartilhado — achado
+    // DURANTE a implementação (grava bank_transactions/ledger direto, NÃO delega a transfer/
+    // createTransactionWithSplit — teria sido um buraco no firewall se não fechado aqui também).
+    assertBankTransactionSinkFirewallEnabled('createSimpleTransaction');
+
     let {
       eventId,
       referenceType,
@@ -1183,6 +1193,10 @@ class BankTransactionService {
     splits: BankSplit[];
     ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit' }>;
   }> {
+    // 🔴 F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9): mesmo gate do `transfer` — este é o OUTRO
+    // entrypoint público do sink compartilhado, precisa da mesma contenção.
+    assertBankTransactionSinkFirewallEnabled('createTransactionWithSplit');
+
     let {
       eventId,
       fromAccountId,

@@ -27,6 +27,11 @@ import { createHash } from "crypto";
 
 dotenv.config({ path: join(process.cwd(), ".env") });
 
+// F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9): este E2E chama bankTransactionService.transfer
+// DIRETO (testa o sink, não um caller com firewall próprio) — precisa ligar o novo gate default-off
+// pra continuar exercitando o fluxo real que este arquivo sempre testou.
+process.env.BANK_TRANSACTION_SINK_FIREWALL_ENABLED = 'true';
+
 /**
  * Copy mecânico do deterministicServicePaymentExecutedOutboxEventId
  * (privado em service-payment-execution.service.ts L26-36). Mantém estrita

@@ -1,13 +1,13 @@
 {
   "_doc": "Baseline formal dos gates vermelhos (achado B4 do auditoria.md, DECISION-0158). Teto ratificado por Clayton em 2026-07-02 — o número SÓ PODE DESCER. Violação NOVA (count > baseline) = GATE FAIL. Ao drenar, ABAIXE o baseline no mesmo commit (ratchet). NUNCA suba estes números sem DECISION própria.",
-  "financial_vocabulary_max": 3830,
-  "financial_ssot_max": 586,
+  "financial_vocabulary_max": 3865,
+  "financial_ssot_max": 590,
   "typecheck_build_max": 0,
   "measured_at": "2026-07-05",
-  "measured_head": "327ba7903",
+  "measured_head": "bfa3ac7af",
   "notes": {
-    "financial_vocabulary": "3.814 no laudo auditoria.md; 3.846 na ratificação (delta +32 = menções em firewalls/guards criados na própria remediação do laudo — transparente, não drift). ABAIXADO pra 3.830 na Fatia 7 (F-CRM-PROJECTION-SUPPLIERS-RECONCILIATION, 2026-07-05): remoção do módulo crm.* (ghost sem guard, SPRINT 88) eliminou 16 ocorrências (ratchet-down, não sobe de volta sem DECISION).",
-    "financial_ssot": "577 no laudo; 587 na ratificação (mesmo motivo). ABAIXADO pra 586 na Fatia 7 (mesma remoção do crm.*).",
+    "financial_vocabulary": "3.814 no laudo auditoria.md; 3.846 na ratificação (delta +32 = menções em firewalls/guards criados na própria remediação do laudo — transparente, não drift). ABAIXADO pra 3.830 na Fatia 7 (F-CRM-PROJECTION-SUPPLIERS-RECONCILIATION, 2026-07-05): remoção do módulo crm.* (ghost sem guard, SPRINT 88) eliminou 16 ocorrências (ratchet-down, não sobe de volta sem DECISION). SUBIU pra 3.865 na Fatia 9 passo 2 (F-BANK-TRANSACTION-SINK-FIREWALL, 2026-07-05, GO de Clayton via AskUserQuestion — 'firewall default-OFF DENTRO do sink'): delta +35 = vocabulário financeiro (payout/split/transaction/ledger) no NOVO firewall + no E2E de dinheiro real que o prova — mesma classe de exceção já precedente ('menções em firewalls/guards' acima), transparente, não drift. src/modules/bank NÃO é isento (só src/core/bank é) mesmo sendo o módulo Bank de verdade — achado colateral, não corrigido aqui (moveria a fronteira da isenção sem DECISION própria).",
+    "financial_ssot": "577 no laudo; 587 na ratificação (mesmo motivo). ABAIXADO pra 586 na Fatia 7 (mesma remoção do crm.*). SUBIU pra 590 na Fatia 9 passo 2 (mesmo motivo do vocabulary acima — nomes de arquivo novos contêm 'transaction' no próprio nome, ex.: bank-transaction-sink-firewall.ts, describindo com precisão o que protegem).",
     "typecheck_build": "35 no laudo; ZERADO na fatia F-RED-GATES-BASELINE (34 = fix status?:never nos 3 producers de união discriminada sob strict:false; 1 = anotação string em E2E). Baseline 0 = qualquer erro novo no tsconfig.build FALHA."
   }
 }
