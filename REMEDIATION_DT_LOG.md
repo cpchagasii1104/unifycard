@@ -13219,7 +13219,7 @@ _(Histórico OPEN abaixo.)_
 - **Resolução prevista (frente própria — neutralização):** parar o write morto + neutralizar a livre-escolha do `DomainSelector` (remover/desabilitar ou converter em "solicitação de domínios" governada — D6/D9), sem inventar verdade. **NÃO executar** antes da palavra de Clayton (DECISION-0102 §13).
 
 ## DT-PJ-MARKETPLACE-DOMAIN-VOCABULARY-FORK
-
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/M. A decisão de MAPEAMENTO já foi tomada (DECISION-0106, 2026-06-05) — mas a própria entrada mantém "**NÃO** executar antes da palavra de Clayton (DECISION-0102 §13)" mesmo com o mapa promulgado. O que resta (camada `concept/company_type → allowed domains`, `DomainSelector` derivar de N0, remoção do `hybrid` atômico) é execução explicitamente sob autorização adicional pendente, não fix livre. Reclassificada **D_FIX → E_BLOCKED** (aguarda GO explícito de execução, não decisão de conteúdo). NÃO tocado.
 - **Status:** OPEN (2026-06-04) — criada por `DECISION-0102` (D11).
 - **Origem:** auditoria read-only `F-PJ-ONBOARDING-DOMAIN-ELIGIBILITY`.
 - **Vinculada a:** `frontend/src/api/companies.ts` (`MarketplaceDomain`), `DomainSelector.tsx`, `concepts.domain` (N0 canônico, 13 valores), `domains` (tabela N0, DECISION-0073), `18_DOMAIN_ONTOLOGY`, `DT-PJ-MARKETPLACE-HYBRID-ATOMIC-ANTI-PATTERN`.
