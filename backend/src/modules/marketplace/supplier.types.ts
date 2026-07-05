@@ -34,6 +34,10 @@ export interface Supplier {
   status: SupplierStatus;
   // 🔴 DECISION-0133: owner canônico = actor operacional da empresa dona (page+company_id). Authority material.
   ownerActorId: string;
+  // 🔵 F-CRM-PROJECTION-SUPPLIERS-RECONCILIATION (Fatia 7, Opção B): ponte pra actor QUANDO o
+  // fornecedor É actor na plataforma (aresta actor_relationships label=fornecedor referencia o
+  // MESMO actor). null = fornecedor off-platform (registro digitado puro, sem identidade de actor).
+  actorId: string | null;
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
@@ -48,6 +52,8 @@ export interface CreateSupplierInput {
   name: string;
   // 🔴 DECISION-0133: hint de owner empresarial; RESOLVIDO/validado server-side na rota (body não é autoridade).
   ownerActorId?: string;
+  // 🔵 ponte pra actor (Fatia 7) — validada server-side (existência) antes de gravar; null/ausente = off-platform.
+  actorId?: string | null;
   code?: string;
   email?: string;
   phone?: string;

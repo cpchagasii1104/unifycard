@@ -52,8 +52,7 @@ import PdvPage from './pages/PdvPage';
 import AlertsPage from './pages/AlertsPage';
 import ContactsPage from './pages/ContactsPage';
 import PaymentLinkPage from './pages/PaymentLinkPage'; // SPRINT 86
-import CrmPage from './pages/CrmPage'; // SPRINT 88
-import CrmContactDetailPage from './pages/CrmContactDetailPage'; // SPRINT 88
+import CrmPage from './pages/CrmPage'; // F-CRM-PROJECTION-SUPPLIERS-RECONCILIATION (Fatia 7)
 import ServiceOrdersPage from './pages/ServiceOrdersPage'; // SPRINT 68
 import ServiceOrderDetailPage from './pages/ServiceOrderDetailPage'; // SPRINT 68
 import OperatorOrdersPage from './pages/OperatorOrdersPage'; // F-MVP-SERVICE-CHAIN-SLICE-1 (GAP-C)
@@ -334,7 +333,9 @@ function AppContent() {
           <Route path="services/track/:requestId" element={<UserServiceTracker />} />
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="pdv" element={<PdvPage />} />
-          {/* SPRINT 88: CRM Canônico */}
+          {/* F-CRM-PROJECTION-SUPPLIERS-RECONCILIATION (Fatia 7): CRM = projeção da aresta de
+              relação tipada (clientes/fornecedores/colaboradores) + suppliers reconciliado.
+              O antigo módulo crm.* (SPRINT 88, tabelas fantasma) foi removido. */}
           <Route path="crm" element={<CrmPage />} />
           {/* SPRINT 68: Service Orders + Agenda */}
           <Route path="service-orders" element={<ServiceOrdersPage />} />
@@ -348,7 +349,6 @@ function AppContent() {
               o backend autoriza por grant (canViewOrderForParty). Detalhe reusa /service-orders/:id. */}
           <Route path="operator/service-orders" element={<OperatorOrdersPage />} />
           <Route path="calendar" element={<CalendarPage />} />
-          <Route path="crm/contacts/:id" element={<CrmContactDetailPage />} />
 {/* SPRINT 87: Assinaturas
               DT-MODULE-SUBSCRIPTIONS-FANTASMA (2026-05-16): tabela subscriptions
               ausente em runtime. Rota comentada para evitar HTTP 500 visivel. */}

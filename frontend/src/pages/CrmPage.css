@@ -1,5 +1,5 @@
 /* frontend/src/pages/CrmPage.css */
-/* SPRINT 88: CRM Canônico */
+/* F-CRM-PROJECTION-SUPPLIERS-RECONCILIATION (Fatia 7) */
 
 .crm-page {
   padding: 2rem;
@@ -8,13 +8,105 @@
 }
 
 .crm-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .crm-header h1 {
   font-size: 2rem;
   color: #333;
   margin: 0;
+}
+
+.crm-subtitle {
+  color: #777;
+  margin: 4px 0 0;
+}
+
+.crm-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #e3e6ea;
+  margin: 12px 0 20px;
+}
+
+.crm-tabs button {
+  background: none;
+  border: none;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  color: #555;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.crm-tabs button.active {
+  color: #1877f2;
+  border-bottom-color: #1877f2;
+  font-weight: 600;
+}
+
+.crm-section-title {
+  font-size: 1.1rem;
+  margin: 24px 0 10px;
+  color: #333;
+}
+
+.contact-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 10px;
+}
+
+.crm-badge {
+  font-size: 0.75rem;
+  color: #777;
+  background: #f0f0f0;
+  border-radius: 10px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.crm-badge-linked {
+  color: #1877f2;
+  background: #f0f6ff;
+}
+
+.crm-new-supplier {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #e3e6ea;
+  border-radius: 8px;
+}
+
+.crm-new-supplier h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.crm-input {
+  width: 100%;
+  border: 1px solid #d7dbe0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  font: inherit;
+}
+
+.crm-new-supplier-submit {
+  border: none;
+  background: #1877f2;
+  color: #fff;
+  border-radius: 18px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.crm-new-supplier-submit:disabled {
+  background: #b9d3f7;
+  cursor: not-allowed;
 }
 
 .crm-search {

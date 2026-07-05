@@ -97,6 +97,33 @@ const supplierRoutes = async (fastify: FastifyInstance) => {
   });
 
   /**
+   * PATCH /suppliers/:id/link-actor
+   * Vincula (ou desvincula, body.actorId=null) um fornecedor JÁ EXISTENTE a um actor da
+   * plataforma — reconciliação Fatia 7 (Opção B). Exige representar o owner empresarial
+   * (mesma autoridade de qualquer mutação do supplier); actor validado no service.
+   */
+  fastify.patch<{ Params: { id: string }; Body: { actorId?: string | null } }>(
+    '/suppliers/:id/link-actor',
+    async (req, reply) => {
+      const tenantId = req.tenant!.id;
+      const userId = req.user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Authentication required' });
+      }
+      const supplier = await loadAndAuthorizeSupplier(reply, tenantId, userId, req.params.id);
+      if (!supplier) return reply;
+
+      try {
+        const updated = await supplierService.linkSupplierActor(tenantId, req.params.id, req.body?.actorId ?? null);
+        return reply.send(updated);
+      } catch (err: any) {
+        const status = err?.statusCode ?? 500;
+        return reply.status(status).send({ error: err?.message ?? 'Erro ao vincular fornecedor ao actor' });
+      }
+    }
+  );
+
+  /**
    * GET /suppliers
    * Lista fornecedores — SÓ os cujo owner empresarial o req.user representa (tenant_id NÃO basta).
    */

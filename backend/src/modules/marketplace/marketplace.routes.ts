@@ -26,7 +26,6 @@ import financialAgendaRoutes from './financial-agenda.routes'; // SPRINT 85
 import contactRoutes from './contact.routes'; // SPRINT 0
 import fiscalKycRoutes from './fiscal-kyc.routes'; // SPRINT 84
 import pixRoutes from '../payments/pix.routes'; // SPRINT 85
-import crmRoutes from '../crm/crm.routes'; // SPRINT 88
 import { venueAdminRoutes } from '../venue/venue.routes'; // SPRINT 92
 import loyaltyRoutes from '../loyalty/loyalty.routes'; // SPRINT 93
 import presenceRoutes from '../presence/presence.routes'; // SPRINT 94
@@ -129,8 +128,10 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(fiscalKycRoutes);
   // SPRINT 85: PIX
   await fastify.register(pixRoutes);
-  // SPRINT 88: CRM Canônico
-  await fastify.register(crmRoutes, { prefix: '/crm' });
+  // F-CRM-PROJECTION-SUPPLIERS-RECONCILIATION (Fatia 7): o módulo crm.* (SPRINT 88) foi REMOVIDO —
+  // reaches vivo e SEM guard nas tabelas fantasma crm_notes/crm_tags/crm_consents/crm_contact_tags
+  // (bomba de 42P01 em runtime, achado do read-first). CRM agora é PROJEÇÃO da aresta de relação
+  // tipada (GET /relationships/mine?label=) + suppliers reconciliado — nunca módulo próprio.
   // SPRINT 92: Venue (Menu + Tab)
   await fastify.register(venueAdminRoutes);
   // SPRINT 93: Loyalty / Fidelidade

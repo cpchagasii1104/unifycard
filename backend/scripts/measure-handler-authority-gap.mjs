@@ -141,7 +141,10 @@ if (process.env.DUMP_KEYS) { console.log(JSON.stringify(uncoveredKeys, null, 2))
 //   event-rfq (canRepresentActor + assertCanReadEventMoney + guards dedicados);
 //   company-members (canManageCompany fail-closed); events-sprint76/purchase-order/services/
 //   service-order/service-bundle (guards dedicados próprios); actor-capability-grant (canRepresentActor
-//     sobre scopeActorId + guards).
+//     sobre scopeActorId + guards); supplier link-actor (Fatia 7: loadAndAuthorizeSupplier — helper
+//     NO MESMO ARQUIVO, chamado no início do handler, prova canRepresentActor sobre
+//     supplier.ownerActorId resolvido do BANCO; body.actorId é DADO — qual actor o fornecedor
+//     referencia — nunca autoridade/impersonação; a heurística de segmento só não vê o helper local).
 const BASELINE_UNCOVERED = new Set([
   'core/companies/company-members.routes.ts::DELETE /:companyId/members/:memberId',
   'core/companies/company-members.routes.ts::POST /:companyId/members',
@@ -172,6 +175,7 @@ const BASELINE_UNCOVERED = new Set([
   'modules/marketplace/purchase-order.routes.ts::POST /purchase-orders/:id/cancel',
   'modules/marketplace/purchase-order.routes.ts::POST /purchase-orders/:id/items',
   'modules/marketplace/purchase-order.routes.ts::POST /purchase-orders/:id/submit',
+  'modules/marketplace/supplier.routes.ts::PATCH /suppliers/:id/link-actor',
   'modules/services/service-bundle.routes.ts::POST /service-bundles/confirm',
   'modules/services/service-order.routes.ts::POST /service-orders/:id/confirm-financial-terms',
   'modules/services/service-order.routes.ts::POST /service-orders/confirm-booking',

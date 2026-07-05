@@ -236,8 +236,28 @@ B4/DECISION-0158), passou a reusar `orderRepository.createOrder` real (composiç
 baseline manteve 3846/3846. Guard 20 checks + negative-proof (2 mutações mordidas) · E2E 14/14
 (3 tipos de fato + cadeia de join + 5 vetores adversariais fechados) · typecheck 0 ·
 regression-guards exit=0. Frontend aguarda sign-off visual (mesmo padrão das Fatias 1-5).
-**Próxima fatia = 7 (CRM projetado + reconciliar suppliers, morte do ghost `contacts`) sob GO de
-Clayton.**
+
+**✅ FATIA 7 EXECUTADA E FECHADA (2026-07-05, GO "execute o próximo passo"):** CRM = projeção da
+aresta + suppliers reconciliado. **Achado crítico do read-first que CORRIGE este guia:** a nota
+acima ("ambos contidos") estava parcialmente errada — só `contact.*` estava de fato contido;
+`crm.routes.ts` (SPRINT 88) estava VIVO e registrado (`/marketplace/crm/*`) SEM NENHUM guard,
+lendo tabelas fantasma (`crm_notes`/`crm_tags`/`crm_consents`/`crm_contact_tags`) — bomba de
+42P01/500 em runtime real. Clayton confirmou via AskUserQuestion a remoção completa do módulo
+(classificador de segurança bloqueou o `rm -rf` autônomo sobre módulo pré-existente não nomeado
+explicitamente — pausa correta). `crm.*` DELETADO (não só contido, já que a substituição nasceu
+na mesma fatia); `contact.*` permanece INTOCADO (gênese própria, guard dedicado). `suppliers.actor_id`
+(órfã desde a Fatia 1) agora WIRED — `assertActorExists` prova a existência antes de gravar,
+nunca confia no hint; nova `PATCH /suppliers/:id/link-actor` (mesma catraca de qualquer mutação de
+supplier). Frontend: `CrmPage.tsx` reescrito como projeção pura sobre `GET /relationships/mine?label=`
+(já existia, zero endpoint novo) + `listSuppliers()`; `api/crm.ts`/`CrmContactDetailPage.tsx`
+deletados. Achados colaterais consertados: guard `crm-myorders-route-prefix-contract` invertido
+(agora prova que `crm.ts` PERMANECE removido); `PATCH /suppliers/:id/link-actor` triado no
+`measure-handler-authority-gap` (binding via helper local, `actorId` do body é DADO não
+autoridade); ratchet financeiro baixou (3846→3830/587→586) com a remoção do ghost — baseline
+atualizado no mesmo commit (regra DECISION-0158). Guard 15 checks + negative-proof (2 mutações
+mordidas) · E2E 8/8 (inclui prova de que `purchase_orders` continua insertável — ERP sem
+regressão) · typecheck 0 · regression-guards exit=0. Frontend aguarda sign-off visual.
+**Próxima fatia = 8 (ERP composto) sob GO de Clayton.**
 
 ---
 

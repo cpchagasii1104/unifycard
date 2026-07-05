@@ -3,7 +3,9 @@
 
 import { supplierRepository } from './supplier.repository';
 import { ForbiddenError } from '@core/errors';
+import { HttpError } from '@core/errors/http-error';
 import { isActorEffectivelyBlocked } from '@modules/risk-identity/actor-effective-block';
+import { runQueriesWithTenant } from '@core/database/pool';
 import type {
   Supplier,
   CreateSupplierInput,
@@ -47,6 +49,22 @@ class SupplierService {
   }
 
   /**
+   * F-CRM-PROJECTION-SUPPLIERS-RECONCILIATION (Fatia 7): a ponte `actor_id` nunca aceita o que o
+   * cliente mandou sem prova — o actor precisa EXISTIR de verdade neste tenant. Fail-closed 400
+   * (não silencia pra NULL, senão o cliente acha que vinculou e não vinculou).
+   */
+  private async assertActorExists(tenantId: string, actorId: string): Promise<void> {
+    const rows = await runQueriesWithTenant<{ id: string }>(
+      tenantId,
+      `SELECT id FROM actors WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
+      [tenantId, actorId]
+    );
+    if (rows.length === 0) {
+      throw HttpError.badRequest(`SUPPLIER_ACTOR_ID_INVALID: actor ${actorId} não existe neste tenant`);
+    }
+  }
+
+  /**
    * Cria fornecedor
    */
   async createSupplier(
@@ -79,10 +97,17 @@ class SupplierService {
       await this.assertActorNotQuarantined(tenantId, createdByActorId);
     }
 
+    // 🔵 ponte pra actor (Fatia 7): se veio, PROVA que existe antes de gravar — nunca confia no hint.
+    const actorId = input.actorId?.trim() || null;
+    if (actorId) {
+      await this.assertActorExists(tenantId, actorId);
+    }
+
     // Criar fornecedor
     const supplier = await supplierRepository.createSupplier(tenantId, {
       name: input.name.trim(),
       ownerActorId: input.ownerActorId, // DECISION-0133 (resolvido server-side; nunca body cru)
+      actorId, // ponte Fatia 7 (validada acima)
       code: input.code?.trim() || null,
       email: input.email?.trim() || null,
       phone: input.phone?.trim() || null,
@@ -130,6 +155,19 @@ class SupplierService {
    */
   async getSupplierById(tenantId: string, supplierId: string): Promise<Supplier | null> {
     return await supplierRepository.getSupplierById(tenantId, supplierId);
+  }
+
+  /**
+   * Vincula/desvincula (actorId=null) um fornecedor JÁ EXISTENTE a um actor da plataforma —
+   * reconciliação Fatia 7 (Opção B), pra fornecedores cadastrados ANTES da ponte existir. A
+   * ROTA já provou que o caller representa o owner empresarial; aqui só prova que o actor existe.
+   */
+  async linkSupplierActor(tenantId: string, supplierId: string, actorId: string | null): Promise<Supplier | null> {
+    const normalized = actorId?.trim() || null;
+    if (normalized) {
+      await this.assertActorExists(tenantId, normalized);
+    }
+    return await supplierRepository.linkActor(tenantId, supplierId, normalized);
   }
 
   // ============================================================

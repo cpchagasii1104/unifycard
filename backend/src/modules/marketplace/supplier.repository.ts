@@ -24,6 +24,7 @@ interface SupplierRow {
   registration_number: string | null;
   status: string;
   owner_actor_id: string; // DECISION-0133
+  actor_id: string | null; // ponte Fatia 7 (Opção B)
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
@@ -53,6 +54,7 @@ class SupplierRepository {
       registrationNumber: row.registration_number,
       status: row.status as any,
       ownerActorId: row.owner_actor_id, // DECISION-0133
+      actorId: row.actor_id, // ponte Fatia 7 (Opção B)
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
@@ -81,6 +83,7 @@ class SupplierRepository {
       registrationNumber: string | null;
       status: string;
       ownerActorId: string; // DECISION-0133 (resolvido server-side; nunca body cru)
+      actorId: string | null; // ponte Fatia 7 (validada server-side no service ANTES de chegar aqui)
       createdByActorId: string;
       createdByUserId: string | null;
       metadata: Record<string, any>;
@@ -92,13 +95,13 @@ class SupplierRepository {
       INSERT INTO suppliers (
         tenant_id, name, code, email, phone, contact_name,
         address, city, state, zip_code, country,
-        tax_id, registration_number, status, owner_actor_id,
+        tax_id, registration_number, status, owner_actor_id, actor_id,
         created_by_actor_id, created_by_user_id, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb)
       RETURNING id, tenant_id, name, code, email, phone, contact_name,
                 address, city, state, zip_code, country,
-                tax_id, registration_number, status, owner_actor_id,
+                tax_id, registration_number, status, owner_actor_id, actor_id,
                 created_by_actor_id, created_by_user_id, metadata,
                 created_at, updated_at
       `,
@@ -118,6 +121,7 @@ class SupplierRepository {
         input.registrationNumber,
         input.status,
         input.ownerActorId, // DECISION-0133 (owner empresarial; $16)
+        input.actorId, // ponte Fatia 7 ($17)
         input.createdByActorId,
         input.createdByUserId,
         JSON.stringify(input.metadata),
@@ -140,7 +144,7 @@ class SupplierRepository {
       `
       SELECT id, tenant_id, name, code, email, phone, contact_name,
              address, city, state, zip_code, country,
-             tax_id, registration_number, status, owner_actor_id,
+             tax_id, registration_number, status, owner_actor_id, actor_id,
              created_by_actor_id, created_by_user_id, metadata,
              created_at, updated_at
       FROM suppliers
@@ -184,7 +188,7 @@ class SupplierRepository {
       `
       SELECT id, tenant_id, name, code, email, phone, contact_name,
              address, city, state, zip_code, country,
-             tax_id, registration_number, status, owner_actor_id,
+             tax_id, registration_number, status, owner_actor_id, actor_id,
              created_by_actor_id, created_by_user_id, metadata,
              created_at, updated_at
       FROM suppliers
@@ -196,6 +200,26 @@ class SupplierRepository {
     );
 
     return rows.map((row) => this.toSupplier(row));
+  }
+
+  /**
+   * Vincula (ou desvincula, actorId=null) o fornecedor a um actor da plataforma — ponte Fatia 7
+   * (Opção B). Autoridade (representar o owner) já foi provada na ROTA antes de chegar aqui;
+   * existência do actor já foi validada no SERVICE. Aqui é só a escrita.
+   */
+  async linkActor(tenantId: string, supplierId: string, actorId: string | null): Promise<Supplier | null> {
+    const row = await runQueryWithTenant<SupplierRow>(
+      tenantId,
+      `UPDATE suppliers SET actor_id = $3, updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+       RETURNING id, tenant_id, name, code, email, phone, contact_name,
+                 address, city, state, zip_code, country,
+                 tax_id, registration_number, status, owner_actor_id, actor_id,
+                 created_by_actor_id, created_by_user_id, metadata,
+                 created_at, updated_at`,
+      [tenantId, supplierId, actorId]
+    );
+    return row ? this.toSupplier(row) : null;
   }
 }
 
