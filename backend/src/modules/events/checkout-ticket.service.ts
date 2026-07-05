@@ -53,6 +53,23 @@ export class CheckoutTicketService {
     tenantId: string;
     idempotencyKey?: string;
   }): Promise<{ ticketId: string; qrCode: string; price: number | null; transactionId?: string }> {
+    // F-CHECKOUT-EVENT-TICKET-LEGACY-INSERT-SCHEMA-GHOST-CONTAINMENT (achado da Onda 1 zeragem de
+    // DT, 2026-07-05, DT-TEMPORAL-LEGACY-DECOMMISSION-RESIDUES R2): o INSERT abaixo em
+    // `event_tickets` usa colunas (`global_user_id`/`schedule_slot_id`/`price_paid`/`qr_code`/
+    // `status`/`idempotency_key`) que NUNCA existiram na tabela — a única migration que a cria
+    // (`20260530120000_event_tickets.sql`) tem shape de "tipo de ingresso" (ticket_type/
+    // price_cents/quantity_total), não de ingresso emitido. Se executado, falharia com erro de
+    // SQL (coluna inexistente). O frontend JÁ foi rerroteado pro caminho canônico
+    // (`POST /api/events/:id/checkout`, `event.routes.ts`); esta rota (`POST /checkout/event-ticket`)
+    // segue MONTADA sem guard. Contenção fail-closed NA BORDA do service (não é gênese de schema
+    // nem correção do fluxo de compra — decisão de desmontar a rota vs. redesenhar o INSERT fica
+    // pra frente própria). Throw honesto ANTES de tocar qualquer tabela.
+    throw new Error(
+      'CHECKOUT_EVENT_TICKET_LEGACY_SCHEMA_GHOST_CONTAINED: compra de ingresso pelo caminho legado ' +
+        '/checkout/event-ticket está desativada — o INSERT usa um schema de event_tickets que nunca ' +
+        'existiu no banco. Use o caminho canônico POST /api/events/:id/checkout.'
+    );
+
     const { eventId, buyerUserId, tenantId } = params;
 
     return runTenantTransaction(tenantId, async (trx) => {
