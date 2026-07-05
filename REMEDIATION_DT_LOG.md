@@ -2240,6 +2240,7 @@ Migration forward-only `20260530551000_restore_actor_has_any_role.sql` aplicada 
 
 ## DT-bank-accounts-last-activity-ghost-column
 
+- **🟡 RECLASSIFICADA (Onda 1 de zeragem de DT, 2026-07-05):** triagem tinha marcado como C_CLEANUP/S. Read-first confirmou que a coluna é **lida ativamente** (`bank-account.repository.ts`, todo SELECT padrão de conta) e **mapeada num contrato externo** (`bank-balance-consolidation.service.ts` expõe como `updatedAt`) — as duas opções da própria dívida (implementar UPDATE real em fluxos financeiros VS remover a coluna) são mudanças de comportamento/contrato genuínas, não limpeza mecânica. Nenhuma tem um "certo óbvio": opção 1 exige tocar múltiplos caminhos de escrita financeira; opção 2 quebra o contrato `updatedAt` pra quem consome. Reclassificada **C_CLEANUP → A_DECISION**. NÃO executada nesta sessão — aguarda escolha de Clayton entre as 2 opções já bem descritas abaixo.
 - **Status:** OPEN
 - **Origem:** β.1 (sessão Opus 2026-05-10) — auditoria pré-β.1.a
 - **Vinculada a:** —
