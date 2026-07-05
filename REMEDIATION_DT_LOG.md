@@ -5590,7 +5590,13 @@ autorizado. Ambas as DTs aguardam frente própria com autorização explícita.
 
 ---
 
-## DT-PRESSURE-COMMENTS-FANTASMA
+## DT-PRESSURE-COMMENTS-FANTASMA — ✅ CLOSED (2026-07-05) — D_FIX (Onda 2, zeragem de DT), item 9
+- **Read-first confirmou a condição da própria dívida:** "auditar backend para endpoint de comments. Se sim, fazer call real." O backend JÁ tem endpoint real e completo (`GET /social/posts/:id/comments?cursor&limit` em `social-2.0.routes.ts`, `social2Service.getComments`) — não era ausente, só nunca tinha sido religado no client.
+- **Fix:** `getComments` implementado em `frontend/src/api/social-2.0.ts` (mesmo padrão de `createComment`, que já era real) — `apiFetch` com querystring de cursor/limit, retorna `{comments, next_cursor, has_more}`. Stub `throw NOT_IMPLEMENTED` removido de `social.ts`; `getComments` agora reexportado de `social-2.0.ts` no mesmo bloco de `createComment`. `CommentsDrawer.tsx` (o único caller) **já esperava exatamente essa forma de retorno** — zero mudança necessária no componente.
+- **Prova:** frontend `tsc --noEmit` EXIT 0; backend `validate:regression-guards` EXIT 0 (zero arquivo backend tocado, só confirmação de segurança).
+- **Status:** ✅ CLOSED. Drawer de comentários passa a mostrar dado real em vez de erro inline sempre.
+---
+## DT-PRESSURE-COMMENTS-FANTASMA (entrada original, histórico)
 
 - **Status:** OPEN
 - **Origem:** quarentena Frente A 2026-05-18
@@ -5635,7 +5641,7 @@ Princípio operacional Clayton 2026-05-18 ("Frontend NUNCA cria verdade — fron
 ---
 
 ## DT-PRESSURE-AVAILABLE-ACTOR-ACTIVITY-FIELD
-
+- **🟡 RECLASSIFICADA (D_FIX Onda 2, 2026-07-05):** triagem marcou D_FIX/S. A mitigação (reversão) já está em produção e confirmada funcional desde 2026-05-18 — não há bug ativo. O que resta ("resolução prevista") é criar uma coluna NOVA (`companies.activity JSONB`, estrutura CNAE) e propagar em `findAvailableActors` + tipos frontend — isso é uma FEATURE nova (schema + design de enriquecimento de dado de empresa), não correção de bug. A própria entrada já dizia "não bloqueia P1... P2 ou frente própria". Reclassificada **D_FIX → A_DECISION/F_LATENT** (feature planejada, não dívida ativa). NÃO tocado.
 - **Status:** OPEN (aguarda migration backend)
 - **Origem:** smoke FAIL crítico de bootstrap 2026-05-18 — Frente C do P1 revertida materialmente
 - **Vinculada a:** memória `project_home_contextual_modelo_2026-05-18.md` (P1 item 4)

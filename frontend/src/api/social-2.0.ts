@@ -241,6 +241,24 @@ export async function toggleReaction(
 }
 
 /**
+ * Busca comentários de um post (paginado por cursor).
+ * DT-PRESSURE-COMMENTS-FANTASMA (2026-05-18, fechada 2026-07-05): backend GET
+ * /social/posts/:id/comments já existia e era real; só o client frontend estava em quarentena
+ * (throw NOT_IMPLEMENTED) porque a auditoria original não tinha confirmado o endpoint.
+ */
+export async function getComments(
+  postId: string,
+  options?: { cursor?: string; limit?: number }
+): Promise<{ comments: Comment[]; next_cursor: string | null; has_more: boolean }> {
+  const params = new URLSearchParams();
+  if (options?.cursor) params.set('cursor', options.cursor);
+  if (options?.limit) params.set('limit', String(options.limit));
+  const qs = params.toString();
+  const response = await apiFetch(`/social/posts/${postId}/comments${qs ? `?${qs}` : ''}`);
+  return response.json();
+}
+
+/**
  * Adiciona comentário
  */
 export async function createComment(

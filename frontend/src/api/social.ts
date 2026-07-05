@@ -11,6 +11,7 @@ export {
   createPost as createSocialPost,
   toggleReaction,
   createComment,
+  getComments,
   getActorProfile,
   getActorProfile as getActor,
 } from './social-2.0';
@@ -128,10 +129,6 @@ export type LedgerSummary = Record<string, any>;
 
 export async function getLedgerSummary(_actorId?: string): Promise<any> {
   throw new Error('NOT_IMPLEMENTED: getLedgerSummary — social-ledger em regime de extinção (SSOT_EXCLUSIVE_BANK_RULE §4).');
-}
-
-export async function getComments(_postId: string, _options?: any): Promise<any> {
-  throw new Error('NOT_IMPLEMENTED: getComments — endpoint backend ausente. DT-PRESSURE-COMMENTS-FANTASMA pendente.');
 }
 
 export async function followActor(_actorId: string): Promise<{ success: boolean }> {
