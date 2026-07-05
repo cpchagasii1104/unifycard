@@ -136,7 +136,11 @@ export interface Product {
 export interface CreateProductInput {
   name: string;
   description?: string | null;
-  categoryId?: string | null;
+  // DT-DRIFT-CONTRACT-INTERFACE-RUNTIME (2026-05-17, corrigida 2026-07-05): o tipo dizia opcional,
+  // mas product.repository.ts::requireCategoryIdForProductCreate SEMPRE exige (lança
+  // CATEGORY_REQUIRED se ausente/vazio) — regra "P0 RFC 0" já era obrigatória em runtime. Tipo
+  // corrigido pra refletir a verdade do repository (schema/runtime é SSOT, tipo é projeção).
+  categoryId: string;
   /** Opcional: persiste em `products.canonical_product_id`. */
   canonicalProductId?: string | null;
   /**

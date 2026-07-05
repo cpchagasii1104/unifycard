@@ -5107,7 +5107,13 @@ Contradição temporal do mesmo autor (jan 2026 BLINDAGEM cega / mai 2026 gap a 
 
 ---
 
-## DT-DRIFT-CONTRACT-INTERFACE-RUNTIME
+## DT-DRIFT-CONTRACT-INTERFACE-RUNTIME — ✅ CLOSED (2026-07-05) — D_FIX (Onda 2, zeragem de DT), item 5
+- **Fix:** `CreateProductInput.categoryId` (`product-catalog.types.ts`) mudou de `categoryId?: string | null` pra `categoryId: string` — reflete a verdade já imposta em runtime por `requireCategoryIdForProductCreate` (`product.repository.ts`, regra "P0 RFC 0" já era obrigatória). Grep confirmou zero object-literal construindo `CreateProductInput` em todo o backend (nenhum caller dependia do tipo antigo) e zero referência no frontend.
+- **Guard:** o próprio TypeScript — `tsc --noEmit` passou limpo, confirmando que nenhum caller real quebra com o tipo corrigido (mais forte que qualquer guard textual, já que é verificação estrutural real do compilador).
+- **Prova:** backend `tsc --noEmit` EXIT 0; `validate:regression-guards` EXIT 0 integral.
+- **Status:** ✅ CLOSED. Zero mudança de comportamento runtime — só o tipo parou de mentir sobre o que o repository já exigia. Auditoria mencionada como pendente na entrada original ("outros campos com guard obrigatório em repository mas opcional em interface") NÃO foi feita nesta sessão — fora do escopo deste item específico.
+---
+## DT-DRIFT-CONTRACT-INTERFACE-RUNTIME (entrada original, histórico)
 
 - **Status:** OPEN
 - **Origem:** PASSO 6b (smoke supply chain 2026-05-17, ELO 2 v2) — descoberta institucional via runtime real
@@ -7580,7 +7586,7 @@ Até essa frente chegar, dinheiro fica em `escrow_payments` mesmo após `service
 ---
 
 ## DT-D2-TIMEOUT-WORKER-PENDING
-
+- **🟡 RECLASSIFICADA (D_FIX Onda 2, 2026-07-05):** triagem marcou D_FIX/S. A própria entrada já lista como razão #1 "decidir cadência... é decisão operacional" — registrar worker periódico exige escolher cadência/padrão de deploy, não é mecânico. Reclassificada **D_FIX → A_DECISION**. NÃO tocado (script CLI standalone já funciona pra operação manual via cron/runbook).
 - **Status:** OPEN (script CLI existe; worker periódico fica para fatia operacional)
 - **Severidade:** LOW (não-bloqueante; operadores podem rodar via cron/CI manualmente)
 - **Origem:** D2, 2026-05-26. O caminho "timeout" da D2 está implementado como **função pública** (`serviceOrderService.approveExpiredServiceOrderReleases`) + **script CLI standalone** (`backend/src/scripts/release-expired-service-orders.ts`). NÃO há worker periódico registrado em BOOT.ts.
