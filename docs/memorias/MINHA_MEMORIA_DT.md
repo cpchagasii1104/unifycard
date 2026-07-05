@@ -10,6 +10,168 @@
 ---
 
 ============================================================
+📊 MEDIÇÃO DE MÉTRICAS #2 — 2026-06-12 · HEAD `af67c25e` (compara com linha de base 06-10 `ebde8984`)
+Headers 300→321 (+21) · OPEN 163→175 (+12) · CLOSED 114→124 (+10) · PARTIAL 14→14.
+Leitura: ponto de inversão NÃO atingido (razão ~10:21), MAS 8 das 21 novas = abertas-e-fechadas no MESMO dia (achados de reseal Yala pagos na hora — ciclo saudável). Fechamento de RAIZ real: MACROFRENTE CATÁLOGO CANÔNICO **CLOSED por Yala 06-12** (cadeia runner-hook·mídia-V2·blob-iso·contextual-temporal·catálogo) + macrofrente PJ humano→empresa CLOSED aguardando reseal. Crescimento OPEN = famílias C1/tenant-invite + PJ residuais (descoberta, não regressão). Sinal de regressão da régua: AUSENTE. Nota de método: entradas novas (06-11/12) carregam status NO HEADER (`— OPEN`/`→ CLOSED`), não em linha `**Status:**` — censos futuros devem contar ambos os formatos. OPEN p/ frente delegação: DT-GROUP-AUTHORITY-FALLBACK + DT-mãe 0113 + tsc 25 pré-0113.
+============================================================
+
+============================================================
+PEDIDO DA IA DIRETORA — 2026-06-10
+Status: RESPONDIDO
+HEAD do pedido: ebde8984 (esperado e confirmado vivo)
+HEAD da resposta: ebde8984
+Branch: rescue-structural
+Fontes soberanas revalidadas: DECISION-0113/0115/0116+ADENDO-A1 (1ª mão) · REMEDIATION_DECISIONS_LOG (últimas 6) · REMEDIATION_DT_LOG (censo recalculado) · STATUS topo · opus seção recente · MAPA_DENOMINADOR_TENANT_SHARED_ISOLATION.md (inteiro) · código vivo (inventory/company_users/groups/auth.service/RBAC stub/RLS/suppliers/contacts/feed) · package.json gates + 4 scripts-fonte · memórias EXECUTORA/ACTOR_USERS/DINHEIRO/BANCO/DECISOES/DOCUMENTOS/YALA
+Veredito: ver bloco consolidado abaixo (F-DT-CAUSAL-MAP-AND-CONVERGENCE-PLAN)
+============================================================
+
+# RESPOSTA CONSOLIDADA — F-DT-CAUSAL-MAP-AND-CONVERGENCE-PLAN — IA-DT — 2026-06-10 · HEAD `ebde8984`
+
+## 1. HEAD / branch / dev / status
+HEAD vivo `ebde8984` == esperado · `rescue-structural` · **366 migration files** == esperado (DB vivo não sondado nesta sessão — INCONCLUSIVO o count em `unificard_dev`; memória executora afirma dev 366) · working tree: só `MINHA_MEMORIA_TEMPO.md` modificada + untracked esperados (`backend/tmpschema.ts` PRESENTE untracked; `MINHA_MEMORIA_YALA.md` untracked e **VAZIA 0 bytes**) · autorais protegidos intactos. Estado da esteira: **HOLD aguardando reseal Yala** de F-COMPANY-USERS-SELF-UPDATE (origem `c6bbcae1`).
+
+## 2. Veredito executivo
+As RAÍZES do sistema **já estão majoritariamente DECIDIDAS** (0113/0115/0116 cobrem hint-confiado, nascimento humano e missing-scope). O passivo mudou de natureza: **o gargalo não é decisão, é (a) denominador não-enumerado (~15 módulos nunca varridos) e (b) ausência total de gate estrutural para as famílias conhecidas** — nenhum dos 4 gates obrigatórios detecta reader-owner-tenant-only, GET-cria-actor, authority-field-do-cliente, coluna fantasma (fora da cadeia) ou stub reativado. Sem (a)+(b), cada correção é folha por-rota e o plano é assintótico por construção. A virada = enumerar + instalar gate = o galho 0116 fecha por construção.
+
+## 3. Estado vivo do passivo (censo recalculado, não herdado)
+- **300 headers** de DT (283 `##` + 17 `###`); **~292 DTs únicas** (8 headers duplicados = entradas de atualização).
+- Status efetivo por seção: **OPEN 163 · CLOSED/RESOLVED/SUPERSEDED/TOMBSTONE 114 · PARTIAL 14 · DEFERRED 4 · sem-status 3 · PRIMITIVO-SELADO 1**.
+- 13 DTs de 2026-06-10: 10 OPEN (famílias G10-nascimento + inventory) · 3 CLOSED (consolidated-route, unit-vocab, self-escalation).
+- **Stale/reconciliação (nominais):** `DT-PJ-KYC-DOCUMENTS-SUBSTRATE-MISSING` (substrato entregue 06-06/07, status nunca tocado) · `DT-PJ-DOCUMENT-STORAGE-PROVIDER-MISSING` (×PRODUCTION-variant = par duplicado) · `DT-PJ-DOCUMENT-MALWARE-SCAN` (×PRODUCTION-SCANNER = par duplicado) · `DT-ACTOR-DELEGATIONS-ZERO-RUNTIME` (writer vivo, status fóssil) · par PRESENCE · + ~5 candidatas do meu histórico (IS-VERIFIED dropada, VERIFIED-AT ghost, CANACTAS).
+- **Inconsistência cartorial NOVA (achado material):** a entrada do `REMEDIATION_DECISIONS_LOG` para o ADENDO A1 ainda registra `DT-COMPANY-USERS-SELF-UPDATE-PERMISSION-ESCALATION` como **OPEN (descoberta)** e diz "campo fora do PUT self-scoped", enquanto o ARQUIVO da DECISION-0116 (linha ~106, correção de honestidade) e o DT_LOG já registram **CLOSED** pela frente de closure. O log NÃO tem entrada para a frente de fechamento. → reconciliação do cartório (executora, GO documental).
+- Fechado-sem-prova: nenhum caso novo detectado (o histórico 0113-retratação permanece a lição). Sem-pai-causal: maioria mapeada nas famílias abaixo; resíduo órfão ≈ higiene/TS/fantasma (estimativa, não censo exato).
+
+## 4. Maior problema estrutural atual
+**Fronteiras de leitura/escrita não derivadas de vínculo material server-side** — uma única doença com duas faces decididas (0113 hint-confiado · 0116 missing-scope) e dois deficits de execução: **denominador não-enumerado + zero gate estrutural**. Corolário: o sistema corrige por rota e redescobre por sweep; sem gate, toda rota nova pode recriar a família silenciosamente.
+
+## 5. Árvore causal (atualizada — substitui a árvore de 2026-06-10 anterior)
+**TRONCOS (sãos):** T1 identidade 3-camadas · T2 autoridade (canRepresentActor) · T3 Bank/ledger · T4 tempo · T5 CONCEPT.
+**RAÍZES:**
+| Raiz | Estado | Governante | Galhos | ~Filhas | Clayton? | Critério de fechamento |
+|---|---|---|---|---|---|---|
+| R1 mundo inicial PF | DECIDIDA, exec pendente | 0115 D1 | C1/register, tenant-per-signup | 2 | escolha CONCRETA do tenant inicial | C1 executada+selada |
+| R2 visibilidade intra-tenant | DECIDIDA, **impl. parcial** | 0116+A1 | clusters 1–8 + ~15 módulos | ~15+ | NÃO (classes prontas) | 0116 §4 passos 1–7 |
+| R3 actorId hint | DECIDIDA, impl. parcial | 0113 | 5 canais; residuais groups | ~25 | NÃO | 5 canais backend inteiro + selo Yala |
+| R4 nascimento garantido | DECIDIDA, NÃO impl. | 0115 D2 | best-effort register, cura difusa ≥10 GETs | ~8 | NÃO | C1 transação mínima + E2E |
+| R5 gender vocab | DECIDIDA, NÃO impl. | 0115 D3 | enum/CHECK/contrato | 1 | NÃO | migration governada + E2E |
+| R6 RBAC/FASE 6 | PARCIAL (stub deliberado; modelo final NÃO desenhado) | C47 + trap-DT | groups 403-mask, reactivation | ~6 | desenho FASE 6 | modelo promulgado + gates preservados |
+| R7 delegação R2 | NÃO decidida, CONGELADA | aguarda 0113 | cluster risco PJ | ~8 | sim (após selo) | selo 0113 → desenho → exec |
+| R8 ownership empresarial | DECIDIDA NA CLASSE (COMPANY_INTERNAL), semântica fina parcial | 0116 §2.3 | suppliers/PO/contacts(D) | ~5 | residual (vínculo supplier↔company) | leitura gateada por company_users |
+| R9 money latente | PARCIAL (0110/0111/0114; modelo D3/D5 pendente) | 0114 + STOPs | escrow/W5-W6/AP-AR/fundo/grupo | ~15 | modelos | três paralelas por frente |
+| R10 schema ghost | PARCIAL por recurso | 0116 (contacts: não restaurar) | contacts(D)/daily-metrics(INCONCLUSIVO)/feed-visibility | ~6 | daily-metrics destino | por recurso |
+| R11 **gates estruturais ausentes** | NÃO endereçada | 0116 §4.5 (manda 1 gate) | TODAS as famílias | transversal | NÃO | G1 instalado + verde |
+**FOLHAS** = ~163 OPEN penduradas nos galhos acima.
+
+## 6. Raízes já decididas (não reabrir)
+0113 (hint≠autoridade, 5 canais, autoria≠autoridade) · 0115 D1–D5 · 0116 8 classes + DEFAULT_DENY + mapeamentos ratificados (inventory=ACTOR_PRIVATE; suppliers=COMPANY_INTERNAL com created_by=AUDIT não-ownership; contacts=NÃO restaurar, não bloqueia C1; escrow=MONEY_PARTIES; daily-metrics=INSTITUTIONAL_ADMIN inativa) · ADENDO A1 (consolidado empresarial + **legadas tenant-wide BLOQUEADORAS, item 11**) · 0114 · 0112 · 0080 (emendada só no enum por 0115 D3).
+
+## 7. Raízes ainda dependentes de Clayton
+(1) **Tenant inicial CONCRETO** (qual mundo/slug/reconciliar legado — 0115 D1 delegou à C1, mas a escolha do mundo é produto). (2) **Desenho FASE 6** (modelo RBAC V2 final). (3) **Modelos money** (0114 D3/D5; modelo de disputes/penalties W5/W6; destino do write-path escrow). (4) **Destino daily-metrics** (consertar × 501). (5) residual: semântica de vínculo supplier↔company (tabela não tem company_id).
+
+## 8. Caminho crítico do tenant compartilhado (o que impede 2+ PFs no mesmo tenant)
+**A. BLOQUEADOR DIRETO (revalidado 1ª mão):**
+1. `GET /inventory/balance` SEM actor — `marketplace-inventory.routes.ts:35-43`, só `marketplace_manage_inventory`, soma tenant-wide. Classe ACTOR_PRIVATE. Caller frontend vivo. DT: INVENTORY-MOVEMENTS-…-SCOPE + A1 item 11. **Patch mecânico** (política decidida). E2E novo. Fecha: rota gateada/tombstone + caller migrado.
+2. `GET /inventory/movements` SEM actorId — `:128,146-148` (comentário "broad read, fora desta fatia"). Idem item 1; caller `api/marketplace.ts:740`.
+3. **suppliers** list/get — `supplier.repository.ts:143,159` tenant-only. Classe COMPANY_INTERNAL. Patch quase-mecânico (gate via company_users; resolver vínculo→Clayton residual §7.5).
+4. **`GET /groups/:id/dashboard`** — `groups.routes.ts:1050-1117`, gate = só autenticação; qualquer um lê contadores de QUALQUER grupo. Classe GROUP_MEMBERS (V2 §2.6 decide). Patch mecânico isMember.
+5. **Residual 0113 em groups** — rotas usando `req.actionContext.actorId` como userId (`groups.routes.ts:382,601,667`) = sujeito spoofável. Patch mecânico (req.user, padrão groups/mine).
+6. **purchase-orders** (A-comercial parcial no mapa; COMPANY_INTERNAL) — mesmo padrão suppliers.
+**B. REATIVAÇÃO:** groups atrás do stub `RETURN FALSE` (confirmado vivo `20260422000100:24`; trap-DT) · W2/W3/W4 in-memory · money-latent settlements/AP/AR · UnifyCard tombstone.
+**C. NÃO BLOQUEADOR:** feed-visibility phantom (contador morto =0, erro isolado — não vaza) · unidades heterogêneas consolidado · eligibility×KYB · geo-enrichment TS · contacts (tabela NÃO existe — classe D por 0116).
+**D. MONEY (fora do G10, 0115 D5):** escrow (⚠️ memória DINHEIRO: **write path release/refund FAIL-OPEN move dinheiro real** — M-REAL mais grave do sistema; frente própria, prioridade DENTRO da onda money) · finance-agenda (M-projeção) · W5/W6.
+**E. INCONCLUSIVO:** daily-metrics (2 queries quebradas 42703) · **~15 módulos NÃO AUDITADOS** (rides·work·dispatch·inbox·opportunities·matching·referral·fund·reviews·votes·cultural·organization·reporting·my-orders·system-notifications).
+**O conjunto AINDA NÃO é finito** — é finito POR CONSTRUÇÃO (repos com owner-col) mas a enumeração dos 15 módulos não foi feita. 1 frente READ-ONLY fecha isso.
+
+## 9. Denominador mínimo para liberar C1
+= fechar A.1–A.6 + enumerar os 15 módulos (qualquer Classe-A novo entra) + gate G1 instalado + MAPA reancorado em HEAD vivo + reseal Yala (0116 §4 completo). B/C/D/E NÃO bloqueiam C1 (B exige STOP gate-on-reactivation registrado — já está).
+
+## 10. Estado real da DECISION-0113
+**Fechado/selado:** primitivo x-actor-id (`9996cbd2`+selo) · canal-3 money+não-money · canal-5 marketplace DB-backed 6 caminhos (4 selos Yala) · payment-method arquivo inteiro · account list/by-id · opportunity-dispatch · events B1–B4 · groups/mine (canal-1 type-confusion, HTTP 26/26) · princípio estendido a writes (autoria≠autoridade, escalation closure).
+**Aberto:** re-sweep EXAUSTIVO do backend (denominador global) · residuais groups :382/:601/:667 · b2b-contracts/organization-units/invoice (availability PROVAVELMENTE coberto pelos E2Es booking/participant de 06-09 — confirmar no sweep) · behavioral-coverage DT · CANACTAS-stale DT · **sweep adversarial final Yala 5 canais**.
+**Reclassificadas para 0116 (saem do denominador 0113):** inventory sem-actor · suppliers · groups-dashboard · unread-counts — missing-scope, não hint.
+**Selo honesto exige:** 5 canais × backend inteiro + residuais groups fechados + sweep Yala + DT-mãe fechada com prova + log reconciliado. **R2 segue LEGITIMAMENTE congelado.** NÃO declarada fechada.
+
+## 11. R2 e FASE 6
+R2: congelado, correto (desenho existe; premissa = selo 0113). FASE 6: stub `RETURN FALSE` vivo e deliberado (reafirmado `20260530551000:31-33`); 0115 D4 garante que C1/jornada self NÃO depende dela; trap-DT registrada; modelo final = Clayton.
+
+## 12. Matriz de prioridade (0–5; maior=melhor; soma)
+| Candidata | Seg | Destrava | Filhas | Deps | Norma | Anti-regr | Esforço | Clayton-livre | Paralelas-livre | MVP | Σ |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 Inventory legacy readers | 4 | 4 | 3 | 5 | 5 | 4 | 4 | 5 | 5 | 4 | **43** |
+| 2 Enumeração+gate denominador | 3 | 5 | 2 | 5 | 5 | 5 | 3 | 5 | 5 | 4 | **42** |
+| 4 Groups dashboard+residuais | 3 | 3 | 3 | 5 | 5 | 4 | 4 | 5 | 5 | 3 | 40 |
+| 5 Finalização 0113 | 4 | 5 | 4 | 3 | 4 | 4 | 2 | 4 | 5 | 3 | 38 |
+| 3 Suppliers | 3 | 2 | 2 | 4 | 4 | 4 | 4 | 4 | 5 | 3 | 35 |
+| 9 Money/escrow | 5 | 1 | 3 | 2 | 3 | 2 | 2 | 1 | 0 | 1 | 20* |
+| 6 C1/register | — prematura (deps 1: bloqueada pelo próprio denominador) |
+| 7 Semânticas inventory | ~25 · 8 Geo-enrichment ~15 |
+(*escrow: maior risco ABSOLUTO de segurança, mas exige 3 paralelas + decisões; não compete pelo MESMO corte.)
+
+## 13–14. Próxima frente única + por quê
+**`F-INVENTORY-LEGACY-READERS-RECONCILIATION`** (após o reseal Yala pendente da escalation closure). Por quê fecha galho e não folha: é o ÚNICO bloqueador C1 **nominalmente mandatado por DECISION promulgada** (ADENDO A1 item 11); política 100% decidida (ACTOR_PRIVATE + consolidado já vivo como destino de migração dos callers); caller frontend real; zero Clayton; zero paralelas; E2E-base 39/39 existente; fecha 2 dos 6 bloqueadores diretos e elimina a última leitura itemizada cross-actor de inventory → o galho inventory-isolamento FECHA INTEIRO (DT-INVENTORY-…-SCOPE converge).
+**Em paralelo SEM conflito de corte:** enumeração dos 15 módulos é READ-ONLY (especialistas/IA-DT, não executora) — roda simultânea sem disputar arquivo. Candidata #2 não perde para #1: ela é da ONDA 0 e não precisa de GO de código.
+
+## 15. Plano de convergência por ondas
+- **ONDA 0 — cartório+denominador (paralela, read-only/docs):** reconciliar log×0116-A1 (escalation OPEN→CLOSED) + stale PJ + pares duplicados; enumerar 15 módulos (READ-ONLY); reancorar MAPA em HEAD vivo; instalar gate G1 + promover schema-coherence à cadeia obrigatória; popular memória YALA (vazia = selos só na memória da executora, single-point). Sai quando: denominador FINITO declarado + G1 verde. Risco: baixo. Clayton: não.
+- **ONDA 1 — bloqueadores do tenant compartilhado:** inventory legacy → groups dashboard+residuais actionContext → suppliers → PO; reseal Yala por fatia. Sai: A.1–A.6 fechados + 0116 §4 completo. Risco: médio-baixo (padrões provados). Clayton: residual suppliers§7.5.
+- **ONDA 2 — nascimento humano:** decisão do tenant inicial concreto (Clayton) → C1 register costurado ao mundo vivo + transação mínima CPF→user→identity→actor (D2) + E2E fail-first. Sai: 2 PFs nascem no mesmo tenant sem leak. Pré: ONDA 1 + reseal.
+- **ONDA 3 — energização:** perfil/interesses/agenda (writers prontos, costura) · gender D3 (fatia própria+migration) · identity_status persistido (fatia própria) · empresa/marketplace sem money. Sai: jornada 7-fases sem dinheiro real.
+- **ONDA 4 — delegação/RBAC:** selo final 0113 → descongela R2 → desenho FASE 6 (Clayton) → reativação COM traps preservados (gates antes de ligar).
+- **ONDA 5 — money (três paralelas SEMPRE):** **escrow write-path PRIMEIRO** (fail-open real) → W5/W6 → money-latent/AP-AR/fundo (0114 D3/D5) → grupo R3. ⚠️ recomendo a Clayton avaliar mitigação DEFENSIVA do escrow write-path ANTES da onda 5 (tombstone/gate mínimo) — decisão dele, registro o risco.
+
+## 16. Três paralelas (somente)
+**Escrow** (write release/refund fail-open move dinheiro; perguntas: DINHEIRO=rota de extinção×conserto; BANCO=FKs/bridge/0-rows; ACTOR=partes×representação; E2E money fail-first; STOP: nada de patch parcial) · **W5/W6 disputes-penalties** (refund/split; modelo Clayton antes) · **money-latent reativação** (settlements/AP/AR/fundo; 0114 D3/D5 + gate no corte) · **grupo-dinheiro R3** (3 substratos). NADA MAIS exige paralelas — inventory/suppliers/groups/C1 são corte simples (D5 exclui money do G10).
+
+## 17. Gates estruturais recomendados (propor, NÃO implementar)
+- **G1 reader-owner-tenant-only** (0116 §4.5 — repos: query com tabela owner-bearing cujo WHERE não referencia owner/membership; allowlist por classe PUBLIC_TENANT). MÁXIMA alavancagem: fecha a recorrência da família 0116 inteira.
+- **G2 promover `validate:schema-coherence` à cadeia obrigatória** (já EXISTE; detecta coluna fantasma; custo ~zero — só wiring).
+- **G3 authority-field-from-client** (rota referenciando `actionContext.actorId|x-actor-id|query.actor_id` sem `canRepresentActor` no mesmo handler — heurística grep com allowlist; fecha recorrência 0113).
+- **G4 GET-writer** (handler GET chamando `ensureUserActor|findOrCreate*` — protege aposentadoria da cura difusa, 0115 §2.1).
+- **G5 tombstone-hash** (rotas 501 com hash registrado; reativação sem atualizar hash = fail). Prioridade: G1 > G2 > G3 > G4 > G5.
+
+## 18–19. Decisões
+**Não reabrir:** lista do §6 (inclui: consolidado=A1; dashboard-membro=V2§2.6+GROUP_MEMBERS; contacts=não restaurar; PO=COMPANY_INTERNAL — todas PARECEM produto mas JÁ TÊM resposta normativa).
+**Dependem de Clayton:** tenant inicial concreto · desenho FASE 6 · modelos money (escrow destino + W5/W6 + 0114 D3/D5) · daily-metrics destino · vínculo supplier↔company.
+**Executora por norma (sem Clayton):** inventory legacy (A1 item 11) · groups dashboard (V2 §2.6) · residuais actionContext→req.user (0113 D4) · gate G1 (0116 §4.5) · reconciliação cartorial · GUC único (coerência; se virar política, volta como B).
+
+## 20. O que a executora NÃO deve fazer agora
+Nada antes do reseal Yala pendente · não tocar C1/register · não liberar tenant compartilhado · não patchar suppliers antes do residual de vínculo (ou patchar só com gate company_users existente, sem inventar ownership) · não materializar W2-W4/groups-traps · não tocar escrow sem três paralelas (nem "consertinho" no write path) · não declarar denominador fechado · não fechar 0113 · não abrir frente nova sem fechar a corrente.
+
+## 21–23. Critérios objetivos
+**Tenant compartilhado liberável:** 0116 §4 (1)–(6) completos = enumeração finita ∧ classificação total ∧ Classe-A vivos fechados ∧ gate G1 verde ∧ reseal Yala ∧ cartório reconciliado.
+**C1/register liberável:** anterior ∧ decisão do tenant concreto ∧ desenho transação mínima D2 ∧ E2E fail-first de nascimento-duplo (2 PFs mesmo tenant, zero leak cruzado) ∧ sem dependência FASE 6 (D4).
+**Denominador global fechado:** 15 módulos varridos ∧ zero INCONCLUSIVO ∧ MAPA reancorado ∧ G1 verde ∧ reseal Yala do mapa. Proibido declarar antes (regra do próprio MAPA).
+
+## 24. Riscos de o plano continuar assintótico
+(1) Sem G1, cada rota nova reabre a família → caça eterna. (2) MAPA carimbado em `3d8ad25b` já está 4 fatias atrás — sem disciplina de reancoragem vira doc morto. (3) Cartório divergente (log×DECISION file) corrói a confiança no fechado. (4) Memória YALA vazia = selos não-rastreáveis fora da executora. (5) 15 módulos não varridos podem esconder Classe-A pior que os conhecidos. (6) Escrow fail-open esquecido até a onda 5. (7) Mix de descoberta>fechamento se a executora abrir frente nova sem fechar a corrente.
+
+## 25. Recomendação simples para Clayton
+Enquanto a Yala resela a escalation closure: (a) **GO executora → F-INVENTORY-LEGACY-READERS-RECONCILIATION**; (b) **GO read-only especialistas → enumeração dos 15 módulos** (sem código); (c) decidir o **tenant inicial concreto** (destrava a ONDA 2 inteira sem esperar código); (d) autorizar **G1+G2** como fatia de gate (pequena, sem runtime de produto).
+
+## 26. STOPs
+Não editar código/migrations/banco/frontend/DT_LOG/STATUS/DECISIONs/opus/outras memórias · não abrir/fechar DT oficial · não commitar · não liberar C1/tenant compartilhado/R2/FASE 6 · não declarar 0113 fechada · não declarar denominador global fechado · não iniciar money · análise ≠ GO · HOLD.
+
+## REGRA CONTRA "ATACAR FOLHA" (Missão 7 — proposta de método)
+Toda fatia futura declara no STATUS entry (7 linhas, verificável pela Yala no reseal):
+```
+RAIZ: <R1–R11>
+GALHO: <família>
+FOLHA: <rota/coluna/bug>
+DECISÃO GOVERNANTE: <DECISION-XXXX §Y>
+POR QUE AGORA: <raiz decidida? galho aberto?>
+FOLHAS QUE ESTE PATCH FECHA/PROTEGE: <n + nomes>
+CRITÉRIO DE CONVERGÊNCIA DO GALHO: <quando o galho inteiro fecha>
+```
+Entra no método como **campo obrigatório do template de STATUS entry** (a executora já escreve entries estruturadas — é +7 linhas, não burocracia nova); a Yala valida no reseal (FAIL se RAIZ vazia ou DECISÃO inexistente). Sinais de alerta (qualquer um = parar e classificar): patch sem pai causal · DT sem critério de saída · rota corrigida sem gate/E2E da família · docs-only contada como runtime · reactivation-trap sem STOP · sintoma corrigido sem varrer a família · migration antes de decisão de ownership · frente money tratada como gate simples.
+
+_Fatos stale CORRIGIDOS nesta resposta (vs minha árvore anterior): R-A/R-C/R-D viraram R1/R4/R5 decididas-pendentes-de-execução; raiz "0116" agora DECIDIDA (era pergunta aberta na minha resposta de `3d8ad25b`); inventory consolidado/groups-mine/escalation/unread-counts FECHADOS (eram abertos); contacts reclassificada D-ghost (era "[INF] provável A"); availability provavelmente coberta (era "verificar 1ª mão"); nasce raiz R11 (gates) — antes implícita, agora nominal por prova de cobertura-zero._
+
+Status: RESPONDIDO — HEAD `ebde8984` · 2026-06-10 · HOLD
+============================================================
+
+---
+
+============================================================
 PEDIDO DA EXECUTORA — 2026-06-10
 Status: RESPONDIDO (consolidado em DECISION-0116 + DT-mãe; ver RESPOSTA abaixo)
 HEAD no momento do pedido: 3d8ad25b

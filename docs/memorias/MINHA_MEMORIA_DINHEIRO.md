@@ -659,3 +659,192 @@ Logo a cadeia de autoridade do escrow é **provável e viável**: `escrow_accoun
 **Status: RESPONDIDO** · HEAD `3d8ad25b` (sem divergência) · INF-1 e INF-2 **fechados materialmente** (resíduo único: valor de env em deploy). Nada além desta memória foi alterado; sem commit.
 
 _Memória da IA-DINHEIRO — READ-ONLY. Insumo para IA Diretora/Clayton. Não autoriza execução._
+
+---
+
+## RESEAL FINANCEIRO #1 — F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT (2026-06-13)
+
+**VEREDITO: PASS COM RESSALVA.** P0 financeiro **contido fail-closed** no edge HTTP; motor financeiro e Bank intactos; sem falso verde. Única ressalva: 2 erros tsc NOVOS em **código morto** abaixo do `return 403` (zero impacto de runtime/financeiro) — limpeza P1.
+
+**ÂNCORA:** HEAD `6fbb01eb` (== esperado) · branch `rescue-structural` · **sem migration** no diff `8af211be..6fbb01eb` · working tree sem drift da frente (só memórias de outras instâncias + untracked pré-existentes, incl. `backend/tmpschema.ts`). dev 378/378 = **reportado pela executora, NÃO re-rodei** (suíte mutável em unificard_dev é proibida no meu modo).
+
+**PROVAS MATERIAIS:**
+- **Contenção fail-closed:** `reconciliation-dispute.routes.ts:194` `return reply.status(403) {code:'DISPUTE_REVERSAL_HTTP_DISABLED'}` é a **1ª instrução** do handler — antes de `req.tenant` (L200), `parseActor` (L206) e `executeDisputeFinancialReversal` (L211). Não é `requireRole`/`requirePermission` (sem falso gate RBAC V2).
+- **Curto-circuito (E2E efêmero 7/7):** T1 actor.kind=system→403; **T2** dispute inexistente NÃO vira 404 DISPUTE_NOT_FOUND (prova que o service não foi chamado); T4 admin/support→403; **T3** zero nova linha em `reversals`/`bank_transactions`/`bank_ledger`; S1 estrutural (gate precede parseActor/exec); S2 service ainda existe (rota só não o alcança). Rodado em DB efêmera `unificard_dispute_reversal_<stamp>` (guard anti-unificard_dev no wrapper L17 + no E2E L57), dropada no fim.
+- **Engine untouched:** `modules/reversal/reversal.service.ts` (onde vive `requestAndExecuteReversalSync`) + arquivos `bank-*` **fora do diff**. Diff de código = só `reconciliation-dispute.routes.ts` (+13).
+- **Bank untouched / boundary verde:** `validate:bank-ledger-boundaries` GATE OK [§4.6]. Nenhuma escrita manual em Bank.
+- **Gates estáticos:** actor-writer OK · bank-ledger OK · regression-guards OK (FORBIDDEN_REGRESSION=0, FINANCIAL_HARD_STOP=0) · architectural-patterns --strict exit 0, **critical_new=0** (4 warnings novos são em E2E de inventory, fora de dispute/bank).
+- **Rotas irmãs intactas:** `/disputes/from-discrepancy`, `/disputes/:id/to-review`, `/disputes/:id/resolve` **não tocadas** no diff; documentadas em DT (P1).
+- **DTs registradas:** `DT-DISPUTE-REVERSAL-AUTHORITY-CLIENT-DECLARED` = **OPEN / P0 CONTAINED**; `DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY` = **OPEN / P1**.
+- **Escopo respeitado:** nada de PJ/CNAE/authority macro/RBAC V2/FASE6/R2.
+
+**RESSALVA (única):** tsc backend final = 45 erros. **43 são baseline** de frentes já fechadas (catalog-governance 16, media-assets 9, company-templates 5, service-offerings 4, module-projection 3, etc.) em arquivos **idênticos** entre `8af211be` e `6fbb01eb` (diff não os tocou). **2 são NOVOS** em `reconciliation-dispute.routes.ts:212` (TS2345 `tenantId: string|undefined`) e `:219` (TS18046 `e: unknown`) — provado por `git show 8af211be:`: no baseline o corpo era **alcançável** (narrowing `if(!tenantId)return` + `catch` aplicado → 0 erro); o `return 403` no topo tornou o corpo **inalcançável** → TS reseta narrowing → 2 erros. **São código morto** (a rota retorna 403 antes; nunca executam) → **zero impacto financeiro/runtime**. **Cleanup P1:** remover o dead code do handler (ou retipar) para zerar o tsc novo. Modelo definitivo de autoridade da rota = frente financeira futura (authority binding), não agora.
+
+**STATUS:** F-DISPUTE-REVERSAL-HTTP-AUTHORITY-CONTAINMENT = **CLOSED** (P0 contido; ressalva é cosmética/P1). DT-CLIENT-DECLARED = OPEN/P0 CONTAINED · DT-MUTATION-ACTOR-BODY = OPEN/P1. Modelo definitivo = frente própria futura. Reseal READ-ONLY: nada além desta memória alterado; sem commit.
+
+_Memória da IA-DINHEIRO — READ-ONLY. Insumo para IA Diretora/Clayton/Yala. Não autoriza execução._
+
+---
+
+## PONTEIRO — FATIA IA-DINHEIRO p/ DECISION-0131 (2026-06-14, HEAD vivo `20fe30cc`)
+
+Contribuí com a fatia executável do eixo dinheiro para o PLANO DEFINITIVO (DECISION-0131, §B pendente de rulings Clayton). Base aprovada: F-AUTHORITY-MAP-0131-v2 (não re-auditada). Resposta entregue em bloco no chat; aqui fica só o ponteiro + os fatos de 1ª mão (revalidados no vivo).
+
+**Verificação READ-ONLY de 1ª mão (unificard_dev, HEAD `20fe30cc`):**
+- `financial_approval_policies` ativas = **0** · `financial_approval_authorities` ativas = **0** · `financial_approval_policy_events` = **0** · violações de teto MVP (≤50000/≤150000) = **0**. → Substrato (DECISION-0128/0130) **materializado e DB-enforced, porém NÃO SEEDADO**: hoje todo payout-approval é fail-closed por vazio (422 POLICY_NOT_CONFIGURED / 403 AUTHORITY_NOT_FOUND). Seguro como default.
+- **T5 dispute/reversal = CONTIDO 4/4** (reconciliation-dispute.routes.ts: 6× códigos `DISPUTE_(REVERSAL|MUTATION)_HTTP_DISABLED`; `parseActor` sem def/import, só 5 menções em comentário). Supera a ressalva do RESEAL #1 (3 irmãs eram OPEN/P1; dead-code+2 tsc removidos).
+- **APROVAR≠EXECUTAR selado:** `executeActorWalletPayout` caller real = só worker (`actor-wallet-payout-worker.ts:74`); rotas payout executoras = 403 `PAYOUT_HTTP_EXECUTION_DISABLED` (payout.routes.ts:64/166/173); menção em `payout-decision.routes.ts:10` é comentário.
+- **financial:\*** vivas = `view_ledger` / `view_all_ledger` (adaptador leitura) · `execute_payout` (PROIBIDO-como-autoridade de aprovar/executar; hoje só gateia leitura+rota já 403). Aprovação = `financial_approval_authorities`; nunca role/company_users/execute_payout.
+
+**Frentes que nomeei (ordem dependência):** FM-1 seed policy/authority [gated §B] · FM-2 classificar financial:* [gated §B] · FM-3 hard-rule 6º canal de jure [gated §B] · FM-4 rehab dispute/chargeback COM binding [gated §B+FM2+FM3] · FM-5 auth/captura cartão via bank_ledger idempotente [gated FM4+DECISION-cartão] · FM-6 plano platform/cross-tenant [gated §B/T10-P4] · FM-7 F-PAYOUT-COMPANY-SCOPING [independente].
+
+**Cartão físico BLOQUEADO até (ordem):** PRÉ-1 rehab dispute/chargeback c/ binding (FM-4) · PRÉ-2 captura via bank_ledger idempotente (FM-5) · PRÉ-3 plano platform (FM-6). Trava: availableBalanceCents nunca autoriza; saldo só bank_ledger; cartão = DECISION própria.
+
+**STOPs mantidos:** não promulgar 0131; não fechar 0113 de carona; não reabilitar dispute/reversal sem binding+E2E+reseal; R2/delegação não-ativável como autoridade financeira viva sem proveniência+E2E+reseal; FM-1 só sob ruling de quem é operador financeiro (não seedar no escuro).
+
+_Memória da IA-DINHEIRO — READ-ONLY. Ponteiro de insumo; não autoriza execução._
+
+---
+
+## PONTEIRO — Paralela B / F-C1-MONEY-CANAL1-READ-FIRST-MATRIX (2026-06-15, HEAD vivo `3e7fcda8`, dev 385/385)
+
+Auditoria READ-ONLY de materialidade financeira dos fluxos C1_MONEY (7 cadeias, ~37 handlers) via workflow ultracode (7 auditores + verificação adversarial). Laudo completo entregue em bloco no chat. Fatos de 1ª mão revalidados no vivo:
+
+- **NENHUM fluxo do C1_MONEY inicial move dinheiro em runtime.** AP/AR/settlement-HTTP/region-account = **Proxy fail-fast DORMANTE** (`accounts-payable.service.ts:14-16` / `accounts-receivable.service.ts:11-14` / `settlement.service.ts:11-16` / `region-account.service.ts:10-12` rejeitam toda chamada "migrated to Bank"). purchase-order = COMMERCIAL_SENSITIVE (sem bank). service-payment-request = MONEY_ADJACENT intent (BIGINT ok). event-settlement = MONEY_ADJACENT (auth boa: `canRepresentActor(events.actor_id)`).
+- **Único money-mover HTTP (service-payment-execution POST /execute) = BANK_TOUCH/CRITICAL mas FAIL-CLOSED 403** por `service-financial-firewall` (`SERVICE_FINANCIAL_RUNTIME_ENABLED` default OFF, DECISION-0110). Auth = JWT req.user server-side, authoritySource='ownership', sem actorId no body; escreve bank_tx+ledger+splits+intent+outbox numa TX atômica.
+- **Money real vivo = workers system-only:** `bank-settlement-worker` (executeSettlementEffects/reprocess/runCycle) CONFIRMADO BANK_TOUCH/CRITICAL (`bankTransactionService.transfer` → ledger/tx/splits, idempotente, treasury:settlement). `settlement-worker` REBAIXADO pela verificação adversarial de CRITICAL→MONEY_ADJACENT (só marca `bank_transactions.external_settled_at`, NÃO toca ledger; o transfer real é do release-worker separado). NÃO é superfície C1 — é cadeia Bank canônica.
+- **Achados de norma:** `region_accounts` = balance paralelo fora do bank_ledger (`infers_balance_outside_bank` + `uses_readmodel_as_auth` no GET /regions/:id/account) — dual-truth latente (alinha R2/regional_funds); dormante por Proxy. AP/AR `schedule` grava amountCents em `scheduled_actions.metadata` JSONB (`numeric_money_misuse`). `event_settlements` usa `number` no TS e **migration não localizável** → tipo de coluna INCONCLUSIVO (prova-viva `\d event_settlements`).
+- **Auth frouxa LIVE:** `service-payment-request GET` checa só presença de `actionContext.actorId` (sem ownership) → leak de payment-intent. event-settlement já é 0113-compliant.
+- **Recomendação 1ª frente money-safe:** hardening de read-authority de `service-payment-request GET` (canal-1, sem Bank, sem ressuscitar Proxy, sem firewall, sem worker). NÃO corrigir junto: des-stub de AP/AR/settlement/region (=criar writer de dinheiro, exige frente Bank + DECISION Clayton), flag do firewall (0110), workers, region_accounts (decisão de modelo), tipagem event_settlements (prova-viva antes).
+
+_Memória da IA-DINHEIRO — READ-ONLY. Ponteiro de insumo; não autoriza execução. Nada além desta memória alterado; sem commit/patch/migration._
+
+---
+
+## PONTEIRO — F-C1-MONEY-SPR-RLS-PREFLIGHT (2026-06-15, HEAD vivo `9edfbdf9`, dev 386/386)
+
+Preflight READ-ONLY: RLS em `service_payment_requests` agora? Workflow ultracode (4 sondas: app-authority · bypass-hunt · rls-mechanics · bank-boundary) + verificação de 1ª mão. Laudo completo no chat.
+
+**VEREDITO: NÃO-GO RLS agora → seguir para outra superfície C1_MONEY** (RLS = GO só após decisão/modelagem; baixa prioridade). Classificação: **MONEY_ADJACENT** (nunca toca ledger; não é saldo). Risco sem RLS: **LOW**.
+
+Fatos de 1ª mão:
+- **App-level FECHA o risco imediato** (Probe A): GET exige `canRepresentActor(payer OU receiver)` (routes 152-160), POST exige representar receiver derivado server-side (78-88); body/header/query/actionContext ignorados; subject = req.user (JWT). Terceiro mesmo-tenant → 403.
+- **Zero bypass vivo** (Probe B): todos os 8 acessos à tabela são guardados ou internos não-HTTP. Os 4 leitores cross-module — `impact-overview.routes:39` e `pending-responsibilities.routes:38` (ambos `canRepresentActor` + filtram `payer_actor_id` do actor representado), `actor-wallet-statement` (autoridade na rota, LEFT JOIN enriquecimento), `service-order.service:930-935` (leitura interna por booking_id, não-HTTP) — **GUARDED**. Probe B: `rlsAddsRealDefense=NO` (redundante hoje).
+- **Threat-model é o nó** (síntese minha, nenhuma sonda isolou): padrão RLS do repo = **tenant-scoped** (`USING tenant_id=current_setting('app.current_tenant')`, FORCE + bypass `unificard_infra`; `20260516100000`). Mas a ameaça do SPR é **intra-tenant** (terceiro do mesmo tenant) → RLS tenant-scoped **NÃO cobre a ameaça** (só cross-tenant, já dado por `WHERE tenant_id`). RLS **actor-scoped** (cobriria a ameaça) exige `app.current_actor` inexistente + BYPASSRLS p/ workers + quebra leitores cross-module/internos + e2es de setup raw-pool → **modelagem + decisão arquitetura, não fatia rápida**. Probe C disse `YES` mas avaliou tenant-RLS (enforceável, porém não-relevante à ameaça).
+- **Fronteira Bank intacta** (Probe D): SPR nunca toca bank_*; POST execute = tabela distinta `service_payment_executions` atrás do firewall DECISION-0110 → RLS no SPR não afeta Bank/firewall. `N/A`.
+- **Blast**: e2es selados via rota NÃO quebram (tenant-scoped); scripts de setup raw `pool.query` (spr-create/read-authority) QUEBRARIAM (sem app.current_tenant) — DBs efêmeras, contornável com getClientWithTenant.
+
+**Não é bloqueador** para a próxima superfície C1_MONEY. Se RLS depois: decidir tenant×actor-RLS (Clayton/arq.); se actor-RLS → padrão app.current_actor repo-wide + BYPASSRLS sistema + auditar 4 leitores cross-module + re-rodar e2es read/create + negative-proof (terceiro bloqueado no DB mesmo sem guard app).
+
+STOPs mantidos: não toquei Bank/Core/execute/firewall/PO/AP-AR/settlement; não inferi saldo; não relaxei app-level; não declarei C1_MONEY resolvido. Só esta memória alterada; sem patch/migration/RLS/commit.
+
+_Memória da IA-DINHEIRO — READ-ONLY. Ponteiro de insumo; não autoriza execução._
+
+---
+
+## PONTEIRO — F-C1-MONEY-PURCHASE-ORDER-OWNERSHIP-RULING (2026-06-15, HEAD vivo `9edfbdf9`, dev 386/386)
+
+Auditoria profunda READ-ONLY de purchase-order (foco receivePO). Workflow ultracode (4 sondas: po-matrix · receivePO-causal · inventory-materiality · ap/bank-boundary) + leitura de 1ª mão de receivePO. Laudo completo no chat.
+
+**ADJUDICAÇÃO (correção da sonda):** po-matrix rotulou receivePO **MONEY/CRITICAL/creates_obligation=true** — REJEITADO com prova. A AP **sempre falha** (Proxy) e é non-blocking → obrigação **NUNCA nasce**, não toca payable real, não muda status financeiro. receivePO **NÃO é MONEY, NÃO é BANK_TOUCH**.
+
+**Classificação correta de receivePO = MISTO:** **INVENTORY_EFFECT real** (grava `inventory_movements`, SSOT físico append-only — `0102` triggers no-update/delete; quantity NUMERIC(20,4) = quantidade física, OK) **+ MONEY_ADJACENT-DORMANTE** (AP em cents computado mas sempre falha silenciosa). Comando operacional/inventário com cauda financeira fantasma; **não é comando financeiro hoje**.
+
+**2 riscos reais (1ª mão + provados A–G):**
+1. **Atomicidade "estoque entrou, dívida não nasceu":** sem TX wrapper; inventory IN auto-commita por item (L209) ANTES da AP; AP em try/catch non-blocking só `console.warn` (L296-299, nem auditado, sem outbox/evento); ordem vira RECEIVED/COMPLETED mesmo sem payable. **Inverso (F):** se `addMovement` lança no meio do loop, itens 1..N-1 já commitados, sem rollback, status calculado em estado parcial.
+2. **Autoridade de inventário fraca:** rota `receive` só checa **presença** de `actionContext.actingUserId` (routes L148), sem `canRepresentActor`/`requirePermission`; `addMovement` exige só **elegibilidade** do actor (existe no tenant), não representabilidade; o IN é atribuído a `order.createdByActorId` (criador da PO, **misattribution** — não o recebedor). Qualquer user do tenant recebe qualquer PO e muta estoque sob qualquer actor elegível.
+
+**Mitigantes (cofre-side limpo):** DB força `actor.tenant_id==movement.tenant_id` (sem cross-tenant) + idempotência UNIQUE (tenant,ref_type,ref_id,variant,actor) + inventory_movements imutável; amount_cents BIGINT + Math.round (sem NUMERIC-para-dinheiro). Zero toque Bank/ledger/split/payment_intent/settlement/payout em toda a cadeia PO→inventory→AP. AP = projeção DORMANTE migrada, **não SSOT**; arquivo `accounts-payable.repository.ts` nem existe.
+
+**Matriz PO:** create/submit/cancel = COMMERCIAL_SENSITIVE/MED (auth só presença); add-item = MONEY_ADJACENT/MED (cents, sem commit); **receive = INVENTORY_EFFECT+MONEY_ADJACENT-dormante / risco ALTO no eixo físico-autoridade**; GET list/:id/items = NONE/LOW (só tenant). Nenhuma rota com `canRepresentActor`.
+
+**Recomendação money-safe:** receivePO NÃO é money-mover → eixo dinheiro NÃO bloqueia e NÃO exige Bank. Antes de qualquer authority/payable wiring: **(1) ruling de OWNERSHIP do Clayton** (dono do efeito de inventário e da futura obrigação = criador `createdByActorId` vs recebedor `actingUser`?) — é o nó que dá nome à frente; **(2) decisão de atomicidade** (TX wrapper inventory+status) = correção operacional, não financeira; **(3)** representabilidade no `receive` = frente de AUTORIDADE cross-eixo IA-ACTOR-USERS, money-adjacent, sem Bank. NÃO ligar AP (exige frente Bank + DECISION), NÃO mexer firewall, NÃO tratar a try/catch fantasma como "cria payable". Ordem: ruling → atomicidade/ownership → autoridade. Cartão/Bank fora.
+
+STOPs mantidos: não editei nada além desta memória; sem patch/migration/guard/RLS/commit; Bank/Core/SPR/settlement intocados; não inferi saldo; não propus mover dinheiro nem ligar fluxo financeiro; C1_MONEY não declarado resolvido.
+
+_Memória da IA-DINHEIRO — READ-ONLY. Ponteiro de insumo; não autoriza execução._
+
+---
+
+## PONTEIRO — F-C1-MONEY-PO-COMPANY-OWNER-SCHEMA-PREFLIGHT (2026-06-15, HEAD vivo `522b2059`, dev 386/386)
+
+Preflight READ-ONLY de modelagem company-owned de purchase_order (receivePO está CLOSED/fail-closed: rota 403 L149, service HARD-STOP L172, `receivePOContainedImpl` preservado sem caller L194). Workflow ultracode (4 sondas: schema-classification · owner-model-facts · backfill-facts · boundary-hypothesis) + 1ª mão.
+
+**HIPÓTESE PROVADA (sonda 4, adversarial):** PO deve ser **buyer-company-owned**; autoridade de receive protege o owner que recebe estoque + assume obrigação — **não o criador humano, não o supplier**. Sem casos de consignação/dropship/PF-supplier no código.
+
+**ADJUDICAÇÃO (corrijo a sonda 2):** a sonda owner-model inclinou-se a `created_by_actor_id` como "melhor owner" — **REJEITADO com prova**: o próprio código de contenção (service.ts:172-183) declara `created_by_actor_id` = **AUTORIA, NUNCA AUTORIDADE**; é sempre actor humano (nunca company). Usá-lo como owner = creator-owned = a misattribution que a contenção parou.
+
+**Fatos materiais (1ª mão + sondas):**
+- `purchase_orders` (0131): tenant_id, supplier_id (FK suppliers RESTRICT), created_by_actor_id (FK actors RESTRICT), created_by_user_id. **SEM coluna company.** RLS tenant-scoped.
+- Company = actor de 1ª classe (`actor_type='actor_organizational'`); **page/org-actor nasce ATOMICAMENTE no nascimento da company** (companies.service.ts:559-651). `actors.company_id` existe mas é **NÃO-FK** (gap de integridade).
+- inventory_movements.actor_id = **FK→actors**, SSOT físico append-only per (tenant,actor,variante); backfill PO hoje usa created_by_actor_id (fallback temporário, não autoridade).
+- canRepresentActor opera em actor_id; company authority via actor.company_id→company_users.canManageCompany.
+- **supplier = tabela `suppliers` própria, SEM actor_id/company_id** → supplier estruturalmente NÃO pode ser actor-owner; é credor/contraparte.
+- user→**N empresas** (UNIQUE(company_id, global_user_id) permite N). **Zero dados legados de PO** (0131 é DDL-only).
+- Owner migration é ortogonal a AP (Proxy dormante) e Bank (B2B only) — schema-only, não toca Bank.
+
+**Classificação:** PO = COMMERCIAL_SENSITIVE; receivePO futuro = INVENTORY_EFFECT + MONEY_ADJACENT (NÃO MONEY/BANK_TOUCH); inventory IN = efeito físico material, SSOT inventory_movements, owner REQUERIDO; AP futuro = MONEY_ADJACENT/obrigação, Bank boundary limpo.
+
+**Owner recomendado (lente dinheiro): G) `buyer_company_actor_id`** (actor org da empresa compradora) — único que unifica inventory IN (FK→actors) + canRepresentActor + futuro obrigado AP. Nome encoda "buyer" p/ excluir supplier para sempre. **Variante endurecida H) par** `buyer_company_actor_id` + `buyer_company_id` (com FK real a companies, fechando o gap NÃO-FK de actors.company_id). REJEITADOS: A tenant-wide (pior; multiempresa), B creator-owned (PROIBIDO; autoria≠autoridade), C company_id-só (não alinha inventory), E owner_actor_id genérico (perigoso; sem guard semântico), F buyer_company_id (gap inventory), D company_actor_id (nome fraco). I manter-contain = status quo válido até ruling.
+
+**Backfill (lente dinheiro):** auto PROIBIDO p/ criador com 0 ou N empresas (owner inexistente/ambíguo) e company SUSPENDED → `pending_owner` + recertificação; 1-empresa-ACTIVE = único auto-inferível (ainda recertificar); criador removido → orphan/pending_owner; sem histórico → pending_owner. `is_primary` NÃO é desambiguador seguro p/ dinheiro. **Zero legado hoje → migration forward-only: coluna nullable + pending_owner default, NOT NULL só após certificação; novos POs exigem owner no create.**
+
+**Ordem:** ownership ruling (Clayton) → owner schema (+FK fix) → atomicidade (TX/saga; a try/catch non-blocking de AP QUEBRA atomicidade) → representabilidade (canRepresentActor) → só então reabilitar receivePO com E2Es. Atomicidade ANTES do owner = inútil/nociva (cimentaria owner errado).
+
+**Fica fora:** Bank/ledger/split/settlement/payout; re-home de AP→Bank (frente própria + DECISION); firewall; SPR; NÃO reabilitar receivePO; owner migration NÃO toca AP/AR.
+
+STOPs mantidos: só esta memória alterada; sem patch/migration/guard/RLS/commit; não destravei receivePO; não liguei AP/AR; Bank/Core/ledger/split/settlement/SPR intocados; não inferi saldo; C1_MONEY não resolvido.
+
+_Memória da IA-DINHEIRO — READ-ONLY. Ponteiro de insumo; não autoriza execução._
+
+---
+
+## PONTEIRO — F-ACTOR-SCOPED-REFERRAL-EARNINGS-AUDIT (2026-06-16, HEAD vivo `1565a184`, dev 393 migrations)
+
+Auditoria READ-ONLY: dinheiro de indicação cai no actor dono do código ou preso ao user/CPF? Workflow ultracode (4 sondas: code-link · split-engine · wallet-account · frontend-earnings-rides) + 1ª mão.
+
+**VEREDITO: USER_EARNINGS_ONLY → MONEY_RISK contra o diferencial Unificard.** Referral é 100% USER/CPF-scoped, sem nenhuma dimensão de actor no caminho do dinheiro. Regra de produto (código por actor → wallet do actor) é **estruturalmente impossível hoje**.
+
+**Cadeia financeira real (toda USER-scoped, provada 1ª mão):**
+`users.referral_code` (0066, 1 código por user; referral.service.ts:12-89) → `user_referral_links` (DECISION-0119; referrer_user_id/referred_user_id→users, SEM coluna actor; 20260613120000) → `getActiveReferral(fromUserId)→referrerUserId` (referral-helper) → split engine cria leg `splitType:'referral'` 5% (bank-split-engine.service.ts:168-191) → **`getAccountByOwner(referrerUserId, 'user', currency)`** (L173-178, owner_type HARDCODED 'user') → `targetAccountId = conta do USER` → bank_splits (metadata `{referrerUserId, referredUserId}`, sem actor). Earnings só fluem em evento taxável (event_ticket/ride) com fromUserId — link é desacoplado do pagamento.
+
+**Adjudicação:** probe 4 rotulou "COMPLIANT" — REJEITADO; seus achados confirmam USER_SCOPED. O "compliant" é só "sem bug de mistura" (há 1 só escopo). UI gating `isUser` (DashboardHome.tsx:156,435) = banda/empresa NEM VEEM nem recebem referral → isso É a violação.
+
+**DB proofs:** referral split NÃO tem owner_actor_id; referrer_user_id só em metadata JSON (não coluna); target_account_id NOT NULL = conta do USER (getAccountByOwner referrerUserId,'user'); bank_splits tem target_actor_id NULLABLE (DECISION-0036) mas o leg referral NÃO o popula. bank_accounts.owner_type DB = ('actor','system','escrow'); 'user' da API mapeia p/ DB 'actor' com owner_id=userId (bank-account.repository.ts:34-50). actor_wallet EXISTE (ensureActorWalletAccount, account_type='actor_wallet', owner_id='{actorId}:actor_wallet') mas só usado por D-money service_order release — NUNCA por referral. **Zero FK/campo preserva o dono econômico (actor) do código.**
+
+**Substrato actor-aware dormante:** `marketplace/referral.repository.ts:50` tem tabela `referral_codes.owner_actor_id` — actor-aware, mas LEGADO/não-canônico, NÃO ligado ao split de earnings (caminho vivo é o core user-scoped).
+
+**Risco diferencial:** CPF com PF+banda+empresa = 1 código → 1 referrerUserId → 1 conta de user → todo rendimento colapsa no CPF; banda/empresa não podem ter código próprio nem receber. O diferencial "actor soberano recebe o próprio rendimento" não existe no dinheiro.
+
+**Invariantes OK (cofre-side):** split via writer canônico (bankSplitRepository.createSplit, mesma TX, source_actor_id NOT NULL), imutável pós-ledger, amount_cents BIGINT, Math.round; não escreve Bank fora do writer. O problema é ATRIBUIÇÃO (user vs actor), não integridade do ledger.
+
+**Próxima macrofrente (NÃO implementar; três paralelas + DECISION):** F-REFERRAL-ACTOR-OWNERSHIP — mover código de `users.referral_code` p/ actor (ou `actor_referral_codes`), `user_referral_links`→actor-aware (referrer_actor_id), e split target `getAccountByOwner(referrerActorId,'actor'/actor_wallet)`. Cross-eixo IA-ACTOR-USERS (code=lookup, não authority; só actor representável gera código próprio). Guards sugeridos: audit-referral-code-actor-owner-boundary · audit-referral-earnings-target-actor · audit-referral-code-not-user-only. Rides referral = domínio próprio (também user-scoped), fora do C1.
+
+STOPs: nada editado/commitado; só esta memória; sem patch/migration/guard; não propus implementação direta (frente money-adjacent → três paralelas + DECISION antes de executor); Bank/ledger/split intocados; C1_MONEY não resolvido.
+
+_Memória da IA-DINHEIRO — READ-ONLY. Ponteiro de insumo; não autoriza execução._
+
+---
+
+## RODADA 1 / TASK O3 — re-baseline eixo dinheiro (2026-06-20, HEAD vivo `dd270f41`, branch rescue-structural, 395 .sql migrations)
+
+Tarefa da IA-DIRETORA (canal §14.3 do PLANO_ORQUESTRACAO_SISTEMICA): o payout-hardening recente (`dd270f41` toctou · `cd697da7` db role/RLS · `e0fe89b9` reseal) adiantou B5/C3 do 0131? estado money + 0140/0141 (fee-bps). Resposta destinada à minha §14.7.2 do plano (write em alta contenção por escritas paralelas; registro aqui como cópia durável).
+
+**VEREDITO:** payout-hardening **NÃO adiantou B5/C3 no sentido próprio** (os 6 planos de autoridade). Endureceu conjunto vizinho money-cêntrico (RLS nas 7 tabelas payout/approval/recovery), interseção de **só 1** dos 6 planos (`financial_approval_authorities`). Avançou materialmente o **endurecimento do eixo dinheiro** (toctou execute-time + role NOSUPERUSER/NOBYPASSRLS + RLS tenant-scoped do substrato payout) — mas COMMITTED + PROVEN-EPHEMERAL + NOT LIVE IN DEV + PROD-FAIL-CLOSED. Estado money go-live inalterado: payout NOT AUTHORIZED · PORTA-1 NOT SEEDED · worker default-off · HTTP 403. 0140/0141 (fee-bps) = régua DOCS-ONLY, NÃO materializadas.
+
+**Evidências 1ª mão:**
+- `dd270f41`: `actor-wallet-payout.service.ts` (+48) — `executeActorWalletPayout` chama `requireFinancialRiskClearance(action='financial_payout',amountCents)` revalidando ATL→KYC→KYB→GUARDA com envelope de payout (antes só transfer com envelope errado maxTransfer); + bloqueio recovery pending_approval FOR UPDATE. Provas 5/5 efêmero; guard audit-payout-toctou-safety (77 OK/0 FAIL). Axioma: execute-time nunca mais permissivo que approval-time. = frente F-PAYOUT-TOCTOU-SAFETY-HARDENING, não B5/C3.
+- `cd697da7`: migration `20260620120000_db_role_rls_hardening.sql` — role unificard_app NOSUPERUSER/NOBYPASSRLS + ENABLE+FORCE RLS + policy tenant-scoped (app.current_tenant) + infra_bypass TO unificard_infra nas 7 tabelas (L69-176): actor_wallet_payout_requests, financial_approval_policies, financial_approval_authorities, financial_approval_policy_events, approval_requests, actor_wallet_recovery_obligations, actor_wallet_recovery_obligation_entries. Preflight db-role-rls-preflight.ts no BOOT.ts (fail-closed prod). Mata "RLS theatre" (app conectava como superuser).
+- B5/C3 (PLANO-DEFINITIVO-0131-EXECUTORA.md:25,45,71): 6 planos de autoridade = company_users · actor_delegations · financial_approval_authorities · tenant_operator_grants · reconciliation_disputes · reversals — "RLS=0 em TODOS os 6" (L25). C3 (L71)=ENABLE+FORCE+policy tenant_id, gated B5·depende de C1 (mapper identidade). Interseção {7}∩{6}= só financial_approval_authorities; outros 5 planos RLS-OFF.
+- `e0fe89b9` (reseal WM1): migration COMMITADA (395 .sql) mas NÃO aplicada ao unificard_dev (394 aplicadas; 7 tabelas RLS OFF em dev). role unificard_app = objeto cluster-global criado em efêmero, não prova aplicação no dev. Selo CLOSED/MATERIAL/YALA PASS_WITH_WARNINGS/PROVEN-EPHEMERAL/PROD-FAIL-CLOSED/NOT LIVE IN DEV. Ativação = passo ops fora do repo; não autoriza PORTA-1/worker/external/HTTP/go-live.
+- Disco: 395 .sql migrations; nenhuma migration contém fee_rate_bps.
+- 0140: régua fee_rate_bps INTEGER/feeRateBps DOCS-ONLY; NOT DONE; DT-UNIFYCARD-METHOD-FEE-UNIT-BPS-MIGRATION OPEN/MATERIAL_REQUIRED; trilho CONTIDO 501; bug 299¢vs3¢ latente (/100).
+- 0141: SSOT fee/split = economic_policy_engine/economic_policy_lines.bps (DECISION-0047); payment_methods NÃO é SSOT; execução futura gross_cents*fee_rate_bps/10000; proibido /100. DOCS-ONLY.
+
+**Riscos:** C3 mascarado (não declarar avançado — 5/6 OFF); RLS tenant-scoped ≠ ameaça intra-tenant (cobre cross-tenant, não actor-vs-actor; exigiria C1/actor-scoped); NOT LIVE (efêmero, dev RLS OFF, committed≠live); fee-bps latente (não inferir resolvido).
+
+**Recomendação:** re-baseline = payout-hardening avançou endurecimento do eixo dinheiro (toctou+role+RLS substrato payout/approval/recovery), NÃO B5/C3 (5/6 planos OFF e ABERTOS; donos IA-AUTORIDADE+IA-BANCO). Carimbar COMMITTED+PROVEN-EPHEMERAL+NOT LIVE+PROD-FAIL-CLOSED, nunca "fechado/live". fee-bps = régua DOCS-ONLY; materialização exige Evidence Pack + 3 paralelas + E2E 299¢ + negative-proof /100 + Yala. MACRO 6+ diferida.
+
+**Fronteira:** IA-AUTORIDADE (RLS dos 6 planos é eixo dela; eu = interseção financial_approval_*/payout/recovery) + IA-BANCO (prova-viva runtime-aplicado-no-dev = INCONCLUSIVO) + IA-DECISOES-DT (cartório B5/C3 + DTs).
+
+**Status: RESPONDIDO** (runtime-aplicado-no-dev = INCONCLUSIVO → IA-BANCO).

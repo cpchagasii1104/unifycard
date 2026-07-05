@@ -4,6 +4,188 @@
 
 ---
 
+> **PONTEIRO 2026-06-14 (HEAD 20fe30cc, dev 385) — DECISION-0131 (fatia IA-DECISOES p/ plano executora):** 0131 = DECISION-ÍNDICE. **Número LIVRE** (maior registrado=0130; verificado). **Header LOG: usar `## DECISION-0131`** (convenção recente; LOG mistura 46×`###` antigos + 62×`##` recentes → auditar numeração com `^#{2,3} DECISION-`). 0131 **CITA** cadeia 0013/0042/0113/0114/0116/0121/0124/0125/0126/0127/0128/0129/0130 + cânone (AUTHORITY_PRECEDENCE ATL>KYC>Guarda>IA>Produto · AUTHORITY_LAW · 08_AUTORIDADE_CANONICA · AUTHORITY_ENFORCEMENT_MODEL · SSOT_REGISTRY §5.16 · Lei 5) e **PROMULGA** só §B: B1 vocabulário-5-estados · B2 cargo/grant-template (cascata) · B3 contrato temporal comum · B4 normalização T6 (member_status SSOT/is_active projeção/role não-supergrant) · B5 tombstones RBAC+org_members+user_identity_links · B6 hard-rule 6º canal body.actor · B7 diferir platform. **NÃO emenda** as citadas (lista de "parece-emendar" no chat). **Pré-0131 bloqueante:** F-0131-CANON-CONFIRM (norma>código) + prova viva T8 actor_delegations (0×9). **Cartão = DECISION própria ≥0132** (pré-cond: reabilitar T5 reversal com binding; T12 sweep; T10 platform). STOPs: não fechar 0113 de carona; R2 não-ativo sem proveniência+E2E+reseal+resíduos 0113.
+
+---
+
+══════════════════════════════════════════════════════════════
+RELATÓRIO — PARALELA FIN-C (BLAST RADIUS / EXPOSIÇÃO / GATES)
+FRENTE: F-DISPUTE-REVERSAL-AUTHORITY-HARD-STOP
+Data: 2026-06-13 12:27 UTC · Modo: READ-ONLY (Read/Grep/Glob + psql leitura). Nenhum teste mutável rodado.
+> Nota de lane: esta paralela é money-runtime (lane IA-DINHEIRO/IA-ACTOR-USERS). Faço o mapa material READ-ONLY + enquadramento normativo; a prova de runtime financeiro definitiva e o patch são de IA-DINHEIRO + três paralelas.
+══════════════════════════════════════════════════════════════
+
+## 1. ÂNCORA
+- **HEAD `8af211be` ✔ · branch `rescue-structural` ✔ · dev `378/378` ✔.** Sem divergência. Apenas gates estáticos/leitura; nada mutável executado.
+
+## 2. MATRIZ DE ROTAS (`/reconciliation/*`, montadas em `protectedScope` prefix `/reconciliation` — app.builder.ts:681)
+
+| Rota | Auth | Admin gate real? | usa `req.body.actor`? | muda estado sensível? | move dinheiro? | chama Bank/reversal/ledger? | `authoritySource:'system'`? | E2E/gate HTTP? |
+|---|---|---|---|---|---|---|---|---|
+| `POST /disputes/:id/reversal` | só autenticação | **NÃO** | **SIM** (`actor.kind`+`actor_id`) | SIM (→reversed) | **SIM** | **SIM** (`requestAndExecuteReversalSync`→`executeReversal`→`bankTransactionService.transfer`) | **SIM** (injetado a partir do body — service:288) | **NÃO** |
+| `POST /disputes/from-discrepancy` | só autenticação | NÃO | SIM | SIM (cria dispute + audit) | não | não | não | NÃO |
+| `POST /disputes/:id/to-review` | só autenticação | NÃO | SIM | SIM (open→under_review; **habilita o reversal**) | não | não | não | NÃO |
+| `POST /disputes/:id/resolve` | só autenticação | NÃO | SIM | SIM (→resolved) | não | não | não | NÃO |
+| `GET /disputes/:id/events` | só autenticação | NÃO | não | não (read) | não | não | não | NÃO |
+
+Autoridade efetiva de TODAS = `assertAuthorityForDisputeMutation`: só exige `actor.kind ∈ {system,admin,support}` (service:33,43-51). `kind` vem de `req.body.actor.kind` (routes:18-35) — **string declarada pelo cliente**. NÃO valida `actor_id` contra `req.user` (sem `canRepresentActor`/`canActAs`), NÃO exige role admin, NÃO exige credencial de sistema. `protectedScope` só garante `req.user` autenticado (authPlugin app.builder:292); `rbacPlugin` registrado mas as rotas **não usam** `requireRole`/`requirePermission`.
+
+## 3. BLAST RADIUS
+- **Quem alcança:** QUALQUER usuário autenticado de QUALQUER tenant (sem papel especial). Basta enviar `{"actor":{"kind":"system","actor_id":"<uuid>"}}`.
+- **Efeito máximo (reversal):** estorno financeiro real via reversal engine sobre `bank_transactions` (transfer entre contas, ledger, splits), com `authoritySource:'system'` derivado de string do body — exatamente o anti-padrão DECISION-0113 (HINT-CONFIADO) + auto-declaração de `system` (proibido por D6: system exige credencial própria, não actorId/ kind declarado).
+- **Pré-condições que limitam (não eliminam):** reversal exige (a) dispute em `under_review`; (b) discrepância tipo `ledger_mismatch`|`orphan_transaction`; (c) `reference_id` = id de `bank_transactions`. Mas o MESMO caller não-privilegiado encadeia `from-discrepancy`→`to-review`→`reversal` (todas no mesmo nível de auth). Discrepâncias são geradas pelo motor de reconciliação (dado real existe quando o sistema opera).
+- **Mitigação parcial existente:** `requireFinancialRiskClearance(tenantId,{actorId: input.actorId,...})` roda antes do reversal — MAS sobre o `actor_id` **declarado**, não sobre `req.user`. Não é binding; atacante usa actor próprio "limpo" ou qualquer actor que passe o gate de risco. Bloqueio pós-D-money (`checkPostDmoneyBlock`) protege só o caso `service_execution` released — não cobre `ledger_mismatch`/`orphan_transaction`.
+- **Materialidade hoje:** depende de existir discrepância + bank_transaction alvo (NÃO VERIFIQUEI contagem viva de `reconciliation_ledger_discrepancies`/`reconciliation_disputes` — não rodei query mutável; contagem read seria segura mas não executei por foco). Shape vivo = explorável; dado = a confirmar por IA-DINHEIRO.
+
+## 4. COBERTURA DE TESTES/GATES
+- **E2E HTTP das rotas de dispute: NENHUM** (grep em `backend/src/scripts` por dispute/reversal authority = 0 arquivos).
+- **Gate `validate:*` cobrindo reconciliation dispute authority: NENHUM** (grep package.json = 0).
+- O gate `validate:inventory-reader-scope` e o e2e `marketplace-actor-target` cobrem OUTRAS rotas (inventory / marketplace disputes), **não** `/reconciliation/disputes/*`.
+- DT-mãe DECISION-0113 enumerou 5 canais (actionContext · x-actor-id · query actor_id · params actorId · params id). **`req.body.actor.{kind,actor_id}` é um 6º shape (envelope `actor` no body) não coberto pelos sweeps canônicos** — e agrava por declarar `authoritySource:'system'`.
+
+## 5. VEREDITO POR ROTA
+- `POST /disputes/:id/reversal` → **P0** (move dinheiro com actor do body sem binding + injeta `authoritySource:'system'` de string do cliente; autenticado-only).
+- `POST /disputes/from-discrepancy` → **P1** (muda estado sensível: cria dispute/audit; actor do body sem binding).
+- `POST /disputes/:id/to-review` → **P1** (transição que **habilita** o reversal; actor do body sem binding).
+- `POST /disputes/:id/resolve` → **P1** (transição →resolved; actor do body sem binding).
+- `GET /disputes/:id/events` → **P2** (read autenticado, tenant-scoped; sem actor body, sem efeito sensível direto).
+- **FALSO POSITIVO:** nenhuma — nenhuma rota tem admin-gate real nem actor binding server-side.
+
+## 6. RESPOSTAS ÀS 15 PERGUNTAS
+1. Montadas: as 4 POST + 1 GET acima (prefix `/reconciliation`, app.builder:681). 2. Só autenticação: **todas** (authPlugin global; nenhum gate adicional). 3. Admin gate real: **nenhuma**. 4. Usam `req.body.actor`: as 4 POST (GET não). 5. Estado sensível: reversal/from-discrepancy/to-review/resolve. 6. Movem dinheiro: **`/reversal`**. 7. Chamam Bank/reversal/ledger: **`/reversal`** (`executeReversal`→`bankTransactionService.transfer`/ledger). 8. `authoritySource:'system'`: **`/reversal`** (service:288). 9. E2E/gate HTTP: **nenhuma**. 10. Sim — `authPlugin` garante `req.user` autenticado mas **não autoriza o actor** (sem `canRepresentActor`; `kind` declarado). 11. Rota pública: **não** (todas sob `protectedScope`); risco é autenticado-qualquer, não anônimo. 12. Menor bloqueio emergencial seguro: ver §7. 13. Regressão possível: ver §7. 14. Gates que deveriam pegar: o sweep DECISION-0113 (não cobriu o 6º shape `body.actor`); nenhum `validate:*` financeiro cobre dispute. 15. Gate novo: ver §7.
+
+## 7. RECOMENDAÇÃO + HARD STOPS
+
+**P0 confirmado** (reversal move dinheiro com actor declarado + `authoritySource:'system'` de body, autenticado-only, sem E2E).
+
+- **Três paralelas financeiras CONTINUAM NECESSÁRIAS** para o MODELO definitivo de autoridade do reversal (quem legitimamente estorna; credencial de sistema real per DECISION-0113 D6; binding `canRepresentActor`; KYB/precedência). Isso é MONEY_PARTIES (DECISION-0116) + Lei 5 → frente financeira própria, três paralelas + E2E.
+- **PORÉM o CONTAINMENT emergencial NÃO precisa das três paralelas** e não é mudança de lógica de dinheiro: é fail-closed. **Menor bloqueio seguro (Q12):** gatear SOMENTE `POST /disputes/:id/reversal` atrás de autoridade real (ex.: `requireRole(['admin'])` via rbacPlugin já montado, OU 503/feature-flag temporário do handler de reversal), recusando `kind:'system'` declarado. É a única rota que move dinheiro; bloqueá-la estanca o P0 sem tocar Bank/ledger. As 3 P1 (state-only) podem aguardar a frente própria, mas `to-review` habilita reversal → idealmente conter no mesmo corte.
+- **Regressão se bloquear (Q13):** o `reconciliation-engine-worker`/`reconciliation-scheduled.worker` podem chamar o **service diretamente** (não via HTTP) para reconciliação automática sistêmica (comentário DECISION-0052 "sistêmico") — bloquear a ROTA HTTP **não** quebra o caminho worker→service. **NÃO VERIFIQUEI** se algum worker chama `executeDisputeFinancialReversal`; risco de regressão de um bloqueio só-HTTP = baixo, mas IA-DINHEIRO deve confirmar antes.
+- **Gate novo necessário (Q15):** (a) E2E HTTP fail-closed provando que usuário autenticado não-admin declarando `kind:'system'` recebe 403 nas 4 POST; (b) gate estático afirmando que rotas `/reconciliation/disputes/*` que mutam estado/dinheiro bindam actor a `req.user` (`canRepresentActor`) e que `authoritySource:'system'` NUNCA deriva do request body (só de credencial de sistema server-side — DECISION-0113 D6); (c) incluir o 6º shape `body.actor.{kind,actor_id}` no inventário da DT-mãe 0113.
+
+**HARD STOPS para executor:**
+- STOP — esta paralela é READ-ONLY; nenhum patch final aqui. Containment vira fatia própria com GO.
+- STOP — não "religar"/mexer no reversal engine; não mover dinheiro; não rodar E2E mutável.
+- STOP — não tratar `requireFinancialRiskClearance(actorId declarado)` como binding: NÃO é prova de que o caller é o actor.
+- STOP — modelo definitivo de autoridade do reversal = **três paralelas financeiras** (MONEY_PARTIES / Lei 5); containment ≠ modelo.
+- STOP — antes de bloqueio só-HTTP, IA-DINHEIRO confirma que nenhum worker legítimo depende EXCLUSIVAMENTE da rota HTTP (caminhos worker→service não são afetados por gate de rota).
+- STOP — registrar o 6º canal (`body.actor`) sob a DT-mãe DECISION-0113; não é shape novo de decisão, é cobertura ausente.
+
+FIM DO RELATÓRIO FIN-C (2026-06-13, HEAD 8af211be, dev 378/378)
+══════════════════════════════════════════════════════════════
+
+---
+
+══════════════════════════════════════════════════════════════
+RELATÓRIO IA-DECISOES — PARALELA A (NORMA/DECISÕES/SEMÂNTICA)
+MACROFRENTE: F-AUTHORITY-PJ-ROLES-GRANTS-CNAE-READ-FIRST
+Data: 2026-06-13 · Modo: READ-ONLY (Read/Grep/Glob/psql leitura). NÃO sou a executora.
+══════════════════════════════════════════════════════════════
+
+## 1. ÂNCORA
+- **HEAD:** `8af211be` ✔ (== esperado) · **Branch:** `rescue-structural` ✔ · **dev:** `378/378` ✔ (psql `SELECT count(*) FROM schema_migrations` = 378).
+- **Divergências de âncora:** NENHUMA.
+- Fontes lidas de 1ª mão: DECISION-0113/0116/0120 (íntegra), REMEDIATION_DECISIONS_LOG (índice + 0042/0013/0088/0094/0103/0104/0114/0116-0118), REMEDIATION_DT_LOG (sweep authority), normas (LEI_DE_COERENCIA §4.8/§4.9/§7, SSOT_REGISTRY §5.2/§5.16, LEIS_OPERACIONAIS Lei 5, AUTHORITY_PRECEDENCE §2-3), código (`authority.service.ts` íntegra, `company-members.service.ts`, agentes Explore sobre authorization.service/rbac/companies), schema vivo (psql).
+
+## 2. NORMAS VINCULANTES (item · fonte · regra · impacto)
+
+| # | Item | Fonte (âncora) | Regra | Impacto na macrofrente |
+|---|---|---|---|---|
+| N1 | Quem pode agir por uma empresa | `LEI_DE_COERENCIA §4.9.3` + `§4.8.3` + `SSOT_REGISTRY §5.16` + DECISION-0042 | Autoridade = **Ownership ∨ Delegation ∨ System/capability**. Cadeia empresa→humano via `company_users WHERE can_manage_company=true ORDER BY role='owner'`. Chave lógica `(tenant_id, user_id, actor_id, permissionKey[, recurso])`. | `company_users` é **membership SSOT** (DECISION-0042 Opção A). É **fonte material**, não drift. |
+| N2 | Autoridade mora em capability, não no rótulo | `LEI_DE_COERENCIA §4.9.7` | **Proibido** confundir `responsible_actor_id` (civil) com poder operacional. Permissão = `permissionKey` canônica (MAPA_CANONICO_PERMISSIONS); **role label NÃO é autoridade**. | Confirmado no código: `canManageCompany` = `(can_manage_company OR role='owner')` — autoridade nos booleans `can_*`. DECISION-0113-PJ (DT-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH CLOSED) já cravou "autoridade vive em can_*". |
+| N3 | Fachada única de authority | `LEI_DE_COERENCIA §4.9.8` + `SSOT §5.16` | Toda decisão de authority em `modules/*` **deve** passar por `authority.service` (quarentena → delega a `authorizationService.canActAs`). **Proibido** resolver permissão só em middleware HTTP sem serviço de domínio. | `authorityService.canPerformAction` é **fachada normada**, não ad-hoc — mas NÃO é resolver próprio: delega 100% a `canActAs`. RBAC plugin sozinho não é soberano. |
+| N4 | Precedência de autoridade | `AUTHORITY_PRECEDENCE §2-3` | Ordem imutável **ATL → KYC → GUARDA → IA/SISTEMAS → PRODUTO**; vence sempre a trava MAIS RESTRITIVA; PRODUTO é a mais fraca. | KYB (DECISION-0088) entra na família de verificação (KYC/identidade fiscal). Nenhum parâmetro de produto/role relaxa trava. |
+| N5 | Ordem sistêmica | `LEI_DE_COERENCIA §7` | SEMÂNTICA → IDENTIDADE → QUARENTENA → **AUTORIDADE** → TEMPO → ESTADO → **FINANCEIRO** → EVENTO. | Autoridade é avaliada **antes** de estado/financeiro. 0113 (autoria/representabilidade) é pré-condição de qualquer money. |
+| N6 | Delegação (R2) — desenho normativo | `LEI_DE_COERENCIA §4.9.9` | Delegação DEFINIDA: actor_origem/destino, escopo (permissionKeys), **validade temporal obrigatória**, origem_da_autoridade, âncora resolvível até humano, profundidade máxima verificável. | R2 é **normativamente DEFINIDA**, NÃO normativamente "congelada". O congelamento é **operacional/sequencing** (DT-mãe 0113 OPEN gateia R2). |
+| N7 | Lei 5 — Bank SSOT | `LEIS_OPERACIONAIS Lei 5` + `SSOT §5.2` | UnifyBank única fonte financeira; nenhum ledger/saldo/split paralelo. `inventory_movements` = ledger físico (não exceção monetária). | MONEY_PARTIES (DECISION-0116) e AP/AR/fundo (0114) exigem frente financeira própria, três paralelas. |
+| N8 | CNAE/indústria = evidência fiscal | DECISION-0103/0104 + `DOMAIN_ONTOLOGY` (alias) | CNAE é evidência fiscal / alias de domínio / sinal de sugestão (0104: "sinal, não autoridade"). | **NENHUMA norma faz capability depender de CNAE/ramo.** Grep `cnae/industry` em `core/authorization` = **0 arquivos**. |
+| N9 | DECISION-0116 — classes de visibilidade | DECISION-0116 §2.2 | 8 classes: PUBLIC_TENANT · ACTOR_PRIVATE · COMPANY_INTERNAL · GROUP_MEMBERS · PERSONAL_SENSITIVE · INSTITUTIONAL_ADMIN · MONEY_PARTIES · DEFAULT_DENY. COMPANY_INTERNAL exige `company_users.can_*` server-side; "ser do mesmo tenant não concede acesso". | Governa ownership/visibilidade por recurso; raiz IRMÃ de 0113 (missing-scope × hint-confiado). |
+| N10 | DECISION-0113 — actorId hint | DECISION-0113 D1-D9 | `actorId` declarado = hint não-soberano (5 canais); autoridade = `actorId ∈ canActAs(req.user)` server-side; RBAC deve bindar `req.user` antes do lookup de role. | Mecanismo da representabilidade. DT-mãe OPEN. |
+| N11 | DECISION-0120 — fronteira civil | DECISION-0120 | Confirmação/trava de identidade civil sai de `profiles` p/ camada identity auditável. **NÃO é authority/cargos/grants.** | Fronteira FECHADA — não reabrir; só referência de borda. |
+
+## 3. PRIMITIVOS DE AUTORIDADE — síntese material (não há 4 soberanos paralelos; há HIERARQUIA)
+
+Provado por leitura direta + agentes:
+- **`authority.service.canPerformAction`** (`modules/authority/authority.service.ts:30-51`) = **fachada normada (§4.9.8)**: gate de quarentena (`isActorEffectivelyBlocked` §4.8.4) → **delega** a `authorizationService.canActAs`. NÃO tem regra própria. NÃO é ad-hoc; é o ponto de entrada obrigatório dos módulos.
+- **`authorizationService.canActAs`** (`core/authorization/authorization.service.ts`) = **resolver canônico** (ownership ∨ delegação via `actor_delegations` ∨ capability via `actor_registry`; retorna `AuthorizationResult` com `authoritySource`).
+- **`canRepresentActor`** (`authorization.service.ts:333-391`) = **sub-gate de representabilidade** permission-agnóstico (5 ramos: ownership direto · company via `canManageCompany` · group owner · registry · delegação). É o mecanismo material da DECISION-0113.
+- **`canManageCompany`** (`companies.service.ts:937-948`) = checagem especializada de ownership empresarial: SQL `(can_manage_company OR role='owner') AND is_active AND member_status='active'` sobre `company_users`. Usada DENTRO de `canRepresentActor`.
+- **`rbacService`**: `actor_has_permission` SQL = **STUB fail-closed (RETURN FALSE)** até FASE 6 (migration 20260422000100, DECISION-0013/C47); `actor_has_any_role` SQL = **real** (join actors→user_roles→roles). `requireRole`/`requirePermission` no `rbac.plugin` **devem** bindar `canRepresentActor(req.user)` antes (DECISION-0113 D3) — sozinhos NÃO são soberanos.
+
+**Hierarquia normativa real:** `authority.service` (fachada §4.9.8) → `canActAs` (resolver) → { `canRepresentActor` (representabilidade) + delegação + capability }. RBAC plugin = decorator de rota que bindeia representabilidade primeiro. `canManageCompany` = ownership especializado dentro de canRepresentActor.
+
+## 4. DTs OPEN DE AUTORIDADE (código/nome · severidade · pré-condição?)
+
+| DT | Status | Sev | Pré-condição de quê? |
+|---|---|---|---|
+| `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` (DT-mãe 0113) | OPEN | CRÍTICA | **SIM** — gateia R2, FASE 6, money-LIVE. Fecha só com 5 canais + reseal Yala. |
+| `DT-RBAC-FAIL-CLOSED-STUB-FASE6-REACTIVATION-TRAP` | OPEN | CRÍTICA | **SIM** — FASE 6 não avança sem 0113 fechada OU preservando `canRepresentActor` dentro de `requirePermission`. |
+| `DT-OPERATIONAL-READ-ACTORID-UNVALIDATED` | OPEN | ALTA | **SIM** — 0113 DT-mãe não fecha sem ela (leituras cross-user keyed em actorId). |
+| `DT-OPERATIONAL-BINDING-FRAGMENTATION` | OPEN | ALTA | Decisão arquitetural (6+ tabelas "X tem papel em Y"); caso freelancer multi-empresa. |
+| `DT-ACTOR-DELEGATIONS-ZERO-RUNTIME` | OPEN (mas STALE) | ALTA | R2. **⚠️ dado defasado** — ver §5. |
+| `DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION` | OPEN | MÉDIA | Não bloqueia hoje; 10 valores actor_type coexistem; decisão Clayton. |
+| `DT-PJ-KYB-AUTHORITY-GATE-MISSING` | OPEN | CRÍTICA | F2-C; PJ move dinheiro sem checagem KYB (page-actor pula KYC). DECISION-0088. |
+| `DT-PJ-AUTHORITY-SOCIAL-KYB-GATE-UNVERIFIED` | OPEN | ALTA | Auditar se `canPerformAction('publish_feed'/'cast_vote')` é KYB-aware p/ page-actor. |
+| `DT-PJ-COMPANY-STATUS-KYB-SECOND-TRUTH` | OPEN | MÉDIA | Reconciliação `company_status='VERIFIED'` × `kyb_status='pending'`. |
+| `DT-DASHBOARD-OWNER-PERMISSION-GAP` | OPEN | ALTA | Mapeamento `can_*` ↔ permission-keys incompleto (owner sem `dashboard:view`). |
+| `DT-CANACTAS-CHECKOWNERSHIP-STALE-VS-CANMANAGECOMPANY` | OPEN | MÉDIA | `checkOwnership` legado ignora `role='owner'`+`can_manage_company`. |
+| `DT-REGION-FUND-DELEGATION-MODEL-PENDING` / `DT-AP-AR-FINANCE-AUTHORITY-MODEL-PENDING` | OPEN | ALTA/CRÍTICA | Frente financeira própria (0114); modelo de delegação financeira futura. |
+| `DT-MARKETPLACE-GOVERNANCE-INMEMORY-ACTOR-TARGET-REACTIVATION-TRAP` | OPEN | ALTA | Gate-on-materialization (SLA/reputação/disputa in-memory). |
+| `DT-INVENTORY-RECONCILIATION-METRICS-INSTITUTIONAL-AUTHORITY-MISSING` | OPEN | ALTA | INSTITUTIONAL_ADMIN cross-tenant sem papel real (0116). |
+
+**CLOSED relevantes (não reabrir):** DT-COMPANY-USERS-SELF-UPDATE-PERMISSION-ESCALATION (2026-06-10, allowlist self-update), DT-PJ-CREATOR-INITIAL-AUTHORITY-NOT-ENFORCED, DT-PJ-COMPANY-USER-ROLE-VOCABULARY-MISMATCH (role=can_* idêntico ao CHECK), DT-RBAC-ACTOR-HAS-ANY-ROLE-LOST-IN-REBASE, DT-PLAN-PUT/GROUPS-CREATE/PROFILE-C1/LIFESTYLE (canais 0113).
+
+## 5. LACUNAS NORMATIVAS / DIVERGÊNCIAS (pergunta · ausência · risco · STOP)
+
+- **L1 — Cargos/grants finos.** Existe `permissionKey` canônica (§4.9.4, MAPA_CANONICO_PERMISSIONS) e booleans `can_*` em company_users; mas o `actor_has_permission` real é STUB (FASE 6). **Ausência:** mapeamento `can_*` ↔ permission-keys (DT-DASHBOARD-OWNER-PERMISSION-GAP). **STOP PARA IA-DECISÕES:** não há DECISION que promulgue o modelo fino de grants além de role grosseira + can_* — se a macrofrente quer cargos granulares, **exige DECISION própria de Clayton**.
+- **L2 — Delegação/R2: divergência declarado×vivo.** DT-ACTOR-DELEGATIONS-ZERO-RUNTIME diz "0 rows" (dado 2026-05-28); **psql vivo = `actor_delegations` 9 rows**. O writer `company-members.service.createDelegationForMember` depende da tabela **`company_members` que NÃO EXISTE no banco** (psql `42P01`), apesar de a rota estar montada (`companies.module.ts`). **Proveniência dos 9 rows = NÃO VERIFICADO** (seed? createCompany? outro writer?). **STOP PARA IA-DECISÕES:** não afirmar "R2 zero-runtime" nem "R2 vivo" sem IA-BANCO/IA-DT provar a origem dos 9 rows e o estado de `company_members`. O congelamento de R2 é decisão de sequencing (0113), não norma.
+- **L3 — Modelo de binding único × fragmentação.** 6+ tabelas modelam "X tem papel em Y" (company_users vivo, actor_delegations 9 rows, user_roles 1 row, group_members, etc.). **Ausência:** DECISION que eleja UM SSOT de binding operacional. **STOP:** convergência (DT-OPERATIONAL-BINDING-FRAGMENTATION) é **decisão de Clayton**, não execução.
+- **L4 — KYB-aware na decisão social/financeira PJ.** **Ausência verificada:** se page-actor pula KYC no gate (DT-PJ-KYB-AUTHORITY-GATE-MISSING), há gap entre desenho (0088) e enforcement. NÃO é vácuo de DECISION (0088 existe) — é **execução pendente**.
+- **L5 — CNAE/capability.** **Ausência DELIBERADA e correta:** nenhuma norma liga ramo a capability (0104 = sinal). **NÃO abrir DECISION** de capability-por-CNAE sem demanda de produto explícita de Clayton.
+
+## 6. VEREDITO
+
+**NORMATIVAMENTE PROVADO:**
+- Autoridade por empresa = Ownership ∨ Delegation ∨ System (§4.9.3); `company_users` é membership SSOT (DECISION-0042) e **fonte material**, não drift.
+- Autoridade mora em `can_*`/permissionKey, **não no role label** (§4.9.7; confirmado no SQL de canManageCompany e DT-vocabulary CLOSED).
+- `authority.service.canPerformAction` é **fachada normada (§4.9.8)**, não autoridade ad-hoc — mas **delega** ao resolver `canActAs`; não decide sozinha.
+- `rbacService.requireRole`/`actor_has_any_role` = real, porém **subordinado**: não é soberano sozinho; DECISION-0113 D3 exige binding `req.user` antes; `actor_has_permission` é STUB fail-closed (FASE 6).
+- `canRepresentActor` é o **mecanismo** da representabilidade (sub-gate dentro de canActAs/rbac.plugin), **não** a porta única normativa — a porta única é a fachada `authority.service`.
+- CNAE/indústria **não governa capability** (provado: 0 arquivos em core/authorization; 0104 = sinal).
+- Precedência ATL→KYC→GUARDA→IA→PRODUTO; autoridade antes de financeiro (§7).
+
+**DIVERGENTE (declarado × vivo):**
+- `actor_delegations` 9 rows vivo × DT "zero-runtime" → DT **STALE**.
+- `company_members` rota montada × tabela ausente → writer **fantasma** (proveniência dos 9 rows desconhecida).
+
+**DESCONHECIDO / NÃO VERIFICADO:**
+- Origem material dos 9 `actor_delegations` (seed/createCompany/outro).
+- Se algum caminho vivo realmente insere delegação hoje (o caminho company-members é fantasma).
+- Enforcement real de KYB no gate para page-actor (DT aponta gap; não reauditei o gate de 1ª mão nesta paralela).
+
+## 7. RECOMENDAÇÃO NORMATIVA
+
+1. **0113 PRIMEIRO.** A DT-mãe 0113 é raiz de tudo (gateia R2, FASE 6, money). Macrofrente de authority/PJ **não pode** declarar fechamento de grants/delegação/RBAC-real com 0113 OPEN. Fechar 0113 (5 canais + reseal Yala) é pré-condição.
+2. **Primitivo soberano provável = a HIERARQUIA já existente**, não um novo: `authority.service` (fachada §4.9.8) → `canActAs` (resolver) → `canRepresentActor`+delegação+capability. Recomendação: **consolidar**, não criar 5º primitivo. Aposentar `businessAuthorizationService` (legado "PROIBIDO USAR") e `checkOwnership` stale.
+3. **company_users = fonte E autoridade material** (membership SSOT, DECISION-0042; autoridade nos `can_*`). Manter como SSOT de membership; **não** promover role label a autoridade.
+4. **Cargos/grants finos EXIGEM DECISION própria de Clayton** (L1) — hoje só há role grosseira + can_* booleans + permissionKey stub (FASE 6). Modelo granular não está promulgado.
+5. **CNAE/indústria NÃO exige DECISION de capability** — já decidido como evidência fiscal (0103/0104). Abrir capability-por-ramo só sob demanda explícita de produto.
+6. **R2/delegação:** antes de qualquer desenho, **IA-BANCO + IA-DT devem resolver L2** (origem dos 9 rows + estado de company_members). Desenho de R2 segue válido, mas a premissa factual envelheceu — revalidar dado vivo.
+
+## 8. STOPs (para IA-DECISÕES / executora)
+- **STOP** — não promulgar DECISION; não editar DECISION_LOG/DT_LOG/STATUS/opus/código; não commitar. Relatório = insumo, não GO.
+- **STOP** — não declarar R2 "zero-runtime" nem "vivo": dado divergente (9 rows × tabela fantasma) → NÃO VERIFICADO até IA-BANCO/IA-DT.
+- **STOP** — não tratar `rbac.requireRole` nem `canPerformAction` como autoridade soberana isolada: a soberania é a fachada→resolver→representabilidade.
+- **STOP** — não abrir DECISION de capability-por-CNAE (já decidido: evidência fiscal).
+- **STOP** — não fechar nada de authority/PJ/grants/RBAC-real com DECISION-0113 DT-mãe OPEN.
+- **STOP** — não reabrir DECISION-0120 (fronteira civil fechada).
+- **STOP PARA IA-DECISÕES** marcado em L1 (grants finos) e L3 (SSOT de binding único): são vácuos de decisão de Clayton, não execução.
+
+FIM DO RELATÓRIO IA-DECISOES — PARALELA A (2026-06-13, HEAD 8af211be, dev 378/378)
+══════════════════════════════════════════════════════════════
+
+---
+
 ============================================================
 PEDIDO DA EXECUTORA — 2026-06-10
 Status: RESPONDIDO (ver RESPOSTA IA-DECISOES — F-G10-TENANT-SHARED-ISOLATION abaixo)

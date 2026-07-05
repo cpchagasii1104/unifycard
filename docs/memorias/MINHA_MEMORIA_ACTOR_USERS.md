@@ -943,6 +943,135 @@ Por ordem de prioridade (estado 2026-06-09):
 
 ---
 
+## 21. AUDITORIA `actor*` + DIAGNÓSTICO DE VERDADE PARALELA (2026-06-15, HEAD 7be810f1)
+
+> Auditoria READ-ONLY pedida por Clayton: "o uso de Actor/actor está tendo fontes de verdade paralelas?". Critério aplicado: **fonte paralela = dois substratos que respondem DIFERENTE à MESMA pergunta material sobre o actor** (não apenas "muitos usos"). Tudo de 1ª mão no HEAD vivo. Insumo/diagnóstico — NÃO GO.
+
+### 21.1 Volume bruto (universo actor*)
+- **Banco:** ≈1124 ocorrências / 137 arquivos. Tabela-raiz `actors` (0002) + `atl_blocked_actors` + **25 tabelas `actor_*` vivas** + 4 funções SQL (`actor_has_permission` stub RETURN FALSE, `actor_has_any_role`, `actors_sync_actor_id_from_id`). Archive (`migrations_archive/`) tem 11 `*actor*` — tombstones, não SSOT.
+- **Backend:** >400 arquivos `.ts`. Núcleo de autoridade concentrado em `authorization.service.ts` (`canActAs`/`canRepresentActor`/`findActiveDelegation`), `actor-registry`, `actor-delegation`, `rbac.plugin` (`assertActorRepresentable`).
+- **Frontend:** 251 arquivos. Núcleo: `ActiveActorContext`, `useActiveActor`/`useActorMode`, `ActorSelector`, `actorContextConfig`, `actorLanguage`. Frontend sempre declara actorId = HINT (regra "frontend nunca cria verdade").
+
+### 21.2 VEREDITO: PARCIALMENTE. Núcleo convergente; 4 focos de verdade paralela.
+
+**✅ CONVERGENTE (uma só verdade — onde mais importa):**
+- **Writer único:** `ensureUserActor` (§4.8) é o único criador/garantidor de actor 'user'.
+- **Representação única:** `canRepresentActor` é o gate único. Os 2 resolvers de "actor ativo" são **fachadas sobre o mesmo writer**, não verdades rivais:
+  - `getActiveActor` (core/actors/actor.helpers.ts:21) → só self, via ensureUserActor.
+  - `resolveActiveActorFromRequest` (modules/social/actor.utils.ts:64) → self OU actor declarado (x-actor-id/actor_id query) **gateado por canRepresentActor** (L18-33).
+- **Capability material:** `actor_registry.capabilities_json` é o SSOT que `authorization.service` exige.
+
+**🔴 FOCO 1 — GRAVE — vocabulário `actor_type` (verdade paralela ONTOLÓGICA):**
+6 conjuntos definem "o que um actor É" em CHECKs/tabelas diferentes: 0002 (`person·company·system`) · 0013 economic_identity (`user·store·hub·industry·service_provider`) · 0012 unify (`actor_human·actor_organizational·actor_system`) · 0064 runtime (`user·page·group·channel·actor_human·actor_system·person·company`) · audit_events (`user·page·cultural_profile`) · triggers responsabilidade (`{user,actor_human,person}×{actor_system,system}`). **MESMA pergunta, respostas incompatíveis.** = `DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION` (OPEN). → **DECISÃO DE NORMAS** (qual é canônico).
+
+**🟠 FOCO 2 — MÉDIA — resolvers locais fora do canônico (verdade paralela de "quem age"):**
+Além dos 2 canônicos, há resolvers LOCAIS que leem `actionContext.actorId` direto via `findById`, SEM ensureUserActor e SEM canRepresentActor embutido:
+- `getAuthenticatedUserActor` (event.routes.ts:179) — **19 call-sites** no mesmo arquivo.
+- `currentActorId` inline (social-2.0.service.ts:142).
+- `findOrCreateUserActor` (actor.repository.ts, side-effect CREATE em GET).
+No event.routes coexistem 2 padrões: body usa `userRepresentsActor` (forte, 7/7), mas ~19 rotas resolvem o actor pelo actionContext (canal-1, sem gate embutido). Classificar cada call-site = trabalho aberto (STOP).
+
+**🟡 FOCO 3 — REBAIXADO p/ LATENTE — identidade fiscal/KYC (`actors` × `identities`):**
+Schema tem colunas duplicadas: `actors.cpf_cnpj`/`actors.kyc_status`/`kyc_limit_cents` (0002, LEGADO) × `identities.tax_id`/`kyc_status` (SSOT). **Confirmado de 1ª mão: NÃO há leitor vivo de `actors.kyc_status`/`actors.cpf_cnpj` no runtime** — toda leitura de kyc_status faz JOIN `actors→identities` (authority-decision.service.ts:138; actor-bank-destination.service.ts:247 "SSOT: identities.tax_id"; economic-metrics.service.ts). Há e2e de coerência (`validate-pipeline-e2e-cpf-tax-id-coherence`). → **Verdade paralela LATENTE no schema, NÃO ativa no runtime** (colunas órfãs). Risco: leitura por engano (memória §11 = falha Gate 2). `contacts.kyc_status` é entidade distinta (CRM), não o actor.
+
+**🟡 FOCO 4 — BAIXA — capability default × scope (planos disjuntos, com armadilha):**
+`actor_registry.capabilities_json` (capability de módulo) × `getDefaultCapabilities(actorType)` que semeia `can_manage_marketplace:true` p/ TODA company (actor-registry.service.ts:234) × `company_users.can_manage_company` (gestão company-scoped, vetor V2). São perguntas diferentes → planos disjuntos por escopo (alinhado ao mapa 0131 item #3), **não verdade paralela estrita**. Armadilha conhecida: default amplo ≠ autoridade sobre o alvo (memória §8).
+
+### 21.3 Síntese
+O actor **NÃO** tem verdade paralela no que mais importa para segurança (representação/criação são únicas e convergentes). **TEM** verdade paralela em: (1) o que o actor É — `actor_type`, GRAVE; (2) quem age, em resolvers locais de canal-1, MÉDIO; (3) identidade fiscal/KYC, LATENTE (SSOT identities venceu no runtime); (4) capability default vs scope, BAIXO/disjunto.
+
+### 21.4 Consultar IA de NORMAS
+- Qual vocabulário `actor_type` é o CANÔNICO (Foco 1 — colisão 0002/0012/0013/0064).
+- Precedência `actors.cpf_cnpj/kyc_status` × `identities.tax_id/kyc_status` (Foco 3 — declarar colunas legadas como tombstone).
+- Se `actor_system`/`system` contam como "actor que age" (afeta responsabilidade civil §15).
+
+### 21.5 STOPs
+READ-ONLY (nada editado fora desta memória) · diagnóstico = insumo, não GO · vocabulário/precedência = decisão de normas · DT-mãe 0113 OPEN · R2 congelado · classificação dos 19 call-sites de `getAuthenticatedUserActor` = trabalho aberto.
+
+---
+
+## 22. PARALELA A — F-C1-MONEY-CANAL1-READ-FIRST-MATRIX (2026-06-15, HEAD 3e7fcda8)
+
+> Auditoria READ-ONLY (5 auditores opus, 39 handlers/callers) de autoridade/ownership/canal-0113 nos 5 subsistemas C1_MONEY. Insumo, não GO. dev 385/385.
+
+**Classificação por subsistema:**
+- **accounts-payable** (8 rotas+worker): TODAS `CONTIDO_FAIL_CLOSED` por **stub de migração** (`accountsPayableRepository` = Proxy "migrated to Bank", service:14-16). Owner NAO_PROVADO (vive no Bank). Zero binding. Se religar repo sem binding → DIVERGENT money-adjacent (POST /:id/schedule agenda saída de $$).
+- **accounts-receivable** (6): TODAS `CONTIDO_FAIL_CLOSED` por Proxy "migrated to Bank" — **MAS service vivo** chamado por `ticket.service.ts:243` + `payment-execution.service.ts:658`. POST /manual define BENEFICIÁRIO pelo body (owner-by-client). mark-received/cancel mutam cross-actor. Owner NAO_PROVADO.
+- **purchase-order** (8): TODAS `DIVERGENT` — **repo VIVO (não stubbed)**. Owner = TENANT (só `tenant_id`, sem FK sub-tenant). 🔴 `POST /:id/receive` (MONEY_ADJACENT) PROMOVE `order.created_by_actor_id` (autoria histórica) a autoridade → cria `accounts_payable` + inventory IN. Qualquer autenticado do tenant recebe qualquer ordem.
+- **settlement** (13): regional settle/credit/debit = `CONTIDO_FAIL_CLOSED` por Proxy (MOVE_MONEY sem binding, fundo regional). **event-settlement GET+settle = `CANONICAL`** (req.user→canRepresentActor(`events.actor_id`), FK provada mig 20260525100000:21) = **EXEMPLAR**. bank-settlement workers = `CANONICAL` (system authorship). bank-settlement-repository = `TOMBSTONE`. settlement-worker escrow = `INCONCLUSIVE` (resolver externo).
+- **service-payment-request** (4): POST create + 2 GET = `DIVERGENT` VIVO (payer/receiver do body, só checa coerência booking, NÃO autoridade do caller; subject!=target). POST execute = `CONTIDO_FAIL_CLOSED` por firewall DECISION-0110 (flag OFF). Owner RESOLVÍVEL (`services.actor_id`=receiver, `booking.requesterActorId`=payer, execução FK fk_spe_*).
+
+**Achado-mãe:** o padrão dominante de contenção é **stub de migração / firewall**, NÃO guard de autoridade — frágil para money (religar repo revive o leak). Único binding correto vivo = event-settlement.
+
+**Recomendação (menor frente material):** começar por **service-payment-request authority binding** (owner resolvível + exemplar canônico event-settlement no mesmo repo). NÃO bundlar: AP/AR/settlement-regional (Proxy, owner no Bank, exige decisão tombstone-vs-reimplementar); purchase-order (vivo/grave mas owner tenant-only → decisão de governança); firewall execute; RBAC/FASE6/R2.
+
+**Decisões Clayton pendentes:** quem cria payment-request (payer/receiver); PO tenant-wide vs per-actor + receivePO promove autoria; AP/AR tombstone vs reimplementar; governança do fundo regional.
+
+---
+
+## 23. F-C1-MONEY-SPR-RLS-PREFLIGHT (2026-06-15, HEAD 9edfbdf9, dev 386/386)
+
+> Veredito READ-ONLY: pode-se aplicar RLS em `service_payment_requests` respeitando `canRepresentActor`? Verificado adversarialmente (1 agente opus tentou refutar → **refuted=false**, tese confirmada).
+
+**VEREDITO: GO SOMENTE APÓS mapper/GUC/decisão (= NÃO-GO para RLS por actor agora).**
+
+**Fatos decisivos (1ª mão):**
+- GUC: o banco recebe **APENAS `app.current_tenant`** (pool.ts:141/176/225). NÃO há GUC de user/actor/representáveis.
+- RLS viva: **100% tenant-only**. Únicas user-keyed (`app.current_user`/`global_user`) vivem só em `migrations_archive/` = NÃO-SSOT. Únicos não-tenant vivos = bypass role `TO unificard_infra USING(true)`.
+- `canRepresentActor` = 100% app-level (authorization.service.ts:333-391); NUNCA toca set_config. O banco não consegue reproduzi-la.
+- 🔴 `service_payment_requests` **NÃO tem RLS alguma** (nem de tenant — CREATE TABLE 20260530494000 sem ENABLE RLS; mig 20260615200000 "SEM RLS/policy"). Autoridade 100% app-level (3 fatias seladas: READ-HARDENING, CREATE-HARDENING receiver cria/payer paga, SCHEMA-FK-INDEX).
+
+**Por quê NÃO-GO:** RLS por actor hoje ou (a) **duplica** canRepresentActor no USING (verdade paralela/drift) ou (b) exige **mapper user→{actores representáveis} + GUC carrier** (inexistentes). Por actor-direto **enfraquece** (ignora company/grupo/registry/delegação V5 temporal) e quebra multi-actor. Tenant-RLS não expressa payer/receiver (terceiro do tenant passaria) = falsa segurança se vendida como autoridade.
+
+**Pré-frente p/ RLS por actor:** P1 mapper canônico user→representáveis · P2 GUC carrier por request (ex. `app.actor_ids`, com invalidação de delegação temporal) · P3 DECISION "RLS authority plans" (app-level continua SSOT; RLS = defense-in-depth). Só após P1+P2+P3.
+
+**Recomendação:** NÃO aplicar RLS por actor; manter `canRepresentActor` app-level como SSOT. RLS tenant-only é defense-in-depth legítima MAS fatia própria, nunca vendida como enforcement payer/receiver. Seguir para outra superfície C1_MONEY (purchase-order) em vez de bloquear na RLS.
+
+---
+
+## 27. PONTEIRO — ACTOR-SCOPED REFERRAL (2026-06-17, HEAD 1565a184)
+
+> Ponteiro factual (insumo). NÃO promulguei DECISION, NÃO editei cartório oficial, NÃO commitei. Detalhe completo nos packs READ-ONLY das auditorias F-ACTOR-SCOPED-REFERRAL-CODE-PREFLIGHT (GO + pré-GO).
+
+- Auditoria actor-scoped referral em HEAD 1565a184 → **USER_ONLY** (diferencial NÃO materializado).
+- **Infra de wallet JÁ é actor-native** (bank_accounts.owner_type DB='actor'; actor_wallet por actor existe — getActorWalletAccount/ensureActorWalletAccount). O gap NÃO está no Bank.
+- **Gap real:** `users.referral_code` (user-scoped) + `user_referral_links` (user↔user, sem *_actor_id) + split resolver user-scoped (`getAccountByOwner(referrerUserId,'user')`). Identidade do código + resolver do split, uma camada acima do dinheiro.
+- **DECISION-0134** (ACTOR_REFERRAL_CAPABILITY_GRANTS_BASELINE) já existe sobre o tema → **deve ser reconciliada**.
+- Forma correta: **DECISION-0139** como adendo / build-on / **supersede-parcial da 0134**, NUNCA decisão paralela solta (evitar dupla verdade no cartório). 0138 é o maior número vivo → 0139 é a próxima.
+- **Janela econômica de 5 anos = PENDENTE CLAYTON** até prova documental/ratificação explícita (não localizada em nenhum cartório lido).
+- Próxima macrofrente material (futura, money-adjacent): `F-ACTOR-REFERRAL-CODE-SUBSTRATE` (actor_referral_codes + vínculo actor↔actor + split por owner_actor_id) — exige GO + paralelas.
+
+---
+
+## 28. RE-BASELINE RODADA 1 — PLANO DE ORQUESTRAÇÃO (2026-06-20, HEAD vivo `dd270f41`, branch rescue-structural)
+
+> Acionada como **IA-ACTOR** (rótulo renomeado de IA-ACTOR-USERS na RODADA 1 da IA-DIRETORA) no barramento §14 do `PLANO_ORQUESTRACAO_SISTEMICA_UNIFICARD.md`. Resposta entregue na §14.5.R1 do plano (não no chat). Revalidação de 1ª mão. **NÃO GO, não promulguei, não editei cartório/código.**
+
+**Fronteira nova institucionalizada (IA-DIRETORA):** `canRepresentActor` / representação / membership / 5 canais 0113 = MEU eixo (IA-ACTOR). Grants / capabilities / RBAC / `actor_has_permission` / `actor_capability_grants` = **IA-AUTORIDADE**. Quando cruza (superfície financeira com fail-open de autoridade), respondo o lado representação e marco IA-AUTORIDADE/IA-DINHEIRO.
+
+**Fatos revalidados de 1ª mão (`dd270f41`):**
+- **`canRepresentActor` VIVO e intocado** — `authorization.service.ts:333`, 5 vetores; `findActiveDelegation:550` (vetor 5) chamado em :386. Assinatura inalterada.
+- **`actor_has_permission()` ainda `RETURN FALSE`** (`migrations/20260422000100:24`; mantido consciente `20260530551000:32`) — **FASE 6 segue desligada**.
+- **Baseline canal-1 0113 = 0** — `DT-0113-CANAL1-ACTIONCONTEXT-UNBOUND-BASELINE` drenado 12→10→7→6→5→3→2→1→0 via R8H→R8J→R8K→R8L→R8N→R8O→R8P→R8Q (`REMEDIATION_DT_LOG.md`). Cada superfície BOUND (canRepresentActor/req.user) ou CONTAINED (501/403). Gate "baseline 0113 = 0" na entrada payout 2026-06-20 (`DT_LOG:68`).
+- 🔴 **CORREÇÃO da minha memória de sessão (disco venceu):** a MEMORY.md de sessão dizia "DT-mãe 0113 CLOSED_WITH_CONTAINED_RESIDUALS". O **cartório vivo NÃO mostra essa string** — a DT-mãe `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` está marcada **OPEN** em TODAS as entradas R8 ("CLOSED só no reseal pós-Yala PASS material"). **Baseline vazio ≠ DT-mãe selada.** Reporto: baseline=0 mas DT-mãe **formalmente OPEN / pende seal Yala**.
+- **Canais 2-5:** NÃO revalidados exaustivamente de 1ª mão nesta rodada (só canal-1 tem baseline-detector). Declarei **PARCIAL** — exigem sweep próprio antes de afirmar denominador finito.
+
+**DECISIONs novas no meu eixo (delta dev 385/387 → `dd270f41`):** 0133 (suppliers `owner_actor_id`→page-actor — confirma recomendação da minha Seção 25/26), 0134/0139 (referral actor-scoped — Seção 27), **0136 (PROMULGADA/MATERIALIZADA Slice 1A: tabela `actor_capability_grants` + `hasCapabilityGrant`; substrato NOVO de capability por actor; DORMANT, sem enforcement em rota; availability/calendar owner-only/0113-0118 SELADOS)**, 0137 (tri-registry RFC docs-only), 0138 (calendar-operator-grant RFC docs-only, CLOSED/YALA PASS). **Substrato de REPRESENTAÇÃO não mudou; nasceu substrato de CAPABILITY (eixo IA-AUTORIDADE).** Invariante 0136 §2.3: "Representar ≠ ter capability. canRepresentActor = vestir; hasCapabilityGrant = capability. Eixos distintos."
+
+**Traps vivos a vigiar na MACRO 2+ do plano:** (1) FASE 6 — religar `actor_has_permission` sem preservar `assertActorRepresentable` ressuscita autoria spoofável; (2) capability 0136 — ligar `hasCapabilityGrant` em rota sem manter `canRepresentActor` a montante mistura os eixos → fail-open; (3) higiene não-bloqueante — business-audit/policy-engine/risk-command-center dependem do recognizer central (Forma C), sem guard dedicado (`DT_LOG:96`).
+
+## 29. RODADA 7 — F-PROFILE-PJ-OFFER READINESS (2026-06-20, HEAD vivo `9f5e9c5e`)
+
+> Auditoria READ-ONLY do barramento `docs/orquestracao/` (RODADA 7). Resposta em `docs/orquestracao/respostas/IA-ACTOR.md`. Pergunta: onde o actor declara "eu faço isso" e isso converge p/ CONCEPT→SERVICE→OFFERING sem verdade paralela? VEREDITO: **PARTIAL**. Insumo, não GO.
+
+**Cadeia canônica actor-first (CORRETA, convergente):** "eu faço isso" = `POST /profile/professional/c1/concepts` → `actor_professional_concepts` (actor_id + **concept_id** FK `concepts` NOT NULL, Lei 7; skill_level/years; **sem preço**; `canRepresentActor`-gated em professional-c1.service:66-76; GET NUNCA cria — service:91). Espinha `concept_id` é **compartilhada** com a oferta: `canonical_services.concept_id` NOT NULL (0117 D) → `services.canonical_service_id` (descoberta) → `service_offerings` (provider_actor_id + canonical_service_id, contratação). Legado de profissão-string = **501** (`PROFESSIONAL_PROFILE_LEGACY_NOT_IMPLEMENTED`; user_skills_categories/professional_profiles AUSENTE per SELO_A3_2).
+
+**🔴 VERDADE PARALELA VIVA (novo achado):** `POST /categories/assign-skill` (categories.routes.ts:779 → `categoriesService.assignSkillToUser` → INSERT `user_skills_categories`, categories.service:1271) responde à MESMA pergunta ("este humano faz skill Y") MAS: (a) keyed por **global_user_id** (fura a camada actor); (b) **com `hourly_rate`/`pricing_type`** = preço no lugar errado (preço só em `service_offerings.price_cents` BIGINT); (c) **category_id**, não concept_id; (d) **SEM `canRepresentActor`**. Consumidores: categories.service (write vivo), profile-professional.service (read — mas rota 501/dead-via-route), human-mvp-matching:61 (read — human-mvp SCHEMA-GHOST/contido R8N). **Liveness da tabela `user_skills_categories` = INCONCLUSIVE → IA-BANCO** (SELO diz AUSENTE; rota ainda escreve → se ausente 500a 42P01, se viva é parallel-truth ativa).
+
+**Outros fatos confirmados 1ª mão:** NÃO existe tabela `actor_capabilities` pura (só `actor_capability_grants`, eixo IA-AUTORIDADE, dormant). `actor_registry.capabilities_json`/`getDefaultCapabilities` = capability de MÓDULO (armadilha: default amplo ≠ "faz concept X" ≠ autoridade sobre alvo). `resolveActiveActorFromRequest` (actor.utils:64) gated (header/query x-actor-id → canRepresentActor → findById read-only); único create-path = fallback `ensureUserActor` self/idempotente (só `allowUserFallback:true`). ActiveActor unificado, discriminado por actor_type; writer único (ensureUserActor/ensurePageActor/ensureGroupActor) — não colapsado.
+
+**STOPs p/ F-OFFER:** SSOT de "eu faço isso" = `actor_professional_concepts.concept_id` (NÃO user_skills_categories); preço só em offering; NÃO auto-criar services/offering a partir do perfil (travessia sem decisão = parallel-truth + side-effect); ponte "declarei→sou descobrível" = decisão de produto PENDENTE Clayton; todo write de capacidade passa por canRepresentActor (assign-skill viola); GET não cria actor (vigiar allowUserFallback em leitura). DECISIONs-âncora: 0113, 0117, Lei 7, SELO_A3_2.
+
 ## FRASE-GUIA
 
 ```
@@ -962,6 +1091,70 @@ canRepresentActor é a prova.
 
 ---
 
+## 26. F-CONTACTS-SUPPLIERS-INSTITUTIONAL-AUTHORITY-PREFLIGHT (2026-06-16, HEAD 7e104d70)
+
+> Evidence Pack v1 READ-ONLY (2 leitores opus). Frente guarda-chuva B5f, 2 saídas: A=suppliers, B=contacts. Insumo p/ decisão Clayton.
+
+**Descoberta normativa nova:** `DECISION-0116` (DECISION_0116_INTRA_TENANT_OWNERSHIP_VISIBILITY_POLICY) define classes intra-tenant: COMPANY_INTERNAL · INSTITUTIONAL_ADMIN · PUBLIC_TENANT. §2.2.3: "ser membro do mesmo tenant NÃO concede acesso". Há MAPA_DENOMINADOR com classificação de readers. Suppliers JÁ classificado COMPANY_INTERNAL.
+
+**BLOCO A — SUPPLIERS — VEREDITO: DECISÃO PENDENTE.** Leak tenant-only PROVADO por shape (listSuppliers/getSupplierById = `WHERE tenant_id=$1`, ZERO canRepresentActor/canManageCompany; RLS tenant-only; 0 linhas/2 tenants). Schema 0128: SEM owner_actor_id/company_id; só tenant_id + created_by_actor_id (autoria, NOT NULL FK) + created_by_user_id. DECISION-0116 §2.3 PROÍBE hardening antes de definir owner e PROÍBE gate sobre created_by. Classe = COMPANY_INTERNAL (A latente / Bloqueia C1). Frontend: ZERO callers (rotas live sem UI). Recomendo espelhar PO: `owner_actor_id` page-actor + canRepresentActor (frente F-SUPPLIERS-COMPANY-OWNER-ACTOR-SCHEMA-WIRING). SEM código até GO Clayton.
+
+**BLOCO B — CONTACTS — VEREDITO: DECISÃO PENDENTE (com sub-prova).** PII fiscal (tax_id/email/phone/address/kyc). Gate tenant-only em 100% das rotas (contact.* + crm.*). Dono = TENANT (sem owner mais fino). `contacts.user_id` = vínculo opcional/sem FK = NÃO owner. **(A)** tenant-only PII reader = leak se tenant multiempresa. **(B) PROVADO independente:** `GET /contacts?userId=<other>` = enumeração cross-user (repo:244), sem gate self/consent. SEM leak cross-tenant (RLS+tenant_id dupla barreira). canRepresentActor INAPLICÁVEL (sem owner_actor_id). Pergunta bloqueante Clayton: tenant 1:1 com empresa OU multiempresa? Recomendo DT-CONTACTS-TENANT-ONLY-PII-READER (OPEN) + fechar (B) (HOLD: pode haver caller interno do filtro).
+
+**🔴 GAP DE SSOT (contacts):** migração da tabela existe SÓ em `migrations_archive/0065_contacts.sql` (+0064 kyc), NÃO em `backend/migrations` (live tree). Tabela soberana de runtime mas DDL/RLS canônico fora do SSOT vigente. RLS afirmada = derivada-do-archive → REVALIDAR contra pg_policies no banco vivo.
+
+**STOPs:** não created_by/contacts.user_id/tenant_id como autoridade · não canRepresentActor sem owner material · não inventar company_id sem GO · não RBAC/FASE6/R2 · não PDV/Bank/Core · sem patch/migration.
+
+### 26.1 — GO de registro operacional (2026-06-16, append-only)
+
+> Registro autorizado por Clayton (PROMPT 1 — GO PARA REGISTRO EM MEMÓRIA). Insumo operacional, **NÃO** norma soberana. **Fatos pertencem ao preflight em HEAD `7e104d70`** (dev 389/389). **HEAD vivo no registro = `17f25d66`** (divergiu; só 1 commit no intervalo = frontend agenda, NADA tocou supplier/contact — confirmado `git diff --name-only 7e104d70..HEAD`). **Execução futura exige revalidação contra HEAD/schema/código vivo.**
+
+**SUPPLIERS (fatos persistentes):** tabela `suppliers` existe · row_count = 0 no preflight · tem `tenant_id` + `created_by_actor_id` · **NÃO** tem `owner_actor_id`/`company_id`/`user_id` · `created_by_actor_id` = autoria/auditoria, NÃO ownership · `created_by_user_id` NÃO é owner · `tenant_id` = escopo, NÃO autoridade · readers são tenant-only por shape · RLS NÃO é defesa efetiva enquanto a app conectar como postgres/superuser/bypassrls. **Decisão pendente:** ownership institucional. **Recomendação consolidada por Clayton:** suppliers devem ser company-owned por `owner_actor_id`→page-actor/company-actor, espelhando `purchase_orders` — ainda exige cartório soberano mínimo antes de qualquer migration/patch.
+
+**CONTACTS (fatos persistentes — CORREÇÃO/ESCALAÇÃO vs Seção 26 acima):** 🔴 `contacts` **NÃO existe no banco vivo** no preflight — `to_regclass('public.contacts') = NULL` (não é só "DDL apenas no archive"; a TABELA está AUSENTE). Há callers vivos que dependem de `contacts` → risco real **42P01/500 cru** (schema ghost). `migrations_archive/0065_contacts.sql` NÃO é SSOT vivo e NÃO deve ser restaurado cru; o archive não tem owner material suficiente. **Decisão pendente:** gênese/ownership. **Escolha técnica atual de Clayton:** NÃO criar tabela `contacts` agora; primeiro CONTER o schema ghost em fail-closed/501 ou 503. Gênese futura deve ser auditada à parte e tender a `owner_actor_id`/company-owned — **não autorizado nesta frente**.
+
+**RLS (alerta transversal):** se a app conecta como postgres/superuser/bypassrls, a RLS está INERTE como defesa de runtime → registrar como DT transversal futura. NÃO usar RLS como prova de autoridade enquanto a role real da aplicação não for provada. RLS = defesa-em-profundidade futura, NÃO substitui authority app-level server-side.
+
+**STOPs (deste registro):** não editar código/schema · não migration · não DECISION · não fechar DT oficial · não commitar · não Bank/Core/PDV · não restaurar archive · não canRepresentActor sem owner material · não created_by como owner · não tenant_id como autoridade · não RLS como prova de autoridade.
+
+---
+
+## 24. F-C1-MONEY-PURCHASE-ORDER-OWNERSHIP-RULING (2026-06-15, HEAD 9edfbdf9, dev 386)
+
+> Ruling READ-ONLY (2 leitores opus) de autoridade/ownership de purchase-order. Insumo p/ decisão Clayton.
+
+**Schema provado (mig 0131_purchase_orders.sql):** pertencimento = APENAS `tenant_id` + `supplier_id` (fornecedor/credor) + `created_by_actor_id` (NOT NULL FK actors = AUTORIA) + `submitted_by_actor_id`/`cancelled_by_actor_id` (autoria, SEM FK). NÃO existe `company_id`, `owner_actor_id`, `received_by_actor_id`. RLS = tenant-only. ZERO primitivos de autoridade no caminho (canRepresentActor/canManageCompany/requirePermission = 0).
+
+**VEREDITO OWNERSHIP:** owner material HOJE = **TENANT only**. Nenhuma coluna representa "dono/controla" distinta de autoria. Autoridade por EMPRESA (canManageCompany) = **IMPOSSÍVEL sem migration**: PO não tem company_id; `actors.company_id` só é populado p/ page-actor (uq_actors_company_page mig 0575); `created_by` é user/person (company_id NULL) → V2 do canRepresentActor não dispara. App-level sem migration só permite (a) tenant-wide ou (b) bind created_by (autoria→autoridade, VETADO).
+
+**🔴 CORREÇÃO vs Paralela A (Seção 22):** `POST /:id/receive` NÃO é leak vivo — é **fail-closed POR ACIDENTE**: guard exige `actionContext.actingUserId` (routes:148-150) que a interface ActionContext (middleware:11-16) nunca popula → 400 MISSING_ACTOR antes do efeito. + accounts_payable é Proxy stub + try/catch best-effort. Inventory IN, porém, é vivo (dispararia se o guard fosse "consertado" sem cuidado). É FRÁGIL: refactor inocente reativa e promove created_by→autoridade. Classe correta = CONTIDO_FAIL_CLOSED acidental (não DIVERGENT vivo).
+
+**Classificação contingente ao ruling:** reads tenant-only = CANONICAL se PO for tenant-wide (A), DIVERGENT se exigir owner por actor/empresa (C). writes (create/items/submit/cancel) = tenant-only sem owner binding.
+
+**INSTRUMENTO CLAYTON (A–E):** A tenant-wide (sem migration; ruim p/ multi-empresa) · B creator-owned (sem migration mas VETADO: autoria→autoridade) · C empresa/canManageCompany (CANÔNICO mas exige migration company_id + backfill de ALTO RISCO — user→company é 1:N, sem mapa determinístico) · D departamento (substrato inexistente, prematuro) · E manter receive/sensíveis bloqueadas (troca fail-closed acidental por 403 explícito; sem migration).
+
+**RECOMENDAÇÃO (insumo):** E agora (tornar a contenção EXPLÍCITA — remove a fragilidade do guard acidental sem promover autoria) + decisão A vs C para o destino. NÃO B. C é canônico porém frente de schema (não cabe na "menor frente"). NÃO ligar actingUserId/bindar created_by; NÃO add company_id sem decisão+backfill governado.
+
+---
+
+## 25. F-C1-MONEY-PO-COMPANY-OWNER-SCHEMA-PREFLIGHT (2026-06-15, HEAD 522b2059, dev 386)
+
+> Preflight READ-ONLY (3 leitores opus) do owner empresarial canônico da PO. Sequela da Seção 24 (PO-RECEIVE-EXPLICIT-CONTAINMENT CLOSED). Insumo p/ decisão Clayton + migration futura.
+
+**NOME CANÔNICO RECOMENDADO:** `owner_actor_id UUID NOT NULL FK actors(id)` apontando ao **page-actor da empresa** (actor_type='page', actors.company_id≠NULL), gateado por `canRepresentActor` (V2→canManageCompany). + opcional `company_id` NULL denormalizado (joins/consolidação, NÃO autoridade). **Precedente vivo idêntico: `service_offerings` = provider_actor_id(NOT NULL, autoridade) + company_id(nullable, conveniência)** (mig 20260611180000:70-71).
+
+**Por que page-actor e NÃO company_id solto (3 provas):** (1) estoque é ACTOR-owned — `inventory_movements.actor_id` é SSOT físico; saldo de empresa é DERIVADO via actors.company_id. receivePO credita inventory IN → quem recebe TEM de ser o actor dono = page-actor. (2) canRepresentActor V2 (page-actor) já enforce canManageCompany → honra DECISION-0118 D1 ("representação genérica não basta p/ dono empresa"); não enfraquece. (3) delegação V5/R2 é keyed por actor (`actor_delegations.institutional_actor_id`) — owner-actor serve aos 5 vetores sem tradutor; company_id solto bifurcaria autoridade (canManageCompany × actor_delegations). Rejeitados: company_actor_id/buyer_company_id/buyer_company_actor_id = ZERO precedente; company_id-como-autoridade = fragmenta money+inventory; created_by/supplier/tenant já descartados.
+
+**🔴 ALERTA — inventory legado já conflado:** mig 20260411120000 (step 4) JÁ fez backfill `inventory_movements.actor_id = po.created_by_actor_id` p/ POs antigas → SSOT físico de estoque já contém AUTOR-como-dono, append-only (trigger bloqueia UPDATE/DELETE). Fallbacks step 8/9 (primeiro actor do tenant) = adivinhação, NUNCA prova. Reabilitar receivePO sem re-owning propaga o anti-padrão.
+
+**BACKFILL (user→company é 1:N):** automático SÓ em `criador_1_empresa`. Demais (0_empresas/N_empresas/removido/autoridade_revogada/empresa_desativada/tenant_multiempresa/sem_prova) = bloqueado/manual/recertificação/impossível.
+
+**SEQUÊNCIA MÍNIMA (cada uma com GO):** (1) DECISION Clayton (owner=owner_actor_id→page-actor + política backfill) → (2) migration ADD owner_actor_id NULLABLE → (3) backfill só criador_1_empresa → (4) gate writers por canRepresentActor(owner_actor_id) → (5) SÓ DEPOIS, frente separada: reabilitar receivePO (exige re-owning inventory legado + received_by_actor_id). NÃO juntar 2-5.
+
+**NÃO:** created_by/actionContext como autoridade · reusar fallback step 8/9 como prova · owner_actor_id NOT NULL antes do backfill · reabilitar receivePO na mesma fatia · company_id como chave de autoridade · tocar SPR/AP/AR/settlement/RLS/Bank/Core · abrir DECISION/RBAC/FASE6/R2.
+
+---
+
 ## HISTÓRICO DE ATUALIZAÇÕES
 
 | Data | Conteúdo |
@@ -969,3 +1162,13 @@ canRepresentActor é a prova.
 | 2026-06-09 | Criação inicial — bootstrap completo, 20 seções, estado HEAD 0933b188 |
 | 2026-06-10 | Resposta ao PEDIDO DA EXECUTORA 2026-06-09: findAvailableActors (helper + alerta side-effect), canRepresentActor 3 sabores, inventory/movements scope-missing vs canal-0113, 4 estratégias variant-wide. HEAD b6cc69a3 (DECISION-0115 docs-only). |
 | 2026-06-10 | Resposta ao PEDIDO DA EXECUTORA 2026-06-10 (REV. b): Eixo A (A1-A4) + Eixo B (B1-B5) + AB1 (groups). Suppliers/contacts = TENANT-owned sem FK de actor. created_by_actor_id = audit histórico. daily-metrics = B institucional cross-tenant sem admin gate. groups/mine = A vivo canal-1 spoof. RBAC stub = RETURN FALSE confirmado. company_users = vivo; RBAC actor-based = aspiracional. Novo achado: TYPE CONFUSION actorId/userId em GET /groups/mine. HEAD 3d8ad25b. |
+| 2026-06-15 | **Seção 21** — Auditoria `actor*` + diagnóstico de VERDADE PARALELA (HEAD 7be810f1, pedido Clayton). Veredito: PARCIAL. Núcleo (ensureUserActor writer + canRepresentActor gate) CONVERGENTE. 4 focos paralelos: (1) GRAVE vocabulário actor_type = 6 conjuntos; (2) MÉDIA resolvers locais canal-1 (getAuthenticatedUserActor 19 call-sites); (3) LATENTE actors.cpf_cnpj/kyc_status órfãs (SSOT identities venceu runtime); (4) BAIXA capability default×scope. Consultar normas: actor_type canônico + precedência actors×identities. |
+| 2026-06-15 | **Seção 22** — Paralela A F-C1-MONEY-CANAL1-READ-FIRST-MATRIX (HEAD 3e7fcda8, 5 auditores opus, 39 handlers). AP/AR/settlement-regional = CONTIDO por stub/firewall (não guard); purchase-order = 8/8 DIVERGENT vivo (receivePO promove autoria→autoridade); event-settlement = CANONICAL exemplar; SPR = DIVERGENT vivo c/ owner resolvível. Menor frente = SPR authority binding. |
+| 2026-06-15 | **Seção 23** — F-C1-MONEY-SPR-RLS-PREFLIGHT (HEAD 9edfbdf9, dev 386). Veredito NÃO-GO p/ RLS por actor (verificado adversarial refuted=false): só GUC `app.current_tenant`, RLS 100% tenant-only, canRepresentActor app-level, SPR sem RLS alguma. Pré-frente: mapper user→representáveis + GUC carrier + DECISION RLS authority plans. |
+| 2026-06-15 | **Seção 24** — F-C1-MONEY-PURCHASE-ORDER-OWNERSHIP-RULING (HEAD 9edfbdf9, 2 leitores opus). Owner=TENANT only (sem company_id/owner_actor_id/received_by); company-owner exige migration+backfill alto risco. CORREÇÃO vs Seção 22: receivePO é fail-closed ACIDENTAL (guard exige actingUserId nunca populado), não DIVERGENT vivo — frágil. Instrumento Clayton A-E: recomenda E (contenção explícita) agora + A vs C destino; veta B (autoria→autoridade). |
+| 2026-06-15 | **Seção 25** — F-C1-MONEY-PO-COMPANY-OWNER-SCHEMA-PREFLIGHT (HEAD 522b2059, 3 leitores opus). Owner canônico = `owner_actor_id`→page-actor (gateado canRepresentActor), + company_id denormalizado opcional; precedente vivo = service_offerings (provider_actor_id+company_id). Provas: estoque é actor-owned (inventory.actor_id), V2 já enforce canManageCompany, delegação V5 keyed por actor. ALERTA: inventory legado já backfillado com created_by (autoria-como-dono, append-only). Backfill automático só criador_1_empresa. Receive = frente separada (5). |
+| 2026-06-16 | **Seção 26** — F-CONTACTS-SUPPLIERS-INSTITUTIONAL-AUTHORITY-PREFLIGHT (HEAD 7e104d70, 2 leitores opus, Evidence Pack v1). Descoberta: DECISION-0116 (classes intra-tenant COMPANY_INTERNAL/INSTITUTIONAL_ADMIN/PUBLIC_TENANT; tenant≠acesso). SUPPLIERS: DECISÃO PENDENTE — leak tenant-only provado por shape, sem owner no schema, 0116 §2.3 proíbe gate sobre created_by; classe COMPANY_INTERNAL; recomendo espelhar PO owner_actor_id. CONTACTS: DECISÃO PENDENTE — PII fiscal tenant-only; (B) ?userId= enumeração cross-user PROVADA independente; user_id≠owner; pergunta bloqueante=tenant 1:1 vs multiempresa. GAP SSOT: migração contacts só em migrations_archive (revalidar pg_policies vivo). |
+| 2026-06-16 | **Seção 26.1** — GO de registro operacional (autorizado Clayton; append-only). Fatos do preflight em HEAD 7e104d70/dev 389; HEAD vivo no registro = 17f25d66 (divergiu; só frontend agenda no intervalo, nada tocou supplier/contact). ESCALAÇÃO contacts: `to_regclass('public.contacts')=NULL` = TABELA AUSENTE no banco vivo (schema ghost; callers→42P01/500), não só archive. Clayton: conter ghost em fail-closed/501-503, NÃO criar tabela agora. suppliers: row_count=0, recomendação company-owned owner_actor_id (espelha PO), exige cartório antes. RLS inerte se app=postgres/superuser/bypassrls (DT transversal). Execução futura exige revalidação. |
+| 2026-06-17 | **Seção 27** — Ponteiro actor-scoped referral (HEAD 1565a184). Auditoria = USER_ONLY; infra de wallet JÁ actor-native (gap não é Bank); gap = users.referral_code + user_referral_links (user↔user) + split resolver user-scoped. DECISION-0134 existe → reconciliar; forma correta = DECISION-0139 build-on/supersede-parcial-0134, nunca paralela. Janela 5 anos PENDENTE Clayton. Próxima frente material = F-ACTOR-REFERRAL-CODE-SUBSTRATE. Ponteiro factual; não promulguei/commitei/editei cartório. |
+| 2026-06-20 | **Seção 29** — RODADA 7 F-PROFILE-PJ-OFFER readiness (HEAD vivo `9f5e9c5e`; resposta em `docs/orquestracao/respostas/IA-ACTOR.md`). VEREDITO PARTIAL. Cadeia canônica actor-first OK: `actor_professional_concepts.concept_id` (actor-keyed, gated, sem preço) compartilha concept_id com canonical_services→service_offerings. 🔴 VERDADE PARALELA VIVA: `POST /categories/assign-skill`→`user_skills_categories` (global_user_id, hourly_rate, category_id, sem canRepresentActor). Sem tabela actor_capabilities pura. STOPs F-OFFER: preço só em offering; não auto-criar services do perfil; ponte declarei→descobrível = decisão Clayton. Liveness user_skills_categories → IA-BANCO. Insumo, não GO. |
+| 2026-06-20 | **Seção 28** — Re-baseline RODADA 1 do PLANO DE ORQUESTRAÇÃO (HEAD vivo `dd270f41`). Acionada como **IA-ACTOR** (rótulo renomeado); resposta na §14.5.R1 do plano. Fronteira nova: representação=meu / capability=IA-AUTORIDADE. `canRepresentActor` VIVO intocado (authz.service:333, 5 vetores); `actor_has_permission`=RETURN FALSE (FASE 6 OFF). Baseline canal-1 0113 **drenado a 0** (R8H→R8Q). 🔴 CORREÇÃO disco>memória: DT-mãe 0113 **formalmente OPEN** (não CLOSED_WITH_CONTAINED como dizia MEMORY de sessão); baseline 0 ≠ seal Yala. Canais 2-5 = PARCIAL (sem sweep 1ª mão). DECISIONs novas: 0133/0134/0139 (já no radar), **0136 substrato `actor_capability_grants` MATERIALIZADO mas DORMANT (eixo IA-AUTORIDADE; invariante §2.3 representar≠capability)**, 0137/0138 RFC docs-only. Traps MACRO 2+: FASE6 sem assertActorRepresentable / hasCapabilityGrant sem canRepresentActor a montante / higiene sem guard dedicado. Insumo, não GO. |

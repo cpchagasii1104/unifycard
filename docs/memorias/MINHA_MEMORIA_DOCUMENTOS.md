@@ -765,6 +765,27 @@ Auditei **coerência da tese com a norma**, não o runtime. Provar a jornada (ro
 ---
 ---
 
+# PONTEIRO — Fatia IA-DOCUMENTOS para DECISION-0131 (2026-06-14, HEAD vivo 20fe30cc)
+
+> Resposta cartorial entregue em bloco no chat (não duplicar conteúdo aqui — só rastro). Frente: `F-AUTHORITY-MAP-0131-GAP-HUNT` (mapa v2 aprovado por Clayton; 0131 NÃO promulgada; §B aguarda rulings).
+
+**Verificações de 1ª mão (HEAD `20fe30cc`):**
+- `08_AUTORIDADE §10.2` deprecia **`user_identity_links`** (linha 250); `organization_members` = **zero** ocorrências em 08 → citação T4 do mapa ("§10.2") **errada**; organization_members é tombstone por **tabela ausente**, motivo distinto.
+- DECISIONS_LOG cabeçalho "Última entrada **DECISION-0116**" (stale) × corpo já em **0130** → sync no mesmo corte da 0131.
+- `DECISOES.md` (índice) **não indexa 0128/0129/0130** → back-fill + 0131.
+- Anchors soberanos (AUTHORITY_LAW/ENFORCEMENT_MODEL/08/SSOT_REGISTRY/PROHIBITED_STRUCTURES/DECISOES) todos versionados.
+
+**Achado material central:** o corpo do log já contém **0121–0130**, que **já governam** várias células do mapa → 0131 **CITA, não reabre**. Mapa: D1 binding=0121/0122; dispute/reversal modelo=0123 (DECISION_REQUIRED p/ permission-key+política); classic readers=0124; grants finos R2 `company_users.can_*`=0125+§escopo; tenant grants=0126; trust=0127; Core Aprovação Financeira=0128; payout authority=0129; payout policy/faixa MVP=0130.
+
+**Norma já decide (citar, não re-decidir):** `role/status/flag ≠ autoridade` (AUTHORITY_LAW Art.17); delegação temporal escopo+tempo+narrativa (Art.1.3 / SSOT §5.16 / LEI §4.9.9); `authoritySource='system'` só caller sistêmico (Art.11 / 08 §11); tombstones RBAC legado + user_identity_links (08 §10.2/§11); financeiro só pelo Core (0128/0129/0130). **Ressalva §5.16:** 0131 NÃO pode criar 2ª SSOT de delegação — `actor_delegations` é a persistência única.
+
+**Vácuo real (Clayton §B):** permission-key dispute:* + reconciliação manual + escopo (0123); platform/cross-tenant grants (T10); faixas acima do MVP + multi-approval (0129/0130 = futuro); substratos novos (cargo-template/grant_origin/cascade); T11 (event.routes body.actor_id WRITE — resíduo vivo, exige E2E spoof); cartão = DECISION própria (constrangida por 0128).
+
+**Bloqueia cartão (meu eixo):** dispute/reversal reabilitado com binding (0123→promulgado); 0113 NÃO fechável de carona no 0131 (risk-dashboard/bank-http/payout baseline ainda abertos); T11 contido. **STOPs:** não promulgar; citar nunca reescrever; R2/delegação não-ativável sem proveniência+E2E+reseal.
+
+---
+---
+
 # RESPOSTA — Consolidação de respostas das especialistas (2026-06-10)
 
 > Responde ao **PEDIDO DA EXECUTORA — 2026-06-09** (topo deste arquivo). READ-ONLY; esta resposta é insumo, não GO.

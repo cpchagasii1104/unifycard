@@ -4965,3 +4965,438 @@ POST /api/payouts/requests (payout-request.routes.ts novo, no payout.module): re
 ## 2026-06-14 — DECISION-PAYOUT-APPROVAL-AUTHORITY (executor, docs-only)
 
 Cartorializei DECISION-0129 (autoridade de aprovação de payout). PROMULGADA/NORMATIVA; approve endpoint NÃO implementado (autorizado a implementar por D14). Resolve a "autoridade por ausência" do READ-FIRST: D2 aprovação = Core Financeiro institucional (não company_users/tenant_operator_grants/role/organization_members); D3 requester≠approver; D4 MVP 1-aprovação faixa segura; D8 trava restritiva; D9 availableBalanceCents nunca autoriza; D12 grants proibidos; D14 approve futuro via Core, server-side, sem dinheiro/Bank/worker, executed:false. Arquivo docs/02_decisions/DECISION_0129_PAYOUT_APPROVAL_AUTHORITY.md + DECISIONS_LOG + STATUS + DT_LOG. Zero código. Próxima: F-PAYOUT-APPROVE-ENDPOINT.
+
+---
+
+## 2026-06-15 — F-C1-MONEY-PO-OWNER-ACTOR-SCHEMA-WIRING (executor) — owner empresarial de purchase_order MATERIALIZADO
+
+Materializei o owner empresarial de `purchase_order` via `owner_actor_id` = actor operacional da empresa COMPRADORA (`actor_type='page' AND company_id IS NOT NULL`, FK→actors, NOT NULL). Migration `20260615210000` (dev 386→387; row_count=0 → NOT NULL seguro, sem backfill; idempotente; sem company_id/received_by_actor_id/RLS/trigger). Rota: `isOrgActor` (TRAVA organizacional — barra owner humano) + `loadAndAuthorizePO` + `canRepresentActor(owner)` em create/list/read/items/submit/cancel; `created_by_actor_id`=autoria (não autoridade), `supplier_id`/`tenant_id` não autorizam. createPO exige `PURCHASE_ORDER_OWNER_REQUIRED`. receivePO INALTERADO (segue 403 CONTAINED). Guard `audit-po-owner-authority.mjs` + neg-proof 6 mordidas + e2e 17/17 (DB efêmera). Gates ok; tsc build 25/strict 43; arch 0 atribuível. baseline 0113=0; zero dinheiro/estoque.
+
+**Aprendizados:** (1) ambiguidade page/company/actor_organizational resolvida por workflow READ-ONLY antes da migration (Clayton exigiu STOP se ambígua): tipo operacional vivo de empresa = `page`+company_id (§4.38), `actor_organizational`=§3.1 abstração de autoridade (coluna distinta), `company`=legado. (2) `company_id` NÃO entra na PO — deriva-se de `owner_actor_id` (evita dupla verdade); a TRAVA organizacional fica app-level (isOrgActor), a FK só garante actor existente. (3) e2e que cria page-actor de empresa precisa: companies PK=`company_id` (não `id`); page-actor exige `responsible_actor_id` (trg_actor_responsibility_check §4.8) → criar humano responsável antes; submit precisa content-type header (senão 415). (4) GET list tenant-only NÃO basta — filtrar por canRepresentActor(owner), senão terceiro do mesmo tenant veria PO alheia. receivePO continua frente futura (reabilitação deriva do owner empresarial, nunca de created_by_actor_id). Próxima: HOLD para reseal Yala.
+
+---
+
+## 2026-06-16 — F-AGENDA-EDITING-UX-TRUTHFULNESS-V2 (executor, frontend-only)
+
+UI de edição da Agenda parava de emitir recibo falso de save. Frontend-only sobre `382d0f22` (dev 387, ZERO migration). Cadeia LINEAR `Profile→ProfileAgenda→ProfileAgendaForm→AvailabilityScheduleEnhanced` (cada um 1 consumidor). Bug em 2 camadas: editor limpava dirty SÍNCRONO após `onChange` fire-and-forget (`=> void`); parent escondia o PUT em `setTimeout(700ms)` e descartava o `MaterializeWeeklyTemplateResult`. Correção: contrato `onChange`→**`onSave: => Promise<MaterializeWeeklyTemplateResult>`** aguardado; helper puro `summarizeMaterializeResult` (clean vs partial); `persistSchedule` limpa dirty SÓ em confirmação limpa, parcial (rejected/conflicts/protectedCount) e erro HTTP mantêm dirty; debounce removido; non-user bloqueado com mensagem (sem no-op silencioso); contexto WORK/LEISURE/STUDY oculto+desabilitado (DT própria). typecheck 0; vitest 6/6; verif adversarial 3 lentes=HOLDS; gates backend (não-regressão) ok. SSOT temporal `unified_availability` intocado.
+
+**Aprendizados:** (1) o recibo falso tinha DUAS vias — a óbvia (clear síncrono no editor) e uma ESCONDIDA: o parent mutava `schedule` no save, e o `useEffect` de parse do editor (keyed em `availability`) refazia e limpava `dirtyDays` por fora. Fix elegante: parent **não muta `schedule` no save** → prop estável → effect não refaz → editor é dono único da decisão de limpar dirty. Sempre mapear TODAS as vias que tocam o estado-verdade, não só a do handler. (2) `protectedCount>0` (janelas com bookings ativos, não retiradas) conta como PARCIAL → mantém dirty; é honesto (grade declarada ≠ realidade), mesmo criando dirty "permanente" até o usuário reconciliar — preferi a verdade literal do GO a esconder. (3) frontend sem harness de componente (sem testing-library/vitest config) → extrair o NÚCLEO de verdade como função pura e testá-la em vitest puro (node) dá prova automatizada real; o resto vira call-trace. (4) `import type` é 100% apagado → test de helper que importa só o TYPE de `availability.ts` não puxa o runtime (apiFetch etc.), roda sem config/alias. (5) prop morta (`showContextSelector` nunca usada no render) é sinal: ao "ocultar contexto" tive que primeiro fazê-la VIVA (gatear o render), não bastava o parent passar false. Próxima: HOLD para reseal.
+
+---
+
+## 2026-06-16 — F-TEMPORAL-PURPOSE-CONCEPT-DECISION + F-AGENDA-PURPOSE-CONCEPT-MATERIALIZATION (executor, 2 commits)
+
+Finalidade temporal da agenda = CONCEPT em `availability.purpose_concept_id`. 2 fatias/2 commits (DECISION docs-only `db8829ec` ANTES da materialização). dev 387→389. **STOP normativo:** o GO mandava criar domínio N0 `tempo-e-finalidade`, mas o READ-FIRST de 18_DOMAIN_ONTOLOGY provou N0 = lista FECHADA de 12 (CONGELADA §7/§11), finalidade falha o critério §3, e §8.2 (causas-sociais) resolve "finalidade" como dimensão/atributo, não domínio. PAREI e reportei 3 opções; Clayton ratificou (ADENDO) Opção 1 — 4 concepts em domínios N0 NATURAIS (trabalho→servicos, estudo→educacao, cuidados→saude, lazer→cultura-lazer), domínio ≠ limite de matching. Materialização: seed governado + coluna FK RESTRICT (sem is_bookable) + materializer grava purpose por janela (purposes por `${day}|${range}`, slug validado z.enum→400, resolve concept_id server-side) + gate de booking (estudo/cuidados/lazer→400 AVAILABILITY_PERSONAL_PROTECTED; trabalho/NULL ok) + frontend (seletor 4 finalidades do backend, read-back por faixa, 🔒 não-bookável). DECISION-0132 + e2e 15/15 + guard + neg-proof 6 mordidas + gates verdes. DT-AGENDA-CONTEXT CLOSED.
+
+**Aprendizados:** (1) GO ratificado ≠ norma soberana: Clayton tinha ratificado "novo domínio N0" SEM ver que a ontologia é CONGELADA com precedente explícito (causas-sociais) contra exatamente isso. READ-FIRST de norma frozen ANTES de promulgar DECISION pegou o conflito; reportar 3 opções (não 1) deixou ele re-decidir informado — e a tese dele ("finalidade é camada própria") continuou honrada, só mudou o veículo (coluna+allowlist, não domínio). Norma > DECISION > GO. (2) bookability = FUNÇÃO da finalidade, não fato independente → derivar no gate (concept_ids protegidos resolvidos server-side por (domain,slug)), SEM coluna is_bookable (evita dupla verdade); o guard MORDE se aparecer is_bookable boolean. (3) seed em domínio NATURAL evita expandir N0 mas exige checar colisão de slug (os 4 estavam livres); concepts é global (sem tenant) → resolver cacheia em processo só quando completo (4/4), senão re-query (DB efêmera de e2e semeia depois do boot). (4) e2e: assert por ID específico de janela é frágil quando o materializer cria N janelas recorrentes; assert por TIME (a primeira 09:00 ativa) é robusto. (5) novo arquivo em core/availability dispara NEW_UNCLASSIFIED do guard de família → classificar (temporal-purpose.ts é resolver de finalidade, não de owner-authority → KNOWN_NON_RESOLVING).
+
+**SELO (2026-06-16):** Yala RESEAL = **PASS** → frente **CLOSED** (commit docs-only `seal: close temporal purpose agenda after yala pass`). Ressalvas não bloqueantes registradas (R1/R2, NÃO corrigidas): backend tsc baseline 25 vs medição viva Yala 42 (não atribuível); `audit-temporal-purpose.mjs` depende de cwd `backend/` (fragilidade de invocação). Commits selados: `db8829ec` (DECISION) + `e764b8f2` (impl).
+
+---
+
+## 2026-06-16 — F-AGENDA-SAVE-RATE-LIMIT-429 (executor, frontend-only)
+
+**SELO (2026-06-16):** Yala re-reseal = **PASS COM RESSALVA** → **CLOSED** (commit docs-only `docs: seal agenda rate-limit reseal`). Fila HOLD da agenda limpa. Ressalva R1 (não bloqueante): falta guard/teste automatizado de request-count → **DT-AGENDA-LOAD-REQUEST-COUNT-NO-GUARD (OPEN)**. Frontend (ProfileAgenda/AvailabilityScheduleEnhanced) inalterado desde o commit material `17f25d66`.
+
+Save da agenda dava 429 ("Rate limit exceeded, retry in 1 minute") e mantinha dirty (contrato honesto OK). Causa-raiz: `ProfileAgenda.loadAgenda` buscava listBookings+listParticipants POR JANELA sobre TODAS as janelas materializadas (faixa×dia×8 semanas → ~80) + detectConflicts morto → ~162 requests/load, estourando o limiter por-rota do plugin availability (max:60/min); o PUT de Salvar então levava 429. Fix frontend-only: buscar bookings/participants só dos 5 cards exibidos (slice 0,5) + remover o laço de detectConflicts (conflictsMap nunca é exibido) → ~162→≤12 requests/load. UX: catch traduz rate-limit numa mensagem clara, mantém dirty. Backend/rate-limit NÃO tocado (storm fix bastou). Provas: frontend tsc 0; 4 gates green; e2e temporal-purpose 15/15 (sem regressão). Sem DECISION (frontend-only).
+
+**Aprendizados:** (1) o 429 não vinha do limiter GLOBAL (5000 dev/100 prod) mas de um limiter POR-ROTA registrado dentro do plugin availability (max:60/min, igual em dev e prod) — ao caçar rate-limit, procurar `fastify.register(rateLimit)` DENTRO dos plugins, não só no app.builder. (2) o gargalo real era fan-out N×2 no load, escondido atrás de um laço `for...of` com awaits sequenciais; a materialização do template em MUITAS janelas (horizonte 8 semanas) amplifica qualquer "request por janela" — sempre checar a CARDINALIDADE das janelas antes de iterar com I/O. (3) `conflictsMap` era computado e nunca exibido (não passado ao form) = fan-out 100% morto; remover dead-fetch é o melhor "rate-limit fix". (4) GO foi explícito: "corrigir storm antes de relaxar rate-limit" — cheguei a tornar o limiter env-aware (dev 600/prod 60) mas REVERTI: pós-storm-fix 60/min é folgado e mexer em rate-limit prod-adjacente é risco sem ganho de PASS. Disciplina = fix de causa-raiz frontend, zero toque em política de rate-limit. Próxima: HOLD para reseal.
+
+---
+
+## 2026-06-16 — F-CONTACTS-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT (executor, backend code-only)
+
+Tabela `contacts` é schema ghost (`to_regclass`=NULL; nenhuma migration viva a cria — só archive 0065). `contact.repository` faz I/O em `contacts` → 42P01/500 cru. Contenção fail-closed: novo `contact-feature.guard.ts` (probe to_regclass → AppError 501 CONTACTS_SCHEMA_GHOST_CONTAINED) chamado no início dos 6 métodos do `contactService` (funil ÚNICO — nenhum caller importa contactRepository direto), ANTES do repository. NÃO criei contacts/migration/owner; archive não restaurado. Guard + neg-proof 4 mordidas + e2e 9/9 (501 em todas as superfícies; repo não alcançado); 4 gates green; backend tsc 25. DT-CONTACTS-SCHEMA-GHOST: sintoma CONTIDO, gênese OPEN.
+
+**Aprendizados:** (1) achar o FUNIL antes de espalhar contenção: grep provou que NENHUM caller importa contactRepository direto → todos passam por contactService → guardar 6 métodos do service contém rotas + 5 callers internos num só ponto, "antes do repository". Procurar o chokepoint economiza N edições. (2) erro 501 é 5xx → o error-handler MASCARA a `message` em produção (getSafeMessage), mas PRESERVA `error.code`; por isso usei AppError(501, msg, CODE) e não HttpError — o CODE é o contrato canônico que sobrevive em prod (o teste asserta error.code, não a message). (3) caller best-effort (payment-execution) já tinha try/catch em volta da chamada a contacts → meu 501 é capturado igual ao 42P01 de hoje, degradando sem sucesso falso: conter o sintoma não quebrou o caller, só o tornou honesto. (4) cache só do POSITIVO no probe (tabela não some após criada; ausente re-checa) → a gênese futura destrava sozinha sem restart, sem cachear "false" stale. (5) guard estrutural por MÉTODO (fatiar o source por `async <name>(` e exigir assert antes de `contactRepository.`) é mais forte que contar ocorrências — o neg-proof remove um assert e morde exatamente aquele método.
+
+**SELO (2026-06-16):** Yala RESEAL = **PASS COM RESSALVA** → containment **CLOSED** (commit docs-only `docs: seal contacts schema ghost containment`). Gênese/ownership de contacts permanece **OPEN** (frente própria futura F-CONTACTS-GENESIS-INSTITUTIONAL-OWNER). **R1 carregada p/ a gênese:** o destrave por `to_regclass` pode ligar o módulo sem owner se uma migration futura criar contacts fora do padrão do guard → a gênese deve endurecer/remover o guard conscientemente e impedir tenant-only sem owner. Commit selado: `a55f2231`.
+
+---
+
+## 2026-06-16 — F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO (executor, docs-only)
+
+Cartório soberano: promulguei **DECISION-0133** (suppliers company-owned via `owner_actor_id` = page/company actor da empresa dona; created_by=autoria, tenant=escopo, supplier_id=contraparte — nunca owner; authority futura = canRepresentActor(owner_actor_id)). Docs-only, zero código/migration. Evidence Pack revalidado vivo: suppliers existe, row_count=0, sem owner_actor_id/company_id/user_id. Espelha o precedente PO owner_actor_id. Âncora = DECISION-0116 (classificou COMPANY_INTERNAL + deferiu o owner). Registrei DT-SUPPLIERS-OWNER-ACTOR-WIRING (ownership decidido; implementation OPEN) + DT-APP-DB-ROLE-BYPASSRLS-RLS-INERT (transversal). Gates: arch --strict critical_new=0; regression rc=0.
+
+**Aprendizados:** (1) ownership é decisão arquitetural soberana → tem que nascer em DECISION no REMEDIATION_DECISIONS_LOG (append-only), não em chat/STATUS/DT; promulgar ANTES da migration evita que o wiring "decida por acidente" via CHECK/FK. (2) reusar precedente sem copiar cego: PO owner_actor_id deu o padrão (owner=page+company_id; created_by=autoria; evita company_id 2ª verdade), mas suppliers é cadastro institucional (não pedido), então a justificativa muda (N empresas por usuário, B2B leak). (3) DECISION-0116 já tinha CLASSIFICADO suppliers COMPANY_INTERNAL e DEFERIDO o owner ("definir antes do hardening") — sempre grepar se a lacuna já foi nomeada por uma DECISION anterior (reenquadrar como "preenche deferral", não decisão inédita). (4) registrar RLS-inert como DT transversal (invariante de prova), não como frente: qualquer uso futuro de RLS como defesa exige primeiro provar role sem bypassrls. Próxima: HOLD para reseal Yala.
+
+---
+
+## 2026-06-16 — F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING (executor)
+
+Materializei DECISION-0133: `suppliers.owner_actor_id uuid NOT NULL` (FK→actors, índice tenant+owner; migration dev 389→390). Runtime espelha PO owner: rota isOrgActor(page+company_id) + canRepresentActor em create/list/get; create resolve owner server-side (ownerHint=body||actionContext → isOrgActor → canRepresentActor; body é hint, não autoridade); service exige SUPPLIER_OWNER_REQUIRED; created_by=audit, tenant=escopo, supplier_id=contraparte. AP (accounts-payable) intocado (getSupplierById = existência/contraparte). e2e 12/12 cross-company same-tenant; guard + neg-proof 7 mordidas; 4 gates green; tsc 25. DT-SUPPLIERS-OWNER-ACTOR-WIRING CLOSED; abri DT org-actor DB-constraint-hardening + DT status-enum-mismatch (residuo pré-existente).
+
+**Aprendizados:** (1) reuso de precedente acelera muito: o PO owner frente (mesma sessão) deu helpers isOrgActor/loadAndAuthorize/list-dedup prontos para copiar — owner=page+company_id, created_by=autoria, list filtra por canRepresentActor. Materializar a DECISION ficou quase mecânico. (2) onde colocar a authority: o repository/service getById fica PURO (AP usa como existência/contraparte — autoridade vem do PO owner, não do supplier); a authority vai na ROTA (loadAndAuthorize). Guardar a authority no service quebraria AP. Sempre checar QUEM mais consome o reader antes de cravar canRepresentActor lá dentro. (3) bati num bug pré-existente ORTOGONAL (suppliers_status_check lowercase vs default 'ACTIVE' — nunca exercitado porque row_count=0); resisti a corrigir (fora do escopo de ownership), isolei o e2e com status:'active' e registrei DT própria. Disciplina: não fazer scope creep em bug adjacente; nomear como DT. (4) neg-proof: cuidado com prefixo — `ownerHint` casa `ownerHintX`; usar `\b` e morder a regressão REAL (ownerActorId: actionContext.actorId = created_by como owner), não um rename qualquer. Próxima: HOLD para reseal Yala.
+
+---
+
+## 2026-06-16 — F-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH (executor)
+
+Fechei o DT que abri na frente anterior: alinhei o status de suppliers ao CHECK físico (`active`/`inactive` lowercase). Runtime/types only, ZERO migration (DB já correto, default já 'active'). SupplierStatus='active'|'inactive'; normalizeSupplierStatus (ausente→active; 'ACTIVE'→normalizado; inválido→rejeitado); default create 'active'; filtro list lowercase. owner_actor_id/canRepresentActor/DECISION-0133 intocados. e2e 17/17 (T1 sem status→active; T11-T15 status); guard estendido + neg-proof 8 mordidas; 4 gates green. DT-SUPPLIERS-STATUS-ENUM-CASE-MISMATCH CLOSED.
+
+**Aprendizados:** (1) o alvo certo de um "mismatch" é o lado ERRADO, não o que parece mais fácil: aqui o DB CHECK estava CORRETO (lowercase) e o runtime/type estava errado (uppercase) — READ-FIRST do CHECK físico ANTES de assumir que "falta migration". Mexer no DB teria sido o erro. (2) normalizar > rejeitar quando forgiving não cria ambiguidade: 'ACTIVE'→'active' (case-fold seguro) evita quebrar clientes; só valores fora do domínio ({active,inactive}) são rejeitados (falha honesta). Documentei a escolha no e2e (T13/T14). (3) ao energizar uma tabela com row_count=0, bugs latentes de default/CHECK saem do armário — vale varrer defaults/enums/CHECKs no mesmo módulo. (4) fechar o DT que EU abri uma frente antes: a disciplina de nomear o resíduo (não corrigir fora de escopo) virou a próxima frente limpa, com escopo cirúrgico e prova focada. Próxima: HOLD para reseal Yala.
+
+**SELO (2026-06-16):** Yala RESEAL = **PASS** → **CLOSED** (commit docs-only `seal: close suppliers status enum mismatch after yala pass`). R2 PAGA. Ressalvas remanescentes não bloqueantes: R1 (DT-SUPPLIERS-OWNER-ORG-ACTOR-DB-CONSTRAINT-HARDENING OPEN), R3 (list filtra em memória, sem vazamento externo, perf futura). **Cadeia suppliers inteira SELADA:** cartório `7e13fb5c` → wiring `d8bf869b` (PASS COM RESSALVA) → status `c86d4969` (PASS).
+
+---
+
+## 2026-06-16 — F-STATUS-HOLD-RECONCILIATION-POST-SUPPLIERS-AGENDA-SEALS (executor, docs-only)
+
+Reconciliei headers stale do STATUS: flipei F-SUPPLIERS-OWNERSHIP-SOVEREIGN-CARTORIO (CLOSED/YALA PASS, 7e13fb5c) e F-SUPPLIERS-OWNER-ACTOR-SCHEMA-WIRING (CLOSED/YALA PASS COM RESSALVA, d8bf869b) — ambas já aceitas pela IA Diretora em GOs posteriores. Mantive em HOLD (sem prova de reseal): backlog 0131-wave (SPR/PO/PDV/E1/E2/B1f/C4/B3f/BATCH 1-5/DECISION-0131) + F-AGENDA-EDITING-UX-TRUTHFULNESS-V2. STATUS reorganizado em 3 seções (fechados/ressalvas/HOLDs-a-reconciliar). Docs-only; arch critical_new=0.
+
+**Aprendizados:** (1) "aceito verbalmente em GO" ≠ "STATUS flipado": vários fechamentos foram declarados pela IA Diretora num GO seguinte mas o header do STATUS nunca foi atualizado → dívida documental que engana a auditoria. Flipar exige EVIDÊNCIA (nota de reseal no corpo OU declaração explícita em GO com commit), não "parece provável". (2) a disciplina anti-otimismo: NÃO fechar HOLD sem prova — o backlog 0131-wave fica visível como "HOLD REAL / precisa reseal", não convertido em CLOSED por conveniência. (3) seal != reconciliação: as 4 frentes que EU selei (com commit docs-only + seção YALA RESEAL no log) flipam sozinhas; as 2 suppliers que a IA Diretora aceitou sem eu ter feito seal-doc ficaram stale até esta reconciliação. Próxima recomendação: reconciliar/resealar o backlog 0131-wave antes de frente material; depois F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING.
+
+---
+
+## 2026-06-16 — F-0131-WAVE-DOCS-ONLY-SEAL (executor, docs-only)
+
+Selei 20 headers stale da onda 0131 (SPR×3/PO×2/PDV×3/E1/E2/B1f/C4/B3f/BATCH 1-5/DECISION-0131/AGENDA-TRUTHFULNESS) → CLOSED/YALA PASS, prova = Yala atestado in-session (auditoria F-0131-WAVE-HOLD-RECONCILIATION-READONLY). Docs-only; flip via node line-range (1-355) só nos 20 nomeados; 13 entradas 2026-06-13/14 (payout/R2/0113-classic) FORA da lista → seguem HOLD. STOP financeiro registrado (FINANCIAL_NEEDS_3_PARALLELS: seed financial_approval/payout/split/recovery/SPR-execute/PO-receive funcional NÃO autorizados). arch critical_new=0. Próxima: F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING.
+
+**Aprendizados:** (1) "atestado in-session" é prova válida para selo docs-only, MAS o texto tem que ser honesto sobre a proveniência ("Yala atestado in-session, ainda não documentado no repo antes deste selo") — não fingir que havia nota de reseal no repo. (2) flip em lote: dry-run primeiro (contar/listar os alvos por line-range), aplicar, e git diff --numstat confirmando que SÓ as N linhas de header mudaram (20 add/20 del) — nunca confiar num replace cego num arquivo de 600 linhas. (3) bounded scope: a "onda 0131" nomeada são 20 itens contíguos (linhas 112-348); os 13 abaixo (payout/R2/0113-classic) são arco ANTERIOR, fora da lista — não over-selar. (4) money-adjacent ≠ money-executado: SPR/PO/PDV selam AUTORIDADE/contenção, não materialização; o STOP financeiro explícito impede que o selo seja lido como "payout liberado". Próxima: F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING.
+
+---
+
+## 2026-06-16 — F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING (parent 2173d60c, dev 390)
+
+DECISION-0113 write-spoof dos 5 writes de service-order fechado. Helper `bindOrderWriteActor` (route layer,
+espelha `assertOrderParty` do read F6.5.6a): req.user.userId REAL + actor PARTE (customer|worker, 403 não-leak)
++ canRepresentActor; grava `*ByUserId = bound.userId` REAL (antes era actionContext.actorId em AMBOS os campos →
+gate canActAs alimentado com actor-UUID). confirm/start/complete/cancel/buyer-confirm. buyer-confirm mantém regra
+fina customer-only do service.
+
+ACHADO LATERAL (regularizado): `service_order:confirm_completion` estava `as any` + ausente do mapa canônico →
+`validateInputs`/`isValidPermissionKey` lançava PERMISSION_RESOLUTION_ERROR → 500 em TODO buyer-confirm com
+buyerUserId truthy (pré-existente, nunca exercido por e2e). Registrado em permission-keys.ts (capability null,
+como os 6 irmãos service_order:*); `as any` removido. NÃO é RBAC/FASE6 — completa vocabulário de ação já referenciada.
+
+RESÍDUO: confirm-financial-terms (split, 503) segue conflado — documentado, frente financeira própria.
+
+Provas: tsc build 25 / strict 43; guard audit-service-order-write-authorship-binding.mjs na regression-guards;
+neg-proof 5 mordidas + SHA256 byte-idêntico; e2e efêmero 22/22 (spoof→403, Bank intocado); 4 gates verdes.
+Read e2e F6.5.6a C6 atualizado. DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF → CLOSED. HOLD reseal Yala.
+
+LIÇÃO: ao bindar um write, passar o userId REAL pode ATIVAR um gate de serviço antes inerte (alimentado com lixo)
+e revelar defeito latente (permission key não-canônica). Verificar PERMISSION_CAPABILITIES[key] (null vs undefined)
+ANTES de assumir que ativar o gate é seguro — neste caso era (null=ownership), e o key faltante foi regularizado.
+
+## 2026-06-16 — SEAL F-SERVICE-ORDER-WRITE-AUTHORSHIP-BINDING (docs-only)
+
+Yala RESEAL = PASS (commit material c53330e0). Selo docs-only: STATUS → CLOSED/YALA PASS; DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF
+fechada com nota PASS; execution log com seção YALA RESEAL — PASS. Permission-key regularization (service_order:confirm_completion)
+ACEITA como vocabulário canônico já referenciado (não RBAC/FASE6). Resíduos carregados: confirm-financial-terms (financeiro, 503,
+3 paralelas) + DT-SERVICE-BUNDLE-WRITE-AUTHORSHIP-SPOOF (OPEN, irmã pré-existente confirmada 1ª mão l.133-134 service-bundle.routes).
+Zero código/migration/schema/runtime. dev 390.
+
+## 2026-06-16 — F-SERVICE-BUNDLE-WRITE-AUTHORSHIP-BINDING (parent 3a309b83, dev 390)
+
+Irmã do service-order. 2 writes de service-bundle bindados via bindWriteActor (espelha bindOrderWriteActor):
+req.user.userId REAL + actor declarado + canRepresentActor; 403 antes do write. book binda body.requesterActorId
+(antes cru) + passa userId REAL (antes actionContext.actorId como userId = conflação). confirm grava
+confirmedByActorId validado + confirmedByUserId REAL (antes ambos actionContext.actorId). Autoridade fina
+por-booking segue downstream em confirmBookingFromDecision.
+
+bundle:create/bundle:confirm JÁ registradas (capability null) — ao contrário do service_order:confirm_completion,
+NÃO precisou regularizar chave. Lição confirmada: sempre checar PERMISSION_CAPABILITIES antes de assumir.
+
+Provas: tsc build 25/strict 43; guard audit-service-bundle-write-authorship-binding.mjs na regression-guards;
+neg-proof 7 mordidas + SHA256 byte-idêntico; e2e efêmero 14/14 (fluxo REAL ponta-a-ponta: book→decisões ACCEPTED
+→confirm; spoof→403; Bank intocado); 4 gates verdes; revisão adversarial subagente = SECURE.
+DT-SERVICE-BUNDLE-WRITE-AUTHORSHIP-SPOOF → CLOSED. HOLD reseal Yala.
+
+Residuo da família write-authorship: sweep votes/organizers (DT-mãe) ainda aberto, NÃO tocado nesta frente.
+
+## 2026-06-16 — SEAL F-SERVICE-BUNDLE-WRITE-AUTHORSHIP-BINDING (docs-only)
+
+Yala RESEAL = PASS (commit material 380981ea). Selo docs-only: STATUS → CLOSED/YALA PASS;
+DT-SERVICE-BUNDLE-WRITE-AUTHORSHIP-SPOOF fechada com nota PASS (book/confirm); execution log com seção
+YALA RESEAL — PASS. Sweep votes/organizers da família write-authorship segue OPEN na DT-mãe (NÃO fechado).
+Zero código/migration/schema/runtime. dev 390.
+
+## 2026-06-16 — F-VOTES-WRITES-EXPLICIT-FAIL-CLOSED-CONTAINMENT (parent 8c113dc3, dev 390)
+
+GO pediu binding dos writes de votes. READ-FIRST contradisse a premissa: módulo DUPLAMENTE MORTO.
+(1) req.activeActor NUNCA é populado (grep: único leitor = votes.routes.ts, zero escritor em backend/src);
+(2) schema ghost — tabelas votes/vote_options/vote_responses não existem em migration canônica (to_regclass=NULL,
+só group_vote_*). Logo o spoof não era alcançável → STOP + consulta.
+
+IA Diretora escolheu: conter fail-closed, NÃO religar (religar = mudança de produto + exige elegibilidade fina).
+4 writes → 501 VOTES_ACTIVE_ACTOR_WIRING_MISSING, zero votesService call, curto-circuito antes do DB
+(por isso e2e prova 501, não 500 "relation does not exist"). actionContext.actorId removido. Reads/service intocados.
+
+3 DTs: DT-VOTES-ACTIVE-ACTOR-WIRING-MISSING (raiz OPEN/contido), DT-VOTES-WRITE-AUTHORSHIP-BINDING-LATENT (OPEN),
+DT-VOTES-FINE-GRAINED-ELIGIBILITY-POLICY (OPEN/Clayton).
+
+Provas: tsc 25/43; guard audit-votes-writes-containment.mjs; neg-proof 3 mordidas + SHA256; e2e efêmero 11/11;
+4 gates. HOLD reseal Yala.
+
+LIÇÃO (mapa ≠ verdade, 5ª vez): GO descreveu spoof vivo; READ-FIRST provou rota morta por wiring fantasma +
+schema ghost. STOP antes de editar foi o certo — religar silenciosamente seria ativar produto não decidido.
+Contenção honesta (501 nomeado) > 401 enganoso > religação não-autorizada.
+
+## 2026-06-16 — SEAL F-VOTES-WRITES-EXPLICIT-FAIL-CLOSED-CONTAINMENT (docs-only)
+
+Yala RESEAL = PASS (commit material 3404c565). Selo docs-only: STATUS → CLOSED/YALA PASS (contenção);
+DT-VOTES-ACTIVE-ACTOR-WIRING-MISSING com nota RESEAL PASS (contenção CLOSED, RAIZ OPEN); execution log
+com seção YALA RESEAL — PASS. votes NÃO religado/ativado; tabelas não criadas; activeActor não resolvido;
+elegibilidade não decidida. 3 DTs de raiz seguem OPEN. Zero código/migration/schema/runtime. dev 390.
+
+## 2026-06-16 — F-CONTEXTUAL-THREAD-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT (parent f9604558, dev 390)
+
+Irmã schema-ghost de votes/contacts. Módulo contextual-messaging MONTADO (app.builder:558) mas tabelas
+contextual_threads/contextual_messages não existem em migration canônica (to_regclass=NULL ambas). 7 rotas
+(3 writes + 4 reads) bateriam em 42P01. Writes com autoria latente (sendMessage actionContext.actorId cru;
+addParticipant body.actorId cru).
+
+Decisão IA Diretora: conter fail-closed, INCLUINDO reads (batem nas mesmas tabelas; não deixar GET com 500 cru).
+Handler único `contained` → 501 CONTEXTUAL_THREAD_SCHEMA_GHOST_CONTAINED (1ª instrução) nas 7 rotas. Zero
+service/repo/DB. assertThreadParticipant/canRepresentActor/actionContext.actorId/req.body removidos.
+
+Provas: tsc 25/43; guard audit-contextual-thread-schema-ghost-containment.mjs na regression-guards; neg-proof
+5 mordidas + SHA256; e2e efêmero 13/13 (S0/S1 ghost; 7 rotas→501 e NÃO 500; Bank intocado); 4 gates.
+
+3 DTs: DT-CONTEXTUAL-THREAD-SCHEMA-GHOST (raiz OPEN/contido), DT-CONTEXTUAL-THREAD-WRITE-AUTHORSHIP-BINDING-LATENT
+(OPEN), DT-ORGANIZERS-BUILT-BUT-UNMOUNTED (OPEN/Clayton — verificado 1ª mão: modules/events/organizers tem
+módulo/rotas/service/billing/stripe + migrations event_organizers, mas zero registro em app.builder; NÃO tocado).
+
+LIÇÃO: 3ª superfície morta-montada da sessão (votes, contextual-thread, organizers). Padrão recorrente: módulo
+registrado/construído + schema ausente OU wiring ausente → contenção honesta > 500 cru. Sempre to_regclass + grep
+migration ANTES de assumir rota viva. HOLD reseal Yala.
+
+## 2026-06-16 — SEAL F-CONTEXTUAL-THREAD-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT (docs-only)
+
+Yala RESEAL = PASS (commit material 19499b90). Selo docs-only: STATUS → CLOSED/YALA PASS (contenção);
+DT-CONTEXTUAL-THREAD-SCHEMA-GHOST com nota RESEAL PASS (contenção CLOSED, RAIZ OPEN); execution log com seção
+YALA RESEAL — PASS. contextual-thread NÃO ativado; tabelas não criadas; binding não aplicado. 3 DTs de raiz
+seguem OPEN (schema-ghost, binding-latente, organizers-built-but-unmounted). Zero código/migration/schema/runtime. dev 390.
+
+## 2026-06-16 — F-ORGANIZATION-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT (parent 5183e0ae, dev 390)
+
+4ª superfície morta-montada da sessão (votes, contextual-thread, organizers-mapeado, agora organization).
+Módulo organization MONTADO (app.builder:688-689 /organization) mas organization_invites/members/units/roles
+não existem em migration canônica (to_regclass=NULL ×4). organization_members é TOMBSTONE conhecido (DECISION-0131
+/WAVE1-BATCH1 F2). 13 rotas (5 writes + 8 reads) bateriam em 42P01. Tinha binding DECISION-0113 (requireRepresentable)
+correto mas sobre superfície morta.
+
+Decisão IA Diretora: conter fail-closed blanket, NÃO religar, NÃO ressuscitar tombstone. Handler único `contained`
+→ 501 ORGANIZATION_SCHEMA_GHOST_CONTAINED nas 13 rotas. Zero service/repo/DB. requireRepresentable/canRepresentActor/
+actionContext.actorId/req.body removidos. organization_members segue ausente.
+
+Provas: tsc 25/43; guard audit-organization-schema-ghost-containment.mjs na regression-guards; neg-proof 5 mordidas
++ SHA256; e2e efêmero 22/22 (4 ghost; 13 rotas→501 e NÃO 500; Bank intocado; tombstone intacta); 4 gates.
+
+2 DTs: DT-ORGANIZATION-SCHEMA-GHOST (raiz OPEN/contido), DT-ORGANIZATION-AUTHORITY-BINDING-LATENT (OPEN — o binding
+DECISION-0113 já existia e deve ser REAPLICADO, não reinventado, na religação).
+
+LIÇÃO: módulo com binding correto + tabelas ghost = ainda morto. Binding sobre rota ghost é teatro; conter > binding.
+to_regclass + grep CREATE TABLE por tabela ANTES de assumir rota viva. Tombstone (organization_members) exige cuidado
+extra: contenção não pode virar pretexto p/ ressuscitar. HOLD reseal Yala.
+
+## 2026-06-16 — SEAL F-ORGANIZATION-SCHEMA-GHOST-FAIL-CLOSED-CONTAINMENT (docs-only)
+
+Yala RESEAL = PASS (commit material fb262919). Selo docs-only: STATUS → CLOSED/YALA PASS (contenção);
+DT-ORGANIZATION-SCHEMA-GHOST com nota RESEAL PASS (contenção CLOSED, RAIZ OPEN); execution log com seção
+YALA RESEAL — PASS. organization NÃO ativado; tabelas não criadas; organization_members (tombstone) NÃO
+ressuscitada; binding DECISION-0113 removido só porque rodava sobre rota morta (reaplicar na religação). 2 DTs
+de raiz seguem OPEN. Zero código/migration/schema/runtime. dev 390.
+
+## 2026-06-16 — F-AUTHORITY-PERMISSIONS-CLOSURE-BASELINE (HEAD 957aeb32, dev 390, docs-only)
+
+Fechamento documental da família authority/permissões. Promulga DECISION-0134 (referral=lookup de actor +
+matriz de capabilities baseline). Clayton enfatizou "respeitar 07 nomenclatura canônica".
+
+CONFORMIDADE 07 (o ponto): o GO trouxe a matriz em forma pontilhada (admin.panel.view). Adotar criaria trilho
+paralelo ao permission-keys.ts vivo (domain:action colon). 07 §3 proíbe ("um conceito→um nome→uma forma").
+Render a matriz inteira em domain:action (mapeamento determinístico: 1º segmento=domain, resto unido por _ =
+action). 07 §3.2: nenhum nome nasce no doc e é ratificado depois → matriz é BASELINE, grafia final + reconciliação
+finance:↔financial: vão ao SSOT_REGISTRY→RFC na implementação.
+
+Referral: chave humana de lookup do actor; não authority; permissão concedida ao actor_id resolvido; cargos=
+templates. Riscos LOW/MEDIUM/HIGH/CRITICAL; financeiro CRITICAL (checkbox não move dinheiro).
+
+Estado consolidado: CLOSED (service-order/bundle WA, votes/contextual-thread/organization containment, suppliers/
+PO, contacts, 0131-wave) · OPEN controlado (schema/binding/eligibility dos ghosts, organizers, human-mvp,
+containment campaign, financeiro, implementação de grants, UI, cargos).
+
+DECISION-0134 + decisions log + STATUS + execution log. arch gate critical_new=0. Commit docs-only único.
+LIÇÃO: ao receber matriz de nomes, checar 07 + vocabulário vivo ANTES de promulgar; converter p/ canônico, não
+ratificar trilho paralelo; baseline ≠ enforcement (SSOT_REGISTRY/RFC para grafia final).
+
+## 2026-06-16 — F-PERMISSION-KEYS-NOMENCLATURE-RFC (HEAD 337a3c52, dev 390, docs-only)
+
+RFC que ratifica a nomenclatura de permission keys (deferida por DECISION-0134 §1.4). Promulga DECISION-0135.
+permission-keys.ts INTOCADO; zero runtime/grant.
+
+READ-FIRST das 33 keys vivas fundou TUDO em fato: financial: é o domínio vivo (finance: nunca existiu! confirma
+finance→financial); calendar: vivo (agenda/booking não são keys); canonical_products:create vivo mas products:
+sem key (conceito distinto, não duplicate); sem pos:/pdv:; sem read:/write: invertido; sem suppliers:.
+
+Gramática: domain:action, object_verb com subobjeto, verbo simples quando simples. Verb-first vivo (financial:
+view_ledger, admin:view_audit_logs, reports:view_operational, financial:execute_payout) = LEGACY_ALIAS (cutover
+futuro). 7 classes. CRITICAL_FINANCIAL = capability autoriza tentativa, execução exige cofre+3 paralelas.
+
+Aliases SÓ documentais (sem runtime). Cutover de permission-keys.ts = frente futura gated.
+
+LIÇÃO: ao escrever RFC de nomenclatura, EXTRAIR o vocabulário vivo primeiro (grep das keys) e fundar cada
+reconciliação no que existe — não no que o GO supõe. O GO disse "finance:→financial:" e o vivo confirmou que
+finance: nem existe; products×canonical_products precisou da ontologia N0/N1/N2 p/ não virar falso duplicate.
+arch gate critical_new=0. Commit docs-only único.
+
+## 2026-06-16 — SEAL F-PERMISSION-KEYS-NOMENCLATURE-RFC (docs-only)
+
+Yala RESEAL adversarial = PASS (commit material 6dee2ea7). Selo docs-only: STATUS → CLOSED/YALA PASS;
+DECISION-0135 com nota RESEAL PASS; execution log com seção YALA RESEAL — PASS. permission-keys.ts intocado.
+
+WARNINGS registrados (não-bloqueantes):
+- W1: financial:execute_payout tem capability viva can_hold_assets → cutover→financial:payout_execute NÃO é
+  cosmético (money-path); exige frente própria + gates + neg-proof + e2e + 3 paralelas.
+- W2: products: permanece PRODUCT_DECISION_REQUIRED (separar canonical_products N0 × products N1/N2 antes).
+DECISION_PENDING: financial:all_ledger_view, booking:, products:.
+
+Sequência correta: cutover permission-keys.ts (frente própria, W1) → grants runtime → financeiro 3 paralelas →
+UI checkboxes → referral resolver (lookup ≠ authority). Zero código/runtime/grants/schema. dev 390.
+
+## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-SLICE-1A (parent 127525d2, dev 390→391)
+
+Primeiro runtime de capability grants por actor. STOP moldou o slice: calendar:block é key DEFINIDA mas
+NÃO-ROTEADA; a rota viva (POST / create-availability) tem gate SELADO DECISION-0113/0118 ("Sem admin escape").
+Enforçar grant ali = relaxar invariante selado → IA Diretora escolheu Slice 1A SÓ (substrato, sem enforcement).
+
+Materializado: actor_capability_grants (grantee_actor_id × capability_key × scope_actor_id; UNIQUE parcial ativo;
+CHECK scope=actor + allowlist NÃO-financeira calendar:block/unblock + services:create/edit/disable) + repository +
+service (grant/list/revoke + hasCapabilityGrant DEFINIDO mas não aplicado a rota) + actorLookupService.resolveBySlug
+(actors.slug, fail-closed em ambiguidade; NUNCA users.referral_code comercial).
+
+Invariantes: lookup≠authority; grant por actor_id; representar≠capability; owner nativo + grant aditivo; concedente
+representa o scope (canRepresentActor); multi-tenant isolado; grants nascem inexistentes; financeiro fora; sem global.
+
+Provas: tsc 25/43; guard audit-actor-capability-grants-nonfinancial.mjs na regression-guards; neg-proof 5 mordidas
++ SHA256; e2e efêmero 13/13; 4 gates. DECISION-0136 + DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION (OPEN). HOLD Yala.
+
+LIÇÃO: ao implementar authority runtime, a rota-alvo do GO pode estar selada por DECISION anterior. STOP+consulta
+antes de relaxar invariante selado. Substrato (schema/service/lookup) é seguro e entregável sem tocar a rota selada;
+enforcement vira slice próprio com decisão de produto. actors.slug não-unico → resolver fail-closed em ambiguidade.
+
+## 2026-06-16 — SEAL F-ACTOR-CAPABILITY-GRANTS-SLICE-1 (docs-only)
+
+Yala RESEAL adversarial = PASS (commit material 1e61c83b). Selo docs-only: STATUS → CLOSED/YALA PASS;
+DECISION-0136 com nota RESEAL PASS; execution log com seção YALA RESEAL — PASS. Material intocado.
+
+WARNINGS (não-bloqueantes): W1 services:create/edit/disable da allowlist ainda NÃO existem em permission-keys.ts
+— reconciliar no SSOT vivo antes de enforcement. W2 o CHECK de capability_key é trava defensiva temporária, NÃO
+registry/SSOT; expandir allowlist = nova migration. Pendências: 1B endpoints, 1C enforcement (decisão), reconciliar
+services:* + permission-keys×business-permissions, UI, financeiro 3 paralelas. DT-CALENDAR-OPERATOR-GRANT segue OPEN.
+
+## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-PERMISSION-KEYS-ALIGNMENT-SLICE-1A1 (parent b0e6f297, dev 391)
+
+Fecha W1 do Slice 1A. Adicionadas services:create/edit/disable em permission-keys.ts (union + PERMISSION_CAPABILITIES,
+capability null = ownership suficiente, DECISION-0135). calendar:block/unblock já existiam. Vocabulário apenas, sem
+enforcement. business-permissions.types.ts e a migration INTOCADOS (esta foi a 1ª vez que toquei permission-keys.ts
+na sessão — alinhamento, não cutover).
+
+Guard audit-actor-capability-grants-nonfinancial.mjs ESTENDIDO (check 5): allowlist do CHECK da migration ⊆
+permission-keys.ts; sem financeiro; sem finance:* (canônico financial:). UM guard, sem terceiro registry. Neg-proof
+ganhou bite pk-misalign (remover services:create do registry → guard morde). 6 mordidas + SHA256.
+
+tsc 25/43; 4 gates verdes (rbac-stub OK — services:* não perturbou tombstones). W2 segue como orientação (CHECK =
+trava defensiva, não registry). Reconciliação ampla permission-keys × business-permissions ainda pendente.
+
+LIÇÃO: quando um CHECK de banco enumera vocabulário, alinhá-lo ao SSOT vivo (permission-keys.ts) com guard
+CHECK⊆registry impede registry paralelo. Adicionar key com capability null é seguro (ownership suficiente) e não
+ativa enforcement. HOLD Yala.
+
+## 2026-06-16 — SEAL F-ACTOR-CAPABILITY-GRANTS-PERMISSION-KEYS-ALIGNMENT-SLICE-1A1 (docs-only)
+
+Yala RESEAL adversarial = PASS (commit material 98d28aec). Selo docs-only: STATUS → CLOSED/YALA PASS;
+execution log com seção YALA RESEAL — PASS. Material/permission-keys.ts/migration/business-permissions intocados.
+W1 fechado; W2 reafirmado (CHECK = trava defensiva temporária, não registry/SSOT). Pendências: reconciliação
+permission-keys × business-permissions, 1B endpoints, 1C enforcement (decisão), UI, financeiro 3 paralelas.
+
+## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B (parent f70f4b86, dev 391)
+
+3 endpoints de gestão de grants sob /authority (POST/GET/revoke). actor-capability-grant.routes.ts + registro
+inline em app.builder.ts. Autoridade = canRepresentActor(scope); grantee por slug (resolveBySlug fail-closed) ou
+actorId validado no tenant, grava actor_id nunca slug; capability via z.enum(allowlist não-financeira); GET exige
+scopeActorId (sem listagem global); revoke por status (não delete). Zero enforcement em rota de negócio.
+
+Guard estendido (checks 4+6): só a rota de gestão importa o service; hasCapabilityGrant proibido em rota; rota sem
+financeiro/referral/global/business-permissions/requirePermission/availability/delete; scopeActorId obrigatório.
+Neg-proof 9 mordidas (+ ep-financial/ep-no-scope/ep-requirepermission). e2e 15/15. tsc 25/43. 4 gates.
+
+DT-PERMISSION-TRI-REGISTRY-RECONCILIATION (OPEN/BLOCKS_1C_NOT_1B): 3 vocabulários vivos (permission-keys.ts ×
+business-permissions.types.ts × rbac PermissionString). 1B usa só permission-keys.ts; reconciliar antes do 1C.
+
+permission-keys.ts/business-permissions.types.ts/rbac.plugin/migration/grant-service-1A INTOCADOS. HOLD Yala.
+
+LIÇÃO: registrar rota de gestão sob protectedScope inline (sem mexer no Promise.all gigante de modules) é o menor
+diff. Guard de enforcement deferido precisa distinguir rota-de-gestão (pode importar service) de rota-de-negócio
+(não pode) + proibir hasCapabilityGrant em qualquer rota.
+
+## 2026-06-16 — F-ACTOR-CAPABILITY-GRANTS-DEV-MIGRATION-MATERIALIZATION (HEAD 9a4df379, docs-only)
+
+Fecha R1 da Yala (Slice 1B): código passou mas actor_capability_grants não estava no unificard_dev vivo
+(dev 390; to_regclass=NULL; 20260616210000 pendente → endpoints dariam 42P01). Verificação READ-ONLY: PENDING =
+exatamente [20260616210000] (1 só, a correta) → sem STOP. Aplicada SÓ via runner canônico src/core/db/migrate.ts
+(CORE_ONLY, 1 EXECUTADA, 117ms). Pós: to_regclass=tabela; schema_migrations contém a migration; dev=391;
+PENDING=[]; row_count=0; constraints (chk_acg_capability_nonfinancial/scope_type/status + 5 FK) + índices
+(uidx_active/grantee/scope) conferidos; bank_ledger=0 intocado. 4 gates verdes. ZERO código/nova-migration/SQL-manual.
+R1 CLOSED; Slice 1B segue HOLD YALA p/ revalidação.
+
+LIÇÃO: "código passou" ≠ "schema aplicado ao dev vivo". e2e efêmero cria DB própria → mascara o gap do dev.
+Yala pegou. Sempre verificar to_regclass + schema_migrations no banco VIVO antes de declarar runtime pronto.
+Aplicar via runner canônico (nunca SQL manual), e provar PENDING = exatamente {alvo} antes de rodar.
+
+## 2026-06-16 — SEAL F-ACTOR-CAPABILITY-GRANTS-ENDPOINTS-SLICE-1B (docs-only)
+
+Yala RESEAL = PASS INTEGRAL (após R1 CLOSED). Commit material 9a4df379. Selo docs-only: STATUS → CLOSED/YALA PASS;
+execution log com seção YALA RESEAL — PASS INTEGRAL. Material/permission-keys/business-permissions/rbac/migration/
+app.builder intocados. R1 CLOSED (dev 391/391, actor_capability_grants vivo, PENDING=[]). Pendências: DT-TRI-REGISTRY
+(BLOCKS_1C_NOT_1B), DT-CALENDAR-OPERATOR (decisão), 1C enforcement, UI, financeiro 3 paralelas.
+
+Cadeia de grants até aqui: 1A (substrato) CLOSED · 1A1 (alignment permission-keys) CLOSED · 1B (endpoints) CLOSED
++ R1 (migration aplicada ao dev) CLOSED. Próximo bloqueio real = reconciliação tri-registry antes do 1C.
+
+## 2026-06-16 — F-PERMISSION-TRI-REGISTRY-RFC (HEAD fad9a854, dev 391, docs-only)
+
+RFC que classifica os 3 vocabulários de permissão vivos antes do Slice 1C. Promulga DECISION-0137.
+GO com ajustes: estado IMPLEMENTED/HOLD YALA (não CLOSED antes da Yala); DT → IMPLEMENTED_AS_RFC_BASELINE/HOLD YALA
+(CLOSED_AS_RFC_BASELINE só no seal pós-Yala); diff = 5 .md; PermissionString grafado como template literal ${string}:${string}.
+
+Classificação: permission-keys.ts = SSOT capability registry (grants usam); business-permissions.types.ts =
+role-map (BUSINESS_PERMISSION_MAP role→action; import type only — não reativa organization); rbac PermissionString
+= FASE 6/legacy (template ${string}:${string}, usado por requirePermission). Grants NÃO usam BusinessAction/
+PermissionString/OrganizationRoleKey/referral. 1C bloqueado por DT-CALENDAR + decisão de composição de rota.
+Cutover material = futuro. Financeiro CRITICAL/3 paralelas.
+
+5 .md (DECISION-0137 + execution log + STATUS + DECISIONS_LOG + DT_LOG). permission-keys/business-permissions/rbac
+intocados. arch critical_new=0. HOLD Yala.
+
+## 2026-06-16 — SEAL F-PERMISSION-TRI-REGISTRY-RFC (docs-only)
+
+Yala RESEAL = PASS (commit material 3224d6f8). Selo docs-only: STATUS → CLOSED/YALA PASS;
+DT-PERMISSION-TRI-REGISTRY-RECONCILIATION → CLOSED_AS_RFC_BASELINE/YALA PASS; DECISION-0137 + execution log
+com nota RESEAL PASS. DT-CALENDAR-OPERATOR-GRANT-AUTHORITY-DECISION permanece OPEN. Material intocado.
+Pendências: composição de rota (1C), cutover material dos vocabulários, UI, financeiro 3 paralelas, operador agenda.
+
+Cadeia authority/grants até aqui CLOSED: 0134 baseline · 0135 keys RFC · 0136 substrato 1A · 1A1 alignment ·
+1B endpoints + R1 migration · 0137 tri-registry baseline. Próximo bloqueio = decisão de composição de rota +
+DT-CALENDAR antes do 1C (enforcement real).
+
+## 2026-06-16 — F-CALENDAR-OPERATOR-GRANT-AUTHORITY-RFC (HEAD 6e74deb9, dev 391, docs-only)
+
+RFC de produto/autoridade: owner delega operação de agenda por grant explícito, sem cargo rígido. Promulga
+DECISION-0138. Fecha a dúvida da DT-CALENDAR como baseline de produto (IMPLEMENTED_AS_PRODUCT_AUTHORITY_BASELINE/
+HOLD YALA; CLOSED só no seal pós-Yala).
+
+Achado: calendar:block/unblock são keys NÃO-roteadas → o 1C deve mapear rotas reais (POST /availability,
+PUT /weekly-template, seladas owner-only DECISION-0113/0118) antes de plugar enforcement.
+
+Composição fail-closed do 1C: A owner/self · B canRepresentActor(scope) · C grant ativo (grantee server-side/
+scope/capability/status/janela/tenant). Grant ADITIVO (não remove owner; não concede direito de conceder).
+Código/slug = lookup ≠ authority. Financeiro fora / 3 paralelas. Slice 1C NÃO nasce neste RFC.
+
+5 .md (DECISION-0138 + execution log + STATUS + DECISIONS_LOG + DT_LOG). permission-keys/availability/rbac
+intocados. arch critical_new=0. HOLD Yala.
+
+LIÇÃO: decisão de produto (delegar agenda) + composição técnica (fail-closed A/B/C aditiva) podem ser promulgadas
+docs-only ANTES do enforcement, removendo o bloqueio de produto sem tocar o gate selado. O 1C ainda exige mapear
+rota real (capability ≠ rota) e construir a composição com guard/e2e.
