@@ -1,6 +1,9 @@
 # REMEDIATION DT LOG
 
-## DT-REGIONAL-FUNDS-TOTAL-BALANCE-CENTS-DEPRECATION — ✅ CLOSED / CONTAINED (2026-07-05) — Onda 1 (zeragem de DT), item 2/20 — reachability completa mapeada, mecanismo confirmado morto e congelado
+## DT-PRESSURE-AUTH-BACK-TO-HOME — ✅ CLOSED (2026-07-05) — Onda 1 (zeragem de DT), item 3/20 — já implementado e commitado, cabeçalho nunca atualizado
+- **Contexto:** entrada de 2026-05-19 registrava um gap de UX (Login/Register sem caminho de volta pra `/`) com o fix já escrito mas **deliberadamente não commitado** na época (working tree de `Login.tsx`/`Register.tsx` tinha mudanças preexistentes de frentes paralelas — actor-scope-cleanup e vocabulário-canônico-gender — que um `git add` arrastaria junto).
+- **Read-first:** verificado o estado atual do disco — `Login.tsx`/`Register.tsx`/`App.tsx` já têm exatamente o que a entrada descrevia: prop `onBackToHome?`, botão "← Voltar para início", `AuthWrapper` passando `onBackToHome={() => navigate('/')}` pros dois. `git log` confirma: capturado pelo commit `39ea70623` ("marco-zero: estado real do disco aceito como ponto-zero da retomada") — exatamente o tipo de commit que resolveria uma pendência de "working tree com mudanças não commitadas por conflito com frentes paralelas".
+- **Status:** ✅ CLOSED. Zero código tocado nesta sessão — achado já resolvido, só faltava o carimbo. — ✅ CLOSED / CONTAINED (2026-07-05) — Onda 1 (zeragem de DT), item 2/20 — reachability completa mapeada, mecanismo confirmado morto e congelado
 - **Contexto:** triagem da Onda 1 pegou este item como C_CLEANUP/S ("drop de coluna 0-rows"). Read-first achou `recordRegionalFundCredit` — função que **ESCREVE** em `regional_funds.total_balance_cents`, um 2º mecanismo de contabilidade paralelo ao `bank_ledger` (SSOT único, DECISION-0024). Pausado e reclassificado nesta mesma sessão (entrada anterior, agora superada por esta) até mapear reachability completa — Clayton confirmou via pergunta explícita pra investigar antes de prosseguir.
 - **Reachability mapeada por completo (não mais parcial):**
   1. `marketplace-terminal.service.ts` (`MarketplaceTerminalModule`, chama `recordRegionalFundCredit` direto) — grep exaustivo em todo `src/`: **zero importadores** em qualquer lugar do backend fora da própria definição. 100% morto, nunca instanciado.
@@ -1818,10 +1821,11 @@ Status values:
 
 ---
 
-## DT-SERVICE-MONEY-07-NEGATIVE-PROOF-REPRODUCIBILITY — OPEN / NON_BLOCKING_HARDENING (2026-06-16)
-
-- **🟡 OPEN / NON_BLOCKING_HARDENING (2026-06-16, warning W1 do reseal Yala de `F-NOMENCLATURE-SERVICE-MONEY-07-CLOSURE`).** Yala confirmou que o guard `audit-service-money-07-nomenclature.mjs` mordeu os vetores (7 de migration + 4 de runtime) e que o baseline voltou verde, mas o **negative-proof ficou narrado no execution log, sem script reproduzível versionado**. **NÃO bloqueia o seal** — o guard está ativo e provado. Recomenda-se versionar um negative-proof reproduzível (script/fixture) para paridade e repetibilidade.
-- **Vinculada a:** `audit-service-money-07-nomenclature.mjs` · `docs/03_execution_log/20260616_F_NOMENCLATURE_SERVICE_MONEY_07_CLOSURE.md` (§Guard + Negative-proof).
+## DT-SERVICE-MONEY-07-NEGATIVE-PROOF-REPRODUCIBILITY — ✅ CLOSED (2026-07-05) — Onda 1 (zeragem de DT), item 4/20
+- **Contexto original (2026-06-16, warning W1 do reseal Yala):** o guard `audit-service-money-07-nomenclature.mjs` foi provado na hora (mordeu os vetores, baseline verde), mas o negative-proof ficou só narrado no execution log — sem script reproduzível versionado pra repetir a prova depois.
+- **Resolução:** novo `negative-proof-service-money-07-nomenclature.ps1`, mesmo padrão já estabelecido no projeto (`negative-proof-*.ps1`: snapshot + mutação + guard + restore + verificação SHA256, try/finally garantindo restauração mesmo em falha). Cobre os 4 vetores de runtime do guard (perda de `paymentRequestStatus` em types; reversão do repository pra `status AS "paymentRequestStatus"`; reintrodução do literal `'FIC'`; perda da coerção `Number(row.price_cents)`) + 1 representante do vetor de migration (migration decoy com `DEFAULT 'FIC'`, criada e removida no mesmo run, nunca commitada).
+- **Prova:** rodado e confirmado — **5/5 mordidas**, restauração byte-idêntica (SHA256) em todos os 4 arquivos de runtime, decoy de migration nunca chega a existir fora do próprio run.
+- **Status:** ✅ CLOSED. **Cruza com:** `audit-service-money-07-nomenclature.mjs` (o guard que este script agora prova de forma repetível) · `docs/03_execution_log/20260616_F_NOMENCLATURE_SERVICE_MONEY_07_CLOSURE.md`.
 
 ---
 
