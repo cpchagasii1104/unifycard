@@ -1,7 +1,7 @@
 // Financial Circuit Breaker Repository — tabela financial_circuit_breakers.
 // Não altera bank_transactions, bank_ledger nem bank_accounts.
 
-import { runQueryWithTenant, pool } from '@core/database/pool';
+import { runQueryWithTenant } from '@core/database/pool';
 
 export type BreakerType = 'payments' | 'payouts' | 'settlements';
 export type BreakerStatus = 'active' | 'released';
@@ -79,16 +79,24 @@ export async function releaseBreaker(
 
 /**
  * Retorna true se existir breaker ativo para o tenant e tipo.
+ *
+ * DT-CIRCUIT-BREAKER-RAW-POOL-QUERY-FAIL-OPEN-UNDER-RLS (achado A3, 2026-07-02; corrigido
+ * 2026-07-05): usava `pool.query` cru sem tenant-context. `financial_circuit_breakers` tem
+ * RLS+FORCE desde 20260702160000 — sob role restrito, a leitura sempre retornaria 0 linhas,
+ * fazendo o caller interpretar "sem breaker ativo" mesmo com um ativo (fail-open, direção
+ * perigosa: pagamentos/payouts não pausariam quando deveriam). Corrigido pra `runQueryWithTenant`,
+ * mesmo padrão de `activateBreaker`/`releaseBreaker` neste arquivo.
  */
 export async function isBreakerActive(
   tenantId: string,
   breakerType: BreakerType
 ): Promise<boolean> {
-  const result = await pool.query<{ n: string }>(
+  const row = await runQueryWithTenant<{ n: number }>(
+    tenantId,
     `SELECT 1 as n FROM financial_circuit_breakers
      WHERE tenant_id = $1 AND breaker_type = $2 AND status = 'active'
      LIMIT 1`,
     [tenantId, breakerType]
   );
-  return (result.rowCount != null ? result.rowCount : 0) > 0;
+  return row != null;
 }
