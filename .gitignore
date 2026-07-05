@@ -47,3 +47,9 @@ executei*.md
 # F-PJ-DOCUMENT-STORAGE-PORT (DECISION-0112): storage documental privado — NUNCA versionar documentos sensíveis
 backend/.private/
 .private/
+
+# dumps de banco e recuperados (nunca versionar)
+rls_golive_*.dump
+rls_golive_*.sha256
+r8_recovered.json
+*.dump
