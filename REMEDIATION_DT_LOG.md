@@ -7838,7 +7838,7 @@ Frente futura: regra adicional em `validate-architectural-patterns.mjs` que flag
 ---
 
 ## DT-ECONOMIC-POLICY-ADMIN-PANEL
-
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/L. Isso é construir uma feature administrativa financeira inteira do zero — 5 endpoints REST novos + validação de negócio (`Σbps = 10000`) + UI admin — não é fix, é PE-2 (fase própria já nomeada pela entrada original: "PE-1 é fundação... agora PE-2 pode construir CRUD"). Financeiro-adjacente (split de economic policy), mesma disciplina de nunca inventar superfície financeira sem decisão explícita. Reclassificada **D_FIX → A_DECISION/feature-própria (PE-2)**. NÃO tocado.
 - **Status:** OPEN (HIGH — sem CRUD/UI/handler de admin, policies só nascem via seed direto no DB ou via repository TS)
 - **Origem:** PE-1 substrate 2026-05-26. Tabelas + types + repository + resolver foram entregues. Mas:
   - NÃO há endpoint REST/Fastify para criar/editar/listar/desativar policy.
@@ -14938,6 +14938,7 @@ polimórfico de owner; service_offering ponta a ponta; CHECK físico; gate 23/0)
   authority. Sem ação de runtime agora.
 
 ## DT-0113-AUTHORITY-CLIENT-DECLARED-ACTOR-BOUNDARY — OPEN / BASELINE SELADO (2026-06-13, frente F-0113-AUTHORITY-FACADE-BOUNDARY-SEAL)
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/L. Já está corretamente SELADA (guard `audit-actor-authority-boundary.mjs` ativo no `validate:regression-guards`, baseline de 11 arquivos congelado, falha em rota NOVA). A própria entrada já diz "NÃO corrige os fluxos do baseline (frentes próprias)" — cada um dos 11 já tem ou vai ganhar sua própria DT filha (`DT-DISPUTE-MUTATION-ACTOR-BODY-AUTHORITY`, `DT-0113-EVENT-ACTOR-BODY-BINDING`, `DT-0113-CLASSIC-CHANNEL-READERS`), cada uma exigindo matriz de autoridade própria. Reclassificada **D_FIX → backlog de segurança priorizado** (mesma família de `DT-OPERATIONAL-READ-ACTORID-UNVALIDATED`). NÃO tocado — a contenção (guard) já é a proteção correta contra regressão nova.
 
 - **Origem:** A DECISION-0113 governa actorId DECLARADO pelo cliente como HINT. Os achados A/B/C/D +
   o P0 dispute reversal provaram um **6º canal** não registrado: **objeto de ator no BODY**
