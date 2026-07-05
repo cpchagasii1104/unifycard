@@ -5573,7 +5573,7 @@ autorizado. Ambas as DTs aguardam frente própria com autorização explícita.
 ---
 
 ## DT-SOCIAL-LEDGER-EXTINCTION-CONSUMERS
-
+- **🟡 RECLASSIFICADA (D_FIX Onda 3, 2026-07-05):** triagem marcou D_FIX/M. Diferente de `DT-PRESSURE-COMMENTS-FANTASMA` (fechada na Onda 2 — lá o endpoint real já existia no shape EXATO que o frontend esperava), aqui a resolução exige ESCOLHER entre 2 caminhos de design: (a) refatorar os 6 componentes pra `getBankStatement` filtrado, ou (b) criar endpoint backend NOVO de "impacto coletivo" derivado de `bank_ledger` — nenhum já existe pronto. O que "impacto coletivo" significa exatamente (agregação por grupo/evento/comunidade) é decisão de produto, não migração mecânica de chamada de API. Reclassificada **D_FIX → A_DECISION**. NÃO tocado — mitigação atual (NOT_IMPLEMENTED + empty state honesto) permanece correta e segura.
 - **Status:** OPEN
 - **Origem:** quarentena Frente A 2026-05-18
 - **Vinculada a:** SSOT_EXCLUSIVE_BANK_RULE §4 (social-ledger.service em REGIME DE EXTINÇÃO)
