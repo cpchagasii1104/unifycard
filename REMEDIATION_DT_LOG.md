@@ -6950,7 +6950,8 @@ Fatia separada (próxima na fila após Fase 1 da DECISION-0032). Começa pela le
 ---
 
 ## DT-DECISION-0032-FASE-1-PARTIAL-EXECUTION
-
+- **🟢 SUB-ACHADO `SlaMonitorWorker` — ✅ CONFIRMADO RESOLVIDO (D_FIX Onda 3, 2026-07-05):** o erro de boot citado ("coluna status não existe") não reproduz mais. Read-first no código atual + schema vivo confirmou as 3 queries do worker corretas: `payment_intents` usa `payment_status` (coluna real, `status` não existe nessa tabela — confirmado via `information_schema`), `payout_requests.status` e `bank_settlements.status` existem de verdade e são usados corretamente. Alguém já corrigiu isso (mesmo padrão do fix do `reconciliation-worker.ts` citado pela dívida) sem carimbar. Zero código tocado — verificação apenas.
+- **🟡 RESTO DA DÍVIDA (10 tipos UPPERCASE + Fases 2/3/4) — RECLASSIFICADA:** triagem marcou D_FIX/M, mas isso é um backlog de 10+ migrações de tipo independentes (cada uma "vira fatia própria" per a própria entrada) + reaplicar CHECK constraint + criar mapper de gateway + alinhar frontend — muito maior que M, e a própria entrada já diz "cada item vira fatia separada quando dor material puxar (não por antecipação)". Não é housekeeping de uma passada. Reclassificada **D_FIX → backlog priorizado por dor material**, não executável em bloco. NÃO tocado (além do sub-achado já verificado acima).
 - **Status:** OPEN — backlog de execução das fases pendentes da DECISION-0032
 - **Severidade:** MEDIUM (não bloqueia runtime hoje, mas a 0032 está parcialmente executada há 12 dias; tipos UPPERCASE residuais continuam armadilhas para drift acidental futuro)
 - **Origem:** Sessão 2026-05-24 — durante a execução de Fase 1 (Writer B convergência), foi confirmado que apenas a migration de schema rodou em 2026-05-12; as Fases 1 (resto), 2, 3 e 4 da DECISION-0032 ficaram majoritariamente no papel.
