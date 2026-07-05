@@ -252,9 +252,47 @@ function walk(dir, files = []) {
   return files;
 }
 
-function stripLineComment(line) {
-  const i = line.indexOf('//');
-  return i === -1 ? line : line.slice(0, i);
+/**
+ * DT-GATE-DOCSTRING-FALSE-POSITIVE: o stripper anterior só cortava `//`, nunca lidava com blocos
+ * `/** ... *\/` multi-linha — um docstring JSDoc que ALERTA sobre o SSOT correto (ex.: "a verdade
+ * financeira está em bank_ledger, NÃO aqui") era marcado como violação, penalizando documentação
+ * exemplar. `stripComments(lines)` processa o arquivo INTEIRO uma vez, mantendo estado de "dentro
+ * de bloco" entre linhas, e devolve as mesmas linhas com todo texto de comentário (linha E bloco)
+ * removido — código real dentro de string literal nunca é tocado (não stripa aspas).
+ */
+function stripComments(lines) {
+  const out = [];
+  let insideBlock = false;
+  for (let line of lines) {
+    let result = '';
+    let i = 0;
+    while (i < line.length) {
+      if (insideBlock) {
+        const end = line.indexOf('*/', i);
+        if (end === -1) { i = line.length; continue; }
+        insideBlock = false;
+        i = end + 2;
+        continue;
+      }
+      const lineCommentIdx = line.indexOf('//', i);
+      const blockCommentIdx = line.indexOf('/*', i);
+      if (blockCommentIdx !== -1 && (lineCommentIdx === -1 || blockCommentIdx < lineCommentIdx)) {
+        result += line.slice(i, blockCommentIdx);
+        insideBlock = true;
+        i = blockCommentIdx + 2;
+        continue;
+      }
+      if (lineCommentIdx !== -1) {
+        result += line.slice(i, lineCommentIdx);
+        i = line.length;
+        continue;
+      }
+      result += line.slice(i);
+      i = line.length;
+    }
+    out.push(result);
+  }
+  return out;
 }
 
 /** Normaliza espaços no trecho para hash estável. */
@@ -372,11 +410,11 @@ function analyzeFile(filePath, rules) {
   const rel = normPath(relative(ROOT, filePath));
   const content = readFileSync(filePath, 'utf8');
   const lines = content.split('\n');
+  const stripped = stripComments(lines);
   const issues = [];
 
   for (let index = 0; index < lines.length; index++) {
-    const raw = lines[index];
-    const cleanLine = stripLineComment(raw).trim();
+    const cleanLine = stripped[index].trim();
     if (!cleanLine) continue;
 
     for (const rule of rules) {
