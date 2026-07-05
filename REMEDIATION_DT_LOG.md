@@ -2232,6 +2232,7 @@ Migration forward-only `20260530551000_restore_actor_has_any_role.sql` aplicada 
 
 ## DT-bank-cachedBalanceCents-naming-heterogeneity
 
+- **🟡 RECLASSIFICADA (Onda 1 de zeragem de DT, 2026-07-05):** triagem tinha marcado como C_CLEANUP/S. A "resolução prevista" da própria entrada já pede migração coordenada de DTO + type `BankAccount` + TODOS os consumidores no domínio financeiro — não é limpeza de um arquivo isolado, é rename cross-cutting em zona financeira (naming ratchet do DECISION-0158 se aplica). A própria entrada já dizia "frente futura, pós-β.5, não bloqueante". Reclassificada **C_CLEANUP → D_FIX** (correção real, precisa de sessão própria com verificação cuidadosa de cada consumidor). NÃO executada.
 - **Status:** OPEN
 - **Origem:** β.1 (sessão Opus 2026-05-10) — reconciliação Genesis do bank-balance-consolidation
 - **Vinculada a:** DECISION-0024 (ledger-only SSOT)
@@ -11890,6 +11891,7 @@ Correção cirúrgica aplicada após gate read-only (Cenário A) + ratificação
 - **Validação do fix:** tsc limpo · 4 gates verdes · zero resíduo legado · zero schema/migration/DML.
 
 ### DT-GROUPS-OWNER-FK-ONDELETE-POLICY (OPEN) — descoberto em READ-ONLY COE-2 (2026-05-30)
+- **🟡 RECLASSIFICADA (Onda 1 de zeragem de DT, 2026-07-05):** triagem tinha marcado como C_CLEANUP/S ("alinhar ON DELETE RESTRICT pra simetria"). A própria entrada já diz "avaliar em microfrente de ciclo de vida/authority... READ-ONLY + ratificação antes de editar" — mudar política de FK que afeta o que acontece quando um actor-owner é apagado é decisão de ciclo de vida, não limpeza mecânica de nome/coluna morta. Reclassificada **C_CLEANUP → A_DECISION**. NÃO executada.
 **Contexto.** `groups_owner_actor_id_fkey` usa `ON DELETE NO ACTION` (padrão PostgreSQL), enquanto
 a FK análoga da migration 576000 (`actors_group_id_fkey`: `actors.group_id → groups(id)`) usa
 explicitamente `ON DELETE RESTRICT`. Há assimetria de política de ciclo de vida entre as duas
