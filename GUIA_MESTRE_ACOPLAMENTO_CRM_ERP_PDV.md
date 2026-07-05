@@ -295,7 +295,28 @@ sink direto ganharam o flag explícito pra preservar sua intenção original. Gu
 (3 mutações mordidas) · E2E 7/7 (prova as DUAS pontas: default-off bloqueia, flag=true move
 dinheiro real) · ratchet financeiro subiu deliberadamente (3830→3865/586→590, documentado —
 vocabulário genuíno de payout/split/ledger no firewall, não wording incidental) · typecheck 0 ·
-regression-guards exit=0. **Próximo = passo 3 (materializar split completo) sob GO de Clayton.**
+regression-guards exit=0.
+
+**✅ PASSO 3/4 FECHADO (2026-07-05): motor de split (mecanismo, sem taxa real).** Clayton pediu
+"garanta que está respeitando normas e leis" — read-first achou `CORE_SPLIT_PAGAMENTO_CANONICO.md`:
+decide ARQUITETURA (BPS/economic_policy_engine/bank_splits imutável) mas NÃO fixa percentuais
+comerciais — a norma se autodeclara pendente nisso 2x. 3 decisões: (1) só mecanismo/fail-closed,
+sem taxa inventada — `economicPolicyEngineService` (PE-1) já era fail-closed, zero policy seedada,
+zero número novo; `bank-split-engine` legado (hardcoded) preservado EXATAMENTE como DECISION-0048
+já sancionava ("cutover gradual") — não revogado sem decisão própria. (2) treasury-split (2º motor
+paralelo, percentuais 5/3/2/2/88, worker nunca chamado) CONGELADO via guard anti-revival — sua
+responsabilidade migra pro par conta-`regional_fund`-única + governança de voto (não revivido,
+não descartado). (3) PF resolvido — fecha `DT-PE5-PF-RESOLVER-PENDING`: `payer_identity_residence`/
+`receiver_identity_residence` agora resolvem via `address_assignments(owner_type='profile',
+role='RESIDENCE')`, mesmo SSOT de DECISION-0074. **Achado colateral sério registrado à parte**
+(`DT-REGIONAL-FUND-GOVERNANCE-LIVE-SCHEMA-GHOST`): `regional-fund-governance.routes.ts` está VIVO
+e registrado, SEM guard, lendo `regional_fund_proposals`/`regional_fund_votes` que NÃO EXISTEM no
+banco — mesma classe do achado crm.* da Fatia 7, mas tangencial ao pedido desta fatia, então só
+documentado (não corrigido), aguardando GO. 2 guards + negative-proof · E2E 3/3 novo (prova PF
+resolve pra cidade certa, payer≠receiver) + E2E irmão (PE-5 PJ) corrigido · ratchet subiu
+deliberadamente e documentado (3865→3869/590→591) · typecheck 0 · regression-guards exit=0.
+**Próximo = passo 4 (semear saldo + E2E de dinheiro real em ambiente vivo) sob GO de Clayton — OU
+decidir o achado da governança primeiro.**
 
 ---
 

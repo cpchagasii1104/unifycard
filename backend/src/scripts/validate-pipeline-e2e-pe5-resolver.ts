@@ -13,7 +13,12 @@
  *   T5 — mixed_policy: 2 linhas regional_fund (operational + hq) →
  *        2 bank_splits em 2 regional_fund accounts diferentes.
  *   T6 — actor_wallet recebe APENAS revenue_share (regional_fund não vaza).
- *   T7 — receiver_identity_residence (PF) → POLICY_BASIS_UNSUPPORTED_MVP.
+ *   T7 — receiver_identity_residence (PF) SEM residência cadastrada →
+ *        POLICY_REGIONAL_ORIGIN_UNRESOLVABLE (PE-5-RESOLVER-V2, Fatia 9 passo 3,
+ *        2026-07-05: PF deixou de ser POLICY_BASIS_UNSUPPORTED_MVP — agora resolve
+ *        de verdade via address_assignments(owner_type='profile', role='RESIDENCE');
+ *        o caso feliz com residência cadastrada é coberto no E2E dedicado
+ *        validate-pipeline-e2e-regional-fund-pf-resolver.ts, em DB efêmera).
  *   T8 — HQ NÃO é fallback de operational: actor sem OPERATIONAL + policy
  *        basis=operational → falha (não cai em HQ automaticamente).
  *
@@ -603,9 +608,13 @@ async function main() {
   });
 
   // ============================================================
-  // T7 — PF basis fail-closed
+  // T7 — PF basis SEM residência cadastrada → fail-closed (PE-5-RESOLVER-V2:
+  // o basis agora É suportado; sem endereço material, ainda falha, só que com
+  // o erro correto — POLICY_REGIONAL_ORIGIN_UNRESOLVABLE, não mais
+  // POLICY_BASIS_UNSUPPORTED_MVP. O caso feliz (residência cadastrada) tem
+  // E2E próprio, ephemeral: validate-pipeline-e2e-regional-fund-pf-resolver.ts.)
   // ============================================================
-  console.log('\n=== T7 — receiver_identity_residence (PF) → POLICY_BASIS_UNSUPPORTED_MVP ===');
+  console.log('\n=== T7 — receiver_identity_residence (PF) SEM residência → POLICY_REGIONAL_ORIGIN_UNRESOLVABLE ===');
   await cleanupPolicies();
   await seedPolicy({
     code: `${POLICY_PREFIX}T7_pf_fail`,
@@ -628,8 +637,8 @@ async function main() {
     });
   } catch (e: any) {
     t7Caught = true;
-    assertOk('T7.1 — POLICY_BASIS_UNSUPPORTED_MVP para PF basis', {
-      ok: /POLICY_BASIS_UNSUPPORTED_MVP/.test(String(e?.message)),
+    assertOk('T7.1 — POLICY_REGIONAL_ORIGIN_UNRESOLVABLE (PF sem residência cadastrada)', {
+      ok: /POLICY_REGIONAL_ORIGIN_UNRESOLVABLE/.test(String(e?.message)),
       reason: `recebi: ${e?.message}`,
     });
   }

@@ -20,6 +20,7 @@ import { bankAccountService } from '../bank/bank-account.service';
 import { createPaymentIntentWithClient } from '@modules/payments/payment-intent-repository';
 import { economicPolicyEngineService } from '@modules/economy/policy-engine/economic-policy-engine.service';
 import { operationalAddressHelper } from '@core/location/operational-address.helper';
+import { locationRepository } from '@core/location/location.repository';
 import type {
   CalculatedEconomicSplit,
   EconomicPolicyLineType,
@@ -50,9 +51,11 @@ const SUPPORTED_DESTINATION_TYPES: ReadonlySet<EconomicPolicyDestinationType> = 
   'escrow_payments',
   // PE-5-RESOLVER-MVP (DECISION-0051, 2026-05-26): regional_fund habilitado
   // para PJ via address_assignments → ensureRegionalFundBankAccountForRegion.
-  // PF (receiver_identity_residence / payer_identity_residence) continua
-  // fail-closed — vide DT-PE5-PF-RESOLVER-PENDING (aguarda auditoria de
-  // profile_id canônico).
+  // PE-5-RESOLVER-V2 (Fatia 9 passo 3, 2026-07-05): PF (payer_identity_residence /
+  // receiver_identity_residence) TAMBÉM habilitado — resolve via
+  // address_assignments(owner_type='profile', role='RESIDENCE'), o mesmo SSOT
+  // canônico já usado por profile-residence-address.service.ts (DECISION-0074).
+  // Fecha DT-PE5-PF-RESOLVER-PENDING.
   'regional_fund',
 ] as const);
 
@@ -83,6 +86,7 @@ type ResolvedSplitDestination = {
  */
 async function resolveSplitDestinationFromPolicy(
   tenantId: string,
+  payerActorId: string,
   receiverActorId: string,
   calcSplit: CalculatedEconomicSplit,
   currency: 'BRL'
@@ -165,24 +169,30 @@ async function resolveSplitDestinationFromPolicy(
   //   - releaseToActorWallet=false (regional_fund NUNCA entra em
   //     metadata.splits liberável para actor_wallet).
   //
-  // Suporte MVP:
+  // Suporte MVP (PJ):
   //   - receiver_company_operational → address_assignments(owner_type=
   //     'service_provider', owner_id=<receiverActorId>, role='OPERATIONAL')
   //     via operationalAddressHelper.getOperationalAddressForActor.
   //   - receiver_company_hq → address_assignments(owner_type='company',
   //     owner_id=<receiverActor.company_id>, role='HQ').
   //
+  // Suporte V2 (PF, Fatia 9 passo 3 — fecha DT-PE5-PF-RESOLVER-PENDING):
+  //   - payer_identity_residence / receiver_identity_residence →
+  //     address_assignments(owner_type='profile', owner_id=<actor_id da PONTA
+  //     declarada pelo basis>, role='RESIDENCE') — mesmo SSOT de
+  //     profile-residence-address.service.ts (DECISION-0074).
+  //
   // FAIL-CLOSED (sem fallback):
-  //   - PF basis (payer/receiver_identity_residence): aguarda PE-5-RESOLVER-V2
-  //     + auditoria profile_id canônico (DT-PE5-PF-RESOLVER-PENDING).
   //   - service_location / transaction_location / explicit_economic_region:
   //     sem fonte material; vide DECISION-0049.
   //   - basis ausente quando destination_key é null: CHECK Postgres já
   //     bloqueia na escrita; resolver só é chamado com basis válido.
-  //   - HQ NÃO é fallback automático de OPERATIONAL.
+  //   - HQ NÃO é fallback automático de OPERATIONAL; residência ausente NÃO
+  //     cai pra endereço de outra ponta (payer≠receiver sempre).
   if (calcSplit.destinationType === 'regional_fund') {
     return await resolveRegionalFundDestination(
       tenantId,
+      payerActorId,
       receiverActorId,
       calcSplit,
       currency
@@ -195,8 +205,8 @@ async function resolveSplitDestinationFromPolicy(
 }
 
 /**
- * PE-5-RESOLVER-MVP (DECISION-0051, 2026-05-26) — resolver dinâmico de
- * regional_fund PJ-only.
+ * PE-5-RESOLVER-V2 (DECISION-0051 + Fatia 9 passo 3, 2026-07-05) — resolver
+ * dinâmico de regional_fund PJ+PF.
  *
  * Lê `regional_origin_basis` da policy line, busca endereço canônico,
  * resolve `(country, state, city)`, retorna `ensureRegionalFundBankAccountForRegion`.
@@ -206,6 +216,7 @@ async function resolveSplitDestinationFromPolicy(
  */
 async function resolveRegionalFundDestination(
   tenantId: string,
+  payerActorId: string,
   receiverActorId: string,
   calcSplit: CalculatedEconomicSplit,
   currency: 'BRL'
@@ -219,38 +230,39 @@ async function resolveRegionalFundDestination(
     );
   }
 
-  // PF basis: fail-closed no MVP (aguarda PE-5-RESOLVER-V2).
+  let regionCountry: string | null = null;
+  let regionState: string | null = null;
+  let regionCity: string | null = null;
+
+  // PF (Fatia 9 passo 3 — fecha DT-PE5-PF-RESOLVER-PENDING): resolve via a
+  // RESIDÊNCIA CIVIL da ponta declarada pelo basis (payer OU receiver — nunca
+  // a outra ponta como fallback). Mesmo SSOT de profile-residence-address
+  // (address_assignments owner_type='profile', role='RESIDENCE', DECISION-0074).
   if (basis === 'payer_identity_residence' || basis === 'receiver_identity_residence') {
+    const residenceActorId = basis === 'payer_identity_residence' ? payerActorId : receiverActorId;
+    const addr = await locationRepository.findPrimaryAddressByOwner('profile', residenceActorId, 'RESIDENCE');
+    if (!addr) {
+      throw new BadRequestError(
+        `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE: actor ${residenceActorId} (${basis === 'payer_identity_residence' ? 'payer' : 'receiver'}) ` +
+          `sem address_assignments(owner_type='profile', role='RESIDENCE') ativo. ` +
+          `Cadastre a residência civil (DECISION-0074) antes de policy line com basis='${basis}'.`
+      );
+    }
+    [regionCountry, regionState, regionCity] = await resolveCountryStateCityFromAddress(addr);
+  } else if (basis === 'service_location' || basis === 'transaction_location') {
+    // sem fonte material no schema.
     throw new BadRequestError(
       `POLICY_BASIS_UNSUPPORTED_MVP: basis='${basis}' não suportado em ` +
-        `PE-5-RESOLVER-MVP (DECISION-0051, PJ-only). Aguarda PE-5-RESOLVER-V2 ` +
-        `+ auditoria profile_id canônico (DT-PE5-PF-RESOLVER-PENDING).`
+        `PE-5-RESOLVER-V2 (sem services.primary_address_id no schema).`
     );
-  }
-
-  // service_location / transaction_location: sem fonte material no schema.
-  if (basis === 'service_location' || basis === 'transaction_location') {
-    throw new BadRequestError(
-      `POLICY_BASIS_UNSUPPORTED_MVP: basis='${basis}' não suportado em ` +
-        `PE-5-RESOLVER-MVP (sem services.primary_address_id no schema).`
-    );
-  }
-
-  // explicit_economic_region: bloqueado por economic_regions não materializada.
-  if (basis === 'explicit_economic_region') {
+  } else if (basis === 'explicit_economic_region') {
+    // bloqueado por economic_regions não materializada.
     throw new BadRequestError(
       `POLICY_BASIS_UNSUPPORTED_MVP: basis='explicit_economic_region' ` +
         `bloqueado — economic_regions não materializada ` +
         `(DT-PRESSURE-LOCATION-CORE-ECONOMIC-REGIONS-MISSING).`
     );
-  }
-
-  // === Resolução PJ ===
-  let regionCountry: string | null = null;
-  let regionState: string | null = null;
-  let regionCity: string | null = null;
-
-  if (basis === 'receiver_company_operational') {
+  } else if (basis === 'receiver_company_operational') {
     // Helper canônico do PE-5-CARTÓRIO. Já tenant-safe + valida ativo.
     const op = await operationalAddressHelper.getOperationalAddressForActor(
       tenantId,
@@ -558,6 +570,7 @@ class ServicePaymentExecutionService {
         if (calcSplit.amountCents === 0) continue;
         const dest = await resolveSplitDestinationFromPolicy(
           tenantId,
+          paymentRequest.payerActorId,
           paymentRequest.receiverActorId,
           calcSplit,
           'BRL'
