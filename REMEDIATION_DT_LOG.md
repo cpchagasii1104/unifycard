@@ -1003,6 +1003,7 @@
 - **Provas:** frontend `tsc --noEmit` **EXIT 0** · `validate:actor-writer-boundaries` **OK** · `validate:bank-ledger-boundaries` **OK** · `validate:regression-guards` **EXIT 0** · arch `--strict` **EXIT 0** `critical_new=0` · `git diff --check` limpo. Provas negativas: `/services/${...id}` e `/discover/services/${...id}` de Service = vazio (único hit `MeusCompromissosPage:364` é contrato SEPARADO `pending-responsibilities`, id real no backend, fora de escopo); alias removido; nenhum `svc/service.id` de objeto Service vivo restante.
 - **Fronteiras:** zero backend material · zero migration · zero DB write · zero dinheiro · **Δbank=0** · Bank/payout/checkout/settlement/reversal/disputes/workers intocados · availability backend fora de escopo · offerable/autocomplete fora de escopo · **DECISION-0144 intacta**.
 - **⚠️ DT-SERVICE-ORDER-GRANT-TENANT-MISSING-NETWORK-PROOF (OPEN / NEEDS_BROWSER_NETWORK_EVIDENCE):** o grant `service_order:view` falhando com "Tenant não encontrado" (`req.tenant?.id` falsy no request) ficou **fora de escopo** do Lote A (é problema distinto do contrato de id). Próxima etapa = capturar Network (request/response) no render-check para classificar GRANT_UX vs AUTHORITY_INPUT_GAP. NÃO tocar o grant antes da evidência de rede.
+  — 🟡 **RECLASSIFICADA (D_FIX Onda 2, 2026-07-05):** triagem marcou D_FIX/S, mas a própria entrada exige evidência de Network capturada num navegador real ("NÃO tocar o grant antes da evidência") — não é resolvível por leitura estática de código, precisa de reprodução ao vivo (dev server + browser) com um fluxo de usuário específico que eu não tenho como fabricar sem instrução de Clayton. Reclassificada **D_FIX → E_BLOCKED** (bloqueada por evidência, não por decisão nem por código). NÃO tocado.
 - **Próximo passo:** RENDER-CHECK BROWSER/MANUAL COM CLAYTON (`/services`→gerir→`/services/<uuid>`; ver vitrine→`/discover/services/<uuid>`; discovery→booking→aceite→service_order→inbox ORDER; no grant abrir Network ANTES de enviar).
 
 ## F-MVP-SERVICE-PUBLISH-OFFERABLE-AUTOCOMPLETE — ✅ MATERIAL / YALA PASS_WITH_WARNINGS / FECHADA — `/services/new` sugere só o que o actor pode publicar (opção A — ESTRITO) (2026-06-27)
@@ -7472,7 +7473,7 @@ A F1 **ignora** completamente o Plano B. O bloco `if (order.bookingId)` no `serv
 ---
 
 ## DT-SERVICE-ORDER-AUTHORITY
-
+- **🟡 RECLASSIFICADA (D_FIX Onda 2, 2026-07-05):** triagem marcou D_FIX/S. Read-first confirmou que `service_order:complete` é concedido a **4 papéis** (`OWNER, ADMIN, MANAGER, OPERATOR` — `business-permissions.types.ts:99`, comentário "Provider/Staff pode completar"), não só admin — qualquer um desses papéis pode marcar QUALQUER ordem da empresa como completa, sem cruzar com `order.workerActorId`. A própria dívida já enquadra a decisão certa: (a) reforço explícito de ownership, OU (b) confirmar que acesso amplo de staff é intencional e documentar. Isso exige entender o modelo de negócio pretendido (só o worker designado completa, ou qualquer staff da empresa?) — decisão de autoridade, não housekeeping. Reclassificada **D_FIX → A_DECISION**. NÃO tocado.
 - **Status:** OPEN (gap material; F1 não introduziu, herda do código legado)
 - **Severidade:** MEDIUM (gate genérico existe mas não cruza com `order.workerActorId`)
 - **Origem:** Sessão Camada 1 F1 (2026-05-26). Auditoria de `completeOrder` (`service-order.service.ts:307-319`) revelou que a autoridade depende **apenas** do gate genérico `authorityService.canPerformAction(actorId, 'service_order:complete', ...)`. NÃO há cruzamento explícito com `order.workerActorId === input.completedByActorId`.
@@ -12264,6 +12265,7 @@ exige read-only/ratificação própria + decisão de Clayton. Nenhum achado vira
   `profiles.cpf`. (A,C) (cruza com DECISION-0062 CPF SSOT — execução pendente.)
 - **DT-PROFILE-GET-WRITES-ON-READ** — `GET /profile` faz INSERT (auto-create na leitura). (C)
   Relaciona-se a `DT-CORE-PROFILE-GET-CREATES-ACTOR` (já registrada); side effect em leitura proibido.
+  — 🟡 **RECLASSIFICADA (D_FIX Onda 2, 2026-07-05):** triagem marcou D_FIX/S. Está sob o mesmo cabeçalho "MAPA, NÃO autorização de correção" já respeitado em `DT-AVAILABILITY-SSOT-NAME-DRIFT` (Onda 1) — norma do próprio cartório proíbe corrigir sem read-only próprio + decisão de Clayton. NÃO tocado.
 - **DT-PROFILE-PERSONAL-METADATA-NO-CONTRACT** — gênero/onboarding em JSONB sem contrato. (C)
 - **DT-PJ-PROFILE-BOUNDARY-UNVERIFIED** — fronteira PJ/CompaniesManager INCONCLUSIVA; exige passe
   read-only próprio. (A,B,C,D)
