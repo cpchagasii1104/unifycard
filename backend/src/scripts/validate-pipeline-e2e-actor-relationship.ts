@@ -18,6 +18,15 @@
  *   J · responder aresta não-pendente → 409;
  *   K · GET /mine com ?label= projeta a ótica CRM;
  *   L · Δbank=0 (nenhuma tabela de valor tocada).
+ *
+ * FATIA 2 — a PONTE colaborador→autoridade (grant = ato do dono, roteado pro fluxo vivo):
+ *   M · a FUNCIONÁRIA que aceitou tenta se auto-conceder via a ponte → 403, company_users intacto;
+ *   N · estranho tenta conceder → 403;
+ *   O · o DONO concede (staff/active) → 201; company_users ganha a linha SEM can_manage_company;
+ *       a delegação mintada é ESCOPADA (sem '*') e canRepresentActor(funcionária→page) segue FALSE
+ *       (relação + membership ≠ representação em branco — contenção de escopo ① preservada);
+ *   P · ponte numa aresta que NÃO é colaborador pela ótica da empresa → 422;
+ *   Q · ponte numa aresta colaborador ainda PENDENTE → 409 (grant só após aceite).
  */
 
 import 'tsconfig-paths/register';
@@ -92,6 +101,7 @@ async function main(): Promise<void> {
   const padaria = await mkCompanyPageActor(TENANT, 'Padaria Rel E2E', carlos.gu, carlos.actorId);
 
   const actorRelationshipRoutes = (await import('../modules/relationships/actor-relationship.routes')).default;
+  const membershipBridgeRoutes = (await import('../modules/relationships/actor-relationship-membership-bridge.routes')).default;
   const app = Fastify();
   app.decorateRequest('user', null);
   app.decorateRequest('tenant', null);
@@ -105,6 +115,7 @@ async function main(): Promise<void> {
     req.actionContext = aid ? { actorId: aid, intent: 'e2e', source: 'e2e', scope: 'e2e' } : null;
   });
   await app.register(actorRelationshipRoutes);
+  await app.register(membershipBridgeRoutes);
   await app.ready();
 
   const call = (method: 'GET' | 'POST', url: string, opts: { userId?: string; actorId?: string; body?: unknown } = {}) =>
@@ -250,6 +261,69 @@ async function main(): Promise<void> {
       rK1.statusCode === 200 && k1.length === 1 && k1[0].id === edgeH.id &&
       rK2.statusCode === 200 && k2.length === 1 && k2[0].id === edgeH.id,
       `padaria=${k1.length} ana=${k2.length}`);
+
+    // ══ FATIA 2 — A PONTE colaborador→autoridade ══════════════════════════════
+
+    // M · a FUNCIONÁRIA (ana, que aceitou a conexão) tenta se auto-conceder → 403
+    const cuBeforeBridge = await pool.query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM company_users`);
+    const rM = await call('POST', `/relationships/${edgeH.id}/grant-membership`, {
+      userId: ana.userId, actorId: ana.actorId,
+      body: { role: 'staff', status: 'active' },
+    });
+    const cuAfterM = await pool.query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM company_users`);
+    record('M funcionária tenta AUTO-GRANT via a ponte → 403, company_users intacto',
+      rM.statusCode === 403 && cuAfterM.rows[0].n === cuBeforeBridge.rows[0].n,
+      `status=${rM.statusCode} cu=${cuBeforeBridge.rows[0].n}→${cuAfterM.rows[0].n}`);
+
+    // N · estranha (bia) tenta conceder → 403
+    const rN = await call('POST', `/relationships/${edgeH.id}/grant-membership`, {
+      userId: bia.userId, actorId: bia.actorId,
+      body: { role: 'staff', status: 'active' },
+    });
+    record('N estranho tenta conceder → 403', rN.statusCode === 403, `status=${rN.statusCode}`);
+
+    // O · o DONO (carlos, canManageCompany) concede staff/active → 201; substrato real correto
+    const rO = await call('POST', `/relationships/${edgeH.id}/grant-membership`, {
+      userId: carlos.userId, actorId: carlos.actorId,
+      body: { role: 'staff', status: 'active' },
+    });
+    const oBody = (rO.json() as any)?.data;
+    const memberRow = await pool.query<{ role: string; member_status: string; cmc: boolean | null }>(
+      `SELECT role, member_status, can_manage_company AS cmc FROM company_users WHERE tenant_id=$1 AND company_id=$2 AND global_user_id=$3`,
+      [TENANT, padaria.companyId, ana.gu]
+    );
+    const delegRow = await pool.query<{ s: string }>(
+      `SELECT scopes_json::text AS s FROM actor_delegations WHERE tenant_id=$1 AND user_actor_id=$2 AND institutional_actor_id=$3 AND status='active'`,
+      [TENANT, ana.actorId, padaria.pageActorId]
+    );
+    const { authorizationService } = await import('../core/authorization/authorization.service');
+    const anaRepresentsPage = await authorizationService.canRepresentActor(TENANT, ana.userId, padaria.pageActorId);
+    record('O dono concede → 201; company_users staff/active SEM can_manage_company; delegação ESCOPADA (sem *); canRepresentActor(funcionária→page) segue FALSE',
+      rO.statusCode === 201 && oBody?.role === 'staff' &&
+      memberRow.rows.length === 1 && memberRow.rows[0].role === 'staff' && memberRow.rows[0].member_status === 'active' && memberRow.rows[0].cmc !== true &&
+      delegRow.rows.length === 1 && !delegRow.rows[0].s.includes('"*"') &&
+      anaRepresentsPage === false,
+      `status=${rO.statusCode} member=${JSON.stringify(memberRow.rows[0] ?? null)} deleg=${delegRow.rows[0]?.s} represents=${anaRepresentsPage}`);
+
+    // P · ponte numa aresta que NÃO é colaborador (ana↔bia 'amigo', accepted no caso D) → 422
+    const rP = await call('POST', `/relationships/${edgeAB.id}/grant-membership`, {
+      userId: carlos.userId, actorId: carlos.actorId,
+      body: { role: 'staff' },
+    });
+    record("P ponte em aresta não-colaborador → 422", rP.statusCode === 422, `status=${rP.statusCode}`);
+
+    // Q · ponte numa aresta colaborador PENDENTE (padaria→bia) → 409
+    const rQ0 = await call('POST', '/relationships', {
+      userId: carlos.userId, actorId: padaria.pageActorId,
+      body: { toActorId: bia.actorId, requesterLabel: 'colaborador' },
+    });
+    const edgeQ = (rQ0.json() as any)?.data;
+    const rQ = await call('POST', `/relationships/${edgeQ?.id}/grant-membership`, {
+      userId: carlos.userId, actorId: carlos.actorId,
+      body: { role: 'staff' },
+    });
+    record('Q ponte em aresta pendente → 409 (grant só após aceite)',
+      rQ0.statusCode === 201 && rQ.statusCode === 409, `envio=${rQ0.statusCode} grant=${rQ.statusCode}`);
 
     // L · Δbank = 0
     const bankAfter = await pool.query<{ n: string }>(

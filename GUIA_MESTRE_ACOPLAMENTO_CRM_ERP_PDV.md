@@ -152,8 +152,19 @@ ghost morre na Fatia 7 (fecha a DT). Migração + wiring cuidadoso, não rip-rep
 módulo `src/modules/relationships/` (rotas `/relationships` · `/:id/respond` · `/mine`, canRepresentActor
 no envio E aceite) · guard `audit-actor-relationship-boundary.mjs` (20 checks, na suite, negative-proof
 mordeu) · E2E adversarial 12/12 PASS efêmero (aceite de colaborador NÃO cria company_users; Δbank=0) ·
-regression-guards VERDE · cartório atualizado. **Próxima fatia = 2 (convite→aceite classificado UI/
-onboarding) sob GO de Clayton.**
+regression-guards VERDE · cartório atualizado.
+
+**✅ FATIA 2 EXECUTADA E FECHADA (2026-07-04, GO "execute o próximo passo"):** a PONTE colaborador→
+autoridade — `POST /relationships/:id/grant-membership` (`actor-relationship-membership-bridge.routes.ts`,
+arquivo separado, módulo da aresta segue puro). Precondições server-side: aresta accepted + um lado
+empresa/um lado PF + ótica da EMPRESA = colaborador (bidirecional converge) + **canManageCompany
+INLINE fail-closed** (funcionário nunca se auto-concede) → roteia `companyMembersService.createMember`
+(company_users SSOT DECISION-0042; role/status governados; nunca can_manage_company). O gate
+baseline-ratchet MORDEU o handler novo durante a construção (binding fora do segmento) → catraca
+inlined, não allowlist. Guard +8 checks (28) · negative-proof mordeu · E2E 17/17 (auto-grant 403;
+dono concede → delegação ESCOPADA sem `*`; canRepresentActor(funcionária→page)=FALSE; Δbank=0) ·
+regression-guards exit=0. **Próxima fatia = 3 (casca universal + registro de blocos + contrato
+server-driven) sob GO de Clayton.**
 
 ---
 

@@ -86,6 +86,35 @@ check('migration: NÃO toca purchase_orders (FK supplier_id do fluxo vivo intact
 check('migration: NÃO dropa/renomeia nada de suppliers (só ADD COLUMN)',
   !/ALTER TABLE suppliers (DROP|RENAME|ALTER COLUMN)/i.test(migration));
 
+// 6 · FATIA 2 — a PONTE colaborador→autoridade (arquivo SEPARADO: o módulo da aresta segue puro).
+//     O grant é ato do DONO (canManageCompany revalidado), roteado pro fluxo VIVO de membros
+//     (companyMembersService → company_users SSOT DECISION-0042) — nunca INSERT paralelo,
+//     nunca can_manage_company, alvo/empresa derivados DA ARESTA (body sem actorId/companyId).
+const bridge = read('src/modules/relationships/actor-relationship-membership-bridge.routes.ts');
+const bridgeCode = stripComments(bridge);
+check('bridge: gate canManageCompany fail-closed ANTES do grant (o funcionário não se auto-concede)',
+  /companiesService\.canManageCompany\(tenantId, companyId, callerGlobalUserId\)/.test(bridgeCode) &&
+  /if \(!callerCanManage\)/.test(bridgeCode) &&
+  bridgeCode.indexOf('canManageCompany(tenantId, companyId') < bridgeCode.indexOf('companyMembersService.createMember'));
+check('bridge: autoridade deriva de req.user (principal), nunca de actionContext como autoridade',
+  /user\?\.userId \?\? \(req as any\)\.user\?\.id/.test(bridgeCode) && /resolveGlobalUserId\(callerUserId, tenantId\)/.test(bridgeCode) &&
+  !/canManageCompany\([^)]*actionContext/.test(bridgeCode));
+check('bridge: roteia pro fluxo VIVO (companyMembersService.createMember) — zero INSERT/UPDATE paralelo em company_users',
+  /companyMembersService\.createMember/.test(bridgeCode) &&
+  !/INSERT INTO company_users|UPDATE company_users/i.test(bridgeCode));
+check('bridge: NUNCA escreve can_manage_company (dono só nasce com a empresa)',
+  !/can_manage_company|canManageCompany:\s*true/.test(bridgeCode.replace(/canManageCompany\(/g, '')));
+check('bridge: exige aresta accepted + ótica da empresa = colaborador (bidirecional converge)',
+  /status !== 'accepted'/.test(bridgeCode) && /companyLabelForPerson !== 'colaborador'/.test(bridgeCode) &&
+  /fromIsCompany \? edge\.requesterLabel : edge\.targetLabel/.test(bridgeCode));
+check('bridge: alvo e empresa derivados DA ARESTA server-side (body não carrega actorId/companyId)',
+  !/\bbody\??\.actorId\b|\bbody\??\.companyId\b|req\.body\.actorId|req\.body\.companyId/.test(bridgeCode) &&
+  /grantSchema = z\.object\(\{\s*role:.*\s*status:.*\s*\}\)/m.test(bridge));
+check('bridge: role/status do vocabulário GOVERNADO (z.nativeEnum do fluxo vivo, sem texto livre)',
+  /z\.nativeEnum\(CompanyMemberRole\)/.test(bridge) && /z\.nativeEnum\(CompanyMemberStatus\)/.test(bridge));
+check('bridge: zero dinheiro (bank_/ledger/payment)',
+  !/bank_|ledger|payment|payout/i.test(bridgeCode));
+
 if (fails.length) {
   console.error(`\nACTOR-RELATIONSHIP-BOUNDARY: ${fails.length} FAIL`);
   process.exit(1);

@@ -710,6 +710,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     const actorRelationshipModule = await import('./modules/relationships/actor-relationship.routes');
     await protectedScope.register(actorRelationshipModule.default);
     console.log('[BOOT] Actor Relationships module registered: /relationships');
+    // F-ACTOR-RELATIONSHIP-MEMBERSHIP-BRIDGE-SLICE-2: ponte colaborador→autoridade (grant = ato do dono
+    // canManageCompany, roteado pro fluxo vivo de membros/company_users — aceite social não concede poder)
+    const relationshipBridgeModule = await import('./modules/relationships/actor-relationship-membership-bridge.routes');
+    await protectedScope.register(relationshipBridgeModule.default);
+    console.log('[BOOT] Relationship membership bridge registered: /relationships/:id/grant-membership');
     
     console.log('[BOOT] Todos os módulos protegidos registrados');
   });
