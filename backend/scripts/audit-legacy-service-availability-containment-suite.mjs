@@ -54,6 +54,7 @@ const guards = [
   'audit-actor-impersonation-writes.mjs',                             // triagem handler-level: identity /update (BOLA civil) + social reactions/comments + feed /action provam representação (0113)
   'audit-delegation-scope-containment.mjs',                           // DT-AUTHORITY-LATENTS-PASSO-3 ①: canRepresentActor por delegação exige escopo FULL (*); escopada não concede representação em branco
   'measure-handler-authority-gap.mjs',                                // GATE baseline-ratchet (fix G1 YALA #2): handler de mutação novo com canal client-declared sem binding, fora do baseline triado, MORDE
+  'audit-actor-relationship-boundary.mjs',                            // F-ACTOR-RELATIONSHIP-TYPED-EDGE-SLICE-1: aresta de relação tipada — relação≠autoridade (zero company_users/bank_*), vocabulário governado, canRepresentActor no envio+aceite, ponte suppliers.actor_id sem tocar purchase_orders
   // ⚠️ EXCEÇÃO de custo (achado B4 / DECISION-0158): este NÃO é guard pequeno — roda tsc (tsconfig.build)
   // + os 2 validadores financeiros (~60-90s). Entrou aqui porque a cadeia validate:regression-guards
   // estourou o limite de linha de comando do Windows ao ser estendida diretamente. O custo é o preço

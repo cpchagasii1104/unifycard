@@ -134,7 +134,7 @@ Ver `DESENHO_PAGINA_DO_ACTOR.md` (SELADO) e `SPEC_FATIA1_RELACAO_TIPADA.md`.
 
 ---
 
-## 4. 🔴 A DECISÃO BLOQUEANTE (Clayton precisa steerar — reconciliação do CRM)
+## 4. ✅ DECISÃO TOMADA (Clayton 2026-07-04): OPÇÃO B RATIFICADA — reconciliação do CRM
 
 `suppliers` (VIVO, registro digitado) vs a futura aresta de relação (actor↔actor) = risco de **fonte
 paralela** para "meus fornecedores". Três caminhos (ver detalhe em `SPEC_FATIA1_RELACAO_TIPADA.md`):
@@ -143,8 +143,17 @@ paralela** para "meus fornecedores". Três caminhos (ver detalhe em `SPEC_FATIA1
   converge; **mata `contacts` fantasma**. Mais ambicioso, coerência total (a tese "unifica").
 - **(C)** reconciliar `suppliers`/`contacts` ANTES de construir a aresta.
 
-**Recomendação da executora: (B)** — honra "unifica" e mata dívida em vez de criar. Mas é decisão de
-Clayton. **NÃO construir a Fatia 1 até isso decidir** (senão viola as leis 1 e 2).
+**✅ Clayton confirmou a OPÇÃO B (2026-07-04, pós-compactação, via AskUserQuestion):** aresta = CRM
+único; `suppliers.actor_id` ponte nullable SEM quebrar `purchase_orders.supplier_id`; `contacts`
+ghost morre na Fatia 7 (fecha a DT). Migração + wiring cuidadoso, não rip-replace.
+
+**✅ FATIA 1 EXECUTADA E FECHADA (2026-07-04):** migration `20260704120000_actor_relationships_typed_edge.sql`
+(aresta + vocabulário CHECK seed §7 + UNIQUE par não-ordenado + RLS FORCE + ponte suppliers.actor_id) ·
+módulo `src/modules/relationships/` (rotas `/relationships` · `/:id/respond` · `/mine`, canRepresentActor
+no envio E aceite) · guard `audit-actor-relationship-boundary.mjs` (20 checks, na suite, negative-proof
+mordeu) · E2E adversarial 12/12 PASS efêmero (aceite de colaborador NÃO cria company_users; Δbank=0) ·
+regression-guards VERDE · cartório atualizado. **Próxima fatia = 2 (convite→aceite classificado UI/
+onboarding) sob GO de Clayton.**
 
 ---
 

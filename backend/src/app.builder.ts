@@ -706,6 +706,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     const publicProfileModule = await import('./modules/public-profiles/public-profile.routes');
     await protectedScope.register(publicProfileModule.default);
     console.log('[BOOT] Public Profiles module registered: /public-profiles');
+    // F-ACTOR-RELATIONSHIP-TYPED-EDGE-SLICE-1: aresta de relação tipada (social+CRM+B2B; relação≠autoridade)
+    const actorRelationshipModule = await import('./modules/relationships/actor-relationship.routes');
+    await protectedScope.register(actorRelationshipModule.default);
+    console.log('[BOOT] Actor Relationships module registered: /relationships');
     
     console.log('[BOOT] Todos os módulos protegidos registrados');
   });
