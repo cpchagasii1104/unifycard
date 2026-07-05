@@ -18,7 +18,7 @@
 //   - Cadastro NÃO bloqueia por kyc_status='pending' (somente uso real exige strict).
 //   - kyc_status NULL (identity ausente) bloqueia — sem identity não há tax_id.
 
-import { pool, runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { normalizeTaxId, validateCPF, validateCNPJ } from '@core/kyc/kyc.validators';
 import {
   toActorBankDestination,
@@ -329,7 +329,10 @@ class ActorBankDestinationService {
     }
 
     // 7. INSERT (TRIGGER de "conta própria" é camada B; valida novamente no DB)
-    const result = await pool.query<ActorBankDestinationRow>(
+    // DT-RAW-POOL-RLS-ACCESS-INHERITS-STALE-GUC (achado N4, corrigido D_FIX Onda 2, 2026-07-05):
+    // pool.query cru sem tenant-context — corrigido pra runQueryWithTenant em todo o arquivo.
+    const row = await runQueryWithTenant<ActorBankDestinationRow>(
+      input.tenantId,
       `INSERT INTO actor_bank_destinations
          (tenant_id, actor_id, destination_type,
           pix_key_type, pix_key_value_normalized,
@@ -366,7 +369,7 @@ class ActorBankDestinationService {
       ]
     );
 
-    return toActorBankDestination(result.rows[0]!);
+    return toActorBankDestination(row!);
   }
 
   /** Lista destinos do actor (ordenado por created_at DESC). */
@@ -376,7 +379,8 @@ class ActorBankDestinationService {
     options: { includeArchived?: boolean } = {}
   ): Promise<ActorBankDestination[]> {
     const includeArchived = options.includeArchived ?? false;
-    const result = await pool.query<ActorBankDestinationRow>(
+    const rows = await runQueriesWithTenant<ActorBankDestinationRow>(
+      tenantId,
       `SELECT id, tenant_id, actor_id, destination_type,
               pix_key_type, pix_key_value_normalized,
               bank_code, bank_name, agency_number, account_number, account_digit, account_type,
@@ -390,11 +394,12 @@ class ActorBankDestinationService {
         ORDER BY created_at DESC`,
       [tenantId, actorId]
     );
-    return result.rows.map(toActorBankDestination);
+    return rows.map(toActorBankDestination);
   }
 
   async getById(tenantId: string, id: string): Promise<ActorBankDestination | null> {
-    const result = await pool.query<ActorBankDestinationRow>(
+    const row = await runQueryWithTenant<ActorBankDestinationRow>(
+      tenantId,
       `SELECT id, tenant_id, actor_id, destination_type,
               pix_key_type, pix_key_value_normalized,
               bank_code, bank_name, agency_number, account_number, account_digit, account_type,
@@ -407,7 +412,7 @@ class ActorBankDestinationService {
         LIMIT 1`,
       [tenantId, id]
     );
-    return result.rows[0] ? toActorBankDestination(result.rows[0]) : null;
+    return row ? toActorBankDestination(row) : null;
   }
 
   /**
@@ -419,7 +424,8 @@ class ActorBankDestinationService {
     id: string,
     method: 'manual_review' = 'manual_review'
   ): Promise<ActorBankDestination> {
-    const result = await pool.query<ActorBankDestinationRow>(
+    const row = await runQueryWithTenant<ActorBankDestinationRow>(
+      tenantId,
       `UPDATE actor_bank_destinations
           SET status = 'verified',
               ownership_verification_method = $1,
@@ -428,13 +434,13 @@ class ActorBankDestinationService {
         RETURNING *`,
       [method, tenantId, id]
     );
-    if (!result.rows[0]) {
+    if (!row) {
       throw new ActorBankDestinationError(
         'ACTOR_BANK_DEST_NOT_FOUND',
         `actor_bank_destination ${id} não encontrado para tenant ${tenantId}`
       );
     }
-    return toActorBankDestination(result.rows[0]);
+    return toActorBankDestination(row);
   }
 
   async markRejected(
@@ -449,7 +455,8 @@ class ActorBankDestinationService {
         'rejected_reason obrigatório (não vazio)'
       );
     }
-    const result = await pool.query<ActorBankDestinationRow>(
+    const row = await runQueryWithTenant<ActorBankDestinationRow>(
+      tenantId,
       `UPDATE actor_bank_destinations
           SET status = 'rejected',
               rejected_reason = $1
@@ -457,17 +464,18 @@ class ActorBankDestinationService {
         RETURNING *`,
       [trimmedReason, tenantId, id]
     );
-    if (!result.rows[0]) {
+    if (!row) {
       throw new ActorBankDestinationError(
         'ACTOR_BANK_DEST_NOT_FOUND',
         `actor_bank_destination ${id} não encontrado para tenant ${tenantId}`
       );
     }
-    return toActorBankDestination(result.rows[0]);
+    return toActorBankDestination(row);
   }
 
   async archive(tenantId: string, id: string): Promise<ActorBankDestination> {
-    const result = await pool.query<ActorBankDestinationRow>(
+    const row = await runQueryWithTenant<ActorBankDestinationRow>(
+      tenantId,
       `UPDATE actor_bank_destinations
           SET status = 'archived',
               archived_at = NOW()
@@ -475,13 +483,13 @@ class ActorBankDestinationService {
         RETURNING *`,
       [tenantId, id]
     );
-    if (!result.rows[0]) {
+    if (!row) {
       throw new ActorBankDestinationError(
         'ACTOR_BANK_DEST_NOT_FOUND',
         `actor_bank_destination ${id} não encontrado para tenant ${tenantId}`
       );
     }
-    return toActorBankDestination(result.rows[0]);
+    return toActorBankDestination(row);
   }
 }
 

@@ -263,12 +263,17 @@ export const productOfferingService = {
     availableQuantity?: number | null;
     status?: 'draft' | 'active' | 'inactive' | null;
   }): Promise<void> {
-    const offer = await pool.query<{ merchant_id: string }>(
+    // DT-RAW-POOL-RLS-ACCESS-INHERITS-STALE-GUC (achado N4, corrigido D_FIX Onda 2, 2026-07-05):
+    // product_offers tem RLS+FORCE. pool.query cru + UPDATE sem RETURNING/checagem de linha
+    // afetada era um no-op silencioso possível sob GUC stale (usuário recebe "sucesso" mas o
+    // preço/status nunca muda). Corrigido pra runQueryWithTenant + RETURNING id com checagem.
+    const offer = await runQueryWithTenant<{ merchant_id: string }>(
+      input.tenantId,
       `SELECT merchant_id FROM product_offers WHERE id = $1::uuid AND tenant_id = $2::uuid LIMIT 1`,
       [input.offerId, input.tenantId]
     );
-    if (offer.rowCount === 0) throw new ProductOfferingError(404, 'OFFER_NOT_FOUND', 'Oferta inexistente.');
-    const canRep = await authorizationService.canRepresentActor(input.tenantId, input.userId, offer.rows[0].merchant_id);
+    if (!offer) throw new ProductOfferingError(404, 'OFFER_NOT_FOUND', 'Oferta inexistente.');
+    const canRep = await authorizationService.canRepresentActor(input.tenantId, input.userId, offer.merchant_id);
     if (!canRep) {
       throw new ProductOfferingError(403, 'OFFER_ACTOR_NOT_REPRESENTABLE',
         'Empresa só altera a própria oferta (merchant não representável).');
@@ -276,15 +281,20 @@ export const productOfferingService = {
     if (input.priceCents != null && (!Number.isInteger(input.priceCents) || input.priceCents < 0)) {
       throw new ProductOfferingError(400, 'OFFER_PRICE_INVALID', 'priceCents inteiro ≥ 0.');
     }
-    await pool.query(
+    const updated = await runQueryWithTenant<{ id: string }>(
+      input.tenantId,
       `UPDATE product_offers SET
          price_cents = COALESCE($3, price_cents),
          available_quantity = COALESCE($4, available_quantity),
          status = COALESCE($5, status),
          is_active = (COALESCE($5, status) = 'active'),
          updated_at = NOW()
-       WHERE id = $1::uuid AND tenant_id = $2::uuid`,
+       WHERE id = $1::uuid AND tenant_id = $2::uuid
+       RETURNING id`,
       [input.offerId, input.tenantId, input.priceCents ?? null, input.availableQuantity ?? null, input.status ?? null]
     );
+    if (!updated) {
+      throw new ProductOfferingError(404, 'OFFER_NOT_FOUND', 'Oferta inexistente (UPDATE não afetou linha).');
+    }
   },
 };
