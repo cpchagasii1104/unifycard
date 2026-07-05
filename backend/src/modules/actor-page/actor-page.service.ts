@@ -36,6 +36,7 @@ import { resolveTemporalPurposeSlugById } from '@core/availability/temporal-purp
 import { operationalAddressHelper } from '@core/location/operational-address.helper';
 import { getFullAddress } from '@core/location/address-helpers';
 import { supportTicketRepository } from '@modules/support-tickets/support-ticket.repository';
+import { purchaseOrderRepository } from '@modules/marketplace/purchase-order.repository';
 
 /** Teto de itens por bloco nesta fatia — sem paginação ainda (conteúdo cabe numa página inicial). */
 const BLOCK_ITEMS_LIMIT = 10;
@@ -149,6 +150,39 @@ class ActorPageService {
     if (location) {
       blocks.push({ type: 'location', tab: 'location', deeplink: null, data: { ...location } });
       tabs.push({ key: 'location', label: 'Localização' });
+    }
+
+    // F-ERP-COMPOSED-VIEW (Fatia 8) — vista integrada estoque+pedidos+agenda+financeiro, SÓ em
+    // mode='operating' (gated por canRepresentActor na ROTA) e SÓ pra empresa (DECISION-0133:
+    // owner empresarial = page+company_id). COMPOSIÇÃO PURA: estoque/agenda REUSAM os blocos JÁ
+    // computados acima (zero leitura nova); pedidos usa o único reader novo desta fatia
+    // (purchaseOrderRepository.listByOwner, escopado por owner_actor_id em SQL). Financeiro é
+    // SÓ deeplink — nunca valor monetário embutido no contrato (fronteira anti-dinheiro do módulo, §topo).
+    if (mode === 'operating' && actor.actor_type === 'page' && actor.company_id) {
+      const productsBlock = blocks.find((b) => b.type === 'products');
+      const agendaBlock = blocks.find((b) => b.type === 'agenda');
+      const purchaseOrders = await purchaseOrderRepository.listByOwner(tenantId, actorId, { limit: BLOCK_ITEMS_LIMIT });
+      blocks.push({
+        type: 'erp',
+        tab: 'erp',
+        deeplink: null,
+        data: {
+          count: purchaseOrders.length,
+          stock: { count: (productsBlock?.data.count as number) ?? 0, items: productsBlock?.data.items ?? [] },
+          agenda: { count: (agendaBlock?.data.count as number) ?? 0 },
+          purchaseOrders: {
+            count: purchaseOrders.length,
+            items: purchaseOrders.map((po) => ({
+              id: po.id,
+              supplierId: po.supplierId,
+              status: po.status,
+              orderDate: po.orderDate,
+            })),
+          },
+          financeiro: { deeplink: '/wallet' },
+        },
+      });
+      tabs.push({ key: 'erp', label: 'ERP' });
     }
 
     const lit = new Set(blocks.map((b) => b.type));

@@ -8,7 +8,10 @@
 //   · anti-PII — o contrato nunca carrega CPF/kyc/global_user_id/documentos/dinheiro;
 //   · Comprar/Contratar RENDERIZAM mas nascem gated: enabled:false, gatedBy:'PORTA-1' (§6);
 //   · quais blocos acendem = derivado do que o actor PUBLICOU (probes no substrato vivo),
-//     nunca aba hardcoded por vertical (§2.2b).
+//     nunca aba hardcoded por vertical (§2.2b);
+//   · F-ERP-COMPOSED-VIEW (Fatia 8): o bloco 'erp' (mode=operating, empresa) compõe
+//     estoque+pedidos+agenda in-page, mas o pilar FINANCEIRO é só deeplink ('/wallet') — NUNCA
+//     valor monetário embutido no contrato (mantém a fronteira anti-dinheiro literal desta linha).
 
 export type ActorPageMode = 'consuming' | 'operating';
 
@@ -41,7 +44,7 @@ export interface ActorPageAction {
 }
 
 export interface ActorPageTab {
-  key: 'all' | 'about' | 'posts' | 'products' | 'services' | 'rentals' | 'agenda' | 'schedule_events' | 'location';
+  key: 'all' | 'about' | 'posts' | 'products' | 'services' | 'rentals' | 'agenda' | 'schedule_events' | 'location' | 'erp';
   label: string;
 }
 

@@ -257,7 +257,23 @@ autoridade); ratchet financeiro baixou (3846→3830/587→586) com a remoção d
 atualizado no mesmo commit (regra DECISION-0158). Guard 15 checks + negative-proof (2 mutações
 mordidas) · E2E 8/8 (inclui prova de que `purchase_orders` continua insertável — ERP sem
 regressão) · typecheck 0 · regression-guards exit=0. Frontend aguarda sign-off visual.
-**Próxima fatia = 8 (ERP composto) sob GO de Clayton.**
+
+**✅ FATIA 8 EXECUTADA E FECHADA (2026-07-05, GO "execute o próximo passo"):** ERP composto —
+vista integrada estoque+pedidos+agenda+financeiro. **Achado que refina este guia:**
+accounts-payable/accounts-receivable (citados aqui como parte do "financeiro") estão DESLIGADOS
+por decisão institucional própria (DECISION-0114 D5, Proxy reject-all + 403 fail-closed) —
+religar exige frente própria, não é gap desta fatia. **Financeiro virou deeplink-only** (`/wallet`,
+zero número embutido) — respeita literalmente a fronteira anti-dinheiro já documentada desde a
+Fatia 3 ("o contrato nunca carrega... dinheiro"), mesmo confirmando que leitura de saldo é
+tecnicamente distinta de PORTA-1. Novo bloco/aba `erp` no contrato server-driven, SÓ em
+`mode=operating` + empresa (page+company_id, DECISION-0133) — nunca visitante, nunca página
+pessoal. Composição pura: estoque/agenda REUSAM os blocos já computados na mesma chamada (zero
+leitura nova); pedidos usa o único reader novo (`purchaseOrderRepository.listByOwner`, escopado
+em SQL por owner_actor_id). Guard 11 checks + negative-proof (2 mutações mordidas: gate operating
+removido, campo de saldo vazando) · E2E 7/7 (isolamento entre empresas provado; financeiro com
+EXATAMENTE a chave `deeplink`, prova formal de zero dinheiro) · typecheck 0 · regression-guards
+exit=0. Frontend aguarda sign-off visual. **Próxima fatia = 9 (PDV acoplado + orquestração B2B —
+PORTA-1, dinheiro soberano) sob GO de Clayton.**
 
 ---
 

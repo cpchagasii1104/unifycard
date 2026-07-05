@@ -251,6 +251,27 @@ class PurchaseOrderRepository {
     return rows.map((row) => this.toPurchaseOrder(row));
   }
 
+  /**
+   * F-ERP-COMPOSED-VIEW (Fatia 8): lista PO's de UMA empresa (owner_actor_id), escopado em SQL —
+   * evita o full-tenant-scan + pós-filtro que a rota `GET /purchase-orders` faz hoje
+   * (`canRepresentActor` por linha). Autoridade sobre `ownerActorId` é responsabilidade do
+   * CALLER (aqui, o actor-page em mode=operating já provou canRepresentActor na rota).
+   */
+  async listByOwner(tenantId: string, ownerActorId: string, options: { limit?: number } = {}): Promise<PurchaseOrder[]> {
+    const rows = await runQueriesWithTenant<PurchaseOrderRow>(
+      tenantId,
+      `
+      SELECT ${this.poSelectList}
+      FROM purchase_orders
+      WHERE tenant_id = $1 AND owner_actor_id = $2
+      ORDER BY order_date DESC
+      LIMIT $3
+      `,
+      [tenantId, ownerActorId, options.limit ?? 10]
+    );
+    return rows.map((row) => this.toPurchaseOrder(row));
+  }
+
   async addItem(
     tenantId: string,
     orderId: string,

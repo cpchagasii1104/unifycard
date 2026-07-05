@@ -19,6 +19,7 @@ import {
   type ActorPageServiceItem,
   type ActorPageProductItem,
   type ActorPageAgendaItem,
+  type ActorPagePurchaseOrderItem,
 } from '../api/actor-page';
 import { sendRelationshipRequest, type RelationshipLabel } from '../api/relationships';
 import {
@@ -368,6 +369,59 @@ export default function ActorPage() {
             <h2>Localização</h2>
             <p>{parts.length > 0 ? parts.join(', ') : 'Localização não informada.'}</p>
             <p className="muted actor-location-note">Endereço exato não é exibido publicamente.</p>
+          </section>
+        );
+      }
+      case 'erp': {
+        const stock = (block.data.stock ?? { count: 0, items: [] }) as { count: number; items: ActorPageProductItem[] };
+        const agenda = (block.data.agenda ?? { count: 0 }) as { count: number };
+        const purchaseOrders = (block.data.purchaseOrders ?? { count: 0, items: [] }) as { count: number; items: ActorPagePurchaseOrderItem[] };
+        const financeiro = (block.data.financeiro ?? {}) as { deeplink?: string };
+        return (
+          <section key="erp" className="actor-block actor-erp-block">
+            <h2>ERP</h2>
+            <div className="actor-erp-grid">
+              <div className="actor-erp-card">
+                <h3>Estoque</h3>
+                {stock.items.length === 0 ? (
+                  <p className="muted">Nenhum produto publicado.</p>
+                ) : (
+                  <ul className="actor-item-list">
+                    {stock.items.map((p) => (
+                      <li key={p.offerId} className="actor-item-card">
+                        <span>{p.name}</span>
+                        <span>{p.availableQuantity} un.</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="actor-erp-card">
+                <h3>Pedidos de compra</h3>
+                {purchaseOrders.items.length === 0 ? (
+                  <p className="muted">Nenhum pedido de compra.</p>
+                ) : (
+                  <ul className="actor-item-list">
+                    {purchaseOrders.items.map((po) => (
+                      <li key={po.id} className="actor-item-card">
+                        <span>{po.status}</span>
+                        <span>{new Date(po.orderDate).toLocaleDateString('pt-BR')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="actor-erp-card">
+                <h3>Agenda</h3>
+                <p>{agenda.count} horário(s) futuro(s) publicado(s).</p>
+              </div>
+              <div className="actor-erp-card">
+                <h3>Financeiro</h3>
+                {financeiro.deeplink && (
+                  <a className="actor-deeplink" href={financeiro.deeplink}>Ver carteira →</a>
+                )}
+              </div>
+            </div>
           </section>
         );
       }

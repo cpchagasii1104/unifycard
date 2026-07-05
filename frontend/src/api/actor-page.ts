@@ -65,6 +65,14 @@ export interface ActorPageAgendaItem {
   purposeSlug: string | null;
 }
 
+/** F-ERP-COMPOSED-VIEW (Fatia 8): pedido de compra leve do bloco ERP. */
+export interface ActorPagePurchaseOrderItem {
+  id: string;
+  supplierId: string;
+  status: string;
+  orderDate: string;
+}
+
 export interface ActorPageBlock {
   type: string;
   tab: string;
