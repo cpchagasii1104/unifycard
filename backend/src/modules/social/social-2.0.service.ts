@@ -13,6 +13,44 @@ function tsIso(v: string | Date): string {
   return v instanceof Date ? v.toISOString() : String(v);
 }
 
+/**
+ * F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5, fecha DT-SOCIAL-POST-VISIBILITY-NOT-
+ * ENFORCED-ON-READ). Vocabulário GOVERNADO (CHECK físico `chk_posts_visibility`, migration
+ * 20260705120000) — NÃO confundir com o `PostVisibility` fantasma de `social.types.ts` (schema
+ * legado que não bate com a tabela viva). Fonte da plateia = `actor_relationships` (Fatia 1,
+ * DESENHO §2.4c SELADO), não `follows`. 'group' fica fora (DT irmã, groups.visibility fantasma).
+ */
+export type PostAudienceVisibility = 'public' | 'connections' | 'only_me';
+export const POST_AUDIENCE_VISIBILITY_VALUES: readonly PostAudienceVisibility[] = ['public', 'connections', 'only_me'];
+
+/**
+ * Predicado SQL de plateia — REUSADO por getFeed/getActorPosts (nunca duplicar a lógica).
+ * `viewerParam` é o placeholder JÁ vinculado (ex.: '$2') do actor que está LENDO, resolvido
+ * SERVER-SIDE pelo caller (nunca client-declared cru — DECISION-0113). Semântica:
+ *   public      → sempre visível;
+ *   dono do post → sempre visível a si mesmo (cobre 'only_me' e 'connections' do próprio autor);
+ *   connections → visível se houver aresta actor_relationships ACEITA com o autor (qualquer label).
+ */
+function postVisibilitySql(postAlias: string, viewerParam: string): string {
+  return `(
+    ${postAlias}.visibility = 'public'
+    OR ${postAlias}.actor_id = ${viewerParam}
+    OR (
+      ${postAlias}.visibility = 'connections'
+      AND ${viewerParam}::uuid IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM actor_relationships ar
+        WHERE ar.tenant_id = ${postAlias}.tenant_id
+          AND ar.status = 'accepted'
+          AND (
+            (ar.from_actor_id = ${postAlias}.actor_id AND ar.to_actor_id = ${viewerParam})
+            OR (ar.from_actor_id = ${viewerParam} AND ar.to_actor_id = ${postAlias}.actor_id)
+          )
+      )
+    )
+  )`;
+}
+
 export interface PostWithActor {
   post_id: string;
   tenant_id: string;
@@ -21,6 +59,8 @@ export interface PostWithActor {
   global_user_id?: string;
   content: string;
   media: any[];
+  /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5) — plateia GOVERNADA e OBEDECIDA na leitura. */
+  visibility?: PostAudienceVisibility;
   intent?: 'personal' | 'friends' | 'booking' | 'service_offer' | 'product_offer' | 'project' | 'vote' | 'event';
   intent_metadata?: Record<string, any>;
   targeting?: {
@@ -190,6 +230,7 @@ export class Social2Service {
         p.content,
         '[]'::jsonb AS media,
         p.intent,
+        p.visibility,
         NULL::jsonb as intent_metadata,
         NULL::jsonb as targeting,
         p.created_at,
@@ -234,6 +275,11 @@ export class Social2Service {
     }
 
     query += ` WHERE p.tenant_id = $1`;
+
+    // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5, fecha DT-SOCIAL-POST-VISIBILITY-NOT-
+    // ENFORCED-ON-READ): a plateia declarada na escrita agora É OBEDECIDA na leitura. $2 =
+    // currentActorId, JÁ resolvido server-side acima (nunca client-declared cru).
+    query += ` AND ${postVisibilitySql('p', '$2')}`;
 
     // FILTRO POR GRUPO: Quando groupId é fornecido, retornar apenas posts do grupo
     // 🔴 VALIDAÇÃO: Verificar se usuário é membro do grupo (se grupo não for público)
@@ -576,6 +622,7 @@ export class Social2Service {
         global_user_id: row.global_user_id,
         content: row.content,
         media: row.media || [],
+        visibility: row.visibility || 'public',
         intent: row.intent || 'personal',
         intent_metadata: undefined, // FASE 3.6: intent_metadata não existe na tabela posts ainda
         targeting: targeting || undefined, // FASE 3.6: targeting não existe na tabela posts ainda
@@ -676,8 +723,16 @@ export class Social2Service {
     },
     groupId?: string, // ID do grupo para vincular o post
     createdByUserId?: string, // CONTINUOUS PRODUCTION: Audit field
-    createdAsActorId?: string // CONTINUOUS PRODUCTION: Audit field
+    createdAsActorId?: string, // CONTINUOUS PRODUCTION: Audit field
+    visibility?: PostAudienceVisibility // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5)
   ): Promise<PostWithActor> {
+    // Vocabulário GOVERNADO fail-closed (Lei §8) — já validado por zod na rota (defense-in-depth
+    // aqui, mesmo padrão de assertLabelAllowedForPair na Fatia 1). Nunca coage silenciosamente.
+    const resolvedVisibility: PostAudienceVisibility =
+      visibility && POST_AUDIENCE_VISIBILITY_VALUES.includes(visibility) ? visibility : 'public';
+    if (visibility && !POST_AUDIENCE_VISIBILITY_VALUES.includes(visibility)) {
+      throw HttpError.badRequest(`Plateia inválida: '${visibility}' fora do vocabulário governado (public/connections/only_me)`);
+    }
     // Busca ou cria actor
     let actor;
     let companyStatus: string | null = null;
@@ -784,9 +839,9 @@ export class Social2Service {
       tenantId,
       `
       INSERT INTO posts (
-        tenant_id, actor_id, content, media_ids, intent, intent_metadata, targeting, metadata
+        tenant_id, actor_id, content, media_ids, intent, intent_metadata, targeting, metadata, visibility
       )
-      VALUES ($1, $2, $3, $4::uuid[], $5, $6::jsonb, $7::jsonb, $8::jsonb)
+      VALUES ($1, $2, $3, $4::uuid[], $5, $6::jsonb, $7::jsonb, $8::jsonb, $9)
       RETURNING id AS post_id, created_at, updated_at
       `,
       [
@@ -798,6 +853,7 @@ export class Social2Service {
         JSON.stringify(intentMetadata || {}),
         JSON.stringify(targeting || {}),
         JSON.stringify(metadata),
+        resolvedVisibility,
       ]
     );
 
@@ -877,6 +933,7 @@ export class Social2Service {
       actor_id: actor.actor_id,
       content,
       media: [],
+      visibility: resolvedVisibility,
       intent: intent || 'personal',
       intent_metadata: intentMetadata,
       targeting,
@@ -1117,7 +1174,10 @@ export class Social2Service {
   async getActorPosts(
     tenantId: string,
     actorId: string,
-    limit: number
+    limit: number,
+    // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5): quem está LENDO, resolvido
+    // SERVER-SIDE pelo caller (req.user → actor próprio; nunca client-declared). null = anônimo.
+    viewerActorId: string | null = null
   ): Promise<PostWithActor[]> {
     // Query convergida com schema canônico (DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH).
     // Mesmas DECISIONs do getFeed: 0031 (reactions polimórfico), 0032-social (post_cta removido),
@@ -1133,6 +1193,7 @@ export class Social2Service {
         p.content,
         '[]'::jsonb AS media,
         p.intent,
+        p.visibility,
         NULL::jsonb as intent_metadata,
         NULL::jsonb as targeting,
         p.created_at,
@@ -1158,11 +1219,11 @@ export class Social2Service {
       FROM posts p
       LEFT JOIN actors a ON p.actor_id = a.id
       -- FASE 3.6: groups table não existe ainda, então group_name é NULL por enquanto
-      WHERE p.tenant_id = $1 AND p.actor_id = $2
+      WHERE p.tenant_id = $1 AND p.actor_id = $2 AND ${postVisibilitySql('p', '$4')}
       ORDER BY p.created_at DESC
       LIMIT $3
       `,
-      [tenantId, actorId, limit]
+      [tenantId, actorId, limit, viewerActorId]
     );
 
     const actorPostIds = rows.map((r: { post_id: string }) => r.post_id).filter(Boolean);
@@ -1180,6 +1241,7 @@ export class Social2Service {
       actor_id: row.actor_id,
       content: row.content,
       media: row.media || [],
+      visibility: row.visibility || 'public',
       intent: row.intent || 'personal',
       intent_metadata: row.intent_metadata ? (typeof row.intent_metadata === 'string' ? JSON.parse(row.intent_metadata) : row.intent_metadata) : undefined,
       targeting: row.targeting ? (typeof row.targeting === 'string' ? JSON.parse(row.targeting) : row.targeting) : undefined,
@@ -1298,7 +1360,11 @@ export class Social2Service {
    */
   async getActorCounts(
     tenantId: string,
-    actorId: string
+    actorId: string,
+    // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5): sem isto, um estranho veria
+    // "5 posts" mas só 2 renderizados (a contagem vazaria a EXISTÊNCIA de posts 'connections'/
+    // 'only_me' que ele não pode ler). Coerência com getActorPosts, mesmo predicado.
+    viewerActorId: string | null = null
   ): Promise<{ followers_count: number; posts_count: number }> {
     const result = await runQueryWithTenant<{
       followers_count: number;
@@ -1315,10 +1381,10 @@ export class Social2Service {
         COALESCE((
           SELECT COUNT(*)::int
           FROM posts p
-          WHERE p.actor_id = $1
+          WHERE p.actor_id = $1 AND ${postVisibilitySql('p', '$2')}
         ), 0) as posts_count
       `,
-      [actorId]
+      [actorId, viewerActorId]
     );
 
     return result || { followers_count: 0, posts_count: 0 };

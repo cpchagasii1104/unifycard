@@ -26,11 +26,15 @@ export interface Actor {
   is_following?: boolean;
 }
 
+/** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5) — plateia governada e OBEDECIDA na leitura. */
+export type PostAudienceVisibility = 'public' | 'connections' | 'only_me';
+
 export interface Post {
   post_id: string;
   actor_id: string | null;
   content: string;
   media: MediaItem[];
+  visibility?: PostAudienceVisibility;
   intent?: 'personal' | 'friends' | 'booking' | 'service_offer' | 'product_offer' | 'project' | 'vote' | 'event';
   intent_metadata?: Record<string, any>;
   targeting?: Record<string, any>;
@@ -110,6 +114,8 @@ export interface CreatePostInput {
     metadata?: Record<string, any>;
   };
   group_id?: string; // ID do grupo para vincular o post
+  /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5). Ausente = 'public' (backend decide). */
+  visibility?: PostAudienceVisibility;
 }
 
 export interface ReactionInput {

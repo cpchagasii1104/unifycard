@@ -326,7 +326,9 @@ export default function SocialFeed2() {
       target_group_id?: string;
       price?: number;
       currency?: string;
-    }
+    },
+    /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5). Ausente = backend assume 'public'. */
+    visibility?: 'public' | 'connections' | 'only_me'
   ): Promise<void> => {
     // Guardrail: validar activeActor
     if (!validateActiveActor(activeActor)) {
@@ -334,7 +336,7 @@ export default function SocialFeed2() {
     }
 
     if (!activeActor) return;
-    
+
     try {
       const newPost = await createSocialPost({
         content,
@@ -350,6 +352,7 @@ export default function SocialFeed2() {
           price: cta.price,
           currency: cta.currency || 'BRL',
         } : undefined,
+        visibility,
       });
       
       // CORREÇÃO: usar função de atualização

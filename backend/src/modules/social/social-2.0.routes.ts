@@ -11,6 +11,7 @@ import { resolveActiveActorFromRequest } from './actor.utils';
 import { recordActorSwitch } from './actor-audit.service';
 import { runQueryWithTenant } from '@core/database/pool';
 import { getLocalUserIdByGlobalUserId } from '@modules/identity/actor-ssot.service';
+import { authorizationService } from '@core/authorization/authorization.service';
 import { z } from 'zod';
 
 const createPostSchema = z.object({
@@ -49,6 +50,9 @@ const createPostSchema = z.object({
     metadata: z.record(z.any()).optional(),
   }).optional(),
   group_id: z.string().uuid().optional(), // ID do grupo para vincular o post
+  // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5): vocabulário GOVERNADO (Lei §8) — espelha
+  // o CHECK físico chk_posts_visibility. Ausente = 'public' (comportamento de hoje, não regride).
+  visibility: z.enum(['public', 'connections', 'only_me']).optional(),
 });
 
 const reactionSchema = z.object({
@@ -118,7 +122,23 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         });
       }
       
-      const actorId = req.query.actor_id || undefined;
+      // 🔴 F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5, DECISION-0113): `actor_id` do
+      // querystring é HINT client-declared, nunca autoridade — a partir de agora ele passa a ser
+      // LOAD-BEARING para a plateia 'connections' (decide QUEM está lendo). Sem prova de
+      // representação, um atacante poderia passar ?actor_id=<vítima> para ler como se fosse ela
+      // e enxergar posts 'connections' que só a vítima veria. Fail-safe (não 403 — degrada para
+      // "meu próprio actor", que é o fallback que getFeed já faz sozinho quando actorId=undefined).
+      let actorId: string | undefined = undefined;
+      const declaredActorId = req.query.actor_id || req.actionContext.actorId;
+      if (declaredActorId) {
+        try {
+          if (await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, declaredActorId)) {
+            actorId = declaredActorId;
+          }
+        } catch {
+          actorId = undefined;
+        }
+      }
       const actorStatus = req.query.actor_status || undefined; // Status da empresa
       
       // EVENTOS ÂNCORA: Preferências e geolocalização (opcionais)
@@ -269,7 +289,8 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         validated.cta,
         validated.group_id, // Passar groupId para o service
         req.user.id, // CONTINUOUS PRODUCTION: Audit field (createdByUserId)
-        createdAsActorId // CONTINUOUS PRODUCTION: Audit field
+        createdAsActorId, // CONTINUOUS PRODUCTION: Audit field
+        validated.visibility // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5)
       );
 
       return reply.status(201).send(post);
@@ -544,26 +565,29 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         return reply.status(404).send({ error: 'Actor não encontrado' });
       }
 
-      // Busca posts do actor
-      const posts = await social2Service.getActorPosts(req.tenant.id, req.params.id, 20);
-
-      // Busca contadores
-      const counts = await social2Service.getActorCounts(req.tenant.id, req.params.id);
-
-      // Verifica se o usuário atual está seguindo
-      let isFollowing = false;
+      // 🔴 F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5): resolve QUEM está lendo,
+      // 100% server-side (req.user.globalUserId → actor próprio via ensureUserActor — nunca
+      // client-declared), ANTES de buscar os posts, para a plateia ser obedecida na leitura.
+      let viewerActorId: string | null = null;
       const gFollow = req.user?.globalUserId;
       if (gFollow) {
         const localUid = await getLocalUserIdByGlobalUserId(req.tenant.id, gFollow);
         if (localUid) {
           const currentActor = await ensureUserActor(req.tenant.id, localUid);
-          isFollowing = await social2Service.isFollowing(
-            req.tenant.id,
-            currentActor.actor_id,
-            req.params.id
-          );
+          viewerActorId = currentActor.actor_id;
         }
       }
+
+      // Busca posts do actor (plateia obedecida — viewerActorId decide 'connections'/'only_me')
+      const posts = await social2Service.getActorPosts(req.tenant.id, req.params.id, 20, viewerActorId);
+
+      // Busca contadores (coerentes com a plateia — mesmo viewerActorId de getActorPosts)
+      const counts = await social2Service.getActorCounts(req.tenant.id, req.params.id, viewerActorId);
+
+      // Verifica se o usuário atual está seguindo
+      const isFollowing = viewerActorId
+        ? await social2Service.isFollowing(req.tenant.id, viewerActorId, req.params.id)
+        : false;
 
       return reply.send({
         actor,

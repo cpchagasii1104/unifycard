@@ -24,7 +24,9 @@ interface PostComposerProps {
       target_group_id?: string;
       price?: number;
       currency?: string;
-    }
+    },
+    /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5). Ausente = backend assume 'public'. */
+    visibility?: 'public' | 'connections' | 'only_me'
   ) => Promise<void>;
   placeholder?: string;
 }
@@ -44,7 +46,7 @@ type ExperienceType =
   | 'project';              // Projeto de grupo
 
 // Público (alcance)
-type Audience = 'public' | 'friends' | 'company' | 'group';
+type Audience = 'public' | 'friends' | 'only_me' | 'company' | 'group';
 
 export default function PostComposer({ onSubmit, placeholder = 'O que você está pensando?' }: PostComposerProps) {
   const [content, setContent] = useState('');
@@ -102,9 +104,20 @@ export default function PostComposer({ onSubmit, placeholder = 'O que você est�
       // Empresa: PUBLIC, FOLLOWERS (company), GROUPS
       return ['public', 'company', 'group'];
     } else {
-      // Pessoa Física: PUBLIC, FRIENDS
-      return ['public', 'friends'];
+      // Pessoa Física: PUBLIC, FRIENDS, SÓ EU (DESENHO_PAGINA_DO_ACTOR §2.4c — plateia mínima)
+      return ['public', 'friends', 'only_me'];
     }
+  };
+
+  // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5): mapeia a escolha de audiência da UI para
+  // o vocabulário GOVERNADO que o backend obedece na leitura (posts.visibility). 'company'/'group'
+  // (PJ) não têm modelo de audiência institucional definido ainda — ficam 'public' por ora
+  // (nomeado, não regride: hoje TUDO já é 'public' de fato). 'friends' → 'connections' (substrato
+  // actor_relationships da Fatia 1, qualquer label aceito — "conexões-de-tipo-X" é refinamento futuro).
+  const getVisibilityFromAudience = (aud: Audience): 'public' | 'connections' | 'only_me' => {
+    if (aud === 'friends') return 'connections';
+    if (aud === 'only_me') return 'only_me';
+    return 'public';
   };
 
   const availableAudiences = getAvailableAudiences();
@@ -255,7 +268,7 @@ export default function PostComposer({ onSubmit, placeholder = 'O que você est�
         target_group_id: ctaGroupId || undefined,
       } : undefined;
 
-      await onSubmit(content, mediaIds, selectedActorId, intent, intentMetadata, targeting, cta);
+      await onSubmit(content, mediaIds, selectedActorId, intent, intentMetadata, targeting, cta, getVisibilityFromAudience(audience));
       
       // Mostrar mensagem de sucesso adaptativa
       const successMsg = getSuccessMessage(activeActor, 'published');
@@ -434,6 +447,16 @@ export default function PostComposer({ onSubmit, placeholder = 'O que você est�
                 disabled={isSubmitting}
               >
                 👥 Amigos
+              </button>
+            )}
+            {availableAudiences.includes('only_me') && (
+              <button
+                type="button"
+                className={`audience-btn ${audience === 'only_me' ? 'active' : ''}`}
+                onClick={() => setAudience('only_me')}
+                disabled={isSubmitting}
+              >
+                🔒 Só eu
               </button>
             )}
             {availableAudiences.includes('company') && (

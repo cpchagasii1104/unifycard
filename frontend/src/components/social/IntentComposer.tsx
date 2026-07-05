@@ -32,7 +32,9 @@ interface IntentComposerProps {
       target_group_id?: string;
       price?: number;
       currency?: string;
-    }
+    },
+    /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5). Ausente = backend assume 'public'. */
+    visibility?: 'public' | 'connections' | 'only_me'
   ) => Promise<void>;
   placeholder?: string;
 }
@@ -66,6 +68,9 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
     intent: string;
     metadata: Record<string, any>;
     cta?: any;
+    /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5) — herdado de classifiedIntent.audience
+     *  (heurística local já existia, só nunca era usada); ausente = 'public'. */
+    visibility?: 'public' | 'connections' | 'only_me';
     occupancyModel?: {
       type: OccupancyType;
       requiresReservation: boolean;
@@ -409,11 +414,18 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
     // occupancyModel não é usado para posts não-eventos
     const occupancyModel = undefined;
 
+    // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5): a heurística local já classificava
+    // audience a partir do texto livre — só nunca era enviada ao backend. 'friends'→'connections'
+    // (substrato actor_relationships, Fatia 1); 'company'/'group' seguem 'public' (sem modelo
+    // institucional de audiência ainda, nomeado).
+    const visibility = classifiedIntent.audience === 'friends' ? 'connections' : 'public';
+
     setPreviewData({
       content: textInput,
       intent: classifiedIntent.intent,
       metadata,
       cta,
+      visibility,
       occupancyModel,
     });
 
@@ -450,7 +462,8 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
         previewData.intent as any,
         metadata,
         {},
-        previewData.cta
+        previewData.cta,
+        previewData.visibility
       );
 
       // Reset

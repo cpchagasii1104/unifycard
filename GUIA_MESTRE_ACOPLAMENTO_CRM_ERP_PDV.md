@@ -200,8 +200,23 @@ exige `ownerType` explícito — sem isso misturava owners de tipos diferentes) 
 NUNCA rua/lat/lng/CEP; "aberto agora" NÃO construído — sem schema de horário, nomeado). Guard +11
 checks (31 total) · negative-proof mordeu 3 mutações · E2E 14/14 (escopo por merchant provado;
 isolamento por owner_type provado; anti-PII de endereço provado; Δbank=0) · typecheck 0 ·
-regression-guards exit=0. **Próxima fatia = 5 (plateias na leitura — fecha DT-SOCIAL-POST-
-VISIBILITY-NOT-ENFORCED-ON-READ, precondição da Fase 2 de descoberta) sob GO de Clayton.**
+regression-guards exit=0.
+
+**✅ FATIA 5 EXECUTADA E FECHADA (2026-07-05, GO "execute a fatia 5"):** plateias na leitura —
+fecha `DT-SOCIAL-POST-VISIBILITY-NOT-ENFORCED-ON-READ`. Read-first revelou que a DT original
+estava parcialmente errada: `posts.visibility` NUNCA existiu fisicamente (o `PostVisibility`
+citado é schema fantasma do repository legado, fail-closed 501). Migration
+`20260705120000_posts_visibility_governed.sql` cria `posts.visibility` GOVERNADO
+(`public`/`connections`/`only_me`, default `public` não-destrutivo) — `connections` lê
+`actor_relationships` (Fatia 1, aceita), NÃO `follows`, conforme DESENHO §2.4c SELADO. Predicado
+único `postVisibilitySql` reusado em `getFeed`+`getActorPosts`+`getActorCounts`. **Achado de
+autoridade fechado no processo:** `GET /social/feed` usava `actor_id` de querystring sem validação
+(cosmético até então) — virou load-bearing pra plateia, então ganhou `canRepresentActor` fail-safe
+ANTES de confiar nele (senão o próprio fix abriria impersonação de leitura). Frontend:
+`PostComposer` ganhou "Só eu"; `IntentComposer` passou a usar a heurística de audiência que já
+existia mas era descartada. Guard 19 checks + negative-proof (2 mutações mordidas) · E2E 9/9
+(inclui prova adversarial do vetor de impersonação fechado) · typecheck 0 · regression-guards
+exit=0. **Próxima fatia = 6 (Chamado gated por FATO DE NEGÓCIO) sob GO de Clayton.**
 
 ---
 
