@@ -163,8 +163,21 @@ INLINE fail-closed** (funcionário nunca se auto-concede) → roteia `companyMem
 baseline-ratchet MORDEU o handler novo durante a construção (binding fora do segmento) → catraca
 inlined, não allowlist. Guard +8 checks (28) · negative-proof mordeu · E2E 17/17 (auto-grant 403;
 dono concede → delegação ESCOPADA sem `*`; canRepresentActor(funcionária→page)=FALSE; Δbank=0) ·
-regression-guards exit=0. **Próxima fatia = 3 (casca universal + registro de blocos + contrato
-server-driven) sob GO de Clayton.**
+regression-guards exit=0.
+
+**✅ FATIA 3 EXECUTADA E FECHADA (2026-07-04, GO "execute o próximo passo"):** casca universal +
+registro de blocos + contrato server-driven. Backend `src/modules/actor-page/` (read-model puro):
+`GET /actor-page/:actorId?mode=` → {header, actions, tabs, blocks}; BLOCK_REGISTRY com probes no
+SSOT de cada pilar (posts/services/product_offers/rentals/availability/events) — aba acende SÓ se
+probe>0; Conectar com allowedLabels do seed por par (Fatia 1); Comprar/Contratar nascem
+enabled:false gatedBy PORTA-1; operating gated canRepresentActor 403. Frontend: `ActorPage.tsx`
+(casca EntityHero + abas do contrato + bloco Posts reusa fluxo social vivo); **/profile/:id e
+/company/:id CONVERGIRAM na casca** (SocialProfilePage/SocialCompanyPage/ProfilePage/CompanyPage
+deletados — anti-página-paralela §2.3); /vitrine à parte (residual nomeado: converge com
+source=global). Guard `audit-actor-page-contract.mjs` (20 checks, suite, negative-proof mordeu) ·
+E2E 9/9 efêmero (aba fantasma=0; PORTA-1 nunca enabled; anti-PII; Δbank=0) · typecheck 0 ·
+regression-guards exit=0. **Próxima fatia = 4 (blocos sem-dinheiro: conteúdo rico de
+Sobre/Produtos-ver/Serviços-ver/Agenda/Localização) sob GO de Clayton.**
 
 ---
 

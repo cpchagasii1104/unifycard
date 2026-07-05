@@ -24,9 +24,8 @@ import GrupoDetailPage from './pages/GrupoDetailPage';
 import InvitesPage from './pages/InvitesPage';
 import WalletPage from './pages/WalletPage';
 import TransactionDetailPage from './pages/TransactionDetailPage';
-import SocialProfilePage from './pages/SocialProfilePage';
+import ActorPage from './pages/ActorPage';
 import VitrineProfilePage from './pages/VitrineProfilePage';
-import SocialCompanyPage from './pages/SocialCompanyPage';
 import EventDetailPage from './pages/EventDetailPage';
 import EventCreationPage from './pages/EventCreationPage';
 import EventosPage from './pages/EventosPage';
@@ -304,9 +303,12 @@ function AppContent() {
           <Route path="transparencia" element={<TransparencyPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="ledger" element={<SocialLedger />} />
-          <Route path="profile/:id" element={<SocialProfilePage />} />
+          {/* F-ACTOR-PAGE-SHELL-SLICE-3: casca universal — /profile e /company convergem (Lei §2,
+              anti-página-paralela). /vitrine segue à parte (fonte cross-tenant; converge quando o
+              contrato ganhar source=global). */}
+          <Route path="profile/:id" element={<ActorPage />} />
           <Route path="vitrine/:actorId" element={<VitrineProfilePage />} />
-          <Route path="company/:id" element={<SocialCompanyPage />} />
+          <Route path="company/:id" element={<ActorPage />} />
           <Route path="empresa/:companyId" element={<CompanyDashboardPage />} />
           <Route path="eventos" element={<EventosPage />} />
           <Route path="perfil" element={<PerfilPage />} />

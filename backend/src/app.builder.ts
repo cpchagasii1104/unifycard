@@ -715,6 +715,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     const relationshipBridgeModule = await import('./modules/relationships/actor-relationship-membership-bridge.routes');
     await protectedScope.register(relationshipBridgeModule.default);
     console.log('[BOOT] Relationship membership bridge registered: /relationships/:id/grant-membership');
+    // F-ACTOR-PAGE-SHELL-SLICE-3: contrato server-driven da página do actor (casca universal + blocos)
+    const actorPageModule = await import('./modules/actor-page/actor-page.routes');
+    await protectedScope.register(actorPageModule.default);
+    console.log('[BOOT] Actor Page contract registered: /actor-page/:actorId');
     
     console.log('[BOOT] Todos os módulos protegidos registrados');
   });
