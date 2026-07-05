@@ -176,8 +176,15 @@ enabled:false gatedBy PORTA-1; operating gated canRepresentActor 403. Frontend: 
 deletados — anti-página-paralela §2.3); /vitrine à parte (residual nomeado: converge com
 source=global). Guard `audit-actor-page-contract.mjs` (20 checks, suite, negative-proof mordeu) ·
 E2E 9/9 efêmero (aba fantasma=0; PORTA-1 nunca enabled; anti-PII; Δbank=0) · typecheck 0 ·
-regression-guards exit=0. **Próxima fatia = 4 (blocos sem-dinheiro: conteúdo rico de
-Sobre/Produtos-ver/Serviços-ver/Agenda/Localização) sob GO de Clayton.**
+regression-guards exit=0. **Pós-teste visual de Clayton (2026-07-04, dois achados fechados):**
+(a) a casca não tinha PORTA no menu → "Minha Página" (registry governado `module-registry.ts`
+grupo Conta, rota `/minha-pagina` + `MyPageRedirect` que projeta o actor ATIVO → /profile ou
+/company; distinção ratificada por Clayton: /perfil = configurar · Minha Página = como apareço);
+(b) `/services` não reagia ao modo operante → `ProviderServiceHubPage` agora lê `useOperatingMode`
+(doutrina D1: Consumindo = banner descoberta-primeiro "Buscar serviços" + hub reframeado abaixo;
+Operando = central do prestador como está; nada escondido). **Próxima fatia = 4 (blocos
+sem-dinheiro: conteúdo rico de Sobre/Produtos-ver/Serviços-ver/Agenda/Localização) sob GO de
+Clayton.**
 
 ---
 

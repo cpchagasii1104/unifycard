@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
+import { useOperatingMode } from '../hooks/useOperatingMode';
 import { showToast } from '../components/common/Toast';
 import { listActorServices, type Service } from '../api/services';
 import { getOfferingsByCanonical } from '../api/offerings';
@@ -30,6 +31,9 @@ interface PendingBooking {
 export default function ProviderServiceHubPage() {
   const navigate = useNavigate();
   const { activeActor } = useActiveActor();
+  // Doutrina actor×modo (D1): o modo REORDENA a apresentação, nunca esconde capability.
+  // Consumindo → descoberta primeiro (contratar); Operando → a central do prestador como está.
+  const { mode } = useOperatingMode();
 
   const [services, setServices] = useState<Service[]>([]);
   const [pending, setPending] = useState<PendingBooking[]>([]);
@@ -121,10 +125,26 @@ export default function ProviderServiceHubPage() {
 
   return (
     <div className="provider-hub-page">
+      {/* Modo CONSUMINDO: a intenção natural é CONTRATAR — descoberta vem primeiro.
+          A central do prestador continua logo abaixo (modo nunca esconde — D1). */}
+      {mode === 'consumir' && (
+        <div className="hub-mode-banner" role="note">
+          <div>
+            <strong>Você está consumindo.</strong> Procurando um serviço para contratar?
+          </div>
+          <button className="btn-primary" onClick={() => navigate('/discover/services')}>
+            Buscar serviços
+          </button>
+        </div>
+      )}
+
       <div className="page-header">
         <div>
-          <h1>Central do prestador</h1>
-          <p className="acting-as">Operando como: <strong>{activeActor.display_name}</strong></p>
+          <h1>{mode === 'consumir' ? 'Serviços' : 'Central do prestador'}</h1>
+          <p className="acting-as">
+            {mode === 'consumir' ? 'Sua operação como prestador (abaixo): ' : 'Operando como: '}
+            <strong>{activeActor.display_name}</strong>
+          </p>
         </div>
         <div className="header-actions">
           <button className="btn-secondary" onClick={load} disabled={loading}>Atualizar</button>

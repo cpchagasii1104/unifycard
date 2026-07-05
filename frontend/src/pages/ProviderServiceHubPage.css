@@ -159,3 +159,16 @@
     flex-wrap: wrap;
   }
 }
+
+/* Doutrina actor×modo (D1): banner de reordenação no modo Consumindo — prioriza, não esconde */
+.hub-mode-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f0f6ff;
+  border: 1px solid #c9dffb;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}

@@ -25,6 +25,7 @@ import InvitesPage from './pages/InvitesPage';
 import WalletPage from './pages/WalletPage';
 import TransactionDetailPage from './pages/TransactionDetailPage';
 import ActorPage from './pages/ActorPage';
+import MyPageRedirect from './pages/MyPageRedirect';
 import VitrineProfilePage from './pages/VitrineProfilePage';
 import EventDetailPage from './pages/EventDetailPage';
 import EventCreationPage from './pages/EventCreationPage';
@@ -309,6 +310,8 @@ function AppContent() {
           <Route path="profile/:id" element={<ActorPage />} />
           <Route path="vitrine/:actorId" element={<VitrineProfilePage />} />
           <Route path="company/:id" element={<ActorPage />} />
+          {/* "Minha Página" (menu Conta): resolve o actor ativo → casca */}
+          <Route path="minha-pagina" element={<MyPageRedirect />} />
           <Route path="empresa/:companyId" element={<CompanyDashboardPage />} />
           <Route path="eventos" element={<EventosPage />} />
           <Route path="perfil" element={<PerfilPage />} />

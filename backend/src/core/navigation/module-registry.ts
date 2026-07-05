@@ -58,6 +58,10 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
   { moduleKey: 'impact', label: 'Impacto', icon: '💚', route: '/impacto', group: 'Social', contexts: ['personal'], status: 'LIVE' },
 
   // ── Conta ────────────────────────────────────────────────────────────────
+  // F-ACTOR-PAGE-SHELL-SLICE-3: a PORTA para a casca universal ("como eu apareço") — distinta de
+  // /perfil ("o que eu configuro"). Rota estática; o frontend resolve o actor ATIVO e projeta
+  // /profile/:id ou /company/:id (mesma ActiveActorContext de todo o app — nenhuma verdade nova).
+  { moduleKey: 'my-page', label: 'Minha Página', icon: '🪪', route: '/minha-pagina', group: 'Conta', contexts: ['personal'], status: 'LIVE' },
   { moduleKey: 'profile', label: 'Meu Perfil', icon: '👤', route: '/perfil', group: 'Conta', contexts: ['personal'], status: 'LIVE' },
   { moduleKey: 'companies', label: 'Minhas Empresas', icon: '🏢', route: '/empresas', group: 'Conta', contexts: ['personal'], status: 'LIVE' },
   { moduleKey: 'transparency', label: 'Transparência', icon: '🔍', route: '/transparencia', group: 'Conta', contexts: ['personal'], status: 'LIVE' },
