@@ -14,6 +14,7 @@
 
 import {
   pool,
+  runQueryWithTenant as rawRunQueryWithTenant,
   runQueriesWithTenant as rawRunQueriesWithTenant,
 } from '@core/database/pool';
 import type { PoolClient, QueryResultRow } from 'pg';
@@ -55,34 +56,21 @@ export async function runSystemQuery<T extends QueryResultRow = any>(
  *  - Só use para tabelas multi-tenant
  *  - Nunca use para decidir estado financeiro
  *
- * 🔴 F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX (2026-07-02, achado A2 da re-auditoria
- * adversarial): esta função era uma FACHADA PARALELA com o mesmo bug fechado em
- * core/database/pool.ts::runQueryWithTenant — set_config(...,true) (is_local=true, escopo de
- * TRANSAÇÃO) sem BEGIN explícito evapora antes da query real rodar (statement seguinte roda em
- * transação implícita própria sob autocommit). Sob unificard_app (RLS-live), qualquer tabela com
- * FORCE ROW LEVEL SECURITY lida por aqui retornaria 0 linhas sempre. Fix: is_local=false +
- * reset explícito de app.is_platform_admin (mesma razão de F-GUC-CROSS-CONTEXT-RESET-ON-REUSE-
- * FIX — a conexão pooled pode ter servido um caller anterior com GUC diferente setado).
- * Dormente hoje: nenhuma das tabelas lidas pelos 23 callers vivos (rides/checkout-ticket/
- * event-lifecycle) tem RLS ainda — mas landmine idêntica se essas tabelas ganharem RLS no futuro.
+ * DT-HELPERS-DUAL-IMPLEMENTATION-DRIFT (fechada 2026-07-05): esta função era uma
+ * IMPLEMENTAÇÃO PRÓPRIA duplicada de `core/database/pool.ts::runQueryWithTenant` — mesmo
+ * `set_config` copiado à mão (já corrigido em paralelo por `F-GUC-TENANT-CONTEXT-TRANSACTION-
+ * SCOPE-FIX`, 2026-07-02, nas DUAS cópias), mas SEM a sanitização `undefined→null` nem o log
+ * estruturado de erro (redigido em produção) que `pool.ts` tem. Os 44 callers de `@core/db`
+ * (majoritariamente `modules/rides/*`, mais `checkout`, `groups/votes`, `events/*`, `feed/*`)
+ * ficavam sem essas duas proteções. Agora delega DIRETO pra `pool.ts` — mesmo padrão que
+ * `runQueriesWithTenant` (abaixo) já usava — zero mudança de import necessária nos 44 arquivos,
+ * mesma assinatura pública, comportamento estritamente melhor (ganham sanitização + log).
  */
 export async function runQueryWithTenant<T extends QueryResultRow = any>(
   tenantId: string,
   query: QueryConfig
 ): Promise<T | undefined> {
-  const client = await pool.connect();
-  try {
-    // PostgreSQL não aceita bind parameters em SET
-    await client.query(
-      "SELECT set_config('app.current_tenant', $1, false), set_config('app.is_platform_admin', 'false', false)",
-      [tenantId]
-    );
-
-    const result = await client.query<T>(query.text.trim(), query.values ?? []);
-    return result.rows[0];
-  } finally {
-    client.release();
-  }
+  return rawRunQueryWithTenant<T>(tenantId, query.text, query.values);
 }
 
 export async function runQueriesWithTenant<T extends QueryResultRow = any>(

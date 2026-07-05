@@ -64,8 +64,15 @@ if (!existsSync(DB_TS)) {
     if (/set_config\('app\.current_tenant',\s*\$1,\s*true\)/.test(fnBody)) {
       failures.push(`${DB_TS}: runQueryWithTenant voltou a usar is_local=true sem BEGIN (mesmo bug de F-GUC-TENANT-CONTEXT-TRANSACTION-SCOPE-FIX, achado A2 da re-auditoria).`);
     }
-    if (!/set_config\('app\.current_tenant',\s*\$1,\s*false\),\s*set_config\('app\.is_platform_admin',\s*'false',\s*false\)/.test(fnBody)) {
-      failures.push(`${DB_TS}: runQueryWithTenant não reseta app.is_platform_admin.`);
+    // F-HELPERS-DUAL-IMPLEMENTATION-DRIFT (2026-07-05): db.ts::runQueryWithTenant não é mais uma
+    // implementação PRÓPRIA — delega pra pool.ts::runQueryWithTenant (já verificado 3x acima,
+    // incluindo o reset duplo). Aceita QUALQUER uma das duas formas: (a) legado, reset duplo
+    // inline (se algum dia voltar a existir por necessidade), ou (b) delegação pra
+    // rawRunQueryWithTenant — nunca as duas ausentes ao mesmo tempo.
+    const hasInlineDoubleReset = /set_config\('app\.current_tenant',\s*\$1,\s*false\),\s*set_config\('app\.is_platform_admin',\s*'false',\s*false\)/.test(fnBody);
+    const hasDelegation = /rawRunQueryWithTenant/.test(fnBody);
+    if (!hasInlineDoubleReset && !hasDelegation) {
+      failures.push(`${DB_TS}: runQueryWithTenant não reseta app.is_platform_admin (nem inline, nem por delegação pra pool.ts).`);
     }
   }
 }
