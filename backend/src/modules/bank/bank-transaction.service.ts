@@ -1483,6 +1483,14 @@ class BankTransactionService {
     splits: BankSplit[];
     ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit' }>;
   }> {
+    // 🔴 F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9): 4º entrypoint do sink compartilhado — achado
+    // pela auditoria Yala do decision pack PORTA-1 (2026-07-05): esta função grava
+    // bank_transactions/bank_ledger/bank_splits direto e é o caminho REAL de
+    // service-payment-execution (createExecution → processServicePaymentExecutionCanonical →
+    // AQUI), mas não tinha o gate — provado em runtime que dinheiro se move mesmo com o firewall
+    // do sink desligado. Fecha o bloqueador do commit 4b7c574e9.
+    assertBankTransactionSinkFirewallEnabled('createTransactionWithExplicitSplitLines');
+
     let {
       referenceType,
       referenceId,

@@ -32,6 +32,12 @@ import { economicPolicyRepository } from '../modules/economy/policy-engine/econo
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
+// F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9, achado da auditoria Yala 2026-07-05): este
+// E2E chama servicePaymentExecutionService.createExecution -> ... -> bankTransactionService.
+// createTransactionWithExplicitSplitLines DIRETO (4o entrypoint do sink, agora gated) — precisa
+// ligar o gate default-off pra continuar exercitando o fluxo real que este arquivo sempre testou.
+process.env.BANK_TRANSACTION_SINK_FIREWALL_ENABLED = 'true';
+
 const TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
 const POLICY_MODULE = 'service_execution';
 const POLICY_CODE_PREFIX = 'pe3_e2e_';

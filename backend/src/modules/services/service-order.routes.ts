@@ -436,8 +436,13 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
    * 🟠 RESÍDUO CONSCIENTE (DT-SERVICE-ORDER-WRITE-AUTHORSHIP-SPOOF): este write ainda usa
    * `confirmedBy* = actionContext.actorId` (mesma conflação corrigida nos demais writes). NÃO foi
    * bindado aqui porque é FINANCEIRO (cria split / `confirmFinancialTerms`) e está fora do escopo
-   * não-financeiro desta fatia — além de estar atrás de `isFinancialEnabled()` → 503 (inalcançável
-   * por ora). O binding deste handler entra na frente financeira própria (3 paralelas read-only).
+   * não-financeiro desta fatia — além de estar atrás de `isFinancialEnabled()` → 503. **Achado da
+   * auditoria Yala do decision pack PORTA-1 (2026-07-05): essa premissa era FALSA até aqui** — o
+   * flag antes delegava a um helper genérico fail-OPEN (ligava sozinho sem
+   * `FEATURE_FINANCIAL_ENABLED` no ambiente); a superfície só não escrevia por acidente de tipo
+   * (transactionId fictício não-UUID). `isFinancialEnabled()` agora é fail-closed de verdade
+   * (`F-SERVICE-ORDER-CONFIRM-TERMS-DEFAULT-ON-FLAG-FIX`, feature-flags.ts). O binding deste
+   * handler entra na frente financeira própria (3 paralelas read-only).
    */
   fastify.post<{ Params: { id: string }; Body: ConfirmFinancialTermsInput }>(
     '/service-orders/:id/confirm-financial-terms',

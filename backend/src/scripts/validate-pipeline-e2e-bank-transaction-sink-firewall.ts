@@ -9,12 +9,15 @@
  *   A · default-off: transfer() → 403 BANK_TRANSACTION_SINK_FIREWALL_DISABLED, zero linha nova;
  *   B · default-off: createTransactionWithSplit() → mesmo 403, zero linha nova;
  *   C · default-off: createSimpleTransaction() → mesmo 403, zero linha nova;
+ *   H · default-off: createTransactionWithExplicitSplitLines() → mesmo 403, zero linha nova (4º
+ *       entrypoint do sink — achado da auditoria Yala 2026-07-05, fechado nesta mesma fatia);
  *   D · flag='1' (não-estrito) → AINDA bloqueado (prova que só a string exata 'true' liga);
  *   E · flag='true': createSimpleTransaction (mint SYSTEM) → sucesso real, ledger real;
  *   F · flag='true': transfer() SYSTEM→SYSTEM → sucesso real, saldos corretos nos dois lados;
  *   G · flag='true': createTransactionWithSplit() → passa do firewall (não lança o erro do
  *       firewall específico) — split engine em si é passo 3 do decision pack, fora desta fatia;
- *   H · nenhum outro caller de produção precisou mudar (o gate é no sink, não por-caller).
+ *   I · flag='true': createTransactionWithExplicitSplitLines() → passa do firewall e move
+ *       dinheiro real (prova positiva do 4º entrypoint).
  */
 
 import 'tsconfig-paths/register';
@@ -153,6 +156,23 @@ async function main(): Promise<void> {
       errC?.code === 'BANK_TRANSACTION_SINK_FIREWALL_DISABLED' && errC?.statusCode === 403 && beforeC === afterC,
       `code=${errC?.code} status=${errC?.statusCode} count ${beforeC}→${afterC}`);
 
+    // H · default-off: createTransactionWithExplicitSplitLines() → mesmo 403, zero linha nova
+    // (4º entrypoint do sink — achado da auditoria Yala 2026-07-05, fechado nesta mesma fatia)
+    const beforeH = await countBankTransactions(TENANT);
+    let errH: any = null;
+    try {
+      await bankTransactionService.createTransactionWithExplicitSplitLines(TENANT, {
+        referenceType: 'e2e_sink_fw_h', referenceId: randomUUID(), fromAccountId: accountA.accountId,
+        payerActorId: systemActorId, amountCents: 100, currency: 'BRL',
+        splitLines: [{ targetAccountId: accountB.accountId, amountCents: 100, receiverActorId: systemActorId }],
+        description: 'e2e sink fw H', concept_id: conceptId, authorship: authorship(accountA.accountId),
+      } as any);
+    } catch (e: any) { errH = e; }
+    const afterH = await countBankTransactions(TENANT);
+    record('H default-off: createTransactionWithExplicitSplitLines() → mesmo 403, zero linha nova',
+      errH?.code === 'BANK_TRANSACTION_SINK_FIREWALL_DISABLED' && errH?.statusCode === 403 && beforeH === afterH,
+      `code=${errH?.code} status=${errH?.statusCode} count ${beforeH}→${afterH}`);
+
     // D · flag='1' (não-estrito) → AINDA bloqueado
     process.env.BANK_TRANSACTION_SINK_FIREWALL_ENABLED = '1';
     let errD: any = null;
@@ -213,6 +233,20 @@ async function main(): Promise<void> {
     record('G flag=true: createTransactionWithSplit() passa do firewall (erro, se houver, NÃO é o do firewall)',
       errG?.code !== 'BANK_TRANSACTION_SINK_FIREWALL_DISABLED',
       `code=${errG?.code ?? '(sem erro — sucesso pleno)'}`);
+
+    // I · flag='true': createTransactionWithExplicitSplitLines() → passa do firewall e move
+    // dinheiro real (prova positiva do 4º entrypoint, espelha E/F pros outros três)
+    const beforeI = await countBankTransactions(TENANT);
+    const resultI = await bankTransactionService.createTransactionWithExplicitSplitLines(TENANT, {
+      referenceType: 'e2e_sink_fw_i', referenceId: randomUUID(), fromAccountId: accountB.accountId,
+      payerActorId: systemActorId, amountCents: 30, currency: 'BRL',
+      splitLines: [{ targetAccountId: accountA.accountId, amountCents: 30, receiverActorId: systemActorId }],
+      description: 'e2e sink fw I', concept_id: conceptId, authorship: authorship(accountB.accountId),
+    } as any);
+    const afterI = await countBankTransactions(TENANT);
+    record('I flag=true: createTransactionWithExplicitSplitLines() move dinheiro real (mesmo código, gate aberto)',
+      !!(resultI as any)?.transaction?.transactionId && Number(afterI) === Number(beforeI) + 1,
+      `transactionId=${(resultI as any)?.transaction?.transactionId} count ${beforeI}→${afterI}`);
   } finally {
     delete process.env.BANK_TRANSACTION_SINK_FIREWALL_ENABLED;
   }

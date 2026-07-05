@@ -333,6 +333,25 @@ auto-executável por mim — é auditoria externa/multi-agente sob acionamento d
 vivo) SOB GO de Clayton — mas só depois da auditoria da Yala confirmar os passos 1-3+achado da
 governança.**
 
+**🔴 AUDITORIA DA YALA RODOU — 1 BLOQUEADOR ACHADO E FECHADO (2026-07-05).** Veredito por commit:
+`4b7c574e9` (firewall) 🔴 BLOQUEADOR — `d9f1c30b9` (split+PF) ✅ APROVADO — `0b6fafd43`
+(governança) ✅ APROVADO. **O bloqueador:** existia um **4º entrypoint** do sink compartilhado
+(`createTransactionWithExplicitSplitLines`, `bank-transaction.service.ts:1452`) sem o gate — o
+commit dizia "3 entrypoints", eram 4. Prova empírica da Yala: o próprio E2E do passo 3 moveu
+dinheiro real numa DB efêmera SEM NENHUMA flag do sink setada. **Fechado:** gate adicionado no 4º
+entrypoint + guard estendido (9/9, era 7/7) + 6 E2Es pré-existentes ganharam o flag explícito.
+**+ 2 achados extras fechados no mesmo lote:** (R1) `createTransactionFromIntent` (B2B, escreve
+FORA do sink, 100% morto, risco nomeado pela Yala de reativação nesta mesma Fatia 9) — congelado
+por guard anti-revival, mesmo padrão do treasury-split. (colateral) `POST /service-orders/:id/
+confirm-financial-terms` "contido" por um flag que na verdade era default-ON por acidente — agora
+fail-closed real. Ratchet subiu +9 (3868→3877), vocabulário genuíno das correções pedidas pela
+própria auditoria, documentado. Ver `REMEDIATION_DT_LOG.md` → `F-YALA-AUDIT-PORTA1-STEPS-1-3-
+RESPONSE` pro relato completo. typecheck 0 · regression-guards exit=0.
+
+**Próximo = passo 4 (semear saldo real) — decisão de Clayton se roda nova rodada da Yala antes**
+(o passo 2 mudou materialmente desde a 1ª auditoria) **ou se a resposta acima já é suficiente
+pra liberar.**
+
 ---
 
 ## 5. SEQUÊNCIA DE FATIAS (do `DESENHO`, só após selo + decisão §4)

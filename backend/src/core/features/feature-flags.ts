@@ -44,10 +44,21 @@ export function isBundlesEnabled(): boolean {
 }
 
 /**
- * Verifica se Financeiro está habilitado
+ * Verifica se Financeiro está habilitado.
+ *
+ * 🔴 F-SERVICE-ORDER-CONFIRM-TERMS-DEFAULT-ON-FLAG-FIX (achado colateral da auditoria Yala do
+ * decision pack PORTA-1, 2026-07-05): ao contrário das outras 3 flags deste arquivo (RFQ/
+ * Bundles/Messaging, legitimamente fail-OPEN por padrão — não são domínio financeiro), esta
+ * NÃO delega a `isFeatureEnabled` (que retorna `true` quando a env var está ausente). O único
+ * caller (`POST /service-orders/:id/confirm-financial-terms`) grava `bank_splits` DIRETO — o
+ * comentário da rota já declarava "atrás de isFinancialEnabled() → 503, inalcançável por ora",
+ * mas essa premissa era FALSA (o flag ligava sozinho sem `FEATURE_FINANCIAL_ENABLED` no
+ * ambiente; a superfície só não escrevia porque um `transactionId` fictício não-UUID batia em
+ * 22P02 antes do INSERT — contenção por acidente de tipo, não por design). Fail-closed real:
+ * exige `FEATURE_FINANCIAL_ENABLED=true` EXATO pra habilitar.
  */
 export function isFinancialEnabled(): boolean {
-  return isFeatureEnabled('FEATURE_FINANCIAL_ENABLED');
+  return process.env.FEATURE_FINANCIAL_ENABLED === 'true';
 }
 
 /**

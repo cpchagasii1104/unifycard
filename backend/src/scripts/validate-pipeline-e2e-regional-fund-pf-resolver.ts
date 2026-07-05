@@ -16,6 +16,13 @@
  */
 
 import 'tsconfig-paths/register';
+
+// F-BANK-TRANSACTION-SINK-FIREWALL (Fatia 9, achado da auditoria Yala 2026-07-05): este E2E
+// chama servicePaymentExecutionService.createExecution -> ... -> bankTransactionService.
+// createTransactionWithExplicitSplitLines DIRETO (4o entrypoint do sink, agora gated) — precisa
+// ligar o gate default-off pra continuar exercitando o fluxo real que este arquivo sempre testou.
+process.env.BANK_TRANSACTION_SINK_FIREWALL_ENABLED = 'true';
+
 import { pool } from '../core/database/pool';
 import { tenantService } from '../core/tenants/tenant.service';
 import { bankAccountService } from '../modules/bank/bank-account.service';

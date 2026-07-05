@@ -15,7 +15,11 @@
 //   (C) createTransactionWithSplit() perder o mesmo assert;
 //   (D) createSimpleTransaction() perder o mesmo assert (3º entrypoint — achado DURANTE a
 //       implementação: grava bank_transactions/ledger direto, não delega aos outros dois);
-//   (E) o flag deixar de ser estrito (=== 'true').
+//   (E) createTransactionWithExplicitSplitLines() perder o mesmo assert (4º entrypoint — achado
+//       pela AUDITORIA YALA do decision pack PORTA-1, 2026-07-05: caminho REAL de
+//       service-payment-execution, provado em runtime que dinheiro se move mesmo com o firewall
+//       desligado — era o bloqueador do commit 4b7c574e9);
+//   (F) o flag deixar de ser estrito (=== 'true').
 // Complementa (não substitui) os firewalls por-caller já existentes (checkout/PDV/rides) — aqueles
 // continuam vigiados por seus próprios guards; este é a defesa-em-profundidade no SINK compartilhado.
 // Em validate:regression-guards. Heurística textual comment-stripped. NÃO altera runtime.
@@ -42,23 +46,24 @@ if (!existsSync(FW)) {
   if (!/throw new AppError\(\s*403/.test(src)) failures.push(`${FW}: assert não lança 403 fail-closed.`);
 }
 
-// (B)+(C)+(D) os TRÊS entrypoints públicos do sink chamam o assert bem no início do corpo.
+// (B)+(C)+(D)+(E) os QUATRO entrypoints públicos do sink chamam o assert bem no início do corpo.
 const SINK = join(ROOT, 'src', 'modules', 'bank', 'bank-transaction.service.ts');
 if (!existsSync(SINK)) {
   failures.push(`arquivo ausente: ${SINK}`);
 } else {
   const src = stripTs(readFileSync(SINK, 'utf-8'));
-  for (const method of ['async transfer(', 'async createTransactionWithSplit(', 'async createSimpleTransaction(']) {
+  for (const method of ['async transfer(', 'async createTransactionWithSplit(', 'async createSimpleTransaction(', 'async createTransactionWithExplicitSplitLines(']) {
     const idx = src.indexOf(method);
     if (idx < 0) {
       failures.push(`${SINK}: ${method} não encontrado.`);
       continue;
     }
-    // Corpo = do início da declaração até ~1500 chars depois (o assert deve estar bem no topo,
+    // Corpo = do início da declaração até ~2500 chars depois (o assert deve estar bem no topo,
     // antes de qualquer destructuring/validação — a folga cobre assinaturas com tipo de input
-    // inline longo, ex.: createTransactionWithSplit) — não até o próximo método (evita
-    // falso-negativo se um assert legítimo de outro método vazar pro corpo por engano de indentação).
-    const body = src.slice(idx, idx + 1500);
+    // inline longo, ex.: createTransactionWithExplicitSplitLines tem splitLines[] aninhado) — não
+    // até o próximo método (evita falso-negativo se um assert legítimo de outro método vazar pro
+    // corpo por engano de indentação).
+    const body = src.slice(idx, idx + 2500);
     if (!/assertBankTransactionSinkFirewallEnabled\(/.test(body)) {
       failures.push(`${SINK}: ${method} (SINK compartilhado) não chama assertBankTransactionSinkFirewallEnabled no início do corpo — gate no sink quebrado, ≥18 callers ficam sem proteção.`);
     }
@@ -70,4 +75,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [bank-transaction-sink-firewall] — sink compartilhado (transfer + createTransactionWithSplit + createSimpleTransaction) com firewall runtime default-off NO SINK (não por-caller); flag estrito 403 fail-closed. Protege ≥18 callers de produção (P2P/payout/escrow/checkout/PDV/rides/gateway/workers/event-payment) de uma vez — achado A1/A2 do READINESS_PORTA1.md fechado.');
+console.log('GATE OK [bank-transaction-sink-firewall] — sink compartilhado (transfer + createTransactionWithSplit + createSimpleTransaction + createTransactionWithExplicitSplitLines) com firewall runtime default-off NO SINK (não por-caller); flag estrito 403 fail-closed. Protege ≥18 callers de produção (P2P/payout/escrow/checkout/PDV/rides/gateway/workers/event-payment/service-payment-execution) de uma vez — achados A1/A2 do READINESS_PORTA1.md + bloqueador da auditoria Yala fechados.');
