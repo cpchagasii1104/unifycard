@@ -37,19 +37,33 @@ implementação alcança a decisão — não onde a decisão falta.
 
 ## As decisões/GOs que REALMENTE faltam (poucas, e são de EXECUÇÃO, não de modelo)
 
-## D1 — Autorizar a fatia "tenant inicial vivo" (materializar 0115 D1)?
+## D1 — Tenant inicial vivo (0115 D1): REFRAMADO após verificação de 2026-07-06
 
-**Estado:** o modelo está decidido (0115 D1); falta MATERIALIZAR qual é o tenant inicial vivo e apontar o
-`register` pra ele (hoje ainda cria `tenant-per-signup`). É a raiz de que L3-discovery-cross-tenant e a
-"vitrine onde o dev acha o Clayton" dependem.
-- **(a) GO na fatia C1 "mundo inicial vivo"** — definir o tenant institucional inicial (ex.: "Comunidade
-  Inicial Unificard"), apontar register pra ele, reconciliar o legado `tenant-per-signup` — **M** (toca
-  auth.register + migration de reconciliação; é operação de tenant vivo, precisa do seu GO nominal)
-- **(b) Adiar** — segue `tenant-per-signup` (ilhas isoladas; usuários não se acham cross-tenant) — **S**
-- **Recomendação: (a) — mas é a decisão de maior peso do lote.** Destrava a descoberta cross-tenant (a
-  "vitrine" da frente de visibilidade), que hoje é a razão de "tenants-silo impedem usuários de se acharem".
-  Precisa do seu GO porque mexe no nascimento de toda PF e reconcilia dados de tenant vivos. **A única aqui
-  que é decisão soberana de verdade** (as outras são higiene/execução).
+**⚠️ CORREÇÃO (Clayton apontou, código confirma):** a DESCOBERTA cross-tenant **JÁ ESTÁ RESOLVIDA e VIVA**
+— não por fusão de tenants, mas pela **vitrine** (`public_profiles` materializada): busca global anti-PII
+sem filtro de tenant (`searchGlobalPublic`, origem não vazada), página `/vitrine/:actorId` cross-tenant,
+opt-in "quem pode me encontrar" (Público/Só eu) campo-a-campo, publish gated por canRepresentActor.
+Frontend entregue (`fe172dfc2`+`46b1bdb79`) e **provado no navegador por Clayton** (Dev acha o Clayton
+de "outra comunidade" e vê a plaquinha). **O argumento "destrava a descoberta" deste D1 CADUCOU.**
+
+**O que a vitrine NÃO resolve (o resíduo honesto do 0115 D1):**
+1. **Interação:** Seguir/Mensagem na vitrine são "EM BREVE" — dá pra VER o Clayton, não pra CONTRATAR/
+   conversar/agendar com ele (autoridade/dinheiro/booking são tenant-scoped).
+2. **O mundo-natal segue morto:** o novo PF ainda nasce numa ilha vazia (feed vazio, marketplace vazio).
+   A vitrine é uma janela pro mundo; a casa continua deserta. É disso que o 0115 D1 trata de verdade.
+3. **Comércio cross-tenant:** achou a pessoa, mas o serviço dela vive no tenant dela.
+
+**A decisão reframada** — qual arquitetura para a camada de INTERAÇÃO:
+- **(a) Estender o padrão-vitrine** — read-models globais governados para as próximas superfícies
+  (mensagem-ponte, contratação cross-tenant por trilho global), tenants seguem soberanos ("condomínios",
+  coerente com a tese tenancy=condomínio do APRENDIZADO) — **L**, incremental por superfície
+- **(b) Tenant inicial vivo (0115 D1 literal)** — nascimento aponta pra comunidade compartilhada viva;
+  interação intra-tenant natural; reconciliar legado — **M**
+- **(c) Ambos, em fases** — (b) conserta o mundo-natal morto dos novos usuários agora; (a) vira o padrão
+  para interação entre comunidades ao longo do tempo — **M+L**
+- **Recomendação: (c), com (b) primeiro** — são complementares, não rivais. A vitrine já provou o padrão
+  (a) para descoberta; o nascimento-em-ilha-morta segue sendo a violação viva do 0115 D1 promulgado.
+  **Sem urgência de produto** agora que a descoberta funciona — pode entrar na fila atrás de L3.
 
 ## D2 — Autorizar o backfill de `global_user_id` nos 4 atores legados?
 
