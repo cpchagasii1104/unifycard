@@ -251,6 +251,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (14) — Fork de MarketplaceDomain MORTO de ponta a ponta (contracts)
+- Convergência frontend (opção 1): o vocabulário migrou pra casa canônica que JÁ EXISTIA —
+  packages/contracts/src/vocabulary.ts ("Reference vocabulary" §5.16, padrão Gender/Currency).
+  6 cópias (4 backend + 2 frontend) → 1 símbolo (MARKETPLACE_DOMAIN_VALUES); todos re-exportam.
+  Backend core/marketplace-domain segue como home do MAPA D1-D6→N0. Manifesto anti-drift aponta pro
+  novo home. tsc backend 0 + frontend 0, E2E 5/5, suite 199 GATE OK. Resta de L3 só o decision-gated
+  (seed/tríade/sinônimos/W2/hybrid/allowed-domains por CONCEPT).
+
 ### 2026-07-06 (13) — L3 fatia 1: materializa DECISION-0106 (MarketplaceDomain→N0) + fecha fork backend
 - GO "segue com o L3". Materializei o mapa PROMULGADO da 0106 (só vivia no doc): módulo governado
   marketplace-domain-n0-mapping (market→produtos-e-comercio, services→servicos, events→cultura-lazer;
