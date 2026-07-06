@@ -96,10 +96,32 @@ async function main(): Promise<void> {
   catch (e: any) { selfRej = /chk_follows_not_self/i.test(e.message); }
   rec('D CHECK not-self morde (A→A rejeitado)', selfRej);
 
-  // E · RLS
+  // E · RLS flags
   const rls = (await pool.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(
     `SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname='follows'`)).rows[0];
   rec('E RLS ENABLE+FORCE em follows', !!rls?.relrowsecurity && !!rls?.relforcerowsecurity, JSON.stringify(rls));
+
+  // E2 · A POLICY sob role RESTRITO (fix do E2E-cego apontado pela Yala: antes só líamos pg_class como
+  // superuser). Cria role NOBYPASSRLS, seta app.current_tenant e prova: INSERT+SELECT passam no tenant
+  // certo; SELECT com OUTRO tenant vê zero (isolação REAL, não flag).
+  const cli2 = await pool.connect();
+  let e2ok = false; let e2reason = '';
+  try {
+    await cli2.query(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='e2e_rls_probe') THEN CREATE ROLE e2e_rls_probe LOGIN NOBYPASSRLS; END IF; END $$`);
+    await cli2.query(`GRANT SELECT, INSERT, DELETE ON follows TO e2e_rls_probe`);
+    await cli2.query('BEGIN');
+    await cli2.query(`SET LOCAL ROLE e2e_rls_probe`);
+    await cli2.query(`SELECT set_config('app.current_tenant', $1, true)`, [T]);
+    await cli2.query(`INSERT INTO follows (tenant_id, follower_actor_id, followed_actor_id) VALUES ($1,$2,$3)`, [T, alice.actorId, bob.actorId]);
+    const seen = Number((await cli2.query(`SELECT COUNT(*) FROM follows WHERE followed_actor_id=$1`, [bob.actorId])).rows[0].count);
+    await cli2.query(`SELECT set_config('app.current_tenant', gen_random_uuid()::text, true)`);
+    const cross = Number((await cli2.query(`SELECT COUNT(*) FROM follows WHERE followed_actor_id=$1`, [bob.actorId])).rows[0].count);
+    await cli2.query('ROLLBACK');
+    e2ok = seen === 1 && cross === 0;
+    e2reason = `mesmo_tenant=${seen} outro_tenant=${cross}`;
+  } catch (e) { try { await cli2.query('ROLLBACK'); } catch { /* noop */ } e2reason = (e as Error).message.slice(0, 100); }
+  finally { cli2.release(); }
+  rec('E2 policy EXERCITADA sob role NOBYPASSRLS: escreve/lê no tenant certo; outro tenant vê ZERO', e2ok, e2reason);
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${failed.length === 0 ? '🎉 PASS' : '💥 FAIL'} — ${results.length - failed.length}/${results.length}`);
