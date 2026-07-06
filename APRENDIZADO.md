@@ -190,6 +190,150 @@ A resposta a essa pergunta determina:
 
 ---
 
+## Caso de Uso Avançado: Evento Compartilhado com Split Dinâmico
+
+**O Problema que resolve:**
+
+Normalmente (Ticketmaster, Sympla): venue cria evento, vende ingresso, artista promove de graça ou recebe cachê fixo. Margem fica com plataforma centralizada.
+
+**O Modelo UnifiCard:**
+
+Um evento é uma **entidade compartilhada** entre múltiplos atores (venue + banda + possivelmente influencers), cada um com autoridade pra vender ingressos **da mesma página**, e cada venda gera uma **comissão rastreável por origem**.
+
+### **Estrutura de um Evento Compartilhado**
+
+```
+Evento {
+  id: event_uuid,
+  primary_actor: venue_id (quem criou/locação),
+  participants: [banda_id, outro_artista_id, influencer_id],
+  
+  split_config: {
+    venue_base_share: 60%,           # receita por locação
+    artist_commission_per_ticket: 15%, # % por cada ticket vendido pela banda
+    influencer_commission: 10%,        # % por cada ticket vendido por influencer
+    platform_fee: 5%
+  },
+  
+  sales_tracking: [
+    { 
+      ticket_id, 
+      vendor_actor_id,  # quem vendeu (venue, banda, influencer)
+      customer_actor_id,
+      purchased_at,
+      commission_calculated: true
+    }
+  ]
+}
+```
+
+### **Fluxo Econômico Completo**
+
+```
+1. CRIAÇÃO
+   Venue cria evento ("Banda X toca aqui tal data")
+   ↓
+2. ACORDO
+   Venue autoriza Banda a participar da divulgação e venda
+   Estabelece split_config (banda ganha 15% por ingresso que ela vender)
+   ↓
+3. DIVULGAÇÃO MULTI-CANAL
+   Venue posta no seu perfil → seus seguidores veem
+   Banda posta divulgação → seus seguidores veem
+   Sistema rastreia origem (qual ator gerou a venda)
+   ↓
+4. VENDA RASTREADA
+   Cliente vê divulgação da Banda → compra pelo link dela
+   Sistema registra: vendor_actor_id = banda_id
+   ↓
+5. SETTLEMENT (Liquidação)
+   Ingresso vendido → dinheiro entra em event_ledger
+   Sistema calcula split automático:
+     - Venue: 60% (locação)
+     - Banda: 15% (comissão, porque DELA foi a venda)
+     - Platform: 5%
+   ↓
+6. DEPOSIÇÃO NOS LEDGERS
+   band_wallet += comissão_calculada
+   venue_wallet += receita_base
+   regional_fund += imposto (calculado por ator)
+```
+
+### **Por que isso é Revolucionário**
+
+1. **Incentivo Alinhado:** Banda não promove de graça. Quanto mais vender via seguidores dela, mais ganha. Venue também ganha com a base de vendas dela.
+
+2. **Atribuição de Crédito Real:** Sistema sabe QUEM trouxe cada cliente. "Este ingresso veio da divulgação da Banda" → comissão vai pra Banda.
+
+3. **Múltiplos Vendedores, Uma Página:** Não é "evento da venue" + "promoção da banda" em lugares separados. É **UM evento**, ambos vendendo, ambos ganhando.
+
+4. **Economia Regional Intacta:** Toda receita fica na região. Banda ganha. Venue ganha. Nenhuma margem vai pra São Francisco.
+
+5. **Problema Social Resolvido:** Um bar em bairro pobre pode não ter público. Uma banda pode ter 10k seguidores. Sistema incentiva a banda a divulgar (ganha comissão), e o bar fica cheio. Todos ganham.
+
+### **Implicações no Compositor**
+
+Quando uma Banda já tem um evento acordado com um Venue:
+
+**Tipo de Ato: "Divulgação de Evento Participante" (Fluxo de Entrada)**
+
+- **Ator:** Banda (com autoridade restrita **só a este evento**, não autoridade geral de vender ingressos)
+- **Categoria Econômica:** Fluxo de Entrada (banda ganha comissão)
+- **Eixo 1 (Quem):** Banda, papel = "participant_in_event"
+- **Eixo 2 (Contexto):** Vitrine externa (divulgação comercial)
+- **Eixo 3 (Destino):** Broadcast aos seguidores da Banda
+- **Eixo 4 (Consequência):** Venda de ingresso rastreada por origem → comissão
+- **Eixo 5 (Ciclo):** Aberto até data do evento
+
+**O que a Banda posta:**
+- Fotos + descrição do evento
+- Chamada pra seguidores ("venham, comprem ingresso pelo meu link")
+- Cada link que a Banda gera é único → rastreia venda dela
+
+**Autorização necessária:**
+- Só pode postar divulgação de eventos que ela é `participant` autorizado
+- Backend verifica: `participant in event.participants and event.split_config.artist_commission > 0`
+
+### **Cálculo de Comissão e Settlement**
+
+Após evento:
+```
+tickets_sold_by_banda = 50
+price_per_ticket = 100 reais
+split_artist_commission = 15%
+
+artist_commission = 50 * 100 * 0.15 = 750 reais
+
+bank_transaction {
+  event_id,
+  vendor_actor_id: banda_id,
+  amount_cents: 75000,
+  type: 'commission',
+  description: 'Comissão por vendas de ingressos — Evento X'
+}
+
+band_wallet.balance += 750 reais
+```
+
+Imposto é calculado sobre a comissão (não sobre a venda bruta), porque a banda só recebeu aquele valor.
+
+### **Extensão: Influencers também Vendem**
+
+O mesmo modelo funciona pra influencers:
+```
+Evento {
+  participants: [banda_id, influencer_id],
+  split_config: {
+    artist_commission: 15%,
+    influencer_commission: 10%
+  }
+}
+```
+
+Influencer ganha menos (10% vs 15% da banda), porque bandas têm interesse material no evento (vão tocar), influencers não. Mas ainda ganham.
+
+---
+
 ## Caso de Uso Concreto: Pessoa Física em Fluxo de Entrada (Dinheiro Entra)
 
 **O que uma Pessoa Física pode POSTAR quando está em fluxo de entrada (gerando receita)?**
