@@ -254,6 +254,11 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (19) — A esteira de curadoria ganhou CABEÇA (item 2b): /admin/curadoria-servicos
+- Página admin nova (padrão KybReviewBackoffice): fila pending_curation de serviços com Aprovar/
+  Rejeitar (sem merge, D3). Frontend só projeta; autoridade no backend. tsc 0. AGUARDA VISUAL
+  SIGN-OFF de Clayton. Ciclo da Opção C completo: sugerir → curar → catálogo cresce sem migration.
+
 ### 2026-07-06 (18) — Curadoria hardening pré-UI (item 2a da fila): D1+D2 fechados, D3 auditado
 - Frente prescrita no cartório executada: D1 gate de plataforma no promoteToGlobal (env-strict
   fail-closed — tenant-admin não muda mais o catálogo global de todos), D2 reject de serviço (paridade
