@@ -115,9 +115,84 @@ Se o compositor conseguir manter isso (resolver permissões sempre no servidor, 
 
 ---
 
-## Caso de Uso Concreto: Pessoa Física em Modo Operar
+---
 
-**O que uma Pessoa Física pode POSTAR em modo operar?**
+## O Princípio Econômico Fundamental: Dinheiro Dentro ou Dinheiro Fora
+
+**Não existem abstrações de "Modo Consumir" e "Modo Operar".**
+
+Na vida real, só existe uma verdade econômica:
+- **Dinheiro sai do bolso** (você gasta)
+- **Dinheiro entra no bolso** (você recebe)
+- **Sem transação de dinheiro** (coordenação / social puro)
+
+As palavras "consumir" e "operar" são tranquilas, linguisticamente palatáveis. Mas o **substrato é econômico**, não semântico.
+
+**Implicação arquitetural:**
+
+Um tipo de ato não deve ser classificado por nome ("Vaga", "Evento", "Oferta"). Deve ser classificado por **qual fluxo econômico ele gera:**
+
+### **Categoria 1: Fluxo de Saída (Dinheiro Sai)**
+O actor está gastando, pagando, investindo. Exemplos:
+- Procura de Serviço ("procuro eletricista")
+- Procura de Produto ("quero sofá vermelho")
+- Procura de Ajuda Paga ("alguém cobra pra me ajudar a mudar?")
+- Pedido de Locação ("procuro apartamento")
+
+**Consequências reais:**
+- Afeta limite de saldo (ele pode gastar quanto?)
+- Requer verificação de fundos
+- Gera débito no ledger pessoal
+
+### **Categoria 2: Fluxo de Entrada (Dinheiro Entra)**
+O actor está oferecendo, recebendo, gerando receita. Exemplos:
+- Oferta de Serviço ("ofereço aula de inglês")
+- Venda de Produto ("vendo artesanato")
+- Vaga / Contratação ("preciso de alguém")
+- Aluguel de Espaço ("aluga meu estúdio")
+
+**Consequências reais:**
+- Afeta receita do ledger pessoal
+- Gera imposto/contribuição ao fundo regional
+- Entra no histórico de reputação/confiabilidade
+- Pode ter verificação de capacidade (você tem autoridade pra oferecer isso?)
+
+### **Categoria 3: Fluxo Social Puro (Sem Transação)**
+Coordenação, networking, expressão. Nenhuma transação de dinheiro. Exemplos:
+- Post Social ("foto minha, comentário, story")
+- Match Social ("procuro alguém pra sair" — se PURO, sem pagamento envolvido)
+- Enquete de Interesse ("alguém quer montar grupo de corrida?")
+- Interesse Declarado ("gosto disso")
+
+**Consequências reais:**
+- Não afeta ledger
+- Afeta apenas grafo social / descoberta
+- Pode gerar cruzamento de interesses (recomendação)
+
+**A diferença crítica:**
+
+Um ato "procuro companhia pra sair" é **ambíguo sem resolver a categoria econômica:**
+- Se for **Fluxo Social Puro** (só match, sem dinheiro) → não é consumir nem operar, é coordenação social
+- Se for **Fluxo de Saída** (ele vai pagar pra alguém ser companhia, tipo sugar dating) → é gasto real, afeta saldo
+- Se for **Fluxo de Entrada** (ele cobra pra ser companhia) → é receita, afeta imposto
+
+**No compositor:**
+
+A pergunta não é "qual tipo de post é esse?"  
+A pergunta é: **"este ato causa saída de dinheiro, entrada de dinheiro, ou é puro social?"**
+
+A resposta a essa pergunta determina:
+- Quais verificações rodar
+- Qual ledger é afetado
+- Quem vê (visibilidade)
+- Qual ciclo de vida
+- Quais permissões são necessárias
+
+---
+
+## Caso de Uso Concreto: Pessoa Física em Fluxo de Entrada (Dinheiro Entra)
+
+**O que uma Pessoa Física pode POSTAR quando está em fluxo de entrada (gerando receita)?**
 
 1. **Oferta de Serviço** — seus próprios serviços (aula, conserto, consultoria). Ledger pessoal. Destino: público/segmentado.
 2. **Venda de Produto** — seus próprios produtos (artesanato, foto, design). Ledger pessoal. Destino: público/segmentado.
@@ -165,7 +240,8 @@ Grupo/Estrutura Criada (Execução)
 - **Eixos são mais poderosos que enum de tipos.** Se você acerta os eixos, ganha combinatória infinita (nenhum novo "tipo" exige código novo, é só nova combinação de eixos).
 - **Unificação significa zero fontes paralelas de verdade.** Cada domínio (RH, marketplace, governança, social) é uma face, não um sistema. Tudo aponta pro mesmo backend, mesmo ledger, mesma autoridade.
 - **Economia descentralizada não é anarquia.** É **autogestão precisa**: cada região governa seu fundo, cada empresa governa suas permissões, cada ator governa seu perfil. Tudo visível, rastreável, transferível.
-- **Projeto > Grupo, não Grupo > Projeto.** Uma pessoa comum pode gerar uma ideia que vira votação que aloca dinheiro. Se houver apoio, daí cria a estrutura permanente (grupo). A legitimidade vem da votação, não da hierarquia.
+- **Projeto > Grupo, não Grupo > Projeto.** Uma pessoa comum pode gerar uma ideia que vira votação que aloca dinheiro (fluxo econômico real). Se houver apoio, daí cria a estrutura permanente (grupo). A legitimidade vem da votação, não da hierarquia.
+- **Dinheiro dentro ou fora, não abstrações.** "Consumir" e "operar" são palavras tranquilas, mas o substrato é econômico: dinheiro sai do bolso, entra no bolso, ou é puro social? Esta pergunta determina autorização, ledger, imposto, visibilidade. A categoria econômica é mais fundamental que o tipo de ato.
 
 ---
 
