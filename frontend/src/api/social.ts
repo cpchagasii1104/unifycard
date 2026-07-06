@@ -132,12 +132,19 @@ export async function getLedgerSummary(_actorId?: string): Promise<any> {
   throw new Error('NOT_IMPLEMENTED: getLedgerSummary — social-ledger em regime de extinção (SSOT_EXCLUSIVE_BANK_RULE §4).');
 }
 
-export async function followActor(_actorId: string): Promise<{ success: boolean }> {
-  throw new Error('NOT_IMPLEMENTED: followActor — mecânica "follow" não é parte do modelo UnifiCard (Princípio Operacional §10: relação emerge de comportamento, não de declaração). DT-FOLLOW-MECHANICS-DECISION-PENDING.');
+// FOLLOW — decisão soberana de Clayton (2026-07-06): "seguir EXISTE no sistema".
+// (Supera o stub NOT_IMPLEMENTED que citava DT-FOLLOW-MECHANICS-DECISION-PENDING — DT decidida.)
+// Backend: POST /social/actors/:id/follow|unfollow (social-2.0), follower derivado SERVER-SIDE da
+// identidade autenticada (não-spoofável); tabela `follows` com RLS+FORCE + not-self (20260706150000).
+// Frontend só projeta: nenhum estado de follow persiste em localStorage.
+export async function followActor(actorId: string): Promise<{ success: boolean; is_following: boolean }> {
+  const response = await apiFetch(`/social/actors/${actorId}/follow`, { method: 'POST' });
+  return response.json();
 }
 
-export async function unfollowActor(_actorId: string): Promise<{ success: boolean }> {
-  throw new Error('NOT_IMPLEMENTED: unfollowActor — mecânica "follow" não é parte do modelo UnifiCard. DT-FOLLOW-MECHANICS-DECISION-PENDING.');
+export async function unfollowActor(actorId: string): Promise<{ success: boolean; is_following: boolean }> {
+  const response = await apiFetch(`/social/actors/${actorId}/unfollow`, { method: 'POST' });
+  return response.json();
 }
 
 export interface ConfirmCTAResponse {
