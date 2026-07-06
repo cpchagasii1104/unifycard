@@ -190,6 +190,156 @@ A resposta a essa pergunta determina:
 
 ---
 
+## 🔴 LEI DE NAVEGAÇÃO UNIVERSAL: Frontend Nunca Cria Verdade
+
+**O Frontend é PROJEÇÃO. Nunca DECISÃO.**
+
+Isso vale para TUDO: permissões, limites, enumeração de atos, audiência permitida, categoria econômica, SSOT do dinheiro.
+
+### **O que Frontend PODE fazer:**
+
+✅ **Mostrar** o que Backend permitiu (permissões resolvidas no servidor)
+✅ **Renderizar** atos baseado no que Backend enumerou (GET /composer/available-actions respondido pelo servidor)
+✅ **Projetar** dados que Backend garantiu (ledger consultado do servidor, não cache)
+✅ **Degradar UX** se Backend bloquear (botão desabilitado, mensagem clara)
+✅ **Confiar** em dados do servidor (nunca questionar, nunca fazer workaround)
+✅ **Validação UX** (verificação local pra feedback imediato, mas nunca como decisão real)
+
+### **O que Frontend NÃO PODE fazer:**
+
+❌ **Decidir** se alguém tem permissão (sempre perguntar ao servidor)
+❌ **Calcular** limite de gasto (sempre verificar no servidor)
+❌ **Enumerar** atos sem Backend confirmar (nunca hardcodificar lista de atos)
+❌ **Cache de permissões** que seja verdade (cache é hint, não autoridade)
+❌ **Workaround** quando backend rejeita (nunca tentar contornar 403)
+❌ **Confiar em localStorage** como fonte de verdade (sempre verificar com servidor)
+❌ **Simular autorização** ("se o usuário não vê X, então não pode fazer Y")
+
+### **Checklist Obrigatório Antes de Codar Frontend:**
+
+1. **Estou criando uma nova fonte de verdade?** 
+   - ❌ Se sim, PARE. Isso não é permitido.
+   - ✅ Se não, continue.
+
+2. **Quem é soberano sobre esta decisão?**
+   - Permissão? → Backend (via `canRepresentActor` + role checks)
+   - Limite de gasto? → Backend (via `checkSpendingAuthority`)
+   - Qual ato posso criar? → Backend (via `GET /composer/available-actions`)
+   - Se dois clientes conseguem responder diferentemente, há um problema na arquitetura.
+
+3. **Isso é projeção ou decisão?**
+   - Projeção: "Mostro o que o servidor garantiu"
+   - Decisão: "Eu decido baseado em lógica local"
+   - ❌ Se é decisão, PARE. Não é permitido.
+
+4. **Estou usando cache como verdade?**
+   - ❌ Cache local é hint, não verdade. Sempre verificar com servidor em cada ação crítica.
+   - ✅ Cache é OK pra UX (render rápido), mas SEMPRE validar com servidor antes de commit.
+
+### **Padrão Correto: Sempre Backend First**
+
+```
+Frontend quer saber: "Marina pode criar Procura Fornecedor?"
+
+❌ ERRADO:
+  if (localStorage.permissions.includes('warehouse:create')) {
+    showCreateButton()
+  }
+
+✅ CORRETO:
+  GET /composer/available-actions?actor=marina&role=warehouse
+  → Backend responde: ["Procurar Fornecedor", "Registrar Entrada", ...]
+  → Frontend renderiza APENAS essas opções
+  → Nenhuma lógica local de permissão
+```
+
+---
+
+### **Exemplo Crítico: Limite de Gasto**
+
+Marina quer postar "Procurar Fornecedor — R$ 60.000" (acima do limite R$ 50.000).
+
+❌ **ERRADO (Frontend decide):**
+```javascript
+if (amount > 50000) {
+  disableButton() // Frontend bloqueou
+}
+// Mas se Marina conseguir contornar (dev tools), upload funciona?
+// Inconsistência! Duas fontes de verdade.
+```
+
+✅ **CORRETO (Backend é soberano):**
+```javascript
+// Frontend mostra interface normalmente
+// Marina preenche e envia ao Backend
+
+POST /composer/action
+  { action: "Procurar Fornecedor", amount: 60000, ... }
+
+// Backend valida:
+if (amount > warehouse_limit) {
+  return 403 {
+    code: 'SPENDING_LIMIT_EXCEEDED',
+    message: 'Limite é R$ 50.000. Precisa de aprovação.',
+    options: ['reduce', 'request_approval', 'split']
+  }
+}
+
+// Frontend renderiza a resposta:
+if (response.code === 'SPENDING_LIMIT_EXCEEDED') {
+  showOptions(response.options)
+}
+// Se alguém tentar contornar? Sempre vai bater no Backend.
+// Uma única fonte de verdade.
+```
+
+---
+
+### **Por que isso importa:**
+
+1. **Segurança:** Se Frontend decide permissão, alguém pode contornar (dev tools, man-in-the-middle).
+2. **Consistência:** Se duas fontes de verdade existem, eventualmente divergem (cache desatualiza, bug local, etc).
+3. **Auditoria:** Se alguém pergunta "quem criou essa vaga?", precisa saber: "Marina, com papel RH_MANAGER, com limite R$ 50.000, aprovado via servidor". Se Frontend teve participação em autorizar, audit trail fica confuso.
+4. **SSOT do Dinheiro:** Tudo que impacta ledger precisa ser 100% verificado no backend. Frontend nunca toca nisso.
+
+---
+
+### **Integração com Estrutura de Departamentos**
+
+Quando Marina abre o Compositor:
+
+```
+Frontend faz: GET /composer/available-actions?dept=warehouse&actor=marina
+
+Backend responde:
+{
+  available_actions: ["Procurar Fornecedor", "Registrar Entrada", ...],
+  spending_limits: {
+    "Procurar Fornecedor": 50000,
+    "Registrar Entrada": null (sem limite)
+  },
+  approval_required_above: 30000,
+  audiences: ["B2B_PRIVADO", "INTERNO"]
+}
+
+Frontend renderiza:
+  - Form pra "Procurar Fornecedor" (porque Backend disse que pode)
+  - Aviso: "Limite R$ 50.000, acima disso precisa aprovação"
+  - NUNCA bloqueia antes de enviar (deixa Backend bloquear, se necessário)
+
+Marina preenche, clica "Enviar"
+
+Backend valida NOVAMENTE:
+  ✓ Marina ainda pode fazer isso? (permissão pode ter mudado)
+  ✓ Saldo ainda permite? (outro ato pode ter consumido limite)
+  ✓ Categoria econômica bate? (auditoria)
+  
+Se tudo ✓: grava no ledger
+Se algum ✗: retorna 403 com razão exata
+```
+
+---
+
 ## 🔴 PRINCÍPIO FUNDACIONAL: O Dinheiro tem Uma Única Fonte de Verdade
 
 **O sistema inteiro foi construído sobre isto:**
