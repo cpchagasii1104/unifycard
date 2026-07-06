@@ -4,6 +4,8 @@
 // 🔴 BLINDAGEM: Funcionários são actors CPF independentes
 // 🔴 BLINDAGEM: Empresa NÃO pode editar agenda pessoal do funcionário
 
+import type { DelegationRelationshipType } from '@core/actor-delegation/actor-delegation.repository';
+
 /**
  * Role do Membro da Empresa
  * 🔴 BLINDAGEM: Role é contexto, não decisão
@@ -66,6 +68,13 @@ export interface CreateCompanyMemberInput {
   role?: CompanyMemberRole; // Default: 'staff'
   status?: CompanyMemberStatus; // Default: 'invited'
   metadata?: Record<string, any>;
+  // R2 FIX (RN2/R2.2, auditoria normativa Yala): VÍNCULO JURÍDICO explícito (eixo D2 separado do `role`
+  // operacional). Quando o gestor declara o vínculo real (sócio/diretor/procurador/representante legal),
+  // ele vem GOVERNADO por aqui e é escrito na delegação — em vez de ser ADIVINHADO 1:1 do role (que só
+  // alcançava administrator/employee/contractor e deixava owner→null + 4 valores mortos). É DADO (o gestor
+  // declara o fato), não autoridade — a autoridade segue canManageCompany + canRepresentActor. Opcional:
+  // se ausente, cai no fallback derivado do role (compat). Valor validado pelo CHECK do banco.
+  relationshipType?: DelegationRelationshipType | null;
 }
 
 /**

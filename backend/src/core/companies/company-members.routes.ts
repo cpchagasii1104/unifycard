@@ -88,6 +88,10 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
     role: z.nativeEnum(CompanyMemberRole).optional(),
     status: z.nativeEnum(CompanyMemberStatus).optional(),
     metadata: z.record(z.any()).optional(),
+    // R2 FIX (RN2/R2.2): VÍNCULO JURÍDICO explícito (eixo D2 separado do role). Vocabulário GOVERNADO
+    // (espelha o CHECK chk_actor_delegations_relationship_type / DELEGATION_RELATIONSHIP_TYPES). O gestor
+    // DECLARA o vínculo real; o banco valida. Opcional (ausente = fallback derivado do role, compat).
+    relationshipType: z.enum(['partner', 'director', 'administrator', 'attorney', 'legal_representative', 'employee', 'contractor']).optional(),
   });
 
   fastify.post<{
@@ -127,6 +131,7 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
             role: parsed.data.role,
             status: parsed.data.status,
             metadata: parsed.data.metadata,
+            relationshipType: parsed.data.relationshipType, // R2 FIX: vínculo jurídico explícito governado
           }
         );
 

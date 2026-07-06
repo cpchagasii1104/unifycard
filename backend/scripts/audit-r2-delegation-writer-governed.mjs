@@ -64,7 +64,12 @@ if (!existsSync(MEMBERS)) {
     failures.push('company-members.service: não passa grantedByActorId ao criar delegação — autoria da concessão perdida (§4.9.9).');
   }
   if (!/getRelationshipTypeForRole/.test(code)) {
-    failures.push('company-members.service: perdeu getRelationshipTypeForRole — vínculo jurídico não é mais derivado do role.');
+    failures.push('company-members.service: perdeu getRelationshipTypeForRole — vínculo jurídico (fallback do role) removido.');
+  }
+  // R2 FIX RN2/R2.2: o vínculo jurídico deve poder vir EXPLÍCITO (fonte governada), não só derivado 1:1
+  // do role (que deixava 4/7 valores mortos + owner→null). explicitRelationshipType tem precedência.
+  if (!/explicitRelationshipType/.test(code)) {
+    failures.push('company-members.service: perdeu explicitRelationshipType — o vínculo jurídico voltou a ser SÓ derivado do role (4/7 valores mortos, owner→null; ressalva RN2/R2.2 da auditoria normativa).');
   }
 }
 

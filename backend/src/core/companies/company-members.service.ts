@@ -62,7 +62,7 @@ class CompanyMembersService {
     // R2.2 (Lote L2): `userId` é o actor que EXECUTA a associação (o concedente — quem passou pela
     // catraca canManageCompany da Fatia 2). Vira `grantedByActorId` na delegação governada (§4.9.9 autoria).
     if (member.status === CompanyMemberStatus.ACTIVE) {
-      await this.createDelegationForMember(tenantId, member, userId);
+      await this.createDelegationForMember(tenantId, member, userId, input.relationshipType);
     }
 
     return member;
@@ -70,12 +70,15 @@ class CompanyMembersService {
 
   /**
    * Cria delegação para membro ativo.
-   * R2.2: grava relationship_type (vínculo jurídico derivado do role) + granted_by_actor_id (o concedente).
+   * R2.2 + FIX RN2/R2.2: grava relationship_type + granted_by_actor_id (o concedente). O vínculo jurídico
+   * vem de `explicitRelationshipType` quando o gestor o DECLARA (fonte governada — alcança os 7 valores,
+   * inclui owner); só cai na derivação do role como FALLBACK de compat (que só alcançava 3 valores).
    */
   private async createDelegationForMember(
     tenantId: string,
     member: CompanyMember,
-    grantedByActorId?: string | null
+    grantedByActorId?: string | null,
+    explicitRelationshipType?: DelegationRelationshipType | null
   ): Promise<void> {
     // Buscar actor da company
     const actorRepository = socialPortsRegistry.getActorRepository();
@@ -96,13 +99,21 @@ class CompanyMembersService {
     // Determinar scopes baseado no role
     const scopes = this.getScopesForRole(member.role);
 
-    // Criar delegação governada (R2.2): vínculo jurídico derivado do role + autoria do concedente.
+    // Vínculo jurídico: EXPLÍCITO (gestor declarou — fonte governada) tem precedência; senão FALLBACK
+    // derivado do role (compat). `explicitRelationshipType === undefined` = não declarado → fallback;
+    // `=== null` = declarado explicitamente como "não classificado" → respeitado.
+    const relationshipType =
+      explicitRelationshipType !== undefined
+        ? explicitRelationshipType
+        : this.getRelationshipTypeForRole(member.role);
+
+    // Criar delegação governada (R2.2): vínculo jurídico + autoria do concedente.
     const delegation = await actorDelegationRepository.create(tenantId, {
       userActorId: member.actorId,
       institutionalActorId: companyActor.actor_id,
       scopes,
       isTransitive: false,
-      relationshipType: this.getRelationshipTypeForRole(member.role),
+      relationshipType,
       grantedByActorId: grantedByActorId ?? null,
     });
 

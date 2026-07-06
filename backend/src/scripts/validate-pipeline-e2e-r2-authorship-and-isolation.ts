@@ -177,7 +177,35 @@ async function main(): Promise<void> {
     !!projected && (projected as any).relationshipType === 'administrator',
     `delegations[0].relationshipType=${(projected as any)?.relationshipType} (n=${caps?.delegations?.length})`);
 
+  // ── RN2/R2.2 FIX: vínculo jurídico EXPLÍCITO alcança os valores antes mortos + owner (fonte governada) ──
+  // Cria um 2º colaborador com o gestor DECLARANDO relationshipType='partner' (sócio) — valor que a
+  // derivação 1:1 do role NUNCA alcançava (partner/director/attorney/legal_representative eram inalcançáveis).
+  const p2Gu = randomUUID(); const p2UserId = randomUUID(); const p2Tax = String(Date.now() + 21).slice(-11);
+  await pool.query(`INSERT INTO global_users (global_user_id, cpf, metadata, created_at, updated_at) VALUES ($1,$2,'{}'::jsonb,NOW(),NOW())`, [p2Gu, p2Tax]);
+  await pool.query(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1,$2,'cpf','approved','basic')`, [p2Gu, p2Tax]);
+  await pool.query(`INSERT INTO users (id, user_id, tenant_id, email, password_hash, token_version, is_test, global_user_id, created_at, updated_at) VALUES ($1,$1,$2,$3,'x',0,true,$4,NOW(),NOW())`, [p2UserId, T, `socio-${Date.now()}@e2e.test`, p2Gu]);
+  const p2Actor = (await pool.query<{ id: string }>(`INSERT INTO actors (tenant_id, actor_type, display_name, user_id, global_user_id) VALUES ($1,'user','Sócio',$2,$3) RETURNING id`, [T, p2UserId, p2Gu])).rows[0].id;
+  await pool.query(`UPDATE actors SET actor_id = id WHERE id = $1`, [p2Actor]);
+  const rSocio = await app.inject({
+    method: 'POST', url: `/companies/${companyId}/members`,
+    headers: { 'content-type': 'application/json', 'x-acting-actor': aliceActor },
+    payload: JSON.stringify({ actorId: p2Actor, role: 'staff', status: 'active', relationshipType: 'partner' }),
+  });
+  const socioRt = (await pool.query<{ rt: string | null }>(
+    `SELECT relationship_type AS rt FROM actor_delegations WHERE tenant_id=$1 AND user_actor_id=$2 AND status='active' ORDER BY created_at DESC LIMIT 1`, [T, p2Actor]
+  )).rows[0]?.rt;
+  rec('R2.2-FIX vínculo EXPLÍCITO governado: gestor declara partner (sócio) → gravado, NÃO derivado do role staff',
+    rSocio.statusCode === 201 && socioRt === 'partner', `status=${rSocio.statusCode} rt=${socioRt} (role era staff→employee no fallback)`);
+
   await app.close();
+
+  // RN3 FIX: FK de autoria a actors — granted_by_actor_id fantasma (actor inexistente) é REJEITADO.
+  let fkAuthorRej = false;
+  try {
+    await pool.query(`INSERT INTO actor_delegations (tenant_id, user_actor_id, institutional_actor_id, scopes_json, status, granted_by_actor_id) VALUES ($1,$2,$3,'[]'::jsonb,'revoked',$4)`,
+      [T, bobActor, personActor, randomUUID()]);
+  } catch (e: any) { fkAuthorRej = /fk_actor_delegations_granted_by_actor|foreign key/i.test(e.message); }
+  rec('RN3-FIX FK de autoria: granted_by_actor_id de actor INEXISTENTE rejeitado (nome _actor_id agora garante o vínculo)', fkAuthorRej, `rejeitado=${fkAuthorRej}`);
 
   // B · unique parcial: 2ª delegação ATIVA do mesmo par (INSERT direto) → rejeitada.
   const inst = (await pool.query<{ id: string }>(`SELECT id FROM actors WHERE tenant_id=$1 AND company_id=$2 AND actor_type='page' LIMIT 1`, [T, companyId])).rows[0].id;
