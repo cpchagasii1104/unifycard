@@ -32,27 +32,43 @@ if (!existsSync(FIREWALL_FILE)) {
   }
 }
 
+// 🔴 RECONCILIAÇÃO 2026-07-06 (Lote L5): o módulo venue inteiro foi CONTIDO por schema ghost
+// (tabs/menus/menu_items = to_regclass NULL) → todas as rotas, inclusive /pay, retornam 501
+// VENUE_SCHEMA_GHOST_CONTAINED (audit-l5-frozen-modules-ghost-containment.mjs). Isso é uma contenção
+// MAIS FORTE que o firewall assert: `executePayment`/`createPaymentIntent` foram REMOVIDOS do arquivo
+// (o caminho de dinheiro nem é alcançável). Este guard passa a aceitar QUALQUER das duas formas de
+// contenção: (A) contenção total 501 sem nenhum sink financeiro no arquivo, OU (B) o firewall assert
+// original antes do sink. Se o venue religar (schema materializado) e o /pay voltar a chamar o sink,
+// a Forma B volta a ser exigida.
 if (!existsSync(ROUTES_FILE)) {
   failures.push(`arquivo ausente: ${ROUTES_FILE}`);
 } else {
   const src = stripTs(readFileSync(ROUTES_FILE, 'utf8'));
-  const routeStart = src.indexOf("'/t/:qrToken/orders/:orderId/pay'");
-  if (routeStart < 0) {
-    failures.push(`${ROUTES_FILE}: rota /pay não encontrada.`);
+  const fileHasSink = /executePayment\(|createPaymentIntent\(/.test(src);
+  const fileFullyContained = /VENUE_SCHEMA_GHOST_CONTAINED/.test(src) && !fileHasSink;
+
+  if (fileFullyContained) {
+    // Forma A — contenção total L5: sem sink financeiro alcançável no arquivo. Aprova.
   } else {
-    const nextRoute = src.indexOf("fastify.", routeStart + 40);
-    const scope = src.slice(routeStart, nextRoute >= 0 ? nextRoute : undefined);
-    const assertIdx = scope.indexOf('assertVenueFinancialRuntimeEnabled(');
-    const intentIdx = scope.indexOf('createPaymentIntent(');
-    const execIdx = scope.indexOf('executePayment(');
-    if (assertIdx < 0) {
-      failures.push(`${ROUTES_FILE}: assertVenueFinancialRuntimeEnabled ausente na rota /pay — contenção removida.`);
-    }
-    if (intentIdx >= 0 && (assertIdx < 0 || intentIdx < assertIdx)) {
-      failures.push(`${ROUTES_FILE}: createPaymentIntent fica ANTES (ou sem) o assert de contenção.`);
-    }
-    if (execIdx >= 0 && (assertIdx < 0 || execIdx < assertIdx)) {
-      failures.push(`${ROUTES_FILE}: executePayment fica ANTES (ou sem) o assert de contenção.`);
+    // Forma B — firewall assert antes do sink na rota /pay.
+    const routeStart = src.indexOf("'/t/:qrToken/orders/:orderId/pay'");
+    if (routeStart < 0) {
+      failures.push(`${ROUTES_FILE}: rota /pay não encontrada e arquivo não está em contenção total L5.`);
+    } else {
+      const nextRoute = src.indexOf("fastify.", routeStart + 40);
+      const scope = src.slice(routeStart, nextRoute >= 0 ? nextRoute : undefined);
+      const assertIdx = scope.indexOf('assertVenueFinancialRuntimeEnabled(');
+      const intentIdx = scope.indexOf('createPaymentIntent(');
+      const execIdx = scope.indexOf('executePayment(');
+      if (assertIdx < 0) {
+        failures.push(`${ROUTES_FILE}: assertVenueFinancialRuntimeEnabled ausente na rota /pay — contenção removida.`);
+      }
+      if (intentIdx >= 0 && (assertIdx < 0 || intentIdx < assertIdx)) {
+        failures.push(`${ROUTES_FILE}: createPaymentIntent fica ANTES (ou sem) o assert de contenção.`);
+      }
+      if (execIdx >= 0 && (assertIdx < 0 || execIdx < assertIdx)) {
+        failures.push(`${ROUTES_FILE}: executePayment fica ANTES (ou sem) o assert de contenção.`);
+      }
     }
   }
 }

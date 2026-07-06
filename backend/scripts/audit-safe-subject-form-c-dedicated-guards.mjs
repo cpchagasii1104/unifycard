@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 // Guard estrutural — F-AUTHORITY-Z3-SAFE-SUBJECT-FORM-C-DEDICATED-GUARDS (higiene W3 do sweep 0113; DECISION-0125/0126).
 //
-// business-audit, policy-engine e risk-command-center são reconhecidos pelo detector central
+// business-audit e risk-command-center são reconhecidos pelo detector central
 // (audit-actor-authority-boundary.mjs) via safeSubjectProof Forma C/D (canUserPerformCompanyCapability /
 // canUserPerformTenantCapability + subject server-side req.user). Eram materialmente seguros e re-flagáveis, mas
 // sem guard DEDICADO. Este guard torna a prova explícita por superfície. NÃO altera runtime; é higiene.
+//
+// 🔴 RECONCILIAÇÃO 2026-07-06 (Lote L5): `policy-engine` SAIU desta lista. Suas tabelas
+// (policy_rules/policy_decisions) são schema ghost (to_regclass=NULL) → a rota foi CONTIDA fail-closed
+// (501 POLICY_ENGINE_SCHEMA_GHOST_CONTAINED) em `audit-l5-frozen-modules-ghost-containment.mjs`. O binding
+// Forma C/D que esta lista exigia era correto em intenção mas rodava sobre superfície MORTA — e binding sobre
+// rota ghost é PROIBIDO (precedente organization). A invariante migrou de "policy tem Forma C/D" para "policy
+// está contida 501"; sem perda de cobertura (o guard L5 assume a prova). Se o schema de policy nascer e a
+// rota religar, policy-engine VOLTA para esta lista com o binding restaurado.
 // MORDE, por superfície, se: sumir o primitivo de capability (Forma C/D); o subject deixar de vir de req.user;
 // sumir o fail-closed (401 sem user / 403 sem permissão); o actor client-declared (actionContext.actorId/
 // params.actorId) for passado como ARGUMENTO ao service de dados (autoridade, não alvo); ou aparecer bank_*.
@@ -21,7 +29,8 @@ const stripTs = (s) => s
 // Por superfície: arquivo, nome do service de dados (cujas chamadas NÃO podem receber ator client-declared como arg).
 const SURFACES = [
   { rel: 'src/modules/business-audit/business-audit.routes.ts', svc: 'businessAuditLogService' },
-  { rel: 'src/modules/policy-engine/policy.routes.ts', svc: 'policyEngineService' },
+  // policy-engine REMOVIDO (Lote L5, 2026-07-06): contido 501 por schema ghost — ver comentário no topo +
+  // audit-l5-frozen-modules-ghost-containment.mjs. Restaurar aqui se a rota religar.
   { rel: 'src/modules/risk-command-center/risk-dashboard.routes.ts', svc: 'riskDashboardService' },
 ];
 
@@ -63,4 +72,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [safe-subject-form-c-dedicated-guards] — business-audit/policy-engine/risk-command-center: subject=req.user server-side + canUserPerformCompanyCapability/canUserPerformTenantCapability (Forma C/D) + fail-closed 401/403; ator client-declared não governa o service de dados; zero bank_*. Higiene W3 guard-backed.');
+console.log('GATE OK [safe-subject-form-c-dedicated-guards] — business-audit/risk-command-center: subject=req.user server-side + canUserPerformCompanyCapability/canUserPerformTenantCapability (Forma C/D) + fail-closed 401/403; ator client-declared não governa o service de dados; zero bank_*. Higiene W3 guard-backed. (policy-engine migrado para contenção L5.)');
