@@ -12,6 +12,7 @@ const guards = [
   'audit-social-actors-available-self-anchored.mjs',    // B3 — /actors/available ancorado no principal
   'audit-cultural-checkin-target-actor-type-derived.mjs', // actor_type do check-in sempre derivado server-side (não do body)
   'audit-l5-frozen-modules-ghost-containment.mjs',        // Lote L5 — venue/work-instant/policy-engine/residence contidos 501 fail-closed (schema ghost)
+  'audit-r2-delegation-writer-governed.mjs',              // R2.2 — writer de delegação atômico (delegação+evento na mesma TX); repositório é persistência, não gate
 ];
 
 let failed = false;

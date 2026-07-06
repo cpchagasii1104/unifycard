@@ -80,9 +80,11 @@ dinheiro soberano (PORTA-1 §4).
       · **D3** = tabela `actor_delegation_events` · **D4** = financeiro fora · **D5** = risco depois
 - [x] **R2.1 schema** executado (migration `20260706120000`, efêmera 11/11, dev vivo, 9 legadas
       preservadas, commit abaixo) — `relationship_type`+`granted_by`+`previous_link_id`+events append-only
-- [ ] **R2.2 writer governado** — grant/revoke com gate canManageCompany, grava vínculo+evento,
-      departamento em scopes_json. Fable 5 ultracode + E2E fail-first de autoria + selo Yala. ← PRÓXIMO
-- [ ] **R2.3 reconciliar leitura** (actor-capabilities projeta campos novos; canRepresentActor íntegro)
+- [x] **R2.2 writer governado** — EXECUTADO code-only (repositório atômico grant/evento + company-members
+      passa autoria+vínculo; gate fica na porta selada Fatia 2, repositório é persistência). E2E 8/8
+      (atomicidade provada), guard + 2 negative-proofs, suite 196 GATE OK. **⚠️ AGUARDA SELO YALA**
+      (Clayton aciona `/code-review ultra` antes de CLOSED). Commit abaixo.
+- [ ] **R2.3 reconciliar leitura** (actor-capabilities projeta campos novos; canRepresentActor íntegro) ← PRÓXIMO pós-selo
 - [ ] **R2.4 camada de risco** (D5 — sub-frente própria, depois)
 
 ### L3 — Catálogo/serviços/marketplace (~15 DTs) — não iniciado
@@ -165,6 +167,14 @@ L5 (quase feito) → **L2 (agora é prioridade alta — destrava o Compositor)**
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-06 (4) — R2.2 (writer governado de delegação) executado, aguarda selo Yala
+- Repositório actor-delegation virou transação atômica: grant grava relationship_type+granted_by+
+  previous_link_id E emite evento granted na MESMA TX; revoke/supersede emitem revoked. company-members
+  passa autoria+vínculo (role→relationship_type). Gate de autoridade NÃO no repositório (persistência) —
+  fica na porta selada Fatia 2. E2E 8/8 (atomicidade: relationship_type inválido → rollback total, zero
+  órfão). Guard + 2 negative-proofs. Suite 196 GATE OK, typecheck 0. Closeout no cartório. **AGUARDA
+  SELO YALA** antes de CLOSED. Próximo pós-selo: R2.3.
 
 ### 2026-07-06 (3) — L2 decidido + R2.1 (schema de delegação) executado
 - Clayton decidiu D1-D5. R2.1 schema executado: migration `20260706120000` estende

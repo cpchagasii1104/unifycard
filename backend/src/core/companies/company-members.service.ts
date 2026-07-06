@@ -7,7 +7,7 @@
 import { companyMembersRepository } from './company-members.repository';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { actorRegistryService } from '../actor-registry/actor-registry.service';
-import { actorDelegationRepository } from '../actor-delegation/actor-delegation.repository';
+import { actorDelegationRepository, type DelegationRelationshipType } from '../actor-delegation/actor-delegation.repository';
 import { pilotEventsService } from '../pilot/pilot-events.service';
 import { BadRequestError, NotFoundError } from '@core/errors';
 import type {
@@ -58,20 +58,24 @@ class CompanyMembersService {
     // 🔴 BLINDAGEM: Criar membro (empresa apenas associa, não edita agenda pessoal)
     const member = await companyMembersRepository.create(tenantId, input);
 
-    // CONTINUOUS PRODUCTION: Criar delegação se membro está ativo
+    // CONTINUOUS PRODUCTION: Criar delegação se membro está ativo.
+    // R2.2 (Lote L2): `userId` é o actor que EXECUTA a associação (o concedente — quem passou pela
+    // catraca canManageCompany da Fatia 2). Vira `grantedByActorId` na delegação governada (§4.9.9 autoria).
     if (member.status === CompanyMemberStatus.ACTIVE) {
-      await this.createDelegationForMember(tenantId, member);
+      await this.createDelegationForMember(tenantId, member, userId);
     }
 
     return member;
   }
 
   /**
-   * Cria delegação para membro ativo
+   * Cria delegação para membro ativo.
+   * R2.2: grava relationship_type (vínculo jurídico derivado do role) + granted_by_actor_id (o concedente).
    */
   private async createDelegationForMember(
     tenantId: string,
-    member: CompanyMember
+    member: CompanyMember,
+    grantedByActorId?: string | null
   ): Promise<void> {
     // Buscar actor da company
     const actorRepository = socialPortsRegistry.getActorRepository();
@@ -92,12 +96,14 @@ class CompanyMembersService {
     // Determinar scopes baseado no role
     const scopes = this.getScopesForRole(member.role);
 
-    // Criar delegação
+    // Criar delegação governada (R2.2): vínculo jurídico derivado do role + autoria do concedente.
     const delegation = await actorDelegationRepository.create(tenantId, {
       userActorId: member.actorId,
       institutionalActorId: companyActor.actor_id,
       scopes,
       isTransitive: false,
+      relationshipType: this.getRelationshipTypeForRole(member.role),
+      grantedByActorId: grantedByActorId ?? null,
     });
 
     // SPRINT 13: Observar primeira delegação (assíncrono, não bloqueia)
@@ -128,6 +134,25 @@ class CompanyMembersService {
         return ['publish_feed'];
       default:
         return [];
+    }
+  }
+
+  /**
+   * R2.2 — deriva o VÍNCULO JURÍDICO governado (D2 eixo 1) do role operacional. O role de
+   * company_users é o cargo/scope; o relationship_type é o tipo de vínculo institucional (vocabulário
+   * governado por CHECK). Mapeamento MVP dos 3 roles atuais; vínculos mais ricos (partner/director/
+   * attorney/legal_representative) entram quando o writer ganhar seleção explícita de vínculo.
+   */
+  private getRelationshipTypeForRole(role: string): DelegationRelationshipType | null {
+    switch (role) {
+      case 'admin':
+        return 'administrator';
+      case 'staff':
+        return 'employee';
+      case 'contractor':
+        return 'contractor';
+      default:
+        return null;
     }
   }
 
@@ -198,7 +223,8 @@ class CompanyMembersService {
       
       for (const delegation of delegations) {
         if (delegation.institutionalActorId === companyActor.actor_id) {
-          await actorDelegationRepository.revoke(tenantId, delegation.delegationId);
+          // R2.2: `userId` = actor que executa a remoção (o revogador — autoria da revogação, §4.9.9).
+          await actorDelegationRepository.revoke(tenantId, delegation.delegationId, userId);
         }
       }
     }
