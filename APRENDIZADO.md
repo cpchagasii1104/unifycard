@@ -563,6 +563,245 @@ GET /group/{group_id}/ledger
 
 ---
 
+---
+
+## Caso de Uso Crítico: Canal Nativo UnifiCard (Infraestrutura Descentralizada de Criador)
+
+**⚠️ CRÍTICO:** Canal NÃO é integração com YouTube/TikTok/Meta. Criador **cria canal DENTRO de UnifiCard**, monetiza ali, economia fica 100% na região.
+
+### **Diferença Radical vs YouTube/TikTok**
+
+| Aspecto | YouTube/TikTok | UnifiCard Canal |
+|--------|---------|---------|
+| **Monetização** | Ads (algoritmo opaco, plataforma tira 30-55%) | Direto com audiência (criador controla) |
+| **Receita** | Plataforma dita regras | 100% pro criador (menos imposto regional) |
+| **Economia** | Margem vai pra Silicon Valley | **Fica 100% na região** |
+| **Transparência** | Black box | **SSOT**, consultável por todos |
+| **Integração** | Isolado (YouTube é YouTube) | **Integrado** (canal + evento + grupo + banda) |
+| **Função Social** | Voluntária (fora da plataforma) | **Operacional** (ledger comprova) |
+| **Confiança** | "Promessa de criador" | **Dados verificáveis** (SSOT) |
+| **Risco** | Desmonetização arbitrária | Nenhum (economia descentralizada) |
+
+---
+
+### **Como Criador Ganha Dinheiro (dentro UnifiCard)**
+
+**Tipo 1: Venda de Produto Exclusivo**
+- Ebook, curso, guia, conteúdo pago
+- 100% da venda → channel_wallet
+- Criador consulta: "Vendi R$ 5000 em ebooks este mês"
+
+**Tipo 2: Doação/Tipping de Seguidores**
+- Button: "Apoie este criador" (R$ 5/10/20)
+- Dinheiro → channel_wallet direto
+- Criador pode publicar: "Vocês arrecadaram R$ 2000, usarei pra criar vídeos melhores"
+
+**Tipo 3: Conteúdo Pago (Inscrição Recorrente)**
+- "Acesso exclusivo por R$ 9.99/mês"
+- Inscritor vê conteúdo premium do canal
+- Receita recorrente → channel_wallet
+
+**Tipo 4: Patrocínio/Sponsorship**
+- Marca paga criador pra anunciar no canal
+- "Este vídeo é patrocinado por Marca X"
+- Dinheiro → channel_wallet
+- Sistema rastreia: "R$ 5000 de patrocínio este mês"
+
+**Tipo 5: Evento do Canal**
+- Live ao vivo, workshop, meet and greet
+- Audiência paga pra participar
+- 500 pessoas × R$ 20 = R$ 10000 → channel_wallet
+
+**Tipo 6: Comissão de Venda (Afiliado Evoluído)**
+- Criador recomenda Produto/Serviço dentro UnifiCard
+- Usuário compra via link do criador
+- Sistema rastreia automaticamente quem trouxe
+- Comissão (ex: 10%) → channel_wallet
+- Criador consulta: "Ganhei R$ 500 com recomendações"
+
+**Tipo 7: Parceria com Evento/Artista**
+- Criador promove show de banda
+- Faz live no canal, vende ingressos
+- Split automático: criador 30%, banda 60%, plataforma 10%
+- Ambos recebem número idêntico (SSOT)
+
+**Tipo 8: Arrecadação Beneficente**
+- Criador faz live: "Vendo ebook, 100% vai pro Grupo de Cuidadores"
+- Audiência compra
+- Dinheiro → group_wallet direto
+- Ou criador pega comissão (ex: 10%) se oferecer serviço de mobilização
+
+---
+
+### **Como Criador Ajuda a Sociedade (Operacionalmente, não voluntariamente)**
+
+**Modelo 1: Dedicação de Receita (Transparente)**
+```
+Criador de conteúdo sobre deficiência:
+  - Arrecada R$ 10000/mês (vendas + doações + patrocínio)
+  - Decide: 30% vai pro Grupo de Pessoas com Deficiência
+  - R$ 3000 são gravados em group_ledger (SSOT, imutável)
+  
+  Seguidores consultam:
+    "R$ 3000 realmente entraram no grupo este mês.
+     Confio porque isso é rastreável, não promessa."
+```
+
+**Modelo 2: Amplificação de Voz (Com Rastreamento)**
+```
+Criador com 100k seguidores sobre animais:
+  - Conhece Grupo de Cuidadores com 100 membros
+  - Posta sobre trabalho deles 3x/semana
+  - Audiência descobre, alguns se tornam doadores
+  - Grupo ganha R$ 5000/mês, rastreável (canal foi origem)
+  
+  Resultado operacional:
+    "Meu conteúdo trouxe 50 novos doadores.
+     Grupo arrecada R$ 5000 mensais extras.
+     Tudo documentado no ledger."
+```
+
+**Modelo 3: Educação Acessível (Subsidio Comunitário)**
+```
+Criador sobre programação:
+  - Vende curso completo por R$ 99 (R$ 5000/mês)
+  - Cria versão gratuita pra comunidade de baixa renda
+  - Venda subsidia free tier
+  - Democratiza conhecimento
+  
+  Ledger mostra:
+    "100 pessoas estudaram grátis este mês.
+     Subsídio total: R$ 800 (meu lucro pessoal cobriu)."
+```
+
+**Modelo 4: Mobilização Transparente (Impacto Rastreável)**
+```
+Criador sobre saúde mental:
+  - Descobre pesquisa urgente que precisa de R$ 50000
+  - Faz live beneficente
+  - Audiência doa R$ 50000
+  - Dinheiro → pesquisador direto
+  
+  Transparência operacional:
+    "Este R$ foi alocado assim. Avaliação de impacto
+     será publicada aqui. Vocês podem acompanhar resultado."
+```
+
+**Modelo 5: Curadora de Comunidade (Jornalismo Social)**
+```
+Criador é jornalista social:
+  - Posta histórias de impacto (sem ganho direto)
+  - Audiência descobre grupos/pessoas
+  - Seguidores canalizam apoio direto
+  - Criador não ganha, mas é agente mobilizador
+  
+  Função operacional:
+    "Posso ver quanto impacto meu conteúdo tem.
+     5 grupos foram descobertos por meus posts.
+     Cada um recebeu doações mensuradas."
+```
+
+---
+
+### **Estrutura Técnica: Canal como Ator**
+
+```
+Canal {
+  id: channel_uuid,
+  creator_id: user_id,
+  name: "Tech Reviews BR",
+  actor_id: channel_actor_id,  # ← é um ATOR
+  
+  followers: 100000,
+  
+  channel_wallet: {
+    balance_cents: 500000,
+    currency: 'BRL'
+  },
+  
+  channel_ledger: [
+    { type: 'income', source: 'product_sales', amount: 200000, date },
+    { type: 'income', source: 'sponsorship', amount: 150000, date },
+    { type: 'income', source: 'tips', amount: 50000, date },
+    { type: 'expense', description: 'Editor freelancer', amount: 30000, date },
+    { type: 'beneficence', destination: 'group_uuid', amount: 50000, date }
+  ]
+}
+```
+
+**SSOT do Canal:**
+- Todos os ganhos são gravados uma vez (imutável)
+- Criador + seguidores consultam, ninguém consegue alterar
+- Transparência é garantia, não promessa
+
+---
+
+### **Visão Integrada: Criador é Operador Econômico + Agente Social**
+
+```
+Criador X (educação financeira):
+  
+  RECEITA:
+    - Venda de cursos: R$ 10000/mês
+    - Doações de seguidores: R$ 2000/mês
+    - Patrocínios: R$ 5000/mês
+    - Recomendações (afiliado): R$ 1000/mês
+    Total: R$ 18000/mês
+  
+  GASTOS:
+    - Equipamento: R$ 2000/mês
+    - Imposto regional (10%): R$ 1800/mês
+    - Editor freelancer: R$ 3000/mês
+    Subtotal: R$ 6800/mês
+  
+  ALOCAÇÃO BENEFICENTE:
+    - Grupo de Educadores: R$ 5000/mês (30% da receita)
+  
+  LUCRO PESSOAL:
+    - R$ 6200/mês (após todos os gastos e doações)
+  
+  ---
+  
+  LEDGER DO GRUPO (que recebe R$ 5000/mês):
+    - Receita do Criador X: R$ 5000
+    - Receita de outros doadores: R$ 2000
+    - Total arrecadado: R$ 7000
+    - Investido em educação comunitária: R$ 7000
+    - Saldo: R$ 0 (tudo é investido na causa)
+  
+  ---
+  
+  RESULTADO OPERACIONAL:
+    
+    Criador:
+      "Sou economicamente viável. Ganho bem, ajudo comunidade,
+       tudo é rastreável. Confiança é construída em dados."
+    
+    Seguidores:
+      "Vejo exatamente quanto ele ganha, quanto ajuda, quanto fica.
+       Confio porque é transparente. Posso verificar ledger."
+    
+    Grupo:
+      "Recebemos R$ 5000 mensais de um criador que acredita
+       na nossa causa. Economicamente sustentável."
+    
+    Sociedade:
+      "Economia ficou 100% na região. Nenhuma margem
+       foi extraída por corporação centralizada."
+```
+
+---
+
+### **Por que Criador é Incentivado a Ajudar (estruturalmente)**
+
+1. **Transparência força responsabilidade** — ledger é consultável. Mentir é impossível.
+2. **Impacto social gera reputação** — mais reputação = mais seguidores = mais receita.
+3. **Sistema não cria conflito** — economia e impacto social são **alinhados**, não competem.
+4. **Tudo é rastreável** — ninguém consegue roubar, ninguém consegue mentir.
+5. **Economia regional fica intacta** — criador + grupo + audiência ganham; ninguém em São Francisco lucra.
+
+---
+
 ## Caso de Uso Concreto: Pessoa Física em Fluxo de Entrada (Dinheiro Entra)
 
 **O que uma Pessoa Física pode POSTAR quando está em fluxo de entrada (gerando receita)?**
