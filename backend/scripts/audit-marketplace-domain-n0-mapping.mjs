@@ -22,9 +22,14 @@ if (!existsSync(MOD)) {
 }
 const code = stripTs(readFileSync(MOD, 'utf8'));
 
-// 1) os 6 rótulos.
+// 1) os 6 rótulos como CHAVES do mapa (o vocabulário em si vive em @unificard/contracts — o módulo
+//    importa MARKETPLACE_DOMAIN_VALUES; aqui travamos que o MAPA cobre todos os 6).
 for (const d of ['market', 'services', 'events', 'real_estate', 'vehicles', 'jobs']) {
-  if (!new RegExp(`['"]${d}['"]`).test(code)) failures.push(`rótulo '${d}' ausente (0106 tem 6 rótulos).`);
+  if (!new RegExp(`(^|[^\\w'])${d}\\s*:`, 'm').test(code)) failures.push(`chave '${d}' ausente do mapa (0106 tem 6 rótulos).`);
+}
+// 1b) o vocabulário é COMPOSTO do contracts (não literais próprios).
+if (!/MARKETPLACE_DOMAIN_VALUES/.test(code) || !/@unificard\/contracts/.test(code)) {
+  failures.push('módulo deve compor o vocabulário de @unificard/contracts (MARKETPLACE_DOMAIN_VALUES) — não redefinir literais (fork fechado).');
 }
 // 2) o mapa literal D1-D3 (os 3 com alvo N0).
 const wants = [

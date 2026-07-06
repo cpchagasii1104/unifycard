@@ -66,4 +66,7 @@ export {
   type CurrencyCode,
   TIMEZONE_VALUES,
   type TimezoneId,
+  MARKETPLACE_DOMAIN_VALUES,
+  type MarketplaceDomain,
+  isMarketplaceDomain,
 } from './vocabulary';

@@ -14,5 +14,5 @@ export type { CheckoutContext, CheckoutRequest, CheckoutResult, CheckoutEventTic
 export type { EventStatus, EventType, } from './events';
 export type { FeedItemType, FeedItem, FeedEvent, FeedResponse, } from './feed';
 export type { Order, CheckoutIntent, PaymentPlan, DeliveryOrder, ServiceOrder, } from './marketplace';
-export { GENDER_VALUES, type Gender, isGender, LANGUAGE_VALUES, type LanguageCode, COUNTRY_VALUES, type CountryCode, CURRENCY_VALUES, type CurrencyCode, TIMEZONE_VALUES, type TimezoneId, } from './vocabulary';
+export { GENDER_VALUES, type Gender, isGender, LANGUAGE_VALUES, type LanguageCode, COUNTRY_VALUES, type CountryCode, CURRENCY_VALUES, type CurrencyCode, TIMEZONE_VALUES, type TimezoneId, MARKETPLACE_DOMAIN_VALUES, type MarketplaceDomain, isMarketplaceDomain, } from './vocabulary';
 //# sourceMappingURL=index.d.ts.map

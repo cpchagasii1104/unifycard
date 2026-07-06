@@ -81,11 +81,11 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
   {
     name: 'MarketplaceDomain',
     pillar: 'social',
-    sourceFile: 'src/core/marketplace-domain/marketplace-domain-n0-mapping.ts',
+    sourceFile: '../packages/contracts/src/vocabulary.ts',
     sourceKind: 'ts-const-array',
-    symbol: 'MARKETPLACE_DOMAINS',
+    symbol: 'MARKETPLACE_DOMAIN_VALUES',
     values: ['market', 'services', 'events', 'real_estate', 'vehicles', 'jobs'],
-    canonRef: 'DECISION-0106 (mapa rótulo→N0, promulgado). Rótulo de navegação/UX (NÃO SSOT — identidade é CONCEPT). Home governado backend; frontend deve convergir (hoje duplicado em companies.ts + marketplace-categories.ts).',
+    canonRef: 'DECISION-0106. Rótulo de navegação/UX (NÃO SSOT — identidade é CONCEPT). Vocabulário compartilhado em @unificard/contracts (Reference vocabulary); FORK FECHADO — backend (core/marketplace-domain, que também porta o MAPA D1-D6→N0) e frontend (companies.ts/marketplace-categories.ts) re-exportam do MESMO símbolo.',
   },
   {
     name: 'actor_delegation_events.event_type',

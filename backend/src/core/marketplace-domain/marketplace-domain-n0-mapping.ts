@@ -13,9 +13,17 @@
 // D6 vehicles → REGULADO sem alvo N0 → null (NÃO mapear p/ mobilidade-e-logistica: viga do rides, 0106 §4).
 // null = "sem N0 de atuação" (por DECISÃO), NÃO "esquecido" — a materialização respeita D4/D5/D6 à risca.
 
-/** Os 6 rótulos de MarketplaceDomain (0106; espelha o enum de frontend — agora com home governado). */
-export const MARKETPLACE_DOMAINS = ['market', 'services', 'events', 'real_estate', 'vehicles', 'jobs'] as const;
-export type MarketplaceDomain = (typeof MARKETPLACE_DOMAINS)[number];
+/**
+ * O VOCABULÁRIO (6 rótulos) vive em @unificard/contracts (vocabulary.ts — "Reference vocabulary",
+ * a casa canônica de enumerações compartilhadas frontend+backend, mesmo padrão de Gender/Currency).
+ * Este módulo COMPÕE de lá (import + re-export) e é o home do MAPA rótulo→N0 (D1-D6), que é
+ * conhecimento de BACKEND (depende da tabela `domains` viva). Fork totalmente fechado: frontend e
+ * backend consomem o MESMO símbolo.
+ */
+import { MARKETPLACE_DOMAIN_VALUES, type MarketplaceDomain } from '@unificard/contracts';
+
+export const MARKETPLACE_DOMAINS = MARKETPLACE_DOMAIN_VALUES;
+export type { MarketplaceDomain };
 
 /** N0 de atuação de cada rótulo, per DECISION-0106 D1-D6. null = sem alvo N0 por decisão (jobs/real_estate/vehicles). */
 export const MARKETPLACE_DOMAIN_TO_N0: Record<MarketplaceDomain, string | null> = {

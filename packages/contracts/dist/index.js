@@ -10,7 +10,7 @@
  * - Backend e frontend NUNCA redefinem tipos de domínio.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TIMEZONE_VALUES = exports.CURRENCY_VALUES = exports.COUNTRY_VALUES = exports.LANGUAGE_VALUES = exports.isGender = exports.GENDER_VALUES = void 0;
+exports.isMarketplaceDomain = exports.MARKETPLACE_DOMAIN_VALUES = exports.TIMEZONE_VALUES = exports.CURRENCY_VALUES = exports.COUNTRY_VALUES = exports.LANGUAGE_VALUES = exports.isGender = exports.GENDER_VALUES = void 0;
 // Reference vocabulary (validação semântica — ver SSOT_REGISTRY_UNIFICARD §5.16)
 var vocabulary_1 = require("./vocabulary");
 Object.defineProperty(exports, "GENDER_VALUES", { enumerable: true, get: function () { return vocabulary_1.GENDER_VALUES; } });
@@ -19,3 +19,5 @@ Object.defineProperty(exports, "LANGUAGE_VALUES", { enumerable: true, get: funct
 Object.defineProperty(exports, "COUNTRY_VALUES", { enumerable: true, get: function () { return vocabulary_1.COUNTRY_VALUES; } });
 Object.defineProperty(exports, "CURRENCY_VALUES", { enumerable: true, get: function () { return vocabulary_1.CURRENCY_VALUES; } });
 Object.defineProperty(exports, "TIMEZONE_VALUES", { enumerable: true, get: function () { return vocabulary_1.TIMEZONE_VALUES; } });
+Object.defineProperty(exports, "MARKETPLACE_DOMAIN_VALUES", { enumerable: true, get: function () { return vocabulary_1.MARKETPLACE_DOMAIN_VALUES; } });
+Object.defineProperty(exports, "isMarketplaceDomain", { enumerable: true, get: function () { return vocabulary_1.isMarketplaceDomain; } });

@@ -24,6 +24,16 @@ export type CountryCode = typeof COUNTRY_VALUES[number];
 export const CURRENCY_VALUES = ['BRL', 'USD', 'EUR', 'ARS', 'CLP', 'COP', 'MXN', 'PYG', 'UYU'] as const;
 export type CurrencyCode = typeof CURRENCY_VALUES[number];
 
+// MarketplaceDomain — rótulos de navegação/UX do marketplace (DECISION-0106: NÃO é SSOT semântico —
+// identidade é CONCEPT; o mapa rótulo→N0 vive em backend/src/core/marketplace-domain, D1-D6).
+// Casa canônica do VOCABULÁRIO compartilhado frontend+backend (fecha o fork: 2 cópias frontend +
+// 4 backend convergidas — guard audit-governed-vocabulary-manifest).
+export const MARKETPLACE_DOMAIN_VALUES = ['market', 'services', 'events', 'real_estate', 'vehicles', 'jobs'] as const;
+export type MarketplaceDomain = typeof MARKETPLACE_DOMAIN_VALUES[number];
+export function isMarketplaceDomain(value: unknown): value is MarketplaceDomain {
+  return MARKETPLACE_DOMAIN_VALUES.includes(value as MarketplaceDomain);
+}
+
 // Timezone
 export const TIMEZONE_VALUES = [
   'America/Sao_Paulo',

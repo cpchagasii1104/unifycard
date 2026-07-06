@@ -2,6 +2,7 @@
 // API client para Marketplace Categories
 // 🔴 BLINDAGEM: Frontend apenas consome API, não calcula hierarquia
 
+import type { MarketplaceDomain } from '@unificard/contracts';
 import { apiFetchJson } from './client';
 
 /**
@@ -36,9 +37,11 @@ export interface BreadcrumbItem {
 }
 
 /**
- * Domínios canônicos do Marketplace
+ * Domínios canônicos do Marketplace.
+ * 🔴 SSOT: vocabulário compartilhado em @unificard/contracts (vocabulary.ts, DECISION-0106) —
+ * re-exporta, não redefine (fork fechado; frontend e backend consomem o MESMO símbolo).
  */
-export type MarketplaceDomain = 'market' | 'services' | 'events' | 'real_estate' | 'vehicles' | 'jobs';
+export type { MarketplaceDomain };
 
 /**
  * Filtros para buscar categorias

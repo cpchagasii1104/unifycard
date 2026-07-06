@@ -1,7 +1,7 @@
 // frontend/src/api/companies.ts
 // API para gerenciar empresas (PJ)
 
-import { CompanyStatus, CompanyUserRole, CompanyOperationalStatus } from '@unificard/contracts';
+import { CompanyStatus, CompanyUserRole, CompanyOperationalStatus, type MarketplaceDomain } from '@unificard/contracts';
 import { apiFetch } from './client';
 
 // Re-export para compatibilidade reversa
@@ -87,7 +87,9 @@ export interface Company {
   };
 }
 
-export type MarketplaceDomain = 'market' | 'services' | 'events' | 'real_estate' | 'vehicles' | 'jobs';
+// 🔴 SSOT: vocabulário compartilhado em @unificard/contracts (vocabulary.ts, DECISION-0106) —
+// re-exporta, não redefine (fork fechado; frontend e backend consomem o MESMO símbolo).
+export type { MarketplaceDomain };
 
 export interface CompanyDomain {
   companyDomainId: string;
