@@ -5,9 +5,10 @@
 > placar + a checklist do lote tocado, (4) anexa uma linha no changelog (nunca reescreve o
 > histórico). Nenhuma sessão termina sem atualizar este arquivo.
 >
-> **Relação com artefatos anteriores (protocolo §4.3):** `PLANO_ZERAGEM_DT.md` é a auditoria
-> histórica de origem (2026-07-06, 100% do cartório) — **não editar mais**, consultar como
-> referência. Este arquivo é o **sucessor vivo** que substitui o plano como fonte do dia-a-dia.
+> **Relação com artefatos (revista 2026-07-06):** `PLANO_ZERAGEM_DT.md` é agora a **v2 — o PLANO
+> ESTRATÉGICO vivo** (ordem dos lotes + grafo de dependências + recomendações de decisão). ESTE
+> arquivo é o **rastreador do dia-a-dia** (placar + checklist por sessão). Os dois se apontam, não
+> se duplicam: mudança de estratégia → PLANO; mudança de progresso → aqui.
 > `LOTE_L2_DELEGACAO_R2.md` e `LOTE_L5_FROZEN_FANTASMA.md` são os pacotes de decisão detalhados
 > de cada lote — ficam à parte, este arquivo só resume o status.
 
@@ -31,15 +32,21 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 
 | Métrica | Valor | Data |
 |---|---|---|
-| DTs distintas no cartório | ~522 | 2026-07-06 |
-| Fechadas | ~313 | 2026-07-06 |
-| **Abertas** | **~156** | 2026-07-06 |
+| DTs distintas no cartório | **540** (medido: headers `## DT-/F-` únicos) | 2026-07-06 |
+| Cross-links `[[...]]` (grafo de dependência) | 241 | 2026-07-06 |
+| **Abertas (estimativa reconciliada)** | **~150–170** | 2026-07-06 |
 | Contidas/mitigadas (latência viva) | ~50 | 2026-07-06 |
-| Typecheck backend | ✅ 0 erros | 2026-07-06 |
-| Suite `validate:regression-guards` | ✅ 195 GATE OK / RC=0 | 2026-07-06 |
+| Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido hoje) | 2026-07-06 |
+| Suite `validate:regression-guards` | ✅ 196 GATE OK / RC=0 | 2026-07-06 |
 
-**Fechadas nesta semana:** Onda 4 (12 carimbos) + organizers (1) + L5 (7: 4 contidas + 3
-já-resolvidas) + achado P2P registrado (+1 nova, honesta) = **líquido: ~168 → ~156**.
+**🔴 Método da contagem (auditoria Fable 5, 2026-07-06):** o inteiro EXATO de abertas não é
+derivável por query — o cartório fecha DTs de formas heterogêneas (CLOSED/CONTAINED/CONTIDO/
+FROZEN/501/tombstone/corpo). Varredura estrita de header dá 301 "sem fechamento no header"; a
+reconciliação manual dá ~156; a diferença são fechamentos-no-corpo/convenção-antiga. Para
+planejamento o inteiro é irrelevante — a estrutura (bucket executável = VAZIO; resto = 6 lotes de
+decisão + PORTA-1 + cauda contida) é firme. A disciplina §7 (só fecha com re-carimbo no header)
+existe para matar essa ambiguidade daqui pra frente. **Bucket executável-sem-decisão confirmado
+VAZIO por git** (Ondas 1–5 + L5, commits verificados).
 
 ---
 
@@ -80,12 +87,11 @@ dinheiro soberano (PORTA-1 §4).
       · **D3** = tabela `actor_delegation_events` · **D4** = financeiro fora · **D5** = risco depois
 - [x] **R2.1 schema** executado (migration `20260706120000`, efêmera 11/11, dev vivo, 9 legadas
       preservadas, commit abaixo) — `relationship_type`+`granted_by`+`previous_link_id`+events append-only
-- [x] **R2.2 writer governado** — EXECUTADO + auditado pela Yala (APROVADO-COM-RESSALVA) + **3 ressalvas
-      FECHADAS**: Q3 autoria spoofável (canRepresentActor fail-closed nas 3 rotas, prova HTTP 5/5 — spoof
-      bloqueado), RLS+FORCE nas 2 tabelas, unique parcial de par ativo. E2E writer 8/8 + authorship 5/5;
-      guard exige canRepresentActor invocado (negative-proof morde); suite 196 GATE OK. **⚠️ AGUARDA
-      RE-SELO YALA** sobre o commit de fix antes de CLOSED formal.
-- [ ] **R2.3 reconciliar leitura** (actor-capabilities projeta campos novos; canRepresentActor íntegro) ← PRÓXIMO pós-selo
+- [x] **R2.2 writer governado** — EXECUTADO + 3 ressalvas Yala fechadas (Q3 autoria + RLS + unique).
+- [x] **RE-SELO YALA = ✅ APROVADO** (2026-07-06, commit fix `341aa961e`): Q3 materialmente fechada,
+      zero bloqueador. **R2 (R2.1+R2.2+fix) = CLOSED.** Closeout `F-R2-DELEGATION-GOVERNED-LINKS`.
+- [ ] **R2.3 reconciliar leitura** (actor-capabilities projeta campos novos; canRepresentActor íntegro;
+      + tratar nota do re-selo: `DT-R2-DELEGATION-UPDATE-MEMBER-STALE-RELATIONSHIP` LOW) ← PRÓXIMO, LIBERADO
 - [ ] **R2.4 camada de risco** (D5 — sub-frente própria, depois)
 
 ### L3 — Catálogo/serviços/marketplace (~15 DTs) — não iniciado
@@ -121,8 +127,19 @@ dinheiro soberano (PORTA-1 §4).
 - [ ] `DT-ONBOARDING-METADATA-STORAGE-DECISION` (4 opções de storage)
 - Pacote de decisão ainda não montado.
 
-**Ordem recomendada (herdada do plano original, revista pela reconciliação APRENDIZADO):**
-L5 (quase feito) → **L2 (agora é prioridade alta — destrava o Compositor)** → L3 → L4 → L6 → L1.
+**Ordem recomendada — RATIFICADA POR DEPENDÊNCIA (auditoria Fable 5, 2026-07-06):**
+resíduo-L5 → **L2** → **L3** → **L4** → (**L6 em paralelo lento**) → **L1**.
+Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZERAGEM_DT.md` §2/§3):
+- **L2 é a RAIZ** (`F-ACTOR-RELATIONSHIP-TYPED-EDGE` 7 refs; `DT-OPERATOR-GRANT-OPEN-ORDER-UX` 12
+  refs = nó mais referenciado do cartório). Retorno DUPLO: o typed-edge fecha parte de L4 (follow =
+  aresta actor→actor) E parte de L1 (autoridade de aprovação de payout em nome da empresa).
+- **L3** é o cluster `DT-SERVICE-*` mais denso — semear catálogo+discovery+companyId colapsa ~15 DTs
+  juntas (E3).
+- **L4** depende de L3 (discovery Fase 2); parte já morre com L2.
+- **L6 em PARALELO** (não serial): upstream porém norm-blocked (0062 D9/D10) + exige DB vivo — segurá-lo
+  na fila pararia tudo à toa.
+- **L1 por ÚLTIMO** (soberano, irreversível): E1 = firewall-no-sink mata V3+P2P+≥8 callers num corte só,
+  na janela da PORTA-1.
 
 ---
 
@@ -163,11 +180,32 @@ L5 (quase feito) → **L2 (agora é prioridade alta — destrava o Compositor)**
 - `LOTE_L5_FROZEN_FANTASMA.md` — pacote de decisão dos módulos frozen/fantasma
 - `GUIA_MESTRE_ACOPLAMENTO_CRM_ERP_PDV.md` — trilho da missão de acoplamento (Fatias 1-9)
 - `APRENDIZADO.md` — visão do Compositor + reconciliação contra o sistema vivo
-- `PLANO_ZERAGEM_DT.md` — auditoria histórica de origem (não editar mais)
+- `PLANO_ZERAGEM_DT.md` — **v2, PLANO ESTRATÉGICO vivo** (ordem + grafo de dependências + decisões)
 
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-06 (6) — Auditoria dependency-aware (Fable 5) + PLANO_ZERAGEM_DT v2
+- Verificação de 1ª mão contra fontes primárias (git+cartório), NÃO memória. Medido: 540 DTs
+  distintas, 241 cross-links, typecheck 0/0 (resolve contradição com o PLANO v1 que dizia "não
+  limpo" — era stale, Onda 5 `794d51dba` zerou). Commits das Ondas 4/5/L5/R2.2 confirmados no git.
+- Achado de método: contagem exata de abertas NÃO é derivável por query (convenções de fechamento
+  heterogêneas) — placar acima agora traz a nota de método. ~150–170 abertas; bucket executável VAZIO.
+- **Entregue o que faltava nos dois docs: o GRAFO DE DEPENDÊNCIAS.** 3 dívidas-raiz eliminadoras
+  identificadas (E1 sink-firewall / E2 typed-edge L2 / E3 catalog-root L3) + 3 eliminações cross-lote
+  (L2→parte de L4 e L1; L3→cluster DT-SERVICE-*; E1→feixe de dinheiro). Ordem ratificada por
+  dependência (não cheapness): L2→L3→L4→(L6 paralelo)→L1.
+- `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
+  enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
+
+### 2026-07-06 (6) — RE-SELO Yala APROVADO: R2 CLOSED
+- Re-selo sobre o fix `341aa961e`: veredito APROVADO, zero bloqueador. Q3 (autoria forjável)
+  materialmente fechada — Yala remapeou os 3 writers e confirmou nenhum caminho vivo forjável;
+  fluxo legítimo intacto; RLS/unique sem regressão; guard/negative-proof honestos. R2 (R2.1+R2.2+
+  fix) = CLOSED (closeout F-R2-DELEGATION-GOVERNED-LINKS). 1 nota fora-de-escopo virou DT nova
+  DT-R2-DELEGATION-UPDATE-MEMBER-STALE-RELATIONSHIP (LOW): PUT updateMember não re-deriva o vínculo
+  da delegação ao mudar role — staleness de projeção, fecha em R2.3. R2.3 LIBERADO.
 
 ### 2026-07-06 (5) — Auditoria Yala de R2.2 + 3 ressalvas fechadas
 - Yala: APROVADO-COM-RESSALVA. Refutou meu claim "granted_by não-spoofável" (Q3, ALTA): granted_by
