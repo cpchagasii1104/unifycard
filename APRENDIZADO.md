@@ -2246,3 +2246,84 @@ Não encontrada uma convenção de erro única no backend (códigos existem por 
 | 12 Error schema | Aberto, baixo risco | Polimento, não estrutural |
 
 **Conclusão prática:** dos 12 gaps originais, restam **5 genuinamente abertos** (6, 7, 9, 10-formalização, 12) e nenhum deles bloqueia o próximo passo material do sistema. Os outros 7 já têm resposta — construída, decidida ou em progresso nomeado. O Compositor não precisa esperar uma fundação nova: precisa que **R2 (delegação com vocabulário de departamento)** e **PORTA-1 (Core de aprovação)** — ambos já em andamento — cheguem ao fim.
+
+---
+
+## 🟢 PESQUISA DE IMPLEMENTAÇÃO (2026-07-06): O COMPOSITOR JÁ NASCEU — mapa eixo-a-eixo do substrato vivo
+
+**Método:** varredura direta no código (frontend + backend + migrations), verificada em 1ª mão.
+**Achado central: o Compositor NÃO é greenfield — ele já existe em embrião, em DUAS metades que ainda não se conhecem.**
+
+### Achado 1 — O Compositor embrionário JÁ EXISTE no frontend
+
+`frontend/src/components/social/IntentComposer.tsx` — composer inteligente vivo:
+- **8 intents hoje:** `personal | friends | booking | service_offer | product_offer | project | vote | event`
+- **Fluxo:** texto livre → classificação automática → preview → publicar (com modo manual e revisão)
+- Já roteia por domínio: `event` → EventWizard; audience herdada pra `posts.visibility` (Fatia 5)
+- Já distingue PF vs PJ (`activeActor.actor_type === 'page'` → `isCompany`/`companyId`)
+
+**⚠️ A VIOLAÇÃO CONHECIDA (o próprio arquivo confessa):** `frontend/src/utils/intent-classifier.ts`
+(318 linhas) diz textualmente *"Classificador de intent local (rápido, sem depender de backend).
+Pode ser melhorado com chamada ao backend depois."* — a ENUMERAÇÃO e CLASSIFICAÇÃO do ato são
+100% client-side hoje. Isso viola a lei deste documento ("enumeração de atos sempre do servidor").
+Nuance importante: a AUTORIDADE não está violada (cada rota de publicação valida server-side no
+POST), mas a ENUMERAÇÃO está — o usuário vê intents que não pode executar, e o Compositor por
+departamento (PJ) é IMPOSSÍVEL sem enumeração server-driven. **Este é o gap nº 1 de implementação.**
+
+### Achado 2 — O padrão server-driven que o Compositor precisa JÁ EXISTE, provado e guardado
+
+`backend/src/modules/actor-page/` (Fatia 3 do acoplamento, E2E 9/9, guard 31 checks):
+```ts
+ActorPageContract = { header, actions: ActorPageAction[], tabs, blocks }
+ActorPageAction = { key, label, enabled: boolean, gatedBy?: string, deeplink, data? }
+ActorPageMode = 'consuming' | 'operating'
+```
+É EXATAMENTE o desenho que este documento pediu pro Compositor (`GET /composer/available-actions`)
+— só que aplicado à LEITURA (a página) em vez da CRIAÇÃO (o ato). Actions nascem
+`enabled:false gatedBy:'PORTA-1'` quando dinheiro; `operating` é gated por `canRepresentActor`
+403; blocos acendem só se probe>0 no SSOT. **O Compositor é a MESMA arquitetura aplicada ao
+write-side: replicar o padrão, não inventar.**
+
+### Achado 3 — Mapa eixo-a-eixo: substrato vivo × o que falta
+
+| Eixo | Substrato VIVO (verificado) | O que falta | Onde aterrissa |
+|---|---|---|---|
+| **1. Quem+papel** | `canRepresentActor` (5 fontes, scope-containment) + `actor_delegations` (writer vivo) + `company_users` capabilities | vocabulário `relationship_type`/departamento + limites | **Lote L2 (D1-D5)** |
+| **2. Contexto operante** | `useOperatingMode` frontend + `ActorPageMode` ('consuming'/'operating') server-side + doutrina D1 | nada estrutural — só ligar ao composer | Fatia C1 (abaixo) |
+| **3. Destino/audiência** | `posts.visibility` GOVERNADO ('public'/'connections'/'only_me', lê `actor_relationships`) + labels CHECK ('amigo','conhecido','familiar','cliente','colaborador','fornecedor','parceiro') + padrão fato-de-negócio (support-tickets) pra direct actor-a-actor | audiência "funcionários/fornecedores" (=departamento, L2) | Fatia 5 ✅ + L2 |
+| **4. Consequência/domínio** | `concepts` (SSOT semântico) + roteamento por intent (event→wizard, service_offer→services, product_offer→marketplace) + `bank_*` (mecanismo provado) | intents `vote`/`project` roteiam pra superfície CONTIDA (votes = ghost YALA-PASS); dinheiro = PORTA-1 §4 | **L4** (votes) + **L1** (dinheiro) |
+| **5. Ciclo de vida** | `unified_availability` (SSOT temporal) + event lifecycle + bookings + `expires_at` em delegações | cadeia do Projeto (Ideia→Enquete→Votação→Alocação) é o maior greenfield real | **L4 + governança** |
+
+### Achado 4 — O que é genuinamente greenfield (honestidade sobre o tamanho)
+
+1. **A Cadeia do Projeto** (Ideia→Enquete→Votação→Alocação de fundo regional) — votes está
+   contido/ghost, `regional_fund_governance` contido 501, elegibilidade de voto nunca decidida
+   (Gap 6). É a peça mais nova de todas — e é o coração da autogestão.
+2. **Compositor por departamento (PJ)** — depende inteiramente de L2/R2 (o vocabulário é o
+   embrião `getScopesForRole`: 3 roles hoje).
+3. **Limites de gasto por papel** — depende de PORTA-1 + DECISION-0114 (AP/AR).
+4. **Canal/monetização** — tudo PORTA-1-gated.
+
+### Sequência de implementação proposta (quando as pontas amarrarem)
+
+**Pré-requisitos:** L2 decidido (D1-D5) · L4 decidido (votes/eligibility) · PORTA-1 no escopo que Clayton escolher.
+
+- **Fatia C1 — Contrato do Compositor (server-driven):** novo read-model
+  `GET /composer/contract?actorId&mode` devolvendo `{intents: [{key,label,enabled,gatedBy,deeplink,data}]}`
+  — réplica EXATA do padrão `ActorPageContract` (mesmo guard, mesma disciplina). O
+  `intent-classifier.ts` local VIRA HINT DE UX (velocidade de preview) e PERDE o papel de
+  enumerador — resolve a violação do Achado 1 e formaliza o Gap 9 (caching policy: classificar
+  local é OK, enumerar/validar é do servidor). Zero tabela nova — composição pura.
+- **Fatia C2 — Intents por papel/departamento:** o contrato do composer passa a ler
+  `actor_delegations.relationship_type`+scopes (pós-R2) — o RH vê Vaga, o Warehouse vê
+  Procura-Fornecedor. É L2 aterrissando no composer.
+- **Fatia C3 — Cadeia do Projeto:** enquete→votação→alocação, sobre o substrato de votes
+  religado (pós-L4) + `regional_fund_governance` religado (schema-gênese própria). Alocação de
+  fundo real só com PORTA-1 aberta.
+- **Fatia C4 — Intents de dinheiro:** `buy/contract/pay` saem de `gatedBy:'PORTA-1'` quando
+  Clayton semear — mesmo flip que a página do actor já prevê.
+
+**Síntese:** a visão deste documento e o sistema real estão a UMA fatia de distância de se
+encontrarem (C1) — o resto é destravamento em cascata dos lotes já preparados. Nenhuma peça
+do Compositor exige arquitetura nova; exige DECISÃO (L2, L4, PORTA-1) e replicação de padrões
+já pagos e guardados.
