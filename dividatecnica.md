@@ -254,6 +254,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (20) — Auditoria L6 backfill: dívida FANTASMA (não há backfill)
+- Os "4 actors sem global_user_id em breach de 0062 D8" são INSTITUCIONAIS (3 page + 1 group) — que
+  por norma NÃO têm global_user_id (âncora de humano); todos têm responsible_actor_id (§4.8, 4/4).
+  Estado CONFORME. A linha sai da fila L6; contagem crua sem semântica tinha gerado dívida fantasma
+  (mesma classe do "arquivar core/intent" refutado). L6 real restante: tenant-inicial-vivo + F5 (adiada).
+
 ### 2026-07-06 (19) — A esteira de curadoria ganhou CABEÇA (item 2b): /admin/curadoria-servicos
 - Página admin nova (padrão KybReviewBackoffice): fila pending_curation de serviços com Aprovar/
   Rejeitar (sem merge, D3). Frontend só projeta; autoridade no backend. tsc 0. AGUARDA VISUAL
