@@ -254,6 +254,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (21) — Auditoria dupla Yala: 6/7 PASS/PASS + BLOCKER de RLS corrigido (e rendeu bônus)
+- Yala auditou o dia (segurança+norma): bypass D1/spoof R2/2ª-SSOT = ZERO achados; 6 commits PASS/PASS.
+  BLOCKER real: policy RLS de follows com GUC errado (app.tenant_id ≠ app.current_tenant) = quebra-
+  fechada; E2E era cego (superuser + flags). FIX 20260706160000 corrigiu follows E DESCOBRIU 5 policies
+  pré-existentes da MESMA classe quebradas desde abril (webauthn×2/audit_events/partner_employees/
+  category_ai_logs) — todas consertadas; 0 GUC errado no dev. Classe travada (guard novo, suite 201
+  GATE OK). E2E descegado: caso E2 exercita a policy sob role NOBYPASSRLS (6/6). Lição: prova como
+  superuser não prova RLS.
+
 ### 2026-07-06 (20) — Auditoria L6 backfill: dívida FANTASMA (não há backfill)
 - Os "4 actors sem global_user_id em breach de 0062 D8" são INSTITUCIONAIS (3 page + 1 group) — que
   por norma NÃO têm global_user_id (âncora de humano); todos têm responsible_actor_id (§4.8, 4/4).
