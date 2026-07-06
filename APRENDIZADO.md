@@ -2183,3 +2183,66 @@ Pessoa compra em bar com cartão estrangeiro:
 ---
 
 **Próxima conversa:** investigar o substrato de permissões/roles que já existe vs. o que falta, desenhar a API do compositor pra garantir que nenhum tipo de ato cria fonte paralela de verdade, e resolver os 12 gaps acima com profundidade. Começa confirmando o nome real de "tenancy" no sistema. ALÉM DISSO: explorar a visão de hardware + máquina UnifiCard — quais são as decisões arquiteturais (offline-first? NFC? PCI? taxa regional?), quais gaps técnicos existem, como integra com o Compositor.
+
+---
+
+## 🔵 RECONCILIAÇÃO: APRENDIZADO ↔ Sistema Vivo (2026-07-06)
+
+**Método:** cada um dos 12 gaps foi cruzado contra o estado real do código/schema, com verificação direta (grep/migrations/leitura de arquivo) nesta sessão onde marcado **[VERIFICADO HOJE]**; onde marcado **[MEMÓRIA AUDITADA]**, a fonte é auditoria anterior já provada (MAPA_DE_FECHAMENTO.md, READINESS_PORTA1.md) e não re-verificada linha a linha nesta passada. Nenhum item foi dado como resolvido sem uma dessas duas âncoras — conforme a lei "verdade está no backend".
+
+**Achado central: metade dos 12 gaps NÃO é greenfield.** O APRENDIZADO foi escrito como se o Compositor fosse um sistema novo; na prática, boa parte do substrato que ele precisa **já existe, sob outro nome, no sistema vivo**. Lapidar o documento é reconciliar vocabulário, não inventar arquitetura do zero.
+
+### Gap 1 — Tenancy → **RESOLVIDO, é `tenants`** [VERIFICADO HOJE]
+Não é hipotético. `tenants` existe como tabela real; RLS tenant-scoped (`app.current_tenant`) confirmado em 5+ migrations (`group_a_financial_tables_rls`, `group_b_..._tenant_loop`, `payment_intents_governance_funding_commitments_rls`, `actor_relationships_typed_edge`, `support_tickets_business_fact_gate`). Isolamento cross-tenant provado sem vazamento (MAPA_DE_FECHAMENTO §0). O que falta NÃO é o conceito de condomínio — é o **vocabulário de papel por departamento** (RH/Warehouse/Finance/etc como `relationship_type` governado). Isso é o Gap 1 remanescente real, e ele é literalmente o **R2 (Lote L2)** do plano de zeragem — desenho já existe, arquivado, pronto pra revalidar.
+
+### Gap 2 — Onboarding/Invitations → **PARCIALMENTE RESOLVIDO** [VERIFICADO HOJE]
+`company-members.service.ts:96` já cria `actor_delegations` ao adicionar membro (com `softBlockService.validateDelegation`); `:201` revoga. `actor_delegations` schema confirmado (`delegation_id`, `user_actor_id`, `institutional_actor_id`, `scopes_json`, `status`, índices por tenant). **Não é greenfield** — é um writer vivo e funcional. O que falta (Gap 2 remanescente real): o `scopes_json` genérico não modela "departamento" nem "cargo com limite de gasto" — é a mesma lacuna semântica do Gap 1, resolvida pela mesma frente (R2).
+
+### Gap 3 — Ledger Architecture (1 tabela vs múltiplas) → **JÁ DECIDIDO, não é pergunta aberta**
+`bank_ledger` é o SSOT canônico, doutrina "LEDGER_SOVEREIGNTY" ativamente enforced por guard (`DT-REGIONAL-FUNDS-TOTAL-BALANCE-CENTS-DEPRECATION` mostra o sistema *matando* projeções paralelas quando aparecem). O APRENDIZADO especulou "group_ledger/warehouse_ledger/channel_ledger" como tabelas separadas — isso violaria a própria doutrina do sistema. **Correção ao documento:** essas visões de domínio (grupo, warehouse, canal) devem ser **projeções/views sobre `bank_ledger` filtradas por `owner_actor_id`**, não tabelas novas. Gap fechado por doutrina existente, não por decisão nova.
+
+### Gap 4 — Snapshot de Permissão no Momento do Ato → **PARCIAL** [MEMÓRIA AUDITADA]
+O arco de autoridade 0113 (client-declared actorId) está fechado e blindado com gate baseline-ratchet — mas isso resolve "quem pode agir agora", não "o que valia quando o ato foi criado". Não há evidência de um padrão de snapshot histórico de role/limite no momento do post. **Gap real remanescente**, mas escopo menor do que o documento sugeria: não precisa de desenho novo de autoridade, só de um campo de auditoria (`role_at_action`, `limit_at_action`) gravado junto ao ato — decisão de schema, não de arquitetura.
+
+### Gap 5 — Cascata de Aprovação → **MEIO CONSTRUÍDO, é a PORTA-1** [VERIFICADO HOJE]
+`financial_approval_policy_materialization` migration existe; DECISION-0128 exige o Core para todo movimento de dinheiro. Mas `financial_approval_requests`/`financial_approval_approvals` = **live=0** (schema existe, runtime não roda). Isso é **exatamente** o gap que o APRENDIZADO descreve — só que já tem nome, dono e lugar no plano: é o item 1 da sequência PORTA-1 (Onda 7 do PLANO_ZERAGEM_DT.md). Não inventar um "Core de Aprovação" novo — materializar o que já foi desenhado.
+
+### Gap 6 — Governance/Voting → **OPEN DE VERDADE, sem resposta ainda**
+`DT-VOTES-ACTIVE-ACTOR-WIRING-MISSING`, `DT-VOTES-FINE-GRAINED-ELIGIBILITY-POLICY`, `DT-GROUPS-VOTES-ANONYMITY-NOT-ENFORCED` confirmam: substrato de votos existe mas contido/não wired, e "quem pode votar" é decisão de produto nunca tomada. Este é o gap mais genuinamente greenfield dos 12 — corresponde ao Lote L4 do plano de zeragem.
+
+### Gap 7 — Cross-Actor Workflows (side effect vs ato primário) → **OPEN, sem padrão generalizado**
+Não há evidência de uma resposta canônica; cada domínio (candidatura a vaga, RSVP de evento, reserva de serviço) resolve isso ad hoc. Continua sendo pergunta de desenho — mas agora com casos reais pra estudar em vez de puramente hipotético.
+
+### Gap 8 — Tenancy RLS → **RESOLVIDO, provado** [VERIFICADO HOJE]
+RLS-live está FISICAMENTE VIRADO (não é plano, é fato — ver `project_frente_rls_runtime_live_arc`). `unificard_app` roda NOSUPERUSER/NOBYPASSRLS, FORCE RLS + policy tenant-scoped confirmada em migrations reais, negative-proof provou bloqueio cross-tenant (42501). Gap fechado.
+
+### Gap 9 — Frontend Caching Policy → **OPEN, sem spec escrita**
+A regra "frontend nunca cria verdade" é cultura/lei operacional (`project_frontend_nunca_cria_verdade`), mas não existe uma política ESCRITA de o-que-pode-cachear vs o-que-nunca-pode. Continua genuinamente aberto — vale a pena formalizar como adendo à lei existente, não como gap novo.
+
+### Gap 10 — Soft vs Hard Deletes → **PARCIAL, por precedente**
+Existe doutrina forte de "tombstones nunca ressuscitam" (DECISION-0131) aplicada a schema-ghost (organization_members, votes, contextual-thread). Isso já responde a metade do Gap 10 (soft-delete é a norma, hard-delete é exceção rara e deliberada). O que falta: um padrão explícito pra "ato de negócio cancelado" (vaga cancelada, promoção revogada) — mais raso que o gap original sugeria.
+
+### Gap 11 — Async/Latency (state machine de aprovação) → **MESMO GAP QUE O 5**
+Redundante com Gap 5 — o Core de Aprovação Financeira (MODEL vivo/EXECUTION HOLD) é a state machine que faltava. Não é gap separado.
+
+### Gap 12 — Error Response Schema → **OPEN, sem spec escrita**
+Não encontrada uma convenção de erro única no backend (códigos existem por módulo, ad hoc). Genuinamente aberto, mas de baixo risco — é polimento de API, não decisão estrutural.
+
+### Síntese da reconciliação
+
+| Gap | Veredito | Ação |
+|---|---|---|
+| 1 Tenancy | Resolvido (nome = `tenants`) | Fechar gap; vocabulário de papel → R2/L2 |
+| 2 Onboarding | Parcial (substrato vivo) | Mesma frente do Gap 1 (R2/L2) |
+| 3 Ledger architecture | Já decidido por doutrina | Corrigir o documento (projeções, não tabelas novas) |
+| 4 Snapshot de permissão | Parcial, escopo menor | Campo de auditoria, não desenho novo |
+| 5 Cascata de aprovação | Meio construído | = PORTA-1 item 1, Onda 7 |
+| 6 Governance/voting | Genuinamente aberto | Lote L4 |
+| 7 Cross-actor workflows | Genuinamente aberto | Sem frente ainda — nomear se importar agora |
+| 8 RLS | Resolvido, provado | Fechar gap |
+| 9 Caching policy | Aberto, sem spec | Adendo à lei existente, baixo esforço |
+| 10 Soft/hard delete | Parcial, por precedente | Formalizar o padrão já em uso |
+| 11 Async/state machine | = Gap 5 | Fundir com Gap 5 |
+| 12 Error schema | Aberto, baixo risco | Polimento, não estrutural |
+
+**Conclusão prática:** dos 12 gaps originais, restam **5 genuinamente abertos** (6, 7, 9, 10-formalização, 12) e nenhum deles bloqueia o próximo passo material do sistema. Os outros 7 já têm resposta — construída, decidida ou em progresso nomeado. O Compositor não precisa esperar uma fundação nova: precisa que **R2 (delegação com vocabulário de departamento)** e **PORTA-1 (Core de aprovação)** — ambos já em andamento — cheguem ao fim.
