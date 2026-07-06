@@ -251,6 +251,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (11) — 4 dívidas normativas de R2 corrigidas (RN3+R2.2 código; RN1+RN2 draft)
+- RN3 (FK de autoria granted_by/event.actor_id → actors, migration 20260706140000) e R2.2 (createMember
+  aceita relationshipType EXPLÍCITO governado — os 7 valores alcançáveis, owner recebe vínculo; derivação
+  do role vira fallback) FECHADAS por código. E2E 12/12 (vínculo explícito partner sobre role=staff +
+  FK morde autoria fantasma). Guard estendido. Suite 197 GATE OK. RN1 (registrar vocab no cânone) + RN2
+  (documentar ortogonalidade dos 2 eixos) DRAFTADAS em DECISION-0160 (docs/02_decisions) — fecham quando
+  Clayton ratificar + inserir em 01_normative (IA não escreve lá). Segui a LEI NORMATIVA: GATE §2.3.2,
+  zero vocab novo (usa o CHECK já governado), zero dinheiro.
+
 ### 2026-07-06 (10) — LEI NORMATIVA reforçada no topo do arquivo + memória (diretiva Clayton)
 - Clayton: "reforçar a nomenclatura canônica, ontologia, SSOT, leis de coerência, N0/N1/N2 — não
   cometer os mesmos erros do passado; para isto foi criado o 00 agente protocolo." Adicionado bloco
