@@ -47,6 +47,37 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
     return true;
   }
 
+  // 🔴 R2.2 FIX-Q3 (auditoria Yala 2026-07-06 — autoria não-repúdio): o actor concedente/revogador
+  // gravado na delegação e na trilha append-only (§4.9.9 "quem concedeu") é `req.actionContext.actorId`.
+  // Sem esta checagem, quem gerencia a empresa poderia FORJAR a autoria declarando o actorId de um
+  // terceiro (não escala privilégio — canManageCompany segue exigido — mas falsifica o log de autoridade).
+  // Fix DECISION-0113: o principal autenticado (req.user, NUNCA o próprio actionContext) precisa
+  // REPRESENTAR o actor declarado — fail-closed 403. Assim granted_by/revoked_by são não-spoofáveis.
+  async function requireRepresentsActingActor(req: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+    const tenantId = req.tenant!.id;
+    const userId = (req as { user?: { id?: string } }).user?.id;
+    const actingActorId = req.actionContext?.actorId;
+    if (!userId || !actingActorId) {
+      reply.status(401).send({ error: 'Autenticação + actionContext obrigatórios para gravar autoria da delegação' });
+      return false;
+    }
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    let represents = false;
+    try {
+      represents = await authorizationService.canRepresentActor(tenantId, userId, actingActorId);
+    } catch {
+      represents = false;
+    }
+    if (!represents) {
+      reply.status(403).send({
+        error: 'O actor declarado (actionContext.actorId) não é representado pelo principal — autoria de delegação não pode ser forjada (DECISION-0113 / R2 §4.9.9)',
+        code: 'DELEGATION_AUTHORSHIP_NOT_REPRESENTABLE',
+      });
+      return false;
+    }
+    return true;
+  }
+
   /**
    * POST /companies/:companyId/members
    * Adicionar membro à empresa
@@ -74,6 +105,8 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
 
       // 🔴 DECISION-0113 fatia 2: autoridade server-side (req.user gerencia a empresa) antes de criar membro/delegação
       if (!(await requireCompanyManage(req, reply, req.params.companyId))) return;
+      // 🔴 R2.2 FIX-Q3: autoria não-forjável — principal precisa representar o actor concedente declarado.
+      if (!(await requireRepresentsActingActor(req, reply))) return;
 
       // Validar payload
       const parsed = createMemberSchema.safeParse(req.body);
@@ -324,6 +357,8 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
       // 🔴 DECISION-0113 fatia 2: autoridade sobre a empresa REAL do membro (req.user), não actionContext.actorId
       const target = await companyMembersService.getMember(req.tenant.id, req.params.memberId);
       if (!(await requireCompanyManage(req, reply, target.companyId))) return;
+      // 🔴 R2.2 FIX-Q3: autoria da REVOGAÇÃO não-forjável — principal precisa representar o actor revogador declarado.
+      if (!(await requireRepresentsActingActor(req, reply))) return;
 
       await companyMembersService.removeMember(
         req.tenant.id,

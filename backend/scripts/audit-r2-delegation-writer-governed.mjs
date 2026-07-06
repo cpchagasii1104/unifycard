@@ -68,6 +68,28 @@ if (!existsSync(MEMBERS)) {
   }
 }
 
+// 9. R2.2 FIX-Q3 (autoria não-forjável, ressalva Yala): TODA rota que grava autoria de delegação
+// (granted_by/revoked_by = actionContext.actorId) deve validar canRepresentActor(principal, actionContext.
+// actorId) fail-closed ANTES do write — senão a autoria da trilha §4.9.9 é spoofável.
+// Cada rota que grava autoria precisa INVOCAR o gate (não só defini-lo). `minCalls` = nº de writes
+// de autoria naquele arquivo (members: POST grant + DELETE revoke = 2; bridge: 1 grant).
+const AUTHORSHIP_ROUTES = [
+  { rel: 'src/core/companies/company-members.routes.ts', callRe: /requireRepresentsActingActor\s*\(\s*req\s*,\s*reply\s*\)/g, minCalls: 2 },
+  { rel: 'src/modules/relationships/actor-relationship-membership-bridge.routes.ts', callRe: /canRepresentActor\s*\(\s*tenantId\s*,\s*callerUserId\s*,\s*actionContext\.actorId/g, minCalls: 1 },
+];
+for (const { rel, callRe, minCalls } of AUTHORSHIP_ROUTES) {
+  const p = join(ROOT, rel);
+  if (!existsSync(p)) { failures.push(`arquivo ausente (rota de autoria): ${rel}`); continue; }
+  const code = stripTs(readFileSync(p, 'utf8'));
+  if (!/canRepresentActor/.test(code)) {
+    failures.push(`${rel}: R2.2 FIX-Q3 — perdeu canRepresentActor; autoria de delegação (granted_by/revoked_by) volta a ser spoofável.`);
+  }
+  const calls = (code.match(callRe) || []).length;
+  if (calls < minCalls) {
+    failures.push(`${rel}: R2.2 FIX-Q3 — gate de representação do actor concedente/revogador INVOCADO ${calls}x, esperado >= ${minCalls} (todo write de autoria precisa do gate ANTES).`);
+  }
+}
+
 console.log(`[r2-delegation-writer-governed] failures=${failures.length}`);
 if (failures.length > 0) {
   console.error('GATE FAIL [r2-delegation-writer-governed]:');

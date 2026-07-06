@@ -80,10 +80,11 @@ dinheiro soberano (PORTA-1 §4).
       · **D3** = tabela `actor_delegation_events` · **D4** = financeiro fora · **D5** = risco depois
 - [x] **R2.1 schema** executado (migration `20260706120000`, efêmera 11/11, dev vivo, 9 legadas
       preservadas, commit abaixo) — `relationship_type`+`granted_by`+`previous_link_id`+events append-only
-- [x] **R2.2 writer governado** — EXECUTADO code-only (repositório atômico grant/evento + company-members
-      passa autoria+vínculo; gate fica na porta selada Fatia 2, repositório é persistência). E2E 8/8
-      (atomicidade provada), guard + 2 negative-proofs, suite 196 GATE OK. **⚠️ AGUARDA SELO YALA**
-      (Clayton aciona `/code-review ultra` antes de CLOSED). Commit abaixo.
+- [x] **R2.2 writer governado** — EXECUTADO + auditado pela Yala (APROVADO-COM-RESSALVA) + **3 ressalvas
+      FECHADAS**: Q3 autoria spoofável (canRepresentActor fail-closed nas 3 rotas, prova HTTP 5/5 — spoof
+      bloqueado), RLS+FORCE nas 2 tabelas, unique parcial de par ativo. E2E writer 8/8 + authorship 5/5;
+      guard exige canRepresentActor invocado (negative-proof morde); suite 196 GATE OK. **⚠️ AGUARDA
+      RE-SELO YALA** sobre o commit de fix antes de CLOSED formal.
 - [ ] **R2.3 reconciliar leitura** (actor-capabilities projeta campos novos; canRepresentActor íntegro) ← PRÓXIMO pós-selo
 - [ ] **R2.4 camada de risco** (D5 — sub-frente própria, depois)
 
@@ -167,6 +168,14 @@ L5 (quase feito) → **L2 (agora é prioridade alta — destrava o Compositor)**
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-06 (5) — Auditoria Yala de R2.2 + 3 ressalvas fechadas
+- Yala: APROVADO-COM-RESSALVA. Refutou meu claim "granted_by não-spoofável" (Q3, ALTA): granted_by
+  vinha de actionContext.actorId sem canRepresentActor → gestor podia forjar autoria na trilha §4.9.9.
+  Fechado: canRepresentActor fail-closed nas 3 rotas de escrita de autoria (members POST+DELETE, bridge);
+  prova HTTP app.inject 5/5 (Alice→granted_by=Bob → 403; Alice→granted_by=Alice → grava correto). +RLS
+  ENABLE/FORCE nas 2 tabelas + unique parcial de par ativo (migration 20260706130000). Guard estendido
+  (exige canRepresentActor invocado; negative-proof morde). Suite 196 GATE OK. AGUARDA RE-SELO Yala.
 
 ### 2026-07-06 (4) — R2.2 (writer governado de delegação) executado, aguarda selo Yala
 - Repositório actor-delegation virou transação atômica: grant grava relationship_type+granted_by+

@@ -119,6 +119,24 @@ const actorRelationshipMembershipBridgeRoutes = async (fastify: FastifyInstance)
         });
       }
 
+      // 4b · 🔴 R2.2 FIX-Q3 (auditoria Yala 2026-07-06 — autoria não-repúdio): `actionContext.actorId` vira
+      //      `granted_by_actor_id` na delegação + trilha append-only. Sem esta checagem, o gestor poderia FORJAR
+      //      a autoria declarando o actorId de um terceiro. O principal (callerUserId, req.user) precisa
+      //      REPRESENTAR o actor concedente declarado — fail-closed (DECISION-0113). granted_by não-spoofável.
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      let callerRepresents = false;
+      try {
+        callerRepresents = await authorizationService.canRepresentActor(tenantId, callerUserId, actionContext.actorId);
+      } catch {
+        callerRepresents = false;
+      }
+      if (!callerRepresents) {
+        return reply.status(403).send({
+          error: 'O actor concedente declarado (actionContext.actorId) não é representado pelo principal — autoria de delegação não pode ser forjada (DECISION-0113 / R2 §4.9.9)',
+          code: 'DELEGATION_AUTHORSHIP_NOT_REPRESENTABLE',
+        });
+      }
+
       // 5 · roteia pro fluxo VIVO (SSOT company_users; delegação escopada por role se ACTIVE)
       try {
         const member = await companyMembersService.createMember(tenantId, actionContext.actorId, {
