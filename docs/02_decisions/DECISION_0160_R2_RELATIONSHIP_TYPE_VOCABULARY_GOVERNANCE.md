@@ -1,6 +1,7 @@
 # DECISION-0160 — Governança do vocabulário `relationship_type` (delegação / vínculo jurídico PJ)
 
-**Status:** 🟡 PROPOSTA (aguarda ratificação de Clayton + inserção no cânone `docs/01_normative/`)
+**Status:** ✅ **RATIFICADA POR CLAYTON (2026-07-06 — "Ratificado pode inserir", nesta sessão) + INSERIDA NO CÂNONE**
+**Inserção no cânone (executada pela executora sob a ratificação verbal):** `07_NOMENCLATURA_CANONICA.md §4.39.1` (vocabulário completo + ortogonalidade) + `SSOT_REGISTRY_UNIFICARD.md §5.16` (linha de vocabulário de vínculo). RN1 + RN2 FECHADAS.
 **Data:** 2026-07-06 · **Origem:** ressalvas RN1 + RN2 da auditoria normativa Yala sobre R2 (delegação)
 **Pilar:** AUTORIDADE (§5.16) · **Não toca:** dinheiro, CONCEPT, navegação N0/N1/N2
 

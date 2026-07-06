@@ -1588,6 +1588,35 @@ Tipo: `VARCHAR(30)`
 | `membership_role` | VARCHAR(30) | Papel na associação |
 | `team_role` | VARCHAR(30) | Papel no time |
 
+### 4.39.1 Vínculo Jurídico-Institucional (`relationship_type` — delegação)
+
+**Ratificado por Clayton em 2026-07-06 (DECISION-0160).** Vocabulário canônico do VÍNCULO JURÍDICO entre
+uma pessoa (actor humano) e uma instituição (actor page/company) na SSOT de delegação
+(`actor_delegations.relationship_type`, CHECK `chk_actor_delegations_relationship_type`).
+
+**EIXO ORTOGONAL ao `role` (§4.39):** `role` responde "que TIER de permissão operacional?" (cargo);
+`relationship_type` responde "que VÍNCULO institucional/civil?" (§4.9.9 cadeia de autoridade). São fatos
+independentes — um `admin` (cargo) pode ser `partner` OU `attorney` (vínculo). A coincidência de tokens
+(`administrator`/`admin`, `employee`/`staff`, `contractor` idêntico) é ortogonalidade documentada, **não**
+enum paralelo (§3.2 não se aplica: conceitos distintos). NÃO renomear os tokens — são os termos jurídicos corretos.
+
+Valores padronizados em `lowercase` · Tipo: `VARCHAR(40)` · `NULL` permitido:
+
+```sql
+'partner'               -- Sócio (participação societária)
+'director'              -- Diretor (cargo estatutário)
+'administrator'         -- Administrador nomeado (contrato social)
+'attorney'              -- Procurador (poderes por procuração)
+'legal_representative'  -- Representante legal (responde civilmente pela PJ)
+'employee'              -- Funcionário (vínculo empregatício)
+'contractor'            -- Prestador/terceiro (sem vínculo empregatício)
+NULL                    -- Não classificado (delegação legada ou vínculo não declarado)
+```
+
+**Regras:** o vínculo é CAPTURADO de fonte governada (o gestor declara), não derivado 1:1 do `role`
+(derivação é só fallback de compatibilidade). Mudança neste vocabulário = nova DECISION. Fonte de
+descoberta em código: `governed-vocabularies.manifest.ts` (`DELEGATION_RELATIONSHIP_TYPES`).
+
 ### 4.40 Source/Origin (Origem)
 
 Valores padronizados em `lowercase`

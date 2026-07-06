@@ -401,6 +401,7 @@ Vínculo responsibility: cadeia operacional não substitui nem oculta responsibl
 Motor de resolução (implementação atual — evoluir): authorization.service — canActAs / equivalentes; devem considerar cadeia futura sem quebrar SSOT
 Fachada modules: authority.service — quarentena §4.8.4 + canActAs (§4.9.8)
 Delegação (persistência): actor-delegation (repositório e tabelas associadas) — não duplicar segunda SSOT de delegação; alinhar a §4.9.9 quando evoluir
+Vocabulário de vínculo jurídico (relationship_type): partner|director|administrator|attorney|legal_representative|employee|contractor|NULL — canônico em 07_NOMENCLATURA §4.39.1 (DECISION-0160, ratificada por Clayton 2026-07-06); eixo ORTOGONAL ao role operacional (company_users.role); enforçado por CHECK; trilha de eventos em actor_delegation_events (granted|revoked|expired, append-only); autoria em granted_by_actor_id (FK actors, §4.9.9)
 Mapa de permissões: MAPA_CANONICO_PERMISSIONS_v1.md + permission-keys (código) — chaves desconhecidas proibidas em produção
 Quarentena prévia: isActorEffectivelyBlocked (§4.8.4) — gate antes ou dentro da resolução
 Leitores: todos os módulos que escolhem actor ou ordenam mutações sensíveis (social, bank callers, marketplace, votes, …)
