@@ -14,6 +14,56 @@
 
 ---
 
+## 🔴🔴 LEI NORMATIVA — LER ANTES DE ESCREVER QUALQUER LINHA (não repetir os erros do passado)
+
+> **Por que este bloco vem primeiro:** já cometemos exatamente este erro nesta frente. A Fatia C1
+> (compositor) inventou um vocabulário de intents PARALELO + um campo `economicFlow` não-governado —
+> passou em TODOS os guards de segurança e mesmo assim violava o SSOT. Só foi pego porque Clayton
+> revisou no olho. Depois, a auditoria normativa achou 4 dívidas em R2 (vocabulário jurídico não
+> registrado no cânone, tokens colidindo, derivação 1:1). **A causa-raiz das duas foi a mesma:
+> construir superfície nova ENUMERANDO/CLASSIFICANDO por conta própria, em vez de COMPOR do
+> vocabulário governado que já existia.** Isso não pode se repetir.
+
+**Antes de criar QUALQUER tabela, coluna, enum, CHECK, registry, contrato ou classificação, siga o
+`docs/01_normative/00_AGENT_PROTOCOL.md` — é o trilho que existe exatamente para isto:**
+
+1. **§2.2 — Leitura normativa contextual:** identificar o pilar da tarefa e LER as normas congeladas
+   aplicáveis em `docs/01_normative/` ANTES de agir. Nunca presumir; nunca por comentário de commit.
+2. **§2.3.2 — GATE antes de alteração:** responder por escrito — qual pilar? qual SSOT governa? já
+   existe estrutura/vocabulário? risco de duplicar verdade? Se qualquer resposta for incerta → ABORTAR
+   e perguntar, não "implementar e alinhar depois".
+3. **Procurar o vocabulário GOVERNADO primeiro** (a lição do C1): grep em `docs/01_normative/`
+   (contratos `*_ACTOR_CONTRATO.md`, `18_DOMAIN_ONTOLOGY`, `SSOT_REGISTRY`, `07_NOMENCLATURA`) +
+   no código vivo (enums, validadores centrais). Ele quase sempre já existe. **PROJETAR/COMPOR dele;
+   NUNCA inventar chave/classificação própria.** O único conhecimento local permitido é PROJEÇÃO/UX
+   (label de exibição, deeplink, ordem) — nunca a IDENTIDADE nem a AUTORIDADE.
+
+**As camadas que NÃO se negociam (e onde cada verdade vive):**
+| Camada | O que é | Onde vive | Regra |
+|---|---|---|---|
+| **CONCEPT** (LAYER 1) | identidade semântica de produto/serviço | `concepts` + `canonical_*` | SSOT semântico; NUNCA slug/nome/enum como identidade (Lei 7) |
+| **N0 / N1 / N2 / TREE** | domínios + navegação | `domains`/`n1_nodes`/`n2_nodes`/`categories` | navegação ≠ identidade; N1/N2 não substituem `categories`; nenhuma árvore paralela |
+| **INTENT** (LAYER 4) | ação do usuário | enum `ActorIntent` + `validateIntent` | vocabulário GOVERNADO; UI/módulo NÃO decide intent |
+| **AUTORIDADE** (§5.16) | quem pode agir como quem | `actor_delegations` + `canRepresentActor` | uma só SSOT de delegação; vocabulário de tipo = CHECK, registrado no cânone |
+| **DINHEIRO** (Lei 5) | saldo/transação/split | `bank_ledger`/`bank_*` | SSOT único; SQL só em `modules/bank/`; nenhum ledger paralelo |
+| **Nomenclatura** (07) | nomes | — | snake_case plural · `_at` timestamps · `_id` FKs (com FK real) · tipo-vocab = CHECK, NÃO concepts nem tabela nova |
+
+**Prova de coerência OBRIGATÓRIA (Lei de Coerência §5):** se a superfície nova responde a uma pergunta
+que outra parte do sistema já responde ("pode criar X?", "qual o tipo?"), o E2E DEVE provar que as duas
+respondem IGUAL (ex.: `composer.enabled == validateIntent().valid`). Se duas partes podem divergir, a
+arquitetura está quebrando. Um guard que confronte vocabulário novo contra o governado deve nascer junto.
+
+**Se a ideia nova não tem lar governado** (ex.: a categorização econômica entrada/saída/social do
+APRENDIZADO): ela NÃO entra hardcoded numa superfície viva. Vai por governança apropriada
+(CONCEPT.pillars, dimensão da ontologia via RFC) — ideia de produto ≠ verdade governada.
+
+> **Conformidade normativa é passo de VERIFICAÇÃO, não sorte.** Os guards de segurança (atomicidade,
+> autoridade, RLS) NÃO pegam violação de norma. Toda fatia estrutural precisa da checagem normativa
+> explícita (auto-auditoria contra `docs/01_normative/` + selo Yala normativo nos casos sensíveis),
+> além dos guards de segurança.
+
+---
+
 ## 🔴 O QUE SIGNIFICA "ZERO" AQUI (ler antes de entrar em pânico com os números)
 
 Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
@@ -200,6 +250,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
   dependência (não cheapness): L2→L3→L4→(L6 paralelo)→L1.
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
+
+### 2026-07-06 (10) — LEI NORMATIVA reforçada no topo do arquivo + memória (diretiva Clayton)
+- Clayton: "reforçar a nomenclatura canônica, ontologia, SSOT, leis de coerência, N0/N1/N2 — não
+  cometer os mesmos erros do passado; para isto foi criado o 00 agente protocolo." Adicionado bloco
+  "🔴🔴 LEI NORMATIVA — LER ANTES DE ESCREVER QUALQUER LINHA" como PRIMEIRO bloco do arquivo (antes até
+  do placar), ancorado no 00_AGENT_PROTOCOL §2.2/§2.3.2, com a tabela de camadas (CONCEPT/N0-N2/INTENT/
+  AUTORIDADE/DINHEIRO/nomenclatura) e a prova de coerência obrigatória. Memória permanente atualizada
+  ([[feedback_compor_do_ssot_governado_nao_enumerar]], agora a lei normativa completa). Toda sessão
+  futura tropeça nisso primeiro.
 
 ### 2026-07-06 (9) — Auditoria NORMATIVA Yala (R2+C1 vs docs/01_normative): sem violação viva, 4 dívidas
 - Clayton perguntou "como saber se foi feito certo?" — audits anteriores só viram SEGURANÇA, nunca
