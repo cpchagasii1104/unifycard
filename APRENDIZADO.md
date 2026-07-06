@@ -802,6 +802,398 @@ Criador X (educação financeira):
 
 ---
 
+---
+
+## 🟡 Estrutura Operacional de Empresa: Departamentos e Seus Atos
+
+**⚠️ ESBOÇO — Será refinado conforme a operação se consolidar.**
+
+O Compositor **não é genérico**. Muda de cara dependendo de qual **departamento** está usando, qual **ato** quer criar, qual **audiência** quer atingir, qual **limite de gasto** tem.
+
+---
+
+### **Departamentos Principais e Mapeamento de Atos**
+
+#### **1. RH (Recursos Humanos)**
+
+**Atos permitidos:**
+- **Vaga** (público) — recrutar novo funcionário
+- **Treinamento Interno** (interno) — capacitação
+- **Comunicado de Política** (interno) — alinhamento RH
+- **Enquete de Engagement** (interno) — feedback de funcionários
+- **Procura Fornecedor RH** (B2B) — consultoria, recrutadora
+
+**Audiência permitida:**
+- Público geral (vagas abertas)
+- Funcionários internos (treinamento, política)
+- Fornecedores RH (B2B, privado)
+
+**Categoria econômica:**
+- Vaga: ENTRADA (empresa gasta pra contratar)
+- Treinamento: ENTRADA (empresa gasta pra capacitar)
+- Fornecedor RH: ENTRADA (empresa gasta pra recrutar)
+
+**Limites de gasto (por ato):**
+- Vaga: até R$ 50.000 (acima, precisa aprovação Finance)
+- Treinamento: até R$ 20.000/mês
+- Fornecedor RH: até R$ 100.000
+- Aprovação obrigatória acima de: R$ 50.000
+
+---
+
+#### **2. Estoque/Warehouse/Logística**
+
+**Atos permitidos:**
+- **Procura Fornecedor** (B2B) — comprar matéria-prima, produtos
+- **Registra Entrada de Produto** (interno) — recebimento
+- **Movimentação de Inventário** (interno) — transferência entre locais
+- **Alerta de Stock Baixo** (interno, urgente) — falta de estoque
+- **Descarte/Devolução** (interno) — produto danificado, obsoleto
+
+**Audiência permitida:**
+- Fornecedores (B2B, privado)
+- Equipe interna (coordenação logística)
+- Financeiro (quando há gasto)
+
+**Categoria econômica:**
+- Procura Fornecedor: SAÍDA (empresa gasta pra adquirir)
+- Movimentação: SOCIAL (coordenação interna, sem transação)
+- Alerta Stock: SOCIAL (aviso interno)
+- Descarte: SAÍDA (perda, registrada no ledger)
+
+**Limites de gasto:**
+- Fornecedor até R$ 50.000 (acima, precisa aprovação Finance)
+- Descarte até R$ 10.000
+- Aprovação obrigatória acima de: R$ 30.000
+
+**Integração operacional (fluxo real):**
+```
+Warehouse posta: "Procuro fornecedor de parafusos — 1000 un — R$ 5000"
+  ↓
+Entra em requisition_queue
+  ↓
+Finance recebe notificação (informacional, não bloqueadora)
+  ↓
+Se Warehouse ultrapassa limite (ex: R$ 60.000):
+  → Sistema retorna 403: "Limite é R$ 50.000. Precisa aprovação Finance."
+  ↓
+Finance aprova/rejeita na fila
+  ↓
+Se aprovado: Fornecedor recebe convite pra responder
+  ↓
+Warehouse aceita proposta → purchase_order é gravada no ledger
+```
+
+---
+
+#### **3. Financeiro/Tesouraria**
+
+**Atos permitidos:**
+- **Aprova/Rejeita Gasto** (interno) — validação de requisições
+- **Negocia Pagamento** (B2B, privado) — com fornecedor
+- **Comunicado de Política Salarial** (interno) — salários, benefícios
+- **Relatório de Fluxo de Caixa** (interno, C-level) — situação financeira
+- **Procura Empréstimo** (B2B, bank) — capital de giro
+- **Controle de Budget/Alerta de Overspend** (interno) — monitoramento
+
+**Audiência permitida:**
+- Fornecedores (B2B, privado — negociação)
+- Equipe interna (comunicados)
+- C-level (relatórios executivos)
+- Bancos/credores (B2B)
+
+**Categoria econômica:**
+- Aprovação: SOCIAL (decisão, não transação direta)
+- Negociação: SAÍDA (empresa negocia gasto)
+- Empréstimo: ENTRADA (capital entra no caixa)
+- Relatório: SOCIAL (informação)
+
+**Limites de gasto:**
+- Aprovação: ilimitado (pode rejeitar qualquer gasto)
+- Negociação de pagamento: até R$ 500.000
+- Empréstimo: até R$ 1.000.000 (acima, precisa board vote)
+- Aprovação obrigatória acima de: nenhum (Finance aprova tudo)
+
+**Integração operacional:**
+```
+Warehouse/RH/Vendas postam ato com gasto
+  ↓
+Se abaixo de limite do departamento:
+  → Grava direto, Finance é notificado (informacional)
+  
+Se acima de limite do departamento:
+  → Vai pra fila de Finance (bloqueadora)
+  → Finance recebe notificação (ação requerida)
+  → Finance pode:
+       ✓ Aprovar (gasto segue)
+       ✗ Rejeitar (volta pro departamento)
+       ? Sugerir alternativa
+```
+
+---
+
+#### **4. Administrativo/Compliance**
+
+**Atos permitidos:**
+- **Comunicado Geral** (público/interno) — informações da empresa
+- **Atualização de Dados Empresa** (público) — mudança endereço, contato, CNPJ
+- **Documentação/Conformidade** (interno) — regulatório, ISO, LGPD, auditoria
+- **Contrato com Terceiro** (B2B, privado) — formalização legal
+- **Política Corporativa** (interno) — código de ética, COE, compliance
+
+**Audiência permitida:**
+- Público (informações gerais, atualizações cadastrais)
+- Funcionários (políticas internas)
+- Órgãos reguladores (quando necessário, conformidade)
+- Parceiros comerciais (contratos)
+
+**Categoria econômica:**
+- Comunicado: SOCIAL (informação)
+- Conformidade: SAÍDA (empresa gasta pra estar em conformidade)
+- Contrato: entrada/saída (depende se compra ou vende)
+
+**Limites de gasto:**
+- Conformidade: até R$ 20.000/mês
+- Contrato terceiro: até R$ 50.000
+- Aprovação obrigatória acima de: R$ 10.000
+
+---
+
+#### **5. Vendas/Comercial**
+
+**Atos permitidos:**
+- **Oferta de Produto** (público) — publicidade, catálogo vivo
+- **Promoção/Desconto** (público) — campanha comercial, limite de desconto
+- **Proposta Comercial** (B2B, cliente específico) — preço customizado
+- **Negociação** (B2B, privado) — com cliente, parceiro, distribuidor
+- **Procura Parceiro Vendas** (B2B) — distribuidor, revendedor, afiliado
+
+**Audiência permitida:**
+- Público geral (ofertas, promoções)
+- Clientes específicos (propostas personalizadas)
+- Parceiros comerciais (B2B)
+
+**Categoria econômica:**
+- Oferta: ENTRADA (empresa ganha com venda)
+- Promoção: SAÍDA (empresa reduz margem)
+- Proposta: ENTRADA (empresa oferecendo)
+- Parceria: ENTRADA/SAÍDA (depende se é venda ou comissão)
+
+**Limites de gasto/desconto:**
+- Promoção: até 20% desconto (acima, precisa aprovação C-level)
+- Comissão oferecida: até 15%
+- Parceria comercial: até R$ 100.000
+- Aprovação obrigatória acima de: 25% desconto ou R$ 50.000
+
+**Integração operacional:**
+```
+Vendedor posta: "Promoção 15% em Produto X — válida até 2026-07-10"
+  ↓
+Sistema valida: "15% desconto está dentro do limite? SIM"
+  ↓
+Promoção fica ativa, preço atualizado no marketplace
+  ↓
+Finance rastreia: "Margem reduzida 15% em Produto X — impacto: -R$ 2000"
+  ↓
+Se Vendedor tentar 30% desconto:
+  → 403 Forbidden: "Descontos acima de 20% precisam de aprovação.
+    Solicitando a seu gerente..."
+```
+
+---
+
+#### **6. Operações/Produção**
+
+**Atos permitidos:**
+- **Planejamento de Produção** (interno) — agenda de fabricação
+- **Alerta de Qualidade** (interno) — defeito, retrabalho, parada
+- **Agenda de Produção** (interno) — turnos, capacidade, manutenção
+- **Procura Terceirizador** (B2B) — overflow de produção
+- **Manutenção de Máquina** (interno) — parada programada, reparo
+
+**Audiência permitida:**
+- Equipe interna (coordenação produção)
+- Estoque (entradas/saídas, planejamento)
+- Fornecedores (terceirização)
+- Manutenção (preventiva)
+
+**Categoria econômica:**
+- Planejamento: SOCIAL (coordenação)
+- Alerta qualidade: SOCIAL (aviso)
+- Terceirização: SAÍDA (empresa gasta com terceiro)
+- Manutenção: SAÍDA (empresa investe em máquina)
+
+**Limites de gasto:**
+- Terceirização: até R$ 50.000
+- Manutenção: até R$ 30.000
+- Aprovação obrigatória acima de: R$ 20.000
+
+---
+
+### **Fluxo do Compositor Estruturado por Departamento**
+
+**Cenário 1: Marina (Warehouse Manager) abre o Compositor**
+
+```
+1. SELETOR DE ATOR:
+   "Representando: Empresa X (Departamento: Warehouse)"
+
+2. CONFIRMAÇÃO DE PAPEL:
+   "Seu papel: WAREHOUSE_MANAGER"
+   
+3. ENUMERAÇÃO DE ATOS:
+   Backend responde: GET /composer/available-actions?dept=warehouse
+   Mostra:
+     ✓ Procurar Fornecedor
+     ✓ Registrar Entrada de Produto
+     ✓ Movimentação de Inventário
+     ✓ Alerta de Stock Baixo
+     ✗ Postar Vaga (invisível — isso é RH)
+     ✗ Oferta de Produto (invisível — isso é Vendas)
+
+4. CRIAÇÃO:
+   Marina seleciona: "Procurar Fornecedor"
+   Preenche:
+     - Item: "Parafuso M10"
+     - Quantidade: 1000
+     - Orçamento: R$ 5000
+     - Urgência: Normal
+   
+5. VERIFICAÇÃO (Backend):
+     ✓ Marina pode criar "Procurar Fornecedor"? SIM
+     ✓ Audiência B2B permitida? SIM
+     ✓ Limite de R$ 50.000? SIM, sua requisição é R$ 5000
+     ✓ Precisa aprovação? NÃO (abaixo de R$ 30.000)
+   
+6. GRAVA:
+   warehouse_ledger {
+     action: 'procura_fornecedor',
+     amount: 500000,  # R$ 5000 em centavos
+     department: 'warehouse',
+     posted_by: marina_id,
+     audience: 'b2b_privado',
+     approval_required: false,
+     status: 'ativa'
+   }
+   
+   Finance recebe notificação (informacional, não bloqueadora)
+```
+
+**Cenário 2: João (RH Manager) abre o Compositor**
+
+```
+1. SELETOR DE ATOR:
+   "Representando: Empresa X (Departamento: RH)"
+
+2. CONFIRMAÇÃO DE PAPEL:
+   "Seu papel: RH_MANAGER"
+   
+3. ENUMERAÇÃO DE ATOS:
+   Backend responde: GET /composer/available-actions?dept=rh
+   Mostra:
+     ✓ Postar Vaga
+     ✓ Treinamento Interno
+     ✓ Comunicado de Política
+     ✗ Procurar Fornecedor (invisível — isso é Warehouse)
+     ✗ Oferta de Produto (invisível — isso é Vendas)
+
+4. CRIAÇÃO:
+   João seleciona: "Postar Vaga"
+   Preenche:
+     - Cargo: "Desenvolvedor Senior"
+     - Salário: R$ 15.000/mês
+     - Descrição: [...]
+     - Audiência: Público Geral
+   
+5. VERIFICAÇÃO (Backend):
+     ✓ João pode criar "Postar Vaga"? SIM
+     ✓ Audiência Público permitida? SIM
+     ✓ Limite de R$ 50.000? SIM, vaga é R$ 15.000
+     ✓ Precisa aprovação? NÃO
+   
+6. GRAVA:
+   company_ledger {
+     action: 'vaga_criada',
+     amount: 1500000,  # R$ 15.000/mês
+     department: 'rh',
+     posted_by: joao_id,
+     audience: 'publico',
+     approval_required: false,
+     status: 'ativa'
+   }
+   
+   Vaga aparece no marketplace UnifiCard
+```
+
+**Cenário 3: Marina tenta R$ 60.000 (acima do limite)**
+
+```
+4. CRIAÇÃO:
+   Marina seleciona: "Procurar Fornecedor"
+   Preenche:
+     - Item: "Motor Industrial"
+     - Orçamento: R$ 60.000
+   
+5. VERIFICAÇÃO (Backend):
+     ✓ Marina pode criar "Procurar Fornecedor"? SIM
+     ✓ Audiência B2B permitida? SIM
+     ✗ Limite de R$ 50.000? NÃO — você quer R$ 60.000
+     ✗ Precisa aprovação? SIM
+   
+6. RESPOSTA (403 + Instruções):
+   "Sua requisição de R$ 60.000 excede o limite de R$ 50.000.
+    
+    Opções:
+    (a) Reduzir para R$ 50.000 (máximo sem aprovação)
+    (b) Solicitar aprovação a seu gerente Finance
+    (c) Dividir em 2 requisições de R$ 30.000 cada (ambas precisam aprovação)
+    
+    Solicitando aprovação de Finance..."
+   
+   → Requisição entra em approval_queue
+   → Finance é notificado (ação requerida)
+   → Finance aprova/rejeita
+```
+
+---
+
+### **Matriz de Permissões: Resumida**
+
+| Departamento | Pode Criar | Audiência | Limite Base | Requer Aprovação Acima |
+|---|---|---|---|---|
+| **RH** | Vaga, Treinamento, Comunicado | Público, Interno, RH B2B | R$ 50.000 | R$ 50.000 |
+| **Warehouse** | Procura Fornecedor, Entrada, Movimentação | B2B, Interno | R$ 50.000 | R$ 30.000 |
+| **Finance** | Aprova Gasto, Negocia, Empréstimo | B2B, Interno, C-level | Ilimitado | Acima R$ 1.000.000 |
+| **Admin** | Comunicado, Contrato, Conformidade | Público, Interno, B2B | R$ 50.000 | R$ 10.000 |
+| **Vendas** | Oferta, Promoção, Proposta | Público, B2B, Cliente específico | Até 20% desconto | Acima 25% desconto |
+| **Operações** | Planejamento, Alerta Qualidade, Terceirização | Interno, B2B | R$ 50.000 | R$ 20.000 |
+
+---
+
+### **Princípios Estruturais**
+
+1. **Compositor muda de cara por departamento** — cada um vê APENAS seus atos
+2. **Limites são por departamento, não genéricos** — RH tem limite diferente de Warehouse
+3. **Aprovação é cascata** — Finance sempre aprova gastos acima de threshold
+4. **Integração operacional é real** — requisição não é isolada, entra em fila, tem workflow
+5. **SSOT do dinheiro é registrado por departamento** — rastreia quem gastou, quanto, com que autoridade
+6. **Atos são estruturados, não livres** — você posta o que sua autoridade permite, não o que quer
+
+---
+
+**⚠️ NOTA DE REFINAMENTO:**
+
+Essa estrutura é **esboço inicial**. Conforme a operação real do UnifiCard consolidar, será necessário:
+- Validar se 6 departamentos são suficientes (ou se faltam: Marketing, Suporte ao Cliente, etc.)
+- Refinar matriz de permissões com base em casos reais
+- Definir se alguns atos devem estar em múltiplos departamentos
+- Especificar workflows de aprovação (Finance > C-level? Em paralelo? Sequencial?)
+- Mapear integrações com outros módulos (ledger, inventory, HR, sales)
+
+Isso será refinado conforme **a primeira operação real** de empresa rodar no sistema.
+
+---
+
 ## Caso de Uso Concreto: Pessoa Física em Fluxo de Entrada (Dinheiro Entra)
 
 **O que uma Pessoa Física pode POSTAR quando está em fluxo de entrada (gerando receita)?**
