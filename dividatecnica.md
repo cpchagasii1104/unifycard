@@ -251,6 +251,16 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (13) — L3 fatia 1: materializa DECISION-0106 (MarketplaceDomain→N0) + fecha fork backend
+- GO "segue com o L3". Materializei o mapa PROMULGADO da 0106 (só vivia no doc): módulo governado
+  marketplace-domain-n0-mapping (market→produtos-e-comercio, services→servicos, events→cultura-lazer;
+  jobs/real_estate/vehicles→null por decisão). Seguiu a LEI NORMATIVA (GATE §2.3.2, zero taxonomia
+  inventada, projeta sobre os N0 vivos). O guard de vocabulário PEGOU 4 cópias backend paralelas
+  (marketplace-categories.types, marketplace-public.routes, companies.types, companies.routes) — o doc
+  0106 só citava as 2 do frontend — TODAS convergidas pro source governado. E2E 5/5, suite 199 GATE OK.
+  Prova viva de que a catraca funciona: o fork backend que a revisão no olho não pegaria morreu no CI.
+  Resta L3 decision-gated (seed/tríade/sinônimos/W2) + convergência frontend.
+
 ### 2026-07-06 (12) — Guard de vocabulário governado (a lei normativa virou CATRACA de CI)
 - Construído `audit-governed-vocabulary-manifest.mjs` + manifesto `governed-vocabularies.manifest.ts`
   (6 vocab SSOT centrais): anti-drift (manifesto não mente sobre a fonte viva → descobribilidade, raiz do
