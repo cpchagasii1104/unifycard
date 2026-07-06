@@ -73,7 +73,19 @@ AUSENTE (produto tem) · **D3** merge não re-aponta dependentes (auditar antes 
 - **Recomendação: (a)** — sem a cabeça de curadoria, a Opção C fica meio-implementada (só o top-N por
   migration funciona; a cauda longa orgânica não existe).
 
-## D5 — W2: produto é ACTOR-FIRST (paridade com serviço) ou segue ramo/categoria?
+## D5 — W2 — ✅ DECIDIDO POR CLAYTON (2026-07-06): produto é ACTOR-FIRST
+
+> **Decisão soberana registrada:** "Eu não vejo problema em construir esta frente. porque as pessoas
+> físicas vão poder querer vender coisas usadas dela mesmo no marketplace, um videogame usado, uma cama
+> usada, um berço usado." Caso de uso âncora = **BENS USADOS de PF** (estilo Facebook Marketplace/OLX).
+> **Restrição vinculante ditada por Clayton:** o caminho de PF TEM que respeitar SSOT/ontologia/N0-N1-N2 —
+> a categoria ("videogame") vem da árvore GOVERNADA, nunca texto livre. PJ mantém a pegada estruturada
+> (ramo/N0/KYB); PF ganha a porta leve de "anúncio de item" — **as duas portas convergem no MESMO
+> catálogo canônico** (concepts `item-comercial` + canonical_products). Condição usado/novo = ATRIBUTO
+> (LAYER 5), NUNCA árvore paralela de "usados". Próximo passo = design pack read-only (política antes de
+> código, GATE 00_AGENT_PROTOCOL) — frente `F-PRODUCT-ACTOR-FIRST-USED-GOODS-DESIGN-PACK`.
+
+## D5 (histórico da opção) — W2: produto é ACTOR-FIRST (paridade com serviço) ou segue ramo/categoria?
 
 **Estado:** a auditoria de 3 lentes deu DECISION_REQUIRED — PF-produto é normativamente silente;
 PJ-produto por ramo = DECISION-0108; produto/material diferido por DECISION-0143. W1 (companyId
