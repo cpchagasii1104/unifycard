@@ -7,6 +7,7 @@ import Register from './components/Register';
 import SocialLedger from './components/social/SocialLedger';
 import CompanyValidationBackoffice from './components/CompanyValidationBackoffice';
 import KybReviewBackoffice from './admin/KybReviewBackoffice'; // CP2 PJ-B2: backoffice mínimo reviewer KYB
+import ServiceCurationQueue from './admin/ServiceCurationQueue'; // F-SERVICE-CURATION-HEAD: fila de curadoria de servico (admin-gated no backend)
 import RegionalFundUser from './components/RegionalFundUser';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SocialLayout from './components/layout/SocialLayout';
@@ -454,6 +455,7 @@ function AppContent() {
           <Route path="validation" element={<CompanyValidationBackoffice />} />
           {/* CP2 PJ-B2: backoffice mínimo do reviewer KYB (admin-only no backend; 403 honesto) */}
           <Route path="admin/kyb" element={<KybReviewBackoffice />} />
+          <Route path="admin/curadoria-servicos" element={<ServiceCurationQueue />} />
           {/* SPRINT 13: Observação de Piloto */}
           <Route path="admin/pilot" element={<PilotObserverPage />} />
           {/* Compatibilidade */}
