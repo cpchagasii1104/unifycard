@@ -361,6 +361,39 @@ export const canonicalServiceService = {
   },
 
   /**
+   * D2 FIX (F-SERVICE-CURATION-HARDENING-BEFORE-UI): reject curatorial de SERVIÇO — paridade com
+   * rejectProduct (produto tinha, serviço não). COMPÕE do vocabulário governado de status
+   * (pending_curation|active|retired — CHECK): rejeitar = pending_curation → 'retired' (estado terminal
+   * existente; NÃO estende o CHECK com 'rejected'); a semântica de rejeição vive no EVENTO append-only
+   * `service_curation_rejected` (payload.reason). Só pendente é rejeitável (fail-closed 409).
+   */
+  async reject(input: { canonicalServiceId: string; actorId: string; tenantId: string; reason?: string }): Promise<void> {
+    const ctx: QueryCtx = { kind: 'admin' };
+    const cs = await findByIdCtx(ctx, input.canonicalServiceId);
+    if (!cs) throw new CanonicalServiceError(404, 'CANONICAL_SERVICE_NOT_FOUND', 'Serviço canônico inexistente.');
+    if (cs.status !== 'pending_curation') {
+      throw new CanonicalServiceError(409, 'CANONICAL_SERVICE_NOT_PENDING', 'Só serviço pendente de curadoria pode ser rejeitado.');
+    }
+    await withCtx(ctx, async (client) => {
+      await client.query(
+        `UPDATE canonical_services SET status = 'retired', updated_at = NOW() WHERE id = $1::uuid AND status = 'pending_curation'`,
+        [cs.id]
+      );
+      await insertCatalogEvent(
+        {
+          entityType: 'canonical_service',
+          entityId: cs.id,
+          eventType: 'service_curation_rejected',
+          payload: { reason: input.reason ?? null },
+          actorId: input.actorId,
+          tenantId: cs.tenantId ?? input.tenantId,
+        },
+        client
+      );
+    });
+  },
+
+  /**
    * Merge curatorial (G, ADMIN-ONLY): duplicate → winner por redirect; append-only; idempotente.
    * Cross-tenant por desenho, mesma justificativa de approve() — admin-bypass.
    */

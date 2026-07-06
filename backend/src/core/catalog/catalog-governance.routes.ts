@@ -238,6 +238,17 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
       }
       const curator = await curatorActorId(req.tenant!.id, sub.userId);
       if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
+      // D1 FIX (F-SERVICE-CURATION-HARDENING-BEFORE-UI): promover scoped→GLOBAL muda o catálogo de TODOS
+      // os tenants — autoridade de PLATAFORMA, não de tenant-admin (requireRole é tenant-scoped). Gate
+      // env-strict fail-closed (padrão firewall): PLATFORM_CURATION_ADMIN_GLOBAL_USER_IDS = lista de
+      // global_user_ids; ausente/vazia = NINGUÉM promove (403 honesto). Approve SCOPED segue tenant-admin.
+      if (parsed.data.promoteToGlobal === true) {
+        const allow = (process.env.PLATFORM_CURATION_ADMIN_GLOBAL_USER_IDS ?? '')
+          .split(',').map((s) => s.trim()).filter(Boolean);
+        if (!sub.globalUserId || !allow.includes(sub.globalUserId)) {
+          return reply.status(403).send({ ok: false, code: 'PROMOTE_TO_GLOBAL_PLATFORM_GATE', message: 'Promoção a escopo global exige operador de plataforma (gate fail-closed).' });
+        }
+      }
       try {
         const data = await catalogCurationService.approveProduct({
           canonicalProductId: req.params.canonicalProductId,
@@ -344,6 +355,31 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
           actorId: curator,
         });
         return reply.send({ ok: true, data });
+      } catch (err) {
+        if (isKnownError(err)) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+        throw err;
+      }
+    }
+  );
+
+  // D2 FIX (F-SERVICE-CURATION-HARDENING-BEFORE-UI): reject de SERVIÇO — paridade com produto (que já
+  // tinha). pending_curation → retired + evento append-only service_curation_rejected (razão no payload).
+  fastify.post<{ Params: { canonicalServiceId: string }; Body: { reason?: string } }>(
+    '/curation/services/:canonicalServiceId/reject',
+    { preHandler: [fastify.requireRole(['admin'])] },
+    async (req, reply) => {
+      const sub = subject(req as never);
+      if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+      const curator = await curatorActorId(req.tenant!.id, sub.userId);
+      if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
+      try {
+        await canonicalServiceService.reject({
+          canonicalServiceId: req.params.canonicalServiceId,
+          actorId: curator,
+          tenantId: req.tenant!.id,
+          reason: typeof req.body?.reason === 'string' ? req.body.reason : undefined,
+        });
+        return reply.send({ ok: true });
       } catch (err) {
         if (isKnownError(err)) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
         throw err;
