@@ -164,6 +164,15 @@ L5 (quase feito) → **L2 (agora é prioridade alta — destrava o Compositor)**
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-06 (2) — Pesquisa de implementação do Compositor
+- APRENDIZADO.md ganhou seção "Pesquisa de implementação" (commit `edb2c9a8a`): o Compositor
+  já existe em duas metades — `IntentComposer.tsx` (8 intents, classificação local) +
+  `ActorPageContract` (padrão server-driven provado). Violação nomeada: `intent-classifier.ts`
+  é 100% client-side (enumeração viola a lei; autoridade não). Sequência de implementação
+  proposta: C1 (contrato do composer) → C2 (intents por papel, pós-L2) → C3 (cadeia do
+  projeto, pós-L4) → C4 (dinheiro, flip PORTA-1). Visão e sistema a UMA fatia (C1) de se
+  encontrarem.
+
 ### 2026-07-06 — Lote L5 executado + arquivo criado
 - Criado este rastreador vivo, consolidando o estado pós-execução da semana.
 - Contidas 501: venue (15 rotas, pública), work-instant (12), policy-engine (11),
