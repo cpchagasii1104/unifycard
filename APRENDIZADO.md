@@ -332,6 +332,81 @@ Evento {
 
 Influencer ganha menos (10% vs 15% da banda), porque bandas têm interesse material no evento (vão tocar), influencers não. Mas ainda ganham.
 
+### **⚠️ RESTRIÇÃO CRÍTICA: SSOT do Dinheiro e Split**
+
+**O split NÃO é mágica no frontend ou cálculo posterior.**
+
+O split é um **contrato gravado atomicamente no banco de dados**, a Source of Truth do dinheiro:
+
+**Onde e Como o Split é Gravado (SSOT Único):**
+
+```
+bank_transactions {
+  id: uuid,
+  ticket_sale_id: ticket_uuid,
+  vendor_actor_id: banda_id,        # quem vendeu
+  gross_amount_cents: 10000,        # preço integral
+  
+  splits: [
+    {
+      recipient_actor_id: venue_id,
+      amount_cents: 6000,
+      reason: 'venue_base_share',
+      wallet_destination: venue_wallet
+    },
+    {
+      recipient_actor_id: banda_id,
+      amount_cents: 1500,
+      reason: 'artist_commission_from_vendor',
+      wallet_destination: band_wallet
+    },
+    {
+      recipient_actor_id: regional_fund,
+      amount_cents: 500,
+      reason: 'platform_fee',
+      wallet_destination: regional_fund
+    }
+  ],
+  
+  status: 'settled',    # ⚠️ ATOMIC — não é "calculating", é "settled"
+  settled_at: timestamp,
+  created_at: timestamp
+}
+```
+
+**Regras Invioláveis:**
+
+1. **Split é calculado UMA VEZ, no backend, no momento da venda** — não depois, não no frontend.
+2. **Split é gravado atomicamente** — tudo ou nada. Não pode haver transação parcial (venue recebe mas banda não).
+3. **Split é SSOT** — não existe em nenhum outro lugar. Cada actor consulta a mesma tabela.
+4. **Cada actor vê seu lado** — `GET /actor/{actor_id}/ledger` consulta `bank_transactions WHERE splits[].recipient_actor_id = actor_id`. Read-only, nunca editável.
+5. **Verificação no Backend, sempre** — nunca é "o frontend calcula e mostra quanto você ganha". Backend calcula, grava, frontend apenas PROJETA o número.
+
+**O que NÃO PODE SER:**
+
+❌ Frontend calcula split e mostra "você ganhou 1500"  
+❌ Backend tem número diferente "você ganhou 1200"  
+❌ Split é recalculado depois (pode divergir)  
+❌ Split fica em cache local do cliente (pode ficar fora de sync)  
+❌ Dois atores veem números diferentes da mesma venda  
+
+**O que TEM QUE SER:**
+
+✅ Backend: evento criado, split_config gravado (imutável)  
+✅ Backend: ingresso vendido → calcular split → gravar bank_transactions atomicamente  
+✅ Todos: consultam mesma SSOT, veem mesmo número  
+✅ Frontend: apenas projeta o que backend garante  
+
+**Implicação no Compositor:**
+
+Quando a Banda posta divulgação de evento e uma venda acontece:
+- Sistema verifica `event.split_config` (é autorizado? Banda ganha X%?)
+- Calcula split: `venue_share = gross * 0.60`, `band_commission = gross * 0.15`, etc.
+- Grava bank_transaction com splits[] preenchido
+- Ambos consultam e veem o mesmo número
+
+**Sem exceção. Sem "calcularemos depois". Sem frontend decidindo.**
+
 ---
 
 ## Caso de Uso Concreto: Pessoa Física em Fluxo de Entrada (Dinheiro Entra)
