@@ -190,6 +190,47 @@ A resposta a essa pergunta determina:
 
 ---
 
+## 🔴 PRINCÍPIO FUNDACIONAL: O Dinheiro tem Uma Única Fonte de Verdade
+
+**O sistema inteiro foi construído sobre isto:**
+
+Não existe múltiplas "versões" de quanto cada ator tem, deve ou recebe. Existe UM banco de dados. Uma tabela. Uma verdade.
+
+**Por quê isto importa:**
+
+Se o dinheiro tivesse múltiplas fontes de verdade:
+- Pessoa Física vê que tem R$ 500, mas Backend tem R$ 300 → quem está certo?
+- Grupo arrecada R$ 1000, mas Admin vê R$ 800 → divergência, desconfiança
+- Evento faz split entre Venue + Banda, mas cada um recebe número diferente → fraude, conflito
+- Cache local do celular fica fora de sync com banco → pessoa gasta dinheiro que já foi gasto
+
+**Toda a visão desmorona.**
+
+---
+
+### **A Arquitetura é Construída pra Garantir SSOT do Dinheiro**
+
+Cada decisão arquitetural reforça isto:
+
+1. **Um banco de dados de ledger** (não múltiplos caches, não localStorage, não "calcula depois")
+2. **Transações atômicas** (split é gravado tudo ou nada, não parcial)
+3. **Imutabilidade** (ninguém consegue editar histórico, só consultar)
+4. **Backend calcula, Frontend projeta** (servidor é verdade, cliente é espelho)
+5. **Verificação em tempo real** (antes de permitir gasto, verifica saldo; não "tenta depois")
+
+**Isso permite tudo que descrevemos:**
+
+- ✅ **Pessoa Física** com ledger pessoal → porque dinheiro é SSOT
+- ✅ **Empresa** com ledger empresarial → porque dinheiro é SSOT
+- ✅ **Banda** vendendo ingressos com comissão → porque split é SSOT, calculado uma vez
+- ✅ **Grupo** arrecadando transparente → porque ledger é consultável, ninguém altera
+- ✅ **Evento Compartilhado** com split dinâmico → porque cada venda é registrada atomicamente, ambos veem número idêntico
+- ✅ **Múltiplos atores economicamente ligados** (Venue + Banda + Influencer) → porque o split é calculado por origem, ninguém consegue roubar comissão do outro
+
+**Sem SSOT do dinheiro, nenhum disso funciona.**
+
+---
+
 ## Caso de Uso Avançado: Evento Compartilhado com Split Dinâmico
 
 **O Problema que resolve:**
@@ -406,6 +447,119 @@ Quando a Banda posta divulgação de evento e uma venda acontece:
 - Ambos consultam e veem o mesmo número
 
 **Sem exceção. Sem "calcularemos depois". Sem frontend decidindo.**
+
+---
+
+## Caso de Uso Estrutural: Grupo como Ator Econômico Coletivo (Economia Solidária)
+
+**Exemplos reais:**
+- Grupo de cuidadores de animais de rua do bairro X
+- Torcida organizada Y
+- Coletivo de mulheres artesãs
+- Comunidade de pessoas deficientes
+- Horta comunitária
+
+**Grupo é um ATOR** (como Pessoa Física, Empresa, Banda), mas coletivo:
+- Tem múltiplos membros (com papéis: Admin, Treasurer, Member, Volunteer)
+- Tem propósito/causa
+- **Tem seu próprio ledger e wallet** ← SSOT do dinheiro do grupo
+- Pode arrecadar (venda, doação) e gastar (em prol da causa)
+- Transparência total — qualquer membro consulta o ledger
+
+### **Tipos de Atos que um Grupo pode POSTAR**
+
+**Fluxo de Entrada (Arrecada):**
+
+1. **Venda de Merchandise** — "Camiseta da torcida" / "Adesivo do grupo"
+   - Quem pode postar: Member+ (com permissão `products:create`)
+   - Ledger: group_wallet (100% vai pro grupo, não pro vendedor individual)
+   - SSOT: Quando ingresso é vendido → `group_ledger` registra: "R$ X arrecadado com vendas"
+   - Todos os membros veem o mesmo número (transparência total)
+
+2. **Evento de Arrecadação** — "Show beneficente" / "Bazar arrecadação"
+   - Quem pode postar: Admin+
+   - Ledger: group_wallet
+   - Pode ter split (ex: banda doa 30%, grupo fica 70%)
+
+3. **Pedido de Doação** — "Arrecadando pra ração" / "Precisamos de R$ 2000"
+   - Quem pode postar: Admin+
+   - Ledger: group_wallet (doações diretas)
+   - Transparência: "Já arrecadamos R$ 1200 de R$ 2000. Veja histórico completo de gastos anteriores"
+
+**Fluxo de Saída (Gasta em prol da causa):**
+
+1. **Procura de Produto/Serviço** — "Precisamos comprar ração urgente" / "Procuramos veterinário"
+   - Quem pode postar: Treasurer+ (verifica orçamento)
+   - Ledger: group_wallet (despesa, quando alguém responder e grupo aceitar)
+   - Verificação: Backend valida saldo suficiente
+
+2. **Procura de Voluntário** — "Precisamos de alguém pra cuidar de X animal"
+   - Quem pode postar: Member+
+   - Ledger: Nenhum (social puro, coordenação)
+
+**Fluxo Social Puro:**
+
+1. **Post de Impacto** — "Fotos dos animais resgatados hoje"
+   - Quem pode postar: Member+
+   - Ledger: Nenhum
+   - Função: Conexão emocional, transparência, mobilização
+
+2. **Enquete Interna** — "Qual ração vocês preferem?"
+   - Quem pode postar: Member+
+   - Destino: Membros (broadcast fechado)
+   - Ledger: Nenhum (mas resultado informa decisão de compra)
+
+### **SSOT do Grupo: Transparência como Garantia de Confiança**
+
+Quando grupo arrecada R$ 1000 com venda de camiseta:
+
+```
+group_ledger entry {
+  id: uuid,
+  group_id: group_uuid,
+  type: 'income',
+  description: 'Venda camisetas',
+  amount_cents: 100000,
+  
+  status: 'settled',  # ⚠️ ATOMIC, não "calculating"
+  created_at: timestamp
+  # IMUTÁVEL — qualquer membro consulta, ninguém altera
+}
+
+GET /group/{group_id}/ledger
+→ Todos os membros veem:
+   "R$ 5000 arrecadado com vendas"
+   "R$ 3000 doações"
+   "R$ 2000 gasto com ração"
+   "R$ 1000 gasto com medicamento"
+   "Saldo atual: R$ 5000"
+
+→ Ninguém consegue discordar
+→ Confiança é construída em números, não em promessas
+```
+
+### **Papel e Permissões no Grupo**
+
+| Papel | Criar Evento | Criar Produto | Aprovar Gasto | Ver Ledger |
+|-------|------|---------|----------|---------|
+| Admin | ✅ | ✅ | ✅ | ✅ |
+| Treasurer | ❌ | ❌ | ✅ | ✅ |
+| Member | ❌ | ✅ | ❌ | ✅ |
+| Volunteer | ❌ | ❌ | ❌ | ❌ (privado) |
+
+**Regra crítica:** Todos consultam, ninguém consegue editar (imutável).
+
+### **Por que isso é Revolucionário**
+
+1. **Sem intermediário com margem** — Grupo vende camiseta, 100% vai pro causa. Não é Mercado Livre tirando 20%.
+
+2. **Transparência operacional** — Membro sabe exatamente quanto grupo tem, quanto gastou, pra quê. Porque o dinheiro é SSOT.
+
+3. **Economia solidária operacionalizada** — Grupo é um ator econômico real. Pessoa deficiente que não consegue trabalho formal cria grupo, arrecada, vira operadora de ativo econômico.
+
+4. **Governança que é material** — "Votamos usar R$ 500 pra ração Y" — esse voto é operacional, afeta o ledger real, não é decorativo.
+
+5. **Múltiplos grupos podem cooperar** — Grupo A + Grupo B fazem evento juntos, split automático, cada um arrecada transparente.
 
 ---
 
