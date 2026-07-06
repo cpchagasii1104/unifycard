@@ -79,6 +79,15 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     canonRef: 'DESENHO_PAGINA_DO_ACTOR §2.4c (Fatia 5). Plateia de leitura; connections lê actor_relationships.',
   },
   {
+    name: 'MarketplaceDomain',
+    pillar: 'social',
+    sourceFile: 'src/core/marketplace-domain/marketplace-domain-n0-mapping.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'MARKETPLACE_DOMAINS',
+    values: ['market', 'services', 'events', 'real_estate', 'vehicles', 'jobs'],
+    canonRef: 'DECISION-0106 (mapa rótulo→N0, promulgado). Rótulo de navegação/UX (NÃO SSOT — identidade é CONCEPT). Home governado backend; frontend deve convergir (hoje duplicado em companies.ts + marketplace-categories.ts).',
+  },
+  {
     name: 'actor_delegation_events.event_type',
     pillar: 'authority',
     sourceFile: 'migrations/20260706120000_r2_delegation_governed_links_and_audit.sql',

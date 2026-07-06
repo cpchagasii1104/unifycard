@@ -96,7 +96,9 @@ export interface CompanyPermissions {
   canViewConsolidatedInventory: boolean;
 }
 
-export type MarketplaceDomain = 'market' | 'services' | 'events' | 'real_estate' | 'vehicles' | 'jobs';
+// 🔴 SSOT: vocabulário governado em @core/marketplace-domain (DECISION-0106) — importa+re-exporta, não redefine.
+import type { MarketplaceDomain } from '@core/marketplace-domain/marketplace-domain-n0-mapping';
+export type { MarketplaceDomain };
 
 export interface CompanyDomain {
   companyDomainId: string;

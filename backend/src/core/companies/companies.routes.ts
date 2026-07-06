@@ -7,6 +7,7 @@ import { companiesService } from './companies.service';
 import { companyPublicationsService } from './company-publications.service';
 import { companyValidationService } from './company-validation.service';
 import type { CreateCompanyInput, UpdateCompanyInput } from './companies.types';
+import type { MarketplaceDomain } from '@core/marketplace-domain/marketplace-domain-n0-mapping'; // SSOT (DECISION-0106)
 import { z } from 'zod';
 import path from 'path';
 import fs from 'fs';
@@ -361,7 +362,7 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Params: { companyId: string };
     Body: {
-      domains: Array<'market' | 'services' | 'events' | 'real_estate' | 'vehicles' | 'jobs'>;
+      domains: Array<MarketplaceDomain>;
     };
   }>('/:companyId/domains', async (req, reply) => {
     const { companyId } = req.params;

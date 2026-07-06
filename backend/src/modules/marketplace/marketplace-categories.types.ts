@@ -45,9 +45,12 @@ export interface ImportCategoriesInput {
 }
 
 /**
- * Domínios canônicos do Marketplace
+ * Domínios canônicos do Marketplace.
+ * 🔴 SSOT: o vocabulário vive em @core/marketplace-domain (DECISION-0106, home governado) — este arquivo
+ * IMPORTA + RE-EXPORTA, não redefine (evita vocabulário paralelo; guard audit-governed-vocabulary-manifest).
  */
-export type MarketplaceDomain = 'market' | 'services' | 'events' | 'real_estate' | 'vehicles' | 'jobs';
+import type { MarketplaceDomain } from '@core/marketplace-domain/marketplace-domain-n0-mapping';
+export type { MarketplaceDomain };
 
 /**
  * Filtros para buscar categorias do Marketplace

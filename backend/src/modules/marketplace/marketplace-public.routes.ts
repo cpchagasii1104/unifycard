@@ -12,6 +12,7 @@ import {
 } from './marketplace-legacy-memory-order-flag';
 import { AppError, BadRequestError, NotFoundError, UnauthorizedError, InternalServerError } from '@core/errors';
 import { ErrorCode } from '@core/errors/error-codes';
+import type { MarketplaceDomain } from '@core/marketplace-domain/marketplace-domain-n0-mapping';
 
 function toCamelCaseKeys<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') return obj;
@@ -95,7 +96,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
       const tenantId = (req as { tenant: { id: string } }).tenant.id;
       const targetDomain = (req.query as { domain?: string }).domain || 'market';
       const marketplaceRootCategories = await marketplaceCategoriesService.getRootCategories(tenantId, {
-        marketplaceDomain: targetDomain as 'market' | 'services' | 'events' | 'real_estate' | 'vehicles' | 'jobs',
+        marketplaceDomain: targetDomain as MarketplaceDomain, // SSOT: @core/marketplace-domain (DECISION-0106)
       });
 
       marketplaceLogger.api(`GET /marketplace/categories/root?domain=${targetDomain} - Found ${marketplaceRootCategories.length} segments`);
