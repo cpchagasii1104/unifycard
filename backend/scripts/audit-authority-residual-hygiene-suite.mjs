@@ -14,6 +14,7 @@ const guards = [
   'audit-l5-frozen-modules-ghost-containment.mjs',        // Lote L5 — venue/work-instant/policy-engine/residence contidos 501 fail-closed (schema ghost)
   'audit-r2-delegation-writer-governed.mjs',              // R2.2 — writer de delegação atômico (delegação+evento na mesma TX); repositório é persistência, não gate
   'audit-composer-contract.mjs',                          // C1 — contrato server-driven do compositor (enumeração server-side, read-only, canRepresentActor, sem dinheiro)
+  'audit-governed-vocabulary-manifest.mjs',               // Manifesto de vocabulários governados: anti-drift + anti-paralelo (institucionaliza a lição C1/R2)
 ];
 
 let failed = false;

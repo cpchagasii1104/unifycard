@@ -8,6 +8,7 @@ import { companyMembersService } from './company-members.service';
 import { companiesService } from './companies.service';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { CompanyMemberRole, CompanyMemberStatus } from './company-members.types';
+import { DELEGATION_RELATIONSHIP_TYPES } from '@core/actor-delegation/actor-delegation.repository';
 import { z } from 'zod';
 
 const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
@@ -91,7 +92,9 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
     // R2 FIX (RN2/R2.2): VÍNCULO JURÍDICO explícito (eixo D2 separado do role). Vocabulário GOVERNADO
     // (espelha o CHECK chk_actor_delegations_relationship_type / DELEGATION_RELATIONSHIP_TYPES). O gestor
     // DECLARA o vínculo real; o banco valida. Opcional (ausente = fallback derivado do role, compat).
-    relationshipType: z.enum(['partner', 'director', 'administrator', 'attorney', 'legal_representative', 'employee', 'contractor']).optional(),
+    // R2 FIX: compõe do vocabulário GOVERNADO (não copia os literais — evita vocab paralelo, guard
+    // audit-governed-vocabulary-manifest). z.enum exige tupla readonly não-vazia; DELEGATION_RELATIONSHIP_TYPES é `as const`.
+    relationshipType: z.enum(DELEGATION_RELATIONSHIP_TYPES).optional(),
   });
 
   fastify.post<{
