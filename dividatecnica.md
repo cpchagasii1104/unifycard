@@ -254,6 +254,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (16) — Fila autônoma limpa: bug TENANT_ID_REQUIRED + 3 resíduos + pacotes L4/L6
+- (1) `DT-SESSION-TENANT-ID-REQUIRED` CLOSED — causa-raiz diagnosticada: `atob()` sobre JWT base64url
+  (quebra em 74-91% dos tokens); helper único base64url-safe, 10 call sites + webauthn convergidos, guard
+  + negative-proof, suite 200 GATE OK. (2) 9 delegações revogadas investigadas = resíduo órfão (não
+  multi-empresa real); revelou gap FK latente (DT baixa). (3) path MODULES_INVENTORY corrigido (nota
+  autoritativa). (4) Pacotes L4 + L6 montados com read-first vivo: L4 tem 9/17 DTs já CLOSED (4 decisões
+  de produto restantes); L6 VIRADA — tenancy já decidido (0115), falta implementação (GO tenant-inicial-vivo
+  + backfill 4 atores). Fila autônoma esgotada — resto é decisão de Clayton.
+
 ### 2026-07-06 (15) — Pacote de decisão L3 montado (6 decisões, read-first vivo)
 - `LOTE_L3_CATALOGO_MARKETPLACE.md` criado com read-first de HOJE (cartório+migrations+banco): vários
   itens tinham evoluído desde junho — BELEZA completa (tríade+aliases) + LIMPEZA slice A já seladas
