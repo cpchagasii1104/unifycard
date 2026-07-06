@@ -254,6 +254,17 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (17) — FOLLOW ativado (decisão soberana) + DECISION-0160 ratificada/inserida no cânone
+- Clayton decidiu: "seguir existe" → F-FOLLOW-ACTIVATION-SLICE-A. GATE salvou 2× (typed-edge não cabe
+  [par não-ordenado]; `follows` JÁ existia com writer identity-bound completo — zero substrato novo).
+  Fatia = hardening (RLS+FORCE + not-self, migration 20260706150000) + frontend (stubs → chamadas
+  reais; ActorPage já tinha o botão inteiro). E2E 5/5, suite 200 GATE OK. Fronteira: follow cross-tenant
+  (vitrine) = camada de interação, pendente. TAMBÉM: Clayton ratificou DECISION-0160 ("Ratificado pode
+  inserir") → vocabulário relationship_type inserido no cânone (07 §4.39.1 + SSOT §5.16) → RN1+RN2
+  CLOSED → as 4 dívidas normativas de R2 TODAS fechadas. E decidiu: produto = ACTOR-FIRST (caso âncora
+  bens usados PF, categoria da árvore governada). Nova lei de conduta gravada: não perguntar o que a
+  norma já decidiu (memória permanente).
+
 ### 2026-07-06 (16) — Fila autônoma limpa: bug TENANT_ID_REQUIRED + 3 resíduos + pacotes L4/L6
 - (1) `DT-SESSION-TENANT-ID-REQUIRED` CLOSED — causa-raiz diagnosticada: `atob()` sobre JWT base64url
   (quebra em 74-91% dos tokens); helper único base64url-safe, 10 call sites + webauthn convergidos, guard
