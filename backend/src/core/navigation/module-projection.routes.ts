@@ -51,7 +51,7 @@ const moduleProjectionRoutes: FastifyPluginAsync = async (fastify) => {
       `SELECT count(*)::text n FROM company_users
         WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
           AND is_active = true AND member_status = 'active'`,
-      [req.tenant.id, companyId, globalUserId]
+      [req.tenant!.id, companyId, globalUserId]
     );
     if (member.rows[0].n === '0') {
       return reply.status(403).send({ ok: false, code: 'NAV_COMPANY_FORBIDDEN', message: 'Sem vínculo ativo com a empresa.' });
@@ -61,10 +61,10 @@ const moduleProjectionRoutes: FastifyPluginAsync = async (fastify) => {
       `SELECT fi.kyb_status FROM companies c
          LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
         WHERE c.company_id = $1::uuid AND c.tenant_id = $2 LIMIT 1`,
-      [companyId, req.tenant.id]
+      [companyId, req.tenant!.id]
     );
     const kybApproved = kyb.rows[0]?.kyb_status === 'approved';
-    const enabledModules = new Set(await businessTemplatesService.effectiveModulesForCompany(req.tenant.id, companyId));
+    const enabledModules = new Set(await businessTemplatesService.effectiveModulesForCompany(req.tenant!.id, companyId));
 
     const entries = liveEntriesForContext('company').filter((e) => {
       if (e.requiresTemplateModule && !enabledModules.has(e.requiresTemplateModule)) return false;

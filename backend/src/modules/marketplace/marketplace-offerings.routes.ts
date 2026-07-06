@@ -42,7 +42,7 @@ const marketplaceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
     };
     try {
       const { result, created } = await productOfferingService.activateVariantAndCreateOffer({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         userId,
         storeActorId: b.storeActorId,
         companyId: b.companyId ?? null,
@@ -73,7 +73,7 @@ const marketplaceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
     }
     try {
       await productOfferingService.updateOwnOffer({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         userId,
         offerId: req.params.offerId,
         priceCents: (parsed.data.priceCents as number | undefined) ?? null,

@@ -34,7 +34,7 @@ const companyTemplatesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { companyId: string } }>(
     '/:companyId/templates/recommended',
     async (req, reply) => {
-      const data = await businessTemplatesService.recommendForCompany(req.tenant.id, req.params.companyId);
+      const data = await businessTemplatesService.recommendForCompany(req.tenant!.id, req.params.companyId);
       return reply.send({ ok: true, data });
     }
   );
@@ -48,7 +48,7 @@ const companyTemplatesRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) return reply.status(400).send({ ok: false, code: 'TEMPLATE_APPLY_BAD_REQUEST', issues: parsed.error.issues });
       try {
         const data = await businessTemplatesService.applyTemplate({
-          tenantId: req.tenant.id,
+          tenantId: req.tenant!.id,
           userId: sub.userId,
           globalUserId: sub.globalUserId,
           companyId: req.params.companyId,
@@ -72,7 +72,7 @@ const companyTemplatesRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) return reply.status(400).send({ ok: false, code: 'TEMPLATE_CUSTOMIZE_BAD_REQUEST', issues: parsed.error.issues });
       try {
         await businessTemplatesService.customizeApplication({
-          tenantId: req.tenant.id,
+          tenantId: req.tenant!.id,
           userId: sub.userId,
           globalUserId: sub.globalUserId,
           companyId: req.params.companyId,
@@ -90,7 +90,7 @@ const companyTemplatesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { companyId: string } }>(
     '/:companyId/templates/applications',
     async (req, reply) => {
-      const data = await businessTemplatesService.listApplications(req.tenant.id, req.params.companyId);
+      const data = await businessTemplatesService.listApplications(req.tenant!.id, req.params.companyId);
       return reply.send({ ok: true, data });
     }
   );
@@ -98,7 +98,7 @@ const companyTemplatesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { companyId: string } }>(
     '/:companyId/templates/effective-modules',
     async (req, reply) => {
-      const data = await businessTemplatesService.effectiveModulesForCompany(req.tenant.id, req.params.companyId);
+      const data = await businessTemplatesService.effectiveModulesForCompany(req.tenant!.id, req.params.companyId);
       return reply.send({ ok: true, data });
     }
   );

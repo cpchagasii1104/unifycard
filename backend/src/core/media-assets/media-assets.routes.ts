@@ -67,10 +67,10 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
     if (purpose !== 'business_media' && purpose !== 'canonical_catalog') {
       return reply.status(400).send({ ok: false, code: 'MEDIA_PURPOSE_INVALID', message: 'purpose deve ser business_media ou canonical_catalog.' });
     }
-    const actorId = await humanActorId(req.tenant.id, sub.userId);
+    const actorId = await humanActorId(req.tenant!.id, sub.userId);
     if (!actorId) return reply.status(403).send({ ok: false, code: 'MEDIA_ACTOR_MISSING' });
     const { companiesService } = await import('../companies/companies.service');
-    const canManage = await companiesService.canManageCompany(req.tenant.id, companyId, sub.globalUserId);
+    const canManage = await companiesService.canManageCompany(req.tenant!.id, companyId, sub.globalUserId);
     if (!canManage) return reply.status(403).send({ ok: false, code: 'MEDIA_FORBIDDEN' });
 
     const data = await req.file();
@@ -79,7 +79,7 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const result = await mediaAssetService.ingest({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         buffer,
         mimeType: data.mimetype,
         originalFilename: data.filename,
@@ -117,7 +117,7 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       const sub = subject(req as never);
       if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
-      const curator = await humanActorId(req.tenant.id, sub.userId);
+      const curator = await humanActorId(req.tenant!.id, sub.userId);
       if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
       try {
         const asset = await mediaAssetService.approve({ mediaAssetId: req.params.mediaAssetId, curatorActorId: curator });
@@ -135,7 +135,7 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
     if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
     const parsed = attachCanonicalSchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ ok: false, code: 'MEDIA_ATTACH_BAD_REQUEST', issues: parsed.error.issues });
-    const curator = await humanActorId(req.tenant.id, sub.userId);
+    const curator = await humanActorId(req.tenant!.id, sub.userId);
     if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
     try {
       await mediaAssetService.attachToCanonical({
@@ -171,13 +171,13 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
     const parsed = attachBusinessSchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ ok: false, code: 'MEDIA_ATTACH_BAD_REQUEST', issues: parsed.error.issues });
     const ownerActorId = parsed.data.ownerActorId as string;
-    const canRep = await authorizationService.canRepresentActor(req.tenant.id, sub.userId, ownerActorId);
+    const canRep = await authorizationService.canRepresentActor(req.tenant!.id, sub.userId, ownerActorId);
     if (!canRep) {
       return reply.status(403).send({ ok: false, code: 'MEDIA_ACTOR_NOT_REPRESENTABLE', message: 'Sem autoridade sobre o actor dono da mídia empresarial.' });
     }
     try {
       await mediaAssetService.attachBusinessMedia({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         subjectUserId: sub.userId,
         ownerActorId,
         attachedToType: parsed.data.attachedToType as 'product_offer' | 'service_offering' | 'company' | 'establishment',
@@ -219,9 +219,9 @@ const mediaAssetsRoutes: FastifyPluginAsync = async (fastify) => {
     const sub = subject(req as never);
     if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
     try {
-      const isCurator = await rbacService.userHasRole(req.tenant.id, sub.userId, 'admin');
+      const isCurator = await rbacService.userHasRole(req.tenant!.id, sub.userId, 'admin');
       const { buffer, mimeType } = await mediaAssetService.readContentAuthorized(req.params.mediaAssetId, {
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         userId: sub.userId,
         globalUserId: sub.globalUserId,
         isCurator,

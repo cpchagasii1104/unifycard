@@ -50,11 +50,11 @@ export class GeoEnrichmentService {
     try {
       const cached = await locationRepository.findCepResolutionByPostalCode(cep);
       const cacheUsable =
-        cached &&
-        cached.stateCode &&
-        cached.cityName &&
+        !!cached &&
+        !!cached.stateCode &&
+        !!cached.cityName &&
         (!opts.requireExternalCode || !!cached.cityExternalCode);
-      if (cacheUsable && cached) {
+      if (cacheUsable && cached && cached.stateCode && cached.cityName) {
         return {
           postalCode: cep,
           stateCode: cached.stateCode,

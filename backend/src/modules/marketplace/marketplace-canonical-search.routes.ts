@@ -21,7 +21,7 @@ const marketplaceCanonicalSearchRoutes: FastifyPluginAsync = async (fastify) => 
   fastify.get<{ Querystring: { q?: string; categoryId?: string; limit?: string } }>(
     '/catalog/items/search',
     async (req, reply) => {
-      const tenantId = req.tenant.id;
+      const tenantId = req.tenant!.id;
       const q = String(req.query.q ?? '').trim();
       const limit = Math.min(parseInt(req.query.limit ?? '20', 10) || 20, 50);
 
@@ -67,7 +67,7 @@ const marketplaceCanonicalSearchRoutes: FastifyPluginAsync = async (fastify) => 
   fastify.get<{ Params: { canonicalProductId: string } }>(
     '/catalog/items/:canonicalProductId/offers',
     async (req, reply) => {
-      const offers = await listVisibleProducts(req.tenant.id, {
+      const offers = await listVisibleProducts(req.tenant!.id, {
         canonicalProductId: req.params.canonicalProductId,
         limit: 50,
       });

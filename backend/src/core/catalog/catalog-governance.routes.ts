@@ -106,7 +106,7 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
       // Cast pós-validação: zod já garantiu o shape em runtime (tsconfig strict:false degrada a inferência).
       const body = parsed.data as z.infer<typeof suggestProductSchema> & { companyId: string; name: string; categoryId: string };
       const data = await catalogSuggestionService.suggestIndustrialProduct({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         userId: sub.userId,
         globalUserId: sub.globalUserId,
         companyId: body.companyId,
@@ -133,7 +133,7 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const body = parsed.data as z.infer<typeof localProductSchema> & { companyId: string; name: string; categoryId: string };
       const data = await catalogSuggestionService.createLocalProduct({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         userId: sub.userId,
         globalUserId: sub.globalUserId,
         companyId: body.companyId,
@@ -159,16 +159,16 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       // Mesma régua de autoridade da sugestão de produto (actor por LEITURA + canManageCompany).
       const { companiesService } = await import('../companies/companies.service');
-      const actor = await socialPortsRegistry.getActorRepository().findByUserId(req.tenant.id, sub.userId);
+      const actor = await socialPortsRegistry.getActorRepository().findByUserId(req.tenant!.id, sub.userId);
       if (!actor?.actor_id) {
         return reply.status(403).send({ ok: false, code: 'CATALOG_SUGGEST_ACTOR_MISSING' });
       }
-      const canManage = await companiesService.canManageCompany(req.tenant.id, parsed.data.companyId, sub.globalUserId);
+      const canManage = await companiesService.canManageCompany(req.tenant!.id, parsed.data.companyId, sub.globalUserId);
       if (!canManage) {
         return reply.status(403).send({ ok: false, code: 'CATALOG_SUGGEST_FORBIDDEN' });
       }
       const data = await canonicalServiceService.suggest({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         name: parsed.data.name,
         conceptId: parsed.data.conceptId,
         description: parsed.data.description ?? null,
@@ -197,7 +197,7 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   fastify.get<{ Querystring: { q?: string } }>('/services/search', async (req, reply) => {
-    const data = await canonicalServiceService.searchVisible(req.tenant.id, req.query.q);
+    const data = await canonicalServiceService.searchVisible(req.tenant!.id, req.query.q);
     return reply.send({ ok: true, data });
   });
 
@@ -212,11 +212,11 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
     if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
     const hintActorId = req.actionContext?.actorId;
     if (!hintActorId) return reply.status(400).send({ ok: false, code: 'OFFERABLE_ACTION_CONTEXT_REQUIRED' });
-    const canRep = await authorizationService.canRepresentActor(req.tenant.id, sub.userId, hintActorId);
+    const canRep = await authorizationService.canRepresentActor(req.tenant!.id, sub.userId, hintActorId);
     if (!canRep) return reply.status(403).send({ ok: false, code: 'OFFERABLE_ACTOR_NOT_REPRESENTABLE' });
-    const actor = await socialPortsRegistry.getActorRepository().findById(req.tenant.id, hintActorId);
+    const actor = await socialPortsRegistry.getActorRepository().findById(req.tenant!.id, hintActorId);
     if (!actor) return reply.status(403).send({ ok: false, code: 'OFFERABLE_ACTOR_NOT_ACCESSIBLE' });
-    const data = await canonicalServiceService.searchOfferable(req.tenant.id, actor, req.query.q);
+    const data = await canonicalServiceService.searchOfferable(req.tenant!.id, actor, req.query.q);
     return reply.send({ ok: true, data });
   });
 
@@ -236,7 +236,7 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) {
         return reply.status(400).send({ ok: false, code: 'CURATION_BAD_REQUEST', issues: parsed.error.issues });
       }
-      const curator = await curatorActorId(req.tenant.id, sub.userId);
+      const curator = await curatorActorId(req.tenant!.id, sub.userId);
       if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
       try {
         const data = await catalogCurationService.approveProduct({
@@ -244,7 +244,7 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
           conceptId: parsed.data.conceptId,
           promoteToGlobal: parsed.data.promoteToGlobal === true,
           curatorActorId: curator,
-          tenantId: req.tenant.id,
+          tenantId: req.tenant!.id,
         });
         return reply.send({ ok: true, data });
       } catch (err) {
@@ -260,13 +260,13 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       const sub = subject(req as never);
       if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
-      const curator = await curatorActorId(req.tenant.id, sub.userId);
+      const curator = await curatorActorId(req.tenant!.id, sub.userId);
       if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
       try {
         await catalogCurationService.rejectProduct({
           canonicalProductId: req.params.canonicalProductId,
           curatorActorId: curator,
-          tenantId: req.tenant.id,
+          tenantId: req.tenant!.id,
         });
         return reply.send({ ok: true });
       } catch (err) {
@@ -286,14 +286,14 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) {
         return reply.status(400).send({ ok: false, code: 'CURATION_BAD_REQUEST', issues: parsed.error.issues });
       }
-      const curator = await curatorActorId(req.tenant.id, sub.userId);
+      const curator = await curatorActorId(req.tenant!.id, sub.userId);
       if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
       try {
         await catalogCurationService.mergeProducts({
           duplicateCanonicalProductId: parsed.data.duplicateId,
           winnerCanonicalProductId: parsed.data.winnerId,
           curatorActorId: curator,
-          tenantId: req.tenant.id,
+          tenantId: req.tenant!.id,
         });
         return reply.send({ ok: true });
       } catch (err) {
@@ -313,14 +313,14 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) {
         return reply.status(400).send({ ok: false, code: 'CURATION_BAD_REQUEST', issues: parsed.error.issues });
       }
-      const curator = await curatorActorId(req.tenant.id, sub.userId);
+      const curator = await curatorActorId(req.tenant!.id, sub.userId);
       if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
       try {
         await canonicalVariantService.mergeInto({
           duplicateVariantId: parsed.data.duplicateId,
           winnerVariantId: parsed.data.winnerId,
           actorId: curator,
-          tenantId: req.tenant.id,
+          tenantId: req.tenant!.id,
         });
         return reply.send({ ok: true });
       } catch (err) {
@@ -336,7 +336,7 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       const sub = subject(req as never);
       if (!sub) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
-      const curator = await curatorActorId(req.tenant.id, sub.userId);
+      const curator = await curatorActorId(req.tenant!.id, sub.userId);
       if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
       try {
         const data = await canonicalServiceService.approve({
@@ -361,7 +361,7 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) {
         return reply.status(400).send({ ok: false, code: 'CURATION_BAD_REQUEST', issues: parsed.error.issues });
       }
-      const curator = await curatorActorId(req.tenant.id, sub.userId);
+      const curator = await curatorActorId(req.tenant!.id, sub.userId);
       if (!curator) return reply.status(403).send({ ok: false, code: 'CURATOR_ACTOR_MISSING' });
       try {
         await canonicalServiceService.mergeInto({

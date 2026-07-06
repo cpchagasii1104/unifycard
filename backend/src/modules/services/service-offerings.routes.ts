@@ -46,7 +46,7 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
     };
     try {
       const { offering, created } = await serviceOfferingService.createOffering({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         userId,
         providerActorId: b.providerActorId,
         canonicalServiceId: b.canonicalServiceId,
@@ -75,7 +75,7 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
     }
     try {
       await serviceOfferingService.updateOwnOffering({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         userId,
         offeringId: req.params.offeringId,
         priceCents: (parsed.data.priceCents as number | undefined) ?? null,
@@ -98,7 +98,7 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
     }
     try {
       const availability = await serviceOfferingService.declareAvailability({
-        tenantId: req.tenant.id,
+        tenantId: req.tenant!.id,
         userId,
         offeringId: req.params.offeringId,
         startDatetime: parsed.data.startDatetime as string,
@@ -116,7 +116,7 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { canonicalServiceId: string } }>(
     '/offerings/by-canonical/:canonicalServiceId',
     async (req, reply) => {
-      const data = await serviceOfferingService.listActiveBycanonicalService(req.tenant.id, req.params.canonicalServiceId);
+      const data = await serviceOfferingService.listActiveBycanonicalService(req.tenant!.id, req.params.canonicalServiceId);
       return reply.send({ ok: true, data });
     }
   );
