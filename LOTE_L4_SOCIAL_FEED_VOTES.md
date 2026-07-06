@@ -23,7 +23,14 @@ estão todas CLOSED com YALA PASS. **Não há decisão pendente no núcleo do fe
 
 ---
 
-## D1 — FOLLOW: o UnifiCard adota "seguir" declarativo? (a decisão arquitetural)
+## D1 — FOLLOW — ✅ DECIDIDO POR CLAYTON (2026-07-06): SIM, o "seguir" EXISTE no sistema
+
+> **Decisão soberana registrada:** "A questão de seguir eu quero que exista sim no sistema."
+> Execução = opção (a): follow declarativo REUSANDO o typed-edge `actor_relationships` (aresta
+> assimétrica actor→actor, vocabulário governado — sem criar substrato paralelo). O botão
+> "Seguir (EM BREVE)" da vitrine ganha caminho de implementação. Fatia sob GO de execução.
+
+## D1 (histórico da opção) — FOLLOW: o UnifiCard adota "seguir" declarativo?
 
 **Estado:** as funções de follow no frontend são stubs (`{success:true}` → hoje `throw NOT_IMPLEMENTED`).
 A raiz E2 (typed-edge) está pronta: seguir = uma aresta `actor→actor` no `actor_relationships` já vivo.
