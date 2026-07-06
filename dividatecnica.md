@@ -251,6 +251,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (12) — Guard de vocabulário governado (a lei normativa virou CATRACA de CI)
+- Construído `audit-governed-vocabulary-manifest.mjs` + manifesto `governed-vocabularies.manifest.ts`
+  (6 vocab SSOT centrais): anti-drift (manifesto não mente sobre a fonte viva → descobribilidade, raiz do
+  RN1) + anti-paralelo (mesmos valores copiados noutro arquivo sem importar o símbolo governado = smell
+  C1/R2). No 1º uso pegou um vocab paralelo que EU tinha introduzido (z.enum hardcoded no fix R2.2) →
+  corrigido pra compor de DELEGATION_RELATIONSHIP_TYPES. 2 negative-proofs mordem. Suite 198 GATE OK.
+  A conformidade de vocabulário agora é VERIFICADA no CI, não na revisão de Clayton. O manifesto é o
+  índice de descoberta ("procure o vocabulário governado PRIMEIRO"). Executado sem depender de decisão.
+
 ### 2026-07-06 (11) — 4 dívidas normativas de R2 corrigidas (RN3+R2.2 código; RN1+RN2 draft)
 - RN3 (FK de autoria granted_by/event.actor_id → actors, migration 20260706140000) e R2.2 (createMember
   aceita relationshipType EXPLÍCITO governado — os 7 valores alcançáveis, owner recebe vínculo; derivação
