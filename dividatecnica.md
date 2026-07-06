@@ -201,6 +201,18 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (9) — Auditoria NORMATIVA Yala (R2+C1 vs docs/01_normative): sem violação viva, 4 dívidas
+- Clayton perguntou "como saber se foi feito certo?" — audits anteriores só viram SEGURANÇA, nunca
+  conformidade normativa (o C1 provou o ponto cego). Yala rodou passada só-norma. Veredito: nenhuma
+  fonte-de-verdade-paralela viva remanescente; C1 confirmado conforme (matou economicFlow+chaves
+  inventadas). R2 CONFORME-COM-RESSALVAS — 4 dívidas normativas registradas no cartório: RN1
+  (vocab relationship_type não registrada no cânone, exige RFC/ato Clayton), RN2 (tokens administrator/
+  employee colidem com company_users.role admin/staff — eixos ortogonais, decisão Clayton), RN3
+  (granted_by/event.actor_id sem FK a actors — MECÂNICO, autônomo), R2.2-derivação (relationship_type
+  derivado 1:1 do role → redundante, 4/7 valores mortos, owner→null — decisão de produto/fatia própria).
+  **Lição de processo:** conformidade normativa tem que virar passo de verificação padrão, não só guards
+  de segurança + Clayton pegando no olho.
+
 ### 2026-07-06 (8) — Fatia C1 do Compositor executada (contrato server-driven)
 - Novo módulo composer (read-only): GET /composer/contract enumera server-side os atos criáveis por
   [actor,modo], gêmeo write-side do actor-page. INTENT_REGISTRY com 9 intents + categoria econômica
