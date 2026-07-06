@@ -1399,4 +1399,216 @@ Grupo/Estrutura Criada (Execução)
 
 ---
 
-**Próxima conversa:** investigar o substrato de permissões/roles que já existe vs. o que falta, e começar a desenhar a API do compositor pra garantir que nenhum tipo de ato cria fonte paralela de verdade.
+## 🟡 Análise de Gaps Críticos (Para Refinamento por Outro Modelo)
+
+**Status:** Documento está sólido em visão de alto nível, mas frágil em detalhes de implementação. Gaps abaixo precisam ser resolvidos antes da arquitetura de BD/API.
+
+---
+
+### **Gap 1: Tenancy Model Não Está Claro (🔴 CRÍTICA)**
+
+**O Problema:**
+- Um `user` pode representar múltiplos actors simultaneamente? (ex: João é Pessoa Física AND funcionário de Empresa X AND sócio de Empresa Y)
+- Estrutura de dados: `users → actors → tenants` — qual é a relação exata?
+- Quando João abre Compositor, como escolhe qual contexto atua?
+- `tenantId` nas queries é sempre derivável de `actorId`, ou há ambiguidade?
+
+**Impacto:** Sem entender a hierarquia, não dá pra desenhar schema do banco.
+
+**Próxima etapa:** Desenhar diagrama ER claro de `global_users` → `actors` → `tenants` com exemplos concretos (João PF + funcionário + sócio).
+
+---
+
+### **Gap 2: Onboarding / Invitations — Fluxo Exato (🔴 CRÍTICA)**
+
+**O Problema:**
+- Quando uma empresa quer contratar novo funcionário: quem inicia o convite?
+- Frontend posta "Vaga" → João se "candidata"? Ou RH convida direto?
+- Quando João é aceito, como é criada relação `company_users(company_id, user_id, role)`?
+- É imediato ou precisa de aprovação?
+- **Quem cria a entrada no ledger?** "João foi adicionado à Empresa X como RH" — é um ato? Quem a cria?
+
+**Impacto:** Primeiro ato de qualquer pessoa. Sem spec, não dá pra começar.
+
+**Próxima etapa:** Documentar fluxo completo: Frontend invite → Backend accept → ledger entry → role ativado.
+
+---
+
+### **Gap 3: Ledger Architecture — Uma Tabela ou Múltiplas? (🔴 CRÍTICA)**
+
+**O Problema:**
+Documento menciona:
+- `bank_transactions` (split)
+- `group_ledger` (grupo)
+- `warehouse_ledger` (warehouse)
+- `company_ledger` (empresa)
+- `channel_ledger` (canal)
+
+**São tabelas separadas** (múltiplas SSOT?) **ou uma única tabela com `ledger_type` field?**
+
+Se separadas:
+- Como se queries "quanto eu ganhei em TUDO" atomicamente?
+- Múltiplas "sources of truth" = violação de SSOT?
+
+Se unificada:
+- Schema fica complexo
+- Mas SSOT garantida
+
+**Impacto:** Decide toda a arquitetura de BD.
+
+**Próxima etapa:** Propor schema PostgreSQL: 1 tabela `ledger_entries` com `type`, `actor_id`, `amount`, `category` ou múltiplas com `ledger_master` unificadora?
+
+---
+
+### **Gap 4: Snapshots de Permissão no Momento do Ato (🔴 CRÍTICA)**
+
+**O Problema:**
+- Marina posta Vaga de R$ 15.000 com `role=RH_MANAGER, limit=50k` em 2026-07-05
+- Em 2026-08-05, Marina é rebaixada para `role=WAREHOUSE, limit=5k`
+- **A vaga de R$ 15.000 fica válida ou é "revogada retroativamente"?**
+- **Ledger precisa guardar:** `role_at_posting`, `limit_at_posting`, `permissions_snapshot`?
+
+**Impacto:** Auditoria temporal — se Marina perder autoridade depois, seus atos de antes ainda são válidos? Resposta afeta ledger schema e auditoria.
+
+**Próxima etapa:** Definir política: "Permissões são vinculadas ao MOMENTO do ato, snapshot é imutável no ledger."
+
+---
+
+### **Gap 5: Cascata de Aprovação — Rastreabilidade Completa (🔴 CRÍTICA)**
+
+**O Problema:**
+- Marina posta Vaga de R$ 60.000 (> limite R$ 50.000)
+- Vai pra Finance em `approval_queue`
+- Finance aprova
+- **Quem aprova Finance?** Se aprovação > R$ 100.000, vai pra C-level?
+- **Ledger entry criada:** Quando? (no POST de Marina ou no APPROVE de Finance?)
+- **Rastreabilidade:** Marina requisitou (10:00) → Finance aprovou (10:30) → C-level não precisa — tudo no ledger?
+
+**Impacto:** LGPD/auditoria exigem trilha completa. Sem spec, auditoria fica cega.
+
+**Próxima etapa:** Especificar `approval_queue` schema + sequência de validações + como cada nível é registrado.
+
+---
+
+### **Gap 6: Governance/Voting — Quem Pode Votar? (🔴 CRÍTICA)**
+
+**O Problema:**
+- Pessoa Física posta Projeto ("Biblioteca comunitária no bairro X")
+- Enquete: "Vocês topam?" — **quem pode responder?** (Todos? Só da região? Só interessados?)
+- Votação: "Alocamos R$ 50.000?" — quem vota? (assembly regional?)
+- **Ledger:** Cada voto é registrado? Anônimo ou rastreável?
+- **Spam:** Como evita 1 pessoa votar 1000x?
+
+**Impacto:** Votação é core de autogestão. Sem spec, todo o fluxo de Projeto é vago.
+
+**Próxima etapa:** Spec de Governance — quórum, votantes elegíveis, anti-spam, audit trail de votos, decisão threshold.
+
+---
+
+### **Gap 7: Cross-Actor Workflows — Quem Cria Ledger Entry? (🔴 CRÍTICA)**
+
+**O Problema:**
+- RH posta Vaga. João se candidata.
+- **Candidatura é "ato" de João?** (`POST /composer/action { type: "Candidatura", vaga_id }`)
+- **Ou é efeito lateral?** (Vaga existe, João escreve em `candidates` table, sem ledger entry)
+- Se for ato: quem autoriza João a fazer isso?
+- **Ledger:** Quando criada? (no POST de candidatura ou no ACCEPT da candidatura?)
+
+**Impacto:** Ambiguidade em "atos primários vs side effects" afeta design de workflows.
+
+**Próxima etapa:** Desenhar matriz: quais eventos geram ledger entries vs não.
+
+---
+
+### **Gap 8: Tenancy Isolation / Cross-Tenant Security (🔴 CRÍTICA)**
+
+**O Problema:**
+- João (funcionário Empresa A) não consegue ver Empresa B?
+- João não consegue votar em Projeto de outra região?
+- Documento menciona `tenantId` em queries, mas **onde exatamente é validado?**
+- **RLS (Row-Level Security):** quais tabelas, quais queries, quais edge cases?
+
+**Impacto:** Breach isolacional = falha de segurança crítica.
+
+**Próxima etapa:** Spec de RLS — por tabela, por operação (SELECT/INSERT/UPDATE/DELETE), edge cases.
+
+---
+
+### **Gap 9: Frontend Validation vs Backend Validation (🟠 ALTA)**
+
+**O Problema:**
+- Documento diz "Frontend nunca valida", mas na prática:
+  - Frontend sabe limites pra mostrar "Limite: R$ 50.000"? (de quê? API? Cache?)
+  - Frontend mostra "Promoção 15%" vs "Promoção 30%" — como sabe? (localStorage? API call cada um?)
+- **Se frontend caches permissões:** violação de "nunca valida"
+- **Se frontend chama API pra cada validação:** N+1, lento
+
+**Impacto:** Caching policy resolve trade-off entre performance e SSOT.
+
+**Próxima etapa:** Definir: quais dados podem ser cacheados (ex: role enumeration) vs nunca (ex: saldo).
+
+---
+
+### **Gap 10: Soft vs Hard Deletes — Auditoria (🟠 ALTA)**
+
+**O Problema:**
+- Vaga é criada, depois cancelada.
+- **Deleted = true** (soft delete, auditável) **ou realmente deletado** (hard delete)?
+- **Impacto ledger:** Marina criou vaga (R$ 15.000 gasto), cancelou — entra "débito reverso"?
+- **Candidatos:** Status fica "candidatura_canceled_due_to_vaga_removal"?
+
+**Impacto:** Auditoria exige soft deletes. Sem spec, histórico fica incompleto.
+
+**Próxima etapa:** Política de deletions — soft vs hard, marques de "canceled_at", impacto em ledger, reversal logic.
+
+---
+
+### **Gap 11: Latency / Async — SSOT em Operação (🟠 ALTA)**
+
+**O Problema:**
+- Marina posta Vaga, entra em `approval_queue`, ela sai do app
+- **Vaga é "live"** enquanto aguarda aprovação? (Finance vê candidaturas?)
+- **Ou é "draft"** até aprovação?
+- **SSOT:** Se é "draft", quantas versões existe? (Marina em draft, Finance vê draft, estão synced?)
+- **Ledger:** Quando criada — no POST (Marina) ou no APPROVE (Finance)?
+
+**Impacto:** Async workflows afetam latência, versionamento, consistency.
+
+**Próxima etapa:** Spec de state machine para atos em approval — estados transitórios, quando ledger entry é criada.
+
+---
+
+### **Gap 12: Error Response Schema — UX (🟡 MÉDIA)**
+
+**O Problema:**
+- Marina tenta postar Vaga de R$ 60.000, backend retorna 403
+- Frontend precisa diferenciar:
+  - "Você NUNCA pode criar vagas" (educativo)
+  - "Você pode, mas precisa aprovação" (actionable)
+  - "Você excedeu limite, mas pode splittar em 2" (sugestivo)
+
+**Impacto:** Sem spec de erro, UX fica genérica.
+
+**Próxima etapa:** Desenhar error response schema: `{ code, message, reason, actionable_options, contact }`.
+
+---
+
+## **Matriz de Prioridade**
+
+| Gap | Prioridade | Bloqueador Para | Responsável |
+|-----|-----------|-----------------|-----------|
+| Tenancy model | 🔴 CRÍTICA | BD schema, API design | Arquitetor |
+| Onboarding flow | 🔴 CRÍTICA | First user journey | Product + Eng |
+| Ledger architecture | 🔴 CRÍTICA | BD design, SSOT garantia | BD architect |
+| Approval audit trail | 🔴 CRÍTICA | LGPD compliance | Compliance + Eng |
+| Governance spec | 🔴 CRÍTICA | Projeto feature | Product |
+| Tenancy RLS | 🔴 CRÍTICA | Security, BD layer | Security + BD |
+| Cross-actor workflows | 🔴 CRÍTICA | Workflows design | Product + Eng |
+| Frontend caching policy | 🟠 ALTA | Performance + SSOT | Eng + Frontend |
+| Soft vs hard deletes | 🟠 ALTA | Auditoria, migrations | Eng |
+| Latency / async | 🟠 ALTA | State machine design | Architect |
+| Error schema | 🟡 MÉDIA | UX, API contract | Eng + Frontend |
+
+---
+
+**Próxima conversa:** investigar o substrato de permissões/roles que já existe vs. o que falta, desenhar a API do compositor pra garantir que nenhum tipo de ato cria fonte paralela de verdade, e resolver os 12 gaps acima com profundidade.
