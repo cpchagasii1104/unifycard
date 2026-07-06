@@ -1405,17 +1405,52 @@ Grupo/Estrutura Criada (Execução)
 
 ---
 
-### **Gap 1: Tenancy Model Não Está Claro (🔴 CRÍTICA)**
+### **Gap 1: Tenancy Model — ESCLARECIDO (✅ RESOLVIDO)**
 
-**O Problema:**
-- Um `user` pode representar múltiplos actors simultaneamente? (ex: João é Pessoa Física AND funcionário de Empresa X AND sócio de Empresa Y)
-- Estrutura de dados: `users → actors → tenants` — qual é a relação exata?
-- Quando João abre Compositor, como escolhe qual contexto atua?
-- `tenantId` nas queries é sempre derivável de `actorId`, ou há ambiguidade?
+**Conceito Central: Tenancy = Condomínio Isolado**
 
-**Impacto:** Sem entender a hierarquia, não dá pra desenhar schema do banco.
+Clayton propôs a analogia perfeita que resolve o gap:
+- **Tenancy** = condomínio único e isolado (ex: Empresa X é um tenancy, Empresa B é outro)
+- **Actor** = morador dentro do condomínio (pessoa, banda, grupo operando ali)
+- **Role** = cargo do morador (Síndico=RH, Porteiro=Warehouse, Zelador=Operações)
+- **Permissions** = direitos do cargo (Síndico pode aprovar gastos > R$ 50k, Zelador não)
+- **RLS** = vedação entre condominios (morador de Cond A não consegue ver Cond B)
 
-**Próxima etapa:** Desenhar diagrama ER claro de `global_users` → `actors` → `tenants` com exemplos concretos (João PF + funcionário + sócio).
+**Estrutura Correta:**
+
+```
+TENANCY (Condomínio Empresa X) = Isolado do resto
+├─ Actor: João (User) — Papel RH_MANAGER
+│  ├─ Permissões: Vaga (Criar), Treinamento (Criar), Gasto < R$ 50k (Aprovar)
+│  └─ Visibilidade: Tudo de RH + finance overview
+├─ Actor: Marina (User) — Papel WAREHOUSE_MANAGER
+│  ├─ Permissões: Procura Fornecedor (Criar), Entrada (Registrar), Gasto < R$ 30k
+│  └─ Visibilidade: Só estoque + fornecedores
+└─ Actor: Empresa X (Company) — como unidade econômica
+   ├─ Ledger próprio
+   ├─ Wallet próprio
+   └─ Isolado de Empresa B
+
+ISOLAMENTO CRÍTICO:
+└─ João em Empresa A:
+   ✗ NÃO consegue ver dados de Empresa B
+   ✗ NÃO consegue votar em assembleia de Empresa B
+   ✗ NÃO consegue requisitar coisas de Empresa B
+   ✓ Mas CONSEGUE ser membro de múltiplos condominios (Empresa A E Empresa B)
+```
+
+**⚠️ NOTA CRÍTICA DE CLAYTON:** "Tenancy" é provavelmente **outro nome dentro do sistema UnifiCard**.
+
+O conceito de "condomínio isolado" pode estar nomeado como:
+- `workspace`?
+- `organization`?
+- `domain`?
+- `realm`?
+- Outro termo específico do sistema?
+
+**Ação para próximo modelo IA:** Confirmar o nome exato usado no sistema e renomear TODA a documentação (substituir `tenancy`/`tenantId` pelo [NOME_REAL] em cada ocorrência).
+
+**Próxima etapa:** RLS implementation spec — como é garantido o isolamento a nível de BD (trigger PostgreSQL? middleware? parametrized queries?).
 
 ---
 
@@ -1611,4 +1646,34 @@ Se unificada:
 
 ---
 
-**Próxima conversa:** investigar o substrato de permissões/roles que já existe vs. o que falta, desenhar a API do compositor pra garantir que nenhum tipo de ato cria fonte paralela de verdade, e resolver os 12 gaps acima com profundidade.
+---
+
+## 🟢 Insights Finais de Clayton — Tenancy/Condomínio e Permissões
+
+**Percepção Chave (2026-07-05):**
+
+Clayton sintetizou o modelo de tenancy com uma analogia perfeita que esclarece todo o isolamento do sistema:
+
+> "O tênis é como se fosse um condomínio único. Daí entra as permissões — quem pode ver isto."
+
+**Por que é perfeito:**
+
+1. **Condomínio = Tenancy** — isolado, com regras internas próprias, não interfere com outro condomínio
+2. **Moradores = Actors** — pessoa dentro do condomínio, pode ter múltiplos papéis
+3. **Cargo do morador = Role** — Síndico (RH), Porteiro (Warehouse), Zelador (Operações)
+4. **Direitos do cargo = Permissions** — Síndico aprova > R$ 50k, Porteiro só até R$ 30k
+5. **Vedação entre condominios = RLS** — morador de A não consegue ver/votar/requisitar em B
+6. **Um morador em múltiplos condominios** — João é funcionário de Empresa A E Empresa B = 2 "condomínios" simultaneamente, contextos separados
+
+**O que resolve:**
+
+- ✅ Isolamento de dados (cada tenancy é um mundo separado)
+- ✅ Permissões granulares (role determina visibilidade e ações)
+- ✅ Multi-tenancy seguro (um user em múltiplos contextos sem vazamento)
+- ✅ Escalabilidade clara (novo tenancy = novo "condomínio", copy do modelo)
+
+**Ação:** Próximo modelo IA deve confirmar o **nome real** que "tenancy" tem dentro do UnifiCard (workspace? organization? domain? outro?) e renomear a documentação conforme. Este modelo usou "tenancy" como placeholder genérico.
+
+---
+
+**Próxima conversa:** investigar o substrato de permissões/roles que já existe vs. o que falta, desenhar a API do compositor pra garantir que nenhum tipo de ato cria fonte paralela de verdade, e resolver os 12 gaps acima com profundidade. Começa confirmando o nome real de "tenancy" no sistema.
