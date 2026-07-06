@@ -1,62 +1,44 @@
 // backend/src/modules/composer/composer.types.ts
-// F-COMPOSER-CONTRACT-C1 — o CONTRATO server-driven do COMPOSITOR (o gêmeo write-side do actor-page).
+// F-COMPOSER-CONTRACT-C1 — o CONTRATO server-driven do COMPOSITOR (projeção read-only).
 //
-// TESE (APRENDIZADO.md, reconciliação 2026-07-06): o backend ENUMERA quais atos um [actor, modo] pode
-// CRIAR; o cliente só renderiza o que o servidor enumerou. Isso resolve a violação nomeada — hoje
-// `frontend/src/utils/intent-classifier.ts` enumera 100% no client ("melhorar com backend depois"),
-// contra a lei do próprio APRENDIZADO ("enumeração de atos sempre do servidor"). Com este contrato, o
-// classifier local REBAIXA para HINT de UX (velocidade de preview) e PERDE o papel de enumerador.
+// 🔴 RECONCILIAÇÃO NORMATIVA (2026-07-06, após auditoria de SSOT/ontologia): a 1ª versão de C1 INVENTOU
+// um vocabulário paralelo de intents (chaves `seek_service`/`post_personal`... + um `economicFlow`
+// não-governado). ISSO VIOLAVA o SSOT de intents. A verdade dos intents é UMA só e vive no contrato
+// canônico `INTENTS_ACTOR_CONTRATO.md` (subordinado a CORE_IMUTAVEL):
+//   · enum `ActorIntent` (modules/social/actor-intents.types.ts) = SSOT das intenções de ação (LAYER 4
+//     INTENT da ontologia 18, CONGELADA);
+//   · `INTENT_CAPABILITY_MAP` + `actorIntentsService.validateIntent()` = quem decide se um actor PODE
+//     criar cada intent (capacidade + permissão), CENTRALMENTE.
+// Blindagem do contrato: "UI/módulo NÃO decide intent; intent é semântica governada". Portanto o
+// compositor NÃO enumera com chaves próprias nem re-implementa a decisão — PROJETA o `ActorIntent`
+// governado e DELEGA o enabled/gated ao validador canônico. Zero verdade paralela (Lei de Coerência §2/§5).
 //
-// FRONTEIRAS (mesmas do actor-page, §2.4 SELADO):
-//   · READ-MODEL puro — este módulo NUNCA escreve nada (só enumera capacidade de criação);
-//   · autoridade: o actor-em-que-se-compõe precisa ser REPRESENTADO por req.user (canRepresentActor
-//     fail-closed na rota — DECISION-0113); o composer age COMO um actor, não sobre um alvo;
-//   · dinheiro é PORTA-1: intents cujo ATO DE CRIAÇÃO em si moveria dinheiro nascem enabled:false
-//     gatedBy:'PORTA-1'. Criar uma OFERTA/BUSCA não move dinheiro (a transação é no fulfillment) → enabled;
-//   · substrato morto não é oferecido como vivo: intent cujo pilar está contido/ghost (ex.: votes, L4)
-//     nasce enabled:false gatedBy nomeado — o cliente não finge que existe;
-//   · anti-PII: o contrato nunca carrega CPF/kyc/global_user_id/documento/valor monetário.
+// FRONTEIRAS (mesmas do actor-page, §2.4 SELADO): read-only; autoridade fail-closed na rota
+// (canRepresentActor); anti-dinheiro (contrato nunca carrega valor); substrato/capacidade morta não é
+// oferecida como viva (validateIntent retorna enabled:false com razão governada).
+
+import type { ActorIntent } from '@modules/social/actor-intents.types';
 
 export type ComposerMode = 'consuming' | 'operating';
 
-/** As 3 categorias econômicas do APRENDIZADO (substituem "consumir/operar" abstrato). */
-export type EconomicFlow =
-  | 'entrada' // dinheiro ENTRA (oferta/venda/vaga/aluguel) — receita futura
-  | 'saida'   // dinheiro SAI (procura de serviço/produto/locação) — gasto futuro
-  | 'social'; // SEM transação (post, projeto, enquete, coordenação)
-
-/** A audiência que o ato pode atingir (mecânica de destino, Eixo 3). */
-export type ComposerAudience = 'public' | 'friends' | 'connections' | 'only_me' | 'company' | 'group';
-
 export interface ComposerIntent {
-  /** chave canônica do ato (server-side; o cliente NÃO inventa novas). */
-  key:
-    | 'post_personal'
-    | 'post_friends'
-    | 'seek_service'
-    | 'seek_product'
-    | 'offer_service'
-    | 'offer_product'
-    | 'event'
-    | 'project'
-    | 'vote';
+  /** chave GOVERNADA = valor do enum canônico ActorIntent (NÃO uma string inventada pelo compositor). */
+  intent: ActorIntent;
+  /** rótulo de exibição (UI/projeção — mesmo padrão do actor-page; a IDENTIDADE é `intent`, não o label). */
   label: string;
-  /** categoria econômica (Eixo 4 / APRENDIZADO): saída/entrada/social. */
-  economicFlow: EconomicFlow;
-  /** habilitado para criação AGORA? */
+  /** pode criar AGORA? projeta o veredito do validador canônico (capacidade + permissão). */
   enabled: boolean;
-  /** por que desabilitado (ex.: 'PORTA-1' dinheiro; 'EM_BREVE' fluxo não-wired; 'SUBSTRATO_CONTIDO_L4'). */
+  /** por que desabilitado: razão/capacidade governada devolvida por validateIntent, ou gate de dinheiro. */
   gatedBy?: string;
-  /** audiências permitidas para este ato neste contexto (Eixo 3). */
-  audiences: ComposerAudience[];
-  /** rota REAL do fluxo/wizard vivo quando o ato tem superfície própria (ex.: evento → wizard), ou null (in-composer). */
+  /** rota REAL do wizard vivo quando o ato tem superfície própria (evento/serviço), ou null (in-composer). */
   deeplink: string | null;
 }
 
 export interface ComposerContract {
-  /** o actor COMO QUAL se compõe (resolvido/validado server-side). */
+  /** o actor COMO QUAL se compõe (resolvido/validado server-side na rota via canRepresentActor). */
   actingActorId: string;
   actorType: string;
   mode: ComposerMode;
+  /** intents projetados do SSOT canônico (ActorIntent), com enabled/gated do validador central. */
   intents: ComposerIntent[];
 }

@@ -1,22 +1,17 @@
 // backend/src/modules/composer/composer.service.ts
-// F-COMPOSER-CONTRACT-C1 — compõe o contrato server-driven do compositor.
+// F-COMPOSER-CONTRACT-C1 — projeta o contrato server-driven do compositor a partir do SSOT de intents.
 //
-// O REGISTRO DE INTENTS (espelha o BLOCK_REGISTRY do actor-page §2.2b): cada intent declara em que
-// [kind × modo] está disponível, sua categoria econômica, audiências e o gate quando aplicável.
-// Adicionar um ato = registrar aqui, nunca o cliente inventar. READ-ONLY: zero escrita.
-//
-// C1 = o ESQUELETO server-driven + registry por tipo/modo. C2 (próxima fatia) LAYER os intents por
-// PAPEL/DEPARTAMENTO lendo actor_delegations.relationship_type (R2, agora vivo) — RH vê Vaga, Warehouse
-// vê Procura-Fornecedor. C1 não decide papel ainda; enumera por tipo de actor + modo.
+// 🔴 SSOT ÚNICO (INTENTS_ACTOR_CONTRATO.md): NÃO há registry de intents próprio aqui. O compositor
+// itera o enum canônico `ActorIntent` e DELEGA a decisão de "pode criar?" ao validador central
+// `actorIntentsService.validateIntent` (capacidade via INTENT_CAPABILITY_MAP + permissão via authority).
+// Assim compositor e social-2.0 (que valida o mesmo intent no POST) SEMPRE respondem igual — Lei de
+// Coerência §5. O único conhecimento LOCAL é de PROJEÇÃO/UX (rótulo de exibição + deeplink do wizard +
+// quais intents fazem sentido no modo consuming×operating) — nunca a IDENTIDADE nem a AUTORIDADE do intent.
 
-import { actorPageRepository, type ActorHeaderRow } from '@modules/actor-page/actor-page.repository';
-import type { ActorKind } from '@modules/relationships/actor-relationship.types';
-import type {
-  ComposerAudience,
-  ComposerContract,
-  ComposerIntent,
-  ComposerMode,
-} from './composer.types';
+import { actorPageRepository } from '@modules/actor-page/actor-page.repository';
+import { actorIntentsService } from '@modules/social/actor-intents.service';
+import { ActorIntent } from '@modules/social/actor-intents.types';
+import type { ComposerContract, ComposerIntent, ComposerMode } from './composer.types';
 
 class ComposerError extends Error {
   statusCode: number;
@@ -26,56 +21,28 @@ class ComposerError extends Error {
   }
 }
 
-function kindOf(row: ActorHeaderRow): ActorKind | null {
-  if (row.actor_type === 'page' || row.company_id) return 'pj';
-  if (row.actor_type === 'user' || row.actor_type === 'actor_human' || row.actor_type === 'person') return 'pf';
-  return null;
-}
-
-/** Definição declarativa de um intent — disponibilidade por [kind × modo] + categoria + gate. */
-interface IntentDefinition {
-  key: ComposerIntent['key'];
-  label: string;
-  economicFlow: ComposerIntent['economicFlow'];
-  audiences: ComposerAudience[];
-  deeplink: string | null;
-  /** em quais modos o ato aparece. */
-  modes: ComposerMode[];
-  /** em quais kinds de actor o ato aparece (pf/pj). */
-  kinds: ActorKind[];
-  /** gate fixo quando o ato ainda não pode ser criado (substrato contido, fluxo não-wired). undefined = enabled. */
-  gatedBy?: string;
-}
-
-// Os 9 intents do IntentComposer vivo, agora enumerados SERVER-SIDE com categoria econômica e gate honesto.
-const INTENT_REGISTRY: IntentDefinition[] = [
-  // ── Social puro (sem transação) — ambos os modos, todo actor ──
-  { key: 'post_personal', label: 'Post pessoal', economicFlow: 'social', audiences: ['public', 'friends', 'only_me'], deeplink: null, modes: ['consuming', 'operating'], kinds: ['pf', 'pj'] },
-  { key: 'post_friends', label: 'Post para conexões', economicFlow: 'social', audiences: ['connections', 'friends'], deeplink: null, modes: ['consuming', 'operating'], kinds: ['pf', 'pj'] },
-
-  // ── Fluxo de SAÍDA (dinheiro sai) — buscar serviço/produto = gasto futuro; consuming ──
-  //    Criar a BUSCA não move dinheiro (a transação é no fulfillment) → enabled.
-  { key: 'seek_service', label: 'Procurar serviço', economicFlow: 'saida', audiences: ['public'], deeplink: null, modes: ['consuming'], kinds: ['pf', 'pj'] },
-  { key: 'seek_product', label: 'Procurar produto', economicFlow: 'saida', audiences: ['public'], deeplink: null, modes: ['consuming'], kinds: ['pf', 'pj'] },
-
-  // ── Fluxo de ENTRADA (dinheiro entra) — ofertar = receita futura; operating ──
-  //    Criar a OFERTA não move dinheiro → enabled; o pagamento é PORTA-1 no ato do comprador (outra superfície).
-  { key: 'offer_service', label: 'Oferecer serviço', economicFlow: 'entrada', audiences: ['public'], deeplink: '/services/new', modes: ['operating'], kinds: ['pf', 'pj'] },
-  { key: 'offer_product', label: 'Vender produto', economicFlow: 'entrada', audiences: ['public'], deeplink: null, modes: ['operating'], kinds: ['pf', 'pj'] },
-  { key: 'event', label: 'Criar evento', economicFlow: 'entrada', audiences: ['public', 'connections'], deeplink: '/events/new', modes: ['operating'], kinds: ['pf', 'pj'] },
-
-  // ── Autogestão (a Cadeia do Projeto do APRENDIZADO) ──
-  //    Projeto = social (a alocação de fundo é PORTA-1, depois da votação) → criar a ideia é enabled.
-  { key: 'project', label: 'Propor projeto comunitário', economicFlow: 'social', audiences: ['public'], deeplink: null, modes: ['consuming'], kinds: ['pf'] },
-  //    Voto: o substrato de votes está CONTIDO (schema-ghost, YALA-PASS) — decisão de elegibilidade é L4.
-  //    Não fingimos que existe: enabled:false gatedBy nomeado (a verdade do substrato manda).
-  { key: 'vote', label: 'Abrir votação', economicFlow: 'social', audiences: ['public', 'group'], deeplink: null, modes: ['consuming', 'operating'], kinds: ['pf', 'pj'], gatedBy: 'SUBSTRATO_CONTIDO_L4' },
-];
+/**
+ * PROJEÇÃO local (UX apenas): rótulo de exibição + deeplink do wizard vivo + em quais modos o intent
+ * é oferecido. A CHAVE (identidade) e o enabled (autoridade) vêm do SSOT — isto é só apresentação,
+ * espelhando o padrão do actor-page (que também provê labels pt-BR de projeção). Cobre os 8 intents
+ * vivos do IntentComposer; ANNOUNCE_JOB/REQUEST_HELP/SEND_CTA/RECEIVE_PAYMENT existem no enum mas ainda
+ * não têm superfície de composição (não projetados até terem — o cliente não finge que existem).
+ */
+const INTENT_PROJECTION: Partial<Record<ActorIntent, { label: string; deeplink: string | null; modes: ComposerMode[] }>> = {
+  [ActorIntent.SHARE_CONTENT]:   { label: 'Publicar conteúdo', deeplink: null, modes: ['consuming', 'operating'] },
+  [ActorIntent.REQUEST_BOOKING]: { label: 'Solicitar agendamento', deeplink: null, modes: ['consuming'] },
+  [ActorIntent.OFFER_SERVICE]:   { label: 'Oferecer serviço', deeplink: '/services/new', modes: ['operating'] },
+  [ActorIntent.OFFER_PRODUCT]:   { label: 'Vender produto', deeplink: null, modes: ['operating'] },
+  [ActorIntent.ANNOUNCE_EVENT]:  { label: 'Criar evento', deeplink: '/events/new', modes: ['operating'] },
+  [ActorIntent.CREATE_PROJECT]:  { label: 'Propor projeto comunitário', deeplink: null, modes: ['consuming'] },
+  [ActorIntent.START_VOTE]:      { label: 'Abrir votação', deeplink: null, modes: ['consuming', 'operating'] },
+};
 
 class ComposerService {
   /**
    * Enumera os intents que [actingActor, mode] pode CRIAR. `actingActorId` já foi provado representável
-   * por req.user na ROTA (canRepresentActor fail-closed) — este service não re-decide autoridade, enumera.
+   * por req.user na ROTA (canRepresentActor). Cada intent projetado tem enabled/gatedBy do validador
+   * canônico — o compositor NÃO decide autoridade, PROJETA a decisão do SSOT.
    */
   async getContract(
     tenantId: string,
@@ -85,20 +52,22 @@ class ComposerService {
     const actor = await actorPageRepository.getActorHeaderRow(tenantId, actingActorId);
     if (!actor) throw new ComposerError(404, 'Actor não encontrado neste tenant');
 
-    const kind = kindOf(actor);
-    if (!kind) throw new ComposerError(422, 'Tipo de actor não elegível ao compositor');
+    const intents: ComposerIntent[] = [];
+    // Itera o SSOT (ActorIntent), na ordem do enum, projetando só os que têm superfície de composição
+    // e que fazem sentido neste modo. O enabled/gatedBy é do validador central (capacidade + permissão).
+    for (const intent of Object.values(ActorIntent)) {
+      const proj = INTENT_PROJECTION[intent];
+      if (!proj || !proj.modes.includes(mode)) continue;
 
-    const intents: ComposerIntent[] = INTENT_REGISTRY
-      .filter((def) => def.modes.includes(mode) && def.kinds.includes(kind))
-      .map((def) => ({
-        key: def.key,
-        label: def.label,
-        economicFlow: def.economicFlow,
-        enabled: def.gatedBy === undefined,
-        ...(def.gatedBy !== undefined ? { gatedBy: def.gatedBy } : {}),
-        audiences: def.audiences,
-        deeplink: def.deeplink,
-      }));
+      const verdict = await actorIntentsService.validateIntent(tenantId, actingActorId, intent);
+      intents.push({
+        intent,
+        label: proj.label,
+        enabled: verdict.valid,
+        ...(verdict.valid ? {} : { gatedBy: verdict.requiredCapability ?? verdict.reason ?? 'SEM_CAPACIDADE' }),
+        deeplink: proj.deeplink,
+      });
+    }
 
     return {
       actingActorId: actor.id,

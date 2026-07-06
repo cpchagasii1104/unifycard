@@ -1,22 +1,22 @@
 /**
- * E2E — F-COMPOSER-CONTRACT-C1: contrato server-driven do compositor.
+ * E2E — F-COMPOSER-CONTRACT-C1: contrato server-driven do compositor, PROJETANDO o SSOT de intents.
  * 🔒 Roda SÓ em DB efêmera (run-composer-contract-ephemeral.ps1). NUNCA unificard_dev.
  *
- * Prova (via app.inject HTTP real):
- *   A · gate de autoridade: compor como um actor que o principal NÃO representa → 403
- *       COMPOSER_ACTOR_NOT_REPRESENTABLE (enumeração exige representação);
- *   B · PF consuming: enumera post_personal/post_friends/seek_service/seek_product/project + vote (gated);
- *       NÃO enumera offer_service/offer_product/event (são operating);
- *   C · PF operating: enumera offer_service/offer_product/event; NÃO enumera seek_* (são consuming);
- *   D · categoria econômica correta: seek_service=saida, offer_service=entrada, post_personal=social;
- *   E · substrato morto gated (verdade do backend): vote enabled=false gatedBy=SUBSTRATO_CONTIDO_L4;
- *   F · dinheiro na criação: criar oferta/busca é enabled (transação é no fulfillment, não na criação);
- *   G · anti-invenção: o cliente não recebe intent fora do registry (só as 9 chaves canônicas).
+ * Prova (via app.inject HTTP real) que o compositor NÃO inventa vocabulário — projeta o governado:
+ *   A · gate de autoridade: compor como actor não-representado → 403 COMPOSER_ACTOR_NOT_REPRESENTABLE;
+ *   B · SSOT: toda chave enumerada ∈ enum ActorIntent (SHARE_CONTENT/OFFER_SERVICE/...), NUNCA
+ *       chaves inventadas (post_personal/seek_service/economicFlow proibidos);
+ *   C · consuming projeta SHARE_CONTENT/REQUEST_BOOKING/CREATE_PROJECT/START_VOTE; operating projeta
+ *       OFFER_SERVICE/OFFER_PRODUCT/ANNOUNCE_EVENT;
+ *   D · COERÊNCIA (Lei §5): o enabled do compositor == o veredito de actorIntentsService.validateIntent
+ *       para o MESMO intent/actor (compositor e social respondem IGUAL — zero verdade paralela);
+ *   E · sem economicFlow no payload (campo inventado removido).
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
 import { randomUUID } from 'crypto';
 import type { FastifyInstance } from 'fastify';
+import { ActorIntent } from '../modules/social/actor-intents.types';
 
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 type Res = { label: string; ok: boolean; reason?: string };
@@ -44,13 +44,12 @@ async function bootstrapPorts(): Promise<void> {
   socialPortsRegistry.setEventFeedHandlers(sa.eventFeedHandlersAdapter);
 }
 
-const CANONICAL_KEYS = new Set(['post_personal', 'post_friends', 'seek_service', 'seek_product', 'offer_service', 'offer_product', 'event', 'project', 'vote']);
+const INTENT_VALUES = new Set(Object.values(ActorIntent) as string[]);
 
 async function main(): Promise<void> {
   await assertEphemeral();
   await bootstrapPorts();
 
-  // Fixtures: tenant + Ana (user, com identidade → representa a si mesma) + Bob (terceiro não-representado).
   const T = randomUUID();
   await pool.query(`INSERT INTO tenants (id, name, slug) VALUES ($1,'Composer',$2)`, [T, `comp-${Date.now()}`]);
   const anaGu = randomUUID(); const anaUserId = randomUUID(); const anaTax = String(Date.now()).slice(-11);
@@ -58,17 +57,20 @@ async function main(): Promise<void> {
   await pool.query(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1,$2,'cpf','approved','basic')`, [anaGu, anaTax]);
   await pool.query(`INSERT INTO users (id, user_id, tenant_id, email, password_hash, token_version, is_test, global_user_id, created_at, updated_at) VALUES ($1,$1,$2,$3,'x',0,true,$4,NOW(),NOW())`, [anaUserId, T, `ana-${Date.now()}@e2e.test`, anaGu]);
   const anaActor = (await pool.query<{ id: string }>(`INSERT INTO actors (tenant_id, actor_type, display_name, user_id, global_user_id) VALUES ($1,'user','Ana',$2,$3) RETURNING id`, [T, anaUserId, anaGu])).rows[0].id;
+  // actor_id populado (resolveForUser/validateIntent resolvem por id de actor).
+  await pool.query(`UPDATE actors SET actor_id = id WHERE tenant_id=$1 AND actor_id IS NULL`, [T]);
   const bobGu = randomUUID(); const bobTax = String(Date.now() + 7).slice(-11);
   await pool.query(`INSERT INTO global_users (global_user_id, cpf, metadata, created_at, updated_at) VALUES ($1,$2,'{}'::jsonb,NOW(),NOW())`, [bobGu, bobTax]);
   await pool.query(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1,$2,'cpf','approved','basic')`, [bobGu, bobTax]);
   const bobActor = (await pool.query<{ id: string }>(`INSERT INTO actors (tenant_id, actor_type, display_name, global_user_id) VALUES ($1,'user','Bob',$2) RETURNING id`, [T, bobGu])).rows[0].id;
+  await pool.query(`UPDATE actors SET actor_id = id WHERE tenant_id=$1 AND actor_id IS NULL`, [T]);
 
   const Fastify = (await import('fastify')).default;
   const app: FastifyInstance = Fastify({ logger: false });
   app.addHook('preHandler', async (req) => {
     const r = req as any;
     r.tenant = { id: T };
-    r.user = { id: anaUserId, userId: anaUserId }; // principal = Ana
+    r.user = { id: anaUserId, userId: anaUserId };
     r.actionContext = { actorId: anaActor };
   });
   const composerRoutes = (await import('../modules/composer/composer.routes')).default;
@@ -78,48 +80,45 @@ async function main(): Promise<void> {
   const get = (actorId: string, mode: string) => app.inject({ method: 'GET', url: `/composer/contract?actorId=${actorId}&mode=${mode}` });
   const parse = (r: { body: string }) => { try { return JSON.parse(r.body); } catch { return null; } };
   const intentsOf = (body: any): any[] => body?.data?.intents ?? [];
-  const byKey = (ints: any[], k: string) => ints.find((i) => i.key === k);
 
-  // A · gate: Ana tentando compor como Bob (não-representado) → 403.
+  // A · gate.
   const rA = await get(bobActor, 'consuming');
   rec('A gate: compor como actor não-representado → 403 COMPOSER_ACTOR_NOT_REPRESENTABLE',
     rA.statusCode === 403 && parse(rA)?.code === 'COMPOSER_ACTOR_NOT_REPRESENTABLE', `status=${rA.statusCode}`);
 
-  // B · PF consuming.
-  const rB = await get(anaActor, 'consuming');
-  const iB = intentsOf(parse(rB));
-  const keysB = new Set(iB.map((i) => i.key));
-  rec('B PF consuming: enumera post/seek/project + vote; NÃO offer/event',
-    rB.statusCode === 200 && keysB.has('post_personal') && keysB.has('seek_service') && keysB.has('project') && keysB.has('vote') && !keysB.has('offer_service') && !keysB.has('event'),
-    `keys=${[...keysB].join(',')}`);
+  const rCons = await get(anaActor, 'consuming');
+  const iCons = intentsOf(parse(rCons));
+  const rOper = await get(anaActor, 'operating');
+  const iOper = intentsOf(parse(rOper));
+  const keysCons = new Set(iCons.map((i) => i.intent));
+  const keysOper = new Set(iOper.map((i) => i.intent));
 
-  // C · PF operating.
-  const rC = await get(anaActor, 'operating');
-  const iC = intentsOf(parse(rC));
-  const keysC = new Set(iC.map((i) => i.key));
-  rec('C PF operating: enumera offer_service/offer_product/event; NÃO seek_*',
-    keysC.has('offer_service') && keysC.has('offer_product') && keysC.has('event') && !keysC.has('seek_service'),
-    `keys=${[...keysC].join(',')}`);
+  // B · SSOT: toda chave ∈ ActorIntent; nenhuma chave inventada.
+  const allKeys = [...iCons, ...iOper].map((i) => i.intent);
+  rec('B SSOT: toda chave enumerada ∈ enum ActorIntent (nenhuma inventada)',
+    rCons.statusCode === 200 && allKeys.length > 0 && allKeys.every((k) => INTENT_VALUES.has(k)),
+    `chaves=${[...new Set(allKeys)].join(',')}`);
 
-  // D · categoria econômica.
-  rec('D categoria econômica: seek_service=saida, offer_service=entrada, post_personal=social',
-    byKey(iB, 'seek_service')?.economicFlow === 'saida' && byKey(iC, 'offer_service')?.economicFlow === 'entrada' && byKey(iB, 'post_personal')?.economicFlow === 'social',
-    `seek=${byKey(iB, 'seek_service')?.economicFlow} offer=${byKey(iC, 'offer_service')?.economicFlow} post=${byKey(iB, 'post_personal')?.economicFlow}`);
+  // C · conjuntos por modo, com as chaves GOVERNADAS.
+  rec('C consuming projeta SHARE_CONTENT/REQUEST_BOOKING/CREATE_PROJECT/START_VOTE; operating OFFER_SERVICE/OFFER_PRODUCT/ANNOUNCE_EVENT',
+    keysCons.has(ActorIntent.SHARE_CONTENT) && keysCons.has(ActorIntent.REQUEST_BOOKING) && keysCons.has(ActorIntent.CREATE_PROJECT) && keysCons.has(ActorIntent.START_VOTE) &&
+    keysOper.has(ActorIntent.OFFER_SERVICE) && keysOper.has(ActorIntent.OFFER_PRODUCT) && keysOper.has(ActorIntent.ANNOUNCE_EVENT),
+    `cons=${[...keysCons].join(',')} | oper=${[...keysOper].join(',')}`);
 
-  // E · substrato morto gated (verdade do backend): vote contido.
-  const vote = byKey(iB, 'vote');
-  rec('E vote enabled=false gatedBy=SUBSTRATO_CONTIDO_L4 (não finge que o substrato existe)',
-    vote?.enabled === false && vote?.gatedBy === 'SUBSTRATO_CONTIDO_L4', JSON.stringify(vote));
+  // D · COERÊNCIA (Lei §5): enabled do compositor == veredito do validador central pro MESMO intent.
+  const { actorIntentsService } = await import('../modules/social/actor-intents.service');
+  let coherent = true; const mism: string[] = [];
+  for (const it of [...iCons, ...iOper]) {
+    const v = await actorIntentsService.validateIntent(T, anaActor, it.intent);
+    if (v.valid !== it.enabled) { coherent = false; mism.push(`${it.intent}: composer=${it.enabled} vs validate=${v.valid}`); }
+  }
+  rec('D COERÊNCIA: enabled do compositor == validateIntent para cada intent (zero verdade paralela)',
+    coherent, mism.join(' | '));
 
-  // F · dinheiro na criação: ofertar/buscar é enabled (transação é no fulfillment).
-  rec('F criar oferta/busca é enabled (dinheiro é no fulfillment, não na criação)',
-    byKey(iC, 'offer_service')?.enabled === true && byKey(iB, 'seek_service')?.enabled === true,
-    `offer=${byKey(iC, 'offer_service')?.enabled} seek=${byKey(iB, 'seek_service')?.enabled}`);
-
-  // G · anti-invenção: toda chave enumerada ∈ registry canônico.
-  const allKeys = [...iB, ...iC].map((i) => i.key);
-  rec('G anti-invenção: todo intent enumerado ∈ 9 chaves canônicas do registry',
-    allKeys.every((k) => CANONICAL_KEYS.has(k)), `chaves=${[...new Set(allKeys)].join(',')}`);
+  // E · sem economicFlow no payload.
+  rec('E payload NÃO carrega economicFlow (campo inventado removido)',
+    [...iCons, ...iOper].every((i) => i.economicFlow === undefined),
+    `tem_economicFlow=${[...iCons, ...iOper].some((i) => i.economicFlow !== undefined)}`);
 
   await app.close();
 
