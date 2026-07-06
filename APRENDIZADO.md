@@ -1676,4 +1676,159 @@ Clayton sintetizou o modelo de tenancy com uma analogia perfeita que esclarece t
 
 ---
 
-**Próxima conversa:** investigar o substrato de permissões/roles que já existe vs. o que falta, desenhar a API do compositor pra garantir que nenhum tipo de ato cria fonte paralela de verdade, e resolver os 12 gaps acima com profundidade. Começa confirmando o nome real de "tenancy" no sistema.
+---
+
+## 🚀 Visão de Futuro: UnifiCard Físico + Hardware de Captura Regional (2026-07-05)
+
+**A Revolução Não é Só Software. É Hardware + Software + Captura de Valor Descentralizada.**
+
+Clayton descreveu o futuro do UnifiCard: não é só um aplicativo, é uma **infraestrutura econômica física** que traz valor de volta pra região.
+
+### **UnifiCard Físico: O Cartão**
+
+```
+Um cartão único que controla:
+├─ ACESSO:
+│  ├─ Bilheteria de evento (entrada autorizada)
+│  ├─ Estacionamento (controle de entrada/saída)
+│  └─ Recinto fechado (acesso por role/permission)
+├─ CONSUMAÇÃO:
+│  ├─ Bar/restaurante (débito/crédito)
+│  ├─ Loja (compra)
+│  └─ Serviço (pagamento)
+├─ OPERAÇÕES:
+│  ├─ Check-in funcionário (chegada)
+│  ├─ Check-out funcionário (saída)
+│  └─ Rastreamento freelancer (quem trabalhou, quanto)
+└─ ECONOMIA:
+   ├─ Débito (conta do meu saldo)
+   ├─ Crédito (empréstimo contra reputação)
+   └─ SSOT (ledger único atrás de cada transação)
+```
+
+### **Máquina de Cartão UnifiCard (POS Regional)**
+
+Clayton: "Vai ter a máquina do UnifiCard, tipo Cielo, Stone, só que quando a pessoa passar um cartão de fora nessa máquina, a taxa ao invés de ir pro banco ou pra bilionários, esse dinheiro volta pra região do usuário."
+
+**Isso é o breakthrough:**
+
+```
+HOJE (Cielo/Stone):
+Cliente compra R$ 100 no bar
+├─ Bar recebe R$ 97
+├─ Cielo/Stone fica R$ 3
+└─ R$ 3 SAI DA ECONOMIA LOCAL
+   (vai pra São Paulo, depois Wall Street)
+
+UNIFICARD:
+Cliente passa UnifiCard:
+├─ Bar recebe R$ 100
+└─ Tudo fica na região (SSOT interno)
+
+OU
+
+Cliente passa VISA/Mastercard:
+├─ Bar recebe R$ 97
+├─ UnifiCard POS cobra 3%
+└─ R$ 3 VOLTA PRA REGIÃO
+   (fundo regional, tesouro local, investimento público)
+```
+
+**A máquina física UnifiCard é um GATEWAY REGIONAL.**
+
+### **Implicações Arquiteturais**
+
+1. **Cada máquina UnifiCard é um "condomínio"** — loja, bar, evento, estacionamento
+   - Isolado em `tenancy` (seu próprio contexto)
+   - Conectado ao ledger regional via rede
+
+2. **Captura de valor que hoje escapa:**
+   - Cielo tira 2-3% de cada cartão de fora → vai embora
+   - UnifiCard POS tira mesmos 2-3% → volta pra região
+
+3. **Rastreabilidade total:**
+   - Cada swipe é um ato
+   - Cada ato é registrado no ledger (SSOT)
+   - Funcionário chegou 9h15? Ledger mostra.
+   - Freelancer trabalhou 4h? Ledger mostra quanto ganhou.
+
+4. **Novo fluxo econômico:**
+```
+Pessoa compra em bar local (UnifiCard):
+├─ Dinheiro fica com bar
+├─ Ledger registra (SSOT)
+├─ Imposto regional automático (%)
+└─ Resto volta pro circulante regional
+
+Pessoa compra em bar com cartão estrangeiro:
+├─ Bar recebe (débito líquido)
+├─ UnifiCard POS captura a taxa que era perdida
+└─ Essa taxa = investimento público regional
+```
+
+5. **Integração com Compositor:**
+   - Quando você entra no bar com UnifiCard, é um `check-in` (ato)
+   - Quando você compra uma cerveja, é um `consumação` (ato)
+   - Quando você sai, é um `check-out` (ato)
+   - **Tudo é rastreável, auditável, imutável**
+
+### **Por que isso é Revolucionário**
+
+1. **Captura de valor não-local:**
+   - Hoje, Cielo/Stone tira 2-3% de TUDO
+   - UnifiCard redireciona isso pro tesouro regional
+   - Se uma região tem 1000 máquinas UnifiCard e R$ 10M em transações/mês, isso é R$ 200-300k que **fica na região** em vez de ir pra São Paulo/Wall Street
+
+2. **Rastreabilidade total de operações:**
+   - Funcionário: entrada/saída automática, ledger prova presença
+   - Freelancer: quantas horas, quanto ganhou, comprovado em ledger
+   - Evento: quantos ingressos vendidos, quanto foi alocado ao artista, tudo SSOT
+
+3. **Economia solidária operacionalizada:**
+   - Não é "a gente vota e espera": é máquina gerando valor real
+   - Fundo regional = dinheiro de verdade (capturado de taxas que saíam)
+   - Governança = decide como alocar esse fundo
+
+4. **Dolarização/Descentralização da Moeda:**
+   - UnifiCard não é um banco, é um **sistema de circulação regional**
+   - Você pode ter saldo em UnifiCard sem depender de banco
+   - Crédito vem de reputação (ledger), não de central de risco
+
+---
+
+### **Próximas Questões Arquiteturais**
+
+1. **Hardware/Software split:** 
+   - Máquina UnifiCard roda Android? Linux customizado?
+   - Se rede cair, funciona offline com sync depois?
+   - Segurança de criptografia/assinatura em device?
+
+2. **Tokenização de cartão:**
+   - O cartão físico é NFC? Chip? Magnético?
+   - Como se enrola com PCI compliance?
+   - Pode ser um eSIM ou QR code em celular?
+
+3. **Escrow durante transaction:**
+   - Quando você passa o cartão na máquina, dinheiro é:
+     - Imediatamente debitado? (online)
+     - Ou entra em escrow, só confirma depois? (offline-first)
+
+4. **Taxa de captura regional:**
+   - Se uma máquina captura 3% de cartão estrangeiro, como é dividido?
+     - 100% pro fundo regional geral?
+     - Ou máquina fica com X%, região fica com Y%?
+     - Ou depende de `tenancy` (cada "condomínio" negocia)?
+
+5. **Integração com Bilheteria/Estacionamento:**
+   - Quando você entra em evento com UnifiCard:
+     - Bilheteria deduz crédito automaticamente?
+     - Ou é um "check-in" que só libera acesso?
+     - Como fica a auditoria (quem entrou, quanto foi cobrado)?
+
+---
+
+**Resumo:** UnifiCard não é um app. É um **sistema operacional econômico regional** que inclui cartão, máquina, ledger, governance, tudo integrado. A visão é tão ambiciosa quanto desafiadora: replicar a captura de valor que corporações fazem (taxa de transação) e devolver pra comunidade local.
+
+---
+
+**Próxima conversa:** investigar o substrato de permissões/roles que já existe vs. o que falta, desenhar a API do compositor pra garantir que nenhum tipo de ato cria fonte paralela de verdade, e resolver os 12 gaps acima com profundidade. Começa confirmando o nome real de "tenancy" no sistema. ALÉM DISSO: explorar a visão de hardware + máquina UnifiCard — quais são as decisões arquiteturais (offline-first? NFC? PCI? taxa regional?), quais gaps técnicos existem, como integra com o Compositor.
