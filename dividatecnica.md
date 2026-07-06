@@ -146,13 +146,15 @@ dinheiro soberano (PORTA-1 §4).
       **R2 COMPLETO** (só falta R2.4 risco, adiado por Clayton).
 - [ ] **R2.4 camada de risco** (D5 — sub-frente própria; Clayton adiou explicitamente)
 
-### L3 — Catálogo/serviços/marketplace (~15 DTs) — não iniciado
-- [ ] Seed de catálogo (hoje quase vazio, 1 serviço)
-- [ ] Sinônimos profissão→serviço (só BELEZA tem ponte hoje)
-- [ ] Curadoria headless (promote/reject/merge/RLS)
-- [ ] W2 — produto vira actor-first ou segue taxonômico?
-- [ ] Marketplace hybrid anti-pattern
-- Pacote de decisão ainda não montado — próximo a preparar quando este lote entrar em pauta.
+### L3 — Catálogo/serviços/marketplace (~15 DTs) — **PACOTE PRONTO PRA DECIDIR**
+- [x] Fatia 1: mapa DECISION-0106 materializado (MarketplaceDomain→N0) — commit `3e9f1d2df`
+- [x] Fork MarketplaceDomain morto de ponta a ponta (6 cópias → 1 símbolo em contracts) — `c3efb91b1`
+- [x] **Pacote de decisão montado** (`LOTE_L3_CATALOGO_MARKETPLACE.md`, read-first vivo): D1 ratificar
+      Opção C (método já provado 2× — BELEZA completa + LIMPEZA slice A) · D2 próximas verticais ·
+      D3 tríade+aliases atômico · D4 hardening curadoria→UI (D4-RLS já corrigido!) · D5 W2 produto
+      (actor-first norte, ramo MVP) · D6 GO hybrid dois-trilhos. ← **CLAYTON DECIDE**
+- [ ] Execução das decisões D1-D6 (sequência: carimbos → seed verticais → curadoria → hybrid → W2-frente)
+- [ ] Adjacente (bug, não decisão): `DT-SESSION-TENANT-ID-REQUIRED-ON-PUBLISH` — diagnose-first
 
 ### L4 — Social/feed/votes (~10 DTs) — não iniciado
 - [ ] Follow mechanics (decisão arquitetural pendente)
@@ -250,6 +252,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
   dependência (não cheapness): L2→L3→L4→(L6 paralelo)→L1.
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
+
+### 2026-07-06 (15) — Pacote de decisão L3 montado (6 decisões, read-first vivo)
+- `LOTE_L3_CATALOGO_MARKETPLACE.md` criado com read-first de HOJE (cartório+migrations+banco): vários
+  itens tinham evoluído desde junho — BELEZA completa (tríade+aliases) + LIMPEZA slice A já seladas
+  (método provado 2×), D4-RLS da curadoria já corrigido. 6 decisões pra Clayton: D1 método Opção C ·
+  D2 verticais · D3 aliases atômicos · D4 curadoria hardening→UI · D5 W2 produto · D6 hybrid.
+  + bug adjacente TENANT_ID_REQUIRED (diagnose-first). L3 é a raiz E3 (maior colapso de dívidas).
 
 ### 2026-07-06 (14) — Fork de MarketplaceDomain MORTO de ponta a ponta (contracts)
 - Convergência frontend (opção 1): o vocabulário migrou pra casa canônica que JÁ EXISTIA —
