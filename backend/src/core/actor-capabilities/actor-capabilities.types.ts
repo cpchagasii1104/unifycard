@@ -28,6 +28,9 @@ export interface ActorCapabilitiesDelegation {
   isTransitive: boolean;
   /** Data de expiração ISO ou null se sem prazo. */
   expiresAt: string | null;
+  /** R2.3 — vínculo jurídico governado (relationship_type): partner/director/administrator/attorney/
+   *  legal_representative/employee/contractor, ou null (delegação legada/genérica sem vínculo classificado). */
+  relationshipType: string | null;
 }
 
 export interface ActorCapabilitiesResponse {

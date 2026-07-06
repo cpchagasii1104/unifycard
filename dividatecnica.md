@@ -90,9 +90,11 @@ dinheiro soberano (PORTA-1 §4).
 - [x] **R2.2 writer governado** — EXECUTADO + 3 ressalvas Yala fechadas (Q3 autoria + RLS + unique).
 - [x] **RE-SELO YALA = ✅ APROVADO** (2026-07-06, commit fix `341aa961e`): Q3 materialmente fechada,
       zero bloqueador. **R2 (R2.1+R2.2+fix) = CLOSED.** Closeout `F-R2-DELEGATION-GOVERNED-LINKS`.
-- [ ] **R2.3 reconciliar leitura** (actor-capabilities projeta campos novos; canRepresentActor íntegro;
-      + tratar nota do re-selo: `DT-R2-DELEGATION-UPDATE-MEMBER-STALE-RELATIONSHIP` LOW) ← PRÓXIMO, LIBERADO
-- [ ] **R2.4 camada de risco** (D5 — sub-frente própria, depois)
+- [x] **R2.3 reconciliar leitura** — EXECUTADO: actor-capabilities projeta `relationshipType` (2 ramos);
+      `updateMember` re-deriva a delegação ao mudar role (fecha DT-R2-...-STALE) → PUT virou escritora de
+      autoria e ganhou o gate Q3 (guard minCalls 2→3). E2E 10/10, negative-proof morde, suite 196 GATE OK.
+      **R2 COMPLETO** (só falta R2.4 risco, adiado por Clayton).
+- [ ] **R2.4 camada de risco** (D5 — sub-frente própria; Clayton adiou explicitamente)
 
 ### L3 — Catálogo/serviços/marketplace (~15 DTs) — não iniciado
 - [ ] Seed de catálogo (hoje quase vazio, 1 serviço)
@@ -198,6 +200,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
   dependência (não cheapness): L2→L3→L4→(L6 paralelo)→L1.
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
+
+### 2026-07-06 (7) — R2.3 (reconciliar leitura) executado: R2 completo
+- actor-capabilities.resolveForUser projeta relationshipType (2 ramos). updateMember re-deriva a
+  delegação ao mudar role (revoga antiga com evento + cria nova com vínculo novo) → fecha
+  DT-R2-DELEGATION-UPDATE-MEMBER-STALE-RELATIONSHIP. Dependência tratada: PUT virou escritora de
+  autoria → ganhou o gate Q3 (requireRepresentsActingActor), guard minCalls 2→3. E2E 10/10 (D0 spoof
+  PUT bloqueado, D1 re-deriva administrator+[*], D2 antiga revogada com evento, D3 1 ativa só, P1
+  projeção surfa relationshipType). Negative-proof morde (2<3). Suite 196 GATE OK, typecheck 0.
+  R2 COMPLETO (só falta R2.4 risco, adiado). Substrato do Compositor por departamento PRONTO.
 
 ### 2026-07-06 (6) — RE-SELO Yala APROVADO: R2 CLOSED
 - Re-selo sobre o fix `341aa961e`: veredito APROVADO, zero bloqueador. Q3 (autoria forjável)

@@ -194,7 +194,19 @@ class CompanyMembersService {
     }
 
     // 🔴 BLINDAGEM: Atualizar membro (apenas role/status, não agenda pessoal)
-    return await companyMembersRepository.update(tenantId, memberId, input);
+    const updated = await companyMembersRepository.update(tenantId, memberId, input);
+
+    // 🔴 R2.3 (fecha DT-R2-DELEGATION-UPDATE-MEMBER-STALE-RELATIONSHIP, nota do re-selo Yala): se o ROLE
+    // mudou e o membro está ATIVO, a delegação viva ficaria com relationship_type/scopes ANTIGOS até um
+    // novo grant. Re-derivamos: createDelegationForMember auto-revoga a anterior (com evento 'revoked') e
+    // cria a nova governada (relationship_type derivado do novo role + evento 'granted'). `userId` = actor
+    // que executa a atualização (o concedente — a rota já valida canRepresentActor sobre ele: R2.2 FIX-Q3).
+    const roleChanged = input.role !== undefined && input.role !== existing.role;
+    if (roleChanged && updated.status === CompanyMemberStatus.ACTIVE) {
+      await this.createDelegationForMember(tenantId, updated, userId);
+    }
+
+    return updated;
   }
 
   /**

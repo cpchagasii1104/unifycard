@@ -304,6 +304,9 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
         // 🔴 DECISION-0113 fatia 2: autoridade sobre a empresa REAL do membro (req.user), não actionContext.actorId
         const target = await companyMembersService.getMember(req.tenant.id, req.params.memberId);
         if (!(await requireCompanyManage(req, reply, target.companyId))) return;
+        // 🔴 R2.3/R2.2 FIX-Q3: updateMember pode RE-DERIVAR a delegação ao mudar role (re-grant governado) →
+        // esta rota virou escritora de autoria; o principal precisa representar o actor concedente declarado.
+        if (!(await requireRepresentsActingActor(req, reply))) return;
 
         const member = await companyMembersService.updateMember(
           req.tenant.id,

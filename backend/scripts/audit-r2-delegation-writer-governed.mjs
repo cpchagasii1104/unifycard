@@ -74,7 +74,7 @@ if (!existsSync(MEMBERS)) {
 // Cada rota que grava autoria precisa INVOCAR o gate (não só defini-lo). `minCalls` = nº de writes
 // de autoria naquele arquivo (members: POST grant + DELETE revoke = 2; bridge: 1 grant).
 const AUTHORSHIP_ROUTES = [
-  { rel: 'src/core/companies/company-members.routes.ts', callRe: /requireRepresentsActingActor\s*\(\s*req\s*,\s*reply\s*\)/g, minCalls: 2 },
+  { rel: 'src/core/companies/company-members.routes.ts', callRe: /requireRepresentsActingActor\s*\(\s*req\s*,\s*reply\s*\)/g, minCalls: 3 },
   { rel: 'src/modules/relationships/actor-relationship-membership-bridge.routes.ts', callRe: /canRepresentActor\s*\(\s*tenantId\s*,\s*callerUserId\s*,\s*actionContext\.actorId/g, minCalls: 1 },
 ];
 for (const { rel, callRe, minCalls } of AUTHORSHIP_ROUTES) {

@@ -172,6 +172,7 @@ class ActorCapabilitiesService {
         scopes: d.scopes,
         isTransitive: d.isTransitive,
         expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
+        relationshipType: d.relationshipType ?? null, // R2.3 — projeta o vínculo jurídico governado
       }));
     } else {
       // Para institucional: listar delegações received (user_actor_ids que delegaram a ele)
@@ -180,10 +181,11 @@ class ActorCapabilitiesService {
         scopes_json: any;
         is_transitive: boolean;
         expires_at: Date | null;
+        relationship_type: string | null;
       }>(
         tenantId,
         `
-        SELECT user_actor_id, scopes_json, is_transitive, expires_at
+        SELECT user_actor_id, scopes_json, is_transitive, expires_at, relationship_type
         FROM actor_delegations
         WHERE tenant_id = $1
           AND institutional_actor_id = $2
@@ -198,6 +200,7 @@ class ActorCapabilitiesService {
         scopes: r.scopes_json || [],
         isTransitive: r.is_transitive,
         expiresAt: r.expires_at ? r.expires_at.toISOString() : null,
+        relationshipType: r.relationship_type ?? null, // R2.3 — projeta o vínculo jurídico governado
       }));
     }
 

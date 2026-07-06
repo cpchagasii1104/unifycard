@@ -113,15 +113,69 @@ async function main(): Promise<void> {
     `status=${r2.statusCode} code=${code2}`);
 
   // A2b · confirma que a delegação criada gravou granted_by = actor da Alice (autoria correta e real).
+  let memberId: string | null = null;
   if (r2.statusCode === 201) {
-    const gb = (await pool.query<{ gb: string | null }>(
-      `SELECT granted_by_actor_id AS gb FROM actor_delegations WHERE tenant_id=$1 AND user_actor_id=$2 AND status='active' ORDER BY created_at DESC LIMIT 1`,
+    try { memberId = JSON.parse(r2.body)?.data?.memberId ?? null; } catch { /* */ }
+    const gb = (await pool.query<{ gb: string | null; rt: string | null }>(
+      `SELECT granted_by_actor_id AS gb, relationship_type AS rt FROM actor_delegations WHERE tenant_id=$1 AND user_actor_id=$2 AND status='active' ORDER BY created_at DESC LIMIT 1`,
       [T, personActor]
-    )).rows[0]?.gb;
-    rec('A2b delegação real gravou granted_by = actor da Alice (autoria server-side correta)', gb === aliceActor, `granted_by=${gb} esperado=${aliceActor}`);
+    )).rows[0];
+    rec('A2b delegação real gravou granted_by = actor da Alice + relationship_type=employee (staff)', gb?.gb === aliceActor && gb?.rt === 'employee', `granted_by=${gb?.gb === aliceActor} rt=${gb?.rt}`);
   } else {
     rec('A2b delegação criada (pré-condição p/ checar granted_by)', false, `status inesperado=${r2.statusCode} body=${r2.body.slice(0, 200)}`);
   }
+
+  // ── R2.3: mudança de role RE-DERIVA a delegação (fecha DT-R2-DELEGATION-UPDATE-MEMBER-STALE) ──
+  // D1 · PUT muda role staff→admin declarando o SEU PRÓPRIO actor → passa e re-deriva o vínculo.
+  const put = (actingActor: string, role: string) => app.inject({
+    method: 'PUT', url: `/companies/${companyId}/members/${memberId}`,
+    headers: { 'content-type': 'application/json', 'x-acting-actor': actingActor },
+    payload: JSON.stringify({ role }),
+  });
+  if (memberId) {
+    // D0 · spoof na PUT (declara actor do Bob) → 403 (a rota PUT virou escritora de autoria em R2.3).
+    const rd0 = await put(bobActor, 'admin');
+    let cd0: string | null = null; try { cd0 = JSON.parse(rd0.body)?.code ?? null; } catch { /* */ }
+    rec('D0 PUT com spoof de autoria (Alice→granted_by=Bob) BLOQUEADO 403 (rota PUT agora é escritora)',
+      rd0.statusCode === 403 && cd0 === 'DELEGATION_AUTHORSHIP_NOT_REPRESENTABLE', `status=${rd0.statusCode} code=${cd0}`);
+
+    const rd1 = await put(aliceActor, 'admin');
+    const after = (await pool.query<{ rt: string | null; scopes: any; status: string }>(
+      `SELECT relationship_type AS rt, scopes_json AS scopes, status FROM actor_delegations WHERE tenant_id=$1 AND user_actor_id=$2 AND status='active' ORDER BY created_at DESC LIMIT 1`,
+      [T, personActor]
+    )).rows[0];
+    // admin → relationship_type='administrator' + scopes ['*'] (getRelationshipTypeForRole/getScopesForRole).
+    rec('D1 PUT role staff→admin RE-DERIVA delegação: relationship_type=administrator + scopes=[*]',
+      rd1.statusCode === 200 && after?.rt === 'administrator' && Array.isArray(after?.scopes) && after.scopes.includes('*'),
+      `status=${rd1.statusCode} rt=${after?.rt} scopes=${JSON.stringify(after?.scopes)}`);
+
+    // D2 · a delegação ANTIGA (staff/employee) foi revogada COM evento 'revoked' (trilha completa, sem buraco).
+    const revokedOld = Number((await pool.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM actor_delegations d JOIN actor_delegation_events e ON e.delegation_id=d.delegation_id
+        WHERE d.tenant_id=$1 AND d.user_actor_id=$2 AND d.status='revoked' AND d.relationship_type='employee' AND e.event_type='revoked'`,
+      [T, personActor]
+    )).rows[0].n);
+    rec('D2 delegação antiga (employee) revogada COM evento revoked (trilha completa)', revokedOld >= 1, `revoked_com_evento=${revokedOld}`);
+
+    // D3 · exatamente 1 delegação ATIVA do par (unique parcial respeitado no re-derive).
+    const activeCount = Number((await pool.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM actor_delegations WHERE tenant_id=$1 AND user_actor_id=$2 AND status='active'`,
+      [T, personActor]
+    )).rows[0].n);
+    rec('D3 exatamente 1 delegação ativa do par após re-derive (unique parcial respeitado)', activeCount === 1, `ativas=${activeCount}`);
+  } else {
+    rec('D1 PUT re-deriva (pré-condição memberId)', false, 'memberId ausente');
+  }
+
+  // ── R2.3: projeção read-side surfa relationship_type (actor-capabilities.resolveForUser) ──
+  // resolveForUser carrega o actor pela coluna actor_id (que fica NULL em fixtures crus) → populo = id.
+  await pool.query(`UPDATE actors SET actor_id = id WHERE tenant_id=$1 AND actor_id IS NULL`, [T]);
+  const { actorCapabilitiesService } = await import('../core/actor-capabilities/actor-capabilities.service');
+  const caps = await actorCapabilitiesService.resolveForUser(T, personActor, personUserId).catch((e) => { console.log('   (resolveForUser erro:', e?.message, ')'); return null; });
+  const projected = caps?.delegations?.[0];
+  rec('P1 projeção actor-capabilities surfa relationshipType (=administrator após re-derive)',
+    !!projected && (projected as any).relationshipType === 'administrator',
+    `delegations[0].relationshipType=${(projected as any)?.relationshipType} (n=${caps?.delegations?.length})`);
 
   await app.close();
 
