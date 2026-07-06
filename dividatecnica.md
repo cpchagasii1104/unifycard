@@ -254,6 +254,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (18) — Curadoria hardening pré-UI (item 2a da fila): D1+D2 fechados, D3 auditado
+- Frente prescrita no cartório executada: D1 gate de plataforma no promoteToGlobal (env-strict
+  fail-closed — tenant-admin não muda mais o catálogo global de todos), D2 reject de serviço (paridade
+  com produto; compõe do vocabulário governado pending→retired + evento append-only, sem estender
+  CHECK), D3 auditado (merge não re-aponta dependentes — CONFIRMADO; merge fora da 1ª UI), D4 já
+  estava (RLS 20260702130000). E2E 4/4, suite 200 GATE OK. A esteira está dura pra receber a cabeça:
+  próxima fatia = UI de sugestão+curadoria de serviço (sem merge).
+
 ### 2026-07-06 (17) — FOLLOW ativado (decisão soberana) + DECISION-0160 ratificada/inserida no cânone
 - Clayton decidiu: "seguir existe" → F-FOLLOW-ACTIVATION-SLICE-A. GATE salvou 2× (typed-edge não cabe
   [par não-ordenado]; `follows` JÁ existia com writer identity-bound completo — zero substrato novo).
