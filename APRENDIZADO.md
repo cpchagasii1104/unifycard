@@ -184,6 +184,190 @@ UnifiCard **é uma cooperativa digital:**
 
 ---
 
+## 🔴 Lei Econômica Fundamental: Zero = Zero. Atividade = Circulação Regional
+
+**Clayton (2026-07-05):**
+
+> "No UnifiCard, não adianta só criar a conta, e não fazer nada, porque zero é igual a zero. Agora se a pessoa criar a conta, e dirigir o carro, como aplicativo, ou chamar o carro, ou fazer entrega, ou fazer o pedido, ou comprar, ou vender, ou ir no show criado pelos eventos, ou seja quanto mais a população usar o sistema, este dinheiro que iria para esses extratores, porque eles extraem e levam pra fora, esse dinheiro fica circulando entre os usuários reais."
+
+### **Zero = Zero**
+
+Criar uma conta em UnifiCard não gera valor por si só. É só um "identity card".
+
+```
+Conta criada sem atividade = 0 valor = 0 retorno
+
+Conta criada + dirigir (app) = valor gerado
+Conta criada + fazer entrega = valor gerado
+Conta criada + comprar/vender = valor gerado
+Conta criada + ir a evento = valor gerado
+
+Quanto mais atividade = mais valor circula internamente
+```
+
+### **O Ciclo Virtuoso Que Precisa Funcionar**
+
+**HOJE (Intermediação Parasita):**
+
+```
+Você faz 100 corridas/mês (Uber):
+├─ Uber tira 25% de cada corrida
+├─ Você recebe 75%
+├─ Dinheiro que Uber levou SAI DA ECONOMIA LOCAL
+│  (vai pra São Francisco, depois Wall Street)
+└─ Comunidade não se beneficia dessa extração
+
+Resultado:
+├─ Você trabalhou 100 horas
+├─ Comunidade recebeu 0 do que foi extraído
+├─ Corporação ganhou capital de fora, investiu em Silicon Valley
+```
+
+**COM UNIFICARD (Circulação Regional):**
+
+```
+Você faz 100 corridas/mês (UnifiCard app):
+├─ UnifiCard cobra 3% (infraestrutura)
+├─ Você recebe 97%
+├─ Os 3% que seriam extraídos agora FICAM NA REGIÃO
+│  (fundo regional = tesouro coletivo)
+└─ Comunidade se beneficia
+
+Resultado:
+├─ Você trabalhou 100 horas (recebeu bem)
+├─ Comunidade recebeu 3% de volume (reinveste)
+├─ Próximo usuário se beneficia (serviços, infraestrutura)
+├─ Ciclo virtuoso
+└─ Quanto mais usa, mais todo mundo ganha junto
+```
+
+### **Dinâmica Chave: Quanto Mais Uso = Mais Retorno Coletivo**
+
+```
+Pessoa A usa UnifiCard:
+├─ Faz compra (R$ 100)
+├─ UnifiCard 3% = R$ 3 pro fundo regional
+├─ Pessoa A gastou R$ 100
+
+Pessoa A depois vota em como gastar fundo regional:
+├─ "Vamos investir em iluminação pública?"
+├─ "Vamos investir em estacionamento?"
+├─ "Vamos criar bolsa pra jovem?"
+└─ Pessoa A se beneficia (melhor bairro, mais seguro)
+
+Quantidade de pessoas ativas:
+├─ 10 pessoas = R$ 3 × 10 = R$ 30/mês
+├─ 1000 pessoas = R$ 3 × 1000 = R$ 3000/mês
+├─ 100k pessoas = R$ 300.000/mês
+└─ Quanto mais gente, mais fundo cresce, mais estrutura se cria
+```
+
+### **A Questão Crítica Que Falta Ser Respondida**
+
+Clayton: "A gente vai ter que chegar num momento, que a gente vai entender como que essa dinâmica vai funcionar. Mas a visão é esta."
+
+**A dinâmica que precisa funcionar é: como criar estruturas que intermediam (legitimamente) dentro do sistema?**
+
+Porque UnifiCard NÃO é "sem intermediários". É **"intermediários legítimos"**.
+
+#### **Intermediários Parasitas (Eliminam):**
+- Mercado Livre (extrai 15%, sai da economia)
+- Uber (extrai 25%, sai da economia)
+- Sympla (extrai 5-10%, sai da economia)
+
+#### **Intermediários Legítimos (Precisam Existir):**
+
+1. **Operador de Máquina POS**
+   ```
+   João trabalha operando máquina UnifiCard no bar
+   └─ Ganha: salário do fundo regional (proporcional ao uso)
+      (não tira % das transações, tira do fundo coletivo)
+   └─ Incentivo: Quanto mais movimento, mais valor recebe
+   └─ Alinhamento: João quer bar prosperar
+   ```
+
+2. **Entregador/Logística**
+   ```
+   Pedro faz entregas via UnifiCard
+   └─ Ganha: comissão por entrega (5-10%)
+      (justo, porque trabalho real)
+   └─ Incentivo: Quanto mais entregas, mais ganha
+   └─ Alinhamento: Pedro quer comunidade fácil de entregar
+   ```
+
+3. **Operador de Governança (Delegado)**
+   ```
+   Marina administra votação regional
+   └─ Ganha: salário da comunidade (por votação)
+      (não tira % de transações, é remunerado coletivamente)
+   └─ Incentivo: Comunidade vote nela por competência
+   └─ Alinhamento: Marina quer decisão justa
+   ```
+
+4. **Moderador/Segurança**
+   ```
+   Carlos modera fraude e segurança
+   └─ Ganha: salário do fundo regional
+      (remuneração proporcional ao uso/qualidade)
+   └─ Incentivo: Menos fraude = mais confiança = mais uso
+   └─ Alinhamento: Carlos quer sistema saudável
+   ```
+
+### **A Diferença Crítica**
+
+**Intermediário Parasita (Uber):**
+```
+Tira 25% → Sai da economia → Vai pra corporação → Trabalha contra você
+```
+
+**Intermediário Legítimo (UnifiCard):**
+```
+Ganha do fundo coletivo → Fica na economia → Vota junto → Trabalha JUNTO
+```
+
+### **A Visão (Não Especificação Ainda)**
+
+Clayton está propondo que:
+
+1. **Quanto mais população usa** → mais valor circula
+2. **Quanto mais valor circula** → maior o fundo regional
+3. **Quanto maior o fundo** → mais estruturas se criam (intermediários legítimos)
+4. **Quanto mais estruturas** → melhor o sistema
+5. **Quanto melhor o sistema** → mais gente usa
+6. **Ciclo virtuoso**
+
+```
+Crescimento = (Atividade × Confiança × Estrutura) / Extração
+
+Se Extração = 25% (Uber) → Crescimento lento (corporação suga)
+Se Extração = 3% (UnifiCard) → Crescimento exponencial (todo mundo ganha)
+```
+
+### **O Que Ainda Falta Especificar**
+
+❓ **Como intermediários legítimos são remunerados?**
+- Salário fixo do fundo?
+- Comissão por uso?
+- Votação comunitária?
+- Tudo junto?
+
+❓ **Como evita intermediários legítimos virarem parasitas?**
+- Auditoria pública (ledger SSOT)?
+- Votação contínua (removem se ruim)?
+- Limite de ganho?
+
+❓ **Como a dinâmica escala?**
+- 10 pessoas vs 1.000 vs 100.000 — fundo muda? Estruturas mudam?
+- Intermediários precisam se multiplicar?
+- Há limite de quanto intermediário pode ganhar?
+
+❓ **Como se equilibra crescimento com justiça?**
+- Primeiro intermediário ganha muito (há poucas estruturas)
+- 100º intermediário ganha menos (há muitos)
+- É justo?
+
+---
+
 ## O Compositor como Portal Unificado
 
 O compositor (a tela onde um actor **cria um ato**) é o teste de ouro da arquitetura. Porque nele convergem:
