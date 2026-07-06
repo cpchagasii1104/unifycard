@@ -4,6 +4,7 @@
 
 import { apiFetch } from './client';
 import { getAuthToken, getTenantId, setTenantId } from '../config/auth';
+import { decodeJwtPayload } from '../utils/jwt';
 
 // Re-export from social-2.0.ts for backwards compatibility
 export {
@@ -59,7 +60,7 @@ export async function getAvailableActors(_options?: any): Promise<AvailableActor
   // 3. Se não estiver no storage, tentar extrair do JWT
   if (!tenantId) {
     try {
-      const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+      const tokenPayload = decodeJwtPayload(token);
       tenantId = tokenPayload.tenantId;
       
       // Validar tenantId extraído

@@ -4,6 +4,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { getAvailableActors, type AvailableActor } from '../api/social';
+import { decodeJwtPayload } from '../utils/jwt';
 import { isAuthenticated, getTenantId, getAuthToken, setTenantId } from '../config/auth';
 import { setBootstraping } from '../api/client';
 import { getProfile, type Profile } from '../api/profile';
@@ -92,7 +93,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!tenantId) {
       // 🔴 GARANTIA CANÔNICA: Se não estiver no storage, extrair do JWT
       try {
-        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const tokenPayload = decodeJwtPayload(token);
         tenantId = tokenPayload.tenantId;
         
         // 🔴 VALIDAÇÃO EXPLÍCITA: tenantId deve ser string não vazia
@@ -123,7 +124,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } else {
       // 🔴 VALIDAÇÃO: Garantir que tenantId do storage corresponde ao JWT
       try {
-        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const tokenPayload = decodeJwtPayload(token);
         const jwtTenantId = tokenPayload.tenantId;
         
         if (jwtTenantId && tenantId !== jwtTenantId) {
@@ -361,7 +362,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const finalToken = getAuthToken();
       if (finalToken) {
         try {
-          const tokenPayload = JSON.parse(atob(finalToken.split('.')[1]));
+          const tokenPayload = decodeJwtPayload(finalToken);
           const jwtTenantId = tokenPayload.tenantId;
           const storedTenantId = getTenantId();
           
@@ -507,7 +508,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     
     if (!tenantId && token) {
       try {
-        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const tokenPayload = decodeJwtPayload(token);
         tenantId = tokenPayload.tenantId;
         
         if (tenantId && typeof tenantId === 'string' && tenantId.trim() !== '') {
@@ -640,7 +641,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // 🔴 GARANTIA CANÔNICA: Se tenantId não estiver no storage, extrair do JWT
       if (!tenantId && token) {
         try {
-          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+          const tokenPayload = decodeJwtPayload(token);
           tenantId = tokenPayload.tenantId;
           
           if (tenantId && typeof tenantId === 'string' && tenantId.trim() !== '') {
@@ -758,7 +759,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         // 🔴 GARANTIA CANÔNICA: Se tenantId não estiver no storage, extrair do JWT
         if (!tenantId && token) {
           try {
-            const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+            const tokenPayload = decodeJwtPayload(token);
             tenantId = tokenPayload.tenantId;
             
             if (tenantId && typeof tenantId === 'string' && tenantId.trim() !== '') {
@@ -830,7 +831,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         // 🔴 GARANTIA CANÔNICA: Se tenantId não estiver no storage, extrair do JWT
         if (!tenantId && token) {
           try {
-            const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+            const tokenPayload = decodeJwtPayload(token);
             tenantId = tokenPayload.tenantId;
             
             if (tenantId && typeof tenantId === 'string' && tenantId.trim() !== '') {

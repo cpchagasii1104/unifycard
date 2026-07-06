@@ -1,5 +1,6 @@
 // src/api/client.ts
 import { getAuthToken, getTenantId } from '../config/auth';
+import { decodeJwtPayload } from '../utils/jwt';
 
 // Usar valor padrão se não estiver configurado (desenvolvimento local)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -203,7 +204,7 @@ export async function apiFetch(
   // Após extrair e salvar, nunca re-extrai (storage é atualizado imediatamente)
   if (!tenantId && token) {
     try {
-      const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+      const tokenPayload = decodeJwtPayload(token);
       tenantId = tokenPayload.tenantId;
       
       // 🔴 VALIDAÇÃO EXPLÍCITA: tenantId deve ser string não vazia

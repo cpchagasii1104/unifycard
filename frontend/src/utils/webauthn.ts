@@ -3,6 +3,7 @@
 // Util para step-up authentication via WebAuthn/Passkeys
 
 import { apiFetch } from '../api/client';
+import { atobBase64Url } from './jwt';
 
 /**
  * ⚠️ SCAFFOLDING: Este fluxo exige credencial WebAuthn registrada para enforcement real.
@@ -69,7 +70,7 @@ export async function startStepUp(
 
     // 3. Obter assertion do authenticator
     const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
-      challenge: Uint8Array.from(atob(challengeData.challenge), (c) => c.charCodeAt(0)),
+      challenge: Uint8Array.from(atobBase64Url(challengeData.challenge), (c) => c.charCodeAt(0)),
       timeout: 60000, // 60 segundos
       rpId: window.location.hostname,
       allowCredentials: [], // Aceitar qualquer credencial do usuário

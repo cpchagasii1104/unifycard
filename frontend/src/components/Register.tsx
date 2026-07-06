@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { register, checkCpfExists, validateReferralCode } from '../api/auth';
 import { setAuthToken, setTenantId } from '../config/auth';
+import { decodeJwtPayload } from '../utils/jwt';
 import { maskCPF, validateCPF } from '../utils/cpf';
 import { validateFullName, validateBirthdate } from '../utils/validation';
 import { normalizeFullName } from '../utils/nameNormalizer';
@@ -257,7 +258,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
         // CRÍTICO: TenantId DEVE vir SEMPRE do JWT (fonte única de verdade)
         let tenantIdToSave: string | null = null;
         try {
-          const tokenPayload = JSON.parse(atob(result.data.tokens.accessToken.split('.')[1]));
+          const tokenPayload = decodeJwtPayload(result.data.tokens.accessToken);
           tenantIdToSave = tokenPayload.tenantId;
         } catch (e) {
           console.error('[Register] Falha ao extrair tenantId do JWT:', e);

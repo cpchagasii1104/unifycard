@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { login } from '../api/auth';
+import { decodeJwtPayload } from '../utils/jwt';
 import { setAuthToken, setTenantId, getTenantId } from '../config/auth';
 import './Login.css';
 
@@ -48,7 +49,7 @@ export default function Login({ onLoginSuccess, onGoToRegister, onBackToHome }: 
         // Se falhar extração, é erro fatal - não seguir silenciosamente
         let tenantIdToSave: string | null = null;
         try {
-          const tokenPayload = JSON.parse(atob(result.data.tokens.accessToken.split('.')[1]));
+          const tokenPayload = decodeJwtPayload(result.data.tokens.accessToken);
           tenantIdToSave = tokenPayload.tenantId;
           
           // 🔴 VALIDAÇÃO EXPLÍCITA: tenantId deve ser string não vazia

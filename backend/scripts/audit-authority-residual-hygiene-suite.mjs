@@ -16,6 +16,7 @@ const guards = [
   'audit-composer-contract.mjs',                          // C1 — contrato server-driven do compositor (enumeração server-side, read-only, canRepresentActor, sem dinheiro)
   'audit-governed-vocabulary-manifest.mjs',               // Manifesto de vocabulários governados: anti-drift + anti-paralelo (institucionaliza a lição C1/R2)
   'audit-marketplace-domain-n0-mapping.mjs',                 // L3 — materializacao do mapa DECISION-0106 (MarketplaceDomain->N0)
+  'audit-jwt-payload-decode-frontend.mjs',                   // TENANT_ID_REQUIRED — decode de JWT base64url-safe (zero atob solto)
 ];
 
 let failed = false;
