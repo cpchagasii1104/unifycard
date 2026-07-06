@@ -3798,7 +3798,8 @@ Decisão deve considerar:
   - 20 ESQUELETOS (13%) — 4 RECENTE + 16 DORMENTE
   - 12 INDEFINIDOS (8%)
 - **Risco:** 24 dos 29 FANTASMAS têm frontend caller — endpoints chamados em runtime, query falha por tabela inexistente. Risco institucional: próximo dev presume "módulo X existe" sem checar substrato.
-- **Mitigação atual:** `MODULES_INVENTORY.md` na raiz como SSOT de classificação. Reproduzível via queries SQL listadas no apêndice.
+- **🔴 NOTA DE PATH (2026-07-06, higiene):** `MODULES_INVENTORY.md` **NÃO está mais na raiz** — foi movido em 2026-05-31 (limpeza de docs) para **`docs/99_archive/raiz_2026-05-31/MODULES_INVENTORY.md`**. TODAS as referências a "MODULES_INVENTORY.md na raiz" nas DTs abaixo apontam para esse novo local. Além de movido, o inventário tem ~2 meses e está DEFASADO (superado em ≥3 itens do lote L5 — venue/work-instant/policy-engine agora contidos 501, não fantasmas puros). Tratar como registro histórico, não SSOT vivo; re-auditar antes de citar como verdade atual.
+- **Mitigação atual:** `MODULES_INVENTORY.md` (em `docs/99_archive/raiz_2026-05-31/`) como SSOT de classificação HISTÓRICA. Reproduzível via queries SQL listadas no apêndice.
 - **Critério de convergência:** cada FANTASMA priorizado precisa de DT individual com decisão binária: (a) criar tabela+migration+seed ou (b) remover/congelar endpoint. Top 5 críticos: work-instant (14 rotas), venue (12), presence (11), policy-engine (11), automation (10).
 - **Referência:** `MODULES_INVENTORY.md` seções 1-2.
 

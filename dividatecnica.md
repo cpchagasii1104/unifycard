@@ -170,7 +170,8 @@ dinheiro soberano (PORTA-1 §4).
 - [ ] Presence — decisão P4 (SSOT entre 9 modelos paralelos) ainda não tomada
 - [ ] Bank-satellite — arquivar `core/intent` formalmente (único caso simples do bloco de 16)
 - [ ] Operational-binding-fragmentation — investigar origem das 9 delegações revogadas (liga ao L2)
-- [ ] Aspirational-vs-runtime — corrigir path do `MODULES_INVENTORY.md` movido
+- [x] Aspirational-vs-runtime — path do `MODULES_INVENTORY.md` corrigido (nota autoritativa no cartório:
+      está em `docs/99_archive/raiz_2026-05-31/`, defasado ~2 meses, = registro histórico não SSOT vivo)
 - Ver `LOTE_L5_FROZEN_FANTASMA.md` para o detalhe completo (12 itens originais).
 
 ### L6 — Identidade/nascimento C1 (~8 DTs) — não iniciado
