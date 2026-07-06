@@ -201,6 +201,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (8) — Fatia C1 do Compositor executada (contrato server-driven)
+- Novo módulo composer (read-only): GET /composer/contract enumera server-side os atos criáveis por
+  [actor,modo], gêmeo write-side do actor-page. INTENT_REGISTRY com 9 intents + categoria econômica
+  (entrada/saída/social do APRENDIZADO). Resolve a violação: intent-classifier.ts deixa de enumerar no
+  client (vira hint de UX). Fronteiras: canRepresentActor fail-closed, read-only, zero dinheiro, vote
+  gated (substrato contido L4). E2E 7/7, guard + 2 negative-proofs, suite 197 GATE OK, typecheck 0.
+  A visão do APRENDIZADO e o sistema se ENCONTRARAM. Próximo: C2 (intents por departamento, lê
+  relationship_type de R2).
+
 ### 2026-07-06 (7) — R2.3 (reconciliar leitura) executado: R2 completo
 - actor-capabilities.resolveForUser projeta relationshipType (2 ramos). updateMember re-deriva a
   delegação ao mudar role (revoga antiga com evento + cria nova com vínculo novo) → fecha

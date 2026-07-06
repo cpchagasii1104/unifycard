@@ -2308,12 +2308,14 @@ write-side: replicar o padrão, não inventar.**
 
 **Pré-requisitos:** L2 decidido (D1-D5) · L4 decidido (votes/eligibility) · PORTA-1 no escopo que Clayton escolher.
 
-- **Fatia C1 — Contrato do Compositor (server-driven):** novo read-model
-  `GET /composer/contract?actorId&mode` devolvendo `{intents: [{key,label,enabled,gatedBy,deeplink,data}]}`
-  — réplica EXATA do padrão `ActorPageContract` (mesmo guard, mesma disciplina). O
-  `intent-classifier.ts` local VIRA HINT DE UX (velocidade de preview) e PERDE o papel de
-  enumerador — resolve a violação do Achado 1 e formaliza o Gap 9 (caching policy: classificar
-  local é OK, enumerar/validar é do servidor). Zero tabela nova — composição pura.
+- **Fatia C1 — Contrato do Compositor (server-driven): ✅ EXECUTADA (2026-07-06, commit no cartório
+  `F-COMPOSER-CONTRACT-C1`).** Novo módulo `src/modules/composer/` (read-only): `GET /composer/contract?
+  actorId&mode` → `{intents: [{key,label,economicFlow,enabled,gatedBy,audiences,deeplink}]}` — réplica do
+  padrão `ActorPageContract` (mesmo gate canRepresentActor, mesmas fronteiras). `INTENT_REGISTRY` com os
+  9 intents por [kind×modo] + categoria econômica (entrada/saída/social). Resolveu a violação do Achado 1
+  (enumeração deixou de ser client-side) e formalizou o Gap 9 (classificar local = HINT; enumerar/validar
+  = servidor). `vote` nasce gated (substrato contido, L4). E2E 7/7, guard + 2 negative-proofs, suite 197
+  GATE OK. Zero tabela nova — composição pura.
 - **Fatia C2 — Intents por papel/departamento:** o contrato do composer passa a ler
   `actor_delegations.relationship_type`+scopes (pós-R2) — o RH vê Vaga, o Warehouse vê
   Procura-Fornecedor. É L2 aterrissando no composer.

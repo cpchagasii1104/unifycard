@@ -719,6 +719,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     const actorPageModule = await import('./modules/actor-page/actor-page.routes');
     await protectedScope.register(actorPageModule.default);
     console.log('[BOOT] Actor Page contract registered: /actor-page/:actorId');
+    // F-COMPOSER-CONTRACT-C1: contrato server-driven do COMPOSITOR (write-side; enumera atos criáveis)
+    const composerModule = await import('./modules/composer/composer.routes');
+    await protectedScope.register(composerModule.default);
+    console.log('[BOOT] Composer contract registered: /composer/contract');
     // F-SUPPORT-TICKET-BUSINESS-FACT-GATE (Fatia 6): Chamado gated por fato de negócio real
     const supportTicketModule = await import('./modules/support-tickets/support-ticket.routes');
     await protectedScope.register(supportTicketModule.default);
