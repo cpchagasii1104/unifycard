@@ -74,14 +74,16 @@ dinheiro soberano (PORTA-1 §4).
 - [ ] Achado novo: `DT-P2P-TRANSFER-ACTOR-RESOLUTION-USERID-VS-ACTORID` (latente, liga ao L2)
 - Ver `READINESS_PORTA1.md` para o mapa completo.
 
-### L2 — Delegação/R2 + risco PJ (~12 DTs) — **PRONTO PRA DECIDIR**
+### L2 — Delegação/R2 + risco PJ (~12 DTs) — **DECIDIDO · R2.1 EXECUTADO**
 - [x] R2.0 auditoria read-only executada (substrato existe, 9 delegações todas revogadas)
-- [ ] **D1** — abrir R2 como próxima frente? (recomendação: SIM)
-- [ ] **D2** — vocabulário `relationship_type` (vínculo jurídico) × departamento (lotação)
-- [ ] **D3** — trilha de auditoria: tabela de eventos vs colunas (recomendação: tabela)
-- [ ] **D4** — escopo financeiro fica FORA de R2 (espera PORTA-1/0114) — confirmar
-- [ ] **D5** — camada de risco (anti-laranja etc.) adiada pra sub-frente própria — confirmar
-- Ler `LOTE_L2_DELEGACAO_R2.md` (~5 min) e decidir D1–D5 numa sentada.
+- [x] **D1** = SIM (abrir R2) · **D2** = dois eixos (jurídico via CHECK + departamento em scopes_json)
+      · **D3** = tabela `actor_delegation_events` · **D4** = financeiro fora · **D5** = risco depois
+- [x] **R2.1 schema** executado (migration `20260706120000`, efêmera 11/11, dev vivo, 9 legadas
+      preservadas, commit abaixo) — `relationship_type`+`granted_by`+`previous_link_id`+events append-only
+- [ ] **R2.2 writer governado** — grant/revoke com gate canManageCompany, grava vínculo+evento,
+      departamento em scopes_json. Fable 5 ultracode + E2E fail-first de autoria + selo Yala. ← PRÓXIMO
+- [ ] **R2.3 reconciliar leitura** (actor-capabilities projeta campos novos; canRepresentActor íntegro)
+- [ ] **R2.4 camada de risco** (D5 — sub-frente própria, depois)
 
 ### L3 — Catálogo/serviços/marketplace (~15 DTs) — não iniciado
 - [ ] Seed de catálogo (hoje quase vazio, 1 serviço)
@@ -163,6 +165,13 @@ L5 (quase feito) → **L2 (agora é prioridade alta — destrava o Compositor)**
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-06 (3) — L2 decidido + R2.1 (schema de delegação) executado
+- Clayton decidiu D1-D5. R2.1 schema executado: migration `20260706120000` estende
+  actor_delegations (relationship_type CHECK jurídico + granted_by + previous_link_id FK cadeia)
+  + tabela actor_delegation_events append-only. Efêmera 11/11 PASS; unificard_dev vivo; 9 delegações
+  legadas preservadas. Closeout `F-R2-DELEGATION-GOVERNED-LINKS-R2.1-SCHEMA` no cartório.
+  Próximo: R2.2 (writer governado, ultracode + Yala).
 
 ### 2026-07-06 (2) — Pesquisa de implementação do Compositor
 - APRENDIZADO.md ganhou seção "Pesquisa de implementação" (commit `edb2c9a8a`): o Compositor
