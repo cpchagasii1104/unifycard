@@ -1,5 +1,17 @@
 # REMEDIATION DT LOG
 
+## DISCIPLINA (não-DT, prática permanente) — "Jurisprudência de Auditoria" (2026-07-07)
+Formalizado após o re-selo Yala do motor de demanda. Sempre que uma mudança arquitetural legítima
+alterar um padrão que um guard observa (não uma regressão — uma EVOLUÇÃO real do código):
+1. Provar que a mudança é legítima (ratificação/decisão documentada, não suposição).
+2. Atualizar o guard NA MESMA FRENTE — nunca desligar, nunca deixar o guard mentir "verde".
+3. Testar o guard por MUTAÇÃO (reintroduzir o problema de propósito → guard deve falhar; desfazer →
+   guard deve passar) antes de considerar o fix do guard válido.
+O guard é sempre SUBORDINADO à arquitetura, nunca o contrário — mas "subordinado" significa
+ATUALIZADO, não SILENCIADO. Aplicado hoje 4x na mesma sessão: comment-strip do guard de demanda
+(provado por mutação), + 3 falsos-positivos corrigidos (rental price_cents/ADENDO A, groups
+preHandler custom, SocialFeed2 regex frágil) — todos com prova ANTES do fix, nunca "desligar e seguir".
+
 ## YALA-DEMANDA — ✅ RE-SELO CONCEDIDO (2026-07-07) — F-SERVICE-DEMAND-ORCHESTRATION FECHADA
 Re-auditoria adversarial (código+comportamento+guard-por-mutação) confirmou os 2 obrigatórios da
 1ª rodada genuinamente corrigidos: #6 plateia=controle de acesso (404 sem vazar existência, leitura
