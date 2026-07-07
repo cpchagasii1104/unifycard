@@ -22,6 +22,7 @@ export interface RentableResource {
   categoryId: string | null;
   pricingUnit: RentalPricingUnit | null;
   priceCents: number | null;
+  resourceYear: number | null;
   metadata: Record<string, unknown>;
   status: RentableResourceStatus;
   isActive: boolean;
@@ -36,6 +37,7 @@ export async function createRentableResource(input: {
   description?: string | null;
   pricingUnit?: RentalPricingUnit | null;
   priceCents?: number | null;
+  resourceYear?: number | null;
   metadata?: Record<string, unknown>;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
@@ -97,7 +99,7 @@ export async function listRentalConceptsByType(
 
 // Catálogo GOVERNADO marca/modelo (capacidade transversal — 2026-07-07)
 export interface VehicleMake { id: string; slug: string; name: string; }
-export interface VehicleModel { id: string; makeId: string; slug: string; name: string; }
+export interface VehicleModel { id: string; makeId: string; conceptId: string; slug: string; name: string; }
 
 export async function searchVehicleMakes(q?: string): Promise<VehicleMake[]> {
   const params = new URLSearchParams(); if (q?.trim()) params.set('q', q.trim());
@@ -105,8 +107,10 @@ export async function searchVehicleMakes(q?: string): Promise<VehicleMake[]> {
   return res.data;
 }
 
-export async function listVehicleModels(makeId: string, q?: string): Promise<VehicleModel[]> {
-  const params = new URLSearchParams(); if (q?.trim()) params.set('q', q.trim());
+// conceptId OBRIGATÓRIO (fix 2ª IA: modelo pertence a marca+TIPO — CG160 é moto, não carro,
+// mesmo sendo Honda; sem isso, Civic e CG160 apareceriam juntos só por serem da mesma marca).
+export async function listVehicleModels(makeId: string, conceptId: string, q?: string): Promise<VehicleModel[]> {
+  const params = new URLSearchParams({ conceptId }); if (q?.trim()) params.set('q', q.trim());
   const res = await apiFetchJson<{ ok: boolean; data: VehicleModel[] }>(`/catalog/vehicles/makes/${makeId}/models?${params.toString()}`);
   return res.data;
 }

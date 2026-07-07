@@ -34,6 +34,7 @@ export interface RentableResource {
   categoryId: string | null;
   pricingUnit: RentalPricingUnit | null;
   priceCents: number | null;
+  resourceYear: number | null;
   metadata: Record<string, unknown>;
   status: RentableResourceStatus;
   isActive: boolean;
@@ -52,6 +53,7 @@ export interface RentableResourceRow {
   category_id: string | null;
   pricing_unit: RentalPricingUnit | null;
   price_cents: string | number | null;
+  resource_year: number | null;
   metadata: Record<string, unknown> | null;
   status: RentableResourceStatus;
   is_active: boolean;
@@ -67,6 +69,7 @@ export interface CreateRentableResourceInput {
   categoryId?: string | null;
   pricingUnit?: RentalPricingUnit | null;
   priceCents?: number | null;
+  resourceYear?: number | null;
   metadata?: Record<string, unknown>;
 }
 

@@ -7,6 +7,11 @@
 
 import { pool } from '@core/database/pool';
 
+// Fix 2ª IA (2026-07-07): dimensão NOVA — não confundir com Authority/Capability (§4.9) nem
+// CONTEXT formal (pessoal/profissional/institucional). Responde só "modo comercial de oferta".
+export const CONCEPT_OFFER_KINDS = ['rentable'] as const;
+export type ConceptOfferKind = (typeof CONCEPT_OFFER_KINDS)[number];
+
 export interface VehicleMake {
   id: string;
   slug: string;
@@ -16,6 +21,7 @@ export interface VehicleMake {
 export interface VehicleModel {
   id: string;
   makeId: string;
+  conceptId: string;
   slug: string;
   name: string;
 }
@@ -32,15 +38,19 @@ class VehicleCatalogService {
     return rows.rows;
   }
 
-  async listModelsByMake(makeId: string, q?: string): Promise<VehicleModel[]> {
+  /**
+   * Modelo pertence a MARCA + TIPO (fix 2ª IA: "CG160 não deveria aparecer quando o recurso é
+   * Carro, porque é moto"). conceptId é OBRIGATÓRIO — sem ele, mistura carro+moto da mesma marca.
+   */
+  async listModelsByMakeAndConcept(makeId: string, conceptId: string, q?: string): Promise<VehicleModel[]> {
     const term = (q ?? '').trim();
-    const rows = await pool.query<{ id: string; make_id: string; slug: string; name: string }>(
-      `SELECT id::text, make_id::text, slug, name FROM vehicle_models
-        WHERE make_id = $1 AND ($2 = '' OR name ILIKE '%' || $2 || '%')
+    const rows = await pool.query<{ id: string; make_id: string; concept_id: string; slug: string; name: string }>(
+      `SELECT id::text, make_id::text, concept_id::text, slug, name FROM vehicle_models
+        WHERE make_id = $1 AND concept_id = $2 AND ($3 = '' OR name ILIKE '%' || $3 || '%')
         ORDER BY name ASC LIMIT 50`,
-      [makeId, term]
+      [makeId, conceptId, term]
     );
-    return rows.rows.map((r) => ({ id: r.id, makeId: r.make_id, slug: r.slug, name: r.name }));
+    return rows.rows.map((r) => ({ id: r.id, makeId: r.make_id, conceptId: r.concept_id, slug: r.slug, name: r.name }));
   }
 }
 

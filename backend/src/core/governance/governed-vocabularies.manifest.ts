@@ -150,4 +150,13 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     values: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
     canonRef: 'DECISION-0151 ADENDO A (2026-07-07): unidade de cobrança do ANÚNCIO de locação. Preço = registro (Δbank=0); execução = PORTA-1.',
   },
+  {
+    name: 'concept_offer_kinds.offer_kind',
+    pillar: 'temporal',
+    sourceFile: 'src/core/catalog/vehicle-catalog.service.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'CONCEPT_OFFER_KINDS',
+    values: ['rentable'],
+    canonRef: 'Fix 2ª IA (2026-07-07): dimensão NOVA e pequena — não é Authority/Capability (§4.9) nem CONTEXT formal. Responde "este concept pode ser ofertado de que modo comercial?" (hoje só locação). Mata vazamento motoboy/guincho dentro de Veículo.',
+  },
 ];

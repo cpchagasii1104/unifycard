@@ -152,17 +152,16 @@ export default function RentalResourceListPage() {
 
   useEffect(() => {
     setSelectedModel(null); setModelQuery(''); setModelOptions([]);
-    if (!selectedMake) return;
-    listVehicleModels(selectedMake.id).then(setModelOptions).catch(() => setModelOptions([]));
-  }, [selectedMake]);
+  }, [selectedMake, selectedConcept]);
 
+  // Modelo depende de MARCA + TIPO (fix 2ª IA — CG160 é moto, não carro, mesmo sendo Honda)
   useEffect(() => {
-    if (!selectedMake) return;
+    if (!selectedMake || !selectedConcept) return;
     const t = setTimeout(() => {
-      listVehicleModels(selectedMake.id, modelQuery).then(setModelOptions).catch(() => setModelOptions([]));
+      listVehicleModels(selectedMake.id, selectedConcept.concept_id, modelQuery).then(setModelOptions).catch(() => setModelOptions([]));
     }, 200);
     return () => clearTimeout(t);
-  }, [selectedMake, modelQuery]);
+  }, [selectedMake, selectedConcept, modelQuery]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,8 +175,8 @@ export default function RentalResourceListPage() {
         // GOVERNADO: sempre IDs do catálogo (nunca texto digitado); nome só como projeção de exibição
         if (selectedMake) { metadata.vehicleMakeId = selectedMake.id; metadata.vehicleMakeName = selectedMake.name; }
         if (selectedModel) { metadata.vehicleModelId = selectedModel.id; metadata.vehicleModelName = selectedModel.name; }
-        if (attrAno.trim()) metadata.ano = attrAno.trim();
       }
+      const yearNum = attrAno.trim() ? parseInt(attrAno, 10) : null;
       await createRentableResource({
         conceptId: selectedConcept.concept_id,
         resourceType,
@@ -185,6 +184,7 @@ export default function RentalResourceListPage() {
         description: description.trim() || null,
         pricingUnit: cents != null ? pricingUnit : null,
         priceCents: cents,
+        resourceYear: Number.isFinite(yearNum) ? yearNum : null,
         metadata,
       });
       await publishProfileRef.current();
@@ -345,8 +345,8 @@ export default function RentalResourceListPage() {
               </label>
               <label className="rrl-field">
                 Modelo
-                <input type="text" placeholder={selectedMake ? 'Buscar modelo…' : 'Escolha a marca primeiro'} value={modelQuery}
-                  disabled={!selectedMake}
+                <input type="text" placeholder={selectedMake && selectedConcept ? 'Buscar modelo…' : 'Escolha marca + categoria primeiro'} value={modelQuery}
+                  disabled={!selectedMake || !selectedConcept}
                   onChange={(e) => { setModelQuery(e.target.value); setSelectedModel(null); }} />
                 {modelOptions.length > 0 && !selectedModel && (
                   <ul className="rrl-concept-options">
@@ -357,7 +357,14 @@ export default function RentalResourceListPage() {
                 )}
                 {selectedModel && <span className="rrl-concept-selected">✓ {selectedModel.name}</span>}
               </label>
-              <label className="rrl-field">Ano<input type="text" inputMode="numeric" placeholder="Ex.: 1978" value={attrAno} onChange={(e) => setAttrAno(e.target.value)} maxLength={4} /></label>
+              {/* Ano: fato escalar validado (não CONCEPT, não texto livre — fix Clayton/2ª IA
+                  "90 vs 1990 vs 90'"); número nativo do browser, sem digitação livre de formato */}
+              <label className="rrl-field">
+                Ano
+                <input type="number" inputMode="numeric" placeholder="Ex.: 1978" value={attrAno}
+                  min={1900} max={new Date().getFullYear() + 1}
+                  onChange={(e) => setAttrAno(e.target.value)} />
+              </label>
             </div>
           )}
 

@@ -21,6 +21,8 @@ const createSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   pricingUnit: z.enum(RENTAL_PRICING_UNITS).nullable().optional(),
   priceCents: z.number().int().min(0).nullable().optional(),
+  // Ano: fato escalar tipado (não CONCEPT, não texto livre — fix Clayton/2ª IA)
+  resourceYear: z.number().int().min(1900).max(new Date().getFullYear() + 1).nullable().optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
@@ -75,6 +77,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         categoryId: parsed.data.categoryId ?? null,
         pricingUnit: parsed.data.pricingUnit ?? null,
         priceCents: parsed.data.priceCents ?? null,
+        resourceYear: parsed.data.resourceYear ?? null,
         metadata: parsed.data.metadata ?? {},
       });
       return reply.status(201).send({ ok: true, data: resource });
@@ -110,9 +113,10 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * GET /rentable-resources/concepts?resourceType=&q=
-   * Catálogo GOVERNADO filtrado por tipo (fix Clayton 2026-07-07: "primeiro seleciono o tipo,
-   * aí sim vem a categoria relacionada" — mesma lógica de /demands/concepts). Zero texto livre;
-   * o vocabulário RESOURCE_TYPE_TO_DOMAINS decide os N0 elegíveis (doc 18 congelado).
+   * Catálogo GOVERNADO filtrado por tipo + oferta (fix 2ª IA 2026-07-07: "lista curada" virou
+   * GOVERNANÇA real via concept_offer_kinds — não array hardcoded). Dois filtros compostos:
+   * 1) domínio N0 do tipo (RESOURCE_TYPE_TO_DOMAINS, coarse) 2) offer_kind='rentable' (fine —
+   * exclui motoboy/guincho/mudança, que são serviços contratáveis do mesmo N0, não bens alugáveis).
    */
   fastify.get<{ Querystring: { resourceType?: string; q?: string } }>('/concepts', async (req, reply) => {
     if (!req.tenant?.id) {
@@ -127,7 +131,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
 
     const { runQueriesWithTenant } = await import('@core/database/pool');
     const params: unknown[] = [];
-    let where = `cs.tenant_id IS NULL AND cs.status = 'active'`;
+    let where = `cs.tenant_id IS NULL AND cs.status = 'active' AND cok.offer_kind = 'rentable'`;
     if (domains) {
       params.push(domains);
       where += ` AND c.domain = ANY($${params.length})`;
@@ -141,6 +145,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
       `SELECT DISTINCT ON (c.concept_id) c.concept_id::text, c.slug, c.domain, cs.name AS label
          FROM concepts c
          JOIN canonical_services cs ON cs.concept_id = c.concept_id
+         JOIN concept_offer_kinds cok ON cok.concept_id = c.concept_id
         WHERE ${where}
         ORDER BY c.concept_id, cs.created_at ASC`,
       params
