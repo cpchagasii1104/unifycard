@@ -60,6 +60,8 @@ interface SocialData {
   followersCount: number;
   postsCount: number;
   isFollowing: boolean;
+  /** backend declara (viewer server-side): proprio perfil nao projeta Seguir. */
+  isOwn: boolean;
 }
 
 export default function ActorPage() {
@@ -98,6 +100,7 @@ export default function ActorPage() {
           followersCount: (s.counts as any)?.followers_count ?? 0,
           postsCount: (s.counts as any)?.posts_count ?? 0,
           isFollowing: (s as any).is_following ?? false,
+          isOwn: (s as any).is_own ?? false,
         });
       }
       setActiveTab('all');
@@ -221,7 +224,7 @@ export default function ActorPage() {
 
   // ações do hero: Seguir (fluxo vivo) + Conectar (contrato) + gated (renderizam desabilitadas)
   const heroActions: EntityHeroAction[] = [];
-  if (social) {
+  if (social && !social.isOwn) {
     heroActions.push(
       social.isFollowing
         ? { label: followBusy ? '…' : 'Deixar de seguir', onClick: handleFollowToggle, variant: 'secondary', disabled: followBusy }

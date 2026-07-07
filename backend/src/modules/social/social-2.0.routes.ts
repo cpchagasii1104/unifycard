@@ -594,6 +594,10 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         posts,
         counts,
         is_following: isFollowing,
+        // Achado de Clayton (2026-07-07): "Seguir" aparecia no PRÓPRIO perfil. A VERDADE é do backend
+        // (viewerActorId resolvido server-side): is_own=true → a tela NÃO projeta o botão (o CHECK
+        // not-self do banco já rejeitaria; isto é projeção honesta, não autoridade).
+        is_own: viewerActorId === req.params.id,
       });
     } catch (error) {
       fastify.log.error({ err: error }, 'Erro ao buscar actor');
