@@ -275,14 +275,19 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
    * Gate: canRepresentActor (fail-closed 403) — o actor declarado é hint, nunca autoridade.
    */
   fastify.get('/audience-options', async (req: FastifyRequest, reply: FastifyReply) => {
-    const tenantId = req.tenant!.id;
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    const tenantId = req.tenant.id;
     const actorId = req.actionContext?.actorId;
     if (!actorId) {
       return reply.status(400).send({ ok: false, code: 'ACTION_CONTEXT_REQUIRED' });
     }
     let actor: { actor_id: string; actor_type: string };
     try {
-      actor = await resolveRepresentedActor(tenantId, req.user?.userId, actorId);
+      actor = await resolveRepresentedActor(
+        req.tenant.id,
+        req.user?.userId,
+        actorId
+      );
     } catch {
       return reply.status(403).send({ ok: false, code: 'ACTOR_NOT_REPRESENTABLE' });
     }
@@ -319,7 +324,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{ Params: { id: string }; Body: { visibility?: string; audienceRelationshipTypes?: string[] | null } }>(
     '/:id/audience',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+      const tenantId = req.tenant.id;
       const actorId = req.actionContext?.actorId;
       if (!actorId) return reply.status(400).send({ ok: false, code: 'ACTION_CONTEXT_REQUIRED' });
       const evRows = await runQueryWithTenant<{ actor_id: string }>(
@@ -327,7 +333,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       );
       if (!evRows) return reply.status(404).send({ ok: false, code: 'EVENT_NOT_FOUND' });
       try {
-        await resolveRepresentedActor(tenantId, req.user?.userId, actorId);
+        await resolveRepresentedActor(
+          req.tenant.id,
+          req.user?.userId,
+          actorId
+        );
       } catch {
         return reply.status(403).send({ ok: false, code: 'ACTOR_NOT_REPRESENTABLE' });
       }
