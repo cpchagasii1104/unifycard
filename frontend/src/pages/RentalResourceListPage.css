@@ -27,3 +27,19 @@
 .rrl-status-active { background: #dcefe0; color: #2f7a3f; }
 .rrl-status-paused { background: #f0e2c6; color: #9c6a1e; }
 .rrl-status-retired { background: #eadad2; color: #7a3e32; }
+
+/* Modo consumir (descoberta) + cobrança/disponibilidade — 2026-07-07 */
+.rrl-type-hub { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.rrl-type-card { display: flex; flex-direction: column; align-items: center; gap: 4px; background: #fff; border: 1px solid #e3e6ea; border-radius: 12px; padding: 14px 18px; cursor: pointer; font: inherit; min-width: 110px; }
+.rrl-type-card.selected { border-color: #6d5df6; box-shadow: 0 0 0 2px rgba(109,93,246,.18); }
+.rrl-type-icon { font-size: 1.5rem; }
+.rrl-card-price { font-weight: 600; color: #1a7f4b; font-size: .92rem; }
+.rrl-card-desc { color: #64748b; font-size: .82rem; }
+.rrl-card-cta { color: #6d5df6; font-size: .85rem; font-weight: 600; }
+.rrl-card--own { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.rrl-card-actions { display: flex; gap: 8px; }
+.rrl-card-actions button { font: inherit; font-size: .85rem; padding: 6px 10px; border: 1px solid #d7dbe0; border-radius: 8px; background: #fff; cursor: pointer; }
+.rrl-avail-form { border-top: 1px dashed #d7dbe0; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.rrl-row { display: flex; gap: 10px; }
+.rrl-row .rrl-field { flex: 1; }
+.rrl-hint { color: #64748b; font-size: .82rem; margin: 2px 0 0; }

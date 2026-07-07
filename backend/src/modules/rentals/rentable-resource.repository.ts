@@ -20,6 +20,8 @@ function toDomain(row: RentableResourceRow): RentableResource {
     label: row.label,
     description: row.description,
     categoryId: row.category_id,
+    pricingUnit: row.pricing_unit,
+    priceCents: row.price_cents !== null && row.price_cents !== undefined ? Number(row.price_cents) : null,
     status: row.status,
     isActive: row.is_active,
     createdAt: row.created_at.toISOString(),
@@ -36,9 +38,9 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `INSERT INTO rentable_resources
-         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id)
-       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid)
-       RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description,
+         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9)
+       RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
                  category_id, status, is_active, created_at, updated_at`,
       [
         tenantId,
@@ -48,6 +50,8 @@ class RentableResourceRepository {
         input.label,
         input.description ?? null,
         input.categoryId ?? null,
+        input.pricingUnit ?? null,
+        input.priceCents ?? null,
       ]
     );
     if (!row) throw new Error('Falha ao criar rentable_resource');
@@ -57,7 +61,7 @@ class RentableResourceRepository {
   async findById(tenantId: string, id: string): Promise<RentableResource | null> {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
-      `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description,
+      `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
               category_id, status, is_active, created_at, updated_at
          FROM rentable_resources
         WHERE id = $1::uuid AND tenant_id = $2::uuid
@@ -85,7 +89,7 @@ class RentableResourceRepository {
     params.push(limit, offset);
     const rows = await runQueriesWithTenant<RentableResourceRow>(
       tenantId,
-      `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description,
+      `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
               category_id, status, is_active, created_at, updated_at
          FROM rentable_resources
         WHERE ${where}
@@ -106,7 +110,7 @@ class RentableResourceRepository {
       `UPDATE rentable_resources
           SET status = $3, is_active = ($3 = 'active'), updated_at = now()
         WHERE id = $1::uuid AND tenant_id = $2::uuid
-        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description,
+        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
                   category_id, status, is_active, created_at, updated_at`,
       [id, tenantId, status]
     );

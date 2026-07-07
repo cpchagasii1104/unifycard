@@ -7,6 +7,11 @@
 export type RentableResourceType = 'equipment' | 'vehicle' | 'property' | 'space' | 'other';
 export type RentableResourceStatus = 'active' | 'paused' | 'retired';
 
+// DECISION-0151 ADENDO A (2026-07-07): unidade de cobrança do ANÚNCIO — vocabulário GOVERNADO
+// (fonte única; manifest + CHECK físico espelham daqui). Preço = REGISTRO puro (Δbank=0).
+export const RENTAL_PRICING_UNITS = ['por_hora', 'por_dia', 'por_semana', 'por_mes'] as const;
+export type RentalPricingUnit = (typeof RENTAL_PRICING_UNITS)[number];
+
 export interface RentableResource {
   id: string;
   tenantId: string;
@@ -16,6 +21,8 @@ export interface RentableResource {
   label: string;
   description: string | null;
   categoryId: string | null;
+  pricingUnit: RentalPricingUnit | null;
+  priceCents: number | null;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -31,6 +38,8 @@ export interface RentableResourceRow {
   label: string;
   description: string | null;
   category_id: string | null;
+  pricing_unit: RentalPricingUnit | null;
+  price_cents: string | number | null;
   status: RentableResourceStatus;
   is_active: boolean;
   created_at: Date;
@@ -43,6 +52,8 @@ export interface CreateRentableResourceInput {
   label: string;
   description?: string | null;
   categoryId?: string | null;
+  pricingUnit?: RentalPricingUnit | null;
+  priceCents?: number | null;
 }
 
 export interface ListRentableResourcesFilters {

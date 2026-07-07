@@ -1,3 +1,4 @@
+import { RENTAL_PRICING_UNITS } from './rentable-resource.types';
 // backend/src/modules/rentals/rentable-resource.routes.ts
 // F-RENTAL-RESOURCE-SURFACE-SLICE-A — a ÚNICA peça que faltava para o Trilho B (DECISION-0159/
 // fluxo.png) funcionar ponta-a-ponta para recurso: registrar o recurso. Availability/booking/
@@ -18,6 +19,8 @@ const createSchema = z.object({
   label: z.string().min(1).max(200),
   description: z.string().max(2000).nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
+  pricingUnit: z.enum(RENTAL_PRICING_UNITS).nullable().optional(),
+  priceCents: z.number().int().min(0).nullable().optional(),
 });
 
 const updateStatusSchema = z.object({

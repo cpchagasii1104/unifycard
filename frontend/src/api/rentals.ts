@@ -7,6 +7,9 @@ import { apiFetchJson } from './client';
 
 export type RentableResourceType = 'equipment' | 'vehicle' | 'property' | 'space' | 'other';
 export type RentableResourceStatus = 'active' | 'paused' | 'retired';
+// DECISION-0151 ADENDO A — projeção do vocabulário governado RENTAL_PRICING_UNITS (fonte: backend)
+export type RentalPricingUnit = 'por_hora' | 'por_dia' | 'por_semana' | 'por_mes';
+export const PRICING_UNIT_PT: Record<RentalPricingUnit, string> = { por_hora: 'Por hora', por_dia: 'Por dia (diária)', por_semana: 'Por semana', por_mes: 'Por mês' };
 
 export interface RentableResource {
   id: string;
@@ -17,6 +20,8 @@ export interface RentableResource {
   label: string;
   description: string | null;
   categoryId: string | null;
+  pricingUnit: RentalPricingUnit | null;
+  priceCents: number | null;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -28,6 +33,8 @@ export async function createRentableResource(input: {
   resourceType: RentableResourceType;
   label: string;
   description?: string | null;
+  pricingUnit?: RentalPricingUnit | null;
+  priceCents?: number | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
@@ -56,5 +63,11 @@ export async function updateRentableResourceStatus(
     method: 'PATCH',
     body: JSON.stringify({ status }),
   });
+  return res.data;
+}
+
+// CONSUMIR (descoberta) — freio 'sem discovery' da SLICE-B revogado por Clayton 2026-07-07
+export async function listActiveRentableResources(): Promise<RentableResource[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: RentableResource[] }>('/rentable-resources?status=active&limit=50');
   return res.data;
 }

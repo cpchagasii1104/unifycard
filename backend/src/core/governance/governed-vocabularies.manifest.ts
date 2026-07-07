@@ -141,4 +141,13 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     values: ['granted', 'revoked', 'expired'],
     canonRef: 'DECISION D3 (Lote L2). Trilha append-only de delegação (§4.9.9 audit).',
   },
+  {
+    name: 'rentable_resources.pricing_unit',
+    pillar: 'temporal',
+    sourceFile: 'src/modules/rentals/rentable-resource.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'RENTAL_PRICING_UNITS',
+    values: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
+    canonRef: 'DECISION-0151 ADENDO A (2026-07-07): unidade de cobrança do ANÚNCIO de locação. Preço = registro (Δbank=0); execução = PORTA-1.',
+  },
 ];
