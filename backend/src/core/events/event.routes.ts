@@ -2157,10 +2157,35 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, 'Sem autoridade para representar o actor do evento');
         }
 
+        // 🔴 FIX (achado de Clayton no navegador, 2026-07-06): o WIRE fala snake_case (schema desta rota:
+        // event.event_type/event_id/datetime_start...) mas o service lê camelCase (CreateEventInput.eventType)
+        // → eventType chegava UNDEFINED ("Event type 'undefined' não existe na taxonomia oficial") e o
+        // caminho "avançar draft" (event_id) nunca casava. Normalização EXPLÍCITA na fronteira HTTP
+        // (aceita ambos os formatos; camelCase interno é o canônico do service).
+        const rawBody = req.body as Record<string, any>;
+        const rawEvent = rawBody?.event as Record<string, any> | undefined;
+        const normalized = {
+          eventId: rawBody?.event_id ?? rawBody?.eventId ?? undefined,
+          event: rawEvent
+            ? {
+                actorId: rawEvent.actor_id ?? rawEvent.actorId,
+                actorType: rawEvent.actor_type ?? rawEvent.actorType,
+                eventType: rawEvent.event_type ?? rawEvent.eventType,
+                eventSubtype: rawEvent.event_subtype ?? rawEvent.eventSubtype ?? null,
+                title: rawEvent.title,
+                description: rawEvent.description ?? null,
+                datetimeStart: rawEvent.datetime_start ?? rawEvent.datetimeStart ?? undefined,
+                datetimeEnd: rawEvent.datetime_end ?? rawEvent.datetimeEnd ?? undefined,
+                visibility: rawEvent.visibility ?? undefined,
+                maxAttendees: rawEvent.max_attendees ?? rawEvent.maxAttendees ?? null,
+              }
+            : undefined,
+        } as CreateDraftInput;
+
         const event = await eventCreationOrchestrator.createOrAdvanceDraft(
           req.tenant.id,
           userActor.actor_id,
-          req.body
+          normalized
         );
 
         return reply.status(200).send({ 

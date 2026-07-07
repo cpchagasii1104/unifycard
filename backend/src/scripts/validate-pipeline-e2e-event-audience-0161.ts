@@ -94,6 +94,17 @@ async function main(): Promise<void> {
   await pool.query(`UPDATE events SET visibility='public', audience_relationship_types=NULL WHERE id=$1`, [evId]);
   rec('D public segue visível a todos (comportamento anterior)', await canViewEvent(T, evId, estranho.uid) === true);
 
+  // E · FIX wire snake_case → service camelCase (bug "Event type 'undefined'" achado por Clayton):
+  // POST /v2/create com o corpo EXATO que o wizard manda (event_type snake) tem que criar o draft.
+  const rE = await app.inject({
+    method: 'POST', url: '/events/v2/create',
+    payload: { event: { actor_id: org.actorId, actor_type: 'user', event_type: 'gastronomic', visibility: 'public', title: 'Churrasco E2E' } },
+  });
+  const evE = rE.statusCode === 200 ? JSON.parse(rE.body).event : null;
+  const rowE = evE ? (await pool.query<{ t: string }>(`SELECT event_type t FROM events WHERE id=$1`, [evE.id])).rows[0] : null;
+  rec("E wire snake_case (event_type) cria draft — bug 'undefined' morto",
+    rE.statusCode === 200 && rowE?.t === 'gastronomic', `status=${rE.statusCode} tipo=${rowE?.t} body=${rE.body.slice(0, 100)}`);
+
   await app.close();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${failed.length === 0 ? '🎉 PASS' : '💥 FAIL'} — ${results.length - failed.length}/${results.length}`);
