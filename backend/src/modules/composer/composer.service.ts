@@ -33,7 +33,9 @@ const INTENT_PROJECTION: Partial<Record<ActorIntent, { label: string; deeplink: 
   [ActorIntent.REQUEST_BOOKING]: { label: 'Solicitar agendamento', deeplink: null, modes: ['consuming'] },
   [ActorIntent.OFFER_SERVICE]:   { label: 'Oferecer serviço', deeplink: '/services/new', modes: ['operating'] },
   [ActorIntent.OFFER_PRODUCT]:   { label: 'Vender produto', deeplink: null, modes: ['operating'] },
-  [ActorIntent.ANNOUNCE_EVENT]:  { label: 'Criar evento', deeplink: '/events/new', modes: ['operating'] },
+  // 2026-07-06 (Clayton, F2-C): evento também em CONSUMING — PF cria aniversário/festa sem "operar".
+  // Projeção UX (modes) apenas; a IDENTIDADE e o gate (validateIntent) seguem no SSOT.
+  [ActorIntent.ANNOUNCE_EVENT]:  { label: 'Criar evento', deeplink: '/events/new', modes: ['consuming', 'operating'] },
   [ActorIntent.CREATE_PROJECT]:  { label: 'Propor projeto comunitário', deeplink: null, modes: ['consuming'] },
   [ActorIntent.START_VOTE]:      { label: 'Abrir votação', deeplink: null, modes: ['consuming', 'operating'] },
 };

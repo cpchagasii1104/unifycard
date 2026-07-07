@@ -12,6 +12,11 @@ import { classifyPostIntent, type OccupancyType } from '../../utils/intent-class
 // F2 (sequência de Clayton): 1-Para quem? 2-O quê? ANTES de digitar — plateia = vocabulário GOVERNADO
 // posts.visibility (§2.4c); atos = contrato C1 (ActorIntent SSOT, server-driven por actor).
 import { getComposerContract, type ComposerIntentOption } from '../../api/composer';
+// F2-C (Clayton): modo operante + actor trocáveis DENTRO do modal — o contrato refetcha e o passo 2
+// muda na hora ("o actor e o modo operante moldam esta superfície"). Componentes REUSADOS (não duplicados).
+import OperatingModeToggle from '../layout/OperatingModeToggle';
+import ActorSelector from './ActorSelector';
+import { useOperatingMode } from '../../hooks/useOperatingMode';
 import {
   analyzeIntent,
   continueConversation,
@@ -62,7 +67,7 @@ interface ClassifiedIntent {
 
 export default function IntentComposer({ onSubmit, placeholder = 'Diga o que você quer que aconteça...' }: IntentComposerProps) {
   const navigate = useNavigate();
-  const { activeActor } = useActiveActor();
+  const { activeActor, setActiveActor: setActiveActorGlobal } = useActiveActor();
   const [mode, setMode] = useState<'intent' | 'manual' | 'preview'>('intent'); // intent = modo inteligente, manual = PostComposer, preview = revisão
 
   // ── F2 · PASSOS 1 e 2 (antes de digitar) ─────────────────────────────────────
@@ -119,17 +124,20 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   const textInputRef = useRef<string>('');
 
   // Carregar features do usuário e inicializar Web Speech API
-  // F2: contrato C1 por actor (o actor/modo MOLDAM a superfície — server-driven, fail-closed).
+  // F2-C: o MODO OPERANTE global (Consumir/Operar) dirige o contrato — trocou modo OU actor no modal,
+  // o passo 2 refetcha e muda na hora (server-driven, fail-closed).
+  const { mode: operatingMode } = useOperatingMode();
   useEffect(() => {
     setStep1Audience(null);
     setStep2Intent(null);
+    setStep3Cta(null);
     setComposerIntents([]);
     if (!activeActor?.actor_id) return;
-    const mode0161 = activeActor.actor_type === 'page' ? 'operating' : 'consuming';
+    const mode0161 = operatingMode === 'operar' ? 'operating' : 'consuming';
     getComposerContract(activeActor.actor_id, mode0161)
       .then((c) => setComposerIntents(c.intents))
-      .catch(() => setComposerIntents([])); // sem contrato → sem atos (fail-closed; modo manual segue disponível)
-  }, [activeActor?.actor_id, activeActor?.actor_type]);
+      .catch(() => setComposerIntents([])); // sem contrato → sem atos (fail-closed)
+  }, [activeActor?.actor_id, activeActor?.actor_type, operatingMode]);
 
   useEffect(() => {
     // Carregar features do usuário (versão paga)
@@ -727,6 +735,16 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
         <span className="composer-modal-title">Criar publicação</span>
         <button type="button" className="composer-modal-close" onClick={() => setIsComposerOpen(false)}>✕</button>
       </div>
+      {/* F2-C (mockup de Clayton): modo operante + actor TROCÁVEIS dentro do modal — componentes
+          globais reusados; trocar aqui muda o contrato (passo 2) na hora. */}
+      <div className="composer-modal-context">
+        <OperatingModeToggle />
+        <ActorSelector
+          selectedActorId={activeActor?.actor_id ?? null}
+          onSelectActor={(actorId) => setActiveActorGlobal(actorId)}
+          compact={false}
+        />
+      </div>
       {/* Contexto de Ator (informativo apenas) */}
       {activeActor && (
         <div className="actor-context-info">
@@ -989,14 +1007,8 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
 
         {/* Ações */}
         <div className="intent-actions">
-          <button
-            type="button"
-            onClick={() => setMode('manual')}
-            className="btn-manual-mode"
-            title="Modo manual com todas as opções"
-          >
-            ⚙️ Modo Avançado
-          </button>
+          {/* F2-C: "Modo Avançado" REMOVIDO (Clayton: era enumeração PARALELA ao contrato C1 —
+              o passo 2 agora é a lista completa e governada; evento/oferta deeplinkam pros motores). */}
           <button
             type="button"
             onClick={handleTextSubmit}
