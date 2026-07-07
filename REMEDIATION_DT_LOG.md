@@ -16062,3 +16062,12 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
 
 ## F-EVENT-AUDIENCE-ACTOR-ADAPTIVE-DESIGN-PACK — 🟡 RFC ENTREGUE (DECISION-0161 aguarda ratificação) (2026-07-06)
 - RFC montado em `docs/02_decisions/DECISION_0161_EVENT_AUDIENCE_ACTOR_ADAPTIVE.md` com prova de rastreabilidade §2.2.2. **D1** plateia = `events.visibility` (macro, CHECK intocado) + refinamento `audience_relationship_types[]` VALIDADO contra o CHECK do typed-edge (zero vocabulário novo) · **D2** superfície server-driven `GET /events/audience-options` por actor (padrão C1; PF≠empresa) · **D3** enforcement na LEITURA (`event-visibility.service` + arestas aceitas; fail-closed) · **D4** listas custom = RFC próprio futuro. Sequência de 4 fatias definida; F2 do composer usa o mesmo padrão. **NADA codado — aguarda "ratificado 0161" de Clayton.**
+
+## ADENDO UX ao F2 (composer-C1) — DIREÇÃO RATIFICÁVEL: composer MODAL estilo Facebook (Clayton, 2026-07-06)
+- **Pedido de Clayton (com prints do Facebook):** criação de post deve manter a navegação NA PRÓPRIA PÁGINA — modal sobre o feed (não rota separada/tela estranha), como FB/IG. Ele acha o composer atual estranho; padrões de mercado são melhores.
+- **Desenho de UX incorporado ao F2 (mesma fatia, não frente nova):**
+  1. **Modal overlay** sobre o feed (feed permanece atrás; fechar = volta sem navegação).
+  2. **Topo = actor ativo (avatar+nome) + CHIP DE PLATEIA** (padrão FB "Amigos ▾") — o chip abre o seletor de plateia que projeta o vocabulário GOVERNADO (posts.visibility public/connections/only_me hoje; refinamento por tipos de relação quando 0161 ratificar — MESMO padrão do evento).
+  3. **Texto primeiro; "Adicionar ao post" depois** (revelação progressiva) — e as AÇÕES dessa faixa são os intents do CONTRATO C1 (GET /composer/intents, actor-adaptativo): oferta de serviço/produto, evento (deeplink pro motor, F1 já feita), votação etc. — cada uma habilitada/desabilitada pelo validateIntent do actor.
+  4. Sequência lógica que Clayton cobrou = a ordem do contrato server-driven, não do TSX.
+- **Invariantes:** frontend NÃO cria verdade (chip projeta vocabulário governado; intents vêm do C1); zero enum novo em tela; a "cara" é FB-like, o MOTOR é nosso. Execução: junto do F2, após ratificação da 0161 (plateia) — os dois compartilham o seletor de plateia.
