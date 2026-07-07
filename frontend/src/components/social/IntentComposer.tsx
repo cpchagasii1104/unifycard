@@ -20,6 +20,7 @@ import {
   type ActorContext as APIActorContext,
 } from '../../api/intent-orchestrator';
 import './IntentComposer.css';
+import { createPortal } from 'react-dom';
 
 interface IntentComposerProps {
   onSubmit: (
@@ -718,7 +719,8 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
     );
   }
 
-  return (
+  // Portal no body: ancestral com transform/overflow não pode clipar o overlay fixed.
+  return createPortal(
     <div className="composer-modal-backdrop" onClick={() => setIsComposerOpen(false)}>
     <div id="intent-composer" className="intent-composer intent-composer-intent composer-modal" onClick={(e) => e.stopPropagation()}>
       <div className="composer-modal-head">
@@ -1006,7 +1008,8 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
         </div>
       </div>
     </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -502,7 +502,7 @@
 .composer-step-empty { color: #889; font-size: 0.8rem; }
 
 /* F2-B — modal FB-like + gatilho colapsado */
-.composer-trigger { cursor: pointer; }
+.composer-trigger { cursor: pointer; background: #fff; border: 1px solid #e3e6ee; border-radius: 12px; }
 .composer-trigger-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
 .composer-trigger-input { flex: 1; background: #f0f2f5; border-radius: 999px; padding: 10px 16px; color: #667; }
 .composer-trigger-input:hover { background: #e6e9ef; }
