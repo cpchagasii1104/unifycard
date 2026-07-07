@@ -12,6 +12,19 @@ ATUALIZADO, não SILENCIADO. Aplicado hoje 4x na mesma sessão: comment-strip do
 (provado por mutação), + 3 falsos-positivos corrigidos (rental price_cents/ADENDO A, groups
 preHandler custom, SocialFeed2 regex frágil) — todos com prova ANTES do fix, nunca "desligar e seguir".
 
+**Correção de registro (2026-07-07, mesmo dia):** a afirmação "suíte completa toda verde" no
+fechamento anterior estava INCOMPLETA — eu tinha rodado só a sub-suite `audit-legacy-service-
+availability-containment-suite.mjs`, não o `npm run validate:regression-guards` completo (~150
+guards). Yala rodou de ponta a ponta e achou 2 gates vermelhos REAIS (mesma classe dos 3 falsos-
+positivos, mas fora do lote anterior): `canonical-catalog-closure` (vehicle-catalog.routes/service.ts
+sem classificação) + `booking-caller-authority` (smoke-rental-locacao.ts sem classificação). Ambos
+eram higiene de classificação (arquivo novo em diretório vigiado, sem impacto de segurança/dinheiro/
+autoridade — FORBIDDEN_REGRESSION=0, FINANCIAL_HARD_STOP=0 nos dois), corrigidos no mesmo padrão dos
+outros 3 (provar legitimidade → classificar → reverificar). Prova: `npm run validate:regression-
+guards` de ponta a ponta = EXIT 0, zero "GATE FAIL" em todo o log (grep, não só a última linha).
+**Lição institucionalizada:** "suíte verde" só pode ser afirmado depois de rodar o comando raiz
+completo, nunca uma sub-suite — a formulação precisa passa a ser explícita sobre QUAL comando rodou.
+
 ## YALA-DEMANDA — ✅ RE-SELO CONCEDIDO (2026-07-07) — F-SERVICE-DEMAND-ORCHESTRATION FECHADA
 Re-auditoria adversarial (código+comportamento+guard-por-mutação) confirmou os 2 obrigatórios da
 1ª rodada genuinamente corrigidos: #6 plateia=controle de acesso (404 sem vazar existência, leitura
