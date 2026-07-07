@@ -710,6 +710,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     const actorRelationshipModule = await import('./modules/relationships/actor-relationship.routes');
     await protectedScope.register(actorRelationshipModule.default);
     console.log('[BOOT] Actor Relationships module registered: /relationships');
+    // DECISION-0164 (fatia A): DEMANDA de serviço — motor de orquestração (Δbank=0; catraca 0113)
+    const demandModule = await import('./modules/demands/demand.routes');
+    await protectedScope.register(demandModule.default);
+    console.log('[BOOT] Service Demands module registered: /demands');
     // F-ACTOR-RELATIONSHIP-MEMBERSHIP-BRIDGE-SLICE-2: ponte colaborador→autoridade (grant = ato do dono
     // canManageCompany, roteado pro fluxo vivo de membros/company_users — aceite social não concede poder)
     const relationshipBridgeModule = await import('./modules/relationships/actor-relationship-membership-bridge.routes');

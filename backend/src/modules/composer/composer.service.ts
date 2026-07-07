@@ -36,6 +36,11 @@ const INTENT_PROJECTION: Partial<Record<ActorIntent, { label: string; deeplink: 
   // 2026-07-06 (Clayton, F2-C): evento também em CONSUMING — PF cria aniversário/festa sem "operar".
   // Projeção UX (modes) apenas; a IDENTIDADE e o gate (validateIntent) seguem no SSOT.
   [ActorIntent.ANNOUNCE_EVENT]:  { label: 'Criar evento', deeplink: '/events/new', modes: ['consuming', 'operating'] },
+  // DECISION-0164 fatia B (Clayton: "Oferecer oportunidade"): a DEMANDA no composer.
+  // REQUEST_HELP ganhou superfície viva (/oportunidades) — deeplink como ANNOUNCE_EVENT.
+  // NÃO é redundante com OFFER_SERVICE: oferta ("eu presto") ≠ demanda ("eu preciso") — dois
+  // lados do MESMO mercado, cada um no seu trilho (services vs service_demands).
+  [ActorIntent.REQUEST_HELP]:    { label: 'Oferecer oportunidade', deeplink: '/oportunidades?tab=publicar', modes: ['consuming', 'operating'] },
   [ActorIntent.CREATE_PROJECT]:  { label: 'Propor projeto comunitário', deeplink: null, modes: ['consuming'] },
   [ActorIntent.START_VOTE]:      { label: 'Abrir votação', deeplink: null, modes: ['consuming', 'operating'] },
 };

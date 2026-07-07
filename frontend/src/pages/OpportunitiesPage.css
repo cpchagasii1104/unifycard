@@ -1,0 +1,36 @@
+/* DECISION-0164 fatia B — Oportunidades */
+.opp-page { max-width: 860px; margin: 0 auto; }
+.opp-page h1 { margin-bottom: 4px; }
+.opp-sub { color: #64748b; margin: 0 0 16px; }
+.opp-tabs { display: flex; gap: 6px; border-bottom: 1px solid #e3e6ea; margin-bottom: 16px; }
+.opp-tabs button { background: none; border: none; padding: 10px 14px; cursor: pointer; color: #555; border-bottom: 2px solid transparent; font-size: 0.95rem; }
+.opp-tabs button.active { color: #1877f2; border-bottom-color: #1877f2; font-weight: 600; }
+.opp-matching { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #374151; }
+.opp-empty { color: #8a8f98; }
+.opp-card { background: #fff; border: 1px solid #e3e6ea; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+.opp-card-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.opp-concept { color: #1877f2; font-weight: 600; text-transform: capitalize; }
+.opp-status { font-size: 0.8rem; border-radius: 12px; padding: 2px 10px; background: #f0f2f5; }
+.opp-status-open { background: #dcfce7; color: #166534; }
+.opp-status-filled { background: #ede9fe; color: #5b3fe4; }
+.opp-title { display: block; margin-bottom: 4px; }
+.opp-desc { color: #555; margin: 4px 0; }
+.opp-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.85rem; color: #475569; margin-top: 6px; }
+.opp-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.opp-actions input { border: 1px solid #d7dbe0; border-radius: 6px; padding: 6px 10px; width: 160px; }
+.opp-actions button, .opp-publish { border: none; background: #1877f2; color: #fff; border-radius: 18px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+.opp-actions button:disabled, .opp-publish:disabled { background: #b9d3f7; cursor: not-allowed; }
+.opp-back { background: none; border: none; color: #1877f2; cursor: pointer; margin-bottom: 8px; }
+.opp-response { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #fff; border: 1px solid #eef0f2; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.opp-response a { color: #111827; text-decoration: none; }
+.opp-response a:hover { color: #1877f2; }
+.opp-rstatus-chosen, .opp-rstatus-accepted { color: #166534; font-weight: 600; }
+.opp-rstatus-withdrawn { color: #b91c1c; }
+.opp-form { display: flex; flex-direction: column; gap: 12px; background: #fff; border: 1px solid #e3e6ea; border-radius: 10px; padding: 16px; }
+.opp-form label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; color: #374151; font-size: 0.9rem; }
+.opp-form input, .opp-form select, .opp-form textarea { border: 1px solid #d7dbe0; border-radius: 6px; padding: 8px 10px; font: inherit; font-weight: 400; }
+.opp-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.opp-row label { flex: 1; min-width: 140px; }
+.opp-weekdays { display: flex; gap: 10px; flex-wrap: wrap; }
+.opp-wd { flex-direction: row !important; align-items: center; gap: 4px !important; font-weight: 400 !important; }
+.opp-note { color: #8a8f98; font-size: 0.85rem; margin: 0; }

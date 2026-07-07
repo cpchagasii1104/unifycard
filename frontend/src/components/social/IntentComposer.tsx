@@ -26,6 +26,7 @@ import {
 } from '../../api/intent-orchestrator';
 import './IntentComposer.css';
 import { createPortal } from 'react-dom';
+import DemandPublishForm from '../demands/DemandPublishForm';
 
 interface IntentComposerProps {
   onSubmit: (
@@ -43,7 +44,9 @@ interface IntentComposerProps {
       currency?: string;
     },
     /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5). Ausente = backend assume 'public'. */
-    visibility?: 'public' | 'connections' | 'only_me'
+    visibility?: 'public' | 'connections' | 'only_me',
+    /** DECISION-0162: refinamento da plateia por tipo de relação (⊆ vocabulário typed-edge). */
+    audienceRelationshipTypes?: string[]
   ) => Promise<void>;
   placeholder?: string;
 }
@@ -73,7 +76,7 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   // ── F2 · PASSOS 1 e 2 (antes de digitar) ─────────────────────────────────────
   // Passo 1 "Para quem é isso?" — projeta posts.visibility (governado; PF: público/amigos/só-eu;
   // PJ: público — plateias finas de empresa em posts dependem de estender 0161 a posts, DECISION futura).
-  const [step1Audience, setStep1Audience] = useState<{ key: string; label: string; visibility: 'public' | 'connections' | 'only_me' } | null>(null);
+  const [step1Audience, setStep1Audience] = useState<{ key: string; label: string; visibility: 'public' | 'connections' | 'only_me'; audienceTypes?: string[] } | null>(null);
   // Passo 2 "O que é isso?" — projetado do contrato C1 (ActorIntent SSOT).
   const [composerIntents, setComposerIntents] = useState<ComposerIntentOption[]>([]);
   const [step2Intent, setStep2Intent] = useState<ComposerIntentOption | null>(null);
@@ -82,16 +85,21 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   const [step3Cta, setStep3Cta] = useState<'booking' | 'service' | 'payment' | null>(null);
   // F2-B: composer em MODAL sobre o feed (padrão FB — mesma página, sem navegar).
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  // DECISION-0164: "Oferecer oportunidade" abre o formulário de DEMANDA em modal AQUI (feed).
+  const [showDemandForm, setShowDemandForm] = useState(false);
   // F2-C: pílula do actor abre a lista em dropdown (padrão do header — não lista sempre aberta).
   const [actorPickerOpen, setActorPickerOpen] = useState(false);
   // F2-C: plateia (passo 1) também é pílula+dropdown (pedido de Clayton — mesma UX do actor).
   const [audiencePickerOpen, setAudiencePickerOpen] = useState(false);
-  const AUDIENCE_ICON: Record<string, string> = { public: '🌐', friends: '👥', only_me: '🔒' };
+  const AUDIENCE_ICON: Record<string, string> = {
+    public: '🌐', connections: '🤝', friends: '👥', familiares: '🏠', conhecidos: '🙂',
+    clientes: '🛒', colaboradores: '🧑‍💼', fornecedores: '📦', parceiros: '🤝', only_me: '🔒',
+  };
   // F2-C: atos (passo 2) idem — pílula+dropdown.
   const [intentPickerOpen, setIntentPickerOpen] = useState(false);
   const INTENT_ICON: Record<string, string> = {
     SHARE_CONTENT: '💬', REQUEST_BOOKING: '📅', OFFER_SERVICE: '💼', OFFER_PRODUCT: '🛒',
-    ANNOUNCE_EVENT: '🎪', CREATE_PROJECT: '🤝', START_VOTE: '🗳️',
+    ANNOUNCE_EVENT: '🎪', CREATE_PROJECT: '🤝', START_VOTE: '🗳️', REQUEST_HELP: '🎯',
   };
   const CTA_BY_INTENT: Record<string, Array<'booking' | 'service' | 'payment'>> = {
     REQUEST_BOOKING: ['booking'],
@@ -446,7 +454,8 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
     await onSubmit(
       textInput.trim(), [], activeActor.actor_id, finalWire,
       { intent_canonical: step2Intent.intent }, // identidade governada preservada
-      {}, step3Cta ? { type: step3Cta } : undefined, step1Audience.visibility
+      {}, step3Cta ? { type: step3Cta } : undefined, step1Audience.visibility,
+      step1Audience.audienceTypes // DECISION-0162: refinamento (undefined = sem refinamento)
     );
     setTextInput(''); setStep2Intent(null); setStep3Cta(null); setIsComposerOpen(false);
   };
@@ -739,6 +748,63 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   }
 
   // Portal no body: ancestral com transform/overflow não pode clipar o overlay fixed.
+  // Modal empilhado da DEMANDA (0164): mesma página, mesmo padrão visual do composer
+  if (showDemandForm) {
+    return createPortal(
+      <div className="composer-modal-backdrop" onClick={() => setShowDemandForm(false)}>
+        <div className="intent-composer composer-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="composer-modal-head">
+            <span className="composer-modal-title">🎯 Oferecer oportunidade</span>
+            <button type="button" className="composer-modal-close" onClick={() => setShowDemandForm(false)}>✕</button>
+          </div>
+          {/* MESMA barra de contexto do composer (pedido Clayton): modo + actor trocáveis AQUI —
+              o formulário se molda ao actor (plateias PJ≠PF via componente). Projeção; backend revalida. */}
+          <div className="composer-modal-context">
+            <OperatingModeToggle />
+            <div className="composer-actor-picker">
+              <button type="button" className="composer-actor-pill"
+                onClick={() => setActorPickerOpen((v) => !v)} aria-expanded={actorPickerOpen}
+                aria-label="Trocar actor da oportunidade">
+                <span className="composer-actor-pill-avatar">
+                  {activeActor?.actor_type === 'user' ? '👤' : activeActor?.actor_type === 'page' ? '🏢' : '👥'}
+                </span>
+                <span className="composer-actor-pill-name">{activeActor?.display_name ?? 'Selecionar actor'}</span>
+                <span className="composer-actor-pill-caret">▾</span>
+              </button>
+              {actorPickerOpen && (
+                <div className="composer-actor-dropdown">
+                  <ActorSelector
+                    selectedActorId={activeActor?.actor_id ?? null}
+                    onSelectActor={(actorId) => { setActiveActorGlobal(actorId); setActorPickerOpen(false); }}
+                    compact={false}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          {activeActor && (
+            <div className="actor-context-info">
+              <div className="actor-context-display">
+                <div className="actor-context-avatar-placeholder">
+                  {activeActor.actor_type === 'user' ? '👤' : activeActor.actor_type === 'page' ? '🏢' : '👥'}
+                </div>
+                <div className="actor-context-text">
+                  <span className="actor-context-label">Publicando como</span>
+                  <span className="actor-context-name">{activeActor.display_name}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DemandPublishForm
+            onPublished={() => { setShowDemandForm(false); setIsComposerOpen(false); }}
+            onCancel={() => setShowDemandForm(false)}
+          />
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   return createPortal(
     <div className="composer-modal-backdrop" onClick={() => setIsComposerOpen(false)}>
     <div id="intent-composer" className="intent-composer intent-composer-intent composer-modal" onClick={(e) => e.stopPropagation()}>
@@ -824,11 +890,25 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
             </button>
             {audiencePickerOpen && (
               <div className="composer-actor-dropdown composer-audience-dropdown">
+                {/* DECISION-0162: plateia macro + refinamento por tipo de relação (typed-edge).
+                    Opções COERENTES com o tipo do actor (pares governados): PF→amigo/familiar/
+                    conhecido; PJ→cliente/colaborador/fornecedor/parceiro. O backend revalida tudo. */}
                 {(activeActor?.actor_type === 'page'
-                  ? [{ key: 'public', label: 'Público', visibility: 'public' as const }]
+                  ? [
+                      { key: 'public', label: 'Público', visibility: 'public' as const },
+                      { key: 'connections', label: 'Todas as conexões', visibility: 'connections' as const },
+                      { key: 'clientes', label: 'Clientes', visibility: 'connections' as const, audienceTypes: ['cliente'] },
+                      { key: 'colaboradores', label: 'Colaboradores', visibility: 'connections' as const, audienceTypes: ['colaborador'] },
+                      { key: 'fornecedores', label: 'Fornecedores', visibility: 'connections' as const, audienceTypes: ['fornecedor'] },
+                      { key: 'parceiros', label: 'Parceiros', visibility: 'connections' as const, audienceTypes: ['parceiro'] },
+                      { key: 'only_me', label: 'Só eu', visibility: 'only_me' as const },
+                    ]
                   : [
                       { key: 'public', label: 'Público', visibility: 'public' as const },
-                      { key: 'friends', label: 'Amigos', visibility: 'connections' as const },
+                      { key: 'connections', label: 'Todas as conexões', visibility: 'connections' as const },
+                      { key: 'friends', label: 'Amigos', visibility: 'connections' as const, audienceTypes: ['amigo'] },
+                      { key: 'familiares', label: 'Familiares', visibility: 'connections' as const, audienceTypes: ['familiar'] },
+                      { key: 'conhecidos', label: 'Conhecidos', visibility: 'connections' as const, audienceTypes: ['conhecido'] },
                       { key: 'only_me', label: 'Só eu', visibility: 'only_me' as const },
                     ]
                 ).map((opt) => (
@@ -874,6 +954,9 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
                       onClick={() => {
                         // evento NÃO nasce no post (F1): deeplink pro MOTOR, já com a origem marcada.
                         if (it.intent === 'ANNOUNCE_EVENT') { navigate('/events/new?source=feed'); return; }
+                        // DECISION-0164 (Clayton: navegação FICA no feed): a demanda nasce no MOTOR
+                        // (/demands), mas o formulário abre em MODAL aqui — padrão FB, zero verdade na tela.
+                        if (it.intent === 'REQUEST_HELP') { setShowDemandForm(true); setIntentPickerOpen(false); return; }
                         setStep2Intent(it);
                         setStep3Cta(null);
                         setIntentPickerOpen(false);

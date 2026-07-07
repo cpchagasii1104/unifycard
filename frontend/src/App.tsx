@@ -95,6 +95,7 @@ import ServiceCreatePage from './pages/ServiceCreatePage'; // F-MVP-SERVICE-CHAI
 import ServiceBookingDecisionPage from './pages/ServiceBookingDecisionPage'; // F-MVP-SERVICE-CHAIN GAP-2
 import ProviderServiceHubPage from './pages/ProviderServiceHubPage'; // F-MVP-SERVICE-CHAIN GAP-2/3/4 hub
 import RentalResourceListPage from './pages/RentalResourceListPage'; // F-RENTAL-RESOURCE-SURFACE-SLICE-B
+import OpportunitiesPage from './pages/OpportunitiesPage'; // DECISION-0164 fatia B — motor de demanda
 import RentalResourceDetailPage from './pages/RentalResourceDetailPage'; // F-RENTAL-RESOURCE-SURFACE-SLICE-B
 import SubscriptionsPage from './pages/SubscriptionsPage'; // SPRINT 87
 import VenuePublicPage from './pages/VenuePublicPage'; // SPRINT 92
@@ -378,6 +379,8 @@ function AppContent() {
               vira alias/redirect compatível (abaixo). ServicesListPage fica órfã em disco.
               NÃO tocamos menu/registry backend nem a árvore de gestão /services/:id/*. */}
           <Route path="services" element={<ProviderServiceHubPage />} />
+          {/* DECISION-0164 fatia B: motor de demanda — Ver oportunidades / publicar demanda */}
+          <Route path="oportunidades" element={<OpportunitiesPage />} />
           {/* F-RENTAL-RESOURCE-SURFACE-SLICE-B: locações deixa de ser STUB (module-registry atualizado) */}
           <Route path="locacoes" element={<RentalResourceListPage />} />
           <Route path="locacoes/:id" element={<RentalResourceDetailPage />} />

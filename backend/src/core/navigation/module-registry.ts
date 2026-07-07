@@ -45,6 +45,8 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
   // ── Comércio ─────────────────────────────────────────────────────────────
   { moduleKey: 'marketplace', label: 'Fazer compras', icon: '🛒', route: '/marketplace', group: 'Comércio', contexts: ['personal'], status: 'LIVE' },
   { moduleKey: 'services', label: 'Serviços', icon: '🔧', route: '/services', group: 'Comércio', contexts: ['personal'], status: 'LIVE' },
+  // DECISION-0164 fatia B: motor de demanda — "Ver oportunidades" (pull) + minhas demandas + publicar
+  { moduleKey: 'opportunities', label: 'Oportunidades', icon: '🎯', route: '/oportunidades', group: 'Comércio', contexts: ['personal'], status: 'LIVE' },
   // Histórico do sidebar hardcoded — rotas /em-desenvolvimento (NÃO operacionais):
   { moduleKey: 'mobility', label: 'Pedir um carro', icon: '🚗', route: '/em-desenvolvimento?feature=mobility', group: 'Comércio', contexts: ['personal'], status: 'STUB' },
   { moduleKey: 'food', label: 'Pedir comida', icon: '🍕', route: '/em-desenvolvimento?feature=food', group: 'Comércio', contexts: ['personal'], status: 'STUB' },
