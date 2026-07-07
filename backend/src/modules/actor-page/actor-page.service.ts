@@ -333,7 +333,12 @@ class ActorPageService {
       }
     }
 
-    actions.push({ key: 'message', label: 'Mensagem', enabled: false, gatedBy: 'EM_BREVE', deeplink: null });
+    // Achado de Clayton (2026-07-07): ações actor-A-actor NÃO fazem sentido contra SI MESMO —
+    // o CONTRATO (backend) as omite no próprio perfil (mesma régua do Conectar acima); a tela só projeta.
+    const isSelf = !!viewerActorId && viewerActorId === target.id;
+    if (!isSelf) {
+      actions.push({ key: 'message', label: 'Mensagem', enabled: false, gatedBy: 'EM_BREVE', deeplink: null });
+    }
 
     // Abrir chamado — F-SUPPORT-TICKET-BUSINESS-FACT-GATE (Fatia 6, DESENHO §5/§5B SELADO):
     // gated por FATO DE NEGÓCIO real (não por conexão). Composição pura: reusa o mesmo resolver
@@ -348,17 +353,17 @@ class ActorPageService {
       });
     }
 
-    if (lit.has('agenda')) {
+    if (lit.has('agenda') && !isSelf) {
       actions.push({ key: 'schedule', label: 'Agendar', enabled: false, gatedBy: 'EM_BREVE', deeplink: null });
     }
     // Comprar/Contratar RENDERIZAM mas o dinheiro é PORTA-1 (decisão soberana) — sempre gated.
     // Rótulos desambiguados (feedback Clayton 2026-07-04): "Contratar serviço" = contratar o
     // serviço que ESTE actor oferece (aparece em quem publicou serviço, PF ou PJ prestadora) —
     // NÃO é oferta de vaga/emprego (isso é outro fluxo, colaborador/onboarding).
-    if (lit.has('products')) {
+    if (lit.has('products') && !isSelf) {
       actions.push({ key: 'buy', label: 'Comprar produtos', enabled: false, gatedBy: 'PORTA-1', deeplink: null });
     }
-    if (lit.has('services')) {
+    if (lit.has('services') && !isSelf) {
       actions.push({ key: 'contract', label: 'Contratar serviço', enabled: false, gatedBy: 'PORTA-1', deeplink: null });
     }
     return actions;
