@@ -448,6 +448,12 @@ for (const f of FAMILY) {
     'core/navigation/n2-query.adapter.ts',
     'core/navigation/navigation-offers.list.ts',
     'core/navigation/navigation.routes.ts',
+    // 2026-07-07 (achado Yala, verificado): catálogo GOVERNADO marca/modelo de veículo — capacidade
+    // transversal (rides+locação+venda+peças automotivas reutilizam), read-only, SEM
+    // ensureUserActor/findOrCreateUserActor/INSERT INTO actors e SEM escrita em bank_* — fora da
+    // cadeia de resolução de produto/serviço (concept_offer_refs.adapter.ts) que a FAMILY protege.
+    'core/catalog/vehicle-catalog.routes.ts',
+    'core/catalog/vehicle-catalog.service.ts',
   ]);
   const familySet = new Set(FAMILY);
   let unclassified = 0;

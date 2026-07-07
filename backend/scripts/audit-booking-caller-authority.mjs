@@ -36,6 +36,7 @@ const ALLOW = {
   'src/scripts/validate-pipeline-e2e-mvp-service-journey-pj-provider.ts': { cls: 'TEST_ONLY' },
   'src/scripts/validate-pipeline-e2e-service-booking-decision-quarantine-gate.ts': { cls: 'TEST_ONLY' },
   'src/scripts/validate-pipeline-e2e-service-booking-requested-effect-emission.ts': { cls: 'TEST_ONLY' },
+  'src/scripts/smoke-rental-locacao.ts': { cls: 'TEST_ONLY' }, // 2026-07-07, catálogo veículo (achado Yala)
   'src/scripts/validate-pipeline-e2e-availability-conflict-detection-materialized.ts': { cls: 'TEST_ONLY' },
 };
 
