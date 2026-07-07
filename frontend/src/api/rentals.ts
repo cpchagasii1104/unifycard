@@ -94,3 +94,19 @@ export async function listRentalConceptsByType(
   );
   return res.data;
 }
+
+// Catálogo GOVERNADO marca/modelo (capacidade transversal — 2026-07-07)
+export interface VehicleMake { id: string; slug: string; name: string; }
+export interface VehicleModel { id: string; makeId: string; slug: string; name: string; }
+
+export async function searchVehicleMakes(q?: string): Promise<VehicleMake[]> {
+  const params = new URLSearchParams(); if (q?.trim()) params.set('q', q.trim());
+  const res = await apiFetchJson<{ ok: boolean; data: VehicleMake[] }>(`/catalog/vehicles/makes?${params.toString()}`);
+  return res.data;
+}
+
+export async function listVehicleModels(makeId: string, q?: string): Promise<VehicleModel[]> {
+  const params = new URLSearchParams(); if (q?.trim()) params.set('q', q.trim());
+  const res = await apiFetchJson<{ ok: boolean; data: VehicleModel[] }>(`/catalog/vehicles/makes/${makeId}/models?${params.toString()}`);
+  return res.data;
+}

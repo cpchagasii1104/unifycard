@@ -17,11 +17,15 @@ import {
   listMyRentableResources,
   listActiveRentableResources,
   listRentalConceptsByType,
+  searchVehicleMakes,
+  listVehicleModels,
   PRICING_UNIT_PT,
   type RentableResource,
   type RentableResourceType,
   type RentalPricingUnit,
   type RentalConceptOption,
+  type VehicleMake,
+  type VehicleModel,
 } from '../api/rentals';
 import { createAvailability } from '../api/availability';
 import './RentalResourceListPage.css';
@@ -80,9 +84,14 @@ export default function RentalResourceListPage() {
   const [submitting, setSubmitting] = useState(false);
   const publishProfileRef = useRef<() => Promise<void>>(async () => {});
 
-  // atributos por TIPO (LAYER 5 — facets em metadata, nunca redefinem o CONCEPT)
-  const [attrMarca, setAttrMarca] = useState('');
-  const [attrModelo, setAttrModelo] = useState('');
+  // atributos de VEÍCULO (LAYER 5 — GOVERNADOS via catálogo transversal marca→modelo,
+  // reutilizável por rides/locação/venda/peças; Ano é fato simples, não taxonomia)
+  const [makeQuery, setMakeQuery] = useState('');
+  const [makeOptions, setMakeOptions] = useState<VehicleMake[]>([]);
+  const [selectedMake, setSelectedMake] = useState<VehicleMake | null>(null);
+  const [modelQuery, setModelQuery] = useState('');
+  const [modelOptions, setModelOptions] = useState<VehicleModel[]>([]);
+  const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
   const [attrAno, setAttrAno] = useState('');
 
   // disponibilidade inline por recurso (operar) — janela vai pra AGENDA UNIVERSAL
@@ -119,7 +128,9 @@ export default function RentalResourceListPage() {
     setSelectedConcept(null);
     setConceptQuery('');
     setConceptOptions([]);
-    setAttrMarca(''); setAttrModelo(''); setAttrAno('');
+    setSelectedMake(null); setMakeQuery(''); setMakeOptions([]);
+    setSelectedModel(null); setModelQuery(''); setModelOptions([]);
+    setAttrAno('');
   }, [resourceType]);
 
   useEffect(() => {
@@ -130,6 +141,29 @@ export default function RentalResourceListPage() {
     return () => clearTimeout(t);
   }, [resourceType, conceptQuery]);
 
+  // Marca → Modelo em cascata (catálogo governado, zero texto livre)
+  useEffect(() => {
+    if (resourceType !== 'vehicle') return;
+    const t = setTimeout(() => {
+      searchVehicleMakes(makeQuery).then(setMakeOptions).catch(() => setMakeOptions([]));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [resourceType, makeQuery]);
+
+  useEffect(() => {
+    setSelectedModel(null); setModelQuery(''); setModelOptions([]);
+    if (!selectedMake) return;
+    listVehicleModels(selectedMake.id).then(setModelOptions).catch(() => setModelOptions([]));
+  }, [selectedMake]);
+
+  useEffect(() => {
+    if (!selectedMake) return;
+    const t = setTimeout(() => {
+      listVehicleModels(selectedMake.id, modelQuery).then(setModelOptions).catch(() => setModelOptions([]));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [selectedMake, modelQuery]);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedConcept?.concept_id) { showToast('Escolha uma categoria existente do catálogo.', 'error'); return; }
@@ -139,8 +173,9 @@ export default function RentalResourceListPage() {
       const cents = priceReais.trim() ? Math.round(parseFloat(priceReais.replace(',', '.')) * 100) : null;
       const metadata: Record<string, unknown> = {};
       if (resourceType === 'vehicle') {
-        if (attrMarca.trim()) metadata.marca = attrMarca.trim();
-        if (attrModelo.trim()) metadata.modelo = attrModelo.trim();
+        // GOVERNADO: sempre IDs do catálogo (nunca texto digitado); nome só como projeção de exibição
+        if (selectedMake) { metadata.vehicleMakeId = selectedMake.id; metadata.vehicleMakeName = selectedMake.name; }
+        if (selectedModel) { metadata.vehicleModelId = selectedModel.id; metadata.vehicleModelName = selectedModel.name; }
         if (attrAno.trim()) metadata.ano = attrAno.trim();
       }
       await createRentableResource({
@@ -157,7 +192,7 @@ export default function RentalResourceListPage() {
       setShowForm(false);
       setLabel(''); setDescription(''); setPriceReais('');
       setSelectedConcept(null); setConceptQuery('');
-      setAttrMarca(''); setAttrModelo(''); setAttrAno('');
+      setSelectedMake(null); setMakeQuery(''); setSelectedModel(null); setModelQuery(''); setAttrAno('');
       await load();
     } catch (err: any) {
       showToast(err?.message || 'Erro ao cadastrar recurso', 'error');
@@ -291,12 +326,38 @@ export default function RentalResourceListPage() {
             <input type="text" placeholder="Ex.: Furadeira Bosch, Fusca 1978…" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={200} />
           </label>
 
-          {/* Atributos por TIPO (LAYER 5 — facets em metadata; nunca redefinem o CONCEPT) */}
+          {/* Veículo: Marca→Modelo GOVERNADOS (catálogo transversal, zero texto livre — o mesmo
+              catálogo que rides/venda/peças automotivas vão reutilizar depois). Ano é fato, não taxonomia. */}
           {resourceType === 'vehicle' && (
             <div className="rrl-row">
-              <label className="rrl-field">Marca<input type="text" placeholder="Ex.: Volkswagen" value={attrMarca} onChange={(e) => setAttrMarca(e.target.value)} /></label>
-              <label className="rrl-field">Modelo<input type="text" placeholder="Ex.: Fusca" value={attrModelo} onChange={(e) => setAttrModelo(e.target.value)} /></label>
-              <label className="rrl-field">Ano<input type="text" placeholder="Ex.: 1978" value={attrAno} onChange={(e) => setAttrAno(e.target.value)} maxLength={4} /></label>
+              <label className="rrl-field">
+                Marca
+                <input type="text" placeholder="Buscar marca…" value={makeQuery}
+                  onChange={(e) => { setMakeQuery(e.target.value); setSelectedMake(null); }} />
+                {makeOptions.length > 0 && !selectedMake && (
+                  <ul className="rrl-concept-options">
+                    {makeOptions.map((m) => (
+                      <li key={m.id}><button type="button" onClick={() => { setSelectedMake(m); setMakeQuery(m.name); setMakeOptions([]); }}>{m.name}</button></li>
+                    ))}
+                  </ul>
+                )}
+                {selectedMake && <span className="rrl-concept-selected">✓ {selectedMake.name}</span>}
+              </label>
+              <label className="rrl-field">
+                Modelo
+                <input type="text" placeholder={selectedMake ? 'Buscar modelo…' : 'Escolha a marca primeiro'} value={modelQuery}
+                  disabled={!selectedMake}
+                  onChange={(e) => { setModelQuery(e.target.value); setSelectedModel(null); }} />
+                {modelOptions.length > 0 && !selectedModel && (
+                  <ul className="rrl-concept-options">
+                    {modelOptions.map((m) => (
+                      <li key={m.id}><button type="button" onClick={() => { setSelectedModel(m); setModelQuery(m.name); setModelOptions([]); }}>{m.name}</button></li>
+                    ))}
+                  </ul>
+                )}
+                {selectedModel && <span className="rrl-concept-selected">✓ {selectedModel.name}</span>}
+              </label>
+              <label className="rrl-field">Ano<input type="text" inputMode="numeric" placeholder="Ex.: 1978" value={attrAno} onChange={(e) => setAttrAno(e.target.value)} maxLength={4} /></label>
             </div>
           )}
 

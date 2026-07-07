@@ -509,6 +509,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     const { default: mediaAssetsRoutes } = await import('./core/media-assets/media-assets.routes');
     await protectedScope.register(mediaAssetsRoutes, { prefix: '/catalog/media' });
 
+    // 2026-07-07 (Clayton) — catálogo GOVERNADO marca/modelo de veículo (capacidade transversal:
+    // rides + locação + venda + peças automotivas reutilizam a MESMA fonte, sem texto livre).
+    const { default: vehicleCatalogRoutes } = await import('./core/catalog/vehicle-catalog.routes');
+    await protectedScope.register(vehicleCatalogRoutes, { prefix: '/catalog/vehicles' });
+
     // DECISION-0117 E — templates empresariais versionados (aplicação manual-assistida)
     const { default: companyTemplatesRoutes } = await import('./core/companies/company-templates.routes');
     await protectedScope.register(companyTemplatesRoutes, { prefix: '/companies' });
