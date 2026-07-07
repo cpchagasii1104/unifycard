@@ -16,7 +16,7 @@ import { listAvailabilities, createAvailability, listBookings, createBooking, co
 import './RentalResourceDetailPage.css';
 
 const RESOURCE_TYPE_LABEL: Record<string, string> = {
-  equipment: 'Equipamento', vehicle: 'Veículo', property: 'Imóvel', space: 'Espaço', other: 'Outro',
+  equipment: 'Equipamento', vehicle: 'Veículo', property: 'Imóvel', space: 'Espaço',
 };
 const STATUS_LABEL: Record<string, string> = { active: 'Ativo', paused: 'Pausado', retired: 'Aposentado' };
 

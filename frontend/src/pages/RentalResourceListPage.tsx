@@ -41,7 +41,6 @@ const RESOURCE_TYPE_LABEL: Record<RentableResourceType, string> = {
   vehicle: 'Veículo',
   property: 'Imóvel',
   space: 'Espaço',
-  other: 'Outro',
 };
 
 const RESOURCE_TYPE_ICON: Record<RentableResourceType, string> = {
@@ -49,7 +48,6 @@ const RESOURCE_TYPE_ICON: Record<RentableResourceType, string> = {
   vehicle: '🚗',
   property: '🏠',
   space: '🏟️',
-  other: '📦',
 };
 
 const STATUS_LABEL: Record<string, string> = {

@@ -1,5 +1,28 @@
 # REMEDIATION DT LOG
 
+## DISCIPLINA (não-DT, candidato a rito oficial) — "Teste de Redução Ontológica" (2026-07-07)
+Formalizado no diálogo Clayton + 2 IAs sobre locação. Antes de promover QUALQUER estrutura nova na
+ontologia, perguntar em ordem: (1) cabe num CONCEPT existente? → se sim, não cria. (2) cabe num N2
+existente? → seed (via rito). (3) cabe num N1 existente? → seed (via rito). (4) viola algum SSOT? →
+rejeita. (5) tem identidade própria irredutível? → só ENTÃO abre RFC. É o anticorpo contra verdade
+paralela aplicado a toda evolução de ontologia. **Correção de rito registrada no mesmo dia:** eu
+havia afirmado "seed de novo N2/context é mudança pequena, sem RFC" — a 2ª IA desafiou e o disco
+provou que ela estava certa: doc 20 §11.3 ("Novo N2 = RFC + critério de existência"; "Novo contexto
+= RFC") + doc 20 §867 ("N2 só altera via RFC formal") + doc 19 §6.1 ("Nova N1 = RFC formal"). A régua
+é o RITO, não o tamanho. Candidato a adendo formal no doc 18 (§ processo de evolução) numa frente
+futura. Aplicação viva: RFC_RENTAL_ESPACOS_E_EVENTOS.md (espaços=N2+context, equipamentos-para-
+eventos=N1 novo) redigido e parado aguardando ratificação — NADA semeado.
+
+## F-RENTAL-REMOVE-OTHER — ✅ EXECUTADA (2026-07-07, GO direto de Clayton, sem RFC pois é UX/higiene)
+Tipo `other` REMOVIDO na raiz (anti-padrão de ontologia — balde de exceções + fallback catálogo-
+inteiro, mesma classe do vazamento Motoboy): CHECK constraint do banco (migration 20260707220000,
+sistema virgem 0 recursos 'other') + enum TS backend+frontend + RESOURCE_TYPE_TO_DOMAINS (Record
+sem null) + labels/ícones UI. 2º vetor de catálogo-inteiro também fechado: `/rentable-resources/
+concepts` agora EXIGE resourceType (400 se ausente/inválido) — sem ele retornava tudo. Detritos de
+smoke (5× "Betoneira (smoke)") limpos na mesma migration. Prova: CHECK rejeita 'other' ✓ · 0
+recursos ✓ · tsc B/F 0 · suíte completa (comando raiz validate:regression-guards) EXIT 0, zero GATE
+FAIL. 5º tipo genuíno entra por RFC (teste de redução), nunca por balde.
+
 ## DISCIPLINA (não-DT, prática permanente) — "Jurisprudência de Auditoria" (2026-07-07)
 Formalizado após o re-selo Yala do motor de demanda. Sempre que uma mudança arquitetural legítima
 alterar um padrão que um guard observa (não uma regressão — uma EVOLUÇÃO real do código):

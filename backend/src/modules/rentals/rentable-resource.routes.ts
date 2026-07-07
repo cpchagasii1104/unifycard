@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { authorizationService } from '@core/authorization/authorization.service';
 import { rentableResourceService } from './rentable-resource.service';
 
-const resourceTypeEnum = z.enum(['equipment', 'vehicle', 'property', 'space', 'other']);
+const resourceTypeEnum = z.enum(['equipment', 'vehicle', 'property', 'space']);
 const statusEnum = z.enum(['active', 'paused', 'retired']);
 
 const createSchema = z.object({
@@ -122,20 +122,18 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
-    const rtParsed = req.query.resourceType ? resourceTypeEnum.safeParse(req.query.resourceType) : undefined;
-    if (req.query.resourceType && !rtParsed?.success) {
-      return reply.status(400).send({ error: 'resourceType inválido' });
+    // resourceType OBRIGATÓRIO (2026-07-07, GO Clayton): sem ele, retornava o catálogo inteiro —
+    // fallback banido junto com o 'other'. Todo tipo válido tem domínio não-vazio.
+    const rtParsed = resourceTypeEnum.safeParse(req.query.resourceType);
+    if (!rtParsed.success) {
+      return reply.status(400).send({ error: 'resourceType obrigatório e válido (equipment|vehicle|property|space)' });
     }
-    const domains = rtParsed?.success ? RESOURCE_TYPE_TO_DOMAINS[rtParsed.data] : null;
+    const domains = RESOURCE_TYPE_TO_DOMAINS[rtParsed.data];
     const q = (req.query.q ?? '').trim();
 
     const { runQueriesWithTenant } = await import('@core/database/pool');
-    const params: unknown[] = [];
-    let where = `cs.tenant_id IS NULL AND cs.status = 'active' AND cok.offer_kind = 'rentable'`;
-    if (domains) {
-      params.push(domains);
-      where += ` AND c.domain = ANY($${params.length})`;
-    }
+    const params: unknown[] = [domains];
+    let where = `cs.tenant_id IS NULL AND cs.status = 'active' AND cok.offer_kind = 'rentable' AND c.domain = ANY($1)`;
     if (q) {
       params.push(`%${q}%`);
       where += ` AND cs.name ILIKE $${params.length}`;
@@ -151,7 +149,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
       params
     );
     rows.sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
-    return reply.send({ ok: true, data: (domains && domains.length === 0) ? [] : rows });
+    return reply.send({ ok: true, data: rows });
   });
 
   /**

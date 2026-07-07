@@ -5,7 +5,8 @@
 
 import { apiFetchJson } from './client';
 
-export type RentableResourceType = 'equipment' | 'vehicle' | 'property' | 'space' | 'other';
+// 'other' REMOVIDO (2026-07-07, GO Clayton): anti-padrão de ontologia. 5º tipo entra por RFC.
+export type RentableResourceType = 'equipment' | 'vehicle' | 'property' | 'space';
 export type RentableResourceStatus = 'active' | 'paused' | 'retired';
 // DECISION-0151 ADENDO A — projeção do vocabulário governado RENTAL_PRICING_UNITS (fonte: backend)
 export type RentalPricingUnit = 'por_hora' | 'por_dia' | 'por_semana' | 'por_mes';
