@@ -87,6 +87,12 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   // F2-C: plateia (passo 1) também é pílula+dropdown (pedido de Clayton — mesma UX do actor).
   const [audiencePickerOpen, setAudiencePickerOpen] = useState(false);
   const AUDIENCE_ICON: Record<string, string> = { public: '🌐', friends: '👥', only_me: '🔒' };
+  // F2-C: atos (passo 2) idem — pílula+dropdown.
+  const [intentPickerOpen, setIntentPickerOpen] = useState(false);
+  const INTENT_ICON: Record<string, string> = {
+    SHARE_CONTENT: '💬', REQUEST_BOOKING: '📅', OFFER_SERVICE: '💼', OFFER_PRODUCT: '🛒',
+    ANNOUNCE_EVENT: '🎪', CREATE_PROJECT: '🤝', START_VOTE: '🗳️',
+  };
   const CTA_BY_INTENT: Record<string, Array<'booking' | 'service' | 'payment'>> = {
     REQUEST_BOOKING: ['booking'],
     OFFER_SERVICE: ['service', 'payment'],
@@ -844,26 +850,44 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
         {step1Audience && (
           <div className="composer-step">
             <span className="composer-step-label">2 · O que é isso que você está criando?</span>
-            <div className="composer-step-options">
-              {composerIntents.map((it) => (
-                <button
-                  key={it.intent}
-                  type="button"
-                  className={`composer-chip ${step2Intent?.intent === it.intent ? 'selected' : ''}`}
-                  disabled={!it.enabled}
-                  title={!it.enabled ? (it.gatedBy || 'Indisponível para este actor') : undefined}
-                  onClick={() => {
-                    // evento NÃO nasce no post (F1): deeplink pro MOTOR, já com a origem marcada.
-                    if (it.intent === 'ANNOUNCE_EVENT') { navigate('/events/new?source=feed'); return; }
-                    setStep2Intent(it);
-                    setStep3Cta(null);
-                  }}
-                >
-                  {it.label}
-                </button>
-              ))}
-              {composerIntents.length === 0 && (
-                <span className="composer-step-empty">Sem atos disponíveis para este actor — use o Modo Avançado.</span>
+            <div className="composer-actor-picker">
+              <button
+                type="button"
+                className="composer-actor-pill"
+                onClick={() => setIntentPickerOpen((v) => !v)}
+                aria-expanded={intentPickerOpen}
+                aria-label="Escolher o que criar"
+              >
+                <span className="composer-actor-pill-avatar">{step2Intent ? INTENT_ICON[step2Intent.intent] ?? '✨' : '✨'}</span>
+                <span className="composer-actor-pill-name">{step2Intent?.label ?? 'Selecionar'}</span>
+                <span className="composer-actor-pill-caret">▾</span>
+              </button>
+              {intentPickerOpen && (
+                <div className="composer-actor-dropdown composer-audience-dropdown">
+                  {composerIntents.map((it) => (
+                    <button
+                      key={it.intent}
+                      type="button"
+                      className={`composer-audience-item ${step2Intent?.intent === it.intent ? 'selected' : ''}`}
+                      disabled={!it.enabled}
+                      title={!it.enabled ? (it.gatedBy || 'Indisponível para este actor') : undefined}
+                      onClick={() => {
+                        // evento NÃO nasce no post (F1): deeplink pro MOTOR, já com a origem marcada.
+                        if (it.intent === 'ANNOUNCE_EVENT') { navigate('/events/new?source=feed'); return; }
+                        setStep2Intent(it);
+                        setStep3Cta(null);
+                        setIntentPickerOpen(false);
+                      }}
+                    >
+                      <span>{INTENT_ICON[it.intent] ?? '✨'}</span>
+                      <span>{it.label}</span>
+                      {step2Intent?.intent === it.intent && <span className="composer-audience-check">✓</span>}
+                    </button>
+                  ))}
+                  {composerIntents.length === 0 && (
+                    <span className="composer-step-empty">Sem atos disponíveis para este actor.</span>
+                  )}
+                </div>
               )}
             </div>
           </div>
