@@ -12,6 +12,17 @@ export type RentableResourceStatus = 'active' | 'paused' | 'retired';
 export const RENTAL_PRICING_UNITS = ['por_hora', 'por_dia', 'por_semana', 'por_mes'] as const;
 export type RentalPricingUnit = (typeof RENTAL_PRICING_UNITS)[number];
 
+// 2026-07-07 (Clayton: "primeiro seleciono o tipo, aí sim vem a categoria relacionada" — mesma
+// lógica do motor de demanda/grupos): tipo → N0 GOVERNADO congelado (doc 18). 'property' fica FORA
+// (sem N0 — RFC_N0_IMOVEIS_E_PROPRIEDADES.md aguarda ratificação); 'other' fica sem filtro (aberto).
+export const RESOURCE_TYPE_TO_DOMAINS: Record<RentableResourceType, string[] | null> = {
+  equipment: ['produtos-e-comercio'],
+  vehicle: ['mobilidade-e-logistica'],
+  property: [], // bloqueado de propósito — sem N0 ainda
+  space: [],    // idem property — mesmo gap (imóvel/espaço)
+  other: null,  // null = catálogo inteiro (recurso atípico, sem domínio único)
+};
+
 export interface RentableResource {
   id: string;
   tenantId: string;
@@ -23,6 +34,7 @@ export interface RentableResource {
   categoryId: string | null;
   pricingUnit: RentalPricingUnit | null;
   priceCents: number | null;
+  metadata: Record<string, unknown>;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -40,6 +52,7 @@ export interface RentableResourceRow {
   category_id: string | null;
   pricing_unit: RentalPricingUnit | null;
   price_cents: string | number | null;
+  metadata: Record<string, unknown> | null;
   status: RentableResourceStatus;
   is_active: boolean;
   created_at: Date;
@@ -54,6 +67,7 @@ export interface CreateRentableResourceInput {
   categoryId?: string | null;
   pricingUnit?: RentalPricingUnit | null;
   priceCents?: number | null;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ListRentableResourcesFilters {

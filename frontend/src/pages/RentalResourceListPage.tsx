@@ -16,14 +16,19 @@ import {
   createRentableResource,
   listMyRentableResources,
   listActiveRentableResources,
+  listRentalConceptsByType,
   PRICING_UNIT_PT,
   type RentableResource,
   type RentableResourceType,
   type RentalPricingUnit,
+  type RentalConceptOption,
 } from '../api/rentals';
 import { createAvailability } from '../api/availability';
-import { searchCanonicalServices, type CanonicalService } from '../api/canonical-services';
 import './RentalResourceListPage.css';
+
+// Tipo SEM N0 na ontologia congelada ainda (RFC_N0_IMOVEIS_E_PROPRIEDADES.md aguarda Clayton) —
+// projeta o estado real (backend devolve [] pra estes); frontend NÃO inventa taxonomia.
+const TYPES_PENDING_RFC: RentableResourceType[] = ['property', 'space'];
 
 const RESOURCE_TYPE_LABEL: Record<RentableResourceType, string> = {
   equipment: 'Equipamento',
@@ -70,10 +75,15 @@ export default function RentalResourceListPage() {
   const [pricingUnit, setPricingUnit] = useState<RentalPricingUnit>('por_dia');
   const [priceReais, setPriceReais] = useState('');
   const [conceptQuery, setConceptQuery] = useState('');
-  const [conceptOptions, setConceptOptions] = useState<CanonicalService[]>([]);
-  const [selectedConcept, setSelectedConcept] = useState<CanonicalService | null>(null);
+  const [conceptOptions, setConceptOptions] = useState<RentalConceptOption[]>([]);
+  const [selectedConcept, setSelectedConcept] = useState<RentalConceptOption | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const publishProfileRef = useRef<() => Promise<void>>(async () => {});
+
+  // atributos por TIPO (LAYER 5 — facets em metadata, nunca redefinem o CONCEPT)
+  const [attrMarca, setAttrMarca] = useState('');
+  const [attrModelo, setAttrModelo] = useState('');
+  const [attrAno, setAttrAno] = useState('');
 
   // disponibilidade inline por recurso (operar) — janela vai pra AGENDA UNIVERSAL
   const [availFor, setAvailFor] = useState<string | null>(null);
@@ -104,35 +114,50 @@ export default function RentalResourceListPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // fix Clayton 2026-07-07: categoria vem do CATÁLOGO FILTRADO PELO TIPO (nunca do catálogo inteiro)
   useEffect(() => {
-    const q = conceptQuery.trim();
-    if (q.length < 2) { setConceptOptions([]); return; }
+    setSelectedConcept(null);
+    setConceptQuery('');
+    setConceptOptions([]);
+    setAttrMarca(''); setAttrModelo(''); setAttrAno('');
+  }, [resourceType]);
+
+  useEffect(() => {
+    if (TYPES_PENDING_RFC.includes(resourceType)) { setConceptOptions([]); return; }
     const t = setTimeout(() => {
-      searchCanonicalServices(q).then(setConceptOptions).catch(() => setConceptOptions([]));
-    }, 250);
+      listRentalConceptsByType(resourceType, conceptQuery).then(setConceptOptions).catch(() => setConceptOptions([]));
+    }, 200);
     return () => clearTimeout(t);
-  }, [conceptQuery]);
+  }, [resourceType, conceptQuery]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedConcept?.conceptId) { showToast('Escolha uma categoria existente do catálogo.', 'error'); return; }
+    if (!selectedConcept?.concept_id) { showToast('Escolha uma categoria existente do catálogo.', 'error'); return; }
     if (!label.trim()) { showToast('Informe um nome para o recurso.', 'error'); return; }
     setSubmitting(true);
     try {
       const cents = priceReais.trim() ? Math.round(parseFloat(priceReais.replace(',', '.')) * 100) : null;
+      const metadata: Record<string, unknown> = {};
+      if (resourceType === 'vehicle') {
+        if (attrMarca.trim()) metadata.marca = attrMarca.trim();
+        if (attrModelo.trim()) metadata.modelo = attrModelo.trim();
+        if (attrAno.trim()) metadata.ano = attrAno.trim();
+      }
       await createRentableResource({
-        conceptId: selectedConcept.conceptId,
+        conceptId: selectedConcept.concept_id,
         resourceType,
         label: label.trim(),
         description: description.trim() || null,
         pricingUnit: cents != null ? pricingUnit : null,
         priceCents: cents,
+        metadata,
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
       setShowForm(false);
       setLabel(''); setDescription(''); setPriceReais('');
       setSelectedConcept(null); setConceptQuery('');
+      setAttrMarca(''); setAttrModelo(''); setAttrAno('');
       await load();
     } catch (err: any) {
       showToast(err?.message || 'Erro ao cadastrar recurso', 'error');
@@ -226,26 +251,9 @@ export default function RentalResourceListPage() {
 
       {showForm && (
         <form className="rrl-form" onSubmit={handleCreate}>
+          {/* fix Clayton: 1º o TIPO, aí sim a categoria relacionada (mesma lógica de grupos/demanda) */}
           <label className="rrl-field">
-            Categoria (catálogo)
-            <input type="text" placeholder="Buscar categoria existente…" value={conceptQuery}
-              onChange={(e) => { setConceptQuery(e.target.value); setSelectedConcept(null); }} />
-            {conceptOptions.length > 0 && !selectedConcept && (
-              <ul className="rrl-concept-options">
-                {conceptOptions.map((c) => (
-                  <li key={c.id}>
-                    <button type="button" onClick={() => { setSelectedConcept(c); setConceptQuery(c.name); setConceptOptions([]); }}>
-                      {c.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {selectedConcept && <span className="rrl-concept-selected">✓ {selectedConcept.name}</span>}
-          </label>
-
-          <label className="rrl-field">
-            Tipo de recurso
+            1 · Tipo de recurso
             <select value={resourceType} onChange={(e) => setResourceType(e.target.value as RentableResourceType)}>
               {(Object.keys(RESOURCE_TYPE_LABEL) as RentableResourceType[]).map((t) => (
                 <option key={t} value={t}>{RESOURCE_TYPE_LABEL[t]}</option>
@@ -253,10 +261,44 @@ export default function RentalResourceListPage() {
             </select>
           </label>
 
+          {TYPES_PENDING_RFC.includes(resourceType) ? (
+            <p className="rrl-hint rrl-hint--blocked">
+              🚧 {RESOURCE_TYPE_LABEL[resourceType]} ainda não tem categoria — a ontologia do sistema
+              não define esse domínio ainda (aguardando decisão de arquitetura). Em breve.
+            </p>
+          ) : (
+            <label className="rrl-field">
+              2 · Categoria ({RESOURCE_TYPE_LABEL[resourceType].toLowerCase()})
+              <input type="text" placeholder={`Buscar em ${RESOURCE_TYPE_LABEL[resourceType].toLowerCase()}s…`} value={conceptQuery}
+                onChange={(e) => { setConceptQuery(e.target.value); setSelectedConcept(null); }} />
+              {conceptOptions.length > 0 && !selectedConcept && (
+                <ul className="rrl-concept-options">
+                  {conceptOptions.map((c) => (
+                    <li key={c.concept_id}>
+                      <button type="button" onClick={() => { setSelectedConcept(c); setConceptQuery(c.label); setConceptOptions([]); }}>
+                        {c.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {selectedConcept && <span className="rrl-concept-selected">✓ {selectedConcept.label}</span>}
+            </label>
+          )}
+
           <label className="rrl-field">
             Nome do recurso
             <input type="text" placeholder="Ex.: Furadeira Bosch, Fusca 1978…" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={200} />
           </label>
+
+          {/* Atributos por TIPO (LAYER 5 — facets em metadata; nunca redefinem o CONCEPT) */}
+          {resourceType === 'vehicle' && (
+            <div className="rrl-row">
+              <label className="rrl-field">Marca<input type="text" placeholder="Ex.: Volkswagen" value={attrMarca} onChange={(e) => setAttrMarca(e.target.value)} /></label>
+              <label className="rrl-field">Modelo<input type="text" placeholder="Ex.: Fusca" value={attrModelo} onChange={(e) => setAttrModelo(e.target.value)} /></label>
+              <label className="rrl-field">Ano<input type="text" placeholder="Ex.: 1978" value={attrAno} onChange={(e) => setAttrAno(e.target.value)} maxLength={4} /></label>
+            </div>
+          )}
 
           <div className="rrl-row">
             <label className="rrl-field">
@@ -284,7 +326,7 @@ export default function RentalResourceListPage() {
             onRegister={(fn) => { publishProfileRef.current = fn; }}
           />
 
-          <button type="submit" className="rrl-submit-btn" disabled={submitting}>
+          <button type="submit" className="rrl-submit-btn" disabled={submitting || TYPES_PENDING_RFC.includes(resourceType)}>
             {submitting ? 'Cadastrando…' : 'Cadastrar recurso'}
           </button>
         </form>

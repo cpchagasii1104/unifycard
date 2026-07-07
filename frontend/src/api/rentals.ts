@@ -22,6 +22,7 @@ export interface RentableResource {
   categoryId: string | null;
   pricingUnit: RentalPricingUnit | null;
   priceCents: number | null;
+  metadata: Record<string, unknown>;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -35,6 +36,7 @@ export async function createRentableResource(input: {
   description?: string | null;
   pricingUnit?: RentalPricingUnit | null;
   priceCents?: number | null;
+  metadata?: Record<string, unknown>;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
@@ -69,5 +71,26 @@ export async function updateRentableResourceStatus(
 // CONSUMIR (descoberta) — freio 'sem discovery' da SLICE-B revogado por Clayton 2026-07-07
 export async function listActiveRentableResources(): Promise<RentableResource[]> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource[] }>('/rentable-resources?status=active&limit=50');
+  return res.data;
+}
+
+// 2026-07-07 (fix Clayton): catálogo GOVERNADO filtrado por TIPO — "primeiro o tipo, aí sim a
+// categoria relacionada" (mesma lógica de /demands/concepts). Sem texto livre.
+export interface RentalConceptOption {
+  concept_id: string;
+  slug: string;
+  domain: string;
+  label: string;
+}
+
+export async function listRentalConceptsByType(
+  resourceType: RentableResourceType,
+  q?: string
+): Promise<RentalConceptOption[]> {
+  const params = new URLSearchParams({ resourceType });
+  if (q?.trim()) params.set('q', q.trim());
+  const res = await apiFetchJson<{ ok: boolean; data: RentalConceptOption[] }>(
+    `/rentable-resources/concepts?${params.toString()}`
+  );
   return res.data;
 }

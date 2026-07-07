@@ -1,4 +1,4 @@
-import { RENTAL_PRICING_UNITS } from './rentable-resource.types';
+import { RENTAL_PRICING_UNITS, RESOURCE_TYPE_TO_DOMAINS } from './rentable-resource.types';
 // backend/src/modules/rentals/rentable-resource.routes.ts
 // F-RENTAL-RESOURCE-SURFACE-SLICE-A — a ÚNICA peça que faltava para o Trilho B (DECISION-0159/
 // fluxo.png) funcionar ponta-a-ponta para recurso: registrar o recurso. Availability/booking/
@@ -21,6 +21,7 @@ const createSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   pricingUnit: z.enum(RENTAL_PRICING_UNITS).nullable().optional(),
   priceCents: z.number().int().min(0).nullable().optional(),
+  metadata: z.record(z.unknown()).optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -72,6 +73,9 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         label: parsed.data.label,
         description: parsed.data.description ?? null,
         categoryId: parsed.data.categoryId ?? null,
+        pricingUnit: parsed.data.pricingUnit ?? null,
+        priceCents: parsed.data.priceCents ?? null,
+        metadata: parsed.data.metadata ?? {},
       });
       return reply.status(201).send({ ok: true, data: resource });
     } catch (err: any) {
@@ -103,6 +107,47 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send({ ok: true, data: resources });
     }
   );
+
+  /**
+   * GET /rentable-resources/concepts?resourceType=&q=
+   * Catálogo GOVERNADO filtrado por tipo (fix Clayton 2026-07-07: "primeiro seleciono o tipo,
+   * aí sim vem a categoria relacionada" — mesma lógica de /demands/concepts). Zero texto livre;
+   * o vocabulário RESOURCE_TYPE_TO_DOMAINS decide os N0 elegíveis (doc 18 congelado).
+   */
+  fastify.get<{ Querystring: { resourceType?: string; q?: string } }>('/concepts', async (req, reply) => {
+    if (!req.tenant?.id) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+    const rtParsed = req.query.resourceType ? resourceTypeEnum.safeParse(req.query.resourceType) : undefined;
+    if (req.query.resourceType && !rtParsed?.success) {
+      return reply.status(400).send({ error: 'resourceType inválido' });
+    }
+    const domains = rtParsed?.success ? RESOURCE_TYPE_TO_DOMAINS[rtParsed.data] : null;
+    const q = (req.query.q ?? '').trim();
+
+    const { runQueriesWithTenant } = await import('@core/database/pool');
+    const params: unknown[] = [];
+    let where = `cs.tenant_id IS NULL AND cs.status = 'active'`;
+    if (domains) {
+      params.push(domains);
+      where += ` AND c.domain = ANY($${params.length})`;
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      where += ` AND cs.name ILIKE $${params.length}`;
+    }
+    const rows = await runQueriesWithTenant<{ concept_id: string; slug: string; domain: string; label: string }>(
+      req.tenant.id,
+      `SELECT DISTINCT ON (c.concept_id) c.concept_id::text, c.slug, c.domain, cs.name AS label
+         FROM concepts c
+         JOIN canonical_services cs ON cs.concept_id = c.concept_id
+        WHERE ${where}
+        ORDER BY c.concept_id, cs.created_at ASC`,
+      params
+    );
+    rows.sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+    return reply.send({ ok: true, data: (domains && domains.length === 0) ? [] : rows });
+  });
 
   /**
    * GET /rentable-resources/:id

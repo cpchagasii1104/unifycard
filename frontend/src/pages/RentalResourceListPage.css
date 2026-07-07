@@ -43,3 +43,5 @@
 .rrl-row { display: flex; gap: 10px; }
 .rrl-row .rrl-field { flex: 1; }
 .rrl-hint { color: #64748b; font-size: .82rem; margin: 2px 0 0; }
+
+.rrl-hint--blocked { background: #fff8e6; border: 1px solid #f0d78c; border-radius: 8px; padding: 10px 12px; }

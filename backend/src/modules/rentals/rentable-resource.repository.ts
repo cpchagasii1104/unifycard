@@ -22,6 +22,7 @@ function toDomain(row: RentableResourceRow): RentableResource {
     categoryId: row.category_id,
     pricingUnit: row.pricing_unit,
     priceCents: row.price_cents !== null && row.price_cents !== undefined ? Number(row.price_cents) : null,
+    metadata: row.metadata ?? {},
     status: row.status,
     isActive: row.is_active,
     createdAt: row.created_at.toISOString(),
@@ -38,10 +39,10 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `INSERT INTO rentable_resources
-         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents)
-       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9)
+         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, metadata)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb)
        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                 category_id, status, is_active, created_at, updated_at`,
+                 category_id, status, is_active, metadata, created_at, updated_at`,
       [
         tenantId,
         ownerActorId,
@@ -52,6 +53,7 @@ class RentableResourceRepository {
         input.categoryId ?? null,
         input.pricingUnit ?? null,
         input.priceCents ?? null,
+        JSON.stringify(input.metadata ?? {}),
       ]
     );
     if (!row) throw new Error('Falha ao criar rentable_resource');
@@ -62,7 +64,7 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, created_at, updated_at
+              category_id, status, is_active, metadata, created_at, updated_at
          FROM rentable_resources
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
@@ -90,7 +92,7 @@ class RentableResourceRepository {
     const rows = await runQueriesWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, created_at, updated_at
+              category_id, status, is_active, metadata, created_at, updated_at
          FROM rentable_resources
         WHERE ${where}
         ORDER BY created_at DESC
@@ -111,7 +113,7 @@ class RentableResourceRepository {
           SET status = $3, is_active = ($3 = 'active'), updated_at = now()
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                  category_id, status, is_active, created_at, updated_at`,
+                  category_id, status, is_active, metadata, created_at, updated_at`,
       [id, tenantId, status]
     );
     return row ? toDomain(row) : null;
