@@ -518,3 +518,8 @@
 .composer-actor-pill-name { font-weight: 600; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .composer-actor-pill-caret { color: #889; font-size: 0.75rem; }
 .composer-actor-dropdown { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; background: #fff; border: 1px solid #e3e6ee; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.18); padding: 10px; min-width: 300px; max-height: 380px; overflow-y: auto; }
+.composer-audience-dropdown { left: 0; right: auto; min-width: 220px; display: flex; flex-direction: column; gap: 2px; }
+.composer-audience-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; font-size: 0.9rem; text-align: left; width: 100%; }
+.composer-audience-item:hover { background: #f0f2f5; }
+.composer-audience-item.selected { background: #eaf1ff; font-weight: 600; }
+.composer-audience-check { margin-left: auto; color: #2563eb; }

@@ -84,6 +84,9 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   // F2-C: pílula do actor abre a lista em dropdown (padrão do header — não lista sempre aberta).
   const [actorPickerOpen, setActorPickerOpen] = useState(false);
+  // F2-C: plateia (passo 1) também é pílula+dropdown (pedido de Clayton — mesma UX do actor).
+  const [audiencePickerOpen, setAudiencePickerOpen] = useState(false);
+  const AUDIENCE_ICON: Record<string, string> = { public: '🌐', friends: '👥', only_me: '🔒' };
   const CTA_BY_INTENT: Record<string, Array<'booking' | 'service' | 'payment'>> = {
     REQUEST_BOOKING: ['booking'],
     OFFER_SERVICE: ['service', 'payment'],
@@ -801,24 +804,41 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
       <div className="composer-steps">
         <div className="composer-step">
           <span className="composer-step-label">1 · Para quem é isso?</span>
-          <div className="composer-step-options">
-            {(activeActor?.actor_type === 'page'
-              ? [{ key: 'public', label: 'Público', visibility: 'public' as const }]
-              : [
-                  { key: 'public', label: 'Público', visibility: 'public' as const },
-                  { key: 'friends', label: 'Amigos', visibility: 'connections' as const },
-                  { key: 'only_me', label: 'Só eu', visibility: 'only_me' as const },
-                ]
-            ).map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                className={`composer-chip ${step1Audience?.key === opt.key ? 'selected' : ''}`}
-                onClick={() => setStep1Audience(opt)}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div className="composer-actor-picker">
+            <button
+              type="button"
+              className="composer-actor-pill"
+              onClick={() => setAudiencePickerOpen((v) => !v)}
+              aria-expanded={audiencePickerOpen}
+              aria-label="Escolher plateia"
+            >
+              <span className="composer-actor-pill-avatar">{step1Audience ? AUDIENCE_ICON[step1Audience.key] ?? '🌐' : '🌐'}</span>
+              <span className="composer-actor-pill-name">{step1Audience?.label ?? 'Selecionar plateia'}</span>
+              <span className="composer-actor-pill-caret">▾</span>
+            </button>
+            {audiencePickerOpen && (
+              <div className="composer-actor-dropdown composer-audience-dropdown">
+                {(activeActor?.actor_type === 'page'
+                  ? [{ key: 'public', label: 'Público', visibility: 'public' as const }]
+                  : [
+                      { key: 'public', label: 'Público', visibility: 'public' as const },
+                      { key: 'friends', label: 'Amigos', visibility: 'connections' as const },
+                      { key: 'only_me', label: 'Só eu', visibility: 'only_me' as const },
+                    ]
+                ).map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    className={`composer-audience-item ${step1Audience?.key === opt.key ? 'selected' : ''}`}
+                    onClick={() => { setStep1Audience(opt); setAudiencePickerOpen(false); }}
+                  >
+                    <span>{AUDIENCE_ICON[opt.key] ?? '🌐'}</span>
+                    <span>{opt.label}</span>
+                    {step1Audience?.key === opt.key && <span className="composer-audience-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         {step1Audience && (
