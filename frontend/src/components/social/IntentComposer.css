@@ -491,3 +491,12 @@
   border-color: #9ca3af;
 }
 
+
+/* F2 — passos 1/2 antes de digitar (sequência de Clayton) */
+.composer-steps { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 14px; }
+.composer-step-label { font-size: 0.85rem; font-weight: 600; color: #445; display: block; margin-bottom: 6px; }
+.composer-step-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.composer-chip { padding: 8px 14px; border: 1px solid #d5d9e4; border-radius: 999px; background: #fff; cursor: pointer; font-size: 0.85rem; }
+.composer-chip.selected { background: #2563eb; color: #fff; border-color: #2563eb; }
+.composer-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+.composer-step-empty { color: #889; font-size: 0.8rem; }

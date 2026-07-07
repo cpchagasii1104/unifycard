@@ -9,6 +9,9 @@ import PostComposer from './PostComposer';
 import './ActorContextInfo.css';
 import OccupancyModelConfig from './OccupancyModelConfig';
 import { classifyPostIntent, type OccupancyType } from '../../utils/intent-classifier';
+// F2 (sequência de Clayton): 1-Para quem? 2-O quê? ANTES de digitar — plateia = vocabulário GOVERNADO
+// posts.visibility (§2.4c); atos = contrato C1 (ActorIntent SSOT, server-driven por actor).
+import { getComposerContract, type ComposerIntentOption } from '../../api/composer';
 import {
   analyzeIntent,
   continueConversation,
@@ -60,6 +63,14 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   const navigate = useNavigate();
   const { activeActor } = useActiveActor();
   const [mode, setMode] = useState<'intent' | 'manual' | 'preview'>('intent'); // intent = modo inteligente, manual = PostComposer, preview = revisão
+
+  // ── F2 · PASSOS 1 e 2 (antes de digitar) ─────────────────────────────────────
+  // Passo 1 "Para quem é isso?" — projeta posts.visibility (governado; PF: público/amigos/só-eu;
+  // PJ: público — plateias finas de empresa em posts dependem de estender 0161 a posts, DECISION futura).
+  const [step1Audience, setStep1Audience] = useState<{ key: string; label: string; visibility: 'public' | 'connections' | 'only_me' } | null>(null);
+  // Passo 2 "O que é isso?" — projetado do contrato C1 (ActorIntent SSOT).
+  const [composerIntents, setComposerIntents] = useState<ComposerIntentOption[]>([]);
+  const [step2Intent, setStep2Intent] = useState<ComposerIntentOption | null>(null);
   const [textInput, setTextInput] = useState('');
   const [isClassifying, setIsClassifying] = useState(false);
   const [classifiedIntent, setClassifiedIntent] = useState<ClassifiedIntent | null>(null);
@@ -96,6 +107,18 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   const textInputRef = useRef<string>('');
 
   // Carregar features do usuário e inicializar Web Speech API
+  // F2: contrato C1 por actor (o actor/modo MOLDAM a superfície — server-driven, fail-closed).
+  useEffect(() => {
+    setStep1Audience(null);
+    setStep2Intent(null);
+    setComposerIntents([]);
+    if (!activeActor?.actor_id) return;
+    const mode0161 = activeActor.actor_type === 'page' ? 'operating' : 'consuming';
+    getComposerContract(activeActor.actor_id, mode0161)
+      .then((c) => setComposerIntents(c.intents))
+      .catch(() => setComposerIntents([])); // sem contrato → sem atos (fail-closed; modo manual segue disponível)
+  }, [activeActor?.actor_id, activeActor?.actor_type]);
+
   useEffect(() => {
     // Carregar features do usuário (versão paga)
     (async () => {
@@ -378,7 +401,28 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
     }
   };
 
+  // F2: com os passos 1+2 escolhidos, o submit é DIRETO (sem classificador de IA) — o intent veio do
+  // contrato C1 (identidade governada) e a plateia do passo 1 (posts.visibility). Mapeio ActorIntent →
+  // vocabulário do wire legado (mapa de TRADUÇÃO na borda; a identidade segue o ActorIntent, gravado em metadata).
+  const WIRE_INTENT: Record<string, 'personal' | 'friends' | 'booking' | 'service_offer' | 'product_offer' | 'project' | 'vote'> = {
+    SHARE_CONTENT: 'personal', OFFER_SERVICE: 'service_offer', OFFER_PRODUCT: 'product_offer',
+    REQUEST_BOOKING: 'booking', CREATE_PROJECT: 'project', START_VOTE: 'vote',
+  };
+  const handleGuidedSubmit = async () => {
+    if (!textInput.trim() || !step1Audience || !step2Intent || !activeActor?.actor_id) return;
+    const wire = WIRE_INTENT[step2Intent.intent] ?? 'personal';
+    const finalWire = wire === 'personal' && step1Audience.visibility === 'connections' ? 'friends' : wire;
+    await onSubmit(
+      textInput.trim(), [], activeActor.actor_id, finalWire,
+      { intent_canonical: step2Intent.intent }, // identidade governada preservada
+      {}, undefined, step1Audience.visibility
+    );
+    setTextInput(''); setStep2Intent(null);
+  };
+
   const handleTextSubmit = () => {
+    // F2: passos escolhidos → caminho guiado direto (o classificador de IA vira fallback do texto livre).
+    if (step1Audience && step2Intent) { void handleGuidedSubmit(); return; }
     if (!textInput.trim()) return;
     if (!classifiedIntent || classifiedIntent.confidence < 0.5) {
       // Se confiança baixa, pedir confirmação ou ir para manual
@@ -682,6 +726,58 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
         </div>
       )}
 
+      {/* ── F2 · fluxo lógico de Clayton: 1-Para quem? 2-O quê? (ANTES de digitar) ── */}
+      <div className="composer-steps">
+        <div className="composer-step">
+          <span className="composer-step-label">1 · Para quem é isso?</span>
+          <div className="composer-step-options">
+            {(activeActor?.actor_type === 'page'
+              ? [{ key: 'public', label: 'Público', visibility: 'public' as const }]
+              : [
+                  { key: 'public', label: 'Público', visibility: 'public' as const },
+                  { key: 'friends', label: 'Amigos', visibility: 'connections' as const },
+                  { key: 'only_me', label: 'Só eu', visibility: 'only_me' as const },
+                ]
+            ).map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`composer-chip ${step1Audience?.key === opt.key ? 'selected' : ''}`}
+                onClick={() => setStep1Audience(opt)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {step1Audience && (
+          <div className="composer-step">
+            <span className="composer-step-label">2 · O que é isso que você está criando?</span>
+            <div className="composer-step-options">
+              {composerIntents.map((it) => (
+                <button
+                  key={it.intent}
+                  type="button"
+                  className={`composer-chip ${step2Intent?.intent === it.intent ? 'selected' : ''}`}
+                  disabled={!it.enabled}
+                  title={!it.enabled ? (it.gatedBy || 'Indisponível para este actor') : undefined}
+                  onClick={() => {
+                    // evento NÃO nasce no post (F1): deeplink pro MOTOR, já com a origem marcada.
+                    if (it.intent === 'ANNOUNCE_EVENT') { navigate('/events/new?source=feed'); return; }
+                    setStep2Intent(it);
+                  }}
+                >
+                  {it.label}
+                </button>
+              ))}
+              {composerIntents.length === 0 && (
+                <span className="composer-step-empty">Sem atos disponíveis para este actor — use o Modo Avançado.</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Histórico de conversa (se houver) */}
       {conversationHistory.length > 0 && (
         <div className="conversation-history">
@@ -850,7 +946,7 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
           <button
             type="button"
             onClick={handleTextSubmit}
-            disabled={!textInput.trim() || !activeActor?.actor_id || isClassifying || isAnalyzing}
+            disabled={!textInput.trim() || !activeActor?.actor_id || (!step2Intent && (isClassifying || isAnalyzing))}
             className="btn-continue"
           >
             {classifiedIntent && classifiedIntent.confidence >= 0.5 ? '✅ Continuar' : '📝 Continuar'}
