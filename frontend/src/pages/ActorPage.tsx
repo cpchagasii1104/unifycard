@@ -232,7 +232,8 @@ export default function ActorPage() {
     );
   }
   if (connectAction?.enabled) {
-    heroActions.push({ label: 'Conectar', onClick: () => setConnectOpen(true), variant: 'secondary' });
+    // rotulo PROJETADO do contrato ('Solicitar conexao') — a tela nao batiza acao (achado Clayton 2026-07-07)
+    heroActions.push({ label: connectAction.label || 'Solicitar conexão', onClick: () => setConnectOpen(true), variant: 'secondary' });
   }
   const supportTicketAction = actions.find((a) => a.key === 'support_ticket');
   if (supportTicketAction?.enabled) {
