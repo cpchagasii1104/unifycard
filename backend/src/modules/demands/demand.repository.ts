@@ -239,15 +239,6 @@ class DemandRepository {
     return rows.map(toResponse);
   }
 
-  async updateResponseStatus(tenantId: string, responseId: string, status: DemandResponseStatus): Promise<DemandResponse | null> {
-    const row = await runQueryWithTenant<any>(
-      tenantId,
-      `UPDATE service_demand_responses SET status = $3, updated_at = now()
-        WHERE tenant_id = $1 AND id = $2 RETURNING *`,
-      [tenantId, responseId, status]);
-    return row ? toResponse(row) : null;
-  }
-
   /** Incremento ATÔMICO de vaga preenchida — fecha (filled) ao atingir quantity.
    *  Retorna a demanda pós-update ou null se não havia vaga (fail-closed). */
   async fillSlot(tenantId: string, demandId: string): Promise<ServiceDemand | null> {

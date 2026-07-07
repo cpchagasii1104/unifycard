@@ -1,5 +1,34 @@
 # REMEDIATION DT LOG
 
+## YALA-DEMANDA — ✅ RE-SELO CONCEDIDO (2026-07-07) — F-SERVICE-DEMAND-ORCHESTRATION FECHADA
+Re-auditoria adversarial (código+comportamento+guard-por-mutação) confirmou os 2 obrigatórios da
+1ª rodada genuinamente corrigidos: #6 plateia=controle de acesso (404 sem vazar existência, leitura
+E escrita) · #4 double-release eliminado (transição condicional atômica). Clayton ratificou o SELA.
+Higiene aplicada no mesmo commit: método incondicional `updateResponseStatus` REMOVIDO do
+repository (era código morto, 0 callers) + guard `audit-demand-orchestration-boundary.mjs` ganhou
+`stripComments` (Yala provou por mutação que comment-out evadia a contagem antiga; testado de novo
+após o fix — FAIL ao comentar, OK ao restaurar). Módulo `demands` está FECHADO — próxima reabertura
+só por nova frente nomeada (F-SERVICE-DEMAND-*), não patch solto.
+
+## DT-SOCIAL-IMPACT-LEDGER-MULTIROW-CREATEPOST — 🟡 ABERTA (2026-07-07), domínio SOCIAL, não demands
+Achado durante o re-selo do motor de demanda, mas Yala insistiu (corretamente) em NÃO misturar
+domínios: `createPost` (social-2.0.service.ts) falha com "Database query error (multiple rows)" no
+CTE de `impact_ledger`/`impact_balances` (ON CONFLICT infer_arbiter_indexes) em ambiente de script
+standalone. Efeito no motor de demanda é CONTIDO (mirrorToFeed é fail-visible — a demanda sobrevive
+mesmo se o post-espelho falhar, provado no smoke), mas o espelho em si NUNCA foi positivamente
+provado funcionando. NÃO bloqueia o selo de demands. Pendente: validar createPost no SERVIDOR real
+(não script) ou corrigir o multi-row do CTE — dono = domínio Social, não demands.
+
+## DT-LOCACOES-LABEL-TEXTO-LIVRE — ✅ ENCERRADA (2026-07-07), critério objetivo verificado
+DT dormente (origem: navegação reconciliada, 2026-07-03) sobre `/locacoes` usar `label` texto-livre
+violando Lei de Coerência (CONCEPT→ATTRIBUTES→canonical). Encerrada porque a ORIGEM DA VERDADE
+deixou de ser texto livre e passou a ser exclusivamente conceitos/facets governados — critério
+verificado por grep no código vivo (não por intenção): `rentable_resources.label` é gravado
+verbatim (`input.label`), NUNCA parseado/comparado pra derivar `concept_id` ou `category_id`;
+`concept_id` vem sempre do picker governado (`GET /rentable-resources/concepts`, validado contra
+`concepts` existente no backend); `category_id` idem. `label` é só o nome de exibição da INSTÂNCIA
+do recurso (ex.: "Furadeira Bosch Profissional"), nunca fonte de classificação.
+
 ## CADERNO DE OBSERVAÇÃO (não-DT) — clusters de Facet repetindo-se por domínio (2026-07-07)
 Após o 3º domínio seguir o mesmo processo (Veículos, Imóveis, Espaços), começou a aparecer um
 padrão de FACETS por família de domínio — registrado aqui só como observação, NÃO como abstração:
@@ -22,7 +51,10 @@ NÃO nomeado agora (evidência → padrão → nomeação, não ideia → abstra
 novo, sem framework. Caminho de promoção de `concept_offer_kinds` pra Dimensão formal (doc 18 §4.1) já
 é normado, se algum valor futuro ganhar regra de negócio própria — hoje é existence-check puro.
 
-## YALA-DEMANDA — ✅ RESSALVAS OBRIGATÓRIAS CORRIGIDAS (2026-07-07) — veredito SELA-COM-RESSALVAS → pronto p/ re-selo
+## YALA-DEMANDA (histórico, ver entrada CONSOLIDADA no topo do arquivo — RE-SELO CONCEDIDO)
+Esta entrada é o 1º achado (SELA-COM-RESSALVAS); SUPERADA pela entrada "YALA-DEMANDA — ✅ RE-SELO
+CONCEDIDO" no topo deste arquivo, que registra a re-auditoria e o veredito final SELA. Mantida como
+histórico do que foi corrigido, não como estado vigente.
 - **Yala confirmou os 3 soberanos** (Δbank=0 · catraca 0113 7/7 · RLS FORCE+GUC vivo no banco) e achou 2 obrigatórios + 4 baixos. TODOS os obrigatórios fechados no mesmo turno:
 - **#6 FAIL/ALTO — plateia era filtro de lista, não CONTROLE DE ACESSO (e o respond vazava — pior que o declarado):** novo `isActorInAudience` (mesmo predicado da lista + emissor) + `assertAudience` aplicado em getWithResponses E respond → fora da plateia = **404** (não vaza existência) pra LER e pra AGIR. Guard reescrito pra exigir ≥2 call-sites de assertAudience (falso-verde morto). Smoke: GET-fora-da-plateia 404 ✓ · RESPOND-fora-da-plateia 404 ✓ · emissor sempre vê a própria ✓.
 - **#4 MÉDIO — double-release no withdraw concorrente:** `updateResponseStatusIf` (UPDATE condicional `status = ANY(from)` RETURNING — row-lock serializa) substitui toda transição incondicional no service; withdraw: só o 1º transiciona, 2º = 409 sem re-liberar vaga; choose: se o candidato correu (withdraw no meio), vaga é DEVOLVIDA (release compensatório) + 409. Smoke: double-withdraw 409 sem drift ✓. Guard: proíbe updateResponseStatus incondicional no service ✓.

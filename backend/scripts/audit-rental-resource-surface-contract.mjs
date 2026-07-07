@@ -53,7 +53,11 @@ function stripComments(s) {
     'src/modules/rentals/rentable-resource.service.ts',
     'src/modules/rentals/rentable-resource.routes.ts',
   ];
-  const FIN_WORDS = ['bank_ledger', 'bank_transaction', 'price_cents', 'amount_cents', 'deposit', 'payout', 'checkout', 'payment_intent'];
+  // DECISION-0151 ADENDO A (2026-07-07, ordem direta de Clayton): price_cents/pricing_unit
+  // ENTRARAM como REGISTRO puro do anúncio (mesmo estatuto de service_demands.offered_price_cents,
+  // já revisado por Yala) — NÃO é execução financeira. §D continua vetando EXECUÇÃO (caução real,
+  // checkout, split, bank_*) — isso segue banido abaixo.
+  const FIN_WORDS = ['bank_ledger', 'bank_transaction', 'amount_cents', 'deposit', 'payout', 'checkout', 'payment_intent'];
   for (const f of files) {
     const src = stripComments(read(f)).toLowerCase();
     for (const w of FIN_WORDS) {
@@ -100,7 +104,11 @@ function stripComments(s) {
   if (!/path="locacoes"/.test(appTsx) || !/path="locacoes\/:id"/.test(appTsx)) {
     failures.push('App.tsx perdeu as rotas locacoes/locacoes/:id — módulo LIVE no registry sem rota real seria dead-end.');
   }
-  if (!/createRentableResource/.test(listPage) || !/searchCanonicalServices/.test(listPage)) {
+  // 2026-07-07: searchCanonicalServices (catálogo INTEIRO) foi substituído por
+  // listRentalConceptsByType (catálogo filtrado por tipo+offer_kind='rentable' — fix do
+  // vazamento motoboy/guincho). A garantia continua a mesma: busca SEMPRE governada, nunca texto
+  // livre virando concept_id.
+  if (!/createRentableResource/.test(listPage) || !/listRentalConceptsByType/.test(listPage)) {
     failures.push('RentalResourceListPage.tsx: criação de recurso ou busca de concept governado sumiu — risco de reintroduzir taxonomia inventada no cliente.');
   }
   if (!/createAvailability|confirmBooking|createBooking/.test(detailPage)) {

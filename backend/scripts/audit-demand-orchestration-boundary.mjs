@@ -23,6 +23,13 @@ const files = {
   mig: read('migrations/20260707120000_service_demand_substrate.sql'),
 };
 
+// Fix Yala (re-selo): comentar em vez de deletar evadia a contagem textual. stripComments (mesmo
+// padrão de audit-actor-authority-boundary.mjs) garante que só CÓDIGO VIVO é contado.
+const stripComments = (s) => s
+  .replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+const serviceCode = stripComments(files.service);
+
 // (1) Δbank=0 — exceto comentários de fronteira
 for (const [k, src] of Object.entries(files)) {
   if (k === 'mig') continue;
@@ -56,13 +63,18 @@ check('anti-double-commit de agenda presente', files.repo.includes('hasScheduleC
 check('plateia 0162 na leitura (ótica do emissor)', files.repo.includes('audience_relationship_types') && files.repo.includes('requester_label ELSE ar.target_label'));
 
 // (6) FIX YALA #6 — audiência é CONTROLE DE ACESSO, não só filtro de lista:
-// assertAudience obrigatório no read-por-id E no respond (o guard antigo dava falso-verde)
-const assertCalls = (files.service.match(/await this\.assertAudience\(/g) || []).length;
-check('assertAudience em getWithResponses + respond (≥2 call-sites)', assertCalls >= 2, `calls=${assertCalls}`);
+// assertAudience obrigatório no read-por-id E no respond (o guard antigo dava falso-verde).
+// Conta em serviceCode (SEM comentários) — Yala provou por mutação que comentar em vez de
+// deletar evadia a contagem textual antiga.
+const assertCalls = (serviceCode.match(/await this\.assertAudience\(/g) || []).length;
+check('assertAudience em getWithResponses + respond (≥2 call-sites, sem comentário)', assertCalls >= 2, `calls=${assertCalls}`);
 check('predicado de audiência por id existe no repo', files.repo.includes('isActorInAudience'));
 // (7) FIX YALA #4 — transições de resposta são CONDICIONAIS (anti double-release/over-fill)
-check('transição condicional (updateResponseStatusIf) em uso no service',
-  files.service.includes('updateResponseStatusIf') && !/await demandRepository\.updateResponseStatus\(/.test(files.service));
+check('transição condicional (updateResponseStatusIf) em uso no service, sem incondicional',
+  serviceCode.includes('updateResponseStatusIf') && !/await demandRepository\.updateResponseStatus\(/.test(serviceCode));
+// (8) FIX YALA (higiene) — método incondicional não pode nem EXISTIR no repo (código morto removido)
+check('updateResponseStatus incondicional REMOVIDO do repository (não só sem uso)',
+  !/async updateResponseStatus\(/.test(stripComments(files.repo)));
 
 if (fail) { console.log(`\nDEMAND-ORCHESTRATION-BOUNDARY: FAIL (${fail})`); process.exit(1); }
 console.log('\nDEMAND-ORCHESTRATION-BOUNDARY: OK');

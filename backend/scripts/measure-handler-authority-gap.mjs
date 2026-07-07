@@ -172,6 +172,13 @@ const BASELINE_UNCOVERED = new Set([
   'modules/groups/groups.routes.ts::PATCH /:id/members/:userId',
   'modules/groups/groups.routes.ts::POST /:groupId/media',
   'modules/groups/groups.routes.ts::PUT /:id',
+  // Falso-positivo verificado 2026-07-07 (achado durante re-selo Yala/demands): as 3 abaixo JÁ
+  // são gateadas via preHandler: groupsAuthGate('groups:create'|'groups:join'|'groups:leave')
+  // → authorizationService.canRepresentActor fail-closed (groups.routes.ts:217-248,751,800).
+  // O heurístico não reconhece binding via preHandler custom (mesma classe dos demais grupos acima).
+  'modules/groups/groups.routes.ts::POST /',
+  'modules/groups/groups.routes.ts::POST /:id/join',
+  'modules/groups/groups.routes.ts::POST /:id/leave',
   'modules/marketplace/purchase-order.routes.ts::POST /purchase-orders/:id/cancel',
   'modules/marketplace/purchase-order.routes.ts::POST /purchase-orders/:id/items',
   'modules/marketplace/purchase-order.routes.ts::POST /purchase-orders/:id/submit',

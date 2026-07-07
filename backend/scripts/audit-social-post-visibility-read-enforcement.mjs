@@ -90,8 +90,11 @@ try {
     /'only_me'/.test(postComposer) && /Só eu/.test(postComposer));
   check('frontend: IntentComposer também thread visibility (preview local + preview backend)',
     /previewData\.visibility/.test(intentComposer));
+  // Fix 2026-07-07: regex antigo exigia 'visibility' como ÚLTIMA propriedade do objeto —
+  // quebrou como falso-positivo quando audience_relationship_types (DECISION-0162) entrou
+  // DEPOIS dele no mesmo createSocialPost(). Checa a propriedade em qualquer posição do objeto.
   check('frontend: SocialFeed2 encaminha visibility pro createSocialPost (não descarta)',
-    /visibility,?\s*\}\);/.test(socialFeed2) || /visibility\s*\n\s*\}\);/.test(socialFeed2));
+    /createSocialPost\(\{[\s\S]{0,600}?\bvisibility,/.test(socialFeed2));
   check('frontend: zero localStorage como fonte de plateia',
     !/localStorage[\s\S]{0,60}visibility/i.test(postComposer + intentComposer));
 } catch (e) {
