@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import MarketplaceHeader from '../components/marketplace/MarketplaceHeader';
+import UnifiedAuthLayout from '../components/layout/UnifiedAuthLayout';
 import Breadcrumb from '../components/marketplace/Breadcrumb';
 import { getRootCategories, type MarketplaceCategory, type MarketplaceDomain } from '../api/marketplace-categories';
 import './MarketplaceDomainPage.css';
@@ -75,29 +75,29 @@ export default function MarketplaceDomainPage() {
 
   if (isLoading) {
     return (
-      <div className="marketplace-domain-page">
-        <MarketplaceHeader selectedDomain={domain} />
+      <UnifiedAuthLayout><div className="marketplace-domain-page">
+        
         <div className="marketplace-content">
           <div className="page-loading">Carregando segmentos...</div>
         </div>
-      </div>
+      </div></UnifiedAuthLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="marketplace-domain-page">
-        <MarketplaceHeader selectedDomain={domain} />
+      <UnifiedAuthLayout><div className="marketplace-domain-page">
+        
         <div className="marketplace-content">
           <div className="page-error">{error}</div>
         </div>
-      </div>
+      </div></UnifiedAuthLayout>
     );
   }
 
   return (
-    <div className="marketplace-domain-page">
-      <MarketplaceHeader selectedDomain={domain} />
+    <UnifiedAuthLayout><div className="marketplace-domain-page">
+      
       
       <div className="marketplace-content">
         <Breadcrumb
@@ -154,7 +154,7 @@ export default function MarketplaceDomainPage() {
           </div>
         )}
       </div>
-    </div>
+    </div></UnifiedAuthLayout>
   );
 }
 

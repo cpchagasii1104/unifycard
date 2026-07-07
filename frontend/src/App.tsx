@@ -220,16 +220,16 @@ function AppContent() {
           <Route path="/pay/:slug" element={<PaymentLinkPage />} />
           {/* Motor Canônico: Landing do link compartilhável (rota pública) */}
           <Route path="/share/:entityType/:entityId" element={<SharePage />} />
-          {/* Marketplace - Rotas públicas (vitrine READ-ONLY) */}
-          <Route path="marketplace" element={<MarketplaceHomePage />} />
-          <Route path="marketplace/market" element={<MarketplaceDomainPage />} />
-          <Route path="marketplace/services" element={<MarketplaceDomainPage />} />
-          <Route path="marketplace/events" element={<MarketplaceDomainPage />} />
-          <Route path="marketplace/real-estate" element={<MarketplaceDomainPage />} />
-          <Route path="marketplace/vehicles" element={<MarketplaceDomainPage />} />
-          <Route path="marketplace/jobs" element={<MarketplaceDomainPage />} />
-          <Route path="marketplace/:domain/:segment" element={<MarketplaceSegmentPage />} />
-          <Route path="marketplace/department/:departmentId" element={<DepartmentPage />} />
+          {/* Marketplace — dentro do shell autenticado (pedido Clayton 2026-07-07; vitrine pública real = /share e vitrine de perfil) */}
+          <Route path="marketplace" element={<ProtectedRoute><MarketplaceHomePage /></ProtectedRoute>} />
+          <Route path="marketplace/market" element={<ProtectedRoute><MarketplaceDomainPage /></ProtectedRoute>} />
+          <Route path="marketplace/services" element={<ProtectedRoute><MarketplaceDomainPage /></ProtectedRoute>} />
+          <Route path="marketplace/events" element={<ProtectedRoute><MarketplaceDomainPage /></ProtectedRoute>} />
+          <Route path="marketplace/real-estate" element={<ProtectedRoute><MarketplaceDomainPage /></ProtectedRoute>} />
+          <Route path="marketplace/vehicles" element={<ProtectedRoute><MarketplaceDomainPage /></ProtectedRoute>} />
+          <Route path="marketplace/jobs" element={<ProtectedRoute><MarketplaceDomainPage /></ProtectedRoute>} />
+          <Route path="marketplace/:domain/:segment" element={<ProtectedRoute><MarketplaceSegmentPage /></ProtectedRoute>} />
+          <Route path="marketplace/department/:departmentId" element={<ProtectedRoute><DepartmentPage /></ProtectedRoute>} />
           <Route path="marketplace/c/:path" element={<CategoryNavigationPage />} />
 
           {/* Rota Home (sem layout - menu não aparece) */}
