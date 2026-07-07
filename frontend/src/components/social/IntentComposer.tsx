@@ -71,6 +71,17 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   // Passo 2 "O que é isso?" — projetado do contrato C1 (ActorIntent SSOT).
   const [composerIntents, setComposerIntents] = useState<ComposerIntentOption[]>([]);
   const [step2Intent, setStep2Intent] = useState<ComposerIntentOption | null>(null);
+  // Passo 3 "O que você quer que as pessoas façam?" (CTA) — vocabulário do WIRE já governado
+  // ('booking'|'service'|'payment', contrato onSubmit existente); PROJEÇÃO por intent, opcional.
+  const [step3Cta, setStep3Cta] = useState<'booking' | 'service' | 'payment' | null>(null);
+  // F2-B: composer em MODAL sobre o feed (padrão FB — mesma página, sem navegar).
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const CTA_BY_INTENT: Record<string, Array<'booking' | 'service' | 'payment'>> = {
+    REQUEST_BOOKING: ['booking'],
+    OFFER_SERVICE: ['service', 'payment'],
+    OFFER_PRODUCT: ['payment'],
+  };
+  const CTA_LABEL: Record<string, string> = { booking: '📅 Agendar', service: '💼 Contratar', payment: '💳 Pagar' };
   const [textInput, setTextInput] = useState('');
   const [isClassifying, setIsClassifying] = useState(false);
   const [classifiedIntent, setClassifiedIntent] = useState<ClassifiedIntent | null>(null);
@@ -415,9 +426,9 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
     await onSubmit(
       textInput.trim(), [], activeActor.actor_id, finalWire,
       { intent_canonical: step2Intent.intent }, // identidade governada preservada
-      {}, undefined, step1Audience.visibility
+      {}, step3Cta ? { type: step3Cta } : undefined, step1Audience.visibility
     );
-    setTextInput(''); setStep2Intent(null);
+    setTextInput(''); setStep2Intent(null); setStep3Cta(null); setIsComposerOpen(false);
   };
 
   const handleTextSubmit = () => {
@@ -693,8 +704,27 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   }
 
   // Modo Intent (padrão - texto livre)
+  // F2-B: colapsado = gatilho estilo FB ("No que você está pensando?"); clique abre o MODAL na mesma página.
+  if (!isComposerOpen) {
+    return (
+      <div id="intent-composer" className="intent-composer composer-trigger" onClick={() => setIsComposerOpen(true)}>
+        <div className="composer-trigger-row">
+          <div className="actor-context-avatar-placeholder">
+            {activeActor?.actor_type === 'user' ? '👤' : activeActor?.actor_type === 'page' ? '🏢' : '👥'}
+          </div>
+          <div className="composer-trigger-input">{placeholder}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div id="intent-composer" className="intent-composer intent-composer-intent">
+    <div className="composer-modal-backdrop" onClick={() => setIsComposerOpen(false)}>
+    <div id="intent-composer" className="intent-composer intent-composer-intent composer-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="composer-modal-head">
+        <span className="composer-modal-title">Criar publicação</span>
+        <button type="button" className="composer-modal-close" onClick={() => setIsComposerOpen(false)}>✕</button>
+      </div>
       {/* Contexto de Ator (informativo apenas) */}
       {activeActor && (
         <div className="actor-context-info">
@@ -765,6 +795,7 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
                     // evento NÃO nasce no post (F1): deeplink pro MOTOR, já com a origem marcada.
                     if (it.intent === 'ANNOUNCE_EVENT') { navigate('/events/new?source=feed'); return; }
                     setStep2Intent(it);
+                    setStep3Cta(null);
                   }}
                 >
                   {it.label}
@@ -773,6 +804,27 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
               {composerIntents.length === 0 && (
                 <span className="composer-step-empty">Sem atos disponíveis para este actor — use o Modo Avançado.</span>
               )}
+            </div>
+          </div>
+        )}
+        {/* Passo 3 (opcional, por intent): "O que você quer que as pessoas façam?" */}
+        {step2Intent && (CTA_BY_INTENT[step2Intent.intent]?.length ?? 0) > 0 && (
+          <div className="composer-step">
+            <span className="composer-step-label">3 · O que você quer que as pessoas façam?</span>
+            <div className="composer-step-options">
+              {(CTA_BY_INTENT[step2Intent.intent] ?? []).map((cta) => (
+                <button
+                  key={cta}
+                  type="button"
+                  className={`composer-chip ${step3Cta === cta ? 'selected' : ''}`}
+                  onClick={() => setStep3Cta(step3Cta === cta ? null : cta)}
+                >
+                  {CTA_LABEL[cta]}
+                </button>
+              ))}
+              <button type="button" className={`composer-chip ${step3Cta === null ? 'selected' : ''}`} onClick={() => setStep3Cta(null)}>
+                Nenhuma ação
+              </button>
             </div>
           </div>
         )}
@@ -953,6 +1005,7 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }
