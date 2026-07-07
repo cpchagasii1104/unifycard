@@ -208,8 +208,9 @@ export default function PostComposer({ onSubmit, placeholder = 'O que você est�
       return;
     }
 
-    if (experienceType === 'event' && !eventSubtype) {
-      alert('Por favor, escolha o subtipo do evento');
+    if (experienceType === 'event') {
+      // F1: post NÃO cria evento (2ª fonte de verdade removida) — o motor cria (deeplink no formulário).
+      window.location.href = '/events/new';
       return;
     }
 
@@ -232,11 +233,8 @@ export default function PostComposer({ onSubmit, placeholder = 'O que você est�
       // Construir intent_metadata baseado no tipo de experiência
       let intentMetadata: Record<string, any> = {};
       
-      if (experienceType === 'event' && eventSubtype) {
-        intentMetadata = {
-          event_subtype: eventSubtype,
-        };
-      } else if (experienceType === 'vote') {
+      // (F1: 'event' nunca chega aqui — early-return redireciona pro motor /events/new)
+      if (experienceType === 'vote') {
         const validOptions = voteOptions.filter(opt => opt.trim());
         intentMetadata = {
           options: validOptions,
@@ -643,31 +641,24 @@ export default function PostComposer({ onSubmit, placeholder = 'O que você est�
             </div>
           )}
 
-          {/* Subtipo de evento (obrigatório quando evento é selecionado) */}
+          {/* EVENTO = deeplink pro MOTOR (F1, DT-POST-EVENT-PARALLEL-TRUTH): o post NÃO cria evento.
+              O vocabulário/subtipos pertencem ao motor (wizard /events/new, actor-adaptativo). O
+              dropdown local (SHOW/CINEMA/... inventado em TSX) foi REMOVIDO — era 2ª fonte de verdade
+              (Lei de Coerência §5 + 00_AGENT_PROTOCOL 2.3.3 "SSOT paralelo"). O anúncio no feed nasce
+              do próprio motor (evento criado → ANNOUNCE_EVENT referenciando event_id). */}
           {experienceType === 'event' && (
             <div className="event-subtype-section">
-              <label className="subtype-label">
-                Tipo de evento: <span className="required">*</span>
-              </label>
-              <select
-                value={eventSubtype}
-                onChange={(e) => setEventSubtype(e.target.value as EventSubtype)}
-                disabled={isSubmitting}
-                className="event-subtype-select"
-                required
+              <p className="subtype-label">
+                Eventos são criados no <strong>criador de eventos</strong> — com agenda, espaço e papéis.
+                O anúncio aparece no feed a partir do evento real.
+              </p>
+              <button
+                type="button"
+                className="composer-event-deeplink"
+                onClick={() => { window.location.href = '/events/new'; }}
               >
-                <option value="">Selecione o tipo...</option>
-                <option value="SHOW">🎶 Show</option>
-                <option value="CINEMA">🎬 Cinema</option>
-                <option value="ESPORTE">⚽ Esporte</option>
-                <option value="BAR">🍺 Bar / Happy Hour</option>
-                <option value="RESTAURANTE">🍽️ Restaurante</option>
-                <option value="FEIRA">🎪 Feira</option>
-                <option value="WORKSHOP">📚 Workshop</option>
-                <option value="EXPOSICAO">🖼️ Exposição</option>
-                <option value="FESTIVAL">🎉 Festival</option>
-                <option value="BALADA">💃 Balada</option>
-              </select>
+                🎪 Criar evento de verdade
+              </button>
             </div>
           )}
 
@@ -844,7 +835,7 @@ export default function PostComposer({ onSubmit, placeholder = 'O que você est�
           </div>
           <button
             type="submit"
-            disabled={isSubmitting || (!content.trim() && mediaIds.length === 0) || !experienceType || (experienceType === 'event' && !eventSubtype)}
+            disabled={isSubmitting || (!content.trim() && mediaIds.length === 0) || !experienceType }
             className="submit-post-btn"
           >
             {isSubmitting ? 'Publicando...' : 'Publicar'}
