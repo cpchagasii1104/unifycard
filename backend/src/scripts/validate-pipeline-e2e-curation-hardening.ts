@@ -98,6 +98,15 @@ async function main(): Promise<void> {
   rec('D D2 reject de não-pending → 409 fail-closed', rD.statusCode === 409, `status=${rD.statusCode}`);
 
   await app.close();
+
+  // E · gate-duplo (ressalva Yala): chamar o SERVICE direto (pulando a rota) sem allowlist → 403 no sink.
+  const { catalogCurationService } = await import('../core/catalog/curation/catalog-curation.service');
+  let sinkGate = false;
+  try {
+    await catalogCurationService.approveProduct({ canonicalProductId: cp, conceptId, curatorActorId: actor, tenantId: T, promoteToGlobal: true, requesterGlobalUserId: gu });
+  } catch (e: any) { sinkGate = /PROMOTE_TO_GLOBAL_PLATFORM_GATE/.test(e?.code ?? e?.message ?? ''); }
+  rec('E gate-duplo: service direto (pulando a rota) sem allowlist → 403 no SINK', sinkGate);
+
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${failed.length === 0 ? '🎉 PASS' : '💥 FAIL'} — ${results.length - failed.length}/${results.length}`);
   await pool.end();

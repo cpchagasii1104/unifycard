@@ -256,6 +256,7 @@ const catalogGovernanceRoutes: FastifyPluginAsync = async (fastify) => {
           promoteToGlobal: parsed.data.promoteToGlobal === true,
           curatorActorId: curator,
           tenantId: req.tenant!.id,
+          requesterGlobalUserId: sub.globalUserId ?? null, // gate-duplo: o sink re-verifica a plataforma
         });
         return reply.send({ ok: true, data });
       } catch (err) {

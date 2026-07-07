@@ -107,7 +107,19 @@ export const catalogCurationService = {
     curatorActorId: string;
     tenantId: string;
     promoteToGlobal?: boolean;
+    /** identidade soberana do requisitante (p/ gate de plataforma no SINK — defesa-em-profundidade). */
+    requesterGlobalUserId?: string | null;
   }): Promise<{ canonicalProductId: string; conceptId: string; scope: string }> {
+    // D1 GATE NO SINK (ressalva Yala 2026-07-06, padrão gate-duplo do rides): promover a GLOBAL muda o
+    // catálogo de TODOS os tenants — além do gate na rota, o PRÓPRIO writer exige a allowlist de
+    // plataforma (env-strict fail-closed). Caller futuro que pule a rota NÃO promove por acidente.
+    if (input.promoteToGlobal === true) {
+      const allow = (process.env.PLATFORM_CURATION_ADMIN_GLOBAL_USER_IDS ?? '')
+        .split(',').map((s) => s.trim()).filter(Boolean);
+      if (!input.requesterGlobalUserId || !allow.includes(input.requesterGlobalUserId)) {
+        throw new CatalogCurationError(403, 'PROMOTE_TO_GLOBAL_PLATFORM_GATE', 'Promoção a escopo global exige operador de plataforma (gate fail-closed no writer).');
+      }
+    }
     const concept = await pool.query<{ concept_id: string; domain: string }>(
       `SELECT concept_id, domain FROM concepts WHERE concept_id = $1::uuid LIMIT 1`,
       [input.conceptId]
