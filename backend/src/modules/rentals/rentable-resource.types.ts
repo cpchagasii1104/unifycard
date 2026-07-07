@@ -13,13 +13,16 @@ export const RENTAL_PRICING_UNITS = ['por_hora', 'por_dia', 'por_semana', 'por_m
 export type RentalPricingUnit = (typeof RENTAL_PRICING_UNITS)[number];
 
 // 2026-07-07 (Clayton: "primeiro seleciono o tipo, aí sim vem a categoria relacionada" — mesma
-// lógica do motor de demanda/grupos): tipo → N0 GOVERNADO congelado (doc 18). 'property' fica FORA
-// (sem N0 — RFC_N0_IMOVEIS_E_PROPRIEDADES.md aguarda ratificação); 'other' fica sem filtro (aberto).
+// lógica do motor de demanda/grupos): tipo → N0 GOVERNADO congelado (doc 18). N0 bens-imoveis
+// RATIFICADO por Clayton (RFC_N0_IMOVEIS_E_PROPRIEDADES.md v2). 'other' fica sem filtro (aberto).
 export const RESOURCE_TYPE_TO_DOMAINS: Record<RentableResourceType, string[] | null> = {
   equipment: ['produtos-e-comercio'],
   vehicle: ['mobilidade-e-logistica'],
-  property: [], // bloqueado de propósito — sem N0 ainda
-  space: [],    // idem property — mesmo gap (imóvel/espaço)
+  // 'space' (salão/chácara/galpão-evento) É bens-imoveis com o CONTEXT 'eventos' — mesma
+  // identidade ontológica de 'property', não domínio separado (achado da revisão: "espaço para
+  // eventos" é uso, não natureza).
+  property: ['bens-imoveis'],
+  space: ['bens-imoveis'],
   other: null,  // null = catálogo inteiro (recurso atípico, sem domínio único)
 };
 

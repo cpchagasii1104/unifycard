@@ -32,7 +32,9 @@ import './RentalResourceListPage.css';
 
 // Tipo SEM N0 na ontologia congelada ainda (RFC_N0_IMOVEIS_E_PROPRIEDADES.md aguarda Clayton) —
 // projeta o estado real (backend devolve [] pra estes); frontend NÃO inventa taxonomia.
-const TYPES_PENDING_RFC: RentableResourceType[] = ['property', 'space'];
+// N0 bens-imoveis RATIFICADO por Clayton 2026-07-07 (RFC_N0_IMOVEIS_E_PROPRIEDADES.md v2) — nada
+// mais pendente de RFC hoje. Mantido o array (vazio) caso um resourceType futuro precise do mesmo freio.
+const TYPES_PENDING_RFC: RentableResourceType[] = [];
 
 const RESOURCE_TYPE_LABEL: Record<RentableResourceType, string> = {
   equipment: 'Equipamento',
@@ -94,6 +96,13 @@ export default function RentalResourceListPage() {
   const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
   const [attrAno, setAttrAno] = useState('');
 
+  // atributos de IMÓVEL (LAYER 5 — Facets, régua ratificada: "descreve COMO É", não "identifica O
+  // QUE É" — não viram CONCEPT nem catálogo governado, ficam no metadata do recurso)
+  const [propArea, setPropArea] = useState('');
+  const [propBedrooms, setPropBedrooms] = useState('');
+  const [propBathrooms, setPropBathrooms] = useState('');
+  const [propFurnished, setPropFurnished] = useState(false);
+
   // disponibilidade inline por recurso (operar) — janela vai pra AGENDA UNIVERSAL
   const [availFor, setAvailFor] = useState<string | null>(null);
   const [availStart, setAvailStart] = useState('');
@@ -131,6 +140,7 @@ export default function RentalResourceListPage() {
     setSelectedMake(null); setMakeQuery(''); setMakeOptions([]);
     setSelectedModel(null); setModelQuery(''); setModelOptions([]);
     setAttrAno('');
+    setPropArea(''); setPropBedrooms(''); setPropBathrooms(''); setPropFurnished(false);
   }, [resourceType]);
 
   useEffect(() => {
@@ -175,6 +185,13 @@ export default function RentalResourceListPage() {
         // GOVERNADO: sempre IDs do catálogo (nunca texto digitado); nome só como projeção de exibição
         if (selectedMake) { metadata.vehicleMakeId = selectedMake.id; metadata.vehicleMakeName = selectedMake.name; }
         if (selectedModel) { metadata.vehicleModelId = selectedModel.id; metadata.vehicleModelName = selectedModel.name; }
+      }
+      if (resourceType === 'property' || resourceType === 'space') {
+        // Facets puras (descrevem, não identificam) — validadas como número/booleano, nunca texto livre
+        if (propArea.trim()) metadata.areaM2 = Number(propArea);
+        if (propBedrooms.trim()) metadata.bedrooms = parseInt(propBedrooms, 10);
+        if (propBathrooms.trim()) metadata.bathrooms = parseInt(propBathrooms, 10);
+        metadata.furnished = propFurnished;
       }
       const yearNum = attrAno.trim() ? parseInt(attrAno, 10) : null;
       await createRentableResource({
@@ -364,6 +381,19 @@ export default function RentalResourceListPage() {
                 <input type="number" inputMode="numeric" placeholder="Ex.: 1978" value={attrAno}
                   min={1900} max={new Date().getFullYear() + 1}
                   onChange={(e) => setAttrAno(e.target.value)} />
+              </label>
+            </div>
+          )}
+
+          {/* Imóvel/Espaço: Facets puras (régua ratificada: "descreve COMO É", não "identifica O
+              QUE É" — apartamento/casa/galpão já são o CONCEPT; metragem/quartos são atributo) */}
+          {(resourceType === 'property' || resourceType === 'space') && (
+            <div className="rrl-row">
+              <label className="rrl-field">Área (m²)<input type="number" min={1} placeholder="Ex.: 65" value={propArea} onChange={(e) => setPropArea(e.target.value)} /></label>
+              <label className="rrl-field">Quartos<input type="number" min={0} max={20} placeholder="Ex.: 2" value={propBedrooms} onChange={(e) => setPropBedrooms(e.target.value)} /></label>
+              <label className="rrl-field">Banheiros<input type="number" min={0} max={20} placeholder="Ex.: 1" value={propBathrooms} onChange={(e) => setPropBathrooms(e.target.value)} /></label>
+              <label className="rrl-field rrl-field--checkbox">
+                <input type="checkbox" checked={propFurnished} onChange={(e) => setPropFurnished(e.target.checked)} /> Mobiliado
               </label>
             </div>
           )}

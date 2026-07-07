@@ -1,5 +1,14 @@
 # REMEDIATION DT LOG
 
+## OBSERVAÇÃO (não-DT) — padrão recorrente ainda sem nomenclatura institucional (2026-07-07)
+Foi observado um padrão recorrente de associações governadas entre entidades e Concepts. O padrão
+aparece atualmente em diferentes módulos (`actor_professional_concepts`: actor+concept+skill_level;
+`concept_offer_kinds`: concept+offer_kind; vocabulários do motor de demanda) e poderá futuramente
+receber nomenclatura institucional própria, caso continue emergindo em novos domínios. Deliberadamente
+NÃO nomeado agora (evidência → padrão → nomeação, não ideia → abstração → implementação). Sem schema
+novo, sem framework. Caminho de promoção de `concept_offer_kinds` pra Dimensão formal (doc 18 §4.1) já
+é normado, se algum valor futuro ganhar regra de negócio própria — hoje é existence-check puro.
+
 ## YALA-DEMANDA — ✅ RESSALVAS OBRIGATÓRIAS CORRIGIDAS (2026-07-07) — veredito SELA-COM-RESSALVAS → pronto p/ re-selo
 - **Yala confirmou os 3 soberanos** (Δbank=0 · catraca 0113 7/7 · RLS FORCE+GUC vivo no banco) e achou 2 obrigatórios + 4 baixos. TODOS os obrigatórios fechados no mesmo turno:
 - **#6 FAIL/ALTO — plateia era filtro de lista, não CONTROLE DE ACESSO (e o respond vazava — pior que o declarado):** novo `isActorInAudience` (mesmo predicado da lista + emissor) + `assertAudience` aplicado em getWithResponses E respond → fora da plateia = **404** (não vaza existência) pra LER e pra AGIR. Guard reescrito pra exigir ≥2 call-sites de assertAudience (falso-verde morto). Smoke: GET-fora-da-plateia 404 ✓ · RESPOND-fora-da-plateia 404 ✓ · emissor sempre vê a própria ✓.

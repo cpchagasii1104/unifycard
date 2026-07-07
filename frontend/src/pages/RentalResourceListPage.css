@@ -45,3 +45,6 @@
 .rrl-hint { color: #64748b; font-size: .82rem; margin: 2px 0 0; }
 
 .rrl-hint--blocked { background: #fff8e6; border: 1px solid #f0d78c; border-radius: 8px; padding: 10px 12px; }
+
+.rrl-field--checkbox { flex-direction: row; align-items: center; gap: 6px; justify-content: flex-start; }
+.rrl-field--checkbox input { width: auto; }
