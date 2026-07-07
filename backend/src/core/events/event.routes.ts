@@ -268,6 +268,94 @@ async function assertRepresentsEventOwner(
 
 const eventRoutes: FastifyPluginAsync = async (fastify) => {
   /**
+   * GET /events/audience-options — DECISION-0161 D2 (contrato server-driven de PLATEIA, padrão C1).
+   * Devolve as plateias POSSÍVEIS do actor ativo (PF ≠ empresa), COMPOSTAS dos vocabulários
+   * GOVERNADOS: events.visibility (macro, CHECK) + RELATIONSHIP_LABELS do typed-edge (refinamento).
+   * A superfície (wizard/composer) PROJETA este contrato — proibido hardcodar plateia em TSX.
+   * Gate: canRepresentActor (fail-closed 403) — o actor declarado é hint, nunca autoridade.
+   */
+  fastify.get('/audience-options', async (req: FastifyRequest, reply: FastifyReply) => {
+    const tenantId = req.tenant!.id;
+    const actorId = req.actionContext?.actorId;
+    if (!actorId) {
+      return reply.status(400).send({ ok: false, code: 'ACTION_CONTEXT_REQUIRED' });
+    }
+    let actor: { actor_id: string; actor_type: string };
+    try {
+      actor = await resolveRepresentedActor(tenantId, req.user?.userId, actorId);
+    } catch {
+      return reply.status(403).send({ ok: false, code: 'ACTOR_NOT_REPRESENTABLE' });
+    }
+    const { RELATIONSHIP_LABELS } = await import('@modules/relationships/actor-relationship.types');
+    const L = (l: string) => (RELATIONSHIP_LABELS as readonly string[]).includes(l) ? [l] : [];
+    // Opções por tipo de actor — identidade = visibility + audienceRelationshipTypes (governados);
+    // label/ordem = projeção UX. NULL/[] em audience = sem refinamento.
+    const base = [
+      { key: 'public', label: 'Público', visibility: 'public', audienceRelationshipTypes: null },
+      { key: 'followers', label: 'Seguidores', visibility: 'followers', audienceRelationshipTypes: null },
+    ];
+    const pf = [
+      { key: 'friends', label: 'Amigos', visibility: 'private', audienceRelationshipTypes: L('amigo') },
+      { key: 'family', label: 'Família', visibility: 'private', audienceRelationshipTypes: L('familiar') },
+      { key: 'only_me', label: 'Só eu', visibility: 'private', audienceRelationshipTypes: null },
+    ];
+    const pj = [
+      { key: 'collaborators', label: 'Colaboradores', visibility: 'private', audienceRelationshipTypes: L('colaborador') },
+      { key: 'clients', label: 'Clientes', visibility: 'private', audienceRelationshipTypes: L('cliente') },
+      { key: 'suppliers', label: 'Fornecedores', visibility: 'private', audienceRelationshipTypes: L('fornecedor') },
+      { key: 'partners', label: 'Parceiros', visibility: 'private', audienceRelationshipTypes: L('parceiro') },
+      { key: 'group', label: 'Grupo', visibility: 'group', audienceRelationshipTypes: null },
+    ];
+    const options = actor.actor_type === 'page' ? [...base, ...pj] : [...base, ...pf];
+    return reply.send({ ok: true, data: { actorType: actor.actor_type, options } });
+  });
+
+  /**
+   * PATCH /events/:id/audience — DECISION-0161 (writer mínimo da plateia).
+   * Organizer-gated (resolveRepresentedActor sobre event.actor_id, fail-closed). Seta o MACRO
+   * (visibility, validado pelo CHECK existente) + refinamento (audience_relationship_types, validado
+   * pelo CHECK do subconjunto governado — o banco é a última linha).
+   */
+  fastify.patch<{ Params: { id: string }; Body: { visibility?: string; audienceRelationshipTypes?: string[] | null } }>(
+    '/:id/audience',
+    async (req, reply) => {
+      const tenantId = req.tenant!.id;
+      const actorId = req.actionContext?.actorId;
+      if (!actorId) return reply.status(400).send({ ok: false, code: 'ACTION_CONTEXT_REQUIRED' });
+      const evRows = await runQueryWithTenant<{ actor_id: string }>(
+        tenantId, `SELECT actor_id FROM events WHERE tenant_id = $1 AND id = $2`, [tenantId, req.params.id]
+      );
+      if (!evRows) return reply.status(404).send({ ok: false, code: 'EVENT_NOT_FOUND' });
+      try {
+        await resolveRepresentedActor(tenantId, req.user?.userId, actorId);
+      } catch {
+        return reply.status(403).send({ ok: false, code: 'ACTOR_NOT_REPRESENTABLE' });
+      }
+      if (evRows.actor_id !== actorId) {
+        return reply.status(403).send({ ok: false, code: 'NOT_EVENT_ORGANIZER' });
+      }
+      const vis = req.body?.visibility;
+      const aud = req.body?.audienceRelationshipTypes ?? null;
+      if (!vis && aud === null) return reply.status(400).send({ ok: false, code: 'AUDIENCE_EMPTY_PATCH' });
+      try {
+        await runQueryWithTenant(
+          tenantId,
+          `UPDATE events SET
+             visibility = COALESCE($3, visibility),
+             audience_relationship_types = $4,
+             updated_at = NOW()
+           WHERE tenant_id = $1 AND id = $2`,
+          [tenantId, req.params.id, vis ?? null, aud]
+        );
+      } catch (e) {
+        // CHECKs do banco (visibility / subconjunto governado) = fail-closed com erro honesto.
+        return reply.status(400).send({ ok: false, code: 'AUDIENCE_VOCABULARY_REJECTED', message: (e as Error).message.slice(0, 160) });
+      }
+      return reply.send({ ok: true });
+    }
+  );
+
+  /**
    * POST /events
    * Cria um novo evento
    */

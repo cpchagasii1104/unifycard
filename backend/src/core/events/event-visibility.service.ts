@@ -30,9 +30,9 @@ export async function canViewEvent(
   eventId: string,
   callerUserId: string | null | undefined
 ): Promise<boolean> {
-  const rows = await runQueriesWithTenant<{ actor_id: string; status: string; visibility: string }>(
+  const rows = await runQueriesWithTenant<{ actor_id: string; status: string; visibility: string; audience_relationship_types: string[] | null }>(
     tenantId,
-    `SELECT actor_id, status, visibility FROM events WHERE tenant_id = $1 AND id = $2`,
+    `SELECT actor_id, status, visibility, audience_relationship_types FROM events WHERE tenant_id = $1 AND id = $2`,
     [tenantId, eventId]
   );
   const ev = rows[0];
@@ -61,10 +61,40 @@ export async function canViewEvent(
     case 'followers':
       return callerUserId ? isFollowerOfOrganizer(tenantId, ev.actor_id, callerUserId) : false;
     case 'private':
+      // DECISION-0161 D3: refinamento por RELAÇÃO — viewer com aresta ACEITA de um dos tipos exigidos
+      // com o organizador VÊ; sem refinamento (NULL), private = só organizer (comportamento anterior).
+      if (ev.audience_relationship_types && ev.audience_relationship_types.length > 0 && callerUserId) {
+        return hasAcceptedRelationshipOfType(tenantId, ev.actor_id, callerUserId, ev.audience_relationship_types);
+      }
       return false; // só organizer (já tratado)
     default:
       return false; // deny-first
   }
+}
+
+/**
+ * DECISION-0161 D3: o viewer (derivado SERVER-SIDE de actors.user_id = caller, mesmo padrão do
+ * isFollowerOfOrganizer) tem aresta ACEITA no typed-edge com o organizador, cujo LABEL (de qualquer
+ * um dos lados — requester_label OU target_label) esteja entre os tipos exigidos. Fail-closed.
+ */
+async function hasAcceptedRelationshipOfType(
+  tenantId: string,
+  organizerActorId: string,
+  callerUserId: string,
+  requiredTypes: string[]
+): Promise<boolean> {
+  const rows = await runQueriesWithTenant<{ ok: number }>(
+    tenantId,
+    `SELECT 1 AS ok
+       FROM actor_relationships r
+       JOIN actors va ON va.tenant_id = r.tenant_id AND va.user_id = $3
+      WHERE r.tenant_id = $1 AND r.status = 'accepted'
+        AND ((r.from_actor_id = va.id AND r.to_actor_id = $2) OR (r.from_actor_id = $2 AND r.to_actor_id = va.id))
+        AND (r.requester_label = ANY($4::text[]) OR r.target_label = ANY($4::text[]))
+      LIMIT 1`,
+    [tenantId, organizerActorId, callerUserId, requiredTypes]
+  );
+  return rows.length > 0;
 }
 
 /**

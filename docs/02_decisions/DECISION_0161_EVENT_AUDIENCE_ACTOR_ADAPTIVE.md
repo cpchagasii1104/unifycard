@@ -1,6 +1,6 @@
 # DECISION-0161 — Plateia de evento adaptada ao actor (RFC para ratificação)
 
-**Status:** 🟡 PROPOSTA (aguarda ratificação de Clayton; NADA codado)
+**Status:** ✅ **RATIFICADA POR CLAYTON (2026-07-06 — "ratificado 0161", nesta sessão).** Execução da sequência §5 autorizada.
 **Data:** 2026-07-06 · **Origem:** achado de Clayton no navegador (wizard só oferece Privado/Público;
 sem plateia por actor: amigos/parentes/colaboradores/fornecedores/lista) + diretriz "planejar antes
 de codar, respeitando SSOT/nomenclatura/Lei de Coerência/ontologia/N0-N2".
