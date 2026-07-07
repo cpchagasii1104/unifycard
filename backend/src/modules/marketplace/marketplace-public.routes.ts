@@ -89,11 +89,22 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
     };
   }>('/categories/root', async (req, reply) => {
     try {
-      if (!(req as { tenant?: { id: string } }).tenant) {
+      // 2026-07-07 (achado Clayton: "Sessão expirada" no Fazer compras): este escopo público
+      // não roda o hook de tenant → req.tenant vinha vazio MESMO com sessão válida. Fallback:
+      // x-tenant-id do client canônico, VALIDADO contra tenants (leitura de navegação, tenant-scoped).
+      let tenantId = (req as { tenant?: { id: string } }).tenant?.id;
+      if (!tenantId) {
+        const headerTenant = String(req.headers['x-tenant-id'] ?? '').trim();
+        if (headerTenant) {
+          const { pool } = await import('@core/database/pool');
+          const exists = await pool.query('SELECT 1 FROM tenants WHERE id = $1', [headerTenant]);
+          if (exists.rowCount === 1) tenantId = headerTenant;
+        }
+      }
+      if (!tenantId) {
         throw new UnauthorizedError('Tenant required');
       }
       const { marketplaceCategoriesService } = await import('./marketplace-categories.service');
-      const tenantId = (req as { tenant: { id: string } }).tenant.id;
       const targetDomain = (req.query as { domain?: string }).domain || 'market';
       const marketplaceRootCategories = await marketplaceCategoriesService.getRootCategories(tenantId, {
         marketplaceDomain: targetDomain as MarketplaceDomain, // SSOT: @core/marketplace-domain (DECISION-0106)
