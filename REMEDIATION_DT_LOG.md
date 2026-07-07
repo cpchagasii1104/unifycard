@@ -1,5 +1,18 @@
 # REMEDIATION DT LOG
 
+## CADERNO DE OBSERVAÇÃO (não-DT) — clusters de Facet repetindo-se por domínio (2026-07-07)
+Após o 3º domínio seguir o mesmo processo (Veículos, Imóveis, Espaços), começou a aparecer um
+padrão de FACETS por família de domínio — registrado aqui só como observação, NÃO como abstração:
+- Veículo: marca, modelo, ano (marca/modelo GOVERNADOS via catálogo `vehicle_makes`/`vehicle_models`
+  — precisavam reuso/dedup entre módulos; ano é escalar simples).
+- Imóvel: área, quartos, banheiros, mobiliado (puramente escalares/booleanos — sem catálogo, direto
+  no metadata do recurso).
+- Antecipados mas NÃO construídos (sem evidência ainda): Equipamento poderia ter fabricante/potência/
+  tensão; Espaço poderia ter capacidade/cobertura/climatização.
+Regra mantida: NÃO abstrair um "sistema de facets genérico" agora. Se o 4º ou 5º domínio repetir a
+mesma forma (um FK-catálogo pros atributos que precisam dedup + campos escalares pros que não
+precisam), aí sim vira candidato a padrão nomeado — evidência → padrão → nomeação, nunca o inverso.
+
 ## OBSERVAÇÃO (não-DT) — padrão recorrente ainda sem nomenclatura institucional (2026-07-07)
 Foi observado um padrão recorrente de associações governadas entre entidades e Concepts. O padrão
 aparece atualmente em diferentes módulos (`actor_professional_concepts`: actor+concept+skill_level;
