@@ -28,37 +28,50 @@ class MarketplaceCategoriesService {
     tenantId: string,
     filters: MarketplaceCategoryFilters = {}
   ): Promise<MarketplaceCategory[]> {
-    // Buscar todas as categorias ativas usando o repository canônico
-    // TRAVA: BLOCKED_BY_SCHEMA - context obrigatório - usar 'professional' como fallback até definir context específico para marketplace
-    // NÃO criar novos usos deste padrão - context deve ser explícito quando schema permitir
-    const allRows = await this.categoryRepository.findAll(undefined, 'professional' as any);
-    const allCategories = CategoryModel.fromRows(allRows);
+    // 2026-07-07 (Clayton: "respeitar ontologia/N0/N1/N2"): os "segmentos" do marketplace
+    // NÃO são taxonomia própria — são PROJEÇÃO dos N1 GOVERNADOS (n1_nodes, doc 19 CONGELADO)
+    // do N0 mapeado pelo domínio (MARKETPLACE_DOMAIN_TO_N0, DECISION-0106). Zero árvore paralela.
+    // Mata o fallback histórico context='professional' + filtros comentados (TODOs antigos).
+    const domain = (filters.marketplaceDomain || 'market') as string;
+    const { MARKETPLACE_DOMAIN_TO_N0 } = await import('@core/marketplace-domain/marketplace-domain-n0-mapping');
+    const { pool } = await import('@core/database/pool');
 
-    // Filtrar apenas categorias do domínio marketplace e taxonomy = 'department'
-    // Nota: metadata não está no tipo Category canônico, remover filtros de metadata por enquanto
-    // TODO: Verificar se metadata precisa ser buscado separadamente ou se está em outro campo
-    let marketplaceCategories = allCategories;
+    // vehicles não tem N0 próprio (mapping=null): é o PAR de N1 de produtos-e-comercio
+    // definido no doc 19 ("possui chassis"). real_estate/jobs: sem N0 → vazio HONESTO
+    // (expansão = RFC doc 21, decisão soberana — nunca inventado aqui).
+    const VEHICLES_N1 = ['veiculos', 'pecas-e-acessorios-automotivos'];
+    const n0 = MARKETPLACE_DOMAIN_TO_N0[domain as keyof typeof MARKETPLACE_DOMAIN_TO_N0] ?? null;
 
-    // Filtrar por marketplace_domain se fornecido (default: 'market' para compatibilidade)
-    // Nota: metadata não está disponível, remover filtro por enquanto
-    const domain = filters.marketplaceDomain || 'market';
-
-    // 🔴 FILTRO OBRIGATÓRIO: Apenas segments (category_type = 'segment')
-    // 🔴 REGRA: NUNCA retornar offer_categories aqui
-    // Nota: metadata não está disponível, remover filtro por enquanto
-    // TODO: Implementar filtro de metadata quando disponível
-
-    // Filtrar apenas raízes (sem parentId)
-    let rootCategories = marketplaceCategories.filter((c) => !c.parentId);
-
-    // Se actorId foi fornecido, filtrar apenas categorias importadas por ele
-    if (filters.actorId) {
-      const importedCategoryIds = await this.getImportedCategoryIds(tenantId, filters.actorId);
-      rootCategories = rootCategories.filter((c) => importedCategoryIds.includes(c.categoryId));
+    let rows: Array<{ n1_id: string; slug: string }> = [];
+    if (domain === 'vehicles') {
+      const r = await pool.query(
+        `SELECT n1_id::text, slug FROM n1_nodes WHERE slug = ANY($1) ORDER BY sort_order`, [VEHICLES_N1]);
+      rows = r.rows;
+    } else if (n0) {
+      const r = await pool.query(
+        `SELECT n1_id::text, slug FROM n1_nodes WHERE domain_key = $1 ORDER BY sort_order`, [n0]);
+      rows = r.rows;
     }
 
-    // Converter para MarketplaceCategory com path e level corretos
-    return Promise.all(rootCategories.map((c) => this.toMarketplaceCategory(c)));
+    const humanize = (slug: string) =>
+      slug.split('-').map((w, i) => (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : (w === 'e' ? 'e' : w))).join(' ');
+
+    const now = new Date().toISOString();
+    return rows.map((r) => ({
+      id: r.n1_id,
+      categoryId: r.n1_id,
+      slug: r.slug,
+      name: humanize(r.slug),
+      description: undefined,
+      parentId: undefined,
+      scope: 'marketplace-n1-projection',
+      isActive: true,
+      metadata: { category_type: 'segment', marketplace_domain: domain, n1_slug: r.slug, n0_domain: n0 },
+      createdAt: now,
+      updatedAt: now,
+      path: [r.slug],
+      level: 0,
+    })) as unknown as MarketplaceCategory[];
   }
 
   /**
