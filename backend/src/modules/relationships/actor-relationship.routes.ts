@@ -109,6 +109,21 @@ const actorRelationshipRoutes = async (fastify: FastifyInstance) => {
       return reply.send({ ok: true, data: edges, total: edges.length });
     }
   );
+
+  /**
+   * GET /relationships/pending-received — solicitações de conexão RECEBIDAS pelo actor PROVADO,
+   * com allowedTargetLabels por item (regra de par server-side) pro ACEITE CLASSIFICADO.
+   */
+  fastify.get('/relationships/pending-received', async (req, reply) => {
+    const tenantId = req.tenant!.id;
+    const actionContext = (req as any).actionContext;
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+    }
+    if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
+    const items = await actorRelationshipService.listPendingReceived(tenantId, actionContext.actorId);
+    return reply.send({ ok: true, data: items, total: items.length });
+  });
 };
 
 export default actorRelationshipRoutes;

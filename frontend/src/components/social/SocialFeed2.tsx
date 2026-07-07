@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FeedItem } from '@unificard/contracts';
 import IntentComposer from './IntentComposer';
+import ConnectionRequests from './ConnectionRequests';
 import PostCard, { type PostCardData } from './PostCard';
 import EventCard from '../events/EventCard';
 import CulturalEventCard from './CulturalEventCard';
@@ -575,6 +576,7 @@ export default function SocialFeed2() {
           </div>
           
           <div id="intent-composer-wrapper">
+            <ConnectionRequests />
             <IntentComposer onSubmit={handleCreatePost} />
           </div>
           

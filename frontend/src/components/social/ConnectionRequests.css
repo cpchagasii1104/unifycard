@@ -1,0 +1,14 @@
+/* Solicitações de conexão — aceite classificado */
+.conn-requests { background: #fff; border: 1px solid #e3e6ee; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.conn-requests-title { font-weight: 700; margin-bottom: 10px; }
+.conn-request-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #f0f2f6; flex-wrap: wrap; }
+.conn-request-item:first-of-type { border-top: 0; }
+.conn-request-who { display: flex; align-items: center; gap: 10px; }
+.conn-request-avatar { font-size: 1.4rem; }
+.conn-request-text { display: flex; flex-direction: column; }
+.conn-request-hint { color: #778; font-size: 0.8rem; }
+.conn-request-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.conn-request-actions select { padding: 7px 10px; border: 1px solid #d5d9e4; border-radius: 8px; font-size: 0.85rem; }
+.conn-accept { background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.conn-reject { background: #fff; color: #556; border: 1px solid #d5d9e4; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.conn-accept:disabled, .conn-reject:disabled { opacity: 0.5; }

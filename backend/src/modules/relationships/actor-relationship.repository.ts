@@ -122,6 +122,24 @@ class ActorRelationshipRepository {
   }
 
   /** Arestas do actor (dos dois lados), filtráveis por status e por label (CRM: "meus fornecedores"). */
+  /** Solicitações RECEBIDAS pendentes, com o cartão do solicitante (JOIN actors) — projeção pro aceite classificado. */
+  async listPendingReceived(
+    tenantId: string,
+    actorId: string
+  ): Promise<Array<{ id: string; from_actor_id: string; requester_label: string; requested_at: string; from_display_name: string; from_actor_type: string }>> {
+    return runQueriesWithTenant(
+      tenantId,
+      `SELECT r.id, r.from_actor_id, r.requester_label, r.requested_at,
+              a.display_name AS from_display_name, a.actor_type AS from_actor_type
+         FROM actor_relationships r
+         JOIN actors a ON a.tenant_id = r.tenant_id AND a.id = r.from_actor_id
+        WHERE r.tenant_id = $1 AND r.to_actor_id = $2 AND r.status = 'pending'
+        ORDER BY r.requested_at DESC
+        LIMIT 50`,
+      [tenantId, actorId]
+    );
+  }
+
   async listForActor(
     tenantId: string,
     actorId: string,

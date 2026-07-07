@@ -61,3 +61,20 @@ export async function getMyRelationships(filters?: {
   );
   return res.data;
 }
+
+// Aceite CLASSIFICADO (achado Clayton 2026-07-07): solicitações RECEBIDAS com os labels PERMITIDOS
+// vindos do SERVIDOR (regra de par server-side — a tela só projeta, nunca duplica a regra).
+export interface PendingReceivedRequest {
+  id: string;
+  fromActorId: string;
+  fromDisplayName: string;
+  fromActorType: string;
+  requesterLabel: string;
+  requestedAt: string;
+  allowedTargetLabels: string[];
+}
+
+export async function getPendingReceivedRequests(): Promise<PendingReceivedRequest[]> {
+  const body = await apiFetchJson<{ data?: PendingReceivedRequest[] }>('/relationships/pending-received');
+  return body.data ?? [];
+}

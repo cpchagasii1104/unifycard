@@ -327,7 +327,7 @@ class ActorPageService {
       if (viewerKind && targetKind) {
         const allowedLabels = PAIR_ALLOWED_LABELS[pairKey(viewerKind, targetKind)] ?? [];
         actions.push({
-          key: 'connect', label: 'Conectar', enabled: allowedLabels.length > 0,
+          key: 'connect', label: 'Solicitar conexão', enabled: allowedLabels.length > 0,
           deeplink: null, data: { allowedLabels },
         });
       }

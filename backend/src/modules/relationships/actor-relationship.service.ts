@@ -105,6 +105,28 @@ class ActorRelationshipService {
     return actorRelationshipRepository.create(tenantId, fromActorId, toActorId, requesterLabel, userId);
   }
 
+  /** Solicitações RECEBIDAS pendentes, com allowedTargetLabels POR ITEM (regra de par server-side —
+   *  a tela só projeta; nunca duplica a regra no frontend). Achado de Clayton 2026-07-07. */
+  async listPendingReceived(tenantId: string, actorId: string) {
+    const rows = await actorRelationshipRepository.listPendingReceived(tenantId, actorId);
+    const meRow = await actorRelationshipRepository.findActorKindRow(tenantId, actorId);
+    const myKind = meRow ? actorKindOf(meRow) : null;
+    return Promise.all(rows.map(async (r) => {
+      const fromRow = await actorRelationshipRepository.findActorKindRow(tenantId, r.from_actor_id);
+      const fromKind = fromRow ? actorKindOf(fromRow) : null;
+      const allowed = myKind && fromKind ? (PAIR_ALLOWED_LABELS[pairKey(myKind, fromKind)] ?? []) : [];
+      return {
+        id: r.id,
+        fromActorId: r.from_actor_id,
+        fromDisplayName: r.from_display_name,
+        fromActorType: r.from_actor_type,
+        requesterLabel: r.requester_label,
+        requestedAt: r.requested_at,
+        allowedTargetLabels: allowed,
+      };
+    }));
+  }
+
   /** Responder ao pedido: aceite CLASSIFICADO (target_label obrigatório) ou rejeição.
    *  `respondingActorId` = o actor PROVADO na rota; precisa ser o DESTINO da aresta. */
   async respond(
