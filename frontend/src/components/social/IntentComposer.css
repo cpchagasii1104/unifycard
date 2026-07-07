@@ -523,3 +523,8 @@
 .composer-audience-item:hover { background: #f0f2f5; }
 .composer-audience-item.selected { background: #eaf1ff; font-weight: 600; }
 .composer-audience-check { margin-left: auto; color: #2563eb; }
+
+/* Modal LARGO do evento (guided-flow inteiro dentro do feed — pedido Clayton 2026-07-07) */
+.composer-modal--wide { max-width: 980px; width: 100%; }
+.composer-event-flow-scroll { max-height: 72vh; overflow-y: auto; padding: 0 4px 8px; }
+.composer-event-flow-scroll .guided-flow-container { padding: 0; }

@@ -152,8 +152,26 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
       </div>
 
       <div className="step-content">
+        {/* Decisão Clayton 2026-07-07: "Para quem é isso?" é a PRIMEIRA pergunta —
+            ANTES do tipo (mesma ordem do composer/demanda). Plateia projetada do contrato 0161. */}
         <div className="form-section">
-          <label className="form-label">Categoria</label>
+          <label className="form-label">1 · Para quem é este evento?</label>
+          <div className="option-grid">
+            {audienceOptions.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`option-button ${selectedAudience?.key === opt.key ? 'selected' : ''}`}
+                onClick={() => handleAudienceChange(opt)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-section">
+          <label className="form-label">2 · Categoria</label>
           <div className="option-grid">
             <button
               type="button"
@@ -206,26 +224,6 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
             </button>
           </div>
         </div>
-
-        {/* 0161 fatia 3: plateia PROJETADA do contrato (actor-adaptativa) — substitui o Privado/Público
-            hardcoded. PF vê amigos/família; empresa vê colaboradores/clientes/fornecedores/parceiros. */}
-        {selectedCategory && (
-          <div className="form-section">
-            <label className="form-label">Para quem é este evento?</label>
-            <div className="option-grid">
-              {audienceOptions.map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  className={`option-button ${selectedAudience?.key === opt.key ? 'selected' : ''}`}
-                  onClick={() => handleAudienceChange(opt)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {selectedCategory === 'social' && selectedType && (
           <div className="form-section">

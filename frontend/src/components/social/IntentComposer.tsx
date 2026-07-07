@@ -27,6 +27,7 @@ import {
 import './IntentComposer.css';
 import { createPortal } from 'react-dom';
 import DemandPublishForm from '../demands/DemandPublishForm';
+import EventCreationGuidedFlow from '../events/EventCreationGuidedFlow';
 
 interface IntentComposerProps {
   onSubmit: (
@@ -87,6 +88,9 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   // DECISION-0164: "Oferecer oportunidade" abre o formulário de DEMANDA em modal AQUI (feed).
   const [showDemandForm, setShowDemandForm] = useState(false);
+  // Pedido Clayton 2026-07-07: "Criar evento" TAMBÉM em modal sobre o feed (navegação fica;
+  // a verdade segue nascendo no MOTOR de eventos — o guided-flow é o mesmo, só muda a moldura).
+  const [showEventForm, setShowEventForm] = useState(false);
   // F2-C: pílula do actor abre a lista em dropdown (padrão do header — não lista sempre aberta).
   const [actorPickerOpen, setActorPickerOpen] = useState(false);
   // F2-C: plateia (passo 1) também é pílula+dropdown (pedido de Clayton — mesma UX do actor).
@@ -748,6 +752,47 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   }
 
   // Portal no body: ancestral com transform/overflow não pode clipar o overlay fixed.
+  // Modal empilhado do EVENTO: o guided-flow INTEIRO (motor) dentro da moldura, sem sair do feed
+  if (showEventForm) {
+    return createPortal(
+      <div className="composer-modal-backdrop" onClick={() => setShowEventForm(false)}>
+        <div className="intent-composer composer-modal composer-modal--wide" onClick={(e) => e.stopPropagation()}>
+          <div className="composer-modal-head">
+            <span className="composer-modal-title">🎪 Criar evento</span>
+            <button type="button" className="composer-modal-close" onClick={() => setShowEventForm(false)}>✕</button>
+          </div>
+          <div className="composer-modal-context">
+            <OperatingModeToggle />
+            <div className="composer-actor-picker">
+              <button type="button" className="composer-actor-pill"
+                onClick={() => setActorPickerOpen((v) => !v)} aria-expanded={actorPickerOpen}
+                aria-label="Trocar actor do evento">
+                <span className="composer-actor-pill-avatar">
+                  {activeActor?.actor_type === 'user' ? '👤' : activeActor?.actor_type === 'page' ? '🏢' : '👥'}
+                </span>
+                <span className="composer-actor-pill-name">{activeActor?.display_name ?? 'Selecionar actor'}</span>
+                <span className="composer-actor-pill-caret">▾</span>
+              </button>
+              {actorPickerOpen && (
+                <div className="composer-actor-dropdown">
+                  <ActorSelector
+                    selectedActorId={activeActor?.actor_id ?? null}
+                    onSelectActor={(actorId) => { setActiveActorGlobal(actorId); setActorPickerOpen(false); }}
+                    compact={false}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="composer-event-flow-scroll">
+            <EventCreationGuidedFlow />
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   // Modal empilhado da DEMANDA (0164): mesma página, mesmo padrão visual do composer
   if (showDemandForm) {
     return createPortal(
@@ -952,8 +997,9 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
                       disabled={!it.enabled}
                       title={!it.enabled ? (it.gatedBy || 'Indisponível para este actor') : undefined}
                       onClick={() => {
-                        // evento NÃO nasce no post (F1): deeplink pro MOTOR, já com a origem marcada.
-                        if (it.intent === 'ANNOUNCE_EVENT') { navigate('/events/new?source=feed'); return; }
+                        // evento NÃO nasce no post (F1): o MOTOR (guided-flow) abre em MODAL aqui
+                        // (pedido Clayton — mesma página, padrão do Oferecer oportunidade).
+                        if (it.intent === 'ANNOUNCE_EVENT') { setShowEventForm(true); setIntentPickerOpen(false); return; }
                         // DECISION-0164 (Clayton: navegação FICA no feed): a demanda nasce no MOTOR
                         // (/demands), mas o formulário abre em MODAL aqui — padrão FB, zero verdade na tela.
                         if (it.intent === 'REQUEST_HELP') { setShowDemandForm(true); setIntentPickerOpen(false); return; }
