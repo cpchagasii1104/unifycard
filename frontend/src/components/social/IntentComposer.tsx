@@ -82,6 +82,8 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   const [step3Cta, setStep3Cta] = useState<'booking' | 'service' | 'payment' | null>(null);
   // F2-B: composer em MODAL sobre o feed (padrão FB — mesma página, sem navegar).
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  // F2-C: pílula do actor abre a lista em dropdown (padrão do header — não lista sempre aberta).
+  const [actorPickerOpen, setActorPickerOpen] = useState(false);
   const CTA_BY_INTENT: Record<string, Array<'booking' | 'service' | 'payment'>> = {
     REQUEST_BOOKING: ['booking'],
     OFFER_SERVICE: ['service', 'payment'],
@@ -735,15 +737,34 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
         <span className="composer-modal-title">Criar publicação</span>
         <button type="button" className="composer-modal-close" onClick={() => setIsComposerOpen(false)}>✕</button>
       </div>
-      {/* F2-C (mockup de Clayton): modo operante + actor TROCÁVEIS dentro do modal — componentes
-          globais reusados; trocar aqui muda o contrato (passo 2) na hora. */}
+      {/* F2-C (mockup de Clayton): modo operante + actor TROCÁVEIS dentro do modal. O actor é uma
+          PÍLULA clicável que abre a lista em dropdown (padrão do header) — não a lista sempre aberta. */}
       <div className="composer-modal-context">
         <OperatingModeToggle />
-        <ActorSelector
-          selectedActorId={activeActor?.actor_id ?? null}
-          onSelectActor={(actorId) => setActiveActorGlobal(actorId)}
-          compact={false}
-        />
+        <div className="composer-actor-picker">
+          <button
+            type="button"
+            className="composer-actor-pill"
+            onClick={() => setActorPickerOpen((v) => !v)}
+            aria-expanded={actorPickerOpen}
+            aria-label="Trocar actor da publicação"
+          >
+            <span className="composer-actor-pill-avatar">
+              {activeActor?.actor_type === 'user' ? '👤' : activeActor?.actor_type === 'page' ? '🏢' : '👥'}
+            </span>
+            <span className="composer-actor-pill-name">{activeActor?.display_name ?? 'Selecionar actor'}</span>
+            <span className="composer-actor-pill-caret">▾</span>
+          </button>
+          {actorPickerOpen && (
+            <div className="composer-actor-dropdown">
+              <ActorSelector
+                selectedActorId={activeActor?.actor_id ?? null}
+                onSelectActor={(actorId) => { setActiveActorGlobal(actorId); setActorPickerOpen(false); }}
+                compact={false}
+              />
+            </div>
+          )}
+        </div>
       </div>
       {/* Contexto de Ator (informativo apenas) */}
       {activeActor && (
