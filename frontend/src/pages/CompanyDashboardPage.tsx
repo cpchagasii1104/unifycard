@@ -4,6 +4,7 @@
 
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import CompanyDashboard from '../components/company/CompanyDashboard';
+import PublicProfileVisibilityCard from '../components/PublicProfileVisibilityCard';
 import { useSession } from '../contexts/SessionProvider';
 
 export default function CompanyDashboardPage() {
@@ -81,7 +82,17 @@ export default function CompanyDashboardPage() {
     );
   }
 
-  return <CompanyDashboard companyId={companyId} />;
+  // Achado de Clayton (2026-07-07): como PJ, "Meu Perfil" cai aqui e o card "Quem pode me encontrar"
+  // (vitrine) não aparecia — empresa também publica plaquinha (public_profiles é actor-keyed; o
+  // backend mine/publish já é canRepresentActor). Mesmo card do /perfil, zero verdade nova.
+  return (
+    <>
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '1rem 1rem 0' }}>
+        <PublicProfileVisibilityCard />
+      </div>
+      <CompanyDashboard companyId={companyId} />
+    </>
+  );
 }
 
 
