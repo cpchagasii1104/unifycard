@@ -60,6 +60,8 @@ export interface GuidedFlowData {
   event_type: 'social' | 'cultural' | 'gastronomic' | 'professional' | 'community' | 'spiritual' | 'sports' | 'private' | null;
   event_subtype: string | null;
   visibility: 'public' | 'group' | 'followers' | 'private' | 'unlisted';
+  /** 0161: refinamento de plateia (subconjunto do vocabulário GOVERNADO do typed-edge; null = sem). */
+  audience_relationship_types?: string[] | null;
   
   // ETAPA 1 - Declaração Inicial (cria rascunho)
   event_id: string | null; // Criado após ETAPA 1
@@ -179,9 +181,21 @@ export default function EventCreationGuidedFlow() {
       });
 
       const eventId = response.event.id;
-      
+
       // 🔴 P0-1: Armazenar eventId ANTES de prosseguir
       updateData({ event_id: eventId });
+
+      // 0161: aplica o REFINAMENTO de plateia no draft (writer organizer-only; CHECK do banco valida).
+      const audienceTypes = updatedData?.audience_relationship_types ?? data.audience_relationship_types ?? null;
+      if (audienceTypes && audienceTypes.length > 0) {
+        try {
+          const { patchEventAudience } = await import('../../api/events');
+          await patchEventAudience(eventId, visibility, audienceTypes);
+        } catch {
+          // fail-visible: plateia fina não aplicada → avisa, evento segue com o macro (fail-closed na leitura).
+          showToast('Não foi possível aplicar a plateia refinada — evento ficou no modo padrão.', 'error');
+        }
+      }
       
       // 🔴 P0-1: Branch obrigatório - Se subtype === "birthday", renderizar BirthdayWizard
       const isBirthday = eventSubtype === 'birthday' || 

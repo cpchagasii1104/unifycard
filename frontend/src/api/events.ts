@@ -682,3 +682,30 @@ export async function updateEvent(eventId: string, input: UpdateEventInput): Pro
 }
 
 
+
+// DECISION-0161 (fatia 3): plateia actor-adaptativa — o wizard PROJETA o contrato server-driven.
+export interface EventAudienceOption {
+  key: string;
+  label: string;
+  visibility: 'public' | 'private' | 'unlisted' | 'group' | 'followers';
+  audienceRelationshipTypes: string[] | null;
+}
+
+export async function getEventAudienceOptions(): Promise<{ actorType: string; options: EventAudienceOption[] }> {
+  const response = await apiFetch(`/api/events/audience-options`);
+  const body = await response.json();
+  return body.data;
+}
+
+/** Writer 0161: aplica plateia (macro+refinamento) ao evento — organizer-only no backend. */
+export async function patchEventAudience(
+  eventId: string,
+  visibility: string,
+  audienceRelationshipTypes: string[] | null
+): Promise<void> {
+  await apiFetch(`/api/events/${eventId}/audience`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ visibility, audienceRelationshipTypes }),
+  });
+}

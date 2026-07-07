@@ -8,8 +8,11 @@
 // - NÃO gera event_id
 // - Estado: pre-draft
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { GuidedFlowData } from '../EventCreationGuidedFlow';
+// DECISION-0161 fatia 3: a plateia vem do CONTRATO server-driven (actor-adaptativo) — a tela PROJETA
+// o vocabulário governado (events.visibility + typed-edge), NUNCA define plateia em TSX.
+import { getEventAudienceOptions, type EventAudienceOption } from '../../../api/events';
 import './Step0EventType.css';
 
 interface Step0EventTypeProps {
@@ -24,6 +27,24 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedSubtype, setSelectedSubtype] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 0161: plateia server-driven ("Para quem é este evento?" — PRIMEIRA pergunta, decisão de Clayton).
+  const [audienceOptions, setAudienceOptions] = useState<EventAudienceOption[]>([]);
+  const [selectedAudience, setSelectedAudience] = useState<EventAudienceOption | null>(null);
+  useEffect(() => {
+    getEventAudienceOptions()
+      .then((d) => setAudienceOptions(d.options))
+      .catch(() => setAudienceOptions([
+        // fallback honesto (contrato indisponível): só o macro público/privado, SEM refinamento inventado.
+        { key: 'public', label: 'Público', visibility: 'public', audienceRelationshipTypes: null },
+        { key: 'only_me', label: 'Só eu', visibility: 'private', audienceRelationshipTypes: null },
+      ]));
+  }, []);
+  const handleAudienceChange = (opt: EventAudienceOption) => {
+    setSelectedAudience(opt);
+    // selectedType alimenta o mapeamento de event_type existente (público vs demais).
+    setSelectedType(opt.visibility === 'public' ? 'public' : 'private');
+    setErrorMessage(null);
+  };
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
@@ -106,11 +127,13 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
 
     const eventType = eventTypeMap[selectedCategory]?.[selectedType] || selectedType;
 
-    const visibilityValue = selectedType === 'private' ? 'private' : 'public';
+    // 0161: o macro (visibility) e o refinamento vêm da OPÇÃO DO CONTRATO escolhida — não de booleano local.
+    const visibilityValue = selectedAudience?.visibility ?? (selectedType === 'private' ? 'private' : 'public');
     const updatedData = {
       event_type: eventType as any,
       event_subtype: selectedSubtype,
       visibility: visibilityValue as 'group' | 'public' | 'private' | 'followers' | 'unlisted',
+      audience_relationship_types: selectedAudience?.audienceRelationshipTypes ?? null,
     };
 
     onUpdate(updatedData);
@@ -184,28 +207,22 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
           </div>
         </div>
 
+        {/* 0161 fatia 3: plateia PROJETADA do contrato (actor-adaptativa) — substitui o Privado/Público
+            hardcoded. PF vê amigos/família; empresa vê colaboradores/clientes/fornecedores/parceiros. */}
         {selectedCategory && (
           <div className="form-section">
-            <label className="form-label">Tipo</label>
+            <label className="form-label">Para quem é este evento?</label>
             <div className="option-grid">
-              {(selectedCategory === 'social' || selectedCategory === 'cultural' || selectedCategory === 'gastronomic' || selectedCategory === 'sports' || selectedCategory === 'professional' || selectedCategory === 'community' || selectedCategory === 'spiritual') && (
-                <>
-                  <button
-                    type="button"
-                    className={`option-button ${selectedType === 'private' ? 'selected' : ''}`}
-                    onClick={() => handleTypeChange('private')}
-                  >
-                    Privado
-                  </button>
-                  <button
-                    type="button"
-                    className={`option-button ${selectedType === 'public' ? 'selected' : ''}`}
-                    onClick={() => handleTypeChange('public')}
-                  >
-                    Público
-                  </button>
-                </>
-              )}
+              {audienceOptions.map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  className={`option-button ${selectedAudience?.key === opt.key ? 'selected' : ''}`}
+                  onClick={() => handleAudienceChange(opt)}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
