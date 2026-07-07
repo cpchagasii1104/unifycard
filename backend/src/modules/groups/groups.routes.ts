@@ -4,6 +4,7 @@ import { FastifyPluginAsync, FastifyInstance, FastifyRequest, FastifyReply } fro
 import { groupsService } from './groups.service';
 import { groupImageService } from './services/group-image.service';
 import { rbacService } from '@core/rbac/rbac.service';
+import { GROUP_PURPOSES, DEFAULT_GROUP_PURPOSE } from './group-purpose.vocabulary';
 import type { PermissionString } from '@core/rbac/rbac.types';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
@@ -14,6 +15,9 @@ const createGroupSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().min(1).max(2000), // Obrigatória
   audience_description: z.string().max(500).optional(), // Opcional - Descrição do público-alvo
+  // DECISION-0163: PROPÓSITO governado — pergunta ANTES da categoria no wizard (D2);
+  // default = D3 (comunidade_e_pertencimento) pra back-compat de callers antigos.
+  purpose: z.enum(GROUP_PURPOSES).optional().default(DEFAULT_GROUP_PURPOSE),
   category_id: z.string().uuid(), // Obrigatória
   visibility: z.enum(['public', 'private', 'secret']).optional().default('public'),
   scope: z.enum(['national', 'state', 'city', 'neighborhood']).optional().default('national'),
@@ -201,6 +205,38 @@ async function requireGroupOwnerOrPermission(
   }, 'Group access granted via RBAC');
 }
 
+/**
+ * GATE PRÓPRIO DOCUMENTADO do módulo groups (2026-07-07, achado Clayton no navegador).
+ * A função SQL actor_has_permission é STUB FAIL-CLOSED deliberado (RETURN FALSE até FASE 6),
+ * e o PRÓPRIO stub prescreve: "callers devem (b) estabelecer gate próprio documentado".
+ * Este gate NÃO alivia autoridade — exige a catraca REAL da DECISION-0113:
+ *   401 sem principal autenticado · 400 sem actionContext.actorId ·
+ *   403 se o principal NÃO representa o actor declarado (canRepresentActor, fail-closed).
+ * `permissionHint` preserva o mapeamento pretendido pra quando a FASE 6 religar o RBAC real.
+ */
+function groupsAuthGate(permissionHint: string) {
+  return async (req: any, reply: any) => {
+    const userId = req.user?.userId ?? req.user?.id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Authentication required', permissionHint });
+    }
+    const actorId = req.actionContext?.actorId;
+    if (!actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório', permissionHint });
+    }
+    let ok = false;
+    try {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      ok = await authorizationService.canRepresentActor(req.tenant?.id, userId, actorId);
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      return reply.status(403).send({ error: 'Sem autoridade para representar este actor', permissionHint });
+    }
+  };
+}
+
 const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /groups
@@ -209,7 +245,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post(
     '/',
     {
-      preHandler: fastify.requirePermission(['groups:create']),
+      preHandler: groupsAuthGate('groups:create'),
     },
     async (req, reply) => {
       if (!req.tenant?.id) {
@@ -533,7 +569,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get(
     '/',
     {
-      preHandler: fastify.requirePermission(['groups:read']),
+      preHandler: groupsAuthGate('groups:read'),
     },
     async (req) => {
       const tenantId = req.tenant!.id;
@@ -568,7 +604,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { id: string } }>(
     '/:id',
     {
-      preHandler: fastify.requirePermission(['groups:read']),
+      preHandler: groupsAuthGate('groups:read'),
     },
     async (req, reply) => {
       const tenantId = req.tenant!.id;
@@ -712,7 +748,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: { id: string } }>(
     '/:id/join',
     {
-      preHandler: fastify.requirePermission(['groups:join']),
+      preHandler: groupsAuthGate('groups:join'),
     },
     async (req, reply) => {
       if (!req.actionContext || !req.actionContext.actorId) {
@@ -761,7 +797,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: { id: string } }>(
     '/:id/leave',
     {
-      preHandler: fastify.requirePermission(['groups:leave']),
+      preHandler: groupsAuthGate('groups:leave'),
     },
     async (req, reply) => {
       if (!req.actionContext || !req.actionContext.actorId) {
@@ -814,7 +850,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { id: string } }>(
     '/:id/members',
     {
-      preHandler: fastify.requirePermission(['groups:members:read']),
+      preHandler: groupsAuthGate('groups:members:read'),
     },
     async (req, reply) => {
       const tenantId = req.tenant!.id;
@@ -938,7 +974,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { id: string } }>(
     '/:id/balance',
     {
-      preHandler: fastify.requirePermission(['groups:read']),
+      preHandler: groupsAuthGate('groups:read'),
     },
     async (req, reply) => {
       if (!req.actionContext || !req.actionContext.actorId) {
@@ -1013,7 +1049,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { id: string } }>(
     '/:id/economy',
     {
-      preHandler: fastify.requirePermission(['groups:read']),
+      preHandler: groupsAuthGate('groups:read'),
     },
     async (req, reply) => {
       const tenantId = req.tenant!.id;
@@ -1129,7 +1165,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:id/impact-history',
     {
-      preHandler: fastify.requirePermission(['groups:read']),
+      preHandler: groupsAuthGate('groups:read'),
     },
     async (req, reply) => {
       if (!req.actionContext || !req.actionContext.actorId) {
@@ -1407,7 +1443,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:id/request',
     {
-      preHandler: fastify.requirePermission(['groups:join']),
+      preHandler: groupsAuthGate('groups:join'),
     },
     async (req, reply) => {
       const tenantId = req.tenant!.id;

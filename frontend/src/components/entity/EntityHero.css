@@ -29,10 +29,11 @@
   background: #ede9fe;
 }
 
-/* Capa */
+/* Capa — proporcional à largura (pedido Clayton 2026-07-07: adaptar a tela/dispositivo).
+   clamp: nunca menor que 180px (mobile), cresce ~1:4 com a largura, teto 300px (desktop). */
 .eh-cover {
   width: 100%;
-  height: 220px;
+  height: clamp(180px, 24vw, 300px);
   position: relative;
   background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
   overflow: hidden;

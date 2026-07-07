@@ -17,7 +17,13 @@ import { useBusinessProfile } from '../../hooks/useBusinessProfile';
 import { getNavigationModules, type NavModuleGroup, type NavModuleItem } from '../../api/navigation';
 import './GlobalSidebar.css';
 
-export default function GlobalSidebar() {
+interface GlobalSidebarProps {
+  /** Recolhida = trilho de ícones 72px (pedido Clayton 2026-07-07: devolver espaço ao conteúdo). */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
+}
+
+export default function GlobalSidebar({ collapsed = false, onToggleCollapsed }: GlobalSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile } = useActorMode();
@@ -59,10 +65,23 @@ export default function GlobalSidebar() {
   };
 
   return (
-    <aside className="gs-sidebar" aria-label="Navegação principal">
-      <div className="gs-brand" onClick={() => navigate('/home')} role="button" tabIndex={0}>
-        <span className="gs-brand-icon">💠</span>
-        <span className="gs-brand-name">UnifiCard</span>
+    <aside className={`gs-sidebar ${collapsed ? 'gs-sidebar--rail' : ''}`} aria-label="Navegação principal">
+      <div className="gs-top">
+        <div className="gs-brand" onClick={() => navigate('/home')} role="button" tabIndex={0}>
+          <span className="gs-brand-icon">💠</span>
+          <span className="gs-brand-name">UnifiCard</span>
+        </div>
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            className="gs-collapse-btn"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+            title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          >
+            {collapsed ? '☰' : '⟨'}
+          </button>
+        )}
       </div>
 
       <nav className="gs-nav">
@@ -78,7 +97,7 @@ export default function GlobalSidebar() {
                   type="button"
                   className={`gs-item ${active ? 'active' : ''} ${priority ? 'priority' : ''}`}
                   onClick={() => navigate(item.route)}
-                  title={priority ? 'Sugerido para seu perfil atual' : undefined}
+                  title={collapsed ? item.label : priority ? 'Sugerido para seu perfil atual' : undefined}
                 >
                   <span className="gs-item-icon">{item.icon}</span>
                   <span className="gs-item-label">{item.label}</span>
@@ -96,6 +115,7 @@ export default function GlobalSidebar() {
             className="gs-item gs-item-logout"
             onClick={handleLogout}
             aria-label="Sair da conta"
+            title={collapsed ? 'Sair' : undefined}
           >
             <span className="gs-item-icon">🚪</span>
             <span className="gs-item-label">Sair</span>

@@ -502,6 +502,21 @@ const PROFILE_GROUP: ActorContextProfile = {
     subtitle: 'Decisões coletivas, contribuições rastreáveis, impacto compartilhado',
     route: '/impacto',
   },
+  // Achado Clayton 2026-07-07: grupo também CONSOME (compra de fornecedores, contrata
+  // serviços — o churrasco compra a carne). Modo = PROJEÇÃO; cada ato segue revalidado
+  // server-side (intents/autoridade fail-closed) — o toggle não concede poder.
+  byOperatingMode: {
+    operar: {
+      quickActions: ['membros', 'votacoes', 'contribuir', 'campanhas', 'impacto', 'eventos', 'transferir', 'extrato'],
+      sidebarPriorities: ['/grupos', '/em-desenvolvimento?feature=votes', '/impacto', '/banco'],
+      crossModeHint: { actionId: 'comprar-insumos', label: 'Comprar para o grupo' },
+    },
+    consumir: {
+      quickActions: ['comprar-insumos', 'fornecedores', 'contratar-servico', 'marketplace', 'eventos', 'transferir', 'extrato'],
+      sidebarPriorities: ['/marketplace', '/services', '/extrato', '/banco'],
+      crossModeHint: { actionId: 'membros', label: 'Voltar a coordenar' },
+    },
+  },
 };
 
 // Intent groups de Canal — publicação e audiência.

@@ -993,6 +993,9 @@ if (!hasReadAccess) {
       keywords: cat.keywords || [],
       countryCode: cat.countryCode ?? null,
       scope: cat.scope ?? undefined,
+      // DECISION-0163: metadata carrega group_purposes (mapa propósito→categoria GOVERNADO
+      // semeado por migration) — o wizard de grupo FILTRA a projeção por propósito.
+      metadata: (cat as any).metadata ?? undefined,
       createdAt: cat.createdAt,
       updatedAt: cat.updatedAt,
     }));

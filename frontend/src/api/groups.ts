@@ -67,6 +67,8 @@ export interface CreateGroupInput {
   cover_url?: string;
   rules_text?: string;
   financial_purpose?: string; // Finalidade dos recursos financeiros
+  /** DECISION-0163: propósito GOVERNADO do grupo (wire canônico; servidor valida). */
+  purpose?: string;
   metadata?: Record<string, any>;
   owner_actor_id?: string; // 🔴 OBRIGATÓRIO: Actor ativo do usuário
 }
@@ -96,6 +98,8 @@ export interface GroupCategory {
   icon?: string;
   description?: string;
   allowedScopes?: string[]; // Scopes permitidos para esta categoria (ex: ['national', 'state', 'city'])
+  /** DECISION-0163: propósitos aos quais a categoria pertence (filtro do wizard). */
+  groupPurposes?: string[];
 }
 
 /**
@@ -188,14 +192,18 @@ export async function getGroupCategories(): Promise<GroupCategory[]> {
     const { searchCategories } = await import('./categories');
     const categories = await searchCategories('', 1000, 'group' as import('@unificard/contracts').CategoryContext);
     
-    return categories.map(cat => ({
-      categoryId: cat.categoryId,
-      name: cat.name,
-      slug: cat.slug,
-      icon: undefined,
-      description: cat.description || undefined,
-      allowedScopes: (cat as any).metadata?.allowed_scopes || ['national', 'state', 'city', 'neighborhood'],
-    }));
+    return categories
+      .filter(cat => cat.slug !== 'grupos') // raiz da árvore não é opção selecionável
+      .map(cat => ({
+        categoryId: cat.categoryId,
+        name: cat.name,
+        slug: cat.slug,
+        icon: undefined,
+        description: cat.description || undefined,
+        allowedScopes: (cat as any).metadata?.allowed_scopes || ['national', 'state', 'city', 'neighborhood'],
+        // DECISION-0163: propósitos GOVERNADOS da categoria (metadata do substrato) — o wizard filtra
+        groupPurposes: ((cat as any).metadata?.group_purposes as string[] | undefined) ?? [],
+      }));
   } catch (error) {
     console.warn('[Groups] Erro ao buscar categorias:', error);
     return [];

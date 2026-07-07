@@ -8,7 +8,7 @@
  * Contexto de uso de uma categoria.
  * Define onde e como a categoria pode ser utilizada.
  */
-export type CategoryContext = 'professional' | 'interest' | 'education' | 'hobby' | 'learning' | 'health' | 'company' | 'lifestyle';
+export type CategoryContext = 'professional' | 'interest' | 'education' | 'hobby' | 'learning' | 'health' | 'company' | 'lifestyle' | 'group';
 /**
  * Status de uma categoria no sistema.
  */

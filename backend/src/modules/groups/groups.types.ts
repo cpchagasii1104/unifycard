@@ -67,6 +67,8 @@ export interface CreateGroupInput {
   rules_text?: string;
   slug?: string; // Opcional - será gerado automaticamente
   financial_purpose?: string; // Obrigatório se hasFinancialIntent = true
+  /** DECISION-0163: propósito GOVERNADO (GROUP_PURPOSES) — eixo ortogonal à categoria. */
+  purpose?: string;
   metadata?: Record<string, any>;
 }
 

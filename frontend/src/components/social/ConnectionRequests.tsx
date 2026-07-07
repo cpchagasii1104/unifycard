@@ -16,10 +16,19 @@ const LABEL_PT: Record<string, string> = {
   colaborador: 'Colaborador', fornecedor: 'Fornecedor', parceiro: 'Parceiro',
 };
 
+// Frequência de feed (ideia Clayton 2026-07-07) — vocabulário governado; já configura no aceite.
+const FEED_PRIORITY_PT: Array<{ value: string; label: string }> = [
+  { value: 'padrao', label: 'Padrão' },
+  { value: 'ver_primeiro', label: 'Ver primeiro' },
+  { value: 'ver_mais', label: 'Ver mais' },
+  { value: 'ver_menos', label: 'Ver menos' },
+];
+
 export default function ConnectionRequests() {
   const { activeActor } = useActiveActor();
   const [items, setItems] = useState<PendingReceivedRequest[]>([]);
   const [chosen, setChosen] = useState<Record<string, string>>({});
+  const [chosenPriority, setChosenPriority] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -37,7 +46,12 @@ export default function ConnectionRequests() {
     }
     setBusy(item.id);
     try {
-      await respondRelationship(item.id, action, action === 'accept' ? (label as RelationshipLabel) : undefined);
+      await respondRelationship(
+        item.id,
+        action,
+        action === 'accept' ? (label as RelationshipLabel) : undefined,
+        action === 'accept' ? (chosenPriority[item.id] ?? 'padrao') : undefined
+      );
       showToast(action === 'accept' ? `Conexão aceita como ${LABEL_PT[label] ?? label}.` : 'Solicitação recusada.', 'success');
       load();
     } catch (e) {
@@ -71,6 +85,17 @@ export default function ConnectionRequests() {
               <option value="">O que essa pessoa é pra você?</option>
               {item.allowedTargetLabels.map((l) => (
                 <option key={l} value={l}>{LABEL_PT[l] ?? l}</option>
+              ))}
+            </select>
+            <select
+              value={chosenPriority[item.id] ?? 'padrao'}
+              onChange={(e) => setChosenPriority((m) => ({ ...m, [item.id]: e.target.value }))}
+              disabled={busy === item.id}
+              aria-label="Com que frequência ver os posts dessa pessoa?"
+              title="Frequência no seu feed"
+            >
+              {FEED_PRIORITY_PT.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>
             <button type="button" className="conn-accept" disabled={busy === item.id} onClick={() => void act(item, 'accept')}>Aceitar</button>

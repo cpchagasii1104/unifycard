@@ -86,6 +86,64 @@ const actorRelationshipRoutes = async (fastify: FastifyInstance) => {
   );
 
   /**
+   * PATCH /relationships/:id/label — reclassificar O MEU LADO da aresta
+   * (ex.: conhecido → amigo). Só participante PROVADO; o service valida par/vocabulário/side.
+   */
+  fastify.patch<{ Params: { id: string }; Body: { label?: string } }>(
+    '/relationships/:id/label',
+    async (req, reply) => {
+      const tenantId = req.tenant!.id;
+      const actionContext = (req as any).actionContext;
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+      }
+      if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
+
+      try {
+        const edge = await actorRelationshipService.reclassify(
+          tenantId,
+          actionContext.actorId,
+          req.params.id,
+          req.body?.label
+        );
+        return reply.send({ ok: true, data: edge });
+      } catch (err: any) {
+        const status = err?.statusCode ?? 500;
+        return reply.status(status).send({ ok: false, error: err?.message ?? 'Erro ao reclassificar relação' });
+      }
+    }
+  );
+
+  /**
+   * PATCH /relationships/:id/feed-priority — frequência de feed DO MEU LADO
+   * (padrao|ver_primeiro|ver_mais|ver_menos). Só participante PROVADO.
+   */
+  fastify.patch<{ Params: { id: string }; Body: { priority?: string } }>(
+    '/relationships/:id/feed-priority',
+    async (req, reply) => {
+      const tenantId = req.tenant!.id;
+      const actionContext = (req as any).actionContext;
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+      }
+      if (!(await assertRepresentsActor(req, reply, actionContext.actorId))) return reply;
+
+      try {
+        const edge = await actorRelationshipService.reclassifyFeedPriority(
+          tenantId,
+          actionContext.actorId,
+          req.params.id,
+          req.body?.priority
+        );
+        return reply.send({ ok: true, data: edge });
+      } catch (err: any) {
+        const status = err?.statusCode ?? 500;
+        return reply.status(status).send({ ok: false, error: err?.message ?? 'Erro ao ajustar frequência' });
+      }
+    }
+  );
+
+  /**
    * GET /relationships/mine — as conexões do actor PROVADO (dos dois lados da aresta).
    * ?label=fornecedor = a projeção CRM ("meus fornecedores" pela MINHA ótica da aresta).
    */

@@ -16,6 +16,10 @@ import {
   pairKey,
   type ActorKind,
 } from '../relationships/actor-relationship.types';
+// Estado da aresta viewer↔target no CONTRATO (achado Clayton 2026-07-07: "Solicitar conexão"
+// precisa virar "Solicitação enviada" — verdade mora no backend, a tela só projeta).
+import { actorRelationshipRepository } from '../relationships/actor-relationship.repository';
+import { actorRelationshipService } from '../relationships/actor-relationship.service';
 import type {
   ActorPageAction,
   ActorPageBlock,
@@ -185,6 +189,44 @@ class ActorPageService {
       tabs.push({ key: 'erp', label: 'ERP' });
     }
 
+    // Minhas conexões (achado Clayton 2026-07-07) — SÓ no PRÓPRIO perfil nesta fatia:
+    // exibir conexões de TERCEIRO é decisão de visibilidade (DECISION-0116) ainda não
+    // tomada → fail-closed por omissão. COMPOSIÇÃO PURA: reusa o reader do módulo dono
+    // (actorRelationshipService.listMine); o label projetado é a MINHA ótica da aresta
+    // (requester_label se enviei; target_label se aceitei).
+    if (viewerActorId && viewerActorId === actorId) {
+      const edges = await actorRelationshipService.listMine(tenantId, actorId, {
+        status: 'accepted',
+        limit: BLOCK_ITEMS_LIMIT,
+      });
+      if (edges.length > 0) {
+        const myKind = kindOf(actor);
+        const items = await Promise.all(
+          edges.map(async (e) => {
+            const otherActorId = e.fromActorId === actorId ? e.toActorId : e.fromActorId;
+            const myLabel = e.fromActorId === actorId ? e.requesterLabel : (e.targetLabel ?? e.requesterLabel);
+            const other = await actorPageRepository.getActorHeaderRow(tenantId, otherActorId);
+            const otherKind = other ? kindOf(other) : null;
+            // reclassificação: labels PERMITIDOS pro PAR pela MINHA ótica (mesma régua do envio/aceite)
+            const allowedMyLabels =
+              myKind && otherKind ? (PAIR_ALLOWED_LABELS[pairKey(myKind, otherKind)] ?? []) : [];
+            const myFeedPriority = e.fromActorId === actorId ? e.requesterFeedPriority : e.targetFeedPriority;
+            return {
+              actorId: otherActorId,
+              displayName: other?.display_name ?? 'Actor',
+              actorType: other?.actor_type ?? 'user',
+              myLabel,
+              myFeedPriority,
+              relationshipId: e.id,
+              allowedMyLabels,
+            };
+          })
+        );
+        blocks.push({ type: 'connections', tab: 'connections', deeplink: null, data: { count: items.length, items } });
+        tabs.push({ key: 'connections', label: 'Conexões' });
+      }
+    }
+
     const lit = new Set(blocks.map((b) => b.type));
     const actions =
       mode === 'operating'
@@ -320,16 +362,40 @@ class ActorPageService {
 
     // Conectar — substrato de relação VIVO (Fatia 1). allowedLabels = seed governado do PAR;
     // é dado de APOIO (o POST /relationships revalida tudo fail-closed).
+    // O ESTADO da aresta (nenhuma/enviada/recebida/aceita) vem DO SUBSTRATO — a tela projeta.
     if (viewerActorId && viewerActorId !== target.id) {
       const viewer = await actorPageRepository.getActorHeaderRow(tenantId, viewerActorId);
       const viewerKind = viewer ? kindOf(viewer) : null;
       const targetKind = kindOf(target);
       if (viewerKind && targetKind) {
         const allowedLabels = PAIR_ALLOWED_LABELS[pairKey(viewerKind, targetKind)] ?? [];
-        actions.push({
-          key: 'connect', label: 'Solicitar conexão', enabled: allowedLabels.length > 0,
-          deeplink: null, data: { allowedLabels },
-        });
+        const edge = await actorRelationshipRepository.findByPair(tenantId, viewerActorId, target.id);
+        if (edge && edge.status === 'pending') {
+          const iAmRequester = edge.fromActorId === viewerActorId;
+          actions.push(
+            iAmRequester
+              ? {
+                  key: 'connect', label: 'Solicitação enviada', enabled: false,
+                  gatedBy: 'PENDENTE_ENVIADA', deeplink: null,
+                  data: { connectionStatus: 'pending_sent' },
+                }
+              : {
+                  key: 'connect', label: 'Responder solicitação', enabled: true,
+                  deeplink: '/feed', data: { connectionStatus: 'pending_received' },
+                }
+          );
+        } else if (edge && edge.status === 'accepted') {
+          actions.push({
+            key: 'connect', label: 'Conectados', enabled: false,
+            gatedBy: 'CONECTADOS', deeplink: null,
+            data: { connectionStatus: 'accepted' },
+          });
+        } else {
+          actions.push({
+            key: 'connect', label: 'Solicitar conexão', enabled: allowedLabels.length > 0,
+            deeplink: null, data: { allowedLabels, connectionStatus: 'none' },
+          });
+        }
       }
     }
 
@@ -338,6 +404,14 @@ class ActorPageService {
     const isSelf = !!viewerActorId && viewerActorId === target.id;
     if (!isSelf) {
       actions.push({ key: 'message', label: 'Mensagem', enabled: false, gatedBy: 'EM_BREVE', deeplink: null });
+    } else {
+      // Próprio perfil (achado Clayton 2026-07-07, padrão FB Painel/Editar): deeplinks pras
+      // superfícies que JÁ EXISTEM — /perfil (edição canônica) e o painel vivo do actor
+      // (empresa → /empresa/:companyId; humano → /home). ZERO superfície nova, zero verdade nova.
+      const panelDeeplink =
+        target.actor_type === 'page' && target.company_id ? `/empresa/${target.company_id}` : '/home';
+      actions.push({ key: 'panel', label: 'Painel', enabled: true, deeplink: panelDeeplink });
+      actions.push({ key: 'edit_profile', label: 'Editar perfil', enabled: true, deeplink: '/perfil' });
     }
 
     // Abrir chamado — F-SUPPORT-TICKET-BUSINESS-FACT-GATE (Fatia 6, DESENHO §5/§5B SELADO):

@@ -140,7 +140,9 @@ export async function searchCategories(term: string, limit: number = 50, context
   });
   const response = await apiFetch(`/categories/search?${params.toString()}`);
   const data = await response.json();
-  return data.categories || [];
+  // Envelope canônico é {ok, data:{categories}}; aceita formato plano legado (achado Clayton
+  // 2026-07-07: o client lia o nível errado → dropdown de grupo sempre vazio).
+  return data?.data?.categories || data?.categories || [];
 }
 
 /**

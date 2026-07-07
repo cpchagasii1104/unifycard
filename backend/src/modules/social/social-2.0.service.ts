@@ -32,6 +32,10 @@ export const POST_AUDIENCE_VISIBILITY_VALUES: readonly PostAudienceVisibility[] 
  *   connections → visível se houver aresta actor_relationships ACEITA com o autor (qualquer label).
  */
 function postVisibilitySql(postAlias: string, viewerParam: string): string {
+  // DECISION-0162 (refinamento por tipo de relação): quando audience_relationship_types
+  // NÃO é NULL, além da aresta aceita exige-se que a ÓTICA DO AUTOR sobre o leitor
+  // (requester_label se o autor enviou; target_label se o autor aceitou) ∈ refinamento.
+  // "Post pra familiares" = quem O AUTOR classificou como familiar.
   return `(
     ${postAlias}.visibility = 'public'
     OR ${postAlias}.actor_id = ${viewerParam}
@@ -45,6 +49,13 @@ function postVisibilitySql(postAlias: string, viewerParam: string): string {
           AND (
             (ar.from_actor_id = ${postAlias}.actor_id AND ar.to_actor_id = ${viewerParam})
             OR (ar.from_actor_id = ${viewerParam} AND ar.to_actor_id = ${postAlias}.actor_id)
+          )
+          AND (
+            ${postAlias}.audience_relationship_types IS NULL
+            OR (
+              CASE WHEN ar.from_actor_id = ${postAlias}.actor_id
+                   THEN ar.requester_label ELSE ar.target_label END
+            ) = ANY(${postAlias}.audience_relationship_types)
           )
       )
     )
@@ -537,6 +548,22 @@ export class Social2Service {
       }
     };
     
+    // Frequência POR CONEXÃO (ideia Clayton 2026-07-07): a MINHA preferência explícita na aresta
+    // vira fator DETERMINÍSTICO do ranking — camada soberana do usuário, acima dos pesos
+    // automáticos. COMPÕE do vocabulário GOVERNADO (FEED_PRIORITIES) via reader do módulo dono.
+    const { FEED_PRIORITIES } = await import('../relationships/actor-relationship.types');
+    type FeedPriorityValue = (typeof FEED_PRIORITIES)[number];
+    const [FP_PADRAO, FP_VER_PRIMEIRO, FP_VER_MAIS, FP_VER_MENOS] = FEED_PRIORITIES;
+    let feedPriorityMap = new Map<string, FeedPriorityValue>();
+    if (currentActorId) {
+      try {
+        const { actorRelationshipRepository } = await import('../relationships/actor-relationship.repository');
+        feedPriorityMap = await actorRelationshipRepository.mapMyFeedPriorities(tenantId, currentActorId);
+      } catch (err) {
+        console.warn('Feed priority map indisponível (não crítico):', err);
+      }
+    }
+
     // Calcular scores de relevância para todos os posts
     const postsWithScores = await Promise.all(rows.map(async (row) => {
       const targeting = null; // FASE 3.6: targeting não existe na tabela posts ainda
@@ -557,12 +584,26 @@ export class Social2Service {
       // Isso garante que o modo de atuação realmente governa a ordem do feed
       const contentWeightPercent = 0.8;
       const baseRelevancePercent = 0.2;
-      const weightedScore = (contentWeight * contentWeightPercent) + (baseRelevanceScore.score * baseRelevancePercent);
+      let weightedScore = (contentWeight * contentWeightPercent) + (baseRelevanceScore.score * baseRelevancePercent);
+
+      // Preferência explícita POR CONEXÃO (dual-ótica; só a MINHA afeta o MEU feed):
+      //   ver_primeiro → +1000 (fixa no topo) · ver_mais → ×1.5 · ver_menos → ×0.25
+      const connectionFeedPriority = (row.actor_id && feedPriorityMap.get(row.actor_id)) || FP_PADRAO;
+      if (connectionFeedPriority === FP_VER_PRIMEIRO) weightedScore = weightedScore + 1000;
+      else if (connectionFeedPriority === FP_VER_MAIS) weightedScore = weightedScore * 1.5;
+      else if (connectionFeedPriority === FP_VER_MENOS) weightedScore = weightedScore * 0.25;
       
       // SPRINT 66: Breakdown completo e explicável
       const relevanceScore = {
-        score: Math.min(100, Math.max(0, weightedScore)), // Garantir que fique entre 0-100
+        // 0-100 normal; 'ver_primeiro' passa por cima do teto de propósito (pin determinístico)
+        score: connectionFeedPriority === FP_VER_PRIMEIRO
+          ? Math.max(0, weightedScore)
+          : Math.min(100, Math.max(0, weightedScore)),
         breakdown: {
+          connectionFeedPriority: connectionFeedPriority !== FP_PADRAO ? {
+            value: connectionFeedPriority,
+            explanation: 'Preferência explícita do leitor para esta conexão (actor_relationships)',
+          } : undefined,
           contentWeight: {
             valueCents: contentWeight,
             weight: contentWeightPercent,
@@ -724,7 +765,8 @@ export class Social2Service {
     groupId?: string, // ID do grupo para vincular o post
     createdByUserId?: string, // CONTINUOUS PRODUCTION: Audit field
     createdAsActorId?: string, // CONTINUOUS PRODUCTION: Audit field
-    visibility?: PostAudienceVisibility // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5)
+    visibility?: PostAudienceVisibility, // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5)
+    audienceRelationshipTypes?: string[] // DECISION-0162: refinamento OPCIONAL (⊆ vocabulário typed-edge)
   ): Promise<PostWithActor> {
     // Vocabulário GOVERNADO fail-closed (Lei §8) — já validado por zod na rota (defense-in-depth
     // aqui, mesmo padrão de assertLabelAllowedForPair na Fatia 1). Nunca coage silenciosamente.
@@ -732,6 +774,20 @@ export class Social2Service {
       visibility && POST_AUDIENCE_VISIBILITY_VALUES.includes(visibility) ? visibility : 'public';
     if (visibility && !POST_AUDIENCE_VISIBILITY_VALUES.includes(visibility)) {
       throw HttpError.badRequest(`Plateia inválida: '${visibility}' fora do vocabulário governado (public/connections/only_me)`);
+    }
+    // DECISION-0162: refinamento só faz sentido SOBRE 'connections'; valores ⊆ vocabulário
+    // GOVERNADO do typed-edge (mesma fonte do CHECK chk_posts_audience_relationship_types).
+    let resolvedAudienceTypes: string[] | null = null;
+    if (audienceRelationshipTypes !== undefined && audienceRelationshipTypes !== null) {
+      const { RELATIONSHIP_LABELS } = await import('../relationships/actor-relationship.types');
+      if (!Array.isArray(audienceRelationshipTypes)
+          || audienceRelationshipTypes.some((t) => !(RELATIONSHIP_LABELS as readonly string[]).includes(t))) {
+        throw HttpError.badRequest('Refinamento de plateia fora do vocabulário governado (typed-edge)');
+      }
+      if (audienceRelationshipTypes.length > 0 && resolvedVisibility !== 'connections') {
+        throw HttpError.badRequest("Refinamento de plateia exige visibility='connections'");
+      }
+      resolvedAudienceTypes = audienceRelationshipTypes.length > 0 ? audienceRelationshipTypes : null;
     }
     // Busca ou cria actor
     let actor;
@@ -839,9 +895,10 @@ export class Social2Service {
       tenantId,
       `
       INSERT INTO posts (
-        tenant_id, actor_id, content, media_ids, intent, intent_metadata, targeting, metadata, visibility
+        tenant_id, actor_id, content, media_ids, intent, intent_metadata, targeting, metadata, visibility,
+        audience_relationship_types
       )
-      VALUES ($1, $2, $3, $4::uuid[], $5, $6::jsonb, $7::jsonb, $8::jsonb, $9)
+      VALUES ($1, $2, $3, $4::uuid[], $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10::text[])
       RETURNING id AS post_id, created_at, updated_at
       `,
       [
@@ -854,6 +911,7 @@ export class Social2Service {
         JSON.stringify(targeting || {}),
         JSON.stringify(metadata),
         resolvedVisibility,
+        resolvedAudienceTypes,
       ]
     );
 

@@ -14,6 +14,7 @@ export const CATEGORY_CONTEXT_VALUES: CategoryContext[] = [
   'health',     // Saúde (autodeclaração, NUNCA diagnóstico)
   'company',
   'lifestyle',
+  'group',      // Categorias de grupos (árvore única scope='group' — 2026-07-07)
 ];
 
 // ===============================

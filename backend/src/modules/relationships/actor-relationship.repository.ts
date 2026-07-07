@@ -5,6 +5,7 @@
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
   ActorRelationship,
+  FeedPriority,
   RelationshipFilters,
   RelationshipLabel,
   RelationshipStatus,
@@ -18,6 +19,8 @@ interface ActorRelationshipRow {
   status: string;
   requester_label: string;
   target_label: string | null;
+  requester_feed_priority: string;
+  target_feed_priority: string;
   requested_at: Date;
   responded_at: Date | null;
   created_at: Date;
@@ -33,7 +36,8 @@ export interface ActorKindRow {
 }
 
 const SELECT_COLS = `id, tenant_id, from_actor_id, to_actor_id, status, requester_label,
-       target_label, requested_at, responded_at, created_at, updated_at`;
+       target_label, requester_feed_priority, target_feed_priority,
+       requested_at, responded_at, created_at, updated_at`;
 
 class ActorRelationshipRepository {
   private toEdge(row: ActorRelationshipRow): ActorRelationship {
@@ -45,6 +49,8 @@ class ActorRelationshipRepository {
       status: row.status as RelationshipStatus,
       requesterLabel: row.requester_label as RelationshipLabel,
       targetLabel: (row.target_label as RelationshipLabel) ?? null,
+      requesterFeedPriority: (row.requester_feed_priority ?? 'padrao') as FeedPriority,
+      targetFeedPriority: (row.target_feed_priority ?? 'padrao') as FeedPriority,
       requestedAt: row.requested_at.toISOString(),
       respondedAt: row.responded_at ? row.responded_at.toISOString() : null,
       createdAt: row.created_at.toISOString(),
@@ -68,6 +74,63 @@ class ActorRelationshipRepository {
       [tenantId, id]
     );
     return row ? this.toEdge(row) : null;
+  }
+
+  /** Reclassifica O MEU LADO da aresta (requester_label OU target_label — nunca o do outro).
+   *  A validação de vocabulário/par/participante é do SERVICE; aqui só a escrita cirúrgica. */
+  async updateMyLabel(
+    tenantId: string,
+    relationshipId: string,
+    side: 'requester' | 'target',
+    label: RelationshipLabel
+  ): Promise<ActorRelationship | null> {
+    const col = side === 'requester' ? 'requester_label' : 'target_label';
+    const row = await runQueryWithTenant<ActorRelationshipRow>(
+      tenantId,
+      `UPDATE actor_relationships
+          SET ${col} = $3, updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+        RETURNING ${SELECT_COLS}`,
+      [tenantId, relationshipId, label]
+    );
+    return row ? this.toEdge(row) : null;
+  }
+
+  /** Reajusta a frequência de feed DO MEU LADO (espelho de updateMyLabel). */
+  async updateMyFeedPriority(
+    tenantId: string,
+    relationshipId: string,
+    side: 'requester' | 'target',
+    priority: FeedPriority
+  ): Promise<ActorRelationship | null> {
+    const col = side === 'requester' ? 'requester_feed_priority' : 'target_feed_priority';
+    const row = await runQueryWithTenant<ActorRelationshipRow>(
+      tenantId,
+      `UPDATE actor_relationships
+          SET ${col} = $3, updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+        RETURNING ${SELECT_COLS}`,
+      [tenantId, relationshipId, priority]
+    );
+    return row ? this.toEdge(row) : null;
+  }
+
+  /** Mapa other_actor_id → MINHA prioridade de feed (só arestas aceitas e ≠ padrao) —
+   *  leitura de APOIO pro motor de relevância do feed (projeção, nunca autoridade). */
+  async mapMyFeedPriorities(tenantId: string, actorId: string): Promise<Map<string, FeedPriority>> {
+    const rows = await runQueriesWithTenant<{ other_actor_id: string; my_priority: string }>(
+      tenantId,
+      `SELECT
+         CASE WHEN from_actor_id = $2 THEN to_actor_id ELSE from_actor_id END::text AS other_actor_id,
+         CASE WHEN from_actor_id = $2 THEN requester_feed_priority ELSE target_feed_priority END AS my_priority
+       FROM actor_relationships
+       WHERE tenant_id = $1
+         AND status = 'accepted'
+         AND (from_actor_id = $2 OR to_actor_id = $2)
+         AND (CASE WHEN from_actor_id = $2 THEN requester_feed_priority ELSE target_feed_priority END) <> 'padrao'`,
+      [tenantId, actorId]
+    );
+    return new Map(rows.map((r) => [r.other_actor_id, r.my_priority as FeedPriority]));
   }
 
   /** A aresta do PAR NÃO-ordenado (A↔B): existe no máximo 1 (UNIQUE LEAST/GREATEST). */
@@ -108,15 +171,17 @@ class ActorRelationshipRepository {
     id: string,
     status: 'accepted' | 'rejected',
     targetLabel: RelationshipLabel | null,
-    respondedByUserId: string
+    respondedByUserId: string,
+    targetFeedPriority: FeedPriority = 'padrao'
   ): Promise<ActorRelationship | null> {
     const row = await runQueryWithTenant<ActorRelationshipRow>(
       tenantId,
       `UPDATE actor_relationships
-          SET status = $3, target_label = $4, responded_at = now(), responded_by_user_id = $5
+          SET status = $3, target_label = $4, responded_at = now(), responded_by_user_id = $5,
+              target_feed_priority = $6
         WHERE tenant_id = $1 AND id = $2 AND status = 'pending'
        RETURNING ${SELECT_COLS}`,
-      [tenantId, id, status, targetLabel, respondedByUserId]
+      [tenantId, id, status, targetLabel, respondedByUserId, targetFeedPriority]
     );
     return row ? this.toEdge(row) : null;
   }

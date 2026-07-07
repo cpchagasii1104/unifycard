@@ -32,7 +32,7 @@ export interface ActorPageHeader {
 }
 
 export interface ActorPageAction {
-  key: 'connect' | 'message' | 'schedule' | 'buy' | 'contract' | 'edit_profile' | 'create_service' | 'manage_rentals' | 'support_ticket';
+  key: 'connect' | 'message' | 'schedule' | 'buy' | 'contract' | 'edit_profile' | 'create_service' | 'manage_rentals' | 'support_ticket' | 'panel';
   label: string;
   enabled: boolean;
   /** por que está desabilitada (ex.: 'PORTA-1' dinheiro soberano; 'EM_BREVE' fluxo ainda não vivo) */
@@ -44,7 +44,7 @@ export interface ActorPageAction {
 }
 
 export interface ActorPageTab {
-  key: 'all' | 'about' | 'posts' | 'products' | 'services' | 'rentals' | 'agenda' | 'schedule_events' | 'location' | 'erp';
+  key: 'all' | 'about' | 'posts' | 'products' | 'services' | 'rentals' | 'agenda' | 'schedule_events' | 'location' | 'erp' | 'connections';
   label: string;
 }
 

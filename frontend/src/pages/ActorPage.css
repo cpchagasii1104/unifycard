@@ -1,9 +1,54 @@
 /* F-ACTOR-PAGE-SHELL-SLICE-3 — casca universal da página do actor */
 
 .actor-page {
-  max-width: 720px;
+  /* 2026-07-07 (pedido Clayton): coluna estilo FB — 720px espremia o perfil */
+  max-width: 940px;
   margin: 0 auto;
   padding-bottom: 48px;
+}
+
+/* ===== Grade "Tudo" estilo FB (pedido Clayton 2026-07-07) =====
+   Mobile-first: 1 coluna (paridade com Android/iOS). Em telas largas,
+   trilho de identidade 360px + timeline fluida. */
+
+.actor-content--grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+.actor-rail,
+.actor-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.actor-content--grid .actor-block {
+  margin-bottom: 0; /* o gap da coluna assume o espaçamento */
+}
+
+@media (min-width: 1100px) {
+  .actor-page {
+    max-width: 1180px;
+  }
+
+  .actor-content--grid {
+    grid-template-columns: 360px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .actor-rail {
+    position: sticky;
+    top: 16px;
+  }
+
+  /* Abas de bloco único (Sobre, Serviços...) não esticam a 1180px — coluna de leitura */
+  .actor-content:not(.actor-content--grid) {
+    max-width: 760px;
+    margin: 0 auto;
+  }
 }
 
 .actor-page.loading,
@@ -142,6 +187,46 @@
   border: 1px solid #eef0f2;
   border-radius: 8px;
   padding: 10px 12px;
+}
+
+.actor-connection-avatar {
+  font-size: 1.4rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2f5;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.actor-connection-name {
+  color: #111827;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.actor-connection-name:hover {
+  color: #1877f2;
+  text-decoration: underline;
+}
+
+.actor-connection-label-select {
+  border: 1px solid #d7dbe0;
+  border-radius: 16px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #1877f2;
+  background: #f0f6ff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.actor-connection-label-select:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .actor-item-thumb {

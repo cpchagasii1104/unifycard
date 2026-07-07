@@ -116,6 +116,8 @@ export interface CreatePostInput {
   group_id?: string; // ID do grupo para vincular o post
   /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5). Ausente = 'public' (backend decide). */
   visibility?: PostAudienceVisibility;
+  /** DECISION-0162: refinamento OPCIONAL por tipo de relação (⊆ vocabulário typed-edge). */
+  audience_relationship_types?: string[];
 }
 
 export interface ReactionInput {

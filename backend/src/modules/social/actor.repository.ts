@@ -85,9 +85,12 @@ export class ActorRepository {
     }>(
       tenantId,
       `
-      SELECT u.email, p.full_name, u.global_user_id::text AS global_user_id
+      SELECT u.email,
+             COALESCE(p.full_name, gu.full_name) AS full_name,
+             u.global_user_id::text AS global_user_id
       FROM users u
       LEFT JOIN profiles p ON u.user_id = p.user_id AND u.tenant_id = p.tenant_id
+      LEFT JOIN global_users gu ON gu.global_user_id = u.global_user_id
       WHERE u.user_id = $1
       LIMIT 1
       `,
@@ -170,9 +173,12 @@ export class ActorRepository {
     }
 
     const userRes = await client.query(
-      `SELECT u.email, p.full_name, u.global_user_id::text AS global_user_id
+      `SELECT u.email,
+              COALESCE(p.full_name, gu.full_name) AS full_name,
+              u.global_user_id::text AS global_user_id
          FROM users u
          LEFT JOIN profiles p ON u.user_id = p.user_id AND u.tenant_id = p.tenant_id
+         LEFT JOIN global_users gu ON gu.global_user_id = u.global_user_id
         WHERE u.user_id = $1
         LIMIT 1`,
       [userId]

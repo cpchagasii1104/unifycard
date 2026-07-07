@@ -1,8 +1,11 @@
 /* UnifiedAuthLayout.css (2026-05-15) */
+/* 2026-07-07 (pedido Clayton): grid passa a `auto 1fr` — a LARGURA da sidebar
+   (240px expandida / 72px trilho / 0 mobile) dirige o layout, permitindo o
+   recolhimento clicável sem duplicar breakpoints aqui. */
 
 .ual-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: auto 1fr;
   min-height: 100vh;
   background: #f5f7fb;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -22,21 +25,15 @@
   margin: 0;
 }
 
-/* Tablet — sidebar compacta 72px */
+/* Tablet */
 @media (max-width: 1023px) {
-  .ual-shell {
-    grid-template-columns: 72px 1fr;
-  }
   .ual-main {
     padding: 1rem 1.25rem 2rem 1.25rem;
   }
 }
 
-/* Mobile — sidebar oculta (bottom nav assume se houver) */
+/* Mobile — sidebar oculta (display:none na própria sidebar; coluna auto colapsa a 0) */
 @media (max-width: 767px) {
-  .ual-shell {
-    grid-template-columns: 1fr;
-  }
   .ual-main {
     padding: 1rem;
   }

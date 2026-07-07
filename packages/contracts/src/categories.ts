@@ -17,7 +17,8 @@ export type CategoryContext =
   | 'learning'      // Aprendizado e desenvolvimento
   | 'health'        // Saúde (autodeclaração, NUNCA diagnóstico)
   | 'company'       // Categorias de empresas
-  | 'lifestyle';    // Estilo de vida
+  | 'lifestyle'     // Estilo de vida
+  | 'group';        // Categorias de grupos (árvore única, scope='group' — 2026-07-07)
 
 /**
  * Status de uma categoria no sistema.

@@ -12,11 +12,13 @@
 
 import { actorRelationshipRepository, type ActorKindRow } from './actor-relationship.repository';
 import {
+  FEED_PRIORITIES,
   PAIR_ALLOWED_LABELS,
   RELATIONSHIP_LABELS,
   pairKey,
   type ActorKind,
   type ActorRelationship,
+  type FeedPriority,
   type RelationshipFilters,
   type RelationshipLabel,
   type RespondRelationshipInput,
@@ -41,6 +43,14 @@ function actorKindOf(row: ActorKindRow): ActorKind | null {
 
 function isRelationshipLabel(value: unknown): value is RelationshipLabel {
   return typeof value === 'string' && (RELATIONSHIP_LABELS as readonly string[]).includes(value);
+}
+
+/** Vocabulário governado da frequência de feed — fail-closed (400) fora do seed. */
+function assertFeedPriority(value: unknown): FeedPriority {
+  if (typeof value !== 'string' || !(FEED_PRIORITIES as readonly string[]).includes(value)) {
+    throw new RelationshipError(400, 'Frequência de feed inválida — fora do vocabulário governado');
+  }
+  return value as FeedPriority;
 }
 
 /** Label precisa (a) estar no vocabulário total e (b) valer para o PAR de tipos (seed §7). */
@@ -159,9 +169,87 @@ class ActorRelationshipService {
     // aceite classificado: o TO classifica o FROM pela sua ótica (mesmo par, ótica invertida)
     const { fromKind, toKind } = await this.resolvePairKinds(tenantId, edge.fromActorId, edge.toActorId);
     const targetLabel = assertLabelAllowedForPair(input?.targetLabel, toKind, fromKind);
+    // frequência de feed opcional no aceite (ideia Clayton 2026-07-07) — default 'padrao'
+    const feedPriority = input?.feedPriority !== undefined ? assertFeedPriority(input.feedPriority) : 'padrao';
 
-    const updated = await actorRelationshipRepository.respond(tenantId, relationshipId, 'accepted', targetLabel, userId);
+    const updated = await actorRelationshipRepository.respond(
+      tenantId, relationshipId, 'accepted', targetLabel, userId, feedPriority
+    );
     if (!updated) throw new RelationshipError(409, 'Relação não está mais pendente');
+    return updated;
+  }
+
+  /** Reajustar a frequência de feed DO MEU LADO (mesmas regras de participação da reclassify). */
+  async reclassifyFeedPriority(
+    tenantId: string,
+    actorId: string,
+    relationshipId: string,
+    priority: unknown
+  ): Promise<ActorRelationship> {
+    const edge = await actorRelationshipRepository.findById(tenantId, relationshipId);
+    if (!edge) throw new RelationshipError(404, 'Relação não encontrada');
+
+    const iAmRequester = edge.fromActorId === actorId;
+    const iAmTarget = edge.toActorId === actorId;
+    if (!iAmRequester && !iAmTarget) {
+      throw new RelationshipError(403, 'Só participantes da relação podem ajustá-la');
+    }
+    if (edge.status !== 'accepted' && edge.status !== 'pending') {
+      throw new RelationshipError(409, `Relação não ajustável (status=${edge.status})`);
+    }
+    if (iAmTarget && edge.status !== 'accepted') {
+      throw new RelationshipError(409, 'Configure ao aceitar — a relação ainda está pendente');
+    }
+
+    const validPriority = assertFeedPriority(priority);
+    const updated = await actorRelationshipRepository.updateMyFeedPriority(
+      tenantId,
+      relationshipId,
+      iAmRequester ? 'requester' : 'target',
+      validPriority
+    );
+    if (!updated) throw new RelationshipError(404, 'Relação não encontrada');
+    return updated;
+  }
+
+  /** Reclassificar O MEU LADO da aresta (achado Clayton 2026-07-07: "conhecido → amigo").
+   *  Regras: só PARTICIPANTE muda; cada um muda SÓ a própria ótica (requester_label se enviei,
+   *  target_label se recebi); label validado no PAR governado; quem RECEBEU só classifica
+   *  depois do aceite (antes disso a ótica dele nasce no próprio aceite). */
+  async reclassify(
+    tenantId: string,
+    actorId: string,
+    relationshipId: string,
+    label: unknown
+  ): Promise<ActorRelationship> {
+    const edge = await actorRelationshipRepository.findById(tenantId, relationshipId);
+    if (!edge) throw new RelationshipError(404, 'Relação não encontrada');
+
+    const iAmRequester = edge.fromActorId === actorId;
+    const iAmTarget = edge.toActorId === actorId;
+    if (!iAmRequester && !iAmTarget) {
+      throw new RelationshipError(403, 'Só participantes da relação podem reclassificá-la');
+    }
+    if (iAmTarget && edge.status !== 'accepted') {
+      throw new RelationshipError(409, 'Classifique ao aceitar — a relação ainda está pendente');
+    }
+    if (edge.status !== 'accepted' && edge.status !== 'pending') {
+      throw new RelationshipError(409, `Relação não reclassificável (status=${edge.status})`);
+    }
+
+    // mesma régua do envio/aceite: label precisa valer pro PAR, pela MINHA ótica
+    const { fromKind, toKind } = await this.resolvePairKinds(tenantId, edge.fromActorId, edge.toActorId);
+    const myKind = iAmRequester ? fromKind : toKind;
+    const otherKind = iAmRequester ? toKind : fromKind;
+    const validLabel = assertLabelAllowedForPair(label, myKind, otherKind);
+
+    const updated = await actorRelationshipRepository.updateMyLabel(
+      tenantId,
+      relationshipId,
+      iAmRequester ? 'requester' : 'target',
+      validLabel
+    );
+    if (!updated) throw new RelationshipError(404, 'Relação não encontrada');
     return updated;
   }
 

@@ -12,6 +12,7 @@ import { recordActorSwitch } from './actor-audit.service';
 import { runQueryWithTenant } from '@core/database/pool';
 import { getLocalUserIdByGlobalUserId } from '@modules/identity/actor-ssot.service';
 import { authorizationService } from '@core/authorization/authorization.service';
+import { RELATIONSHIP_LABELS } from '@modules/relationships/actor-relationship.types';
 import { z } from 'zod';
 
 const createPostSchema = z.object({
@@ -53,6 +54,9 @@ const createPostSchema = z.object({
   // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5): vocabulário GOVERNADO (Lei §8) — espelha
   // o CHECK físico chk_posts_visibility. Ausente = 'public' (comportamento de hoje, não regride).
   visibility: z.enum(['public', 'connections', 'only_me']).optional(),
+  // DECISION-0162: refinamento OPCIONAL da plateia por tipo de relação — COMPÕE do vocabulário
+  // GOVERNADO do typed-edge (RELATIONSHIP_LABELS), nunca enumera paralelo.
+  audience_relationship_types: z.array(z.enum(RELATIONSHIP_LABELS)).optional(),
 });
 
 const reactionSchema = z.object({
@@ -290,7 +294,8 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         validated.group_id, // Passar groupId para o service
         req.user.id, // CONTINUOUS PRODUCTION: Audit field (createdByUserId)
         createdAsActorId, // CONTINUOUS PRODUCTION: Audit field
-        validated.visibility // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5)
+        validated.visibility, // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5)
+        validated.audience_relationship_types // DECISION-0162: refinamento por tipo de relação
       );
 
       return reply.status(201).send(post);

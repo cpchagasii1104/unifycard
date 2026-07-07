@@ -150,13 +150,13 @@ class GroupsRepository {
       `
       INSERT INTO groups (
         tenant_id, name, slug, description,
-        owner_actor_id, status, metadata
+        owner_actor_id, status, metadata, purpose
       )
       VALUES (
         $1, $2, $3, $4,
-        $5, 'active', $6
+        $5, 'active', $6, $7
       )
-      RETURNING id, tenant_id, name, slug, description, owner_actor_id, status, metadata, created_at, updated_at
+      RETURNING id, tenant_id, name, slug, description, owner_actor_id, status, metadata, purpose, created_at, updated_at
       `,
       [
         tenantId,
@@ -164,7 +164,9 @@ class GroupsRepository {
         finalSlug,
         input.description || '',
         ownerActorId,
-        JSON.stringify(metadata)
+        JSON.stringify(metadata),
+        // DECISION-0163: propósito governado (CHECK físico); default D3
+        (input as any).purpose || 'comunidade_e_pertencimento'
       ]
     );
 

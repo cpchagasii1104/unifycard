@@ -1,6 +1,6 @@
 # DECISION-0162 — Plateia refinada em POSTS (espelho da 0161, ratificada para eventos)
 
-**Status:** 🟡 PROPOSTA (aguarda ratificação de Clayton; NADA codado)
+**Status:** ✅ RATIFICADA por Clayton 2026-07-07 ("se eu escolher familiar, o post deve aparecer somente para os familiares — definir um padrão e já deixar isto definido") + EXECUTADA no mesmo dia (migration 20260707030000 · postVisibilitySql · composer). Enforcement na LEITURA pela ÓTICA DO AUTOR.
 **Data:** 2026-07-06 · **Origem:** F2 do composer — o passo 1 "Para quem é isso?" hoje projeta só
 `posts.visibility` (public/connections/only_me); empresa (PJ) só vê "Público". Clayton exige plateias
 finas também em posts (colaboradores/fornecedores/clientes/parceiros — e família/amigos distintos p/ PF).

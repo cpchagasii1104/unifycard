@@ -329,7 +329,9 @@ export default function SocialFeed2() {
       currency?: string;
     },
     /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5). Ausente = backend assume 'public'. */
-    visibility?: 'public' | 'connections' | 'only_me'
+    visibility?: 'public' | 'connections' | 'only_me',
+    /** DECISION-0162: refinamento da plateia por tipo de relação. */
+    audienceRelationshipTypes?: string[]
   ): Promise<void> => {
     // Guardrail: validar activeActor
     if (!validateActiveActor(activeActor)) {
@@ -354,6 +356,7 @@ export default function SocialFeed2() {
           currency: cta.currency || 'BRL',
         } : undefined,
         visibility,
+        audience_relationship_types: audienceRelationshipTypes,
       });
       
       // CORREÇÃO: usar função de atualização

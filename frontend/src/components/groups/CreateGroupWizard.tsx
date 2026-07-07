@@ -17,6 +17,17 @@ import './CreateGroupWizard.css';
 
 type WizardStep = 1 | 2;
 
+// DECISION-0163 — rótulos PT do vocabulário governado GROUP_PURPOSES (valores = wire canônico)
+const GROUP_PURPOSE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'cuidado_e_impacto', label: '💚 Cuidado e impacto (animais, rua, deficientes, doação)' },
+  { value: 'comunidade_e_pertencimento', label: '🏘️ Comunidade e pertencimento (vizinhos, torcida, clube)' },
+  { value: 'fe_e_espiritualidade', label: '🙏 Fé e espiritualidade' },
+  { value: 'interesse_e_hobby', label: '🎨 Interesse e hobby' },
+  { value: 'aprendizado', label: '📚 Aprendizado' },
+  { value: 'ajuda_mutua_e_cooperacao', label: '🤝 Ajuda mútua e cooperação' },
+  { value: 'encontros_e_relacionamentos', label: '💃 Encontros e relacionamentos (paquera, festas)' },
+];
+
 export default function CreateGroupWizard() {
   const navigate = useNavigate();
   const { activeActor, sessionReady } = useSession();
@@ -30,6 +41,8 @@ export default function CreateGroupWizard() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  // DECISION-0163: propósito ANTES da categoria (projeção do vocabulário governado do servidor)
+  const [purpose, setPurpose] = useState('');
   const [scope, setScope] = useState<'national' | 'state' | 'city' | 'neighborhood'>('national');
   const [visibility, setVisibility] = useState<'public' | 'private' | 'secret'>('public');
   const [location, setLocation] = useState<LocationValue>({});
@@ -200,6 +213,15 @@ export default function CreateGroupWizard() {
 
     loadCategories();
   }, [sessionReady]);
+
+  // DECISION-0163: propósito mudou → categoria escolhida pode não ser mais pertinente
+  useEffect(() => {
+    if (!purpose || !categoryId) return;
+    const cat = categories.find((c) => c.categoryId === categoryId);
+    if (cat && (cat.groupPurposes ?? []).length > 0 && !(cat.groupPurposes ?? []).includes(purpose)) {
+      setCategoryId('');
+    }
+  }, [purpose, categoryId, categories]);
 
   // 🔴 RESET SCOPE: Resetar scope quando categoria mudar e scope atual não for permitido
   useEffect(() => {
@@ -486,6 +508,8 @@ export default function CreateGroupWizard() {
       const input: CreateGroupInput = {
         name: sanitizedName,
         description: sanitizedDescription,
+        // DECISION-0163: propósito governado (servidor valida no vocabulário + CHECK)
+        ...(purpose ? { purpose } : {}),
         category_id: categoryId,
         visibility,
         scope,
@@ -780,6 +804,23 @@ export default function CreateGroupWizard() {
                 <small>{description.length}/2000 caracteres</small>
               </div>
 
+              {/* DECISION-0163: PROPÓSITO vem ANTES da categoria (D2) — o porquê do grupo */}
+              <div className="wizard-form-group">
+                <label htmlFor="group-purpose">Qual o propósito do grupo? *</label>
+                <select
+                  id="group-purpose"
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  disabled={isLoading}
+                  required
+                >
+                  <option value="">Selecione o propósito</option>
+                  {GROUP_PURPOSE_OPTIONS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Categoria */}
               <div className="wizard-form-group">
                 <label htmlFor="category">
@@ -800,7 +841,11 @@ export default function CreateGroupWizard() {
                     required
                   >
                     <option value="">Selecione uma categoria</option>
-                    {categories.map((cat) => (
+                    {/* DECISION-0163: só categorias PERTINENTES ao propósito escolhido (dado
+                        governado metadata.group_purposes) — "fé mostrando festa vira bagunça" */}
+                    {categories
+                      .filter((cat) => !purpose || (cat.groupPurposes ?? []).length === 0 || (cat.groupPurposes ?? []).includes(purpose))
+                      .map((cat) => (
                       <option key={cat.categoryId} value={cat.categoryId}>
                         {cat.icon ? `${cat.icon} ` : ''}{cat.name}
                       </option>

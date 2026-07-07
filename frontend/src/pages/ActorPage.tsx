@@ -21,7 +21,15 @@ import {
   type ActorPageAgendaItem,
   type ActorPagePurchaseOrderItem,
 } from '../api/actor-page';
-import { sendRelationshipRequest, type RelationshipLabel } from '../api/relationships';
+import { sendRelationshipRequest, reclassifyRelationship, patchRelationshipFeedPriority, type RelationshipLabel, type FeedPriority } from '../api/relationships';
+
+// Frequência de feed por conexão (vocabulário governado — projeção; o servidor valida)
+const FEED_PRIORITY_PT: Array<{ value: string; label: string }> = [
+  { value: 'padrao', label: 'Padrão' },
+  { value: 'ver_primeiro', label: 'Ver primeiro' },
+  { value: 'ver_mais', label: 'Ver mais' },
+  { value: 'ver_menos', label: 'Ver menos' },
+];
 import {
   listEligibleReferences,
   openSupportTicket,
@@ -75,6 +83,7 @@ export default function ActorPage() {
   const [error, setError] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [reclassifyBusy, setReclassifyBusy] = useState<string | null>(null);
 
   // F-SUPPORT-TICKET-BUSINESS-FACT-GATE (Fatia 6) — modal do Chamado
   const [ticketOpen, setTicketOpen] = useState(false);
@@ -118,9 +127,50 @@ export default function ActorPage() {
     try {
       await sendRelationshipRequest(actorId, label);
       showToast(`Pedido de conexão enviado como ${LABEL_PT[label] ?? label}.`, 'success');
+      // A verdade mora no backend: refetch do contrato — o botão vira
+      // "Solicitação enviada" porque o SERVIDOR passou a projetar esse estado.
+      await load();
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
-      showToast(msg.includes('Já existe') ? 'Vocês já têm uma conexão.' : 'Não foi possível enviar o pedido.', 'error');
+      // 409 do substrato diz o STATUS real da aresta — projetar honesto, não inventar "já conectados"
+      if (msg.includes('status=pending')) {
+        showToast('Solicitação já enviada — aguardando resposta.', 'error');
+      } else if (msg.includes('status=accepted')) {
+        showToast('Vocês já estão conectados.', 'error');
+      } else if (msg.includes('Já existe')) {
+        showToast('Já existe uma relação entre vocês.', 'error');
+      } else {
+        showToast('Não foi possível enviar o pedido.', 'error');
+      }
+      await load(); // re-sincroniza o botão com o estado real
+    }
+  };
+
+  const handleReclassify = async (relationshipId: string, label: RelationshipLabel) => {
+    setReclassifyBusy(relationshipId);
+    try {
+      await reclassifyRelationship(relationshipId, label);
+      showToast(`Conexão reclassificada como ${LABEL_PT[label] ?? label}.`, 'success');
+      await load(); // a verdade volta do contrato
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Não foi possível reclassificar.', 'error');
+      await load();
+    } finally {
+      setReclassifyBusy(null);
+    }
+  };
+
+  const handleFeedPriority = async (relationshipId: string, priority: FeedPriority) => {
+    setReclassifyBusy(relationshipId);
+    try {
+      await patchRelationshipFeedPriority(relationshipId, priority);
+      showToast('Frequência no feed atualizada.', 'success');
+      await load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Não foi possível ajustar a frequência.', 'error');
+      await load();
+    } finally {
+      setReclassifyBusy(null);
     }
   };
 
@@ -231,9 +281,18 @@ export default function ActorPage() {
         : { label: followBusy ? '…' : 'Seguir', onClick: handleFollowToggle, variant: 'primary', disabled: followBusy }
     );
   }
-  if (connectAction?.enabled) {
-    // rotulo PROJETADO do contrato ('Solicitar conexao') — a tela nao batiza acao (achado Clayton 2026-07-07)
-    heroActions.push({ label: connectAction.label || 'Solicitar conexão', onClick: () => setConnectOpen(true), variant: 'secondary' });
+  if (connectAction) {
+    // ESTADO da aresta vem do CONTRATO (connectionStatus) — a tela só projeta (verdade no backend).
+    const connStatus = (connectAction.data?.connectionStatus ?? 'none') as string;
+    if (connStatus === 'pending_received' && connectAction.deeplink) {
+      // há solicitação DESTE actor pra mim — responder onde o card mora (feed)
+      heroActions.push({ label: connectAction.label, onClick: () => { window.location.href = connectAction.deeplink!; }, variant: 'primary' });
+    } else if (connStatus === 'pending_sent' || connStatus === 'accepted') {
+      heroActions.push({ label: connectAction.label, onClick: () => {}, variant: 'secondary', disabled: true });
+    } else if (connectAction.enabled) {
+      // rotulo PROJETADO do contrato ('Solicitar conexao') — a tela nao batiza acao (achado Clayton 2026-07-07)
+      heroActions.push({ label: connectAction.label || 'Solicitar conexão', onClick: () => setConnectOpen(true), variant: 'secondary' });
+    }
   }
   const supportTicketAction = actions.find((a) => a.key === 'support_ticket');
   if (supportTicketAction?.enabled) {
@@ -292,6 +351,55 @@ export default function ActorPage() {
             )}
           </section>
         );
+      case 'connections': {
+        // "Minhas conexões" — o contrato SÓ manda este bloco no próprio perfil (0116);
+        // myLabel = a MINHA ótica da aresta; reclassificar muda SÓ o meu lado (PATCH valida
+        // par/participante no servidor — a tela projeta allowedMyLabels, nunca inventa).
+        const items = (block.data.items ?? []) as unknown as Array<{
+          actorId: string; displayName: string; actorType: string; myLabel: string;
+          myFeedPriority: string; relationshipId: string; allowedMyLabels: string[];
+        }>;
+        return (
+          <section key="connections" className="actor-block">
+            <h2>Minhas conexões ({(block.data.count as number) ?? items.length})</h2>
+            <ul className="actor-item-list">
+              {items.map((c) => (
+                <li key={c.actorId} className="actor-item-card">
+                  <span className="actor-connection-avatar" aria-hidden="true">
+                    {c.actorType === 'page' ? '🏢' : c.actorType === 'group' ? '👥' : '👤'}
+                  </span>
+                  <div className="actor-item-main">
+                    <a className="actor-connection-name" href={`/profile/${c.actorId}`}>{c.displayName}</a>
+                  </div>
+                  <select
+                    className="actor-connection-label-select"
+                    value={c.myLabel}
+                    disabled={reclassifyBusy === c.relationshipId || c.allowedMyLabels.length === 0}
+                    onChange={(e) => void handleReclassify(c.relationshipId, e.target.value as RelationshipLabel)}
+                    aria-label={`O que ${c.displayName} é pra você`}
+                  >
+                    {(c.allowedMyLabels.includes(c.myLabel) ? c.allowedMyLabels : [c.myLabel, ...c.allowedMyLabels]).map((l) => (
+                      <option key={l} value={l}>{LABEL_PT[l] ?? l}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="actor-connection-label-select"
+                    value={c.myFeedPriority ?? 'padrao'}
+                    disabled={reclassifyBusy === c.relationshipId}
+                    onChange={(e) => void handleFeedPriority(c.relationshipId, e.target.value as FeedPriority)}
+                    aria-label={`Frequência dos posts de ${c.displayName} no seu feed`}
+                    title="Frequência no seu feed"
+                  >
+                    {FEED_PRIORITY_PT.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      }
       case 'services': {
         const items = (block.data.items ?? []) as ActorPageServiceItem[];
         return (
@@ -534,9 +642,26 @@ export default function ActorPage() {
         ))}
       </nav>
 
-      <div className="actor-content">
-        {blocksForTab(activeTab).map(renderBlock)}
-      </div>
+      {/* Pedido Clayton 2026-07-07: grade estilo FB no "Tudo" — trilho de identidade
+          (Sobre/serviços/produtos/agenda) à esquerda, timeline à direita; empilha em
+          telas menores. Só REORGANIZA blocos do contrato — não cria nem esconde nada. */}
+      {activeTab === 'all' ? (
+        <div className="actor-content actor-content--grid">
+          <div className="actor-rail">
+            {blocks.filter((b) => RAIL_BLOCK_TYPES.has(b.type)).map(renderBlock)}
+          </div>
+          <div className="actor-main">
+            {blocks.filter((b) => !RAIL_BLOCK_TYPES.has(b.type)).map(renderBlock)}
+          </div>
+        </div>
+      ) : (
+        <div className="actor-content">
+          {blocksForTab(activeTab).map(renderBlock)}
+        </div>
+      )}
     </div>
   );
 }
+
+/** Blocos de identidade/contexto que moram no trilho esquerdo do "Tudo" (apresentação). */
+const RAIL_BLOCK_TYPES = new Set(['about', 'connections', 'services', 'products', 'agenda', 'location']);

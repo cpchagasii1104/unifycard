@@ -35,6 +35,7 @@ export const DEFAULT_TENANT_CATEGORY_CONTEXTS: readonly CategoryContext[] = [
   'company',
 
   'lifestyle',
+  'group',
 
 ] as const;
 

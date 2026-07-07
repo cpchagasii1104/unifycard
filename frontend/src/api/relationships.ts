@@ -34,15 +34,16 @@ export async function sendRelationshipRequest(
   return res.data;
 }
 
-/** Responder: aceite classificado (targetLabel) ou rejeição. */
+/** Responder: aceite classificado (targetLabel) ou rejeição. feedPriority opcional no aceite. */
 export async function respondRelationship(
   relationshipId: string,
   action: 'accept' | 'reject',
-  targetLabel?: RelationshipLabel
+  targetLabel?: RelationshipLabel,
+  feedPriority?: string
 ): Promise<ActorRelationshipEdge> {
   const res = await apiFetchJson<{ ok: boolean; data: ActorRelationshipEdge }>(
     `/relationships/${relationshipId}/respond`,
-    { method: 'POST', body: JSON.stringify({ action, targetLabel }) }
+    { method: 'POST', body: JSON.stringify({ action, targetLabel, feedPriority }) }
   );
   return res.data;
 }
@@ -77,4 +78,30 @@ export interface PendingReceivedRequest {
 export async function getPendingReceivedRequests(): Promise<PendingReceivedRequest[]> {
   const body = await apiFetchJson<{ data?: PendingReceivedRequest[] }>('/relationships/pending-received');
   return body.data ?? [];
+}
+
+export type FeedPriority = 'padrao' | 'ver_primeiro' | 'ver_mais' | 'ver_menos';
+
+/** Frequência de feed DO MEU LADO da aresta (vocabulário governado; servidor valida tudo). */
+export async function patchRelationshipFeedPriority(
+  relationshipId: string,
+  priority: FeedPriority
+): Promise<ActorRelationshipEdge> {
+  const res = await apiFetchJson<{ ok: boolean; data: ActorRelationshipEdge }>(
+    `/relationships/${relationshipId}/feed-priority`,
+    { method: 'PATCH', body: JSON.stringify({ priority }) }
+  );
+  return res.data;
+}
+
+/** Reclassificar O MEU LADO da aresta (ex.: conhecido → amigo). O servidor valida par/participante. */
+export async function reclassifyRelationship(
+  relationshipId: string,
+  label: RelationshipLabel
+): Promise<ActorRelationshipEdge> {
+  const res = await apiFetchJson<{ ok: boolean; data: ActorRelationshipEdge }>(
+    `/relationships/${relationshipId}/label`,
+    { method: 'PATCH', body: JSON.stringify({ label }) }
+  );
+  return res.data;
 }
