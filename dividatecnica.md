@@ -254,6 +254,16 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - `PLANO_ZERAGEM_DT.md` REESCRITO como **v2** (a v1 era coerente mas stale). Recomendações de decisão
   enterprise por lote adicionadas. Nada de código tocado nesta auditoria (só os 2 arquivos de plano).
 
+### 2026-07-06 (22) — DECISION-0161 ratificada + backend EXECUTADO (plateia actor-adaptativa)
+- Clayton: "ratificado 0161". Sequência §5 rodou: migration aditiva (audience_relationship_types +
+  CHECK de subconjunto do typed-edge; visibility intocado) · contrato GET /events/audience-options
+  (canRepresentActor; PF vê amigos/família, PAGE vê colaboradores/clientes/fornecedores/parceiros;
+  compõe de RELATIONSHIP_LABELS governado) · writer PATCH /events/:id/audience organizer-only ·
+  enforcement na LEITURA (canViewEvent: private+refinamento exige aresta ACEITA do tipo com o
+  organizador). E2E 4/4 · suite 201 GATE OK (o guard event-lifecycle mordeu meu desvio de padrão nas
+  chamadas — conformei o código ao guard) · tsc 0 · Δbank=0. RESTA fatia 3 (wizard consome) junto do
+  F2 do composer (modal FB + chip de plateia = MESMO contrato). Selo Yala recomendado após fatia 3.
+
 ### 2026-07-06 (21) — Auditoria dupla Yala: 6/7 PASS/PASS + BLOCKER de RLS corrigido (e rendeu bônus)
 - Yala auditou o dia (segurança+norma): bypass D1/spoof R2/2ª-SSOT = ZERO achados; 6 commits PASS/PASS.
   BLOCKER real: policy RLS de follows com GUC errado (app.tenant_id ≠ app.current_tenant) = quebra-
