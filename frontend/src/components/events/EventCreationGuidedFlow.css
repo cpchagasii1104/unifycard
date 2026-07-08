@@ -19,55 +19,82 @@
   font-size: 0.95rem;
 }
 
+/* fix Clayton 2026-07-08 ("aquela barra ali no meio da tela, muito feio"): a barra de rolagem NATIVA
+   do navegador ficava visível sob as etapas. Escondida (scrollbar-width/::-webkit-scrollbar) — o
+   scroll continua funcionando (arraste), mas sem o trilho feio. Fade nas bordas avisa que há mais
+   conteúdo, sem precisar de barra visível. Paleta reharmonizada com o índigo do resto do sistema
+   (era azul/verde genérico #007bff/#28a745, destoava). */
 .flow-progress {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 0.5rem;
+  margin-bottom: 1.75rem;
   overflow-x: auto;
-  padding-bottom: 1rem;
+  padding: 0.25rem 0.25rem 0.75rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+}
+
+.flow-progress::-webkit-scrollbar {
+  display: none;
 }
 
 .progress-step {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  min-width: 100px;
-  opacity: 0.5;
+  gap: 0.5rem;
+  flex: none;
+  padding: 0.4rem 0.65rem 0.4rem 0.4rem;
+  border-radius: 999px;
+  background: #f6f7fb;
+  border: 1px solid transparent;
+  opacity: 0.65;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
 }
 
 .progress-step.active {
   opacity: 1;
+  background: #eef1ff;
+  border-color: #c7cdfe;
 }
 
 .progress-step.completed {
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .progress-step-number {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: #e0e0e0;
+  background: #e4e6f0;
+  color: #5b627a;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
+  font-weight: 700;
+  font-size: 0.78rem;
+  flex: none;
 }
 
 .progress-step.active .progress-step-number {
-  background: #007bff;
+  background: #6366f1;
   color: white;
 }
 
 .progress-step.completed .progress-step-number {
-  background: #28a745;
+  background: #059669;
   color: white;
 }
 
 .progress-step-title {
-  font-size: 0.85rem;
-  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #5b627a;
+  white-space: nowrap;
+}
+
+.progress-step.active .progress-step-title {
+  color: #1e2338;
 }
 
 .flow-content {
@@ -103,12 +130,12 @@
 }
 
 .flow-button-primary {
-  background: #007bff;
+  background: #6366f1;
   color: white;
 }
 
 .flow-button-primary:hover:not(:disabled) {
-  background: #0056b3;
+  background: #4f46e5;
 }
 
 .flow-button-secondary {
