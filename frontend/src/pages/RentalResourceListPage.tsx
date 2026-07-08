@@ -45,6 +45,7 @@ import { resolveAudiencePayload, isExclusive } from '../components/composer/audi
 import type { AudienceOption } from '../api/audience';
 import VehicleFields, { buildVehicleResourceName, type VehicleSelection } from '../components/composer/VehicleFields';
 import GovernedCombobox from '../components/common/GovernedCombobox';
+import RentalAddressSection, { EMPTY_LOCATION, type ResourceLocationValue } from '../components/composer/RentalAddressSection';
 import { searchCities, findNearestCity, type CitySearchResult } from '../api/location';
 import PageModuleShell from '../components/layout/PageModuleShell';
 import RightContextRail from '../components/layout/RightContextRail';
@@ -258,8 +259,7 @@ export default function RentalResourceListPage() {
   const vehicleName = buildVehicleResourceName(vehicleSel);
   // Localização governada (F-RENTABLE-RESOURCE-LOCATION-MVP): cidade da SSOT `cities`, resolvida no
   // backend. O recurso fica na cidade do dono (retirada=devolução). Nunca texto livre.
-  const [selectedCity, setSelectedCity] = useState<CitySearchResult | null>(null);
-  const [cepInput, setCepInput] = useState('');
+  const [location, setLocation] = useState<ResourceLocationValue>(EMPTY_LOCATION);
   // Modelo Airbnb: o dono decide se a reserva confirma na hora (automatic) ou precisa aprovar (manual).
   // Default 'automatic' — não esfriar o negócio (feedback Clayton 2026-07-08).
   const [approvalMode, setApprovalMode] = useState<'manual' | 'automatic'>('automatic');
@@ -406,8 +406,13 @@ export default function RentalResourceListPage() {
         audienceRelationshipTypes: aud.audienceRelationshipTypes,
         pricingTiers, // faixas em cents (verdade); vazio se nada preenchido
         quantity: resourceType === 'equipment' ? quantity : 1, // único vs fungível (backend revalida)
-        cityId: selectedCity?.id ?? null, // localização governada (SSOT cities), nunca texto livre
-        postalCode: cepInput.trim() || null,
+        cityId: location.city?.id ?? null, // localização governada (SSOT cities), nunca texto livre
+        postalCode: location.postalCode.trim() || null,
+        street: location.street.trim() || null,
+        number: location.number.trim() || null,
+        complement: location.complement.trim() || null,
+        neighborhoodId: location.neighborhoodId,
+        neighborhoodDisplay: location.neighborhoodDisplay.trim() || null,
         bookingApprovalMode: approvalMode,
         ...handoffPayload(handoffChoice, deliveryRadius, deliveryFeeReais, collectionFeeReais),
         ...mileagePayload(isVehicle, mileagePolicy, includedKmPerDay, extraKmFeeReais),
@@ -416,7 +421,7 @@ export default function RentalResourceListPage() {
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
       setShowForm(false);
       setLabel(''); setDescription(''); setTierReais({}); setQuantity(1);
-      setSelectedConcept(null); setSelectedCity(null); setCepInput('');
+      setSelectedConcept(null); setLocation(EMPTY_LOCATION);
       setHandoffChoice('pickup_return'); setDeliveryRadius(''); setDeliveryFeeReais(''); setCollectionFeeReais('');
       setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
       await load();
@@ -762,27 +767,9 @@ export default function RentalResourceListPage() {
             </label>
           )}
 
-          {/* Localização governada: cidade da SSOT (backend resolve; nunca texto livre). O recurso fica
-              nesta cidade — retirada e devolução no mesmo local. Vitrine mostra só a cidade. */}
-          <div className="rrl-field">
-            Cidade (retirada e devolução)
-            <GovernedCombobox<CitySearchResult>
-              value={selectedCity}
-              onChange={setSelectedCity}
-              loadOptions={(q) => searchCities(q)}
-              getOptionKey={(c) => c.id}
-              getOptionLabel={(c) => c.stateUf ? `${c.name} · ${c.stateUf}` : c.name}
-              placeholder="Buscar cidade…"
-              emptyMessage="Nenhuma cidade encontrada"
-            />
-          </div>
-          {/* CEP opcional (Fase 4): refina a proximidade. O backend resolve; a vitrine nunca mostra
-              rua/número — só cidade/bairro/distância aproximada. */}
-          <label className="rrl-field">
-            CEP (opcional — melhora a busca por proximidade)
-            <input type="text" inputMode="numeric" placeholder="Ex.: 80010-000" value={cepInput}
-              onChange={(e) => setCepInput(e.target.value)} maxLength={9} />
-          </label>
+          {/* Localização TRANSVERSAL (CEP autocomplete + endereço). A verdade é cityId governado; imóvel/
+              espaço pedem rua/número. Rótulos mudam por tipo. Privacidade decidida no backend. */}
+          <RentalAddressSection resourceType={resourceType} value={location} onChange={setLocation} />
 
           {/* Modelo Airbnb: o dono decide como a reserva é aceita. Automática não esfria o negócio. */}
           <div className="rrl-field">

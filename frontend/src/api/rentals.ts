@@ -64,6 +64,8 @@ export async function createRentableResource(input: {
   audienceRelationshipTypes?: string[] | null;
   cityId?: string | null; // localização governada (SSOT cities) — backend valida; nunca texto livre
   postalCode?: string | null; // CEP opcional — refina proximidade; backend resolve, nunca o front
+  street?: string | null; number?: string | null; complement?: string | null;
+  neighborhoodId?: string | null; neighborhoodDisplay?: string | null;
   pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>; // faixas; priceCents (cents)
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1)
   bookingApprovalMode?: BookingApprovalMode; // Airbnb: dono decide auto/manual no cadastro
@@ -99,6 +101,8 @@ export async function updateRentalOffer(id: string, input: {
   pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>;
   quantity?: number;
   cityId?: string | null;
+  street?: string | null; number?: string | null; complement?: string | null;
+  neighborhoodId?: string | null; neighborhoodDisplay?: string | null;
   bookingApprovalMode?: BookingApprovalMode;
   startHandoffMethod?: StartHandoffMethod; endHandoffMethod?: EndHandoffMethod;
   deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
@@ -219,6 +223,18 @@ export async function getMyRentalBookings(): Promise<MyBooking[]> {
   const res = await apiFetchJson<{ ok: boolean; data: MyBooking[] }>('/rentable-resources/my-bookings');
   return res.data;
 }
+// Endereço do recurso com PRIVACIDADE (backend decide). Público: cidade/UF/bairro. Completo: dono ou
+// locatário confirmado. GET /rentable-resources/:id/address
+export interface ResourceAddress {
+  access: 'public' | 'full';
+  city: string | null; uf: string | null; neighborhood: string | null;
+  street: string | null; number: string | null; complement: string | null; postalCode: string | null;
+}
+export async function getResourceAddress(id: string): Promise<ResourceAddress> {
+  const res = await apiFetchJson<{ ok: boolean; data: ResourceAddress }>(`/rentable-resources/${id}/address`);
+  return res.data;
+}
+
 // O consumidor cancela a PRÓPRIA reserva. Praxe: vira 'cancelled' (histórico preservado), não deleta.
 // body {} obrigatório: o cliente seta Content-Type application/json e o Fastify recusa body vazio.
 export async function cancelMyRentalBooking(bookingId: string): Promise<void> {

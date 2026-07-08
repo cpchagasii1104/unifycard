@@ -1,0 +1,11 @@
+/* Seção de localização transversal de locação. */
+.ras { border: 1px solid #e9ebf4; border-radius: 12px; padding: 14px; background: #fbfcff; display: flex; flex-direction: column; gap: 10px; }
+.ras-title { font-weight: 700; color: #1e2338; font-size: .95rem; }
+.ras-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.ras-field { display: flex; flex-direction: column; gap: .3rem; font-size: .8125rem; font-weight: 600; color: #444; flex: 1; min-width: 120px; }
+.ras-field--city { flex: 2; }
+.ras-field--street { flex: 2; }
+.ras-field--num { flex: 0 0 90px; min-width: 90px; }
+.ras-field input { padding: .5rem .65rem; border: 1px solid #d9dbe4; border-radius: 6px; font-size: .875rem; font-weight: 400; }
+.ras-hint { font-size: .8rem; color: #4f46e5; margin: 0; }
+.ras-privacy { font-size: .8rem; color: #64748b; background: #fff; border: 1px dashed #dfe3fe; border-radius: 8px; padding: 8px 10px; margin: 2px 0 0; }

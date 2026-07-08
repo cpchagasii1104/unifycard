@@ -134,6 +134,33 @@ export async function findNearestCity(lat: number, lng: number): Promise<CitySea
 }
 
 /**
+ * Autocomplete de CEP (transversal a toda locação). O backend resolve e mapeia para o Location Core;
+ * o front só preenche. A verdade é cityId/neighborhoodId — nunca o texto. resolved:false = pedir cidade.
+ * GET /locations/cep/:cep
+ */
+export interface CepAutocomplete {
+  resolved: boolean;
+  postalCode: string | null;
+  street: string | null;
+  neighborhoodDisplay: string | null;
+  neighborhoodId: string | null;
+  cityId: string | null;
+  cityName: string | null;
+  stateUf: string | null;
+  source: string | null;
+}
+export async function resolveCep(cep: string): Promise<CepAutocomplete | null> {
+  try {
+    const response = await apiFetch(`/locations/cep/${encodeURIComponent(cep)}`, {}, { silent404: true, silent401: true });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Buscar bairros de uma cidade
  * GET /locations/neighborhoods?city_id=UUID
  */
