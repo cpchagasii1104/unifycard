@@ -42,7 +42,6 @@
 .rrl-card-actions { display: flex; gap: 8px; width: 100%; margin-top: 6px; padding-top: 12px; border-top: 1px solid #eef0f6; }
 .rrl-card-actions button { flex: 1; font: inherit; font-size: .82rem; font-weight: 600; padding: 8px 6px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; color: #374151; cursor: pointer; transition: all .12s; }
 .rrl-card-actions button:hover { border-color: #c7cdfe; background: #f6f7ff; color: #4f46e5; }
-.rrl-avail-form { width: 100%; margin-top: 8px; padding: 12px; background: #fbfcff; border: 1px solid #e9ebf4; border-radius: 12px; display: flex; flex-direction: column; gap: 8px; }
 .rrl-row { display: flex; gap: 10px; }
 .rrl-row .rrl-field { flex: 1; }
 .rrl-hint { color: #64748b; font-size: .82rem; margin: 2px 0 0; }

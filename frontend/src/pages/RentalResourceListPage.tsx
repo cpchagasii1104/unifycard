@@ -30,7 +30,6 @@ import {
   type RentalConceptOption,
   type EquipmentUseArea,
 } from '../api/rentals';
-import { createAvailability } from '../api/availability';
 import { useAudienceOptions } from '../hooks/useAudienceOptions';
 import AudiencePicker from '../components/composer/AudiencePicker';
 import { resolveAudiencePayload } from '../components/composer/audience-payload';
@@ -170,12 +169,6 @@ export default function RentalResourceListPage() {
   const [editBusy, setEditBusy] = useState(false);
 
   // disponibilidade inline por recurso (operar) — janela vai pra AGENDA UNIVERSAL
-  const [availFor, setAvailFor] = useState<string | null>(null);
-  const [availStart, setAvailStart] = useState('');
-  const [availEnd, setAvailEnd] = useState('');
-  const [availTimeStart, setAvailTimeStart] = useState('08:00');
-  const [availTimeEnd, setAvailTimeEnd] = useState('18:00');
-  const [availBusy, setAvailBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -298,7 +291,6 @@ export default function RentalResourceListPage() {
   // abre o form de edição preenchido com a oferta ATUAL (faixas/cidade vêm do backend)
   const openEdit = async (resourceId: string) => {
     if (editFor === resourceId) { setEditFor(null); return; }
-    setAvailFor(null);
     try {
       const detail = await getRentalOfferDetail(resourceId);
       const reais: Partial<Record<RentalPricingUnit, string>> = {};
@@ -334,32 +326,6 @@ export default function RentalResourceListPage() {
       showToast(err?.message || 'Erro ao salvar', 'error');
     } finally {
       setEditBusy(false);
-    }
-  };
-
-  const handleAddAvailability = async (resourceId: string) => {
-    if (!availStart) { showToast('Informe a data de início da janela.', 'error'); return; }
-    setAvailBusy(true);
-    try {
-      await createAvailability({
-        ownerType: 'rentable_resource',
-        ownerId: resourceId,
-        startDatetime: `${availStart}T${availTimeStart || '00:00'}:00`,
-        endDatetime: `${availEnd || availStart}T${availTimeEnd || '23:59'}:00`,
-      });
-      showToast('Janela de disponibilidade registrada na Agenda. ✅', 'success');
-      setAvailFor(null); setAvailStart(''); setAvailEnd('');
-    } catch (err: any) {
-      // Conflito de sobreposição vem do BACKEND (RENTAL_AVAILABILITY_OVERLAP) — a verdade temporal é do
-      // motor, não do front. Mostra a janela conflitante que o backend informou.
-      const msg = String(err?.message || '');
-      if (msg.includes('RENTAL_AVAILABILITY_OVERLAP')) {
-        showToast('Esta janela conflita com uma disponibilidade já cadastrada para este recurso. Crie janelas separadas, sem sobrepor.', 'error');
-      } else {
-        showToast(msg || 'Erro ao registrar disponibilidade', 'error');
-      }
-    } finally {
-      setAvailBusy(false);
     }
   };
 
@@ -721,26 +687,10 @@ export default function RentalResourceListPage() {
             <div className="rrl-card-actions">
               <button type="button" onClick={() => navigate(`/locacoes/${r.id}`)}>Detalhes</button>
               <button type="button" onClick={() => openEdit(r.id)}>✏️ Editar</button>
-              <button type="button" onClick={() => setAvailFor(availFor === r.id ? null : r.id)}>
-                {availFor === r.id ? 'Fechar' : '🗓️ Disponibilidade'}
-              </button>
+              {/* Fonte ÚNICA de disponibilidade: a tela de detalhe (semântica por tipo, ISO correto).
+                  O form inline foi removido — não duplicar superfície de edição de disponibilidade. */}
+              <button type="button" onClick={() => navigate(`/locacoes/${r.id}`)}>🗓️ Gerenciar disponibilidade</button>
             </div>
-            {availFor === r.id && (
-              <div className="rrl-avail-form">
-                <div className="rrl-row">
-                  <label className="rrl-field">De<input type="date" value={availStart} onChange={(e) => setAvailStart(e.target.value)} /></label>
-                  <label className="rrl-field">Até<input type="date" value={availEnd} onChange={(e) => setAvailEnd(e.target.value)} /></label>
-                </div>
-                <div className="rrl-row">
-                  <label className="rrl-field">Das<input type="time" value={availTimeStart} onChange={(e) => setAvailTimeStart(e.target.value)} /></label>
-                  <label className="rrl-field">Às<input type="time" value={availTimeEnd} onChange={(e) => setAvailTimeEnd(e.target.value)} /></label>
-                </div>
-                <button type="button" className="rrl-submit-btn" disabled={availBusy} onClick={() => handleAddAvailability(r.id)}>
-                  {availBusy ? 'Registrando…' : 'Registrar janela na Agenda'}
-                </button>
-                <p className="rrl-hint">A Agenda universal recusa janelas sobrepostas — se o recurso já estiver comprometido no período, o sistema barra sozinho.</p>
-              </div>
-            )}
           </div>
         ))}
       </div>
