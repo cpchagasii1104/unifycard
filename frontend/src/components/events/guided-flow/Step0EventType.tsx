@@ -239,7 +239,7 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
           </div>
         </div>
 
-        {selectedCategory === 'social' && selectedType && (
+        {selectedCategory === 'social' && (
           <div className="form-section">
             <label className="form-label">Subtipo</label>
             <div className="option-grid">
@@ -296,7 +296,7 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
           </div>
         )}
 
-        {selectedCategory === 'cultural' && selectedType && (
+        {selectedCategory === 'cultural' && (
           <div className="form-section">
             <label className="form-label">Subtipo</label>
             <div className="option-grid">
@@ -346,7 +346,7 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
           </div>
         )}
 
-        {selectedCategory === 'gastronomic' && selectedType && (
+        {selectedCategory === 'gastronomic' && (
           <div className="form-section">
             <label className="form-label">Subtipo</label>
             <div className="option-grid">
@@ -382,7 +382,7 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
           </div>
         )}
 
-        {selectedCategory === 'sports' && selectedType && (
+        {selectedCategory === 'sports' && (
           <div className="form-section">
             <label className="form-label">Subtipo</label>
             <div className="option-grid">
@@ -411,7 +411,7 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
           </div>
         )}
 
-        {selectedCategory === 'professional' && selectedType && (
+        {selectedCategory === 'professional' && (
           <div className="form-section">
             <label className="form-label">Subtipo</label>
             <div className="option-grid">
@@ -447,7 +447,7 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
           </div>
         )}
 
-        {selectedCategory === 'community' && selectedType && (
+        {selectedCategory === 'community' && (
           <div className="form-section">
             <label className="form-label">Subtipo</label>
             <div className="option-grid">
@@ -483,7 +483,7 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
           </div>
         )}
 
-        {selectedCategory === 'spiritual' && selectedType && (
+        {selectedCategory === 'spiritual' && (
           <div className="form-section">
             <label className="form-label">Subtipo</label>
             <div className="option-grid">
