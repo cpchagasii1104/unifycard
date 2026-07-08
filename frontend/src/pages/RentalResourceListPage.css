@@ -136,3 +136,9 @@
 .rrl-chip { padding: 6px 14px; border: 1px solid #e3e6ea; border-radius: 999px; background: #fff; font: inherit; font-size: .82rem; font-weight: 600; color: #5b627a; cursor: pointer; }
 .rrl-chip.active { border-color: #6366f1; background: #eef0fb; color: #4f46e5; }
 .rrl-req-confirm-sm { background: #2f7a3f; border: 0; color: #fff; font: inherit; font-size: .82rem; font-weight: 600; padding: 4px 12px; border-radius: 8px; cursor: pointer; }
+
+/* Botão "usar minha localização" (o backend resolve a cidade a partir do sensor). */
+.rrl-search-step-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.rrl-geo-btn { border: 1px solid #c7cdfe; background: #eef0fb; color: #4f46e5; font: inherit; font-size: .8rem; font-weight: 600; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.rrl-geo-btn:hover:not(:disabled) { background: #e0e4fb; }
+.rrl-geo-btn:disabled { opacity: .6; cursor: default; }

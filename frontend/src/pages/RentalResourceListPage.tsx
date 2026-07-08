@@ -45,7 +45,7 @@ import { resolveAudiencePayload, isExclusive } from '../components/composer/audi
 import type { AudienceOption } from '../api/audience';
 import VehicleFields, { buildVehicleResourceName, type VehicleSelection } from '../components/composer/VehicleFields';
 import GovernedCombobox from '../components/common/GovernedCombobox';
-import { searchCities, type CitySearchResult } from '../api/location';
+import { searchCities, findNearestCity, type CitySearchResult } from '../api/location';
 import PageModuleShell from '../components/layout/PageModuleShell';
 import RightContextRail from '../components/layout/RightContextRail';
 import './RentalResourceListPage.css';
@@ -154,6 +154,25 @@ export default function RentalResourceListPage() {
   const [showHistory, setShowHistory] = useState(false);
   // Painel do DONO (operar): aba recursos × reservas recebidas + filtro por status (escala).
   const [profileModalActorId, setProfileModalActorId] = useState<string | null>(null); // perfil no lugar, sem sair do fluxo
+  const [geoBusy, setGeoBusy] = useState(false);
+  // Usar minha localização: o navegador capta o sensor (lat/lng), o BACKEND resolve a cidade (haversine).
+  // O front NÃO decide proximidade nem usa lat/lng na busca — só preenche a cidade governada.
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) { showToast('Seu navegador não suporta localização.', 'error'); return; }
+    setGeoBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const city = await findNearestCity(pos.coords.latitude, pos.coords.longitude);
+          if (city) { setSearchCity(city); showToast(`Cidade detectada: ${city.name}${city.stateUf ? ` · ${city.stateUf}` : ''}.`, 'success'); }
+          else showToast('Não encontramos uma cidade próxima. Digite sua cidade.', 'error');
+        } catch { showToast('Erro ao resolver a cidade.', 'error'); }
+        finally { setGeoBusy(false); }
+      },
+      () => { setGeoBusy(false); showToast('Não foi possível obter sua localização. Autorize no navegador ou digite a cidade.', 'error'); },
+      { enableHighAccuracy: false, timeout: 10000 },
+    );
+  };
   const [operarTab, setOperarTab] = useState<'resources' | 'bookings'>('resources');
   const [receivedBookings, setReceivedBookings] = useState<ReceivedBooking[]>([]);
   const [receivedFilter, setReceivedFilter] = useState<'all' | 'requested' | 'confirmed' | 'cancelled'>('all');
@@ -525,7 +544,12 @@ export default function RentalResourceListPage() {
             é o do dono de cada anúncio. Backend resolve a coord (SSOT) e calcula distância/estimativa. */}
         <div className="rrl-search">
           <div className="rrl-search-step">
-            <span className="rrl-search-step-title">📍 Onde você está</span>
+            <div className="rrl-search-step-head">
+              <span className="rrl-search-step-title">📍 Onde você está</span>
+              <button type="button" className="rrl-geo-btn" disabled={geoBusy} onClick={handleUseMyLocation}>
+                {geoBusy ? 'Localizando…' : '📍 Usar minha localização'}
+              </button>
+            </div>
             <div className="rrl-search-row">
               <div className="rrl-field">Cidade *
                 <GovernedCombobox<CitySearchResult> value={searchCity} onChange={setSearchCity}

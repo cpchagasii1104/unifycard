@@ -60,6 +60,11 @@ class LocationService {
     return locationRepository.searchCities(q);
   }
 
+  /** Cidade governada mais próxima de um lat/lng (haversine). Verdade de localização no backend. */
+  async findNearestCity(lat: number, lng: number): Promise<{ id: string; name: string; stateUf: string | null } | null> {
+    return locationRepository.findNearestCity(lat, lng);
+  }
+
   /**
    * Buscar cidade por ID
    */

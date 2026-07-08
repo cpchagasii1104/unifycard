@@ -115,6 +115,25 @@ export async function searchCities(q: string): Promise<CitySearchResult[]> {
 }
 
 /**
+ * Cidade mais próxima de um lat/lng — o navegador capta o sensor, o BACKEND resolve qual cidade.
+ * GET /locations/cities/nearest?lat=&lng= . Retorna null se nada resolver (fallback: digitar a cidade).
+ */
+export async function findNearestCity(lat: number, lng: number): Promise<CitySearchResult | null> {
+  try {
+    const response = await apiFetch(
+      `/locations/cities/nearest?lat=${encodeURIComponent(String(lat))}&lng=${encodeURIComponent(String(lng))}`,
+      {},
+      { silent404: true, silent401: true }
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.city ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Buscar bairros de uma cidade
  * GET /locations/neighborhoods?city_id=UUID
  */

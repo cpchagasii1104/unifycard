@@ -70,6 +70,22 @@ const locationRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /locations/cities/nearest?lat=&lng=
+   * O navegador captura o lat/lng (sensor). O BACKEND resolve qual cidade — a verdade de localização é do
+   * backend (haversine sobre as cidades governadas), o front nunca decide proximidade. Retorna a cidade
+   * ativa mais próxima; a busca segue por city_id. Sem provider externo (usa as coords das cities).
+   */
+  fastify.get<{ Querystring: { lat?: string; lng?: string } }>('/cities/nearest', async (req, reply) => {
+    const lat = Number(req.query.lat), lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return reply.status(400).send({ error: 'COORDS_INVALID: lat/lng fora do intervalo válido.' });
+    }
+    const city = await locationService.findNearestCity(lat, lng);
+    if (!city) return reply.status(404).send({ error: 'NO_CITY_NEARBY: nenhuma cidade governada com coordenada.' });
+    return reply.send({ city });
+  });
+
+  /**
    * GET /locations/cities?state_id=UUID
    * Lista cidades de um estado
    * Público, cacheável

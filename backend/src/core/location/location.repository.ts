@@ -153,6 +153,20 @@ class LocationRepository {
     return result.rows.map((r) => ({ id: r.city_id, name: r.name, stateUf: r.abbreviation }));
   }
 
+  /** Cidade ativa mais próxima de um lat/lng (haversine_distance_km, fn SQL canônica). */
+  async findNearestCity(lat: number, lng: number): Promise<{ id: string; name: string; stateUf: string | null } | null> {
+    const result = await pool.query<{ city_id: string; name: string; abbreviation: string | null }>(
+      `SELECT c.city_id, c.name, s.abbreviation
+         FROM cities c
+         LEFT JOIN states s ON s.state_id = c.state_id
+        WHERE c.is_active AND c.lat IS NOT NULL AND c.lng IS NOT NULL
+        ORDER BY haversine_distance_km($1, $2, c.lat, c.lng) ASC
+        LIMIT 1`,
+      [lat, lng]);
+    const r = result.rows[0];
+    return r ? { id: r.city_id, name: r.name, stateUf: r.abbreviation } : null;
+  }
+
   /**
    * Buscar cidade por ID
    */
