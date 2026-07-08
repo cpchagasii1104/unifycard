@@ -14,7 +14,7 @@ export type RentableResourceStatus = 'active' | 'paused' | 'retired';
 // transversal /audience-options, aqui só o vocabulário do substrato). Frontend NÃO cria verdade.
 export type RentableVisibility = 'public' | 'connections' | 'only_me';
 
-// Modo de aprovação de reserva (modelo Airbnb) — o DONO decide no cadastro. 'automatic' = confirma na
+// Modo de aprovação de reserva (modelo reserva instantânea) — o DONO decide no cadastro. 'automatic' = confirma na
 // hora (não esfria o negócio); 'manual' = o dono aprova cada pedido. Vocabulário GOVERNADO (CHECK físico).
 export const BOOKING_APPROVAL_MODES = ['manual', 'automatic'] as const;
 export type BookingApprovalMode = (typeof BOOKING_APPROVAL_MODES)[number];
@@ -189,7 +189,7 @@ export interface CreateRentableResourceInput {
   neighborhoodDisplay?: string | null; // bairro só-exibição (quando não há SSOT).
   pricingTiers?: RentalPricingTier[]; // faixas de preço anunciado (SSOT rental_resource_pricing).
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1).
-  bookingApprovalMode?: BookingApprovalMode; // Airbnb: dono decide auto/manual no cadastro.
+  bookingApprovalMode?: BookingApprovalMode; // reserva instantânea: dono decide auto/manual no cadastro.
   startHandoffMethod?: StartHandoffMethod; // como o recurso SAI (cliente retira / dono entrega).
   endHandoffMethod?: EndHandoffMethod; // como VOLTA (cliente devolve / dono busca).
   deliveryRadiusKm?: number | null; // raio de entrega (km) quando owner_delivery.

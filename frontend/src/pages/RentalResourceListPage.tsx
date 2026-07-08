@@ -274,7 +274,7 @@ export default function RentalResourceListPage() {
   // Localização governada (F-RENTABLE-RESOURCE-LOCATION-MVP): cidade da SSOT `cities`, resolvida no
   // backend. O recurso fica na cidade do dono (retirada=devolução). Nunca texto livre.
   const [location, setLocation] = useState<ResourceLocationValue>(EMPTY_LOCATION);
-  // Modelo Airbnb: o dono decide se a reserva confirma na hora (automatic) ou precisa aprovar (manual).
+  // Modelo reserva instantânea: o dono decide se a reserva confirma na hora (automatic) ou precisa aprovar (manual).
   // Default 'automatic' — não esfriar o negócio (feedback Clayton 2026-07-08).
   const [approvalMode, setApprovalMode] = useState<'manual' | 'automatic'>('automatic');
   const [editApprovalMode, setEditApprovalMode] = useState<'manual' | 'automatic'>('automatic');
@@ -826,7 +826,7 @@ export default function RentalResourceListPage() {
               espaço pedem rua/número. Rótulos mudam por tipo. Privacidade decidida no backend. */}
           <RentalAddressSection resourceType={resourceType} value={location} onChange={setLocation} />
 
-          {/* Modelo Airbnb: o dono decide como a reserva é aceita. Automática não esfria o negócio. */}
+          {/* Modelo reserva instantânea: o dono decide como a reserva é aceita. Automática não esfria o negócio. */}
           <div className="rrl-field">
             Reserva
             <div className="rrl-approval">
@@ -886,7 +886,7 @@ export default function RentalResourceListPage() {
               Modalidade da locação
               <select className="rrl-select" value={rentalModality} onChange={(e) => setRentalModality(e.target.value as 'long_term' | 'seasonal' | 'commercial')}>
                 <option value="long_term">Residencial (longo prazo) — mês/semestre/ano</option>
-                <option value="seasonal">Temporada (Airbnb) — dia/semana/mês</option>
+                <option value="seasonal">Temporada — dia/semana/mês</option>
                 <option value="commercial">Comercial — mês/ano</option>
               </select>
             </div>

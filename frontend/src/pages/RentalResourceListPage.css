@@ -92,7 +92,7 @@
 .rrl-search-row .rrl-field { flex: 1 1 180px; min-width: 0; }
 .rrl-search-go { flex: 0 0 auto; }
 
-/* Modo de aprovação de reserva (Airbnb): automática vs. eu aprovo. */
+/* Modo de aprovação de reserva (reserva instantânea): automática vs. eu aprovo. */
 .rrl-approval { display: flex; gap: 10px; margin-top: 4px; }
 .rrl-approval-opt { flex: 1; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; cursor: pointer; font: inherit; }
 .rrl-approval-opt strong { font-size: .9rem; color: #1e2338; }

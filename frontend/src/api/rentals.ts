@@ -68,7 +68,7 @@ export async function createRentableResource(input: {
   neighborhoodId?: string | null; neighborhoodDisplay?: string | null;
   pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>; // faixas; priceCents (cents)
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1)
-  bookingApprovalMode?: BookingApprovalMode; // Airbnb: dono decide auto/manual no cadastro
+  bookingApprovalMode?: BookingApprovalMode; // reserva instantânea: dono decide auto/manual no cadastro
   startHandoffMethod?: StartHandoffMethod; endHandoffMethod?: EndHandoffMethod;
   deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
   handoffTimeStart?: string | null; handoffTimeEnd?: string | null;
@@ -188,7 +188,7 @@ export async function getQuotePreview(id: string, startAt: string, endAt: string
   return res.data;
 }
 
-// Solicitar/reservar uma janela (modelo Airbnb). O modo (auto/manual) é do DONO, decidido no backend.
+// Solicitar/reservar uma janela (modelo reserva instantânea). O modo (auto/manual) é do DONO, decidido no backend.
 // Retorna o status final: 'confirmed' (auto) ou 'requested' (manual). Pré-dinheiro.
 export interface BookingResult { bookingId: string; status: string; autoConfirmed: boolean }
 // startAt/endAt = SUBPERÍODO desejado dentro da janela (locação por período). Sem eles = janela inteira.

@@ -459,7 +459,7 @@ class RentableResourceService {
   }
 
   /**
-   * SOLICITAR/RESERVAR uma janela (modelo Airbnb). O consumidor cria o pedido; o modo de aprovação é do
+   * SOLICITAR/RESERVAR uma janela (modelo reserva instantânea). O consumidor cria o pedido; o modo de aprovação é do
    * DONO (booking_approval_mode, decidido no cadastro — a verdade está no backend, não na tela):
    *   'manual'    → booking fica 'requested' (o dono confirma depois);
    *   'automatic' → o backend CONFIRMA na hora (pré-autorização do dono), passando pelo lock de recurso
