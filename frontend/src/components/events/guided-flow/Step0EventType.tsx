@@ -81,8 +81,10 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
       return;
     }
 
-    if (!selectedType) {
-      setErrorMessage('Selecione se o evento é privado ou público');
+    // Plateia agora é CANÔNICA (AudiencePicker: público/conexões/só-eu + tipos) — não mais o binário
+    // público/privado. A validação exige uma plateia escolhida, não o selectedType legado.
+    if (audienceKeys.length === 0) {
+      setErrorMessage('Selecione para quem é este evento');
       return;
     }
 
@@ -132,11 +134,13 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
       },
     };
 
-    const eventType = eventTypeMap[selectedCategory]?.[selectedType] || selectedType;
-
     // Resolve a multi-seleção via helper central. Visibility CANÔNICA direto (sem mapper lossy).
     const aud = resolveAudiencePayload(audienceOptions, audienceKeys);
     const visibilityValue: 'public' | 'connections' | 'only_me' = audienceKeys.length > 0 ? aud.visibility : 'public';
+    // event_type deriva da CATEGORIA + se é aberto/restrito (público=aberto → nome da categoria; demais →
+    // ramo 'private' do mapa legado). Deriva de aud.visibility (fresco), NÃO do selectedType órfão.
+    const typeKey = visibilityValue === 'public' ? 'public' : 'private';
+    const eventType = eventTypeMap[selectedCategory]?.[typeKey] || selectedCategory;
     const updatedData = {
       event_type: eventType as any,
       event_subtype: selectedSubtype,

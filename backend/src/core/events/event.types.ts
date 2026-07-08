@@ -35,12 +35,13 @@ export type EventStatus =
 /**
  * Visibility do evento (CONTRATO v1)
  */
-export type EventVisibility = 
+// F-EVENT-AUDIENCE-SSOT-UNIFICATION (2026-07-08): vocabulário CANÔNICO transversal
+// (public/connections/only_me). Legado (group/followers/private/unlisted) aposentado — o refinamento
+// fino vem de audience_relationship_types, não de valores próprios de visibility.
+export type EventVisibility =
   | 'public'
-  | 'group'
-  | 'followers'
-  | 'private'
-  | 'unlisted';
+  | 'connections'
+  | 'only_me';
 
 /**
  * Tipo de Actor (CONTRATO v1 Seção 1.1)

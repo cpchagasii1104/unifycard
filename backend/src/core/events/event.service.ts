@@ -142,7 +142,7 @@ class EventService {
    * Valida visibility (CONTRATO v1)
    */
   private validateVisibility(visibility: string): visibility is EventVisibility {
-    const validVisibilities: EventVisibility[] = ['public', 'group', 'followers', 'private', 'unlisted'];
+    const validVisibilities: EventVisibility[] = ['public', 'connections', 'only_me'];
     return validVisibilities.includes(visibility as EventVisibility);
   }
 
