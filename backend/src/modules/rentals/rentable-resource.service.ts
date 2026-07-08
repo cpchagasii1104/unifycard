@@ -14,6 +14,24 @@ import type {
   ListRentableResourcesFilters,
 } from './rentable-resource.types';
 
+/** Subtrai intervalos ocupados de [winStart, winEnd), devolvendo os GAPS livres em ordem. Determinístico.
+ *  Ex.: janela 08→31 menos reserva 10→17 = [08→10, 17→31]. Toca disponibilidade projetada (Clayton). */
+function subtractPeriods(winStart: Date, winEnd: Date, busy: Array<{ start: Date; end: Date }>): Array<{ start: Date; end: Date }> {
+  // só as reservas que tocam a janela, ordenadas e clampadas aos limites da janela
+  const overlaps = busy
+    .filter((b) => b.end > winStart && b.start < winEnd)
+    .map((b) => ({ start: new Date(Math.max(b.start.getTime(), winStart.getTime())), end: new Date(Math.min(b.end.getTime(), winEnd.getTime())) }))
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+  const gaps: Array<{ start: Date; end: Date }> = [];
+  let cursor = winStart;
+  for (const o of overlaps) {
+    if (o.start > cursor) gaps.push({ start: cursor, end: o.start });
+    if (o.end > cursor) cursor = o.end;
+  }
+  if (cursor < winEnd) gaps.push({ start: cursor, end: winEnd });
+  return gaps;
+}
+
 class RentableResourceService {
   /**
    * Cria o recurso alugável. `ownerActorId` já deve ter sido PROVADO pelo caller (rota) via
@@ -162,7 +180,8 @@ class RentableResourceService {
    */
   async requestBooking(
     tenantId: string, resourceId: string, availabilityId: string,
-    subject: { subjectUserId: string; requesterActorId: string }
+    subject: { subjectUserId: string; requesterActorId: string },
+    period?: { start?: Date | null; end?: Date | null }
   ): Promise<{ bookingId: string; status: string; autoConfirmed: boolean }> {
     const resource = await rentableResourceRepository.findById(tenantId, resourceId);
     if (!resource || resource.status !== 'active') {
@@ -174,17 +193,25 @@ class RentableResourceService {
     if (!availability || availability.ownerType !== 'rentable_resource' || availability.ownerId !== resourceId) {
       throw HttpError.badRequest('RENTABLE_RESOURCE_AVAILABILITY_MISMATCH: janela não pertence a este recurso.');
     }
+    // SUBPERÍODO: a reserva consome só um pedaço da janela macro. Se o consumidor não escolher, usa a
+    // janela inteira. A verdade temporal é do backend: o subperíodo DEVE estar contido na janela ativa.
+    const winStart = new Date(availability.startDatetime);
+    const winEnd = new Date(availability.endDatetime);
+    const bStart = period?.start ?? winStart;
+    const bEnd = period?.end ?? winEnd;
+    if (bEnd <= bStart) throw HttpError.badRequest('RENTAL_BOOKING_PERIOD_INVALID: fim deve ser depois do início.');
+    if (bStart < winStart || bEnd > winEnd) {
+      throw HttpError.badRequest('RENTAL_BOOKING_OUT_OF_WINDOW: o período pedido está fora da janela de disponibilidade.');
+    }
     // Cria o pedido (subject prova autoridade do consumidor sobre o próprio actor — DECISION-0148).
     const booking = await unifiedAvailabilityService.createBooking(
-      tenantId, subject, { availabilityId, requesterActorId: subject.requesterActorId } as any);
+      tenantId, subject, { availabilityId, requesterActorId: subject.requesterActorId, bookedStartDatetime: bStart, bookedEndDatetime: bEnd } as any);
 
     if (resource.bookingApprovalMode === 'automatic') {
-      // Pré-autorização do dono → o backend confirma (o consumidor não confirma). Lock por recurso barra
-      // conflito de período com outra reserva confirmada (409 RENTAL_RESOURCE_TIME_CONFLICT).
-      const startIso = new Date(availability.startDatetime).toISOString();
-      const endIso = new Date(availability.endDatetime).toISOString();
+      // Pré-autorização do dono → o backend confirma. Lock por recurso barra conflito NO SUBPERÍODO
+      // (não na janela) considerando a quantity (409 RENTAL_RESOURCE_TIME_CONFLICT).
       const confirmed = await unifiedAvailabilityRepository.confirmBookingWithResourceLock(
-        tenantId, booking.bookingId, resourceId, startIso, endIso);
+        tenantId, booking.bookingId, resourceId, bStart.toISOString(), bEnd.toISOString());
       return { bookingId: booking.bookingId, status: confirmed.status, autoConfirmed: true };
     }
     return { bookingId: booking.bookingId, status: booking.status, autoConfirmed: false };
@@ -205,11 +232,20 @@ class RentableResourceService {
     const windows = await unifiedAvailabilityRepository.findAvailabilities(tenantId, {
       ownerType: 'rentable_resource' as any, ownerId: resourceId, status: 'active' as any,
     });
-    return windows.map((w) => ({
-      availabilityId: w.availabilityId,
-      startDatetime: w.startDatetime.toISOString(),
-      endDatetime: w.endDatetime.toISOString(),
-    }));
+    // DISPONIBILIDADE PROJETADA = janela macro − reservas confirmadas. Para recurso ÚNICO (quantity=1),
+    // subtrai os subperíodos ocupados e devolve os GAPS livres (o dono continua com 1 janela declarada;
+    // o backend projeta o que sobra). Para fungível (quantity>1), a janela inteira segue (o confirm
+    // valida capacity). A verdade temporal é do backend — o front só renderiza.
+    if (resource.quantity > 1) {
+      return windows.map((w) => ({ availabilityId: w.availabilityId, startDatetime: w.startDatetime.toISOString(), endDatetime: w.endDatetime.toISOString() }));
+    }
+    const busy = await rentableResourceRepository.findConfirmedPeriods(tenantId, resourceId);
+    const out: Array<{ availabilityId: string; startDatetime: string; endDatetime: string }> = [];
+    for (const w of windows) {
+      const gaps = subtractPeriods(w.startDatetime, w.endDatetime, busy);
+      for (const g of gaps) out.push({ availabilityId: w.availabilityId, startDatetime: g.start.toISOString(), endDatetime: g.end.toISOString() });
+    }
+    return out;
   }
 
   getPricingTiers(tenantId: string, resourceId: string) {

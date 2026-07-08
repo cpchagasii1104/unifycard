@@ -103,6 +103,8 @@ export interface UnifiedBooking {
   cancelledAt?: Date | null;
   expiredAt?: Date | null;
   confirmedAt?: Date | null;
+  bookedStartDatetime?: Date | null; // subperíodo reservado (locação por período); null = janela inteira
+  bookedEndDatetime?: Date | null;
 }
 
 /**
@@ -151,6 +153,8 @@ export interface UnifiedBookingRow {
   cancelled_at: Date | null;
   expired_at: Date | null;
   confirmed_at: Date | null;
+  booked_start_datetime?: Date | null;
+  booked_end_datetime?: Date | null;
 }
 
 /**
@@ -194,6 +198,10 @@ export interface CreateUnifiedBookingInput {
   requesterActorId: string; // OBRIGATÓRIO (incremental; deve casar com BookingSubject.requesterActorId — DECISION-0148)
   notes?: string | null;
   metadata?: Record<string, any>;
+  // SUBPERÍODO da reserva dentro da janela macro (locação por período). Se ausente, a reserva usa a
+  // janela inteira (COALESCE — comportamento legado de serviço/evento preservado).
+  bookedStartDatetime?: Date | null;
+  bookedEndDatetime?: Date | null;
 }
 
 /**

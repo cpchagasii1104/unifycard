@@ -81,6 +81,8 @@ class UnifiedAvailabilityRepository {
       cancelledAt: row.cancelled_at || undefined,
       expiredAt: row.expired_at || undefined,
       confirmedAt: row.confirmed_at || undefined,
+      bookedStartDatetime: row.booked_start_datetime || undefined,
+      bookedEndDatetime: row.booked_end_datetime || undefined,
     };
   }
 
@@ -353,6 +355,8 @@ class UnifiedAvailabilityRepository {
       requesterActorId,
       notes = null,
       metadata = {},
+      bookedStartDatetime = null,
+      bookedEndDatetime = null,
     } = input;
 
     if (!availabilityId) {
@@ -365,9 +369,9 @@ class UnifiedAvailabilityRepository {
     const insertQuery = {
       text: `
         INSERT INTO bookings (
-          tenant_id, availability_id, requester_actor_id, status, notes, metadata
+          tenant_id, availability_id, requester_actor_id, status, notes, metadata, booked_start_datetime, booked_end_datetime
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `,
       values: [
@@ -377,6 +381,8 @@ class UnifiedAvailabilityRepository {
         UnifiedBookingStatus.REQUESTED,
         notes,
         JSON.stringify(metadata),
+        bookedStartDatetime,
+        bookedEndDatetime,
       ],
     };
 
@@ -475,8 +481,14 @@ class UnifiedAvailabilityRepository {
     try {
       await client.query('BEGIN');
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${tenantId}:rentable_resource:${resourceId}`]);
-      const conflict = await client.query(
-        `SELECT 1
+      // Correção conceitual 2026-07-08: conflito por SUBPERÍODO (não pela janela macro). Duas reservas de
+      // subperíodos diferentes da MESMA janela (ex.: 10-12 e 20-22 de uma janela 08-31) NÃO conflitam.
+      // COALESCE(booked_*, janela) preserva domínios sem subperíodo. quantity = unidades (equipamento
+      // fungível permite até `quantity` reservas sobrepostas; veículo/imóvel/espaço = 1).
+      const qRow = await client.query(`SELECT quantity FROM rentable_resources WHERE id = $1 AND tenant_id = $2`, [resourceId, tenantId]);
+      const capacity = Math.max(1, Number(qRow.rows[0]?.quantity ?? 1));
+      const overlap = await client.query(
+        `SELECT count(*)::int AS n
            FROM bookings b2
            JOIN availability a2 ON a2.availability_id = b2.availability_id AND a2.tenant_id = b2.tenant_id
           WHERE b2.tenant_id = $1
@@ -484,13 +496,12 @@ class UnifiedAvailabilityRepository {
             AND a2.owner_id = $2
             AND b2.status IN ('confirmed','checked_in','checked_out')
             AND b2.booking_id <> $3
-            AND a2.start_datetime < $5
-            AND a2.end_datetime > $4
-          LIMIT 1`,
+            AND COALESCE(b2.booked_start_datetime, a2.start_datetime) < $5
+            AND COALESCE(b2.booked_end_datetime, a2.end_datetime) > $4`,
         [tenantId, resourceId, bookingId, startIso, endIso]
       );
-      if (conflict.rows.length > 0) {
-        throw new ConflictError('RENTAL_RESOURCE_TIME_CONFLICT: já existe reserva confirmada deste recurso neste intervalo (DECISION-0151).');
+      if (Number(overlap.rows[0]?.n ?? 0) >= capacity) {
+        throw new ConflictError('RENTAL_RESOURCE_TIME_CONFLICT: não há unidade livre deste recurso neste intervalo (DECISION-0151).');
       }
       const upd = await client.query(
         `UPDATE bookings SET status = 'confirmed', confirmed_at = now()

@@ -353,6 +353,21 @@ class RentableResourceRepository {
     return rows.map((r) => ({ id: r.id, label: r.label, resourceType: r.resource_type, cityName: r.city_name, uf: r.uf }));
   }
 
+  /** Subperíodos OCUPADOS (reservas confirmadas/em-uso) de um recurso — para projetar a disponibilidade
+   *  restante (janela macro menos reservas). COALESCE(subperíodo, janela) para reservas sem subperíodo. */
+  async findConfirmedPeriods(tenantId: string, resourceId: string): Promise<Array<{ start: Date; end: Date }>> {
+    const rows = await runQueriesWithTenant<{ s: Date; e: Date }>(tenantId,
+      `SELECT COALESCE(b.booked_start_datetime, a.start_datetime) AS s,
+              COALESCE(b.booked_end_datetime, a.end_datetime) AS e
+         FROM bookings b
+         JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND a.owner_id = $2::uuid
+          AND b.status IN ('confirmed','checked_in','checked_out')
+        ORDER BY s ASC`,
+      [tenantId, resourceId]);
+    return rows.map((r) => ({ start: new Date(r.s), end: new Date(r.e) }));
+  }
+
   /** Coordenada canônica de uma cidade (SSOT cities). Origem do consumidor na busca por proximidade —
    *  o front nunca manda lat/lng; o backend resolve da cidade escolhida. */
   async cityCoord(cityId: string): Promise<{ lat: number; lng: number } | null> {

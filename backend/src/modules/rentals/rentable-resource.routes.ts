@@ -374,7 +374,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
    * autoridade sobre o próprio actor (req.user + actionContext). O modo (auto/manual) é do DONO —
    * decidido no backend, não na tela. 'automatic' confirma na hora; 'manual' fica pendente.
    */
-  fastify.post<{ Params: { id: string }; Body: { availabilityId?: string } }>('/:id/book', async (req, reply) => {
+  fastify.post<{ Params: { id: string }; Body: { availabilityId?: string; startAt?: string; endAt?: string } }>('/:id/book', async (req, reply) => {
     if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
     const userId = (req.user as { userId?: string } | undefined)?.userId;
     if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
@@ -382,6 +382,9 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     if (!requesterActorId) return reply.status(400).send({ error: 'ActionContext obrigatório' });
     const availabilityId = req.body?.availabilityId;
     if (!availabilityId) return reply.status(400).send({ error: 'availabilityId obrigatório' });
+    // SUBPERÍODO opcional (locação por período). Backend valida ⊆ janela; sem período = janela inteira.
+    const toDate = (v?: string) => { if (!v) return null; const d = new Date(v); return isNaN(d.getTime()) ? null : d; };
+    const period = { start: toDate(req.body?.startAt), end: toDate(req.body?.endAt) };
     // DECISION-0113: o consumidor só reserva REPRESENTANDO o actor declarado (fail-closed). O core
     // (createBooking) revalida de novo — defesa em profundidade.
     let canRep = false;
@@ -390,7 +393,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const result = await rentableResourceService.requestBooking(req.tenant.id, req.params.id, availabilityId, {
         subjectUserId: userId, requesterActorId,
-      });
+      }, period);
       return reply.status(201).send({ ok: true, data: result });
     } catch (err: any) {
       return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro ao reservar' });

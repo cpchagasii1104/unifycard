@@ -55,7 +55,9 @@ if (!/RENTABLE_RESOURCE[\s\S]{0,600}?confirmBookingWithResourceLock/.test(SVC)) 
 if (!/async confirmBookingWithResourceLock/.test(REPO)) {
   failures.push('repository sem confirmBookingWithResourceLock (lock de exclusividade por recurso).');
 } else {
-  const block = REPO.slice(REPO.indexOf('async confirmBookingWithResourceLock'), REPO.indexOf('async confirmBookingWithResourceLock') + 1400);
+  // Janela ampliada 2026-07-08: o método cresceu (subperíodo + quantity/capacity) por razão legítima —
+  // conflito agora compara SUBPERÍODO (COALESCE booked_*, janela) e respeita quantity. Segurança intacta.
+  const block = REPO.slice(REPO.indexOf('async confirmBookingWithResourceLock'), REPO.indexOf('async confirmBookingWithResourceLock') + 2200);
   if (!/owner_type\s*=\s*'rentable_resource'/.test(block) || !/a2\.owner_id\s*=\s*\$2/.test(block)) {
     failures.push('confirmBookingWithResourceLock: conflito NÃO é por owner_id/recurso (DECISION-0151: conflito por resource_id, não provider).');
   }

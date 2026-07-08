@@ -469,8 +469,9 @@ class UnifiedAvailabilityService {
       //    Confirm é o ponto ÚNICO; lock transacional por resource_id + conflito por owner_id em status
       //    bloqueante {confirmed,checked_in,checked_out}, self excluído, intervalo da availability (nunca do body).
       if (availability.ownerType === AvailabilityOwnerType.RENTABLE_RESOURCE) {
-        const startIso = new Date(availability.startDatetime).toISOString();
-        const endIso = new Date(availability.endDatetime).toISOString();
+        // SUBPERÍODO do booking quando houver (locação por período); senão a janela inteira (COALESCE).
+        const startIso = new Date(existing.bookedStartDatetime ?? availability.startDatetime).toISOString();
+        const endIso = new Date(existing.bookedEndDatetime ?? availability.endDatetime).toISOString();
         return await unifiedAvailabilityRepository.confirmBookingWithResourceLock(
           tenantId,
           bookingId,
