@@ -916,24 +916,22 @@ class EventsService {
       paramIndex++;
     }
 
-    // 🔵 DECISION-0113 F6.5.6b-CANAL5-C — PISO DE DISCOVERY (mesma régua B1–B4): search é 2ª listagem pública e
-    // deve herdar o piso. Só status published/active; visibility 'public' SEMPRE OU 'group' (membro material via
-    // group_members.user_id) OU 'followers' (follow material via follows + actors.user_id) — discoveryUserId
-    // (= req.user.userId, NUNCA actorId declarado). private/unlisted/draft/declared/ended/cancelled FORA.
+    // PISO DE DISCOVERY (mesma régua do event.repository/canViewEvent) — vocabulário CANÔNICO
+    // (F-EVENT-AUDIENCE-SSOT-UNIFICATION): search é 2ª listagem pública e herda o piso. Só status
+    // published/active; visibility 'public' SEMPRE OU 'connections' (aresta ACEITA com algum actor
+    // server-side do caller via actor_relationships + actors.user_id, refinado por audience_relationship_types).
+    // discoveryUserId = req.user.userId, NUNCA actorId declarado. only_me/draft/declared/ended/cancelled FORA.
     query += ` AND status IN ('published','active')`;
     const visParts: string[] = [`visibility = 'public'`];
     if (discoveryUserId) {
       visParts.push(
-        `(visibility = 'group' AND actor_id IN (SELECT a.id FROM actors a ` +
-          `JOIN group_members gm ON gm.group_id = a.group_id AND gm.tenant_id = a.tenant_id AND gm.user_id = $${paramIndex} ` +
-          `WHERE a.tenant_id = $1 AND a.group_id IS NOT NULL))`
-      );
-      params.push(discoveryUserId);
-      paramIndex++;
-      visParts.push(
-        `(visibility = 'followers' AND actor_id IN (SELECT f.followed_actor_id FROM follows f ` +
-          `JOIN actors fa ON fa.id = f.follower_actor_id AND fa.tenant_id = f.tenant_id AND fa.user_id = $${paramIndex} ` +
-          `WHERE f.tenant_id = $1))`
+        `(visibility = 'connections' AND EXISTS (SELECT 1 FROM actor_relationships ar ` +
+          `JOIN actors va ON va.tenant_id = ar.tenant_id AND va.user_id = $${paramIndex} ` +
+          `WHERE ar.tenant_id = $1 AND ar.status = 'accepted' ` +
+            `AND ((ar.from_actor_id = events.actor_id AND ar.to_actor_id = va.id) OR (ar.from_actor_id = va.id AND ar.to_actor_id = events.actor_id)) ` +
+            `AND (events.audience_relationship_types IS NULL ` +
+              `OR ar.requester_label = ANY(events.audience_relationship_types) ` +
+              `OR ar.target_label = ANY(events.audience_relationship_types))))`
       );
       params.push(discoveryUserId);
       paramIndex++;

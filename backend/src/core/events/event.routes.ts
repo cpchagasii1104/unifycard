@@ -291,27 +291,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     } catch {
       return reply.status(403).send({ ok: false, code: 'ACTOR_NOT_REPRESENTABLE' });
     }
-    const { RELATIONSHIP_LABELS } = await import('@modules/relationships/actor-relationship.types');
-    const L = (l: string) => (RELATIONSHIP_LABELS as readonly string[]).includes(l) ? [l] : [];
-    // Opções por tipo de actor — identidade = visibility + audienceRelationshipTypes (governados);
-    // label/ordem = projeção UX. NULL/[] em audience = sem refinamento.
-    const base = [
-      { key: 'public', label: 'Público', visibility: 'public', audienceRelationshipTypes: null },
-      { key: 'followers', label: 'Seguidores', visibility: 'followers', audienceRelationshipTypes: null },
-    ];
-    const pf = [
-      { key: 'friends', label: 'Amigos', visibility: 'private', audienceRelationshipTypes: L('amigo') },
-      { key: 'family', label: 'Família', visibility: 'private', audienceRelationshipTypes: L('familiar') },
-      { key: 'only_me', label: 'Só eu', visibility: 'private', audienceRelationshipTypes: null },
-    ];
-    const pj = [
-      { key: 'collaborators', label: 'Colaboradores', visibility: 'private', audienceRelationshipTypes: L('colaborador') },
-      { key: 'clients', label: 'Clientes', visibility: 'private', audienceRelationshipTypes: L('cliente') },
-      { key: 'suppliers', label: 'Fornecedores', visibility: 'private', audienceRelationshipTypes: L('fornecedor') },
-      { key: 'partners', label: 'Parceiros', visibility: 'private', audienceRelationshipTypes: L('parceiro') },
-      { key: 'group', label: 'Grupo', visibility: 'group', audienceRelationshipTypes: null },
-    ];
-    const options = actor.actor_type === 'page' ? [...base, ...pj] : [...base, ...pf];
+    // F-EVENT-AUDIENCE-SSOT-UNIFICATION (2026-07-08): espelha o TRANSVERSAL buildAudienceOptions —
+    // fonte única (public/connections/only_me + refinamento por label). Evento deixou de ter vocabulário
+    // paralelo (followers/private/group). Qualquer consumidor deste endpoint recebe o contrato canônico.
+    const { buildAudienceOptions } = await import('@core/audience/audience-options');
+    const options = buildAudienceOptions(actor.actor_type);
     return reply.send({ ok: true, data: { actorType: actor.actor_type, options } });
   });
 
@@ -347,6 +331,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       const vis = req.body?.visibility;
       const aud = req.body?.audienceRelationshipTypes ?? null;
       if (!vis && aud === null) return reply.status(400).send({ ok: false, code: 'AUDIENCE_EMPTY_PATCH' });
+      // Só vocabulário CANÔNICO em novos writes (F-EVENT-AUDIENCE-SSOT-UNIFICATION). Legado
+      // (group/followers/private/unlisted) rejeitado com erro claro — o CHECK do banco é a última linha.
+      if (vis && !['public', 'connections', 'only_me'].includes(vis)) {
+        return reply.status(400).send({ ok: false, code: 'AUDIENCE_VISIBILITY_LEGACY', message: `visibility '${vis}' não é canônico (use public|connections|only_me).` });
+      }
       try {
         await runQueryWithTenant(
           tenantId,
@@ -392,7 +381,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             datetime_end: { type: ['string', 'null'], format: 'date-time' },
             visibility: {
               type: 'string',
-              enum: ['public', 'group', 'followers', 'private', 'unlisted'],
+              enum: ['public', 'connections', 'only_me'],
             },
             ticket_price_cents: { type: ['integer', 'null'], minimum: 0 },
             max_attendees: { type: ['integer', 'null'], minimum: 1 },
@@ -592,7 +581,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             event_subtype: { type: ['string', 'null'] },
             visibility: {
               type: 'string',
-              enum: ['public', 'group', 'followers', 'private', 'unlisted'],
+              enum: ['public', 'connections', 'only_me'],
             },
             ticket_price_cents: { type: ['integer', 'null'], minimum: 0 },
             max_attendees: { type: ['integer', 'null'], minimum: 1 },
@@ -1206,7 +1195,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             datetime_end: { type: ['string', 'null'], format: 'date-time' },
             visibility: {
               type: 'string',
-              enum: ['public', 'group', 'followers', 'private', 'unlisted'],
+              enum: ['public', 'connections', 'only_me'],
             },
             ticket_price_cents: { type: ['integer', 'null'], minimum: 0 },
             max_attendees: { type: ['integer', 'null'], minimum: 1 },
@@ -1290,7 +1279,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             event_aspects: { type: ['array', 'null'], items: { type: 'string' } },
             visibility: {
               type: 'string',
-              enum: ['public', 'group', 'followers', 'private', 'unlisted'],
+              enum: ['public', 'connections', 'only_me'],
             },
             intent_flags: { type: ['array', 'null'], items: { type: 'string' } },
           },
@@ -2115,7 +2104,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
                 description: { type: ['string', 'null'] },
                 datetime_start: { type: ['string', 'null'], format: 'date-time' },
                 datetime_end: { type: ['string', 'null'], format: 'date-time' },
-                visibility: { type: 'string', enum: ['public', 'group', 'followers', 'private', 'unlisted'] },
+                visibility: { type: 'string', enum: ['public', 'connections', 'only_me'] },
                 max_attendees: { type: ['number', 'null'] },
               },
             },

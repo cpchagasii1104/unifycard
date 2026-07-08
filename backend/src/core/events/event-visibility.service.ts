@@ -15,15 +15,16 @@ const PUBLISHABLE = new Set(['published', 'active']);
  * mapeamento do Event (que colapsa published/active/declared em 'PUBLISHED'). Deny-first: qualquer caso fora das
  * regras → false (a rota responde 404 não-leak, sem confirmar existência).
  *
- * Régua (canal-5-A):
+ * Régua (canal-5-A) — vocabulário CANÔNICO transversal (F-EVENT-AUDIENCE-SSOT-UNIFICATION 2026-07-08;
+ * evento deixou de ter plateia paralela public/group/followers/private/unlisted):
  *  - organizer representável (canRepresentActor(event.actor_id)) → vê qualquer visibility/status do PRÓPRIO.
  *  - senão, só status ∈ {published,active}:
- *      public    → qualquer autenticado do tenant;
- *      unlisted  → qualquer autenticado do tenant (acesso por link/id; não aparece em listagem);
- *      group     → membro material (group_members.user_id = caller, via actors.group_id — mesmo eixo do B3);
- *      followers → follower material (follows; follower deriva de actors.user_id = caller — server-side, B4);
- *      private   → ninguém além do organizer;
- *      outro     → deny.
+ *      public      → qualquer um (inclusive anônimo do tenant);
+ *      connections → aresta ACEITA com o organizador; se audience_relationship_types setado, refinado pelo
+ *                    LABEL (mesma checagem do modelo transversal — posts/demanda/locação; NÃO regra própria);
+ *      only_me     → ninguém além do organizer;
+ *      outro       → deny.
+ *  (discoverability [listed|unlisted] é OUTRO plano — afeta LISTAGEM/feed, não acesso-por-id; não entra aqui.)
  */
 export async function canViewEvent(
   tenantId: string,
@@ -54,19 +55,16 @@ export async function canViewEvent(
   switch (ev.visibility) {
     case 'public':
       return true;
-    case 'unlisted':
-      return !!callerUserId; // acessível por link/id ao autenticado do tenant
-    case 'group':
-      return callerUserId ? isGroupMember(tenantId, ev.actor_id, callerUserId) : false;
-    case 'followers':
-      return callerUserId ? isFollowerOfOrganizer(tenantId, ev.actor_id, callerUserId) : false;
-    case 'private':
-      // DECISION-0161 D3: refinamento por RELAÇÃO — viewer com aresta ACEITA de um dos tipos exigidos
-      // com o organizador VÊ; sem refinamento (NULL), private = só organizer (comportamento anterior).
-      if (ev.audience_relationship_types && ev.audience_relationship_types.length > 0 && callerUserId) {
+    case 'connections':
+      // Aresta ACEITA com o organizador. Se audience_relationship_types setado → refinado pelo LABEL
+      // (mesma régua transversal); se NULL/vazio → QUALQUER conexão aceita. Fail-closed sem caller.
+      if (!callerUserId) return false;
+      if (ev.audience_relationship_types && ev.audience_relationship_types.length > 0) {
         return hasAcceptedRelationshipOfType(tenantId, ev.actor_id, callerUserId, ev.audience_relationship_types);
       }
-      return false; // só organizer (já tratado)
+      return hasAnyAcceptedRelationship(tenantId, ev.actor_id, callerUserId);
+    case 'only_me':
+      return false; // só organizer (já tratado acima)
     default:
       return false; // deny-first
   }
@@ -131,27 +129,20 @@ export async function assertCanReadEventMoney(
   return canRep ? { ok: true } : { ok: false, status: 403 };
 }
 
-// membership material: event.actor_id (group-actor) → actors.group_id → group_members.user_id = caller. (eixo B3)
-async function isGroupMember(tenantId: string, organizerActorId: string, callerUserId: string): Promise<boolean> {
+/**
+ * QUALQUER conexão aceita entre o organizador e algum actor do caller (derivado SERVER-SIDE de
+ * actors.user_id = caller — mesmo padrão do hasAcceptedRelationshipOfType, sem filtro de label).
+ * Usado por visibility='connections' sem audience_relationship_types (= todas as conexões). Fail-closed.
+ */
+async function hasAnyAcceptedRelationship(tenantId: string, organizerActorId: string, callerUserId: string): Promise<boolean> {
   const rows = await runQueriesWithTenant<{ ok: number }>(
     tenantId,
-    `SELECT 1 AS ok FROM actors a
-       JOIN group_members gm ON gm.group_id = a.group_id AND gm.tenant_id = a.tenant_id AND gm.user_id = $3
-     WHERE a.tenant_id = $1 AND a.id = $2 AND a.group_id IS NOT NULL
-     LIMIT 1`,
-    [tenantId, organizerActorId, callerUserId]
-  );
-  return rows.length > 0;
-}
-
-// follow material: algum actor do caller (actors.user_id = caller, server-side) segue o organizer. (eixo B4)
-async function isFollowerOfOrganizer(tenantId: string, organizerActorId: string, callerUserId: string): Promise<boolean> {
-  const rows = await runQueriesWithTenant<{ ok: number }>(
-    tenantId,
-    `SELECT 1 AS ok FROM follows f
-       JOIN actors fa ON fa.id = f.follower_actor_id AND fa.tenant_id = f.tenant_id AND fa.user_id = $3
-     WHERE f.tenant_id = $1 AND f.followed_actor_id = $2
-     LIMIT 1`,
+    `SELECT 1 AS ok
+       FROM actor_relationships r
+       JOIN actors va ON va.tenant_id = r.tenant_id AND va.user_id = $3
+      WHERE r.tenant_id = $1 AND r.status = 'accepted'
+        AND ((r.from_actor_id = va.id AND r.to_actor_id = $2) OR (r.from_actor_id = $2 AND r.to_actor_id = va.id))
+      LIMIT 1`,
     [tenantId, organizerActorId, callerUserId]
   );
   return rows.length > 0;

@@ -220,39 +220,31 @@ class EventRepository {
         params.push(floorStatuses);
         paramIndex++;
       }
-      // 🔵 F6.5.6b-B3/B4 — VISIBILITY permitida na discovery: 'public' SEMPRE; 'group' SÓ p/ grupos onde o
-      // caller é membro (group_members por user_id); 'followers' SÓ p/ organizers seguidos por algum actor
-      // server-side do caller (follows por actor, derivado de actors.user_id = discoveryUserId — NUNCA actorId
-      // declarado). private/unlisted NÃO entram na discovery (B2 dashboard / canal-5). discoveryUserId vem de req.user.
+      // VISIBILITY permitida na discovery — vocabulário CANÔNICO (F-EVENT-AUDIENCE-SSOT-UNIFICATION):
+      // 'public' SEMPRE; 'connections' SÓ p/ organizers com aresta ACEITA com algum actor server-side do
+      // caller (actor_relationships por actors.user_id = discoveryUserId — NUNCA actorId declarado),
+      // refinado por audience_relationship_types (mesma régua do canViewEvent/listDiscoverable). 'only_me'
+      // NÃO entra na discovery. discoveryUserId vem de req.user.
       const wantPublic = !filters.visibility || filters.visibility === 'public';
-      const wantGroup = !filters.visibility || filters.visibility === 'group';
-      const wantFollowers = !filters.visibility || filters.visibility === 'followers';
+      const wantConnections = !filters.visibility || filters.visibility === 'connections';
       const visParts: string[] = [];
       if (wantPublic) visParts.push(`visibility = 'public'`);
-      if (wantGroup && filters.discoveryUserId) {
+      if (wantConnections && filters.discoveryUserId) {
         visParts.push(
-          `(visibility = 'group' AND actor_id IN (` +
-            `SELECT a.id FROM actors a ` +
-            `JOIN group_members gm ON gm.group_id = a.group_id AND gm.tenant_id = a.tenant_id AND gm.user_id = $${paramIndex} ` +
-            `WHERE a.tenant_id = $1 AND a.group_id IS NOT NULL))`
-        );
-        params.push(filters.discoveryUserId);
-        paramIndex++;
-      }
-      if (wantFollowers && filters.discoveryUserId) {
-        // organizer (event.actor_id) seguido por ALGUM actor do caller (fa.user_id = discoveryUserId).
-        // follower vem do SERVIDOR (actors.user_id), nunca de actorId/query/header declarado pelo cliente.
-        visParts.push(
-          `(visibility = 'followers' AND actor_id IN (` +
-            `SELECT f.followed_actor_id FROM follows f ` +
-            `JOIN actors fa ON fa.id = f.follower_actor_id AND fa.tenant_id = f.tenant_id AND fa.user_id = $${paramIndex} ` +
-            `WHERE f.tenant_id = $1))`
+          `(visibility = 'connections' AND EXISTS (` +
+            `SELECT 1 FROM actor_relationships ar ` +
+            `JOIN actors va ON va.tenant_id = ar.tenant_id AND va.user_id = $${paramIndex} ` +
+            `WHERE ar.tenant_id = $1 AND ar.status = 'accepted' ` +
+              `AND ((ar.from_actor_id = events.actor_id AND ar.to_actor_id = va.id) OR (ar.from_actor_id = va.id AND ar.to_actor_id = events.actor_id)) ` +
+              `AND (events.audience_relationship_types IS NULL ` +
+                `OR ar.requester_label = ANY(events.audience_relationship_types) ` +
+                `OR ar.target_label = ANY(events.audience_relationship_types))))`
         );
         params.push(filters.discoveryUserId);
         paramIndex++;
       }
       if (visParts.length === 0) {
-        conditions.push('1 = 0'); // cliente pediu visibility fora da discovery (private/unlisted) ou group/followers sem user
+        conditions.push('1 = 0'); // cliente pediu visibility fora da discovery (only_me) ou connections sem user
       } else {
         conditions.push(`(${visParts.join(' OR ')})`);
       }
