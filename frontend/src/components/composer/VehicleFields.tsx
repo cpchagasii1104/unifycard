@@ -31,7 +31,8 @@ export function buildVehicleResourceName(sel: VehicleSelection): string {
   const core = `${sel.make.name} ${sel.model.name} ${sel.year}`;
   if (!sel.version) return core;
   const v = sel.version;
-  // versão sempre; câmbio/combustível/tração como complemento (quando preenchidos no catálogo)
+  // versao_nome já é o descritor COMPLETO (motor/câmbio) — usa-o direto p/ não repetir; senão compõe.
+  if (v.versao_nome && v.versao_nome.trim()) return `${core} · ${v.versao_nome.trim()}`;
   const tech = [v.version, v.cambio, v.combustivel, v.tracao].filter((x) => x && String(x).trim());
   return `${core} · ${tech.join(' · ')}`;
 }
@@ -123,8 +124,11 @@ export default function VehicleFields({
           onChange={setVersion}
           disabledReason={value.model && value.year ? null : 'Escolha o ano primeiro'}
           loadOptions={async () => value.model && value.year ? listVehicleVersions(value.model.id, value.year) : []}
-          getOptionKey={(v) => v.version}
-          getOptionLabel={(v) => v.version}
+          // key = ID ESTÁVEL da variante (variant_id), nunca o texto visível — evita chave React duplicada
+          // quando o mesmo `version` tem 2 variantes (ex.: Drive Manual × Drive CVT).
+          getOptionKey={(v) => v.variant_id ?? v.version}
+          // rótulo COMPLETO (versao_nome) — distingue "1.3 Flex Drive Manual" de "...CVT"; sem inventar texto.
+          getOptionLabel={(v) => v.versao_nome ?? v.version}
           placeholder="Selecionar versão…"
           emptyMessage="Sem versões cadastradas para este ano"
         />

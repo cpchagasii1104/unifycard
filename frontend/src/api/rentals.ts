@@ -332,6 +332,8 @@ export async function listVehicleModelYears(modelId: string): Promise<number[]> 
 // Versão (trim) + ficha técnica AUTO-COMPLETADA. A verdade é do catálogo — o anunciante não digita spec.
 export interface VehicleVersionSpec {
   version: string;
+  variant_id?: string | null;   // identidade ESTÁVEL da variante (key do picker + salva na metadata)
+  versao_nome?: string | null;  // rótulo COMPLETO/único ("1.3 Flex Drive Manual") — exibição do picker
   motor?: string | null; cilindrada_cc?: number | null; potencia_cv?: number | null; torque_kgfm?: number | null;
   combustivel?: string | null; tracao?: string | null; cambio?: string | null; num_portas?: number | null;
   capacidade_carga_kg?: number | null; peso_kg?: number | null;

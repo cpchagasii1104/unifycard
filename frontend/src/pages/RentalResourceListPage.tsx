@@ -379,8 +379,13 @@ export default function RentalResourceListPage() {
         if (vehicleSel.make) { metadata.vehicleMakeId = vehicleSel.make.id; metadata.vehicleMakeName = vehicleSel.make.name; }
         if (vehicleSel.model) { metadata.vehicleModelId = vehicleSel.model.id; metadata.vehicleModelName = vehicleSel.model.name; }
         // Versão = referência à variante do catálogo. A ficha técnica NÃO é copiada — projeta-se do
-        // catálogo por (modelo, ano, versão). Guarda só o ponteiro (anti-verdade-paralela).
-        if (vehicleSel.version) metadata.vehicleVersion = vehicleSel.version.version;
+        // catálogo por (modelo, ano, versão). Guarda o ponteiro ESTÁVEL (variant_id) — identidade única
+        // da variante — + o texto p/ exibição legada (anti-verdade-paralela).
+        if (vehicleSel.version) {
+          metadata.vehicleVersion = vehicleSel.version.version;
+          if (vehicleSel.version.variant_id) metadata.vehicleVariantId = vehicleSel.version.variant_id;
+          if (vehicleSel.version.versao_nome) metadata.vehicleVersionName = vehicleSel.version.versao_nome;
+        }
       }
       if (resourceType === 'property' || resourceType === 'space') {
         // Facets puras (descrevem, não identificam) — validadas como número/booleano, nunca texto livre
