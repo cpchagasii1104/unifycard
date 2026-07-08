@@ -28,7 +28,8 @@ import {
   type VehicleModel,
 } from '../api/rentals';
 import { createAvailability } from '../api/availability';
-import { getAudienceOptions, type AudienceOption } from '../api/audience';
+import { useAudienceOptions } from '../hooks/useAudienceOptions';
+import AudiencePicker from '../components/composer/AudiencePicker';
 import './RentalResourceListPage.css';
 
 // Tipo SEM N0 na ontologia congelada ainda (RFC_N0_IMOVEIS_E_PROPRIEDADES.md aguarda Clayton) —
@@ -79,7 +80,7 @@ export default function RentalResourceListPage() {
   const [description, setDescription] = useState('');
   // Pergunta 1 "Para quem é isso?" — FONTE ÚNICA transversal /audience-options (deriva de
   // PAIR_ALLOWED_LABELS por actor). Zero lista local. Backend faz o enforcement na descoberta.
-  const [audienceOptions, setAudienceOptions] = useState<AudienceOption[]>([]);
+  const { options: audienceOptions } = useAudienceOptions();
   const [audienceKey, setAudienceKey] = useState('public');
   const [pricingUnit, setPricingUnit] = useState<RentalPricingUnit>('por_dia');
   const [priceReais, setPriceReais] = useState('');
@@ -134,12 +135,6 @@ export default function RentalResourceListPage() {
   }, [activeActor, mode]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Plateia = fonte única transversal (muda por ACTOR, não por modo operante)
-  useEffect(() => {
-    if (!activeActor?.actor_id) return;
-    getAudienceOptions().then((a) => setAudienceOptions(a.options)).catch(() => setAudienceOptions([]));
-  }, [activeActor?.actor_id]);
 
   // fix Clayton 2026-07-07: categoria vem do CATÁLOGO FILTRADO PELO TIPO (nunca do catálogo inteiro)
   useEffect(() => {
@@ -315,14 +310,8 @@ export default function RentalResourceListPage() {
 
       {showForm && (
         <form className="rrl-form" onSubmit={handleCreate}>
-          {/* Pergunta 1 (transversal, mesma de post/evento/demanda): "Para quem é isso?" — FONTE
-              ÚNICA /audience-options. Define a plateia do ato, não o domínio. Frontend só projeta. */}
-          <label className="rrl-field">
-            1 · Para quem é isso?
-            <select value={audienceKey} onChange={(e) => setAudienceKey(e.target.value)}>
-              {audienceOptions.map((a) => <option key={a.key} value={a.key}>{a.icon} {a.label}</option>)}
-            </select>
-          </label>
+          {/* Pergunta 1 (matriz única de plateia): AudiencePicker consumindo /audience-options. */}
+          <AudiencePicker options={audienceOptions} value={audienceKey} onChange={(o) => setAudienceKey(o.key)} />
 
           {/* fix Clayton: o TIPO, aí sim a categoria relacionada (mesma lógica de grupos/demanda) */}
           <label className="rrl-field">

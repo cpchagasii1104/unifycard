@@ -12,7 +12,8 @@ import { classifyPostIntent, type OccupancyType } from '../../utils/intent-class
 // F2 (sequência de Clayton): 1-Para quem? 2-O quê? ANTES de digitar — plateia = vocabulário GOVERNADO
 // posts.visibility (§2.4c); atos = contrato C1 (ActorIntent SSOT, server-driven por actor).
 import { getComposerContract, type ComposerIntentOption } from '../../api/composer';
-import { getAudienceOptions, type AudienceOption } from '../../api/audience';
+import { useAudienceOptions } from '../../hooks/useAudienceOptions';
+import AudiencePicker from '../composer/AudiencePicker';
 // F2-C (Clayton): modo operante + actor trocáveis DENTRO do modal — o contrato refetcha e o passo 2
 // muda na hora ("o actor e o modo operante moldam esta superfície"). Componentes REUSADOS (não duplicados).
 import OperatingModeToggle from '../layout/OperatingModeToggle';
@@ -79,9 +80,9 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   // Passo 1 "Para quem é isso?" — projeta posts.visibility (governado; PF: público/amigos/só-eu;
   // PJ: público — plateias finas de empresa em posts dependem de estender 0161 a posts, DECISION futura).
   const [step1Audience, setStep1Audience] = useState<{ key: string; label: string; visibility: 'public' | 'connections' | 'only_me'; audienceTypes?: string[] } | null>(null);
-  // FONTE ÚNICA de plateia (Clayton 2026-07-07): server-driven do transversal /audience-options
-  // (deriva de PAIR_ALLOWED_LABELS por actor). Zero hardcode local — muda por ACTOR, não por modo.
-  const [audienceOptions, setAudienceOptions] = useState<AudienceOption[]>([]);
+  // FONTE ÚNICA de plateia via hook central (/audience-options, deriva de PAIR_ALLOWED_LABELS por
+  // actor). Muda por ACTOR, não por modo. Zero hardcode/lista local.
+  const { options: audienceOptions } = useAudienceOptions();
   // Passo 2 "O que é isso?" — projetado do contrato C1 (ActorIntent SSOT).
   const [composerIntents, setComposerIntents] = useState<ComposerIntentOption[]>([]);
   const [step2Intent, setStep2Intent] = useState<ComposerIntentOption | null>(null);
@@ -97,12 +98,6 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   const [showEventForm, setShowEventForm] = useState(false);
   // F2-C: pílula do actor abre a lista em dropdown (padrão do header — não lista sempre aberta).
   const [actorPickerOpen, setActorPickerOpen] = useState(false);
-  // F2-C: plateia (passo 1) também é pílula+dropdown (pedido de Clayton — mesma UX do actor).
-  const [audiencePickerOpen, setAudiencePickerOpen] = useState(false);
-  const AUDIENCE_ICON: Record<string, string> = {
-    public: '🌐', connections: '🤝', friends: '👥', familiares: '🏠', conhecidos: '🙂',
-    clientes: '🛒', colaboradores: '🧑‍💼', fornecedores: '📦', parceiros: '🤝', only_me: '🔒',
-  };
   // F2-C: atos (passo 2) idem — pílula+dropdown.
   const [intentPickerOpen, setIntentPickerOpen] = useState(false);
   const INTENT_ICON: Record<string, string> = {
@@ -164,10 +159,7 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
     getComposerContract(activeActor.actor_id, mode0161)
       .then((c) => setComposerIntents(c.intents))
       .catch(() => setComposerIntents([])); // sem contrato → sem atos (fail-closed)
-    // Plateia = fonte única transversal (muda por actor, NÃO por modo — a lista não depende de mode0161)
-    getAudienceOptions()
-      .then((a) => setAudienceOptions(a.options))
-      .catch(() => setAudienceOptions([]));
+    // Plateia vem do useAudienceOptions (hook central, muda por actor) — não refaz aqui.
   }, [activeActor?.actor_id, activeActor?.actor_type, operatingMode]);
 
   useEffect(() => {
@@ -927,46 +919,13 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
 
       {/* ── F2 · fluxo lógico de Clayton: 1-Para quem? 2-O quê? (ANTES de digitar) ── */}
       <div className="composer-steps">
-        <div className="composer-step">
-          <span className="composer-step-label">1 · Para quem é isso?</span>
-          <div className="composer-actor-picker">
-            <button
-              type="button"
-              className="composer-actor-pill"
-              onClick={() => setAudiencePickerOpen((v) => !v)}
-              aria-expanded={audiencePickerOpen}
-              aria-label="Escolher plateia"
-            >
-              <span className="composer-actor-pill-avatar">{step1Audience ? AUDIENCE_ICON[step1Audience.key] ?? '🌐' : '🌐'}</span>
-              <span className="composer-actor-pill-name">{step1Audience?.label ?? 'Selecionar plateia'}</span>
-              <span className="composer-actor-pill-caret">▾</span>
-            </button>
-            {audiencePickerOpen && (
-              <div className="composer-actor-dropdown composer-audience-dropdown">
-                {/* DECISION-0162: plateia macro + refinamento por tipo de relação (typed-edge).
-                    Opções COERENTES com o tipo do actor (pares governados): PF→amigo/familiar/
-                    conhecido; PJ→cliente/colaborador/fornecedor/parceiro. O backend revalida tudo. */}
-                {/* FONTE ÚNICA: audienceOptions vem do transversal /audience-options (deriva do
-                    SSOT PAIR_ALLOWED_LABELS por actor). Zero lista local — Clayton 2026-07-07. */}
-                {audienceOptions.map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    className={`composer-audience-item ${step1Audience?.key === opt.key ? 'selected' : ''}`}
-                    onClick={() => {
-                      setStep1Audience({ key: opt.key, label: opt.label, visibility: opt.visibility, audienceTypes: opt.audienceRelationshipTypes ?? undefined });
-                      setAudiencePickerOpen(false);
-                    }}
-                  >
-                    <span>{opt.icon ?? AUDIENCE_ICON[opt.key] ?? '🌐'}</span>
-                    <span>{opt.label}</span>
-                    {step1Audience?.key === opt.key && <span className="composer-audience-check">✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Matriz única de plateia (Clayton 2026-07-07): AudiencePicker em cards, consumindo
+            /audience-options. O dropdown apertado morreu — mesma UX de evento/demanda/locação. */}
+        <AudiencePicker
+          options={audienceOptions}
+          value={step1Audience?.key ?? null}
+          onChange={(opt) => setStep1Audience({ key: opt.key, label: opt.label, visibility: opt.visibility, audienceTypes: opt.audienceRelationshipTypes ?? undefined })}
+        />
         {step1Audience && (
           <div className="composer-step">
             <span className="composer-step-label">2 · O que é isso que você está criando?</span>

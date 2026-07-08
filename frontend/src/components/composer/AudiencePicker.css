@@ -1,0 +1,6 @@
+/* AudiencePicker — grade responsiva de plateias. 3 colunas no desktop, 2 no mobile. */
+.apk-q{ font-size:16px; font-weight:700; margin:0; color:#1e2338; }
+.apk-q :where(.n){ color:#6366f1; }
+.apk-sub{ font-size:13px; color:#8891a6; margin:3px 0 0; }
+.apk-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
+@media (max-width:640px){ .apk-grid{ grid-template-columns:1fr 1fr; } }

@@ -30,9 +30,14 @@ const consumers = [
   'components/events/guided-flow/Step0EventType.tsx',
   'pages/RentalResourceListPage.tsx',
 ];
+// MATRIZ UI ATUAL de plateia (2026-07-07): os 4 consumidores renderizam <AudiencePicker> e leem
+// a fonte via useAudienceOptions (hook central). Se a arquitetura da UI evoluir, ATUALIZE este guard
+// com prova (nova matriz), NÃO desligue. Isto trava a regressão para dropdown/select/lista local.
 for (const c of consumers) {
   const code = strip(read(join(FE, c)));
-  check(`${c.split('/').pop()} consome getAudienceOptions`, /getAudienceOptions\(/.test(code));
+  const consumesSource = /getAudienceOptions\(/.test(code) || /useAudienceOptions\(/.test(code);
+  check(`${c.split('/').pop()} consome a fonte única (useAudienceOptions/getAudienceOptions)`, consumesSource);
+  check(`${c.split('/').pop()} renderiza <AudiencePicker> (matriz UI única)`, /<AudiencePicker\b/.test(code));
 }
 
 // 3) Anti-regressão: nenhuma lista local de labels típados no cliente (o vazamento que matamos).

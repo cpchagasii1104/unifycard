@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { showToast } from '../common/Toast';
 import { createDemand, listWorkConcepts, type CreateDemandInput } from '../../api/demands';
-import { getAudienceOptions, type AudienceOption } from '../../api/audience';
+import { useAudienceOptions } from '../../hooks/useAudienceOptions';
+import AudiencePicker from '../composer/AudiencePicker';
 import '../../pages/OpportunitiesPage.css';
 
 export const VINCULO_PT: Record<string, string> = {
@@ -27,18 +28,16 @@ export default function DemandPublishForm({ onPublished, onCancel }: {
     acceptanceMode: 'com_analise', pricingMode: 'preco_ofertado', visibility: 'public',
   });
 
-  // FONTE ÚNICA de plateia (Clayton 2026-07-07): server-driven do transversal /audience-options
-  // (deriva de PAIR_ALLOWED_LABELS por actor). Hardcode local eliminado — Lei de Coerência.
-  const [audienceOptionsRaw, setAudienceOptionsRaw] = useState<AudienceOption[]>([]);
-  // Restrição de ATO (não invenção): uma DEMANDA não pode ser 'só eu' — ninguém poderia responder.
-  // O ato esconde a opção que não se aplica; NÃO cria opção nova (a lista vem toda do transversal).
+  // FONTE ÚNICA de plateia (hook central /audience-options). Restrição de ATO (não invenção): uma
+  // DEMANDA não pode ser 'só eu' — ninguém responderia. O ato ESCONDE a opção que não se aplica;
+  // NÃO cria opção nova (a lista vem toda do transversal).
+  const { options: audienceOptionsRaw } = useAudienceOptions();
   const audienceOptions = audienceOptionsRaw.filter((a) => a.visibility !== 'only_me');
   const [audienceKey, setAudienceKey] = useState('public');
 
   useEffect(() => {
     if (!activeActor?.actor_id) return;
     listWorkConcepts().then(setConcepts).catch(() => setConcepts([]));
-    getAudienceOptions().then((a) => setAudienceOptionsRaw(a.options)).catch(() => setAudienceOptionsRaw([]));
   }, [activeActor?.actor_id]);
 
   const filteredConcepts = concepts.filter((c) =>
@@ -66,11 +65,7 @@ export default function DemandPublishForm({ onPublished, onCancel }: {
 
   return (
     <div className="opp-form">
-      <label>1 · Para quem é isso? *
-        <select value={audienceKey} onChange={(e) => setAudienceKey(e.target.value)}>
-          {audienceOptions.map((a) => <option key={a.key} value={a.key}>{a.icon} {a.label}</option>)}
-        </select>
-      </label>
+      <AudiencePicker options={audienceOptions} value={audienceKey} onChange={(o) => setAudienceKey(o.key)} title="1 · Para quem é isso?" />
       <label>2 · O que você precisa? (busque no catálogo) *
         <input placeholder="Digite pra buscar: garçom, pedreiro, manicure…" value={conceptSearch}
           onChange={(e) => { setConceptSearch(e.target.value); setForm((f) => ({ ...f, conceptSlug: '' })); }} />

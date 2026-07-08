@@ -8,14 +8,16 @@
 // - NÃO gera event_id
 // - Estado: pre-draft
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { GuidedFlowData } from '../EventCreationGuidedFlow';
 // DECISION-0161 fatia 3: a plateia vem do CONTRATO server-driven (actor-adaptativo) — a tela PROJETA
 // o vocabulário governado (events.visibility + typed-edge), NUNCA define plateia em TSX.
 // FONTE ÚNICA (Clayton 2026-07-07): plateia vem do transversal /audience-options (deriva de
 // PAIR_ALLOWED_LABELS), não mais de /events/audience-options (segunda projeção divergente).
 // events.visibility tem vocabulário próprio (public/private/...); mapper de saída no submit.
-import { getAudienceOptions, type AudienceOption } from '../../../api/audience';
+import { type AudienceOption } from '../../../api/audience';
+import { useAudienceOptions } from '../../../hooks/useAudienceOptions';
+import AudiencePicker from '../../composer/AudiencePicker';
 import './Step0EventType.css';
 
 // transversal (public/connections/only_me) → events.visibility (public/private). O refinamento
@@ -35,18 +37,10 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedSubtype, setSelectedSubtype] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // 0161: plateia server-driven ("Para quem é este evento?" — PRIMEIRA pergunta, decisão de Clayton).
-  const [audienceOptions, setAudienceOptions] = useState<AudienceOption[]>([]);
+  // Plateia via hook central (fonte única /audience-options). Sem fallback hardcoded: se o backend
+  // não responder, a lista fica vazia (honesto) — o front nunca inventa opções.
+  const { options: audienceOptions } = useAudienceOptions();
   const [selectedAudience, setSelectedAudience] = useState<AudienceOption | null>(null);
-  useEffect(() => {
-    getAudienceOptions()
-      .then((d) => setAudienceOptions(d.options))
-      .catch(() => setAudienceOptions([
-        // fallback honesto (contrato indisponível): só o macro público/só-eu, SEM refinamento inventado.
-        { key: 'public', label: 'Público', icon: '🌐', visibility: 'public', audienceRelationshipTypes: null },
-        { key: 'only_me', label: 'Só eu', icon: '🔒', visibility: 'only_me', audienceRelationshipTypes: null },
-      ]));
-  }, []);
   const handleAudienceChange = (opt: AudienceOption) => {
     setSelectedAudience(opt);
     // selectedType alimenta o mapeamento de event_type existente (público vs demais).
@@ -163,19 +157,12 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
         {/* Decisão Clayton 2026-07-07: "Para quem é isso?" é a PRIMEIRA pergunta —
             ANTES do tipo (mesma ordem do composer/demanda). Plateia projetada do contrato 0161. */}
         <div className="form-section">
-          <label className="form-label">1 · Para quem é este evento?</label>
-          <div className="option-grid">
-            {audienceOptions.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                className={`option-button ${selectedAudience?.key === opt.key ? 'selected' : ''}`}
-                onClick={() => handleAudienceChange(opt)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <AudiencePicker
+            options={audienceOptions}
+            value={selectedAudience?.key ?? null}
+            onChange={handleAudienceChange}
+            title="1 · Para quem é este evento?"
+          />
         </div>
 
         <div className="form-section">
