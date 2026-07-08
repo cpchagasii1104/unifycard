@@ -71,6 +71,19 @@ class VehicleCatalogService {
     return rows.rows.map((r) => Number(r.year));
   }
 
+  /** Versões (trims) de um modelo-ano COM a ficha técnica (auto-completada — a verdade é do catálogo,
+   *  não digitada pelo anunciante). Retorna a variante identitária + os 23 campos de spec. */
+  async listVersionsWithSpecs(modelId: string, year: number): Promise<Record<string, unknown>[]> {
+    const rows = await pool.query(
+      `SELECT version, motor, cilindrada_cc, potencia_cv, torque_kgfm, combustivel, tracao, cambio,
+              num_portas, capacidade_carga_kg, peso_kg, comprimento_cm, largura_cm, altura_cm,
+              entre_eixos_cm, pneus, freios_diant, freios_tras, suspensao_diant, suspensao_tras,
+              direcao, tanque_litros, cacamba_litros
+         FROM vehicle_model_specs WHERE model_id = $1 AND year = $2 ORDER BY version ASC`,
+      [modelId, year]);
+    return rows.rows;
+  }
+
   /**
    * Valida a combinação GOVERNADA marca→modelo→concept→ano (server-side, não confia no front).
    * Retorna { ok } ou { ok:false, code }. year é opcional; se informado, deve existir em

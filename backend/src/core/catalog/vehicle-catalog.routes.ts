@@ -32,6 +32,15 @@ const vehicleCatalogRoutes: FastifyPluginAsync = async (fastify) => {
     const years = await vehicleCatalogService.listModelYears(req.params.modelId);
     return reply.send({ ok: true, data: years });
   });
+
+  // GET /catalog/vehicles/models/:modelId/years/:year/versions — versões (trims) + ficha técnica
+  // AUTO-COMPLETADA (a verdade é do catálogo; o anunciante não digita spec). Read-only.
+  fastify.get<{ Params: { modelId: string; year: string } }>('/models/:modelId/years/:year/versions', async (req, reply) => {
+    const y = parseInt(req.params.year, 10);
+    if (!Number.isFinite(y)) return reply.status(400).send({ error: 'year inválido' });
+    const versions = await vehicleCatalogService.listVersionsWithSpecs(req.params.modelId, y);
+    return reply.send({ ok: true, data: versions });
+  });
 };
 
 export default vehicleCatalogRoutes;

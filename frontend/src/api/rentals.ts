@@ -138,3 +138,20 @@ export async function listVehicleModelYears(modelId: string): Promise<number[]> 
   const res = await apiFetchJson<{ ok: boolean; data: number[] }>(`/catalog/vehicles/models/${modelId}/years`);
   return res.data;
 }
+
+// Versão (trim) + ficha técnica AUTO-COMPLETADA. A verdade é do catálogo — o anunciante não digita spec.
+export interface VehicleVersionSpec {
+  version: string;
+  motor?: string | null; cilindrada_cc?: number | null; potencia_cv?: number | null; torque_kgfm?: number | null;
+  combustivel?: string | null; tracao?: string | null; cambio?: string | null; num_portas?: number | null;
+  capacidade_carga_kg?: number | null; peso_kg?: number | null;
+  comprimento_cm?: number | null; largura_cm?: number | null; altura_cm?: number | null; entre_eixos_cm?: number | null;
+  pneus?: string | null; freios_diant?: string | null; freios_tras?: string | null;
+  suspensao_diant?: string | null; suspensao_tras?: string | null; direcao?: string | null;
+  tanque_litros?: number | null; cacamba_litros?: number | null;
+}
+export async function listVehicleVersions(modelId: string, year: number): Promise<VehicleVersionSpec[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: VehicleVersionSpec[] }>(
+    `/catalog/vehicles/models/${modelId}/years/${year}/versions`);
+  return res.data;
+}

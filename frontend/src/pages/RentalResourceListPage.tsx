@@ -97,7 +97,7 @@ export default function RentalResourceListPage() {
 
   // atributos de VEÍCULO (LAYER 5 — GOVERNADOS via catálogo transversal). Agora em cascata governada
   // (Categoria→Marca→Modelo→Ano) pelo <VehicleFields>: zero input livre, ano via endpoint.
-  const [vehicleSel, setVehicleSel] = useState<VehicleSelection>({ concept: null, make: null, model: null, year: null });
+  const [vehicleSel, setVehicleSel] = useState<VehicleSelection>({ concept: null, make: null, model: null, year: null, version: null });
 
   // atributos de IMÓVEL (LAYER 5 — Facets, régua ratificada: "descreve COMO É", não "identifica O
   // QUE É" — não viram CONCEPT nem catálogo governado, ficam no metadata do recurso)
@@ -140,7 +140,7 @@ export default function RentalResourceListPage() {
     setSelectedConcept(null);
     setConceptOptions([]);
     setSelectedUseArea(null);
-    setVehicleSel({ concept: null, make: null, model: null, year: null });
+    setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
     setPropArea(''); setPropBedrooms(''); setPropBathrooms(''); setPropFurnished(false);
   }, [resourceType]);
 
@@ -176,6 +176,9 @@ export default function RentalResourceListPage() {
         // GOVERNADO: sempre IDs do catálogo (nunca texto digitado); nome só como projeção de exibição
         if (vehicleSel.make) { metadata.vehicleMakeId = vehicleSel.make.id; metadata.vehicleMakeName = vehicleSel.make.name; }
         if (vehicleSel.model) { metadata.vehicleModelId = vehicleSel.model.id; metadata.vehicleModelName = vehicleSel.model.name; }
+        // Versão = referência à variante do catálogo. A ficha técnica NÃO é copiada — projeta-se do
+        // catálogo por (modelo, ano, versão). Guarda só o ponteiro (anti-verdade-paralela).
+        if (vehicleSel.version) metadata.vehicleVersion = vehicleSel.version.version;
       }
       if (resourceType === 'property' || resourceType === 'space') {
         // Facets puras (descrevem, não identificam) — validadas como número/booleano, nunca texto livre
@@ -202,7 +205,7 @@ export default function RentalResourceListPage() {
       setShowForm(false);
       setLabel(''); setDescription(''); setPriceReais('');
       setSelectedConcept(null);
-      setVehicleSel({ concept: null, make: null, model: null, year: null });
+      setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
       await load();
     } catch (err: any) {
       showToast(err?.message || 'Erro ao cadastrar recurso', 'error');

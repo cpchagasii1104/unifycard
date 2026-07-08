@@ -6,8 +6,8 @@
 import { useState } from 'react';
 import GovernedCombobox from '../common/GovernedCombobox';
 import {
-  searchVehicleMakes, listVehicleModels, listVehicleModelYears,
-  type VehicleMake, type VehicleModel,
+  searchVehicleMakes, listVehicleModels, listVehicleModelYears, listVehicleVersions,
+  type VehicleMake, type VehicleModel, type VehicleVersionSpec,
 } from '../../api/rentals';
 import type { RentalConceptOption } from '../../api/rentals';
 import './VehicleFields.css';
@@ -17,6 +17,7 @@ export interface VehicleSelection {
   make: VehicleMake | null;
   model: VehicleModel | null;
   year: number | null;
+  version: VehicleVersionSpec | null;  // versão (trim) + ficha técnica AUTO-COMPLETADA do catálogo
 }
 
 export default function VehicleFields({
@@ -31,22 +32,21 @@ export default function VehicleFields({
   const [clearedMsg, setClearedMsg] = useState<string | null>(null);
   const flash = (m: string) => { setClearedMsg(m); setTimeout(() => setClearedMsg((v) => (v === m ? null : v)), 3500); };
 
-  // Trocar CATEGORIA limpa marca+modelo+ano.
+  // Cascata: trocar um pai limpa todos os filhos (incl. versão, que carrega a ficha).
   const setConcept = (concept: RentalConceptOption | null) => {
-    if (value.make || value.model || value.year) flash('Marca, modelo e ano foram limpos porque dependem da categoria.');
-    onChange({ concept, make: null, model: null, year: null });
+    if (value.make || value.model || value.year) flash('Marca, modelo, ano e versão foram limpos porque dependem da categoria.');
+    onChange({ concept, make: null, model: null, year: null, version: null });
   };
-  // Trocar MARCA limpa modelo+ano.
   const setMake = (make: VehicleMake | null) => {
-    if (value.model || value.year) flash('Modelo e ano foram limpos porque dependem da marca.');
-    onChange({ ...value, make, model: null, year: null });
+    if (value.model || value.year) flash('Modelo, ano e versão foram limpos porque dependem da marca.');
+    onChange({ ...value, make, model: null, year: null, version: null });
   };
-  // Trocar MODELO limpa ano.
   const setModel = (model: VehicleModel | null) => {
-    if (value.year) flash('O ano foi limpo porque depende do modelo.');
-    onChange({ ...value, model, year: null });
+    if (value.year) flash('Ano e versão foram limpos porque dependem do modelo.');
+    onChange({ ...value, model, year: null, version: null });
   };
-  const setYear = (year: number | null) => onChange({ ...value, year });
+  const setYear = (year: number | null) => onChange({ ...value, year, version: null });
+  const setVersion = (version: VehicleVersionSpec | null) => onChange({ ...value, version });
 
   return (
     <div className="vf">
@@ -100,8 +100,55 @@ export default function VehicleFields({
           placeholder="Selecionar ano…"
           emptyMessage="Anos não disponíveis para este modelo"
         />
+
+        <GovernedCombobox<VehicleVersionSpec>
+          label="Versão"
+          value={value.version}
+          onChange={setVersion}
+          disabledReason={value.model && value.year ? null : 'Escolha o ano primeiro'}
+          loadOptions={async () => value.model && value.year ? listVehicleVersions(value.model.id, value.year) : []}
+          getOptionKey={(v) => v.version}
+          getOptionLabel={(v) => v.version}
+          placeholder="Selecionar versão…"
+          emptyMessage="Sem versões cadastradas para este ano"
+        />
       </div>
       {clearedMsg && <p className="vf-cleared" role="status">{clearedMsg}</p>}
+
+      {/* Ficha técnica AUTO-COMPLETADA (herdada do catálogo — read-only, o anunciante não digita).
+          Prova o "cadastra uma vez": escolheu a versão, a ficha aparece pronta. */}
+      {value.version && <VehicleSpecSheet spec={value.version} />}
+    </div>
+  );
+}
+
+// Painel read-only da ficha — projeta os campos preenchidos da variante escolhida. Não edita nada.
+function VehicleSpecSheet({ spec }: { spec: VehicleVersionSpec }) {
+  const fields: Array<[string, string | number | null | undefined, string?]> = [
+    ['Motor', spec.motor], ['Cilindrada', spec.cilindrada_cc, 'cc'], ['Potência', spec.potencia_cv, 'cv'],
+    ['Torque', spec.torque_kgfm, 'kgfm'], ['Combustível', spec.combustivel], ['Tração', spec.tracao],
+    ['Câmbio', spec.cambio], ['Portas', spec.num_portas], ['Carga', spec.capacidade_carga_kg, 'kg'],
+    ['Peso', spec.peso_kg, 'kg'], ['Comprimento', spec.comprimento_cm, 'cm'], ['Largura', spec.largura_cm, 'cm'],
+    ['Altura', spec.altura_cm, 'cm'], ['Entre-eixos', spec.entre_eixos_cm, 'cm'], ['Pneus', spec.pneus],
+    ['Freios diant.', spec.freios_diant], ['Freios tras.', spec.freios_tras],
+    ['Susp. diant.', spec.suspensao_diant], ['Susp. tras.', spec.suspensao_tras], ['Direção', spec.direcao],
+    ['Tanque', spec.tanque_litros, 'L'], ['Caçamba', spec.cacamba_litros, 'L'],
+  ];
+  const shown = fields.filter(([, v]) => v !== null && v !== undefined && v !== '');
+  return (
+    <div className="vf-spec">
+      <div className="vf-spec-head">
+        <span className="vf-spec-badge">Ficha técnica</span>
+        <span className="vf-spec-note">preenchida pelo catálogo — você não precisa digitar</span>
+      </div>
+      <dl className="vf-spec-grid">
+        {shown.map(([label, v, unit]) => (
+          <div key={label} className="vf-spec-item">
+            <dt>{label}</dt>
+            <dd>{v}{unit ? ` ${unit}` : ''}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
