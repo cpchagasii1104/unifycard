@@ -24,6 +24,7 @@ function toDomain(row: RentableResourceRow): RentableResource {
     priceCents: row.price_cents !== null && row.price_cents !== undefined ? Number(row.price_cents) : null,
     resourceYear: row.resource_year ?? null,
     quantity: row.quantity != null ? Number(row.quantity) : 1,
+    bookingApprovalMode: row.booking_approval_mode ?? 'manual',
     metadata: row.metadata ?? {},
     visibility: row.visibility,
     audienceRelationshipTypes: row.audience_relationship_types ?? null,
@@ -43,10 +44,10 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `INSERT INTO rentable_resources
-         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity)
-       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int)
+         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int, $15)
        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, created_at, updated_at`,
+                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, created_at, updated_at`,
       [
         tenantId,
         ownerActorId,
@@ -62,6 +63,7 @@ class RentableResourceRepository {
         input.visibility ?? 'public',
         input.audienceRelationshipTypes ?? null,
         input.quantity ?? 1,
+        input.bookingApprovalMode ?? 'manual',
       ]
     );
     if (!row) throw new Error('Falha ao criar rentable_resource');
@@ -72,7 +74,7 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, created_at, updated_at
          FROM rentable_resources
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
@@ -100,7 +102,7 @@ class RentableResourceRepository {
     const rows = await runQueriesWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, created_at, updated_at
          FROM rentable_resources
         WHERE ${where}
         ORDER BY created_at DESC
@@ -218,7 +220,7 @@ class RentableResourceRepository {
           SET status = $3, is_active = ($3 = 'active'), updated_at = now()
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, created_at, updated_at`,
+                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, created_at, updated_at`,
       [id, tenantId, status]
     );
     return row ? toDomain(row) : null;
@@ -245,6 +247,7 @@ class RentableResourceRepository {
   /** Atualiza campos de OFERTA do recurso (não a identidade). Só sobrescreve o que veio (COALESCE). */
   async updateOffer(tenantId: string, resourceId: string, input: {
     description?: string | null; visibility?: string; audienceRelationshipTypes?: string[] | null; quantity?: number;
+    bookingApprovalMode?: string;
   }): Promise<void> {
     await runQueriesWithTenant(tenantId,
       `UPDATE rentable_resources SET
@@ -252,6 +255,7 @@ class RentableResourceRepository {
          visibility = COALESCE($4, visibility),
          audience_relationship_types = CASE WHEN $5::boolean THEN $6::text[] ELSE audience_relationship_types END,
          quantity = COALESCE($7::int, quantity),
+         booking_approval_mode = COALESCE($8, booking_approval_mode),
          updated_at = now()
        WHERE id = $1::uuid`,
       [
@@ -260,6 +264,7 @@ class RentableResourceRepository {
         input.visibility ?? null,
         input.audienceRelationshipTypes !== undefined, input.audienceRelationshipTypes ?? null,
         input.quantity ?? null,
+        input.bookingApprovalMode ?? null,
       ]);
   }
 

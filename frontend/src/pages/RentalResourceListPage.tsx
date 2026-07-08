@@ -121,6 +121,10 @@ export default function RentalResourceListPage() {
   // backend. O recurso fica na cidade do dono (retirada=devolução). Nunca texto livre.
   const [selectedCity, setSelectedCity] = useState<CitySearchResult | null>(null);
   const [cepInput, setCepInput] = useState('');
+  // Modelo Airbnb: o dono decide se a reserva confirma na hora (automatic) ou precisa aprovar (manual).
+  // Default 'automatic' — não esfriar o negócio (feedback Clayton 2026-07-08).
+  const [approvalMode, setApprovalMode] = useState<'manual' | 'automatic'>('automatic');
+  const [editApprovalMode, setEditApprovalMode] = useState<'manual' | 'automatic'>('automatic');
 
   // atributos de IMÓVEL (LAYER 5 — Facets, régua ratificada: "descreve COMO É", não "identifica O
   // QUE É" — não viram CONCEPT nem catálogo governado, ficam no metadata do recurso)
@@ -245,6 +249,7 @@ export default function RentalResourceListPage() {
         quantity: resourceType === 'equipment' ? quantity : 1, // único vs fungível (backend revalida)
         cityId: selectedCity?.id ?? null, // localização governada (SSOT cities), nunca texto livre
         postalCode: cepInput.trim() || null,
+        bookingApprovalMode: approvalMode,
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
@@ -272,6 +277,7 @@ export default function RentalResourceListPage() {
       setEditQuantity(detail.resource.quantity ?? 1);
       setEditCity(detail.city ? { id: detail.city.cityId, name: detail.city.name, stateUf: detail.city.uf } : null);
       setEditDescription(detail.resource.description ?? '');
+      setEditApprovalMode(detail.resource.bookingApprovalMode ?? 'automatic');
       setEditFor(resourceId);
     } catch (err: any) {
       showToast(err?.message || 'Erro ao carregar o anúncio para edição', 'error');
@@ -289,6 +295,7 @@ export default function RentalResourceListPage() {
         pricingTiers,
         quantity: editQuantity,
         cityId: editCity?.id ?? null,
+        bookingApprovalMode: editApprovalMode,
       });
       showToast('Anúncio atualizado. ✅', 'success');
       setEditFor(null);
@@ -566,6 +573,19 @@ export default function RentalResourceListPage() {
               onChange={(e) => setCepInput(e.target.value)} maxLength={9} />
           </label>
 
+          {/* Modelo Airbnb: o dono decide como a reserva é aceita. Automática não esfria o negócio. */}
+          <div className="rrl-field">
+            Reserva
+            <div className="rrl-approval">
+              <button type="button" className={`rrl-approval-opt ${approvalMode === 'automatic' ? 'selected' : ''}`} onClick={() => setApprovalMode('automatic')}>
+                <strong>⚡ Automática</strong><span>Confirma na hora — não faz o cliente esperar</span>
+              </button>
+              <button type="button" className={`rrl-approval-opt ${approvalMode === 'manual' ? 'selected' : ''}`} onClick={() => setApprovalMode('manual')}>
+                <strong>✋ Eu aprovo</strong><span>Cada pedido espera a sua confirmação</span>
+              </button>
+            </div>
+          </div>
+
           {/* Imóvel/Espaço: Facets puras (régua ratificada: "descreve COMO É", não "identifica O
               QUE É" — apartamento/casa/galpão já são o CONCEPT; metragem/quartos são atributo) */}
           {(resourceType === 'property' || resourceType === 'space') && (
@@ -705,6 +725,17 @@ export default function RentalResourceListPage() {
                 <label className="rrl-field">Descrição
                   <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} maxLength={2000} rows={3} />
                 </label>
+                <div className="rrl-field">
+                  Reserva
+                  <div className="rrl-approval">
+                    <button type="button" className={`rrl-approval-opt ${editApprovalMode === 'automatic' ? 'selected' : ''}`} onClick={() => setEditApprovalMode('automatic')}>
+                      <strong>⚡ Automática</strong><span>Confirma na hora</span>
+                    </button>
+                    <button type="button" className={`rrl-approval-opt ${editApprovalMode === 'manual' ? 'selected' : ''}`} onClick={() => setEditApprovalMode('manual')}>
+                      <strong>✋ Eu aprovo</strong><span>Espera sua confirmação</span>
+                    </button>
+                  </div>
+                </div>
                 <p className="rrl-hint">💡 O preço é o ANÚNCIO — o pagamento em si ainda não acontece pelo sistema.</p>
               </div>
               <div className="rrl-modal-foot">

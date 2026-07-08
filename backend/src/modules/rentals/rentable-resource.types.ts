@@ -14,6 +14,11 @@ export type RentableResourceStatus = 'active' | 'paused' | 'retired';
 // transversal /audience-options, aqui só o vocabulário do substrato). Frontend NÃO cria verdade.
 export type RentableVisibility = 'public' | 'connections' | 'only_me';
 
+// Modo de aprovação de reserva (modelo Airbnb) — o DONO decide no cadastro. 'automatic' = confirma na
+// hora (não esfria o negócio); 'manual' = o dono aprova cada pedido. Vocabulário GOVERNADO (CHECK físico).
+export const BOOKING_APPROVAL_MODES = ['manual', 'automatic'] as const;
+export type BookingApprovalMode = (typeof BOOKING_APPROVAL_MODES)[number];
+
 // DECISION-0151 ADENDO A (2026-07-07): unidade de cobrança do ANÚNCIO — vocabulário GOVERNADO
 // (fonte única; manifest + CHECK físico espelham daqui). Preço = REGISTRO puro (Δbank=0).
 // 2026-07-08 (Fase 1): + por_semestre, por_ano (governado; CHECK físico espelha daqui).
@@ -62,6 +67,7 @@ export interface RentableResource {
   visibility: RentableVisibility;
   audienceRelationshipTypes: string[] | null;
   quantity: number;
+  bookingApprovalMode: BookingApprovalMode;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -80,6 +86,7 @@ export interface RentableResourceRow {
   pricing_unit: RentalPricingUnit | null;
   price_cents: string | number | null;
   quantity?: number | null;
+  booking_approval_mode?: BookingApprovalMode | null;
   resource_year: number | null;
   metadata: Record<string, unknown> | null;
   visibility: RentableVisibility;
@@ -106,6 +113,7 @@ export interface CreateRentableResourceInput {
   postalCode?: string | null; // CEP (opcional) — refina coord via provider; sem rede usa a cidade.
   pricingTiers?: RentalPricingTier[]; // faixas de preço anunciado (SSOT rental_resource_pricing).
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1).
+  bookingApprovalMode?: BookingApprovalMode; // Airbnb: dono decide auto/manual no cadastro.
 }
 
 export interface ListRentableResourcesFilters {

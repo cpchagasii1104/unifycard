@@ -1,4 +1,4 @@
-import { RENTAL_PRICING_UNITS, RESOURCE_TYPE_TO_DOMAINS } from './rentable-resource.types';
+import { RENTAL_PRICING_UNITS, RESOURCE_TYPE_TO_DOMAINS, BOOKING_APPROVAL_MODES } from './rentable-resource.types';
 // backend/src/modules/rentals/rentable-resource.routes.ts
 // F-RENTAL-RESOURCE-SURFACE-SLICE-A — a ÚNICA peça que faltava para o Trilho B (DECISION-0159/
 // fluxo.png) funcionar ponta-a-ponta para recurso: registrar o recurso. Availability/booking/
@@ -38,6 +38,7 @@ const createSchema = z.object({
   })).optional(),
   // Fase 3: quantidade (equipment pode >1; veículo/imóvel/espaço travados em 1 no service).
   quantity: z.number().int().min(1).optional(),
+  bookingApprovalMode: z.enum(BOOKING_APPROVAL_MODES).optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -53,6 +54,7 @@ const updateOfferSchema = z.object({
   quantity: z.number().int().min(1).optional(),
   cityId: z.string().uuid().nullable().optional(),
   postalCode: z.string().max(9).nullable().optional(),
+  bookingApprovalMode: z.enum(BOOKING_APPROVAL_MODES).optional(),
 });
 
 const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -110,6 +112,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         postalCode: parsed.data.postalCode ?? null,
         pricingTiers: (parsed.data.pricingTiers ?? []).map((t) => ({ unit: t.unit, priceCents: t.priceCents })),
         quantity: parsed.data.quantity ?? 1,
+        bookingApprovalMode: parsed.data.bookingApprovalMode ?? 'manual',
       });
       return reply.status(201).send({ ok: true, data: resource });
     } catch (err: any) {
@@ -337,11 +340,40 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         quantity: parsed.data.quantity,
         cityId: parsed.data.cityId,
         postalCode: parsed.data.postalCode,
+        bookingApprovalMode: parsed.data.bookingApprovalMode,
       });
       return reply.send({ ok: true, data: resource });
     } catch (err: any) {
       const status = err?.statusCode ?? 500;
       return reply.status(status).send({ ok: false, error: err?.message ?? 'Erro ao editar recurso' });
+    }
+  });
+
+  /**
+   * POST /rentable-resources/:id/book — o CONSUMIDOR solicita/reserva uma janela. subject prova a
+   * autoridade sobre o próprio actor (req.user + actionContext). O modo (auto/manual) é do DONO —
+   * decidido no backend, não na tela. 'automatic' confirma na hora; 'manual' fica pendente.
+   */
+  fastify.post<{ Params: { id: string }; Body: { availabilityId?: string } }>('/:id/book', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const userId = (req.user as { userId?: string } | undefined)?.userId;
+    if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
+    const requesterActorId = req.actionContext?.actorId;
+    if (!requesterActorId) return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    const availabilityId = req.body?.availabilityId;
+    if (!availabilityId) return reply.status(400).send({ error: 'availabilityId obrigatório' });
+    // DECISION-0113: o consumidor só reserva REPRESENTANDO o actor declarado (fail-closed). O core
+    // (createBooking) revalida de novo — defesa em profundidade.
+    let canRep = false;
+    try { canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, requesterActorId); } catch { canRep = false; }
+    if (!canRep) return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o actor declarado (canRepresentActor)', code: 'RENTABLE_RESOURCE_BOOK_NOT_REPRESENTABLE' });
+    try {
+      const result = await rentableResourceService.requestBooking(req.tenant.id, req.params.id, availabilityId, {
+        subjectUserId: userId, requesterActorId,
+      });
+      return reply.status(201).send({ ok: true, data: result });
+    } catch (err: any) {
+      return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro ao reservar' });
     }
   });
 

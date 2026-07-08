@@ -115,6 +115,45 @@ class RentableResourceService {
   }
 
   /**
+   * SOLICITAR/RESERVAR uma janela (modelo Airbnb). O consumidor cria o pedido; o modo de aprovação é do
+   * DONO (booking_approval_mode, decidido no cadastro — a verdade está no backend, não na tela):
+   *   'manual'    → booking fica 'requested' (o dono confirma depois);
+   *   'automatic' → o backend CONFIRMA na hora (pré-autorização do dono), passando pelo lock de recurso
+   *                 (confirmBookingWithResourceLock) que barra conflito de período (409). Não esfria o
+   *                 negócio. PRÉ-DINHEIRO: 'confirmed' = compromisso de agenda, sem pagamento (PORTA-1).
+   * O consumidor NUNCA confirma sozinho — a auto-confirmação é regra do dono aplicada server-side.
+   */
+  async requestBooking(
+    tenantId: string, resourceId: string, availabilityId: string,
+    subject: { subjectUserId: string; requesterActorId: string }
+  ): Promise<{ bookingId: string; status: string; autoConfirmed: boolean }> {
+    const resource = await rentableResourceRepository.findById(tenantId, resourceId);
+    if (!resource || resource.status !== 'active') {
+      throw HttpError.notFound('RENTABLE_RESOURCE_NOT_BOOKABLE: recurso indisponível.');
+    }
+    const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
+    const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
+    const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, availabilityId);
+    if (!availability || availability.ownerType !== 'rentable_resource' || availability.ownerId !== resourceId) {
+      throw HttpError.badRequest('RENTABLE_RESOURCE_AVAILABILITY_MISMATCH: janela não pertence a este recurso.');
+    }
+    // Cria o pedido (subject prova autoridade do consumidor sobre o próprio actor — DECISION-0148).
+    const booking = await unifiedAvailabilityService.createBooking(
+      tenantId, subject, { availabilityId, requesterActorId: subject.requesterActorId } as any);
+
+    if (resource.bookingApprovalMode === 'automatic') {
+      // Pré-autorização do dono → o backend confirma (o consumidor não confirma). Lock por recurso barra
+      // conflito de período com outra reserva confirmada (409 RENTAL_RESOURCE_TIME_CONFLICT).
+      const startIso = new Date(availability.startDatetime).toISOString();
+      const endIso = new Date(availability.endDatetime).toISOString();
+      const confirmed = await unifiedAvailabilityRepository.confirmBookingWithResourceLock(
+        tenantId, booking.bookingId, resourceId, startIso, endIso);
+      return { bookingId: booking.bookingId, status: confirmed.status, autoConfirmed: true };
+    }
+    return { bookingId: booking.bookingId, status: booking.status, autoConfirmed: false };
+  }
+
+  /**
    * Disponibilidade PÚBLICA de um recurso alugável (para o consumidor que chegou pela busca/descoberta).
    * A agenda operacional é privada por padrão (DECISION-0113/0118), mas as janelas de um recurso PÚBLICO
    * são informação de descoberta (como um anúncio de aluguel). Expõe só janelas ATIVAS e só se o recurso
@@ -219,6 +258,7 @@ class RentableResourceService {
       quantity?: number;
       cityId?: string | null;
       postalCode?: string | null;
+      bookingApprovalMode?: 'manual' | 'automatic';
     }
   ): Promise<RentableResource> {
     const resource = await this.get(tenantId, resourceId);
@@ -246,6 +286,7 @@ class RentableResourceService {
       visibility: input.visibility,
       audienceRelationshipTypes: input.audienceRelationshipTypes,
       quantity: input.quantity != null ? Math.max(1, Math.floor(input.quantity)) : undefined,
+      bookingApprovalMode: input.bookingApprovalMode,
     });
     if (input.pricingTiers) {
       await rentableResourceRepository.setPricingTiers(tenantId, resourceId, input.pricingTiers);

@@ -11,8 +11,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
-import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail } from '../api/rentals';
-import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, createBooking, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
+import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, requestResourceBooking, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail } from '../api/rentals';
+import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
 import './RentalResourceDetailPage.css';
 
 const RESOURCE_TYPE_LABEL: Record<string, string> = {
@@ -119,13 +119,19 @@ export default function RentalResourceDetailPage() {
   };
 
   const handleRequestBooking = async (availabilityId: string) => {
-    if (!activeActor) return;
+    if (!activeActor || !id) return;
     try {
-      await createBooking({ availabilityId, requesterActorId: activeActor.actor_id });
-      showToast('Reserva solicitada. Aguarde a confirmação do dono do recurso.', 'success');
+      // O modo (auto/manual) é do DONO, decidido no backend — a tela só projeta o resultado.
+      const result = await requestResourceBooking(id, availabilityId);
+      showToast(
+        result.autoConfirmed
+          ? '✅ Reserva confirmada na hora! (o dono habilitou reserva automática)'
+          : 'Reserva solicitada. Aguarde a confirmação do dono do recurso.',
+        'success');
       await load();
     } catch (err: any) {
-      showToast(err?.message || 'Erro ao solicitar reserva', 'error');
+      const msg = String(err?.message || '');
+      showToast(msg.includes('TIME_CONFLICT') ? 'Este período acabou de ser reservado por outra pessoa. Escolha outro.' : (msg || 'Erro ao solicitar reserva'), 'error');
     }
   };
 
@@ -225,7 +231,11 @@ export default function RentalResourceDetailPage() {
               </div>
         )}
         {!isOwner && windows.length > 0 && (
-          <p className="rrd-hint-visitor">💡 Escolha uma janela e solicite. É um pedido — o pagamento não acontece agora; o dono confirma a reserva.</p>
+          <p className="rrd-hint-visitor">
+            {resource.bookingApprovalMode === 'automatic'
+              ? '⚡ Reserva instantânea: ao escolher uma janela, a reserva já fica confirmada. O pagamento não acontece agora.'
+              : '💡 Escolha uma janela e solicite. É um pedido — o dono confirma a reserva. O pagamento não acontece agora.'}
+          </p>
         )}
         <div className="rrd-windows">
           {windows.map(({ availability, bookings }) => {
@@ -269,7 +279,7 @@ export default function RentalResourceDetailPage() {
 
                 {!isOwner && !activeBooking && requestedBookings.length === 0 && (
                   <button type="button" className="rrd-request-btn" onClick={() => handleRequestBooking(availability.availabilityId)}>
-                    🔑 Solicitar esta locação
+                    {resource.bookingApprovalMode === 'automatic' ? '⚡ Reservar agora' : '🔑 Solicitar esta locação'}
                   </button>
                 )}
                 {!isOwner && isMine && !activeBooking && (

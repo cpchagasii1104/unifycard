@@ -25,6 +25,10 @@ const FORBID_BODY_REQUESTER = /(req|request|body|input)\.body?\.?requesterActorI
 const ALLOW = {
   'src/core/availability/unified-availability.routes.ts': { cls: 'BOUND', ev: /canRepresentActor/ },
   'src/modules/services/service-bundle.service.ts': { cls: 'BOUND', evFile: 'src/modules/services/service-bundle.routes.ts', ev: /canRepresentActor|bindWriteActor/ },
+  // Reserva de recurso alugável (modelo Airbnb). O requesterActorId vem do actionContext server-side
+  // (DECISION-0113), NUNCA do body; o core createBooking revalida canRepresentActor (0148). A auto-
+  // confirmação (approval_mode=automatic) é pré-autorização do DONO aplicada server-side, não do consumidor.
+  'src/modules/rentals/rentable-resource.service.ts': { cls: 'BOUND', evFile: 'src/modules/rentals/rentable-resource.routes.ts', ev: /actionContext\?\.actorId/ },
   'src/modules/services/service-hire.routes.ts': { cls: 'FIREWALL_CONTAINED', ev: /isServiceFinancialRuntimeEnabled/ },
   'src/modules/events/checkout-ticket.service.ts': { cls: 'SELF_BOOKING_ALLOWLIST', ev: /user_id/ },
   'src/modules/events/event-rfq.service.ts': { cls: 'SELF_BOOKING_ALLOWLIST', ev: /organizer/i },

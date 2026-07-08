@@ -8,6 +8,7 @@ import { apiFetchJson } from './client';
 // 'other' REMOVIDO (2026-07-07, GO Clayton): anti-padrão de ontologia. 5º tipo entra por RFC.
 export type RentableResourceType = 'equipment' | 'vehicle' | 'property' | 'space';
 export type RentableResourceStatus = 'active' | 'paused' | 'retired';
+export type BookingApprovalMode = 'manual' | 'automatic';
 // DECISION-0151 ADENDO A — projeção do vocabulário governado RENTAL_PRICING_UNITS (fonte: backend)
 export type RentalPricingUnit = 'por_hora' | 'por_dia' | 'por_semana' | 'por_mes' | 'por_semestre' | 'por_ano';
 // Ordem de exibição das faixas (do menor pro maior período).
@@ -27,6 +28,7 @@ export interface RentableResource {
   priceCents: number | null;
   resourceYear: number | null;
   quantity: number;
+  bookingApprovalMode: BookingApprovalMode;
   metadata: Record<string, unknown>;
   status: RentableResourceStatus;
   isActive: boolean;
@@ -49,6 +51,7 @@ export async function createRentableResource(input: {
   postalCode?: string | null; // CEP opcional — refina proximidade; backend resolve, nunca o front
   pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>; // faixas; priceCents (cents)
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1)
+  bookingApprovalMode?: BookingApprovalMode; // Airbnb: dono decide auto/manual no cadastro
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
@@ -76,6 +79,7 @@ export async function updateRentalOffer(id: string, input: {
   pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>;
   quantity?: number;
   cityId?: string | null;
+  bookingApprovalMode?: BookingApprovalMode;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>(`/rentable-resources/${id}`, {
     method: 'PUT',
@@ -114,6 +118,17 @@ export async function discoverRentals(f: {
 export interface PublicAvailabilityWindow { availabilityId: string; startDatetime: string; endDatetime: string; }
 export async function getResourcePublicAvailability(id: string): Promise<PublicAvailabilityWindow[]> {
   const res = await apiFetchJson<{ ok: boolean; data: PublicAvailabilityWindow[] }>(`/rentable-resources/${id}/availability`);
+  return res.data;
+}
+
+// Solicitar/reservar uma janela (modelo Airbnb). O modo (auto/manual) é do DONO, decidido no backend.
+// Retorna o status final: 'confirmed' (auto) ou 'requested' (manual). Pré-dinheiro.
+export interface BookingResult { bookingId: string; status: string; autoConfirmed: boolean }
+export async function requestResourceBooking(resourceId: string, availabilityId: string): Promise<BookingResult> {
+  const res = await apiFetchJson<{ ok: boolean; data: BookingResult }>(`/rentable-resources/${resourceId}/book`, {
+    method: 'POST',
+    body: JSON.stringify({ availabilityId }),
+  });
   return res.data;
 }
 
