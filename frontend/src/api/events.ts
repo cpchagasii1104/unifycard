@@ -674,6 +674,11 @@ export interface UpdateEventInput {
   // Acesso/custo (anúncio, Δbank=0) + capacidade mínima — vocabulário GOVERNADO pt-BR.
   event_access_type?: 'gratuito' | 'pago' | 'contribuicao_opcional' | null;
   min_attendees?: number | null;
+  // F-EVENT-CONCEPT-FIRST-MODEL: identidade = formato (concept) + temas (concepts) + facets; location governado.
+  event_format_concept_id?: string | null;
+  location_mode?: 'fixed_place' | 'online' | 'hybrid' | 'to_be_defined' | 'route' | null;
+  theme_concept_ids?: string[];
+  category_facets?: string[];
   metadata?: Record<string, any> | null;
 }
 
@@ -683,6 +688,29 @@ export async function updateEvent(eventId: string, input: UpdateEventInput): Pro
     method: 'PATCH',
     body: JSON.stringify(input),
   });
+}
+
+// F-EVENT-CONCEPT-FIRST-MODEL — taxonomia SERVER-DRIVEN (o front NUNCA enumera formato/categoria).
+export interface EventFormatOption {
+  key: string; conceptId: string; label: string;
+  supportsCapacity: boolean; supportsTicketPrice: boolean;
+  supportsRouteLocation: boolean; supportsOrchestration: boolean;
+  requiredCapabilities: string[] | null;
+}
+export interface EventTaxonomy {
+  formats: EventFormatOption[];
+  categories: Array<{ key: string; label: string }>;
+  locationModes: Array<{ key: string; label: string; enabled: boolean; reasonDisabled: string | null }>;
+  accessTypes: Array<{ key: string; label: string }>;
+}
+export async function getEventTaxonomy(): Promise<EventTaxonomy> {
+  const res = await apiFetchJson<{ ok: boolean; data: EventTaxonomy }>(`/api/events/taxonomy`);
+  return res.data;
+}
+export async function searchEventThemes(q: string): Promise<Array<{ key: string; conceptId: string; label: string }>> {
+  if (q.trim().length < 2) return [];
+  const res = await apiFetchJson<{ ok: boolean; data: { themes: Array<{ key: string; conceptId: string; label: string }> } }>(`/api/events/themes/search?q=${encodeURIComponent(q)}`);
+  return res.data.themes;
 }
 
 

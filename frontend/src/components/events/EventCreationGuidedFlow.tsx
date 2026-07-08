@@ -56,9 +56,15 @@ function mapEventTypeToAspect(eventType: string): string {
 }
 
 export interface GuidedFlowData {
-  // ETAPA 0 - Pre-draft (não chama backend)
+  // ETAPA 0 — CONCEPT-FIRST (F-EVENT-CONCEPT-FIRST-MODEL): identidade = formato + tema; categorias = facets.
+  // event_type/event_subtype = LEGADO (não mais autoridade; mantidos só p/ compat de transição, não usados).
   event_type: 'social' | 'cultural' | 'gastronomic' | 'professional' | 'community' | 'spiritual' | 'sports' | 'private' | null;
   event_subtype: string | null;
+  eventFormatConceptId: string | null;   // OBRIGATÓRIO no novo modelo
+  eventFormatLabel: string | null;       // projeção UX
+  themeConceptIds: string[];             // OPCIONAL (multi)
+  themeLabels: string[];                 // projeção UX
+  categoryFacets: string[];              // facets de descoberta (multi, ⊆ taxonomy.categories)
   visibility: 'public' | 'connections' | 'only_me';
   /** 0161: refinamento de plateia (subconjunto do vocabulário GOVERNADO do typed-edge; null = sem). */
   audience_relationship_types?: string[] | null;
@@ -105,6 +111,11 @@ export interface GuidedFlowData {
 const INITIAL_DATA: GuidedFlowData = {
   event_type: null,
   event_subtype: null,
+  eventFormatConceptId: null,
+  eventFormatLabel: null,
+  themeConceptIds: [],
+  themeLabels: [],
+  categoryFacets: [],
   visibility: 'public',
   event_id: null,
   title: '',
@@ -157,17 +168,17 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys }: { initi
       return;
     }
 
-    // Usar dados atualizados passados como parâmetro, ou fallback para data (estado)
-    const eventType = updatedData?.event_type ?? data.event_type;
-    const eventSubtype = updatedData?.event_subtype ?? data.event_subtype;
+    // CONCEPT-FIRST: identidade = FORMATO (concept). event_type deixou de ser autoridade.
+    const formatId = updatedData?.eventFormatConceptId ?? data.eventFormatConceptId;
+    const themes = updatedData?.themeConceptIds ?? data.themeConceptIds;
+    const facets = updatedData?.categoryFacets ?? data.categoryFacets;
     const visibility = updatedData?.visibility ?? data.visibility;
 
-    if (!eventType || !activeActor) {
-      setError('Selecione o tipo de evento antes de continuar');
+    if (!formatId || !activeActor) {
+      setError('Escolha o formato do evento antes de continuar');
       return;
     }
 
-    // Verificar tenant antes de chamar API
     const tenantId = getTenantId();
     if (!tenantId) {
       setError('Tenant não encontrado. Faça login novamente.');
@@ -178,48 +189,39 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys }: { initi
     setError(null);
 
     try {
-      // 🔴 P0-1: Payload MÍNIMO conforme especificação
-      // POST /events/v2/create com apenas: type, subtype, visibility, status: "draft"
+      // Draft FORMATO-FIRST (sem event_type — não é mais autoridade). Só actor + título mínimo.
       const response = await createOrAdvanceDraft({
         event: {
           actor_id: activeActor.actor_id,
           actor_type: activeActor.actor_type as 'user' | 'page',
-          event_type: eventType,
           visibility: visibility,
-          title: 'Rascunho de evento', // Título mínimo obrigatório pelo backend
+          title: 'Rascunho de evento',
         },
       });
-
       const eventId = response.event.id;
-
-      // 🔴 P0-1: Armazenar eventId ANTES de prosseguir
       updateData({ event_id: eventId });
 
-      // 0161: aplica o REFINAMENTO de plateia no draft (writer organizer-only; CHECK do banco valida).
+      // Persiste a IDENTIDADE concept-first: formato + temas + facets (backend valida tudo).
+      const { updateEvent, patchEventAudience } = await import('../../api/events');
+      await updateEvent(eventId, {
+        event_format_concept_id: formatId,
+        theme_concept_ids: themes,
+        category_facets: facets,
+        visibility,
+      });
+
+      // Refinamento de plateia (organizer-only; CHECK do banco valida).
       const audienceTypes = updatedData?.audience_relationship_types ?? data.audience_relationship_types ?? null;
       if (audienceTypes && audienceTypes.length > 0) {
         try {
-          const { patchEventAudience } = await import('../../api/events');
           await patchEventAudience(eventId, visibility, audienceTypes);
         } catch {
-          // fail-visible: plateia fina não aplicada → avisa, evento segue com o macro (fail-closed na leitura).
           showToast('Não foi possível aplicar a plateia refinada — evento ficou no modo padrão.', 'error');
         }
       }
-      
-      // 🔴 P0-1: Branch obrigatório - Se subtype === "birthday", renderizar BirthdayWizard
-      const isBirthday = eventSubtype === 'birthday' || 
-                         eventSubtype === 'aniversário' || 
-                         eventSubtype === 'Aniversário';
-      
-      if (isBirthday) {
-        setIsBirthdayMode(true);
-        setCurrentStep(0); // BirthdayWizard gerencia seus próprios steps
-        showToast('Rascunho criado. Iniciando planejamento de aniversário...', 'success');
-      } else {
-        setCurrentStep(1);
-        showToast('Rascunho criado', 'success');
-      }
+
+      setCurrentStep(1);
+      showToast('Rascunho criado', 'success');
     } catch (err: any) {
       const errorMessage = err.message || 'Erro ao criar rascunho';
       setError(errorMessage);
@@ -240,10 +242,17 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys }: { initi
     setError(null);
 
     try {
+      // event_aspects (legado obrigatório do declare) DERIVADO das categorias facet (concept-first).
+      // Map facet→aspect (esportivo→esportes; educacional/comercial sem aspecto); fallback 'social'.
+      const FACET_TO_ASPECT: Record<string, string> = {
+        social: 'social', cultural: 'cultural', gastronomico: 'gastronomico', profissional: 'profissional',
+        comunitario: 'comunitario', espiritual: 'espiritual', esportivo: 'esportes',
+      };
+      const aspects = Array.from(new Set(data.categoryFacets.map((f) => FACET_TO_ASPECT[f]).filter(Boolean)));
       await declareEvent(data.event_id, {
         title: data.title,
         description: data.description || null,
-        event_aspects: [mapEventTypeToAspect(data.event_type!)], // Mapeado para vocabulário v1
+        event_aspects: aspects.length > 0 ? aspects : ['social'],
         visibility: data.visibility,
         intent_flags: [],
       });
