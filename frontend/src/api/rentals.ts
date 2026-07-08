@@ -74,6 +74,10 @@ export async function createRentableResource(input: {
   handoffTimeStart?: string | null; handoffTimeEnd?: string | null;
   mileagePolicy?: 'unlimited' | 'limited' | 'to_be_arranged' | null; // só veículo; backend valida
   includedKmPerDay?: number | null; includedKmTotal?: number | null; extraKmFeeCents?: number | null;
+  rentalModality?: 'long_term' | 'seasonal' | 'commercial' | null; // só imóvel
+  cleaningFeePolicy?: 'none' | 'included' | 'separate_required' | 'to_be_arranged' | null;
+  cleaningFeeCents?: number | null;
+  minRentalQty?: number | null; minRentalUnit?: 'hour' | 'day' | 'week' | 'month' | 'semester' | 'year' | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
@@ -109,6 +113,10 @@ export async function updateRentalOffer(id: string, input: {
   handoffTimeStart?: string | null; handoffTimeEnd?: string | null;
   mileagePolicy?: 'unlimited' | 'limited' | 'to_be_arranged' | null;
   includedKmPerDay?: number | null; includedKmTotal?: number | null; extraKmFeeCents?: number | null;
+  rentalModality?: 'long_term' | 'seasonal' | 'commercial' | null;
+  cleaningFeePolicy?: 'none' | 'included' | 'separate_required' | 'to_be_arranged' | null;
+  cleaningFeeCents?: number | null;
+  minRentalQty?: number | null; minRentalUnit?: 'hour' | 'day' | 'week' | 'month' | 'semester' | 'year' | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>(`/rentable-resources/${id}`, {
     method: 'PUT',
@@ -169,6 +177,9 @@ export interface QuotePreview {
     includedKmPerDay: number | null; includedKmTotal: number | null;
     extraKmFeeCents: number | null; includedKmForPeriod: number | null;
   } | null;
+  cleaning?: { policy: string; cents: number | null } | null;
+  minRental?: { qty: number; unit: string } | null;
+  totalEstimatedCents?: number;
   disclaimer: string;
 }
 export async function getQuotePreview(id: string, startAt: string, endAt: string): Promise<QuotePreview> {
@@ -225,8 +236,9 @@ export async function getMyRentalBookings(): Promise<MyBooking[]> {
 }
 // Unidades de preço PERMITIDAS por tipo — contrato GOVERNADO no backend. O front só renderiza (não
 // decide quais unidades fazem sentido). GET /rentable-resources/pricing-units?resourceType=
-export async function getAllowedPricingUnits(resourceType: RentableResourceType): Promise<RentalPricingUnit[]> {
-  const res = await apiFetchJson<{ ok: boolean; data: { units: RentalPricingUnit[] } }>(`/rentable-resources/pricing-units?resourceType=${encodeURIComponent(resourceType)}`);
+export async function getAllowedPricingUnits(resourceType: RentableResourceType, modality?: string | null): Promise<RentalPricingUnit[]> {
+  const mp = modality ? `&modality=${encodeURIComponent(modality)}` : '';
+  const res = await apiFetchJson<{ ok: boolean; data: { units: RentalPricingUnit[] } }>(`/rentable-resources/pricing-units?resourceType=${encodeURIComponent(resourceType)}${mp}`);
   return res.data.units;
 }
 

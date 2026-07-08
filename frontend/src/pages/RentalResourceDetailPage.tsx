@@ -478,6 +478,11 @@ export default function RentalResourceDetailPage() {
                               : q.mileage.policy === 'to_be_arranged' ? 'Quilometragem a combinar direto com o dono'
                               : `Inclui ${q.mileage.includedKmForPeriod ?? '—'} km neste período${q.mileage.extraKmFeeCents != null ? ` · Excedente R$ ${(q.mileage.extraKmFeeCents / 100).toFixed(2).replace('.', ',')}/km` : ''}`
                             }</span>}
+                            {/* Taxa de limpeza anunciada + total estimado (aluguel + limpeza) — não é cobrança. */}
+                            {q.cleaning && q.cleaning.policy === 'separate_required' && q.cleaning.cents != null && <span>🧹 Taxa de limpeza: R$ {(q.cleaning.cents / 100).toFixed(2).replace('.', ',')}</span>}
+                            {q.cleaning && q.cleaning.policy === 'included' && <span>🧹 Limpeza incluída</span>}
+                            {q.cleaning && q.cleaning.policy === 'to_be_arranged' && <span>🧹 Limpeza a combinar</span>}
+                            {q.hasEstimate && q.totalEstimatedCents != null && q.totalEstimatedCents !== q.estimatedPriceCents && <strong>Total estimado: R$ {(q.totalEstimatedCents / 100).toFixed(2).replace('.', ',')}</strong>}
                             <span className="rrd-quote-disclaimer">{q.disclaimer}</span>
                           </div>
                         ) : (
@@ -485,6 +490,7 @@ export default function RentalResourceDetailPage() {
                             ❌ {q.unavailableReason === 'OUT_OF_WINDOW' ? 'Fora da janela de disponibilidade.'
                               : q.unavailableReason === 'PERIOD_TAKEN' ? 'Esse período já está reservado.'
                               : q.unavailableReason === 'PERIOD_INVALID' ? 'Período inválido (fim deve ser depois do início).'
+                              : q.unavailableReason === 'BELOW_MINIMUM' ? `Período abaixo do mínimo${q.minRental ? ` de ${q.minRental.qty} ${q.minRental.unit}` : ''}.`
                               : 'Indisponível neste período.'}
                           </div>
                         );

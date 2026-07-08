@@ -307,9 +307,17 @@ export default function RentalResourceListPage() {
   const [propPetsAllowed, setPropPetsAllowed] = useState(false);
   const [propFloor, setPropFloor] = useState('');
   const [propElevator, setPropElevator] = useState(false);
-  // Unidades de preço PERMITIDAS por tipo — vêm do BACKEND (contrato governado), não de mapa local.
+  // Modalidade de imóvel (só property) + taxa de limpeza + tempo mínimo — verdade/contrato no backend.
+  const [rentalModality, setRentalModality] = useState<'long_term' | 'seasonal' | 'commercial'>('long_term');
+  const [cleaningPolicy, setCleaningPolicy] = useState<'none' | 'included' | 'separate_required' | 'to_be_arranged'>('none');
+  const [cleaningFeeReais, setCleaningFeeReais] = useState('');
+  const [minRentalQty, setMinRentalQty] = useState('');
+  const [minRentalUnit, setMinRentalUnit] = useState<'hour' | 'day' | 'week' | 'month' | 'semester' | 'year'>('month');
+  // Unidades de preço PERMITIDAS — do BACKEND. Para IMÓVEL dependem da modalidade (contrato governado).
   const [allowedUnits, setAllowedUnits] = useState<RentalPricingUnit[]>([]);
-  useEffect(() => { getAllowedPricingUnits(resourceType).then(setAllowedUnits).catch(() => setAllowedUnits([])); }, [resourceType]);
+  useEffect(() => {
+    getAllowedPricingUnits(resourceType, resourceType === 'property' ? rentalModality : null).then(setAllowedUnits).catch(() => setAllowedUnits([]));
+  }, [resourceType, rentalModality]);
   // Nome do IMÓVEL projetado (padrão Clayton): Categoria + Área + Bairro. Etiqueta de exibição — a
   // verdade é concept + metadata + address; este é só o rótulo (composto do que já foi preenchido).
   const propertyName = [
@@ -360,6 +368,7 @@ export default function RentalResourceListPage() {
     setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
     setPropArea(''); setPropBedrooms(''); setPropBathrooms(''); setPropFurnished(false);
     setPropParking(''); setPropPetsAllowed(false); setPropFloor(''); setPropElevator(false);
+    setRentalModality('long_term'); setCleaningPolicy('none'); setCleaningFeeReais(''); setMinRentalQty('');
   }, [resourceType]);
 
   // Áreas de uso (faceta governada) — carregadas uma vez; usadas só quando Tipo = Equipamento.
@@ -449,6 +458,13 @@ export default function RentalResourceListPage() {
         bookingApprovalMode: approvalMode,
         ...handoffPayload(handoffChoice, deliveryRadius, deliveryFeeReais, collectionFeeReais),
         ...mileagePayload(isVehicle, mileagePolicy, includedKmPerDay, extraKmFeeReais),
+        // Modalidade (só imóvel) + limpeza (só space/property-seasonal) + tempo mínimo — backend valida.
+        rentalModality: resourceType === 'property' ? rentalModality : null,
+        ...(resourceType === 'space' || (resourceType === 'property' && rentalModality === 'seasonal')
+          ? { cleaningFeePolicy: cleaningPolicy, cleaningFeeCents: cleaningPolicy === 'separate_required' ? toCents(cleaningFeeReais) : null }
+          : {}),
+        ...(minRentalQty.trim() && (resourceType === 'property' || resourceType === 'space')
+          ? { minRentalQty: parseInt(minRentalQty, 10), minRentalUnit } : {}),
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
@@ -860,6 +876,47 @@ export default function RentalResourceListPage() {
                   <label className="rrl-field">Km incluídos por dia<input type="number" min={0} placeholder="Ex.: 200" value={includedKmPerDay} onChange={(e) => setIncludedKmPerDay(e.target.value)} /></label>
                   <label className="rrl-field">Valor por km excedente (R$)<input type="text" inputMode="decimal" placeholder="Ex.: 1,50" value={extraKmFeeReais} onChange={(e) => setExtraKmFeeReais(e.target.value)} /></label>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Modalidade de locação (só imóvel) — decide as unidades de preço (contrato do backend). */}
+          {resourceType === 'property' && (
+            <div className="rrl-field">
+              Modalidade da locação
+              <select className="rrl-select" value={rentalModality} onChange={(e) => setRentalModality(e.target.value as 'long_term' | 'seasonal' | 'commercial')}>
+                <option value="long_term">Residencial (longo prazo) — mês/semestre/ano</option>
+                <option value="seasonal">Temporada (Airbnb) — dia/semana/mês</option>
+                <option value="commercial">Comercial — mês/ano</option>
+              </select>
+            </div>
+          )}
+
+          {/* Tempo mínimo de contrato (imóvel/espaço) — backend valida a reserva contra ele. */}
+          {(resourceType === 'property' || resourceType === 'space') && (
+            <div className="rrl-row">
+              <label className="rrl-field">Tempo mínimo (opcional)<input type="number" min={1} placeholder="Ex.: 12" value={minRentalQty} onChange={(e) => setMinRentalQty(e.target.value)} /></label>
+              <label className="rrl-field">Unidade
+                <select className="rrl-select" value={minRentalUnit} onChange={(e) => setMinRentalUnit(e.target.value as any)}>
+                  <option value="hour">horas</option><option value="day">diárias</option><option value="week">semanas</option>
+                  <option value="month">meses</option><option value="semester">semestres</option><option value="year">anos</option>
+                </select>
+              </label>
+            </div>
+          )}
+
+          {/* Taxa de limpeza (espaço + imóvel temporada) — ANÚNCIO, Δbank=0. */}
+          {(resourceType === 'space' || (resourceType === 'property' && rentalModality === 'seasonal')) && (
+            <div className="rrl-field">
+              Taxa de limpeza
+              <select className="rrl-select" value={cleaningPolicy} onChange={(e) => setCleaningPolicy(e.target.value as any)}>
+                <option value="none">Sem taxa de limpeza</option>
+                <option value="included">Incluída no valor</option>
+                <option value="separate_required">Cobrada à parte</option>
+                <option value="to_be_arranged">A combinar</option>
+              </select>
+              {cleaningPolicy === 'separate_required' && (
+                <label className="rrl-field" style={{ marginTop: 8 }}>Valor da limpeza (R$)<input type="text" inputMode="decimal" placeholder="Ex.: 120,00" value={cleaningFeeReais} onChange={(e) => setCleaningFeeReais(e.target.value)} /></label>
               )}
             </div>
           )}
