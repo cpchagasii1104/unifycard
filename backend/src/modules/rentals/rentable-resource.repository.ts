@@ -32,6 +32,10 @@ function toDomain(row: RentableResourceRow): RentableResource {
     collectionFeeCents: row.collection_fee_cents != null ? Number(row.collection_fee_cents) : null,
     handoffTimeStart: row.handoff_time_start ?? null,
     handoffTimeEnd: row.handoff_time_end ?? null,
+    mileagePolicy: row.mileage_policy ?? null,
+    includedKmPerDay: row.included_km_per_day != null ? Number(row.included_km_per_day) : null,
+    includedKmTotal: row.included_km_total != null ? Number(row.included_km_total) : null,
+    extraKmFeeCents: row.extra_km_fee_cents != null ? Number(row.extra_km_fee_cents) : null,
     metadata: row.metadata ?? {},
     visibility: row.visibility,
     audienceRelationshipTypes: row.audience_relationship_types ?? null,
@@ -51,10 +55,10 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `INSERT INTO rentable_resources
-         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents)
-       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int, $15, $16, $17, $18::int, $19::bigint, $20::bigint)
+         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int, $15, $16, $17, $18::int, $19::bigint, $20::bigint, $21, $22::int, $23::int, $24::bigint)
        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, created_at, updated_at`,
+                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, created_at, updated_at`,
       [
         tenantId,
         ownerActorId,
@@ -76,6 +80,10 @@ class RentableResourceRepository {
         input.deliveryRadiusKm ?? null,
         input.deliveryFeeCents ?? null,
         input.collectionFeeCents ?? null,
+        input.mileagePolicy ?? null,
+        input.includedKmPerDay ?? null,
+        input.includedKmTotal ?? null,
+        input.extraKmFeeCents ?? null,
       ]
     );
     if (!row) throw new Error('Falha ao criar rentable_resource');
@@ -86,7 +94,7 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, created_at, updated_at
          FROM rentable_resources
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
@@ -114,7 +122,7 @@ class RentableResourceRepository {
     const rows = await runQueriesWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, created_at, updated_at
          FROM rentable_resources
         WHERE ${where}
         ORDER BY created_at DESC
@@ -234,7 +242,7 @@ class RentableResourceRepository {
           SET status = $3, is_active = ($3 = 'active'), updated_at = now()
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, created_at, updated_at`,
+                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, created_at, updated_at`,
       [id, tenantId, status]
     );
     return row ? toDomain(row) : null;
@@ -266,6 +274,8 @@ class RentableResourceRepository {
     deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
     handoffTouched?: boolean; // quando true, grava as 5 colunas de handoff (permite zerar taxas/raio).
     handoffTimeStart?: string | null; handoffTimeEnd?: string | null; handoffTimeTouched?: boolean;
+    mileageTouched?: boolean; // quando true, grava as 4 colunas de mileage (permite zerar/trocar policy).
+    mileagePolicy?: string | null; includedKmPerDay?: number | null; includedKmTotal?: number | null; extraKmFeeCents?: number | null;
   }): Promise<void> {
     await runQueriesWithTenant(tenantId,
       `UPDATE rentable_resources SET
@@ -281,6 +291,10 @@ class RentableResourceRepository {
          collection_fee_cents = CASE WHEN $11::boolean THEN $14::bigint ELSE collection_fee_cents END,
          handoff_time_start = CASE WHEN $15::boolean THEN $16::time ELSE handoff_time_start END,
          handoff_time_end = CASE WHEN $15::boolean THEN $17::time ELSE handoff_time_end END,
+         mileage_policy = CASE WHEN $18::boolean THEN $19 ELSE mileage_policy END,
+         included_km_per_day = CASE WHEN $18::boolean THEN $20::int ELSE included_km_per_day END,
+         included_km_total = CASE WHEN $18::boolean THEN $21::int ELSE included_km_total END,
+         extra_km_fee_cents = CASE WHEN $18::boolean THEN $22::bigint ELSE extra_km_fee_cents END,
          updated_at = now()
        WHERE id = $1::uuid`,
       [
@@ -299,6 +313,11 @@ class RentableResourceRepository {
         input.handoffTimeTouched === true,
         input.handoffTimeStart ?? null,
         input.handoffTimeEnd ?? null,
+        input.mileageTouched === true,
+        input.mileagePolicy ?? null,
+        input.includedKmPerDay ?? null,
+        input.includedKmTotal ?? null,
+        input.extraKmFeeCents ?? null,
       ]);
   }
 

@@ -125,6 +125,27 @@ function handoffChoiceFromMethods(start: string | null | undefined, end: string 
   return 'pickup_return';
 }
 const centsToReais = (c: number | null | undefined) => (c != null ? (c / 100).toFixed(2).replace('.', ',') : '');
+
+// Quilometragem: escolha da UI → payload governado. Só faz sentido em veículo (backend rejeita o resto).
+// 'limited' manda km/dia + taxa (cents); unlimited/to_be_arranged mandam só a política.
+function mileagePayload(isVehicle: boolean, policy: 'unlimited' | 'limited' | 'to_be_arranged', kmPerDay: string, extraFeeReais: string) {
+  if (!isVehicle) return { mileagePolicy: null, includedKmPerDay: null, extraKmFeeCents: null };
+  if (policy === 'limited') {
+    const km = parseInt(kmPerDay, 10);
+    const cents = (() => { const n = parseFloat(extraFeeReais.replace(',', '.')); return isNaN(n) ? null : Math.round(n * 100); })();
+    return { mileagePolicy: 'limited' as const, includedKmPerDay: isNaN(km) ? null : Math.max(0, km), extraKmFeeCents: cents };
+  }
+  return { mileagePolicy: policy, includedKmPerDay: null, extraKmFeeCents: null };
+}
+// Resumo pt-BR da política de km para card/detalhe (projeta o backend; não inventa).
+function mileageSummary(r: { resourceType: string; mileagePolicy?: string | null; includedKmPerDay?: number | null; extraKmFeeCents?: number | null }): string | null {
+  if (r.resourceType !== 'vehicle' || !r.mileagePolicy) return null;
+  if (r.mileagePolicy === 'unlimited') return 'Km livre';
+  if (r.mileagePolicy === 'to_be_arranged') return 'Km a combinar (direto)';
+  const km = r.includedKmPerDay != null ? `Inclui ${r.includedKmPerDay} km/dia` : 'Km limitado';
+  const fee = r.extraKmFeeCents != null ? ` · Excedente R$ ${(r.extraKmFeeCents / 100).toFixed(2).replace('.', ',')}/km` : '';
+  return km + fee;
+}
 // Inverso do resolveAudiencePayload: recurso (visibility + relationshipTypes) → keys, para prefill da
 // edição. Deriva do shape das options do backend, nunca inventa (mesma lei do audience-payload).
 function audienceKeysFromResource(options: AudienceOption[], visibility: string, relTypes: string[] | null): string[] {
@@ -249,11 +270,18 @@ export default function RentalResourceListPage() {
   const [editDeliveryRadius, setEditDeliveryRadius] = useState('');
   const [editDeliveryFeeReais, setEditDeliveryFeeReais] = useState('');
   const [editCollectionFeeReais, setEditCollectionFeeReais] = useState('');
+  const [editMileagePolicy, setEditMileagePolicy] = useState<'unlimited' | 'limited' | 'to_be_arranged'>('unlimited');
+  const [editIncludedKmPerDay, setEditIncludedKmPerDay] = useState('');
+  const [editExtraKmFeeReais, setEditExtraKmFeeReais] = useState('');
   // Entrega/devolução (handoff): uma escolha amigável que mapeia para as 2 pernas governadas do backend.
   const [handoffChoice, setHandoffChoice] = useState<'pickup_return' | 'delivery' | 'collection' | 'delivery_and_collection' | 'to_be_arranged'>('pickup_return');
   const [deliveryRadius, setDeliveryRadius] = useState('');
   const [deliveryFeeReais, setDeliveryFeeReais] = useState('');
   const [collectionFeeReais, setCollectionFeeReais] = useState('');
+  // Quilometragem (só veículo). Política + km/dia + taxa excedente (R$→cents no envio).
+  const [mileagePolicy, setMileagePolicy] = useState<'unlimited' | 'limited' | 'to_be_arranged'>('unlimited');
+  const [includedKmPerDay, setIncludedKmPerDay] = useState('');
+  const [extraKmFeeReais, setExtraKmFeeReais] = useState('');
 
   // atributos de IMÓVEL (LAYER 5 — Facets, régua ratificada: "descreve COMO É", não "identifica O
   // QUE É" — não viram CONCEPT nem catálogo governado, ficam no metadata do recurso)
@@ -377,6 +405,7 @@ export default function RentalResourceListPage() {
         postalCode: cepInput.trim() || null,
         bookingApprovalMode: approvalMode,
         ...handoffPayload(handoffChoice, deliveryRadius, deliveryFeeReais, collectionFeeReais),
+        ...mileagePayload(isVehicle, mileagePolicy, includedKmPerDay, extraKmFeeReais),
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
@@ -411,6 +440,10 @@ export default function RentalResourceListPage() {
       setEditDeliveryRadius(detail.resource.deliveryRadiusKm != null ? String(detail.resource.deliveryRadiusKm) : '');
       setEditDeliveryFeeReais(centsToReais(detail.resource.deliveryFeeCents));
       setEditCollectionFeeReais(centsToReais(detail.resource.collectionFeeCents));
+      // prefill da quilometragem (só veículo tem; default unlimited se null).
+      setEditMileagePolicy((detail.resource.mileagePolicy as 'unlimited' | 'limited' | 'to_be_arranged') ?? 'unlimited');
+      setEditIncludedKmPerDay(detail.resource.includedKmPerDay != null ? String(detail.resource.includedKmPerDay) : '');
+      setEditExtraKmFeeReais(centsToReais(detail.resource.extraKmFeeCents));
       setEditFor(resourceId);
     } catch (err: any) {
       showToast(err?.message || 'Erro ao carregar o anúncio para edição', 'error');
@@ -433,6 +466,7 @@ export default function RentalResourceListPage() {
         audienceRelationshipTypes: aud.audienceRelationshipTypes,
         bookingApprovalMode: editApprovalMode,
         ...handoffPayload(editHandoffChoice, editDeliveryRadius, editDeliveryFeeReais, editCollectionFeeReais),
+        ...mileagePayload(resources.find((x) => x.id === resourceId)?.resourceType === 'vehicle', editMileagePolicy, editIncludedKmPerDay, editExtraKmFeeReais),
       });
       showToast('Anúncio atualizado. ✅', 'success');
       setEditFor(null);
@@ -767,7 +801,6 @@ export default function RentalResourceListPage() {
               {(resourceType === 'vehicle' || resourceType === 'equipment') && <option value="delivery">Eu entrego</option>}
               {(resourceType === 'vehicle' || resourceType === 'equipment') && <option value="collection">Eu busco de volta</option>}
               {(resourceType === 'vehicle' || resourceType === 'equipment') && <option value="delivery_and_collection">Eu entrego e busco</option>}
-              <option value="to_be_arranged">A combinar</option>
             </select>
           </div>
           {(handoffChoice === 'delivery' || handoffChoice === 'delivery_and_collection') && (
@@ -781,6 +814,23 @@ export default function RentalResourceListPage() {
           )}
           {(handoffChoice === 'delivery' || handoffChoice === 'collection' || handoffChoice === 'delivery_and_collection') && (
             <p className="rrl-hint">💡 Taxa anunciada — a cobrança real ainda não acontece pelo sistema.</p>
+          )}
+
+          {/* Quilometragem — SÓ veículo. Atributo da OFERTA. Taxa ANUNCIADA (cobrança real = PORTA-1). */}
+          {resourceType === 'vehicle' && (
+            <div className="rrl-field">
+              Quilometragem
+              <select className="rrl-select" value={mileagePolicy} onChange={(e) => setMileagePolicy(e.target.value as 'unlimited' | 'limited' | 'to_be_arranged')}>
+                <option value="unlimited">Km livre</option>
+                <option value="limited">Km limitado</option>
+              </select>
+              {mileagePolicy === 'limited' && (
+                <div className="rrl-row" style={{ marginTop: 8 }}>
+                  <label className="rrl-field">Km incluídos por dia<input type="number" min={0} placeholder="Ex.: 200" value={includedKmPerDay} onChange={(e) => setIncludedKmPerDay(e.target.value)} /></label>
+                  <label className="rrl-field">Valor por km excedente (R$)<input type="text" inputMode="decimal" placeholder="Ex.: 1,50" value={extraKmFeeReais} onChange={(e) => setExtraKmFeeReais(e.target.value)} /></label>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Imóvel/Espaço: Facets puras (régua ratificada: "descreve COMO É", não "identifica O
@@ -920,6 +970,7 @@ export default function RentalResourceListPage() {
                 {r.resourceType !== 'space' && r.handoffTimeStart && r.handoffTimeEnd ? ` · ${r.handoffTimeStart.slice(0, 5)}–${r.handoffTimeEnd.slice(0, 5)}` : ''}
               </span>
             )}
+            {mileageSummary(r) && <span className="rrl-card-handoff">🚗 {mileageSummary(r)}</span>}
             <div className="rrl-card-actions">
               <button type="button" onClick={() => navigate(`/locacoes/${r.id}`)}>Detalhes</button>
               <button type="button" onClick={() => openEdit(r.id)}>✏️ Editar</button>
@@ -999,7 +1050,6 @@ export default function RentalResourceListPage() {
                     {(r?.resourceType === 'vehicle' || r?.resourceType === 'equipment') && <option value="delivery">Eu entrego</option>}
                     {(r?.resourceType === 'vehicle' || r?.resourceType === 'equipment') && <option value="collection">Eu busco de volta</option>}
                     {(r?.resourceType === 'vehicle' || r?.resourceType === 'equipment') && <option value="delivery_and_collection">Eu entrego e busco</option>}
-                    <option value="to_be_arranged">A combinar</option>
                   </select>
                 </div>
                 {(editHandoffChoice === 'delivery' || editHandoffChoice === 'delivery_and_collection') && (
@@ -1010,6 +1060,22 @@ export default function RentalResourceListPage() {
                 )}
                 {(editHandoffChoice === 'collection' || editHandoffChoice === 'delivery_and_collection') && (
                   <label className="rrl-field">Taxa de busca de volta (R$)<input type="text" inputMode="decimal" placeholder="0,00" value={editCollectionFeeReais} onChange={(e) => setEditCollectionFeeReais(e.target.value)} /></label>
+                )}
+                {/* Quilometragem — só veículo. */}
+                {r?.resourceType === 'vehicle' && (
+                  <div className="rrl-field">
+                    Quilometragem
+                    <select className="rrl-select" value={editMileagePolicy} onChange={(e) => setEditMileagePolicy(e.target.value as 'unlimited' | 'limited' | 'to_be_arranged')}>
+                      <option value="unlimited">Km livre</option>
+                      <option value="limited">Km limitado</option>
+                    </select>
+                    {editMileagePolicy === 'limited' && (
+                      <div className="rrl-row" style={{ marginTop: 8 }}>
+                        <label className="rrl-field">Km incluídos por dia<input type="number" min={0} placeholder="Ex.: 200" value={editIncludedKmPerDay} onChange={(e) => setEditIncludedKmPerDay(e.target.value)} /></label>
+                        <label className="rrl-field">Valor por km excedente (R$)<input type="text" inputMode="decimal" placeholder="Ex.: 1,50" value={editExtraKmFeeReais} onChange={(e) => setEditExtraKmFeeReais(e.target.value)} /></label>
+                      </div>
+                    )}
+                  </div>
                 )}
                 <p className="rrl-hint">💡 O preço e as taxas são ANÚNCIO — o pagamento em si ainda não acontece pelo sistema.</p>
               </div>

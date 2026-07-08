@@ -261,6 +261,14 @@ export default function RentalResourceDetailPage() {
           {resource.resourceType !== 'space' && resource.handoffTimeStart && resource.handoffTimeEnd && (
             <p className="rrd-meta">🕗 Retirada/devolução entre {resource.handoffTimeStart.slice(0, 5)} e {resource.handoffTimeEnd.slice(0, 5)}</p>
           )}
+          {/* Quilometragem — só veículo, projetada do backend. */}
+          {resource.resourceType === 'vehicle' && resource.mileagePolicy && (
+            <p className="rrd-meta">🚗 {
+              resource.mileagePolicy === 'unlimited' ? 'Km livre'
+              : resource.mileagePolicy === 'to_be_arranged' ? 'Quilometragem a combinar direto com o dono'
+              : `Inclui ${resource.includedKmPerDay ?? '—'} km/dia${resource.extraKmFeeCents != null ? ` · Excedente R$ ${(resource.extraKmFeeCents / 100).toFixed(2).replace('.', ',')}/km` : ''}`
+            }</p>
+          )}
           {offer && offer.pricingTiers.length > 0 && (
             <p className="rrd-price">{offer.pricingTiers.map((t) => `${PRICING_UNIT_PT[t.unit]}: R$ ${(t.priceCents / 100).toFixed(2).replace('.', ',')}`).join(' · ')}</p>
           )}
@@ -436,6 +444,12 @@ export default function RentalResourceDetailPage() {
                             <strong>✅ Disponível neste período</strong>
                             {q.hasEstimate ? <span>Estimativa: R$ {(q.estimatedPriceCents / 100).toFixed(2).replace('.', ',')}</span> : <span>Preço a combinar (sem faixa cadastrada)</span>}
                             {q.handoffTimeStart && q.handoffTimeEnd && <span>🕗 Retirada/devolução entre {q.handoffTimeStart.slice(0, 5)} e {q.handoffTimeEnd.slice(0, 5)}</span>}
+                            {/* Quilometragem projetada — sem cobrança de excedente (sem km rodado real). */}
+                            {q.mileage && <span>🚗 {
+                              q.mileage.policy === 'unlimited' ? 'Km livre'
+                              : q.mileage.policy === 'to_be_arranged' ? 'Quilometragem a combinar direto com o dono'
+                              : `Inclui ${q.mileage.includedKmForPeriod ?? '—'} km neste período${q.mileage.extraKmFeeCents != null ? ` · Excedente R$ ${(q.mileage.extraKmFeeCents / 100).toFixed(2).replace('.', ',')}/km` : ''}`
+                            }</span>}
                             <span className="rrd-quote-disclaimer">{q.disclaimer}</span>
                           </div>
                         ) : (

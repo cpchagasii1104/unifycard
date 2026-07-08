@@ -1,4 +1,4 @@
-import { RENTAL_PRICING_UNITS, RESOURCE_TYPE_TO_DOMAINS, BOOKING_APPROVAL_MODES, START_HANDOFF_METHODS, END_HANDOFF_METHODS } from './rentable-resource.types';
+import { RENTAL_PRICING_UNITS, RESOURCE_TYPE_TO_DOMAINS, BOOKING_APPROVAL_MODES, START_HANDOFF_METHODS, END_HANDOFF_METHODS, MILEAGE_POLICIES } from './rentable-resource.types';
 // backend/src/modules/rentals/rentable-resource.routes.ts
 // F-RENTAL-RESOURCE-SURFACE-SLICE-A — a ÚNICA peça que faltava para o Trilho B (DECISION-0159/
 // fluxo.png) funcionar ponta-a-ponta para recurso: registrar o recurso. Availability/booking/
@@ -46,6 +46,11 @@ const createSchema = z.object({
   collectionFeeCents: z.number().int().min(0).nullable().optional(),
   handoffTimeStart: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   handoffTimeEnd: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  // Quilometragem (só veículo; backend valida a coerência tipo↔política). Taxa em cents (anúncio).
+  mileagePolicy: z.enum(MILEAGE_POLICIES).nullable().optional(),
+  includedKmPerDay: z.number().int().min(0).nullable().optional(),
+  includedKmTotal: z.number().int().min(0).nullable().optional(),
+  extraKmFeeCents: z.number().int().min(0).nullable().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -69,6 +74,11 @@ const updateOfferSchema = z.object({
   collectionFeeCents: z.number().int().min(0).nullable().optional(),
   handoffTimeStart: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   handoffTimeEnd: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  // Quilometragem (só veículo; backend valida a coerência tipo↔política). Taxa em cents (anúncio).
+  mileagePolicy: z.enum(MILEAGE_POLICIES).nullable().optional(),
+  includedKmPerDay: z.number().int().min(0).nullable().optional(),
+  includedKmTotal: z.number().int().min(0).nullable().optional(),
+  extraKmFeeCents: z.number().int().min(0).nullable().optional(),
 });
 
 const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -132,6 +142,10 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         deliveryRadiusKm: parsed.data.deliveryRadiusKm ?? null,
         deliveryFeeCents: parsed.data.deliveryFeeCents ?? null,
         collectionFeeCents: parsed.data.collectionFeeCents ?? null,
+        mileagePolicy: parsed.data.mileagePolicy ?? null,
+        includedKmPerDay: parsed.data.includedKmPerDay ?? null,
+        includedKmTotal: parsed.data.includedKmTotal ?? null,
+        extraKmFeeCents: parsed.data.extraKmFeeCents ?? null,
       });
       return reply.status(201).send({ ok: true, data: resource });
     } catch (err: any) {
@@ -449,6 +463,10 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         collectionFeeCents: parsed.data.collectionFeeCents,
         handoffTimeStart: parsed.data.handoffTimeStart,
         handoffTimeEnd: parsed.data.handoffTimeEnd,
+        mileagePolicy: parsed.data.mileagePolicy,
+        includedKmPerDay: parsed.data.includedKmPerDay,
+        includedKmTotal: parsed.data.includedKmTotal,
+        extraKmFeeCents: parsed.data.extraKmFeeCents,
       });
       return reply.send({ ok: true, data: resource });
     } catch (err: any) {

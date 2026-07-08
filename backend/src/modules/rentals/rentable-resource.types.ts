@@ -19,6 +19,10 @@ export type RentableVisibility = 'public' | 'connections' | 'only_me';
 export const BOOKING_APPROVAL_MODES = ['manual', 'automatic'] as const;
 export type BookingApprovalMode = (typeof BOOKING_APPROVAL_MODES)[number];
 
+// Política de quilometragem — SÓ veículo. Atributo da OFERTA (não do catálogo). Taxa ANUNCIADA (Δbank=0).
+export const MILEAGE_POLICIES = ['unlimited', 'limited', 'to_be_arranged'] as const;
+export type MileagePolicy = (typeof MILEAGE_POLICIES)[number];
+
 // Política de ENTREGA/DEVOLUÇÃO (handoff) — atributo da OFERTA, não do catálogo. Duas pernas governadas
 // (CHECK físico espelha daqui). Local base fica em addresses/address_assignments (SSOT, inalterado).
 export const START_HANDOFF_METHODS = ['renter_pickup', 'owner_delivery', 'to_be_arranged'] as const;
@@ -82,6 +86,10 @@ export interface RentableResource {
   collectionFeeCents: number | null;
   handoffTimeStart: string | null;
   handoffTimeEnd: string | null;
+  mileagePolicy: MileagePolicy | null;
+  includedKmPerDay: number | null;
+  includedKmTotal: number | null;
+  extraKmFeeCents: number | null;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -108,6 +116,10 @@ export interface RentableResourceRow {
   collection_fee_cents?: string | number | null;
   handoff_time_start?: string | null;
   handoff_time_end?: string | null;
+  mileage_policy?: MileagePolicy | null;
+  included_km_per_day?: number | null;
+  included_km_total?: number | null;
+  extra_km_fee_cents?: string | number | null;
   resource_year: number | null;
   metadata: Record<string, unknown> | null;
   visibility: RentableVisibility;
@@ -142,6 +154,10 @@ export interface CreateRentableResourceInput {
   collectionFeeCents?: number | null; // taxa ANUNCIADA de busca (cents).
   handoffTimeStart?: string | null; // horario de retirada/devolucao (HH:MM) — regra do recurso.
   handoffTimeEnd?: string | null;
+  mileagePolicy?: MileagePolicy | null; // SÓ veículo: unlimited/limited/to_be_arranged.
+  includedKmPerDay?: number | null; // km/dia incluído (obrigatório em limited).
+  includedKmTotal?: number | null; // km total incluído (opcional em limited).
+  extraKmFeeCents?: number | null; // taxa ANUNCIADA de km excedente (cents; opcional em limited).
 }
 
 export interface ListRentableResourcesFilters {

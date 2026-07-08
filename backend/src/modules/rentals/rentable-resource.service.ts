@@ -12,7 +12,9 @@ import type {
   RentableResourceType,
   CreateRentableResourceInput,
   ListRentableResourcesFilters,
+  MileagePolicy,
 } from './rentable-resource.types';
+import { MILEAGE_POLICIES } from './rentable-resource.types';
 
 /** Subtrai intervalos ocupados de [winStart, winEnd), devolvendo os GAPS livres em ordem. Determinístico.
  *  Ex.: janela 08→31 menos reserva 10→17 = [08→10, 17→31]. Toca disponibilidade projetada (Clayton). */
@@ -91,12 +93,18 @@ class RentableResourceService {
       deliveryRadiusKm: input.deliveryRadiusKm ?? null, deliveryFeeCents: input.deliveryFeeCents ?? null,
       collectionFeeCents: input.collectionFeeCents ?? null,
     });
+    // Quilometragem (só veículo) validada/normalizada pelo backend.
+    const mileage = this.normalizeMileage(input.resourceType, {
+      mileagePolicy: input.mileagePolicy ?? null, includedKmPerDay: input.includedKmPerDay ?? null,
+      includedKmTotal: input.includedKmTotal ?? null, extraKmFeeCents: input.extraKmFeeCents ?? null,
+    });
 
     const created = await rentableResourceRepository.create(tenantId, ownerActorId, {
       ...input,
       label: input.label.trim(),
       quantity,
       ...handoff,
+      ...mileage,
     });
 
     // Fase 1 — faixas de preço (SSOT rental_resource_pricing). Dinheiro em cents; validado no schema.
@@ -162,6 +170,40 @@ class RentableResourceService {
       deliveryFeeCents: isDelivery ? (h.deliveryFeeCents ?? null) : null,
       collectionFeeCents: isCollection ? (h.collectionFeeCents ?? null) : null,
     };
+  }
+
+  /**
+   * QUILOMETRAGEM — só veículo. Backend é a autoridade da política. Rejeita mileage em não-veículo;
+   * 'limited' exige km/dia; unlimited/to_be_arranged zeram km/taxa. Δbank=0 (taxa é ANÚNCIO). O banco
+   * tem CHECKs equivalentes como última linha; aqui a mensagem é amigável.
+   */
+  private normalizeMileage(
+    resourceType: RentableResourceType,
+    m: { mileagePolicy?: string | null; includedKmPerDay?: number | null; includedKmTotal?: number | null; extraKmFeeCents?: number | null }
+  ): { mileagePolicy: MileagePolicy | null; includedKmPerDay: number | null; includedKmTotal: number | null; extraKmFeeCents: number | null } {
+    const policy = m.mileagePolicy ?? null;
+    if (policy == null) {
+      // sem política declarada: nenhum campo de km pode vir (nem em veículo).
+      if (m.includedKmPerDay != null || m.includedKmTotal != null || m.extraKmFeeCents != null) {
+        throw HttpError.badRequest('RENTAL_MILEAGE_FIELDS_WITHOUT_POLICY: informe a política de quilometragem para preencher km/taxa.');
+      }
+      return { mileagePolicy: null, includedKmPerDay: null, includedKmTotal: null, extraKmFeeCents: null };
+    }
+    if (resourceType !== 'vehicle') {
+      throw HttpError.badRequest('RENTAL_MILEAGE_VEHICLE_ONLY: quilometragem só se aplica a veículo.');
+    }
+    if (!MILEAGE_POLICIES.includes(policy as MileagePolicy)) {
+      throw HttpError.badRequest('RENTAL_MILEAGE_POLICY_INVALID: política deve ser unlimited, limited ou to_be_arranged.');
+    }
+    if (policy === 'limited') {
+      if (m.includedKmPerDay == null || m.includedKmPerDay < 0) {
+        throw HttpError.badRequest('RENTAL_MILEAGE_LIMITED_REQUIRES_KM: locação com km limitado exige o km incluído por dia.');
+      }
+      const fee = m.extraKmFeeCents != null ? Math.max(0, Math.round(m.extraKmFeeCents)) : null;
+      return { mileagePolicy: 'limited', includedKmPerDay: Math.round(m.includedKmPerDay), includedKmTotal: m.includedKmTotal != null ? Math.max(0, Math.round(m.includedKmTotal)) : null, extraKmFeeCents: fee };
+    }
+    // unlimited / to_be_arranged: sem km incluído nem taxa (zera qualquer coisa que tenha vindo).
+    return { mileagePolicy: policy as MileagePolicy, includedKmPerDay: null, includedKmTotal: null, extraKmFeeCents: null };
   }
 
   /**
@@ -333,12 +375,22 @@ class RentableResourceService {
     const { estimatePrice } = await import('./pricing-estimate');
     const est = estimatePrice(tiers as any, startAt, endAt);
     const hasEstimate = est.breakdown.length > 0;
+    // Quilometragem: PROJETA a política (não cobra excedente — sem km rodado real). includedKmForPeriod =
+    // dias × km/dia só informa o incluído; excedente real depende de odômetro, que não existe (Δbank=0).
+    const days = Math.max(1, Math.ceil((endAt.getTime() - startAt.getTime()) / 86400000));
+    const mileage = resource.mileagePolicy ? {
+      policy: resource.mileagePolicy,
+      includedKmPerDay: resource.includedKmPerDay,
+      includedKmTotal: resource.includedKmTotal,
+      extraKmFeeCents: resource.extraKmFeeCents,
+      includedKmForPeriod: resource.mileagePolicy === 'limited' && resource.includedKmPerDay != null ? days * resource.includedKmPerDay : null,
+    } : null;
     return {
       bookable: true, unavailableReason: null,
       estimatedPriceCents: hasEstimate ? est.estimatedPriceCents : 0,
       hasEstimate,
       handoffTimeStart: resource.handoffTimeStart, handoffTimeEnd: resource.handoffTimeEnd,
-      quantityFree, disclaimer: DISCLAIMER,
+      quantityFree, mileage, disclaimer: DISCLAIMER,
     };
   }
 
@@ -533,6 +585,10 @@ class RentableResourceService {
       collectionFeeCents?: number | null;
       handoffTimeStart?: string | null;
       handoffTimeEnd?: string | null;
+      mileagePolicy?: string | null;
+      includedKmPerDay?: number | null;
+      includedKmTotal?: number | null;
+      extraKmFeeCents?: number | null;
     }
   ): Promise<RentableResource> {
     const resource = await this.get(tenantId, resourceId);
@@ -565,6 +621,15 @@ class RentableResourceService {
         })
       : null;
 
+    // Quilometragem: só toca se o dono mandou a política. Valida pelo tipo REAL (só veículo).
+    const mileageTouched = input.mileagePolicy !== undefined;
+    const mileage = mileageTouched
+      ? this.normalizeMileage(resource.resourceType, {
+          mileagePolicy: input.mileagePolicy ?? null, includedKmPerDay: input.includedKmPerDay ?? null,
+          includedKmTotal: input.includedKmTotal ?? null, extraKmFeeCents: input.extraKmFeeCents ?? null,
+        })
+      : null;
+
     await rentableResourceRepository.updateOffer(tenantId, resourceId, {
       description: input.description,
       visibility: input.visibility,
@@ -581,6 +646,11 @@ class RentableResourceService {
       handoffTimeTouched: input.handoffTimeStart !== undefined || input.handoffTimeEnd !== undefined,
       handoffTimeStart: input.handoffTimeStart ?? null,
       handoffTimeEnd: input.handoffTimeEnd ?? null,
+      mileageTouched,
+      mileagePolicy: mileage?.mileagePolicy ?? null,
+      includedKmPerDay: mileage?.includedKmPerDay ?? null,
+      includedKmTotal: mileage?.includedKmTotal ?? null,
+      extraKmFeeCents: mileage?.extraKmFeeCents ?? null,
     });
     if (input.pricingTiers) {
       await rentableResourceRepository.setPricingTiers(tenantId, resourceId, input.pricingTiers);

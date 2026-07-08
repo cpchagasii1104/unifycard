@@ -40,6 +40,10 @@ export interface RentableResource {
   collectionFeeCents: number | null;
   handoffTimeStart: string | null;
   handoffTimeEnd: string | null;
+  mileagePolicy: 'unlimited' | 'limited' | 'to_be_arranged' | null;
+  includedKmPerDay: number | null;
+  includedKmTotal: number | null;
+  extraKmFeeCents: number | null;
   metadata: Record<string, unknown>;
   status: RentableResourceStatus;
   isActive: boolean;
@@ -66,6 +70,8 @@ export async function createRentableResource(input: {
   startHandoffMethod?: StartHandoffMethod; endHandoffMethod?: EndHandoffMethod;
   deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
   handoffTimeStart?: string | null; handoffTimeEnd?: string | null;
+  mileagePolicy?: 'unlimited' | 'limited' | 'to_be_arranged' | null; // só veículo; backend valida
+  includedKmPerDay?: number | null; includedKmTotal?: number | null; extraKmFeeCents?: number | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
@@ -97,6 +103,8 @@ export async function updateRentalOffer(id: string, input: {
   startHandoffMethod?: StartHandoffMethod; endHandoffMethod?: EndHandoffMethod;
   deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
   handoffTimeStart?: string | null; handoffTimeEnd?: string | null;
+  mileagePolicy?: 'unlimited' | 'limited' | 'to_be_arranged' | null;
+  includedKmPerDay?: number | null; includedKmTotal?: number | null; extraKmFeeCents?: number | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>(`/rentable-resources/${id}`, {
     method: 'PUT',
@@ -151,6 +159,12 @@ export interface QuotePreview {
   handoffTimeStart: string | null;
   handoffTimeEnd: string | null;
   quantityFree: number;
+  // Política de quilometragem projetada (só veículo). includedKmForPeriod = dias × km/dia; sem cobrança real.
+  mileage?: {
+    policy: 'unlimited' | 'limited' | 'to_be_arranged';
+    includedKmPerDay: number | null; includedKmTotal: number | null;
+    extraKmFeeCents: number | null; includedKmForPeriod: number | null;
+  } | null;
   disclaimer: string;
 }
 export async function getQuotePreview(id: string, startAt: string, endAt: string): Promise<QuotePreview> {
