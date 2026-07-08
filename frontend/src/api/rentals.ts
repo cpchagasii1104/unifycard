@@ -187,7 +187,7 @@ export async function getResourceRequests(resourceId: string): Promise<RentalReq
   return res.data;
 }
 export async function declineResourceRequest(resourceId: string, bookingId: string): Promise<void> {
-  await apiFetchJson(`/rentable-resources/${resourceId}/requests/${bookingId}/decline`, { method: 'POST' });
+  await apiFetchJson(`/rentable-resources/${resourceId}/requests/${bookingId}/decline`, { method: 'POST', body: JSON.stringify({}) });
 }
 
 // MINHAS reservas (consumidor) — a locação existe para os dois lados. Backend projeta tudo.
@@ -204,8 +204,9 @@ export async function getMyRentalBookings(): Promise<MyBooking[]> {
   return res.data;
 }
 // O consumidor cancela a PRÓPRIA reserva. Praxe: vira 'cancelled' (histórico preservado), não deleta.
+// body {} obrigatório: o cliente seta Content-Type application/json e o Fastify recusa body vazio.
 export async function cancelMyRentalBooking(bookingId: string): Promise<void> {
-  await apiFetchJson(`/rentable-resources/my-bookings/${bookingId}/cancel`, { method: 'POST' });
+  await apiFetchJson(`/rentable-resources/my-bookings/${bookingId}/cancel`, { method: 'POST', body: JSON.stringify({}) });
 }
 
 export type MyResource = RentableResource & { pricingTiers: Array<{ unit: RentalPricingUnit; priceCents: number }> };

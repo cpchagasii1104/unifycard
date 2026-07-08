@@ -110,6 +110,15 @@ function handoffPayload(choice: HandoffChoice, radius: string, deliveryReais: st
     collectionFeeCents: end === 'owner_collection' ? cents(collectionReais) : null,
   };
 }
+// Inverso (métodos do backend → escolha amigável) para prefill do modal de edição.
+function handoffChoiceFromMethods(start: string | null | undefined, end: string | null | undefined): HandoffChoice {
+  if (start === 'to_be_arranged' || end === 'to_be_arranged') return 'to_be_arranged';
+  if (start === 'owner_delivery' && end === 'owner_collection') return 'delivery_and_collection';
+  if (start === 'owner_delivery') return 'delivery';
+  if (end === 'owner_collection') return 'collection';
+  return 'pickup_return';
+}
+const centsToReais = (c: number | null | undefined) => (c != null ? (c / 100).toFixed(2).replace('.', ',') : '');
 
 export default function RentalResourceListPage() {
   const navigate = useNavigate();
@@ -178,6 +187,11 @@ export default function RentalResourceListPage() {
   // Default 'automatic' — não esfriar o negócio (feedback Clayton 2026-07-08).
   const [approvalMode, setApprovalMode] = useState<'manual' | 'automatic'>('automatic');
   const [editApprovalMode, setEditApprovalMode] = useState<'manual' | 'automatic'>('automatic');
+  // Entrega/devolução na EDIÇÃO — mesmo modelo do cadastro (só preenche as taxas que aceita).
+  const [editHandoffChoice, setEditHandoffChoice] = useState<HandoffChoice>('pickup_return');
+  const [editDeliveryRadius, setEditDeliveryRadius] = useState('');
+  const [editDeliveryFeeReais, setEditDeliveryFeeReais] = useState('');
+  const [editCollectionFeeReais, setEditCollectionFeeReais] = useState('');
   // Entrega/devolução (handoff): uma escolha amigável que mapeia para as 2 pernas governadas do backend.
   const [handoffChoice, setHandoffChoice] = useState<'pickup_return' | 'delivery' | 'collection' | 'delivery_and_collection' | 'to_be_arranged'>('pickup_return');
   const [deliveryRadius, setDeliveryRadius] = useState('');
@@ -333,6 +347,11 @@ export default function RentalResourceListPage() {
       setEditCity(detail.city ? { id: detail.city.cityId, name: detail.city.name, stateUf: detail.city.uf } : null);
       setEditDescription(detail.resource.description ?? '');
       setEditApprovalMode(detail.resource.bookingApprovalMode ?? 'automatic');
+      // prefill da entrega/devolução a partir dos métodos + taxas do backend.
+      setEditHandoffChoice(handoffChoiceFromMethods(detail.resource.startHandoffMethod, detail.resource.endHandoffMethod));
+      setEditDeliveryRadius(detail.resource.deliveryRadiusKm != null ? String(detail.resource.deliveryRadiusKm) : '');
+      setEditDeliveryFeeReais(centsToReais(detail.resource.deliveryFeeCents));
+      setEditCollectionFeeReais(centsToReais(detail.resource.collectionFeeCents));
       setEditFor(resourceId);
     } catch (err: any) {
       showToast(err?.message || 'Erro ao carregar o anúncio para edição', 'error');
@@ -351,6 +370,7 @@ export default function RentalResourceListPage() {
         quantity: editQuantity,
         cityId: editCity?.id ?? null,
         bookingApprovalMode: editApprovalMode,
+        ...handoffPayload(editHandoffChoice, editDeliveryRadius, editDeliveryFeeReais, editCollectionFeeReais),
       });
       showToast('Anúncio atualizado. ✅', 'success');
       setEditFor(null);
@@ -836,7 +856,27 @@ export default function RentalResourceListPage() {
                     </button>
                   </div>
                 </div>
-                <p className="rrl-hint">💡 O preço é o ANÚNCIO — o pagamento em si ainda não acontece pelo sistema.</p>
+                {/* Entrega e devolução — mesmo modelo do cadastro; só preenche as taxas que aceita. */}
+                <div className="rrl-field">
+                  Entrega e devolução
+                  <select className="rrl-select" value={editHandoffChoice} onChange={(e) => setEditHandoffChoice(e.target.value as HandoffChoice)}>
+                    <option value="pickup_return">Cliente retira e devolve no local</option>
+                    {(r?.resourceType === 'vehicle' || r?.resourceType === 'equipment') && <option value="delivery">Eu entrego</option>}
+                    {(r?.resourceType === 'vehicle' || r?.resourceType === 'equipment') && <option value="collection">Eu busco de volta</option>}
+                    {(r?.resourceType === 'vehicle' || r?.resourceType === 'equipment') && <option value="delivery_and_collection">Eu entrego e busco</option>}
+                    <option value="to_be_arranged">A combinar</option>
+                  </select>
+                </div>
+                {(editHandoffChoice === 'delivery' || editHandoffChoice === 'delivery_and_collection') && (
+                  <div className="rrl-row">
+                    <label className="rrl-field">Entrego até (km)<input type="number" min={1} placeholder="Ex.: 15" value={editDeliveryRadius} onChange={(e) => setEditDeliveryRadius(e.target.value)} /></label>
+                    <label className="rrl-field">Taxa de entrega (R$)<input type="text" inputMode="decimal" placeholder="0,00" value={editDeliveryFeeReais} onChange={(e) => setEditDeliveryFeeReais(e.target.value)} /></label>
+                  </div>
+                )}
+                {(editHandoffChoice === 'collection' || editHandoffChoice === 'delivery_and_collection') && (
+                  <label className="rrl-field">Taxa de busca de volta (R$)<input type="text" inputMode="decimal" placeholder="0,00" value={editCollectionFeeReais} onChange={(e) => setEditCollectionFeeReais(e.target.value)} /></label>
+                )}
+                <p className="rrl-hint">💡 O preço e as taxas são ANÚNCIO — o pagamento em si ainda não acontece pelo sistema.</p>
               </div>
               <div className="rrl-modal-foot">
                 <button type="button" className="rrl-modal-cancel" onClick={() => setEditFor(null)}>Cancelar</button>
