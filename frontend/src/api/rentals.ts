@@ -203,6 +203,10 @@ export async function getMyRentalBookings(): Promise<MyBooking[]> {
   const res = await apiFetchJson<{ ok: boolean; data: MyBooking[] }>('/rentable-resources/my-bookings');
   return res.data;
 }
+// O consumidor cancela a PRÓPRIA reserva. Praxe: vira 'cancelled' (histórico preservado), não deleta.
+export async function cancelMyRentalBooking(bookingId: string): Promise<void> {
+  await apiFetchJson(`/rentable-resources/my-bookings/${bookingId}/cancel`, { method: 'POST' });
+}
 
 export type MyResource = RentableResource & { pricingTiers: Array<{ unit: RentalPricingUnit; priceCents: number }> };
 export async function listMyRentableResources(ownerActorId: string): Promise<MyResource[]> {

@@ -225,6 +225,28 @@ class RentableResourceService {
   }
 
   /**
+   * O CONSUMIDOR cancela a PRÓPRIA solicitação/reserva (só a dele — canRepresentActor sobre o requester).
+   * Praxe de mercado: cancelar NÃO deleta — vira 'cancelled' e fica no HISTÓRICO (prova para reclamação/
+   * denúncia/disputa/auditoria). Pré-dinheiro: cancelável em requested/confirmed (sem transação); check_in/
+   * out não (já em uso). O período volta a ficar disponível. Δbank=0.
+   */
+  async cancelMyBooking(tenantId: string, bookingId: string, requesterActorId: string, requestingUserId: string) {
+    let canRep = false;
+    try { canRep = await authorizationService.canRepresentActor(tenantId, requestingUserId, requesterActorId); } catch { canRep = false; }
+    if (!canRep) throw HttpError.forbidden('RENTAL_CANCEL_NOT_REPRESENTABLE: só o próprio actor cancela sua reserva.');
+    const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
+    const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
+    const booking = await unifiedAvailabilityRepository.findBookingById(tenantId, bookingId);
+    if (!booking) throw HttpError.notFound('BOOKING_NOT_FOUND');
+    if (booking.requesterActorId !== requesterActorId) throw HttpError.forbidden('RENTAL_CANCEL_NOT_OWN: esta reserva não é sua.');
+    if (!['requested', 'confirmed'].includes(booking.status)) {
+      throw HttpError.badRequest('RENTAL_CANCEL_INVALID_STATE: só dá para cancelar solicitação pendente ou reserva confirmada (ainda sem uso).');
+    }
+    await unifiedAvailabilityService.updateBooking(tenantId, bookingId, requestingUserId, { status: 'cancelled' as any });
+    return { bookingId, status: 'cancelled' };
+  }
+
+  /**
    * O DONO RECUSA uma solicitação (owner-only). Muda status para 'cancelled' (vocabulário existente),
    * preservando o histórico. Reusa o updateBooking do core (que valida existência). Δbank=0.
    */

@@ -357,6 +357,28 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * POST /rentable-resources/my-bookings/:bookingId/cancel — o CONSUMIDOR cancela a PRÓPRIA reserva.
+   * canRepresentActor sobre o requester (o service revalida que o booking é dele). Status → cancelled
+   * (histórico preservado, não deleta). Δbank=0.
+   */
+  fastify.post<{ Params: { bookingId: string } }>('/my-bookings/:bookingId/cancel', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const userId = (req.user as { userId?: string } | undefined)?.userId;
+    if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
+    const actorId = req.actionContext?.actorId;
+    if (!actorId) return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    let canRep = false;
+    try { canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, actorId); } catch { canRep = false; }
+    if (!canRep) return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o actor declarado', code: 'RENTAL_CANCEL_NOT_REPRESENTABLE' });
+    try {
+      const data = await rentableResourceService.cancelMyBooking(req.tenant.id, req.params.bookingId, actorId, userId);
+      return reply.send({ ok: true, data });
+    } catch (err: any) {
+      return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro ao cancelar' });
+    }
+  });
+
+  /**
    * GET /rentable-resources/:id/quote-preview?startAt=&endAt= — COTAÇÃO de exibição para o consumidor:
    * reservabilidade + estimativa + horário de retirada/devolução. Backend calcula tudo; front só projeta.
    * NÃO cria reserva/hold/cobrança nem toca o Bank (Δbank=0). Público (recurso público).

@@ -27,6 +27,7 @@ import {
   type RentableResource,
   type MyResource,
   getMyRentalBookings,
+  cancelMyRentalBooking,
   type MyBooking,
   type RentableResourceType,
   type RentalPricingUnit,
@@ -117,6 +118,19 @@ export default function RentalResourceListPage() {
 
   const [resources, setResources] = useState<MyResource[]>([]);
   const [myBookings, setMyBookings] = useState<MyBooking[]>([]);
+  // Aba do modo consumir: 'rent' (buscar/alugar — foco) | 'bookings' (meus compromissos). Padrão: alugar.
+  const [consumerTab, setConsumerTab] = useState<'rent' | 'bookings'>('rent');
+  const [showHistory, setShowHistory] = useState(false);
+  const handleCancelMyBooking = async (bookingId: string) => {
+    if (!window.confirm('Cancelar esta solicitação? Ela vai para o seu histórico (fica registrada).')) return;
+    try {
+      await cancelMyRentalBooking(bookingId);
+      showToast('Solicitação cancelada.', 'success');
+      getMyRentalBookings().then(setMyBookings).catch(() => {});
+    } catch (err: any) {
+      showToast(err?.message || 'Erro ao cancelar', 'error');
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -385,28 +399,52 @@ export default function RentalResourceListPage() {
         subtitle="Imóveis, veículos, equipamentos e espaços disponíveis na comunidade."
         rail={<RightContextRail module="rentals" />}
       >
-        {/* MINHAS SOLICITAÇÕES — a locação existe para os dois lados (backend projeta status/período/dono). */}
-        {myBookings.length > 0 && (
-          <section className="rrl-mybookings">
-            <h3>Minhas solicitações de locação</h3>
-            <div className="rrl-mybookings-list">
-              {myBookings.map((b) => (
-                <div key={b.bookingId} className="rrl-mybooking" onClick={() => navigate(`/locacoes/${b.resourceId}`)}>
-                  <div className="rrl-mybooking-head">
-                    <span className="rrl-mybooking-label">{RESOURCE_TYPE_ICON[b.resourceType]} {b.resourceLabel}</span>
-                    <span className={`rrl-mybooking-status rrl-bk-${b.status}`}>{MY_BOOKING_STATUS[b.status] ?? b.status}</span>
-                  </div>
-                  {b.bookedStart && b.bookedEnd && <span className="rrl-mybooking-line">📅 {new Date(b.bookedStart).toLocaleString('pt-BR')} → {new Date(b.bookedEnd).toLocaleString('pt-BR')}</span>}
-                  <span className="rrl-mybooking-line">{b.estimate?.available ? `💰 Estimativa: R$ ${(b.estimate.estimatedPriceCents / 100).toFixed(2).replace('.', ',')}` : '💰 Preço a combinar'}</span>
-                  <span className="rrl-mybooking-line">👤 Dono: {b.owner.displayName}
-                    {b.handoffTimeStart && b.handoffTimeEnd ? ` · 🕗 retirada/devolução ${b.handoffTimeStart.slice(0, 5)}–${b.handoffTimeEnd.slice(0, 5)}` : ''}</span>
-                  <button type="button" className="rrl-mybooking-profile" onClick={(e) => { e.stopPropagation(); navigate(`/vitrine/${b.owner.actorId}`); }}>Ver perfil do dono →</button>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Abas: Alugar (foco) × Minhas locações (compromissos). Não empurrar a busca para baixo. */}
+        {(() => { const active = myBookings.filter((b) => ['requested', 'confirmed', 'checked_in'].includes(b.status)); return (
+          <div className="rrl-consumer-tabs">
+            <button type="button" className={`rrl-consumer-tab ${consumerTab === 'rent' ? 'active' : ''}`} onClick={() => setConsumerTab('rent')}>🔎 Alugar</button>
+            <button type="button" className={`rrl-consumer-tab ${consumerTab === 'bookings' ? 'active' : ''}`} onClick={() => setConsumerTab('bookings')}>
+              🗓️ Minhas locações{active.length > 0 ? ` (${active.length})` : ''}
+            </button>
+          </div>
+        ); })()}
 
+        {consumerTab === 'bookings' && (() => {
+          const active = myBookings.filter((b) => ['requested', 'confirmed', 'checked_in'].includes(b.status));
+          const history = myBookings.filter((b) => ['cancelled', 'checked_out', 'expired'].includes(b.status));
+          const renderCard = (b: MyBooking, canCancel: boolean) => (
+            <div key={b.bookingId} className="rrl-mybooking">
+              <div className="rrl-mybooking-head" onClick={() => navigate(`/locacoes/${b.resourceId}`)} style={{ cursor: 'pointer' }}>
+                <span className="rrl-mybooking-label">{RESOURCE_TYPE_ICON[b.resourceType]} {b.resourceLabel}</span>
+                <span className={`rrl-mybooking-status rrl-bk-${b.status}`}>{MY_BOOKING_STATUS[b.status] ?? b.status}</span>
+              </div>
+              {b.bookedStart && b.bookedEnd && <span className="rrl-mybooking-line">📅 {new Date(b.bookedStart).toLocaleString('pt-BR')} → {new Date(b.bookedEnd).toLocaleString('pt-BR')}</span>}
+              <span className="rrl-mybooking-line">{b.estimate?.available ? `💰 Estimativa: R$ ${(b.estimate.estimatedPriceCents / 100).toFixed(2).replace('.', ',')}` : '💰 Preço a combinar'}</span>
+              <span className="rrl-mybooking-line">👤 Dono: {b.owner.displayName}
+                {b.handoffTimeStart && b.handoffTimeEnd ? ` · 🕗 ${b.handoffTimeStart.slice(0, 5)}–${b.handoffTimeEnd.slice(0, 5)}` : ''}</span>
+              <div className="rrl-mybooking-actions">
+                <button type="button" className="rrl-mybooking-profile" onClick={() => navigate(`/vitrine/${b.owner.actorId}`)}>Ver perfil do dono →</button>
+                {canCancel && <button type="button" className="rrl-mybooking-cancel" onClick={() => handleCancelMyBooking(b.bookingId)}>Cancelar</button>}
+              </div>
+            </div>
+          );
+          return (
+            <section className="rrl-mybookings">
+              {active.length === 0 && history.length === 0 && <p className="rrl-status">Você ainda não solicitou nenhuma locação. Vá na aba <strong>Alugar</strong> para começar.</p>}
+              {active.length > 0 && <div className="rrl-mybookings-list">{active.map((b) => renderCard(b, true))}</div>}
+              {history.length > 0 && (
+                <>
+                  <button type="button" className="rrl-history-toggle" onClick={() => setShowHistory((v) => !v)}>
+                    {showHistory ? '▾' : '▸'} Histórico ({history.length}) — canceladas/concluídas ficam registradas para reclamação ou disputa
+                  </button>
+                  {showHistory && <div className="rrl-mybookings-list rrl-mybookings-history">{history.map((b) => renderCard(b, false))}</div>}
+                </>
+              )}
+            </section>
+          );
+        })()}
+
+        {consumerTab === 'rent' && (<>
         <div className="rrl-type-hub">
           <button type="button" className={`rrl-type-card ${typeFilter === 'all' ? 'selected' : ''}`} onClick={() => setTypeFilter('all')}>
             <span className="rrl-type-icon">🔎</span><strong>Tudo</strong>
@@ -501,6 +539,7 @@ export default function RentalResourceListPage() {
             </div>
           </>
         )}
+        </>)}
       </PageModuleShell>
     );
   }
