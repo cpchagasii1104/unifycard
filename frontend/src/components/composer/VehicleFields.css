@@ -1,8 +1,10 @@
 /* VehicleFields — cascata Categoria→Marca→Modelo→Ano. */
 .vf{ display:flex; flex-direction:column; gap:8px; }
-.vf-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
-@media (max-width:720px){ .vf-row{ grid-template-columns:1fr 1fr; } }
-@media (max-width:420px){ .vf-row{ grid-template-columns:1fr; } }
+/* minmax(0,1fr): colunas encolhem (placeholders longos truncam via ellipsis do combobox) — sem isso
+   o 1fr assume o min-content do texto e a linha estoura a largura, cortando o header/actor. */
+.vf-row{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; }
+@media (max-width:720px){ .vf-row{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+@media (max-width:420px){ .vf-row{ grid-template-columns:minmax(0, 1fr); } }
 .vf-cleared{
   font-size:12.5px; color:#4f46e5; background:#eef1ff; border:1px solid #dfe3fe;
   border-radius:8px; padding:8px 11px; margin:0;
