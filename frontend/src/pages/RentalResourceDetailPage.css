@@ -55,3 +55,10 @@
 .rrd-empty-visitor { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; padding: 18px; background: #fbfcff; border: 1px solid #e9ebf4; border-radius: 12px; color: #5b627a; }
 .rrd-request-btn { padding: .6rem 1.2rem; border: 0; border-radius: 10px; background: #6366f1; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .rrd-request-btn:hover { background: #4f46e5; }
+
+/* Escolha de subperíodo na reserva (locação por período). */
+.rrd-book-period { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.rrd-book-period-hint { font-size: .78rem; color: #8891a6; }
+.rrd-book-period-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.rrd-book-period-row label { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; font-weight: 600; color: #5b627a; }
+.rrd-book-period-row input { border: 1px solid #d9dbe4; border-radius: 6px; padding: .4rem .5rem; font: inherit; }

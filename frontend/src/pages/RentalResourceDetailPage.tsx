@@ -118,11 +118,12 @@ export default function RentalResourceDetailPage() {
     }
   };
 
-  const handleRequestBooking = async (availabilityId: string) => {
+  const handleRequestBooking = async (availabilityId: string, startAt?: string, endAt?: string) => {
     if (!activeActor || !id) return;
     try {
       // O modo (auto/manual) é do DONO, decidido no backend — a tela só projeta o resultado.
-      const result = await requestResourceBooking(id, availabilityId);
+      // startAt/endAt = subperíodo escolhido (locação por período); backend valida ⊆ janela.
+      const result = await requestResourceBooking(id, availabilityId, startAt, endAt);
       showToast(
         result.autoConfirmed
           ? '✅ Reserva confirmada na hora! (o dono habilitou reserva automática)'
@@ -131,9 +132,17 @@ export default function RentalResourceDetailPage() {
       await load();
     } catch (err: any) {
       const msg = String(err?.message || '');
-      showToast(msg.includes('TIME_CONFLICT') ? 'Este período acabou de ser reservado por outra pessoa. Escolha outro.' : (msg || 'Erro ao solicitar reserva'), 'error');
+      const friendly = msg.includes('TIME_CONFLICT') ? 'Este período acabou de ser reservado por outra pessoa. Escolha outro.'
+        : msg.includes('OUT_OF_WINDOW') ? 'O período escolhido está fora da janela de disponibilidade. Ajuste as datas.'
+        : msg.includes('PERIOD_INVALID') ? 'A data de fim precisa ser depois da de início.'
+        : (msg || 'Erro ao solicitar reserva');
+      showToast(friendly, 'error');
     }
   };
+
+  // Subperíodo escolhido por janela (locação por período). Chave = availabilityId.
+  const [pickStart, setPickStart] = useState<Record<string, string>>({});
+  const [pickEnd, setPickEnd] = useState<Record<string, string>>({});
 
   // Editar/excluir janela (dono). datetime-local ISO (sem TZ) → o backend valida overlap e autoridade.
   const [editWinId, setEditWinId] = useState<string | null>(null);
@@ -277,11 +286,27 @@ export default function RentalResourceDetailPage() {
                   </div>
                 ))}
 
-                {!isOwner && !activeBooking && requestedBookings.length === 0 && (
-                  <button type="button" className="rrd-request-btn" onClick={() => handleRequestBooking(availability.availabilityId)}>
-                    {resource.bookingApprovalMode === 'automatic' ? '⚡ Reservar agora' : '🔑 Solicitar esta locação'}
-                  </button>
-                )}
+                {!isOwner && !activeBooking && requestedBookings.length === 0 && (() => {
+                  const wid = availability.availabilityId;
+                  const toLocal = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+                  const winMin = toLocal(availability.startDatetime);
+                  const winMax = toLocal(availability.endDatetime);
+                  return (
+                    <div className="rrd-book-period">
+                      <span className="rrd-book-period-hint">Escolha o período que você precisa (dentro da janela). Em branco = janela inteira.</span>
+                      <div className="rrd-book-period-row">
+                        <label>De<input type="datetime-local" min={winMin} max={winMax} value={pickStart[wid] ?? ''} onChange={(e) => setPickStart((p) => ({ ...p, [wid]: e.target.value }))} /></label>
+                        <label>Até<input type="datetime-local" min={winMin} max={winMax} value={pickEnd[wid] ?? ''} onChange={(e) => setPickEnd((p) => ({ ...p, [wid]: e.target.value }))} /></label>
+                      </div>
+                      <button type="button" className="rrd-request-btn"
+                        onClick={() => handleRequestBooking(wid,
+                          pickStart[wid] ? new Date(pickStart[wid]).toISOString() : undefined,
+                          pickEnd[wid] ? new Date(pickEnd[wid]).toISOString() : undefined)}>
+                        {resource.bookingApprovalMode === 'automatic' ? '⚡ Reservar agora' : '🔑 Solicitar esta locação'}
+                      </button>
+                    </div>
+                  );
+                })()}
                 {!isOwner && isMine && !activeBooking && (
                   <span className="rrd-window-tag rrd-tag-requested">Sua solicitação aguarda confirmação</span>
                 )}

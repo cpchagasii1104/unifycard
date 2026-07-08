@@ -138,10 +138,12 @@ export async function getResourcePublicAvailability(id: string): Promise<PublicA
 // Solicitar/reservar uma janela (modelo Airbnb). O modo (auto/manual) é do DONO, decidido no backend.
 // Retorna o status final: 'confirmed' (auto) ou 'requested' (manual). Pré-dinheiro.
 export interface BookingResult { bookingId: string; status: string; autoConfirmed: boolean }
-export async function requestResourceBooking(resourceId: string, availabilityId: string): Promise<BookingResult> {
+// startAt/endAt = SUBPERÍODO desejado dentro da janela (locação por período). Sem eles = janela inteira.
+// O backend valida que o período está contido na janela.
+export async function requestResourceBooking(resourceId: string, availabilityId: string, startAt?: string, endAt?: string): Promise<BookingResult> {
   const res = await apiFetchJson<{ ok: boolean; data: BookingResult }>(`/rentable-resources/${resourceId}/book`, {
     method: 'POST',
-    body: JSON.stringify({ availabilityId }),
+    body: JSON.stringify({ availabilityId, startAt, endAt }),
   });
   return res.data;
 }
