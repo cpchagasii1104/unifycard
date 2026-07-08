@@ -364,6 +364,17 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /rentable-resources/pricing-units?resourceType= — unidades de preço PERMITIDAS por tipo (contrato
+   * GOVERNADO no backend; o front só renderiza). Público/read-only.
+   */
+  fastify.get<{ Querystring: { resourceType?: string } }>('/pricing-units', async (req, reply) => {
+    const rt = req.query.resourceType;
+    const parsed = resourceTypeEnum.safeParse(rt);
+    if (!parsed.success) return reply.status(400).send({ error: 'resourceType inválido' });
+    return reply.send({ ok: true, data: { units: rentableResourceService.getAllowedPricingUnits(parsed.data) } });
+  });
+
+  /**
    * GET /rentable-resources/my-bookings — as reservas do CONSUMIDOR (a locação existe para os dois lados).
    * canRepresentActor sobre o próprio actor (actionContext) — o consumidor só vê as suas. Read-only.
    */

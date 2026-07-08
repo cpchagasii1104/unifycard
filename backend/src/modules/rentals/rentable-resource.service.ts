@@ -13,8 +13,9 @@ import type {
   CreateRentableResourceInput,
   ListRentableResourcesFilters,
   MileagePolicy,
+  RentalPricingUnit,
 } from './rentable-resource.types';
-import { MILEAGE_POLICIES } from './rentable-resource.types';
+import { MILEAGE_POLICIES, PRICING_UNITS_BY_RESOURCE_TYPE } from './rentable-resource.types';
 
 /** Subtrai intervalos ocupados de [winStart, winEnd), devolvendo os GAPS livres em ordem. Determinístico.
  *  Ex.: janela 08→31 menos reserva 10→17 = [08→10, 17→31]. Toca disponibilidade projetada (Clayton). */
@@ -523,6 +524,11 @@ class RentableResourceService {
 
   async list(tenantId: string, filters: ListRentableResourcesFilters): Promise<RentableResource[]> {
     return rentableResourceRepository.list(tenantId, filters);
+  }
+
+  /** Unidades de preço PERMITIDAS por tipo (contrato governado no backend — o front só renderiza). */
+  getAllowedPricingUnits(resourceType: RentableResourceType): RentalPricingUnit[] {
+    return PRICING_UNITS_BY_RESOURCE_TYPE[resourceType] ?? [];
   }
 
   /** "Meus recursos" ENRIQUECIDOS com as faixas de preço (SSOT rental_resource_pricing, batch) para o

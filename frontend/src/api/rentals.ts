@@ -223,6 +223,13 @@ export async function getMyRentalBookings(): Promise<MyBooking[]> {
   const res = await apiFetchJson<{ ok: boolean; data: MyBooking[] }>('/rentable-resources/my-bookings');
   return res.data;
 }
+// Unidades de preço PERMITIDAS por tipo — contrato GOVERNADO no backend. O front só renderiza (não
+// decide quais unidades fazem sentido). GET /rentable-resources/pricing-units?resourceType=
+export async function getAllowedPricingUnits(resourceType: RentableResourceType): Promise<RentalPricingUnit[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: { units: RentalPricingUnit[] } }>(`/rentable-resources/pricing-units?resourceType=${encodeURIComponent(resourceType)}`);
+  return res.data.units;
+}
+
 // Endereço do recurso com PRIVACIDADE (backend decide). Público: cidade/UF/bairro. Completo: dono ou
 // locatário confirmado. GET /rentable-resources/:id/address
 export interface ResourceAddress {

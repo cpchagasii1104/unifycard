@@ -28,6 +28,7 @@ import {
   type MyResource,
   getMyRentalBookings,
   cancelMyRentalBooking,
+  getAllowedPricingUnits,
   getReceivedRentalBookings,
   declineResourceRequest,
   type MyBooking,
@@ -89,15 +90,6 @@ const formatPrice = (r: { pricingTiers?: Array<{ unit: RentalPricingUnit; priceC
 // Resumo de handoff (entrega/retirada) para o card — projeta o método do backend, não inventa.
 const HANDOFF_SUMMARY: Record<string, string> = {
   renter_pickup: 'Retirada no local', owner_delivery: 'Dono entrega', to_be_arranged: 'A combinar',
-};
-// MVP: subconjunto de unidades de preço por tipo de recurso. É PROJEÇÃO UX de unidades JÁ governadas
-// (RENTAL_PRICING_UNITS) — não inventa unidade nova. Imóvel não mostra hora/semana; espaço mostra
-// hora/dia. TODO(contrato): graduar para um contrato de backend (como /concepts). Flag no relatório.
-const UNITS_BY_TYPE: Record<RentableResourceType, RentalPricingUnit[]> = {
-  property: ['por_mes', 'por_semestre', 'por_ano'],
-  space: ['por_hora', 'por_dia'],
-  vehicle: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
-  equipment: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
 };
 // Resumo dos atributos de imóvel (metadata facets) para card/detalhe — projeta, não inventa.
 function propertySummary(r: { resourceType: string; metadata?: Record<string, unknown> }): string | null {
@@ -315,6 +307,9 @@ export default function RentalResourceListPage() {
   const [propPetsAllowed, setPropPetsAllowed] = useState(false);
   const [propFloor, setPropFloor] = useState('');
   const [propElevator, setPropElevator] = useState(false);
+  // Unidades de preço PERMITIDAS por tipo — vêm do BACKEND (contrato governado), não de mapa local.
+  const [allowedUnits, setAllowedUnits] = useState<RentalPricingUnit[]>([]);
+  useEffect(() => { getAllowedPricingUnits(resourceType).then(setAllowedUnits).catch(() => setAllowedUnits([])); }, [resourceType]);
 
   // edição da OFERTA do próprio anúncio (o dono edita preço/quantidade/cidade/descrição)
   const [editFor, setEditFor] = useState<string | null>(null);
@@ -892,7 +887,7 @@ export default function RentalResourceListPage() {
           <div className="rrl-field">
             Preço anunciado por faixa <span className="rrl-hint" style={{ fontWeight: 400 }}>(preencha as que oferecer)</span>
             <div className="rrl-tiers">
-              {(UNITS_BY_TYPE[resourceType] ?? RENTAL_PRICING_UNITS).map((u) => (
+              {allowedUnits.map((u) => (
                 <div key={u} className="rrl-tier">
                   <span className="rrl-tier-label">{PRICING_UNIT_PT[u]}</span>
                   <span className="rrl-tier-prefix">R$</span>

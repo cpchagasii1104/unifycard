@@ -38,6 +38,16 @@ export type RentalPricingUnit = (typeof RENTAL_PRICING_UNITS)[number];
 
 // Duração canônica de cada unidade em HORAS — parte da definição do vocabulário (fonte única; a
 // estimativa de preço COMPÕE daqui, não replica). Mês=30d, semestre=180d, ano=365d.
+// CONTRATO GOVERNADO: quais unidades de preço fazem sentido por tipo de recurso. É a regra de negócio
+// (não o front). Subconjunto das unidades já governadas (RENTAL_PRICING_UNITS) — não inventa unidade.
+// Imóvel = mês/semestre/ano; espaço = hora/dia; veículo/equipamento = hora→mês. O front só renderiza.
+export const PRICING_UNITS_BY_RESOURCE_TYPE: Record<RentableResourceType, RentalPricingUnit[]> = {
+  property: ['por_mes', 'por_semestre', 'por_ano'],
+  space: ['por_hora', 'por_dia'],
+  vehicle: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
+  equipment: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
+};
+
 export const RENTAL_PRICING_UNIT_HOURS: Record<RentalPricingUnit, number> = {
   por_hora: 1, por_dia: 24, por_semana: 168, por_mes: 720, por_semestre: 4320, por_ano: 8760,
 };

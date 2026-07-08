@@ -29,13 +29,11 @@ const TITLE: Record<string, string> = {
 };
 
 export default function RentalAddressSection({
-  resourceType, value, onChange, requireStreet = false,
+  resourceType, value, onChange,
 }: {
   resourceType: 'vehicle' | 'equipment' | 'property' | 'space';
   value: ResourceLocationValue;
   onChange: (v: ResourceLocationValue) => void;
-  /** imóvel/espaço pedem rua+número; veículo/equip podem ficar só na cidade. */
-  requireStreet?: boolean;
 }) {
   const [cepBusy, setCepBusy] = useState(false);
   const [cepMsg, setCepMsg] = useState<string | null>(null);
@@ -64,7 +62,10 @@ export default function RentalAddressSection({
     } finally { setCepBusy(false); }
   };
 
-  const showStreet = resourceType === 'property' || resourceType === 'space' || requireStreet;
+  // Endereço completo (rua/número/complemento) para TODOS os tipos — Clayton: CEP transversal, endereço
+  // completo salvo quando informado. A diferença por tipo é só rótulo + obrigatoriedade (número* no imóvel),
+  // nunca o SSOT. Veículo/equip = opcional; imóvel = número obrigatório.
+  const showStreet = true;
 
   return (
     <div className="ras">
