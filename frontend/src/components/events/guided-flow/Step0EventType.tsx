@@ -134,14 +134,18 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
               ))}
             </div>
           )}
-          <input type="text" className="form-textarea" placeholder="Ex.: sinuca, futebol, carros antigos, música…"
+          <input type="text" className="form-textarea" placeholder="Buscar tema: sinuca, futebol, carros antigos, música…"
             value={themeQuery} onChange={(e) => setThemeQuery(e.target.value)} />
+          <p className="step-hint">O tema é opcional, mas precisa ser <strong>selecionado da lista</strong> (é um conceito governado, não texto livre) — é o que conecta o evento a espaços, comércios, serviços e fornecedores.</p>
           {themeResults.length > 0 && (
             <div className="theme-results">
               {themeResults.map((t) => (
                 <button key={t.conceptId} type="button" className="theme-result" onClick={() => addTheme(t)}>{t.label}</button>
               ))}
             </div>
+          )}
+          {themeQuery.trim().length >= 2 && themeResults.length === 0 && (
+            <p className="step-hint theme-empty">Não encontrei esse tema. Você pode continuar sem tema — nada de texto livre é salvo.</p>
           )}
         </div>
 
