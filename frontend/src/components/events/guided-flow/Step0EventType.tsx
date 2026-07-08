@@ -12,8 +12,16 @@ import { useState, useEffect } from 'react';
 import type { GuidedFlowData } from '../EventCreationGuidedFlow';
 // DECISION-0161 fatia 3: a plateia vem do CONTRATO server-driven (actor-adaptativo) — a tela PROJETA
 // o vocabulário governado (events.visibility + typed-edge), NUNCA define plateia em TSX.
-import { getEventAudienceOptions, type EventAudienceOption } from '../../../api/events';
+// FONTE ÚNICA (Clayton 2026-07-07): plateia vem do transversal /audience-options (deriva de
+// PAIR_ALLOWED_LABELS), não mais de /events/audience-options (segunda projeção divergente).
+// events.visibility tem vocabulário próprio (public/private/...); mapper de saída no submit.
+import { getAudienceOptions, type AudienceOption } from '../../../api/audience';
 import './Step0EventType.css';
+
+// transversal (public/connections/only_me) → events.visibility (public/private). O refinamento
+// fino vem de audienceRelationshipTypes (idêntico nos dois). connections/only_me = não-público.
+const toEventVisibility = (v: AudienceOption['visibility']): 'public' | 'private' =>
+  v === 'public' ? 'public' : 'private';
 
 interface Step0EventTypeProps {
   data: GuidedFlowData;
@@ -28,18 +36,18 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
   const [selectedSubtype, setSelectedSubtype] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // 0161: plateia server-driven ("Para quem é este evento?" — PRIMEIRA pergunta, decisão de Clayton).
-  const [audienceOptions, setAudienceOptions] = useState<EventAudienceOption[]>([]);
-  const [selectedAudience, setSelectedAudience] = useState<EventAudienceOption | null>(null);
+  const [audienceOptions, setAudienceOptions] = useState<AudienceOption[]>([]);
+  const [selectedAudience, setSelectedAudience] = useState<AudienceOption | null>(null);
   useEffect(() => {
-    getEventAudienceOptions()
+    getAudienceOptions()
       .then((d) => setAudienceOptions(d.options))
       .catch(() => setAudienceOptions([
-        // fallback honesto (contrato indisponível): só o macro público/privado, SEM refinamento inventado.
-        { key: 'public', label: 'Público', visibility: 'public', audienceRelationshipTypes: null },
-        { key: 'only_me', label: 'Só eu', visibility: 'private', audienceRelationshipTypes: null },
+        // fallback honesto (contrato indisponível): só o macro público/só-eu, SEM refinamento inventado.
+        { key: 'public', label: 'Público', icon: '🌐', visibility: 'public', audienceRelationshipTypes: null },
+        { key: 'only_me', label: 'Só eu', icon: '🔒', visibility: 'only_me', audienceRelationshipTypes: null },
       ]));
   }, []);
-  const handleAudienceChange = (opt: EventAudienceOption) => {
+  const handleAudienceChange = (opt: AudienceOption) => {
     setSelectedAudience(opt);
     // selectedType alimenta o mapeamento de event_type existente (público vs demais).
     setSelectedType(opt.visibility === 'public' ? 'public' : 'private');
@@ -128,7 +136,7 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
     const eventType = eventTypeMap[selectedCategory]?.[selectedType] || selectedType;
 
     // 0161: o macro (visibility) e o refinamento vêm da OPÇÃO DO CONTRATO escolhida — não de booleano local.
-    const visibilityValue = selectedAudience?.visibility ?? (selectedType === 'private' ? 'private' : 'public');
+    const visibilityValue = selectedAudience ? toEventVisibility(selectedAudience.visibility) : (selectedType === 'private' ? 'private' : 'public');
     const updatedData = {
       event_type: eventType as any,
       event_subtype: selectedSubtype,

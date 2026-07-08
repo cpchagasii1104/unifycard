@@ -40,6 +40,8 @@ export async function createRentableResource(input: {
   priceCents?: number | null;
   resourceYear?: number | null;
   metadata?: Record<string, unknown>;
+  visibility?: 'public' | 'connections' | 'only_me';
+  audienceRelationshipTypes?: string[] | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
@@ -71,9 +73,10 @@ export async function updateRentableResourceStatus(
   return res.data;
 }
 
-// CONSUMIR (descoberta) — freio 'sem discovery' da SLICE-B revogado por Clayton 2026-07-07
+// CONSUMIR (descoberta) — filtrada pela PLATEIA do dono no BACKEND (viewer server-side).
+// discover=true → o backend decide o que o viewer pode ver; frontend só projeta.
 export async function listActiveRentableResources(): Promise<RentableResource[]> {
-  const res = await apiFetchJson<{ ok: boolean; data: RentableResource[] }>('/rentable-resources?status=active&limit=50');
+  const res = await apiFetchJson<{ ok: boolean; data: RentableResource[] }>('/rentable-resources?discover=true&limit=50');
   return res.data;
 }
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { showToast } from '../common/Toast';
 import { createDemand, listWorkConcepts, type CreateDemandInput } from '../../api/demands';
+import { getAudienceOptions, type AudienceOption } from '../../api/audience';
 import '../../pages/OpportunitiesPage.css';
 
 export const VINCULO_PT: Record<string, string> = {
@@ -26,27 +27,18 @@ export default function DemandPublishForm({ onPublished, onCancel }: {
     acceptanceMode: 'com_analise', pricingMode: 'preco_ofertado', visibility: 'public',
   });
 
-  // Plateia (padrão 0162) — opções COERENTES com o tipo do actor (pares governados)
-  const AUDIENCE_OPTIONS = (activeActor?.actor_type === 'page'
-    ? [
-        { key: 'public', label: '🌐 Público — toda a comunidade', visibility: 'public' as const },
-        { key: 'connections', label: '🤝 Todas as minhas conexões', visibility: 'connections' as const },
-        { key: 'fornecedores', label: '📦 Só fornecedores', visibility: 'connections' as const, types: ['fornecedor'] },
-        { key: 'colaboradores', label: '🧑‍💼 Só colaboradores', visibility: 'connections' as const, types: ['colaborador'] },
-        { key: 'clientes', label: '🛒 Só clientes', visibility: 'connections' as const, types: ['cliente'] },
-        { key: 'parceiros', label: '🤝 Só parceiros', visibility: 'connections' as const, types: ['parceiro'] },
-      ]
-    : [
-        { key: 'public', label: '🌐 Público — toda a comunidade', visibility: 'public' as const },
-        { key: 'connections', label: '🤝 Todas as minhas conexões', visibility: 'connections' as const },
-        { key: 'amigos', label: '👥 Só amigos', visibility: 'connections' as const, types: ['amigo'] },
-        { key: 'familiares', label: '🏠 Só familiares', visibility: 'connections' as const, types: ['familiar'] },
-      ]);
+  // FONTE ÚNICA de plateia (Clayton 2026-07-07): server-driven do transversal /audience-options
+  // (deriva de PAIR_ALLOWED_LABELS por actor). Hardcode local eliminado — Lei de Coerência.
+  const [audienceOptionsRaw, setAudienceOptionsRaw] = useState<AudienceOption[]>([]);
+  // Restrição de ATO (não invenção): uma DEMANDA não pode ser 'só eu' — ninguém poderia responder.
+  // O ato esconde a opção que não se aplica; NÃO cria opção nova (a lista vem toda do transversal).
+  const audienceOptions = audienceOptionsRaw.filter((a) => a.visibility !== 'only_me');
   const [audienceKey, setAudienceKey] = useState('public');
 
   useEffect(() => {
     if (!activeActor?.actor_id) return;
     listWorkConcepts().then(setConcepts).catch(() => setConcepts([]));
+    getAudienceOptions().then((a) => setAudienceOptionsRaw(a.options)).catch(() => setAudienceOptionsRaw([]));
   }, [activeActor?.actor_id]);
 
   const filteredConcepts = concepts.filter((c) =>
@@ -56,11 +48,13 @@ export default function DemandPublishForm({ onPublished, onCancel }: {
     if (!form.conceptSlug || !form.title.trim()) { showToast('Escolha a função (catálogo) e dê um título.', 'error'); return; }
     setBusy(true);
     try {
-      const aud = AUDIENCE_OPTIONS.find((a) => a.key === audienceKey) ?? AUDIENCE_OPTIONS[0];
+      const aud = audienceOptions.find((a) => a.key === audienceKey) ?? audienceOptions[0];
+      // audienceOptions já exclui only_me (restrição de ato) → visibility ∈ {public, connections}
+      const demandVisibility: 'public' | 'connections' = aud?.visibility === 'connections' ? 'connections' : 'public';
       await createDemand({
         ...form,
-        visibility: aud.visibility,
-        audienceRelationshipTypes: (aud as { types?: string[] }).types,
+        visibility: demandVisibility,
+        audienceRelationshipTypes: aud?.audienceRelationshipTypes ?? undefined,
         offeredPriceCents: form.pricingMode === 'preco_ofertado' && form.offeredPriceCents ? form.offeredPriceCents : undefined,
       });
       showToast('Demanda publicada — o matching começou. 🎯', 'success');
@@ -74,7 +68,7 @@ export default function DemandPublishForm({ onPublished, onCancel }: {
     <div className="opp-form">
       <label>1 · Para quem é isso? *
         <select value={audienceKey} onChange={(e) => setAudienceKey(e.target.value)}>
-          {AUDIENCE_OPTIONS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+          {audienceOptions.map((a) => <option key={a.key} value={a.key}>{a.icon} {a.label}</option>)}
         </select>
       </label>
       <label>2 · O que você precisa? (busque no catálogo) *

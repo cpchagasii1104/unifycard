@@ -24,6 +24,10 @@ const createSchema = z.object({
   // Ano: fato escalar tipado (não CONCEPT, não texto livre — fix Clayton/2ª IA)
   resourceYear: z.number().int().min(1900).max(new Date().getFullYear() + 1).nullable().optional(),
   metadata: z.record(z.unknown()).optional(),
+  // Plateia (Clayton 2026-07-07): macro + refinamento. A LISTA de opções vem do transversal
+  // /audience-options; aqui só valida o vocabulário do substrato (o banco é a última linha).
+  visibility: z.enum(['public', 'connections', 'only_me']).optional(),
+  audienceRelationshipTypes: z.array(z.string()).nullable().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -79,6 +83,8 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         priceCents: parsed.data.priceCents ?? null,
         resourceYear: parsed.data.resourceYear ?? null,
         metadata: parsed.data.metadata ?? {},
+        visibility: parsed.data.visibility ?? 'public',
+        audienceRelationshipTypes: parsed.data.audienceRelationshipTypes ?? null,
       });
       return reply.status(201).send({ ok: true, data: resource });
     } catch (err: any) {
@@ -89,13 +95,26 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * GET /rentable-resources
-   * Lista recursos do tenant (RLS já isola). ?ownerActorId= filtra por dono (uso: "meus recursos").
+   * Dois modos: ?ownerActorId= = "meus recursos" (gestão do dono, sem filtro de plateia — é o
+   * próprio dono). ?discover=true = DESCOBERTA (consumir): recursos ATIVOS de terceiros filtrados
+   * pela PLATEIA do dono (enforcement no banco, viewer server-side = actionContext.actorId).
+   * Frontend NÃO cria verdade: a visibilidade é decidida pelo backend, não pela tela.
    */
-  fastify.get<{ Querystring: { ownerActorId?: string; status?: string; limit?: string; offset?: string } }>(
+  fastify.get<{ Querystring: { ownerActorId?: string; status?: string; limit?: string; offset?: string; discover?: string } }>(
     '/',
     async (req, reply) => {
       if (!req.tenant?.id) {
         return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+      // DESCOBERTA: viewer server-side + filtro de plateia do dono.
+      if (req.query.discover === 'true') {
+        const viewerActorId = req.actionContext?.actorId;
+        if (!viewerActorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório para descoberta' });
+        }
+        const resources = await rentableResourceService.listDiscoverable(
+          req.tenant.id, viewerActorId, req.query.limit ? parseInt(req.query.limit, 10) : undefined);
+        return reply.send({ ok: true, data: resources });
       }
       const statusParsed = req.query.status ? statusEnum.safeParse(req.query.status) : undefined;
       if (statusParsed && !statusParsed.success) {

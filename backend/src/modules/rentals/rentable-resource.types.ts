@@ -10,6 +10,9 @@
 // representam a NATUREZA do recurso (não o uso).
 export type RentableResourceType = 'equipment' | 'vehicle' | 'property' | 'space';
 export type RentableResourceStatus = 'active' | 'paused' | 'retired';
+// Macro-visibilidade da oferta (espelho do padrão posts/demanda 0162; a LISTA de opções vem do
+// transversal /audience-options, aqui só o vocabulário do substrato). Frontend NÃO cria verdade.
+export type RentableVisibility = 'public' | 'connections' | 'only_me';
 
 // DECISION-0151 ADENDO A (2026-07-07): unidade de cobrança do ANÚNCIO — vocabulário GOVERNADO
 // (fonte única; manifest + CHECK físico espelham daqui). Preço = REGISTRO puro (Δbank=0).
@@ -43,6 +46,8 @@ export interface RentableResource {
   priceCents: number | null;
   resourceYear: number | null;
   metadata: Record<string, unknown>;
+  visibility: RentableVisibility;
+  audienceRelationshipTypes: string[] | null;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -62,6 +67,8 @@ export interface RentableResourceRow {
   price_cents: string | number | null;
   resource_year: number | null;
   metadata: Record<string, unknown> | null;
+  visibility: RentableVisibility;
+  audience_relationship_types: string[] | null;
   status: RentableResourceStatus;
   is_active: boolean;
   created_at: Date;
@@ -78,6 +85,8 @@ export interface CreateRentableResourceInput {
   priceCents?: number | null;
   resourceYear?: number | null;
   metadata?: Record<string, unknown>;
+  visibility?: RentableVisibility;
+  audienceRelationshipTypes?: string[] | null;
 }
 
 export interface ListRentableResourcesFilters {

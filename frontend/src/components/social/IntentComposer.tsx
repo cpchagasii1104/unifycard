@@ -12,6 +12,7 @@ import { classifyPostIntent, type OccupancyType } from '../../utils/intent-class
 // F2 (sequência de Clayton): 1-Para quem? 2-O quê? ANTES de digitar — plateia = vocabulário GOVERNADO
 // posts.visibility (§2.4c); atos = contrato C1 (ActorIntent SSOT, server-driven por actor).
 import { getComposerContract, type ComposerIntentOption } from '../../api/composer';
+import { getAudienceOptions, type AudienceOption } from '../../api/audience';
 // F2-C (Clayton): modo operante + actor trocáveis DENTRO do modal — o contrato refetcha e o passo 2
 // muda na hora ("o actor e o modo operante moldam esta superfície"). Componentes REUSADOS (não duplicados).
 import OperatingModeToggle from '../layout/OperatingModeToggle';
@@ -78,6 +79,9 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   // Passo 1 "Para quem é isso?" — projeta posts.visibility (governado; PF: público/amigos/só-eu;
   // PJ: público — plateias finas de empresa em posts dependem de estender 0161 a posts, DECISION futura).
   const [step1Audience, setStep1Audience] = useState<{ key: string; label: string; visibility: 'public' | 'connections' | 'only_me'; audienceTypes?: string[] } | null>(null);
+  // FONTE ÚNICA de plateia (Clayton 2026-07-07): server-driven do transversal /audience-options
+  // (deriva de PAIR_ALLOWED_LABELS por actor). Zero hardcode local — muda por ACTOR, não por modo.
+  const [audienceOptions, setAudienceOptions] = useState<AudienceOption[]>([]);
   // Passo 2 "O que é isso?" — projetado do contrato C1 (ActorIntent SSOT).
   const [composerIntents, setComposerIntents] = useState<ComposerIntentOption[]>([]);
   const [step2Intent, setStep2Intent] = useState<ComposerIntentOption | null>(null);
@@ -160,6 +164,10 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
     getComposerContract(activeActor.actor_id, mode0161)
       .then((c) => setComposerIntents(c.intents))
       .catch(() => setComposerIntents([])); // sem contrato → sem atos (fail-closed)
+    // Plateia = fonte única transversal (muda por actor, NÃO por modo — a lista não depende de mode0161)
+    getAudienceOptions()
+      .then((a) => setAudienceOptions(a.options))
+      .catch(() => setAudienceOptions([]));
   }, [activeActor?.actor_id, activeActor?.actor_type, operatingMode]);
 
   useEffect(() => {
@@ -938,32 +946,19 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
                 {/* DECISION-0162: plateia macro + refinamento por tipo de relação (typed-edge).
                     Opções COERENTES com o tipo do actor (pares governados): PF→amigo/familiar/
                     conhecido; PJ→cliente/colaborador/fornecedor/parceiro. O backend revalida tudo. */}
-                {(activeActor?.actor_type === 'page'
-                  ? [
-                      { key: 'public', label: 'Público', visibility: 'public' as const },
-                      { key: 'connections', label: 'Todas as conexões', visibility: 'connections' as const },
-                      { key: 'clientes', label: 'Clientes', visibility: 'connections' as const, audienceTypes: ['cliente'] },
-                      { key: 'colaboradores', label: 'Colaboradores', visibility: 'connections' as const, audienceTypes: ['colaborador'] },
-                      { key: 'fornecedores', label: 'Fornecedores', visibility: 'connections' as const, audienceTypes: ['fornecedor'] },
-                      { key: 'parceiros', label: 'Parceiros', visibility: 'connections' as const, audienceTypes: ['parceiro'] },
-                      { key: 'only_me', label: 'Só eu', visibility: 'only_me' as const },
-                    ]
-                  : [
-                      { key: 'public', label: 'Público', visibility: 'public' as const },
-                      { key: 'connections', label: 'Todas as conexões', visibility: 'connections' as const },
-                      { key: 'friends', label: 'Amigos', visibility: 'connections' as const, audienceTypes: ['amigo'] },
-                      { key: 'familiares', label: 'Familiares', visibility: 'connections' as const, audienceTypes: ['familiar'] },
-                      { key: 'conhecidos', label: 'Conhecidos', visibility: 'connections' as const, audienceTypes: ['conhecido'] },
-                      { key: 'only_me', label: 'Só eu', visibility: 'only_me' as const },
-                    ]
-                ).map((opt) => (
+                {/* FONTE ÚNICA: audienceOptions vem do transversal /audience-options (deriva do
+                    SSOT PAIR_ALLOWED_LABELS por actor). Zero lista local — Clayton 2026-07-07. */}
+                {audienceOptions.map((opt) => (
                   <button
                     key={opt.key}
                     type="button"
                     className={`composer-audience-item ${step1Audience?.key === opt.key ? 'selected' : ''}`}
-                    onClick={() => { setStep1Audience(opt); setAudiencePickerOpen(false); }}
+                    onClick={() => {
+                      setStep1Audience({ key: opt.key, label: opt.label, visibility: opt.visibility, audienceTypes: opt.audienceRelationshipTypes ?? undefined });
+                      setAudiencePickerOpen(false);
+                    }}
                   >
-                    <span>{AUDIENCE_ICON[opt.key] ?? '🌐'}</span>
+                    <span>{opt.icon ?? AUDIENCE_ICON[opt.key] ?? '🌐'}</span>
                     <span>{opt.label}</span>
                     {step1Audience?.key === opt.key && <span className="composer-audience-check">✓</span>}
                   </button>

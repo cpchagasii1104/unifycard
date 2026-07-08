@@ -732,6 +732,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     const composerModule = await import('./modules/composer/composer.routes');
     await protectedScope.register(composerModule.default);
     console.log('[BOOT] Composer contract registered: /composer/contract');
+    // F-VISIBILITY-CAPABILITY: fonte ÚNICA de opções de plateia (Clayton 2026-07-07) — deriva de
+    // PAIR_ALLOWED_LABELS por actor_type; consumido por posts/demanda/evento/locação (mata os hardcodes).
+    const audienceModule = await import('./core/audience/audience.routes');
+    await protectedScope.register(audienceModule.default);
+    console.log('[BOOT] Audience options (transversal) registered: /audience-options');
     // F-SUPPORT-TICKET-BUSINESS-FACT-GATE (Fatia 6): Chamado gated por fato de negócio real
     const supportTicketModule = await import('./modules/support-tickets/support-ticket.routes');
     await protectedScope.register(supportTicketModule.default);

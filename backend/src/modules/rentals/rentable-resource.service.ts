@@ -49,6 +49,11 @@ class RentableResourceService {
     return rentableResourceRepository.list(tenantId, filters);
   }
 
+  /** DESCOBERTA (consumir): filtrada pela plateia do dono — enforcement no BANCO, viewer server-side. */
+  async listDiscoverable(tenantId: string, viewerActorId: string, limit?: number): Promise<RentableResource[]> {
+    return rentableResourceRepository.listDiscoverable(tenantId, viewerActorId, limit);
+  }
+
   /**
    * Muda status (active/paused/retired). Owner-only — prova via canRepresentActor contra o
    * owner_actor_id JÁ REGISTRADO do recurso (não o declarado pelo caller).
