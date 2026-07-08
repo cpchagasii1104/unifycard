@@ -10,37 +10,33 @@
 
 import { useState } from 'react';
 import type { GuidedFlowData } from '../EventCreationGuidedFlow';
-// DECISION-0161 fatia 3: a plateia vem do CONTRATO server-driven (actor-adaptativo) — a tela PROJETA
-// o vocabulário governado (events.visibility + typed-edge), NUNCA define plateia em TSX.
-// FONTE ÚNICA (Clayton 2026-07-07): plateia vem do transversal /audience-options (deriva de
-// PAIR_ALLOWED_LABELS), não mais de /events/audience-options (segunda projeção divergente).
-// events.visibility tem vocabulário próprio (public/private/...); mapper de saída no submit.
-import type { AudienceOption } from '../../../api/audience';
+// DECISION-0161 + F-EVENT-AUDIENCE-SSOT-UNIFICATION (2026-07-08): a plateia vem do CONTRATO transversal
+// /audience-options (deriva de PAIR_ALLOWED_LABELS), a tela só PROJETA — NUNCA define plateia em TSX.
+// events.visibility agora é o MESMO vocabulário canônico (public/connections/only_me) — o mapper lossy
+// de saída (connections→private) FOI REMOVIDO; enviamos a visibility canônica direto, sem perda.
 import { useAudienceOptions } from '../../../hooks/useAudienceOptions';
 import AudiencePicker from '../../composer/AudiencePicker';
 import { resolveAudiencePayload } from '../../composer/audience-payload';
 import './Step0EventType.css';
-
-// transversal (public/connections/only_me) → events.visibility (public/private). O refinamento
-// fino vem de audienceRelationshipTypes (idêntico nos dois). connections/only_me = não-público.
-const toEventVisibility = (v: AudienceOption['visibility']): 'public' | 'private' =>
-  v === 'public' ? 'public' : 'private';
 
 interface Step0EventTypeProps {
   data: GuidedFlowData;
   onUpdate: (updates: Partial<GuidedFlowData>) => void;
   onComplete: (updatedData?: Partial<GuidedFlowData>) => void;
   isLoading: boolean;
+  /** CARRY-OVER: plateia herdada do composer inicial — abre já selecionada (não pergunta do zero). */
+  initialAudienceKeys?: string[];
 }
 
-export default function Step0EventType({ data, onUpdate, onComplete, isLoading }: Step0EventTypeProps) {
+export default function Step0EventType({ data, onUpdate, onComplete, isLoading, initialAudienceKeys }: Step0EventTypeProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedSubtype, setSelectedSubtype] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Plateia via hook central (fonte única /audience-options). Multi-seleção (helper resolve).
+  // Inicializa com a plateia HERDADA do composer inicial (carry-over), se veio.
   const { options: audienceOptions } = useAudienceOptions();
-  const [audienceKeys, setAudienceKeys] = useState<string[]>([]);
+  const [audienceKeys, setAudienceKeys] = useState<string[]>(initialAudienceKeys ?? []);
   const handleAudienceChange = (keys: string[]) => {
     setAudienceKeys(keys);
     // selectedType alimenta o mapeamento de event_type existente (público vs demais).
@@ -130,13 +126,13 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
 
     const eventType = eventTypeMap[selectedCategory]?.[selectedType] || selectedType;
 
-    // Resolve a multi-seleção via helper central; mapper de saída p/ o vocabulário de events.visibility.
+    // Resolve a multi-seleção via helper central. Visibility CANÔNICA direto (sem mapper lossy).
     const aud = resolveAudiencePayload(audienceOptions, audienceKeys);
-    const visibilityValue = audienceKeys.length > 0 ? toEventVisibility(aud.visibility) : (selectedType === 'private' ? 'private' : 'public');
+    const visibilityValue: 'public' | 'connections' | 'only_me' = audienceKeys.length > 0 ? aud.visibility : 'public';
     const updatedData = {
       event_type: eventType as any,
       event_subtype: selectedSubtype,
-      visibility: visibilityValue as 'group' | 'public' | 'private' | 'followers' | 'unlisted',
+      visibility: visibilityValue,
       audience_relationship_types: aud.audienceRelationshipTypes,
     };
 

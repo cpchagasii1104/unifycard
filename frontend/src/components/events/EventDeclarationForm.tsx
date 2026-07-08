@@ -35,7 +35,7 @@ interface EventDeclarationData {
   datetime_end: string | null; // Apenas INPUT VISUAL - sem validação
   location_type: 'physical' | 'online' | null;
   location_name: string | null;
-  visibility: 'public' | 'group' | 'followers' | 'private' | 'unlisted';
+  visibility: 'public' | 'connections' | 'only_me';
   
   // Publicação e Convites
   publication_destinations?: string[];

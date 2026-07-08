@@ -19,7 +19,7 @@ export interface CreateDraftInput {
     description?: string | null;
     datetime_start?: string;
     datetime_end?: string;
-    visibility?: 'public' | 'group' | 'followers' | 'private' | 'unlisted';
+    visibility?: 'public' | 'connections' | 'only_me';
     max_attendees?: number | null;
   };
   event_id?: string;
@@ -32,7 +32,7 @@ export interface DeclareEventInput {
   title: string;
   description?: string | null;
   event_aspects: string[];
-  visibility: 'public' | 'group' | 'followers' | 'private' | 'unlisted';
+  visibility: 'public' | 'connections' | 'only_me';
   intent_flags?: string[];
   desired_time_windows?: Array<{
     start_datetime: string;

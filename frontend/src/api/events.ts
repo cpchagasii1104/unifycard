@@ -531,7 +531,7 @@ export interface CreateEventInput {
   description?: string | null;
   datetime_start: string; // ISO 8601
   datetime_end: string; // ISO 8601
-  visibility?: 'public' | 'group' | 'followers' | 'private' | 'unlisted';
+  visibility?: 'public' | 'connections' | 'only_me';
   ticket_price_cents?: number | null;
   max_attendees?: number | null;
   metadata?: Record<string, any> | null;
@@ -668,7 +668,7 @@ export interface UpdateEventInput {
   datetime_start?: string;
   datetime_end?: string;
   event_subtype?: string | null;
-  visibility?: 'public' | 'group' | 'followers' | 'private' | 'unlisted';
+  visibility?: 'public' | 'connections' | 'only_me';
   ticket_price_cents?: number | null;
   max_attendees?: number | null;
   metadata?: Record<string, any> | null;
@@ -687,7 +687,7 @@ export async function updateEvent(eventId: string, input: UpdateEventInput): Pro
 export interface EventAudienceOption {
   key: string;
   label: string;
-  visibility: 'public' | 'private' | 'unlisted' | 'group' | 'followers';
+  visibility: 'public' | 'connections' | 'only_me';
   audienceRelationshipTypes: string[] | null;
 }
 

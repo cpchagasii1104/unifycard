@@ -787,7 +787,7 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
             </div>
           </div>
           <div className="composer-event-flow-scroll">
-            <EventCreationGuidedFlow />
+            <EventCreationGuidedFlow initialAudienceKeys={audienceKeys} />
           </div>
         </div>
       </div>,
@@ -843,6 +843,7 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
             </div>
           )}
           <DemandPublishForm
+            initialAudienceKeys={audienceKeys}
             onPublished={() => { setShowDemandForm(false); setIsComposerOpen(false); }}
             onCancel={() => setShowDemandForm(false)}
           />

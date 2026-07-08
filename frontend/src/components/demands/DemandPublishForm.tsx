@@ -16,9 +16,11 @@ export const VINCULO_PT: Record<string, string> = {
 export const WEEKDAY_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const conceptLabel = (c: { slug?: string; label?: string | null }) => c.label ?? (c.slug ?? '').replace(/-/g, ' ');
 
-export default function DemandPublishForm({ onPublished, onCancel }: {
+export default function DemandPublishForm({ onPublished, onCancel, initialAudienceKeys }: {
   onPublished?: () => void;
   onCancel?: () => void;
+  /** CARRY-OVER: plateia herdada do composer inicial (exclui 'only_me' — demanda não pode ser só eu). */
+  initialAudienceKeys?: string[];
 }) {
   const { activeActor } = useActiveActor();
   const [concepts, setConcepts] = useState<Array<{ concept_id: string; slug: string; label?: string | null }>>([]);
@@ -34,7 +36,13 @@ export default function DemandPublishForm({ onPublished, onCancel }: {
   // NÃO cria opção nova (a lista vem toda do transversal).
   const { options: audienceOptionsRaw } = useAudienceOptions();
   const audienceOptions = audienceOptionsRaw.filter((a) => a.visibility !== 'only_me');
-  const [audienceKeys, setAudienceKeys] = useState<string[]>(['public']);
+  // Herda a plateia do composer inicial (carry-over), removendo 'only_me' (inválido p/ demanda).
+  // Sem herança → default 'public'. A autoridade final segue no backend no submit.
+  const [audienceKeys, setAudienceKeys] = useState<string[]>(
+    (initialAudienceKeys && initialAudienceKeys.filter((k) => k !== 'only_me').length > 0)
+      ? initialAudienceKeys.filter((k) => k !== 'only_me')
+      : ['public']
+  );
 
   useEffect(() => {
     if (!activeActor?.actor_id) return;

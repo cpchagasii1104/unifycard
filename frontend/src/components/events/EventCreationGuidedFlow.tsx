@@ -59,7 +59,7 @@ export interface GuidedFlowData {
   // ETAPA 0 - Pre-draft (não chama backend)
   event_type: 'social' | 'cultural' | 'gastronomic' | 'professional' | 'community' | 'spiritual' | 'sports' | 'private' | null;
   event_subtype: string | null;
-  visibility: 'public' | 'group' | 'followers' | 'private' | 'unlisted';
+  visibility: 'public' | 'connections' | 'only_me';
   /** 0161: refinamento de plateia (subconjunto do vocabulário GOVERNADO do typed-edge; null = sem). */
   audience_relationship_types?: string[] | null;
   
@@ -101,7 +101,7 @@ export interface GuidedFlowData {
 const INITIAL_DATA: GuidedFlowData = {
   event_type: null,
   event_subtype: null,
-  visibility: 'private',
+  visibility: 'public',
   event_id: null,
   title: '',
   description: null,
@@ -116,7 +116,10 @@ const INITIAL_DATA: GuidedFlowData = {
   economic_preview: null,
 };
 
-export default function EventCreationGuidedFlow() {
+// initialAudienceKeys: CARRY-OVER da plateia escolhida no composer inicial (IntentComposer). O Step0
+// abre com ela já selecionada no AudiencePicker — o usuário não escolhe do zero (fluxo/rascunho; a
+// AUTORIDADE segue no backend no submit). Aberto direto (/events/new) = sem prop = escolhe normalmente.
+export default function EventCreationGuidedFlow({ initialAudienceKeys }: { initialAudienceKeys?: string[] } = {}) {
   const navigate = useNavigate();
   const { activeActor, isLoading } = useActiveActor();
   const { sessionReady } = useSession();
@@ -483,6 +486,7 @@ export default function EventCreationGuidedFlow() {
                 onUpdate={updateData}
                 onComplete={handleStep0Complete}
                 isLoading={isLoadingStep}
+                initialAudienceKeys={initialAudienceKeys}
               />
             )}
 
