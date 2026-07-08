@@ -9,6 +9,8 @@ import { apiFetchJson } from './client';
 export type RentableResourceType = 'equipment' | 'vehicle' | 'property' | 'space';
 export type RentableResourceStatus = 'active' | 'paused' | 'retired';
 export type BookingApprovalMode = 'manual' | 'automatic';
+export type StartHandoffMethod = 'renter_pickup' | 'owner_delivery' | 'to_be_arranged';
+export type EndHandoffMethod = 'renter_return' | 'owner_collection' | 'to_be_arranged';
 // DECISION-0151 ADENDO A — projeção do vocabulário governado RENTAL_PRICING_UNITS (fonte: backend)
 export type RentalPricingUnit = 'por_hora' | 'por_dia' | 'por_semana' | 'por_mes' | 'por_semestre' | 'por_ano';
 // Ordem de exibição das faixas (do menor pro maior período).
@@ -29,6 +31,11 @@ export interface RentableResource {
   resourceYear: number | null;
   quantity: number;
   bookingApprovalMode: BookingApprovalMode;
+  startHandoffMethod: StartHandoffMethod;
+  endHandoffMethod: EndHandoffMethod;
+  deliveryRadiusKm: number | null;
+  deliveryFeeCents: number | null;
+  collectionFeeCents: number | null;
   metadata: Record<string, unknown>;
   status: RentableResourceStatus;
   isActive: boolean;
@@ -52,6 +59,8 @@ export async function createRentableResource(input: {
   pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>; // faixas; priceCents (cents)
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1)
   bookingApprovalMode?: BookingApprovalMode; // Airbnb: dono decide auto/manual no cadastro
+  startHandoffMethod?: StartHandoffMethod; endHandoffMethod?: EndHandoffMethod;
+  deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
@@ -80,6 +89,8 @@ export async function updateRentalOffer(id: string, input: {
   quantity?: number;
   cityId?: string | null;
   bookingApprovalMode?: BookingApprovalMode;
+  startHandoffMethod?: StartHandoffMethod; endHandoffMethod?: EndHandoffMethod;
+  deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>(`/rentable-resources/${id}`, {
     method: 'PUT',
@@ -94,6 +105,9 @@ export interface RentalDiscoverCard {
   cityName: string | null; uf: string | null; distanceKm: number | null; quantity: number;
   pricingTiers: Array<{ unit: RentalPricingUnit; priceCents: number }>;
   estimate: { available: boolean; estimatedPriceCents: number; disclaimer: string } | null;
+  startHandoffMethod: StartHandoffMethod; endHandoffMethod: EndHandoffMethod;
+  deliveryRadiusKm: number | null; deliveryFeeCents: number | null; collectionFeeCents: number | null;
+  deliveryEligible: boolean | null;
   metadata: Record<string, unknown>;
 }
 // Padrão locadora adaptado P2P: o consumidor manda ONDE ESTÁ (cidade obrigatória + CEP opcional) e

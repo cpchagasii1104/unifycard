@@ -19,6 +19,13 @@ export type RentableVisibility = 'public' | 'connections' | 'only_me';
 export const BOOKING_APPROVAL_MODES = ['manual', 'automatic'] as const;
 export type BookingApprovalMode = (typeof BOOKING_APPROVAL_MODES)[number];
 
+// Política de ENTREGA/DEVOLUÇÃO (handoff) — atributo da OFERTA, não do catálogo. Duas pernas governadas
+// (CHECK físico espelha daqui). Local base fica em addresses/address_assignments (SSOT, inalterado).
+export const START_HANDOFF_METHODS = ['renter_pickup', 'owner_delivery', 'to_be_arranged'] as const;
+export type StartHandoffMethod = (typeof START_HANDOFF_METHODS)[number];
+export const END_HANDOFF_METHODS = ['renter_return', 'owner_collection', 'to_be_arranged'] as const;
+export type EndHandoffMethod = (typeof END_HANDOFF_METHODS)[number];
+
 // DECISION-0151 ADENDO A (2026-07-07): unidade de cobrança do ANÚNCIO — vocabulário GOVERNADO
 // (fonte única; manifest + CHECK físico espelham daqui). Preço = REGISTRO puro (Δbank=0).
 // 2026-07-08 (Fase 1): + por_semestre, por_ano (governado; CHECK físico espelha daqui).
@@ -68,6 +75,11 @@ export interface RentableResource {
   audienceRelationshipTypes: string[] | null;
   quantity: number;
   bookingApprovalMode: BookingApprovalMode;
+  startHandoffMethod: StartHandoffMethod;
+  endHandoffMethod: EndHandoffMethod;
+  deliveryRadiusKm: number | null;
+  deliveryFeeCents: number | null;
+  collectionFeeCents: number | null;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -87,6 +99,11 @@ export interface RentableResourceRow {
   price_cents: string | number | null;
   quantity?: number | null;
   booking_approval_mode?: BookingApprovalMode | null;
+  start_handoff_method?: StartHandoffMethod | null;
+  end_handoff_method?: EndHandoffMethod | null;
+  delivery_radius_km?: number | null;
+  delivery_fee_cents?: string | number | null;
+  collection_fee_cents?: string | number | null;
   resource_year: number | null;
   metadata: Record<string, unknown> | null;
   visibility: RentableVisibility;
@@ -114,6 +131,11 @@ export interface CreateRentableResourceInput {
   pricingTiers?: RentalPricingTier[]; // faixas de preço anunciado (SSOT rental_resource_pricing).
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1).
   bookingApprovalMode?: BookingApprovalMode; // Airbnb: dono decide auto/manual no cadastro.
+  startHandoffMethod?: StartHandoffMethod; // como o recurso SAI (cliente retira / dono entrega).
+  endHandoffMethod?: EndHandoffMethod; // como VOLTA (cliente devolve / dono busca).
+  deliveryRadiusKm?: number | null; // raio de entrega (km) quando owner_delivery.
+  deliveryFeeCents?: number | null; // taxa ANUNCIADA de entrega (cents).
+  collectionFeeCents?: number | null; // taxa ANUNCIADA de busca (cents).
 }
 
 export interface ListRentableResourcesFilters {

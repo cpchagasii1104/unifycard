@@ -67,10 +67,18 @@ class RentableResourceService {
       throw HttpError.badRequest(`RENTABLE_RESOURCE_QUANTITY_MUST_BE_1: ${input.resourceType} é único (identidade própria), quantidade não pode ser ${quantity}.`);
     }
 
+    // Política de ENTREGA/DEVOLUÇÃO validada + normalizada pelo backend (tipo decide o que é permitido).
+    const handoff = this.normalizeHandoff(input.resourceType, {
+      startHandoffMethod: input.startHandoffMethod, endHandoffMethod: input.endHandoffMethod,
+      deliveryRadiusKm: input.deliveryRadiusKm ?? null, deliveryFeeCents: input.deliveryFeeCents ?? null,
+      collectionFeeCents: input.collectionFeeCents ?? null,
+    });
+
     const created = await rentableResourceRepository.create(tenantId, ownerActorId, {
       ...input,
       label: input.label.trim(),
       quantity,
+      ...handoff,
     });
 
     // Fase 1 — faixas de preço (SSOT rental_resource_pricing). Dinheiro em cents; validado no schema.
@@ -107,6 +115,35 @@ class RentableResourceService {
       throw HttpError.notFound('RENTABLE_RESOURCE_NOT_FOUND');
     }
     return resource;
+  }
+
+  /**
+   * Valida + NORMALIZA a política de entrega/devolução (backend é a autoridade). Regras governadas:
+   *  - imóvel/espaço NÃO se entrega: owner_delivery/owner_collection proibidos (400) — só retira/devolve
+   *    no local ou a combinar.
+   *  - taxa/raio só fazem sentido com o método correspondente: se não é owner_delivery, zera raio+taxa de
+   *    entrega; se não é owner_collection, zera taxa de busca (evita taxa órfã = verdade inconsistente).
+   * Dinheiro em cents (o schema já garante inteiro >=0). Pré-dinheiro: taxa é anúncio, não cobrança.
+   */
+  private normalizeHandoff(
+    resourceType: RentableResourceType,
+    h: { startHandoffMethod?: string; endHandoffMethod?: string; deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null }
+  ) {
+    const start = (h.startHandoffMethod ?? 'renter_pickup') as 'renter_pickup' | 'owner_delivery' | 'to_be_arranged';
+    const end = (h.endHandoffMethod ?? 'renter_return') as 'renter_return' | 'owner_collection' | 'to_be_arranged';
+    const NO_DELIVERY: RentableResourceType[] = ['property', 'space'];
+    if (NO_DELIVERY.includes(resourceType) && (start === 'owner_delivery' || end === 'owner_collection')) {
+      throw HttpError.badRequest('RENTABLE_RESOURCE_HANDOFF_NOT_APPLICABLE: imóvel/espaço não têm entrega/busca — o cliente vai até o local.');
+    }
+    const isDelivery = start === 'owner_delivery';
+    const isCollection = end === 'owner_collection';
+    return {
+      startHandoffMethod: start,
+      endHandoffMethod: end,
+      deliveryRadiusKm: isDelivery ? (h.deliveryRadiusKm ?? null) : null,
+      deliveryFeeCents: isDelivery ? (h.deliveryFeeCents ?? null) : null,
+      collectionFeeCents: isCollection ? (h.collectionFeeCents ?? null) : null,
+    };
   }
 
   /** Busca de locação por texto para a busca global — só recursos PÚBLICOS ativos (sem actor declarado). */
@@ -229,10 +266,18 @@ class RentableResourceService {
     return Promise.all(rows.map(async (r) => {
       const pricingTiers = await rentableResourceRepository.getPricingTiers(tenantId, r.id);
       const estimate = withPeriod ? estimatePrice(pricingTiers as any, f.startAt!, f.endAt!) : null;
+      // Elegibilidade de ENTREGA (backend é a autoridade): o dono entrega E o consumidor está dentro do
+      // raio (distância haversine <= delivery_radius_km). Se não sabemos a distância, indefinido (null).
+      const deliverable = r.startHandoffMethod === 'owner_delivery';
+      const deliveryEligible = deliverable && r.distanceKm != null && r.deliveryRadiusKm != null
+        ? r.distanceKm <= r.deliveryRadiusKm : null;
       return {
         id: r.id, label: r.label, resourceType: r.resourceType, description: r.description,
         cityName: r.cityName, uf: r.uf, distanceKm: r.distanceKm, quantity: r.quantity,
         pricingTiers, estimate, metadata: r.metadata,
+        startHandoffMethod: r.startHandoffMethod, endHandoffMethod: r.endHandoffMethod,
+        deliveryRadiusKm: r.deliveryRadiusKm, deliveryFeeCents: r.deliveryFeeCents, collectionFeeCents: r.collectionFeeCents,
+        deliveryEligible, // true=entrega até você · false=fora do raio · null=indefinido/sem entrega
       };
     }));
   }
@@ -259,6 +304,11 @@ class RentableResourceService {
       cityId?: string | null;
       postalCode?: string | null;
       bookingApprovalMode?: 'manual' | 'automatic';
+      startHandoffMethod?: string;
+      endHandoffMethod?: string;
+      deliveryRadiusKm?: number | null;
+      deliveryFeeCents?: number | null;
+      collectionFeeCents?: number | null;
     }
   ): Promise<RentableResource> {
     const resource = await this.get(tenantId, resourceId);
@@ -281,12 +331,28 @@ class RentableResourceService {
       if (!cityOk) throw HttpError.badRequest('RENTABLE_RESOURCE_CITY_NOT_FOUND: cidade não existe na base canônica.');
     }
 
+    // Handoff: só toca se o dono mandou algum método (edição parcial). Valida+normaliza pelo tipo REAL.
+    const handoffTouched = input.startHandoffMethod !== undefined || input.endHandoffMethod !== undefined;
+    const handoff = handoffTouched
+      ? this.normalizeHandoff(resource.resourceType, {
+          startHandoffMethod: input.startHandoffMethod, endHandoffMethod: input.endHandoffMethod,
+          deliveryRadiusKm: input.deliveryRadiusKm ?? null, deliveryFeeCents: input.deliveryFeeCents ?? null,
+          collectionFeeCents: input.collectionFeeCents ?? null,
+        })
+      : null;
+
     await rentableResourceRepository.updateOffer(tenantId, resourceId, {
       description: input.description,
       visibility: input.visibility,
       audienceRelationshipTypes: input.audienceRelationshipTypes,
       quantity: input.quantity != null ? Math.max(1, Math.floor(input.quantity)) : undefined,
       bookingApprovalMode: input.bookingApprovalMode,
+      startHandoffMethod: handoff?.startHandoffMethod,
+      endHandoffMethod: handoff?.endHandoffMethod,
+      deliveryRadiusKm: handoff?.deliveryRadiusKm,
+      deliveryFeeCents: handoff?.deliveryFeeCents,
+      collectionFeeCents: handoff?.collectionFeeCents,
+      handoffTouched,
     });
     if (input.pricingTiers) {
       await rentableResourceRepository.setPricingTiers(tenantId, resourceId, input.pricingTiers);

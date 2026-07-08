@@ -25,6 +25,11 @@ function toDomain(row: RentableResourceRow): RentableResource {
     resourceYear: row.resource_year ?? null,
     quantity: row.quantity != null ? Number(row.quantity) : 1,
     bookingApprovalMode: row.booking_approval_mode ?? 'manual',
+    startHandoffMethod: row.start_handoff_method ?? 'renter_pickup',
+    endHandoffMethod: row.end_handoff_method ?? 'renter_return',
+    deliveryRadiusKm: row.delivery_radius_km != null ? Number(row.delivery_radius_km) : null,
+    deliveryFeeCents: row.delivery_fee_cents != null ? Number(row.delivery_fee_cents) : null,
+    collectionFeeCents: row.collection_fee_cents != null ? Number(row.collection_fee_cents) : null,
     metadata: row.metadata ?? {},
     visibility: row.visibility,
     audienceRelationshipTypes: row.audience_relationship_types ?? null,
@@ -44,10 +49,10 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `INSERT INTO rentable_resources
-         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode)
-       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int, $15)
+         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int, $15, $16, $17, $18::int, $19::bigint, $20::bigint)
        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, created_at, updated_at`,
+                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, created_at, updated_at`,
       [
         tenantId,
         ownerActorId,
@@ -64,6 +69,11 @@ class RentableResourceRepository {
         input.audienceRelationshipTypes ?? null,
         input.quantity ?? 1,
         input.bookingApprovalMode ?? 'manual',
+        input.startHandoffMethod ?? 'renter_pickup',
+        input.endHandoffMethod ?? 'renter_return',
+        input.deliveryRadiusKm ?? null,
+        input.deliveryFeeCents ?? null,
+        input.collectionFeeCents ?? null,
       ]
     );
     if (!row) throw new Error('Falha ao criar rentable_resource');
@@ -74,7 +84,7 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, created_at, updated_at
          FROM rentable_resources
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
@@ -102,7 +112,7 @@ class RentableResourceRepository {
     const rows = await runQueriesWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, created_at, updated_at
          FROM rentable_resources
         WHERE ${where}
         ORDER BY created_at DESC
@@ -176,7 +186,9 @@ class RentableResourceRepository {
       tenantId,
       `SELECT r.id, r.tenant_id, r.owner_actor_id, r.concept_id, r.resource_type, r.label, r.description,
               r.pricing_unit, r.price_cents, r.category_id, r.status, r.is_active, r.resource_year,
-              r.metadata, r.visibility, r.audience_relationship_types, r.quantity, r.created_at, r.updated_at,
+              r.metadata, r.visibility, r.audience_relationship_types, r.quantity,
+              r.start_handoff_method, r.end_handoff_method, r.delivery_radius_km, r.delivery_fee_cents, r.collection_fee_cents,
+              r.created_at, r.updated_at,
               c.name AS city_name, s.abbreviation AS uf, ${distExpr} AS distance_km
          FROM rentable_resources r
          LEFT JOIN address_assignments aa ON aa.owner_type = 'rentable_resource' AND aa.owner_id = r.id
@@ -220,7 +232,7 @@ class RentableResourceRepository {
           SET status = $3, is_active = ($3 = 'active'), updated_at = now()
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, created_at, updated_at`,
+                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, created_at, updated_at`,
       [id, tenantId, status]
     );
     return row ? toDomain(row) : null;
@@ -248,6 +260,9 @@ class RentableResourceRepository {
   async updateOffer(tenantId: string, resourceId: string, input: {
     description?: string | null; visibility?: string; audienceRelationshipTypes?: string[] | null; quantity?: number;
     bookingApprovalMode?: string;
+    startHandoffMethod?: string; endHandoffMethod?: string;
+    deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
+    handoffTouched?: boolean; // quando true, grava as 5 colunas de handoff (permite zerar taxas/raio).
   }): Promise<void> {
     await runQueriesWithTenant(tenantId,
       `UPDATE rentable_resources SET
@@ -256,6 +271,11 @@ class RentableResourceRepository {
          audience_relationship_types = CASE WHEN $5::boolean THEN $6::text[] ELSE audience_relationship_types END,
          quantity = COALESCE($7::int, quantity),
          booking_approval_mode = COALESCE($8, booking_approval_mode),
+         start_handoff_method = COALESCE($9, start_handoff_method),
+         end_handoff_method = COALESCE($10, end_handoff_method),
+         delivery_radius_km = CASE WHEN $11::boolean THEN $12::int ELSE delivery_radius_km END,
+         delivery_fee_cents = CASE WHEN $11::boolean THEN $13::bigint ELSE delivery_fee_cents END,
+         collection_fee_cents = CASE WHEN $11::boolean THEN $14::bigint ELSE collection_fee_cents END,
          updated_at = now()
        WHERE id = $1::uuid`,
       [
@@ -265,6 +285,12 @@ class RentableResourceRepository {
         input.audienceRelationshipTypes !== undefined, input.audienceRelationshipTypes ?? null,
         input.quantity ?? null,
         input.bookingApprovalMode ?? null,
+        input.startHandoffMethod ?? null,
+        input.endHandoffMethod ?? null,
+        input.handoffTouched === true,
+        input.deliveryRadiusKm ?? null,
+        input.deliveryFeeCents ?? null,
+        input.collectionFeeCents ?? null,
       ]);
   }
 

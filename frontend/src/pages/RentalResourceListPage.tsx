@@ -72,6 +72,29 @@ const formatPrice = (r: RentableResource) =>
     ? `R$ ${(r.priceCents / 100).toFixed(2).replace('.', ',')} · ${PRICING_UNIT_PT[r.pricingUnit]}`
     : 'Preço a combinar';
 
+// Escolha amigável de entrega/devolução → 2 pernas governadas (backend valida/normaliza). Taxas: reais
+// da UI → cents no envio (backend é BIGINT). O backend zera taxas que não casam com o método.
+type HandoffChoice = 'pickup_return' | 'delivery' | 'collection' | 'delivery_and_collection' | 'to_be_arranged';
+function handoffPayload(choice: HandoffChoice, radius: string, deliveryReais: string, collectionReais: string) {
+  const cents = (s: string) => { const n = parseFloat(s.replace(',', '.')); return isNaN(n) ? null : Math.round(n * 100); };
+  const km = radius.trim() ? Math.max(1, parseInt(radius, 10) || 0) || null : null;
+  const map: Record<HandoffChoice, { start: 'renter_pickup' | 'owner_delivery' | 'to_be_arranged'; end: 'renter_return' | 'owner_collection' | 'to_be_arranged' }> = {
+    pickup_return: { start: 'renter_pickup', end: 'renter_return' },
+    delivery: { start: 'owner_delivery', end: 'renter_return' },
+    collection: { start: 'renter_pickup', end: 'owner_collection' },
+    delivery_and_collection: { start: 'owner_delivery', end: 'owner_collection' },
+    to_be_arranged: { start: 'to_be_arranged', end: 'to_be_arranged' },
+  };
+  const { start, end } = map[choice];
+  return {
+    startHandoffMethod: start,
+    endHandoffMethod: end,
+    deliveryRadiusKm: start === 'owner_delivery' ? km : null,
+    deliveryFeeCents: start === 'owner_delivery' ? cents(deliveryReais) : null,
+    collectionFeeCents: end === 'owner_collection' ? cents(collectionReais) : null,
+  };
+}
+
 export default function RentalResourceListPage() {
   const navigate = useNavigate();
   const { activeActor } = useActiveActor();
@@ -125,6 +148,11 @@ export default function RentalResourceListPage() {
   // Default 'automatic' — não esfriar o negócio (feedback Clayton 2026-07-08).
   const [approvalMode, setApprovalMode] = useState<'manual' | 'automatic'>('automatic');
   const [editApprovalMode, setEditApprovalMode] = useState<'manual' | 'automatic'>('automatic');
+  // Entrega/devolução (handoff): uma escolha amigável que mapeia para as 2 pernas governadas do backend.
+  const [handoffChoice, setHandoffChoice] = useState<'pickup_return' | 'delivery' | 'collection' | 'delivery_and_collection' | 'to_be_arranged'>('pickup_return');
+  const [deliveryRadius, setDeliveryRadius] = useState('');
+  const [deliveryFeeReais, setDeliveryFeeReais] = useState('');
+  const [collectionFeeReais, setCollectionFeeReais] = useState('');
 
   // atributos de IMÓVEL (LAYER 5 — Facets, régua ratificada: "descreve COMO É", não "identifica O
   // QUE É" — não viram CONCEPT nem catálogo governado, ficam no metadata do recurso)
@@ -250,12 +278,14 @@ export default function RentalResourceListPage() {
         cityId: selectedCity?.id ?? null, // localização governada (SSOT cities), nunca texto livre
         postalCode: cepInput.trim() || null,
         bookingApprovalMode: approvalMode,
+        ...handoffPayload(handoffChoice, deliveryRadius, deliveryFeeReais, collectionFeeReais),
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
       setShowForm(false);
       setLabel(''); setDescription(''); setTierReais({}); setQuantity(1);
       setSelectedConcept(null); setSelectedCity(null); setCepInput('');
+      setHandoffChoice('pickup_return'); setDeliveryRadius(''); setDeliveryFeeReais(''); setCollectionFeeReais('');
       setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
       await load();
     } catch (err: any) {
@@ -360,6 +390,7 @@ export default function RentalResourceListPage() {
     }
   };
   const formatCents = (c: number) => `R$ ${(c / 100).toFixed(2).replace('.', ',')}`;
+  const toCents = (reais: string) => { const n = parseFloat(reais.replace(',', '.')); return isNaN(n) ? null : Math.round(n * 100); };
 
   // ── MODO CONSUMIR: descoberta (análogo ao Fazer compras) ──
   if (mode === 'consumir') {
@@ -430,6 +461,13 @@ export default function RentalResourceListPage() {
                     <span className="rrl-card-price">{formatCents(c.pricingTiers[0].priceCents)} · {PRICING_UNIT_PT[c.pricingTiers[0].unit]}</span>
                   ) : (
                     <span className="rrl-card-price">Preço a combinar</span>
+                  )}
+                  {/* Entrega — o backend calculou a elegibilidade por raio (front só projeta). */}
+                  {c.startHandoffMethod === 'owner_delivery' && (
+                    <span className="rrl-card-delivery">
+                      {c.deliveryEligible === true ? '🚚 Entrega até você' : c.deliveryEligible === false ? '🚚 Fora do raio de entrega' : '🚚 Faz entrega'}
+                      {c.deliveryFeeCents != null ? ` · ${formatCents(c.deliveryFeeCents)}` : ''}
+                    </span>
                   )}
                   <span className="rrl-card-cta">Ver disponibilidade →</span>
                 </button>
@@ -585,6 +623,31 @@ export default function RentalResourceListPage() {
               </button>
             </div>
           </div>
+
+          {/* Entrega e devolução (handoff). Imóvel/espaço não se entrega — só retira/a combinar. Taxas
+              ANUNCIADAS em cents; cobrança real = PORTA-1. Backend valida/normaliza pelo tipo. */}
+          <div className="rrl-field">
+            Entrega e devolução
+            <select className="rrl-select" value={handoffChoice} onChange={(e) => setHandoffChoice(e.target.value as HandoffChoice)}>
+              <option value="pickup_return">Cliente retira e devolve no local</option>
+              {(resourceType === 'vehicle' || resourceType === 'equipment') && <option value="delivery">Eu entrego</option>}
+              {(resourceType === 'vehicle' || resourceType === 'equipment') && <option value="collection">Eu busco de volta</option>}
+              {(resourceType === 'vehicle' || resourceType === 'equipment') && <option value="delivery_and_collection">Eu entrego e busco</option>}
+              <option value="to_be_arranged">A combinar</option>
+            </select>
+          </div>
+          {(handoffChoice === 'delivery' || handoffChoice === 'delivery_and_collection') && (
+            <div className="rrl-row">
+              <label className="rrl-field">Entrego até (km)<input type="number" min={1} placeholder="Ex.: 15" value={deliveryRadius} onChange={(e) => setDeliveryRadius(e.target.value)} /></label>
+              <label className="rrl-field">Taxa de entrega (R$)<input type="text" inputMode="decimal" placeholder="0,00" value={deliveryFeeReais} onChange={(e) => setDeliveryFeeReais(e.target.value)} /></label>
+            </div>
+          )}
+          {(handoffChoice === 'collection' || handoffChoice === 'delivery_and_collection') && (
+            <label className="rrl-field">Taxa de busca de volta (R$)<input type="text" inputMode="decimal" placeholder="0,00" value={collectionFeeReais} onChange={(e) => setCollectionFeeReais(e.target.value)} /></label>
+          )}
+          {(handoffChoice === 'delivery' || handoffChoice === 'collection' || handoffChoice === 'delivery_and_collection') && (
+            <p className="rrl-hint">💡 Taxa anunciada — a cobrança real ainda não acontece pelo sistema.</p>
+          )}
 
           {/* Imóvel/Espaço: Facets puras (régua ratificada: "descreve COMO É", não "identifica O
               QUE É" — apartamento/casa/galpão já são o CONCEPT; metragem/quartos são atributo) */}

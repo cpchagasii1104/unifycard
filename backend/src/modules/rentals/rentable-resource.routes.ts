@@ -1,4 +1,4 @@
-import { RENTAL_PRICING_UNITS, RESOURCE_TYPE_TO_DOMAINS, BOOKING_APPROVAL_MODES } from './rentable-resource.types';
+import { RENTAL_PRICING_UNITS, RESOURCE_TYPE_TO_DOMAINS, BOOKING_APPROVAL_MODES, START_HANDOFF_METHODS, END_HANDOFF_METHODS } from './rentable-resource.types';
 // backend/src/modules/rentals/rentable-resource.routes.ts
 // F-RENTAL-RESOURCE-SURFACE-SLICE-A — a ÚNICA peça que faltava para o Trilho B (DECISION-0159/
 // fluxo.png) funcionar ponta-a-ponta para recurso: registrar o recurso. Availability/booking/
@@ -39,6 +39,11 @@ const createSchema = z.object({
   // Fase 3: quantidade (equipment pode >1; veículo/imóvel/espaço travados em 1 no service).
   quantity: z.number().int().min(1).optional(),
   bookingApprovalMode: z.enum(BOOKING_APPROVAL_MODES).optional(),
+  startHandoffMethod: z.enum(START_HANDOFF_METHODS).optional(),
+  endHandoffMethod: z.enum(END_HANDOFF_METHODS).optional(),
+  deliveryRadiusKm: z.number().int().min(1).nullable().optional(),
+  deliveryFeeCents: z.number().int().min(0).nullable().optional(),
+  collectionFeeCents: z.number().int().min(0).nullable().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -55,6 +60,11 @@ const updateOfferSchema = z.object({
   cityId: z.string().uuid().nullable().optional(),
   postalCode: z.string().max(9).nullable().optional(),
   bookingApprovalMode: z.enum(BOOKING_APPROVAL_MODES).optional(),
+  startHandoffMethod: z.enum(START_HANDOFF_METHODS).optional(),
+  endHandoffMethod: z.enum(END_HANDOFF_METHODS).optional(),
+  deliveryRadiusKm: z.number().int().min(1).nullable().optional(),
+  deliveryFeeCents: z.number().int().min(0).nullable().optional(),
+  collectionFeeCents: z.number().int().min(0).nullable().optional(),
 });
 
 const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -113,6 +123,11 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         pricingTiers: (parsed.data.pricingTiers ?? []).map((t) => ({ unit: t.unit, priceCents: t.priceCents })),
         quantity: parsed.data.quantity ?? 1,
         bookingApprovalMode: parsed.data.bookingApprovalMode ?? 'manual',
+        startHandoffMethod: parsed.data.startHandoffMethod,
+        endHandoffMethod: parsed.data.endHandoffMethod,
+        deliveryRadiusKm: parsed.data.deliveryRadiusKm ?? null,
+        deliveryFeeCents: parsed.data.deliveryFeeCents ?? null,
+        collectionFeeCents: parsed.data.collectionFeeCents ?? null,
       });
       return reply.status(201).send({ ok: true, data: resource });
     } catch (err: any) {
@@ -341,6 +356,11 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         cityId: parsed.data.cityId,
         postalCode: parsed.data.postalCode,
         bookingApprovalMode: parsed.data.bookingApprovalMode,
+        startHandoffMethod: parsed.data.startHandoffMethod,
+        endHandoffMethod: parsed.data.endHandoffMethod,
+        deliveryRadiusKm: parsed.data.deliveryRadiusKm,
+        deliveryFeeCents: parsed.data.deliveryFeeCents,
+        collectionFeeCents: parsed.data.collectionFeeCents,
       });
       return reply.send({ ok: true, data: resource });
     } catch (err: any) {
