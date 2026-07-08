@@ -534,6 +534,77 @@ class RentableResourceRepository {
       [resourceId, cityId, tenantId, opts?.postalCode ?? null, opts?.lat ?? null, opts?.lng ?? null]);
   }
 
+  /**
+   * Endereço COMPLETO do recurso (transversal — imóvel usa rua/número; veículo/equip usam como base de
+   * retirada). Grava street/number/complement/neighborhood em `addresses` (tabela já suporta) + assignment
+   * primário. Mesmo padrão "1 local ativo": expira o PICKUP anterior (preserva histórico) e insere o novo.
+   * neighborhood: FK canônica (neighborhood_id) quando resolvida; senão só display-text (não vira SSOT).
+   */
+  async assignAddressToResource(
+    tenantId: string, resourceId: string,
+    a: { cityId: string; postalCode?: string | null; street?: string | null; number?: string | null;
+         complement?: string | null; neighborhoodId?: string | null; neighborhoodDisplay?: string | null;
+         lat?: number | null; lng?: number | null }
+  ): Promise<void> {
+    await runQueriesWithTenant(tenantId,
+      `UPDATE address_assignments SET valid_until_at = now(), is_primary = false, updated_at = now()
+        WHERE owner_type = 'rentable_resource' AND owner_id = $1::uuid AND role = 'PICKUP'
+          AND is_primary = true AND valid_until_at IS NULL`, [resourceId]);
+    await runQueriesWithTenant(tenantId,
+      `WITH geo AS (
+         SELECT c.state_id, s.country_id, c.lat AS city_lat, c.lng AS city_lng
+           FROM cities c JOIN states s ON s.state_id = c.state_id WHERE c.city_id = $2::uuid
+       ),
+       new_addr AS (
+         INSERT INTO addresses (country_id, state_id, city_id, neighborhood_id, postal_code, street, number,
+                                complement, neighborhood_display_text, lat, lng, is_geocoded, source, created_by_tenant_id)
+         SELECT geo.country_id, geo.state_id, $2::uuid, $5::uuid, $4, $6, $7, $8, $9,
+                COALESCE($10::numeric, geo.city_lat), COALESCE($11::numeric, geo.city_lng),
+                false, 'UX_INPUT', $3::uuid FROM geo
+         RETURNING address_id
+       )
+       INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
+       SELECT 'rentable_resource', $1::uuid, address_id, 'PICKUP', true FROM new_addr`,
+      [resourceId, a.cityId, tenantId, a.postalCode ?? null, a.neighborhoodId ?? null,
+       a.street ?? null, a.number ?? null, a.complement ?? null, a.neighborhoodDisplay ?? null,
+       a.lat ?? null, a.lng ?? null]);
+  }
+
+  /** Endereço COMPLETO ativo do recurso (rua/número/complemento/bairro). SÓ para quem tem autoridade
+   *  (dono ou locatário confirmado) — a autoridade é checada no SERVICE, não aqui. Privacidade: este
+   *  método existe separado do projetor público justamente para o full-address nunca vazar por engano. */
+  async getResourceFullAddress(tenantId: string, resourceId: string): Promise<{
+    street: string | null; number: string | null; complement: string | null;
+    neighborhood: string | null; city: string | null; uf: string | null; postalCode: string | null;
+  } | null> {
+    const rows = await runQueriesWithTenant<any>(tenantId,
+      `SELECT ad.street, ad.number, ad.complement, ad.postal_code,
+              COALESCE(n.name, ad.neighborhood_display_text) AS neighborhood,
+              c.name AS city, s.abbreviation AS uf
+         FROM address_assignments aa
+         JOIN addresses ad ON ad.address_id = aa.address_id
+         LEFT JOIN cities c ON c.city_id = ad.city_id
+         LEFT JOIN states s ON s.state_id = ad.state_id
+         LEFT JOIN neighborhoods n ON n.neighborhood_id = ad.neighborhood_id
+        WHERE aa.owner_type = 'rentable_resource' AND aa.owner_id = $1::uuid
+          AND aa.role = 'PICKUP' AND aa.is_primary = true AND aa.valid_until_at IS NULL
+        LIMIT 1`,
+      [resourceId]);
+    const r = rows[0];
+    return r ? { street: r.street, number: r.number, complement: r.complement, neighborhood: r.neighborhood, city: r.city, uf: r.uf, postalCode: r.postal_code } : null;
+  }
+
+  /** O viewer (actor) tem reserva CONFIRMADA/em-uso deste recurso? (libera o endereço completo). */
+  async viewerHasConfirmedBooking(tenantId: string, resourceId: string, viewerActorId: string): Promise<boolean> {
+    const rows = await runQueriesWithTenant<{ n: number }>(tenantId,
+      `SELECT count(*)::int n FROM bookings b
+         JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
+        WHERE b.tenant_id = $1::uuid AND a.owner_type='rentable_resource' AND a.owner_id=$2::uuid
+          AND b.requester_actor_id = $3::uuid AND b.status IN ('confirmed','checked_in','checked_out')`,
+      [tenantId, resourceId, viewerActorId]);
+    return (rows[0]?.n ?? 0) > 0;
+  }
+
   /** Cidade projetada do recurso (cidade + UF) — para listagem/vitrine. SEM rua/número (privacidade). */
   async getResourceCities(tenantId: string, resourceIds: string[]): Promise<Map<string, { city: string; uf: string | null }>> {
     if (resourceIds.length === 0) return new Map();

@@ -31,6 +31,11 @@ const createSchema = z.object({
   // Localização governada: cityId da SSOT `cities` (UUID). NUNCA city_name livre. Backend valida.
   cityId: z.string().uuid().nullable().optional(),
   postalCode: z.string().max(9).nullable().optional(),
+  street: z.string().max(200).nullable().optional(),
+  number: z.string().max(30).nullable().optional(),
+  complement: z.string().max(120).nullable().optional(),
+  neighborhoodId: z.string().uuid().nullable().optional(),
+  neighborhoodDisplay: z.string().max(120).nullable().optional(),
   // Fase 1: faixas de preço anunciado. priceCents (cents/BIGINT), nunca reais. Unidade governada.
   pricingTiers: z.array(z.object({
     unit: z.enum(RENTAL_PRICING_UNITS),
@@ -66,6 +71,11 @@ const updateOfferSchema = z.object({
   quantity: z.number().int().min(1).optional(),
   cityId: z.string().uuid().nullable().optional(),
   postalCode: z.string().max(9).nullable().optional(),
+  street: z.string().max(200).nullable().optional(),
+  number: z.string().max(30).nullable().optional(),
+  complement: z.string().max(120).nullable().optional(),
+  neighborhoodId: z.string().uuid().nullable().optional(),
+  neighborhoodDisplay: z.string().max(120).nullable().optional(),
   bookingApprovalMode: z.enum(BOOKING_APPROVAL_MODES).optional(),
   startHandoffMethod: z.enum(START_HANDOFF_METHODS).optional(),
   endHandoffMethod: z.enum(END_HANDOFF_METHODS).optional(),
@@ -134,6 +144,11 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         audienceRelationshipTypes: parsed.data.audienceRelationshipTypes ?? null,
         cityId: parsed.data.cityId ?? null,
         postalCode: parsed.data.postalCode ?? null,
+        street: parsed.data.street ?? null,
+        number: parsed.data.number ?? null,
+        complement: parsed.data.complement ?? null,
+        neighborhoodId: parsed.data.neighborhoodId ?? null,
+        neighborhoodDisplay: parsed.data.neighborhoodDisplay ?? null,
         pricingTiers: (parsed.data.pricingTiers ?? []).map((t) => ({ unit: t.unit, priceCents: t.priceCents })),
         quantity: parsed.data.quantity ?? 1,
         bookingApprovalMode: parsed.data.bookingApprovalMode ?? 'manual',
@@ -414,6 +429,23 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /rentable-resources/:id/address — endereço com PRIVACIDADE. Público: cidade/UF/bairro. Completo
+   * (rua/número): só dono ou locatário confirmado. O backend decide; o front só renderiza o que vier.
+   */
+  fastify.get<{ Params: { id: string } }>('/:id/address', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const userId = (req.user as { userId?: string } | undefined)?.userId;
+    if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
+    const actorId = req.actionContext?.actorId ?? null;
+    try {
+      const data = await rentableResourceService.getResourceAddress(req.tenant.id, req.params.id, userId, actorId);
+      return reply.send({ ok: true, data });
+    } catch (err: any) {
+      return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro' });
+    }
+  });
+
+  /**
    * GET /rentable-resources/:id/quote-preview?startAt=&endAt= — COTAÇÃO de exibição para o consumidor:
    * reservabilidade + estimativa + horário de retirada/devolução. Backend calcula tudo; front só projeta.
    * NÃO cria reserva/hold/cobrança nem toca o Bank (Δbank=0). Público (recurso público).
@@ -455,6 +487,11 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         quantity: parsed.data.quantity,
         cityId: parsed.data.cityId,
         postalCode: parsed.data.postalCode,
+        street: parsed.data.street,
+        number: parsed.data.number,
+        complement: parsed.data.complement,
+        neighborhoodId: parsed.data.neighborhoodId,
+        neighborhoodDisplay: parsed.data.neighborhoodDisplay,
         bookingApprovalMode: parsed.data.bookingApprovalMode,
         startHandoffMethod: parsed.data.startHandoffMethod,
         endHandoffMethod: parsed.data.endHandoffMethod,

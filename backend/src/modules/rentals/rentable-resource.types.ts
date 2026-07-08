@@ -144,6 +144,11 @@ export interface CreateRentableResourceInput {
   audienceRelationshipTypes?: string[] | null;
   cityId?: string | null; // localização governada (SSOT cities). Vínculo via address_assignments.
   postalCode?: string | null; // CEP (opcional) — refina coord via provider; sem rede usa a cidade.
+  street?: string | null; // rua (endereço completo — transversal; imóvel usa, veículo/equip opcional).
+  number?: string | null; // número (obrigatório p/ o dono quando há endereço completo).
+  complement?: string | null; // complemento (apto/bloco) — opcional.
+  neighborhoodId?: string | null; // bairro canônico (SSOT) quando resolvido.
+  neighborhoodDisplay?: string | null; // bairro só-exibição (quando não há SSOT).
   pricingTiers?: RentalPricingTier[]; // faixas de preço anunciado (SSOT rental_resource_pricing).
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1).
   bookingApprovalMode?: BookingApprovalMode; // Airbnb: dono decide auto/manual no cadastro.

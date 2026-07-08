@@ -75,6 +75,17 @@ const locationRoutes: FastifyPluginAsync = async (fastify) => {
    * backend (haversine sobre as cidades governadas), o front nunca decide proximidade. Retorna a cidade
    * ativa mais próxima; a busca segue por city_id. Sem provider externo (usa as coords das cities).
    */
+  /**
+   * GET /locations/cep/:cep — AUTOCOMPLETE de CEP (transversal a toda locação). O backend resolve via
+   * provider/cache e mapeia para o Location Core (city_id/neighborhoodId). O front só preenche; a verdade
+   * territorial é o city_id, nunca o texto. resolved:false quando o provider não resolve (front pede
+   * cidade no picker governado).
+   */
+  fastify.get<{ Params: { cep: string } }>('/cep/:cep', async (req, reply) => {
+    const data = await locationService.resolveCep(req.params.cep);
+    return reply.send({ ok: true, data });
+  });
+
   fastify.get<{ Querystring: { lat?: string; lng?: string } }>('/cities/nearest', async (req, reply) => {
     const lat = Number(req.query.lat), lng = Number(req.query.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {

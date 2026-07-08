@@ -113,10 +113,15 @@ class RentableResourceService {
     }
 
     // vínculo de localização pelo padrão canônico address_assignments → addresses → cities.
-    // Fase 4: CEP (opcional) refina a coord via provider; sem rede (Null) usa a coord da cidade.
+    // Endereço COMPLETO quando informado (imóvel/espaço); senão nível-cidade (veículo/equip). CEP refina
+    // a coord; sem rede usa a da cidade. A verdade é city_id/neighborhood_id — nunca texto de cidade.
     if (input.cityId) {
       const geo = await this.resolveCepGeo(input.postalCode);
-      await rentableResourceRepository.assignCityToResource(tenantId, created.id, input.cityId, geo);
+      await rentableResourceRepository.assignAddressToResource(tenantId, created.id, {
+        cityId: input.cityId, postalCode: geo.postalCode, lat: geo.lat, lng: geo.lng,
+        street: input.street ?? null, number: input.number ?? null, complement: input.complement ?? null,
+        neighborhoodId: input.neighborhoodId ?? null, neighborhoodDisplay: input.neighborhoodDisplay ?? null,
+      });
     }
     return created;
   }
@@ -289,6 +294,27 @@ class RentableResourceService {
         trust: null, // reputação dormente — estado honesto, sem score fake
       };
     }));
+  }
+
+  /**
+   * ENDEREÇO do recurso com PRIVACIDADE decidida no backend (nunca no front). Público (qualquer viewer):
+   * cidade/UF/bairro. COMPLETO (rua/número/complemento): só o DONO (canRepresentActor) OU um locatário
+   * com reserva CONFIRMADA. É o padrão "endereço só após a locação". Δbank=0.
+   */
+  async getResourceAddress(tenantId: string, resourceId: string, viewerUserId: string, viewerActorId: string | null) {
+    const resource = await this.get(tenantId, resourceId);
+    const full = await rentableResourceRepository.getResourceFullAddress(tenantId, resourceId);
+    const publicView = { city: full?.city ?? null, uf: full?.uf ?? null, neighborhood: full?.neighborhood ?? null };
+
+    let canSeeFull = false;
+    try { canSeeFull = await authorizationService.canRepresentActor(tenantId, viewerUserId, resource.ownerActorId); } catch { canSeeFull = false; }
+    if (!canSeeFull && viewerActorId) {
+      canSeeFull = await rentableResourceRepository.viewerHasConfirmedBooking(tenantId, resourceId, viewerActorId);
+    }
+
+    return canSeeFull
+      ? { access: 'full' as const, ...publicView, street: full?.street ?? null, number: full?.number ?? null, complement: full?.complement ?? null, postalCode: full?.postalCode ?? null }
+      : { access: 'public' as const, ...publicView, street: null, number: null, complement: null, postalCode: null };
   }
 
   /**
@@ -577,6 +603,8 @@ class RentableResourceService {
       quantity?: number;
       cityId?: string | null;
       postalCode?: string | null;
+      street?: string | null; number?: string | null; complement?: string | null;
+      neighborhoodId?: string | null; neighborhoodDisplay?: string | null;
       bookingApprovalMode?: 'manual' | 'automatic';
       startHandoffMethod?: string;
       endHandoffMethod?: string;
@@ -657,7 +685,11 @@ class RentableResourceService {
     }
     if (input.cityId) {
       const geo = await this.resolveCepGeo(input.postalCode);
-      await rentableResourceRepository.assignCityToResource(tenantId, resourceId, input.cityId, geo);
+      await rentableResourceRepository.assignAddressToResource(tenantId, resourceId, {
+        cityId: input.cityId, postalCode: geo.postalCode, lat: geo.lat, lng: geo.lng,
+        street: input.street ?? null, number: input.number ?? null, complement: input.complement ?? null,
+        neighborhoodId: input.neighborhoodId ?? null, neighborhoodDisplay: input.neighborhoodDisplay ?? null,
+      });
     }
     return this.get(tenantId, resourceId);
   }
