@@ -4,9 +4,9 @@
 //
 // 🔴 REGRAS:
 // - Descrição livre
-// - Tom do evento (íntimo / familiar / grande)
-// - Sem números fechados
-// - Chama POST /events/:id/declare
+// - Acesso/custo (gratuito/pago/contribuição opcional) — ANÚNCIO, Δbank=0
+// - Capacidade (mínimo/máximo de participantes)
+// - Substitui o antigo "Tom do Evento" (confundia com a PLATEIA e com visibilidade)
 
 import type { GuidedFlowData } from '../EventCreationGuidedFlow';
 import './Step2Description.css';
@@ -23,7 +23,7 @@ export default function Step2Description({ data, onUpdate, onComplete }: Step2De
       <div className="step-header">
         <h2>Descrição e Intenção</h2>
         <p className="step-hint">
-          Descreva o formato do evento e o tom desejado.
+          Descreva o evento, o custo e a capacidade.
         </p>
       </div>
 
@@ -40,30 +40,35 @@ export default function Step2Description({ data, onUpdate, onComplete }: Step2De
         </div>
 
         <div className="form-group">
-          <label className="form-label">Tom do Evento</label>
+          <label className="form-label">O evento tem custo?</label>
           <div className="option-grid">
-            <button
-              type="button"
-              className={`option-button ${data.tone === 'intimate' ? 'selected' : ''}`}
-              onClick={() => onUpdate({ tone: 'intimate' })}
-            >
-              Íntimo
-            </button>
-            <button
-              type="button"
-              className={`option-button ${data.tone === 'family' ? 'selected' : ''}`}
-              onClick={() => onUpdate({ tone: 'family' })}
-            >
-              Familiar
-            </button>
-            <button
-              type="button"
-              className={`option-button ${data.tone === 'large' ? 'selected' : ''}`}
-              onClick={() => onUpdate({ tone: 'large' })}
-            >
-              Grande
-            </button>
+            <button type="button" className={`option-button ${data.eventAccessType === 'gratuito' ? 'selected' : ''}`}
+              onClick={() => onUpdate({ eventAccessType: 'gratuito', priceReais: '' })}>Gratuito</button>
+            <button type="button" className={`option-button ${data.eventAccessType === 'pago' ? 'selected' : ''}`}
+              onClick={() => onUpdate({ eventAccessType: 'pago' })}>Pago</button>
+            <button type="button" className={`option-button ${data.eventAccessType === 'contribuicao_opcional' ? 'selected' : ''}`}
+              onClick={() => onUpdate({ eventAccessType: 'contribuicao_opcional', priceReais: '' })}>Contribuição opcional</button>
           </div>
+        </div>
+
+        {data.eventAccessType === 'pago' && (
+          <div className="form-group">
+            <label className="form-label">Valor anunciado (R$)</label>
+            <input type="text" inputMode="decimal" className="form-textarea" placeholder="Ex.: 50,00"
+              value={data.priceReais} onChange={(e) => onUpdate({ priceReais: e.target.value })} />
+            <p className="step-hint">Pagamentos, estornos e devoluções entram em etapa futura (Bank). Aqui o valor é só anunciado.</p>
+          </div>
+        )}
+
+        <div className="form-group">
+          <label className="form-label">Capacidade (opcional)</label>
+          <div className="option-grid">
+            <input type="number" min={1} className="form-textarea" placeholder="Mínimo de participantes"
+              value={data.minAttendees} onChange={(e) => onUpdate({ minAttendees: e.target.value })} />
+            <input type="number" min={1} className="form-textarea" placeholder="Máximo de participantes"
+              value={data.maxAttendees} onChange={(e) => onUpdate({ maxAttendees: e.target.value })} />
+          </div>
+          <p className="step-hint">Se você definir um mínimo, o evento pode depender desse número para acontecer.</p>
         </div>
       </div>
 

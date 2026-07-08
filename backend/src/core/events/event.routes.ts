@@ -612,10 +612,26 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.actionContext.actorId
         );
         
+        // Body é snake_case no contrato HTTP; updateEvent usa camelCase. De-para explícito (mesmo
+        // motivo do /v2/declare) — sem isto, ticket_price_cents/max_attendees/etc. chegavam undefined.
+        const ub = req.body as unknown as Record<string, unknown>;
+        const has = (k: string) => Object.prototype.hasOwnProperty.call(ub, k);
+        const updateInput: Record<string, unknown> = {};
+        if (has('title')) updateInput.title = ub.title;
+        if (has('description')) updateInput.description = ub.description;
+        if (has('datetime_start') || has('datetimeStart')) updateInput.datetimeStart = ub.datetime_start ?? ub.datetimeStart;
+        if (has('datetime_end') || has('datetimeEnd')) updateInput.datetimeEnd = ub.datetime_end ?? ub.datetimeEnd;
+        if (has('event_subtype') || has('eventSubtype')) updateInput.eventSubtype = ub.event_subtype ?? ub.eventSubtype;
+        if (has('visibility')) updateInput.visibility = ub.visibility;
+        if (has('ticket_price_cents') || has('ticketPriceCents')) updateInput.ticketPriceCents = ub.ticket_price_cents ?? ub.ticketPriceCents;
+        if (has('max_attendees') || has('maxAttendees')) updateInput.maxAttendees = ub.max_attendees ?? ub.maxAttendees;
+        if (has('event_access_type') || has('eventAccessType')) updateInput.eventAccessType = ub.event_access_type ?? ub.eventAccessType;
+        if (has('min_attendees') || has('minAttendees')) updateInput.minAttendees = ub.min_attendees ?? ub.minAttendees;
+        if (has('metadata')) updateInput.metadata = ub.metadata;
         const event = await eventService.updateEvent(
           req.tenant.id,
           req.params.id,
-          req.body,
+          updateInput as Parameters<typeof eventService.updateEvent>[2],
           userActor.actor_id
         );
 

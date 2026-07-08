@@ -69,7 +69,11 @@ export interface GuidedFlowData {
   // ETAPA 2 - Descrição e Intenção
   title: string;
   description: string | null;
-  tone: 'intimate' | 'family' | 'large' | null;
+  // Acesso/custo (vocabulário GOVERNADO pt-BR) + capacidade. Substitui o antigo "tom" (confundia com plateia).
+  eventAccessType: 'gratuito' | 'pago' | 'contribuicao_opcional' | null;
+  priceReais: string; // valor ANUNCIADO (convertido p/ cents no submit); Δbank=0
+  minAttendees: string;
+  maxAttendees: string;
   
   // ETAPA 3 - Quando (Time Windows)
   desired_time_windows: Array<{
@@ -105,7 +109,10 @@ const INITIAL_DATA: GuidedFlowData = {
   event_id: null,
   title: '',
   description: null,
-  tone: null,
+  eventAccessType: null,
+  priceReais: '',
+  minAttendees: '',
+  maxAttendees: '',
   desired_time_windows: [],
   flexibility_level: null,
   estimated_duration_hours: null,
@@ -253,7 +260,33 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys }: { initi
   };
 
   // ETAPA 2 → ETAPA 3: Avançar para time windows
-  const handleStep2Complete = () => {
+  const handleStep2Complete = async () => {
+    // Persiste descrição + acesso/custo (anúncio) + capacidade via PATCH /events/:id (updateEvent).
+    // Δbank=0: ticket_price_cents é só o valor ANUNCIADO — pagamento/estorno real = etapa futura (Bank).
+    if (data.event_id) {
+      try {
+        const { updateEvent } = await import('../../api/events');
+        const min = data.minAttendees.trim() ? parseInt(data.minAttendees, 10) : null;
+        const max = data.maxAttendees.trim() ? parseInt(data.maxAttendees, 10) : null;
+        if (min != null && max != null && min > max) {
+          setError('O mínimo de participantes não pode ser maior que o máximo.');
+          return;
+        }
+        const priceCents = data.eventAccessType === 'pago' && data.priceReais.trim()
+          ? Math.round(parseFloat(data.priceReais.replace(',', '.')) * 100) : null;
+        await updateEvent(data.event_id, {
+          description: data.description ?? null,
+          event_access_type: data.eventAccessType,
+          ticket_price_cents: priceCents,
+          min_attendees: min,
+          max_attendees: max,
+        });
+      } catch {
+        setError('Não foi possível salvar acesso/capacidade. Tente novamente.');
+        return;
+      }
+    }
+    setError(null);
     setCurrentStep(3);
   };
 

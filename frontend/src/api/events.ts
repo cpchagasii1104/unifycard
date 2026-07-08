@@ -671,6 +671,9 @@ export interface UpdateEventInput {
   visibility?: 'public' | 'connections' | 'only_me';
   ticket_price_cents?: number | null;
   max_attendees?: number | null;
+  // Acesso/custo (anúncio, Δbank=0) + capacidade mínima — vocabulário GOVERNADO pt-BR.
+  event_access_type?: 'gratuito' | 'pago' | 'contribuicao_opcional' | null;
+  min_attendees?: number | null;
   metadata?: Record<string, any> | null;
 }
 

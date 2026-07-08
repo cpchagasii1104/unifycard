@@ -124,6 +124,15 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     canonRef: 'DECISION-0164 D2 (adendo 6): preço fixado pelo emissor (reprecificável por ATO dele) vs orçamento (RFQ). Registro apenas; mover dinheiro = PORTA-1.',
   },
   {
+    name: 'events.access_type',
+    pillar: 'social',
+    sourceFile: 'src/core/events/event.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'EVENT_ACCESS_TYPES',
+    values: ['gratuito', 'pago', 'contribuicao_opcional'],
+    canonRef: 'F-EVENT-ACCESS-CAPACITY (Clayton 2026-07-08) + CHECK chk_events_access_type. Acesso/custo do evento (aposenta "Tom do Evento"). ANÚNCIO apenas — mover dinheiro/estorno = PORTA-1/Bank. "a combinar" FORA do MVP.',
+  },
+  {
     name: 'MarketplaceDomain',
     pillar: 'social',
     sourceFile: '../packages/contracts/src/vocabulary.ts',

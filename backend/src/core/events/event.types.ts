@@ -43,6 +43,12 @@ export type EventVisibility =
   | 'connections'
   | 'only_me';
 
+// Acesso/custo do evento — vocabulário GOVERNADO pt-BR (padrão dos enums de negócio: preco_ofertado/
+// com_analise). ANÚNCIO apenas (Δbank=0). 'a combinar' FORA do MVP (decisão Clayton 2026-07-08).
+// Registrado em governed-vocabularies.manifest (events.access_type) + CHECK chk_events_access_type.
+export const EVENT_ACCESS_TYPES = ['gratuito', 'pago', 'contribuicao_opcional'] as const;
+export type EventAccessType = (typeof EVENT_ACCESS_TYPES)[number];
+
 /**
  * Tipo de Actor (CONTRATO v1 Seção 1.1)
  * 🔴 BLINDAGEM: Tipos 'group' e 'channel' existem no banco, mas não estão habilitados
@@ -180,6 +186,9 @@ export interface UpdateEventInput {
   visibility?: EventVisibility;
   ticketPriceCents?: number | null;
   maxAttendees?: number | null;
+  // Acesso/custo (anúncio, Δbank=0) + capacidade mínima. Vocabulário GOVERNADO pt-BR (EVENT_ACCESS_TYPES).
+  eventAccessType?: EventAccessType | null;
+  minAttendees?: number | null;
   metadata?: Record<string, any>;
 }
 

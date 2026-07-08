@@ -20,7 +20,7 @@ import type {
   EventTimeWindow,
   FlexibilityLevel,
 } from './event.types';
-import { ACTOR_EVENT_TYPE_MATRIX } from './event.types';
+import { ACTOR_EVENT_TYPE_MATRIX, EVENT_ACCESS_TYPES } from './event.types';
 import { assertTransitionAllowed, enrichEventWithCanonicalFields } from './event.aggregate';
 import { validateAspects } from './aspects/event-aspects.service';
 
@@ -447,6 +447,30 @@ class EventService {
     if (input.maxAttendees !== undefined) {
       updates.push(`max_attendees = $${paramIndex++}`);
       values.push(input.maxAttendees);
+    }
+
+    // Acesso/custo (anúncio) + capacidade mínima. Validações objetivas — NADA financeiro executa (Δbank=0).
+    if (input.eventAccessType !== undefined && input.eventAccessType !== null) {
+      if (!(EVENT_ACCESS_TYPES as readonly string[]).includes(input.eventAccessType)) {
+        throw new BadRequestError(`event_access_type '${input.eventAccessType}' inválido (${EVENT_ACCESS_TYPES.join('|')}).`);
+      }
+      // Pago exige valor ANUNCIADO (> 0). Não cria cobrança — só o número exibido.
+      if (input.eventAccessType === 'pago' && input.ticketPriceCents != null && input.ticketPriceCents <= 0) {
+        throw new BadRequestError('Evento pago exige um valor anunciado maior que zero (em cents).');
+      }
+      updates.push(`event_access_type = $${paramIndex++}`);
+      values.push(input.eventAccessType);
+    }
+
+    if (input.minAttendees !== undefined) {
+      if (input.minAttendees !== null && input.minAttendees < 1) {
+        throw new BadRequestError('min_attendees deve ser ≥ 1.');
+      }
+      if (input.minAttendees != null && input.maxAttendees != null && input.minAttendees > input.maxAttendees) {
+        throw new BadRequestError('O mínimo de participantes não pode ser maior que o máximo.');
+      }
+      updates.push(`min_attendees = $${paramIndex++}`);
+      values.push(input.minAttendees);
     }
 
     if (input.metadata !== undefined) {
