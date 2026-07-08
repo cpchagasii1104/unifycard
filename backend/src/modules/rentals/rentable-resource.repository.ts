@@ -325,6 +325,50 @@ class RentableResourceRepository {
     return rows.map((r) => ({ unit: r.unit, priceCents: Number(r.price_cents) }));
   }
 
+  /** Faixas de preço de VÁRIOS recursos numa query (batch, para o card de "meus recursos" sem N+1). */
+  async getPricingTiersForResources(tenantId: string, resourceIds: string[]): Promise<Map<string, Array<{ unit: string; priceCents: number }>>> {
+    const out = new Map<string, Array<{ unit: string; priceCents: number }>>();
+    if (resourceIds.length === 0) return out;
+    const rows = await runQueriesWithTenant<{ resource_id: string; unit: string; price_cents: string }>(tenantId,
+      `SELECT resource_id, unit, price_cents FROM rental_resource_pricing WHERE resource_id = ANY($1::uuid[]) AND is_active ORDER BY sort_order ASC NULLS LAST`,
+      [resourceIds]);
+    for (const r of rows) {
+      const arr = out.get(r.resource_id) ?? [];
+      arr.push({ unit: r.unit, priceCents: Number(r.price_cents) });
+      out.set(r.resource_id, arr);
+    }
+    return out;
+  }
+
+  /** Reservas ATIVAS (requested + confirmed + checked_in) de um recurso, com status + subperíodo. Para o
+   *  DONO ver pendentes E confirmadas (quem alugou). */
+  async findActiveRequests(tenantId: string, resourceId: string): Promise<Array<{ bookingId: string; requesterActorId: string; status: string; bookedStart: Date | null; bookedEnd: Date | null; requestedAt: Date }>> {
+    const rows = await runQueriesWithTenant<{ booking_id: string; requester_actor_id: string; status: string; booked_start_datetime: Date | null; booked_end_datetime: Date | null; requested_at: Date }>(tenantId,
+      `SELECT b.booking_id, b.requester_actor_id, b.status, b.booked_start_datetime, b.booked_end_datetime, b.requested_at
+         FROM bookings b
+         JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND a.owner_id = $2::uuid
+          AND b.status IN ('requested','confirmed','checked_in')
+        ORDER BY (b.status='requested') DESC, b.requested_at ASC`,
+      [tenantId, resourceId]);
+    return rows.map((r) => ({ bookingId: r.booking_id, requesterActorId: r.requester_actor_id, status: r.status, bookedStart: r.booked_start_datetime, bookedEnd: r.booked_end_datetime, requestedAt: r.requested_at }));
+  }
+
+  /** MINHAS reservas (do consumidor): bookings do requester com recurso + dono + subperíodo + status. */
+  async findMyBookings(tenantId: string, requesterActorId: string): Promise<Array<{ bookingId: string; status: string; resourceId: string; resourceLabel: string; resourceType: string; ownerActorId: string; bookedStart: Date | null; bookedEnd: Date | null; requestedAt: Date }>> {
+    const rows = await runQueriesWithTenant<any>(tenantId,
+      `SELECT b.booking_id, b.status, r.id AS resource_id, r.label AS resource_label, r.resource_type, r.owner_actor_id,
+              b.booked_start_datetime, b.booked_end_datetime, b.requested_at
+         FROM bookings b
+         JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
+         JOIN rentable_resources r ON r.id = a.owner_id
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND b.requester_actor_id = $2::uuid
+          AND b.status IN ('requested','confirmed','checked_in','checked_out','cancelled')
+        ORDER BY b.requested_at DESC`,
+      [tenantId, requesterActorId]);
+    return rows.map((r) => ({ bookingId: r.booking_id, status: r.status, resourceId: r.resource_id, resourceLabel: r.resource_label, resourceType: r.resource_type, ownerActorId: r.owner_actor_id, bookedStart: r.booked_start_datetime, bookedEnd: r.booked_end_datetime, requestedAt: r.requested_at }));
+  }
+
   /** Cidade ATIVA vinculada ao recurso (id + nome+uf) — para preencher o form de edição. */
   async getResourceCity(tenantId: string, resourceId: string): Promise<{ cityId: string; name: string; uf: string | null } | null> {
     const rows = await runQueriesWithTenant<{ city_id: string; name: string; abbreviation: string | null }>(tenantId,

@@ -25,6 +25,9 @@ import {
   PRICING_UNIT_PT,
   RENTAL_PRICING_UNITS,
   type RentableResource,
+  type MyResource,
+  getMyRentalBookings,
+  type MyBooking,
   type RentableResourceType,
   type RentalPricingUnit,
   type RentalConceptOption,
@@ -66,10 +69,23 @@ const STATUS_LABEL: Record<string, string> = {
   retired: 'Aposentado',
 };
 
-const formatPrice = (r: RentableResource) =>
-  r.priceCents != null && r.pricingUnit
+// Faixas de preço vindas do backend (SSOT rental_resource_pricing). "a combinar" só se não há faixas.
+const formatPrice = (r: { pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>; priceCents?: number | null; pricingUnit?: RentalPricingUnit | null }) => {
+  if (r.pricingTiers && r.pricingTiers.length > 0) {
+    return r.pricingTiers.map((t) => `${PRICING_UNIT_PT[t.unit]}: R$ ${(t.priceCents / 100).toFixed(2).replace('.', ',')}`).join(' · ');
+  }
+  return r.priceCents != null && r.pricingUnit
     ? `R$ ${(r.priceCents / 100).toFixed(2).replace('.', ',')} · ${PRICING_UNIT_PT[r.pricingUnit]}`
     : 'Preço a combinar';
+};
+// Resumo de handoff (entrega/retirada) para o card — projeta o método do backend, não inventa.
+const HANDOFF_SUMMARY: Record<string, string> = {
+  renter_pickup: 'Retirada no local', owner_delivery: 'Dono entrega', to_be_arranged: 'A combinar',
+};
+// Rótulos pt-BR do status do booking (o status é do backend; aqui só projeção).
+const MY_BOOKING_STATUS: Record<string, string> = {
+  requested: 'Pendente', confirmed: 'Confirmada', checked_in: 'Em uso', checked_out: 'Concluída', cancelled: 'Cancelada',
+};
 
 // Escolha amigável de entrega/devolução → 2 pernas governadas (backend valida/normaliza). Taxas: reais
 // da UI → cents no envio (backend é BIGINT). O backend zera taxas que não casam com o método.
@@ -99,7 +115,8 @@ export default function RentalResourceListPage() {
   const { activeActor } = useActiveActor();
   const { mode } = useOperatingMode();
 
-  const [resources, setResources] = useState<RentableResource[]>([]);
+  const [resources, setResources] = useState<MyResource[]>([]);
+  const [myBookings, setMyBookings] = useState<MyBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -179,8 +196,10 @@ export default function RentalResourceListPage() {
         setResources(await listMyRentableResources(activeActor.actor_id));
       } else {
         const all = await listActiveRentableResources();
-        // descoberta = recursos de TERCEIROS (os meus eu gerencio no operar)
-        setResources(all.filter((r) => r.ownerActorId !== activeActor?.actor_id));
+        // descoberta = recursos de TERCEIROS (os meus eu gerencio no operar). pricingTiers vem por card na busca.
+        setResources(all.filter((r) => r.ownerActorId !== activeActor?.actor_id).map((r) => ({ ...r, pricingTiers: [] })));
+        // Minhas reservas (a locação existe para os dois lados). Não crítico se falhar.
+        getMyRentalBookings().then(setMyBookings).catch(() => setMyBookings([]));
       }
     } catch (err: any) {
       setError(err?.message || 'Erro ao carregar recursos');
@@ -366,6 +385,28 @@ export default function RentalResourceListPage() {
         subtitle="Imóveis, veículos, equipamentos e espaços disponíveis na comunidade."
         rail={<RightContextRail module="rentals" />}
       >
+        {/* MINHAS SOLICITAÇÕES — a locação existe para os dois lados (backend projeta status/período/dono). */}
+        {myBookings.length > 0 && (
+          <section className="rrl-mybookings">
+            <h3>Minhas solicitações de locação</h3>
+            <div className="rrl-mybookings-list">
+              {myBookings.map((b) => (
+                <div key={b.bookingId} className="rrl-mybooking" onClick={() => navigate(`/locacoes/${b.resourceId}`)}>
+                  <div className="rrl-mybooking-head">
+                    <span className="rrl-mybooking-label">{RESOURCE_TYPE_ICON[b.resourceType]} {b.resourceLabel}</span>
+                    <span className={`rrl-mybooking-status rrl-bk-${b.status}`}>{MY_BOOKING_STATUS[b.status] ?? b.status}</span>
+                  </div>
+                  {b.bookedStart && b.bookedEnd && <span className="rrl-mybooking-line">📅 {new Date(b.bookedStart).toLocaleString('pt-BR')} → {new Date(b.bookedEnd).toLocaleString('pt-BR')}</span>}
+                  <span className="rrl-mybooking-line">{b.estimate?.available ? `💰 Estimativa: R$ ${(b.estimate.estimatedPriceCents / 100).toFixed(2).replace('.', ',')}` : '💰 Preço a combinar'}</span>
+                  <span className="rrl-mybooking-line">👤 Dono: {b.owner.displayName}
+                    {b.handoffTimeStart && b.handoffTimeEnd ? ` · 🕗 retirada/devolução ${b.handoffTimeStart.slice(0, 5)}–${b.handoffTimeEnd.slice(0, 5)}` : ''}</span>
+                  <button type="button" className="rrl-mybooking-profile" onClick={(e) => { e.stopPropagation(); navigate(`/vitrine/${b.owner.actorId}`); }}>Ver perfil do dono →</button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <div className="rrl-type-hub">
           <button type="button" className={`rrl-type-card ${typeFilter === 'all' ? 'selected' : ''}`} onClick={() => setTypeFilter('all')}>
             <span className="rrl-type-icon">🔎</span><strong>Tudo</strong>
@@ -684,6 +725,13 @@ export default function RentalResourceListPage() {
             <span className="rrl-card-type">{RESOURCE_TYPE_ICON[r.resourceType]} {RESOURCE_TYPE_LABEL[r.resourceType]}</span>
             <span className="rrl-card-label">{r.label}</span>
             <span className="rrl-card-price">{formatPrice(r)}</span>
+            {/* Retirada/devolução — projeta o handoff do backend (não inventa). */}
+            {(r.startHandoffMethod || (r.handoffTimeStart && r.handoffTimeEnd)) && (
+              <span className="rrl-card-handoff">
+                🕗 {HANDOFF_SUMMARY[r.startHandoffMethod] ?? 'A combinar'}
+                {r.resourceType !== 'space' && r.handoffTimeStart && r.handoffTimeEnd ? ` · ${r.handoffTimeStart.slice(0, 5)}–${r.handoffTimeEnd.slice(0, 5)}` : ''}
+              </span>
+            )}
             <div className="rrl-card-actions">
               <button type="button" onClick={() => navigate(`/locacoes/${r.id}`)}>Detalhes</button>
               <button type="button" onClick={() => openEdit(r.id)}>✏️ Editar</button>

@@ -102,3 +102,20 @@
 /* Entrega/devolução: select + selo de entrega no card de descoberta. */
 .rrl-select { padding: .5rem .6rem; border: 1px solid #d9dbe4; border-radius: 8px; font: inherit; background: #fff; }
 .rrl-card-delivery { font-size: .8rem; color: #4f46e5; font-weight: 600; }
+
+/* Minhas solicitações de locação (consumidor) + handoff no card. */
+.rrl-card-handoff { font-size: .8rem; color: #4f46e5; font-weight: 600; }
+.rrl-mybookings { margin-bottom: 20px; }
+.rrl-mybookings h3 { font-size: 1rem; font-weight: 700; color: #1e2338; margin: 0 0 10px; }
+.rrl-mybookings-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.rrl-mybooking { border: 1px solid #e9ebf4; border-radius: 12px; padding: 14px; background: #fff; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: border-color .12s; }
+.rrl-mybooking:hover { border-color: #c7cdfe; }
+.rrl-mybooking-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.rrl-mybooking-label { font-weight: 700; color: #1e2338; font-size: .92rem; }
+.rrl-mybooking-status { font-size: .7rem; font-weight: 700; text-transform: uppercase; padding: .15rem .5rem; border-radius: 999px; flex: none; }
+.rrl-bk-confirmed { background: #e6f7f0; color: #059669; }
+.rrl-bk-requested { background: #fef3c7; color: #b45309; }
+.rrl-bk-cancelled { background: #f1f5f9; color: #64748b; }
+.rrl-bk-checked_in, .rrl-bk-checked_out { background: #eef0fb; color: #4f46e5; }
+.rrl-mybooking-line { font-size: .82rem; color: #374151; }
+.rrl-mybooking-profile { align-self: flex-start; background: none; border: 0; color: #4f46e5; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; padding: 2px 0; }

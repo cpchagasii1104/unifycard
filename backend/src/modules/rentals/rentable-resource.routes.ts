@@ -167,6 +167,11 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
       if (statusParsed && !statusParsed.success) {
         return reply.status(400).send({ error: 'status inválido' });
       }
+      // "Meus recursos" (ownerActorId, sem outro filtro) vem ENRIQUECIDO com faixas de preço p/ o card.
+      if (req.query.ownerActorId && !statusParsed) {
+        const mine = await rentableResourceService.listMine(req.tenant.id, req.query.ownerActorId);
+        return reply.send({ ok: true, data: mine });
+      }
       const resources = await rentableResourceService.list(req.tenant.id, {
         ownerActorId: req.query.ownerActorId,
         status: statusParsed?.success ? statusParsed.data : undefined,
@@ -324,6 +329,28 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const windows = await rentableResourceService.getPublicAvailability(req.tenant.id, req.params.id);
       return reply.send({ ok: true, data: windows });
+    } catch (err: any) {
+      return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro' });
+    }
+  });
+
+  /**
+   * GET /rentable-resources/my-bookings — as reservas do CONSUMIDOR (a locação existe para os dois lados).
+   * canRepresentActor sobre o próprio actor (actionContext) — o consumidor só vê as suas. Read-only.
+   */
+  fastify.get('/my-bookings', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const userId = (req.user as { userId?: string } | undefined)?.userId;
+    if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
+    const actorId = req.actionContext?.actorId;
+    if (!actorId) return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    // DECISION-0113: só vê as reservas do actor que representa (fail-closed); o service revalida.
+    let canRep = false;
+    try { canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, actorId); } catch { canRep = false; }
+    if (!canRep) return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o actor declarado', code: 'RENTAL_MY_BOOKINGS_NOT_REPRESENTABLE' });
+    try {
+      const data = await rentableResourceService.getMyBookings(req.tenant.id, actorId, userId);
+      return reply.send({ ok: true, data });
     } catch (err: any) {
       return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro' });
     }

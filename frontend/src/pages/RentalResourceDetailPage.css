@@ -97,3 +97,9 @@
 .rrd-quote-ok strong { color: #059669; }
 .rrd-quote-no { background: #fdecec; border: 1px solid #f5c9c9; color: #b4453f; }
 .rrd-quote-disclaimer { color: #8891a6; font-size: .76rem; }
+
+/* Status da solicitação/reserva no painel do dono. */
+.rrd-request-status { margin-left: auto; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: .18rem .55rem; border-radius: 999px; flex: none; }
+.rrd-bk-requested { background: #fef3c7; color: #b45309; }
+.rrd-bk-confirmed { background: #e6f7f0; color: #059669; }
+.rrd-bk-checked_in { background: #eef0fb; color: #4f46e5; }

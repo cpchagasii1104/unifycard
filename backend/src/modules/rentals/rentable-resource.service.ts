@@ -176,20 +176,50 @@ class RentableResourceService {
     try { canRep = await authorizationService.canRepresentActor(tenantId, requestingUserId, resource.ownerActorId); } catch { canRep = false; }
     if (!canRep) throw HttpError.forbidden('RENTABLE_RESOURCE_REQUESTS_NOT_REPRESENTABLE: só o dono vê as solicitações.');
 
-    const pending = await rentableResourceRepository.findPendingRequests(tenantId, resourceId);
+    // Pendentes E confirmadas (quem alugou) — o dono precisa ver os dois. status projeta ao front.
+    const active = await rentableResourceRepository.findActiveRequests(tenantId, resourceId);
     const tiers = await rentableResourceRepository.getPricingTiers(tenantId, resourceId);
     const { estimatePrice } = await import('./pricing-estimate');
-    return Promise.all(pending.map(async (p) => {
+    return Promise.all(active.map(async (p) => {
       const requester = await rentableResourceRepository.getPublicActorSummary(tenantId, p.requesterActorId);
       const estimate = (p.bookedStart && p.bookedEnd) ? estimatePrice(tiers as any, p.bookedStart, p.bookedEnd) : null;
       return {
         bookingId: p.bookingId,
+        status: p.status, // 'requested' | 'confirmed' | 'checked_in'
         requester: requester ?? { actorId: p.requesterActorId, displayName: 'Solicitante', actorType: 'user', avatarUrl: null },
         bookedStart: p.bookedStart?.toISOString() ?? null,
         bookedEnd: p.bookedEnd?.toISOString() ?? null,
         requestedAt: p.requestedAt.toISOString(),
         estimate,
         trust: null, // reputação dormente — a tela mostra estado honesto, NÃO score inventado
+      };
+    }));
+  }
+
+  /**
+   * MINHAS reservas (do consumidor) — a locação existe para os DOIS lados. Owner-only sobre o próprio
+   * actor (canRepresentActor). Cada uma: recurso + dono (projeção pública) + status + subperíodo +
+   * estimativa + handoff. NÃO cria nada; só projeta. Δbank=0.
+   */
+  async getMyBookings(tenantId: string, requesterActorId: string, requestingUserId: string) {
+    let canRep = false;
+    try { canRep = await authorizationService.canRepresentActor(tenantId, requestingUserId, requesterActorId); } catch { canRep = false; }
+    if (!canRep) throw HttpError.forbidden('RENTAL_MY_BOOKINGS_NOT_REPRESENTABLE: só o próprio actor vê suas reservas.');
+    const rows = await rentableResourceRepository.findMyBookings(tenantId, requesterActorId);
+    const { estimatePrice } = await import('./pricing-estimate');
+    return Promise.all(rows.map(async (b) => {
+      const owner = await rentableResourceRepository.getPublicActorSummary(tenantId, b.ownerActorId);
+      const resource = await rentableResourceRepository.findById(tenantId, b.resourceId);
+      const tiers = await rentableResourceRepository.getPricingTiers(tenantId, b.resourceId);
+      const estimate = (b.bookedStart && b.bookedEnd) ? estimatePrice(tiers as any, b.bookedStart, b.bookedEnd) : null;
+      return {
+        bookingId: b.bookingId, status: b.status,
+        resourceId: b.resourceId, resourceLabel: b.resourceLabel, resourceType: b.resourceType,
+        owner: owner ?? { actorId: b.ownerActorId, displayName: 'Dono', actorType: 'user', avatarUrl: null },
+        bookedStart: b.bookedStart?.toISOString() ?? null, bookedEnd: b.bookedEnd?.toISOString() ?? null,
+        estimate,
+        handoffTimeStart: resource?.handoffTimeStart ?? null, handoffTimeEnd: resource?.handoffTimeEnd ?? null,
+        startHandoffMethod: resource?.startHandoffMethod ?? null,
       };
     }));
   }
@@ -368,6 +398,14 @@ class RentableResourceService {
 
   async list(tenantId: string, filters: ListRentableResourcesFilters): Promise<RentableResource[]> {
     return rentableResourceRepository.list(tenantId, filters);
+  }
+
+  /** "Meus recursos" ENRIQUECIDOS com as faixas de preço (SSOT rental_resource_pricing, batch) para o
+   *  card não mostrar "a combinar" quando há faixas. Handoff já vem no próprio RentableResource. */
+  async listMine(tenantId: string, ownerActorId: string) {
+    const resources = await rentableResourceRepository.list(tenantId, { ownerActorId });
+    const tiersByResource = await rentableResourceRepository.getPricingTiersForResources(tenantId, resources.map((r) => r.id));
+    return resources.map((r) => ({ ...r, pricingTiers: tiersByResource.get(r.id) ?? [] }));
   }
 
   /** DESCOBERTA (consumir): filtrada pela plateia do dono — enforcement no BANCO, viewer server-side. */

@@ -174,6 +174,7 @@ export async function requestResourceBooking(resourceId: string, availabilityId:
 // requester = projeção pública do actor (anti-PII). trust = null enquanto reputação não está viva.
 export interface RentalRequest {
   bookingId: string;
+  status: string;
   requester: { actorId: string; displayName: string; actorType: string; avatarUrl: string | null };
   bookedStart: string | null;
   bookedEnd: string | null;
@@ -189,8 +190,23 @@ export async function declineResourceRequest(resourceId: string, bookingId: stri
   await apiFetchJson(`/rentable-resources/${resourceId}/requests/${bookingId}/decline`, { method: 'POST' });
 }
 
-export async function listMyRentableResources(ownerActorId: string): Promise<RentableResource[]> {
-  const res = await apiFetchJson<{ ok: boolean; data: RentableResource[] }>(
+// MINHAS reservas (consumidor) — a locação existe para os dois lados. Backend projeta tudo.
+export interface MyBooking {
+  bookingId: string; status: string;
+  resourceId: string; resourceLabel: string; resourceType: RentableResourceType;
+  owner: { actorId: string; displayName: string; actorType: string; avatarUrl: string | null };
+  bookedStart: string | null; bookedEnd: string | null;
+  estimate: { available: boolean; estimatedPriceCents: number } | null;
+  handoffTimeStart: string | null; handoffTimeEnd: string | null; startHandoffMethod: string | null;
+}
+export async function getMyRentalBookings(): Promise<MyBooking[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: MyBooking[] }>('/rentable-resources/my-bookings');
+  return res.data;
+}
+
+export type MyResource = RentableResource & { pricingTiers: Array<{ unit: RentalPricingUnit; priceCents: number }> };
+export async function listMyRentableResources(ownerActorId: string): Promise<MyResource[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: MyResource[] }>(
     `/rentable-resources?ownerActorId=${encodeURIComponent(ownerActorId)}`
   );
   return res.data;

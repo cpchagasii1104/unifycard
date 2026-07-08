@@ -147,14 +147,14 @@ export default function RentalResourceDetailPage() {
     }
   };
 
-  const handleDecline = async (bookingId: string) => {
-    if (!id || !window.confirm('Recusar esta solicitação?')) return;
+  const handleDecline = async (bookingId: string, isCancel = false) => {
+    if (!id || !window.confirm(isCancel ? 'Cancelar esta reserva? O período volta a ficar disponível.' : 'Recusar esta solicitação?')) return;
     try {
       await declineResourceRequest(id, bookingId);
-      showToast('Solicitação recusada.', 'success');
+      showToast(isCancel ? 'Reserva cancelada.' : 'Solicitação recusada.', 'success');
       await load();
     } catch (err: any) {
-      showToast(err?.message || 'Erro ao recusar', 'error');
+      showToast(err?.message || 'Erro', 'error');
     }
   };
 
@@ -324,6 +324,7 @@ export default function RentalResourceDetailPage() {
                     <span className="rrd-request-name">{r.requester.displayName}</span>
                     <span className="rrd-request-type">{r.requester.actorType === 'page' ? 'Empresa' : 'Pessoa Física'}</span>
                   </div>
+                  <span className={`rrd-request-status rrd-bk-${r.status}`}>{r.status === 'confirmed' ? 'Confirmada' : r.status === 'checked_in' ? 'Em uso' : 'Pendente'}</span>
                 </div>
                 {r.bookedStart && r.bookedEnd && (
                   <p className="rrd-request-line">📅 {new Date(r.bookedStart).toLocaleString('pt-BR')} → {new Date(r.bookedEnd).toLocaleString('pt-BR')}</p>
@@ -340,8 +341,15 @@ export default function RentalResourceDetailPage() {
                     onClick={() => showToast('Envio de mensagem em desenvolvimento — em breve.', 'success')}>
                     💬 Enviar mensagem <span className="rrd-soon">em breve</span>
                   </button>
-                  <button type="button" className="rrd-req-decline" onClick={() => handleDecline(r.bookingId)}>Recusar</button>
-                  <button type="button" className="rrd-req-confirm" onClick={() => handleConfirm(r.bookingId)}>Confirmar</button>
+                  {/* Pendente: recusar/confirmar. Confirmada: cancelar (libera o período — a regra do banco valida). */}
+                  {r.status === 'requested' ? (
+                    <>
+                      <button type="button" className="rrd-req-decline" onClick={() => handleDecline(r.bookingId)}>Recusar</button>
+                      <button type="button" className="rrd-req-confirm" onClick={() => handleConfirm(r.bookingId)}>Confirmar</button>
+                    </>
+                  ) : (
+                    <button type="button" className="rrd-req-decline" onClick={() => handleDecline(r.bookingId, true)}>Cancelar reserva</button>
+                  )}
                 </div>
               </div>
             ))}
