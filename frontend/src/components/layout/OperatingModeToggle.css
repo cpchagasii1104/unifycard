@@ -53,8 +53,8 @@
   white-space: nowrap;
 }
 
-/* Compact em telas menores — só ícone */
-@media (max-width: 900px) {
+/* Compact quando falta espaço real (container app-shell — reage à sidebar, não só à janela) */
+@container app-shell (max-width: 900px) {
   .om-toggle-label {
     display: none;
   }

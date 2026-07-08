@@ -40,8 +40,8 @@
   color: #047857;
 }
 
-/* Mobile: esconder label, manter ícone */
-@media (max-width: 720px) {
+/* Compact quando falta espaço real (container app-shell — reage à sidebar, não só à janela) */
+@container app-shell (max-width: 720px) {
   .om-badge-label {
     display: none;
   }

@@ -371,8 +371,13 @@
   background: #ede9fe;
 }
 
-/* Tablet */
-@media (max-width: 1023px) {
+/* fix Clayton 2026-07-08: os breakpoints abaixo eram @media (largura da JANELA) — não reagiam à
+   sidebar expandir/recolher, então o mesmo viewport ficava "feio" (quebrado) num estado e limpo no
+   outro. Agora são @container app-shell (largura REAL disponível depois da sidebar, ver
+   UnifiedAuthLayout.css .ual-content). Mesmos limiares, reagindo à causa certa. */
+
+/* Tablet (ou sidebar expandida tomando espaço) — layout empilhado deliberado, não wrap parcial feio */
+@container app-shell (max-width: 1023px) {
   .gh-root {
     grid-template-columns: 1fr;
     gap: 1rem;
@@ -388,7 +393,7 @@
   }
 }
 
-@media (min-width: 1024px) {
+@container app-shell (min-width: 1024px) {
   .gh-root {
     grid-template-columns: minmax(170px, 0.75fr) minmax(360px, 1.35fr) minmax(0, auto);
     gap: 1rem;
@@ -396,7 +401,7 @@
 }
 
 /* Mobile */
-@media (max-width: 767px) {
+@container app-shell (max-width: 767px) {
   .gh-actions {
     width: 100%;
     justify-content: space-between;
