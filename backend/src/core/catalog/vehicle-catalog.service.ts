@@ -27,13 +27,23 @@ export interface VehicleModel {
 }
 
 class VehicleCatalogService {
-  async searchMakes(q?: string): Promise<VehicleMake[]> {
+  /**
+   * Marcas do catálogo. Se conceptId for informado, retorna SÓ marcas que TÊM ao menos um modelo
+   * daquela categoria (fix Clayton 2026-07-08: com Categoria=Caminhonete apareciam Yamaha/Honda/Renault
+   * — marcas sem caminhonete). Mesma coerência de listModelsByMakeAndConcept: a Marca é filtrada pelo
+   * concept escolhido. Sem conceptId = todas (compat).
+   */
+  async searchMakes(q?: string, conceptId?: string): Promise<VehicleMake[]> {
     const term = (q ?? '').trim();
+    const cid = (conceptId ?? '').trim();
     const rows = await pool.query<{ id: string; slug: string; name: string }>(
-      `SELECT id::text, slug, name FROM vehicle_makes
-        WHERE $1 = '' OR name ILIKE '%' || $1 || '%'
-        ORDER BY name ASC LIMIT 30`,
-      [term]
+      `SELECT mk.id::text, mk.slug, mk.name FROM vehicle_makes mk
+        WHERE ($1 = '' OR mk.name ILIKE '%' || $1 || '%')
+          AND ($2 = '' OR EXISTS (
+            SELECT 1 FROM vehicle_models m WHERE m.make_id = mk.id AND m.concept_id = $2::uuid
+          ))
+        ORDER BY mk.name ASC LIMIT 60`,
+      [term, cid]
     );
     return rows.rows;
   }

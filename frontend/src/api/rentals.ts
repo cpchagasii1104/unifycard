@@ -116,8 +116,11 @@ export async function listEquipmentUseAreas(): Promise<EquipmentUseArea[]> {
 export interface VehicleMake { id: string; slug: string; name: string; }
 export interface VehicleModel { id: string; makeId: string; conceptId: string; slug: string; name: string; }
 
-export async function searchVehicleMakes(q?: string): Promise<VehicleMake[]> {
-  const params = new URLSearchParams(); if (q?.trim()) params.set('q', q.trim());
+// conceptId filtra as marcas pela CATEGORIA escolhida (só marcas que fazem aquele tipo). Backend decide.
+export async function searchVehicleMakes(q?: string, conceptId?: string): Promise<VehicleMake[]> {
+  const params = new URLSearchParams();
+  if (q?.trim()) params.set('q', q.trim());
+  if (conceptId) params.set('conceptId', conceptId);
   const res = await apiFetchJson<{ ok: boolean; data: VehicleMake[] }>(`/catalog/vehicles/makes?${params.toString()}`);
   return res.data;
 }

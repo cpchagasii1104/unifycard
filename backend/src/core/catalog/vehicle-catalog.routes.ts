@@ -6,9 +6,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { vehicleCatalogService } from './vehicle-catalog.service';
 
 const vehicleCatalogRoutes: FastifyPluginAsync = async (fastify) => {
-  // GET /catalog/vehicles/makes?q=
-  fastify.get<{ Querystring: { q?: string } }>('/makes', async (req, reply) => {
-    const makes = await vehicleCatalogService.searchMakes(req.query.q);
+  // GET /catalog/vehicles/makes?q=&conceptId= — conceptId filtra por categoria (só marcas que a fazem)
+  fastify.get<{ Querystring: { q?: string; conceptId?: string } }>('/makes', async (req, reply) => {
+    const makes = await vehicleCatalogService.searchMakes(req.query.q, req.query.conceptId);
     return reply.send({ ok: true, data: makes });
   });
 

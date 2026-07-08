@@ -68,11 +68,11 @@ export default function VehicleFields({
           value={value.make}
           onChange={setMake}
           disabledReason={value.concept ? null : 'Escolha a categoria primeiro'}
-          loadOptions={(q) => searchVehicleMakes(q)}
+          loadOptions={(q) => value.concept ? searchVehicleMakes(q, value.concept.concept_id) : Promise.resolve([])}
           getOptionKey={(m) => m.id}
           getOptionLabel={(m) => m.name}
           placeholder="Buscar marca…"
-          emptyMessage="Nenhuma marca"
+          emptyMessage="Nenhuma marca para essa categoria"
         />
 
         <GovernedCombobox<VehicleModel>
