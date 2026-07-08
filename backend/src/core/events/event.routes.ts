@@ -300,6 +300,35 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /events/taxonomy — F-EVENT-CONCEPT-FIRST-MODEL. Contrato SERVER-DRIVEN da taxonomia (formatos/
+   * categorias/location-modes/access-types). O frontend NUNCA enumera — só projeta isto.
+   */
+  fastify.get('/taxonomy', async (req: FastifyRequest, reply: FastifyReply) => {
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    const { eventTaxonomyService } = await import('./event-taxonomy.service');
+    const formats = await eventTaxonomyService.listFormats(req.tenant.id);
+    return reply.send({
+      ok: true,
+      data: {
+        formats,
+        categories: eventTaxonomyService.listCategories(),
+        locationModes: eventTaxonomyService.listLocationModes(),
+        accessTypes: eventTaxonomyService.listAccessTypes(),
+      },
+    });
+  });
+
+  /**
+   * GET /events/themes/search?q= — busca de TEMA (CONCEPT livre). Composição formato × tema.
+   */
+  fastify.get<{ Querystring: { q?: string; limit?: string } }>('/themes/search', async (req: FastifyRequest<{ Querystring: { q?: string; limit?: string } }>, reply: FastifyReply) => {
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    const { eventTaxonomyService } = await import('./event-taxonomy.service');
+    const results = await eventTaxonomyService.searchThemes(req.tenant.id, req.query.q ?? '', req.query.limit ? parseInt(req.query.limit, 10) : 20);
+    return reply.send({ ok: true, data: { themes: results } });
+  });
+
+  /**
    * PATCH /events/:id/audience — DECISION-0161 (writer mínimo da plateia).
    * Organizer-gated (resolveRepresentedActor sobre event.actor_id, fail-closed). Seta o MACRO
    * (visibility, validado pelo CHECK existente) + refinamento (audience_relationship_types, validado
