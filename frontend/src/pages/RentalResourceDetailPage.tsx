@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
-import { getRentableResource, updateRentableResourceStatus, type RentableResource, type RentableResourceStatus } from '../api/rentals';
+import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, type RentableResource, type RentableResourceStatus } from '../api/rentals';
 import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, createBooking, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
 import './RentalResourceDetailPage.css';
 
@@ -48,19 +48,30 @@ export default function RentalResourceDetailPage() {
     try {
       const r = await getRentableResource(id);
       setResource(r);
-      const avails = await listAvailabilities({ ownerType: 'rentable_resource', ownerId: id });
-      const withBookings = await Promise.all(
-        avails.map(async (a) => ({ availability: a, bookings: await listBookings({ availabilityId: a.availabilityId }) }))
-      );
-      // mais recentes primeiro
-      withBookings.sort((a, b) => new Date(b.availability.startDatetime).getTime() - new Date(a.availability.startDatetime).getTime());
-      setWindows(withBookings);
+      const viewerIsOwner = !!activeActor && r.ownerActorId === activeActor.actor_id;
+      if (viewerIsOwner) {
+        // DONO: agenda operacional privada (janelas + reservas pendentes para confirmar).
+        const avails = await listAvailabilities({ ownerType: 'rentable_resource', ownerId: id });
+        const withBookings = await Promise.all(
+          avails.map(async (a) => ({ availability: a, bookings: await listBookings({ availabilityId: a.availabilityId }) }))
+        );
+        withBookings.sort((a, b) => new Date(b.availability.startDatetime).getTime() - new Date(a.availability.startDatetime).getTime());
+        setWindows(withBookings);
+      } else {
+        // VISITANTE (chegou pela busca/descoberta): só as janelas PÚBLICAS do recurso, sem ver reservas
+        // de terceiros. O backend só expõe se o recurso é público. Ele pode solicitar reserva.
+        const publicWindows = await getResourcePublicAvailability(id);
+        const mapped: WindowWithBookings[] = publicWindows
+          .map((w) => ({ availability: { availabilityId: w.availabilityId, ownerType: 'rentable_resource', ownerId: id, startDatetime: w.startDatetime, endDatetime: w.endDatetime, status: 'active' } as unknown as UnifiedAvailability, bookings: [] }))
+          .sort((a, b) => new Date(b.availability.startDatetime).getTime() - new Date(a.availability.startDatetime).getTime());
+        setWindows(mapped);
+      }
     } catch (err: any) {
       setError(err?.message || 'Recurso não encontrado');
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, activeActor]);
 
   useEffect(() => {
     load();

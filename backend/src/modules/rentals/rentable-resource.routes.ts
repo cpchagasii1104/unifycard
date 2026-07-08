@@ -290,6 +290,21 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  /**
+   * GET /rentable-resources/:id/availability — janelas ATIVAS de um recurso PÚBLICO, para o consumidor
+   * que chegou pela busca/descoberta ver a disponibilidade e solicitar reserva. A agenda operacional é
+   * privada (DECISION-0113), mas as janelas de um recurso público são descoberta. Sem actor declarado.
+   */
+  fastify.get<{ Params: { id: string } }>('/:id/availability', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    try {
+      const windows = await rentableResourceService.getPublicAvailability(req.tenant.id, req.params.id);
+      return reply.send({ ok: true, data: windows });
+    } catch (err: any) {
+      return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro' });
+    }
+  });
+
   // GET /rentable-resources/:id/offer — detalhe da oferta (faixas + cidade + quantity) p/ o form de edição.
   fastify.get<{ Params: { id: string } }>('/:id/offer', async (req, reply) => {
     if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });

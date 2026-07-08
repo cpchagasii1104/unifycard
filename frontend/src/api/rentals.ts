@@ -105,6 +105,14 @@ export async function discoverRentals(f: {
   return res.data;
 }
 
+// Disponibilidade PÚBLICA de um recurso (consumidor que chegou pela busca/descoberta). Só janelas
+// ativas de recurso público — a agenda operacional privada NÃO é exposta. Backend é a autoridade.
+export interface PublicAvailabilityWindow { availabilityId: string; startDatetime: string; endDatetime: string; }
+export async function getResourcePublicAvailability(id: string): Promise<PublicAvailabilityWindow[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: PublicAvailabilityWindow[] }>(`/rentable-resources/${id}/availability`);
+  return res.data;
+}
+
 export async function listMyRentableResources(ownerActorId: string): Promise<RentableResource[]> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource[] }>(
     `/rentable-resources?ownerActorId=${encodeURIComponent(ownerActorId)}`

@@ -114,6 +114,28 @@ class RentableResourceService {
     return rentableResourceRepository.searchByText(tenantId, q, limit);
   }
 
+  /**
+   * Disponibilidade PÚBLICA de um recurso alugável (para o consumidor que chegou pela busca/descoberta).
+   * A agenda operacional é privada por padrão (DECISION-0113/0118), mas as janelas de um recurso PÚBLICO
+   * são informação de descoberta (como um anúncio de aluguel). Expõe só janelas ATIVAS e só se o recurso
+   * é público+ativo — sem actor declarado pelo cliente. Projeção mínima (id/início/fim), sem dados privados.
+   */
+  async getPublicAvailability(tenantId: string, resourceId: string) {
+    const resource = await rentableResourceRepository.findById(tenantId, resourceId);
+    if (!resource || resource.status !== 'active' || resource.visibility !== 'public') {
+      const err: any = new Error('Recurso indisponível para consulta pública'); err.statusCode = 404; throw err;
+    }
+    const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
+    const windows = await unifiedAvailabilityRepository.findAvailabilities(tenantId, {
+      ownerType: 'rentable_resource' as any, ownerId: resourceId, status: 'active' as any,
+    });
+    return windows.map((w) => ({
+      availabilityId: w.availabilityId,
+      startDatetime: w.startDatetime.toISOString(),
+      endDatetime: w.endDatetime.toISOString(),
+    }));
+  }
+
   getPricingTiers(tenantId: string, resourceId: string) {
     return rentableResourceRepository.getPricingTiers(tenantId, resourceId);
   }
