@@ -40,6 +40,7 @@ import {
 import { useAudienceOptions } from '../hooks/useAudienceOptions';
 import AudiencePicker from '../components/composer/AudiencePicker';
 import { confirmBooking } from '../api/availability';
+import ActorProfileModal from '../components/common/ActorProfileModal';
 import { resolveAudiencePayload, isExclusive } from '../components/composer/audience-payload';
 import type { AudienceOption } from '../api/audience';
 import VehicleFields, { buildVehicleResourceName, type VehicleSelection } from '../components/composer/VehicleFields';
@@ -152,6 +153,7 @@ export default function RentalResourceListPage() {
   const [consumerTab, setConsumerTab] = useState<'rent' | 'bookings'>('rent');
   const [showHistory, setShowHistory] = useState(false);
   // Painel do DONO (operar): aba recursos × reservas recebidas + filtro por status (escala).
+  const [profileModalActorId, setProfileModalActorId] = useState<string | null>(null); // perfil no lugar, sem sair do fluxo
   const [operarTab, setOperarTab] = useState<'resources' | 'bookings'>('resources');
   const [receivedBookings, setReceivedBookings] = useState<ReceivedBooking[]>([]);
   const [receivedFilter, setReceivedFilter] = useState<'all' | 'requested' | 'confirmed' | 'cancelled'>('all');
@@ -484,7 +486,7 @@ export default function RentalResourceListPage() {
               <span className="rrl-mybooking-line">👤 Dono: {b.owner.displayName}
                 {b.handoffTimeStart && b.handoffTimeEnd ? ` · 🕗 ${b.handoffTimeStart.slice(0, 5)}–${b.handoffTimeEnd.slice(0, 5)}` : ''}</span>
               <div className="rrl-mybooking-actions">
-                <button type="button" className="rrl-mybooking-profile" onClick={() => navigate(`/vitrine/${b.owner.actorId}`)}>Ver perfil do dono →</button>
+                <button type="button" className="rrl-mybooking-profile" onClick={() => setProfileModalActorId(b.owner.actorId)}>Ver perfil do dono →</button>
                 {canCancel && <button type="button" className="rrl-mybooking-cancel" onClick={() => handleCancelMyBooking(b.bookingId)}>Cancelar</button>}
               </div>
             </div>
@@ -601,6 +603,7 @@ export default function RentalResourceListPage() {
           </>
         )}
         </>)}
+        {profileModalActorId && <ActorProfileModal actorId={profileModalActorId} onClose={() => setProfileModalActorId(null)} />}
       </PageModuleShell>
     );
   }
@@ -860,7 +863,7 @@ export default function RentalResourceListPage() {
                   {b.bookedStart && b.bookedEnd && <span className="rrl-mybooking-line">📅 {new Date(b.bookedStart).toLocaleString('pt-BR')} → {new Date(b.bookedEnd).toLocaleString('pt-BR')}</span>}
                   <span className="rrl-mybooking-line">{b.estimate?.available ? `💰 Estimativa: R$ ${(b.estimate.estimatedPriceCents / 100).toFixed(2).replace('.', ',')}` : '💰 Preço a combinar'}</span>
                   <div className="rrl-mybooking-actions">
-                    <button type="button" className="rrl-mybooking-profile" onClick={() => navigate(`/vitrine/${b.requester.actorId}`)}>Ver perfil →</button>
+                    <button type="button" className="rrl-mybooking-profile" onClick={() => setProfileModalActorId(b.requester.actorId)}>Ver perfil →</button>
                     {b.status === 'requested' && <button type="button" className="rrl-req-confirm-sm" onClick={() => handleOwnerConfirm(b.bookingId)}>Confirmar</button>}
                     {b.status === 'requested' && <button type="button" className="rrl-mybooking-cancel" onClick={() => handleOwnerDecline(b.resourceId, b.bookingId, false)}>Recusar</button>}
                     {['confirmed', 'checked_in'].includes(b.status) && <button type="button" className="rrl-mybooking-cancel" onClick={() => handleOwnerDecline(b.resourceId, b.bookingId, true)}>Cancelar reserva</button>}
@@ -996,6 +999,7 @@ export default function RentalResourceListPage() {
           </div>
         );
       })()}
+      {profileModalActorId && <ActorProfileModal actorId={profileModalActorId} onClose={() => setProfileModalActorId(null)} />}
     </PageModuleShell>
   );
 }

@@ -13,6 +13,7 @@ import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
 import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, updateRentalOffer, requestResourceBooking, getResourceRequests, declineResourceRequest, getQuotePreview, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail, type RentalRequest, type QuotePreview } from '../api/rentals';
 import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
+import ActorProfileModal from '../components/common/ActorProfileModal';
 import './RentalResourceDetailPage.css';
 
 const RESOURCE_TYPE_LABEL: Record<string, string> = {
@@ -34,6 +35,7 @@ export default function RentalResourceDetailPage() {
   const [offer, setOffer] = useState<RentalOfferDetail | null>(null);
   const [windows, setWindows] = useState<WindowWithBookings[]>([]);
   const [requests, setRequests] = useState<RentalRequest[]>([]);
+  const [profileModalActorId, setProfileModalActorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -335,7 +337,7 @@ export default function RentalResourceDetailPage() {
                 {/* Reputação: só projeta se houver fato real; hoje o substrato está dormente → honesto. */}
                 <p className="rrd-request-trust">{r.trust ? '' : '🔒 Perfil público disponível · histórico de reputação ainda não disponível'}</p>
                 <div className="rrd-request-actions">
-                  <button type="button" className="rrd-req-profile" onClick={() => navigate(`/vitrine/${r.requester.actorId}`)}>Ver perfil</button>
+                  <button type="button" className="rrd-req-profile" onClick={() => setProfileModalActorId(r.requester.actorId)}>Ver perfil</button>
                   {/* Mensagem direta ainda não está viva no sistema — placeholder honesto, sem backend falso. */}
                   <button type="button" className="rrd-req-message" title="Em desenvolvimento"
                     onClick={() => showToast('Envio de mensagem em desenvolvimento — em breve.', 'success')}>
@@ -462,6 +464,7 @@ export default function RentalResourceDetailPage() {
           })}
         </div>
       </section>
+      {profileModalActorId && <ActorProfileModal actorId={profileModalActorId} onClose={() => setProfileModalActorId(null)} />}
     </div>
   );
 }

@@ -1,0 +1,21 @@
+/* Modal de perfil público (abre no lugar, não navega). */
+.apm-overlay { position: fixed; inset: 0; background: rgba(20, 24, 40, .5); display: flex; align-items: center; justify-content: center; z-index: 120; padding: 20px; }
+.apm-modal { position: relative; background: #fff; border-radius: 16px; width: 100%; max-width: 420px; overflow: hidden; box-shadow: 0 24px 60px rgba(20, 24, 40, .28); }
+.apm-x { position: absolute; top: 12px; right: 12px; z-index: 2; width: 32px; height: 32px; border-radius: 9px; border: 0; background: rgba(255, 255, 255, .85); color: #374151; font-size: .95rem; cursor: pointer; display: grid; place-items: center; }
+.apm-x:hover { background: #fff; }
+.apm-cover { height: 96px; background: linear-gradient(120deg, #eef0fb, #dfe3fe); background-size: cover; background-position: center; }
+.apm-head { display: flex; align-items: flex-end; gap: 12px; padding: 0 20px; margin-top: -34px; }
+.apm-avatar { width: 68px; height: 68px; border-radius: 50%; border: 3px solid #fff; object-fit: cover; background: #eef0fb; display: grid; place-items: center; }
+.apm-avatar-fallback { font-size: 1.7rem; font-weight: 700; color: #5b6470; }
+.apm-name { margin: 0; font-size: 1.15rem; font-weight: 800; color: #1e2338; }
+.apm-type { font-size: .8rem; color: #8891a6; font-weight: 600; }
+.apm-headline { margin: 10px 20px 0; font-size: .9rem; color: #374151; font-weight: 600; }
+.apm-bio { margin: 8px 20px 0; font-size: .86rem; color: #5b627a; line-height: 1.5; }
+.apm-trust { margin: 12px 20px 0; font-size: .8rem; color: #8891a6; }
+.apm-status { padding: 40px 20px; text-align: center; color: #5b627a; }
+.apm-error { color: #b4453f; }
+.apm-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 20px 20px; }
+.apm-secondary { padding: .5rem 1rem; border: 1px solid #d7dbe0; border-radius: 8px; background: #fff; color: #374151; font: inherit; font-weight: 600; cursor: pointer; }
+.apm-secondary:hover { background: #f3f4f6; }
+.apm-primary { padding: .5rem 1rem; border: 0; border-radius: 8px; background: #4f46e5; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.apm-primary:hover { background: #4338ca; }
