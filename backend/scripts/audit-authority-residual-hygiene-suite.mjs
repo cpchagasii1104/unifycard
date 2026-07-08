@@ -18,6 +18,7 @@ const guards = [
   'audit-marketplace-domain-n0-mapping.mjs',                 // L3 — materializacao do mapa DECISION-0106 (MarketplaceDomain->N0)
   'audit-jwt-payload-decode-frontend.mjs',                   // TENANT_ID_REQUIRED — decode de JWT base64url-safe (zero atob solto)
   'audit-rls-policy-guc-canonical.mjs',                      // BLOCKER Yala: policy RLS com GUC nao-canonico = quebra-fechada (classe travada)
+  'audit-schema-authority-classification.mjs',              // Trava 1 (Clayton 2026-07-08): carimbo SSOT/read_model/legacy/dead — anti-reativacao de cadaver/verdade-paralela
 ];
 
 let failed = false;
