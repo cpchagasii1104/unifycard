@@ -400,6 +400,38 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  /**
+   * GET /rentable-resources/:id/requests — o DONO vê QUEM solicitou (projeção pública do actor) +
+   * período + estimativa, antes de confirmar/recusar. Owner-only (no service). Reputação honesta (null).
+   */
+  fastify.get<{ Params: { id: string } }>('/:id/requests', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const userId = (req.user as { userId?: string } | undefined)?.userId;
+    if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
+    try {
+      const data = await rentableResourceService.getResourceRequests(req.tenant.id, req.params.id, userId);
+      return reply.send({ ok: true, data });
+    } catch (err: any) {
+      return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro' });
+    }
+  });
+
+  /**
+   * POST /rentable-resources/:id/requests/:bookingId/decline — o DONO recusa uma solicitação. Owner-only
+   * (no service). Status → cancelled (preserva histórico). Δbank=0.
+   */
+  fastify.post<{ Params: { id: string; bookingId: string } }>('/:id/requests/:bookingId/decline', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const userId = (req.user as { userId?: string } | undefined)?.userId;
+    if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
+    try {
+      const data = await rentableResourceService.declineRequest(req.tenant.id, req.params.id, req.params.bookingId, userId);
+      return reply.send({ ok: true, data });
+    } catch (err: any) {
+      return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro ao recusar' });
+    }
+  });
+
   fastify.patch<{ Params: { id: string }; Body: z.infer<typeof updateStatusSchema> }>(
     '/:id/status',
     async (req, reply) => {

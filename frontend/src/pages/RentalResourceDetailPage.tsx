@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
-import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, requestResourceBooking, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail } from '../api/rentals';
+import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, requestResourceBooking, getResourceRequests, declineResourceRequest, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail, type RentalRequest } from '../api/rentals';
 import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
 import './RentalResourceDetailPage.css';
 
@@ -33,6 +33,7 @@ export default function RentalResourceDetailPage() {
   const [resource, setResource] = useState<RentableResource | null>(null);
   const [offer, setOffer] = useState<RentalOfferDetail | null>(null);
   const [windows, setWindows] = useState<WindowWithBookings[]>([]);
+  const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +62,8 @@ export default function RentalResourceDetailPage() {
         );
         withBookings.sort((a, b) => new Date(b.availability.startDatetime).getTime() - new Date(a.availability.startDatetime).getTime());
         setWindows(withBookings);
+        // Solicitações pendentes com QUEM pediu (o dono decide informado). Não crítico se falhar.
+        getResourceRequests(id).then(setRequests).catch(() => setRequests([]));
       } else {
         // VISITANTE (chegou pela busca/descoberta): só as janelas PÚBLICAS do recurso, sem ver reservas
         // de terceiros. O backend só expõe se o recurso é público. Ele pode solicitar reserva.
@@ -114,7 +117,19 @@ export default function RentalResourceDetailPage() {
       await load();
     } catch (err: any) {
       // RENTAL_RESOURCE_TIME_CONFLICT chega aqui se outra reserva já ocupou o intervalo
-      showToast(err?.message || 'Erro ao confirmar reserva', 'error');
+      const msg = String(err?.message || '');
+      showToast(msg.includes('TIME_CONFLICT') ? 'Este período já foi confirmado para outra reserva.' : (msg || 'Erro ao confirmar reserva'), 'error');
+    }
+  };
+
+  const handleDecline = async (bookingId: string) => {
+    if (!id || !window.confirm('Recusar esta solicitação?')) return;
+    try {
+      await declineResourceRequest(id, bookingId);
+      showToast('Solicitação recusada.', 'success');
+      await load();
+    } catch (err: any) {
+      showToast(err?.message || 'Erro ao recusar', 'error');
     }
   };
 
@@ -229,8 +244,43 @@ export default function RentalResourceDetailPage() {
         </section>
       )}
 
+      {/* Solicitações com QUEM pediu — o dono cede um bem, decide informado. Reputação honesta (sem fake). */}
+      {isOwner && requests.length > 0 && (
+        <section className="rrd-section">
+          <h2>Solicitações de locação ({requests.length})</h2>
+          <div className="rrd-requests">
+            {requests.map((r) => (
+              <div key={r.bookingId} className="rrd-request-card">
+                <div className="rrd-request-head">
+                  {r.requester.avatarUrl
+                    ? <img className="rrd-avatar" src={r.requester.avatarUrl} alt="" />
+                    : <span className="rrd-avatar rrd-avatar-fallback">{r.requester.displayName.charAt(0).toUpperCase()}</span>}
+                  <div>
+                    <span className="rrd-request-name">{r.requester.displayName}</span>
+                    <span className="rrd-request-type">{r.requester.actorType === 'page' ? 'Empresa' : 'Pessoa Física'}</span>
+                  </div>
+                </div>
+                {r.bookedStart && r.bookedEnd && (
+                  <p className="rrd-request-line">📅 {new Date(r.bookedStart).toLocaleString('pt-BR')} → {new Date(r.bookedEnd).toLocaleString('pt-BR')}</p>
+                )}
+                <p className="rrd-request-line">
+                  {r.estimate?.available ? `💰 Estimativa: R$ ${(r.estimate.estimatedPriceCents / 100).toFixed(2).replace('.', ',')}` : '💰 Preço a combinar'}
+                </p>
+                {/* Reputação: só projeta se houver fato real; hoje o substrato está dormente → honesto. */}
+                <p className="rrd-request-trust">{r.trust ? '' : '🔒 Perfil público disponível · histórico de reputação ainda não disponível'}</p>
+                <div className="rrd-request-actions">
+                  <button type="button" className="rrd-req-profile" onClick={() => navigate(`/vitrine/${r.requester.actorId}`)}>Ver perfil</button>
+                  <button type="button" className="rrd-req-decline" onClick={() => handleDecline(r.bookingId)}>Recusar</button>
+                  <button type="button" className="rrd-req-confirm" onClick={() => handleConfirm(r.bookingId)}>Confirmar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="rrd-section">
-        <h2>{isOwner ? 'Janelas e reservas' : 'Escolha um período disponível'}</h2>
+        <h2>{isOwner ? 'Janelas de disponibilidade' : 'Escolha um período disponível'}</h2>
         {windows.length === 0 && (
           isOwner
             ? <p className="rrd-status-text">Nenhuma janela de disponibilidade ainda. Crie uma acima para o recurso aparecer na busca.</p>
@@ -279,12 +329,10 @@ export default function RentalResourceDetailPage() {
                   </div>
                 )}
 
-                {isOwner && requestedBookings.map((b) => (
-                  <div key={b.bookingId} className="rrd-booking-row">
-                    <span>Solicitado em {new Date(b.requestedAt).toLocaleDateString('pt-BR')}</span>
-                    <button type="button" onClick={() => handleConfirm(b.bookingId)}>Confirmar</button>
-                  </div>
-                ))}
+                {/* Solicitações agora aparecem na seção "Solicitações de locação" acima (com quem pediu). */}
+                {isOwner && requestedBookings.length > 0 && (
+                  <span className="rrd-window-tag rrd-tag-requested">{requestedBookings.length} solicitação(ões) — ver acima</span>
+                )}
 
                 {!isOwner && !activeBooking && requestedBookings.length === 0 && (() => {
                   const wid = availability.availabilityId;

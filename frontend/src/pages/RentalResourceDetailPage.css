@@ -62,3 +62,18 @@
 .rrd-book-period-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .rrd-book-period-row label { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; font-weight: 600; color: #5b627a; }
 .rrd-book-period-row input { border: 1px solid #d9dbe4; border-radius: 6px; padding: .4rem .5rem; font: inherit; }
+
+/* Cards de solicitação (o dono vê quem pediu antes de confirmar). */
+.rrd-requests { display: flex; flex-direction: column; gap: 12px; }
+.rrd-request-card { border: 1px solid #e9ebf4; border-radius: 12px; padding: 14px 16px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+.rrd-request-head { display: flex; align-items: center; gap: 10px; }
+.rrd-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; }
+.rrd-avatar-fallback { display: grid; place-items: center; background: #eef0fb; color: #4f46e5; font-weight: 700; font-size: 1.1rem; }
+.rrd-request-name { display: block; font-weight: 700; color: #1e2338; }
+.rrd-request-type { display: block; font-size: .78rem; color: #8891a6; }
+.rrd-request-line { margin: 0; font-size: .88rem; color: #374151; }
+.rrd-request-trust { margin: 0; font-size: .78rem; color: #8891a6; }
+.rrd-request-actions { display: flex; gap: 8px; margin-top: 4px; }
+.rrd-req-profile { padding: .45rem .9rem; border: 1px solid #d7dbe0; border-radius: 8px; background: #fff; color: #374151; font: inherit; font-weight: 600; cursor: pointer; }
+.rrd-req-decline { padding: .45rem .9rem; border: 1px solid #f0c9c9; border-radius: 8px; background: #fff; color: #b4453f; font: inherit; font-weight: 600; cursor: pointer; }
+.rrd-req-confirm { padding: .45rem 1.1rem; border: 0; border-radius: 8px; background: #059669; color: #fff; font: inherit; font-weight: 700; cursor: pointer; margin-left: auto; }

@@ -164,6 +164,58 @@ class RentableResourceService {
     };
   }
 
+  /**
+   * SOLICITAÇÕES PENDENTES do recurso, para o DONO decidir informado (ato de confiança — ele vai ceder
+   * um bem). Owner-only (canRepresentActor). Cada solicitação traz: QUEM pediu (projeção pública do
+   * actor — anti-PII), o PERÍODO pedido, a ESTIMATIVA (faixas+período). Reputação: honesta — hoje o
+   * substrato está dormente, então `trust: null` (a tela mostra "ainda não disponível", NÃO inventa).
+   */
+  async getResourceRequests(tenantId: string, resourceId: string, requestingUserId: string) {
+    const resource = await this.get(tenantId, resourceId);
+    let canRep = false;
+    try { canRep = await authorizationService.canRepresentActor(tenantId, requestingUserId, resource.ownerActorId); } catch { canRep = false; }
+    if (!canRep) throw HttpError.forbidden('RENTABLE_RESOURCE_REQUESTS_NOT_REPRESENTABLE: só o dono vê as solicitações.');
+
+    const pending = await rentableResourceRepository.findPendingRequests(tenantId, resourceId);
+    const tiers = await rentableResourceRepository.getPricingTiers(tenantId, resourceId);
+    const { estimatePrice } = await import('./pricing-estimate');
+    return Promise.all(pending.map(async (p) => {
+      const requester = await rentableResourceRepository.getPublicActorSummary(tenantId, p.requesterActorId);
+      const estimate = (p.bookedStart && p.bookedEnd) ? estimatePrice(tiers as any, p.bookedStart, p.bookedEnd) : null;
+      return {
+        bookingId: p.bookingId,
+        requester: requester ?? { actorId: p.requesterActorId, displayName: 'Solicitante', actorType: 'user', avatarUrl: null },
+        bookedStart: p.bookedStart?.toISOString() ?? null,
+        bookedEnd: p.bookedEnd?.toISOString() ?? null,
+        requestedAt: p.requestedAt.toISOString(),
+        estimate,
+        trust: null, // reputação dormente — a tela mostra estado honesto, NÃO score inventado
+      };
+    }));
+  }
+
+  /**
+   * O DONO RECUSA uma solicitação (owner-only). Muda status para 'cancelled' (vocabulário existente),
+   * preservando o histórico. Reusa o updateBooking do core (que valida existência). Δbank=0.
+   */
+  async declineRequest(tenantId: string, resourceId: string, bookingId: string, requestingUserId: string) {
+    const resource = await this.get(tenantId, resourceId);
+    let canRep = false;
+    try { canRep = await authorizationService.canRepresentActor(tenantId, requestingUserId, resource.ownerActorId); } catch { canRep = false; }
+    if (!canRep) throw HttpError.forbidden('RENTABLE_RESOURCE_DECLINE_NOT_REPRESENTABLE: só o dono recusa.');
+    const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
+    const booking = await unifiedAvailabilityRepository.findBookingById(tenantId, bookingId);
+    if (!booking) throw HttpError.notFound('BOOKING_NOT_FOUND');
+    // Confirma que o booking pertence a uma janela DESTE recurso (não recusar booking alheio).
+    const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
+    const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, booking.availabilityId);
+    if (!availability || availability.ownerType !== 'rentable_resource' || availability.ownerId !== resourceId) {
+      throw HttpError.badRequest('BOOKING_RESOURCE_MISMATCH: solicitação não é deste recurso.');
+    }
+    await unifiedAvailabilityService.updateBooking(tenantId, bookingId, requestingUserId, { status: 'cancelled' as any });
+    return { bookingId, status: 'cancelled' };
+  }
+
   /** Busca de locação por texto para a busca global — só recursos PÚBLICOS ativos (sem actor declarado). */
   searchByText(tenantId: string, q: string, limit?: number) {
     return rentableResourceRepository.searchByText(tenantId, q, limit);

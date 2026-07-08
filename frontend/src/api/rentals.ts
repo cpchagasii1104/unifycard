@@ -148,6 +148,25 @@ export async function requestResourceBooking(resourceId: string, availabilityId:
   return res.data;
 }
 
+// Solicitações pendentes que o DONO vê antes de confirmar (ato de confiança: ele vai ceder um bem).
+// requester = projeção pública do actor (anti-PII). trust = null enquanto reputação não está viva.
+export interface RentalRequest {
+  bookingId: string;
+  requester: { actorId: string; displayName: string; actorType: string; avatarUrl: string | null };
+  bookedStart: string | null;
+  bookedEnd: string | null;
+  requestedAt: string;
+  estimate: { available: boolean; estimatedPriceCents: number } | null;
+  trust: null | { completedRentals?: number; cancellations?: number; averageRating?: number };
+}
+export async function getResourceRequests(resourceId: string): Promise<RentalRequest[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: RentalRequest[] }>(`/rentable-resources/${resourceId}/requests`);
+  return res.data;
+}
+export async function declineResourceRequest(resourceId: string, bookingId: string): Promise<void> {
+  await apiFetchJson(`/rentable-resources/${resourceId}/requests/${bookingId}/decline`, { method: 'POST' });
+}
+
 export async function listMyRentableResources(ownerActorId: string): Promise<RentableResource[]> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource[] }>(
     `/rentable-resources?ownerActorId=${encodeURIComponent(ownerActorId)}`

@@ -353,6 +353,32 @@ class RentableResourceRepository {
     return rows.map((r) => ({ id: r.id, label: r.label, resourceType: r.resource_type, cityName: r.city_name, uf: r.uf }));
   }
 
+  /** Projeção PÚBLICA de um actor (mesmos campos seguros de searchPublicActors — anti-PII por construção:
+   *  nunca user_id/global_user_id/cpf/documento). Para o dono ver QUEM solicitou antes de confirmar. */
+  async getPublicActorSummary(tenantId: string, actorId: string): Promise<{ actorId: string; displayName: string; actorType: string; avatarUrl: string | null } | null> {
+    const row = await runQueryWithTenant<{ id: string; display_name: string; avatar_url: string | null; actor_type: string }>(
+      tenantId,
+      `SELECT id, display_name, avatar_url, actor_type FROM actors WHERE id = $1::uuid AND tenant_id = $2::uuid LIMIT 1`,
+      [actorId, tenantId]);
+    if (!row) return null;
+    return { actorId: row.id, displayName: row.display_name, actorType: row.actor_type, avatarUrl: row.avatar_url };
+  }
+
+  /** Solicitações PENDENTES (status requested) de um recurso, com o subperíodo pedido. O service valida
+   *  autoridade do dono ANTES. Ordena por mais antigas primeiro (fila justa). */
+  async findPendingRequests(tenantId: string, resourceId: string): Promise<Array<{ bookingId: string; requesterActorId: string; bookedStart: Date | null; bookedEnd: Date | null; requestedAt: Date }>> {
+    const rows = await runQueriesWithTenant<{ booking_id: string; requester_actor_id: string; booked_start_datetime: Date | null; booked_end_datetime: Date | null; requested_at: Date }>(
+      tenantId,
+      `SELECT b.booking_id, b.requester_actor_id, b.booked_start_datetime, b.booked_end_datetime, b.requested_at
+         FROM bookings b
+         JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND a.owner_id = $2::uuid
+          AND b.status = 'requested'
+        ORDER BY b.requested_at ASC`,
+      [tenantId, resourceId]);
+    return rows.map((r) => ({ bookingId: r.booking_id, requesterActorId: r.requester_actor_id, bookedStart: r.booked_start_datetime, bookedEnd: r.booked_end_datetime, requestedAt: r.requested_at }));
+  }
+
   /** Subperíodos OCUPADOS (reservas confirmadas/em-uso) de um recurso — para projetar a disponibilidade
    *  restante (janela macro menos reservas). COALESCE(subperíodo, janela) para reservas sem subperíodo. */
   async findConfirmedPeriods(tenantId: string, resourceId: string): Promise<Array<{ start: Date; end: Date }>> {
