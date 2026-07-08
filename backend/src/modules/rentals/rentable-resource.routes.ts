@@ -1,4 +1,4 @@
-import { RENTAL_PRICING_UNITS, RESOURCE_TYPE_TO_DOMAINS, BOOKING_APPROVAL_MODES, START_HANDOFF_METHODS, END_HANDOFF_METHODS, MILEAGE_POLICIES } from './rentable-resource.types';
+import { RENTAL_PRICING_UNITS, RESOURCE_TYPE_TO_DOMAINS, BOOKING_APPROVAL_MODES, START_HANDOFF_METHODS, END_HANDOFF_METHODS, MILEAGE_POLICIES, PROPERTY_RENTAL_MODALITIES, CLEANING_FEE_POLICIES, MIN_RENTAL_UNITS } from './rentable-resource.types';
 // backend/src/modules/rentals/rentable-resource.routes.ts
 // F-RENTAL-RESOURCE-SURFACE-SLICE-A — a ÚNICA peça que faltava para o Trilho B (DECISION-0159/
 // fluxo.png) funcionar ponta-a-ponta para recurso: registrar o recurso. Availability/booking/
@@ -56,6 +56,11 @@ const createSchema = z.object({
   includedKmPerDay: z.number().int().min(0).nullable().optional(),
   includedKmTotal: z.number().int().min(0).nullable().optional(),
   extraKmFeeCents: z.number().int().min(0).nullable().optional(),
+  rentalModality: z.enum(PROPERTY_RENTAL_MODALITIES).nullable().optional(),
+  cleaningFeePolicy: z.enum(CLEANING_FEE_POLICIES).nullable().optional(),
+  cleaningFeeCents: z.number().int().min(0).nullable().optional(),
+  minRentalQty: z.number().int().min(1).nullable().optional(),
+  minRentalUnit: z.enum(MIN_RENTAL_UNITS).nullable().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -89,6 +94,11 @@ const updateOfferSchema = z.object({
   includedKmPerDay: z.number().int().min(0).nullable().optional(),
   includedKmTotal: z.number().int().min(0).nullable().optional(),
   extraKmFeeCents: z.number().int().min(0).nullable().optional(),
+  rentalModality: z.enum(PROPERTY_RENTAL_MODALITIES).nullable().optional(),
+  cleaningFeePolicy: z.enum(CLEANING_FEE_POLICIES).nullable().optional(),
+  cleaningFeeCents: z.number().int().min(0).nullable().optional(),
+  minRentalQty: z.number().int().min(1).nullable().optional(),
+  minRentalUnit: z.enum(MIN_RENTAL_UNITS).nullable().optional(),
 });
 
 const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -161,6 +171,11 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         includedKmPerDay: parsed.data.includedKmPerDay ?? null,
         includedKmTotal: parsed.data.includedKmTotal ?? null,
         extraKmFeeCents: parsed.data.extraKmFeeCents ?? null,
+        rentalModality: parsed.data.rentalModality ?? null,
+        cleaningFeePolicy: parsed.data.cleaningFeePolicy ?? null,
+        cleaningFeeCents: parsed.data.cleaningFeeCents ?? null,
+        minRentalQty: parsed.data.minRentalQty ?? null,
+        minRentalUnit: parsed.data.minRentalUnit ?? null,
       });
       return reply.status(201).send({ ok: true, data: resource });
     } catch (err: any) {
@@ -367,11 +382,11 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /rentable-resources/pricing-units?resourceType= — unidades de preço PERMITIDAS por tipo (contrato
    * GOVERNADO no backend; o front só renderiza). Público/read-only.
    */
-  fastify.get<{ Querystring: { resourceType?: string } }>('/pricing-units', async (req, reply) => {
-    const rt = req.query.resourceType;
-    const parsed = resourceTypeEnum.safeParse(rt);
+  fastify.get<{ Querystring: { resourceType?: string; modality?: string } }>('/pricing-units', async (req, reply) => {
+    const parsed = resourceTypeEnum.safeParse(req.query.resourceType);
     if (!parsed.success) return reply.status(400).send({ error: 'resourceType inválido' });
-    return reply.send({ ok: true, data: { units: rentableResourceService.getAllowedPricingUnits(parsed.data) } });
+    const mod = req.query.modality ? PROPERTY_RENTAL_MODALITIES.find((m) => m === req.query.modality) ?? null : null;
+    return reply.send({ ok: true, data: { units: rentableResourceService.getAllowedPricingUnits(parsed.data, mod) } });
   });
 
   /**
@@ -515,6 +530,11 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         includedKmPerDay: parsed.data.includedKmPerDay,
         includedKmTotal: parsed.data.includedKmTotal,
         extraKmFeeCents: parsed.data.extraKmFeeCents,
+        rentalModality: parsed.data.rentalModality,
+        cleaningFeePolicy: parsed.data.cleaningFeePolicy,
+        cleaningFeeCents: parsed.data.cleaningFeeCents,
+        minRentalQty: parsed.data.minRentalQty,
+        minRentalUnit: parsed.data.minRentalUnit,
       });
       return reply.send({ ok: true, data: resource });
     } catch (err: any) {

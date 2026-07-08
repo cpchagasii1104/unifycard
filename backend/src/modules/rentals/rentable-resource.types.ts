@@ -40,12 +40,34 @@ export type RentalPricingUnit = (typeof RENTAL_PRICING_UNITS)[number];
 // estimativa de preço COMPÕE daqui, não replica). Mês=30d, semestre=180d, ano=365d.
 // CONTRATO GOVERNADO: quais unidades de preço fazem sentido por tipo de recurso. É a regra de negócio
 // (não o front). Subconjunto das unidades já governadas (RENTAL_PRICING_UNITS) — não inventa unidade.
-// Imóvel = mês/semestre/ano; espaço = hora/dia; veículo/equipamento = hora→mês. O front só renderiza.
+// Para PROPERTY, as unidades dependem da MODALIDADE (ver PRICING_UNITS_BY_MODALITY) — este mapa é o
+// fallback (long_term). Espaço = hora/dia; veículo/equipamento = hora→mês. O front só renderiza.
 export const PRICING_UNITS_BY_RESOURCE_TYPE: Record<RentableResourceType, RentalPricingUnit[]> = {
   property: ['por_mes', 'por_semestre', 'por_ano'],
   space: ['por_hora', 'por_dia'],
   vehicle: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
   equipment: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
+};
+
+// MODALIDADE de locação de IMÓVEL (só property). Casa de praia por diária = property + seasonal.
+export const PROPERTY_RENTAL_MODALITIES = ['long_term', 'seasonal', 'commercial'] as const;
+export type RentalModality = (typeof PROPERTY_RENTAL_MODALITIES)[number];
+// Unidades permitidas por modalidade (contrato governado — o front só projeta).
+export const PRICING_UNITS_BY_MODALITY: Record<RentalModality, RentalPricingUnit[]> = {
+  long_term: ['por_mes', 'por_semestre', 'por_ano'],
+  seasonal: ['por_dia', 'por_semana', 'por_mes'],
+  commercial: ['por_mes', 'por_ano'],
+};
+
+// Taxa de limpeza (anunciada, Δbank=0). policy governada; cents obrigatório em separate_required.
+export const CLEANING_FEE_POLICIES = ['none', 'included', 'separate_required', 'to_be_arranged'] as const;
+export type CleaningFeePolicy = (typeof CLEANING_FEE_POLICIES)[number];
+
+// Unidade do TEMPO MÍNIMO de contrato (metadata tipada/validada). Mapeia p/ horas (validação de período).
+export const MIN_RENTAL_UNITS = ['hour', 'day', 'week', 'month', 'semester', 'year'] as const;
+export type MinRentalUnit = (typeof MIN_RENTAL_UNITS)[number];
+export const MIN_RENTAL_UNIT_HOURS: Record<MinRentalUnit, number> = {
+  hour: 1, day: 24, week: 168, month: 720, semester: 4320, year: 8760,
 };
 
 export const RENTAL_PRICING_UNIT_HOURS: Record<RentalPricingUnit, number> = {
@@ -100,6 +122,9 @@ export interface RentableResource {
   includedKmPerDay: number | null;
   includedKmTotal: number | null;
   extraKmFeeCents: number | null;
+  rentalModality: RentalModality | null;
+  cleaningFeePolicy: CleaningFeePolicy | null;
+  cleaningFeeCents: number | null;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -130,6 +155,9 @@ export interface RentableResourceRow {
   included_km_per_day?: number | null;
   included_km_total?: number | null;
   extra_km_fee_cents?: string | number | null;
+  rental_modality?: RentalModality | null;
+  cleaning_fee_policy?: CleaningFeePolicy | null;
+  cleaning_fee_cents?: string | number | null;
   resource_year: number | null;
   metadata: Record<string, unknown> | null;
   visibility: RentableVisibility;
@@ -173,6 +201,11 @@ export interface CreateRentableResourceInput {
   includedKmPerDay?: number | null; // km/dia incluído (obrigatório em limited).
   includedKmTotal?: number | null; // km total incluído (opcional em limited).
   extraKmFeeCents?: number | null; // taxa ANUNCIADA de km excedente (cents; opcional em limited).
+  rentalModality?: RentalModality | null; // SÓ imóvel: long_term/seasonal/commercial.
+  cleaningFeePolicy?: CleaningFeePolicy | null; // taxa de limpeza anunciada (space/property seasonal).
+  cleaningFeeCents?: number | null; // valor da taxa (cents; obrigatório em separate_required).
+  minRentalQty?: number | null; // tempo mínimo (número) — metadata tipada/validada.
+  minRentalUnit?: MinRentalUnit | null; // unidade do tempo mínimo (hour/day/week/month/...).
 }
 
 export interface ListRentableResourcesFilters {

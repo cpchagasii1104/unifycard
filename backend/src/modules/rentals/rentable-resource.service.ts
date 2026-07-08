@@ -15,7 +15,8 @@ import type {
   MileagePolicy,
   RentalPricingUnit,
 } from './rentable-resource.types';
-import { MILEAGE_POLICIES, PRICING_UNITS_BY_RESOURCE_TYPE } from './rentable-resource.types';
+import { MILEAGE_POLICIES, PRICING_UNITS_BY_RESOURCE_TYPE, PROPERTY_RENTAL_MODALITIES, PRICING_UNITS_BY_MODALITY, CLEANING_FEE_POLICIES, MIN_RENTAL_UNITS, MIN_RENTAL_UNIT_HOURS } from './rentable-resource.types';
+import type { RentalModality, CleaningFeePolicy, MinRentalUnit } from './rentable-resource.types';
 
 /** Subtrai intervalos ocupados de [winStart, winEnd), devolvendo os GAPS livres em ordem. Determinístico.
  *  Ex.: janela 08→31 menos reserva 10→17 = [08→10, 17→31]. Toca disponibilidade projetada (Clayton). */
@@ -99,13 +100,22 @@ class RentableResourceService {
       mileagePolicy: input.mileagePolicy ?? null, includedKmPerDay: input.includedKmPerDay ?? null,
       includedKmTotal: input.includedKmTotal ?? null, extraKmFeeCents: input.extraKmFeeCents ?? null,
     });
+    // Modalidade de imóvel + taxa de limpeza + tempo mínimo (metadata) validados pelo backend.
+    const modality = this.normalizeModality(input.resourceType, input.rentalModality ?? null);
+    const cleaning = this.normalizeCleaning(input.cleaningFeePolicy ?? null, input.cleaningFeeCents ?? null);
+    const minRental = this.normalizeMinRental(input.minRentalQty ?? null, input.minRentalUnit ?? null);
+    const metadata = { ...(input.metadata ?? {}), ...(minRental ? { minRentalQty: minRental.minRentalQty, minRentalUnit: minRental.minRentalUnit } : {}) };
 
     const created = await rentableResourceRepository.create(tenantId, ownerActorId, {
       ...input,
       label: input.label.trim(),
       quantity,
+      metadata,
       ...handoff,
       ...mileage,
+      rentalModality: modality,
+      cleaningFeePolicy: cleaning.cleaningFeePolicy,
+      cleaningFeeCents: cleaning.cleaningFeeCents,
     });
 
     // Fase 1 — faixas de preço (SSOT rental_resource_pricing). Dinheiro em cents; validado no schema.
@@ -412,13 +422,35 @@ class RentableResourceService {
       extraKmFeeCents: resource.extraKmFeeCents,
       includedKmForPeriod: resource.mileagePolicy === 'limited' && resource.includedKmPerDay != null ? days * resource.includedKmPerDay : null,
     } : null;
+    // Taxa de limpeza ANUNCIADA (Δbank=0) + total estimado (aluguel + limpeza), só exibição.
+    const cleaning = resource.cleaningFeePolicy ? { policy: resource.cleaningFeePolicy, cents: resource.cleaningFeeCents } : null;
+    const cleanAdd = resource.cleaningFeePolicy === 'separate_required' ? (resource.cleaningFeeCents ?? 0) : 0;
+    const totalEstimatedCents = hasEstimate ? est.estimatedPriceCents + cleanAdd : 0;
+    // TEMPO MÍNIMO (metadata): período pedido < mínimo → NÃO reservável (o backend decide, não o front).
+    const min = this.minRentalOf(resource);
+    if (min) {
+      const hours = (endAt.getTime() - startAt.getTime()) / 3600000;
+      if (hours < min.hours) {
+        return { bookable: false, unavailableReason: 'BELOW_MINIMUM', estimatedPriceCents: 0, hasEstimate: false, ...handoff, quantityFree, mileage, cleaning, minRental: min.projection, totalEstimatedCents: 0, disclaimer: DISCLAIMER };
+      }
+    }
     return {
       bookable: true, unavailableReason: null,
       estimatedPriceCents: hasEstimate ? est.estimatedPriceCents : 0,
       hasEstimate,
       handoffTimeStart: resource.handoffTimeStart, handoffTimeEnd: resource.handoffTimeEnd,
-      quantityFree, mileage, disclaimer: DISCLAIMER,
+      quantityFree, mileage, cleaning, minRental: min?.projection ?? null, totalEstimatedCents,
+      disclaimer: DISCLAIMER,
     };
+  }
+
+  /** Tempo mínimo do recurso (metadata) → { hours, projection }. Central p/ quote + requestBooking. */
+  private minRentalOf(resource: RentableResource): { hours: number; projection: { qty: number; unit: string } } | null {
+    const m = (resource.metadata ?? {}) as Record<string, unknown>;
+    const qty = typeof m.minRentalQty === 'number' ? m.minRentalQty : null;
+    const unit = typeof m.minRentalUnit === 'string' ? (m.minRentalUnit as MinRentalUnit) : null;
+    if (qty == null || unit == null || !(unit in MIN_RENTAL_UNIT_HOURS)) return null;
+    return { hours: qty * MIN_RENTAL_UNIT_HOURS[unit], projection: { qty, unit } };
   }
 
   /** Busca de locação por texto para a busca global — só recursos PÚBLICOS ativos (sem actor declarado). */
@@ -459,6 +491,11 @@ class RentableResourceService {
     if (bEnd <= bStart) throw HttpError.badRequest('RENTAL_BOOKING_PERIOD_INVALID: fim deve ser depois do início.');
     if (bStart < winStart || bEnd > winEnd) {
       throw HttpError.badRequest('RENTAL_BOOKING_OUT_OF_WINDOW: o período pedido está fora da janela de disponibilidade.');
+    }
+    // TEMPO MÍNIMO (metadata): o backend rejeita pedido abaixo do mínimo (o front não decide).
+    const min = this.minRentalOf(resource);
+    if (min && (bEnd.getTime() - bStart.getTime()) / 3600000 < min.hours) {
+      throw HttpError.badRequest(`RENTAL_BELOW_MINIMUM: período abaixo do mínimo de ${min.projection.qty} ${min.projection.unit}.`);
     }
     // Cria o pedido (subject prova autoridade do consumidor sobre o próprio actor — DECISION-0148).
     const booking = await unifiedAvailabilityService.createBooking(
@@ -526,9 +563,47 @@ class RentableResourceService {
     return rentableResourceRepository.list(tenantId, filters);
   }
 
-  /** Unidades de preço PERMITIDAS por tipo (contrato governado no backend — o front só renderiza). */
-  getAllowedPricingUnits(resourceType: RentableResourceType): RentalPricingUnit[] {
+  /** Unidades de preço PERMITIDAS (contrato governado — o front só renderiza). Para IMÓVEL depende da
+   *  MODALIDADE (long_term/seasonal/commercial); os outros tipos usam o mapa por tipo. */
+  getAllowedPricingUnits(resourceType: RentableResourceType, modality?: RentalModality | null): RentalPricingUnit[] {
+    if (resourceType === 'property') {
+      return PRICING_UNITS_BY_MODALITY[(modality ?? 'long_term') as RentalModality] ?? PRICING_UNITS_BY_MODALITY.long_term;
+    }
     return PRICING_UNITS_BY_RESOURCE_TYPE[resourceType] ?? [];
+  }
+
+  /** Normaliza a MODALIDADE — só imóvel. Rejeita modalidade em não-imóvel; default long_term p/ imóvel. */
+  private normalizeModality(resourceType: RentableResourceType, modality?: string | null): RentalModality | null {
+    if (resourceType !== 'property') {
+      if (modality != null) throw HttpError.badRequest('RENTAL_MODALITY_PROPERTY_ONLY: modalidade só se aplica a imóvel.');
+      return null;
+    }
+    const m = (modality ?? 'long_term') as RentalModality;
+    if (!PROPERTY_RENTAL_MODALITIES.includes(m)) throw HttpError.badRequest('RENTAL_MODALITY_INVALID: modalidade deve ser long_term, seasonal ou commercial.');
+    return m;
+  }
+
+  /** Normaliza a TAXA DE LIMPEZA (anunciada). cents obrigatório em separate_required; zera nos demais. */
+  private normalizeCleaning(policy?: string | null, cents?: number | null): { cleaningFeePolicy: CleaningFeePolicy | null; cleaningFeeCents: number | null } {
+    if (policy == null) {
+      if (cents != null) throw HttpError.badRequest('RENTAL_CLEANING_FEE_WITHOUT_POLICY: informe a política de limpeza para preencher o valor.');
+      return { cleaningFeePolicy: null, cleaningFeeCents: null };
+    }
+    if (!CLEANING_FEE_POLICIES.includes(policy as CleaningFeePolicy)) throw HttpError.badRequest('RENTAL_CLEANING_FEE_POLICY_INVALID.');
+    if (policy === 'separate_required') {
+      if (cents == null || cents < 0) throw HttpError.badRequest('RENTAL_CLEANING_FEE_REQUIRED: taxa de limpeza separada exige o valor em cents.');
+      return { cleaningFeePolicy: 'separate_required', cleaningFeeCents: Math.round(cents) };
+    }
+    return { cleaningFeePolicy: policy as CleaningFeePolicy, cleaningFeeCents: null };
+  }
+
+  /** Normaliza o TEMPO MÍNIMO (metadata tipada/validada) → { minRentalQty, minRentalUnit } ou vazio. */
+  private normalizeMinRental(qty?: number | null, unit?: string | null): { minRentalQty: number; minRentalUnit: MinRentalUnit } | null {
+    if (qty == null && unit == null) return null;
+    if (qty == null || unit == null) throw HttpError.badRequest('RENTAL_MIN_INCOMPLETE: informe quantidade E unidade do tempo mínimo.');
+    if (!MIN_RENTAL_UNITS.includes(unit as MinRentalUnit)) throw HttpError.badRequest('RENTAL_MIN_UNIT_INVALID.');
+    if (qty < 1) throw HttpError.badRequest('RENTAL_MIN_QTY_INVALID: o tempo mínimo deve ser ≥ 1.');
+    return { minRentalQty: Math.round(qty), minRentalUnit: unit as MinRentalUnit };
   }
 
   /** "Meus recursos" ENRIQUECIDOS com as faixas de preço (SSOT rental_resource_pricing, batch) para o
@@ -623,6 +698,11 @@ class RentableResourceService {
       includedKmPerDay?: number | null;
       includedKmTotal?: number | null;
       extraKmFeeCents?: number | null;
+      rentalModality?: string | null;
+      cleaningFeePolicy?: string | null;
+      cleaningFeeCents?: number | null;
+      minRentalQty?: number | null;
+      minRentalUnit?: string | null;
     }
   ): Promise<RentableResource> {
     const resource = await this.get(tenantId, resourceId);
@@ -664,6 +744,15 @@ class RentableResourceService {
         })
       : null;
 
+    // Modalidade (só imóvel) + taxa de limpeza — validadas pelo tipo REAL do recurso.
+    const modalityTouched = input.rentalModality !== undefined;
+    const modality = modalityTouched ? this.normalizeModality(resource.resourceType, input.rentalModality ?? null) : null;
+    const cleaningTouched = input.cleaningFeePolicy !== undefined;
+    const cleaning = cleaningTouched ? this.normalizeCleaning(input.cleaningFeePolicy ?? null, input.cleaningFeeCents ?? null) : null;
+    // Tempo mínimo (metadata): se veio, valida e mescla; senão preserva o metadata atual.
+    const minRental = (input.minRentalQty !== undefined || input.minRentalUnit !== undefined)
+      ? this.normalizeMinRental(input.minRentalQty ?? null, input.minRentalUnit ?? null) : undefined;
+
     await rentableResourceRepository.updateOffer(tenantId, resourceId, {
       description: input.description,
       visibility: input.visibility,
@@ -685,7 +774,20 @@ class RentableResourceService {
       includedKmPerDay: mileage?.includedKmPerDay ?? null,
       includedKmTotal: mileage?.includedKmTotal ?? null,
       extraKmFeeCents: mileage?.extraKmFeeCents ?? null,
+      modalityTouched,
+      rentalModality: modality,
+      cleaningTouched,
+      cleaningFeePolicy: cleaning?.cleaningFeePolicy ?? null,
+      cleaningFeeCents: cleaning?.cleaningFeeCents ?? null,
     });
+    // Tempo mínimo no metadata (edição): mescla sobre o metadata atual do recurso.
+    if (minRental !== undefined) {
+      const cur = (resource.metadata ?? {}) as Record<string, unknown>;
+      const merged = { ...cur };
+      if (minRental) { merged.minRentalQty = minRental.minRentalQty; merged.minRentalUnit = minRental.minRentalUnit; }
+      else { delete merged.minRentalQty; delete merged.minRentalUnit; }
+      await rentableResourceRepository.updateMetadata(tenantId, resourceId, merged);
+    }
     if (input.pricingTiers) {
       await rentableResourceRepository.setPricingTiers(tenantId, resourceId, input.pricingTiers);
     }
