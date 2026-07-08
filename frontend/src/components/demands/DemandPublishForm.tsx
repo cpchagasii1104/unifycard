@@ -7,6 +7,7 @@ import { showToast } from '../common/Toast';
 import { createDemand, listWorkConcepts, type CreateDemandInput } from '../../api/demands';
 import { useAudienceOptions } from '../../hooks/useAudienceOptions';
 import AudiencePicker from '../composer/AudiencePicker';
+import { resolveAudiencePayload } from '../composer/audience-payload';
 import '../../pages/OpportunitiesPage.css';
 
 export const VINCULO_PT: Record<string, string> = {
@@ -33,7 +34,7 @@ export default function DemandPublishForm({ onPublished, onCancel }: {
   // NÃO cria opção nova (a lista vem toda do transversal).
   const { options: audienceOptionsRaw } = useAudienceOptions();
   const audienceOptions = audienceOptionsRaw.filter((a) => a.visibility !== 'only_me');
-  const [audienceKey, setAudienceKey] = useState('public');
+  const [audienceKeys, setAudienceKeys] = useState<string[]>(['public']);
 
   useEffect(() => {
     if (!activeActor?.actor_id) return;
@@ -47,13 +48,14 @@ export default function DemandPublishForm({ onPublished, onCancel }: {
     if (!form.conceptSlug || !form.title.trim()) { showToast('Escolha a função (catálogo) e dê um título.', 'error'); return; }
     setBusy(true);
     try {
-      const aud = audienceOptions.find((a) => a.key === audienceKey) ?? audienceOptions[0];
-      // audienceOptions já exclui only_me (restrição de ato) → visibility ∈ {public, connections}
-      const demandVisibility: 'public' | 'connections' = aud?.visibility === 'connections' ? 'connections' : 'public';
+      // audienceOptions já exclui only_me (restrição de ATO/UX; o backend também rejeita — enforcement
+      // não é do front). Resolve via helper central → visibility ∈ {public, connections}.
+      const aud = resolveAudiencePayload(audienceOptions, audienceKeys);
+      const demandVisibility: 'public' | 'connections' = aud.visibility === 'connections' ? 'connections' : 'public';
       await createDemand({
         ...form,
         visibility: demandVisibility,
-        audienceRelationshipTypes: aud?.audienceRelationshipTypes ?? undefined,
+        audienceRelationshipTypes: aud.audienceRelationshipTypes ?? undefined,
         offeredPriceCents: form.pricingMode === 'preco_ofertado' && form.offeredPriceCents ? form.offeredPriceCents : undefined,
       });
       showToast('Demanda publicada — o matching começou. 🎯', 'success');
@@ -65,7 +67,7 @@ export default function DemandPublishForm({ onPublished, onCancel }: {
 
   return (
     <div className="opp-form">
-      <AudiencePicker options={audienceOptions} value={audienceKey} onChange={(o) => setAudienceKey(o.key)} title="1 · Para quem é isso?" />
+      <AudiencePicker options={audienceOptions} selectedKeys={audienceKeys} onChange={setAudienceKeys} title="1 · Para quem é isso?" />
       <label>2 · O que você precisa? (busque no catálogo) *
         <input placeholder="Digite pra buscar: garçom, pedreiro, manicure…" value={conceptSearch}
           onChange={(e) => { setConceptSearch(e.target.value); setForm((f) => ({ ...f, conceptSlug: '' })); }} />

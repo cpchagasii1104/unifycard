@@ -38,6 +38,9 @@ for (const c of consumers) {
   const consumesSource = /getAudienceOptions\(/.test(code) || /useAudienceOptions\(/.test(code);
   check(`${c.split('/').pop()} consome a fonte única (useAudienceOptions/getAudienceOptions)`, consumesSource);
   check(`${c.split('/').pop()} renderiza <AudiencePicker> (matriz UI única)`, /<AudiencePicker\b/.test(code));
+  // Multi-seleção (2026-07-07): a transformação seleção→payload é o helper central PURO, não
+  // lógica local. Impede que um consumidor reintroduza {visibility, types} montado à mão.
+  check(`${c.split('/').pop()} usa resolveAudiencePayload (sem transform local)`, /resolveAudiencePayload\(/.test(code));
 }
 
 // 3) Anti-regressão: nenhuma lista local de labels típados no cliente (o vazamento que matamos).

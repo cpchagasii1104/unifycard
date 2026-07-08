@@ -4,3 +4,5 @@
 .apk-sub{ font-size:13px; color:#8891a6; margin:3px 0 0; }
 .apk-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
 @media (max-width:640px){ .apk-grid{ grid-template-columns:1fr 1fr; } }
+.apk-summary{ font-size:12.5px; color:#5b627a; margin:12px 0 0; }
+.apk-summary strong{ color:#4f46e5; }

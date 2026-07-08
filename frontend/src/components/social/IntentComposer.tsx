@@ -14,6 +14,7 @@ import { classifyPostIntent, type OccupancyType } from '../../utils/intent-class
 import { getComposerContract, type ComposerIntentOption } from '../../api/composer';
 import { useAudienceOptions } from '../../hooks/useAudienceOptions';
 import AudiencePicker from '../composer/AudiencePicker';
+import { resolveAudiencePayload } from '../composer/audience-payload';
 // F2-C (Clayton): modo operante + actor trocáveis DENTRO do modal — o contrato refetcha e o passo 2
 // muda na hora ("o actor e o modo operante moldam esta superfície"). Componentes REUSADOS (não duplicados).
 import OperatingModeToggle from '../layout/OperatingModeToggle';
@@ -79,7 +80,7 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   // ── F2 · PASSOS 1 e 2 (antes de digitar) ─────────────────────────────────────
   // Passo 1 "Para quem é isso?" — projeta posts.visibility (governado; PF: público/amigos/só-eu;
   // PJ: público — plateias finas de empresa em posts dependem de estender 0161 a posts, DECISION futura).
-  const [step1Audience, setStep1Audience] = useState<{ key: string; label: string; visibility: 'public' | 'connections' | 'only_me'; audienceTypes?: string[] } | null>(null);
+  const [audienceKeys, setAudienceKeys] = useState<string[]>([]);
   // FONTE ÚNICA de plateia via hook central (/audience-options, deriva de PAIR_ALLOWED_LABELS por
   // actor). Muda por ACTOR, não por modo. Zero hardcode/lista local.
   const { options: audienceOptions } = useAudienceOptions();
@@ -150,7 +151,7 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   // o passo 2 refetcha e muda na hora (server-driven, fail-closed).
   const { mode: operatingMode } = useOperatingMode();
   useEffect(() => {
-    setStep1Audience(null);
+    setAudienceKeys([]);
     setStep2Intent(null);
     setStep3Cta(null);
     setComposerIntents([]);
@@ -452,21 +453,22 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
     REQUEST_BOOKING: 'booking', CREATE_PROJECT: 'project', START_VOTE: 'vote',
   };
   const handleGuidedSubmit = async () => {
-    if (!textInput.trim() || !step1Audience || !step2Intent || !activeActor?.actor_id) return;
+    if (!textInput.trim() || audienceKeys.length === 0 || !step2Intent || !activeActor?.actor_id) return;
+    const aud = resolveAudiencePayload(audienceOptions, audienceKeys); // multi-seleção → payload
     const wire = WIRE_INTENT[step2Intent.intent] ?? 'personal';
-    const finalWire = wire === 'personal' && step1Audience.visibility === 'connections' ? 'friends' : wire;
+    const finalWire = wire === 'personal' && aud.visibility === 'connections' ? 'friends' : wire;
     await onSubmit(
       textInput.trim(), [], activeActor.actor_id, finalWire,
       { intent_canonical: step2Intent.intent }, // identidade governada preservada
-      {}, step3Cta ? { type: step3Cta } : undefined, step1Audience.visibility,
-      step1Audience.audienceTypes // DECISION-0162: refinamento (undefined = sem refinamento)
+      {}, step3Cta ? { type: step3Cta } : undefined, aud.visibility,
+      aud.audienceRelationshipTypes ?? undefined // DECISION-0162: refinamento (undefined = sem refinamento)
     );
     setTextInput(''); setStep2Intent(null); setStep3Cta(null); setIsComposerOpen(false);
   };
 
   const handleTextSubmit = () => {
     // F2: passos escolhidos → caminho guiado direto (o classificador de IA vira fallback do texto livre).
-    if (step1Audience && step2Intent) { void handleGuidedSubmit(); return; }
+    if (audienceKeys.length > 0 && step2Intent) { void handleGuidedSubmit(); return; }
     if (!textInput.trim()) return;
     if (!classifiedIntent || classifiedIntent.confidence < 0.5) {
       // Se confiança baixa, pedir confirmação ou ir para manual
@@ -923,10 +925,10 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
             /audience-options. O dropdown apertado morreu — mesma UX de evento/demanda/locação. */}
         <AudiencePicker
           options={audienceOptions}
-          value={step1Audience?.key ?? null}
-          onChange={(opt) => setStep1Audience({ key: opt.key, label: opt.label, visibility: opt.visibility, audienceTypes: opt.audienceRelationshipTypes ?? undefined })}
+          selectedKeys={audienceKeys}
+          onChange={setAudienceKeys}
         />
-        {step1Audience && (
+        {audienceKeys.length > 0 && (
           <div className="composer-step">
             <span className="composer-step-label">2 · O que é isso que você está criando?</span>
             <div className="composer-actor-picker">

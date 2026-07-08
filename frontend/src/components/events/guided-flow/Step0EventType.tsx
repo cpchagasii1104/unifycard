@@ -15,9 +15,10 @@ import type { GuidedFlowData } from '../EventCreationGuidedFlow';
 // FONTE ÚNICA (Clayton 2026-07-07): plateia vem do transversal /audience-options (deriva de
 // PAIR_ALLOWED_LABELS), não mais de /events/audience-options (segunda projeção divergente).
 // events.visibility tem vocabulário próprio (public/private/...); mapper de saída no submit.
-import { type AudienceOption } from '../../../api/audience';
+import type { AudienceOption } from '../../../api/audience';
 import { useAudienceOptions } from '../../../hooks/useAudienceOptions';
 import AudiencePicker from '../../composer/AudiencePicker';
+import { resolveAudiencePayload } from '../../composer/audience-payload';
 import './Step0EventType.css';
 
 // transversal (public/connections/only_me) → events.visibility (public/private). O refinamento
@@ -37,14 +38,14 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedSubtype, setSelectedSubtype] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // Plateia via hook central (fonte única /audience-options). Sem fallback hardcoded: se o backend
-  // não responder, a lista fica vazia (honesto) — o front nunca inventa opções.
+  // Plateia via hook central (fonte única /audience-options). Multi-seleção (helper resolve).
   const { options: audienceOptions } = useAudienceOptions();
-  const [selectedAudience, setSelectedAudience] = useState<AudienceOption | null>(null);
-  const handleAudienceChange = (opt: AudienceOption) => {
-    setSelectedAudience(opt);
+  const [audienceKeys, setAudienceKeys] = useState<string[]>([]);
+  const handleAudienceChange = (keys: string[]) => {
+    setAudienceKeys(keys);
     // selectedType alimenta o mapeamento de event_type existente (público vs demais).
-    setSelectedType(opt.visibility === 'public' ? 'public' : 'private');
+    const { visibility } = resolveAudiencePayload(audienceOptions, keys);
+    setSelectedType(visibility === 'public' ? 'public' : 'private');
     setErrorMessage(null);
   };
 
@@ -129,13 +130,14 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
 
     const eventType = eventTypeMap[selectedCategory]?.[selectedType] || selectedType;
 
-    // 0161: o macro (visibility) e o refinamento vêm da OPÇÃO DO CONTRATO escolhida — não de booleano local.
-    const visibilityValue = selectedAudience ? toEventVisibility(selectedAudience.visibility) : (selectedType === 'private' ? 'private' : 'public');
+    // Resolve a multi-seleção via helper central; mapper de saída p/ o vocabulário de events.visibility.
+    const aud = resolveAudiencePayload(audienceOptions, audienceKeys);
+    const visibilityValue = audienceKeys.length > 0 ? toEventVisibility(aud.visibility) : (selectedType === 'private' ? 'private' : 'public');
     const updatedData = {
       event_type: eventType as any,
       event_subtype: selectedSubtype,
       visibility: visibilityValue as 'group' | 'public' | 'private' | 'followers' | 'unlisted',
-      audience_relationship_types: selectedAudience?.audienceRelationshipTypes ?? null,
+      audience_relationship_types: aud.audienceRelationshipTypes,
     };
 
     onUpdate(updatedData);
@@ -159,7 +161,7 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
         <div className="form-section">
           <AudiencePicker
             options={audienceOptions}
-            value={selectedAudience?.key ?? null}
+            selectedKeys={audienceKeys}
             onChange={handleAudienceChange}
             title="1 · Para quem é este evento?"
           />

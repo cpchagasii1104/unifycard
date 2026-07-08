@@ -13,12 +13,15 @@
   font-size:16px; flex:none;
 }
 .aoc-label{ font-size:13.5px; font-weight:600; color:#1e2338; }
-.aoc-radio{
-  margin-left:auto; width:16px; height:16px; border-radius:50%;
-  border:2px solid #dde0ec; flex:none;
+.aoc-mark{
+  margin-left:auto; width:16px; height:16px; border:2px solid #dde0ec; flex:none;
 }
+.aoc-mark--radio{ border-radius:50%; }        /* exclusiva */
+.aoc-mark--check{ border-radius:5px; }         /* combinável */
 /* SELEÇÃO — sempre índigo, nunca a cor pastel da opção */
 .aoc--sel{ border-color:#6366f1; background:#f0f2ff; box-shadow:0 4px 14px rgba(99,102,241,.16); }
-.aoc--sel .aoc-radio{ border-color:#6366f1; background:radial-gradient(circle,#fff 3px,#6366f1 4px); }
+.aoc--sel .aoc-mark{ border-color:#6366f1; }
+.aoc--sel .aoc-mark--radio{ background:radial-gradient(circle,#fff 3px,#6366f1 4px); }
+.aoc--sel .aoc-mark--check{ background:#6366f1; box-shadow:inset 0 0 0 2px #fff, inset 0 0 0 3px #6366f1; }
 
 @media (prefers-reduced-motion:reduce){ .aoc{ transition:none; } }

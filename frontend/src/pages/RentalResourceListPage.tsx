@@ -30,6 +30,7 @@ import {
 import { createAvailability } from '../api/availability';
 import { useAudienceOptions } from '../hooks/useAudienceOptions';
 import AudiencePicker from '../components/composer/AudiencePicker';
+import { resolveAudiencePayload } from '../components/composer/audience-payload';
 import './RentalResourceListPage.css';
 
 // Tipo SEM N0 na ontologia congelada ainda (RFC_N0_IMOVEIS_E_PROPRIEDADES.md aguarda Clayton) —
@@ -81,7 +82,7 @@ export default function RentalResourceListPage() {
   // Pergunta 1 "Para quem é isso?" — FONTE ÚNICA transversal /audience-options (deriva de
   // PAIR_ALLOWED_LABELS por actor). Zero lista local. Backend faz o enforcement na descoberta.
   const { options: audienceOptions } = useAudienceOptions();
-  const [audienceKey, setAudienceKey] = useState('public');
+  const [audienceKeys, setAudienceKeys] = useState<string[]>(['public']);
   const [pricingUnit, setPricingUnit] = useState<RentalPricingUnit>('por_dia');
   const [priceReais, setPriceReais] = useState('');
   const [conceptQuery, setConceptQuery] = useState('');
@@ -198,7 +199,7 @@ export default function RentalResourceListPage() {
         metadata.furnished = propFurnished;
       }
       const yearNum = attrAno.trim() ? parseInt(attrAno, 10) : null;
-      const aud = audienceOptions.find((a) => a.key === audienceKey) ?? audienceOptions[0];
+      const aud = resolveAudiencePayload(audienceOptions, audienceKeys);
       await createRentableResource({
         conceptId: selectedConcept.concept_id,
         resourceType,
@@ -208,8 +209,8 @@ export default function RentalResourceListPage() {
         priceCents: cents,
         resourceYear: Number.isFinite(yearNum) ? yearNum : null,
         metadata,
-        visibility: aud?.visibility ?? 'public',
-        audienceRelationshipTypes: aud?.audienceRelationshipTypes ?? null,
+        visibility: aud.visibility,
+        audienceRelationshipTypes: aud.audienceRelationshipTypes,
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
@@ -310,8 +311,8 @@ export default function RentalResourceListPage() {
 
       {showForm && (
         <form className="rrl-form" onSubmit={handleCreate}>
-          {/* Pergunta 1 (matriz única de plateia): AudiencePicker consumindo /audience-options. */}
-          <AudiencePicker options={audienceOptions} value={audienceKey} onChange={(o) => setAudienceKey(o.key)} />
+          {/* Pergunta 1 (matriz única de plateia): AudiencePicker multi-seleção, /audience-options. */}
+          <AudiencePicker options={audienceOptions} selectedKeys={audienceKeys} onChange={setAudienceKeys} />
 
           {/* fix Clayton: o TIPO, aí sim a categoria relacionada (mesma lógica de grupos/demanda) */}
           <label className="rrl-field">
