@@ -20,6 +20,12 @@ export type RentableVisibility = 'public' | 'connections' | 'only_me';
 export const RENTAL_PRICING_UNITS = ['por_hora', 'por_dia', 'por_semana', 'por_mes', 'por_semestre', 'por_ano'] as const;
 export type RentalPricingUnit = (typeof RENTAL_PRICING_UNITS)[number];
 
+// Duração canônica de cada unidade em HORAS — parte da definição do vocabulário (fonte única; a
+// estimativa de preço COMPÕE daqui, não replica). Mês=30d, semestre=180d, ano=365d.
+export const RENTAL_PRICING_UNIT_HOURS: Record<RentalPricingUnit, number> = {
+  por_hora: 1, por_dia: 24, por_semana: 168, por_mes: 720, por_semestre: 4320, por_ano: 8760,
+};
+
 // Faixa de preço anunciado (uma por unidade). Dinheiro SEMPRE cents/BIGINT — nunca reais/float.
 export interface RentalPricingTier {
   unit: RentalPricingUnit;

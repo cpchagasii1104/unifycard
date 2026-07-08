@@ -3,17 +3,13 @@
 // não cria cobrança, hold, reserva nem toca Bank (Δbank=0). Backend é a autoridade (front só renderiza).
 // Dinheiro SEMPRE cents/BIGINT (inteiro).
 //
-// MENOR CUSTO REAL (correção 2026-07-08, doc): o guloso decrescente podia mentir — ex.: por_dia=10000,
-// por_semana=80000, 8 dias → guloso 1sem+1dia=90000, mas 8 diárias=80000. Como o produto promete a
+// MENOR CUSTO REAL (correção 2026-07-08, doc): o guloso decrescente podia mentir — ex.: diária=10000,
+// semanal=80000, 8 dias → guloso 1 semana+1 dia=90000, mas 8 diárias=80000. Como o produto promete a
 // melhor combinação para o usuário, usa-se PROGRAMAÇÃO DINÂMICA de menor custo sobre a duração
 // discretizada em HORAS (unidade base = 1h). custo[h] = min custo pra cobrir h horas usando qualquer
 // faixa. Cobrir "pelo menos" a duração (a última unidade pode exceder — é o padrão de locação: você
 // paga a diária cheia mesmo usando 20h). Determinístico e auditável (breakdown reconstruído).
-import type { RentalPricingUnit } from './rentable-resource.types';
-
-const UNIT_HOURS: Record<RentalPricingUnit, number> = {
-  por_hora: 1, por_dia: 24, por_semana: 168, por_mes: 720, por_semestre: 4320, por_ano: 8760,
-};
+import { RENTAL_PRICING_UNIT_HOURS as UNIT_HOURS, type RentalPricingUnit } from './rentable-resource.types';
 
 export interface PricingTier { unit: RentalPricingUnit; priceCents: number; }
 export interface EstimateLine { unit: RentalPricingUnit; qty: number; unitPriceCents: number; subtotalCents: number; }
@@ -69,13 +65,10 @@ export function estimatePrice(tiers: PricingTier[], startAt: Date, endAt: Date):
     counts.set(t.unit, c);
     h = Math.max(0, h - UNIT_HOURS[t.unit]);
   }
-  const order: RentalPricingUnit[] = ['por_ano', 'por_semestre', 'por_mes', 'por_semana', 'por_dia', 'por_hora'];
-  const breakdown: EstimateLine[] = order
-    .filter((u) => counts.has(u))
-    .map((u) => {
-      const c = counts.get(u)!;
-      return { unit: u, qty: c.qty, unitPriceCents: c.unitPriceCents, subtotalCents: c.qty * c.unitPriceCents };
-    });
+  // ordena do maior período pro menor por UNIT_HOURS (deriva do vocabulário, sem literais paralelos)
+  const breakdown: EstimateLine[] = [...counts.entries()]
+    .sort((a, b) => UNIT_HOURS[b[0]] - UNIT_HOURS[a[0]])
+    .map(([unit, c]) => ({ unit, qty: c.qty, unitPriceCents: c.unitPriceCents, subtotalCents: c.qty * c.unitPriceCents }));
 
   return { available: true, estimatedPriceCents: cost[N], currency: 'BRL', breakdown, periodHours, disclaimer: DISCLAIMER };
 }
