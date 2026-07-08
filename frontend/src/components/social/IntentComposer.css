@@ -525,6 +525,8 @@
 .composer-audience-check { margin-left: auto; color: #2563eb; }
 
 /* Modal LARGO do evento (guided-flow inteiro dentro do feed — pedido Clayton 2026-07-07) */
-.composer-modal--wide { max-width: 980px; width: 100%; }
-.composer-event-flow-scroll { max-height: 72vh; overflow-y: auto; padding: 0 4px 8px; }
+/* Modal de evento: flex-column com scroll ÚNICO no interno. O externo (.composer-modal) fica sem rolagem
+   (overflow hidden) — senão o modal mostra DUAS barras (externa + interna) quando o conteúdo é alto. */
+.composer-modal--wide { max-width: 980px; width: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.composer-event-flow-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 4px 8px; }
 .composer-event-flow-scroll .guided-flow-container { padding: 0; }
