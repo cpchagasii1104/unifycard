@@ -1,5 +1,5 @@
 /* PageModuleShell — matriz de página responsiva (paleta índigo do UnifiCard). */
-.pms { max-width: 1200px; margin: 0 auto; padding: 24px 28px 72px; }
+.pms { width: 100%; max-width: 1180px; margin: 0 auto; padding: 24px 28px 72px; }
 @media (max-width: 640px) { .pms { padding: 16px 16px 56px; } }
 
 .pms-head {
@@ -10,10 +10,12 @@
 .pms-subtitle { font-size: 14.5px; color: #5b627a; margin: 6px 0 0; max-width: 62ch; }
 .pms-head-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
-/* corpo: 1 coluna larga por padrão; 2 colunas quando há rail */
+/* corpo: 1 coluna larga por padrão; 2 colunas quando há rail. AMBAS as colunas são minmax(0, …) —
+   podem encolher a zero, então o grid NUNCA força overflow horizontal (o que cortava o header/actor).
+   O rail vai até 340px e fica à direita; o conteúdo ocupa o resto. */
 .pms-body { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); }
-.pms-body--railed { grid-template-columns: minmax(0, 1fr) 320px; }
-@media (max-width: 1000px) { .pms-body--railed { grid-template-columns: minmax(0, 1fr); } }
+.pms-body--railed { grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 32px; }
+@media (max-width: 1080px) { .pms-body--railed { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
 
 .pms-main { min-width: 0; } /* impede overflow horizontal do grid */
 
