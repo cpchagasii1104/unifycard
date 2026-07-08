@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
-import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, type RentableResource, type RentableResourceStatus } from '../api/rentals';
+import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail } from '../api/rentals';
 import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, createBooking, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
 import './RentalResourceDetailPage.css';
 
@@ -31,6 +31,7 @@ export default function RentalResourceDetailPage() {
   const { activeActor } = useActiveActor();
 
   const [resource, setResource] = useState<RentableResource | null>(null);
+  const [offer, setOffer] = useState<RentalOfferDetail | null>(null);
   const [windows, setWindows] = useState<WindowWithBookings[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +49,9 @@ export default function RentalResourceDetailPage() {
     try {
       const r = await getRentableResource(id);
       setResource(r);
+      // Oferta (faixas de preço + cidade do dono = local de retirada/devolução). Não crítico: se falhar,
+      // a tela ainda funciona. O consumidor precisa ver por quanto e onde antes de solicitar.
+      getRentalOfferDetail(id).then(setOffer).catch(() => setOffer(null));
       const viewerIsOwner = !!activeActor && r.ownerActorId === activeActor.actor_id;
       if (viewerIsOwner) {
         // DONO: agenda operacional privada (janelas + reservas pendentes para confirmar).
@@ -175,13 +179,18 @@ export default function RentalResourceDetailPage() {
 
   return (
     <div className="rrd-page">
-      <button type="button" className="rrd-back" onClick={() => navigate('/locacoes')}>← Meus recursos</button>
+      <button type="button" className="rrd-back" onClick={() => navigate(isOwner ? '/locacoes' : -1 as any)}>← {isOwner ? 'Meus recursos' : 'Voltar'}</button>
 
       <div className="rrd-header">
         <div>
           <span className={`rrd-status-badge rrd-status-${resource.status}`}>{STATUS_LABEL[resource.status]}</span>
           <h1 className="rrd-title">{resource.label}</h1>
           <p className="rrd-subtitle">{RESOURCE_TYPE_LABEL[resource.resourceType]}{resource.description ? ` · ${resource.description}` : ''}</p>
+          {/* Local (cidade do dono = retirada/devolução) + preço anunciado — o consumidor decide informado. */}
+          {offer?.city && <p className="rrd-meta">📍 Retirada e devolução em {offer.city.name}{offer.city.uf ? `/${offer.city.uf}` : ''}</p>}
+          {offer && offer.pricingTiers.length > 0 && (
+            <p className="rrd-price">{offer.pricingTiers.map((t) => `${PRICING_UNIT_PT[t.unit]}: R$ ${(t.priceCents / 100).toFixed(2).replace('.', ',')}`).join(' · ')}</p>
+          )}
         </div>
         {isOwner && (
           <div className="rrd-status-actions">
@@ -206,8 +215,18 @@ export default function RentalResourceDetailPage() {
       )}
 
       <section className="rrd-section">
-        <h2>{isOwner ? 'Janelas e reservas' : 'Disponibilidade'}</h2>
-        {windows.length === 0 && <p className="rrd-status-text">Nenhuma janela de disponibilidade ainda.</p>}
+        <h2>{isOwner ? 'Janelas e reservas' : 'Escolha um período disponível'}</h2>
+        {windows.length === 0 && (
+          isOwner
+            ? <p className="rrd-status-text">Nenhuma janela de disponibilidade ainda. Crie uma acima para o recurso aparecer na busca.</p>
+            : <div className="rrd-empty-visitor">
+                <p>Este recurso ainda não tem datas publicadas pelo dono. Sem disponibilidade aberta, não é possível solicitar a locação agora.</p>
+                <button type="button" className="rrd-request-btn" onClick={() => navigate(-1)}>← Ver outros recursos</button>
+              </div>
+        )}
+        {!isOwner && windows.length > 0 && (
+          <p className="rrd-hint-visitor">💡 Escolha uma janela e solicite. É um pedido — o pagamento não acontece agora; o dono confirma a reserva.</p>
+        )}
         <div className="rrd-windows">
           {windows.map(({ availability, bookings }) => {
             const activeBooking = bookings.find((b) => b.status === 'confirmed');
@@ -250,7 +269,7 @@ export default function RentalResourceDetailPage() {
 
                 {!isOwner && !activeBooking && requestedBookings.length === 0 && (
                   <button type="button" className="rrd-request-btn" onClick={() => handleRequestBooking(availability.availabilityId)}>
-                    Solicitar reserva
+                    🔑 Solicitar esta locação
                   </button>
                 )}
                 {!isOwner && isMine && !activeBooking && (

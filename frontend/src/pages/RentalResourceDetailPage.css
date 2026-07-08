@@ -47,3 +47,11 @@
 .rrd-win-cancel { padding: .45rem 1rem; border: 1px solid #d7dbe0; border-radius: 8px; background: #fff; color: #374151; font: inherit; font-weight: 600; cursor: pointer; }
 .rrd-win-save { padding: .45rem 1.1rem; border: 0; border-radius: 8px; background: #6366f1; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .rrd-win-save:disabled { opacity: .6; }
+
+/* Tela do consumidor (visitante): local + preço + CTA de solicitar locação. */
+.rrd-meta { color: #4f46e5; font-weight: 600; font-size: .9rem; margin: 6px 0 0; }
+.rrd-price { color: #059669; font-weight: 700; font-size: .92rem; margin: 4px 0 0; }
+.rrd-hint-visitor { background: #f6f7ff; border: 1px solid #e5e7fb; border-radius: 10px; padding: 10px 12px; color: #4b5170; font-size: .85rem; margin-bottom: 12px; }
+.rrd-empty-visitor { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; padding: 18px; background: #fbfcff; border: 1px solid #e9ebf4; border-radius: 12px; color: #5b627a; }
+.rrd-request-btn { padding: .6rem 1.2rem; border: 0; border-radius: 10px; background: #6366f1; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.rrd-request-btn:hover { background: #4f46e5; }
