@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
-import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, updateRentalOffer, requestResourceBooking, getResourceRequests, declineResourceRequest, getQuotePreview, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail, type RentalRequest, type QuotePreview } from '../api/rentals';
+import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, updateRentalOffer, requestResourceBooking, getResourceRequests, declineResourceRequest, getQuotePreview, getResourceAddress, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail, type RentalRequest, type QuotePreview, type ResourceAddress } from '../api/rentals';
 import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
 import ActorProfileModal from '../components/common/ActorProfileModal';
 import './RentalResourceDetailPage.css';
@@ -33,6 +33,7 @@ export default function RentalResourceDetailPage() {
 
   const [resource, setResource] = useState<RentableResource | null>(null);
   const [offer, setOffer] = useState<RentalOfferDetail | null>(null);
+  const [address, setAddress] = useState<ResourceAddress | null>(null);
   const [windows, setWindows] = useState<WindowWithBookings[]>([]);
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [profileModalActorId, setProfileModalActorId] = useState<string | null>(null);
@@ -63,6 +64,8 @@ export default function RentalResourceDetailPage() {
       // Oferta (faixas de preço + cidade do dono = local de retirada/devolução). Não crítico: se falhar,
       // a tela ainda funciona. O consumidor precisa ver por quanto e onde antes de solicitar.
       getRentalOfferDetail(id).then(setOffer).catch(() => setOffer(null));
+      // Endereço com privacidade decidida no backend: público (cidade/bairro) ou completo (dono/confirmado).
+      getResourceAddress(id).then(setAddress).catch(() => setAddress(null));
       const viewerIsOwner = !!activeActor && r.ownerActorId === activeActor.actor_id;
       if (viewerIsOwner) {
         // DONO: agenda operacional privada (janelas + reservas pendentes para confirmar).
@@ -256,11 +259,36 @@ export default function RentalResourceDetailPage() {
           <span className={`rrd-status-badge rrd-status-${resource.status}`}>{STATUS_LABEL[resource.status]}</span>
           <h1 className="rrd-title">{resource.label}</h1>
           <p className="rrd-subtitle">{RESOURCE_TYPE_LABEL[resource.resourceType]}{resource.description ? ` · ${resource.description}` : ''}</p>
-          {/* Local (cidade do dono = retirada/devolução) + preço anunciado — o consumidor decide informado. */}
-          {offer?.city && <p className="rrd-meta">📍 Retirada e devolução em {offer.city.name}{offer.city.uf ? `/${offer.city.uf}` : ''}</p>}
-          {resource.resourceType !== 'space' && resource.handoffTimeStart && resource.handoffTimeEnd && (
+          {/* Local — rótulo por tipo (imóvel/espaço ≠ retirada/devolução). Público: cidade/UF. */}
+          {offer?.city && <p className="rrd-meta">📍 {
+            resource.resourceType === 'property' ? 'Localização'
+            : resource.resourceType === 'space' ? 'Espaço em'
+            : 'Retirada e devolução em'
+          } {offer.city.name}{offer.city.uf ? `/${offer.city.uf}` : ''}</p>}
+          {/* Horário de retirada/devolução: só veículo/equipamento (imóvel/espaço não têm handoff). */}
+          {(resource.resourceType === 'vehicle' || resource.resourceType === 'equipment') && resource.handoffTimeStart && resource.handoffTimeEnd && (
             <p className="rrd-meta">🕗 Retirada/devolução entre {resource.handoffTimeStart.slice(0, 5)} e {resource.handoffTimeEnd.slice(0, 5)}</p>
           )}
+          {/* Atributos de imóvel/espaço (facets do metadata, projeção). */}
+          {(resource.resourceType === 'property' || resource.resourceType === 'space') && (() => {
+            const m = (resource.metadata ?? {}) as Record<string, any>;
+            const parts: string[] = [];
+            if (m.areaM2) parts.push(`${m.areaM2} m²`);
+            if (m.bedrooms != null) parts.push(`${m.bedrooms} quarto${Number(m.bedrooms) === 1 ? '' : 's'}`);
+            if (m.bathrooms != null) parts.push(`${m.bathrooms} banheiro${Number(m.bathrooms) === 1 ? '' : 's'}`);
+            if (m.parkingSpots) parts.push(`${m.parkingSpots} vaga${Number(m.parkingSpots) === 1 ? '' : 's'}`);
+            if (m.floor != null) parts.push(`${m.floor}º andar`);
+            if (m.furnished) parts.push('mobiliado');
+            if (m.petsAllowed) parts.push('aceita pet');
+            if (m.elevator) parts.push('elevador');
+            return parts.length ? <p className="rrd-meta">🏠 {parts.join(' · ')}</p> : null;
+          })()}
+          {/* Endereço com privacidade do BACKEND: completo só p/ dono/locatário confirmado; senão aviso. */}
+          {address && (address.access === 'full'
+            ? <p className="rrd-meta">🔓 {[address.street, address.number].filter(Boolean).join(', ')}{address.complement ? ` · ${address.complement}` : ''}{address.neighborhood ? ` · ${address.neighborhood}` : ''}</p>
+            : (address.neighborhood
+                ? <p className="rrd-meta">🏙️ {address.neighborhood}{address.city ? ` · ${address.city}` : ''}{address.uf ? `/${address.uf}` : ''} <span className="rrd-soon">endereço completo após confirmar</span></p>
+                : null))}
           {/* Quilometragem — só veículo, projetada do backend. */}
           {resource.resourceType === 'vehicle' && resource.mileagePolicy && (
             <p className="rrd-meta">🚗 {
