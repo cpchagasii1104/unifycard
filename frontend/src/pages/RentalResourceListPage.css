@@ -67,3 +67,18 @@
 .rrl-search { display: grid; grid-template-columns: 2fr 1fr 1.5fr 1.5fr auto; gap: 10px; align-items: end; margin-bottom: 18px; padding: 14px; border: 1px solid #e9ebf4; border-radius: 12px; background: #fbfcff; }
 .rrl-search .rrl-submit-btn { height: fit-content; }
 @media (max-width: 760px) { .rrl-search { grid-template-columns: 1fr 1fr; } }
+
+/* Modal de edição — largo, centralizado, X para fechar sem salvar. */
+.rrl-modal-overlay { position: fixed; inset: 0; background: rgba(20,24,40,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+.rrl-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 560px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(20,24,40,.28); overflow: hidden; }
+.rrl-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 22px; border-bottom: 1px solid #eef0f6; }
+.rrl-modal-title { font-size: 1.2rem; font-weight: 800; margin: 0; color: #1e2338; }
+.rrl-modal-sub { font-size: .85rem; color: #5b627a; margin: 4px 0 0; }
+.rrl-modal-x { width: 34px; height: 34px; border-radius: 9px; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; font-size: 1rem; cursor: pointer; flex: none; display: grid; place-items: center; }
+.rrl-modal-x:hover { background: #f3f4f6; color: #111827; }
+.rrl-modal-body { padding: 18px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.rrl-modal-body .rrl-tiers { grid-template-columns: 1fr 1fr; }
+.rrl-modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid #eef0f6; }
+.rrl-modal-cancel { padding: .5rem 1.1rem; border: 1px solid #d7dbe0; border-radius: 8px; background: #fff; color: #374151; font: inherit; font-weight: 600; cursor: pointer; }
+.rrl-modal-cancel:hover { background: #f3f4f6; }
+@media (max-width: 560px) { .rrl-modal-body .rrl-tiers { grid-template-columns: 1fr; } }

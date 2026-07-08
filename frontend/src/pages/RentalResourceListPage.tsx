@@ -179,6 +179,14 @@ export default function RentalResourceListPage() {
     listEquipmentUseAreas().then(setUseAreas).catch(() => setUseAreas([]));
   }, []);
 
+  // Esc fecha o modal de edição sem salvar.
+  useEffect(() => {
+    if (!editFor) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setEditFor(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [editFor]);
+
   // conceptOptions = todas as categorias do tipo (usado pelo VehicleFields, que filtra local). O
   // GovernedCombobox de categoria (não-veículo) faz o próprio fetch reabrível — não depende disto.
   useEffect(() => {
@@ -611,50 +619,11 @@ export default function RentalResourceListPage() {
             <span className="rrl-card-price">{formatPrice(r)}</span>
             <div className="rrl-card-actions">
               <button type="button" onClick={() => navigate(`/locacoes/${r.id}`)}>Detalhes</button>
-              <button type="button" onClick={() => openEdit(r.id)}>
-                {editFor === r.id ? 'Cancelar' : '✏️ Editar'}
-              </button>
+              <button type="button" onClick={() => openEdit(r.id)}>✏️ Editar</button>
               <button type="button" onClick={() => setAvailFor(availFor === r.id ? null : r.id)}>
                 {availFor === r.id ? 'Fechar' : '🗓️ Disponibilidade'}
               </button>
             </div>
-            {editFor === r.id && (
-              <div className="rrl-avail-form">
-                {/* Edição da OFERTA (o dono edita o próprio anúncio). Identidade do item fica intacta. */}
-                <div className="rrl-field">
-                  Preço anunciado por faixa <span className="rrl-hint" style={{ fontWeight: 400 }}>(preencha as que oferecer)</span>
-                  <div className="rrl-tiers">
-                    {RENTAL_PRICING_UNITS.map((u) => (
-                      <div key={u} className="rrl-tier">
-                        <span className="rrl-tier-label">{PRICING_UNIT_PT[u]}</span>
-                        <span className="rrl-tier-prefix">R$</span>
-                        <input type="text" inputMode="decimal" placeholder="0,00"
-                          value={editTierReais[u] ?? ''}
-                          onChange={(e) => setEditTierReais((prev) => ({ ...prev, [u]: e.target.value }))} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {r.resourceType === 'equipment' && (
-                  <label className="rrl-field">Quantidade disponível
-                    <input type="number" min={1} value={editQuantity} onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))} />
-                  </label>
-                )}
-                <div className="rrl-field">Cidade (retirada e devolução)
-                  <GovernedCombobox<CitySearchResult>
-                    value={editCity} onChange={setEditCity}
-                    loadOptions={(q) => searchCities(q)} getOptionKey={(c) => c.id}
-                    getOptionLabel={(c) => c.stateUf ? `${c.name} · ${c.stateUf}` : c.name}
-                    placeholder="Buscar cidade…" emptyMessage="Nenhuma cidade encontrada" />
-                </div>
-                <label className="rrl-field">Descrição
-                  <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} maxLength={2000} rows={2} />
-                </label>
-                <button type="button" className="rrl-submit-btn" disabled={editBusy} onClick={() => handleSaveEdit(r.id)}>
-                  {editBusy ? 'Salvando…' : 'Salvar alterações'}
-                </button>
-              </div>
-            )}
             {availFor === r.id && (
               <div className="rrl-avail-form">
                 <div className="rrl-row">
@@ -674,6 +643,62 @@ export default function RentalResourceListPage() {
           </div>
         ))}
       </div>
+
+      {/* Modal de EDIÇÃO da oferta — largo, centralizado, com X para fechar sem salvar. */}
+      {editFor && (() => {
+        const r = resources.find((x) => x.id === editFor);
+        return (
+          <div className="rrl-modal-overlay" onClick={() => setEditFor(null)}>
+            <div className="rrl-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="rrl-modal-head">
+                <div>
+                  <h2 className="rrl-modal-title">Editar anúncio</h2>
+                  {r && <p className="rrl-modal-sub">{r.label}</p>}
+                </div>
+                <button type="button" className="rrl-modal-x" aria-label="Fechar sem salvar" onClick={() => setEditFor(null)}>✕</button>
+              </div>
+              <div className="rrl-modal-body">
+                <div className="rrl-field">
+                  Preço anunciado por faixa <span className="rrl-hint" style={{ fontWeight: 400 }}>(preencha as que oferecer)</span>
+                  <div className="rrl-tiers">
+                    {RENTAL_PRICING_UNITS.map((u) => (
+                      <div key={u} className="rrl-tier">
+                        <span className="rrl-tier-label">{PRICING_UNIT_PT[u]}</span>
+                        <span className="rrl-tier-prefix">R$</span>
+                        <input type="text" inputMode="decimal" placeholder="0,00"
+                          value={editTierReais[u] ?? ''}
+                          onChange={(e) => setEditTierReais((prev) => ({ ...prev, [u]: e.target.value }))} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {r?.resourceType === 'equipment' && (
+                  <label className="rrl-field">Quantidade disponível
+                    <input type="number" min={1} value={editQuantity} onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))} />
+                  </label>
+                )}
+                <div className="rrl-field">Cidade (retirada e devolução)
+                  <GovernedCombobox<CitySearchResult>
+                    value={editCity} onChange={setEditCity}
+                    loadOptions={(q) => searchCities(q)} getOptionKey={(c) => c.id}
+                    getOptionLabel={(c) => c.stateUf ? `${c.name} · ${c.stateUf}` : c.name}
+                    placeholder="Buscar cidade…" emptyMessage="Nenhuma cidade encontrada" />
+                </div>
+                <label className="rrl-field">Descrição
+                  <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} maxLength={2000} rows={3} />
+                </label>
+                <p className="rrl-hint">💡 O preço é o ANÚNCIO — o pagamento em si ainda não acontece pelo sistema.</p>
+              </div>
+              <div className="rrl-modal-foot">
+                <button type="button" className="rrl-modal-cancel" onClick={() => setEditFor(null)}>Cancelar</button>
+                <button type="button" className="rrl-submit-btn" disabled={editBusy} onClick={() => handleSaveEdit(editFor)}>
+                  {editBusy ? 'Salvando…' : 'Salvar alterações'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </PageModuleShell>
   );
 }
