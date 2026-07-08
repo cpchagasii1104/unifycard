@@ -49,6 +49,20 @@ export type EventVisibility =
 export const EVENT_ACCESS_TYPES = ['gratuito', 'pago', 'contribuicao_opcional'] as const;
 export type EventAccessType = (typeof EVENT_ACCESS_TYPES)[number];
 
+// F-EVENT-CONCEPT-FIRST-MODEL (Clayton 2026-07-08). Categoria = FACET de descoberta (múltipla, NÃO pai
+// do tipo — identidade é CONCEPT formato+tema). Vocabulário governado (manifest events.category + CHECK).
+export const EVENT_CATEGORIES = [
+  'social', 'cultural', 'gastronomico', 'esportivo', 'profissional',
+  'comunitario', 'espiritual', 'educacional', 'comercial_institucional',
+] as const;
+export type EventCategory = (typeof EVENT_CATEGORIES)[number];
+
+// Modo de local do evento. 'route' (viagem/trilha/marcha com percurso) é valor GOVERNADO planejado, mas
+// DISABLED no MVP (não forçar rota em endereço único). Manifest events.location_mode + CHECK.
+export const EVENT_LOCATION_MODES = ['fixed_place', 'online', 'hybrid', 'to_be_defined', 'route'] as const;
+export type EventLocationMode = (typeof EVENT_LOCATION_MODES)[number];
+export const EVENT_LOCATION_MODES_MVP_ENABLED: EventLocationMode[] = ['fixed_place', 'online', 'hybrid', 'to_be_defined'];
+
 /**
  * Tipo de Actor (CONTRATO v1 Seção 1.1)
  * 🔴 BLINDAGEM: Tipos 'group' e 'channel' existem no banco, mas não estão habilitados
