@@ -48,7 +48,9 @@ check('Sem lista local de equipamentos no frontend', !hardcodedEquip);
 // 8) F-RENTABLE-RESOURCE-LOCATION-MVP: localização é GOVERNADA (cities/addresses/address_assignments),
 //    nunca city_name livre no recurso. O front resolve cidade no backend (searchCities), não texto.
 const rentalPage = strip(read(join(FE, 'pages', 'RentalResourceListPage.tsx')));
-check('locação NÃO tem city_name/cidade livre (input de texto de cidade)', !/city_name|cityName|<input[^>]*cidade/i.test(rentalPage));
+// city_name snake = coluna/campo livre (proibido). cityName camelCase = projeção read-only do backend
+// (legítima — nome da cidade vindo da SSOT). <input ... cidade> = campo de texto livre de cidade (proibido).
+check('locação NÃO tem city_name livre nem input de texto de cidade', !/city_name|<input[^>]*cidade/i.test(rentalPage));
 check('locação resolve cidade no backend (searchCities/GovernedCombobox)', /searchCities\(/.test(rentalPage));
 const rentalRepo = strip(read(join(process.cwd(), 'src', 'modules', 'rentals', 'rentable-resource.repository.ts')));
 check('recurso vincula localização via address_assignments (padrão canônico)', /address_assignments/.test(rentalRepo) && /owner_type\s*=?\s*.?rentable_resource/.test(rentalRepo));
@@ -66,6 +68,14 @@ const rentalRepo2 = strip(read(join(process.cwd(), 'src', 'modules', 'rentals', 
 check('faixas gravam em rental_resource_pricing (SSOT), price_cents::bigint', /rental_resource_pricing/.test(rentalRepo2) && /price_cents.*bigint|::bigint/.test(rentalRepo2));
 check('frontend envia priceCents convertendo R$→cents (* 100), não reais', /priceCents/.test(rentalPage) && /Math\.round/.test(rentalPage) && /\*\s*100/.test(rentalPage) && /pricingTiers/.test(rentalPage));
 check('quantidade só aparece para equipment no front', /resourceType === 'equipment'[^]*Quantidade/.test(rentalPage) || /Quantidade[^]*resourceType === 'equipment'/.test(rentalPage) || /resourceType === 'equipment' && \(/.test(rentalPage));
+
+// 10) F-RENTAL Fases 4/5: localização governada + descoberta backend-first, vitrine sem endereço.
+const rentalRepo3 = strip(read(join(process.cwd(), 'src', 'modules', 'rentals', 'rentable-resource.repository.ts')));
+const discoverBlock = (rentalRepo3.split('discoverRentals')[1] || '').split('async updateStatus')[0];
+check('descoberta calcula distância no backend (haversine_distance_km)', /haversine_distance_km/.test(discoverBlock));
+check('descoberta NÃO seleciona rua/número/complemento (privacidade da vitrine)', !/ad\.street|ad\.number|ad\.complement|a\.street|a\.number/.test(discoverBlock));
+check('CEP resolvido no backend via provider governado (não o front decide coord)', /getDefaultCepProvider|resolveCepGeo/.test(strip(read(join(process.cwd(), 'src', 'modules', 'rentals', 'rentable-resource.service.ts')))));
+check('front busca via /discover backend (não filtra distância local)', /discoverRentals\(/.test(rentalPage) && !/haversine|Math\.acos|6371/.test(rentalPage));
 
 if (fail) { console.log(`\nVEHICLE-FIELDS-GOVERNED: FAIL (${fail})`); process.exit(1); }
 console.log('\nVEHICLE-FIELDS-GOVERNED: OK');

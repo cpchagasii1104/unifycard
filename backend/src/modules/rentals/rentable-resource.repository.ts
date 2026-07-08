@@ -145,6 +145,68 @@ class RentableResourceRepository {
     return rows.map(toDomain);
   }
 
+  /**
+   * Fase 5 — DESCOBERTA com filtros de localização (backend é a autoridade). Mesma plateia da
+   * listDiscoverable + JOIN da cidade/coord do recurso (pickup ativo) + filtros:
+   *  - cityId: só recursos daquela cidade.
+   *  - lat/lng/radiusKm: só dentro do raio (haversine_distance_km, fn SQL existente); ordena por perto.
+   *  - resourceType: filtra o tipo.
+   * Retorna recurso + cidade/uf + distanceKm (nunca rua/número — privacidade). Frontend só projeta.
+   */
+  async discoverRentals(
+    tenantId: string, viewerActorId: string,
+    f: { cityId?: string | null; lat?: number | null; lng?: number | null; radiusKm?: number | null; resourceType?: string | null },
+    limit = 50
+  ): Promise<Array<RentableResource & { cityName: string | null; uf: string | null; distanceKm: number | null }>> {
+    const params: unknown[] = [tenantId, viewerActorId];
+    const hasRadius = f.lat != null && f.lng != null && f.radiusKm != null && f.radiusKm > 0;
+    let latIdx = 0, lngIdx = 0, radIdx = 0;
+    if (hasRadius) { latIdx = params.push(f.lat); lngIdx = params.push(f.lng); radIdx = params.push(f.radiusKm); }
+    const distExpr = hasRadius
+      ? `haversine_distance_km($${latIdx}::numeric, $${lngIdx}::numeric, ad.lat, ad.lng)`
+      : 'NULL::numeric';
+    let extra = '';
+    if (f.cityId) extra += ` AND ad.city_id = $${params.push(f.cityId)}::uuid`;
+    if (f.resourceType) extra += ` AND r.resource_type = $${params.push(f.resourceType)}`;
+    const radiusFilter = hasRadius ? ` AND ad.lat IS NOT NULL AND ad.lng IS NOT NULL AND ${distExpr} <= $${radIdx}` : '';
+    params.push(Math.min(Math.max(limit, 1), 50));
+    const rows = await runQueriesWithTenant<RentableResourceRow & { city_name: string | null; uf: string | null; distance_km: string | null }>(
+      tenantId,
+      `SELECT r.id, r.tenant_id, r.owner_actor_id, r.concept_id, r.resource_type, r.label, r.description,
+              r.pricing_unit, r.price_cents, r.category_id, r.status, r.is_active, r.resource_year,
+              r.metadata, r.visibility, r.audience_relationship_types, r.quantity, r.created_at, r.updated_at,
+              c.name AS city_name, s.abbreviation AS uf, ${distExpr} AS distance_km
+         FROM rentable_resources r
+         LEFT JOIN address_assignments aa ON aa.owner_type = 'rentable_resource' AND aa.owner_id = r.id
+              AND aa.role = 'PICKUP' AND aa.is_primary = true AND aa.valid_until_at IS NULL
+         LEFT JOIN addresses ad ON ad.address_id = aa.address_id
+         LEFT JOIN cities c ON c.city_id = ad.city_id
+         LEFT JOIN states s ON s.state_id = c.state_id
+        WHERE r.tenant_id = $1::uuid AND r.status = 'active' AND r.owner_actor_id <> $2::uuid
+          AND (
+            r.visibility = 'public'
+            OR (r.visibility = 'connections' AND EXISTS (
+                SELECT 1 FROM actor_relationships ar
+                 WHERE ar.tenant_id = r.tenant_id AND ar.status = 'accepted'
+                   AND ((ar.from_actor_id = r.owner_actor_id AND ar.to_actor_id = $2::uuid)
+                     OR (ar.from_actor_id = $2::uuid AND ar.to_actor_id = r.owner_actor_id))
+                   AND (r.audience_relationship_types IS NULL
+                     OR (CASE WHEN ar.from_actor_id = r.owner_actor_id THEN ar.requester_label ELSE ar.target_label END)
+                        = ANY(r.audience_relationship_types))
+            ))
+          )
+          ${extra}${radiusFilter}
+        ORDER BY ${hasRadius ? 'distance_km ASC NULLS LAST, ' : ''}r.created_at DESC
+        LIMIT $${params.length}`,
+      params);
+    return rows.map((row) => ({
+      ...toDomain(row),
+      cityName: row.city_name,
+      uf: row.uf,
+      distanceKm: row.distance_km != null ? Math.round(Number(row.distance_km) * 10) / 10 : null,
+    }));
+  }
+
   async updateStatus(
     tenantId: string,
     id: string,

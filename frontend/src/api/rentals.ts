@@ -84,6 +84,27 @@ export async function updateRentalOffer(id: string, input: {
   return res.data;
 }
 
+// Fase 5 — DESCOBERTA com filtros. Backend filtra/calcula (distância, estimativa); o front só projeta.
+export interface RentalDiscoverCard {
+  id: string; label: string; resourceType: RentableResourceType; description: string | null;
+  cityName: string | null; uf: string | null; distanceKm: number | null; quantity: number;
+  pricingTiers: Array<{ unit: RentalPricingUnit; priceCents: number }>;
+  estimate: { available: boolean; estimatedPriceCents: number; disclaimer: string } | null;
+  metadata: Record<string, unknown>;
+}
+export async function discoverRentals(f: {
+  cityId?: string; radiusKm?: number; resourceType?: string; startAt?: string; endAt?: string;
+}): Promise<RentalDiscoverCard[]> {
+  const p = new URLSearchParams();
+  if (f.cityId) p.set('cityId', f.cityId);
+  if (f.radiusKm) p.set('radiusKm', String(f.radiusKm));
+  if (f.resourceType) p.set('resourceType', f.resourceType);
+  if (f.startAt) p.set('startAt', f.startAt);
+  if (f.endAt) p.set('endAt', f.endAt);
+  const res = await apiFetchJson<{ ok: boolean; data: RentalDiscoverCard[] }>(`/rentable-resources/discover?${p.toString()}`);
+  return res.data;
+}
+
 export async function listMyRentableResources(ownerActorId: string): Promise<RentableResource[]> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource[] }>(
     `/rentable-resources?ownerActorId=${encodeURIComponent(ownerActorId)}`

@@ -20,6 +20,8 @@ import {
   listEquipmentUseAreas,
   getRentalOfferDetail,
   updateRentalOffer,
+  discoverRentals,
+  type RentalDiscoverCard,
   PRICING_UNIT_PT,
   RENTAL_PRICING_UNITS,
   type RentableResource,
@@ -80,6 +82,13 @@ export default function RentalResourceListPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [typeFilter, setTypeFilter] = useState<RentableResourceType | 'all'>('all');
+  // Fase 5 — busca (consumir): cidade + período + raio. Backend filtra/calcula; front só projeta.
+  const [searchCity, setSearchCity] = useState<CitySearchResult | null>(null);
+  const [searchStart, setSearchStart] = useState('');
+  const [searchEnd, setSearchEnd] = useState('');
+  const [searchRadius, setSearchRadius] = useState('');
+  const [discoverCards, setDiscoverCards] = useState<RentalDiscoverCard[] | null>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
 
   // formulário de criação (operar)
   const [label, setLabel] = useState('');
@@ -308,6 +317,25 @@ export default function RentalResourceListPage() {
 
   const visible = typeFilter === 'all' ? resources : resources.filter((r) => r.resourceType === typeFilter);
 
+  const runSearch = async () => {
+    setSearchBusy(true);
+    try {
+      const cards = await discoverRentals({
+        cityId: searchCity?.id,
+        radiusKm: searchRadius.trim() ? Number(searchRadius) : undefined,
+        resourceType: typeFilter !== 'all' ? typeFilter : undefined,
+        startAt: searchStart ? new Date(searchStart).toISOString() : undefined,
+        endAt: searchEnd ? new Date(searchEnd).toISOString() : undefined,
+      });
+      setDiscoverCards(cards);
+    } catch (err: any) {
+      showToast(err?.message || 'Erro na busca', 'error');
+    } finally {
+      setSearchBusy(false);
+    }
+  };
+  const formatCents = (c: number) => `R$ ${(c / 100).toFixed(2).replace('.', ',')}`;
+
   // ── MODO CONSUMIR: descoberta (análogo ao Fazer compras) ──
   if (mode === 'consumir') {
     return (
@@ -328,23 +356,67 @@ export default function RentalResourceListPage() {
           ))}
         </div>
 
-        {loading && <p className="rrl-status">Carregando…</p>}
-        {error && <p className="rrl-status rrl-error">{error}</p>}
-        {!loading && !error && visible.length === 0 && (
-          <p className="rrl-status">Nenhum recurso disponível {typeFilter !== 'all' ? `em ${RESOURCE_TYPE_LABEL[typeFilter as RentableResourceType]}s` : ''} ainda — a comunidade está começando. Troque para OPERAR e seja o primeiro a anunciar. 🚀</p>
-        )}
-
-        <div className="rrl-grid">
-          {visible.map((r) => (
-            <button key={r.id} type="button" className="rrl-card" onClick={() => navigate(`/locacoes/${r.id}`)}>
-              <span className="rrl-card-type">{RESOURCE_TYPE_ICON[r.resourceType]} {RESOURCE_TYPE_LABEL[r.resourceType]}</span>
-              <span className="rrl-card-label">{r.label}</span>
-              <span className="rrl-card-price">{formatPrice(r)}</span>
-              {r.description && <span className="rrl-card-desc">{r.description.slice(0, 90)}</span>}
-              <span className="rrl-card-cta">Ver disponibilidade →</span>
-            </button>
-          ))}
+        {/* Fase 5 — busca por localidade/raio/período. Backend filtra, calcula distância e estimativa. */}
+        <div className="rrl-search">
+          <div className="rrl-field">Cidade
+            <GovernedCombobox<CitySearchResult> value={searchCity} onChange={setSearchCity}
+              loadOptions={(q) => searchCities(q)} getOptionKey={(c) => c.id}
+              getOptionLabel={(c) => c.stateUf ? `${c.name} · ${c.stateUf}` : c.name}
+              placeholder="Qualquer cidade" emptyMessage="Nenhuma cidade" />
+          </div>
+          <label className="rrl-field">Raio (km)<input type="number" min={1} placeholder="Ex.: 10" value={searchRadius} onChange={(e) => setSearchRadius(e.target.value)} /></label>
+          <label className="rrl-field">Retirada<input type="datetime-local" value={searchStart} onChange={(e) => setSearchStart(e.target.value)} /></label>
+          <label className="rrl-field">Devolução<input type="datetime-local" value={searchEnd} onChange={(e) => setSearchEnd(e.target.value)} /></label>
+          <button type="button" className="rrl-submit-btn" disabled={searchBusy} onClick={runSearch}>{searchBusy ? 'Buscando…' : '🔎 Buscar'}</button>
         </div>
+
+        {discoverCards !== null ? (
+          discoverCards.length === 0 ? (
+            <p className="rrl-status">Nada encontrado com esses filtros. Tente ampliar o raio ou trocar a cidade.</p>
+          ) : (
+            <div className="rrl-grid">
+              {discoverCards.map((c) => (
+                <button key={c.id} type="button" className="rrl-card" onClick={() => navigate(`/locacoes/${c.id}`)}>
+                  <span className="rrl-card-type">{RESOURCE_TYPE_ICON[c.resourceType]} {RESOURCE_TYPE_LABEL[c.resourceType]}</span>
+                  <span className="rrl-card-label">{c.label}</span>
+                  {(c.cityName || c.distanceKm != null) && (
+                    <span className="rrl-card-desc">
+                      {c.cityName ? `${c.cityName}${c.uf ? '/' + c.uf : ''}` : ''}
+                      {c.distanceKm != null ? ` · ~${c.distanceKm} km de você` : ''}
+                    </span>
+                  )}
+                  {c.estimate?.available ? (
+                    <span className="rrl-card-price">≈ {formatCents(c.estimate.estimatedPriceCents)} <small style={{ fontWeight: 400, color: '#8891a6' }}>estimativa</small></span>
+                  ) : c.pricingTiers.length > 0 ? (
+                    <span className="rrl-card-price">{formatCents(c.pricingTiers[0].priceCents)} · {PRICING_UNIT_PT[c.pricingTiers[0].unit]}</span>
+                  ) : (
+                    <span className="rrl-card-price">Preço a combinar</span>
+                  )}
+                  <span className="rrl-card-cta">Ver disponibilidade →</span>
+                </button>
+              ))}
+            </div>
+          )
+        ) : (
+          <>
+            {loading && <p className="rrl-status">Carregando…</p>}
+            {error && <p className="rrl-status rrl-error">{error}</p>}
+            {!loading && !error && visible.length === 0 && (
+              <p className="rrl-status">Nenhum recurso disponível {typeFilter !== 'all' ? `em ${RESOURCE_TYPE_LABEL[typeFilter as RentableResourceType]}s` : ''} ainda — use a busca acima ou troque para OPERAR e anuncie. 🚀</p>
+            )}
+            <div className="rrl-grid">
+              {visible.map((r) => (
+                <button key={r.id} type="button" className="rrl-card" onClick={() => navigate(`/locacoes/${r.id}`)}>
+                  <span className="rrl-card-type">{RESOURCE_TYPE_ICON[r.resourceType]} {RESOURCE_TYPE_LABEL[r.resourceType]}</span>
+                  <span className="rrl-card-label">{r.label}</span>
+                  <span className="rrl-card-price">{formatPrice(r)}</span>
+                  {r.description && <span className="rrl-card-desc">{r.description.slice(0, 90)}</span>}
+                  <span className="rrl-card-cta">Ver disponibilidade →</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </PageModuleShell>
     );
   }

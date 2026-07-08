@@ -136,6 +136,29 @@ class RentableResourceService {
   }
 
   /**
+   * Fase 5 — DESCOBERTA com filtros (cidade/raio/tipo) + estimativa por card (se período). Backend é a
+   * autoridade: distância, filtro e estimativa são calculados aqui; o front só renderiza. Pré-dinheiro.
+   */
+  async discoverRentals(
+    tenantId: string, viewerActorId: string,
+    f: { cityId?: string | null; lat?: number | null; lng?: number | null; radiusKm?: number | null; resourceType?: string | null; startAt?: Date | null; endAt?: Date | null },
+    limit?: number
+  ) {
+    const rows = await rentableResourceRepository.discoverRentals(tenantId, viewerActorId, f, limit);
+    const withPeriod = f.startAt && f.endAt && !isNaN(f.startAt.getTime()) && !isNaN(f.endAt.getTime());
+    const { estimatePrice } = await import('./pricing-estimate');
+    return Promise.all(rows.map(async (r) => {
+      const pricingTiers = await rentableResourceRepository.getPricingTiers(tenantId, r.id);
+      const estimate = withPeriod ? estimatePrice(pricingTiers as any, f.startAt!, f.endAt!) : null;
+      return {
+        id: r.id, label: r.label, resourceType: r.resourceType, description: r.description,
+        cityName: r.cityName, uf: r.uf, distanceKm: r.distanceKm, quantity: r.quantity,
+        pricingTiers, estimate, metadata: r.metadata,
+      };
+    }));
+  }
+
+  /**
    * Muda status (active/paused/retired). Owner-only — prova via canRepresentActor contra o
    * owner_actor_id JÁ REGISTRADO do recurso (não o declarado pelo caller).
    */
