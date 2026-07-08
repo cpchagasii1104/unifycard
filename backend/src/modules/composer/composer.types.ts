@@ -21,6 +21,10 @@ import type { ActorIntent } from '@modules/social/actor-intents.types';
 
 export type ComposerMode = 'consuming' | 'operating';
 
+/** Grupo de intenção (projeção UX). Governado aqui como vocabulário de APRESENTAÇÃO do launcher, não
+ *  como ontologia nova — só reagrupa os ActorIntent já existentes para exibição. */
+export type ComposerIntentGroup = 'communicate' | 'commerce' | 'governance';
+
 export interface ComposerIntent {
   /** chave GOVERNADA = valor do enum canônico ActorIntent (NÃO uma string inventada pelo compositor). */
   intent: ActorIntent;
@@ -32,6 +36,17 @@ export interface ComposerIntent {
   gatedBy?: string;
   /** rota REAL do wizard vivo quando o ato tem superfície própria (evento/serviço), ou null (in-composer). */
   deeplink: string | null;
+  // ── PROJEÇÃO UX do launcher (aditivo; a IDENTIDADE/AUTORIDADE seguem em intent/enabled) ──
+  /** agrupamento de exibição (comunicar/comercializar/autogestão). */
+  group: ComposerIntentGroup;
+  /** descrição curta do ato (uma linha). */
+  description: string;
+  /** ícone semântico (chave de ícone, o front mapeia p/ glifo). */
+  icon: string;
+  /** pergunta de plateia que o compositor específico faz UMA vez (ex.: "Para quem é este evento?"). */
+  audienceLabel: string;
+  /** qual compositor específico abre (post/event/service/product/demand/project/vote/booking). */
+  targetComposer: string;
 }
 
 export interface ComposerContract {

@@ -8,7 +8,13 @@ export interface ComposerIntentOption {
   label: string;  // projeção UX
   enabled: boolean;
   gatedBy?: string;
-  deeplink?: string;
+  deeplink?: string | null;
+  // projeção UX do launcher (aditivo — backend enriquecido; opcionais p/ compatibilidade)
+  group?: 'communicate' | 'commerce' | 'governance';
+  description?: string;
+  icon?: string;
+  audienceLabel?: string;
+  targetComposer?: string;
 }
 
 export async function getComposerContract(
