@@ -20,6 +20,7 @@ const guards = [
   'audit-rls-policy-guc-canonical.mjs',                      // BLOCKER Yala: policy RLS com GUC nao-canonico = quebra-fechada (classe travada)
   'audit-schema-authority-classification.mjs',              // Trava 1 (Clayton 2026-07-08): carimbo SSOT/read_model/legacy/dead — anti-reativacao de cadaver/verdade-paralela
   'audit-location-authority-classification.mjs',            // Trava 2 (Clayton 2026-07-08): localidade operacional = Location Core; barra nova coluna city/country TEXT + filtro textual
+  'audit-rental-hardening-constraints.mjs',                 // Trava 3 (Clayton 2026-07-08): banco blinda overlap de janela macro (EXCLUDE) + quantity>1 so equipment (CHECK); anti-DROP
 ];
 
 let failed = false;
