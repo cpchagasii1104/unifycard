@@ -27,8 +27,11 @@ function parseCsv(text: string): string[][] {
 }
 
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-const asInt = (v: string) => { const n = parseInt((v ?? '').replace(/[^\d-]/g, ''), 10); return Number.isFinite(n) ? n : null; };
-const asNum = (v: string) => { const n = parseFloat((v ?? '').replace(',', '.').replace(/[^\d.-]/g, '')); return Number.isFinite(n) ? n : null; };
+// extrai o PRIMEIRO número da string (evita concatenar dígitos de "6000 gasolina / 6250 etanol" ou
+// perder o ponto de "999.1"). Campos com múltiplos números (rpm por combustível) ficam com o 1º valor.
+const firstNum = (v: string): number | null => { const m = (v ?? '').replace(',', '.').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; };
+const asInt = (v: string) => { const n = firstNum(v); return n == null ? null : Math.round(n); };
+const asNum = (v: string) => firstNum(v);
 const txt = (v: string) => { const t = (v ?? '').trim(); return t === '' ? null : t; };
 
 async function main() {
