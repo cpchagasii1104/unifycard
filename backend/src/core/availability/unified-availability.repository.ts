@@ -155,6 +155,27 @@ class UnifiedAvailabilityRepository {
   }
 
   /**
+   * F-RENTAL-AVAILABILITY-OVERLAP: janelas ATIVAS do mesmo (owner_type, owner_id) que SOBREPÕEM o
+   * intervalo [start, end). Condição canônica: new_start < existing_end AND new_end > existing_start.
+   * A verdade temporal é do BANCO (SSOT). excludeId permite ignorar a própria janela numa edição.
+   */
+  async findOverlapping(
+    tenantId: string, ownerType: string, ownerId: string, start: Date, end: Date, excludeId?: string
+  ): Promise<UnifiedAvailability[]> {
+    const params: unknown[] = [tenantId, ownerType, ownerId, start, end];
+    let exclude = '';
+    if (excludeId) { params.push(excludeId); exclude = ` AND availability_id <> $${params.length}`; }
+    const rows = await runQueriesWithTenant<UnifiedAvailabilityRow>(
+      tenantId,
+      `SELECT * FROM availability
+        WHERE tenant_id = $1 AND owner_type = $2 AND owner_id = $3 AND status = 'active'
+          AND start_datetime < $5 AND end_datetime > $4${exclude}
+        ORDER BY start_datetime ASC`,
+      params);
+    return rows.map((r) => this.toUnifiedAvailability(r));
+  }
+
+  /**
    * Busca disponibilidade por ID
    */
   async findAvailabilityById(tenantId: string, availabilityId: string): Promise<UnifiedAvailability | null> {

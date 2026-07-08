@@ -304,8 +304,14 @@ export default function RentalResourceListPage() {
       showToast('Janela de disponibilidade registrada na Agenda. ✅', 'success');
       setAvailFor(null); setAvailStart(''); setAvailEnd('');
     } catch (err: any) {
-      // conflito de sobreposição vem do BANCO (advisory lock + trigger) — a verdade é do motor
-      showToast(err?.message || 'Erro ao registrar disponibilidade', 'error');
+      // Conflito de sobreposição vem do BACKEND (RENTAL_AVAILABILITY_OVERLAP) — a verdade temporal é do
+      // motor, não do front. Mostra a janela conflitante que o backend informou.
+      const msg = String(err?.message || '');
+      if (msg.includes('RENTAL_AVAILABILITY_OVERLAP')) {
+        showToast('Esta janela conflita com uma disponibilidade já cadastrada para este recurso. Crie janelas separadas, sem sobrepor.', 'error');
+      } else {
+        showToast(msg || 'Erro ao registrar disponibilidade', 'error');
+      }
     } finally {
       setAvailBusy(false);
     }

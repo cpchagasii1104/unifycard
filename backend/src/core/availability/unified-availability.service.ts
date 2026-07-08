@@ -13,7 +13,7 @@ import { unifiedAvailabilityRepository } from './unified-availability.repository
 import { resolveAvailabilityOwner, assertAvailabilityOwnerAuthorityActive } from './availability-owner-authority';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { authorizationService } from '@core/authorization/authorization.service';
-import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
+import { BadRequestError, NotFoundError, ForbiddenError, ConflictError } from '@core/errors';
 import { getProtectedPurposeConceptIds } from './temporal-purpose';
 import { ActorEffect } from '@core/social/ports';
 import type {
@@ -86,8 +86,19 @@ class UnifiedAvailabilityService {
     // se quarentenado. canRepresentActor (rota) prova representação; isto prova autoridade ATIVA. NÃO toca canRepresentActor.
     await assertAvailabilityOwnerAuthorityActive(tenantId, input.ownerType, input.ownerId);
 
-    // 🔴 BLINDAGEM: Criar disponibilidade (trigger previne sobreposição)
-    // NÃO decide quem pode agendar, apenas expõe janelas
+    // 🔴 F-RENTAL-AVAILABILITY-OVERLAP (bug material 2026-07-08): NÃO existia trigger/constraint de
+    // sobreposição (o comentário "trigger previne sobreposição" era falso). A verdade temporal é do
+    // BANCO: rejeita janela ATIVA que sobreponha outra do mesmo recurso. 409 + a janela conflitante.
+    const conflicts = await unifiedAvailabilityRepository.findOverlapping(
+      tenantId, input.ownerType, input.ownerId, input.startDatetime!, input.endDatetime!);
+    if (conflicts.length > 0) {
+      const c = conflicts[0];
+      throw new ConflictError(
+        `RENTAL_AVAILABILITY_OVERLAP: esta janela conflita com uma disponibilidade já cadastrada ` +
+        `(${c.startDatetime.toISOString()} → ${c.endDatetime.toISOString()}).`);
+    }
+
+    // Cria disponibilidade. NÃO decide quem pode agendar, apenas expõe janelas.
     return await unifiedAvailabilityRepository.create(tenantId, input);
   }
 
@@ -132,7 +143,18 @@ class UnifiedAvailabilityService {
     // 🔴 F-AVAILABILITY-WRITE-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA do owner do recurso existente ANTES do UPDATE.
     await assertAvailabilityOwnerAuthorityActive(tenantId, existing.ownerType, existing.ownerId);
 
-    // 🔴 BLINDAGEM: Atualizar disponibilidade (trigger previne sobreposição)
+    // F-RENTAL-AVAILABILITY-OVERLAP: revalida sobreposição após a edição (excluindo a própria janela).
+    const newStart = input.startDatetime ?? existing.startDatetime;
+    const newEnd = input.endDatetime ?? existing.endDatetime;
+    const conflicts = await unifiedAvailabilityRepository.findOverlapping(
+      tenantId, existing.ownerType, existing.ownerId, newStart, newEnd, availabilityId);
+    if (conflicts.length > 0) {
+      const c = conflicts[0];
+      throw new ConflictError(
+        `RENTAL_AVAILABILITY_OVERLAP: a janela editada conflita com outra já cadastrada ` +
+        `(${c.startDatetime.toISOString()} → ${c.endDatetime.toISOString()}).`);
+    }
+
     return await unifiedAvailabilityRepository.updateAvailability(tenantId, availabilityId, input);
   }
 
