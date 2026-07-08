@@ -90,6 +90,28 @@ const formatPrice = (r: { pricingTiers?: Array<{ unit: RentalPricingUnit; priceC
 const HANDOFF_SUMMARY: Record<string, string> = {
   renter_pickup: 'Retirada no local', owner_delivery: 'Dono entrega', to_be_arranged: 'A combinar',
 };
+// MVP: subconjunto de unidades de preço por tipo de recurso. É PROJEÇÃO UX de unidades JÁ governadas
+// (RENTAL_PRICING_UNITS) — não inventa unidade nova. Imóvel não mostra hora/semana; espaço mostra
+// hora/dia. TODO(contrato): graduar para um contrato de backend (como /concepts). Flag no relatório.
+const UNITS_BY_TYPE: Record<RentableResourceType, RentalPricingUnit[]> = {
+  property: ['por_mes', 'por_semestre', 'por_ano'],
+  space: ['por_hora', 'por_dia'],
+  vehicle: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
+  equipment: ['por_hora', 'por_dia', 'por_semana', 'por_mes'],
+};
+// Resumo dos atributos de imóvel (metadata facets) para card/detalhe — projeta, não inventa.
+function propertySummary(r: { resourceType: string; metadata?: Record<string, unknown> }): string | null {
+  if (r.resourceType !== 'property' && r.resourceType !== 'space') return null;
+  const m = r.metadata ?? {};
+  const parts: string[] = [];
+  if (m.areaM2) parts.push(`${m.areaM2} m²`);
+  if (m.bedrooms != null) parts.push(`${m.bedrooms} quarto${Number(m.bedrooms) === 1 ? '' : 's'}`);
+  if (m.bathrooms != null) parts.push(`${m.bathrooms} banh.`);
+  if (m.parkingSpots) parts.push(`${m.parkingSpots} vaga${Number(m.parkingSpots) === 1 ? '' : 's'}`);
+  if (m.furnished) parts.push('mobiliado');
+  if (m.petsAllowed) parts.push('aceita pet');
+  return parts.length ? parts.join(' · ') : null;
+}
 // Rótulos pt-BR do status do booking (o status é do backend; aqui só projeção).
 const MY_BOOKING_STATUS: Record<string, string> = {
   requested: 'Pendente', confirmed: 'Confirmada', checked_in: 'Em uso', checked_out: 'Concluída', cancelled: 'Cancelada',
@@ -289,6 +311,10 @@ export default function RentalResourceListPage() {
   const [propBedrooms, setPropBedrooms] = useState('');
   const [propBathrooms, setPropBathrooms] = useState('');
   const [propFurnished, setPropFurnished] = useState(false);
+  const [propParking, setPropParking] = useState('');
+  const [propPetsAllowed, setPropPetsAllowed] = useState(false);
+  const [propFloor, setPropFloor] = useState('');
+  const [propElevator, setPropElevator] = useState(false);
 
   // edição da OFERTA do próprio anúncio (o dono edita preço/quantidade/cidade/descrição)
   const [editFor, setEditFor] = useState<string | null>(null);
@@ -331,6 +357,7 @@ export default function RentalResourceListPage() {
     setSelectedUseArea(null);
     setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
     setPropArea(''); setPropBedrooms(''); setPropBathrooms(''); setPropFurnished(false);
+    setPropParking(''); setPropPetsAllowed(false); setPropFloor(''); setPropElevator(false);
   }, [resourceType]);
 
   // Áreas de uso (faceta governada) — carregadas uma vez; usadas só quando Tipo = Equipamento.
@@ -392,7 +419,11 @@ export default function RentalResourceListPage() {
         if (propArea.trim()) metadata.areaM2 = Number(propArea);
         if (propBedrooms.trim()) metadata.bedrooms = parseInt(propBedrooms, 10);
         if (propBathrooms.trim()) metadata.bathrooms = parseInt(propBathrooms, 10);
+        if (propParking.trim()) metadata.parkingSpots = parseInt(propParking, 10);
+        if (propFloor.trim()) metadata.floor = parseInt(propFloor, 10);
         metadata.furnished = propFurnished;
+        metadata.petsAllowed = propPetsAllowed;
+        metadata.elevator = propElevator;
       }
       const aud = resolveAudiencePayload(audienceOptions, audienceKeys);
       await createRentableResource({
@@ -828,13 +859,22 @@ export default function RentalResourceListPage() {
           {/* Imóvel/Espaço: Facets puras (régua ratificada: "descreve COMO É", não "identifica O
               QUE É" — apartamento/casa/galpão já são o CONCEPT; metragem/quartos são atributo) */}
           {(resourceType === 'property' || resourceType === 'space') && (
-            <div className="rrl-row">
-              <label className="rrl-field">Área (m²)<input type="number" min={1} placeholder="Ex.: 65" value={propArea} onChange={(e) => setPropArea(e.target.value)} /></label>
-              <label className="rrl-field">Quartos<input type="number" min={0} max={20} placeholder="Ex.: 2" value={propBedrooms} onChange={(e) => setPropBedrooms(e.target.value)} /></label>
-              <label className="rrl-field">Banheiros<input type="number" min={0} max={20} placeholder="Ex.: 1" value={propBathrooms} onChange={(e) => setPropBathrooms(e.target.value)} /></label>
-              <label className="rrl-field rrl-field--checkbox">
-                <input type="checkbox" checked={propFurnished} onChange={(e) => setPropFurnished(e.target.checked)} /> Mobiliado
-              </label>
+            <div className="rrl-field">
+              {resourceType === 'property' ? 'Características do imóvel' : 'Características do espaço'}
+              <div className="rrl-row">
+                <label className="rrl-field">Área (m²)<input type="number" min={1} placeholder="Ex.: 65" value={propArea} onChange={(e) => setPropArea(e.target.value)} /></label>
+                <label className="rrl-field">Quartos<input type="number" min={0} max={20} placeholder="Ex.: 2" value={propBedrooms} onChange={(e) => setPropBedrooms(e.target.value)} /></label>
+                <label className="rrl-field">Banheiros<input type="number" min={0} max={20} placeholder="Ex.: 1" value={propBathrooms} onChange={(e) => setPropBathrooms(e.target.value)} /></label>
+                <label className="rrl-field">Vagas<input type="number" min={0} max={20} placeholder="Ex.: 1" value={propParking} onChange={(e) => setPropParking(e.target.value)} /></label>
+              </div>
+              {resourceType === 'property' && (
+                <div className="rrl-row" style={{ marginTop: 8, alignItems: 'center' }}>
+                  <label className="rrl-field">Andar<input type="number" min={0} max={200} placeholder="Ex.: 5" value={propFloor} onChange={(e) => setPropFloor(e.target.value)} /></label>
+                  <label className="rrl-field rrl-field--checkbox"><input type="checkbox" checked={propFurnished} onChange={(e) => setPropFurnished(e.target.checked)} /> Mobiliado</label>
+                  <label className="rrl-field rrl-field--checkbox"><input type="checkbox" checked={propPetsAllowed} onChange={(e) => setPropPetsAllowed(e.target.checked)} /> Aceita pet</label>
+                  <label className="rrl-field rrl-field--checkbox"><input type="checkbox" checked={propElevator} onChange={(e) => setPropElevator(e.target.checked)} /> Elevador</label>
+                </div>
+              )}
             </div>
           )}
 
@@ -852,7 +892,7 @@ export default function RentalResourceListPage() {
           <div className="rrl-field">
             Preço anunciado por faixa <span className="rrl-hint" style={{ fontWeight: 400 }}>(preencha as que oferecer)</span>
             <div className="rrl-tiers">
-              {RENTAL_PRICING_UNITS.map((u) => (
+              {(UNITS_BY_TYPE[resourceType] ?? RENTAL_PRICING_UNITS).map((u) => (
                 <div key={u} className="rrl-tier">
                   <span className="rrl-tier-label">{PRICING_UNIT_PT[u]}</span>
                   <span className="rrl-tier-prefix">R$</span>
@@ -963,6 +1003,7 @@ export default function RentalResourceListPage() {
               </span>
             )}
             {mileageSummary(r) && <span className="rrl-card-handoff">🚗 {mileageSummary(r)}</span>}
+            {propertySummary(r) && <span className="rrl-card-handoff">🏠 {propertySummary(r)}</span>}
             <div className="rrl-card-actions">
               <button type="button" onClick={() => navigate(`/locacoes/${r.id}`)}>Detalhes</button>
               <button type="button" onClick={() => openEdit(r.id)}>✏️ Editar</button>
