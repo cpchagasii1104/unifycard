@@ -19,6 +19,7 @@ const guards = [
   'audit-jwt-payload-decode-frontend.mjs',                   // TENANT_ID_REQUIRED — decode de JWT base64url-safe (zero atob solto)
   'audit-rls-policy-guc-canonical.mjs',                      // BLOCKER Yala: policy RLS com GUC nao-canonico = quebra-fechada (classe travada)
   'audit-schema-authority-classification.mjs',              // Trava 1 (Clayton 2026-07-08): carimbo SSOT/read_model/legacy/dead — anti-reativacao de cadaver/verdade-paralela
+  'audit-location-authority-classification.mjs',            // Trava 2 (Clayton 2026-07-08): localidade operacional = Location Core; barra nova coluna city/country TEXT + filtro textual
 ];
 
 let failed = false;
