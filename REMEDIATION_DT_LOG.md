@@ -1,5 +1,24 @@
 # REMEDIATION DT LOG
 
+## F-SUPPLIERS-IDENTITY-BOUNDARY — ✅ CONTENÇÃO PREVENTIVA (2026-07-07), sistema virgem
+Achado no fio "clientes será usado em outras partes" (Clayton) + correção da 2ª IA. REGRA cravada
+ANTES de nascer dado real (suppliers = 0 linhas, actor_relationships quase vazio):
+1. `actor_relationships` (typed-edge) = FONTE ÚNICA de "é meu cliente/fornecedor/parceiro/colaborador".
+   Projetada pela ótica do actor — "clientes do PF" e "clientes da PJ" são a MESMA tabela+vocabulário,
+   conjuntos diferentes por owner (não verdade paralela; provado: 0 tabelas clientes/customers).
+2. Actor/Identity = FONTE ÚNICA de "quem é a pessoa/empresa" (nome, CPF/CNPJ).
+3. `suppliers` NÃO pode virar identidade paralela. Distinção (2ª IA, correta): (A) supplier COM
+   actor_id → identidade vem do actor, name/tax_id são snapshot NÃO-autoritativo; (B) supplier SEM
+   actor_id → registro externo operacional (off-platform), NÃO é actor (sem plateia/autoridade/
+   dinheiro interno/relação tipada até onboarding). A ponte actor_id nullable é LEGÍTIMA (migration
+   20260704120000 já documenta o off-platform) — NÃO remover sem RFC.
+**Estado verificado BOM (guard é preventivo, não corretivo):** nenhum módulo de identidade/autoridade/
+plateia/dinheiro lê suppliers.{name,tax_id,email} como fonte (varredura = 0); writer único
+(supplier.repository); reconciliação viva (assertActorExists valida actor_id). Guard
+`audit-suppliers-identity-boundary.mjs` (na suíte de contenção) congela isso — morde se alguém
+introduzir uso de suppliers.name/tax_id como identidade. NÃO construiu CRM novo (contenção só).
+_(relaciona: DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK — o risco que esta frente blinda na origem.)_
+
 ## DISCIPLINA (não-DT, candidato a rito oficial) — "Teste de Redução Ontológica" (2026-07-07)
 Formalizado no diálogo Clayton + 2 IAs sobre locação. Antes de promover QUALQUER estrutura nova na
 ontologia, perguntar em ordem: (1) cabe num CONCEPT existente? → se sim, não cria. (2) cabe num N2
