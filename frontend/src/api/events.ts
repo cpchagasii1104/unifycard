@@ -645,7 +645,7 @@ export async function createEventCanonical(input: CreateEventInputCanonical): Pr
  * CONTRATO v1: POST /events/:id/publish
  */
 export async function publishEvent(eventId: string): Promise<EventResponse> {
-  return apiFetchJson<EventResponse>(`/events/${eventId}/publish`, {
+  return apiFetchJson<EventResponse>(`/api/events/${eventId}/publish`, {
     method: 'POST',
   });
 }
@@ -655,7 +655,7 @@ export async function publishEvent(eventId: string): Promise<EventResponse> {
  * CONTRATO v1: GET /events/:id
  */
 export async function getEventById(eventId: string): Promise<EventResponse> {
-  return apiFetchJson<EventResponse>(`/events/${eventId}`);
+  return apiFetchJson<EventResponse>(`/api/events/${eventId}`);
 }
 
 /**
@@ -678,7 +678,8 @@ export interface UpdateEventInput {
 }
 
 export async function updateEvent(eventId: string, input: UpdateEventInput): Promise<EventResponse> {
-  return apiFetchJson<EventResponse>(`/events/${eventId}`, {
+  // Rotas de evento montadas em /api/events (app.builder). Sem o /api, cai em 404 (bug: path v1 legado).
+  return apiFetchJson<EventResponse>(`/api/events/${eventId}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
