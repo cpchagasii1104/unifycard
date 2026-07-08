@@ -12,7 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
 import { getRentableResource, updateRentableResourceStatus, type RentableResource, type RentableResourceStatus } from '../api/rentals';
-import { listAvailabilities, createAvailability, listBookings, createBooking, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
+import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, createBooking, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
 import './RentalResourceDetailPage.css';
 
 const RESOURCE_TYPE_LABEL: Record<string, string> = {
@@ -114,6 +114,40 @@ export default function RentalResourceDetailPage() {
     }
   };
 
+  // Editar/excluir janela (dono). datetime-local ISO (sem TZ) → o backend valida overlap e autoridade.
+  const [editWinId, setEditWinId] = useState<string | null>(null);
+  const [editWinStart, setEditWinStart] = useState('');
+  const [editWinEnd, setEditWinEnd] = useState('');
+  const [winBusy, setWinBusy] = useState(false);
+
+  const openEditWindow = (w: UnifiedAvailability) => {
+    const toLocal = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+    setEditWinStart(toLocal(w.startDatetime)); setEditWinEnd(toLocal(w.endDatetime)); setEditWinId(w.availabilityId);
+  };
+  const saveEditWindow = async (availabilityId: string) => {
+    if (!editWinStart || !editWinEnd) { showToast('Informe início e fim.', 'error'); return; }
+    setWinBusy(true);
+    try {
+      await updateAvailability(availabilityId, { startDatetime: new Date(editWinStart).toISOString(), endDatetime: new Date(editWinEnd).toISOString() });
+      showToast('Janela atualizada. ✅', 'success');
+      setEditWinId(null); await load();
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      showToast(msg.includes('OVERLAP') ? 'A janela editada conflita com outra já cadastrada. Ajuste o período.' : (msg || 'Erro ao editar janela'), 'error');
+    } finally { setWinBusy(false); }
+  };
+  const handleDeleteWindow = async (availabilityId: string) => {
+    if (!window.confirm('Excluir esta janela de disponibilidade?')) return;
+    try {
+      await deleteAvailability(availabilityId);
+      showToast('Janela excluída.', 'success');
+      await load();
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      showToast(msg.includes('ACTIVE_BOOKING') ? 'Esta janela tem reserva ativa e não pode ser excluída.' : (msg || 'Erro ao excluir'), 'error');
+    }
+  };
+
   const handleStatusChange = async (status: RentableResourceStatus) => {
     if (!id) return;
     try {
@@ -170,12 +204,31 @@ export default function RentalResourceDetailPage() {
             const isMine = activeActor && bookings.some((b) => b.requesterActorId === activeActor.actor_id && b.status !== 'cancelled' && b.status !== 'expired');
             return (
               <div key={availability.availabilityId} className="rrd-window-card">
-                <span className="rrd-window-range">
-                  {new Date(availability.startDatetime).toLocaleString('pt-BR')} — {new Date(availability.endDatetime).toLocaleString('pt-BR')}
-                </span>
+                <div className="rrd-window-head">
+                  <span className="rrd-window-range">
+                    {new Date(availability.startDatetime).toLocaleString('pt-BR')} — {new Date(availability.endDatetime).toLocaleString('pt-BR')}
+                  </span>
+                  {isOwner && !activeBooking && requestedBookings.length === 0 && (
+                    <div className="rrd-window-tools">
+                      <button type="button" title="Editar janela" aria-label="Editar janela" onClick={() => (editWinId === availability.availabilityId ? setEditWinId(null) : openEditWindow(availability))}>✏️</button>
+                      <button type="button" title="Excluir janela" aria-label="Excluir janela" onClick={() => handleDeleteWindow(availability.availabilityId)}>🗑️</button>
+                    </div>
+                  )}
+                </div>
                 {activeBooking && <span className="rrd-window-tag rrd-tag-confirmed">Reservado</span>}
                 {!activeBooking && requestedBookings.length > 0 && <span className="rrd-window-tag rrd-tag-requested">{requestedBookings.length} solicitação(ões)</span>}
-                {!activeBooking && requestedBookings.length === 0 && <span className="rrd-window-tag rrd-tag-open">Disponível</span>}
+                {!activeBooking && requestedBookings.length === 0 && editWinId !== availability.availabilityId && <span className="rrd-window-tag rrd-tag-open">Disponível</span>}
+
+                {editWinId === availability.availabilityId && (
+                  <div className="rrd-window-edit">
+                    <label>Início<input type="datetime-local" value={editWinStart} onChange={(e) => setEditWinStart(e.target.value)} /></label>
+                    <label>Fim<input type="datetime-local" value={editWinEnd} onChange={(e) => setEditWinEnd(e.target.value)} /></label>
+                    <div className="rrd-window-edit-actions">
+                      <button type="button" className="rrd-win-cancel" onClick={() => setEditWinId(null)}>Cancelar</button>
+                      <button type="button" className="rrd-win-save" disabled={winBusy} onClick={() => saveEditWindow(availability.availabilityId)}>{winBusy ? 'Salvando…' : 'Salvar'}</button>
+                    </div>
+                  </div>
+                )}
 
                 {isOwner && requestedBookings.map((b) => (
                   <div key={b.bookingId} className="rrd-booking-row">

@@ -597,6 +597,22 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   /**
+   * DELETE /availability/:id — o DONO exclui uma janela de disponibilidade própria. Autoridade-ativa do
+   * owner (no service) + bloqueia se houver booking ativo. :id é availabilityId, não actor.
+   */
+  fastify.delete<{ Params: { id: string } }>('/:id', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant not found' });
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
+    try {
+      await unifiedAvailabilityService.deleteAvailability(req.tenant.id, req.params.id, userId);
+      return reply.send({ ok: true });
+    } catch (error: any) {
+      return reply.status(error.statusCode || 500).send({ ok: false, error: error.message });
+    }
+  });
+
+  /**
    * PUT /availability/weekly-template
    * F1 (DECISION-0072 B1): materializa a grade semanal declarativa em janelas CONCRETAS no SSOT
    * `availability`. ownerId é SEMPRE o actor do contexto (actor-first) — cliente não escolhe owner.

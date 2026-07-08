@@ -34,3 +34,16 @@
 .rrd-booking-row { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.65rem; background: #fafbfc; border-radius: 6px; font-size: 0.8125rem; }
 .rrd-booking-row button { padding: 0.3rem 0.75rem; border: none; border-radius: 6px; background: #2f7a3f; color: #fff; font-weight: 600; cursor: pointer; }
 .rrd-request-btn { align-self: flex-start; padding: 0.4rem 0.9rem; border: none; border-radius: 8px; background: #4f5bd5; color: #fff; font-weight: 600; cursor: pointer; }
+
+/* Ações de janela (dono): lápis/lixeira + form de edição inline. */
+.rrd-window-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rrd-window-tools { display: flex; gap: 6px; flex: none; }
+.rrd-window-tools button { width: 32px; height: 32px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; cursor: pointer; font-size: .9rem; display: grid; place-items: center; transition: all .12s; }
+.rrd-window-tools button:hover { border-color: #c7cdfe; background: #f6f7ff; }
+.rrd-window-edit { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-top: 8px; padding: 12px; background: #fbfcff; border: 1px solid #e9ebf4; border-radius: 10px; }
+.rrd-window-edit label { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; font-weight: 600; color: #5b627a; }
+.rrd-window-edit input { border: 1px solid #d9dbe4; border-radius: 6px; padding: .4rem .5rem; font: inherit; }
+.rrd-window-edit-actions { display: flex; gap: 8px; margin-left: auto; }
+.rrd-win-cancel { padding: .45rem 1rem; border: 1px solid #d7dbe0; border-radius: 8px; background: #fff; color: #374151; font: inherit; font-weight: 600; cursor: pointer; }
+.rrd-win-save { padding: .45rem 1.1rem; border: 0; border-radius: 8px; background: #6366f1; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.rrd-win-save:disabled { opacity: .6; }

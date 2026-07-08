@@ -159,6 +159,22 @@ class UnifiedAvailabilityService {
   }
 
   /**
+   * Remove uma janela de disponibilidade (o dono exclui a própria). Trava de autoridade-ativa do owner
+   * + NÃO permite excluir se houver booking ativo (requested/confirmed/checked_in) — o tempo é SSOT.
+   * availability não tem soft-delete → hard delete só quando seguro.
+   */
+  async deleteAvailability(tenantId: string, availabilityId: string, userId: string): Promise<void> {
+    const existing = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, availabilityId);
+    if (!existing) throw new NotFoundError('Disponibilidade não encontrada');
+    await assertAvailabilityOwnerAuthorityActive(tenantId, existing.ownerType, existing.ownerId);
+    const activeBookings = await unifiedAvailabilityRepository.countActiveBookings(tenantId, availabilityId);
+    if (activeBookings > 0) {
+      throw new ConflictError('AVAILABILITY_HAS_ACTIVE_BOOKING: esta janela tem reserva ativa e não pode ser excluída.');
+    }
+    await unifiedAvailabilityRepository.deleteAvailability(tenantId, availabilityId);
+  }
+
+  /**
    * Cria um novo booking
    * 🔴 BLINDAGEM: availabilityId e requesterActorId são OBRIGATÓRIOS
    * 🔴 BLINDAGEM: NÃO executa pagamento

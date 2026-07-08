@@ -154,6 +154,23 @@ class UnifiedAvailabilityRepository {
     return this.toUnifiedAvailability(row);
   }
 
+  /** Nº de bookings ATIVOS (requested/confirmed/checked_in) ligados a uma janela — bloqueiam exclusão. */
+  async countActiveBookings(tenantId: string, availabilityId: string): Promise<number> {
+    const rows = await runQueriesWithTenant<{ n: string }>(tenantId,
+      `SELECT count(*)::int AS n FROM bookings
+        WHERE tenant_id = $1 AND availability_id = $2
+          AND status IN ('requested','confirmed','checked_in')`,
+      [tenantId, availabilityId]);
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  /** Remove uma janela de disponibilidade (hard delete — availability não tem soft-delete). O service
+   *  valida autoridade + ausência de booking ativo ANTES de chamar. */
+  async deleteAvailability(tenantId: string, availabilityId: string): Promise<void> {
+    await runQueriesWithTenant(tenantId,
+      `DELETE FROM availability WHERE tenant_id = $1 AND availability_id = $2`, [tenantId, availabilityId]);
+  }
+
   /**
    * F-RENTAL-AVAILABILITY-OVERLAP: janelas ATIVAS do mesmo (owner_type, owner_id) que SOBREPÕEM o
    * intervalo [start, end). Condição canônica: new_start < existing_end AND new_end > existing_start.

@@ -329,8 +329,13 @@ export async function updateAvailability(
   if (!result.ok || !result.data) {
     throw new Error('Erro ao atualizar disponibilidade');
   }
-  
+
   return result.data;
+}
+
+// Exclui uma janela de disponibilidade (dono). Backend valida autoridade + ausência de booking ativo.
+export async function deleteAvailability(availabilityId: string): Promise<void> {
+  await apiFetchJson<{ ok: boolean }>(`/availability/${availabilityId}`, { method: 'DELETE' });
 }
 
 /**
