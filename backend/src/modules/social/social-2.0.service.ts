@@ -203,7 +203,9 @@ export class Social2Service {
     },
     groupId?: string, // NOVO: ID do grupo para filtrar posts (opcional)
     // DECISION-0030 (F3): filtro de proximidade por scope (radius_km/city/state/unlimited)
-    proximityFilter?: import('@core/location/feed-proximity.types').FeedProximityFilterInput
+    proximityFilter?: import('@core/location/feed-proximity.types').FeedProximityFilterInput,
+    // F-SOCIAL-FEED-LENSES: lente de TIPO (feedQuery do catálogo governado). Coexiste com o geo acima.
+    lensQuery?: string
   ): Promise<FeedResponse> {
     // Usar actor_id fornecido ou buscar actor padrão do usuário
     let currentActorId: string | null = actorId || null;
@@ -291,6 +293,28 @@ export class Social2Service {
     // ENFORCED-ON-READ): a plateia declarada na escrita agora É OBEDECIDA na leitura. $2 =
     // currentActorId, JÁ resolvido server-side acima (nunca client-declared cru).
     query += ` AND ${postVisibilitySql('p', '$2')}`;
+
+    // F-SOCIAL-FEED-LENSES (2026-07-08): filtro por LENTE (tipo). lensQuery vem do catálogo GOVERNADO
+    // (/social/feed-lenses) — nunca string crua do usuário. Mapeia para p.intent. Lentes navigate/hybrid
+    // sem tipo de post próprio (locações/oportunidades/grupos) → feed vazio (o valor delas é o CTA).
+    if (lensQuery && lensQuery !== 'all') {
+      if (lensQuery === 'posts') {
+        query += ` AND (p.intent IN ('personal','friends') OR p.intent IS NULL)`;
+      } else {
+        const intentByLens: Record<string, string> = {
+          events: 'event', services: 'service_offer', products: 'product_offer',
+          projects: 'project', votes: 'vote',
+        };
+        const mapped = intentByLens[lensQuery];
+        if (mapped) {
+          query += ` AND p.intent = $${paramIndex}`;
+          params.push(mapped);
+          paramIndex++;
+        } else {
+          query += ` AND 1 = 0`; // rentals/opportunities/groups: sem post próprio → feed vazio (navigate/CTA)
+        }
+      }
+    }
 
     // FILTRO POR GRUPO: Quando groupId é fornecido, retornar apenas posts do grupo
     // 🔴 VALIDAÇÃO: Verificar se usuário é membro do grupo (se grupo não for público)

@@ -70,6 +70,30 @@ const commentSchema = z.object({
 
 const social2Routes: FastifyPluginAsync = async (fastify) => {
   /**
+   * GET /social/feed-lenses?mode= — F-SOCIAL-FEED-LENSES (modelo híbrido, GO Clayton 2026-07-08).
+   * Catálogo GOVERNADO das lentes do feed (o front NUNCA enumera — só projeta). enabled/behavior/
+   * targetRoute derivam da liveness de SSOT (core/social/feed-lenses). Feed Lens ≠ Audience ≠ Composer.
+   */
+  fastify.get<{ Querystring: { mode?: string } }>('/feed-lenses', async (req, reply) => {
+    if (!req.user) return reply.status(401).send({ error: 'Não autenticado' });
+    if (!req.actionContext?.actorId) return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    if (!req.tenant) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const { buildFeedLenses } = await import('@core/social/feed-lenses');
+    const mode = req.query.mode === 'operar' ? 'operar' : 'consumir';
+    // actor_type é hint de projeção (não autoridade); resolve best-effort, default 'user'.
+    let actorType = 'user';
+    try {
+      const { runQueryWithTenant } = await import('@core/database/pool');
+      const row = await runQueryWithTenant<{ actor_type: string }>(
+        req.tenant.id, `SELECT actor_type FROM actors WHERE id = $1 AND tenant_id = $2`,
+        [req.actionContext.actorId, req.tenant.id]
+      );
+      if (row?.actor_type) actorType = row.actor_type;
+    } catch { /* mantém default */ }
+    return reply.send({ ok: true, data: { mode, lenses: buildFeedLenses(actorType, mode) } });
+  });
+
+  /**
    * GET /social/feed?cursor=&actor_type=&actor_id=&group_id=&scope=&value=&include_global=
    *
    * Feed com cursor pagination e modo de atuação (PF vs PJ).
@@ -98,6 +122,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       scope?: 'radius_km' | 'city' | 'state' | 'unlimited';
       value?: string; // número em km quando scope=radius_km (parsed para number)
       include_global?: string; // 'true' / 'false' (parsed para boolean)
+      lens?: string; // F-SOCIAL-FEED-LENSES: chave da lente (feedQuery do catálogo governado)
     };
   }>('/feed', async (req, reply) => {
     if (!req.user) {
@@ -204,7 +229,8 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         userPreferences,
         userLocation,
         groupId,
-        proximityFilter
+        proximityFilter,
+        req.query.lens // F-SOCIAL-FEED-LENSES: filtro por lente (tipo), coexiste com o geo
       );
 
       return reply.send(feed);
