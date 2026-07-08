@@ -369,6 +369,21 @@ class RentableResourceRepository {
     return rows.map((r) => ({ bookingId: r.booking_id, status: r.status, resourceId: r.resource_id, resourceLabel: r.resource_label, resourceType: r.resource_type, ownerActorId: r.owner_actor_id, bookedStart: r.booked_start_datetime, bookedEnd: r.booked_end_datetime, requestedAt: r.requested_at }));
   }
 
+  /** RESERVAS RECEBIDAS pelo DONO (todos os recursos dele) — para o painel do operar agrupar por status. */
+  async findBookingsForOwner(tenantId: string, ownerActorId: string): Promise<Array<{ bookingId: string; status: string; resourceId: string; resourceLabel: string; resourceType: string; requesterActorId: string; bookedStart: Date | null; bookedEnd: Date | null; requestedAt: Date }>> {
+    const rows = await runQueriesWithTenant<any>(tenantId,
+      `SELECT b.booking_id, b.status, r.id AS resource_id, r.label AS resource_label, r.resource_type,
+              b.requester_actor_id, b.booked_start_datetime, b.booked_end_datetime, b.requested_at
+         FROM bookings b
+         JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
+         JOIN rentable_resources r ON r.id = a.owner_id
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND r.owner_actor_id = $2::uuid
+          AND b.status IN ('requested','confirmed','checked_in','checked_out','cancelled')
+        ORDER BY (b.status='requested') DESC, b.requested_at DESC`,
+      [tenantId, ownerActorId]);
+    return rows.map((r) => ({ bookingId: r.booking_id, status: r.status, resourceId: r.resource_id, resourceLabel: r.resource_label, resourceType: r.resource_type, requesterActorId: r.requester_actor_id, bookedStart: r.booked_start_datetime, bookedEnd: r.booked_end_datetime, requestedAt: r.requested_at }));
+  }
+
   /** Cidade ATIVA vinculada ao recurso (id + nome+uf) — para preencher o form de edição. */
   async getResourceCity(tenantId: string, resourceId: string): Promise<{ cityId: string; name: string; uf: string | null } | null> {
     const rows = await runQueriesWithTenant<{ city_id: string; name: string; abbreviation: string | null }>(tenantId,

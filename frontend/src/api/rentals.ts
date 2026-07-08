@@ -211,6 +211,20 @@ export async function cancelMyRentalBooking(bookingId: string): Promise<void> {
   await apiFetchJson(`/rentable-resources/my-bookings/${bookingId}/cancel`, { method: 'POST', body: JSON.stringify({}) });
 }
 
+// RESERVAS RECEBIDAS pelo dono (todos os recursos) — para o painel do operar agrupar/filtrar por status.
+export interface ReceivedBooking {
+  bookingId: string; status: string;
+  resourceId: string; resourceLabel: string; resourceType: RentableResourceType;
+  requester: { actorId: string; displayName: string; actorType: string; avatarUrl: string | null };
+  bookedStart: string | null; bookedEnd: string | null;
+  estimate: { available: boolean; estimatedPriceCents: number } | null;
+  trust: null;
+}
+export async function getReceivedRentalBookings(): Promise<ReceivedBooking[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: ReceivedBooking[] }>('/rentable-resources/received-bookings');
+  return res.data;
+}
+
 export type MyResource = RentableResource & { pricingTiers: Array<{ unit: RentalPricingUnit; priceCents: number }> };
 export async function listMyRentableResources(ownerActorId: string): Promise<MyResource[]> {
   const res = await apiFetchJson<{ ok: boolean; data: MyResource[] }>(

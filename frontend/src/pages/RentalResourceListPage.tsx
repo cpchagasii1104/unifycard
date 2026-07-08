@@ -28,7 +28,10 @@ import {
   type MyResource,
   getMyRentalBookings,
   cancelMyRentalBooking,
+  getReceivedRentalBookings,
+  declineResourceRequest,
   type MyBooking,
+  type ReceivedBooking,
   type RentableResourceType,
   type RentalPricingUnit,
   type RentalConceptOption,
@@ -36,6 +39,7 @@ import {
 } from '../api/rentals';
 import { useAudienceOptions } from '../hooks/useAudienceOptions';
 import AudiencePicker from '../components/composer/AudiencePicker';
+import { confirmBooking } from '../api/availability';
 import { resolveAudiencePayload, isExclusive } from '../components/composer/audience-payload';
 import type { AudienceOption } from '../api/audience';
 import VehicleFields, { buildVehicleResourceName, type VehicleSelection } from '../components/composer/VehicleFields';
@@ -147,6 +151,20 @@ export default function RentalResourceListPage() {
   // Aba do modo consumir: 'rent' (buscar/alugar — foco) | 'bookings' (meus compromissos). Padrão: alugar.
   const [consumerTab, setConsumerTab] = useState<'rent' | 'bookings'>('rent');
   const [showHistory, setShowHistory] = useState(false);
+  // Painel do DONO (operar): aba recursos × reservas recebidas + filtro por status (escala).
+  const [operarTab, setOperarTab] = useState<'resources' | 'bookings'>('resources');
+  const [receivedBookings, setReceivedBookings] = useState<ReceivedBooking[]>([]);
+  const [receivedFilter, setReceivedFilter] = useState<'all' | 'requested' | 'confirmed' | 'cancelled'>('all');
+  const reloadReceived = () => getReceivedRentalBookings().then(setReceivedBookings).catch(() => {});
+  const handleOwnerConfirm = async (bookingId: string) => {
+    try { await confirmBooking(bookingId); showToast('Reserva confirmada.', 'success'); reloadReceived(); }
+    catch (err: any) { const m = String(err?.message || ''); showToast(m.includes('TIME_CONFLICT') ? 'Este período já foi confirmado para outra reserva.' : (m || 'Erro ao confirmar'), 'error'); }
+  };
+  const handleOwnerDecline = async (resourceId: string, bookingId: string, isCancel: boolean) => {
+    if (!window.confirm(isCancel ? 'Cancelar esta reserva? O período volta a ficar disponível.' : 'Recusar esta solicitação?')) return;
+    try { await declineResourceRequest(resourceId, bookingId); showToast(isCancel ? 'Reserva cancelada.' : 'Solicitação recusada.', 'success'); reloadReceived(); }
+    catch (err: any) { showToast(err?.message || 'Erro', 'error'); }
+  };
   const handleCancelMyBooking = async (bookingId: string) => {
     if (!window.confirm('Cancelar esta solicitação? Ela vai para o seu histórico (fica registrada).')) return;
     try {
@@ -240,6 +258,7 @@ export default function RentalResourceListPage() {
       if (mode === 'operar') {
         if (!activeActor) { setResources([]); return; }
         setResources(await listMyRentableResources(activeActor.actor_id));
+        reloadReceived(); // reservas recebidas (para as abas/filtro do dono). Não crítico se falhar.
       } else {
         const all = await listActiveRentableResources();
         // descoberta = recursos de TERCEIROS (os meus eu gerencio no operar). pricingTiers vem por card na busca.
@@ -793,6 +812,67 @@ export default function RentalResourceListPage() {
         </form>
       )}
 
+      {/* Abas do dono: Meus recursos × Reservas recebidas. Escala: filtro por status na 2ª. */}
+      {!showForm && (() => { const pend = receivedBookings.filter((b) => b.status === 'requested').length; return (
+        <div className="rrl-consumer-tabs">
+          <button type="button" className={`rrl-consumer-tab ${operarTab === 'resources' ? 'active' : ''}`} onClick={() => setOperarTab('resources')}>📦 Meus recursos</button>
+          <button type="button" className={`rrl-consumer-tab ${operarTab === 'bookings' ? 'active' : ''}`} onClick={() => setOperarTab('bookings')}>
+            📋 Reservas recebidas{pend > 0 ? ` (${pend})` : ''}
+          </button>
+        </div>
+      ); })()}
+
+      {!showForm && operarTab === 'bookings' && (() => {
+        const counts = {
+          all: receivedBookings.length,
+          requested: receivedBookings.filter((b) => b.status === 'requested').length,
+          confirmed: receivedBookings.filter((b) => ['confirmed', 'checked_in'].includes(b.status)).length,
+          cancelled: receivedBookings.filter((b) => ['cancelled', 'checked_out', 'expired'].includes(b.status)).length,
+        };
+        const FILTERS: Array<{ key: typeof receivedFilter; label: string }> = [
+          { key: 'all', label: `Todas (${counts.all})` },
+          { key: 'requested', label: `Aguardando (${counts.requested})` },
+          { key: 'confirmed', label: `Alugadas (${counts.confirmed})` },
+          { key: 'cancelled', label: `Canceladas (${counts.cancelled})` },
+        ];
+        const filtered = receivedBookings.filter((b) => {
+          if (receivedFilter === 'all') return true;
+          if (receivedFilter === 'requested') return b.status === 'requested';
+          if (receivedFilter === 'confirmed') return ['confirmed', 'checked_in'].includes(b.status);
+          return ['cancelled', 'checked_out', 'expired'].includes(b.status);
+        });
+        return (
+          <section className="rrl-received">
+            <div className="rrl-filter-chips">
+              {FILTERS.map((f) => (
+                <button key={f.key} type="button" className={`rrl-chip ${receivedFilter === f.key ? 'active' : ''}`} onClick={() => setReceivedFilter(f.key)}>{f.label}</button>
+              ))}
+            </div>
+            {filtered.length === 0 && <p className="rrl-status">Nenhuma reserva {receivedFilter !== 'all' ? 'neste filtro' : 'recebida ainda'}.</p>}
+            <div className="rrl-mybookings-list">
+              {filtered.map((b) => (
+                <div key={b.bookingId} className="rrl-mybooking">
+                  <div className="rrl-mybooking-head" onClick={() => navigate(`/locacoes/${b.resourceId}`)} style={{ cursor: 'pointer' }}>
+                    <span className="rrl-mybooking-label">{RESOURCE_TYPE_ICON[b.resourceType]} {b.resourceLabel}</span>
+                    <span className={`rrl-mybooking-status rrl-bk-${b.status}`}>{MY_BOOKING_STATUS[b.status] ?? b.status}</span>
+                  </div>
+                  <span className="rrl-mybooking-line">👤 {b.requester.displayName} · <span className="rrl-hint" style={{ fontWeight: 400 }}>reputação ainda não disponível</span></span>
+                  {b.bookedStart && b.bookedEnd && <span className="rrl-mybooking-line">📅 {new Date(b.bookedStart).toLocaleString('pt-BR')} → {new Date(b.bookedEnd).toLocaleString('pt-BR')}</span>}
+                  <span className="rrl-mybooking-line">{b.estimate?.available ? `💰 Estimativa: R$ ${(b.estimate.estimatedPriceCents / 100).toFixed(2).replace('.', ',')}` : '💰 Preço a combinar'}</span>
+                  <div className="rrl-mybooking-actions">
+                    <button type="button" className="rrl-mybooking-profile" onClick={() => navigate(`/vitrine/${b.requester.actorId}`)}>Ver perfil →</button>
+                    {b.status === 'requested' && <button type="button" className="rrl-req-confirm-sm" onClick={() => handleOwnerConfirm(b.bookingId)}>Confirmar</button>}
+                    {b.status === 'requested' && <button type="button" className="rrl-mybooking-cancel" onClick={() => handleOwnerDecline(b.resourceId, b.bookingId, false)}>Recusar</button>}
+                    {['confirmed', 'checked_in'].includes(b.status) && <button type="button" className="rrl-mybooking-cancel" onClick={() => handleOwnerDecline(b.resourceId, b.bookingId, true)}>Cancelar reserva</button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
+
+      {!showForm && operarTab === 'resources' && (<>
       {loading && <p className="rrl-status">Carregando…</p>}
       {error && <p className="rrl-status rrl-error">{error}</p>}
       {!loading && !error && resources.length === 0 && (
@@ -823,6 +903,7 @@ export default function RentalResourceListPage() {
           </div>
         ))}
       </div>
+      </>)}
 
       {/* Modal de EDIÇÃO da oferta — largo, centralizado, com X para fechar sem salvar. */}
       {editFor && (() => {

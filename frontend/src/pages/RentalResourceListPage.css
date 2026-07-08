@@ -129,3 +129,10 @@
 .rrl-mybooking-cancel { background: none; border: 0; color: #b4453f; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; padding: 2px 0; }
 .rrl-history-toggle { display: block; width: 100%; text-align: left; margin-top: 14px; padding: 8px 0; background: none; border: 0; border-top: 1px solid #eef0f6; color: #8891a6; font: inherit; font-size: .82rem; cursor: pointer; }
 .rrl-mybookings-history { margin-top: 10px; opacity: .78; }
+
+/* Painel do dono: reservas recebidas + filtro por status (escala). */
+.rrl-received { margin-top: 4px; }
+.rrl-filter-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.rrl-chip { padding: 6px 14px; border: 1px solid #e3e6ea; border-radius: 999px; background: #fff; font: inherit; font-size: .82rem; font-weight: 600; color: #5b627a; cursor: pointer; }
+.rrl-chip.active { border-color: #6366f1; background: #eef0fb; color: #4f46e5; }
+.rrl-req-confirm-sm { background: #2f7a3f; border: 0; color: #fff; font: inherit; font-size: .82rem; font-weight: 600; padding: 4px 12px; border-radius: 8px; cursor: pointer; }

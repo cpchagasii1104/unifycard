@@ -225,6 +225,31 @@ class RentableResourceService {
   }
 
   /**
+   * RESERVAS RECEBIDAS pelo DONO (todos os recursos dele), para o painel do operar agrupar por status
+   * (aguardando/alugado/cancelado). Owner-only (canRepresentActor sobre o ownerActor). Read-only. Δbank=0.
+   */
+  async getReceivedBookings(tenantId: string, ownerActorId: string, requestingUserId: string) {
+    let canRep = false;
+    try { canRep = await authorizationService.canRepresentActor(tenantId, requestingUserId, ownerActorId); } catch { canRep = false; }
+    if (!canRep) throw HttpError.forbidden('RENTAL_RECEIVED_NOT_REPRESENTABLE: só o dono vê as reservas recebidas.');
+    const rows = await rentableResourceRepository.findBookingsForOwner(tenantId, ownerActorId);
+    const { estimatePrice } = await import('./pricing-estimate');
+    return Promise.all(rows.map(async (b) => {
+      const requester = await rentableResourceRepository.getPublicActorSummary(tenantId, b.requesterActorId);
+      const tiers = await rentableResourceRepository.getPricingTiers(tenantId, b.resourceId);
+      const estimate = (b.bookedStart && b.bookedEnd) ? estimatePrice(tiers as any, b.bookedStart, b.bookedEnd) : null;
+      return {
+        bookingId: b.bookingId, status: b.status,
+        resourceId: b.resourceId, resourceLabel: b.resourceLabel, resourceType: b.resourceType,
+        requester: requester ?? { actorId: b.requesterActorId, displayName: 'Solicitante', actorType: 'user', avatarUrl: null },
+        bookedStart: b.bookedStart?.toISOString() ?? null, bookedEnd: b.bookedEnd?.toISOString() ?? null,
+        estimate,
+        trust: null, // reputação dormente — estado honesto, sem score fake
+      };
+    }));
+  }
+
+  /**
    * O CONSUMIDOR cancela a PRÓPRIA solicitação/reserva (só a dele — canRepresentActor sobre o requester).
    * Praxe de mercado: cancelar NÃO deleta — vira 'cancelled' e fica no HISTÓRICO (prova para reclamação/
    * denúncia/disputa/auditoria). Pré-dinheiro: cancelável em requested/confirmed (sem transação); check_in/
