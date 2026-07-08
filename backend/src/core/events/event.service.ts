@@ -459,7 +459,7 @@ class EventService {
     }
 
     // Adicionar updatedAt
-    updates.push(`updatedAt = NOW()`);
+    updates.push(`updated_at = NOW()`);
 
     // Adicionar parâmetros finais
     values.push(tenantId, eventId);
@@ -678,13 +678,13 @@ class EventService {
       tenantId,
       `
       UPDATE events
-      SET 
+      SET
         status = 'declared',
         title = $1,
         description = $2,
         visibility = $3,
         metadata = $4,
-        updatedAt = NOW()
+        updated_at = NOW()
       WHERE tenant_id = $5 AND id = $6
       RETURNING *
       `,
@@ -744,7 +744,7 @@ class EventService {
       tenantId,
       `
       UPDATE events
-      SET status = 'published', updatedAt = NOW()
+      SET status = 'published', updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING *
       `,
@@ -786,7 +786,7 @@ class EventService {
       tenantId,
       `
       UPDATE events
-      SET status = 'active', updatedAt = NOW()
+      SET status = 'active', updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING *
       `,
@@ -828,7 +828,7 @@ class EventService {
       tenantId,
       `
       UPDATE events
-      SET status = 'ended', updatedAt = NOW()
+      SET status = 'ended', updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING *
       `,
@@ -895,7 +895,7 @@ class EventService {
       tenantId,
       `
       UPDATE events
-      SET status = 'cancelled', updatedAt = NOW()
+      SET status = 'cancelled', updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING *
       `,
@@ -1399,7 +1399,7 @@ class EventService {
       UPDATE events
       SET 
         metadata = $1,
-        updatedAt = NOW()
+        updated_at = NOW()
       WHERE tenant_id = $2 AND id = $3
       RETURNING *
       `,

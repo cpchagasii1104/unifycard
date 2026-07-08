@@ -1308,10 +1308,24 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.actionContext.actorId
         );
 
+        // O contrato HTTP é snake_case (event_aspects/intent_flags/...); o service usa camelCase
+        // (DeclareEventInput). Mapeia aqui — sem esse de-para, eventAspects chegava undefined e o
+        // declare falhava com "eventAspects é obrigatório" mesmo com o front enviando os aspects.
+        const rawBody = req.body as unknown as Record<string, unknown>;
+        const declareInput = {
+          title: rawBody.title as string,
+          description: (rawBody.description ?? null) as string | null,
+          eventAspects: (rawBody.eventAspects ?? rawBody.event_aspects ?? []) as string[],
+          visibility: rawBody.visibility as DeclareEventInput['visibility'],
+          intentFlags: (rawBody.intentFlags ?? rawBody.intent_flags) as string[] | undefined,
+          desiredTimeWindows: (rawBody.desiredTimeWindows ?? rawBody.desired_time_windows) as DeclareEventInput['desiredTimeWindows'],
+          flexibilityLevel: (rawBody.flexibilityLevel ?? rawBody.flexibility_level) as DeclareEventInput['flexibilityLevel'],
+          timezone: rawBody.timezone as string | undefined,
+        };
         const event = await eventService.declareEvent(
           req.tenant.id,
           req.params.id,
-          req.body,
+          declareInput,
           userActor.actor_id
         );
 
