@@ -78,7 +78,14 @@ class VehicleCatalogService {
       `SELECT version, motor, cilindrada_cc, potencia_cv, torque_kgfm, combustivel, tracao, cambio,
               num_portas, capacidade_carga_kg, peso_kg, comprimento_cm, largura_cm, altura_cm,
               entre_eixos_cm, pneus, freios_diant, freios_tras, suspensao_diant, suspensao_tras,
-              direcao, tanque_litros, cacamba_litros
+              direcao, tanque_litros, cacamba_litros,
+              -- ficha rica (catálogo consolidado): identidade estável + campos do CSV canônico
+              variant_id, categoria, linha, geracao, versao_nome, carroceria, numero_lugares,
+              motor_nome, motor_codigo, motor_familia, cilindros, valvulas_total, aspiracao, alimentacao,
+              potencia_cv_gasolina, potencia_cv_etanol, potencia_rpm,
+              torque_kgfm_gasolina, torque_kgfm_etanol, torque_rpm,
+              codigo_cambio, numero_marchas, porta_malas_litros, pneus_diant, pneus_tras, rodas,
+              abs, airbags, controle_estabilidade, start_stop, observacoes_fitment, source_confidence
          FROM vehicle_model_specs WHERE model_id = $1 AND year = $2 ORDER BY version ASC`,
       [modelId, year]);
     return rows.rows;
