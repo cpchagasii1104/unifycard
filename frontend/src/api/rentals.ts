@@ -42,6 +42,7 @@ export async function createRentableResource(input: {
   metadata?: Record<string, unknown>;
   visibility?: 'public' | 'connections' | 'only_me';
   audienceRelationshipTypes?: string[] | null;
+  cityId?: string | null; // localização governada (SSOT cities) — backend valida; nunca texto livre
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',

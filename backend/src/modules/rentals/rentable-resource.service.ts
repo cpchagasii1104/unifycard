@@ -51,10 +51,23 @@ class RentableResourceService {
       if (!v.ok) throw HttpError.badRequest(`RENTABLE_RESOURCE_VEHICLE_INVALID: ${v.code}`);
     }
 
-    return rentableResourceRepository.create(tenantId, ownerActorId, {
+    // Localização governada (F-RENTABLE-RESOURCE-LOCATION-MVP): cidade da SSOT `cities`, validada no
+    // backend — nunca city_name livre. O front manda cityId JÁ resolvido; aqui provamos que existe.
+    if (input.cityId) {
+      const cityOk = await rentableResourceRepository.cityExists(input.cityId);
+      if (!cityOk) throw HttpError.badRequest('RENTABLE_RESOURCE_CITY_NOT_FOUND: cidade não existe na base canônica.');
+    }
+
+    const created = await rentableResourceRepository.create(tenantId, ownerActorId, {
       ...input,
       label: input.label.trim(),
     });
+
+    // vínculo de localização pelo padrão canônico address_assignments → addresses → cities
+    if (input.cityId) {
+      await rentableResourceRepository.assignCityToResource(tenantId, created.id, input.cityId);
+    }
+    return created;
   }
 
   async get(tenantId: string, id: string): Promise<RentableResource> {

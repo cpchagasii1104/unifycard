@@ -87,6 +87,7 @@ export interface CreateRentableResourceInput {
   metadata?: Record<string, unknown>;
   visibility?: RentableVisibility;
   audienceRelationshipTypes?: string[] | null;
+  cityId?: string | null; // localização governada (SSOT cities). Vínculo via address_assignments.
 }
 
 export interface ListRentableResourcesFilters {

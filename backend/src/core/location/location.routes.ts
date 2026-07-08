@@ -61,6 +61,15 @@ const locationRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /locations/cities/search?q=texto
+   * Busca cidade por texto (combobox governado). Backend é a autoridade — o front nunca inventa cidade.
+   */
+  fastify.get<{ Querystring: { q?: string } }>('/cities/search', async (req, reply) => {
+    const cities = await locationService.searchCities(req.query.q ?? '');
+    return reply.send({ cities });
+  });
+
+  /**
    * GET /locations/cities?state_id=UUID
    * Lista cidades de um estado
    * Público, cacheável

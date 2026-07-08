@@ -45,5 +45,14 @@ const EQUIP_SLUGS = ['furadeira','betoneira','lavadora-alta-pressao','motosserra
 const hardcodedEquip = EQUIP_SLUGS.filter((s) => rental.includes(`'${s}'`) || rental.includes(`"${s}"`)).length >= 2;
 check('Sem lista local de equipamentos no frontend', !hardcodedEquip);
 
+// 8) F-RENTABLE-RESOURCE-LOCATION-MVP: localização é GOVERNADA (cities/addresses/address_assignments),
+//    nunca city_name livre no recurso. O front resolve cidade no backend (searchCities), não texto.
+const rentalPage = strip(read(join(FE, 'pages', 'RentalResourceListPage.tsx')));
+check('locação NÃO tem city_name/cidade livre (input de texto de cidade)', !/city_name|cityName|<input[^>]*cidade/i.test(rentalPage));
+check('locação resolve cidade no backend (searchCities/GovernedCombobox)', /searchCities\(/.test(rentalPage));
+const rentalRepo = strip(read(join(process.cwd(), 'src', 'modules', 'rentals', 'rentable-resource.repository.ts')));
+check('recurso vincula localização via address_assignments (padrão canônico)', /address_assignments/.test(rentalRepo) && /owner_type\s*=?\s*.?rentable_resource/.test(rentalRepo));
+check('backend valida cidade na SSOT (cityExists sobre cities)', /cityExists/.test(rentalRepo) && /FROM cities/.test(rentalRepo));
+
 if (fail) { console.log(`\nVEHICLE-FIELDS-GOVERNED: FAIL (${fail})`); process.exit(1); }
 console.log('\nVEHICLE-FIELDS-GOVERNED: OK');

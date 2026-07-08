@@ -95,6 +95,26 @@ export async function getCitiesByState(stateId: string): Promise<City[]> {
 }
 
 /**
+ * Busca cidade por TEXTO (combobox governado de localização). Backend é a autoridade da lista —
+ * o front nunca inventa cidade nem usa texto digitado como verdade. GET /locations/cities/search?q=
+ */
+export interface CitySearchResult { id: string; name: string; stateUf: string | null }
+export async function searchCities(q: string): Promise<CitySearchResult[]> {
+  try {
+    const response = await apiFetch(
+      `/locations/cities/search?q=${encodeURIComponent(q ?? '')}`,
+      {},
+      { silent404: true, silent401: true }
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.cities || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Buscar bairros de uma cidade
  * GET /locations/neighborhoods?city_id=UUID
  */

@@ -138,6 +138,22 @@ class LocationRepository {
   }
 
   /**
+   * Busca cidade por TEXTO (name_normalized) — para combobox governado de localização. Backend é a
+   * autoridade da lista (o front nunca inventa cidade). Retorna cidade + estado (UF) para exibição.
+   */
+  async searchCities(q: string, limit = 30): Promise<Array<{ id: string; name: string; stateUf: string | null }>> {
+    const term = (q ?? '').trim();
+    const result = await pool.query<{ city_id: string; name: string; abbreviation: string | null }>(
+      `SELECT c.city_id, c.name, s.abbreviation
+         FROM cities c
+         LEFT JOIN states s ON s.state_id = c.state_id
+        WHERE c.is_active AND ($1 = '' OR c.name_normalized ILIKE '%' || unaccent(lower($1)) || '%')
+        ORDER BY c.name ASC LIMIT $2`,
+      [term, limit]);
+    return result.rows.map((r) => ({ id: r.city_id, name: r.name, stateUf: r.abbreviation }));
+  }
+
+  /**
    * Buscar cidade por ID
    */
   async findCityById(cityId: string): Promise<City | null> {

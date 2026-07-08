@@ -28,6 +28,8 @@ const createSchema = z.object({
   // /audience-options; aqui só valida o vocabulário do substrato (o banco é a última linha).
   visibility: z.enum(['public', 'connections', 'only_me']).optional(),
   audienceRelationshipTypes: z.array(z.string()).nullable().optional(),
+  // Localização governada: cityId da SSOT `cities` (UUID). NUNCA city_name livre. Backend valida.
+  cityId: z.string().uuid().nullable().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -85,6 +87,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         metadata: parsed.data.metadata ?? {},
         visibility: parsed.data.visibility ?? 'public',
         audienceRelationshipTypes: parsed.data.audienceRelationshipTypes ?? null,
+        cityId: parsed.data.cityId ?? null,
       });
       return reply.status(201).send({ ok: true, data: resource });
     } catch (err: any) {

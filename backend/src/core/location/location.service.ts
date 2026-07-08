@@ -55,6 +55,11 @@ class LocationService {
     return locationRepository.findCitiesByState(stateId);
   }
 
+  /** Busca cidade por texto (combobox governado de localização). Backend é a autoridade da lista. */
+  async searchCities(q: string): Promise<Array<{ id: string; name: string; stateUf: string | null }>> {
+    return locationRepository.searchCities(q);
+  }
+
   /**
    * Buscar cidade por ID
    */

@@ -31,6 +31,7 @@ import AudiencePicker from '../components/composer/AudiencePicker';
 import { resolveAudiencePayload } from '../components/composer/audience-payload';
 import VehicleFields, { buildVehicleResourceName, type VehicleSelection } from '../components/composer/VehicleFields';
 import GovernedCombobox from '../components/common/GovernedCombobox';
+import { searchCities, type CitySearchResult } from '../api/location';
 import PageModuleShell from '../components/layout/PageModuleShell';
 import RightContextRail from '../components/layout/RightContextRail';
 import './RentalResourceListPage.css';
@@ -101,6 +102,9 @@ export default function RentalResourceListPage() {
   // Nome do recurso PROJETADO da identidade do veículo (read-only). Não é digitado nem armazenado
   // como verdade — os IDs governados (metadata) é que valem; este é só a etiqueta de exibição.
   const vehicleName = buildVehicleResourceName(vehicleSel);
+  // Localização governada (F-RENTABLE-RESOURCE-LOCATION-MVP): cidade da SSOT `cities`, resolvida no
+  // backend. O recurso fica na cidade do dono (retirada=devolução). Nunca texto livre.
+  const [selectedCity, setSelectedCity] = useState<CitySearchResult | null>(null);
 
   // atributos de IMÓVEL (LAYER 5 — Facets, régua ratificada: "descreve COMO É", não "identifica O
   // QUE É" — não viram CONCEPT nem catálogo governado, ficam no metadata do recurso)
@@ -204,12 +208,13 @@ export default function RentalResourceListPage() {
         metadata,
         visibility: aud.visibility,
         audienceRelationshipTypes: aud.audienceRelationshipTypes,
+        cityId: selectedCity?.id ?? null, // localização governada (SSOT cities), nunca texto livre
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
       setShowForm(false);
       setLabel(''); setDescription(''); setPriceReais('');
-      setSelectedConcept(null);
+      setSelectedConcept(null); setSelectedCity(null);
       setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
       await load();
     } catch (err: any) {
@@ -376,6 +381,21 @@ export default function RentalResourceListPage() {
               <input type="text" placeholder="Ex.: Furadeira Bosch, Fusca 1978…" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={200} />
             </label>
           )}
+
+          {/* Localização governada: cidade da SSOT (backend resolve; nunca texto livre). O recurso fica
+              nesta cidade — retirada e devolução no mesmo local. Vitrine mostra só a cidade. */}
+          <div className="rrl-field">
+            Cidade (retirada e devolução)
+            <GovernedCombobox<CitySearchResult>
+              value={selectedCity}
+              onChange={setSelectedCity}
+              loadOptions={(q) => searchCities(q)}
+              getOptionKey={(c) => c.id}
+              getOptionLabel={(c) => c.stateUf ? `${c.name} · ${c.stateUf}` : c.name}
+              placeholder="Buscar cidade…"
+              emptyMessage="Nenhuma cidade encontrada"
+            />
+          </div>
 
           {/* Imóvel/Espaço: Facets puras (régua ratificada: "descreve COMO É", não "identifica O
               QUE É" — apartamento/casa/galpão já são o CONCEPT; metragem/quartos são atributo) */}

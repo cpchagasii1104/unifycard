@@ -177,6 +177,63 @@ class RentableResourceRepository {
     );
     return !!row;
   }
+
+  /** cidade existe na SSOT canônica? (o front nunca inventa cidade — backend valida) */
+  async cityExists(cityId: string): Promise<boolean> {
+    const row = await runQueryWithTenant<{ city_id: string }>(
+      'public', `SELECT city_id FROM cities WHERE city_id = $1::uuid AND is_active LIMIT 1`, [cityId]);
+    return !!row;
+  }
+
+  /**
+   * F-RENTABLE-RESOURCE-LOCATION-MVP: vincula a CIDADE ao recurso pelo padrão canônico
+   * address_assignments → addresses → cities (SSOT). NÃO cria city_name livre. Endereço NÍVEL-CIDADE
+   * (só cidade; rua/número ficam p/ fluxo autorizado futuro — privacidade por construção na vitrine).
+   * country_id/state_id são DERIVADOS da própria cidade (não hardcode do Brasil). Regra: 1 PICKUP
+   * primário por recurso (retirada=devolução no mesmo local).
+   */
+  async assignCityToResource(tenantId: string, resourceId: string, cityId: string): Promise<void> {
+    // Regra "1 local ativo" imposta pelo índice único parcial (owner_type,owner_id,role) WHERE
+    // is_primary AND valid_until_at IS NULL. 2 passos (não CTE — DELETE/INSERT no mesmo CTE dividem
+    // snapshot e colidem no índice): 1) EXPIRA o pickup ativo anterior (preserva histórico de onde o
+    // recurso esteve); 2) cria address nível-cidade + novo assignment primário.
+    await runQueriesWithTenant(tenantId,
+      `UPDATE address_assignments SET valid_until_at = now(), is_primary = false, updated_at = now()
+        WHERE owner_type = 'rentable_resource' AND owner_id = $1::uuid AND role = 'PICKUP'
+          AND is_primary = true AND valid_until_at IS NULL`, [resourceId]);
+    await runQueriesWithTenant(tenantId,
+      `WITH geo AS (
+         SELECT c.state_id, s.country_id FROM cities c JOIN states s ON s.state_id = c.state_id
+          WHERE c.city_id = $2::uuid
+       ),
+       new_addr AS (
+         INSERT INTO addresses (country_id, state_id, city_id, is_geocoded, source, created_by_tenant_id)
+         SELECT geo.country_id, geo.state_id, $2::uuid, false, 'UX_INPUT', $3::uuid FROM geo
+         RETURNING address_id
+       )
+       INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
+       SELECT 'rentable_resource', $1::uuid, address_id, 'PICKUP', true FROM new_addr`,
+      [resourceId, cityId, tenantId]);
+  }
+
+  /** Cidade projetada do recurso (cidade + UF) — para listagem/vitrine. SEM rua/número (privacidade). */
+  async getResourceCities(tenantId: string, resourceIds: string[]): Promise<Map<string, { city: string; uf: string | null }>> {
+    if (resourceIds.length === 0) return new Map();
+    const rows = await runQueriesWithTenant<{ owner_id: string; name: string; abbreviation: string | null }>(
+      tenantId,
+      `SELECT aa.owner_id, c.name, s.abbreviation
+         FROM address_assignments aa
+         JOIN addresses a ON a.address_id = aa.address_id
+         JOIN cities c ON c.city_id = a.city_id
+         LEFT JOIN states s ON s.state_id = c.state_id
+        WHERE aa.owner_type = 'rentable_resource' AND aa.role = 'PICKUP'
+          AND aa.is_primary = true AND aa.valid_until_at IS NULL
+          AND aa.owner_id = ANY($1::uuid[])`,
+      [resourceIds]);
+    const m = new Map<string, { city: string; uf: string | null }>();
+    rows.forEach((r) => m.set(r.owner_id, { city: r.name, uf: r.abbreviation }));
+    return m;
+  }
 }
 
 export const rentableResourceRepository = new RentableResourceRepository();
