@@ -31,6 +31,8 @@ import AudiencePicker from '../components/composer/AudiencePicker';
 import { resolveAudiencePayload } from '../components/composer/audience-payload';
 import VehicleFields, { type VehicleSelection } from '../components/composer/VehicleFields';
 import GovernedCombobox from '../components/common/GovernedCombobox';
+import PageModuleShell from '../components/layout/PageModuleShell';
+import RightContextRail from '../components/layout/RightContextRail';
 import './RentalResourceListPage.css';
 
 // Tipo SEM N0 na ontologia congelada ainda (RFC_N0_IMOVEIS_E_PROPRIEDADES.md aguarda Clayton) —
@@ -238,14 +240,11 @@ export default function RentalResourceListPage() {
   // ── MODO CONSUMIR: descoberta (análogo ao Fazer compras) ──
   if (mode === 'consumir') {
     return (
-      <div className="rrl-page">
-        <div className="rrl-header">
-          <div>
-            <h1 className="rrl-title">🔑 Alugar algo</h1>
-            <p className="rrl-subtitle">Imóveis, veículos, equipamentos e espaços disponíveis na comunidade.</p>
-          </div>
-        </div>
-
+      <PageModuleShell
+        title="🔑 Alugar algo"
+        subtitle="Imóveis, veículos, equipamentos e espaços disponíveis na comunidade."
+        rail={<RightContextRail module="rentals" />}
+      >
         <div className="rrl-type-hub">
           <button type="button" className={`rrl-type-card ${typeFilter === 'all' ? 'selected' : ''}`} onClick={() => setTypeFilter('all')}>
             <span className="rrl-type-icon">🔎</span><strong>Tudo</strong>
@@ -275,23 +274,22 @@ export default function RentalResourceListPage() {
             </button>
           ))}
         </div>
-      </div>
+      </PageModuleShell>
     );
   }
 
   // ── MODO OPERAR: gestão do dono ──
   return (
-    <div className="rrl-page">
-      <div className="rrl-header">
-        <div>
-          <h1 className="rrl-title">Meus Recursos Alugáveis</h1>
-          <p className="rrl-subtitle">Equipamentos, veículos, imóveis e espaços que você disponibiliza para locação.</p>
-        </div>
+    <PageModuleShell
+      title="Meus Recursos Alugáveis"
+      subtitle="Equipamentos, veículos, imóveis e espaços que você disponibiliza para locação."
+      actions={
         <button type="button" className="rrl-new-btn" onClick={() => setShowForm((v) => !v)}>
           {showForm ? 'Cancelar' : '+ Novo recurso'}
         </button>
-      </div>
-
+      }
+      rail={<RightContextRail module="rentals" />}
+    >
       {showForm && (
         <form className="rrl-form" onSubmit={handleCreate}>
           {/* Pergunta 1 (matriz única de plateia): AudiencePicker multi-seleção, /audience-options. */}
@@ -444,6 +442,6 @@ export default function RentalResourceListPage() {
           </div>
         ))}
       </div>
-    </div>
+    </PageModuleShell>
   );
 }

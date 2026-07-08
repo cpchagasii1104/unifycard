@@ -1,0 +1,22 @@
+/* PageModuleShell — matriz de página responsiva (paleta índigo do UnifiCard). */
+.pms { max-width: 1200px; margin: 0 auto; padding: 24px 28px 72px; }
+@media (max-width: 640px) { .pms { padding: 16px 16px 56px; } }
+
+.pms-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+}
+.pms-title { font-size: clamp(22px, 3vw, 28px); font-weight: 800; letter-spacing: -0.02em; color: #1e2338; margin: 0; }
+.pms-subtitle { font-size: 14.5px; color: #5b627a; margin: 6px 0 0; max-width: 62ch; }
+.pms-head-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* corpo: 1 coluna larga por padrão; 2 colunas quando há rail */
+.pms-body { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); }
+.pms-body--railed { grid-template-columns: minmax(0, 1fr) 320px; }
+@media (max-width: 1000px) { .pms-body--railed { grid-template-columns: minmax(0, 1fr); } }
+
+.pms-main { min-width: 0; } /* impede overflow horizontal do grid */
+
+.pms-rail { display: flex; flex-direction: column; gap: 16px; }
+/* no empilhamento (tablet/mobile) o rail desce para depois do conteúdo */
+@media (max-width: 1000px) { .pms-rail { order: 2; } }
