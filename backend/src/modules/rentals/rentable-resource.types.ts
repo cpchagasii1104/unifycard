@@ -61,6 +61,7 @@ export interface RentableResource {
   metadata: Record<string, unknown>;
   visibility: RentableVisibility;
   audienceRelationshipTypes: string[] | null;
+  quantity: number;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -78,6 +79,7 @@ export interface RentableResourceRow {
   category_id: string | null;
   pricing_unit: RentalPricingUnit | null;
   price_cents: string | number | null;
+  quantity?: number | null;
   resource_year: number | null;
   metadata: Record<string, unknown> | null;
   visibility: RentableVisibility;

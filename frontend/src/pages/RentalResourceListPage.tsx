@@ -18,6 +18,8 @@ import {
   listActiveRentableResources,
   listRentalConceptsByType,
   listEquipmentUseAreas,
+  getRentalOfferDetail,
+  updateRentalOffer,
   PRICING_UNIT_PT,
   RENTAL_PRICING_UNITS,
   type RentableResource,
@@ -115,6 +117,14 @@ export default function RentalResourceListPage() {
   const [propBedrooms, setPropBedrooms] = useState('');
   const [propBathrooms, setPropBathrooms] = useState('');
   const [propFurnished, setPropFurnished] = useState(false);
+
+  // edição da OFERTA do próprio anúncio (o dono edita preço/quantidade/cidade/descrição)
+  const [editFor, setEditFor] = useState<string | null>(null);
+  const [editTierReais, setEditTierReais] = useState<Partial<Record<RentalPricingUnit, string>>>({});
+  const [editQuantity, setEditQuantity] = useState(1);
+  const [editCity, setEditCity] = useState<CitySearchResult | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
 
   // disponibilidade inline por recurso (operar) — janela vai pra AGENDA UNIVERSAL
   const [availFor, setAvailFor] = useState<string | null>(null);
@@ -227,6 +237,46 @@ export default function RentalResourceListPage() {
       showToast(err?.message || 'Erro ao cadastrar recurso', 'error');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // abre o form de edição preenchido com a oferta ATUAL (faixas/cidade vêm do backend)
+  const openEdit = async (resourceId: string) => {
+    if (editFor === resourceId) { setEditFor(null); return; }
+    setAvailFor(null);
+    try {
+      const detail = await getRentalOfferDetail(resourceId);
+      const reais: Partial<Record<RentalPricingUnit, string>> = {};
+      detail.pricingTiers.forEach((t) => { reais[t.unit] = (t.priceCents / 100).toFixed(2).replace('.', ','); });
+      setEditTierReais(reais);
+      setEditQuantity(detail.resource.quantity ?? 1);
+      setEditCity(detail.city ? { id: detail.city.cityId, name: detail.city.name, stateUf: detail.city.uf } : null);
+      setEditDescription(detail.resource.description ?? '');
+      setEditFor(resourceId);
+    } catch (err: any) {
+      showToast(err?.message || 'Erro ao carregar o anúncio para edição', 'error');
+    }
+  };
+
+  const handleSaveEdit = async (resourceId: string) => {
+    setEditBusy(true);
+    try {
+      const pricingTiers = RENTAL_PRICING_UNITS
+        .map((u) => ({ unit: u, priceCents: Math.round((parseFloat((editTierReais[u] ?? '').replace(',', '.')) || 0) * 100) }))
+        .filter((t) => t.priceCents > 0);
+      await updateRentalOffer(resourceId, {
+        description: editDescription.trim() || null,
+        pricingTiers,
+        quantity: editQuantity,
+        cityId: editCity?.id ?? null,
+      });
+      showToast('Anúncio atualizado. ✅', 'success');
+      setEditFor(null);
+      await load();
+    } catch (err: any) {
+      showToast(err?.message || 'Erro ao salvar', 'error');
+    } finally {
+      setEditBusy(false);
     }
   };
 
@@ -474,10 +524,50 @@ export default function RentalResourceListPage() {
             <span className="rrl-card-price">{formatPrice(r)}</span>
             <div className="rrl-card-actions">
               <button type="button" onClick={() => navigate(`/locacoes/${r.id}`)}>Detalhes</button>
+              <button type="button" onClick={() => openEdit(r.id)}>
+                {editFor === r.id ? 'Cancelar' : '✏️ Editar'}
+              </button>
               <button type="button" onClick={() => setAvailFor(availFor === r.id ? null : r.id)}>
                 {availFor === r.id ? 'Fechar' : '🗓️ Disponibilidade'}
               </button>
             </div>
+            {editFor === r.id && (
+              <div className="rrl-avail-form">
+                {/* Edição da OFERTA (o dono edita o próprio anúncio). Identidade do item fica intacta. */}
+                <div className="rrl-field">
+                  Preço anunciado por faixa <span className="rrl-hint" style={{ fontWeight: 400 }}>(preencha as que oferecer)</span>
+                  <div className="rrl-tiers">
+                    {RENTAL_PRICING_UNITS.map((u) => (
+                      <div key={u} className="rrl-tier">
+                        <span className="rrl-tier-label">{PRICING_UNIT_PT[u]}</span>
+                        <span className="rrl-tier-prefix">R$</span>
+                        <input type="text" inputMode="decimal" placeholder="0,00"
+                          value={editTierReais[u] ?? ''}
+                          onChange={(e) => setEditTierReais((prev) => ({ ...prev, [u]: e.target.value }))} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {r.resourceType === 'equipment' && (
+                  <label className="rrl-field">Quantidade disponível
+                    <input type="number" min={1} value={editQuantity} onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))} />
+                  </label>
+                )}
+                <div className="rrl-field">Cidade (retirada e devolução)
+                  <GovernedCombobox<CitySearchResult>
+                    value={editCity} onChange={setEditCity}
+                    loadOptions={(q) => searchCities(q)} getOptionKey={(c) => c.id}
+                    getOptionLabel={(c) => c.stateUf ? `${c.name} · ${c.stateUf}` : c.name}
+                    placeholder="Buscar cidade…" emptyMessage="Nenhuma cidade encontrada" />
+                </div>
+                <label className="rrl-field">Descrição
+                  <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} maxLength={2000} rows={2} />
+                </label>
+                <button type="button" className="rrl-submit-btn" disabled={editBusy} onClick={() => handleSaveEdit(r.id)}>
+                  {editBusy ? 'Salvando…' : 'Salvar alterações'}
+                </button>
+              </div>
+            )}
             {availFor === r.id && (
               <div className="rrl-avail-form">
                 <div className="rrl-row">

@@ -26,6 +26,7 @@ export interface RentableResource {
   pricingUnit: RentalPricingUnit | null;
   priceCents: number | null;
   resourceYear: number | null;
+  quantity: number;
   metadata: Record<string, unknown>;
   status: RentableResourceStatus;
   isActive: boolean;
@@ -50,6 +51,33 @@ export async function createRentableResource(input: {
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return res.data;
+}
+
+// Detalhe da oferta para o form de edição (faixas + cidade). O dono edita a OFERTA, não a identidade.
+export interface RentalOfferDetail {
+  resource: RentableResource;
+  pricingTiers: Array<{ unit: RentalPricingUnit; priceCents: number }>;
+  city: { cityId: string; name: string; uf: string | null } | null;
+}
+export async function getRentalOfferDetail(id: string): Promise<RentalOfferDetail> {
+  const res = await apiFetchJson<{ ok: boolean; data: RentalOfferDetail }>(`/rentable-resources/${id}/offer`);
+  return res.data;
+}
+
+// Edita a OFERTA (dono do anúncio). Dinheiro em cents. Backend valida autoridade (canRepresentActor).
+export async function updateRentalOffer(id: string, input: {
+  description?: string | null;
+  visibility?: 'public' | 'connections' | 'only_me';
+  audienceRelationshipTypes?: string[] | null;
+  pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>;
+  quantity?: number;
+  cityId?: string | null;
+}): Promise<RentableResource> {
+  const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>(`/rentable-resources/${id}`, {
+    method: 'PUT',
     body: JSON.stringify(input),
   });
   return res.data;

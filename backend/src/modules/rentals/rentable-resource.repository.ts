@@ -23,6 +23,7 @@ function toDomain(row: RentableResourceRow): RentableResource {
     pricingUnit: row.pricing_unit,
     priceCents: row.price_cents !== null && row.price_cents !== undefined ? Number(row.price_cents) : null,
     resourceYear: row.resource_year ?? null,
+    quantity: row.quantity != null ? Number(row.quantity) : 1,
     metadata: row.metadata ?? {},
     visibility: row.visibility,
     audienceRelationshipTypes: row.audience_relationship_types ?? null,
@@ -45,7 +46,7 @@ class RentableResourceRepository {
          (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity)
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int)
        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, created_at, updated_at`,
+                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, created_at, updated_at`,
       [
         tenantId,
         ownerActorId,
@@ -71,7 +72,7 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, created_at, updated_at
          FROM rentable_resources
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
@@ -99,7 +100,7 @@ class RentableResourceRepository {
     const rows = await runQueriesWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, created_at, updated_at
          FROM rentable_resources
         WHERE ${where}
         ORDER BY created_at DESC
@@ -117,7 +118,7 @@ class RentableResourceRepository {
       tenantId,
       `SELECT r.id, r.tenant_id, r.owner_actor_id, r.concept_id, r.resource_type, r.label, r.description,
               r.pricing_unit, r.price_cents, r.category_id, r.status, r.is_active, r.resource_year,
-              r.metadata, r.visibility, r.audience_relationship_types, r.created_at, r.updated_at
+              r.metadata, r.visibility, r.audience_relationship_types, r.quantity, r.created_at, r.updated_at
          FROM rentable_resources r
         WHERE r.tenant_id = $1::uuid AND r.status = 'active' AND r.owner_actor_id <> $2::uuid
           AND (
@@ -155,7 +156,7 @@ class RentableResourceRepository {
           SET status = $3, is_active = ($3 = 'active'), updated_at = now()
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, created_at, updated_at`,
+                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, created_at, updated_at`,
       [id, tenantId, status]
     );
     return row ? toDomain(row) : null;
@@ -179,6 +180,27 @@ class RentableResourceRepository {
     return !!row;
   }
 
+  /** Atualiza campos de OFERTA do recurso (não a identidade). Só sobrescreve o que veio (COALESCE). */
+  async updateOffer(tenantId: string, resourceId: string, input: {
+    description?: string | null; visibility?: string; audienceRelationshipTypes?: string[] | null; quantity?: number;
+  }): Promise<void> {
+    await runQueriesWithTenant(tenantId,
+      `UPDATE rentable_resources SET
+         description = CASE WHEN $2::boolean THEN $3 ELSE description END,
+         visibility = COALESCE($4, visibility),
+         audience_relationship_types = CASE WHEN $5::boolean THEN $6::text[] ELSE audience_relationship_types END,
+         quantity = COALESCE($7::int, quantity),
+         updated_at = now()
+       WHERE id = $1::uuid`,
+      [
+        resourceId,
+        input.description !== undefined, input.description ?? null,
+        input.visibility ?? null,
+        input.audienceRelationshipTypes !== undefined, input.audienceRelationshipTypes ?? null,
+        input.quantity ?? null,
+      ]);
+  }
+
   /** Substitui as faixas de preço do recurso (SSOT rental_resource_pricing). Dinheiro em cents/BIGINT.
    *  Idempotente: limpa e regrava as faixas ativas informadas. */
   async setPricingTiers(tenantId: string, resourceId: string, tiers: Array<{ unit: string; priceCents: number }>): Promise<void> {
@@ -200,6 +222,20 @@ class RentableResourceRepository {
       `SELECT unit, price_cents FROM rental_resource_pricing WHERE resource_id = $1::uuid AND is_active ORDER BY sort_order ASC NULLS LAST`,
       [resourceId]);
     return rows.map((r) => ({ unit: r.unit, priceCents: Number(r.price_cents) }));
+  }
+
+  /** Cidade ATIVA vinculada ao recurso (id + nome+uf) — para preencher o form de edição. */
+  async getResourceCity(tenantId: string, resourceId: string): Promise<{ cityId: string; name: string; uf: string | null } | null> {
+    const rows = await runQueriesWithTenant<{ city_id: string; name: string; abbreviation: string | null }>(tenantId,
+      `SELECT a.city_id, c.name, s.abbreviation FROM address_assignments aa
+         JOIN addresses a ON a.address_id = aa.address_id
+         JOIN cities c ON c.city_id = a.city_id
+         LEFT JOIN states s ON s.state_id = c.state_id
+        WHERE aa.owner_type = 'rentable_resource' AND aa.role = 'PICKUP'
+          AND aa.is_primary = true AND aa.valid_until_at IS NULL AND aa.owner_id = $1::uuid LIMIT 1`,
+      [resourceId]);
+    const r = rows[0];
+    return r ? { cityId: r.city_id, name: r.name, uf: r.abbreviation } : null;
   }
 
   /** cidade existe na SSOT canônica? (o front nunca inventa cidade — backend valida) */

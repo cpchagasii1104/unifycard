@@ -43,6 +43,16 @@ const updateStatusSchema = z.object({
   status: statusEnum,
 });
 
+// Edição da OFERTA (não da identidade). Dinheiro em cents. Todos os campos opcionais (edição parcial).
+const updateOfferSchema = z.object({
+  description: z.string().max(2000).nullable().optional(),
+  visibility: z.enum(['public', 'connections', 'only_me']).optional(),
+  audienceRelationshipTypes: z.array(z.string()).nullable().optional(),
+  pricingTiers: z.array(z.object({ unit: z.enum(RENTAL_PRICING_UNITS), priceCents: z.number().int().min(0) })).optional(),
+  quantity: z.number().int().min(1).optional(),
+  cityId: z.string().uuid().nullable().optional(),
+});
+
 const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /rentable-resources
@@ -254,6 +264,43 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
    * PATCH /rentable-resources/:id/status
    * Owner-only (prova contra o owner_actor_id JÁ REGISTRADO do recurso, não o declarado).
    */
+  // GET /rentable-resources/:id/offer — detalhe da oferta (faixas + cidade + quantity) p/ o form de edição.
+  fastify.get<{ Params: { id: string } }>('/:id/offer', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const [resource, pricingTiers, city] = await Promise.all([
+      rentableResourceService.get(req.tenant.id, req.params.id),
+      rentableResourceService.getPricingTiers(req.tenant.id, req.params.id),
+      rentableResourceService.getResourceCity(req.tenant.id, req.params.id),
+    ]);
+    return reply.send({ ok: true, data: { resource, pricingTiers, city } });
+  });
+
+  /**
+   * PUT /rentable-resources/:id — o DONO edita a OFERTA do próprio anúncio (não a identidade).
+   * Owner-only via canRepresentActor (no service). Dinheiro em cents.
+   */
+  fastify.put<{ Params: { id: string }; Body: z.infer<typeof updateOfferSchema> }>('/:id', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const userId = (req.user as { userId?: string } | undefined)?.userId;
+    if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
+    const parsed = updateOfferSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'Invalid request body', details: parsed.error.errors });
+    try {
+      const resource = await rentableResourceService.update(req.tenant.id, req.params.id, userId, {
+        description: parsed.data.description,
+        visibility: parsed.data.visibility,
+        audienceRelationshipTypes: parsed.data.audienceRelationshipTypes,
+        pricingTiers: parsed.data.pricingTiers?.map((t) => ({ unit: t.unit, priceCents: t.priceCents })),
+        quantity: parsed.data.quantity,
+        cityId: parsed.data.cityId,
+      });
+      return reply.send({ ok: true, data: resource });
+    } catch (err: any) {
+      const status = err?.statusCode ?? 500;
+      return reply.status(status).send({ ok: false, error: err?.message ?? 'Erro ao editar recurso' });
+    }
+  });
+
   fastify.patch<{ Params: { id: string }; Body: z.infer<typeof updateStatusSchema> }>(
     '/:id/status',
     async (req, reply) => {

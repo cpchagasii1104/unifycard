@@ -93,6 +93,13 @@ class RentableResourceService {
     return resource;
   }
 
+  getPricingTiers(tenantId: string, resourceId: string) {
+    return rentableResourceRepository.getPricingTiers(tenantId, resourceId);
+  }
+  getResourceCity(tenantId: string, resourceId: string) {
+    return rentableResourceRepository.getResourceCity(tenantId, resourceId);
+  }
+
   /**
    * Fase 2 — ESTIMATIVA de preço (PRÉ-DINHEIRO). Backend calcula a partir das faixas declaradas +
    * o período; o front só renderiza. NÃO cria cobrança/hold/reserva; Δbank=0. Valores em cents.
@@ -116,6 +123,59 @@ class RentableResourceService {
    * Muda status (active/paused/retired). Owner-only — prova via canRepresentActor contra o
    * owner_actor_id JÁ REGISTRADO do recurso (não o declarado pelo caller).
    */
+  /**
+   * Edita a OFERTA de um recurso (o dono edita o próprio anúncio). Trava de autoridade idêntica ao
+   * status: canRepresentActor sobre o owner. NÃO edita a IDENTIDADE (tipo/concept/veículo) — se o dono
+   * errou o item, recria. Campos editáveis: descrição, plateia, faixas de preço, quantidade, cidade.
+   */
+  async update(
+    tenantId: string,
+    resourceId: string,
+    requestingUserId: string,
+    input: {
+      description?: string | null;
+      visibility?: RentableResource['visibility'];
+      audienceRelationshipTypes?: string[] | null;
+      pricingTiers?: { unit: any; priceCents: number }[];
+      quantity?: number;
+      cityId?: string | null;
+    }
+  ): Promise<RentableResource> {
+    const resource = await this.get(tenantId, resourceId);
+    let canRep = false;
+    try {
+      canRep = await authorizationService.canRepresentActor(tenantId, requestingUserId, resource.ownerActorId);
+    } catch { canRep = false; }
+    if (!canRep) throw HttpError.forbidden('RENTABLE_RESOURCE_UPDATE_NOT_REPRESENTABLE: sem autoridade sobre o owner do recurso.');
+
+    // quantidade: mesma regra do create (único vs fungível), pelo tipo REAL do recurso.
+    if (input.quantity != null) {
+      const SINGLE_ONLY = ['vehicle', 'property', 'space'];
+      const q = Math.max(1, Math.floor(input.quantity));
+      if (SINGLE_ONLY.includes(resource.resourceType) && q !== 1) {
+        throw HttpError.badRequest(`RENTABLE_RESOURCE_QUANTITY_MUST_BE_1: ${resource.resourceType} é único.`);
+      }
+    }
+    if (input.cityId) {
+      const cityOk = await rentableResourceRepository.cityExists(input.cityId);
+      if (!cityOk) throw HttpError.badRequest('RENTABLE_RESOURCE_CITY_NOT_FOUND: cidade não existe na base canônica.');
+    }
+
+    await rentableResourceRepository.updateOffer(tenantId, resourceId, {
+      description: input.description,
+      visibility: input.visibility,
+      audienceRelationshipTypes: input.audienceRelationshipTypes,
+      quantity: input.quantity != null ? Math.max(1, Math.floor(input.quantity)) : undefined,
+    });
+    if (input.pricingTiers) {
+      await rentableResourceRepository.setPricingTiers(tenantId, resourceId, input.pricingTiers);
+    }
+    if (input.cityId) {
+      await rentableResourceRepository.assignCityToResource(tenantId, resourceId, input.cityId);
+    }
+    return this.get(tenantId, resourceId);
+  }
+
   async updateStatus(
     tenantId: string,
     resourceId: string,
