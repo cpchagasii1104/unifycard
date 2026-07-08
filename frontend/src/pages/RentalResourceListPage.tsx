@@ -310,6 +310,13 @@ export default function RentalResourceListPage() {
   // Unidades de preço PERMITIDAS por tipo — vêm do BACKEND (contrato governado), não de mapa local.
   const [allowedUnits, setAllowedUnits] = useState<RentalPricingUnit[]>([]);
   useEffect(() => { getAllowedPricingUnits(resourceType).then(setAllowedUnits).catch(() => setAllowedUnits([])); }, [resourceType]);
+  // Nome do IMÓVEL projetado (padrão Clayton): Categoria + Área + Bairro. Etiqueta de exibição — a
+  // verdade é concept + metadata + address; este é só o rótulo (composto do que já foi preenchido).
+  const propertyName = [
+    selectedConcept?.label,
+    propArea.trim() ? `${propArea.trim()} m²` : '',
+    location.neighborhoodDisplay.trim(),
+  ].filter((x) => x && String(x).trim()).join(' · ');
 
   // edição da OFERTA do próprio anúncio (o dono edita preço/quantidade/cidade/descrição)
   const [editFor, setEditFor] = useState<string | null>(null);
@@ -387,8 +394,8 @@ export default function RentalResourceListPage() {
     if (isVehicle && !vehicleSel.make) { showToast('Escolha a marca do veículo.', 'error'); return; }
     if (isVehicle && !vehicleSel.model) { showToast('Escolha o modelo do veículo.', 'error'); return; }
     // Veículo: nome projetado da identidade (não digitado). Outros: nome digitado obrigatório.
-    const effectiveName = isVehicle ? vehicleName : label.trim();
-    if (!effectiveName) { showToast(isVehicle ? 'Complete marca, modelo e ano do veículo.' : 'Informe um nome para o recurso.', 'error'); return; }
+    const effectiveName = isVehicle ? vehicleName : (resourceType === 'property' ? propertyName : label.trim());
+    if (!effectiveName) { showToast(isVehicle ? 'Complete marca, modelo e ano do veículo.' : (resourceType === 'property' ? 'Complete categoria, área e o CEP/bairro do imóvel.' : 'Informe um nome para o recurso.'), 'error'); return; }
     setSubmitting(true);
     try {
       // Faixas: R$ (UI) → cents (verdade). Só as preenchidas com valor > 0 viram faixa.
@@ -785,6 +792,12 @@ export default function RentalResourceListPage() {
               Nome do recurso <span className="rrl-auto-tag">automático</span>
               <input type="text" value={vehicleName || 'Escolha marca, modelo e ano…'} readOnly
                 className={vehicleName ? 'rrl-input--auto' : 'rrl-input--auto rrl-input--placeholder'} />
+            </label>
+          ) : resourceType === 'property' ? (
+            <label className="rrl-field">
+              Nome do recurso <span className="rrl-auto-tag">automático</span>
+              <input type="text" value={propertyName || 'Categoria + área + bairro (preencha abaixo)…'} readOnly
+                className={propertyName ? 'rrl-input--auto' : 'rrl-input--auto rrl-input--placeholder'} />
             </label>
           ) : (
             <label className="rrl-field">

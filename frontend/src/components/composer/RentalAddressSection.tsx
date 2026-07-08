@@ -100,7 +100,14 @@ export default function RentalAddressSection({
           </label>
         </div>
       )}
-      {showStreet && value.neighborhoodDisplay && <p className="ras-hint">Bairro: {value.neighborhoodDisplay}</p>}
+      {showStreet && (
+        <div className="ras-row">
+          <label className="ras-field">Bairro
+            <input type="text" placeholder="Bairro" value={value.neighborhoodDisplay}
+              onChange={(e) => set({ neighborhoodDisplay: e.target.value, neighborhoodId: null })} />
+          </label>
+        </div>
+      )}
 
       <p className="ras-privacy">🔒 O endereço completo só é mostrado ao locatário após a confirmação da locação. Publicamente aparece apenas cidade/bairro.</p>
     </div>
