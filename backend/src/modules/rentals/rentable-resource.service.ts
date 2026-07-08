@@ -31,6 +31,26 @@ class RentableResourceService {
     if (!input.label || input.label.trim().length === 0) {
       throw HttpError.badRequest('RENTABLE_RESOURCE_LABEL_REQUIRED');
     }
+
+    // F-VEHICLE-MODEL-YEAR: quando o recurso é VEÍCULO, a combinação marca→modelo→concept→ano é
+    // GOVERNADA e validada no backend (não confia no front). concept deve ser 'rentable' (o
+    // catálogo de veículo já é rentable, mas provamos aqui também — defesa em profundidade).
+    if (input.resourceType === 'vehicle') {
+      const { vehicleCatalogService } = await import('@core/catalog/vehicle-catalog.service');
+      const meta = (input.metadata ?? {}) as { vehicleMakeId?: string; vehicleModelId?: string };
+      const conceptRentable = await rentableResourceRepository.conceptHasOfferKind(tenantId, input.conceptId, 'rentable');
+      if (!conceptRentable) {
+        throw HttpError.badRequest('RENTABLE_RESOURCE_CONCEPT_NOT_RENTABLE: concept sem offer_kind=rentable.');
+      }
+      const v = await vehicleCatalogService.validateVehicleCombo({
+        makeId: meta.vehicleMakeId ?? null,
+        modelId: meta.vehicleModelId ?? null,
+        conceptId: input.conceptId,
+        year: input.resourceYear ?? null,
+      });
+      if (!v.ok) throw HttpError.badRequest(`RENTABLE_RESOURCE_VEHICLE_INVALID: ${v.code}`);
+    }
+
     return rentableResourceRepository.create(tenantId, ownerActorId, {
       ...input,
       label: input.label.trim(),

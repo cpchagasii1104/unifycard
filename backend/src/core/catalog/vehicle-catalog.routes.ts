@@ -25,6 +25,13 @@ const vehicleCatalogRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send({ ok: true, data: models });
     }
   );
+
+  // GET /catalog/vehicles/models/:modelId/years — anos GOVERNADOS do modelo (F-VEHICLE-MODEL-YEAR).
+  // A verdade é vehicle_model_years; vazio = modelo sem anos governados (ainda). Read-only.
+  fastify.get<{ Params: { modelId: string } }>('/models/:modelId/years', async (req, reply) => {
+    const years = await vehicleCatalogService.listModelYears(req.params.modelId);
+    return reply.send({ ok: true, data: years });
+  });
 };
 
 export default vehicleCatalogRoutes;

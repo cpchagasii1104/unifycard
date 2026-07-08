@@ -160,6 +160,15 @@ class RentableResourceRepository {
     return row ? toDomain(row) : null;
   }
 
+  /** O concept tem o offer_kind pedido (ex.: 'rentable')? Governança concept_offer_kinds. */
+  async conceptHasOfferKind(tenantId: string, conceptId: string, offerKind: string): Promise<boolean> {
+    const row = await runQueryWithTenant<{ ok: boolean }>(
+      tenantId,
+      `SELECT EXISTS (SELECT 1 FROM concept_offer_kinds WHERE concept_id = $1::uuid AND offer_kind = $2) AS ok`,
+      [conceptId, offerKind]);
+    return !!row?.ok;
+  }
+
   async conceptExists(tenantId: string, conceptId: string): Promise<boolean> {
     const row = await runQueryWithTenant<{ concept_id: string }>(
       tenantId,
