@@ -656,6 +656,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         if (has('max_attendees') || has('maxAttendees')) updateInput.maxAttendees = ub.max_attendees ?? ub.maxAttendees;
         if (has('event_access_type') || has('eventAccessType')) updateInput.eventAccessType = ub.event_access_type ?? ub.eventAccessType;
         if (has('min_attendees') || has('minAttendees')) updateInput.minAttendees = ub.min_attendees ?? ub.minAttendees;
+        if (has('event_format_concept_id') || has('eventFormatConceptId')) updateInput.eventFormatConceptId = ub.event_format_concept_id ?? ub.eventFormatConceptId;
+        if (has('location_mode') || has('locationMode')) updateInput.locationMode = ub.location_mode ?? ub.locationMode;
+        if (has('theme_concept_ids') || has('themeConceptIds')) updateInput.themeConceptIds = ub.theme_concept_ids ?? ub.themeConceptIds;
+        if (has('category_facets') || has('categoryFacets')) updateInput.categoryFacets = ub.category_facets ?? ub.categoryFacets;
         if (has('metadata')) updateInput.metadata = ub.metadata;
         const event = await eventService.updateEvent(
           req.tenant.id,
@@ -1225,13 +1229,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         body: {
           type: 'object',
-          required: ['actor_id', 'actor_type', 'event_type', 'title'],
+          required: ['actor_id', 'actor_type', 'title'], // event_type NÃO é mais obrigatório (formato-first)
           properties: {
             actor_id: { type: 'string', format: 'uuid' },
             actor_type: { type: 'string', enum: ['user', 'page'] },
             event_type: {
-              type: 'string',
-              enum: ['cultural', 'gastronomic', 'social', 'professional', 'community', 'spiritual', 'sports', 'private'],
+              type: ['string', 'null'],
+              enum: ['cultural', 'gastronomic', 'social', 'professional', 'community', 'spiritual', 'sports', 'private', null],
             },
             event_subtype: { type: ['string', 'null'] },
             title: { type: 'string', minLength: 1, maxLength: 255 },

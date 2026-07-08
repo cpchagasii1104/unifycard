@@ -176,7 +176,7 @@ export interface Event {
 export interface CreateEventInput {
   actorId: string;
   actorType: ActorType;
-  eventType: EventType;
+  eventType?: EventType; // F-EVENT-CONCEPT-FIRST: opcional (legado). Novo draft = formato-first, sem event_type.
   eventSubtype?: string | null;
   title: string;
   description?: string | null;
@@ -203,6 +203,11 @@ export interface UpdateEventInput {
   // Acesso/custo (anúncio, Δbank=0) + capacidade mínima. Vocabulário GOVERNADO pt-BR (EVENT_ACCESS_TYPES).
   eventAccessType?: EventAccessType | null;
   minAttendees?: number | null;
+  // F-EVENT-CONCEPT-FIRST-MODEL: identidade = formato (concept) + temas (concepts) + facets; location governado.
+  eventFormatConceptId?: string | null;
+  locationMode?: EventLocationMode | null;
+  themeConceptIds?: string[]; // substitui os event_theme_links do evento (vazio = limpa)
+  categoryFacets?: string[]; // substitui os event_category_facets (⊆ EVENT_CATEGORIES)
   metadata?: Record<string, any>;
 }
 

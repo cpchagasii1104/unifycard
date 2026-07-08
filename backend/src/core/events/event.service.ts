@@ -20,7 +20,7 @@ import type {
   EventTimeWindow,
   FlexibilityLevel,
 } from './event.types';
-import { ACTOR_EVENT_TYPE_MATRIX, EVENT_ACCESS_TYPES } from './event.types';
+import { ACTOR_EVENT_TYPE_MATRIX, EVENT_ACCESS_TYPES, EVENT_CATEGORIES, EVENT_LOCATION_MODES_MVP_ENABLED } from './event.types';
 import { assertTransitionAllowed, enrichEventWithCanonicalFields } from './event.aggregate';
 import { validateAspects } from './aspects/event-aspects.service';
 
@@ -170,15 +170,16 @@ class EventService {
     tenantId: string,
     input: CreateEventInput
   ): Promise<Event> {
-    // 1. Validar Actor × EventType
-    const actorValidation = this.validateActorEventType(input.actorType, input.eventType);
-    if (!actorValidation.valid) {
-      throw new BadRequestError(actorValidation.reason || 'Validação Actor × EventType falhou');
-    }
-
-    // 2. Validar eventType
-    if (!this.validateEventType(input.eventType)) {
-      throw new BadRequestError(`Event type '${input.eventType}' não é válido`);
+    // F-EVENT-CONCEPT-FIRST-MODEL: event_type deixou de ser autoridade. Só valida SE veio (caminho legado).
+    // Novo caminho formato-first cria o draft sem event_type; a identidade (formato) é setada via updateEvent.
+    if (input.eventType) {
+      const actorValidation = this.validateActorEventType(input.actorType, input.eventType);
+      if (!actorValidation.valid) {
+        throw new BadRequestError(actorValidation.reason || 'Validação Actor × EventType falhou');
+      }
+      if (!this.validateEventType(input.eventType)) {
+        throw new BadRequestError(`Event type '${input.eventType}' não é válido`);
+      }
     }
 
     // 3. Validar datas (FASE 5: apenas se AMBAS forem fornecidas)
@@ -473,13 +474,49 @@ class EventService {
       values.push(input.minAttendees);
     }
 
+    // F-EVENT-CONCEPT-FIRST: formato (concept) — valida que É formato de evento habilitado (não texto).
+    if (input.eventFormatConceptId !== undefined && input.eventFormatConceptId !== null) {
+      const fmt = await runQueryWithTenant<{ ok: number }>(
+        tenantId, `SELECT 1 AS ok FROM event_format_concepts WHERE concept_id = $1 AND enabled = true`, [input.eventFormatConceptId]
+      );
+      if (!fmt) throw new BadRequestError('event_format_concept_id inválido: não é um formato de evento habilitado.');
+      updates.push(`event_format_concept_id = $${paramIndex++}`);
+      values.push(input.eventFormatConceptId);
+    }
+    // location_mode governado; 'route' fica DISABLED no MVP.
+    if (input.locationMode !== undefined && input.locationMode !== null) {
+      if (!(EVENT_LOCATION_MODES_MVP_ENABLED as readonly string[]).includes(input.locationMode)) {
+        throw new BadRequestError(`location_mode '${input.locationMode}' não disponível no MVP.`);
+      }
+      updates.push(`location_mode = $${paramIndex++}`);
+      values.push(input.locationMode);
+    }
+
     if (input.metadata !== undefined) {
       updates.push(`metadata = $${paramIndex++}`);
       values.push(JSON.stringify(input.metadata));
     }
 
+    // TEMAS e FACETS vivem em tabelas de aplicabilidade (não na linha events) — persistidos SEMPRE
+    // (independente do UPDATE de coluna abaixo). Substituição total (replace) quando o campo vem.
+    if (input.themeConceptIds !== undefined) {
+      await runQueryWithTenant(tenantId, `DELETE FROM event_theme_links WHERE event_id = $1`, [eventId]);
+      for (const cid of input.themeConceptIds) {
+        await runQueryWithTenant(tenantId, `INSERT INTO event_theme_links (event_id, concept_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [eventId, cid]);
+      }
+    }
+    if (input.categoryFacets !== undefined) {
+      for (const f of input.categoryFacets) {
+        if (!(EVENT_CATEGORIES as readonly string[]).includes(f)) throw new BadRequestError(`Categoria '${f}' inválida.`);
+      }
+      await runQueryWithTenant(tenantId, `DELETE FROM event_category_facets WHERE event_id = $1`, [eventId]);
+      for (const f of input.categoryFacets) {
+        await runQueryWithTenant(tenantId, `INSERT INTO event_category_facets (event_id, category_key) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [eventId, f]);
+      }
+    }
+
     if (updates.length === 0) {
-      return event; // Nada para atualizar
+      return event; // Nada para atualizar na LINHA events (temas/facets já persistidos acima)
     }
 
     // Adicionar updatedAt
