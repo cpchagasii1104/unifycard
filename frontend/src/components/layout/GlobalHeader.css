@@ -5,7 +5,7 @@
   top: 0;
   z-index: 60;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, auto);
   gap: 1.5rem;
   align-items: center;
   padding: 1.25rem 2rem;
@@ -87,13 +87,17 @@
   box-shadow: 0 0 0 3px rgba(91, 63, 228, 0.12);
 }
 
-/* Ações */
+/* Ações — 4 blocos (perfil compacto + sino + toggle + pílula identidade) somam ~750px de conteúdo
+   que nunca encolhe (todo nowrap por dentro). Com `nowrap` aqui, em larguras normais de notebook o
+   grid é forçado a crescer além do container e empurra o header pra fora (o que cortava o actor).
+   `wrap`: quando não cabe numa linha, os blocos descem — nunca estoura a largura da página. */
 .gh-actions {
   display: flex;
   align-items: center;
   gap: 0.8rem;
   justify-content: flex-end;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 /* Completar perfil compacto */
@@ -386,7 +390,7 @@
 
 @media (min-width: 1024px) {
   .gh-root {
-    grid-template-columns: minmax(170px, 0.75fr) minmax(360px, 1.35fr) auto;
+    grid-template-columns: minmax(170px, 0.75fr) minmax(360px, 1.35fr) minmax(0, auto);
     gap: 1rem;
   }
 }
