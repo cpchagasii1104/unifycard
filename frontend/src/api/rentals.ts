@@ -46,6 +46,7 @@ export async function createRentableResource(input: {
   visibility?: 'public' | 'connections' | 'only_me';
   audienceRelationshipTypes?: string[] | null;
   cityId?: string | null; // localização governada (SSOT cities) — backend valida; nunca texto livre
+  postalCode?: string | null; // CEP opcional — refina proximidade; backend resolve, nunca o front
   pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>; // faixas; priceCents (cents)
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1)
 }): Promise<RentableResource> {

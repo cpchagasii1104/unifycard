@@ -30,6 +30,7 @@ const createSchema = z.object({
   audienceRelationshipTypes: z.array(z.string()).nullable().optional(),
   // Localização governada: cityId da SSOT `cities` (UUID). NUNCA city_name livre. Backend valida.
   cityId: z.string().uuid().nullable().optional(),
+  postalCode: z.string().max(9).nullable().optional(),
   // Fase 1: faixas de preço anunciado. priceCents (cents/BIGINT), nunca reais. Unidade governada.
   pricingTiers: z.array(z.object({
     unit: z.enum(RENTAL_PRICING_UNITS),
@@ -51,6 +52,7 @@ const updateOfferSchema = z.object({
   pricingTiers: z.array(z.object({ unit: z.enum(RENTAL_PRICING_UNITS), priceCents: z.number().int().min(0) })).optional(),
   quantity: z.number().int().min(1).optional(),
   cityId: z.string().uuid().nullable().optional(),
+  postalCode: z.string().max(9).nullable().optional(),
 });
 
 const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -105,6 +107,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         visibility: parsed.data.visibility ?? 'public',
         audienceRelationshipTypes: parsed.data.audienceRelationshipTypes ?? null,
         cityId: parsed.data.cityId ?? null,
+        postalCode: parsed.data.postalCode ?? null,
         pricingTiers: (parsed.data.pricingTiers ?? []).map((t) => ({ unit: t.unit, priceCents: t.priceCents })),
         quantity: parsed.data.quantity ?? 1,
       });
@@ -293,6 +296,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         pricingTiers: parsed.data.pricingTiers?.map((t) => ({ unit: t.unit, priceCents: t.priceCents })),
         quantity: parsed.data.quantity,
         cityId: parsed.data.cityId,
+        postalCode: parsed.data.postalCode,
       });
       return reply.send({ ok: true, data: resource });
     } catch (err: any) {

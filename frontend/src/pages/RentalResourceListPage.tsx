@@ -110,6 +110,7 @@ export default function RentalResourceListPage() {
   // Localização governada (F-RENTABLE-RESOURCE-LOCATION-MVP): cidade da SSOT `cities`, resolvida no
   // backend. O recurso fica na cidade do dono (retirada=devolução). Nunca texto livre.
   const [selectedCity, setSelectedCity] = useState<CitySearchResult | null>(null);
+  const [cepInput, setCepInput] = useState('');
 
   // atributos de IMÓVEL (LAYER 5 — Facets, régua ratificada: "descreve COMO É", não "identifica O
   // QUE É" — não viram CONCEPT nem catálogo governado, ficam no metadata do recurso)
@@ -225,12 +226,13 @@ export default function RentalResourceListPage() {
         pricingTiers, // faixas em cents (verdade); vazio se nada preenchido
         quantity: resourceType === 'equipment' ? quantity : 1, // único vs fungível (backend revalida)
         cityId: selectedCity?.id ?? null, // localização governada (SSOT cities), nunca texto livre
+        postalCode: cepInput.trim() || null,
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
       setShowForm(false);
       setLabel(''); setDescription(''); setTierReais({}); setQuantity(1);
-      setSelectedConcept(null); setSelectedCity(null);
+      setSelectedConcept(null); setSelectedCity(null); setCepInput('');
       setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
       await load();
     } catch (err: any) {
@@ -452,6 +454,13 @@ export default function RentalResourceListPage() {
               emptyMessage="Nenhuma cidade encontrada"
             />
           </div>
+          {/* CEP opcional (Fase 4): refina a proximidade. O backend resolve; a vitrine nunca mostra
+              rua/número — só cidade/bairro/distância aproximada. */}
+          <label className="rrl-field">
+            CEP (opcional — melhora a busca por proximidade)
+            <input type="text" inputMode="numeric" placeholder="Ex.: 80010-000" value={cepInput}
+              onChange={(e) => setCepInput(e.target.value)} maxLength={9} />
+          </label>
 
           {/* Imóvel/Espaço: Facets puras (régua ratificada: "descreve COMO É", não "identifica O
               QUE É" — apartamento/casa/galpão já são o CONCEPT; metragem/quartos são atributo) */}

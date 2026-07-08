@@ -78,11 +78,27 @@ class RentableResourceService {
       await rentableResourceRepository.setPricingTiers(tenantId, created.id, input.pricingTiers);
     }
 
-    // vínculo de localização pelo padrão canônico address_assignments → addresses → cities
+    // vínculo de localização pelo padrão canônico address_assignments → addresses → cities.
+    // Fase 4: CEP (opcional) refina a coord via provider; sem rede (Null) usa a coord da cidade.
     if (input.cityId) {
-      await rentableResourceRepository.assignCityToResource(tenantId, created.id, input.cityId);
+      const geo = await this.resolveCepGeo(input.postalCode);
+      await rentableResourceRepository.assignCityToResource(tenantId, created.id, input.cityId, geo);
     }
     return created;
+  }
+
+  /** Resolve CEP → { postalCode, lat, lng } via provider governado. Null provider (dev/gates) → só
+   *  o postalCode normalizado (coord fica da cidade). Nunca falha por rede. */
+  private async resolveCepGeo(postalCode?: string | null): Promise<{ postalCode: string | null; lat: number | null; lng: number | null }> {
+    const { normalizePostalCode, getDefaultCepProvider } = await import('@core/location/cep-provider');
+    const cep = normalizePostalCode(postalCode);
+    if (!cep) return { postalCode: null, lat: null, lng: null };
+    try {
+      const res = await getDefaultCepProvider().resolvePostalCode(cep);
+      return { postalCode: cep, lat: res?.lat ?? null, lng: res?.lng ?? null };
+    } catch {
+      return { postalCode: cep, lat: null, lng: null };
+    }
   }
 
   async get(tenantId: string, id: string): Promise<RentableResource> {
@@ -139,6 +155,7 @@ class RentableResourceService {
       pricingTiers?: { unit: any; priceCents: number }[];
       quantity?: number;
       cityId?: string | null;
+      postalCode?: string | null;
     }
   ): Promise<RentableResource> {
     const resource = await this.get(tenantId, resourceId);
@@ -171,7 +188,8 @@ class RentableResourceService {
       await rentableResourceRepository.setPricingTiers(tenantId, resourceId, input.pricingTiers);
     }
     if (input.cityId) {
-      await rentableResourceRepository.assignCityToResource(tenantId, resourceId, input.cityId);
+      const geo = await this.resolveCepGeo(input.postalCode);
+      await rentableResourceRepository.assignCityToResource(tenantId, resourceId, input.cityId, geo);
     }
     return this.get(tenantId, resourceId);
   }

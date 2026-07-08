@@ -103,6 +103,7 @@ export interface CreateRentableResourceInput {
   visibility?: RentableVisibility;
   audienceRelationshipTypes?: string[] | null;
   cityId?: string | null; // localização governada (SSOT cities). Vínculo via address_assignments.
+  postalCode?: string | null; // CEP (opcional) — refina coord via provider; sem rede usa a cidade.
   pricingTiers?: RentalPricingTier[]; // faixas de preço anunciado (SSOT rental_resource_pricing).
   quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1).
 }

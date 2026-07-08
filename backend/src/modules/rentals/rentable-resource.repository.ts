@@ -252,28 +252,35 @@ class RentableResourceRepository {
    * country_id/state_id são DERIVADOS da própria cidade (não hardcode do Brasil). Regra: 1 PICKUP
    * primário por recurso (retirada=devolução no mesmo local).
    */
-  async assignCityToResource(tenantId: string, resourceId: string, cityId: string): Promise<void> {
+  async assignCityToResource(
+    tenantId: string, resourceId: string, cityId: string,
+    opts?: { postalCode?: string | null; lat?: number | null; lng?: number | null }
+  ): Promise<void> {
     // Regra "1 local ativo" imposta pelo índice único parcial (owner_type,owner_id,role) WHERE
     // is_primary AND valid_until_at IS NULL. 2 passos (não CTE — DELETE/INSERT no mesmo CTE dividem
     // snapshot e colidem no índice): 1) EXPIRA o pickup ativo anterior (preserva histórico de onde o
     // recurso esteve); 2) cria address nível-cidade + novo assignment primário.
+    // Fase 4: o address ganha lat/lng — do CEP resolvido (opts) quando houver, senão a COORD DA CIDADE
+    // (cities.lat/lng, sempre disponível, sem rede). Habilita o filtro por raio sem expor rua/número.
     await runQueriesWithTenant(tenantId,
       `UPDATE address_assignments SET valid_until_at = now(), is_primary = false, updated_at = now()
         WHERE owner_type = 'rentable_resource' AND owner_id = $1::uuid AND role = 'PICKUP'
           AND is_primary = true AND valid_until_at IS NULL`, [resourceId]);
     await runQueriesWithTenant(tenantId,
       `WITH geo AS (
-         SELECT c.state_id, s.country_id FROM cities c JOIN states s ON s.state_id = c.state_id
-          WHERE c.city_id = $2::uuid
+         SELECT c.state_id, s.country_id, c.lat AS city_lat, c.lng AS city_lng
+           FROM cities c JOIN states s ON s.state_id = c.state_id WHERE c.city_id = $2::uuid
        ),
        new_addr AS (
-         INSERT INTO addresses (country_id, state_id, city_id, is_geocoded, source, created_by_tenant_id)
-         SELECT geo.country_id, geo.state_id, $2::uuid, false, 'UX_INPUT', $3::uuid FROM geo
+         INSERT INTO addresses (country_id, state_id, city_id, postal_code, lat, lng, is_geocoded, source, created_by_tenant_id)
+         SELECT geo.country_id, geo.state_id, $2::uuid, $4,
+                COALESCE($5::numeric, geo.city_lat), COALESCE($6::numeric, geo.city_lng),
+                false, 'UX_INPUT', $3::uuid FROM geo
          RETURNING address_id
        )
        INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
        SELECT 'rentable_resource', $1::uuid, address_id, 'PICKUP', true FROM new_addr`,
-      [resourceId, cityId, tenantId]);
+      [resourceId, cityId, tenantId, opts?.postalCode ?? null, opts?.lat ?? null, opts?.lng ?? null]);
   }
 
   /** Cidade projetada do recurso (cidade + UF) — para listagem/vitrine. SEM rua/número (privacidade). */
