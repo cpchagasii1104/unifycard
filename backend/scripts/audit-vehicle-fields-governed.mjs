@@ -54,5 +54,18 @@ const rentalRepo = strip(read(join(process.cwd(), 'src', 'modules', 'rentals', '
 check('recurso vincula localização via address_assignments (padrão canônico)', /address_assignments/.test(rentalRepo) && /owner_type\s*=?\s*.?rentable_resource/.test(rentalRepo));
 check('backend valida cidade na SSOT (cityExists sobre cities)', /cityExists/.test(rentalRepo) && /FROM cities/.test(rentalRepo));
 
+// 9) F-RENTAL-PRICING-QUANTITY-GEO-MVP: dinheiro SEMPRE cents/BIGINT; faixas na SSOT; front envia cents.
+import { readdirSync } from 'fs';
+const migDir = join(process.cwd(), 'migrations');
+const pricingMig = readdirSync(migDir).find((f) => f.includes('rental_resource_pricing_tiers'));
+const pricingSql = pricingMig ? read(join(migDir, pricingMig)) : '';
+check('faixa de preço usa price_cents BIGINT (nunca NUMERIC/DECIMAL/FLOAT)',
+  /price_cents\s+BIGINT/i.test(pricingSql) && !/price[_a-z]*\s+(NUMERIC|DECIMAL|FLOAT|REAL|DOUBLE)/i.test(pricingSql));
+check('unidade de preço é vocabulário governado (CHECK), não string solta', /unit\s+TEXT\s+NOT NULL\s+CHECK/i.test(pricingSql));
+const rentalRepo2 = strip(read(join(process.cwd(), 'src', 'modules', 'rentals', 'rentable-resource.repository.ts')));
+check('faixas gravam em rental_resource_pricing (SSOT), price_cents::bigint', /rental_resource_pricing/.test(rentalRepo2) && /price_cents.*bigint|::bigint/.test(rentalRepo2));
+check('frontend envia priceCents convertendo R$→cents (* 100), não reais', /priceCents/.test(rentalPage) && /Math\.round/.test(rentalPage) && /\*\s*100/.test(rentalPage) && /pricingTiers/.test(rentalPage));
+check('quantidade só aparece para equipment no front', /resourceType === 'equipment'[^]*Quantidade/.test(rentalPage) || /Quantidade[^]*resourceType === 'equipment'/.test(rentalPage) || /resourceType === 'equipment' && \(/.test(rentalPage));
+
 if (fail) { console.log(`\nVEHICLE-FIELDS-GOVERNED: FAIL (${fail})`); process.exit(1); }
 console.log('\nVEHICLE-FIELDS-GOVERNED: OK');

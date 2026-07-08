@@ -16,8 +16,15 @@ export type RentableVisibility = 'public' | 'connections' | 'only_me';
 
 // DECISION-0151 ADENDO A (2026-07-07): unidade de cobrança do ANÚNCIO — vocabulário GOVERNADO
 // (fonte única; manifest + CHECK físico espelham daqui). Preço = REGISTRO puro (Δbank=0).
-export const RENTAL_PRICING_UNITS = ['por_hora', 'por_dia', 'por_semana', 'por_mes'] as const;
+// 2026-07-08 (Fase 1): + por_semestre, por_ano (governado; CHECK físico espelha daqui).
+export const RENTAL_PRICING_UNITS = ['por_hora', 'por_dia', 'por_semana', 'por_mes', 'por_semestre', 'por_ano'] as const;
 export type RentalPricingUnit = (typeof RENTAL_PRICING_UNITS)[number];
+
+// Faixa de preço anunciado (uma por unidade). Dinheiro SEMPRE cents/BIGINT — nunca reais/float.
+export interface RentalPricingTier {
+  unit: RentalPricingUnit;
+  priceCents: number;
+}
 
 // 2026-07-07 (Clayton: "primeiro seleciono o tipo, aí sim vem a categoria relacionada" — mesma
 // lógica do motor de demanda/grupos): tipo → N0 GOVERNADO congelado (doc 18). N0 bens-imoveis
@@ -88,6 +95,8 @@ export interface CreateRentableResourceInput {
   visibility?: RentableVisibility;
   audienceRelationshipTypes?: string[] | null;
   cityId?: string | null; // localização governada (SSOT cities). Vínculo via address_assignments.
+  pricingTiers?: RentalPricingTier[]; // faixas de preço anunciado (SSOT rental_resource_pricing).
+  quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1).
 }
 
 export interface ListRentableResourcesFilters {

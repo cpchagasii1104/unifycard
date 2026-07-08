@@ -54,3 +54,11 @@
 .rrl-auto-tag { font-size: 0.65rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #4f46e5; background: #eef1ff; border: 1px solid #dfe3fe; border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
 .rrl-input--auto { background: #f6f7fb; color: #1e2338; font-weight: 600; cursor: default; }
 .rrl-input--auto.rrl-input--placeholder { color: #8891a6; font-weight: 400; font-style: italic; }
+
+/* Fase 1 — faixas de preço (uma linha por unidade). */
+.rrl-tiers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+@media (max-width: 520px) { .rrl-tiers { grid-template-columns: 1fr; } }
+.rrl-tier { display: flex; align-items: center; gap: 6px; border: 1px solid #e2e4ea; border-radius: 8px; padding: 6px 10px; background: #fff; }
+.rrl-tier-label { font-size: 0.78rem; color: #5b627a; font-weight: 600; flex: 1; }
+.rrl-tier-prefix { font-size: 0.8rem; color: #8891a6; }
+.rrl-tier input { width: 82px; border: 1px solid #d9dbe4; border-radius: 6px; padding: 0.3rem 0.4rem; font-size: 0.85rem; }

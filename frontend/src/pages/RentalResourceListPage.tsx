@@ -19,6 +19,7 @@ import {
   listRentalConceptsByType,
   listEquipmentUseAreas,
   PRICING_UNIT_PT,
+  RENTAL_PRICING_UNITS,
   type RentableResource,
   type RentableResourceType,
   type RentalPricingUnit,
@@ -86,8 +87,10 @@ export default function RentalResourceListPage() {
   // PAIR_ALLOWED_LABELS por actor). Zero lista local. Backend faz o enforcement na descoberta.
   const { options: audienceOptions } = useAudienceOptions();
   const [audienceKeys, setAudienceKeys] = useState<string[]>(['public']);
-  const [pricingUnit, setPricingUnit] = useState<RentalPricingUnit>('por_dia');
-  const [priceReais, setPriceReais] = useState('');
+  // Fase 1 — faixas de preço: unidade → valor em R$ (string da UI; convertido pra cents no submit).
+  const [tierReais, setTierReais] = useState<Partial<Record<RentalPricingUnit, string>>>({});
+  // Fase 3 — quantidade (só equipment usa; default 1).
+  const [quantity, setQuantity] = useState(1);
   const [conceptOptions, setConceptOptions] = useState<RentalConceptOption[]>([]);
   const [selectedConcept, setSelectedConcept] = useState<RentalConceptOption | null>(null);
   // Área de uso (faceta governada de equipamento) — vem do backend, filtra a Categoria. Só equipment.
@@ -179,7 +182,10 @@ export default function RentalResourceListPage() {
     if (!effectiveName) { showToast(isVehicle ? 'Complete marca, modelo e ano do veículo.' : 'Informe um nome para o recurso.', 'error'); return; }
     setSubmitting(true);
     try {
-      const cents = priceReais.trim() ? Math.round(parseFloat(priceReais.replace(',', '.')) * 100) : null;
+      // Faixas: R$ (UI) → cents (verdade). Só as preenchidas com valor > 0 viram faixa.
+      const pricingTiers = RENTAL_PRICING_UNITS
+        .map((u) => ({ unit: u, priceCents: Math.round((parseFloat((tierReais[u] ?? '').replace(',', '.')) || 0) * 100) }))
+        .filter((t) => t.priceCents > 0);
       const metadata: Record<string, unknown> = {};
       if (isVehicle) {
         // GOVERNADO: sempre IDs do catálogo (nunca texto digitado); nome só como projeção de exibição
@@ -202,18 +208,18 @@ export default function RentalResourceListPage() {
         resourceType,
         label: effectiveName,
         description: description.trim() || null,
-        pricingUnit: cents != null ? pricingUnit : null,
-        priceCents: cents,
         resourceYear: isVehicle ? vehicleSel.year : null, // ano governado (dropdown), nunca texto livre
         metadata,
         visibility: aud.visibility,
         audienceRelationshipTypes: aud.audienceRelationshipTypes,
+        pricingTiers, // faixas em cents (verdade); vazio se nada preenchido
+        quantity: resourceType === 'equipment' ? quantity : 1, // único vs fungível (backend revalida)
         cityId: selectedCity?.id ?? null, // localização governada (SSOT cities), nunca texto livre
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
       setShowForm(false);
-      setLabel(''); setDescription(''); setPriceReais('');
+      setLabel(''); setDescription(''); setTierReais({}); setQuantity(1);
       setSelectedConcept(null); setSelectedCity(null);
       setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
       await load();
@@ -410,19 +416,30 @@ export default function RentalResourceListPage() {
             </div>
           )}
 
-          <div className="rrl-row">
+          {/* Fase 3 — Quantidade: só para EQUIPAMENTO (fungível). Veículo/imóvel/espaço são únicos (1). */}
+          {resourceType === 'equipment' && (
             <label className="rrl-field">
-              Cobrança
-              <select value={pricingUnit} onChange={(e) => setPricingUnit(e.target.value as RentalPricingUnit)}>
-                {(Object.keys(PRICING_UNIT_PT) as RentalPricingUnit[]).map((u) => (
-                  <option key={u} value={u}>{PRICING_UNIT_PT[u]}</option>
-                ))}
-              </select>
+              Quantidade disponível
+              <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))} />
+              <span className="rrl-hint">Ex.: 100 cadeiras. Podem ser alugadas por pessoas diferentes ao mesmo tempo.</span>
             </label>
-            <label className="rrl-field">
-              Preço anunciado (R$)
-              <input type="text" inputMode="decimal" placeholder="Ex.: 150,00 (opcional)" value={priceReais} onChange={(e) => setPriceReais(e.target.value)} />
-            </label>
+          )}
+
+          {/* Fase 1 — Faixas de preço: o dono ativa as unidades que quiser e o valor de cada. Preço em
+              R$ na UI; enviado em cents. É ANÚNCIO — pagamento não acontece pelo sistema. */}
+          <div className="rrl-field">
+            Preço anunciado por faixa <span className="rrl-hint" style={{ fontWeight: 400 }}>(preencha as que oferecer)</span>
+            <div className="rrl-tiers">
+              {RENTAL_PRICING_UNITS.map((u) => (
+                <div key={u} className="rrl-tier">
+                  <span className="rrl-tier-label">{PRICING_UNIT_PT[u]}</span>
+                  <span className="rrl-tier-prefix">R$</span>
+                  <input type="text" inputMode="decimal" placeholder="0,00"
+                    value={tierReais[u] ?? ''}
+                    onChange={(e) => setTierReais((prev) => ({ ...prev, [u]: e.target.value }))} />
+                </div>
+              ))}
+            </div>
           </div>
           <p className="rrl-hint">💡 O preço é o ANÚNCIO — o pagamento em si ainda não acontece pelo sistema.</p>
 

@@ -9,6 +9,7 @@ import { HttpError } from '@core/errors/http-error';
 import { rentableResourceRepository } from './rentable-resource.repository';
 import type {
   RentableResource,
+  RentableResourceType,
   CreateRentableResourceInput,
   ListRentableResourcesFilters,
 } from './rentable-resource.types';
@@ -58,10 +59,24 @@ class RentableResourceService {
       if (!cityOk) throw HttpError.badRequest('RENTABLE_RESOURCE_CITY_NOT_FOUND: cidade não existe na base canônica.');
     }
 
+    // Fase 3 — QUANTIDADE: único (identidade própria) vs fungível. Veículo/imóvel/espaço travados em 1;
+    // só equipamento pode ter >1. Backend é a autoridade (front não decide).
+    const SINGLE_ONLY: RentableResourceType[] = ['vehicle', 'property', 'space'];
+    let quantity = Math.max(1, Math.floor(input.quantity ?? 1));
+    if (SINGLE_ONLY.includes(input.resourceType) && quantity !== 1) {
+      throw HttpError.badRequest(`RENTABLE_RESOURCE_QUANTITY_MUST_BE_1: ${input.resourceType} é único (identidade própria), quantidade não pode ser ${quantity}.`);
+    }
+
     const created = await rentableResourceRepository.create(tenantId, ownerActorId, {
       ...input,
       label: input.label.trim(),
+      quantity,
     });
+
+    // Fase 1 — faixas de preço (SSOT rental_resource_pricing). Dinheiro em cents; validado no schema.
+    if (input.pricingTiers && input.pricingTiers.length > 0) {
+      await rentableResourceRepository.setPricingTiers(tenantId, created.id, input.pricingTiers);
+    }
 
     // vínculo de localização pelo padrão canônico address_assignments → addresses → cities
     if (input.cityId) {

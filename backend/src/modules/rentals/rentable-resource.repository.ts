@@ -42,8 +42,8 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `INSERT INTO rentable_resources
-         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types)
-       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[])
+         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int)
        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, created_at, updated_at`,
       [
@@ -60,6 +60,7 @@ class RentableResourceRepository {
         JSON.stringify(input.metadata ?? {}),
         input.visibility ?? 'public',
         input.audienceRelationshipTypes ?? null,
+        input.quantity ?? 1,
       ]
     );
     if (!row) throw new Error('Falha ao criar rentable_resource');
@@ -176,6 +177,29 @@ class RentableResourceRepository {
       [conceptId]
     );
     return !!row;
+  }
+
+  /** Substitui as faixas de preço do recurso (SSOT rental_resource_pricing). Dinheiro em cents/BIGINT.
+   *  Idempotente: limpa e regrava as faixas ativas informadas. */
+  async setPricingTiers(tenantId: string, resourceId: string, tiers: Array<{ unit: string; priceCents: number }>): Promise<void> {
+    await runQueriesWithTenant(tenantId,
+      `DELETE FROM rental_resource_pricing WHERE resource_id = $1::uuid`, [resourceId]);
+    for (let i = 0; i < tiers.length; i++) {
+      const t = tiers[i];
+      await runQueriesWithTenant(tenantId,
+        `INSERT INTO rental_resource_pricing (resource_id, unit, price_cents, sort_order)
+         VALUES ($1::uuid, $2, $3::bigint, $4)
+         ON CONFLICT (resource_id, unit) DO UPDATE SET price_cents = EXCLUDED.price_cents, sort_order = EXCLUDED.sort_order, updated_at = now()`,
+        [resourceId, t.unit, t.priceCents, i]);
+    }
+  }
+
+  /** Faixas de preço de um recurso (para projeção/estimativa). */
+  async getPricingTiers(tenantId: string, resourceId: string): Promise<Array<{ unit: string; priceCents: number }>> {
+    const rows = await runQueriesWithTenant<{ unit: string; price_cents: string }>(tenantId,
+      `SELECT unit, price_cents FROM rental_resource_pricing WHERE resource_id = $1::uuid AND is_active ORDER BY sort_order ASC NULLS LAST`,
+      [resourceId]);
+    return rows.map((r) => ({ unit: r.unit, priceCents: Number(r.price_cents) }));
   }
 
   /** cidade existe na SSOT canônica? (o front nunca inventa cidade — backend valida) */

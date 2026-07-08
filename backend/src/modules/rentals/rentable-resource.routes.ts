@@ -30,6 +30,13 @@ const createSchema = z.object({
   audienceRelationshipTypes: z.array(z.string()).nullable().optional(),
   // Localização governada: cityId da SSOT `cities` (UUID). NUNCA city_name livre. Backend valida.
   cityId: z.string().uuid().nullable().optional(),
+  // Fase 1: faixas de preço anunciado. priceCents (cents/BIGINT), nunca reais. Unidade governada.
+  pricingTiers: z.array(z.object({
+    unit: z.enum(RENTAL_PRICING_UNITS),
+    priceCents: z.number().int().min(0),
+  })).optional(),
+  // Fase 3: quantidade (equipment pode >1; veículo/imóvel/espaço travados em 1 no service).
+  quantity: z.number().int().min(1).optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -88,6 +95,8 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         visibility: parsed.data.visibility ?? 'public',
         audienceRelationshipTypes: parsed.data.audienceRelationshipTypes ?? null,
         cityId: parsed.data.cityId ?? null,
+        pricingTiers: (parsed.data.pricingTiers ?? []).map((t) => ({ unit: t.unit, priceCents: t.priceCents })),
+        quantity: parsed.data.quantity ?? 1,
       });
       return reply.status(201).send({ ok: true, data: resource });
     } catch (err: any) {

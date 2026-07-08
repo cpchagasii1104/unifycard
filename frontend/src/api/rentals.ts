@@ -9,8 +9,10 @@ import { apiFetchJson } from './client';
 export type RentableResourceType = 'equipment' | 'vehicle' | 'property' | 'space';
 export type RentableResourceStatus = 'active' | 'paused' | 'retired';
 // DECISION-0151 ADENDO A — projeção do vocabulário governado RENTAL_PRICING_UNITS (fonte: backend)
-export type RentalPricingUnit = 'por_hora' | 'por_dia' | 'por_semana' | 'por_mes';
-export const PRICING_UNIT_PT: Record<RentalPricingUnit, string> = { por_hora: 'Por hora', por_dia: 'Por dia (diária)', por_semana: 'Por semana', por_mes: 'Por mês' };
+export type RentalPricingUnit = 'por_hora' | 'por_dia' | 'por_semana' | 'por_mes' | 'por_semestre' | 'por_ano';
+// Ordem de exibição das faixas (do menor pro maior período).
+export const RENTAL_PRICING_UNITS: RentalPricingUnit[] = ['por_hora', 'por_dia', 'por_semana', 'por_mes', 'por_semestre', 'por_ano'];
+export const PRICING_UNIT_PT: Record<RentalPricingUnit, string> = { por_hora: 'Por hora', por_dia: 'Por dia (diária)', por_semana: 'Por semana', por_mes: 'Por mês', por_semestre: 'Por semestre', por_ano: 'Por ano' };
 
 export interface RentableResource {
   id: string;
@@ -43,6 +45,8 @@ export async function createRentableResource(input: {
   visibility?: 'public' | 'connections' | 'only_me';
   audienceRelationshipTypes?: string[] | null;
   cityId?: string | null; // localização governada (SSOT cities) — backend valida; nunca texto livre
+  pricingTiers?: Array<{ unit: RentalPricingUnit; priceCents: number }>; // faixas; priceCents (cents)
+  quantity?: number; // unidades da oferta (equipment pode >1; veículo/imóvel/espaço = 1)
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
