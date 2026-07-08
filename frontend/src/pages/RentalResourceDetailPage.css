@@ -82,3 +82,9 @@
 .rrd-req-message { display: inline-flex; align-items: center; gap: 6px; padding: .45rem .9rem; border: 1px dashed #cbd0f5; border-radius: 8px; background: #f6f7ff; color: #7c81a8; font: inherit; font-weight: 600; cursor: pointer; }
 .rrd-req-message:hover { background: #eef0fb; }
 .rrd-soon { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #e5e7fb; color: #6366f1; padding: .1rem .35rem; border-radius: 999px; }
+
+/* Disponibilidade semântica: texto de ajuda por tipo + horário de retirada/devolução. */
+.rrd-help-text { margin: 8px 0 0; font-size: .82rem; color: #5b627a; background: #f6f7ff; border: 1px solid #e5e7fb; border-radius: 8px; padding: 8px 12px; }
+.rrd-handoff-time { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; font-size: .85rem; color: #374151; }
+.rrd-handoff-time-label { font-weight: 600; }
+.rrd-handoff-time input { border: 1px solid #d9dbe4; border-radius: 6px; padding: .35rem .5rem; font: inherit; }

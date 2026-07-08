@@ -397,6 +397,8 @@ class RentableResourceService {
       deliveryRadiusKm?: number | null;
       deliveryFeeCents?: number | null;
       collectionFeeCents?: number | null;
+      handoffTimeStart?: string | null;
+      handoffTimeEnd?: string | null;
     }
   ): Promise<RentableResource> {
     const resource = await this.get(tenantId, resourceId);
@@ -441,6 +443,10 @@ class RentableResourceService {
       deliveryFeeCents: handoff?.deliveryFeeCents,
       collectionFeeCents: handoff?.collectionFeeCents,
       handoffTouched,
+      // Horário de retirada/devolução (regra do recurso). touched = o dono mandou o campo (permite limpar).
+      handoffTimeTouched: input.handoffTimeStart !== undefined || input.handoffTimeEnd !== undefined,
+      handoffTimeStart: input.handoffTimeStart ?? null,
+      handoffTimeEnd: input.handoffTimeEnd ?? null,
     });
     if (input.pricingTiers) {
       await rentableResourceRepository.setPricingTiers(tenantId, resourceId, input.pricingTiers);

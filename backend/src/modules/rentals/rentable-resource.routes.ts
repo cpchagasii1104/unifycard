@@ -44,6 +44,8 @@ const createSchema = z.object({
   deliveryRadiusKm: z.number().int().min(1).nullable().optional(),
   deliveryFeeCents: z.number().int().min(0).nullable().optional(),
   collectionFeeCents: z.number().int().min(0).nullable().optional(),
+  handoffTimeStart: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  handoffTimeEnd: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -65,6 +67,8 @@ const updateOfferSchema = z.object({
   deliveryRadiusKm: z.number().int().min(1).nullable().optional(),
   deliveryFeeCents: z.number().int().min(0).nullable().optional(),
   collectionFeeCents: z.number().int().min(0).nullable().optional(),
+  handoffTimeStart: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  handoffTimeEnd: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
 });
 
 const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -361,6 +365,8 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         deliveryRadiusKm: parsed.data.deliveryRadiusKm,
         deliveryFeeCents: parsed.data.deliveryFeeCents,
         collectionFeeCents: parsed.data.collectionFeeCents,
+        handoffTimeStart: parsed.data.handoffTimeStart,
+        handoffTimeEnd: parsed.data.handoffTimeEnd,
       });
       return reply.send({ ok: true, data: resource });
     } catch (err: any) {

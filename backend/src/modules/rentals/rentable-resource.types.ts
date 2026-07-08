@@ -80,6 +80,8 @@ export interface RentableResource {
   deliveryRadiusKm: number | null;
   deliveryFeeCents: number | null;
   collectionFeeCents: number | null;
+  handoffTimeStart: string | null;
+  handoffTimeEnd: string | null;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -104,6 +106,8 @@ export interface RentableResourceRow {
   delivery_radius_km?: number | null;
   delivery_fee_cents?: string | number | null;
   collection_fee_cents?: string | number | null;
+  handoff_time_start?: string | null;
+  handoff_time_end?: string | null;
   resource_year: number | null;
   metadata: Record<string, unknown> | null;
   visibility: RentableVisibility;
@@ -136,6 +140,8 @@ export interface CreateRentableResourceInput {
   deliveryRadiusKm?: number | null; // raio de entrega (km) quando owner_delivery.
   deliveryFeeCents?: number | null; // taxa ANUNCIADA de entrega (cents).
   collectionFeeCents?: number | null; // taxa ANUNCIADA de busca (cents).
+  handoffTimeStart?: string | null; // horario de retirada/devolucao (HH:MM) — regra do recurso.
+  handoffTimeEnd?: string | null;
 }
 
 export interface ListRentableResourcesFilters {

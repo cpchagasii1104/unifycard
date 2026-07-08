@@ -36,6 +36,8 @@ export interface RentableResource {
   deliveryRadiusKm: number | null;
   deliveryFeeCents: number | null;
   collectionFeeCents: number | null;
+  handoffTimeStart: string | null;
+  handoffTimeEnd: string | null;
   metadata: Record<string, unknown>;
   status: RentableResourceStatus;
   isActive: boolean;
@@ -61,6 +63,7 @@ export async function createRentableResource(input: {
   bookingApprovalMode?: BookingApprovalMode; // Airbnb: dono decide auto/manual no cadastro
   startHandoffMethod?: StartHandoffMethod; endHandoffMethod?: EndHandoffMethod;
   deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
+  handoffTimeStart?: string | null; handoffTimeEnd?: string | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
@@ -91,6 +94,7 @@ export async function updateRentalOffer(id: string, input: {
   bookingApprovalMode?: BookingApprovalMode;
   startHandoffMethod?: StartHandoffMethod; endHandoffMethod?: EndHandoffMethod;
   deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
+  handoffTimeStart?: string | null; handoffTimeEnd?: string | null;
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>(`/rentable-resources/${id}`, {
     method: 'PUT',

@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
-import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, requestResourceBooking, getResourceRequests, declineResourceRequest, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail, type RentalRequest } from '../api/rentals';
+import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, updateRentalOffer, requestResourceBooking, getResourceRequests, declineResourceRequest, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail, type RentalRequest } from '../api/rentals';
 import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
 import './RentalResourceDetailPage.css';
 
@@ -37,9 +37,15 @@ export default function RentalResourceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [startAt, setStartAt] = useState('');
-  const [endAt, setEndAt] = useState('');
+  // Declarar disponibilidade por tipo: datas (todos) + horário de uso (só espaço).
+  const [availDateStart, setAvailDateStart] = useState('');
+  const [availDateEnd, setAvailDateEnd] = useState('');
+  const [availUseStart, setAvailUseStart] = useState('');
+  const [availUseEnd, setAvailUseEnd] = useState('');
   const [submittingWindow, setSubmittingWindow] = useState(false);
+  // Horário de retirada/devolução (regra do recurso — não limite diário). Prefill do recurso no load.
+  const [handoffStart, setHandoffStart] = useState('');
+  const [handoffEnd, setHandoffEnd] = useState('');
 
   const isOwner = !!activeActor && !!resource && resource.ownerActorId === activeActor.actor_id;
 
@@ -50,6 +56,8 @@ export default function RentalResourceDetailPage() {
     try {
       const r = await getRentableResource(id);
       setResource(r);
+      setHandoffStart(r.handoffTimeStart ? r.handoffTimeStart.slice(0, 5) : '');
+      setHandoffEnd(r.handoffTimeEnd ? r.handoffTimeEnd.slice(0, 5) : '');
       // Oferta (faixas de preço + cidade do dono = local de retirada/devolução). Não crítico: se falhar,
       // a tela ainda funciona. O consumidor precisa ver por quanto e onde antes de solicitar.
       getRentalOfferDetail(id).then(setOffer).catch(() => setOffer(null));
@@ -84,29 +92,46 @@ export default function RentalResourceDetailPage() {
     load();
   }, [load]);
 
+  // Semântica por tipo: ESPAÇO usa horário de USO real (a janela é aquele intervalo); os demais são
+  // POSSE CONTÍNUA — a janela vai por DATAS (dia inteiro), e o horário de retirada/devolução é regra
+  // do recurso (handoffTime), não limite diário. Frontend não decide disponibilidade; só monta a janela.
+  const isSpace = resource?.resourceType === 'space';
   const handleDeclareWindow = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !startAt || !endAt) {
-      showToast('Informe início e fim da janela.', 'error');
-      return;
+    if (!id || !availDateStart || !availDateEnd) { showToast('Informe as datas de início e fim.', 'error'); return; }
+    let startIso: string, endIso: string;
+    if (isSpace) {
+      if (!availUseStart || !availUseEnd) { showToast('Informe o horário de uso.', 'error'); return; }
+      startIso = new Date(`${availDateStart}T${availUseStart}:00`).toISOString();
+      endIso = new Date(`${availDateEnd}T${availUseEnd}:00`).toISOString();
+    } else {
+      // posse contínua: dia inteiro do primeiro dia ao último.
+      startIso = new Date(`${availDateStart}T00:00:00`).toISOString();
+      endIso = new Date(`${availDateEnd}T23:59:59`).toISOString();
     }
-    const startIso = new Date(startAt).toISOString();
-    const endIso = new Date(endAt).toISOString();
-    if (new Date(endIso) <= new Date(startIso)) {
-      showToast('O fim deve ser depois do início.', 'error');
-      return;
-    }
+    if (new Date(endIso) <= new Date(startIso)) { showToast('O fim deve ser depois do início.', 'error'); return; }
     setSubmittingWindow(true);
     try {
       await createAvailability({ ownerType: 'rentable_resource', ownerId: id, startDatetime: startIso, endDatetime: endIso });
-      showToast('Janela de disponibilidade criada.', 'success');
-      setStartAt('');
-      setEndAt('');
+      showToast('Disponibilidade criada. ✅', 'success');
+      setAvailDateStart(''); setAvailDateEnd(''); setAvailUseStart(''); setAvailUseEnd('');
       await load();
     } catch (err: any) {
-      showToast(err?.message || 'Erro ao criar janela', 'error');
+      const msg = String(err?.message || '');
+      showToast(msg.includes('OVERLAP') ? 'Esse período se sobrepõe a outra disponibilidade. Ajuste as datas.' : (msg || 'Erro ao criar janela'), 'error');
     } finally {
       setSubmittingWindow(false);
+    }
+  };
+
+  const saveHandoffTime = async () => {
+    if (!id) return;
+    try {
+      await updateRentalOffer(id, { handoffTimeStart: handoffStart || null, handoffTimeEnd: handoffEnd || null });
+      showToast('Horário de retirada/devolução salvo.', 'success');
+      await load();
+    } catch (err: any) {
+      showToast(err?.message || 'Erro ao salvar horário', 'error');
     }
   };
 
@@ -218,6 +243,9 @@ export default function RentalResourceDetailPage() {
           <p className="rrd-subtitle">{RESOURCE_TYPE_LABEL[resource.resourceType]}{resource.description ? ` · ${resource.description}` : ''}</p>
           {/* Local (cidade do dono = retirada/devolução) + preço anunciado — o consumidor decide informado. */}
           {offer?.city && <p className="rrd-meta">📍 Retirada e devolução em {offer.city.name}{offer.city.uf ? `/${offer.city.uf}` : ''}</p>}
+          {resource.resourceType !== 'space' && resource.handoffTimeStart && resource.handoffTimeEnd && (
+            <p className="rrd-meta">🕗 Retirada/devolução entre {resource.handoffTimeStart.slice(0, 5)} e {resource.handoffTimeEnd.slice(0, 5)}</p>
+          )}
           {offer && offer.pricingTiers.length > 0 && (
             <p className="rrd-price">{offer.pricingTiers.map((t) => `${PRICING_UNIT_PT[t.unit]}: R$ ${(t.priceCents / 100).toFixed(2).replace('.', ',')}`).join(' · ')}</p>
           )}
@@ -235,12 +263,36 @@ export default function RentalResourceDetailPage() {
 
       {isOwner && (
         <section className="rrd-section">
-          <h2>Declarar disponibilidade</h2>
+          <h2>{isSpace ? 'Disponibilizar o espaço' : 'Disponibilizar para locação'}</h2>
           <form className="rrd-window-form" onSubmit={handleDeclareWindow}>
-            <label>Início <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} /></label>
-            <label>Fim <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} /></label>
-            <button type="submit" disabled={submittingWindow}>{submittingWindow ? 'Criando…' : 'Criar janela'}</button>
+            <label>Disponível de <input type="date" value={availDateStart} onChange={(e) => setAvailDateStart(e.target.value)} /></label>
+            <label>até <input type="date" value={availDateEnd} onChange={(e) => setAvailDateEnd(e.target.value)} /></label>
+            {isSpace && (
+              <>
+                <label>das <input type="time" value={availUseStart} onChange={(e) => setAvailUseStart(e.target.value)} /></label>
+                <label>às <input type="time" value={availUseEnd} onChange={(e) => setAvailUseEnd(e.target.value)} /></label>
+              </>
+            )}
+            <button type="submit" disabled={submittingWindow}>{submittingWindow ? 'Criando…' : 'Disponibilizar'}</button>
           </form>
+          <p className="rrd-help-text">
+            {isSpace
+              ? 'Para espaços, o horário é a janela de uso real (ex.: salão sábado das 18h às 23h).'
+              : resource.resourceType === 'vehicle'
+                ? 'O cliente fica com o veículo durante todo o período reservado — os horários abaixo são só para retirada e devolução, não um limite diário de uso.'
+                : resource.resourceType === 'equipment'
+                  ? 'O cliente fica com o equipamento durante todo o período — os horários abaixo indicam quando pode ser entregue, retirado ou devolvido.'
+                  : 'O período define a disponibilidade; horários abaixo valem para entrega/visita/devolução, se houver.'}
+          </p>
+          {!isSpace && (
+            <div className="rrd-handoff-time">
+              <span className="rrd-handoff-time-label">🕗 Retirada/devolução entre</span>
+              <input type="time" value={handoffStart} onChange={(e) => setHandoffStart(e.target.value)} />
+              <span>e</span>
+              <input type="time" value={handoffEnd} onChange={(e) => setHandoffEnd(e.target.value)} />
+              <button type="button" className="rrd-win-save" onClick={saveHandoffTime}>Salvar horário</button>
+            </div>
+          )}
         </section>
       )}
 

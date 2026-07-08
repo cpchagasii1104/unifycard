@@ -30,6 +30,8 @@ function toDomain(row: RentableResourceRow): RentableResource {
     deliveryRadiusKm: row.delivery_radius_km != null ? Number(row.delivery_radius_km) : null,
     deliveryFeeCents: row.delivery_fee_cents != null ? Number(row.delivery_fee_cents) : null,
     collectionFeeCents: row.collection_fee_cents != null ? Number(row.collection_fee_cents) : null,
+    handoffTimeStart: row.handoff_time_start ?? null,
+    handoffTimeEnd: row.handoff_time_end ?? null,
     metadata: row.metadata ?? {},
     visibility: row.visibility,
     audienceRelationshipTypes: row.audience_relationship_types ?? null,
@@ -52,7 +54,7 @@ class RentableResourceRepository {
          (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents)
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int, $15, $16, $17, $18::int, $19::bigint, $20::bigint)
        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, created_at, updated_at`,
+                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, created_at, updated_at`,
       [
         tenantId,
         ownerActorId,
@@ -84,7 +86,7 @@ class RentableResourceRepository {
     const row = await runQueryWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, created_at, updated_at
          FROM rentable_resources
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         LIMIT 1`,
@@ -112,7 +114,7 @@ class RentableResourceRepository {
     const rows = await runQueriesWithTenant<RentableResourceRow>(
       tenantId,
       `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, created_at, updated_at
+              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, created_at, updated_at
          FROM rentable_resources
         WHERE ${where}
         ORDER BY created_at DESC
@@ -232,7 +234,7 @@ class RentableResourceRepository {
           SET status = $3, is_active = ($3 = 'active'), updated_at = now()
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, created_at, updated_at`,
+                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, created_at, updated_at`,
       [id, tenantId, status]
     );
     return row ? toDomain(row) : null;
@@ -263,6 +265,7 @@ class RentableResourceRepository {
     startHandoffMethod?: string; endHandoffMethod?: string;
     deliveryRadiusKm?: number | null; deliveryFeeCents?: number | null; collectionFeeCents?: number | null;
     handoffTouched?: boolean; // quando true, grava as 5 colunas de handoff (permite zerar taxas/raio).
+    handoffTimeStart?: string | null; handoffTimeEnd?: string | null; handoffTimeTouched?: boolean;
   }): Promise<void> {
     await runQueriesWithTenant(tenantId,
       `UPDATE rentable_resources SET
@@ -276,6 +279,8 @@ class RentableResourceRepository {
          delivery_radius_km = CASE WHEN $11::boolean THEN $12::int ELSE delivery_radius_km END,
          delivery_fee_cents = CASE WHEN $11::boolean THEN $13::bigint ELSE delivery_fee_cents END,
          collection_fee_cents = CASE WHEN $11::boolean THEN $14::bigint ELSE collection_fee_cents END,
+         handoff_time_start = CASE WHEN $15::boolean THEN $16::time ELSE handoff_time_start END,
+         handoff_time_end = CASE WHEN $15::boolean THEN $17::time ELSE handoff_time_end END,
          updated_at = now()
        WHERE id = $1::uuid`,
       [
@@ -291,6 +296,9 @@ class RentableResourceRepository {
         input.deliveryRadiusKm ?? null,
         input.deliveryFeeCents ?? null,
         input.collectionFeeCents ?? null,
+        input.handoffTimeTouched === true,
+        input.handoffTimeStart ?? null,
+        input.handoffTimeEnd ?? null,
       ]);
   }
 
