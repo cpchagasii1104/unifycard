@@ -143,6 +143,24 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   /**
+   * GET /rentable-resources/:id/price-estimate?startAt=&endAt= — ESTIMATIVA (Fase 2, PRÉ-DINHEIRO).
+   * Backend calcula das faixas declaradas; não cria cobrança/reserva. Valores em cents. Read-only.
+   */
+  fastify.get<{ Params: { id: string }; Querystring: { startAt?: string; endAt?: string } }>(
+    '/:id/price-estimate',
+    async (req, reply) => {
+      if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+      const start = new Date(req.query.startAt ?? '');
+      const end = new Date(req.query.endAt ?? '');
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return reply.status(400).send({ error: 'startAt/endAt inválidos (ISO 8601)' });
+      }
+      const estimate = await rentableResourceService.estimatePrice(req.tenant.id, req.params.id, start, end);
+      return reply.send({ ok: true, data: estimate });
+    }
+  );
+
+  /**
    * GET /rentable-resources/concepts?resourceType=&q=
    * Catálogo GOVERNADO filtrado por tipo + oferta (fix 2ª IA 2026-07-07: "lista curada" virou
    * GOVERNANÇA real via concept_offer_kinds — não array hardcoded). Dois filtros compostos:

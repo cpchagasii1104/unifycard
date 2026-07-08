@@ -93,6 +93,16 @@ class RentableResourceService {
     return resource;
   }
 
+  /**
+   * Fase 2 — ESTIMATIVA de preço (PRÉ-DINHEIRO). Backend calcula a partir das faixas declaradas +
+   * o período; o front só renderiza. NÃO cria cobrança/hold/reserva; Δbank=0. Valores em cents.
+   */
+  async estimatePrice(tenantId: string, resourceId: string, startAt: Date, endAt: Date) {
+    const { estimatePrice } = await import('./pricing-estimate');
+    const tiers = await rentableResourceRepository.getPricingTiers(tenantId, resourceId);
+    return estimatePrice(tiers as { unit: any; priceCents: number }[], startAt, endAt);
+  }
+
   async list(tenantId: string, filters: ListRentableResourcesFilters): Promise<RentableResource[]> {
     return rentableResourceRepository.list(tenantId, filters);
   }
