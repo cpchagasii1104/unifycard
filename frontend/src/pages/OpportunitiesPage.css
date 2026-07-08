@@ -34,3 +34,22 @@
 .opp-weekdays { display: flex; gap: 10px; flex-wrap: wrap; }
 .opp-wd { flex-direction: row !important; align-items: center; gap: 4px !important; font-weight: 400 !important; }
 .opp-note { color: #8a8f98; font-size: 0.85rem; margin: 0; }
+
+/* Resumo colapsado da plateia herdada (carry-over) — não re-pergunta como etapa vazia. */
+.audience-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  margin-bottom: 12px;
+}
+.audience-collapsed-title { font-size: 13px; font-weight: 600; color: #64748b; }
+.audience-collapsed-value { flex: 1; font-size: 15px; font-weight: 600; color: #0f172a; }
+.audience-collapsed-alter {
+  padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 8px;
+  background: #fff; color: #2563eb; font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.audience-collapsed-alter:hover { background: #eff6ff; }

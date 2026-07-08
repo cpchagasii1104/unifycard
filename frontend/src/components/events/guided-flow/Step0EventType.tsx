@@ -37,6 +37,14 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
   // Inicializa com a plateia HERDADA do composer inicial (carry-over), se veio.
   const { options: audienceOptions } = useAudienceOptions();
   const [audienceKeys, setAudienceKeys] = useState<string[]>(initialAudienceKeys ?? []);
+  // Veio do composer inicial com plateia → mostra RESUMO colapsado (não re-pergunta). Aberto direto
+  // (/events/new, sem herança) → AudiencePicker completo. "Alterar" expande o picker comum.
+  const inheritedAudience = (initialAudienceKeys?.length ?? 0) > 0;
+  const [audienceExpanded, setAudienceExpanded] = useState<boolean>(!inheritedAudience);
+  const audienceSummary = audienceKeys
+    .map((k) => audienceOptions.find((o) => o.key === k)?.label)
+    .filter(Boolean)
+    .join(' + ') || 'Público';
   const handleAudienceChange = (keys: string[]) => {
     setAudienceKeys(keys);
     // selectedType alimenta o mapeamento de event_type existente (público vs demais).
@@ -153,14 +161,23 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading, 
 
       <div className="step-content">
         {/* Decisão Clayton 2026-07-07: "Para quem é isso?" é a PRIMEIRA pergunta —
-            ANTES do tipo (mesma ordem do composer/demanda). Plateia projetada do contrato 0161. */}
+            ANTES do tipo (mesma ordem do composer/demanda). Plateia projetada do contrato 0161.
+            Vindo do composer (herança) → resumo colapsado; aberto direto → picker completo. */}
         <div className="form-section">
-          <AudiencePicker
-            options={audienceOptions}
-            selectedKeys={audienceKeys}
-            onChange={handleAudienceChange}
-            title="1 · Para quem é este evento?"
-          />
+          {audienceExpanded ? (
+            <AudiencePicker
+              options={audienceOptions}
+              selectedKeys={audienceKeys}
+              onChange={handleAudienceChange}
+              title="1 · Para quem é este evento?"
+            />
+          ) : (
+            <div className="audience-collapsed">
+              <span className="audience-collapsed-title">Plateia</span>
+              <span className="audience-collapsed-value">{audienceSummary}</span>
+              <button type="button" className="audience-collapsed-alter" onClick={() => setAudienceExpanded(true)}>Alterar</button>
+            </div>
+          )}
         </div>
 
         <div className="form-section">

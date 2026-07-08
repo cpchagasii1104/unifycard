@@ -43,6 +43,13 @@ export default function DemandPublishForm({ onPublished, onCancel, initialAudien
       ? initialAudienceKeys.filter((k) => k !== 'only_me')
       : ['public']
   );
+  // Veio do composer com plateia herdada → resumo colapsado (não re-pergunta). "Alterar" expande.
+  const inheritedAudience = (initialAudienceKeys?.filter((k) => k !== 'only_me').length ?? 0) > 0;
+  const [audienceExpanded, setAudienceExpanded] = useState<boolean>(!inheritedAudience);
+  const audienceSummary = audienceKeys
+    .map((k) => audienceOptions.find((o) => o.key === k)?.label)
+    .filter(Boolean)
+    .join(' + ') || 'Público';
 
   useEffect(() => {
     if (!activeActor?.actor_id) return;
@@ -75,7 +82,15 @@ export default function DemandPublishForm({ onPublished, onCancel, initialAudien
 
   return (
     <div className="opp-form">
-      <AudiencePicker options={audienceOptions} selectedKeys={audienceKeys} onChange={setAudienceKeys} title="1 · Para quem é isso?" />
+      {audienceExpanded ? (
+        <AudiencePicker options={audienceOptions} selectedKeys={audienceKeys} onChange={setAudienceKeys} title="1 · Para quem é isso?" />
+      ) : (
+        <div className="audience-collapsed">
+          <span className="audience-collapsed-title">Plateia</span>
+          <span className="audience-collapsed-value">{audienceSummary}</span>
+          <button type="button" className="audience-collapsed-alter" onClick={() => setAudienceExpanded(true)}>Alterar</button>
+        </div>
+      )}
       <label>2 · O que você precisa? (busque no catálogo) *
         <input placeholder="Digite pra buscar: garçom, pedreiro, manicure…" value={conceptSearch}
           onChange={(e) => { setConceptSearch(e.target.value); setForm((f) => ({ ...f, conceptSlug: '' })); }} />
