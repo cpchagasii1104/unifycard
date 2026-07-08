@@ -92,11 +92,15 @@ export interface RentalDiscoverCard {
   estimate: { available: boolean; estimatedPriceCents: number; disclaimer: string } | null;
   metadata: Record<string, unknown>;
 }
+// Padrão locadora adaptado P2P: o consumidor manda ONDE ESTÁ (cidade obrigatória + CEP opcional) e
+// QUANDO. O backend resolve a coord da origem (SSOT) e calcula distância/estimativa — o front NUNCA
+// manda lat/lng. O local de retirada/devolução é o do DONO de cada anúncio, não escolha do consumidor.
 export async function discoverRentals(f: {
-  cityId?: string; radiusKm?: number; resourceType?: string; startAt?: string; endAt?: string;
+  originCityId?: string; originCep?: string; radiusKm?: number; resourceType?: string; startAt?: string; endAt?: string;
 }): Promise<RentalDiscoverCard[]> {
   const p = new URLSearchParams();
-  if (f.cityId) p.set('cityId', f.cityId);
+  if (f.originCityId) p.set('originCityId', f.originCityId);
+  if (f.originCep) p.set('originCep', f.originCep);
   if (f.radiusKm) p.set('radiusKm', String(f.radiusKm));
   if (f.resourceType) p.set('resourceType', f.resourceType);
   if (f.startAt) p.set('startAt', f.startAt);

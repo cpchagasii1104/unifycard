@@ -268,11 +268,12 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
    * Owner-only (prova contra o owner_actor_id JÁ REGISTRADO do recurso, não o declarado).
    */
   /**
-   * GET /rentable-resources/discover?cityId=&lat=&lng=&radiusKm=&resourceType=&startAt=&endAt=
-   * DESCOBERTA (Fase 5): backend filtra por localidade/raio/tipo, calcula distância + estimativa.
-   * Viewer server-side (plateia do dono). Frontend só renderiza. Pré-dinheiro (Δbank=0).
+   * GET /rentable-resources/discover?originCityId=&originCep=&radiusKm=&resourceType=&startAt=&endAt=
+   * DESCOBERTA (padrão locadora adaptado P2P): o consumidor informa ONDE ESTÁ (cidade/CEP) e QUANDO;
+   * o backend resolve a coord da origem na SSOT (front NÃO manda lat/lng), calcula distância, filtra por
+   * raio, ordena por proximidade e estima. Viewer server-side. Pré-dinheiro (Δbank=0).
    */
-  fastify.get<{ Querystring: { cityId?: string; lat?: string; lng?: string; radiusKm?: string; resourceType?: string; startAt?: string; endAt?: string } }>(
+  fastify.get<{ Querystring: { originCityId?: string; originCep?: string; radiusKm?: string; resourceType?: string; startAt?: string; endAt?: string } }>(
     '/discover',
     async (req, reply) => {
       if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
@@ -281,8 +282,9 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
       const num = (v?: string) => (v != null && v !== '' && !isNaN(Number(v)) ? Number(v) : null);
       const date = (v?: string) => { if (!v) return null; const d = new Date(v); return isNaN(d.getTime()) ? null : d; };
       const cards = await rentableResourceService.discoverRentals(req.tenant.id, viewerActorId, {
-        cityId: req.query.cityId ?? null,
-        lat: num(req.query.lat), lng: num(req.query.lng), radiusKm: num(req.query.radiusKm),
+        originCityId: req.query.originCityId ?? null,
+        originCep: req.query.originCep ?? null,
+        radiusKm: num(req.query.radiusKm),
         resourceType: req.query.resourceType ?? null,
         startAt: date(req.query.startAt), endAt: date(req.query.endAt),
       });

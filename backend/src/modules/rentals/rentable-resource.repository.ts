@@ -322,6 +322,15 @@ class RentableResourceRepository {
     return rows.map((r) => ({ id: r.id, label: r.label, resourceType: r.resource_type, cityName: r.city_name, uf: r.uf }));
   }
 
+  /** Coordenada canônica de uma cidade (SSOT cities). Origem do consumidor na busca por proximidade —
+   *  o front nunca manda lat/lng; o backend resolve da cidade escolhida. */
+  async cityCoord(cityId: string): Promise<{ lat: number; lng: number } | null> {
+    const row = await runQueryWithTenant<{ lat: string | null; lng: string | null }>(
+      'public', `SELECT lat, lng FROM cities WHERE city_id = $1::uuid AND is_active LIMIT 1`, [cityId]);
+    if (!row || row.lat == null || row.lng == null) return null;
+    return { lat: Number(row.lat), lng: Number(row.lng) };
+  }
+
   /** cidade existe na SSOT canônica? (o front nunca inventa cidade — backend valida) */
   async cityExists(cityId: string): Promise<boolean> {
     const row = await runQueryWithTenant<{ city_id: string }>(

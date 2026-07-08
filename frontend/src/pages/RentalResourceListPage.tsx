@@ -84,6 +84,7 @@ export default function RentalResourceListPage() {
   const [typeFilter, setTypeFilter] = useState<RentableResourceType | 'all'>('all');
   // Fase 5 — busca (consumir): cidade + período + raio. Backend filtra/calcula; front só projeta.
   const [searchCity, setSearchCity] = useState<CitySearchResult | null>(null);
+  const [searchCep, setSearchCep] = useState('');
   const [searchStart, setSearchStart] = useState('');
   const [searchEnd, setSearchEnd] = useState('');
   const [searchRadius, setSearchRadius] = useState('');
@@ -332,10 +333,13 @@ export default function RentalResourceListPage() {
   const visible = typeFilter === 'all' ? resources : resources.filter((r) => r.resourceType === typeFilter);
 
   const runSearch = async () => {
+    // "Onde você está" (cidade obrigatória) — o backend resolve a coord; o front nunca manda lat/lng.
+    if (!searchCity) { showToast('Escolha a cidade onde você está para buscar por perto.', 'error'); return; }
     setSearchBusy(true);
     try {
       const cards = await discoverRentals({
-        cityId: searchCity?.id,
+        originCityId: searchCity.id,
+        originCep: searchCep.trim() || undefined,
         radiusKm: searchRadius.trim() ? Number(searchRadius) : undefined,
         resourceType: typeFilter !== 'all' ? typeFilter : undefined,
         startAt: searchStart ? new Date(searchStart).toISOString() : undefined,
@@ -370,18 +374,32 @@ export default function RentalResourceListPage() {
           ))}
         </div>
 
-        {/* Fase 5 — busca por localidade/raio/período. Backend filtra, calcula distância e estimativa. */}
+        {/* Fluxo guiado (padrão locadora, adaptado P2P): ONDE VOCÊ ESTÁ → QUANDO → resultados por
+            proximidade. "Onde" = sua localização (achar o mais perto), NÃO o local de retirada — este
+            é o do dono de cada anúncio. Backend resolve a coord (SSOT) e calcula distância/estimativa. */}
         <div className="rrl-search">
-          <div className="rrl-field">Cidade
-            <GovernedCombobox<CitySearchResult> value={searchCity} onChange={setSearchCity}
-              loadOptions={(q) => searchCities(q)} getOptionKey={(c) => c.id}
-              getOptionLabel={(c) => c.stateUf ? `${c.name} · ${c.stateUf}` : c.name}
-              placeholder="Qualquer cidade" emptyMessage="Nenhuma cidade" />
+          <div className="rrl-search-step">
+            <span className="rrl-search-step-title">📍 Onde você está</span>
+            <div className="rrl-search-row">
+              <div className="rrl-field">Cidade *
+                <GovernedCombobox<CitySearchResult> value={searchCity} onChange={setSearchCity}
+                  loadOptions={(q) => searchCities(q)} getOptionKey={(c) => c.id}
+                  getOptionLabel={(c) => c.stateUf ? `${c.name} · ${c.stateUf}` : c.name}
+                  placeholder="Sua cidade" emptyMessage="Nenhuma cidade" />
+              </div>
+              <label className="rrl-field">CEP (opcional, melhora a proximidade)<input type="text" inputMode="numeric" placeholder="Ex.: 80010-000" maxLength={9} value={searchCep} onChange={(e) => setSearchCep(e.target.value)} /></label>
+              <label className="rrl-field">Raio (km)<input type="number" min={1} placeholder="Ex.: 10" value={searchRadius} onChange={(e) => setSearchRadius(e.target.value)} /></label>
+            </div>
           </div>
-          <label className="rrl-field">Raio (km)<input type="number" min={1} placeholder="Ex.: 10" value={searchRadius} onChange={(e) => setSearchRadius(e.target.value)} /></label>
-          <label className="rrl-field">Retirada<input type="datetime-local" value={searchStart} onChange={(e) => setSearchStart(e.target.value)} /></label>
-          <label className="rrl-field">Devolução<input type="datetime-local" value={searchEnd} onChange={(e) => setSearchEnd(e.target.value)} /></label>
-          <button type="button" className="rrl-submit-btn" disabled={searchBusy} onClick={runSearch}>{searchBusy ? 'Buscando…' : '🔎 Buscar'}</button>
+          <div className="rrl-search-step">
+            <span className="rrl-search-step-title">🗓️ Quando você precisa</span>
+            <div className="rrl-search-row">
+              <label className="rrl-field">Retirada<input type="datetime-local" value={searchStart} onChange={(e) => setSearchStart(e.target.value)} /></label>
+              <label className="rrl-field">Devolução<input type="datetime-local" value={searchEnd} onChange={(e) => setSearchEnd(e.target.value)} /></label>
+              <button type="button" className="rrl-submit-btn rrl-search-go" disabled={searchBusy} onClick={runSearch}>{searchBusy ? 'Buscando…' : '🔎 Buscar por perto'}</button>
+            </div>
+          </div>
+          <p className="rrl-hint">A retirada e a devolução acontecem no local que o dono definiu em cada anúncio — aqui você só diz onde está para ver o que tem mais perto.</p>
         </div>
 
         {discoverCards !== null ? (

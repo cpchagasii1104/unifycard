@@ -163,15 +163,28 @@ class RentableResourceService {
   }
 
   /**
-   * Fase 5 — DESCOBERTA com filtros (cidade/raio/tipo) + estimativa por card (se período). Backend é a
-   * autoridade: distância, filtro e estimativa são calculados aqui; o front só renderiza. Pré-dinheiro.
+   * DESCOBERTA no padrão locadora adaptado ao P2P (decisões Clayton 2026-07-08). O consumidor informa
+   * ONDE ESTÁ (originCityId obrigatório + originCep opcional) e QUANDO (período). Backend é a AUTORIDADE:
+   * resolve a coord da ORIGEM na SSOT (cidade sempre; CEP refina) — o front NUNCA manda lat/lng —,
+   * calcula distância (haversine), filtra por raio, ordena por proximidade e estima o preço. O local de
+   * retirada/devolução é o do DONO (cada anúncio), não escolha do consumidor. Pré-dinheiro (Δbank=0).
    */
   async discoverRentals(
     tenantId: string, viewerActorId: string,
-    f: { cityId?: string | null; lat?: number | null; lng?: number | null; radiusKm?: number | null; resourceType?: string | null; startAt?: Date | null; endAt?: Date | null },
+    f: { originCityId?: string | null; originCep?: string | null; radiusKm?: number | null; resourceType?: string | null; startAt?: Date | null; endAt?: Date | null },
     limit?: number
   ) {
-    const rows = await rentableResourceRepository.discoverRentals(tenantId, viewerActorId, f, limit);
+    // Coord da ORIGEM do consumidor, resolvida server-side (SSOT): CEP refina (produção); cidade é a
+    // base garantida (sem depender de rede). Se nenhuma origem, sem centro de raio (lista sem distância).
+    let lat: number | null = null, lng: number | null = null;
+    if (f.originCep) { const geo = await this.resolveCepGeo(f.originCep); lat = geo.lat; lng = geo.lng; }
+    if ((lat == null || lng == null) && f.originCityId) {
+      const c = await rentableResourceRepository.cityCoord(f.originCityId);
+      if (c) { lat = c.lat; lng = c.lng; }
+    }
+    const rows = await rentableResourceRepository.discoverRentals(
+      tenantId, viewerActorId,
+      { lat, lng, radiusKm: f.radiusKm, resourceType: f.resourceType }, limit);
     const withPeriod = f.startAt && f.endAt && !isNaN(f.startAt.getTime()) && !isNaN(f.endAt.getTime());
     const { estimatePrice } = await import('./pricing-estimate');
     return Promise.all(rows.map(async (r) => {

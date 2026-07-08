@@ -84,3 +84,11 @@
 .rrl-modal-cancel { padding: .5rem 1.1rem; border: 1px solid #d7dbe0; border-radius: 8px; background: #fff; color: #374151; font: inherit; font-weight: 600; cursor: pointer; }
 .rrl-modal-cancel:hover { background: #f3f4f6; }
 @media (max-width: 560px) { .rrl-modal-body .rrl-tiers { grid-template-columns: 1fr; } }
+
+/* Fluxo guiado de busca (padrão locadora adaptado P2P): passos Onde / Quando. */
+.rrl-search { display: flex; flex-direction: column; gap: 14px; }
+.rrl-search-step { display: flex; flex-direction: column; gap: 8px; }
+.rrl-search-step-title { font-weight: 700; color: #1e2338; font-size: .95rem; }
+.rrl-search-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.rrl-search-row .rrl-field { flex: 1 1 180px; min-width: 0; }
+.rrl-search-go { flex: 0 0 auto; }
