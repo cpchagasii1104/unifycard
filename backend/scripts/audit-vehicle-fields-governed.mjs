@@ -32,5 +32,18 @@ const gcb = strip(read(join(FE, 'components', 'common', 'GovernedCombobox.tsx'))
 const leaks = /(vehicle|make|model|concept|actor|marca|modelo)/i.test(gcb.replace(/loadOptions|getOption\w+/g, ''));
 check('GovernedCombobox é genérico (não acopla domínio de veículo)', gcb.length > 0 && !leaks);
 
+// 6) Categoria (todos os tipos) usa <GovernedCombobox> reabrível — NÃO input+ul manual (bug do MVP).
+check('Categoria usa <GovernedCombobox> (reabrível, não input+ul)', /<GovernedCombobox<RentalConceptOption>/.test(rental));
+
+// 7) RFC-*-USE-AREAS-MVP: área de uso vem do backend (listEquipmentUseAreas), sem lista local. Proíbe
+//    array hardcoded de áreas OU de equipamentos no frontend (os labels/codes governados no cliente).
+check('Área de uso consome listEquipmentUseAreas (backend, sem lista local)', /listEquipmentUseAreas\(/.test(rental));
+const AREA_CODES = ['construction_reform','cleaning_conservation','gardening_land','events_parties','audio_video_lighting','energy_support'];
+const hardcodedAreas = AREA_CODES.filter((c) => rental.includes(`'${c}'`) || rental.includes(`"${c}"`)).length >= 2;
+check('Sem lista local de códigos de área no frontend', !hardcodedAreas);
+const EQUIP_SLUGS = ['furadeira','betoneira','lavadora-alta-pressao','motosserra','tenda','caixa-de-som'];
+const hardcodedEquip = EQUIP_SLUGS.filter((s) => rental.includes(`'${s}'`) || rental.includes(`"${s}"`)).length >= 2;
+check('Sem lista local de equipamentos no frontend', !hardcodedEquip);
+
 if (fail) { console.log(`\nVEHICLE-FIELDS-GOVERNED: FAIL (${fail})`); process.exit(1); }
 console.log('\nVEHICLE-FIELDS-GOVERNED: OK');

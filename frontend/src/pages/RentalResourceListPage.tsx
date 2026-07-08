@@ -17,17 +17,20 @@ import {
   listMyRentableResources,
   listActiveRentableResources,
   listRentalConceptsByType,
+  listEquipmentUseAreas,
   PRICING_UNIT_PT,
   type RentableResource,
   type RentableResourceType,
   type RentalPricingUnit,
   type RentalConceptOption,
+  type EquipmentUseArea,
 } from '../api/rentals';
 import { createAvailability } from '../api/availability';
 import { useAudienceOptions } from '../hooks/useAudienceOptions';
 import AudiencePicker from '../components/composer/AudiencePicker';
 import { resolveAudiencePayload } from '../components/composer/audience-payload';
 import VehicleFields, { type VehicleSelection } from '../components/composer/VehicleFields';
+import GovernedCombobox from '../components/common/GovernedCombobox';
 import './RentalResourceListPage.css';
 
 // Tipo SEM N0 na ontologia congelada ainda (RFC_N0_IMOVEIS_E_PROPRIEDADES.md aguarda Clayton) —
@@ -82,9 +85,11 @@ export default function RentalResourceListPage() {
   const [audienceKeys, setAudienceKeys] = useState<string[]>(['public']);
   const [pricingUnit, setPricingUnit] = useState<RentalPricingUnit>('por_dia');
   const [priceReais, setPriceReais] = useState('');
-  const [conceptQuery, setConceptQuery] = useState('');
   const [conceptOptions, setConceptOptions] = useState<RentalConceptOption[]>([]);
   const [selectedConcept, setSelectedConcept] = useState<RentalConceptOption | null>(null);
+  // Área de uso (faceta governada de equipamento) — vem do backend, filtra a Categoria. Só equipment.
+  const [useAreas, setUseAreas] = useState<EquipmentUseArea[]>([]);
+  const [selectedUseArea, setSelectedUseArea] = useState<EquipmentUseArea | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const publishProfileRef = useRef<() => Promise<void>>(async () => {});
 
@@ -131,19 +136,26 @@ export default function RentalResourceListPage() {
   // fix Clayton 2026-07-07: categoria vem do CATÁLOGO FILTRADO PELO TIPO (nunca do catálogo inteiro)
   useEffect(() => {
     setSelectedConcept(null);
-    setConceptQuery('');
     setConceptOptions([]);
+    setSelectedUseArea(null);
     setVehicleSel({ concept: null, make: null, model: null, year: null });
     setPropArea(''); setPropBedrooms(''); setPropBathrooms(''); setPropFurnished(false);
   }, [resourceType]);
 
+  // Áreas de uso (faceta governada) — carregadas uma vez; usadas só quando Tipo = Equipamento.
+  useEffect(() => {
+    listEquipmentUseAreas().then(setUseAreas).catch(() => setUseAreas([]));
+  }, []);
+
+  // conceptOptions = todas as categorias do tipo (usado pelo VehicleFields, que filtra local). O
+  // GovernedCombobox de categoria (não-veículo) faz o próprio fetch reabrível — não depende disto.
   useEffect(() => {
     if (TYPES_PENDING_RFC.includes(resourceType)) { setConceptOptions([]); return; }
     const t = setTimeout(() => {
-      listRentalConceptsByType(resourceType, conceptQuery).then(setConceptOptions).catch(() => setConceptOptions([]));
+      listRentalConceptsByType(resourceType, '').then(setConceptOptions).catch(() => setConceptOptions([]));
     }, 200);
     return () => clearTimeout(t);
-  }, [resourceType, conceptQuery]);
+  }, [resourceType]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,7 +199,7 @@ export default function RentalResourceListPage() {
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
       setShowForm(false);
       setLabel(''); setDescription(''); setPriceReais('');
-      setSelectedConcept(null); setConceptQuery('');
+      setSelectedConcept(null);
       setVehicleSel({ concept: null, make: null, model: null, year: null });
       await load();
     } catch (err: any) {
@@ -308,23 +320,40 @@ export default function RentalResourceListPage() {
               <VehicleFields value={vehicleSel} onChange={setVehicleSel} conceptOptions={conceptOptions} conceptLabel={(c) => c.label} />
             </div>
           ) : (
-            <label className="rrl-field">
-              3 · Categoria ({RESOURCE_TYPE_LABEL[resourceType].toLowerCase()})
-              <input type="text" placeholder={`Buscar em ${RESOURCE_TYPE_LABEL[resourceType].toLowerCase()}s…`} value={conceptQuery}
-                onChange={(e) => { setConceptQuery(e.target.value); setSelectedConcept(null); }} />
-              {conceptOptions.length > 0 && !selectedConcept && (
-                <ul className="rrl-concept-options">
-                  {conceptOptions.map((c) => (
-                    <li key={c.concept_id}>
-                      <button type="button" onClick={() => { setSelectedConcept(c); setConceptQuery(c.label); setConceptOptions([]); }}>
-                        {c.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+            /* Categoria GOVERNADA reabrível (mesmo componente do veículo): clicar abre a lista sem
+               digitar; reabrível; estados honestos. Zero lista local, zero hardcode. Para EQUIPAMENTO,
+               a Área de uso (faceta governada do backend) filtra a Categoria — RFC-*-USE-AREAS-MVP. */
+            <>
+              {resourceType === 'equipment' && (
+                <div className="rrl-field">
+                  <span>3 · Área de uso</span>
+                  <GovernedCombobox<EquipmentUseArea>
+                    value={selectedUseArea}
+                    onChange={(a) => { setSelectedUseArea(a); setSelectedConcept(null); }}
+                    loadOptions={async (q) => {
+                      const all = useAreas;
+                      return q.trim() ? all.filter((a) => a.label.toLowerCase().includes(q.trim().toLowerCase())) : all;
+                    }}
+                    getOptionKey={(a) => a.code}
+                    getOptionLabel={(a) => `${a.label} (${a.concept_count})`}
+                    placeholder="Todas as áreas"
+                    emptyMessage="Nenhuma área disponível."
+                  />
+                </div>
               )}
-              {selectedConcept && <span className="rrl-concept-selected">✓ {selectedConcept.label}</span>}
-            </label>
+              <div className="rrl-field">
+                <span>{resourceType === 'equipment' ? '4' : '3'} · Categoria ({RESOURCE_TYPE_LABEL[resourceType].toLowerCase()})</span>
+                <GovernedCombobox<RentalConceptOption>
+                  value={selectedConcept}
+                  onChange={setSelectedConcept}
+                  loadOptions={(q) => listRentalConceptsByType(resourceType, q, resourceType === 'equipment' ? selectedUseArea?.code : null)}
+                  getOptionKey={(c) => c.concept_id}
+                  getOptionLabel={(c) => c.label}
+                  placeholder={`Buscar em ${RESOURCE_TYPE_LABEL[resourceType].toLowerCase()}s…`}
+                  emptyMessage="Nenhuma categoria disponível para este tipo."
+                />
+              </div>
+            </>
           )}
 
           <label className="rrl-field">

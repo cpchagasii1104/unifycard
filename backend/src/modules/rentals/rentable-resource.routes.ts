@@ -137,7 +137,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
    * 1) domínio N0 do tipo (RESOURCE_TYPE_TO_DOMAINS, coarse) 2) offer_kind='rentable' (fine —
    * exclui motoboy/guincho/mudança, que são serviços contratáveis do mesmo N0, não bens alugáveis).
    */
-  fastify.get<{ Querystring: { resourceType?: string; q?: string } }>('/concepts', async (req, reply) => {
+  fastify.get<{ Querystring: { resourceType?: string; q?: string; useArea?: string } }>('/concepts', async (req, reply) => {
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
@@ -149,6 +149,10 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     }
     const domains = RESOURCE_TYPE_TO_DOMAINS[rtParsed.data];
     const q = (req.query.q ?? '').trim();
+    // useArea (RFC-RENTAL-EQUIPMENT-USE-AREAS-MVP): faceta GOVERNADA de uso; filtra os concepts da área.
+    // Só se aplica a equipment; ausente = todos (comportamento de hoje). O código da área é validado
+    // contra a tabela governada (JOIN) — não confia na string do cliente.
+    const useArea = (req.query.useArea ?? '').trim();
 
     const { runQueriesWithTenant } = await import('@core/database/pool');
     const params: unknown[] = [domains];
@@ -157,17 +161,46 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
       params.push(`%${q}%`);
       where += ` AND cs.name ILIKE $${params.length}`;
     }
+    let useAreaJoin = '';
+    if (useArea) {
+      params.push(useArea);
+      useAreaJoin = `JOIN rental_equipment_use_area_concepts m ON m.concept_id = c.concept_id
+         JOIN rental_equipment_use_areas a ON a.id = m.use_area_id AND a.is_active AND a.code = $${params.length}`;
+    }
     const rows = await runQueriesWithTenant<{ concept_id: string; slug: string; domain: string; label: string }>(
       req.tenant.id,
       `SELECT DISTINCT ON (c.concept_id) c.concept_id::text, c.slug, c.domain, cs.name AS label
          FROM concepts c
          JOIN canonical_services cs ON cs.concept_id = c.concept_id
          JOIN concept_offer_kinds cok ON cok.concept_id = c.concept_id
+         ${useAreaJoin}
         WHERE ${where}
         ORDER BY c.concept_id, cs.created_at ASC`,
       params
     );
     rows.sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+    return reply.send({ ok: true, data: rows });
+  });
+
+  /**
+   * GET /rentable-resources/equipment-use-areas — faceta GOVERNADA de uso (áreas ativas + contagem).
+   * Fonte da projeção de navegação de equipamentos (frontend só renderiza). Read-only.
+   */
+  fastify.get('/equipment-use-areas', async (req, reply) => {
+    if (!req.tenant?.id) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+    const { runQueriesWithTenant } = await import('@core/database/pool');
+    const rows = await runQueriesWithTenant<{ code: string; label: string; concept_count: number }>(
+      req.tenant.id,
+      `SELECT a.code, a.label, count(m.concept_id)::int AS concept_count
+         FROM rental_equipment_use_areas a
+         LEFT JOIN rental_equipment_use_area_concepts m ON m.use_area_id = a.id
+        WHERE a.is_active
+        GROUP BY a.id, a.code, a.label, a.sort_order
+        ORDER BY a.sort_order ASC`,
+      []
+    );
     return reply.send({ ok: true, data: rows });
   });
 

@@ -91,12 +91,23 @@ export interface RentalConceptOption {
 
 export async function listRentalConceptsByType(
   resourceType: RentableResourceType,
-  q?: string
+  q?: string,
+  useArea?: string | null
 ): Promise<RentalConceptOption[]> {
   const params = new URLSearchParams({ resourceType });
   if (q?.trim()) params.set('q', q.trim());
+  if (useArea) params.set('useArea', useArea);
   const res = await apiFetchJson<{ ok: boolean; data: RentalConceptOption[] }>(
     `/rentable-resources/concepts?${params.toString()}`
+  );
+  return res.data;
+}
+
+// Faceta GOVERNADA de uso de equipamento (RFC-RENTAL-EQUIPMENT-USE-AREAS-MVP). Frontend só projeta.
+export interface EquipmentUseArea { code: string; label: string; concept_count: number; }
+export async function listEquipmentUseAreas(): Promise<EquipmentUseArea[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: EquipmentUseArea[] }>(
+    `/rentable-resources/equipment-use-areas`
   );
   return res.data;
 }
