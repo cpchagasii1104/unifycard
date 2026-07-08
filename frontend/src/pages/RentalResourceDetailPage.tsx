@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { showToast } from '../components/common/Toast';
-import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, updateRentalOffer, requestResourceBooking, getResourceRequests, declineResourceRequest, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail, type RentalRequest } from '../api/rentals';
+import { getRentableResource, updateRentableResourceStatus, getResourcePublicAvailability, getRentalOfferDetail, updateRentalOffer, requestResourceBooking, getResourceRequests, declineResourceRequest, getQuotePreview, PRICING_UNIT_PT, type RentableResource, type RentableResourceStatus, type RentalOfferDetail, type RentalRequest, type QuotePreview } from '../api/rentals';
 import { listAvailabilities, createAvailability, updateAvailability, deleteAvailability, listBookings, confirmBooking, type UnifiedAvailability, type UnifiedBooking } from '../api/availability';
 import './RentalResourceDetailPage.css';
 
@@ -183,6 +183,19 @@ export default function RentalResourceDetailPage() {
   // Subperíodo escolhido por janela (locação por período). Chave = availabilityId.
   const [pickStart, setPickStart] = useState<Record<string, string>>({});
   const [pickEnd, setPickEnd] = useState<Record<string, string>>({});
+  // Cotação por janela: undefined=não pediu, 'loading', ou o preview do backend.
+  const [quotes, setQuotes] = useState<Record<string, QuotePreview | 'loading' | undefined>>({});
+  const fetchQuote = async (wid: string) => {
+    if (!id || !pickStart[wid] || !pickEnd[wid]) return;
+    setQuotes((q) => ({ ...q, [wid]: 'loading' }));
+    try {
+      const preview = await getQuotePreview(id, new Date(pickStart[wid]).toISOString(), new Date(pickEnd[wid]).toISOString());
+      setQuotes((q) => ({ ...q, [wid]: preview }));
+    } catch {
+      setQuotes((q) => ({ ...q, [wid]: undefined }));
+      showToast('Erro ao calcular a cotação.', 'error');
+    }
+  };
 
   // Editar/excluir janela (dono). datetime-local ISO (sem TZ) → o backend valida overlap e autoridade.
   const [editWinId, setEditWinId] = useState<string | null>(null);
@@ -400,9 +413,30 @@ export default function RentalResourceDetailPage() {
                     <div className="rrd-book-period">
                       <span className="rrd-book-period-hint">Escolha o período que você precisa (dentro da janela). Em branco = janela inteira.</span>
                       <div className="rrd-book-period-row">
-                        <label>De<input type="datetime-local" min={winMin} max={winMax} value={pickStart[wid] ?? ''} onChange={(e) => setPickStart((p) => ({ ...p, [wid]: e.target.value }))} /></label>
-                        <label>Até<input type="datetime-local" min={winMin} max={winMax} value={pickEnd[wid] ?? ''} onChange={(e) => setPickEnd((p) => ({ ...p, [wid]: e.target.value }))} /></label>
+                        <label>De<input type="datetime-local" min={winMin} max={winMax} value={pickStart[wid] ?? ''} onChange={(e) => { setPickStart((p) => ({ ...p, [wid]: e.target.value })); setQuotes((q) => ({ ...q, [wid]: undefined })); }} /></label>
+                        <label>Até<input type="datetime-local" min={winMin} max={winMax} value={pickEnd[wid] ?? ''} onChange={(e) => { setPickEnd((p) => ({ ...p, [wid]: e.target.value })); setQuotes((q) => ({ ...q, [wid]: undefined })); }} /></label>
+                        <button type="button" className="rrd-quote-btn" disabled={!pickStart[wid] || !pickEnd[wid]} onClick={() => fetchQuote(wid)}>Ver cotação</button>
                       </div>
+                      {/* COTAÇÃO — o backend calcula available/preço/handoff. O front só projeta. */}
+                      {quotes[wid] === 'loading' && <span className="rrd-book-period-hint">Calculando…</span>}
+                      {quotes[wid] && quotes[wid] !== 'loading' && (() => {
+                        const q = quotes[wid] as QuotePreview;
+                        return q.bookable ? (
+                          <div className="rrd-quote rrd-quote-ok">
+                            <strong>✅ Disponível neste período</strong>
+                            {q.hasEstimate ? <span>Estimativa: R$ {(q.estimatedPriceCents / 100).toFixed(2).replace('.', ',')}</span> : <span>Preço a combinar (sem faixa cadastrada)</span>}
+                            {q.handoffTimeStart && q.handoffTimeEnd && <span>🕗 Retirada/devolução entre {q.handoffTimeStart.slice(0, 5)} e {q.handoffTimeEnd.slice(0, 5)}</span>}
+                            <span className="rrd-quote-disclaimer">{q.disclaimer}</span>
+                          </div>
+                        ) : (
+                          <div className="rrd-quote rrd-quote-no">
+                            ❌ {q.unavailableReason === 'OUT_OF_WINDOW' ? 'Fora da janela de disponibilidade.'
+                              : q.unavailableReason === 'PERIOD_TAKEN' ? 'Esse período já está reservado.'
+                              : q.unavailableReason === 'PERIOD_INVALID' ? 'Período inválido (fim deve ser depois do início).'
+                              : 'Indisponível neste período.'}
+                          </div>
+                        );
+                      })()}
                       <button type="button" className="rrd-request-btn"
                         onClick={() => handleRequestBooking(wid,
                           pickStart[wid] ? new Date(pickStart[wid]).toISOString() : undefined,

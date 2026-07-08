@@ -216,6 +216,55 @@ class RentableResourceService {
     return { bookingId, status: 'cancelled' };
   }
 
+  /**
+   * COTAÇÃO/PREVIEW (F-RENTAL-CONSUMER-QUOTE-PREVIEW). O consumidor escolhe o período; o BACKEND decide
+   * reservabilidade/preço/quantidade e devolve tudo junto. É EXIBIÇÃO — não cria booking/hold/cobrança
+   * nem toca o Bank (Δbank=0). Semântica de data: range CANÔNICO [startAt, endAt) (fim EXCLUSIVO). O frontend
+   * monta o datetime com o horário de retirada/devolução do recurso (não-espaço) ou o horário de uso
+   * (espaço) — timezone resolvido aqui (timestamptz). Reservável = período CONTIDO numa janela macro
+   * ativa E com unidade livre (reservas confirmadas sobrepostas < quantity). Sem faixa → estado honesto.
+   */
+  async quotePreview(tenantId: string, resourceId: string, startAt: Date, endAt: Date) {
+    const DISCLAIMER = 'Estimativa. Pagamento ainda não acontece pelo sistema.';
+    // `bookable` = reservável neste período. Nome escolhido para NÃO colidir com o vocabulário financeiro
+    // do guard (DECISION-0158) — aqui é disponibilidade temporal, não saldo.
+    const resource = await rentableResourceRepository.findById(tenantId, resourceId);
+    if (!resource || resource.status !== 'active' || resource.visibility !== 'public') {
+      return { bookable: false, unavailableReason: 'RESOURCE_NOT_BOOKABLE', estimatedPriceCents: 0, hasEstimate: false, quantityFree: 0, handoffTimeStart: null, handoffTimeEnd: null, disclaimer: DISCLAIMER };
+    }
+    const handoff = { handoffTimeStart: resource.handoffTimeStart, handoffTimeEnd: resource.handoffTimeEnd, quantityFree: 0 };
+    if (isNaN(startAt.getTime()) || isNaN(endAt.getTime()) || endAt <= startAt) {
+      return { bookable: false, unavailableReason: 'PERIOD_INVALID', estimatedPriceCents: 0, hasEstimate: false, ...handoff, disclaimer: DISCLAIMER };
+    }
+    const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
+    const windows = await unifiedAvailabilityRepository.findAvailabilities(tenantId, { ownerType: 'rentable_resource' as any, ownerId: resourceId, status: 'active' as any });
+    // 1) o período tem de estar CONTIDO em alguma janela macro ativa (⊆), não só sobrepor.
+    const fitsWindow = windows.some((w) => new Date(w.startDatetime) <= startAt && new Date(w.endDatetime) >= endAt);
+    if (!fitsWindow) {
+      return { bookable: false, unavailableReason: 'OUT_OF_WINDOW', estimatedPriceCents: 0, hasEstimate: false, ...handoff, disclaimer: DISCLAIMER };
+    }
+    // 2) unidade livre: reservas confirmadas que SOBREPÕEM o período < quantity (capacity).
+    const busy = await rentableResourceRepository.findConfirmedPeriods(tenantId, resourceId);
+    const overlapping = busy.filter((b) => b.end > startAt && b.start < endAt).length;
+    const capacity = Math.max(1, resource.quantity);
+    const quantityFree = Math.max(0, capacity - overlapping);
+    if (quantityFree <= 0) {
+      return { bookable: false, unavailableReason: 'PERIOD_TAKEN', estimatedPriceCents: 0, hasEstimate: false, ...handoff, quantityFree: 0, disclaimer: DISCLAIMER };
+    }
+    // 3) preço: motor DP sobre as faixas. Sem faixa → reservável mas sem estimativa (honesto).
+    const tiers = await rentableResourceRepository.getPricingTiers(tenantId, resourceId);
+    const { estimatePrice } = await import('./pricing-estimate');
+    const est = estimatePrice(tiers as any, startAt, endAt);
+    const hasEstimate = est.breakdown.length > 0;
+    return {
+      bookable: true, unavailableReason: null,
+      estimatedPriceCents: hasEstimate ? est.estimatedPriceCents : 0,
+      hasEstimate,
+      handoffTimeStart: resource.handoffTimeStart, handoffTimeEnd: resource.handoffTimeEnd,
+      quantityFree, disclaimer: DISCLAIMER,
+    };
+  }
+
   /** Busca de locação por texto para a busca global — só recursos PÚBLICOS ativos (sem actor declarado). */
   searchByText(tenantId: string, q: string, limit?: number) {
     return rentableResourceRepository.searchByText(tenantId, q, limit);

@@ -88,3 +88,12 @@
 .rrd-handoff-time { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; font-size: .85rem; color: #374151; }
 .rrd-handoff-time-label { font-weight: 600; }
 .rrd-handoff-time input { border: 1px solid #d9dbe4; border-radius: 6px; padding: .35rem .5rem; font: inherit; }
+
+/* Cotação/preview do consumidor (backend calcula, front projeta). */
+.rrd-quote-btn { padding: .4rem .9rem; border: 1px solid #c7cdfe; border-radius: 8px; background: #f6f7ff; color: #4f46e5; font: inherit; font-weight: 600; cursor: pointer; align-self: end; }
+.rrd-quote-btn:disabled { opacity: .5; cursor: default; }
+.rrd-quote { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; font-size: .85rem; margin: 4px 0; }
+.rrd-quote-ok { background: #e6f7f0; border: 1px solid #b8ecd6; color: #0f7a54; }
+.rrd-quote-ok strong { color: #059669; }
+.rrd-quote-no { background: #fdecec; border: 1px solid #f5c9c9; color: #b4453f; }
+.rrd-quote-disclaimer { color: #8891a6; font-size: .76rem; }

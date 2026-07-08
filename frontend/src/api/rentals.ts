@@ -139,6 +139,24 @@ export async function getResourcePublicAvailability(id: string): Promise<PublicA
   return res.data;
 }
 
+// COTAÇÃO de exibição: o consumidor escolhe o período, o BACKEND calcula tudo (available/preço/qtd).
+// É preview — não cria reserva. O front só renderiza. estimatedPriceCents em cents.
+export interface QuotePreview {
+  bookable: boolean;
+  unavailableReason: string | null;
+  estimatedPriceCents: number;
+  hasEstimate?: boolean;
+  handoffTimeStart: string | null;
+  handoffTimeEnd: string | null;
+  quantityFree: number;
+  disclaimer: string;
+}
+export async function getQuotePreview(id: string, startAt: string, endAt: string): Promise<QuotePreview> {
+  const p = new URLSearchParams({ startAt, endAt });
+  const res = await apiFetchJson<{ ok: boolean; data: QuotePreview }>(`/rentable-resources/${id}/quote-preview?${p.toString()}`);
+  return res.data;
+}
+
 // Solicitar/reservar uma janela (modelo Airbnb). O modo (auto/manual) é do DONO, decidido no backend.
 // Retorna o status final: 'confirmed' (auto) ou 'requested' (manual). Pré-dinheiro.
 export interface BookingResult { bookingId: string; status: string; autoConfirmed: boolean }

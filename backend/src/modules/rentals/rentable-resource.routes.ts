@@ -329,6 +329,18 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  /**
+   * GET /rentable-resources/:id/quote-preview?startAt=&endAt= — COTAÇÃO de exibição para o consumidor:
+   * reservabilidade + estimativa + horário de retirada/devolução. Backend calcula tudo; front só projeta.
+   * NÃO cria reserva/hold/cobrança nem toca o Bank (Δbank=0). Público (recurso público).
+   */
+  fastify.get<{ Params: { id: string }; Querystring: { startAt?: string; endAt?: string } }>('/:id/quote-preview', async (req, reply) => {
+    if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
+    const d = (v?: string) => new Date(v ?? 'invalid');
+    const data = await rentableResourceService.quotePreview(req.tenant.id, req.params.id, d(req.query.startAt), d(req.query.endAt));
+    return reply.send({ ok: true, data });
+  });
+
   // GET /rentable-resources/:id/offer — detalhe da oferta (faixas + cidade + quantity) p/ o form de edição.
   fastify.get<{ Params: { id: string } }>('/:id/offer', async (req, reply) => {
     if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
