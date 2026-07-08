@@ -118,3 +118,9 @@ export async function listVehicleModels(makeId: string, conceptId: string, q?: s
   const res = await apiFetchJson<{ ok: boolean; data: VehicleModel[] }>(`/catalog/vehicles/makes/${makeId}/models?${params.toString()}`);
   return res.data;
 }
+
+// Anos GOVERNADOS do modelo (F-VEHICLE-MODEL-YEAR). O front NÃO decide validade — só lista o que vem.
+export async function listVehicleModelYears(modelId: string): Promise<number[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: number[] }>(`/catalog/vehicles/models/${modelId}/years`);
+  return res.data;
+}

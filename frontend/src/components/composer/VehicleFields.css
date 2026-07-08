@@ -1,0 +1,9 @@
+/* VehicleFields — cascata Categoria→Marca→Modelo→Ano. */
+.vf{ display:flex; flex-direction:column; gap:8px; }
+.vf-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+@media (max-width:720px){ .vf-row{ grid-template-columns:1fr 1fr; } }
+@media (max-width:420px){ .vf-row{ grid-template-columns:1fr; } }
+.vf-cleared{
+  font-size:12.5px; color:#4f46e5; background:#eef1ff; border:1px solid #dfe3fe;
+  border-radius:8px; padding:8px 11px; margin:0;
+}
