@@ -270,6 +270,11 @@ export default function RentalResourceDetailPage() {
                 <p className="rrd-request-trust">{r.trust ? '' : '🔒 Perfil público disponível · histórico de reputação ainda não disponível'}</p>
                 <div className="rrd-request-actions">
                   <button type="button" className="rrd-req-profile" onClick={() => navigate(`/vitrine/${r.requester.actorId}`)}>Ver perfil</button>
+                  {/* Mensagem direta ainda não está viva no sistema — placeholder honesto, sem backend falso. */}
+                  <button type="button" className="rrd-req-message" title="Em desenvolvimento"
+                    onClick={() => showToast('Envio de mensagem em desenvolvimento — em breve.', 'success')}>
+                    💬 Enviar mensagem <span className="rrd-soon">em breve</span>
+                  </button>
                   <button type="button" className="rrd-req-decline" onClick={() => handleDecline(r.bookingId)}>Recusar</button>
                   <button type="button" className="rrd-req-confirm" onClick={() => handleConfirm(r.bookingId)}>Confirmar</button>
                 </div>

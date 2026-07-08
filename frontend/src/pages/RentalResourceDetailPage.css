@@ -77,3 +77,8 @@
 .rrd-req-profile { padding: .45rem .9rem; border: 1px solid #d7dbe0; border-radius: 8px; background: #fff; color: #374151; font: inherit; font-weight: 600; cursor: pointer; }
 .rrd-req-decline { padding: .45rem .9rem; border: 1px solid #f0c9c9; border-radius: 8px; background: #fff; color: #b4453f; font: inherit; font-weight: 600; cursor: pointer; }
 .rrd-req-confirm { padding: .45rem 1.1rem; border: 0; border-radius: 8px; background: #059669; color: #fff; font: inherit; font-weight: 700; cursor: pointer; margin-left: auto; }
+
+/* Botão placeholder "Enviar mensagem" — em desenvolvimento (estilo apagado + selo). */
+.rrd-req-message { display: inline-flex; align-items: center; gap: 6px; padding: .45rem .9rem; border: 1px dashed #cbd0f5; border-radius: 8px; background: #f6f7ff; color: #7c81a8; font: inherit; font-weight: 600; cursor: pointer; }
+.rrd-req-message:hover { background: #eef0fb; }
+.rrd-soon { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #e5e7fb; color: #6366f1; padding: .1rem .35rem; border-radius: 999px; }
