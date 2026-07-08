@@ -300,6 +300,28 @@ class RentableResourceRepository {
     return r ? { cityId: r.city_id, name: r.name, uf: r.abbreviation } : null;
   }
 
+  /**
+   * Busca de locação por TEXTO para a busca GLOBAL/omni. Só recursos PÚBLICOS ativos (DECISION-0113:
+   * a busca global não usa actor declarado pelo cliente — recursos de plateia restrita só aparecem na
+   * descoberta /discover, que tem viewer server-side). Retorna id/label/tipo/cidade (sem rua).
+   */
+  async searchByText(tenantId: string, q: string, limit = 8): Promise<Array<{ id: string; label: string; resourceType: string; cityName: string | null; uf: string | null }>> {
+    const rows = await runQueriesWithTenant<{ id: string; label: string; resource_type: string; city_name: string | null; uf: string | null }>(
+      tenantId,
+      `SELECT r.id::text, r.label, r.resource_type, c.name AS city_name, s.abbreviation AS uf
+         FROM rentable_resources r
+         LEFT JOIN address_assignments aa ON aa.owner_type='rentable_resource' AND aa.owner_id=r.id
+              AND aa.role='PICKUP' AND aa.is_primary=true AND aa.valid_until_at IS NULL
+         LEFT JOIN addresses ad ON ad.address_id=aa.address_id
+         LEFT JOIN cities c ON c.city_id=ad.city_id
+         LEFT JOIN states s ON s.state_id=c.state_id
+        WHERE r.tenant_id=$1::uuid AND r.status='active' AND r.visibility='public'
+          AND r.label ILIKE '%'||$2||'%'
+        ORDER BY r.created_at DESC LIMIT $3`,
+      [tenantId, q, Math.min(Math.max(limit, 1), 20)]);
+    return rows.map((r) => ({ id: r.id, label: r.label, resourceType: r.resource_type, cityName: r.city_name, uf: r.uf }));
+  }
+
   /** cidade existe na SSOT canônica? (o front nunca inventa cidade — backend valida) */
   async cityExists(cityId: string): Promise<boolean> {
     const row = await runQueryWithTenant<{ city_id: string }>(

@@ -109,6 +109,11 @@ class RentableResourceService {
     return resource;
   }
 
+  /** Busca de locação por texto para a busca global — só recursos PÚBLICOS ativos (sem actor declarado). */
+  searchByText(tenantId: string, q: string, limit?: number) {
+    return rentableResourceRepository.searchByText(tenantId, q, limit);
+  }
+
   getPricingTiers(tenantId: string, resourceId: string) {
     return rentableResourceRepository.getPricingTiers(tenantId, resourceId);
   }

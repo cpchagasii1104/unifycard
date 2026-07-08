@@ -83,9 +83,12 @@ export interface OmniSearchResult {
     services: { conceptIds: string[]; results: unknown[] };
     products: OmniProductHit[];
     events: OmniEventHit[];
+    rentals: OmniRentalHit[];
   };
   sectionErrors: string[];
 }
+
+export interface OmniRentalHit { id: string; label: string; resourceType: string; cityName: string | null; uf: string | null; }
 
 // normalização accent-insensitive p/ filtros em memória (grupos) — espelha unaccent+lower do SQL
 function normalize(s: string): string {
@@ -166,6 +169,7 @@ class SearchOmniService {
         services: { conceptIds: [], results: [] },
         products: [],
         events: [],
+        rentals: [],
       },
       sectionErrors,
     };
@@ -237,6 +241,14 @@ class SearchOmniService {
       }));
     } catch {
       sectionErrors.push('events');
+    }
+
+    // ── O QUÊ: locações (recursos alugáveis ATIVOS e PÚBLICOS — sem actor declarado pelo cliente) ──
+    try {
+      const { rentableResourceService } = await import('@modules/rentals/rentable-resource.service');
+      result.sections.rentals = await rentableResourceService.searchByText(tenantId, q, perSection);
+    } catch {
+      sectionErrors.push('rentals');
     }
 
     return result;

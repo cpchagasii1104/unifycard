@@ -26,11 +26,11 @@ interface OmniSearchDropdownProps {
   onFullSearch: () => void;
 }
 
-type OmniSectionKey = 'nav' | 'people' | 'companies' | 'groups' | 'services' | 'products' | 'events';
+type OmniSectionKey = 'nav' | 'people' | 'companies' | 'groups' | 'services' | 'products' | 'events' | 'rentals';
 
 const SECTION_ORDER_BY_MODE: Record<'consumir' | 'operar', OmniSectionKey[]> = {
-  consumir: ['nav', 'services', 'products', 'events', 'people', 'companies', 'groups'],
-  operar: ['nav', 'people', 'companies', 'groups', 'services', 'products', 'events'],
+  consumir: ['nav', 'services', 'products', 'rentals', 'events', 'people', 'companies', 'groups'],
+  operar: ['nav', 'people', 'companies', 'groups', 'services', 'products', 'rentals', 'events'],
 };
 
 export default function OmniSearchDropdown({ q, result, navHits, loading, mode, onNavigate, onFullSearch }: OmniSearchDropdownProps) {
@@ -43,7 +43,8 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, mode, 
         s.groups.length > 0 ||
         s.services.results.length > 0 ||
         s.products.length > 0 ||
-        s.events.length > 0));
+        s.events.length > 0 ||
+        (s.rentals?.length ?? 0) > 0));
 
   // renderers por seção — a ORDEM de exibição vem do modo (apresentação); o CONTEÚDO nunca muda
   const sectionRenderers: Record<OmniSectionKey, () => ReactNode> = {
@@ -157,6 +158,19 @@ export default function OmniSearchDropdown({ q, result, navHits, loading, mode, 
               {e.datetimeStart && (
                 <span className="omni-item-meta">{new Date(e.datetimeStart).toLocaleDateString('pt-BR')}</span>
               )}
+            </button>
+          ))}
+        </div>
+      ),
+    rentals: () =>
+      s && (s.rentals?.length ?? 0) > 0 && (
+        <div className="omni-section" key="rentals">
+          <div className="omni-section-title">Locações</div>
+          {s.rentals!.map((r) => (
+            <button key={r.id} type="button" className="omni-item" onClick={() => onNavigate(`/locacoes/${r.id}`)}>
+              <span className="omni-item-icon" aria-hidden="true">🔑</span>
+              <span className="omni-item-label">{r.label}</span>
+              {r.cityName && <span className="omni-item-meta">{r.cityName}{r.uf ? `/${r.uf}` : ''}</span>}
             </button>
           ))}
         </div>

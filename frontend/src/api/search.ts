@@ -40,6 +40,14 @@ export interface OmniServiceHit {
   name: string;
 }
 
+export interface OmniRentalHit {
+  id: string;
+  label: string;
+  resourceType: string;
+  cityName: string | null;
+  uf: string | null;
+}
+
 export interface OmniSearchResult {
   q: string;
   sections: {
@@ -49,6 +57,7 @@ export interface OmniSearchResult {
     services: { conceptIds: string[]; results: OmniServiceHit[] };
     products: OmniProductHit[];
     events: OmniEventHit[];
+    rentals?: OmniRentalHit[];
   };
   sectionErrors: string[];
 }
