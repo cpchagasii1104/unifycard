@@ -49,3 +49,8 @@
 
 .rrl-field--checkbox { flex-direction: row; align-items: center; gap: 6px; justify-content: flex-start; }
 .rrl-field--checkbox input { width: auto; }
+
+/* Nome do recurso auto-projetado (veículo) — read-only, sinaliza que vem do catálogo. */
+.rrl-auto-tag { font-size: 0.65rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #4f46e5; background: #eef1ff; border: 1px solid #dfe3fe; border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
+.rrl-input--auto { background: #f6f7fb; color: #1e2338; font-weight: 600; cursor: default; }
+.rrl-input--auto.rrl-input--placeholder { color: #8891a6; font-weight: 400; font-style: italic; }

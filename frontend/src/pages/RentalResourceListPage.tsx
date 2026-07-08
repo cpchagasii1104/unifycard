@@ -29,7 +29,7 @@ import { createAvailability } from '../api/availability';
 import { useAudienceOptions } from '../hooks/useAudienceOptions';
 import AudiencePicker from '../components/composer/AudiencePicker';
 import { resolveAudiencePayload } from '../components/composer/audience-payload';
-import VehicleFields, { type VehicleSelection } from '../components/composer/VehicleFields';
+import VehicleFields, { buildVehicleResourceName, type VehicleSelection } from '../components/composer/VehicleFields';
 import GovernedCombobox from '../components/common/GovernedCombobox';
 import PageModuleShell from '../components/layout/PageModuleShell';
 import RightContextRail from '../components/layout/RightContextRail';
@@ -98,6 +98,9 @@ export default function RentalResourceListPage() {
   // atributos de VEÍCULO (LAYER 5 — GOVERNADOS via catálogo transversal). Agora em cascata governada
   // (Categoria→Marca→Modelo→Ano) pelo <VehicleFields>: zero input livre, ano via endpoint.
   const [vehicleSel, setVehicleSel] = useState<VehicleSelection>({ concept: null, make: null, model: null, year: null, version: null });
+  // Nome do recurso PROJETADO da identidade do veículo (read-only). Não é digitado nem armazenado
+  // como verdade — os IDs governados (metadata) é que valem; este é só a etiqueta de exibição.
+  const vehicleName = buildVehicleResourceName(vehicleSel);
 
   // atributos de IMÓVEL (LAYER 5 — Facets, régua ratificada: "descreve COMO É", não "identifica O
   // QUE É" — não viram CONCEPT nem catálogo governado, ficam no metadata do recurso)
@@ -167,7 +170,9 @@ export default function RentalResourceListPage() {
     if (!effectiveConcept?.concept_id) { showToast('Escolha uma categoria existente do catálogo.', 'error'); return; }
     if (isVehicle && !vehicleSel.make) { showToast('Escolha a marca do veículo.', 'error'); return; }
     if (isVehicle && !vehicleSel.model) { showToast('Escolha o modelo do veículo.', 'error'); return; }
-    if (!label.trim()) { showToast('Informe um nome para o recurso.', 'error'); return; }
+    // Veículo: nome projetado da identidade (não digitado). Outros: nome digitado obrigatório.
+    const effectiveName = isVehicle ? vehicleName : label.trim();
+    if (!effectiveName) { showToast(isVehicle ? 'Complete marca, modelo e ano do veículo.' : 'Informe um nome para o recurso.', 'error'); return; }
     setSubmitting(true);
     try {
       const cents = priceReais.trim() ? Math.round(parseFloat(priceReais.replace(',', '.')) * 100) : null;
@@ -191,7 +196,7 @@ export default function RentalResourceListPage() {
       await createRentableResource({
         conceptId: effectiveConcept.concept_id,
         resourceType,
-        label: label.trim(),
+        label: effectiveName,
         description: description.trim() || null,
         pricingUnit: cents != null ? pricingUnit : null,
         priceCents: cents,
@@ -357,10 +362,20 @@ export default function RentalResourceListPage() {
             </>
           )}
 
-          <label className="rrl-field">
-            Nome do recurso
-            <input type="text" placeholder="Ex.: Furadeira Bosch, Fusca 1978…" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={200} />
-          </label>
+          {/* Veículo: nome PROJETADO da identidade (read-only, não digitado). Outros tipos: livre.
+              Personalizável por categoria — cada tipo compõe/entra seu nome como fizer sentido. */}
+          {resourceType === 'vehicle' ? (
+            <label className="rrl-field">
+              Nome do recurso <span className="rrl-auto-tag">automático</span>
+              <input type="text" value={vehicleName || 'Escolha marca, modelo e ano…'} readOnly
+                className={vehicleName ? 'rrl-input--auto' : 'rrl-input--auto rrl-input--placeholder'} />
+            </label>
+          ) : (
+            <label className="rrl-field">
+              Nome do recurso
+              <input type="text" placeholder="Ex.: Furadeira Bosch, Fusca 1978…" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={200} />
+            </label>
+          )}
 
           {/* Imóvel/Espaço: Facets puras (régua ratificada: "descreve COMO É", não "identifica O
               QUE É" — apartamento/casa/galpão já são o CONCEPT; metragem/quartos são atributo) */}

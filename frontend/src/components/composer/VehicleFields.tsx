@@ -20,6 +20,22 @@ export interface VehicleSelection {
   version: VehicleVersionSpec | null;  // versão (trim) + ficha técnica AUTO-COMPLETADA do catálogo
 }
 
+/**
+ * Nome de exibição do recurso PROJETADO da identidade do catálogo (Clayton 2026-07-08). Não é texto
+ * livre nem cópia — é derivado de marca/modelo/ano/versão(+atributos-chave da ficha). Anti-verdade-
+ * paralela: os IDs governados são a verdade (metadata); este nome é só a etiqueta de exibição.
+ * Vazio até haver identidade suficiente (marca+modelo+ano).
+ */
+export function buildVehicleResourceName(sel: VehicleSelection): string {
+  if (!sel.make || !sel.model || !sel.year) return '';
+  const core = `${sel.make.name} ${sel.model.name} ${sel.year}`;
+  if (!sel.version) return core;
+  const v = sel.version;
+  // versão sempre; câmbio/combustível/tração como complemento (quando preenchidos no catálogo)
+  const tech = [v.version, v.cambio, v.combustivel, v.tracao].filter((x) => x && String(x).trim());
+  return `${core} · ${tech.join(' · ')}`;
+}
+
 export default function VehicleFields({
   value, onChange, conceptOptions, conceptLabel,
 }: {
