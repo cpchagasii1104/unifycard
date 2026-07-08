@@ -271,6 +271,13 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     const { runQueriesWithTenant } = await import('@core/database/pool');
     const params: unknown[] = [domains];
     let where = `cs.tenant_id IS NULL AND cs.status = 'active' AND cok.offer_kind = 'rentable' AND c.domain = ANY($1)`;
+    // property e space compartilham a domain bens-imoveis — a APLICABILIDADE governada
+    // (concept_rentable_types) desambigua: imóvel vê unidades; espaço vê usos agendados (com overlap
+    // consultório/sala-comercial). Equipment/vehicle seguem só por domain. Front não decide a lista.
+    if (rtParsed.data === 'property' || rtParsed.data === 'space') {
+      params.push(rtParsed.data);
+      where += ` AND EXISTS (SELECT 1 FROM concept_rentable_types crt WHERE crt.concept_id = c.concept_id AND crt.resource_type = $${params.length})`;
+    }
     if (q) {
       params.push(`%${q}%`);
       where += ` AND cs.name ILIKE $${params.length}`;
