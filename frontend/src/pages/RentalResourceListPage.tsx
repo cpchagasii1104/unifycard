@@ -36,7 +36,8 @@ import {
 } from '../api/rentals';
 import { useAudienceOptions } from '../hooks/useAudienceOptions';
 import AudiencePicker from '../components/composer/AudiencePicker';
-import { resolveAudiencePayload } from '../components/composer/audience-payload';
+import { resolveAudiencePayload, isExclusive } from '../components/composer/audience-payload';
+import type { AudienceOption } from '../api/audience';
 import VehicleFields, { buildVehicleResourceName, type VehicleSelection } from '../components/composer/VehicleFields';
 import GovernedCombobox from '../components/common/GovernedCombobox';
 import { searchCities, type CitySearchResult } from '../api/location';
@@ -119,6 +120,22 @@ function handoffChoiceFromMethods(start: string | null | undefined, end: string 
   return 'pickup_return';
 }
 const centsToReais = (c: number | null | undefined) => (c != null ? (c / 100).toFixed(2).replace('.', ',') : '');
+// Inverso do resolveAudiencePayload: recurso (visibility + relationshipTypes) → keys, para prefill da
+// edição. Deriva do shape das options do backend, nunca inventa (mesma lei do audience-payload).
+function audienceKeysFromResource(options: AudienceOption[], visibility: string, relTypes: string[] | null): string[] {
+  if (visibility === 'public' || visibility === 'only_me') {
+    const k = options.find((o) => o.visibility === visibility && isExclusive(o));
+    return k ? [k.key] : (visibility === 'public' ? ['public'] : []);
+  }
+  // connections: sem relTypes = "todas as conexões" (exclusiva connections); com = as combináveis que batem.
+  if (!relTypes || relTypes.length === 0) {
+    const k = options.find((o) => o.visibility === 'connections' && isExclusive(o));
+    return k ? [k.key] : [];
+  }
+  const set = new Set(relTypes);
+  const keys = options.filter((o) => !isExclusive(o) && (o.audienceRelationshipTypes ?? []).length > 0 && (o.audienceRelationshipTypes ?? []).every((l) => set.has(l))).map((o) => o.key);
+  return keys.length > 0 ? keys : [];
+}
 
 export default function RentalResourceListPage() {
   const navigate = useNavigate();
@@ -187,6 +204,7 @@ export default function RentalResourceListPage() {
   // Default 'automatic' — não esfriar o negócio (feedback Clayton 2026-07-08).
   const [approvalMode, setApprovalMode] = useState<'manual' | 'automatic'>('automatic');
   const [editApprovalMode, setEditApprovalMode] = useState<'manual' | 'automatic'>('automatic');
+  const [editAudienceKeys, setEditAudienceKeys] = useState<string[]>(['public']);
   // Entrega/devolução na EDIÇÃO — mesmo modelo do cadastro (só preenche as taxas que aceita).
   const [editHandoffChoice, setEditHandoffChoice] = useState<HandoffChoice>('pickup_return');
   const [editDeliveryRadius, setEditDeliveryRadius] = useState('');
@@ -347,6 +365,7 @@ export default function RentalResourceListPage() {
       setEditCity(detail.city ? { id: detail.city.cityId, name: detail.city.name, stateUf: detail.city.uf } : null);
       setEditDescription(detail.resource.description ?? '');
       setEditApprovalMode(detail.resource.bookingApprovalMode ?? 'automatic');
+      setEditAudienceKeys(audienceKeysFromResource(audienceOptions, detail.resource.visibility, detail.resource.audienceRelationshipTypes));
       // prefill da entrega/devolução a partir dos métodos + taxas do backend.
       setEditHandoffChoice(handoffChoiceFromMethods(detail.resource.startHandoffMethod, detail.resource.endHandoffMethod));
       setEditDeliveryRadius(detail.resource.deliveryRadiusKm != null ? String(detail.resource.deliveryRadiusKm) : '');
@@ -364,11 +383,14 @@ export default function RentalResourceListPage() {
       const pricingTiers = RENTAL_PRICING_UNITS
         .map((u) => ({ unit: u, priceCents: Math.round((parseFloat((editTierReais[u] ?? '').replace(',', '.')) || 0) * 100) }))
         .filter((t) => t.priceCents > 0);
+      const aud = resolveAudiencePayload(audienceOptions, editAudienceKeys);
       await updateRentalOffer(resourceId, {
         description: editDescription.trim() || null,
         pricingTiers,
         quantity: editQuantity,
         cityId: editCity?.id ?? null,
+        visibility: aud.visibility,
+        audienceRelationshipTypes: aud.audienceRelationshipTypes,
         bookingApprovalMode: editApprovalMode,
         ...handoffPayload(editHandoffChoice, editDeliveryRadius, editDeliveryFeeReais, editCollectionFeeReais),
       });
@@ -816,6 +838,11 @@ export default function RentalResourceListPage() {
                 <button type="button" className="rrl-modal-x" aria-label="Fechar sem salvar" onClick={() => setEditFor(null)}>✕</button>
               </div>
               <div className="rrl-modal-body">
+                {/* 1 · Para quem é isso? — mesma matriz do cadastro (transversal /audience-options). */}
+                <div className="rrl-field">
+                  1 · Para quem é isso?
+                  <AudiencePicker options={audienceOptions} selectedKeys={editAudienceKeys} onChange={setEditAudienceKeys} />
+                </div>
                 <div className="rrl-field">
                   Preço anunciado por faixa <span className="rrl-hint" style={{ fontWeight: 400 }}>(preencha as que oferecer)</span>
                   <div className="rrl-tiers">

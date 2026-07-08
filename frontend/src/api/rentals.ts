@@ -30,6 +30,8 @@ export interface RentableResource {
   priceCents: number | null;
   resourceYear: number | null;
   quantity: number;
+  visibility: 'public' | 'connections' | 'only_me';
+  audienceRelationshipTypes: string[] | null;
   bookingApprovalMode: BookingApprovalMode;
   startHandoffMethod: StartHandoffMethod;
   endHandoffMethod: EndHandoffMethod;
