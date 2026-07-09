@@ -2,13 +2,65 @@
 // Leitor/escritor de `rentable_resources` — a única tabela desta fatia (substrato já vivo,
 // migration 20260624120000, RLS+FORCE). Sem coluna financeira (se aparecer aqui, viola DECISION-0151).
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import type {
   RentableResource,
   RentableResourceRow,
   CreateRentableResourceInput,
   ListRentableResourcesFilters,
 } from './rentable-resource.types';
+
+// F-ASSET-MULTI-OFFER-FOUNDATION Fatia 2b — mapper da leitura CONVERGIDA (actor_assets a + rental_terms t).
+// id público = asset_id (a.id). Identidade (concept/owner/label) vem do ASSET; termos de rental_terms;
+// facets físicos (resourceYear/description/categoryId/vehicle*) ficam em a.metadata (transição governada).
+function toDomainFromAsset(row: any): RentableResource {
+  const md = row.asset_metadata ?? {};
+  const n = (v: any) => (v !== null && v !== undefined ? Number(v) : null);
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    ownerActorId: row.owner_actor_id,
+    conceptId: row.concept_id,
+    resourceType: row.resource_type,
+    label: row.label,
+    description: md.description ?? null,
+    categoryId: md.categoryId ?? null,
+    pricingUnit: row.pricing_unit ?? null,
+    priceCents: n(row.price_cents),
+    resourceYear: md.resourceYear ?? null,
+    quantity: row.quantity != null ? Number(row.quantity) : 1,
+    bookingApprovalMode: row.booking_approval_mode ?? 'manual',
+    startHandoffMethod: row.start_handoff_method ?? 'renter_pickup',
+    endHandoffMethod: row.end_handoff_method ?? 'renter_return',
+    deliveryRadiusKm: n(row.delivery_radius_km),
+    deliveryFeeCents: n(row.delivery_fee_cents),
+    collectionFeeCents: n(row.collection_fee_cents),
+    handoffTimeStart: row.handoff_time_start ?? null,
+    handoffTimeEnd: row.handoff_time_end ?? null,
+    mileagePolicy: row.mileage_policy ?? null,
+    includedKmPerDay: n(row.included_km_per_day),
+    includedKmTotal: n(row.included_km_total),
+    extraKmFeeCents: n(row.extra_km_fee_cents),
+    rentalModality: row.rental_modality ?? null,
+    cleaningFeePolicy: row.cleaning_fee_policy ?? null,
+    cleaningFeeCents: n(row.cleaning_fee_cents),
+    metadata: md,
+    visibility: row.visibility,
+    audienceRelationshipTypes: row.audience_relationship_types ?? null,
+    status: row.status,
+    isActive: row.is_active,
+    createdAt: (row.created_at as Date).toISOString(),
+    updatedAt: (row.updated_at as Date).toISOString(),
+  };
+}
+
+// SELECT canônico da leitura convergida (asset + rental_terms). RLS de ambas filtra por tenant.
+const AART_SELECT = `a.id, a.tenant_id, a.owner_actor_id, a.concept_id, a.label, a.metadata AS asset_metadata,
+  t.resource_type, t.pricing_unit, t.price_cents, t.quantity, t.booking_approval_mode, t.start_handoff_method,
+  t.end_handoff_method, t.delivery_radius_km, t.delivery_fee_cents, t.collection_fee_cents, t.handoff_time_start,
+  t.handoff_time_end, t.mileage_policy, t.included_km_per_day, t.included_km_total, t.extra_km_fee_cents,
+  t.rental_modality, t.cleaning_fee_policy, t.cleaning_fee_cents, t.visibility, t.audience_relationship_types,
+  t.status, t.is_active, a.created_at, t.updated_at`;
 
 function toDomain(row: RentableResourceRow): RentableResource {
   return {
@@ -55,45 +107,73 @@ class RentableResourceRepository {
     ownerActorId: string,
     input: CreateRentableResourceInput
   ): Promise<RentableResource> {
-    const row = await runQueryWithTenant<RentableResourceRow>(
+    // Fatia 2b-2: criar locação = ATO SOBRE O ITEM REAL, atômico sobre tabelas RLS-seguras (client dedicado
+    // com GUC de tenant + BEGIN/COMMIT). 1) actor_assets (identidade) · 2) actor_asset_modes='rental' ·
+    // 3) actor_asset_rental_terms (termos). Nenhum rentable_resources criado. Facets físicos em a.metadata.
+    // Elegibilidade/rentable/rentable_type validados no SERVICE antes daqui. RLS filtra por tenant.
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      const assetMeta = {
+        ...(input.metadata ?? {}),
+        resourceYear: input.resourceYear ?? null,
+        description: input.description ?? null,
+        categoryId: input.categoryId ?? null,
+      };
+      const assetRes = await client.query(
+        `INSERT INTO actor_assets (tenant_id, owner_actor_id, concept_id, label, status, metadata)
+         VALUES ($1::uuid, $2::uuid, $3::uuid, $4, 'active', $5::jsonb) RETURNING id`,
+        [tenantId, ownerActorId, input.conceptId, input.label, JSON.stringify(assetMeta)]
+      );
+      const assetId = assetRes.rows[0].id as string;
+      await client.query(
+        `INSERT INTO actor_asset_modes (asset_id, activation_mode, enabled) VALUES ($1::uuid, 'rental', true)`,
+        [assetId]
+      );
+      await client.query(
+        `INSERT INTO actor_asset_rental_terms
+           (asset_id, resource_type, pricing_unit, price_cents, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, rental_modality, cleaning_fee_policy, cleaning_fee_cents, visibility, audience_relationship_types)
+         VALUES ($1::uuid, $2, $3, $4::bigint, $5::int, $6, $7, $8, $9::int, $10::bigint, $11::bigint, $12, $13::int, $14::int, $15::bigint, $16, $17, $18::bigint, $19, $20::text[])`,
+        [
+          assetId, input.resourceType, input.pricingUnit ?? null, input.priceCents ?? null, input.quantity ?? 1,
+          input.bookingApprovalMode ?? 'manual', input.startHandoffMethod ?? 'renter_pickup', input.endHandoffMethod ?? 'renter_return',
+          input.deliveryRadiusKm ?? null, input.deliveryFeeCents ?? null, input.collectionFeeCents ?? null,
+          input.mileagePolicy ?? null, input.includedKmPerDay ?? null, input.includedKmTotal ?? null, input.extraKmFeeCents ?? null,
+          input.rentalModality ?? null, input.cleaningFeePolicy ?? null, input.cleaningFeeCents ?? null,
+          input.visibility ?? 'public', input.audienceRelationshipTypes ?? null,
+        ]
+      );
+      const read = await client.query(
+        `SELECT ${AART_SELECT} FROM actor_assets a JOIN actor_asset_rental_terms t ON t.asset_id = a.id WHERE a.id = $1::uuid`,
+        [assetId]
+      );
+      await client.query('COMMIT');
+      return toDomainFromAsset(read.rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Gate de convergência: concept é asset-elegível (bem durável)? Governança concept_asset_eligibilities. */
+  async conceptIsAssetEligible(tenantId: string, conceptId: string): Promise<boolean> {
+    const row = await runQueryWithTenant<{ ok: boolean }>(
       tenantId,
-      `INSERT INTO rentable_resources
-         (tenant_id, owner_actor_id, concept_id, resource_type, label, description, category_id, pricing_unit, price_cents, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, rental_modality, cleaning_fee_policy, cleaning_fee_cents)
-       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7::uuid, $8, $9, $10, $11::jsonb, $12, $13::text[], $14::int, $15, $16, $17, $18::int, $19::bigint, $20::bigint, $21, $22::int, $23::int, $24::bigint, $25, $26, $27::bigint)
-       RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                 category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, rental_modality, cleaning_fee_policy, cleaning_fee_cents, created_at, updated_at`,
-      [
-        tenantId,
-        ownerActorId,
-        input.conceptId,
-        input.resourceType,
-        input.label,
-        input.description ?? null,
-        input.categoryId ?? null,
-        input.pricingUnit ?? null,
-        input.priceCents ?? null,
-        input.resourceYear ?? null,
-        JSON.stringify(input.metadata ?? {}),
-        input.visibility ?? 'public',
-        input.audienceRelationshipTypes ?? null,
-        input.quantity ?? 1,
-        input.bookingApprovalMode ?? 'manual',
-        input.startHandoffMethod ?? 'renter_pickup',
-        input.endHandoffMethod ?? 'renter_return',
-        input.deliveryRadiusKm ?? null,
-        input.deliveryFeeCents ?? null,
-        input.collectionFeeCents ?? null,
-        input.mileagePolicy ?? null,
-        input.includedKmPerDay ?? null,
-        input.includedKmTotal ?? null,
-        input.extraKmFeeCents ?? null,
-        input.rentalModality ?? null,
-        input.cleaningFeePolicy ?? null,
-        input.cleaningFeeCents ?? null,
-      ]
-    );
-    if (!row) throw new Error('Falha ao criar rentable_resource');
-    return toDomain(row);
+      `SELECT EXISTS (SELECT 1 FROM concept_asset_eligibilities WHERE concept_id = $1::uuid) AS ok`,
+      [conceptId]);
+    return !!row?.ok;
+  }
+
+  /** resource_types que o concept declara como locáveis (governança concept_rentable_types). Vazio =
+   *  concept ainda NÃO governado por essa tabela (veículo/equipamento hoje) → checagem condicional no service. */
+  async conceptRentableTypes(tenantId: string, conceptId: string): Promise<string[]> {
+    const rows = await runQueriesWithTenant<{ resource_type: string }>(
+      tenantId,
+      `SELECT resource_type FROM concept_rentable_types WHERE concept_id = $1::uuid`,
+      [conceptId]);
+    return rows.map((r) => r.resource_type);
   }
 
   async findById(tenantId: string, id: string): Promise<RentableResource | null> {
@@ -242,16 +322,20 @@ class RentableResourceRepository {
     id: string,
     status: 'active' | 'paused' | 'retired'
   ): Promise<RentableResource | null> {
-    const row = await runQueryWithTenant<RentableResourceRow>(
+    // Fatia 2b-2: status da OFERTA de locação vive em actor_asset_rental_terms (RLS filtra tenant via asset).
+    const upd = await runQueryWithTenant<{ asset_id: string }>(
       tenantId,
-      `UPDATE rentable_resources
-          SET status = $3, is_active = ($3 = 'active'), updated_at = now()
-        WHERE id = $1::uuid AND tenant_id = $2::uuid
-        RETURNING id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-                  category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, rental_modality, cleaning_fee_policy, cleaning_fee_cents, created_at, updated_at`,
-      [id, tenantId, status]
+      `UPDATE actor_asset_rental_terms SET status = $2, is_active = ($2 = 'active'), updated_at = now()
+        WHERE asset_id = $1::uuid RETURNING asset_id`,
+      [id, status]
     );
-    return row ? toDomain(row) : null;
+    if (!upd) return null;
+    const row = await runQueryWithTenant<any>(
+      tenantId,
+      `SELECT ${AART_SELECT} FROM actor_assets a JOIN actor_asset_rental_terms t ON t.asset_id = a.id WHERE a.id = $1::uuid`,
+      [id]
+    );
+    return row ? toDomainFromAsset(row) : null;
   }
 
   /** O concept tem o offer_kind pedido (ex.: 'rentable')? Governança concept_offer_kinds. */
@@ -285,32 +369,37 @@ class RentableResourceRepository {
     modalityTouched?: boolean; rentalModality?: string | null;
     cleaningTouched?: boolean; cleaningFeePolicy?: string | null; cleaningFeeCents?: number | null;
   }): Promise<void> {
+    // Fatia 2b-2: description = identidade do item → actor_assets.metadata (D2); termos → actor_asset_rental_terms.
+    if (input.description !== undefined) {
+      await runQueriesWithTenant(tenantId,
+        `UPDATE actor_assets SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{description}', to_jsonb($2::text), true), updated_at = now()
+          WHERE id = $1::uuid`,
+        [resourceId, input.description ?? null]);
+    }
     await runQueriesWithTenant(tenantId,
-      `UPDATE rentable_resources SET
-         description = CASE WHEN $2::boolean THEN $3 ELSE description END,
-         visibility = COALESCE($4, visibility),
-         audience_relationship_types = CASE WHEN $5::boolean THEN $6::text[] ELSE audience_relationship_types END,
-         quantity = COALESCE($7::int, quantity),
-         booking_approval_mode = COALESCE($8, booking_approval_mode),
-         start_handoff_method = COALESCE($9, start_handoff_method),
-         end_handoff_method = COALESCE($10, end_handoff_method),
-         delivery_radius_km = CASE WHEN $11::boolean THEN $12::int ELSE delivery_radius_km END,
-         delivery_fee_cents = CASE WHEN $11::boolean THEN $13::bigint ELSE delivery_fee_cents END,
-         collection_fee_cents = CASE WHEN $11::boolean THEN $14::bigint ELSE collection_fee_cents END,
-         handoff_time_start = CASE WHEN $15::boolean THEN $16::time ELSE handoff_time_start END,
-         handoff_time_end = CASE WHEN $15::boolean THEN $17::time ELSE handoff_time_end END,
-         mileage_policy = CASE WHEN $18::boolean THEN $19 ELSE mileage_policy END,
-         included_km_per_day = CASE WHEN $18::boolean THEN $20::int ELSE included_km_per_day END,
-         included_km_total = CASE WHEN $18::boolean THEN $21::int ELSE included_km_total END,
-         extra_km_fee_cents = CASE WHEN $18::boolean THEN $22::bigint ELSE extra_km_fee_cents END,
-         rental_modality = CASE WHEN $23::boolean THEN $24 ELSE rental_modality END,
-         cleaning_fee_policy = CASE WHEN $25::boolean THEN $26 ELSE cleaning_fee_policy END,
-         cleaning_fee_cents = CASE WHEN $25::boolean THEN $27::bigint ELSE cleaning_fee_cents END,
+      `UPDATE actor_asset_rental_terms SET
+         visibility = COALESCE($2, visibility),
+         audience_relationship_types = CASE WHEN $3::boolean THEN $4::text[] ELSE audience_relationship_types END,
+         quantity = COALESCE($5::int, quantity),
+         booking_approval_mode = COALESCE($6, booking_approval_mode),
+         start_handoff_method = COALESCE($7, start_handoff_method),
+         end_handoff_method = COALESCE($8, end_handoff_method),
+         delivery_radius_km = CASE WHEN $9::boolean THEN $10::int ELSE delivery_radius_km END,
+         delivery_fee_cents = CASE WHEN $9::boolean THEN $11::bigint ELSE delivery_fee_cents END,
+         collection_fee_cents = CASE WHEN $9::boolean THEN $12::bigint ELSE collection_fee_cents END,
+         handoff_time_start = CASE WHEN $13::boolean THEN $14::time ELSE handoff_time_start END,
+         handoff_time_end = CASE WHEN $13::boolean THEN $15::time ELSE handoff_time_end END,
+         mileage_policy = CASE WHEN $16::boolean THEN $17 ELSE mileage_policy END,
+         included_km_per_day = CASE WHEN $16::boolean THEN $18::int ELSE included_km_per_day END,
+         included_km_total = CASE WHEN $16::boolean THEN $19::int ELSE included_km_total END,
+         extra_km_fee_cents = CASE WHEN $16::boolean THEN $20::bigint ELSE extra_km_fee_cents END,
+         rental_modality = CASE WHEN $21::boolean THEN $22 ELSE rental_modality END,
+         cleaning_fee_policy = CASE WHEN $23::boolean THEN $24 ELSE cleaning_fee_policy END,
+         cleaning_fee_cents = CASE WHEN $23::boolean THEN $25::bigint ELSE cleaning_fee_cents END,
          updated_at = now()
-       WHERE id = $1::uuid`,
+       WHERE asset_id = $1::uuid`,
       [
         resourceId,
-        input.description !== undefined, input.description ?? null,
         input.visibility ?? null,
         input.audienceRelationshipTypes !== undefined, input.audienceRelationshipTypes ?? null,
         input.quantity ?? null,
@@ -340,14 +429,15 @@ class RentableResourceRepository {
   /** Substitui as faixas de preço do recurso (SSOT rental_resource_pricing). Dinheiro em cents/BIGINT.
    *  Idempotente: limpa e regrava as faixas ativas informadas. */
   async setPricingTiers(tenantId: string, resourceId: string, tiers: Array<{ unit: string; priceCents: number }>): Promise<void> {
+    // Fatia 2b-2: tiers vivem na camada nova actor_asset_rental_pricing_tiers (por asset_id). RLS filtra tenant.
     await runQueriesWithTenant(tenantId,
-      `DELETE FROM rental_resource_pricing WHERE resource_id = $1::uuid`, [resourceId]);
+      `DELETE FROM actor_asset_rental_pricing_tiers WHERE asset_id = $1::uuid`, [resourceId]);
     for (let i = 0; i < tiers.length; i++) {
       const t = tiers[i];
       await runQueriesWithTenant(tenantId,
-        `INSERT INTO rental_resource_pricing (resource_id, unit, price_cents, sort_order)
+        `INSERT INTO actor_asset_rental_pricing_tiers (asset_id, unit, price_cents, sort_order)
          VALUES ($1::uuid, $2, $3::bigint, $4)
-         ON CONFLICT (resource_id, unit) DO UPDATE SET price_cents = EXCLUDED.price_cents, sort_order = EXCLUDED.sort_order, updated_at = now()`,
+         ON CONFLICT (asset_id, unit) DO UPDATE SET price_cents = EXCLUDED.price_cents, sort_order = EXCLUDED.sort_order, updated_at = now()`,
         [resourceId, t.unit, t.priceCents, i]);
     }
   }

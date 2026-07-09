@@ -55,6 +55,21 @@ class RentableResourceService {
       throw HttpError.badRequest('RENTABLE_RESOURCE_LABEL_REQUIRED');
     }
 
+    // Fatia 2b-2 (convergência asset-first): a locação nasce SOBRE o item real. Gates governados ANTES de
+    // tocar actor_assets — para TODOS os tipos (não só veículo). category_id NUNCA decide isto.
+    if (!(await rentableResourceRepository.conceptIsAssetEligible(tenantId, input.conceptId))) {
+      throw HttpError.badRequest('RENTABLE_RESOURCE_CONCEPT_NOT_ASSET_ELIGIBLE: concept não é asset-elegível (bem durável).');
+    }
+    if (!(await rentableResourceRepository.conceptHasOfferKind(tenantId, input.conceptId, 'rentable'))) {
+      throw HttpError.badRequest('RENTABLE_RESOURCE_CONCEPT_NOT_RENTABLE: concept sem offer_kind=rentable.');
+    }
+    // concept_rentable_types é CONDICIONAL: hoje só governa imóvel/espaço. Se o concept declara tipos,
+    // resource_type deve estar entre eles; se ainda não é governado (veículo/equipamento), não bloqueia.
+    const rentableTypes = await rentableResourceRepository.conceptRentableTypes(tenantId, input.conceptId);
+    if (rentableTypes.length > 0 && !rentableTypes.includes(input.resourceType)) {
+      throw HttpError.badRequest('RENTABLE_RESOURCE_TYPE_NOT_SUPPORTED: resource_type não suportado pelo concept (concept_rentable_types).');
+    }
+
     // F-VEHICLE-MODEL-YEAR: quando o recurso é VEÍCULO, a combinação marca→modelo→concept→ano é
     // GOVERNADA e validada no backend (não confia no front). concept deve ser 'rentable' (o
     // catálogo de veículo já é rentable, mas provamos aqui também — defesa em profundidade).
