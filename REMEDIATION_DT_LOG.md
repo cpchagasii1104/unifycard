@@ -16469,3 +16469,19 @@ nova frente sem GO explícito de Clayton. Pendências nomeadas (Fase C, decisão
 - **Guard `scripts/audit-asset-foundation.mjs`** (no runner): morde se vocab ganhar internal/etc.; se actor_assets perder a FK de elegibilidade; se elegibilidade usar category_id; se modos ganharem coluna de preço/Bank. Mutação 4/4 (internal / remove-FK / category_id / price_cents → FAIL; restaurar → OK).
 - **Prova por query:** insert pizza (perecível)→REJEITADO pela FK; insert carro (elegível)→ACEITO; CHECK modos=sale/rental/service_use; 13 elegíveis cross-domínio; elegibilidade sem category_id; modos sem coluna preço/bank. tsc backend 0 · frontend NÃO tocado · suíte 148/148 EXIT 0 · Δbank=0.
 - **STOP mantido:** rentable_resources/products/rides_vehicles/service_offerings INTOCADOS; sem vínculo service_use completo; sem Bank/agenda/booking/RFQ/service_demands/pricing/Fase C. **NÃO auto-selado — aguarda Yala.**
+
+## 🔒 F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 1 — SELADA (Yala, selo completo) · HEAD 2ac6c94a
+
+Nasceu a fundação asset-first correta SEM migrar silos: CONCEPT="o que é" · actor_assets="qual unidade real
+o actor possui" · actor_asset_modes="como o item pode ser ativado" (sale/rental/service_use). FK material
+rejeita concept não-elegível (perecível fora); elegibilidade por CONCEPT (concept_asset_eligibilities), nunca
+category; MODO≠ESTADO; service_use sem execução autônoma; sem Bank/preço/agenda/booking/RFQ/service_demands/
+frontend; sem migrar rentable_resources/products/rides_vehicles/service_offerings. Guard audit-asset-foundation
+mutação 4/4. Δbank=0 · tsc back 0 · suíte 148/148.
+
+Notas não-bloqueantes (registradas): (a) metadata JSONB ainda não é governança completa de facets físicas
+(placa/serial) — fatia própria; (b) FKs inline auto-nomeadas = padrão vivo aceito; (c) png/txt untracked
+externos ao commit.
+
+**CONGELADA.** Não abrir Fatia 2 (convergência de locação→asset_id) sem GO explícito de Clayton. Não migrar
+locação/venda/rides/service_use-completo. Não abrir Fase C. Próximo passo LÓGICO (não automático) = Fatia 2.
