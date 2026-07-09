@@ -131,6 +131,27 @@ RECURSO usado por um serviço/prestador, NÃO a identidade do serviço.
 vínculo governado com serviço/prestador"*. A Fatia 1 pode listar `service_use` no vocabulário de modos, mas o
 VÍNCULO completo (asset↔serviço↔prestador) é fatia própria — a fundação só precisa não impedir esse desenho.
 
+## 5-TER. Fronteira de elegibilidade: só bem durável (asset ≠ produto) (adendo obrigatório — Clayton 2026-07-08)
+
+**Regra:** `actor_assets` é SÓ para **bem durável, identificável e reutilizável** — NÃO para qualquer produto
+do marketplace. Asset NÃO é sinônimo de produto.
+- **ENTRAM (durável):** carro, bicicleta, sofá, imóvel/apartamento, videogame, ferramenta, equipamento,
+  máquina, caixa de som, piscina de bolinha, furadeira. Podem ativar `sale`/`rental`/`service_use`.
+- **NÃO ENTRAM (consumível/perecível):** alimento, perecível, bebida de consumo, ingrediente, remédio
+  consumível, descartável, produto de giro comum, estoque vendável por SKU/lote sem unidade durável
+  individual. Seguem no trilho `products`/`product_variants`/`inventory_*`/lote — NÃO recebem rental/service_use.
+
+**Critério de elegibilidade (pelo menos):** (1) DURABILIDADE — não é consumido imediatamente no uso;
+(2) IDENTIFICABILIDADE — reconhecível como unidade, mesmo sem placa/serial; (3) REUTILIZAÇÃO — pode ser
+usado/alugado/vendido-usado/empregado em serviço; (4) CONTROLE DE DISPONIBILIDADE — pode ficar disponível/
+indisponível/reservado/em manutenção. Não passou → não é `actor_asset`.
+
+**Governança da elegibilidade = CONCEPT, nunca category.** A elegibilidade é uma APLICABILIDADE do CONCEPT
+(candidato a nome: `concept_asset_eligibilities` — a decidir no RFC/fatia, espelho de concept_offer_kinds/
+concept_rentable_types). CONCEPT governa se o tipo é asset-elegível; `category_id` só organiza navegação e
+NÃO decide durabilidade/elegibilidade. Fronteira: durável → pode ser asset multi-modo; consumível → fica
+product/inventory/lot/SKU.
+
 ## 6. Opções de migração — comparação + recomendação
 
 | Opção | O que é | Impacto migrations/API/front | Risco | Virgem? | Veredito |
@@ -160,6 +181,10 @@ Bank · item duplicado em rides/products/rentable em vez de referenciar asset_id
 **Guard de `service_use` (adendo §5-BIS):** falhar se `service_use` for ativado/publicado SEM serviço/
 capability concept · aceitar texto livre como serviço · usar `category_id` como serviço · asset virar service
 ou service virar asset · prestador/motorista inferido de user/session sem actor/authority. Cada um por mutação.
+**Guard de ELEGIBILIDADE (adendo §5-TER):** falhar se alimento/perecível/consumível entrar em `actor_assets` ·
+product SKU comum virar asset sem elegibilidade governada · `rental`/`service_use` for habilitado para concept
+não-durável (não asset-elegível) · `category_id` for usado para decidir durabilidade/elegibilidade · frontend
+criar lista local de tipos elegíveis. Elegibilidade vem de CONCEPT (applicability), nunca de category.
 
 ## 9. Escopo PROIBIDO (STOP desta RFC e das fatias até GO)
 
@@ -184,5 +209,10 @@ agenda/Bank/pagamentos. Não implementar todos os modos. Não abrir Fase C.
   service_offerings + actor/authority), NÃO oferta solta do item; não cria serviço, não vira texto-livre/
   category, não toca Bank/booking/RFQ. Invariante: "service_use público/executável exige vínculo governado
   com serviço/prestador" — a Fatia 1 não bloqueia esse desenho. Nomes de vínculo a avaliar na fatia futura.
-- [ ] **PENDENTE:** GO para a **Fatia 1 (fundação)** forward-only (com ajuste MODO≠ESTADO + adendo §5-BIS
-  registrados). Identidade física de veículo (placa/RENAVAM) = decidir na fatia rides/veículo.
+- [x] **ADENDO ELEGIBILIDADE registrado (§5-TER):** `actor_assets` só p/ bem DURÁVEL/identificável/reutilizável
+  (carro/ferramenta/imóvel/equipamento…), NÃO consumível/perecível (alimento/bebida/SKU-de-giro seguem
+  products/inventory). Elegibilidade governada por CONCEPT (applicability, candidato `concept_asset_
+  eligibilities`), NUNCA por category. Asset ≠ produto.
+- [ ] **PENDENTE:** GO para a **Fatia 1 (fundação)** forward-only (com MODO≠ESTADO + §5-BIS service_use +
+  §5-TER elegibilidade registrados). Nome da applicability de elegibilidade + identidade física de veículo
+  (placa/RENAVAM) = decidir nas fatias próprias.
