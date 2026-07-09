@@ -4,9 +4,6 @@ import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { reviewService } from '@core/reviews/review.service';
 import { insertWorkEventOutbox } from '../work-event-outbox.helper';
 
-import { splitEngineService } from '@core/economy/split.service';
-import { splitLoggerService } from '@core/logging/split-logger.service';
-
 import type {
   JobAssignmentRow,
   JobAssignment,
@@ -227,203 +224,21 @@ class AssignmentService {
     let assignment = this.toAssignment(row);
 
     // ========================================================
-    // 2) PAGAMENTO AUTOMÁTICO VIA ECONOMY (se houver valor)
-    //    → usando accountService / transactionService EXISTENTES
+    // 2) PAGAMENTO DE ASSIGNMENT — EXCISADO (F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1A)
+    // 🔴 DECISION-0165 D5/D8 (sistema virgem): o caminho financeiro usava splitEngineService
+    //    (core/economy/split.service) = TRUE-PARALLEL — movia dinheiro via transfer SEM gravar
+    //    bank_splits (driblava a invariante 0022) e decidia split 70/15/10/5 FORA do Bank.
+    //    Trabalho-com-dinheiro está FORA do MVP. Path removido; fail-closed para NÃO completar
+    //    silenciosamente um assignment COM valor. Reabrir = pipeline canônico
+    //    (economic_policy_engine → bank-transaction.service → bank_splits), frente própria com GO.
     // ========================================================
     if (assignment.agreedRate > 0) {
-      const { accountService } = await import('@core/economy/account.service');
-      const { regionAccountService } = await import('@core/economy/region-account.service');
-      const { groupAccountService } = await import('@core/economy/group-account.service');
-
-      // 2.1) Descobre o userId do worker a partir do worker_id
-      const workerRow = await runQueryWithTenant<{ user_id: string }>(
-        tenantId,
-        `
-        SELECT user_id
-        FROM workers
-        WHERE tenant_id = $1 AND worker_id = $2
-        LIMIT 1
-        `,
-        [tenantId, assignment.workerId],
+      const e = new Error(
+        'WORK_ASSIGNMENT_PAYMENT_RETIRED: pagamento de assignment fora do MVP (DECISION-0165). ' +
+          'Trabalho-com-dinheiro só reabre pelo pipeline canônico; complete apenas assignments sem valor.',
       );
-
-      if (!workerRow) {
-        const e = new Error('Worker not found for assignment');
-        (e as any).statusCode = 500;
-        throw e;
-      }
-
-      const workerUserId = workerRow.user_id;
-      const clientUserId = assignment.clientUserId;
-
-      // 2.2) Conta do cliente (ownerType = 'user')
-      const clientAccounts = await accountService.getAccountsByOwner(
-        tenantId,
-        clientUserId,
-        'user',
-      );
-
-      const clientAccount =
-        clientAccounts[0] ??
-        (await accountService.createAccount(tenantId, {
-          ownerId: clientUserId,
-          ownerType: 'user',
-          currency: 'BRL',
-        }));
-
-      // 2.3) Conta do worker (ownerType = 'user', usando userId do worker)
-      const workerAccounts = await accountService.getAccountsByOwner(
-        tenantId,
-        workerUserId,
-        'user',
-      );
-
-      const workerAccount =
-        workerAccounts[0] ??
-        (await accountService.createAccount(tenantId, {
-          ownerId: workerUserId,
-          ownerType: 'user',
-          currency: 'BRL',
-        }));
-
-      // 2.4) Buscar ou criar conta do tenant (para splits)
-      const tenantAccount = await accountService.getOrCreateSystemAccount(
-        tenantId,
-        'platform_ops',
-        'BRL',
-      );
-
-      // 2.5) Usar SplitEngine para dividir o pagamento
-      // Determinar source baseado em options ou metadata do assignment
-      const source = options?.source || (assignment as any).metadata?.source || 'work';
-
-      // Resolver regionAccountId e groupAccountIds
-      const regionAccountId = await regionAccountService.resolveRegionAccountId({
-        tenantId,
-        userId: workerUserId, // Usar workerUserId como referência
-        jobId: assignment.jobId,
-      });
-
-      const groupAccountIds = await groupAccountService.resolveGroupAccountIds({
-        tenantId,
-        userId: workerUserId, // Usar workerUserId (worker recebe o split de grupos)
-      });
-
-      // Log contexto de splits preparado
-      console.log({
-        tenantId,
-        assignmentId: assignment.assignmentId,
-        amountCents: assignment.agreedRate,
-        hasRegionAccount: !!regionAccountId,
-        groupAccountsCount: groupAccountIds.length,
-        source: options?.source || 'work',
-        'economy.action': 'prepare-split-context',
-      }, 'Prepared split context for assignment completion');
-
-      const splitContext = {
-        tenantId,
-        amountCents: assignment.agreedRate,
-        currency: 'BRL',
-        source,
-        customerAccountId: clientAccount.accountId,
-        workerAccountId: workerAccount.accountId,
-        tenantAccountId: tenantAccount.accountId,
-        regionAccountId,
-        groupAccountIds,
-        metadata: {
-          ...options?.metadata,
-          module: 'work',
-          type: 'work_assignment_payment',
-          assignmentId: assignment.assignmentId,
-          jobId: assignment.jobId,
-          workerId: assignment.workerId,
-          workerUserId,
-          clientUserId,
-          source,
-        },
-      };
-
-      // Aplicar splits
-      const splitResult = await splitEngineService.applySplits(splitContext);
-
-      // 2.5.1) Log estruturado para transação WORK criada
-      const regionSplit = splitResult.splits.find((s) => s.rule.targetType === 'REGION');
-      let regionId: string | undefined;
-      if (splitContext.regionAccountId) {
-        try {
-          // Tentar obter regionId do tenant
-          const tenant = await runQueryWithTenant<{ city_id: string | null }>(
-            tenantId,
-            'SELECT city_id FROM tenants WHERE id = $1',
-            [tenantId]
-          );
-          // Por enquanto, usar 'unknown' - pode ser melhorado para buscar stateId
-          regionId = 'unknown';
-        } catch {
-          regionId = 'unknown';
-        }
-      }
-
-      if (regionSplit?.transactionId) {
-        splitLoggerService.logWorkTransaction({
-          timestamp: new Date().toISOString(),
-          module: 'work',
-          regionId,
-          amountCents: assignment.agreedRate,
-          transactionId: regionSplit.transactionId,
-          tenantId,
-          assignmentId: assignment.assignmentId,
-          jobId: assignment.jobId,
-          workerId: assignment.workerId,
-        });
-      }
-
-      // 2.6) Atualizar assignment com payment_transaction_id do worker (split principal)
-      // Buscar transactionId do split WORKER
-      const workerSplit = splitResult.splits.find((s) => s.rule.targetType === 'WORKER');
-      const mainTransactionId = workerSplit?.transactionId || null;
-
-      if (mainTransactionId) {
-        const updatedRow = await runQueryWithTenant<JobAssignmentRow>(
-          tenantId,
-          `
-          UPDATE job_assignments
-          SET payment_transaction_id = $3, updated_at = now()
-          WHERE tenant_id = $1 AND assignment_id = $2
-          RETURNING *
-          `,
-          [tenantId, assignmentId, mainTransactionId],
-        );
-
-        if (updatedRow) {
-          assignment = this.toAssignment(updatedRow);
-        }
-      }
-
-      // 2.7) Evento de pagamento concluído (com splits)
-      await insertWorkEventOutbox(
-        tenantId,
-        'work.assignment.paid',
-        assignment.assignmentId,
-        `paid:${mainTransactionId ?? 'none'}`,
-        {
-          assignmentId: assignment.assignmentId,
-          jobId: assignment.jobId,
-          workerId: assignment.workerId,
-          workerUserId,
-          clientUserId,
-          paymentTransactionId: mainTransactionId,
-          amountCents: assignment.agreedRate,
-          splitResult: {
-            totalAmount: splitResult.totalAmount,
-            splits: splitResult.splits.map((s) => ({
-              targetType: s.rule.targetType,
-              amountCents: s.amountCents,
-              transactionId: s.transactionId || null,
-            })),
-          },
-        }
-      );
+      (e as any).statusCode = 501;
+      throw e;
     }
 
     // ========================================================
