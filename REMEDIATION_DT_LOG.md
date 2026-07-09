@@ -16485,3 +16485,15 @@ externos ao commit.
 
 **CONGELADA.** Não abrir Fatia 2 (convergência de locação→asset_id) sem GO explícito de Clayton. Não migrar
 locação/venda/rides/service_use-completo. Não abrir Fase C. Próximo passo LÓGICO (não automático) = Fatia 2.
+
+## 2026-07-08 — F-ASSET-MULTI-OFFER-FOUNDATION Fatia 2 · PARTE A (reconciliação de concepts)
+
+- **GO Fatia 2.** Parte A entregue (forward-only, inequívoca, pré-requisito de B-G): backfill governado
+  `20260708380000` — todo concept offer_kind='rentable' vira asset-elegível (RFC §7-BIS D5). Os 42 faltantes
+  classificados no READ-FIRST = 21 imóveis/espaços + 21 equipamentos = TODOS duráveis, zero perecível.
+- **Prova:** rentables sem asset-eligibility = 0 (55 elegíveis); perecível forçado a asset = 0. Sem category_id. Δbank=0.
+- **ESCALA de B-G (transparência):** o módulo de locação tem ~2400 linhas (repository 651 + service 829 +
+  routes 641 + types) com SELECTs NÃO-centralizados (cada método tem seu próprio SELECT em rentable_resources).
+  A convergência viva (actor_asset_rental_terms + rewire create/list/detail/discover/updateOffer + availability
+  owner_type='actor_asset' + resolver de autoridade) é reescrita grande. Recomendado como PASSO DEDICADO
+  (Fatia 2b) para preservar a disciplina SSOT, não rush no fim de sessão enorme. Aguarda decisão de sequenciamento.
