@@ -468,14 +468,14 @@ class UnifiedAvailabilityService {
       // 🔴 DECISION-0151 FASE 2b: RECURSO ALUGÁVEL — exclusividade por RESOURCE (owner_id), NÃO provider.
       //    Confirm é o ponto ÚNICO; lock transacional por resource_id + conflito por owner_id em status
       //    bloqueante {confirmed,checked_in,checked_out}, self excluído, intervalo da availability (nunca do body).
-      if (availability.ownerType === AvailabilityOwnerType.RENTABLE_RESOURCE) {
+      if (availability.ownerType === AvailabilityOwnerType.ACTOR_ASSET) {
         // SUBPERÍODO do booking quando houver (locação por período); senão a janela inteira (COALESCE).
         const startIso = new Date(existing.bookedStartDatetime ?? availability.startDatetime).toISOString();
         const endIso = new Date(existing.bookedEndDatetime ?? availability.endDatetime).toISOString();
         return await unifiedAvailabilityRepository.confirmBookingWithResourceLock(
           tenantId,
           bookingId,
-          availability.ownerId, // = rentable_resources.id (o recurso)
+          availability.ownerId, // = actor_assets.id (o item real — F-ASSET 2b-4)
           startIso,
           endIso
         );

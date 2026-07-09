@@ -69,7 +69,7 @@ export default function RentalResourceDetailPage() {
       const viewerIsOwner = !!activeActor && r.ownerActorId === activeActor.actor_id;
       if (viewerIsOwner) {
         // DONO: agenda operacional privada (janelas + reservas pendentes para confirmar).
-        const avails = await listAvailabilities({ ownerType: 'rentable_resource', ownerId: id });
+        const avails = await listAvailabilities({ ownerType: 'actor_asset', ownerId: id });
         const withBookings = await Promise.all(
           avails.map(async (a) => ({ availability: a, bookings: await listBookings({ availabilityId: a.availabilityId }) }))
         );
@@ -82,7 +82,7 @@ export default function RentalResourceDetailPage() {
         // de terceiros. O backend só expõe se o recurso é público. Ele pode solicitar reserva.
         const publicWindows = await getResourcePublicAvailability(id);
         const mapped: WindowWithBookings[] = publicWindows
-          .map((w) => ({ availability: { availabilityId: w.availabilityId, ownerType: 'rentable_resource', ownerId: id, startDatetime: w.startDatetime, endDatetime: w.endDatetime, status: 'active' } as unknown as UnifiedAvailability, bookings: [] }))
+          .map((w) => ({ availability: { availabilityId: w.availabilityId, ownerType: 'actor_asset', ownerId: id, startDatetime: w.startDatetime, endDatetime: w.endDatetime, status: 'active' } as unknown as UnifiedAvailability, bookings: [] }))
           .sort((a, b) => new Date(b.availability.startDatetime).getTime() - new Date(a.availability.startDatetime).getTime());
         setWindows(mapped);
       }
@@ -117,7 +117,7 @@ export default function RentalResourceDetailPage() {
     if (new Date(endIso) <= new Date(startIso)) { showToast('O fim deve ser depois do início.', 'error'); return; }
     setSubmittingWindow(true);
     try {
-      await createAvailability({ ownerType: 'rentable_resource', ownerId: id, startDatetime: startIso, endDatetime: endIso });
+      await createAvailability({ ownerType: 'actor_asset', ownerId: id, startDatetime: startIso, endDatetime: endIso });
       showToast('Disponibilidade criada. ✅', 'success');
       setAvailDateStart(''); setAvailDateEnd(''); setAvailUseStart(''); setAvailUseEnd('');
       await load();

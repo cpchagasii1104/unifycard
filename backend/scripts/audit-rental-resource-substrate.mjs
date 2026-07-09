@@ -47,9 +47,10 @@ if (!substrate) {
 }
 
 // 2) FASE 2b: booking de rental HABILITADO, mas a EXCLUSIVIDADE por resource_id é BLOQUEANTE no confirm.
-//    (a) confirm dispatcha RENTABLE_RESOURCE → confirmBookingWithResourceLock.
-if (!/RENTABLE_RESOURCE[\s\S]{0,600}?confirmBookingWithResourceLock/.test(SVC)) {
-  failures.push('confirm: owner_type rentable_resource NÃO usa confirmBookingWithResourceLock — booking de rental ficaria sem exclusividade bloqueante (risco de duplo-aluguel).');
+//    (a) confirm dispatcha ACTOR_ASSET → confirmBookingWithResourceLock (F-ASSET-MULTI-OFFER-FOUNDATION 2b-4:
+//        a locação convergiu — disponibilidade pertence ao ITEM real; owner_type='actor_asset').
+if (!/ACTOR_ASSET[\s\S]{0,600}?confirmBookingWithResourceLock/.test(SVC)) {
+  failures.push('confirm: owner_type actor_asset NÃO usa confirmBookingWithResourceLock — booking de rental ficaria sem exclusividade bloqueante (risco de duplo-aluguel).');
 }
 //    (b) o lock existe no repo, é por RESOURCE (owner_id, NÃO provider) e lança RENTAL_RESOURCE_TIME_CONFLICT.
 if (!/async confirmBookingWithResourceLock/.test(REPO)) {
@@ -58,8 +59,8 @@ if (!/async confirmBookingWithResourceLock/.test(REPO)) {
   // Janela ampliada 2026-07-08: o método cresceu (subperíodo + quantity/capacity) por razão legítima —
   // conflito agora compara SUBPERÍODO (COALESCE booked_*, janela) e respeita quantity. Segurança intacta.
   const block = REPO.slice(REPO.indexOf('async confirmBookingWithResourceLock'), REPO.indexOf('async confirmBookingWithResourceLock') + 2200);
-  if (!/owner_type\s*=\s*'rentable_resource'/.test(block) || !/a2\.owner_id\s*=\s*\$2/.test(block)) {
-    failures.push('confirmBookingWithResourceLock: conflito NÃO é por owner_id/recurso (DECISION-0151: conflito por resource_id, não provider).');
+  if (!/owner_type\s*=\s*'actor_asset'/.test(block) || !/a2\.owner_id\s*=\s*\$2/.test(block)) {
+    failures.push('confirmBookingWithResourceLock: conflito NÃO é por owner_id/asset (DECISION-0151 + F-ASSET 2b-4: conflito por asset_id, não provider).');
   }
   if (/provider_actor_id/.test(block)) {
     failures.push('confirmBookingWithResourceLock: usa provider_actor_id — rental deve conflitar por RESOURCE, não provider.');

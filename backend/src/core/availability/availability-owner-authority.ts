@@ -120,6 +120,19 @@ const OWNER_AUTHORITY_POLICIES: Record<AvailabilityOwnerType, OwnerPolicy> = {
     );
     return r?.owner_actor_id ?? null;
   },
+
+  // actor_asset (F-ASSET-MULTI-OFFER-FOUNDATION 2b-4): autoridade = owner_actor_id do ITEM real. RLS de
+  // actor_assets filtra por tenant; a disponibilidade pertence à unidade física (não à oferta).
+  [AvailabilityOwnerType.ACTOR_ASSET]: async (tenantId, ownerId) => {
+    const r = await runQueryWithTenant<{ owner_actor_id: string | null }>(
+      tenantId,
+      `SELECT owner_actor_id::text AS owner_actor_id FROM actor_assets
+        WHERE id = $1::uuid AND tenant_id = $2::uuid
+        LIMIT 1`,
+      [ownerId, tenantId]
+    );
+    return r?.owner_actor_id ?? null;
+  },
 };
 
 /**

@@ -16533,3 +16533,18 @@ locação/venda/rides/service_use-completo. Não abrir Fase C. Próximo passo L�
 - **guard atualizado:** audit-vehicle-fields-governed — check de tiers passou a exigir actor_asset_rental_pricing_tiers (SSOT convergido), não mais rental_resource_pricing. (Invariante refletindo a convergência ratificada.)
 - **Prova (smoke):** create(carro) → findById convergido devolve label/concept/resourceType/year(metadata)/price/visibility corretos; list(owner)≥1; getPricingTiers=por_dia:12000; rentable_resources segue vazia (reads não dependem dela). DTO preservado. tsc back 0 · frontend NÃO tocado · suíte 149/149 EXIT 0 · Δbank=0 · Bank/products/rides/service_offerings/service_use/Fase C intocados.
 - **LIMITE 2b-3:** availability/address/bookings (findActiveRequests/findMyBookings/findBookingsForOwner ainda em owner_type='rentable_resource') = 2b-4. **Fatia 2 NÃO selada.** Sem auto-selo, sem Yala.
+
+## 2026-07-08 — F-ASSET-MULTI-OFFER-FOUNDATION Fatia 2b-4 (availability / address / bookings → actor_asset)
+
+- **GO 2b-4** (opção 1 = frontend mínimo autorizado por Clayton, pois manter dois owner_type vivos violaria a D1 ratificada). Completa o ripple: disponibilidade pertence ao ITEM real.
+- **Backend availability/address/bookings → owner_type='actor_asset', owner_id=asset_id:**
+  - availability-owner-authority.ts: resolver ACTOR_ASSET (owner_actor_id de actor_assets, RLS/tenant).
+  - unified-availability.types.ts: enum += ACTOR_ASSET. Migration 20260708420000 re-define chk_availability_owner_type na forma canônica IN(...) c/ 8 valores (inclui actor_asset) — o guard lê via regex IN(...).
+  - unified-availability.repository.ts confirmBookingWithResourceLock: lock/quantity(actor_asset_rental_terms)/overlap → actor_asset.
+  - unified-availability.service.ts: confirm dispatcha ACTOR_ASSET → resource-lock (exclusividade por asset_id).
+  - rentable-resource.service.ts (3 checks) + repository (todas as queries de booking/address + assignAddress/updateMetadata) → actor_asset; JOINs a rentable_resources trocados por actor_assets + actor_asset_rental_terms. **0 refs vivos a rentable_resources.**
+- **Frontend MÍNIMO (autorizado):** RentalResourceDetailPage (3× ownerType 'rentable_resource'→'actor_asset') + availability.ts (type += 'actor_asset'). tsc frontend 0.
+- **Contrato:** API_CONTRACT_GOVERNANCE registra availability de locação = ownerType='actor_asset', ownerId=asset_id.
+- **Guards atualizados p/ a convergência (não afrouxados):** audit-rental-resource-substrate (confirm por actor_asset, mantém exclusividade/409/não-provider) + audit-rental-resource-surface-contract (branch ACTOR_ASSET) + audit-vehicle-fields-governed (address owner_type=actor_asset).
+- **Prova:** availability/booking/address de locação usam owner_type='actor_asset'; novo fluxo grava 0 'rentable_resource'; resolver ACTOR_ASSET→owner_actor_id; findMy/ActiveRequests/BookingsForOwner por actor_assets+rental_terms. tsc back 0 · tsc front 0 · suíte 149/149 EXIT 0 · Δbank=0 · Bank/products/rides/service_offerings/service_use/Fase C intocados.
+- **LIMITE:** falta só a 2b-5 (guard final audit-asset-rental-convergence + mutações + 16 provas + Yala da 2b inteira). **Fatia 2 NÃO selada.**

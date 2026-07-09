@@ -23,6 +23,7 @@ export enum AvailabilityOwnerType {
   PAGE = 'page',     // Disponibilidade de página (owner_id = actors.id page)
   SERVICE_OFFERING = 'service_offering', // Oferta de serviço (owner_id = service_offerings.id — DECISION-0117 D)
   RENTABLE_RESOURCE = 'rentable_resource', // Recurso alugável (owner_id = rentable_resources.id — DECISION-0151 B; FASE 2a)
+  ACTOR_ASSET = 'actor_asset', // F-ASSET-MULTI-OFFER-FOUNDATION 2b-4: disponibilidade PERTENCE AO ITEM real (owner_id = actor_assets.id). A mesma unidade não pode ter agendas paralelas por modo.
 }
 
 /**

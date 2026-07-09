@@ -53,7 +53,8 @@ const rentalPage = strip(read(join(FE, 'pages', 'RentalResourceListPage.tsx')));
 check('locação NÃO tem city_name livre nem input de texto de cidade', !/city_name|<input[^>]*cidade/i.test(rentalPage));
 check('locação resolve cidade no backend (searchCities/GovernedCombobox)', /searchCities\(/.test(rentalPage));
 const rentalRepo = strip(read(join(process.cwd(), 'src', 'modules', 'rentals', 'rentable-resource.repository.ts')));
-check('recurso vincula localização via address_assignments (padrão canônico)', /address_assignments/.test(rentalRepo) && /owner_type\s*=?\s*.?rentable_resource/.test(rentalRepo));
+// F-ASSET-MULTI-OFFER-FOUNDATION 2b-4: address PICKUP convergiu para owner_type='actor_asset' (owner_id=asset_id).
+check('recurso vincula localização via address_assignments (padrão canônico, owner_type=actor_asset)', /address_assignments/.test(rentalRepo) && /owner_type\s*=?\s*.?actor_asset/.test(rentalRepo));
 check('backend valida cidade na SSOT (cityExists sobre cities)', /cityExists/.test(rentalRepo) && /FROM cities/.test(rentalRepo));
 
 // 9) F-RENTAL-PRICING-QUANTITY-GEO-MVP: dinheiro SEMPRE cents/BIGINT; faixas na SSOT; front envia cents.

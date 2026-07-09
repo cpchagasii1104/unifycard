@@ -115,6 +115,15 @@ Regras observadas no código vivo (a serem seguidas por rotas novas; divergênci
   preserva histórico; re-POST reativa). NÃO inventa lifecycle novo.
 - **Efeitos:** nenhum econômico. **Δbank:** 0. **Guard:** `scripts/audit-event-orchestration-templates.mjs`.
 
+### Availability de LOCAÇÃO — `owner_type='actor_asset'` (F-ASSET-MULTI-OFFER-FOUNDATION 2b-4)
+
+- **Mudança de contrato (endpoint genérico de availability):** para LOCAÇÃO, a disponibilidade agora pertence
+  ao ITEM real. `POST /availability` e `GET /availability` (owner do recurso) usam `ownerType='actor_asset'`
+  e `ownerId = asset_id` (= id público do recurso de locação, que passou a ser o `actor_assets.id`). O valor
+  legado `'rentable_resource'` NÃO é mais gravado pelo fluxo vivo de locação. Autoridade resolvida por
+  `actor_assets.owner_actor_id` (availability-owner-authority). Booking/conflito lê quantidade de
+  `actor_asset_rental_terms`. Frontend (RentalResourceDetailPage) alinhado. Δbank=0.
+
 ## 6. Lacunas conhecidas (dívida registrada, não fingida)
 
 - O `00_AGENT_PROTOCOL.md` §2.2.8 cita `backend/docs/openapi-stock-transfer-receipt.contract.yaml` como

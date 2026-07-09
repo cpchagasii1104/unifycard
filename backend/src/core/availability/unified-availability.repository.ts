@@ -480,19 +480,21 @@ class UnifiedAvailabilityRepository {
     const client = await getClientWithTenant(tenantId);
     try {
       await client.query('BEGIN');
-      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${tenantId}:rentable_resource:${resourceId}`]);
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${tenantId}:actor_asset:${resourceId}`]);
       // Correção conceitual 2026-07-08: conflito por SUBPERÍODO (não pela janela macro). Duas reservas de
       // subperíodos diferentes da MESMA janela (ex.: 10-12 e 20-22 de uma janela 08-31) NÃO conflitam.
       // COALESCE(booked_*, janela) preserva domínios sem subperíodo. quantity = unidades (equipamento
       // fungível permite até `quantity` reservas sobrepostas; veículo/imóvel/espaço = 1).
-      const qRow = await client.query(`SELECT quantity FROM rentable_resources WHERE id = $1 AND tenant_id = $2`, [resourceId, tenantId]);
+      // F-ASSET-MULTI-OFFER-FOUNDATION 2b-4: quantidade vem da CAMADA de locação (actor_asset_rental_terms
+      // por asset_id); disponibilidade pertence ao ITEM (owner_type='actor_asset'). RLS filtra tenant.
+      const qRow = await client.query(`SELECT quantity FROM actor_asset_rental_terms WHERE asset_id = $1`, [resourceId]);
       const capacity = Math.max(1, Number(qRow.rows[0]?.quantity ?? 1));
       const overlap = await client.query(
         `SELECT count(*)::int AS n
            FROM bookings b2
            JOIN availability a2 ON a2.availability_id = b2.availability_id AND a2.tenant_id = b2.tenant_id
           WHERE b2.tenant_id = $1
-            AND a2.owner_type = 'rentable_resource'
+            AND a2.owner_type = 'actor_asset'
             AND a2.owner_id = $2
             AND b2.status IN ('confirmed','checked_in','checked_out')
             AND b2.booking_id <> $3

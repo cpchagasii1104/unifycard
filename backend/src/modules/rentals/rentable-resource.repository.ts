@@ -272,7 +272,7 @@ class RentableResourceRepository {
     limit = 50
   ): Promise<Array<RentableResource & { cityName: string | null; uf: string | null; distanceKm: number | null }>> {
     // Fatia 2b-3: descoberta convergida (asset a + termos t + modo rental). RLS filtra tenant. Endereço PICKUP
-    // ainda via owner_type='rentable_resource' (owner_id=asset_id) — a migração de address p/ 'actor_asset' é 2b-4.
+    // ainda via owner_type='actor_asset' (owner_id=asset_id) — a migração de address p/ 'actor_asset' é 2b-4.
     const params: unknown[] = [viewerActorId];
     const hasRadius = f.lat != null && f.lng != null && f.radiusKm != null && f.radiusKm > 0;
     let latIdx = 0, lngIdx = 0, radIdx = 0;
@@ -292,7 +292,7 @@ class RentableResourceRepository {
          FROM actor_assets a
          JOIN actor_asset_rental_terms t ON t.asset_id = a.id
          JOIN actor_asset_modes m ON m.asset_id = a.id AND m.activation_mode = 'rental'
-         LEFT JOIN address_assignments aa ON aa.owner_type = 'rentable_resource' AND aa.owner_id = a.id
+         LEFT JOIN address_assignments aa ON aa.owner_type = 'actor_asset' AND aa.owner_id = a.id
               AND aa.role = 'PICKUP' AND aa.is_primary = true AND aa.valid_until_at IS NULL
          LEFT JOIN addresses ad ON ad.address_id = aa.address_id
          LEFT JOIN cities c ON c.city_id = ad.city_id
@@ -477,7 +477,7 @@ class RentableResourceRepository {
       `SELECT b.booking_id, b.requester_actor_id, b.status, b.booked_start_datetime, b.booked_end_datetime, b.requested_at
          FROM bookings b
          JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
-        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND a.owner_id = $2::uuid
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'actor_asset' AND a.owner_id = $2::uuid
           AND b.status IN ('requested','confirmed','checked_in')
         ORDER BY (b.status='requested') DESC, b.requested_at ASC`,
       [tenantId, resourceId]);
@@ -487,12 +487,13 @@ class RentableResourceRepository {
   /** MINHAS reservas (do consumidor): bookings do requester com recurso + dono + subperíodo + status. */
   async findMyBookings(tenantId: string, requesterActorId: string): Promise<Array<{ bookingId: string; status: string; resourceId: string; resourceLabel: string; resourceType: string; ownerActorId: string; bookedStart: Date | null; bookedEnd: Date | null; requestedAt: Date }>> {
     const rows = await runQueriesWithTenant<any>(tenantId,
-      `SELECT b.booking_id, b.status, r.id AS resource_id, r.label AS resource_label, r.resource_type, r.owner_actor_id,
+      `SELECT b.booking_id, b.status, r.id AS resource_id, r.label AS resource_label, rt.resource_type, r.owner_actor_id,
               b.booked_start_datetime, b.booked_end_datetime, b.requested_at
          FROM bookings b
          JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
-         JOIN rentable_resources r ON r.id = a.owner_id
-        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND b.requester_actor_id = $2::uuid
+         JOIN actor_assets r ON r.id = a.owner_id
+         JOIN actor_asset_rental_terms rt ON rt.asset_id = r.id
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'actor_asset' AND b.requester_actor_id = $2::uuid
           AND b.status IN ('requested','confirmed','checked_in','checked_out','cancelled')
         ORDER BY b.requested_at DESC`,
       [tenantId, requesterActorId]);
@@ -502,12 +503,13 @@ class RentableResourceRepository {
   /** RESERVAS RECEBIDAS pelo DONO (todos os recursos dele) — para o painel do operar agrupar por status. */
   async findBookingsForOwner(tenantId: string, ownerActorId: string): Promise<Array<{ bookingId: string; status: string; resourceId: string; resourceLabel: string; resourceType: string; requesterActorId: string; bookedStart: Date | null; bookedEnd: Date | null; requestedAt: Date }>> {
     const rows = await runQueriesWithTenant<any>(tenantId,
-      `SELECT b.booking_id, b.status, r.id AS resource_id, r.label AS resource_label, r.resource_type,
+      `SELECT b.booking_id, b.status, r.id AS resource_id, r.label AS resource_label, rt.resource_type,
               b.requester_actor_id, b.booked_start_datetime, b.booked_end_datetime, b.requested_at
          FROM bookings b
          JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
-         JOIN rentable_resources r ON r.id = a.owner_id
-        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND r.owner_actor_id = $2::uuid
+         JOIN actor_assets r ON r.id = a.owner_id
+         JOIN actor_asset_rental_terms rt ON rt.asset_id = r.id
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'actor_asset' AND r.owner_actor_id = $2::uuid
           AND b.status IN ('requested','confirmed','checked_in','checked_out','cancelled')
         ORDER BY (b.status='requested') DESC, b.requested_at DESC`,
       [tenantId, ownerActorId]);
@@ -521,7 +523,7 @@ class RentableResourceRepository {
          JOIN addresses a ON a.address_id = aa.address_id
          JOIN cities c ON c.city_id = a.city_id
          LEFT JOIN states s ON s.state_id = c.state_id
-        WHERE aa.owner_type = 'rentable_resource' AND aa.role = 'PICKUP'
+        WHERE aa.owner_type = 'actor_asset' AND aa.role = 'PICKUP'
           AND aa.is_primary = true AND aa.valid_until_at IS NULL AND aa.owner_id = $1::uuid LIMIT 1`,
       [resourceId]);
     const r = rows[0];
@@ -536,14 +538,16 @@ class RentableResourceRepository {
   async searchByText(tenantId: string, q: string, limit = 8): Promise<Array<{ id: string; label: string; resourceType: string; cityName: string | null; uf: string | null }>> {
     const rows = await runQueriesWithTenant<{ id: string; label: string; resource_type: string; city_name: string | null; uf: string | null }>(
       tenantId,
-      `SELECT r.id::text, r.label, r.resource_type, c.name AS city_name, s.abbreviation AS uf
-         FROM rentable_resources r
-         LEFT JOIN address_assignments aa ON aa.owner_type='rentable_resource' AND aa.owner_id=r.id
+      `SELECT r.id::text, r.label, rt.resource_type, c.name AS city_name, s.abbreviation AS uf
+         FROM actor_assets r
+         JOIN actor_asset_rental_terms rt ON rt.asset_id = r.id
+         JOIN actor_asset_modes rm ON rm.asset_id = r.id AND rm.activation_mode = 'rental'
+         LEFT JOIN address_assignments aa ON aa.owner_type='actor_asset' AND aa.owner_id=r.id
               AND aa.role='PICKUP' AND aa.is_primary=true AND aa.valid_until_at IS NULL
          LEFT JOIN addresses ad ON ad.address_id=aa.address_id
          LEFT JOIN cities c ON c.city_id=ad.city_id
          LEFT JOIN states s ON s.state_id=c.state_id
-        WHERE r.tenant_id=$1::uuid AND r.status='active' AND r.visibility='public'
+        WHERE r.tenant_id=$1::uuid AND rt.status='active' AND rt.visibility='public'
           AND r.label ILIKE '%'||$2||'%'
         ORDER BY r.created_at DESC LIMIT $3`,
       [tenantId, q, Math.min(Math.max(limit, 1), 20)]);
@@ -569,7 +573,7 @@ class RentableResourceRepository {
       `SELECT b.booking_id, b.requester_actor_id, b.booked_start_datetime, b.booked_end_datetime, b.requested_at
          FROM bookings b
          JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
-        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND a.owner_id = $2::uuid
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'actor_asset' AND a.owner_id = $2::uuid
           AND b.status = 'requested'
         ORDER BY b.requested_at ASC`,
       [tenantId, resourceId]);
@@ -584,7 +588,7 @@ class RentableResourceRepository {
               COALESCE(b.booked_end_datetime, a.end_datetime) AS e
          FROM bookings b
          JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
-        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'rentable_resource' AND a.owner_id = $2::uuid
+        WHERE b.tenant_id = $1::uuid AND a.owner_type = 'actor_asset' AND a.owner_id = $2::uuid
           AND b.status IN ('confirmed','checked_in','checked_out')
         ORDER BY s ASC`,
       [tenantId, resourceId]);
@@ -626,7 +630,7 @@ class RentableResourceRepository {
     // (cities.lat/lng, sempre disponível, sem rede). Habilita o filtro por raio sem expor rua/número.
     await runQueriesWithTenant(tenantId,
       `UPDATE address_assignments SET valid_until_at = now(), is_primary = false, updated_at = now()
-        WHERE owner_type = 'rentable_resource' AND owner_id = $1::uuid AND role = 'PICKUP'
+        WHERE owner_type = 'actor_asset' AND owner_id = $1::uuid AND role = 'PICKUP'
           AND is_primary = true AND valid_until_at IS NULL`, [resourceId]);
     await runQueriesWithTenant(tenantId,
       `WITH geo AS (
@@ -641,7 +645,7 @@ class RentableResourceRepository {
          RETURNING address_id
        )
        INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
-       SELECT 'rentable_resource', $1::uuid, address_id, 'PICKUP', true FROM new_addr`,
+       SELECT 'actor_asset', $1::uuid, address_id, 'PICKUP', true FROM new_addr`,
       [resourceId, cityId, tenantId, opts?.postalCode ?? null, opts?.lat ?? null, opts?.lng ?? null]);
   }
 
@@ -659,7 +663,7 @@ class RentableResourceRepository {
   ): Promise<void> {
     await runQueriesWithTenant(tenantId,
       `UPDATE address_assignments SET valid_until_at = now(), is_primary = false, updated_at = now()
-        WHERE owner_type = 'rentable_resource' AND owner_id = $1::uuid AND role = 'PICKUP'
+        WHERE owner_type = 'actor_asset' AND owner_id = $1::uuid AND role = 'PICKUP'
           AND is_primary = true AND valid_until_at IS NULL`, [resourceId]);
     await runQueriesWithTenant(tenantId,
       `WITH geo AS (
@@ -675,7 +679,7 @@ class RentableResourceRepository {
          RETURNING address_id
        )
        INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
-       SELECT 'rentable_resource', $1::uuid, address_id, 'PICKUP', true FROM new_addr`,
+       SELECT 'actor_asset', $1::uuid, address_id, 'PICKUP', true FROM new_addr`,
       [resourceId, a.cityId, tenantId, a.postalCode ?? null, a.neighborhoodId ?? null,
        a.street ?? null, a.number ?? null, a.complement ?? null, a.neighborhoodDisplay ?? null,
        a.lat ?? null, a.lng ?? null]);
@@ -684,7 +688,7 @@ class RentableResourceRepository {
   /** Atualiza o metadata (facets/atributos tipados da oferta — ex.: tempo mínimo). jsonb inteiro. */
   async updateMetadata(tenantId: string, resourceId: string, metadata: Record<string, unknown>): Promise<void> {
     await runQueriesWithTenant(tenantId,
-      `UPDATE rentable_resources SET metadata = $2::jsonb, updated_at = now() WHERE id = $1::uuid`,
+      `UPDATE actor_assets SET metadata = $2::jsonb, updated_at = now() WHERE id = $1::uuid`,
       [resourceId, JSON.stringify(metadata)]);
   }
 
@@ -704,7 +708,7 @@ class RentableResourceRepository {
          LEFT JOIN cities c ON c.city_id = ad.city_id
          LEFT JOIN states s ON s.state_id = ad.state_id
          LEFT JOIN neighborhoods n ON n.neighborhood_id = ad.neighborhood_id
-        WHERE aa.owner_type = 'rentable_resource' AND aa.owner_id = $1::uuid
+        WHERE aa.owner_type = 'actor_asset' AND aa.owner_id = $1::uuid
           AND aa.role = 'PICKUP' AND aa.is_primary = true AND aa.valid_until_at IS NULL
         LIMIT 1`,
       [resourceId]);
@@ -717,7 +721,7 @@ class RentableResourceRepository {
     const rows = await runQueriesWithTenant<{ n: number }>(tenantId,
       `SELECT count(*)::int n FROM bookings b
          JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
-        WHERE b.tenant_id = $1::uuid AND a.owner_type='rentable_resource' AND a.owner_id=$2::uuid
+        WHERE b.tenant_id = $1::uuid AND a.owner_type='actor_asset' AND a.owner_id=$2::uuid
           AND b.requester_actor_id = $3::uuid AND b.status IN ('confirmed','checked_in','checked_out')`,
       [tenantId, resourceId, viewerActorId]);
     return (rows[0]?.n ?? 0) > 0;
@@ -733,7 +737,7 @@ class RentableResourceRepository {
          JOIN addresses a ON a.address_id = aa.address_id
          JOIN cities c ON c.city_id = a.city_id
          LEFT JOIN states s ON s.state_id = c.state_id
-        WHERE aa.owner_type = 'rentable_resource' AND aa.role = 'PICKUP'
+        WHERE aa.owner_type = 'actor_asset' AND aa.role = 'PICKUP'
           AND aa.is_primary = true AND aa.valid_until_at IS NULL
           AND aa.owner_id = ANY($1::uuid[])`,
       [resourceIds]);

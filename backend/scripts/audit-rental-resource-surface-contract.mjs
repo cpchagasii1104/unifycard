@@ -71,8 +71,10 @@ function stripComments(s) {
 // ── 3: availability/booking genérico intacto ──
 {
   const avail = stripComments(read('src/core/availability/unified-availability.service.ts'));
-  if (!/RENTABLE_RESOURCE/.test(avail) || !/confirmBookingWithResourceLock/.test(avail)) {
-    failures.push('unified-availability.service.ts perdeu o branch RENTABLE_RESOURCE em updateBooking — o confirm de locação pararia de disparar o resource-lock.');
+  // F-ASSET-MULTI-OFFER-FOUNDATION 2b-4: o confirm de locação passou a disparar por ACTOR_ASSET (a
+  // disponibilidade pertence ao item real). O resource-lock (confirmBookingWithResourceLock) segue sendo o gate.
+  if (!/ACTOR_ASSET/.test(avail) || !/confirmBookingWithResourceLock/.test(avail)) {
+    failures.push('unified-availability.service.ts perdeu o branch ACTOR_ASSET em updateBooking — o confirm de locação pararia de disparar o resource-lock.');
   }
   const routes = stripComments(read('src/core/availability/unified-availability.routes.ts'));
   if (!/z\.nativeEnum\(AvailabilityOwnerType\)/.test(routes)) {

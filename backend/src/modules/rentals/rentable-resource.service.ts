@@ -380,7 +380,7 @@ class RentableResourceService {
     // Confirma que o booking pertence a uma janela DESTE recurso (não recusar booking alheio).
     const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
     const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, booking.availabilityId);
-    if (!availability || availability.ownerType !== 'rentable_resource' || availability.ownerId !== resourceId) {
+    if (!availability || availability.ownerType !== 'actor_asset' || availability.ownerId !== resourceId) {
       throw HttpError.badRequest('BOOKING_RESOURCE_MISMATCH: solicitação não é deste recurso.');
     }
     await unifiedAvailabilityService.updateBooking(tenantId, bookingId, requestingUserId, { status: 'cancelled' as any });
@@ -408,7 +408,7 @@ class RentableResourceService {
       return { bookable: false, unavailableReason: 'PERIOD_INVALID', estimatedPriceCents: 0, hasEstimate: false, ...handoff, disclaimer: DISCLAIMER };
     }
     const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
-    const windows = await unifiedAvailabilityRepository.findAvailabilities(tenantId, { ownerType: 'rentable_resource' as any, ownerId: resourceId, status: 'active' as any });
+    const windows = await unifiedAvailabilityRepository.findAvailabilities(tenantId, { ownerType: 'actor_asset' as any, ownerId: resourceId, status: 'active' as any });
     // 1) o período tem de estar CONTIDO em alguma janela macro ativa (⊆), não só sobrepor.
     const fitsWindow = windows.some((w) => new Date(w.startDatetime) <= startAt && new Date(w.endDatetime) >= endAt);
     if (!fitsWindow) {
@@ -494,7 +494,7 @@ class RentableResourceService {
     const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
     const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
     const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, availabilityId);
-    if (!availability || availability.ownerType !== 'rentable_resource' || availability.ownerId !== resourceId) {
+    if (!availability || availability.ownerType !== 'actor_asset' || availability.ownerId !== resourceId) {
       throw HttpError.badRequest('RENTABLE_RESOURCE_AVAILABILITY_MISMATCH: janela não pertence a este recurso.');
     }
     // SUBPERÍODO: a reserva consome só um pedaço da janela macro. Se o consumidor não escolher, usa a
@@ -539,7 +539,7 @@ class RentableResourceService {
     }
     const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
     const windows = await unifiedAvailabilityRepository.findAvailabilities(tenantId, {
-      ownerType: 'rentable_resource' as any, ownerId: resourceId, status: 'active' as any,
+      ownerType: 'actor_asset' as any, ownerId: resourceId, status: 'active' as any,
     });
     // DISPONIBILIDADE PROJETADA = janela macro − reservas confirmadas. Para recurso ÚNICO (quantity=1),
     // subtrai os subperíodos ocupados e devolve os GAPS livres (o dono continua com 1 janela declarada;
