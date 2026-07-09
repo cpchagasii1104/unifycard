@@ -20,3 +20,11 @@ export type AssetStatus = (typeof ASSET_STATUSES)[number];
 // de actor_assets.condition compõe daqui; manifest 'actor_assets.condition'.
 export const ASSET_CONDITIONS = ['new', 'used'] as const;
 export type AssetCondition = (typeof ASSET_CONDITIONS)[number];
+
+// F-ASSET-MULTI-OFFER-FOUNDATION Fatia 3 (adendo D-ε): STATUS da oferta de VENDA (actor_asset_sale_terms).
+// v1 = active/paused APENAS. Estados de EXECUÇÃO (venda concluída / item transferido / pagamento liquidado)
+// ficam FORA da v1 (implicam execução/transferência — D-γ). Status da VENDA ≠ status do ITEM (actor_assets.status=lifecycle) ≠ MODO
+// (actor_asset_modes.activation_mode='sale'). CHECK físico de actor_asset_sale_terms.status compõe daqui;
+// manifest 'actor_asset_sale_terms.status'.
+export const ASSET_SALE_STATUSES = ['active', 'paused'] as const;
+export type AssetSaleStatus = (typeof ASSET_SALE_STATUSES)[number];

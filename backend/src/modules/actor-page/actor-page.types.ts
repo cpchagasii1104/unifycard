@@ -44,7 +44,7 @@ export interface ActorPageAction {
 }
 
 export interface ActorPageTab {
-  key: 'all' | 'about' | 'posts' | 'products' | 'services' | 'rentals' | 'agenda' | 'schedule_events' | 'location' | 'erp' | 'connections';
+  key: 'all' | 'about' | 'posts' | 'products' | 'services' | 'rentals' | 'asset_sales' | 'agenda' | 'schedule_events' | 'location' | 'erp' | 'connections';
   label: string;
 }
 

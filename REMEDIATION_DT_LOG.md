@@ -16705,3 +16705,32 @@ Próxima frente lógica = venda asset-first (só com GO explícito).
 - **Proibições + guards futuros** listados no adendo (product paralelo, product_offers como SSOT de item,
   preço em modes/assets, condition em sale_terms, Bank/checkout/orders, RLS ausente, frontend hardcode etc.).
 - **Docs-only:** zero código/migration/frontend/contrato/banco. Δbank=0. Implementação AGUARDA GO próprio.
+
+## 2026-07-09 — F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 3 · VENDA ASSET-FIRST · IMPLEMENTAÇÃO D-α..D-ζ
+
+- **GO de implementação** do adendo (RFC_ASSET_SALE_TERMS_ADENDO). Sistema virgem, forward-only, additivo.
+- **Migration `20260709130000_asset_sale_terms.sql`:** `actor_asset_sale_terms` (asset_id PK/FK 1:1→actor_assets;
+  price_cents ANÚNCIO; status active/paused; is_active; visibility; audience_relationship_types; negotiable;
+  sale_notes) + CHECKs (status IN active/paused — sem sold; price≥0; visibility) + **RLS ENABLE+FORCE** (policy
+  derivada via EXISTS actor_assets, sem tenant_id denormalizado). Sem condition (é do item). Sem Bank.
+- **Vocab D-ε:** `ASSET_SALE_STATUSES=['active','paused']` (asset.types.ts) + manifest `actor_asset_sale_terms.status`.
+- **Módulo próprio D-ζ `src/modules/asset-sale/`** (NÃO dentro de rentals, NÃO em product_offers): types/
+  repository/service/routes/module. create() atômico = actor_assets + actor_asset_modes('sale') +
+  actor_asset_sale_terms. Autoridade D-α = `canRepresentActor(owner_actor_id)` inline na rota (create/list) +
+  no service (mutations) — **PF e PJ**, sem merchant, **sem PRODUCT_PUBLISH_PJ_ONLY**. Gate durabilidade =
+  `concept_asset_eligibilities` (400 ASSET_SALE_CONCEPT_NOT_DURABLE), category NÃO decide. Registrado no
+  app.builder (/asset-sales). Endpoint `/vocabularies` (D6, value+label governados). Preço = anúncio (Δbank=0).
+- **Read-model dedicado D-β:** `actor-page.countActiveAssetSales` lê actor_assets+modes('sale')+sale_terms
+  (NÃO product_offers) + pilar `asset_sales` ('À venda'). Tab key adicionada ao contrato.
+- **Guard `audit-asset-sale-convergence` (no runner, 151 guards):** 12 blocos D-α..D-ζ + proibições. Mutação
+  6/6 morde (status sold / remove RLS FORCE / remove canRepresentActor / toca product_offers / herda
+  PRODUCT_PUBLISH_PJ_ONLY / read-model em product_offers → FAIL; restaurar → PASS).
+- **Provas:** smoke ROLLBACK (item+modo sale+termos; condição no item; preço anúncio; read-model 0→1; CHECKs
+  sold/negativo mordem; RLS FORCE; gate durabilidade). tsc back 0 · tsc front 0 · suíte 151/151 · Δbank=0
+  (nenhum arquivo Bank/orders/checkout/payment_intents no diff) · lint financeiro 3889 (baseline, corrigido
+  o `paid` de 2 comentários). products/product_offers/inventory INTOCADOS.
+- **Honestidade:** v1 cria um actor_asset próprio por venda (mesmo padrão da locação) — unificar "1 item, N
+  modos" (vender+alugar o MESMO asset) é convergência futura que o substrato já permite (UNIQUE asset_id+mode),
+  ainda não realizada nem por locação nem por venda. FRONTEND deferido (backend-first; pilar renderiza header
+  genérico, conteúdo rico = sub-fatia própria). Transferência/pagamento/checkout FORA (D-γ).
+- **NÃO auto-selado.** Mudança material → pedir auditoria Yala.

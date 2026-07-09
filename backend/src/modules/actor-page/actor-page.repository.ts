@@ -74,6 +74,26 @@ class ActorPageRepository {
   }
 
   /**
+   * Vendas asset-first ativas do actor (pilar asset_sales — F-ASSET-MULTI-OFFER-FOUNDATION Fatia 3, D-β).
+   * READ-MODEL DEDICADO: lê o SSOT da venda asset-first (actor_assets + actor_asset_modes('sale') +
+   * actor_asset_sale_terms). NÃO conta em product_offers (que é oferta de PRODUTO/ESTOQUE PJ, pilar próprio).
+   * "ativo" = termo de venda is_active=true + modo sale enabled.
+   */
+  countActiveAssetSales(tenantId: string, actorId: string): Promise<number> {
+    return this.countOf(
+      tenantId,
+      `SELECT COUNT(*)::text AS n
+         FROM actor_assets a
+         JOIN actor_asset_modes m
+           ON m.asset_id = a.id AND m.activation_mode = 'sale' AND m.enabled = true
+         JOIN actor_asset_sale_terms s
+           ON s.asset_id = a.id
+        WHERE a.tenant_id = $1 AND a.owner_actor_id = $2 AND s.is_active = true`,
+      [tenantId, actorId]
+    );
+  }
+
+  /**
    * Recursos de locação ativos do actor (pilar rental).
    * F-ASSET-MULTI-OFFER-FOUNDATION 2b-R: a locação viva convergiu para asset-first — a identidade é
    * actor_assets, a ATIVAÇÃO de locação é actor_asset_modes.activation_mode='rental' (enabled), e os

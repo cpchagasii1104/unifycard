@@ -222,4 +222,13 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     values: ['hour', 'day', 'week', 'month', 'semester', 'year'],
     canonRef: 'F-ASSET-CONDITION-AND-RENTAL-MINIMUMS adendo D2/D3 + CHECK chk_aart_min_rental_unit. Unidade do TEMPO MÍNIMO da oferta rental (termo, não do item). Re-home de actor_assets.metadata para colunas governadas. Independe de pricing_unit (D4). "event" NÃO é unidade de tempo (D5, fora da v1).',
   },
+  {
+    name: 'actor_asset_sale_terms.status',
+    pillar: 'temporal',
+    sourceFile: 'src/core/assets/asset.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'ASSET_SALE_STATUSES',
+    values: ['active', 'paused'],
+    canonRef: 'F-ASSET-MULTI-OFFER-FOUNDATION Fatia 3 adendo D-ε + CHECK chk_aast_status. Status da OFERTA de venda (anúncio) de bem durável individual. v1 = active/paused; estados de execução (venda concluída/item transferido/pagamento liquidado) FORA da v1 (execução/transferência = frente própria pós-Bank). Status da venda ≠ actor_assets.status (lifecycle) ≠ activation_mode=sale (modo).',
+  },
 ];

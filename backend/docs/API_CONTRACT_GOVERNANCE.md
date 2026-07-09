@@ -139,6 +139,22 @@ Regras observadas no código vivo (a serem seguidas por rotas novas; divergênci
   TERMO da oferta rental → `actor_asset_rental_terms.min_rental_quantity/min_rental_unit` (CHECK ≥1, unit no
   vocab, par completo). Re-homed de `actor_assets.metadata` (não mora mais lá). Independe de `pricingUnit`. Δbank=0.
 
+### Venda asset-first — `/asset-sales` (F-ASSET-MULTI-OFFER-FOUNDATION Fatia 3)
+
+- **Autoridade:** `owner_actor_id` = `actionContext.actorId`, provado por `canRepresentActor` (D-α: **PF e PJ**;
+  NÃO herda `PRODUCT_PUBLISH_PJ_ONLY`, que é de produto/estoque). `owner` NUNCA vem do body.
+- **`POST /asset-sales`** — cria venda de bem durável individual. Entrada: `conceptId` (durável,
+  gate `concept_asset_eligibilities`), `label`, `condition?` (item), `priceCents?` (ANÚNCIO), `visibility?`,
+  `audienceRelationshipTypes?`, `negotiable?`, `saleNotes?`. Atômico: `actor_assets` + `actor_asset_modes('sale')`
+  + `actor_asset_sale_terms`. 400 `ASSET_SALE_CONCEPT_NOT_DURABLE` se concept não asset-elegível; 403
+  `ASSET_SALE_NOT_REPRESENTABLE`. Δbank=0.
+- **`GET /asset-sales?ownerActorId=`** — minhas vendas (owner-gated). **`GET /asset-sales/:id`** — detalhe.
+- **`PATCH /asset-sales/:id`** — edita oferta (price/visibility/audience/negotiable/notes + condition do item);
+  owner-only. **`PATCH /asset-sales/:id/status`** — `active`/`paused` (D-ε; sem `sold`).
+- **`GET /asset-sales/vocabularies`** — vocab governado (value+label): `ASSET_SALE_STATUSES` + visibilidades
+  (D6, sem hardcode no cliente). Read-only.
+- **NÃO** toca `products`/`product_offers`/`inventory`/Bank/orders/checkout/payment_intents. Preço = anúncio.
+
 ## 6. Lacunas conhecidas (dívida registrada, não fingida)
 
 - O `00_AGENT_PROTOCOL.md` §2.2.8 cita `backend/docs/openapi-stock-transfer-receipt.contract.yaml` como

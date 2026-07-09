@@ -96,6 +96,13 @@ const BLOCK_REGISTRY: BlockDefinition[] = [
     deeplink: () => '/locacoes',
   },
   {
+    // F-ASSET-MULTI-OFFER-FOUNDATION Fatia 3 (D-β): pilar dedicado de VENDA asset-first. Lê o SSOT
+    // asset (não product_offers). Conteúdo rico in-page = frontend próprio (deferido).
+    type: 'asset_sales', tab: 'asset_sales', tabLabel: 'À venda',
+    probe: (t, a) => actorPageRepository.countActiveAssetSales(t, a),
+    deeplink: () => null,
+  },
+  {
     type: 'agenda', tab: 'agenda', tabLabel: 'Agenda',
     probe: (t, a, actor) => actorPageRepository.countFutureAvailability(t, a, availabilityOwnerType(actor)),
     deeplink: () => null, // conteúdo rico in-page (Fatia 4)
