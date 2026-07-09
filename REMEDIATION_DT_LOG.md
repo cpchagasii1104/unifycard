@@ -16755,3 +16755,41 @@ Próxima frente lógica = venda asset-first (só com GO explícito).
   actor_assets / remove upsert modo / quebra upsert sale_terms / toca rental_terms / remove eligibility → FAIL).
 - **Provas:** tsc back 0; frontend intocado; suíte 151/151; Δbank=0; products/product_offers/inventory intactos.
 - **NÃO auto-selado.** Aguarda Yala LIMITADA (só a ressalva multi-modo). Se passar → Fatia 3 SELO COMPLETO.
+
+## 2026-07-09 — F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 3 — VENDA ASSET-FIRST — SELADA (Yala)
+
+**HEADs:** implementação `a63eb8bcb` (SELO-COM-RESSALVA) → microcorreção 3R `cd1990390` (ressalva fechada) →
+Yala limitada confirmou RESSALVA FECHADA. Registro docs-only do SELO COMPLETO.
+
+A frente implementou e selou venda asset-first para bem durável individual do actor.
+
+**Estado final:**
+1. `actor_assets` = identidade única do item real.
+2. `actor_asset_modes.activation_mode='sale'` ativa venda.
+3. `actor_asset_sale_terms` = termos/anúncio da venda.
+4. PF e PJ vendem item individual via `canRepresentActor` sobre `owner_actor_id`.
+5. DECISION-0155/PJ-only segue restrita a product/stock publishing.
+6. `products`/`product_offers`/`inventory` NÃO são SSOT de item individual.
+7. Bank, orders, checkout, payment_intents, ledger e split permanecem FORA.
+8. Status v1 da venda: `active`/`paused`.
+9. `sold`, transferência de propriedade e pagamento seguem FORA da v1.
+10. `countActiveAssetSales` é dedicado e NÃO lê `product_offers`.
+
+**Correção 3R (venda multi-modo vivo):**
+- `POST /asset-sales` com `assetId` existente ativa `sale` no MESMO `actor_asset`.
+- O mesmo `asset_id` pode ter rental + sale; `actor_asset_rental_terms` e `actor_asset_sale_terms` coexistem.
+- `actor_assets` NÃO duplica; `countActiveRentals` permanece correto; `countActiveAssetSales` 0→1;
+  `product_offers` permanece 0; Δbank=0.
+- Guard `audit-asset-sale-convergence` falha se `activateSale` voltar a inserir `actor_assets`.
+
+**STOP registrado (nenhuma nova frente sem GO explícito de Clayton):**
+não abrir Bank/split · transferência de propriedade · checkout/orders · service_use · rides ·
+RFQ/service_demands · Fase C · frontend rico.
+
+**Mapa do arco asset-first:**
+- Fatia 1 — fundação asset-first ............ SELADA
+- Fatia 2b — locação asset-first ............ SELADA
+- Condição + mínimo de locação .............. SELADA
+- Fatia 3 — venda asset-first ............... SELADA
+
+Marco: locação e venda compartilham a MESMA identidade real do item (actor_assets), multi-modo vivo.
