@@ -16650,3 +16650,33 @@ Dívida de identidade-paralela de locação (`rentable_resources` como SSOT vivo
   mordem (refurbished/event/qty0/par-incompleto). tsc back 0 · tsc front 0 · suíte 150/150 · Δbank=0 (nenhum
   arquivo Bank/ledger/payment no diff). Migration additiva forward-only, sistema virgem (sem backfill).
 - **NÃO auto-selado.** Mudança material → pedir auditoria Yala.
+
+## 2026-07-09 — F-ASSET-CONDITION-AND-RENTAL-MINIMUMS — SELADA (Yala)
+
+**HEAD validado pela Yala:** `07f6536c3`. Registro docs-only do SELO COMPLETO.
+
+1. **Condição do item real:** `actor_assets.condition`; `ASSET_CONDITIONS=['new','used']`; NULL permitido na
+   v1; condição NÃO é status/modo/categoria/availability/termo de locação. refurbished/reconditioned/damaged/
+   open_box/other fora da v1.
+2. **Mínimo de locação:** `actor_asset_rental_terms.min_rental_quantity/min_rental_unit`; RE-HOME concluído
+   (não fica mais em `actor_assets.metadata`); mínimo é TERMO da locação, não característica do item.
+3. **Vocabulário de unidade:** `MIN_RENTAL_UNITS=['hour','day','week','month','semester','year']`; 'event' fora
+   da v1; CHECKs físicos (≥1, unit IN vocab, par completo) + manifest governado.
+4. **Frontend:** unidades e condições vêm do backend governado (GET /rentable-resources/vocabularies); sem
+   lista local hardcoded.
+5. **Escopo preservado:** Bank / venda / products / rides / service_use completo / RFQ / service_demands /
+   Fase C — todos intocados.
+
+**Yala validou:** condition no item; mínimo nos termos; nada em metadata; CHECKs físicos mordem; frontend sem
+hardcode; guard compartilhado com allowlist estreita e legítima (observability); tsc back 0; tsc front 0;
+validate:regression-guards verde (150); Δbank=0.
+
+**STOP registrado:** não abrir venda; não abrir service_use; não abrir Bank/split; não abrir Fase C; nenhuma
+nova frente sem GO explícito de Clayton.
+
+**Sequência consolidada do arco asset-first:**
+- Fatia 1 — fundação asset-first ................ SELADA
+- Fatia 2b — locação asset-first ................ SELADA
+- Condição + mínimo de locação .................. SELADA
+
+Próxima frente lógica = venda asset-first (só com GO explícito).
