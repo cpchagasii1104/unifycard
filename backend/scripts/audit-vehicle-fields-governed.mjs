@@ -65,7 +65,8 @@ check('faixa de preço usa price_cents BIGINT (nunca NUMERIC/DECIMAL/FLOAT)',
   /price_cents\s+BIGINT/i.test(pricingSql) && !/price[_a-z]*\s+(NUMERIC|DECIMAL|FLOAT|REAL|DOUBLE)/i.test(pricingSql));
 check('unidade de preço é vocabulário governado (CHECK), não string solta', /unit\s+TEXT\s+NOT NULL\s+CHECK/i.test(pricingSql));
 const rentalRepo2 = strip(read(join(process.cwd(), 'src', 'modules', 'rentals', 'rentable-resource.repository.ts')));
-check('faixas gravam em rental_resource_pricing (SSOT), price_cents::bigint', /rental_resource_pricing/.test(rentalRepo2) && /price_cents.*bigint|::bigint/.test(rentalRepo2));
+// F-ASSET-MULTI-OFFER-FOUNDATION 2b-3: tiers convergiram para actor_asset_rental_pricing_tiers (por asset_id).
+check('faixas gravam em actor_asset_rental_pricing_tiers (SSOT convergido), price_cents::bigint', /actor_asset_rental_pricing_tiers/.test(rentalRepo2) && /price_cents.*bigint|::bigint/.test(rentalRepo2));
 check('frontend envia priceCents convertendo R$→cents (* 100), não reais', /priceCents/.test(rentalPage) && /Math\.round/.test(rentalPage) && /\*\s*100/.test(rentalPage) && /pricingTiers/.test(rentalPage));
 check('quantidade só aparece para equipment no front', /resourceType === 'equipment'[^]*Quantidade/.test(rentalPage) || /Quantidade[^]*resourceType === 'equipment'/.test(rentalPage) || /resourceType === 'equipment' && \(/.test(rentalPage));
 

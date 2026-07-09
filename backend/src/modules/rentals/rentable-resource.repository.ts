@@ -177,80 +177,85 @@ class RentableResourceRepository {
   }
 
   async findById(tenantId: string, id: string): Promise<RentableResource | null> {
-    const row = await runQueryWithTenant<RentableResourceRow>(
+    // Fatia 2b-3: leitura convergida (asset + termos + modo rental). RLS de actor_assets filtra por tenant.
+    const row = await runQueryWithTenant<any>(
       tenantId,
-      `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, rental_modality, cleaning_fee_policy, cleaning_fee_cents, created_at, updated_at
-         FROM rentable_resources
-        WHERE id = $1::uuid AND tenant_id = $2::uuid
+      `SELECT ${AART_SELECT}
+         FROM actor_assets a
+         JOIN actor_asset_rental_terms t ON t.asset_id = a.id
+         JOIN actor_asset_modes m ON m.asset_id = a.id AND m.activation_mode = 'rental'
+        WHERE a.id = $1::uuid
         LIMIT 1`,
-      [id, tenantId]
+      [id]
     );
-    return row ? toDomain(row) : null;
+    return row ? toDomainFromAsset(row) : null;
   }
 
   async list(tenantId: string, filters: ListRentableResourcesFilters = {}): Promise<RentableResource[]> {
+    // Fatia 2b-3: JOIN asset + termos + modo rental. RLS filtra tenant; filtros por owner (asset) e status (oferta).
     const limit = Math.min(Math.max(filters.limit ?? 20, 1), 50);
     const offset = Math.max(filters.offset ?? 0, 0);
-    const params: unknown[] = [tenantId];
-    let where = 'tenant_id = $1::uuid';
+    const params: unknown[] = [];
+    let where = 'TRUE';
 
     if (filters.ownerActorId) {
       params.push(filters.ownerActorId);
-      where += ` AND owner_actor_id = $${params.length}::uuid`;
+      where += ` AND a.owner_actor_id = $${params.length}::uuid`;
     }
     if (filters.status) {
       params.push(filters.status);
-      where += ` AND status = $${params.length}`;
+      where += ` AND t.status = $${params.length}`;
     }
 
     params.push(limit, offset);
-    const rows = await runQueriesWithTenant<RentableResourceRow>(
+    const rows = await runQueriesWithTenant<any>(
       tenantId,
-      `SELECT id, tenant_id, owner_actor_id, concept_id, resource_type, label, description, pricing_unit, price_cents,
-              category_id, status, is_active, resource_year, metadata, visibility, audience_relationship_types, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, handoff_time_start, handoff_time_end, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, rental_modality, cleaning_fee_policy, cleaning_fee_cents, created_at, updated_at
-         FROM rentable_resources
+      `SELECT ${AART_SELECT}
+         FROM actor_assets a
+         JOIN actor_asset_rental_terms t ON t.asset_id = a.id
+         JOIN actor_asset_modes m ON m.asset_id = a.id AND m.activation_mode = 'rental'
         WHERE ${where}
-        ORDER BY created_at DESC
+        ORDER BY a.created_at DESC
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
-    return rows.map(toDomain);
+    return rows.map(toDomainFromAsset);
   }
 
   /** DESCOBERTA (modo consumir): recursos ATIVOS visíveis ao viewer pela plateia do DONO — espelho
    *  de service_demands.listOpportunities (0162). public OR próprio-dono OR connections com aresta
    *  aceita + refinamento pela ÓTICA DO EMISSOR. A verdade da visibilidade é do BANCO, não do front. */
   async listDiscoverable(tenantId: string, viewerActorId: string, limit = 50): Promise<RentableResource[]> {
-    const rows = await runQueriesWithTenant<RentableResourceRow>(
+    // Fatia 2b-3: descoberta convergida. Identidade/owner = actor_assets; visibilidade/plateia = rental_terms.
+    const rows = await runQueriesWithTenant<any>(
       tenantId,
-      `SELECT r.id, r.tenant_id, r.owner_actor_id, r.concept_id, r.resource_type, r.label, r.description,
-              r.pricing_unit, r.price_cents, r.category_id, r.status, r.is_active, r.resource_year,
-              r.metadata, r.visibility, r.audience_relationship_types, r.quantity, r.created_at, r.updated_at
-         FROM rentable_resources r
-        WHERE r.tenant_id = $1::uuid AND r.status = 'active' AND r.owner_actor_id <> $2::uuid
+      `SELECT ${AART_SELECT}
+         FROM actor_assets a
+         JOIN actor_asset_rental_terms t ON t.asset_id = a.id
+         JOIN actor_asset_modes m ON m.asset_id = a.id AND m.activation_mode = 'rental'
+        WHERE t.status = 'active' AND a.owner_actor_id <> $1::uuid
           AND (
-            r.visibility = 'public'
+            t.visibility = 'public'
             OR (
-              r.visibility = 'connections'
+              t.visibility = 'connections'
               AND EXISTS (
                 SELECT 1 FROM actor_relationships ar
-                WHERE ar.tenant_id = r.tenant_id AND ar.status = 'accepted'
-                  AND ((ar.from_actor_id = r.owner_actor_id AND ar.to_actor_id = $2::uuid)
-                    OR (ar.from_actor_id = $2::uuid AND ar.to_actor_id = r.owner_actor_id))
+                WHERE ar.tenant_id = a.tenant_id AND ar.status = 'accepted'
+                  AND ((ar.from_actor_id = a.owner_actor_id AND ar.to_actor_id = $1::uuid)
+                    OR (ar.from_actor_id = $1::uuid AND ar.to_actor_id = a.owner_actor_id))
                   AND (
-                    r.audience_relationship_types IS NULL
-                    OR (CASE WHEN ar.from_actor_id = r.owner_actor_id
+                    t.audience_relationship_types IS NULL
+                    OR (CASE WHEN ar.from_actor_id = a.owner_actor_id
                              THEN ar.requester_label ELSE ar.target_label END)
-                       = ANY(r.audience_relationship_types)
+                       = ANY(t.audience_relationship_types)
                   )
               )
             )
           )
-        ORDER BY r.created_at DESC LIMIT $3`,
-      [tenantId, viewerActorId, Math.min(Math.max(limit, 1), 50)]
+        ORDER BY a.created_at DESC LIMIT $2`,
+      [viewerActorId, Math.min(Math.max(limit, 1), 50)]
     );
-    return rows.map(toDomain);
+    return rows.map(toDomainFromAsset);
   }
 
   /**
@@ -266,7 +271,9 @@ class RentableResourceRepository {
     f: { cityId?: string | null; lat?: number | null; lng?: number | null; radiusKm?: number | null; resourceType?: string | null },
     limit = 50
   ): Promise<Array<RentableResource & { cityName: string | null; uf: string | null; distanceKm: number | null }>> {
-    const params: unknown[] = [tenantId, viewerActorId];
+    // Fatia 2b-3: descoberta convergida (asset a + termos t + modo rental). RLS filtra tenant. Endereço PICKUP
+    // ainda via owner_type='rentable_resource' (owner_id=asset_id) — a migração de address p/ 'actor_asset' é 2b-4.
+    const params: unknown[] = [viewerActorId];
     const hasRadius = f.lat != null && f.lng != null && f.radiusKm != null && f.radiusKm > 0;
     let latIdx = 0, lngIdx = 0, radIdx = 0;
     if (hasRadius) { latIdx = params.push(f.lat); lngIdx = params.push(f.lng); radIdx = params.push(f.radiusKm); }
@@ -275,42 +282,40 @@ class RentableResourceRepository {
       : 'NULL::numeric';
     let extra = '';
     if (f.cityId) extra += ` AND ad.city_id = $${params.push(f.cityId)}::uuid`;
-    if (f.resourceType) extra += ` AND r.resource_type = $${params.push(f.resourceType)}`;
+    if (f.resourceType) extra += ` AND t.resource_type = $${params.push(f.resourceType)}`;
     const radiusFilter = hasRadius ? ` AND ad.lat IS NOT NULL AND ad.lng IS NOT NULL AND ${distExpr} <= $${radIdx}` : '';
     params.push(Math.min(Math.max(limit, 1), 50));
-    const rows = await runQueriesWithTenant<RentableResourceRow & { city_name: string | null; uf: string | null; distance_km: string | null }>(
+    const rows = await runQueriesWithTenant<any>(
       tenantId,
-      `SELECT r.id, r.tenant_id, r.owner_actor_id, r.concept_id, r.resource_type, r.label, r.description,
-              r.pricing_unit, r.price_cents, r.category_id, r.status, r.is_active, r.resource_year,
-              r.metadata, r.visibility, r.audience_relationship_types, r.quantity,
-              r.start_handoff_method, r.end_handoff_method, r.delivery_radius_km, r.delivery_fee_cents, r.collection_fee_cents,
-              r.created_at, r.updated_at,
+      `SELECT ${AART_SELECT},
               c.name AS city_name, s.abbreviation AS uf, ${distExpr} AS distance_km
-         FROM rentable_resources r
-         LEFT JOIN address_assignments aa ON aa.owner_type = 'rentable_resource' AND aa.owner_id = r.id
+         FROM actor_assets a
+         JOIN actor_asset_rental_terms t ON t.asset_id = a.id
+         JOIN actor_asset_modes m ON m.asset_id = a.id AND m.activation_mode = 'rental'
+         LEFT JOIN address_assignments aa ON aa.owner_type = 'rentable_resource' AND aa.owner_id = a.id
               AND aa.role = 'PICKUP' AND aa.is_primary = true AND aa.valid_until_at IS NULL
          LEFT JOIN addresses ad ON ad.address_id = aa.address_id
          LEFT JOIN cities c ON c.city_id = ad.city_id
          LEFT JOIN states s ON s.state_id = c.state_id
-        WHERE r.tenant_id = $1::uuid AND r.status = 'active' AND r.owner_actor_id <> $2::uuid
+        WHERE t.status = 'active' AND a.owner_actor_id <> $1::uuid
           AND (
-            r.visibility = 'public'
-            OR (r.visibility = 'connections' AND EXISTS (
+            t.visibility = 'public'
+            OR (t.visibility = 'connections' AND EXISTS (
                 SELECT 1 FROM actor_relationships ar
-                 WHERE ar.tenant_id = r.tenant_id AND ar.status = 'accepted'
-                   AND ((ar.from_actor_id = r.owner_actor_id AND ar.to_actor_id = $2::uuid)
-                     OR (ar.from_actor_id = $2::uuid AND ar.to_actor_id = r.owner_actor_id))
-                   AND (r.audience_relationship_types IS NULL
-                     OR (CASE WHEN ar.from_actor_id = r.owner_actor_id THEN ar.requester_label ELSE ar.target_label END)
-                        = ANY(r.audience_relationship_types))
+                 WHERE ar.tenant_id = a.tenant_id AND ar.status = 'accepted'
+                   AND ((ar.from_actor_id = a.owner_actor_id AND ar.to_actor_id = $1::uuid)
+                     OR (ar.from_actor_id = $1::uuid AND ar.to_actor_id = a.owner_actor_id))
+                   AND (t.audience_relationship_types IS NULL
+                     OR (CASE WHEN ar.from_actor_id = a.owner_actor_id THEN ar.requester_label ELSE ar.target_label END)
+                        = ANY(t.audience_relationship_types))
             ))
           )
           ${extra}${radiusFilter}
-        ORDER BY ${hasRadius ? 'distance_km ASC NULLS LAST, ' : ''}r.created_at DESC
+        ORDER BY ${hasRadius ? 'distance_km ASC NULLS LAST, ' : ''}a.created_at DESC
         LIMIT $${params.length}`,
       params);
     return rows.map((row) => ({
-      ...toDomain(row),
+      ...toDomainFromAsset(row),
       cityName: row.city_name,
       uf: row.uf,
       distanceKm: row.distance_km != null ? Math.round(Number(row.distance_km) * 10) / 10 : null,
@@ -445,7 +450,7 @@ class RentableResourceRepository {
   /** Faixas de preço de um recurso (para projeção/estimativa). */
   async getPricingTiers(tenantId: string, resourceId: string): Promise<Array<{ unit: string; priceCents: number }>> {
     const rows = await runQueriesWithTenant<{ unit: string; price_cents: string }>(tenantId,
-      `SELECT unit, price_cents FROM rental_resource_pricing WHERE resource_id = $1::uuid AND is_active ORDER BY sort_order ASC NULLS LAST`,
+      `SELECT unit, price_cents FROM actor_asset_rental_pricing_tiers WHERE asset_id = $1::uuid AND is_active ORDER BY sort_order ASC NULLS LAST`,
       [resourceId]);
     return rows.map((r) => ({ unit: r.unit, priceCents: Number(r.price_cents) }));
   }
@@ -455,7 +460,7 @@ class RentableResourceRepository {
     const out = new Map<string, Array<{ unit: string; priceCents: number }>>();
     if (resourceIds.length === 0) return out;
     const rows = await runQueriesWithTenant<{ resource_id: string; unit: string; price_cents: string }>(tenantId,
-      `SELECT resource_id, unit, price_cents FROM rental_resource_pricing WHERE resource_id = ANY($1::uuid[]) AND is_active ORDER BY sort_order ASC NULLS LAST`,
+      `SELECT asset_id AS resource_id, unit, price_cents FROM actor_asset_rental_pricing_tiers WHERE asset_id = ANY($1::uuid[]) AND is_active ORDER BY sort_order ASC NULLS LAST`,
       [resourceIds]);
     for (const r of rows) {
       const arr = out.get(r.resource_id) ?? [];
