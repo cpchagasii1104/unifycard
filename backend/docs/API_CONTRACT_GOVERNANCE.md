@@ -1,0 +1,71 @@
+# API_CONTRACT_GOVERNANCE — governança de contrato de API HTTP (backend/)
+
+> **Status:** criado 2026-07-08 pela microfrente **F-API-CONTRACT-GOVERNANCE-RECOVERY**.
+> **Origem:** o `docs/01_normative/00_AGENT_PROTOCOL.md` §2.2.8 EXIGE ler/aplicar este documento ao criar/alterar
+> rotas HTTP, mas o arquivo **nunca existiu** (git history vazio — gap sistêmico pré-existente, não deleção).
+> A Yala flagrou como `CONTRACT-GOVERNANCE-MISSING` ao auditar `F-SHARED-SUBJECT-CONCEPT-POOL`. Este doc é a
+> correção mínima: fixa a cadeia de contrato + checklist + catálogo de contratos, coerente com o protocolo e
+> com o **padrão vivo** do repositório. Seguindo o precedente de `DECISION_0117`: não finge conteúdo que não
+> existe; reancora apenas o que é materialmente verdadeiro no repo vivo.
+
+## 1. Precedência (não revoga a norma institucional)
+
+`docs/01_normative/` (Constituição, Leis, SSOT, ontologia) é a **única** autoridade normativa institucional e
+**não** é substituída por este documento de backend. Este doc governa **apenas** a cadeia de contrato de API
+HTTP dentro de `backend/`, subordinado ao `00_AGENT_PROTOCOL.md` §2.2.8.
+
+## 2. A cadeia canônica: **contrato → domínio → Fastify → documentação**
+
+Qualquer mudança de comportamento de API HTTP **começa pelo contrato**, **depois** código. É **proibido**
+inverter: Swagger/OpenAPI gerado ou código não substituem o contrato como fonte da verdade. O "contrato" aqui
+é o **contrato mínimo** catalogado na §5 deste documento (método, caminho, autoridade, entrada, saída,
+autoridade semântica/SSOT). Um contrato OpenAPI 3 YAML é aceitável quando o fluxo o exigir, mas o catálogo
+mínimo abaixo é o piso obrigatório para toda rota nova.
+
+## 3. Padrão VIVO do repositório (descrição honesta, não aspiracional)
+
+Regras observadas no código vivo (a serem seguidas por rotas novas; divergência = dívida a registrar):
+
+- **Autoridade/tenant:** rotas de domínio resolvem o actor por `req.actionContext.actorId` (NUNCA `req.user.id`
+  como autoridade de negócio) e o tenant por `req.tenant.id`; representação verificada por `canRepresentActor`
+  (DECISION-0113). Módulos C1 usam um `requireContext(req)` que exige `actionContext` + `tenant`.
+- **Nomenclatura de payload:** corpo/query **camelCase** na borda; conversão para **snake_case** no interno.
+- **Schema Fastify:** a maioria das rotas vivas **não** declara `schema:` Fastify (validação via `zod` no
+  handler). Isso é **padrão legado**, não autorização para perpetuar dívida — rota nova DEVE ter contrato
+  mínimo catalogado (§5), ainda que sem `schema:` Fastify.
+- **Δbank=0 / SSOT:** rota nunca cria verdade semântica; projeta/coleta. Identidade = `concepts.concept_id`;
+  valores monetários só anunciados em `_cents`; nada toca Bank fora dos trilhos financeiros governados.
+
+## 4. Checklist obrigatório ao criar/alterar rota HTTP
+
+1. [ ] Ler este documento e o `00_AGENT_PROTOCOL.md` §2.2.8 **antes** de escrever a rota.
+2. [ ] Escrever/atualizar o **contrato mínimo** no catálogo (§5) **antes** do código.
+3. [ ] Autoridade: `actionContext.actorId` + `tenant.id`; representação verificada; sem `req.user.id` como
+   autoridade de negócio.
+4. [ ] Entrada validada (zod) camelCase; saída com forma estável documentada.
+5. [ ] SSOT respeitado (identidade em CONCEPT; sem vocabulário paralelo; sem lista local no frontend).
+6. [ ] Δbank=0; nenhum toque em Bank fora do trilho governado.
+7. [ ] Guard/mutação quando a rota carrega invariante de autoridade/separação de trilho.
+8. [ ] Registrar no `REMEDIATION_DT_LOG.md` quando a rota fecha/abre dívida.
+
+## 5. Catálogo de contratos mínimos (fonte da verdade de contrato)
+
+### `GET /profile/interest/c1/search` — busca no pool de ASSUNTO (RFC-SHARED-SUBJECT-CONCEPT-POOL)
+
+- **Método/caminho:** `GET /profile/interest/c1/search`
+- **Autoridade:** autenticada, `requireContext(req)` (mesmo padrão de `GET /profile/interest/c1` e
+  `POST /profile/interest/c1/concepts`): exige `actionContext.actorId` + `tenant.id`. Read-only.
+- **Entrada:** query `q: string` (termo de busca; `< 2` chars → resultado vazio).
+- **Saída:** `{ results: Array<{ key: string; conceptId: string; label: string }> }`.
+- **Autoridade semântica (SSOT):** pertencimento vem de `shared_subject_concepts` (enabled); `canonical_services`
+  entra só como LEFT JOIN de rótulo (COALESCE→slug), NUNCA decide pertencimento. Não é oferta/serviço/locação.
+- **Efeitos:** nenhum (não declara interesse; a declaração é `POST /profile/interest/c1/concepts` por `conceptId`).
+- **Δbank:** 0. **Guard:** `scripts/audit-shared-subject-pool.mjs`.
+
+## 6. Lacunas conhecidas (dívida registrada, não fingida)
+
+- O `00_AGENT_PROTOCOL.md` §2.2.8 cita `backend/docs/openapi-stock-transfer-receipt.contract.yaml` como
+  contrato de referência do fluxo stock-transfer/receipt — esse arquivo **também está ausente** (não recriado
+  aqui; fora do escopo desta microfrente). Registrar/recuperar quando o fluxo for tocado.
+- As rotas HTTP **pré-existentes** ainda não estão catalogadas na §5 (este doc nasce com a 1ª rota nova). O
+  catálogo retroativo das rotas legadas é trabalho futuro, incremental, por frente que tocar cada rota.
