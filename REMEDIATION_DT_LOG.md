@@ -16793,3 +16793,30 @@ RFQ/service_demands · Fase C · frontend rico.
 - Fatia 3 — venda asset-first ............... SELADA
 
 Marco: locação e venda compartilham a MESMA identidade real do item (actor_assets), multi-modo vivo.
+
+## 2026-07-09 — F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 4 · SERVICE_USE / USO OPERACIONAL · ADENDO DOCS-ONLY
+
+- **READ-FIRST entregue** (service_use 100% ausente=só vocab; trilhos de serviço existem; substrato de release
+  `actor_capability_grants` existe; localidade já governada na locação). NÃO-GO para código; GO para adendo
+  docs-only primeiro (Clayton/Guardião) — 3ª camada tem mais decisões soberanas que locação/venda.
+- **Adendo criado:** `docs/02_decisions/RFC_ASSET_SERVICE_USE_OPERATIONAL_ADENDO.md` (ratifica D-A..D-P).
+  Três blocos que não se misturam: (1) ontologia base D-A..D-G, (2) viabilidade advisory D-H..D-M,
+  (3) localidade/logística D-N..D-P.
+  - **D-A** junção **N** `actor_asset_service_usages` (não 1:1). **D-B** referencia concept(offer_kind='service')
+    +operador, não offering obrigatório. **D-C** UMA tabela (dono/terceiro derivável por owner==operator).
+    **D-D** release do terceiro-operador via `actor_capability_grants` + `capability_key asset:operate`
+    (dupla prova; não reinventar vetting). **D-E** v1 declarativa (sem aceite bilateral/contrato/booking/
+    pagamento/execução/reputação). **D-F** `OPERATIONAL_ARRANGEMENTS=['daily_fee','shift_fee','fixed_fee',
+    'commission','revenue_share']` (anúncio). **D-G** read-model dedicado `countActiveServiceUses` (não
+    service_offerings).
+  - **D-H** `VIABILITY_STATES=['available_to_model','experimental','manual_review','not_recommended','viable',
+    'mature']` (advisory, ≠status/modo/lifecycle). **D-I** viabilidade no economic-policy-engine (não hardcode).
+    **D-J** default conservador. **D-K INVARIANTE:** possibilidade ontológica ≠ recomendação — viabilidade NÃO
+    bloqueia ativação. **D-L** mobilidade: km-only proibido (piso de tempo + excedente). **D-M** v1 modela
+    variáveis/pisos; demanda/receita/reputação DEFERIDAS (anti verde-mentira).
+  - **D-N** localidade/raio/reposicionamento = variável futura (v1 só não impede). **D-O** origem derivada de
+    `address_assignments(owner_type='actor_asset')`, sem duplicar. **D-P** reposicionamento = arranjo futuro
+    compondo do precedente da locação (delivery/collection/radius/handoff), anúncio.
+  - 18 invariantes + 18 guards futuros registrados. Δbank=0.
+- **Slicing 4B..4F registrado; 1ª codificação = SÓ Fatia 4B (substrato mínimo do link N).**
+- **Docs-only:** zero código/migration/frontend/contrato/banco. Implementação AGUARDA GO próprio.

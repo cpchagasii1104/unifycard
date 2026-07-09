@@ -280,10 +280,16 @@ agenda/Bank/pagamentos. Não implementar todos os modos. Não abrir Fase C.
   NULL na v1) + re-homing do mínimo de locação de `actor_assets.metadata` → colunas governadas de
   `actor_asset_rental_terms` (`min_rental_quantity`/`min_rental_unit`, reusa `MIN_RENTAL_UNITS`). Ver
   [[RFC_ASSET_CONDITION_AND_RENTAL_MINIMUMS_ADENDO]].
-- [x] **Fatia 3 — ADENDO VENDA ASSET-FIRST registrado (docs-only):** venda de bem durável individual = CAMADA
-  `actor_asset_sale_terms` (1:1 asset_id) + modo `sale` (já no vocab). D-α PF **e** PJ via
-  `canRepresentActor(owner_actor_id)` — DECISION-0155/PJ-only é de PRODUTO/estoque, NÃO de item individual;
-  D-β read-model dedicado; D-γ transferência/pagamento FORA da v1; D-δ termos mínimos (price anúncio/visibility/
-  audience/negotiable); D-ε `ASSET_SALE_STATUSES=['active','paused']` (sem `sold`); D-ζ módulo próprio (não
-  dentro de rentals). Fronteira durável-individual vs SKU/estoque = `concept_asset_eligibilities`. Ver
-  [[RFC_ASSET_SALE_TERMS_ADENDO]]. Implementação AGUARDA GO próprio.
+- [x] **Fatia 3 — VENDA ASSET-FIRST IMPLEMENTADA E SELADA (Yala, impl `a63eb8bcb` + 3R `cd1990390`; registro
+  docs-only `fb2a9a25d`):** camada `actor_asset_sale_terms` + modo `sale`; PF **e** PJ via
+  `canRepresentActor(owner_actor_id)` (DECISION-0155/PJ-only fica em produto/estoque); `ASSET_SALE_STATUSES=
+  ['active','paused']`; módulo próprio `src/modules/asset-sale`; 3R = `assetId` existente ATIVA sale no MESMO
+  actor_asset (rental+sale coexistem, sem duplicar). Ver [[RFC_ASSET_SALE_TERMS_ADENDO]].
+- [x] **Fatia 4 — ADENDO SERVICE_USE / USO OPERACIONAL registrado (docs-only):** 3ª camada = uso operacional do
+  bem (asset + operador + capacidade/serviço + arranjo). Junção **N** `actor_asset_service_usages` (D-A; não
+  1:1); referencia concept(offer_kind='service')+operador, não offering obrigatório (D-B); UMA tabela dono/
+  terceiro-operador (D-C); release via `actor_capability_grants` + `asset:operate` (D-D); v1 declarativa (D-E);
+  `OPERATIONAL_ARRANGEMENTS` (D-F); `countActiveServiceUses` (D-G); viabilidade ADVISORY `VIABILITY_STATES` que
+  NÃO bloqueia ontologia (D-H..D-M, km-only proibido p/ mobilidade); localidade/reposicionamento deferidos,
+  origem derivada de `address_assignments` (D-N..D-P). Δbank=0. Slicing 4B..4F; 1ª codificação = SÓ 4B. Ver
+  [[RFC_ASSET_SERVICE_USE_OPERATIONAL_ADENDO]]. Implementação AGUARDA GO próprio.
