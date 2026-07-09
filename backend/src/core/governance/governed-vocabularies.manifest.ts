@@ -195,4 +195,13 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     values: ['rentable', 'service'],
     canonRef: 'Fix 2ª IA (2026-07-07): dimensão de APLICABILIDADE — "este concept pode ser ofertado de que modo?". "service" (F-OFFER-KIND-SERVICE-GATE 2026-07-08): gate governado — picker de criação de serviço/capability profissional/demanda SÓ enxerga concept com offer_kind=service (conteve contaminação: assunto/tema/formato de evento não é serviço por existir no CONCEPT). "rentable"=locação. CHECK chk_concept_offer_kind_value compõe daqui.',
   },
+  {
+    name: 'actor_asset_modes.activation_mode',
+    pillar: 'temporal',
+    sourceFile: 'src/core/assets/asset.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'ASSET_ACTIVATION_MODES',
+    values: ['sale', 'rental', 'service_use'],
+    canonRef: 'F-ASSET-MULTI-OFFER-FOUNDATION Fatia 1 (Clayton 2026-07-08) + CHECK chk_actor_asset_mode_value. MODO de ativação econômica/operacional de um item real do actor (actor_assets). MODO≠ESTADO: internal/maintenance/reserved NÃO são modos (ausência de modo=interno; manutenção/reserva=disponibilidade). service_use=item ACOPLADO a serviço/prestador (vínculo governado, fatia própria), não oferta solta. Ver RFC_ASSET_MULTI_OFFER_FOUNDATION.',
+  },
 ];

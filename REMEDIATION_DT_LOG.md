@@ -16459,3 +16459,13 @@ endpoint de sugestões selado · write-path Step5 selado · Step5 sem lista loca
 **CONGELADA.** Não abrir Fase C · não tocar EventNeedsWizard/EventRFQ · não abrir RFQ×service_demands · não abrir
 nova frente sem GO explícito de Clayton. Pendências nomeadas (Fase C, decisão soberana): EventNeedsWizard/OptInModal
 + EventRFQ; consumo da necessidade (provedor cumprindo) via unificação RFQ×service_demands (RFC própria).
+
+## 2026-07-08 — F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 1 (fundação; sem migrar silos)
+
+- **GO Clayton** (Fatia 1, forward-only, escopo fechado, Yala obrigatória). Cria o LUGAR ÚNICO do item real do actor + modos + elegibilidade; NÃO migra locação/venda/rides/serviço.
+- **Vocabulário governado:** `ASSET_ACTIVATION_MODES=['sale','rental','service_use']` (asset.types.ts + manifest actor_asset_modes.activation_mode; CHECK compõe do vocab). MODO≠ESTADO: internal/maintenance/reserved NÃO entram. Status separado `ASSET_STATUSES` (active/inactive/archived).
+- **Migration 20260708370000:** (1) `concept_asset_eligibilities` (concept_id PK, enabled, seed_reason — governa quais concepts viram asset; SEM category_id). (2) `actor_assets` (tenant/owner_actor/concept/label/status/metadata; **concept_id REFERENCES concept_asset_eligibilities** = enforcement MATERIAL de elegibilidade — concept não-durável REJEITADO pela FK). (3) `actor_asset_modes` (asset_id + activation_mode CHECK + enabled; SEM preço/booking/agenda/RFQ/service_demands/Bank). Seed mínimo = 13 concepts duráveis existentes (carro/motocicleta/bicicleta/van/caminhonete + furadeira/betoneira/gerador/caixa-de-som + apartamento/casa/sala-de-reuniao/salao-de-festa). Zero perecível.
+- **service_use na Fatia 1:** existe como valor governado, mas EXECUTÁVEL só com vínculo governado a serviço/prestador (fatia própria) — invariante §5-BIS registrado; sem tabela de vínculo nesta fatia.
+- **Guard `scripts/audit-asset-foundation.mjs`** (no runner): morde se vocab ganhar internal/etc.; se actor_assets perder a FK de elegibilidade; se elegibilidade usar category_id; se modos ganharem coluna de preço/Bank. Mutação 4/4 (internal / remove-FK / category_id / price_cents → FAIL; restaurar → OK).
+- **Prova por query:** insert pizza (perecível)→REJEITADO pela FK; insert carro (elegível)→ACEITO; CHECK modos=sale/rental/service_use; 13 elegíveis cross-domínio; elegibilidade sem category_id; modos sem coluna preço/bank. tsc backend 0 · frontend NÃO tocado · suíte 148/148 EXIT 0 · Δbank=0.
+- **STOP mantido:** rentable_resources/products/rides_vehicles/service_offerings INTOCADOS; sem vínculo service_use completo; sem Bank/agenda/booking/RFQ/service_demands/pricing/Fase C. **NÃO auto-selado — aguarda Yala.**
