@@ -79,6 +79,15 @@ if (/ALTER TABLE concept_asset_eligibilities[^;]*ADD COLUMN[^;]*(tenant_id|categ
 for (const forbidden of ['product_offers', 'rides_vehicles', 'service_offerings', 'actor_professional_concepts']) {
   if (new RegExp(`(INSERT INTO|UPDATE|FROM|JOIN)\\s+${forbidden}`, 'i').test(REPO)) failures.push(`rentals repository: toca ${forbidden} — fora do escopo da locação.`);
 }
+// (27)(28) DISPLAY/CONTAGEM DE LOCAÇÃO fora do módulo — o probe do pilar rental (actor-page) não pode contar
+// em rentable_resources (probe morto): novas locações asset-first não apareceriam no badge (ressalva Yala 2b).
+// O contador vivo lê o SSOT convergido. Referências LEGADAS aceitas pela Yala (branch RENTABLE_RESOURCE do
+// owner-authority, support-ticket owner reader, enum de transição, manifest name) NÃO são fluxo de display de
+// locação e ficam FORA desta trava — por isso a checagem é escopada à função countActiveRentals de actor-page.
+const ACTORPAGE = strip(read('src/modules/actor-page/actor-page.repository.ts'));
+const countRentalFn = (ACTORPAGE.match(/countActiveRentals[\s\S]*?\n  \}/) || [''])[0];
+if (/FROM\s+rentable_resources/i.test(countRentalFn)) failures.push('actor-page.countActiveRentals: conta locação em rentable_resources (probe morto) — deve contar actor_assets + actor_asset_modes(rental) + actor_asset_rental_terms.');
+if (countRentalFn && !(/FROM\s+actor_assets/i.test(countRentalFn) && /actor_asset_modes/.test(countRentalFn) && /actor_asset_rental_terms/.test(countRentalFn))) failures.push('actor-page.countActiveRentals: não lê o SSOT asset-first da locação (actor_assets + actor_asset_modes + actor_asset_rental_terms).');
 
 if (failures.length > 0) {
   console.error('GATE FAIL [asset-rental-convergence]:');

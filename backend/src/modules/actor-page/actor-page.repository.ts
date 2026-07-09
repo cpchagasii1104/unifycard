@@ -73,12 +73,24 @@ class ActorPageRepository {
     );
   }
 
-  /** recursos de locação ativos do actor (pilar rental) */
+  /**
+   * Recursos de locação ativos do actor (pilar rental).
+   * F-ASSET-MULTI-OFFER-FOUNDATION 2b-R: a locação viva convergiu para asset-first — a identidade é
+   * actor_assets, a ATIVAÇÃO de locação é actor_asset_modes.activation_mode='rental' (enabled), e os
+   * termos/status da oferta vivem em actor_asset_rental_terms. rentable_resources NÃO é mais fonte viva.
+   * Semântica de "ativo" preservada do probe antigo (is_active=true), agora sobre actor_asset_rental_terms
+   * (mesmo campo que updateStatus mantém sincronizado com status='active'). Sem category como autoridade.
+   */
   countActiveRentals(tenantId: string, actorId: string): Promise<number> {
     return this.countOf(
       tenantId,
-      `SELECT COUNT(*)::text AS n FROM rentable_resources
-        WHERE tenant_id = $1 AND owner_actor_id = $2 AND is_active = true`,
+      `SELECT COUNT(*)::text AS n
+         FROM actor_assets a
+         JOIN actor_asset_modes m
+           ON m.asset_id = a.id AND m.activation_mode = 'rental' AND m.enabled = true
+         JOIN actor_asset_rental_terms t
+           ON t.asset_id = a.id
+        WHERE a.tenant_id = $1 AND a.owner_actor_id = $2 AND t.is_active = true`,
       [tenantId, actorId]
     );
   }

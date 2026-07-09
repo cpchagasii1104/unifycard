@@ -16556,3 +16556,22 @@ locação/venda/rides/service_use-completo. Não abrir Fase C. Próximo passo L�
 - **Mutação 10/10:** asset_id opcional / reintroduz rentable_resources / tiers→rental_resource_pricing / remove mode rental / remove gate offer_kind (ambos) / remove eligibility / availability→rentable_resource / frontend→rentable_resource / price_cents em modes / toca product_offers → FAIL; restaurar → PASS.
 - **Provas de banco:** RLS ENABLE+FORCE nas 4 asset tables ✅; concept_asset_eligibilities global (rls=false, sem tenant_id/category_id); 0 rentables sem asset-eligibility; 0 perecível forçado. tsc back 0 · tsc front 0 · suíte 150/150 EXIT 0 · Δbank=0.
 - **NÃO auto-selado.** Fatia 2 inteira (2b-1..2b-5) pronta para AUDITORIA YALA. Só depois da Yala a Fatia 2 é selada.
+
+## 2026-07-09 — F-ASSET-MULTI-OFFER-FOUNDATION Fatia 2b-R (microcorreção pós-Yala)
+
+- **Origem:** Yala auditou HEAD `5b2921f69` e deu SELO-COM-RESSALVA. Ressalva material latente:
+  `actor-page.repository.countActiveRentals` ainda lia `rentable_resources` como probe vivo do pilar rental
+  → novas locações asset-first não apareceriam no badge/contador da página do actor.
+- **Decisão Clayton/Guardião:** corrigir agora (sistema virgem, correção mínima) antes do selo completo.
+- **Fix:** `countActiveRentals` convertido ao SSOT asset-first —
+  `actor_assets a JOIN actor_asset_modes m (activation_mode='rental' AND enabled) JOIN actor_asset_rental_terms t`,
+  filtro `a.owner_actor_id=$2`, semântica de "ativo" preservada via `t.is_active=true` (mesmo campo que
+  `updateStatus` mantém sincronizado com status='active'). Sem category como autoridade. Sem tocar
+  write-path/read-path/availability/address/bookings/frontend/Bank/products/rides/service_use/RFQ/Fase C.
+- **Guard ampliado:** `audit-asset-rental-convergence` (checks 27-28) morde se `countActiveRentals` voltar a
+  `FROM rentable_resources` ou deixar de ler o SSOT asset-first. Escopado à função (não bloqueia legado aceito
+  pela Yala: branch RENTABLE_RESOURCE do owner-authority, support-ticket owner reader, enum de transição, manifest).
+- **Provas:** guard morde mutação (voltar p/ rentable_resources → FAIL; restaurar → PASS); smoke reversível
+  (ROLLBACK) badge 0→1 ao criar locação asset-first, `rentable_resources` intocado; tsc back 0; frontend
+  intocado; suíte 150/150; Δbank=0; sem Bank/products/rides no diff (só 2 arquivos backend).
+- **NÃO auto-selado.** Aguarda Yala LIMITADA (só validar eliminação da ressalva) para SELO COMPLETO da Fatia 2b.
