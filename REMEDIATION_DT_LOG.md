@@ -16606,3 +16606,21 @@ guard morde regressão para rentable_resources; tsc backend 0; validate:regressi
 - Fatia 2b — locação asset-first ............ SELADA (HEAD 58d20fcc2)
 
 Dívida de identidade-paralela de locação (`rentable_resources` como SSOT vivo): ENCERRADA.
+
+## 2026-07-09 — F-ASSET-CONDITION-AND-RENTAL-MINIMUMS · ADENDO DOCS-ONLY
+
+- **NÃO-GO para código; GO para adendo docs-only primeiro** (Clayton/Guardião). READ-FIRST provou:
+  condição novo/usado não existe; mínimo de locação existe ponta a ponta mas mal-alojado em
+  `actor_assets.metadata` (é TERMO, não atributo do item) + frontend hardcoda unidades.
+- **Adendo criado:** `docs/02_decisions/RFC_ASSET_CONDITION_AND_RENTAL_MINIMUMS_ADENDO.md` (ratifica D1–D7).
+  D1 condição→`actor_assets.condition`, vocab `ASSET_CONDITIONS=['new','used']`, NULL na v1 (sem default);
+  refurbished/reconditioned/damaged/open_box/other FORA da v1. D2 mínimo→`actor_asset_rental_terms`
+  (`min_rental_quantity`/`min_rental_unit`), re-homing de metadata→colunas, API `minRentalQty`/`minRentalUnit`
+  preservada. D3 reusa `MIN_RENTAL_UNITS` (hour..year) + manifest + CHECK (≥1; unit IN vocab; par completo).
+  D4 mínimo independe de pricing_unit. D5 'event' fora da v1 (não é unidade de tempo). D6 frontend sem
+  hardcode (endpoint de vocab governado, contrato-primeiro). Implementação e guards listados no adendo;
+  AGUARDAM GO próprio.
+- **DT-RENTAL-PRICING-UNITS-MANIFEST-DRIFT (menor, OPEN):** manifest lista `RENTAL_PRICING_UNITS` com 4 valores
+  (`por_hora..por_mes`), mas TS/CHECK físico têm 6 (`+por_semestre,por_ano`). Não corrigir nesta frente;
+  microcorreção/frente própria futura. Não é regressão (drift doc pré-existente).
+- **Docs-only:** zero código/migration/frontend/contrato/banco. Δbank=0.

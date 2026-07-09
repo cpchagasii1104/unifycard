@@ -273,3 +273,10 @@ agenda/Bank/pagamentos. Não implementar todos os modos. Não abrir Fase C.
   duráveis; backfill dos 54 justificado) · D6 contrato-primeiro. Sistema virgem (0 linhas) = forward-only puro.
 - [ ] **PENDENTE:** GO para IMPLEMENTAR a **Fatia 2** (convergência de locação), forward-only, contrato-primeiro,
   com as decisões §7-BIS. Fatias seguintes (rides/venda/service_use) por GO próprio.
+- [x] **Fatia 2b (convergência de locação) — IMPLEMENTADA E SELADA (Yala)** em HEAD `58d20fcc2` (registro
+  docs-only `66e437d30`). `rentable_resources` deixou de ser fonte viva de identidade da locação.
+- [x] **ADENDO F-ASSET-CONDITION-AND-RENTAL-MINIMUMS registrado (docs-only):** condição do item novo/usado
+  (`actor_assets.condition`, vocab `ASSET_CONDITIONS=['new','used']`, NULL na v1) + re-homing do mínimo de
+  locação de `actor_assets.metadata` → colunas governadas de `actor_asset_rental_terms`
+  (`min_rental_quantity`/`min_rental_unit`, reusa `MIN_RENTAL_UNITS`). Ver
+  [[RFC_ASSET_CONDITION_AND_RENTAL_MINIMUMS_ADENDO]]. Implementação AGUARDA GO próprio.
