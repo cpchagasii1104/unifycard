@@ -65,8 +65,10 @@ Regras observadas no código vivo (a serem seguidas por rotas novas; divergênci
 ### `GET /events/:id/orchestration-suggestions` — necessidades operacionais sugeridas (Fase B v1)
 
 - **Método/caminho:** `GET /events/:id/orchestration-suggestions`
-- **Autoridade:** autenticada, `requireContext`-equivalente (actionContext.actorId + tenant.id); leitura do
-  evento no tenant/actor corrente. Read-only.
+- **Autoridade:** autenticada + **gate de DONO do evento** — `assertRepresentsEventOwner(tenantId,
+  req.user.userId, id)` resolve o evento e exige que o usuário AUTENTICADO represente o `actor_id` organizador
+  (canRepresentActor, DECISION-0113), fail-closed: 403 se não-dono, 404 se evento inexistente, 400 sem tenant.
+  Tenant por `req.tenant.id`. Read-only. (O `actionContext.actorId` é hint, nunca a autoridade.)
 - **Entrada:** param `id` (UUID do evento).
 - **Saída:** `{ suggestions: Array<{ needConceptId: string; label: string; fulfillmentKind: 'service'; isRequired: boolean; sortOrder: number }> }`.
 - **Autoridade semântica (SSOT):** derivadas do `event_format_concept_id` do evento via
