@@ -100,7 +100,18 @@ class ProfessionalC1Service {
   ): Promise<DeclarableConceptCandidate[]> {
     await this.resolveActorGuarded(tenantId, actorId, userId);
     const { resolveConceptsFromSearchTerm, resolveConceptLabels } = await import('@core/semantic/semantic.adapter');
-    const { conceptIds } = await resolveConceptsFromSearchTerm(term);
+    const { conceptIds: rawIds } = await resolveConceptsFromSearchTerm(term);
+    if (!rawIds.length) return [];
+    // GATE F-OFFER-KIND-SERVICE-GATE: capability profissional só declara concept com aplicabilidade
+    // 'service'. Sem isto, "futebol"/"festa" vazavam como capability prestável. Preserva a ordem.
+    const { runQueriesWithTenant } = await import('@core/database/pool');
+    const okRows = await runQueriesWithTenant<{ concept_id: string }>(
+      tenantId,
+      `SELECT concept_id::text FROM concept_offer_kinds WHERE offer_kind = 'service' AND concept_id = ANY($1::uuid[])`,
+      [rawIds]
+    );
+    const serviceSet = new Set(okRows.map((r) => r.concept_id));
+    const conceptIds = rawIds.filter((id) => serviceSet.has(id));
     if (!conceptIds.length) return [];
     const labels = await resolveConceptLabels(conceptIds);
     const byId = new Map(labels.map((l) => [l.conceptId, l]));

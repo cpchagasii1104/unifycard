@@ -157,6 +157,9 @@ export const canonicalServiceService = {
       const r = await client.query<CsRow>(
         `SELECT ${CS_SELECT} FROM canonical_services cs
           WHERE ${CS_VISIBLE} AND cs.status = 'active'
+            -- GATE F-OFFER-KIND-SERVICE-GATE: catálogo de SERVIÇO só enxerga concept com aplicabilidade
+            -- 'service'. Sem isto, assunto/tema/formato (futebol/festa/campeonato) vazava como serviço.
+            AND EXISTS (SELECT 1 FROM concept_offer_kinds ok WHERE ok.concept_id = cs.concept_id AND ok.offer_kind = 'service')
             ${q ? `AND LOWER(cs.name) LIKE '%' || LOWER($2) || '%'` : ''}
           ORDER BY (cs.scope = 'scoped') DESC, cs.created_at ASC
           LIMIT 50`,
@@ -231,6 +234,7 @@ export const canonicalServiceService = {
         `SELECT ${CS_SELECT} FROM canonical_services cs
           WHERE ${CS_VISIBLE} AND cs.status = 'active'
             AND cs.concept_id IS NOT NULL
+            AND EXISTS (SELECT 1 FROM concept_offer_kinds ok WHERE ok.concept_id = cs.concept_id AND ok.offer_kind = 'service')
             AND ${eligibilitySql}
             ${termSql}
           ORDER BY (cs.scope = 'scoped') DESC, cs.created_at ASC

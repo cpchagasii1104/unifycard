@@ -183,7 +183,7 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     sourceFile: 'src/core/catalog/vehicle-catalog.service.ts',
     sourceKind: 'ts-const-array',
     symbol: 'CONCEPT_OFFER_KINDS',
-    values: ['rentable'],
-    canonRef: 'Fix 2ª IA (2026-07-07): dimensão NOVA e pequena — não é Authority/Capability (§4.9) nem CONTEXT formal. Responde "este concept pode ser ofertado de que modo comercial?" (hoje só locação). Mata vazamento motoboy/guincho dentro de Veículo.',
+    values: ['rentable', 'service'],
+    canonRef: 'Fix 2ª IA (2026-07-07): dimensão de APLICABILIDADE — "este concept pode ser ofertado de que modo?". "service" (F-OFFER-KIND-SERVICE-GATE 2026-07-08): gate governado — picker de criação de serviço/capability profissional/demanda SÓ enxerga concept com offer_kind=service (conteve contaminação: assunto/tema/formato de evento não é serviço por existir no CONCEPT). "rentable"=locação. CHECK chk_concept_offer_kind_value compõe daqui.',
   },
 ];

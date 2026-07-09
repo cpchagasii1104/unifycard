@@ -9,7 +9,10 @@ import { pool } from '@core/database/pool';
 
 // Fix 2ª IA (2026-07-07): dimensão NOVA — não confundir com Authority/Capability (§4.9) nem
 // CONTEXT formal (pessoal/profissional/institucional). Responde só "modo comercial de oferta".
-export const CONCEPT_OFFER_KINDS = ['rentable'] as const;
+// 'service' (2026-07-08, F-OFFER-KIND-SERVICE-GATE): gate governado de APLICABILIDADE — um concept só é
+// enxergado como serviço ofertável (picker de criação/capability/demanda) se tiver offer_kind='service'.
+// Conter contaminação: assunto/tema/formato de evento (futebol/festa/campeonato) NÃO é serviço por existir.
+export const CONCEPT_OFFER_KINDS = ['rentable', 'service'] as const;
 export type ConceptOfferKind = (typeof CONCEPT_OFFER_KINDS)[number];
 
 export interface VehicleMake {

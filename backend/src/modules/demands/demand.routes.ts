@@ -65,9 +65,12 @@ const demandRoutes = async (fastify: FastifyInstance) => {
     // domínio — jardinagem mora em 'educacao-e-conhecimento' e é contratável). Uma verdade: a tríade.
     const rows = await runQueriesWithTenant<{ concept_id: string; slug: string; domain: string; label: string }>(
       req.tenant!.id,
+      // GATE F-OFFER-KIND-SERVICE-GATE: demanda de trabalho/serviço só oferece concept com aplicabilidade
+      // 'service' (assunto/tema/formato de evento não é serviço). Espelha o gate do catálogo de serviço.
       `SELECT DISTINCT ON (c.concept_id) c.concept_id::text, c.slug, c.domain, cs.name AS label
          FROM concepts c
          JOIN canonical_services cs ON cs.concept_id = c.concept_id
+         JOIN concept_offer_kinds ok ON ok.concept_id = c.concept_id AND ok.offer_kind = 'service'
         WHERE cs.tenant_id IS NULL AND cs.status = 'active'
         ORDER BY c.concept_id, cs.created_at ASC`, []);
     rows.sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
