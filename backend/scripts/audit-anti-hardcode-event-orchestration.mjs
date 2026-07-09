@@ -48,8 +48,9 @@ if (!existsSync(s0p)) {
 // ---- (2) Nenhuma lista NOVA de autoridade em guided-flow/ (+ EventNeedsWizard) ----
 // Allowlist = LEGADO conhecido PENDENTE FASE B (contenção registrada, não perdão; não pode crescer nem virar 3º).
 const LEGACY_ALLOW = new Set([
-  'components/events/guided-flow/Step5OperationalRoles.tsx', // papéis inline (food/music/…) — Fase B
-  'components/events/EventNeedsWizard.tsx',                   // NEEDS_CATEGORIES_BY_EVENT_TYPE — Fase B
+  // Step5OperationalRoles SAIU da allowlist (F-EVENT-ORCHESTRATION-PHASE-B-WRITE): agora lê sugestões
+  // governadas do backend e grava por needConceptId — não pode voltar a hardcode (guard passa a morder).
+  'components/events/EventNeedsWizard.tsx',                   // NEEDS_CATEGORIES_BY_EVENT_TYPE — RFQ-adjacent, fatia própria (não tocada)
 ]);
 const AUTHORITY_CONST = /const\s+[A-Za-z_]*(NEED|ROLE|FORMAT|THEME|CATEGOR|SUBTYPE|EVENT_TYPE)[A-Za-z_]*\s*(?::[^=]+)?=\s*[[{]/;
 const scanFiles = [];

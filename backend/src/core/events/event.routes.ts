@@ -344,6 +344,44 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET/POST/DELETE /events/:id/operational-needs — F-EVENT-ORCHESTRATION-PHASE-B-WRITE. Instância governada
+   * da seleção do organizador (event_operational_needs). Organizer-gated (assertRepresentsEventOwner).
+   * FACTUAL: NÃO dispara demanda/RFQ/booking/agenda/Bank. POST só aceita need ∈ sugestões do formato (422 fora).
+   */
+  fastify.get<{ Params: { id: string } }>('/:id/operational-needs', async (req, reply) => {
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    const tenantId = req.tenant.id;
+    await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id);
+    const { eventOperationalNeedsService } = await import('./event-operational-needs.service');
+    const needs = await eventOperationalNeedsService.list(tenantId, req.params.id);
+    return reply.status(200).send({ needs });
+  });
+
+  fastify.post<{ Params: { id: string }; Body: { needConceptId?: string } }>('/:id/operational-needs', async (req, reply) => {
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    const tenantId = req.tenant.id;
+    await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id);
+    const needConceptId = req.body?.needConceptId;
+    if (!needConceptId || typeof needConceptId !== 'string') {
+      return reply.status(400).send({ ok: false, code: 'NEED_CONCEPT_ID_REQUIRED' });
+    }
+    const { eventOperationalNeedsService } = await import('./event-operational-needs.service');
+    const need = await eventOperationalNeedsService.add(tenantId, req.params.id, needConceptId);
+    // Fora das sugestões governadas do formato → 422 (não catálogo livre nesta v1).
+    if (!need) return reply.status(422).send({ ok: false, code: 'NEED_NOT_IN_FORMAT_SUGGESTIONS' });
+    return reply.status(201).send({ ok: true, need: { needConceptId: need.needConceptId, fulfillmentKind: need.fulfillmentKind, status: need.status } });
+  });
+
+  fastify.delete<{ Params: { id: string; needConceptId: string } }>('/:id/operational-needs/:needConceptId', async (req, reply) => {
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    const tenantId = req.tenant.id;
+    await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id);
+    const { eventOperationalNeedsService } = await import('./event-operational-needs.service');
+    await eventOperationalNeedsService.remove(tenantId, req.params.id, req.params.needConceptId);
+    return reply.status(200).send({ ok: true });
+  });
+
+  /**
    * PATCH /events/:id/audience — DECISION-0161 (writer mínimo da plateia).
    * Organizer-gated (resolveRepresentedActor sobre event.actor_id, fail-closed). Seta o MACRO
    * (visibility, validado pelo CHECK existente) + refinamento (audience_relationship_types, validado

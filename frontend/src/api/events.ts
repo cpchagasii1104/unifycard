@@ -746,3 +746,22 @@ export async function patchEventAudience(
     body: JSON.stringify({ visibility, audienceRelationshipTypes }),
   });
 }
+
+// F-EVENT-ORCHESTRATION-PHASE-B-WRITE — sugestões governadas + seleção do organizador (event_operational_needs).
+export interface OrchestrationSuggestion { needConceptId: string; label: string; fulfillmentKind: string; isRequired: boolean; sortOrder: number; }
+export interface OperationalNeed { needConceptId: string; label: string; status: string; }
+
+export async function getOrchestrationSuggestions(eventId: string): Promise<OrchestrationSuggestion[]> {
+  const res = await apiFetchJson<{ suggestions: OrchestrationSuggestion[] }>(`/api/events/${eventId}/orchestration-suggestions`);
+  return res.suggestions ?? [];
+}
+export async function getOperationalNeeds(eventId: string): Promise<OperationalNeed[]> {
+  const res = await apiFetchJson<{ needs: OperationalNeed[] }>(`/api/events/${eventId}/operational-needs`);
+  return res.needs ?? [];
+}
+export async function addOperationalNeed(eventId: string, needConceptId: string): Promise<void> {
+  await apiFetchJson(`/api/events/${eventId}/operational-needs`, { method: 'POST', body: JSON.stringify({ needConceptId }) });
+}
+export async function removeOperationalNeed(eventId: string, needConceptId: string): Promise<void> {
+  await apiFetchJson(`/api/events/${eventId}/operational-needs/${encodeURIComponent(needConceptId)}`, { method: 'DELETE' });
+}

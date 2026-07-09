@@ -9,7 +9,9 @@
 // - CTA proibido: "Finalizar evento", "Criar evento", "Confirmar"
 
 import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import type { GuidedFlowData } from '../EventCreationGuidedFlow';
+import { getOperationalNeeds, type OperationalNeed } from '../../../api/events';
 import './Step7FinalSummary.css';
 
 interface Step7FinalSummaryProps {
@@ -19,6 +21,15 @@ interface Step7FinalSummaryProps {
 }
 
 export default function Step7FinalSummary({ data, onAdvanceToEconomic }: Step7FinalSummaryProps) {
+  // F-EVENT-ORCHESTRATION-PHASE-B-WRITE: necessidades vêm do backend (event_operational_needs), não do
+  // operational_roles morto. Governadas por concept_id.
+  const [needs, setNeeds] = useState<OperationalNeed[]>([]);
+  useEffect(() => {
+    if (!data.event_id) return;
+    let live = true;
+    getOperationalNeeds(data.event_id).then((n) => { if (live) setNeeds(n); }).catch(() => { if (live) setNeeds([]); });
+    return () => { live = false; };
+  }, [data.event_id]);
   return (
     <div className="step7-final-summary">
       <div className="step-header">
@@ -63,17 +74,15 @@ export default function Step7FinalSummary({ data, onAdvanceToEconomic }: Step7Fi
         </div>
 
         <div className="summary-section">
-          <h3>Papéis Operacionais</h3>
-          {data.operational_roles.length > 0 ? (
+          <h3>Necessidades operacionais</h3>
+          {needs.length > 0 ? (
             <ul>
-              {data.operational_roles.map((role, index) => (
-                <li key={index}>
-                  <strong>{role.role}</strong> - {role.level}
-                </li>
+              {needs.map((n) => (
+                <li key={n.needConceptId}><strong>{n.label}</strong></li>
               ))}
             </ul>
           ) : (
-            <p>Nenhum papel definido</p>
+            <p>Nenhuma necessidade selecionada</p>
           )}
         </div>
 

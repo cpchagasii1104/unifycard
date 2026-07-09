@@ -84,13 +84,10 @@ export interface GuidedFlowData {
   venueNeighborhoodDisplay: string | null;
   desiredRadiusKm: string;             // "preciso de local": raio de busca
   locationObservations: string;        // observação livre (metadata, NUNCA matching semântico)
-  
-  // ETAPA 5 - Operação (Papéis)
-  operational_roles: Array<{
-    role: string; // Ex: 'food', 'music', 'decoration'
-    level: 'casual' | 'professional' | null;
-  }>;
-  
+
+  // ETAPA 5 — Operação: necessidades governadas em event_operational_needs (backend), não mais em estado
+  // local. O operational_roles morto (nunca persistido) foi REMOVIDO em F-EVENT-ORCHESTRATION-PHASE-B-WRITE.
+
   // ETAPA 6 - Preview Econômico (TEST)
   economic_preview: any | null;
   
@@ -127,7 +124,6 @@ const INITIAL_DATA: GuidedFlowData = {
   desiredRadiusKm: '',
   locationObservations: '',
   restrictions: null,
-  operational_roles: [],
   economic_preview: null,
 };
 

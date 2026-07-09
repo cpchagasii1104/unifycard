@@ -76,9 +76,44 @@ Regras observadas no código vivo (a serem seguidas por rotas novas; divergênci
   string nem `event_type` legado). `need_concept_id` = CONCEPT com `offer_kind='service'` (v1). Label vem do
   `canonical_services` auxiliar (COALESCE→slug). Nada de texto livre/category como identidade.
 - **Efeitos:** NENHUM (não cria `event_operational_needs`, demanda, RFQ ou booking). A persistência da seleção
-  do organizador é fatia posterior (POST próprio, contrato próprio).
+  do organizador é o `POST` abaixo.
 - **Erros:** 400 sem contexto; 403 sem representação do evento; 404 evento inexistente ou sem formato.
 - **Δbank:** 0. **Guard:** `scripts/audit-event-orchestration-templates.mjs`.
+
+### `GET /events/:id/operational-needs` — necessidades ATIVAS declaradas do evento (Fase B write)
+
+- **Método/caminho:** `GET /events/:id/operational-needs`
+- **Autoridade:** gate de DONO (`assertRepresentsEventOwner`). Tenant por `req.tenant.id`. Read-only.
+- **Saída:** `{ needs: Array<{ needConceptId, label, fulfillmentKind, status }> }` (status≠cancelled).
+- **SSOT:** lê `event_operational_needs` por `need_concept_id`; label do `canonical_services` auxiliar.
+- **Efeitos:** nenhum. **Δbank:** 0. **Guard:** `scripts/audit-event-orchestration-templates.mjs`.
+
+### `POST /events/:id/operational-needs` — organizador declara uma necessidade sugerida (Fase B write)
+
+- **Método/caminho:** `POST /events/:id/operational-needs`
+- **Autoridade:** gate de DONO — `assertRepresentsEventOwner(tenantId, req.user.userId, id)` (canRepresentActor,
+  403 não-dono, 404 evento inexistente, 400 sem tenant). Tenant por `req.tenant.id`.
+- **Entrada:** body `{ needConceptId: string (UUID) }` (camelCase).
+- **Saída:** `{ ok: true, need: { needConceptId, fulfillmentKind: 'service', status } }` (201).
+- **Autoridade semântica (SSOT):** grava em `event_operational_needs` por `need_concept_id`. **VALIDAÇÃO
+  OBRIGATÓRIA:** `needConceptId` DEVE existir como item do `event_orchestration_template_items` do
+  `event_format_concept_id` do evento (seleção das SUGESTÕES governadas, NÃO catálogo livre). Fora do template
+  → 422, não grava. A FK composta `(need_concept_id, fulfillment_kind)→concept_offer_kinds` também garante
+  offer_kind='service'. Idempotente (UNIQUE event_id+need_concept_id; re-POST reativa status='open').
+- **Efeitos:** grava declaração FACTUAL. NÃO dispara demanda/RFQ/booking/agenda/pagamento. NÃO escreve
+  `metadata.needs`/`operational_roles`.
+- **Erros:** 400 sem tenant/body; 403 não-dono; 404 evento; 422 need fora das sugestões do formato.
+- **Δbank:** 0. **Guard:** `scripts/audit-event-orchestration-templates.mjs`.
+
+### `DELETE /events/:id/operational-needs/:needConceptId` — organizador remove a seleção (Fase B write)
+
+- **Método/caminho:** `DELETE /events/:id/operational-needs/:needConceptId`
+- **Autoridade:** idêntica ao POST (`assertRepresentsEventOwner`).
+- **Entrada:** params `id`, `needConceptId`.
+- **Saída:** `{ ok: true }` (200).
+- **Semântica:** lifecycle GOVERNADO já existente na tabela — seta `status='cancelled'` (não hard-delete;
+  preserva histórico; re-POST reativa). NÃO inventa lifecycle novo.
+- **Efeitos:** nenhum econômico. **Δbank:** 0. **Guard:** `scripts/audit-event-orchestration-templates.mjs`.
 
 ## 6. Lacunas conhecidas (dívida registrada, não fingida)
 
