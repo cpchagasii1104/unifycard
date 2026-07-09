@@ -1,5 +1,26 @@
 # REMEDIATION DT LOG
 
+## F-BANK-SPLIT-PIPELINE-CONSOLIDATION-VIRGIN-SYSTEM — 🟡 FASE 0/0.5 EXECUTADA (docs+cartório), FASE 1 NÃO AUTORIZADA (2026-07-09), sistema virgem
+GO CONDICIONADO de Clayton: Fase 0 (DECISION docs-only) + Fase 0.5 (análise read-only + este carimbo append-only) LIBERADAS; **Fase 1 (excisão/código) BLOQUEADA até o martelo de MVP**. Nada de código/migration/Bank/rota/job/worker tocado nesta entrada. Doutrina promulgada em **DECISION-0165** (D1..D9: base=comissão; jurisdição=endereço do comprador; fundos por FK geográfica não string; voucher=entitlement sem saldo; virgem autoriza EXCISÃO; snapshot+policy_version_id em bank_splits; adquirente fora do MVP; pipeline policy-engine decide/Bank executa; policy append-only versionada).
+
+**Reachability por contexto (read-only, HEAD a1d0c107f) — insumo para a decisão de MVP:**
+- `service_booking` — **DUAL / MVP provável**. Caminho NOVO já VIVO (policy engine): `service-payment-execution.service.ts:541-569` (resolveEconomicPolicy+calculatePolicySplits+createTransactionWithExplicitSplitLines). Caminho LEGADO VIVO: `unifybankModule` montado `/bank` (`app.builder.ts:499`) → `bank-transaction.service.ts:1313` `createTransactionWithSplit` → `bankSplitEngineService.getSplitConfig:45` (97/3 hardcoded). Contido no sink firewall (default-OFF). → **RETIRAR legado** (o novo já roda; não é migração do zero).
+- `p2p_transfer` — **VIVO / remover**. Rota `POST /bank/p2p-transfer` montada (`bank-p2p-transfer.routes.ts` no `unifybankModule`) → `bank-p2p-transfer.service.ts:145-150` → `createTransactionWithSplit` → `bankSplitEngine:69`. É o BLOQUEADOR NOMEADO [[DT-P2P-TRANSFER-ACTOR-RESOLUTION-USERID-VS-ACTORID]] (rota viva sem firewall próprio, contida só por sink+ledger vazio). Remover FECHA o bloqueador.
+- `work-assignment` — **VIVO / remover (maior valor)**. Rota `POST /work/assignments` montada+permission-gated → `assignment.service.ts:347` → `splitEngineService` (core/economy/split.service, 70/15/10/5) = **TRUE-PARALLEL: move via transfer SEM gravar `bank_splits`** (dribla invariante 0022). Remover mata o pior paralelo.
+- `group_contribution` — **VIVO / HOLD**. `bank-http.routes.ts:94` + `bank-integration.service.ts:741` → `bankSplitEngine:70`. Contido no sink. HOLD até autogestão de grupo clara.
+- `event_ticket` — **LEGADO / remover-hibernar**. `bankSplitEngine getSplitConfig:52` (70/3/10/17); contido por checkout firewall.
+- `ride_payment` — **LEGADO / remover-hibernar**. rides `distribution.service`, contido por rides-financial-firewall (OFF); [[DT-RIDES-MONEY-NO-FIREWALL-DEAD-CODE-ONLY-CONTAINMENT]].
+
+**Motores/saldos paralelos (classificação):**
+- `core/economy/split.service` (splitEngineService) = TRUE-PARALLEL. Callers: `assignment.service` (VIVO) + `post-event-split.job` (**MORTO** — `event-scheduler.ts` NÃO iniciado no BOOT). → excisar após remover work-assignment.
+- `treasury-split.service` = TRUE-PARALLEL (audita `treasury_distributions`, não `bank_splits`). Caller: `treasury-split-worker`. **ACHADO a confirmar na Fase 1:** o worker aparenta BOOTAR sem gate (`BOOT.ts:456` chama `startTreasurySplitWorker()` direto; `treasury-split-worker.ts:58` só tem guard de intervalo, não `isFinancialWorkerEnabled`) — dinheiro ainda contido no sink firewall + dados vazios, mas o path boota; verificar o gate ao excisar.
+- `bankSplitEngineService` = LEGACY-subordinado (ALIMENTA `bank_splits`, 5 contextos hardcoded). → CUTOVER por contexto, depois deletar. [[DT-POLICY-ENGINE-LEGACY-DEPRECATION]] · [[DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION]].
+- `regional_funds.total_balance_cents` = saldo paralelo, com anti-revival guard [[DT-REGIONAL-FUNDS-TOTAL-BALANCE-CENTS-DEPRECATION]]. `group_accounts.balance_cents` = saldo paralelo SEM guard. `bank_policies` = hard-deprecated [[DT-BANK-POLICIES-PHYSICAL-REMOVAL]]. → todos alvos de excisão na Fase 1.
+
+**DTs relacionadas (tocadas pela frente):** [[DT-BANK-POLICIES-PHYSICAL-REMOVAL]] · [[DT-POLICY-ENGINE-LEGACY-DEPRECATION]] · [[DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION]] · [[DT-REGIONAL-FUNDS-TOTAL-BALANCE-CENTS-DEPRECATION]] · [[DT-REGIONAL-FUND-GOVERNANCE-LIVE-SCHEMA-GHOST]] · [[DT-RIDES-MONEY-NO-FIREWALL-DEAD-CODE-ONLY-CONTAINMENT]] · [[DT-P2P-TRANSFER-ACTOR-RESOLUTION-USERID-VS-ACTORID]] · [[DT-REGIONAL-ORIGIN-BASIS-POLICY]] · [[DT-CAMADA1-FEE-SPLIT]] · [[DT-ECONOMIC-POLICY-ADMIN-PANEL]].
+
+**FASE 1 NÃO AUTORIZADA.** Depende do martelo de Clayton sobre MVP por contexto (cravar): service_booking=retirar-legado · group_contribution=HOLD · event_ticket/ride_payment=remover · p2p_transfer=remover · work-assignment=remover se trabalho-com-dinheiro não for MVP. Sem o martelo, a Fase 1 não tem escopo fechado. Regra dura: nenhum código de split deletado/migrado/religado antes do GO de Fase 1 + GATE §2.3.2 por fatia.
+
 ## F-SUPPLIERS-IDENTITY-BOUNDARY — ✅ CONTENÇÃO PREVENTIVA (2026-07-07), sistema virgem
 Achado no fio "clientes será usado em outras partes" (Clayton) + correção da 2ª IA. REGRA cravada
 ANTES de nascer dado real (suppliers = 0 linhas, actor_relationships quase vazio):
