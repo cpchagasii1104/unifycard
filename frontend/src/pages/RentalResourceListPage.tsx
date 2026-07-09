@@ -31,12 +31,14 @@ import {
   getAllowedPricingUnits,
   getReceivedRentalBookings,
   declineResourceRequest,
+  getRentalVocabularies,
   type MyBooking,
   type ReceivedBooking,
   type RentableResourceType,
   type RentalPricingUnit,
   type RentalConceptOption,
   type EquipmentUseArea,
+  type VocabOption,
 } from '../api/rentals';
 import { useAudienceOptions } from '../hooks/useAudienceOptions';
 import AudiencePicker from '../components/composer/AudiencePicker';
@@ -312,7 +314,16 @@ export default function RentalResourceListPage() {
   const [cleaningPolicy, setCleaningPolicy] = useState<'none' | 'included' | 'separate_required' | 'to_be_arranged'>('none');
   const [cleaningFeeReais, setCleaningFeeReais] = useState('');
   const [minRentalQty, setMinRentalQty] = useState('');
-  const [minRentalUnit, setMinRentalUnit] = useState<'hour' | 'day' | 'week' | 'month' | 'semester' | 'year'>('month');
+  // D6: unidades do tempo mínimo e condições NÃO são hardcodadas — vêm do vocabulário governado do backend.
+  const [minRentalUnit, setMinRentalUnit] = useState('');
+  const [condition, setCondition] = useState('');
+  const [minUnitOptions, setMinUnitOptions] = useState<VocabOption[]>([]);
+  const [conditionOptions, setConditionOptions] = useState<VocabOption[]>([]);
+  useEffect(() => {
+    getRentalVocabularies()
+      .then((v) => { setMinUnitOptions(v.minRentalUnits); setConditionOptions(v.assetConditions); })
+      .catch(() => { setMinUnitOptions([]); setConditionOptions([]); });
+  }, []);
   // Unidades de preço PERMITIDAS — do BACKEND. Para IMÓVEL dependem da modalidade (contrato governado).
   const [allowedUnits, setAllowedUnits] = useState<RentalPricingUnit[]>([]);
   useEffect(() => {
@@ -368,7 +379,7 @@ export default function RentalResourceListPage() {
     setVehicleSel({ concept: null, make: null, model: null, year: null, version: null });
     setPropArea(''); setPropBedrooms(''); setPropBathrooms(''); setPropFurnished(false);
     setPropParking(''); setPropPetsAllowed(false); setPropFloor(''); setPropElevator(false);
-    setRentalModality('long_term'); setCleaningPolicy('none'); setCleaningFeeReais(''); setMinRentalQty('');
+    setRentalModality('long_term'); setCleaningPolicy('none'); setCleaningFeeReais(''); setMinRentalQty(''); setMinRentalUnit(''); setCondition('');
   }, [resourceType]);
 
   // Áreas de uso (faceta governada) — carregadas uma vez; usadas só quando Tipo = Equipamento.
@@ -463,8 +474,11 @@ export default function RentalResourceListPage() {
         ...(resourceType === 'space' || (resourceType === 'property' && rentalModality === 'seasonal')
           ? { cleaningFeePolicy: cleaningPolicy, cleaningFeeCents: cleaningPolicy === 'separate_required' ? toCents(cleaningFeeReais) : null }
           : {}),
-        ...(minRentalQty.trim() && (resourceType === 'property' || resourceType === 'space')
-          ? { minRentalQty: parseInt(minRentalQty, 10), minRentalUnit } : {}),
+        // D2: mínimo vale para QUALQUER bem durável locável (não só property/space). Par completo (qty+unit).
+        ...(minRentalQty.trim() && minRentalUnit
+          ? { minRentalQty: parseInt(minRentalQty, 10), minRentalUnit: minRentalUnit as 'hour' | 'day' | 'week' | 'month' | 'semester' | 'year' } : {}),
+        // D1: condição do item (new/used) — só envia se o dono escolheu (NULL = não informado).
+        ...(condition ? { condition: condition as 'new' | 'used' } : {}),
       });
       await publishProfileRef.current();
       showToast('Recurso cadastrado. Agora adicione a disponibilidade. 🗓️', 'success');
@@ -892,18 +906,25 @@ export default function RentalResourceListPage() {
             </div>
           )}
 
-          {/* Tempo mínimo de contrato (imóvel/espaço) — backend valida a reserva contra ele. */}
-          {(resourceType === 'property' || resourceType === 'space') && (
-            <div className="rrl-row">
-              <label className="rrl-field">Tempo mínimo (opcional)<input type="number" min={1} placeholder="Ex.: 12" value={minRentalQty} onChange={(e) => setMinRentalQty(e.target.value)} /></label>
-              <label className="rrl-field">Unidade
-                <select className="rrl-select" value={minRentalUnit} onChange={(e) => setMinRentalUnit(e.target.value as any)}>
-                  <option value="hour">horas</option><option value="day">diárias</option><option value="week">semanas</option>
-                  <option value="month">meses</option><option value="semester">semestres</option><option value="year">anos</option>
-                </select>
-              </label>
-            </div>
-          )}
+          {/* Tempo mínimo de locação (QUALQUER bem durável) — backend valida a reserva contra ele.
+              D6: as unidades vêm do vocabulário governado (minUnitOptions), nunca hardcodadas. */}
+          <div className="rrl-row">
+            <label className="rrl-field">Tempo mínimo (opcional)<input type="number" min={1} placeholder="Ex.: 12" value={minRentalQty} onChange={(e) => setMinRentalQty(e.target.value)} /></label>
+            <label className="rrl-field">Unidade
+              <select className="rrl-select" value={minRentalUnit} onChange={(e) => setMinRentalUnit(e.target.value)}>
+                <option value="">Selecione…</option>
+                {minUnitOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+          </div>
+
+          {/* Condição do item (novo/usado) — D1: atributo do ITEM real. Opções do vocabulário governado. */}
+          <label className="rrl-field">Condição do item (opcional)
+            <select className="rrl-select" value={condition} onChange={(e) => setCondition(e.target.value)}>
+              <option value="">Não informar</option>
+              {conditionOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </label>
 
           {/* Taxa de limpeza (espaço + imóvel temporada) — ANÚNCIO, Δbank=0. */}
           {(resourceType === 'space' || (resourceType === 'property' && rentalModality === 'seasonal')) && (

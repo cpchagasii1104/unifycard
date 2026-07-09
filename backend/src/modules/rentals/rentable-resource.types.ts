@@ -4,6 +4,9 @@
 // do recurso alugável. Availability/booking/confirm JÁ são genéricos por owner_type e não mudam aqui
 // (POST /availability + POST /bookings + PUT /bookings/:id já aceitam 'rentable_resource').
 
+import type { AssetCondition } from '@core/assets/asset.types';
+export type { AssetCondition };
+
 // 'other' REMOVIDO (2026-07-07, GO Clayton): "Outros" é anti-padrão de ontologia (balde de
 // exceções + fallback catálogo-inteiro, mesma classe do vazamento Motoboy). 5º tipo genuíno entra
 // por RFC (teste de redução ontológica), nunca por balde. Estes 4 são mutuamente exclusivos e
@@ -125,6 +128,11 @@ export interface RentableResource {
   rentalModality: RentalModality | null;
   cleaningFeePolicy: CleaningFeePolicy | null;
   cleaningFeeCents: number | null;
+  // F-ASSET-CONDITION-AND-RENTAL-MINIMUMS: condição = do ITEM (actor_assets.condition); mínimo = dos TERMOS
+  // (actor_asset_rental_terms.min_rental_*). Mínimo NÃO mora mais em metadata.
+  condition: AssetCondition | null;
+  minRentalQty: number | null;
+  minRentalUnit: MinRentalUnit | null;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -164,6 +172,9 @@ export interface RentableResourceRow {
   audience_relationship_types: string[] | null;
   status: RentableResourceStatus;
   is_active: boolean;
+  condition?: AssetCondition | null;
+  min_rental_quantity?: number | null;
+  min_rental_unit?: MinRentalUnit | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -204,8 +215,9 @@ export interface CreateRentableResourceInput {
   rentalModality?: RentalModality | null; // SÓ imóvel: long_term/seasonal/commercial.
   cleaningFeePolicy?: CleaningFeePolicy | null; // taxa de limpeza anunciada (space/property seasonal).
   cleaningFeeCents?: number | null; // valor da taxa (cents; obrigatório em separate_required).
-  minRentalQty?: number | null; // tempo mínimo (número) — metadata tipada/validada.
+  minRentalQty?: number | null; // tempo mínimo (número) — TERMO da locação (actor_asset_rental_terms).
   minRentalUnit?: MinRentalUnit | null; // unidade do tempo mínimo (hour/day/week/month/...).
+  condition?: AssetCondition | null; // D1: condição do ITEM (new/used) — grava em actor_assets.condition.
 }
 
 export interface ListRentableResourcesFilters {

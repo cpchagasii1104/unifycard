@@ -44,6 +44,10 @@ function toDomainFromAsset(row: any): RentableResource {
     rentalModality: row.rental_modality ?? null,
     cleaningFeePolicy: row.cleaning_fee_policy ?? null,
     cleaningFeeCents: n(row.cleaning_fee_cents),
+    // F-ASSET-CONDITION-AND-RENTAL-MINIMUMS: condição do ITEM (a.condition); mínimo dos TERMOS (t.min_rental_*).
+    condition: row.condition ?? null,
+    minRentalQty: n(row.min_rental_quantity),
+    minRentalUnit: row.min_rental_unit ?? null,
     metadata: md,
     visibility: row.visibility,
     audienceRelationshipTypes: row.audience_relationship_types ?? null,
@@ -56,11 +60,11 @@ function toDomainFromAsset(row: any): RentableResource {
 
 // SELECT canônico da leitura convergida (asset + rental_terms). RLS de ambas filtra por tenant.
 const AART_SELECT = `a.id, a.tenant_id, a.owner_actor_id, a.concept_id, a.label, a.metadata AS asset_metadata,
-  t.resource_type, t.pricing_unit, t.price_cents, t.quantity, t.booking_approval_mode, t.start_handoff_method,
+  a.condition, t.resource_type, t.pricing_unit, t.price_cents, t.quantity, t.booking_approval_mode, t.start_handoff_method,
   t.end_handoff_method, t.delivery_radius_km, t.delivery_fee_cents, t.collection_fee_cents, t.handoff_time_start,
   t.handoff_time_end, t.mileage_policy, t.included_km_per_day, t.included_km_total, t.extra_km_fee_cents,
-  t.rental_modality, t.cleaning_fee_policy, t.cleaning_fee_cents, t.visibility, t.audience_relationship_types,
-  t.status, t.is_active, a.created_at, t.updated_at`;
+  t.rental_modality, t.cleaning_fee_policy, t.cleaning_fee_cents, t.min_rental_quantity, t.min_rental_unit,
+  t.visibility, t.audience_relationship_types, t.status, t.is_active, a.created_at, t.updated_at`;
 
 function toDomain(row: RentableResourceRow): RentableResource {
   return {
@@ -91,6 +95,9 @@ function toDomain(row: RentableResourceRow): RentableResource {
     rentalModality: row.rental_modality ?? null,
     cleaningFeePolicy: row.cleaning_fee_policy ?? null,
     cleaningFeeCents: row.cleaning_fee_cents != null ? Number(row.cleaning_fee_cents) : null,
+    condition: row.condition ?? null,
+    minRentalQty: row.min_rental_quantity != null ? Number(row.min_rental_quantity) : null,
+    minRentalUnit: row.min_rental_unit ?? null,
     metadata: row.metadata ?? {},
     visibility: row.visibility,
     audienceRelationshipTypes: row.audience_relationship_types ?? null,
@@ -121,9 +128,9 @@ class RentableResourceRepository {
         categoryId: input.categoryId ?? null,
       };
       const assetRes = await client.query(
-        `INSERT INTO actor_assets (tenant_id, owner_actor_id, concept_id, label, status, metadata)
-         VALUES ($1::uuid, $2::uuid, $3::uuid, $4, 'active', $5::jsonb) RETURNING id`,
-        [tenantId, ownerActorId, input.conceptId, input.label, JSON.stringify(assetMeta)]
+        `INSERT INTO actor_assets (tenant_id, owner_actor_id, concept_id, label, status, condition, metadata)
+         VALUES ($1::uuid, $2::uuid, $3::uuid, $4, 'active', $5, $6::jsonb) RETURNING id`,
+        [tenantId, ownerActorId, input.conceptId, input.label, input.condition ?? null, JSON.stringify(assetMeta)]
       );
       const assetId = assetRes.rows[0].id as string;
       await client.query(
@@ -132,14 +139,15 @@ class RentableResourceRepository {
       );
       await client.query(
         `INSERT INTO actor_asset_rental_terms
-           (asset_id, resource_type, pricing_unit, price_cents, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, rental_modality, cleaning_fee_policy, cleaning_fee_cents, visibility, audience_relationship_types)
-         VALUES ($1::uuid, $2, $3, $4::bigint, $5::int, $6, $7, $8, $9::int, $10::bigint, $11::bigint, $12, $13::int, $14::int, $15::bigint, $16, $17, $18::bigint, $19, $20::text[])`,
+           (asset_id, resource_type, pricing_unit, price_cents, quantity, booking_approval_mode, start_handoff_method, end_handoff_method, delivery_radius_km, delivery_fee_cents, collection_fee_cents, mileage_policy, included_km_per_day, included_km_total, extra_km_fee_cents, rental_modality, cleaning_fee_policy, cleaning_fee_cents, min_rental_quantity, min_rental_unit, visibility, audience_relationship_types)
+         VALUES ($1::uuid, $2, $3, $4::bigint, $5::int, $6, $7, $8, $9::int, $10::bigint, $11::bigint, $12, $13::int, $14::int, $15::bigint, $16, $17, $18::bigint, $19::int, $20, $21, $22::text[])`,
         [
           assetId, input.resourceType, input.pricingUnit ?? null, input.priceCents ?? null, input.quantity ?? 1,
           input.bookingApprovalMode ?? 'manual', input.startHandoffMethod ?? 'renter_pickup', input.endHandoffMethod ?? 'renter_return',
           input.deliveryRadiusKm ?? null, input.deliveryFeeCents ?? null, input.collectionFeeCents ?? null,
           input.mileagePolicy ?? null, input.includedKmPerDay ?? null, input.includedKmTotal ?? null, input.extraKmFeeCents ?? null,
           input.rentalModality ?? null, input.cleaningFeePolicy ?? null, input.cleaningFeeCents ?? null,
+          input.minRentalQty ?? null, input.minRentalUnit ?? null,
           input.visibility ?? 'public', input.audienceRelationshipTypes ?? null,
         ]
       );
@@ -373,6 +381,9 @@ class RentableResourceRepository {
     mileagePolicy?: string | null; includedKmPerDay?: number | null; includedKmTotal?: number | null; extraKmFeeCents?: number | null;
     modalityTouched?: boolean; rentalModality?: string | null;
     cleaningTouched?: boolean; cleaningFeePolicy?: string | null; cleaningFeeCents?: number | null;
+    // F-ASSET-CONDITION-AND-RENTAL-MINIMUMS: condição = ITEM (actor_assets); mínimo = TERMOS (rental_terms).
+    conditionTouched?: boolean; condition?: string | null;
+    minRentalTouched?: boolean; minRentalQty?: number | null; minRentalUnit?: string | null;
   }): Promise<void> {
     // Fatia 2b-2: description = identidade do item → actor_assets.metadata (D2); termos → actor_asset_rental_terms.
     if (input.description !== undefined) {
@@ -380,6 +391,12 @@ class RentableResourceRepository {
         `UPDATE actor_assets SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{description}', to_jsonb($2::text), true), updated_at = now()
           WHERE id = $1::uuid`,
         [resourceId, input.description ?? null]);
+    }
+    // D1: condição é atributo do ITEM real (actor_assets.condition) — editável (item pode passar de new→used).
+    if (input.conditionTouched === true) {
+      await runQueriesWithTenant(tenantId,
+        `UPDATE actor_assets SET condition = $2, updated_at = now() WHERE id = $1::uuid`,
+        [resourceId, input.condition ?? null]);
     }
     await runQueriesWithTenant(tenantId,
       `UPDATE actor_asset_rental_terms SET
@@ -401,6 +418,8 @@ class RentableResourceRepository {
          rental_modality = CASE WHEN $21::boolean THEN $22 ELSE rental_modality END,
          cleaning_fee_policy = CASE WHEN $23::boolean THEN $24 ELSE cleaning_fee_policy END,
          cleaning_fee_cents = CASE WHEN $23::boolean THEN $25::bigint ELSE cleaning_fee_cents END,
+         min_rental_quantity = CASE WHEN $26::boolean THEN $27::int ELSE min_rental_quantity END,
+         min_rental_unit = CASE WHEN $26::boolean THEN $28 ELSE min_rental_unit END,
          updated_at = now()
        WHERE asset_id = $1::uuid`,
       [
@@ -428,6 +447,10 @@ class RentableResourceRepository {
         input.cleaningTouched === true,
         input.cleaningFeePolicy ?? null,
         input.cleaningFeeCents ?? null,
+        // D2/D3: mínimo (par quantidade+unidade) nos TERMOS. touched=true grava (permite limpar ambos).
+        input.minRentalTouched === true,
+        input.minRentalQty ?? null,
+        input.minRentalUnit ?? null,
       ]);
   }
 

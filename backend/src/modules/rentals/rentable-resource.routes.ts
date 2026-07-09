@@ -9,6 +9,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authorizationService } from '@core/authorization/authorization.service';
 import { rentableResourceService } from './rentable-resource.service';
+import { ASSET_CONDITIONS } from '@core/assets/asset.types';
 
 const resourceTypeEnum = z.enum(['equipment', 'vehicle', 'property', 'space']);
 const statusEnum = z.enum(['active', 'paused', 'retired']);
@@ -61,6 +62,8 @@ const createSchema = z.object({
   cleaningFeeCents: z.number().int().min(0).nullable().optional(),
   minRentalQty: z.number().int().min(1).nullable().optional(),
   minRentalUnit: z.enum(MIN_RENTAL_UNITS).nullable().optional(),
+  // D1: condição do item (novo/usado) — vocabulário governado; NULL permitido.
+  condition: z.enum(ASSET_CONDITIONS).nullable().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -99,6 +102,8 @@ const updateOfferSchema = z.object({
   cleaningFeeCents: z.number().int().min(0).nullable().optional(),
   minRentalQty: z.number().int().min(1).nullable().optional(),
   minRentalUnit: z.enum(MIN_RENTAL_UNITS).nullable().optional(),
+  // D1: condição do item (novo/usado) — editável (item pode passar de new→used). NULL permitido.
+  condition: z.enum(ASSET_CONDITIONS).nullable().optional(),
 });
 
 const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -176,6 +181,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         cleaningFeeCents: parsed.data.cleaningFeeCents ?? null,
         minRentalQty: parsed.data.minRentalQty ?? null,
         minRentalUnit: parsed.data.minRentalUnit ?? null,
+        condition: parsed.data.condition ?? null,
       });
       return reply.status(201).send({ ok: true, data: resource });
     } catch (err: any) {
@@ -397,6 +403,26 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /rentable-resources/vocabularies — vocabulários GOVERNADOS que o frontend precisa renderizar sem
+   * hardcode (F-ASSET-CONDITION-AND-RENTAL-MINIMUMS D6): unidades do tempo mínimo (MIN_RENTAL_UNITS) e
+   * condições do item (ASSET_CONDITIONS). Values = fonte única governada; labels pt-BR = camada de exibição.
+   * Público/read-only. O front NÃO cria verdade: as opções vêm daqui.
+   */
+  fastify.get('/vocabularies', async (_req, reply) => {
+    const MIN_UNIT_LABELS: Record<string, string> = {
+      hour: 'horas', day: 'diárias', week: 'semanas', month: 'meses', semester: 'semestres', year: 'anos',
+    };
+    const CONDITION_LABELS: Record<string, string> = { new: 'Novo', used: 'Usado' };
+    return reply.send({
+      ok: true,
+      data: {
+        minRentalUnits: MIN_RENTAL_UNITS.map((v) => ({ value: v, label: MIN_UNIT_LABELS[v] ?? v })),
+        assetConditions: ASSET_CONDITIONS.map((v) => ({ value: v, label: CONDITION_LABELS[v] ?? v })),
+      },
+    });
+  });
+
+  /**
    * GET /rentable-resources/my-bookings — as reservas do CONSUMIDOR (a locação existe para os dois lados).
    * canRepresentActor sobre o próprio actor (actionContext) — o consumidor só vê as suas. Read-only.
    */
@@ -542,6 +568,7 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
         cleaningFeeCents: parsed.data.cleaningFeeCents,
         minRentalQty: parsed.data.minRentalQty,
         minRentalUnit: parsed.data.minRentalUnit,
+        condition: parsed.data.condition,
       });
       return reply.send({ ok: true, data: resource });
     } catch (err: any) {

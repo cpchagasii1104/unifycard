@@ -16624,3 +16624,29 @@ Dívida de identidade-paralela de locação (`rentable_resources` como SSOT vivo
   (`por_hora..por_mes`), mas TS/CHECK físico têm 6 (`+por_semestre,por_ano`). Não corrigir nesta frente;
   microcorreção/frente própria futura. Não é regressão (drift doc pré-existente).
 - **Docs-only:** zero código/migration/frontend/contrato/banco. Δbank=0.
+
+## 2026-07-09 — F-ASSET-CONDITION-AND-RENTAL-MINIMUMS · IMPLEMENTAÇÃO D1-D7
+
+- **GO de implementação** das decisões ratificadas no adendo (RFC_ASSET_CONDITION_AND_RENTAL_MINIMUMS_ADENDO).
+- **D1 condição do item:** `ASSET_CONDITIONS=['new','used']` (asset.types.ts) + manifest `actor_assets.condition` +
+  migration `actor_assets.condition TEXT` CHECK new/used (NULL permitido). Grava/lê no ITEM. Rotas validam por
+  `z.enum(ASSET_CONDITIONS)`. Editável no update (item pode passar new→used).
+- **D2/D3 mínimo de locação (RE-HOME):** migration `actor_asset_rental_terms.min_rental_quantity/min_rental_unit`
+  + CHECKs (≥1; unit IN MIN_RENTAL_UNITS; par completo `(qty IS NULL)=(unit IS NULL)`). Service para de injetar
+  mínimo em `actor_assets.metadata`; grava/lê nas COLUNAS dos termos; `minRentalOf` lê `resource.minRentalQty/Unit`.
+  Manifest `actor_asset_rental_terms.min_rental_unit` registrado. Payload `minRentalQty/minRentalUnit` preservado.
+- **D2 mínimo p/ TODO durável:** frontend removeu o gate property/space — mínimo vale para qualquer bem durável.
+- **D5 'event' fora:** não entrou no vocab nem no CHECK.
+- **D6 frontend sem hardcode:** novo `GET /rentable-resources/vocabularies` (value+label governados) +
+  `getRentalVocabularies()`; RentalResourceListPage renderiza unidades/condições do backend (removeu union
+  hardcodada + lista de `<option>` hardcodada).
+- **Guard:** `audit-asset-rental-convergence` ampliado (checks 29-37 D1-D7) — todas mordem em mutação (refurbished
+  no CHECK / event no unit / min≥0 / sem CHECK par / min em actor_assets / min no metadata do service / hardcode
+  no frontend → FAIL; restaurar → PASS). `audit-governed-vocabulary-manifest`: allowlist ESTREITA e DOCUMENTADA
+  para a colisão de token legítima com `core/observability/` (windowType de métrica ≠ unidade de locação);
+  provado narrow (paralelo real fora da allowlist ainda morde).
+- **Contrato:** API_CONTRACT_GOVERNANCE §5 registra o endpoint de vocab + campos condition/min.
+- **Provas:** smoke reversível (ROLLBACK) — condição no item, mínimo nos termos, metadata do item limpo, 4 CHECKs
+  mordem (refurbished/event/qty0/par-incompleto). tsc back 0 · tsc front 0 · suíte 150/150 · Δbank=0 (nenhum
+  arquivo Bank/ledger/payment no diff). Migration additiva forward-only, sistema virgem (sem backfill).
+- **NÃO auto-selado.** Mudança material → pedir auditoria Yala.

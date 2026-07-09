@@ -124,6 +124,21 @@ Regras observadas no código vivo (a serem seguidas por rotas novas; divergênci
   `actor_assets.owner_actor_id` (availability-owner-authority). Booking/conflito lê quantidade de
   `actor_asset_rental_terms`. Frontend (RentalResourceDetailPage) alinhado. Δbank=0.
 
+### `GET /rentable-resources/vocabularies` — vocabulários governados p/ o cliente (F-ASSET-CONDITION-AND-RENTAL-MINIMUMS D6)
+
+- **Autoridade/entrada:** público, read-only, sem parâmetros. **Saída:** `{ ok, data: { minRentalUnits: {value,label}[],
+  assetConditions: {value,label}[] } }`. `value` = símbolo GOVERNADO (fonte única: `MIN_RENTAL_UNITS` em
+  `rentable-resource.types.ts` e `ASSET_CONDITIONS` em `core/assets/asset.types.ts`); `label` = camada de
+  exibição pt-BR. O frontend renderiza as opções DAQUI — não hardcoda a lista (D6). Read-only, Δbank=0.
+
+### Condição do item + mínimo de locação — `POST/PATCH /rentable-resources` (F-ASSET-CONDITION-AND-RENTAL-MINIMUMS D1/D2)
+
+- **`condition`** (opcional, `'new'|'used'|null`, `z.enum(ASSET_CONDITIONS)`): atributo do ITEM real →
+  `actor_assets.condition` (CHECK `new/used`, NULL permitido). NÃO é status/modo/categoria.
+- **`minRentalQty`/`minRentalUnit`** (opcional, par completo; `minRentalUnit` = `z.enum(MIN_RENTAL_UNITS)`):
+  TERMO da oferta rental → `actor_asset_rental_terms.min_rental_quantity/min_rental_unit` (CHECK ≥1, unit no
+  vocab, par completo). Re-homed de `actor_assets.metadata` (não mora mais lá). Independe de `pricingUnit`. Δbank=0.
+
 ## 6. Lacunas conhecidas (dívida registrada, não fingida)
 
 - O `00_AGENT_PROTOCOL.md` §2.2.8 cita `backend/docs/openapi-stock-transfer-receipt.contract.yaml` como

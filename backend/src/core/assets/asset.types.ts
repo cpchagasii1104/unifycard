@@ -12,3 +12,11 @@ export type AssetActivationMode = (typeof ASSET_ACTIVATION_MODES)[number];
 // Status/lifecycle do ITEM (SEPARADO dos modos — nunca misturar). Estado ≠ ativação.
 export const ASSET_STATUSES = ['active', 'inactive', 'archived'] as const;
 export type AssetStatus = (typeof ASSET_STATUSES)[number];
+
+// F-ASSET-CONDITION-AND-RENTAL-MINIMUMS (adendo D1): CONDIÇÃO do item real (novo/usado) — característica da
+// UNIDADE física, compartilhada por sale/rental/service_use. NÃO é status/lifecycle, NÃO é modo, NÃO é
+// categoria, NÃO é disponibilidade. NULL permitido na v1 (não presumir; sem default). refurbished/
+// reconditioned/damaged/open_box/other FORA da v1 (só por decisão própria futura, nunca balde). CHECK físico
+// de actor_assets.condition compõe daqui; manifest 'actor_assets.condition'.
+export const ASSET_CONDITIONS = ['new', 'used'] as const;
+export type AssetCondition = (typeof ASSET_CONDITIONS)[number];

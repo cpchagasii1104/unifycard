@@ -17,6 +17,18 @@ export type RentalPricingUnit = 'por_hora' | 'por_dia' | 'por_semana' | 'por_mes
 export const RENTAL_PRICING_UNITS: RentalPricingUnit[] = ['por_hora', 'por_dia', 'por_semana', 'por_mes', 'por_semestre', 'por_ano'];
 export const PRICING_UNIT_PT: Record<RentalPricingUnit, string> = { por_hora: 'Por hora', por_dia: 'Por dia (diária)', por_semana: 'Por semana', por_mes: 'Por mês', por_semestre: 'Por semestre', por_ano: 'Por ano' };
 
+// F-ASSET-CONDITION-AND-RENTAL-MINIMUMS: type-only (anotação). As OPÇÕES renderizadas vêm SEMPRE do
+// backend (getRentalVocabularies) — o front NÃO mantém a lista governada (D6). Não hardcodar arrays destes.
+export type AssetCondition = 'new' | 'used';
+export type MinRentalUnit = 'hour' | 'day' | 'week' | 'month' | 'semester' | 'year';
+export interface VocabOption { value: string; label: string; }
+export interface RentalVocabularies { minRentalUnits: VocabOption[]; assetConditions: VocabOption[]; }
+// Vocabulários GOVERNADOS do backend (unidades do tempo mínimo + condições do item). D6: sem hardcode no front.
+export async function getRentalVocabularies(): Promise<RentalVocabularies> {
+  const res = await apiFetchJson<{ ok: boolean; data: RentalVocabularies }>('/rentable-resources/vocabularies');
+  return res.data;
+}
+
 export interface RentableResource {
   id: string;
   tenantId: string;
@@ -45,6 +57,9 @@ export interface RentableResource {
   includedKmTotal: number | null;
   extraKmFeeCents: number | null;
   metadata: Record<string, unknown>;
+  condition: AssetCondition | null;
+  minRentalQty: number | null;
+  minRentalUnit: MinRentalUnit | null;
   status: RentableResourceStatus;
   isActive: boolean;
   createdAt: string;
@@ -77,7 +92,8 @@ export async function createRentableResource(input: {
   rentalModality?: 'long_term' | 'seasonal' | 'commercial' | null; // só imóvel
   cleaningFeePolicy?: 'none' | 'included' | 'separate_required' | 'to_be_arranged' | null;
   cleaningFeeCents?: number | null;
-  minRentalQty?: number | null; minRentalUnit?: 'hour' | 'day' | 'week' | 'month' | 'semester' | 'year' | null;
+  minRentalQty?: number | null; minRentalUnit?: MinRentalUnit | null;
+  condition?: AssetCondition | null; // D1: condição do item (new/used); backend grava em actor_assets.condition
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>('/rentable-resources', {
     method: 'POST',
@@ -116,7 +132,8 @@ export async function updateRentalOffer(id: string, input: {
   rentalModality?: 'long_term' | 'seasonal' | 'commercial' | null;
   cleaningFeePolicy?: 'none' | 'included' | 'separate_required' | 'to_be_arranged' | null;
   cleaningFeeCents?: number | null;
-  minRentalQty?: number | null; minRentalUnit?: 'hour' | 'day' | 'week' | 'month' | 'semester' | 'year' | null;
+  minRentalQty?: number | null; minRentalUnit?: MinRentalUnit | null;
+  condition?: AssetCondition | null; // D1: condição do item — editável (new→used)
 }): Promise<RentableResource> {
   const res = await apiFetchJson<{ ok: boolean; data: RentableResource }>(`/rentable-resources/${id}`, {
     method: 'PUT',

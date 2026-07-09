@@ -76,12 +76,22 @@ const tsFiles = [];
   }
 })(SRC);
 
+// Colisões de TOKEN legítimas: vocabulários semanticamente DISTINTOS que só compartilham palavras de tempo.
+// observability.windowType = granularidade de bucket de MÉTRICA (hour/day/week/month) — NÃO é a unidade de
+// tempo mínimo de LOCAÇÃO. Acoplar observability→MIN_RENTAL_UNITS seria o erro. Exceção estreita e documentada
+// (não laundering: qualquer OUTRO arquivo que copie MIN_RENTAL_UNITS segue sendo pego).
+const PARALLEL_ALLOWLIST = {
+  'actor_asset_rental_terms.min_rental_unit': ['core/observability/'],
+};
+
 for (const e of entries) {
   if (e.values.length < 4) continue; // conservador: só conjuntos ≥4 (evita colisão trivial de 2-3 tokens comuns)
   const canonical = join(ROOT, e.sourceFile).toLowerCase();
+  const allow = PARALLEL_ALLOWLIST[e.name] || [];
   for (const file of tsFiles) {
     const rel = relative(ROOT, file).replace(/\\/g, '/');
     if (skip(rel)) continue;
+    if (allow.some((p) => rel.includes(p))) continue; // colisão de token legítima e documentada
     if (file.toLowerCase() === canonical) continue; // a própria fonte
     const code = stripComments(readFileSync(file, 'utf8'));
     // quantos dos valores do vocab aparecem como literal string neste arquivo

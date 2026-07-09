@@ -89,6 +89,51 @@ const countRentalFn = (ACTORPAGE.match(/countActiveRentals[\s\S]*?\n  \}/) || ['
 if (/FROM\s+rentable_resources/i.test(countRentalFn)) failures.push('actor-page.countActiveRentals: conta locação em rentable_resources (probe morto) — deve contar actor_assets + actor_asset_modes(rental) + actor_asset_rental_terms.');
 if (countRentalFn && !(/FROM\s+actor_assets/i.test(countRentalFn) && /actor_asset_modes/.test(countRentalFn) && /actor_asset_rental_terms/.test(countRentalFn))) failures.push('actor-page.countActiveRentals: não lê o SSOT asset-first da locação (actor_assets + actor_asset_modes + actor_asset_rental_terms).');
 
+// ============================================================================================
+// F-ASSET-CONDITION-AND-RENTAL-MINIMUMS (D1-D7). CONDIÇÃO=do ITEM (actor_assets.condition);
+// MÍNIMO=dos TERMOS (actor_asset_rental_terms.min_rental_*). Governado, com CHECK, sem re-home errado.
+// ============================================================================================
+const COND_MIG = strip(migText('asset_condition_and_rental_minimums'));
+const ASSET_TYPES = strip(read('src/core/assets/asset.types.ts'));
+const FE_LIST = read('pages/RentalResourceListPage.tsx', FE) || '';
+
+// (29) D1 — condição no ITEM: migration adiciona actor_assets.condition + CHECK new/used.
+if (!/ALTER TABLE actor_assets\s+ADD COLUMN[^;]*\bcondition\b/i.test(COND_MIG)) failures.push('D1: actor_assets.condition não foi criada na migration (condição é do ITEM).');
+if (!/condition\s+IN\s*\(\s*'new'\s*,\s*'used'\s*\)/i.test(COND_MIG)) failures.push("D1: CHECK de condition ausente/errado (deve ser IN ('new','used') — sem texto livre).");
+// (30) condição fora da v1 não pode ter entrado no CHECK (refurbished/reconditioned/damaged/open_box/other).
+if (/(refurbished|reconditioned|damaged|open_box)/i.test(COND_MIG)) failures.push('D1: condition ganhou valor fora da v1 (refurbished/etc) sem decisão própria.');
+// (31) D1 — condição NÃO pode morar em modes nem em rental_terms (é do item).
+if (/ALTER TABLE actor_asset_modes\s+ADD COLUMN[^;]*condition/i.test(COND_MIG)) failures.push('D1: condition foi para actor_asset_modes — condição não é modo.');
+if (/ALTER TABLE actor_asset_rental_terms\s+ADD COLUMN[^;]*\bcondition\b/i.test(COND_MIG)) failures.push('D1: condition foi para actor_asset_rental_terms — condição é do item, não da oferta.');
+// (32) D1 — vocab governado ASSET_CONDITIONS=['new','used'] (fonte única); routes usam o enum, não string livre.
+if (!/ASSET_CONDITIONS\s*=\s*\[\s*'new'\s*,\s*'used'\s*\]/.test(ASSET_TYPES)) failures.push('D1: ASSET_CONDITIONS governado ausente/errado em asset.types.ts.');
+if (!/z\.enum\(ASSET_CONDITIONS\)/.test(strip(read('src/modules/rentals/rentable-resource.routes.ts')))) failures.push('D1: rota de locação não valida condition pelo vocab governado (z.enum(ASSET_CONDITIONS)).');
+// (33) D2/D3 — mínimo nos TERMOS (não no item): migration adiciona min_rental_* a rental_terms, NUNCA a actor_assets.
+if (!/ALTER TABLE actor_asset_rental_terms\s+ADD COLUMN[^;]*min_rental_quantity/i.test(COND_MIG) || !/ALTER TABLE actor_asset_rental_terms\s+ADD COLUMN[^;]*min_rental_unit/i.test(COND_MIG)) failures.push('D2: min_rental_quantity/min_rental_unit não foram criados em actor_asset_rental_terms.');
+if (/ALTER TABLE actor_assets\s+ADD COLUMN[^;]*min_rental/i.test(COND_MIG)) failures.push('D2: mínimo foi para actor_assets — mínimo é TERMO da locação, não atributo do item.');
+// (34) D3 — CHECKs do mínimo: qty>=1, unit no vocab, par completo; 'event' NÃO é unidade (D5).
+if (!/min_rental_quantity\s+IS NULL\s+OR\s+min_rental_quantity\s*>=\s*1/i.test(COND_MIG)) failures.push('D3: falta CHECK min_rental_quantity >= 1 (mínimo não pode ser 0/negativo).');
+if (!/min_rental_unit\s+IS NULL\s+OR\s+min_rental_unit\s+IN\s*\(/i.test(COND_MIG)) failures.push('D3: falta CHECK de min_rental_unit contra o vocab governado.');
+if (!/\(min_rental_quantity IS NULL\)\s*=\s*\(min_rental_unit IS NULL\)/i.test(COND_MIG)) failures.push('D3: falta CHECK de PAR (quantidade e unidade juntas ou ambas ausentes).');
+if (/min_rental_unit[^;]*\bevent\b/i.test(COND_MIG) || /MIN_RENTAL_UNITS[\s\S]{0,80}\bevent\b/.test(strip(read('src/modules/rentals/rentable-resource.types.ts')))) failures.push("D5: 'event' entrou como unidade de tempo sem RFC próprio.");
+// (35) D2 — RE-HOME provado: o mínimo NÃO volta para actor_assets.metadata. A linha que monta o metadata do
+// item (const metadata = {...}) NÃO pode conter minRental; o INSERT de actor_assets não carrega minRental;
+// minRentalOf lê das COLUNAS (resource.minRentalQty), não do metadata.
+const metaLine = (SVC.match(/const metadata\s*=\s*\{[^\n]*/) || [''])[0];
+if (/minRental/i.test(metaLine)) failures.push('D2: service injeta o mínimo em metadata do item (re-home incompleto — mínimo é TERMO).');
+const assetInsert = (REPO.match(/INSERT INTO actor_assets[\s\S]*?\)\s*RETURNING id/) || [''])[0];
+if (/minRental/i.test(assetInsert)) failures.push('D2: INSERT de actor_assets carrega minRental — mínimo não pertence ao item.');
+if (/resource\.metadata[\s\S]{0,60}minRental|m\.minRentalQty/.test(SVC)) failures.push('D2: minRentalOf ainda lê o mínimo do metadata do item (deveria ler das colunas dos termos).');
+// (36) D6 — frontend SEM hardcode: renderiza unidades/condições do vocab governado (backend), não de lista local.
+if (FE_LIST) {
+  if (!/getRentalVocabularies\(/.test(FE_LIST)) failures.push('D6: RentalResourceListPage não busca o vocab governado (getRentalVocabularies).');
+  if (!/minUnitOptions\.map/.test(FE_LIST) || !/conditionOptions\.map/.test(FE_LIST)) failures.push('D6: opções de unidade/condição não são renderizadas do vocab do backend.');
+  if (/<option value="(hour|day|week|month|semester|year)"/.test(FE_LIST)) failures.push('D6: lista de unidades do tempo mínimo hardcodada no frontend (deve vir do backend).');
+  if (/useState<'hour'\s*\|\s*'day'/.test(FE_LIST)) failures.push('D6: estado de unidade com union hardcodado (lista local) no frontend.');
+}
+// (37) condição/mínimo NÃO tocam Bank/ledger/payment na migration (Δbank=0).
+if (/(bank_|ledger|payout|payment_intent|amount_cents)/i.test(COND_MIG)) failures.push('D2/D1: migration de condição/mínimo tocou vocabulário financeiro — proibido (Δbank=0).');
+
 if (failures.length > 0) {
   console.error('GATE FAIL [asset-rental-convergence]:');
   for (const f of failures) console.error('  - ' + f);

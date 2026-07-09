@@ -204,4 +204,22 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     values: ['sale', 'rental', 'service_use'],
     canonRef: 'F-ASSET-MULTI-OFFER-FOUNDATION Fatia 1 (Clayton 2026-07-08) + CHECK chk_actor_asset_mode_value. MODO de ativação econômica/operacional de um item real do actor (actor_assets). MODO≠ESTADO: internal/maintenance/reserved NÃO são modos (ausência de modo=interno; manutenção/reserva=disponibilidade). service_use=item ACOPLADO a serviço/prestador (vínculo governado, fatia própria), não oferta solta. Ver RFC_ASSET_MULTI_OFFER_FOUNDATION.',
   },
+  {
+    name: 'actor_assets.condition',
+    pillar: 'temporal',
+    sourceFile: 'src/core/assets/asset.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'ASSET_CONDITIONS',
+    values: ['new', 'used'],
+    canonRef: 'F-ASSET-CONDITION-AND-RENTAL-MINIMUMS adendo D1 + CHECK chk_actor_assets_condition. Condição do item real (novo/usado), característica da UNIDADE (compartilhada por sale/rental/service_use), NÃO status/modo/categoria. NULL permitido na v1 (não presumir). refurbished/reconditioned/damaged/open_box/other fora da v1.',
+  },
+  {
+    name: 'actor_asset_rental_terms.min_rental_unit',
+    pillar: 'temporal',
+    sourceFile: 'src/modules/rentals/rentable-resource.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'MIN_RENTAL_UNITS',
+    values: ['hour', 'day', 'week', 'month', 'semester', 'year'],
+    canonRef: 'F-ASSET-CONDITION-AND-RENTAL-MINIMUMS adendo D2/D3 + CHECK chk_aart_min_rental_unit. Unidade do TEMPO MÍNIMO da oferta rental (termo, não do item). Re-home de actor_assets.metadata para colunas governadas. Independe de pricing_unit (D4). "event" NÃO é unidade de tempo (D5, fora da v1).',
+  },
 ];

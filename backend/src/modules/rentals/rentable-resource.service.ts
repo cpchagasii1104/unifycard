@@ -16,7 +16,7 @@ import type {
   RentalPricingUnit,
 } from './rentable-resource.types';
 import { MILEAGE_POLICIES, PRICING_UNITS_BY_RESOURCE_TYPE, PROPERTY_RENTAL_MODALITIES, PRICING_UNITS_BY_MODALITY, CLEANING_FEE_POLICIES, MIN_RENTAL_UNITS, MIN_RENTAL_UNIT_HOURS } from './rentable-resource.types';
-import type { RentalModality, CleaningFeePolicy, MinRentalUnit } from './rentable-resource.types';
+import type { RentalModality, CleaningFeePolicy, MinRentalUnit, AssetCondition } from './rentable-resource.types';
 
 /** Subtrai intervalos ocupados de [winStart, winEnd), devolvendo os GAPS livres em ordem. Determinístico.
  *  Ex.: janela 08→31 menos reserva 10→17 = [08→10, 17→31]. Toca disponibilidade projetada (Clayton). */
@@ -115,17 +115,22 @@ class RentableResourceService {
       mileagePolicy: input.mileagePolicy ?? null, includedKmPerDay: input.includedKmPerDay ?? null,
       includedKmTotal: input.includedKmTotal ?? null, extraKmFeeCents: input.extraKmFeeCents ?? null,
     });
-    // Modalidade de imóvel + taxa de limpeza + tempo mínimo (metadata) validados pelo backend.
+    // Modalidade de imóvel + taxa de limpeza validados pelo backend. Tempo mínimo = TERMO da locação
+    // (actor_asset_rental_terms.min_rental_*), NÃO mais metadata do item (F-ASSET-CONDITION-AND-RENTAL-MINIMUMS).
     const modality = this.normalizeModality(input.resourceType, input.rentalModality ?? null);
     const cleaning = this.normalizeCleaning(input.cleaningFeePolicy ?? null, input.cleaningFeeCents ?? null);
     const minRental = this.normalizeMinRental(input.minRentalQty ?? null, input.minRentalUnit ?? null);
-    const metadata = { ...(input.metadata ?? {}), ...(minRental ? { minRentalQty: minRental.minRentalQty, minRentalUnit: minRental.minRentalUnit } : {}) };
+    const metadata = { ...(input.metadata ?? {}) };
 
     const created = await rentableResourceRepository.create(tenantId, ownerActorId, {
       ...input,
       label: input.label.trim(),
       quantity,
       metadata,
+      // mínimo normalizado vai para as COLUNAS dos termos (não metadata); condição vai para o item.
+      minRentalQty: minRental?.minRentalQty ?? null,
+      minRentalUnit: minRental?.minRentalUnit ?? null,
+      condition: input.condition ?? null,
       ...handoff,
       ...mileage,
       rentalModality: modality,
@@ -459,11 +464,11 @@ class RentableResourceService {
     };
   }
 
-  /** Tempo mínimo do recurso (metadata) → { hours, projection }. Central p/ quote + requestBooking. */
+  /** Tempo mínimo do recurso (TERMOS: actor_asset_rental_terms.min_rental_*) → { hours, projection }.
+   *  Central p/ quote + requestBooking. F-ASSET-CONDITION-AND-RENTAL-MINIMUMS: lê das colunas, não do metadata. */
   private minRentalOf(resource: RentableResource): { hours: number; projection: { qty: number; unit: string } } | null {
-    const m = (resource.metadata ?? {}) as Record<string, unknown>;
-    const qty = typeof m.minRentalQty === 'number' ? m.minRentalQty : null;
-    const unit = typeof m.minRentalUnit === 'string' ? (m.minRentalUnit as MinRentalUnit) : null;
+    const qty = typeof resource.minRentalQty === 'number' ? resource.minRentalQty : null;
+    const unit = resource.minRentalUnit ?? null;
     if (qty == null || unit == null || !(unit in MIN_RENTAL_UNIT_HOURS)) return null;
     return { hours: qty * MIN_RENTAL_UNIT_HOURS[unit], projection: { qty, unit } };
   }
@@ -718,6 +723,7 @@ class RentableResourceService {
       cleaningFeeCents?: number | null;
       minRentalQty?: number | null;
       minRentalUnit?: string | null;
+      condition?: AssetCondition | null;
     }
   ): Promise<RentableResource> {
     const resource = await this.get(tenantId, resourceId);
@@ -794,15 +800,14 @@ class RentableResourceService {
       cleaningTouched,
       cleaningFeePolicy: cleaning?.cleaningFeePolicy ?? null,
       cleaningFeeCents: cleaning?.cleaningFeeCents ?? null,
+      // D1: condição (item) — touched só quando o dono mandou o campo (permite limpar → NULL).
+      conditionTouched: input.condition !== undefined,
+      condition: input.condition ?? null,
+      // D2/D3: mínimo (termos) — re-homed de metadata para colunas; touched quando o dono mandou (par ou vazio).
+      minRentalTouched: minRental !== undefined,
+      minRentalQty: minRental?.minRentalQty ?? null,
+      minRentalUnit: minRental?.minRentalUnit ?? null,
     });
-    // Tempo mínimo no metadata (edição): mescla sobre o metadata atual do recurso.
-    if (minRental !== undefined) {
-      const cur = (resource.metadata ?? {}) as Record<string, unknown>;
-      const merged = { ...cur };
-      if (minRental) { merged.minRentalQty = minRental.minRentalQty; merged.minRentalUnit = minRental.minRentalUnit; }
-      else { delete merged.minRentalQty; delete merged.minRentalUnit; }
-      await rentableResourceRepository.updateMetadata(tenantId, resourceId, merged);
-    }
     if (input.pricingTiers) {
       await rentableResourceRepository.setPricingTiers(tenantId, resourceId, input.pricingTiers);
     }
