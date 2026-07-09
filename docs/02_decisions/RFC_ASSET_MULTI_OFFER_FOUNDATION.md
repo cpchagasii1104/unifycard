@@ -275,8 +275,15 @@ agenda/Bank/pagamentos. Não implementar todos os modos. Não abrir Fase C.
   com as decisões §7-BIS. Fatias seguintes (rides/venda/service_use) por GO próprio.
 - [x] **Fatia 2b (convergência de locação) — IMPLEMENTADA E SELADA (Yala)** em HEAD `58d20fcc2` (registro
   docs-only `66e437d30`). `rentable_resources` deixou de ser fonte viva de identidade da locação.
-- [x] **ADENDO F-ASSET-CONDITION-AND-RENTAL-MINIMUMS registrado (docs-only):** condição do item novo/usado
-  (`actor_assets.condition`, vocab `ASSET_CONDITIONS=['new','used']`, NULL na v1) + re-homing do mínimo de
-  locação de `actor_assets.metadata` → colunas governadas de `actor_asset_rental_terms`
-  (`min_rental_quantity`/`min_rental_unit`, reusa `MIN_RENTAL_UNITS`). Ver
-  [[RFC_ASSET_CONDITION_AND_RENTAL_MINIMUMS_ADENDO]]. Implementação AGUARDA GO próprio.
+- [x] **ADENDO F-ASSET-CONDITION-AND-RENTAL-MINIMUMS registrado (docs-only) e IMPLEMENTADO+SELADO (Yala, HEAD
+  `07f6536c3`):** condição do item novo/usado (`actor_assets.condition`, vocab `ASSET_CONDITIONS=['new','used']`,
+  NULL na v1) + re-homing do mínimo de locação de `actor_assets.metadata` → colunas governadas de
+  `actor_asset_rental_terms` (`min_rental_quantity`/`min_rental_unit`, reusa `MIN_RENTAL_UNITS`). Ver
+  [[RFC_ASSET_CONDITION_AND_RENTAL_MINIMUMS_ADENDO]].
+- [x] **Fatia 3 — ADENDO VENDA ASSET-FIRST registrado (docs-only):** venda de bem durável individual = CAMADA
+  `actor_asset_sale_terms` (1:1 asset_id) + modo `sale` (já no vocab). D-α PF **e** PJ via
+  `canRepresentActor(owner_actor_id)` — DECISION-0155/PJ-only é de PRODUTO/estoque, NÃO de item individual;
+  D-β read-model dedicado; D-γ transferência/pagamento FORA da v1; D-δ termos mínimos (price anúncio/visibility/
+  audience/negotiable); D-ε `ASSET_SALE_STATUSES=['active','paused']` (sem `sold`); D-ζ módulo próprio (não
+  dentro de rentals). Fronteira durável-individual vs SKU/estoque = `concept_asset_eligibilities`. Ver
+  [[RFC_ASSET_SALE_TERMS_ADENDO]]. Implementação AGUARDA GO próprio.

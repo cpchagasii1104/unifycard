@@ -16680,3 +16680,28 @@ nova frente sem GO explícito de Clayton.
 - Condição + mínimo de locação .................. SELADA
 
 Próxima frente lógica = venda asset-first (só com GO explícito).
+
+## 2026-07-09 — F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 3 · VENDA ASSET-FIRST · ADENDO DOCS-ONLY
+
+- **READ-FIRST entregue** (sistema virgem: products=0, product_offers=0, actor_assets=0). NÃO-GO para código;
+  GO para adendo docs-only primeiro (Clayton/Guardião).
+- **Adendo criado:** `docs/02_decisions/RFC_ASSET_SALE_TERMS_ADENDO.md` (ratifica D-α..D-ζ).
+  - **D-α PF e PJ:** venda asset-first de item durável individual permite PF **e** PJ via
+    `canRepresentActor(actor_assets.owner_actor_id)`, sem `merchant_id`, sem exigir loja. **DECISION-0155/
+    PRODUCT_PUBLISH_PJ_ONLY governa PRODUTO/ESTOQUE (products/product_offers), NÃO item individual do actor.**
+  - **D-β** read-model/badge dedicado (`countActiveAssetSales` conceitual) lendo actor_assets+modes('sale')+
+    actor_asset_sale_terms; actor-page NÃO conta venda-asset em product_offers.
+  - **D-γ** transferência de propriedade/pagamento/checkout/orders/Bank/split/escrow FORA da v1; sale_terms=
+    anúncio, não acordo/pagamento/transferência; status `sold` fora da v1.
+  - **D-δ** camada nova `actor_asset_sale_terms` (asset_id PK/FK 1:1, price_cents ANÚNCIO, status, is_active,
+    visibility, audience_relationship_types, negotiable, sale_notes, timestamps); handoff/visita/garantia/
+    parcelamento/proposta/contrato/checkout FORA da v1; venda = preço único (sem tiers de locação).
+  - **D-ε** `ASSET_SALE_STATUSES=['active','paused']` (sem sold/completed/paid/transferred); status≠modo≠
+    lifecycle do item.
+  - **D-ζ** módulo/domínio próprio de asset sale (não dentro de rentals; não em product_offers).
+- **Fronteira ontológica cravada:** durável/individual/reutilizável/unidade-real → actor_asset sale; consumível/
+  perecível/SKU/lote/giro → products/canonical_products/product_variants/inventory/product_offers. Gate =
+  `concept_asset_eligibilities` (SELADO, global); `category_id` NÃO decide.
+- **Proibições + guards futuros** listados no adendo (product paralelo, product_offers como SSOT de item,
+  preço em modes/assets, condition em sale_terms, Bank/checkout/orders, RLS ausente, frontend hardcode etc.).
+- **Docs-only:** zero código/migration/frontend/contrato/banco. Δbank=0. Implementação AGUARDA GO próprio.
