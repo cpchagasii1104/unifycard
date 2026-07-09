@@ -16497,3 +16497,8 @@ locação/venda/rides/service_use-completo. Não abrir Fase C. Próximo passo L�
   A convergência viva (actor_asset_rental_terms + rewire create/list/detail/discover/updateOffer + availability
   owner_type='actor_asset' + resolver de autoridade) é reescrita grande. Recomendado como PASSO DEDICADO
   (Fatia 2b) para preservar a disciplina SSOT, não rush no fim de sessão enorme. Aguarda decisão de sequenciamento.
+
+### Esclarecimento (decisão Clayton): Parte A = CHECKPOINT, não selo da Fatia 2
+- A Parte A (backfill de elegibilidade, HEAD 1ca59a68) é um **checkpoint técnico seguro / pré-requisito** — NÃO é o selo da Fatia 2.
+- O SELO da Fatia 2 só virá após a **convergência viva B–G** (actor_asset_rental_terms + rewire create/list/detail/discover/updateOffer + availability→owner_type='actor_asset' + guard + 16 provas) + auditoria Yala.
+- Próxima passagem = **F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 2b — CONVERGÊNCIA VIVA DE LOCAÇÃO** (dedicada, rigor total, contrato-primeiro, Yala no fim). Até lá: NÃO tocar rentable_resources/routes/service/repository/frontend/availability/contrato.
