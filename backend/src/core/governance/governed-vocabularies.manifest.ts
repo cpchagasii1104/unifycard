@@ -133,6 +133,15 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     canonRef: 'F-EVENT-ACCESS-CAPACITY (Clayton 2026-07-08) + CHECK chk_events_access_type. Acesso/custo do evento (aposenta "Tom do Evento"). ANÚNCIO apenas — mover dinheiro/estorno = PORTA-1/Bank. "a combinar" FORA do MVP.',
   },
   {
+    name: 'events.need_fulfillment_kind',
+    pillar: 'social',
+    sourceFile: 'src/core/events/event.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'EVENT_NEED_FULFILLMENT_KINDS',
+    values: ['service'],
+    canonRef: 'F-EVENT-ORCHESTRATION-PHASE-B (Clayton 2026-07-08) + CHECK chk_event_orch_template_fulfillment / chk_event_op_needs_fulfillment. Como a necessidade operacional de evento é cumprida. v1 só "service" (FK composta a concept_offer_kinds valida materialmente offer_kind=service). Extensão futura rentable/product por decisão. NÃO literal solto.',
+  },
+  {
     name: 'events.category',
     pillar: 'social',
     sourceFile: 'src/core/events/event.types.ts',

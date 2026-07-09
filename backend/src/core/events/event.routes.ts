@@ -329,6 +329,21 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /events/:id/orchestration-suggestions — F-EVENT-ORCHESTRATION-PHASE-B. Necessidades operacionais
+   * SUGERIDAS pelo TEMPLATE do formato do evento (event_orchestration_template_items por format_concept_id).
+   * Read-only: NÃO cria event_operational_needs/demanda/RFQ/booking. Autoridade = dono do evento
+   * (assertRepresentsEventOwner, fail-closed 403/404). Contrato em API_CONTRACT_GOVERNANCE.md §5.
+   */
+  fastify.get<{ Params: { id: string } }>('/:id/orchestration-suggestions', async (req, reply) => {
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    const tenantId = req.tenant.id;
+    await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id);
+    const { eventTaxonomyService } = await import('./event-taxonomy.service');
+    const suggestions = await eventTaxonomyService.listOrchestrationSuggestions(tenantId, req.params.id);
+    return reply.status(200).send({ suggestions });
+  });
+
+  /**
    * PATCH /events/:id/audience — DECISION-0161 (writer mínimo da plateia).
    * Organizer-gated (resolveRepresentedActor sobre event.actor_id, fail-closed). Seta o MACRO
    * (visibility, validado pelo CHECK existente) + refinamento (audience_relationship_types, validado

@@ -47,6 +47,13 @@ export type EventVisibility =
 // com_analise). ANÚNCIO apenas (Δbank=0). 'a combinar' FORA do MVP (decisão Clayton 2026-07-08).
 // Registrado em governed-vocabularies.manifest (events.access_type) + CHECK chk_events_access_type.
 export const EVENT_ACCESS_TYPES = ['gratuito', 'pago', 'contribuicao_opcional'] as const;
+
+// F-EVENT-ORCHESTRATION-PHASE-B: como uma necessidade operacional de evento é CUMPRIDA. Vocabulário
+// GOVERNADO (manifest events.need_fulfillment_kind + CHECK que compõe daqui). v1 = só 'service' (validado
+// materialmente por FK composta a concept_offer_kinds(concept_id, offer_kind='service')). Extensão futura
+// ('rentable'/'product') amplia AQUI + no CHECK, por decisão própria — NÃO literal solto no código.
+export const EVENT_NEED_FULFILLMENT_KINDS = ['service'] as const;
+export type EventNeedFulfillmentKind = (typeof EVENT_NEED_FULFILLMENT_KINDS)[number];
 export type EventAccessType = (typeof EVENT_ACCESS_TYPES)[number];
 
 // F-EVENT-CONCEPT-FIRST-MODEL (Clayton 2026-07-08). Categoria = FACET de descoberta (múltipla, NÃO pai

@@ -63,6 +63,38 @@ class EventTaxonomyService {
     return searchSubjectConcepts(tenantId, q, limit);
   }
 
+  /**
+   * F-EVENT-ORCHESTRATION-PHASE-B — necessidades operacionais SUGERIDAS para o evento. Autoridade =
+   * event_orchestration_template_items por format_concept_id do evento (NUNCA orchestration_template_key
+   * string, NUNCA event_type legado). need = CONCEPT com offer_kind='service' (v1). Read-only: NÃO cria
+   * event_operational_needs/demanda/RFQ/booking. Label do canonical_service auxiliar (COALESCE→slug).
+   */
+  async listOrchestrationSuggestions(
+    tenantId: string,
+    eventId: string
+  ): Promise<Array<{ needConceptId: string; label: string; fulfillmentKind: string; isRequired: boolean; sortOrder: number }>> {
+    const rows = await runQueriesWithTenant<{
+      need_concept_id: string; label: string; fulfillment_kind: string; is_required: boolean; sort_order: number;
+    }>(
+      tenantId,
+      `SELECT t.need_concept_id, COALESCE(cs.name, nc.slug) AS label, t.fulfillment_kind, t.is_required, t.sort_order
+         FROM events e
+         JOIN event_orchestration_template_items t ON t.format_concept_id = e.event_format_concept_id
+         JOIN concepts nc ON nc.concept_id = t.need_concept_id
+         LEFT JOIN canonical_services cs ON cs.concept_id = t.need_concept_id AND cs.tenant_id IS NULL AND cs.status = 'active'
+        WHERE e.id = $1
+        ORDER BY t.is_required DESC, t.sort_order ASC`,
+      [eventId]
+    );
+    return rows.map((r) => ({
+      needConceptId: r.need_concept_id,
+      label: r.label,
+      fulfillmentKind: r.fulfillment_kind,
+      isRequired: r.is_required,
+      sortOrder: r.sort_order,
+    }));
+  }
+
   /** Categorias = facets de descoberta (governadas). Múltiplas por evento. */
   listCategories(): Array<{ key: string; label: string }> {
     return EVENT_CATEGORIES.map((k) => ({ key: k, label: CATEGORY_LABELS[k] ?? k }));

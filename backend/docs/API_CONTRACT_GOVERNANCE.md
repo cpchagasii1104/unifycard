@@ -62,6 +62,22 @@ Regras observadas no código vivo (a serem seguidas por rotas novas; divergênci
 - **Efeitos:** nenhum (não declara interesse; a declaração é `POST /profile/interest/c1/concepts` por `conceptId`).
 - **Δbank:** 0. **Guard:** `scripts/audit-shared-subject-pool.mjs`.
 
+### `GET /events/:id/orchestration-suggestions` — necessidades operacionais sugeridas (Fase B v1)
+
+- **Método/caminho:** `GET /events/:id/orchestration-suggestions`
+- **Autoridade:** autenticada, `requireContext`-equivalente (actionContext.actorId + tenant.id); leitura do
+  evento no tenant/actor corrente. Read-only.
+- **Entrada:** param `id` (UUID do evento).
+- **Saída:** `{ suggestions: Array<{ needConceptId: string; label: string; fulfillmentKind: 'service'; isRequired: boolean; sortOrder: number }> }`.
+- **Autoridade semântica (SSOT):** derivadas do `event_format_concept_id` do evento via
+  `event_orchestration_template_items` (autoridade por `format_concept_id`, NUNCA `orchestration_template_key`
+  string nem `event_type` legado). `need_concept_id` = CONCEPT com `offer_kind='service'` (v1). Label vem do
+  `canonical_services` auxiliar (COALESCE→slug). Nada de texto livre/category como identidade.
+- **Efeitos:** NENHUM (não cria `event_operational_needs`, demanda, RFQ ou booking). A persistência da seleção
+  do organizador é fatia posterior (POST próprio, contrato próprio).
+- **Erros:** 400 sem contexto; 403 sem representação do evento; 404 evento inexistente ou sem formato.
+- **Δbank:** 0. **Guard:** `scripts/audit-event-orchestration-templates.mjs`.
+
 ## 6. Lacunas conhecidas (dívida registrada, não fingida)
 
 - O `00_AGENT_PROTOCOL.md` §2.2.8 cita `backend/docs/openapi-stock-transfer-receipt.contract.yaml` como
