@@ -16734,3 +16734,24 @@ Próxima frente lógica = venda asset-first (só com GO explícito).
   ainda não realizada nem por locação nem por venda. FRONTEND deferido (backend-first; pilar renderiza header
   genérico, conteúdo rico = sub-fatia própria). Transferência/pagamento/checkout FORA (D-γ).
 - **NÃO auto-selado.** Mudança material → pedir auditoria Yala.
+
+## 2026-07-09 — F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 3R · VENDA MULTI-MODO VIVO (microcorreção pós-Yala)
+
+- **Ressalva Yala (Fatia 3):** venda sempre criava novo actor_asset; sem fluxo vivo para ativar sale em asset
+  EXISTENTE → reabria identidade paralela (mesmo carro locado + vendido = 2 actor_assets).
+- **Desenho escolhido:** `POST /asset-sales` POLIMÓRFICO — `assetId` (item existente → ATIVA) OU `conceptId`+
+  `label` (item novo → CADASTRA). Justificativa: entrada única, semântica clara (item já existe vs novo),
+  sem endpoint paralelo. Contrato documentado (API_CONTRACT_GOVERNANCE §5).
+- **Fix:** `repository.activateSale` (upsert modo 'sale' ON CONFLICT asset_id,activation_mode + upsert
+  actor_asset_sale_terms ON CONFLICT asset_id, no MESMO asset_id; NÃO INSERT actor_assets; NÃO toca
+  rental_terms/modo rental; condição só se informada). `service.activateSaleOnExisting` (autoridade =
+  canRepresentActor sobre owner REGISTRADO do asset; gate concept_asset_eligibilities sobre o concept do asset;
+  404 ASSET_SALE_ASSET_NOT_FOUND). Rota ramifica assetId→ativa(200) / novo→cadastra(201).
+- **Smoke (ROLLBACK) cenário Yala:** asset existente com rental → ativa sale no mesmo asset_id. Provado:
+  COUNT actor_assets 1→1 (NÃO duplica); modos rental+sale no mesmo asset_id; rental_terms=1 e sale_terms=1 no
+  mesmo asset; countActiveAssetSales 0→1; countActiveRentals intacto; product_offers=0; Bank=0.
+- **Guard ampliado (13-17):** activateSale sem INSERT actor_assets; upsert modo sale; upsert sale_terms; não
+  toca rental_terms/modo rental; service valida canRepresentActor+eligibility. Mutação 5/5 morde (INSERT
+  actor_assets / remove upsert modo / quebra upsert sale_terms / toca rental_terms / remove eligibility → FAIL).
+- **Provas:** tsc back 0; frontend intocado; suíte 151/151; Δbank=0; products/product_offers/inventory intactos.
+- **NÃO auto-selado.** Aguarda Yala LIMITADA (só a ressalva multi-modo). Se passar → Fatia 3 SELO COMPLETO.

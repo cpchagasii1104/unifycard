@@ -71,6 +71,22 @@ for (const forbidden of ['rides_vehicles', 'service_offerings', 'actor_professio
   if (new RegExp(`(INSERT INTO|UPDATE|FROM|JOIN)\\s+${forbidden}\\b`, 'i').test(MODULE_TEXT)) failures.push(`módulo asset-sale toca ${forbidden} — fora do escopo da Fatia 3.`);
 }
 
+// ── Fatia 3R — VENDA MULTI-MODO VIVO: ativar venda em asset EXISTENTE preserva identidade única. ──
+// (13) repository tem activateSale e ele NÃO faz INSERT em actor_assets (não duplica o item).
+const activateFn = (REPO.match(/async activateSale\([\s\S]*?\n  \}/) || [''])[0];
+if (!activateFn) failures.push('3R: repository sem activateSale (ativar venda em asset existente).');
+if (/INSERT\s+INTO\s+actor_assets/i.test(activateFn)) failures.push('3R: activateSale faz INSERT em actor_assets — ativar venda em item existente NÃO pode criar outro asset (identidade paralela).');
+// (14) upsert do modo 'sale' no MESMO asset (ON CONFLICT asset_id,activation_mode).
+if (!/INSERT\s+INTO\s+actor_asset_modes[\s\S]{0,160}'sale'[\s\S]{0,160}ON CONFLICT\s*\(\s*asset_id\s*,\s*activation_mode\s*\)/i.test(activateFn)) failures.push('3R: activateSale não faz upsert do modo sale (ON CONFLICT asset_id,activation_mode) no asset existente.');
+// (15) upsert dos termos de venda (ON CONFLICT asset_id).
+if (!/INSERT\s+INTO\s+actor_asset_sale_terms/i.test(activateFn) || !/actor_asset_sale_terms[\s\S]*?ON CONFLICT\s*\(\s*asset_id\s*\)/i.test(activateFn)) failures.push('3R: activateSale não faz upsert de actor_asset_sale_terms (ON CONFLICT asset_id) no asset existente.');
+// (16) NÃO mexe na locação: nem rental_terms, nem desativa/apaga o modo rental.
+if (/actor_asset_rental_terms|activation_mode\s*=\s*'rental'|DELETE\s+FROM\s+actor_asset_modes/i.test(activateFn)) failures.push('3R: activateSale toca rental_terms/modo rental — ativar venda NÃO pode mexer na locação.');
+// (17) service valida autoridade (canRepresentActor) + durabilidade (eligibility) sobre o asset EXISTENTE.
+if (!/activateSaleOnExisting/.test(SVC)) failures.push('3R: service sem activateSaleOnExisting.');
+const activateSvc = (SVC.match(/async activateSaleOnExisting\([\s\S]*?\n  \}/) || [''])[0];
+if (activateSvc && (!/(represents\(|canRepresentActor)/.test(activateSvc) || !/conceptIsAssetEligible/.test(activateSvc))) failures.push('3R: activateSaleOnExisting não valida autoridade (canRepresentActor) + durabilidade (concept_asset_eligibilities) sobre o asset existente.');
+
 if (failures.length > 0) {
   console.error('GATE FAIL [asset-sale-convergence]:');
   for (const f of failures) console.error('  - ' + f);

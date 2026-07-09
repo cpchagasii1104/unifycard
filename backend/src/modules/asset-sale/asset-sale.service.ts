@@ -28,6 +28,23 @@ class AssetSaleService {
     return assetSaleRepository.create(tenantId, ownerActorId, { ...input, label });
   }
 
+  /**
+   * Fatia 3R — ativa venda sobre um actor_asset JÁ EXISTENTE (ex.: item já cadastrado para locação). Preserva
+   * a identidade única: NÃO cria outro actor_asset. Autoridade = canRepresentActor sobre o owner REGISTRADO do
+   * asset (não declarado pelo caller). Gate: concept do asset é durável (concept_asset_eligibilities). Δbank=0.
+   */
+  async activateSaleOnExisting(tenantId: string, assetId: string, requestingUserId: string, input: CreateAssetSaleInput & { conditionTouched?: boolean }): Promise<AssetSaleOffer> {
+    const asset = await assetSaleRepository.findOwnerAndConcept(tenantId, assetId);
+    if (!asset) throw HttpError.notFound('ASSET_SALE_ASSET_NOT_FOUND: item não existe (ou fora do tenant).');
+    // Autoridade sobre o owner JÁ REGISTRADO do item (fail-closed). PF e PJ.
+    if (!(await this.represents(tenantId, requestingUserId, asset.ownerActorId)))
+      throw HttpError.forbidden('ASSET_SALE_NOT_REPRESENTABLE: sem autoridade sobre o owner do item.');
+    // Gate de durabilidade governado (o concept do próprio asset deve ser asset-elegível).
+    const eligible = await assetSaleRepository.conceptIsAssetEligible(tenantId, asset.conceptId);
+    if (!eligible) throw HttpError.badRequest('ASSET_SALE_CONCEPT_NOT_DURABLE: concept do item não é asset-elegível.');
+    return assetSaleRepository.activateSale(tenantId, assetId, input);
+  }
+
   async get(tenantId: string, assetId: string): Promise<AssetSaleOffer> {
     const offer = await assetSaleRepository.findById(tenantId, assetId);
     if (!offer) throw HttpError.notFound('ASSET_SALE_NOT_FOUND.');

@@ -143,11 +143,16 @@ Regras observadas no código vivo (a serem seguidas por rotas novas; divergênci
 
 - **Autoridade:** `owner_actor_id` = `actionContext.actorId`, provado por `canRepresentActor` (D-α: **PF e PJ**;
   NÃO herda `PRODUCT_PUBLISH_PJ_ONLY`, que é de produto/estoque). `owner` NUNCA vem do body.
-- **`POST /asset-sales`** — cria venda de bem durável individual. Entrada: `conceptId` (durável,
-  gate `concept_asset_eligibilities`), `label`, `condition?` (item), `priceCents?` (ANÚNCIO), `visibility?`,
-  `audienceRelationshipTypes?`, `negotiable?`, `saleNotes?`. Atômico: `actor_assets` + `actor_asset_modes('sale')`
-  + `actor_asset_sale_terms`. 400 `ASSET_SALE_CONCEPT_NOT_DURABLE` se concept não asset-elegível; 403
-  `ASSET_SALE_NOT_REPRESENTABLE`. Δbank=0.
+- **`POST /asset-sales`** — põe um bem durável individual à venda. Entrada POLIMÓRFICA (Fatia 3R):
+  - **`assetId`** (item JÁ existente, ex.: já cadastrado p/ locação) → **ATIVA** venda no MESMO asset_id
+    (upsert modo `sale` + `actor_asset_sale_terms`), **NÃO cria outro `actor_asset`** (preserva identidade
+    única). Autoridade = `canRepresentActor` sobre o owner REGISTRADO do asset. 200; 404
+    `ASSET_SALE_ASSET_NOT_FOUND`. Não toca rental_terms/modo rental.
+  - **`conceptId`+`label`** (item novo) → CADASTRA item + modo `sale` + termos, atômico. owner =
+    `actionContext.actorId`. 201; 400 `ASSET_SALE_NEW_ITEM_REQUIRES_CONCEPT_LABEL` se faltar.
+  - Comuns: `condition?` (item), `priceCents?` (ANÚNCIO), `visibility?`, `audienceRelationshipTypes?`,
+    `negotiable?`, `saleNotes?`. 400 `ASSET_SALE_CONCEPT_NOT_DURABLE` (gate `concept_asset_eligibilities`);
+    403 `ASSET_SALE_NOT_REPRESENTABLE`. Δbank=0.
 - **`GET /asset-sales?ownerActorId=`** — minhas vendas (owner-gated). **`GET /asset-sales/:id`** — detalhe.
 - **`PATCH /asset-sales/:id`** — edita oferta (price/visibility/audience/negotiable/notes + condition do item);
   owner-only. **`PATCH /asset-sales/:id/status`** — `active`/`paused` (D-ε; sem `sold`).

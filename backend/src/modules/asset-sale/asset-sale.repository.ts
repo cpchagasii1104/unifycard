@@ -80,6 +80,58 @@ class AssetSaleRepository {
     }
   }
 
+  /** Dono + concept do asset EXISTENTE (para autoridade + gate de durabilidade na ativação de venda). RLS filtra tenant. */
+  async findOwnerAndConcept(tenantId: string, assetId: string): Promise<{ ownerActorId: string; conceptId: string } | null> {
+    const row = await runQueryWithTenant<{ owner_actor_id: string; concept_id: string }>(
+      tenantId,
+      `SELECT owner_actor_id, concept_id FROM actor_assets WHERE id = $1::uuid LIMIT 1`,
+      [assetId]);
+    return row ? { ownerActorId: row.owner_actor_id, conceptId: row.concept_id } : null;
+  }
+
+  /**
+   * Fatia 3R — VENDA MULTI-MODO VIVO: ativa venda sobre um actor_asset JÁ EXISTENTE (NÃO cria outro item).
+   * Preserva a identidade única: upsert do modo 'sale' + upsert dos termos, sobre o MESMO asset_id. NÃO toca
+   * rental_terms nem o modo rental. Atômico (client dedicado com GUC de tenant). condition só é tocada se veio.
+   */
+  async activateSale(tenantId: string, assetId: string, input: CreateAssetSaleInput & { conditionTouched?: boolean }): Promise<AssetSaleOffer> {
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      // condição do ITEM só é atualizada se o dono explicitamente informou (não sobrescreve indevidamente).
+      if (input.conditionTouched === true) {
+        await client.query(`UPDATE actor_assets SET condition = $2, updated_at = now() WHERE id = $1::uuid`,
+          [assetId, input.condition ?? null]);
+      }
+      // Ativa (ou reativa) o modo 'sale' no MESMO asset — sem tocar rental/service_use.
+      await client.query(
+        `INSERT INTO actor_asset_modes (asset_id, activation_mode, enabled) VALUES ($1::uuid, 'sale', true)
+           ON CONFLICT (asset_id, activation_mode) DO UPDATE SET enabled = true, updated_at = now()`,
+        [assetId]);
+      // Upsert dos termos de venda (1:1 por asset_id).
+      await client.query(
+        `INSERT INTO actor_asset_sale_terms
+           (asset_id, price_cents, status, is_active, visibility, audience_relationship_types, negotiable, sale_notes)
+         VALUES ($1::uuid, $2::bigint, 'active', true, $3, $4::text[], $5, $6)
+           ON CONFLICT (asset_id) DO UPDATE SET
+             price_cents = EXCLUDED.price_cents, status = 'active', is_active = true,
+             visibility = EXCLUDED.visibility, audience_relationship_types = EXCLUDED.audience_relationship_types,
+             negotiable = EXCLUDED.negotiable, sale_notes = EXCLUDED.sale_notes, updated_at = now()`,
+        [assetId, input.priceCents ?? null, input.visibility ?? 'public',
+         input.audienceRelationshipTypes ?? null, input.negotiable ?? false, input.saleNotes ?? null]);
+      const read = await client.query(
+        `SELECT ${AAST_SELECT} FROM actor_assets a JOIN actor_asset_sale_terms s ON s.asset_id = a.id WHERE a.id = $1::uuid`,
+        [assetId]);
+      await client.query('COMMIT');
+      return toDomain(read.rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   async findById(tenantId: string, assetId: string): Promise<AssetSaleOffer | null> {
     const row = await runQueryWithTenant<any>(
       tenantId,
