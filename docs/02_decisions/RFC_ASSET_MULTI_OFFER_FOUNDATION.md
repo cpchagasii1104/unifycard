@@ -44,27 +44,43 @@ D. ACORDO/EXECUÇÃO                        compra/reserva/corrida/contrato/Bank
   identidade semântica, item NÃO é concept), `label`, identidade física via **atributos GOVERNADOS**
   (placa/serial/ano/cor — nunca texto-livre como verdade; p/ veículo, referência ao catálogo
   vehicle_models/year, não string solta), `status`. availability futura por owner_type='actor_asset'.
-- **`actor_asset_modes`** (NEUTRO — a distinção que Clayton levantou): `(asset_id, mode)` onde
-  `mode ∈ ASSET_ACTIVATION_MODES` (vocab governado). **Nem todo modo é oferta pública:** venda/locação são
-  OFERTA; uso interno/manutenção/reservado são ESTADO/capacidade. Por isso a tabela é "modos ativados",
-  NÃO "asset_offers". Termos ricos de cada modo (ex.: locação) vivem em camada dedicada por asset_id.
+- **`actor_asset_modes`** = SÓ ATIVAÇÃO econômica/operacional: `(asset_id, mode)` onde
+  `mode ∈ ASSET_ACTIVATION_MODES` (vocab governado). É "modos ativados", NÃO "asset_offers" (nem todo modo é
+  oferta pública: venda/locação são oferta, `service_use` é capacidade operacional). **🔴 MODO ≠ ESTADO
+  (ajuste Clayton):** `internal`/`maintenance`/`reserved` NÃO entram aqui — são estado/disponibilidade/execução.
+  **Ausência de modo ativo = item INTERNO/não publicado** (não precisa de modo `internal`). Lifecycle básico
+  do item = `actor_assets.status` (active/inactive/archived, vocab SEPARADO se necessário). Manutenção/reserva
+  = camada de disponibilidade/agenda/execução (fora desta fundação). Termos ricos de cada modo (ex.: locação)
+  vivem em camada dedicada por asset_id.
+- **`actor_assets` (shape mínimo Fatia 1):** `asset_id`, `tenant_id`, `owner_actor_id` (FK actors),
+  `concept_id` (FK concepts), `label`, `status`, `metadata`/facets GOVERNADO p/ identidade física, timestamps.
+  **Explícito:** placa/RENAVAM/VIN/serial/ano/cor/km NÃO viram texto-livre decisório genérico; para veículos,
+  os campos próprios (placa/RENAVAM têm peso de identidade física forte) são decididos na FATIA rides/veículo,
+  via campos dedicados ou facets governados — nunca string solta como verdade.
 
 ## 3. Nomes físicos candidatos (07_NOMENCLATURA — snake_case, plural, FK `<entidade>_id`)
 
 - **`actor_assets`** (ratificado) — o item real.
 - Camada de ativação: **`actor_asset_modes`** [RECOMENDADO — neutro, cobre oferta E estado] · alternativas:
   `asset_offers` (rejeitado: nem todo modo é oferta) · `asset_activation_modes`.
-- Vocab governado: **`ASSET_ACTIVATION_MODES`** (const + manifest + CHECK que compõe do vocab).
+- Vocab governado de MODOS: **`ASSET_ACTIVATION_MODES`** = `['sale','rental','service_use']` na v1 (const +
+  manifest + CHECK que compõe do vocab). NÃO inclui internal/maintenance/reserved.
+- Vocab de STATUS (SEPARADO, só se necessário): **`ASSET_STATUSES`** (ex.: active/inactive/archived) — NÃO
+  misturar com os modos. Estado do item ≠ ativação de modo.
 - Camadas de termos ricos (fatias futuras): `actor_asset_rental_offer` (convergência de rentable_resources) ·
   `actor_asset_sale_offer` · etc. Nome final fixado na fatia de cada modo.
 
 ## 4. Modos — v1 e futuros
 
-- **Núcleo v1 (ASSET_ACTIVATION_MODES inicial):** `sale` (oferta) · `rental` (oferta) · `service_use` (uso
-  operacional em serviço — capacidade, não oferta pública) · `internal` (uso interno não publicado — estado).
-- **Futuros (modelo não pode IMPEDIR, mas NÃO implementar agora):** `ride_use` · `consignment` · `trade` ·
-  `donation` · `dismantle_parts` · `maintenance` (indisponível) · `reserved` (bloqueado). Ampliar o vocab
-  por decisão própria; a estrutura `(asset_id, mode)` já os acomoda sem tabela nova por modo simples.
+- **Núcleo v1 (ASSET_ACTIVATION_MODES) = SÓ MODOS de ativação:** `sale` (oferta) · `rental` (oferta) ·
+  `service_use` (uso operacional em serviço — capacidade). **`internal` REMOVIDO da v1** — ausência de modo
+  ativo JÁ significa item interno/não publicado; não há modo `internal`.
+- **Futuros MODOS (não implementar agora, modelo não impede):** `ride_use` (fica para a FATIA rides, NÃO v1) ·
+  `consignment` · `trade` · `donation` · `dismantle_parts`. Ampliar o vocab por decisão própria; `(asset_id,
+  mode)` acomoda sem tabela nova por modo simples.
+- **NÃO são modos (são ESTADO/disponibilidade — fora de actor_asset_modes):** `internal` (= sem modo) ·
+  `maintenance` (indisponibilidade operacional) · `reserved` (efeito de agenda/reserva/execução). Tratados por
+  `actor_assets.status` (lifecycle) + camada de disponibilidade/agenda/execução — nunca como "modo".
 
 ## 5. Pontos obrigatórios (respostas de desenho)
 
@@ -116,12 +132,18 @@ Bank · serviço usar item sem vínculo governado (quando a fatia exigir). Cada 
 Sem código/migration/DB/frontend nesta RFC. Não tocar locação/produtos/rides/service_demands/RFQ/booking/
 agenda/Bank/pagamentos. Não implementar todos os modos. Não abrir Fase C.
 
-## 10. Decisões pendentes de Clayton (ratificar antes de código)
+## 10. Ratificação Clayton (2026-07-08) — direção aprovada + ajuste MODO≠ESTADO registrado
 
-- [ ] Nome da camada de ativação: `actor_asset_modes` (recomendado) vs `asset_activation_modes`.
-- [ ] Modos v1: sale/rental/service_use/internal — confirmar conjunto inicial.
-- [ ] Opção de migração: **B** (recomendada) vs A vs C.
-- [ ] Identidade física em `actor_assets`: atributos governados dedicados (placa/serial/ano) vs facets jsonb
-  governado — decidir a forma canônica (07_NOMENCLATURA).
-- [ ] GO para a **Fatia 1 (fundação)** forward-only — e ordem das fatias seguintes.
-- [ ] Confirmar: RFC ANTES da Fase C (recomendado).
+- [x] Modelo asset-first aprovado (CONCEPT / actor_assets / actor_asset_modes = ativações econômicas/
+  operacionais / acordo-execução-Bank fora).
+- [x] Nome `actor_assets` aprovado.
+- [x] Nome `actor_asset_modes` aprovado (melhor que asset_offers — nem todo modo é oferta pública).
+- [x] Opção B aprovada como direção (novo actor_assets; locação/venda/rides convergem por asset_id; NÃO
+  transformar rentable_resources no próprio asset).
+- [x] RFC ANTES da Fase C confirmado.
+- [x] **AJUSTE OBRIGATÓRIO registrado:** MODO ≠ ESTADO. ASSET_ACTIVATION_MODES v1 = `sale`/`rental`/
+  `service_use` (sem `internal`). `internal`/`maintenance`/`reserved` saem dos modos (estado/disponibilidade;
+  ausência de modo = interno/não publicado). `ride_use` = futuro/fatia rides, não v1. Status separado
+  (ASSET_STATUSES) se necessário.
+- [ ] **PENDENTE:** GO para a **Fatia 1 (fundação)** forward-only (com este ajuste registrado). Identidade
+  física de veículo (placa/RENAVAM) = decidir na fatia rides/veículo (campos dedicados vs facets governados).
