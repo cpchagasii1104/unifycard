@@ -26,6 +26,10 @@ interface ProfilePhysicalFormProps {
   isInterestSelected: (categoryId: string) => boolean;
   removeInterest: (categoryId: string) => void;
   renderInterestTree: (categories: CategoryTree[], level?: number) => JSX.Element[];
+  subjectQuery: string;
+  setSubjectQuery: (q: string) => void;
+  subjectResults: Array<{ conceptId: string; label: string }>;
+  addSubjectInterest: (subject: { conceptId: string; label: string }) => void;
   updateWeeklyRoutine: (routine: PhysicalProfileData['weeklyRoutine']) => void;
   toggleGoal: (goal: 'estética' | 'bem_estar' | 'condicionamento') => void;
   handleSave: () => void;
@@ -47,6 +51,10 @@ export default function ProfilePhysicalForm({
   selectedInterests,
   removeInterest,
   renderInterestTree,
+  subjectQuery,
+  setSubjectQuery,
+  subjectResults,
+  addSubjectInterest,
   updateWeeklyRoutine,
   toggleGoal,
   handleSave,
@@ -66,8 +74,37 @@ export default function ProfilePhysicalForm({
       <div className="interests-section" style={{ marginBottom: '2rem', padding: '1.5rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
         <h3 style={{ marginBottom: '0.5rem' }}>Interesses</h3>
         <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>
-          Navegue pelas categorias e adicione os interesses que combinam com você.
+          Busque um assunto (futebol, sinuca, música…) ou navegue pelas categorias.
         </p>
+
+        {/* Busca no POOL DE ASSUNTO (RFC-SHARED-SUBJECT-CONCEPT-POOL) — mesma fonte do tema de evento. */}
+        <div className="interest-subject-search" style={{ marginBottom: '1rem', position: 'relative' }}>
+          <input
+            type="text"
+            value={subjectQuery}
+            onChange={(e) => setSubjectQuery(e.target.value)}
+            placeholder="Buscar assunto: futebol, sinuca, churrasco, música…"
+            style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
+          />
+          {subjectResults.length > 0 && (
+            <div className="interest-subject-results" style={{
+              marginTop: '0.25rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', background: 'white',
+              maxHeight: '12rem', overflowY: 'auto',
+            }}>
+              {subjectResults.map((s) => (
+                <button key={s.conceptId} type="button" onClick={() => addSubjectInterest(s)}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem', border: 'none', background: 'none', cursor: 'pointer' }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {subjectQuery.trim().length >= 2 && subjectResults.length === 0 && (
+            <p style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.25rem' }}>
+              Não encontrei esse assunto. Nada de texto livre é salvo — é um conceito governado.
+            </p>
+          )}
+        </div>
 
         {interestError && (
           <div className="interest-error" style={{ color: '#dc2626', fontSize: '0.875rem', marginBottom: '1rem' }}>

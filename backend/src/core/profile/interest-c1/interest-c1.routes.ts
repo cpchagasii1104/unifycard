@@ -8,6 +8,7 @@ import { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { HttpError } from '@core/errors/http-error';
 import { interestC1Service } from './interest-c1.service';
+import { searchSubjectConcepts } from '@core/concepts/subject-pool.service';
 
 // 🔴 DECISION-0113 fatia 5.2: extrai também `userId` do `req.user` p/ threadar ao service (gate canRepresentActor).
 function requireContext(req: FastifyRequest): { tenantId: string; actorId: string; userId: string } {
@@ -52,6 +53,19 @@ const interestC1Routes: FastifyPluginAsync = async (fastify) => {
       const { tenantId, actorId, userId } = requireContext(req);
       const result = await interestC1Service.getInterestC1(tenantId, actorId, userId);
       return reply.status(200).send(result);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // R1b — GET /profile/interest/c1/search?q= — busca no POOL DE ASSUNTO (RFC-SHARED-SUBJECT-CONCEPT-POOL).
+  // Elegibilidade de interesse vem de shared_subject_concepts (mesma autoridade do tema), NÃO de categoria
+  // scope='interest' (que segue só como navegação) nem de canonical_services flat. Read-only.
+  fastify.get<{ Querystring: { q?: string } }>('/interest/c1/search', async (req, reply) => {
+    try {
+      const { tenantId } = requireContext(req);
+      const results = await searchSubjectConcepts(tenantId, String(req.query?.q ?? ''), 20);
+      return reply.status(200).send({ results });
     } catch (error) {
       return fail(reply, error);
     }

@@ -69,3 +69,13 @@ export async function retireInterestConceptC1(conceptId: string): Promise<Intere
   });
   return parseC1<InterestConceptC1>(res);
 }
+
+// RFC-SHARED-SUBJECT-CONCEPT-POOL: busca no POOL DE ASSUNTO (mesma autoridade do tema de evento).
+// Elegibilidade vem de shared_subject_concepts — não de categoria scope='interest' (navegação) nem de
+// canonical_services flat. Retorna concepts declaráveis por conceptId.
+export async function searchInterestConceptsC1(q: string): Promise<Array<{ key: string; conceptId: string; label: string }>> {
+  const res = await apiFetch(`/profile/interest/c1/search?q=${encodeURIComponent(q)}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data?.results) ? data.results : [];
+}

@@ -4,6 +4,7 @@
 // CONCEPT; categoria = facet governado (EVENT_CATEGORIES). Identidade em CONCEPT; aqui só projeção.
 
 import { runQueriesWithTenant } from '@core/database/pool';
+import { searchSubjectConcepts } from '@core/concepts/subject-pool.service';
 import { EVENT_CATEGORIES, EVENT_LOCATION_MODES, EVENT_LOCATION_MODES_MVP_ENABLED, EVENT_ACCESS_TYPES } from './event.types';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -57,19 +58,9 @@ class EventTaxonomyService {
 
   /** Temas = CONCEPT livre (o grafo inteiro é buscável). Composição formato × tema. Nunca texto livre. */
   async searchThemes(tenantId: string, q: string, limit = 20): Promise<Array<{ key: string; conceptId: string; label: string }>> {
-    const term = q.trim();
-    if (term.length < 2) return [];
-    const rows = await runQueriesWithTenant<{ slug: string; concept_id: string; label: string }>(
-      tenantId,
-      `SELECT c.slug, c.concept_id, cs.name AS label
-         FROM canonical_services cs
-         JOIN concepts c ON c.concept_id = cs.concept_id
-        WHERE cs.tenant_id IS NULL AND cs.status = 'active' AND unaccent(cs.name) ILIKE unaccent($1)
-        ORDER BY cs.name ASC
-        LIMIT $2`,
-      [`%${term}%`, Math.min(Math.max(limit, 1), 50)]
-    );
-    return rows.map((r) => ({ key: r.slug, conceptId: r.concept_id, label: r.label }));
+    // RFC-SHARED-SUBJECT-CONCEPT-POOL: elegibilidade de TEMA vem do pool de ASSUNTO (autoridade =
+    // shared_subject_concepts), NÃO mais de canonical_services flat. Mesmo reader do picker de interesse.
+    return searchSubjectConcepts(tenantId, q, limit);
   }
 
   /** Categorias = facets de descoberta (governadas). Múltiplas por evento. */

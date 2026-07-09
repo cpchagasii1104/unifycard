@@ -7,12 +7,13 @@
 // LEGADO (PUT /profile/physical, metadata.physicalProfile) — o frontend NÃO envia mais `lifestyle` ao legado
 // (cleanup do blob é a F5; primeiro muda o tráfego, depois remove a estrada velha).
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getPhysicalProfile, updatePhysicalProfile } from '../api/physical';
 import {
   getInterestC1,
   declareInterestConceptC1,
   retireInterestConceptC1,
+  searchInterestConceptsC1,
 } from '../api/interestC1';
 import {
   getLifestyle,
@@ -186,6 +187,27 @@ export default function ProfilePhysical() {
     setSelectedInterests(selectedInterests.filter((s) => s.categoryId !== categoryId));
   };
 
+  // RFC-SHARED-SUBJECT-CONCEPT-POOL: busca no POOL DE ASSUNTO (mesma autoridade do tema de evento). A árvore
+  // de categorias segue como navegação; a ELEGIBILIDADE de interesse vem do pool. Item de busca não tem
+  // categoria real → categoryId = conceptId (marcador), e o save declara com sourceCategoryId=null.
+  const [subjectQuery, setSubjectQuery] = useState('');
+  const [subjectResults, setSubjectResults] = useState<Array<{ conceptId: string; label: string }>>([]);
+  useEffect(() => {
+    const t = subjectQuery.trim();
+    if (t.length < 2) { setSubjectResults([]); return; }
+    let live = true;
+    searchInterestConceptsC1(t).then((r) => { if (live) setSubjectResults(r); }).catch(() => { if (live) setSubjectResults([]); });
+    return () => { live = false; };
+  }, [subjectQuery]);
+  const addSubjectInterest = (subject: { conceptId: string; label: string }) => {
+    if (selectedInterests.some((s) => s.conceptId === subject.conceptId)) return;
+    setSelectedInterests([
+      ...selectedInterests,
+      { categoryId: subject.conceptId, conceptId: subject.conceptId, categoryName: subject.label, categoryPath: [] },
+    ]);
+    setSubjectQuery(''); setSubjectResults([]); setInterestError(null);
+  };
+
   // ============================================================
   // ESTILO DE VIDA (SSOT) + físico legado (weeklyRoutine/goals)
   // ============================================================
@@ -248,7 +270,9 @@ export default function ProfilePhysical() {
       const currentByConcept = new Map(selectedInterests.map((s) => [s.conceptId, s]));
       for (const cur of selectedInterests) {
         if (!initialByConcept.has(cur.conceptId)) {
-          await declareInterestConceptC1({ conceptId: cur.conceptId, sourceCategoryId: cur.categoryId });
+          // Item de busca (pool de assunto): categoryId === conceptId → sourceCategoryId=null (sem categoria real).
+          const src = cur.categoryId === cur.conceptId ? null : cur.categoryId;
+          await declareInterestConceptC1({ conceptId: cur.conceptId, sourceCategoryId: src });
         }
       }
       for (const prev of initialInterests) {
@@ -353,6 +377,10 @@ export default function ProfilePhysical() {
       isInterestSelected={isInterestSelected}
       removeInterest={removeInterest}
       renderInterestTree={renderInterestTree}
+      subjectQuery={subjectQuery}
+      setSubjectQuery={setSubjectQuery}
+      subjectResults={subjectResults}
+      addSubjectInterest={addSubjectInterest}
       updateWeeklyRoutine={updateWeeklyRoutine}
       toggleGoal={toggleGoal}
       handleSave={handleSave}
