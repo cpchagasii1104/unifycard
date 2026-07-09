@@ -90,10 +90,18 @@ export interface GuidedFlowData {
   flexibility_level: 'strict' | 'flexible' | 'very_flexible' | null;
   estimated_duration_hours: number | null;
   
-  // ETAPA 4 - Onde (Requisitos de Espaço)
+  // ETAPA 4 — Onde (LOCAL) — Fase A orquestração. location_mode governado + região via Location Core.
+  // space_type/scale = LEGADO removido da UI (não são mais autoridade). restrictions = observação (metadata).
   space_type: 'home' | 'venue' | 'buffet' | null;
   scale: 'small' | 'medium' | 'large' | null;
   restrictions: string | null;
+  locationMode: 'fixed_place' | 'to_be_defined' | 'online' | 'hybrid' | null;
+  venueCityId: string | null;          // cidade GOVERNADA (Location Core)
+  venueCityLabel: string | null;       // projeção UX
+  venuePostalCode: string | null;
+  venueNeighborhoodDisplay: string | null;
+  desiredRadiusKm: string;             // "preciso de local": raio de busca
+  locationObservations: string;        // observação livre (metadata, NUNCA matching semântico)
   
   // ETAPA 5 - Operação (Papéis)
   operational_roles: Array<{
@@ -129,6 +137,13 @@ const INITIAL_DATA: GuidedFlowData = {
   estimated_duration_hours: null,
   space_type: null,
   scale: null,
+  locationMode: null,
+  venueCityId: null,
+  venueCityLabel: null,
+  venuePostalCode: null,
+  venueNeighborhoodDisplay: null,
+  desiredRadiusKm: '',
+  locationObservations: '',
   restrictions: null,
   operational_roles: [],
   economic_preview: null,
@@ -333,8 +348,35 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys }: { initi
   };
 
   // ETAPA 4 → ETAPA 5: Avançar para papéis operacionais
-  const handleStep4Complete = () => {
-    setCurrentStep(5);
+  const handleStep4Complete = async () => {
+    if (!data.event_id) { setError('Evento não encontrado'); return; }
+    if (!data.locationMode) { setError('Informe se você já tem o local'); return; }
+    setIsLoadingStep(true); setError(null);
+    try {
+      const { updateEvent } = await import('../../api/events');
+      const isVenue = data.locationMode === 'fixed_place' || data.locationMode === 'hybrid';
+      const meta: Record<string, unknown> = {};
+      if (data.locationMode === 'to_be_defined' && data.venueCityId) {
+        meta.desiredCityId = data.venueCityId;
+        meta.desiredRadiusKm = data.desiredRadiusKm.trim() ? parseInt(data.desiredRadiusKm, 10) : null;
+      }
+      if (data.locationObservations.trim()) meta.locationObservations = data.locationObservations.trim();
+      await updateEvent(data.event_id, {
+        location_mode: data.locationMode,
+        // LOCAL real (já tenho/híbrido) via Location Core; cidade SSOT, nunca texto.
+        ...(isVenue && data.venueCityId ? {
+          venue_city_id: data.venueCityId,
+          venue_neighborhood_display: data.venueNeighborhoodDisplay,
+          venue_postal_code: data.venuePostalCode,
+        } : {}),
+        ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
+      });
+      setCurrentStep(5);
+    } catch {
+      setError('Não foi possível salvar o local. Tente novamente.');
+    } finally {
+      setIsLoadingStep(false);
+    }
   };
 
   // ETAPA 5 → ETAPA 6: Avançar para preview econômico

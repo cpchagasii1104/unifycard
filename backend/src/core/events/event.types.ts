@@ -208,6 +208,11 @@ export interface UpdateEventInput {
   locationMode?: EventLocationMode | null;
   themeConceptIds?: string[]; // substitui os event_theme_links do evento (vazio = limpa)
   categoryFacets?: string[]; // substitui os event_category_facets (⊆ EVENT_CATEGORIES)
+  // Fase A orquestração: LOCAL do evento (já tenho/híbrido) via Location Core (cityId SSOT, nunca texto).
+  venueCityId?: string | null;
+  venueNeighborhoodId?: string | null;
+  venueNeighborhoodDisplay?: string | null;
+  venuePostalCode?: string | null;
   metadata?: Record<string, any>;
 }
 

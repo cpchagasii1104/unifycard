@@ -660,6 +660,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         if (has('location_mode') || has('locationMode')) updateInput.locationMode = ub.location_mode ?? ub.locationMode;
         if (has('theme_concept_ids') || has('themeConceptIds')) updateInput.themeConceptIds = ub.theme_concept_ids ?? ub.themeConceptIds;
         if (has('category_facets') || has('categoryFacets')) updateInput.categoryFacets = ub.category_facets ?? ub.categoryFacets;
+        if (has('venue_city_id') || has('venueCityId')) updateInput.venueCityId = ub.venue_city_id ?? ub.venueCityId;
+        if (has('venue_neighborhood_id') || has('venueNeighborhoodId')) updateInput.venueNeighborhoodId = ub.venue_neighborhood_id ?? ub.venueNeighborhoodId;
+        if (has('venue_neighborhood_display') || has('venueNeighborhoodDisplay')) updateInput.venueNeighborhoodDisplay = ub.venue_neighborhood_display ?? ub.venueNeighborhoodDisplay;
+        if (has('venue_postal_code') || has('venuePostalCode')) updateInput.venuePostalCode = ub.venue_postal_code ?? ub.venuePostalCode;
         if (has('metadata')) updateInput.metadata = ub.metadata;
         const event = await eventService.updateEvent(
           req.tenant.id,

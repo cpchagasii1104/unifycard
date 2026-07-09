@@ -679,6 +679,11 @@ export interface UpdateEventInput {
   location_mode?: 'fixed_place' | 'online' | 'hybrid' | 'to_be_defined' | 'route' | null;
   theme_concept_ids?: string[];
   category_facets?: string[];
+  // Fase A orquestração: LOCAL via Location Core (cityId SSOT, nunca texto).
+  venue_city_id?: string | null;
+  venue_neighborhood_id?: string | null;
+  venue_neighborhood_display?: string | null;
+  venue_postal_code?: string | null;
   metadata?: Record<string, any> | null;
 }
 

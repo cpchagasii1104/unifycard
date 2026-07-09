@@ -493,7 +493,9 @@ class EventService {
     }
 
     if (input.metadata !== undefined) {
-      updates.push(`metadata = $${paramIndex++}`);
+      // MERGE (não replace): PATCH parcial não pode apagar metadata.declaration (gravado no declare) nem
+      // outras chaves. jsonb || preserva o existente e sobrescreve só as chaves enviadas.
+      updates.push(`metadata = COALESCE(metadata, '{}'::jsonb) || $${paramIndex++}::jsonb`);
       values.push(JSON.stringify(input.metadata));
     }
 
@@ -515,8 +517,33 @@ class EventService {
       }
     }
 
+    // LOCAL do evento (Fase A) — cityId GOVERNADO (Location Core), nunca texto. Persiste em
+    // address_assignments(owner_type='event', role='OPERATIONAL'), mesmo padrão das locações.
+    if (input.venueCityId !== undefined && input.venueCityId !== null) {
+      await runQueryWithTenant(tenantId,
+        `UPDATE address_assignments SET valid_until_at = now(), is_primary = false, updated_at = now()
+          WHERE owner_type = 'event' AND owner_id = $1::uuid AND role = 'OPERATIONAL'
+            AND is_primary = true AND valid_until_at IS NULL`, [eventId]);
+      await runQueryWithTenant(tenantId,
+        `WITH geo AS (
+           SELECT c.state_id, s.country_id, c.lat AS city_lat, c.lng AS city_lng
+             FROM cities c JOIN states s ON s.state_id = c.state_id WHERE c.city_id = $2::uuid
+         ),
+         new_addr AS (
+           INSERT INTO addresses (country_id, state_id, city_id, neighborhood_id, postal_code,
+                                  neighborhood_display_text, lat, lng, is_geocoded, source, created_by_tenant_id)
+           SELECT geo.country_id, geo.state_id, $2::uuid, $4::uuid, $3, $5, geo.city_lat, geo.city_lng,
+                  false, 'UX_INPUT', $6::uuid FROM geo
+           RETURNING address_id
+         )
+         INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
+         SELECT 'event', $1::uuid, address_id, 'OPERATIONAL', true FROM new_addr`,
+        [eventId, input.venueCityId, input.venuePostalCode ?? null, input.venueNeighborhoodId ?? null,
+         input.venueNeighborhoodDisplay ?? null, tenantId]);
+    }
+
     if (updates.length === 0) {
-      return event; // Nada para atualizar na LINHA events (temas/facets já persistidos acima)
+      return event; // Nada para atualizar na LINHA events (temas/facets/local já persistidos acima)
     }
 
     // Adicionar updatedAt
