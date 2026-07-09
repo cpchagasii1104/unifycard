@@ -172,6 +172,52 @@ separar item de oferta agora, forward-only, em fatias.
 5. **Uso operacional:** vínculo governado service_offering→asset (service_use), sem fusão.
 Cada fatia: contrato-primeiro p/ rotas, guard+mutação, Δbank=0, prova, Yala.
 
+## 7-BIS. FATIA 2 — Adendo de decisão: convergência de locação (Clayton 2026-07-08)
+
+READ-FIRST provou (query): rentable_resources=0 · rental_resource_pricing=0 · actor_assets=0 ·
+availability(rentable_resource)=0 → **convergência FORWARD-ONLY pura, zero backfill de linhas, sem dado real**.
+`rentable_resources` hoje MISTURA item (~10 cols) + oferta de locação (~20 cols). Decisões fixadas ANTES do código:
+
+**D1 — Availability → `owner_type='actor_asset'`.** A disponibilidade pertence ao ITEM físico, não à oferta.
+Se o carro está alugado seg-sex, não pode simultaneamente estar em service_use/test-drive/venda. rental USA a
+disponibilidade do asset; sale/service_use/futuros respeitam a MESMA unidade. Sem agendas paralelas por modo
+sem decisão futura. NÃO abre booking/agenda-avançada/RFQ/execução — é só autoridade da disponibilidade.
+
+**D2 — Split canônico item ↔ termos.**
+- FICA em `actor_assets` (identidade da unidade): tenant_id · owner_actor_id · concept_id · label · status ·
+  descrição física da unidade · dados físicos governados · resource_year (quando é característica do item) ·
+  localização-base do item (se houver) · facets/metadata físicos SÓ como transição governada.
+- FICA na camada rental (termos): pricing_unit · price_cents · tiers · quantity ofertada · booking_approval_mode ·
+  start/end_handoff_method · delivery_radius_km · delivery_fee · collection_fee · handoff_time_start/end ·
+  mileage_policy · included_km · extra_km_fee · rental_modality · cleaning_fee_policy/cents · visibility · audience ·
+  regras comerciais · pickup/delivery (termo de oferta, não identidade).
+- NUNCA identidade: category_id · preço · audiência · visibility · regra de entrega/limpeza/aprovação · booking · Bank.
+  (category_id só navegação — nunca identidade/elegibilidade/modo.)
+
+**D3 — Granularidade (equipamento fungível).** Padrão: **1 actor_asset = 1 unidade física individual** quando
+identificável (carro/apartamento/videogame/bicicleta/furadeira específicos). Bens duráveis homogêneos repetidos
+(50 cadeiras, 20 mesas iguais) = **1 actor_asset representando o CONJUNTO/POOL, com `quantity` nos TERMOS de
+locação** — `quantity` NÃO vira identidade semântica. Se cada unidade precisa de manutenção/serial/histórico/
+rastreio individual → N actor_assets. Isso NÃO autoriza perecível/consumível/SKU comum a virar asset.
+
+**D4 — Nome da camada rental.** RECOMENDADO (base virgem): **`actor_asset_rental_terms`** — deixa claro que
+contém TERMOS de locação, aponta `asset_id`, e para de tratar `rentable_resources` como se fosse o item real.
+Alternativa (só se alto custo técnico): manter `rentable_resources` como nome TRANSITÓRIO, mas documentado como
+NÃO-identidade e com `asset_id` NOT NULL obrigatório. **Recomendação: nome canônico agora** (virgem).
+
+**D5 — Reconciliação das 3 camadas de concept.** Regra a promulgar: **todo concept `rentable` é asset-elegível**
+(só bem durável se aluga). Query (2026-07-08) dos **42 rentables ainda sem asset-eligibility**: 21 bens-imoveis
+(imóveis/espaços: galpao/loja/kitnet/quadra-esportiva/terreno/vaga-de-garagem/estúdio…) + 21 produtos-e-comercio
+(equipamentos: andaime/compressor/martelete/serra/projetor/tenda/torre-de-iluminacao…). **Classificação: TODOS
+duráveis por natureza; ZERO perecível/ambíguo.** → backfill dos 54 rentables em `concept_asset_eligibilities`
+JUSTIFICADO. Se no futuro algum concept rentable NÃO for durável, corrigir no `offer_kind`, não forçar para asset.
+`concept_rentable_types` (natureza física) segue governado por concept; `category_id` nunca decide.
+
+**D6 — Contrato/API.** A implementação da Fatia 2 COMEÇA PELO CONTRATO se alterar rota/payload. A criação futura
+de locação cria, em TRANSAÇÃO: (1) actor_asset; (2) actor_asset_modes activation_mode='rental'; (3) camada de
+termos (`actor_asset_rental_terms`); (4) vínculos de endereço/availability conforme D1. Frontend = cadastro
+ÚNICO do item + ativação de locação. **Ainda NÃO implementar.**
+
 ## 8. Guards previstos
 
 Falhar se: venda e locação criarem item físico PARALELO (ambos devem referenciar asset_id) ·
@@ -185,6 +231,12 @@ ou service virar asset · prestador/motorista inferido de user/session sem actor
 product SKU comum virar asset sem elegibilidade governada · `rental`/`service_use` for habilitado para concept
 não-durável (não asset-elegível) · `category_id` for usado para decidir durabilidade/elegibilidade · frontend
 criar lista local de tipos elegíveis. Elegibilidade vem de CONCEPT (applicability), nunca de category.
+**Guards da FATIA 2 (§7-BIS — locação):** falhar se camada rental existir SEM `asset_id` · locação criar item
+paralelo fora de `actor_assets` · rental ativado p/ concept não asset-elegível OU sem `offer_kind='rentable'` ·
+`concept_rentable_types` divergir do concept locável · `category_id` decidir locável/elegibilidade · preço
+entrar em `actor_asset_modes` · Bank entrar em actor_assets/actor_asset_modes/rental terms · availability
+continuar em `owner_type='rentable_resource'` após a decisão D1 (salvo transição documentada) · frontend criar
+lista local de modos · products/rides/service_use tocados nesta fatia · Fase C aberta. Cada um por mutação.
 
 ## 9. Escopo PROIBIDO (STOP desta RFC e das fatias até GO)
 
@@ -213,6 +265,11 @@ agenda/Bank/pagamentos. Não implementar todos os modos. Não abrir Fase C.
   (carro/ferramenta/imóvel/equipamento…), NÃO consumível/perecível (alimento/bebida/SKU-de-giro seguem
   products/inventory). Elegibilidade governada por CONCEPT (applicability, candidato `concept_asset_
   eligibilities`), NUNCA por category. Asset ≠ produto.
-- [ ] **PENDENTE:** GO para a **Fatia 1 (fundação)** forward-only (com MODO≠ESTADO + §5-BIS service_use +
-  §5-TER elegibilidade registrados). Nome da applicability de elegibilidade + identidade física de veículo
-  (placa/RENAVAM) = decidir nas fatias próprias.
+- [x] **Fatia 1 (fundação) — IMPLEMENTADA E SELADA (Yala)** em HEAD 2ac6c94a (registro c9d4e21c). MODO≠ESTADO +
+  §5-BIS + §5-TER cravados; enforcement material por FK de elegibilidade.
+- [x] **Fatia 2 — ADENDO DE DECISÃO registrado (§7-BIS):** D1 availability→owner_type='actor_asset' · D2 split
+  item↔termos · D3 granularidade (1 asset=1 unidade; conjunto=1 asset+quantity nos termos) · D4 nome
+  `actor_asset_rental_terms` (recomendado) · D5 rentable⊆asset-elegível (42 rentables classificados = todos
+  duráveis; backfill dos 54 justificado) · D6 contrato-primeiro. Sistema virgem (0 linhas) = forward-only puro.
+- [ ] **PENDENTE:** GO para IMPLEMENTAR a **Fatia 2** (convergência de locação), forward-only, contrato-primeiro,
+  com as decisões §7-BIS. Fatias seguintes (rides/venda/service_use) por GO próprio.
