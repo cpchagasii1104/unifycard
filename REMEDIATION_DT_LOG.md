@@ -16438,3 +16438,24 @@ regression-guards rc=0 · tsc build 25 / strict 43 (0 atribuível). Bank/Core/se
 - **Guards:** Step5OperationalRoles SAIU da allowlist do anti-hardcode (volta a morder se regredir). Guard `audit-event-orchestration-templates` estendido p/ o write-path (valida template; proíbe tocar RFQ/service_demands/booking/Bank/metadata; Step5 lê governado sem hardcode). Mutação: M4 (write sem validação de template)→FAIL · M5 (write toca service_demands)→FAIL · M6 (Step5 volta hardcode)→FAIL; restaurar→PASS. Somadas às 3 anteriores (vocab/event_type/FK).
 - **Prova:** smoke transacional — add buffet-para-eventos (∈ template festa)→GRAVA; add corte-de-cabelo-masculino (service, ∉ template)→REJEITADO 422; DELETE→cancelled. tsc backend 0 · tsc frontend 0 · suíte 147/147 EXIT 0 · Δbank=0.
 - **FORA (STOP mantido):** EventNeedsWizard/OptInModal/EventRFQ/metadata.needs/RFQ/service_demands/source_event_id/proposta/booking/agenda/pricing/Bank/Fase C intactos; sem need custom fora do template. **NÃO auto-selado — aguarda Yala.**
+
+## 🔒 FRENTE ENCERRADA — F-EVENT-ORCHESTRATION-PHASE-B (SELO COMPLETO, CONGELADA) · HEAD ff168e41
+
+**Selo Yala ponta-a-ponta.** Phase B fechada = orquestração GOVERNADA de necessidades do evento ATÉ a seleção
+do organizador. **Ainda NÃO é** contratação/RFQ/proposta/demanda/agenda/dinheiro.
+
+Trilho conquistado (era lista morta/hardcoded → dado governado):
+`formato do evento → template governado (event_orchestration_template_items) → necessidade operacional →
+CONCEPT de serviço (offer_kind='service') → seleção por concept_id (event_operational_needs)`.
+
+Sem cair em: texto livre · categoria como identidade · event_type legado · canonical_services como autoridade
+indevida · RFQ disfarçado · demanda disfarçada · dinheiro/Bank.
+
+Estado final: serviço não vaza p/ tema/formato · tema/interesse compartilham shared_subject_concepts · API
+contract governance restaurada · templates por format_concept_id · needs→CONCEPT service · seed pack cirúrgico ·
+endpoint de sugestões selado · write-path Step5 selado · Step5 sem lista local · guard anti-hardcode atualizado ·
+Δbank=0 · sem RFQ/service_demands/proposal/booking/agenda/pricing/EventNeedsWizard.
+
+**CONGELADA.** Não abrir Fase C · não tocar EventNeedsWizard/EventRFQ · não abrir RFQ×service_demands · não abrir
+nova frente sem GO explícito de Clayton. Pendências nomeadas (Fase C, decisão soberana): EventNeedsWizard/OptInModal
++ EventRFQ; consumo da necessidade (provedor cumprindo) via unificação RFQ×service_demands (RFC própria).
