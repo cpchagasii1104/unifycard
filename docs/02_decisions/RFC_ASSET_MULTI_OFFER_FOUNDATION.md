@@ -73,8 +73,9 @@ D. ACORDO/EXECUÇÃO                        compra/reserva/corrida/contrato/Bank
 ## 4. Modos — v1 e futuros
 
 - **Núcleo v1 (ASSET_ACTIVATION_MODES) = SÓ MODOS de ativação:** `sale` (oferta) · `rental` (oferta) ·
-  `service_use` (uso operacional em serviço — capacidade). **`internal` REMOVIDO da v1** — ausência de modo
-  ativo JÁ significa item interno/não publicado; não há modo `internal`.
+  `service_use` (item ACOPLADO a serviço/capacidade/prestador — vínculo governado, NÃO oferta solta do item;
+  ver §5-BIS). **`internal` REMOVIDO da v1** — ausência de modo ativo JÁ significa item interno/não publicado;
+  não há modo `internal`.
 - **Futuros MODOS (não implementar agora, modelo não impede):** `ride_use` (fica para a FATIA rides, NÃO v1) ·
   `consignment` · `trade` · `donation` · `dismantle_parts`. Ampliar o vocab por decisão própria; `(asset_id,
   mode)` acomoda sem tabela nova por modo simples.
@@ -99,6 +100,36 @@ D. ACORDO/EXECUÇÃO                        compra/reserva/corrida/contrato/Bank
 7. **CONCEPT preservado:** `actor_assets.concept_id` FK; item físico não vira CONCEPT.
 8. **Categoria preservada:** `category_id` = navegação; NÃO decide vendável/locável/operacional (isso = CONCEPT+asset+mode).
 9. **Bank preservado:** preço de venda/locação = atributo de oferta (anúncio); movimento financeiro FORA.
+
+## 5-BIS. Service use: asset + prestador + capability (adendo obrigatório — Clayton 2026-07-08)
+
+**Regra estrutural:** `service_use` NÃO é "item disponível para uso" nem oferta autônoma do item. É o item
+**ACOPLADO a um serviço/capacidade/prestador**. A diferença canônica:
+- item entregue SOZINHO → `rental` (ex.: alugar carro sem motorista; alugar equipamento de pintura).
+- item VENDIDO → `sale` (ex.: comprar o carro).
+- item USADO por alguém para EXECUTAR um serviço → `service_use` (ex.: pedir motorista COM carro; equipamento
+  de pintura + pintor executando; piscina de bolinha + equipe que monta e opera a festa).
+
+**O que `service_use` NÃO faz (invariantes):**
+- NÃO cria serviço novo · NÃO transforma asset em serviço · NÃO substitui `service_offerings` nem
+  `actor_professional_concepts` · NÃO vira texto livre · NÃO usa `category` como serviço · NÃO toca Bank ·
+  NÃO cria booking/agenda/RFQ/service_demands nesta fundação.
+
+**O que `service_use` É:** um VÍNCULO GOVERNADO (camada futura) entre:
+- `asset_id` (o item);
+- o serviço/capacidade governado — `concepts` + `concept_offer_kinds.offer_kind='service'` (a capacidade
+  prestável), compondo com `actor_professional_concepts` (PF) / `company_concept_publications` (PJ) e/ou
+  `service_offerings` (o trilho vivo de oferta de serviço, se for o caminho);
+- o PRESTADOR/OPERADOR — actor com autoridade (canRepresentActor), NUNCA inferido de user/session solto;
+- regras futuras de disponibilidade/execução (fora desta fundação).
+
+**Nomes físicos candidatos (avaliar na fatia futura, NÃO decidir agora):** `service_offering_assets` ·
+`actor_asset_service_links` · `actor_asset_service_usages`. Critério: o nome deve deixar claro que o asset é
+RECURSO usado por um serviço/prestador, NÃO a identidade do serviço.
+
+**Invariante que a Fatia 1 NÃO pode bloquear (registrar já):** *"`service_use` público/executável exige
+vínculo governado com serviço/prestador"*. A Fatia 1 pode listar `service_use` no vocabulário de modos, mas o
+VÍNCULO completo (asset↔serviço↔prestador) é fatia própria — a fundação só precisa não impedir esse desenho.
 
 ## 6. Opções de migração — comparação + recomendação
 
@@ -125,7 +156,10 @@ Cada fatia: contrato-primeiro p/ rotas, guard+mutação, Δbank=0, prova, Yala.
 Falhar se: venda e locação criarem item físico PARALELO (ambos devem referenciar asset_id) ·
 rentable_resource/product_offer/rides_vehicle virar identidade PRIMÁRIA do item · vehicle_catalog virar
 unidade física · category decidir modo de oferta · frontend criar lista local de modos · asset mode tocar
-Bank · serviço usar item sem vínculo governado (quando a fatia exigir). Cada um por mutação.
+Bank · item duplicado em rides/products/rentable em vez de referenciar asset_id.
+**Guard de `service_use` (adendo §5-BIS):** falhar se `service_use` for ativado/publicado SEM serviço/
+capability concept · aceitar texto livre como serviço · usar `category_id` como serviço · asset virar service
+ou service virar asset · prestador/motorista inferido de user/session sem actor/authority. Cada um por mutação.
 
 ## 9. Escopo PROIBIDO (STOP desta RFC e das fatias até GO)
 
@@ -145,5 +179,10 @@ agenda/Bank/pagamentos. Não implementar todos os modos. Não abrir Fase C.
   `service_use` (sem `internal`). `internal`/`maintenance`/`reserved` saem dos modos (estado/disponibilidade;
   ausência de modo = interno/não publicado). `ride_use` = futuro/fatia rides, não v1. Status separado
   (ASSET_STATUSES) se necessário.
-- [ ] **PENDENTE:** GO para a **Fatia 1 (fundação)** forward-only (com este ajuste registrado). Identidade
-  física de veículo (placa/RENAVAM) = decidir na fatia rides/veículo (campos dedicados vs facets governados).
+- [x] **ADENDO OBRIGATÓRIO registrado (§5-BIS):** `service_use` = item ACOPLADO a serviço/capacidade/
+  prestador (vínculo governado com concepts+offer_kind='service'+actor_professional_concepts/company_pub/
+  service_offerings + actor/authority), NÃO oferta solta do item; não cria serviço, não vira texto-livre/
+  category, não toca Bank/booking/RFQ. Invariante: "service_use público/executável exige vínculo governado
+  com serviço/prestador" — a Fatia 1 não bloqueia esse desenho. Nomes de vínculo a avaliar na fatia futura.
+- [ ] **PENDENTE:** GO para a **Fatia 1 (fundação)** forward-only (com ajuste MODO≠ESTADO + adendo §5-BIS
+  registrados). Identidade física de veículo (placa/RENAVAM) = decidir na fatia rides/veículo.
