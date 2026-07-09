@@ -33,27 +33,9 @@ import { createRFQFromSpec, getCompatibleCompanies, dispatchRFQ, type Compatible
 import type { EventSpec } from '../../types/event-spec';
 import './EventCreationGuidedFlow.css';
 
-/**
- * 🔴 MAPEAMENTO: event_type (inglês) → event_aspect (português)
- * Conforme vocabulário fechado v1 do EVENT_DOMAIN_MINIMUM_CONTRACT
- *
- * O event_type usa terminologia em inglês (padrão do sistema)
- * O event_aspects usa vocabulário em português (v1)
- */
-const EVENT_TYPE_TO_ASPECT_MAP: Record<string, string> = {
-  cultural: 'cultural',
-  gastronomic: 'gastronomico',
-  social: 'social',
-  professional: 'profissional',
-  community: 'comunitario',
-  spiritual: 'espiritual',
-  sports: 'esportes',
-  private: 'privado',
-};
-
-function mapEventTypeToAspect(eventType: string): string {
-  return EVENT_TYPE_TO_ASPECT_MAP[eventType] || eventType;
-}
+// F-GUARD-ANTI-HARDCODE-EVENT-ORCHESTRATION (2026-07-08): EVENT_TYPE_TO_ASPECT_MAP + mapEventTypeToAspect
+// REMOVIDOS — eram código MORTO (event_type legado não é autoridade canônica; o declare deriva aspects das
+// CATEGORIAS facet, ver FACET_TO_ASPECT em handleStep1Complete). event_type legado não é chave de orquestração.
 
 export interface GuidedFlowData {
   // ETAPA 0 — CONCEPT-FIRST (F-EVENT-CONCEPT-FIRST-MODEL): identidade = formato + tema; categorias = facets.
