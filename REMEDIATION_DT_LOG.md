@@ -16575,3 +16575,34 @@ locação/venda/rides/service_use-completo. Não abrir Fase C. Próximo passo L�
   (ROLLBACK) badge 0→1 ao criar locação asset-first, `rentable_resources` intocado; tsc back 0; frontend
   intocado; suíte 150/150; Δbank=0; sem Bank/products/rides no diff (só 2 arquivos backend).
 - **NÃO auto-selado.** Aguarda Yala LIMITADA (só validar eliminação da ressalva) para SELO COMPLETO da Fatia 2b.
+
+## 2026-07-09 — F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 2b — SELO COMPLETO (Yala)
+
+**HEAD validado pela Yala:** `58d20fcc2`
+
+A convergência viva da locação para asset-first foi SELADA. Registro docs-only.
+
+**Estado final:**
+- `actor_assets` = item real durável do actor (identidade);
+- `actor_asset_modes.activation_mode='rental'` = ativação de locação;
+- `actor_asset_rental_terms` = termos comerciais/operacionais da locação;
+- `actor_asset_rental_pricing_tiers` = faixas de preço;
+- `availability` usa `owner_type='actor_asset'`;
+- `address_assignments` usa `owner_type='actor_asset'`;
+- bookings resolvem por `actor_asset`;
+- `actor-page.countActiveRentals` lê `actor_assets + actor_asset_modes + actor_asset_rental_terms`;
+- `rentable_resources` NÃO é mais fonte viva de identidade da locação.
+
+**Yala validou:** countActiveRentals sem rentable_resources; smoke badge 0→1 com locação asset-first;
+guard morde regressão para rentable_resources; tsc backend 0; validate:regression-guards verde (150);
+Δbank=0; escopo respeitado.
+
+**STOP registrado (nenhuma nova frente sem GO explícito de Clayton):**
+- não abrir venda; não abrir service_use; não abrir rides; não abrir Fase C; não tocar Bank.
+
+**Mapa de selos do arco F-ASSET-MULTI-OFFER-FOUNDATION:**
+- Fatia 1 — fundação asset-first ............ SELADA
+- Fatia 2 Parte A — rentables elegíveis ..... checkpoint técnico
+- Fatia 2b — locação asset-first ............ SELADA (HEAD 58d20fcc2)
+
+Dívida de identidade-paralela de locação (`rentable_resources` como SSOT vivo): ENCERRADA.
