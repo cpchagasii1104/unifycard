@@ -151,7 +151,8 @@ const CMDS = [
   "node scripts/audit-anti-hardcode-event-orchestration.mjs",
   "node scripts/audit-shared-subject-pool.mjs",
   "node scripts/audit-event-orchestration-templates.mjs",
-  "node scripts/audit-asset-foundation.mjs"
+  "node scripts/audit-asset-foundation.mjs",
+  "node scripts/audit-asset-rls-hardening.mjs"
 ];
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);

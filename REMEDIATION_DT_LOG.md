@@ -16502,3 +16502,11 @@ locação/venda/rides/service_use-completo. Não abrir Fase C. Próximo passo L�
 - A Parte A (backfill de elegibilidade, HEAD 1ca59a68) é um **checkpoint técnico seguro / pré-requisito** — NÃO é o selo da Fatia 2.
 - O SELO da Fatia 2 só virá após a **convergência viva B–G** (actor_asset_rental_terms + rewire create/list/detail/discover/updateOffer + availability→owner_type='actor_asset' + guard + 16 provas) + auditoria Yala.
 - Próxima passagem = **F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 2b — CONVERGÊNCIA VIVA DE LOCAÇÃO** (dedicada, rigor total, contrato-primeiro, Yala no fim). Até lá: NÃO tocar rentable_resources/routes/service/repository/frontend/availability/contrato.
+
+## 2026-07-08 — F-ASSET-MULTI-OFFER-FOUNDATION Fatia 2b-1b (BLINDAGEM RLS — microfrente soberana)
+
+- **STOP soberano** disparado no início da 2b-2: as tabelas asset (Fatia 1 + 2b-1) nasceram SEM RLS, enquanto rentable_resources tinha ENABLE+FORCE. Migrar locação para asset sem RLS enfraqueceria isolamento de tenant (arco RLS-live). O create() reescrito da 2b-2 foi REVERTIDO (não commitado, não misturado).
+- **Correção (migration 20260708410000):** RLS ENABLE+FORCE + policy de isolamento por tenant nas 4 tabelas tenant-owned: actor_assets (policy direta por tenant_id), actor_asset_modes / actor_asset_rental_terms / actor_asset_rental_pricing_tiers (policy DERIVADA via EXISTS actor_assets — sem denormalizar tenant_id = sem segunda verdade). Padrão vivo current_setting('app.current_tenant').
+- **concept_asset_eligibilities INTOCADA** — governança GLOBAL por CONCEPT (irmã de concept_offer_kinds/concept_rentable_types/shared_subject_concepts, todas rls=false/sem tenant_id). RLS tenant-scoped nela quebraria SSOT.
+- **Prova:** pg_class rls=true/force=true nas 4; 4 policies criadas; concept_asset_eligibilities rls=false, sem tenant_id/category_id. **Isolamento cross-tenant PROVADO sob SET ROLE unificard_app (sem bypass): dono(A)=1, outro-tenant(B)=0.** Guard audit-asset-rls-hardening (mutação 3/3: remove FORCE / eligibility+category_id / eligibility+RLS → FAIL). tsc back 0 · suíte verde · Δbank=0. Bank/products/rides/service_offerings/service_use/Fase C intocados.
+- **NÃO auto-selado.** Yala adversarial limitada da blindagem RLS antes de retomar a 2b-2.
