@@ -16510,3 +16510,8 @@ locação/venda/rides/service_use-completo. Não abrir Fase C. Próximo passo L�
 - **concept_asset_eligibilities INTOCADA** — governança GLOBAL por CONCEPT (irmã de concept_offer_kinds/concept_rentable_types/shared_subject_concepts, todas rls=false/sem tenant_id). RLS tenant-scoped nela quebraria SSOT.
 - **Prova:** pg_class rls=true/force=true nas 4; 4 policies criadas; concept_asset_eligibilities rls=false, sem tenant_id/category_id. **Isolamento cross-tenant PROVADO sob SET ROLE unificard_app (sem bypass): dono(A)=1, outro-tenant(B)=0.** Guard audit-asset-rls-hardening (mutação 3/3: remove FORCE / eligibility+category_id / eligibility+RLS → FAIL). tsc back 0 · suíte verde · Δbank=0. Bank/products/rides/service_offerings/service_use/Fase C intocados.
 - **NÃO auto-selado.** Yala adversarial limitada da blindagem RLS antes de retomar a 2b-2.
+
+### 🔒 2b-1b SELADA por Yala (HEAD 5259d1b2) — libera retomar a 2b-2
+- Isolamento cross-tenant PROVADO no banco vivo sob role NOBYPASSRLS: GUC=A vê / GUC=B não vê (0 em read, update E insert cross-tenant — policy USING vira WITH CHECK no INSERT). Filhas isolam por policy derivada, sem tenant_id denormalizado. concept_asset_eligibilities segue global (rls=false, sem tenant_id/category_id). rentable_resources não enfraquecido. Guard 3/3, tsc 0, suíte verde, Δbank=0, create() da 2b-2 não commitado.
+- Nota não-bloqueante: contagem de guards 147(node) vs 149(CMDS) — só método de contagem, exit 0 é o material.
+- **Ordem retomada:** RLS ✅ → (próximo) 2b-2 write-path → 2b-3 read-path → 2b-4 availability/bookings → 2b-5 guard final + Yala da 2b inteira.
