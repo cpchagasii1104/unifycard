@@ -267,6 +267,16 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (2) — Microfatia e2e: 7 validate-pipeline-* no rito draft→lines→activate (`4ae75c963`)
+- Colisão da F1-b fechada SEM backdoor: seeds criam DRAFT→lines→activate; cleanup deprecia ativas (nunca
+  deleta) + deleta só drafts; códigos únicos por run (UNIQUE vs deprecated acumuladas). T16/T17 do engine
+  ficam DRAFT de propósito (CHECK 23514 precisa disparar antes do freeze). Provas: fee-bps 14/14 e engine
+  18/18 em 2 RUNS consecutivas (re-runnabilidade); typecheck 0; suíte 151 GATE OK.
+- 🟡 NOVA pendência revelada (parado/reportado): 4 e2e que movem dinheiro + regional-fund falham em
+  FIXTURES pré-existentes (services sem canonical_service_id NOT NULL; universo G2 do transversal ausente;
+  regional-fund se auto-aborta em unificard_dev por design; trigger users_sync com branch NULL+NULL
+  quebrado por search_path hardened). Reparo = frente própria com GO. Contagem de DTs inalterada.
+
 ### 2026-07-10 — F-BANK-SPLIT-POLICY-ADMIN-FOUNDATION: DECISION-0166 promulgada + FASE 1 SELADA (imutabilidade + snapshot)
 - **DECISION-0166** (docs-only, `73c0a63a3`): D0 origem regional padrão = jurisdição cadastral do COMPRADOR
   (PF residência/PJ fiscal; transaction_location opcional, não default) · D1 base=comissão · D2 multi-nível
