@@ -267,6 +267,27 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (6) — FASES 4a+4b SELADAS: Lei do Contador + Casa Fiscal Canônica (DECISION-0166 D9)
+- **Fase 4a — ADENDO D9 / Lei do Contador — SELADA (docs-only, `c3547f2fd`):** UnifiCard NÃO é
+  autoridade fiscal nem substitui contador — fornece infraestrutura fiscal CONFIGURÁVEL, VERSIONADA e
+  AUDITÁVEL; sem configuração → `fiscal_config_missing` + fail-closed em contexto obrigatório, nunca
+  inventa; fiscalidade do actor ≠ fiscalidade da própria UnifiCard; vocabulários D9.5 ratificados
+  (TaxRegime com SIMPLES_NACIONAL · applies_to futuro · tax_reserve · platform_revenue_streams ×6).
+- **Fase 4b — Casa Fiscal Canônica / Opção B+ — SELADA PELA YALA E COMMITADA** (material `dc3c9de1d` ·
+  cartório pré-selo `4fbb7eed8` · selo final `4522ad374`): casa ÚNICA `actor_fiscal_profiles` ancorada
+  em `fiscal_identities` (FK), versionada, imutável-quando-ativa (trigger), deprecated terminal, RLS
+  ENABLE+FORCE, TAX_REGIMES canônico no manifesto; 2 casas fantasmas APOSENTADAS como fonte fiscal
+  (`company_profiles`/`tax_profiles` — writers 501, readers null/canônica); payment-execution parou de
+  engolir o reader fantasma (ausência de perfil = `fiscal_config_missing` honesto, default preservado,
+  regime nunca inventado). Yala: 28 eixos + 9 mutações, SELO COMPLETO SEM RESSALVA; guard
+  `audit-fiscal-canonical-house` morde.
+- **Escopo negativo cumprido (registrado):** Δbank=0 · NENHUM cálculo fiscal oficial criado · NENHUM
+  `tax_type` · NENHUMA `tax_rule` · NENHUMA alíquota · NENHUM toque em
+  Bank/ledger/split/orders/checkout/payment_intents.
+- Contagem de DTs abertas INALTERADA (fechou achados de GATE da frente, não DTs A_DECISION nomeadas).
+- **Próximas: 4c (tax_types/tax_rules vazios/versionados) SÓ com GO de Clayton · 4d (motor de
+  cálculo/provisão) com GO PRÓPRIO OBRIGATÓRIO por D9.7 — não entra em GO de lote.**
+
 ### 2026-07-10 (5) — FASE 3 SELADA: eixo regional_level multi-nível (DECISION-0166 D2)
 - **3a** `regional_level` em economic_policy_lines (mesmo enum do scope_level da 2a; obrigatório em
   regional_fund, PROIBIDO fora; UNIQUE parcial nível+basis). 9/9 rollback — multi-nível GRAVA.
