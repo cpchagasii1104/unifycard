@@ -267,6 +267,20 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (14) — FASE 4d-0A docs-only: DECISION-0168 promulgada (modelos fiscais por segmento)
+- Ideia soberana de Clayton (pré-moldados por segmento) virou norma com a trava: template governado =
+  SUGESTÃO/draft, nunca verdade fiscal automática. Verdade final = empresa+regime+território+concept+regra
+  ativa+versão+validação do contador.
+- **Achado do READ-FIRST:** a camada comercial JÁ EXISTE (DECISION-0117 E: business_templates versionados
+  imutáveis + company_template_applications auditadas, seeds supermercado/distribuidora/salão) e há 3 noções
+  de segmento vivas → D-0: faceta fiscal NASCE de business_templates (não 4ª noção). Ponte CNAE→concept já
+  existe com curadoria (cnae_concept_suggestions) → sugestão de template derivável do CNAE.
+- Ativação de template escreve pela via canônica da 4c-2 (createDraftRule→activateRule com source do
+  contador) — nenhum caminho novo; motor 4d NUNCA lê template (allowlist 0167 §3); sem ativação =
+  fiscal_config_missing segue honesto. Piloto: Curitiba (mercado/açougue/hortifruti/mecânica).
+- Docs-only; guards 4b/4c-3 intactos; contagem de DTs inalterada. Sequência futura registrada SEM abrir
+  (FOUNDATION→ONBOARDING→ACTIVATION→PDV-PREVIEW); 4d-1 segue trancada (D9.7).
+
 ### 2026-07-10 (13) — FASE 4d-0 docs-only: DECISION-0167 promulgada (desenho do motor de provisão fiscal)
 - GO de Clayton SÓ para desenho (implementação segue trancada por D9.7). `DECISION_0167_FISCAL_PROVISION_
   ENGINE_DESIGN.md` crava: TaxableEvent canônico + regra de acoplamento (NENHUMA vertical entende imposto —
