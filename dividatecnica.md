@@ -267,6 +267,20 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (11) — FASE 4c-3 EXECUTADA: guard final do catálogo fiscal — aguarda Yala
+- Material `66e15464f`: guard `audit-fiscal-tax-catalog.mjs` + registro no runner (suíte 152→153).
+  Zero código de produto/migration/manifesto/schema — guard é read-only de CI.
+- 6 grupos: G1 substrato 4c-1 íntegro + anti-drop/anti-paralelo em migrations futuras · G2 anti-alíquota-
+  hardcoded com exceção ÚNICA controlada (5% do invoicing = expected finding ENQUANTO a DT estiver OPEN;
+  DT sumir com hardcode vivo = FAIL; hardcode novo = FAIL) · G3 anti-cálculo na 4c · G4 anti-Bank ·
+  G5 anti-seed real (ISS/ICMS/PIS/COFINS/CBS/IBS/IPI/IRPJ/CSLL/INSS…) · G6 anti-vocabulário-paralelo
+  (TaxRegime redeclarado / const≠CHECK / fora do manifesto).
+- **Mutation 13/13 MORDE** (pós-commit; inclui M13 = fechar a DT do invoicing com o hardcode vivo).
+  Typecheck 0; suíte 153 GATE OK na mesma cadeia && do commit; git diff --check limpo; Δbank=0.
+- `DT-INVOICING-HARDCODED-TAX-RATE` segue 🔴 OPEN (4c-3 NÃO corrigiu invoicing — frente própria);
+  agora o guard a enxerga e amarra. 4d permanece TRANCADA (GO próprio D9.7).
+- Com o selo Yala: FASE 4c COMPLETA (4c-1+4c-2+4c-3). Contagem de DTs inalterada.
+
 ### 2026-07-10 (10) — Fatia 4B: YALA LIMITADA = RESSALVA SANADA; stash dropado
 - Reauditoria limitada confirmou a remediação `348204be7` (entrada 4B no cartório acima da 4c-2; selos
   fiscais 4c-1/4c-2 preservados; API catalogada na §5; commit docs-only; zero código/migration/manifesto/
