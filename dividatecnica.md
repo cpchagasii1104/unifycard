@@ -267,6 +267,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (3) — Frente futura registrada: F-E2E-FIXTURE-UNIVERSE-REPAIR (não abrir sem GO)
+- Escopo quando aberta: (a) fixtures de `services` nos e2e com `canonical_service_id` (NOT NULL novo);
+  (b) reconstruir universo G2 do transversal pós-reset (buyers/services/saldo/contas); (c) tratar trigger
+  `users_sync_id_user_id` (branch NULL+NULL quebrado: search_path hardened + `uuid_generate_v4()`
+  não-qualificado) em frente própria; (d) revisar `regional-fund-pf-resolver` em banco dedicado (script
+  se auto-aborta em unificard_dev por design). Decisão Clayton 2026-07-10: registrar e NÃO abrir agora
+  (foco na Fase 2 da policy). Detalhes/causas exatas no cartório (entrada da microfatia e2e).
+
 ### 2026-07-10 (2) — Microfatia e2e: 7 validate-pipeline-* no rito draft→lines→activate (`4ae75c963`)
 - Colisão da F1-b fechada SEM backdoor: seeds criam DRAFT→lines→activate; cleanup deprecia ativas (nunca
   deleta) + deleta só drafts; códigos únicos por run (UNIQUE vs deprecated acumuladas). T16/T17 do engine
