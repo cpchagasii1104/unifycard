@@ -58,8 +58,8 @@ export interface AllocateResult {
 function retired(operation: string): never {
   throw Object.assign(
     new Error(
-      `REGIONAL_FUNDS_RETIRED: ${operation} — trilho paralelo de fundo regional (regional_funds/` +
-        `total_balance_cents fora do bank_ledger) EXCISADO na Fase 2d (DECISION-0166 D3). ` +
+      `REGIONAL_FUNDS_RETIRED: ${operation} — trilho paralelo de fundo regional (geografia ` +
+        `string + saldo em coluna fora do bank_ledger) EXCISADO na Fase 2d (DECISION-0166 D3). ` +
         `Use regional_fund_accounts (FK) + ensureRegionalFundAccount + bank_ledger.`
     ),
     { statusCode: 501 }
