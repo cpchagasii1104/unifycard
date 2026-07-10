@@ -3,9 +3,11 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import testCurrencyRoutes from './test-currency.routes';
-import bankP2PTransferRoutes from './bank-p2p-transfer.routes';
+// 🔴 F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1B (Opção A · DECISION-0165): rotas p2p-transfer e
+//    donation DESMONTADAS (não registradas). Ambas movem dinheiro pelo seam legado transferP2P /
+//    context 'p2p_transfer' (fora do MVP). Arquivos e schema preservados; donation = HOLD para
+//    futura migração ao pipeline canônico. Imports removidos por ficarem órfãos após o unmount.
 import bankHttpRoutes from './bank-http.routes';
-import donationRoutes from './donation.routes';
 import transparencyRoutes from './transparency.routes';
 import userGroupAllocationRoutes from '../user-group-allocation/user-group-allocation.routes';
 import bankMetricsRoutes from '../observability/bank-metrics.routes';
@@ -21,13 +23,13 @@ const unifybankModule: FastifyPluginAsync = async (fastify) => {
   // Rotas administrativas de moeda de teste (registradas em /admin/test-currency)
   await fastify.register(testCurrencyRoutes, { prefix: '/test-currency' });
   
-  // Rotas de transferência P2P (registradas em /bank/p2p-transfer quando prefix=/bank)
-  // ou em /admin/bank/p2p-transfer quando prefix=/admin
-  await fastify.register(bankP2PTransferRoutes);
-  
-  // Rotas de doação (registradas em /bank/donate quando prefix=/bank)
-  await fastify.register(donationRoutes);
-  
+  // 🔴 F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1B (Opção A · DECISION-0165 D5/D8): rotas
+  //    p2p-transfer e donation DESMONTADAS. Movem dinheiro pelo seam legado transferP2P /
+  //    context 'p2p_transfer' (split fora do Bank), fora do MVP. Reabrir p2p/donation = frente
+  //    própria com GO + pipeline canônico. Nada de dado/schema tocado; donation = HOLD.
+  // await fastify.register(bankP2PTransferRoutes);  // desmontada (Fase 1B)
+  // await fastify.register(donationRoutes);         // desmontada (Fase 1B, donation = HOLD)
+
   // HTTP canónico do Bank (saldo + transações) — §4.7, prefix /bank
   await fastify.register(bankHttpRoutes);
 
