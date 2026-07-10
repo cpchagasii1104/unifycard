@@ -131,6 +131,26 @@ class ActorPageRepository {
     );
   }
 
+  /**
+   * Usos operacionais ativos do actor (pilar service_use — D-G do adendo RFC_ASSET_SERVICE_USE_OPERATIONAL).
+   * Lê o SSOT dedicado: identidade em actor_assets, ATIVAÇÃO em actor_asset_modes('service_use'), vínculo em
+   * actor_asset_service_usages. NUNCA conta em service_offerings (não é a SSOT do uso operacional do asset).
+   * Fatia 4B: v1 = SOMENTE dono-operador (operator_actor_id = owner_actor_id do asset).
+   */
+  countActiveServiceUses(tenantId: string, actorId: string): Promise<number> {
+    return this.countOf(
+      tenantId,
+      `SELECT COUNT(*)::text AS n
+         FROM actor_assets a
+         JOIN actor_asset_modes m
+           ON m.asset_id = a.id AND m.activation_mode = 'service_use' AND m.enabled = true
+         JOIN actor_asset_service_usages u
+           ON u.asset_id = a.id
+        WHERE a.tenant_id = $1 AND a.owner_actor_id = $2 AND u.is_active = true`,
+      [tenantId, actorId]
+    );
+  }
+
   /** eventos futuros do actor (pilar eventos — Programação de banda/casa) */
   countUpcomingEvents(tenantId: string, actorId: string): Promise<number> {
     return this.countOf(

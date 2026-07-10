@@ -623,6 +623,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     // canRepresentActor; NÃO products/product_offers). Δbank=0 (preço=anúncio). Módulo próprio (D-ζ).
     const assetSaleModule = await import('./modules/asset-sale/asset-sale.module');
     await protectedScope.register(assetSaleModule.default);
+
+    // 🔵 F-ASSET-MULTI-OFFER-FOUNDATION Fatia 4B — SERVICE_USE / uso operacional, substrato mínimo (adendo
+    // RFC_ASSET_SERVICE_USE_OPERATIONAL_ADENDO). v1 = dono-operador; terceiro-operador = Fatia 4C (fora).
+    const assetServiceUseModule = await import('./modules/asset-service-use/asset-service-use.module');
+    await protectedScope.register(assetServiceUseModule.default);
     console.log('[BOOT] Contextual Messaging module registered');
     
     // Notificações In-App

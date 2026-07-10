@@ -154,7 +154,8 @@ const CMDS = [
   "node scripts/audit-asset-foundation.mjs",
   "node scripts/audit-asset-rls-hardening.mjs",
   "node scripts/audit-asset-rental-convergence.mjs",
-  "node scripts/audit-asset-sale-convergence.mjs"
+  "node scripts/audit-asset-sale-convergence.mjs",
+  "node scripts/audit-asset-service-use-convergence.mjs"
 ];
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);
