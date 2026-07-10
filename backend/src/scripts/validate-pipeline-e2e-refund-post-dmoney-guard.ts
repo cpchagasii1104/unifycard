@@ -213,6 +213,7 @@ async function seedPolicyMultiSplit(code: string): Promise<string> {
     bps: 2000,
     priority: 1,
     regionalOriginBasis: 'receiver_company_operational' as any,
+    regionalLevel: 'city' as any,
   });
   await economicPolicyRepository.createPolicyLine(TENANT_ID, {
     policyId: p.id,

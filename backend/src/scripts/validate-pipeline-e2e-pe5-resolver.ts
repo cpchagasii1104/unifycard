@@ -244,6 +244,8 @@ async function seedPolicy(opts: {
       bps: ln.bps,
       priority: ln.priority ?? 0,
       regionalOriginBasis: (ln.regionalOriginBasis as any) ?? null,
+      // Fase 3 (DECISION-0166 D2): nível obrigatório em linha regional — este e2e opera em city.
+      regionalLevel: ln.lineType === 'regional_fund' ? ('city' as any) : null,
     });
   }
   await pool.query(`SELECT set_config('app.current_tenant', $1, false)`, [TENANT_ID]);

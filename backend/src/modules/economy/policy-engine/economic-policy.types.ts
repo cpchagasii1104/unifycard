@@ -63,6 +63,13 @@ export type RegionalOriginBasis =
   | 'transaction_location'
   | 'explicit_economic_region';
 
+/**
+ * DECISION-0166 D2 (Fase 3): nível territorial da fatia regional — MESMO enum de
+ * regional_fund_accounts.scope_level (CHECK chk_regional_level_canonical_values).
+ * neighborhood permanece HOLD no resolver enquanto o catálogo não for governado (D4).
+ */
+export type RegionalFundLevel = 'planet' | 'country' | 'state' | 'city' | 'neighborhood';
+
 export interface EconomicPolicy {
   id: string;
   tenantId: string;
@@ -100,6 +107,11 @@ export interface EconomicPolicyLine {
   /** DECISION-0049: origem regional canônica. Obrigatório por CHECK
    *  quando lineType='regional_fund' AND destinationKey IS NULL. */
   regionalOriginBasis: RegionalOriginBasis | null;
+  /** DECISION-0166 D2 (Fase 3): nível territorial da fatia (planet/country/state/
+   *  city/neighborhood — mesmo enum de regional_fund_accounts.scope_level).
+   *  Obrigatório por CHECK quando lineType='regional_fund'; NULL nas demais.
+   *  Ortogonal ao basis: basis = DE ONDE vem a região; level = PARA QUAL nível vai. */
+  regionalLevel: RegionalFundLevel | null;
   bps: number | null;
   fixedAmountCents: number | null;
   appliesTo: EconomicPolicyLineAppliesTo;
@@ -189,6 +201,9 @@ export interface CalculatedEconomicSplit {
   /** DECISION-0049 + DECISION-0051: propagado do policy line para o resolver
    *  dinâmico de regional_fund (PE-5-RESOLVER). */
   regionalOriginBasis: RegionalOriginBasis | null;
+  /** DECISION-0166 D2 (Fase 3): nível territorial da linha, propagado ao resolver
+   *  (que trunca a jurisdição resolvida ao nível). */
+  regionalLevel: RegionalFundLevel | null;
   bps: number | null;
   amountCents: number;
   metadata?: Record<string, unknown>;
@@ -233,6 +248,9 @@ export interface CreateEconomicPolicyLineInput {
    *  lineType='regional_fund' AND destinationKey é null/ausente
    *  (enforcement via CHECK chk_origin_basis_required_for_dynamic_regional). */
   regionalOriginBasis?: RegionalOriginBasis | null;
+  /** DECISION-0166 D2 (Fase 3): obrigatório quando lineType='regional_fund'
+   *  (CHECK chk_regional_level_required_for_regional_fund); proibido nas demais. */
+  regionalLevel?: RegionalFundLevel | null;
   bps?: number | null;
   fixedAmountCents?: number | null;
   appliesTo?: EconomicPolicyLineAppliesTo;

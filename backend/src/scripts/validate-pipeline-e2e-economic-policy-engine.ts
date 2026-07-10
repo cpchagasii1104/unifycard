@@ -387,6 +387,7 @@ async function main() {
       destinationType: 'receiver_actor' as const,
       destinationKey: null,
       regionalOriginBasis: null,
+      regionalLevel: null,
       bps: 9999,
       fixedAmountCents: null,
       appliesTo: 'gross' as const,
@@ -403,6 +404,7 @@ async function main() {
       destinationType: 'platform_fees' as const,
       destinationKey: null,
       regionalOriginBasis: null,
+      regionalLevel: null,
       bps: 1,
       fixedAmountCents: null,
       appliesTo: 'gross' as const,
@@ -623,10 +625,10 @@ async function main() {
     await pool.query(
       `INSERT INTO economic_policy_lines (
          policy_id, line_type, destination_type, destination_key,
-         regional_origin_basis, bps, applies_to, priority
+         regional_origin_basis, regional_level, bps, applies_to, priority
        ) VALUES (
          $1::uuid, 'regional_fund', 'regional_fund', NULL,
-         NULL, 500, 'gross', 1
+         NULL, 'city', 500, 'gross', 1
        )`,
       [t16PolicyId]
     );
@@ -650,10 +652,10 @@ async function main() {
     await pool.query(
       `INSERT INTO economic_policy_lines (
          policy_id, line_type, destination_type, destination_key,
-         regional_origin_basis, bps, applies_to, priority
+         regional_origin_basis, regional_level, bps, applies_to, priority
        ) VALUES (
          $1::uuid, 'regional_fund', 'regional_fund', NULL,
-         'mixed_policy', 500, 'gross', 1
+         'mixed_policy', 'city', 500, 'gross', 1
        )`,
       [t16PolicyId]
     );
@@ -679,6 +681,7 @@ async function main() {
     bps: 500,
     priority: 2,
     regionalOriginBasis: 'receiver_company_operational',
+    regionalLevel: 'city',
   });
   assertOk('T18.1 — createPolicyLine via repository aceitou basis canônico', {
     ok: t18Line.regionalOriginBasis === 'receiver_company_operational',

@@ -261,6 +261,7 @@ class EconomicPolicyEngineService {
         destinationType: line.destinationType,
         destinationKey: line.destinationKey,
         regionalOriginBasis: line.regionalOriginBasis,
+        regionalLevel: line.regionalLevel,
         bps: line.bps,
         amountCents: lineAmount,
         metadata: line.metadata,

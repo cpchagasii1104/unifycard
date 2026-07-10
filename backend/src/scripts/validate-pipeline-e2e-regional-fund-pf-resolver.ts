@@ -126,7 +126,7 @@ async function activatePolicy(tenantId: string, policyId: string): Promise<void>
 
 async function addRegionalFundLine(tenantId: string, policyId: string, basis: 'payer_identity_residence' | 'receiver_identity_residence'): Promise<void> {
   await economicPolicyRepository.createPolicyLine(tenantId, {
-    policyId, lineType: 'regional_fund' as any, destinationType: 'regional_fund' as any, bps: 1000, priority: 1, regionalOriginBasis: basis as any,
+    policyId, lineType: 'regional_fund' as any, destinationType: 'regional_fund' as any, bps: 1000, priority: 1, regionalOriginBasis: basis as any, regionalLevel: 'city' as any,
   });
 }
 

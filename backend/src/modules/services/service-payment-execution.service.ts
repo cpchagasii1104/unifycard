@@ -338,35 +338,62 @@ async function resolveRegionalFundDestination(
     );
   }
 
-  if (!countryId || !stateId || !cityId) {
+  // Fase 3b (DECISION-0166 D2): o NÍVEL vem da LINHA da policy — o resolver não inventa nível.
+  // Defesa em profundidade: o CHECK chk_regional_level_required_for_regional_fund já garante
+  // presença na escrita; aqui fail-closed contra linha legada/anômala.
+  const level = calcSplit.regionalLevel;
+  if (!level) {
     throw new BadRequestError(
-      `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE: address resolvido mas faltam IDs ` +
-        `(country_id/state_id/city_id) para basis='${basis}'. countryId=${countryId} ` +
-        `stateId=${stateId} cityId=${cityId}. Endereço precisa estar ` +
+      `POLICY_REGIONAL_LEVEL_REQUIRED: linha regional_fund sem regional_level ` +
+        `(DECISION-0166 D2). Recrie a policy (nova versão) declarando o nível.`
+    );
+  }
+  if (level === 'neighborhood') {
+    // D4: HOLD fail-closed — catálogo de bairros não governado; ativação = decisão soberana.
+    const err = new BadRequestError(
+      `REGIONAL_FUND_NEIGHBORHOOD_HOLD: nível neighborhood em HOLD (DECISION-0166 D4) — ` +
+        `catálogo de bairros não governado.`
+    ) as BadRequestError & { statusCode?: number };
+    err.statusCode = 501;
+    throw err;
+  }
+
+  // A origem cadastral é exigida para QUALQUER nível (D0: sem jurisdição cadastral resolvida,
+  // não há fatia regional — planet incluído). Os IDs exigidos são truncados AO NÍVEL da linha.
+  const requiredIds: Record<string, string | null> =
+    level === 'planet' ? {}
+    : level === 'country' ? { countryId }
+    : level === 'state' ? { countryId, stateId }
+    : { countryId, stateId, cityId };
+  const missing = Object.entries(requiredIds).filter(([, v]) => !v).map(([k]) => k);
+  if (missing.length > 0) {
+    throw new BadRequestError(
+      `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE: address resolvido mas faltam IDs (${missing.join(', ')}) ` +
+        `para basis='${basis}' level='${level}'. Endereço precisa estar ` +
         `normalizado em Location Core (DECISION-0020).`
     );
   }
 
-  // Fase 2c: fundo resolvido por FK canônica (regional_fund_accounts, DECISION-0166 D3).
-  // Nível 'city' preserva o comportamento vigente — multi-nível é Fase 3.
-  const fundAccount = await bankAccountService.ensureRegionalFundAccount(
-    tenantId,
-    { level: 'city', countryId, stateId, cityId },
-    currency
-  );
+  // Fundo resolvido por FK canônica (regional_fund_accounts, DECISION-0166 D3), escopo do nível.
+  const scope =
+    level === 'planet' ? ({ level: 'planet' } as const)
+    : level === 'country' ? ({ level: 'country', countryId: countryId! } as const)
+    : level === 'state' ? ({ level: 'state', countryId: countryId!, stateId: stateId! } as const)
+    : ({ level: 'city', countryId: countryId!, stateId: stateId!, cityId: cityId! } as const);
+  const fundAccount = await bankAccountService.ensureRegionalFundAccount(tenantId, scope, currency);
+
+  // Snapshot LEGÍTIMO (não fabricado), TRUNCADO ao nível: só os IDs que definem o escopo.
+  const jurisdictionSnapshot: Record<string, unknown> = { basis, level };
+  if (level !== 'planet') jurisdictionSnapshot.countryId = countryId;
+  if (level === 'state' || level === 'city') jurisdictionSnapshot.stateId = stateId;
+  if (level === 'city') jurisdictionSnapshot.cityId = cityId;
+
   return {
     destinationAccountId: fundAccount.accountId,
     splitType: 'regional_fund',
     releaseToActorWallet: false,
     receiverActorId: '',
-    // Snapshot LEGÍTIMO (não fabricado): IDs canônicos + basis realmente usados na resolução.
-    jurisdictionSnapshot: {
-      basis,
-      level: 'city',
-      countryId,
-      stateId,
-      cityId,
-    },
+    jurisdictionSnapshot,
   };
 }
 
