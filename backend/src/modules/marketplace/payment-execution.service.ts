@@ -511,23 +511,24 @@ class PaymentExecutionService {
         const orderMetadata = order.metadata || {};
         let documentType = orderMetadata.pdv_session_id ? ('NFCE' as const) : ('NFE' as const);
 
-        // SPRINT 75: Ajustar tipo baseado no regime tributário se disponível
-        try {
-          const { companyProfileService } = await import('./company-profile.service');
-          const profile = await companyProfileService.getProfile(tenantId);
-          if (profile) {
-            // MEI geralmente usa NFC-e (simplificado)
-            // Lucro Real/Presumido podem usar NF-e
-            // Por enquanto, apenas sugerir (não forçar)
-            // Futuro: política mais complexa baseada em regime
-            if (profile.taxRegime === 'MEI' && !orderMetadata.pdv_session_id) {
-              // MEI pode usar NFC-e mesmo no marketplace (simplificado)
-              documentType = 'NFCE';
-            }
+        // Fase 4b (DECISION-0166 D9): regime tributário vem da CASA CANÔNICA
+        // (actor_fiscal_profiles ancorada em fiscal_identities). O reader antigo era
+        // FANTASMA (SELECT em company_profiles, tabela inexistente) engolido por try/catch —
+        // removido. Sem perfil configurado = fiscal_config_missing HONESTO (log, não exceção
+        // mascarada) e o default de documento segue valendo. O sistema NÃO inventa regime.
+        const { fiscalProfileRepository } = await import('@modules/fiscal/fiscal-profile.repository');
+        const fiscalProfile = await fiscalProfileRepository.getActiveProfileForTenant(tenantId);
+        if (fiscalProfile) {
+          // MEI geralmente usa NFC-e (simplificado); Lucro Real/Presumido podem usar NF-e.
+          // Por enquanto, apenas sugerir (não forçar) — política completa é fase futura.
+          if (fiscalProfile.taxRegime === 'MEI' && !orderMetadata.pdv_session_id) {
+            documentType = 'NFCE';
           }
-        } catch (profileError) {
-          // Não bloquear se busca de perfil falhar
-          console.warn(`[PaymentExecution] Erro ao buscar perfil da empresa:`, profileError);
+        } else {
+          console.warn(
+            `[PaymentExecution] fiscal_config_missing: tenant ${tenantId} sem perfil fiscal ativo ` +
+              `(actor_fiscal_profiles) — usando documentType default '${documentType}'.`
+          );
         }
 
         await fiscalDocumentService.createFromOrder(

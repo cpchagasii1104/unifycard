@@ -231,4 +231,13 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     values: ['active', 'paused'],
     canonRef: 'F-ASSET-MULTI-OFFER-FOUNDATION Fatia 3 adendo D-ε + CHECK chk_aast_status. Status da OFERTA de venda (anúncio) de bem durável individual. v1 = active/paused; estados de execução (venda concluída/item transferido/pagamento liquidado) FORA da v1 (execução/transferência = frente própria pós-Bank). Status da venda ≠ actor_assets.status (lifecycle) ≠ activation_mode=sale (modo).',
   },
+  {
+    name: 'actor_fiscal_profiles.tax_regime',
+    pillar: 'identity',
+    sourceFile: 'src/modules/fiscal/fiscal-profile.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'TAX_REGIMES',
+    values: ['MEI', 'SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'OTHER'],
+    canonRef: 'DECISION-0166 D9.5 (Lei do Contador, Fase 4b) + CHECK em actor_fiscal_profiles. ÚNICO TaxRegime do sistema — convergiu os dois vocabulários fantasmas (company-profile sem SIMPLES; tax-profile com grafias curtas SIMPLES/PRESUMIDO/REAL, que NÃO são regime canônico). Enquadramento é CONFIGURADO por contribuinte/contador (o sistema não inventa regime; ausência = fiscal_config_missing). Alíquota/regra fiscal NÃO mora aqui (tax_rules = 4c).',
+  },
 ];

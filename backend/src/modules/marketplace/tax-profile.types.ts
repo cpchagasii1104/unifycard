@@ -2,11 +2,12 @@
 // SPRINT 80: FISCAL REAL POR REGIME TRIBUTÁRIO
 
 /**
- * Regime tributário
- * 
- * Nota: Reutiliza enum de company_profiles, mas com SIMPLES adicionado
+ * Regime tributário — CONVERGIDO para o vocabulário canônico (DECISION-0166 D9.5, Fase 4b).
+ * As grafias curtas locais ('SIMPLES'/'PRESUMIDO'/'REAL') NÃO são regime canônico e foram
+ * aposentadas — re-export do único TaxRegime do sistema. NÃO redeclarar aqui.
  */
-export type TaxRegime = 'MEI' | 'SIMPLES' | 'PRESUMIDO' | 'REAL';
+export type { TaxRegime } from '../fiscal/fiscal-profile.types';
+import type { TaxRegime } from '../fiscal/fiscal-profile.types';
 
 /**
  * Perfil fiscal
@@ -55,9 +56,11 @@ export interface SetTaxProfileInput {
  */
 export const ALLOWED_DOCUMENT_TYPES_BY_REGIME: Record<TaxRegime, string[]> = {
   MEI: ['NFCE', 'NONE'], // NFC-e (NFS-e será adicionado futuramente)
-  SIMPLES: ['NFCE', 'NFE', 'NONE'], // NFC-e, NF-e (NFS-e será adicionado futuramente)
-  PRESUMIDO: ['NFE', 'NONE'], // NF-e (NFS-e será adicionado futuramente)
-  REAL: ['NFE', 'NONE'], // NF-e completa (NFS-e será adicionado futuramente)
+  SIMPLES_NACIONAL: ['NFCE', 'NFE', 'NONE'], // NFC-e, NF-e (NFS-e será adicionado futuramente)
+  LUCRO_PRESUMIDO: ['NFE', 'NONE'], // NF-e (NFS-e será adicionado futuramente)
+  LUCRO_REAL: ['NFE', 'NONE'], // NF-e completa (NFS-e será adicionado futuramente)
+  // OTHER: enquadramento não mapeado — fail-closed: só NONE (sem emissão presumida).
+  OTHER: ['NONE'],
 };
 
 

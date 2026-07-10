@@ -40,7 +40,7 @@ export const REQUIRED_FIELDS_BY_REGIME: Record<TaxRegime, {
       name: false, // Opcional para MEI
     },
   },
-  SIMPLES: {
+  SIMPLES_NACIONAL: {
     emitter: {
       taxId: true, // CNPJ obrigatório
       name: true,
@@ -52,7 +52,7 @@ export const REQUIRED_FIELDS_BY_REGIME: Record<TaxRegime, {
       name: true, // Nome obrigatório se informado
     },
   },
-  PRESUMIDO: {
+  LUCRO_PRESUMIDO: {
     emitter: {
       taxId: true, // CNPJ obrigatório
       name: true,
@@ -64,7 +64,7 @@ export const REQUIRED_FIELDS_BY_REGIME: Record<TaxRegime, {
       name: true, // Nome obrigatório se informado
     },
   },
-  REAL: {
+  LUCRO_REAL: {
     emitter: {
       taxId: true, // CNPJ obrigatório
       name: true,
@@ -74,6 +74,19 @@ export const REQUIRED_FIELDS_BY_REGIME: Record<TaxRegime, {
     buyer: {
       taxId: true, // CPF/CNPJ obrigatório se informado
       name: true, // Nome obrigatório se informado
+    },
+  },
+  // OTHER (D9.5): enquadramento não mapeado — conservador fail-closed: exige tudo.
+  OTHER: {
+    emitter: {
+      taxId: true,
+      name: true,
+      state: true,
+      city: true,
+    },
+    buyer: {
+      taxId: true,
+      name: true,
     },
   },
 };

@@ -7,9 +7,12 @@
 export type ErpProfile = 'COMMERCE' | 'SERVICE' | 'EVENTS' | 'FOOD' | 'CLINIC';
 
 /**
- * Regime tributário
+ * Regime tributário — CONVERGIDO para o vocabulário canônico (DECISION-0166 D9.5, Fase 4b).
+ * O union local ('MEI'|'LUCRO_PRESUMIDO'|'LUCRO_REAL', SEM Simples Nacional) era uma segunda
+ * verdade de vocabulário — re-export do único TaxRegime do sistema. NÃO redeclarar aqui.
  */
-export type TaxRegime = 'MEI' | 'LUCRO_PRESUMIDO' | 'LUCRO_REAL';
+export type { TaxRegime } from '../fiscal/fiscal-profile.types';
+import type { TaxRegime } from '../fiscal/fiscal-profile.types';
 
 /**
  * Perfil da empresa

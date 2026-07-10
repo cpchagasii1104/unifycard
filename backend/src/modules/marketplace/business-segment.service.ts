@@ -2,7 +2,6 @@
 // SPRINT 81: Service para Business Segments
 
 import { businessSegmentRepository } from './business-segment.repository';
-import { companyProfileRepository } from './company-profile.repository';
 import type { BusinessSegment, SetBusinessSegmentInput, ModuleKey } from './business-segment.types';
 import { SUGGESTED_MODULES_BY_SEGMENT } from './business-segment.types';
 
@@ -29,10 +28,16 @@ class BusinessSegmentService {
     input: SetBusinessSegmentInput,
     updatedByUserId: string
   ): Promise<BusinessSegment> {
-    // Validar que company_profile existe
-    const companyProfile = await companyProfileRepository.getProfile(tenantId);
-    if (!companyProfile) {
-      throw new Error('Company profile não encontrado. Crie um company profile primeiro.');
+    // Fase 4b (DECISION-0166 D9): o gate antigo lia company_profiles (tabela FANTASMA —
+    // este caminho SEMPRE quebrava em runtime). Gate agora é a casa canônica: exige perfil
+    // fiscal ativo configurado (fiscal_config_missing fail-closed, honesto).
+    const { fiscalProfileRepository } = await import('../fiscal/fiscal-profile.repository');
+    const fiscalProfile = await fiscalProfileRepository.getActiveProfileForTenant(tenantId);
+    if (!fiscalProfile) {
+      throw new Error(
+        'fiscal_config_missing: perfil fiscal não configurado (actor_fiscal_profiles). ' +
+          'Configure o enquadramento (contador/empresa) antes de definir o segmento.'
+      );
     }
 
     // Se enabledModules não fornecido, usar sugestões do segmento

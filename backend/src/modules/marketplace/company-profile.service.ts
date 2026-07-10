@@ -21,75 +21,33 @@ class CompanyProfileService {
    * SPRINT 75: Apenas 1 perfil por tenant
    */
   async setProfile(
-    tenantId: string,
-    input: SetCompanyProfileInput,
-    updatedByActorId: string,
-    updatedByUserId?: string
+    _tenantId: string,
+    _input: SetCompanyProfileInput,
+    _updatedByActorId: string,
+    _updatedByUserId?: string
   ): Promise<CompanyProfile> {
-    // Buscar perfil existente para obter created_by
-    const existing = await companyProfileRepository.getProfile(tenantId);
-    const createdByActorId = existing?.createdByActorId || updatedByActorId;
-    const createdByUserId = existing?.createdByUserId || updatedByUserId || null;
-
-    const profile = await companyProfileRepository.setProfile(
-      tenantId,
-      input,
-      createdByActorId,
-      createdByUserId,
-      updatedByActorId,
-      updatedByUserId || null
+    // 🔴 Fase 4b (DECISION-0166 D9.4): company_profiles era tabela FANTASMA — aposentada como
+    //    fonte fiscal. Corpo legado removido; fail-closed 501 permanente. A configuração de
+    //    regime vive em actor_fiscal_profiles (fiscalProfileRepository).
+    throw Object.assign(
+      new Error(
+        'COMPANY_PROFILE_RETIRED: setProfile — fonte fiscal aposentada (Fase 4b, DECISION-0166 ' +
+          'D9.4). Use actor_fiscal_profiles (fiscalProfileRepository) ancorada em fiscal_identities.'
+      ),
+      { statusCode: 501 }
     );
-
-    // Registrar auditoria
-    await this.recordAudit(tenantId, {
-      eventType: existing ? 'COMPANY_PROFILE_UPDATED' : 'COMPANY_PROFILE_CREATED',
-      tenantId: profile.tenantId,
-      erpProfile: profile.erpProfile,
-      taxRegime: profile.taxRegime,
-      updatedByActorId,
-      updatedByUserId,
-    });
-
-    return profile;
   }
 
   /**
-   * Busca perfil da empresa
+   * Busca perfil da empresa.
+   * Fase 4b: fonte fantasma aposentada — devolve null (fiscal_config_missing honesto).
+   * Regime fiscal canônico: fiscalProfileRepository.getActiveProfileForTenant.
    */
   async getProfile(tenantId: string): Promise<CompanyProfile | null> {
     return await companyProfileRepository.getProfile(tenantId);
   }
 
-  private async recordAudit(
-    tenantId: string,
-    data: {
-      eventType: string;
-      tenantId: string;
-      erpProfile: string;
-      taxRegime: string;
-      updatedByActorId: string;
-      updatedByUserId?: string | null;
-    }
-  ): Promise<void> {
-    try {
-      const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, {
-        event_type: data.eventType,
-        severity: 'medium',
-        actor_id: data.updatedByActorId,
-        actor_type: 'user',
-        source: 'validation',
-        context: {
-          tenant_id: data.tenantId,
-          erp_profile: data.erpProfile,
-          tax_regime: data.taxRegime,
-          updated_by_user_id: data.updatedByUserId,
-        },
-      });
-    } catch (error) {
-      console.warn('[CompanyProfile] Erro ao registrar auditoria:', error);
-    }
-  }
+  // recordAudit removido na Fase 4b: o writer está aposentado (501) — nada mais audita aqui.
 }
 
 export const companyProfileService = new CompanyProfileService();
