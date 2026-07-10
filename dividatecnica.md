@@ -267,6 +267,22 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (15) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase A EXECUTADA (fundação vazia) — aguarda Yala
+- Material `b9ac0e9c0` + fix guard `4f76d72ef` (1 migration + guard + runner; zero TS de produto).
+- **Dívida R1 fechada:** business_template_versions com freeze trigger (versão criada = imutável; mudar =
+  nova versão; zero UPDATE/DELETE vivo existia → quebra zero; seeds 0117 E intocados).
+- Casa fiscal do template criada VAZIA (GLOBAL, padrão referência sem tenant/RLS): fiscal_profiles
+  (âncora em business_template_versions + território FK composta + draft/published/deprecated com
+  published imutável e deprecated terminal + UMA publicação por versão+território + source obrigatório) e
+  fiscal_items (vocabulários governados D9.5/0167 §5; concept_id→concepts; SEM alíquota; SEM FK a
+  tax_types/tax_rules; itens congelados sob published).
+- Provas 25/25 rollback resíduo-0; guard audit-segment-fiscal-template T1-T5; **mutation 13/13 MORDE**
+  (M1 exigiu endurecer o guard com \b — fix próprio, re-rodada completa); suíte 154 GATE OK; typecheck 0;
+  Δbank=0. Nota honesta: commit material cita "155", número real da suíte = 154.
+- SEM onboarding, SEM ativação fiscal, SEM PDV, SEM motor: 4d-1 segue TRANCADA (D9.7). Próximas com GO:
+  Fase B (onboarding/CNAE) → C (ativação contador) → D (preview PDV pós-motor). Contagem de DTs: R1 era
+  achado de GATE (não DT nomeada) — fechado nesta fase; demais inalteradas.
+
 ### 2026-07-10 (14) — FASE 4d-0A docs-only: DECISION-0168 promulgada (modelos fiscais por segmento)
 - Ideia soberana de Clayton (pré-moldados por segmento) virou norma com a trava: template governado =
   SUGESTÃO/draft, nunca verdade fiscal automática. Verdade final = empresa+regime+território+concept+regra
