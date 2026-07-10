@@ -267,6 +267,19 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (19) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase B-1 SELADA PELA YALA (SELO COMPLETO)
+- Yala Fase B-1 = SELO COMPLETO (27 confirmações + 12/12 mutações). Read-only real confirmado (zero
+  escrita); ranking CNAE-primário>company_type>CNAE-secundário validado; CNAE = ponte curada (nunca
+  certeza); company_type/slug NÃO viram verdade fiscal (disclaimer obrigatório, guard morde remoção);
+  conflitos expostos; confidence baixa não pré-seleciona; fallback territorial só exibição; recommendation
+  metadata opcional/retrocompatível; applyTemplate não autoaplica nem cria regra fiscal; zero tax_types/
+  tax_rules/actor_fiscal_profiles/PDV/motor/Bank/rota nova; disclosure de processo sanada e registrada.
+- **Limites de uso registrados:** B-1 NÃO serve para apuração oficial (é sugestão/onboarding, não fonte de
+  cálculo). Serve para recomendação/onboarding/checklist futuro (insumo da B-2/Fase C). Para demonstração
+  de MVP, exibir sempre com o rótulo "configuração sugerida — requer validação".
+- **STOP mantido:** B-2 (checklist até ready_for_activation), Fase C, Fase D e 4d-1 seguem TRANCADAS —
+  cada uma exige GO próprio de Clayton.
+
 ### 2026-07-10 (18) — FASE B-1 EXECUTADA: sugestão read-only de templates por company_type/CNAE — aguarda Yala
 - Material `e199b4ea7` + fix `1c2c3ca92`: rastreio de recomendação em company_template_applications
   (origin CHECK ×5 + confidence/rationale/cnae_code/source, aditivos NULL; cnae exige rationale+source);
