@@ -181,3 +181,17 @@ registrados para não bloquear o futuro, mas NÃO entram na primeira implementa�
 ## STOP deste adendo
 Docs-only. Nenhum código, migration, frontend, contrato ou banco tocados. A implementação começa apenas com GO
 próprio, começando pela Fatia 4B, seguindo D-A..D-P, os invariantes e os guards acima.
+
+## Ratificação Clayton (2026-07-10) — GO da Fatia 4B (substrato mínimo, item-a-item)
+
+- [x] **GO explícito dado**, escopo cravado item-a-item ANTES de codificar (10 itens permitidos + lista de
+  escopo proibido — ver REMEDIATION_DT_LOG.md, entrada "FATIA 4B SERVICE_USE / USO OPERACIONAL").
+- [x] **Fatia 4B — EXECUTADA E PROVADA (docs+migration+módulo próprio+guard+prova runtime real, 2026-07-10):**
+  `actor_asset_service_usages` (junção N, D-A) + FK composta offer_kind='service' (D-B) + v1 SOMENTE
+  dono-operador (D-C/D-D — terceiro-operador/`asset:operate` NÃO implementado, fica fora do endpoint vivo até
+  a Fatia 4C) + `OPERATIONAL_ARRANGEMENTS`/`ASSET_SERVICE_USE_STATUSES` governados (D-E/D-F) +
+  `countActiveServiceUses` (D-G, sem wiring de frontend/actor-page-block) + habilitação do operador reusando
+  `evaluateOfferingActivationEligibility` (sem trilho paralelo, invariantes 10-12) + RLS ENABLE+FORCE + guard
+  `audit-asset-service-use-convergence.mjs` (152º da suíte) + prova runtime real (9 asserções, fixture+teardown,
+  `src/scripts/e2e-asset-service-use-fatia-4b.ts`). Δbank=0. Zero frontend.
+- [ ] **PENDENTE:** selo Yala (não auto-selado). Próxima com GO próprio: Fatia 4C (terceiro-operador/release).

@@ -292,4 +292,9 @@ agenda/Bank/pagamentos. Não implementar todos os modos. Não abrir Fase C.
   `OPERATIONAL_ARRANGEMENTS` (D-F); `countActiveServiceUses` (D-G); viabilidade ADVISORY `VIABILITY_STATES` que
   NÃO bloqueia ontologia (D-H..D-M, km-only proibido p/ mobilidade); localidade/reposicionamento deferidos,
   origem derivada de `address_assignments` (D-N..D-P). Δbank=0. Slicing 4B..4F; 1ª codificação = SÓ 4B. Ver
-  [[RFC_ASSET_SERVICE_USE_OPERATIONAL_ADENDO]]. Implementação AGUARDA GO próprio.
+  [[RFC_ASSET_SERVICE_USE_OPERATIONAL_ADENDO]].
+- [x] **Fatia 4B — SUBSTRATO MÍNIMO EXECUTADO E PROVADO (2026-07-10, não-commitado nesta sessão, AGUARDA
+  YALA):** `actor_asset_service_usages` (junção N) + modo `service_use` + v1 SOMENTE dono-operador (D-C/D-D;
+  terceiro-operador = Fatia 4C própria) + habilitação reusa gate de `service_offering` + `countActiveServiceUses`
+  + guard `audit-asset-service-use-convergence.mjs` + prova runtime real. Δbank=0, zero frontend. Ver registro
+  completo em REMEDIATION_DT_LOG.md. Fatias 4C-4F seguem trancadas, GO próprio cada uma.
