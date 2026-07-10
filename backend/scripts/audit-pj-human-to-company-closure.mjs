@@ -108,6 +108,10 @@ const stripComments = (s) => s
     // F-COMPANY-READINESS-PROJECTION: projeção READ-ONLY; NÃO resolve/escreve actor (autoridade via
     // canRepresentActor na rota; regra de elegibilidade no predicado único do P3 gate).
     'company-readiness.service.ts',
+    // F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION B-1 (DECISION-0169): sugestão READ-ONLY de templates —
+    // NÃO resolve/escreve actor, NÃO aplica template (autoridade da aplicação segue em
+    // assertCompanyTemplateAuthority via applyTemplate), NÃO toca fiscal (guard próprio T6 morde).
+    'business-template-suggestion.service.ts',
   ]);
   const familyShort = new Set(PJ_ACTOR_FAMILY.map((f) => f.split('/').pop()));
   const unclassified = [];
