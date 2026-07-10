@@ -267,6 +267,18 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (13) — FASE 4d-0 docs-only: DECISION-0167 promulgada (desenho do motor de provisão fiscal)
+- GO de Clayton SÓ para desenho (implementação segue trancada por D9.7). `DECISION_0167_FISCAL_PROVISION_
+  ENGINE_DESIGN.md` crava: TaxableEvent canônico + regra de acoplamento (NENHUMA vertical entende imposto —
+  caminho único CONCEPT+perfil+tax_rules+policy engine) · allowlist fechada de fontes · TaxProvisionResult
+  (4d v1 = decisão/LOG, zero dinheiro; tax_reserve = 4e) · 3 bases (gross/commission_gross/distributable, D7) ·
+  dois contribuintes em passadas separadas (D9.3) · fiscal_config_missing em 3 comportamentos · arredondamento
+  como configuração · superfície com rótulo de estimativa + pendência honesta no onboarding · 11 gaps
+  declarados com lar (multi-país/retenção/facilitator/NCM-LC116-VAT/emissão/apuração…) · sequência
+  4d-1→4d-2→4e→4f cada uma com GO próprio.
+- Docs-only: zero código/schema/Bank; guard 4c-3 intacto. Contagem de DTs inalterada
+  (DT-INVOICING-HARDCODED-TAX-RATE segue OPEN; §10 da 0167 registra a convergência dela para o motor).
+
 ### 2026-07-10 (12) — 🟢 FASE 4c COMPLETA: 4c-3 SELADA PELA YALA (SELO COMPLETO)
 - Yala 4c-3 = SELO COMPLETO (material `66e15464f`, docs `92f56bd71`, selo `<este commit>`). Guard
   audit-fiscal-tax-catalog validado; 30 confirmações + 13/13 mutações; Δbank=0; 4d NÃO aberta; invoicing
