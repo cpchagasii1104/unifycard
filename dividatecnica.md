@@ -267,6 +267,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (10) — Fatia 4B: YALA LIMITADA = RESSALVA SANADA; stash dropado
+- Reauditoria limitada confirmou a remediação `348204be7` (entrada 4B no cartório acima da 4c-2; selos
+  fiscais 4c-1/4c-2 preservados; API catalogada na §5; commit docs-only; zero código/migration/manifesto/
+  Bank/fiscal-runtime). Material 4B segue aprovado (`05649a35b`). Status: ressalva documental/processual SANADA.
+- `stash@{0}` (protect-4B-cartorio) DROPADO com autorização da Yala (conteúdo recuperado no HEAD).
+- Resíduo fiscal apontado pela Yala (fora da 4B): entradas 4c-1/4c-2 têm tail antigo "STATUS: AGUARDA YALA"
+  no corpo apesar do cabeçalho selado → próxima microtarefa = higienização fiscal docs-only, ANTES do GO da 4c-3.
+- STOPs mantidos: 4C-4F asset · frontend · Bank · fiscal 4c-3/4d — tudo só com GO.
+
 ### 2026-07-10 (9) — REMEDIAÇÃO DOCUMENTAL Fatia 4B asset service_use (pós-incidente de concorrência + ressalvas Yala)
 - Yala da 4B: **SELO COM RESSALVA** (material `05649a35b` aprovado tecnicamente; ressalvas documentais).
 - Corrigido: entrada REAL da 4B restaurada no topo do cartório (do stash `protect-4B-cartorio`, com status
