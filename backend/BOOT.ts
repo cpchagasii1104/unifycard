@@ -452,12 +452,21 @@ export async function startServer(): Promise<void> {
   }
 
   // Treasury Split Engine — split automático (sent settlements → regional_fund, community_fund, etc.)
-  try {
-    const { startTreasurySplitWorker } = await import('./src/workers/treasury-split-worker');
-    startTreasurySplitWorker();
-    console.log('[BOOT] Treasury Split Engine iniciado');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Treasury Split Engine não iniciado:', err);
+  // 🔴 F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1E-1 (DECISION-0165 D5/D8, sistema virgem): este worker
+  //    bootava SEM gate financeiro (ao contrário dos ~9 outros workers, todos isFinancialWorkerEnabled),
+  //    executando o treasury-split (caminho paralelo/legado) contido APENAS pelo sink firewall. Agora
+  //    GATED default-OFF (mesmo padrão) — não boota sem ENABLE_TREASURY_SPLIT_WORKER=true. O gate roda
+  //    ANTES de o worker iniciar → nenhum ciclo/claim/executeSplit ocorre; zero mutação.
+  if (isFinancialWorkerEnabled('ENABLE_TREASURY_SPLIT_WORKER')) {
+    try {
+      const { startTreasurySplitWorker } = await import('./src/workers/treasury-split-worker');
+      startTreasurySplitWorker();
+      console.log('[BOOT] Treasury Split Engine iniciado (ENABLE_TREASURY_SPLIT_WORKER=true)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Treasury Split Engine não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Treasury Split Engine DESLIGADO (default-off; ENABLE_TREASURY_SPLIT_WORKER≠true) — split treasury é caminho paralelo/legado; religar só via pipeline canônico/PORTA-1.');
   }
 
   // Governance Funding Worker — propostas aprovadas (community_project_funding) → PaymentIntent
