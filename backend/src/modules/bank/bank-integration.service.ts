@@ -196,32 +196,10 @@ class BankIntegrationService {
   //    `resolveBankAccountForServiceActor` — sem caller — anotado para sweep de código morto.)
   // ========================================================
 
-  /**
-   * Conta bank para actor (user / page+company / group).
-   */
-  private async resolveBankAccountForServiceActor(
-    tenantId: string,
-    actorId: string,
-    currency: BankCurrency = 'BRL'
-  ): Promise<string> {
-    const { actorRepository } = await import('@modules/social/actor.repository');
-    const actor = await actorRepository.findById(tenantId, actorId);
-    if (!actor) {
-      throw new Error(`Actor not found: ${actorId}`);
-    }
-    if (actor.actor_type === 'user' && actor.user_id) {
-      return resolveUserAccount(tenantId, actor.user_id, currency);
-    }
-    if (actor.actor_type === 'page' && actor.company_id) {
-      return resolveCompanyAccount(tenantId, actor.company_id, currency);
-    }
-    if (actor.actor_type === 'group' && actor.group_id) {
-      return resolveGroupAccount(tenantId, actor.group_id, currency);
-    }
-    throw new Error(
-      `Cannot resolve bank account for actor ${actorId} type ${actor.actor_type}`
-    );
-  }
+  // 🔴 resolveBankAccountForServiceActor REMOVIDO — F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1E-2
+  //    (sweep de código morto financeiro): helper do ramo legado service_booking (1C), sem caller
+  //    vivo (provado no GATE). resolveEventOrganizerAccount NÃO foi tocado (tem caller vivo:
+  //    getEventOrganizerBalance).
 
   /**
    * Execução de pagamento de serviço: uma bank_transaction + bank_splits explícitos por execução.
