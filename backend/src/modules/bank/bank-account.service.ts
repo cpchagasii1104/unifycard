@@ -439,6 +439,98 @@ class BankAccountService {
   }
 
   /**
+   * DECISION-0166 D3 (Fase 2b) — resolver CANÔNICO de fundo regional por FK do Location Core.
+   *
+   * (scope_level + IDs territoriais) → regional_fund_accounts → bank_account_id. A VERDADE
+   * geográfica é a FK; o owner_id string da conta Bank é apenas rótulo técnico derivado dos IDs.
+   * Criar a conta NÃO cria dinheiro (saldo é derivado do bank_ledger, que permanece vazio).
+   * Idempotente: UNIQUE por escopo + re-select em corrida.
+   *
+   * neighborhood = HOLD (D4): recusa fail-closed enquanto o catálogo de bairros não for
+   * governado — a ativação do nível é decisão soberana (nova fatia remove a recusa), não
+   * consequência de alguém semear rows.
+   */
+  async ensureRegionalFundAccount(
+    tenantId: string,
+    scope:
+      | { level: 'planet' }
+      | { level: 'country'; countryId: string }
+      | { level: 'state'; countryId: string; stateId: string }
+      | { level: 'city'; countryId: string; stateId: string; cityId: string }
+      | { level: 'neighborhood'; countryId: string; stateId: string; cityId: string; neighborhoodId: string },
+    currency: BankCurrency = 'BRL'
+  ): Promise<BankAccount> {
+    if (scope.level === 'neighborhood') {
+      const err = new Error(
+        'REGIONAL_FUND_NEIGHBORHOOD_HOLD: nível neighborhood em HOLD (DECISION-0166 D4) — ' +
+          'catálogo de bairros não governado. Ativação do nível exige decisão soberana + seed do catálogo.'
+      ) as Error & { statusCode?: number };
+      err.statusCode = 501;
+      throw err;
+    }
+
+    const countryId = 'countryId' in scope ? scope.countryId : null;
+    const stateId = 'stateId' in scope ? scope.stateId : null;
+    const cityId = 'cityId' in scope ? scope.cityId : null;
+
+    const findExisting = async (): Promise<{ bank_account_id: string } | null> =>
+      await runQueryWithTenant<{ bank_account_id: string }>(
+        tenantId,
+        `SELECT bank_account_id::text
+           FROM regional_fund_accounts
+          WHERE tenant_id = $1::uuid AND scope_level = $2
+            AND country_id IS NOT DISTINCT FROM $3::uuid
+            AND state_id IS NOT DISTINCT FROM $4::uuid
+            AND city_id IS NOT DISTINCT FROM $5::uuid
+            AND neighborhood_id IS NULL
+          LIMIT 1`,
+        [tenantId, scope.level, countryId, stateId, cityId]
+      );
+
+    const existing = await findExisting();
+    if (existing) {
+      const acc = await bankAccountRepository.getAccountById(tenantId, existing.bank_account_id);
+      if (!acc) {
+        throw new Error(
+          `REGIONAL_FUND_ACCOUNT_DANGLING: regional_fund_accounts aponta bank_account_id ` +
+            `${existing.bank_account_id} inexistente — inconsistência material, investigar.`
+        );
+      }
+      return acc;
+    }
+
+    // Rótulo técnico derivado dos IDs (NUNCA fonte de verdade — a verdade é a FK acima).
+    const labelId = scope.level === 'planet' ? 'planet' : (cityId ?? stateId ?? countryId);
+    const ownerId = `system:regional_fund:${tenantId}:${scope.level}:${labelId}`;
+    const account = await bankAccountRepository.createAccount(tenantId, {
+      ownerId,
+      ownerType: 'system',
+      accountType: 'credit',
+      currency,
+    });
+
+    try {
+      await runQueryWithTenant(
+        tenantId,
+        `INSERT INTO regional_fund_accounts
+           (tenant_id, scope_level, country_id, state_id, city_id, bank_account_id)
+         VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5::uuid, $6::uuid)`,
+        [tenantId, scope.level, countryId, stateId, cityId, account.accountId]
+      );
+    } catch (e: unknown) {
+      // Corrida idempotente: outro processo registrou o escopo entre o SELECT e o INSERT —
+      // o UNIQUE por escopo barrou; re-resolve e usa a conta vencedora.
+      const raced = await findExisting();
+      if (raced) {
+        const acc = await bankAccountRepository.getAccountById(tenantId, raced.bank_account_id);
+        if (acc) return acc;
+      }
+      throw e;
+    }
+    return account;
+  }
+
+  /**
    * Garante contas de plataforma (uma vez por tenant).
    * Idempotente: verifica antes de criar; nao duplica.
    *
