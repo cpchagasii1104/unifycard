@@ -122,10 +122,16 @@ need(spe, SPE, /policyVersionId: policyVersionIdForSplits/, 'service-payment-exe
 // resolver regional por FK vivo, a regra virou: o resolver regional DEVE construir o snapshot
 // com os IDs canônicos realmente usados (countryId/stateId/cityId + basis), e NENHUM outro
 // arquivo pode fabricar valor — só pass-through (dest./r./line./input. ?? null).
-const SPE_RESOLVER_RE = /jurisdictionSnapshot:\s*\{\s*basis,\s*level:\s*'city',\s*countryId,\s*stateId,\s*cityId,?\s*\}/;
+// Fase 3b: snapshot TRUNCADO ao nível da LINHA — base {basis, level} + IDs condicionais por
+// nível (planet: nenhum; country: countryId; state: +stateId; city: +cityId). O nível vem de
+// calcSplit.regionalLevel (nunca literal).
+const SPE_RESOLVER_RE = /const jurisdictionSnapshot: Record<string, unknown> = \{ basis, level \};[\s\S]{0,400}jurisdictionSnapshot\.countryId = countryId;[\s\S]{0,300}jurisdictionSnapshot\.stateId = stateId;[\s\S]{0,300}jurisdictionSnapshot\.cityId = cityId;/;
 if (spe !== null) {
   if (!SPE_RESOLVER_RE.test(spe)) {
-    failures.push(`${SPE}: resolver regional não constrói jurisdictionSnapshot legítimo ({basis, level, countryId, stateId, cityId}) — contrato D5 aberto de novo.`);
+    failures.push(`${SPE}: resolver regional não constrói jurisdictionSnapshot legítimo TRUNCADO ao nível ({basis, level} + IDs condicionais) — contrato D5/D2 aberto de novo.`);
+  }
+  if (!/const level = calcSplit\.regionalLevel;/.test(spe)) {
+    failures.push(`${SPE}: nível não vem da LINHA (calcSplit.regionalLevel) — resolver inventando nível.`);
   }
   if (!/ensureRegionalFundAccount\(/.test(spe)) {
     failures.push(`${SPE}: resolver regional não usa ensureRegionalFundAccount (FK) — degradação para string pode ter voltado.`);
