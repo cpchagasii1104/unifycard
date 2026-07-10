@@ -267,7 +267,7 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
-### 2026-07-10 (8) — FASE 4c-2 EXECUTADA: vocabulário/types/repository/resolução do catálogo fiscal — aguarda Yala
+### 2026-07-10 (8) — FASE 4c-2 SELADA PELA YALA (SELO COMPLETO + alerta de processo): vocabulário/types/repository/resolução do catálogo fiscal
 - GO de Clayton: camada TS sobre as tabelas vazias da 4c-1, SEM calcular imposto. Material `b556bbd4c`
   (3 arquivos: tax-catalog.types.ts + tax-catalog.repository.ts + manifesto; zero migration, zero rota).
 - `PLATFORM_REVENUE_STREAMS` (D9.5 ×6) materializado + registrado no manifesto governado (bate com o CHECK
@@ -276,9 +276,17 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
   respeitada (não edita active in-place, não deleta active/deprecated). Resolução LOCALIZA regra por
   filtros; ausência = fiscal_config_missing (D9.2). NÃO calcula, NÃO multiplica rate_bps, NÃO cria tax_reserve.
 - Provas 21/21 em rollback residue-0; typecheck 0; suíte 151 GATE OK; guard de vocabulário GATE OK; Δbank=0.
-- Contagem de DTs INALTERADA (DT-INVOICING-HARDCODED-TAX-RATE segue OPEN, não tocada). Nota de processo:
-  frente asset service_use (4B) trabalhada em paralelo na mesma tree; commitei só os 3 arquivos fiscais.
-- Próximas: 4c-3 (guards do catálogo) só com GO · 4d TRANCADA (GO próprio D9.7).
+- Contagem de DTs INALTERADA (DT-INVOICING-HARDCODED-TAX-RATE segue OPEN, não tocada).
+- **✅ Veredito Yala (2026-07-10): SELO COMPLETO no material** (62 eixos + 10 mutações) **+ ALERTA DE PROCESSO
+  ELEVADO.** Confirmado: commits isolados (material só 3 arquivos fiscais; docs só cartório/tracker); zero
+  contaminação da 4B nos commits; PLATFORM_REVENUE_STREAMS governado e batendo com CHECK 4c-1; TaxRegime
+  reusado; repository sem editar/deletar active (triggers 4c-1 vivos); resolução localiza + fiscal_config_missing
+  honesto; zero cálculo/motor/Bank; Δbank=0.
+- **⚠️ TRAVA OPERACIONAL:** frente asset service_use (Fatia 4B) tem trabalho NÃO-COMMITADO na MESMA working
+  tree tocando arquivos compartilhados (manifesto/cartório/tracker/run-regression-guards/app.builder). Não
+  contaminou a 4c-2, mas **antes de 4c-3 ou qualquer frente, isolar a 4B** (commit próprio + Yala própria OU
+  worktree/branch). Regra: uma frente por working tree.
+- Próximas: SANEAMENTO da Fatia 4B PRIMEIRO · depois 4c-3 (guards) só com GO · 4d TRANCADA (GO próprio D9.7).
 
 ### 2026-07-10 (7) — FASE 4c-1 SELADA PELA YALA: catálogo fiscal governado VAZIO (tax_types + tax_rules)
 - GO de Clayton pós-GATE 4c: catálogo TENANT-SCOPED; achado R1 vira DT (não correção); invoicing intocado;
