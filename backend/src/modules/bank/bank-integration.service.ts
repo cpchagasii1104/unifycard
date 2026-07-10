@@ -235,6 +235,8 @@ class BankIntegrationService {
         destinationAccountId?: string;
         /** PE-3: tipo do split. Quando ausente, força 'revenue_share' (compat legacy). */
         splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
+        /** Fase 2c (DECISION-0166 D5): jurisdição por FK da linha regional_fund; demais null. */
+        jurisdictionSnapshot?: Record<string, unknown> | null;
       }>;
       metadata?: Record<string, any>;
       /**
@@ -350,6 +352,7 @@ class BankIntegrationService {
       percentage?: number | null;
       receiverActorId: string;
       splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
+      jurisdictionSnapshot?: Record<string, unknown> | null;
     }> = [];
     for (const r of splitRecipients) {
       // Validar receiverActorId APENAS quando fornecido (system splits — fee,
@@ -370,6 +373,7 @@ class BankIntegrationService {
         percentage: r.percentage,
         receiverActorId: r.receiverActorId,
         splitType: r.splitType ?? 'revenue_share',
+        jurisdictionSnapshot: r.jurisdictionSnapshot ?? null,
       });
     }
 

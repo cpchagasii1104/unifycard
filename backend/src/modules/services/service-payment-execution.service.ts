@@ -70,6 +70,13 @@ type ResolvedSplitDestination = {
    */
   releaseToActorWallet: boolean;
   /**
+   * DECISION-0166 D5 (Fase 2c): jurisdição resolvida por FK canônica no momento da
+   * transação — gravada em bank_splits.jurisdiction_snapshot da LINHA regional_fund.
+   * Preenchida SOMENTE pelo resolver regional (IDs do Location Core + basis usado);
+   * demais destinos ficam null (não têm jurisdição — honesto).
+   */
+  jurisdictionSnapshot?: Record<string, unknown> | null;
+  /**
    * receiverActorId só faz sentido em revenue_share (worker). Para system
    * destinations (platform_fee, regional_fund, reserve) vem como ''.
    */
@@ -230,9 +237,11 @@ async function resolveRegionalFundDestination(
     );
   }
 
-  let regionCountry: string | null = null;
-  let regionState: string | null = null;
-  let regionCity: string | null = null;
+  // Fase 2c (DECISION-0166 D3): a resolução carrega os IDs CANÔNICOS do Location Core até o
+  // fim — a degradação FK→string (iso/abbreviation/nome) morreu aqui. Geografia por FK.
+  let countryId: string | null = null;
+  let stateId: string | null = null;
+  let cityId: string | null = null;
 
   // PF (Fatia 9 passo 3 — fecha DT-PE5-PF-RESOLVER-PENDING): resolve via a
   // RESIDÊNCIA CIVIL da ponta declarada pelo basis (payer OU receiver — nunca
@@ -248,7 +257,9 @@ async function resolveRegionalFundDestination(
           `Cadastre a residência civil (DECISION-0074) antes de policy line com basis='${basis}'.`
       );
     }
-    [regionCountry, regionState, regionCity] = await resolveCountryStateCityFromAddress(addr);
+    countryId = addr.countryId;
+    stateId = addr.stateId;
+    cityId = addr.cityId;
   } else if (basis === 'service_location' || basis === 'transaction_location') {
     // sem fonte material no schema.
     throw new BadRequestError(
@@ -276,7 +287,9 @@ async function resolveRegionalFundDestination(
           `policy line com basis='receiver_company_operational'.`
       );
     }
-    [regionCountry, regionState, regionCity] = await resolveCountryStateCityFromAddress(op.address);
+    countryId = op.address.countryId;
+    stateId = op.address.stateId;
+    cityId = op.address.cityId;
   } else if (basis === 'receiver_company_hq') {
     // 1. Resolve company_id do receiver.
     const actorRow = await runQueryWithTenant<{ company_id: string | null }>(
@@ -316,27 +329,29 @@ async function resolveRegionalFundDestination(
           `(receiver) sem address_assignments(role='HQ') ativo.`
       );
     }
-    [regionCountry, regionState, regionCity] = await resolveCountryStateCityFromAddressRow(
-      hqRow.rows[0]!
-    );
+    countryId = hqRow.rows[0]!.country_id;
+    stateId = hqRow.rows[0]!.state_id;
+    cityId = hqRow.rows[0]!.city_id;
   } else {
     throw new BadRequestError(
       `POLICY_BASIS_UNKNOWN: basis='${basis}' fora do enum canônico (DECISION-0049).`
     );
   }
 
-  if (!regionCountry || !regionState || !regionCity) {
+  if (!countryId || !stateId || !cityId) {
     throw new BadRequestError(
-      `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE: address resolvido mas faltam ` +
-        `(country/state/city) para basis='${basis}'. country=${regionCountry} ` +
-        `state=${regionState} city=${regionCity}. Endereço precisa estar ` +
+      `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE: address resolvido mas faltam IDs ` +
+        `(country_id/state_id/city_id) para basis='${basis}'. countryId=${countryId} ` +
+        `stateId=${stateId} cityId=${cityId}. Endereço precisa estar ` +
         `normalizado em Location Core (DECISION-0020).`
     );
   }
 
-  const fundAccount = await bankAccountService.ensureRegionalFundBankAccountForRegion(
+  // Fase 2c: fundo resolvido por FK canônica (regional_fund_accounts, DECISION-0166 D3).
+  // Nível 'city' preserva o comportamento vigente — multi-nível é Fase 3.
+  const fundAccount = await bankAccountService.ensureRegionalFundAccount(
     tenantId,
-    { country: regionCountry, state: regionState, city: regionCity },
+    { level: 'city', countryId, stateId, cityId },
     currency
   );
   return {
@@ -344,49 +359,15 @@ async function resolveRegionalFundDestination(
     splitType: 'regional_fund',
     releaseToActorWallet: false,
     receiverActorId: '',
+    // Snapshot LEGÍTIMO (não fabricado): IDs canônicos + basis realmente usados na resolução.
+    jurisdictionSnapshot: {
+      basis,
+      level: 'city',
+      countryId,
+      stateId,
+      cityId,
+    },
   };
-}
-
-/**
- * Resolve (country, state, city) a partir de um Address do Location Core.
- * Usa Address já carregado (do helper) — converte UUIDs em códigos/nomes
- * que `ensureRegionalFundBankAccountForRegion` espera.
- */
-async function resolveCountryStateCityFromAddress(
-  address: { countryId: string; stateId: string | null; cityId: string | null }
-): Promise<[string | null, string | null, string | null]> {
-  return await resolveCountryStateCityFromAddressRow({
-    country_id: address.countryId,
-    state_id: address.stateId,
-    city_id: address.cityId,
-  });
-}
-
-async function resolveCountryStateCityFromAddressRow(row: {
-  country_id: string;
-  state_id: string | null;
-  city_id: string | null;
-}): Promise<[string | null, string | null, string | null]> {
-  if (!row.country_id || !row.state_id || !row.city_id) {
-    return [null, null, null];
-  }
-  const lookup = await pool.query<{
-    country_iso: string;
-    state_code: string | null;
-    city_name: string;
-  }>(
-    `SELECT c.iso_alpha2 AS country_iso, s.abbreviation AS state_code,
-            ci.name AS city_name
-       FROM countries c
-       JOIN states s ON s.country_id = c.country_id AND s.state_id = $2::uuid
-       JOIN cities ci ON ci.state_id = s.state_id AND ci.city_id = $3::uuid
-      WHERE c.country_id = $1::uuid
-      LIMIT 1`,
-    [row.country_id, row.state_id, row.city_id]
-  );
-  const lr = lookup.rows[0];
-  if (!lr) return [null, null, null];
-  return [lr.country_iso, lr.state_code ?? null, lr.city_name];
 }
 
 function deterministicServicePaymentExecutedOutboxEventId(tenantId: string, executionId: string): string {
@@ -518,6 +499,8 @@ class ServicePaymentExecutionService {
       splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
       lineType?: EconomicPolicyLineType;
       releaseToActorWallet: boolean;
+      /** Fase 2c: jurisdição por FK da linha regional_fund (demais linhas: null). */
+      jurisdictionSnapshot?: Record<string, unknown> | null;
     };
 
     let splitRecipients: LocalSplitRecipient[];
@@ -586,6 +569,7 @@ class ServicePaymentExecutionService {
           splitType: dest.splitType,
           lineType: calcSplit.lineType,
           releaseToActorWallet: dest.releaseToActorWallet,
+          jurisdictionSnapshot: dest.jurisdictionSnapshot ?? null,
         });
       }
 
@@ -670,6 +654,7 @@ class ServicePaymentExecutionService {
             percentage: r.percentage,
             destinationAccountId: r.destinationAccountId,
             splitType: r.splitType,
+            jurisdictionSnapshot: r.jurisdictionSnapshot ?? null,
           })),
           metadata: {
             paymentRequestId: paymentRequest.paymentRequestId,

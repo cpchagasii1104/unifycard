@@ -1464,6 +1464,11 @@ class BankTransactionService {
         percentage?: number | null;
         receiverActorId: string;
         splitType?: BankSplitType;
+        /**
+         * Fase 2c (DECISION-0166 D5): jurisdição por FK DESTA linha (regional_fund).
+         * Tem precedência sobre o jurisdictionSnapshot top-level da transação.
+         */
+        jurisdictionSnapshot?: Record<string, any> | null;
       }>;
       description: string;
       metadata?: Record<string, any>;
@@ -1695,7 +1700,7 @@ class BankTransactionService {
               receiverActorId: line.receiverActorId,
             },
             policyVersionId: input.policyVersionId ?? null,
-            jurisdictionSnapshot: input.jurisdictionSnapshot ?? null,
+            jurisdictionSnapshot: line.jurisdictionSnapshot ?? input.jurisdictionSnapshot ?? null,
             authorship,
           },
           client

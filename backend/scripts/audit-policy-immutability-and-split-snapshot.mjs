@@ -89,8 +89,9 @@ if (tx === null) {
     if (!/policyVersionId: input\.policyVersionId \?\? null/.test(body)) {
       failures.push(`${TX}: createTransactionWithExplicitSplitLines não repassa policyVersionId ao createSplit (rastro perdido no sink).`);
     }
-    if (!/jurisdictionSnapshot: input\.jurisdictionSnapshot \?\? null/.test(body)) {
-      failures.push(`${TX}: createTransactionWithExplicitSplitLines não repassa jurisdictionSnapshot ao createSplit.`);
+    // Fase 2c: per-LINE tem precedência (linha regional_fund carrega a própria jurisdição).
+    if (!/jurisdictionSnapshot: line\.jurisdictionSnapshot \?\? input\.jurisdictionSnapshot \?\? null/.test(body)) {
+      failures.push(`${TX}: createTransactionWithExplicitSplitLines não repassa jurisdictionSnapshot por linha (line ?? input ?? null).`);
     }
   }
 }
@@ -116,9 +117,20 @@ const spe = readTs(SPE);
 need(spe, SPE, /policyVersionIdForSplits = policyResult\.policy!\.id/, 'service-payment-execution deixou de originar policyVersionId da policy resolvida.');
 need(spe, SPE, /policyVersionId: policyVersionIdForSplits/, 'service-payment-execution não envia policyVersionId ao bank (rastro perdido na origem).');
 
-// ── (C) anti-fabricação: NENHUM código preenche jurisdiction_snapshot antes das Fases 2-3 ──
-// (contrato nullable: o snapshot só nasce com o resolver regional por FK. Um valor fabricado
-//  hoje seria geografia inventada — pior que NULL.)
+// ── (C) snapshot LEGÍTIMO, não fabricado (invertido conscientemente na Fase 2c) ──
+// Antes da 2c este bloco PROIBIA preencher jurisdiction_snapshot (contrato nullable). Com o
+// resolver regional por FK vivo, a regra virou: o resolver regional DEVE construir o snapshot
+// com os IDs canônicos realmente usados (countryId/stateId/cityId + basis), e NENHUM outro
+// arquivo pode fabricar valor — só pass-through (dest./r./line./input. ?? null).
+const SPE_RESOLVER_RE = /jurisdictionSnapshot:\s*\{\s*basis,\s*level:\s*'city',\s*countryId,\s*stateId,\s*cityId,?\s*\}/;
+if (spe !== null) {
+  if (!SPE_RESOLVER_RE.test(spe)) {
+    failures.push(`${SPE}: resolver regional não constrói jurisdictionSnapshot legítimo ({basis, level, countryId, stateId, cityId}) — contrato D5 aberto de novo.`);
+  }
+  if (!/ensureRegionalFundAccount\(/.test(spe)) {
+    failures.push(`${SPE}: resolver regional não usa ensureRegionalFundAccount (FK) — degradação para string pode ter voltado.`);
+  }
+}
 function walkTs(dir, out = []) {
   let entries; try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return out; }
   for (const e of entries) {
@@ -128,12 +140,19 @@ function walkTs(dir, out = []) {
   }
   return out;
 }
+const PASSTHROUGH_RE = /^(dest|r|line|input)\.jurisdictionSnapshot(\s*\?\?\s*(input\.jurisdictionSnapshot\s*\?\?\s*)?null)?$/;
 for (const f of walkTs(join(ROOT, 'src'))) {
   const src = stripTs(readFileSync(f, 'utf-8'));
-  // procura atribuição de valor NÃO-nulo a jurisdictionSnapshot / jurisdiction_snapshot
+  const isResolver = f.endsWith('service-payment-execution.service.ts');
   // (?!\s...) impede o backtracking de \s* de reposicionar o lookahead sobre um espaço e furar o veto.
-  const m = src.match(/jurisdictionSnapshot\s*:\s*(?!\s|null\b|undefined\b|input\.jurisdictionSnapshot|Record<)([^,\n}]+)/);
-  if (m) failures.push(`${f.replace(ROOT, '.')}: preenche jurisdictionSnapshot com valor (${m[1].trim().slice(0, 50)}) — snapshot fabricado antes do resolver regional por FK (Fases 2-3).`);
+  const re = /jurisdictionSnapshot\s*:\s*(?!\s|null\b|undefined\b|Record<)([^,\n}]+)/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const value = m[1].trim();
+    if (PASSTHROUGH_RE.test(value)) continue; // encanamento honesto, não fabricação
+    if (isResolver && /^\{$/.test(value.slice(0, 1))) continue; // construção do resolver (validada acima por SPE_RESOLVER_RE)
+    failures.push(`${f.replace(ROOT, '.')}: preenche jurisdictionSnapshot com valor fabricado (${value.slice(0, 60)}) — só o resolver regional por FK pode construí-lo.`);
+  }
 }
 
 if (failures.length > 0) {
@@ -141,4 +160,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [policy-immutability-and-split-snapshot] — DECISION-0166 D5 travada: economic_policies imutável em active/deprecated (trigger F1-a, deprecated terminal, anti-drop), economic_policy_lines congeladas com pai active/deprecated (trigger F1-b, fail-closed, anti-repoint), bank_splits.policy_version_id+jurisdiction_snapshot presentes e a cadeia canônica (repository→bank-transaction→bank-integration→service-payment-execution) não perde o rastro; jurisdiction_snapshot sem fabricação (contrato nullable até Fases 2-3).');
+console.log('GATE OK [policy-immutability-and-split-snapshot] — DECISION-0166 D5 travada: economic_policies imutável em active/deprecated (trigger F1-a, deprecated terminal, anti-drop), economic_policy_lines congeladas com pai active/deprecated (trigger F1-b, fail-closed, anti-repoint), bank_splits.policy_version_id+jurisdiction_snapshot presentes e a cadeia canônica (repository→bank-transaction→bank-integration→service-payment-execution) não perde o rastro; jurisdiction_snapshot LEGÍTIMO (Fase 2c): resolver regional constrói {basis, level, IDs canônicos} via ensureRegionalFundAccount (FK), repasse por linha (line ?? input ?? null), fabricação fora do resolver PROIBIDA.');
