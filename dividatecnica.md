@@ -267,6 +267,16 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (12) — 🟢 FASE 4c COMPLETA: 4c-3 SELADA PELA YALA (SELO COMPLETO)
+- Yala 4c-3 = SELO COMPLETO (material `66e15464f`, docs `92f56bd71`, selo `<este commit>`). Guard
+  audit-fiscal-tax-catalog validado; 30 confirmações + 13/13 mutações; Δbank=0; 4d NÃO aberta; invoicing
+  NÃO corrigido; DT-INVOICING-HARDCODED-TAX-RATE segue OPEN (amarrada pelo guard).
+- **FASE 4c COMPLETA:** 4c-1 (catálogo vazio tax_types/tax_rules) SELADA · 4c-2 (vocabulário/types/
+  repository/resolução) SELADA · 4c-3 (guard final) SELADA. O catálogo fiscal governado está fechado:
+  nasce vazio, configurável por contribuinte/contador, versionado/imutável, sem cálculo.
+- **STOP:** 4d (motor de cálculo/provisão) permanece TRANCADA — GO próprio e separado obrigatório por D9.7.
+  Sequência restante da Fase 4 (só com GO): 4d motor → 4e tax_reserve fim-a-fim → 4f guards finais.
+
 ### 2026-07-10 (11) — FASE 4c-3 EXECUTADA: guard final do catálogo fiscal — aguarda Yala
 - Material `66e15464f`: guard `audit-fiscal-tax-catalog.mjs` + registro no runner (suíte 152→153).
   Zero código de produto/migration/manifesto/schema — guard é read-only de CI.
