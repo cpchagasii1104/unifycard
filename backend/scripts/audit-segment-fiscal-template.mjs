@@ -114,6 +114,39 @@ for (const f of walkTs(join(ROOT, 'src', 'modules', 'fiscal'))) {
   }
 }
 
+// ── (T6 — Fase B-1) sugestão READ-ONLY (DECISION-0169) ──
+const SUG = 'src/core/companies/business-template-suggestion.service.ts';
+const BTS = 'src/core/companies/business-templates.service.ts';
+const readTsFile = (rel) => { const p = join(ROOT, rel); return existsSync(p) ? stripTs(readFileSync(p, 'utf-8')) : null; };
+const sug = readTsFile(SUG);
+const bts = readTsFile(BTS);
+
+// sugestão não escreve NADA (nem aplicação — autoaplicar é o risco central 0169 §1.R)
+forbid(sug, SUG, /INSERT INTO|UPDATE\s+\w|DELETE FROM/i, 'serviço de SUGESTÃO escrevendo no banco — sugestão é READ-ONLY (0169 §1.R).');
+forbid(sug, SUG, /applyTemplate/, 'serviço de SUGESTÃO chamando applyTemplate — AUTOAPLICAÇÃO proibida (0169 §1.R); aplicar é ato humano autorizado.');
+forbid(sug, SUG, /createDraftRule|activateRule|taxCatalogRepository/, 'serviço de SUGESTÃO tocando o catálogo fiscal do tenant — ativação é a Fase C (rito canônico com contador).');
+forbid(sug, SUG, /actor_fiscal_profiles|fiscal-profile\.repository/, 'serviço de SUGESTÃO tocando actor_fiscal_profiles — perfil do contribuinte não é assunto de sugestão de template.');
+forbid(sug, SUG, /rate_bps|provision|calculateTax|Math\.(round|floor|ceil)/, 'serviço de SUGESTÃO calculando/estimando imposto — provisão é o motor 4d (0167), nunca template.');
+// slug de navegação NÃO é inferência fiscal (N2 §3.2) — serviço deve ser data-driven, sem slug de segmento hardcoded
+forbid(sug, SUG, /'(acougue|açougue|hortifruti|mecanica|mecânica|salao|salão|supermercado|farmacia|farmácia|padaria)'/, 'slug de segmento HARDCODED no serviço de sugestão — inferência por slug é o exemplo PROIBIDO da norma N2 §3.2; a ponte é CNAE→concept→categoria (dado curado).');
+// company_type não é verdade fiscal — o disclaimer é contrato do read-model
+need(sug, SUG, /não é verdade fiscal/, 'serviço de sugestão perdeu o disclaimer de company_type ("não é verdade fiscal") — 0169 §7.');
+need(sug, SUG, /is_primary/, 'sugestão por CNAE perdeu a distinção primário/secundário (0169 §7: primário pesa mais, nunca decide sozinho).');
+// vocabulário de proveniência: const = CHECK da migration
+need(bts, BTS, /RECOMMENDATION_ORIGINS = \['manual', 'company_type', 'cnae', 'accountant', 'admin'\] as const/, 'RECOMMENDATION_ORIGINS divergiu do vocabulário governado (0169 §3).');
+const MIG_B1 = 'migrations/20260710170000_cta_recommendation_tracking.sql';
+const migB1 = readSql(MIG_B1);
+need(migB1, MIG_B1, /recommendation_origin IN \('manual', 'company_type', 'cnae', 'accountant', 'admin'\)/, 'CHECK chk_cta_recommendation_origin divergiu do vocabulário governado.');
+need(migB1, MIG_B1, /chk_cta_cnae_requires_context/, 'CHECK cnae-exige-rationale+source sumiu (curadoria 0169 §3/§6).');
+// PDV/preview não usa template para estimativa (0169 §12)
+for (const f of walkTs(join(ROOT, 'src', 'modules', 'pdv'))) {
+  const rel = f.replace(ROOT, '.').replace(/\\/g, '/');
+  const src = stripTs(readFileSync(f, 'utf-8'));
+  if (/business_template_fiscal|business-template-suggestion/.test(src)) {
+    failures.push(`${rel}: PDV lendo template fiscal/sugestão — preview depende de configuração ATIVA e/ou motor (0169 §12); template nunca é estimativa.`);
+  }
+}
+
 // ── veredito ──
 console.log(`[segment-fiscal-template] failures=${failures.length}`);
 if (failures.length > 0) {

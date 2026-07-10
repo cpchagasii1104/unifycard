@@ -259,6 +259,15 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     canonRef: 'DECISION-0166 D9.5 (Lei do Contador, Fase 4b) + CHECK em actor_fiscal_profiles. ÚNICO TaxRegime do sistema — convergiu os dois vocabulários fantasmas (company-profile sem SIMPLES; tax-profile com grafias curtas SIMPLES/PRESUMIDO/REAL, que NÃO são regime canônico). Enquadramento é CONFIGURADO por contribuinte/contador (o sistema não inventa regime; ausência = fiscal_config_missing). Alíquota/regra fiscal NÃO mora aqui (tax_rules = 4c). tax_rules.tax_regime REUSA este vocabulário (não redeclara — 4c-2).',
   },
   {
+    name: 'company_template_applications.recommendation_origin',
+    pillar: 'intent',
+    sourceFile: 'src/core/companies/business-templates.service.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'RECOMMENDATION_ORIGINS',
+    values: ['manual', 'company_type', 'cnae', 'accountant', 'admin'],
+    canonRef: 'DECISION-0169 §3 (Fase B-1) + CHECK chk_cta_recommendation_origin. PROVENIÊNCIA da recomendação que levou à aplicação de um business_template — rastreio, não autoridade. Sugestão NUNCA autoaplica (0169 §1.R); origem cnae exige rationale+source (curadoria, CHECK chk_cta_cnae_requires_context). NULL = aplicação anterior ao rastreio.',
+  },
+  {
     name: 'tax_rules.platform_revenue_stream',
     pillar: 'money',
     sourceFile: 'src/modules/fiscal/tax-catalog.types.ts',

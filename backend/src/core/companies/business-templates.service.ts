@@ -26,6 +26,22 @@ export interface TemplateComposition {
   modules: string[];
 }
 
+/**
+ * DECISION-0169 §3 — vocabulário GOVERNADO da proveniência de recomendação (espelhado no CHECK
+ * chk_cta_recommendation_origin). Registrado no manifesto de vocabulários governados.
+ * Sugestão NUNCA autoaplica (§1.R): isto só rastreia a ORIGEM quando um humano autorizado aplica.
+ */
+export const RECOMMENDATION_ORIGINS = ['manual', 'company_type', 'cnae', 'accountant', 'admin'] as const;
+export type RecommendationOrigin = (typeof RECOMMENDATION_ORIGINS)[number];
+
+export interface TemplateRecommendationTrace {
+  origin: RecommendationOrigin;
+  confidence?: string | null;
+  rationale?: string | null;
+  cnaeCode?: string | null;
+  source?: string | null;
+}
+
 export interface BusinessTemplateView {
   templateId: string;
   slug: string;
@@ -145,8 +161,22 @@ export const businessTemplatesService = {
     companyId: string;
     templateId: string;
     templateVersionId?: string | null;
+    /** DECISION-0169 §3 — proveniência OPCIONAL da recomendação. Ausente = aplicação manual sem rastreio. */
+    recommendation?: TemplateRecommendationTrace | null;
   }): Promise<{ application: TemplateApplicationView; alreadyApplied: boolean }> {
     const auth = await assertCompanyTemplateAuthority(input);
+
+    const rec = input.recommendation ?? null;
+    if (rec) {
+      if (!RECOMMENDATION_ORIGINS.includes(rec.origin)) {
+        throw new BusinessTemplateError(422, 'RECOMMENDATION_ORIGIN_INVALID',
+          `Origem de recomendação fora do vocabulário governado (${RECOMMENDATION_ORIGINS.join(', ')}) — DECISION-0169 §3.`);
+      }
+      if (rec.origin === 'cnae' && (!rec.rationale || !rec.source)) {
+        throw new BusinessTemplateError(422, 'RECOMMENDATION_CNAE_REQUIRES_CONTEXT',
+          'Recomendação por CNAE exige rationale e source (curadoria — DECISION-0169 §3/§6).');
+      }
+    }
 
     const tpl = await pool.query<{ id: string; slug: string; status: string }>(
       `SELECT id, slug, status FROM business_templates WHERE id = $1::uuid LIMIT 1`,
@@ -170,11 +200,14 @@ export const businessTemplatesService = {
 
     const ins = await pool.query<{ id: string; applied_at: Date; modules_applied: unknown; customizations: unknown; status: string }>(
       `INSERT INTO company_template_applications (
-         tenant_id, company_id, template_id, template_version_id, applied_by_actor_id, modules_applied
-       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::jsonb)
+         tenant_id, company_id, template_id, template_version_id, applied_by_actor_id, modules_applied,
+         recommendation_origin, recommendation_confidence, recommendation_rationale,
+         recommended_from_cnae_code, recommendation_source
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::jsonb, $7, $8, $9, $10, $11)
        ON CONFLICT (company_id, template_version_id) DO NOTHING
        RETURNING id, applied_at, modules_applied, customizations, status`,
-      [input.tenantId, input.companyId, input.templateId, ver.rows[0].id, auth.actorId, JSON.stringify(composition.modules)]
+      [input.tenantId, input.companyId, input.templateId, ver.rows[0].id, auth.actorId, JSON.stringify(composition.modules),
+       rec?.origin ?? null, rec?.confidence ?? null, rec?.rationale ?? null, rec?.cnaeCode ?? null, rec?.source ?? null]
     );
 
     let row = ins.rows[0];
