@@ -267,6 +267,17 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (17) — FASE B-0 docs-only: DECISION-0169 promulgada (onboarding/sugestão de templates fiscais)
+- RFC da 1ª superfície viva (recomendação da Yala do selo da Fase A): fontes de sugestão ranqueadas com
+  REGRA DURA "sugestão não é aplicação"; autoridade reusa assertCompanyTemplateAuthority (zero paralela);
+  aplicação segue em company_template_applications (+colunas aditivas propostas p/ B-1: origin/confidence/
+  rationale); FRONTEIRA: Fase B não escreve em tax_types/tax_rules/actor_fiscal_profiles — só checklist
+  read-model derivado (publicado+aplicação+regras ativas = pendências); fiscal_config_missing segue até a
+  Fase C; CNAE = ponte defensável com curadoria (slug nunca infere); desempate sempre humano; território
+  com fallback só de exibição; estados derivados (activated_by_accountant = Fase C); 9 riscos bloqueados.
+- Docs-only; zero código/schema/seed. B material/C/D/4d-1 seguem TRANCADAS (B-1/B-2 sugeridas na RFC,
+  cada uma com GO). Contagem de DTs inalterada.
+
 ### 2026-07-10 (16) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase A SELADA PELA YALA (SELO COMPLETO)
 - Yala Fase A = SELO COMPLETO (24 confirmações + 13/13 mutações). R1 fechado (freeze versions), casa fiscal
   do template criada VAZIA (global, published imutável/deprecated terminal/itens congelados/território FK/
