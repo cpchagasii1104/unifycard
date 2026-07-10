@@ -267,6 +267,21 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (18) — FASE B-1 EXECUTADA: sugestão read-only de templates por company_type/CNAE — aguarda Yala
+- Material `e199b4ea7` + fix `1c2c3ca92`: rastreio de recomendação em company_template_applications
+  (origin CHECK ×5 + confidence/rationale/cnae_code/source, aditivos NULL; cnae exige rationale+source);
+  applyTemplate aceita recommendation OPCIONAL (retro-compatível; nada autoaplica); RECOMMENDATION_ORIGINS
+  no manifesto (27); business-template-suggestion.service READ-ONLY (ranking cnae-primário>company_type>
+  secundário; ponte curada CNAE→concepts→categories.concept_id→composition; disclaimer "não é verdade
+  fiscal"; conflito EXPOSTO; fallback territorial só exibição; ausência honesta; ZERO escrita/aplicação/fiscal).
+- Provas: serviço 13/13 residue-0 · CHECKs 4/4 rollback · guard T6 estendido · mutation 12/12 MORDE ·
+  typecheck 0 · suíte 154 GATE OK (pipefail) · Δbank=0.
+- **🔴 Disclosure de processo:** commit material entrou com suíte vermelha (pipe `| tail` engoliu o exit;
+  guard pj-closure pedia classificação do serviço novo) — fix imediato `1c2c3ca92` + regra reforçada:
+  suíte em cadeia de commit SEMPRE com `set -o pipefail`. 2ª ocorrência da classe 3b.
+- Sem rota HTTP nova (sem GO); Fases C/D e 4d-1 TRANCADAS. Próxima pós-Yala: B-2 checklist até
+  ready_for_activation. Contagem de DTs inalterada.
+
 ### 2026-07-10 (17) — FASE B-0 docs-only: DECISION-0169 promulgada (onboarding/sugestão de templates fiscais)
 - RFC da 1ª superfície viva (recomendação da Yala do selo da Fase A): fontes de sugestão ranqueadas com
   REGRA DURA "sugestão não é aplicação"; autoridade reusa assertCompanyTemplateAuthority (zero paralela);
