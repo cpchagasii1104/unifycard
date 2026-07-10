@@ -60,8 +60,19 @@ else {
     const body = nextAsync === -1 ? rest : rest.slice(0, nextAsync);
     const g = body.search(/assertCheckoutFinancialRuntimeEnabled\(/);
     const b = body.search(/createTransactionWithSplit\(/);
-    if (g === -1) fails.push(`${BI}: sink ${m} SEM gate fail-closed (DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK; gate no caller é disciplina, no sink é construção).`);
-    else if (b !== -1 && g > b) fails.push(`${BI}: sink ${m} com gate DEPOIS da escrita bank_* (createTransactionWithSplit).`);
+    // Reconciliação F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1D: o sink pode estar (a) VIVO gated com o
+    // firewall ANTES da escrita, OU (b) APOSENTADO com EVENT_*_PAYMENT_RETIRED (501 permanente, sem
+    // alcançar createTransactionWithSplit — contenção MAIS FORTE). Falha se sem gate nem RETIRED, ou se
+    // houver caminho VIVO ao split sem firewall. (read() já é comment-stripped — comentário não é prova.)
+    const retiredCode = m === 'processEventTicketPayment' ? 'EVENT_TICKET_PAYMENT_RETIRED' : 'EVENT_CONSUMPTION_PAYMENT_RETIRED';
+    const isRetired = body.includes(retiredCode);
+    if (isRetired && b === -1) {
+      // aposentado e sem caminho ao sink → contido (mais forte que o firewall); passa.
+    } else if (g === -1) {
+      fails.push(`${BI}: sink ${m} SEM gate fail-closed E SEM ${retiredCode} — sink financeiro desprotegido (ou caminho vivo ao split sem firewall).`);
+    } else if (b !== -1 && g > b) {
+      fails.push(`${BI}: sink ${m} com gate DEPOIS da escrita bank_* (createTransactionWithSplit).`);
+    }
   }
 }
 

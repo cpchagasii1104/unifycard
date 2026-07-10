@@ -52,8 +52,17 @@ if (!existsSync(SINK)) {
     // corpo até a próxima declaração 'async ' de método
     const nextAsync = src.indexOf('\n  async ', idx + 1);
     const body = src.slice(idx, nextAsync > idx ? nextAsync : idx + 4000);
-    if (!/assertRidesFinancialRuntimeEnabled\(/.test(body)) {
-      failures.push(`${SINK}: processRidePayment (SINK, money-write via createTransactionWithExplicitSplitLines) não chama assertRidesFinancialRuntimeEnabled — B1 reaberto.`);
+    // Reconciliação F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1D: o SINK pode estar (a) VIVO gated com
+    // o firewall, OU (b) APOSENTADO com RIDE_PAYMENT_RETIRED (contenção MAIS FORTE que o flag — 501
+    // permanente, sem alcançar o split). Falha se NENHUM dos dois, ou se houver caminho VIVO ao split
+    // sem firewall. stripComments já aplicado em `src` (comentário não conta como prova).
+    const hasFirewall = /assertRidesFinancialRuntimeEnabled\(/.test(body);
+    const isRetired = /RIDE_PAYMENT_RETIRED/.test(body);
+    const reachesSink = /createTransactionWithSplit\b|createTransactionWithExplicitSplitLines\b/.test(body);
+    if (reachesSink && !hasFirewall) {
+      failures.push(`${SINK}: processRidePayment tem caminho VIVO para createTransactionWith* SEM assertRidesFinancialRuntimeEnabled — B1 reaberto.`);
+    } else if (!hasFirewall && !isRetired) {
+      failures.push(`${SINK}: processRidePayment sem firewall (assertRidesFinancialRuntimeEnabled) e sem RETIRED (RIDE_PAYMENT_RETIRED) — sink financeiro desprotegido.`);
     }
   }
 }
