@@ -27,7 +27,11 @@ dotenv.config({ path: join(process.cwd(), '.env') });
 
 const TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
 const MODULE = 'marketplace_payment'; // moduleContext que o resolvedor usa
-const CODE_PREFIX = 'unifycard_fee_bps_e2e';
+const CODE_PREFIX = 'unifycard_fee_bps_e2e'; // base do cleanup (pega runs antigas via LIKE)
+// DECISION-0166 (F1-a): policy ativada é imutável e não-deletável (encerra por deprecação);
+// deprecated de runs antigas ficam no banco → código único por run evita colisão do
+// UNIQUE(tenant, policy_code, version).
+const RUN_CODE = `${CODE_PREFIX}_${Date.now().toString(36)}`;
 const cwd = process.cwd();
 
 let pass = 0;
@@ -39,23 +43,31 @@ const ok = (label: string, cond: boolean, detail?: unknown): void => {
 
 async function cleanup(): Promise<void> {
   await pool.query(`SELECT set_config('app.current_tenant', $1, false)`, [TENANT_ID]);
+  // DECISION-0166 (F1-a): ativada NUNCA é deletada — neutraliza por deprecação (transição
+  // permitida; deprecated é inerte na resolução). Só draft é deletável.
   await pool.query(
-    `DELETE FROM economic_policies WHERE tenant_id = $1::uuid AND policy_code LIKE $2`,
+    `UPDATE economic_policies SET status = 'deprecated'
+      WHERE tenant_id = $1::uuid AND policy_code LIKE $2 AND status = 'active'`,
+    [TENANT_ID, `${CODE_PREFIX}%`]
+  );
+  await pool.query(
+    `DELETE FROM economic_policies WHERE tenant_id = $1::uuid AND policy_code LIKE $2 AND status = 'draft'`,
     [TENANT_ID, `${CODE_PREFIX}%`]
   );
 }
 
 async function seedFeePolicy(): Promise<string> {
+  // Rito DECISION-0166 (F1-b): lines só entram em policy DRAFT — draft → lines → activate.
   const policy = await economicPolicyRepository.createPolicy({
     tenantId: TENANT_ID,
-    policyCode: `${CODE_PREFIX}_main`,
+    policyCode: `${RUN_CODE}_main`,
     policyType: 'COMMISSION_SPLIT',
     moduleContext: MODULE,
     vertical: 'marketplace',
     priority: 0,
     effectiveFrom: new Date(Date.now() - 60 * 1000),
     effectiveUntil: null,
-    status: 'active',
+    status: 'draft',
   } as any);
   // platform_fee 299 bps (a taxa) + revenue_share 9701 bps (líquido do vendedor, absorve drift).
   await economicPolicyRepository.createPolicyLine(TENANT_ID, {
@@ -66,6 +78,11 @@ async function seedFeePolicy(): Promise<string> {
     policyId: policy.id, lineType: 'revenue_share' as any, destinationType: 'receiver_actor' as any,
     bps: 9701, fixedAmountCents: null, priority: 1,
   } as any);
+  await pool.query(`SELECT set_config('app.current_tenant', $1, false)`, [TENANT_ID]);
+  await pool.query(
+    `UPDATE economic_policies SET status = 'active' WHERE id = $1::uuid AND status = 'draft'`,
+    [policy.id]
+  );
   return policy.id;
 }
 

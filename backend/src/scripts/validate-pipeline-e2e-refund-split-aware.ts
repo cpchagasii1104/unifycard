@@ -51,7 +51,10 @@ process.env.BANK_TRANSACTION_SINK_FIREWALL_ENABLED = 'true';
 
 const TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
 const POLICY_MODULE = 'service_execution';
-const POLICY_PREFIX = 'refund_e2e_';
+const POLICY_PREFIX_BASE = 'refund_e2e_'; // base do cleanup (pega runs antigas via LIKE)
+// DECISION-0166 (F1-a): deprecated de runs antigas ficam (append-only) → código único por run
+// evita colisão do UNIQUE(tenant, policy_code, version).
+const POLICY_PREFIX = `${POLICY_PREFIX_BASE}${Date.now().toString(36)}_`;
 
 type CheckResult = { ok: boolean; reason?: string; detail?: any };
 
@@ -191,9 +194,15 @@ async function resetRiskProfiles(): Promise<void> {
 
 async function cleanupPolicies(): Promise<void> {
   await pool.query(`SELECT set_config('app.current_tenant', $1, false)`, [TENANT_ID]);
+  // DECISION-0166 (F1-a): ativada NUNCA é deletada — neutraliza por deprecação; só draft deleta.
   await pool.query(
-    `DELETE FROM economic_policies WHERE tenant_id=$1::uuid AND module_context=$2 AND policy_code LIKE $3`,
-    [TENANT_ID, POLICY_MODULE, `${POLICY_PREFIX}%`]
+    `UPDATE economic_policies SET status='deprecated'
+      WHERE tenant_id=$1::uuid AND module_context=$2 AND policy_code LIKE $3 AND status='active'`,
+    [TENANT_ID, POLICY_MODULE, `${POLICY_PREFIX_BASE}%`]
+  );
+  await pool.query(
+    `DELETE FROM economic_policies WHERE tenant_id=$1::uuid AND module_context=$2 AND policy_code LIKE $3 AND status='draft'`,
+    [TENANT_ID, POLICY_MODULE, `${POLICY_PREFIX_BASE}%`]
   );
 }
 
@@ -215,7 +224,8 @@ async function seedPolicyMultiSplit(code: string): Promise<string> {
     pricingModel: 'fixed',
     settlementFlow: 'fixed_price_escrow',
     effectiveFrom: new Date(Date.now() - 60 * 1000),
-    status: 'active',
+    // Rito DECISION-0166 (F1-b): lines só entram em policy DRAFT — draft → lines → activate.
+    status: 'draft',
   });
   // 70/20/10: revenue_share (escrow) + regional_fund (Curitiba) + platform_fee (system)
   await economicPolicyRepository.createPolicyLine(TENANT_ID, {
@@ -240,6 +250,11 @@ async function seedPolicyMultiSplit(code: string): Promise<string> {
     bps: 1000,
     priority: 2,
   });
+  await pool.query(`SELECT set_config('app.current_tenant', $1, false)`, [TENANT_ID]);
+  await pool.query(
+    `UPDATE economic_policies SET status='active' WHERE id=$1::uuid AND status='draft'`,
+    [p.id]
+  );
   return p.id;
 }
 

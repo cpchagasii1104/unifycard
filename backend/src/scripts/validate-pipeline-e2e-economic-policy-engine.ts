@@ -22,6 +22,11 @@ dotenv.config({ path: join(process.cwd(), '.env') });
 
 const TENANT_ID = process.env.E2E_TENANT_ID || 'fbe13b78-4516-493d-905a-363796aea1d1';
 const MODULE = 'pe1_e2e_module'; // namespace isolado deste E2E
+// DECISION-0166 (F1-a/F1-b): policy ativada é IMUTÁVEL (não editável, não deletável — encerra por
+// deprecação). Runs anteriores deixam deprecated no banco (append-only), então policy_code precisa
+// ser único por run para não colidir no UNIQUE(tenant, policy_code, version).
+const RUN = Date.now().toString(36);
+const pc = (code: string): string => `${RUN}_${code}`;
 
 type CheckResult = { ok: true; detail?: any } | { ok: false; reason: string; detail?: any };
 
@@ -46,12 +51,18 @@ async function bootstrap(): Promise<void> {
 }
 
 async function cleanupPriorRun(): Promise<void> {
-  // Apaga policies/products deste namespace antes de seedar. RLS
-  // exige set_config.
+  // Neutraliza policies deste namespace antes de seedar. RLS exige set_config.
   await pool.query(`SELECT set_config('app.current_tenant', $1, false)`, [TENANT_ID]);
-  // Cleanup com LIKE prefix para pegar MODULE + sub-modules (ex: T7).
+  // DECISION-0166 (F1-a): policy ATIVADA nunca é deletada — encerra por deprecação (transição
+  // permitida active→deprecated); deprecated é inerte na resolução (filtro status='active').
+  // Só DRAFT é deletável. Cleanup com LIKE prefix para pegar MODULE + sub-modules (ex: T7).
   await pool.query(
-    `DELETE FROM economic_policies WHERE tenant_id = $1::uuid AND module_context LIKE $2`,
+    `UPDATE economic_policies SET status = 'deprecated'
+      WHERE tenant_id = $1::uuid AND module_context LIKE $2 AND status = 'active'`,
+    [TENANT_ID, `${MODULE}%`]
+  );
+  await pool.query(
+    `DELETE FROM economic_policies WHERE tenant_id = $1::uuid AND module_context LIKE $2 AND status = 'draft'`,
     [TENANT_ID, `${MODULE}%`]
   );
   await pool.query(
@@ -96,15 +107,18 @@ async function main() {
     policyType?: 'COMMISSION_SPLIT' | 'ZERO_FEE' | 'ACCESS_PASS' | 'HYBRID' | 'CONTRACTUAL';
     status?: 'active' | 'draft' | 'deprecated';
   }): Promise<string> {
+    // Rito DECISION-0166 (F1-b): lines só entram em policy DRAFT — cria draft, insere lines,
+    // depois transiciona ao status desejado (draft→active/deprecated são as transições permitidas).
+    const desiredStatus = opts.status ?? 'active';
     const policy = await economicPolicyRepository.createPolicy({
       tenantId: TENANT_ID,
-      policyCode: opts.code,
+      policyCode: pc(opts.code),
       policyType: opts.policyType ?? 'COMMISSION_SPLIT',
       moduleContext: MODULE,
       priority: opts.priority ?? 0,
       effectiveFrom: opts.effectiveFrom ?? new Date(Date.now() - 60 * 1000),
       effectiveUntil: opts.effectiveUntil ?? null,
-      status: opts.status ?? 'active',
+      status: 'draft',
       ...(opts.selectors ?? {}),
     });
     for (const ln of opts.lines) {
@@ -116,6 +130,13 @@ async function main() {
         fixedAmountCents: ln.fixedAmountCents ?? null,
         priority: ln.priority ?? 0,
       });
+    }
+    if (desiredStatus !== 'draft') {
+      await pool.query(`SELECT set_config('app.current_tenant', $1, false)`, [TENANT_ID]);
+      await pool.query(
+        `UPDATE economic_policies SET status = $2 WHERE id = $1::uuid AND status = 'draft'`,
+        [policy.id, desiredStatus]
+      );
     }
     return policy.id;
   }
@@ -194,7 +215,7 @@ async function main() {
     region: 'PR',
   });
   assertOk('T3.1 — region vence country quando city ausente', {
-    ok: r3.policy?.policyCode === 'pe1_e2e_T2_region',
+    ok: r3.policy?.policyCode === pc('pe1_e2e_T2_region'),
     reason: 'region não venceu country',
     detail: r3.policy,
   });
@@ -310,7 +331,7 @@ async function main() {
   const FUTURE_MODULE = `${MODULE}_t7_future_only`;
   await economicPolicyRepository.createPolicy({
     tenantId: TENANT_ID,
-    policyCode: 'pe1_e2e_T7_future',
+    policyCode: pc('pe1_e2e_T7_future'),
     policyType: 'COMMISSION_SPLIT',
     moduleContext: FUTURE_MODULE,
     priority: 0,
@@ -574,7 +595,7 @@ async function main() {
     // SEM categoryId.
   });
   assertOk('T15.1 — sem category, policy vertical-only vence (não a category-específica)', {
-    ok: r15.policy?.policyCode === 'pe1_e2e_T4_vertical_only',
+    ok: r15.policy?.policyCode === pc('pe1_e2e_T4_vertical_only'),
     reason: 'category foi aplicada indevidamente',
     detail: r15.policy,
   });
@@ -586,9 +607,13 @@ async function main() {
   // (não Zod / não TS). INSERT direto via SQL.
   console.log('\n=== T16 — CHECK Postgres: regional_fund dinâmico exige basis ===');
   await cleanupPriorRun();
+  // status:'draft' — T16/T17/T18 inserem lines DIRETO nesta policy para provar os CHECKs do
+  // banco (23514). Com a policy ativa, o freeze da F1-b dispararia ANTES do CHECK e mudaria o
+  // erro esperado; em draft o trigger deixa passar e o CHECK continua sendo o que bloqueia.
   const t16PolicyId = await seedPolicy({
     code: 'pe1_e2e_T16_origin_basis',
     selectors: { vertical: 'origin_basis_check' },
+    status: 'draft',
     lines: [
       { lineType: 'revenue_share', destinationType: 'receiver_actor', bps: 10000, priority: 0 },
     ],

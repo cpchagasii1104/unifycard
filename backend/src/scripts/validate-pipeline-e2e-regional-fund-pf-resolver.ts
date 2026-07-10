@@ -95,6 +95,9 @@ async function setResidence(tenantId: string, actorId: string, cep: string, city
   await locationRepository.assignAddress(addr.id, 'profile', actorId, 'RESIDENCE', true);
 }
 
+// Rito DECISION-0166 (F1-b): lines só entram em policy DRAFT. Este e2e adiciona a line
+// regional DEPOIS do seed (addRegionalFundLine), então o seed devolve a policy em DRAFT e o
+// caller ATIVA via activatePolicy() só depois de todas as lines.
 async function seedPolicy(tenantId: string, code: string): Promise<string> {
   const p = await economicPolicyRepository.createPolicy({
     tenantId,
@@ -105,12 +108,20 @@ async function seedPolicy(tenantId: string, code: string): Promise<string> {
     pricingModel: 'fixed',
     settlementFlow: 'fixed_price_escrow',
     effectiveFrom: new Date(Date.now() - 60_000),
-    status: 'active',
+    status: 'draft',
   });
   await economicPolicyRepository.createPolicyLine(tenantId, {
     policyId: p.id, lineType: 'revenue_share' as any, destinationType: 'receiver_actor' as any, bps: 9000, priority: 0, regionalOriginBasis: null,
   });
   return p.id;
+}
+
+async function activatePolicy(tenantId: string, policyId: string): Promise<void> {
+  await pool.query(`SELECT set_config('app.current_tenant', $1, false)`, [tenantId]);
+  await pool.query(
+    `UPDATE economic_policies SET status='active' WHERE id=$1::uuid AND status='draft'`,
+    [policyId]
+  );
 }
 
 async function addRegionalFundLine(tenantId: string, policyId: string, basis: 'payer_identity_residence' | 'receiver_identity_residence'): Promise<void> {
@@ -255,6 +266,7 @@ async function main(): Promise<void> {
     // A · receiver_identity_residence COM residência → resolve pra cidade do RECEIVER (Curitiba)
     const policyA = await seedPolicy(TENANT, `rfpf_a_${Date.now()}`);
     await addRegionalFundLine(TENANT, policyA, 'receiver_identity_residence');
+    await activatePolicy(TENANT, policyA);
     const reqA = await createPaymentRequest(TENANT, payer.actorId, receiver.actorId, serviceId, 10000);
     const balCwbBeforeA = await regionalFundBalanceForCity(TENANT, 'Curitiba RFPF', 'PR');
     await servicePaymentExecutionService.createExecution(TENANT, payer.userId, { paymentRequestId: reqA } as any);
@@ -266,7 +278,9 @@ async function main(): Promise<void> {
     // B · payer_identity_residence COM residência → resolve pra cidade do PAYER (São Paulo), NÃO Curitiba
     const policyB = await seedPolicy(TENANT, `rfpf_b_${Date.now()}`);
     await addRegionalFundLine(TENANT, policyB, 'payer_identity_residence');
+    await activatePolicy(TENANT, policyB);
     // desativa a policy A pra não colidir na resolução (mesmo module_context/vertical)
+    // (active→deprecated é transição PERMITIDA pela imutabilidade F1-a — encerramento legítimo)
     await pool.query(`UPDATE economic_policies SET status='deprecated' WHERE id=$1::uuid`, [policyA]);
     const reqB = await createPaymentRequest(TENANT, payer.actorId, receiver.actorId, serviceId, 10000);
     const balSpBeforeB = await regionalFundBalanceForCity(TENANT, 'São Paulo RFPF', 'SP');
@@ -289,6 +303,10 @@ async function main(): Promise<void> {
     record('C payer_identity_residence SEM residência → POLICY_REGIONAL_ORIGIN_UNRESOLVABLE, zero bank_split novo',
       /POLICY_REGIONAL_ORIGIN_UNRESOLVABLE/.test(String(errC?.message)) && beforeCountC.rows[0].n === afterCountC.rows[0].n,
       `erro=${errC?.message} count ${beforeCountC.rows[0].n}→${afterCountC.rows[0].n}`);
+
+    // Neutraliza a policyB ao fim (DECISION-0166: ativada não é deletável — deprecação é o
+    // encerramento legítimo). Sem isto, cada run deixaria uma ativa a mais em service_execution.
+    await pool.query(`UPDATE economic_policies SET status='deprecated' WHERE id=$1::uuid AND status='active'`, [policyB]);
   } finally {
     // noop
   }
