@@ -238,6 +238,15 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     sourceKind: 'ts-const-array',
     symbol: 'TAX_REGIMES',
     values: ['MEI', 'SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'OTHER'],
-    canonRef: 'DECISION-0166 D9.5 (Lei do Contador, Fase 4b) + CHECK em actor_fiscal_profiles. ÚNICO TaxRegime do sistema — convergiu os dois vocabulários fantasmas (company-profile sem SIMPLES; tax-profile com grafias curtas SIMPLES/PRESUMIDO/REAL, que NÃO são regime canônico). Enquadramento é CONFIGURADO por contribuinte/contador (o sistema não inventa regime; ausência = fiscal_config_missing). Alíquota/regra fiscal NÃO mora aqui (tax_rules = 4c).',
+    canonRef: 'DECISION-0166 D9.5 (Lei do Contador, Fase 4b) + CHECK em actor_fiscal_profiles. ÚNICO TaxRegime do sistema — convergiu os dois vocabulários fantasmas (company-profile sem SIMPLES; tax-profile com grafias curtas SIMPLES/PRESUMIDO/REAL, que NÃO são regime canônico). Enquadramento é CONFIGURADO por contribuinte/contador (o sistema não inventa regime; ausência = fiscal_config_missing). Alíquota/regra fiscal NÃO mora aqui (tax_rules = 4c). tax_rules.tax_regime REUSA este vocabulário (não redeclara — 4c-2).',
+  },
+  {
+    name: 'tax_rules.platform_revenue_stream',
+    pillar: 'money',
+    sourceFile: 'src/modules/fiscal/tax-catalog.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'PLATFORM_REVENUE_STREAMS',
+    values: ['marketplace_commission', 'advertising', 'own_tickets', 'acquiring_fees', 'physical_structures', 'other'],
+    canonRef: 'DECISION-0166 D9.5 (Lei do Contador, Fase 4c) + CHECK chk_tax_rules_platform_stream_vocab. Fontes de receita da PRÓPRIA UnifiCard (D9.3 — fiscalidade da plataforma ≠ do actor, mesma infraestrutura). Só existe em regra com taxpayer_kind=platform (CHECK de coerência). NÃO é cálculo/split real (motor = 4d, GO próprio D9.7); é o eixo do contribuinte-plataforma no catálogo fiscal governado.',
   },
 ];
