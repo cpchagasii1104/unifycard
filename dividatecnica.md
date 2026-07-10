@@ -267,6 +267,17 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (5) — FASE 3 SELADA: eixo regional_level multi-nível (DECISION-0166 D2)
+- **3a** `regional_level` em economic_policy_lines (mesmo enum do scope_level da 2a; obrigatório em
+  regional_fund, PROIBIDO fora; UNIQUE parcial nível+basis). 9/9 rollback — multi-nível GRAVA.
+- **3b** nível da LINHA até o resolver (literal 'city' morreu); snapshot truncado por nível; bairro
+  HOLD duplo; origem cadastral exigida p/ todo nível (D0). Engine e2e 18/18 + fee-bps 14/14.
+- **3c** guard estendido (CHECKs+anti-drop+propagação+HOLD). Mutation 7/7.
+- **Regra dura D7 cumprida:** SÓ o eixo — motor segue no amount do caller; NENHUMA policy regional
+  ativa antes da Fase 4 (fiscalidade: commission_gross → tax_reserve → commission_distributable).
+- Honestidade: deslize na 3b (commit com suíte vermelha por `;` na cadeia) corrigido em fix imediato +
+  regra nova (suíte no `&&`). Typecheck 0; suíte 151; Δbank=0. **Fase 4 aguarda GO.**
+
 ### 2026-07-10 (4) — FASE 2 SELADA: geografia por FK canônica + excisão do trilho paralelo (DECISION-0166 D3)
 - **2a** `regional_fund_accounts` (FKs compostas hierárquicas — city de outro estado REJEITADA pelo banco;
   UNIQUE NULLS NOT DISTINCT por escopo; 1 conta = 1 escopo; RLS FORCE; ZERO coluna de saldo). 14/14 rollback.
