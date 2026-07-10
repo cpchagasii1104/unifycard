@@ -522,6 +522,9 @@ class ServicePaymentExecutionService {
 
     let splitRecipients: LocalSplitRecipient[];
     let policyAuditMetadata: Record<string, any> = {};
+    // DECISION-0166 D5 (F1-c): versão de policy que decidiu os splits — gravada por
+    // split em bank_splits.policy_version_id. Permanece null no caminho legado.
+    let policyVersionIdForSplits: string | null = null;
 
     if (input.splits && input.splits.length > 0) {
       // LEGACY: splits explícitos do caller (E2E/teste antigo).
@@ -586,6 +589,7 @@ class ServicePaymentExecutionService {
         });
       }
 
+      policyVersionIdForSplits = policyResult.policy!.id;
       policyAuditMetadata = {
         policyId: policyResult.policy!.id,
         policyCode: policyResult.policy!.policyCode,
@@ -672,6 +676,7 @@ class ServicePaymentExecutionService {
             bookingId: paymentRequest.bookingId,
             serviceId: paymentRequest.serviceId,
           },
+          policyVersionId: policyVersionIdForSplits,
         },
         client
       );

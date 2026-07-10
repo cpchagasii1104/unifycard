@@ -59,6 +59,18 @@ export interface CreateBankSplitInput {
   description?: string;
   metadata?: Record<string, any>;
   /**
+   * DECISION-0166 D5 (F1-c): FK para a VERSÃO exata de economic_policies que decidiu
+   * este split (versão congelada pelos triggers de imutabilidade). NULL = split fora
+   * do pipeline de policy canônico (legado/HOLD).
+   */
+  policyVersionId?: string | null;
+  /**
+   * DECISION-0166 D5 (F1-c): snapshot imutável da jurisdição resolvida no momento da
+   * transação (IDs territoriais canônicos + basis). Contrato nullable — preenchido a
+   * partir das Fases 2-3 (resolver regional por FK). NUNCA texto livre de geografia.
+   */
+  jurisdictionSnapshot?: Record<string, any> | null;
+  /**
    * Contexto de autoria (OBRIGATÓRIO - REGRA INQUEBRÁVEL)
    * Hard fail no código se não fornecido
    */

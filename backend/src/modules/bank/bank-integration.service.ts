@@ -237,6 +237,12 @@ class BankIntegrationService {
         splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
       }>;
       metadata?: Record<string, any>;
+      /**
+       * DECISION-0166 D5 (F1-c): id da VERSÃO de economic_policies que decidiu os
+       * splits (repassado a bank_splits.policy_version_id). null = caminho legado
+       * sem policy canônica.
+       */
+      policyVersionId?: string | null;
     },
     /**
      * OUTBOX_ATOMICITY_HARDENING (Opção A): aceita client externo já com
@@ -408,6 +414,7 @@ class BankIntegrationService {
         metadata: { ...metadata, executionId, paymentRequestId },
         concept_id: conceptRow.concept_id,
         authorship,
+        policyVersionId: input.policyVersionId ?? null,
       },
       existingClient
     );

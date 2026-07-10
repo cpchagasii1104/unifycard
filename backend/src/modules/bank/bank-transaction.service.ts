@@ -1469,6 +1469,18 @@ class BankTransactionService {
       metadata?: Record<string, any>;
       concept_id: string;
       authorship: FinancialAuthorshipContext;
+      /**
+       * DECISION-0166 D5 (F1-c): id da VERSÃO de economic_policies que decidiu estes
+       * splits (uma resolução por transação → mesma versão em todas as linhas).
+       * Gravado em bank_splits.policy_version_id. Ausente/null = fora do pipeline
+       * de policy canônico.
+       */
+      policyVersionId?: string | null;
+      /**
+       * DECISION-0166 D5 (F1-c): jurisdição resolvida no momento da transação.
+       * Contrato nullable — preenchido a partir das Fases 2-3 (resolver regional por FK).
+       */
+      jurisdictionSnapshot?: Record<string, any> | null;
     },
     /**
      * OUTBOX_ATOMICITY_HARDENING (Opção A): aceita client externo já com
@@ -1682,6 +1694,8 @@ class BankTransactionService {
               ...metadata,
               receiverActorId: line.receiverActorId,
             },
+            policyVersionId: input.policyVersionId ?? null,
+            jurisdictionSnapshot: input.jurisdictionSnapshot ?? null,
             authorship,
           },
           client

@@ -190,6 +190,8 @@ class BankSplitRepository {
       splitType,
       description,
       metadata,
+      policyVersionId,
+      jurisdictionSnapshot,
     } = input;
 
     assertIntegerCents(amountCents, 'amountCents');
@@ -221,9 +223,9 @@ class BankSplitRepository {
         `
         INSERT INTO bank_splits (
           tenant_id, transaction_id, source_actor_id, target_account_id, target_actor_id,
-          amount_cents, split_type, percentage
+          amount_cents, split_type, percentage, policy_version_id, jurisdiction_snapshot
         )
-        VALUES ($1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7, $8)
+        VALUES ($1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7, $8, $9::uuid, $10::jsonb)
         RETURNING id, tenant_id, transaction_id, amount_cents, percentage::text, split_type, created_at
         `,
         [
@@ -235,6 +237,8 @@ class BankSplitRepository {
           amountCents,
           splitType,
           percentage ?? null,
+          policyVersionId ?? null,
+          jurisdictionSnapshot ? JSON.stringify(jurisdictionSnapshot) : null,
         ]
       );
 
