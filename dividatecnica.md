@@ -267,6 +267,23 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (4) — FASE 2 SELADA: geografia por FK canônica + excisão do trilho paralelo (DECISION-0166 D3)
+- **2a** `regional_fund_accounts` (FKs compostas hierárquicas — city de outro estado REJEITADA pelo banco;
+  UNIQUE NULLS NOT DISTINCT por escopo; 1 conta = 1 escopo; RLS FORCE; ZERO coluna de saldo). 14/14 rollback.
+- **2b** `ensureRegionalFundAccount` (FK=verdade; owner_id=rótulo por ID; neighborhood=501 HOLD D4;
+  idempotente; ledger intocado). 9/9 zero-resíduo.
+- **2c** cutover do caminho vivo: degradação FK→string REMOVIDA do pipeline; `jurisdiction_snapshot`
+  LEGÍTIMO por linha ({basis, level, IDs canônicos}) — fecha o contrato da F1-c; guard F1-d invertido
+  conscientemente (de "proíbe preencher" para "exige legítimo + proíbe fabricar"). Mutation 4/4.
+- **2d** EXCISÃO (autorizada): DROP `regional_funds`+`regional_fund_allocations` (0 rows ×2; zero writer
+  montado; leitor convertido a regional_fund_accounts); `ensureRegionalFundBankAccountForRegion` (sink
+  string) REMOVIDO; tombstone 501 RETIRED; 2 scripts mortos deletados; braço Bank do incentivo regional
+  RETIRED. Fecha o risco "geografia por texto + saldo fora do Bank".
+- **2e** guard `audit-regional-fund-fk-canonical` (anti-recriação, anti-string-key, anti-saldo-em-coluna).
+  Mutation 7/7. Suíte 151 GATE OK e typecheck 0 em TODAS as fatias; Δbank=0 na fase inteira.
+- Próximo (GO próprio): **Fase 3 — regional_level multi-nível na policy** (planet/country/state/city;
+  bairro HOLD). Lição de processo aplicada: mutation test só roda pós-commit (incidente 2c, refeito).
+
 ### 2026-07-10 (3) — Frente futura registrada: F-E2E-FIXTURE-UNIVERSE-REPAIR (não abrir sem GO)
 - Escopo quando aberta: (a) fixtures de `services` nos e2e com `canonical_service_id` (NOT NULL novo);
   (b) reconstruir universo G2 do transversal pós-reset (buyers/services/saldo/contas); (c) tratar trigger
