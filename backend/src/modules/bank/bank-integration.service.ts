@@ -130,8 +130,8 @@ class BankIntegrationService {
    * Cria transação no Unify Bank com split automático
    */
   async processEventTicketPayment(
-    tenantId: string,
-    input: {
+    _tenantId: string,
+    _input: {
       eventId: string;
       buyerUserId: string;
       amountCents: number;
@@ -140,92 +140,20 @@ class BankIntegrationService {
       metadata?: Record<string, any>;
     }
   ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
-    // 🔴 DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK — gate NO SINK (defesa-em-profundidade; fecha por
-    // CONSTRUÇÃO: qualquer caller, presente/futuro/dead-code religado, bate aqui antes de tocar bank_*).
-    // Reusa a flag de checkout/eventos (default OFF); não move dinheiro enquanto OFF. Caller mantém seu gate.
-    assertCheckoutFinancialRuntimeEnabled('bankIntegration.processEventTicketPayment');
-    const { eventId, buyerUserId, currency = 'BRL', idempotencyKey, metadata } = input;
-    const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
-
-    // SPRINT 36.2: Validar limite diário (enforcement)
-    try {
-      const { bankLimitService } = await import('./bank-limit.service');
-      await bankLimitService.validateLimit(
-        tenantId,
-        buyerUserId,
-        'payment_out',
-        amountCents,
-        buyerUserId
-      );
-    } catch (limitError: any) {
-      // Re-throw erro de limite (já tem statusCode 403)
-      if (limitError.statusCode === 403) {
-        throw limitError;
-      }
-      // Erro técnico no serviço de limites — fail-closed (não assumir permissão)
-      // Sem validação de limite, não existe operação financeira.
-      const svcError = new Error('[BankLimit] Serviço de limites indisponível — operação bloqueada por segurança') as any;
-      svcError.statusCode = 503;
-      svcError.errorCode = 'LIMIT_SERVICE_UNAVAILABLE';
-      svcError.originalError = limitError?.message || String(limitError);
-      throw svcError;
-    }
-
-    // Resolver conta do comprador
-    const buyerAccountId = await resolveUserAccount(tenantId, buyerUserId, currency);
-
-    // Resolver conta do organizador
-    const organizerAccountId = await resolveEventOrganizerAccount(tenantId, eventId, currency);
-    if (!organizerAccountId) {
-      throw new Error(`Organizer account not found for event ${eventId}`);
-    }
-
-    // Resolver actor do comprador para autoria
-    const buyerActor = await ensureUserActor(tenantId, buyerUserId);
-
-    // Construir autoria (ownership: comprador é dono da conta)
-    const authorship = buildFinancialAuthorshipFromRequest({
-      performedByUserId: buyerUserId,
-      actingForActorId: buyerActor.actor_id,
-      actingForAccountId: buyerAccountId,
-      authoritySource: 'ownership',
-      permissionSnapshot: {
-        permissionKey: 'ownership',
-        allowed: true,
-        actorId: buyerActor.actor_id,
-        userId: buyerUserId,
-        decidedAt: new Date().toISOString(),
-      },
-    });
-
-    // Criar transação com split (event_ticket context)
-    const eventIdForTransaction = idempotencyKey || uuidv4();
-    const result = await bankTransactionService.createTransactionWithSplit(tenantId, {
-      eventId: eventIdForTransaction,
-      fromAccountId: buyerAccountId,
-      amountCents,
-      currency,
-      context: 'event_ticket',
-      revenueShareAccountId: organizerAccountId,
-      fromUserId: buyerUserId, // Para calcular referral e group allocation
-      description: `Event ticket purchase: ${eventId}`,
-      metadata: {
-        ...metadata,
-        eventId,
-        buyerUserId,
-        type: 'event_ticket',
-      },
-      authorship,
-      concept_id: 'event-ticket-payment',
-    });
-
-    return {
-      transactionId: result.transaction.transactionId,
-      splits: result.splits.map((split) => ({
-        accountId: split.targetAccountId,
-        amountCents: split.amountCents,
-      })),
-    };
+    // 🔴 F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1D (DECISION-0165 D5/D8, sistema virgem):
+    //    event_ticket RETIRADO — fora do MVP. Corpo legado (createTransactionWithSplit context
+    //    'event_ticket' → bankSplitEngine = split fora do Bank) REMOVIDO. Fail-closed 501 no topo
+    //    absoluto — GATE de call-graph provou que nenhum caller persiste estado antes do sink
+    //    (CheckoutService transacional→rollback · event-economy firewall no topo · events-payment sem
+    //    mutação antes). Reabrir = pipeline canônico (economic_policy_engine → bank-transaction.service
+    //    → bank_splits), frente própria com GO.
+    throw Object.assign(
+      new Error(
+        'EVENT_TICKET_PAYMENT_RETIRED: pagamento de ingresso de evento fora do MVP (DECISION-0165). ' +
+          'Reabre só pelo pipeline canônico.',
+      ),
+      { statusCode: 501 },
+    );
   }
 
   /**
@@ -233,8 +161,8 @@ class BankIntegrationService {
    * Cria transação no Unify Bank com split automático
    */
   async processEventConsumptionPayment(
-    tenantId: string,
-    input: {
+    _tenantId: string,
+    _input: {
       eventId: string;
       buyerUserId: string;
       amountCents: number;
@@ -243,90 +171,18 @@ class BankIntegrationService {
       metadata?: Record<string, any>;
     }
   ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
-    // 🔴 DT-CHECKOUT-FINANCIAL-GATE-AT-CALLER-NOT-SINK — gate NO SINK (defesa-em-profundidade; fecha por construção).
-    // Reusa a flag de checkout/eventos (default OFF); não move dinheiro enquanto OFF. Caller mantém seu gate.
-    assertCheckoutFinancialRuntimeEnabled('bankIntegration.processEventConsumptionPayment');
-    const { eventId, buyerUserId, currency = 'BRL', idempotencyKey, metadata } = input;
-    const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
-
-    // SPRINT 36.2: Validar limite diário (enforcement)
-    try {
-      const { bankLimitService } = await import('./bank-limit.service');
-      await bankLimitService.validateLimit(
-        tenantId,
-        buyerUserId,
-        'payment_out',
-        amountCents,
-        buyerUserId
-      );
-    } catch (limitError: any) {
-      // Re-throw erro de limite (já tem statusCode 403)
-      if (limitError.statusCode === 403) {
-        throw limitError;
-      }
-      // Erro técnico no serviço de limites — fail-closed (não assumir permissão)
-      // Sem validação de limite, não existe operação financeira.
-      const svcError = new Error('[BankLimit] Serviço de limites indisponível — operação bloqueada por segurança') as any;
-      svcError.statusCode = 503;
-      svcError.errorCode = 'LIMIT_SERVICE_UNAVAILABLE';
-      svcError.originalError = limitError?.message || String(limitError);
-      throw svcError;
-    }
-
-    // Resolver conta do comprador
-    const buyerAccountId = await resolveUserAccount(tenantId, buyerUserId, currency);
-
-    // Resolver conta do organizador
-    const organizerAccountId = await resolveEventOrganizerAccount(tenantId, eventId, currency);
-    if (!organizerAccountId) {
-      throw new Error(`Organizer account not found for event ${eventId}`);
-    }
-
-    // Resolver actor do comprador para autoria
-    const buyerActor = await ensureUserActor(tenantId, buyerUserId);
-
-    // Construir autoria (ownership: comprador é dono da conta)
-    const authorship = buildFinancialAuthorshipFromRequest({
-      performedByUserId: buyerUserId,
-      actingForActorId: buyerActor.actor_id,
-      actingForAccountId: buyerAccountId,
-      authoritySource: 'ownership',
-      permissionSnapshot: {
-        permissionKey: 'ownership',
-        allowed: true,
-        actorId: buyerActor.actor_id,
-        userId: buyerUserId,
-        decidedAt: new Date().toISOString(),
-      },
-    });
-
-    // Criar transação com split (event_ticket context - mesmo split de ingresso)
-    const eventIdForTransaction = idempotencyKey || uuidv4();
-    const result = await bankTransactionService.createTransactionWithSplit(tenantId, {
-      eventId: eventIdForTransaction,
-      fromAccountId: buyerAccountId,
-      amountCents,
-      currency,
-      context: 'event_ticket',
-      revenueShareAccountId: organizerAccountId,
-      description: `Event consumption: ${eventId}`,
-      metadata: {
-        ...metadata,
-        eventId,
-        buyerUserId,
-        type: 'event_consumption',
-      },
-      authorship,
-      concept_id: 'event-ticket-payment',
-    });
-
-    return {
-      transactionId: result.transaction.transactionId,
-      splits: result.splits.map((split) => ({
-        accountId: split.targetAccountId,
-        amountCents: split.amountCents,
-      })),
-    };
+    // 🔴 F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1D (DECISION-0165 D5/D8, sistema virgem):
+    //    event_ticket (consumo) RETIRADO — fora do MVP. Corpo legado (createTransactionWithSplit
+    //    context 'event_ticket' → bankSplitEngine = split fora do Bank) REMOVIDO. Fail-closed 501 no
+    //    topo absoluto — GATE de call-graph: único caller CheckoutService é transacional → rollback;
+    //    nada persiste antes do sink. Reabrir = pipeline canônico, com GO.
+    throw Object.assign(
+      new Error(
+        'EVENT_CONSUMPTION_PAYMENT_RETIRED: pagamento de consumo de evento fora do MVP (DECISION-0165). ' +
+          'Reabre só pelo pipeline canônico.',
+      ),
+      { statusCode: 501 },
+    );
   }
 
   // ========================================================
@@ -824,8 +680,8 @@ class BankIntegrationService {
    * Cria transação no Unify Bank com split automático (3% fee, 97% driver)
    */
   async processRidePayment(
-    tenantId: string,
-    input: {
+    _tenantId: string,
+    _input: {
       rideId: string;
       passengerUserId: string;
       driverUserId: string;
@@ -841,195 +697,20 @@ class BankIntegrationService {
     transactionId: string;
     splits: Array<{ accountId: string; amountCents: number; splitType: string }>;
   }> {
-    // 🔴 F-RIDES-FINANCIAL-FIREWALL (achado B1, 2026-07-02): fail-closed default-off ANTES de
-    // qualquer resolução de conta / split / ledger. SINK do gate duplo (o CALLER
-    // distributionService.processRidePayment também é gated — defesa-em-profundidade). Este era o
-    // único método money-sink do bank-integration sem firewall. Reabrir = flag (PORTA-1).
-    assertRidesFinancialRuntimeEnabled('bankIntegration.processRidePayment');
-
-    const {
-      rideId,
-      passengerUserId,
-      driverUserId,
-      currency = 'BRL',
-      idempotencyKey,
-      metadata,
-      groupId,
-      referrerUserId,
-      region,
-    } = input;
-    const amountCents = toPositiveMoneyCents(input.amountCents);
-
-    try {
-      const { bankLimitService } = await import('./bank-limit.service');
-      await bankLimitService.validateLimit(
-        tenantId,
-        passengerUserId,
-        'payment_out',
-        amountCents,
-        passengerUserId
-      );
-    } catch (limitError: any) {
-      if (limitError.statusCode === 403) {
-        throw limitError;
-      }
-      // Erro técnico no serviço de limites — fail-closed (não assumir permissão)
-      // Sem validação de limite, não existe operação financeira.
-      const svcError = new Error('[BankLimit] Serviço de limites indisponível — operação bloqueada por segurança') as any;
-      svcError.statusCode = 503;
-      svcError.errorCode = 'LIMIT_SERVICE_UNAVAILABLE';
-      svcError.originalError = limitError?.message || String(limitError);
-      throw svcError;
-    }
-
-    const passengerAccountId = await resolveUserAccount(tenantId, passengerUserId, currency);
-    const driverAccountId = await resolveUserAccount(tenantId, driverUserId, currency);
-    const feeAccount = await bankAccountService.getSystemAccount(tenantId, 'fee', currency);
-    if (!feeAccount) {
-      throw new Error('Fee account not found');
-    }
-
-    let regionalFundAccountId: string | null = null;
-    if (region) {
-      const regionalFundAccount = await bankAccountService.ensureRegionalFundBankAccountForRegion(
-        tenantId,
-        region,
-        currency
-      );
-      regionalFundAccountId = regionalFundAccount.accountId;
-    }
-
-    let groupAccountId: string | null = null;
-    if (groupId) {
-      groupAccountId = await resolveGroupAccount(tenantId, groupId, currency);
-    }
-
-    let referrerAccountId: string | null = null;
-    if (referrerUserId) {
-      referrerAccountId = await resolveUserAccount(tenantId, referrerUserId, currency);
-    }
-
-    const feeCents = Math.round(amountCents * 0.03);
-    const regionalCents = regionalFundAccountId ? Math.round(amountCents * 0.1) : 0;
-    const groupCents = groupAccountId ? Math.round(amountCents * 0.1) : 0;
-    const referralCents = referrerAccountId ? Math.round(amountCents * 0.07) : 0;
-    const driverBaseCents = Math.round(amountCents * 0.7);
-    const remainderCents =
-      amountCents - driverBaseCents - feeCents - regionalCents - groupCents - referralCents;
-    const driverTotalCents = driverBaseCents + remainderCents;
-
-    const passengerActor = await ensureUserActor(tenantId, passengerUserId);
-    const driverActor = await ensureUserActor(tenantId, driverUserId);
-    const referrerActor = referrerUserId
-      ? await ensureUserActor(tenantId, referrerUserId)
-      : null;
-
-    const authorship = buildFinancialAuthorshipFromRequest({
-      performedByUserId: passengerUserId,
-      actingForActorId: passengerActor.actor_id,
-      actingForAccountId: passengerAccountId,
-      authoritySource: 'ownership',
-      permissionSnapshot: {
-        permissionKey: 'ownership',
-        allowed: true,
-        actorId: passengerActor.actor_id,
-        userId: passengerUserId,
-        decidedAt: new Date().toISOString(),
-      },
-    });
-
-    const splitLines: Array<{
-      targetAccountId: string;
-      amountCents: number;
-      percentage?: number | null;
-      receiverActorId: string;
-      splitType?: 'revenue_share' | 'fee' | 'regional_fund' | 'referral';
-    }> = [
-      {
-        targetAccountId: driverAccountId,
-        amountCents: driverTotalCents,
-        percentage: driverTotalCents / amountCents,
-        receiverActorId: driverActor.actor_id,
-        splitType: 'revenue_share',
-      },
-      {
-        targetAccountId: feeAccount.accountId,
-        amountCents: feeCents,
-        percentage: feeCents / amountCents,
-        receiverActorId: feeAccount.accountId,
-        splitType: 'fee',
-      },
-    ];
-
-    if (regionalFundAccountId && regionalCents > 0) {
-      splitLines.push({
-        targetAccountId: regionalFundAccountId,
-        amountCents: regionalCents,
-        percentage: regionalCents / amountCents,
-        receiverActorId: regionalFundAccountId,
-        splitType: 'regional_fund',
-      });
-    }
-
-    if (groupAccountId && groupCents > 0) {
-      splitLines.push({
-        targetAccountId: groupAccountId,
-        amountCents: groupCents,
-        percentage: groupCents / amountCents,
-        receiverActorId: groupAccountId,
-        splitType: 'revenue_share',
-      });
-    }
-
-    if (referrerAccountId && referralCents > 0) {
-      splitLines.push({
-        targetAccountId: referrerAccountId,
-        amountCents: referralCents,
-        percentage: referralCents / amountCents,
-        receiverActorId: referrerActor?.actor_id ?? referrerAccountId,
-        splitType: 'referral',
-      });
-    }
-
-    const result = await bankTransactionService.createTransactionWithExplicitSplitLines(tenantId, {
-      referenceType: 'ride_payment',
-      referenceId: rideId,
-      fromAccountId: passengerAccountId,
-      payerActorId: passengerActor.actor_id,
-      amountCents,
-      currency,
-      splitLines,
-      description: `Corrida ${rideId}`,
-      metadata: {
-        rideId,
-        passengerUserId,
-        driverUserId,
-        type: 'ride_payment',
-        idempotencyKey: idempotencyKey ?? `ride-${rideId}`,
-        split: {
-          driver_cents: driverTotalCents,
-          fee_cents: feeCents,
-          regional_fund_cents: regionalCents,
-          group_cents: groupCents,
-          referral_cents: referralCents,
-        },
-        region,
-        groupId,
-        referrerUserId,
-        ...metadata,
-      },
-      concept_id: 'ride-payment',
-      authorship,
-    });
-
-    return {
-      transactionId: result.transaction.transactionId,
-      splits: result.splits.map((split) => ({
-        accountId: split.targetAccountId,
-        amountCents: split.amountCents,
-        splitType: split.splitType,
-      })),
-    };
+    // 🔴 F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1D (DECISION-0165 D5/D8, sistema virgem):
+    //    ride_payment RETIRADO — fora do MVP. Corpo legado (split 3/10/10/7/70 HARDCODED via
+    //    createTransactionWithExplicitSplitLines, referenceType/context 'ride_payment') REMOVIDO.
+    //    Fail-closed 501 no topo absoluto — GATE de call-graph provou: distribution.service (único
+    //    caller do sink) tem firewall no topo e só faz SELECT antes; nada persiste antes deste ponto.
+    //    Reabrir = pipeline canônico (economic_policy_engine → bank-transaction.service → bank_splits),
+    //    frente própria com GO.
+    throw Object.assign(
+      new Error(
+        'RIDE_PAYMENT_RETIRED: pagamento de corrida fora do MVP (DECISION-0165). ' +
+          'Reabre só pelo pipeline canônico.',
+      ),
+      { statusCode: 501 },
+    );
   }
 }
 
