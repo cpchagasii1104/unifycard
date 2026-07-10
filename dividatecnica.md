@@ -84,10 +84,20 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 |---|---|---|
 | DTs distintas no cartório | **540** (medido: headers `## DT-/F-` únicos) | 2026-07-06 |
 | Cross-links `[[...]]` (grafo de dependência) | 241 | 2026-07-06 |
-| **Abertas (estimativa reconciliada)** | **~150–170** | 2026-07-06 |
+| **Abertas (estimativa reconciliada)** | **~150–170** (inalterado — a frente de split fechou CONTENDO/RETIRANDO paralelos, não zerou DTs A_DECISION; ver nota) | 2026-07-09 |
 | Contidas/mitigadas (latência viva) | ~50 | 2026-07-06 |
-| Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido hoje) | 2026-07-06 |
-| Suite `validate:regression-guards` | ✅ 196 GATE OK / RC=0 | 2026-07-06 |
+| Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
+| Suite `validate:regression-guards` | ✅ **151 GATE OK / RC=0** (medido 2026-07-09 via `npm run`) | 2026-07-09 |
+
+**🟢 Sessão 2026-07-09 — F-BANK-SPLIT-PIPELINE-CONSOLIDATION-VIRGIN-SYSTEM FECHADA:** frente de
+consolidação do pipeline financeiro (sistema virgem, DECISION-0165). 8 fatias + 1 correção, todas
+provadas e commitadas (typecheck 0 · suíte 151 GATE OK · guard anti-revival c/ stripComments testado
+por mutação · Δbank=0 · working tree limpo). **Efeito na contagem:** NÃO altera a estimativa de
+abertas — a frente RETIROU/CONTEU caminhos financeiros paralelos vivos (não eram DTs A_DECISION
+abertas; eram superfície de risco no bucket dinheiro/PORTA-1). O número de suíte caiu 196→151 porque
+o inteiro anterior estava desatualizado; 151 é a medida viva de hoje. Bucket L1/dinheiro: mais limpo
+(um só pipeline de split), mas NÃO fechado — PORTA-1 e o cutover do `bankSplitEngineService` legado
+(vivo p/ group_contribution) seguem HOLD.
 
 **🔴 Método da contagem (auditoria Fable 5, 2026-07-06):** o inteiro EXATO de abertas não é
 derivável por query — o cartório fecha DTs de formas heterogêneas (CLOSED/CONTAINED/CONTIDO/
@@ -127,8 +137,24 @@ dinheiro soberano (PORTA-1 §4).
 - [x] Passo 3: split-mecanismo + PF resolver (commit da Fatia 9 passo 3)
 - [x] Auditoria Yala rodou 2× — PASS, bloqueador P2P fechado
 - [x] Passo 4 mecanismo provado em efêmera (2026-07-06, 9/9 PASS)
+- [x] **✅ F-BANK-SPLIT-PIPELINE-CONSOLIDATION-VIRGIN-SYSTEM FECHADA (2026-07-09, DECISION-0165):**
+      consolidação do pipeline de split ANTES de abrir PORTA-1 (sistema virgem → excisar paralelos, não
+      conter por flag). 8 fatias + 1 correção, todas provadas (typecheck 0 · suíte 151 GATE OK · Δbank=0):
+      1A work-assignment split paralelo excisado (+1A-R fail-close antes de mutação) · 1B `transferP2P`+
+      donation aposentados (rotas desmontadas; **fecha `DT-P2P-TRANSFER-ACTOR-RESOLUTION-USERID-VS-ACTORID`
+      por retirada do caminho**) · 1C `processServiceBookingPayment` legado removido (canônico preservado) ·
+      1D 3 sinks event_ticket/consumption/ride_payment → `*_PAYMENT_RETIRED` · 1E-1/1b treasury-split +
+      treasury-distribution workers gateados default-OFF (bootavam ungated) · 1E-2 sweep de mortos
+      (post-event-split.job, event-scheduler, core/economy/split.service, resolveBankAccountForServiceActor) ·
+      1F guard anti-revival `audit-bank-split-pipeline-consolidation.mjs` (stripComments, testado por
+      mutação, na suíte) + reconciliação de 2 guards B1 (aceitam RETIRED = mais forte que firewall).
+      **Um só pipeline vivo:** economic_policy_engine decide → bank-transaction.service executa → bank_splits.
 - [ ] **Passo 4 semear saldo REAL** — Clayton escolheu "só mecanismo" por ora; reabrir quando quiser
-- [ ] Achado novo: `DT-P2P-TRANSFER-ACTOR-RESOLUTION-USERID-VS-ACTORID` (latente, liga ao L2)
+- [ ] **HOLD/resíduo p/ próxima frente (`F-BANK-SPLIT-POLICY-ADMIN-FOUNDATION`):** `bankSplitEngineService`
+      (`modules/bank/bank-split-engine.service.ts`) segue VIVO servindo `group_contribution` (context legado
+      via `bank-transaction.service:1313`), contido pelo sink firewall — **NÃO fechado nesta frente**, é o
+      cutover da frente do split configurável. Também HOLD: donation (migrar ao canônico); ratchet-down
+      `financial-ssot` 592→587 (DECISION-0158, aviso não-bloqueador).
 - Ver `READINESS_PORTA1.md` para o mapa completo.
 
 ### L2 — Delegação/R2 + risco PJ (~12 DTs) — **DECIDIDO · R2.1 EXECUTADO**
@@ -240,6 +266,30 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-09 — F-BANK-SPLIT-PIPELINE-CONSOLIDATION-VIRGIN-SYSTEM FECHADA (DECISION-0165)
+- Consolidação do pipeline financeiro ANTES de PORTA-1 (sistema virgem → excisar caminhos de split
+  paralelos/legados, não conter por flag). Fase 0 (DECISION-0165 docs) + 0.5 (reachability+cartório) +
+  1A→1F. **Removidos/aposentados:** work-assignment split.service (1A/1A-R) · transferP2P+donation (1B,
+  rotas desmontadas) · processServiceBookingPayment legado (1C) · 3 sinks event_ticket/consumption/
+  ride_payment → `*_PAYMENT_RETIRED` (1D) · mortos: post-event-split.job/event-scheduler/core-economy-
+  split.service/resolveBankAccountForServiceActor (1E-2). **Gated default-OFF:** treasury-split +
+  treasury-distribution workers (1E-1/1b, bootavam ungated). **Mantidos:** pipeline canônico
+  (service-payment-execution→economicPolicyEngine→createTransactionWithExplicitSplitLines), service_booking
+  MVP, bankSplitEngineService (VIVO/HOLD p/ group_contribution — cutover da próxima frente),
+  resolveEventOrganizerAccount (getter de saldo vivo — GATE pegou o falso-morto). **1F:** guard
+  anti-revival `audit-bank-split-pipeline-consolidation.mjs` (stripComments, 6 grupos, testado por
+  mutação) + reconciliação de 2 guards B1 (rides/checkout firewall) p/ aceitar estado RETIRED.
+- **Provas finais:** typecheck 0 · `validate:regression-guards` = **151 GATE OK/RC=0** (via npm) · Δbank=0
+  · working tree limpo. Commits materiais separados dos de cartório em CADA fatia (8+corr.).
+- **Gap de processo assumido:** nas fatias 1D/1E provei com typecheck+negative-proof mas NÃO rodei a
+  suíte completa — a suíte ficou vermelha desde a 1D (2 firewall-guards do B1) e só peguei na 1F.
+  **Nova disciplina:** fatia que mexe em método vigiado por guard exige `validate:regression-guards`
+  completo na prova, não só typecheck. (O "guard-financial-regression FAIL" no meio foi falso alarme —
+  PATH sem node_modules/.bin ao rodar `node` direto; via `npm run` passa.)
+- Contagem: estimativa de abertas INALTERADA (~150–170) — a frente retirou superfície de risco no
+  bucket dinheiro, não fechou DTs A_DECISION. Cartório completo em `REMEDIATION_DT_LOG.md` (relatório
+  consolidado + STOP). Próximo foco: `F-BANK-SPLIT-POLICY-ADMIN-FOUNDATION` (split configurável).
 
 ### 2026-07-06 (6) — Auditoria dependency-aware (Fable 5) + PLANO_ZERAGEM_DT v2
 - Verificação de 1ª mão contra fontes primárias (git+cartório), NÃO memória. Medido: 540 DTs
