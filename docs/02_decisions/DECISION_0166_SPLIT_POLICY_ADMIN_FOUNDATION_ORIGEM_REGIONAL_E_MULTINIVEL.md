@@ -144,3 +144,52 @@ regional real **antes** das Fases 1–2 seladas. A superfície admin (Fase 5) ve
 - Frontend/admin **projeta e configura**, não cria verdade territorial nem geografia paralela.
 - Geografia = FK do Location Core (DECISION-0020), nunca string.
 - Origem econômica do comprador é o padrão (D0); local do gasto é opcional, não default.
+
+---
+
+## 6. ADENDO 2026-07-10 — D7 e D8 (ratificados por Clayton ANTES da Fase 3; docs-only)
+
+Contexto: Fases 1 (imutabilidade+snapshot) e 2 (geografia por FK + excisão do trilho paralelo)
+SELADAS. Antes de fatiar a comissão em níveis (Fase 3), Clayton cravou dois pontos que estavam
+implícitos e precisam ser norma explícita: **imposto vem antes/à parte da distribuição social**,
+e **o admin liga/desliga destinos e ajusta percentuais — sempre por policy versionada**.
+
+### D7 — Fiscalidade / impostos ANTES da distribuição social
+- O split deve contemplar **impostos, obrigações fiscais, retenções, taxas externas e reservas
+  fiscais**. A ordem lógica do valor é:
+  ```
+  valor bruto da transação
+  → taxas externas de pagamento (adquirente etc., quando existirem)
+  → comissão UnifiCard bruta
+  → reserva/obrigação fiscal
+  → comissão DISTRIBUÍVEL
+  → fundos regionais / grupos / indicação / sistema
+  ```
+- **Imposto NÃO é redirecionamento social.** É obrigação fiscal — linha própria/reserva fiscal
+  versionada (vocabulário candidato: `tax_reserve` / `fiscal_obligation` / `tax_liability`;
+  escolha exata na fatia que materializar), tratada ANTES da distribuição livre da comissão.
+- A base distribuível pode ser **comissão bruta ou comissão líquida**, conforme policy
+  **versionada** — nunca implícita.
+- **Nenhum percentual regional/grupo/indicação/sistema pode assumir que 100% da comissão bruta
+  está livre.**
+- Detalhes fiscais concretos (alíquotas, regimes, retenções) dependem de contador/regra
+  tributária aplicável e devem ser **parametrizados e versionados na policy — nunca hardcoded**.
+
+### D8 — Admin: toggles de destino e percentuais, sempre por nova versão
+- O painel admin deve permitir **ativar/desativar** redirecionamentos:
+  planeta · país · estado · cidade · **bairro (quando governado — D4)** · indicação · grupos ·
+  sistema/expansão · **reserva fiscal (quando aplicável — D7)**.
+- O admin pode **ajustar percentuais dentro de limites governados** (tetos/pisos definidos por
+  regra, ex.: teto máximo de comissão).
+- **Toda alteração gera NOVA VERSÃO de policy** — policy ativa não é editada in-place (D5/F1-a,
+  já é trava de banco).
+- A **soma das linhas ativas precisa fechar corretamente** conforme a base definida (validação
+  material, não convenção).
+- **Linhas obrigatórias** (ex.: fiscalidade do D7, sistema mínimo) **não podem ser desligadas**
+  se a policy/regra exigir — o toggle é governado, não absoluto.
+- **Admin configura policy; Bank executa split e ledger. Admin não move dinheiro.**
+
+### Escopo do adendo
+Docs-only: sem código, sem migration, sem seed, sem saldo, sem ativar split real. D7 impacta o
+desenho da Fase 3/4 (a base multi-nível NÃO é 100% da comissão bruta por default); D8 é o
+contrato da Fase 5 (admin CRUD). A materialização de cada um exige GO próprio por fatia.
