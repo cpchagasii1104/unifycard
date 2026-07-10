@@ -193,3 +193,75 @@ e **o admin liga/desliga destinos e ajusta percentuais — sempre por policy ver
 Docs-only: sem código, sem migration, sem seed, sem saldo, sem ativar split real. D7 impacta o
 desenho da Fase 3/4 (a base multi-nível NÃO é 100% da comissão bruta por default); D8 é o
 contrato da Fase 5 (admin CRUD). A materialização de cada um exige GO próprio por fatia.
+
+---
+
+## 7. ADENDO 2026-07-10 (2) — D9: INFRAESTRUTURA FISCAL CONFIGURÁVEL / LEI DO CONTADOR
+### (ratificado por Clayton na abertura da Fase 4 — fatia 4a, docs-only)
+
+Contexto: GATE read-first da Fase 4 aceito. Achados: substrato fiscal canônico JÁ EXISTE
+(`fiscal_identities` + KYB + CNAE + documentos; `companies.fiscal_identity_id`); o reader
+`company_profiles` é TABELA-FANTASMA (SELECT em tabela inexistente); `TaxRegime` do código não
+tem SIMPLES_NACIONAL; `applies_to` é coluna morta. D9 crava a doutrina ANTES de qualquer
+código fiscal.
+
+### D9.1 — A LEI DO CONTADOR (princípio central)
+1. **O UnifiCard NÃO é autoridade fiscal.**
+2. **O UnifiCard NÃO substitui** contador, Receita Federal, prefeitura, estado ou qualquer
+   órgão fiscal.
+3. O sistema fornece **infraestrutura fiscal configurável, versionada e auditável**.
+4. **Empresas, actors, contadores e administradores autorizados** configuram os regimes,
+   tributos e regras aplicáveis. A responsabilidade fiscal oficial é do CONTRIBUINTE.
+5. O cálculo do sistema nesta fase é **PROVISÃO/RESERVA fiscal interna conforme configuração
+   versionada** — nunca apuração fiscal oficial definitiva.
+
+### D9.2 — Ausência de configuração (fail-honest, fail-closed)
+6. Se um tributo/regra não estiver configurado:
+   - o sistema **não inventa cálculo**;
+   - registra **`fiscal_config_missing`** (ou status equivalente) na trilha auditável;
+   - emite alerta/auditoria ao actor/admin;
+   - em contexto OBRIGATÓRIO, **bloqueia fail-closed** (ex.: policy com linha fiscal
+     irresolvível não ativa).
+   Silêncio nunca; invenção nunca; rastro sempre.
+
+### D9.3 — Dois contribuintes, uma infraestrutura
+7. Fiscalidade do actor/empresa e fiscalidade da PRÓPRIA UnifiCard são **separadas**:
+   o actor/empresa configura as obrigações dele; a UnifiCard configura as dela sobre
+   **receitas próprias** — mesmas tabelas/motor, contribuintes distintos.
+
+### D9.4 — Casa canônica e anti-verdade-paralela
+8. A casa canônica do fiscal profile é **ancorada em `fiscal_identities`**
+   (novo `actor_fiscal_profiles` referencia a identidade fiscal existente — não nasce solto).
+9. **`company_profiles` NÃO vira nova fonte fiscal paralela.** Decisão: **aposentar o reader
+   fantasma** — salvo se o GATE da 4b provar dependência viva que exija adaptação controlada.
+10. **DIRETIVA ANTI-VERDADE-PARALELA (Clayton, 2026-07-10):** muita coisa já foi construída e
+    pode ou não existir/estar viva. **Toda fatia da Fase 4 EXAURE o substrato existente no seu
+    GATE antes de criar tabela/vocabulário/serviço novo** (exemplo desta própria fase:
+    fiscal_identities já existia e vira âncora, não concorrente). Criar paralelo do que já
+    existe = REPROVA.
+
+### D9.5 — Vocabulários ratificados para o desenho (materialização nas fatias)
+11. **TaxRegime:** `MEI` · `SIMPLES_NACIONAL` · `LUCRO_PRESUMIDO` · `LUCRO_REAL` · `OTHER`.
+12. **applies_to futuro:** `gross_transaction` · `commission_gross` · `commission_distributable`.
+13. **line_type futuro:** `tax_reserve`.
+14. **Status fiscal:** `fiscal_config_missing`.
+15. **Platform revenue streams:** `marketplace_commission` · `advertising` · `own_tickets` ·
+    `acquiring_fees` · `physical_structures` · `other`.
+
+### D9.6 — Regras do catálogo fiscal
+16. **Alíquotas/regras fiscais NUNCA hardcoded em código** (guard de CI morde literal de alíquota).
+17. Toda regra fiscal precisa de: **vigência** (effective_from/until) · **fonte** registrável
+    (norma/contador/URL) · **versionamento** (append-only, imutável quando ativa) · **escopo
+    territorial por FK Location Core** · **regime** · **categoria/produto/serviço/tipo de
+    receita** quando aplicável.
+18. **O catálogo fiscal nasce VAZIO ou governado — nunca inventado.** Catálogo vazio + linha
+    fiscal exigida = bloqueio fail-closed POR DESIGN (não é bug a "consertar").
+
+### D9.7 — Governança de execução da Fase 4
+19. **A fatia 4d (motor de cálculo — cadeia de bases) exige GO PRÓPRIO E SEPARADO de Clayton.**
+    Não entra em GO automático nem em GO de lote. Sequência ratificada:
+    4a (este adendo) → 4b (actor_fiscal_profiles + destino do ghost) → 4c (tax_types/tax_rules
+    vazios/versionados) → **4d (GO próprio)** → 4e (tax_reserve fim-a-fim) → 4f (guards).
+
+### Escopo da 4a
+Docs-only: zero código, migration, seed, saldo, cálculo fiscal, split real, painel admin.
