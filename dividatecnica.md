@@ -267,6 +267,23 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (7) — FASE 4c-1 EXECUTADA: catálogo fiscal governado VAZIO (tax_types + tax_rules) — aguarda Yala
+- GO de Clayton pós-GATE 4c: catálogo TENANT-SCOPED; achado R1 vira DT (não correção); invoicing intocado;
+  SÓ 4c-1; 4d segue trancada (D9.7). Material `5a7f636ba` (migration `20260710140000`, zero código TS).
+- `tax_types` (identidade do tributo; scope_level country/state/city = subconjunto fiscal do vocabulário
+  territorial da 2a; SEM alíquota) + `tax_rules` (regra versionada: rate_bps INTEIRO como DADO — nunca
+  literal em código; nível da regra = nível do tributo IMPOSTO por FK composta; território por FKs
+  compostas Location Core; regime = MESMO vocabulário D9.5; taxpayer actor|platform + stream D9.5 ×6;
+  concept_id opcional como SSOT semântico; source+vigência+version obrigatórios; imutável quando ativa,
+  deprecated terminal, DELETE bloqueado; RLS ENABLE+FORCE nas duas). NASCE VAZIO (D9.6.18) — zero seed.
+- Provas 26/26 em BEGIN..ROLLBACK resíduo 0 (destaques: city de outro estado e regra-country-para-tributo-
+  municipal REJEITADAS pelo banco via FK composta; grafia curta SIMPLES rejeitada; catálogo 0 rows antes/depois).
+  Typecheck 0; suíte 151 GATE OK na mesma cadeia && do commit; Δbank=0.
+- **NOVA DT registrada (achado do GATE 4c): `DT-INVOICING-HARDCODED-TAX-RATE`** — invoice.service.ts:74
+  calcula imposto com 5% HARDCODED ("exemplo") em módulo MONTADO; decisão de Clayton = frente própria
+  (invoicing/fiscal-document), não consertar na 4c; guard 4c-3 deve enxergar o risco. Contagem de abertas +1.
+- Próximas: 4c-2 (vocabulário PLATFORM_REVENUE_STREAMS + repository) só com GO · 4c-3 (guards) · 4d TRANCADA.
+
 ### 2026-07-10 (6) — FASES 4a+4b SELADAS: Lei do Contador + Casa Fiscal Canônica (DECISION-0166 D9)
 - **Fase 4a — ADENDO D9 / Lei do Contador — SELADA (docs-only, `c3547f2fd`):** UnifiCard NÃO é
   autoridade fiscal nem substitui contador — fornece infraestrutura fiscal CONFIGURÁVEL, VERSIONADA e
