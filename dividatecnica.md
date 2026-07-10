@@ -267,6 +267,26 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 — F-BANK-SPLIT-POLICY-ADMIN-FOUNDATION: DECISION-0166 promulgada + FASE 1 SELADA (imutabilidade + snapshot)
+- **DECISION-0166** (docs-only, `73c0a63a3`): D0 origem regional padrão = jurisdição cadastral do COMPRADOR
+  (PF residência/PJ fiscal; transaction_location opcional, não default) · D1 base=comissão · D2 multi-nível
+  `regional_level` (planet/country/state/city/neighborhood, ortogonal ao basis) · D3 fundo por FK (nunca
+  string) · D4 bairro HOLD sem catálogo governado · D5 imutabilidade+snapshot · D6 admin por último.
+- **FASE 1 (F1-a..F1-d) COMPLETA** — fecha o gap "policy ativa reescritível por cima" (achado G4/G-A/G-B do
+  GATE; era só convenção, virou trava de banco): trigger `economic_policies_immutability` (ativa congela
+  campos materiais; só active→deprecated + effective_until; deprecated TERMINAL — fecha bypass de
+  ressurreição; DELETE bloqueado em active/deprecated) + trigger `economic_policy_lines_freeze` (lines
+  congeladas com pai active/deprecated; anti-repoint; fail-closed sob RLS) + `bank_splits.policy_version_id`
+  (FK→economic_policies, preenchido pelo pipeline canônico desde a origem policyResult.policy.id) +
+  `jurisdiction_snapshot` JSONB (CONTRATO nullable — preenchimento só nas Fases 2-3; guard anti-fabricação)
+  + guard `audit-policy-immutability-and-split-snapshot.mjs` (stripComments TS+SQL, anti-drop, mutation 7/7).
+- Provas: 14/14+9/9+5/5 negativas em rollback; typecheck 0 e suíte 151 GATE OK em TODAS as fatias;
+  Δbank=0; sem backfill. Commits: `e6260802e`/`14f2b0a21`/`1fa2ce113`/`9ad6e2b5c` + cartórios.
+- **Pendência com GO pendente:** 7 scripts e2e validate-pipeline-* precisam do padrão draft→lines→activate
+  + cleanup sem DELETE de ativadas (colisão reportada, scripts NÃO tocados — regra "parar antes de expandir").
+- Contagem de DTs abertas INALTERADA (~150–170): Fase 1 fechou achados de GATE (G-A/G-B/G-C/G-D), não DTs
+  A_DECISION nomeadas. Próxima fase (GO próprio): Fase 2 `regional_fund_accounts` por FK canônica.
+
 ### 2026-07-09 — F-BANK-SPLIT-PIPELINE-CONSOLIDATION-VIRGIN-SYSTEM FECHADA (DECISION-0165)
 - Consolidação do pipeline financeiro ANTES de PORTA-1 (sistema virgem → excisar caminhos de split
   paralelos/legados, não conter por flag). Fase 0 (DECISION-0165 docs) + 0.5 (reachability+cartório) +
