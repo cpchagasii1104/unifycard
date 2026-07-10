@@ -443,12 +443,19 @@ export async function startServer(): Promise<void> {
   }
 
   // Treasury Distribution Worker — cria governance_financial_actions a partir de treasury_distributions (a cada 60s)
-  try {
-    const { startTreasuryDistributionWorker } = await import('./src/workers/treasury-distribution-worker');
-    startTreasuryDistributionWorker();
-    console.log('[BOOT] Treasury Distribution Worker iniciado');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Treasury Distribution Worker não iniciado:', err);
+  // 🔴 F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1E-1b (DECISION-0165 D5/D8, sistema virgem): irmão gêmeo
+  //    do treasury-split-worker — bootava SEM gate financeiro. Agora GATED default-OFF (mesmo padrão);
+  //    gate ANTES de startTreasuryDistributionWorker() → nenhum ciclo/mutação. Corpo/schema/regra intocados.
+  if (isFinancialWorkerEnabled('ENABLE_TREASURY_DISTRIBUTION_WORKER')) {
+    try {
+      const { startTreasuryDistributionWorker } = await import('./src/workers/treasury-distribution-worker');
+      startTreasuryDistributionWorker();
+      console.log('[BOOT] Treasury Distribution Worker iniciado (ENABLE_TREASURY_DISTRIBUTION_WORKER=true)');
+    } catch (err) {
+      console.warn('[BOOT] Aviso: Treasury Distribution Worker não iniciado:', err);
+    }
+  } else {
+    console.log('[BOOT] Treasury Distribution Worker DESLIGADO (default-off; ENABLE_TREASURY_DISTRIBUTION_WORKER≠true) — worker de tesouraria; religar só via pipeline canônico/PORTA-1.');
   }
 
   // Treasury Split Engine — split automático (sent settlements → regional_fund, community_fund, etc.)
