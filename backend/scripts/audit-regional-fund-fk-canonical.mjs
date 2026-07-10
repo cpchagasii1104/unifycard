@@ -84,6 +84,36 @@ for (const f of walkTs(join(ROOT, 'src'))) {
   if (/total_balance_cents/.test(src)) failures.push(`${f.replace(ROOT, '.')}: total_balance_cents (saldo em coluna fora do bank_ledger) reapareceu.`);
 }
 
+// ── (F) FASE 3 (DECISION-0166 D2): eixo regional_level travado ──
+const M3 = 'migrations/20260710120000_add_regional_level_to_policy_lines.sql';
+const m3 = readSql(M3);
+need(m3, M3, /ADD COLUMN IF NOT EXISTS regional_level TEXT NULL/, 'coluna regional_level ausente (3a revertida).');
+need(m3, M3, /chk_regional_level_canonical_values/, 'CHECK de vocabulário do nível sumiu.');
+need(m3, M3, /chk_regional_level_required_for_regional_fund/, 'CHECK nível-obrigatório-em-regional_fund sumiu — linha regional sem nível voltaria a ser possível.');
+need(m3, M3, /chk_regional_level_only_for_regional_fund/, 'CHECK nível-proibido-fora-de-regional_fund sumiu — nível decorativo voltaria.');
+need(m3, M3, /uq_policy_lines_regional_level_basis/, 'UNIQUE parcial (policy, nível, basis) sumiu — duplicata idêntica voltaria.');
+// anti-drop dos CHECKs em migrations futuras
+for (const f of readdirSync(migDir).filter((f) => f.endsWith('.sql') && f > '20260710120000_z')) {
+  const src = stripSql(readFileSync(join(migDir, f), 'utf-8'));
+  for (const chk of ['chk_regional_level_canonical_values', 'chk_regional_level_required_for_regional_fund', 'chk_regional_level_only_for_regional_fund']) {
+    const drops = new RegExp(`DROP CONSTRAINT (IF EXISTS )?${chk}\\b`).test(src);
+    const recreates = new RegExp(`ADD CONSTRAINT ${chk}\\b`).test(src);
+    if (drops && !recreates) failures.push(`migrations/${f}: dropa ${chk} sem recriar — eixo territorial revogado silenciosamente.`);
+  }
+}
+// resolver: nível vem da LINHA + HOLD de bairro no caminho vivo
+need(spe, SPE, /const level = calcSplit\.regionalLevel;/, 'resolver não lê o nível da LINHA (calcSplit.regionalLevel) — nível inventado/hardcoded.');
+need(spe, SPE, /POLICY_REGIONAL_LEVEL_REQUIRED/, 'fail-closed de linha sem nível sumiu do resolver.');
+need(spe, SPE, /REGIONAL_FUND_NEIGHBORHOOD_HOLD/, 'HOLD de neighborhood sumiu do resolver (D4).');
+// engine propaga o nível ao split calculado
+const ENGINE = 'src/modules/economy/policy-engine/economic-policy-engine.service.ts';
+need(readTs(ENGINE), ENGINE, /regionalLevel: line\.regionalLevel/, 'engine não propaga regionalLevel ao CalculatedEconomicSplit — resolver ficaria cego ao nível.');
+// repository persiste/lê o nível
+const PREPO = 'src/modules/economy/policy-engine/economic-policy.repository.ts';
+const prepo = readTs(PREPO);
+need(prepo, PREPO, /regional_origin_basis, regional_level,[\s\S]{0,200}INTO economic_policy_lines|INSERT INTO economic_policy_lines \([\s\S]{0,200}regional_level/, 'INSERT de policy line não grava regional_level.');
+need(prepo, PREPO, /regionalLevel: row\.regional_level/, 'mapper não lê regional_level — nível se perderia na leitura.');
+
 // ── (E) tombstone íntegro ──
 const RF = 'src/modules/marketplace/regional-fund.service.ts';
 const rf = readTs(RF);
@@ -98,4 +128,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [regional-fund-fk-canonical] — DECISION-0166 D3 travada: fundo regional por FK canônica (regional_fund_accounts com hierarquia material + UNIQUE por escopo, sem coluna de saldo), resolver ensureRegionalFundAccount (neighborhood HOLD), pipeline sem degradação FK→string, sink string morto, trilho paralelo regional_funds/allocations excisado sem recriação, tombstone fail-closed.');
+console.log('GATE OK [regional-fund-fk-canonical] — DECISION-0166 D3+D2 travadas: fundo regional por FK canônica (regional_fund_accounts com hierarquia material + UNIQUE por escopo, sem coluna de saldo), resolver ensureRegionalFundAccount (neighborhood HOLD), pipeline sem degradação FK→string, sink string morto, trilho paralelo regional_funds/allocations excisado sem recriação, tombstone fail-closed; EIXO regional_level (Fase 3): CHECKs vivos+anti-drop, UNIQUE (policy,nível,basis), nível vem da LINHA (engine propaga, repository persiste, resolver fail-closed sem nível e HOLD de bairro).');
