@@ -267,7 +267,7 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
-### 2026-07-10 (7) — FASE 4c-1 EXECUTADA: catálogo fiscal governado VAZIO (tax_types + tax_rules) — aguarda Yala
+### 2026-07-10 (7) — FASE 4c-1 SELADA PELA YALA: catálogo fiscal governado VAZIO (tax_types + tax_rules)
 - GO de Clayton pós-GATE 4c: catálogo TENANT-SCOPED; achado R1 vira DT (não correção); invoicing intocado;
   SÓ 4c-1; 4d segue trancada (D9.7). Material `5a7f636ba` (migration `20260710140000`, zero código TS).
 - `tax_types` (identidade do tributo; scope_level country/state/city = subconjunto fiscal do vocabulário
@@ -282,6 +282,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 - **NOVA DT registrada (achado do GATE 4c): `DT-INVOICING-HARDCODED-TAX-RATE`** — invoice.service.ts:74
   calcula imposto com 5% HARDCODED ("exemplo") em módulo MONTADO; decisão de Clayton = frente própria
   (invoicing/fiscal-document), não consertar na 4c; guard 4c-3 deve enxergar o risco. Contagem de abertas +1.
+- **✅ Veredito Yala (2026-07-10): SELO COMPLETO.** Escopo total da fatia = 1 migration SQL + 2 docs,
+  ZERO TS tocado. Confirmado: tenant-scoped nas duas tabelas · rate_bps como dado (nunca hardcoded) ·
+  TaxRegime D9.5 exato (grafias curtas rejeitadas) · FKs compostas Location Core (cidade de outro estado
+  rejeitada) · taxpayer_kind actor/platform · concept_id→concepts (não category) · imutabilidade+deprecated
+  terminal+DELETE bloqueado · RLS ENABLE+FORCE nas duas · catálogo vazio (zero seed real) · zero cálculo/
+  tax_reserve/applies_to/economic_policy_lines/motor/policy ativa/admin/invoicing/Bank · Δbank=0 ·
+  DT-INVOICING-HARDCODED-TAX-RATE permanece OPEN (não corrigida nesta fatia). Cartório `REMEDIATION_DT_LOG.md`
+  tem o registro completo do selo.
 - Próximas: 4c-2 (vocabulário PLATFORM_REVENUE_STREAMS + repository) só com GO · 4c-3 (guards) · 4d TRANCADA.
 
 ### 2026-07-10 (6) — FASES 4a+4b SELADAS: Lei do Contador + Casa Fiscal Canônica (DECISION-0166 D9)
