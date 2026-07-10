@@ -267,6 +267,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (16) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase A SELADA PELA YALA (SELO COMPLETO)
+- Yala Fase A = SELO COMPLETO (24 confirmações + 13/13 mutações). R1 fechado (freeze versions), casa fiscal
+  do template criada VAZIA (global, published imutável/deprecated terminal/itens congelados/território FK/
+  concepts/sem alíquota/sem FK-tax/sem tenant), guard no runner, 4c-3 compatível, Δbank=0.
+- **Recomendação Yala (trava de sequência):** Fase B (1ª superfície viva de sugestão/onboarding) exige
+  RFC docs-only ANTES do material. Fases C/D e 4d-1 seguem trancadas (GO próprio; 4d-1 por D9.7).
+
 ### 2026-07-10 (15) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase A EXECUTADA (fundação vazia) — aguarda Yala
 - Material `b9ac0e9c0` + fix guard `4f76d72ef` (1 migration + guard + runner; zero TS de produto).
 - **Dívida R1 fechada:** business_template_versions com freeze trigger (versão criada = imutável; mudar =
