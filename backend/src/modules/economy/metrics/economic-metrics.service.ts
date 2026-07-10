@@ -154,40 +154,34 @@ function parseIntSafe(value: string | null | undefined): number {
 
 class EconomicMetricsService {
   /**
-   * Métricas públicas de um regional_fund.
+   * Métricas públicas de um fundo regional.
    *
-   * regionalFundId deve referenciar uma row em regional_funds(tenant_id, id).
-   * A conta Bank correspondente é resolvida via
-   * ensureRegionalFundBankAccountForRegion(tenantId, region) com a
-   * (country, state, city) da row do fundo.
+   * regionalFundId referencia regional_fund_accounts(tenant_id, id) — o resolver
+   * canônico por FK do Location Core (Fase 2d, DECISION-0166 D3). A conta Bank vem
+   * de bank_account_id da própria row; o saldo é derivado SÓ do bank_ledger.
    *
-   * Fail-closed se fundo não existe (RegionalFundNotFound).
+   * Fail-closed se o fundo não existe.
    */
   async getRegionalFundMetrics(
     tenantId: string,
     regionalFundId: string
   ): Promise<PublicEconomicMetrics> {
-    const fundRow = await runQueryWithTenant<{
-      country: string;
-      state: string;
-      city: string;
-    }>(
+    // Fase 2d (DECISION-0166 D3): regionalFundId agora é o id de regional_fund_accounts
+    // (resolver canônico por FK do Location Core). A tabela paralela regional_funds
+    // (geografia string + saldo em coluna) foi EXCISADA — o saldo vem SÓ do bank_ledger
+    // via a conta apontada pela FK.
+    const fundRow = await runQueryWithTenant<{ bank_account_id: string }>(
       tenantId,
-      `SELECT country, state, city FROM regional_funds
+      `SELECT bank_account_id::text FROM regional_fund_accounts
         WHERE tenant_id = $1::uuid AND id = $2::uuid LIMIT 1`,
       [tenantId, regionalFundId]
     );
     if (!fundRow) {
       throw new Error(
-        `EconomicMetricsService: regional_fund ${regionalFundId} não encontrado no tenant ${tenantId}`
+        `EconomicMetricsService: regional_fund_account ${regionalFundId} não encontrado no tenant ${tenantId}`
       );
     }
-    const bankAcc = await bankAccountService.ensureRegionalFundBankAccountForRegion(
-      tenantId,
-      { country: fundRow.country, state: fundRow.state, city: fundRow.city },
-      'BRL'
-    );
-    return this.computeMetricsForAccount(tenantId, 'regional_fund', regionalFundId, bankAcc.accountId);
+    return this.computeMetricsForAccount(tenantId, 'regional_fund', regionalFundId, fundRow.bank_account_id);
   }
 
   /**

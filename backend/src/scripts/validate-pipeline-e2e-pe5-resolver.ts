@@ -357,9 +357,9 @@ async function main() {
     ok: parseInt(fundSplit1.amount_cents, 10) === 1000,
     reason: `amount=${fundSplit1.amount_cents}`,
   });
-  const fundAccount1 = await bankAccountService.ensureRegionalFundBankAccountForRegion(
+  const fundAccount1 = await bankAccountService.ensureRegionalFundAccount(
     TENANT_ID,
-    { country: 'BR', state: 'PR', city: 'Curitiba' },
+    { level: 'city', countryId: fx.brId, stateId: fx.prStateId, cityId: fx.cwbCity.id },
     'BRL'
   );
   assertOk('T1.3 — regional_fund routou para conta de Curitiba', {
@@ -461,9 +461,9 @@ async function main() {
   });
   const splits3 = await getBankSplits(req3);
   const fundSplit3 = splits3.find((s) => s.split_type === 'regional_fund')!;
-  const fundAccount3 = await bankAccountService.ensureRegionalFundBankAccountForRegion(
+  const fundAccount3 = await bankAccountService.ensureRegionalFundAccount(
     TENANT_ID,
-    { country: 'BR', state: 'SP', city: 'São Paulo' },
+    { level: 'city', countryId: fx.brId, stateId: fx.spStateId, cityId: fx.spCity.id },
     'BRL'
   );
   assertOk('T3.1 — regional_fund routou para conta da cidade do HQ (SP)', {
@@ -561,14 +561,14 @@ async function main() {
   });
   const regSplits5 = splits5.filter((s) => s.split_type === 'regional_fund');
   assertOk('T5.2 — 2 splits regional_fund distintos', { ok: regSplits5.length === 2 });
-  const cwbAcc5 = await bankAccountService.ensureRegionalFundBankAccountForRegion(
+  const cwbAcc5 = await bankAccountService.ensureRegionalFundAccount(
     TENANT_ID,
-    { country: 'BR', state: 'PR', city: 'Curitiba' },
+    { level: 'city', countryId: fx.brId, stateId: fx.prStateId, cityId: fx.cwbCity.id },
     'BRL'
   );
-  const spAcc5 = await bankAccountService.ensureRegionalFundBankAccountForRegion(
+  const spAcc5 = await bankAccountService.ensureRegionalFundAccount(
     TENANT_ID,
-    { country: 'BR', state: 'SP', city: 'São Paulo' },
+    { level: 'city', countryId: fx.brId, stateId: fx.spStateId, cityId: fx.spCity.id },
     'BRL'
   );
   const cwbSplit = regSplits5.find((s) => s.target_account_id === cwbAcc5.accountId);

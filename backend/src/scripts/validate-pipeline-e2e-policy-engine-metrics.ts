@@ -181,22 +181,51 @@ async function insertContributionDirect(opts: {
   void opts.sourceActorId; // não usado neste INSERT direto
 }
 
-async function createRegionalFund(country: string, state: string, city: string): Promise<string> {
-  const fundId = uuidv4();
-  await pool.query(
-    `INSERT INTO regional_funds (id, tenant_id, country, state, city)
-     VALUES ($1::uuid, $2::uuid, $3, $4, $5)
-     ON CONFLICT (tenant_id, country, state, city) DO UPDATE SET updated_at = NOW()
-     RETURNING id`,
-    [fundId, TENANT_ID, country, state, city]
+// Fase 2d (DECISION-0166 D3): fundo canônico = regional_fund_accounts (FK Location Core).
+// A tabela paralela regional_funds (geografia string + saldo em coluna) foi EXCISADA.
+// O e2e materializa a cidade fictícia no CATÁLOGO canônico (mesmo padrão ensureCity do pe5)
+// e resolve o fundo por ID via ensureRegionalFundAccount. Retorna o id da row de
+// regional_fund_accounts (aceito por getRegionalFundMetrics) + a conta Bank.
+async function createRegionalFund(
+  country: string,
+  state: string,
+  city: string
+): Promise<{ fundId: string; accountId: string }> {
+  const br = await pool.query<{ country_id: string }>(
+    `SELECT country_id::text FROM countries WHERE iso_alpha2 = $1 LIMIT 1`,
+    [country]
   );
-  // Caso conflito tenha retornado outro id, lookup
-  const r = await pool.query<{ id: string }>(
-    `SELECT id::text FROM regional_funds WHERE tenant_id = $1::uuid
-       AND country = $2 AND state = $3 AND city = $4 LIMIT 1`,
-    [TENANT_ID, country, state, city]
+  const st = await pool.query<{ state_id: string }>(
+    `SELECT state_id::text FROM states WHERE country_id = $1::uuid AND abbreviation = $2 LIMIT 1`,
+    [br.rows[0]!.country_id, state]
   );
-  return r.rows[0]!.id;
+  let ct = await pool.query<{ city_id: string }>(
+    `SELECT city_id::text FROM cities WHERE state_id = $1::uuid AND name = $2 LIMIT 1`,
+    [st.rows[0]!.state_id, city]
+  );
+  if (!ct.rows[0]) {
+    ct = await pool.query<{ city_id: string }>(
+      `INSERT INTO cities (state_id, name, name_normalized, is_active)
+       VALUES ($1::uuid, $2, lower($2), true) RETURNING city_id::text`,
+      [st.rows[0]!.state_id, city]
+    );
+  }
+  const acc = await bankAccountService.ensureRegionalFundAccount(
+    TENANT_ID,
+    {
+      level: 'city',
+      countryId: br.rows[0]!.country_id,
+      stateId: st.rows[0]!.state_id,
+      cityId: ct.rows[0]!.city_id,
+    },
+    'BRL'
+  );
+  const rfa = await pool.query<{ id: string }>(
+    `SELECT id::text FROM regional_fund_accounts
+      WHERE tenant_id = $1::uuid AND bank_account_id = $2::uuid LIMIT 1`,
+    [TENANT_ID, acc.accountId]
+  );
+  return { fundId: rfa.rows[0]!.id, accountId: acc.accountId };
 }
 
 async function cleanupTestData(prefix: string): Promise<void> {
@@ -218,7 +247,7 @@ async function main() {
   // T1 — fundo sem contribuições → métricas zeradas
   // ============================================================
   console.log('=== T1 — fundo sem contribuições → métricas zeradas ===');
-  const fund1 = await createRegionalFund('BR', 'PR', `T1-${uuidv4().slice(0, 8)}`);
+  const { fundId: fund1 } = await createRegionalFund('BR', 'PR', `T1-${uuidv4().slice(0, 8)}`);
   const m1 = await economicMetricsService.getRegionalFundMetrics(TENANT_ID, fund1);
   assertOk('T1.1 — balanceCents = 0 (ledger vazio)', {
     ok: m1.balanceCents === 0,
@@ -241,23 +270,8 @@ async function main() {
   // T2 — 1 actor contribui 5x → 1 PF count (não 5)
   // ============================================================
   console.log('\n=== T2 — 1 actor contribui 5x → 1 PF count ===');
-  const fund2 = await createRegionalFund('BR', 'PR', `T2-${uuidv4().slice(0, 8)}`);
-  const fund2Acc = await bankAccountService.ensureRegionalFundBankAccountForRegion(
-    TENANT_ID,
-    { country: 'BR', state: 'PR', city: `T2-fund` },
-    'BRL'
-  );
-  // Lookup real do account do fund2 via row
-  const fund2Row = await pool.query<{ country: string; state: string; city: string }>(
-    `SELECT country, state, city FROM regional_funds WHERE id = $1::uuid`,
-    [fund2]
-  );
-  const fund2RealAcc = await bankAccountService.ensureRegionalFundBankAccountForRegion(
-    TENANT_ID,
-    { country: fund2Row.rows[0]!.country, state: fund2Row.rows[0]!.state, city: fund2Row.rows[0]!.city },
-    'BRL'
-  );
-  void fund2Acc;
+  const { fundId: fund2, accountId: fund2AccountId } = await createRegionalFund('BR', 'PR', `T2-${uuidv4().slice(0, 8)}`);
+  const fund2RealAcc = { accountId: fund2AccountId };
   const actorT2 = await createTestActor({
     taxId: '11122233344',
     taxIdType: 'cpf',
@@ -294,16 +308,8 @@ async function main() {
   // T3 — 2 actors do MESMO CPF → 1 PF count (dedupe via global_user_id)
   // ============================================================
   console.log('\n=== T3 — 2 actors do MESMO CPF → 1 PF count ===');
-  const fund3 = await createRegionalFund('BR', 'PR', `T3-${uuidv4().slice(0, 8)}`);
-  const fund3Row = await pool.query<{ country: string; state: string; city: string }>(
-    `SELECT country, state, city FROM regional_funds WHERE id = $1::uuid`,
-    [fund3]
-  );
-  const fund3Acc = await bankAccountService.ensureRegionalFundBankAccountForRegion(
-    TENANT_ID,
-    { country: fund3Row.rows[0]!.country, state: fund3Row.rows[0]!.state, city: fund3Row.rows[0]!.city },
-    'BRL'
-  );
+  const { fundId: fund3, accountId: fund3AccountId } = await createRegionalFund('BR', 'PR', `T3-${uuidv4().slice(0, 8)}`);
+  const fund3Acc = { accountId: fund3AccountId };
   const cpfT3 = '22233344455';
   const actorT3a = await createTestActor({
     taxId: cpfT3, taxIdType: 'cpf', kycStatus: 'approved', displayName: 'T3 motorista',
@@ -331,16 +337,8 @@ async function main() {
   // T4 — 1 PF + 1 PJ → separados
   // ============================================================
   console.log('\n=== T4 — 1 PF + 1 PJ → separados ===');
-  const fund4 = await createRegionalFund('BR', 'PR', `T4-${uuidv4().slice(0, 8)}`);
-  const fund4Row = await pool.query<{ country: string; state: string; city: string }>(
-    `SELECT country, state, city FROM regional_funds WHERE id = $1::uuid`,
-    [fund4]
-  );
-  const fund4Acc = await bankAccountService.ensureRegionalFundBankAccountForRegion(
-    TENANT_ID,
-    { country: fund4Row.rows[0]!.country, state: fund4Row.rows[0]!.state, city: fund4Row.rows[0]!.city },
-    'BRL'
-  );
+  const { fundId: fund4, accountId: fund4AccountId } = await createRegionalFund('BR', 'PR', `T4-${uuidv4().slice(0, 8)}`);
+  const fund4Acc = { accountId: fund4AccountId };
   const actorT4PF = await createTestActor({
     taxId: '33344455566', taxIdType: 'cpf', kycStatus: 'approved', displayName: 'T4 PF',
   });
@@ -367,16 +365,8 @@ async function main() {
   // T5 — actor SEM KYC contribui → unverified, não PF/PJ
   // ============================================================
   console.log('\n=== T5 — actor sem KYC → unverified ===');
-  const fund5 = await createRegionalFund('BR', 'PR', `T5-${uuidv4().slice(0, 8)}`);
-  const fund5Row = await pool.query<{ country: string; state: string; city: string }>(
-    `SELECT country, state, city FROM regional_funds WHERE id = $1::uuid`,
-    [fund5]
-  );
-  const fund5Acc = await bankAccountService.ensureRegionalFundBankAccountForRegion(
-    TENANT_ID,
-    { country: fund5Row.rows[0]!.country, state: fund5Row.rows[0]!.state, city: fund5Row.rows[0]!.city },
-    'BRL'
-  );
+  const { fundId: fund5, accountId: fund5AccountId } = await createRegionalFund('BR', 'PR', `T5-${uuidv4().slice(0, 8)}`);
+  const fund5Acc = { accountId: fund5AccountId };
   const actorT5 = await createTestActor({ displayName: 'T5 unverified actor' });
   const walletT5 = await ensureActorWallet(actorT5.actorId);
   await insertContributionDirect({ sourceActorId: actorT5.actorId, sourceAccountId: walletT5, targetAccountId: fund5Acc.accountId, amountCents: 700 });
@@ -395,16 +385,8 @@ async function main() {
   // T6 — contribuição há 31 dias não é ativo 30d
   // ============================================================
   console.log('\n=== T6 — contribuição há 31 dias não entra em 30d ===');
-  const fund6 = await createRegionalFund('BR', 'PR', `T6-${uuidv4().slice(0, 8)}`);
-  const fund6Row = await pool.query<{ country: string; state: string; city: string }>(
-    `SELECT country, state, city FROM regional_funds WHERE id = $1::uuid`,
-    [fund6]
-  );
-  const fund6Acc = await bankAccountService.ensureRegionalFundBankAccountForRegion(
-    TENANT_ID,
-    { country: fund6Row.rows[0]!.country, state: fund6Row.rows[0]!.state, city: fund6Row.rows[0]!.city },
-    'BRL'
-  );
+  const { fundId: fund6, accountId: fund6AccountId } = await createRegionalFund('BR', 'PR', `T6-${uuidv4().slice(0, 8)}`);
+  const fund6Acc = { accountId: fund6AccountId };
   const actorT6 = await createTestActor({
     taxId: '44455566677', taxIdType: 'cpf', kycStatus: 'approved', displayName: 'T6 PF antigo',
   });

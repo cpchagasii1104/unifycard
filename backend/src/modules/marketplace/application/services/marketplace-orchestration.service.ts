@@ -325,57 +325,18 @@ export class MarketplaceOrchestrationService {
     if (!rf || !log) throw new Error('Orchestration: incentive deps not injected');
 
     if (isUseBankRegionalFundEnabled()) {
-      const regionalFund = await rf.getRegionalFundByRegion(tenantId, grant.region);
-      if (!regionalFund) throw new Error('Fundo regional não encontrado');
-      const fromAcc = await bankAccountService.ensureRegionalFundBankAccountForRegion(tenantId, grant.region, 'BRL');
-      const toAccountId = await resolveIncentiveRecipientAccountId(tenantId, grant.actorId, 'BRL');
-      if (!toAccountId) {
-        throw new Error(
-          'USE_BANK_REGIONAL_FUND: não foi possível resolver conta Bank do beneficiário (user_wallet ou seller_available). Verifique actors.user_id / actors.company_id.'
-        );
-      }
-      const referenceId = uuidv5(grantId, REGIONAL_INCENTIVE_REF_NAMESPACE);
-      const eventId = referenceId;
-
-      // C54: Gate financeiro obrigatório antes de transfer (AUTHORITY_PRECEDENCE §4.1)
-      const { requireFinancialRiskClearance } = await import('@modules/risk-identity/risk-financial-gate');
-      await requireFinancialRiskClearance(tenantId, {
-        actorId: grant.actorId,
-        action: 'financial_payout',
-        amountCents: grant.amountCents,
-      });
-
-      try {
-        // C56: order_id do grant — rastreabilidade de incentivo regional (pode ser null)
-        await bankTransactionService.transfer(tenantId, {
-          eventId,
-          fromAccountId: fromAcc.accountId,
-          toAccountId,
-          amountCents: grant.amountCents,
-          currency: 'BRL',
-          transactionType: 'transfer',
-          description: `Incentivo regional (grant ${grantId})`,
-          metadata: {
-            grant_id: grantId,
-            incentive_type: grant.incentiveType,
-            regional_fund_row_id: regionalFund.regionalFundId,
-            order_id: grant.reference.orderId,
-          },
-          referenceType: 'regional_fund_incentive',
-          referenceId,
-          orderId: grant.reference.orderId ?? undefined,
-          authorship: buildSystemAuthorship({ actingForAccountId: fromAcc.accountId }),
-          treasurySource: 'treasury:settlement',
-          concept_id: 'regional-fund-incentive-grant',
-        });
-        grant.status = 'consumed';
-        (grant as { consumedAt?: string }).consumedAt = new Date().toISOString();
-        log.init('Incentivo consumido (Bank)', { grant_id: grantId, amountCents: grant.amountCents, referenceId });
-        return;
-      } catch (err) {
-        log.error('Erro ao consumir incentivo (Bank)', err);
-        throw err;
-      }
+      // 🔴 Fase 2d (DECISION-0166 D3, doutrina 0165 sistema virgem): o braço Bank do incentivo
+      // regional operava sobre o trilho PARALELO regional_funds (geografia string + conta por
+      // ensureRegionalFundBankAccountForRegion) — EXCISADO. Corpo legado (transfer a partir da
+      // conta string do fundo) REMOVIDO; fail-closed 501 permanente. Reabrir = decisão soberana
+      // + regional_fund_accounts (FK) + pipeline canônico.
+      throw Object.assign(
+        new Error(
+          'REGIONAL_FUNDS_RETIRED: incentivo via fundo regional paralelo excisado (Fase 2d, ' +
+            'DECISION-0166 D3). Reabrir = regional_fund_accounts (FK) + pipeline canônico, com GO.'
+        ),
+        { statusCode: 501 }
+      );
     }
 
     const regionalFund = await rf.getRegionalFundByRegion(tenantId, grant.region);

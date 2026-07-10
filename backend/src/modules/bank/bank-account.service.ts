@@ -413,30 +413,12 @@ class BankAccountService {
    * Conta de sistema por regiao para pool do fundo regional (ledger = SSOT).
    * owner_id unico por (tenant, pais, estado, cidade); idempotente.
    */
-  async ensureRegionalFundBankAccountForRegion(
-    tenantId: string,
-    region: { country: string; state: string; city: string },
-    currency: BankCurrency = 'BRL'
-  ): Promise<BankAccount> {
-    const regionKey = `${region.country}-${region.state}-${region.city}`;
-    const ownerId = `system:regional_fund:${tenantId}:${regionKey}`;
-    const existing = await bankAccountRepository.getAccountByOwnerAndType(
-      tenantId,
-      ownerId,
-      'system',
-      'credit',
-      currency
-    );
-    if (existing) {
-      return existing;
-    }
-    return await bankAccountRepository.createAccount(tenantId, {
-      ownerId,
-      ownerType: 'system',
-      accountType: 'credit',
-      currency,
-    });
-  }
+  // 🔴 ensureRegionalFundBankAccountForRegion REMOVIDO — Fase 2d (DECISION-0166 D3).
+  //    Era o SINK STRING do fundo regional: chaveava a conta por
+  //    owner_id = 'system:regional_fund:{tenant}:{country}-{state}-{city}' (cidade por NOME —
+  //    "São Paulo" vs "Sao Paulo" = pools diferentes; sem bairro, sem planeta, sem FK).
+  //    Substituto canônico: ensureRegionalFundAccount acima (regional_fund_accounts, FK Location
+  //    Core). Pré-remoção provado: ZERO contas por-região string existiam (sem pool órfão).
 
   /**
    * DECISION-0166 D3 (Fase 2b) — resolver CANÔNICO de fundo regional por FK do Location Core.

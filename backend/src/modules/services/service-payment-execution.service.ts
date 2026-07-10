@@ -50,7 +50,7 @@ const SUPPORTED_DESTINATION_TYPES: ReadonlySet<EconomicPolicyDestinationType> = 
   'risk_reserve',
   'escrow_payments',
   // PE-5-RESOLVER-MVP (DECISION-0051, 2026-05-26): regional_fund habilitado
-  // para PJ via address_assignments → ensureRegionalFundBankAccountForRegion.
+  // para PJ via address_assignments → ensureRegionalFundAccount (FK, Fase 2c).
   // PE-5-RESOLVER-V2 (Fatia 9 passo 3, 2026-07-05): PF (payer_identity_residence /
   // receiver_identity_residence) TAMBÉM habilitado — resolve via
   // address_assignments(owner_type='profile', role='RESIDENCE'), o mesmo SSOT
@@ -172,7 +172,7 @@ async function resolveSplitDestinationFromPolicy(
   //     quando destination_key IS NULL — DECISION-0049).
   //   - Resolve endereço material conforme basis declarado.
   //   - Resolve country/state/city desse endereço.
-  //   - Resolve bank_account via ensureRegionalFundBankAccountForRegion.
+  //   - Resolve bank_account via ensureRegionalFundAccount (FK canônica, Fase 2c).
   //   - releaseToActorWallet=false (regional_fund NUNCA entra em
   //     metadata.splits liberável para actor_wallet).
   //
@@ -216,7 +216,7 @@ async function resolveSplitDestinationFromPolicy(
  * dinâmico de regional_fund PJ+PF.
  *
  * Lê `regional_origin_basis` da policy line, busca endereço canônico,
- * resolve `(country, state, city)`, retorna `ensureRegionalFundBankAccountForRegion`.
+ * resolve os IDs canônicos (country/state/city) e retorna `ensureRegionalFundAccount` (FK).
  *
  * NÃO faz fallback automático entre basis. Se basis pedido não tiver
  * endereço material, falha `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE`.
