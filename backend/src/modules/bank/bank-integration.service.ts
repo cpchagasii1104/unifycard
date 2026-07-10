@@ -329,103 +329,16 @@ class BankIntegrationService {
     };
   }
 
-  /**
-   * Processa pagamento de booking de serviço
-   * Cria transação no Unify Bank com split automático (3% fee)
-   */
-  async processServiceBookingPayment(
-    tenantId: string,
-    input: {
-      bookingId: string;
-      serviceId: string;
-      buyerUserId: string;
-      providerUserId: string;
-      amountCents: number;
-      currency?: BankCurrency;
-      idempotencyKey?: string;
-      metadata?: Record<string, any>;
-    }
-  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
-    const { bookingId, serviceId, buyerUserId, providerUserId, currency = 'BRL', idempotencyKey, metadata } = input;
-    const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
-
-    // SPRINT 36.2: Validar limite diário (enforcement)
-    try {
-      const { bankLimitService } = await import('./bank-limit.service');
-      await bankLimitService.validateLimit(
-        tenantId,
-        buyerUserId,
-        'payment_out',
-        amountCents,
-        buyerUserId
-      );
-    } catch (limitError: any) {
-      // Re-throw erro de limite (já tem statusCode 403)
-      if (limitError.statusCode === 403) {
-        throw limitError;
-      }
-      // Erro técnico no serviço de limites — fail-closed (não assumir permissão)
-      // Sem validação de limite, não existe operação financeira.
-      const svcError = new Error('[BankLimit] Serviço de limites indisponível — operação bloqueada por segurança') as any;
-      svcError.statusCode = 503;
-      svcError.errorCode = 'LIMIT_SERVICE_UNAVAILABLE';
-      svcError.originalError = limitError?.message || String(limitError);
-      throw svcError;
-    }
-
-    // Resolver contas
-    const buyerAccountId = await resolveUserAccount(tenantId, buyerUserId, currency);
-    const providerAccountId = await resolveUserAccount(tenantId, providerUserId, currency);
-
-    // Resolver actor do comprador para autoria
-    const buyerActor = await ensureUserActor(tenantId, buyerUserId);
-
-    // Construir autoria (ownership: comprador é dono da conta)
-    const authorship = buildFinancialAuthorshipFromRequest({
-      performedByUserId: buyerUserId,
-      actingForActorId: buyerActor.actor_id,
-      actingForAccountId: buyerAccountId,
-      authoritySource: 'ownership',
-      permissionSnapshot: {
-        permissionKey: 'ownership',
-        allowed: true,
-        actorId: buyerActor.actor_id,
-        userId: buyerUserId,
-        decidedAt: new Date().toISOString(),
-      },
-    });
-
-    // Criar transação com split (service_booking context)
-    const eventIdForTransaction = idempotencyKey || uuidv4();
-    const result = await bankTransactionService.createTransactionWithSplit(tenantId, {
-      eventId: eventIdForTransaction,
-      fromAccountId: buyerAccountId,
-      amountCents,
-      currency,
-      context: 'service_booking',
-      revenueShareAccountId: providerAccountId,
-      fromUserId: buyerUserId, // Para calcular referral e group allocation
-      description: `Service booking: ${bookingId}`,
-      metadata: {
-        ...metadata,
-        bookingId,
-        serviceId,
-        buyerUserId,
-        providerUserId,
-        type: 'service_booking',
-      },
-      authorship,
-      concept_id: 'service-booking-payment',
-    });
-
-    return {
-      transactionId: result.transaction.transactionId,
-      splits: result.splits.map((split) => ({
-        accountId: split.targetAccountId,
-        amountCents: split.amountCents,
-      })),
-    };
-  }
+  // ========================================================
+  // 🔴 processServiceBookingPayment REMOVIDO — F-BANK-SPLIT-PIPELINE-CONSOLIDATION Fase 1C
+  //    (DECISION-0165 D5/D8, sistema virgem). Era o RAMO LEGADO de service_booking: chamava
+  //    createTransactionWithSplit (context 'service_booking' → bankSplitEngine = split fora do Bank).
+  //    Estava MORTO (zero callers — provado no GATE). service_booking permanece MVP e VIVO pelo
+  //    CANÔNICO: service-payment-execution.service → economicPolicyEngine →
+  //    processServicePaymentExecutionCanonical → createTransactionWithExplicitSplitLines → bank_splits.
+  //    Removido SÓ o legado; o canônico não foi tocado. (Helper morto irmão
+  //    `resolveBankAccountForServiceActor` — sem caller — anotado para sweep de código morto.)
+  // ========================================================
 
   /**
    * Conta bank para actor (user / page+company / group).
