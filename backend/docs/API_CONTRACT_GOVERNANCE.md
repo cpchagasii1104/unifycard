@@ -160,6 +160,32 @@ Regras observadas no código vivo (a serem seguidas por rotas novas; divergênci
   (D6, sem hardcode no cliente). Read-only.
 - **NÃO** toca `products`/`product_offers`/`inventory`/Bank/orders/checkout/payment_intents. Preço = anúncio.
 
+### Uso operacional asset+serviço — `/asset-service-uses` (F-ASSET-MULTI-OFFER-FOUNDATION Fatia 4B)
+_(Catalogado em remediação documental pós-Yala da Fatia 4B — as rotas já existiam no material `05649a35b`;
+este registro fecha a ressalva de contrato. Docs-only, zero mudança de comportamento.)_
+
+- **Autoridade (comum):** rotas NOVAS sob DECISION-0113 — o actor de trabalho NUNCA vem de canal implícito.
+  `canRepresentActor` provado no service contra o **owner REGISTRADO do asset** (não declarado pelo caller).
+  **v1 = dono-operador (D-C/D-D): `operator_actor_id` é SEMPRE derivado server-side como
+  `asset.ownerActorId` — NUNCA aceito do body/client.** Terceiro-operador (release via
+  `actor_capability_grants`/`asset:operate`) NÃO existe na v1 (Fatia 4C, trancada).
+- **`POST /asset-service-uses`** — ativa uso operacional sobre um `actor_asset` JÁ EXISTENTE (não cadastra
+  item novo). Body: `assetId` (uuid) + `serviceConceptId` (uuid; exige `offer_kind='service'` — FK composta
+  no banco) + `arrangementType` (∈ `OPERATIONAL_ARRANGEMENTS`). Habilitação do operador reusa o gate de
+  `service_offering` (`evaluateOfferingActivationEligibility`). Upsert de `actor_asset_modes('service_use')`
+  no MESMO asset; reativação = UPDATE (UNIQUE asset×concept×operador). 200 `{ok, data}`; 400 payload/tenant;
+  401 sem auth; erros de domínio: `ASSET_SERVICE_USE_NOT_REPRESENTABLE` ·
+  `ASSET_SERVICE_USE_CONCEPT_NOT_SERVICE` · `ASSET_SERVICE_USE_OPERATOR_NOT_ELIGIBLE`. Δbank=0.
+- **`GET /asset-service-uses?ownerActorId=`** — meus vínculos (gestão do dono). `ownerActorId` é
+  OBRIGATÓRIO e EXPLÍCITO na querystring (400 sem ele; sem leitura de `actionContext.actorId` como canal
+  implícito); autoridade `canRepresentActor` no service.
+- **`GET /asset-service-uses/:id`** — detalhe do vínculo (read-only, RLS-filtrado).
+- **`GET /asset-service-uses/vocabularies`** — vocabulários GOVERNADOS value+label (`OPERATIONAL_ARRANGEMENTS`
+  + `ASSET_SERVICE_USE_STATUSES`; sem hardcode no cliente). Read-only.
+- **`PATCH /asset-service-uses/:id/status`** — `active`/`paused` (owner-only via `canRepresentActor`).
+- **NÃO** toca Bank/ledger/split/orders/checkout/payment_intents/booking/RFQ; arranjo é TERMO/anúncio,
+  não cobrança. Sem frontend na v1.
+
 ## 6. Lacunas conhecidas (dívida registrada, não fingida)
 
 - O `00_AGENT_PROTOCOL.md` §2.2.8 cita `backend/docs/openapi-stock-transfer-receipt.contract.yaml` como

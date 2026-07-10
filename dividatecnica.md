@@ -267,6 +267,17 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (9) — REMEDIAÇÃO DOCUMENTAL Fatia 4B asset service_use (pós-incidente de concorrência + ressalvas Yala)
+- Yala da 4B: **SELO COM RESSALVA** (material `05649a35b` aprovado tecnicamente; ressalvas documentais).
+- Corrigido: entrada REAL da 4B restaurada no topo do cartório (do stash `protect-4B-cartorio`, com status
+  atualizado) — o commit `e1d26afae`, intitulado "cartorio 4B", capturara o selo fiscal 4c-2 (incidente de
+  working tree compartilhada; sessão paralela foi PARADA). Selos fiscais 4c-1/4c-2 preservados intactos.
+- Ressalva de contrato/API tratada docs-only: as 5 rotas `/asset-service-uses` catalogadas na §5 do
+  `backend/docs/API_CONTRACT_GOVERNANCE.md` (autoridade owner explícito + canRepresentActor + operador
+  derivado server-side; sem terceiro-operador na v1). Não existe OpenAPI por-rota no padrão vivo — nada inventado.
+- Zero código/migration/manifesto/Bank tocados. 4B NÃO selada (aguarda reauditoria LIMITADA da Yala);
+  4C-4F asset e 4c-3/4d fiscal seguem trancadas. Contagem de DTs inalterada.
+
 ### 2026-07-10 (8) — FASE 4c-2 SELADA PELA YALA (SELO COMPLETO + alerta de processo): vocabulário/types/repository/resolução do catálogo fiscal
 - GO de Clayton: camada TS sobre as tabelas vazias da 4c-1, SEM calcular imposto. Material `b556bbd4c`
   (3 arquivos: tax-catalog.types.ts + tax-catalog.repository.ts + manifesto; zero migration, zero rota).

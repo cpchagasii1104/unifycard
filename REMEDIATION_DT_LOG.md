@@ -1,5 +1,75 @@
 # REMEDIATION DT LOG
 
+## F-ASSET-MULTI-OFFER-FOUNDATION — FATIA 4B — SERVICE_USE / USO OPERACIONAL · substrato mínimo — 🟡 EXECUTADA · YALA: SELO COM RESSALVA (2026-07-10, material `05649a35b`)
+**⚠️ ESTA ENTRADA É REMEDIAÇÃO DOCUMENTAL PÓS-INCIDENTE, NÃO NOVO MATERIAL.** O commit `e1d26afae`, intitulado "cartorio Fatia 4B", na verdade capturou o SELO FISCAL 4c-2 em `REMEDIATION_DT_LOG.md` (incidente de working tree compartilhada entre duas sessões — ver alerta de processo na entrada 4c-2 abaixo); a entrada REAL da 4B ficara presa em stash (`protect-4B-cartorio-during-4c2-seal`) e é restaurada AQUI, com status atualizado ao veredito Yala. **Material:** `05649a35b` (13 arquivos). **Cartório contaminado:** `e1d26afae`. **Natureza da ressalva Yala:** (a) material técnico APROVADO; (b) cartório contaminado pelo selo fiscal 4c-2; (c) entrada 4B ausente no cartório (corrigida por esta remediação); (d) contrato de API/OpenAPI das rotas novas ausente/não localizado — ressalva documental (tratada nesta remediação via catálogo §5 do `backend/docs/API_CONTRACT_GOVERNANCE.md`, o artefato de contrato governado do repo; não existe OpenAPI por-rota no padrão vivo).
+GO explícito de Clayton (substrato mínimo, escopo item-a-item cravado antes de codificar). Executa o adendo
+[[RFC_ASSET_SERVICE_USE_OPERATIONAL_ADENDO]] (D-A..D-G, bloco 1 — ontologia). Bloco 2 (viabilidade, D-H..D-M),
+bloco 3 (localidade, D-N..D-P) e Fatias 4C-4F (terceiro-operador/release, arranjos ricos, viabilidade,
+localidade) permanecem FORA — SÓ substrato mínimo.
+
+**Migration** (`20260710150000_asset_service_use_substrate.sql`, 1 arquivo): `actor_asset_service_usages` como
+JUNÇÃO **N** (D-A — `id` PK própria, NÃO `asset_id` como PK/1:1 como sale/rental terms) de `asset_id` ×
+`service_concept_id` × `operator_actor_id` × `arrangement_type`. Enforcement MATERIAL de `offer_kind='service'`
+via **FK composta** `(service_concept_id, service_offer_kind) → concept_offer_kinds(concept_id, offer_kind)`
+(mesmo padrão de `event_orchestration_template_items`, 20260708360000 — nunca opinião de app). CHECKs:
+`arrangement_type` = `OPERATIONAL_ARRANGEMENTS` (D-F, 5 valores: daily_fee/shift_fee/fixed_fee/commission/
+revenue_share) · `status` = active/paused (D-E, v1 declarativa). `UNIQUE(asset_id, service_concept_id,
+operator_actor_id)` — reativar é UPDATE, nunca linha duplicada. RLS ENABLE+FORCE derivada via `actor_assets`
+(sem `tenant_id` denormalizado — mesmo padrão de sale/rental terms).
+
+**Vocabulário governado** (`asset.types.ts` + `governed-vocabularies.manifest.ts`, 26→28 entradas):
+`OPERATIONAL_ARRANGEMENTS` e `ASSET_SERVICE_USE_STATUSES`, ambos registrados no manifesto (guard
+`audit-governed-vocabulary-manifest` prova coerência com a fonte viva).
+
+**Módulo `asset-service-use`** (types/repository/service/routes/module, registrado em `app.builder.ts` ao lado
+de `asset-sale`): `activateOnExisting` ativa o vínculo sobre um `actor_asset` JÁ EXISTENTE (Fatia 4B não
+cadastra item novo). **v1 = SOMENTE dono-operador (D-C/D-D):** `operator_actor_id` é SEMPRE derivado
+server-side como `asset.ownerActorId` — NUNCA aceito do body/client; terceiro-operador (release via
+`actor_capability_grants`/`asset:operate`) fica **fora do endpoint vivo**, reservado para a Fatia 4C. Autoridade
+= `canRepresentActor` sobre o owner JÁ REGISTRADO do asset (mesmo padrão da venda). **Habilitação do operador
+REUSA o gate de `service_offering`** (`evaluateOfferingActivationEligibility` de
+`services-offering-activation-gate.ts` — PF via `actor_professional_concepts.is_active` + civil mínimo; PJ via
+`company_concept_publications.status='active'` + KYB) — sem trilho paralelo de KYC/KYB (invariantes 10-12 do
+adendo). Ativa `actor_asset_modes.activation_mode='service_use'` no MESMO asset (upsert). GET
+`/asset-service-uses` exige `ownerActorId` explícito na querystring (NÃO lê `actionContext.actorId` como canal
+implícito — rota NOVA sob DECISION-0113/`audit-actor-authority-boundary`).
+
+**Read-model dedicado** (D-G): `countActiveServiceUses` em `actor-page.repository.ts` lê `actor_assets` +
+`actor_asset_modes('service_use')` + `actor_asset_service_usages` — NUNCA conta em `service_offerings` (não é a
+SSOT do uso operacional do asset). **NÃO wired no `BLOCK_REGISTRY`/abas do actor-page** — isso é superfície de
+contrato/frontend, fora do escopo autorizado desta fatia (só o contador foi pedido).
+
+**Guard dedicado** `audit-asset-service-use-convergence.mjs` (novo, 12 grupos de trava — junção N não-1:1, FK
+composta offer_kind=service, RLS FORCE, vocabulários físicos batendo com o TS, dono-operador obrigatório
+(rejeita `operatorActorId` no schema de entrada), reuso do gate de habilitação, zero Bank/orders/booking/RFQ/
+capability_grants/produto/sale-terms/rental-terms tocados, read-model correto) — adicionado à suíte GATE.
+
+**Prova runtime real** (`src/scripts/e2e-asset-service-use-fatia-4b.ts`, fixture existente do tenant dev +
+teardown, 9 asserções, TODAS PASS): (1) sem autoridade (stranger) → `ASSET_SERVICE_USE_NOT_REPRESENTABLE`; (2)
+concept sem `offer_kind=service` → `ASSET_SERVICE_USE_CONCEPT_NOT_SERVICE`; (3) dono SEM declaração
+profissional ativa → `ASSET_SERVICE_USE_OPERATOR_NOT_ELIGIBLE` (fail-closed honesto — ambiente dev tinha 0
+declarações PF ativas); (4) com declaração ativa → ativa (status=active, operador=dono); (5)
+`actor_asset_modes` ganhou `service_use` enabled=true; (6) reativar com arranjo diferente é UPDATE idempotente
+(mesmo id, SEM linha duplicada — confirmado por count=1); (7) `countActiveServiceUses` reflete o vínculo ativo;
+(8) pausar via `updateStatus` reduz o read-model. **DB restaurado ao estado anterior (teardown provado,
+resíduo 0).**
+
+**Escopo negativo cumprido (aprovado pela Yala):** zero terceiro-operador/`asset:operate`/`actor_capability_grants` tocados; zero
+viabilidade/`VIABILITY_STATES`/economic-policy-engine; zero km/piso/excedente/combustível; zero
+localidade/`address_assignments` nova; zero Bank/ledger/split/checkout/orders/payment_intents; zero
+booking/RFQ/service_demands; zero toque em `actor_asset_sale_terms`/`actor_asset_rental_terms`/`products`/
+`product_offers`; zero frontend (nenhum arquivo `frontend/` tocado). Δbank=0. Typecheck 0; suíte **152 GATE OK**
+(151 anteriores + guard novo); `git diff --check` limpo.
+
+**Nota de concorrência (honesta):** esta fatia foi trabalhada em paralelo, na mesma working tree, com a Fase 4
+fiscal (4c-2, commits `b556bbd4c`+`214fda3ee`). Ao editar `governed-vocabularies.manifest.ts`, a sessão fiscal
+encontrou as 2 entradas desta fatia (`OPERATIONAL_ARRANGEMENTS`/`ASSET_SERVICE_USE_STATUSES`) no arquivo e as
+DEVOLVEU à working tree (não commitou sob 4c-2) — nada desta fatia foi perdido ou misturado com o material
+fiscal. Reconferido: as 2 entradas estão no HEAD (commitadas em `05649a35b`), sem duplicação, guard de
+manifesto verde. A sessão paralela foi PARADA; regra vigente: uma frente por working tree.
+
+**STATUS: 🟡 EXECUTADA · YALA: SELO COM RESSALVA (material aprovado; ressalvas documentais/processuais em remediação nesta entrada).** **STOP:** não abrir 4C (terceiro-operador/release `asset:operate`), não abrir Bank, não abrir frontend, não abrir viabilidade/localidade (4E/4F), não selar a 4B sem REAUDITORIA LIMITADA da Yala sobre esta remediação documental. Fatias 4C-4F seguem trancadas por GO próprio de Clayton.
+
 ## F-BANK-SPLIT-POLICY-ADMIN-FOUNDATION — FASE 4 fatia 4c-2 ✅ SELADA PELA YALA · SELO COMPLETO · ALERTA DE PROCESSO SOBRE WORKING TREE COMPARTILHADA (2026-07-10, material `b556bbd4c`)
 **Veredito Yala: SELO COMPLETO no material** (auditoria adversarial read-only de 62 eixos + 10 mutações) **+ ALERTA DE PROCESSO ELEVADO** (não-bloqueante para a 4c-2; bloqueante para continuar acumulando frentes na mesma tree). Commits: selo 4c-1 `6fa2e5f97` · material 4c-2 `b556bbd4c` · docs 4c-2 (pré-selo) `214fda3ee`.
 **Confirmado no selo:** (1) `PLATFORM_REVENUE_STREAMS` = D9.5 exato (marketplace_commission/advertising/own_tickets/acquiring_fees/physical_structures/other); (2) registrado no manifesto governado; (3) alinhado ao CHECK chk_tax_rules_platform_stream_vocab da 4c-1; (4) `TaxRegime` REUSADO da casa 4b (import, não redeclarado — zero literal de regime em tax-catalog.types); (5) types TaxType/TaxRule/TaxpayerKind/PlatformRevenueStream/TaxScopeLevel/status/inputs/filtros/FiscalRuleResolution presentes e compondo dos vocabulários governados; (6) repository createTaxType/retireTaxType/listTaxTypes/createDraftRule/activateRule/deprecateRule/resolveApplicableRules/resolveRuleOrMissing; (7) activateRule deprecia a ativa anterior do MESMO escopo em BEGIN/COMMIT atômico (tupla IS NOT DISTINCT FROM); (8) NÃO edita active in-place (só aceita draft); (9) NÃO emite DELETE (zero DELETE no repo); (10) imutabilidade garantida pelos triggers vivos da 4c-1 (tax_rules_immutability/tax_types_immutability + RLS ENABLE+FORCE confirmados vivos por psql); (11) resolução localiza por tenant/taxpayer_kind/tax_regime/território(FK)/concept_id/platform_revenue_stream/vigência; (12) dimensão NULL = "qualquer" só para LOCALIZAR (SELECT), não fabrica; (13) ausência = `fiscal_config_missing` honesto; (14) nenhuma regra/regime/alíquota inventada; (15) nenhum cálculo fiscal; (16) nenhuma multiplicação de rate_bps × dinheiro (grep vazio); (17) nenhum tax_reserve; (18) applies_to não alterado; (19) economic_policy_lines não alterada; (20) motor fiscal não criado; (21) nenhuma seed real; (22) nenhuma policy fiscal ativa; (23) nenhuma rota HTTP/admin/painel; (24) invoicing/NF-e/fiscal-document não tocados; (25) Bank/ledger/split/orders/checkout/payment_intents não tocados; (26) Δbank=0; (27) DT-INVOICING-HARDCODED-TAX-RATE permanece OPEN (5% hardcoded em invoice.service.ts:74 não corrigido); (28) 4d não aberta; (29) commits isolados (material `b556bbd4c` = só 3 arquivos fiscais; docs `214fda3ee` = só cartório/tracker); (30) nenhum arquivo asset_service_use nos commits da 4c-2; (31) OPERATIONAL_ARRANGEMENTS/ASSET_SERVICE_USE_STATUSES AUSENTES do commit (HEAD manifest = só PLATFORM_REVENUE_STREAMS).
