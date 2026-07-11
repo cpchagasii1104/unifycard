@@ -79,7 +79,8 @@ function parseComposition(raw: unknown): TemplateComposition {
   };
 }
 
-async function assertCompanyTemplateAuthority(input: {
+/** Autoridade de templates da empresa (leitura sensível E escrita usam a MESMA — 0170 §2). */
+export async function assertCompanyTemplateAuthority(input: {
   tenantId: string;
   userId: string;
   globalUserId: string;

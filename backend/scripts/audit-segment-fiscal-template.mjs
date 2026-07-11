@@ -169,13 +169,18 @@ need(chk, CHK, /configuração sugerida — requer validação/, 'checklist perd
 // matching é heurística de exibição — nunca vínculo persistido (0169 §4)
 need(chk, CHK, /matchedRuleId/, 'checklist perdeu matchedRuleId em memória — a cobertura deve ser rastreável NA RESPOSTA (nunca em tabela).');
 
-// SEM rota/admin/superfície: nenhum arquivo de rota/builder pode referenciar o checklist (B-3 = fatia futura)
+// Superfície do checklist: INVERSÃO CONSCIENTE na B-3 (DECISION-0170, GO de Clayton) — o precedente
+// F1-d ("proíbe" vira "exige legítimo + proíbe fora do lugar"). A ÚNICA superfície permitida é
+// company-templates.routes.ts (com autoridade + fidelidade, travadas no T8). Qualquer OUTRA rota/
+// builder consumindo o checklist segue FAIL (PDV/admin/segunda superfície = fatia própria com GO).
+const CHECKLIST_SURFACE_ALLOWED = 'core/companies/company-templates.routes.ts';
 for (const f of walkTs(join(ROOT, 'src'))) {
   const rel = f.replace(ROOT, '.').replace(/\\/g, '/');
   if (!/\.routes\.ts$|app\.builder\.ts$|\/routes\//.test(rel)) continue;
+  if (rel.includes(CHECKLIST_SURFACE_ALLOWED)) continue; // B-3: superfície única autorizada (T8 trava o conteúdo)
   const src = stripTs(readFileSync(f, 'utf-8'));
   if (/business-template-checklist|checklistForCompany/.test(src)) {
-    failures.push(`${rel}: rota/superfície consumindo o checklist fiscal — superfície é a B-3 (fatia própria com GO); a B-2 é backend-only.`);
+    failures.push(`${rel}: rota/superfície consumindo o checklist fiscal FORA da superfície única da B-3 (company-templates.routes) — segunda superfície exige GO próprio.`);
   }
 }
 
@@ -201,6 +206,56 @@ for (const f of walkTs(join(ROOT, 'src', 'modules', 'fiscal'))) {
   if (/business-template-checklist|checklistForCompany/.test(src)) {
     failures.push(`${rel}: módulo fiscal lendo o CHECKLIST — o motor lê SOMENTE configuração ativa do tenant (0167 §3); checklist é superfície de onboarding, não fonte fiscal.`);
   }
+}
+
+// ── (T8 — Fase B-3) rota READ-ONLY do checklist (DECISION-0170) ──
+{
+  const RTS = 'src/core/companies/company-templates.routes.ts';
+  const CHK = 'src/core/companies/business-template-checklist.service.ts';
+  const API_DOC = 'docs/API_CONTRACT_GOVERNANCE.md';
+  const rtsRaw = (() => { const p = join(ROOT, RTS); return existsSync(p) ? readFileSync(p, 'utf-8') : null; })();
+  const rts = rtsRaw === null ? null : stripTs(rtsRaw);
+  const chk = (() => { const p = join(ROOT, CHK); return existsSync(p) ? stripTs(readFileSync(p, 'utf-8')) : null; })();
+  const apiDoc = (() => { const p = join(ROOT, API_DOC); return existsSync(p) ? readFileSync(p, 'utf-8') : null; })();
+
+  need(rts, RTS, /fiscal-template-checklist/, 'rota do checklist fiscal sumiu (DECISION-0170 §1).');
+  // arquivo de rotas NUNCA emite SQL de escrita (toda escrita é de serviço com autoridade)
+  forbid(rts, RTS, /INSERT INTO|DELETE FROM|UPDATE\s+\w+\s+SET/i, 'company-templates.routes emitindo SQL de escrita — rotas projetam, serviços escrevem.');
+  forbid(rts, RTS, /createDraftRule|activateRule|taxCatalogRepository/, 'company-templates.routes tocando o catálogo fiscal do tenant — ativação = Fase C (serviço próprio, rito canônico).');
+  forbid(rts, RTS, /provision_cents|provisionCents|activated_by_accountant/, 'rota expondo provisão/estado da Fase C — proibido (0170 §5/§6).');
+  forbid(rts, RTS, /(FROM|INTO|JOIN)\s+(bank_ledger|bank_splits|bank_transactions|bank_accounts)\b|modules\/bank|modules\/pdv/i, 'company-templates.routes tocando Bank/PDV.');
+  if (rts !== null) {
+    // slice da rota do checklist: da declaração até o próximo registro de rota
+    const at = rts.indexOf('fiscal-template-checklist');
+    const rest = rts.slice(at);
+    const next = rest.indexOf('fastify.', 20);
+    const slice = next > 0 ? rest.slice(0, next) : rest;
+    if (!/assertCompanyTemplateAuthority/.test(slice)) {
+      failures.push(`${RTS}: rota do checklist SEM assertCompanyTemplateAuthority — checklist fiscal nunca é público nem só-tenant (0170 §2).`);
+    }
+    if (!/checklistForCompany/.test(slice)) {
+      failures.push(`${RTS}: rota do checklist não usa a fonte ÚNICA checklistForCompany (B-2) — proibido recompor/enriquecer (0170 §1).`);
+    }
+    if (!/send\(\{ ok: true, data \}\)/.test(slice)) {
+      failures.push(`${RTS}: rota do checklist RESHAPEANDO a resposta — projeção deve ser FIEL (send({ ok: true, data })); reshape pode omitir o disclaimer obrigatório (0170 §3).`);
+    }
+    if (/applyTemplate/.test(slice)) {
+      failures.push(`${RTS}: rota do checklist chamando applyTemplate — leitura NUNCA aplica (0169 §1.R).`);
+    }
+    // /recommended endurecida (achado 0170 §2) — não regredir para só-tenant
+    const rAt = rts.indexOf('/templates/recommended');
+    const rRest = rts.slice(rAt);
+    const rNext = rRest.indexOf('fastify.', 20);
+    const rSlice = rNext > 0 ? rRest.slice(0, rNext) : rRest;
+    if (!/assertCompanyTemplateAuthority/.test(rSlice)) {
+      failures.push(`${RTS}: /templates/recommended voltou a ser só tenant-gated — endurecimento da 0170 §2 removido.`);
+    }
+  }
+  // vocabulário de estados da B-2 permanece SEM o estado da Fase C
+  forbid(chk, CHK, /activated_by_accountant/, 'checklist service ganhou activated_by_accountant — estado pertence à Fase C (0169 §9).');
+  forbid(chk, CHK, /provision_cents|provisionCents|rate_bps\s*\*|\*\s*rateBps/, 'checklist service calculando/expondo provisão — motor = 4d (0167).');
+  // contrato governado registrado
+  need(apiDoc, API_DOC, /fiscal-template-checklist/, 'rota do checklist NÃO registrada no API_CONTRACT_GOVERNANCE §5 (cadeia contrato→código, protocolo §2.2.8).');
 }
 
 // ── veredito ──

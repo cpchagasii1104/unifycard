@@ -186,6 +186,29 @@ este registro fecha a ressalva de contrato. Docs-only, zero mudança de comporta
 - **NÃO** toca Bank/ledger/split/orders/checkout/payment_intents/booking/RFQ; arranjo é TERMO/anúncio,
   não cobrança. Sem frontend na v1.
 
+### Checklist fiscal da empresa — `GET /companies/:companyId/fiscal-template-checklist` (F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION B-3 · DECISION-0170)
+
+- **Autoridade:** `assertCompanyTemplateAuthority` (actor humano por LEITURA + `canManageCompany`) —
+  representante autorizado da empresa / contador delegado (via delegação governada) / admin governado
+  futuro. **NUNCA pública, NUNCA só-tenant, NUNCA cross-company.** 401 sem auth; 403 `TEMPLATE_FORBIDDEN`
+  sem autoridade (sem vazar dados); 404 empresa inexistente no tenant.
+- **Método:** só GET. Nenhuma escrita existe nesta superfície (read-model derivado/recomputável).
+- **Fonte ÚNICA:** `businessTemplateChecklistService.checklistForCompany` (B-2) — a rota projeta o
+  resultado INTEIRO (`send({ ok, data })`), sem reshape, sem enriquecer, sem calcular.
+- **Payload:** `CompanyFiscalChecklist` da B-2 — `onboardingState` agregado conservador (só os 6 estados:
+  no_template/suggested/applied_draft/fiscal_pending/partially_validated/ready_for_activation;
+  `activated_by_accountant` NÃO existe aqui — é da Fase C), `territory` (IDs Location Core),
+  `applications[]` (fiscalProfileId null = ausência honesta; territoryMatch; items com status
+  pending/covered/not_applicable/needs_review; `matchedRuleId` SÓ em resposta, nunca persistido),
+  **rótulo OBRIGATÓRIO `disclaimer: "configuração sugerida — requer validação"`** e mensagem de pendência
+  `"configuração fiscal pendente — validar com contador"` nos warnings quando houver.
+- **Escopo negativo (contratual):** NÃO é apuração oficial; NÃO ativa regra (zero createDraftRule/
+  activateRule); NÃO calcula imposto/provisão (zero provision_cents — o campo não existe); NÃO retorna
+  alíquota como verdade ativa; NÃO move dinheiro; NÃO toca Bank/PDV/motor 4d/NF-e. CTA de ativação real =
+  Fase C. Guard `audit-segment-fiscal-template` (T8) morde regressões por mutação.
+- **Nota:** no mesmo movimento, `GET /:companyId/templates/recommended` foi ENDURECIDO com a mesma
+  autoridade (era só tenant-gated — achado da DECISION-0170 §2; recomendação por company é dado da empresa).
+
 ## 6. Lacunas conhecidas (dívida registrada, não fingida)
 
 - O `00_AGENT_PROTOCOL.md` §2.2.8 cita `backend/docs/openapi-stock-transfer-receipt.contract.yaml` como
