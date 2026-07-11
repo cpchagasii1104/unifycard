@@ -269,6 +269,23 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (30) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N1/N1.1 SELADA PELA YALA (SELO COMPLETO)
+- Yala reauditou a correção N1.1 (`7d253d0f9`) sobre a promulgação N1 (`13cd7d84c`). Primeira auditoria
+  havia dado SELO COM RESSALVA (canRepresentActor vs. autoridade de curadoria sem separação textual
+  inequívoca); §6.1 sanou. Reauditoria limitada (§6.1 + cartório + escopo docs-only): **SELO COMPLETO.**
+- Martelos confirmados: representação ≠ curadoria; capability/grant territorial explícito obrigatório além
+  da representação; fail-closed sem ela; rastreabilidade humana mesmo representando PJ; 1/N capability keys
+  = decisão do GATE N2; nenhuma capability física criada; nenhuma implementação aberta.
+- `DECISION-0171 + N1.1` promovidas a SELADA/SELO COMPLETO; ressalva ENCERRADA.
+- Observação cosmética não bloqueante registrada (linha 22 mantém mapa textual antigo, não é regra
+  operativa — §6/§6.1 prevalecem); nenhuma DT material aberta para isso; commit auditado `7d253d0f9`
+  permanece intocado nesta fatia.
+- Docs-only: zero backend/src/scripts/frontend; zero migration/schema/seed; guard intocado;
+  `CANONICAL_WRITER_ALLOW` vazia; nenhuma capability/grant; HOLDs 501 preservados; Δbank=0.
+- **STATUS:** DECISION-0171 + N1.1 SELADA PELA YALA · SELO COMPLETO. **Próximo passo autorizado, não
+  iniciado:** GATE read-first do N2. N2 material, schema, writer, seed, authority wiring, guard allowlist,
+  Social e Bank permanecem TRANCADOS.
+
 ### 2026-07-11 (29) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N1.1 — correção da ressalva Yala (autoridade de curadoria)
 - Auditoria Yala da N1 (DECISION-0171, `13cd7d84c`): SELO COM RESSALVA — §6 acoplava `canRepresentActor` à
   autorização de curadoria, deixando implícito que representar um actor já autorizaria curadoria territorial.
