@@ -20,6 +20,9 @@ const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\
 const norm = (p) => p.split(sep).join('/');
 
 const B_MIG = '20260711130000_neighborhood_aliases_foundation.sql';
+// N2-B.1 (remediação Yala): CHECK de borda (R1) — normalize_name() não faz trim; sem alterar o
+// helper compartilhado do Location Core, a correção fica como invariante da coluna alias.
+const B1_MIG = '20260711140000_neighborhood_aliases_hardening.sql';
 const IMMUT_FN = 'enforce_neighborhood_alias_identity_immutability';
 const IMMUT_TRG = 'trg_neighborhood_alias_identity_immutability';
 const HOLD_FN = 'enforce_neighborhood_aliases_writer_hold';
@@ -189,6 +192,34 @@ try {
     }
   }
 
+  // ── 1b. N2-B.1 (ressalva R1): CHECK de borda presente, VALID, protegendo os dois lados ───────
+  if (!migFiles.includes(B1_MIG)) {
+    failures.push(`migration de saneamento de borda ausente: ${B1_MIG} (ressalva Yala R1 — normalize_name não faz trim, alias sem CHECK de borda escapa da UNIQUE).`);
+  } else {
+    const sql = stripSql(readFileSync(join(MIG, B1_MIG), 'utf-8'));
+    if (!/ADD\s+CONSTRAINT\s+chk_neighborhood_aliases_alias_no_edge_whitespace\s+CHECK\s*\(/i.test(sql)) {
+      failures.push(`${B1_MIG}: CHECK de borda chk_neighborhood_aliases_alias_no_edge_whitespace ausente.`);
+    } else {
+      const ck = sql.match(/chk_neighborhood_aliases_alias_no_edge_whitespace\s+CHECK\s*\(([\s\S]*?)\)\s*;/i);
+      const body = ck ? ck[1] : '';
+      if (!/alias\s*!~\s*'\^\[\[:space:\]\]'/i.test(body)) {
+        failures.push(`${B1_MIG}: CHECK de borda não protege o INÍCIO (alias !~ '^[[:space:]]').`);
+      }
+      if (!/alias\s*!~\s*'\[\[:space:\]\]\$'/i.test(body)) {
+        failures.push(`${B1_MIG}: CHECK de borda não protege o FIM (alias !~ '[[:space:]]$').`);
+      }
+    }
+    if (/\bNOT\s+VALID\b/i.test(sql)) {
+      failures.push(`${B1_MIG}: constraint de borda não pode nascer NOT VALID.`);
+    }
+    if (/GENERATED\s+ALWAYS\s+AS\s*\(\s*(trim|btrim)\(/i.test(sql)) {
+      failures.push(`${B1_MIG}: N2-B.1 não deve alterar o GENERATED de alias_normalized (correção fica no CHECK, não na normalização).`);
+    }
+    if (/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+normalize_name/i.test(sql)) {
+      failures.push(`${B1_MIG}: N2-B.1 não deve alterar normalize_name() — helper único compartilhado de todo o Location Core.`);
+    }
+  }
+
   // ── 2. Migrations POSTERIORES não enfraquecem a fundação de aliases ─────────────────────────
   const after = migFiles.filter((f) => f > B_MIG);
   for (const f of after) {
@@ -208,11 +239,24 @@ try {
     if (new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+(${IMMUT_FN}|${HOLD_FN})`, 'i').test(sql)) {
       failures.push(`[pos-N2B] ${f}: redefine função de aliases — exige fatia própria + guard consciente.`);
     }
-    if (/GRANT\b[\s\S]{0,80}?\b(INSERT|UPDATE|DELETE|ALL(?:\s+PRIVILEGES)?)\b[\s\S]{0,80}?\bON\b[\s\S]{0,40}?(TABLE\s+)?(public\.)?neighborhood_aliases\b[\s\S]{0,80}?\bTO\b/i.test(sql)) {
-      failures.push(`[pos-N2B] ${f}: re-concede DML de neighborhood_aliases (qualquer grantee/coluna) — proibido antes do writer.`);
+    // R2 (Yala): TRUNCATE e ALL/ALL PRIVILEGES contam como DML efetivo para o veto de reabertura.
+    if (/GRANT\b[\s\S]{0,80}?\b(INSERT|UPDATE|DELETE|TRUNCATE|ALL(?:\s+PRIVILEGES)?)\b[\s\S]{0,80}?\bON\b[\s\S]{0,40}?(TABLE\s+)?(public\.)?neighborhood_aliases\b[\s\S]{0,80}?\bTO\b/i.test(sql)) {
+      failures.push(`[pos-N2B] ${f}: re-concede DML/TRUNCATE de neighborhood_aliases (qualquer grantee/coluna) — proibido antes do writer (ressalva Yala R2).`);
+    }
+    // GRANT amplo em ALL TABLES IN SCHEMA public a unificard_app/PUBLIC também reabriria TRUNCATE
+    if (/GRANT\b[\s\S]{0,80}?\b(TRUNCATE|ALL(?:\s+PRIVILEGES)?)\b[\s\S]{0,80}?ON\s+ALL\s+TABLES\s+IN\s+SCHEMA\s+public\s+TO\s+(unificard_app|PUBLIC)/i.test(sql)) {
+      failures.push(`[pos-N2B] ${f}: GRANT amplo (TRUNCATE/ALL) ON ALL TABLES reabriria TRUNCATE em neighborhood_aliases — proibido antes do writer (ressalva Yala R2).`);
+    }
+    // R2 (Yala): troca de ownership da tabela de aliases — qualquer novo owner, não só unificard_app
+    if (/ALTER\s+TABLE\s+(?:public\.)?neighborhood_aliases\s+OWNER\s+TO\b/i.test(sql)) {
+      failures.push(`[pos-N2B] ${f}: troca de ownership de neighborhood_aliases — exige decisão consciente própria + nova auditoria (ressalva Yala R2).`);
     }
     if (/ALTER\s+TABLE\s+(?:public\.)?neighborhood_aliases[\s\S]{0,200}(DROP\s+CONSTRAINT\s+(chk|uq|fk)_neighborhood_aliases|ADD\s+COLUMN\s+(city_id|tenant_id|status|external_code)\b|ALTER\s+COLUMN\s+\w+\s+(DROP\s+NOT\s+NULL|SET\s+DEFAULT))/i.test(sql)) {
       failures.push(`[pos-N2B] ${f}: enfraquece constraints/shape de neighborhood_aliases — proibido sem decisão própria.`);
+    }
+    // recriação FRACA do CHECK de borda (regressão à ausência de proteção, ou proteção só de um lado)
+    if (f !== B1_MIG && /ADD\s+CONSTRAINT\s+chk_neighborhood_aliases_alias_no_edge_whitespace\s+CHECK\s*\((?![\s\S]*?!~\s*'\^\[\[:space:\]\]'[\s\S]*?!~\s*'\[\[:space:\]\]\$')/i.test(sql)) {
+      failures.push(`[pos-N2B] ${f}: recria o CHECK de borda com forma FRACA (não protege os dois lados) — regressão à ressalva Yala R1 proibida.`);
     }
     if (/ADD\s+CONSTRAINT\s+\w*alias\w*\s+UNIQUE\s*\((?![^)]*neighborhood_id)[^)]*alias_normalized/i.test(sql)) {
       failures.push(`[pos-N2B] ${f}: UNIQUE global/por-cidade sobre alias_normalized mataria a ambiguidade — proibido.`);
@@ -266,4 +310,4 @@ if (failures.length) {
   console.error('\n→ Fundação de aliases (DECISION-0171 §8 / 0172 N2-B) ausente/enfraquecida. Alias é rótulo subordinado — nunca identidade, nunca resolvido por LIMIT 1, nunca UNIQUE global; tabela nasce inviolável até o writer N2-E.');
   process.exit(1);
 }
-console.log(`GATE OK [neighborhood-alias-foundation] — integridade VERSIONADA da N2-B: tabela filha única (sem city_id/tenant_id/RLS/status/external_code); alias_normalized GENERATED via normalize_name (sem normalização paralela); CHECKs whitespace robustos; source_kind = vocabulário do núcleo (3 valores); FKs RESTRICT; UNIQUE PISO (neighborhood_id, alias_normalized) sem UNIQUE global (ambiguidade entre bairros preservada); sem preferred/primary/score/resolver; imutabilidade (DELETE/id/pai/texto/creator/created_at) sem bypass; HOLD I/U/D STATEMENT ENABLE ALWAYS + ACL SELECT-only sem regrant posterior; zero writer/resolver LIMIT-1 em runtime; zero seed/sucessão/candidato; 4 guards no runner. (Estado vivo = introspecção.)`);
+console.log(`GATE OK [neighborhood-alias-foundation] — integridade VERSIONADA da N2-B+B.1: tabela filha única (sem city_id/tenant_id/RLS/status/external_code); alias_normalized GENERATED via normalize_name (sem normalização paralela); CHECKs whitespace robustos + CHECK de borda nos dois lados (ressalva R1 — normalize_name não faz trim); source_kind = vocabulário do núcleo (3 valores); FKs RESTRICT; UNIQUE PISO (neighborhood_id, alias_normalized) sem UNIQUE global (ambiguidade entre bairros preservada); sem preferred/primary/score/resolver; imutabilidade (DELETE/id/pai/texto/creator/created_at) sem bypass; HOLD I/U/D STATEMENT ENABLE ALWAYS + ACL SELECT-only sem regrant/TRUNCATE/troca-de-ownership posterior (ressalva R2); zero writer/resolver LIMIT-1 em runtime; zero seed/sucessão/candidato; 4 guards no runner. (Não cobre DDL admin direto no banco vivo; estado vivo = introspecção.)`);
