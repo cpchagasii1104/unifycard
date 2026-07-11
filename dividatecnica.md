@@ -269,6 +269,20 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (29) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N1.1 — correção da ressalva Yala (autoridade de curadoria)
+- Auditoria Yala da N1 (DECISION-0171, `13cd7d84c`): SELO COM RESSALVA — §6 acoplava `canRepresentActor` à
+  autorização de curadoria, deixando implícito que representar um actor já autorizaria curadoria territorial.
+- **N1.1 (docs-only):** §6 ajustada + nova §6.1 "Esclarecimento vinculante de autoridade de curadoria" que
+  prevalece: representação ≠ curadoria; capability/grant territorial explícito, escopado e vigente é
+  obrigatório ALÉM da representação; fail-closed sem ela (nada de tenant admin/role/is_admin/booleano/
+  canRepresentActor isolado como substituto); rastreabilidade humana mesmo representando PJ; N2 deve
+  distinguir as capacidades (propor/criar/aprovar/corrigir/desativar/sucessão). Nome físico da capability =
+  GATE/N2. Sem nova DECISION numérica (esclarecimento interno); redação anterior preservada.
+- Docs-only: zero material; CANONICAL_WRITER_ALLOW intocada; nenhuma capability/grant criada; HOLDs 501
+  preservados; Δbank=0.
+- **STATUS:** DECISION-0171 corrigida — AGUARDA RE-AUDITORIA YALA LIMITADA. N2 GATE não iniciado; N2
+  material e N3–N7 trancados.
+
 ### 2026-07-11 (28) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N1 — DECISION-0171 promulgada (docs-only)
 - Pós-selo N0/N0.1/N0.2, GO de Clayton para formalizar a identidade canônica de bairro. Promulgada
   **DECISION-0171** (`docs/02_decisions/DECISION_0171_NEIGHBORHOOD_CANONICAL_IDENTITY_FOUNDATION.md`;

@@ -1,6 +1,6 @@
 # DECISION-0171 — Fundação da identidade territorial canônica de bairro (Location Core)
 
-- **Status:** DECIDIDA / PROMULGADA (docs-only) — habilita a frente `F-NEIGHBORHOOD-CANONICAL-IDENTITY` (fatia N1).
+- **Status:** DECIDIDA / PROMULGADA (docs-only) — habilita a frente `F-NEIGHBORHOOD-CANONICAL-IDENTITY` (fatia N1). **Adendo N1.1 (2026-07-11):** esclarecimento vinculante de autoridade de curadoria em §6.1 (ressalva Yala — representação de actor ≠ autoridade de curadoria; capability explícita obrigatória; fail-closed).
 - **Data:** 2026-07-11
 - **Autoridade:** Clayton (soberana), sobre HEAD selado `d79b863e2` (selo Yala N0/N0.1/N0.2).
 - **Escopo:** decisão de doutrina + contrato conceitual. **NÃO** autoriza código, migration, coluna, seed, writer canônico, catálogo populado, resolução de `addresses.neighborhood_id`, dashboard, endpoint, Social, Bank, split, fundo, nem remoção de qualquer HOLD. É a formalização da IDENTIDADE; a materialização é N2+ com GO próprio.
@@ -118,9 +118,35 @@ A futura materialização (N2) **deve registrar**, por bairro canônico: tipo/or
 ## 6. Autoridade de curadoria
 
 - Usuário comum **não** cria bairro canônico; texto enviado por usuário **não** cria identidade; provider externo **não** tem autoridade.
-- Curador é **actor identificado**; a autorização **reutiliza a camada canônica de authority/capability** + `canRepresentActor` (SSOT_REGISTRY §5.16; 08_AUTORIDADE). **Proibido** criar role local, booleano administrativo ou ACL paralela.
+- Curador é **actor identificado**; a autorização **reutiliza a camada canônica de authority/capability**, com **capability/grant territorial explícito** (ver §6.1) **além** da representação válida do actor executor. **Proibido** criar role local, booleano administrativo ou ACL paralela.
 - Toda aprovação é **atribuível** a actor humano responsável (ACTOR_TRACEABILITY); autoridade pode ser **revogada sem apagar histórico**.
-- **Substrato de authority existente** (candidato de composição futura, sem criar grant/capability/código no N1): a fachada de autoridade/`canRepresentActor` e a camada de capability/delegação canônica do repo. O **nome exato** da capability de curadoria territorial **fica como requisito do N2** — não é inventado aqui como fato consumado.
+- **Substrato de authority existente** (candidato de composição futura, sem criar grant/capability/código no N1): a fachada de autoridade/`canRepresentActor` (prova de representação) **e** a camada de capability/delegação canônica do repo (autorização de curadoria). O **nome exato** da capability de curadoria territorial **fica como requisito do N2** — não é inventado aqui como fato consumado.
+
+### 6.1. Esclarecimento vinculante de autoridade de curadoria (adendo N1.1 — ressalva Yala)
+
+Esta subseção **prevalece** sobre qualquer leitura anterior deste documento que sugira que a representação de actor, sozinha, autorize curadoria territorial. Ela complementa (não revoga) os bullets de §6; onde houver aparente conflito, vale o texto abaixo.
+
+Cadeia vinculante de autorização de curadoria:
+
+```
+autenticação da conta
+      ↓
+canRepresentActor  (prova de que a conta pode agir por aquele actor)
+      ↓
+capability/grant territorial explícito, escopado e vigente (casa canônica de authority)
+      ↓
+permissão para criar/aprovar/alterar/rejeitar/descontinuar bairro canônico
+```
+
+**A — Limite de `canRepresentActor`.** `canRepresentActor` comprova **exclusivamente** que a conta está autorizada a agir em nome de determinado actor. Essa prova de representação **não concede, por si**, autoridade de curadoria territorial. Representar PF, PJ, grupo ou qualquer outro actor **não** transforma o representante em curador territorial.
+
+**B — Capability obrigatória.** Criar, alterar, aprovar, rejeitar ou descontinuar identidade territorial canônica de bairro **exige** capability/grant territorial **explícito, escopado e vigente**, emitido pela **casa canônica de authority/capability**, **além** da representação válida do actor executor. O **nome físico** dessa capability continua **reservado ao GATE/N2** — a DECISION **não** inventa chave concreta.
+
+**C — Fail-closed.** Ausência, expiração ou revogação da capability **nega** a operação. **Não substituem** essa capability: autenticação simples, administração de tenant, role textual, `is_admin`, booleano local, `canRepresentActor` isolado ou acesso operacional genérico. **Nenhum fallback administrativo implícito** é permitido.
+
+**D — Rastreabilidade humana.** Criação e aprovação são **atribuíveis a actor humano responsável**, inclusive quando o humano atua **representando uma PJ**. Devem permanecer rastreáveis: o actor representado, a conta executora, o actor humano responsável, a capability/grant usada e o momento da operação. A **revogação futura** da autoridade **não apaga** o histórico das ações já realizadas.
+
+**E — Separação das operações (requisito do GATE N2).** O N2 deverá **distinguir**, no mínimo, as capacidades conceituais de: propor/cadastrar candidato · criar registro canônico · aprovar · corrigir dados descritivos · desativar · registrar sucessão. **Não** se decide aqui se serão **uma ou várias** capability keys — isso é resultado do GATE N2.
 
 ---
 
