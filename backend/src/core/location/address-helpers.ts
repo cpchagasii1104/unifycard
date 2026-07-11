@@ -55,23 +55,12 @@ export async function convertLegacyAddressToRef(input: {
     }
   }
 
-  // Bairro
-  if (input.neighborhood && ref.city_id) {
-    // Buscar por nome (case-insensitive)
-    const result = await pool.query<{ neighborhood_id: string }>(
-      `
-      SELECT neighborhood_id
-      FROM neighborhoods
-      WHERE city_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))
-      LIMIT 1
-      `,
-      [ref.city_id, input.neighborhood]
-    );
-
-    if (result.rows.length > 0) {
-      ref.neighborhood_id = result.rows[0].neighborhood_id;
-    }
-  }
+  // Bairro — CONTENÇÃO N0.1 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER):
+  // NÃO resolver `neighborhood_id` por igualdade de nome. DECISION-0079 §6 (bairro nunca é
+  // identidade por texto livre) + DECISION-0166 D4 (nível neighborhood em HOLD). O bairro de
+  // entrada permanece só como texto de exibição no chamador; a resolução canônica de
+  // `neighborhood_id` só existirá na fundação governada F-NEIGHBORHOOD-CANONICAL-IDENTITY.
+  // País/estado/cidade acima seguem preservados.
 
   // Retornar null se não encontrou nada
   if (!ref.country_id && !ref.state_id && !ref.city_id && !ref.neighborhood_id) {

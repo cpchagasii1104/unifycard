@@ -87,7 +87,9 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 | **Abertas (estimativa reconciliada)** | **~150–170** (inalterado — a frente de split fechou CONTENDO/RETIRANDO paralelos, não zerou DTs A_DECISION; ver nota) | 2026-07-09 |
 | Contidas/mitigadas (latência viva) | ~50 | 2026-07-06 |
 | Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
-| Suite `validate:regression-guards` | ✅ **151 GATE OK / RC=0** (medido 2026-07-09 via `npm run`) | 2026-07-09 |
+| Suite `validate:regression-guards` | ✅ **155 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`) | 2026-07-11 |
+
+**🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER):** contenção + blindagem anti-revival do writer legado de bairro por texto livre (rota `POST /locations/enrich-from-cep` → `findOrCreateNeighborhood`, único `INSERT INTO neighborhoods` do src; + 2º resolvedor por nome em `address-helpers.ts`, contido). Guard novo `audit-neighborhood-freetext-writer-containment.mjs` (suíte 154→155), mutation 5/5 morde, prova comportamental efêmera 7/7, typecheck 0, Δbank=0. **Efeito na contagem:** DT contida/executada aguardando selo Yala; não zera bucket A_DECISION (o RFC N1 da fundação canônica segue TRANCADO). HOLDs 501 do nível neighborhood no Bank preservados.
 
 **🟢 Sessão 2026-07-09 — F-BANK-SPLIT-PIPELINE-CONSOLIDATION-VIRGIN-SYSTEM FECHADA:** frente de
 consolidação do pipeline financeiro (sistema virgem, DECISION-0165). 8 fatias + 1 correção, todas
@@ -266,6 +268,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-11 (25) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1 — contenção + blindagem anti-revival do writer de bairro (aguarda Yala)
+- **N0 (`a81f004ea`):** rota `POST /locations/enrich-from-cep` / `location-enrichment.service.findOrCreateNeighborhood` criava `neighborhood_id` por igualdade de nome (`INSERT INTO neighborhoods`, único do src) — anti-padrão vetado por DECISION-0079 §6 / DECISION-0166 D4. Neutralizado: bairro do CEP vira só rótulo de exibição; país/estado/cidade preservados.
+- **N0.1 (esta sessão):** blindagem durável. Achado extra contido: `address-helpers.convertLegacyAddressToRef` (sem caller) também resolvia `neighborhood_id` por nome — removido. Tripwire do N0 removido (sem caller; garantia migra para o guard). **Guard novo** `audit-neighborhood-freetext-writer-containment.mjs` (registrado no runner; suíte 155): morde INSERT/UPDATE/DELETE neighborhoods, símbolo `findOrCreateNeighborhood`, resolução por nome, `neighborhood_id` derivado de display/provider; não morde leitura por id.
+- **Provas:** guard baseline PASS (1762 arquivos); mutation 5/5 morde→restore→PASS; prova comportamental efêmera 7/7 (provider monkeypatchado, Curitiba/PR, neighborhoods 0 antes/depois, removida pré-commit — prova durável no guard); typecheck 0; `validate:regression-guards` 155 OK (pipefail); `git diff --check` limpo; grep final de writers em src = 0.
+- **Escopo negativo:** zero migration/schema/seed/Social/Bank; dois HOLDs 501 (`service-payment-execution.service.ts:351`, `bank-account.service.ts:445`) preservados; Δbank=0.
+- **STATUS:** N0/N0.1 EXECUTADA — AGUARDA AUDITORIA YALA. RFC N1 (fundação canônica) TRANCADO até selo; escolhas (a)–(f) já ratificadas por Clayton.
 
 ### 2026-07-10 (24) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase B-3 SELADA PELA YALA (SELO COMPLETO)
 - Yala B-3 = SELO COMPLETO (36 confirmações). Rota read-only real, autoridade real (canManageCompany via

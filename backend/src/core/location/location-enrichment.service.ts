@@ -278,29 +278,12 @@ class LocationEnrichmentService {
     throw new Error('Erro ao criar cidade');
   }
 
-  /**
-   * GUARD DE CONTENÇÃO (N0) — DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER.
-   *
-   * Este método CRIAVA bairro por igualdade de nome normalizado (`INSERT INTO neighborhoods`),
-   * violando DECISION-0079 §6 (proibido bairro FK por texto livre) e DECISION-0166 D4 (nível
-   * neighborhood em HOLD até existir catálogo governado). Foi NEUTRALIZADO: não contém mais
-   * nenhum SQL de escrita. Permanece como tripwire fail-closed — qualquer tentativa futura de
-   * reviver o writer legado falha em alto e bom som, em vez de materializar um `neighborhood_id`
-   * falso. A criação canônica de bairro só pode nascer na fundação governada
-   * F-NEIGHBORHOOD-CANONICAL-IDENTITY (catálogo com fonte/curadoria/aprovação), NUNCA aqui a
-   * partir de texto de CEP/provider/usuário.
-   */
-  private async findOrCreateNeighborhood(
-    _cityId: string,
-    _nameDisplay: string,
-    _nameNormalized: string
-  ): Promise<never> {
-    throw new Error(
-      'NEIGHBORHOOD_CANONICAL_IDENTITY_HOLD: criação de bairro por texto livre está contida ' +
-        '(DECISION-0079 §6 / DECISION-0166 D4). Use a fundação governada ' +
-        'F-NEIGHBORHOOD-CANONICAL-IDENTITY; este writer legado foi desativado.'
-    );
-  }
+  // CONTENÇÃO N0.1 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER): o método legado
+  // `findOrCreateNeighborhood()` — que criava bairro por igualdade de nome (INSERT INTO
+  // neighborhoods) — foi REMOVIDO. Não há mais writer de bairro por texto livre neste serviço.
+  // A blindagem durável contra revival vive no guard `audit-neighborhood-freetext-writer-
+  // containment.mjs` (validate:regression-guards). A criação canônica de bairro só pode nascer
+  // na fundação governada F-NEIGHBORHOOD-CANONICAL-IDENTITY (DECISION-0079 §6 / DECISION-0166 D4).
 
   /**
    * Buscar nome completo do estado pela sigla (helper)
