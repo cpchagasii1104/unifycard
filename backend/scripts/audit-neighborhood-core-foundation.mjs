@@ -26,6 +26,9 @@ const A1_MIG = '20260711120000_neighborhoods_core_hardening.sql';
 // a proibição genérica de tabelas neighborhood_* excetua NOMINALMENTE esta criação; a integridade
 // da tabela de aliases é governada pelo guard próprio audit-neighborhood-alias-foundation.mjs.
 const B_MIG = '20260711130000_neighborhood_aliases_foundation.sql';
+// N2-C (ajuste consciente): casa canônica de SUCESSÃO nasce aqui; excecao nominal ao bloqueio
+// generico de tabelas neighborhood_* (integridade governada pelo guard audit-neighborhood-succession-foundation).
+const C_MIG = '20260711150000_neighborhood_succession_foundation.sql';
 const HOLD_MIG = '20260711100000_neighborhoods_dml_hold.sql';
 const IMMUT_FN = 'enforce_neighborhood_identity_immutability';
 const IMMUT_TRG = 'trg_neighborhood_identity_immutability';
@@ -224,9 +227,10 @@ try {
         && /ALTER\s+TABLE\s+(?:public\.)?neighborhoods[\s\S]{0,120}ADD\s+COLUMN\s+(tenant_id|external_code|status)\b/i.test(sql)) {
       failures.push(`[pos-N2A] ${f}: adiciona coluna proibida (tenant_id/external_code/status) em neighborhoods.`);
     }
-    // (21) alias/sucessão/candidato não nascem antes das fatias próprias — EXCETO a casa canônica
-    // de aliases, que nasce nominalmente na B_MIG (N2-B, GO próprio; guard alias-foundation governa).
-    if (f !== B_MIG && /CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_(aliases|successions|candidates)\b/i.test(sql)) {
+    // (21) alias/sucessão/candidato não nascem antes das fatias próprias — EXCETO as casas canônicas
+    // nominais: B_MIG (aliases, N2-B) e C_MIG (sucessão, N2-C). Cada uma tem GO próprio + guard próprio
+    // (alias-foundation / succession-foundation). Candidatos seguem proibidos (fatia futura).
+    if (f !== B_MIG && f !== C_MIG && /CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_(aliases|success\w*|candidates)\b/i.test(sql)) {
       failures.push(`[pos-N2A] ${f}: cria tabela de alias/sucessão/candidato FORA da casa canônica autorizada — fatias N2-B/N2-C com GO próprio.`);
     }
   }
