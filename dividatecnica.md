@@ -87,7 +87,7 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 | **Abertas (estimativa reconciliada)** | **~150–170** (inalterado — a frente de split fechou CONTENDO/RETIRANDO paralelos, não zerou DTs A_DECISION; ver nota) | 2026-07-09 |
 | Contidas/mitigadas (latência viva) | ~50 | 2026-07-06 |
 | Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
-| Suite `validate:regression-guards` | ✅ **161 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-territorial-capability-grant-lifecycle na N2-D.2) | 2026-07-11 |
+| Suite `validate:regression-guards` | ✅ **162 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-actor-user-anchor-uniqueness na N2-D.2-R1) | 2026-07-11 |
 
 **🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 ✅ SELADA PELA YALA · SELO COMPLETO (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER FECHADA):** contenção dos 3 vetores conhecidos de identidade de bairro por texto livre — (1) criação SQL por nome (N0, `a81f004ea`); (2) resolução SQL de `neighborhood_id` por nome (N0.1, `7fcf407cd`); (3) resolução EM MEMÓRIA no `resolveCep` (N0.2, `c53e044dc`, remediação da REPROVAÇÃO intermediária da Yala ao N0.1). Guard `audit-neighborhood-freetext-writer-containment.mjs` cobre os 3 vetores + mutation 7/7 (M6=padrão exato da reprovação, M7=variante); suíte 155, typecheck 0, Δbank=0; `CANONICAL_WRITER_ALLOW` vazia. **Efeito na contagem:** DT FECHADA/CONTIDA/SELADA — sai do bucket de risco vivo. **Próximo passo autorizado (não iniciado):** N1 docs-only (DECISION de identidade canônica de bairro). N2/schema/seed/writer canônico seguem TRANCADOS; HOLDs 501 do Bank preservados.
 
@@ -268,6 +268,23 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-11 (53) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R1 — unicidade canônica do Actor user (aguarda Yala)
+- GATE N2-D.2-R0 (read-only) ratificou Opção A em 2 microfatias (R1 Actors SSOT · R2 Authority). Esta é
+  a R1. Material único `fb15000ff` (base `00aa2aa66`); zero Authority/grants tocados.
+- migration 20260711180000: UNIQUE parcial uq_actors_user (tenant_id, user_id) WHERE actor_type='user'
+  AND ambos NOT NULL — barreira FÍSICA positiva (espelha uq_actors_company_page/uq_actors_group). Zero
+  duplicidades no vivo; sem limpeza/merge; user_id NULL fora; mesmo user em tenants distintos permitido.
+- findByUserId fail-closed (busca 2 rows; >1→ACTOR_USER_ANCHOR_AMBIGUOUS; sem LIMIT 1/ORDER BY). Os 2
+  writers (findOrCreateUserActor + Tx) idempotentes sob corrida: ON CONFLICT DO NOTHING no alvo EXATO +
+  reselect + conferência de global_user_id (ACTOR_USER_CANONICAL_ANCHOR_CONFLICT); sem DO UPDATE/reinsert.
+- Guard novo (suíte 161→162). Provas: rollback residue-0; T1–T20 DB (nome exato da constraint); **T14
+  CORRIDA REAL com 2 conexões + barreira advisory lock → count=1/mesmo Actor/1 vencedor/tx válidas**;
+  17 mutations + 3 benignos (20/20, 1 gap real do guard fechado: conferência de identidade explícita);
+  typecheck 0; suíte 162; 6 actors vivos preservados; HOLDs 501 intactos; Δbank=0.
+- **STATUS:** N2-D.2-R1 EXECUTADA — AGUARDA AUDITORIA YALA. Fecha SÓ a R1; **R2 (coerência tenant×Actors
+  nas funções de grants) permanece ABERTA**; N2-D.2 NÃO promovida a SELO COMPLETO. Observações não-
+  bloqueantes O1/O2/O3 registradas, não tocadas. N2-D.2-R2/D.3/PORTA/N2-E/N3 trancadas.
 
 ### 2026-07-11 (52) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2 — keys + matriz scope-aware + lifecycle append-only (aguarda Yala)
 - Material único `4f09b2e35` (base `d74a5e84f`): 12 keys exatas na existência (6 actor + 6 territory);
