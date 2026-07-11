@@ -269,6 +269,22 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (32) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-0/DECISION-0172 SELADA PELA YALA (SELO COMPLETO)
+- Yala auditou a promulgação da DECISION-0172 (`1f056fd75`, sobre base N1/N1.1 selada `c8c9dfecc`).
+  Veredito: **SELO COMPLETO** — P1–P6 coerentes; catálogo global preservado (tenant institucional
+  rejeitado; FKs reais por nível exigidas); maker-checker MVP sem autoaprovação; HOLD físico
+  corretamente definido como trigger (barreira real no dev com role superuser) + REVOKE (defesa p/
+  runtime-alvo) + guard; is_active separado de vigência territorial; N2-F obrigatória antes do N3;
+  authority antes do writer; guard só muda junto do writer.
+- DECISION-0172 promovida a SELADA/SELO COMPLETO. **N2-pre autorizada como próxima fatia, NÃO
+  iniciada.** N2-A…N2-G e N3 seguem TRANCADAS; N2-D exige GATE próprio.
+- Docs-only: zero material; DECISION-0172 intocada nesta fatia; guard intocado;
+  CANONICAL_WRITER_ALLOW vazia; HOLDs 501 preservados; Δbank=0.
+- **STATUS:** DECISION-0172/N2-0 SELADA PELA YALA · SELO COMPLETO. Próximo passo autorizado, não
+  iniciado: N2-pre (trigger de HOLD DML + REVOKE de unificard_app + guard anti-revival do HOLD +
+  prova de que SELECT/readers seguem vivos — nada de catálogo/alias/sucessão/writer/capability nessa
+  microfatia).
+
 ### 2026-07-11 (31) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-0 — DECISION-0172 promulgada (docs-only)
 - GATE read-first N2 executado em HEAD `c8c9dfecc` (3 eixos: schema vivo/usos runtime; padrões
   reutilizáveis; substrato de authority) — veredito soberano: aprovado com 2 correções vinculantes.
