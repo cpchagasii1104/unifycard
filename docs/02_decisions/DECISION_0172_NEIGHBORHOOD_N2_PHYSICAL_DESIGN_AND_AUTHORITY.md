@@ -1,6 +1,6 @@
 # DECISION-0172 — N2-0: escolhas físicas e de autoridade da fundação canônica de bairro
 
-- **Status:** DECIDIDA / PROMULGADA (docs-only) — registra as decisões soberanas do GATE read-first N2 da frente `F-NEIGHBORHOOD-CANONICAL-IDENTITY`. Nenhuma fatia material é aberta por este documento.
+- **Status:** DECIDIDA / PROMULGADA (docs-only) — registra as decisões soberanas do GATE read-first N2 da frente `F-NEIGHBORHOOD-CANONICAL-IDENTITY`. Nenhuma fatia material é aberta por este documento. **Adendo N2-0.1 (2026-07-11):** esclarecimento vinculante §0.1 — `NOLOGIN` é estado inicial, não invariante permanente; a pendência de rollout LOGIN vive na DT existente `DT-DRIFT1-RLS-HARDENING-OPS-ROLLOUT-PENDING` (sem DT nova); o HOLD de bairro não depende de `NOLOGIN`.
 - **Data:** 2026-07-11
 - **Autoridade:** Clayton (soberana), sobre o relatório GATE N2 read-first executado em HEAD `c8c9dfecc` (sem edição/commit) e sobre o veredito que o aprovou com duas correções vinculantes.
 - **Predecessoras:** DECISION-0171 + adendo N1.1 (§6.1) SELADAS pela Yala (`13cd7d84c` · `7d253d0f9` · selo `c8c9dfecc`); contenção N0/N0.1/N0.2 SELADA (`a81f004ea` · `7fcf407cd` · `c53e044dc` · selo `d79b863e2`).
@@ -12,7 +12,16 @@
 
 O GATE N2 read-first (inventário do schema vivo, padrões reutilizáveis e substrato de authority) concluiu: **PRONTO COM PRÉ-FATIA OBRIGATÓRIA** — núcleo/aliases/sucessão desenháveis com moldes governados; writer bloqueado até existir autoridade territorial, trilha do grant utilizado e ajuste consciente do guard. O veredito soberano aprovou o GATE com **duas correções vinculantes** (HOLD físico por trigger, não só ACL; coerência composta de `addresses` como pré-condição do seed) e ratificou P1–P6. Este documento crava tudo isso como norma da frente.
 
-**Correção material registrada (do veredito):** o `REVOKE` de `unificard_app` isolado NÃO é contenção física completa no ambiente atual — `unificard_app` permanece `NOLOGIN` e o runtime de desenvolvimento ainda usa `postgres` (superuser). O REVOKE protege o runtime-alvo futuro; a barreira material relevante no dev é o **trigger de HOLD** (P5).
+**Correção material registrada (do veredito):** o `REVOKE` de `unificard_app` isolado NÃO é contenção física completa no ambiente atual — o runtime de desenvolvimento ainda usa `postgres` (superuser), então a barreira material relevante no dev é o **trigger de HOLD** (P5). O REVOKE é defesa em profundidade para o runtime-alvo. *(Sobre o estado LOGIN/NOLOGIN da role, ver o esclarecimento vinculante §0.1 abaixo, que prevalece sobre qualquer leitura de `NOLOGIN` como invariante permanente.)*
+
+### 0.1. Esclarecimento vinculante do estado operacional da role (adendo N2-0.1)
+
+Esta subseção **prevalece** sobre qualquer trecho deste documento (incluindo a frase original de §0 que descrevia `unificard_app` como `NOLOGIN`) que sugira que `NOLOGIN` é uma invariante permanente da role. Ela complementa, não revoga, o restante.
+
+- `NOLOGIN` descreve o **estado inicial** produzido pela migration `20260620120000_db_role_rls_hardening.sql`, **não** uma invariante permanente. A própria migration prevê, como **ato de ops** explícito (passo 2 do seu cabeçalho), a promoção `ALTER ROLE unificard_app WITH LOGIN PASSWORD '<segredo fora do repo>'` + o apontamento do `DATABASE_URL` de runtime para `unificard_app`. O estado vivo `rolcanlogin=true` observado no dev é **compatível** com esse rollout governado (executado por Clayton em 2026-06-24, registrado no arco RLS-runtime-live), **não** um drift inexplicável.
+- **Autoridade operacional dessa pendência é única e já existe:** `DT-DRIFT1-RLS-HARDENING-OPS-ROLLOUT-PENDING`. **Não** se abre segunda DT para o mesmo fato (evita duas verdades para a mesma pendência).
+- O **requisito PERMANENTE** de `unificard_app` (o que realmente não pode driftar) é: **NOSUPERUSER · NOBYPASSRLS · sem ownership/DDL · grants mínimos · runtime usando a role controlada**. `LOGIN` é passo de rollout previsto, não violação.
+- **O HOLD de `neighborhoods` NÃO depende de `NOLOGIN`.** Ele depende de: **(a)** REVOKE de DML efetivo para `unificard_app`; **(b)** trigger `ENABLE ALWAYS` que nega DML inclusive à role administrativa no fluxo normal; **(c)** guard anti-revival versionado; **(d)** inspeção do estado vivo por introspecção. Ainda que `unificard_app` esteja `LOGIN`, as quatro camadas seguem valendo.
 
 ---
 

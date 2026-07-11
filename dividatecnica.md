@@ -269,6 +269,24 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (34) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-pre.1 — hardening do guard do HOLD + reconciliação NOLOGIN (aguarda reauditoria Yala)
+- Yala deu SELO COM RESSALVA à N2-pre: guard não cobria grant por coluna / a PUBLIC / ENABLE REPLICA /
+  DROP FUNCTION CASCADE, e a promessa PASS não distinguia Git de banco vivo; além disso a 0172 dizia
+  "unificard_app permanece NOLOGIN" apesar do rollout LOGIN previsto.
+- **A (material `5b9a511c9`):** endurecido `audit-neighborhood-dml-hold.mjs` — morde G1 ALL PRIVILEGES,
+  G2 grant por coluna, G3 grant a PUBLIC (DML a qualquer grantee, cobre G4 role+membership), G5 ENABLE
+  REPLICA/DISABLE ALL|USER, G8 DROP FUNCTION [CASCADE], G10 ALL TABLES a unificard_app/PUBLIC; função
+  exigida INCONDICIONAL (sem IF/CASE → mata G7/G9). PASS honesto: bloqueia revival VERSIONADO no repo,
+  não DDL admin direto no banco (provado por introspecção).
+- **B (docs-only):** DECISION-0172 §0.1 (adendo N2-0.1) — NOLOGIN é estado inicial, não invariante;
+  requisito permanente = NOSUPERUSER/NOBYPASSRLS/sem-DDL/grants-mínimos/runtime-controlado; HOLD não
+  depende de NOLOGIN. Pendência de rollout LOGIN atualizada na DT existente
+  `DT-DRIFT1-RLS-HARDENING-OPS-ROLLOUT-PENDING` (sem DT nova).
+- Provas: mutation G1–G10 morde; regressão M-sample morde; stripComments nas 2 direções; migration NÃO
+  alterada; role NÃO alterada; introspecção viva inalterada (trigger 'A', app sel=t/ins=f/upd=f/del=f,
+  0 rows); typecheck 0; suíte 156 OK; HOLDs 501 intactos; Δbank=0.
+- **STATUS:** N2-pre.1 EXECUTADA — AGUARDA REAUDITORIA YALA LIMITADA. N2-A…N2-G e N3 TRANCADAS.
+
 ### 2026-07-11 (33) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-pre — HOLD físico de DML em neighborhoods (aguarda Yala)
 - Material `66b5e6117` (DECISION-0172 P5): migration `20260711100000_neighborhoods_dml_hold.sql` —
   função `enforce_neighborhoods_canonical_writer_hold` (nega I/U/D incondicional, erro estável
