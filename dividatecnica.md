@@ -87,7 +87,7 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 | **Abertas (estimativa reconciliada)** | **~150–170** (inalterado — a frente de split fechou CONTENDO/RETIRANDO paralelos, não zerou DTs A_DECISION; ver nota) | 2026-07-09 |
 | Contidas/mitigadas (latência viva) | ~50 | 2026-07-06 |
 | Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
-| Suite `validate:regression-guards` | ✅ **160 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-territorial-capability-grant-foundation na N2-D.1) | 2026-07-11 |
+| Suite `validate:regression-guards` | ✅ **161 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-territorial-capability-grant-lifecycle na N2-D.2) | 2026-07-11 |
 
 **🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 ✅ SELADA PELA YALA · SELO COMPLETO (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER FECHADA):** contenção dos 3 vetores conhecidos de identidade de bairro por texto livre — (1) criação SQL por nome (N0, `a81f004ea`); (2) resolução SQL de `neighborhood_id` por nome (N0.1, `7fcf407cd`); (3) resolução EM MEMÓRIA no `resolveCep` (N0.2, `c53e044dc`, remediação da REPROVAÇÃO intermediária da Yala ao N0.1). Guard `audit-neighborhood-freetext-writer-containment.mjs` cobre os 3 vetores + mutation 7/7 (M6=padrão exato da reprovação, M7=variante); suíte 155, typecheck 0, Δbank=0; `CANONICAL_WRITER_ALLOW` vazia. **Efeito na contagem:** DT FECHADA/CONTIDA/SELADA — sai do bucket de risco vivo. **Próximo passo autorizado (não iniciado):** N1 docs-only (DECISION de identidade canônica de bairro). N2/schema/seed/writer canônico seguem TRANCADOS; HOLDs 501 do Bank preservados.
 
@@ -268,6 +268,27 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-11 (52) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2 — keys + matriz scope-aware + lifecycle append-only (aguarda Yala)
+- Material único `4f09b2e35` (base `d74a5e84f`): 12 keys exatas na existência (6 actor + 6 territory);
+  chk_acg_scope_capability_matrix NOVO fecha combinação cruzada (sem prefixo/wildcard); revoke_reason
+  separado de reason (nunca sobrescrito); grant imutável pós-criação, DELETE fisico proibido.
+- actor_capability_grant_events (molde actor_delegation_events): snapshot validado contra o grant pai,
+  append-only, cardinalidade 1-granted + no máx 1 terminal (revoked|expired mutuamente exclusivos).
+- 4 funções canônicas SECURITY DEFINER (search_path pinado): fn_grant/fn_revoke públicas actor-only;
+  fn_expire/fn_regrant INTERNAS sem rota — regrant DERIVA grantee/key/scope do antigo (prova
+  estrutural, sem parâmetro pra divergir); sem ON CONFLICT.
+- **Achado do read-first:** default privilege de schema auto-concede EXECUTE/CRUD a unificard_app em
+  toda função/tabela NOVA — exigiu REVOKE explícito de unificard_app (não só PUBLIC) nas 2 funções
+  internas. Fronteira de escrita fechada: app perde INSERT/UPDATE/DELETE diretos em grants.
+- Tri-registry sincronizado (permission-keys.ts + types.ts + CHECK); intersection(actor,territory)=∅,
+  union⊆permission-keys provados pelo guard novo (suíte 160→161). Ajuste consciente mínimo do guard
+  D.1 (janela nominal de 5 arquivos autorizados).
+- Provas: rollback residue-0; T1–T48 DB (matriz/create/revoke/expire/regrant/imutabilidade/ACL via SET
+  LOCAL ROLE); 42/42 mutations+controles; typecheck 0; suíte 161; 9 guards de neighborhood+authority
+  PASS; 0 grants/0 eventos vivos; dois HOLDs 501 intactos; Δbank=0.
+- **STATUS:** N2-D.2 EXECUTADA — AGUARDA AUDITORIA YALA. Zero hasTerritorialCapability (D.3)/rota
+  territorial/PORTA-TERRITORY-1/grant real/writer de bairro; canRepresentActor puro.
 
 ### 2026-07-11 (51) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.1+D.1-R SELADAS PELA YALA (SELO COMPLETO)
 - Cadeia: base `e03790d9e` → material D.1 `6f5df7d7d`/`180e1d0c9` (auditoria: SELO COM RESSALVA
