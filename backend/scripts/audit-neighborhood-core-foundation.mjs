@@ -22,6 +22,10 @@ const CORE_MIG = '20260711110000_neighborhoods_core_foundation.sql';
 // REDEFINIÇÃO AUTORIZADA da função de imutabilidade (mesma lógica; só o texto do DELETE).
 // Esta é a definição canônica VIGENTE — redefinições em migrations POSTERIORES a ela são proibidas.
 const A1_MIG = '20260711120000_neighborhoods_core_hardening.sql';
+// N2-B (ajuste consciente deste guard): a casa canônica de ALIASES nasce nesta migration —
+// a proibição genérica de tabelas neighborhood_* excetua NOMINALMENTE esta criação; a integridade
+// da tabela de aliases é governada pelo guard próprio audit-neighborhood-alias-foundation.mjs.
+const B_MIG = '20260711130000_neighborhood_aliases_foundation.sql';
 const HOLD_MIG = '20260711100000_neighborhoods_dml_hold.sql';
 const IMMUT_FN = 'enforce_neighborhood_identity_immutability';
 const IMMUT_TRG = 'trg_neighborhood_identity_immutability';
@@ -220,9 +224,21 @@ try {
         && /ALTER\s+TABLE\s+(?:public\.)?neighborhoods[\s\S]{0,120}ADD\s+COLUMN\s+(tenant_id|external_code|status)\b/i.test(sql)) {
       failures.push(`[pos-N2A] ${f}: adiciona coluna proibida (tenant_id/external_code/status) em neighborhoods.`);
     }
-    // (21) alias/sucessão/candidato não nascem antes das fatias próprias (N2-B/N2-C)
-    if (/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_(aliases|successions|candidates)\b/i.test(sql)) {
-      failures.push(`[pos-N2A] ${f}: cria tabela de alias/sucessão/candidato — fatias N2-B/N2-C com GO próprio (guard será conscientemente atualizado lá).`);
+    // (21) alias/sucessão/candidato não nascem antes das fatias próprias — EXCETO a casa canônica
+    // de aliases, que nasce nominalmente na B_MIG (N2-B, GO próprio; guard alias-foundation governa).
+    if (f !== B_MIG && /CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_(aliases|successions|candidates)\b/i.test(sql)) {
+      failures.push(`[pos-N2A] ${f}: cria tabela de alias/sucessão/candidato FORA da casa canônica autorizada — fatias N2-B/N2-C com GO próprio.`);
+    }
+  }
+
+  // ── 2b. (fechamento da observação do selo N2-A) redefinição ÚNICA dentro da A1 ──────────────
+  // A A1 auditada contém exatamente UMA CREATE OR REPLACE da função de imutabilidade; uma segunda
+  // ocorrência MATERIAL (comment-stripped) dentro do próprio arquivo histórico = FAIL.
+  if (migFiles.includes(A1_MIG)) {
+    const a1sql = stripSql(readFileSync(join(MIG, A1_MIG), 'utf-8'));
+    const redefs = (a1sql.match(new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${IMMUT_FN}`, 'gi')) || []).length;
+    if (redefs !== 1) {
+      failures.push(`${A1_MIG}: esperada exatamente UMA redefinição autorizada de ${IMMUT_FN} — encontradas ${redefs} (segunda redefinição no mesmo arquivo histórico é adulteração forward-only).`);
     }
   }
 

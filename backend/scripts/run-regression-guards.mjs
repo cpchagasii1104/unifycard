@@ -160,7 +160,8 @@ const CMDS = [
   "node scripts/audit-segment-fiscal-template.mjs",
   "node scripts/audit-neighborhood-freetext-writer-containment.mjs",
   "node scripts/audit-neighborhood-dml-hold.mjs",
-  "node scripts/audit-neighborhood-core-foundation.mjs"
+  "node scripts/audit-neighborhood-core-foundation.mjs",
+  "node scripts/audit-neighborhood-alias-foundation.mjs"
 ];
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);
