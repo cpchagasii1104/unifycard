@@ -269,6 +269,23 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (54) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R1-FIX — cobertura total da âncora canônica (aguarda reauditoria Yala limitada)
+- Reauditoria da N2-D.2-R1 (`fb15000ff`): SELO COM RESSALVA — o caminho inicial "Actor já existe"
+  retornava sem validar global_user_id (só a corrida perdida validava). Material `f7146ff12`; sem
+  migration nova; zero Authority/grants.
+- Helper único assertCanonicalUserActorAnchor: pós-condição compartilhada, comparações explícitas
+  (===/!==) de actor_type/tenant_id/user_id/global_user_id + actor_id=id; fail-closed
+  ACTOR_USER_CANONICAL_ANCHOR_CONFLICT (nunca corrige/funde/recria). Os 2 writers carregam o
+  global_user_id canônico ANTES do reuso e validam nos 3 caminhos (existing/criado/corrida). findByUserId
+  intocado; cardinalidade LIMIT 2 preservada no reselect.
+- Guard endurecido: prova helper (4 campos + fail-closed + sem comparação frouxa) + ≥3 chamadas por
+  writer + morde early-return/insert-returning sem validação.
+- Provas runtime pelo repository real (tsx): T1-T5 (existing compatível/incompatível fail-closed nos 2
+  writers + corrida real); 6 actors restaurados; mutations 13/13; typecheck 0; suíte 162; HOLDs 501
+  intactos; Δbank=0.
+- **STATUS:** N2-D.2-R1-FIX EXECUTADA — AGUARDA REAUDITORIA YALA LIMITADA. N2-D.2-R1 ainda sem SELO
+  COMPLETO; R2 trancada até selo da R1; N2-D.3/PORTA/N2-E/N3 trancadas.
+
 ### 2026-07-11 (53) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R1 — unicidade canônica do Actor user (aguarda Yala)
 - GATE N2-D.2-R0 (read-only) ratificou Opção A em 2 microfatias (R1 Actors SSOT · R2 Authority). Esta é
   a R1. Material único `fb15000ff` (base `00aa2aa66`); zero Authority/grants tocados.
