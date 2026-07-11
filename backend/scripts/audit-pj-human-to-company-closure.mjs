@@ -112,6 +112,10 @@ const stripComments = (s) => s
     // NÃO resolve/escreve actor, NÃO aplica template (autoridade da aplicação segue em
     // assertCompanyTemplateAuthority via applyTemplate), NÃO toca fiscal (guard próprio T6 morde).
     'business-template-suggestion.service.ts',
+    // F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION B-2 (DECISION-0169 §4/§9): checklist fiscal READ-MODEL —
+    // NÃO resolve/escreve actor, NÃO escreve em NADA (read-model derivado; guard próprio T7 morde),
+    // sem rota nesta fase (superfície = B-3 futura).
+    'business-template-checklist.service.ts',
   ]);
   const familyShort = new Set(PJ_ACTOR_FAMILY.map((f) => f.split('/').pop()));
   const unclassified = [];

@@ -142,8 +142,64 @@ need(migB1, MIG_B1, /chk_cta_cnae_requires_context/, 'CHECK cnae-exige-rationale
 for (const f of walkTs(join(ROOT, 'src', 'modules', 'pdv'))) {
   const rel = f.replace(ROOT, '.').replace(/\\/g, '/');
   const src = stripTs(readFileSync(f, 'utf-8'));
-  if (/business_template_fiscal|business-template-suggestion/.test(src)) {
-    failures.push(`${rel}: PDV lendo template fiscal/sugestão — preview depende de configuração ATIVA e/ou motor (0169 §12); template nunca é estimativa.`);
+  if (/business_template_fiscal|business-template-suggestion|business-template-checklist/.test(src)) {
+    failures.push(`${rel}: PDV lendo template fiscal/sugestão/checklist — preview depende de configuração ATIVA e/ou motor (0169 §12); template/checklist nunca é estimativa.`);
+  }
+}
+
+// ── (T7 — Fase B-2) checklist fiscal READ-MODEL (DECISION-0169 §4/§9) ──
+const CHK = 'src/core/companies/business-template-checklist.service.ts';
+const chk = readTsFile(CHK);
+
+// checklist não escreve NADA e não ativa NADA (0169 §4: a Fase B nunca escreve no catálogo fiscal)
+forbid(chk, CHK, /INSERT INTO|UPDATE\s+\w|DELETE FROM/i, 'serviço de CHECKLIST escrevendo no banco — checklist é READ-MODEL derivado/recomputável (0169 §4/§9).');
+forbid(chk, CHK, /createDraftRule|activateRule/, 'serviço de CHECKLIST criando/ativando regra fiscal — ativação é a Fase C (rito canônico com contador, 0169 §11).');
+forbid(chk, CHK, /applyTemplate/, 'serviço de CHECKLIST aplicando template — aplicar é ato humano autorizado (0169 §1.R).');
+forbid(chk, CHK, /actor_fiscal_profiles|fiscal-profile\.repository/, 'serviço de CHECKLIST tocando actor_fiscal_profiles — fora da fronteira da Fase B (0169 §4).');
+// sem cálculo: checklist compara dimensões, nunca multiplica alíquota nem produz número fiscal
+forbid(chk, CHK, /rateBps\s*\*|\*\s*rateBps|rate_bps\s*\*|\*\s*rate_bps|Math\.(round|floor|ceil)|base_cents|baseCents|gross_transaction_cents|grossTransactionCents|provision|tax_reserve|taxReserve/, 'serviço de CHECKLIST calculando imposto/provisão — número fiscal é o motor 4d (0167, GO próprio); checklist só compara dimensões.');
+// Bank fora (Lei de Coerência §4.6)
+forbid(chk, CHK, /bank_ledger|bank_splits|bank_transactions|bank_accounts|payment_intents|checkout|@modules\/bank|bankSplitEngine|createTransactionWith/i, 'serviço de CHECKLIST tocando Bank/ledger/split/orders/checkout — PROIBIDO (fiscal configura, Bank executa).');
+// teto da B-2: activated_by_accountant é da FASE C — o vocabulário derivado NÃO o contém
+need(chk, CHK, /ONBOARDING_STATES = \[\s*'no_template', 'suggested', 'applied_draft', 'fiscal_pending', 'partially_validated', 'ready_for_activation',?\s*\] as const/, 'ONBOARDING_STATES divergiu do vocabulário §9 (até ready_for_activation).');
+forbid(chk, CHK, /activated_by_accountant/, "serviço de CHECKLIST conhece/retorna 'activated_by_accountant' — esse estado PERTENCE À FASE C (0169 §9); a B-2 para em ready_for_activation.");
+// pendência honesta é contrato do read-model (0169 §5)
+need(chk, CHK, /configuração fiscal pendente — validar com contador/, 'checklist perdeu a mensagem de pendência honesta (0169 §5) — ausência de regra nunca vira invenção.');
+need(chk, CHK, /configuração sugerida — requer validação/, 'checklist perdeu o rótulo obrigatório da superfície (0167 §9 / 0169 §10).');
+// matching é heurística de exibição — nunca vínculo persistido (0169 §4)
+need(chk, CHK, /matchedRuleId/, 'checklist perdeu matchedRuleId em memória — a cobertura deve ser rastreável NA RESPOSTA (nunca em tabela).');
+
+// SEM rota/admin/superfície: nenhum arquivo de rota/builder pode referenciar o checklist (B-3 = fatia futura)
+for (const f of walkTs(join(ROOT, 'src'))) {
+  const rel = f.replace(ROOT, '.').replace(/\\/g, '/');
+  if (!/\.routes\.ts$|app\.builder\.ts$|\/routes\//.test(rel)) continue;
+  const src = stripTs(readFileSync(f, 'utf-8'));
+  if (/business-template-checklist|checklistForCompany/.test(src)) {
+    failures.push(`${rel}: rota/superfície consumindo o checklist fiscal — superfície é a B-3 (fatia própria com GO); a B-2 é backend-only.`);
+  }
+}
+
+// estado do onboarding NUNCA vira coluna/tabela persistida (0169 §9) — em QUALQUER migration
+for (const f of readdirSync(join(ROOT, 'migrations')).filter((f) => f.endsWith('.sql'))) {
+  const src = stripSql(readFileSync(join(ROOT, 'migrations', f), 'utf-8'));
+  if (/onboarding_state|ready_for_activation|fiscal_pending|partially_validated/i.test(src)) {
+    failures.push(`migrations/${f}: estado de onboarding fiscal PERSISTIDO em schema — 0169 §9 exige read-model derivado/recomputável, nunca coluna de verdade.`);
+  }
+  if (/CREATE TABLE (IF NOT EXISTS )?\w*(fiscal_checklist|checklist_fiscal|onboarding)\w*/i.test(src)) {
+    failures.push(`migrations/${f}: tabela de checklist/onboarding persistido — o checklist é derivado em runtime (0169 §4/§9), nunca gravado.`);
+  }
+  // vínculo persistido template↔catálogo do tenant (global × tenant) é impossível por design (0169 §4)
+  if (/(ALTER TABLE|CREATE TABLE)[^;]*business_template[\s\S]{0,400}?REFERENCES tax_(types|rules)/i.test(src)) {
+    failures.push(`migrations/${f}: FK de casa de template para tax_types/tax_rules — vínculo global×tenant é impossível por design (0169 §4); matching é heurística de exibição.`);
+  }
+}
+
+// motor fiscal (4d, quando existir) NÃO lê checklist/sugestão (allowlist 0167 §3) — reforço do T5
+for (const f of walkTs(join(ROOT, 'src', 'modules', 'fiscal'))) {
+  const rel = f.replace(ROOT, '.').replace(/\\/g, '/');
+  const src = stripTs(readFileSync(f, 'utf-8'));
+  if (/business-template-checklist|checklistForCompany/.test(src)) {
+    failures.push(`${rel}: módulo fiscal lendo o CHECKLIST — o motor lê SOMENTE configuração ativa do tenant (0167 §3); checklist é superfície de onboarding, não fonte fiscal.`);
   }
 }
 
@@ -154,4 +210,4 @@ if (failures.length > 0) {
   failures.forEach((f) => console.error('  ❌', f));
   process.exit(1);
 }
-console.log('GATE OK [segment-fiscal-template] — DECISION-0168 travada: faceta fiscal ancorada em business_template_versions (freeze R1 vivo; published imutável; deprecated terminal; itens congelados sob published; território por FK composta; concepts como identidade); template SEM alíquota/FK-a-tax_rules/category/tenant (sugestão, nunca verdade); casa nasce VAZIA (seed = FAIL); sem 4ª noção de segmento; superfícies de template sem escrever no catálogo fiscal; módulo fiscal sem ler template. Ativação = Fase C com contador; motor 4d segue lendo só configuração ativa.');
+console.log('GATE OK [segment-fiscal-template] — DECISION-0168 travada: faceta fiscal ancorada em business_template_versions (freeze R1 vivo; published imutável; deprecated terminal; itens congelados sob published; território por FK composta; concepts como identidade); template SEM alíquota/FK-a-tax_rules/category/tenant (sugestão, nunca verdade); casa nasce VAZIA (seed = FAIL); sem 4ª noção de segmento; superfícies de template sem escrever no catálogo fiscal; módulo fiscal sem ler template; checklist B-2 = read-model puro (sem rota/coluna/tabela/cálculo, teto ready_for_activation). Ativação = Fase C com contador; motor 4d segue lendo só configuração ativa.');
