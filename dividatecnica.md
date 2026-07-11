@@ -267,6 +267,24 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (20) — FASE B-2 EXECUTADA: checklist fiscal read-model até ready_for_activation — aguarda Yala
+- Decisão de escopo de Clayton: **B-2 ESTRITA** (backend-only, sem rota/frontend/painel); superfície =
+  **B-3 futura** ("B-2 prepara o dado, B-3 expõe, C ativa, 4d calcula, PDV mostra número só pós-motor").
+- Material `e1e9cd9b0`: `business-template-checklist.service` READ-ONLY (**zero migration** — read-model
+  puro): fórmula 0169 §4 (publicado casado por território + aplicação + regras ativas via
+  taxCatalogRepository = pendências/coberturas); matching = heurística de exibição por dimensões
+  (cobertura exige MESMA esfera; matchedRuleId só na resposta); platform=not_applicable; ausência =
+  "configuração fiscal pendente — validar com contador"; rótulo "configuração sugerida — requer
+  validação". Estados derivados §9 até **ready_for_activation** (activated_by_accountant = Fase C,
+  guard morde o literal); agregado conservador por empresa.
+- Guard T7 estendido (suíte segue 154): anti-escrita/ativação/cálculo/Bank/ROTA/coluna-tabela-de-estado/
+  FK-template→tax/motor-lê-checklist/PDV-usa-checklist + contratos do read-model. Classificação
+  proativa no pj-closure (lição da B-1 — zero suíte vermelha desta vez).
+- Provas: e2e runtime 10/10 (fixtures efêmeras, cleanup replica, resíduo 0, catálogo 0/0; script
+  removido pré-commit) · mutation 14/14 MORDE · typecheck 0 · suíte 154 GATE OK **com pipefail na
+  cadeia do commit** · Δbank=0.
+- B-3/C/D/4d-1 TRANCADAS (GO próprio cada). Contagem de DTs inalterada.
+
 ### 2026-07-10 (19) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase B-1 SELADA PELA YALA (SELO COMPLETO)
 - Yala Fase B-1 = SELO COMPLETO (27 confirmações + 12/12 mutações). Read-only real confirmado (zero
   escrita); ranking CNAE-primário>company_type>CNAE-secundário validado; CNAE = ponte curada (nunca
