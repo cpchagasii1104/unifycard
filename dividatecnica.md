@@ -269,6 +269,25 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (51) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.1+D.1-R SELADAS PELA YALA (SELO COMPLETO)
+- Cadeia: base `e03790d9e` → material D.1 `6f5df7d7d`/`180e1d0c9` (auditoria: SELO COM RESSALVA
+  exclusivamente documental, material sólido) → ADENDO D3 `0f218b90b` (matriz scope×capability) →
+  reauditoria final: **SELO COMPLETO**. 4 auditorias read-only; zero alteração material pela Yala.
+- Material selado: actor_capability_grants casa única; scope_type actor|territory; scope_city_id FK
+  real cities RESTRICT; 6 shapes inválidos fail-closed; anti-suspended territorial NASCEU na D.1
+  (D.2 só protege); 2 casas de unicidade (actor com tenant; territory sem tenant/now(), colisão
+  active-vencido intencional).
+- Matriz selada: permission-keys.ts=existência, matriz=onde a key forma grant válido; actor set
+  permanece actor-only (inventário na D.2); territory set = as 6 keys territory:*; tabela-verdade
+  fechada; prefix inference proibida.
+- Obrigação vinculante da D.2: 6 keys+matriz+lifecycle+reason/revoke_reason+revoke+explicit-expire+
+  regrant+legado ENTREGUES JUNTOS (sem estado intermediário permissivo); guard prova union⊆
+  permission-keys ∧ intersection=∅.
+- **STATUS:** N2-D.1+D.1-R SELADAS PELA YALA · SELO COMPLETO. **N2-D.2 autorizada como próxima fatia
+  material possível, NÃO iniciada.** D.3/PORTA-TERRITORY-1 trancadas; N2-E bloqueada por
+  neighborhoods.name+reuso predecessor+ciclos+authority completa; N3/N2-F/N2-G trancadas; 0 territory
+  rows/0 keys territoriais vivo; Social/Bank fora; Δbank=0.
+
 ### 2026-07-11 (50) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.1-R — adendo D3: matriz scope×capability (aguarda reauditoria Yala limitada)
 - Auditoria Yala da N2-D.1 (`6f5df7d7d`/`180e1d0c9`): **🟡 SELO COM RESSALVA exclusivamente documental**
   — material sólido, nenhuma migration corretiva. Ressalva: CHECK plano de capability_key permitiria
