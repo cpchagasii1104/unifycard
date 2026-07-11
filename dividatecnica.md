@@ -89,7 +89,7 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 | Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
 | Suite `validate:regression-guards` | ✅ **155 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`) | 2026-07-11 |
 
-**🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER):** contenção do writer legado de bairro por texto livre + blindagem anti-revival por guard. **N0.1 foi REPROVADA pela Yala** (guard não cobria o resolvedor em memória `location.service.ts::resolveCep`, `.find`+camelCase); **N0.2 remediou:** resolveCep contido, guard ampliado (matching em memória + camelCase), mutation 7/7 (M6=padrão exato Yala, M7=variante), prova comportamental com bairro COINCIDENTE semeado (regressão não escondida por catálogo vazio). Suíte 155, typecheck 0, Δbank=0. **Efeito na contagem:** DT classificada PARCIAL→remediada, executada aguardando RE-auditoria Yala; não zera bucket A_DECISION (RFC N1 TRANCADO). HOLDs 501 do Bank preservados.
+**🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 ✅ SELADA PELA YALA · SELO COMPLETO (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER FECHADA):** contenção dos 3 vetores conhecidos de identidade de bairro por texto livre — (1) criação SQL por nome (N0, `a81f004ea`); (2) resolução SQL de `neighborhood_id` por nome (N0.1, `7fcf407cd`); (3) resolução EM MEMÓRIA no `resolveCep` (N0.2, `c53e044dc`, remediação da REPROVAÇÃO intermediária da Yala ao N0.1). Guard `audit-neighborhood-freetext-writer-containment.mjs` cobre os 3 vetores + mutation 7/7 (M6=padrão exato da reprovação, M7=variante); suíte 155, typecheck 0, Δbank=0; `CANONICAL_WRITER_ALLOW` vazia. **Efeito na contagem:** DT FECHADA/CONTIDA/SELADA — sai do bucket de risco vivo. **Próximo passo autorizado (não iniciado):** N1 docs-only (DECISION de identidade canônica de bairro). N2/schema/seed/writer canônico seguem TRANCADOS; HOLDs 501 do Bank preservados.
 
 **🟢 Sessão 2026-07-09 — F-BANK-SPLIT-PIPELINE-CONSOLIDATION-VIRGIN-SYSTEM FECHADA:** frente de
 consolidação do pipeline financeiro (sistema virgem, DECISION-0165). 8 fatias + 1 correção, todas
@@ -268,6 +268,21 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-11 (27) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 SELADA PELA YALA (SELO COMPLETO)
+- Yala auditou a cadeia N0 (`a81f004ea`) → N0.1 (`7fcf407cd`, reprovada — resolvedor em memória de
+  `resolveCep` sobrevivera ao guard) → N0.2 (`c53e044dc`, remediação). Veredito: SELO COMPLETO.
+- Confirmado: zero writer runtime de `neighborhoods`; os 3 vetores conhecidos contidos (SQL-criação,
+  SQL-resolução-por-nome, resolução-em-memória); `neighborhoodId` de `resolveCep` permanece sempre
+  `null` mesmo com bairro homônimo no catálogo; `neighborhoodDisplay` só exibição; país/estado/cidade
+  preservados; guard morde M6/M7 (a regressão exata que a Yala achou); suíte 155; typecheck 0;
+  `CANONICAL_WRITER_ALLOW` vazia; dois HOLDs 501 preservados; Δbank=0.
+- `DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER` promovida a FECHADA/CONTIDA/SELADA PELA YALA.
+- **Próximo passo autorizado, NÃO iniciado nesta sessão:** N1 docs-only (DECISION de identidade
+  canônica de bairro). Abrir o writer canônico exigirá, em N2/fatia futura: DECISION ratificada +
+  alteração consciente do guard (registro em `CANONICAL_WRITER_ALLOW`) + rito de curadoria + prova de
+  autoridade + testes + nova auditoria. Bairro textual/CEP/provider seguem só sugestão/exibição.
+- STOP: N1 não escrito nesta sessão; N2/schema/seed/writer canônico/Social/Bank TRANCADOS.
 
 ### 2026-07-11 (26) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0.2 — remediação pós-reprovação Yala (resolveCep)
 - **Reprovação Yala do N0/N0.1:** permaneceu vivo o resolvedor `location.service.ts::resolveCep` (rota `GET /locations/cep/:cep`) que casava texto de bairro do provider a `neighborhoodId` por matching EM MEMÓRIA (`findNeighborhoodsByCity`+`.find`). Inócuo só por `neighborhoods=0`; 1º seed do N1 reativaria (e o id flui ao front → `addresses.neighborhood_id`). O guard do N0.1 cobria SQL-por-nome/snake_case, não `.find`/camelCase.
