@@ -17,6 +17,7 @@
 
 import { authorizationService } from '@core/authorization/authorization.service';
 import { socialPortsRegistry } from '@core/social/ports-registry';
+import { runQueryWithTenant } from '@core/database/pool';
 import { HttpError } from '@core/errors/http-error';
 import { isActorEffectivelyBlocked } from '../risk-identity/actor-effective-block';
 import { actorCapabilityGrantRepository } from './actor-capability-grant.repository';
@@ -55,6 +56,24 @@ async function assertScopeAuthorityNotQuarantined(tenantId: string, scopeActorId
  * companies.service/kyb-request-submit/catalog-governance/lifestyle etc. Nunca recebido do cliente.
  * Fail-closed: ausência de Actor humano para a conta é erro estrutural (403), não fallback silencioso.
  */
+/**
+ * N2-D.2-R2: validação ANTECIPADA (defesa do service, NÃO a única barreira — a função DB é a barreira
+ * principal). Confirma que o Actor existe NO TENANT por consulta tenant-scoped; ausência (inexistente OU
+ * de outro tenant) → erro de domínio fail-closed e NÃO-vazante (não distingue os dois casos, nem revela
+ * nome/slug/tenant). Mesmo chamando fn_grant/fn_revoke direto como unificard_app, o cross-tenant continua
+ * impossível pela função — esta checagem só melhora a mensagem de domínio.
+ */
+async function assertActorInTenant(tenantId: string, actorId: string, label: string): Promise<void> {
+  const row = await runQueryWithTenant<{ id: string }>(
+    tenantId,
+    `SELECT id::text AS id FROM actors WHERE tenant_id = $1::uuid AND id = $2::uuid LIMIT 1`,
+    [tenantId, actorId]
+  );
+  if (!row) {
+    throw HttpError.notFound(`Actor de ${label} não encontrado no tenant.`);
+  }
+}
+
 async function resolveResponsibleHumanActorId(tenantId: string, userId: string): Promise<string> {
   const humanActor = await socialPortsRegistry.getActorRepository().findByUserId(tenantId, userId);
   if (!humanActor) {
@@ -101,6 +120,10 @@ export const actorCapabilityGrantService = {
 
     // 🔴 F-CAPABILITY-GRANT-QUARANTINE-GATE: autoridade do escopo congelada se bloqueado → 403 ANTES do INSERT.
     await assertScopeAuthorityNotQuarantined(tenantId, input.scopeActorId);
+
+    // N2-D.2-R2: validação antecipada tenant-scoped do grantee (erro de domínio claro; a barreira dura
+    // é a função DB fn_grant, que revalida grantee/scope/granted_by/executed_by/responsible_human ∈ tenant).
+    await assertActorInTenant(tenantId, input.granteeActorId, 'grantee');
 
     // Actor humano responsável pela conta executora — resolvido server-side, nunca do cliente.
     const responsibleHumanActorId = await resolveResponsibleHumanActorId(tenantId, input.grantedByUserId);

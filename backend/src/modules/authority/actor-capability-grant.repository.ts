@@ -154,8 +154,9 @@ export const actorCapabilityGrantRepository = {
 
   /**
    * Revoga via fn_revoke_actor_capability_grant (state+evento revoked atômico; actor-only; reason da
-   * concessão NUNCA é alterado — revoke_reason é campo próprio). null se o grant não existir/não estiver
-   * active (a função lança; o caller mapeia para 404/409 conforme já fazia).
+   * concessão NUNCA é alterado — revoke_reason é campo próprio). N2-D.2-R2: o tenant esperado (server-side)
+   * é o PRIMEIRO argumento — a função no banco rejeita grant de outro tenant como NOT_FOUND (não-vazante) e
+   * valida coerência tenant dos Actors. null se o grant não existir/não estiver active/for de outro tenant.
    */
   async revoke(
     tenantId: string,
@@ -168,8 +169,8 @@ export const actorCapabilityGrantRepository = {
     try {
       const row = await runQueryWithTenant<GrantRow>(
         tenantId,
-        `SELECT ${SELECT_COLS} FROM fn_revoke_actor_capability_grant($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5) AS g`,
-        [grantId, executedByUserId, executedByActorId, responsibleHumanActorId, revokeReason]
+        `SELECT ${SELECT_COLS} FROM fn_revoke_actor_capability_grant($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6) AS g`,
+        [tenantId, grantId, executedByUserId, executedByActorId, responsibleHumanActorId, revokeReason]
       );
       return row ? toGrant(row) : null;
     } catch (error: any) {
