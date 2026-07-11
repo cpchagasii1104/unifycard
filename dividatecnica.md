@@ -269,6 +269,24 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (55) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R1-FIX-R4 — durabilidade branch-local do guard (aguarda reauditoria Yala final limitada)
+- Reauditoria da R1-FIX (`f7146ff12`): SELO COM RESSALVA de durabilidade do guard. Evasão composta:
+  `helperCalls>=3` (contagem global) era gameável — remover o helper do race-loser + duplicar no
+  existing mantinha 3 e o guard passava. Correção **guard-only** (`1297f01d2`); actor.repository.ts
+  byte-intocado (git diff vazio).
+- Guard reescrito: extração BRACE-AWARE dos corpos; prova BRANCH-LOCAL dos 6 ramos (existing/insert-
+  returning/race-loser × 2 writers) — cada `return <Actor>` exige helper na MESMA janela sobre a mesma
+  expressão retornada, antes do return; race-loser exige reselect+cardinalidade. helperCalls>=3
+  removido como prova principal. Anti-sobreajuste (tolera renome/temp var/comentário/whitespace).
+- Provas: typecheck 0; **mutations 19/19** incluindo evasões Z1-Z3 obrigatórias (agora MORDEM),
+  P1-P11 branch-local, H/DO UPDATE/Authority, 3 benignos PASS; suíte 162 (sem novo guard); repo
+  intocado; 6 actors preservados; HOLDs 501 intactos; Δbank=0.
+- **Correção documental append-only:** "fixtures committadas" (entrada 54) foi imprecisa — o harness
+  tsx foi ad hoc, chamou o repository real, NÃO entrou no commit material; a proteção durável
+  versionada é o guard, endurecido nesta R4.
+- **STATUS:** N2-D.2-R1-FIX-R4 EXECUTADA — AGUARDA REAUDITORIA YALA FINAL LIMITADA. N2-D.2-R1 ainda
+  sem SELO COMPLETO; R2 trancada até selo da R1; N2-D.3/PORTA/N2-E/N3 trancadas.
+
 ### 2026-07-11 (54) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R1-FIX — cobertura total da âncora canônica (aguarda reauditoria Yala limitada)
 - Reauditoria da N2-D.2-R1 (`fb15000ff`): SELO COM RESSALVA — o caminho inicial "Actor já existe"
   retornava sem validar global_user_id (só a corrida perdida validava). Material `f7146ff12`; sem
