@@ -269,6 +269,29 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (48) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.0+D1+D2 SELADAS PELA YALA (SELO COMPLETO)
+- Cadeia: N2-C `fc539abcd` → N2-D.0 `4f2bbdb2c` (1ª auditoria: SELO COM RESSALVA) → ADENDO D1
+  `2118370dd` (reauditoria: SELO COM RESSALVA, 2 lacunas de redação, sem falha material) → ADENDO D2
+  `c88b18c75` (reauditoria final: **SELO COMPLETO**). 3 auditorias read-only; zero authority criada.
+- Modelo selado: actor_capability_grants segue casa canônica (sem 2ª tabela); permission-keys.ts =
+  registry das keys; canRepresentActor puro; composição N2-E de 8 elos fail-closed.
+- Shape territorial selado: actor-scoped (tenant+scope_actor NOT NULL/city NULL) vs. territory-scoped
+  (tenant NULL/scope_actor NULL/scope_city_id NOT NULL FK cities+efeito global explícito); tenant
+  institucional rejeitado; MVP city-only (Curitiba).
+- 6 keys territory:{create,approve,correct,deactivate,manage_neighborhood_aliases,
+  register_neighborhood_succession} seladas (match exato, criar≠aprovar, zero financeiro,
+  sincronização só em D.2). Maker-checker opção C.
+- suspended territorial proibido — N2-D.1 cria o CHECK físico territory⇒status<>'suspended' (D.2 só
+  protege). Expiração/regrant: active-vencido continua ocupando a unicidade parcial; regrant exige
+  emissor governado atômico (expire+evento → só então novo grant+evento). Índice territorial sem
+  tenant_id/sem now() no predicado. reason=concessão vs revoke_reason separado; lifecycle append-only.
+  5 elos persistidos pelo N2-E.
+- **STATUS:** N2-D.0+D1+D2 SELADAS PELA YALA · SELO COMPLETO. **N2-D.1 autorizada como próxima fatia
+  material possível, NÃO iniciada** (scope territorial+CHECKs shape+CHECK anti-suspended+índices
+  parciais+guard, zero key/lifecycle/grant/enforcement). D.2/D.3/PORTA-TERRITORY-1 trancadas; N2-E
+  bloqueada por neighborhoods.name+reuso predecessor+ciclos+authority completa; N3/N2-F/N2-G trancadas;
+  Social/Bank fora. Δbank=0.
+
 ### 2026-07-11 (47) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.0-R2 — adendo D2 da DECISION-0173 (aguarda reauditoria Yala final limitada)
 - Reauditoria Yala do D1 (`2118370dd`): **🟡 SELO COM RESSALVA** — 2 lacunas de redação, sem falha
   material (R1 dono da constraint suspended; R2 fluxo active-vencido→regrant). Adendo D2 append-only,
