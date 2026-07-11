@@ -218,7 +218,7 @@ for (const f of walkTs(join(ROOT, 'src', 'modules', 'fiscal'))) {
   const chk = (() => { const p = join(ROOT, CHK); return existsSync(p) ? stripTs(readFileSync(p, 'utf-8')) : null; })();
   const apiDoc = (() => { const p = join(ROOT, API_DOC); return existsSync(p) ? readFileSync(p, 'utf-8') : null; })();
 
-  need(rts, RTS, /fiscal-template-checklist/, 'rota do checklist fiscal sumiu (DECISION-0170 §1).');
+  need(rts, RTS, /fiscal-template-checklist(?![\w-])/, 'rota do checklist fiscal sumiu (DECISION-0170 §1).');
   // arquivo de rotas NUNCA emite SQL de escrita (toda escrita é de serviço com autoridade)
   forbid(rts, RTS, /INSERT INTO|DELETE FROM|UPDATE\s+\w+\s+SET/i, 'company-templates.routes emitindo SQL de escrita — rotas projetam, serviços escrevem.');
   forbid(rts, RTS, /createDraftRule|activateRule|taxCatalogRepository/, 'company-templates.routes tocando o catálogo fiscal do tenant — ativação = Fase C (serviço próprio, rito canônico).');
@@ -255,7 +255,7 @@ for (const f of walkTs(join(ROOT, 'src', 'modules', 'fiscal'))) {
   forbid(chk, CHK, /activated_by_accountant/, 'checklist service ganhou activated_by_accountant — estado pertence à Fase C (0169 §9).');
   forbid(chk, CHK, /provision_cents|provisionCents|rate_bps\s*\*|\*\s*rateBps/, 'checklist service calculando/expondo provisão — motor = 4d (0167).');
   // contrato governado registrado
-  need(apiDoc, API_DOC, /fiscal-template-checklist/, 'rota do checklist NÃO registrada no API_CONTRACT_GOVERNANCE §5 (cadeia contrato→código, protocolo §2.2.8).');
+  need(apiDoc, API_DOC, /fiscal-template-checklist(?![\w-])/, 'rota do checklist NÃO registrada no API_CONTRACT_GOVERNANCE §5 (cadeia contrato→código, protocolo §2.2.8).');
 }
 
 // ── veredito ──
