@@ -269,6 +269,31 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (45) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D GATE + N2-D.0 DECISION-0173 (autoridade territorial, aguarda Yala)
+- GATE N2-D read-first (HEAD `fc539abcd`, read-only, zero material) → aprovado com 4 ajustes
+  vinculantes → **DECISION-0173** docs-only (`docs/02_decisions/DECISION_0173_NEIGHBORHOOD_
+  TERRITORIAL_AUTHORITY.md`). Nenhuma capability/grant/key/enforcement/writer criado.
+- Substrato: 2 eixos separados — `canRepresentActor` (authorization.service.ts:335) = representação
+  pura; `actor_capability_grants` (DECISION-0136) = casa canônica de capability, hoje
+  `scope_type='actor'` travado por CHECK, primitivo `hasCapabilityGrant` quarentenado (não wired).
+  Registry SSOT das keys = permission-keys.ts. NENHUMA capability territorial existe.
+- Defeito vivo comprovado: `repository.revoke` (`reason=COALESCE($4, reason)`) sobrescreve o motivo
+  da concessão com o da revogação — sintoma da falta de trilha append-only na casa de capability.
+- DECISION-0173 crava (docs-only): evoluir a casa (`scope_type='actor'|'territory'`, canRepresentActor
+  puro); tenant/global (actor-grant tenant+scope_actor NOT NULL/city NULL; territorial-grant tenant NULL/
+  scope_actor NULL/scope_city_id NOT NULL FK cities + efeito global explícito; **tenant institucional
+  REJEITADO**); MVP = SÓ city_id (Curitiba); 6 keys `territory:*` (match exato, criar≠aprovar, zero
+  financeiro, sem "propor", sem 7ª key de admin de grants; sincronizadas nos 3 registros só em D.2);
+  maker-checker opção C; **PORTA-TERRITORY-1** = bootstrap soberano separado (só após selo N2-D, sem
+  super_admin fallback); reason da concessão vs. revogação + trilha append-only (molde
+  actor_delegation_events); AND de 8 elos fail-closed no N2-E; 5 elos persistidos pelo N2-E (N2-D só faz
+  o primitivo devolver grant_id).
+- Sequência: N2-D.1 (scope territorial + CHECKs de shape + guard, zero key/grant) → N2-D.2 (6 keys nos
+  3 registros + trilha + correção reason) → N2-D.3 (`hasTerritorialCapability` retorna grant_id, sem
+  wiring) → PORTA-TERRITORY-1. Todas TRANCADAS até selo desta N2-D.0.
+- **STATUS:** N2-D GATE CONCLUÍDO · N2-D.0 DECIDIDA/PROMULGADA — AGUARDA AUDITORIA YALA. N2-D.1/D.2/D.3
+  e PORTA-TERRITORY-1 trancadas; N2-E/N3 e saneamento de neighborhoods.name bloqueados; Social/Bank fora.
+
 ### 2026-07-11 (44) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-C SELADA PELA YALA (SELO COMPLETO)
 - Cadeia: base N2-B/B.1 `c93acce50` → N2-C fundação de sucessão `62cbeae24`/`e0f7ab486` →
   auditoria material read-only → **SELO COMPLETO**.
