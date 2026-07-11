@@ -89,7 +89,7 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 | Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
 | Suite `validate:regression-guards` | ✅ **155 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`) | 2026-07-11 |
 
-**🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER):** contenção + blindagem anti-revival do writer legado de bairro por texto livre (rota `POST /locations/enrich-from-cep` → `findOrCreateNeighborhood`, único `INSERT INTO neighborhoods` do src; + 2º resolvedor por nome em `address-helpers.ts`, contido). Guard novo `audit-neighborhood-freetext-writer-containment.mjs` (suíte 154→155), mutation 5/5 morde, prova comportamental efêmera 7/7, typecheck 0, Δbank=0. **Efeito na contagem:** DT contida/executada aguardando selo Yala; não zera bucket A_DECISION (o RFC N1 da fundação canônica segue TRANCADO). HOLDs 501 do nível neighborhood no Bank preservados.
+**🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER):** contenção do writer legado de bairro por texto livre + blindagem anti-revival por guard. **N0.1 foi REPROVADA pela Yala** (guard não cobria o resolvedor em memória `location.service.ts::resolveCep`, `.find`+camelCase); **N0.2 remediou:** resolveCep contido, guard ampliado (matching em memória + camelCase), mutation 7/7 (M6=padrão exato Yala, M7=variante), prova comportamental com bairro COINCIDENTE semeado (regressão não escondida por catálogo vazio). Suíte 155, typecheck 0, Δbank=0. **Efeito na contagem:** DT classificada PARCIAL→remediada, executada aguardando RE-auditoria Yala; não zera bucket A_DECISION (RFC N1 TRANCADO). HOLDs 501 do Bank preservados.
 
 **🟢 Sessão 2026-07-09 — F-BANK-SPLIT-PIPELINE-CONSOLIDATION-VIRGIN-SYSTEM FECHADA:** frente de
 consolidação do pipeline financeiro (sistema virgem, DECISION-0165). 8 fatias + 1 correção, todas
@@ -268,6 +268,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-11 (26) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0.2 — remediação pós-reprovação Yala (resolveCep)
+- **Reprovação Yala do N0/N0.1:** permaneceu vivo o resolvedor `location.service.ts::resolveCep` (rota `GET /locations/cep/:cep`) que casava texto de bairro do provider a `neighborhoodId` por matching EM MEMÓRIA (`findNeighborhoodsByCity`+`.find`). Inócuo só por `neighborhoods=0`; 1º seed do N1 reativaria (e o id flui ao front → `addresses.neighborhood_id`). O guard do N0.1 cobria SQL-por-nome/snake_case, não `.find`/camelCase.
+- **N0.2:** resolveCep contido (bairro só como `neighborhoodDisplay`; `neighborhoodId` sempre null, campo mantido por retrocompat). Guard ampliado (mesmo guard): matching em memória (findNeighborhoodsByCity+.find/.filter/.some), matching de lista pelo texto de bairro, `id-from-display` em camelCase (janela para em `,}` — falso positivo passthrough eliminado). PASS message reescrita para afirmar só o provado.
+- **Provas:** guard baseline PASS; mutation **7/7** (M6=padrão exato Yala, M7=variante indireta) morde→restore→PASS; prova comportamental efêmera com **bairro coincidente semeado** (Sítio Cercado/Curitiba, provider monkeypatchado sem rede) → neighborhoodId=null apesar da linha existir, resíduo 0→0, harness removido pré-commit; typecheck 0; `validate:regression-guards` 155 OK (pipefail); `git diff --check` limpo; grep writers em src=0.
+- **Escopo negativo:** zero migration/schema/seed persistente/Social/Bank; dois HOLDs 501 preservados; Δbank=0.
+- **STATUS:** N0/N0.1/N0.2 EXECUTADA — AGUARDA RE-AUDITORIA YALA. RFC N1 TRANCADO.
 
 ### 2026-07-11 (25) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1 — contenção + blindagem anti-revival do writer de bairro (aguarda Yala)
 - **N0 (`a81f004ea`):** rota `POST /locations/enrich-from-cep` / `location-enrichment.service.findOrCreateNeighborhood` criava `neighborhood_id` por igualdade de nome (`INSERT INTO neighborhoods`, único do src) — anti-padrão vetado por DECISION-0079 §6 / DECISION-0166 D4. Neutralizado: bairro do CEP vira só rótulo de exibição; país/estado/cidade preservados.

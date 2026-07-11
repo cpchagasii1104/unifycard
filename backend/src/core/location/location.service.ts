@@ -97,14 +97,14 @@ class LocationService {
       if (m) city = { id: m.id, name: m.name };
     }
 
-    // bairro → neighborhoodId (SSOT) se casar na cidade; senão só display-text.
-    let neighborhoodId: string | null = null;
-    if (city && res.neighborhoodName) {
-      const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-      const hoods = await locationRepository.findNeighborhoodsByCity(city.id);
-      const h = hoods.find((x) => norm(x.name) === norm(res.neighborhoodName!));
-      if (h) neighborhoodId = h.id;
-    }
+    // CONTENÇÃO N0.2 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER · reprovação Yala do N0/N0.1):
+    // bairro NÃO é resolvido a neighborhoodId por matching de nome — nem em SQL, nem em memória
+    // (o padrão anterior carregava findNeighborhoodsByCity e casava por nome normalizado).
+    // DECISION-0079 §6 / DECISION-0166 D4: identidade de bairro em HOLD até a fundação governada
+    // F-NEIGHBORHOOD-CANONICAL-IDENTITY. O bairro do provider volta APENAS como texto de exibição
+    // (neighborhoodDisplay). O campo neighborhoodId segue no contrato por retrocompat, sempre null —
+    // o front (rental/eventos) já trata `?? null` e nunca grava addresses.neighborhood_id por texto.
+    const neighborhoodId: string | null = null;
 
     return {
       resolved: true, postalCode: cep, street: res.street ?? null,

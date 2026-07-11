@@ -62,10 +62,22 @@ const CHECKS = [
     msg: 'DELETE FROM neighborhoods — remoção no catálogo canônico proibida até a fundação governada.' },
   { id: 'legacy-symbol',       re: /\bfindOrCreateNeighborhood\b/,
     msg: 'findOrCreateNeighborhood — writer legado de bairro por nome REVIVIDO (removido na N0.1).' },
-  { id: 'name-resolution',     re: /FROM\s+neighborhoods\b[\s\S]{0,260}?\bWHERE\b[\s\S]{0,260}?(LOWER\s*\(\s*TRIM\s*\(\s*(\w+\.)?name|\b(\w+\.)?(name|name_normalized)\s*(=|ILIKE|LIKE)\s)/i,
-    msg: 'resolução de neighborhoods por igualdade de NOME (WHERE name =/ILIKE/LOWER(TRIM(name))) — bairro nunca é identidade por texto livre (DECISION-0079 §6).' },
-  { id: 'id-from-display',     re: /neighborhood_id\s*[:=]\s*[^;\n]{0,70}?(neighborhood_display_text|neighborhoodDisplay|\.bairro\b|neighborhood_name|neighborhoodName)/,
-    msg: 'neighborhood_id derivado de texto de exibição/provider (display_text/bairro/neighborhood_name) — proibido; texto de bairro só circula como exibição.' },
+  { id: 'name-resolution-sql', re: /FROM\s+neighborhoods\b[\s\S]{0,260}?\bWHERE\b[\s\S]{0,260}?(LOWER\s*\(\s*TRIM\s*\(\s*(\w+\.)?name|\b(\w+\.)?(name|name_normalized)\s*(=|ILIKE|LIKE)\s)/i,
+    msg: 'resolução SQL de neighborhoods por igualdade de NOME (WHERE name =/ILIKE/LOWER(TRIM(name))) — bairro nunca é identidade por texto livre (DECISION-0079 §6).' },
+  // LHS neighborhood_id/neighborhoodId recebendo texto de exibição/provider como FONTE. O window
+  // para em separador de propriedade (, } ; \n) para NÃO cruzar para a próxima chave de um objeto
+  // (ex.: `neighborhoodId: input.neighborhoodId ?? null, neighborhoodDisplay: ...` é passthrough legítimo).
+  { id: 'id-from-display',     re: /(neighborhood_id|neighborhoodId)\s*[:=]\s*[^;\n,}]{0,70}?(neighborhood_display_text|neighborhoodDisplay|\.bairro\b|neighborhood_name|neighborhoodName)/,
+    msg: 'neighborhood_id/neighborhoodId derivado de texto de exibição/provider (display_text/bairro/neighborhood_name) — proibido; texto de bairro só circula como exibição.' },
+  // Resolução EM MEMÓRIA (o furo achado pela Yala no N0.1): carregar a lista de bairros da cidade
+  // e casar por nome em JS. findNeighborhoodsByCity é legítimo SÓ para retornar a lista (getNeighborhoodsByCity);
+  // segui-lo de .find/.filter/.some/.findIndex = resolver identidade a partir do nome.
+  { id: 'name-resolution-mem', re: /findNeighborhoodsByCity\s*\([\s\S]{0,240}?\.(find|filter|some|findIndex)\s*\(/,
+    msg: 'resolução EM MEMÓRIA de neighborhood a partir da lista da cidade (findNeighborhoodsByCity + .find/.filter/.some) — use findNeighborhoodById por id; bairro não é identidade por nome.' },
+  // Casamento de uma lista pelo TEXTO de bairro do provider/exibição (variante do anterior sem depender
+  // do nome do método repo — pega query builder/alias/outra fonte de lista).
+  { id: 'name-match-display',  re: /\.(find|filter|some|findIndex)\s*\([\s\S]{0,140}?(neighborhoodName|neighborhoodDisplay|neighborhood_display_text|\.bairro\b)/,
+    msg: 'matching de lista pelo TEXTO de bairro (provider/exibição) dentro de .find/.filter/.some — resolução textual de bairro proibida (DECISION-0079 §6).' },
 ];
 
 const failures = [];
@@ -87,4 +99,4 @@ if (failures.length) {
   console.error('\n→ Identidade de bairro é HOLD (DECISION-0079 §6 / DECISION-0166 D4). O texto de bairro só circula como exibição; neighborhood_id só nasce na fundação governada F-NEIGHBORHOOD-CANONICAL-IDENTITY. Para abrir a casa canônica: DECISION ratificada + registrar o writer em CANONICAL_WRITER_ALLOW (alteração consciente deste guard).');
   process.exit(1);
 }
-console.log(`GATE OK [neighborhood-freetext-writer-containment] — ${files.length} arquivos varridos; zero escrita/resolução-por-nome/revival de bairro em backend/src; texto de bairro só circula como exibição; identidade em HOLD até F-NEIGHBORHOOD-CANONICAL-IDENTITY.`);
+console.log(`GATE OK [neighborhood-freetext-writer-containment] — ${files.length} arquivos varridos; nenhum writer runtime (INSERT/UPDATE/DELETE) nem padrão conhecido de resolução textual→neighborhood_id (SQL por nome, matching em memória, derivação de display/provider, símbolo findOrCreateNeighborhood) detectado em backend/src; identidade de bairro em HOLD até F-NEIGHBORHOOD-CANONICAL-IDENTITY.`);
