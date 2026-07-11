@@ -267,6 +267,17 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (22) — FASE B-3-0 docs-only: DECISION-0170 promulgada (contrato API/dashboard do checklist fiscal)
+- Contrato ANTES de rota/frontend (recomendação Yala do selo B-2). Régua: B-2 prepara o dado · B-3 expõe ·
+  Fase C ativa · 4d calcula · PDV numérico só pós-motor. Rota GET /companies/:companyId/fiscal-template-
+  checklist em company-templates.routes; fonte ÚNICA = checklistForCompany (projeção fiel, nada inventado);
+  autoridade = assertCompanyTemplateAuthority (nunca público) + observação honesta: /recommended vivo tem
+  gate fraco (só tenant) — B-3 material endurece ou registra DT; payload = shape real da B-2 + disclaimer
+  obrigatório; proibições de superfície (sem provision_cents/alíquota-verdade/botão-ativar); estados só até
+  ready_for_activation; erros/ausência honesta tabelados; guard T8 exigido na B-3 material (mutações).
+- Docs-only; zero código/rota/frontend; B-2 e guards intocados. B-3 material/C/D/4d-1 TRANCADAS.
+  Contagem de DTs inalterada.
+
 ### 2026-07-10 (21) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase B-2 SELADA PELA YALA (SELO COMPLETO)
 - Yala Fase B-2 = SELO COMPLETO (34 confirmações), com REPRODUÇÃO INDEPENDENTE (não apoiada no relato
   do executor): 3 guards verdes, suíte 154 com pipefail, 14/14 mutações mordendo em harness próprio,
