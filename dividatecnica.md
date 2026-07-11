@@ -269,7 +269,29 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
-### 2026-07-11 (43) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-C — fundação de sucessão N:N append-only (aguarda Yala)
+### 2026-07-11 (44) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-C SELADA PELA YALA (SELO COMPLETO)
+- Cadeia: base N2-B/B.1 `c93acce50` → N2-C fundação de sucessão `62cbeae24`/`e0f7ab486` →
+  auditoria material read-only → **SELO COMPLETO**.
+- 3 tabelas N:N same-city (events/sources/targets) aprovadas como fundação canônica de linhagem;
+  `neighborhood_id` continua SSOT territorial; sucessão não cria identidade. Cardinalidade deferred
+  (division 1→N, merger N→1, reorganization N→N >1 num lado, extinction N→0) + append-only + HOLD/
+  ACL aprovados. PT↔EN ratificado: division=divisão, merger=fusão, reorganization=reorganização,
+  extinction=extinção (split/merge eram só inglês informal de read-first).
+- T1–T35 + C1–C40 + 159 guards aprovados; 3 bugs materiais (CASE NEW.id/event_id via to_jsonb;
+  search_path→public.*; lacunas do guard fechadas pelas próprias mutations) registrados como
+  corrigidos ANTES do commit, não como ressalvas abertas.
+- **3 travas vinculantes pré-N2-E registradas (classificação A, sem nova DT):** (1) reuso de
+  predecessor — banco permite hoje, decisão formal obrigatória antes do writer (Opção A proibir vs.
+  Opção B permitir governado; nenhuma UNIQUE criada agora); (2) ciclos/temporalidade — banco não
+  impede nesta fundação, writer deverá detectar ciclo direto/indireto, source já sucedido, eventos
+  conflitantes, datas incoerentes; (3) whitespace de `neighborhoods.name` (herdada da N2-B).
+  Nenhuma bloqueia N2-C ou o GATE N2-D; todas bloqueiam N2-E; nome do núcleo também bloqueia N3.
+- **STATUS:** N2-C SELADA PELA YALA · SELO COMPLETO. **GATE N2-D autorizado como próxima ação
+  possível, ainda NÃO iniciado** (read-first de authority, não migration). N2-E bloqueada pelas 4
+  travas (whitespace + reuso + ciclos + authority N2-D). N3 bloqueada por writer/authority/nome do
+  núcleo/N2-F. Social/Bank fora.
+
+### 2026-07-11 (43) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-C — fundação de sucessão N:N append-only (registro pré-selo, superado pelo selo acima)
 - Material `62cbeae24` (DECISION-0171 §9): 3 tabelas GLOBAIS de linhagem territorial —
   neighborhood_succession_events + _sources + _targets; FKs compostas same-city (cross-city
   impossível); cardinalidade governada por CONSTRAINT TRIGGER DEFERRABLE (division 1→N, merger N→1,
