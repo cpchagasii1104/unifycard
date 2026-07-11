@@ -18,6 +18,10 @@ const stripSql = (s) => s.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, 
 const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const CORE_MIG = '20260711110000_neighborhoods_core_foundation.sql';
+// N2-A.1 (remediação da ressalva Yala): CHECKs nonempty endurecidos (~ '[^[:space:]]') e
+// REDEFINIÇÃO AUTORIZADA da função de imutabilidade (mesma lógica; só o texto do DELETE).
+// Esta é a definição canônica VIGENTE — redefinições em migrations POSTERIORES a ela são proibidas.
+const A1_MIG = '20260711120000_neighborhoods_core_hardening.sql';
 const HOLD_MIG = '20260711100000_neighborhoods_dml_hold.sql';
 const IMMUT_FN = 'enforce_neighborhood_identity_immutability';
 const IMMUT_TRG = 'trg_neighborhood_identity_immutability';
@@ -74,11 +78,12 @@ try {
       }
     }
 
-    // (7) nonempty CHECKs
-    if (!/chk_neighborhoods_source_reference_nonempty[\s\S]{0,80}btrim\(source_reference\)\s*<>\s*''/i.test(sql)) {
+    // (7) nonempty CHECKs nascem na CORE_MIG (forma histórica btrim) — a forma VIGENTE endurecida
+    // (~ '[^[:space:]]') é exigida na A1_MIG, verificada na seção 1b abaixo.
+    if (!/chk_neighborhoods_source_reference_nonempty/i.test(sql)) {
       failures.push(`${CORE_MIG}: CHECK nonempty de source_reference ausente.`);
     }
-    if (!/chk_neighborhoods_evidence_nonempty[\s\S]{0,80}btrim\(evidence\)\s*<>\s*''/i.test(sql)) {
+    if (!/chk_neighborhoods_evidence_nonempty/i.test(sql)) {
       failures.push(`${CORE_MIG}: CHECK nonempty de evidence ausente.`);
     }
 
@@ -150,21 +155,66 @@ try {
     }
   }
 
+  // ── 1b. Migration N2-A.1 presente e íntegra (CHECKs endurecidos + redefinição autorizada) ────
+  if (!migFiles.includes(A1_MIG)) {
+    failures.push(`migration de saneamento ausente: ${A1_MIG} (ressalvas Yala R1/N2 exigem CHECKs endurecidos + mensagem de extinção corrigida).`);
+  } else {
+    const sql = stripSql(readFileSync(join(MIG, A1_MIG), 'utf-8'));
+    // CHECKs VIGENTES endurecidos: mesmos nomes canônicos + [^[:space:]]
+    for (const [con, col] of [['chk_neighborhoods_source_reference_nonempty', 'source_reference'],
+                              ['chk_neighborhoods_evidence_nonempty', 'evidence']]) {
+      if (!new RegExp(`ADD\\s+CONSTRAINT\\s+${con}\\s+CHECK\\s*\\(${col}\\s*~\\s*'\\[\\^\\[:space:\\]\\]'\\)`, 'i').test(sql)) {
+        failures.push(`${A1_MIG}: CHECK endurecido ${con} ausente ou sem a forma canônica ${col} ~ '[^[:space:]]' (btrim sem 2º argumento aceita tab/newline-only — ressalva Yala R1).`);
+      }
+    }
+    // redefinição autorizada: os 5 bloqueios permanecem, sem bypass; mensagem de extinção corrigida
+    const fnM = sql.match(new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${IMMUT_FN}\\s*\\(\\s*\\)([\\s\\S]*?)\\$\\$;`, 'i'));
+    if (!fnM) {
+      failures.push(`${A1_MIG}: redefinição autorizada da função de imutabilidade ausente.`);
+    } else {
+      const body = fnM[1];
+      for (const err of ['NEIGHBORHOOD_IDENTITY_DELETE_FORBIDDEN', 'NEIGHBORHOOD_IDENTITY_ID_IMMUTABLE',
+                         'NEIGHBORHOOD_IDENTITY_CITY_IMMUTABLE', 'NEIGHBORHOOD_IDENTITY_CREATOR_IMMUTABLE',
+                         'NEIGHBORHOOD_IDENTITY_CREATED_AT_IMMUTABLE']) {
+        if (!body.includes(err)) failures.push(`${A1_MIG}: redefinição perdeu o bloqueio ${err}.`);
+      }
+      if (/current_setting|session_user|current_user|pg_has_role|set_config/i.test(body)) {
+        failures.push(`${A1_MIG}: redefinição ganhou bypass de sessão/GUC — proibido.`);
+      }
+      if (/desativacao \+ evento de sucessao/i.test(body)) {
+        failures.push(`${A1_MIG}: mensagem de extinção continua tornando sucessão obrigatória (ressalva Yala N2).`);
+      }
+    }
+  }
+
   // ── 2. Migrations POSTERIORES não enfraquecem a fundação ────────────────────────────────────
+  // (posteriores à CORE_MIG; a A1_MIG é a redefinição AUTORIZADA e é excetuada nominalmente)
   const after = migFiles.filter((f) => f > CORE_MIG);
   for (const f of after) {
     const sql = stripSql(readFileSync(join(MIG, f), 'utf-8'));
     if (new RegExp(`DROP\\s+TRIGGER[\\s\\S]{0,120}${IMMUT_TRG}`, 'i').test(sql)) {
       failures.push(`[pos-N2A] ${f}: dropa o trigger de imutabilidade da identidade — proibido (imutabilidade é PERMANENTE).`);
     }
+    // rebaixamento/desligamento do trigger permanente (ressalva Yala R2): DISABLE nomeado/ALL/USER
+    // e ENABLE REPLICA. ENABLE ALWAYS NÃO é bloqueado (seria fortalecimento, não enfraquecimento).
+    if (/ALTER\s+TABLE\s+(?:public\.)?neighborhoods[\s\S]{0,120}DISABLE\s+TRIGGER\s+(ALL|USER|trg_neighborhood_identity_immutability)/i.test(sql)) {
+      failures.push(`[pos-N2A] ${f}: desabilita o trigger de imutabilidade (DISABLE nomeado/ALL/USER) — neutralização silenciosa proibida (ressalva Yala R2).`);
+    }
+    if (new RegExp(`ENABLE\\s+REPLICA\\s+TRIGGER\\s+${IMMUT_TRG}`, 'i').test(sql)) {
+      failures.push(`[pos-N2A] ${f}: rebaixa o trigger de imutabilidade para ENABLE REPLICA — deixaria de disparar no fluxo normal (ressalva Yala R2).`);
+    }
     if (new RegExp(`DROP\\s+FUNCTION[\\s\\S]{0,80}${IMMUT_FN}`, 'i').test(sql)) {
-      failures.push(`[pos-N2A] ${f}: dropa a função de imutabilidade — proibido.`);
+      failures.push(`[pos-N2A] ${f}: dropa a função de imutabilidade (com/sem assinatura/CASCADE) — proibido.`);
     }
-    if (new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${IMMUT_FN}`, 'i').test(sql)) {
-      failures.push(`[pos-N2A] ${f}: redefine a função de imutabilidade — exige fatia própria + guard consciente.`);
+    if (f !== A1_MIG && new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${IMMUT_FN}`, 'i').test(sql)) {
+      failures.push(`[pos-N2A] ${f}: redefine a função de imutabilidade FORA da redefinição autorizada (${A1_MIG}) — exige fatia própria + guard consciente.`);
     }
-    if (/ALTER\s+TABLE\s+(?:public\.)?neighborhoods[\s\S]{0,200}(DROP\s+CONSTRAINT\s+chk_neighborhoods_|ALTER\s+COLUMN\s+(source_kind|source_reference|evidence|created_by_actor_id|approved_by_actor_id|approved_at|valid_from_at)\s+DROP\s+NOT\s+NULL|ALTER\s+COLUMN\s+\w+\s+SET\s+DEFAULT)/i.test(sql)) {
+    if (f !== A1_MIG && /ALTER\s+TABLE\s+(?:public\.)?neighborhoods[\s\S]{0,200}(DROP\s+CONSTRAINT\s+chk_neighborhoods_|ALTER\s+COLUMN\s+(source_kind|source_reference|evidence|created_by_actor_id|approved_by_actor_id|approved_at|valid_from_at)\s+DROP\s+NOT\s+NULL|ALTER\s+COLUMN\s+\w+\s+SET\s+DEFAULT)/i.test(sql)) {
       failures.push(`[pos-N2A] ${f}: enfraquece constraint/nullability/default da fundação — proibido sem decisão própria.`);
+    }
+    // recriação FRACA dos CHECKs nonempty em qualquer migration posterior (inclusive regressão a btrim)
+    if (new RegExp(`ADD\\s+CONSTRAINT\\s+chk_neighborhoods_(source_reference|evidence)_nonempty\\s+CHECK\\s*\\((?![^)]*\\[\\^\\[:space:\\]\\])`, 'i').test(sql)) {
+      failures.push(`[pos-N2A] ${f}: recria CHECK nonempty com forma FRACA (sem [^[:space:]]) — regressão à ressalva Yala R1 proibida.`);
     }
     if (/ADD\s+COLUMN\s+(tenant_id|external_code|status)\b[\s\S]{0,40}/i.test(sql) && /neighborhoods/i.test(sql)
         && /ALTER\s+TABLE\s+(?:public\.)?neighborhoods[\s\S]{0,120}ADD\s+COLUMN\s+(tenant_id|external_code|status)\b/i.test(sql)) {
@@ -201,4 +251,4 @@ if (failures.length) {
   console.error('\n→ Fundação do núcleo neighborhoods (DECISION-0171/0172 N2-A) ausente/enfraquecida. Proveniência sem default, vocabulário fechado, FKs de actor RESTRICT, vigência e imutabilidade permanente são invariantes — alterações exigem decisão própria + guard consciente.');
   process.exit(1);
 }
-console.log(`GATE OK [neighborhood-core-foundation] — integridade VERSIONADA da fundação N2-A: 8 colunas NOT-NULL-sem-DEFAULT (proveniência P4 + autoria/aprovação + vigência P6); source_kind fechado em 3 valores; nonempty CHECKs; FKs actors(id) RESTRICT; CHECK temporal; imutabilidade permanente (DELETE/id/city/creator/created_at) sem bypass; HOLD N2-pre e ACL não tocados; sem tenant_id/external_code/status; sem alias/sucessão/candidato/writer/seed; CANONICAL_WRITER_ALLOW vazia; 3 guards no runner. (Estado vivo = introspecção; DECISION-0172.)`);
+console.log(`GATE OK [neighborhood-core-foundation] — integridade VERSIONADA da fundação N2-A(+A.1): 8 colunas NOT-NULL-sem-DEFAULT (proveniência P4 + autoria/aprovação + vigência P6); source_kind fechado em 3 valores; CHECKs de conteúdo endurecidos (~ '[^[:space:]]' — tab/newline-only rejeitados); FKs actors(id) RESTRICT; CHECK temporal; imutabilidade permanente (DELETE/id/city/creator/created_at) sem bypass, com redefinição autorizada única na A1 e proteção contra DROP/DISABLE(ALL|USER)/ENABLE REPLICA/redefinições posteriores; HOLD N2-pre e ACL não tocados; sem tenant_id/external_code/status; sem alias/sucessão/candidato/writer/seed; CANONICAL_WRITER_ALLOW vazia; 3 guards no runner. (Estado vivo = introspecção; DECISION-0172.)`);
