@@ -269,6 +269,25 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (36) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-pre SELADA PELA YALA (SELO COMPLETO)
+- Cadeia auditada: N2-0 `438cd83d6` → material `66b5e6117` → cartório `e3975be8f` → 1ª auditoria SELO
+  COM RESSALVA (guard sem G2/G3/G5/G8; PASS não distinguia Git de banco vivo) → hardening `5b9a511c9`
+  → §0.1 `f3950da46` → correção cartorial `b4779f58b` → reauditoria limitada **SELO COMPLETO**.
+- Aprovado definitivamente: função incondicional + trigger BEFORE I/U/D FOR EACH STATEMENT ENABLE
+  ALWAYS + REVOKE (SELECT preservado); duas camadas independentes provadas (ACL para unificard_app,
+  trigger para admin, incl. WHERE false); guard cobre G1–G10 completos + M1–M12 reexecutadas, todas
+  mordem; stripComments provado nas 2 direções; promessa honesta (revival versionado no repo, não DDL
+  admin direto — provado por introspecção); DECISION-0172 §0.1 confirmada correta; DT-DRIFT1
+  reconfirmada CLOSED (sem DT nova, sem reabertura).
+- Observações não bloqueantes registradas (sem DT): check de incondicionalidade é heurístico
+  (compensado por introspecção viva); cabeçalho histórico OPEN da DT-DRIFT1 é só fotografia de
+  2026-06-20, não alterado.
+- Docs-only: DECISION-0172/guard/migration/banco intocados; CANONICAL_WRITER_ALLOW vazia; zero
+  Social/Bank; HOLDs 501 preservados; Δbank=0.
+- **STATUS:** N2-pre SELADA PELA YALA · SELO COMPLETO. **Próximo autorizado, NÃO iniciado:** N2-A
+  (evolução aditiva do núcleo neighborhoods) com GO próprio. N2-B…N2-G e N3 seguem trancadas; N2-D
+  exige GATE próprio; N2-F selada antes do N3.
+
 ### 2026-07-11 (35) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-pre.1a — correção cartorial (DT-DRIFT1 permanece CLOSED)
 - O commit `f3950da46` (N2-pre.1) afirmou por engano que `DT-DRIFT1-RLS-HARDENING-OPS-ROLLOUT-PENDING`
   "segue OPEN / rollout ainda pendente". Erro: o rollout (LOGIN + DATABASE_URL→unificard_app + RLS-live
