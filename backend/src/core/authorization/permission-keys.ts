@@ -126,7 +126,17 @@ export type PermissionKey =
   // REPORTS (Reports)
   | 'view_consolidated_reports'
   | 'reports:view_operational'
-  | 'dashboard:view';
+  | 'dashboard:view'
+
+  // TERRITORY (F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2, DECISION-0173 §4 + ADENDO D3). Vocabulário
+  // p/ actor_capability_grants scope_type='territory'; SEM enforcement aqui (matriz scope-aware vive
+  // no CHECK físico + types.ts da casa de grants). Match exato; sem wildcard/implicação automática.
+  | 'territory:create_neighborhood'
+  | 'territory:approve_neighborhood'
+  | 'territory:correct_neighborhood'
+  | 'territory:deactivate_neighborhood'
+  | 'territory:manage_neighborhood_aliases'
+  | 'territory:register_neighborhood_succession';
 
 /**
  * Mapa de capabilities requeridas por permission
@@ -229,6 +239,14 @@ export const PERMISSION_CAPABILITIES: Record<PermissionKey, string | null> = {
   view_consolidated_reports: null, // atribuição manual apenas
   'reports:view_operational': null, // ownership suficiente
   'dashboard:view': null, // ownership suficiente
+
+  // TERRITORY — vocabulário p/ actor_capability_grants (DECISION-0173 N2-D.2); sem enforcement aqui.
+  'territory:create_neighborhood': null,
+  'territory:approve_neighborhood': null,
+  'territory:correct_neighborhood': null,
+  'territory:deactivate_neighborhood': null,
+  'territory:manage_neighborhood_aliases': null,
+  'territory:register_neighborhood_succession': null,
 };
 
 /**

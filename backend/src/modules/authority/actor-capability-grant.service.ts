@@ -2,6 +2,12 @@
 // F-ACTOR-CAPABILITY-GRANTS Slice 1A (DECISION-0136). Service mínimo: grant / list / revoke + o primitivo
 // de enforcement `hasCapabilityGrant` (DEFINIDO agora, NÃO aplicado a rota de negócio neste Slice).
 //
+// N2-D.2 (DECISION-0173): create/revoke passam pelas FUNÇÕES CANÔNICAS transacionais (repository), que
+// exigem os cinco elos por operação (Actor representado · conta executora · Actor humano responsável ·
+// key/grant usado · momento — DECISION-0171 §6.1-D). O Actor humano responsável é resolvido SERVER-SIDE
+// via o mesmo padrão canônico já usado em toda a base (findByUserId — actors.user_id + actor_type='user'),
+// NUNCA recebido do cliente.
+//
 // SEPARAÇÃO DE EIXOS (DECISION-0113/0134):
 //   - REPRESENTAÇÃO: `canRepresentActor(user, actor)` = "este usuário pode vestir este actor?".
 //   - CAPABILITY GRANT: `hasCapabilityGrant(actor, key, scope)` = "este actor recebeu a capability no escopo?".
@@ -10,17 +16,18 @@
 // canManageCompany). Nada confia em actorId client-declared — quem chama passa actorIds JÁ validados.
 
 import { authorizationService } from '@core/authorization/authorization.service';
+import { socialPortsRegistry } from '@core/social/ports-registry';
 import { HttpError } from '@core/errors/http-error';
 import { isActorEffectivelyBlocked } from '../risk-identity/actor-effective-block';
 import { actorCapabilityGrantRepository } from './actor-capability-grant.repository';
 import {
-  NON_FINANCIAL_CAPABILITY_ALLOWLIST,
+  ACTOR_SCOPED_CAPABILITY_KEYS,
   type ActorCapabilityGrant,
   type GrantCapabilityInput,
 } from './actor-capability-grant.types';
 
 function assertNonFinancialAllowlisted(capabilityKey: string): void {
-  if (!(NON_FINANCIAL_CAPABILITY_ALLOWLIST as readonly string[]).includes(capabilityKey)) {
+  if (!(ACTOR_SCOPED_CAPABILITY_KEYS as readonly string[]).includes(capabilityKey)) {
     throw HttpError.forbidden(
       `Capability '${capabilityKey}' não é concedível neste Slice (allowlist não-financeira MVP). ` +
         'Financeiro é CRITICAL e exige frente própria (3 paralelas).'
@@ -42,14 +49,33 @@ async function assertScopeAuthorityNotQuarantined(tenantId: string, scopeActorId
   }
 }
 
+/**
+ * Resolve o Actor humano responsável pela CONTA executora, server-side, via o padrão canônico
+ * findByUserId (actors.user_id = userId AND actor_type='user') — o mesmo usado por
+ * companies.service/kyb-request-submit/catalog-governance/lifestyle etc. Nunca recebido do cliente.
+ * Fail-closed: ausência de Actor humano para a conta é erro estrutural (403), não fallback silencioso.
+ */
+async function resolveResponsibleHumanActorId(tenantId: string, userId: string): Promise<string> {
+  const humanActor = await socialPortsRegistry.getActorRepository().findByUserId(tenantId, userId);
+  if (!humanActor) {
+    throw HttpError.forbidden(
+      'RESPONSIBLE_HUMAN_ACTOR_NOT_FOUND: conta autenticada sem Actor humano resolvível (actors.user_id) — ' +
+        'operação de capability grant exige Actor humano responsável rastreável (DECISION-0171 §6.1-D).'
+    );
+  }
+  return humanActor.actor_id;
+}
+
 export const actorCapabilityGrantService = {
   /**
    * Concede uma capability NÃO-financeira a um actor, escopada a outro actor. Fail-closed:
-   *   - capability fora da allowlist → 403;
+   *   - capability fora da allowlist actor-scoped → 403;
    *   - granteeActorId/scopeActorId ausentes → 403;
    *   - concedente NÃO representa o scopeActorId → 403 (autoridade do concedente sobre o escopo);
    *   - grava SEMPRE actor_id (grantee/scope/concedente), nunca slug/referral.
-   * (Idempotência: UNIQUE parcial em (tenant,grantee,capability,scope) WHERE active — 2ª concessão idêntica falha.)
+   * Create+evento granted são atômicos na função canônica (repository); os cinco elos (Actor
+   * representado, conta executora, Actor humano responsável, grant/key usado, momento) são persistidos
+   * no evento append-only. (Idempotência: UNIQUE parcial em (tenant,grantee,capability,scope) WHERE active.)
    */
   async grant(tenantId: string, input: GrantCapabilityInput): Promise<ActorCapabilityGrant> {
     assertNonFinancialAllowlisted(input.capabilityKey);
@@ -76,6 +102,9 @@ export const actorCapabilityGrantService = {
     // 🔴 F-CAPABILITY-GRANT-QUARANTINE-GATE: autoridade do escopo congelada se bloqueado → 403 ANTES do INSERT.
     await assertScopeAuthorityNotQuarantined(tenantId, input.scopeActorId);
 
+    // Actor humano responsável pela conta executora — resolvido server-side, nunca do cliente.
+    const responsibleHumanActorId = await resolveResponsibleHumanActorId(tenantId, input.grantedByUserId);
+
     return actorCapabilityGrantRepository.insert(tenantId, {
       granteeActorId: input.granteeActorId,
       capabilityKey: input.capabilityKey,
@@ -85,6 +114,10 @@ export const actorCapabilityGrantService = {
       authoritySource: 'grant',
       validUntil: input.validUntil ?? null,
       reason: input.reason ?? null,
+      executedByUserId: input.grantedByUserId,
+      executedByActorId: input.grantedByActorId,
+      responsibleHumanActorId,
+      eventReason: input.eventReason,
     });
   },
 
@@ -97,15 +130,18 @@ export const actorCapabilityGrantService = {
 
   /**
    * Revoga um grant. O revogador precisa representar o scope_actor (mesma autoridade do concedente).
+   * reason da concessão NUNCA é alterado — revoke_reason é campo próprio, persistido pela função
+   * canônica junto com o evento revoked (state+evento atômicos).
    */
   async revoke(
     tenantId: string,
     grantId: string,
     revoker: { userId: string; actorId: string },
-    reason?: string | null
+    reason: string
   ): Promise<ActorCapabilityGrant> {
     const existing = await actorCapabilityGrantRepository.getById(tenantId, grantId);
     if (!existing) throw HttpError.notFound('Grant não encontrado');
+    if (!existing.scopeActorId) throw HttpError.forbidden('Grant não é actor-scoped (rota apenas actor-only).');
 
     let canRep = false;
     try {
@@ -120,8 +156,20 @@ export const actorCapabilityGrantService = {
     // 🔴 F-CAPABILITY-GRANT-QUARANTINE-GATE: autoridade do escopo congelada se bloqueado → 403 ANTES do revoke.
     await assertScopeAuthorityNotQuarantined(tenantId, existing.scopeActorId);
 
-    const revoked = await actorCapabilityGrantRepository.revoke(tenantId, grantId, revoker.actorId, reason ?? null);
-    if (!revoked) throw HttpError.forbidden('Grant não pôde ser revogado (já revogado/expirado?).');
+    const responsibleHumanActorId = await resolveResponsibleHumanActorId(tenantId, revoker.userId);
+    if (!reason || !reason.trim()) {
+      throw HttpError.forbidden('revoke_reason é obrigatório (motivo próprio da revogação, nunca sobrescreve reason da concessão).');
+    }
+
+    const revoked = await actorCapabilityGrantRepository.revoke(
+      tenantId,
+      grantId,
+      revoker.actorId,
+      reason,
+      revoker.userId,
+      responsibleHumanActorId
+    );
+    if (!revoked) throw HttpError.forbidden('Grant não pôde ser revogado (já revogado/expirado/inexistente/não-actor-scoped?).');
     return revoked;
   },
 

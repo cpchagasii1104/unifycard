@@ -136,7 +136,7 @@ async function main(): Promise<void> {
     return svc.serviceId;
   }
   const grant = (granteeActorId: string, capabilityKey: string, scopeActorId: string = scope) =>
-    actorCapabilityGrantService.grant(TENANT_ID, { granteeActorId, capabilityKey: capabilityKey as any, scopeActorId, grantedByUserId: owner.userId, grantedByActorId: owner.actorId });
+    actorCapabilityGrantService.grant(TENANT_ID, { granteeActorId, capabilityKey: capabilityKey as any, scopeActorId, grantedByUserId: owner.userId, grantedByActorId: owner.actorId, eventReason: 'e2e services-edit-disable' });
   async function upd(userId: string, serviceId: string, input: Record<string, unknown>): Promise<{ ok: boolean; err?: { code?: string; msg: string } }> {
     try { await servicesService.updateService(TENANT_ID, serviceId, userId, input as any); return { ok: true }; }
     catch (e) { return { ok: false, err: errOf(e) }; }

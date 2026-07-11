@@ -81,7 +81,7 @@ async function main(): Promise<void> {
 
   // grants (fase sem ninguém bloqueado): owner→grantee full; ownerB→grantee create; ownerA→grantee2 edit-only
   const grant = (granteeActorId: string, cap: string, scopeUser: { userId: string; actorId: string }) =>
-    actorCapabilityGrantService.grant(TENANT_ID, { granteeActorId, capabilityKey: cap as any, scopeActorId: scopeUser.actorId, grantedByUserId: scopeUser.userId, grantedByActorId: scopeUser.actorId });
+    actorCapabilityGrantService.grant(TENANT_ID, { granteeActorId, capabilityKey: cap as any, scopeActorId: scopeUser.actorId, grantedByUserId: scopeUser.userId, grantedByActorId: scopeUser.actorId, eventReason: 'e2e service-mutations-quarantine' });
   for (const cap of ['services:create', 'services:edit', 'services:disable']) await grant(g.actorId, cap, oA);
   await grant(g.actorId, 'services:create', oB);
   await grant(g2.actorId, 'services:edit', oA);

@@ -169,7 +169,7 @@ async function main(): Promise<void> {
   {
     const g = await actorCapabilityGrantService.grant(TENANT_ID, {
       granteeActorId: employee.actorId, capabilityKey: 'services:create', scopeActorId: scopeActor,
-      grantedByUserId: owner.userId, grantedByActorId: owner.actorId,
+      grantedByUserId: owner.userId, grantedByActorId: owner.actorId, eventReason: 'e2e T3a',
     });
     grantId = g.grantId;
     record('T3a grant gravado por actor_id (grantee=funcionário, scope=page-actor; não slug/referral)',
@@ -190,7 +190,7 @@ async function main(): Promise<void> {
   {
     await actorCapabilityGrantService.grant(TENANT_ID, {
       granteeActorId: employee2.actorId, capabilityKey: 'services:create', scopeActorId: owner.actorId, // escopo = actor do owner (errado)
-      grantedByUserId: owner.userId, grantedByActorId: owner.actorId,
+      grantedByUserId: owner.userId, grantedByActorId: owner.actorId, eventReason: 'e2e T5',
     });
     const r = await createServiceAttempt(TENANT_ID, employee2.userId, scopeActor, await mkCanonical(TENANT_ID, publishedConcept, 'wscope'), categoryId, 'Emp2 WrongScope');
     record('T5 grant em ESCOPO ERRADO → 403 (escopo é vinculante)',
@@ -201,7 +201,7 @@ async function main(): Promise<void> {
   {
     await actorCapabilityGrantService.grant(TENANT_ID, {
       granteeActorId: employee.actorId, capabilityKey: 'services:edit', scopeActorId: scopeActor, // capability errada
-      grantedByUserId: owner.userId, grantedByActorId: owner.actorId,
+      grantedByUserId: owner.userId, grantedByActorId: owner.actorId, eventReason: 'e2e T6',
     });
     const r = await createServiceAttempt(TENANT_ID, employee.userId, scopeActor, await mkCanonical(TENANT_ID, publishedConcept, 'wcap'), categoryId, 'Emp WrongCap');
     record('T6 grant de CAPABILITY ERRADA (services:edit) → 403 p/ services:create',
@@ -213,7 +213,7 @@ async function main(): Promise<void> {
     // re-concede services:create válido ao funcionário (escopo correto), mas aponta p/ concept NÃO publicado.
     await actorCapabilityGrantService.grant(TENANT_ID, {
       granteeActorId: employee.actorId, capabilityKey: 'services:create', scopeActorId: scopeActor,
-      grantedByUserId: owner.userId, grantedByActorId: owner.actorId,
+      grantedByUserId: owner.userId, grantedByActorId: owner.actorId, eventReason: 'e2e T7',
     });
     // concept governado NOVO, NÃO publicado pela empresa:
     const unpubConcept = randomUUID();

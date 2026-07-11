@@ -180,7 +180,7 @@ async function main(): Promise<void> {
   {
     const g = await actorCapabilityGrantService.grant(TENANT_ID, {
       granteeActorId: operatorA.actorId, capabilityKey: 'service_order:view', scopeActorId: A.pageActor,
-      grantedByUserId: A.owner.userId, grantedByActorId: A.owner.actorId,
+      grantedByUserId: A.owner.userId, grantedByActorId: A.owner.actorId, eventReason: 'e2e T3a',
     });
     grantId = g.grantId;
     record('T3a grant gravado por actor_id (grantee=operador, scope=provider A; não slug/referral)',
@@ -193,7 +193,7 @@ async function main(): Promise<void> {
   {
     await actorCapabilityGrantService.grant(TENANT_ID, {
       granteeActorId: operatorB.actorId, capabilityKey: 'service_order:view', scopeActorId: B.pageActor,
-      grantedByUserId: B.owner.userId, grantedByActorId: B.owner.actorId,
+      grantedByUserId: B.owner.userId, grantedByActorId: B.owner.actorId, eventReason: 'e2e T4',
     });
     record('T4 operador de OUTRA empresa (grant escopo B) → NÃO lê ordem do provider A (escopo vinculante)',
       !(await serviceOrderService.canViewOrderForParty(TENANT_ID, operatorB.userId, A.pageActor)), 'escopo B não pode ler provider A');
@@ -203,7 +203,7 @@ async function main(): Promise<void> {
   {
     await actorCapabilityGrantService.grant(TENANT_ID, {
       granteeActorId: operatorB.actorId, capabilityKey: 'services:create', scopeActorId: A.pageActor, // capability errada, escopo A
-      grantedByUserId: A.owner.userId, grantedByActorId: A.owner.actorId,
+      grantedByUserId: A.owner.userId, grantedByActorId: A.owner.actorId, eventReason: 'e2e T5',
     });
     record('T5 grant de CAPABILITY ERRADA (services:create) → NÃO lê (match de capability EXATO)',
       !(await serviceOrderService.canViewOrderForParty(TENANT_ID, operatorB.userId, A.pageActor)), 'services:create não é service_order:view');

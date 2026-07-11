@@ -163,7 +163,8 @@ const CMDS = [
   "node scripts/audit-neighborhood-core-foundation.mjs",
   "node scripts/audit-neighborhood-alias-foundation.mjs",
   "node scripts/audit-neighborhood-succession-foundation.mjs",
-  "node scripts/audit-territorial-capability-grant-foundation.mjs"
+  "node scripts/audit-territorial-capability-grant-foundation.mjs",
+  "node scripts/audit-territorial-capability-grant-lifecycle.mjs"
 ];
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);

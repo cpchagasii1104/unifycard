@@ -1,16 +1,20 @@
 // backend/src/modules/authority/actor-capability-grant.repository.ts
-// F-ACTOR-CAPABILITY-GRANTS Slice 1A (DECISION-0136). Repository mínimo, tenant-safe. Zero enforcement de rota.
+// F-ACTOR-CAPABILITY-GRANTS Slice 1A (DECISION-0136) + N2-D.2 (DECISION-0173): grava/revoga por meio
+// das FUNÇÕES CANÔNICAS transacionais (fn_grant_actor_capability/fn_revoke_actor_capability_grant) —
+// unificard_app NÃO tem mais INSERT/UPDATE/DELETE diretos em actor_capability_grants (fronteira de
+// escrita fechada na migration 20260711170000). Estado + evento append-only nascem atômicos na função.
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type { ActorCapabilityGrant } from './actor-capability-grant.types';
 
 interface GrantRow {
   grant_id: string;
-  tenant_id: string;
+  tenant_id: string | null;
   grantee_actor_id: string;
   capability_key: string;
   scope_type: string;
-  scope_actor_id: string;
+  scope_actor_id: string | null;
+  scope_city_id: string | null;
   granted_by_user_id: string;
   granted_by_actor_id: string;
   authority_source: string;
@@ -20,14 +24,16 @@ interface GrantRow {
   revoked_at: string | null;
   revoked_by_actor_id: string | null;
   reason: string | null;
+  revoke_reason: string | null;
   created_at: string;
   updated_at: string;
 }
 
 const SELECT_COLS = `
   grant_id::text, tenant_id::text, grantee_actor_id::text, capability_key, scope_type,
-  scope_actor_id::text, granted_by_user_id::text, granted_by_actor_id::text, authority_source,
-  status, valid_from, valid_until, revoked_at, revoked_by_actor_id::text, reason, created_at, updated_at
+  scope_actor_id::text, scope_city_id::text, granted_by_user_id::text, granted_by_actor_id::text,
+  authority_source, status, valid_from, valid_until, revoked_at, revoked_by_actor_id::text,
+  reason, revoke_reason, created_at, updated_at
 `;
 
 function toGrant(r: GrantRow): ActorCapabilityGrant {
@@ -36,8 +42,9 @@ function toGrant(r: GrantRow): ActorCapabilityGrant {
     tenantId: r.tenant_id,
     granteeActorId: r.grantee_actor_id,
     capabilityKey: r.capability_key,
-    scopeType: r.scope_type as 'actor',
+    scopeType: r.scope_type as 'actor' | 'territory',
     scopeActorId: r.scope_actor_id,
+    scopeCityId: r.scope_city_id,
     grantedByUserId: r.granted_by_user_id,
     grantedByActorId: r.granted_by_actor_id,
     authoritySource: r.authority_source,
@@ -47,12 +54,17 @@ function toGrant(r: GrantRow): ActorCapabilityGrant {
     revokedAt: r.revoked_at,
     revokedByActorId: r.revoked_by_actor_id,
     reason: r.reason,
+    revokeReason: r.revoke_reason,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
 }
 
 export const actorCapabilityGrantRepository = {
+  /**
+   * Cria grant ACTOR-SCOPED via fn_grant_actor_capability (state+evento granted atômico na função).
+   * scope_type='actor' é fixo dentro da função — este repository nunca envia scope_type/scope_city_id.
+   */
   async insert(
     tenantId: string,
     data: {
@@ -64,15 +76,17 @@ export const actorCapabilityGrantRepository = {
       authoritySource: string;
       validUntil: Date | null;
       reason: string | null;
+      executedByUserId: string;
+      executedByActorId: string;
+      responsibleHumanActorId: string;
+      eventReason: string;
     }
   ): Promise<ActorCapabilityGrant> {
     const row = await runQueryWithTenant<GrantRow>(
       tenantId,
-      `INSERT INTO actor_capability_grants
-        (tenant_id, grantee_actor_id, capability_key, scope_type, scope_actor_id,
-         granted_by_user_id, granted_by_actor_id, authority_source, status, valid_until, reason)
-       VALUES ($1::uuid,$2::uuid,$3,'actor',$4::uuid,$5::uuid,$6::uuid,$7,'active',$8,$9)
-       RETURNING ${SELECT_COLS}`,
+      `SELECT ${SELECT_COLS} FROM fn_grant_actor_capability(
+         $1::uuid,$2::uuid,$3,$4::uuid,$5::uuid,$6::uuid,$7,$8,$9,$10::uuid,$11::uuid,$12::uuid,$13
+       ) AS g`,
       [
         tenantId,
         data.granteeActorId,
@@ -83,13 +97,17 @@ export const actorCapabilityGrantRepository = {
         data.authoritySource,
         data.validUntil,
         data.reason,
+        data.executedByUserId,
+        data.executedByActorId,
+        data.responsibleHumanActorId,
+        data.eventReason,
       ]
     );
     if (!row) throw new Error('Falha ao gravar capability grant');
     return toGrant(row);
   },
 
-  /** Grant ATIVO específico (tenant + grantee + capability + scope). null se não houver. */
+  /** Grant ATIVO específico (tenant + grantee + capability + scope). null se não houver. Actor-scoped. */
   async findActive(
     tenantId: string,
     granteeActorId: string,
@@ -134,22 +152,32 @@ export const actorCapabilityGrantRepository = {
     return rows.map(toGrant);
   },
 
-  /** Revoga (idempotência por estado: só active→revoked). Retorna o grant pós-update ou null. */
+  /**
+   * Revoga via fn_revoke_actor_capability_grant (state+evento revoked atômico; actor-only; reason da
+   * concessão NUNCA é alterado — revoke_reason é campo próprio). null se o grant não existir/não estiver
+   * active (a função lança; o caller mapeia para 404/409 conforme já fazia).
+   */
   async revoke(
     tenantId: string,
     grantId: string,
-    revokedByActorId: string,
-    reason: string | null
+    executedByActorId: string,
+    revokeReason: string,
+    executedByUserId: string,
+    responsibleHumanActorId: string
   ): Promise<ActorCapabilityGrant | null> {
-    const row = await runQueryWithTenant<GrantRow>(
-      tenantId,
-      `UPDATE actor_capability_grants
-        SET status='revoked', revoked_at=now(), revoked_by_actor_id=$3::uuid,
-            reason=COALESCE($4, reason), updated_at=now()
-        WHERE tenant_id=$1::uuid AND grant_id=$2::uuid AND status='active'
-        RETURNING ${SELECT_COLS}`,
-      [tenantId, grantId, revokedByActorId, reason]
-    );
-    return row ? toGrant(row) : null;
+    try {
+      const row = await runQueryWithTenant<GrantRow>(
+        tenantId,
+        `SELECT ${SELECT_COLS} FROM fn_revoke_actor_capability_grant($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5) AS g`,
+        [grantId, executedByUserId, executedByActorId, responsibleHumanActorId, revokeReason]
+      );
+      return row ? toGrant(row) : null;
+    } catch (error: any) {
+      const msg = error?.message || '';
+      if (/ACTOR_CAPABILITY_GRANT_NOT_FOUND|ACTOR_CAPABILITY_GRANT_NOT_ACTIVE|ACTOR_CAPABILITY_GRANT_REVOKE_SCOPE_MISMATCH/.test(msg)) {
+        return null;
+      }
+      throw error;
+    }
   },
 };

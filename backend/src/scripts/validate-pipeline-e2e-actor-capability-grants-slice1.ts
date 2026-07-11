@@ -90,7 +90,7 @@ async function main(): Promise<void> {
       try {
         const g = await actorCapabilityGrantService.grant(TENANT, {
           granteeActorId: bob.actorId, capabilityKey: 'calendar:block', scopeActorId: coA.pageActorId,
-          grantedByUserId: alice.userId, grantedByActorId: alice.actorId,
+          grantedByUserId: alice.userId, grantedByActorId: alice.actorId, eventReason: 'e2e T1',
         });
         grantId = g.grantId;
         ok = g.status === 'active' && g.granteeActorId === bob.actorId && g.scopeActorId === coA.pageActorId;
@@ -125,7 +125,7 @@ async function main(): Promise<void> {
       try {
         await actorCapabilityGrantService.grant(TENANT, {
           granteeActorId: bob.actorId, capabilityKey: 'calendar:block', scopeActorId: coA.pageActorId,
-          grantedByUserId: carol.userId, grantedByActorId: carol.actorId,
+          grantedByUserId: carol.userId, grantedByActorId: carol.actorId, eventReason: 'e2e T6',
         });
       } catch (e) { rejected = true; s = st(e); }
       record('T6 concedente sem autoridade sobre o scope → 403 + sem grant', rejected && s === 403, `status=${s}`);
@@ -137,7 +137,7 @@ async function main(): Promise<void> {
       try {
         await actorCapabilityGrantService.grant(TENANT, {
           granteeActorId: bob.actorId, capabilityKey: 'financial:execute_payout' as any, scopeActorId: coA.pageActorId,
-          grantedByUserId: alice.userId, grantedByActorId: alice.actorId,
+          grantedByUserId: alice.userId, grantedByActorId: alice.actorId, eventReason: 'e2e T7',
         });
       } catch (e) { rejected = true; s = st(e); }
       record('T7 capability financeira (financial:execute_payout) → 403 (allowlist não-financeira)', rejected && s === 403, `status=${s}`);
@@ -147,7 +147,7 @@ async function main(): Promise<void> {
     {
       const g2 = await actorCapabilityGrantService.grant(TENANT, {
         granteeActorId: bob.actorId, capabilityKey: 'calendar:block', scopeActorId: coA.pageActorId,
-        grantedByUserId: alice.userId, grantedByActorId: alice.actorId,
+        grantedByUserId: alice.userId, grantedByActorId: alice.actorId, eventReason: 'e2e T8',
       });
       const inA = await actorCapabilityGrantService.hasCapabilityGrant(TENANT, bob.actorId, 'calendar:block', coA.pageActorId);
       const inB = await actorCapabilityGrantService.hasCapabilityGrant(TENANT_B, bob.actorId, 'calendar:block', coA.pageActorId);

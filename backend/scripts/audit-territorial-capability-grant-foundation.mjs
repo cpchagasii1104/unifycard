@@ -18,6 +18,20 @@ const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\
 const norm = (p) => p.split(sep).join('/');
 
 const D1_MIG = '20260711160000_actor_capability_grants_territorial_city_scope.sql';
+// AJUSTE CONSCIENTE (N2-D.2, GO §18): D2_MIG e os 4 arquivos de modules/authority/ sao a UNICA janela
+// nominal autorizada a introduzir as 6 keys territory:*/scope_city_id em runtime — a fiscalizacao FINA
+// desses invariantes (matriz scope-aware, lifecycle, atomicidade, ACL) passa a ser do guard proprio
+// audit-territorial-capability-grant-lifecycle.mjs. Este guard (D.1) continua bloqueando: 7a key,
+// writer territorial publico, resolver territorial, rota territorial, grant real, segunda casa,
+// Bank/Social — em QUALQUER outro arquivo fora desta janela nominal.
+const D2_MIG = '20260711170000_actor_capability_grant_lifecycle.sql';
+const D2_AUTHORIZED_RUNTIME_FILES = new Set([
+  'src/modules/authority/actor-capability-grant.repository.ts',
+  'src/modules/authority/actor-capability-grant.service.ts',
+  'src/modules/authority/actor-capability-grant.types.ts',
+  'src/modules/authority/actor-capability-grant.routes.ts',
+  'src/core/authorization/permission-keys.ts', // SSOT de existencia — as 6 keys nascem aqui (D.2 §E)
+]);
 const TBL = 'actor_capability_grants';
 const FORBIDDEN_SCOPES = ['global', 'city', 'neighborhood', 'state', 'country', 'region', 'system'];
 
@@ -170,8 +184,8 @@ try {
     if (/INSERT\s+INTO\s+actor_capability_grants/i.test(sql)) {
       failures.push(`[pos-D1] ${f}: seed em actor_capability_grants — grants reais nascem SO na PORTA-TERRITORY-1 (pos selo D.1+D.2+D.3), nunca em migration.`);
     }
-    if (/'territory:[a-z_]+'/i.test(sql)) {
-      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2 (ajuste consciente deste guard na D.2).`);
+    if (f !== D2_MIG && /'territory:[a-z_]+'/i.test(sql)) {
+      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2 (unica migration nominal autorizada e ${D2_MIG}).`);
     }
     if (/ALTER\s+TABLE\s+(public\.)?actor_capability_grants\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(sql)) {
       failures.push(`[pos-D1] ${f}: liga RLS em actor_capability_grants — mudanca de acesso exige decisao propria (ADENDO D1.5-E).`);
@@ -196,33 +210,26 @@ try {
   const files = existsSync(SRC) ? walk(SRC) : [];
   if (files.length === 0) failures.push('varredura de src vazia — FAIL.');
   for (const f of files) {
+    if (D2_AUTHORIZED_RUNTIME_FILES.has(f.rel)) continue; // janela nominal D.2 — fiscalizacao fina no guard proprio
     if (/scope_city_id/i.test(f.src)) {
-      failures.push(`[runtime] ${f.rel}: referencia scope_city_id — repository/resolver territorial e N2-D.2/D.3, proibido agora.`);
+      failures.push(`[runtime] ${f.rel}: referencia scope_city_id — repository/resolver territorial e N2-D.2/D.3, proibido fora da janela nominal.`);
     }
     if (/['"]territory:[a-z_]+['"]/i.test(f.src)) {
-      failures.push(`[runtime] ${f.rel}: capability key territory:* em runtime — vocabulario e N2-D.2.`);
+      failures.push(`[runtime] ${f.rel}: capability key territory:* em runtime — vocabulario e N2-D.2, proibido fora da janela nominal.`);
     }
     if (/actor_capability_grants/i.test(f.src) && /'territory'/i.test(f.src)) {
-      failures.push(`[runtime] ${f.rel}: consulta grants com scope 'territory' — resolver territorial e N2-D.3.`);
+      failures.push(`[runtime] ${f.rel}: consulta grants com scope 'territory' — resolver territorial e N2-D.3, proibido fora da janela nominal.`);
     }
   }
 
-  // ── 4. Repositórios/registries vivos permanecem actor-only nesta fatia ──────────────────────
-  const repoP = join(SRC, 'modules/authority/actor-capability-grant.repository.ts');
-  if (!existsSync(repoP)) {
-    failures.push('actor-capability-grant.repository.ts ausente — terreno divergente.');
-  } else {
-    const repo = stripTs(readFileSync(repoP, 'utf-8'));
-    if (!/VALUES\s*\([^)]*'actor'/i.test(repo)) failures.push('repository: INSERT deixou de fixar scope_type=actor — caminho territorial exige contrato proprio (D.2).');
-    if (!/scope_type\s*=\s*'actor'/i.test(repo)) failures.push("repository: findActive deixou de fixar scope_type='actor'.");
-  }
+  // ── 4. Registry SSOT das keys: territory:* SOMENTE na janela nominal D.2 (permission-keys.ts) ──
   const pkP = join(SRC, 'core/authorization/permission-keys.ts');
-  if (existsSync(pkP) && /['"]territory:[a-z_]+['"]/i.test(stripTs(readFileSync(pkP, 'utf-8')))) {
-    failures.push('permission-keys.ts: key territory:* presente — sincronizacao dos 3 registros e N2-D.2, nao D.1.');
-  }
-  const typesP = join(SRC, 'modules/authority/actor-capability-grant.types.ts');
-  if (existsSync(typesP) && /territory:/i.test(stripTs(readFileSync(typesP, 'utf-8')))) {
-    failures.push('actor-capability-grant.types.ts: allowlist contem territory:* — vocabulario e N2-D.2.');
+  if (existsSync(pkP)) {
+    const pk = stripTs(readFileSync(pkP, 'utf-8'));
+    const terrKeys = (pk.match(/['"]territory:[a-z_]+['"]/gi) || []).length;
+    if (terrKeys > 0 && terrKeys !== 12) { // 6 no union type + 6 no PERMISSION_CAPABILITIES = 12 ocorrencias esperadas
+      failures.push(`permission-keys.ts: ${terrKeys} ocorrencias de territory:* (esperado 0 ou exatamente 12 — 6 keys x union+map). Fiscalizacao fina no guard D.2.`);
+    }
   }
   // canRepresentActor permanece PURO (nao consulta grants nem territorio)
   const authP = join(SRC, 'core/authorization/authorization.service.ts');

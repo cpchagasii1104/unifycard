@@ -48,7 +48,7 @@ async function seedUser(tenantId: string, name: string): Promise<{ userId: strin
   return { userId, actorId: a.actor_id };
 }
 const tryGrant = (tenantId: string, scope: { userId: string; actorId: string }, grantee: string) =>
-  actorCapabilityGrantService.grant(tenantId, { granteeActorId: grantee, capabilityKey: 'services:create' as any, scopeActorId: scope.actorId, grantedByUserId: scope.userId, grantedByActorId: scope.actorId })
+  actorCapabilityGrantService.grant(tenantId, { granteeActorId: grantee, capabilityKey: 'services:create' as any, scopeActorId: scope.actorId, grantedByUserId: scope.userId, grantedByActorId: scope.actorId, eventReason: 'e2e quarantine' })
     .then((g) => ({ ok: true, id: g.grantId } as any)).catch((e) => ({ ok: false, err: errOf(e) }));
 
 async function main(): Promise<void> {
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   // ── T2 — não-bloqueado: revoke OK ──
   {
     let ok = false; let msg = '';
-    try { await actorCapabilityGrantService.revoke(tenantId, grant1!, { userId: A.userId, actorId: A.actorId }); ok = true; } catch (e) { msg = errOf(e).msg; }
+    try { await actorCapabilityGrantService.revoke(tenantId, grant1!, { userId: A.userId, actorId: A.actorId }, 'e2e quarantine revoke'); ok = true; } catch (e) { msg = errOf(e).msg; }
     record('T2 escopo não-bloqueado → revoke OK', ok, msg);
   }
   // grant2 (ativo) para o teste de revoke-bloqueado
@@ -102,7 +102,7 @@ async function main(): Promise<void> {
 
   // ── T5 — bloqueado: revoke → 403 (grant existente NÃO muda) ──
   {
-    const r = await actorCapabilityGrantService.revoke(tenantId, grant2!, { userId: A.userId, actorId: A.actorId }).then(() => ({ ok: true } as any)).catch((e) => ({ ok: false, err: errOf(e) }));
+    const r = await actorCapabilityGrantService.revoke(tenantId, grant2!, { userId: A.userId, actorId: A.actorId }, 'e2e quarantine revoke').then(() => ({ ok: true } as any)).catch((e) => ({ ok: false, err: errOf(e) }));
     const stillActive = await count(`SELECT count(*)::int AS n FROM actor_capability_grants WHERE grant_id=$1 AND revoked_at IS NULL`, [grant2]);
     record('T5 escopo bloqueado → revoke 403 e grant existente intacto (não revogado)', r.ok === false && r.err?.status === 403 && stillActive === 1, `${JSON.stringify(r.err)} active=${stillActive}`);
   }

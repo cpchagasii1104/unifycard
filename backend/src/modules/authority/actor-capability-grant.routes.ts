@@ -38,7 +38,7 @@ const listGrantsSchema = z.object({
   status: z.enum(['active', 'revoked', 'expired', 'suspended']).optional(),
 });
 
-const revokeGrantSchema = z.object({ reason: z.string().max(500).optional() });
+const revokeGrantSchema = z.object({ reason: z.string().min(1).max(500) });
 
 const actorCapabilityGrantRoutes: FastifyPluginAsync = async (fastify) => {
   // Resolve o grantee server-side → actor_id (slug fail-closed; actorId validado no tenant). Nunca referral.
@@ -92,6 +92,9 @@ const actorCapabilityGrantRoutes: FastifyPluginAsync = async (fastify) => {
         grantedByActorId: actorId,
         validUntil: parsed.data.validUntil ? new Date(parsed.data.validUntil) : null,
         reason: parsed.data.reason ?? null,
+        // event_reason: narrativa factual do evento append-only (NOT NULL na trilha); distinta do
+        // `reason` de negócio (opcional) — cai no `reason` quando informado, senão descreve o ato.
+        eventReason: parsed.data.reason?.trim() || 'Capability grant concedido via POST /authority/grants',
       });
       return reply.status(201).send(grant);
     } catch (error: any) {
@@ -151,12 +154,15 @@ const actorCapabilityGrantRoutes: FastifyPluginAsync = async (fastify) => {
     if (!actorId) return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
 
     const parsed = revokeGrantSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'reason é obrigatório para revogar (motivo próprio, nunca sobrescreve o reason da concessão)', details: parsed.error.errors });
+    }
     try {
       const revoked = await actorCapabilityGrantService.revoke(
         tenantId,
         req.params.grantId,
         { userId, actorId },
-        parsed.success ? parsed.data.reason : undefined
+        parsed.data.reason
       );
       return reply.send(revoked);
     } catch (error: any) {
