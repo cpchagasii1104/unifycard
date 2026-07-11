@@ -269,6 +269,20 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (28) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N1 — DECISION-0171 promulgada (docs-only)
+- Pós-selo N0/N0.1/N0.2, GO de Clayton para formalizar a identidade canônica de bairro. Promulgada
+  **DECISION-0171** (`docs/02_decisions/DECISION_0171_NEIGHBORHOOD_CANONICAL_IDENTITY_FOUNDATION.md`;
+  próximo número livre — 0170 era o maior).
+- Tese: `neighborhoods.neighborhood_id` = identidade territorial canônica; núcleo reutilizado (proibida 2ª
+  tabela); bairro sempre sob `city_id`; texto/CEP/provider/display = só exibição/sugestão; Social+Bank
+  consomem o mesmo id sem defini-lo. Decisões A–G registradas (curadoria híbrida, sem KYC, id estável,
+  aliases tabela-filha, sucessão N:N, PostGIS não-obrigatório, cidade em frente separada). Contratos
+  conceituais de proveniência/autoridade/candidatos/aliases/sucessão/resolução-de-endereço/privacidade;
+  nomes físicos e capability = requisitos do N2.
+- Docs-only: zero código/migration/coluna/enum/seed/writer; `CANONICAL_WRITER_ALLOW` intocada (vazia);
+  zero Social/Bank; HOLDs 501 preservados; Δbank=0.
+- **STATUS:** N1 DECIDIDA/PROMULGADA. N2 (fundação aditiva) e N3–N7 TRANCADAS — GO próprio por fatia.
+
 ### 2026-07-11 (27) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 SELADA PELA YALA (SELO COMPLETO)
 - Yala auditou a cadeia N0 (`a81f004ea`) → N0.1 (`7fcf407cd`, reprovada — resolvedor em memória de
   `resolveCep` sobrevivera ao guard) → N0.2 (`c53e044dc`, remediação). Veredito: SELO COMPLETO.
