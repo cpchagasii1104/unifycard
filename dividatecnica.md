@@ -87,7 +87,7 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 | **Abertas (estimativa reconciliada)** | **~150–170** (inalterado — a frente de split fechou CONTENDO/RETIRANDO paralelos, não zerou DTs A_DECISION; ver nota) | 2026-07-09 |
 | Contidas/mitigadas (latência viva) | ~50 | 2026-07-06 |
 | Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
-| Suite `validate:regression-guards` | ✅ **155 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`) | 2026-07-11 |
+| Suite `validate:regression-guards` | ✅ **156 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-neighborhood-dml-hold na N2-pre) | 2026-07-11 |
 
 **🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 ✅ SELADA PELA YALA · SELO COMPLETO (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER FECHADA):** contenção dos 3 vetores conhecidos de identidade de bairro por texto livre — (1) criação SQL por nome (N0, `a81f004ea`); (2) resolução SQL de `neighborhood_id` por nome (N0.1, `7fcf407cd`); (3) resolução EM MEMÓRIA no `resolveCep` (N0.2, `c53e044dc`, remediação da REPROVAÇÃO intermediária da Yala ao N0.1). Guard `audit-neighborhood-freetext-writer-containment.mjs` cobre os 3 vetores + mutation 7/7 (M6=padrão exato da reprovação, M7=variante); suíte 155, typecheck 0, Δbank=0; `CANONICAL_WRITER_ALLOW` vazia. **Efeito na contagem:** DT FECHADA/CONTIDA/SELADA — sai do bucket de risco vivo. **Próximo passo autorizado (não iniciado):** N1 docs-only (DECISION de identidade canônica de bairro). N2/schema/seed/writer canônico seguem TRANCADOS; HOLDs 501 do Bank preservados.
 
@@ -268,6 +268,24 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-11 (33) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-pre — HOLD físico de DML em neighborhoods (aguarda Yala)
+- Material `66b5e6117` (DECISION-0172 P5): migration `20260711100000_neighborhoods_dml_hold.sql` —
+  função `enforce_neighborhoods_canonical_writer_hold` (nega I/U/D incondicional, erro estável
+  `NEIGHBORHOOD_CANONICAL_WRITER_HOLD`, sem bypass GUC/role) + trigger `trg_neighborhoods_canonical_
+  writer_hold` BEFORE I/U/D **FOR EACH STATEMENT** + **ENABLE ALWAYS** + REVOKE I/U/D de
+  `unificard_app` (SELECT preservado) + verificação fail-closed. Guard novo
+  `audit-neighborhood-dml-hold.mjs` (suíte 155→156; entende ordem temporal grant-histórico→REVOKE→
+  nenhuma reabertura posterior; parsing-failure=FAIL).
+- Provas: DML como app role = permission denied (ACL) e como postgres = HOLD (incl. UPDATE/DELETE
+  WHERE false — statement-level); readers vivos pelo caminho real (list=[]/lookup=null honestos);
+  mutation 12/12 morde; typecheck 0; suíte 156 OK; 0 rows antes/depois; dois HOLDs 501 financeiros
+  intactos; Δbank=0.
+- Honestidade: `unificard_app` está com `rolcanlogin=t` no dev (criada NOLOGIN pela 20260620120000;
+  LOGIN habilitado depois fora do repo) — REVOKE fica mais relevante; trigger segue sendo a barreira
+  do runtime postgres; superuser deliberado ainda pode remover trigger via DDL (contenção completa =
+  migration+guard+auditoria, como a 0172 P5 registra).
+- **STATUS:** N2-pre EXECUTADA — AGUARDA AUDITORIA YALA. N2-A…N2-G e N3 TRANCADAS.
 
 ### 2026-07-11 (32) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-0/DECISION-0172 SELADA PELA YALA (SELO COMPLETO)
 - Yala auditou a promulgação da DECISION-0172 (`1f056fd75`, sobre base N1/N1.1 selada `c8c9dfecc`).
