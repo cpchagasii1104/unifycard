@@ -269,6 +269,29 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (46) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.0-R — adendo D1 da DECISION-0173 (aguarda reauditoria Yala limitada)
+- Auditoria Yala da N2-D.0 (`4f2bbdb2c`): **🟡 SELO COM RESSALVA** — arquitetura principal aprovada
+  (casa/keys/Curitiba/AND/PORTA); ressalvas só de lifecycle e tenant/global. Adendo D1 append-only à
+  DECISION-0173, docs-only, sem tocar código/grant.
+- D1.1 **suspended proibido p/ grants territoriais no MVP (Opção B)** — actor-scoped mantém lifecycle;
+  territory sem suspended/resumed/reactivated; invariante física `territory ⇒ status<>'suspended'` =
+  obrigação D.1/D.2; primitivo D.3 nega status≠active.
+- D1.2 expiração: `valid_until<=now()` = ineficaz imediato no resolver fail-closed (sem UPDATE/job);
+  status/evento `expired` só com emissor governado (nenhum autorizado); transição futura = estado+evento
+  na mesma transação.
+- D1.3 atomicidade estado+evento append-only numa transação (granted/revoked/expired); proibido UPDATE
+  sem evento/commit parcial/best-effort/evento assíncrono como única trilha/editar histórico.
+- D1.4 reason=concessão; revoke_reason separado; read-first de legado obrigatório antes da D.2 (sem
+  fabricar histórico; motivo irrecuperável = preservar valor + registrar limitação).
+- D1.5 **tenant_id NULL não é só coluna:** shape (actor tenant+scope_actor / territory city NOT NULL);
+  unicidade parcial territorial independente de tenant `(grantee,key,scope_city_id) WHERE territory AND
+  active`; repository/types tipados separados; queries territoriais nunca usam tenant da request/COALESCE/
+  `tenant=$t OR NULL`; grant global não torna Actor/user/sessão globais; canRepresentActor recebe tenant real.
+- D1.6 trilha registra ≥ grant_id/event_type/grantee/key/scope/user_id executor/Actor concedente-revogador/
+  humano/motivo/occurred_at/snapshot. D1.7 fatias D.1/D.2/D.3 refinadas; PORTA trancada até selo integral.
+- **STATUS:** N2-D.0-R EXECUTADA — AGUARDA REAUDITORIA YALA LIMITADA. N2-D.1 trancada até SELO COMPLETO;
+  D.2/D.3/PORTA-TERRITORY-1/N2-E/N3 e saneamento de neighborhoods.name bloqueados; Social/Bank fora.
+
 ### 2026-07-11 (45) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D GATE + N2-D.0 DECISION-0173 (autoridade territorial, aguarda Yala)
 - GATE N2-D read-first (HEAD `fc539abcd`, read-only, zero material) → aprovado com 4 ajustes
   vinculantes → **DECISION-0173** docs-only (`docs/02_decisions/DECISION_0173_NEIGHBORHOOD_

@@ -220,3 +220,75 @@ Docs-only: zero migration/schema/capability/grant/key/allowlist/trigger/enforcem
 
 - **N2-D.0 DECIDIDA/PROMULGADA docs-only.** Habilita, com GO próprio por fatia, a sequência do §10 — começando por N2-D.1.
 - **N2-D.1…D.3, PORTA-TERRITORY-1 e todas as fatias materiais permanecem TRANCADAS** até GO explícito. A próxima auditoria é **apenas documental**; só após o selo desta N2-D.0 nasce o GO material da N2-D.1.
+
+---
+
+## ADENDO D1 — Saneamento da auditoria Yala da N2-D.0 (2026-07-11)
+
+- **Status:** DECIDIDO / DOCS-ONLY / AGUARDA REAUDITORIA YALA LIMITADA.
+- **Natureza:** este adendo **prevalece** sobre qualquer leitura anterior deste documento em conflito com o texto abaixo; **complementa** (não revoga) o restante. Anexado append-only — nada do conteúdo promulgado acima foi apagado ou reescrito.
+- **Auditoria Yala da N2-D.0 (`4f2bbdb2c`):** veredito **🟡 SELO COM RESSALVA (documental)**. A arquitetura principal permanece **aprovada** — a casa `actor_capability_grants` evoluída, as seis capabilities, Curitiba como primeiro escopo, o AND com `canRepresentActor` e a PORTA-TERRITORY-1 separada **não** são questionados. **Nenhuma falha material; nenhuma nova casa de authority.** As ressalvas são **limitadas a lifecycle e à convivência tenant/global**, e fecham lacunas **antes** de virarem schema. Estado vivo que justifica o adendo: `actor_capability_grants` ainda tem `tenant_id NOT NULL`, escopo exclusivo por Actor, status `active/revoked/expired/suspended`, coluna única `reason` e unicidade ativa dependente de tenant; `canRepresentActor` é só representação; a revogação atual pode sobrescrever o motivo da concessão.
+
+### D1.1 — `suspended` proibido para grants territoriais no MVP (Opção B)
+
+Ratifica-se a alternativa mais estreita:
+- grants `scope_type='actor'` existentes **continuam** subordinados ao lifecycle vigente — esta decisão **não** remove `suspended` globalmente;
+- grants `scope_type='territory'` **não** podem nascer nem transicionar para `status='suspended'`;
+- **não existem** eventos territoriais `suspended` / `resumed` / `reactivated`;
+- suporte futuro a suspensão territorial exige **nova** decisão, migration, guard, provas e Yala próprios.
+
+**Obrigação material futura (não implementar agora):** N2-D.1 ou N2-D.2 deverá criar invariante física fail-closed equivalente a `scope_type='territory' ⇒ status <> 'suspended'`. O primitivo N2-D.3 continuará negando qualquer status ≠ `active`, inclusive por defesa em profundidade.
+
+### D1.2 — Expiração: vigência efetiva vs. materialização de `expired`
+
+Dois fatos **distintos**:
+
+**A. Expiração efetiva por vigência.** `valid_until <= now()` torna o grant **ineficaz imediatamente** na leitura fail-closed do resolver — **não** depende de `UPDATE`, job ou evento. Um grant pode continuar fisicamente com `status='active'` e já ser ineficaz.
+
+**B. Materialização histórica de `expired`.** O status/evento `expired` **não** nasce automaticamente com a passagem do tempo; só existe quando um **emissor governado** executar a transição. Emissores possíveis no futuro (job governado · comando administrativo canônico · rotina explícita de manutenção) — **nenhum autorizado nesta DECISION**. **Não** se promete evento `expired` para todo grant vencido. Se uma transição explícita para `expired` existir no futuro: o estado corrente muda para `expired` **e** o evento append-only `expired` é inserido, **na mesma transação**, preservando executor, Actor responsável e momento.
+
+### D1.3 — Atomicidade do lifecycle
+
+Toda transição material de lifecycle é **atômica**: mudança do estado corrente do grant **+** inserção do evento append-only correspondente = **uma única transação**. No MVP territorial: criação (row `active` + evento `granted`) · revogação (row `revoked` + evento `revoked`) · expiração explícita, quando houver emissor (row `expired` + evento `expired`).
+
+**Proibido:** `UPDATE` de status sem evento · evento sem alteração correspondente quando a transição exigir estado · commit parcial · best-effort · evento assíncrono posterior como única trilha · editar/apagar evento histórico. A N2-D.2 deverá escolher mecanismo fail-closed — preferencialmente trigger/função transacional ou repository único protegido — **sem** oferecer rota de `UPDATE` direto.
+
+### D1.4 — `reason` e legado
+
+- `reason` atual = **motivo da concessão**; `revoke_reason` é **separado**; o evento `revoked` preserva seu próprio motivo; revogar **nunca** altera o `reason` original; **nenhuma** migration inventa motivo histórico.
+
+**Read-first obrigatório antes da N2-D.2** (inspeção, não mutação): contar todos os `actor_capability_grants`; agrupar por status; identificar rows `revoked`; identificar `reason` preenchido; verificar evidência de `reason` sobrescrito; verificar eventos `granted/revoked/expired/suspended` existentes.
+- **Sem rows:** registrar zero e seguir.
+- **Com rows:** não apagar; não reescrever silenciosamente; não atribuir motivo presumido; não fabricar eventos históricos; apresentar **plano forward-only específico** antes da aplicação.
+- **Motivo original irrecuperável:** preservar o valor vivo sem reclassificá-lo falsamente; registrar a limitação histórica; **nunca** declarar que ele representa comprovadamente o motivo da concessão.
+
+### D1.5 — `tenant_id` NULL: consequências vinculantes (não é só mudar coluna)
+
+A N2-D.1 deve tratar explicitamente:
+
+**A. Shape.** Actor-scoped: `tenant_id NOT NULL` · `scope_actor_id NOT NULL` · `scope_city_id NULL`. Territory-scoped: `tenant_id NULL` · `scope_actor_id NULL` · `scope_city_id NOT NULL`.
+
+**B. Unicidade.** Preservar o índice parcial actor-scoped equivalente ao existente. Criar índice parcial territorial **independente de tenant**: `(grantee_actor_id, capability_key, scope_city_id) WHERE scope_type='territory' AND status='active'`. **Não** depender de NULL dentro do UNIQUE atual para deduplicar grants territoriais; **não** criar UNIQUE global que misture actor e territory.
+
+**C. Repository e types.** **Não** usar um único `tenantId` opcional com semântica ambígua. Contratos explícitos e separados: operações actor-scoped (`tenantId` obrigatório · `scopeActorId` obrigatório · `cityId` proibido); operações territory-scoped (`tenantId` proibido/ausente · `cityId` obrigatório · `scopeActorId` proibido). **Não** inferir scope pelo conjunto de campos silenciosamente.
+
+**D. Queries.** `list/findActive/grant/revoke` com caminhos **tipados e separados**. Territorial: nunca filtrar pelo tenant da request; nunca `COALESCE` tenant; nunca `tenant_id = $tenant OR tenant_id IS NULL` como autorização; usar `grant_id` + shape territorial ou Actor/key/city explícitos; validar FK real de city; não retornar grants de outra cidade por fallback. Actor-scoped: comportamento tenant-aware existente preservado.
+
+**E. Acesso.** Auditar na D.1/D.2: ACL · RLS (se existir) · políticas · repository · rotas · serializers · tipos · listagens · revogação. **Grant global não torna o Actor, user ou sessão globais.** `canRepresentActor` continua recebendo o **tenant real** do Actor/conta.
+
+**F. Grant/list/revoke territorial.** Sem tenant inferido · sem tenant institucional · sem tenant da request como fallback · sem rota genérica que aceite os dois formatos sem discriminante · fail-closed para shape inconsistente.
+
+### D1.6 — Trilha de lifecycle: campos mínimos
+
+A trilha append-only registra, no mínimo: `grant_id` · `event_type` · `grantee_actor_id` · `capability_key` · `scope_type` · `scope_city_id` **ou** `scope_actor_id` conforme o caso · `user_id` executor · Actor concedente/revogador · Actor humano responsável rastreável · motivo específico do evento · `occurred_at` · snapshot mínimo necessário do grant. **Actor IDs não substituem o user executor; user não substitui Actor; super admin não substitui autoridade.** O shape físico final pertence à N2-D.2.
+
+### D1.7 — Fatias refinadas (obrigações atualizadas)
+
+- **N2-D.1:** `tenant_id` nullable **condicionado ao scope**; `scope_city_id` FK; seis shapes fail-closed; índices parciais separados; proteção contra `suspended` territorial (se for a fatia estrutural adequada); repository/types/queries mapeados **sem enforcement**; zero key nova; zero grant real.
+- **N2-D.2:** seis keys nos três registros; lifecycle append-only; `reason`/`revoke_reason` separados; atomicidade estado+evento; `suspended` territorial proibido e guardado; `expired` apenas com emissor explícito; inspeção de legado; rotas seguem quarentenadas; zero grant real.
+- **N2-D.3:** resolver **somente** `active`; `valid_from <= now()`; `valid_until` NULL ou `> now()`; scope city exata; retorna `grant_id`; nenhuma inferência de tenant; sem writer/wiring.
+- **PORTA-TERRITORY-1:** continua trancada até o **selo integral** da N2-D.
+
+### D1.8 — Efeito do adendo
+
+**N2-D.0-R DECIDIDA docs-only — AGUARDA REAUDITORIA YALA LIMITADA.** N2-D.1 permanece **trancada** até SELO COMPLETO. Nenhuma capability, grant ou authority material foi criada. PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; saneamento de `neighborhoods.name` segue pendente; Social e Bank permanecem fora.
