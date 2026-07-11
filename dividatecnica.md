@@ -267,6 +267,17 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (21) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase B-2 SELADA PELA YALA (SELO COMPLETO)
+- Yala Fase B-2 = SELO COMPLETO (34 confirmações), com REPRODUÇÃO INDEPENDENTE (não apoiada no relato
+  do executor): 3 guards verdes, suíte 154 com pipefail, 14/14 mutações mordendo em harness próprio,
+  e2e independente 11/11 (DB dev real, resíduo zero, catálogo fiscal vazio antes/depois), typecheck 0,
+  package.json/lockfile intocados. Read-model puro confirmado: zero migration/rota/frontend/PDV/
+  cálculo/Bank/motor; estados derivados até ready_for_activation; activated_by_accountant ausente
+  (Fase C); matching heurística runtime; trava de esfera provada (federal não cobre municipal).
+- **Recomendação Yala (trava de sequência):** B-2 prepara o dado; B-3 expõe o dado. Por ser a 1ª
+  superfície HTTP/dashboard da frente, recomenda-se RFC docs-only ANTES do material da B-3 (mesmo
+  rito da transição Fase A→B-0→B-1). Fase C/D e 4d-1 seguem trancadas (GO próprio; 4d-1 por D9.7).
+
 ### 2026-07-10 (20) — FASE B-2 EXECUTADA: checklist fiscal read-model até ready_for_activation — aguarda Yala
 - Decisão de escopo de Clayton: **B-2 ESTRITA** (backend-only, sem rota/frontend/painel); superfície =
   **B-3 futura** ("B-2 prepara o dado, B-3 expõe, C ativa, 4d calcula, PDV mostra número só pós-motor").
