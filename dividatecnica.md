@@ -87,7 +87,7 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 | **Abertas (estimativa reconciliada)** | **~150–170** (inalterado — a frente de split fechou CONTENDO/RETIRANDO paralelos, não zerou DTs A_DECISION; ver nota) | 2026-07-09 |
 | Contidas/mitigadas (latência viva) | ~50 | 2026-07-06 |
 | Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
-| Suite `validate:regression-guards` | ✅ **162 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-actor-user-anchor-uniqueness na N2-D.2-R1) | 2026-07-11 |
+| Suite `validate:regression-guards` | ✅ **163 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-actor-capability-grant-tenant-coherence na N2-D.2-R2) | 2026-07-11 |
 
 **🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 ✅ SELADA PELA YALA · SELO COMPLETO (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER FECHADA):** contenção dos 3 vetores conhecidos de identidade de bairro por texto livre — (1) criação SQL por nome (N0, `a81f004ea`); (2) resolução SQL de `neighborhood_id` por nome (N0.1, `7fcf407cd`); (3) resolução EM MEMÓRIA no `resolveCep` (N0.2, `c53e044dc`, remediação da REPROVAÇÃO intermediária da Yala ao N0.1). Guard `audit-neighborhood-freetext-writer-containment.mjs` cobre os 3 vetores + mutation 7/7 (M6=padrão exato da reprovação, M7=variante); suíte 155, typecheck 0, Δbank=0; `CANONICAL_WRITER_ALLOW` vazia. **Efeito na contagem:** DT FECHADA/CONTIDA/SELADA — sai do bucket de risco vivo. **Próximo passo autorizado (não iniciado):** N1 docs-only (DECISION de identidade canônica de bairro). N2/schema/seed/writer canônico seguem TRANCADOS; HOLDs 501 do Bank preservados.
 
@@ -268,6 +268,23 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-11 (57) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2 — coerência tenant×Actors nos grants (aguarda Yala)
+- Última ressalva da N2-D.2 (base selo R1 `5a3db1df6`): FKs são actors(id) sem tenant → fn_grant/fn_revoke
+  aceitavam Actor de outro tenant (provado no GATE R0). Material único `a7aef8107`. Barreira DENTRO das
+  funções SECURITY DEFINER (app tem EXECUTE); service = defesa antecipada.
+- migration 20260711190000: helper fn_assert_actors_in_tenant (tenant EXATO, dedup+ORDER BY id+FOR SHARE,
+  ACTOR_TENANT_MISMATCH não-vazante, sem EXECUTE app/PUBLIC); fn_grant valida os 5 actors ANTES do INSERT;
+  fn_revoke com assinatura ANTIGA DROPADA + nova exige p_expected_tenant_id (cross-tenant→NOT_FOUND
+  não-vazante; territory→scope mismatch); fn_expire/fn_regrant intocadas; tabelas/keys/matriz intocados.
+- repository.revoke passa tenant (6 args); service prevalida grantee tenant-scoped. Guard novo (162→163);
+  guard D.2 não precisou ajuste (valida a migration D.2, inalterada).
+- Provas: rollback residue-0; fn_grant T1-T9 + fn_revoke T11-T16 (nome exato do erro); **T8/T17 chamada
+  DIRETA como unificard_app negada** (service não é a única barreira); **§10 lock FOR SHARE provado com 2
+  conexões** (UPDATE concorrente de actor lockado bloqueia); mutations 27/27 (3 gaps reais do guard
+  fechados); typecheck 0; suíte 163; 6 actors preservados; HOLDs 501 intactos; Δbank=0.
+- **STATUS:** N2-D.2-R2 EXECUTADA — AGUARDA AUDITORIA YALA. Fecha a última ressalva; N2-D.2 geral NÃO
+  promovida antes da Yala. N2-D.3/PORTA/N2-E/N3 trancadas; grants territoriais=0; Social/Bank fora.
 
 ### 2026-07-11 (56) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R1+R1-FIX+R4 SELADAS PELA YALA (SELO COMPLETO)
 - Cadeia: base D.2 `00aa2aa66` → R1 material `fb15000ff`/docs `f62fb82a6` (1ª auditoria: SELO COM
