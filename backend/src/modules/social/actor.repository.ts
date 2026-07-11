@@ -3,6 +3,17 @@ import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@
 import type { ActorTypeDb } from '@core/social/actor-type';
 import type { TxQueryClient } from '@core/social/ports/actor-repository.port';
 
+// N2-D.2-R1 (ressalva Yala R1): erros estáveis da âncora canônica do Actor de usuário. A unicidade FÍSICA
+// (uq_actors_user, migration 20260711180000) é a barreira principal; estas checagens são defesa adicional.
+export const ACTOR_USER_ANCHOR_AMBIGUOUS =
+  'ACTOR_USER_ANCHOR_AMBIGUOUS: mais de um actor_type=user para (tenant_id, user_id) — estado estruturalmente impossível (uq_actors_user). findByUserId não escolhe arbitrariamente.';
+export const ACTOR_USER_CANONICAL_ANCHOR_CONFLICT =
+  'ACTOR_USER_CANONICAL_ANCHOR_CONFLICT: âncora (tenant_id, user_id) actor_type=user ligada a global_user_id incompatível — não funde identidades nem altera o Actor vencedor.';
+
+// Predicado da âncora parcial (espelha uq_actors_user) usado no ON CONFLICT dos writers.
+const USER_ANCHOR_CONFLICT_TARGET =
+  `(tenant_id, user_id) WHERE actor_type = 'user' AND tenant_id IS NOT NULL AND user_id IS NOT NULL`;
+
 export interface ActorRow {
   actor_id: string;
   tenant_id: string;
@@ -128,7 +139,9 @@ export class ActorRepository {
 
     const displayName = user.full_name || user.email.split('@')[0];
 
-    // Cria novo actor — agora popula global_user_id satisfazendo FK fk_actor_identity.
+    // Cria novo actor — popula global_user_id satisfazendo FK fk_actor_identity.
+    // N2-D.2-R1: ON CONFLICT DO NOTHING no alvo EXATO da âncora parcial (uq_actors_user) fecha a corrida
+    // dos dois writers concorrentes sem mascarar outras constraints (outras unique violations propagam).
     const newActor = await runQueryWithTenant<ActorRow>(
       tenantId,
       `
@@ -136,16 +149,30 @@ export class ActorRepository {
         tenant_id, actor_type, user_id, global_user_id, display_name, slug
       )
       VALUES ($1, 'user', $2, $3::uuid, $4, $5)
+      ON CONFLICT ${USER_ANCHOR_CONFLICT_TARGET} DO NOTHING
       RETURNING *
       `,
       [tenantId, userId, user.global_user_id, displayName, `user-${userId.substring(0, 8)}`]
     );
 
-    if (!newActor) {
-      throw new Error('Erro ao criar actor');
+    if (newActor) {
+      return newActor;
     }
 
-    return newActor;
+    // Perdeu a corrida: reconsulta a âncora EXATA (fail-closed em cardinalidade) e confere a identidade.
+    const winner = await this.findByUserId(tenantId, userId);
+    if (!winner) {
+      throw new Error(ACTOR_USER_CANONICAL_ANCHOR_CONFLICT);
+    }
+    const winnerGlobalUserId = await runQueryWithTenant<{ global_user_id: string | null }>(
+      tenantId,
+      `SELECT global_user_id::text AS global_user_id FROM actors WHERE tenant_id = $1 AND actor_id = $2 LIMIT 1`,
+      [tenantId, winner.actor_id]
+    );
+    if (!winnerGlobalUserId || winnerGlobalUserId.global_user_id !== user.global_user_id) {
+      throw new Error(ACTOR_USER_CANONICAL_ANCHOR_CONFLICT);
+    }
+    return winner;
   }
 
   /**
@@ -206,25 +233,55 @@ export class ActorRepository {
     }
 
     const displayName = user.full_name || user.email.split('@')[0];
+    // N2-D.2-R1: ON CONFLICT DO NOTHING no alvo EXATO da âncora parcial (uq_actors_user). DO NOTHING
+    // NÃO aborta a transação do caller (ao contrário de uma unique violation não-tratada) — a variante
+    // Tx permanece válida após a corrida perdida, e a reconsulta usa o MESMO client.
     const inserted = await client.query(
       `INSERT INTO actors (
          tenant_id, actor_type, user_id, global_user_id, display_name, slug
        )
        VALUES ($1, 'user', $2, $3::uuid, $4, $5)
+       ON CONFLICT ${USER_ANCHOR_CONFLICT_TARGET} DO NOTHING
        RETURNING *`,
       [tenantId, userId, user.global_user_id, displayName, `user-${userId.substring(0, 8)}`]
     );
-    if (!inserted.rows[0]) {
-      throw new Error('Erro ao criar actor');
+    if (inserted.rows[0]) {
+      return inserted.rows[0] as ActorRow;
     }
-    return inserted.rows[0] as ActorRow;
+
+    // Perdeu a corrida: reconsulta a âncora EXATA no mesmo client (fail-closed em cardinalidade) e
+    // confere a identidade canônica antes de retornar o vencedor.
+    const reselect = await client.query(
+      `SELECT a.*, a.global_user_id::text AS global_user_id
+         FROM actors a
+        WHERE a.tenant_id = $1 AND a.user_id = $2 AND a.actor_type = 'user'
+        LIMIT 2`,
+      [tenantId, userId]
+    );
+    if (reselect.rows.length === 0) {
+      throw new Error(ACTOR_USER_CANONICAL_ANCHOR_CONFLICT);
+    }
+    if (reselect.rows.length > 1) {
+      throw new Error(ACTOR_USER_ANCHOR_AMBIGUOUS);
+    }
+    const winner = reselect.rows[0] as ActorRow & { global_user_id: string | null };
+    if (winner.global_user_id !== user.global_user_id) {
+      throw new Error(ACTOR_USER_CANONICAL_ANCHOR_CONFLICT);
+    }
+    return winner;
   }
 
   /**
-   * Busca actor por user_id
+   * Busca o Actor humano canônico (actor_type='user') de um usuário no tenant.
+   *
+   * N2-D.2-R1: fail-closed em cardinalidade. A unicidade física uq_actors_user torna 2+ impossível;
+   * ainda assim conferimos (busca até DUAS rows) e lançamos ACTOR_USER_ANCHOR_AMBIGUOUS se aparecer mais
+   * de uma — NUNCA escolhemos "a primeira" (sem LIMIT 1 / ORDER BY como resolvedor de ambiguidade). O
+   * contrato normal permanece: 0 → null; exatamente 1 → o Actor. Filtros tenant/user/actor_type='user'
+   * e o tipo de retorno público preservados.
    */
   async findByUserId(tenantId: string, userId: string): Promise<ActorRow | null> {
-    const row = await runQueryWithTenant<ActorRow>(
+    const rows = await runQueriesWithTenant<ActorRow>(
       tenantId,
       `
       SELECT actor_id, tenant_id, actor_type, user_id, company_id, group_id,
@@ -232,12 +289,14 @@ export class ActorRepository {
              created_at, updated_at
       FROM actors
       WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user'
-      LIMIT 1
+      LIMIT 2
       `,
       [tenantId, userId]
     );
 
-    return row || null;
+    if (rows.length === 0) return null;
+    if (rows.length > 1) throw new Error(ACTOR_USER_ANCHOR_AMBIGUOUS);
+    return rows[0];
   }
 
   /**
