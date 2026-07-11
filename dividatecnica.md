@@ -267,6 +267,20 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (23) — FASE B-3 EXECUTADA: API read-only do checklist fiscal — aguarda Yala
+- Material `8c74f676c` + fix `1394893ec`: GET /companies/:companyId/fiscal-template-checklist (fonte única
+  checklistForCompany; projeção fiel sem reshape; autoridade assertCompanyTemplateAuthority exportada —
+  401/403/404, nunca pública/só-tenant); /templates/recommended ENDURECIDO com a mesma autoridade (achado
+  0170 §2, opção a); contrato no API_CONTRACT_GOVERNANCE §5; guard T8 + INVERSÃO CONSCIENTE da trava T7
+  no-surface (superfície única = company-templates.routes; segunda superfície = GO próprio).
+- Provas: rota 16/16 via fastify.inject com fixtures reais (403/no_template/suggested/fiscal_pending/
+  partially_validated com esfera federal-vs-municipal/ready_for_activation; sem provision_cents; sem
+  activated_by_accountant; GETs não escrevem; residue-0) · mutation 14/14 (M12 1ª rodada era mutação
+  malformada minha — guard certo; M14 exigiu boundary anti-rename, mesma lição do M1 da Fase A) ·
+  typecheck 0 · suíte 154 com pipefail nas duas cadeias · Δbank=0.
+- Zero frontend/PDV/Bank/motor. Próximas TRANCADAS: dashboard visual (frontend, GO próprio) · Fase C ·
+  Fase D · 4d-1. Contagem de DTs inalterada.
+
 ### 2026-07-10 (22) — FASE B-3-0 docs-only: DECISION-0170 promulgada (contrato API/dashboard do checklist fiscal)
 - Contrato ANTES de rota/frontend (recomendação Yala do selo B-2). Régua: B-2 prepara o dado · B-3 expõe ·
   Fase C ativa · 4d calcula · PDV numérico só pós-motor. Rota GET /companies/:companyId/fiscal-template-
