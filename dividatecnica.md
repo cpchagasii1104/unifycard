@@ -269,6 +269,22 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (31) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-0 — DECISION-0172 promulgada (docs-only)
+- GATE read-first N2 executado em HEAD `c8c9dfecc` (3 eixos: schema vivo/usos runtime; padrões
+  reutilizáveis; substrato de authority) — veredito soberano: aprovado com 2 correções vinculantes.
+  Promulgada **DECISION-0172** (escolhas físicas e de autoridade da fundação de bairro).
+- **P1–P6:** escopo territorial tipado com FKs reais (tenant institucional rejeitado) · maker-checker C
+  sem autoaprovação implícita (2 operações, 2 capabilities, 5 elos) · multi capability keys domain:action ·
+  proveniência híbrida (source_kind governado + reference + evidence; external_code ADIADO) · **N2-pre
+  obrigatória = trigger de HOLD + REVOKE + guard** (dev roda com postgres/superuser — trigger é a
+  barreira real) · is_active + valid_from/until_at (curadoria = eixo separado; sem status novo).
+- **Correções vinculantes:** N2-F coerência de addresses (CHECK + FK composta, FK simples removida,
+  zero backfill por display_text) SELADA antes do N3 · allowlist por arquivo REJEITADA (modelo futuro =
+  arquivo+check; anti-texto universal; walk cobre scripts).
+- **Sequência:** N2-0→N2-pre→N2-A→…→N2-G→N3, cada fatia com GO/provas/Yala próprios.
+- Docs-only: zero material; guard intocado; CANONICAL_WRITER_ALLOW vazia; HOLDs 501 preservados; Δbank=0.
+- **STATUS:** N2-0 DECIDIDA/PROMULGADA. N2-pre e fatias materiais TRANCADAS.
+
 ### 2026-07-11 (30) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N1/N1.1 SELADA PELA YALA (SELO COMPLETO)
 - Yala reauditou a correção N1.1 (`7d253d0f9`) sobre a promulgação N1 (`13cd7d84c`). Primeira auditoria
   havia dado SELO COM RESSALVA (canRepresentActor vs. autoridade de curadoria sem separação textual
