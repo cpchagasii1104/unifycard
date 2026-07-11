@@ -87,7 +87,7 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 | **Abertas (estimativa reconciliada)** | **~150–170** (inalterado — a frente de split fechou CONTENDO/RETIRANDO paralelos, não zerou DTs A_DECISION; ver nota) | 2026-07-09 |
 | Contidas/mitigadas (latência viva) | ~50 | 2026-07-06 |
 | Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
-| Suite `validate:regression-guards` | ✅ **159 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-neighborhood-succession-foundation na N2-C) | 2026-07-11 |
+| Suite `validate:regression-guards` | ✅ **160 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-territorial-capability-grant-foundation na N2-D.1) | 2026-07-11 |
 
 **🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 ✅ SELADA PELA YALA · SELO COMPLETO (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER FECHADA):** contenção dos 3 vetores conhecidos de identidade de bairro por texto livre — (1) criação SQL por nome (N0, `a81f004ea`); (2) resolução SQL de `neighborhood_id` por nome (N0.1, `7fcf407cd`); (3) resolução EM MEMÓRIA no `resolveCep` (N0.2, `c53e044dc`, remediação da REPROVAÇÃO intermediária da Yala ao N0.1). Guard `audit-neighborhood-freetext-writer-containment.mjs` cobre os 3 vetores + mutation 7/7 (M6=padrão exato da reprovação, M7=variante); suíte 155, typecheck 0, Δbank=0; `CANONICAL_WRITER_ALLOW` vazia. **Efeito na contagem:** DT FECHADA/CONTIDA/SELADA — sai do bucket de risco vivo. **Próximo passo autorizado (não iniciado):** N1 docs-only (DECISION de identidade canônica de bairro). N2/schema/seed/writer canônico seguem TRANCADOS; HOLDs 501 do Bank preservados.
 
@@ -268,6 +268,25 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-11 (49) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.1 — eixo territorial city-scoped em actor_capability_grants (aguarda Yala)
+- Material `6f5df7d7d` (base selo `e03790d9e`): migration 20260711160000 evolui a casa canônica —
+  scope_type='actor'|'territory'; scope_city_id UUID FK real cities(city_id) RESTRICT; tenant_id/
+  scope_actor_id nullable condicionados; CHECK fechado de shape (6 formatos inválidos falham,
+  tabela-verdade auto-provada); **CHECK anti-suspended territorial NASCE nesta fatia (D2.1)**;
+  duas casas de unicidade parciais (actor COM tenant, mesmo nome preservado p/ mapeamento 409;
+  territory SEM tenant/now() — colisão de active-vencido intencional, D2.4). Zero TS de produto.
+- Guard novo `audit-territorial-capability-grant-foundation.mjs` (suíte 159→160). Read-first provou
+  que o guard nonfinancial valida a migration ORIGINAL (intocada) ⇒ zero ajuste em guards existentes.
+- Provas: rollback residue-0; T1–T18 em transação c/ rollback integral validando o NOME da constraint
+  (shape/FK/anti-suspended/unicidades); T19=0 rows pré-existentes (honesto); T20 owner/ACL/RLS iguais;
+  **44 mutations mordem + 5 benignos (49/49**, stripComments 2 direções); 2 falsos positivos do próprio
+  guard corrigidos antes do commit; typecheck 0; suíte 160; 3 guards authority + 5 neighborhood PASS;
+  HOLDs 501 intactos; CANONICAL_WRITER_ALLOW vazia; Δbank=0. Sem HOLD físico territorial novo
+  (nenhum decidido — registro honesto).
+- **STATUS:** N2-D.1 EXECUTADA — AGUARDA AUDITORIA YALA. Zero key territory:*/grant/lifecycle/resolver/
+  enforcement; canRepresentActor puro. N2-D.2/D.3/PORTA-TERRITORY-1 trancadas; N2-E/N3 trancadas;
+  grant Curitiba inexistente; writer/bairros inexistentes.
 
 ### 2026-07-11 (48) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.0+D1+D2 SELADAS PELA YALA (SELO COMPLETO)
 - Cadeia: N2-C `fc539abcd` → N2-D.0 `4f2bbdb2c` (1ª auditoria: SELO COM RESSALVA) → ADENDO D1
