@@ -269,6 +269,23 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (50) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.1-R — adendo D3: matriz scope×capability (aguarda reauditoria Yala limitada)
+- Auditoria Yala da N2-D.1 (`6f5df7d7d`/`180e1d0c9`): **🟡 SELO COM RESSALVA exclusivamente documental**
+  — material sólido, nenhuma migration corretiva. Ressalva: CHECK plano de capability_key permitiria
+  combinações cruzadas ao ganhar as 6 keys territoriais. ADENDO D3 append-only à DECISION-0173.
+- D3 crava: permission-keys.ts = SSOT de EXISTÊNCIA; matriz scope×capability = onde a key pode formar
+  grant válido (não é 2º registry). Conjunto vivo pré-D.2 permanece actor-only; SÓ as 6 territory:*
+  formam grant territory; nenhuma key nos 2 conjuntos; matriz FECHADA (6 combinações; prefix inference
+  PROIBIDA — conjuntos exatos). D.2 materializa CHECK físico scope-aware no MESMO commit das 6 keys
+  (lista plana não basta); TS com 2 conjuntos explícitos (união plana só derivação); guard prova
+  union⊆permission-keys e intersection=∅ e morde 15 vetores. Zero grant antes da matriz — capacidade
+  estrutural da D.1 ≠ autorização operacional.
+- Correção documental (D3.9): "COMMIT→ROLLBACK" superada — correto: ensaio descartável BEGIN→corpo→
+  inspeção→ROLLBACK (zero resíduo) + aplicação definitiva pelo runner (COMMIT único). Históricos
+  preservados.
+- **STATUS:** N2-D.1-R EXECUTADA — AGUARDA REAUDITORIA YALA LIMITADA. N2-D.1 sólida SEM selo completo.
+  D.2 trancada até selo; D.3/PORTA-TERRITORY-1/N2-E/N3 trancadas; 0 territory rows vivo; Δbank=0.
+
 ### 2026-07-11 (49) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.1 — eixo territorial city-scoped em actor_capability_grants (aguarda Yala)
 - Material `6f5df7d7d` (base selo `e03790d9e`): migration 20260711160000 evolui a casa canônica —
   scope_type='actor'|'territory'; scope_city_id UUID FK real cities(city_id) RESTRICT; tenant_id/

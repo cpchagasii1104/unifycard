@@ -362,3 +362,90 @@ Sem `tenant_id`; sem depender de NULL no índice antigo; sem misturar actor-scop
 ### D2.6 — Efeito do adendo
 
 **N2-D.0-R2 DECIDIDA docs-only — AGUARDA REAUDITORIA YALA FINAL LIMITADA.** N2-D.1 permanece **trancada até SELO COMPLETO**. Nenhuma capability, grant ou authority territorial foi criada. D.2, D.3, PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; saneamento de `neighborhoods.name` segue pendente; Social e Bank permanecem fora.
+
+---
+
+## ADENDO D3 — Matriz governada scope_type × capability_key (2026-07-11)
+
+- **Status:** DECIDIDO / DOCS-ONLY / AGUARDA REAUDITORIA YALA LIMITADA.
+- **Natureza:** anexado append-only após a auditoria material da N2-D.1 (**🟡 SELO COM RESSALVA exclusivamente documental**; material `6f5df7d7d` considerado **sólido** — migration/shape/FK/anti-suspended/índices aprovados; nenhuma migration corretiva exigida). **Não** edita §§0–13, ADENDO D1 nem ADENDO D2; complementa a decisão **apenas** no vínculo entre tipo de escopo e capability key. **Não** cria key, grant, lifecycle, constraint ou código.
+- **Origem do problema:** a casa original tinha um CHECK **plano** de `capability_key` e um único escopo actor. Apenas acrescentar as seis keys territoriais à lista plana permitiria combinações cruzadas indevidas (ex.: grant `territory` com `calendar:block`, ou grant `actor` com `territory:approve_neighborhood`). A DECISION-0137 decide a **existência** canônica das keys; não decidiu **em qual tipo de escopo** cada key pode ser usada.
+
+### D3.1 — Existência ≠ compatibilidade
+
+- `permission-keys.ts` **continua** o SSOT de **existência** das capability keys para grants; não é substituído nem duplicado; `business-permissions` continua role-map; RBAC legado continua fora.
+- A **matriz scope×capability** não cria novo SSOT de keys; decide **somente** se uma key canônica é admissível naquele scope; pertence à casa de authority/grants; será materializada na **N2-D.2**.
+
+**Frase canônica:** *"permission-keys.ts define a existência da key. A matriz scope×capability define onde essa key pode formar um grant válido."*
+
+### D3.2 — Conjunto actor-scoped
+
+Toda capability key atualmente permitida para grants antes da N2-D.2 **permanece actor-scoped** (inclui, conforme inventário vivo, keys de domínios como `calendar:*`, `services:*` e demais keys não territoriais já governadas). A **lista física exata** será obtida por **read-first da N2-D.2**, confrontando: (1) `permission-keys.ts`; (2) allowlist TS da casa de grants; (3) CHECK físico vigente; (4) usos reais de `actor_capability_grants`.
+
+Regras: nenhuma key existente muda silenciosamente para territory · actor-scoped **não pode** usar nenhuma das seis `territory:*` · key nova futura deve **declarar explicitamente** seu conjunto · **ausência de classificação de scope ⇒ key não pode ser concedida**. Este adendo **não congela** uma lista incompleta de keys actor-scoped — congela a **regra** de que o conjunto vivo anterior permanece actor-only.
+
+### D3.3 — Conjunto territorial
+
+Somente estas **seis** keys podem formar grant com `scope_type='territory'` no MVP:
+
+```
+territory:create_neighborhood
+territory:approve_neighborhood
+territory:correct_neighborhood
+territory:deactivate_neighborhood
+territory:manage_neighborhood_aliases
+territory:register_neighborhood_succession
+```
+
+**Proibido em território:** `calendar:*` · `services:*` · `financial:*` · `split:*` · `bank:*` · qualquer key actor-scoped · wildcard · prefix inference · custom string · unknown key · `manage_all` · grant-administration key. **Nenhuma** das seis keys territoriais pode formar grant actor-scoped. **Nenhuma key pertence aos dois conjuntos no MVP.**
+
+### D3.4 — Matriz fechada (tabela-verdade)
+
+```
+actor     + key actor-scoped ........... válido estruturalmente
+actor     + key territory:* ............ INVÁLIDO
+territory + uma das seis territory:* ... válido estruturalmente
+territory + key actor-scoped ........... INVÁLIDO
+territory + key desconhecida ........... INVÁLIDO
+actor     + key desconhecida ........... INVÁLIDO
+```
+
+Não há: key em ambos os conjuntos · fallback · compatibilidade por prefixo (`startsWith('territory:')` = inferência de autoridade, PROIBIDA — correspondência é por **conjuntos exatos e governados**) · compatibilidade por metadata/role/frontend/super_admin.
+
+### D3.5 — Obrigação física da N2-D.2
+
+A N2-D.2 materializará uma constraint efetiva equivalente a:
+
+```
+(scope_type='actor'     AND capability_key IN (<conjunto actor-scoped governado>))
+OR
+(scope_type='territory' AND capability_key IN (<seis keys territoriais>))
+```
+
+Implementação admitida: **(A)** recriar `chk_acg_capability_nonfinancial` como matriz scope-aware; **ou (B)** manter o CHECK de existência e adicionar CHECK específico de matriz. Em qualquer opção: a proteção final é **física**; lista plana **não basta**; constraint **validada** (não `NOT VALID`); cobre INSERT e UPDATE; não aceita NULL; falha **antes** de qualquer grant real; criada **no mesmo commit** que introduzir as seis keys. **Não criar agora.**
+
+### D3.6 — Contrato TypeScript da N2-D.2
+
+Dois conjuntos **explícitos**: actor-scoped capability keys · territorial capability keys. União plana pode existir **somente como derivação** (`actor set ∪ territorial set`) — **não** decide compatibilidade, **não** pode ser usada sozinha em create/grant, **não** substitui o discriminante `scope_type`.
+
+Input futuro **discriminado**: Actor grant (`scopeType='actor'` · `tenantId` obrigatório · `scopeActorId` obrigatório · `scopeCityId` proibido · `capabilityKey` ∈ actor set) vs. Territorial grant (`scopeType='territory'` · `tenantId` ausente · `scopeActorId` proibido · `scopeCityId` obrigatório · `capabilityKey` ∈ territorial set). **Proibido:** `tenantId` opcional ambíguo · `scopeType` inferido por campos · key prefix para escolher shape · cast para contornar a matriz.
+
+### D3.7 — Tri-registry e guard da N2-D.2
+
+Sincronizar: (1) `permission-keys.ts` = existência das seis keys; (2) TS da casa de grants = conjunto actor-scoped + conjunto territorial + matriz por scope; (3) CHECK físico = matriz scope×capability.
+
+O guard da N2-D.2 deve **morder**: territory+`calendar:*` · territory+`services:*` · actor+`territory:*` · unknown key em qualquer scope · retirada de uma das seis keys de `permission-keys.ts` · key territorial só no CHECK mas ausente no SSOT · key territorial só no TS · lista plana usada como única autorização · prefix-based validation · wildcard · cast/bypass · enfraquecimento posterior do CHECK · DROP/`NOT VALID` · repository que não valida a matriz · rota genérica que aceita combinação cruzada. E deve **provar**: `union(actor set, territory set) ⊆ permission-keys.ts` **e** `intersection(actor set, territory set) = ∅`.
+
+### D3.8 — Zero grant antes da matriz
+
+Enquanto a matriz não estiver implementada e selada: **nenhum** grant territorial real pode existir; PORTA-TERRITORY-1 permanece bloqueada; nenhum repository/route territorial pode abrir; nenhuma das seis keys pode ser concedida; o estado vivo permanece **0 territory rows**. **A capacidade estrutural da D.1 não é autorização operacional.**
+
+### D3.9 — Correção documental da redação de rollback
+
+A expressão histórica **"COMMIT→ROLLBACK"** (usada em entradas anteriores do cartório para descrever a prova de resíduo-zero) é tecnicamente imprecisa e fica **superada** pela descrição correta: **(A) ensaio descartável** — `BEGIN;` aplicar o corpo da migration; inspecionar; `ROLLBACK;` ⇒ zero resíduo; **(B) aplicação definitiva** — runner canônico ⇒ **COMMIT definitivo único**. Nenhum COMMIT foi revertido por ROLLBACK na mesma transação. As entradas históricas **não** são apagadas nem reescritas; a correção vale como nota append-only daqui em diante.
+
+### D3.10 — Sequência e efeito
+
+Após este adendo: (1) reauditoria Yala limitada do D3; (2) se SELO COMPLETO ⇒ registro docs-only do selo final da N2-D.1; (3) **somente depois** ⇒ GO material da N2-D.2. A N2-D.2 entregará **conjuntamente**: seis keys · matriz scope×capability · lifecycle append-only · `reason`/`revoke_reason` · revoke canônico · explicit-expire · contrato de regrant · inspeção de legado · zero grant real — **sem separar as keys da matriz em commits que deixem estado intermediário permissivo**.
+
+**N2-D.1-R DECIDIDA docs-only — AGUARDA REAUDITORIA YALA LIMITADA.** A N2-D.1 **não** recebe SELO COMPLETO ainda. N2-D.2/D.3, PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; nenhuma capability territorial ou grant foi criada; Social e Bank permanecem fora.
