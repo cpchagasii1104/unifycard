@@ -87,7 +87,7 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 | **Abertas (estimativa reconciliada)** | **~150–170** (inalterado — a frente de split fechou CONTENDO/RETIRANDO paralelos, não zerou DTs A_DECISION; ver nota) | 2026-07-09 |
 | Contidas/mitigadas (latência viva) | ~50 | 2026-07-06 |
 | Typecheck backend (build **e** dev config) | ✅ **0 / 0 erros** (medido 2026-07-09) | 2026-07-09 |
-| Suite `validate:regression-guards` | ✅ **156 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-neighborhood-dml-hold na N2-pre) | 2026-07-11 |
+| Suite `validate:regression-guards` | ✅ **157 GATE OK / RC=0** (medido 2026-07-11 via `npm run`, `set -o pipefail`; +audit-neighborhood-core-foundation na N2-A) | 2026-07-11 |
 
 **🟢 Sessão 2026-07-11 — F-NEIGHBORHOOD-CANONICAL-IDENTITY N0/N0.1/N0.2 ✅ SELADA PELA YALA · SELO COMPLETO (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER FECHADA):** contenção dos 3 vetores conhecidos de identidade de bairro por texto livre — (1) criação SQL por nome (N0, `a81f004ea`); (2) resolução SQL de `neighborhood_id` por nome (N0.1, `7fcf407cd`); (3) resolução EM MEMÓRIA no `resolveCep` (N0.2, `c53e044dc`, remediação da REPROVAÇÃO intermediária da Yala ao N0.1). Guard `audit-neighborhood-freetext-writer-containment.mjs` cobre os 3 vetores + mutation 7/7 (M6=padrão exato da reprovação, M7=variante); suíte 155, typecheck 0, Δbank=0; `CANONICAL_WRITER_ALLOW` vazia. **Efeito na contagem:** DT FECHADA/CONTIDA/SELADA — sai do bucket de risco vivo. **Próximo passo autorizado (não iniciado):** N1 docs-only (DECISION de identidade canônica de bairro). N2/schema/seed/writer canônico seguem TRANCADOS; HOLDs 501 do Bank preservados.
 
@@ -268,6 +268,23 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-11 (37) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-A — fundação do núcleo neighborhoods (aguarda Yala)
+- Material `e361351d1` (DECISION-0171 + 0172 P4/P6): migration `20260711110000_neighborhoods_core_
+  foundation.sql` — proveniência governada (source_kind CHECK fechado em 3 valores; source_reference/
+  evidence NOT NULL nonempty p/ TODOS os kinds), autoria/aprovação (created_by/approved_by_actor_id FK
+  REAL actors(id) RESTRICT; approved_at), vigência (valid_from_at/valid_until_at + CHECK until>from),
+  ZERO defaults nas 8 colunas, imutabilidade PERMANENTE (DELETE/id/city/creator/created_at, erros
+  estáveis NEIGHBORHOOD_IDENTITY_*, FOR EACH ROW), fail-closed pré+pós-ALTER, HOLD N2-pre intocado.
+  Guard novo `audit-neighborhood-core-foundation.mjs` (suíte 156→157; 25 invariantes versionados +
+  anti-enfraquecimento posterior).
+- Provas: rollback residue-0 pré-aplicação; introspecção completa; testes DB em BEGIN..ROLLBACK (HOLD
+  desabilitado só na transação): 23514/23503/erros estáveis/UPDATE name permitido/0 rows+HOLD 'A' pós;
+  honestidade: created_at re-testado com timestamp diferente (now() é transaction-stable); readers
+  vivos (list/lookup/validate honestos); mutation A1–A21 21/21 + benigno PASS; typecheck 0; suíte 157;
+  HOLDs 501 intactos; Δbank=0.
+- Limite registrado: read-models devem filtrar atividade/vigência ANTES do N3.
+- **STATUS:** N2-A EXECUTADA — AGUARDA AUDITORIA YALA. N2-B…N2-G e N3 TRANCADAS.
 
 ### 2026-07-11 (36) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-pre SELADA PELA YALA (SELO COMPLETO)
 - Cadeia auditada: N2-0 `438cd83d6` → material `66b5e6117` → cartório `e3975be8f` → 1ª auditoria SELO
