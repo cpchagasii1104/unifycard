@@ -292,3 +292,73 @@ A trilha append-only registra, no mínimo: `grant_id` · `event_type` · `grante
 ### D1.8 — Efeito do adendo
 
 **N2-D.0-R DECIDIDA docs-only — AGUARDA REAUDITORIA YALA LIMITADA.** N2-D.1 permanece **trancada** até SELO COMPLETO. Nenhuma capability, grant ou authority material foi criada. PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; saneamento de `neighborhoods.name` segue pendente; Social e Bank permanecem fora.
+
+---
+
+## ADENDO D2 — Fechamento final das ressalvas documentais da N2-D.0 (2026-07-11)
+
+- **Status:** DECIDIDO / DOCS-ONLY / AGUARDA REAUDITORIA YALA FINAL LIMITADA.
+- **Natureza:** este adendo **complementa** o ADENDO D1 e **prevalece apenas nos dois pontos específicos abaixo** (D2.1 e D2.2); **não** revoga o restante de D1 nem de §§0–13; **não** cria autorização material.
+- **Reauditoria Yala do ADENDO D1 (`2118370dd`):** veredito **🟡 SELO COM RESSALVA (documental)**. D1 resolveu corretamente quase toda a matéria; restaram **duas** lacunas de redação, **sem falha material**: R1 (dono material da constraint de `suspended`) e R2 (fluxo obrigatório para renovar um grant fisicamente `active` porém vencido). O estado operacional só muda pelo cartório — a reauditoria, por si só, **não** libera material.
+
+### D2.1 — `suspended`: dono material inequívoco (encerra R1)
+
+A **N2-D.1**, e não "D.1 ou D.2", é **obrigatoriamente** responsável por criar a invariante física:
+
+```
+scope_type='territory' → status <> 'suspended'
+```
+
+Forma esperada: CHECK real no banco · fail-closed · presente **no mesmo commit** que introduzir `scope_type='territory'` · **nenhum estado intermediário** aceita `territory+suspended` · a migration deve **provar** os shapes inválidos · o guard estrutural da D.1 deve validar a **presença e a forma** da constraint.
+
+A **N2-D.2**: **não** cria essa constraint pela primeira vez; **protege** a constraint contra drop/enfraquecimento; **impede** repository/service/lifecycle de transicionar `territory` para `suspended`; **não** inclui eventos `suspended`/`resumed`/`reactivated`; mantém grants actor-scoped **fora** desta proibição territorial.
+
+Removida de leituras futuras qualquer ambiguidade do tipo "D.1 ou D.2", "se for a fatia adequada" ou "pode ser criado posteriormente" — a redação de D1.1 fica **substituída neste ponto específico** pela atribuição inequívoca acima.
+
+### D2.2 — `active` vencido e regrant (encerra R2)
+
+**A. Autoridade efetiva.** `valid_until <= now()` → o grant **não autoriza imediatamente**; o resolver nega; **não** exige `UPDATE`/job/evento (preserva D1.2-A).
+
+**B. Estado físico.** O grant pode permanecer temporariamente `status='active'` com `valid_until<=now()`. Enquanto assim permanecer: ocupa a unicidade parcial de `active`; **não pode** coexistir com novo grant equivalente; **não pode** ser sobrescrito; **não pode** ter sua vigência reciclada; **não pode** ser substituído in-place.
+
+**C. Nova concessão equivalente.** Antes de criar novo grant para a mesma combinação (`grantee_actor_id`, `capability_key`, `scope_city_id`), um **emissor governado** deve, em sequência auditável:
+```
+1. localizar exatamente o grant antigo fisicamente active;
+2. confirmar valid_until<=now();
+3. confirmar que pertence ao mesmo Actor/key/cidade;
+4. executar transição explícita para status='expired';
+5. inserir evento append-only `expired`;
+6. estado+evento na MESMA transação;
+7. concluir sem commit parcial;
+8. somente depois criar NOVA row de grant active;
+9. inserir evento `granted` da nova row na mesma transação de criação.
+```
+
+**Proibido:** expiração silenciosa · `UPDATE` direto sem evento · alterar `valid_until` do grant antigo para reutilizá-lo · transformar o grant antigo em nova concessão · apagar o grant antigo · criar o novo antes de liberar a unicidade · `ON CONFLICT` para sobrescrever · inferir motivo ou executor · criar evento retroativo falso.
+
+Cada nova concessão possui: novo `grant_id` · novo `reason` de concessão · nova vigência · novo evento `granted` · executor e Actor responsável **próprios**.
+
+### D2.3 — Emissor do `expired`: nada implementado aqui
+
+Nenhum emissor é implementado ou autorizado nesta docs-only. A capacidade de materializar `expired` pertence à **N2-D.2**, que deverá: definir uma operação canônica transacional; permanecer **sem rota pública aberta**; registrar user executor; registrar Actor humano responsável; registrar motivo da transição; inserir evento append-only; bloquear `UPDATE` direto. A **N2-D.1** cria **somente** a estrutura e a unicidade.
+
+**Consequência:** N2-D.1 pode ser executada sem regrant runtime, pois **zero** grant territorial será criado nessa fatia; N2-D.2 deve estar selada **antes** da PORTA-TERRITORY-1; **nenhum** grant real pode existir antes de lifecycle e emissor estarem selados.
+
+### D2.4 — Índice territorial: reafirmação
+
+```
+(grantee_actor_id, capability_key, scope_city_id)
+  WHERE scope_type='territory' AND status='active'
+```
+Sem `tenant_id`; sem depender de NULL no índice antigo; sem misturar actor-scoped e territory-scoped. A aparente colisão com um grant `active`-vencido é **intencional e fail-closed**: impede novo grant enquanto o antigo não tiver sido encerrado corretamente, forçando a transição auditável para `expired` — **não** deve ser contornada relaxando a unicidade. **Não** usar `now()` no predicado do índice.
+
+### D2.5 — Fatias consolidadas (substituem D1.7 nos pontos acima)
+
+- **N2-D.1:** introduz territory/city; `tenant_id` nullable condicionado; `scope_city_id` FK; CHECKs dos seis shapes; **CHECK físico `territory→status<>'suspended'`**; índices parciais; guard estrutural. Zero keys novas · zero lifecycle novo · zero grant · zero enforcement.
+- **N2-D.2:** seis keys nos três registros; lifecycle append-only; `reason`/`revoke_reason`; **operação canônica de revoke**; **operação canônica de explicit-expire**; **contrato active-vencido→expired→novo grant**; atomicidade; proteção contra `suspended` territorial; read-first do legado. Rotas ainda quarentenadas · zero grant real.
+- **N2-D.3:** resolver `active` e vigente; `valid_from<=now()`; `valid_until` IS NULL ou `>now()`; Actor/key/city exatos; retorna `grant_id`; sem inferência de tenant; sem writer.
+- **PORTA-TERRITORY-1:** só depois do selo integral de D.1+D.2+D.3; será a **primeira** criação real de grants territoriais.
+
+### D2.6 — Efeito do adendo
+
+**N2-D.0-R2 DECIDIDA docs-only — AGUARDA REAUDITORIA YALA FINAL LIMITADA.** N2-D.1 permanece **trancada até SELO COMPLETO**. Nenhuma capability, grant ou authority territorial foi criada. D.2, D.3, PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; saneamento de `neighborhoods.name` segue pendente; Social e Bank permanecem fora.

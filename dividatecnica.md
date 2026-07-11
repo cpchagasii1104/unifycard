@@ -269,6 +269,22 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (47) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.0-R2 — adendo D2 da DECISION-0173 (aguarda reauditoria Yala final limitada)
+- Reauditoria Yala do D1 (`2118370dd`): **🟡 SELO COM RESSALVA** — 2 lacunas de redação, sem falha
+  material (R1 dono da constraint suspended; R2 fluxo active-vencido→regrant). Adendo D2 append-only,
+  complementa D1 SÓ nesses 2 pontos; §§0-13 e resto de D1 intocados.
+- **R1 encerrada:** N2-D.1 (não "D.1 ou D.2") cria o CHECK físico `territory⇒status<>'suspended'` no
+  MESMO commit que introduz scope_type='territory'; migration prova shapes inválidos; guard da D.1
+  valida presença+forma. D.2 só protege a constraint (drop/enfraquecimento), não a cria.
+- **R2 encerrada:** grant active+valid_until vencido NÃO autoriza mas continua ocupando a unicidade
+  parcial — não pode ser sobrescrito/reciclado. Regrant exige emissor governado: localizar→confirmar→
+  status='expired'+evento expired (mesma transação, sem commit parcial)→SÓ ENTÃO nova row active+evento
+  granted (mesma transação). Proibido UPDATE sem evento, reciclar valid_until, ON CONFLICT, evento
+  retroativo falso. Emissor de expired = operação canônica da N2-D.2, sem rota pública, ainda não
+  implementada. Índice territorial reafirmado sem tenant_id/sem now() no predicado.
+- **STATUS:** N2-D.0-R2 EXECUTADA — AGUARDA REAUDITORIA YALA FINAL LIMITADA. N2-D.1 trancada até SELO
+  COMPLETO; D.2/D.3/PORTA-TERRITORY-1/N2-E/N3 e saneamento de neighborhoods.name bloqueados; Social/Bank fora.
+
 ### 2026-07-11 (46) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.0-R — adendo D1 da DECISION-0173 (aguarda reauditoria Yala limitada)
 - Auditoria Yala da N2-D.0 (`4f2bbdb2c`): **🟡 SELO COM RESSALVA** — arquitetura principal aprovada
   (casa/keys/Curitiba/AND/PORTA); ressalvas só de lifecycle e tenant/global. Adendo D1 append-only à
