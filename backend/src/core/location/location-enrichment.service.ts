@@ -114,23 +114,22 @@ class LocationEnrichmentService {
       cityNormalized
     );
 
-    // Buscar ou criar bairro (se fornecido)
-    let neighborhoodId: string | undefined;
-    if (cepData.bairro && cepData.bairro.trim()) {
-      const neighborhoodNormalized = normalizeName(cepData.bairro);
-      const neighborhood = await this.findOrCreateNeighborhood(
-        city.id,
-        cepData.bairro,
-        neighborhoodNormalized
-      );
-      neighborhoodId = neighborhood.id;
-    }
+    // ── CONTENÇÃO N0 · DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER ──────────────────
+    // DECISION-0079 §6 (bairro NUNCA vira FK por texto livre) + DECISION-0166 D4 (nível
+    // neighborhood em HOLD até existir catálogo governado). Este serviço legado criava
+    // `neighborhood_id` por igualdade de nome normalizado — o exato anti-padrão vetado, que
+    // materializaria bairros falsos/duplicados ("Centro" vs "centro" vs "Bairro Centro").
+    // Fail-closed: o bairro do CEP segue APENAS como rótulo de exibição; `neighborhood_id`
+    // permanece RESERVADO para a futura fundação canônica (F-NEIGHBORHOOD-CANONICAL-IDENTITY).
+    // País/estado/cidade continuam sendo enriquecidos normalmente (preservados).
+    const neighborhoodId: string | undefined = undefined;
+    const neighborhoodDisplay = cepData.bairro?.trim() || undefined;
 
     // Buscar nomes formatados para exibição
     const countryName = country.name;
     const stateName = state.name;
     const cityName = city.name;
-    const neighborhoodName = neighborhoodId ? (await locationRepository.findNeighborhoodById(neighborhoodId))?.name : undefined;
+    const neighborhoodName = neighborhoodDisplay; // só exibição — nunca FK (contenção N0)
 
     return {
       addressRef: {
@@ -280,62 +279,27 @@ class LocationEnrichmentService {
   }
 
   /**
-   * Buscar ou criar bairro
+   * GUARD DE CONTENÇÃO (N0) — DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER.
+   *
+   * Este método CRIAVA bairro por igualdade de nome normalizado (`INSERT INTO neighborhoods`),
+   * violando DECISION-0079 §6 (proibido bairro FK por texto livre) e DECISION-0166 D4 (nível
+   * neighborhood em HOLD até existir catálogo governado). Foi NEUTRALIZADO: não contém mais
+   * nenhum SQL de escrita. Permanece como tripwire fail-closed — qualquer tentativa futura de
+   * reviver o writer legado falha em alto e bom som, em vez de materializar um `neighborhood_id`
+   * falso. A criação canônica de bairro só pode nascer na fundação governada
+   * F-NEIGHBORHOOD-CANONICAL-IDENTITY (catálogo com fonte/curadoria/aprovação), NUNCA aqui a
+   * partir de texto de CEP/provider/usuário.
    */
   private async findOrCreateNeighborhood(
-    cityId: string,
-    nameDisplay: string,
-    nameNormalized: string
-  ): Promise<{ id: string; name: string }> {
-    // Tentar buscar por nome (case-insensitive)
-    const result = await pool.query<{ neighborhood_id: string; name: string }>(
-      `
-      SELECT neighborhood_id as id, name
-      FROM neighborhoods
-      WHERE city_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))
-      LIMIT 1
-      `,
-      [cityId, nameDisplay]
+    _cityId: string,
+    _nameDisplay: string,
+    _nameNormalized: string
+  ): Promise<never> {
+    throw new Error(
+      'NEIGHBORHOOD_CANONICAL_IDENTITY_HOLD: criação de bairro por texto livre está contida ' +
+        '(DECISION-0079 §6 / DECISION-0166 D4). Use a fundação governada ' +
+        'F-NEIGHBORHOOD-CANONICAL-IDENTITY; este writer legado foi desativado.'
     );
-
-    if (result.rows.length > 0) {
-      const row = result.rows[0] as any;
-      return { id: row.id, name: row.name };
-    }
-
-    // Criar novo bairro
-    const createResult = await pool.query<{ neighborhood_id: string; name: string }>(
-      `
-      INSERT INTO neighborhoods (city_id, name)
-      VALUES ($1, $2)
-      ON CONFLICT DO NOTHING
-      RETURNING neighborhood_id as id, name
-      `,
-      [cityId, nameDisplay]
-    );
-
-    if (createResult.rows.length > 0) {
-      const createRow = createResult.rows[0] as any;
-      return { id: createRow.id, name: createRow.name };
-    }
-
-    // Se ON CONFLICT não retornou, buscar novamente
-    const retryResult = await pool.query<{ neighborhood_id: string; name: string }>(
-      `
-      SELECT neighborhood_id as id, name
-      FROM neighborhoods
-      WHERE city_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))
-      LIMIT 1
-      `,
-      [cityId, nameDisplay]
-    );
-
-    if (retryResult.rows.length > 0) {
-      const retryRow = retryResult.rows[0] as any;
-      return { id: retryRow.id, name: retryRow.name };
-    }
-
-    throw new Error('Erro ao criar bairro');
   }
 
   /**

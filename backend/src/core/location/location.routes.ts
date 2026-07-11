@@ -168,8 +168,14 @@ const locationRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * POST /locations/enrich-from-cep
-   * Enriquecer localização a partir de CEP
-   * Público (mas pode ser protegido no futuro)
+   * Enriquecer localização a partir de CEP.
+   * Público (mas pode ser protegido no futuro).
+   *
+   * CONTENÇÃO N0 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER): esta rota resolve/cria
+   * país/estado/cidade a partir do CEP, mas NÃO cria mais bairro por texto livre. O bairro do
+   * CEP retorna apenas como rótulo de exibição (`labels.neighborhood`); `neighborhood_id` fica
+   * sempre nulo até existir a fundação canônica de bairro (F-NEIGHBORHOOD-CANONICAL-IDENTITY).
+   * Ver DECISION-0079 §6 e DECISION-0166 D4.
    */
   fastify.post<{
     Body: {
