@@ -269,6 +269,18 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (35) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-pre.1a — correção cartorial (DT-DRIFT1 permanece CLOSED)
+- O commit `f3950da46` (N2-pre.1) afirmou por engano que `DT-DRIFT1-RLS-HARDENING-OPS-ROLLOUT-PENDING`
+  "segue OPEN / rollout ainda pendente". Erro: o rollout (LOGIN + DATABASE_URL→unificard_app + RLS-live
+  DEV PASS) foi EXECUTADO por Clayton em 2026-06-24 e o cartório já a tratava como resolvida/fantasma.
+- Correção docs-only: entrada N2-pre.1a + correção append-only das duas redações erradas (nota no corpo
+  da DT + entrada N2-pre.1). Estado canônico vigente = **CLOSED**; entrada histórica OPEN (2026-06-20)
+  permanece só como linhagem; nenhuma DT nova; nenhuma confirmação runtime/preflight pendente.
+- DECISION-0172 §0.1 intocada e correta; guard `5b9a511c9` intocado; migration intocada; zero material;
+  HOLDs 501 preservados; Δbank=0.
+- **STATUS:** N2-pre.1a CORRIGIDA DOCS-ONLY — AGUARDA REAUDITORIA YALA LIMITADA. DT-DRIFT1 CLOSED.
+  N2-A trancada.
+
 ### 2026-07-11 (34) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-pre.1 — hardening do guard do HOLD + reconciliação NOLOGIN (aguarda reauditoria Yala)
 - Yala deu SELO COM RESSALVA à N2-pre: guard não cobria grant por coluna / a PUBLIC / ENABLE REPLICA /
   DROP FUNCTION CASCADE, e a promessa PASS não distinguia Git de banco vivo; além disso a 0172 dizia
