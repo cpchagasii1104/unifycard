@@ -269,6 +269,22 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (38) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-A.1 — saneamento das ressalvas Yala (aguarda reauditoria)
+- Yala deu SELO COM RESSALVA à N2-A: R1 `btrim(col)<>''` aceita tab/newline-only (provado ao vivo);
+  R2 guard não detectava DISABLE/ENABLE REPLICA do trigger permanente de imutabilidade. Notas N1
+  (racional 'A' vs 'O') e N2 (extinção não exige sucessor). Direção: N2-B trancada até SELO COMPLETO;
+  `tgenabled='O'` aceito como padrão permanente com racional documentado.
+- **Material `38c32a65a`:** migration forward-only `20260711120000_neighborhoods_core_hardening.sql` —
+  CHECKs recriados com mesmos nomes e `~ '[^[:space:]]'`; redefinição AUTORIZADA da função (lógica
+  idêntica, só texto do DELETE: extinção usa vigência/desativação, sucessão só com relação real);
+  racional 'A'/'O' documentado; fail-closed pré+pós com auto-prova estrutural. Guard: seção 1b valida
+  a A1; morde DISABLE(nomeado/ALL/USER)/ENABLE REPLICA/DROP FUNCTION CASCADE/redefinição fora da A1/
+  recriação fraca dos CHECKs; ENABLE ALWAYS não bloqueado (fortalecimento).
+- Provas: W1–W10 (whitespace matrix nas 2 colunas) + X1–X10 re-executados (DELETE com mensagem
+  corrigida) em BEGIN..ROLLBACK; mutation R1–R16 16/16 + regressão A 11 amostras + benigno; typecheck
+  0; suíte 157; HOLD 'A'/immut 'O'/0 rows/ACL/HOLDs 501 intactos; Δbank=0.
+- **STATUS:** N2-A.1 EXECUTADA — AGUARDA REAUDITORIA YALA LIMITADA. N2-B…N2-G e N3 TRANCADAS.
+
 ### 2026-07-11 (37) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-A — fundação do núcleo neighborhoods (aguarda Yala)
 - Material `e361351d1` (DECISION-0171 + 0172 P4/P6): migration `20260711110000_neighborhoods_core_
   foundation.sql` — proveniência governada (source_kind CHECK fechado em 3 valores; source_reference/
