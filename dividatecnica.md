@@ -269,6 +269,26 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (56) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R1+R1-FIX+R4 SELADAS PELA YALA (SELO COMPLETO)
+- Cadeia: base D.2 `00aa2aa66` → R1 material `fb15000ff`/docs `f62fb82a6` (1ª auditoria: SELO COM
+  RESSALVA — global_user_id não validado no early-existing) → R1-FIX material `f7146ff12`/docs
+  `ef08bbbcf` (helper único nos 3 caminhos; reauditoria: SELO COM RESSALVA — durabilidade do guard,
+  evasão composta helperCalls>=3 gameável) → R4 guard-only `1297f01d2`/docs `319116324` (prova
+  branch-local dos 6 ramos; reauditoria final: **SELO COMPLETO**). Todas read-only; zero alteração
+  material pela Yala.
+- Selado: uq_actors_user (tenant_id,user_id) WHERE actor_type='user'; findByUserId fail-closed sem
+  LIMIT 1/ORDER BY; writers idempotentes (ON CONFLICT DO NOTHING no alvo exato, nunca DO UPDATE);
+  helper assertCanonicalUserActorAnchor validando os 4 campos nos 6 ramos (existing/insert-returning/
+  race-loser × 2 writers), cada um com janela BRANCH-LOCAL própria — contagem global deixou de ser
+  prova vinculante.
+- Evasões Z1-Z4 seladas como fechadas; O-R4 (if((existing)) pode recusar) = observação não-bloqueante,
+  fail-closed, sem ação agora. Correção do harness: "fixtures committadas" era impreciso — harness tsx
+  ad hoc, não versionado; proteção durável = o guard.
+- **STATUS:** N2-D.2-R1+R1-FIX+R4 SELADAS PELA YALA · SELO COMPLETO. **N2-D.2 geral permanece SELO COM
+  RESSALVA (R2 aberta). N2-D.2-R2 autorizada como próxima microfatia possível, NÃO iniciada**
+  (coerência tenant×Actors em fn_grant/fn_revoke). N2-D.3/PORTA-TERRITORY-1/N2-E/N2-F/N2-G/N3
+  trancadas; grants/eventos=0; Social/Bank fora; Δbank=0.
+
 ### 2026-07-11 (55) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R1-FIX-R4 — durabilidade branch-local do guard (aguarda reauditoria Yala final limitada)
 - Reauditoria da R1-FIX (`f7146ff12`): SELO COM RESSALVA de durabilidade do guard. Evasão composta:
   `helperCalls>=3` (contagem global) era gameável — remover o helper do race-loser + duplicar no
