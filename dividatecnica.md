@@ -267,6 +267,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-10 (24) — F-SEGMENT-TEMPLATE-FISCAL-FOUNDATION Fase B-3 SELADA PELA YALA (SELO COMPLETO)
+- Yala B-3 = SELO COMPLETO (36 confirmações). Rota read-only real, autoridade real (canManageCompany via
+  assertCompanyTemplateAuthority), /recommended endurecido, payload fiel à B-2, estados só até
+  ready_for_activation, guard T8 + fix de boundary validados, suíte 154, Δbank=0.
+- Observações não-bloqueantes: prova 16/16 foi efêmera (recomendação: promover a teste commitado na
+  próxima fatia); erro de `npx tsc --noEmit` cru em bank-account.service.ts é PRÉ-EXISTENTE e fora do
+  gate governado (typecheck governado passou).
+- STOP: frontend/dashboard visual, Fase C, Fase D e 4d-1 seguem TRANCADOS por GO próprio.
+
 ### 2026-07-10 (23) — FASE B-3 EXECUTADA: API read-only do checklist fiscal — aguarda Yala
 - Material `8c74f676c` + fix `1394893ec`: GET /companies/:companyId/fiscal-template-checklist (fonte única
   checklistForCompany; projeção fiel sem reshape; autoridade assertCompanyTemplateAuthority exportada —
