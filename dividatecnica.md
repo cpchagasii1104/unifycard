@@ -269,6 +269,27 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (42) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-B + N2-B.1 SELADAS PELA YALA (SELO COMPLETO)
+- Cadeia: base N2-A/A.1 `2428e92d5` → N2-B `eb8615815`/`990718d7e` → 1ª auditoria SELO COM
+  RESSALVA (R1 whitespace de borda; R2 guard sem TRUNCATE/ownership) → saneamento `c66f91892`/
+  `4e9a4740c` → reauditoria limitada **SELO COMPLETO**.
+- R1 ENCERRADA: CHECK `chk_neighborhood_aliases_alias_no_edge_whitespace` aprovado; bordas ASCII
+  clássicas + NBSP/em-space rejeitadas (observado, não garantido universal); caixa/acento
+  deduplicados no mesmo bairro (23505); colisão entre bairros permanece ambiguidade legítima
+  (mesmo alias em outro bairro = permitido; consulta ambígua = 2 candidatos sem vencedor).
+- R2 ENCERRADA: guard morde `GRANT TRUNCATE/ALL[ PRIVILEGES]/ON ALL TABLES` e
+  `ALTER TABLE...OWNER TO` (qualquer grantee). H16 confirmado como mutação de DDL real (não string
+  artificial). H1-H16 + regressão B 11/11 sem regressão.
+- **Observação vinculante do núcleo (classificação A, sem nova DT):** `normalize_name` também não
+  faz trim em `neighborhoods.name` — não invalida N2-A, não bloqueia N2-B/N2-C, mas **BLOQUEIA
+  N2-E e N3** até saneamento forward-only próprio (CHECK de borda em `neighborhoods.name`, sem
+  alterar `normalize_name()`, com hardening do core guard e nova auditoria) ANTES do writer e do
+  seed de Curitiba.
+- **STATUS:** N2-B + N2-B.1 SELADAS PELA YALA · SELO COMPLETO. Ressalvas R1/R2 ENCERRADAS.
+  **Próximo autorizado, NÃO iniciado:** N2-C (sucessão N:N), GO próprio. N2-D exige GATE próprio.
+  **N2-E e N3 travadas pelo saneamento pendente de `neighborhoods.name`** (trava independente e
+  obrigatória, além da authority N2-D e da coerência N2-F). Social/Bank fora.
+
 ### 2026-07-11 (41) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-B.1 — CHECK de borda + guard TRUNCATE/ownership (aguarda reauditoria)
 - Yala deu SELO COM RESSALVA à N2-B (não reprovação; estado vivo seguro): R1 `normalize_name()` não
   faz trim de borda (provado: `normalize_name(' Centro ')<>normalize_name('Centro')`); R2 guard não
