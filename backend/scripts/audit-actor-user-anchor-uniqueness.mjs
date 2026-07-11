@@ -20,6 +20,63 @@ const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\
 const R1_MIG = '20260711180000_actor_user_anchor_uniqueness.sql';
 const REPO = join(SRC, 'modules/social/actor.repository.ts');
 
+// ── Extração BRACE-AWARE (N2-D.2-R1-FIX-R4): balanceia `{}` ignorando strings '..'/".."/`..` (templates
+// tratados como opacos — as interpolações `${}` do SQL não devem desbalancear a contagem). A partir de
+// `fromIdx`, acha o primeiro `{` e devolve o bloco `{...}` balanceado. null se não fechar. ──────────────
+function extractBalancedBlock(code, fromIdx) {
+  const open = code.indexOf('{', fromIdx);
+  if (open < 0) return null;
+  let depth = 0, i = open;
+  while (i < code.length) {
+    const c = code[i];
+    if (c === "'" || c === '"') { const q = c; i++; while (i < code.length && code[i] !== q) { if (code[i] === '\\') i++; i++; } i++; continue; }
+    if (c === '`') { i++; while (i < code.length && code[i] !== '`') { if (code[i] === '\\') i++; i++; } i++; continue; }
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) return { start: open, end: i, body: code.slice(open, i + 1) }; }
+    i++;
+  }
+  return null;
+}
+
+// Corpo NOMINAL de um método async, brace-aware. null se ausente/inextraível (o chamador falha o guard).
+function extractMethodBody(code, methodName) {
+  const sig = new RegExp(`async\\s+${methodName}\\s*\\(`).exec(code);
+  if (!sig) return null;
+  const blk = extractBalancedBlock(code, sig.index);
+  return blk ? blk.body : null;
+}
+
+// Bloco `if (<cond>) { ... }` brace-aware dentro de um corpo. Retorna {body, end} do bloco ou null.
+function extractIfBlock(body, condRe) {
+  const m = condRe.exec(body);
+  if (!m) return null;
+  const blk = extractBalancedBlock(body, m.index);
+  return blk;
+}
+
+// PROVA BRANCH-LOCAL (N2-D.2-R1-FIX-R4): dentro de `window`, TODO `return <Actor>` (exceto `return null`)
+// deve ser precedido, NA MESMA janela, por `assertCanonicalUserActorAnchor(<mesma expr>, ...)`. Chamadas de
+// helper em OUTRO ramo não contam (a janela é local). Fecha a evasão composta (remover da corrida +
+// duplicar no existing). `label` identifica o ramo nas mensagens; `pushFail` acumula falhas.
+function proveBranchValidatesReturnedActor(window, label, pushFail) {
+  if (!window) { pushFail(`${label}: janela do ramo não pôde ser extraída (inspeção ambígua).`); return; }
+  const returns = [...window.matchAll(/return\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\[\s*\d+\s*\])*)\s*(?:as\s+\w+\s*)?;/g)];
+  const actorReturns = returns.filter((r) => r[1] !== 'null');
+  if (actorReturns.length === 0) { pushFail(`${label}: nenhum return de Actor na janela (ramo não identificado).`); return; }
+  for (const ret of actorReturns) {
+    const retVar = ret[1];
+    const esc = retVar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // helper aplicado à MESMA expressão retornada, com o primeiro argumento = retVar (aceita `as Tipo`).
+    const helperRe = new RegExp(`assertCanonicalUserActorAnchor\\s*\\(\\s*${esc}\\s*(?:as\\s+\\w+\\s*)?,`);
+    const hm = helperRe.exec(window);
+    if (!hm) {
+      pushFail(`${label}: return de '${retVar}' SEM assertCanonicalUserActorAnchor(${retVar}, ...) na mesma janela (validação branch-local ausente).`);
+    } else if (hm.index > ret.index) {
+      pushFail(`${label}: assertCanonicalUserActorAnchor(${retVar}) ocorre DEPOIS do return (inalcançável/tarde demais).`);
+    }
+  }
+}
+
 try {
   const MIG = join(ROOT, 'migrations');
   if (!existsSync(MIG)) throw new Error('diretório migrations ausente');
@@ -137,41 +194,47 @@ try {
       if (/ORDER\s+BY\s+(created_at|id)/i.test(fbu)) failures.push('repo: findByUserId usa ORDER BY para escolher identidade — proibido.');
     }
 
-    // ── 4. Os dois writers endurecidos (ON CONFLICT DO NOTHING no alvo exato + reselect + conferência) ──
-    for (const name of ['findOrCreateUserActor', 'findOrCreateUserActorTx']) {
-      const body = (repo.match(new RegExp(`async ${name}\\([\\s\\S]*?\\n  \\}`)) || [''])[0];
-      if (!body) { failures.push(`repo: ${name} não localizado.`); continue; }
-      // aceita a constante compartilhada (validada acima) OU o alvo literal inline
+    // ── 4. Os dois writers endurecidos: prova BRANCH-LOCAL dos 3 ramos de retorno de Actor (R4) ──
+    // Config por writer: como se identifica o ramo existing e o ramo insert-returning (o race-loser é o
+    // resto do método, após o bloco insert-returning). Não depende de números de linha.
+    const writers = [
+      { name: 'findOrCreateUserActor',   existingCond: /if\s*\(\s*existing\s*\)/,            createCond: /if\s*\(\s*newActor\s*\)/ },
+      { name: 'findOrCreateUserActorTx', existingCond: /if\s*\(\s*existing\.rows\[\s*0\s*\]\s*\)/, createCond: /if\s*\(\s*inserted\.rows\[\s*0\s*\]\s*\)/ },
+    ];
+    for (const w of writers) {
+      const body = extractMethodBody(repo, w.name);
+      if (!body) { failures.push(`repo: ${w.name} não localizado / corpo não extraível (inspeção ambígua).`); continue; }
+
       const usesTarget = /ON\s+CONFLICT\s+\$\{USER_ANCHOR_CONFLICT_TARGET\}/.test(body)
         || /ON\s+CONFLICT\s*\(tenant_id,\s*user_id\)\s*WHERE\s+actor_type\s*=\s*'user'/i.test(body);
-      if (!usesTarget) {
-        failures.push(`repo: ${name} sem ON CONFLICT no alvo EXATO da âncora (constante USER_ANCHOR_CONFLICT_TARGET ou literal).`);
-      }
-      if (!/DO\s+NOTHING/i.test(body)) failures.push(`repo: ${name} sem DO NOTHING.`);
-      if (/DO\s+UPDATE/i.test(body)) failures.push(`repo: ${name} usa ON CONFLICT DO UPDATE — proibido (não atualiza identidade).`);
-      if (!/ACTOR_USER_CANONICAL_ANCHOR_CONFLICT/.test(body)) failures.push(`repo: ${name} não falha em âncora com identidade incompatível.`);
-      // não pode reinserir depois de perder a corrida (um único INSERT no corpo)
+      if (!usesTarget) failures.push(`repo: ${w.name} sem ON CONFLICT no alvo EXATO da âncora.`);
+      if (!/DO\s+NOTHING/i.test(body)) failures.push(`repo: ${w.name} sem DO NOTHING.`);
+      if (/DO\s+UPDATE/i.test(body)) failures.push(`repo: ${w.name} usa ON CONFLICT DO UPDATE — proibido.`);
+      if (!/ACTOR_USER_CANONICAL_ANCHOR_CONFLICT/.test(body)) failures.push(`repo: ${w.name} não falha em âncora incompatível.`);
       const inserts = (body.match(/INSERT\s+INTO\s+actors/gi) || []).length;
-      if (inserts !== 1) failures.push(`repo: ${name} tem ${inserts} INSERT em actors (esperado 1 — não reinserir após perder a corrida).`);
+      if (inserts !== 1) failures.push(`repo: ${w.name} tem ${inserts} INSERT em actors (esperado 1).`);
 
-      // N2-D.2-R1-FIX: o helper canônico deve ser chamado em TODOS os caminhos de retorno de Actor —
-      // exige >=3 chamadas (existing / criado / vencedor da corrida). Prova estrutural de cobertura total.
-      const helperCalls = (body.match(/assertCanonicalUserActorAnchor\s*\(/g) || []).length;
-      if (helperCalls < 3) {
-        failures.push(`repo: ${name} chama assertCanonicalUserActorAnchor ${helperCalls}x (esperado >=3 — os três caminhos existing/criado/corrida perdida).`);
+      // RAMO A/D — existing: bloco `if (existing...) { ... }` valida a MESMA row antes do return.
+      const existingBlk = extractIfBlock(body, w.existingCond);
+      if (!existingBlk) failures.push(`repo: ${w.name} ramo 'existing' não localizado.`);
+      else proveBranchValidatesReturnedActor(existingBlk.body, `${w.name}:existing`, (m) => failures.push('repo: ' + m));
+
+      // RAMO B/E — insert-returning: bloco `if (newActor|inserted.rows[0]) { ... }` valida antes do return.
+      const createBlk = extractIfBlock(body, w.createCond);
+      if (!createBlk) { failures.push(`repo: ${w.name} ramo 'insert-returning' não localizado.`); continue; }
+      proveBranchValidatesReturnedActor(createBlk.body, `${w.name}:insert-returning`, (m) => failures.push('repo: ' + m));
+
+      // RAMO C/F — race-loser: TUDO após o bloco insert-returning até o fim do método. Janela DEDICADA
+      // (chamadas dos outros ramos ficam fora → fecha a evasão composta remover-da-corrida+duplicar-noutro).
+      const raceWindow = body.slice(createBlk.end + 1);
+      // §7: prova estrutural da forma esperada — reselect da âncora + cardinalidade + helper no retornado.
+      if (!/actor_type\s*=\s*'user'/i.test(raceWindow) || !/LIMIT\s+2/i.test(raceWindow)) {
+        failures.push(`repo: ${w.name}:race-loser sem reselect da âncora (actor_type='user' + LIMIT 2).`);
       }
-      // Cada `return` de Actor reutilizado deve ser precedido pela validação: proíbe early-return do
-      // Actor existente sem validar. Heurística: no ramo `if (existing...) { ... return ... }` deve
-      // haver assertCanonicalUserActorAnchor antes do return.
-      const earlyExisting = body.match(/if\s*\(\s*existing[\s\S]{0,220}?return[^;]*;/);
-      if (earlyExisting && !/assertCanonicalUserActorAnchor/.test(earlyExisting[0])) {
-        failures.push(`repo: ${name} retorna o Actor existente SEM validar a âncora (early-return sem pós-condição).`);
+      if (!/\.length\s*===\s*0/.test(raceWindow) || !/\.length\s*>\s*1/.test(raceWindow)) {
+        failures.push(`repo: ${w.name}:race-loser sem verificação de cardinalidade (0 e >1).`);
       }
-      // O ramo de criação vencedora (inserted/newActor) também deve validar antes de retornar.
-      const winnerCreate = body.match(/if\s*\(\s*(inserted\.rows\[0\]|newActor)[\s\S]{0,220}?return[^;]*;/);
-      if (winnerCreate && !/assertCanonicalUserActorAnchor/.test(winnerCreate[0])) {
-        failures.push(`repo: ${name} retorna a row criada SEM validar a âncora (insert-returning sem pós-condição).`);
-      }
+      proveBranchValidatesReturnedActor(raceWindow, `${w.name}:race-loser`, (m) => failures.push('repo: ' + m));
     }
     // o predicado do conflito é compartilhado por uma constante (higiene) — não obrigatório, mas não pode
     // haver ON CONFLICT genérico sem alvo em lugar nenhum do writer path.
