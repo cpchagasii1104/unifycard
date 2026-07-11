@@ -14,6 +14,35 @@ export const ACTOR_USER_CANONICAL_ANCHOR_CONFLICT =
 const USER_ANCHOR_CONFLICT_TARGET =
   `(tenant_id, user_id) WHERE actor_type = 'user' AND tenant_id IS NOT NULL AND user_id IS NOT NULL`;
 
+// Linha de Actor que carrega os campos da âncora canônica (o SELECT/RETURNING deve trazer global_user_id).
+type UserActorAnchorRow = ActorRow & { global_user_id?: string | null; id?: string };
+
+/**
+ * N2-D.2-R1-FIX (ressalva Yala): PÓS-CONDIÇÃO ÚNICA de qualquer Actor `user` REUTILIZADO nos dois
+ * writers canônicos — vale para os TRÊS caminhos (já existia / criado agora / venceu a corrida). A
+ * validação NÃO é proteção específica do ramo de corrida perdida: é contrato compartilhado. Comparações
+ * EXPLÍCITAS (===/!==), sem truthiness/fallback/coerção. Qualquer incompatibilidade → fail-closed; NUNCA
+ * atualiza/funde/corrige/recria/escolhe outro registro.
+ */
+function assertCanonicalUserActorAnchor(
+  actor: UserActorAnchorRow,
+  expectedTenantId: string,
+  expectedUserId: string,
+  expectedGlobalUserId: string
+): void {
+  const actorIdMismatch =
+    actor.actor_id != null && actor.id != null && actor.actor_id !== actor.id;
+  if (
+    actor.actor_type !== 'user' ||
+    actor.tenant_id !== expectedTenantId ||
+    actor.user_id !== expectedUserId ||
+    actor.global_user_id !== expectedGlobalUserId ||
+    actorIdMismatch
+  ) {
+    throw new Error(ACTOR_USER_CANONICAL_ANCHOR_CONFLICT);
+  }
+}
+
 export interface ActorRow {
   actor_id: string;
   tenant_id: string;
@@ -69,26 +98,9 @@ export class ActorRepository {
     tenantId: string,
     userId: string
   ): Promise<ActorRow> {
-    // Primeiro tenta encontrar actor existente
-    const existing = await runQueryWithTenant<ActorRow>(
-      tenantId,
-      `
-      SELECT a.*
-      FROM actors a
-      WHERE a.tenant_id = $1 
-        AND a.user_id = $2
-        AND a.actor_type = 'user'
-      LIMIT 1
-      `,
-      [tenantId, userId]
-    );
-
-    if (existing) {
-      return existing;
-    }
-
-    // Busca nome do usuário + global_user_id (F3.1 v2 DECISION-0062: ordem causal
-    // identity → actor; actors.global_user_id é fail-closed para actores humanos).
+    // Busca nome do usuário + global_user_id ANTES de qualquer caminho de reuso (F3.1 v2 DECISION-0062:
+    // ordem causal identity → actor). N2-D.2-R1-FIX: o global_user_id canônico é necessário para validar a
+    // âncora em TODOS os caminhos (já existia / criado / venceu a corrida), não só na corrida perdida.
     const user = await runQueryWithTenant<{
       email: string;
       full_name: string | null;
@@ -113,7 +125,6 @@ export class ActorRepository {
     }
 
     // 🔴 F3.1 v2 (DECISION-0062): fail-closed para actor humano sem âncora global.
-    // FK `actors.global_user_id → identities(global_user_id)` exige row preexistente.
     if (!user.global_user_id) {
       throw new Error(
         `findOrCreateUserActor: users.global_user_id ausente para user_id=${userId} — ` +
@@ -121,16 +132,36 @@ export class ActorRepository {
         `Não cria órfão.`
       );
     }
+    const expectedGlobalUserId = user.global_user_id;
+
+    // CAMINHO 1 — Actor já existe: valida a âncora canônica ANTES de retornar (mesma pós-condição).
+    const existing = await runQueryWithTenant<UserActorAnchorRow>(
+      tenantId,
+      `
+      SELECT a.*, a.global_user_id::text AS global_user_id
+      FROM actors a
+      WHERE a.tenant_id = $1
+        AND a.user_id = $2
+        AND a.actor_type = 'user'
+      LIMIT 1
+      `,
+      [tenantId, userId]
+    );
+
+    if (existing) {
+      assertCanonicalUserActorAnchor(existing, tenantId, userId, expectedGlobalUserId);
+      return existing;
+    }
 
     const identityCheck = await runQueryWithTenant<{ global_user_id: string }>(
       tenantId,
       `SELECT global_user_id::text FROM identities WHERE global_user_id = $1::uuid LIMIT 1`,
-      [user.global_user_id]
+      [expectedGlobalUserId]
     );
 
     if (!identityCheck) {
       throw new Error(
-        `findOrCreateUserActor: identity ausente para global_user_id=${user.global_user_id} — ` +
+        `findOrCreateUserActor: identity ausente para global_user_id=${expectedGlobalUserId} — ` +
         `ordem causal exige identity ANTES de actor (§7 hierarquia epistemológica + ` +
         `migration 0010 FK fk_actor_identity). Chame identityService.` +
         `ensureIdentityRowForGlobalUserId antes de criar actor.`
@@ -142,7 +173,7 @@ export class ActorRepository {
     // Cria novo actor — popula global_user_id satisfazendo FK fk_actor_identity.
     // N2-D.2-R1: ON CONFLICT DO NOTHING no alvo EXATO da âncora parcial (uq_actors_user) fecha a corrida
     // dos dois writers concorrentes sem mascarar outras constraints (outras unique violations propagam).
-    const newActor = await runQueryWithTenant<ActorRow>(
+    const newActor = await runQueryWithTenant<UserActorAnchorRow>(
       tenantId,
       `
       INSERT INTO actors (
@@ -150,29 +181,37 @@ export class ActorRepository {
       )
       VALUES ($1, 'user', $2, $3::uuid, $4, $5)
       ON CONFLICT ${USER_ANCHOR_CONFLICT_TARGET} DO NOTHING
-      RETURNING *
+      RETURNING *, global_user_id::text AS global_user_id
       `,
-      [tenantId, userId, user.global_user_id, displayName, `user-${userId.substring(0, 8)}`]
+      [tenantId, userId, expectedGlobalUserId, displayName, `user-${userId.substring(0, 8)}`]
     );
 
+    // CAMINHO 2 — criação vencedora: valida a âncora da row criada antes de retornar.
     if (newActor) {
+      assertCanonicalUserActorAnchor(newActor, tenantId, userId, expectedGlobalUserId);
       return newActor;
     }
 
-    // Perdeu a corrida: reconsulta a âncora EXATA (fail-closed em cardinalidade) e confere a identidade.
-    const winner = await this.findByUserId(tenantId, userId);
-    if (!winner) {
-      throw new Error(ACTOR_USER_CANONICAL_ANCHOR_CONFLICT);
-    }
-    const winnerGlobalUserId = await runQueryWithTenant<{ global_user_id: string | null }>(
+    // CAMINHO 3 — perdeu a corrida: reconsulta a âncora EXATA com cardinalidade (LIMIT 2 → >1 é
+    // ACTOR_USER_ANCHOR_AMBIGUOUS, impossível sob uq_actors_user) e valida com o mesmo helper.
+    const winners = await runQueriesWithTenant<UserActorAnchorRow>(
       tenantId,
-      `SELECT global_user_id::text AS global_user_id FROM actors WHERE tenant_id = $1 AND actor_id = $2 LIMIT 1`,
-      [tenantId, winner.actor_id]
+      `
+      SELECT a.*, a.global_user_id::text AS global_user_id
+      FROM actors a
+      WHERE a.tenant_id = $1 AND a.user_id = $2 AND a.actor_type = 'user'
+      LIMIT 2
+      `,
+      [tenantId, userId]
     );
-    if (!winnerGlobalUserId || winnerGlobalUserId.global_user_id !== user.global_user_id) {
+    if (winners.length === 0) {
       throw new Error(ACTOR_USER_CANONICAL_ANCHOR_CONFLICT);
     }
-    return winner;
+    if (winners.length > 1) {
+      throw new Error(ACTOR_USER_ANCHOR_AMBIGUOUS);
+    }
+    assertCanonicalUserActorAnchor(winners[0], tenantId, userId, expectedGlobalUserId);
+    return winners[0];
   }
 
   /**
@@ -189,16 +228,8 @@ export class ActorRepository {
     tenantId: string,
     userId: string
   ): Promise<ActorRow> {
-    const existing = await client.query(
-      `SELECT a.* FROM actors a
-        WHERE a.tenant_id = $1 AND a.user_id = $2 AND a.actor_type = 'user'
-        LIMIT 1`,
-      [tenantId, userId]
-    );
-    if (existing.rows[0]) {
-      return existing.rows[0] as ActorRow;
-    }
-
+    // N2-D.2-R1-FIX: carrega o global_user_id canônico ANTES de qualquer caminho de reuso — a âncora é
+    // validada nos TRÊS caminhos (já existia / criado / venceu a corrida), com o MESMO helper do writer não-Tx.
     const userRes = await client.query(
       `SELECT u.email,
               COALESCE(p.full_name, gu.full_name) AS full_name,
@@ -220,14 +251,27 @@ export class ActorRepository {
         `actor humano canônico exige âncora global (DECISION-0062 D4 / §4.8). Não cria órfão.`
       );
     }
+    const expectedGlobalUserId = user.global_user_id;
+
+    // CAMINHO 1 — Actor já existe: valida a âncora canônica ANTES de retornar.
+    const existing = await client.query(
+      `SELECT a.*, a.global_user_id::text AS global_user_id FROM actors a
+        WHERE a.tenant_id = $1 AND a.user_id = $2 AND a.actor_type = 'user'
+        LIMIT 1`,
+      [tenantId, userId]
+    );
+    if (existing.rows[0]) {
+      assertCanonicalUserActorAnchor(existing.rows[0] as UserActorAnchorRow, tenantId, userId, expectedGlobalUserId);
+      return existing.rows[0] as ActorRow;
+    }
 
     const identityCheck = await client.query(
       `SELECT global_user_id::text FROM identities WHERE global_user_id = $1::uuid LIMIT 1`,
-      [user.global_user_id]
+      [expectedGlobalUserId]
     );
     if (!identityCheck.rows[0]) {
       throw new Error(
-        `findOrCreateUserActorTx: identity ausente para global_user_id=${user.global_user_id} — ` +
+        `findOrCreateUserActorTx: identity ausente para global_user_id=${expectedGlobalUserId} — ` +
         `ordem causal exige identity ANTES de actor (migration 0010 FK fk_actor_identity).`
       );
     }
@@ -242,15 +286,17 @@ export class ActorRepository {
        )
        VALUES ($1, 'user', $2, $3::uuid, $4, $5)
        ON CONFLICT ${USER_ANCHOR_CONFLICT_TARGET} DO NOTHING
-       RETURNING *`,
-      [tenantId, userId, user.global_user_id, displayName, `user-${userId.substring(0, 8)}`]
+       RETURNING *, global_user_id::text AS global_user_id`,
+      [tenantId, userId, expectedGlobalUserId, displayName, `user-${userId.substring(0, 8)}`]
     );
+    // CAMINHO 2 — criação vencedora: valida a âncora da row criada antes de retornar.
     if (inserted.rows[0]) {
+      assertCanonicalUserActorAnchor(inserted.rows[0] as UserActorAnchorRow, tenantId, userId, expectedGlobalUserId);
       return inserted.rows[0] as ActorRow;
     }
 
-    // Perdeu a corrida: reconsulta a âncora EXATA no mesmo client (fail-closed em cardinalidade) e
-    // confere a identidade canônica antes de retornar o vencedor.
+    // CAMINHO 3 — perdeu a corrida: reconsulta a âncora EXATA no mesmo client (fail-closed em
+    // cardinalidade) e valida com o mesmo helper antes de retornar o vencedor.
     const reselect = await client.query(
       `SELECT a.*, a.global_user_id::text AS global_user_id
          FROM actors a
@@ -264,10 +310,8 @@ export class ActorRepository {
     if (reselect.rows.length > 1) {
       throw new Error(ACTOR_USER_ANCHOR_AMBIGUOUS);
     }
-    const winner = reselect.rows[0] as ActorRow & { global_user_id: string | null };
-    if (winner.global_user_id !== user.global_user_id) {
-      throw new Error(ACTOR_USER_CANONICAL_ANCHOR_CONFLICT);
-    }
+    const winner = reselect.rows[0] as UserActorAnchorRow;
+    assertCanonicalUserActorAnchor(winner, tenantId, userId, expectedGlobalUserId);
     return winner;
   }
 

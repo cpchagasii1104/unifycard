@@ -96,6 +96,28 @@ try {
       failures.push('repo: USER_ANCHOR_CONFLICT_TARGET não espelha o alvo parcial exato (tenant_id, user_id) WHERE actor_type=user AND ambos NOT NULL.');
     }
 
+    // ── N2-D.2-R1-FIX: helper canônico ÚNICO valida a âncora em TODOS os caminhos de reuso ──
+    const helper = (repo.match(/function assertCanonicalUserActorAnchor\(([\s\S]*?)\n\}/) || [''])[0];
+    if (!helper) {
+      failures.push('repo: helper assertCanonicalUserActorAnchor ausente (validação da âncora não centralizada).');
+    } else {
+      // deve comparar EXPLICITAMENTE actor_type, tenant_id, user_id, global_user_id (===/!==, sem truthiness)
+      if (!/actor\.actor_type\s*!==\s*'user'/.test(helper)) failures.push('helper: não verifica actor_type === user.');
+      if (!/actor\.tenant_id\s*!==\s*expectedTenantId/.test(helper)) failures.push('helper: não verifica tenant_id exato.');
+      if (!/actor\.user_id\s*!==\s*expectedUserId/.test(helper)) failures.push('helper: não verifica user_id exato.');
+      if (!/actor\.global_user_id\s*!==\s*expectedGlobalUserId/.test(helper)) failures.push('helper: não verifica global_user_id exato.');
+      if (!/throw new Error\(ACTOR_USER_CANONICAL_ANCHOR_CONFLICT\)/.test(helper)) failures.push('helper: não lança ACTOR_USER_CANONICAL_ANCHOR_CONFLICT (fail-closed).');
+      // proibido corrigir/atualizar/log em vez de throw
+      if (/UPDATE\s+actors|console\.(warn|log|error)|actor\.global_user_id\s*=/.test(helper)) {
+        failures.push('helper: corrige/loga em vez de fail-closed — proibido.');
+      }
+      // comparação frouxa proibida (==/!= não-estritos entre os campos)
+      if (/actor\.(actor_type|tenant_id|user_id|global_user_id)\s*(?<![!=])==(?!=)/.test(helper) ||
+          /actor\.(actor_type|tenant_id|user_id|global_user_id)\s*!=(?!=)/.test(helper)) {
+        failures.push('helper: usa comparação frouxa (==/!=) — exige ===/!==.');
+      }
+    }
+
     // corpo do findByUserId
     const fbu = (repo.match(/async findByUserId\([\s\S]*?\n  \}/) || [''])[0];
     if (!fbu) {
@@ -127,14 +149,29 @@ try {
       }
       if (!/DO\s+NOTHING/i.test(body)) failures.push(`repo: ${name} sem DO NOTHING.`);
       if (/DO\s+UPDATE/i.test(body)) failures.push(`repo: ${name} usa ON CONFLICT DO UPDATE — proibido (não atualiza identidade).`);
-      // reselect após conflito + conferência EXPLÍCITA de global_user_id (comparação, não só menção)
-      if (!/\.global_user_id\s*!==\s*user\.global_user_id/.test(body)) {
-        failures.push(`repo: ${name} não compara a global_user_id da âncora vencedora com a esperada (conferência de identidade ausente).`);
-      }
       if (!/ACTOR_USER_CANONICAL_ANCHOR_CONFLICT/.test(body)) failures.push(`repo: ${name} não falha em âncora com identidade incompatível.`);
       // não pode reinserir depois de perder a corrida (um único INSERT no corpo)
       const inserts = (body.match(/INSERT\s+INTO\s+actors/gi) || []).length;
       if (inserts !== 1) failures.push(`repo: ${name} tem ${inserts} INSERT em actors (esperado 1 — não reinserir após perder a corrida).`);
+
+      // N2-D.2-R1-FIX: o helper canônico deve ser chamado em TODOS os caminhos de retorno de Actor —
+      // exige >=3 chamadas (existing / criado / vencedor da corrida). Prova estrutural de cobertura total.
+      const helperCalls = (body.match(/assertCanonicalUserActorAnchor\s*\(/g) || []).length;
+      if (helperCalls < 3) {
+        failures.push(`repo: ${name} chama assertCanonicalUserActorAnchor ${helperCalls}x (esperado >=3 — os três caminhos existing/criado/corrida perdida).`);
+      }
+      // Cada `return` de Actor reutilizado deve ser precedido pela validação: proíbe early-return do
+      // Actor existente sem validar. Heurística: no ramo `if (existing...) { ... return ... }` deve
+      // haver assertCanonicalUserActorAnchor antes do return.
+      const earlyExisting = body.match(/if\s*\(\s*existing[\s\S]{0,220}?return[^;]*;/);
+      if (earlyExisting && !/assertCanonicalUserActorAnchor/.test(earlyExisting[0])) {
+        failures.push(`repo: ${name} retorna o Actor existente SEM validar a âncora (early-return sem pós-condição).`);
+      }
+      // O ramo de criação vencedora (inserted/newActor) também deve validar antes de retornar.
+      const winnerCreate = body.match(/if\s*\(\s*(inserted\.rows\[0\]|newActor)[\s\S]{0,220}?return[^;]*;/);
+      if (winnerCreate && !/assertCanonicalUserActorAnchor/.test(winnerCreate[0])) {
+        failures.push(`repo: ${name} retorna a row criada SEM validar a âncora (insert-returning sem pós-condição).`);
+      }
     }
     // o predicado do conflito é compartilhado por uma constante (higiene) — não obrigatório, mas não pode
     // haver ON CONFLICT genérico sem alvo em lugar nenhum do writer path.
