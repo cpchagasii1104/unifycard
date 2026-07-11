@@ -269,6 +269,26 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (41) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-B.1 — CHECK de borda + guard TRUNCATE/ownership (aguarda reauditoria)
+- Yala deu SELO COM RESSALVA à N2-B (não reprovação; estado vivo seguro): R1 `normalize_name()` não
+  faz trim de borda (provado: `normalize_name(' Centro ')<>normalize_name('Centro')`); R2 guard não
+  mordia `GRANT TRUNCATE`/troca de ownership. Direção: N2-C trancada até SELO COMPLETO da N2-B.
+  `normalize_name()` NÃO alterada (helper único do Location Core); correção fica na coluna alias.
+- **Material `c66f91892`:** migration forward-only `20260711140000_neighborhood_aliases_hardening.sql`
+  — CHECK `chk_neighborhood_aliases_alias_no_edge_whitespace` (protege início E fim, coexiste com o
+  nonempty existente); observação registrada sobre `neighborhoods.name_normalized` ter o mesmo gap
+  (não corrigido aqui, decisão própria antes do N2-E). Guard endurecido: valida a B1 + morde
+  `GRANT TRUNCATE/ALL[ PRIVILEGES]/ON ALL TABLES` e `ALTER TABLE...OWNER TO` (qualquer grantee) +
+  recriação fraca do CHECK.
+- Provas: E1–E17 (bordas rejeitadas nos 2 lados, conteúdo/espaços internos aceitos, duplicata
+  caixa/acento mesmo bairro=23505, mesmo alias outro bairro=sucesso, ambíguo=2 candidatos) + **bônus:
+  NBSP/em-space também rejeitados no locale vivo** (observado, não garantido universal); privilégios
+  (app SELECT-only, TRUNCATE/OWNER negados; admin bloqueado pelo HOLD; owner=postgres; zero PUBLIC);
+  mutation H1–H16 16/16 + 3 benignos PASS; regressão B 11/11 sem regressão; typecheck 0; suíte 158
+  (guard existente endurecido, sem novo); 4 guards irmãos PASS; catálogos 0/0; HOLDs 501 intactos;
+  Δbank=0.
+- **STATUS:** N2-B.1 EXECUTADA — AGUARDA REAUDITORIA YALA LIMITADA. N2-C…N2-G e N3 TRANCADAS.
+
 ### 2026-07-11 (40) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-B — fundação de aliases (aguarda Yala)
 - Material `eb8615815` (DECISION-0171 §8 + 0172 §2): tabela filha GLOBAL `neighborhood_aliases` —
   FK RESTRICT ao pai (SEM city_id redundante), alias_normalized GENERATED via normalize_name, CHECKs
