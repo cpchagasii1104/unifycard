@@ -4,14 +4,22 @@
 // pergunta: "o HOLD físico está materialmente presente e não foi revivido/enfraquecido?"
 // (a pergunta texto→identidade continua no guard irmão audit-neighborhood-freetext-writer-containment).
 //
-// MORDE se: a migration do HOLD sumir/enfraquecer (função sem erro estável, bypass por GUC, trigger
-// sem I/U/D, FOR EACH ROW, sem ENABLE ALWAYS, REVOKE ausente ou revogando SELECT) OU se QUALQUER
-// migration POSTERIOR ao HOLD dropar/desabilitar/trocar o trigger/função, re-conceder DML de
-// neighborhoods a unificard_app (específico ou por GRANT amplo), OU se CANONICAL_WRITER_ALLOW
-// deixar de estar vazia, OU se os dois guards saírem do runner.
+// MORDE se: a migration do HOLD sumir/enfraquecer (função sem erro estável, com bypass GUC ou
+// condicional IF/CASE, trigger sem I/U/D, FOR EACH ROW, sem ENABLE ALWAYS, REVOKE ausente ou
+// revogando SELECT) OU se QUALQUER migration POSTERIOR ao HOLD: dropar/desabilitar (incl. ALL/USER)/
+// ENABLE REPLICA/rebaixar o trigger; dropar (com/sem assinatura/CASCADE) ou redefinir a função;
+// re-conceder DML de neighborhoods a QUALQUER grantee (unificard_app/PUBLIC/role intermediária,
+// por tabela OU coluna, incl. ALL PRIVILEGES) ou por GRANT amplo ON ALL TABLES a unificard_app/PUBLIC;
+// OU se CANONICAL_WRITER_ALLOW deixar de estar vazia; OU se os dois guards saírem do runner.
 // ORDEM TEMPORAL COMPREENDIDA: o grant histórico amplo (20260620120000, ANTERIOR ao HOLD) é
 // legítimo — o REVOKE específico prevalece; só reaberturas POSTERIORES falham.
 // Falha de leitura/parsing = FAIL (nunca PASS silencioso). Heurística textual comment-stripped.
+//
+// PROMESSA HONESTA (escopo desta barreira): este guard impede revival VERSIONADO nas migrations do
+// repositório. Ele NÃO impede DDL administrativo executado DIRETAMENTE no banco vivo (superuser pode
+// dropar trigger/função à mão). O estado vivo é provado por INTROSPECÇÃO operacional (tgenabled='A',
+// privilégios efetivos), não por este guard. A contenção completa = migration (barreira física) +
+// este guard (anti-revival versionado) + inspeção viva/auditoria. Ver DECISION-0172 P5.
 
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -53,6 +61,10 @@ try {
       // sem bypass: nenhum current_setting/GUC/checagem de role/session na função
       if (/current_setting|session_user|current_user|pg_has_role|set_config/i.test(fnBody)) {
         failures.push(`${HOLD_MIG}: função do HOLD contém consulta de sessão/GUC — bypass proibido (DECISION-0172 P5).`);
+      }
+      // INCONDICIONAL: nenhum IF/CASE — mata o erro-em-ramo-morto (G7) e o bypass condicional (G9).
+      if (/\b(IF|CASE)\b/i.test(fnBody)) {
+        failures.push(`${HOLD_MIG}: função do HOLD contém condicional (IF/CASE) — o HOLD deve ser INCONDICIONAL (o RAISE não pode viver em ramo morto nem atrás de bypass).`);
       }
     }
 
@@ -96,29 +108,46 @@ try {
     }
   }
 
-  // ── 2. Nenhuma migration POSTERIOR revive/enfraquece o HOLD ─────────────────────────────────
+  // ── 2. Nenhuma migration POSTERIOR revive/enfraquece o HOLD (revival VERSIONADO no repo) ─────
+  // Cobre: DROP/DISABLE/ENABLE REPLICA/rebaixamento do trigger; DROP/redefinição da função;
+  // re-concessão de DML em neighborhoods a QUALQUER grantee (unificard_app, PUBLIC ou role
+  // intermediária — durante o HOLD ninguém pode receber DML de neighborhoods, o que também
+  // neutraliza a rota role-intermediária+membership) inclusive por COLUNA e ALL PRIVILEGES;
+  // GRANT amplo ON ALL TABLES a unificard_app/PUBLIC.
+  const DML = '(INSERT|UPDATE|DELETE|ALL(?:\\s+PRIVILEGES)?)';
   const after = migFiles.filter((f) => f > HOLD_MIG);
   for (const f of after) {
     const sql = stripSql(readFileSync(join(MIG, f), 'utf-8'));
+
+    // trigger: drop / disable (named|ALL|USER) / enable replica / rebaixamento a ordinário
     if (new RegExp(`DROP\\s+TRIGGER[\\s\\S]{0,120}${HOLD_TRG}`, 'i').test(sql)) {
       failures.push(`[pos-HOLD] ${f}: dropa o trigger do HOLD — substituição só na fatia do writer canônico (N2-E) com alteração CONSCIENTE deste guard.`);
     }
     if (new RegExp(`ALTER\\s+TABLE\\s+(?:public\\.)?neighborhoods[\\s\\S]{0,120}DISABLE\\s+TRIGGER`, 'i').test(sql)) {
-      failures.push(`[pos-HOLD] ${f}: desabilita trigger de neighborhoods.`);
+      failures.push(`[pos-HOLD] ${f}: desabilita trigger de neighborhoods (inclui DISABLE TRIGGER ALL/USER/<nome>).`);
     }
-    // rebaixamento de ALWAYS para ordinário (ENABLE TRIGGER sem ALWAYS/REPLICA sobre o trigger do HOLD)
+    if (new RegExp(`ALTER\\s+TABLE\\s+(?:public\\.)?neighborhoods[\\s\\S]{0,120}ENABLE\\s+REPLICA\\s+TRIGGER`, 'i').test(sql)) {
+      failures.push(`[pos-HOLD] ${f}: rebaixa o trigger do HOLD para ENABLE REPLICA (deixaria de disparar sob session_replication_role=replica).`);
+    }
     if (new RegExp(`ENABLE\\s+TRIGGER\\s+${HOLD_TRG}`, 'i').test(sql)) {
       failures.push(`[pos-HOLD] ${f}: rebaixa o trigger do HOLD de ENABLE ALWAYS para ordinário.`);
+    }
+
+    // função: drop (com/sem assinatura/CASCADE) / redefinição
+    if (new RegExp(`DROP\\s+FUNCTION[\\s\\S]{0,80}${HOLD_FN}`, 'i').test(sql)) {
+      failures.push(`[pos-HOLD] ${f}: dropa a função do HOLD (com/sem assinatura/CASCADE) — remoção da barreira física.`);
     }
     if (new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${HOLD_FN}`, 'i').test(sql)) {
       failures.push(`[pos-HOLD] ${f}: redefine a função do HOLD — troca de função exige fatia do writer + guard consciente.`);
     }
-    // re-concessão de DML: específica de neighborhoods OU ampla (ALL TABLES) para unificard_app
-    if (/GRANT\s+[\w\s,]*?(INSERT|UPDATE|DELETE|ALL)[\w\s,]*?\s+ON\s+(TABLE\s+)?(public\.)?neighborhoods\b[\s\S]{0,80}?TO\s+unificard_app/i.test(sql)) {
-      failures.push(`[pos-HOLD] ${f}: re-concede DML de neighborhoods a unificard_app — reabertura proibida antes do writer canônico.`);
+
+    // re-concessão de DML em neighborhoods a QUALQUER grantee (tabela ou coluna), inclusive PUBLIC/role intermediária
+    if (new RegExp(`GRANT\\b[\\s\\S]{0,80}?\\b${DML}\\b[\\s\\S]{0,80}?\\bON\\b[\\s\\S]{0,40}?(TABLE\\s+)?(public\\.)?neighborhoods\\b[\\s\\S]{0,80}?\\bTO\\b`, 'i').test(sql)) {
+      failures.push(`[pos-HOLD] ${f}: re-concede DML de neighborhoods (tabela ou coluna, qualquer grantee — unificard_app/PUBLIC/role) — reabertura proibida antes do writer canônico.`);
     }
-    if (/GRANT\s+[\w\s,]*?(INSERT|UPDATE|DELETE|ALL)[\w\s,]*?ON\s+ALL\s+TABLES\s+IN\s+SCHEMA\s+public\s+TO\s+unificard_app/i.test(sql)) {
-      failures.push(`[pos-HOLD] ${f}: GRANT amplo em ALL TABLES pós-HOLD reintroduz DML efetivo em neighborhoods — precisa excetuar ou re-aplicar o REVOKE na mesma migration.`);
+    // GRANT amplo em ALL TABLES a unificard_app OU PUBLIC reintroduz DML efetivo em neighborhoods
+    if (new RegExp(`GRANT\\b[\\s\\S]{0,80}?\\b${DML}\\b[\\s\\S]{0,80}?ON\\s+ALL\\s+TABLES\\s+IN\\s+SCHEMA\\s+public\\s+TO\\s+(unificard_app|PUBLIC)`, 'i').test(sql)) {
+      failures.push(`[pos-HOLD] ${f}: GRANT amplo ON ALL TABLES a ${/PUBLIC/i.test(sql) ? 'PUBLIC/' : ''}unificard_app pós-HOLD reintroduz DML efetivo em neighborhoods — precisa excetuar neighborhoods ou re-aplicar o REVOKE na mesma migration.`);
     }
   }
 } catch (e) {
@@ -158,4 +187,4 @@ if (failures.length) {
   console.error('\n→ HOLD físico de neighborhoods (DECISION-0172 P5) ausente/enfraquecido/revivido. O catálogo permanece read-only até o writer canônico N2-E (authority N2-D + guard consciente + auditoria).');
   process.exit(1);
 }
-console.log(`GATE OK [neighborhood-dml-hold] — migration do HOLD íntegra (função ${HOLD_FN} com erro estável e sem bypass; trigger ${HOLD_TRG} BEFORE I/U/D FOR EACH STATEMENT ENABLE ALWAYS; REVOKE I/U/D de unificard_app com SELECT preservado); nenhuma migration posterior reabre DML/dropa/desabilita/troca; CANONICAL_WRITER_ALLOW vazia; ambos os guards no runner.`);
+console.log(`GATE OK [neighborhood-dml-hold] — revival VERSIONADO ausente no repo: migration do HOLD íntegra (função ${HOLD_FN} incondicional, erro estável, sem bypass GUC/IF; trigger ${HOLD_TRG} BEFORE I/U/D FOR EACH STATEMENT ENABLE ALWAYS; REVOKE I/U/D de unificard_app, SELECT preservado); nenhuma migration posterior dropa/desabilita/ENABLE REPLICA/rebaixa o trigger, dropa/redefine a função, nem re-concede DML de neighborhoods a qualquer grantee (tabela/coluna/ALL/PUBLIC/ALL TABLES); CANONICAL_WRITER_ALLOW vazia; ambos os guards no runner. (Não cobre DDL admin direto no banco vivo — provado por introspecção; DECISION-0172 P5.)`);
