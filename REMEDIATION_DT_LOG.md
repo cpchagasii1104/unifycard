@@ -1,5 +1,24 @@
 # REMEDIATION DT LOG
 
+## PORTA-TERRITORY-1 — PRIMEIRA ATIVAÇÃO REAL DE AUTORIDADE TERRITORIAL (CURITIBA) · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-12)
+Abre a autoridade territorial inicial de Curitiba concedendo ao Actor pessoal de Clayton os grants **territory:create_neighborhood + territory:approve_neighborhood**. Commit material `0e0b4ab5c` (`feat(authority): add governed territorial grant bootstrap`) + apply real da operação one-shot + este cartório docs-only.
+
+**MARTELOS RATIFICADOS:** M-1 grantee=Actor `213f4903-d0c3-4c03-aa2f-328e11aac807` (Clayton, user `9305ac13…`, tenant-bound). M-2 city=`9d431002-1fd3-4b34-ae82-678f28f64288` (Curitiba/Paraná/Brasil, única). M-3 só create+approve (as outras 4 NÃO). M-4 valid_until NULL (ativo até revogação; suspended proibido). M-5 mecanismo B+A. M-6 issuer=Clayton por decisão explícita de bootstrap (authority_source=`platform_bootstrap`, NÃO self-authorization circular).
+
+**LACUNA MATERIAL FECHADA:** não existia writer governado de grant territory-scope (`fn_grant_actor_capability` é actor-only; `unificard_app` sem DML). Criado **`fn_grant_territorial_capability`** (migration `20260712120000`, SECURITY DEFINER, search_path pinado): cria SÓ territory-scope (tenant_id NULL, scope_actor_id NULL, scope_city_id obrigatório, status='active', authority_source='platform_bootstrap'), valida city+grantee(tenant-bound)+issuer/executor/responsible FOR SHARE + capability territorial exata, grant+evento 'granted' atômicos, sem ON CONFLICT/UPSERT; **ACL: REVOKE de PUBLIC e unificard_app** (só o owner/operação de bootstrap executa; app_execute=f, public_execute=f).
+
+**OPERAÇÃO ONE-SHOT (`scripts/porta-territory-1-bootstrap-curitiba.mjs`):** dry-run default / `--apply "PORTA-TERRITORY-1-CURITIBA"`; IDs ratificados fixos; advisory_xact_lock; exige estado territorial inicial ZERO (fail-closed, sem reconciliação); 1 transação; recusa executar como unificard_app; 12 assertions + ROLLBACK no dry-run, COMMIT só após todas no apply.
+
+**RECONCILIAÇÃO DE GUARDS SELADOS (mínima, nominal, não-enfraquecedora):** os guards N2-D.1 (`audit-territorial-capability-grant-foundation`) e N2-D.2 (`audit-territorial-capability-grant-lifecycle`) já ANTECIPAVAM esta frente ("grants reais nascem SO na PORTA-TERRITORY-1"). Adicionada a migration do writer às respectivas allowlist/exemção nominais (só ela; todas as OUTRAS migrations seguem proibidas de key/INSERT territorial). Guard novo dedicado **`audit-territorial-grant-bootstrap.mjs`** (runner 168→**169**) fiscaliza forma do writer/ACL/IDs/dry-run; 14+ mutations mordem.
+
+**APPLY REAL (persistido):** 2 grants territoriais criados — create `3e5cebe6-c728-456b-9729-79b0a0bb49bc` + approve `44c9dc03-a351-479c-8bf0-544b000310c6`; 2 eventos 'granted' (`ed9a5240…`, `b2afe9fa…`). Shape confirmado: scope=territory, tenant NULL, scope_actor NULL, city=Curitiba, grantee=Clayton, status=active, valid_until NULL, authority_source=platform_bootstrap. **D3 (`fn_assert_territorial_capability`) resolve AMBOS.** Zero das outras 4 capabilities; zero grant para outra city/Actor; neighborhoods=0. **Rerun fail-closed** (dry-run detecta estado não-zero → exit 1, sem duplicata).
+
+**PROVAS:** dry-run 12/12 · guard GATE OK · 14+ mutations · **169 guards verdes** · backend/frontend typecheck 0 · build verde · invariants 5/5 · D3 resolve os 2 grants · rerun fail-closed · neighborhoods=0 · bank_accounts=15 intacto · **Δbank=0**.
+
+**STATUS: ⚙️ PORTA-TERRITORY-1 EXECUTADA E PROVADA · 🔴 NÃO SELADA (não auto-selar; aguarda auditoria Yala).** A existência dos 2 grants é a abertura material da PORTA: o Actor de Clayton pode usar o writer N2-E para criar/aprovar neighborhoods canônicos de Curitiba (nenhum criado aqui). **N3 permanece TRANCADA até selo + novo GO explícito; nenhuma rota/painel/CEP/Social/Bank; nenhum fundo/conta; N2-D/E/F/G seladas.**
+
+---
+
 ## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N2-G · PROVA INTEGRADA N2-E × N2-F — ✅ SELO COMPLETO PELA YALA (2026-07-12)
 Auditoria read-only da Yala sobre o arco `71ba59c15`→`0749d96de` (material)→`aeaa6a29c` (cartório), HEAD auditado `aeaa6a29c`, branch rescue-structural. **Veredito A — SELO COMPLETO.** N2-G oficialmente SELADA.
 

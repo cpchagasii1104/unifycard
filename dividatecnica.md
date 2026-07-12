@@ -269,6 +269,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (77) — PORTA-TERRITORY-1: primeira autoridade territorial real de Curitiba (EXECUTADA E PROVADA, não selada)
+- Martelos M-1..M-6: grantee=Actor Clayton 213f4903; city=Curitiba 9d431002; só create+approve; valid_until NULL; mecanismo B+A; issuer=Clayton (authority_source=platform_bootstrap).
+- Lacuna fechada: criado writer governado fn_grant_territorial_capability (migration 20260712120000, SECURITY DEFINER, só territory-scope tenant NULL/scope_actor NULL/city obrigatório/active, grant+evento atômico, sem ON CONFLICT; ACL REVOKE de PUBLIC+unificard_app).
+- Operação one-shot porta-territory-1-bootstrap-curitiba.mjs (dry-run default / --apply com token; advisory lock; estado-zero fail-closed; recusa unificard_app). Guard dedicado audit-territorial-grant-bootstrap (runner 168→169; 14+ mutations). Reconciliação nominal mínima dos guards selados N2-D.1/N2-D.2 (que já antecipavam a PORTA), sem enfraquecer.
+- Commit material 0e0b4ab5c + apply real. Grants persistidos: create 3e5cebe6, approve 44c9dc03; eventos ed9a5240/b2afe9fa. D3 resolve ambos. Rerun fail-closed. neighborhoods=0; Δbank=0.
+- Provas: dry-run 12/12; 169 guards verdes; typecheck/build/invariants verdes; D3 ok.
+- **STATUS:** PORTA-TERRITORY-1 EXECUTADA E PROVADA · NÃO SELADA (aguarda Yala). N3 TRANCADA (depende de selo + novo GO); sem rota/painel/CEP/Social/Bank/fundo; N2-D/E/F/G seladas.
+
 ### 2026-07-12 (76) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-G: SELO COMPLETO PELA YALA
 - Auditoria read-only (Yala) sobre 71ba59c15→0749d96de→aeaa6a29c. Veredito A · SELO COMPLETO. N2-G SELADA.
 - Confirmado: prova integrada N2-E×N2-F versionada/transacional/reproduzível; writer canônico real; create+approve distintos; 2 grant_ids; 2 eventos; token consumido; neighborhood efêmero; address coerente; falhas compostas (FK composta/CHECK/FK inexistência); display_text=evidence; HOLD de DML direto; rollback; resíduo zero; guard agregador; 168 guards; typechecks/build/invariants verdes; Δbank=0.
