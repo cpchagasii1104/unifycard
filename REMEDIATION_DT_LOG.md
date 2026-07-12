@@ -1,6 +1,17 @@
 # REMEDIATION DT LOG
 
-## F-CONTRACTS-DIST-INTEGRITY — RECONSTRUÇÃO DE packages/contracts/dist · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala consolidada) (2026-07-12)
+## F-REPOSITORY-DEPENDENCY-HYGIENE + F-CONTRACTS-DIST-INTEGRITY — ✅ SELO COMPLETO CONSOLIDADO PELA YALA (2026-07-12)
+Auditoria consolidada read-only da Yala sobre o arco `bb4c9989e`→`5d90d8775`→`1fa86db5c`→`1c3a9cfc5`→`cda77e335` (HEAD auditado `cda77e335`, branch rescue-structural). **Veredito A — SELO COMPLETO CONSOLIDADO.** Sela CONJUNTAMENTE as duas frentes: **F-REPOSITORY-DEPENDENCY-HYGIENE** e **F-CONTRACTS-DIST-INTEGRITY**.
+
+**A YALA CONFIRMOU:** 68.128 paths de node_modules removidos do versionamento; node_modules tracked=0; node_modules físico presente e ignorado; toolchain reconstruída canonicamente por `pnpm install --frozen-lockfile`; manifests e pnpm-lock.yaml byte-intactos; ferramenta `worktree-safety.mjs` fail-closed (audit rejeita link externo; remoção nunca segue o alvo) com testes 19/19; `packages/contracts/dist` COMPLETO e deterministicamente reproduzível (vocabulary + marketplace com runtime, tipos e source maps); `@unificard/contracts` resolvível em runtime e tipagem; os 4 erros de auth.routes.ts eliminados pela correção da CAUSA (dist incompleto) SEM alterar auth.routes.ts, Zod ou tsconfig; guard de higiene + INV7 efetivos (8/8 mutations mordem); 167 guards verdes; typechecks backend/frontend verdes; frontend build verde; invariants 5/5; banco intacto; Δbank=0.
+
+**OBSERVAÇÕES NÃO-BLOQUEANTES (não abrir frente agora):** (1) `packages/contracts/dist` permanece versionado por force-add — desversioná-lo (build na instalação/CI) exige frente arquitetural própria sobre entrypoints/build/CI; (2) ausência de mordida do guard para remoção de `.d.ts.map` é polimento opcional; (3) stash preexistente `C65-distribution-amount-rename` está FORA deste arco.
+
+**STATUS: ✅ F-REPOSITORY-DEPENDENCY-HYGIENE e F-CONTRACTS-DIST-INTEGRITY SELADAS PELA YALA · SELO COMPLETO CONSOLIDADO.** Os registros pré-selo abaixo (checkpoint/aguarda-Yala/bloqueio-typecheck/executada-e-provada) ficam SUPERADOS por este selo consolidado, sem reescrita de histórico. N2-E/N2-F seladas; **N2-G NÃO iniciada (liberada como próxima fase possível, aguarda novo GO)**; PORTA-TERRITORY-1/N3 trancadas; Social/Bank fora. Este procedimento libera apenas o retorno ao GATE N2-G.
+
+---
+
+## F-CONTRACTS-DIST-INTEGRITY — RECONSTRUÇÃO DE packages/contracts/dist · ⚙️ EXECUTADA E PROVADA · (registro pré-selo — SUPERADO pelo SELO COMPLETO CONSOLIDADO acima) (2026-07-12)
 Corrige a causa-raiz dos 4 erros de typecheck em auth.routes.ts (diagnosticados no GATE F-BACKEND-AUTH-ZOD-TYPE-INFERENCE). Commit material `1c3a9cfc5` (`fix(contracts): restore complete generated distribution`) + este cartório docs-only.
 
 **CAUSA (provada no GATE, hipóteses refutadas):** NÃO era zod, NÃO era moduleResolution (`--moduleResolution bundler` mantinha os 4 erros; node16 quebra path aliases), NÃO era o código de auth. Era **`packages/contracts/dist` INCOMPLETO**: faltavam `vocabulary.{js,d.ts,d.ts.map}` e `marketplace.{js,d.ts,d.ts.map}` (só 6 dos 8 módulos versionados), mas `dist/index.d.ts` reexportava `GENDER_VALUES/Gender/MarketplaceDomain` `from './vocabulary'`/`'./marketplace'` e `dist/index.js` fazia `require("./vocabulary")`. Com `skipLibCheck:true`, os símbolos degradavam para `any` → `z.enum([...GENDER_VALUES] as [Gender,...])` envenenava a inferência do `registerSchema` (`.data` = unknown) → 4 erros TS2345/TS2339 sobre `email`. **RISCO DE RUNTIME confirmado:** `require('@unificard/contracts')` lançava `MODULE_NOT_FOUND: Cannot find module './vocabulary'`. Defeito PREEXISTENTE (dist commitado sempre incompleto; `dist/` é `.gitignored` e os 18 arquivos foram force-added), MANIFESTAÇÃO EXPOSTA pela recuperação do incidente (git-restore trouxe só o dist parcial commitado, perdendo o build local completo).
@@ -13,7 +24,7 @@ Corrige a causa-raiz dos 4 erros de typecheck em auth.routes.ts (diagnosticados 
 
 ---
 
-## F-REPOSITORY-DEPENDENCY-HYGIENE — DESVERSIONAMENTO DE node_modules · ⚙️ CHECKPOINT MATERIAL COMMITADO · 🔴 NÃO SELADA · BLOQUEADA POR TYPECHECK BACKEND PREEXISTENTE (2026-07-12)
+## F-REPOSITORY-DEPENDENCY-HYGIENE — DESVERSIONAMENTO DE node_modules · ⚙️ CHECKPOINT MATERIAL · (registro pré-selo — SUPERADO pelo SELO COMPLETO CONSOLIDADO acima; o "bloqueio de typecheck" foi resolvido pela F-CONTRACTS-DIST-INTEGRITY) (2026-07-12)
 Registro append-only do checkpoint material da higiene de dependências. **NÃO é selo; NÃO houve auditoria Yala; a frente NÃO está concluída.** Commit material `5d90d8775` (`chore(repo): stop tracking node_modules and harden worktree safety`) + este cartório docs-only.
 
 **INCIDENTE (causa):** a remoção do worktree isolado da N2-F (`git worktree remove C:\unificard-n2f-wt`, sem --force) percorreu recursivamente o diretório e **seguiu a junction/symlinks de workspace do pnpm** apontando para o main tree, esvaziando node_modules (raiz/backend) e apagando a fonte `packages/contracts`. Recuperação: restauração exata dos tracked deletados a partir de HEAD; depois higiene estrutural (esta frente).

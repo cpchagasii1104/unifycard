@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (74) — F-REPOSITORY-DEPENDENCY-HYGIENE + F-CONTRACTS-DIST-INTEGRITY: SELO COMPLETO CONSOLIDADO PELA YALA
+- Auditoria consolidada read-only (Yala) sobre bb4c9989e→5d90d8775→1fa86db5c→1c3a9cfc5→cda77e335. Veredito A · SELO COMPLETO CONSOLIDADO. As DUAS frentes seladas conjuntamente.
+- Confirmado: node_modules tracked=0 (68.128 desversionados) e físico ignorado; toolchain canônica (pnpm --frozen-lockfile); manifests/lockfile byte-intactos; worktree-safety fail-closed (19/19); contracts/dist completo e determinístico (vocabulary+marketplace); @unificard/contracts resolve runtime+tipos; 4 erros de auth eliminados pela causa sem tocar auth/zod/tsconfig; guard INV7 (8/8 mutations); 167 guards verdes; backend/frontend typecheck 0; build verde; invariants 5/5; banco intacto; Δbank=0.
+- Entradas anteriores dessas duas frentes (checkpoint/aguarda-Yala/bloqueada/executada-e-provada) SUPERADAS por este selo, sem reescrita.
+- Não-bloqueantes (sem abrir frente): dist versionado por force-add (desversionar=frente arquitetural própria); .d.ts.map não é invariante do guard; stash C65-distribution-amount-rename fora do arco.
+- **STATUS:** AMBAS SELADAS PELA YALA · SELO COMPLETO CONSOLIDADO. N2-E/N2-F seladas; N2-G liberada como próxima fase possível, NÃO iniciada; PORTA-TERRITORY-1/N3 trancadas; Social/Bank fora.
+
 ### 2026-07-12 (73) — F-CONTRACTS-DIST-INTEGRITY: reconstrução de packages/contracts/dist (corrige os 4 erros de auth.routes; desbloqueia a higiene)
 - Causa dos 4 erros de auth.routes.ts (diagnóstico read-only): NÃO era zod/moduleResolution/código auth (bundler mantinha os erros; repro isolado passava). Era packages/contracts/dist INCOMPLETO — faltavam vocabulary/marketplace (.js/.d.ts) que dist/index reexporta/requer → GENDER_VALUES/Gender viram any → registerSchema.data=unknown. Runtime também quebrava: require('@unificard/contracts') → MODULE_NOT_FOUND './vocabulary'.
 - Preexistente (dist commitado incompleto; dist/ é .gitignored, 18 arquivos force-added); exposto pela recuperação do incidente (git-restore do dist parcial).
