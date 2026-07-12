@@ -269,6 +269,25 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (62) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.3 — resolver/assertion de capability territorial (material, aguarda auditoria Yala por envelope)
+- GO material (D1..D8 ratificados; base selo N2-D.2 `da8a85b8e`). Material `ed09e9307`. Fecha a lacuna de
+  ENFORCEMENT: existia a casa territorial mas ZERO resolver. Reutiliza actor_capability_grants; zero grant/rota/writer.
+- Migration `20260711200000`: `fn_assert_territorial_capability(grantee_actor_id, capability_key, scope_city_id)
+  RETURNS uuid` — SECURITY DEFINER; key territorial por conjunto EXATO (sem prefixo); grantee Actor tenant-bound
+  travado FOR SHARE (FK CASCADE); grant GLOBAL ativo por city (grantee/key/city/scope='territory'/active/revoked_at
+  NULL/valid_from<=now()/valid_until), NUNCA por tenant; cardinalidade 0/1/>1 fail-closed (LIMIT 2, ORDER BY, sem
+  LIMIT 1); LEITURA pura (não escreve/evento D4); negação uniforme TERRITORIAL_CAPABILITY_DENIED não-vazante; ACL
+  PUBLIC-sem-EXECUTE/app-na-assinatura. 3 auto-provas de negação na migration.
+- Wrapper TS `territorial-capability-resolver.ts` (fonte única has/assert): isTerritorialCapabilityKey (match exato)
+  + canRepresentActor (tenant server-side, gateado) + função SQL via repository; denial→false/403, infra PROPAGA.
+- Guard novo `audit-territorial-capability-resolver.mjs` (runner 163→164). Guards D.1/D.2 reconciliados nominalmente
+  (admitem a fatia D.3, como já admitem a D.2). 2 gaps do guard achados/fechados (FOR SHARE na query do grant; gating canRep).
+- Provas: DB 16/16 (aprova+nega uniforme+shape impossível+app+PUBLIC+1 assinatura+resíduo 0); concorrência (conn2
+  bloqueia ~1.5s sob FOR SHARE, prossegue após liberação, trigger imutabilidade restaurada, resíduo 0); TS runtime
+  (repository TS→SQL + composição has/assert); mutations 34 (29 hostis + 5 benignos). typecheck 0; suíte 164; Δbank=0.
+- **STATUS:** N2-D.3 EXECUTADA — AGUARDA AUDITORIA YALA POR ENVELOPE. PORTA-TERRITORY-1/N2-E/N2-F/N2-G/N3 trancadas;
+  nenhum grant territorial existe; Social/Bank fora.
+
 ### 2026-07-11 (61) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2+R3+R3.1+R3.2 SELADAS PELA YALA (SELO COMPLETO) + N2-D.2 GERAL SELADA — fechamento por envelope
 - Auditoria final por envelope (Yala, read-only) sobre a cadeia material: R2 `a7aef8107` (cartório
   `ba237d588`), R3 `6b9757496` (`9c66fe30a`), R3.1 `de642a91e` (`87b461d75`), R3.2 `ecbeb34dc` (`d1d51467e`).

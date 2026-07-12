@@ -449,3 +449,35 @@ A expressão histórica **"COMMIT→ROLLBACK"** (usada em entradas anteriores do
 Após este adendo: (1) reauditoria Yala limitada do D3; (2) se SELO COMPLETO ⇒ registro docs-only do selo final da N2-D.1; (3) **somente depois** ⇒ GO material da N2-D.2. A N2-D.2 entregará **conjuntamente**: seis keys · matriz scope×capability · lifecycle append-only · `reason`/`revoke_reason` · revoke canônico · explicit-expire · contrato de regrant · inspeção de legado · zero grant real — **sem separar as keys da matriz em commits que deixem estado intermediário permissivo**.
 
 **N2-D.1-R DECIDIDA docs-only — AGUARDA REAUDITORIA YALA LIMITADA.** A N2-D.1 **não** recebe SELO COMPLETO ainda. N2-D.2/D.3, PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; nenhuma capability territorial ou grant foi criada; Social e Bank permanecem fora.
+
+---
+
+## ADENDO N2-D.3 — RESOLVER/ASSERTION DE CAPABILITY TERRITORIAL (material `ed09e9307`)
+
+Ratificado por Clayton antes da execução material. Introduz o **primitivo canônico de consulta/enforcement** da autoridade territorial, reutilizando integralmente `actor_capability_grants` (nunca segunda casa). Não cria grant real, rota, writer nem abre PORTA-TERRITORY-1.
+
+### D3.11-D1 — Composição tenant × território
+O grant territorial permanece **global por cidade** (`tenant_id NULL`, `scope_type='territory'`, `scope_city_id NOT NULL`, `grantee_actor_id` tenant-bound). A **utilização** exige cumulativamente: **(A)** a pessoa autenticada representa o grantee Actor — `canRepresentActor` com o **tenant server-side** da requisição; **(B)** esse Actor possui capability territorial válida para a **key exata** e a **cidade canônica exata**. Proibido: `tenant_id IS NULL` como bypass; `tenant = $x OR tenant_id IS NULL`; receber `actorTenant` do cliente; buscar Actor globalmente e depois comparar tenant; substituir Actor por user_id/role/email/profile/claim. Representar ≠ capability; capability ≠ representabilidade.
+
+### D3.11-D2 — Primitivo SQL agora, atômico para a row do grant
+`public.fn_assert_territorial_capability(p_grantee_actor_id, p_capability_key, p_scope_city_id) RETURNS uuid` (SECURITY DEFINER, owner postgres, search_path pinado). Valida e **trava** (`FOR SHARE`) a row do grant **e** a row do grantee Actor (FK `grantee_actor_id` é `ON DELETE CASCADE` → sem o lock, deletar o Actor cascatearia o grant sob os pés do writer). Cardinalidade **0/1/>1 fail-closed** (`LIMIT 2`, ordem determinística por `grant_id`, nunca `LIMIT 1` arbitrário). É **atômica para a ROW do grant**, **não** reivindica atomicidade completa da representabilidade humana — esta compõe no runtime TS.
+
+### D3.11-D3 — Superfície
+Resolver interno + wrapper TypeScript interno (`territorial-capability-resolver.ts`, fonte única `hasTerritorialCapability`/`assertTerritorialCapability`). **Zero rota** (pública/admin), **zero grant real**, **zero frontend**.
+
+### D3.11-D4 — SSOT do lifecycle
+A **row** de `actor_capability_grants` é a verdade operacional. `actor_capability_grant_events` permanece trilha append-only/auditoria — o resolver **não** consulta eventos como segunda autoridade de lifecycle. Triggers/invariantes selados preservados.
+
+### D3.11-D5 — Fronteira transacional honesta
+O primitivo SQL trava e valida atomicamente o grant; o wrapper TS compõe representabilidade para leitura/assertion; **não existe ainda writer territorial**, logo **não se afirma atomicidade completa entre representação e escrita**.
+
+### D3.11-D6 — Writer territorial proibido
+Até a N2-E, **qualquer** writer territorial é proibido — **mesmo que chame o resolver**. O guard `audit-territorial-capability-resolver.mjs` proíbe writer/rota/grant territorial. A N2-E substituirá essa proibição por enforcement transacional próprio (representação + capability + writer na mesma transação).
+
+### D3.11-D7 — city_id do recurso canônico
+O `scope_city_id` deve vir do **recurso canônico server-side** (Location Core: `address_assignments`/`neighborhoods`→city), nunca do body. Contrato para os futuros writers; não implementado nesta fatia.
+
+### D3.11-D8 — Escopo negativo
+Sem grant real, sem PORTA-TERRITORY-1, sem Social/Bank, sem novo Actor type, sem segunda casa, sem alterar `canRepresentActor`, sem alterar a matriz/keys seladas, `fn_expire`/`fn_regrant` intactas. Negação uniforme `TERRITORIAL_CAPABILITY_DENIED` não-vazante (nunca expõe Actor/tenant/city/key/grant_id/status). Δbank=0.
+
+**N2-D.3 EXECUTADA material — AGUARDA AUDITORIA YALA POR ENVELOPE.** PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; nenhum grant territorial existe; Social e Bank permanecem fora.
