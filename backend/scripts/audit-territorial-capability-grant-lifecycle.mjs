@@ -277,7 +277,12 @@ try {
     if (/GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+fn_(expire|regrant)_actor_capability[\s\S]{0,100}TO\s+(unificard_app|PUBLIC)/i.test(s)) {
       failures.push(`[pos-D2] ${f}: concede EXECUTE de funcao interna a app/PUBLIC — proibido sem decisao propria.`);
     }
-    if (/INSERT\s+INTO\s+(public\.)?actor_capability_grants[\s\S]{0,300}'territory'/i.test(s)) {
+    // PORTA-TERRITORY-1: a migration do writer governado (fn_grant_territorial_capability) contém um INSERT
+    // territorial DENTRO da função (writer), não um SEED de dados reais — os grants nascem só pela operação
+    // one-shot, nunca na migration (fiscalizado por audit-territorial-grant-bootstrap.mjs, que prova ausência
+    // de UUIDs reais na migration). Todas as OUTRAS migrations seguem proibidas de INSERT territorial.
+    if (f !== '20260712120000_territorial_capability_grant_bootstrap_writer.sql'
+        && /INSERT\s+INTO\s+(public\.)?actor_capability_grants[\s\S]{0,300}'territory'/i.test(s)) {
       failures.push(`[pos-D2] ${f}: seed territorial em migration posterior — proibido antes da PORTA-TERRITORY-1.`);
     }
   }
