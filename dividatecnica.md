@@ -269,6 +269,26 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (65) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-E DECISÕES PRÉ-MATERIAL RATIFICADAS (docs-only, material NÃO iniciado)
+- GATE N2-E (read-first, base f64cc46a5) + ADENDO N2-E à DECISION-0172. Zero backend/migration/schema/guard.
+- Achados: canRepresentActor NÃO é transaction-aware (sub-leituras em conexões próprias, sem locks);
+  normalize_name sem TRIM (edge whitespace, helper compartilhado); HOLD = RAISE incondicional ENABLE ALWAYS
+  (sem allowlist); neighborhoods nasce já aprovado (approved_by NOT NULL, sem draft), só is_active boolean.
+- D-A representabilidade MVP = ownership-direto (grantee = Actor user do próprio usuário, mesmo tenant, row
+  travada; canRepresentActor = prevalidation, não única barreira; company/group/delegation fora).
+- D-B create+approve = duas operações explícitas (2 capabilities, 2 grant_ids, 2 eventos, 5 elos por
+  operação; mesma pessoa pode ambas no MVP; sem approval implícita).
+- D-C CHECK forward-only de neighborhoods.name (rejeita vazio/só-whitespace/borda) no mesmo envelope; não
+  alterar normalize_name; input inválido falha (sem trim silencioso).
+- D-D substituição estreita do HOLD SEM bypass (GUC/role/tenant/superuser/trigger-disable proibidos); token
+  transacional interno fechado, uso único, só da função canônica, consumido pelo trigger, inacessível à app.
+- D-E trilha própria append-only neighborhood_curation_events (não actor_capability_grant_events); eventos
+  created/approved atômicos com o write; rollback do bairro remove eventos.
+- Arquitetura: writer interno sem rota/PORTA; função SECURITY DEFINER via transaction-service na mesma tx;
+  tudo (ownership+2 grants+city+token+INSERT+2 eventos) atômico com locks determinísticos; infra PROPAGA.
+- **STATUS:** N2-E decisões pré-material ratificadas (docs-only). Material NÃO iniciado. HOLD intacto;
+  PORTA/N2-F/N2-G/N3 trancadas; nenhum writer/rota/grant territorial; Social/Bank fora; Δbank=0.
+
 ### 2026-07-12 (64) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.3 SELADA PELA YALA (SELO COMPLETO) — resolver territorial, fechamento por envelope
 - Auditoria final por envelope (Yala read-only) sobre o arco único: fundação `ed09e9307` (docs `750b5a242`)
   + remediação `ec9f4bfa2` (docs `04aed8ed1`). N2-D.3 SELADA · SELO COMPLETO. Migration/função SQL/repository
