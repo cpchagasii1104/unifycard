@@ -59,13 +59,11 @@ async function resolveTerritorialGrantId(ctx: TerritorialCapabilityContext): Pro
     return null;
   }
 
-  // (2) representabilidade humana (tenant server-side). canRepresentActor é fail-closed/registry-independente.
-  let canRep = false;
-  try {
-    canRep = await authorizationService.canRepresentActor(ctx.tenantId, ctx.userId, ctx.granteeActorId);
-  } catch {
-    canRep = false; // erro de resolução de representação = deny (mesmo padrão da casa de grants)
-  }
+  // (2) representabilidade humana (tenant server-side). SEPARAÇÃO ESTRITA (veredito Yala N2-D.3):
+  //   - CONTEÚDO false → negação LEGÍTIMA (deny): resolve→null, has→false, assert→403 uniforme;
+  //   - ERRO LANÇADO (timeout/conexão/SQL/repository/runtime) → INFRAESTRUTURA: deve PROPAGAR integralmente,
+  //     nunca convertido em false/null/403/denial. SEM try/catch aqui: `false` nega; um throw sobe intacto.
+  const canRep = await authorizationService.canRepresentActor(ctx.tenantId, ctx.userId, ctx.granteeActorId);
   if (!canRep) {
     return null;
   }

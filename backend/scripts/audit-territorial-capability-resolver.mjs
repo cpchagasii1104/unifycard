@@ -167,8 +167,43 @@ try {
       failures.push('resolver TS: não invoca canRepresentActor(tenantId, userId, granteeActorId).');
     }
     // o resultado de canRepresentActor deve GATEAR (não basta computar): if (!canRep) → deny
-    if (!/if\s*\(\s*!\s*canRep\s*\)\s*{\s*return\s+null/.test(res.replace(/\s+/g, ' ').replace(/\{\s+/g, '{ '))) {
+    if (!/if\s*\(\s*!\s*canRep\s*\)\s*(\{\s*)?return\s+null/.test(res.replace(/\s+/g, ' '))) {
       failures.push('resolver TS: canRepresentActor computado mas não gateia (falta `if (!canRep) return null`).');
+    }
+
+    // ── ERROR-FLOW de canRepresentActor (veredito Yala N2-D.3): false=deny legítimo; THROW=infra que PROPAGA.
+    // Extração NOMINAL da fonte única; nenhum wrapper lexical/assíncrono pode engolir/transformar o erro.
+    const resolveSrc = /async\s+function\s+resolveTerritorialGrantId\s*\([\s\S]*?\n}/.exec(res)?.[0] || '';
+    if (!resolveSrc) {
+      failures.push('resolver TS: fonte única resolveTerritorialGrantId não extraível (nominal).');
+    } else {
+      // (a) canRep vem DIRETO do await da chamada (não de literal/fallback)
+      if (!/const\s+canRep\s*=\s*await\s+[\s\S]{0,120}?canRepresentActor\s*\(/.test(resolveSrc)) {
+        failures.push('resolver TS: canRep não é `const canRep = await ...canRepresentActor(...)` — resultado deve vir direto da chamada.');
+      }
+      // (b) proibido assignment literal a canRep (fail-open/​swallow: canRep=true/false)
+      if (/canRep\s*=\s*(true|false)\b/.test(resolveSrc)) {
+        failures.push('resolver TS: atribuição literal a canRep (=true/=false) — fail-open/infra-swallow proibido.');
+      }
+      // (c) proibido QUALQUER try/catch/finally OU .catch em volta da representação (infra deve subir).
+      //     Forma canônica = ausência de catch (GO §4/§8). Rethrow puro seria aceitável mas dispensável:
+      //     o resolver não precisa de try aqui, então proibimos por completo (conservador, sem falso-PASS).
+      if (/\btry\b/.test(resolveSrc)) failures.push('resolver TS: `try` em resolveTerritorialGrantId — canRepresentActor não pode ser envolvido (infra deve propagar).');
+      if (/\bcatch\b/.test(resolveSrc)) failures.push('resolver TS: `catch` em resolveTerritorialGrantId — proibido engolir/transformar erro de representação.');
+      if (/\bfinally\b/.test(resolveSrc)) failures.push('resolver TS: `finally` em resolveTerritorialGrantId — proibido alterar estado/chamar repository.');
+      if (/\.catch\s*\(/.test(resolveSrc)) failures.push('resolver TS: `.catch(` em resolveTerritorialGrantId — infra de representação/SQL não pode ser engolida.');
+      // (d) proibido fallback que transforme erro/ausência em boolean
+      if (/(\|\||\?\?)\s*(true|false)/.test(resolveSrc)) failures.push('resolver TS: fallback `|| false` / `?? false` (ou true) — converte erro/ausência em decisão; proibido.');
+      // (e) GATING antes do repository: `if (!canRep) return null` deve preceder a chamada ao repository
+      const iGate = resolveSrc.search(/if\s*\(\s*!\s*canRep\s*\)/);
+      const iRepo = resolveSrc.search(/assertTerritorialCapability\s*\(/);
+      if (iGate < 0 || iRepo < 0 || iGate > iRepo) {
+        failures.push('resolver TS: gate `if (!canRep)` não precede a chamada ao repository (repository pode rodar sem representabilidade).');
+      }
+      // (f) canRepresentActor chamado UMA vez (sem call site alternativo/duplo)
+      if ((resolveSrc.match(/canRepresentActor\s*\(/g) || []).length !== 1) {
+        failures.push('resolver TS: canRepresentActor deve ser chamado exatamente uma vez na fonte única.');
+      }
     }
     if (!/assertTerritorialCapability\s*\(/.test(res) || !/actorCapabilityGrantRepository\.assertTerritorialCapability|repository\.assertTerritorialCapability/.test(res)) {
       failures.push('resolver TS: não invoca a função SQL via repository.assertTerritorialCapability.');
