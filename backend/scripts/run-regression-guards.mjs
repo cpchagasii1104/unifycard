@@ -166,7 +166,8 @@ const CMDS = [
   "node scripts/audit-territorial-capability-grant-foundation.mjs",
   "node scripts/audit-territorial-capability-grant-lifecycle.mjs",
   "node scripts/audit-actor-user-anchor-uniqueness.mjs",
-  "node scripts/audit-actor-capability-grant-tenant-coherence.mjs"
+  "node scripts/audit-actor-capability-grant-tenant-coherence.mjs",
+  "node scripts/audit-territorial-capability-resolver.mjs"
 ];
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);

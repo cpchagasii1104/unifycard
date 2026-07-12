@@ -126,6 +126,35 @@ export const actorCapabilityGrantRepository = {
     return row ? toGrant(row) : null;
   },
 
+  /**
+   * N2-D.3: assertion + LOCK do grant territorial via a função canônica SQL fn_assert_territorial_capability
+   * (SECURITY DEFINER; valida key territorial exata, grantee Actor tenant-bound, grant global ATIVO por
+   * city, cardinalidade 0/1/>1 fail-closed; FOR SHARE até o fim da transação). NÃO reimplementa a query/
+   * lifecycle no TS — a função é a autoridade e a barreira atômica da row. Retorna grant_id aprovado, ou
+   * `null` quando a função NEGA (TERRITORIAL_CAPABILITY_DENIED, uniforme não-vazante). Erro inesperado de
+   * infra PROPAGA (nunca convertido em null). O `tenantId` só posiciona a conexão do app (a função não
+   * filtra tenant; o grant é global e a representabilidade compõe no service).
+   */
+  async assertTerritorialCapability(
+    tenantId: string,
+    granteeActorId: string,
+    capabilityKey: string,
+    scopeCityId: string
+  ): Promise<string | null> {
+    try {
+      const row = await runQueryWithTenant<{ grant_id: string }>(
+        tenantId,
+        `SELECT public.fn_assert_territorial_capability($1::uuid,$2,$3::uuid) AS grant_id`,
+        [granteeActorId, capabilityKey, scopeCityId]
+      );
+      return row ? row.grant_id : null;
+    } catch (error: any) {
+      const msg = error?.message || '';
+      if (/TERRITORIAL_CAPABILITY_DENIED/.test(msg)) return null;
+      throw error; // infra/DB inesperado: propaga, nunca vira null (fail-closed honesto)
+    }
+  },
+
   async getById(tenantId: string, grantId: string): Promise<ActorCapabilityGrant | null> {
     const row = await runQueryWithTenant<GrantRow>(
       tenantId,

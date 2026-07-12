@@ -25,12 +25,15 @@ const D1_MIG = '20260711160000_actor_capability_grants_territorial_city_scope.sq
 // writer territorial publico, resolver territorial, rota territorial, grant real, segunda casa,
 // Bank/Social — em QUALQUER outro arquivo fora desta janela nominal.
 const D2_MIG = '20260711170000_actor_capability_grant_lifecycle.sql';
+// N2-D.3: migration nominal do RESOLVER (fiscalizacao fina em audit-territorial-capability-resolver.mjs).
+const D3_MIG = '20260711200000_actor_territorial_capability_resolver.sql';
 const D2_AUTHORIZED_RUNTIME_FILES = new Set([
   'src/modules/authority/actor-capability-grant.repository.ts',
   'src/modules/authority/actor-capability-grant.service.ts',
   'src/modules/authority/actor-capability-grant.types.ts',
   'src/modules/authority/actor-capability-grant.routes.ts',
   'src/core/authorization/permission-keys.ts', // SSOT de existencia — as 6 keys nascem aqui (D.2 §E)
+  'src/modules/authority/territorial-capability-resolver.ts', // N2-D.3 nominal — guard proprio fiscaliza
 ]);
 const TBL = 'actor_capability_grants';
 const FORBIDDEN_SCOPES = ['global', 'city', 'neighborhood', 'state', 'country', 'region', 'system'];
@@ -184,8 +187,8 @@ try {
     if (/INSERT\s+INTO\s+actor_capability_grants/i.test(sql)) {
       failures.push(`[pos-D1] ${f}: seed em actor_capability_grants — grants reais nascem SO na PORTA-TERRITORY-1 (pos selo D.1+D.2+D.3), nunca em migration.`);
     }
-    if (f !== D2_MIG && /'territory:[a-z_]+'/i.test(sql)) {
-      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2 (unica migration nominal autorizada e ${D2_MIG}).`);
+    if (f !== D2_MIG && f !== D3_MIG && /'territory:[a-z_]+'/i.test(sql)) {
+      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2/D.3 (migrations nominais autorizadas: ${D2_MIG}, ${D3_MIG}).`);
     }
     if (/ALTER\s+TABLE\s+(public\.)?actor_capability_grants\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(sql)) {
       failures.push(`[pos-D1] ${f}: liga RLS em actor_capability_grants — mudanca de acesso exige decisao propria (ADENDO D1.5-E).`);

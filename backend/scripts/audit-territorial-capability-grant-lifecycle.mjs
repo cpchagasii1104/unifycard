@@ -232,8 +232,10 @@ try {
   };
   const files = existsSync(SRC) ? walk(SRC) : [];
   if (files.length === 0) failures.push('varredura de src vazia — FAIL.');
+  // N2-D.3: o resolver territorial nominal vive aqui; fiscalizacao fina em audit-territorial-capability-resolver.mjs.
+  const D3_RESOLVER = 'src/modules/authority/territorial-capability-resolver.ts';
   for (const f of files) {
-    if (/hasTerritorialCapability/.test(f.src)) failures.push(`[runtime] ${f.rel}: hasTerritorialCapability presente — resolver e N2-D.3, proibido agora.`);
+    if (f.rel !== D3_RESOLVER && /hasTerritorialCapability/.test(f.src)) failures.push(`[runtime] ${f.rel}: hasTerritorialCapability fora do arquivo nominal N2-D.3 (${D3_RESOLVER}) — proibido.`);
     // mira uso SQL/tabela real (FROM/INTO/UPDATE + nome de tabela), nao a substring incidental dentro
     // do literal 'territory:manage_neighborhood_aliases' (que contem "neighborhood_aliases" por acaso).
     if (/\b(FROM|INTO|UPDATE)\s+(public\.)?neighborhood_(succession_\w+|aliases)\b/i.test(f.src) && /territory:/i.test(f.src)) {
