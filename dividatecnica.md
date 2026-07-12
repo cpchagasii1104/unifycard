@@ -269,6 +269,30 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (61) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2+R3+R3.1+R3.2 SELADAS PELA YALA (SELO COMPLETO) + N2-D.2 GERAL SELADA — fechamento por envelope
+- Auditoria final por envelope (Yala, read-only) sobre a cadeia material: R2 `a7aef8107` (cartório
+  `ba237d588`), R3 `6b9757496` (`9c66fe30a`), R3.1 `de642a91e` (`87b461d75`), R3.2 `ecbeb34dc` (`d1d51467e`).
+  Produto R2 byte-intacto desde `a7aef8107` ao longo de R3/R3.1/R3.2 (correções guard-only).
+- R2 fechou o defeito cross-tenant nas funções SECURITY DEFINER (FKs eram actors(id) sem tenant): fn_grant
+  valida grantee/scope/granted_by/executed_by/responsible_human no tenant antes do INSERT; fn_revoke exige
+  p_expected_tenant_id (cross-tenant→NOT_FOUND não-vazante; territory→scope mismatch; assinatura antiga
+  DROPADA); helper tenant exato+dedup+ORDER BY id+FOR SHARE, ACTOR_TENANT_MISMATCH não-vazante; chamada
+  direta como unificard_app não contorna a barreira. R3=liveness+cinco actors; R3.1=classe+payload
+  não-vazante; R3.2=egress pré-tenant+posicionais+tokenizador (variável vs texto literal).
+- **N2-D.2 GERAL SELADA (SELO COMPLETO):** D.1 (shape actor/territory, city scope, anti-suspended) + D.2
+  (12 keys, matriz scope×capability fechada, lifecycle append-only, reason/revoke_reason, 4 funções, ACL) +
+  R1 (unicidade Actor user, writers idempotentes) + R2 (coerência tenant×Actors) + guards (durabilidade).
+- Invariantes selados: key não é actor+territory simultâneo · grants actor só usam Actors do mesmo tenant ·
+  função DB é barreira mesmo com chamada direta · inexistente≡estrangeiro (sem diferença útil) · nada do
+  grant estrangeiro transmitido antes do NOT_FOUND · reason≠revoke_reason · grants/eventos append-only sem
+  reciclagem · expire/regrant internos · zero grant territorial · canRepresentActor≠capability grant.
+- Observação não-bloqueante O-N2-D2-DOLLAR-QUOTE-GUARD: guard pode recusar mensagem NOT_FOUND em dollar-quote
+  (falso-FAIL, fail-closed — sem falso PASS, sem bypass, sem vazamento vivo); não condiciona o selo; higiene
+  futura só quando o guard for naturalmente revisitado.
+- **STATUS:** N2-D.2-R2+R3+R3.1+R3.2 SELADAS · SELO COMPLETO · FECHAMENTO POR ENVELOPE. N2-D.2 GERAL SELADA ·
+  SELO COMPLETO. N2-D.3 (resolver/enforcement territorial) autorizada só como próxima fatia possível, NÃO
+  iniciada. PORTA-TERRITORY-1/N2-E/N2-F/N2-G/N3 trancadas; grants/eventos=0; Social/Bank fora; Δbank=0.
+
 ### 2026-07-11 (60) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2-R3.2 — egress pré-tenant + payload posicional + falso-positivo de literal (guard-only, aguarda reauditoria Yala final)
 - Reauditoria da R3.1 (`de642a91e`): SELO COM RESSALVA guard-only. 3 brechas: (1) vazamento ANTES do
   tenant check (R3.1 só via o branch; RAISE NOTICE/pg_notify/PERFORM/:= na janela pré-tenant exfiltrava);
