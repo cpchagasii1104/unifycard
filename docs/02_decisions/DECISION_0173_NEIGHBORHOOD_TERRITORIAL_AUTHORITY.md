@@ -491,3 +491,14 @@ Reauditoria Yala da N2-D.3 (`ed09e9307`): a fundação SQL e territorial estava 
 **Correção (guard-only sobre o produto TS; migration/função SQL/repository/ACL/locks/lifecycle byte-intactos):** removido o `try/catch` em torno de `canRepresentActor` — forma canônica `const canRep = await canRepresentActor(...); if (!canRep) return null;`. O guard `audit-territorial-capability-resolver.mjs` passou a **rejeitar** qualquer `try/catch/finally/.catch`, atribuição literal a `canRep`, fallback `||`/`??`, e a exigir o gate antes do repository + chamada única — impedindo tanto **fail-open** quanto **infra-swallow**. Provas: mutations 31 (27 hostis F/S/G/C + históricas, 4 benignos); TS runtime provando propagação de infra (fase sem ports) vs `false`=deny (fase com ports), observavelmente distintos. Suíte 164; Δbank=0.
 
 **N2-D.3 (envelope + remediação) EXECUTADA — AGUARDA REAUDITORIA YALA FINAL.** PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; nenhum grant territorial existe; Social e Bank permanecem fora.
+
+### D3.11-D10 — SELO FINAL do envelope N2-D.3 (Yala · SELO COMPLETO)
+
+Auditoria final por envelope (Yala, read-only) sobre o arco único `ed09e9307`→`750b5a242`→`ec9f4bfa2`→`04aed8ed1`: **N2-D.3 SELADA · SELO COMPLETO · FECHAMENTO POR ENVELOPE.** Fundação + remediação consolidada compõem **um único arco**.
+
+- **Fundação:** `fn_assert_territorial_capability(uuid,text,uuid)→uuid` valida/trava (FOR SHARE) o grant territorial — key exata, Actor tenant-bound, grant global por city, lifecycle, cardinalidade 0/1/>1 fail-closed, negação uniforme não-vazante; eventos = auditoria, não SSOT concorrente.
+- **Composição TS:** representabilidade (`canRepresentActor`) e capability são **cumulativas**; `false` = denial legítimo; **erro de infraestrutura lançado PROPAGA** (nunca false/null/403); guard rejeita fail-open, infra-swallow e bypasses compostos.
+- **Fronteira transacional honesta:** o SQL trava a **row do grant**, não a representação humana; **não há atomicidade completa** (representação + capability + escrita) — pertence à N2-E. **Writer territorial integralmente proibido** (mesmo que chame o resolver).
+- **Observação não-bloqueante `O-N2-D3-PURE-RETHROW-GUARD`:** o guard rejeita conservadoramente `try{…}catch(e){throw e}` (propagação pura) — falso-FAIL fail-closed, sem falso PASS/bypass; o código vivo usa a forma preferencial sem catch; não condiciona o selo.
+
+**N2-E** é apenas a **próxima fatia possível** (mediante GO próprio, NÃO iniciada): desenhará a atomicidade completa do writer (representação humana + capability + recurso/cidade canônica + escrita + auditoria na mesma transação, revogação concorrente, erro não-vazante). PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; nenhum grant territorial existe; Social e Bank permanecem fora.

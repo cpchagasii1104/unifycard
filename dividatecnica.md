@@ -269,6 +269,23 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (64) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.3 SELADA PELA YALA (SELO COMPLETO) — resolver territorial, fechamento por envelope
+- Auditoria final por envelope (Yala read-only) sobre o arco único: fundação `ed09e9307` (docs `750b5a242`)
+  + remediação `ec9f4bfa2` (docs `04aed8ed1`). N2-D.3 SELADA · SELO COMPLETO. Migration/função SQL/repository
+  byte-intactos desde a fundação; resolver/guard na versão da remediação.
+- Fundação: fn_assert_territorial_capability(uuid,text,uuid)→uuid — SECURITY DEFINER, PUBLIC sem EXECUTE,
+  6 keys exatas, Actor tenant-bound, grant global por city (nunca por tenant), lifecycle, ORDER BY+LIMIT 2+
+  FOR SHARE (grant e Actor), cardinalidade 0/1/>1 fail-closed, negação uniforme não-vazante; eventos=auditoria.
+- Composição TS: key→canRep→gate→SQL; representar Actor e capability são cumulativos; repository não roda sem
+  representabilidade. Remediação: false=deny legítimo; erro de infra de canRepresentActor PROPAGA (nunca
+  false/null/403); guard rejeita fail-open, infra-swallow e bypasses compostos.
+- Fronteira honesta: SQL trava a row do grant, não a representação humana; sem atomicidade completa
+  (representação+capability+escrita) — é N2-E. Writer territorial integralmente proibido (mesmo que chame o resolver).
+- Observação não-bloqueante O-N2-D3-PURE-RETHROW-GUARD: guard rejeita try/catch{throw error} puro (falso-FAIL
+  fail-closed, sem falso PASS); código vivo usa forma sem catch; não condiciona o selo.
+- Invariantes selados (16); SQL/ACL/locks intactos; grants/territory/eventos=0; zero writer/rota/grant.
+  N2-E = próxima possível (GO próprio). PORTA/N2-E/N2-F/N2-G/N3 trancadas; Social/Bank fora; suíte 164; Δbank=0.
+
 ### 2026-07-11 (63) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.3 REMEDIAÇÃO — erro de infra em canRepresentActor (mesmo envelope, aguarda reauditoria Yala final)
 - Reauditoria Yala da N2-D.3 (`ed09e9307`): fundação SQL pronta; única família aberta = error-flow de
   canRepresentActor. Base `750b5a242`; material remediação `ec9f4bfa2` (resolver+guard+teste TS;
