@@ -26,6 +26,38 @@ function fnBody(sql, name) {
   return m ? m[0] : '';
 }
 
+// N2-D.2-R2-R3: extracao NOMINAL fail-closed — retorna {body} ou {error}. Falha se: ausente, corpo
+// inextraivel, ou MAIS DE UMA definicao da mesma funcao (overload inesperado). Nao usa busca global.
+function extractSingleFn(sql, name) {
+  const defs = [...sql.matchAll(new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+${name}\\s*\\(`, 'gi'))];
+  if (defs.length === 0) return { error: `${name}: definicao ausente.` };
+  if (defs.length > 1) return { error: `${name}: ${defs.length} definicoes (overload inesperado) — inspecao ambigua.` };
+  const body = fnBody(sql, name);
+  if (!body || !/\$func\$;/.test(body)) return { error: `${name}: corpo nao extraivel inequivocamente.` };
+  return { body };
+}
+
+// Extrai o conteudo balanceado da chamada fn_assert_actors_in_tenant(...) dentro de um corpo (do '(' ao
+// ')' correspondente, ignorando strings). Retorna {args, callStart} ou null.
+function extractHelperCall(body) {
+  const i = body.search(/fn_assert_actors_in_tenant\s*\(/i);
+  if (i < 0) return null;
+  const open = body.indexOf('(', i);
+  let depth = 0, j = open;
+  while (j < body.length) {
+    const c = body[j];
+    if (c === "'") { j++; while (j < body.length && body[j] !== "'") { if (body[j] === '\\') j++; j++; } j++; continue; }
+    if (c === '(') depth++;
+    else if (c === ')') { depth--; if (depth === 0) return { args: body.slice(open + 1, j), callStart: i }; }
+    j++;
+  }
+  return null;
+}
+
+// Tokens de codigo-morto/short-circuit que anulam ou forcam uma condicao (proibidos no corpo das funcoes
+// canonicas — nenhuma logica legitima os usa). Comment-stripped antes.
+const DEAD_LOGIC = /\b(false\s+AND|FALSE\s+AND|true\s+OR|TRUE\s+OR|IF\s+(?:false|FALSE)\s+THEN|0\s*=\s*1\s+AND|1\s*=\s*0\s+AND|IF\s+0\s*=\s*1\s+THEN|IF\s+1\s*=\s*0\s+THEN)\b/;
+
 try {
   const MIG = join(ROOT, 'migrations');
   if (!existsSync(MIG)) throw new Error('diretório migrations ausente');
@@ -60,55 +92,101 @@ try {
     if (/%/.test(raiseLine)) failures.push('helper: mensagem de mismatch interpola valor — risco de vazamento.');
   }
 
-  // ── 2. FN_GRANT valida os actors via helper ANTES do INSERT ─────────────────────────────────
-  const grant = fnBody(sql, 'fn_grant_actor_capability');
-  if (!grant) {
-    failures.push(`${R2_MIG}: fn_grant_actor_capability nao recriada na R2.`);
+  // ── 2. FN_GRANT valida os CINCO actors via helper ANTES do INSERT (R3-B, prova nominal) ────────
+  const grantX = extractSingleFn(sql, 'fn_grant_actor_capability');
+  if (grantX.error) {
+    failures.push(`fn_grant: ${grantX.error}`);
   } else {
+    const grant = grantX.body;
     if (!/SECURITY DEFINER/i.test(grant)) failures.push('fn_grant: nao SECURITY DEFINER.');
-    if (!/fn_assert_actors_in_tenant/i.test(grant)) failures.push('fn_grant: nao chama fn_assert_actors_in_tenant.');
-    // a chamada do helper deve vir ANTES do INSERT no grant
-    const iHelper = grant.search(/fn_assert_actors_in_tenant/i);
-    const iInsert = grant.search(/INSERT\s+INTO\s+public\.actor_capability_grants/i);
-    if (iHelper < 0 || iInsert < 0 || iHelper > iInsert) failures.push('fn_grant: validacao de coerencia NAO ocorre antes do INSERT.');
-    // os 4 actors nomeados devem constar no ARRAY validado
-    for (const a of ['p_grantee_actor_id', 'p_scope_actor_id', 'p_granted_by_actor_id', 'p_responsible_human_actor_id']) {
-      if (!new RegExp(`ARRAY\\[[^\\]]*${a}`, 'i').test(grant.replace(/\s+/g, ' '))) {
-        failures.push(`fn_grant: ${a} nao consta no ARRAY validado pelo helper.`);
+    if (DEAD_LOGIC.test(grant)) failures.push('fn_grant: contem logica-morta/short-circuit (false AND / IF false / true OR) — proibido.');
+    const call = extractHelperCall(grant);
+    if (!call) {
+      failures.push('fn_grant: nao chama fn_assert_actors_in_tenant.');
+    } else {
+      // a chamada do helper deve vir ANTES do INSERT no grant
+      const iInsert = grant.search(/INSERT\s+INTO\s+public\.actor_capability_grants/i);
+      if (iInsert < 0 || call.callStart > iInsert) failures.push('fn_grant: validacao de coerencia NAO ocorre antes do INSERT.');
+      // 1o argumento do helper = p_tenant_id
+      if (!/^\s*p_tenant_id\s*,/i.test(call.args)) failures.push('fn_grant: 1o arg do helper nao e p_tenant_id.');
+      // ARRAY[...] com os CINCO papeis nominais (nao basta contar 5 UUIDs)
+      const arrInner = (call.args.match(/ARRAY\s*\[([\s\S]*?)\]/i) || [])[1] || '';
+      if (!arrInner) failures.push('fn_grant: helper nao recebe ARRAY[...] de actors.');
+      const arr = `[${arrInner}]`; // restaura delimitadores p/ ancorar 1o/ultimo elemento
+      for (const a of ['p_grantee_actor_id', 'p_scope_actor_id', 'p_granted_by_actor_id', 'p_executed_by_actor_id', 'p_responsible_human_actor_id']) {
+        // token exato como ELEMENTO do array (delimitado por [ , ou ])
+        if (!new RegExp(`(?:\\[|,)\\s*${a}\\s*(?:,|\\])`).test(arr)) {
+          failures.push(`fn_grant: ${a} nao e elemento do ARRAY validado pelo helper (R3-B).`);
+        }
       }
     }
     if (!/p_tenant_id\s+IS\s+NULL/i.test(grant)) failures.push('fn_grant: nao rejeita p_tenant_id nulo.');
   }
 
-  // ── 3. FN_REVOKE nova (com tenant esperado); assinatura antiga DROPADA ───────────────────────
+  // ── 3. FN_REVOKE nova (com tenant esperado); assinatura antiga DROPADA; LIVENESS do tenant check ─
   if (!/DROP\s+FUNCTION\s+fn_revoke_actor_capability_grant\(UUID,UUID,UUID,UUID,TEXT\)/i.test(sql)) {
     failures.push(`${R2_MIG}: assinatura ANTIGA de fn_revoke (sem tenant) nao foi DROPADA.`);
   }
-  const revoke = fnBody(sql, 'fn_revoke_actor_capability_grant');
-  if (!revoke) {
-    failures.push(`${R2_MIG}: fn_revoke_actor_capability_grant nova ausente.`);
+  const revokeX = extractSingleFn(sql, 'fn_revoke_actor_capability_grant');
+  if (revokeX.error) {
+    failures.push(`fn_revoke: ${revokeX.error}`);
   } else {
+    const revoke = revokeX.body;
     if (!/p_expected_tenant_id\s+UUID/i.test(revoke)) failures.push('fn_revoke: nova assinatura sem p_expected_tenant_id.');
-    if (!/v_grant\.tenant_id\s+IS\s+DISTINCT\s+FROM\s+p_expected_tenant_id/i.test(revoke)) {
-      failures.push('fn_revoke: nao compara grant.tenant_id com o tenant esperado.');
+
+    // ── R3-A: LIVENESS do tenant check (nao basta a string estar presente) ──
+    // (a) nenhuma logica-morta/short-circuit no corpo inteiro (fecha false AND / IF false / true OR / 0=1)
+    if (DEAD_LOGIC.test(revoke)) {
+      failures.push('fn_revoke: contem logica-morta/short-circuit (false AND / IF false / true OR / 0=1) — tenant check inalcancavel.');
     }
-    // cross-tenant → NOT_FOUND (nao-vazante); territory → scope mismatch
+    // (b) a comparacao usa IS DISTINCT FROM (mismatch), NAO IS NOT DISTINCT FROM
+    if (/tenant_id\s+IS\s+NOT\s+DISTINCT\s+FROM\s+p_expected_tenant_id/i.test(revoke)) {
+      failures.push('fn_revoke: usa IS NOT DISTINCT FROM (semantica invertida).');
+    }
+    // (c) branch estrutural: IF v_grant.tenant_id IS DISTINCT FROM p_expected_tenant_id THEN ... NOT_FOUND
+    //     (tolera parenteses simples ao redor de cada lado — refactor benigno, GO §10).
+    const TENANT_COND = `\\(?\\s*v_grant\\.tenant_id\\s*\\)?\\s+IS\\s+DISTINCT\\s+FROM\\s+\\(?\\s*p_expected_tenant_id\\s*\\)?`;
+    const tenantBranch = revoke.match(new RegExp(`IF\\s+${TENANT_COND}\\s+THEN([\\s\\S]*?)END\\s+IF;`, 'i'));
+    if (!tenantBranch) {
+      failures.push('fn_revoke: branch de tenant check (IF v_grant.tenant_id IS DISTINCT FROM p_expected_tenant_id THEN) ausente/estrutura divergente.');
+    } else {
+      if (!/RAISE\s+EXCEPTION\s+'ACTOR_CAPABILITY_GRANT_NOT_FOUND/i.test(tenantBranch[1])) {
+        failures.push('fn_revoke: branch de tenant nao levanta ACTOR_CAPABILITY_GRANT_NOT_FOUND (nao-vazante).');
+      }
+      if (/ACTOR_TENANT_MISMATCH|RAISE\s+(NOTICE|WARNING|LOG|INFO)|RETURN\b/i.test(tenantBranch[1])) {
+        failures.push('fn_revoke: branch de tenant vaza (MISMATCH) ou usa log/return em vez de NOT_FOUND.');
+      }
+      // (d) o tenant check aparece DEPOIS de obter o grant e ANTES do UPDATE/evento/RETURN de sucesso
+      const iSelect = revoke.search(/SELECT\s+\*\s+INTO\s+v_grant/i);
+      const iTenant = revoke.search(new RegExp(`IF\\s+${TENANT_COND}`, 'i'));
+      const iUpdate = revoke.search(/UPDATE\s+public\.actor_capability_grants/i);
+      const iReturn = revoke.search(/RETURN\s+v_grant\s*;/i);
+      if (iSelect < 0 || iTenant < iSelect) failures.push('fn_revoke: tenant check nao ocorre apos obter o grant.');
+      if (iUpdate < 0 || iTenant > iUpdate) failures.push('fn_revoke: tenant check ocorre DEPOIS do UPDATE (inalcancavel/tarde demais).');
+      if (iReturn >= 0 && iTenant > iReturn) failures.push('fn_revoke: tenant check ocorre DEPOIS do RETURN de sucesso.');
+    }
+
+    // territory → scope mismatch (preservado)
     if (!/scope_type\s*<>\s*'actor'[\s\S]{0,120}ACTOR_CAPABILITY_GRANT_REVOKE_SCOPE_MISMATCH/i.test(revoke)) {
       failures.push('fn_revoke: territory nao rejeitado por scope mismatch.');
     }
-    if (!/IS\s+DISTINCT\s+FROM\s+p_expected_tenant_id[\s\S]{0,120}ACTOR_CAPABILITY_GRANT_NOT_FOUND/i.test(revoke)) {
-      failures.push('fn_revoke: tenant divergente nao vira NOT_FOUND (nao-vazante).');
-    }
-    if (!/fn_assert_actors_in_tenant/i.test(revoke)) failures.push('fn_revoke: nao valida coerencia dos actors armazenados/executores.');
-    for (const a of ['v_grant\\.grantee_actor_id', 'v_grant\\.scope_actor_id', 'p_executed_by_actor_id', 'p_responsible_human_actor_id']) {
-      if (!new RegExp(`ARRAY\\[[^\\]]*${a}`, 'i').test(revoke.replace(/\s+/g, ' '))) {
-        failures.push(`fn_revoke: ${a.replace('\\\\','')} nao consta no ARRAY validado.`);
+
+    // coerencia dos actors armazenados/executores via helper, ANTES do UPDATE
+    const call = extractHelperCall(revoke);
+    if (!call) {
+      failures.push('fn_revoke: nao valida coerencia dos actors armazenados/executores.');
+    } else {
+      const iUpdate = revoke.search(/UPDATE\s+public\.actor_capability_grants/i);
+      if (iUpdate < 0 || call.callStart > iUpdate) failures.push('fn_revoke: validacao de actors ocorre depois do UPDATE.');
+      if (!/^\s*p_expected_tenant_id\s*,/i.test(call.args)) failures.push('fn_revoke: 1o arg do helper nao e p_expected_tenant_id.');
+      const arrInner = (call.args.match(/ARRAY\s*\[([\s\S]*?)\]/i) || [])[1] || '';
+      const arr = `[${arrInner}]`;
+      for (const a of ['v_grant\\.grantee_actor_id', 'v_grant\\.scope_actor_id', 'p_executed_by_actor_id', 'p_responsible_human_actor_id']) {
+        if (!new RegExp(`(?:\\[|,)\\s*${a}\\s*(?:,|\\])`).test(arr)) {
+          failures.push(`fn_revoke: ${a.replace(/\\\\/g,'')} nao e elemento do ARRAY validado.`);
+        }
       }
     }
-    // validacao ANTES do UPDATE
-    const iH = revoke.search(/fn_assert_actors_in_tenant/i);
-    const iU = revoke.search(/UPDATE\s+public\.actor_capability_grants/i);
-    if (iH < 0 || iU < 0 || iH > iU) failures.push('fn_revoke: validacao ocorre depois do UPDATE.');
   }
 
   // ── 4. ACL / EXECUTE por assinatura ──────────────────────────────────────────────────────────
