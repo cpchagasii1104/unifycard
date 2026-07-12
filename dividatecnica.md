@@ -269,6 +269,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (72) — F-REPOSITORY-DEPENDENCY-HYGIENE CHECKPOINT: node_modules desversionado + safety de worktree (NÃO SELADA, bloqueada por typecheck)
+- Incidente: remoção de worktree seguiu junction/symlinks pnpm → apagou node_modules + packages/contracts no main tree. Recuperado por restauração exata de HEAD.
+- Higiene (martelos M-1..M-5): 68.128 paths node_modules removidos do INDEX (todos com segmento exato node_modules; 0 fora); .gitignore JÁ cobria (não editado, provado por check-ignore); limpeza física segura (ferramenta worktree-safety.mjs, nunca segue link, testes 19/19); pnpm install --frozen-lockfile de árvore limpa (added 1013, exit 0); manifests+lockfile byte-idênticos; node_modules agora ignorado (git ls-files=0); guard audit-repository-dependency-hygiene.mjs GATE OK, runner 166→167.
+- Commit material 5d90d8775 + cartório docs-only. NÃO É SELO; sem Yala.
+- 🔴 BLOQUEIO (não corrigido, frente separada): backend tsc EXIT 2, 4 erros PREEXISTENTES em auth.routes.ts (inferência zod: safeParse().data = unknown; TS2345×2, TS2339×2). Envelope não tocou auth.routes/tsconfig/zod/package.json/lockfile; install canônico REVELOU incompatibilidade latente antes mascarada pelo node_modules versionado. Correção (moduleResolution? tipagem? schema?) NÃO ratificada — GATE próprio.
+- Frontend typecheck 0. Suíte 167 não executada integralmente (guards tsc-dependentes falhariam pelos mesmos erros). packages/contracts com ' M' stat-only (conteúdo == HEAD). Banco intacto; Δbank=0.
+- **STATUS:** EXECUTADA ESTRUTURALMENTE · CHECKPOINT COMMITADO · NÃO SELADA · BLOQUEADA. N2-E/N2-F seladas; N2-G não iniciada; PORTA-TERRITORY-1/N3 trancadas; Social/Bank fora.
+
 ### 2026-07-12 (71) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-F INTEGRADA À rescue-structural (merge NO-FF, arco selado preservado)
 - Integração controlada da N2-F (já selada pela Yala) do branch isolado n2f-address-composite-coherence para rescue-structural.
 - Arco selado preservado: 1e5ee8796 → 4f3c6df6d → 39df72855 → 8049f2be7. Frontend concorrente estabilizado em 58362a64b (disjunto).

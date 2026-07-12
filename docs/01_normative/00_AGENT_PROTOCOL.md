@@ -940,3 +940,15 @@ TRILHO ÚNICO · EXECUÇÃO DETERMINÍSTICA · MEMÓRIA PRESERVADA
 - INVARIANTES_OPERACIONAIS_LEDGER.md
 - LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md
 <!-- AUTO-GENERATED-END -->
+
+---
+
+## SEGURANÇA DE WORKTREE E REPARSE POINTS (ratificada 2026-07-12)
+
+É proibido remover worktree que contenha symlink, junction, mount point ou reparse point cujo alvo resolvido esteja fora do próprio worktree.
+
+Antes da remoção, deve ser executado o preflight versionado (`backend/scripts/worktree-safety.mjs audit <worktree>`), que falha se qualquer link resolver para fora da raiz auditada.
+
+O link deve ser desmontado sem atravessar ou apagar o alvo.
+
+`git worktree remove`, mesmo sem `--force`, NÃO substitui o preflight: a remoção recursiva pode seguir a junction/symlink e apagar o alvo real (ex.: node_modules do main tree via symlinks de workspace pnpm).

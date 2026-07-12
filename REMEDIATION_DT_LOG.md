@@ -1,5 +1,26 @@
 # REMEDIATION DT LOG
 
+## F-REPOSITORY-DEPENDENCY-HYGIENE — DESVERSIONAMENTO DE node_modules · ⚙️ CHECKPOINT MATERIAL COMMITADO · 🔴 NÃO SELADA · BLOQUEADA POR TYPECHECK BACKEND PREEXISTENTE (2026-07-12)
+Registro append-only do checkpoint material da higiene de dependências. **NÃO é selo; NÃO houve auditoria Yala; a frente NÃO está concluída.** Commit material `5d90d8775` (`chore(repo): stop tracking node_modules and harden worktree safety`) + este cartório docs-only.
+
+**INCIDENTE (causa):** a remoção do worktree isolado da N2-F (`git worktree remove C:\unificard-n2f-wt`, sem --force) percorreu recursivamente o diretório e **seguiu a junction/symlinks de workspace do pnpm** apontando para o main tree, esvaziando node_modules (raiz/backend) e apagando a fonte `packages/contracts`. Recuperação: restauração exata dos tracked deletados a partir de HEAD; depois higiene estrutural (esta frente).
+
+**MARTELOS RATIFICADOS (Clayton):** M-1 desversionar TOTALMENTE node_modules em todos os workspaces; M-2 NÃO editar `.gitignore` (cobertura já suficiente, provada por `git check-ignore`); M-3 adicionar ferramenta de preflight de reparse points + guard de não-revival + testes; M-4 NÃO pinar `packageManager`; M-5 NÃO alterar lifecycle scripts.
+
+**EXECUTADO E PROVADO:** 68.128 paths node_modules removidos do INDEX (lista NUL hash `7a3fb7eba190…`, todos com segmento exato node_modules; 0 fora); `.gitignore` já cobria node_modules na raiz e em todos os workspaces (raiz L2 / backend L9 / frontend L10; padrão casa qualquer profundidade) — **não alterado**; limpeza física segura pela ferramenta versionada `backend/scripts/worktree-safety.mjs` (audit rejeita link externo; remoção NUNCA segue o alvo do link — testes 19/19); `pnpm install --frozen-lockfile` a partir de árvore limpa: **added 1013, exit 0, 29s**; manifests e `pnpm-lock.yaml`/`pnpm-workspace.yaml` **byte-idênticos**; store bullmq/pino repovoados; toolchain resolve (@types/node, typescript, tsx, bullmq, pino, fastify, pg, jsonwebtoken, @unificard/contracts); node_modules agora **ignorado e fora do Git** (`git ls-files` node_modules = 0); guard `audit-repository-dependency-hygiene.mjs` GATE OK, wired no runner (166→**167**). `packages/contracts` (src+dist+package.json) e material N2-E/N2-F **byte-intactos**. Frontend typecheck **0**.
+
+**🔴 BLOQUEIO (NÃO CORRIGIDO — frente separada):** `tsc -p tsconfig.build.json --noEmit` (backend) → **EXIT 2**, 4 erros PREEXISTENTES em `src/core/auth/auth.routes.ts`:
+- `auth.routes.ts:84:9` — TS2345 (Argument of type 'unknown' is not assignable to parameter of type 'string')
+- `auth.routes.ts:93:24` — TS2339 (Property 'substring' does not exist on type 'unknown')
+- `auth.routes.ts:141:9` — TS2345
+- `auth.routes.ts:156:24` — TS2339
+
+Origem: `registerSchema.safeParse(req.body).data` infere `unknown` (inferência de tipos do Zod). **O envelope de higiene NÃO alterou auth.routes.ts, tsconfig, Zod, package.json nem pnpm-lock.yaml** (todos byte-idênticos). O `pnpm install` CANÔNICO **revelou** uma incompatibilidade de tipagem **já latente**; o node_modules versionado (layout hoisted) **mascarava** esse resultado. **NÃO está ratificado** que a correção seja mudar `moduleResolution` — a solução (tipagem local / ajuste de schema / config TypeScript / outra) será decidida em GATE separado.
+
+**STATUS DA FRENTE:** ⚙️ EXECUTADA ESTRUTURALMENTE · CHECKPOINT COMMITADO (`5d90d8775`) · 🔴 NÃO SELADA · BLOQUEADA POR TYPECHECK BACKEND PREEXISTENTE EXPOSTO PELO INSTALL CANÔNICO. typecheck backend **não está verde**; suíte **167 não foi executada integralmente** (guards tsc-dependentes falhariam pelos mesmos 4 erros); frontend typecheck passou; **nenhuma correção de produto**; Yala **não autorizada**. Correção da incompatibilidade = frente própria; depois revalidação integral da higiene. Banco intacto; Δbank=0. **N2-E/N2-F seladas; N2-G NÃO iniciada; PORTA-TERRITORY-1/N3 trancadas; Social/Bank fora.** Observação: `packages/contracts` aparece com ` M` **stat-only** pós-install (conteúdo byte-idêntico a HEAD, `git diff --quiet HEAD`=0) — não é alteração de produto.
+
+---
+
 ## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N2-F · COERÊNCIA COMPOSTA DE ADDRESSES ✅ INTEGRADA À rescue-structural (2026-07-12)
 Registro append-only da **integração controlada** da N2-F (já selada pela Yala) do branch isolado `n2f-address-composite-coherence` para `rescue-structural`. Não altera o produto material nem o selo; documenta o merge.
 
