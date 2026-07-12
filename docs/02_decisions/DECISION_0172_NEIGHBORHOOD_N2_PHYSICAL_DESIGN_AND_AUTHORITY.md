@@ -181,3 +181,7 @@ Representabilidade por company/group/delegation · `canRepresentActor` transacti
 Após este adendo docs-only: (1) GATE rápido de consistência documental; (2) **um único GO material N2-E por envelope**; (3) implementar integridade + writer + auditoria + HOLD estreito; (4) auditoria Yala por envelope; (5) no máximo uma remediação consolidada; (6) selo; (7) só depois decidir N2-F/N2-G.
 
 **N2-E — DECISÕES PRÉ-MATERIAL RATIFICADAS (docs-only). MATERIAL AINDA NÃO INICIADO.** Nenhum writer/rota/grant territorial; HOLD intacto; PORTA-TERRITORY-1 trancada; N2-F/N2-G/N3 trancadas; Social e Bank fora.
+
+### Registro de execução N2-E (material `3002d174e` — sem nova decisão normativa)
+
+Nomes físicos promulgados na fatia material do primeiro writer (D-A..D-E deste adendo): função canônica `public.fn_create_canonical_neighborhood(uuid,uuid,uuid,uuid,text,text,text,text,text)`; token transacional `public.neighborhood_writer_authorizations` (+ constraint trigger diferido `trg_nwa_must_be_consumed`); trilha de auditoria `public.neighborhood_curation_events`; CHECK de nome `chk_neighborhoods_name_trimmed_nonempty`; consumo do HOLD `trg_neighborhoods_writer_token_consume` (row-level ENABLE ALWAYS). Runtime interno: `neighborhood-canonical-writer.repository.ts`/`.service.ts` (sem rota). **N2-E EXECUTADA — AGUARDA AUDITORIA YALA POR ENVELOPE.** PORTA-TERRITORY-1/N2-F/N2-G/N3 trancadas; Social/Bank fora.

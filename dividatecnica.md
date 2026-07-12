@@ -269,6 +269,24 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (66) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-E MATERIAL — primeiro writer canônico de bairro (aguarda auditoria Yala por envelope)
+- GO material (D-A..D-E; base `d2bd016cf`). Material `3002d174e` (migration + repo/service TS + guard + 4
+  guards reconciliados + 3 testes). Reutiliza fn_assert_territorial_capability (D.3) + neighborhoods; zero rota/grant.
+- Migration `20260711210000`: CHECK forward-only do nome (normalize_name intocado); token transacional de
+  uso único (xid+backend, constraint trigger diferido de não-sobrevivência); curation events append-only
+  (created/approved, capability↔operation, snapshot); HOLD reescrito (U/D RAISE, INSERT defere a consume
+  row-level ENABLE ALWAYS, sem GUC/role); writer fn_create_canonical_neighborhood SECURITY DEFINER
+  (ownership-direto FOR SHARE + 2 assertions D.3 create+approve + INSERT único + 2 eventos; retorna só id).
+- TS interno sem rota: repository exige TxQueryClient (sem pool, infra propaga); transaction-service separa
+  contexto/payload, canRepresentActor = prevalidation gateada (false=deny, throw propaga), withTransaction
+  mesmo client. canRepresentActor NÃO é a barreira material (SQL impõe ownership-direto).
+- Provas: DB 43/43; concorrência (grant FOR SHARE bloqueia revoke ~1.5s, token não cruza tx/backend,
+  mesmo-nome serializa); TS runtime (infra propaga, false→403, happy path atômico, conflito 409); mutations
+  41 (37 hostis + 4 benignos); 1 gap do guard fechado (GRANT writer a PUBLIC). Guard novo (runner 164→165);
+  guards dml-hold/alias/succession/foundation-D.1 reconciliados nominalmente. typecheck 0; suíte 165; Δbank=0.
+- **STATUS:** N2-E EXECUTADA — AGUARDA AUDITORIA YALA POR ENVELOPE. PORTA/N2-F/N2-G/N3 trancadas; nenhum
+  grant/bairro territorial real; app sem DML direto; Social/Bank fora.
+
 ### 2026-07-12 (65) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-E DECISÕES PRÉ-MATERIAL RATIFICADAS (docs-only, material NÃO iniciado)
 - GATE N2-E (read-first, base f64cc46a5) + ADENDO N2-E à DECISION-0172. Zero backend/migration/schema/guard.
 - Achados: canRepresentActor NÃO é transaction-aware (sub-leituras em conexões próprias, sem locks);
