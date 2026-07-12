@@ -269,6 +269,21 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (63) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.3 REMEDIAÇÃO — erro de infra em canRepresentActor (mesmo envelope, aguarda reauditoria Yala final)
+- Reauditoria Yala da N2-D.3 (`ed09e9307`): fundação SQL pronta; única família aberta = error-flow de
+  canRepresentActor. Base `750b5a242`; material remediação `ec9f4bfa2` (resolver+guard+teste TS;
+  migration/função SQL/repository BYTE-INTACTOS).
+- Ressalva: o resolver envolvia canRepresentActor em try/catch convertendo QUALQUER erro em canRep=false —
+  infra-swallow (timeout/DB tratado como negação de autoridade).
+- Correção: removido o try/catch. `const canRep = await canRepresentActor(...); if(!canRep) return null;`.
+  false = deny legítimo (null/false/403); erro LANÇADO PROPAGA (nunca false/null/403). Guard endurecido:
+  proíbe try/catch/finally/.catch/atribuição literal/fallback em volta da representação; exige gate antes do
+  repository + chamada única. Rejeita fail-open E infra-swallow.
+- Provas: mutations 31 (27 hostis F/S/G/C + históricas + 4 benignos); TS runtime (fase-1 sem ports: infra
+  PROPAGA; fase-2 com ports: false=deny, true+grant=aprova; distintos). typecheck 0; suíte 164; Δbank=0.
+- **STATUS:** N2-D.3 (envelope + remediação) EXECUTADA — AGUARDA REAUDITORIA YALA FINAL. PORTA/N2-E/N2-F/
+  N2-G/N3 trancadas; nenhum grant territorial existe; Social/Bank fora.
+
 ### 2026-07-11 (62) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.3 — resolver/assertion de capability territorial (material, aguarda auditoria Yala por envelope)
 - GO material (D1..D8 ratificados; base selo N2-D.2 `da8a85b8e`). Material `ed09e9307`. Fecha a lacuna de
   ENFORCEMENT: existia a casa territorial mas ZERO resolver. Reutiliza actor_capability_grants; zero grant/rota/writer.

@@ -481,3 +481,13 @@ O `scope_city_id` deve vir do **recurso canônico server-side** (Location Core: 
 Sem grant real, sem PORTA-TERRITORY-1, sem Social/Bank, sem novo Actor type, sem segunda casa, sem alterar `canRepresentActor`, sem alterar a matriz/keys seladas, `fn_expire`/`fn_regrant` intactas. Negação uniforme `TERRITORIAL_CAPABILITY_DENIED` não-vazante (nunca expõe Actor/tenant/city/key/grant_id/status). Δbank=0.
 
 **N2-D.3 EXECUTADA material — AGUARDA AUDITORIA YALA POR ENVELOPE.** PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; nenhum grant territorial existe; Social e Bank permanecem fora.
+
+### D3.11-D9 — Remediação consolidada do envelope: erro de infra em canRepresentActor (material `ec9f4bfa2`)
+
+Reauditoria Yala da N2-D.3 (`ed09e9307`): a fundação SQL e territorial estava pronta para selo; a única família de risco aberta era o **error-flow de `canRepresentActor`** no wrapper TS. O resolver envolvia a chamada em `try/catch` convertendo **qualquer** erro em `canRep = false` — o que trata **falha de infraestrutura** (timeout/conexão/SQL/repository) como **negação de autoridade** (infra-swallow), mascarando indisponibilidade como "não autorizado".
+
+**Separação estrita ratificada:** **(A)** `canRepresentActor` retorna `false` → negação **legítima** (resolve→null, has→false, assert→403 uniforme); **(B)** `canRepresentActor` **lança** → **infraestrutura**, o erro **PROPAGA** integralmente, nunca convertido em false/null/403/denial; **(C)** denial da capability SQL (`TERRITORIAL_CAPABILITY_DENIED`) → deny; **(D)** erro de infra do SQL → propaga (já selável).
+
+**Correção (guard-only sobre o produto TS; migration/função SQL/repository/ACL/locks/lifecycle byte-intactos):** removido o `try/catch` em torno de `canRepresentActor` — forma canônica `const canRep = await canRepresentActor(...); if (!canRep) return null;`. O guard `audit-territorial-capability-resolver.mjs` passou a **rejeitar** qualquer `try/catch/finally/.catch`, atribuição literal a `canRep`, fallback `||`/`??`, e a exigir o gate antes do repository + chamada única — impedindo tanto **fail-open** quanto **infra-swallow**. Provas: mutations 31 (27 hostis F/S/G/C + históricas, 4 benignos); TS runtime provando propagação de infra (fase sem ports) vs `false`=deny (fase com ports), observavelmente distintos. Suíte 164; Δbank=0.
+
+**N2-D.3 (envelope + remediação) EXECUTADA — AGUARDA REAUDITORIA YALA FINAL.** PORTA-TERRITORY-1, N2-E, N2-F, N2-G e N3 permanecem trancadas; nenhum grant territorial existe; Social e Bank permanecem fora.
