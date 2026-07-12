@@ -31,6 +31,10 @@ const stripSql = (s) => s.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, 
 const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const HOLD_MIG = '20260711100000_neighborhoods_dml_hold.sql';
+// N2-E (DECISION-0172 P5 previu): a substituição CONSCIENTE do HOLD para abrir o INSERT canônico vive nesta
+// migration nominal; a NOVA forma (UPDATE/DELETE sempre RAISE; INSERT deferido a token transacional de uso
+// único, sem GUC/role) é fiscalizada finamente por audit-neighborhood-canonical-writer.mjs.
+const N2E_WRITER_MIG = '20260711210000_neighborhood_canonical_create_writer.sql';
 const HOLD_FN = 'enforce_neighborhoods_canonical_writer_hold';
 const HOLD_TRG = 'trg_neighborhoods_canonical_writer_hold';
 const HOLD_ERR = 'NEIGHBORHOOD_CANONICAL_WRITER_HOLD';
@@ -137,8 +141,8 @@ try {
     if (new RegExp(`DROP\\s+FUNCTION[\\s\\S]{0,80}${HOLD_FN}`, 'i').test(sql)) {
       failures.push(`[pos-HOLD] ${f}: dropa a função do HOLD (com/sem assinatura/CASCADE) — remoção da barreira física.`);
     }
-    if (new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${HOLD_FN}`, 'i').test(sql)) {
-      failures.push(`[pos-HOLD] ${f}: redefine a função do HOLD — troca de função exige fatia do writer + guard consciente.`);
+    if (f !== N2E_WRITER_MIG && new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${HOLD_FN}`, 'i').test(sql)) {
+      failures.push(`[pos-HOLD] ${f}: redefine a função do HOLD FORA da fatia do writer canônico (${N2E_WRITER_MIG}) — troca de função exige fatia própria + guard consciente (a nova forma é fiscalizada por audit-neighborhood-canonical-writer.mjs).`);
     }
 
     // re-concessão de DML em neighborhoods a QUALQUER grantee (tabela ou coluna), inclusive PUBLIC/role intermediária

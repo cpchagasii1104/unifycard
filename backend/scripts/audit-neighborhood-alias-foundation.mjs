@@ -264,8 +264,11 @@ try {
     if (/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_\w*(synonym|alias)\w*/i.test(sql) && !/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_aliases\b/i.test(sql)) {
       failures.push(`[pos-N2B] ${f}: segunda tabela de alias/synonym territorial — SSOT paralelo proibido.`);
     }
-    // seed em QUALQUER migration posterior (alias ou núcleo) — seed é N3, via contrato canônico
-    if (/INSERT\s+INTO\s+(public\.)?(neighborhood_aliases|neighborhoods)\b/i.test(sql)) {
+    // seed em QUALQUER migration posterior (alias ou núcleo) — seed é N3, via contrato canônico. EXCETO a
+    // migration nominal do writer N2-E (o INSERT vive DENTRO da função canônica fn_create_canonical_neighborhood,
+    // não executa em migration-time; fiscalizado por audit-neighborhood-canonical-writer.mjs — INSERT único, sem aliases).
+    if (f !== '20260711210000_neighborhood_canonical_create_writer.sql'
+        && /INSERT\s+INTO\s+(public\.)?(neighborhood_aliases|neighborhoods)\b/i.test(sql)) {
       failures.push(`[pos-N2B] ${f}: INSERT/seed em neighborhood_aliases/neighborhoods dentro de migration — seed é N3, via contrato canônico, nunca SQL paralelo.`);
     }
   }

@@ -187,8 +187,11 @@ try {
     if (/INSERT\s+INTO\s+actor_capability_grants/i.test(sql)) {
       failures.push(`[pos-D1] ${f}: seed em actor_capability_grants — grants reais nascem SO na PORTA-TERRITORY-1 (pos selo D.1+D.2+D.3), nunca em migration.`);
     }
-    if (f !== D2_MIG && f !== D3_MIG && /'territory:[a-z_]+'/i.test(sql)) {
-      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2/D.3 (migrations nominais autorizadas: ${D2_MIG}, ${D3_MIG}).`);
+    // N2-E: a migration nominal do writer consome as keys territoriais (assertions + CHECK da trilha de
+    // curadoria); fiscalizada por audit-neighborhood-canonical-writer.mjs.
+    const N2E_WRITER_MIG = '20260711210000_neighborhood_canonical_create_writer.sql';
+    if (f !== D2_MIG && f !== D3_MIG && f !== N2E_WRITER_MIG && /'territory:[a-z_]+'/i.test(sql)) {
+      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2/D.3/N2-E (migrations nominais autorizadas: ${D2_MIG}, ${D3_MIG}, ${N2E_WRITER_MIG}).`);
     }
     if (/ALTER\s+TABLE\s+(public\.)?actor_capability_grants\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(sql)) {
       failures.push(`[pos-D1] ${f}: liga RLS em actor_capability_grants — mudanca de acesso exige decisao propria (ADENDO D1.5-E).`);

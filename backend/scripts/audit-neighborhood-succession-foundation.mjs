@@ -228,8 +228,11 @@ try {
     if (/ALTER\s+TABLE\s+(?:public\.)?neighborhood_succession_\w+\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(sql)) {
       failures.push(`[pos-N2C] ${f}: liga RLS em tabela de sucessao — catalogo global nao tem RLS.`);
     }
-    // efeito automatico sobre nucleo/addresses por migration posterior (sucessao e linhagem)
-    if (/UPDATE\s+neighborhoods\s+SET|INSERT\s+INTO\s+neighborhoods\b|UPDATE\s+addresses\s+SET\s+neighborhood_id|DELETE\s+FROM\s+neighborhoods\b/i.test(sql)) {
+    // efeito automatico sobre nucleo/addresses por migration posterior (sucessao e linhagem). EXCETO a
+    // migration nominal do writer N2-E (INSERT unico DENTRO da funcao canonica; sem UPDATE/DELETE de
+    // neighborhoods nem addresses; fiscalizado por audit-neighborhood-canonical-writer.mjs).
+    if (f !== '20260711210000_neighborhood_canonical_create_writer.sql'
+        && /UPDATE\s+neighborhoods\s+SET|INSERT\s+INTO\s+neighborhoods\b|UPDATE\s+addresses\s+SET\s+neighborhood_id|DELETE\s+FROM\s+neighborhoods\b/i.test(sql)) {
       failures.push(`[pos-N2C] ${f}: efeito automatico sobre neighborhoods/addresses — sucessao nao reescreve FK retroativamente (contrato do consumidor decide).`);
     }
   }
