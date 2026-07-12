@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (78) — PORTA-TERRITORY-1: remediação guard-only (comment-awareness + liveness do guard da PORTA)
+- Veredito Yala B (produto correto; 4 evasões no guard audit-territorial-grant-bootstrap): SECURITY DEFINER comentado; CONFIRMED=true; COMMIT if(true); ROLLBACK dry-run removido (catch mascarava).
+- Fix guard-only (commit 43a04b715; produto byte-intacto): comment-stripping léxico SQL+JS preservando strings; R-2 SECDEF no cabeçalho vivo; R-3 CONFIRMED derivado do token exato (sem =true/||=/??true/reatribuição); R-4 COMMIT dominado por (APPLY&&CONFIRMED&&!failed) (rejeita if(true)); R-5 ROLLBACK vivo no else/dry-run antes do catch.
+- Mutations L01-L20/C01-C10 mordem; benignos passam; 169 guards verdes; N2-D.1/D.2 OK; typecheck/build/invariants verdes.
+- Grants reais intactos (3e5cebe6, 44c9dc03); nenhuma reaplicação; neighborhoods=0; Δbank=0.
+- **STATUS:** remediação guard-only executada e provada; PORTA-TERRITORY-1 CONTINUA NÃO SELADA (aguarda reauditoria final Yala). N3 trancada; Social/Bank fora.
+
 ### 2026-07-12 (77) — PORTA-TERRITORY-1: primeira autoridade territorial real de Curitiba (EXECUTADA E PROVADA, não selada)
 - Martelos M-1..M-6: grantee=Actor Clayton 213f4903; city=Curitiba 9d431002; só create+approve; valid_until NULL; mecanismo B+A; issuer=Clayton (authority_source=platform_bootstrap).
 - Lacuna fechada: criado writer governado fn_grant_territorial_capability (migration 20260712120000, SECURITY DEFINER, só territory-scope tenant NULL/scope_actor NULL/city obrigatório/active, grant+evento atômico, sem ON CONFLICT; ACL REVOKE de PUBLIC+unificard_app).

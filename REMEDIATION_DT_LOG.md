@@ -1,5 +1,20 @@
 # REMEDIATION DT LOG
 
+## PORTA-TERRITORY-1 — REMEDIAÇÃO GUARD-ONLY · COMMENT-AWARENESS + LIVENESS · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda reauditoria final Yala) (2026-07-12)
+Veredito Yala **🟠 B — UMA REMEDIAÇÃO CONSOLIDADA GUARD-ONLY**: o PRODUTO foi considerado CORRETO (writer/ACL owner-only/PUBLIC+app sem EXECUTE/bootstrap não-circular/one-shot/dry-run+apply/2 grants+2 eventos reais/D3 resolve ambos/rerun fail-closed/reconciliação N2-D.1-D.2 nominal/neighborhoods=0/Social-Bank intactos/Δbank=0). Única família aberta: 4 evasões que o guard `audit-territorial-grant-bootstrap.mjs` aceitava por usar presença de string sem comment-stripping/liveness. Commit guard-only `43a04b715` (**produto byte-intacto — só o guard muda**) + este cartório.
+
+**QUATRO EVASÕES REPRODUZIDAS (passavam antes):** (1) SECURITY DEFINER removido do cabeçalho mas mantido em comentário; (2) `CONFIRMED=true` hardcoded; (3) gate do COMMIT trocado por `if(true)`; (4) ROLLBACK do ramo dry-run removido enquanto o do catch permanece (a janela larga vazava para o ROLLBACK do catch).
+
+**REMEDIAÇÃO (R-1..R-5):** R-1 comment-stripping léxico SQL (`--`,`/* */`) e JS (`//`,`/* */`) preservando strings (`"--apply"`, `"PORTA-TERRITORY-1-CURITIBA"`, `//`/`/*`/`--` dentro de literais). R-2 SECURITY DEFINER exigido no CABEÇALHO VIVO (CREATE FUNCTION → `AS $…$`), uma única definição canônica. R-3 CONFIRMED DERIVADO de comparação exata com CONFIRM_TOKEN sobre `argv` (rejeita `=true`/`||=`/`??true`/`startsWith`/token-qualquer/reatribuição; APPLY de `argv.includes('--apply')`). R-4 COMMIT DOMINADO por `(APPLY && CONFIRMED && !failed)`, exatamente 1 COMMIT (rejeita `if(true)`/só-APPLY/só-!failed/`failed=false`/2º COMMIT). R-5 ROLLBACK VIVO no ramo dry-run/else ANTES do próximo `catch (` (o ROLLBACK do catch NÃO satisfaz).
+
+**MUTATIONS:** L01-L20 + C01-C10 (as 4 evasões + variantes: SECDEF em comentário/string/outra-função, CONFIRMED true/startsWith/qualquer-token/sobrescrito, COMMIT if(true)/só-APPLY/só-!failed, ROLLBACK dry-run removido/comentado) — todas MORDEM pelo motivo correto; controles benignos (strings com `//`,`/*`,`--`; comentário extra; whitespace; LF) passam. Guard verde no código real.
+
+**PROVAS:** guard GATE OK real · mutations mordem · **169 guards verdes** (runner permaneceu 169; nenhum guard novo/removido) · N2-D.1/D.2 OK · backend/frontend typecheck 0 · build verde · invariants 5/5 · `git diff --check` limpo. **Grants reais INTACTOS** (create `3e5cebe6…`, approve `44c9dc03…`; 2 eventos); **nenhuma reaplicação**; neighborhoods=0; bank_accounts=15; **Δbank=0**. Writer/one-shot/guards N2-D.1-D.2/runner byte-intactos.
+
+**STATUS: ⚙️ REMEDIAÇÃO GUARD-ONLY EXECUTADA E PROVADA · 🔴 PORTA-TERRITORY-1 CONTINUA NÃO SELADA** (aguarda uma única REAUDITORIA FINAL Yala). N3 TRANCADA; Social/Bank fora; N2-D/E/F/G seladas.
+
+---
+
 ## PORTA-TERRITORY-1 — PRIMEIRA ATIVAÇÃO REAL DE AUTORIDADE TERRITORIAL (CURITIBA) · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-12)
 Abre a autoridade territorial inicial de Curitiba concedendo ao Actor pessoal de Clayton os grants **territory:create_neighborhood + territory:approve_neighborhood**. Commit material `0e0b4ab5c` (`feat(authority): add governed territorial grant bootstrap`) + apply real da operação one-shot + este cartório docs-only.
 
