@@ -1,5 +1,24 @@
 # REMEDIATION DT LOG
 
+## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N2-F · COERÊNCIA COMPOSTA DE ADDRESSES ✅ INTEGRADA À rescue-structural (2026-07-12)
+Registro append-only da **integração controlada** da N2-F (já selada pela Yala) do branch isolado `n2f-address-composite-coherence` para `rescue-structural`. Não altera o produto material nem o selo; documenta o merge.
+
+**ARCO SELADO ORIGINAL (branch isolado):** `1e5ee8796` (base) → `4f3c6df6d` (material) → `39df72855` (cartório pré-selo) → `8049f2be7` (selo final). **Branch `n2f-address-composite-coherence` preservada como referência auditável.**
+
+**FRONTEND CONCORRENTE (outra sessão):** estabilizado e commitado em `58362a64b` (`feat(frontend): add public pre-login site pages and rework landing`) — só frontend, disjunto da N2-F. HEAD anterior da rescue-structural = `58362a64b`; **merge-base(rescue-structural, 8049f2be7) = `1e5ee8796`**.
+
+**MÉTODO:** avanço DISJUNTO desde a base → **merge normal NO-FF** (sem rebase/squash/cherry-pick/reset/stash/resolução manual). Interseção de arquivos frontend×N2-F = **VAZIA** (A∩B=∅); zero conflito. Merge commit = **`c399846b0`** (`merge: integrate sealed N2-F address coherence`), pais = `58362a64b` (frontend) + `8049f2be7` (N2-F selado) — ambos preservados como ancestrais no histórico.
+
+**HIGIENE LINE ENDINGS:** commit exclusivo **`20d8a6133`** (`chore(docs): normalize N2-F cartorio line endings`) normalizou CRLF→LF em `REMEDIATION_DT_LOG.md` e `dividatecnica.md` (reencodados no worktree em `39df72855`). **Mudança puramente de line-ending:** hash semântico (ignorando `\r`) idêntico antes/depois (REMEDIATION `da7435dd2e89df8a`; dividatecnica `7f01eb7a1bdf0b4f`); mesma contagem/ordem de linhas (17688 / 1630); `git diff --ignore-space-at-eol` sem alteração textual; só os 2 docs tocados; sem `.gitattributes`, sem renormalização do repo.
+
+**PROVAS DE INTEGRIDADE:** produto material N2-F **byte-idêntico** a `4f3c6df6d` (migration + `address-territorial-errors.ts` + rentals service/repository + `event.service.ts` + guard + `run-regression-guards.mjs` + 2 testes — 9/9 IDÊNTICOS); frontend **byte-idêntico** a `58362a64b` (nenhuma captura/reversão pelo lado N2-F); rescue-structural **contém** `8049f2be7` e `58362a64b`.
+
+**ESTADO PÓS-INTEGRAÇÃO (conforme selo; revalidado em §7):** 166 guards · typecheck 0 · zero resíduo · addresses=37 · neighborhoods=0 · territory grants=0 · curation events=0 · tokens=0 · 3 constraints N2-F vivas · FK simples removida · Δbank=0.
+
+**STATUS: ✅ N2-F SELADA E INTEGRADA À rescue-structural** (merge NO-FF, arco selado preservado, frontend preservado, produto byte-intacto). N2-E/N2-F seladas; **PORTA-TERRITORY-1, N2-G e N3 permanecem TRANCADAS; Social/Bank fora.** Worktree `C:\unificard-n2f-wt` removido após integração; branch de auditoria preservada.
+
+---
+
 ## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N2-F · COERÊNCIA COMPOSTA DE ADDRESSES ✅ SELADA PELA YALA · SELO COMPLETO · ✅ FECHAMENTO POR ENVELOPE (2026-07-12)
 Auditoria final por envelope (Yala, read-only) sobre o arco `1e5ee8796`→`4f3c6df6d`→`39df72855`. **Veredito A — SELO COMPLETO.** Encerra a N2-F (coerência composta de addresses). Base congelada = `1e5ee8796`; material = `4f3c6df6d`; cartório pré-selo = `39df72855`. Executada em **WORKTREE ISOLADO** (`C:\unificard-n2f-wt`, branch `n2f-address-composite-coherence`); **branch NÃO integrada** à rescue-structural.
 

@@ -269,6 +269,18 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (71) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-F INTEGRADA À rescue-structural (merge NO-FF, arco selado preservado)
+- Integração controlada da N2-F (já selada pela Yala) do branch isolado n2f-address-composite-coherence para rescue-structural.
+- Arco selado preservado: 1e5ee8796 → 4f3c6df6d → 39df72855 → 8049f2be7. Frontend concorrente estabilizado em 58362a64b (disjunto).
+- merge-base = 1e5ee8796; avanço disjunto → merge normal NO-FF (sem rebase/squash/cherry-pick/reset/stash). A∩B = ∅; zero conflito.
+- Merge commit c399846b0 (pais 58362a64b + 8049f2be7). Produto material byte-idêntico a 4f3c6df6d (9/9); frontend byte-idêntico a 58362a64b.
+- Higiene line endings: commit 20d8a6133 normalizou CRLF→LF em REMEDIATION_DT_LOG.md e dividatecnica.md — hash semântico idêntico
+  (da7435dd2e89df8a / 7f01eb7a1bdf0b4f), mesmas 17688 / 1630 linhas, git diff --ignore-space-at-eol sem alteração textual, só os 2 docs.
+- Provas pós-integração (conforme selo, revalidadas): 166 guards; typecheck 0; addresses=37; neighborhoods=0; grants=0; zero resíduo; Δbank=0.
+- Worktree C:\unificard-n2f-wt removido após integração; branch de auditoria preservada.
+- **STATUS:** N2-F SELADA E INTEGRADA. rescue-structural contém 8049f2be7. PORTA-TERRITORY-1/N2-G/N3 trancadas; nenhum grant/bairro
+  territorial real; Social/Bank fora.
+
 ### 2026-07-12 (70) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-F SELADA PELA YALA (SELO COMPLETO) — coerência composta de addresses, fechamento por envelope
 - Auditoria final por envelope (Yala read-only). Arco 1e5ee8796 → 4f3c6df6d → 39df72855. Veredito A · SELO COMPLETO.
 - Executada em worktree isolado (branch n2f-address-composite-coherence); branch AINDA NÃO integrada à rescue-structural.
