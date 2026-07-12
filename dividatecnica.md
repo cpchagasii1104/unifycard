@@ -269,6 +269,19 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (70) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-F SELADA PELA YALA (SELO COMPLETO) — coerência composta de addresses, fechamento por envelope
+- Auditoria final por envelope (Yala read-only). Arco 1e5ee8796 → 4f3c6df6d → 39df72855. Veredito A · SELO COMPLETO.
+- Executada em worktree isolado (branch n2f-address-composite-coherence); branch AINDA NÃO integrada à rescue-structural.
+- Confirmado: candidate key UNIQUE(city_id,neighborhood_id) + CHECK ck_addresses_neighborhood_requires_city +
+  FK composta fk_addresses_city_neighborhood (MATCH SIMPLE/RESTRICT/NO ACTION); FK simples removida; índice;
+  zero backfill textual; rentals/events protegidos; mapper por constraint exata; FK não-territorial e infra PROPAGAM.
+- Provas: DB 17/17; runtime TS 8/8; 32 mutations; 166 guards; typecheck 0; addresses=37; neighborhoods=0;
+  grants=0; zero resíduo; Δbank=0.
+- Pendência (não-bloqueante): higiene de line endings (docs reencodados p/ CRLF no 39df72855) a tratar em
+  procedimento SEPARADO antes da integração; nenhuma integração/normalização global autorizada no selo.
+- **STATUS:** N2-F SELADA · SELO COMPLETO · FECHAMENTO POR ENVELOPE. Branch isolado não integrado. Oficialmente
+  encerrada. PORTA-TERRITORY-1/N2-G/N3 trancadas; nenhum grant/bairro territorial real; Social/Bank fora.
+
 ### 2026-07-12 (69) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-F MATERIAL — coerência composta de addresses (worktree isolado, aguarda auditoria Yala por envelope)
 - GO material (martelos M-1..M-4; base congelada 1e5ee8796). Executada em WORKTREE LIMPO (branch
   n2f-address-composite-coherence), frontend concorrente intocado. Material `4f3c6df6d`. NÃO integrar antes de Yala.
