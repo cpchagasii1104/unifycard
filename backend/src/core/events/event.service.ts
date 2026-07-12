@@ -4,6 +4,7 @@
 
 import { runQueryWithTenant } from '@core/database/pool';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
+import { assertNeighborhoodRequiresCity, mapAddressTerritorialConstraintError } from '@core/location/address-territorial-errors';
 import { eventModeratorService } from './event-moderator.service';
 import type {
   Event,
@@ -519,27 +520,34 @@ class EventService {
 
     // LOCAL do evento (Fase A) — cityId GOVERNADO (Location Core), nunca texto. Persiste em
     // address_assignments(owner_type='event', role='OPERATIONAL'), mesmo padrão das locações.
+    // N2-F: venue com bairro sem cidade é rejeitado ANTES do INSERT (validação estrutural; coerência real = FK composta).
+    assertNeighborhoodRequiresCity(input.venueCityId ?? null, input.venueNeighborhoodId ?? null);
     if (input.venueCityId !== undefined && input.venueCityId !== null) {
       await runQueryWithTenant(tenantId,
         `UPDATE address_assignments SET valid_until_at = now(), is_primary = false, updated_at = now()
           WHERE owner_type = 'event' AND owner_id = $1::uuid AND role = 'OPERATIONAL'
             AND is_primary = true AND valid_until_at IS NULL`, [eventId]);
-      await runQueryWithTenant(tenantId,
-        `WITH geo AS (
-           SELECT c.state_id, s.country_id, c.lat AS city_lat, c.lng AS city_lng
-             FROM cities c JOIN states s ON s.state_id = c.state_id WHERE c.city_id = $2::uuid
-         ),
-         new_addr AS (
-           INSERT INTO addresses (country_id, state_id, city_id, neighborhood_id, postal_code,
-                                  neighborhood_display_text, lat, lng, is_geocoded, source, created_by_tenant_id)
-           SELECT geo.country_id, geo.state_id, $2::uuid, $4::uuid, $3, $5, geo.city_lat, geo.city_lng,
-                  false, 'UX_INPUT', $6::uuid FROM geo
-           RETURNING address_id
-         )
-         INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
-         SELECT 'event', $1::uuid, address_id, 'OPERATIONAL', true FROM new_addr`,
-        [eventId, input.venueCityId, input.venuePostalCode ?? null, input.venueNeighborhoodId ?? null,
-         input.venueNeighborhoodDisplay ?? null, tenantId]);
+      try {
+        await runQueryWithTenant(tenantId,
+          `WITH geo AS (
+             SELECT c.state_id, s.country_id, c.lat AS city_lat, c.lng AS city_lng
+               FROM cities c JOIN states s ON s.state_id = c.state_id WHERE c.city_id = $2::uuid
+           ),
+           new_addr AS (
+             INSERT INTO addresses (country_id, state_id, city_id, neighborhood_id, postal_code,
+                                    neighborhood_display_text, lat, lng, is_geocoded, source, created_by_tenant_id)
+             SELECT geo.country_id, geo.state_id, $2::uuid, $4::uuid, $3, $5, geo.city_lat, geo.city_lng,
+                    false, 'UX_INPUT', $6::uuid FROM geo
+             RETURNING address_id
+           )
+           INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
+           SELECT 'event', $1::uuid, address_id, 'OPERATIONAL', true FROM new_addr`,
+          [eventId, input.venueCityId, input.venuePostalCode ?? null, input.venueNeighborhoodId ?? null,
+           input.venueNeighborhoodDisplay ?? null, tenantId]);
+      } catch (error) {
+        // N2-F: traduz SÓ as constraints territoriais conhecidas; qualquer outra FK/infra PROPAGA intacta.
+        mapAddressTerritorialConstraintError(error);
+      }
     }
 
     if (updates.length === 0) {
