@@ -269,6 +269,22 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (59) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2-R3.1 — payload não-vazante do erro de revoke (guard-only, aguarda reauditoria Yala final)
+- Reauditoria da R3 (`6b9757496`): SELO COM RESSALVA guard-only. "Não vazante" tem 2 garantias: classe
+  (NOT_FOUND — R3 protegia) e CONTEÚDO (mensagem não revela tenant/Actor — desprotegido). Evasão:
+  conservar NOT_FOUND + incluir v_grant.tenant_id na mensagem. Correção guard-only (`de642a91e`);
+  produto R2 byte-intocado.
+- Guard endurecido: SHAPE FECHADO do branch (1 RAISE, sem statement executável/atribuição/log antes ou
+  depois) + ALLOWLIST POSITIVA do payload (removidos literais, só palavras-chave RAISE + format +
+  p_grant_id; qualquer outro token = vazamento). Cobre argumento direto/||/format/row_to_json/to_jsonb/
+  ::text/USING MESSAGE-DETAIL-HINT/log-antes/2ª exceção/variável intermediária. Anti-sobreajuste
+  (reformulação/multilinha/USING só-literais/com-sem p_grant_id passam).
+- Provas: guard PASS no código real; mutations 28/28 (L1-L19 + evasão original L1 e variante USING/format
+  + mutations críticas R3 preservadas + L20/B1-B3 benignos); 1 gap do guard fechado (classe NOT_FOUND
+  rejeitava USING benigno); suíte 163; produto intocado; 6 actors preservados; HOLDs 501 intactos; Δbank=0.
+- **STATUS:** N2-D.2-R2-R3.1 EXECUTADA — AGUARDA REAUDITORIA YALA FINAL LIMITADA. N2-D.2-R2 ainda sem
+  SELO COMPLETO; N2-D.2 geral permanece SELO COM RESSALVA. N2-D.3/PORTA/N2-E/N3 trancadas; Social/Bank fora.
+
 ### 2026-07-11 (58) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2-R3 — liveness do tenant check no revoke (guard-only, aguarda reauditoria Yala final)
 - Auditoria da R2 (`a7aef8107`): SELO COM RESSALVA de durabilidade do guard — o guard só verificava a
   PRESENÇA textual do tenant check no fn_revoke; evasão: `false AND`/`IF false THEN` torna a checagem
