@@ -150,7 +150,8 @@ try {
     if (!tenantBranch) {
       failures.push('fn_revoke: branch de tenant check (IF v_grant.tenant_id IS DISTINCT FROM p_expected_tenant_id THEN) ausente/estrutura divergente.');
     } else {
-      if (!/RAISE\s+EXCEPTION\s+'ACTOR_CAPABILITY_GRANT_NOT_FOUND/i.test(tenantBranch[1])) {
+      // classe NOT_FOUND — aceita a forma direta OU USING MESSAGE=/format( (payload checado pela allowlist).
+      if (!/RAISE\s+EXCEPTION\s+(?:USING\s+MESSAGE\s*=\s*)?(?:format\s*\(\s*)?'ACTOR_CAPABILITY_GRANT_NOT_FOUND/i.test(tenantBranch[1])) {
         failures.push('fn_revoke: branch de tenant nao levanta ACTOR_CAPABILITY_GRANT_NOT_FOUND (nao-vazante).');
       }
       if (/ACTOR_TENANT_MISMATCH|RAISE\s+(NOTICE|WARNING|LOG|INFO)|RETURN\b/i.test(tenantBranch[1])) {
@@ -164,6 +165,32 @@ try {
       if (iSelect < 0 || iTenant < iSelect) failures.push('fn_revoke: tenant check nao ocorre apos obter o grant.');
       if (iUpdate < 0 || iTenant > iUpdate) failures.push('fn_revoke: tenant check ocorre DEPOIS do UPDATE (inalcancavel/tarde demais).');
       if (iReturn >= 0 && iTenant > iReturn) failures.push('fn_revoke: tenant check ocorre DEPOIS do RETURN de sucesso.');
+
+      // ── R3.1: PAYLOAD NAO-VAZANTE do branch tenant-mismatch (shape fechado + allowlist positiva) ──
+      const branch = tenantBranch[1]; // corpo entre THEN e END IF
+      // (e) SHAPE FECHADO: exatamente 1 RAISE, nenhum statement executavel anterior/posterior/auxiliar.
+      const raiseCount = (branch.match(/\bRAISE\b/gi) || []).length;
+      if (raiseCount !== 1) failures.push(`fn_revoke: branch de tenant tem ${raiseCount} RAISE (esperado 1 — shape fechado, sem log/segunda excecao anterior).`);
+      if (/:=|\b(SELECT|PERFORM|UPDATE|INSERT|DELETE)\b/i.test(branch)) {
+        failures.push('fn_revoke: branch de tenant contem statement executavel/atribuicao (SELECT/PERFORM/UPDATE/INSERT/:=) — pode copiar dado sensivel antes do RAISE.');
+      }
+      if (/\bRAISE\s+(NOTICE|WARNING|LOG|INFO|DEBUG)\b/i.test(branch)) {
+        failures.push('fn_revoke: branch de tenant usa RAISE NOTICE/WARNING/LOG/INFO/DEBUG (log de dado antes do erro).');
+      }
+      // (f) ALLOWLIST POSITIVA: no RAISE (literais removidos), os UNICOS tokens de dado permitidos sao
+      //     palavras-chave do RAISE, `format` e `p_grant_id`. Qualquer outro identificador = vazamento.
+      const raiseStmt = (branch.match(/\bRAISE\b[\s\S]*?;/i) || [''])[0];
+      const skeleton = raiseStmt.replace(/'(?:[^']|'')*'/g, "''"); // remove conteudo de string literals
+      const ALLOWED = new Set(['raise', 'exception', 'using', 'message', 'detail', 'hint', 'errcode', 'format', 'p_grant_id']);
+      const idents = skeleton.match(/[A-Za-z_][A-Za-z_0-9.]*/g) || [];
+      const leaked = [...new Set(idents.map((t) => t.toLowerCase()).filter((t) => !ALLOWED.has(t)))];
+      if (leaked.length > 0) {
+        failures.push(`fn_revoke: mensagem/payload do branch tenant-mismatch referencia token(s) proibido(s) [${leaked.join(', ')}] — so literais + p_grant_id sao permitidos (allowlist R3.1).`);
+      }
+      // reforco explicito das serializacoes (mesmo que a allowlist ja pegue) — mensagem nominal clara.
+      if (/row_to_json|to_json\b|to_jsonb|::\s*(text|json|jsonb)|v_grant/i.test(raiseStmt)) {
+        failures.push('fn_revoke: RAISE do branch tenant serializa/expoe v_grant (row_to_json/to_jsonb/::text/campo) — vazamento.');
+      }
     }
 
     // territory → scope mismatch (preservado)
