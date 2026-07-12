@@ -35,6 +35,12 @@ import SharePage from './pages/SharePage';
 import SocialPage from './pages/SocialPage';
 import HomePage from './pages/HomePage';
 import WelcomePage from './pages/WelcomePage';
+// Site público pré-login (multi-página, antes do login/cadastro)
+import PropostaPage from './pages/public/PropostaPage';
+import SistemaPage from './pages/public/SistemaPage';
+import ParaVocePage from './pages/public/ParaVocePage';
+import AutogestaoPage from './pages/public/AutogestaoPage';
+import ParticiparPage from './pages/public/ParticiparPage';
 import SearchPage from './pages/SearchPage';
 import EmDesenvolvimentoPage from './pages/EmDesenvolvimentoPage';
 import TransparencyPage from './pages/TransparencyPage';
@@ -183,11 +189,13 @@ function AppContent() {
   const location = useLocation();
 
   // Rotas públicas não dependem de hidratação de sessão
+  const PUBLIC_SITE_PATHS = ['/proposta', '/o-que-da-pra-fazer', '/para-voce', '/autogestao', '/participar'];
   const isPublicRoute = location.pathname === '/' ||
                         location.pathname.startsWith('/marketplace') ||
                         location.pathname === '/login' ||
                         location.pathname === '/register' ||
-                        location.pathname.startsWith('/pay/');
+                        location.pathname.startsWith('/pay/') ||
+                        PUBLIC_SITE_PATHS.includes(location.pathname);
 
   // Aguardar só até o bootstrap terminar; sem actor válido, layouts mostram UI de bloqueio (não loading infinito)
   if (!authHydrated && !isPublicRoute) {
@@ -220,6 +228,13 @@ function AppContent() {
           <Route path="/pay/:slug" element={<PaymentLinkPage />} />
           {/* Motor Canônico: Landing do link compartilhável (rota pública) */}
           <Route path="/share/:entityType/:entityId" element={<SharePage />} />
+          {/* Site público pré-login (multi-página). Acessível sem conta; não gate de auth.
+              CTAs internos apontam para /login e /register (fluxos existentes, intocados). */}
+          <Route path="/proposta" element={<PropostaPage />} />
+          <Route path="/o-que-da-pra-fazer" element={<SistemaPage />} />
+          <Route path="/para-voce" element={<ParaVocePage />} />
+          <Route path="/autogestao" element={<AutogestaoPage />} />
+          <Route path="/participar" element={<ParticiparPage />} />
           {/* Marketplace — dentro do shell autenticado (pedido Clayton 2026-07-07; vitrine pública real = /share e vitrine de perfil) */}
           <Route path="marketplace" element={<ProtectedRoute><MarketplaceHomePage /></ProtectedRoute>} />
           <Route path="marketplace/market" element={<ProtectedRoute><MarketplaceDomainPage /></ProtectedRoute>} />

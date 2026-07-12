@@ -1,0 +1,289 @@
+/* frontend/src/pages/public/public-site.css
+ * Site público pré-login do UnifiCard — sistema de estilo compartilhado.
+ *
+ * Prefixo isolado `ucland-` (não colide com nenhum componente autenticado).
+ * Direção visual: humana, próxima, quente. Roxo da marca como assinatura,
+ * acentos quentes (dourado, verde, azul) com moderação. Sem estética de
+ * banco/painel/cripto/governo. Mobile-first, sem rolagem horizontal.
+ *
+ * Compartilhado por: WelcomePage (home) e todas as páginas em pages/public/.
+ */
+
+.ucland-root {
+  --uc-purple: #6d28d9;
+  --uc-purple-600: #7c3aed;
+  --uc-purple-700: #5b21b6;
+  --uc-purple-900: #3b1a78;
+  --uc-gold: #f59e0b;
+  --uc-green: #10b981;
+  --uc-blue: #3b82f6;
+  --uc-ink: #241f2e;
+  --uc-slate: #4b4757;
+  --uc-muted: #6f6a7d;
+  --uc-line: #ece7f7;
+  --uc-surface: #ffffff;
+  --uc-radius: 18px;
+  --uc-shadow: 0 8px 30px rgba(76, 29, 149, 0.08);
+  --uc-shadow-sm: 0 2px 10px rgba(76, 29, 149, 0.06);
+  --uc-maxw: 1120px;
+
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, #fff2df 0%, rgba(255, 242, 223, 0) 55%),
+    linear-gradient(180deg, #fffaf4 0%, #f7f2ff 100%);
+  color: var(--uc-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ============ Botões ============ */
+.ucland-btn {
+  font-family: inherit; font-size: 0.95rem; font-weight: 600;
+  padding: 0.6rem 1.15rem; border-radius: 12px; border: 1.5px solid transparent;
+  cursor: pointer; min-height: 42px; white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.06s ease, box-shadow 0.15s ease;
+}
+.ucland-btn:active { transform: translateY(1px); }
+.ucland-btn:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
+.ucland-btn-primary {
+  background: var(--uc-purple); color: #fff; border-color: var(--uc-purple);
+  box-shadow: 0 6px 18px rgba(109, 40, 217, 0.28);
+}
+.ucland-btn-primary:hover { background: var(--uc-purple-700); border-color: var(--uc-purple-700); }
+.ucland-btn-ghost { background: transparent; color: var(--uc-purple-700); border-color: #ddd6fe; }
+.ucland-btn-ghost:hover { background: #f5f3ff; border-color: #c4b5fd; }
+.ucland-btn-soft { background: #fff; color: var(--uc-purple-700); border-color: #e6ddf7; box-shadow: var(--uc-shadow-sm); }
+.ucland-btn-soft:hover { background: #faf7ff; border-color: #d6c9f2; }
+.ucland-btn-lg { font-size: 1.02rem; padding: 0.9rem 1.7rem; min-height: 52px; border-radius: 14px; }
+.ucland-btn-ondark { background: #fff; color: var(--uc-purple-700); border-color: #fff; }
+.ucland-btn-ondark:hover { background: #f3edff; }
+.ucland-btn-ondark-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.5); }
+.ucland-btn-ondark-ghost:hover { background: rgba(255,255,255,0.12); border-color: #fff; }
+
+/* ============ Logo ============ */
+.ucland-logo { position: relative; width: 30px; height: 30px; display: inline-block; flex-shrink: 0; }
+.ucland-logo-core { position: absolute; inset: 11px; background: var(--uc-purple); border-radius: 50%; }
+.ucland-logo-ring { position: absolute; border: 1.6px solid var(--uc-purple); border-radius: 50%; }
+.ucland-logo-ring-1 { inset: 6px; opacity: 0.7; }
+.ucland-logo-ring-2 { inset: 0; opacity: 0.35; }
+.ucland-brand { display: flex; align-items: center; gap: 0.6rem; background: none; border: none; padding: 0; cursor: pointer; }
+.ucland-brandname { font-size: 1.12rem; font-weight: 700; letter-spacing: -0.01em; color: var(--uc-ink); }
+
+/* ============ Cabeçalho ============ */
+.ucland-header {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255, 251, 246, 0.82);
+  backdrop-filter: saturate(1.2) blur(10px); -webkit-backdrop-filter: saturate(1.2) blur(10px);
+  border-bottom: 1px solid transparent;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.ucland-header.is-scrolled { box-shadow: 0 4px 20px rgba(76, 29, 149, 0.07); border-bottom-color: var(--uc-line); }
+.ucland-header-inner {
+  max-width: var(--uc-maxw); margin: 0 auto; width: 100%; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 1.5rem;
+}
+.ucland-nav-desktop { display: flex; align-items: center; gap: 0.15rem; }
+.ucland-navlink {
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  font-size: 0.92rem; font-weight: 500; color: var(--uc-slate);
+  padding: 0.5rem 0.7rem; border-radius: 9px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.ucland-navlink:hover { color: var(--uc-purple-700); background: #f4efff; }
+.ucland-navlink.is-active { color: var(--uc-purple-700); font-weight: 600; background: #efe7ff; }
+.ucland-navlink:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 1px; }
+.ucland-header-actions { display: flex; align-items: center; gap: 0.5rem; }
+.ucland-menu-toggle {
+  display: none; flex-direction: column; gap: 4px; justify-content: center;
+  width: 42px; height: 42px; border: 1.5px solid #e6ddf7; border-radius: 11px;
+  background: #fff; cursor: pointer; padding: 0 10px;
+}
+.ucland-menu-toggle span { display: block; height: 2px; background: var(--uc-purple-700); border-radius: 2px; }
+.ucland-menu-toggle:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
+.ucland-nav-mobile {
+  display: flex; flex-direction: column; gap: 0.2rem;
+  padding: 0.5rem 1rem 1rem; border-top: 1px solid var(--uc-line);
+  background: rgba(255, 251, 246, 0.98);
+}
+.ucland-navlink-mobile {
+  background: none; border: none; cursor: pointer; font-family: inherit; text-align: left;
+  font-size: 1rem; font-weight: 500; color: var(--uc-slate); padding: 0.8rem 0.6rem; border-radius: 10px;
+}
+.ucland-navlink-mobile:hover, .ucland-navlink-mobile.is-active { background: #f4efff; color: var(--uc-purple-700); }
+
+/* ============ Main / seções ============ */
+.ucland-main { max-width: var(--uc-maxw); margin: 0 auto; width: 100%; box-sizing: border-box; padding: 0 1.5rem; }
+.ucland-section { padding: 3.5rem 0; scroll-margin-top: 84px; }
+.ucland-kicker { text-transform: uppercase; font-size: 0.76rem; letter-spacing: 0.14em; font-weight: 700; color: var(--uc-purple-600); margin: 0 0 0.7rem; }
+.ucland-eyebrow {
+  display: inline-block; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--uc-purple-700); background: #efe7ff; border: 1px solid #e0d4fb;
+  padding: 0.3rem 0.75rem; border-radius: 999px; margin: 0 0 1.1rem;
+}
+.ucland-h2 { font-size: clamp(1.5rem, 3.4vw, 2.15rem); font-weight: 800; line-height: 1.18; letter-spacing: -0.02em; color: var(--uc-ink); margin: 0 0 1rem; max-width: 24ch; }
+.ucland-lead { font-size: clamp(1.02rem, 1.6vw, 1.16rem); color: var(--uc-slate); line-height: 1.6; margin: 0 0 0.9rem; max-width: 64ch; }
+.ucland-lead-soft { color: var(--uc-muted); }
+.ucland-lead-center { margin-left: auto; margin-right: auto; text-align: center; }
+.ucland-note { font-size: 0.92rem; color: var(--uc-muted); line-height: 1.55; margin: 1.5rem 0 0; max-width: 62ch; font-style: italic; }
+.ucland-note-center { margin-left: auto; margin-right: auto; text-align: center; }
+.ucland-note-strong { font-style: normal; font-weight: 600; color: var(--uc-purple-900); font-size: 1.02rem; max-width: 62ch; }
+.ucland-mt { margin-top: 2rem; }
+
+/* ============ Hero ============ */
+.ucland-hero { padding: 3.25rem 0 2.5rem; }
+.ucland-hero-centered { display: block; text-align: center; }
+.ucland-hero-title { font-size: clamp(2.05rem, 5vw, 3rem); font-weight: 800; line-height: 1.12; letter-spacing: -0.025em; color: #16121f; margin: 0 0 1.15rem; max-width: 20ch; }
+.ucland-hero-centered .ucland-hero-title { margin-left: auto; margin-right: auto; }
+.ucland-hero-sub { font-size: clamp(1.05rem, 1.9vw, 1.22rem); color: var(--uc-slate); line-height: 1.55; margin: 0 0 1.9rem; max-width: 56ch; }
+.ucland-hero-centered .ucland-hero-sub { margin-left: auto; margin-right: auto; }
+.ucland-cta-row { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.ucland-cta-center { justify-content: center; }
+
+/* Page hero (páginas internas) */
+.ucland-pagehero { text-align: center; padding: 3rem 0 1rem; }
+.ucland-pagehero .ucland-h2 { margin-left: auto; margin-right: auto; max-width: 22ch; font-size: clamp(1.9rem, 4.4vw, 2.7rem); }
+.ucland-pagehero .ucland-lead { margin-left: auto; margin-right: auto; text-align: center; max-width: 58ch; }
+
+/* ============ Visual "soma" — sociedade conectada ============ */
+.ucland-sum {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.55rem; margin-top: 2.25rem;
+  background: linear-gradient(135deg, #f4eeff 0%, #fef4e6 100%);
+  border: 1px solid #ece2fb; border-radius: 22px; padding: 1.9rem 1.5rem;
+}
+.ucland-sum-chip { background: #fff; border: 1.5px solid #e2d7f7; border-radius: 999px; padding: 0.55rem 1.05rem; font-weight: 600; font-size: 0.96rem; color: var(--uc-purple-900); box-shadow: var(--uc-shadow-sm); }
+.ucland-sum-op { color: var(--uc-purple-600); font-size: 1.15rem; font-weight: 700; }
+.ucland-sum-eq { font-size: 1.4rem; }
+.ucland-sum-result { background: var(--uc-purple); color: #fff; border-radius: 999px; padding: 0.65rem 1.35rem; font-weight: 700; font-size: 1.02rem; box-shadow: 0 8px 20px rgba(109, 40, 217, 0.3); }
+
+/* ============ Grades de cards ============ */
+.ucland-grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.1rem; margin-top: 2rem; }
+.ucland-grid-4 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.ucland-activity { background: var(--uc-surface); border: 1px solid var(--uc-line); border-radius: var(--uc-radius); padding: 1.5rem 1.35rem; box-shadow: var(--uc-shadow-sm); transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+.ucland-activity:hover { transform: translateY(-3px); box-shadow: var(--uc-shadow); border-color: #e0d4fb; }
+.ucland-activity-icon { display: inline-flex; align-items: center; justify-content: center; width: 50px; height: 50px; border-radius: 14px; margin-bottom: 0.9rem; color: var(--uc-purple-700); background: #f1ebff; }
+.ucland-activity:nth-child(4n+2) .ucland-activity-icon { color: #b45309; background: #fff1d9; }
+.ucland-activity:nth-child(4n+3) .ucland-activity-icon { color: #047857; background: #dcfaee; }
+.ucland-activity:nth-child(4n+4) .ucland-activity-icon { color: #1d4ed8; background: #e2ecff; }
+.ucland-activity-title { font-size: 1.08rem; font-weight: 700; margin: 0 0 0.35rem; color: var(--uc-ink); }
+.ucland-activity-text { font-size: 0.95rem; color: var(--uc-slate); line-height: 1.5; margin: 0; }
+.ucland-activity-text-lead { font-size: 1rem; color: var(--uc-ink); font-weight: 500; }
+
+/* Status tag (honestidade: disponível x em construção) */
+.ucland-tag { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; padding: 0.28rem 0.6rem; border-radius: 999px; margin-top: 0.9rem; }
+.ucland-tag::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.ucland-tag-live { color: #047857; background: #dcfaee; }
+.ucland-tag-soon { color: #b45309; background: #fff1d9; }
+
+/* ============ Ciclo ============ */
+.ucland-cycle-steps { list-style: none; padding: 0; margin: 2.25rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+.ucland-cycle-steps li { display: flex; align-items: flex-start; gap: 0.85rem; background: var(--uc-surface); border: 1px solid var(--uc-line); border-radius: 15px; padding: 1.2rem 1.15rem; box-shadow: var(--uc-shadow-sm); }
+.ucland-cycle-num { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--uc-purple); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+.ucland-cycle-text { font-size: 0.97rem; color: var(--uc-ink); line-height: 1.45; font-weight: 500; }
+
+/* ============ Blocos com fundo (destaque) ============ */
+.ucland-band { background: linear-gradient(135deg, #eef3ff 0%, #f6efff 100%); border: 1px solid #e5e3fb; border-radius: 24px; padding: 2.75rem 2.25rem; }
+.ucland-idea { background: linear-gradient(135deg, #f3ecff 0%, #fef3e4 100%); border: 1px solid #ece2fb; border-radius: 24px; padding: 2.75rem 2.25rem; }
+.ucland-stage { background: #fff; border: 1px solid var(--uc-line); border-radius: 24px; padding: 2.5rem 2.25rem; box-shadow: var(--uc-shadow-sm); }
+
+/* ============ Split (texto + lista) ============ */
+.ucland-split { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: center; }
+.ucland-benefits { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.7rem; }
+.ucland-benefits li { display: flex; align-items: flex-start; gap: 0.75rem; background: var(--uc-surface); border: 1px solid var(--uc-line); border-radius: 13px; padding: 0.9rem 1.05rem; font-size: 1rem; color: var(--uc-ink); line-height: 1.45; box-shadow: var(--uc-shadow-sm); }
+.ucland-benefit-check { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; color: #047857; background: #dcfaee; }
+
+/* ============ Públicos (audiências) ============ */
+.ucland-audience { background: var(--uc-surface); border: 1px solid var(--uc-line); border-radius: var(--uc-radius); padding: 1.6rem 1.45rem; box-shadow: var(--uc-shadow-sm); }
+.ucland-audience-head { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.75rem; }
+.ucland-audience-icon { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 12px; color: var(--uc-purple-700); background: #f1ebff; flex-shrink: 0; }
+.ucland-audience-name { font-size: 1.12rem; font-weight: 700; color: var(--uc-ink); margin: 0; }
+.ucland-audience-want { font-size: 0.86rem; color: var(--uc-purple-600); font-weight: 600; margin: 0.1rem 0 0; }
+.ucland-audience-text { font-size: 0.95rem; color: var(--uc-slate); line-height: 1.5; margin: 0; }
+
+/* ============ Escada territorial (fundos) ============ */
+.ucland-ladder { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 2rem; }
+.ucland-ladder-row { display: flex; align-items: center; gap: 0.9rem; background: var(--uc-surface); border: 1px solid var(--uc-line); border-radius: 13px; padding: 0.9rem 1.15rem; box-shadow: var(--uc-shadow-sm); }
+.ucland-ladder-ic { display: inline-flex; width: 38px; height: 38px; border-radius: 10px; align-items: center; justify-content: center; color: var(--uc-purple-700); background: #f1ebff; flex-shrink: 0; }
+.ucland-ladder-name { font-weight: 700; color: var(--uc-ink); font-size: 1rem; }
+.ucland-ladder-desc { color: var(--uc-muted); font-size: 0.9rem; margin-left: auto; text-align: right; }
+.ucland-ladder-row.is-hold { opacity: 0.72; border-style: dashed; }
+
+/* Escada com recuo progressivo (macro -> micro) */
+.ucland-ladder-row:nth-child(1) { margin-left: 0; }
+.ucland-ladder-row:nth-child(2) { margin-left: 1.2rem; }
+.ucland-ladder-row:nth-child(3) { margin-left: 2.4rem; }
+.ucland-ladder-row:nth-child(4) { margin-left: 3.6rem; }
+.ucland-ladder-row:nth-child(5) { margin-left: 4.8rem; }
+
+/* ============ Timeline (longo prazo) ============ */
+.ucland-timeline { list-style: none; padding: 0; margin: 2rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.1rem; }
+.ucland-timeline li { background: var(--uc-surface); border: 1px solid var(--uc-line); border-radius: 15px; padding: 1.4rem 1.3rem; box-shadow: var(--uc-shadow-sm); }
+.ucland-timeline-when { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--uc-purple-600); margin: 0 0 0.4rem; }
+.ucland-timeline-what { font-size: 1rem; color: var(--uc-ink); line-height: 1.45; margin: 0; font-weight: 500; }
+
+/* ============ Bloco escuro (futuro / ênfase) ============ */
+.ucland-dark { background: linear-gradient(160deg, #2a1a54 0%, #4c1d95 100%); border-radius: 26px; padding: 3rem 2.4rem; color: #f3efff; }
+.ucland-dark .ucland-kicker { color: #d6c6ff; }
+.ucland-dark .ucland-h2 { color: #fff; }
+.ucland-dark .ucland-lead { color: #e6ddfa; }
+.ucland-dark-list { list-style: none; padding: 0; margin: 1.75rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.7rem; }
+.ucland-dark-list li { position: relative; padding: 0.7rem 0.9rem 0.7rem 2.4rem; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; font-size: 0.97rem; color: #f0eafc; }
+.ucland-dark-list li::before { content: ''; position: absolute; left: 0.95rem; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%; background: var(--uc-gold); }
+.ucland-dark-quote { margin: 1.9rem 0 0; font-size: 1.05rem; line-height: 1.55; color: #f6f1ff; border-left: 3px solid var(--uc-gold); padding-left: 1.1rem; max-width: 62ch; }
+
+/* ============ Faixa de CTA ============ */
+.ucland-ctaband { text-align: center; padding: 3rem 0 3.5rem; }
+.ucland-ctaband-inner { background: linear-gradient(135deg, #f3ecff 0%, #fef3e4 100%); border: 1px solid #ece2fb; border-radius: 26px; padding: 2.75rem 2rem; }
+.ucland-ctaband h2 { font-size: clamp(1.5rem, 3.4vw, 2.1rem); font-weight: 800; letter-spacing: -0.02em; color: var(--uc-ink); margin: 0 auto 0.9rem; max-width: 20ch; }
+.ucland-ctaband p { font-size: 1.05rem; color: var(--uc-slate); line-height: 1.55; margin: 0 auto 1.75rem; max-width: 52ch; }
+
+/* Final CTA centralizado (home / participar) */
+.ucland-final { text-align: center; padding: 3.5rem 0 4rem; }
+.ucland-final-title { font-size: clamp(1.7rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; color: var(--uc-ink); margin: 0 auto 1.1rem; max-width: 18ch; }
+.ucland-final-sub { font-size: clamp(1.02rem, 1.7vw, 1.18rem); color: var(--uc-slate); line-height: 1.6; margin: 0 auto 2rem; max-width: 56ch; }
+
+/* ============ Links entre páginas (cards de navegação) ============ */
+.ucland-navcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.1rem; margin-top: 2rem; }
+.ucland-navcard { text-align: left; background: var(--uc-surface); border: 1px solid var(--uc-line); border-radius: var(--uc-radius); padding: 1.5rem 1.4rem; box-shadow: var(--uc-shadow-sm); cursor: pointer; font-family: inherit; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+.ucland-navcard:hover { transform: translateY(-3px); box-shadow: var(--uc-shadow); border-color: #d6c9f2; }
+.ucland-navcard:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
+.ucland-navcard-title { font-size: 1.1rem; font-weight: 700; color: var(--uc-ink); margin: 0 0 0.35rem; }
+.ucland-navcard-text { font-size: 0.94rem; color: var(--uc-slate); line-height: 1.5; margin: 0; }
+.ucland-navcard-more { display: inline-block; margin-top: 0.9rem; font-size: 0.9rem; font-weight: 700; color: var(--uc-purple-700); }
+
+/* ============ Rodapé ============ */
+.ucland-footer { border-top: 1px solid var(--uc-line); margin-top: 1rem; background: rgba(255, 255, 255, 0.5); }
+.ucland-footer-inner { max-width: var(--uc-maxw); margin: 0 auto; width: 100%; box-sizing: border-box; padding: 2rem 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; }
+.ucland-brand-footer { cursor: pointer; }
+.ucland-footer-note { flex: 1; min-width: 220px; font-size: 0.92rem; color: var(--uc-muted); margin: 0; line-height: 1.5; }
+.ucland-footer-actions { display: flex; gap: 0.5rem; }
+
+/* ============ Revelação suave (só com movimento permitido) ============ */
+.ucland--motion .ucland-reveal { opacity: 0; transform: translateY(18px); }
+.ucland--motion .ucland-reveal.is-in { opacity: 1; transform: none; transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* ============ Responsivo ============ */
+@media (max-width: 900px) {
+  .ucland-split { grid-template-columns: 1fr; gap: 1.5rem; }
+  .ucland-ladder-row { margin-left: 0 !important; }
+}
+@media (max-width: 760px) {
+  .ucland-nav-desktop { display: none; }
+  .ucland-menu-toggle { display: flex; }
+  .ucland-hide-sm { display: none; }
+}
+@media (max-width: 560px) {
+  .ucland-main { padding: 0 1.1rem; }
+  .ucland-header-inner { padding: 0.7rem 1.1rem; }
+  .ucland-section { padding: 2.75rem 0; }
+  .ucland-idea, .ucland-band, .ucland-stage, .ucland-ctaband-inner { padding: 1.9rem 1.3rem; border-radius: 20px; }
+  .ucland-dark { padding: 2.2rem 1.4rem; border-radius: 20px; }
+  .ucland-cta-row .ucland-btn { flex: 1 1 auto; }
+  .ucland-footer-inner { flex-direction: column; align-items: flex-start; }
+  .ucland-sum-chip { font-size: 0.88rem; padding: 0.5rem 0.9rem; }
+  .ucland-ladder-desc { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ucland-root * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .ucland-reveal { opacity: 1 !important; transform: none !important; }
+}
