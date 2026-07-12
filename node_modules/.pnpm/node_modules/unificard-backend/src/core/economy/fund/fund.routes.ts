@@ -1,3 +1,0 @@
-// LEGACY MODULE DISABLED
-// core/economy/fund está em extinção conforme SSOT_EXCLUSIVE_BANK_RULE.md
-export {};
