@@ -6,6 +6,7 @@
 
 import { authorizationService } from '@core/authorization/authorization.service';
 import { HttpError } from '@core/errors/http-error';
+import { assertNeighborhoodRequiresCity } from '@core/location/address-territorial-errors';
 import { rentableResourceRepository } from './rentable-resource.repository';
 import type {
   RentableResource,
@@ -146,6 +147,8 @@ class RentableResourceService {
     // vínculo de localização pelo padrão canônico address_assignments → addresses → cities.
     // Endereço COMPLETO quando informado (imóvel/espaço); senão nível-cidade (veículo/equip). CEP refina
     // a coord; sem rede usa a da cidade. A verdade é city_id/neighborhood_id — nunca texto de cidade.
+    // N2-F: bairro sem cidade é rejeitado ANTES do INSERT (validação estrutural; coerência real = FK composta).
+    assertNeighborhoodRequiresCity(input.cityId, input.neighborhoodId);
     if (input.cityId) {
       const geo = await this.resolveCepGeo(input.postalCode);
       await rentableResourceRepository.assignAddressToResource(tenantId, created.id, {
@@ -811,6 +814,8 @@ class RentableResourceService {
     if (input.pricingTiers) {
       await rentableResourceRepository.setPricingTiers(tenantId, resourceId, input.pricingTiers);
     }
+    // N2-F: bairro sem cidade rejeitado antes do INSERT (validação estrutural; coerência real = FK composta).
+    assertNeighborhoodRequiresCity(input.cityId, input.neighborhoodId);
     if (input.cityId) {
       const geo = await this.resolveCepGeo(input.postalCode);
       await rentableResourceRepository.assignAddressToResource(tenantId, resourceId, {

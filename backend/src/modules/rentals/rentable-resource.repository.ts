@@ -3,6 +3,7 @@
 // migration 20260624120000, RLS+FORCE). Sem coluna financeira (se aparecer aqui, viola DECISION-0151).
 
 import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
+import { mapAddressTerritorialConstraintError } from '@core/location/address-territorial-errors';
 import type {
   RentableResource,
   RentableResourceRow,
@@ -688,24 +689,29 @@ class RentableResourceRepository {
       `UPDATE address_assignments SET valid_until_at = now(), is_primary = false, updated_at = now()
         WHERE owner_type = 'actor_asset' AND owner_id = $1::uuid AND role = 'PICKUP'
           AND is_primary = true AND valid_until_at IS NULL`, [resourceId]);
-    await runQueriesWithTenant(tenantId,
-      `WITH geo AS (
-         SELECT c.state_id, s.country_id, c.lat AS city_lat, c.lng AS city_lng
-           FROM cities c JOIN states s ON s.state_id = c.state_id WHERE c.city_id = $2::uuid
-       ),
-       new_addr AS (
-         INSERT INTO addresses (country_id, state_id, city_id, neighborhood_id, postal_code, street, number,
-                                complement, neighborhood_display_text, lat, lng, is_geocoded, source, created_by_tenant_id)
-         SELECT geo.country_id, geo.state_id, $2::uuid, $5::uuid, $4, $6, $7, $8, $9,
-                COALESCE($10::numeric, geo.city_lat), COALESCE($11::numeric, geo.city_lng),
-                false, 'UX_INPUT', $3::uuid FROM geo
-         RETURNING address_id
-       )
-       INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
-       SELECT 'actor_asset', $1::uuid, address_id, 'PICKUP', true FROM new_addr`,
-      [resourceId, a.cityId, tenantId, a.postalCode ?? null, a.neighborhoodId ?? null,
-       a.street ?? null, a.number ?? null, a.complement ?? null, a.neighborhoodDisplay ?? null,
-       a.lat ?? null, a.lng ?? null]);
+    try {
+      await runQueriesWithTenant(tenantId,
+        `WITH geo AS (
+           SELECT c.state_id, s.country_id, c.lat AS city_lat, c.lng AS city_lng
+             FROM cities c JOIN states s ON s.state_id = c.state_id WHERE c.city_id = $2::uuid
+         ),
+         new_addr AS (
+           INSERT INTO addresses (country_id, state_id, city_id, neighborhood_id, postal_code, street, number,
+                                  complement, neighborhood_display_text, lat, lng, is_geocoded, source, created_by_tenant_id)
+           SELECT geo.country_id, geo.state_id, $2::uuid, $5::uuid, $4, $6, $7, $8, $9,
+                  COALESCE($10::numeric, geo.city_lat), COALESCE($11::numeric, geo.city_lng),
+                  false, 'UX_INPUT', $3::uuid FROM geo
+           RETURNING address_id
+         )
+         INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
+         SELECT 'actor_asset', $1::uuid, address_id, 'PICKUP', true FROM new_addr`,
+        [resourceId, a.cityId, tenantId, a.postalCode ?? null, a.neighborhoodId ?? null,
+         a.street ?? null, a.number ?? null, a.complement ?? null, a.neighborhoodDisplay ?? null,
+         a.lat ?? null, a.lng ?? null]);
+    } catch (error) {
+      // N2-F: traduz SÓ as constraints territoriais conhecidas; qualquer outra FK/infra PROPAGA intacta.
+      mapAddressTerritorialConstraintError(error);
+    }
   }
 
   /** Atualiza o metadata (facets/atributos tipados da oferta — ex.: tempo mínimo). jsonb inteiro. */
