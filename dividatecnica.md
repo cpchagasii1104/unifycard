@@ -269,6 +269,18 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (68) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-E SELADA PELA YALA (SELO COMPLETO) — primeiro writer canônico, fechamento por envelope
+- Auditoria final por envelope (Yala read-only) sobre o arco: base d2bd016cf → material 3002d174e → cartório
+  0d18de5ce → remediação guard-only 9d128c28a → cartório 859df2a4e. Veredito A · SELO COMPLETO.
+- Produto material byte-intacto desde 3002d174e (inclusive durante a remediação). Writer atômico create+approve,
+  ownership-direto (barreira SQL FOR SHARE), 2 grant_ids + 2 eventos, token transacional one-use não-sobrevivente,
+  HOLD bloqueia INSERT-sem-token/UPDATE/DELETE, ACL correta, auditoria append-only, service/repository corretos.
+- R-1 liveness do HOLD + R-2 liveness do consumo do token + R-3 cobertura de DML da migration: fechadas.
+  16 invariantes selados. Observação não-bloqueante: hardening futuro opcional do search_path normalize_name/
+  unaccent (não condiciona o selo). 165 guards; typecheck 0; zero resíduo; 6 Actors; HOLDs ENABLE ALWAYS; Δbank=0.
+- **STATUS:** N2-E SELADA · SELO COMPLETO · FECHAMENTO POR ENVELOPE. Oficialmente encerrada. PORTA-TERRITORY-1/
+  N2-F/N2-G/N3 trancadas; nenhum grant/bairro territorial real; Social/Bank fora.
+
 ### 2026-07-12 (67) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-E REMEDIAÇÃO — liveness do HOLD/token + cobertura de DML (guard-only, aguarda reauditoria Yala final)
 - Reauditoria Yala da N2-E (`3002d174e`): B guard-only. Produto pronto para selo; única família = liveness
   dos triggers + DML da migration. Base `0d18de5ce`; material remediação `9d128c28a` (produto byte-intocado).
