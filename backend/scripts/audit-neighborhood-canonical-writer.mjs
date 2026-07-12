@@ -20,6 +20,32 @@ function fnBody(sql, name) {
   const m = sql.match(new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+${name}\\s*\\(([\\s\\S]*?)\\$func\\$;`, 'i'));
   return m ? m[0] : '';
 }
+// corpo executável (entre o primeiro BEGIN e o último END) de um texto de função já comment-stripped.
+function execBody(fnText) {
+  const m = /\bBEGIN\b([\s\S]*)\bEND\b\s*;?\s*\$func\$/i.exec(fnText) || /\bBEGIN\b([\s\S]*)\bEND\b/i.exec(fnText);
+  return m ? m[1] : '';
+}
+// remove literais (single-quote e dollar-quote) → placeholder, p/ contagem de palavras-chave reais.
+function stripStrings(s) {
+  let out = '', i = 0, n = s.length;
+  while (i < n) {
+    const c = s[i];
+    if (c === "'") { i++; while (i < n) { if (s[i] === "'") { if (s[i + 1] === "'") { i += 2; continue; } i++; break; } i++; } out += "''"; continue; }
+    if (c === '$') { const m = /^\$([A-Za-z_][A-Za-z_0-9]*)?\$/.exec(s.slice(i)); if (m) { const tag = m[0]; const end = s.indexOf(tag, i + tag.length); if (end < 0) { out += ' '; i = n; } else { out += "''"; i = end + tag.length; } continue; } }
+    out += c; i++;
+  }
+  return out;
+}
+// remove SÓ literais single-quote (preserva dollar-quotes/DO-blocks — p/ R-3 varrer DML em DO-blocks).
+function stripSingleQuotes(s) {
+  let out = '', i = 0, n = s.length;
+  while (i < n) { const c = s[i]; if (c === "'") { i++; while (i < n) { if (s[i] === "'") { if (s[i + 1] === "'") { i += 2; continue; } i++; break; } i++; } out += "''"; continue; } out += c; i++; }
+  return out;
+}
+// remove o corpo $func$...$func$ de uma função NOMINAL do SQL (deixa header/DDL/DO-blocks intactos).
+function removeNamedFnBody(sql, name) {
+  return sql.replace(new RegExp(`(CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+${name}\\s*\\([\\s\\S]*?AS\\s+)\\$func\\$[\\s\\S]*?\\$func\\$(\\s*;)`, 'i'), '$1 __FN_BODY__ $2');
+}
 
 try {
   const MIG = join(ROOT, 'migrations');
@@ -108,21 +134,49 @@ try {
     if (!/NEIGHBORHOOD_NAME_INVALID/i.test(body)) failures.push(`${WRITER}: validação de nome (NEIGHBORHOOD_NAME_INVALID) ausente.`);
   }
 
-  // ── 9. HOLD reescrito (D-D): UPDATE/DELETE raise; INSERT defere; consume row-level ENABLE ALWAYS ──
-  const holdBody = (sql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+enforce_neighborhoods_canonical_writer_hold\s*\(\s*\)([\s\S]*?)\$func\$;/i) || [])[1] || '';
-  if (!holdBody) failures.push('HOLD reescrito ausente na migration N2-E.');
+  // ── 9. HOLD reescrito (D-D) — R-1 LIVENESS: p/ TG_OP≠INSERT, TODO caminho executável termina em RAISE. ──
+  const holdFn = fnBody(sql, 'enforce_neighborhoods_canonical_writer_hold');
+  if (!holdFn) failures.push('HOLD reescrito ausente na migration N2-E.');
   else {
-    if (!/TG_OP\s*=\s*'INSERT'\s*THEN\s*RETURN\s+NULL/i.test(holdBody)) failures.push('HOLD: INSERT não é deferido (deveria RETURN NULL p/ o consume trigger).');
-    if (!/RAISE\s+EXCEPTION[\s\S]{0,200}NEIGHBORHOOD_CANONICAL_WRITER_HOLD/i.test(holdBody)) failures.push('HOLD: UPDATE/DELETE não levantam o erro estável.');
-    if (/current_setting|set_config|session_user|pg_has_role|SET\s+ROLE/i.test(holdBody)) failures.push('HOLD: usa GUC/role — bypass proibido.');
+    if (/current_setting|set_config|session_user|pg_has_role|SET\s+ROLE/i.test(holdFn)) failures.push('HOLD: usa GUC/role — bypass proibido.');
+    if (!/NEIGHBORHOOD_CANONICAL_WRITER_HOLD/.test(holdFn)) failures.push('HOLD: erro estável NEIGHBORHOOD_CANONICAL_WRITER_HOLD ausente.');
+    const hb = execBody(holdFn);
+    const insBranch = /IF\s+TG_OP\s*=\s*'INSERT'\s*THEN([\s\S]*?)END\s+IF\s*;/i.exec(hb);
+    if (!insBranch) failures.push("HOLD (R-1): branch INSERT canônico (IF TG_OP = 'INSERT' THEN … END IF;) ausente/divergente — condição alterada permitiria desvio de UPDATE/DELETE.");
+    else {
+      const remainder = stripStrings(hb.slice(0, insBranch.index) + hb.slice(insBranch.index + insBranch[0].length));
+      if (/\bRETURN\b|\bEXIT\b|\bCONTINUE\b/i.test(remainder)) failures.push('HOLD (R-1): RETURN/EXIT/CONTINUE fora do branch INSERT — torna o RAISE de UPDATE/DELETE inalcançável (G-1).');
+      if (/\bEXCEPTION\s+WHEN\b/i.test(remainder)) failures.push('HOLD (R-1): EXCEPTION handler no HOLD — pode engolir o RAISE.');
+      if (/\bIF\b|\bCASE\b|\bLOOP\b|\bWHILE\b/i.test(remainder)) failures.push('HOLD (R-1): RAISE de UPDATE/DELETE sob IF/CASE/LOOP (ramo possivelmente morto) — deve ser incondicional.');
+      if ((remainder.match(/\bRAISE\b/gi) || []).length < 1) failures.push('HOLD (R-1): nenhum RAISE incondicional alcançável para UPDATE/DELETE.');
+      if (/\b(INSERT|UPDATE|DELETE|PERFORM)\b/i.test(stripStrings(insBranch[1]))) failures.push('HOLD (R-1): branch INSERT contém DML/PERFORM — deve apenas deferir (RETURN NULL).');
+    }
   }
-  const consumeBody = (sql.match(/CREATE\s+FUNCTION\s+consume_neighborhood_writer_authorization\s*\(\s*\)([\s\S]*?)\$func\$;/i) || [])[1] || '';
-  if (!consumeBody) failures.push('função de consumo do token ausente.');
+  // ── consume (R-2 LIVENESS): ordem DELETE → cardinalidade → gate <>1 → RAISE → RETURN NEW; sem retorno antes. ──
+  const consumeFn = fnBody(sql, 'consume_neighborhood_writer_authorization');
+  if (!consumeFn) failures.push('função de consumo do token ausente.');
   else {
-    if (!/DELETE\s+FROM\s+public\.neighborhood_writer_authorizations[\s\S]*pg_current_xact_id\(\)[\s\S]*pg_backend_pid\(\)/i.test(consumeBody)) failures.push('consume: não deleta token vinculado a xid+backend.');
-    if (!/LIMIT\s+1/i.test(consumeBody)) failures.push('consume: sem LIMIT 1 (consumo de exatamente um token).');
-    if (!/v_consumed\s*<>\s*1/i.test(consumeBody)) failures.push('consume: não falha quando cardinalidade ≠ 1.');
-    if (/current_setting|set_config/i.test(consumeBody)) failures.push('consume: usa GUC — proibido.');
+    if (/current_setting|set_config|SET\s+ROLE/i.test(consumeFn)) failures.push('consume: usa GUC/role — proibido.');
+    const cbRaw = execBody(consumeFn);
+    const cb = stripStrings(cbRaw);
+    if (/\bEXCEPTION\s+WHEN\b/i.test(cb)) failures.push('consume (R-2): EXCEPTION handler — pode engolir o denial de token ausente.');
+    const iDelete = cb.search(/\bDELETE\s+FROM\s+public\.neighborhood_writer_authorizations/i);
+    const iDiag = cb.search(/GET\s+DIAGNOSTICS\s+v_consumed/i);
+    const iGate = cb.search(/IF\s+v_consumed\s*<>\s*1\s*THEN/i);
+    const iRaise = iGate >= 0 ? cb.slice(iGate).search(/\bRAISE\b/i) : -1;
+    const iReturn = cb.search(/\bRETURN\s+NEW\b/i);
+    const returns = (cb.match(/\bRETURN\b/gi) || []).length;
+    if (iDelete < 0) failures.push('consume (R-2): DELETE do token ausente (fora de comentário/string).');
+    if (!/DELETE\s+FROM\s+public\.neighborhood_writer_authorizations[\s\S]*pg_current_xact_id\(\)[\s\S]*pg_backend_pid\(\)/i.test(cbRaw)) failures.push('consume: token não vinculado a xid+backend.');
+    if (!/LIMIT\s+1/i.test(cbRaw)) failures.push('consume: sem LIMIT 1 (consumo de exatamente um token).');
+    if (iDiag < 0 || iDiag < iDelete) failures.push('consume (R-2): GET DIAGNOSTICS da cardinalidade ausente/antes do DELETE.');
+    if (iGate < 0) failures.push('consume (R-2): gate `IF v_consumed <> 1` ausente/enfraquecido (>=0 / IS NOT NULL / =0 proibidos).');
+    else if (iGate < iDiag) failures.push('consume (R-2): gate antes da obtenção da cardinalidade.');
+    if (iRaise < 0) failures.push('consume (R-2): RAISE de denial não vive dentro do gate.');
+    if (iReturn < 0) failures.push('consume (R-2): RETURN NEW ausente.');
+    if (returns !== 1) failures.push(`consume (R-2): esperado exatamente 1 RETURN (achado ${returns}) — retorno antecipado/alternativo permite INSERT sem consumo (G-2).`);
+    if (iReturn >= 0 && iGate >= 0 && iReturn < iGate) failures.push('consume (R-2): RETURN NEW antes do gate/RAISE — INSERT alcança sucesso sem consumir token (G-2).');
+    if (iReturn >= 0 && iDelete >= 0 && iReturn < iDelete) failures.push('consume (R-2): RETURN NEW antes do DELETE do token (G-2).');
   }
   if (!/CREATE\s+TRIGGER\s+trg_neighborhoods_writer_token_consume\s+BEFORE\s+INSERT\s+ON\s+neighborhoods\s+FOR\s+EACH\s+ROW/i.test(sql)) {
     failures.push('trigger de consumo (BEFORE INSERT FOR EACH ROW) ausente.');
@@ -159,6 +213,26 @@ try {
   if (/'territory:(deactivate|correct|manage_neighborhood_aliases|register_neighborhood_succession)/i.test(sql)) failures.push('migration usa capability de correction/deactivate/alias/succession — fora do escopo N2-E.');
   if (/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_(aliases|success\w*|candidates)/i.test(sql)) failures.push('migration cria alias/succession/candidate — proibido.');
   if (/\bbank_\w+|\bsocial_\w+/i.test(sql)) failures.push('migration toca Bank/Social.');
+
+  // ── R-3: DML SOLTA sobre neighborhoods na migration (fora dos corpos das funções canônicas). ──
+  // Remove os corpos $func$…$func$ das funções nominais autorizadas (a DML interna delas é legítima);
+  // o remanescente inclui DDL + DO-blocks + top-level. Nele, NENHUMA DML direta sobre neighborhoods.
+  {
+    let skel = sql;
+    for (const fn of ['fn_create_canonical_neighborhood', 'consume_neighborhood_writer_authorization',
+      'enforce_neighborhoods_canonical_writer_hold', 'enforce_neighborhood_curation_event_snapshot',
+      'prevent_neighborhood_curation_events_modification', 'assert_neighborhood_writer_token_consumed']) {
+      skel = removeNamedFnBody(skel, fn);
+    }
+    // remanescente sem literais SINGLE-QUOTE (mensagens); DO-blocks (dollar-quote) PRESERVADOS para varrer
+    // DML dentro deles. SELECT ... FROM neighborhoods (PRE/POST) não casa os verbos DML → sem falso-positivo.
+    const bare = stripSingleQuotes(skel);
+    const DML_NB = /\b(INSERT\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE(?:\s+TABLE)?|MERGE\s+INTO|COPY)\s+(?:public\.)?"?neighborhoods"?\b/i;
+    if (DML_NB.test(bare)) failures.push('R-3: DML DIRETA sobre neighborhoods FORA das funções canônicas (INSERT/UPDATE/DELETE/TRUNCATE/MERGE/COPY) — seed/mutação solta proibida.');
+    if (/\bWITH\b[\s\S]{0,200}?\b(INSERT|UPDATE|DELETE)\b[\s\S]{0,80}?(?:public\.)?"?neighborhoods"?\b/i.test(bare)) failures.push('R-3: CTE com DML sobre neighborhoods fora das funções canônicas — proibido.');
+    // EXECUTE dinâmico: a DML costuma viver DENTRO de um literal single-quote → checar no `skel` (aspas preservadas).
+    if (/\bEXECUTE\b[\s\S]{0,140}?(INSERT|UPDATE|DELETE|TRUNCATE|MERGE)[\s\S]{0,80}?neighborhoods/i.test(skel)) failures.push('R-3: EXECUTE dinâmico com DML sobre neighborhoods — proibido.');
+  }
 
   // ── 13. TS repository ──
   const repoP = join(SRC, 'modules/neighborhoods/neighborhood-canonical-writer.repository.ts');
