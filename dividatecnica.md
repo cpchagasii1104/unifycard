@@ -269,6 +269,21 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (58) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2-R3 — liveness do tenant check no revoke (guard-only, aguarda reauditoria Yala final)
+- Auditoria da R2 (`a7aef8107`): SELO COM RESSALVA de durabilidade do guard — o guard só verificava a
+  PRESENÇA textual do tenant check no fn_revoke; evasão: `false AND`/`IF false THEN` torna a checagem
+  inalcançável e o guard passava. Correção **guard-only** (`6b9757496`); produto R2 byte-intocado.
+- Guard reescrito: extração NOMINAL brace-aware; LIVENESS do tenant check (branch alcançável, sem
+  lógica-morta, IS DISTINCT FROM, erro NOT_FOUND não-vazante, antes do UPDATE); R3-B exige os 5 papéis
+  nominais no ARRAY do fn_grant (incl. p_executed_by_actor_id) como elementos reais. Anti-sobreajuste
+  (parênteses/quebra de linha/ordem/comentário). NÃO alterou produto (reordenação tenant-antes-de-scope
+  não feita; observação territorial fora do escopo).
+- Provas: guard PASS no código real; mutations 27/27 (G1-G24 + as 2 evasões originais obrigatórias +
+  4 benignos); 2 gaps do próprio guard fechados; suíte 163; produto intocado; 6 actors preservados;
+  HOLDs 501 intactos; Δbank=0.
+- **STATUS:** N2-D.2-R2-R3 EXECUTADA — AGUARDA REAUDITORIA YALA FINAL LIMITADA. N2-D.2-R2 ainda sem SELO
+  COMPLETO; N2-D.2 geral permanece SELO COM RESSALVA. N2-D.3/PORTA/N2-E/N3 trancadas; Social/Bank fora.
+
 ### 2026-07-11 (57) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2 — coerência tenant×Actors nos grants (aguarda Yala)
 - Última ressalva da N2-D.2 (base selo R1 `5a3db1df6`): FKs são actors(id) sem tenant → fn_grant/fn_revoke
   aceitavam Actor de outro tenant (provado no GATE R0). Material único `a7aef8107`. Barreira DENTRO das
