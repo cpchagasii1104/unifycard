@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (73) — F-CONTRACTS-DIST-INTEGRITY: reconstrução de packages/contracts/dist (corrige os 4 erros de auth.routes; desbloqueia a higiene)
+- Causa dos 4 erros de auth.routes.ts (diagnóstico read-only): NÃO era zod/moduleResolution/código auth (bundler mantinha os erros; repro isolado passava). Era packages/contracts/dist INCOMPLETO — faltavam vocabulary/marketplace (.js/.d.ts) que dist/index reexporta/requer → GENDER_VALUES/Gender viram any → registerSchema.data=unknown. Runtime também quebrava: require('@unificard/contracts') → MODULE_NOT_FOUND './vocabulary'.
+- Preexistente (dist commitado incompleto; dist/ é .gitignored, 18 arquivos force-added); exposto pela recuperação do incidente (git-restore do dist parcial).
+- Fix (commit 1c3a9cfc5): rebuild canônico pnpm --filter @unificard/contracts build (tsc -b), determinístico (18 antigos byte-idênticos); force-add dos 6 ausentes (M-2 dist versionado). Guard estendido INV7 (completude src↔dist + resolução re-exports + vocabulary/marketplace + require runtime); 8/8 mutations mordem.
+- Provas: backend typecheck 0 (sem tocar auth.routes.ts/zod/tsconfig/lockfile); suíte 167 verde; frontend typecheck 0/build/invariants 5/5; runtime OK; DB intacto; Δbank=0.
+- **STATUS:** EXECUTADA E PROVADA · NÃO SELADA. Desbloqueia F-REPOSITORY-DEPENDENCY-HYGIENE (revalidada 167 + typecheck 0); ambas aguardam UMA Yala consolidada. N2-G não iniciada; PORTA/N3 trancadas.
+
 ### 2026-07-12 (72) — F-REPOSITORY-DEPENDENCY-HYGIENE CHECKPOINT: node_modules desversionado + safety de worktree (NÃO SELADA, bloqueada por typecheck)
 - Incidente: remoção de worktree seguiu junction/symlinks pnpm → apagou node_modules + packages/contracts no main tree. Recuperado por restauração exata de HEAD.
 - Higiene (martelos M-1..M-5): 68.128 paths node_modules removidos do INDEX (todos com segmento exato node_modules; 0 fora); .gitignore JÁ cobria (não editado, provado por check-ignore); limpeza física segura (ferramenta worktree-safety.mjs, nunca segue link, testes 19/19); pnpm install --frozen-lockfile de árvore limpa (added 1013, exit 0); manifests+lockfile byte-idênticos; node_modules agora ignorado (git ls-files=0); guard audit-repository-dependency-hygiene.mjs GATE OK, runner 166→167.

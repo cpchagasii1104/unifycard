@@ -1,5 +1,18 @@
 # REMEDIATION DT LOG
 
+## F-CONTRACTS-DIST-INTEGRITY — RECONSTRUÇÃO DE packages/contracts/dist · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala consolidada) (2026-07-12)
+Corrige a causa-raiz dos 4 erros de typecheck em auth.routes.ts (diagnosticados no GATE F-BACKEND-AUTH-ZOD-TYPE-INFERENCE). Commit material `1c3a9cfc5` (`fix(contracts): restore complete generated distribution`) + este cartório docs-only.
+
+**CAUSA (provada no GATE, hipóteses refutadas):** NÃO era zod, NÃO era moduleResolution (`--moduleResolution bundler` mantinha os 4 erros; node16 quebra path aliases), NÃO era o código de auth. Era **`packages/contracts/dist` INCOMPLETO**: faltavam `vocabulary.{js,d.ts,d.ts.map}` e `marketplace.{js,d.ts,d.ts.map}` (só 6 dos 8 módulos versionados), mas `dist/index.d.ts` reexportava `GENDER_VALUES/Gender/MarketplaceDomain` `from './vocabulary'`/`'./marketplace'` e `dist/index.js` fazia `require("./vocabulary")`. Com `skipLibCheck:true`, os símbolos degradavam para `any` → `z.enum([...GENDER_VALUES] as [Gender,...])` envenenava a inferência do `registerSchema` (`.data` = unknown) → 4 erros TS2345/TS2339 sobre `email`. **RISCO DE RUNTIME confirmado:** `require('@unificard/contracts')` lançava `MODULE_NOT_FOUND: Cannot find module './vocabulary'`. Defeito PREEXISTENTE (dist commitado sempre incompleto; `dist/` é `.gitignored` e os 18 arquivos foram force-added), MANIFESTAÇÃO EXPOSTA pela recuperação do incidente (git-restore trouxe só o dist parcial commitado, perdendo o build local completo).
+
+**FIX (M-1):** rebuild canônico `pnpm --filter @unificard/contracts build` (= `tsc -b`), exit 0, determinístico — os 6 módulos já versionados voltaram byte-idênticos; gerados os 6 ausentes. **M-2:** dist mantido VERSIONADO (force-add dos 6; desversionar dist = frente separada sobre entrypoints/build/CI). **M-3:** guard `audit-repository-dependency-hygiene.mjs` estendido (INV7): (a) todo módulo src tem dist `.js`+`.d.ts`; (b) `dist/index.{js,d.ts}` não referencia módulo inexistente; (c) vocabulary+marketplace presentes; (d) `require('@unificard/contracts')` resolve com GENDER_VALUES/MARKETPLACE_DOMAIN_VALUES/isGender. **8/8 mutations mordem** (remover cada crítico + reexport pendente + quebra runtime); controle benigno passa.
+
+**PROVAS:** backend typecheck **0** (4 erros sumiram SEM tocar auth.routes.ts); `require('@unificard/contracts')` OK (GENDER_VALUES/MARKETPLACE_DOMAIN_VALUES resolvem); paridade src×dist 8/8; rebuild determinístico (18 arquivos == HEAD); guard GATE OK; **suíte 167 verde**; frontend typecheck 0 / build verde / invariants 5/5; DB addresses=37/neighborhoods=0/territory_grants=0/fk_simples ausente; Δbank=0. **auth.routes.ts, schemas, zod, tsconfig, package.json, pnpm-lock.yaml byte-idênticos a `1fa86db5c`.** Repro isolado: contracts→dist(incompleto)=erro; contracts→src(completo)=0.
+
+**STATUS: ⚙️ F-CONTRACTS-DIST-INTEGRITY EXECUTADA E PROVADA · 🔴 NÃO SELADA.** Com este fix, **F-REPOSITORY-DEPENDENCY-HYGIENE fica revalidada integralmente (167 + backend typecheck 0)** e ambas aguardam **UMA auditoria Yala consolidada**. Nenhuma frente selada; N2-G não iniciada; PORTA-TERRITORY-1/N3 trancadas; Social/Bank fora.
+
+---
+
 ## F-REPOSITORY-DEPENDENCY-HYGIENE — DESVERSIONAMENTO DE node_modules · ⚙️ CHECKPOINT MATERIAL COMMITADO · 🔴 NÃO SELADA · BLOQUEADA POR TYPECHECK BACKEND PREEXISTENTE (2026-07-12)
 Registro append-only do checkpoint material da higiene de dependências. **NÃO é selo; NÃO houve auditoria Yala; a frente NÃO está concluída.** Commit material `5d90d8775` (`chore(repo): stop tracking node_modules and harden worktree safety`) + este cartório docs-only.
 
