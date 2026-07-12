@@ -1,6 +1,19 @@
 # REMEDIATION DT LOG
 
-## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N2-G · PROVA INTEGRADA N2-E × N2-F · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-12)
+## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N2-G · PROVA INTEGRADA N2-E × N2-F — ✅ SELO COMPLETO PELA YALA (2026-07-12)
+Auditoria read-only da Yala sobre o arco `71ba59c15`→`0749d96de` (material)→`aeaa6a29c` (cartório), HEAD auditado `aeaa6a29c`, branch rescue-structural. **Veredito A — SELO COMPLETO.** N2-G oficialmente SELADA.
+
+**A YALA CONFIRMOU:** prova integrada N2-E×N2-F versionada, transacional e reproduzível; writer canônico REAL; create+approve distintos; 2 grant_ids distintos; 2 eventos de curadoria; token one-use consumido; neighborhood efêmero; address coerente aceito pela FK composta; city divergente rejeitada pela FK composta; neighborhood sem city rejeitado pelo CHECK; neighborhood inexistente rejeitado pela FK; display_text tratado apenas como evidence (não cria identity); HOLD de INSERT direto provado; ROLLBACK real; resíduo final zero; guard agregador efetivo; runner com **168 guards**; typechecks backend/frontend verdes; frontend build e invariants verdes; zero produto/migration/rota/PORTA; nenhum grant/neighborhood persistente; Social e Bank intactos; Δbank=0.
+
+**OBSERVAÇÕES NÃO-BLOQUEANTES DA YALA (polimento futuro; NÃO abrir remediação/microfatia/DT):** (O1) o guard N2-G fiscaliza a FORMA EXECUTÁVEL da prova, mas o SQL integrado é executado SEPARADAMENTE (como os testes DB já selados de N2-E/N2-F), não pelo runner; (O2) algumas verificações formais do guard são parcialmente redundantes, mas as assertions materiais correspondentes são executadas e os invariantes já estão enforced pelas fundações seladas.
+
+**PRECISÃO DOCUMENTAL:** a N2-G prova token CONSUMIDO (não testa reuso ativo do token) e display_text-não-identity; CEP/provider permanecem cobertos pela CONTENÇÃO TEXTUAL anteriormente selada (freetext-writer-containment), NÃO por este teste integrado. O selo NÃO libera PORTA-TERRITORY-1 nem N3 automaticamente.
+
+**STATUS: ✅ N2-G SELADA PELA YALA · SELO COMPLETO.** Toda a fundação territorial N2 (N2-A..N2-F + composição N2-E×N2-F) provada como sistema coerente e fail-closed. **PORTA-TERRITORY-1/N3 permanecem TRANCADAS (abertura depende de novo GO explícito); Social/Bank fora; N2-D.*/N2-E/N2-F/higiene/contracts seladas.**
+
+---
+
+## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N2-G · PROVA INTEGRADA N2-E × N2-F · (registro pré-selo — SUPERADO pelo SELO COMPLETO acima) (2026-07-12)
 Fecha a única lacuna apontada no GATE consolidado N2-G (CAMINHO A): faltava uma prova VERSIONADA compondo, num único fluxo transacional, o writer canônico N2-E + a coerência de address N2-F. Commit material `0749d96de` (`test(location): prove integrated neighborhood address composition`) + este cartório docs-only. **ZERO mudança de produto** (nenhuma migration/função SQL/service/repository/rota/frontend/contracts/manifest/lockfile).
 
 **PROVA INTEGRADA (`backend/scripts/test-neighborhood-integrated-composition-db.sql`, transacional, ROLLBACK, resíduo ZERO):** G01-G08 fluxo feliz — `fn_create_canonical_neighborhood` (writer REAL, não INSERT direto) cria 1 neighborhood em cityA, com create+approve, **2 grant_ids distintos**, **2 eventos de curadoria**, **token one-use consumido** (0 tokens vivos), e um **address coerente** referencia o neighborhood_id (FK composta aceita). G09-G12 falhas compostas — city incorreta (mesmo nb em cityB)→**FK composta**; bairro sem city→**CHECK**; bairro inexistente→**FK**; **display_text com o nome do bairro NÃO cria identity** (contagem inalterada). G13 contagem estável; G14 **INSERT direto bloqueado pelo HOLD** (token one-use, sem 2º neighborhood); G15 **atomicidade** (1 nb, 2 eventos, 2 grants, 1 address válido, 0 inválido, 0 tokens, 0 alias, 0 succession); G16 **resíduo ZERO** pós-rollback (neighborhoods=0, aliases=0, succession=0, territory_grants=0, curation=0, tokens=0, addresses=37, actors=6). **16/16 G-checks OK, 0 falhas.**

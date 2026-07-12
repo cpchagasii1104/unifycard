@@ -269,6 +269,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (76) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-G: SELO COMPLETO PELA YALA
+- Auditoria read-only (Yala) sobre 71ba59c15→0749d96de→aeaa6a29c. Veredito A · SELO COMPLETO. N2-G SELADA.
+- Confirmado: prova integrada N2-E×N2-F versionada/transacional/reproduzível; writer canônico real; create+approve distintos; 2 grant_ids; 2 eventos; token consumido; neighborhood efêmero; address coerente; falhas compostas (FK composta/CHECK/FK inexistência); display_text=evidence; HOLD de DML direto; rollback; resíduo zero; guard agregador; 168 guards; typechecks/build/invariants verdes; Δbank=0.
+- Não-bloqueantes (polimento, sem remediação): SQL integrado executado separadamente do guard estrutural; redundâncias formais do guard.
+- Precisão: prova token consumido (não reuso ativo); CEP/provider cobertos pela contenção textual já selada, não pelo teste N2-G. Selo NÃO abre PORTA/N3.
+- Entrada anterior da N2-G (executada-e-provada/não-selada/aguarda-Yala) SUPERADA por este selo, sem reescrita.
+- **STATUS:** N2-G SELADA PELA YALA · SELO COMPLETO. PORTA-TERRITORY-1/N3 permanecem TRANCADAS (dependem de novo GO explícito); Social/Bank fora; N2-D.*/N2-E/N2-F/higiene/contracts seladas.
+
 ### 2026-07-12 (75) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-G: prova integrada N2-E×N2-F (EXECUTADA E PROVADA, não selada)
 - CAMINHO A do GATE consolidado: materializa a única lacuna (prova versionada compondo writer N2-E + address N2-F num só fluxo). Commit material 0749d96de + cartório docs-only.
 - Teste DB integrado (transacional, ROLLBACK, resíduo ZERO): writer canônico REAL cria neighborhood (create+approve, 2 grant_ids, 2 eventos, token consumido) → address coerente o referencia; falhas compostas: city incorreta→FK, sem-city→CHECK, inexistente→FK, display_text não vira identity; INSERT direto→HOLD; atomicidade + resíduo zero (neighborhoods=0…addresses=37…actors=6). 16/16 G-checks.
