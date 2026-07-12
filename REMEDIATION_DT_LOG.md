@@ -1,5 +1,18 @@
 # REMEDIATION DT LOG
 
+## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N2-G · PROVA INTEGRADA N2-E × N2-F · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-12)
+Fecha a única lacuna apontada no GATE consolidado N2-G (CAMINHO A): faltava uma prova VERSIONADA compondo, num único fluxo transacional, o writer canônico N2-E + a coerência de address N2-F. Commit material `0749d96de` (`test(location): prove integrated neighborhood address composition`) + este cartório docs-only. **ZERO mudança de produto** (nenhuma migration/função SQL/service/repository/rota/frontend/contracts/manifest/lockfile).
+
+**PROVA INTEGRADA (`backend/scripts/test-neighborhood-integrated-composition-db.sql`, transacional, ROLLBACK, resíduo ZERO):** G01-G08 fluxo feliz — `fn_create_canonical_neighborhood` (writer REAL, não INSERT direto) cria 1 neighborhood em cityA, com create+approve, **2 grant_ids distintos**, **2 eventos de curadoria**, **token one-use consumido** (0 tokens vivos), e um **address coerente** referencia o neighborhood_id (FK composta aceita). G09-G12 falhas compostas — city incorreta (mesmo nb em cityB)→**FK composta**; bairro sem city→**CHECK**; bairro inexistente→**FK**; **display_text com o nome do bairro NÃO cria identity** (contagem inalterada). G13 contagem estável; G14 **INSERT direto bloqueado pelo HOLD** (token one-use, sem 2º neighborhood); G15 **atomicidade** (1 nb, 2 eventos, 2 grants, 1 address válido, 0 inválido, 0 tokens, 0 alias, 0 succession); G16 **resíduo ZERO** pós-rollback (neighborhoods=0, aliases=0, succession=0, territory_grants=0, curation=0, tokens=0, addresses=37, actors=6). **16/16 G-checks OK, 0 falhas.**
+
+**GUARD AGREGADOR (`audit-neighborhood-integrated-composition.mjs`, runner 167→168):** prova a FORMA EXECUTÁVEL e liveness (comment-stripped, statement-aware) — writer real como caminho feliz; INSERT direto só como negativo do HOLD; grants create+approve; 2 grant_ids + 2 eventos + token consumido; address referenciando v_nb; as 4 falhas compostas; ROLLBACK real (detecta "só comentado"); proíbe COMMIT e DELETE-cleanup; exige prova de resíduo zero (addresses=37/actors=6); proíbe Bank/rota/função territorial paralela; exige wiring no runner. **13 mutations: 10 hostis MORDEM** (sem writer / DELETE-cleanup / COMMIT / ROLLBACK-comentado / token-não-provado / grant-único / sem-city-incorreta / sem-bairro-sem-city / toca-Bank / guard-fora-do-runner) **+ 3 benignos passam** (intacto / comentário extra / restaurado).
+
+**PROVAS:** DB integrado 16/16 · guard GATE OK · 13 mutations · **168 guards verdes** · backend typecheck 0 · frontend typecheck 0 · frontend build verde · invariants 5/5 · `git diff --check` limpo · banco intacto (neighborhoods=0/territory_grants=0/addresses=37/actors=6) · Δbank=0. Nenhum grant/neighborhood real criado; nenhuma rota/PORTA aberta.
+
+**STATUS: ⚙️ N2-G EXECUTADA E PROVADA · 🔴 NÃO SELADA (não auto-selar; aguarda auditoria Yala).** Toda a fundação territorial N2 (N2-A..N2-F + composição N2-E×N2-F) fica provada como sistema coerente e fail-closed. **PORTA-TERRITORY-1/N3 permanecem TRANCADAS; Social/Bank fora; N2-E/N2-F/higiene/contracts seladas.**
+
+---
+
 ## F-REPOSITORY-DEPENDENCY-HYGIENE + F-CONTRACTS-DIST-INTEGRITY — ✅ SELO COMPLETO CONSOLIDADO PELA YALA (2026-07-12)
 Auditoria consolidada read-only da Yala sobre o arco `bb4c9989e`→`5d90d8775`→`1fa86db5c`→`1c3a9cfc5`→`cda77e335` (HEAD auditado `cda77e335`, branch rescue-structural). **Veredito A — SELO COMPLETO CONSOLIDADO.** Sela CONJUNTAMENTE as duas frentes: **F-REPOSITORY-DEPENDENCY-HYGIENE** e **F-CONTRACTS-DIST-INTEGRITY**.
 

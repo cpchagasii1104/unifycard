@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (75) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-G: prova integrada N2-E×N2-F (EXECUTADA E PROVADA, não selada)
+- CAMINHO A do GATE consolidado: materializa a única lacuna (prova versionada compondo writer N2-E + address N2-F num só fluxo). Commit material 0749d96de + cartório docs-only.
+- Teste DB integrado (transacional, ROLLBACK, resíduo ZERO): writer canônico REAL cria neighborhood (create+approve, 2 grant_ids, 2 eventos, token consumido) → address coerente o referencia; falhas compostas: city incorreta→FK, sem-city→CHECK, inexistente→FK, display_text não vira identity; INSERT direto→HOLD; atomicidade + resíduo zero (neighborhoods=0…addresses=37…actors=6). 16/16 G-checks.
+- Guard agregador (runner 167→168) prova forma executável/liveness (writer real, não INSERT direto; ROLLBACK real não comentado; sem COMMIT/DELETE-cleanup/Bank; wiring); 13 mutations (10 hostis mordem, 3 benignos).
+- Provas: 168 guards verdes; backend/frontend typecheck 0; build verde; invariants 5/5; banco intacto; Δbank=0. ZERO mudança de produto.
+- **STATUS:** N2-G EXECUTADA E PROVADA · NÃO SELADA (aguarda Yala). PORTA-TERRITORY-1/N3 trancadas; N2-E/N2-F/higiene/contracts seladas; Social/Bank fora.
+
 ### 2026-07-12 (74) — F-REPOSITORY-DEPENDENCY-HYGIENE + F-CONTRACTS-DIST-INTEGRITY: SELO COMPLETO CONSOLIDADO PELA YALA
 - Auditoria consolidada read-only (Yala) sobre bb4c9989e→5d90d8775→1fa86db5c→1c3a9cfc5→cda77e335. Veredito A · SELO COMPLETO CONSOLIDADO. As DUAS frentes seladas conjuntamente.
 - Confirmado: node_modules tracked=0 (68.128 desversionados) e físico ignorado; toolchain canônica (pnpm --frozen-lockfile); manifests/lockfile byte-intactos; worktree-safety fail-closed (19/19); contracts/dist completo e determinístico (vocabulary+marketplace); @unificard/contracts resolve runtime+tipos; 4 erros de auth eliminados pela causa sem tocar auth/zod/tsconfig; guard INV7 (8/8 mutations); 167 guards verdes; backend/frontend typecheck 0; build verde; invariants 5/5; banco intacto; Δbank=0.
