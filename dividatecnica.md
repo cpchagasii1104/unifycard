@@ -269,6 +269,24 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-11 (60) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2-R3.2 — egress pré-tenant + payload posicional + falso-positivo de literal (guard-only, aguarda reauditoria Yala final)
+- Reauditoria da R3.1 (`de642a91e`): SELO COM RESSALVA guard-only. 3 brechas: (1) vazamento ANTES do
+  tenant check (R3.1 só via o branch; RAISE NOTICE/pg_notify/PERFORM/:= na janela pré-tenant exfiltrava);
+  (2) parâmetros posicionais ($1/$2 passavam pela allowlist); (3) falso-positivo — palavra v_grant DENTRO
+  de um literal era lida como acesso real de variável. Correção guard-only (`ecbeb34dc`); produto R2 byte-intocado.
+- Guard endurecido: (a) TOKENIZADOR sqlScan() — literais single/E/dollar-quote esvaziados, comentários→espaço,
+  aspas-duplas desaspadas (viram token real p/ allowlist pegar), posicionais coletados; FAIL em dollar-quote
+  inacabado. (b) allowlist roda sobre o skeleton + posicionais.length>0 = FAIL. (c) JANELA PRÉ-TENANT: do fim
+  do SELECT INTO v_grant até o IF tenant, proíbe RAISE NOTICE/WARNING/LOG/INFO/DEBUG, NOTIFY/pg_notify,
+  PERFORM, CALL, EXECUTE, INSERT/UPDATE/DELETE, ASSERT, :=, SELECT...INTO. O3 preservado (RAISE EXCEPTION
+  control-flow não é egress; ordem scope-antes-tenant intacta, não corrigida nesta fatia).
+- Provas: guard PASS no código real; 30/30 hostis mordem (P1-P13 egress, Q1-Q8 posicional, I1-I6 quoted idents,
+  R-preservadas false-AND/tenant-arg/cinco-actors); 11 benignos PASS incl. evasão-E honesta (literal com o texto
+  v_grant.tenant_id + classe mantida → passa), aspas-duplas e $1 dentro de literal não confundidos; suíte 163;
+  produto R2 byte-intocado (diff a7aef8107 vazio); 6 actors preservados; HOLDs 501 intactos; Δbank=0.
+- **STATUS:** N2-D.2-R2-R3.2 EXECUTADA — AGUARDA REAUDITORIA YALA FINAL LIMITADA. N2-D.2-R2 ainda sem
+  SELO COMPLETO; N2-D.2 geral permanece SELO COM RESSALVA. N2-D.3/PORTA/N2-E/N3 trancadas; Social/Bank fora.
+
 ### 2026-07-11 (59) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-D.2-R2-R3.1 — payload não-vazante do erro de revoke (guard-only, aguarda reauditoria Yala final)
 - Reauditoria da R3 (`6b9757496`): SELO COM RESSALVA guard-only. "Não vazante" tem 2 garantias: classe
   (NOT_FOUND — R3 protegia) e CONTEÚDO (mensagem não revela tenant/Actor — desprotegido). Evasão:
