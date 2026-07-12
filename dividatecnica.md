@@ -269,6 +269,20 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (67) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-E REMEDIAÇÃO — liveness do HOLD/token + cobertura de DML (guard-only, aguarda reauditoria Yala final)
+- Reauditoria Yala da N2-E (`3002d174e`): B guard-only. Produto pronto para selo; única família = liveness
+  dos triggers + DML da migration. Base `0d18de5ce`; material remediação `9d128c28a` (produto byte-intocado).
+- G-1 RETURN antes do RAISE no HOLD → RAISE inalcançável; G-2 RETURN NEW antes do consume → INSERT sem token;
+  G-3 DML solta na migration não varrida (guards antigos delegaram a migration inteira ao guard N2-E).
+- Guard endurecido com ANÁLISE DE LIVENESS: R-1 (branch INSERT isolado; remanessante sem RETURN/EXCEPTION/IF
+  antes de RAISE incondicional); R-2 (ordem DELETE→cardinalidade→gate<>1→RAISE→RETURN NEW, 1 RETURN, sem
+  swallow, gate não-enfraquecido); R-3 (remove corpos $func$ das funções canônicas, varre remanescente +
+  DO-blocks por DML/CTE/EXECUTE sobre neighborhoods). Técnica: extração nominal + execBody + tokenização.
+- Provas: mutations 32 (29 hostis H/T/M/C + 3 benignos); bateria original 41/41 preservada; 2 gaps do guard
+  fechados (DML em DO-block → strip só-single-quote; EXECUTE → skel). suíte 165; migration byte-idêntica; Δbank=0.
+- **STATUS:** N2-E REMEDIAÇÃO EXECUTADA — AGUARDA REAUDITORIA YALA FINAL. PORTA/N2-F/N2-G/N3 trancadas;
+  nenhum grant/bairro territorial real; Social/Bank fora.
+
 ### 2026-07-12 (66) — F-NEIGHBORHOOD-CANONICAL-IDENTITY N2-E MATERIAL — primeiro writer canônico de bairro (aguarda auditoria Yala por envelope)
 - GO material (D-A..D-E; base `d2bd016cf`). Material `3002d174e` (migration + repo/service TS + guard + 4
   guards reconciliados + 3 testes). Reutiliza fn_assert_territorial_capability (D.3) + neighborhoods; zero rota/grant.
