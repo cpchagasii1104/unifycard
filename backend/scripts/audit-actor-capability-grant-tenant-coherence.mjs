@@ -58,6 +58,34 @@ function extractHelperCall(body) {
 // canonicas — nenhuma logica legitima os usa). Comment-stripped antes.
 const DEAD_LOGIC = /\b(false\s+AND|FALSE\s+AND|true\s+OR|TRUE\s+OR|IF\s+(?:false|FALSE)\s+THEN|0\s*=\s*1\s+AND|1\s*=\s*0\s+AND|IF\s+0\s*=\s*1\s+THEN|IF\s+1\s*=\s*0\s+THEN)\b/;
 
+// N2-D.2-R2-R3.2: SCANNER SQL — distingue literais (nao-executaveis) de identificadores (executaveis),
+// parametros posicionais e comentarios. Retorna {skeleton, positionals[], error?}. No skeleton: literais
+// (single/E/dollar-quote) viram '' (sem chars de identificador); comentarios viram espaco; IDENTIFICADORES
+// entre aspas duplas sao DESASPADOS (viram token real → allowlist os pega); posicionais $n sao PRESERVADOS
+// e coletados. Falha conservadora em literal inacabado. NAO usa regex global (aspas duplas != string).
+function sqlScan(code) {
+  let out = ''; const positionals = []; let i = 0; const n = code.length;
+  while (i < n) {
+    const c = code[i], c2 = code[i + 1];
+    if (c === '-' && c2 === '-') { while (i < n && code[i] !== '\n') i++; out += ' '; continue; }
+    if (c === '/' && c2 === '*') { i += 2; while (i < n && !(code[i] === '*' && code[i + 1] === '/')) i++; i += 2; out += ' '; continue; }
+    if ((c === 'E' || c === 'e') && c2 === "'") { // E-string (escapes com backslash)
+      i += 2; while (i < n) { if (code[i] === '\\') { i += 2; continue; } if (code[i] === "'") { if (code[i + 1] === "'") { i += 2; continue; } i++; break; } i++; }
+      out += "''"; continue;
+    }
+    if (c === "'") { i++; while (i < n) { if (code[i] === "'") { if (code[i + 1] === "'") { i += 2; continue; } i++; break; } i++; } out += "''"; continue; }
+    if (c === '"') { i++; let id = ''; while (i < n) { if (code[i] === '"') { if (code[i + 1] === '"') { id += '"'; i += 2; continue; } i++; break; } id += code[i]; i++; } out += id; continue; }
+    if (c === '$') {
+      if (c2 && /[0-9]/.test(c2)) { let j = i + 1; while (j < n && /[0-9]/.test(code[j])) j++; const tok = code.slice(i, j); positionals.push(tok); out += ' ' + tok + ' '; i = j; continue; }
+      const m = /^\$([A-Za-z_][A-Za-z_0-9]*)?\$/.exec(code.slice(i));
+      if (m) { const tag = m[0]; const end = code.indexOf(tag, i + tag.length); if (end < 0) return { skeleton: out + ' __UNTERMINATED__ ', positionals, error: 'literal dollar-quote inacabado' }; out += "''"; i = end + tag.length; continue; }
+      out += c; i++; continue;
+    }
+    out += c; i++;
+  }
+  return { skeleton: out, positionals };
+}
+
 try {
   const MIG = join(ROOT, 'migrations');
   if (!existsSync(MIG)) throw new Error('diretório migrations ausente');
@@ -177,19 +205,51 @@ try {
       if (/\bRAISE\s+(NOTICE|WARNING|LOG|INFO|DEBUG)\b/i.test(branch)) {
         failures.push('fn_revoke: branch de tenant usa RAISE NOTICE/WARNING/LOG/INFO/DEBUG (log de dado antes do erro).');
       }
-      // (f) ALLOWLIST POSITIVA: no RAISE (literais removidos), os UNICOS tokens de dado permitidos sao
-      //     palavras-chave do RAISE, `format` e `p_grant_id`. Qualquer outro identificador = vazamento.
+      // (f) ALLOWLIST POSITIVA (R3.1) via SCANNER (R3.2): literais/dollar-quotes → ''; comentarios → espaco;
+      //     identificadores entre aspas DESASPADOS (viram token real); posicionais coletados. Os UNICOS
+      //     tokens de dado permitidos sao palavras-chave do RAISE, `format` e `p_grant_id`.
       const raiseStmt = (branch.match(/\bRAISE\b[\s\S]*?;/i) || [''])[0];
-      const skeleton = raiseStmt.replace(/'(?:[^']|'')*'/g, "''"); // remove conteudo de string literals
-      const ALLOWED = new Set(['raise', 'exception', 'using', 'message', 'detail', 'hint', 'errcode', 'format', 'p_grant_id']);
-      const idents = skeleton.match(/[A-Za-z_][A-Za-z_0-9.]*/g) || [];
+      const scan = sqlScan(raiseStmt);
+      if (scan.error) failures.push(`fn_revoke: RAISE do branch tenant com ${scan.error}.`);
+      // (g) PARAMETROS POSICIONAIS proibidos no payload — exige o nome explicito p_grant_id.
+      if (scan.positionals.length > 0) {
+        failures.push(`fn_revoke: payload do branch tenant usa parametro posicional [${scan.positionals.join(', ')}] — proibido; use p_grant_id nomeado (R3.2).`);
+      }
+      const ALLOWED = new Set(['raise', 'exception', 'using', 'message', 'detail', 'hint', 'errcode', 'column', 'constraint', 'datatype', 'table', 'schema', 'format', 'p_grant_id']);
+      const idents = scan.skeleton.match(/[A-Za-z_][A-Za-z_0-9.]*/g) || [];
       const leaked = [...new Set(idents.map((t) => t.toLowerCase()).filter((t) => !ALLOWED.has(t)))];
       if (leaked.length > 0) {
-        failures.push(`fn_revoke: mensagem/payload do branch tenant-mismatch referencia token(s) proibido(s) [${leaked.join(', ')}] — so literais + p_grant_id sao permitidos (allowlist R3.1).`);
+        failures.push(`fn_revoke: mensagem/payload do branch tenant-mismatch referencia token(s) proibido(s) [${leaked.join(', ')}] — so literais + p_grant_id sao permitidos (allowlist R3.1/R3.2).`);
       }
       // reforco explicito das serializacoes (mesmo que a allowlist ja pegue) — mensagem nominal clara.
-      if (/row_to_json|to_json\b|to_jsonb|::\s*(text|json|jsonb)|v_grant/i.test(raiseStmt)) {
+      if (/row_to_json|to_json\b|to_jsonb|::\s*(text|json|jsonb)|v_grant/i.test(sqlScan(raiseStmt).skeleton)) {
         failures.push('fn_revoke: RAISE do branch tenant serializa/expoe v_grant (row_to_json/to_jsonb/::text/campo) — vazamento.');
+      }
+
+      // ── R3.2-A: JANELA PRE-TENANT — nenhum EGRESS/efeito observavel entre obter o grant e o tenant check.
+      // A janela vai do FIM do SELECT INTO v_grant ate o INICIO do branch tenant. So control-flow + RAISE
+      // EXCEPTION dos checks estruturais ja auditados (NOT_FOUND/scope) sao aceitos; O3 (scope antes de
+      // tenant) NAO e alterado. Log/notify/side-effect/atribuicao/execucao dinamica sao proibidos.
+      const iSelEnd = (() => { const m = /SELECT\s+\*\s+INTO\s+v_grant[\s\S]*?;/i.exec(revoke); return m ? m.index + m[0].length : -1; })();
+      const iTenantIf = revoke.search(new RegExp(`IF\\s+${TENANT_COND}`, 'i'));
+      if (iSelEnd < 0 || iTenantIf < 0 || iTenantIf <= iSelEnd) {
+        failures.push('fn_revoke: janela pre-tenant ambigua/invertida (SELECT INTO v_grant ou tenant check nao localizados na ordem esperada).');
+      } else {
+        const preWindow = sqlScan(revoke.slice(iSelEnd, iTenantIf)).skeleton;
+        const EGRESS = [
+          [/\bRAISE\s+(NOTICE|WARNING|LOG|INFO|DEBUG)\b/i, 'RAISE NOTICE/WARNING/LOG/INFO/DEBUG'],
+          [/\bpg_notify\b|\bNOTIFY\b/i, 'NOTIFY/pg_notify'],
+          [/\bPERFORM\b/i, 'PERFORM'],
+          [/\bCALL\b/i, 'CALL'],
+          [/\bEXECUTE\b/i, 'EXECUTE dinamico'],
+          [/\bINSERT\b|\bUPDATE\b|\bDELETE\b/i, 'INSERT/UPDATE/DELETE'],
+          [/\bASSERT\b/i, 'ASSERT'],
+          [/:=/, 'atribuicao (:=)'],
+          [/\bSELECT\b[\s\S]*?\bINTO\b/i, 'SELECT ... INTO (copia de dado)'],
+        ];
+        for (const [re, why] of EGRESS) {
+          if (re.test(preWindow)) failures.push(`fn_revoke: EGRESS pre-tenant proibido (${why}) entre obter o grant e o tenant check — pode expor v_grant antes do NOT_FOUND.`);
+        }
       }
     }
 
