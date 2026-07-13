@@ -350,16 +350,39 @@ if (!existsSync(LOADER)) {
       const tail = skel.slice(pm.index);
       if (/^process\.argv\b/.test(tail)) {
         const rest = tail.slice('process.argv'.length);
-        if (ARGV_READ_METHODS.test(rest)) { /* leitura permitida */ }
-        else if (/^\.length\b/.test(rest)) {
+        let endRel = -1; // posição em `rest` logo após a forma de leitura reconhecida (-1 = já mordeu / não-forma)
+        if (ARGV_READ_METHODS.test(rest)) {
+          // achar o ')' que fecha a chamada do método de leitura (slice/includes/indexOf/join)
+          const pStart = rest.indexOf('(');
+          let depth = 0, j = pStart;
+          for (; j < rest.length; j++) { if (rest[j] === '(') depth++; else if (rest[j] === ')') { depth--; if (depth === 0) break; } }
+          if (depth !== 0) note('J1: chamada de método de leitura de process.argv não fecha'); else endRel = j + 1;
+        } else if (/^\.length\b/.test(rest)) {
           if (WRITE_AFTER.test(rest.slice('.length'.length))) note(`J1: escrita em process.argv.length — argv é somente-leitura: "…${ctx()}…"`);
+          else endRel = '.length'.length;
         } else if (rest[0] === '[') {
           let depth = 0, i3 = 0;
           for (; i3 < rest.length; i3++) { if (rest[i3] === '[') depth++; else if (rest[i3] === ']') { depth--; if (depth === 0) break; } }
           if (depth !== 0) note('J1: bracket de process.argv não fecha');
-          else if (WRITE_AFTER.test(rest.slice(i3 + 1))) note(`J1: escrita em process.argv[i] — argv é somente-leitura: "…${ctx()}…"`);
+          else {
+            const inner = rest.slice(1, i3).trim();
+            // K1 — ÍNDICE DE ARRAY ≠ PROPRIEDADE COMPUTADA: só inteiro decimal não-negativo (sem leading-zero
+            // salvo "0"; sem +/-/./e/x/b/o/n) OU identificador simples. String (blankada no skeleton),
+            // template, concat, chamada, member, aritmética, hex/bigint/etc. → não classificado → MORDE.
+            const isInt = /^(0|[1-9][0-9]*)$/.test(inner);
+            const isIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(inner);
+            if (!isInt && !isIdent) note(`K1: process.argv[...] com conteúdo NÃO-ÍNDICE (propriedade-string/computed/expressão) — só inteiro decimal ou identificador simples: "…${ctx()}…"`);
+            else if (WRITE_AFTER.test(rest.slice(i3 + 1))) note(`J1: escrita em process.argv[i] — argv é somente-leitura: "…${ctx()}…"`);
+            else endRel = i3 + 1;
+          }
         } else {
           note(`J1: uso de process.argv fora das formas de LEITURA permitidas (slice/includes/indexOf/join/[i]/length lidos) — mutação/atribuição/alias/passagem-como-valor proibidos: "…${ctx()}…"`);
+        }
+        // K1 — a leitura de process.argv deve ser TERMINAL: nenhuma dereferência posterior (. / ?. / [ / ( / tagged-template),
+        // que reabriria acesso reflexivo/execução (…[índice]['__proto__']['constructor']['constructor']('return 1')()).
+        if (endRel >= 0) {
+          const cont = rest.slice(endRel).replace(/^\s+/, '');
+          if (/^(\.|\?\.|\[|\(|`)/.test(cont)) note(`K1: dereferência APÓS leitura de process.argv (cadeia .../[.../(... que pode alcançar constructor/__proto__/Function) — proibida: "…${ctx()}…"`);
         }
       } else if (/^process\.exit\b/.test(tail)) {
         const rest = tail.slice('process.exit'.length);
@@ -390,4 +413,4 @@ if (failures.length) {
   console.error('GATE FAIL [n3-curitiba-catalog]\n' + failures.map((f) => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2; COMPLETUDE: imports do loader restritos a allowlist governada (E1 — sem helper/require/import-dinâmico/símbolo extra), reflexão/prototype/call/apply/bind/getPrototypeOf/Reflect/Proxy/Function/eval proibidos (E2), classificador SQL por STATEMENT com dollar-quote/quoted-ident/comentário/CASE...END aware (E3 — só o 1º token classifica; composto/START/SAVEPOINT/RELEASE/ABORT/END mordem; "COMMIT" ident e dado benignos); process sob ALLOWLIST POSITIVA {process.argv, process.exit} com PAPEL SINTÁTICO governado — argv SOMENTE LEITURA (slice/includes/indexOf/join/[i]-lido/length-lido; push/mutação/atribuição/alias/spread/passagem-como-valor mordem — J1) e exit SOMENTE chamada direta canônica process.exit(0|1|failed?1:0) (substituição/delete/alias/optional/call-apply-bind mordem — J2); qualquer outro membro (atual ou futuro), acesso computado/optional, alias, desestruturação, shadowing ou precedente delete/++/--/spread morde; globalThis/global proibidos integralmente (H1); C1/C2/C3 e contagem BEGIN=1/COMMIT=1/ROLLBACK=2 derivam do INVENTÁRIO ESTRUTURAL ÚNICO de call-sites (F2 — sem regex textual paralela; texto benigno em string/template/log/comentário não conta). (Prova unificada no inventário.)');
+console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2; COMPLETUDE: imports do loader restritos a allowlist governada (E1 — sem helper/require/import-dinâmico/símbolo extra), reflexão/prototype/call/apply/bind/getPrototypeOf/Reflect/Proxy/Function/eval proibidos (E2), classificador SQL por STATEMENT com dollar-quote/quoted-ident/comentário/CASE...END aware (E3 — só o 1º token classifica; composto/START/SAVEPOINT/RELEASE/ABORT/END mordem; "COMMIT" ident e dado benignos); process sob ALLOWLIST POSITIVA {process.argv, process.exit} com PAPEL SINTÁTICO governado — argv SOMENTE LEITURA (slice/includes/indexOf/join/[i]-lido/length-lido; push/mutação/atribuição/alias/spread/passagem-como-valor mordem — J1) com ÍNDICE ESTRITO (só inteiro decimal ou identificador simples; propriedade-string/computed no bracket morde) e leitura TERMINAL (nenhuma dereferência posterior alcança constructor/__proto__/Function — K1) e exit SOMENTE chamada direta canônica process.exit(0|1|failed?1:0) (substituição/delete/alias/optional/call-apply-bind mordem — J2); qualquer outro membro (atual ou futuro), acesso computado/optional, alias, desestruturação, shadowing ou precedente delete/++/--/spread morde; globalThis/global proibidos integralmente (H1); C1/C2/C3 e contagem BEGIN=1/COMMIT=1/ROLLBACK=2 derivam do INVENTÁRIO ESTRUTURAL ÚNICO de call-sites (F2 — sem regex textual paralela; texto benigno em string/template/log/comentário não conta). (Prova unificada no inventário.)');
