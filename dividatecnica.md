@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (90) — F-NEIGHBORHOOD N3: remediação guard-only K1 (índice de array ≠ propriedade computada)
+- 8º veredito Yala B: J1 tratava qualquer bracket de process.argv como índice → argv['constructor']/['__proto__'] e cadeia até Function constructor passavam.
+- Fix guard-only (commit bb28d62b9; produto/DB intactos): K1 exige que o bracket de process.argv seja inteiro decimal não-negativo OU identificador simples (string/template/concat/String()/member/aritmética/hex/bigint mordem) e que a leitura seja TERMINAL (nenhuma dereferência ./?./[/(/tagged posterior — fecha [i]['constructor'], .length['constructor'], [i]()).
+- Exploit central provado mordendo. 41 provas; preservação J1/J2/H1/E2/F2/E/V intacta. 171 guards; typechecks/build/invariants verdes; DB 75/150/2, addr=37/nb=0, Δbank=0; sem recarga/2º apply.
+- **STATUS:** executada e provada; N3 CONTINUA NÃO SELADA (aguarda reauditoria final Yala).
+
 ### 2026-07-13 (89) — F-NEIGHBORHOOD N3: remediação guard-only J1+J2 (papéis sintáticos de process.argv/process.exit)
 - 7º veredito Yala B: H1 validava o MEMBRO mas não o PAPEL — argv.push('--apply','N3-LOAD-CURITIBA') pré-derivação e process.exit=()=>{}  passavam.
 - Fix guard-only (commit cec391f9d; produto/DB intactos): J1 argv SOMENTE LEITURA (slice/includes/indexOf/join/[i]-lido/length-lido; atribuição/mutadores/++--/delete/spread/alias/passagem-como-valor/optional mordem; fail-closed); J2 exit SOMENTE chamada direta canônica colada exit(0|1|failed?1:0) (substituição/delete/alias/?.()/call-apply-bind/void/código-não-canônico mordem).
