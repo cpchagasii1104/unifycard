@@ -1,6 +1,23 @@
 # REMEDIATION DT LOG
 
-## F-ADDRESS-CANONICAL-BINDING — FASE C · REMEDIAÇÃO P1+P2 · AUTORIDADE POR-FUNÇÃO + ALLOWLIST POR CAMINHO EXATO · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-13)
+## F-ADDRESS-CANONICAL-BINDING — FASE C · REMEDIAÇÃO Q1 · AUTORIDADE COM AWAIT DIRETO E SEM ENCADEAMENTO · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-13)
+**Veredito Yala B guard-only em `e191bcc07`** (P1 e P2 corretos; P2 considerado perfeito): único resíduo — o anti-swallow de P1 bloqueava `catch`/`.catch`/`||`/`??`/ternário/inversão, mas NÃO o 2º argumento de `.then`: **`canRepresentActor(...).then(value => value, () => false)`** adicionava um handler de rejeição que mascara erro de infraestrutura como `false` (deny). Mesma família anti-swallow. Commit guard-only `fc955d6ec` (**produto/service/repository/teste/DB byte-intactos; só o guard Fase C muda; P2/N2-F byte-intacto**) + este cartório.
+
+**REMEDIAÇÃO (Q1):** `canRepresentActor` deve ser consumido por **AWAIT DIRETO**, sem qualquer encadeamento. (a) toda chamada `canRepresentActor(` deve estar imediatamente sob `await` (receiver opcional) — bloqueia wrapper (`Promise.resolve(...)`/`transform(...)`), alias intermediário (`const p = canRepresentActor(...); await p.then(...)`) e ternário. (b) após o `)` de fechamento (parênteses balanceados sobre o skeleton), o próximo token vivo não pode ser `.` / `?.` / `[` / tagged-template — bloqueia `.then`/`.catch`/`.finally`/`?.then`/`['then']`. Reaproveita a infraestrutura léxica do guard (sem parser novo).
+
+**MUTATIONS (14):** Q1 — `.then(v=>v,()=>false)` (achado Yala) · `.then(v=>v)` · `.finally` · `?.then` · `['then']` · `.catch` · `Promise.resolve`-wrapper · alias+`.then` · `transform`-wrapper — MORDEM; **preservação P1** — inversão do deny (`if(representable) throw`), catch-sem-parâmetro — SEGUEM MORDENDO; **benignos** — produto real, comentário-benigno-após-a-chamada — PASSAM.
+
+**PRESERVAÇÃO:** P2 (`audit-addresses-neighborhood-composite-coherence`) byte-intacto e verde (allowlist por caminho exato); Fase A/N2-F verdes; demais famílias da Fase C intactas.
+
+**CORREÇÃO DE OVERCLAIM:** o registro pré-Q1 afirmava "anti-swallow completo" — o 2º arg de `.then` escapava; agora a autoridade exige await direto sem encadeamento (superação registrada; corpo anterior preservado).
+
+**PROVAS:** guard verde no real · **173 guards verdes** (runner permaneceu 173) · backend/frontend typecheck 0 · build/invariants verdes · byte-integridade desde e191bcc07 (service/repository/teste/migration/src/N2-F-guard intactos) · DB: addresses=37 · address_assignments=12 · actor-scoped=0 · neighborhoods=75 · grants=2 · bank=15 · atr-events=0 · idem-residuais=0 · **Δbank=0**.
+
+**STATUS: ⚙️ REMEDIAÇÃO Q1 EXECUTADA E PROVADA · 🔴 FASE C CONTINUA NÃO SELADA** (aguarda uma única reauditoria read-only Yala).
+
+---
+
+## F-ADDRESS-CANONICAL-BINDING — FASE C · REMEDIAÇÃO P1+P2 · AUTORIDADE POR-FUNÇÃO + ALLOWLIST POR CAMINHO EXATO · ⚙️ EXECUTADA E PROVADA · (registro pré-Q1 — o overclaim "anti-swallow completo" foi SUPERADO por Q1 acima, que exige await direto sem encadeamento .then/.catch/.finally) (2026-07-13)
 **Veredito Yala B guard-only em `8c98d6b4e`** (produto da Fase C correto: casa única, autoridade/RLS/transação/lock/idempotência/eventos/histórico aprovados): dois resíduos guard-only — **P1** a prova de autoridade era GLOBAL (uma ocorrência no arquivo cobria as duas funções; `if (representable) throw` invertido, `catch` sem parâmetro e autoridade-depois-de-BEGIN passavam); **P2** a allowlist do N2-F usava `rel.endsWith(basename)` (homônimo em outro diretório passava). Commit guard-only `f8da91b37` (**produto/service/repository/teste/DB byte-intactos; só os 2 guards mudam**) + este cartório.
 
 **REMEDIAÇÃO P1** (`audit-actor-territorial-address-writer`): autoridade provada POR FUNÇÃO — extrai o corpo de `setActorTerritorialAddress` e `retireActorTerritorialAddress` por brace-matching; cada uma exige `assertRepresentable(auth.tenantId, auth.operatorUserId, input.actorId)` com ARGUMENTOS EXATOS e ANTES de `getClientWithTenant`/`BEGIN`. O helper `assertRepresentable` é auditado: chama `canRepresentActor(tenantId, operatorUserId, actorId)`; lança em `!representable` (deny efetivo); rejeita inversão (`if(representable) throw`), return-em-false, `catch`/`.catch`, fallback `||`/`??`/ternário, `representable=const`. Anti-swallow global: `.catch()` e `||`/`??` sobre a autoridade mordem.

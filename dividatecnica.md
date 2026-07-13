@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (99) — F-ADDRESS FASE C: remediação Q1 (autoridade com await direto, sem .then/.catch/.finally)
+- Veredito Yala B: o anti-swallow P1 não cobria o 2º arg de .then — canRepresentActor(...).then(v=>v, ()=>false) mascarava erro como deny.
+- Fix guard-only (commit fc955d6ec; produto/DB intactos; P2/N2-F byte-intacto): Q1 exige await DIRETO — (a) canRepresentActor sempre imediatamente sob await (bloqueia Promise.resolve/transform/alias/ternário); (b) nenhum encadeamento .then/.catch/.finally/?./[]/tagged após o ')' de fechamento (parênteses balanceados).
+- 14 mutations (Q1 encadeamentos/wrapper/alias + preservação P1 inversão/catch; benignos passam). 173 guards; typecheck/build/invariants verdes; DB 37/12/0; Δbank=0. Overclaim "anti-swallow completo" corrigido.
+- **STATUS:** executada e provada; Fase C CONTINUA NÃO SELADA (aguarda Yala).
+
 ### 2026-07-13 (98) — F-ADDRESS FASE C: remediação P1+P2 (autoridade por-função + allowlist por caminho exato)
 - Veredito Yala B: P1 prova de autoridade era global (inversão if(representable) throw / catch-sem-parâmetro / autoridade-depois-de-BEGIN passavam); P2 allowlist N2-F por endsWith(basename) (homônimo em outro dir passava).
 - Fix guard-only (commit f8da91b37; produto/DB intactos): P1 audita set e retire por função (brace-matching; args exatos; ordem antes de BEGIN; helper assertRepresentable lança em !representable, sem swallow/inversão/fallback); anti-swallow global (.catch/||/??). P2 allowlist por caminho relativo EXATO (Set de paths normalizados).
