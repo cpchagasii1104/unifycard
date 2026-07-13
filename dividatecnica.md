@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (81) — F-NEIGHBORHOOD N3-PRE: SELADA PELA YALA (SELO COMPLETO)
+- Auditoria read-only (Yala) sobre 33d7dc79f→989817447→021b907cb. Veredito A · SELO COMPLETO. N3-PRE selada.
+- Confirmado: os 3 readers aplicam o predicado de vigência via NEIGHBORHOOD_CURRENT_SQL (is_active + valid_from<=now + valid_until NULL/futuro); prova composta teste+guard Classe B suficiente; guard liveness (mutations mordem); contracts intactos; runner=170; typechecks/build/invariants verdes; neighborhoods=0; addresses=37 sem neighborhood; 2 grants+2 eventos intactos; D3 resolve ambos; Δbank=0.
+- Entrada anterior da N3-PRE SUPERADA por este selo, sem reescrita.
+- Precisão: N3 REAL não executada; catálogo dos 75 bairros/manifest não criados; depende de novo GO (manifest+one-shot).
+- **STATUS:** N3-PRE SELADA PELA YALA · SELO COMPLETO. N3 real TRANCADA; Social/Bank fora; N2-D/E/F/G+PORTA+higiene+contracts seladas.
+
 ### 2026-07-12 (80) — F-NEIGHBORHOOD N3-PRE: vigência nos readers de neighborhoods (EXECUTADA E PROVADA, não selada)
 - GATE N3 apontou risco Classe C: os 3 readers (findNeighborhoodsByCity/findNeighborhoodById/validateNeighborhoodBelongsToCity) não filtravam is_active/valid_from/valid_until.
 - Fix (commit 989817447): fonte única NEIGHBORHOOD_CURRENT_SQL interpolada nos 3 readers — is_active=true AND valid_from_at<=CURRENT_TIMESTAMP AND (valid_until_at IS NULL OR >CURRENT_TIMESTAMP); assinaturas inalteradas. Teste DB 11/11 (temp table, ROLLBACK, neighborhoods=0). Guard audit-neighborhood-reader-vigency (comment-aware+liveness; runner 169→170); 10 mutations mordem.

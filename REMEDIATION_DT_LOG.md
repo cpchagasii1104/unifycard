@@ -1,6 +1,17 @@
 # REMEDIATION DT LOG
 
-## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N3-PRE · VIGÊNCIA NOS READERS DE NEIGHBORHOODS · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-12)
+## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N3-PRE · READERS DE VIGÊNCIA TERRITORIAL — ✅ SELADA PELA YALA · SELO COMPLETO (2026-07-12)
+Auditoria read-only da Yala sobre o arco `33d7dc79f`→`989817447` (material)→`021b907cb` (cartório), HEAD auditado `021b907cb`, branch rescue-structural. **Veredito A — SELO COMPLETO.** N3-PRE oficialmente SELADA.
+
+**A YALA CONFIRMOU:** os 3 readers canônicos (`findNeighborhoodsByCity`, `findNeighborhoodById`, `validateNeighborhoodBelongsToCity`) aplicam o mesmo predicado de vigência via a constante compartilhada `NEIGHBORHOOD_CURRENT_SQL` — `is_active=true AND valid_from_at <= CURRENT_TIMESTAMP AND (valid_until_at IS NULL OR valid_until_at > CURRENT_TIMESTAMP)` (tempo do banco; valid_until estrito); listagem/lookup/validação não retornam rows inativas, futuras ou expiradas; bordas temporais corretas; nenhum caminho textual/permissivo; prova composta teste-sintético (temp table, transacional, 11/11) + guard comment-aware/liveness = **Classe B suficiente**; guard prova constante exata e liveness nos 3 readers (mutations mordem, sem falso PASS material); contracts públicos intactos; runner=170; typechecks/build/invariants verdes; neighborhoods=0; aliases=0; succession=0; addresses=37 (todos sem neighborhood); 2 grants + 2 eventos territoriais intactos; D3 resolve create e approve; nenhuma rota/Social/Bank alterado; Δbank=0.
+
+**PRECISÃO:** a remediação está selada e a infraestrutura pré-N3 (readers) está pronta neste aspecto. **A N3 REAL permanece NÃO executada** — o catálogo dos 75 bairros, o manifest, nenhum neighborhood/endereço foram criados; a carga depende de NOVO GO explícito (futuro envelope = manifest JSON determinístico + one-shot canônico).
+
+**STATUS: ✅ N3-PRE SELADA PELA YALA · SELO COMPLETO.** O registro pré-selo abaixo ("executada e provada / não selada / aguarda Yala") fica SUPERADO por este selo, sem reescrita. **N3 real permanece TRANCADA (depende de novo GO); Social/Bank fora.** N2-D.1/D.2/D.3/E/F/G + PORTA-TERRITORY-1 + higiene + contracts seladas.
+
+---
+
+## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N3-PRE · VIGÊNCIA NOS READERS DE NEIGHBORHOODS · (registro pré-selo — SUPERADO pelo SELO COMPLETO acima) (2026-07-12)
 Remediação pré-N3 do RISCO BLOQUEANTE (Classe C) apontado no GATE N3: os 3 readers vivos de neighborhoods não aplicavam o contrato de vigência e poderiam listar/encontrar/validar bairro inativo ou fora de vigência. Commit material `989817447` (`fix(location): enforce neighborhood validity in canonical readers`) + este cartório. **N3 (carga real dos 75 bairros) NÃO executada — bloqueada até o selo Yala desta remediação + martelos de fonte/lista.**
 
 **MARTELOS TERRITORIAIS JÁ RATIFICADOS PARA A FUTURA N3 (registro, não executados aqui):** fonte primária IPPUC — "Nosso Bairro — 75 bairros de Curitiba"; fonte técnica corroboradora GeoCuritiba (camada oficial Bairro); escopo integral; count esperado 75; source_kind government_official; manifest JSON determinístico; atomicidade transação única; aliases/succession fora; caminho manifest + one-shot canônico. Nenhuma carga real autorizada neste envelope.
