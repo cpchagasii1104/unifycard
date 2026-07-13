@@ -51,14 +51,47 @@ else {
   const raw = rd(SERVICE); const s = stripJs(raw);
   if (!/export\s+async\s+function\s+setActorTerritorialAddress/.test(s)) note('A1: setActorTerritorialAddress ausente');
   if (!/export\s+async\s+function\s+retireActorTerritorialAddress/.test(s)) note('A2: retireActorTerritorialAddress ausente');
-  // autoridade NÃO engolida: canRepresentActor chamado e não reduzido a false por catch
+  // ── P1 — AUTORIDADE PROVADA POR FUNÇÃO (set e retire), por argumentos, ordem e sentido do deny ──
+  const bodyOf = (name) => { // extrai o corpo { ... } da função por brace-matching sobre o skeleton
+    const m = s.search(new RegExp('export\\s+async\\s+function\\s+' + name + '\\s*\\('));
+    if (m < 0) return null;
+    const open = s.indexOf('{', m); if (open < 0) return null;
+    let depth = 0;
+    for (let i = open; i < s.length; i++) { if (s[i] === '{') depth++; else if (s[i] === '}') { depth--; if (depth === 0) return s.slice(open, i + 1); } }
+    return null;
+  };
   if (!/canRepresentActor\s*\(/.test(s)) note('A3: não valida canRepresentActor');
-  if (/catch\s*\([\s\S]{0,80}?\)\s*\{[\s\S]{0,120}?(representable|canRep\w*)\s*=\s*false/.test(s)) note('A4: engole erro de autoridade (catch → false) — proibido');
-  if (/canRepresentActor[\s\S]{0,40}?\|\|\s*false|\?\s*true\s*:\s*false/.test(s)) note('A4b: reduz canRepresentActor a boolean permissivo');
-  // tenant/operador server-side: canRepresentActor(auth.tenantId, auth.operatorUserId, ...) — não do input
-  // tenant/operador server-side: a prova de autoridade é alimentada por auth.tenantId + auth.operatorUserId
-  // (direto em canRepresentActor ou via helper assertRepresentable), nunca do input.
-  if (!/(canRepresentActor|assertRepresentable)\(\s*auth\.tenantId\s*,\s*auth\.operatorUserId/.test(s)) note('A5: prova de autoridade não usa tenant/operador do auth server-side');
+  // A3f — cada operação exportada prova autoridade com ARGUMENTOS EXATOS, ANTES de conexão/BEGIN.
+  for (const fn of ['setActorTerritorialAddress', 'retireActorTerritorialAddress']) {
+    const b = bodyOf(fn);
+    if (!b) { note(`A3f: função ${fn} ausente/ilegível`); continue; }
+    const AUTH = /(?:await\s+)?assertRepresentable\(\s*auth\.tenantId\s*,\s*auth\.operatorUserId\s*,\s*input\.actorId\s*\)/;
+    const ai = b.search(AUTH);
+    if (ai < 0) { note(`A3f: ${fn} não prova autoridade com (auth.tenantId, auth.operatorUserId, input.actorId)`); continue; }
+    const conn = b.search(/getClientWithTenant\s*\(|client\.query\(\s*['"]BEGIN['"]/);
+    if (conn >= 0 && conn < ai) note(`A3f: ${fn} valida autoridade DEPOIS de abrir conexão/BEGIN (address pode nascer antes da autoridade)`);
+  }
+  // A3h — helper assertRepresentable: usa canRepresentActor(tenantId, operatorUserId, actorId), lança em !representable,
+  // sem swallow/fallback e sem inversão de sentido.
+  const helper = (() => {
+    const m = s.search(/function\s+assertRepresentable\s*\(/);
+    if (m < 0) return null; const open = s.indexOf('{', m); if (open < 0) return null;
+    let depth = 0; for (let i = open; i < s.length; i++) { if (s[i] === '{') depth++; else if (s[i] === '}') { depth--; if (depth === 0) return s.slice(open, i + 1); } } return null;
+  })();
+  if (!helper) note('A3h: helper assertRepresentable ausente/ilegível');
+  else {
+    if (!/canRepresentActor\(\s*tenantId\s*,\s*operatorUserId\s*,\s*actorId\s*\)/.test(helper)) note('A3h: helper não chama canRepresentActor(tenantId, operatorUserId, actorId)');
+    if (!/if\s*\(\s*!\s*representable\s*\)[\s\S]{0,80}?throw\s+new\s+ActorTerritorialAuthorityError/.test(helper)) note('A3h: helper não lança quando !representable (deny efetivo ausente)');
+    if (/if\s*\(\s*representable\s*\)[\s\S]{0,60}?throw\s+new\s+ActorTerritorialAuthorityError/.test(helper)) note('A3h-inv: helper lança quando representable=true (sentido do deny INVERTIDO)');
+    if (/if\s*\(\s*!\s*representable\s*\)[\s\S]{0,60}?return\b/.test(helper)) note('A3h: helper retorna (em vez de lançar) em !representable');
+    // anti-swallow no helper
+    if (/\bcatch\b/.test(helper) || /\.catch\s*\(/.test(helper)) note('A3h: helper contém catch/.catch (não engolir erro de autoridade)');
+    if (/canRepresentActor[\s\S]{0,20}?(\|\||\?\?)/.test(helper) || /\?\s*[\s\S]{0,40}?:\s*(true|false)\b/.test(helper)) note('A3h: helper reduz canRepresentActor por ||/??/ternário (fail-open)');
+    if (/representable\s*=\s*(false|true)\b/.test(helper)) note('A3h: helper força representable a booleano constante');
+  }
+  // A3s — anti-swallow global sobre a chamada de autoridade (.catch e fallback ||/??)
+  if (/(canRepresentActor|assertRepresentable)\([^;]*\)\s*\.catch\s*\(/.test(s)) note('A3s: .catch() sobre a chamada de autoridade (fail-open) — proibido');
+  if (/(canRepresentActor|assertRepresentable)\([^;]*\)\s*(\|\||\?\?)/.test(s)) note('A3s: fallback ||/?? sobre a chamada de autoridade — proibido');
   if (/input\.(tenantId|operatorUserId|ownerType|owner_type|role|isPrimary|is_primary|actorType|actor_type|validFrom|validUntil)\b/.test(s)) note('A6: service lê tenant/operador/owner_type/role/is_primary/actor_type/vigência do input (proibido)');
   // purpose→role derivado internamente
   if (!/PURPOSE_ROLE\s*\[/.test(s) && !/PURPOSE_ROLE\s*=/.test(s)) note('A7: purpose→role não derivado por mapa governado');

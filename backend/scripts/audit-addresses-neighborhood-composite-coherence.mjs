@@ -123,15 +123,23 @@ try {
   function walk(dir) { const out = []; for (const e of readdirSync(dir, { withFileTypes: true })) { const p = join(dir, e.name); if (e.isDirectory()) { if (e.name === '__tests__' || e.name === 'node_modules') continue; out.push(...walk(p)); } else if (e.name.endsWith('.ts') && !e.name.endsWith('.test.ts') && !e.name.endsWith('.d.ts')) out.push(p); } return out; }
   // Writers CANÔNICOS conhecidos que gravam neighborhood_id em addresses (Location Core central + rentals +
   // events). QUALQUER OUTRO arquivo com INSERT INTO addresses(... neighborhood_id ...) = writer paralelo → FAIL.
-  // + FASE C: repository canônico privado do writer actor-territorial (casa única actor-scoped; escreve
-  //   addresses respeitando CHECK/FK composta N2-F; governado pelo service com autoridade/transação/idempotência).
-  const KNOWN_WRITERS = ['rentable-resource.repository.ts', 'event.service.ts', 'location.repository.ts', 'actor-territorial-address.repository.ts'];
+  // P2 — allowlist por CAMINHO RELATIVO EXATO (não basename/endsWith/substring). Cada writer canônico é um
+  //   path completo normalizado (relativo ao root do backend, separador '/', sem ./ ../). Homônimo/prefixo/
+  //   sufixo/subdiretório/traversal em outro path = writer paralelo → FAIL.
+  // + FASE C: actor-territorial-address.repository.ts é a casa única actor-scoped (escreve addresses respeitando
+  //   CHECK/FK composta N2-F; governada pelo service com autoridade/transação/idempotência).
+  const KNOWN_WRITERS = new Set([
+    'src/modules/rentals/rentable-resource.repository.ts',
+    'src/core/events/event.service.ts',
+    'src/core/location/location.repository.ts',
+    'src/core/location/actor-territorial-address.repository.ts',
+  ]);
+  const normRel = (abs) => abs.slice(ROOT.length + 1).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/{2,}/g, '/');
   for (const f of (existsSync(SRC) ? walk(SRC) : [])) {
-    const rel = f.slice(ROOT.length + 1).replace(/\\/g, '/');
+    const rel = normRel(f);
     const c = stripTs(readFileSync(f, 'utf-8'));
     if (/INSERT\s+INTO\s+addresses\b/i.test(c) && /neighborhood_id/i.test(c)) {
-      const known = KNOWN_WRITERS.some((k) => rel.endsWith(k));
-      if (!known) failures.push(`[sweep] ${rel}: novo writer de addresses grava neighborhood_id fora dos writers canônicos conhecidos — proibido (writer paralelo / 2º Location Core).`);
+      if (!KNOWN_WRITERS.has(rel)) failures.push(`[sweep] ${rel}: writer de addresses com neighborhood_id fora da allowlist de CAMINHO EXATO — proibido (writer paralelo / 2º Location Core).`);
     }
   }
 
