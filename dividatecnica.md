@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (85) — F-NEIGHBORHOOD N3: remediação guard-only (inventário transacional exaustivo)
+- 3º veredito Yala B: guard controlava só COMMIT literal — permitia variável (command='COMMIT'), SQL composto ('SELECT 1; COMMIT'), desestruturação/alias/bind/call/apply/computed/optional/config-object/concat/helper.
+- Fix guard-only (commit 937056d0a; produto/DB intactos): D1 toda .query( enumerada, receiver=client, 1º arg LITERAL terminando em ','/')' ; D2 literal transacional deve ser BEGIN|COMMIT|ROLLBACK puro (comentários/strings SQL descontados; composto morde), contagem global BEGIN=1/COMMIT=1/ROLLBACK=2; D3 aliases/indireções proibidos.
+- 27/27 mutations (Q/S/A + preservação V1/V2/C1/C2 + benignos incl. 'COMMIT' como dado SQL). 171 guards; typechecks/build/invariants verdes; DB 75/150/2, addr=37/nb=0, Δbank=0; sem recarga/2º apply.
+- **STATUS:** executada e provada; N3 CONTINUA NÃO SELADA (aguarda reauditoria final Yala).
+
 ### 2026-07-13 (84) — F-NEIGHBORHOOD N3: remediação guard-only FINAL (exclusividade do COMMIT + alcançabilidade do ROLLBACK)
 - Veredito Yala B residual (V1/V2 fechadas): C1 COMMIT não provado exatamente-1-e-só-no-gate; C2 ROLLBACK aceito sob if(false); C3 else não associado estruturalmente ao gate.
 - Fix guard-only (commit d6e2ce9bd; produto/DB intactos): skeleton com strings blanked + brace-matching real; gate único localizado por estrutura; exatamente 1 client.query('COMMIT') no arquivo, dentro do bloco do gate; alias do client proibido; else PAR do mesmo if; blocos constante-falsos excisados antes da prova de ROLLBACK alcançável (pré-return/throw/exit); nenhum COMMIT no dry-run.
