@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (93) — F-NEIGHBORHOOD N3: SELADA PELA YALA · SELO COMPLETO FINAL
+- Veredito A da Yala em HEAD fcd57e2d2 (arco final 3ea3146ca→c9586bc8b→fcd57e2d2; carga real 4248075b8). N3 oficialmente encerrada.
+- Produto selado: 75 bairros de Curitiba + 150 eventos vivos e íntegros; tokens=0/aliases=0/succession=0; grants=2; addresses=37/nb=0; bank=15; Δbank=0; runner=171. Produto/banco byte-intactos em todos os ciclos guard-only; nenhuma recarga/2º apply.
+- Guard fail-closed provado nas famílias V1/V2/C1-C3/F2/D1-D3/E1-E4/H1/J1/J2/K1/L1/M1 — sem falso PASS/FAIL material restante.
+- Entradas anteriores (NÃO SELADA / aguarda Yala + remediações V..M) SUPERADAS pelo selo, sem reescrita.
+- **STATUS:** N3 SELADA · SELO COMPLETO FINAL. Frentes futuras independentes (não abertas): address→city/neighborhood binding; Social territorial; Bank regional/fundos — cada uma com GATE+GO próprios.
+
 ### 2026-07-13 (92) — F-NEIGHBORHOOD N3: remediação guard-only M1 (literal regex como receiver estrutural)
 - 10º veredito Yala B: L1 não reconhecia fechamento de literal regex como receiver → /regex/['constructor'] passava (1 hop; cadeia executável já mordia no 2º bracket).
 - Fix guard-only (commit c9586bc8b; produto/DB intactos): o skeleton tokeniza literal regex (regex-vs-divisão por último token keyword-aware; corpo/classes/escapes/flags; offsets 1:1; regexEnds); L1 reconhece regex-close como receiver e (opção B, documentada) proíbe qualquer member-access após regex. Divisão e regex real do loader (/^"|"$/g) preservados; texto hostil interno ao regex é dado.
