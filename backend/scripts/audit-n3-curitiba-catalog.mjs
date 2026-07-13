@@ -325,7 +325,14 @@ if (!existsSync(LOADER)) {
     if (/\bglobalThis\b/.test(skel)) note('H1a: globalThis proibido nesta one-shot (via de carga/reflexão)');
     if (/\bglobal\s*[.\[?]/.test(skel)) note('H1b: global.* proibido nesta one-shot');
     if (/getBuiltinModule/.test(skel)) note('H1c: getBuiltinModule proibido (defesa em profundidade; allowlist H1 é a autoridade)');
-    const ALLOWED_PROCESS = /^process\.(argv|exit)\b/;
+    // J1/J2 — além do MEMBRO, o PAPEL SINTÁTICO é governado (fail-closed: sintaxe não classificada morde):
+    //   process.argv  → SOMENTE LEITURA: .slice/.includes/.indexOf/.join(...), .length lido, [i] lido.
+    //     Escrita/mutação (=, [i]=, .length=, ++/--, push/pop/shift/unshift/splice/sort/..., delete, spread,
+    //     Object.assign/Reflect.set, passagem como valor — mutate(argv)/const a=argv/return argv) MORDE.
+    //   process.exit  → SOMENTE chamada direta canônica colada `process.exit(<código do loader vivo>)`.
+    //     Substituição (exit = fn), delete, alias, ?.(), (exit)(1), call/apply/bind, passagem como valor MORDE.
+    const ARGV_READ_METHODS = /^\.(slice|includes|indexOf|join)\s*\(/;
+    const WRITE_AFTER = /^\s*(=(?!=)|\+\+|--|\+=|-=|\*=|\/=)/;
     const PROC = /\bprocess\b/g;
     let pm;
     while ((pm = PROC.exec(skel))) {
@@ -333,14 +340,36 @@ if (!existsSync(LOADER)) {
         note('H1d: acesso a membro "process" de outro objeto — proibido');
         continue;
       }
-      if (!ALLOWED_PROCESS.test(skel.slice(pm.index))) {
-        const ctx = skel.slice(Math.max(0, pm.index - 24), pm.index + 32).replace(/\s+/g, ' ');
-        note(`H1: uso de process fora da allowlist {process.argv, process.exit} (acesso-ponto direto exato): "…${ctx}…"`);
+      const ctx = () => skel.slice(Math.max(0, pm.index - 24), pm.index + 40).replace(/\s+/g, ' ');
+      // precedente hostil: delete / ++ / -- / spread antes de process
+      const before = skel.slice(Math.max(0, pm.index - 12), pm.index);
+      if (/(\bdelete\s*|\+\+\s*|--\s*|\.\.\.\s*)$/.test(before)) {
+        note(`J: process precedido de delete/++/--/spread — proibido: "…${ctx()}…"`);
+        continue;
+      }
+      const tail = skel.slice(pm.index);
+      if (/^process\.argv\b/.test(tail)) {
+        const rest = tail.slice('process.argv'.length);
+        if (ARGV_READ_METHODS.test(rest)) { /* leitura permitida */ }
+        else if (/^\.length\b/.test(rest)) {
+          if (WRITE_AFTER.test(rest.slice('.length'.length))) note(`J1: escrita em process.argv.length — argv é somente-leitura: "…${ctx()}…"`);
+        } else if (rest[0] === '[') {
+          let depth = 0, i3 = 0;
+          for (; i3 < rest.length; i3++) { if (rest[i3] === '[') depth++; else if (rest[i3] === ']') { depth--; if (depth === 0) break; } }
+          if (depth !== 0) note('J1: bracket de process.argv não fecha');
+          else if (WRITE_AFTER.test(rest.slice(i3 + 1))) note(`J1: escrita em process.argv[i] — argv é somente-leitura: "…${ctx()}…"`);
+        } else {
+          note(`J1: uso de process.argv fora das formas de LEITURA permitidas (slice/includes/indexOf/join/[i]/length lidos) — mutação/atribuição/alias/passagem-como-valor proibidos: "…${ctx()}…"`);
+        }
+      } else if (/^process\.exit\b/.test(tail)) {
+        const rest = tail.slice('process.exit'.length);
+        if (!/^\(\s*(?:0|1|failed\s*\?\s*1\s*:\s*0)\s*\)/.test(rest)) {
+          note(`J2: process.exit fora da chamada direta canônica process.exit(0|1|failed ? 1 : 0) — substituição/alias/optional/call-apply-bind/passagem-como-valor proibidos: "…${ctx()}…"`);
+        }
+      } else {
+        note(`H1: uso de process fora da allowlist {process.argv, process.exit}: "…${ctx()}…"`);
       }
     }
-    // mesmo os membros PERMITIDOS não podem ser aliasados: atribuição que termina logo após o membro
-    // (const fx = process.exit;) morde; uso direto (process.argv.slice(2), process.argv[2], process.exit(0)) passa.
-    if (/=\s*process\.(argv|exit)\s*[;,)\]\n]/.test(skel)) note('H1e: alias de membro permitido (x = process.argv/exit) — proibido; use a forma direta no ponto de uso');
   }
   if (/ON CONFLICT|UPSERT/i.test(s)) note('B9: loader usa ON CONFLICT/UPSERT (proibido)');
   if (/DELETE\s+FROM/i.test(s)) note('B10: loader usa DELETE (proibido)');
@@ -361,4 +390,4 @@ if (failures.length) {
   console.error('GATE FAIL [n3-curitiba-catalog]\n' + failures.map((f) => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2; COMPLETUDE: imports do loader restritos a allowlist governada (E1 — sem helper/require/import-dinâmico/símbolo extra), reflexão/prototype/call/apply/bind/getPrototypeOf/Reflect/Proxy/Function/eval proibidos (E2), classificador SQL por STATEMENT com dollar-quote/quoted-ident/comentário/CASE...END aware (E3 — só o 1º token classifica; composto/START/SAVEPOINT/RELEASE/ABORT/END mordem; "COMMIT" ident e dado benignos); process sob ALLOWLIST POSITIVA {process.argv, process.exit} — qualquer outro membro (atual ou futuro), acesso computado/optional, alias, desestruturação ou shadowing morde; globalThis/global proibidos integralmente (H1); C1/C2/C3 e contagem BEGIN=1/COMMIT=1/ROLLBACK=2 derivam do INVENTÁRIO ESTRUTURAL ÚNICO de call-sites (F2 — sem regex textual paralela; texto benigno em string/template/log/comentário não conta). (Prova unificada no inventário.)');
+console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2; COMPLETUDE: imports do loader restritos a allowlist governada (E1 — sem helper/require/import-dinâmico/símbolo extra), reflexão/prototype/call/apply/bind/getPrototypeOf/Reflect/Proxy/Function/eval proibidos (E2), classificador SQL por STATEMENT com dollar-quote/quoted-ident/comentário/CASE...END aware (E3 — só o 1º token classifica; composto/START/SAVEPOINT/RELEASE/ABORT/END mordem; "COMMIT" ident e dado benignos); process sob ALLOWLIST POSITIVA {process.argv, process.exit} com PAPEL SINTÁTICO governado — argv SOMENTE LEITURA (slice/includes/indexOf/join/[i]-lido/length-lido; push/mutação/atribuição/alias/spread/passagem-como-valor mordem — J1) e exit SOMENTE chamada direta canônica process.exit(0|1|failed?1:0) (substituição/delete/alias/optional/call-apply-bind mordem — J2); qualquer outro membro (atual ou futuro), acesso computado/optional, alias, desestruturação, shadowing ou precedente delete/++/--/spread morde; globalThis/global proibidos integralmente (H1); C1/C2/C3 e contagem BEGIN=1/COMMIT=1/ROLLBACK=2 derivam do INVENTÁRIO ESTRUTURAL ÚNICO de call-sites (F2 — sem regex textual paralela; texto benigno em string/template/log/comentário não conta). (Prova unificada no inventário.)');
