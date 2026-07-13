@@ -66,51 +66,33 @@ class LocationService {
   }
 
   /**
-   * AUTOCOMPLETE de CEP (transversal a toda locação). O CEP é UX/entrada auxiliar — a VERDADE é o
-   * Location Core: mapeia cidade→city_id (IBGE se houver, senão nome+UF) e bairro→neighborhoodId (SSOT)
-   * ou neighborhoodDisplay (só exibição). O front NUNCA grava city TEXT. Rua/bairro voltam como texto de
-   * PREENCHIMENTO, confirmados/completados pelo usuário; o gravar mora no assign do recurso. Fail-open:
-   * provider indisponível → resolved:false (o front pede a cidade no picker governado).
+   * AUTOCOMPLETE de CEP (transversal a toda locação) — FACADE do resolver postal canônico da
+   * FASE B (RFC B1-D). Esta rota é o contrato legado BRASILEIRO: o país é EXPLÍCITO no call-site
+   * ('BR'), nunca default silencioso dentro do resolver. A VERDADE é o Location Core:
+   * `resolved:true` SÓ com cityId canônico (identidade oficial state+IBGE — sem match por nome).
+   * Bairro: neighborhoodId só via alias GOVERNADO na mesma city; senão só texto de exibição.
+   * Falha/cidade-ausente → resolved:false (o front pede a cidade no picker governado) — nunca
+   * criação de território a partir do provider.
    */
   async resolveCep(rawCep: string): Promise<{
     resolved: boolean; postalCode: string | null; street: string | null;
     neighborhoodDisplay: string | null; neighborhoodId: string | null;
     cityId: string | null; cityName: string | null; stateUf: string | null; source: string | null;
   }> {
-    const { normalizePostalCode, getDefaultCepProvider } = await import('./cep-provider');
+    const { postalAddressResolverService } = await import('./postal-address-resolver.service');
     const empty = { resolved: false, postalCode: null, street: null, neighborhoodDisplay: null, neighborhoodId: null, cityId: null, cityName: null, stateUf: null, source: null };
-    const cep = normalizePostalCode(rawCep);
-    if (!cep) return empty;
-    let res;
-    try { res = await getDefaultCepProvider().resolvePostalCode(cep); } catch { res = null; }
-    if (!res) return { ...empty, postalCode: cep };
-
-    // cidade → city_id canônico: 1º IBGE (external_code), senão nome + UF entre as governadas.
-    let city: { id: string; name: string } | null = null;
-    if (res.cityExternalCode) {
-      const c = await locationRepository.findCityByExternalCode(res.cityExternalCode);
-      if (c) city = { id: c.id, name: c.name };
-    }
-    if (!city && res.cityName) {
-      const matches = await locationRepository.searchCities(res.cityName);
-      const m = matches.find((x) => (x.stateUf ?? '').toUpperCase() === (res.stateCode ?? '').toUpperCase());
-      if (m) city = { id: m.id, name: m.name };
-    }
-
-    // CONTENÇÃO N0.2 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER · reprovação Yala do N0/N0.1):
-    // bairro NÃO é resolvido a neighborhoodId por matching de nome — nem em SQL, nem em memória
-    // (o padrão anterior carregava findNeighborhoodsByCity e casava por nome normalizado).
-    // DECISION-0079 §6 / DECISION-0166 D4: identidade de bairro em HOLD até a fundação governada
-    // F-NEIGHBORHOOD-CANONICAL-IDENTITY. O bairro do provider volta APENAS como texto de exibição
-    // (neighborhoodDisplay). O campo neighborhoodId segue no contrato por retrocompat, sempre null —
-    // o front (rental/eventos) já trata `?? null` e nunca grava addresses.neighborhood_id por texto.
-    const neighborhoodId: string | null = null;
-
+    const resolution = await postalAddressResolverService.resolve({ countryCode: 'BR', postalCode: rawCep });
+    if (resolution.status !== 'resolved') return empty;
     return {
-      resolved: true, postalCode: cep, street: res.street ?? null,
-      neighborhoodDisplay: res.neighborhoodName ?? null, neighborhoodId,
-      cityId: city?.id ?? null, cityName: city?.name ?? res.cityName ?? null,
-      stateUf: res.stateCode ?? null, source: res.source ?? null,
+      resolved: true,
+      postalCode: resolution.postalCodeNormalized,
+      street: resolution.street,
+      neighborhoodDisplay: resolution.neighborhoodDisplayText,
+      neighborhoodId: resolution.neighborhoodId,
+      cityId: resolution.cityId,
+      cityName: resolution.cityDisplayText,
+      stateUf: resolution.stateDisplayText,
+      source: resolution.providerEvidence.find((e) => e.outcome === 'resolved')?.provider ?? null,
     };
   }
 

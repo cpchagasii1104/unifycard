@@ -1,19 +1,23 @@
 // src/core/location/geo-enrichment.service.ts
-// F-GEO-1a (DECISION-0077): enriquecimento geográfico canônico do Location Core a partir de CEP.
+// F-GEO-1a (DECISION-0077) + FASE B (RFC B1-D): enriquecimento geográfico de `addresses` a partir
+// de CEP — agora DELEGADO ao resolver postal canônico (stack única).
 //
-// 🔴 Substrato COMPARTILHÁVEL (PF e PJ usam o mesmo trilho). NÃO é frente PJ/Perfil.
-// 🔴 Estratégia B+D+C: state_id por UF (B); cidade por external_code IBGE (D); cria cidade sob demanda
-//    quando o IBGE existe e a cidade não está no catálogo (C). Sem IBGE → NÃO inventa cidade (sem match
-//    frágil por nome) — enriquece só state_id.
-// 🔴 fail-open: falha/timeout do provider, UF fora do catálogo, ou ausência de IBGE → resultado controlado;
-//    NUNCA derruba a escrita do endereço (que já é CEP-âncora).
-// 🔴 Privacidade (DECISION-0077 §3): NÃO persiste lat/lng no endereço (coords de CEP podem ser precisas da
-//    residência). Geo coarse = centroide da cidade via FK city_id. Coordenadas do provider são ignoradas aqui.
-// 🔴 NÃO cria neighborhood (catálogo=0; bairro é residual via blob). NÃO toca actor_active_location.
+// 🔴 FASE B (D-D/D-K): a criação de cidade sob demanda (`createCityFromExternal`) foi ABOLIDA.
+//    Cidade ausente do catálogo canônico → `canonical_city_missing` (fail-closed, honesto) e o
+//    endereço permanece CEP-âncora — NUNCA INSERT em cities/states a partir de provider.
+// 🔴 Papel PRÉ-EXISTENTE preservado sem ampliação: este serviço só atualiza state_id/city_id de
+//    um `addresses` já criado pelo writer legado do fluxo de residência (best-effort/fail-open —
+//    nunca derruba a escrita do endereço). NÃO cria address/assignment, NÃO toca actor-scoped
+//    (Fase C), NÃO cria neighborhood, NÃO toca actor_active_location.
+// 🔴 Privacidade (DECISION-0077 §3): NÃO persiste lat/lng no endereço.
+// 🔴 A resolução (país explícito 'BR' no call-site, cache-first, provider governado, identidade
+//    oficial state+IBGE) mora INTEIRA no postal-address-resolver.service — sem 2ª stack aqui.
 
-import { createHash } from 'crypto';
 import { locationRepository } from './location.repository';
-import { getDefaultCepProvider, normalizePostalCode, type CepProvider, type CepResolution } from './cep-provider';
+import {
+  postalAddressResolverService,
+  PostalAddressResolverService,
+} from './postal-address-resolver.service';
 
 export interface EnrichAddressResult {
   enriched: boolean;
@@ -23,132 +27,38 @@ export interface EnrichAddressResult {
 }
 
 export class GeoEnrichmentService {
-  constructor(private provider: CepProvider = getDefaultCepProvider()) {}
-
-  /** Injeção de provider (testes/probe sem rede; ou troca de provider em runtime). */
-  setProvider(provider: CepProvider): void {
-    this.provider = provider;
-  }
+  constructor(private readonly resolver: PostalAddressResolverService = postalAddressResolverService) {}
 
   /**
-   * Resolve o CEP CACHE-FIRST (DECISION-0078): consulta `cep_resolution_cache` antes do provider; em miss,
-   * chama o provider e grava no cache (sem payload bruto, sem lat/lng). fail-open. NÃO escreve em `addresses`.
-   *
-   * F-GEO-2c: `requireExternalCode` força re-resolução quando o cache hit está INCOMPLETO para o objetivo
-   * (tem UF/cidade mas `city_external_code` NULL — ex.: cache antigo da BrasilAPI sem IBGE). Assim um provider
-   * com IBGE (ViaCEP) pode completar a linha; o upsert sobrescreve o cache. Sem isso, o cache parcial
-   * curto-circuitaria o provider e o `city_id` nunca seria resolvido.
-   */
-  async resolvePostalCode(
-    postalCode: string,
-    opts: { requireExternalCode?: boolean } = {}
-  ): Promise<CepResolution | null> {
-    const cep = normalizePostalCode(postalCode);
-    if (!cep) return null;
-
-    // 1) cache-first (hit só vale se completo o suficiente para o objetivo)
-    try {
-      const cached = await locationRepository.findCepResolutionByPostalCode(cep);
-      const cacheUsable =
-        !!cached &&
-        !!cached.stateCode &&
-        !!cached.cityName &&
-        (!opts.requireExternalCode || !!cached.cityExternalCode);
-      if (cacheUsable && cached && cached.stateCode && cached.cityName) {
-        return {
-          postalCode: cep,
-          stateCode: cached.stateCode,
-          cityName: cached.cityName,
-          cityExternalCode: cached.cityExternalCode,
-          neighborhoodName: cached.neighborhoodName,
-          street: cached.street,
-          lat: null, // coords nunca são cacheadas (privacidade)
-          lng: null,
-          source: (cached.provider as CepResolution['source']) ?? 'MOCK',
-        };
-      }
-    } catch {
-      // cache indisponível → segue para provider (não bloqueia).
-    }
-
-    // 2) provider (miss)
-    let resolution: CepResolution | null = null;
-    try {
-      resolution = await this.provider.resolvePostalCode(cep);
-    } catch {
-      return null; // fail-open
-    }
-    if (!resolution) return null;
-
-    // 3) grava no cache (sem raw payload, sem lat/lng). best-effort.
-    try {
-      const hash = createHash('sha256')
-        .update(`${resolution.stateCode}|${resolution.cityName}|${resolution.cityExternalCode ?? ''}`)
-        .digest('hex');
-      await locationRepository.upsertCepResolution({
-        postalCode: cep,
-        provider: resolution.source,
-        stateCode: resolution.stateCode,
-        cityName: resolution.cityName,
-        cityExternalCode: resolution.cityExternalCode ?? null,
-        neighborhoodName: resolution.neighborhoodName ?? null,
-        street: resolution.street ?? null,
-        source: 'CEP_RESOLVED',
-        rawResponseHash: hash,
-      });
-    } catch {
-      // cache write best-effort; não bloqueia.
-    }
-
-    return resolution;
-  }
-
-  /**
-   * Enriquece um `addresses` (state_id/city_id canônicos) a partir do seu CEP. Best-effort/fail-open.
-   * NÃO escreve lat/lng. NÃO cria neighborhood. Idempotente: reusa cidade por external_code.
+   * Enriquece um `addresses` (state_id/city_id canônicos) a partir do seu CEP. Best-effort e
+   * fail-open para o caller (nunca lança): qualquer estado não-resolvido vira `enriched:false`
+   * com a razão explícita do resolver canônico (ex.: canonical_city_missing).
    */
   async enrichAddress(addressId: string, postalCode: string | null | undefined): Promise<EnrichAddressResult> {
-    const cep = normalizePostalCode(postalCode);
-    if (!cep) return { enriched: false, reason: 'cep_invalido' };
-
-    // requireExternalCode: o enrich quer `city_id` (via IBGE) — força re-resolução de cache incompleto.
-    const resolution = await this.resolvePostalCode(cep, { requireExternalCode: true });
-    if (!resolution) return { enriched: false, reason: 'nao_resolvido_fail_open' };
-
-    const country = await locationRepository.findCountryByCode('BR');
-    if (!country) return { enriched: false, reason: 'pais_br_ausente' };
-
-    const state = await locationRepository.findStateByCode(country.id, resolution.stateCode);
-    if (!state) return { enriched: false, reason: 'uf_fora_do_catalogo' };
-
-    // C — cidade por IBGE (sob demanda). Sem IBGE: não inventa cidade (B = state-only).
-    let cityId: string | null = null;
-    if (resolution.cityExternalCode) {
-      const existing = await locationRepository.findCityByExternalCode(resolution.cityExternalCode);
-      const city =
-        existing ??
-        (await locationRepository.createCityFromExternal({
-          stateId: state.id,
-          name: resolution.cityName,
-          externalCode: resolution.cityExternalCode,
-          // lat/lng do centroide ficam para etapa de catálogo; NÃO usar coords de CEP (privacidade).
-          lat: null,
-          lng: null,
-        }));
-      cityId = city.id;
+    let resolution;
+    try {
+      resolution = await this.resolver.resolve({
+        countryCode: 'BR', // fluxo legado brasileiro — país explícito no call-site (D-B)
+        postalCode: postalCode ?? '',
+      });
+    } catch {
+      return { enriched: false, reason: 'resolver_error_fail_open' };
+    }
+    if (resolution.status !== 'resolved') {
+      return { enriched: false, reason: resolution.status };
     }
 
     await locationRepository.updateAddressGeo(addressId, {
-      stateId: state.id,
-      cityId,
+      stateId: resolution.stateId,
+      cityId: resolution.cityId,
       source: 'CEP_RESOLVED',
     });
 
     return {
       enriched: true,
-      stateId: state.id,
-      cityId,
-      reason: cityId ? 'state_and_city' : 'state_only_sem_ibge',
+      stateId: resolution.stateId,
+      cityId: resolution.cityId,
+      reason: 'state_and_city',
     };
   }
 }

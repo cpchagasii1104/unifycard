@@ -7,6 +7,7 @@ export * from './location.service';
 export * from './location.validators';
 export * from './address-helpers';
 export { locationRepository } from './location.repository';
-export { locationEnrichmentService } from './location-enrichment.service';
+export * from './postal-resolution.types';
+export { postalAddressResolverService } from './postal-address-resolver.service';
 export { default as locationRoutes } from './location.routes';
 

@@ -23,7 +23,7 @@ import type {
 // N3-PRE — predicado canônico de VIGÊNCIA de neighborhoods (fonte única usada pelos 3 readers).
 // Uma row só é CORRENTE quando ativa E dentro da vigência; usa o tempo do banco (CURRENT_TIMESTAMP).
 // Fecha o risco Classe C: readers não podem listar/encontrar/validar bairro inativo ou fora de vigência.
-const NEIGHBORHOOD_CURRENT_SQL = `n.is_active = true
+export const NEIGHBORHOOD_CURRENT_SQL = `n.is_active = true
         AND n.valid_from_at <= CURRENT_TIMESTAMP
         AND (n.valid_until_at IS NULL OR n.valid_until_at > CURRENT_TIMESTAMP)`;
 
@@ -677,47 +677,11 @@ class LocationRepository {
     return result.rowCount ?? 0;
   }
 
-  /**
-   * F-GEO-1a (DECISION-0077): busca cidade pelo `external_code` (IBGE). Reuso no import sob demanda.
-   */
-  async findCityByExternalCode(externalCode: string): Promise<City | null> {
-    const result = await pool.query<{ city_id: string; state_id: string; name: string }>(
-      `
-      SELECT city_id, state_id, name
-      FROM cities
-      WHERE external_code = $1
-      LIMIT 1
-      `,
-      [externalCode]
-    );
-    if (result.rows.length === 0) return null;
-    const row = result.rows[0]!;
-    return { id: row.city_id, stateId: row.state_id, name: row.name };
-  }
-
-  /**
-   * F-GEO-1a (DECISION-0077): cria cidade SOB DEMANDA a partir de dado externo (IBGE).
-   * `name_normalized` é coluna GERADA — não inserir. `lat`/`lng` opcionais (centroide; NÃO coordenada
-   * precisa de residência). Idempotência fica a cargo do chamador (findCityByExternalCode antes).
-   */
-  async createCityFromExternal(input: {
-    stateId: string;
-    name: string;
-    externalCode: string;
-    lat?: number | null;
-    lng?: number | null;
-  }): Promise<City> {
-    const result = await pool.query<{ city_id: string; state_id: string; name: string }>(
-      `
-      INSERT INTO cities (state_id, name, external_code, lat, lng)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING city_id, state_id, name
-      `,
-      [input.stateId, input.name, input.externalCode, input.lat ?? null, input.lng ?? null]
-    );
-    const row = result.rows[0]!;
-    return { id: row.city_id, stateId: row.state_id, name: row.name };
-  }
+  // FASE B (RFC B1-D · D-C/D-D/D-K): os métodos `findCityByExternalCode` (lookup por external_code
+  // NU, sem jurisdição) e `createCityFromExternal` (INSERT em cities a partir de provider) foram
+  // APOSENTADOS. A resolução canônica de cidade vive no par ESCOPADO (state_id, external_code) do
+  // postal-territorial-evidence.repository; cidade ausente é estado explícito fail-closed
+  // (canonical_city_missing) — provider NUNCA amplia o catálogo.
 
   /**
    * F-GEO-1a (DECISION-0077): enriquece um `addresses` com FK de localização resolvida.

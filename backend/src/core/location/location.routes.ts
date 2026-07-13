@@ -3,7 +3,6 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { locationService } from './location.service';
-import { locationEnrichmentService } from './location-enrichment.service';
 import { z } from 'zod';
 
 const locationRoutes: FastifyPluginAsync = async (fastify) => {
@@ -166,53 +165,11 @@ const locationRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  /**
-   * POST /locations/enrich-from-cep
-   * Enriquecer localização a partir de CEP.
-   * Público (mas pode ser protegido no futuro).
-   *
-   * CONTENÇÃO N0 (DT-LOCATION-CORE-NEIGHBORHOOD-FREE-TEXT-WRITER): esta rota resolve/cria
-   * país/estado/cidade a partir do CEP, mas NÃO cria mais bairro por texto livre. O bairro do
-   * CEP retorna apenas como rótulo de exibição (`labels.neighborhood`); `neighborhood_id` fica
-   * sempre nulo até existir a fundação canônica de bairro (F-NEIGHBORHOOD-CANONICAL-IDENTITY).
-   * Ver DECISION-0079 §6 e DECISION-0166 D4.
-   */
-  fastify.post<{
-    Body: {
-      cep: string;
-    };
-  }>('/enrich-from-cep', async (req, reply) => {
-    try {
-      const schema = z.object({
-        cep: z.string().regex(/^\d{8}$/, 'CEP deve ter 8 dígitos'),
-      });
-
-      const validated = schema.parse(req.body);
-
-      const result = await locationEnrichmentService.enrichFromCEP(validated.cep);
-      
-      if (!result) {
-        return reply.status(404).send({
-          error: 'CEP não encontrado',
-        });
-      }
-
-      return reply.send(result);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return reply.status(400).send({
-          error: 'Parâmetros inválidos',
-          details: error.errors,
-        });
-      }
-
-      req.log.error({ err: error }, 'Erro ao enriquecer CEP');
-      return reply.status(500).send({
-        error: 'Erro ao enriquecer CEP',
-        message: error instanceof Error ? error.message : 'Erro desconhecido',
-      });
-    }
-  });
+  // FASE B (RFC B1-D · D-K/D-L): a rota `POST /locations/enrich-from-cep` — writer territorial
+  // público que criava state/city por nome via findOrCreateCity/findOrCreateState — foi
+  // APOSENTADA junto com o serviço legado location-enrichment.service. Provider NUNCA cria
+  // território; a resolução postal é read-only (GET /locations/cep/:cep → resolver canônico) e
+  // a escrita territorial vive exclusivamente nos writers governados (Fase C para actor-scoped).
 };
 
 export default locationRoutes;

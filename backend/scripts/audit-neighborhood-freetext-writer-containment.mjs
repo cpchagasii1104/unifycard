@@ -38,6 +38,20 @@ const CANONICAL_WRITER_ALLOW = new Set([
   // ex. (futuro N2, com DECISION): 'src/core/location/neighborhood-catalog.writer.ts'
 ]);
 
+// FASE B (RFC B1-D · D-G, decisão ratificada em docs/02_decisions/RFC_ADDRESS_POSTAL_RESOLUTION_
+// AND_CITY_GOVERNANCE.md): reconciliação NOMINAL consciente — o resolver postal canônico pode
+// consultar `neighborhoods` por nome DENTRO da MESMA city EXCLUSIVAMENTE para sugerir um
+// CANDIDATO read-only (`neighborhoodCandidateId`, status candidate_requires_confirmation), que
+// exige confirmação humana e NUNCA vira `neighborhoodId` nem é persistido. A exceção vale por
+// CAMINHO RELATIVO EXATO e SOMENTE para o check `name-resolution-sql`; TODOS os demais checks
+// (writes, findOrCreateNeighborhood, matching em memória, id-from-display) continuam mordendo
+// este arquivo. Qualquer outro arquivo que resolva bairro por nome segue proibido. A trava
+// complementar (candidato nunca alimenta neighborhoodId; arquivo é read-only) vive no guard
+// audit-postal-resolution-canonical-boundary.mjs.
+const POSTAL_CANDIDATE_LOOKUP_ALLOW = new Set([
+  'src/core/location/postal-territorial-evidence.repository.ts',
+]);
+
 const SRC = join(ROOT, 'src');
 function walk(dir, acc = []) {
   for (const e of readdirSync(dir)) {
@@ -85,6 +99,7 @@ const files = existsSync(SRC) ? walk(SRC) : [];
 for (const f of files) {
   if (CANONICAL_WRITER_ALLOW.has(f.rel)) continue;
   for (const c of CHECKS) {
+    if (c.id === 'name-resolution-sql' && POSTAL_CANDIDATE_LOOKUP_ALLOW.has(f.rel)) continue;
     const m = c.re.exec(f.src);
     if (m) {
       const snippet = m[0].replace(/\s+/g, ' ').slice(0, 90);
