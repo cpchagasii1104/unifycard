@@ -97,7 +97,10 @@ export interface Address {
   updatedAt: Date;
 }
 
-export type AddressOwnerType = 'company' | 'profile' | 'event' | 'ride' | 'group' | 'tenant_hq' | 'service_provider';
+// Vocabulário governado de owner_type (espelha EXATAMENTE a CHECK de address_assignments no banco).
+// 'actor' (FASE A) = âncora territorial canônica FK-backed do Actor (residência/operacional/HQ).
+// rentable_resource/actor_asset = owners legados de PICKUP (rentals) já vivos em SQL.
+export type AddressOwnerType = 'company' | 'profile' | 'event' | 'ride' | 'group' | 'tenant_hq' | 'service_provider' | 'rentable_resource' | 'actor_asset' | 'actor';
 
 export type AddressRole = 'BILLING' | 'DELIVERY' | 'RESIDENCE' | 'HQ' | 'OPERATIONAL' | 'PICKUP' | 'DROPOFF';
 
