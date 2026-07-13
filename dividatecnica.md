@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (83) — F-NEIGHBORHOOD N3: remediação guard-only (conjunto exato + schema por item + rollback vivo)
+- Veredito Yala B (produto correto; guard incompleto): F1 conjunto dos 75 não fixado (troca/acento/substituição com count=75 passavam); F2 campos extras por item não proibidos; F3 prova de ROLLBACK casava log, não a chamada.
+- Fix guard-only (commit c8709b012; manifest/loader/DB byte-intactos; sem recarga/2º apply): V1 sha256 fixado da projeção [ordinal,name] (3ee1ed83…21bc3, Unicode-exato, ordem exata; hash da projeção → formatação benigna); V2 item = exatamente {ordinal,name}; V3 chamada real client.query('ROLLBACK') no else/dry-run antes do catch + COMMIT proibido nesse ramo; overclaim "ROLLBACK vivo" corrigido.
+- 19/19 mutations (S/I/R; R01 ROLLBACK→COMMIT com log intacto MORDE); 171 guards verdes; typechecks/build/invariants verdes; DB preservado (75/150/2; addr=37/nb=0; Δbank=0).
+- **STATUS:** remediação executada e provada; N3 CONTINUA NÃO SELADA (aguarda reauditoria final Yala).
+
 ### 2026-07-12 (82) — F-NEIGHBORHOOD N3: catálogo canônico de Curitiba — 75 bairros (EXECUTADA E PROVADA, não selada)
 - GO de Clayton com fonte oficial (IPPUC "Nosso Bairro"/75 + GeoCuritiba). Escopo Curitiba integral; demais RMC fora (sem grant).
 - CAMINHO A: manifest curitiba-neighborhoods-manifest.json (75, government_official, city/tenant/actor ratificados) + loader one-shot n3-load-curitiba-neighborhoods.mjs (dry-run/apply token; cada bairro SÓ via writer N2-E fn_create_canonical_neighborhood, nome parametrizado seguro p/ acentos; advisory lock; estado-zero; sem INSERT direto). Guard audit-n3-curitiba-catalog (runner 170→171); 11 mutations.
