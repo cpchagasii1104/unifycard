@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (94) — F-ADDRESS-CANONICAL-BINDING FASE A: fundação do papel territorial canônico do Actor (EXECUTADA E PROVADA, não selada)
+- GATE address-binding concluído (D0-D15, fases A-F, contratos Social/Bank). Sistema virgem: 37 addresses=fixtures (Fase A não limpou nada). Achados: ownership não-Actor (owner_type polimórfico), 3 writers concorrentes, cities=27 capitais, 25/37 órfãos, 14/24 CEP-sem-city, bairro-do-CEP fail-closed.
+- Fase A (commit 78cfbb171): migration 20260713100000 aditiva na casa canônica address_assignments (sem 3ª tabela) — actor_id FK→actors; owner_type 'actor'; CHECK forma/vigência/papéis; UNIQUE primary por (actor_id,role); trigger coerência PF/PJ↔role (lê actor_type, não copia); trigger imutabilidade histórica; trava fail-closed (writers legados não criam actor-scoped). Resolver read-only tenant-scoped (getClientWithTenant; sem fallback/CEP/write/rota/Bank/Social; estados honestos). Vocabulário TS alinhado ao DB.
+- Guard audit-actor-territorial-assignment-foundation (runner 171→172); 20 mutations; prova DB 21/21 (ROLLBACK, resíduo zero). 172 guards; typecheck/build/invariants verdes; DB assignments=12/addresses=37/nb=75/grants=2, Δbank=0; fixtures intactos.
+- **STATUS:** executada e provada; NÃO SELADA (aguarda Yala). Próxima (pós-selo): Fase C writer único → Fase B CEP → Fase D limpeza dos 37.
+
 ### 2026-07-13 (93) — F-NEIGHBORHOOD N3: SELADA PELA YALA · SELO COMPLETO FINAL
 - Veredito A da Yala em HEAD fcd57e2d2 (arco final 3ea3146ca→c9586bc8b→fcd57e2d2; carga real 4248075b8). N3 oficialmente encerrada.
 - Produto selado: 75 bairros de Curitiba + 150 eventos vivos e íntegros; tokens=0/aliases=0/succession=0; grants=2; addresses=37/nb=0; bank=15; Δbank=0; runner=171. Produto/banco byte-intactos em todos os ciclos guard-only; nenhuma recarga/2º apply.
