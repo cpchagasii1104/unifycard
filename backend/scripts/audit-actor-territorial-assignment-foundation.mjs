@@ -46,7 +46,21 @@ if (!existsSync(MIG)) {
 } else {
   const m = stripComments(rd(MIG));
   if (!/ALTER TABLE\s+public\.address_assignments\s+ADD COLUMN\s+actor_id\s+uuid[\s\S]*?REFERENCES\s+public\.actors\s*\(\s*id\s*\)/i.test(m)) note('A1: coluna actor_id FK-backed para actors(id) ausente');
-  if (!/owner_type\s*=\s*ANY[\s\S]*'actor'/i.test(m)) note("A2: owner_type='actor' não adicionado à CHECK de vocabulário");
+  // A2 (N1) — 'actor' deve estar DENTRO do ARRAY do CHECK canônico address_assignments_owner_type_check,
+  // não em ocorrência posterior (outro CHECK/trigger/string/comentário). Ancora ao constraint + extrai o ARRAY.
+  {
+    const ci = m.search(/ADD CONSTRAINT\s+address_assignments_owner_type_check\b/i);
+    if (ci < 0) {
+      note('A2: constraint address_assignments_owner_type_check ausente/renomeado');
+    } else {
+      const rest = m.slice(ci);
+      const end = rest.indexOf(';');
+      const stmt = end >= 0 ? rest.slice(0, end) : rest; // corpo do ALTER ... ADD CONSTRAINT (sem o ';' de outro bloco)
+      const am = stmt.match(/owner_type\s*=\s*ANY\s*\(\s*ARRAY\s*\[([\s\S]*?)\]/i);
+      if (!am) note('A2: CHECK canônico de owner_type não usa owner_type = ANY(ARRAY[...]) (contrato exige o ARRAY)');
+      else if (!/'actor'/.test(am[1])) note("A2: literal 'actor' AUSENTE do ARRAY do CHECK canônico de owner_type (ocorrência externa ao ARRAY não conta)");
+    }
+  }
   if (!/ck_addr_assign_actor_shape[\s\S]*owner_type\s*=\s*'actor'\s+AND\s+actor_id\s+IS NOT NULL\s+AND\s+owner_id\s*=\s*actor_id/i.test(m)) note('A3: CHECK de forma actor-scoped (actor_id NOT NULL + owner_id=actor_id) ausente/fraca');
   if (!/ck_addr_assign_actor_shape[\s\S]*owner_type\s*<>\s*'actor'\s+AND\s+actor_id\s+IS NULL/i.test(m)) note('A3b: CHECK não proíbe actor_id em linha não-actor');
   if (!/ck_addr_assign_validity_order[\s\S]*valid_until_at\s+IS NULL\s+OR\s+valid_until_at\s*>\s*valid_from_at/i.test(m)) note('A4: CHECK de vigência (valid_until > valid_from) ausente');
