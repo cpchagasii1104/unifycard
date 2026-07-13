@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (92) — F-NEIGHBORHOOD N3: remediação guard-only M1 (literal regex como receiver estrutural)
+- 10º veredito Yala B: L1 não reconhecia fechamento de literal regex como receiver → /regex/['constructor'] passava (1 hop; cadeia executável já mordia no 2º bracket).
+- Fix guard-only (commit c9586bc8b; produto/DB intactos): o skeleton tokeniza literal regex (regex-vs-divisão por último token keyword-aware; corpo/classes/escapes/flags; offsets 1:1; regexEnds); L1 reconhece regex-close como receiver e (opção B, documentada) proíbe qualquer member-access após regex. Divisão e regex real do loader (/^"|"$/g) preservados; texto hostil interno ao regex é dado.
+- Exploits regex-receiver e cadeias até Function mordendo. 37 provas; preservação L1/K1/J1/J2/H1/E1/E2/E3/F2/V intacta. 171 guards; typechecks/build/invariants verdes; DB 75/150/2, addr=37/nb=0, Δbank=0; sem recarga/2º apply.
+- **STATUS:** executada e provada; N3 CONTINUA NÃO SELADA (aguarda reauditoria final Yala).
+
 ### 2026-07-13 (91) — F-NEIGHBORHOOD N3: remediação guard-only L1 (reflexão por acesso-membro computado)
 - 9º veredito Yala B: E2 só bloqueava reflexão dotted e K1 só process.argv → []['constructor']['constructor']('return process.version')() executava e recuperava process em qualquer receiver.
 - Fix guard-only (commit f4f18f707; produto/DB intactos): L1 governa acesso-membro computado em QUALQUER receiver — bracket só passa com índice inteiro decimal fora de process.argv; propriedade-string/template/expressão/ident-dinâmico/optional/hex/bigint mordem; array-literals (prev keyword/,/=/(/:) e process.argv (K1) preservados; chamada/tagged após índice numérico mordem.
