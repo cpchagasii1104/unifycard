@@ -8,11 +8,18 @@
 // Comment-aware (strip JS) e liveness. Estado vivo = introspecção. Parse fail = FAIL.
 
 import { readFileSync, existsSync } from 'fs';
+import { createHash } from 'crypto';
 import { join } from 'path';
 
 const ROOT = process.cwd();
 const failures = [];
 const note = (m) => failures.push(m);
+
+// V1 — HASH CANÔNICO do conjunto ratificado dos 75 (projeção [ordinal, name], Unicode/acento-exato, ordem
+// exata do manifest em a76abfe34). Calculado UMA vez do manifest intacto e FIXADO aqui (nunca derivado
+// dinamicamente do próprio manifest): qualquer troca de nome/acento/caixa/whitespace/ordinal/posição/
+// item-faltante/extra/substituição-com-count-75 muda o hash e FALHA.
+const EXPECTED_ITEMS_SHA256 = '3ee1ed8382f764862da51548ff8d7dfdaecf01b932d6404593d997f4b9921bc3';
 
 function stripJsComments(src) {
   let out = '', i = 0, mode = 'code'; const n = src.length;
@@ -61,6 +68,22 @@ if (!existsSync(MANIFEST)) {
     if (new Set(names).size !== names.length) note('A8: nome duplicado exato no manifest');
     const ords = items.map((i) => i && i.ordinal);
     if (new Set(ords).size !== 75 || Math.min(...ords) !== 1 || Math.max(...ords) !== 75) note('A9: ordinais não são 1..75 únicos');
+    // V1 — CONJUNTO CANÔNICO EXATO: hash determinístico da projeção parseada [ordinal, name] (não dos bytes
+    // do arquivo → formatação JSON é benigna). Sem sort/trim/normalização: Unicode exato, ordem exata.
+    const projection = JSON.stringify(items.map((i) => [i && i.ordinal, i && i.name]));
+    const gotHash = createHash('sha256').update(projection, 'utf8').digest('hex');
+    if (gotHash !== EXPECTED_ITEMS_SHA256) {
+      note(`A12v1: conjunto dos 75 DIVERGE do ratificado — sha256 esperado=${EXPECTED_ITEMS_SHA256} obtido=${gotHash} (nome/acento/caixa/whitespace/ordinal/posição alterado, item faltante/extra ou substituído)`);
+    }
+    // V2 — SCHEMA EXATO por item: exatamente {ordinal, name}; qualquer chave extra (tenant_id, city_id,
+    // CEP, lat/lng, metadata, name_normalized, …) FALHA mesmo que o loader não a leia.
+    for (const it of items) {
+      const keys = Object.keys(it || {}).sort();
+      if (keys.length !== 2 || keys[0] !== 'name' || keys[1] !== 'ordinal') {
+        note(`A13v2: item ordinal=${it && it.ordinal} tem chaves [${keys.join(',')}] — permitido EXATAMENTE {ordinal, name}`);
+        break;
+      }
+    }
     if (!meta.source_reference || !/IPPUC/i.test(meta.source_reference)) note('A10: source_reference sem referência oficial (IPPUC)');
     // manifest NÃO pode conter neighborhood_id/tenant financeiro/CEP/lat-lng/alias
     const raw = readFileSync(MANIFEST, 'utf8');
@@ -82,9 +105,27 @@ if (!existsSync(LOADER)) {
   if (!/pg_advisory_xact_lock/.test(s)) note('B4: loader sem advisory lock');
   if (!/neighborhoods'\)\)\.rows\[0\]\.n|n0\s*!==\s*0|NÃO-ZERO/.test(s)) note('B5: loader não exige estado inicial neighborhoods=0');
   if (!/N3-LOAD-CURITIBA/.test(s) || !/--apply/.test(s)) note('B6: loader sem apply gated por token de confirmação');
-  if (!/if\s*\(\s*APPLY\s*&&\s*CONFIRMED\s*&&\s*!\s*failed\s*\)[\s\S]{0,120}?COMMIT/.test(s)) note('B7: COMMIT não dominado por (APPLY && CONFIRMED && !failed)');
+  if (!/if\s*\(\s*APPLY\s*&&\s*CONFIRMED\s*&&\s*!\s*failed\s*\)[\s\S]{0,120}?client\.query\(\s*['"]COMMIT['"]\s*\)/.test(s)) note('B7: COMMIT não dominado por (APPLY && CONFIRMED && !failed)');
+  // V3 — ROLLBACK VIVO no ramo dry-run: prova a CHAMADA REAL `client.query('ROLLBACK')` dentro do bloco
+  // else do gate de COMMIT (antes do catch), NÃO a palavra em log/comentário/string solta. Também exige
+  // ausência de client.query('COMMIT') nesse ramo (um dry-run que persiste é evasão).
   const elseM = s.match(/\}\s*else\s*\{([\s\S]*)$/);
-  if (!elseM || (elseM[1].split(/\bcatch\s*\(/)[0] || '').search(/ROLLBACK/) < 0) note('B8: ROLLBACK ausente no ramo dry-run/else (antes do catch)');
+  if (!elseM) {
+    note('B8v3: ramo else (dry-run/abort) do gate de COMMIT ausente');
+  } else {
+    const elseRegion = (elseM[1].split(/\bcatch\s*\(/)[0] || '');
+    const CALL_ROLLBACK = /(?:await\s+)?client\.query\(\s*['"]ROLLBACK['"]\s*\)/;
+    const CALL_COMMIT = /client\.query\(\s*['"]COMMIT['"]\s*\)/;
+    if (!CALL_ROLLBACK.test(elseRegion)) {
+      note("B8v3: chamada REAL client.query('ROLLBACK') ausente no ramo dry-run/else — palavra em log/comentário NÃO satisfaz");
+    } else {
+      // a chamada deve vir ANTES de qualquer return/process.exit/throw terminal do ramo
+      const callIdx = elseRegion.search(CALL_ROLLBACK);
+      const termIdx = elseRegion.search(/\breturn\b|process\.exit\(|\bthrow\b/);
+      if (termIdx >= 0 && termIdx < callIdx) note('B8v3b: ROLLBACK do dry-run só após return/exit/throw (inalcançável)');
+    }
+    if (CALL_COMMIT.test(elseRegion)) note("B8v3c: client.query('COMMIT') presente no ramo dry-run — dry-run não pode persistir");
+  }
   if (/ON CONFLICT|UPSERT/i.test(s)) note('B9: loader usa ON CONFLICT/UPSERT (proibido)');
   if (/DELETE\s+FROM/i.test(s)) note('B10: loader usa DELETE (proibido)');
   if (!/unificard_app/.test(s) || !/current_user/.test(s)) note('B11: loader não recusa execução como unificard_app');
@@ -104,4 +145,4 @@ if (failures.length) {
   console.error('GATE FAIL [n3-curitiba-catalog]\n' + failures.map((f) => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('GATE OK [n3-curitiba-catalog] — manifest declara 75 bairros de Curitiba (city/tenant/actor ratificados, source_kind government_official, nomes únicos sem whitespace, ordinais 1..75, referência IPPUC, sem campos proibidos); loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), com advisory lock, estado-inicial-zero, dry-run default, apply gated por token, COMMIT dominado por (APPLY&&CONFIRMED&&!failed), ROLLBACK vivo no dry-run; sem ON CONFLICT/DELETE, sem alias/succession/mutação de address, sem rota/Bank/Social; exige exatamente 75. (Comment-aware + liveness.)');
+console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, COMMIT dominado por (APPLY&&CONFIRMED&&!failed), e a CHAMADA REAL client.query(ROLLBACK) provada no ramo dry-run/else antes do catch (log/comentário NÃO satisfaz; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social. (Comment-aware + liveness estrutural.)');
