@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (89) — F-NEIGHBORHOOD N3: remediação guard-only J1+J2 (papéis sintáticos de process.argv/process.exit)
+- 7º veredito Yala B: H1 validava o MEMBRO mas não o PAPEL — argv.push('--apply','N3-LOAD-CURITIBA') pré-derivação e process.exit=()=>{}  passavam.
+- Fix guard-only (commit cec391f9d; produto/DB intactos): J1 argv SOMENTE LEITURA (slice/includes/indexOf/join/[i]-lido/length-lido; atribuição/mutadores/++--/delete/spread/alias/passagem-como-valor/optional mordem; fail-closed); J2 exit SOMENTE chamada direta canônica colada exit(0|1|failed?1:0) (substituição/delete/alias/?.()/call-apply-bind/void/código-não-canônico mordem).
+- Pontos centrais provados (ambos mordem). 48 provas; preservação H1/F2/E/D/V intacta; zero regex paralela. 171 guards; typechecks/build/invariants verdes; DB 75/150/2, addr=37/nb=0, Δbank=0; sem recarga/2º apply.
+- **STATUS:** executada e provada; N3 CONTINUA NÃO SELADA (aguarda reauditoria final Yala).
+
 ### 2026-07-13 (88) — F-NEIGHBORHOOD N3: remediação guard-only H1 (allowlist estrutural de process)
 - 6º veredito Yala B: bloqueio de process era DENYLIST — process.binding/_linkedBinding/dlopen passavam.
 - Fix guard-only (commit 807ad5582; produto/DB intactos): H1 allowlist POSITIVA {process.argv, process.exit} em acesso-ponto direto exato; qualquer outro membro (atual ou FUTURO — P24 process.futureLoader morde), computed/optional (mesmo p/ permitidos), alias (incl. de membro permitido), desestruturação, shadowing, globalThis/global = mordem. Uso legítimo (argv.slice/argv[i]/exit(0)) e palavras em string/comentário passam.
