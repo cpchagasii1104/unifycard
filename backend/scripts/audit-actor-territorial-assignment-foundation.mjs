@@ -121,21 +121,25 @@ if (existsSync(TYPES)) {
   else { for (const v of ['actor', 'rentable_resource', 'actor_asset', 'company', 'profile', 'service_provider']) if (!m[1].includes(`'${v}'`)) note(`C1: AddressOwnerType não inclui '${v}' (drift DB↔TS)`); }
 }
 
-// ── D. TRAVA FAIL-CLOSED: nenhum writer vivo cria actor-scoped (Fase C ainda não abriu) ──
+// ── D. TRAVA: actor-scoped só na CASA CANÔNICA (Fase C aberta = repository actor-territorial). ──
+// O location.repository legado continua PROIBIDO de criar actor-scoped; a casa canônica da Fase C
+// (actor-territorial-address.repository.ts) é a única exceção — a trava migra para o guard da Fase C.
+const FASEC_REPO = join(ROOT, 'src', 'core', 'location', 'actor-territorial-address.repository.ts');
+const FASEC_SVC = join(ROOT, 'src', 'core', 'location', 'actor-territorial-address-writer.service.ts');
 if (existsSync(REPO)) {
   const repo = stripComments(rd(REPO));
-  // os writers de address_assignments no repository NÃO podem incluir a coluna actor_id nem owner_type='actor'
+  // o location.repository legado NÃO pode incluir a coluna actor_id nem owner_type='actor'
   const insBlocks = [...repo.matchAll(/INSERT INTO\s+address_assignments\s*\(([^)]*)\)/gi)];
-  for (const b of insBlocks) if (/\bactor_id\b/i.test(b[1])) note('D1: repository INSERT em address_assignments inclui actor_id (abriria actor-scoped antes da Fase C)');
+  for (const b of insBlocks) if (/\bactor_id\b/i.test(b[1])) note('D1: location.repository legado INSERT em address_assignments inclui actor_id (só a casa canônica da Fase C pode)');
 }
-// varredura src: nenhuma ESCRITA actor-scoped (INSERT/UPDATE address_assignments com actor_id/owner_type='actor')
+// varredura src: nenhuma ESCRITA actor-scoped fora do resolver (read) e da casa canônica da Fase C.
 {
   const SRC = join(ROOT, 'src');
   const hits = [];
   const walk = (dir) => { for (const f of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, f.name);
     if (f.isDirectory()) walk(p);
-    else if (/\.ts$/.test(f.name) && p !== RESOLVER) {
+    else if (/\.ts$/.test(f.name) && p !== RESOLVER && p !== FASEC_REPO && p !== FASEC_SVC) {
       const s = stripComments(rd(p));
       // escrita em address_assignments setando actor_id, ou passando owner_type literal 'actor' a um write
       if (/INSERT INTO\s+address_assignments[\s\S]{0,400}?actor_id/i.test(s)) hits.push(p + ' (INSERT actor_id)');

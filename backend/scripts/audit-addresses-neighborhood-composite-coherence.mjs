@@ -123,7 +123,9 @@ try {
   function walk(dir) { const out = []; for (const e of readdirSync(dir, { withFileTypes: true })) { const p = join(dir, e.name); if (e.isDirectory()) { if (e.name === '__tests__' || e.name === 'node_modules') continue; out.push(...walk(p)); } else if (e.name.endsWith('.ts') && !e.name.endsWith('.test.ts') && !e.name.endsWith('.d.ts')) out.push(p); } return out; }
   // Writers CANÔNICOS conhecidos que gravam neighborhood_id em addresses (Location Core central + rentals +
   // events). QUALQUER OUTRO arquivo com INSERT INTO addresses(... neighborhood_id ...) = writer paralelo → FAIL.
-  const KNOWN_WRITERS = ['rentable-resource.repository.ts', 'event.service.ts', 'location.repository.ts'];
+  // + FASE C: repository canônico privado do writer actor-territorial (casa única actor-scoped; escreve
+  //   addresses respeitando CHECK/FK composta N2-F; governado pelo service com autoridade/transação/idempotência).
+  const KNOWN_WRITERS = ['rentable-resource.repository.ts', 'event.service.ts', 'location.repository.ts', 'actor-territorial-address.repository.ts'];
   for (const f of (existsSync(SRC) ? walk(SRC) : [])) {
     const rel = f.slice(ROOT.length + 1).replace(/\\/g, '/');
     const c = stripTs(readFileSync(f, 'utf-8'));
