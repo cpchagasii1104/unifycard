@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (100) — F-ADDRESS FASE C: remediação R1 (vírgula final benigna nos argumentos de autoridade)
+- Veredito Yala B: falso-FAIL — A3f/A3h rejeitavam a vírgula final que o Prettier insere ao quebrar a chamada em multilinha (produto reformatado ficava vermelho sem mudança semântica).
+- Fix guard-only (commit d0ec59379; produto/DB intactos; P2/N2-F byte-intacto): adiciona \s*,?\s* (vírgula final opcional) antes do ')' em ambas as regex; os 3 argumentos exatos seguem obrigatórios.
+- 11 mutations (B2/B4 vírgula final PASSAM; H1-H6 args hostis MORDEM; Q1/P1 preservados). 173 guards; typecheck/build/invariants verdes; DB 37/12/0; Δbank=0. Overclaim "produto reformatado passa" corrigido.
+- **STATUS:** executada e provada; Fase C CONTINUA NÃO SELADA (aguarda Yala).
+
 ### 2026-07-13 (99) — F-ADDRESS FASE C: remediação Q1 (autoridade com await direto, sem .then/.catch/.finally)
 - Veredito Yala B: o anti-swallow P1 não cobria o 2º arg de .then — canRepresentActor(...).then(v=>v, ()=>false) mascarava erro como deny.
 - Fix guard-only (commit fc955d6ec; produto/DB intactos; P2/N2-F byte-intacto): Q1 exige await DIRETO — (a) canRepresentActor sempre imediatamente sob await (bloqueia Promise.resolve/transform/alias/ternário); (b) nenhum encadeamento .then/.catch/.finally/?./[]/tagged após o ')' de fechamento (parênteses balanceados).

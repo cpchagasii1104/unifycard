@@ -1,6 +1,23 @@
 # REMEDIATION DT LOG
 
-## F-ADDRESS-CANONICAL-BINDING — FASE C · REMEDIAÇÃO Q1 · AUTORIDADE COM AWAIT DIRETO E SEM ENCADEAMENTO · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-13)
+## F-ADDRESS-CANONICAL-BINDING — FASE C · REMEDIAÇÃO R1 · VÍRGULA FINAL BENIGNA NOS ARGUMENTOS DE AUTORIDADE · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-13)
+**Veredito Yala B guard-only em `cf3bdd496`** (Q1 completo; P1 e P2 preservados): único resíduo = **falso-FAIL** — as checagens de argumentos exatos A3f (`assertRepresentable`) e A3h (`canRepresentActor`) exigiam fechamento direto após o último argumento e rejeitavam a **vírgula final que o Prettier insere** ao quebrar a chamada em múltiplas linhas (a linha viva excede o print width). Chamadas semanticamente idênticas com e sem vírgula. Commit guard-only `d0ec59379` (**produto/service/repository/teste/DB byte-intactos; só o guard Fase C muda; P2/N2-F byte-intacto**) + este cartório.
+
+**REMEDIAÇÃO (R1):** adiciona `\s*,?\s*` (vírgula final opcional) antes do `)` em ambas as regex — A3f `assertRepresentable(auth.tenantId, auth.operatorUserId, input.actorId ,? )` e A3h `canRepresentActor(tenantId, operatorUserId, actorId ,? )`. Os TRÊS argumentos exatos seguem obrigatórios; a vírgula final é a única tolerância nova.
+
+**MUTATIONS (11):** **benignos** — R1-B2 assertRepresentable multiline+vírgula final · R1-B4 helper com vírgula final · produto sem vírgula — PASSAM; **hostis** — R1-H1 args-trocados · R1-H2 tenant-do-input · R1-H3 actor-substituído-pelo-operador · R1-H4 argumento-extra · R1-H5 argumento-faltando · R1-H6 helper-args-trocados — MORDEM; **preservação** — Q1 `.then(v,()=>false)` e P1 inversão-do-deny — SEGUEM MORDENDO.
+
+**PRESERVAÇÃO:** P2 (`audit-addresses-neighborhood-composite-coherence`) byte-intacto e verde; Q1 (await direto sem encadeamento) e P1 (por-função/argumentos/ordem/sentido/anti-swallow) intactos; Fase A/N2-F/N3 verdes; demais famílias da Fase C intactas.
+
+**CORREÇÃO DE OVERCLAIM:** o registro pré-R1 afirmava "produto reformatado passa" — a vírgula final do Prettier gerava falso-FAIL; agora o guard tolera `,?` mantendo os argumentos exatos (superação registrada; corpo anterior preservado).
+
+**PROVAS:** guard verde no real · **173 guards verdes** (runner permaneceu 173) · backend/frontend typecheck 0 · build/invariants verdes · byte-integridade desde cf3bdd496 (service/repository/teste/migration/src/N2-F-guard intactos) · DB: addresses=37 · address_assignments=12 · actor-scoped=0 · neighborhoods=75 · grants=2 · bank=15 · atr-events=0 · idem-residuais=0 · **Δbank=0**.
+
+**STATUS: ⚙️ REMEDIAÇÃO R1 EXECUTADA E PROVADA · 🔴 FASE C CONTINUA NÃO SELADA** (aguarda uma única reauditoria read-only Yala).
+
+---
+
+## F-ADDRESS-CANONICAL-BINDING — FASE C · REMEDIAÇÃO Q1 · AUTORIDADE COM AWAIT DIRETO E SEM ENCADEAMENTO · ⚙️ EXECUTADA E PROVADA · (registro pré-R1 — o overclaim "produto reformatado passa" foi SUPERADO por R1 acima, que tolera a vírgula final do Prettier) (2026-07-13)
 **Veredito Yala B guard-only em `e191bcc07`** (P1 e P2 corretos; P2 considerado perfeito): único resíduo — o anti-swallow de P1 bloqueava `catch`/`.catch`/`||`/`??`/ternário/inversão, mas NÃO o 2º argumento de `.then`: **`canRepresentActor(...).then(value => value, () => false)`** adicionava um handler de rejeição que mascara erro de infraestrutura como `false` (deny). Mesma família anti-swallow. Commit guard-only `fc955d6ec` (**produto/service/repository/teste/DB byte-intactos; só o guard Fase C muda; P2/N2-F byte-intacto**) + este cartório.
 
 **REMEDIAÇÃO (Q1):** `canRepresentActor` deve ser consumido por **AWAIT DIRETO**, sem qualquer encadeamento. (a) toda chamada `canRepresentActor(` deve estar imediatamente sob `await` (receiver opcional) — bloqueia wrapper (`Promise.resolve(...)`/`transform(...)`), alias intermediário (`const p = canRepresentActor(...); await p.then(...)`) e ternário. (b) após o `)` de fechamento (parênteses balanceados sobre o skeleton), o próximo token vivo não pode ser `.` / `?.` / `[` / tagged-template — bloqueia `.then`/`.catch`/`.finally`/`?.then`/`['then']`. Reaproveita a infraestrutura léxica do guard (sem parser novo).
