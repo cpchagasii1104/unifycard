@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (80) — F-NEIGHBORHOOD N3-PRE: vigência nos readers de neighborhoods (EXECUTADA E PROVADA, não selada)
+- GATE N3 apontou risco Classe C: os 3 readers (findNeighborhoodsByCity/findNeighborhoodById/validateNeighborhoodBelongsToCity) não filtravam is_active/valid_from/valid_until.
+- Fix (commit 989817447): fonte única NEIGHBORHOOD_CURRENT_SQL interpolada nos 3 readers — is_active=true AND valid_from_at<=CURRENT_TIMESTAMP AND (valid_until_at IS NULL OR >CURRENT_TIMESTAMP); assinaturas inalteradas. Teste DB 11/11 (temp table, ROLLBACK, neighborhoods=0). Guard audit-neighborhood-reader-vigency (comment-aware+liveness; runner 169→170); 10 mutations mordem.
+- 170 guards verdes; backend/frontend typecheck 0; build/invariants verdes; grants/eventos territoriais intactos; Δbank=0.
+- Martelos futuros da N3 já ratificados (registro): fonte IPPUC "Nosso Bairro/75 bairros" + GeoCuritiba; escopo integral; count 75; government_official; manifest JSON; transação única; aliases/succession fora; manifest+one-shot.
+- **STATUS:** N3-PRE executada e provada · NÃO SELADA (aguarda Yala). N3 (carga real dos 75) NÃO executada — aguarda selo desta remediação + GO do envelope. N2-D/E/F/G+PORTA seladas; Social/Bank fora.
+
 ### 2026-07-12 (79) — PORTA-TERRITORY-1: SELO COMPLETO FINAL PELA YALA
 - Reauditoria final read-only (Yala) sobre a75c2ea60→43a04b715→7c4478554. Veredito A · SELO COMPLETO FINAL. PORTA SELADA.
 - Confirmado: writer territorial governado (SECDEF vivo, ACL owner-only, platform_bootstrap, não-circular); 2 grants reais (create 3e5cebe6, approve 44c9dc03) p/ Actor de Clayton 213f4903 em Curitiba 9d431002, active, valid_until NULL; 2 eventos (ed9a5240/b2afe9fa); D3 resolve ambos; one-shot dry-run/apply/rerun fail-closed; reconciliação N2-D.1/D.2 nominal; família comment-awareness/liveness fechada; 169 guards; typecheck/build/invariants verdes; neighborhoods=0; Δbank=0.

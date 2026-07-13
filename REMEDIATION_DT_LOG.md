@@ -1,5 +1,18 @@
 # REMEDIATION DT LOG
 
+## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N3-PRE · VIGÊNCIA NOS READERS DE NEIGHBORHOODS · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-12)
+Remediação pré-N3 do RISCO BLOQUEANTE (Classe C) apontado no GATE N3: os 3 readers vivos de neighborhoods não aplicavam o contrato de vigência e poderiam listar/encontrar/validar bairro inativo ou fora de vigência. Commit material `989817447` (`fix(location): enforce neighborhood validity in canonical readers`) + este cartório. **N3 (carga real dos 75 bairros) NÃO executada — bloqueada até o selo Yala desta remediação + martelos de fonte/lista.**
+
+**MARTELOS TERRITORIAIS JÁ RATIFICADOS PARA A FUTURA N3 (registro, não executados aqui):** fonte primária IPPUC — "Nosso Bairro — 75 bairros de Curitiba"; fonte técnica corroboradora GeoCuritiba (camada oficial Bairro); escopo integral; count esperado 75; source_kind government_official; manifest JSON determinístico; atomicidade transação única; aliases/succession fora; caminho manifest + one-shot canônico. Nenhuma carga real autorizada neste envelope.
+
+**REMEDIAÇÃO:** fonte ÚNICA `NEIGHBORHOOD_CURRENT_SQL` (em location.repository.ts) interpolada nos 3 readers — `findNeighborhoodsByCity`, `findNeighborhoodById`, `validateNeighborhoodBelongsToCity` — com o predicado canônico: **`is_active = true AND valid_from_at <= CURRENT_TIMESTAMP AND (valid_until_at IS NULL OR valid_until_at > CURRENT_TIMESTAMP)`** (tempo do banco; valid_until ESTRITO; sem `>=`/COALESCE/OR-permissivo; sem `is_active` de outra tabela; sem resolução textual/LIMIT-1). Assinaturas e retornos públicos INALTERADOS (só WHERE adicionado) → nenhum consumer alterado.
+
+**PROVAS:** teste DB `test-neighborhood-reader-vigency-db.sql` **11/11** (temp table sintética espelhando os 3 readers, ROLLBACK; T01 corrente listado/encontrado/validado; T02 valid_from-futuro, T03 valid_until-passado, T04 valid_until=agora (borda estrita), T05 inativo, T06 outra-city → excluídos; T07 inexistente; T08 não-contaminação neighborhoods=0/grants=2/events=2). Guard `audit-neighborhood-reader-vigency.mjs` (comment-aware + liveness por método; runner 169→**170**): GATE OK; **10 mutations mordem** (remover is_active/valid_from/valid_until; valid_from invertido; valid_until `>=`; OR-permissivo; COALESCE; tabela-errada actor_active_location; interpolação removida/comentada; fallback name/ILIKE; guard-fora-do-runner) + benignos passam. **170 guards verdes** · backend/frontend typecheck 0 · build verde · invariants 5/5 · `git diff --check` limpo · neighborhoods=0/aliases=0/succession=0/addresses=37/addr_com_nb=0/territory_grants=2/grant_events=2 · D3 resolve create+approve · Δbank=0.
+
+**STATUS: ⚙️ N3-PRE EXECUTADA E PROVADA · 🔴 NÃO SELADA (não auto-selar; aguarda auditoria Yala).** Os readers canônicos agora só retornam/validam rows ativas e vigentes. **N3 permanece NÃO EXECUTADA** — a carga integral dos 75 bairros aguarda o selo desta remediação + GO do envelope material (CAMINHO A). N2-D/E/F/G + PORTA-TERRITORY-1 seladas; Social/Bank fora.
+
+---
+
 ## PORTA-TERRITORY-1 — PRIMEIRA ATIVAÇÃO REAL DE AUTORIDADE TERRITORIAL (CURITIBA) — ✅ SELO COMPLETO FINAL PELA YALA (2026-07-12)
 Reauditoria final read-only da Yala sobre o arco `a75c2ea60`→`43a04b715` (remediação guard-only)→`7c4478554` (cartório), HEAD auditado `7c4478554`, branch rescue-structural. **Veredito A — SELO COMPLETO FINAL.** PORTA-TERRITORY-1 oficialmente SELADA.
 
