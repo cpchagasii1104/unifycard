@@ -92,6 +92,30 @@ else {
   // A3s — anti-swallow global sobre a chamada de autoridade (.catch e fallback ||/??)
   if (/(canRepresentActor|assertRepresentable)\([^;]*\)\s*\.catch\s*\(/.test(s)) note('A3s: .catch() sobre a chamada de autoridade (fail-open) — proibido');
   if (/(canRepresentActor|assertRepresentable)\([^;]*\)\s*(\|\||\?\?)/.test(s)) note('A3s: fallback ||/?? sobre a chamada de autoridade — proibido');
+
+  // ── Q1 — canRepresentActor consumido por AWAIT DIRETO, sem QUALQUER encadeamento posterior ──
+  // (a) toda chamada canRepresentActor( deve estar imediatamente sob `await` (com receiver opcional) —
+  //     bloqueia wrapper (Promise.resolve/transform), alias intermediário e ternário.
+  // (b) após o ')' de fechamento (parênteses balanceados sobre o skeleton), o próximo token vivo não pode
+  //     ser . / ?. / [ / template — bloqueia .then/.catch/.finally/?.then/['then']/tagged.
+  {
+    const CALL = /canRepresentActor\s*\(/g;
+    let cm; const calls = [];
+    while ((cm = CALL.exec(s))) calls.push(cm.index);
+    const AWAIT_DIRECT = /await\s+(?:[A-Za-z_$][\w$]*\s*\.\s*)?$/;
+    for (const idx of calls) {
+      // (a) precedência: o texto antes de 'canRepresentActor' termina em `await [receiver.]`
+      const before = s.slice(Math.max(0, idx - 60), idx);
+      if (!AWAIT_DIRECT.test(before)) { note('Q1a: canRepresentActor não está imediatamente sob await direto (wrapper/alias/ternário) — proibido'); continue; }
+      // (b) encontra o '(' da chamada e casa parênteses
+      const paren = s.indexOf('(', idx);
+      let depth = 0, j = paren, close = -1;
+      for (; j < s.length; j++) { if (s[j] === '(') depth++; else if (s[j] === ')') { depth--; if (depth === 0) { close = j; break; } } }
+      if (close < 0) { note('Q1: parênteses de canRepresentActor não fecham'); continue; }
+      let k = close + 1; while (k < s.length && /\s/.test(s[k])) k++;
+      if (s[k] === '.' || s[k] === '?' || s[k] === '[' || s[k] === '`') note(`Q1b: encadeamento após canRepresentActor(...) ("${s[k]}") — exige await direto sem .then/.catch/.finally/?./[]/tagged`);
+    }
+  }
   if (/input\.(tenantId|operatorUserId|ownerType|owner_type|role|isPrimary|is_primary|actorType|actor_type|validFrom|validUntil)\b/.test(s)) note('A6: service lê tenant/operador/owner_type/role/is_primary/actor_type/vigência do input (proibido)');
   // purpose→role derivado internamente
   if (!/PURPOSE_ROLE\s*\[/.test(s) && !/PURPOSE_ROLE\s*=/.test(s)) note('A7: purpose→role não derivado por mapa governado');
