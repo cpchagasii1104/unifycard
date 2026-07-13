@@ -294,6 +294,51 @@ if (!existsSync(LOADER)) {
     for (const [re, name] of REFLECT) if (re.test(skel)) note(`E2: mecanismo de reflexão/prototype proibido nesta one-shot: ${name}`);
   }
 
+  // ═══ L1 — REFLEXÃO POR ACESSO-MEMBRO COMPUTADO (qualquer receiver) ═══
+  // Um `[` é ACESSO-MEMBRO (não array-literal) quando precedido por um receiver: identificador (não-keyword),
+  // `]`, `)`, fecho de string/template (`'` `"` `` ` ``) ou `?.` (optional computed). Fora de process.argv
+  // (governado por K1), o conteúdo do bracket de acesso-membro só pode ser índice inteiro decimal canônico
+  // (0|[1-9][0-9]*); propriedade-string (blankada no skeleton), template, expressão ou identificador dinâmico
+  // → não classificado → MORDE. Fecha `[]['constructor']['constructor']('return process')()` em QUALQUER
+  // receiver (a cadeia de brackets-string é rejeitada por-bracket). Complementa E2 (dotted) na lacuna computed.
+  {
+    const KW = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'case', 'do', 'else', 'yield', 'await',
+      'void', 'delete', 'new', 'throw', 'const', 'let', 'var', 'if', 'while', 'for', 'switch', 'function',
+      'class', 'extends', 'super', 'import', 'export', 'default', 'from', 'as']);
+    for (let bi = 0; bi < skel.length; bi++) {
+      if (skel[bi] !== '[') continue;
+      let a = bi - 1;
+      while (a >= 0 && /\s/.test(skel[a])) a--;
+      if (a < 0) continue;
+      const prev = skel[a];
+      let isMember = false, optional = false;
+      if (/[A-Za-z0-9_$]/.test(prev)) {
+        let w = a; while (w >= 0 && /[A-Za-z0-9_$]/.test(skel[w])) w--;
+        if (!KW.has(skel.slice(w + 1, a + 1))) isMember = true; // identificador real → receiver; keyword → array-literal
+      } else if (prev === ']' || prev === ')' || prev === "'" || prev === '"' || prev === '`') {
+        isMember = true;
+      } else if (prev === '.') {
+        let b = a - 1; while (b >= 0 && /\s/.test(skel[b])) b--;
+        if (skel[b] === '?') { isMember = true; optional = true; }
+      }
+      if (!isMember) continue; // array-literal / início de expressão → benigno
+      const pre = skel.slice(Math.max(0, bi - 12), bi).replace(/\s+$/, '');
+      if (/process\.argv$/.test(pre)) continue; // K1 governa process.argv[...]
+      let depth = 0, j = bi;
+      for (; j < skel.length; j++) { if (skel[j] === '[') depth++; else if (skel[j] === ']') { depth--; if (depth === 0) break; } }
+      if (depth !== 0) { note('L1: bracket de acesso-membro não fecha'); continue; }
+      const inner = skel.slice(bi + 1, j).trim();
+      const ctxL = skel.slice(Math.max(0, bi - 20), j + 12).replace(/\s+/g, ' ');
+      if (optional) { note(`L1: optional computed member access (x?.[...]) — proibido: "…${ctxL}…"`); continue; }
+      if (!/^(0|[1-9][0-9]*)$/.test(inner)) {
+        note(`L1: acesso-membro COMPUTADO não-numérico (propriedade-string/template/expressão pode alcançar constructor/__proto__/Function) — fora de process.argv só índice inteiro decimal: "…${ctxL}…"`);
+        continue;
+      }
+      let after = j + 1; while (after < skel.length && /\s/.test(skel[after])) after++;
+      if (skel[after] === '(' || skel[after] === '`') note(`L1: chamada/tagged-template imediatamente após índice numérico — proibido: "…${ctxL}…"`);
+    }
+  }
+
   // ═══ D1/D2/D3 — INVENTÁRIO EXAUSTIVO DE CONTROLE TRANSACIONAL ═══
   // Nenhum comando transacional pode escapar do inventário: toda query do loader é enumerada
   // (sobre o skeleton, posições == fonte), o 1º argumento deve ser LITERAL visível no call site,
@@ -413,4 +458,4 @@ if (failures.length) {
   console.error('GATE FAIL [n3-curitiba-catalog]\n' + failures.map((f) => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2; COMPLETUDE: imports do loader restritos a allowlist governada (E1 — sem helper/require/import-dinâmico/símbolo extra), reflexão/prototype/call/apply/bind/getPrototypeOf/Reflect/Proxy/Function/eval proibidos (E2), classificador SQL por STATEMENT com dollar-quote/quoted-ident/comentário/CASE...END aware (E3 — só o 1º token classifica; composto/START/SAVEPOINT/RELEASE/ABORT/END mordem; "COMMIT" ident e dado benignos); process sob ALLOWLIST POSITIVA {process.argv, process.exit} com PAPEL SINTÁTICO governado — argv SOMENTE LEITURA (slice/includes/indexOf/join/[i]-lido/length-lido; push/mutação/atribuição/alias/spread/passagem-como-valor mordem — J1) com ÍNDICE ESTRITO (só inteiro decimal ou identificador simples; propriedade-string/computed no bracket morde) e leitura TERMINAL (nenhuma dereferência posterior alcança constructor/__proto__/Function — K1) e exit SOMENTE chamada direta canônica process.exit(0|1|failed?1:0) (substituição/delete/alias/optional/call-apply-bind mordem — J2); qualquer outro membro (atual ou futuro), acesso computado/optional, alias, desestruturação, shadowing ou precedente delete/++/--/spread morde; globalThis/global proibidos integralmente (H1); C1/C2/C3 e contagem BEGIN=1/COMMIT=1/ROLLBACK=2 derivam do INVENTÁRIO ESTRUTURAL ÚNICO de call-sites (F2 — sem regex textual paralela; texto benigno em string/template/log/comentário não conta). (Prova unificada no inventário.)');
+console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2; COMPLETUDE: imports do loader restritos a allowlist governada (E1 — sem helper/require/import-dinâmico/símbolo extra), reflexão/prototype/call/apply/bind/getPrototypeOf/Reflect/Proxy/Function/eval proibidos (E2), classificador SQL por STATEMENT com dollar-quote/quoted-ident/comentário/CASE...END aware (E3 — só o 1º token classifica; composto/START/SAVEPOINT/RELEASE/ABORT/END mordem; "COMMIT" ident e dado benignos); process sob ALLOWLIST POSITIVA {process.argv, process.exit} com PAPEL SINTÁTICO governado — argv SOMENTE LEITURA (slice/includes/indexOf/join/[i]-lido/length-lido; push/mutação/atribuição/alias/spread/passagem-como-valor mordem — J1) com ÍNDICE ESTRITO (só inteiro decimal ou identificador simples; propriedade-string/computed no bracket morde) e leitura TERMINAL (nenhuma dereferência posterior alcança constructor/__proto__/Function — K1) e exit SOMENTE chamada direta canônica process.exit(0|1|failed?1:0) (substituição/delete/alias/optional/call-apply-bind mordem — J2); qualquer outro membro (atual ou futuro), acesso computado/optional, alias, desestruturação, shadowing ou precedente delete/++/--/spread morde; globalThis/global proibidos integralmente (H1); ACESSO-MEMBRO COMPUTADO em qualquer receiver só com índice inteiro decimal (L1 — propriedade-string/template/expressão/identificador-dinâmico/optional mordem; fecha a cadeia array-bracket-constructor ate o Function constructor em qualquer receiver; array-literals e keywords excluídos); C1/C2/C3 e contagem BEGIN=1/COMMIT=1/ROLLBACK=2 derivam do INVENTÁRIO ESTRUTURAL ÚNICO de call-sites (F2 — sem regex textual paralela; texto benigno em string/template/log/comentário não conta). (Prova unificada no inventário.)');
