@@ -195,6 +195,89 @@ if (!existsSync(LOADER)) {
     }
   }
 
+  // ═══ E3 — LEXER SQL POR STATEMENT (dollar-quote/quoted-ident/comentário/CASE...END aware) ═══
+  // Retorna { stmtCount, commands[] } onde commands = comandos transacionais (1º token do statement).
+  function classifyTxLiteral(sql) {
+    // 1) split em statements por ';' FORA de string ''/ident ""/comentário/dollar-quoted; blank do miolo
+    const stmts = [];
+    let cur = '', i = 0; const n = sql.length;
+    while (i < n) {
+      const c = sql[i], d = sql[i + 1];
+      if (c === "'") { // string SQL (escape '')
+        cur += ' '; i++;
+        while (i < n) { if (sql[i] === "'" && sql[i + 1] === "'") { cur += '  '; i += 2; continue; } if (sql[i] === "'") { cur += ' '; i++; break; } cur += ' '; i++; }
+        continue;
+      }
+      if (c === '"') { // quoted identifier ("COMMIT" é IDENT, não comando)
+        cur += 'x'; i++;
+        while (i < n) { if (sql[i] === '"' && sql[i + 1] === '"') { cur += 'xx'; i += 2; continue; } if (sql[i] === '"') { cur += 'x'; i++; break; } cur += 'x'; i++; }
+        continue;
+      }
+      if (c === '-' && d === '-') { while (i < n && sql[i] !== '\n') { cur += ' '; i++; } continue; }
+      if (c === '/' && d === '*') { cur += '  '; i += 2; while (i < n && !(sql[i] === '*' && sql[i + 1] === '/')) { cur += ' '; i++; } cur += '  '; i += 2; continue; }
+      if (c === '$') { // dollar-quoted: $$...$$ ou $tag$...$tag$
+        const tagM = /^\$[A-Za-z_0-9]*\$/.exec(sql.slice(i));
+        if (tagM) { const tag = tagM[0]; cur += ' '.repeat(tag.length); i += tag.length;
+          const close = sql.indexOf(tag, i); const endp = close < 0 ? n : close;
+          cur += ' '.repeat(endp - i); i = endp; if (close >= 0) { cur += ' '.repeat(tag.length); i += tag.length; } continue; }
+      }
+      if (c === ';') { stmts.push(cur); cur = ''; i++; continue; }
+      cur += c; i++;
+    }
+    if (cur.trim() !== '') stmts.push(cur);
+    const realStmts = stmts.filter((st) => st.trim() !== '');
+    // 2) 1º token significativo de cada statement (sobre a visão blankada → CASE...END/'x'/idents não confundem)
+    const TX = { BEGIN: 1, COMMIT: 1, ROLLBACK: 1, ABORT: 1, SAVEPOINT: 1, START: 1, RELEASE: 1, END: 1 };
+    const commands = [];
+    for (const st of realStmts) {
+      const tok = (st.trim().match(/^[A-Za-z_][A-Za-z_0-9]*/) || [''])[0].toUpperCase();
+      if (TX[tok]) commands.push(tok === 'START' ? 'START TRANSACTION' : tok === 'RELEASE' ? 'RELEASE SAVEPOINT' : tok);
+    }
+    return { stmtCount: realStmts.length, commands };
+  }
+
+  // ═══ E1 — ALLOWLIST EXATA DE IMPORTS (SQL não pode escapar por helper importado) ═══
+  {
+    const rawLoader = readFileSync(LOADER, 'utf8');
+    const ALLOWED = {
+      pg: { default: 'pg', named: [] },
+      fs: { named: ['readFileSync'] }, 'node:fs': { named: ['readFileSync'] },
+      url: { named: ['fileURLToPath'] }, 'node:url': { named: ['fileURLToPath'] },
+      path: { named: ['dirname', 'join'] }, 'node:path': { named: ['dirname', 'join'] },
+      crypto: { named: ['createHash'] }, 'node:crypto': { named: ['createHash'] },
+    };
+    const importRe = /import\s+([\s\S]*?)\s+from\s+['"]([^'"]+)['"]/g;
+    let im;
+    while ((im = importRe.exec(rawLoader))) {
+      const clause = im[1].trim(), mod = im[2];
+      if (!ALLOWED[mod]) { note(`E1a: import de módulo fora da allowlist: '${mod}'`); continue; }
+      if (/\*\s+as\s+/.test(clause)) note(`E1b: namespace import permissivo ('* as') de '${mod}' — proibido`);
+      const defM = clause.match(/^([A-Za-z_$][\w$]*)\s*(?:,|$)/);
+      const namedM = clause.match(/\{([^}]*)\}/);
+      const named = namedM ? namedM[1].split(',').map((x) => x.trim()).filter(Boolean) : [];
+      const spec = ALLOWED[mod];
+      if (defM && !spec.default) note(`E1c: import default inesperado de '${mod}'`);
+      for (const nm of named) if (!(spec.named || []).includes(nm)) note(`E1d: símbolo '${nm}' fora da allowlist de '${mod}'`);
+    }
+    // proibir side-effect import e vias dinâmicas de módulo/SQL externo
+    if (/import\s+['"][^'"]+['"]/.test(rawLoader)) note('E1e: side-effect import (import "x") — proibido');
+    if (/\bimport\s*\(/.test(rawLoader)) note('E1f: import dinâmico import(...) — proibido');
+    if (/\brequire\s*\(/.test(rawLoader)) note('E1g: require(...) — proibido');
+    if (/createRequire|process\.mainModule/.test(rawLoader)) note('E1h: createRequire/process.mainModule — proibido');
+  }
+
+  // ═══ E2 — PROIBIÇÃO DE REFLEXÃO/PROTOTYPE (query não pode ser alcançada sem chamada direta inventariada) ═══
+  {
+    const REFLECT = [
+      [/\.call\s*\(/, '.call('], [/\.apply\s*\(/, '.apply('], [/\.bind\s*\(/, '.bind('],
+      [/\.prototype\b/, '.prototype'], [/__proto__/, '__proto__'], [/\.constructor\b/, '.constructor'],
+      [/getPrototypeOf/, 'getPrototypeOf'], [/setPrototypeOf/, 'setPrototypeOf'],
+      [/getOwnPropertyDescriptor/, 'getOwnPropertyDescriptor'], [/defineProperty/, 'defineProperty'],
+      [/\bReflect\b/, 'Reflect'], [/\bProxy\b/, 'Proxy'], [/\bFunction\s*\(/, 'Function('], [/\beval\s*\(/, 'eval('],
+    ];
+    for (const [re, name] of REFLECT) if (re.test(skel)) note(`E2: mecanismo de reflexão/prototype proibido nesta one-shot: ${name}`);
+  }
+
   // ═══ D1/D2/D3 — INVENTÁRIO EXAUSTIVO DE CONTROLE TRANSACIONAL ═══
   // Nenhum comando transacional pode escapar do inventário: toda query do loader é enumerada
   // (sobre o skeleton, posições == fonte), o 1º argumento deve ser LITERAL visível no call site,
@@ -233,16 +316,18 @@ if (!existsSync(LOADER)) {
         if (s[after] !== ',' && s[after] !== ')') {
           note(`D1d: 1º argumento de client.query não termina em ','/')' após o literal (concatenação/expressão) — SQL opaco proibido: "${lit.slice(0, 40)}${s[after]}…"`);
         }
-        // D2 — classificação transacional do literal: strip comentários SQL + strings SQL, normalizar
-        const sqlBare = lit
-          .replace(/'(?:[^']|'')*'/g, ' ')      // strings SQL (protege SELECT 'COMMIT' como dado)
-          .replace(/--[^\n]*/g, ' ')
-          .replace(/\/\*[\s\S]*?\*\//g, ' ');
-        const norm = sqlBare.trim().replace(/;\s*$/, '').replace(/\s+/g, ' ').toUpperCase();
-        const hasTx = /\b(BEGIN|COMMIT|ROLLBACK|START|SAVEPOINT|RELEASE|ABORT|END)\b/.test(norm);
-        if (hasTx) {
-          if (norm === 'BEGIN' || norm === 'COMMIT' || norm === 'ROLLBACK') txClass[norm]++;
-          else note(`D2: SQL transacional COMPOSTO/não-canônico proibido: "${lit.slice(0, 60)}" (permitidos apenas BEGIN | COMMIT | ROLLBACK puros)`);
+        // D2/E3 — classificação por STATEMENT (lexer SQL: strings ''/quoted-ident ""/comentários/dollar-quoted;
+        // split por ';' fora dessas regiões; comando transacional = PRIMEIRO token do statement).
+        const cls = classifyTxLiteral(lit);
+        for (const c of cls.commands) {
+          if (c === 'BEGIN' || c === 'COMMIT' || c === 'ROLLBACK') txClass[c]++;
+        }
+        if (cls.commands.length > 0) {
+          if (cls.stmtCount !== 1) {
+            note(`D2/E3: literal com comando transacional deve conter EXATAMENTE 1 statement — "${lit.slice(0, 60)}" tem ${cls.stmtCount} (composto proibido)`);
+          } else if (!['BEGIN', 'COMMIT', 'ROLLBACK'].includes(cls.commands[0])) {
+            note(`D2/E3: comando transacional não-canônico "${cls.commands[0]}" — permitidos apenas BEGIN | COMMIT | ROLLBACK (START TRANSACTION/SAVEPOINT/RELEASE/ABORT/END proibidos): "${lit.slice(0, 60)}"`);
+          }
         }
       } else if (q === '`') {
         // template sem interpolação é tolerado; com ${ é opaco
@@ -278,4 +363,4 @@ if (failures.length) {
   console.error('GATE FAIL [n3-curitiba-catalog]\n' + failures.map((f) => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2. (Prova estrutural C1/C2/C3 + D1/D2/D3.)');
+console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2; COMPLETUDE: imports do loader restritos a allowlist governada (E1 — sem helper/require/import-dinâmico/símbolo extra), reflexão/prototype/call/apply/bind/getPrototypeOf/Reflect/Proxy/Function/eval proibidos (E2), classificador SQL por STATEMENT com dollar-quote/quoted-ident/comentário/CASE...END aware (E3 — só o 1º token classifica; composto/START/SAVEPOINT/RELEASE/ABORT/END mordem; "COMMIT" ident e dado benignos). (Prova estrutural C1/C2/C3 + inventário D1/D2/D3 + completude E1/E2/E3.)');
