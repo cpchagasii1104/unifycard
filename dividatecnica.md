@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (102) — F-ADDRESS FASE B: GATE B0 + decisão de fronteira B1-D (provider não cria território) — DECIDIDO docs-only, material não iniciado
+- GATE B0 read-only (@6c99d49f0): 2 stacks CEP vivas (canônica IBGE→city com createCityFromExternal; legada findOrCreateCity/State por nome); rota pública enrich-from-cep escreve; PII-log; cities.external_code sem UNIQUE; neighborhood_aliases + cep_resolution_cache já existem; catálogo=27 capitais. Recomendação B.
+- RFC docs/02_decisions/RFC_ADDRESS_POSTAL_RESOLUTION_AND_CITY_GOVERNANCE.md (DECIDIDO): D-A Fase B resolve/sugere, não escreve território; D-B país explícito; D-C código oficial não é identidade global isolado (BR+UF+IBGE→≤1 city); D-D cidade ausente→canonical_city_missing; D-E ingestão de cidades = frente futura (doutrina N3); D-F/G state/bairro sem findOrCreate; D-H confirmação humana antes do writer C; D-I cache não-SSOT; D-J providers=adapter/conflito-explícito; D-K aposentar bypasses no mesmo arco; D-L API compõe B→confirmação→C.
+- Commit docs-only. DB intacto (37/12/0/75/2/15); Δbank=0; Fase A/C/N3 intactas.
+- **STATUS:** FASE B · DECISÃO DE FRONTEIRA REGISTRADA · MATERIAL NÃO INICIADO. Aguarda GO material.
+
 ### 2026-07-13 (101) — F-ADDRESS-CANONICAL-BINDING FASE C: SELADA PELA YALA · SELO COMPLETO
 - Veredito A da Yala em HEAD d87347e72. Arco: material 3737acd77 → P1+P2 f8da91b37 → Q1 fc955d6ec → R1 d0ec59379 (+ cartórios). Fase C oficialmente encerrada.
 - Casa única de mutação actor-scoped selada: setActorTerritorialAddress/retireActorTerritorialAddress; autoridade canRepresentActor por-função/args-exatos/await-direto-sem-encadeamento/antes-de-BEGIN/deny-em-!representable/RLS-TOCTOU; purpose→role; address-na-tx sem existingAddressId; advisory lock; idempotência two-phase; evento na mesma tx; encerra+cria sem DELETE; repository privado; allowlists por caminho exato. Runner=173.
