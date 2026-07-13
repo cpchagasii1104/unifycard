@@ -10,7 +10,9 @@
  * - Backend e frontend NUNCA redefinem tipos de domínio.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isMarketplaceDomain = exports.MARKETPLACE_DOMAIN_VALUES = exports.TIMEZONE_VALUES = exports.CURRENCY_VALUES = exports.COUNTRY_VALUES = exports.LANGUAGE_VALUES = exports.isGender = exports.GENDER_VALUES = void 0;
+exports.isMarketplaceDomain = exports.MARKETPLACE_DOMAIN_VALUES = exports.TIMEZONE_VALUES = exports.CURRENCY_VALUES = exports.COUNTRY_VALUES = exports.LANGUAGE_VALUES = exports.isGender = exports.GENDER_VALUES = exports.TERRITORIAL_ADDRESS_ERROR_CODES = void 0;
+var territorial_address_1 = require("./territorial-address");
+Object.defineProperty(exports, "TERRITORIAL_ADDRESS_ERROR_CODES", { enumerable: true, get: function () { return territorial_address_1.TERRITORIAL_ADDRESS_ERROR_CODES; } });
 // Reference vocabulary (validação semântica — ver SSOT_REGISTRY_UNIFICARD §5.16)
 var vocabulary_1 = require("./vocabulary");
 Object.defineProperty(exports, "GENDER_VALUES", { enumerable: true, get: function () { return vocabulary_1.GENDER_VALUES; } });

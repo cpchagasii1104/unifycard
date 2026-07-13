@@ -44,6 +44,10 @@ const REPO = join(LOC, 'actor-territorial-address.repository.ts');
 const RESOLVER = join(LOC, 'actor-territorial-resolver.ts');
 const MIG_A = join(ROOT, 'migrations', '20260713100000_actor_territorial_assignment_foundation.sql');
 const RUNNER = join(ROOT, 'scripts', 'run-regression-guards.mjs');
+// + ONBOARDING A1 (RFC A1-D): a prova DB do fluxo PF/residência ESPELHA a sequência actor-scoped da
+//   Fase C dentro de transação com ROLLBACK (harness reversível, não runtime). Exclusão por CAMINHO
+//   EXATO — reconciliação nominal, sem afrouxar a trava C1 (idêntico ao precedente das Fases A/N2-F).
+const ONB_DB_TEST = join(ROOT, 'src', 'scripts', 'test-actor-onboarding-address-db.ts');
 
 // ── A. SERVICE (casa única / autoridade / tx / idempotência) ──
 if (!existsSync(SERVICE)) note('A0: service actor-territorial-address-writer.service.ts ausente');
@@ -157,7 +161,7 @@ else {
   const walk = (dir) => { for (const f of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, f.name);
     if (f.isDirectory()) walk(p);
-    else if (/\.ts$/.test(f.name) && p !== REPO && p !== SERVICE) {
+    else if (/\.ts$/.test(f.name) && p !== REPO && p !== SERVICE && p !== ONB_DB_TEST) {
       const s = stripJs(rd(p));
       if (/INSERT\s+INTO\s+address_assignments[\s\S]{0,400}?(actor_id|'actor')/i.test(s)) hits.push(p + ' (INSERT actor-scoped)');
       if (/UPDATE\s+address_assignments[\s\S]{0,200}?SET[\s\S]{0,200}?actor_id/i.test(s)) hits.push(p + ' (UPDATE actor_id)');

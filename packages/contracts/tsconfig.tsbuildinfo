@@ -1,1 +1,1 @@
-{"root":["./src/categories.ts","./src/checkout.ts","./src/company.ts","./src/events.ts","./src/feed.ts","./src/index.ts","./src/marketplace.ts","./src/vocabulary.ts"],"version":"5.9.3"}
+{"root":["./src/categories.ts","./src/checkout.ts","./src/company.ts","./src/events.ts","./src/feed.ts","./src/index.ts","./src/marketplace.ts","./src/territorial-address.ts","./src/vocabulary.ts"],"version":"5.9.3"}

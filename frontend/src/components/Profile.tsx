@@ -9,7 +9,7 @@ import {
   type IdentityProfile,
 } from "../api/identity";
 import { updateProfile, confirmFirstAccess } from "../api/profile";
-import { putResidenceAddress } from "../api/residenceAddress";
+import ResidenceAddressCanonical from "./ResidenceAddressCanonical";
 import { getCoreProfile } from "../api/core";
 import { getPlan, updatePlan, type UserPlan } from "../api/plan";
 import { maskCPF, validateCPF, verifyCPFExists } from "../utils/cpf";
@@ -955,28 +955,11 @@ export default function Profile() {
 
         console.log("[Profile] Perfil local atualizado com sucesso");
 
-        // 🔴 F2 (DECISION-0074): grava o endereço civil PF no Location Core canônico (CEP-âncora),
-        // NÃO mais em metadata.address. Só envia se há CEP preenchido (mínimo canônico). Falha do
-        // endereço NÃO é mascarada como sucesso total — propaga erro específico.
-        const cepDigits = cep.replace(/\D/g, "");
-        if (cepDigits) {
-          try {
-            await putResidenceAddress({
-              cep: cepDigits,
-              address: sanitizedAddress,
-              address_number: addressNumber.trim(),
-              complement: sanitizedComplement,
-              neighborhood: sanitizedNeighborhood,
-              city: sanitizedCity,
-              state: sanitizedState,
-            });
-            console.log("[Profile] Endereço gravado no Location Core (/profile/residence-address)");
-          } catch (addrErr) {
-            throw new Error(
-              `Erro ao salvar endereço: ${addrErr instanceof Error ? addrErr.message : "Erro desconhecido"}`,
-            );
-          }
-        }
+        // F-ADDRESS-ONBOARDING-CANONICAL-FLOW (RFC A1-D · D-M): a residência PF NÃO é mais gravada
+        // aqui pelo writer legado (owner_type='profile'). A escrita territorial canônica actor-scoped
+        // vive no card <ResidenceAddressCanonical/> (preview canônico da Fase B → confirmação →
+        // POST /actors/:actorId/territorial-address → writer selado da Fase C). Este handler só
+        // persiste os demais campos do perfil.
 
         // Sincronizar actors: refresh após salvar perfil (se fullName foi atualizado)
         if (sanitizedFullName && sanitizedFullName.trim() !== '') {
@@ -1299,6 +1282,15 @@ export default function Profile() {
             referralCode={referralCode}
             handleSavePersonal={handleSavePersonal}
             isSaving={isSaving}
+          />
+        )}
+
+        {/* F-ADDRESS-ONBOARDING-CANONICAL-FLOW (RFC A1-D): residência PF canônica actor-scoped
+            (preview da Fase B → confirmação → writer selado da Fase C). Usa o mesmo actorId ativo
+            que o client injeta no x-action-context. Substitui o writer legado owner_type='profile'. */}
+        {activeTab === "personal" && (
+          <ResidenceAddressCanonical
+            actorId={typeof window !== "undefined" ? localStorage.getItem("unificard_active_actor_id") : null}
           />
         )}
 

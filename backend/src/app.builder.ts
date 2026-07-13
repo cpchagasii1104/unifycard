@@ -478,6 +478,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     const meActiveLocationRoutes = (await import('./core/location/me-active-location.routes')).default;
     await protectedScope.register(meActiveLocationRoutes, { prefix: '/me' });
 
+    // 2026-07-13 — F-ADDRESS-ONBOARDING-CANONICAL-FLOW (RFC A1-D): jornada pública PF/residência.
+    // POST/GET /actors/:actorId/territorial-address — compõe resolver B → confirmação → writer C selado.
+    const actorTerritorialAddressRoutes = (await import('./core/location/actor-territorial-address.routes')).default;
+    await protectedScope.register(actorTerritorialAddressRoutes, { prefix: '/actors' });
+
     await protectedScope.register(mediaModule, { prefix: '/media' });
     await protectedScope.register(culturalModule, { prefix: '/cultural' });
     await protectedScope.register(votesModule, { prefix: '/api' });

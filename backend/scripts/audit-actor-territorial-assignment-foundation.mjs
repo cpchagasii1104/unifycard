@@ -126,6 +126,10 @@ if (existsSync(TYPES)) {
 // (actor-territorial-address.repository.ts) é a única exceção — a trava migra para o guard da Fase C.
 const FASEC_REPO = join(ROOT, 'src', 'core', 'location', 'actor-territorial-address.repository.ts');
 const FASEC_SVC = join(ROOT, 'src', 'core', 'location', 'actor-territorial-address-writer.service.ts');
+// + ONBOARDING A1 (RFC A1-D): a prova DB do fluxo PF/residência ESPELHA a sequência actor-scoped da
+//   Fase C dentro de uma transação com ROLLBACK (harness reversível, não writer de runtime). Exclusão
+//   por CAMINHO EXATO — reconciliação nominal, sem afrouxar a varredura (idêntico ao precedente Fase C).
+const ONB_DB_TEST = join(ROOT, 'src', 'scripts', 'test-actor-onboarding-address-db.ts');
 if (existsSync(REPO)) {
   const repo = stripComments(rd(REPO));
   // o location.repository legado NÃO pode incluir a coluna actor_id nem owner_type='actor'
@@ -139,7 +143,7 @@ if (existsSync(REPO)) {
   const walk = (dir) => { for (const f of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, f.name);
     if (f.isDirectory()) walk(p);
-    else if (/\.ts$/.test(f.name) && p !== RESOLVER && p !== FASEC_REPO && p !== FASEC_SVC) {
+    else if (/\.ts$/.test(f.name) && p !== RESOLVER && p !== FASEC_REPO && p !== FASEC_SVC && p !== ONB_DB_TEST) {
       const s = stripComments(rd(p));
       // escrita em address_assignments setando actor_id, ou passando owner_type literal 'actor' a um write
       if (/INSERT INTO\s+address_assignments[\s\S]{0,400}?actor_id/i.test(s)) hits.push(p + ' (INSERT actor_id)');

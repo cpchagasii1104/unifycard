@@ -209,6 +209,37 @@ este registro fecha a ressalva de contrato. Docs-only, zero mudança de comporta
 - **Nota:** no mesmo movimento, `GET /:companyId/templates/recommended` foi ENDURECIDO com a mesma
   autoridade (era só tenant-gated — achado da DECISION-0170 §2; recomendação por company é dado da empresa).
 
+### Endereço territorial do Actor — `/actors/:actorId/territorial-address` (F-ADDRESS-ONBOARDING-CANONICAL-FLOW · RFC A1-D · MVP PF/residência)
+
+- **Preview (reuso):** `GET /locations/cep/:cep?countryCode=BR` — projeção FLAT SEGURA do resolver
+  selado da Fase B (cityId/neighborhoodId canônicos; sem providerEvidence/responseHash/cacheHit/coords).
+  País EXPLÍCITO na query. O client canônico (`frontend/src/api/actorTerritorialAddress.ts`) mapeia para o
+  DTO estreito `PostalAddressPreview` (`@unificard/contracts`). A facade textual `/api/location/cep`
+  NÃO participa da jornada PF.
+- **Comando:** `POST /actors/:actorId/territorial-address`. **Autenticada**; action-context coerente com o
+  `actorId` da ROTA; **`canRepresentActor(tenant, operator, routeActorId)`** na rota (defesa) e revalidado
+  no application service (infra-error PROPAGA → 500, NUNCA 403 silencioso). Body =
+  `SetTerritorialAddressCommand` (`purpose:'ACTOR_RESIDENCE'`, countryCode, postalCode, street, number,
+  complement?, confirmedCityId, confirmedNeighborhoodId?, idempotencyKey). **PROIBIDOS no body:**
+  tenantId/operatorUserId/actorId-autoritativo/actorType/role/owner_type/owner_id/existingAddressId/
+  is_primary/valid_from/valid_until/status/provider/city-textual. Backend deriva role do purpose,
+  **RE-RESOLVE** country+CEP (Fase B), faz **cross-check** de `confirmedCityId` (divergência →
+  `territorial_confirmation_mismatch`, sem escrever) e chama EXCLUSIVAMENTE `setActorTerritorialAddress`
+  (writer selado da Fase C). Idempotência = casa da Fase C (sem 2ª casa). 201 set / 200 replay.
+- **Leitura:** `GET /actors/:actorId/territorial-address?purpose=ACTOR_RESIDENCE`. Autenticada +
+  `canRepresentActor`; read-model `resolveActorTerritory` (Fase A) enriquecido por Location Core;
+  `state:'none'|'active'`; sem histórico/provider internals; sem side effects.
+- **Bairro:** `resolved`→neighborhoodId; `candidate_requires_confirmation`/`pending`/`not_applicable`
+  →neighborhoodId=null (candidateId NUNCA vira identidade; onboarding não cria neighborhood/alias).
+- **Legado convergido:** `PUT /profile/residence-address` **APOSENTADO** (410 `endpoint_retired`; não
+  escreve owner_type='profile'). `GET /profile/residence-address` = facade READ-ONLY: prefere o
+  actor-scoped canônico; fallback `source='legacy_profile_fallback'` (os 2 registros preservados da Fase D,
+  sem autoridade de escrita).
+- **Erros públicos estáveis:** `TERRITORIAL_ADDRESS_ERROR_CODES` (18) do contrato compartilhado
+  (`@unificard/contracts`). **Escopo negativo:** sem migration; sem PJ/HQ/OPERATIONAL/grupos/eventos/
+  rentals; sem retire público; sem proof-token; sem multi-país; sem criação de city/state/neighborhood;
+  sem Bank/Social. Guard `audit-actor-onboarding-address-flow` (G1-G10; runner 176) morde regressões.
+
 ## 6. Lacunas conhecidas (dívida registrada, não fingida)
 
 - O `00_AGENT_PROTOCOL.md` §2.2.8 cita `backend/docs/openapi-stock-transfer-receipt.contract.yaml` como

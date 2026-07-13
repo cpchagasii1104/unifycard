@@ -389,37 +389,47 @@ const profileRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * F1 (DECISION-0074): endereço civil/residencial da PESSOA FÍSICA no Location Core canônico.
-   * GET/PUT /profile/residence-address. owner_type='profile', owner_id=actor_id do user-actor,
-   * role='RESIDENCE'. Opção A (CEP-âncora): grava country=BR + postal_code/street/number/complement;
-   * city/state/neighborhood NÃO persistidos (FK; sem coluna texto). NÃO grava em metadata. PF apenas.
+   * F-ADDRESS-ONBOARDING-CANONICAL-FLOW (RFC A1-D · D-L/D-K):
+   * GET /profile/residence-address — FACADE READ-ONLY de compatibilidade. PREFERE o endereço
+   * actor-scoped RESIDENCE (canônico, escrito pelo writer selado da Fase C via
+   * POST /actors/:actorId/territorial-address); só cai no profile-RESIDENCE legado como FALLBACK
+   * read-only, marcado `source='legacy_profile_fallback'`. NUNCA escreve; nunca trata o legado como
+   * autoridade para nova escrita. Resolve o Actor PF do usuário autenticado canonicamente.
    */
   fastify.get('/residence-address', async (req: any, reply: any) => {
     if (!req.user) return reply.status(401).send({ ok: false, message: 'Não autenticado' });
     if (!req.tenant) return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
     try {
-      const dto = await profileResidenceAddressService.getResidence(req.tenant.id, req.user.userId);
-      return reply.send({ ok: true, data: dto });
+      const { profileC1DeclarationsReadService } = await import('./profile-c1-declarations-read.service');
+      const actorId = await profileC1DeclarationsReadService.resolveUserActorId(req.tenant.id, req.user.userId);
+      if (actorId) {
+        const { actorTerritorialAddressReadService } = await import('@core/location/actor-territorial-address-read.service');
+        const current = await actorTerritorialAddressReadService.getCurrent(req.tenant.id, actorId, 'ACTOR_RESIDENCE');
+        if (current.state === 'active') {
+          return reply.send({ ok: true, source: 'actor_scoped', data: current });
+        }
+      }
+      // Fallback read-only: os registros profile-RESIDENCE preservados (Fase D), sem autoridade de escrita.
+      const legacy = await profileResidenceAddressService.getResidence(req.tenant.id, req.user.userId);
+      return reply.send({ ok: true, source: 'legacy_profile_fallback', data: legacy });
     } catch (error: any) {
       fastify.log.error({ err: error }, 'Erro ao buscar residência (Location Core)');
       return reply.status(error.statusCode || 500).send({ ok: false, message: error.message });
     }
   });
 
-  fastify.put('/residence-address', async (req: any, reply: any) => {
-    if (!req.user) return reply.status(401).send({ ok: false, message: 'Não autenticado' });
-    if (!req.tenant) return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
-    try {
-      const dto = await profileResidenceAddressService.setResidence(
-        req.tenant.id,
-        req.user.userId,
-        req.body || {}
-      );
-      return reply.send({ ok: true, data: dto });
-    } catch (error: any) {
-      fastify.log.error({ err: error }, 'Erro ao gravar residência (Location Core)');
-      return reply.status(error.statusCode || 500).send({ ok: false, message: error.message });
-    }
+  /**
+   * PUT /profile/residence-address — APOSENTADO como writer (D-L). A residência PF passou a ser
+   * escrita EXCLUSIVAMENTE actor-scoped pelo writer selado da Fase C, via
+   * POST /actors/:actorId/territorial-address (compõe resolver B → confirmação → writer C). Este
+   * endpoint NÃO escreve owner_type='profile' e não chama o service legado de escrita. 410 fail-closed.
+   */
+  fastify.put('/residence-address', async (_req: any, reply: any) => {
+    return reply.status(410).send({
+      ok: false,
+      error: 'endpoint_retired',
+      message: 'Residência PF agora é escrita via POST /actors/:actorId/territorial-address (fluxo canônico actor-scoped).',
+    });
   });
 };
 

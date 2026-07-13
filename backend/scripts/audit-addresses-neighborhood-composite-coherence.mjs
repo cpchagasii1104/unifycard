@@ -128,11 +128,15 @@ try {
   //   sufixo/subdiretório/traversal em outro path = writer paralelo → FAIL.
   // + FASE C: actor-territorial-address.repository.ts é a casa única actor-scoped (escreve addresses respeitando
   //   CHECK/FK composta N2-F; governada pelo service com autoridade/transação/idempotência).
+  // + ONBOARDING A1 (RFC A1-D): a prova DB do fluxo PF/residência ESPELHA a sequência do writer da
+  //   Fase C (create address+assignment+evento) DENTRO de uma transação com ROLLBACK — não é writer de
+  //   runtime, é harness reversível; entra por CAMINHO EXATO (reconciliação nominal, sem afrouxar o sweep).
   const KNOWN_WRITERS = new Set([
     'src/modules/rentals/rentable-resource.repository.ts',
     'src/core/events/event.service.ts',
     'src/core/location/location.repository.ts',
     'src/core/location/actor-territorial-address.repository.ts',
+    'src/scripts/test-actor-onboarding-address-db.ts',
   ]);
   const normRel = (abs) => abs.slice(ROOT.length + 1).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/{2,}/g, '/');
   for (const f of (existsSync(SRC) ? walk(SRC) : [])) {

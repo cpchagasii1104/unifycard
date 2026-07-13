@@ -80,8 +80,11 @@ const locationRoutes: FastifyPluginAsync = async (fastify) => {
    * territorial é o city_id, nunca o texto. resolved:false quando o provider não resolve (front pede
    * cidade no picker governado).
    */
-  fastify.get<{ Params: { cep: string } }>('/cep/:cep', async (req, reply) => {
-    const data = await locationService.resolveCep(req.params.cep);
+  fastify.get<{ Params: { cep: string }; Querystring: { countryCode?: string } }>('/cep/:cep', async (req, reply) => {
+    // País EXPLÍCITO por query (a jornada PF envia countryCode=BR). Ausente = contexto brasileiro
+    // da facade (retrocompat de callers legados como rentals); o resolver da Fase B nunca assume país.
+    const countryCode = (req.query.countryCode ?? 'BR').toUpperCase();
+    const data = await locationService.resolveCep(req.params.cep, countryCode);
     return reply.send({ ok: true, data });
   });
 

@@ -53,6 +53,19 @@ export type {
   ServiceOrder,
 } from './marketplace';
 
+// Territorial address (onboarding canônico PF/residência — F-ADDRESS-ONBOARDING-CANONICAL-FLOW)
+export type {
+  TerritorialNeighborhoodStatus,
+  TerritorialAddressPurpose,
+  PostalAddressPreview,
+  SetTerritorialAddressCommand,
+  TerritorialAddressWriteResult,
+  TerritorialAddressCurrent,
+  TerritorialAddressErrorCode,
+  TerritorialAddressErrorBody,
+} from './territorial-address';
+export { TERRITORIAL_ADDRESS_ERROR_CODES } from './territorial-address';
+
 // Reference vocabulary (validação semântica — ver SSOT_REGISTRY_UNIFICARD §5.16)
 export {
   GENDER_VALUES,

@@ -74,14 +74,16 @@ class LocationService {
    * Falha/cidade-ausente → resolved:false (o front pede a cidade no picker governado) — nunca
    * criação de território a partir do provider.
    */
-  async resolveCep(rawCep: string): Promise<{
+  async resolveCep(rawCep: string, countryCode: string = 'BR'): Promise<{
     resolved: boolean; postalCode: string | null; street: string | null;
     neighborhoodDisplay: string | null; neighborhoodId: string | null;
     cityId: string | null; cityName: string | null; stateUf: string | null; source: string | null;
   }> {
+    // País EXPLÍCITO no call-site (a rota informa; default 'BR' só como contexto brasileiro da facade,
+    // nunca default silencioso DENTRO do resolver — o resolver da Fase B jamais assume país).
     const { postalAddressResolverService } = await import('./postal-address-resolver.service');
     const empty = { resolved: false, postalCode: null, street: null, neighborhoodDisplay: null, neighborhoodId: null, cityId: null, cityName: null, stateUf: null, source: null };
-    const resolution = await postalAddressResolverService.resolve({ countryCode: 'BR', postalCode: rawCep });
+    const resolution = await postalAddressResolverService.resolve({ countryCode, postalCode: rawCep });
     if (resolution.status !== 'resolved') return empty;
     return {
       resolved: true,
