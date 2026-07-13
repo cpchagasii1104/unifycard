@@ -1,6 +1,17 @@
 # REMEDIATION DT LOG
 
-## PORTA-TERRITORY-1 — REMEDIAÇÃO GUARD-ONLY · COMMENT-AWARENESS + LIVENESS · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda reauditoria final Yala) (2026-07-12)
+## PORTA-TERRITORY-1 — PRIMEIRA ATIVAÇÃO REAL DE AUTORIDADE TERRITORIAL (CURITIBA) — ✅ SELO COMPLETO FINAL PELA YALA (2026-07-12)
+Reauditoria final read-only da Yala sobre o arco `a75c2ea60`→`43a04b715` (remediação guard-only)→`7c4478554` (cartório), HEAD auditado `7c4478554`, branch rescue-structural. **Veredito A — SELO COMPLETO FINAL.** PORTA-TERRITORY-1 oficialmente SELADA.
+
+**A YALA CONFIRMOU:** writer territorial governado `fn_grant_territorial_capability` correto (SECURITY DEFINER vivo, ACL owner-only, PUBLIC/unificard_app sem EXECUTE, authority_source=platform_bootstrap, bootstrap não-circular); migration e one-shot intactos; **2 grants territoriais reais** — `territory:create_neighborhood` (`3e5cebe6-c728-456b-9729-79b0a0bb49bc`) + `territory:approve_neighborhood` (`44c9dc03-a351-479c-8bf0-544b000310c6`) — para o **Actor pessoal de Clayton** (`213f4903…`) na **city canônica de Curitiba** (`9d431002…`), status active, valid_until NULL; **2 eventos** de auditoria (`ed9a5240…`, `b2afe9fa…`); **assertor D3 resolve create e approve**; one-shot dry-run/apply/rerun fail-closed; reconciliação N2-D.1/N2-D.2 estritamente nominal; **família comment-awareness/liveness integralmente fechada** (SECURITY DEFINER no cabeçalho vivo, CONFIRMED derivado do token exato, apply bloqueado sem confirmação, COMMIT dominado por APPLY&&CONFIRMED&&!failed, ROLLBACK vivo no ramo dry-run; as 4 evasões + variantes mordem; benignos verdes); runner 169 guards; typechecks/build/invariants verdes; neighborhoods=0; nenhuma rota/painel/Social/Bank alterado; Δbank=0.
+
+**PRECISÃO:** a PORTA estabeleceu APENAS a autoridade territorial inicial de Curitiba (2 grants). NÃO criou neighborhood, rota, painel, audiência Social, autoridade financeira; NÃO iniciou nem autorizou N3 automaticamente.
+
+**STATUS: ✅ PORTA-TERRITORY-1 SELADA PELA YALA · SELO COMPLETO FINAL.** Os registros pré-selo abaixo (remediação guard-only e ativação real, ambos "executada e provada / não selada / aguarda Yala") ficam SUPERADOS por este selo, sem reescrita. **N3 permanece TRANCADA — sua abertura exige NOVO GO explícito após este commit.** N2-D.1/D.2/D.3/E/F/G + higiene + contracts seladas; Social/Bank fora.
+
+---
+
+## PORTA-TERRITORY-1 — REMEDIAÇÃO GUARD-ONLY · COMMENT-AWARENESS + LIVENESS · (registro pré-selo — SUPERADO pelo SELO COMPLETO FINAL acima) (2026-07-12)
 Veredito Yala **🟠 B — UMA REMEDIAÇÃO CONSOLIDADA GUARD-ONLY**: o PRODUTO foi considerado CORRETO (writer/ACL owner-only/PUBLIC+app sem EXECUTE/bootstrap não-circular/one-shot/dry-run+apply/2 grants+2 eventos reais/D3 resolve ambos/rerun fail-closed/reconciliação N2-D.1-D.2 nominal/neighborhoods=0/Social-Bank intactos/Δbank=0). Única família aberta: 4 evasões que o guard `audit-territorial-grant-bootstrap.mjs` aceitava por usar presença de string sem comment-stripping/liveness. Commit guard-only `43a04b715` (**produto byte-intacto — só o guard muda**) + este cartório.
 
 **QUATRO EVASÕES REPRODUZIDAS (passavam antes):** (1) SECURITY DEFINER removido do cabeçalho mas mantido em comentário; (2) `CONFIRMED=true` hardcoded; (3) gate do COMMIT trocado por `if(true)`; (4) ROLLBACK do ramo dry-run removido enquanto o do catch permanece (a janela larga vazava para o ROLLBACK do catch).
@@ -15,7 +26,7 @@ Veredito Yala **🟠 B — UMA REMEDIAÇÃO CONSOLIDADA GUARD-ONLY**: o PRODUTO 
 
 ---
 
-## PORTA-TERRITORY-1 — PRIMEIRA ATIVAÇÃO REAL DE AUTORIDADE TERRITORIAL (CURITIBA) · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-12)
+## PORTA-TERRITORY-1 — PRIMEIRA ATIVAÇÃO REAL DE AUTORIDADE TERRITORIAL (CURITIBA) · (registro pré-selo — SUPERADO pelo SELO COMPLETO FINAL acima) (2026-07-12)
 Abre a autoridade territorial inicial de Curitiba concedendo ao Actor pessoal de Clayton os grants **territory:create_neighborhood + territory:approve_neighborhood**. Commit material `0e0b4ab5c` (`feat(authority): add governed territorial grant bootstrap`) + apply real da operação one-shot + este cartório docs-only.
 
 **MARTELOS RATIFICADOS:** M-1 grantee=Actor `213f4903-d0c3-4c03-aa2f-328e11aac807` (Clayton, user `9305ac13…`, tenant-bound). M-2 city=`9d431002-1fd3-4b34-ae82-678f28f64288` (Curitiba/Paraná/Brasil, única). M-3 só create+approve (as outras 4 NÃO). M-4 valid_until NULL (ativo até revogação; suspended proibido). M-5 mecanismo B+A. M-6 issuer=Clayton por decisão explícita de bootstrap (authority_source=`platform_bootstrap`, NÃO self-authorization circular).

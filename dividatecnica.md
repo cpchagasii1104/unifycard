@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (79) — PORTA-TERRITORY-1: SELO COMPLETO FINAL PELA YALA
+- Reauditoria final read-only (Yala) sobre a75c2ea60→43a04b715→7c4478554. Veredito A · SELO COMPLETO FINAL. PORTA SELADA.
+- Confirmado: writer territorial governado (SECDEF vivo, ACL owner-only, platform_bootstrap, não-circular); 2 grants reais (create 3e5cebe6, approve 44c9dc03) p/ Actor de Clayton 213f4903 em Curitiba 9d431002, active, valid_until NULL; 2 eventos (ed9a5240/b2afe9fa); D3 resolve ambos; one-shot dry-run/apply/rerun fail-closed; reconciliação N2-D.1/D.2 nominal; família comment-awareness/liveness fechada; 169 guards; typecheck/build/invariants verdes; neighborhoods=0; Δbank=0.
+- Entradas anteriores da PORTA (ativação real + remediação guard-only) SUPERADAS por este selo, sem reescrita.
+- Precisão: a PORTA só estabeleceu a autoridade territorial inicial de Curitiba (2 grants); não criou neighborhood/rota/painel/Social/autoridade-financeira; NÃO iniciou nem autorizou N3.
+- **STATUS:** PORTA-TERRITORY-1 SELADA PELA YALA · SELO COMPLETO FINAL. N3 TRANCADA (abertura exige NOVO GO explícito); Social/Bank fora; N2-D.1/D.2/D.3/E/F/G + higiene + contracts seladas.
+
 ### 2026-07-12 (78) — PORTA-TERRITORY-1: remediação guard-only (comment-awareness + liveness do guard da PORTA)
 - Veredito Yala B (produto correto; 4 evasões no guard audit-territorial-grant-bootstrap): SECURITY DEFINER comentado; CONFIRMED=true; COMMIT if(true); ROLLBACK dry-run removido (catch mascarava).
 - Fix guard-only (commit 43a04b715; produto byte-intacto): comment-stripping léxico SQL+JS preservando strings; R-2 SECDEF no cabeçalho vivo; R-3 CONFIRMED derivado do token exato (sem =true/||=/??true/reatribuição); R-4 COMMIT dominado por (APPLY&&CONFIRMED&&!failed) (rejeita if(true)); R-5 ROLLBACK vivo no else/dry-run antes do catch.
