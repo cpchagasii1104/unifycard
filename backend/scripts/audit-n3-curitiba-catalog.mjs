@@ -194,6 +194,71 @@ if (!existsSync(LOADER)) {
       }
     }
   }
+
+  // ═══ D1/D2/D3 — INVENTÁRIO EXAUSTIVO DE CONTROLE TRANSACIONAL ═══
+  // Nenhum comando transacional pode escapar do inventário: toda query do loader é enumerada
+  // (sobre o skeleton, posições == fonte), o 1º argumento deve ser LITERAL visível no call site,
+  // SQL transacional composto é proibido, e aliases/desestruturação/bind/call/apply/computed/
+  // optional-chaining do client/query são proibidos nesta one-shot.
+
+  // D3 — proibições estruturais de alias/indireção (sobre o skeleton: strings não confundem)
+  if (/\}\s*=\s*client\b/.test(skel)) note('D3a: desestruturação do client (const {query} = client) — proibida');
+  if (/client\s*\?\./.test(skel)) note('D3b: optional chaining no client (client?.) — proibido');
+  if (/client\s*\[/.test(skel)) note('D3c: acesso computado no client (client[...]) — proibido');
+  if (/client\.query(?!\s*\()/.test(skel)) note('D3d: referência a client.query sem invocação direta (alias/bind/call/apply) — proibida');
+  if (/(?<![\w.$])query\s*\(/.test(skel)) note('D3e: chamada bare query(...) (método desestruturado/aliased) — proibida');
+
+  // D1 — inventário: TODA invocação .query( deve ser client.query( com 1º argumento LITERAL
+  const txClass = { BEGIN: 0, COMMIT: 0, ROLLBACK: 0 };
+  {
+    const INVOKE = /(\w+)\s*\.\s*query\s*\(/g;
+    let m2;
+    while ((m2 = INVOKE.exec(skel))) {
+      if (m2[1] !== 'client') { note(`D1a: receiver de .query() não é client: '${m2[1]}'`); continue; }
+      // 1º argumento no FONTE: pular whitespace após '('
+      let p = m2.index + m2[0].length;
+      while (p < s.length && /\s/.test(s[p])) p++;
+      const q = s[p];
+      if (q === "'" || q === '"') {
+        // extrair o literal (com escapes)
+        let lit = '', i2 = p + 1;
+        while (i2 < s.length) {
+          if (s[i2] === '\\') { lit += s[i2 + 1]; i2 += 2; continue; }
+          if (s[i2] === q) break;
+          lit += s[i2]; i2++;
+        }
+        // após o literal: SÓ ',' (params) ou ')' — concatenação/expressão ('COM' + 'MIT') é SQL opaco
+        let after = i2 + 1;
+        while (after < s.length && /\s/.test(s[after])) after++;
+        if (s[after] !== ',' && s[after] !== ')') {
+          note(`D1d: 1º argumento de client.query não termina em ','/')' após o literal (concatenação/expressão) — SQL opaco proibido: "${lit.slice(0, 40)}${s[after]}…"`);
+        }
+        // D2 — classificação transacional do literal: strip comentários SQL + strings SQL, normalizar
+        const sqlBare = lit
+          .replace(/'(?:[^']|'')*'/g, ' ')      // strings SQL (protege SELECT 'COMMIT' como dado)
+          .replace(/--[^\n]*/g, ' ')
+          .replace(/\/\*[\s\S]*?\*\//g, ' ');
+        const norm = sqlBare.trim().replace(/;\s*$/, '').replace(/\s+/g, ' ').toUpperCase();
+        const hasTx = /\b(BEGIN|COMMIT|ROLLBACK|START|SAVEPOINT|RELEASE|ABORT|END)\b/.test(norm);
+        if (hasTx) {
+          if (norm === 'BEGIN' || norm === 'COMMIT' || norm === 'ROLLBACK') txClass[norm]++;
+          else note(`D2: SQL transacional COMPOSTO/não-canônico proibido: "${lit.slice(0, 60)}" (permitidos apenas BEGIN | COMMIT | ROLLBACK puros)`);
+        }
+      } else if (q === '`') {
+        // template sem interpolação é tolerado; com ${ é opaco
+        const end = s.indexOf('`', p + 1);
+        const tpl = end > 0 ? s.slice(p + 1, end) : '';
+        if (end < 0 || tpl.includes('${')) note('D1b: 1º argumento de client.query é template com interpolação — SQL deve ser literal visível');
+        else if (/\b(BEGIN|COMMIT|ROLLBACK|START|SAVEPOINT|RELEASE|ABORT|END)\b/i.test(tpl)) note('D1c: comando transacional em template — use literal canônico');
+      } else {
+        note(`D1: 1º argumento de client.query NÃO é literal (começa com '${q}') — variável/expressão/config-object/helper são SQL opaco proibido`);
+      }
+    }
+  }
+  // D2b — contagem transacional GLOBAL sobre a classificação semântica (não igualdade textual)
+  if (txClass.BEGIN !== 1) note(`D2b: BEGIN esperado exatamente 1 — encontrados ${txClass.BEGIN}`);
+  if (txClass.COMMIT !== 1) note(`D2c: COMMIT esperado exatamente 1 — encontrados ${txClass.COMMIT}`);
+  if (txClass.ROLLBACK !== 2) note(`D2d: ROLLBACK esperado exatamente 2 (dry-run + catch) — encontrados ${txClass.ROLLBACK}`);
   if (/ON CONFLICT|UPSERT/i.test(s)) note('B9: loader usa ON CONFLICT/UPSERT (proibido)');
   if (/DELETE\s+FROM/i.test(s)) note('B10: loader usa DELETE (proibido)');
   if (!/unificard_app/.test(s) || !/current_user/.test(s)) note('B11: loader não recusa execução como unificard_app');
@@ -213,4 +278,4 @@ if (failures.length) {
   console.error('GATE FAIL [n3-curitiba-catalog]\n' + failures.map((f) => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social. (Prova estrutural C1/C2/C3.)');
+console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2. (Prova estrutural C1/C2/C3 + D1/D2/D3.)');
