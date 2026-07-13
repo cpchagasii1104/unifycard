@@ -133,64 +133,80 @@ if (!existsSync(LOADER)) {
     }
     return -1;
   };
-  const CALL_COMMIT_G = /client\.query\(\s*['"]COMMIT['"]\s*\)/g;
-  const CALL_ROLLBACK = /(?:await\s+)?client\.query\(\s*['"]ROLLBACK['"]\s*\)/;
+  // ── INVENTÁRIO ESTRUTURAL ÚNICO (F2): toda .query( enumerada sobre o skeleton com posição + comando
+  //    transacional classificado. C1/C2/C3 e a contagem BEGIN/COMMIT/ROLLBACK derivam SÓ deste inventário
+  //    (sem regex textual paralela); texto em string/template/log/comentário está blankado no skeleton e
+  //    o literal SQL é extraído da FONTE no offset exato do call-site. classifyTxLiteral: função hoisted (E3).
+  const callSites = [];
+  {
+    const INVOKE = /(\w+)\s*\.\s*query\s*\(/g;
+    let m2;
+    while ((m2 = INVOKE.exec(skel))) {
+      const site = { idx: m2.index, receiver: m2[1], command: null };
+      callSites.push(site);
+      if (m2[1] !== 'client') { note(`D1a: receiver de .query() não é client: '${m2[1]}'`); continue; }
+      let p = m2.index + m2[0].length;
+      while (p < s.length && /\s/.test(s[p])) p++;
+      const q = s[p];
+      if (q === "'" || q === '"') {
+        let lit = '', i2 = p + 1;
+        while (i2 < s.length) { if (s[i2] === '\\') { lit += s[i2 + 1]; i2 += 2; continue; } if (s[i2] === q) break; lit += s[i2]; i2++; }
+        let after = i2 + 1;
+        while (after < s.length && /\s/.test(s[after])) after++;
+        if (s[after] !== ',' && s[after] !== ')') note(`D1d: 1º argumento de client.query não termina em ','/')' após o literal (concatenação/expressão) — SQL opaco proibido: "${lit.slice(0, 40)}${s[after]}…"`);
+        const cls = classifyTxLiteral(lit);
+        if (cls.commands.length > 0) {
+          if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(cls.commands[0])) site.command = cls.commands[0];
+          if (cls.stmtCount !== 1) note(`D2/E3: literal com comando transacional deve conter EXATAMENTE 1 statement — "${lit.slice(0, 60)}" tem ${cls.stmtCount} (composto proibido)`);
+          else if (!['BEGIN', 'COMMIT', 'ROLLBACK'].includes(cls.commands[0])) note(`D2/E3: comando transacional não-canônico "${cls.commands[0]}" — permitidos apenas BEGIN | COMMIT | ROLLBACK (START TRANSACTION/SAVEPOINT/RELEASE/ABORT/END proibidos): "${lit.slice(0, 60)}"`);
+        }
+      } else if (q === '`') {
+        const end = s.indexOf('`', p + 1);
+        const tpl = end > 0 ? s.slice(p + 1, end) : '';
+        if (end < 0 || tpl.includes('${')) note('D1b: 1º argumento de client.query é template com interpolação — SQL deve ser literal visível');
+        else if (/\b(BEGIN|COMMIT|ROLLBACK|START|SAVEPOINT|RELEASE|ABORT|END)\b/i.test(tpl)) note('D1c: comando transacional em template — use literal canônico');
+      } else {
+        note(`D1: 1º argumento de client.query NÃO é literal (começa com '${q}') — variável/expressão/config-object/helper são SQL opaco proibido`);
+      }
+    }
+  }
+  // contagem transacional GLOBAL derivada EXCLUSIVAMENTE do inventário (F2)
+  const txClass = { BEGIN: 0, COMMIT: 0, ROLLBACK: 0 };
+  for (const cs of callSites) if (cs.command) txClass[cs.command]++;
 
-  // gate ÚNICO por estrutura: if (APPLY && CONFIRMED && !failed) { … } else { … }
+  // gate ÚNICO por estrutura + C1/C2/C3 pelas POSIÇÕES do inventário
   const GATE_RE = /if\s*\(\s*APPLY\s*&&\s*CONFIRMED\s*&&\s*!\s*failed\s*\)\s*\{/g;
   const gates = [...skel.matchAll(GATE_RE)];
   if (gates.length !== 1) {
     note(`B7c3: esperado exatamente 1 gate (APPLY && CONFIRMED && !failed) — encontrados ${gates.length}`);
   } else {
-    const gOpen = gates[0].index + gates[0][0].length - 1; // posição do '{'
+    const gOpen = gates[0].index + gates[0][0].length - 1;
     const gClose = braceEnd(skel, gOpen);
     if (gClose < 0) { note('B7c3b: braces do gate não fecham'); }
     else {
-      // else PAR do MESMO if (imediatamente após o fechamento do bloco verdadeiro)
       const afterGate = skel.slice(gClose + 1);
       const elseM2 = afterGate.match(/^\s*else\s*\{/);
       let eOpen = -1, eClose = -1;
       if (!elseM2) { note('B8c3: else PAR do gate ausente (dry-run/abort deve ser o else do próprio gate)'); }
-      else {
-        eOpen = gClose + 1 + elseM2[0].length - 1;
-        eClose = braceEnd(skel, eOpen);
-        if (eClose < 0) note('B8c3b: braces do else não fecham');
-      }
+      else { eOpen = gClose + 1 + elseM2[0].length - 1; eClose = braceEnd(skel, eOpen); if (eClose < 0) note('B8c3b: braces do else não fecham'); }
 
-      // C1 — EXCLUSIVIDADE: exatamente 1 client.query('COMMIT') no arquivo INTEIRO, DENTRO do bloco do gate
-      const commits = [...s.matchAll(CALL_COMMIT_G)];
-      if (commits.length !== 1) {
-        note(`C1: esperado exatamente 1 client.query('COMMIT') operacional — encontrados ${commits.length} (BEGIN-antecipado/segundo-caminho/catch/finally/helper = evasão)`);
-      } else if (!(commits[0].index > gOpen && commits[0].index < gClose)) {
-        note('C1b: o único COMMIT está FORA do bloco do gate seguro');
-      }
-      // aliasing do client proibido nesta one-shot (COMMIT/ROLLBACK só pelo receiver exato)
-      if (/\b(?:const|let|var)\s+\w+\s*=\s*client\s*[;\n,)]/.test(skel)) note('C1c: alias do client detectado — proibido nesta operação (COMMIT/ROLLBACK só via client.query)');
+      // C1 — EXATAMENTE 1 call-site COMMIT (inventário), DENTRO do bloco do gate
+      const commitSites = callSites.filter((cs) => cs.command === 'COMMIT');
+      if (commitSites.length !== 1) note(`C1: esperado exatamente 1 COMMIT operacional (inventário estrutural) — encontrados ${commitSites.length} (BEGIN-antecipado/segundo-caminho/catch/finally/helper/opaco = evasão)`);
+      else if (!(commitSites[0].idx > gOpen && commitSites[0].idx < gClose)) note('C1b: o único COMMIT está FORA do bloco do gate seguro');
+      if (/\b(?:const|let|var)\s+\w+\s*=\s*client\s*[;\n,)]/.test(skel)) note('C1c: alias do client detectado — proibido nesta operação');
 
-      // C2 — ROLLBACK ALCANÇÁVEL no else: excisa blocos sob condição constante-falsa e exige a chamada no resto
+      // C2/C3 — do inventário: ROLLBACK alcançável no else PAR (blocos constante-falsos excisados); nenhum COMMIT no else
       if (eOpen >= 0 && eClose > 0) {
-        let elseSkel = skel.slice(eOpen + 1, eClose);
-        let elseSrc = s.slice(eOpen + 1, eClose);
+        const elseSkel = skel.slice(eOpen + 1, eClose);
+        const dead = [];
         const FALSE_IF = /if\s*\(\s*(?:false|0|null|undefined|!\s*true|''|""|1\s*===\s*2|Boolean\(\s*false\s*\))\s*\)\s*\{/g;
         let fm;
-        while ((fm = FALSE_IF.exec(elseSkel))) {
-          const fOpen = fm.index + fm[0].length - 1;
-          const fClose = braceEnd(elseSkel, fOpen);
-          if (fClose > 0) { // excisa o bloco morto das DUAS visões (mantendo comprimento p/ os índices do regex)
-            const blank = ' '.repeat(fClose - fm.index + 1);
-            elseSkel = elseSkel.slice(0, fm.index) + blank + elseSkel.slice(fClose + 1);
-            elseSrc = elseSrc.slice(0, fm.index) + blank + elseSrc.slice(fClose + 1);
-          }
-        }
-        if (!CALL_ROLLBACK.test(elseSrc)) {
-          note("C2: chamada REAL client.query('ROLLBACK') ausente/inalcançável no else do gate (log/comentário/string/if(false) NÃO satisfazem)");
-        } else {
-          const callIdx = elseSrc.search(CALL_ROLLBACK);
-          const termIdx = elseSkel.search(/\breturn\b|process\.exit\(|\bthrow\b/);
-          if (termIdx >= 0 && termIdx < callIdx) note('C2b: ROLLBACK do dry-run só após return/exit/throw (inalcançável)');
-        }
-        // C3 — nenhum COMMIT no ramo dry-run (redundante com C1, mas explícito para o ramo)
-        if (/client\.query\(\s*['"]COMMIT['"]\s*\)/.test(elseSrc)) note("C3: client.query('COMMIT') no ramo dry-run — dry-run não pode persistir");
+        while ((fm = FALSE_IF.exec(elseSkel))) { const fOpen = fm.index + fm[0].length - 1; const fClose = braceEnd(elseSkel, fOpen); if (fClose > 0) dead.push([eOpen + 1 + fm.index, eOpen + 1 + fClose]); }
+        const rbInElse = callSites.filter((cs) => cs.command === 'ROLLBACK' && cs.idx > eOpen && cs.idx < eClose && !dead.some(([a, b]) => cs.idx >= a && cs.idx <= b));
+        if (rbInElse.length === 0) note("C2: nenhum call-site ROLLBACK alcançável no else do gate (if(false)/log/string/comentário não satisfazem)");
+        else { const firstRb = Math.min(...rbInElse.map((cs) => cs.idx)); const termRel = elseSkel.search(/\breturn\b|process\.exit\(|\bthrow\b/); if (termRel >= 0 && (eOpen + 1 + termRel) < firstRb) note('C2b: ROLLBACK do dry-run só após return/exit/throw (inalcançável)'); }
+        if (commitSites.some((cs) => cs.idx > eOpen && cs.idx < eClose)) note("C3: COMMIT no ramo dry-run — dry-run não pode persistir");
       }
     }
   }
@@ -291,59 +307,21 @@ if (!existsSync(LOADER)) {
   if (/client\.query(?!\s*\()/.test(skel)) note('D3d: referência a client.query sem invocação direta (alias/bind/call/apply) — proibida');
   if (/(?<![\w.$])query\s*\(/.test(skel)) note('D3e: chamada bare query(...) (método desestruturado/aliased) — proibida');
 
-  // D1 — inventário: TODA invocação .query( deve ser client.query( com 1º argumento LITERAL
-  const txClass = { BEGIN: 0, COMMIT: 0, ROLLBACK: 0 };
-  {
-    const INVOKE = /(\w+)\s*\.\s*query\s*\(/g;
-    let m2;
-    while ((m2 = INVOKE.exec(skel))) {
-      if (m2[1] !== 'client') { note(`D1a: receiver de .query() não é client: '${m2[1]}'`); continue; }
-      // 1º argumento no FONTE: pular whitespace após '('
-      let p = m2.index + m2[0].length;
-      while (p < s.length && /\s/.test(s[p])) p++;
-      const q = s[p];
-      if (q === "'" || q === '"') {
-        // extrair o literal (com escapes)
-        let lit = '', i2 = p + 1;
-        while (i2 < s.length) {
-          if (s[i2] === '\\') { lit += s[i2 + 1]; i2 += 2; continue; }
-          if (s[i2] === q) break;
-          lit += s[i2]; i2++;
-        }
-        // após o literal: SÓ ',' (params) ou ')' — concatenação/expressão ('COM' + 'MIT') é SQL opaco
-        let after = i2 + 1;
-        while (after < s.length && /\s/.test(s[after])) after++;
-        if (s[after] !== ',' && s[after] !== ')') {
-          note(`D1d: 1º argumento de client.query não termina em ','/')' após o literal (concatenação/expressão) — SQL opaco proibido: "${lit.slice(0, 40)}${s[after]}…"`);
-        }
-        // D2/E3 — classificação por STATEMENT (lexer SQL: strings ''/quoted-ident ""/comentários/dollar-quoted;
-        // split por ';' fora dessas regiões; comando transacional = PRIMEIRO token do statement).
-        const cls = classifyTxLiteral(lit);
-        for (const c of cls.commands) {
-          if (c === 'BEGIN' || c === 'COMMIT' || c === 'ROLLBACK') txClass[c]++;
-        }
-        if (cls.commands.length > 0) {
-          if (cls.stmtCount !== 1) {
-            note(`D2/E3: literal com comando transacional deve conter EXATAMENTE 1 statement — "${lit.slice(0, 60)}" tem ${cls.stmtCount} (composto proibido)`);
-          } else if (!['BEGIN', 'COMMIT', 'ROLLBACK'].includes(cls.commands[0])) {
-            note(`D2/E3: comando transacional não-canônico "${cls.commands[0]}" — permitidos apenas BEGIN | COMMIT | ROLLBACK (START TRANSACTION/SAVEPOINT/RELEASE/ABORT/END proibidos): "${lit.slice(0, 60)}"`);
-          }
-        }
-      } else if (q === '`') {
-        // template sem interpolação é tolerado; com ${ é opaco
-        const end = s.indexOf('`', p + 1);
-        const tpl = end > 0 ? s.slice(p + 1, end) : '';
-        if (end < 0 || tpl.includes('${')) note('D1b: 1º argumento de client.query é template com interpolação — SQL deve ser literal visível');
-        else if (/\b(BEGIN|COMMIT|ROLLBACK|START|SAVEPOINT|RELEASE|ABORT|END)\b/i.test(tpl)) note('D1c: comando transacional em template — use literal canônico');
-      } else {
-        note(`D1: 1º argumento de client.query NÃO é literal (começa com '${q}') — variável/expressão/config-object/helper são SQL opaco proibido`);
-      }
-    }
-  }
-  // D2b — contagem transacional GLOBAL sobre a classificação semântica (não igualdade textual)
+  // D2b — contagem transacional GLOBAL derivada do inventário estrutural único (F2) — sem regex textual paralela
   if (txClass.BEGIN !== 1) note(`D2b: BEGIN esperado exatamente 1 — encontrados ${txClass.BEGIN}`);
   if (txClass.COMMIT !== 1) note(`D2c: COMMIT esperado exatamente 1 — encontrados ${txClass.COMMIT}`);
   if (txClass.ROLLBACK !== 2) note(`D2d: ROLLBACK esperado exatamente 2 (dry-run + catch) — encontrados ${txClass.ROLLBACK}`);
+
+  // ═══ F1 — BLOQUEIO DE CARGA DE BUILTIN FORA DA ALLOWLIST (getBuiltinModule/globalThis/process computado) ═══
+  // O loader legítimo usa só process.argv/process.exit (acesso por ponto). globalThis, process[...] computado,
+  // getBuiltinModule e aliases de process/globalThis são proibidos integralmente (fail-closed). Sobre o skeleton
+  // → texto em string/template/log/comentário não gera falso-FAIL.
+  if (/getBuiltinModule/.test(skel)) note('F1a: getBuiltinModule — carga de builtin fora da allowlist proibida');
+  if (/globalThis/.test(skel)) note('F1b: globalThis — proibido nesta one-shot (via de carga/reflexão)');
+  if (/\bprocess\s*\[/.test(skel)) note('F1c: acesso computado a process (process[...]) — proibido');
+  if (/(?:const|let|var)\s+\w+\s*=\s*process\s*[;\n,)]/.test(skel)) note('F1d: alias de process (const p = process) — proibido');
+  if (/(?:const|let|var)\s+\w+\s*=\s*globalThis\b/.test(skel)) note('F1e: alias de globalThis — proibido');
+  if (/\}\s*=\s*process\b/.test(skel)) note('F1f: desestruturação de process — proibida');
   if (/ON CONFLICT|UPSERT/i.test(s)) note('B9: loader usa ON CONFLICT/UPSERT (proibido)');
   if (/DELETE\s+FROM/i.test(s)) note('B10: loader usa DELETE (proibido)');
   if (!/unificard_app/.test(s) || !/current_user/.test(s)) note('B11: loader não recusa execução como unificard_app');
@@ -363,4 +341,4 @@ if (failures.length) {
   console.error('GATE FAIL [n3-curitiba-catalog]\n' + failures.map((f) => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2; COMPLETUDE: imports do loader restritos a allowlist governada (E1 — sem helper/require/import-dinâmico/símbolo extra), reflexão/prototype/call/apply/bind/getPrototypeOf/Reflect/Proxy/Function/eval proibidos (E2), classificador SQL por STATEMENT com dollar-quote/quoted-ident/comentário/CASE...END aware (E3 — só o 1º token classifica; composto/START/SAVEPOINT/RELEASE/ABORT/END mordem; "COMMIT" ident e dado benignos). (Prova estrutural C1/C2/C3 + inventário D1/D2/D3 + completude E1/E2/E3.)');
+console.log('GATE OK [n3-curitiba-catalog] — manifest = CONJUNTO CANÔNICO EXATO dos 75 bairros de Curitiba (sha256 fixado da projeção [ordinal,name], Unicode/acento-exato, ordem exata — troca/acento/substituição-com-count-75 MORDE); cada item limitado a EXATAMENTE {ordinal,name} (chave extra morde, incl. tenant_id); city/actor ratificados, government_official, referência IPPUC; loader cria SÓ via writer canônico N2-E (nome parametrizado, sem INSERT direto/disable-trigger), advisory lock, estado-inicial-zero, apply gated por token, EXATAMENTE 1 client.query(COMMIT) no arquivo, DENTRO do bloco do gate estrutural (APPLY&&CONFIRMED&&!failed) localizado por brace-matching sobre skeleton (strings blanked — braces em logs/templates não confundem), alias do client proibido; ROLLBACK ALCANÇÁVEL no else PAR do mesmo gate (blocos if(false)/0/!true/1===2 excisados; após return/exit/throw = inalcançável; log/comentário/string NÃO satisfazem; COMMIT no dry-run morde); sem ON CONFLICT/DELETE/alias/succession/address/rota/Bank/Social; INVENTÁRIO TRANSACIONAL EXAUSTIVO: toda query enumerada, 1º argumento LITERAL obrigatório (variável/concat/template-interpolado/config-object/helper = SQL opaco morde), SQL transacional composto proibido (só BEGIN|COMMIT|ROLLBACK puros, strings SQL protegidas), desestruturação/bind/call/apply/computed/optional-chaining do client proibidos, contagem semântica global BEGIN=1/COMMIT=1/ROLLBACK=2; COMPLETUDE: imports do loader restritos a allowlist governada (E1 — sem helper/require/import-dinâmico/símbolo extra), reflexão/prototype/call/apply/bind/getPrototypeOf/Reflect/Proxy/Function/eval proibidos (E2), classificador SQL por STATEMENT com dollar-quote/quoted-ident/comentário/CASE...END aware (E3 — só o 1º token classifica; composto/START/SAVEPOINT/RELEASE/ABORT/END mordem; "COMMIT" ident e dado benignos); getBuiltinModule/globalThis/process-computado bloqueados (F1); C1/C2/C3 e contagem BEGIN=1/COMMIT=1/ROLLBACK=2 derivam do INVENTÁRIO ESTRUTURAL ÚNICO de call-sites (F2 — sem regex textual paralela; texto benigno em string/template/log/comentário não conta). (Prova unificada no inventário.)');
