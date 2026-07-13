@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (98) — F-ADDRESS FASE C: remediação P1+P2 (autoridade por-função + allowlist por caminho exato)
+- Veredito Yala B: P1 prova de autoridade era global (inversão if(representable) throw / catch-sem-parâmetro / autoridade-depois-de-BEGIN passavam); P2 allowlist N2-F por endsWith(basename) (homônimo em outro dir passava).
+- Fix guard-only (commit f8da91b37; produto/DB intactos): P1 audita set e retire por função (brace-matching; args exatos; ordem antes de BEGIN; helper assertRepresentable lança em !representable, sem swallow/inversão/fallback); anti-swallow global (.catch/||/??). P2 allowlist por caminho relativo EXATO (Set de paths normalizados).
+- 9/9 mutations P1 + 7/7 P2; demais famílias Fase C preservadas; N2-F/Fase A verdes. 173 guards; typecheck/build/invariants verdes; DB 37/12/0; Δbank=0. Overclaim anterior corrigido.
+- **STATUS:** executada e provada; Fase C CONTINUA NÃO SELADA (aguarda Yala).
+
 ### 2026-07-13 (97) — F-ADDRESS-CANONICAL-BINDING FASE C: casa única do writer canônico actor-territorial (EXECUTADA E PROVADA, não selada)
 - GO da Fase C (pós-Fase A selada). Casa única para mutar endereço actor-scoped; sem rota/CEP/backfill/Social/Bank; nenhuma migration nova (reusa idempotency_keys + actor_events; constraints Fase A).
 - Commit material 3737acd77: service actor-territorial-address-writer (canRepresentActor não engolida; tenant/operador server-side; purpose→role; tx atômica + advisory lock + release + RLS TOCTOU; idempotência two-phase inline com requestHash; cria+encerra+evento, nunca DELETE/reopen; sem existingAddressId/findOrCreate/fallback/CEP) + repository privado (exige client, owner_type=actor). Guard runner 172→173; 20 mutations. Reconciliação nominal de 2 guards selados (N2-F allowlist + Fase A trava migra p/ Fase C) — travas seguem mordendo.
