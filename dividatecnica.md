@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (91) — F-NEIGHBORHOOD N3: remediação guard-only L1 (reflexão por acesso-membro computado)
+- 9º veredito Yala B: E2 só bloqueava reflexão dotted e K1 só process.argv → []['constructor']['constructor']('return process.version')() executava e recuperava process em qualquer receiver.
+- Fix guard-only (commit f4f18f707; produto/DB intactos): L1 governa acesso-membro computado em QUALQUER receiver — bracket só passa com índice inteiro decimal fora de process.argv; propriedade-string/template/expressão/ident-dinâmico/optional/hex/bigint mordem; array-literals (prev keyword/,/=/(/:) e process.argv (K1) preservados; chamada/tagged após índice numérico mordem.
+- Exploits centrais provados mordendo em array/object/string/number/call-result. 37 provas; preservação K1/J1/J2/H1/E1/E2/E3/D1/F2/V intacta. 171 guards; typechecks/build/invariants verdes; DB 75/150/2, addr=37/nb=0, Δbank=0; sem recarga/2º apply.
+- **STATUS:** executada e provada; N3 CONTINUA NÃO SELADA (aguarda reauditoria final Yala).
+
 ### 2026-07-13 (90) — F-NEIGHBORHOOD N3: remediação guard-only K1 (índice de array ≠ propriedade computada)
 - 8º veredito Yala B: J1 tratava qualquer bracket de process.argv como índice → argv['constructor']/['__proto__'] e cadeia até Function constructor passavam.
 - Fix guard-only (commit bb28d62b9; produto/DB intactos): K1 exige que o bracket de process.argv seja inteiro decimal não-negativo OU identificador simples (string/template/concat/String()/member/aritmética/hex/bigint mordem) e que a leitura seja TERMINAL (nenhuma dereferência ./?./[/(/tagged posterior — fecha [i]['constructor'], .length['constructor'], [i]()).
