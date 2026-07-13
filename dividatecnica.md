@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-12 (82) — F-NEIGHBORHOOD N3: catálogo canônico de Curitiba — 75 bairros (EXECUTADA E PROVADA, não selada)
+- GO de Clayton com fonte oficial (IPPUC "Nosso Bairro"/75 + GeoCuritiba). Escopo Curitiba integral; demais RMC fora (sem grant).
+- CAMINHO A: manifest curitiba-neighborhoods-manifest.json (75, government_official, city/tenant/actor ratificados) + loader one-shot n3-load-curitiba-neighborhoods.mjs (dry-run/apply token; cada bairro SÓ via writer N2-E fn_create_canonical_neighborhood, nome parametrizado seguro p/ acentos; advisory lock; estado-zero; sem INSERT direto). Guard audit-n3-curitiba-catalog (runner 170→171); 11 mutations.
+- Commit material 4248075b8 + apply real. Persistido: neighborhoods=75 (Curitiba, ativos+vigentes, valid_until NULL, government_official; 75 name_normalized distintos; acentos ok); 150 eventos curadoria; aliases=0; succession=0. Readers de vigência listam os 75; D3 resolve; rerun fail-closed; addresses=37/addr_nb=0; grants intactos; Δbank=0.
+- Provas: dry-run 16/16; apply 16/16; 171 guards verdes; typecheck/build/invariants verdes.
+- **STATUS:** N3 EXECUTADA E PROVADA · NÃO SELADA (aguarda Yala). Nenhum address vinculado (frente própria); sem rota/painel/CEP/Social/Bank. N2-D/E/F/G+PORTA+N3-PRE+higiene+contracts seladas.
+
 ### 2026-07-12 (81) — F-NEIGHBORHOOD N3-PRE: SELADA PELA YALA (SELO COMPLETO)
 - Auditoria read-only (Yala) sobre 33d7dc79f→989817447→021b907cb. Veredito A · SELO COMPLETO. N3-PRE selada.
 - Confirmado: os 3 readers aplicam o predicado de vigência via NEIGHBORHOOD_CURRENT_SQL (is_active + valid_from<=now + valid_until NULL/futuro); prova composta teste+guard Classe B suficiente; guard liveness (mutations mordem); contracts intactos; runner=170; typechecks/build/invariants verdes; neighborhoods=0; addresses=37 sem neighborhood; 2 grants+2 eventos intactos; D3 resolve ambos; Δbank=0.

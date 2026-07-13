@@ -1,5 +1,20 @@
 # REMEDIATION DT LOG
 
+## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N3 · CATÁLOGO CANÔNICO DE BAIRROS DE CURITIBA (75) · ⚙️ EXECUTADA E PROVADA · 🔴 NÃO SELADA (aguarda Yala) (2026-07-12)
+Primeira CARGA REAL do catálogo territorial: os 75 bairros oficiais de Curitiba criados pelo writer canônico N2-E, sob a autoridade da PORTA-TERRITORY-1. Commit material `4248075b8` (`feat(location): add Curitiba canonical neighborhoods catalog loader`) + apply real da operação one-shot + este cartório docs-only.
+
+**FONTE (ratificada por Clayton, GO com arquivo):** IPPUC — Instituto de Pesquisa e Planejamento Urbano de Curitiba, relação oficial dos 75 bairros ("Nosso Bairro"); corroborada por GeoCuritiba (camada oficial Bairro, Secretaria de Urbanismo). **Escopo:** Curitiba integral (75). As demais RMC (São José dos Pinhais/Colombo/Araucária/etc. no arquivo) ficam FORA — o Actor só tem grant para Curitiba; cada município exigiria PORTA própria.
+
+**MECANISMO (CAMINHO A):** manifest versionado `curitiba-neighborhoods-manifest.json` (75 itens; city/tenant/actor ratificados; source_kind='government_official'; source_reference IPPUC/GeoCuritiba; nomes únicos sem whitespace; ordinais 1..75; sem neighborhood_id/CEP/lat-lng/alias) + loader one-shot `n3-load-curitiba-neighborhoods.mjs` (dry-run default / `--apply "N3-LOAD-CURITIBA"`; **cada bairro criado SÓ pelo writer canônico `fn_create_canonical_neighborhood`, nome PARAMETRIZADO — seguro para acentos**; 1 transação; advisory lock; estado-inicial-zero fail-closed; recusa unificard_app; sem INSERT direto/disable-trigger/ON CONFLICT/DELETE). Vigência definida pelo writer: is_active=true, valid_from_at=now() (política V3, apply timestamp), valid_until_at NULL. Guard `audit-n3-curitiba-catalog.mjs` (runner 170→**171**), 11 mutations mordem.
+
+**APPLY REAL (persistido):** **neighborhoods=75** (todos Curitiba, todos ativos+vigentes, valid_until NULL, source_kind=government_official; **75 name_normalized distintos — zero colisão**, acentos corretos: Água Verde, Ahú, Alto da Glória, São Braz…); **150 eventos de curadoria** (create+approve por bairro); tokens one-use consumidos (0 residuais); aliases=0; succession=0. Os **readers de vigência (N3-PRE) listam os 75**; **D3** segue resolvendo create+approve. addresses=37/addr_com_nb=0 (a carga NÃO tocou address); territory_grants=2 intactos; bank_accounts=15 (Δbank=0).
+
+**PROVAS:** dry-run 16/16 (ROLLBACK) · **apply COMMIT 16/16** · rerun fail-closed (estado NÃO-ZERO→exit 1, sem duplicata) · guard GATE OK + 11 mutations · **171 guards verdes** · backend/frontend typecheck 0 · build verde · invariants 5/5.
+
+**STATUS: ⚙️ N3 EXECUTADA E PROVADA · 🔴 NÃO SELADA (não auto-selar; aguarda auditoria Yala).** Catálogo canônico de Curitiba vivo (75 bairros vigentes). **Nenhum address vinculado** (ligação address→neighborhood = frente própria futura, resolver governado + GO). **Nenhuma rota/painel/CEP-resolver/Social territorial/fundo/conta.** N2-D/E/F/G + PORTA-TERRITORY-1 + N3-PRE + higiene + contracts seladas; Social/Bank fora.
+
+---
+
 ## F-NEIGHBORHOOD-CANONICAL-IDENTITY — N3-PRE · READERS DE VIGÊNCIA TERRITORIAL — ✅ SELADA PELA YALA · SELO COMPLETO (2026-07-12)
 Auditoria read-only da Yala sobre o arco `33d7dc79f`→`989817447` (material)→`021b907cb` (cartório), HEAD auditado `021b907cb`, branch rescue-structural. **Veredito A — SELO COMPLETO.** N3-PRE oficialmente SELADA.
 
