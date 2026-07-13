@@ -1,0 +1,455 @@
+{
+  "version": 1,
+  "baseline": {
+    "addresses": 37,
+    "addressAssignments": 12,
+    "actorScoped": 0
+  },
+  "expectedFinal": {
+    "addresses": 3,
+    "addressAssignments": 3,
+    "actorScoped": 0
+  },
+  "preserve": {
+    "addressIds": [
+      "489dca58-b16e-4719-824b-478f39038e73",
+      "7f466fe2-0140-40b7-88f7-399481675871",
+      "92314c39-88b1-4aa2-a23d-6666e8a8bdd0"
+    ],
+    "assignmentIds": [
+      "cd59d586-2432-46c0-9796-3061004f0b59",
+      "cf98a49d-9558-4d40-9e39-09ca389ae631",
+      "db6430b1-1326-4ce2-8f17-732dfff508d4"
+    ]
+  },
+  "remove": {
+    "addressIds": [
+      "058b3a12-67c8-474b-acea-b1cdc23841e3",
+      "09890e1f-b483-48be-ab6c-364338f20a15",
+      "09aae458-4cf8-424d-8104-576f0dd90a2b",
+      "0fa23153-f743-47a1-8e24-7a08a17be91c",
+      "155a174b-84a7-47ad-9702-5e7bf2152527",
+      "214397fe-df41-43af-bf92-7835a539cdda",
+      "36823cc0-9136-4d42-8380-bf103d9178ea",
+      "469faec8-d858-40cc-b0da-81ea2209b728",
+      "49acb137-23af-43ce-b988-1ba25f89b4a1",
+      "4aad8a01-0899-4aa8-8c05-d51bcaa55a01",
+      "5211ba71-19f6-4a7b-9b66-01c4ed93d795",
+      "5487686f-54e4-412a-816f-5d7076db9184",
+      "5ddd3f76-a328-4407-861f-0cc56a9e93eb",
+      "600d631b-d8b5-4d02-9d10-103c866efe91",
+      "741842b5-75f9-493c-a937-1b2e6d69ad29",
+      "7e978d4a-502c-4804-8848-3a7ae9c0a2bd",
+      "9cbfde5a-d602-4672-a822-f9827b7cdcd9",
+      "9d3b28f2-4a35-4748-86ae-d07c507abac1",
+      "a4fbc2ec-253a-4a71-b9dc-b8fdd0467d99",
+      "a64b4f6e-c462-4189-a957-ab3660c10168",
+      "a6907471-2430-4f85-a77e-0fa6d8fe00ac",
+      "a8256ac7-3d87-4418-8c33-068727893441",
+      "b91c5efa-5387-42a3-a3fe-656a96e46cb0",
+      "c55f47e6-cf7f-4b2d-8b14-b001c36b847d",
+      "caef7b1c-ddd6-4a13-8e2f-4c44a3f4e687",
+      "ce0804d9-b4e4-4817-b51d-9f4ddee7d6ac",
+      "ce35622a-fc67-474c-8a3a-61c373dd38c1",
+      "d1dfc9ad-d31c-48e3-8f60-e1ed00f408d5",
+      "d208ad08-5b16-4e79-b5a4-99e53b7c01d4",
+      "d2894d8a-b82f-4246-98e0-b2fa85d1ff33",
+      "d9a10c85-9963-4bf7-9f21-f983f88bb0e6",
+      "dba2acc9-43a2-4dd6-ac61-26b89339b5e7",
+      "f79ee310-b6cc-48fe-9f08-ec2fd8b15cfc",
+      "feb4482e-d9ed-47fe-a3f2-d1248be1a289"
+    ],
+    "assignmentIds": [
+      "3543540c-64d1-4a9a-9b1f-2899a83a63e5",
+      "3d57761d-584d-40e0-99f1-223bac41dcf1",
+      "42e917a7-258d-40cb-831f-3cae2f6d9ee6",
+      "6c68c571-5cbd-4231-b16c-86477bf64926",
+      "7a336fb9-f67a-4cf2-8f36-cef01228a093",
+      "d59fa108-1e03-4649-9f82-04406aea10f2",
+      "dbc67eeb-e26c-4460-94b7-73655a3a03b4",
+      "e751c164-9aa7-4d7e-9f60-5ef691d336d2",
+      "ed89c222-9249-45f1-a294-21eeb52673af"
+    ]
+  },
+  "manifestHash": "fac88de206db3e38d066242a71b11748db713b23667bd95b551ab06e3207375b",
+  "evidence": [
+    {
+      "kind": "address",
+      "id": "058b3a12-67c8-474b-acea-b1cdc23841e3",
+      "class": "strong_orphan",
+      "materialHash": "16196174badea82ce33833d50631e490",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "09890e1f-b483-48be-ab6c-364338f20a15",
+      "class": "strong_orphan",
+      "materialHash": "f41d8f5fe86e36baf01b1064ee65c57e",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "09aae458-4cf8-424d-8104-576f0dd90a2b",
+      "class": "dead_rentable_resource",
+      "materialHash": "5d99fa2d9174469ccd1536d586759acc",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": "42e917a7-258d-40cb-831f-3cae2f6d9ee6"
+    },
+    {
+      "kind": "address",
+      "id": "0fa23153-f743-47a1-8e24-7a08a17be91c",
+      "class": "strong_orphan",
+      "materialHash": "917f5e246c87df1cc24940bf7ad7a149",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "155a174b-84a7-47ad-9702-5e7bf2152527",
+      "class": "strong_orphan",
+      "materialHash": "befdd4195210dbbd92b92b86fbf8456e",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "214397fe-df41-43af-bf92-7835a539cdda",
+      "class": "dead_rentable_resource",
+      "materialHash": "fd2357ff68fae3ca060bba0e80f4d9cd",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": "ed89c222-9249-45f1-a294-21eeb52673af"
+    },
+    {
+      "kind": "address",
+      "id": "36823cc0-9136-4d42-8380-bf103d9178ea",
+      "class": "strong_orphan",
+      "materialHash": "8e58c70dff5dc51911a135ef39381c20",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "469faec8-d858-40cc-b0da-81ea2209b728",
+      "class": "dead_tenant",
+      "materialHash": "46b0f77bfd343c8131f08fb58c5ae821",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": "3543540c-64d1-4a9a-9b1f-2899a83a63e5"
+    },
+    {
+      "kind": "address",
+      "id": "49acb137-23af-43ce-b988-1ba25f89b4a1",
+      "class": "strong_orphan",
+      "materialHash": "594222e980fc905ffd924e6c91e9da3c",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "4aad8a01-0899-4aa8-8c05-d51bcaa55a01",
+      "class": "strong_orphan",
+      "materialHash": "95714214f16fa280344d789e68a6df07",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "5211ba71-19f6-4a7b-9b66-01c4ed93d795",
+      "class": "strong_orphan",
+      "materialHash": "faf2724b917ea5f7a59f91e58b44b9ef",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "5487686f-54e4-412a-816f-5d7076db9184",
+      "class": "strong_orphan",
+      "materialHash": "db9cc9c7efd092860b92c2897e3a6f96",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "5ddd3f76-a328-4407-861f-0cc56a9e93eb",
+      "class": "strong_orphan",
+      "materialHash": "d16ec65115bbde1d9ec663b0e2f2cfa0",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "600d631b-d8b5-4d02-9d10-103c866efe91",
+      "class": "strong_orphan",
+      "materialHash": "0d65262cae19ae3d5a2d8bb77a6bdaa8",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "741842b5-75f9-493c-a937-1b2e6d69ad29",
+      "class": "dead_rentable_resource",
+      "materialHash": "a280ba18ae0381048c438e23e2b60d80",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": "3d57761d-584d-40e0-99f1-223bac41dcf1"
+    },
+    {
+      "kind": "address",
+      "id": "7e978d4a-502c-4804-8848-3a7ae9c0a2bd",
+      "class": "strong_orphan",
+      "materialHash": "59bfdafa6b9b67a14cc9ffdf6574cfcd",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "9cbfde5a-d602-4672-a822-f9827b7cdcd9",
+      "class": "strong_orphan",
+      "materialHash": "7542182a06228854d50795007fe5f4e9",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "9d3b28f2-4a35-4748-86ae-d07c507abac1",
+      "class": "strong_orphan",
+      "materialHash": "849c306fbd6787409acaf7308e78d333",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "a4fbc2ec-253a-4a71-b9dc-b8fdd0467d99",
+      "class": "strong_orphan",
+      "materialHash": "c9be524a514740413ba904c9f40674d6",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "a64b4f6e-c462-4189-a957-ab3660c10168",
+      "class": "strong_orphan",
+      "materialHash": "c1890ee504eed6f8313b300578320253",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "a6907471-2430-4f85-a77e-0fa6d8fe00ac",
+      "class": "dead_company",
+      "materialHash": "1a213e77a0acd969bb119fc57cb18848",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": "6c68c571-5cbd-4231-b16c-86477bf64926"
+    },
+    {
+      "kind": "address",
+      "id": "a8256ac7-3d87-4418-8c33-068727893441",
+      "class": "strong_orphan",
+      "materialHash": "6ba8c9e621779622e1339d11add4bf71",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "b91c5efa-5387-42a3-a3fe-656a96e46cb0",
+      "class": "strong_orphan",
+      "materialHash": "164fb87175bb5910e369f0b4e19a2b41",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "c55f47e6-cf7f-4b2d-8b14-b001c36b847d",
+      "class": "strong_orphan",
+      "materialHash": "acca3212881977d1235c68505561dfd9",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "caef7b1c-ddd6-4a13-8e2f-4c44a3f4e687",
+      "class": "dead_tenant",
+      "materialHash": "69d8f77ad9531333bf39e915ae75d9e8",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": "d59fa108-1e03-4649-9f82-04406aea10f2"
+    },
+    {
+      "kind": "address",
+      "id": "ce0804d9-b4e4-4817-b51d-9f4ddee7d6ac",
+      "class": "strong_orphan",
+      "materialHash": "1a5b33ac8afcb15e2a44f5f14d46041f",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "ce35622a-fc67-474c-8a3a-61c373dd38c1",
+      "class": "dead_tenant",
+      "materialHash": "b65779b7177d601f1232886dc80ff200",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": "e751c164-9aa7-4d7e-9f60-5ef691d336d2"
+    },
+    {
+      "kind": "address",
+      "id": "d1dfc9ad-d31c-48e3-8f60-e1ed00f408d5",
+      "class": "strong_orphan",
+      "materialHash": "ecdfaeb6b4737b0c2b805e89c46380ec",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "d208ad08-5b16-4e79-b5a4-99e53b7c01d4",
+      "class": "strong_orphan",
+      "materialHash": "b11cb323ab3b3371721e07a0c924773d",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "d2894d8a-b82f-4246-98e0-b2fa85d1ff33",
+      "class": "strong_orphan",
+      "materialHash": "e23005a84537794f5511d124bac3cf0b",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "d9a10c85-9963-4bf7-9f21-f983f88bb0e6",
+      "class": "strong_orphan",
+      "materialHash": "551406db38b907c8b88ad91914ebc6f4",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "dba2acc9-43a2-4dd6-ac61-26b89339b5e7",
+      "class": "dead_company",
+      "materialHash": "5926cd490df7ab236ed197c1d0ad5081",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": "7a336fb9-f67a-4cf2-8f36-cef01228a093"
+    },
+    {
+      "kind": "address",
+      "id": "f79ee310-b6cc-48fe-9f08-ec2fd8b15cfc",
+      "class": "strong_orphan",
+      "materialHash": "07490d1f49a5c803828f980bc3fd9edf",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": null
+    },
+    {
+      "kind": "address",
+      "id": "feb4482e-d9ed-47fe-a3f2-d1248be1a289",
+      "class": "dead_rentable_resource",
+      "materialHash": "07b2119c5dc857eb21bad2f18603c297",
+      "expectExists": true,
+      "expectNoExternalRef": true,
+      "relatedAssignment": "dbc67eeb-e26c-4460-94b7-73655a3a03b4"
+    },
+    {
+      "kind": "assignment",
+      "id": "3543540c-64d1-4a9a-9b1f-2899a83a63e5",
+      "class": "dead_profile",
+      "materialHash": "1b7d23227422a0b41f7a3db967f33518",
+      "expectExists": true,
+      "relatedAddress": null
+    },
+    {
+      "kind": "assignment",
+      "id": "3d57761d-584d-40e0-99f1-223bac41dcf1",
+      "class": "dead_rentable_resource",
+      "materialHash": "cc500fc59e06953628d632e47924d01f",
+      "expectExists": true,
+      "relatedAddress": null
+    },
+    {
+      "kind": "assignment",
+      "id": "42e917a7-258d-40cb-831f-3cae2f6d9ee6",
+      "class": "dead_rentable_resource",
+      "materialHash": "22b337ab77d689461c6f7b21061298e4",
+      "expectExists": true,
+      "relatedAddress": null
+    },
+    {
+      "kind": "assignment",
+      "id": "6c68c571-5cbd-4231-b16c-86477bf64926",
+      "class": "dead_company",
+      "materialHash": "88fa2fc00f7032a3460cb96c598864b6",
+      "expectExists": true,
+      "relatedAddress": null
+    },
+    {
+      "kind": "assignment",
+      "id": "7a336fb9-f67a-4cf2-8f36-cef01228a093",
+      "class": "dead_company",
+      "materialHash": "b154308d8d5a463268a2e3876dc4f5ae",
+      "expectExists": true,
+      "relatedAddress": null
+    },
+    {
+      "kind": "assignment",
+      "id": "d59fa108-1e03-4649-9f82-04406aea10f2",
+      "class": "dead_profile",
+      "materialHash": "b92ee99251d2173e759fc15a77864bf2",
+      "expectExists": true,
+      "relatedAddress": null
+    },
+    {
+      "kind": "assignment",
+      "id": "dbc67eeb-e26c-4460-94b7-73655a3a03b4",
+      "class": "dead_rentable_resource",
+      "materialHash": "fcc4b1bf28430cfd97a2c16d998906e5",
+      "expectExists": true,
+      "relatedAddress": null
+    },
+    {
+      "kind": "assignment",
+      "id": "e751c164-9aa7-4d7e-9f60-5ef691d336d2",
+      "class": "dead_profile",
+      "materialHash": "f3f440fd407c68a954729dfc18ac828c",
+      "expectExists": true,
+      "relatedAddress": null
+    },
+    {
+      "kind": "assignment",
+      "id": "ed89c222-9249-45f1-a294-21eeb52673af",
+      "class": "dead_rentable_resource",
+      "materialHash": "b694e89eea727029253af04c0af69952",
+      "expectExists": true,
+      "relatedAddress": null
+    }
+  ]
+}

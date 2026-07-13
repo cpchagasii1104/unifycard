@@ -94,8 +94,8 @@ if (has(/\bDELETE\s+FROM\b/i)) {
 }
 
 // 9. PROVA DE RESÍDUO ZERO após o rollback (fora da tx)
-if (!has(/neighborhoods[\s\S]{0,400}addresses[\s\S]{0,80}=\s*37|resíduo ZERO/i)) {
-  note('A9: não há prova de resíduo ZERO pós-rollback (neighborhoods=0 … addresses=37 … actors=6)');
+if (!has(/neighborhoods[\s\S]{0,400}addresses[\s\S]{0,80}=\s*3\b|resíduo ZERO/i)) {
+  note('A9: não há prova de resíduo ZERO pós-rollback (neighborhoods=0 … addresses=3 … actors=6)');
 }
 if (!has(/actors[\s\S]{0,40}=\s*6|actors=6/i)) note('A9b: resíduo final não confere actors=6 (nenhuma fixture de Actor residual)');
 
@@ -119,4 +119,4 @@ if (failures.length) {
   console.error('GATE FAIL [neighborhood-integrated-composition]\n' + failures.map((f) => '  - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('GATE OK [neighborhood-integrated-composition] — prova integrada N2-E×N2-F versionada: writer canônico real cria o neighborhood (INSERT direto só como negativo do HOLD), address coerente o referencia, e as falhas compostas (city incorreta→FK; bairro-sem-city→CHECK; bairro inexistente→FK; display_text não-identity) são provadas; create+approve com 2 grant_ids + 2 eventos + token one-use consumido; ROLLBACK real (sem COMMIT, sem DELETE-cleanup); resíduo ZERO (neighborhoods=0 … addresses=37 … actors=6); sem Bank/rota. (Forma executável e liveness; comment-stripped.)');
+console.log('GATE OK [neighborhood-integrated-composition] — prova integrada N2-E×N2-F versionada: writer canônico real cria o neighborhood (INSERT direto só como negativo do HOLD), address coerente o referencia, e as falhas compostas (city incorreta→FK; bairro-sem-city→CHECK; bairro inexistente→FK; display_text não-identity) são provadas; create+approve com 2 grant_ids + 2 eventos + token one-use consumido; ROLLBACK real (sem COMMIT, sem DELETE-cleanup); resíduo ZERO (neighborhoods=0 … addresses=3 … actors=6); sem Bank/rota. (Forma executável e liveness; comment-stripped.)');

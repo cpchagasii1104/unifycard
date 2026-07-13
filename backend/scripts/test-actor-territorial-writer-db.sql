@@ -79,6 +79,6 @@ BEGIN
   SELECT count(*) INTO naa FROM address_assignments;
   SELECT count(*) INTO ascoped FROM address_assignments WHERE owner_type='actor';
   SELECT count(*) INTO ik FROM idempotency_keys WHERE key LIKE 'atr:t:%';
-  IF na=37 AND naa=12 AND ascoped=0 AND ik=0 THEN RAISE NOTICE 'RESIDUO-ZERO OK: addresses=37 assignments=12 actor-scoped=0 idem-test=0';
+  IF na=3 AND naa=3 AND ascoped=0 AND ik=0 THEN RAISE NOTICE 'RESIDUO-ZERO OK: addresses=3 assignments=3 actor-scoped=0 idem-test=0';
   ELSE RAISE WARNING 'RESIDUO FAIL: addr=% assign=% actor=% idem=%', na, naa, ascoped, ik; END IF;
 END $z$;

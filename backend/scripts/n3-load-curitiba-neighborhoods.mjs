@@ -93,7 +93,7 @@ async function main() {
     assert(al === 0 && su === 0, 'zero aliases, zero succession');
     const addr = (await client.query('SELECT count(*)::int n FROM addresses')).rows[0].n;
     const addrNb = (await client.query('SELECT count(*)::int n FROM addresses WHERE neighborhood_id IS NOT NULL')).rows[0].n;
-    assert(addr === 37 && addrNb === 0, 'addresses=37 e nenhum vinculado (a carga não toca address)');
+    assert(addr === 3 && addrNb === 0, 'addresses=3 e nenhum vinculado (a carga não toca address)');
 
     if (APPLY && CONFIRMED && !failed) {
       await client.query('COMMIT');

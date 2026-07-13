@@ -116,7 +116,7 @@ DO $$ DECLARE nn int; na int; ns int; ng int; nge int; nc int; nt int; nad int; 
   SELECT count(*) INTO nad FROM addresses;
   SELECT count(*) INTO nbad FROM addresses WHERE neighborhood_id IS NOT NULL;
   SELECT count(*) INTO nact FROM actors;
-  IF nn=0 AND na=0 AND ns=0 AND ng=0 AND nc=0 AND nt=0 AND nad=37 AND nbad=0 AND nact=6 THEN
-    RAISE NOTICE 'G16 OK resíduo ZERO: neighborhoods=0 aliases=0 succession=0 territory_grants=0 grant_events=% curation=0 tokens=0 addresses=37 (nb=0) actors=6', nge;
+  IF nn=0 AND na=0 AND ns=0 AND ng=0 AND nc=0 AND nt=0 AND nad=3 AND nbad=0 AND nact=6 THEN
+    RAISE NOTICE 'G16 OK resíduo ZERO: neighborhoods=0 aliases=0 succession=0 territory_grants=0 grant_events=% curation=0 tokens=0 addresses=3 (nb=0) actors=6', nge;
   ELSE RAISE WARNING 'G16 FAIL resíduo: nb=% al=% suc=% grants=% cur=% tok=% addr=% addr_nb=% actors=%', nn,na,ns,ng,nc,nt,nad,nbad,nact; END IF;
 END $$;

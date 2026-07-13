@@ -68,4 +68,4 @@ ROLLBACK;
 -- T28 zero resíduo (fora da tx)
 DO $$ DECLARE na int; nn int; BEGIN
   SELECT count(*) INTO na FROM addresses; SELECT count(*) INTO nn FROM neighborhoods;
-  IF na=37 AND nn=0 THEN RAISE NOTICE 'T27/T28 OK rollback: addresses=37 neighborhoods=0 (zero resíduo)'; ELSE RAISE WARNING 'T28 FAIL addresses=% neighborhoods=%', na, nn; END IF; END $$;
+  IF na=3 AND nn=0 THEN RAISE NOTICE 'T27/T28 OK rollback: addresses=3 neighborhoods=0 (zero resíduo)'; ELSE RAISE WARNING 'T28 FAIL addresses=% neighborhoods=%', na, nn; END IF; END $$;

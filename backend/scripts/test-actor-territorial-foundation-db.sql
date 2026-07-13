@@ -1,6 +1,7 @@
 -- FASE A — prova DB da fundação actor-territorial (DDL + matriz de constraints), TRANSACIONAL, ROLLBACK.
 -- Aplica o DDL da migration (sem BEGIN/COMMIT próprios) e exercita todas as constraints/triggers.
--- NÃO altera os 37 addresses reais nem os assignments legados (tudo revertido). ON_ERROR_STOP=0.
+-- NÃO altera os 3 addresses reais nem os assignments legados (tudo revertido). ON_ERROR_STOP=0.
+-- Baseline pós-FASE D (limpeza governada de fixtures): addresses=3, assignments=3, actor-scoped=0.
 \set pf '213f4903-d0c3-4c03-aa2f-328e11aac807'
 \set pj '52165a0b-1f2c-4846-8e54-2ccea4077c14'
 \set curitiba '9d431002-1fd3-4b34-ae82-678f28f64288'
@@ -134,6 +135,6 @@ BEGIN
   SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='address_assignments' AND column_name='actor_id') INTO hascol;
   SELECT count(*) INTO nassign FROM address_assignments;
   SELECT count(*) INTO naddr FROM addresses;
-  IF hascol=false AND nassign=12 AND naddr=37 THEN RAISE NOTICE 'RESIDUO-ZERO OK: actor_id ausente (rolled back), assignments=12, addresses=37';
+  IF hascol=false AND nassign=3 AND naddr=3 THEN RAISE NOTICE 'RESIDUO-ZERO OK: actor_id ausente (rolled back), assignments=3, addresses=3';
   ELSE RAISE WARNING 'RESIDUO FAIL: hascol=% assign=% addr=%', hascol, nassign, naddr; END IF;
 END $z$;
