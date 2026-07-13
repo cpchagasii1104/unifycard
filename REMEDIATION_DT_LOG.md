@@ -1,6 +1,37 @@
 # REMEDIATION DT LOG
 
-## F-ADDRESS-CANONICAL-BINDING · FASE D · LIMPEZA GOVERNADA DAS FIXTURES TERRITORIAIS — ⚙️ EXECUTADA E PROVADA · NÃO SELADA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-13)
+## F-ADDRESS-CANONICAL-BINDING · FASE D · LIMPEZA GOVERNADA DAS FIXTURES TERRITORIAIS — ✅ SELADA PELA YALA · SELO COMPLETO (2026-07-13)
+**Veredito A da Yala** em HEAD auditado `c25a463e0`. Arco: base `9b055233c` → material `eec1a27ee` → cartório pré-selo `c25a463e0` → este registro do selo. **FASE D OFICIALMENTE ENCERRADA.** Placar auditado: runner=**175** verde · guard Fase D verde · mutations reproduzidas verdes · backend typecheck 0 · frontend herdado intacto · git diff --check limpo · **Δbank=0**.
+
+**Material selado:** manifest FECHADO e versionado (`fixture-cleanup-territorial-manifest.json`, version 1, hash canônico sha256 `fac88de2…` validado) — exatamente 3 addresses + 3 assignments preservados; 34 addresses + 9 assignments removidos por UUID completo (sem descoberta dinâmica, sem PII); evidência por classe (strong_orphan 25 / dead_tenant 3 / dead_company 2 addr + dead_profile 3 / dead_company 2 / dead_rentable_resource 4 asg). Nenhuma reconstrução; nenhum actor-scoped criado. Os 3 pares preservados permaneceram intactos.
+
+**One-shot selado** (`fixture-cleanup-territorial.mjs`): modos `--dry-run`/`--apply` só; token literal exato `APPLY_FIXTURE_CLEANUP_TERRITORIAL_V1` (rejeita ausente/ambíguo/parcial/case-insensitive/boolean/--force); 1 conexão + 1 transação + advisory lock; preflight antes dos DELETEs; remove assignments antes de addresses; valida rowCount exato; valida estado final antes do COMMIT; ROLLBACK obrigatório no dry-run; 1 COMMIT operacional no apply; propaga erros (não converte erro em sucesso); fecha conexão no finally; **rerun fail-closed** (não trata ausência das rows como sucesso idempotente). Operação one-shot e irreversível por natureza — restauração dependeria de backup externo, sem "undo" improvisado.
+
+**Preflight selado provou:** baseline 37/12/0; manifest 34/9; preserve 3/3; zero overlap; todos os UUIDs existentes; preservados com owner/tenant vivos; removíveis com owner morto/inexistente por classe; nenhum removível actor-scoped; nenhuma FK externa viva; nenhuma referência lógica conhecida; nenhuma dependência de evento/auditoria; nenhum preservado no remove; qualquer drift aborta antes do DELETE.
+
+**DELETE exato:** 9 address_assignments + 34 addresses do manifest (rowCount validado). Sem DELETE por tenant/owner_type/origem, sem wildcard/CASCADE/TRUNCATE, sem disable de FK/trigger, sem DML em outra tabela.
+
+**Estado final selado:** addresses=**3** · address_assignments=**3** · actor-scoped=**0** · órfãos=**0** · neighborhoods=75 · curation_events=150 · neighborhood_aliases=0 · cities=27 · states=27 · cep_resolution_cache=3 · grants=2 · bank_accounts=15 · **Δbank=0**. Três addresses + três assignments preservados intactos; 34 addr + 9 asg removidos não reapareceram; nenhuma row nova; nenhuma city/state/neighborhood/cache/dado-financeiro alterado.
+
+**Guard selado** `audit-fixture-cleanup-territorial-manifest.mjs` (G1–G11; runner=175): manifest fechado, tabelas autorizadas, ordem de DELETE, dry-run, apply, token, preservados, grafo de referências, actor-scoped, provider/texto/PII, Bank/Social, reconciliação nominal. Famílias de mutations mordem; produto real passa.
+
+**Reconciliação NOMINAL 37/12→3/3** (estrita, só a contagem) em 6 artefatos: test-actor-territorial-foundation-db.sql, test-actor-territorial-writer-db.sql, test-addresses-neighborhood-composite-coherence-db.sql, test-neighborhood-integrated-composition-db.sql, audit-neighborhood-integrated-composition.mjs, n3-load-curitiba-neighborhoods.mjs. SEM relaxamento de guard/authority/RLS/constraint/writer/resolver, sem mudança do catálogo/gate transacional N3, sem segundo apply N3. Harnesses manuais com premissas pré-N3 já tinham essa natureza antes da Fase D — não agravados.
+
+**Preservação das fases seladas (byte-integridade confirmada):** Fase A (migration/resolver/types/guard; actor-scoped=0); Fase B (migration/resolver/normalizador/adapters/evidence-cache/guard); Fase C (writer/repository/authority/idempotência/eventos; não importada/chamada); N2-F/N3 (neighborhoods=75, curation_events=150, aliases=0, grants=2, catálogo intacto, nenhuma carga/segundo apply); Bank/Social (zero arquivos, zero SQL financeiro, sem ledger/split/regional fund; Δbank=0).
+
+**OBS-1 (não-bloqueante):** o guard prova que o DELETE usa `<pk> = ANY($1::uuid[])` mas não prova por vínculo estático direto que `$1` recebe exatamente `rA/rS`; o produto usa `rA/rS` do manifest e os gates runtime tornam a evasão não explorável (exigem rowCount 34/9, todos os IDs do manifest removidos, 3 preservados presentes, estado final 3/3/0, órfãos=0 — qualquer conjunto diferente falha antes do COMMIT). Defesa-em-profundidade futura (guard provar estaticamente `$1===rA/rS`), não dívida executável atual; sem microfatia.
+
+**OBS-2 (não-bloqueante):** `evidence[].materialHash` é documental — script/guard não recalculam o hash material contra a row; a segurança viva depende de UUID exato + classe de owner morto + ausência de referências + baseline + contagens + preservados + estado final. Validação runtime dos materialHashes seria reforço futuro; não é trava viva; sem microfatia.
+
+**Riscos residuais (nenhum bloqueia o selo):** cleanup irreversível por natureza (restauração exige backup; rerun fail-closed); conversão dos 3 preservados para actor-scoped continua FORA (exige decisão de produto + confirmação humana + autoridade + writer Fase C + GO próprio).
+
+**Frentes futuras TRANCADAS (cada uma novo GATE/GO):** conversão dos 3 preservados para actor-scoped; preenchimento de neighborhood_id; vínculo address→neighborhood; criação de aliases; ingestão oficial de municípios; criação de cidades ausentes; API/onboarding; tela de confirmação; composição pública B→C; Social territorial; Bank regional; regional funds; split; ledger; UnifyCard/maquininha.
+
+**Nenhuma remediação técnica permanece aberta na Fase D.** Entradas pré-selo abaixo (GATE D0 aguardando GO, material não iniciado, executada-e-provada-não-selada, aguarda Yala) ficam SUPERADAS por este selo, sem apagar/reescrever o histórico.
+
+---
+
+## F-ADDRESS-CANONICAL-BINDING · FASE D · LIMPEZA GOVERNADA DAS FIXTURES TERRITORIAIS — ⚙️ EXECUTADA E PROVADA · (registro pré-selo — o "NÃO SELADA · AGUARDA YALA" foi SUPERADO pelo SELO COMPLETO acima) (2026-07-13)
 **Base `9b055233c` → material `eec1a27ee`** (11 arquivos; sem cartório no material). GATE D0 (read-only) classificou os 37 addresses / 12 assignments; classificação vinculante: PRESERVAR 3 addr + 3 asg; REMOVER 34 addr + 9 asg; RECONSTRUIR 0; BLOQUEADOS 0.
 
 **GATE D0 — mapa provado:** único referenciador vivo de `addresses` é `address_assignments` (as 4 FKs externas — actor_active_location/companies.primary_address_id/posts.address_id/tenants.headquarters_address_id — têm 0 linhas; 0 evento referencia address). Owners: 3 assignments com owner VIVO (2 profile→actors 213f4903/4ec428b4 RESIDENCE + 1 actor_asset af27f5a5 PICKUP, todos VIGENTE, tenant a3859c3e vivo, city Curitiba ativa); 9 com owner MORTO (3 profile + 2 company em tenants MORTOS 5f7d3233/fbe13b78; 4 rentable_resource com a tabela rentable_resources VAZIA). 25 addresses órfãos (sem assignment/FK/evento), todos UX_INPUT no tenant vivo — clusters de duplicidade (CEP repetido 12×/5×/3×) confirmam origem-dev. 0 rows dependem de catálogo de município (todas Curitiba).

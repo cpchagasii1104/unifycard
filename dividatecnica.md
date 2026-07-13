@@ -269,7 +269,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
-### 2026-07-13 (105) — F-ADDRESS FASE D: limpeza governada das fixtures territoriais — EXECUTADA E PROVADA, NÃO SELADA
+### 2026-07-13 (106) — F-ADDRESS FASE D: SELADA PELA YALA · SELO COMPLETO · FASE D OFICIALMENTE ENCERRADA
+- Veredito A da Yala em HEAD auditado `c25a463e0`. Arco: base 9b055233c → material eec1a27ee → cartório c25a463e0 → selo. Runner=175; guard Fase D verde; mutations verdes; backend typecheck 0; git diff-check limpo; Δbank=0.
+- Limpeza governada selada: manifest fechado/versionado (hash fac88de2…), 3 addr+3 asg preservados / 34 addr+9 asg removidos por UUID exato; one-shot dry-run-ROLLBACK/apply-token-literal, tx única, preflight completo, DELETE PK-exata ordem asg→addr, rerun fail-closed; guard G1-G11; reconciliação nominal 37/12→3/3 em 6 artefatos (só a contagem). Fases A/B/C byte-intactas; N2-F/N3/Bank/Social intactos.
+- Estado final: addresses=3/assignments=3/actor-scoped=0/órfãos=0; nb=75/cur=150/aliases=0/cities=27/states=27/cache=3/grants=2/bank=15; Δbank=0. Preservados intactos; removidos não reapareceram.
+- OBS-1 (guard prova PK=ANY($1) mas não vínculo estático $1===rA/rS; gates runtime tornam evasão não explorável) e OBS-2 (materialHash documental, não recalculado em runtime) registradas como reforço futuro, não-bloqueantes. Cleanup irreversível por natureza (restauração=backup). Conversão dos 3 preservados p/ actor-scoped continua fora (GO próprio).
+- Entradas pré-selo superadas sem reescrita. Nenhuma remediação aberta; nenhuma frente seguinte aberta.
+- **STATUS:** FASE D · SELADA PELA YALA · SELO COMPLETO · OFICIALMENTE ENCERRADA.
+
+### 2026-07-13 (105) — F-ADDRESS FASE D: limpeza governada das fixtures territoriais — EXECUTADA E PROVADA, NÃO SELADA (superado pelo selo (106) acima)
 - Base 9b055233c → material `eec1a27ee` (11 arquivos). GATE D0 read-only classificou 37 addr/12 asg: único referenciador vivo = address_assignments (4 FKs externas=0, 0 evento); 3 assignments com owner vivo (2 residências + 1 asset PICKUP, VIGENTE, Curitiba) vs 9 mortos (5 dead-tenant, 4 dead-rentable com tabela vazia); 25 órfãos UX_INPUT (dup-clusters). 0 dependência de catálogo de município.
 - Manifest FECHADO (hash sha256 fac88de2…): preserve 3 addr+3 asg / remove 34 addr+9 asg (UUIDs completos, sem overlap/dup, evidence por classe sem PII). One-shot governado: dry-run ROLLBACK / apply --confirm token literal; tx única + advisory lock; preflight (baseline 37/12/0 + preservados coerentes + owner-morte por classe + grafo de referências fail-closed); DELETE ordem asg→addr por PK exata $1::uuid[]; prova final 3/3/0; COMMIT único; rerun fail-closed por baseline divergente (provado exit 1 zero-write).
 - Guard audit-fixture-cleanup-territorial-manifest (G1-G11; runner 174→**175**); 29 mutations; prova DB 15+4 negativas (transição, verde pré-apply). Reconciliação NOMINAL 37/12→3/3 em 6 artefatos selados (4 provas DB + guard integrated + n3 loader; só a contagem, nada relaxado). Nota: os 4 .sql são harnesses manuais fora do runner com premissas de estado próprias (composite/integrated assumem neighborhoods=0, premissa pré-N3 já no base; foundation reaplica DDL). Writer proof roda verde com 3/3.
