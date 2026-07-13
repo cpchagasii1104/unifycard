@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (96) — F-ADDRESS-CANONICAL-BINDING FASE A: SELADA PELA YALA · SELO COMPLETO
+- Veredito A da Yala em HEAD 03e748af8 (arco material 6a7bd4a20→78cfbb171→efc7c715c; remediação N1 efc7c715c→ee86328fc→03e748af8). Fase A oficialmente encerrada.
+- Fundação selada: âncora actor_id FK→actors na casa canônica address_assignments; owner_type='actor'/owner_id=actor_id; PF=RESIDENCE/PJ=OPERATIONAL+HQ; coerência PF/PJ↔role lendo actor_type (provada sob RLS: same-tenant ok, cross-tenant negado); primary único por actor+role; imutabilidade histórica; resolver read-only sem fallback/CEP; vocabulário DB↔TS; A2/N1 ancorado ao ARRAY do CHECK. Runner=172.
+- Sistema virgem: addresses=37/assignments=12/actor-scoped=0/nb=75/grants=2/bank=15; Δbank=0; fixtures intactos; nenhuma remediação aberta. Entradas anteriores superadas pelo selo, sem reescrita.
+- **STATUS:** FASE A SELADA · SELO COMPLETO. Frentes futuras (não abertas): Fase C writer único, Fase B CEP, Fase D limpeza, Social, Bank — cada uma com GO próprio.
+
 ### 2026-07-13 (95) — F-ADDRESS FASE A: remediação N1 (A2 ancorado ao ARRAY do CHECK de owner_type)
 - Veredito Yala B: A2 usava /owner_type = ANY[\s\S]*'actor'/ e aceitava 'actor' em ocorrência posterior (outro CHECK/trigger/string/comentário) → remover 'actor' do ARRAY mantendo no shape passava.
 - Fix guard-only (commit ee86328fc; produto/DB intactos): A2 ancora ao constraint address_assignments_owner_type_check, extrai o ARRAY do owner_type=ANY(ARRAY[...]) e prova 'actor' dentro dele; ocorrência externa não conta; IN() sem ARRAY morde.
