@@ -1,6 +1,50 @@
 # REMEDIATION DT LOG
 
-## F-ADDRESS-ONBOARDING-CANONICAL-FLOW · MVP PF/RESIDÊNCIA · ENVELOPE MATERIAL — ⚙️ EXECUTADO E PROVADO · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-13)
+## F-ADDRESS-ONBOARDING-CANONICAL-FLOW · MVP PF/RESIDÊNCIA — ✅ SELADO PELA YALA · SELO COMPLETO (2026-07-13)
+**Veredito A da Yala** em HEAD auditado `0d8598d20`. Arco: base decisória `4d85de1df` (A1-D) → material `a201e8ab6` → cartório pré-selo `0d8598d20` → este registro do selo. **FRENTE OFICIALMENTE ENCERRADA.** Placar auditado: **migration=0** · runner=**176** · unit **47/47** · rotas **9/9** · prova DB **13/13** · invariants **9/9** · backend typecheck 0 · frontend typecheck 0 · build 0 · **Δbank=0**.
+
+**Fluxo selado:** resolver postal B → preview público estreito → confirmação humana → autoridade `canRepresentActor` → re-resolução server-side → cross-check → writer SELADO da Fase C → leitura actor-scoped. NÃO criou novo writer/autoridade/idempotência/verdade territorial/migration — apenas CONECTOU casas previamente seladas.
+
+**Escopo PF/residência:** `actor_type='user'` + `purpose='ACTOR_RESIDENCE'` → role RESIDENCE (derivado server-side, nunca do cliente); actorType nunca do cliente; PJ/HQ/OPERATIONAL fora; a trava DB da Fase A (`RESIDENCE_REQUIRES_PF`) permanece como backstop.
+
+**Autoridade:** actorId da rota; tenant/operator do auth; action-context coincide com a rota; `canRepresentActor` obrigatório com await DIRETO; deny→autoridade negada; infra-error PROPAGA como erro interno (nunca 403 silencioso); sem autoridade tenant-only; nenhum Actor inferido por profile arbitrário.
+
+**Preview/contratos:** `GET /locations/cep/:cep` país explícito, resolver B casa única, DTO público estreito (`requiresUserConfirmation=true`), contracts source/dist completos (runtime+typing), 18 códigos públicos estáveis; NÃO expõe providerEvidence/responseHash/cacheHit/payload/coords/URLs/stack.
+
+**Re-resolução/cross-check:** o comando autoriza → valida PF/purpose → REEXECUTA o resolver B (status=resolved) → usa IDs da re-resolução → compara confirmedCityId → compara bairro por estado → só então chama o writer C. `confirmedCityId` é cross-check, não verdade; mismatch → `territorial_confirmation_mismatch` com ZERO write; indisponibilidade/provider_conflict/city_missing falham fechado; nenhum ID territorial do cliente entra direto no writer.
+
+**Bairro:** resolved→neighborhoodId canônico (confirmação coincide); candidate→candidateId nunca vira identidade (neighborhoodId=null); pending/not_applicable→null. Sem criação de neighborhood/alias, sem aprovação automática de candidato, sem match textual, sem identidade cross-city.
+
+**Writer/idempotência:** escrita EXCLUSIVA por `setActorTerritorialAddress`; nenhuma escrita direta em addresses/address_assignments; repository privado da Fase C não usado; sem lock/evento/vigência/idempotência paralelos. Idempotência da Fase C integralmente reutilizada (replay/in_progress/payload_mismatch/retry-mesma-chave; sem nova tabela/service/cache).
+
+**Rotas seladas:** `POST /actors/:actorId/territorial-address` (auth+authority+action-context+re-resolução+cross-check+writer C; 201 novo/200 replay) · `GET /actors/:actorId/territorial-address` (auth+authority+PF/residência; reutiliza `resolveActorTerritory`; none/active; zero side effect).
+
+**Legado profile:** `PUT /profile/residence-address` APOSENTADO (410; nenhuma chamada a setResidence; nenhum writer profile vivo; sem owner_type='profile'; sem city/state criada; frontend PF não chama mais). `GET /profile/residence-address` compatibilidade READ-ONLY (actor-scoped prevalece; profile-RESIDENCE = fallback marcado `legacy_profile_fallback`; sem escrita/migrate-on-read/retire). Os 2 registros profile preservados intactos; actor_asset/PICKUP fora.
+
+**Frontend PF:** client canônico; `/api/location/cep` saiu da jornada PF; país explícito; city/state canônicos; número obrigatório; bairro por estado; confirmation snapshot (mudança territorial invalida); idempotencyKey preservada no retry e renovada por nova intenção; sem tenant/role/owner/actorType; backend é autoridade final.
+
+**API Contract Governance:** catalogados preview/POST/GET/PUT-aposentado/GET-fallback/auth/authority/DTO/idempotência/erros/privacidade/escopo/migration=0; aderência doc↔contracts↔rotas↔frontend↔testes.
+
+**Provas:** guard onboarding G1-G10 (runner 176); mutations verdes; unit 47/47; rotas 9/9; DB 13/13; frontend invariants 9/9; typechecks 0/0; build 0; contracts runtime/typing verdes; `git diff --check` limpo. A prova DB exercitou a sequência da Fase C sob ROLLBACK e restaurou addresses=3/assignments=3/actor-scoped=0/actor_events(territorial)=0/idempotency `atr:`=0/Δbank=0.
+
+**Reconciliações nominais** dos 3 guards selados (writer/foundation/composite): APENAS exclusão por CAMINHO EXATO do harness DB sob ROLLBACK — sem exclusão de pasta, sem allowlist ampla, sem writer real ignorado; mutations antigas seguem mordendo; A/C/N2-F não enfraquecidas.
+
+**Preservação:** Fase A (migration/resolver/semântica actor-scoped intactos); Fase B (migration/resolver/normalizador/adapters/cache intactos); Fase C (writer/repository/idempotência/eventos intactos); Fase D (manifest/one-shot/guard/estado 3/3 intactos, sem rerun); N2-F/N3 (nb=75, curation=150, aliases=0, grants=2, sem carga/segundo apply); Bank/Social (zero arquivos/SQL/ledger/split/regional fund; Δbank=0). Três pares preservados (2 profile-RESIDENCE + 1 actor_asset PICKUP) sem UPDATE/retire/migração/actor-scoped-persistente; timestamps/owner_types intactos.
+
+**OBS-1 (não-bloqueante):** G1 prova a condição PF por presença; forma crafted com condição morta poderia escapar do guard textual, mas o produto real está correto e o trigger selado `RESIDENCE_REQUIRES_PF` rejeita residência PJ (backstop comprovado em DB sob ROLLBACK) — sem evasão explorável. Endurecer G1 para liveness no futuro; sem microfatia agora.
+**OBS-2 (não-bloqueante):** G2 route-infra usa prova textual parcial; a mutação 500→403 morde e o produto foi testado com infra→500; uma evasão crafted seria fail-closed (não escala privilégio, só correctness/observabilidade). Endurecer a liveness do mapper no futuro; sem microfatia.
+**OBS-3 (não-bloqueante):** o facade de preview ainda expõe `source` (campo preexistente); o client PF o descarta — não alimenta confirmação/writer nem altera identidade. Remoção = limpeza futura; sem microfatia.
+**OBS-4 (não-bloqueante):** os campos CEP-display do personal-form legado ainda existem, INERTES (não escrevem, não alimentam o comando actor-territorial); `/api/location/cep` está fora da jornada PF canônica. Limpeza = evolução futura; sem microfatia.
+
+**Riscos residuais (nenhum bloqueia o selo):** a re-resolução no write depende de provider/cache (indisponibilidade→fail-closed, nenhum write degradado); municípios fora do catálogo→`canonical_city_missing`; proof-token = hardening futuro.
+
+**Frentes futuras TRANCADAS (cada uma novo GATE/GO):** PJ/HQ/OPERATIONAL/grupos/eventos/rentals; retire público; proof-token; multi-país; ingestão de municípios; criação de neighborhood/alias; aprovação automática de candidato; conversão dos 3 preservados; vínculo address→neighborhood; Social territorial; Bank regional; contas territoriais; split/ledger/fundos regionais; UnifyCard/maquininha.
+
+**Nenhuma remediação técnica permanece aberta na frente.** Entradas pré-selo abaixo (decisão registrada/material não iniciado; executado-e-provado-não-selado; aguarda Yala) ficam SUPERADAS por este selo, sem apagar/reescrever o histórico.
+
+---
+
+## F-ADDRESS-ONBOARDING-CANONICAL-FLOW · MVP PF/RESIDÊNCIA · ENVELOPE MATERIAL — ⚙️ EXECUTADO E PROVADO · (registro pré-selo — o "NÃO SELADO · AGUARDA YALA" foi SUPERADO pelo SELO COMPLETO acima) (2026-07-13)
 **Base `4d85de1df` (decisão A1-D) → material `a201e8ab6`** (30 arquivos; sem cartório no material). **MIGRATION=0.** Liga as casas seladas numa jornada pública: preview canônico (resolver B) → confirmação humana → re-resolução server-side → cross-check → writer SELADO da Fase C → leitura actor-scoped.
 
 **Contratos compartilhados** `packages/contracts/src/territorial-address.ts` (+index; dist force-add): `PostalAddressPreview` (estreito, sem providerEvidence/responseHash/cacheHit/coords), `SetTerritorialAddressCommand`, `TerritorialAddressCurrent`, `TerritorialAddressWriteResult`, `TERRITORIAL_ADDRESS_ERROR_CODES` (18). Runtime+typings resolvem; dist completo.
