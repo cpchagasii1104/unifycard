@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (97) — F-ADDRESS-CANONICAL-BINDING FASE C: casa única do writer canônico actor-territorial (EXECUTADA E PROVADA, não selada)
+- GO da Fase C (pós-Fase A selada). Casa única para mutar endereço actor-scoped; sem rota/CEP/backfill/Social/Bank; nenhuma migration nova (reusa idempotency_keys + actor_events; constraints Fase A).
+- Commit material 3737acd77: service actor-territorial-address-writer (canRepresentActor não engolida; tenant/operador server-side; purpose→role; tx atômica + advisory lock + release + RLS TOCTOU; idempotência two-phase inline com requestHash; cria+encerra+evento, nunca DELETE/reopen; sem existingAddressId/findOrCreate/fallback/CEP) + repository privado (exige client, owner_type=actor). Guard runner 172→173; 20 mutations. Reconciliação nominal de 2 guards selados (N2-F allowlist + Fase A trava migra p/ Fase C) — travas seguem mordendo.
+- Prova DB funcional 11/11 (set/replace/retire/histórico/PJ-coexiste/travas/idempotência; ROLLBACK, resíduo zero). 173 guards; typecheck/build/invariants verdes; DB addresses=37/assignments=12/actor-scoped=0; Δbank=0; fixtures intactos.
+- **STATUS:** executada e provada; NÃO SELADA (aguarda Yala). Próximas (pós-selo): Fase B CEP → Fase D limpeza → API → escala.
+
 ### 2026-07-13 (96) — F-ADDRESS-CANONICAL-BINDING FASE A: SELADA PELA YALA · SELO COMPLETO
 - Veredito A da Yala em HEAD 03e748af8 (arco material 6a7bd4a20→78cfbb171→efc7c715c; remediação N1 efc7c715c→ee86328fc→03e748af8). Fase A oficialmente encerrada.
 - Fundação selada: âncora actor_id FK→actors na casa canônica address_assignments; owner_type='actor'/owner_id=actor_id; PF=RESIDENCE/PJ=OPERATIONAL+HQ; coerência PF/PJ↔role lendo actor_type (provada sob RLS: same-tenant ok, cross-tenant negado); primary único por actor+role; imutabilidade histórica; resolver read-only sem fallback/CEP; vocabulário DB↔TS; A2/N1 ancorado ao ARRAY do CHECK. Runner=172.
