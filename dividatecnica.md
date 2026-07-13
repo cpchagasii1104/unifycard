@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (101) — F-ADDRESS-CANONICAL-BINDING FASE C: SELADA PELA YALA · SELO COMPLETO
+- Veredito A da Yala em HEAD d87347e72. Arco: material 3737acd77 → P1+P2 f8da91b37 → Q1 fc955d6ec → R1 d0ec59379 (+ cartórios). Fase C oficialmente encerrada.
+- Casa única de mutação actor-scoped selada: setActorTerritorialAddress/retireActorTerritorialAddress; autoridade canRepresentActor por-função/args-exatos/await-direto-sem-encadeamento/antes-de-BEGIN/deny-em-!representable/RLS-TOCTOU; purpose→role; address-na-tx sem existingAddressId; advisory lock; idempotência two-phase; evento na mesma tx; encerra+cria sem DELETE; repository privado; allowlists por caminho exato. Runner=173.
+- Sistema virgem: addresses=37/assignments=12/actor-scoped=0/nb=75/grants=2/bank=15; Δbank=0; fixtures intactos; nenhuma remediação aberta. Entradas anteriores superadas pelo selo, sem reescrita.
+- **STATUS:** FASE C SELADA · SELO COMPLETO. Frentes futuras (não abertas): Fase B CEP, Fase D limpeza, API/onboarding, escala, Social, Bank — cada uma com GO próprio.
+
 ### 2026-07-13 (100) — F-ADDRESS FASE C: remediação R1 (vírgula final benigna nos argumentos de autoridade)
 - Veredito Yala B: falso-FAIL — A3f/A3h rejeitavam a vírgula final que o Prettier insere ao quebrar a chamada em multilinha (produto reformatado ficava vermelho sem mudança semântica).
 - Fix guard-only (commit d0ec59379; produto/DB intactos; P2/N2-F byte-intacto): adiciona \s*,?\s* (vírgula final opcional) antes do ')' em ambas as regex; os 3 argumentos exatos seguem obrigatórios.
