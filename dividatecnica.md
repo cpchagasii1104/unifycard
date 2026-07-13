@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (86) — F-NEIGHBORHOOD N3: remediação guard-only (completude E1 + anti-reflexão E2 + lexer SQL por statement E3/E4)
+- 4º veredito Yala B: falso PASS (prototype/getPrototypeOf/helper importado) + falso FAIL (CASE...END, "COMMIT" ident, dollar-quoted, template-texto).
+- Fix guard-only (commit 56dcc738b; produto/DB intactos): E1 allowlist exata de imports (sem helper/require/import-dinâmico/símbolo extra); E2 reflexão/prototype/call/apply/bind/Reflect/Proxy/Function/eval proibidos; E3 classificador SQL por statement (dollar-quote/quoted-ident/comentário/CASE-END aware; só 1º token classifica; START/SAVEPOINT/RELEASE/ABORT/END/composto mordem); E4 contagem sobre visão blankada.
+- Loader vivo: 19 call-sites, BEGIN=1/COMMIT=1/ROLLBACK=2. 25/25 mutations (E1/E2/E3 + benignos B01-B14 + preservação). 171 guards; typechecks/build/invariants verdes; DB 75/150/2, addr=37/nb=0, Δbank=0; sem recarga/2º apply.
+- **STATUS:** executada e provada; N3 CONTINUA NÃO SELADA (aguarda reauditoria final Yala).
+
 ### 2026-07-13 (85) — F-NEIGHBORHOOD N3: remediação guard-only (inventário transacional exaustivo)
 - 3º veredito Yala B: guard controlava só COMMIT literal — permitia variável (command='COMMIT'), SQL composto ('SELECT 1; COMMIT'), desestruturação/alias/bind/call/apply/computed/optional/config-object/concat/helper.
 - Fix guard-only (commit 937056d0a; produto/DB intactos): D1 toda .query( enumerada, receiver=client, 1º arg LITERAL terminando em ','/')' ; D2 literal transacional deve ser BEGIN|COMMIT|ROLLBACK puro (comentários/strings SQL descontados; composto morde), contagem global BEGIN=1/COMMIT=1/ROLLBACK=2; D3 aliases/indireções proibidos.
