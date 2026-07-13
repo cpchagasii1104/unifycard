@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (107) — F-ADDRESS-ONBOARDING-CANONICAL-FLOW A1-D: decisão de fronteira (composição B→confirmação→C) — DECIDIDO docs-only, material não iniciado
+- GATE A0 read-only (@c3894ecd2): as 3 pontas (resolver B + writer C selado ZERO-caller + canRepresentActor/resolveActorTerritory) prontas mas desconectadas; residência PF ainda owner_type='profile'; frontend consome facade CEP textual /api/location/cep; migration esperada=0. Recomendação B.
+- RFC docs/02_decisions/RFC_ADDRESS_ONBOARDING_CANONICAL_FLOW.md (DECIDIDO): D-A MVP PF/ACTOR_RESIDENCE→RESIDENCE; D-B actorId na rota + tenant/operador do auth + canRepresentActor; D-C preview via /locations/cep país explícito; D-D DTO público estreito; D-E confirmação (IDs=cross-check); D-F re-resolução server-side (mismatch→territorial_confirmation_mismatch; proof-token=futuro); D-G bairro candidate/pending→null; D-H POST /actors/:id/territorial-address (deriva role, chama só setActorTerritorialAddress); D-I idempotência reusa Fase C; D-J só set; D-K GET vigente via resolveActorTerritory; D-L convergir PUT /profile/residence-address (writer aposentado/facade; 2 preservados intocados); D-M frontend Profile/PF; D-N canonical_city_missing honesto; D-O contract-first; D-P migration=0; D-Q fronteiras negativas.
+- Commit docs-only. DB intacto (3/3/0/75/27/27/3/15); Δbank=0; A/B/C/D + 3 preservados intactos; Social/Bank fora.
+- **STATUS:** A1 · DECISÃO DE FRONTEIRA REGISTRADA · MVP PF/RESIDÊNCIA · MATERIAL NÃO INICIADO. Aguarda GO material.
+
 ### 2026-07-13 (106) — F-ADDRESS FASE D: SELADA PELA YALA · SELO COMPLETO · FASE D OFICIALMENTE ENCERRADA
 - Veredito A da Yala em HEAD auditado `c25a463e0`. Arco: base 9b055233c → material eec1a27ee → cartório c25a463e0 → selo. Runner=175; guard Fase D verde; mutations verdes; backend typecheck 0; git diff-check limpo; Δbank=0.
 - Limpeza governada selada: manifest fechado/versionado (hash fac88de2…), 3 addr+3 asg preservados / 34 addr+9 asg removidos por UUID exato; one-shot dry-run-ROLLBACK/apply-token-literal, tx única, preflight completo, DELETE PK-exata ordem asg→addr, rerun fail-closed; guard G1-G11; reconciliação nominal 37/12→3/3 em 6 artefatos (só a contagem). Fases A/B/C byte-intactas; N2-F/N3/Bank/Social intactos.
