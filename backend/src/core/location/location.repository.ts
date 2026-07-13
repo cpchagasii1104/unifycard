@@ -20,6 +20,13 @@ import type {
   PrimaryResidenceGeo,
 } from './location.types';
 
+// N3-PRE — predicado canônico de VIGÊNCIA de neighborhoods (fonte única usada pelos 3 readers).
+// Uma row só é CORRENTE quando ativa E dentro da vigência; usa o tempo do banco (CURRENT_TIMESTAMP).
+// Fecha o risco Classe C: readers não podem listar/encontrar/validar bairro inativo ou fora de vigência.
+const NEIGHBORHOOD_CURRENT_SQL = `n.is_active = true
+        AND n.valid_from_at <= CURRENT_TIMESTAMP
+        AND (n.valid_until_at IS NULL OR n.valid_until_at > CURRENT_TIMESTAMP)`;
+
 class LocationRepository {
   /**
    * Buscar todos os países ativos
@@ -201,6 +208,7 @@ class LocationRepository {
       SELECT n.neighborhood_id as id, n.city_id as cityId, n.name
       FROM neighborhoods n
       WHERE n.city_id = $1
+        AND ${NEIGHBORHOOD_CURRENT_SQL}
       ORDER BY n.name ASC
       `,
       [cityId]
@@ -222,6 +230,7 @@ class LocationRepository {
       SELECT n.neighborhood_id as id, n.city_id as cityId, n.name
       FROM neighborhoods n
       WHERE n.neighborhood_id = $1
+        AND ${NEIGHBORHOOD_CURRENT_SQL}
       `,
       [neighborhoodId]
     );
@@ -279,8 +288,9 @@ class LocationRepository {
     const result = await pool.query<{ exists: boolean }>(
       `
       SELECT EXISTS(
-        SELECT 1 FROM neighborhoods
-        WHERE neighborhood_id = $1 AND city_id = $2
+        SELECT 1 FROM neighborhoods n
+        WHERE n.neighborhood_id = $1 AND n.city_id = $2
+          AND ${NEIGHBORHOOD_CURRENT_SQL}
       ) as exists
       `,
       [neighborhoodId, cityId]
