@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (87) — F-NEIGHBORHOOD N3: remediação guard-only (bloqueio getBuiltinModule F1 + inventário unificado C1/C2 F2)
+- 5º veredito Yala B: falso PASS por process.getBuiltinModule/globalThis/computed; falso FAIL porque C1/C2 usavam regex textual paralela (texto de chamada em string/template contava como COMMIT/ROLLBACK).
+- Fix guard-only (commit 31858a049; produto/DB intactos): F1 proíbe getBuiltinModule/globalThis/process[...]/alias/desestruturação de process; F2 unifica C1/C2/C3 + contagem BEGIN=1/COMMIT=1/ROLLBACK=2 no INVENTÁRIO ESTRUTURAL único de call-sites (removida a regex textual paralela → texto benigno não conta).
+- Loader vivo: 19 call-sites. 22/22 mutations (F1 G01-G08; F2 C01-C07/R01-R03; benignos template/string/log/comentário; preservação E1/E2/E3/V1/V2). 171 guards; typechecks/build/invariants verdes; DB 75/150/2, addr=37/nb=0, Δbank=0; sem recarga/2º apply.
+- **STATUS:** executada e provada; N3 CONTINUA NÃO SELADA (aguarda reauditoria final Yala).
+
 ### 2026-07-13 (86) — F-NEIGHBORHOOD N3: remediação guard-only (completude E1 + anti-reflexão E2 + lexer SQL por statement E3/E4)
 - 4º veredito Yala B: falso PASS (prototype/getPrototypeOf/helper importado) + falso FAIL (CASE...END, "COMMIT" ident, dollar-quoted, template-texto).
 - Fix guard-only (commit 56dcc738b; produto/DB intactos): E1 allowlist exata de imports (sem helper/require/import-dinâmico/símbolo extra); E2 reflexão/prototype/call/apply/bind/Reflect/Proxy/Function/eval proibidos; E3 classificador SQL por statement (dollar-quote/quoted-ident/comentário/CASE-END aware; só 1º token classifica; START/SAVEPOINT/RELEASE/ABORT/END/composto mordem); E4 contagem sobre visão blankada.
