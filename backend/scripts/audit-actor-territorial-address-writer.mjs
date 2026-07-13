@@ -65,7 +65,8 @@ else {
   for (const fn of ['setActorTerritorialAddress', 'retireActorTerritorialAddress']) {
     const b = bodyOf(fn);
     if (!b) { note(`A3f: função ${fn} ausente/ilegível`); continue; }
-    const AUTH = /(?:await\s+)?assertRepresentable\(\s*auth\.tenantId\s*,\s*auth\.operatorUserId\s*,\s*input\.actorId\s*\)/;
+    // R1 — tolera vírgula final opcional do Prettier (\s*,?\s*) antes do ')'; os 3 argumentos exatos seguem obrigatórios.
+    const AUTH = /(?:await\s+)?assertRepresentable\(\s*auth\.tenantId\s*,\s*auth\.operatorUserId\s*,\s*input\.actorId\s*,?\s*\)/;
     const ai = b.search(AUTH);
     if (ai < 0) { note(`A3f: ${fn} não prova autoridade com (auth.tenantId, auth.operatorUserId, input.actorId)`); continue; }
     const conn = b.search(/getClientWithTenant\s*\(|client\.query\(\s*['"]BEGIN['"]/);
@@ -80,7 +81,7 @@ else {
   })();
   if (!helper) note('A3h: helper assertRepresentable ausente/ilegível');
   else {
-    if (!/canRepresentActor\(\s*tenantId\s*,\s*operatorUserId\s*,\s*actorId\s*\)/.test(helper)) note('A3h: helper não chama canRepresentActor(tenantId, operatorUserId, actorId)');
+    if (!/canRepresentActor\(\s*tenantId\s*,\s*operatorUserId\s*,\s*actorId\s*,?\s*\)/.test(helper)) note('A3h: helper não chama canRepresentActor(tenantId, operatorUserId, actorId)');
     if (!/if\s*\(\s*!\s*representable\s*\)[\s\S]{0,80}?throw\s+new\s+ActorTerritorialAuthorityError/.test(helper)) note('A3h: helper não lança quando !representable (deny efetivo ausente)');
     if (/if\s*\(\s*representable\s*\)[\s\S]{0,60}?throw\s+new\s+ActorTerritorialAuthorityError/.test(helper)) note('A3h-inv: helper lança quando representable=true (sentido do deny INVERTIDO)');
     if (/if\s*\(\s*!\s*representable\s*\)[\s\S]{0,60}?return\b/.test(helper)) note('A3h: helper retorna (em vez de lançar) em !representable');
