@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (88) — F-NEIGHBORHOOD N3: remediação guard-only H1 (allowlist estrutural de process)
+- 6º veredito Yala B: bloqueio de process era DENYLIST — process.binding/_linkedBinding/dlopen passavam.
+- Fix guard-only (commit 807ad5582; produto/DB intactos): H1 allowlist POSITIVA {process.argv, process.exit} em acesso-ponto direto exato; qualquer outro membro (atual ou FUTURO — P24 process.futureLoader morde), computed/optional (mesmo p/ permitidos), alias (incl. de membro permitido), desestruturação, shadowing, globalThis/global = mordem. Uso legítimo (argv.slice/argv[i]/exit(0)) e palavras em string/comentário passam.
+- F2 preservado (zero regex paralela; C1/C2/C3 pelo inventário). 31 provas (17 P + benignos + preservação F2/E1/E2/E3/V1/V2). 171 guards; typechecks/build/invariants verdes; DB 75/150/2, addr=37/nb=0, Δbank=0; sem recarga/2º apply.
+- **STATUS:** executada e provada; N3 CONTINUA NÃO SELADA (aguarda reauditoria final Yala).
+
 ### 2026-07-13 (87) — F-NEIGHBORHOOD N3: remediação guard-only (bloqueio getBuiltinModule F1 + inventário unificado C1/C2 F2)
 - 5º veredito Yala B: falso PASS por process.getBuiltinModule/globalThis/computed; falso FAIL porque C1/C2 usavam regex textual paralela (texto de chamada em string/template contava como COMMIT/ROLLBACK).
 - Fix guard-only (commit 31858a049; produto/DB intactos): F1 proíbe getBuiltinModule/globalThis/process[...]/alias/desestruturação de process; F2 unifica C1/C2/C3 + contagem BEGIN=1/COMMIT=1/ROLLBACK=2 no INVENTÁRIO ESTRUTURAL único de call-sites (removida a regex textual paralela → texto benigno não conta).
