@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (95) — F-ADDRESS FASE A: remediação N1 (A2 ancorado ao ARRAY do CHECK de owner_type)
+- Veredito Yala B: A2 usava /owner_type = ANY[\s\S]*'actor'/ e aceitava 'actor' em ocorrência posterior (outro CHECK/trigger/string/comentário) → remover 'actor' do ARRAY mantendo no shape passava.
+- Fix guard-only (commit ee86328fc; produto/DB intactos): A2 ancora ao constraint address_assignments_owner_type_check, extrai o ARRAY do owner_type=ANY(ARRAY[...]) e prova 'actor' dentro dele; ocorrência externa não conta; IN() sem ARRAY morde.
+- 8 mutations (M1 central + comentário/RAISE/renomeado/IN/actors/bareword; benignos passam); famílias anteriores preservadas. 172 guards; typechecks/build/invariants verdes; DB intacto (addresses=37/assignments=12/actor-scoped=0; Δbank=0).
+- **STATUS:** executada e provada; Fase A CONTINUA NÃO SELADA (aguarda Yala).
+
 ### 2026-07-13 (94) — F-ADDRESS-CANONICAL-BINDING FASE A: fundação do papel territorial canônico do Actor (EXECUTADA E PROVADA, não selada)
 - GATE address-binding concluído (D0-D15, fases A-F, contratos Social/Bank). Sistema virgem: 37 addresses=fixtures (Fase A não limpou nada). Achados: ownership não-Actor (owner_type polimórfico), 3 writers concorrentes, cities=27 capitais, 25/37 órfãos, 14/24 CEP-sem-city, bairro-do-CEP fail-closed.
 - Fase A (commit 78cfbb171): migration 20260713100000 aditiva na casa canônica address_assignments (sem 3ª tabela) — actor_id FK→actors; owner_type 'actor'; CHECK forma/vigência/papéis; UNIQUE primary por (actor_id,role); trigger coerência PF/PJ↔role (lê actor_type, não copia); trigger imutabilidade histórica; trava fail-closed (writers legados não criam actor-scoped). Resolver read-only tenant-scoped (getClientWithTenant; sem fallback/CEP/write/rota/Bank/Social; estados honestos). Vocabulário TS alinhado ao DB.
