@@ -269,6 +269,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-14 (114) — F-TERRITORIAL-NATIONAL-SCALE: DECISION-0175 TERRITORIAL NACIONAL CONSOLIDADA (docs-only, aguarda Yala)
+- `docs/02_decisions/DECISION_0175_TERRITORIAL_NATIONAL_SCALE.md` — DECIDIDO/DOCS-ONLY/MATERIAL NÃO INICIADO. Base `0bb935359`. Consolida escala territorial nacional (Brasil-first + internacional): D0–D18.
+- **Modelo de identificadores externos escolhido:** N:N escopado à fonte (IBGE/CD_BAIRRO/Receita-TOM/internacional; `cities.external_code` = projeção válida, nunca SSOT único). Fonte municipal = IBGE/DTB bulk versionado + manifest + verificação incremental; CEP nunca cria cidade (`canonical_city_missing` fail-closed).
+- **Candidato** = auxiliar não-soberano, casa compartilhada município+bairro c/ discriminante; **pendência** persistente vinculada a candidatos, chave não-PII; reprocessamento não altera endereço físico nem cria território.
+- **3 reconciliações:** 0020/0021 ausentes (reprodutores vigentes); `ibge_code`×`external_code` = Caso A sem conflito real (07_NOMENCLATURA NÃO editada; citação stale "§4.12" corrigida); "criar cidade sob demanda" (0077/0078) superada pelo RFC (fail-closed). 0079 exibição permanece compatível.
+- Autoridade: job≠Actor; delegada rastreável a CPF; manifest/status/execution ≠ authority; escopo país/capability/PORTA futuros (nada criado). Social/Bank só consomem; Territory nunca escreve dinheiro; HOLD financeiro mantido.
+- **Placar:** 1 commit docs-only; 3 arquivos; ZERO código/migration/DDL/DML/ingestão; N1 dormente; Δbank=0. **STATUS:** DECIDIDA · aguarda uma única auditoria Yala; nenhum material autorizado.
+
 ### 2026-07-14 (113) — F-NEIGHBORHOOD N1 CURITIBA ALIAS-FIRST: FUNDAÇÃO GOVERNADA SELADA PELA YALA · SELO COMPLETO FINAL DA FUNDAÇÃO DORMENTE
 - Veredito A. Arco: base `1cce9cade` → material único `2d47e4d9e` ("feat(territory): add governed Curitiba neighborhood alias flow", 9 arquivos) → selo. runner=178; backend typecheck=0; guard N1 verde; 43 mutations (42 hostis mordem + produto); working tree limpo; `git diff --check` limpo; Δbank=0.
 - **Objeto selado = fundação material DORMENTE:** migration N1 versionada (`20260713140000`) mas **NÃO aplicada** (ausente de `schema_migrations`); 4 casas append-only (manifest/execution[job]/alias-event/token one-use por linha); HOLD estreito (statement só INSERT via token; U/D bloqueados); writer `fn_create_canonical_alias` (SECURITY DEFINER, search_path pinado, EXECUTE fechado); approval service TS (canRepresentActor await direto, erro de infra propaga); one-shots approve/apply; guard dedicado; prova DB integral **em ROLLBACK** (13 provas, grant real `b6ee696d`) — ZERO persistência.
