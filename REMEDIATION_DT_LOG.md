@@ -1,6 +1,51 @@
 # REMEDIATION DT LOG
 
-## S-CITY-1 · SOCIAL-TERRITORY-CITY-CURITIBA · MATERIAL — 🟢 EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA (2026-07-14)
+## F-CURITIBA-OPERACIONAL · S-CITY-1 · SOCIAL-TERRITORY-CITY-CURITIBA — ✅ SELADO PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL (2026-07-14)
+**Auditoria Yala read-only concluída · Veredito A.** O material S-CITY-1 (envelope da DECISION-0176) está SELADO. Este é o selo cartorial final do material; substitui a entrada pré-selo abaixo (que fica preservada, não reescrita).
+
+**Arco institucional real (byte-confirmado por ancestry):**
+```
+eeecf5780  = commit de criação/registro da DECISION-0176
+   ↓
+473e9b06f  = commit de registro do SELO docs-only da DECISION-0176  (base institucional imediata do material)
+   ↓
+8164024e3  = MATERIAL S-CITY-1                                       (parent imediato = 473e9b06f)
+   ↓
+8686a2e99  = CARTÓRIO PRÉ-SELO                                       (parent imediato = 8164024e3)
+   ↓
+(este commit) = SELO CARTORIAL FINAL                                 (parent imediato = 8686a2e99)
+```
+Auditoria Yala: READ-ONLY · VEREDITO A. `merge-base --is-ancestor 473e9b06f 8164024e3 → YES`.
+
+**CORREÇÃO DE ROTULAGEM (append-only, exclusivamente documental — a ancestry Git sempre esteve correta):**
+A entrada pré-selo chamou incorretamente `eeecf5780` de "selo docs-only da DECISION-0176". A classificação correta é:
+- `eeecf5780` = commit de criação/registro da DECISION-0176 (a DECISÃO);
+- `473e9b06f` = commit de registro do selo docs-only (o SELO);
+- `473e9b06f` = base institucional imediata do material `8164024e3`.
+A correção não altera o material nem a árvore git — apenas nomeia corretamente os hashes.
+
+**Invariantes SELADOS:**
+- `posts.audience_city_id UUID NULL`; FK `cities(city_id)` `ON DELETE RESTRICT`; índice parcial; **sem default, sem backfill**; posts antigos permanecem NULL; **sem bairro/enum/tabela-aux**.
+- Migration `20260714120000` aplicada por **rito seletivo governado** (`apply-posts-audience-city-migration.mjs`: hash exato, advisory lock, dry-run→ROLLBACK, apply único, DDL+INSERT `schema_migrations` na MESMA tx, rerun `already_applied` fail-closed; **nunca** o runner geral; nenhum mecanismo genérico de aplicar migration arbitrária criado). **N1 `20260713140000` dormente preservada; drifts `…100000`/`…120000` não registrados.**
+- Snapshot territorial no publish. Intenção pública **somente** `audience_same_city` (boolean); **zero city_id do cliente**. Curitiba-only comparado por ID canônico **server-side** (`9d431002…`), sem env/nome/"qualquer cidade".
+- same_city sem residência actor-scoped = **fail-closed, zero write**; outra cidade = `territorial_audience_not_enabled`, zero write; erro de infra **propaga**; sem fallback profile; sem `actor_active_location`.
+- **UMA casa canônica** `post-audience.house.ts`; álgebra `AUTORIA OR (visibility relacional ⋀ territorial)`; territorial = `audience_city_id IS NULL OR viewer_city = audience_city_id`. Viewer via `resolveActorTerritory(ACTOR_RESIDENCE)`; viewer sem residência = deny.
+- Detalhe por ID via `canViewPost`; conteúdo derivado convergido à mesma casa; `/api/feed` legado retirado (410 `SOCIAL_LEGACY_API_FEED_RETIRED`); readers dead-at-db contidos por colunas-fantasma; revival mordido pelo guard.
+- Frontend envia **apenas intenção booleana**; zero endereço/CEP/coordenada/lista de moradores.
+- Guard `audit-social-territory-city-audience` no runner **179**; 24 mutations hostis + 2 controles benignos; **prova DB 11/11 sob ROLLBACK** (predicado REAL importado, não réplica); backend typecheck 0; frontend typecheck + build verdes.
+- Address/onboarding/resolver postal e Bank intactos; bairro/N5 bloqueado; nacional trancado; `regional_fund_accounts=0`; `bank_accounts=15`; **Δbank=0**.
+
+**`DT-SOCIAL-AUDIENCE-PARALLEL-READERS-BYPASS`: CLOSED · SELADA PELA YALA.** DECISION-0162 permanece válida (caminho canônico de visibilidade); readers outward-facing compostos ou retirados; detalhe por ID protegido; `/api/feed` aposentado; dead-at-db sob anti-revival; nenhum bypass conhecido permanece. A DT antiga de visibilidade NÃO é reaberta.
+
+**OBSERVAÇÕES NÃO BLOQUEANTES (sem DT, sem microfatia):**
+- *OBS-GUARD-H2:* a mutation artificial de remoção do bypass superior de autoria pode escapar da checagem textual H2 (há outra referência relacional ao viewer). Impacto: fail-closed; autor perderia acesso; **não amplia audiência**; a prova DB confirma a autoria. Reforçar quando o guard for naturalmente alterado.
+- *OBS-GUARD-W6:* um vetor artificial por `arguments[0].cityId` não é reconhecido pela trava textual W6. Impacto: não há parâmetro de city no contrato; a rota envia apenas boolean; nenhum caller vivo oferece o vetor; **não há escalação**. Reforçar quando o guard for naturalmente alterado.
+
+**Fronteiras:** este selo NÃO autoriza Bank City, bairro/N5, nacional (DECISION-0175) ou qualquer novo material.
+
+---
+
+## S-CITY-1 · SOCIAL-TERRITORY-CITY-CURITIBA · MATERIAL — 🟢 EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA (2026-07-14, SUPERADA PELO SELO FINAL ACIMA)
 **Envelope material da DECISION-0176 (Opção A: completude real no mesmo envelope, sem microfatia).** Commit material `8164024e3` (14 arquivos; código+migration+guard+prova, SEM cartório). Base `eeecf5780` (selo docs-only da DECISION-0176). **Δbank=0.**
 
 **Casa canônica única de audiência** — `backend/src/modules/social/post-audience.house.ts` (NOVO): `postAudiencePredicateSql(postAlias, viewerParam, viewerCityParam)` = `AUTORIA (bypass) OR ( visibility relacional (0162) ⋀ audiência territorial (0176) )`; territorial = `audience_city_id IS NULL OR audience_city_id = viewerCity`; `resolveViewerResidenceCity` (só `resolveActorTerritory(ACTOR_RESIDENCE)`, sem profile/active_location, sem env; infra propaga); `canViewPost` (detalhe-por-id + conteúdo derivado — comentário/thread/repost/preview/notificação — MESMO predicado, não diverge). É proibido duplicar o predicado por rota.
@@ -43,6 +88,8 @@
 **Formulação correta (não reabre selo anterior):** a DECISION-0162 fechou o enforcement no caminho canônico e **permanece válida**; o S-CITY-0B descobriu readers paralelos **fora** dessa casa — **dívida adicional de convergência**, não invalidação do selo. **Fechamento previsto:** pelo envelope material Social City (DECISION-0176), que deverá compor todos os readers vivos **ou** aposentar os paralelos, **provar detalhe por ID**, e impedir bypass por comentário/repost/preview/cache/rota legada. Precondição de completude do S-CITY-1. Guardião: `verdade/segurança vive no backend, nunca em "frontend não chama mais"`.
 
 > **ANOTAÇÃO 2026-07-14 (append-only, não reescreve o achado):** fechada MATERIALMENTE pelo commit `8164024e3` (envelope S-CITY-1, entrada no topo deste cartório). A casa canônica única (`post-audience.house`) passou a governar os 3 readers vivos + detalhe-por-id/derivado via `canViewPost`; `/api/feed` legado retirado (410); detalhe legado convergido; readers dead-at-db contidos por colunas-fantasma (revival morde no guard §6). Guard `audit-social-territory-city-audience` (runner 179) + 24 mutations + prova DB 11/11. **Status: OPEN → fechada-material, PENDENTE DE SELO Yala** (não auto-selar).
+>
+> **ANOTAÇÃO 2026-07-14 (append-only, selo final):** auditoria Yala read-only concluída · Veredito A. **Status: CLOSED · SELADA PELA YALA.** DECISION-0162 permanece válida; readers outward-facing compostos ou retirados; detalhe por ID protegido; `/api/feed` aposentado; dead-at-db sob anti-revival; nenhum bypass conhecido permanece. Selo cartorial no topo deste arquivo. Não reabrir a DT antiga de visibilidade.
 
 ---
 
