@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-13 (110) — F-NEIGHBORHOOD-CANONICAL-AUTO-INGESTION MVP Curitiba alias-first: GATE N0 (rec. A) + DECISÃO N0-D (DECISION-0174) — DECIDIDO docs-only, material não iniciado
+- GATE N0 read-only (@f32f0a46f) fechou a forma física (rec. A): fn_grant_territorial_capability aceita manage_neighborhood_aliases sem circularidade; approver=213f4903 (não detém a key); HOLD de bairro é o molde (INSERT-com-token; U/D bloqueados); alias precisa de trilha própria; manifest=precedente N3 (arquivo+hash).
+- DECISION-0174 (D0..D22): aliases-Curitiba/zero-bairro; job≠Actor; autoridade só em actor_capability_grants+key exata; PORTA-TERRITORY-ALIASES separada (migration 0, sem circularidade); 4 fatos distintos (grant/approval/execution/alias); manifest híbrido arquivo+DB; approver via canRepresentActor+capability server-side; lifecycle próprio de manifest (não reusar succession); execução técnica revalida grant com lock; trilha própria neighborhood_alias_curation_events; HOLD+token lote/por-linha; writer fn_create_canonical_alias SECURITY DEFINER; conflito (city_id,alias_normalized) aborta lote; atomicidade sem commit parcial; rerun mesmo manifest=fail-closed; resolver inalterado; N1 migration obrigatória; 36 mutations; fronteiras Social/Bank; sequência N0→N0-D→PORTA→N1..N7.
+- Duas precisões: platform_bootstrap é a authority-source (a função é mecanismo); rerun do mesmo manifest/hash=fail-closed.
+- Commit docs-only. DB intacto (3/3/0/75/aliases=0/grants=2/manage_aliases=0/fundos=0/bank=15; Δbank=0); HOLD de alias intacto; A/B/C/D+onboarding selados.
+- **STATUS:** N0-D REGISTRADA · FORMA FÍSICA RATIFICADA · MATERIAL NÃO INICIADO. Próximo: GO da PORTA-TERRITORY-ALIASES (separada de N1).
+
 ### 2026-07-13 (109) — F-ADDRESS-ONBOARDING-CANONICAL-FLOW MVP PF/residência: SELADO PELA YALA · SELO COMPLETO · FRENTE ENCERRADA
 - Veredito A da Yala em HEAD auditado `0d8598d20`. Arco: base 4d85de1df (A1-D) → material a201e8ab6 → cartório 0d8598d20 → selo. migration=0; runner=176; unit 47/47; rotas 9/9; DB 13/13; invariants 9/9; typechecks 0/0; build 0; Δbank=0.
 - Fluxo canônico selado: resolver B → preview estreito → confirmação → canRepresentActor → re-resolução server-side → cross-check confirmedCityId → writer SELADO Fase C → leitura actor-scoped. Conectou casas seladas (sem novo writer/autoridade/idempotência/território/migration). PUT /profile/residence-address aposentado (410) + GET fallback read-only (legacy_profile_fallback); 2 preservados + PICKUP intocados. Frontend PF canônico (sem /api/location/cep; snapshot; idempotencyKey; sem tenant/role/owner).
