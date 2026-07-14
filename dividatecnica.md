@@ -189,7 +189,7 @@ dinheiro soberano (PORTA-1 §4).
 - [ ] Feed post-id drift (risco de verdade paralela)
 - [ ] CTAs zumbi no frontend
 - [ ] Votes eligibility (quem pode votar/criar votação)
-- [ ] `DT-SOCIAL-POST-VISIBILITY-NOT-ENFORCED-ON-READ` (precondição da Fase 2 de descoberta)
+- [x] `DT-SOCIAL-POST-VISIBILITY-NOT-ENFORCED-ON-READ` — ✅ CLOSED MATERIAL (DECISION-0162, Fatia 5, `postVisibilitySql`; cartório `REMEDIATION_DT_LOG.md` entrada CLOSED MATERIAL 2026-07-05). Checkbox reconciliado 2026-07-14 (estava stale). **Nova dívida correlata:** `DT-SOCIAL-AUDIENCE-PARALLEL-READERS-BYPASS` (OPEN, bloqueante do S-CITY-1) — readers paralelos vivos fora da casa canônica (S-CITY-0B); será fechada pelo material Social City.
 - Pacote de decisão ainda não montado.
 
 ### L5 — Módulos frozen/fantasma (~10 DTs) — **CONTENÇÃO EXECUTADA, resíduo de decisão**
@@ -268,6 +268,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 ---
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
+
+### 2026-07-14 (116) — F-CURITIBA-OPERACIONAL: DECISION-0176 AUDIÊNCIA SOCIAL TERRITORIAL POR CIDADE (docs-only, aguarda Yala)
+- `docs/02_decisions/DECISION_0176_SOCIAL_TERRITORIAL_CITY_CURITIBA.md` — DECIDIDO/DOCS-ONLY. Base `0cf36aeab`. D0–D12: same_city ORTOGONAL a `posts.visibility`; SNAPSHOT no publish em `audience_city_id` (FK cities, NULL=sem restrição; same_city sem residência actor-scoped = falha fechada); **Curitiba-only** com guard anti-expansão; predicado do leitor via `resolveActorTerritory(ACTOR_RESIDENCE)` (infra→propaga, nunca false; sem fallback profile/active_location; zero PII); álgebra da interseção (mais restritiva vence); **uma casa canônica única de audiência** (`postVisibilitySql` não canonizado como SSOT).
+- **Reconciliação:** checkbox stale de `DT-SOCIAL-POST-VISIBILITY-NOT-ENFORCED-ON-READ` marcado como CLOSED MATERIAL (DECISION-0162/Fatia 5; cartório 2026-07-05). Justificativa: a DT já estava fechada no cartório vigente; o `[ ]` neste tracker era resíduo stale.
+- **Nova DT aberta:** `DT-SOCIAL-AUDIENCE-PARALLEL-READERS-BYPASS` (OPEN · BLOCKING S-CITY-1) — readers paralelos vivos (`/feed` contextual tenant-only; `/api/feed` legado divergente; `social.routes` legado; detalhe por ID sem casa enforced) fora da casa canônica; achado do S-CITY-0B; **não** reabre o selo da 0162; será fechada pelo material Social City.
+- Fronteiras: Address/Bank intocados; bairro bloqueado por N5; nacional trancado; Δbank=0. **Material NÃO iniciado; aguarda uma única auditoria Yala.**
 
 ### 2026-07-14 (115) — F-TERRITORIAL-NATIONAL-SCALE: DECISION-0175 SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY
 - Commit material docs-only auditado: `92c9cde40`. Zero código/migration/write. `07_NOMENCLATURA_CANONICA.md` intacta.

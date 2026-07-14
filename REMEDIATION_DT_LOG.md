@@ -1,5 +1,21 @@
 # REMEDIATION DT LOG
 
+## F-CURITIBA-OPERACIONAL · DECISION-0176 — 📋 DOCS-ONLY · DECIDIDA · MATERIAL NÃO INICIADO · AGUARDA YALA (2026-07-14)
+**DECISION-0176 — Audiência Social Territorial por Cidade · Piloto Curitiba.** Base `0cf36aeab`. Arquivo: `docs/02_decisions/DECISION_0176_SOCIAL_TERRITORIAL_CITY_CURITIBA.md`. Precedido pelos GATEs read-only S-CITY-0 + S-CITY-0B (matriz de readers vivos de `posts` fechada; forma da audiência preparada).
+
+**Decisões (D0–D12, docs-only):** same_city = dimensão **ORTOGONAL** a `posts.visibility` (não novo valor do CHECK public/connections/only_me) · **SNAPSHOT no publish** em `audience_city_id` (não copia residência; representa a plateia da publicação) · forma conceitual `posts.audience_city_id UUID NULL FK cities` (sem migration/tabela-aux/enum/segundo-SSOT; sem pré-autorizar bairro) · NULL = sem restrição territorial; same_city sem `actor/RESIDENCE` vigente = **falha fechada, zero write** · **Curitiba-only** (resolved author city ≠ Curitiba → `territorial_audience_not_enabled`; guard anti-expansão silenciosa das 27 cidades; DECISION-0175 trancada) · predicado do leitor via `resolveActorTerritory(ACTOR_RESIDENCE)` (sem residência → não elegível; infra → propaga, nunca false silencioso; sem fallback profile/active_location; zero PII) · álgebra = interseção (tenant AND status AND autoria/moderação AND visibility AND territorial); mais restritiva vence · **uma casa canônica única de audiência** (o nome técnico `postVisibilitySql` NÃO é canonizado como SSOT; material pode evoluir/encapsular/substituir; todos os readers vivos compõem OU são aposentados) · temporalidade (edição mantém snapshot; edição de audiência re-resolve; repost = novo snapshot; legado NULL = atual; mudança do autor não retargeta; mudança do leitor muda elegibilidade) · privacidade (booleano/city_id; zero endereço/coord; sem lista de moradores; cache não vira PII).
+
+**Fronteiras:** Address intocado; Bank intocado; bairro bloqueado por N5; nacional trancado; **Δbank=0**. Material Social City TRANCADO. Aguarda uma única auditoria Yala.
+
+---
+
+## DT-SOCIAL-AUDIENCE-PARALLEL-READERS-BYPASS — 🟠 OPEN · BLOCKING S-CITY-1 (2026-07-14, achado do S-CITY-0B)
+**Achado read-only verificado no backend.** O enforcement de audiência de publicação vive hoje num **único ponto** (`backend/src/modules/social/social-2.0.service.ts` — `postVisibilitySql`, aplicado no feed :295 e nos posts-do-Actor :1304/:1466), fechado pela DECISION-0162/Fatia 5 no **caminho canônico auditado**. Fora dessa casa existem **readers paralelos vivos** (wired em `app.builder`) que **NÃO** compõem o predicado: `/feed` contextual (`core/feed/feed.routes.ts`, `WHERE tenant_id=$1` apenas); `/api/feed` legado (`services/feed/FeedService.ts`, vocabulário `'PUBLIC'` maiúsculo divergente / ramo `1=1`); `social.routes` legado (mesmo prefixo `/social`); **detalhe por ID** sem casa canônica enforced identificada; readers compostos (event-feed/service-feed/groups/social-group) a provar.
+
+**Formulação correta (não reabre selo anterior):** a DECISION-0162 fechou o enforcement no caminho canônico e **permanece válida**; o S-CITY-0B descobriu readers paralelos **fora** dessa casa — **dívida adicional de convergência**, não invalidação do selo. **Fechamento previsto:** pelo envelope material Social City (DECISION-0176), que deverá compor todos os readers vivos **ou** aposentar os paralelos, **provar detalhe por ID**, e impedir bypass por comentário/repost/preview/cache/rota legada. Precondição de completude do S-CITY-1. Guardião: `verdade/segurança vive no backend, nunca em "frontend não chama mais"`.
+
+---
+
 ## F-TERRITORIAL-NATIONAL-SCALE · DECISION-0175 — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY (2026-07-14)
 **Objeto:** DECISION-0175 — TERRITORIAL_NATIONAL_SCALE (`docs/02_decisions/DECISION_0175_TERRITORIAL_NATIONAL_SCALE.md`). **Commit auditado:** `92c9cde40`. **Base:** `0bb935359`. **Veredito:** YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY. **Status:** DECISION SELADA · MATERIAL NÃO INICIADO.
 
