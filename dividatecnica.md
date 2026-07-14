@@ -269,6 +269,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-14 (123) — B-CITY-1: FUNDAÇÃO MUNICIPAL INERTE · SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · ENCERRADA
+- Auditoria Yala READ-ONLY → **Veredito A**. Arco: `4056a2de4` (selo 0177) → material `721e5b5ae` → cartório pré-selo `c05230488` → este selo (docs-only; 2 arquivos).
+- **Selado:** conta municipal Curitiba `bfc8705b-a13c-40ed-b926-092a18205271` (system/actor_id NULL/credit/saldo 0) + 1 mapping city Brasil/Paraná/Curitiba (manifest v1 sha256 `8dea5d20…40172b`; bootstrap `platform_bootstrap` estreito: dry-run/apply único/rerun fail-closed/lock/tx única; zero PII; zero poder concedido) · money **ACTOR_RESIDENCE only** (profile fora) · **lookup-only** (zero auto-provision; NOT_PROVISIONED fail-closed) · **Curitiba-only** server-side · casa única `regional_fund_accounts` (transparência/consolidação por FK, **sem authority** — só convergência de leitura; visão futura de extrato de morador registrada SEM abrir frente).
+- **3 DTs de B-CITY-1: CLOSED · SELADAS PELA YALA** (origin-profile-divergence / autoprovision-in-money-path / curitiba-activation-missing). `DT-REGION-FUND-DELEGATION-MODEL-PENDING` e `DT-INVOICING-HARDCODED-TAX-RATE` permanecem OPEN. `OBS-B-CITY-DB-PROOF-POST-BOOTSTRAP` registrada (baseline-bound, não bloqueante).
+- **B-CITY-2 BLOQUEADA** (novo GATE + novo GO + fiscal 4d/4e + commission_gross/tax_reserve/commission_distributable + applies_to + PORTA + policy real + snapshot uniforme + reversals + E2E).
+- **Deltas decompostos:** Δbank_accounts=+1 · Δregional_fund_accounts=+1 · Δbank_transactions=0 · Δbank_ledger=0 · Δbank_splits=0 · Δsaldo_monetário=0. Saldo zero (ledger vazio).
+- Address/onboarding/Social intocados · N1 dormente · neighborhoods=75 · aliases=0 · bairro/N5 bloqueado · nacional trancado · sink/workers fechados. Os 2 públicos preservados FORA do commit.
+
 ### 2026-07-14 (122) — B-CITY-1: FUNDAÇÃO MUNICIPAL INERTE EXECUTADA E PROVADA · NÃO SELADA · AGUARDA YALA
 - Envelope material único da DECISION-0177. Base `4056a2de4` → material `721e5b5ae` (16 arq., SEM cartório) → **bootstrap APLICADO** (dry-run ✓ → apply único ✓ → rerun fail-closed ✓ exit 1 zero-write).
 - **Money→ACTOR_RESIDENCE** (`resolveActorTerritory`; profile fora do dinheiro; 2 legados intactos; cadeia por FK; UNRESOLVABLE aborta antes de write) · **lookup-only** (`lookupRegionalFundAccount` SELECT-only + forma system/NULL; `provisionRegionalFundAccountForBootstrap` fora do pagamento; `REGIONAL_FUND_ACCOUNT_NOT_PROVISIONED` throw) · **Curitiba-only** (`BANK_CITY_ENABLED_CITY_ID` server-side; `REGIONAL_FUND_CITY_NOT_ENABLED`) · transparência/consolidação convergidas p/ `regional_fund_accounts` (string fora da jurisdição territorial).

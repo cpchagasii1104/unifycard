@@ -1,6 +1,47 @@
 # REMEDIATION DT LOG
 
-## B-CITY-1 · FUNDAÇÃO MUNICIPAL INERTE BANK CITY CURITIBA · MATERIAL — 🟢 EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA (2026-07-14)
+## F-CURITIBA-OPERACIONAL · B-CITY-1 · FUNDAÇÃO MUNICIPAL INERTE BANK CITY CURITIBA — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADA (2026-07-14)
+**Auditoria Yala read-only concluída · Veredito A.** O material B-CITY-1 está SELADO. Substitui a entrada pré-selo abaixo (preservada, não reescrita).
+
+**Arco:**
+```
+BASE INSTITUCIONAL:  4056a2de4  (selo da DECISION-0177)
+MATERIAL:            721e5b5ae  (16 arquivos)
+CARTÓRIO PRÉ-SELO:   c05230488
+AUDITORIA YALA:      READ-ONLY · VEREDITO A
+SELO FINAL:          este commit docs-only
+```
+
+**INVARIANTES SELADOS — Origem territorial:** money path → `resolveActorTerritory(ACTOR_RESIDENCE)`; somente actor-scoped; payer explícito; zero fallback profile; zero active_location; zero CEP/texto/sessão/city do cliente; infra-error propaga; ausência gera `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE`; falha ANTES de qualquer write.
+**Curitiba-only:** `BANK_CITY_ENABLED_CITY_ID = 9d431002-1fd3-4b34-ae82-678f28f64288`; UUID server-side; sem env; sem nome como autoridade; sem lista dinâmica; outra cidade gera `REGIONAL_FUND_CITY_NOT_ENABLED`; nacional permanece trancada.
+**Lookup-only:** Curitiba → `regional_fund_accounts` → `bank_account_id`; SELECT-only; money path NÃO provisiona; ausência gera `REGIONAL_FUND_ACCOUNT_NOT_PROVISIONED`; conta precisa ser `system` com `actor_id` NULL; `owner_id` é somente rótulo; zero fallback.
+**Casa territorial única:** `regional_fund_accounts` = única casa cidade→conta; leitores de transparência e consolidação convergidos para FK; string tenant-level fora da jurisdição Bank City; nenhum ledger paralelo; nenhuma segunda verdade territorial.
+
+**CONTA E MAPPING SELADOS:** conta municipal Curitiba `bfc8705b-a13c-40ed-b926-092a18205271` (`owner_type='system'` · `actor_id=NULL` · `account_type='credit'` · saldo=0) · mapping `scope_level='city'` Brasil/Paraná/Curitiba/`neighborhood_id=NULL` → a conta. Exatamente UMA conta; exatamente UM mapping; uma cidade→uma conta; uma conta→um território; zero ledger rows; zero saldo seed; zero transaction; zero split; zero policy regional.
+**Deltas decompostos:** `Δbank_accounts=+1 · Δregional_fund_accounts=+1 · Δbank_transactions=0 · Δbank_ledger=0 · Δbank_splits=0 · Δsaldo_monetário=0`.
+
+**BOOTSTRAP SELADO:** manifest v1 sha256 `8dea5d20548575115afac69266e9b1df6524c1d04de2c0b95e1b98bb1e40172b`; `authority_source='platform_bootstrap'`; responsável humano resolvido pelo SSOT (fundador, Actor `213f4903…`); mecanismo NÃO é authority; dry-run real; apply único; rerun fail-closed; advisory lock; transação única; conta e mapping no mesmo COMMIT; zero PII; zero provisionamento genérico; zero criação de Actor/Identity/capability/delegation. O bootstrap NÃO concedeu: acesso à conta, transferência, saque, aprovação, policy, gasto, delegação, autoridade financeira.
+
+**TRANSPARÊNCIA SEM MOVIMENTAÇÃO:** as mudanças em `transparency.service` e `bank-balance-consolidation.service` foram SOMENTE convergência de leitura para FK. B-CITY-1 NÃO criou: rota pública territorial; elegibilidade de morador; ACL de conta; ownership comunitário; capability financeira; transferência; saque; aprovação; payout; ledger writer; ledger paralelo.
+**Visão futura registrada (sem abrir frente):** moradores poderão futuramente visualizar saldo e extrato governado de seu território, SEM poder transferir/sacar/aprovar/configurar/movimentar a conta system. Qualquer valor futuro destinado a morador deverá seguir: conta regional system → operação financeira governada → conta própria do Actor beneficiário. Essa visão não foi implementada por B-CITY-1, não amplia o selo, não abre B-CITY-2, e exigirá frente e GO próprios.
+
+**DTs FECHADAS (append-only):**
+- `DT-BANK-REGIONAL-ORIGIN-PROFILE-ACTOR-DIVERGENCE` → **CLOSED · SELADA PELA YALA** (profile saiu do money path; actor-scoped virou casa exclusiva)
+- `DT-BANK-REGIONAL-FUND-AUTOPROVISION-IN-MONEY-PATH` → **CLOSED · SELADA PELA YALA** (auto-provisionamento saiu do pagamento; lookup-only materializado)
+- `DT-BANK-CITY-CURITIBA-ACTIVATION-MISSING` → **CLOSED · SELADA PELA YALA** (Curitiba-only materializado)
+Não reabrir por variações cosméticas/sintáticas.
+
+**DTs QUE PERMANECEM ABERTAS:** `DT-REGION-FUND-DELEGATION-MODEL-PENDING` — **OPEN** (segue bloqueando: delegação, representantes, governança financeira, provisionamento generalizado, poder comunitário sobre a conta). `DT-INVOICING-HARDCODED-TAX-RATE` — **OPEN · FRENTE PRÓPRIA**. Nenhuma corrigida neste selo.
+
+**OBS-B-CITY-DB-PROOF-POST-BOOTSTRAP (não bloqueante, sem DT/microfatia):** a prova DB 18/18 foi corretamente construída para o baseline PRÉ-bootstrap; após o apply, diverge por desenho quando encontra o mapping real; permanece fora do runner intencionalmente; o estado pós-bootstrap está coberto por guard dedicado + constraints/UNIQUEs + postchecks + leituras read-only + runner completo + auditoria Yala; quando a prova for naturalmente evoluída, poderá ganhar modo pós-bootstrap; não há risco vivo.
+
+**🔴 B-CITY-2 · ATIVAÇÃO MONETÁRIA — NÃO AUTORIZADA POR ESTE SELO.** Dependências: novo GATE; novo GO; fiscal 4d; fiscal 4e; `commission_gross`; `tax_reserve`; `commission_distributable`; extensão governada de `applies_to`; PORTA financeira; policy regional real; snapshot uniforme material; reversals; E2E financeiro. A existência da conta municipal inerte NÃO autoriza: policy, transaction, split, ledger, saldo, sink, worker, payout, gasto comunitário.
+
+**FRONTEIRAS FINAIS:** Address intocado · onboarding intocado · Social intocado · N1 dormente · neighborhoods=75 · aliases=0 · bairro/N5 bloqueado · nacional trancado · fiscal intocado · frontend intocado · sink fechado · workers fechados · zero trigger Address→Bank · zero Social→Bank · zero Territory→money automático.
+
+---
+
+## B-CITY-1 · FUNDAÇÃO MUNICIPAL INERTE BANK CITY CURITIBA · MATERIAL — 🟢 EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA (2026-07-14, SUPERADA PELO SELO FINAL ACIMA)
 **Envelope material único da DECISION-0177 (selada `4056a2de4`).** Base `4056a2de4` → commit material `721e5b5ae` (16 arquivos; código+manifest+one-shot+guards+prova; SEM cartório) → **APPLY do bootstrap governado** (ato único pós-commit) → este cartório pré-selo.
 
 **Convergência ACTOR_RESIDENCE (fecha-material `DT-BANK-REGIONAL-ORIGIN-PROFILE-ACTOR-DIVERGENCE`):** `resolveRegionalFundDestination` (agora exportada p/ prova) deixou de ler `findPrimaryAddressByOwner('profile',…)` e resolve a ponta declarada pelo basis via `resolveActorTerritory(tenantId, residenceActorId, 'ACTOR_RESIDENCE')`; sem fallback profile/active_location/CEP/texto/sessão/cidade-do-cliente; infra propaga; cadeia city→state→country derivada por FK do Location Core; ausência = `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE` aborta a operação inteira antes de qualquer write. Os 2 registros `profile/RESIDENCE` legados permanecem intactos e fora do money path (provado pós-apply: 2). `locationRepository` saiu do pipeline.
