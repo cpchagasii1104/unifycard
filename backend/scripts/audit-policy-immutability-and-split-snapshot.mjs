@@ -133,8 +133,10 @@ if (spe !== null) {
   if (!/const level = calcSplit\.regionalLevel;/.test(spe)) {
     failures.push(`${SPE}: nível não vem da LINHA (calcSplit.regionalLevel) — resolver inventando nível.`);
   }
-  if (!/ensureRegionalFundAccount\(/.test(spe)) {
-    failures.push(`${SPE}: resolver regional não usa ensureRegionalFundAccount (FK) — degradação para string pode ter voltado.`);
+  // B-CITY-1 (DECISION-0177 D4) — reconciliação nominal: o resolver do pipeline usa o
+  // lookupRegionalFundAccount (FK, SELECT-only); provisionar no money path é proibido.
+  if (!/lookupRegionalFundAccount\(/.test(spe)) {
+    failures.push(`${SPE}: resolver regional não usa lookupRegionalFundAccount (FK) — degradação para string pode ter voltado.`);
   }
 }
 function walkTs(dir, out = []) {

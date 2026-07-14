@@ -210,7 +210,7 @@ async function createRegionalFund(
       [st.rows[0]!.state_id, city]
     );
   }
-  const acc = await bankAccountService.ensureRegionalFundAccount(
+  const acc = await bankAccountService.provisionRegionalFundAccountForBootstrap(
     TENANT_ID,
     {
       level: 'city',

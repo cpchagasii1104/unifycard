@@ -182,7 +182,11 @@ const CMDS = [
   "node scripts/audit-actor-onboarding-address-flow.mjs",
   "node scripts/audit-porta-territory-aliases.mjs",
   "node scripts/audit-curitiba-neighborhood-alias-first.mjs",
-  "node scripts/audit-social-territory-city-audience.mjs"
+  "node scripts/audit-social-territory-city-audience.mjs",
+  "node scripts/audit-regional-fund-fk-canonical.mjs",
+  "node scripts/audit-policy-immutability-and-split-snapshot.mjs",
+  "node scripts/audit-bank-split-pipeline-consolidation.mjs",
+  "node scripts/audit-bank-city-curitiba-foundation.mjs"
 ];
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);

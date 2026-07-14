@@ -100,6 +100,46 @@ export interface RegionalFundAdminView {
 }
 
 class TransparencyService {
+  /**
+   * B-CITY-1 (DECISION-0177 D10) — resolução canônica cidade→conta para READERS de transparência:
+   * SOMENTE `regional_fund_accounts` (FK). Sem cityId: MVP mono-fundo — resolve o ÚNICO mapping
+   * city-scope do tenant (0 = null honesto; >1 = erro: leitura passa a exigir cidade explícita).
+   * Com cityId: mapping exato daquela cidade. NUNCA resolve por owner_id/string/nome.
+   */
+  private async resolveRegionalFundAccountIdViaMapping(
+    tenantId: string,
+    cityId?: string
+  ): Promise<string | null> {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (cityId !== undefined && !UUID_RE.test(cityId)) return null; // região não-canônica = ausência
+    const client = await getClientWithTenant(tenantId);
+    try {
+      if (cityId) {
+        const r = await client.query<{ bank_account_id: string }>(
+          `SELECT bank_account_id::text FROM regional_fund_accounts
+            WHERE tenant_id = $1 AND scope_level = 'city' AND city_id = $2 LIMIT 1`,
+          [tenantId, cityId]
+        );
+        return r.rows[0]?.bank_account_id ?? null;
+      }
+      const r = await client.query<{ bank_account_id: string }>(
+        `SELECT bank_account_id::text FROM regional_fund_accounts
+          WHERE tenant_id = $1 AND scope_level = 'city'`,
+        [tenantId]
+      );
+      if (r.rows.length === 0) return null;
+      if (r.rows.length > 1) {
+        throw new Error(
+          'REGIONAL_FUND_AMBIGUOUS: mais de um fundo municipal provisionado — a leitura sem cidade ' +
+            'explícita deixou de ser determinística (evoluir o reader para exigir city_id).'
+        );
+      }
+      return r.rows[0]!.bank_account_id;
+    } finally {
+      client.release();
+    }
+  }
+
   private buildSplitAccountMap(rows: Array<{ account_id: string; owner_id: string; owner_type: string }>) {
     return new Map<string, { ownerId: string; ownerType: string }>(
       rows.map((a) => [a.account_id, { ownerId: a.owner_id, ownerType: a.owner_type }])
@@ -548,28 +588,15 @@ class TransparencyService {
       throw new Error('User not found');
     }
 
-    // 2. Resolver conta regional no Unify Bank (conta de sistema regional_fund)
-    // F-C1-HOME-READ-SEAL (CP7): o adapter LANÇA quando a conta de sistema não existe (fail-closed,
-    // correto para WRITERS de money). Neste READER, fundo não configurado no tenant = AUSÊNCIA
-    // legítima → null (200 regionalFund:null), não erro estrutural. O throw do adapter fica intacto.
+    // 2. B-CITY-1 (DECISION-0177 D10): resolução CONVERGIDA para a casa canônica cidade→conta
+    // `regional_fund_accounts` (FK) — o reader NÃO usa mais a conta system tenant-level por
+    // string (getSystemAccount('regional_fund') saiu da jurisdição territorial). MVP: um único
+    // fundo municipal (Curitiba); ausência de mapping = ausência honesta → null.
     const bankAccount = bankPortsRegistry.getBankAccount();
-    let regionalFundAccount: Awaited<ReturnType<typeof bankAccount.getSystemAccount>> | null = null;
-    try {
-      regionalFundAccount = await bankAccount.getSystemAccount(tenantId, 'regional_fund', 'BRL');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/not found/i.test(msg)) {
-        regionalFundAccount = null; // ausência honesta (fundo não configurado neste tenant)
-      } else {
-        throw err; // erro estrutural real continua observável
-      }
+    const regionAccountId = await this.resolveRegionalFundAccountIdViaMapping(tenantId);
+    if (!regionAccountId) {
+      return null; // Não há fundo regional provisionado neste tenant (ausência honesta)
     }
-
-    if (!regionalFundAccount) {
-      return null; // Não há fundo regional para esse usuário
-    }
-
-    const regionAccountId = regionalFundAccount.accountId;
 
     // 3. Obter saldo atual do Unify Bank
     const balance = await bankAccount.getBalance(tenantId, regionAccountId);
@@ -660,15 +687,14 @@ class TransparencyService {
   ): Promise<RegionalFundAdminView | null> {
     const { limit = 100, offset = 0, startDate, endDate } = options;
 
-    // 1. Resolver conta regional no Unify Bank (conta de sistema regional_fund)
+    // 1. B-CITY-1 (DECISION-0177 D10): regionId = city_id CANÔNICO (UUID do Location Core) →
+    // mapping em regional_fund_accounts (FK). Sem string, sem nome, sem conta tenant-level.
+    // regionId fora do formato UUID ou sem mapping = ausência honesta → null.
     const bankAccount = bankPortsRegistry.getBankAccount();
-    const regionalFundAccount = await bankAccount.getSystemAccount(tenantId, 'regional_fund', 'BRL');
-
-    if (!regionalFundAccount) {
-      return null; // Não há conta regional para essa região
+    const regionAccountId = await this.resolveRegionalFundAccountIdViaMapping(tenantId, regionId);
+    if (!regionAccountId) {
+      return null; // Não há conta regional provisionada para essa cidade
     }
-
-    const regionAccountId = regionalFundAccount.accountId;
 
     // 2. Obter saldo atual do Unify Bank
     const balance = await bankAccount.getBalance(tenantId, regionAccountId);

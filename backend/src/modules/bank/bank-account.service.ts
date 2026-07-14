@@ -432,7 +432,65 @@ class BankAccountService {
    * governado — a ativação do nível é decisão soberana (nova fatia remove a recusa), não
    * consequência de alguém semear rows.
    */
-  async ensureRegionalFundAccount(
+  /**
+   * B-CITY-1 (DECISION-0177 D4) — LOOKUP-ONLY da conta de fundo regional. É a ÚNICA resolução
+   * cidade→conta permitida no money path: executa SOMENTE SELECT (regional_fund_accounts por
+   * shape territorial exato + validação da conta: system, actor_id NULL, tenant coerente).
+   * NÃO cria, NÃO corrige, NÃO completa, NÃO faz fallback, NÃO infere por owner_id.
+   * Ausência de mapping → null (o money path converte em REGIONAL_FUND_ACCOUNT_NOT_PROVISIONED
+   * ANTES de qualquer write; leitores de transparência tratam null como ausência honesta).
+   */
+  async lookupRegionalFundAccount(
+    tenantId: string,
+    scope:
+      | { level: 'planet' }
+      | { level: 'country'; countryId: string }
+      | { level: 'state'; countryId: string; stateId: string }
+      | { level: 'city'; countryId: string; stateId: string; cityId: string }
+  ): Promise<BankAccount | null> {
+    const countryId = 'countryId' in scope ? scope.countryId : null;
+    const stateId = 'stateId' in scope ? scope.stateId : null;
+    const cityId = 'cityId' in scope ? scope.cityId : null;
+
+    const row = await runQueryWithTenant<{ bank_account_id: string; owner_type: string; actor_id: string | null }>(
+      tenantId,
+      `SELECT rfa.bank_account_id::text, ba.owner_type, ba.actor_id::text
+         FROM regional_fund_accounts rfa
+         JOIN bank_accounts ba ON ba.id = rfa.bank_account_id AND ba.tenant_id = rfa.tenant_id
+        WHERE rfa.tenant_id = $1::uuid AND rfa.scope_level = $2
+          AND rfa.country_id IS NOT DISTINCT FROM $3::uuid
+          AND rfa.state_id IS NOT DISTINCT FROM $4::uuid
+          AND rfa.city_id IS NOT DISTINCT FROM $5::uuid
+          AND rfa.neighborhood_id IS NULL
+        LIMIT 1`,
+      [tenantId, scope.level, countryId, stateId, cityId]
+    );
+    if (!row) return null;
+    // Forma governada da conta municipal (DECISION-0177 D5): system + actor_id NULL. Conta fora
+    // da forma = inconsistência material (fail-closed, nunca "usar mesmo assim").
+    if (row.owner_type !== 'system' || row.actor_id !== null) {
+      throw new Error(
+        `REGIONAL_FUND_ACCOUNT_MALFORMED: bank_account ${row.bank_account_id} do mapping territorial ` +
+          `não tem a forma governada (owner_type='system' + actor_id NULL) — DECISION-0177 D5.`
+      );
+    }
+    const acc = await bankAccountRepository.getAccountById(tenantId, row.bank_account_id);
+    if (!acc) {
+      throw new Error(
+        `REGIONAL_FUND_ACCOUNT_DANGLING: regional_fund_accounts aponta bank_account_id ` +
+          `${row.bank_account_id} inexistente — inconsistência material, investigar.`
+      );
+    }
+    return acc;
+  }
+
+  /**
+   * B-CITY-1 (DECISION-0177 D4) — PROVISIONER DE BOOTSTRAP. Renomeado de ensureRegionalFundAccount:
+   * o get-or-create SAIU do money path (que agora usa SOMENTE lookupRegionalFundAccount acima).
+   * Uso legítimo: rito de bootstrap governado (one-shot com token/manifest) e fixtures e2e.
+   * PROIBIDO chamar durante pagamento/split/qualquer caminho de dinheiro.
+   */
+  async provisionRegionalFundAccountForBootstrap(
     tenantId: string,
     scope:
       | { level: 'planet' }

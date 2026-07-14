@@ -38,17 +38,26 @@ const check = (label, ok) => { if (!ok) failures.push(label); console.log(`  ${o
 // (D) payerActorId chegou nas duas assinaturas.
 check('resolveSplitDestinationFromPolicy(tenantId, payerActorId, receiverActorId, ...) — payerActorId presente',
   /async function resolveSplitDestinationFromPolicy\(\s*\n\s*tenantId: string,\s*\n\s*payerActorId: string,\s*\n\s*receiverActorId: string/.test(src));
+// B-CITY-1 (DECISION-0177): resolveRegionalFundDestination ganhou `export` para prova direta
+// sob teste/ROLLBACK; a assinatura payer/receiver permanece a mesma.
 check('resolveRegionalFundDestination(tenantId, payerActorId, receiverActorId, ...) — payerActorId presente',
-  /async function resolveRegionalFundDestination\(\s*\n\s*tenantId: string,\s*\n\s*payerActorId: string,\s*\n\s*receiverActorId: string/.test(src));
+  /(?:export )?async function resolveRegionalFundDestination\(\s*\n\s*tenantId: string,\s*\n\s*payerActorId: string,\s*\n\s*receiverActorId: string/.test(src));
 
 // (A) o branch PF resolve de verdade — não lança UNSUPPORTED_MVP incondicional.
-const pfBranchMatch = src.match(/if \(basis === 'payer_identity_residence' \|\| basis === 'receiver_identity_residence'\) \{[\s\S]{0,1000}?\r?\n {2}\} else if/);
+const pfBranchMatch = src.match(/if \(basis === 'payer_identity_residence' \|\| basis === 'receiver_identity_residence'\) \{[\s\S]{0,2400}?\r?\n {2}\} else if/);
 check("branch PF existe e NÃO lança POLICY_BASIS_UNSUPPORTED_MVP incondicionalmente (resolve de verdade)",
   !!pfBranchMatch && !/POLICY_BASIS_UNSUPPORTED_MVP/.test(pfBranchMatch[0]));
 
-// (B) reusa o SSOT de residência civil — nunca duplica a fonte.
-check("branch PF chama locationRepository.findPrimaryAddressByOwner('profile', ..., 'RESIDENCE') — reusa o SSOT de DECISION-0074",
-  !!pfBranchMatch && /findPrimaryAddressByOwner\('profile', residenceActorId, 'RESIDENCE'\)/.test(pfBranchMatch[0]));
+// (B) reusa o SSOT canônico de residência — nunca duplica a fonte.
+// RECONCILIAÇÃO CONSCIENTE B-CITY-1 (DECISION-0177 D2/D3, fecha
+// DT-BANK-REGIONAL-ORIGIN-PROFILE-ACTOR-DIVERGENCE): a casa de residência do money path
+// CONVERGIU de profile/RESIDENCE (DECISION-0074, legado preservado fora do money) para a casa
+// actor-scoped selada resolveActorTerritory(ACTOR_RESIDENCE). O invariante (SSOT único,
+// fail-closed, ponta certa) está PRESERVADO — só a casa mudou, por decisão selada.
+check("branch PF resolve via resolveActorTerritory(tenantId, residenceActorId, 'ACTOR_RESIDENCE') — casa actor-scoped selada (DECISION-0177)",
+  !!pfBranchMatch && /await resolveActorTerritory\(tenantId, residenceActorId, 'ACTOR_RESIDENCE'\)/.test(pfBranchMatch[0]));
+check('branch PF NÃO regride para profile/RESIDENCE (proibido no money path, DECISION-0177 D3)',
+  !!pfBranchMatch && !/findPrimaryAddressByOwner\(\s*'profile'/.test(pfBranchMatch[0]));
 
 // (C) a ponta certa é usada — payer_identity_residence usa payerActorId, receiver usa receiverActorId.
 check("branch PF escolhe a ponta certa (payer_identity_residence→payerActorId, receiver_identity_residence→receiverActorId) — nunca a outra como atalho",
@@ -58,9 +67,13 @@ check("branch PF escolhe a ponta certa (payer_identity_residence→payerActorId,
 check('branch PF sem residência cadastrada → POLICY_REGIONAL_ORIGIN_UNRESOLVABLE (fail-closed, não adivinha)',
   !!pfBranchMatch && /POLICY_REGIONAL_ORIGIN_UNRESOLVABLE/.test(pfBranchMatch[0]));
 
-// import correto (composição — reusa o repository do Location Core, não SQL novo).
-check("import locationRepository de '@core/location/location.repository' (composição, sem SQL novo)",
-  /import \{ locationRepository \} from '@core\/location\/location\.repository';/.test(src));
+// import correto (composição — reusa a casa canônica do Location Core, não SQL paralelo).
+// RECONCILIAÇÃO B-CITY-1: locationRepository (casa profile) saiu do pipeline; a composição
+// agora é com resolveActorTerritory (casa actor-scoped selada).
+check("import resolveActorTerritory de '@core/location/actor-territorial-resolver' (composição da casa selada)",
+  /import \{ resolveActorTerritory \} from '@core\/location\/actor-territorial-resolver';/.test(src));
+check('locationRepository (casa profile) NÃO é importado pelo pipeline de pagamento',
+  !/import \{ locationRepository \}/.test(src));
 
 // call-site atualizado.
 check('call-site passa paymentRequest.payerActorId (não só receiverActorId)',

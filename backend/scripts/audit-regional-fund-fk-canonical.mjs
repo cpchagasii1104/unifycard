@@ -45,7 +45,11 @@ forbid(ma, MA, /balance|total_.*cents|amount_cents/i, 'coluna de saldo apareceu 
 // ── (B) resolver por FK no Bank + sink string morto ──
 const BA = 'src/modules/bank/bank-account.service.ts';
 const ba = readTs(BA);
-need(ba, BA, /async ensureRegionalFundAccount\(/, 'ensureRegionalFundAccount (resolver por FK) ausente.');
+// B-CITY-1 (DECISION-0177 D4) — reconciliação nominal: o resolver por FK EVOLUIU para o par
+// lookupRegionalFundAccount (money path, SELECT-only) + provisionRegionalFundAccountForBootstrap
+// (bootstrap governado). O invariante (FK = verdade, sem string) está PRESERVADO E FORTALECIDO.
+need(ba, BA, /async lookupRegionalFundAccount\(/, 'lookupRegionalFundAccount (resolver FK lookup-only) ausente.');
+need(ba, BA, /async provisionRegionalFundAccountForBootstrap\(/, 'provisionRegionalFundAccountForBootstrap (writer de bootstrap por FK) ausente.');
 need(ba, BA, /FROM regional_fund_accounts/, 'resolver não consulta regional_fund_accounts — a FK deixou de ser a verdade.');
 need(ba, BA, /REGIONAL_FUND_NEIGHBORHOOD_HOLD/, 'recusa fail-closed de neighborhood (HOLD D4) sumiu.');
 forbid(ba, BA, /async ensureRegionalFundBankAccountForRegion\(/, 'SINK STRING ensureRegionalFundBankAccountForRegion voltou.');
@@ -54,7 +58,9 @@ forbid(ba, BA, /\$\{region\.country\}-\$\{region\.state\}-\$\{region\.city\}/, '
 // ── (C) caminho vivo sem degradação ──
 const SPE = 'src/modules/services/service-payment-execution.service.ts';
 const spe = readTs(SPE);
-need(spe, SPE, /ensureRegionalFundAccount\(/, 'resolver regional do pipeline não usa o ensure por FK.');
+need(spe, SPE, /lookupRegionalFundAccount\(/, 'resolver regional do pipeline não usa o lookup por FK (DECISION-0177 D4).');
+forbid(spe, SPE, /provisionRegionalFundAccountForBootstrap\(/, 'money path voltou a PROVISIONAR conta (auto-provision proibido, DECISION-0177 D4).');
+forbid(spe, SPE, /ensureRegionalFundAccount\(/, 'nome ambíguo ensureRegionalFundAccount (get-or-create) voltou ao pipeline.');
 forbid(spe, SPE, /resolveCountryStateCityFromAddress/, 'função de degradação FK→string reapareceu no pipeline.');
 forbid(spe, SPE, /iso_alpha2|abbreviation AS state_code/, 'lookup de códigos/nomes (degradação) reapareceu no resolver regional.');
 forbid(spe, SPE, /ensureRegionalFundBankAccountForRegion\(/, 'pipeline voltou a chamar o sink string.');

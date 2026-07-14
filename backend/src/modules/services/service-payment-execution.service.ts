@@ -20,7 +20,8 @@ import { bankAccountService } from '../bank/bank-account.service';
 import { createPaymentIntentWithClient } from '@modules/payments/payment-intent-repository';
 import { economicPolicyEngineService } from '@modules/economy/policy-engine/economic-policy-engine.service';
 import { operationalAddressHelper } from '@core/location/operational-address.helper';
-import { locationRepository } from '@core/location/location.repository';
+import { resolveActorTerritory } from '@core/location/actor-territorial-resolver';
+import { isRegionalFundCityEnabled } from '../bank/regional-fund-city-activation';
 import type {
   CalculatedEconomicSplit,
   EconomicPolicyLineType,
@@ -201,8 +202,7 @@ async function resolveSplitDestinationFromPolicy(
       tenantId,
       payerActorId,
       receiverActorId,
-      calcSplit,
-      currency
+      calcSplit
     );
   }
 
@@ -215,18 +215,20 @@ async function resolveSplitDestinationFromPolicy(
  * PE-5-RESOLVER-V2 (DECISION-0051 + Fatia 9 passo 3, 2026-07-05) — resolver
  * dinâmico de regional_fund PJ+PF.
  *
- * Lê `regional_origin_basis` da policy line, busca endereço canônico,
- * resolve os IDs canônicos (country/state/city) e retorna `ensureRegionalFundAccount` (FK).
+ * Lê `regional_origin_basis` da policy line, resolve a jurisdição canônica (PF via
+ * resolveActorTerritory(ACTOR_RESIDENCE), PJ via address_assignments) e resolve a conta por
+ * `lookupRegionalFundAccount` (FK, LOOKUP-ONLY — DECISION-0177 D4: o pagamento nunca cria conta).
  *
  * NÃO faz fallback automático entre basis. Se basis pedido não tiver
  * endereço material, falha `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE`.
  */
-async function resolveRegionalFundDestination(
+// Exportada para prova direta sob teste/ROLLBACK (B-CITY-1); o caller de produção continua
+// sendo resolveSplitDestinationFromPolicy (mesmo módulo).
+export async function resolveRegionalFundDestination(
   tenantId: string,
   payerActorId: string,
   receiverActorId: string,
-  calcSplit: CalculatedEconomicSplit,
-  currency: 'BRL'
+  calcSplit: CalculatedEconomicSplit
 ): Promise<ResolvedSplitDestination> {
   const basis = calcSplit.regionalOriginBasis;
   if (!basis) {
@@ -243,23 +245,40 @@ async function resolveRegionalFundDestination(
   let stateId: string | null = null;
   let cityId: string | null = null;
 
-  // PF (Fatia 9 passo 3 — fecha DT-PE5-PF-RESOLVER-PENDING): resolve via a
-  // RESIDÊNCIA CIVIL da ponta declarada pelo basis (payer OU receiver — nunca
-  // a outra ponta como fallback). Mesmo SSOT de profile-residence-address
-  // (address_assignments owner_type='profile', role='RESIDENCE', DECISION-0074).
+  // PF — B-CITY-1 (DECISION-0177 D2, fecha DT-BANK-REGIONAL-ORIGIN-PROFILE-ACTOR-DIVERGENCE):
+  // resolve via a residência ACTOR-SCOPED VIGENTE da ponta declarada pelo basis (payer OU
+  // receiver — nunca a outra ponta como fallback), pela casa canônica selada
+  // resolveActorTerritory(ACTOR_RESIDENCE). PROIBIDO: profile/RESIDENCE (legado preservado,
+  // fora do money path), actor_active_location, CEP, texto, sessão, cidade do cliente.
+  // Erro de infraestrutura PROPAGA (o resolver lança; nunca vira ausência silenciosa).
   if (basis === 'payer_identity_residence' || basis === 'receiver_identity_residence') {
     const residenceActorId = basis === 'payer_identity_residence' ? payerActorId : receiverActorId;
-    const addr = await locationRepository.findPrimaryAddressByOwner('profile', residenceActorId, 'RESIDENCE');
-    if (!addr) {
+    const territory = await resolveActorTerritory(tenantId, residenceActorId, 'ACTOR_RESIDENCE');
+    if (!territory.cityId) {
       throw new BadRequestError(
         `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE: actor ${residenceActorId} (${basis === 'payer_identity_residence' ? 'payer' : 'receiver'}) ` +
-          `sem address_assignments(owner_type='profile', role='RESIDENCE') ativo. ` +
-          `Cadastre a residência civil (DECISION-0074) antes de policy line com basis='${basis}'.`
+          `sem residência actor-scoped vigente (address_assignments owner_type='actor', role='RESIDENCE', ` +
+          `state=${territory.state}). Cadastre a residência canônica (DECISION-0177 D2) antes de ` +
+          `policy line com basis='${basis}'. Fallback profile/RESIDENCE é PROIBIDO.`
       );
     }
-    countryId = addr.countryId;
-    stateId = addr.stateId;
-    cityId = addr.cityId;
+    // Cadeia territorial derivada por FK do Location Core (city → state → country); nunca texto.
+    const chain = await runQueryWithTenant<{ state_id: string; country_id: string }>(
+      tenantId,
+      `SELECT c.state_id::text, s.country_id::text
+         FROM cities c JOIN states s ON s.state_id = c.state_id
+        WHERE c.city_id = $1::uuid LIMIT 1`,
+      [territory.cityId]
+    );
+    if (!chain) {
+      throw new BadRequestError(
+        `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE: city ${territory.cityId} sem cadeia territorial ` +
+          `canônica (Location Core) — inconsistência material.`
+      );
+    }
+    cityId = territory.cityId;
+    stateId = chain.state_id;
+    countryId = chain.country_id;
   } else if (basis === 'service_location' || basis === 'transaction_location') {
     // sem fonte material no schema.
     throw new BadRequestError(
@@ -374,13 +393,33 @@ async function resolveRegionalFundDestination(
     );
   }
 
-  // Fundo resolvido por FK canônica (regional_fund_accounts, DECISION-0166 D3), escopo do nível.
+  // B-CITY-1 (DECISION-0177 D7 — fecha DT-BANK-CITY-CURITIBA-ACTIVATION-MISSING): piloto
+  // Curitiba-only por UUID canônico server-side. Cidade não habilitada = fail-closed ANTES de
+  // qualquer lookup/write. Sem env, sem nome, sem "qualquer cidade com mapping/residência".
+  if (level === 'city' && !isRegionalFundCityEnabled(cityId)) {
+    throw new BadRequestError(
+      `REGIONAL_FUND_CITY_NOT_ENABLED: city ${cityId} não habilitada para o fundo municipal ` +
+        `(piloto Curitiba-only, DECISION-0177 D7). Ativação de outra cidade = decisão soberana.`
+    );
+  }
+
+  // B-CITY-1 (DECISION-0177 D4 — fecha DT-BANK-REGIONAL-FUND-AUTOPROVISION-IN-MONEY-PATH):
+  // resolução LOOKUP-ONLY por FK canônica (regional_fund_accounts, DECISION-0166 D3). O money
+  // path NÃO cria conta: ausência de mapping = provisionamento prévio ausente = fail-closed
+  // ANTES de bank_transactions/bank_ledger/bank_splits.
   const scope =
     level === 'planet' ? ({ level: 'planet' } as const)
     : level === 'country' ? ({ level: 'country', countryId: countryId! } as const)
     : level === 'state' ? ({ level: 'state', countryId: countryId!, stateId: stateId! } as const)
     : ({ level: 'city', countryId: countryId!, stateId: stateId!, cityId: cityId! } as const);
-  const fundAccount = await bankAccountService.ensureRegionalFundAccount(tenantId, scope, currency);
+  const fundAccount = await bankAccountService.lookupRegionalFundAccount(tenantId, scope);
+  if (!fundAccount) {
+    throw new BadRequestError(
+      `REGIONAL_FUND_ACCOUNT_NOT_PROVISIONED: nenhum mapping em regional_fund_accounts para ` +
+        `scope='${level}' (tenant ${tenantId}). O fundo deve ser PRÉ-provisionado por rito ` +
+        `governado (DECISION-0177 D4/D6) — o pagamento nunca cria conta.`
+    );
+  }
 
   // Snapshot LEGÍTIMO (não fabricado), TRUNCADO ao nível: só os IDs que definem o escopo.
   const jurisdictionSnapshot: Record<string, unknown> = { basis, level };

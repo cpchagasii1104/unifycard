@@ -1,0 +1,32 @@
+{
+  "manifest": "curitiba-city-regional-fund-bootstrap",
+  "version": 1,
+  "decision": "DECISION-0177",
+  "authority_source": "platform_bootstrap",
+  "responsible_human": {
+    "note": "Fundador/criador resolvido pelo SSOT Identity+Actor existente (DECISION-0114 D2 / DECISION-0177 D6). Nenhuma identidade/Actor/capability/delegação é criada por este bootstrap.",
+    "actor_id": "213f4903-d0c3-4c03-aa2f-328e11aac807"
+  },
+  "tenant_id": "a3859c3e-eca7-4e7d-9df4-324829b368ce",
+  "scope_level": "city",
+  "country_id": "42d04887-3033-459c-a4a9-8c6f9ea5a816",
+  "state_id": "281155db-290d-462b-a220-f8aa75b1bf0b",
+  "city_id": "9d431002-1fd3-4b34-ae82-678f28f64288",
+  "neighborhood_id": null,
+  "account": {
+    "owner_type": "system",
+    "actor_id": null,
+    "account_type": "credit",
+    "owner_id": "system:regional_fund:a3859c3e-eca7-4e7d-9df4-324829b368ce:city:9d431002-1fd3-4b34-ae82-678f28f64288"
+  },
+  "expected_baselines": {
+    "bank_accounts": 15,
+    "system_accounts": 13,
+    "system_accounts_actor_id_null": 13,
+    "regional_fund_accounts": 0,
+    "bank_transactions": 0,
+    "bank_ledger": 0,
+    "bank_splits": 0,
+    "active_regional_policy_lines": 0
+  }
+}

@@ -227,37 +227,37 @@ class BankBalanceConsolidationService {
       activeAccountCount > 0 ? totalSystemBalanceCents / activeAccountCount : 0;
 
     // 5. Agregar por região (fundo regional)
-    // NOTA: Usar APENAS fonte canônica existente
-    // - Se via bank_accounts (system account regional_fund): usar essa
-    // - Se via bank_splits.split_type='regional_fund': agregar por região
-    // Por enquanto, usar conta de sistema regional_fund (fonte canônica)
+    // B-CITY-1 (DECISION-0177 D10): consolidação por região CONVERGIDA para a casa canônica
+    // `regional_fund_accounts` (FK) — a chave da região é o ID territorial canônico (city_id no
+    // MVP), NUNCA owner_id/metadata/tenant como pseudo-região. Sem mapping = byRegion vazio
+    // (ausência honesta). Saldo continua sendo SÓ o derivado do bank_ledger.
     const balancesByRegion: BalanceByRegion = {};
 
-    // Buscar conta de sistema regional_fund
-    // NOTA: Esta é a fonte canônica para fundo regional
     try {
-      // DECISION-0025: mono-currency BRL na linhagem Genesis.
-      // O parâmetro `currency` de getSystemAccount é aceito por compat de
-      // assinatura mas ignorado no provider Genesis.
-      const regionalFundAccount = await bankAccountRepository.getSystemAccount(
-        tenantId,
-        'regional_fund',
-        'BRL'
-      );
-
-      if (regionalFundAccount) {
+      const { getClientWithTenant } = await import('@core/database/pool');
+      const client = await getClientWithTenant(tenantId);
+      let mappings: Array<{ bank_account_id: string; city_id: string | null; scope_level: string }>;
+      try {
+        const r = await client.query<{ bank_account_id: string; city_id: string | null; scope_level: string }>(
+          `SELECT bank_account_id::text, city_id::text, scope_level
+             FROM regional_fund_accounts
+            WHERE tenant_id = $1::uuid`,
+          [tenantId]
+        );
+        mappings = r.rows;
+      } finally {
+        client.release();
+      }
+      for (const m of mappings) {
+        const regionKey = m.city_id ?? m.scope_level; // MVP: city_id canônico; níveis sem city usam o nível como chave
         const regionalBalance = await bankLedgerRepository.calculateBalance(
           tenantId,
-          regionalFundAccount.accountId
+          m.bank_account_id
         );
-
-        // Usar tenant_id como região padrão (ou metadata.regionId se existir)
-        const regionId = (regionalFundAccount.metadata?.regionId as string) || tenantId;
-        balancesByRegion[regionId] = regionalBalance.balanceCents;
+        balancesByRegion[regionKey] = regionalBalance.balanceCents;
       }
     } catch (error) {
-      // Se não houver conta regional_fund, não adicionar ao byRegion
-      // Isso é esperado em alguns tenants
+      // Falha estrutural na leitura do mapping não pode derrubar a consolidação inteira
       console.warn('[BankBalanceConsolidation] Conta regional_fund não encontrada:', error);
     }
 

@@ -359,7 +359,7 @@ async function main() {
     ok: parseInt(fundSplit1.amount_cents, 10) === 1000,
     reason: `amount=${fundSplit1.amount_cents}`,
   });
-  const fundAccount1 = await bankAccountService.ensureRegionalFundAccount(
+  const fundAccount1 = await bankAccountService.provisionRegionalFundAccountForBootstrap(
     TENANT_ID,
     { level: 'city', countryId: fx.brId, stateId: fx.prStateId, cityId: fx.cwbCity.id },
     'BRL'
@@ -463,7 +463,7 @@ async function main() {
   });
   const splits3 = await getBankSplits(req3);
   const fundSplit3 = splits3.find((s) => s.split_type === 'regional_fund')!;
-  const fundAccount3 = await bankAccountService.ensureRegionalFundAccount(
+  const fundAccount3 = await bankAccountService.provisionRegionalFundAccountForBootstrap(
     TENANT_ID,
     { level: 'city', countryId: fx.brId, stateId: fx.spStateId, cityId: fx.spCity.id },
     'BRL'
@@ -563,12 +563,12 @@ async function main() {
   });
   const regSplits5 = splits5.filter((s) => s.split_type === 'regional_fund');
   assertOk('T5.2 — 2 splits regional_fund distintos', { ok: regSplits5.length === 2 });
-  const cwbAcc5 = await bankAccountService.ensureRegionalFundAccount(
+  const cwbAcc5 = await bankAccountService.provisionRegionalFundAccountForBootstrap(
     TENANT_ID,
     { level: 'city', countryId: fx.brId, stateId: fx.prStateId, cityId: fx.cwbCity.id },
     'BRL'
   );
-  const spAcc5 = await bankAccountService.ensureRegionalFundAccount(
+  const spAcc5 = await bankAccountService.provisionRegionalFundAccountForBootstrap(
     TENANT_ID,
     { level: 'city', countryId: fx.brId, stateId: fx.spStateId, cityId: fx.spCity.id },
     'BRL'
