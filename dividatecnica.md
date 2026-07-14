@@ -269,6 +269,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-14 (122) — B-CITY-1: FUNDAÇÃO MUNICIPAL INERTE EXECUTADA E PROVADA · NÃO SELADA · AGUARDA YALA
+- Envelope material único da DECISION-0177. Base `4056a2de4` → material `721e5b5ae` (16 arq., SEM cartório) → **bootstrap APLICADO** (dry-run ✓ → apply único ✓ → rerun fail-closed ✓ exit 1 zero-write).
+- **Money→ACTOR_RESIDENCE** (`resolveActorTerritory`; profile fora do dinheiro; 2 legados intactos; cadeia por FK; UNRESOLVABLE aborta antes de write) · **lookup-only** (`lookupRegionalFundAccount` SELECT-only + forma system/NULL; `provisionRegionalFundAccountForBootstrap` fora do pagamento; `REGIONAL_FUND_ACCOUNT_NOT_PROVISIONED` throw) · **Curitiba-only** (`BANK_CITY_ENABLED_CITY_ID` server-side; `REGIONAL_FUND_CITY_NOT_ENABLED`) · transparência/consolidação convergidas p/ `regional_fund_accounts` (string fora da jurisdição territorial).
+- **Criados: 1 conta** `bfc8705b…` (system/actor_id NULL/credit/saldo ledger-derived 0) + **1 mapping** Curitiba (manifest sha256 `8dea5d20…`; token literal; advisory lock; preflight 17 checks; mesma tx).
+- **Provas:** runner **183 VERDE pré e pós-apply** (guard dedicado + 3 standalone integrados; 3 reconciliações nominais conscientes registradas); 35 mutations + 2 benignas (38/38); prova DB **18/18** ROLLBACK resíduo-zero (capturou 1 bug real pré-commit); typecheck 0.
+- **DB pós-apply:** accounts 15→**16** · system 13→**14** (14/14 NULL) · rfa 0→**1** · tx/ledger/splits/policy-regional/saldo = **0**. **Δbank_accounts=+1 · Δrfa=+1 · Δtx=0 · Δledger=0 · Δsplits=0 · Δsaldo=0.**
+- **3 DTs de B-CITY-1: FECHADAS MATERIALMENTE · PENDENTES DE SELO.** DT-REGION-FUND-DELEGATION-MODEL-PENDING e DT-INVOICING-HARDCODED-TAX-RATE permanecem OPEN. Obs não bloqueante: prova DB é baseline-bound pré-bootstrap (fora do runner).
+- **B-CITY-2 BLOQUEADA** (fiscal 4d/4e + PORTA). Bairro/N5 e nacional fora; Address/Social intocados; sink/workers fechados. **NÃO SELADO — aguarda Yala.**
+
 ### 2026-07-14 (121) — DECISION-0177 BANK CITY CURITIBA FOUNDATION · SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY
 - Auditoria Yala READ-ONLY → **Veredito A**. Arco: base `4a3c1836d` → DECISION-0177 `2b7c49209` → este selo (docs-only; só REMEDIATION_DT_LOG.md + dividatecnica.md; DECISION-0177 byte-intacta).
 - **Ratificado:** SSOTs preservados (D1) · money→**ACTOR_RESIDENCE** (actor-scoped; profile não é autoridade financeira) · **pré-provisionamento** obrigatório (money path lookup-only; `REGIONAL_FUND_ACCOUNT_NOT_PROVISIONED` fail-closed) · **Curitiba-only** ID canônico server-side · conta **system/actor_id NULL/saldo zero** · mapping FK único (`regional_fund_accounts` única casa cidade→conta) · bootstrap estreito `platform_bootstrap` (sem poder financeiro/delegação) · snapshot futuro uniforme no conjunto da operação (reversal reutiliza original) · linha regional futura só `commission_distributable` (gross/net proibidos) · **fiscal 4d/4e e PORTA financeira bloqueiam ativação**.

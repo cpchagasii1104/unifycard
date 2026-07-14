@@ -1,5 +1,37 @@
 # REMEDIATION DT LOG
 
+## B-CITY-1 · FUNDAÇÃO MUNICIPAL INERTE BANK CITY CURITIBA · MATERIAL — 🟢 EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA (2026-07-14)
+**Envelope material único da DECISION-0177 (selada `4056a2de4`).** Base `4056a2de4` → commit material `721e5b5ae` (16 arquivos; código+manifest+one-shot+guards+prova; SEM cartório) → **APPLY do bootstrap governado** (ato único pós-commit) → este cartório pré-selo.
+
+**Convergência ACTOR_RESIDENCE (fecha-material `DT-BANK-REGIONAL-ORIGIN-PROFILE-ACTOR-DIVERGENCE`):** `resolveRegionalFundDestination` (agora exportada p/ prova) deixou de ler `findPrimaryAddressByOwner('profile',…)` e resolve a ponta declarada pelo basis via `resolveActorTerritory(tenantId, residenceActorId, 'ACTOR_RESIDENCE')`; sem fallback profile/active_location/CEP/texto/sessão/cidade-do-cliente; infra propaga; cadeia city→state→country derivada por FK do Location Core; ausência = `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE` aborta a operação inteira antes de qualquer write. Os 2 registros `profile/RESIDENCE` legados permanecem intactos e fora do money path (provado pós-apply: 2). `locationRepository` saiu do pipeline.
+
+**Lookup-only (fecha-material `DT-BANK-REGIONAL-FUND-AUTOPROVISION-IN-MONEY-PATH`):** novo `lookupRegionalFundAccount` (SELECT-only, shape territorial exato IS NOT DISTINCT FROM, JOIN validando forma `system`+`actor_id NULL` — `REGIONAL_FUND_ACCOUNT_MALFORMED`/`DANGLING` fail-closed); o get-or-create foi RENOMEADO `provisionRegionalFundAccountForBootstrap` e RETIRADO do pagamento (uso legítimo: bootstrap governado + fixtures e2e); ausência de mapping no money path = `REGIONAL_FUND_ACCOUNT_NOT_PROVISIONED` (throw imediato) antes de bank_transactions/bank_ledger/bank_splits.
+
+**Curitiba-only (fecha-material `DT-BANK-CITY-CURITIBA-ACTIVATION-MISSING`):** nova casa `regional-fund-city-activation.ts` com `BANK_CITY_ENABLED_CITY_ID='9d431002-1fd3-4b34-ae82-678f28f64288'` (constante server-side; sem env/nome/lista); nível `city` com cidade ≠ Curitiba = `REGIONAL_FUND_CITY_NOT_ENABLED` antes do lookup. `regional_level='city'` NÃO ativa outras cidades. DECISION-0175 permanece trancada.
+
+**String fora da jurisdição territorial (D10):** transparência (`getUserRegionalFund` + `getAdminRegionalFund`, regionId=city_id UUID) e consolidação byRegion CONVERGIDAS para `regional_fund_accounts` (FK; chave = city_id canônico; ausência = null honesto); `getSystemAccount('regional_fund')` não participa mais de leitura territorial (residuais: governança schema-ghost 501-contida na borda + split-engine legado gated default-off — classificados, não são caminho Bank City). `owner_id` segue só rótulo.
+
+**Bootstrap governado (D6):** manifest versionado `curitiba-city-regional-fund-bootstrap.manifest.json` (sha256 `8dea5d20…40172b`; tenant/Brasil/Paraná/Curitiba por UUID; `authority_source='platform_bootstrap'`; responsável humano = Actor do fundador `213f4903…` resolvido no SSOT; SEM CPF/endereço/saldo/percentual) + one-shot `provision-curitiba-city-regional-fund-account.mjs` (dry-run default com ROLLBACK real; apply só com token literal `PROVISION_CURITIBA_CITY_REGIONAL_FUND_ACCOUNT`; manifest/hash fixos sem input arbitrário; advisory lock; preflight 17 checks fail-closed; conta+mapping na MESMA tx; rerun fail-closed).
+
+**Rito executado:** dry-run ✓ (ROLLBACK, resíduo-zero, baseline 15/13/0 restaurado) → **APPLY ÚNICO ✓** → rerun ✓ ABORTOU exit 1 zero-write ("already exists" ≠ sucesso). **Criados: exatamente 1 conta** `bfc8705b-a13c-40ed-b926-092a18205271` (`owner_type='system'`, `actor_id=NULL`, `account_type='credit'`, owner_id técnico determinístico, saldo ledger-derived=0) **e exatamente 1 mapping** (city/Brasil/Paraná/Curitiba/neighborhood NULL → conta).
+
+**Provas:** guard dedicado `audit-bank-city-curitiba-foundation` + 3 standalone (`audit-regional-fund-fk-canonical`, `audit-policy-immutability-and-split-snapshot`, `audit-bank-split-pipeline-consolidation`) INTEGRADOS ao runner — **regressão completa 183 VERDE pré e pós-apply**; 2 reconciliações nominais conscientes de guards antigos (fk-canonical/policy-immutability: nome do resolver; `audit-regional-fund-pf-resolver`: casa profile→actor-scoped por DECISION-0177 — invariantes preservados e FORTALECIDOS); **35 mutations hostis + 2 controles benignos** (38/38); **prova DB 18/18 sob ROLLBACK resíduo-zero** (`test-bank-city-foundation-db.mjs`: funções REAIS via conexão única; matriz residência/Curitiba-only/lookup/NOT_PROVISIONED/MALFORMED/cross-tenant/neighborhood-HOLD/infra-propaga; a prova capturou e corrigiu 1 bug real de single-row antes do commit); backend typecheck 0; `git diff --check` limpo.
+
+**Estado DB pós-apply (read-only):** bank_accounts **16** (system **14**, 14/14 actor_id NULL) · regional_fund_accounts **1** (Curitiba exata) · tx=0 · ledger=0 · splits=0 · policy regional ativa=0 · saldo monetário=0 · profile legados=2 intactos · N1=0 dormente · neighborhoods=75 intactos · sink/workers fechados.
+**Δbank_accounts=+1 · Δregional_fund_accounts=+1 · Δbank_transactions=0 · Δbank_ledger=0 · Δbank_splits=0 · Δsaldo_monetário=0.**
+
+**DTs:**
+- `DT-BANK-REGIONAL-ORIGIN-PROFILE-ACTOR-DIVERGENCE` → **FECHADA MATERIALMENTE · PENDENTE DE SELO**
+- `DT-BANK-REGIONAL-FUND-AUTOPROVISION-IN-MONEY-PATH` → **FECHADA MATERIALMENTE · PENDENTE DE SELO**
+- `DT-BANK-CITY-CURITIBA-ACTIVATION-MISSING` → **FECHADA MATERIALMENTE · PENDENTE DE SELO**
+- `DT-REGION-FUND-DELEGATION-MODEL-PENDING` — permanece OPEN · `DT-INVOICING-HARDCODED-TAX-RATE` — permanece OPEN (frente própria)
+
+**Observação não bloqueante:** a prova DB `test-bank-city-foundation-db.mjs` é baseline-bound ao estado PRÉ-bootstrap (18/18 executada antes do apply; reexecução pós-apply diverge por desenho — o caso "Curitiba sem mapping" agora encontra o mapping real). Não está no runner; adaptação ao baseline pós-bootstrap = higiene futura, nenhum invariante desprotegido (o runner cobre todos).
+
+**B-CITY-2 · ATIVAÇÃO MONETÁRIA PERMANECE BLOQUEADA** (fiscal 4d GO D9.7 + 4e + commission_distributable + applies_to + PORTA + policy real + novo GATE + novo GO). A conta inerte NÃO autoriza policy/tx/split/ledger/saldo/sink/worker. **NÃO SELADO — aguarda uma única auditoria Yala.** Bairro/N5 bloqueado; nacional trancado; Address/Social intocados.
+
+---
+
 ## F-CURITIBA-OPERACIONAL · DECISION-0177 · BANK CITY CURITIBA FOUNDATION — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · MATERIAL NÃO INICIADO (2026-07-14)
 **Auditoria Yala read-only concluída · Veredito A.** A DECISION-0177 está SELADA (docs-only). Substitui a entrada pré-selo abaixo (preservada, não reescrita).
 
