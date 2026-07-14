@@ -269,6 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-14 (118) — S-CITY-1: MATERIAL SOCIAL TERRITORIAL CITY CURITIBA EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA
+- Envelope material da DECISION-0176 (Opção A: completude no mesmo envelope). Commit material `8164024e3` (14 arquivos; código+migration+guard+prova; SEM cartório). Base `eeecf5780`. **Δbank=0.**
+- **Casa canônica única** `post-audience.house` (`postAudiencePredicateSql` = autoria-bypass OR (visibility relacional ⋀ territorial); `canViewPost` p/ detalhe-por-id + derivado). **Snapshot** `posts.audience_city_id` (migration `20260714120000`, FK cities(city_id), sem default/backfill/enum/bairro) **aplicada por rito seletivo governado** que preserva a N1 dormante + 2 drifts (não usa o runner canônico).
+- **Escrita Curitiba-only fail-closed** (sem residência actor-scoped=throw; ≠Curitiba=`territorial_audience_not_enabled`; ID server-side). **Leitura:** 3 readers compõem a casa; `getPostById` via `canViewPost`; `/api/feed` retirado (410); detalhe legado convergido; dead-at-db contidos (revival morde). **Frontend:** toggle same_city ortogonal (só boolean, zero city_id); typecheck+build verdes.
+- **Provas:** guard `audit-social-territory-city-audience` (runner **179**, regressão verde); 24 mutations hostis + 2 benignas; prova DB rollback **11/11** (importa o predicado real; matriz territorial + temporalidade fail-closed; resíduo-zero). Backend typecheck 0.
+- **`DT-SOCIAL-AUDIENCE-PARALLEL-READERS-BYPASS` → fechada-MATERIAL, pendente de selo** (anotada no cartório; não auto-selar). Bank City/bairro(N5)/nacional(0175) fora. **NÃO SELADO — aguarda Yala.**
+
 ### 2026-07-14 (117) — F-CURITIBA-OPERACIONAL: DECISION-0176 SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY
 - Status: **SELADA PELA YALA · SELO COMPLETO DOCS-ONLY**. Arco: base `0cf36aeab` → decision `eeecf5780` → selo. Commit do selo docs-only (2 arquivos: cartório + este tracker).
 - Validado: same_city ortogonal; snapshot `audience_city_id`; NULL=sem restrição; same_city sem residência=fail-closed; Curitiba-only+guard anti-expansão; uma casa canônica de audiência; DT-visibility (0162) permanece válida no caminho canônico.

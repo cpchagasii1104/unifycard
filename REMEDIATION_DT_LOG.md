@@ -1,5 +1,24 @@
 # REMEDIATION DT LOG
 
+## S-CITY-1 · SOCIAL-TERRITORY-CITY-CURITIBA · MATERIAL — 🟢 EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA (2026-07-14)
+**Envelope material da DECISION-0176 (Opção A: completude real no mesmo envelope, sem microfatia).** Commit material `8164024e3` (14 arquivos; código+migration+guard+prova, SEM cartório). Base `eeecf5780` (selo docs-only da DECISION-0176). **Δbank=0.**
+
+**Casa canônica única de audiência** — `backend/src/modules/social/post-audience.house.ts` (NOVO): `postAudiencePredicateSql(postAlias, viewerParam, viewerCityParam)` = `AUTORIA (bypass) OR ( visibility relacional (0162) ⋀ audiência territorial (0176) )`; territorial = `audience_city_id IS NULL OR audience_city_id = viewerCity`; `resolveViewerResidenceCity` (só `resolveActorTerritory(ACTOR_RESIDENCE)`, sem profile/active_location, sem env; infra propaga); `canViewPost` (detalhe-por-id + conteúdo derivado — comentário/thread/repost/preview/notificação — MESMO predicado, não diverge). É proibido duplicar o predicado por rota.
+
+**Snapshot no publish** — migration `20260714120000_posts_audience_city_snapshot.sql` (sha256 `aab111eb…2ae6d`): `ADD COLUMN audience_city_id UUID NULL FK cities(city_id) ON DELETE RESTRICT` + índice parcial; **sem default/backfill/enum/bairro**. **Aplicada por rito seletivo governado** `apply-posts-audience-city-migration.mjs` (ATÔMICO: DDL + INSERT em `schema_migrations` na MESMA tx; advisory lock; hash; rerun `already_applied` fail-closed; **preserva a N1 dormante `20260713140000` e os 2 drifts `…100000`/`…120000`** — NUNCA usa o runner canônico que acordaria a N1 e abortaria no drift). Resultado: `schema_migrations` +1 linha; N1/drifts intactos; posts existentes todos `audience_city_id=NULL`.
+
+**Escrita Curitiba-only fail-closed** — `social-2.0.service.ts createPost(audienceSameCity)`: resolve a residência actor-scoped do AUTOR; `!territory.cityId → throw forbidden`; `territory.cityId !== CURITIBA_CITY_ID → throw territorial_audience_not_enabled`; só então `audience_city_id = CURITIBA`. ID canônico server-side (`9d431002…`), nunca env/cliente.
+
+**Leitura/detalhe/retirada** — 3 readers vivos (getFeed / getActorPosts / getActorCounts) compõem `postAudiencePredicateSql`; `getPostById` novo via `canViewPost` (retorna null → 404, nunca revela existência); `GET /social/posts/:postId` convergido (deixou de usar o `socialService.getPost` dead-at-db); `GET /api/feed` legado retirado (410 `SOCIAL_LEGACY_API_FEED_RETIRED`). Readers dead-at-db (colunas-fantasma pré-migration) permanecem mortos e contidos pelo guard §6 (revival morde).
+
+**Frontend** — `IntentComposer`/`SocialFeed2`/`api/social-2.0.ts`: toggle "same_city" ORTOGONAL à visibility (só intenção boolean `audience_same_city`; NUNCA city_id/endereço/CEP). Frontend typecheck + build verdes.
+
+**Provas:** guard consolidado `audit-social-territory-city-audience.mjs` (comment-aware/liveness) no runner **179** — regressão completa VERDE; **24 mutations hostis + 2 controles benignos** (todas mordem / benignos passam / produto verde); **prova DB rollback resíduo-zero** `test-social-city-audience-db.mjs` (11/11, importa o predicado REAL da casa: matriz territorial AUTOR/Curitiba/outra-cidade/sem-residência + temporalidade fail-closed + NULL sem restrição; ROLLBACK; temp table descartada). Backend typecheck 0. **Δbank=0.**
+
+**NÃO SELADO.** Aguarda auditoria Yala. `DT-SOCIAL-AUDIENCE-PARALLEL-READERS-BYPASS` fechada MATERIALMENTE por este envelope (ver anotação no bloco OPEN abaixo), pendente de selo. Bank City, bairro (N5) e nacional (DECISION-0175) permanecem trancados/fora.
+
+---
+
 ## F-CURITIBA-OPERACIONAL · DECISION-0176 · SOCIAL TERRITORIAL CITY CURITIBA — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY (2026-07-14)
 **Arco:** base `0cf36aeab` → decision docs-only `eeecf5780` → auditoria Yala (read-only) → este selo. Commit auditado: `eeecf5780` — exatamente 3 arquivos; zero código; zero migration; zero DDL/DML.
 
@@ -22,6 +41,8 @@
 **Achado read-only verificado no backend.** O enforcement de audiência de publicação vive hoje num **único ponto** (`backend/src/modules/social/social-2.0.service.ts` — `postVisibilitySql`, aplicado no feed :295 e nos posts-do-Actor :1304/:1466), fechado pela DECISION-0162/Fatia 5 no **caminho canônico auditado**. Fora dessa casa existem **readers paralelos vivos** (wired em `app.builder`) que **NÃO** compõem o predicado: `/feed` contextual (`core/feed/feed.routes.ts`, `WHERE tenant_id=$1` apenas); `/api/feed` legado (`services/feed/FeedService.ts`, vocabulário `'PUBLIC'` maiúsculo divergente / ramo `1=1`); `social.routes` legado (mesmo prefixo `/social`); **detalhe por ID** sem casa canônica enforced identificada; readers compostos (event-feed/service-feed/groups/social-group) a provar.
 
 **Formulação correta (não reabre selo anterior):** a DECISION-0162 fechou o enforcement no caminho canônico e **permanece válida**; o S-CITY-0B descobriu readers paralelos **fora** dessa casa — **dívida adicional de convergência**, não invalidação do selo. **Fechamento previsto:** pelo envelope material Social City (DECISION-0176), que deverá compor todos os readers vivos **ou** aposentar os paralelos, **provar detalhe por ID**, e impedir bypass por comentário/repost/preview/cache/rota legada. Precondição de completude do S-CITY-1. Guardião: `verdade/segurança vive no backend, nunca em "frontend não chama mais"`.
+
+> **ANOTAÇÃO 2026-07-14 (append-only, não reescreve o achado):** fechada MATERIALMENTE pelo commit `8164024e3` (envelope S-CITY-1, entrada no topo deste cartório). A casa canônica única (`post-audience.house`) passou a governar os 3 readers vivos + detalhe-por-id/derivado via `canViewPost`; `/api/feed` legado retirado (410); detalhe legado convergido; readers dead-at-db contidos por colunas-fantasma (revival morde no guard §6). Guard `audit-social-territory-city-audience` (runner 179) + 24 mutations + prova DB 11/11. **Status: OPEN → fechada-material, PENDENTE DE SELO Yala** (não auto-selar).
 
 ---
 
