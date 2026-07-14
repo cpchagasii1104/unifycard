@@ -1,5 +1,32 @@
 # REMEDIATION DT LOG
 
+## F-CURITIBA-OPERACIONAL · GATE B-CITY-0 CONCLUÍDO READ-ONLY · VEREDITO B · DECISION-0177 REGISTRADA · MATERIAL NÃO INICIADO · ATIVAÇÃO MONETÁRIA BLOQUEADA · AGUARDA YALA (2026-07-14)
+**Ato B-CITY-D (docs-only).** Base `4a3c1836d` (S-CITY-1 selado). Arquivo: `docs/02_decisions/DECISION_0177_BANK_CITY_CURITIBA_FOUNDATION.md`. Precedido pelo GATE B-CITY-0 (read-only consolidado; BEGIN READ ONLY→ROLLBACK; zero alteração; Veredito B ratificado pela Diretora).
+
+**Fatos do GATE (evidência de primeira mão):**
+- **Schema regional PRONTO:** `regional_fund_accounts` vivo, 0 linhas — `scope_level` CHECK por nível + `chk_rfa_scope_shape`, FKs compostas territoriais, `uq_rfa_scope` NULLS NOT DISTINCT (1 território→1 conta), `uq_rfa_bank_account` (1 conta→1 território), RLS ENABLE+FORCE. Sem saldo próprio: dinheiro só em `bank_ledger`.
+- **Pipeline canônico VIVO·GATED default-off:** `/services/payments/:id/execute` → `economicPolicyEngine` (fail-closed POLICY_NOT_FOUND/AMBIGUITY) → `resolveRegionalFundDestination` → `createTransactionWithExplicitSplitLines` → tx+ledger+splits (com `policy_version_id` + `jurisdiction_snapshot`). Duplo gate: `SERVICE_FINANCIAL_RUNTIME_ENABLED` + `BANK_TRANSACTION_SINK_FIREWALL_ENABLED`; workers financeiros todos default-off.
+- **DOIS RESOLVERS DE RESIDÊNCIA concorrentes:** money lê `findPrimaryAddressByOwner('profile', payerActorId, 'RESIDENCE')` (DECISION-0074, fail-closed `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE` aborta a operação inteira); Social lê `resolveActorTerritory(ACTOR_RESIDENCE)` actor-scoped (casa selada). DB vivo: profile/RESIDENCE=2, actor/RESIDENCE=0.
+- **Auto-provision VIVO no money path:** `ensureRegionalFundAccount` = get-or-create FK-canônico (UNIQUE + re-select; neighborhood 501 HOLD) chamado DENTRO de `resolveRegionalFundDestination`; string sink antigo (cidade-por-nome) REMOVIDO na Fase 2d; resta `getSystemAccount('regional_fund')` tenant-level legado CONTIDO (split-engine legado gated + leitores).
+- **Curitiba-only AUSENTE:** `regional_level='city'` = "a cidade do comprador" — qualquer cidade com residência resolvida ganharia conta auto-criada; nenhum allowlist/gate territorial existe.
+- **FISCAL BLOQUEANTE p/ ativação:** cascata `commission_gross → tax_reserve → commission_distributable` DECIDIDA (0166 D7/0167 §5) mas AUSENTE no motor; `applies_to` CHECK só gross|net; guard 4c-3 proíbe valores fiscais de propósito; 4d TRANCADA (D9.7 GO próprio); catálogo 4c vazio (selado assim).
+- **Conta inerte SEPARÁVEL:** criar conta system + mapping FK não move dinheiro (saldo = ledger vazio = 0). Zero dinheiro no sistema: tx=0, ledger=0, splits=0, rfa=0, policy regional ativa=0, bank_accounts=15, 45 policies e2e todas deprecated. **Δbank=0.**
+
+**DECISION-0177 (D0–D13):** money converge para **actor-scoped** (`ACTOR_RESIDENCE`; profile deixa de ser fonte admissível para decisão financeira; 2 registros legados preservados sem backfill/migrate-on-read) · conta municipal **pré-provisionada** (money path lookup-only; ausência de mapping = `REGIONAL_FUND_ACCOUNT_NOT_PROVISIONED` antes de qualquer write; get-or-create proibido no pagamento) · bootstrap institucional estreito `authority_source='platform_bootstrap'` (fundador via SSOT Identity/Actor; sem CPF hardcode; NÃO concede poder de gastar/movimentar/configurar/delegar) · **Curitiba-only por ID canônico server-side** `9d431002-1fd3-4b34-ae82-678f28f64288` (guard anti-expansão; env-allowlist proibida) · snapshot do CONJUNTO da operação (todas as linhas mesma `policy_version_id` + mesmo `jurisdiction_snapshot` quando houver linha regional; reversal reutiliza fatos originais) · linha regional futura **somente `applies_to='commission_distributable'`** (gross/net proibidos como provisório) · fundação inerte não abre dinheiro · `regional_fund_accounts` = única casa cidade→conta (string resolver fora da jurisdição regional) · delegação permanece aberta (0114 D3).
+
+**DTs registradas:**
+- `DT-BANK-REGIONAL-ORIGIN-PROFILE-ACTOR-DIVERGENCE` — 🟠 DECIDIDA NORMATIVAMENTE · MATERIALMENTE ABERTA · BLOCKING B-CITY-1 (money lê profile/RESIDENCE; canônico = ACTOR_RESIDENCE).
+- `DT-BANK-REGIONAL-FUND-AUTOPROVISION-IN-MONEY-PATH` — 🟠 DECIDIDA NORMATIVAMENTE · MATERIALMENTE ABERTA · BLOCKING B-CITY-1 (get-or-create vivo em `resolveRegionalFundDestination`).
+- `DT-BANK-CITY-CURITIBA-ACTIVATION-MISSING` — 🟠 DECIDIDA NORMATIVAMENTE · MATERIALMENTE ABERTA · BLOCKING B-CITY-1 (mecanismo Curitiba-only inexistente).
+- `DT-REGION-FUND-DELEGATION-MODEL-PENDING` — PERMANECE OPEN (não bloqueia o bootstrap inerte único; bloqueia delegação/governança futura).
+- `DT-INVOICING-HARDCODED-TAX-RATE` — PERMANECE OPEN em frente própria.
+
+**Famílias:** F1 = B-CITY-1 fundação municipal inerte (elegível SÓ após selo Yala da 0177; zero dinheiro) · F2 = B-CITY-2 ativação monetária **BLOQUEADA por fiscal 4d/4e + PORTA financeira** (exige novo GATE + GO próprio).
+
+**Fronteiras:** zero código/migration/DDL/DML/conta/policy/split/ledger; Address e Social intocados; bairro/N5 bloqueado; nacional trancado; **Δbank=0**. NÃO SELADO — aguarda uma única auditoria Yala docs-only.
+
+---
+
 ## F-CURITIBA-OPERACIONAL · S-CITY-1 · SOCIAL-TERRITORY-CITY-CURITIBA — ✅ SELADO PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL (2026-07-14)
 **Auditoria Yala read-only concluída · Veredito A.** O material S-CITY-1 (envelope da DECISION-0176) está SELADO. Este é o selo cartorial final do material; substitui a entrada pré-selo abaixo (que fica preservada, não reescrita).
 
