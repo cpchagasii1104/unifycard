@@ -1,5 +1,22 @@
 # REMEDIATION DT LOG
 
+## F-NEIGHBORHOOD-CANONICAL-AUTO-INGESTION · PORTA-TERRITORY-ALIASES · GRANT DE CURADORIA DE ALIASES EM CURITIBA — ⚙️ EXECUTADA E PROVADA · NÃO SELADA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-13)
+**Base `c866fdccd` (DECISION-0174) → material `34549b4d6`** (3 arquivos; sem cartório no material). Envelope SEPARADO, anterior a N1: materializa EXATAMENTE 1 grant territorial de curadoria de aliases. **Migration=0** (reusa fn_grant_territorial_capability + grants + grant events).
+
+**Chamada canônica:** one-shot `scripts/grant-curitiba-neighborhood-alias-capability.mjs` chama o writer governado `fn_grant_territorial_capability` (SECURITY DEFINER; MECANISMO) — a **fonte institucional é a decisão de platform_bootstrap da DECISION-0174**, não a função. Concede `territory:manage_neighborhood_aliases` → grantee Actor `213f4903-d0c3-4c03-aa2f-328e11aac807` (user, tenant a3859c3e, user `9305ac13-00b2-4ef2-989f-05c04259f18a`) → scope_city_id Curitiba `9d431002-1fd3-4b34-ae82-678f28f64288`. Papéis issuer/executor/responsible = 9305ac13/213f4903 (precedente PORTA-TERRITORY-1). NUNCA INSERT direto em grants/eventos.
+
+**Rito:** dry-run default (BEGIN→advisory lock→preflight→chamada real→provas→ROLLBACK real) / `--apply GRANT_CURITIBA_NEIGHBORHOOD_ALIAS_CAPABILITY` (token literal; sem token→recusa). Preflight fail-closed: current_user≠unificard_app; city Curitiba FOR SHARE; grantee user tenant-bound + user esperado; **exatamente 2 grants territoriais anteriores (create+approve)** + `manage_aliases=0` (senão precondition_failed/already_applied); baseline neighborhoods=75/aliases=0/bank=15. COMMIT dominado por (APPLY&&CONFIRMED&&!failed). **Sem circularidade:** a PORTA não depende do grant que cria (fn_grant é bootstrap de plataforma).
+
+**Apply único executado** → grant `b6ee696d-a5ad-4dfc-90c4-bfc4dd84b438` (shape territorial: tenant NULL, scope_actor NULL, Curitiba, active, valid_until NULL, authority_source=platform_bootstrap, key manage_neighborhood_aliases) + evento `granted` `da93b5d1-01a3-4be7-aa4a-b4ef20996f5e`. **Rerun fail-closed PROVADO** (exit 1, zero write: manage_aliases segue 1, grants 3, 1 evento — sem 2º grant/evento/revoke-recreate/timestamp-forjado).
+
+**Guard** `audit-porta-territory-aliases.mjs` (runner **176→177**): key exata (não create/approve/wildcard/prefix/lista); const exato de city/grantee; sem INSERT direto em grants/eventos; fn canônica chamada; dry-run ROLLBACK vivo (distinto do catch); CONFIRMED derivado do token literal; COMMIT dominado por (APPLY&&CONFIRMED&&!failed); rerun fail-closed; advisory lock; sem DDL/migration; sem tocar HOLD; sem writer/alias; sem Bank/Social/financeiro; DECISION-0174/platform_bootstrap referenciados; runtime-containment (nenhum src runtime chama). **22 mutations** (byte-restauradas; produto PASS) — incl. grantee/city trocados, wildcard, INSERT direto, remoção da função, rollback→log, apply-sem-token, confirmação-forçada, remoção-do-lock, rerun-como-sucesso, abrir-HOLD, inserir-alias, Bank/Social, DDL, remover-DECISION-0174, segunda-capability.
+
+**Suítes:** runner **177** verde; backend typecheck 0. **Byte-integridade** (diff=0 vs base): migrations, HOLD de aliases, writers territoriais, resolver postal, onboarding, frontend, packages. **Estado final DB:** grants territoriais vivos=**3** (create=1/approve=1/manage_aliases=1) · neighborhoods=75 · **neighborhood_aliases=0** · **HOLD de alias intacto (ENABLE ALWAYS)** · regional_fund_accounts=0 · bank_accounts=15 · **Δbank=0**. Nenhum writer de alias, manifest, approval/execution house, alias event house criados. Social/Bank intocados.
+
+**STATUS: ⚙️ PORTA-TERRITORY-ALIASES · MATERIAL EXECUTADO E PROVADO · NÃO SELADA · AGUARDA UMA ÚNICA AUDITORIA YALA.** N1 NÃO iniciado.
+
+---
+
 ## F-NEIGHBORHOOD-CANONICAL-AUTO-INGESTION · MVP CURITIBA ALIAS-FIRST · GATE N0 + DECISÃO N0-D (DECISION-0174) · 📋 DECIDIDO (docs-only) · MATERIAL NÃO INICIADO (2026-07-13)
 **GATE N0 concluído read-only** (@`f32f0a46f`; recomendação **A** — forma física fechada) → **DECISÃO N0-D** em `docs/02_decisions/DECISION_0174_CURITIBA_ALIAS_FIRST_GOVERNED_MANIFEST.md`. Objetivo: identidade territorial automável sem contaminar o SSOT — CEP resolve para um dos 75 bairros canônicos de Curitiba via ALIASES governados, sem criar bairro.
 
