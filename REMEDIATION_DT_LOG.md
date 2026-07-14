@@ -1,6 +1,42 @@
 # REMEDIATION DT LOG
 
-## F-CURITIBA-OPERACIONAL · GATE B-CITY-0 CONCLUÍDO READ-ONLY · VEREDITO B · DECISION-0177 REGISTRADA · MATERIAL NÃO INICIADO · ATIVAÇÃO MONETÁRIA BLOQUEADA · AGUARDA YALA (2026-07-14)
+## F-CURITIBA-OPERACIONAL · DECISION-0177 · BANK CITY CURITIBA FOUNDATION — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · MATERIAL NÃO INICIADO (2026-07-14)
+**Auditoria Yala read-only concluída · Veredito A.** A DECISION-0177 está SELADA (docs-only). Substitui a entrada pré-selo abaixo (preservada, não reescrita).
+
+**Arco:**
+```
+BASE:            4a3c1836d  (selo S-CITY-1)
+DECISION-0177:   2b7c49209  (docs-only, 3 arquivos)
+AUDITORIA YALA:  READ-ONLY · VEREDITO A
+SELO:            este commit docs-only
+```
+
+**A Yala confirmou:** todos os SSOTs e jurisdições (D1) · money consome futuramente `ACTOR_RESIDENCE` · profile/RESIDENCE NÃO é autoridade financeira · comprador sem residência falha ANTES de write (`POLICY_REGIONAL_ORIGIN_UNRESOLVABLE`) · pré-provisionamento obrigatório · money path lookup-only · ausência de conta → `REGIONAL_FUND_ACCOUNT_NOT_PROVISIONED` · conta municipal `owner_type='system'` + `actor_id=NULL` + saldo zero · `owner_id` é apenas rótulo · `regional_fund_accounts` é a ÚNICA casa cidade→conta · bootstrap inicial estreito e institucional (`platform_bootstrap`, fundador via SSOT, sem poder de movimentar/configurar/delegar) · Curitiba-only por ID canônico server-side · snapshot uniforme futuro no CONJUNTO da operação · reversal reutiliza fatos originais · linha regional futura SOMENTE sobre `commission_distributable` · `gross`/`net` PROIBIDOS como solução provisória · F1 e F2 são famílias causalmente separadas · nenhuma autoridade financeira foi concedida · bairro e nacional permanecem bloqueados · **Δbank=0**.
+
+**CORREÇÃO DOCUMENTAL NÃO BLOQUEANTE (append-only; a DECISION-0177 NÃO é editada):**
+A DECISION-0177 menciona, como evidência contextual, "o padrão vivo das 11 contas system". Na auditoria Yala, o estado vivo foi confirmado como: **13 contas `owner_type='system'`; 13/13 com `actor_id=NULL`** (verificado também em 1ª mão no rito deste selo). A contagem anterior estava imprecisa, mas o padrão normativo permanece correto e integralmente sustentado. Esta correção não altera D5, a forma da conta municipal ou qualquer material.
+
+**🔴 ESTE SELO NÃO AUTORIZA B-CITY-1.**
+```
+B-CITY-1 · FUNDAÇÃO MUNICIPAL INERTE
+ELEGÍVEL SOMENTE PARA FUTURO GO MATERIAL EXPLÍCITO.
+NÃO INICIADA.
+NENHUMA CONTA PROVISIONADA.
+```
+O selo da DECISION é apenas precondição institucional. É obrigatório novo GO específico antes de: alterar resolver financeiro; retirar profile do código; tornar o money path lookup-only; remover get-or-create; criar Curitiba-only; criar one-shot; criar conta; criar mapping; integrar guards; fechar as três DTs materiais. B-CITY-1 está *elegível para avaliação mediante GO material próprio* — nada além disso.
+
+**B-CITY-2 · ATIVAÇÃO MONETÁRIA — PERMANECE BLOQUEADA.** Dependências obrigatórias: fiscal 4d com GO D9.7 próprio · `commission_gross` · `tax_reserve` · `commission_distributable` · extensão governada de `applies_to` · fiscal 4e end-to-end · PORTA financeira · policy regional real · snapshot uniforme material · reversals · E2E financeiro · novo GATE · novo GO. A existência futura de uma conta inerte NÃO autoriza: policy, transaction, split, ledger, saldo, sink, worker, movimentação.
+
+**Estado das DTs (nenhuma fechada por este selo):**
+- `DT-BANK-REGIONAL-ORIGIN-PROFILE-ACTOR-DIVERGENCE` · `DT-BANK-REGIONAL-FUND-AUTOPROVISION-IN-MONEY-PATH` · `DT-BANK-CITY-CURITIBA-ACTIVATION-MISSING` — **DECIDIDA NORMATIVAMENTE · MATERIALMENTE ABERTA · BLOCKING B-CITY-1**.
+- `DT-REGION-FUND-DELEGATION-MODEL-PENDING` — **OPEN** (não bloqueia o bootstrap inerte único; bloqueia delegação, representantes, governança financeira e provisionamento generalizado).
+- `DT-INVOICING-HARDCODED-TAX-RATE` — **OPEN · FRENTE PRÓPRIA**.
+
+**Estado DB verificado no selo (read-only):** rfa=0 · tx=0 · ledger=0 · splits=0 · accounts=15 (system=13, 13/13 actor_id NULL) · policy regional ativa=0 · N1 dormente · **Δbank=0**. Address e Social intocados; bairro/N5 bloqueado; nacional trancado.
+
+---
+
+## F-CURITIBA-OPERACIONAL · GATE B-CITY-0 CONCLUÍDO READ-ONLY · VEREDITO B · DECISION-0177 REGISTRADA · MATERIAL NÃO INICIADO · ATIVAÇÃO MONETÁRIA BLOQUEADA · AGUARDA YALA (2026-07-14, SUPERADA PELO SELO ACIMA)
 **Ato B-CITY-D (docs-only).** Base `4a3c1836d` (S-CITY-1 selado). Arquivo: `docs/02_decisions/DECISION_0177_BANK_CITY_CURITIBA_FOUNDATION.md`. Precedido pelo GATE B-CITY-0 (read-only consolidado; BEGIN READ ONLY→ROLLBACK; zero alteração; Veredito B ratificado pela Diretora).
 
 **Fatos do GATE (evidência de primeira mão):**
