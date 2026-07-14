@@ -50,7 +50,10 @@ interface IntentComposerProps {
     /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5). Ausente = backend assume 'public'. */
     visibility?: 'public' | 'connections' | 'only_me',
     /** DECISION-0162: refinamento da plateia por tipo de relação (⊆ vocabulário typed-edge). */
-    audienceRelationshipTypes?: string[]
+    audienceRelationshipTypes?: string[],
+    /** DECISION-0176 (S-CITY-1): audiência territorial "same_city" — INTENÇÃO ortogonal à visibility
+     * (relacional ⋀ territorial). Boolean apenas; backend resolve a cidade (piloto Curitiba). */
+    audienceSameCity?: boolean
   ) => Promise<void>;
   placeholder?: string;
 }
@@ -81,6 +84,10 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
   // Passo 1 "Para quem é isso?" — projeta posts.visibility (governado; PF: público/amigos/só-eu;
   // PJ: público — plateias finas de empresa em posts dependem de estender 0161 a posts, DECISION futura).
   const [audienceKeys, setAudienceKeys] = useState<string[]>([]);
+  // DECISION-0176 (S-CITY-1): toggle territorial "same_city" — INTENÇÃO ortogonal à visibility.
+  // O frontend só carrega o boolean; o backend resolve a cidade da residência actor-scoped (piloto Curitiba,
+  // fail-closed fora dela). NUNCA envia city_id/endereço/CEP.
+  const [audienceSameCity, setAudienceSameCity] = useState(false);
   // FONTE ÚNICA de plateia via hook central (/audience-options, deriva de PAIR_ALLOWED_LABELS por
   // actor). Muda por ACTOR, não por modo. Zero hardcode/lista local.
   const { options: audienceOptions } = useAudienceOptions();
@@ -461,9 +468,10 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
       textInput.trim(), [], activeActor.actor_id, finalWire,
       { intent_canonical: step2Intent.intent }, // identidade governada preservada
       {}, step3Cta ? { type: step3Cta } : undefined, aud.visibility,
-      aud.audienceRelationshipTypes ?? undefined // DECISION-0162: refinamento (undefined = sem refinamento)
+      aud.audienceRelationshipTypes ?? undefined, // DECISION-0162: refinamento (undefined = sem refinamento)
+      audienceSameCity // DECISION-0176 (S-CITY-1): intenção territorial ortogonal
     );
-    setTextInput(''); setStep2Intent(null); setStep3Cta(null); setIsComposerOpen(false);
+    setTextInput(''); setStep2Intent(null); setStep3Cta(null); setAudienceSameCity(false); setIsComposerOpen(false);
   };
 
   const handleTextSubmit = () => {
@@ -929,6 +937,16 @@ export default function IntentComposer({ onSubmit, placeholder = 'Diga o que voc
           selectedKeys={audienceKeys}
           onChange={setAudienceKeys}
         />
+        {audienceKeys.length > 0 && (
+          <label className="composer-samecity-toggle" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 13, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={audienceSameCity}
+              onChange={(e) => setAudienceSameCity(e.target.checked)}
+            />
+            <span>Apenas quem mora na minha cidade</span>
+          </label>
+        )}
         {audienceKeys.length > 0 && (
           <div className="composer-step">
             <span className="composer-step-label">2 · O que é isso que você está criando?</span>

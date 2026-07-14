@@ -27,6 +27,12 @@ const stripComments = (s) => s.split('\n').filter((l) => { const t = l.trim(); r
 
 const service = read('src/modules/social/social-2.0.service.ts');
 const routes = read('src/modules/social/social-2.0.routes.ts');
+// DECISION-0176 (S-CITY-1): o predicado de plateia EVOLUIU de `postVisibilitySql` (local) para
+// `postAudiencePredicateSql` na CASA CANÔNICA `post-audience.house.ts` (relacional ⋀ territorial, autoria
+// = bypass) — reconciliação consciente: enforcement PRESERVADO e FORTALECIDO (fiscalizado adicionalmente
+// por audit-social-territory-city-audience.mjs). O service COMPÕE a casa; a lógica relacional vive na casa.
+const house = read('src/modules/social/post-audience.house.ts');
+const houseCode = stripComments(house);
 const serviceCode = stripComments(service);
 const routesCode = stripComments(routes);
 
@@ -41,14 +47,16 @@ if (migrationFile) {
     /DEFAULT 'public'/.test(migration));
 }
 
-// 2 · predicado reusado (não duplicado) nos 3 pontos de leitura
-check('service: postVisibilitySql existe (predicado único, reusado)',
-  /function postVisibilitySql\(/.test(serviceCode));
-const usages = (serviceCode.match(/postVisibilitySql\(/g) || []).length;
-check('service: postVisibilitySql é CHAMADO em pelo menos 3 lugares (getFeed + getActorPosts + getActorCounts)',
-  usages >= 4); // 1 definição + 3 chamadas
-check('service: predicado usa actor_relationships com status=accepted (Fatia 1, não follows)',
-  /actor_relationships/.test(serviceCode) && /ar\.status = 'accepted'/.test(serviceCode));
+// 2 · predicado ÚNICO na casa canônica (DECISION-0176), reusado nos 3 pontos de leitura vivos
+check('casa: postAudiencePredicateSql existe (predicado ÚNICO na casa canônica post-audience.house)',
+  /export function postAudiencePredicateSql\(/.test(houseCode));
+check('service: NÃO redefine predicado de plateia (só compõe a casa — sem postVisibilitySql/postAudiencePredicateSql local)',
+  !/function postVisibilitySql\(/.test(serviceCode) && !/function postAudiencePredicateSql\(/.test(serviceCode));
+const usages = (serviceCode.match(/postAudiencePredicateSql\(/g) || []).length;
+check('service: postAudiencePredicateSql é CHAMADO em pelo menos 3 lugares (getFeed + getActorPosts + getActorCounts)',
+  usages >= 3);
+check('casa: predicado usa actor_relationships com status=accepted (Fatia 1, não follows)',
+  /actor_relationships/.test(houseCode) && /ar\.status = 'accepted'/.test(houseCode));
 check('service: getActorPosts recebe viewerActorId (server-side) — sem isso não dá pra aplicar a plateia',
   /getActorPosts\(\s*tenantId: string,\s*actorId: string,\s*limit: number,[\s\S]{0,200}viewerActorId: string \| null/.test(serviceCode));
 check('service: getActorCounts recebe viewerActorId (coerência com getActorPosts — sem vazar contagem)',

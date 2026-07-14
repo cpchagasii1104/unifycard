@@ -118,6 +118,12 @@ export interface CreatePostInput {
   visibility?: PostAudienceVisibility;
   /** DECISION-0162: refinamento OPCIONAL por tipo de relação (⊆ vocabulário typed-edge). */
   audience_relationship_types?: string[];
+  /**
+   * DECISION-0176 (S-CITY-1): audiência territorial "same_city" — INTENÇÃO governada (piloto Curitiba).
+   * Boolean APENAS; o frontend NUNCA envia city_id/endereço/CEP. O backend resolve a cidade da residência
+   * actor-scoped vigente do autor (fail-closed fora de Curitiba / sem residência).
+   */
+  audience_same_city?: boolean;
 }
 
 export interface ReactionInput {

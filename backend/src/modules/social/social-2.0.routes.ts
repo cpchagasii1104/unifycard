@@ -57,6 +57,9 @@ const createPostSchema = z.object({
   // DECISION-0162: refinamento OPCIONAL da plateia por tipo de relação — COMPÕE do vocabulário
   // GOVERNADO do typed-edge (RELATIONSHIP_LABELS), nunca enumera paralelo.
   audience_relationship_types: z.array(z.enum(RELATIONSHIP_LABELS)).optional(),
+  // DECISION-0176 (S-CITY-1): intenção GOVERNADA de audiência territorial. Booleano APENAS — o cliente
+  // NUNCA envia city_id/endereço/CEP; a cidade é resolvida server-side da residência actor-scoped do autor.
+  audience_same_city: z.boolean().optional(),
 });
 
 const reactionSchema = z.object({
@@ -321,7 +324,8 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         req.user.id, // CONTINUOUS PRODUCTION: Audit field (createdByUserId)
         createdAsActorId, // CONTINUOUS PRODUCTION: Audit field
         validated.visibility, // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5)
-        validated.audience_relationship_types // DECISION-0162: refinamento por tipo de relação
+        validated.audience_relationship_types, // DECISION-0162: refinamento por tipo de relação
+        validated.audience_same_city // DECISION-0176: intenção de audiência territorial (piloto Curitiba)
       );
 
       return reply.status(201).send(post);

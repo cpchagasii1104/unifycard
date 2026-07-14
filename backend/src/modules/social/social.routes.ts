@@ -1,6 +1,8 @@
 // src/modules/social/social.routes.ts
 import { FastifyPluginAsync } from 'fastify';
 import { socialService } from './social.service';
+import { social2Service } from './social-2.0.service';
+import { resolveActiveActorFromRequest } from './actor.utils';
 
 const socialRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -128,12 +130,25 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        const post = await socialService.getPost(req.tenant.id, req.params.postId);
+        // DECISION-0176 (S-CITY-1): detalhe por ID CONVERGIDO para a casa canônica (era o legado
+        // dead-at-db `socialService.getPost` — bypass latente de audiência). Leitor resolvido server-side;
+        // `getPostById` aplica `canViewPost` (relacional ⋀ territorial). Não autorizado → 404 (não revela
+        // existência). NUNCA usa city/endereço do cliente; erro de infra propaga (não vira 404 falso aqui).
+        let viewerActorId: string | null = null;
+        try {
+          const viewer = await resolveActiveActorFromRequest(req, req.tenant.id, {
+            allowUserFallback: true,
+            userId: req.user.userId,
+          });
+          viewerActorId = (viewer as any)?.actor_id ?? (viewer as any)?.id ?? null;
+        } catch {
+          viewerActorId = null; // anônimo/sem actor → só posts públicos não-territoriais
+        }
 
+        const post = await social2Service.getPostById(req.tenant.id, req.params.postId, viewerActorId);
         if (!post) {
           return reply.status(404).send({ error: 'Post não encontrado' });
         }
-
         return post;
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar post');

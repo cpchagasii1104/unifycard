@@ -1,5 +1,6 @@
 // src/modules/social/social-2.0.service.ts
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { CURITIBA_CITY_ID, postAudiencePredicateSql, resolveViewerResidenceCity, canViewPost } from './post-audience.house';
 import { bankSplitRepository } from '@modules/bank/bank-split.repository';
 import { getLocalUserIdByGlobalUserId } from '@modules/identity/actor-ssot.service';
 import { actorRepository } from './actor.repository';
@@ -31,36 +32,9 @@ export const POST_AUDIENCE_VISIBILITY_VALUES: readonly PostAudienceVisibility[] 
  *   dono do post → sempre visível a si mesmo (cobre 'only_me' e 'connections' do próprio autor);
  *   connections → visível se houver aresta actor_relationships ACEITA com o autor (qualquer label).
  */
-function postVisibilitySql(postAlias: string, viewerParam: string): string {
-  // DECISION-0162 (refinamento por tipo de relação): quando audience_relationship_types
-  // NÃO é NULL, além da aresta aceita exige-se que a ÓTICA DO AUTOR sobre o leitor
-  // (requester_label se o autor enviou; target_label se o autor aceitou) ∈ refinamento.
-  // "Post pra familiares" = quem O AUTOR classificou como familiar.
-  return `(
-    ${postAlias}.visibility = 'public'
-    OR ${postAlias}.actor_id = ${viewerParam}
-    OR (
-      ${postAlias}.visibility = 'connections'
-      AND ${viewerParam}::uuid IS NOT NULL
-      AND EXISTS (
-        SELECT 1 FROM actor_relationships ar
-        WHERE ar.tenant_id = ${postAlias}.tenant_id
-          AND ar.status = 'accepted'
-          AND (
-            (ar.from_actor_id = ${postAlias}.actor_id AND ar.to_actor_id = ${viewerParam})
-            OR (ar.from_actor_id = ${viewerParam} AND ar.to_actor_id = ${postAlias}.actor_id)
-          )
-          AND (
-            ${postAlias}.audience_relationship_types IS NULL
-            OR (
-              CASE WHEN ar.from_actor_id = ${postAlias}.actor_id
-                   THEN ar.requester_label ELSE ar.target_label END
-            ) = ANY(${postAlias}.audience_relationship_types)
-          )
-      )
-    )
-  )`;
-}
+// Casa canônica ÚNICA de decisão de audiência (DECISION-0162 + DECISION-0176) vive em
+// `./post-audience.house` (postAudiencePredicateSql / resolveViewerResidenceCity / canViewPost /
+// CURITIBA_CITY_ID). Este service COMPÕE a casa — NÃO define predicado próprio.
 
 export interface PostWithActor {
   post_id: string;
@@ -277,8 +251,10 @@ export class Social2Service {
       -- FASE 3.6: groups table não existe ainda, então group_name é NULL por enquanto
     `;
 
-    const params: any[] = [tenantId, currentActorId];
-    let paramIndex = 3;
+    // DECISION-0176: city_id da residência actor-scoped vigente do LEITOR ($3) para o predicado territorial.
+    const viewerCityId = await resolveViewerResidenceCity(tenantId, currentActorId);
+    const params: any[] = [tenantId, currentActorId, viewerCityId];
+    let paramIndex = 4;
 
     // JOIN follows usa $2 (currentActorId) direto; sem actor, ON é trivialmente false.
     if (currentActorId) {
@@ -289,10 +265,9 @@ export class Social2Service {
 
     query += ` WHERE p.tenant_id = $1`;
 
-    // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5, fecha DT-SOCIAL-POST-VISIBILITY-NOT-
-    // ENFORCED-ON-READ): a plateia declarada na escrita agora É OBEDECIDA na leitura. $2 =
-    // currentActorId, JÁ resolvido server-side acima (nunca client-declared cru).
-    query += ` AND ${postVisibilitySql('p', '$2')}`;
+    // Casa canônica de audiência (DECISION-0162 + DECISION-0176): plateia relacional ⋀ territorial,
+    // obedecida na leitura. $2 = currentActorId (server-side); $3 = viewer_city_id (residência vigente).
+    query += ` AND ${postAudiencePredicateSql('p', '$2', '$3')}`;
 
     // F-SOCIAL-FEED-LENSES (2026-07-08): filtro por LENTE (tipo). lensQuery vem do catálogo GOVERNADO
     // (/social/feed-lenses) — nunca string crua do usuário. Mapeia para p.intent. Lentes navigate/hybrid
@@ -790,7 +765,8 @@ export class Social2Service {
     createdByUserId?: string, // CONTINUOUS PRODUCTION: Audit field
     createdAsActorId?: string, // CONTINUOUS PRODUCTION: Audit field
     visibility?: PostAudienceVisibility, // F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5)
-    audienceRelationshipTypes?: string[] // DECISION-0162: refinamento OPCIONAL (⊆ vocabulário typed-edge)
+    audienceRelationshipTypes?: string[], // DECISION-0162: refinamento OPCIONAL (⊆ vocabulário typed-edge)
+    audienceSameCity?: boolean // DECISION-0176: intenção GOVERNADA de audiência territorial (piloto Curitiba)
   ): Promise<PostWithActor> {
     // Vocabulário GOVERNADO fail-closed (Lei §8) — já validado por zod na rota (defense-in-depth
     // aqui, mesmo padrão de assertLabelAllowedForPair na Fatia 1). Nunca coage silenciosamente.
@@ -895,6 +871,23 @@ export class Social2Service {
       }
     }
 
+    // DECISION-0176 (S-CITY-1): SNAPSHOT territorial da publicação. same_city = intenção governada; NUNCA
+    // aceita city_id/endereço/CEP do cliente. Resolve a residência actor-scoped VIGENTE do AUTOR:
+    //   sem residência → falha fechada (zero write); cidade ≠ Curitiba → territorial_audience_not_enabled;
+    //   Curitiba → grava audience_city_id de Curitiba. Erro de infra do resolver PROPAGA (não vira NULL).
+    let audienceCityId: string | null = null;
+    if (audienceSameCity === true) {
+      const { resolveActorTerritory } = await import('@core/location/actor-territorial-resolver');
+      const territory = await resolveActorTerritory(tenantId, actor.actor_id, 'ACTOR_RESIDENCE');
+      if (!territory.cityId) {
+        throw HttpError.forbidden('Audiência same_city exige residência principal vigente (actor/RESIDENCE); nenhuma encontrada.');
+      }
+      if (territory.cityId !== CURITIBA_CITY_ID) {
+        throw HttpError.forbidden('territorial_audience_not_enabled: audiência same_city é piloto exclusivo de Curitiba.');
+      }
+      audienceCityId = CURITIBA_CITY_ID;
+    }
+
     // Preparar metadata com groupId e audit fields
     const metadata: Record<string, any> = {};
     if (groupId) {
@@ -920,9 +913,9 @@ export class Social2Service {
       `
       INSERT INTO posts (
         tenant_id, actor_id, content, media_ids, intent, intent_metadata, targeting, metadata, visibility,
-        audience_relationship_types
+        audience_relationship_types, audience_city_id
       )
-      VALUES ($1, $2, $3, $4::uuid[], $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10::text[])
+      VALUES ($1, $2, $3, $4::uuid[], $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10::text[], $11::uuid)
       RETURNING id AS post_id, created_at, updated_at
       `,
       [
@@ -936,6 +929,7 @@ export class Social2Service {
         JSON.stringify(metadata),
         resolvedVisibility,
         resolvedAudienceTypes,
+        audienceCityId,
       ]
     );
 
@@ -1251,6 +1245,32 @@ export class Social2Service {
   }
 
   /**
+   * DECISION-0176 (S-CITY-1): DETALHE POR ID canônico e PROTEGIDO. Gate ÚNICO pela casa canônica
+   * (`canViewPost`: mesma decisão relacional ⋀ territorial das coleções). Não autorizado → retorna null
+   * (a rota responde 404, NUNCA revela existência/conteúdo). Erro de infra do resolver PROPAGA.
+   */
+  async getPostById(tenantId: string, postId: string, viewerActorId: string | null): Promise<any | null> {
+    const allowed = await canViewPost(tenantId, viewerActorId, postId);
+    if (!allowed) return null;
+    const rows = await runQueriesWithTenant<any>(
+      tenantId,
+      `
+      SELECT
+        p.id AS post_id, p.tenant_id, p.actor_id, p.content, '[]'::jsonb AS media,
+        p.intent, p.intent_metadata, p.targeting, p.metadata, p.visibility,
+        p.audience_relationship_types, p.audience_city_id, p.created_at, p.updated_at,
+        a.actor_type, a.display_name, a.avatar_url, a.cover_url
+      FROM posts p
+      LEFT JOIN actors a ON p.actor_id = a.id
+      WHERE p.tenant_id = $1 AND p.id = $2 AND p.is_deleted = false
+      LIMIT 1
+      `,
+      [tenantId, postId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /**
    * Busca posts de um actor
    */
   async getActorPosts(
@@ -1261,6 +1281,8 @@ export class Social2Service {
     // SERVER-SIDE pelo caller (req.user → actor próprio; nunca client-declared). null = anônimo.
     viewerActorId: string | null = null
   ): Promise<PostWithActor[]> {
+    // DECISION-0176: city_id da residência actor-scoped vigente do leitor ($5) para o predicado territorial.
+    const viewerCityId = await resolveViewerResidenceCity(tenantId, viewerActorId);
     // Query convergida com schema canônico (DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH).
     // Mesmas DECISIONs do getFeed: 0031 (reactions polimórfico), 0032-social (post_cta removido),
     // 0033 (alias id AS post_id). #4 media: opção (c) — array vazio até DT-FEED-MEDIA-HIDRATATION
@@ -1301,11 +1323,11 @@ export class Social2Service {
       FROM posts p
       LEFT JOIN actors a ON p.actor_id = a.id
       -- FASE 3.6: groups table não existe ainda, então group_name é NULL por enquanto
-      WHERE p.tenant_id = $1 AND p.actor_id = $2 AND ${postVisibilitySql('p', '$4')}
+      WHERE p.tenant_id = $1 AND p.actor_id = $2 AND ${postAudiencePredicateSql('p', '$4', '$5')}
       ORDER BY p.created_at DESC
       LIMIT $3
       `,
-      [tenantId, actorId, limit, viewerActorId]
+      [tenantId, actorId, limit, viewerActorId, viewerCityId]
     );
 
     const actorPostIds = rows.map((r: { post_id: string }) => r.post_id).filter(Boolean);
@@ -1448,6 +1470,8 @@ export class Social2Service {
     // 'only_me' que ele não pode ler). Coerência com getActorPosts, mesmo predicado.
     viewerActorId: string | null = null
   ): Promise<{ followers_count: number; posts_count: number }> {
+    // DECISION-0176: city_id da residência actor-scoped vigente do leitor ($3) p/ o predicado territorial da contagem.
+    const viewerCityId = await resolveViewerResidenceCity(tenantId, viewerActorId);
     const result = await runQueryWithTenant<{
       followers_count: number;
       posts_count: number;
@@ -1463,10 +1487,10 @@ export class Social2Service {
         COALESCE((
           SELECT COUNT(*)::int
           FROM posts p
-          WHERE p.actor_id = $1 AND ${postVisibilitySql('p', '$2')}
+          WHERE p.actor_id = $1 AND ${postAudiencePredicateSql('p', '$2', '$3')}
         ), 0) as posts_count
       `,
-      [actorId, viewerActorId]
+      [actorId, viewerActorId, viewerCityId]
     );
 
     return result || { followers_count: 0, posts_count: 0 };

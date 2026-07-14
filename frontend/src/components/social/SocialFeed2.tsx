@@ -331,7 +331,9 @@ export default function SocialFeed2() {
     /** F-SOCIAL-POST-VISIBILITY-READ-ENFORCEMENT (Fatia 5). Ausente = backend assume 'public'. */
     visibility?: 'public' | 'connections' | 'only_me',
     /** DECISION-0162: refinamento da plateia por tipo de relação. */
-    audienceRelationshipTypes?: string[]
+    audienceRelationshipTypes?: string[],
+    /** DECISION-0176 (S-CITY-1): intenção territorial "same_city" (backend resolve a cidade; piloto Curitiba). */
+    audienceSameCity?: boolean
   ): Promise<void> => {
     // Guardrail: validar activeActor
     if (!validateActiveActor(activeActor)) {
@@ -357,6 +359,7 @@ export default function SocialFeed2() {
         } : undefined,
         visibility,
         audience_relationship_types: audienceRelationshipTypes,
+        audience_same_city: audienceSameCity,
       });
       
       // CORREÇÃO: usar função de atualização
