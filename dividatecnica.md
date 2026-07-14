@@ -269,7 +269,13 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
-### 2026-07-14 (116) — F-CURITIBA-OPERACIONAL: DECISION-0176 AUDIÊNCIA SOCIAL TERRITORIAL POR CIDADE (docs-only, aguarda Yala)
+### 2026-07-14 (117) — F-CURITIBA-OPERACIONAL: DECISION-0176 SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY
+- Status: **SELADA PELA YALA · SELO COMPLETO DOCS-ONLY**. Arco: base `0cf36aeab` → decision `eeecf5780` → selo. Commit do selo docs-only (2 arquivos: cartório + este tracker).
+- Validado: same_city ortogonal; snapshot `audience_city_id`; NULL=sem restrição; same_city sem residência=fail-closed; Curitiba-only+guard anti-expansão; uma casa canônica de audiência; DT-visibility (0162) permanece válida no caminho canônico.
+- **`DT-SOCIAL-AUDIENCE-PARALLEL-READERS-BYPASS` continua OPEN e BLOCKING S-CITY-1** (não fechada por este selo).
+- Address/Bank/bairro/nacional fora; Δbank=0. **S-CITY-1 NÃO iniciado.** Próximo passo exige novo GO material.
+
+### 2026-07-14 (116) — F-CURITIBA-OPERACIONAL: DECISION-0176 AUDIÊNCIA SOCIAL TERRITORIAL POR CIDADE (docs-only, aguarda Yala — superado pelo selo (117) acima)
 - `docs/02_decisions/DECISION_0176_SOCIAL_TERRITORIAL_CITY_CURITIBA.md` — DECIDIDO/DOCS-ONLY. Base `0cf36aeab`. D0–D12: same_city ORTOGONAL a `posts.visibility`; SNAPSHOT no publish em `audience_city_id` (FK cities, NULL=sem restrição; same_city sem residência actor-scoped = falha fechada); **Curitiba-only** com guard anti-expansão; predicado do leitor via `resolveActorTerritory(ACTOR_RESIDENCE)` (infra→propaga, nunca false; sem fallback profile/active_location; zero PII); álgebra da interseção (mais restritiva vence); **uma casa canônica única de audiência** (`postVisibilitySql` não canonizado como SSOT).
 - **Reconciliação:** checkbox stale de `DT-SOCIAL-POST-VISIBILITY-NOT-ENFORCED-ON-READ` marcado como CLOSED MATERIAL (DECISION-0162/Fatia 5; cartório 2026-07-05). Justificativa: a DT já estava fechada no cartório vigente; o `[ ]` neste tracker era resíduo stale.
 - **Nova DT aberta:** `DT-SOCIAL-AUDIENCE-PARALLEL-READERS-BYPASS` (OPEN · BLOCKING S-CITY-1) — readers paralelos vivos (`/feed` contextual tenant-only; `/api/feed` legado divergente; `social.routes` legado; detalhe por ID sem casa enforced) fora da casa canônica; achado do S-CITY-0B; **não** reabre o selo da 0162; será fechada pelo material Social City.
