@@ -1,5 +1,28 @@
 # REMEDIATION DT LOG
 
+## F-NEIGHBORHOOD-CANONICAL-AUTO-INGESTION · N1 CURITIBA ALIAS-FIRST — ✅ FUNDAÇÃO GOVERNADA SELADA PELA YALA · SELO COMPLETO FINAL DA FUNDAÇÃO DORMENTE · MANIFEST NÃO EMITIDO · ZERO ALIAS PERSISTIDO (2026-07-14)
+**Veredito A da Yala.** Arco: base `1cce9cade` (selo PORTA-TERRITORY-ALIASES) → **material único `2d47e4d9e`** ("feat(territory): add governed Curitiba neighborhood alias flow") → este registro do selo. Commit material único, **exatamente 9 arquivos materiais**, SEM cartório no material. Placar auditado: runner=**178** · backend typecheck=**0** · guard N1 `audit-curitiba-neighborhood-alias-first.mjs` **verde** · **mutations hostis mordendo** (42 hostis + produto verde = 43) · working tree limpo · `git diff --check` limpo · **Δbank=0**.
+
+**OBJETO REAL SELADO — a FUNDAÇÃO MATERIAL DORMENTE:** migration N1 versionada · casas append-only de manifest/execution/alias-event/token · approval service interno (TS) · job técnico não-Actor · writer `fn_create_canonical_alias` · HOLD estreito PREVISTO pela migration · token one-use por linha · one-shots approve/apply · guard dedicado · testes DB **em ROLLBACK**. Toda prova de banco ocorreu em transação com **ROLLBACK**. Após as provas: aliases=0 · manifest approvals persistidos=0 · automation executions persistidas=0 · alias events persistidos=0 · writer N1 AUSENTE no banco vivo · casas N1 AUSENTES no banco vivo.
+
+**MIGRATION DORMENTE:** `20260713140000_neighborhood_alias_first_governed_flow.sql` = VERSIONADA no repositório · **NÃO aplicada no banco vivo** · NÃO consta em `schema_migrations` (confirmado: 0). Última migration aplicada permanece anterior à N1. A aplicação da migration exige **novo GO explícito** e NÃO é autorizada por este selo.
+
+**BLOQUEIO DOCUMENTAL HONESTO (§13):** nenhum manifest foi emitido porque a investigação encontrou só 75 nomes oficiais canônicos + textos observados "Sítio Cercado" e "Centro", TODOS normalizando exatamente para `name_normalized`; **zero variação legítima, não redundante e documentalmente comprovável.** Nenhum alias foi inventado · nenhum apelido presumido · ViaCEP NÃO virou fonte soberana · nenhum manifest artificial criado. O bloqueio documental é **comportamento correto e fail-closed**, não falha da fundação.
+
+**INVARIANTES SELADOS (confirmados pela Yala):** job não é Actor · job não possui capability · approval exige `canRepresentActor` com await direto · erro de infraestrutura propaga (não vira deny silencioso) · capability territorial exata revalidada · manifest/status/job não são authority · writer é SECURITY DEFINER · search_path pinado · EXECUTE fechado para PUBLIC e app · token one-use por linha · token vinculado a transação/backend/bairro/alias/execução · INSERT direto bloqueado · UPDATE bloqueado · DELETE bloqueado · replay exato é no-op · conflito aborta · redundância com nome canônico rejeitada · alias event obrigatório · atomicidade sem commit parcial · rerun fail-closed · zero criação de bairro · resolver postal byte-intacto · Social e Bank intocados.
+
+**RECONCILIAÇÃO DE GUARDS (nominal e estreita):** `audit-neighborhood-alias-foundation.mjs` + `audit-territorial-capability-grant-foundation.mjs` — exceção SOMENTE pelo caminho exato da migration N1; nenhuma allowlist ampla; HOLD não liberado genericamente; nenhuma capability `territory:*` nova; migrations não-N1 continuam mordendo; mutations provaram a contenção. Imutabilidade do alias segue INVIOLÁVEL.
+
+**ESTADO FINAL DO BANCO (pristino, pré-N1):** neighborhoods=75 · neighborhood_aliases=0 · grant `territory:manage_neighborhood_aliases`=1 · grants territoriais=3 · HOLD vivo=ENABLE ALWAYS · casas N1 vivas=0 · writer N1 vivo=0 · regional_fund_accounts=0 · bank_accounts=15 · **Δbank=0**. O grant selado da PORTA (`b6ee696d`) permaneceu INTACTO.
+
+**ESCOPO NEGATIVO:** nenhuma migration aplicada · nenhum manifest emitido · nenhum manifest aprovado · nenhuma execução persistida · nenhum alias criado · nenhum bairro criado · nenhuma mudança no resolver · nenhuma mudança no onboarding · nenhuma conta regional criada · nenhuma movimentação financeira. **N2 até N7 permanecem TRANCADOS.**
+
+**STATUS FUTURO:** a fundação existe no código e está selada; o fluxo permanece **dormente**. A emissão de manifest depende de dataset legítimo, não redundante e documentalmente comprovável. NÃO autorizados: busca indiscriminada de aliases · manifest vazio · alias criado só para provar a máquina. A futura aplicação da migration e qualquer manifest real exigem **novo GATE/GO** correspondente.
+
+**N1 CURITIBA ALIAS-FIRST · FUNDAÇÃO GOVERNADA SELADA PELA YALA · SELO COMPLETO FINAL DA FUNDAÇÃO DORMENTE · MANIFEST NÃO EMITIDO · ZERO ALIAS PERSISTIDO.**
+
+---
+
 ## F-NEIGHBORHOOD-CANONICAL-AUTO-INGESTION · PORTA-TERRITORY-ALIASES — ✅ SELADA PELA YALA · SELO COMPLETO (2026-07-13)
 **Veredito A da Yala.** Arco: base `c866fdccd` (DECISION-0174) → material `34549b4d6` → cartório pré-selo `2fc852098` → este registro do selo. Placar auditado: migration=**0** · runner=**177** · 22 mutations verdes (produto PASS) · backend typecheck 0 · dry-run verdadeiro (ROLLBACK real) · apply único · **rerun fail-closed** no nível da aplicação (precondition_failed) E do índice único parcial · working tree limpo · **Δbank=0**.
 

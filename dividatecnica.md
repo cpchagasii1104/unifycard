@@ -269,6 +269,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-14 (113) — F-NEIGHBORHOOD N1 CURITIBA ALIAS-FIRST: FUNDAÇÃO GOVERNADA SELADA PELA YALA · SELO COMPLETO FINAL DA FUNDAÇÃO DORMENTE
+- Veredito A. Arco: base `1cce9cade` → material único `2d47e4d9e` ("feat(territory): add governed Curitiba neighborhood alias flow", 9 arquivos) → selo. runner=178; backend typecheck=0; guard N1 verde; 43 mutations (42 hostis mordem + produto); working tree limpo; `git diff --check` limpo; Δbank=0.
+- **Objeto selado = fundação material DORMENTE:** migration N1 versionada (`20260713140000`) mas **NÃO aplicada** (ausente de `schema_migrations`); 4 casas append-only (manifest/execution[job]/alias-event/token one-use por linha); HOLD estreito (statement só INSERT via token; U/D bloqueados); writer `fn_create_canonical_alias` (SECURITY DEFINER, search_path pinado, EXECUTE fechado); approval service TS (canRepresentActor await direto, erro de infra propaga); one-shots approve/apply; guard dedicado; prova DB integral **em ROLLBACK** (13 provas, grant real `b6ee696d`) — ZERO persistência.
+- **§13 BLOQUEIO DOCUMENTAL HONESTO:** nenhum alias legítimo/não-redundante/comprovável existe (75 nomes IPPUC + 3 addresses + 3 ViaCEP cache, todos normalizam EXATO ao name_normalized). Nenhum manifest emitido; nenhum alias inventado; ViaCEP não virou fonte. Fail-closed correto, não falha.
+- **Reconciliação nominal e estreita de 2 guards selados** (`audit-neighborhood-alias-foundation`, `audit-territorial-capability-grant-foundation`) — exceção só pelo caminho exato da migration N1; imutabilidade inviolável; migrations não-N1 seguem mordendo; mutations provaram a contenção.
+- Estado DB: neighborhoods=75; aliases=0; grant manage_neighborhood_aliases=1; grants territoriais=3; casas N1 vivas=0; writer N1 vivo=0; HOLD ENABLE ALWAYS; fundos=0; bank=15; Δbank=0. Grant selado da PORTA intacto.
+- **STATUS:** fluxo DORMENTE. N2–N7 trancados. Aplicação da migration e manifest real exigem novo GATE/GO. MANIFEST NÃO EMITIDO · ZERO ALIAS PERSISTIDO.
+
 ### 2026-07-13 (112) — F-NEIGHBORHOOD PORTA-TERRITORY-ALIASES: SELADA PELA YALA · SELO COMPLETO
 - Veredito A. Arco: base c866fdccd (DECISION-0174) → material 34549b4d6 → cartório 2fc852098 → selo. migration=0; runner=177; 22 mutations; typecheck 0; dry-run real; apply único; rerun fail-closed (app + índice único); Δbank=0.
 - Grant selado: manage_neighborhood_aliases · grant_id b6ee696d-a5ad-4dfc-90c4-bfc4dd84b438 · event da93b5d1-01a3-4be7-aa4a-b4ef20996f5e · grantee 213f4903 · user 9305ac13 · city Curitiba 9d431002 · authority_source platform_bootstrap. DECISION-0174/platform_bootstrap=fonte institucional; fn_grant_territorial_capability=mecanismo.
