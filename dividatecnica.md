@@ -269,7 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
-### 2026-07-14 (114) — F-TERRITORIAL-NATIONAL-SCALE: DECISION-0175 TERRITORIAL NACIONAL CONSOLIDADA (docs-only, aguarda Yala)
+### 2026-07-14 (115) — F-TERRITORIAL-NATIONAL-SCALE: DECISION-0175 SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY
+- Commit material docs-only auditado: `92c9cde40`. Zero código/migration/write. `07_NOMENCLATURA_CANONICA.md` intacta.
+- Validados: Caso A `ibge_code×external_code`; modelo N:N de identificadores externos sem 2º SSOT; candidatos/pendências como auxiliares não-soberanos; aprovação em lote preservando Human Actor+capability+hash/versão; supersessão de "cidade sob demanda" pelo RFC; 0020/0021=gap documental sem uso como autoridade; ownerships Territory/Address/Social/Bank separados; D22=dependência, não roadmap.
+- **Material nacional ainda NÃO iniciado.** Próximo passo depende de novo GO (GATE/material por família: catálogo municipal → candidatos/pendências → bairros/aliases → Social → Bank).
+
+### 2026-07-14 (114) — F-TERRITORIAL-NATIONAL-SCALE: DECISION-0175 TERRITORIAL NACIONAL CONSOLIDADA (docs-only, aguarda Yala — superado pelo selo (115) acima)
 - `docs/02_decisions/DECISION_0175_TERRITORIAL_NATIONAL_SCALE.md` — DECIDIDO/DOCS-ONLY/MATERIAL NÃO INICIADO. Base `0bb935359`. Consolida escala territorial nacional (Brasil-first + internacional): D0–D18.
 - **Modelo de identificadores externos escolhido:** N:N escopado à fonte (IBGE/CD_BAIRRO/Receita-TOM/internacional; `cities.external_code` = projeção válida, nunca SSOT único). Fonte municipal = IBGE/DTB bulk versionado + manifest + verificação incremental; CEP nunca cria cidade (`canonical_city_missing` fail-closed).
 - **Candidato** = auxiliar não-soberano, casa compartilhada município+bairro c/ discriminante; **pendência** persistente vinculada a candidatos, chave não-PII; reprocessamento não altera endereço físico nem cria território.
