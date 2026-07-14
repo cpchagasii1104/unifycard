@@ -20,6 +20,13 @@ const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\
 const norm = (p) => p.split(sep).join('/');
 
 const B_MIG = '20260711130000_neighborhood_aliases_foundation.sql';
+// N1 (DECISION-0174 · F-NEIGHBORHOOD-CANONICAL-AUTO-INGESTION): a FATIA PRÓPRIA do writer de aliases.
+// Evolui CONSCIENTEMENTE o HOLD (statement passa a permitir só a classe INSERT via token one-use; U/D seguem
+// bloqueados), cria as quatro CASAS de governança do writer (manifest_events/automation_executions/
+// curation_events/writer_authorizations) e o writer fn_create_canonical_alias (INSERT vive DENTRO da função,
+// não em migration-time). Fiscalizada integralmente por audit-curitiba-neighborhood-alias-first.mjs.
+// Aqui reconciliamos SÓ o que essa fatia legitimamente toca — a imutabilidade do alias segue inviolável.
+const N1_MIG = '20260713140000_neighborhood_alias_first_governed_flow.sql';
 // N2-B.1 (remediação Yala): CHECK de borda (R1) — normalize_name() não faz trim; sem alterar o
 // helper compartilhado do Location Core, a correção fica como invariante da coluna alias.
 const B1_MIG = '20260711140000_neighborhood_aliases_hardening.sql';
@@ -236,8 +243,13 @@ try {
     if (new RegExp(`DROP\\s+FUNCTION[\\s\\S]{0,80}(${IMMUT_FN}|${HOLD_FN})`, 'i').test(sql)) {
       failures.push(`[pos-N2B] ${f}: dropa função de aliases — proibido.`);
     }
-    if (new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+(${IMMUT_FN}|${HOLD_FN})`, 'i').test(sql)) {
-      failures.push(`[pos-N2B] ${f}: redefine função de aliases — exige fatia própria + guard consciente.`);
+    // imutabilidade NÃO pode ser redefinida por nenhuma migration posterior (nem por N1).
+    if (new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${IMMUT_FN}`, 'i').test(sql)) {
+      failures.push(`[pos-N2B] ${f}: redefine a imutabilidade de aliases — proibido.`);
+    }
+    // o HOLD só pode ser redefinido junto do writer (N1, fatia própria) — fiscalizado pelo guard dedicado.
+    if (f !== N1_MIG && new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${HOLD_FN}`, 'i').test(sql)) {
+      failures.push(`[pos-N2B] ${f}: redefine a função do HOLD de aliases — exige fatia própria (N1) + guard consciente.`);
     }
     // R2 (Yala): TRUNCATE e ALL/ALL PRIVILEGES contam como DML efetivo para o veto de reabertura.
     if (/GRANT\b[\s\S]{0,80}?\b(INSERT|UPDATE|DELETE|TRUNCATE|ALL(?:\s+PRIVILEGES)?)\b[\s\S]{0,80}?\bON\b[\s\S]{0,40}?(TABLE\s+)?(public\.)?neighborhood_aliases\b[\s\S]{0,80}?\bTO\b/i.test(sql)) {
@@ -261,13 +273,21 @@ try {
     if (/ADD\s+CONSTRAINT\s+\w*alias\w*\s+UNIQUE\s*\((?![^)]*neighborhood_id)[^)]*alias_normalized/i.test(sql)) {
       failures.push(`[pos-N2B] ${f}: UNIQUE global/por-cidade sobre alias_normalized mataria a ambiguidade — proibido.`);
     }
-    if (/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_\w*(synonym|alias)\w*/i.test(sql) && !/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_aliases\b/i.test(sql)) {
+    // N1 cria as CASAS de governança do writer (neighborhood_alias_manifest_events / _automation_executions /
+    // _curation_events / _writer_authorizations) — trilhas/token do writer, NÃO uma segunda identidade de alias.
+    // Fiscalizadas por audit-curitiba-neighborhood-alias-first.mjs. Demais migrations seguem vetadas.
+    if (f !== N1_MIG
+        && /CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_\w*(synonym|alias)\w*/i.test(sql)
+        && !/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(public\.)?neighborhood_aliases\b/i.test(sql)) {
       failures.push(`[pos-N2B] ${f}: segunda tabela de alias/synonym territorial — SSOT paralelo proibido.`);
     }
     // seed em QUALQUER migration posterior (alias ou núcleo) — seed é N3, via contrato canônico. EXCETO a
     // migration nominal do writer N2-E (o INSERT vive DENTRO da função canônica fn_create_canonical_neighborhood,
     // não executa em migration-time; fiscalizado por audit-neighborhood-canonical-writer.mjs — INSERT único, sem aliases).
-    if (f !== '20260711210000_neighborhood_canonical_create_writer.sql'
+    // EXCETO as migrations nominais dos writers canônicos (N2-E bairro, N1 alias): o INSERT vive DENTRO da
+    // função canônica (fn_create_canonical_neighborhood / fn_create_canonical_alias), não executa em
+    // migration-time; fiscalizado pelos guards dedicados (INSERT único por chamada, sem seed).
+    if (f !== '20260711210000_neighborhood_canonical_create_writer.sql' && f !== N1_MIG
         && /INSERT\s+INTO\s+(public\.)?(neighborhood_aliases|neighborhoods)\b/i.test(sql)) {
       failures.push(`[pos-N2B] ${f}: INSERT/seed em neighborhood_aliases/neighborhoods dentro de migration — seed é N3, via contrato canônico, nunca SQL paralelo.`);
     }

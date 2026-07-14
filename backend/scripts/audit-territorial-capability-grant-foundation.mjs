@@ -194,8 +194,12 @@ try {
     // as 6 keys territoriais na validacao — migration nominal autorizada; fiscalizada por
     // audit-territorial-grant-bootstrap.mjs. Grants reais continuam nascendo SO pela operacao one-shot, nunca em migration.
     const PORTA_WRITER_MIG = '20260712120000_territorial_capability_grant_bootstrap_writer.sql';
-    if (f !== D2_MIG && f !== D3_MIG && f !== N2E_WRITER_MIG && f !== PORTA_WRITER_MIG && /'territory:[a-z_]+'/i.test(sql)) {
-      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2/D.3/N2-E/PORTA (migrations nominais autorizadas: ${D2_MIG}, ${D3_MIG}, ${N2E_WRITER_MIG}, ${PORTA_WRITER_MIG}).`);
+    // N1 (DECISION-0174): a migration nominal do writer de aliases consome territory:manage_neighborhood_aliases
+    // (assertions fn_assert_territorial_capability + CHECK das casas de governança); fiscalizada por
+    // audit-curitiba-neighborhood-alias-first.mjs. Não semeia grants — grants reais só pela PORTA one-shot.
+    const N1_ALIAS_WRITER_MIG = '20260713140000_neighborhood_alias_first_governed_flow.sql';
+    if (f !== D2_MIG && f !== D3_MIG && f !== N2E_WRITER_MIG && f !== PORTA_WRITER_MIG && f !== N1_ALIAS_WRITER_MIG && /'territory:[a-z_]+'/i.test(sql)) {
+      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2/D.3/N2-E/PORTA/N1 (migrations nominais autorizadas: ${D2_MIG}, ${D3_MIG}, ${N2E_WRITER_MIG}, ${PORTA_WRITER_MIG}, ${N1_ALIAS_WRITER_MIG}).`);
     }
     if (/ALTER\s+TABLE\s+(public\.)?actor_capability_grants\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(sql)) {
       failures.push(`[pos-D1] ${f}: liga RLS em actor_capability_grants — mudanca de acesso exige decisao propria (ADENDO D1.5-E).`);
