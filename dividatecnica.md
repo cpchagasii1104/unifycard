@@ -269,7 +269,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
-### 2026-07-13 (111) — F-NEIGHBORHOOD PORTA-TERRITORY-ALIASES: grant de curadoria de aliases em Curitiba — EXECUTADA E PROVADA, NÃO SELADA
+### 2026-07-13 (112) — F-NEIGHBORHOOD PORTA-TERRITORY-ALIASES: SELADA PELA YALA · SELO COMPLETO
+- Veredito A. Arco: base c866fdccd (DECISION-0174) → material 34549b4d6 → cartório 2fc852098 → selo. migration=0; runner=177; 22 mutations; typecheck 0; dry-run real; apply único; rerun fail-closed (app + índice único); Δbank=0.
+- Grant selado: manage_neighborhood_aliases · grant_id b6ee696d-a5ad-4dfc-90c4-bfc4dd84b438 · event da93b5d1-01a3-4be7-aa4a-b4ef20996f5e · grantee 213f4903 · user 9305ac13 · city Curitiba 9d431002 · authority_source platform_bootstrap. DECISION-0174/platform_bootstrap=fonte institucional; fn_grant_territorial_capability=mecanismo.
+- Estado final: grants territoriais=3 (create/approve/manage_aliases=1 cada); eventos=3; aliases=0; neighborhoods=75; HOLD intacto (ENABLE ALWAYS); fundos=0; bank=15; Δbank=0. Nenhum alias/writer/manifest/approval/execution/alias-event/migration/conta-regional criado. Social/Bank intactos.
+- N1 Curitiba alias-first NÃO iniciado, TRANCADO, exige GO próprio. Entrada pré-selo superada sem reescrita.
+- **STATUS:** PORTA-TERRITORY-ALIASES · SELADA PELA YALA · SELO COMPLETO. N1 continua trancado.
+
+### 2026-07-13 (111) — F-NEIGHBORHOOD PORTA-TERRITORY-ALIASES: grant de curadoria de aliases em Curitiba — EXECUTADA E PROVADA, NÃO SELADA (superado pelo selo (112) acima)
 - Base c866fdccd (DECISION-0174) → material `34549b4d6` (3 arquivos; envelope SEPARADO anterior a N1; migration 0). One-shot `grant-curitiba-neighborhood-alias-capability.mjs` concede EXATAMENTE territory:manage_neighborhood_aliases ao Actor 213f4903 (user 9305ac13) em Curitiba (9d431002) via fn_grant_territorial_capability (mecanismo; fonte institucional=platform_bootstrap/DECISION-0174). Sem INSERT direto; sem circularidade.
 - Rito: dry-run ROLLBACK / apply --confirm GRANT_CURITIBA_NEIGHBORHOOD_ALIAS_CAPABILITY; advisory lock; preflight fail-closed (2 grants create+approve + manage_aliases=0); COMMIT dominado por (APPLY&&CONFIRMED&&!failed). Apply único → grant b6ee696d (active/tenant-NULL/Curitiba/platform_bootstrap) + evento granted da93b5d1. Rerun fail-closed provado (exit 1, zero write, sem 2º grant/evento).
 - Guard audit-porta-territory-aliases (runner 176→**177**); 22 mutations (grantee/city trocados, wildcard, INSERT direto, rollback→log, apply-sem-token, confirmação-forçada, abrir-HOLD, inserir-alias, Bank/Social, DDL, remover-DECISION, 2ª capability). Byte-integridade: migrations/HOLD/writers/resolver/onboarding/frontend intactos.

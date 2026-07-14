@@ -1,6 +1,21 @@
 # REMEDIATION DT LOG
 
-## F-NEIGHBORHOOD-CANONICAL-AUTO-INGESTION · PORTA-TERRITORY-ALIASES · GRANT DE CURADORIA DE ALIASES EM CURITIBA — ⚙️ EXECUTADA E PROVADA · NÃO SELADA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-13)
+## F-NEIGHBORHOOD-CANONICAL-AUTO-INGESTION · PORTA-TERRITORY-ALIASES — ✅ SELADA PELA YALA · SELO COMPLETO (2026-07-13)
+**Veredito A da Yala.** Arco: base `c866fdccd` (DECISION-0174) → material `34549b4d6` → cartório pré-selo `2fc852098` → este registro do selo. Placar auditado: migration=**0** · runner=**177** · 22 mutations verdes (produto PASS) · backend typecheck 0 · dry-run verdadeiro (ROLLBACK real) · apply único · **rerun fail-closed** no nível da aplicação (precondition_failed) E do índice único parcial · working tree limpo · **Δbank=0**.
+
+**Grant selado:** capability_key=`territory:manage_neighborhood_aliases` · grant_id=`b6ee696d-a5ad-4dfc-90c4-bfc4dd84b438` · event_id=`da93b5d1-01a3-4be7-aa4a-b4ef20996f5e` · grantee_actor_id=`213f4903-d0c3-4c03-aa2f-328e11aac807` · represented_user_id=`9305ac13-00b2-4ef2-989f-05c04259f18a` · scope_city_id=`9d431002-1fd3-4b34-ae82-678f28f64288` (Curitiba). authority_source=`platform_bootstrap`; mechanism=`fn_grant_territorial_capability`. **Distinção preservada:** DECISION-0174/platform_bootstrap = FONTE INSTITUCIONAL da autoridade; `fn_grant_territorial_capability` = MECANISMO fechado de materialização (nunca authority soberana).
+
+**Estado final selado:** grants territoriais vivos=**3** (create_neighborhood=1 · approve_neighborhood=1 · manage_neighborhood_aliases=1) · grant events totais=3 · aliases=0 · neighborhoods=75 · regional_fund_accounts=0 · bank_accounts=15 · **Δbank=0**. Permaneceram INTACTOS: HOLD de neighborhood_aliases (`trg_neighborhood_aliases_writer_hold` ENABLE ALWAYS); schema de aliases; migrations; writers territoriais; resolver postal; onboarding; frontend; packages; Social; Bank.
+
+**Escopo negativo confirmado:** nenhum alias criado · nenhum writer de alias · nenhum manifest · nenhuma approval house · nenhuma execution house · nenhuma alias-event house · nenhuma migration · nenhuma conta regional · nenhuma movimentação financeira.
+
+**N1 CURITIBA ALIAS-FIRST · NÃO INICIADO · CONTINUA TRANCADO · EXIGE GO PRÓPRIO.** O selo da PORTA NÃO autoriza automaticamente writer de alias, abertura do HOLD, migration N1, manifest, aprovação, execução, aliases, Social ou Bank.
+
+**Nenhuma remediação técnica permanece aberta na PORTA.** A entrada pré-selo abaixo ("executada e provada · não selada · aguarda Yala") fica SUPERADA por este selo, sem apagar/reescrever o histórico.
+
+---
+
+## F-NEIGHBORHOOD-CANONICAL-AUTO-INGESTION · PORTA-TERRITORY-ALIASES · GRANT DE CURADORIA DE ALIASES EM CURITIBA · ⚙️ EXECUTADA E PROVADA · (registro pré-selo — o "NÃO SELADA · AGUARDA YALA" foi SUPERADO pelo SELO COMPLETO acima) (2026-07-13)
 **Base `c866fdccd` (DECISION-0174) → material `34549b4d6`** (3 arquivos; sem cartório no material). Envelope SEPARADO, anterior a N1: materializa EXATAMENTE 1 grant territorial de curadoria de aliases. **Migration=0** (reusa fn_grant_territorial_capability + grants + grant events).
 
 **Chamada canônica:** one-shot `scripts/grant-curitiba-neighborhood-alias-capability.mjs` chama o writer governado `fn_grant_territorial_capability` (SECURITY DEFINER; MECANISMO) — a **fonte institucional é a decisão de platform_bootstrap da DECISION-0174**, não a função. Concede `territory:manage_neighborhood_aliases` → grantee Actor `213f4903-d0c3-4c03-aa2f-328e11aac807` (user, tenant a3859c3e, user `9305ac13-00b2-4ef2-989f-05c04259f18a`) → scope_city_id Curitiba `9d431002-1fd3-4b34-ae82-678f28f64288`. Papéis issuer/executor/responsible = 9305ac13/213f4903 (precedente PORTA-TERRITORY-1). NUNCA INSERT direto em grants/eventos.
