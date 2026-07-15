@@ -269,6 +269,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-15 (133) — DECISION-0179: SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · ENCERRADA
+- Reauditoria Yala read-only da DECISION-0179 **e da remediação** → **Veredito A · SELO COMPLETO**. Arco: `c3df312b4` (4d-2) → `a4c1deb30` (DECISION) → `7faf0a280` (errata reference_id UUID→TEXT) → este selo (docs-only; 2 arquivos). **Veredito B sanado pela remediação `7faf0a280`; material 4e NÃO iniciado.**
+- **Fato final selado:** `bank_transactions.reference_id` é **TEXT** (migration histórica `20260530531000_...uuid_to_text.sql`, C19/DECISION-0029). Raiz de idempotência `(tenant_id, reference_type, reference_id)`; fingerprint fiscal-econômico em coluna dedicada/imutável/comparável/indexável, **não embutido** (separação identidade-da-operação × identidade-do-payload); `IDEMPOTENCY_PAYLOAD_MISMATCH` preservado. Errata append-only (histórico UUID→TEXT preservado).
+- **D1–D21 seladas, nenhuma reaberta** (tax_reserve segregação interna; conservação global+bucket; conta fiscal_reserve + resolver `fiscal_reserve_accounts`; split_type/account_type; `fiscal_provision_events` FK Bank→fiscal; existingClient; snapshot fiscalJurisdiction×buyerTerritory; allowlist governada; treasury:fiscal_reserve; 4e dormente; full-reversal-only; sem remittance).
+- **Selos preservados:** 4d-1/4d-1-R/4d-2/B-CITY-1 byte-intactos; guard 4c-3 `942142f3…`. Material 4e não iniciado (GO próprio); Bank intacto; firewall OFF; **Δbank=0**.
+- **DTs mantidas OPEN:** `DT-INVOICING-HARDCODED-TAX-RATE` · `DT-REGION-FUND-DELEGATION-MODEL-PENDING` (não governa a reserva). B-CITY-2 bloqueada.
+- **NENHUM próximo material automaticamente autorizado.**
+
 ### 2026-07-15 (132) — DECISION-0179 · ERRATA FACTUAL reference_id UUID→TEXT (pós-Veredito B da Yala) · REMEDIADA DOCS-ONLY · AGUARDA REAUDITORIA
 - Reauditoria Yala da DECISION-0179 → **Veredito B** (uma errata factual; nenhuma escolha reaberta). Base `a4c1deb30`. Commit docs-only único: DECISION-0179 + `REMEDIATION_DT_LOG.md` + este arquivo.
 - **Correção:** `bank_transactions.reference_id` é **TEXT**, não UUID (a entrada 131 abaixo dizia UUID — SUPERSEDIDA por esta, append-only). Conversão histórica UUID→TEXT pela migration `20260530531000_bank_transactions_reference_id_uuid_to_text.sql` (C19 FIX / DECISION-0029).

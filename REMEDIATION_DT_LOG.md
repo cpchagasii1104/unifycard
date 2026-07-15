@@ -1,6 +1,30 @@
 # REMEDIATION DT LOG
 
-## DECISION-0179 · ERRATA FACTUAL `reference_id` UUID → TEXT (pós-Veredito B da Yala) — 🟠 REMEDIADA DOCS-ONLY · NÃO SELADA · AGUARDA UMA ÚNICA REAUDITORIA YALA (2026-07-15)
+## DECISION-0179 · FISCAL TAX RESERVE BANK MATERIALIZATION FOUNDATION — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
+**Reauditoria Yala read-only concluída · Veredito A · SELO COMPLETO.** A DECISION-0179 **e sua remediação factual** estão SELADAS. O Veredito B anterior (errata `reference_id` UUID→TEXT) foi **sanado pela remediação `7faf0a280`** e agora selado pela Yala. Substitui a entrada de errata abaixo (preservada, não reescrita). **Material 4e NÃO foi iniciado** — este selo é exclusivamente da DECISION docs-only + errata.
+
+**Arco completo (byte-confirmado):**
+```
+BASE SELADA 4D-2:   c3df312b4
+PROMULGAÇÃO:        a4c1deb30  (DECISION-0179)
+REMEDIAÇÃO:         7faf0a280  (errata reference_id UUID→TEXT, docs-only)
+REAUDITORIA YALA:   READ-ONLY · VEREDITO A
+SELO FINAL:         este commit docs-only
+```
+
+**Fato final selado — idempotência:** `bank_transactions.reference_id` é **TEXT** (convertido historicamente de UUID→TEXT pela migration `20260530531000_bank_transactions_reference_id_uuid_to_text.sql`; C19 FIX / DECISION-0029). Raiz canônica e única de idempotência = **`(tenant_id, reference_type, reference_id)`** (UNIQUE `uq_bank_transactions_reference`). O **fingerprint fiscal-econômico** vive em coluna **dedicada · imutável · comparável · indexável** (`bank_transactions.fiscal_economic_context_fingerprint` ou equivalente canônico), **NÃO embutido em `reference_id`** — fundamento: **separação entre identidade da operação e identidade do payload fiscal-econômico** (não pelo tipo). Contrato: mesma tuple + mesmo fingerprint → retorna transaction/fiscal event/splits originais; mesma tuple + fingerprint divergente → **`IDEMPOTENCY_PAYLOAD_MISMATCH`**. A errata foi **append-only**; as referências históricas UUID foram **preservadas e explicitamente supersedidas** (não apagadas).
+
+**Decisões D1–D21 seladas (nenhuma reaberta):** tax_reserve = segregação interna de commission_gross (não recolhimento/cobrança adicional/economic policy line) · conservação global + por bucket · conta system/actor_id NULL/account_type=fiscal_reserve · resolver `fiscal_reserve_accounts` chave `(tenant_id, fiscal_identity_id, currency)` (currency no resolver; jurisdição no snapshot) · provisioning lookup-only, zero auto-provision · split_type=tax_reserve · account_type=fiscal_reserve · `fiscal_provision_events` (1 tx→1 event→N logs; FK Bank→fiscal; zero FK fiscal→Bank) · existingClient em fiscal-provision+appendRows (uma conexão/uma tx/rollback integral) · snapshot imutável versionado (fiscalJurisdiction × buyerTerritory) · allowlist governada line_type×applies_to · fingerprint dedicado · treasury:fiscal_reserve · 4e dormente · passada PLATFORM somente · full reversal only · sem lifecycle/remittance · vetores Yala 24/36/38 obrigatórios · preservação dos selos anteriores · material futuro condicionado a GO próprio.
+
+**Selos anteriores preservados byte-intactos:** FISCAL 4D-1 · 4D-1-R · DECISION-0178 · 4D-2 · B-CITY-1. Guard 4c-3 sha256 `942142f3c49676e7ba651ee21e12516cf803a0e82b6da66526f3ace654953eaa`; guard fiscal-provision; guard 4d-2; migration 4d-2; semântica `applies_to` 5/3/2; engine/service-payment-execution protegidos; guard B-CITY. **Nenhum arquivo material tocado neste selo.**
+
+**FRONTEIRAS FECHADAS:** MATERIAL 4E NÃO INICIADO (exige GO próprio) · conta fiscal NÃO CRIADA · firewall OFF · zero caller monetário · Bank INTACTO · Δbank=0 · policy regional NÃO CRIADA · remittance/refund parcial/invoicing FORA. `DT-INVOICING-HARDCODED-TAX-RATE` OPEN · `DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (**não governa a reserva fiscal**) · B-CITY-2 BLOQUEADA.
+
+**NENHUM PRÓXIMO MATERIAL AUTOMATICAMENTE AUTORIZADO.**
+
+---
+
+## DECISION-0179 · ERRATA FACTUAL `reference_id` UUID → TEXT (pós-Veredito B da Yala) — 🟠 REMEDIADA DOCS-ONLY · NÃO SELADA · AGUARDA UMA ÚNICA REAUDITORIA YALA (2026-07-15, SELADA PELO SELO FINAL ACIMA)
 **Reauditoria Yala read-only da DECISION-0179 · Veredito B (uma errata factual, não reabre nenhuma escolha).** Errata append-only: **a caracterização de `bank_transactions.reference_id` como UUID estava INCORRETA.** O schema vivo usa **TEXT** — convertido historicamente de UUID→TEXT pela migration `20260530531000_bank_transactions_reference_id_uuid_to_text.sql` (C19 FIX / DECISION-0029; alinha referência externa heterogênea com `financial_*`/`payment_intents`/`treasury_distributions`).
 
 **Ocorrências anteriores explicitamente SUPERSEDIDAS por esta errata** (append-only, não reescritas): nesta entrada 0179 abaixo — "fatos materiais do GATE" (`reference_id UUID`) e "D11 idempotência" (`reference_id é UUID`); DECISION-0179 corrigida no próprio texto (fato material + D11); `dividatecnica.md` reconciliado por nova entrada de changelog.
