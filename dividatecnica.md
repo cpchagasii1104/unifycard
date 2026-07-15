@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-15 (142) — DECISION-0182 · FISCAL-4E D10 RESIDUAL CONTINUATION CONTRACT: PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL 4E NÃO RETOMADO
+- **STOP correto da 4E → decisão de fechamento.** A matriz DECISION-0179 **D10** (`line_type × commission_distributable`) não fechava sem decisão adicional: único candidato = `regional_fund` = **B-CITY-2 bloqueada/fora da 4E**. Clayton fechou pela **opção A**. Base `7917f92dc`. Commit docs-only: DECISION-0182 + `REMEDIATION_DT_LOG.md` + este arquivo. **Zero código/migration/manifesto/nomenclatura/guard/teste/Bank · Δbank=0.**
+- **D1** allowlist de economic policy lines sobre `commission_distributable` na 4E inicial = **VAZIA** (os 8 line_types = NÃO; ampliação exige nova DECISION). **D2** `commission_distributable` = **continuação da linha Bank original de `commission_gross`** (mesmo destino/split_type/titularidade/moeda/semântica; amount reduzido) + `taxReserveLine`→`fiscal_reserve`; conservação `commission_gross = commission_distributable + tax_reserve`, Σsplits==amount; sem novo destino/conta/fallback/policy regional. **D3** source line **identificada explicitamente** (proibido inferir); fail-closed (ausente/>1/amount≠gross/tenant-moeda/destino). **D4** 4E dormente (firewall OFF, caller zero, tax_reserve ainda fora do tuple). **D5** DECISION-0179 byte-intacta (não alterada); 0177/0178/4d/B-CITY-1/canonicalização/4c-3/runner 185 preservados.
+- **Fronteiras:** material 4E NÃO retomado · B-CITY-2 bloqueada · Bank 16/1/0/0/0 · Δbank=0 · firewall OFF · caller zero · DTs OPEN. Próximo gatilho (não automático): **`GO RETOMAR MATERIAL FISCAL-4E`** (agora com D10 fechável).
+- **STATUS: NÃO SELADA — aguarda uma única auditoria Yala. NENHUM material automaticamente autorizado.**
+
 ### 2026-07-15 (141) — F-GOVERNED-VOCABULARY-DERIVED-TYPE-REFERENCE-CONTRACT + BANK-SPLIT-TYPE CANONICALIZATION: SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · ENCERRADA
 - **Reauditoria Yala read-only → Veredito A · SELO COMPLETO MATERIAL.** Frente **SELADA e ENCERRADA**. Trajetória: auditoria inicial **B** (lacuna = vetor 18) → remediação única guard/prova-only → reauditoria final **A**.
 - **Arco completo:** `1d29cb748` (0181 selada) → `68d941979` (material) → `98ed624ac` (cartório) → `5080e76d5` (remediação vetor 18) → `b4fe8445a` (cartório remediação) → este selo (docs-only, 2 arquivos).
