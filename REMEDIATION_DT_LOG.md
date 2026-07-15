@@ -1,6 +1,35 @@
 # REMEDIATION DT LOG
 
-## DECISION-0181 · GOVERNED VOCABULARY SOURCE AND DERIVED REFERENCE CONTRACT — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · FISCAL-4E SUSPENSA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+## DECISION-0181 · GOVERNED VOCABULARY SOURCE AND DERIVED REFERENCE CONTRACT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
+**Auditoria Yala read-only concluída · Veredito A · SELO COMPLETO.** A DECISION-0181 está **SELADA**. Substitui a entrada de promulgação abaixo (**preservada, não reescrita**). **O material do contrato de vocabulário NÃO foi iniciado** — este selo é exclusivamente da DECISION docs-only.
+
+**Arco completo (byte-confirmado):**
+```
+BASE:            a399c98b31502a0da666ba1bd67948049cd6c3ac  (DECISION-0180 selada + errata validada)
+PROMULGAÇÃO:     14930081d5b98dac77c7b57a788e29393cb91025  (DECISION-0181 docs-only)
+AUDITORIA YALA:  READ-ONLY · VEREDITO A
+SELO FINAL:      este commit docs-only
+```
+
+**ESCOLHAS SELADAS (D0–D13; nenhuma reaberta):** **R1 REJEITADA** (manifest `symbol: BankSplitType` embaralharia fonte×projeção; o *source symbol* permanece o **const** `BANK_SPLIT_TYPES`) · **R2 ENDURECIDA RATIFICADA** — o contrato do manifesto/guard distingue **quatro papéis**: `sourceFile` (localiza a fonte) · `sourceSymbol`=`BANK_SPLIT_TYPES` (porta os valores por autoridade) · `derivedTypeSymbol`=`BankSplitType` (tipo derivado permitido nos consumidores) · `values` (projeção governada) · **R3 RATIFICADA** — inventário real: **declarações paralelas = 4 sites / 2 arquivos** (`service-payment-execution.service.ts` + `bank-integration.service.ts`) × **consumidores relevantes ao guard = 3 arquivos** (+ `bank-split-engine.service.ts`, que já consome `BankSplitType`, usa valores escalares legítimos, **sem** union paralela, **lógica econômica intacta**). **Contrato selado:** `BANK_SPLIT_TYPES` = única fonte dos valores · `BankSplitType` = exclusivamente derivado do tuple · manifesto = **projeção governada, não runtime, zero segunda autoridade** · guard deve provar **referência ESTRUTURAL** (menção textual não basta; `import type` canônico **não perdoa** declaração paralela no mesmo arquivo; **uso escalar legítimo não é segunda fonte**) · **allowlist PROIBIDA** · **redução de limiar PROIBIDA** · **import runtime artificial PROIBIDO**.
+
+**📌 OBSERVAÇÃO NÃO BLOQUEANTE DA YALA (registrada, sem escolha institucional em aberto):**
+```
+A VIABILIDADE DO HARDENING ESTRUTURAL SERÁ PROVADA NO MATERIAL POR MUTATIONS.
+SE A DISTINÇÃO ESTRUTURAL (declaração paralela × referência canônica × uso escalar)
+SE MOSTRAR INVIÁVEL → STOP · NOVO GATE.
+```
+**Classificação: NÃO BLOQUEANTE para a DECISION-0181.** Nenhuma escolha institucional fica em aberto; a prova de viabilidade é obrigação do material, não do selo.
+
+**GUARD (obrigação material futura):** evoluir o guard existente `audit-governed-vocabulary-manifest.mjs` — **não** criar segundo guard concorrente. Distinguir (A) declaração paralela [MORDE] × (B) referência canônica ao tipo derivado [LEGITIMA, por prova estrutural] × (C) uso escalar legítimo [NÃO morde]. **Devem MORDER:** comentário/string contendo `BankSplitType` · import não usado · alias falso · homônimo local · cast/`as BankSplitType` · re-export não governado · **union paralela COM import canônico** · enum/tuple/array/Set/schema/segunda lista · `sourceFile`/`sourceSymbol`/`derivedTypeSymbol` incorretos · tipo não derivado do tuple · alteração funcional dos consumidores · allowlist · redução de limiar · comando 186. **Controles benignos:** `import type` direto · uso tipológico real · valores escalares individuais · `targetType='platform'` (fora de split type) · entrada antiga sem `derivedTypeSymbol`.
+
+**FRONTEIRAS FECHADAS:** MATERIAL DO CONTRATO **NÃO INICIADO** (exige GO próprio) · `GO MATERIAL BANK-SPLIT-TYPE` anterior **SUSPENSO · NÃO REVOGADO · NÃO EXECUTÁVEL** (não revalida automaticamente) · **FISCAL-4E SUSPENSA** · gatilho material futuro literal = **`GO MATERIAL GOVERNED VOCABULARY DERIVED REFERENCE CONTRACT AND RESUME BANK-SPLIT-TYPE CANONICALIZATION`** · `BANK_SPLIT_TYPES` **ainda inexistente** · manifesto **sem** `bank_splits.split_type` · §4.55 ainda stale · runner **185** (186 reservada à 4e) · firewall **OFF** · caller monetário **ZERO** · Bank **INTACTO** (16/1/0/0/0) · saldo Curitiba **0** · **Δbank=0** · DECISION-0180 **SELADA · byte-intacta** (não modificada) · `DT-INVOICING-HARDCODED-TAX-RATE` OPEN · `DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (**não governa a reserva fiscal**) · B-CITY-2 **BLOQUEADA**. **Nenhum arquivo material tocado neste selo.**
+
+**NENHUM MATERIAL AUTOMATICAMENTE AUTORIZADO.**
+
+---
+
+## DECISION-0181 · GOVERNED VOCABULARY SOURCE AND DERIVED REFERENCE CONTRACT — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · FISCAL-4E SUSPENSA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15, SELADA PELO SELO FINAL ACIMA)
 **Origem: `GO MATERIAL BANK-SPLIT-TYPE CANONICALIZATION PREREQUISITE` → STOP CORRETO da executora.** Ao registrar `bank_splits.split_type` (symbol=`BANK_SPLIT_TYPES`) no manifesto, o **guard real** acusou **GATE FAIL** em DOIS consumidores legítimos. A executora **reverteu integralmente a tentativa material (ZERO commit)** e Clayton promulgou esta DECISION docs-only. Base `a399c98b3`. Commit docs-only único: DECISION-0181 + este cartório + `dividatecnica.md`. **Zero código · zero manifesto · zero guard · zero nomenclatura material · zero migration · zero DDL/DML · zero Bank write · firewall OFF · Δbank=0.**
 
 **COLISÃO PROVADA DE 1ª MÃO (guard real, não simulação):**
