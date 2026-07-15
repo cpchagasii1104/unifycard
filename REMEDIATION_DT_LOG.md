@@ -1,5 +1,29 @@
 # REMEDIATION DT LOG
 
+## DECISION-0180 · ERRATA CARTORIAL DOCS-ONLY · RECONCILIAÇÃO DO INVENTÁRIO MATERIAL APÓS HANDOFF/GATE — ✅ COMPLEMENTO DO GATE · VEREDITO A (2026-07-15)
+**Ato:** errata **append-only** que corrige DOIS fatos materiais descobertos de **1ª mão** no handoff arquitetural + complemento read-only do GATE (leitura normativa direta + prova DB). **NÃO reabre nenhuma decisão, NÃO cria DT nova, NÃO amplia o envelope material e NÃO altera a DECISION-0180** (byte-intacta, sha256 `b78dd59886768b83c85f3aba605e596341b7aa0c113defece583c05f9b15c873`). O selo da DECISION-0180 abaixo **permanece válido**; esta entrada **supersede apenas os fatos factuais incompletos**, sem reescrever o histórico. **Zero código · zero manifesto · zero nomenclatura alterada nesta etapa · zero guard · zero migration · zero DB · zero Bank write · material NÃO iniciado.**
+
+**FATO 1 — CENSO DE CONSUMIDORES (o inventário factual anterior de TRÊS sites estava incompleto; SUPERSEDIDO por este):**
+- `service-payment-execution.service.ts` — **DOIS** sites tipológicos: `ResolvedSplitDestination.splitType` e `LocalSplitRecipient.splitType?` (linhas vivas **65** e **565** no HEAD auditado `1c01db72524f28a9be0597264f9bad35b9dcf0bb` — número de linha é evidência do HEAD, **não** identidade permanente).
+- `bank-integration.service.ts` — **DOIS** sites tipológicos: `splitRecipients[].splitType?` e `splitLines[].splitType?` (linhas vivas **237** e **354** no mesmo HEAD).
+- **TOTAL CORRETO: 4 sites / 2 arquivos** (o registro anterior dizia SPE=1 → na verdade SPE=2).
+- **Não existe quinto site relevante** (censo exaustivo de 1ª mão: co-ocorrência `referral`+`escrow`+`revenue_share` em formas Set/array/enum → nenhum outro). Usos isolados de um token (ex.: `splitType: 'fee'`) são atribuições de valor, **não** declarações paralelas do vocabulário (controle benigno D10).
+- Os **quatro** sites são **estritamente tipológicos** e serão substituídos por `BankSplitType`. **Ambos os arquivos já pertencem ao envelope D5/D12** — **nenhum novo arquivo**, **nenhum novo pin**, **nenhum novo guard**. Continua **um único repin da SPE** no guard fiscal 4D-2 (trava `B1`, `eba0e1c3fd363e5bea7091d41d7898f475c6bfb27a18b0095af6ebad976c9dd2` = hash vivo); **B-CITY-1 permanece sem pin sha256 da SPE**; **runner permanece 185**. O site adicional SPE:565 **deve** ser removido no mesmo material para cumprir D11 ("nenhuma união inline residual").
+
+**FATO 2 — ESTADO DE `docs/01_normative/07_NOMENCLATURA_CANONICA.md` §4.55 (Split Types):**
+- Estado atual de 1ª mão: a §4.55 **contém `platform`** e **omite `escrow`** — lista `revenue_share · regional_fund · fee · reserve · referral · platform`.
+- Verdade material viva (`BankSplitType`): **`fee · regional_fund · reserve · escrow · revenue_share · referral`**.
+- **`platform` NÃO é um `split_type` vivo:** a única ocorrência (`core/unifybank/transparency.service.ts:192`) usa `'platform'` como **`targetType`** de transparência quando `splitType === 'fee'`, **não** como valor de split. **Não existe sétimo valor vivo.** `escrow` **é** valor vivo e deve constar na nomenclatura.
+- A correção material futura será **`platform → escrow`**. `07_NOMENCLATURA_CANONICA.md` **já pertence ao envelope D11/D12** — isto **não amplia arquivos, pins ou decisões**. A alteração da nomenclatura ocorrerá **somente no material após GO próprio**; **esta errata NÃO modifica a nomenclatura**. **Nenhuma DT nova.**
+
+**DECISÕES PRESERVADAS (inalteradas, seladas):** opção **A REJEITADA** · opção **C REJEITADA** · opção **B SELADA**; `BANK_SPLIT_TYPES` como futura fonte única (**ainda não criado**); `BankSplitType` derivado do tuple; **seis valores** nesta frente; `tax_reserve` **fora**; **zero allowlist**; **zero relaxamento do guard**; manifesto por **projeção governada** (`sourceFile`+`symbol` sob ANTI-DRIFT); SPE reaberta **só tipologicamente**; Bank Integration **só tipológica**; **runner-neutral em 185**; **posição 186 RESERVADA à 4e**; ANTI-DRIFT atual `manifesto ⊆ fonte`; obrigação futura 4e `manifesto = fonte` (bidirecional, fail-closed). **Nenhuma decisão econômica ou financeira reaberta.**
+
+**BASELINE PRESERVADO (confirmado read-only, 1ª mão — `psql` BEGIN TRANSACTION READ ONLY):** `bank_accounts=16 · regional_fund_accounts=1 · bank_transactions=0 · bank_splits=0 · bank_ledger=0 · saldo Curitiba=0 · Δbank=0`. `fiscal_reserve_accounts` **inexistente** · `fiscal_provision_events` **inexistente** · `account_type='fiscal_reserve'`=**0** · `split_type='tax_reserve'`=**0** · nenhuma migration 4e aplicada (só 4d). **MATERIAL DO PRÉ-REQUISITO: NÃO INICIADO** · **FISCAL-4E: SUSPENSA** · `GO MATERIAL FISCAL-4E` anterior **SUSPENSO · NÃO REVOGADO · NÃO EXECUTÁVEL** · **FIREWALL: OFF** · **CALLER NOVO: ZERO**. `DT-INVOICING-HARDCODED-TAX-RATE` **OPEN** · `DT-REGION-FUND-DELEGATION-MODEL-PENDING` **OPEN** (não governa a reserva fiscal) · **B-CITY-2 BLOQUEADA**.
+
+**STATUS:** DECISION-0180 **PERMANECE SELADA** · ERRATA CARTORIAL **REGISTRADA** · MATERIAL **NÃO INICIADO** · **AGUARDA VALIDAÇÃO READ-ONLY FINAL DA ERRATA**. **NENHUM material automaticamente autorizado.**
+
+---
+
 ## DECISION-0180 · BANK SPLIT TYPE CANONICALIZATION PREREQUISITE — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
 **Auditoria Yala read-only concluída · Veredito A · SELO COMPLETO.** A DECISION-0180 está **SELADA**. Substitui a entrada de promulgação abaixo (**preservada, não reescrita**). **O material do pré-requisito NÃO foi iniciado** — este selo é exclusivamente da DECISION docs-only.
 
