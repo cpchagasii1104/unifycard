@@ -1,5 +1,35 @@
 # REMEDIATION DT LOG
 
+## FISCAL 4D-2 · EXTENSÃO GOVERNADA DE APPLIES_TO E COMPOSIÇÃO FISCAL × POLICY — 🟢 MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+**Fatia consolidada única da FISCAL 4D-2 (DECISION-0178; GO material próprio de Clayton).** Base `rescue-structural @ 702c2b282` (DECISION-0178 selada) → commit material `6215decba` (14 arquivos; SEM cartório) → **APPLY governado da migration** → este cartório pré-auditoria.
+
+**Migration única forward-only** `20260715120000_economic_policy_applies_to_composition.sql` (sha256 `d52e39e13b30033b630e0fbbb619fec5d6af78872d82759bf89f9d7abaee6c97`; aplicada via aplicador seletivo evoluído `apply-fiscal-4d1-migrations.mjs` — token `APPLY_FISCAL_4D1_MIGRATIONS`, advisory lock, dry-run→apply único→**rerun `already_applied` exit 1 zero-write**; N1/drift preservadas):
+1. `ALTER COLUMN applies_to DROP DEFAULT` — remove o `DEFAULT 'gross'` (D2: base é intenção explícita do caller governado).
+2. `DROP/ADD CONSTRAINT economic_policy_lines_applies_to_check` — CHECK físico de **5 valores** (`gross|net|gross_transaction|commission_gross|commission_distributable`), validado IMEDIATAMENTE (sem NOT VALID; as 75 linhas `gross` pertencem ao novo conjunto, zero alteração).
+- `NOT NULL` preservado; **zero backfill/UPDATE/seed**; nenhuma tabela/função/trigger nova; `tax_reserve` fora (é 4e).
+
+**Vocabulário (D1/D4/D13/D15):** físico(5) × **gravável(3)** `gross_transaction|commission_gross|commission_distributable` × **legado READ-ONLY(2)** `gross|net`. O CHECK físico NÃO distingue histórico de gravação nova — a trava dos 3 é de **writer + tipos + manifesto + guard**: `assertWritableAppliesTo` (narrowing governado, não cast cego) rejeita ausência (`ECONOMIC_POLICY_APPLIES_TO_REQUIRED`) e legados (`..._LEGACY_READONLY`); o **fallback `'gross'` do repository foi REMOVIDO** (remoção conjunta indivisível com o default DB). `applies_to` registrado em `governed-vocabularies.manifest.ts` (gravável 3) + seção própria em `07_NOMENCLATURA_CANONICA.md` (distinção 5/3/2). Legado NUNCA vira alias/rederivação: verdade histórica = snapshot já materializado.
+
+**Orquestrador (D6/D7/D8/D9/D10/D11) — `FiscalEconomicPolicyCompositionService`** (casa nova `modules/economy/fiscal-policy-composition/`): interno, pré-financeiro, **evaluation/read-only, não-SSOT, SEM Bank, ZERO caller monetário vivo**. Fluxo: fatos econômicos governados → `fiscal-provision` **EXATAMENTE 1×** → `EconomicPolicyEvaluationContext` **imutável (Object.freeze)** → resolve policy (read-only) → seleção FECHADA de base (`selectAppliesToBaseCents`) → avaliação read-only. Policy version = **`economic_policies.id`** (NÃO existe `economic_policy_versions`). `commission_distributable < 0`: preview honesto + warning `commission_distributable_negative` (sem clamp); monetária **fail-closed `COMMISSION_DISTRIBUTABLE_NEGATIVE`** antes de qualquer alocação. `= 0`: válido, linhas zero preservadas (≠ missing/erro/fallback). `fiscal_config_missing` obrigatório: fail-closed (`FISCAL_CONFIG_MISSING_MANDATORY`/`FISCAL_CONFIG_MISSING_FOR_DISTRIBUTABLE`); infra propaga. Engine NÃO lê `tax_rules`, NÃO escolhe rounding, NÃO recalcula imposto; sem invoice.
+
+**Guards (D14) — reconciliação CONSCIENTE:**
+- `audit-fiscal-tax-catalog` (4c-3): fronteira anti-extensão de `applies_to` invertida para permitir SÓ a migration 4d-2 nomeada; reconhece o vocabulário 5/3/2; **sha256 reconciliado `942142f3c49676e7ba651ee21e12516cf803a0e82b6da66526f3ace654953eaa`** (anterior 4d-1: `a74ae08d…`).
+- `audit-fiscal-provision-engine`: B4 invertida (permite só a migration 4d-2); **hash pinado do 4c-3 atualizado para `942142f3…` na MESMA fatia (indivisível)**; demais famílias 4d-1/4d-1-R preservadas.
+- `audit-bank-city-curitiba-foundation`: **BYTE-INTACTO** (`d359f18d…`). Token novo NÃO entrou nos 2 arquivos TS protegidos — `economic-policy-engine.service.ts` (`f16934dc…`) e `service-payment-execution.service.ts` (`eba0e1c3…`) **byte-intactos**; o vocabulário novo vive na casa nova.
+- **Guard dedicado novo `audit-fiscal-economic-policy-composition.mjs`** (comment-aware + liveness) no runner: **184 → 185**.
+
+**Provas:** typecheck **0**; runner **185 VERDE**; **DB+E2E 37/37 sob ROLLBACK** (`test-fiscal-economic-policy-composition-db.mjs`: schema — CHECK 5/default removido/NOT NULL/6º rejeitado; preservação — 75 gross/0 net/45 deprecated intactos; físico aceita 5 × writer grava 3 × rejeita gross|net|ausência; composição — gross_transaction/commission_gross/commission_distributable positivo/zero/negativo-preview/negativo-monetário/missing-informativo/missing-obrigatório/multi-base/contexto-uniforme/fiscal-1×/legado-fail-closed; deprecated não reavaliada; zero Bank); **mutations 29/29** (25 hostis MORDEM + 3 benignos passam + resíduo-zero byte-a-byte). `git diff --check` limpo.
+
+**Estado DB pós-apply:** `applies_to` CHECK 5 valores · default REMOVIDO · NOT NULL preservado · **75 linhas gross intactas / 0 net** · 45 policies deprecated / 0 active / 0 draft · Δschema_migrations família=+1 (4d-2) · migration registrada checksum `d52e39e1…` · tax_types/tax_rules/actor_fiscal_profiles/fiscal_provision_logs=0 · N1 dormante. **bank_accounts=16 · rfa=1 · bank_transactions=0 · bank_ledger=0 · bank_splits=0 · saldo Curitiba=0. Δbank=0.**
+
+**⚠️ Incidente operacional registrado e resolvido (não afetou o produto):** tooling introduziu CRLF em arquivos que no HEAD são LF (inclusive o protegido `economic-policy-engine.service.ts`). Detectado por `git diff --check`; TODOS os arquivos materiais normalizados de volta a LF (hashes recomputados idênticos aos pins — pins já eram LF-corretos); `economic-policy-engine.service.ts` restaurado byte-a-byte ao HEAD selado (`git checkout HEAD --`) e confirmado byte-intacto no commit. Provas re-executadas verdes pós-normalização; zero regressão CRLF.
+
+**FRONTEIRAS QUE PERMANECEM FECHADAS:** 4e NÃO ABERTA (religação monetária/tax_reserve financeiro/conta fiscal/tx/split/ledger/reversal — exige GATE+GO próprios) · Bank INTACTO · policy regional NÃO CRIADA · policy admin NÃO ABERTA · PORTA NÃO ABERTA · B-CITY-2 BLOQUEADA. **`DT-INVOICING-HARDCODED-TAX-RATE` permanece OPEN. `DT-REGION-FUND-DELEGATION-MODEL-PENDING` permanece OPEN.** Preservados: 4d-1 · 4d-1-R · B-CITY-1 · fiscal-provision · fiscal_provision_logs · frontend · perfil · conexões · endereço · Social · bairro/N5 · nacional.
+
+**STATUS: FISCAL 4D-2 · MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA.** NENHUM próximo material automaticamente autorizado.
+
+---
+
 ## DECISION-0178 · FISCAL ECONOMIC POLICY APPLIES_TO AND COMPOSITION — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
 **Auditoria Yala read-only concluída · Veredito A.** A DECISION-0178 está SELADA. O Veredito B do GATE FISCAL-4D-2-0 foi encerrado pela decisão humana promulgada (commit `b6e965b71`) e agora selado pela Yala. Substitui a entrada pré-selo abaixo (preservada, não reescrita). **Material 4d-2 NÃO foi executado** — este selo é exclusivamente da DECISION docs-only.
 

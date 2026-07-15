@@ -269,6 +269,18 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-15 (129) — FISCAL 4D-2: MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA
+- Fatia consolidada única (DECISION-0178; GO material próprio). Base `702c2b282` → material `6215decba` (14 arq., SEM cartório) → apply governado → este cartório pré-auditoria.
+- **Migration única** `20260715120000_...` (sha `d52e39e1…`): `applies_to` CHECK físico de **5 valores**, **default `gross` REMOVIDO**, NOT NULL preservado, validação imediata, **zero backfill** (75 linhas gross congeladas intactas). Aplicada via aplicador seletivo evoluído (rerun `already_applied` fail-closed).
+- **Vocabulário** físico(5)/gravável(3: gross_transaction|commission_gross|commission_distributable)/legado read-only(2: gross|net). Writer `assertWritableAppliesTo` (rejeita ausência+legado; **fallback gross removido** junto do default). Manifesto + 07_NOMENCLATURA distinguem 5/3/2. Legado nunca alias/rederivação.
+- **Orquestrador `FiscalEconomicPolicyCompositionService`** (casa nova): evaluation/read-only, não-SSOT, sem Bank, fiscal-provision **1×**, contexto imutável (Object.freeze), policy version=`economic_policies.id` (sem `economic_policy_versions`). Negativo fail-closed monetário / honesto preview; zero válido; missing obrigatório fail-closed; infra propaga; sem tax_rules direto/rounding/invoice.
+- **Guards reconciliados** conscientemente: 4c-3 anti-extensão invertida (sha `942142f3…`, era `a74ae08d…`); provision-engine B4 invertida + pin do 4c-3 atualizado na mesma fatia; guard dedicado novo; **runner 184→185**. B-CITY intacto: engine (`f16934dc…`)/SPE (`eba0e1c3…`)/guard (`d359f18d…`) **byte-intactos**.
+- **Provas:** typecheck 0 · runner **185** · **DB+E2E 37/37** rollback · **mutations 29/29** (25 hostis+3 benignos+resíduo-zero) · `git diff --check` limpo.
+- **DB pós-apply:** CHECK 5/default removido/NOT NULL · 75 gross/0 net · 45 deprecated · fiscal 0/0/0/0 · bank 16/1/0/0/0 · saldo Curitiba=0 · **Δbank=0**.
+- **Incidente resolvido:** CRLF introduzido por tooling (inclui o protegido engine.service.ts) → detectado por diff --check, normalizado a LF, engine restaurado byte-a-byte ao HEAD, provas re-executadas verdes.
+- **Fronteiras:** 4e NÃO aberta · Bank intacto · policy regional/admin/PORTA não abertas · **B-CITY-2 bloqueada**. `DT-INVOICING-HARDCODED-TAX-RATE` e `DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN.
+- **STATUS: NÃO SELADO — aguarda uma única auditoria Yala.** Nenhum próximo material automaticamente autorizado.
+
 ### 2026-07-15 (128) — DECISION-0178: SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · ENCERRADA
 - Auditoria Yala read-only → **Veredito A**. Arco: `39f439489` → `b6e965b71` (DECISION-0178 promulgada docs-only) → este selo (docs-only; 2 arquivos: `REMEDIATION_DT_LOG.md` + este). **Veredito B do GATE FISCAL-4D-2-0 encerrado pela decisão humana e agora selado.** Material 4d-2 NÃO executado.
 - **Selado — vocabulário físico (D1):** 5 valores `gross/net/gross_transaction/commission_gross/commission_distributable`; 3 graváveis canônicos (`gross_transaction`/`commission_gross`/`commission_distributable`); 2 legados read-only (`gross`/`net`); trava dos 3 é writer+tipos+manifesto+guard, não o CHECK isolado.
