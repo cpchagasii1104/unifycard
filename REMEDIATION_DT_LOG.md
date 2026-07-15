@@ -1,5 +1,38 @@
 # REMEDIATION DT LOG
 
+## F-GOVERNED-VOCABULARY-DERIVED-TYPE-REFERENCE-CONTRACT · REMEDIAÇÃO CONSOLIDADA GUARD/PROVAS (VETOR 18 OBJECT-REGISTRY) — 🟢 EXECUTADA E PROVADA · NÃO SELADA · AGUARDA UMA ÚNICA REAUDITORIA YALA FINAL (2026-07-15)
+**YALA: VEREDITO B** — a canonicalização material já foi considerada correta; a única lacuna era o **vetor 18** (object-registry). Remediação **guard/prova-only**, sem retomar FISCAL-4E, sem novo GATE, sem nova DECISION.
+
+**Arco:**
+```
+BASE:                1d29cb748 (0181 selada)
+MATERIAL:            68d941979
+CARTÓRIO MATERIAL:   98ed624acf9a4d022fe3102fc0d0003f42ca8974
+REMEDIAÇÃO:          5080e76d5   (parent = 98ed624ac)
+```
+
+**Arquivos materiais (2, no envelope máximo):** `scripts/audit-governed-vocabulary-manifest.mjs` (endurecido) + `scripts/audit-governed-vocabulary-manifest-mutations.mjs` (**NOVO harness reproduzível — não é guard, não entra no runner, não ocupa 186**). Nenhum terceiro arquivo material.
+
+**Correção AST (vetor 18):** a detecção estrutural passa a reconhecer `ObjectLiteralExpression` que re-declara o vocabulário pelos **VALORES** dos inicializadores das propriedades — **contando valores, ignorando chaves**; **cada objeto é um cluster isolado** (objetos distintos NÃO se somam; escalares distribuídos NÃO contam); limiar **n−1 preservado**. Desembrulho sintático delimitado de `ParenthesizedExpression`/`AsExpression`/`TypeAssertionExpression`/`SatisfiesExpression` (sem avaliação dinâmica, sem seguir referências, sem executar código). `Object.freeze({...})` e valores `as const` cobertos pelo próprio AST.
+
+**Benignos preservados:** config map numérico (tokens só nas chaves) · handler map (tokens só nas chaves) · `Record<BankSplitType, number>` (valores numéricos) · objetos distribuídos abaixo do limiar · objeto com ≤2 valores · SPE e Bank Split Engine (cada `{ splitType: 'x' }` conta 1 valor por objeto → não agrega) · `targetType='platform'` · comentários documentais · entradas legadas sem `derivedTypeSymbol`.
+
+**Endurecimento estrito:** antes o object-registry BYPASSAVA; depois MORDE. Demais resultados **inalterados**. **Zero** allowlist · **zero** redução de limiar · **zero** exceção por caminho/arquivo · **zero** segundo guard · **zero** comando 186 · **zero** import de módulo Bank · **zero** parser novo instalado · **zero** transformação em runtime.
+
+**Retrocompatibilidade:** 29 entradas · 28 legadas com veredito **idêntico** (mesmos 4 warnings 🟢) · zero failure suprimida · caminho textual das legadas intocado (só entradas COM `derivedTypeSymbol` usam o caminho estrutural).
+
+**Matriz reproduzível (`node scripts/audit-governed-vocabulary-manifest-mutations.mjs`, exit≠0 em falha, resíduo byte-exato ZERO):** **HOSTIS 42/42** (comentário/string/template/import-não-usado/alias/homônimo/namespace/cast/type-assertion/re-export/wrapper + union canônico · enum · tuple · array · Set · schema · **object-registry** · segunda lista · sourceFile/sourceSymbol/derivedTypeSymbol incorretos · tipo-não-derivado/de-segunda-lista · revival das 4 unions · sem-allowlist · limiar-n−1 · sem-import-runtime · anti-drift-28 · runner-185 · SPE-hash==pin · bank-integration-intacto · bank-split-engine-intacto · repin-presente · guard-4d-2-verde · B-CITY-coerente · platform-ausente · escrow-presente · tax_reserve-ausente); **BENIGNOS 8/8**; **COMPLEMENTARES 7/7** (incl. Object.freeze 6/6 e as-const → mordem; config/handler/Record/distribuídos/abaixo-do-limiar → benignos).
+
+**Neutralidade material (provada de 1ª mão):** alterados SOMENTE o guard de governança + o harness. Byte-intactos: `bank-split.types.ts` · SPE (`bb3f3fe6…`) · `bank-integration.service.ts` · `bank-split-engine.service.ts` (`35f6e859…` disco / git diff limpo) · `governed-vocabularies.manifest.ts` (`3771f30b…`) · `07_NOMENCLATURA §4.55` · guard 4d-2 (`6087784364…`) · B-CITY (`d359f18d…`) · 4c-3 (`942142f3…`) · DECISION-0180/0181. Emitted-JS de SPE/bank-integration inalterado; zero caller novo; zero reachability monetária nova. Guard manifesto `fb24b3d9…` → `eb0c1c183439a9798bc4e7c43f5a6d726c4c9e08a6c69d2d882e4e7eaba846d4`; harness `73fe59f3…`.
+
+**Provas globais:** typecheck **0**; runner **185** verde; guard manifesto **29** entradas GATE OK; git diff --check limpo; LF uniforme.
+
+**Bank / fronteiras (read-only):** `bank_accounts=16 · regional_fund_accounts=1 · bank_transactions=0 · bank_splits=0 · bank_ledger=0 · Curitiba=0 · Δbank=0`; `fiscal_reserve_accounts`/`fiscal_provision_events` inexistentes. **FISCAL-4E SUSPENSA**; firewall **OFF**; caller **ZERO**; zero migration/DDL/DML/conta/transaction/split/ledger/rota/worker/frontend. `DT-INVOICING-HARDCODED-TAX-RATE`/`DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN; B-CITY-2 BLOQUEADA.
+
+**STATUS: REMEDIAÇÃO CONSOLIDADA EXECUTADA E PROVADA · MATERIAL AINDA NÃO SELADO · AGUARDA UMA ÚNICA REAUDITORIA YALA FINAL. NENHUM material automaticamente autorizado.**
+
+---
+
 ## F-GOVERNED-VOCABULARY-DERIVED-TYPE-REFERENCE-CONTRACT · BANK-SPLIT-TYPE CANONICALIZATION — 🟢 MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
 **GO material recebido** (`GO MATERIAL GOVERNED VOCABULARY DERIVED REFERENCE CONTRACT AND RESUME BANK-SPLIT-TYPE CANONICALIZATION`). Envelope material único executado e provado sobre a base selada. **Ainda NÃO selado.**
 

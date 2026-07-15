@@ -269,6 +269,16 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-15 (140) — REMEDIAÇÃO CONSOLIDADA GUARD/PROVAS (vetor 18 object-registry, Yala Veredito B): EXECUTADA E PROVADA · NÃO SELADA
+- **Yala Veredito B:** canonicalização já correta; única lacuna = **vetor 18** (object-registry). Remediação **guard/prova-only** (sem novo GATE/DECISION/FISCAL-4E). Arco `…98ed624ac` (cartório material) → **`5080e76d5`** (remediação). Commit: guard endurecido + **harness reproduzível novo** (`audit-governed-vocabulary-manifest-mutations.mjs` — não-guard, fora do runner, sem comando 186).
+- **AST:** detecta `ObjectLiteralExpression` que re-declara o vocabulário pelos **VALORES** (chaves ignoradas); cada objeto = cluster isolado (não agrega objetos distintos nem escalares); limiar **n−1** preservado; desembrulha Parenthesized/As/TypeAssertion/Satisfies; `Object.freeze`+`as const` cobertos. Antes bypassava → agora **morde**; demais resultados inalterados.
+- **Benignos:** config numérico / handler map / `Record<BankSplitType,number>` (valores não-string) · objetos distribuídos / abaixo do limiar · SPE + Bank Split Engine (1 valor por objeto) · `targetType='platform'` · comentários · legadas sem derivedTypeSymbol.
+- **Zero:** allowlist · redução de limiar · exceção por caminho · segundo guard · comando 186 · parser novo · runtime. **Retrocompat:** 29 entradas, 28 legadas idênticas (mesmos 4 warnings), zero failure suprimida.
+- **Matriz reproduzível:** HOSTIS **42/42** · BENIGNOS **8/8** · COMPLEMENTARES **7/7** · resíduo byte-exato **ZERO** · fail-closed (exit≠0).
+- **Neutralidade:** só guard+harness alterados; byte-intactos SPE (`bb3f3fe6…`), bank-integration, bank-split-engine (`35f6e859…`), manifesto (`3771f30b…`), §4.55, 4d-2 (`6087784364…`), B-CITY (`d359f18d…`), 4c-3 (`942142f3…`), DECISION-0180/0181; emitted-JS inalterado; zero caller novo. Guard `fb24b3d9…`→`eb0c1c18…`.
+- **Provas:** typecheck 0 · runner **185** verde · manifesto 29 GATE OK · git diff --check limpo · DB 16/1/0/0/0, **Δbank=0**, fiscal 4e inexistente · firewall OFF · caller zero.
+- **STATUS: REMEDIAÇÃO EXECUTADA E PROVADA · MATERIAL AINDA NÃO SELADO · aguarda uma única reauditoria Yala final. NENHUM material automaticamente autorizado.**
+
 ### 2026-07-15 (139) — F-GOVERNED-VOCABULARY-DERIVED-TYPE-REFERENCE-CONTRACT + BANK-SPLIT-TYPE CANONICALIZATION: MATERIAL EXECUTADO E PROVADO · NÃO SELADO
 - **GO material recebido** → envelope único executado sobre a base selada `1d29cb748`. Commit material `68d941979` (7 arquivos do envelope; nenhum cartório/público). **Ainda NÃO selado — aguarda auditoria Yala.**
 - **Fonte/derivado:** `BANK_SPLIT_TYPES` tuple `as const` (sourceSymbol, 6 valores ordem viva) + `BankSplitType = (typeof BANK_SPLIT_TYPES)[number]` (derivedTypeSymbol). Zero segunda fonte; `platform`/`tax_reserve` fora do tuple.
