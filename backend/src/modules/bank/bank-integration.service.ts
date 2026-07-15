@@ -13,7 +13,7 @@ import { requestAndExecuteReversalSync } from '../reversal/reversal.service';
 import { buildFinancialAuthorshipFromRequest } from './financial-authorship.helper';
 import { assertCheckoutFinancialRuntimeEnabled } from '@core/checkout/checkout-financial-firewall';
 import { assertRidesFinancialRuntimeEnabled } from '@core/rides/rides-financial-firewall';
-import type { BankTransactionContext } from './bank-split.types';
+import type { BankSplitType, BankTransactionContext } from './bank-split.types';
 import type { BankCurrency } from './bank-account.types';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
 
@@ -234,7 +234,7 @@ class BankIntegrationService {
         /** PE-3: destino do split. Quando ausente, força escrow_payments (compat legacy). */
         destinationAccountId?: string;
         /** PE-3: tipo do split. Quando ausente, força 'revenue_share' (compat legacy). */
-        splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
+        splitType?: BankSplitType;
         /** Fase 2c (DECISION-0166 D5): jurisdição por FK da linha regional_fund; demais null. */
         jurisdictionSnapshot?: Record<string, unknown> | null;
       }>;
@@ -351,7 +351,7 @@ class BankIntegrationService {
       amountCents: number;
       percentage?: number | null;
       receiverActorId: string;
-      splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
+      splitType?: BankSplitType;
       jurisdictionSnapshot?: Record<string, unknown> | null;
     }> = [];
     for (const r of splitRecipients) {

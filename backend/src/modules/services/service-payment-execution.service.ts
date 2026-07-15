@@ -22,6 +22,7 @@ import { economicPolicyEngineService } from '@modules/economy/policy-engine/econ
 import { operationalAddressHelper } from '@core/location/operational-address.helper';
 import { resolveActorTerritory } from '@core/location/actor-territorial-resolver';
 import { isRegionalFundCityEnabled } from '../bank/regional-fund-city-activation';
+import type { BankSplitType } from '../bank/bank-split.types';
 import type {
   CalculatedEconomicSplit,
   EconomicPolicyLineType,
@@ -62,7 +63,7 @@ const SUPPORTED_DESTINATION_TYPES: ReadonlySet<EconomicPolicyDestinationType> = 
 
 type ResolvedSplitDestination = {
   destinationAccountId: string;
-  splitType: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
+  splitType: BankSplitType;
   /**
    * Indica se este split deve ser repassado depois para `actor_wallet` via
    * D-money (`releaseFundsToActorWalletForOrder`). Apenas `revenue_share`
@@ -562,7 +563,7 @@ class ServicePaymentExecutionService {
       amountCents: number;
       percentage: number | null;
       destinationAccountId?: string;
-      splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
+      splitType?: BankSplitType;
       lineType?: EconomicPolicyLineType;
       releaseToActorWallet: boolean;
       /** Fase 2c: jurisdição por FK da linha regional_fund (demais linhas: null). */

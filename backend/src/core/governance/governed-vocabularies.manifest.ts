@@ -24,8 +24,15 @@ export interface GovernedVocabulary {
   sourceFile: string;
   /** como o vocabulário é definido na fonte. */
   sourceKind: VocabularySourceKind;
-  /** símbolo (enum/const) OU coluna (para sql-check) que porta os valores. */
+  /** símbolo (enum/const) OU coluna (para sql-check) que porta os valores por autoridade.
+   *  Papel: sourceSymbol (DECISION-0181) — quem POSSUI os valores na fonte. */
   symbol: string;
+  /** DECISION-0181 — derivedTypeSymbol: o TIPO DERIVADO (ex.: `type BankSplitType =
+   *  (typeof BANK_SPLIT_TYPES)[number]`) que os consumidores devem referenciar por
+   *  `import type`. OPCIONAL: as entradas sem tipo derivado permanecem válidas sem
+   *  este campo. Quando presente, o guard prova a derivação na fonte e a referência
+   *  ESTRUTURAL nos consumidores (não basta menção textual). */
+  derivedTypeSymbol?: string;
   /** os valores canônicos (o guard confirma que aparecem na fonte — anti-drift). */
   values: string[];
   /** referência normativa (docs/01_normative ou docs/02_decisions) + nota. */
@@ -298,5 +305,15 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     symbol: 'ECONOMIC_POLICY_APPLIES_TO_WRITABLE',
     values: ['gross_transaction', 'commission_gross', 'commission_distributable'],
     canonRef: 'DECISION-0178 D1/D4/D13/D15 (FISCAL 4D-2). CHECK físico = 5 (economic_policy_lines_applies_to_check). GRAVÁVEIS = estes 3 (gross_transaction=bruto da operação; commission_gross=comissão-fato da plataforma; commission_distributable=commission_gross−tax_reserve do motor 4d-1). LEGADOS READ-ONLY = gross|net (ECONOMIC_POLICY_APPLIES_TO_LEGACY_READONLY; preservados no CHECK só p/ o histórico congelado — 75 linhas em policies deprecated; NUNCA graváveis por novo writer, NUNCA aliases). tax_reserve NÃO é valor de applies_to (é line_type da 4e). Evolução só por nova DECISION.',
+  },
+  {
+    name: 'bank_splits.split_type',
+    pillar: 'money',
+    sourceFile: 'src/modules/bank/bank-split.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'BANK_SPLIT_TYPES',
+    derivedTypeSymbol: 'BankSplitType',
+    values: ['fee', 'regional_fund', 'reserve', 'escrow', 'revenue_share', 'referral'],
+    canonRef: 'DECISION-0180 D2/D3 + DECISION-0181 (Governed Vocabulary Source and Derived Reference Contract). sourceSymbol=BANK_SPLIT_TYPES (tuple `as const`, única fonte dos valores) em src/modules/bank/bank-split.types.ts; derivedTypeSymbol=BankSplitType (DERIVADO: (typeof BANK_SPLIT_TYPES)[number]). Consumidores referenciam o TIPO DERIVADO por `import type` (SPE, bank-integration, bank-split-engine). Vocabulário governado do split (bank_splits.split_type), NÃO autoridade financeira (dinheiro = bank_ledger/bank_splits). Ordem viva preservada. tax_reserve FORA desta frente (extensão 6→7 = FISCAL-4E). Guard prova referência ESTRUTURAL (menção textual não legitima; import canônico não perdoa declaração paralela; uso escalar legítimo não é segunda fonte). ANTI-DRIFT atual manifesto ⊆ fonte; igualdade bidirecional reservada à 4e.',
   },
 ];

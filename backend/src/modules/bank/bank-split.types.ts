@@ -5,15 +5,26 @@
 import type { BankCurrency } from './bank-account.types';
 
 /**
- * Tipo de split
+ * Vocabulário canônico único dos tipos de split (DECISION-0180 / DECISION-0181).
+ * `BANK_SPLIT_TYPES` é a FONTE (sourceSymbol) que porta os valores por autoridade;
+ * `BankSplitType` é o tipo DERIVADO (derivedTypeSymbol), projeção exclusiva do tuple.
+ * Fonte de VALOR, nunca autoridade financeira (o dinheiro vive no bank_ledger /
+ * bank_splits). A ordem viva dos seis valores é preservada literalmente; a
+ * extensão 6→7 (tax_reserve) pertence exclusivamente à retomada da FISCAL-4E.
  */
-export type BankSplitType =
-  | 'fee'              // Taxa da plataforma
-  | 'regional_fund'    // Fundo regional
-  | 'reserve'          // Reserva do sistema
-  | 'escrow'           // Custódia
-  | 'revenue_share'    // Participação na receita (organizador, worker, etc)
-  | 'referral';        // Comissão de indicação
+export const BANK_SPLIT_TYPES = [
+  'fee',            // Taxa da plataforma
+  'regional_fund',  // Fundo regional
+  'reserve',        // Reserva do sistema
+  'escrow',         // Custódia
+  'revenue_share',  // Participação na receita (organizador, worker, etc)
+  'referral',       // Comissão de indicação
+] as const;
+
+/**
+ * Tipo de split — DERIVADO do tuple canônico acima (nunca redeclarar a union).
+ */
+export type BankSplitType = (typeof BANK_SPLIT_TYPES)[number];
 
 /**
  * Contexto da transação (determina regras de split)

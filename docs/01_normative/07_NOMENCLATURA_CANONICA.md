@@ -1937,16 +1937,18 @@ Coluna: `transaction_type`
 
 Valores em `lowercase`
 Tipo: `VARCHAR(30)`
-Coluna: `split_type`
+Coluna: `split_type` (tabela `bank_splits`)
 
 ```sql
 'revenue_share'     -- Divisão de receita
 'regional_fund'     -- Fundo regional
 'fee'               -- Taxa
 'reserve'           -- Reserva
+'escrow'            -- Custódia
 'referral'          -- Indicação
-'platform'          -- Plataforma
 ```
+
+**Fonte canônica (DECISION-0180/0181):** `BANK_SPLIT_TYPES` (tuple `as const`, sourceSymbol) em `backend/src/modules/bank/bank-split.types.ts`; tipo derivado `BankSplitType` (derivedTypeSymbol = `(typeof BANK_SPLIT_TYPES)[number]`). Seis valores vivos. `platform` **NÃO** é `split_type` (a ocorrência `targetType='platform'` em transparência é rótulo de destino, não valor de split). `tax_reserve` **fora** desta frente (extensão 6→7 = FISCAL-4E).
 
 ### 4.56 System Account Names
 

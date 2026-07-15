@@ -148,7 +148,7 @@ if (/fiscal-policy-composition/.test(appBuilder)) note('R3: orquestrador registr
 // ── B · fronteiras: 3 arquivos B-CITY byte-intactos; guards reconciliados ──
 const BYTE_INTACT = {
   [F.ENGINE]: 'f16934dce1eb000c501fd430d10be83cd4d908bc914becc84568a9832c881fdf',
-  [F.SPE]: 'eba0e1c3fd363e5bea7091d41d7898f475c6bfb27a18b0095af6ebad976c9dd2',
+  [F.SPE]: 'bb3f3fe6b494aac69a9642881f1d929aae9e0787e4f131fb30f88c069ff21050',
   [F.GUARD_BCITY]: 'd359f18db345137e91d06db1276475250f97e18c1bd4498ad5fab2cbc60387f9',
 };
 for (const [p, expected] of Object.entries(BYTE_INTACT)) {
