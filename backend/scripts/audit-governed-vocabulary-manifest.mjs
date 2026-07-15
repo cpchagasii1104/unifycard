@@ -15,8 +15,9 @@
 // DECISION-0181 — CONTRATO sourceSymbol × derivedTypeSymbol (endurecimento ESTRUTURAL, não permissivo):
 //   Uma entrada pode declarar `derivedTypeSymbol` (o TIPO derivado do `symbol`=sourceSymbol). Para essas
 //   entradas o guard distingue ESTRUTURALMENTE três situações (via parser TypeScript, sem nova dependência):
-//     (A) DECLARAÇÃO PARALELA — um MESMO construto (union type / array / tuple / enum) reconstrói o
-//         vocabulário (≥ n−1 valores) → MORDE. Importar o tipo derivado NÃO perdoa uma declaração paralela.
+//     (A) DECLARAÇÃO PARALELA — um MESMO construto (union type / array / tuple / enum / object-literal
+//         registry, contando VALORES e não chaves) reconstrói o vocabulário (≥ n−1 valores) → MORDE.
+//         Importar o tipo derivado NÃO perdoa uma declaração paralela.
 //     (B) REFERÊNCIA CANÔNICA — consumidor usa o tipo derivado (`import type`), sem declaração paralela → OK.
 //     (C) USO ESCALAR LEGÍTIMO — valores individuais espalhados em lógica (casos/destinos/defaults) NÃO
 //         são segunda fonte → NÃO morde (mera coocorrência textual nunca basta).
@@ -127,14 +128,28 @@ if (entries.some((e) => e.derivedTypeSymbol)) {
 }
 
 // Maior "cluster" de valores do vocabulário dentro de UM ÚNICO construto declarativo
-// (union type | array literal | tuple type | enum). Propriedades de objeto e literais escalares
-// espalhados NÃO contam — é exatamente a distinção declaração-paralela × uso-escalar (DECISION-0181).
+// (union type | array literal | tuple type | enum | object-literal registry). A regra é sempre
+// contar VALORES string-literal, nunca chaves/identificadores, e SEMPRE por construto isolado
+// (objetos/arrays/uniões distintos NÃO se somam; escalares espalhados NÃO contam) — é exatamente
+// a distinção declaração-paralela × uso-escalar (DECISION-0181 D6-A/C; vetor 18 = object-registry).
 function maxDeclClusterHits(sourceText, valueSet) {
   const sf = ts.createSourceFile('f.ts', sourceText, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
   let max = 0;
+  // desembrulha wrappers puramente sintáticos (sem avaliar código, sem seguir referências).
+  const unwrap = (n) => {
+    while (n && (
+      ts.isParenthesizedExpression(n) ||
+      ts.isAsExpression(n) ||
+      (ts.isTypeAssertionExpression && ts.isTypeAssertionExpression(n)) ||
+      (ts.isSatisfiesExpression && ts.isSatisfiesExpression(n))
+    )) n = n.expression;
+    return n;
+  };
   const strOf = (node) => {
-    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
-    if (ts.isLiteralTypeNode(node) && ts.isStringLiteral(node.literal)) return node.literal.text;
+    const n = unwrap(node);
+    if (!n) return null;
+    if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) return n.text;
+    if (ts.isLiteralTypeNode(n) && ts.isStringLiteral(n.literal)) return n.literal.text;
     return null;
   };
   const countAmong = (nodes) => {
@@ -149,7 +164,21 @@ function maxDeclClusterHits(sourceText, valueSet) {
     else if (ts.isEnumDeclaration(node)) {
       const s = new Set();
       node.members.forEach((m) => {
-        if (m.initializer && ts.isStringLiteral(m.initializer) && valueSet.has(m.initializer.text)) s.add(m.initializer.text);
+        const v = m.initializer ? strOf(m.initializer) : null;
+        if (v && valueSet.has(v)) s.add(v);
+      });
+      max = Math.max(max, s.size);
+    }
+    else if (ts.isObjectLiteralExpression(node)) {
+      // vetor 18: registry object-keyed que re-declara o vocabulário pelos VALORES dos
+      // inicializadores (as CHAVES são ignoradas — config/handler maps ficam benignos).
+      // Cada ObjectLiteralExpression é um cluster isolado (não agrega objetos distintos).
+      const s = new Set();
+      node.properties.forEach((p) => {
+        if (ts.isPropertyAssignment(p) && p.initializer) {
+          const v = strOf(p.initializer);
+          if (v && valueSet.has(v)) s.add(v);
+        }
       });
       max = Math.max(max, s.size);
     }
