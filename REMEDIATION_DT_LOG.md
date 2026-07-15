@@ -1,5 +1,30 @@
 # REMEDIATION DT LOG
 
+## DECISION-0181 · GOVERNED VOCABULARY SOURCE AND DERIVED REFERENCE CONTRACT — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · FISCAL-4E SUSPENSA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+**Origem: `GO MATERIAL BANK-SPLIT-TYPE CANONICALIZATION PREREQUISITE` → STOP CORRETO da executora.** Ao registrar `bank_splits.split_type` (symbol=`BANK_SPLIT_TYPES`) no manifesto, o **guard real** acusou **GATE FAIL** em DOIS consumidores legítimos. A executora **reverteu integralmente a tentativa material (ZERO commit)** e Clayton promulgou esta DECISION docs-only. Base `a399c98b3`. Commit docs-only único: DECISION-0181 + este cartório + `dividatecnica.md`. **Zero código · zero manifesto · zero guard · zero nomenclatura material · zero migration · zero DDL/DML · zero Bank write · firewall OFF · Δbank=0.**
+
+**COLISÃO PROVADA DE 1ª MÃO (guard real, não simulação):**
+```
+GATE FAIL [governed-vocabulary-manifest]: entradas=29 failures=2
+ ❌ [bank_splits.split_type] ANTI-PARALELO: 5/6 valores reaparecem em
+    bank-split-engine.service.ts SEM referenciar BANK_SPLIT_TYPES
+ ❌ [bank_splits.split_type] ANTI-PARALELO: 5/6 valores reaparecem em
+    service-payment-execution.service.ts SEM referenciar BANK_SPLIT_TYPES
+```
+**Causa-raiz:** limiar anti-paralelo = (n−1) = 5 a 6 valores; o legitimador do guard é textual (`new RegExp(symbol)` com `symbol='BANK_SPLIT_TYPES'`, o **const**); mas a DECISION-0180 D4 manda os consumidores usarem `import type { BankSplitType }` (o **tipo derivado**, que não contém a string `BANK_SPLIT_TYPES`). Dois arquivos Bank usam ≥5 dos 6 valores como **literais escalares legítimos** (percentuais/destinos de split), não como declaração paralela. A premissa da 0180 D8 ("guard permanece verde") é **materialmente falsa a 6 valores**.
+
+**FATO DE ESCOPO NOVO:** `bank-split-engine.service.ts` é um **TERCEIRO** consumidor Bank relevante ao guard — **FORA do inventário selado da 0180** (não é union inline; já importa `BankSplitType`; usa 5 valores escalares em lógica real de split).
+
+**DECISÕES PROMULGADAS (D0–D13):** **R1 REJEITADA** (manifest `symbol: BankSplitType` embaralharia fonte×projeção; o *source symbol* continua `BANK_SPLIT_TYPES`). **R2 ENDURECIDA RATIFICADA** — o manifesto/guard distinguem **quatro papéis**: `sourceFile` · `sourceSymbol` (const que porta os valores) · `derivedTypeSymbol` (tipo aceito nos consumidores) · `values` (projeção governada). **R3 RATIFICADA** — inventário real: **declarações paralelas = 4 sites / 2 arquivos** (SPE `ResolvedSplitDestination`+`LocalSplitRecipient`; bank-integration `splitRecipients`+`splitLines`) × **consumidores relevantes para o guard = 3 arquivos** (+ `bank-split-engine`, lógica inalterada). **Guard endurecedor** (D6/D7): (A) declaração paralela MORDE; (B) legitimação exige **prova estrutural** de import do `derivedTypeSymbol` + origem no `sourceFile` + posição tipológica + ausência de union paralela no mesmo arquivo; (C) **uso escalar legítimo não é declaração paralela**. **ANTI-BYPASS:** mera string/comentário/alias/cast/`as BankSplitType`/import-não-usado NÃO legitima; `import type` + segunda union no mesmo arquivo AINDA MORDE. **Runner 185** (186 reservada à 4e); **evoluir o guard existente**, não criar segundo; B-CITY byte-intacto; 4D-2 só repin SPE. `tax_reserve` FORA.
+
+**ESCOPO MATERIAL FUTURO (envelope consolidado único, só após selo + GO próprio):** bank-split.types.ts · SPE · bank-integration · bank-split-engine (só se necessário) · manifesto · audit-governed-vocabulary-manifest.mjs (endurecimento) · 07_NOMENCLATURA §4.55 (platform→escrow) · audit-fiscal-economic-policy-composition.mjs (só repin SPE) · mutations delimitadas. Gatilho literal futuro: **`GO MATERIAL GOVERNED VOCABULARY DERIVED REFERENCE CONTRACT AND RESUME BANK-SPLIT-TYPE CANONICALIZATION`**.
+
+**FRONTEIRAS:** DECISION-0180 **SELADA · byte-intacta** (não modificada) · material anterior de Bank Split Type **SUSPENSO · NÃO REVOGADO · NÃO EXECUTÁVEL** (não revalida automaticamente) · FISCAL-4E SUSPENSA · `tax_reserve` fora · Bank intacto (16/1/0/0/0) · saldo Curitiba 0 · Δbank=0 · firewall OFF · caller ZERO · B-CITY-2 BLOQUEADA · `DT-INVOICING-HARDCODED-TAX-RATE`/`DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (não governa a reserva fiscal).
+
+**STATUS: DECISION-0181 NÃO SELADA — aguarda uma única auditoria Yala. Material exige GO próprio. NENHUM material automaticamente autorizado.**
+
+---
+
 ## DECISION-0180 · ERRATA CARTORIAL DOCS-ONLY · RECONCILIAÇÃO DO INVENTÁRIO MATERIAL APÓS HANDOFF/GATE — ✅ COMPLEMENTO DO GATE · VEREDITO A (2026-07-15)
 **Ato:** errata **append-only** que corrige DOIS fatos materiais descobertos de **1ª mão** no handoff arquitetural + complemento read-only do GATE (leitura normativa direta + prova DB). **NÃO reabre nenhuma decisão, NÃO cria DT nova, NÃO amplia o envelope material e NÃO altera a DECISION-0180** (byte-intacta, sha256 `b78dd59886768b83c85f3aba605e596341b7aa0c113defece583c05f9b15c873`). O selo da DECISION-0180 abaixo **permanece válido**; esta entrada **supersede apenas os fatos factuais incompletos**, sem reescrever o histórico. **Zero código · zero manifesto · zero nomenclatura alterada nesta etapa · zero guard · zero migration · zero DB · zero Bank write · material NÃO iniciado.**
 
