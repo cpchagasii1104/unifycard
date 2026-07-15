@@ -16,6 +16,7 @@ import {
   PLATFORM_REVENUE_STREAMS,
   TAX_SCOPE_LEVELS,
   FISCAL_CONFIG_MISSING,
+  ROUNDING_MODES,
 } from './tax-catalog.types';
 import type {
   TaxType,
@@ -55,6 +56,7 @@ interface RuleRow {
   state_id: string | null;
   city_id: string | null;
   rate_bps: number;
+  rounding_mode: string | null;
   effective_from: Date;
   effective_until: Date | null;
   source: string;
@@ -68,7 +70,7 @@ interface RuleRow {
 const TYPE_COLS = `id, tenant_id, code, name, description, scope_level, source, status,
        effective_from, effective_until, created_by_actor_id, created_at`;
 const RULE_COLS = `id, tenant_id, tax_type_id, scope_level, taxpayer_kind, platform_revenue_stream,
-       tax_regime, concept_id, country_id, state_id, city_id, rate_bps, effective_from,
+       tax_regime, concept_id, country_id, state_id, city_id, rate_bps, rounding_mode, effective_from,
        effective_until, source, configured_by_actor_id, status, version, metadata, created_at`;
 
 function toType(r: TypeRow): TaxType {
@@ -102,6 +104,7 @@ function toRule(r: RuleRow): TaxRule {
     stateId: r.state_id,
     cityId: r.city_id,
     rateBps: r.rate_bps,
+    roundingMode: r.rounding_mode as TaxRule['roundingMode'],
     effectiveFrom: r.effective_from.toISOString(),
     effectiveUntil: r.effective_until ? r.effective_until.toISOString() : null,
     source: r.source,
@@ -166,6 +169,11 @@ class TaxCatalogRepository {
 
   // ── tax_rules ─────────────────────────────────────────────────────────────
   private assertRuleVocab(input: CreateTaxRuleInput): void {
+    if (input.roundingMode != null && !ROUNDING_MODES.includes(input.roundingMode)) {
+      throw new Error(
+        `ROUNDING_MODE_INVALID: '${input.roundingMode}' fora do vocabulário governado (${ROUNDING_MODES.join(', ')}) — DECISION-0167 §8.`
+      );
+    }
     if (!TAXPAYER_KINDS.includes(input.taxpayerKind)) {
       throw new Error(
         `TAXPAYER_KIND_INVALID: '${input.taxpayerKind}' fora de (${TAXPAYER_KINDS.join(', ')}).`
@@ -223,10 +231,10 @@ class TaxCatalogRepository {
       input.tenantId,
       `INSERT INTO tax_rules
          (tenant_id, tax_type_id, scope_level, taxpayer_kind, platform_revenue_stream, tax_regime,
-          concept_id, country_id, state_id, city_id, rate_bps, effective_from, source,
+          concept_id, country_id, state_id, city_id, rate_bps, rounding_mode, effective_from, source,
           configured_by_actor_id, status, version, metadata)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid, $8::uuid, $9::uuid, $10::uuid, $11,
-               COALESCE($12, NOW()), $13, $14::uuid, 'draft', $15, $16::jsonb)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid, $8::uuid, $9::uuid, $10::uuid, $11, $12,
+               COALESCE($13, NOW()), $14, $15::uuid, 'draft', $16, $17::jsonb)
        RETURNING ${RULE_COLS}`,
       [
         input.tenantId,
@@ -240,6 +248,7 @@ class TaxCatalogRepository {
         input.stateId ?? null,
         input.cityId ?? null,
         input.rateBps,
+        input.roundingMode ?? null,
         input.effectiveFrom ?? null,
         input.source,
         input.configuredByActorId ?? null,
@@ -268,6 +277,15 @@ class TaxCatalogRepository {
         throw new Error('TAX_RULE_NOT_DRAFT: só draft pode ser ativado (mudança = nova versão).');
       }
       const t = target.rows[0];
+      // FISCAL 4D-1 (DECISION-0167 §8): regra ATIVA exige arredondamento GOVERNADO — draft pode
+      // nascer incompleto, mas a ativação FALHA FECHADO sem rounding_mode. Zero default silencioso;
+      // o motor nunca escolhe (Lei do Contador: arredondamento é dado da regra, não código).
+      if (t.rounding_mode == null) {
+        throw new Error(
+          'TAX_RULE_ROUNDING_MODE_REQUIRED: ativação exige rounding_mode governado ' +
+            `(${'half_up, half_even, floor, ceil'}) — DECISION-0167 §8; configure o draft antes de ativar.`
+        );
+      }
       await client.query(
         `UPDATE tax_rules SET status = 'deprecated', effective_until = COALESCE(effective_until, NOW())
           WHERE tenant_id = $1::uuid AND status = 'active'

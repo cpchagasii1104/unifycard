@@ -37,6 +37,15 @@ export type TaxScopeLevel = (typeof TAX_SCOPE_LEVELS)[number];
 export const TAX_TYPE_STATUSES = ['active', 'retired'] as const;
 export type TaxTypeStatus = (typeof TAX_TYPE_STATUSES)[number];
 
+/**
+ * FISCAL 4D-1 (DECISION-0167 §8) — modos de arredondamento GOVERNADOS da regra fiscal. Semânticas
+ * matemáticas padrão; a ESCOLHA por regra é configuração do contribuinte/contador (Lei do Contador),
+ * nunca comportamento oculto do código. Mesmo conjunto do CHECK chk_tax_rules_rounding_mode.
+ * Draft pode nascer sem; ATIVAÇÃO exige (activateRule fail-closed). Zero default silencioso.
+ */
+export const ROUNDING_MODES = ['half_up', 'half_even', 'floor', 'ceil'] as const;
+export type RoundingMode = (typeof ROUNDING_MODES)[number];
+
 export const TAX_RULE_STATUSES = ['draft', 'active', 'deprecated'] as const;
 export type TaxRuleStatus = (typeof TAX_RULE_STATUSES)[number];
 
@@ -70,6 +79,8 @@ export interface TaxRule {
   cityId: string | null;
   /** Alíquota em basis points INTEIROS — DADO versionado (D9.6.16). NUNCA usado para calcular aqui. */
   rateBps: number;
+  /** 4D-1 (0167 §8): arredondamento GOVERNADO da regra. NULL só em draft; ativa sempre tem. */
+  roundingMode: RoundingMode | null;
   effectiveFrom: string;
   effectiveUntil: string | null;
   source: string;
@@ -104,6 +115,8 @@ export interface CreateTaxRuleInput {
   stateId?: string | null;
   cityId?: string | null;
   rateBps: number;
+  /** 4D-1: opcional no DRAFT (rito permite nascer incompleto); a ATIVAÇÃO exige. */
+  roundingMode?: RoundingMode | null;
   source: string;
   configuredByActorId?: string | null;
   effectiveFrom?: Date;

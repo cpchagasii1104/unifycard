@@ -186,7 +186,8 @@ const CMDS = [
   "node scripts/audit-regional-fund-fk-canonical.mjs",
   "node scripts/audit-policy-immutability-and-split-snapshot.mjs",
   "node scripts/audit-bank-split-pipeline-consolidation.mjs",
-  "node scripts/audit-bank-city-curitiba-foundation.mjs"
+  "node scripts/audit-bank-city-curitiba-foundation.mjs",
+  "node scripts/audit-fiscal-provision-engine.mjs"
 ];
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);

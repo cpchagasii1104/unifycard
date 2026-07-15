@@ -276,4 +276,13 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     values: ['marketplace_commission', 'advertising', 'own_tickets', 'acquiring_fees', 'physical_structures', 'other'],
     canonRef: 'DECISION-0166 D9.5 (Lei do Contador, Fase 4c) + CHECK chk_tax_rules_platform_stream_vocab. Fontes de receita da PRÓPRIA UnifiCard (D9.3 — fiscalidade da plataforma ≠ do actor, mesma infraestrutura). Só existe em regra com taxpayer_kind=platform (CHECK de coerência). NÃO é cálculo/split real (motor = 4d, GO próprio D9.7); é o eixo do contribuinte-plataforma no catálogo fiscal governado.',
   },
+  {
+    name: 'tax_rules.rounding_mode',
+    pillar: 'money',
+    sourceFile: 'src/modules/fiscal/tax-catalog.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'ROUNDING_MODES',
+    values: ['half_up', 'half_even', 'floor', 'ceil'],
+    canonRef: 'DECISION-0167 §8 (FISCAL 4D-1) + CHECK chk_tax_rules_rounding_mode. Arredondamento fiscal é CONFIGURAÇÃO governada da regra (Lei do Contador), nunca comportamento oculto de código: draft pode nascer sem; ativação exige (activateRule fail-closed, zero default silencioso). O motor 4d-1 APLICA o modo da regra e o ECOA no resultado/trilha — Math.round/floor/ceil só como implementação da política expressamente selecionada.',
+  },
 ];
