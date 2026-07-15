@@ -1,5 +1,18 @@
 # REMEDIATION DT LOG
 
+## DECISION-0179 · ERRATA FACTUAL `reference_id` UUID → TEXT (pós-Veredito B da Yala) — 🟠 REMEDIADA DOCS-ONLY · NÃO SELADA · AGUARDA UMA ÚNICA REAUDITORIA YALA (2026-07-15)
+**Reauditoria Yala read-only da DECISION-0179 · Veredito B (uma errata factual, não reabre nenhuma escolha).** Errata append-only: **a caracterização de `bank_transactions.reference_id` como UUID estava INCORRETA.** O schema vivo usa **TEXT** — convertido historicamente de UUID→TEXT pela migration `20260530531000_bank_transactions_reference_id_uuid_to_text.sql` (C19 FIX / DECISION-0029; alinha referência externa heterogênea com `financial_*`/`payment_intents`/`treasury_distributions`).
+
+**Ocorrências anteriores explicitamente SUPERSEDIDAS por esta errata** (append-only, não reescritas): nesta entrada 0179 abaixo — "fatos materiais do GATE" (`reference_id UUID`) e "D11 idempotência" (`reference_id é UUID`); DECISION-0179 corrigida no próprio texto (fato material + D11); `dividatecnica.md` reconciliado por nova entrada de changelog.
+
+**A escolha de fingerprint dedicado permanece INALTERADA** — apenas o fundamento é corrigido. Novo fundamento (vinculante): a raiz canônica e única de idempotência é `(tenant_id, reference_type, reference_id)` (UNIQUE `uq_bank_transactions_reference`); o fingerprint fiscal-econômico **não** pode ser embutido em `reference_id` — não pelo tipo, mas por **separação entre identidade da operação e identidade do payload** (embutir corromperia a raiz de idempotência, quebraria retries/reconciliação e impediria comparação de payload divergente). O fingerprint vive em coluna **dedicada, imutável, comparável, indexável** (`bank_transactions.fiscal_economic_context_fingerprint` ou equivalente canônico), obrigatória no caminho fiscal 4e. Contrato preservado: mesma tuple + mesmo fingerprint → retorna originais; mesma tuple + fingerprint divergente → `IDEMPOTENCY_PAYLOAD_MISMATCH`.
+
+**Nenhuma escolha D1–D21 foi reaberta.** Material 4e NÃO INICIADO · Bank INTACTO · firewall OFF · Δbank=0 · conta fiscal não criada · zero caller monetário. Guard 4c-3 byte-intacto (`942142f3…`); 4d-1/4d-1-R/4d-2/B-CITY-1 preservados. `DT-INVOICING-HARDCODED-TAX-RATE` OPEN · `DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (não governa a reserva fiscal) · B-CITY-2 BLOQUEADA.
+
+**STATUS: DECISION-0179 REMEDIADA DOCS-ONLY APÓS VEREDITO B · NÃO SELADA · AGUARDA UMA ÚNICA REAUDITORIA YALA.** Nenhum selo antecipado; nenhum material autorizado.
+
+---
+
 ## DECISION FISCAL-4E · DECISION-0179 · TAX RESERVE BANK MATERIALIZATION FOUNDATION — 🟣 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL 4E NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
 **GATE FISCAL-4E-0 (read-only, 2026-07-15) → Veredito B → GO explícito de Clayton para promulgar UMA DECISION docs-only consolidada.** Base `rescue-structural @ c3df312b4` (4d-2 selada). Commit docs-only único: `docs/02_decisions/DECISION_0179_FISCAL_TAX_RESERVE_BANK_MATERIALIZATION.md` + este cartório + `dividatecnica.md`. **Zero material · zero migration · zero conta · zero Bank write · firewall OFF · Δbank=0.**
 

@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-15 (132) — DECISION-0179 · ERRATA FACTUAL reference_id UUID→TEXT (pós-Veredito B da Yala) · REMEDIADA DOCS-ONLY · AGUARDA REAUDITORIA
+- Reauditoria Yala da DECISION-0179 → **Veredito B** (uma errata factual; nenhuma escolha reaberta). Base `a4c1deb30`. Commit docs-only único: DECISION-0179 + `REMEDIATION_DT_LOG.md` + este arquivo.
+- **Correção:** `bank_transactions.reference_id` é **TEXT**, não UUID (a entrada 131 abaixo dizia UUID — SUPERSEDIDA por esta, append-only). Conversão histórica UUID→TEXT pela migration `20260530531000_bank_transactions_reference_id_uuid_to_text.sql` (C19 FIX / DECISION-0029).
+- **Fingerprint dedicado PRESERVADO** (D11 inalterada), fundamento corrigido: raiz de idempotência = `(tenant_id, reference_type, reference_id)` (UNIQUE `uq_bank_transactions_reference`); o fingerprint não pode ser embutido em `reference_id` por **separação identidade-da-operação × identidade-do-payload** (não pelo tipo); vive em coluna dedicada/imutável/comparável/indexável → `IDEMPOTENCY_PAYLOAD_MISMATCH` em divergência.
+- Nenhuma nova DT · nenhuma escolha D1–D21 reaberta · zero material · Bank intacto · firewall OFF · Δbank=0 · DECISION-0179 NÃO selada · aguarda uma única reauditoria Yala.
+
 ### 2026-07-15 (131) — DECISION-0179 · FISCAL-4E (tax reserve bank materialization): PROMULGADA DOCS-ONLY · NÃO SELADA · AGUARDA YALA
 - GATE FISCAL-4E-0 (read-only) → **Veredito B** → GO explícito de Clayton p/ UMA DECISION docs-only consolidada. Base `c3df312b4`. Commit docs-only único: DECISION-0179 + `REMEDIATION_DT_LOG.md` + este arquivo. **Zero material/migration/conta/Bank write · firewall OFF · Δbank=0.**
 - **D1 natureza:** tax_reserve = segregação interna de obrigação fiscal (decomposição de commission_gross), não cobrança adicional/recolhimento/policy line. **D2 conservação dupla:** global (Σsplits=amount, Bank) + **por bucket** (commission_gross=tax_reserve+distributable ⋀ sem duplo consumo gross/distributable) validada na composição + guard.
