@@ -269,6 +269,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-15 (141) — F-GOVERNED-VOCABULARY-DERIVED-TYPE-REFERENCE-CONTRACT + BANK-SPLIT-TYPE CANONICALIZATION: SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · ENCERRADA
+- **Reauditoria Yala read-only → Veredito A · SELO COMPLETO MATERIAL.** Frente **SELADA e ENCERRADA**. Trajetória: auditoria inicial **B** (lacuna = vetor 18) → remediação única guard/prova-only → reauditoria final **A**.
+- **Arco completo:** `1d29cb748` (0181 selada) → `68d941979` (material) → `98ed624ac` (cartório) → `5080e76d5` (remediação vetor 18) → `b4fe8445a` (cartório remediação) → este selo (docs-only, 2 arquivos).
+- **Material selado:** `BANK_SPLIT_TYPES` (fonte única, 6 valores ordem viva) + `BankSplitType` derivado; 4 unions removidas (residual 0); 3 consumidores (bank-split-engine byte-intacto); manifesto `bank_splits.split_type` (sourceFile+sourceSymbol+derivedTypeSymbol+values); 28 legadas preservadas.
+- **Guard selado:** endurecido estruturalmente (A paralelo / B referência canônica / C escalar); **vetor 18 object-registry FECHADO** (valores contados, chaves ignoradas, objetos não agregados, limiar n−1); zero allowlist/redução/2º-guard/186. **Matriz: HOSTIS 42/42 · BENIGNOS 8/8 · COMPLEMENTARES 7/7 · resíduo ZERO** (harness reproduzível commitado, fail-closed, fora do runner).
+- **Proteções:** SPE `bb3f3fe6…` · 4d-2 `6087784364…` · 4c-3 `942142f3…` · B-CITY byte-intacto `d359f18d…` · guard manifesto `eb0c1c18…` · runner **185** · DECISION-0180/0181 byte-intactas. §4.55: platform removido / escrow adicionado; `targetType='platform'` preservado; `tax_reserve` fora.
+- **Bank:** 16/1/0/0/0 · Curitiba 0 · **Δbank=0** · fiscal 4e inexistente · firewall OFF · caller zero · B-CITY-2 bloqueada · DTs OPEN.
+- **PRÓXIMO GATILHO (não automático):** **`GO RETOMAR MATERIAL FISCAL-4E`** (só após este selo). Nenhum material FISCAL-4E executado. **NENHUM material automaticamente autorizado.**
+
 ### 2026-07-15 (140) — REMEDIAÇÃO CONSOLIDADA GUARD/PROVAS (vetor 18 object-registry, Yala Veredito B): EXECUTADA E PROVADA · NÃO SELADA
 - **Yala Veredito B:** canonicalização já correta; única lacuna = **vetor 18** (object-registry). Remediação **guard/prova-only** (sem novo GATE/DECISION/FISCAL-4E). Arco `…98ed624ac` (cartório material) → **`5080e76d5`** (remediação). Commit: guard endurecido + **harness reproduzível novo** (`audit-governed-vocabulary-manifest-mutations.mjs` — não-guard, fora do runner, sem comando 186).
 - **AST:** detecta `ObjectLiteralExpression` que re-declara o vocabulário pelos **VALORES** (chaves ignoradas); cada objeto = cluster isolado (não agrega objetos distintos nem escalares); limiar **n−1** preservado; desembrulha Parenthesized/As/TypeAssertion/Satisfies; `Object.freeze`+`as const` cobertos. Antes bypassava → agora **morde**; demais resultados inalterados.

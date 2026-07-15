@@ -1,5 +1,36 @@
 # REMEDIATION DT LOG
 
+## F-GOVERNED-VOCABULARY-DERIVED-TYPE-REFERENCE-CONTRACT · BANK-SPLIT-TYPE CANONICALIZATION — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADA (2026-07-15)
+**Reauditoria Yala read-only concluída → Veredito A · SELO COMPLETO MATERIAL.** A frente está **SELADA e ENCERRADA**. Substitui as entradas abaixo (**preservadas, não reescritas**). Trajetória de auditoria: **auditoria inicial → Veredito B** (única lacuna = vetor 18 object-registry) → **remediação única guard/prova-only** → **reauditoria final → Veredito A**.
+
+**Arco material completo (byte-confirmado):**
+```
+BASE (0181 selada):     1d29cb748fa168604f3ad8e3c84c40ea4175a976
+MATERIAL:               68d941979fadbcba844ac282923af03581b34719
+CARTÓRIO PRÉ-AUDITORIA: 98ed624acf9a4d022fe3102fc0d0003f42ca8974
+REMEDIAÇÃO (vetor 18):  5080e76d5260a643f0d5452d87400ef5ffc9ff54
+CARTÓRIO DA REMEDIAÇÃO: b4fe8445a6ded0fe5543a046a86bbe897b3ff81a
+SELO FINAL:             este commit docs-only
+```
+
+**Material selado:** `BANK_SPLIT_TYPES` (sourceSymbol, tuple `as const`, única fonte dos 6 valores `fee · regional_fund · reserve · escrow · revenue_share · referral`, ordem viva) + `BankSplitType` (derivedTypeSymbol, exclusivamente `(typeof BANK_SPLIT_TYPES)[number]`) · **4 unions inline removidas** (SPE 2 + bank-integration 2), **zero union residual** · **3 consumidores relevantes** inventariados (SPE, bank-integration, **bank-split-engine byte-intacto**) · manifesto `bank_splits.split_type` registrado com contrato **`sourceFile`+`sourceSymbol`+`derivedTypeSymbol`+`values`** · **28 entradas legadas preservadas** (vereditos idênticos) · zero segunda autoridade.
+
+**Guard endurecido estruturalmente (selado):** distingue (A) declaração paralela — union/array/tuple/enum/**object-registry** com ≥ n−1 valores → MORDE mesmo com import do tipo · (B) referência canônica ao tipo derivado (prova estrutural + derivação `(typeof symbol)[number]`) · (C) uso escalar legítimo → NÃO morde. Menção textual/comentário/string/alias/cast/`as`/import-não-usado **não legitima**. **VETOR 18 OBJECT-REGISTRY: FECHADO** — **valores dos inicializadores CONTADOS, chaves IGNORADAS, objetos distintos NÃO agregados, limiar n−1 preservado** (desembrulho Parenthesized/As/TypeAssertion/Satisfies; `Object.freeze`/`as const` cobertos). **Zero** allowlist · **zero** redução de limiar · **zero** segundo guard · **zero** comando 186.
+
+**Matriz de provas selada** (`node scripts/audit-governed-vocabulary-manifest-mutations.mjs` — harness reproduzível commitado, executa o guard REAL, restaura fixtures byte-exatamente, fail-closed exit≠0, **fora do runner**, **não ocupa 186**): **HOSTIS 42/42 · BENIGNOS 8/8 · COMPLEMENTARES 7/7 · RESÍDUO ZERO**.
+
+**Proteções preservadas (selado):** SPE `bb3f3fe6b494aac69a9642881f1d929aae9e0787e4f131fb30f88c069ff21050` · guard 4D-2 `6087784364e11ec94607e77ecd7ff7abd6151bfe319b1c1570a3f0bc3d57555c` · guard 4c-3 `942142f3c49676e7ba651ee21e12516cf803a0e82b6da66526f3ace654953eaa` · B-CITY **byte-intacto** `d359f18d…` (sem pin sha256 da SPE) · guard manifesto `eb0c1c18…` · harness `73fe59f3…` · **runner 185** (186 reservada à FISCAL-4E) · DECISION-0180/0181 byte-intactas.
+
+**Nomenclatura §4.55 selada:** `platform` REMOVIDO como split_type · `escrow` ADICIONADO · `targetType='platform'` (transparência) preservado (não é split_type) · `tax_reserve` FORA desta frente.
+
+**Bank / fronteiras:** `bank_accounts=16 · regional_fund_accounts=1 · bank_transactions=0 · bank_splits=0 · bank_ledger=0 · saldo Curitiba=0 · Δbank=0`; `fiscal_reserve_accounts`/`fiscal_provision_events` inexistentes; `account_type='fiscal_reserve'`=0; `split_type='tax_reserve'`=0. **FISCAL-4E SUSPENSA** · firewall OFF · caller ZERO · B-CITY-2 BLOQUEADA · `DT-INVOICING-HARDCODED-TAX-RATE`/`DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (não governa a reserva fiscal).
+
+**PRÓXIMO GATILHO (não automático):** o `GO MATERIAL BANK-SPLIT-TYPE` anterior permanece cumprido/encerrado por esta frente; a retomada fiscal exige o gatilho humano literal **`GO RETOMAR MATERIAL FISCAL-4E`**, emissível somente após este selo. **Nenhum material FISCAL-4E executado nesta frente.**
+
+**NENHUM MATERIAL AUTOMATICAMENTE AUTORIZADO.**
+
+---
+
 ## F-GOVERNED-VOCABULARY-DERIVED-TYPE-REFERENCE-CONTRACT · REMEDIAÇÃO CONSOLIDADA GUARD/PROVAS (VETOR 18 OBJECT-REGISTRY) — 🟢 EXECUTADA E PROVADA · NÃO SELADA · AGUARDA UMA ÚNICA REAUDITORIA YALA FINAL (2026-07-15)
 **YALA: VEREDITO B** — a canonicalização material já foi considerada correta; a única lacuna era o **vetor 18** (object-registry). Remediação **guard/prova-only**, sem retomar FISCAL-4E, sem novo GATE, sem nova DECISION.
 
