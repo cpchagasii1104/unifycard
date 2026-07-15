@@ -1,5 +1,30 @@
 # REMEDIATION DT LOG
 
+## DECISION-0182 · FISCAL-4E · COMMISSION DISTRIBUTABLE RESIDUAL CONTINUATION CONTRACT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
+**Auditoria Yala read-only concluída → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0182 está **SELADA e ENCERRADA**. Substitui a entrada de promulgação abaixo (**preservada, não reescrita**). **O material FISCAL-4E NÃO foi retomado** — este selo é exclusivamente da DECISION docs-only.
+
+**Arco (byte-confirmado):**
+```
+BASE:         7917f92dc0a6a67c88c4c30236aa7918c58dceac  (selo final da canonicalização)
+PROMULGAÇÃO:  9dd67663ad3cd15b23b8c5fd85cb389aee777d99  (DECISION-0182 docs-only)
+AUDITORIA YALA: READ-ONLY · VEREDITO A
+SELO FINAL:   este commit docs-only
+```
+
+**Contrato institucional selado (fecha DECISION-0179 D10):** **allowlist de `economic_policy_lines` materializáveis sobre `commission_distributable` na FISCAL-4E inicial = CONJUNTO VAZIO** — matriz `revenue_share:NÃO · platform_fee:NÃO · regional_fund:NÃO · reserve:NÃO · referral:NÃO · group_allocation:NÃO · channel_commission:NÃO · custom:NÃO`. `regional_fund` **FORA** (pertence a **B-CITY-2, BLOQUEADA**); ampliação futura exige **nova DECISION**.
+
+**Continuação residual selada:** `commission_distributable` é a **continuação residual da linha Bank original de `commission_gross`** — preserva destination account · split type · titularidade · tenant · moeda · finalidade · semântica econômica; única alteração = `amount: commission_gross → commission_distributable`. `tax_reserve` = **nova linha futura** para conta `fiscal_reserve`. Invariantes: `commission_gross = commission_distributable + tax_reserve` e `Σsplits = transaction amount`.
+
+**Destino e source line selados:** destino **PRESERVADO, NÃO REESCOLHIDO** (proibido `platform_fees ↔ platform_revenue`, primeira conta compatível, conta genérica, auto-create, fallback, inferência). `COMMISSION GROSS SOURCE LINE` = **identificação explícita**; fail-closed em ausência · duplicidade · amount divergente · tenant divergente · moeda divergente · destino incompatível · erro de infraestrutura.
+
+**`tax_reserve` NÃO é:** cobrança adicional do comprador · imposto pago · remessa ao fisco · settlement · fundo regional · benefício da população · policy line · base `applies_to` · saldo livre.
+
+**FRONTEIRAS:** DECISION-0179 **byte-intacta (não alterada)** · 0177/0178/0180/0181 byte-intactas · FISCAL-4E **SUSPENSA** · material **NÃO retomado** · runner **185** · posição **186 LIVRE e reservada à FISCAL-4E** · `tax_reserve` **ausente** do tuple · `fiscal_reserve_accounts`/`fiscal_provision_events` inexistentes · Bank **INTACTO** (16/1/0/0/0) · saldo Curitiba **0** · **Δbank=0** · firewall **OFF** · caller **ZERO** · B-CITY-2 **BLOQUEADA** · `DT-INVOICING-HARDCODED-TAX-RATE`/`DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (não governa a reserva fiscal).
+
+**PRÓXIMO GATILHO (não automático):** com a D10 fechada, o material 4E poderá ser retomado por **`GO RETOMAR MATERIAL FISCAL-4E`**. **NENHUM material automaticamente autorizado.**
+
+---
+
 ## DECISION-0182 · FISCAL-4E · COMMISSION DISTRIBUTABLE RESIDUAL CONTINUATION CONTRACT — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL FISCAL-4E NÃO RETOMADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
 **Origem: GATE de retomada do material FISCAL-4E → STOP CORRETO da executora** ao provar de 1ª mão que a matriz **DECISION-0179 D10** (`line_type × commission_distributable → materializável_no_Bank`) **não fecha sem decisão adicional**. Clayton fechou pela **opção A**. Base `7917f92dc`. Commit docs-only único: DECISION-0182 + este cartório + `dividatecnica.md`. **Zero código · zero migration · zero manifesto · zero nomenclatura · zero guard · zero teste · zero Bank · Δbank=0.**
 
