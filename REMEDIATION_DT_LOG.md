@@ -1,6 +1,39 @@
 # REMEDIATION DT LOG
 
-## FISCAL 4D-2 · EXTENSÃO GOVERNADA DE APPLIES_TO E COMPOSIÇÃO FISCAL × POLICY — 🟢 MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+## FISCAL 4D-2 · EXTENSÃO GOVERNADA DE APPLIES_TO E COMPOSIÇÃO FISCAL × POLICY — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO · OFICIALMENTE ENCERRADA (2026-07-15)
+**Auditoria Yala read-only concluída · Veredito A · SELO COMPLETO.** O material FISCAL 4D-2 está SELADO. Substitui a entrada pré-selo abaixo (preservada, não reescrita). **4e NÃO começou.**
+
+**Arco completo (byte-confirmado):**
+```
+BASE INSTITUCIONAL:       702c2b282  (DECISION-0178 selada)
+MATERIAL:                 6215decba  (14 arquivos)
+CARTÓRIO PRÉ-AUDITORIA:   98539e4f7  (2 arquivos)
+AUDITORIA YALA:           READ-ONLY · VEREDITO A
+SELO FINAL:               este commit docs-only
+```
+
+**Invariantes seladas — vocabulário (D1/D2/D13):** `applies_to` CHECK físico de **5 valores** (`gross | net | gross_transaction | commission_gross | commission_distributable`). **GRAVÁVEIS** = `gross_transaction | commission_gross | commission_distributable` (writer aceita SÓ os 3; o CHECK físico não distingue histórico de gravação nova — a trava é writer+tipos+manifesto+guard). **LEGADOS READ-ONLY** = `gross | net` (nunca aliases). **DEFAULT DB `gross` REMOVIDO + fallback TS `gross` REMOVIDO** (remoção conjunta indivisível); coluna permanece **NOT NULL**; ausência falha fechado (`assertWritableAppliesTo`).
+
+**Invariantes seladas — histórico (D3):** `gross`=**75 linhas preservadas**; `net`=**0**; `economic_policies` deprecated=**45**, active=**0**, draft=**0**. Zero rederivação · zero backfill · zero UPDATE histórico · zero reativação. Verdade histórica SÓ por snapshots já materializados; `gross`↛`gross_transaction`; `net`↛`commission_distributable`.
+
+**Invariantes seladas — contexto/orquestrador (D6/D8):** `EconomicPolicyEvaluationContext` **imutável e uniforme**; policy version = **`economic_policies.id`** (NÃO existe `economic_policy_versions`). `FiscalEconomicPolicyCompositionService`: interno, pré-financeiro, **evaluation/read-only, não-SSOT, SEM Bank, fiscal-provision 1×, ZERO caller monetário vivo**.
+
+**Invariantes seladas — negativo/zero/missing (D9/D10/D11):** `commission_distributable` negativo → preview honesto + warning, modo monetário futuro **fail-closed `COMMISSION_DISTRIBUTABLE_NEGATIVE`**; zero → válido, linha zero preservada na avaliação (4e não materializará split/ledger zero); missing obrigatório → **`FISCAL_CONFIG_MISSING_MANDATORY` fail-closed**; infra propaga. Nenhum fallback.
+
+**Migration selada:** `20260715120000_economic_policy_applies_to_composition.sql` (sha256 `d52e39e13b30033b630e0fbbb619fec5d6af78872d82759bf89f9d7abaee6c97`) — dry-run→apply único→rerun `already_applied` exit 1 zero-write; checksum pinado; zero backfill/seed/policy criada.
+
+**Guards selados:** guard 4c-3 sha256 **anterior `a74ae08d0d52031b23451e67cb1f944d276fe868f63a4b0181130e0d6a8ed277` → 4d-2 `942142f3c49676e7ba651ee21e12516cf803a0e82b6da66526f3ace654953eaa`** (alteração consciente e delimitada); guard fiscal-provision reconciliado (B4 + pin atualizado no mesmo commit); **B-CITY-1 byte-intacta** (engine protegido `f16934dc…`, service-payment-execution `eba0e1c3…`, guard `d359f18d…`). Incidente CRLF encerrado sem resíduo.
+
+**Provas seladas:** typecheck **0** · runner **185 GATE OK** · DB+E2E **37/37** · mutations **29/29** (**38/38 vetores cobertos**) · `git diff --check` limpo · idle-in-transaction **0** · resíduo **0**.
+**Ressalva Yala (NÃO bloqueante, NÃO reabre 4d-2):** vetores **24, 36 e 38** cobertos por design/estado/ausência; **endurecimento recomendado na 4e**, não como DT bloqueante de 4d-2.
+
+**Bank e fronteiras selados:** `bank_accounts=16 · regional_fund_accounts=1 · bank_transactions=0 · bank_ledger=0 · bank_splits=0 · saldo Curitiba=0 · Δbank=0`. **4e NÃO ABERTA · policy regional NÃO CRIADA · policy admin NÃO ABERTA · PORTA NÃO ABERTA · B-CITY-2 BLOQUEADA.** `DT-INVOICING-HARDCODED-TAX-RATE` permanece OPEN. `DT-REGION-FUND-DELEGATION-MODEL-PENDING` permanece OPEN. Preservados: 4d-1 · 4d-1-R · B-CITY-1 · fiscal-provision · fiscal_provision_logs · frontend · perfil · conexões · endereço · Social · bairro/N5 · nacional.
+
+**NENHUM PRÓXIMO MATERIAL AUTOMATICAMENTE AUTORIZADO.**
+
+---
+
+## FISCAL 4D-2 · EXTENSÃO GOVERNADA DE APPLIES_TO E COMPOSIÇÃO FISCAL × POLICY — 🟢 MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15, SELADA PELO SELO FINAL ACIMA)
 **Fatia consolidada única da FISCAL 4D-2 (DECISION-0178; GO material próprio de Clayton).** Base `rescue-structural @ 702c2b282` (DECISION-0178 selada) → commit material `6215decba` (14 arquivos; SEM cartório) → **APPLY governado da migration** → este cartório pré-auditoria.
 
 **Migration única forward-only** `20260715120000_economic_policy_applies_to_composition.sql` (sha256 `d52e39e13b30033b630e0fbbb619fec5d6af78872d82759bf89f9d7abaee6c97`; aplicada via aplicador seletivo evoluído `apply-fiscal-4d1-migrations.mjs` — token `APPLY_FISCAL_4D1_MIGRATIONS`, advisory lock, dry-run→apply único→**rerun `already_applied` exit 1 zero-write**; N1/drift preservadas):

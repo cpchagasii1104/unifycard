@@ -269,6 +269,17 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-15 (130) — FISCAL 4D-2: SELADA PELA YALA · VEREDITO A · SELO COMPLETO · ENCERRADA
+- Auditoria Yala read-only → **Veredito A · SELO COMPLETO**. Arco: `702c2b282` (DECISION-0178) → `6215decba` (material 14 arq.) → `98539e4f7` (cartório pré-auditoria) → este selo (docs-only; 2 arquivos). **4e NÃO começou.**
+- **Selado — vocabulário:** `applies_to` CHECK físico 5 valores; graváveis 3 (gross_transaction/commission_gross/commission_distributable); legados read-only 2 (gross/net, nunca aliases); default DB + fallback TS `gross` REMOVIDOS; NOT NULL preservado; ausência fail-closed.
+- **Selado — histórico:** 75 gross preservadas · 0 net · 45 deprecated / 0 active / 0 draft · zero rederivação/backfill/UPDATE/reativação · verdade só por snapshot materializado.
+- **Selado — orquestrador:** `FiscalEconomicPolicyCompositionService` evaluation/read-only, não-SSOT, sem Bank, fiscal-provision 1×, zero caller monetário vivo; contexto imutável/uniforme; policy version=`economic_policies.id` (sem `economic_policy_versions`).
+- **Selado — negativo/zero/missing:** negativo preview honesto / monetário fail-closed `COMMISSION_DISTRIBUTABLE_NEGATIVE`; zero válido (4e sem split/ledger zero); missing obrigatório `FISCAL_CONFIG_MISSING_MANDATORY` fail-closed; infra propaga.
+- **Selado — migration/guards:** migration `20260715120000` (sha `d52e39e1…`), rerun already_applied fail-closed. Guard 4c-3 reconciliado (`942142f3…`, era `a74ae08d…`); provision-engine B4+pin; **B-CITY-1 byte-intacta** (engine `f16934dc…`/SPE `eba0e1c3…`/guard `d359f18d…`). Incidente CRLF encerrado sem resíduo.
+- **Provas:** typecheck 0 · runner **185** · DB+E2E **37/37** · mutations **29/29** (**38/38 vetores**) · diff --check limpo · Δbank=0. **Ressalva Yala (não bloqueante, não reabre 4d-2):** vetores 24/36/38 → endurecer na 4e.
+- **Fronteiras:** 4e NÃO aberta · Bank intacto · policy regional/admin/PORTA não abertas · **B-CITY-2 bloqueada**. `DT-INVOICING-HARDCODED-TAX-RATE` e `DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN.
+- **NENHUM próximo material automaticamente autorizado.**
+
 ### 2026-07-15 (129) — FISCAL 4D-2: MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA
 - Fatia consolidada única (DECISION-0178; GO material próprio). Base `702c2b282` → material `6215decba` (14 arq., SEM cartório) → apply governado → este cartório pré-auditoria.
 - **Migration única** `20260715120000_...` (sha `d52e39e1…`): `applies_to` CHECK físico de **5 valores**, **default `gross` REMOVIDO**, NOT NULL preservado, validação imediata, **zero backfill** (75 linhas gross congeladas intactas). Aplicada via aplicador seletivo evoluído (rerun `already_applied` fail-closed).
