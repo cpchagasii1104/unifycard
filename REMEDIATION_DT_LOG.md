@@ -1,5 +1,36 @@
 # REMEDIATION DT LOG
 
+## DECISION FISCAL-4E · DECISION-0179 · TAX RESERVE BANK MATERIALIZATION FOUNDATION — 🟣 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL 4E NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+**GATE FISCAL-4E-0 (read-only, 2026-07-15) → Veredito B → GO explícito de Clayton para promulgar UMA DECISION docs-only consolidada.** Base `rescue-structural @ c3df312b4` (4d-2 selada). Commit docs-only único: `docs/02_decisions/DECISION_0179_FISCAL_TAX_RESERVE_BANK_MATERIALIZATION.md` + este cartório + `dividatecnica.md`. **Zero material · zero migration · zero conta · zero Bank write · firewall OFF · Δbank=0.**
+
+**Origem:** GATE FISCAL-4E-0 concluído read-only (Veredito B), ratificado por Clayton com **2 correções** (DT regional não governa a reserva fiscal; Σ global não impede dupla alocação → conservação por bucket obrigatória), **13 escolhas**, **7 afinações A–G** e **3 lembretes L1–L3**. Suficiência documental: DECISION-0165/0166/0167/0177/0178/0052 · CORE_SPLIT/ESTORNOS/PERMISSOES financeiros · SSOT_EXCLUSIVE_BANK_RULE · LEI COERÊNCIA §4.6-4.7/§7 · PROHIBITED_STRUCTURES.
+
+**Fatos materiais do GATE (read-only):** catálogo/perfis fiscais=0 · fiscal_identities=4 · bank 16/1/0/0/0 · saldo Curitiba=0 · Δbank=0 · sink monetário único (BankTransactionService) hibernado por `BANK_TRANSACTION_SINK_FIREWALL_ENABLED` default-OFF · orquestrador 4d-2 sem caller monetário vivo · `bank_splits.split_type` TEXT livre sem CHECK · `bank_accounts.account_type` CHECK 14 valores · nenhuma conta fiscal / nenhum token tax_reserve · `bank_transactions.reference_id` UUID · `bank_accounts` sem coluna currency · `createTransactionWithExplicitSplitLines` aceita existingClient e impõe Σsplits==amount · fiscal-provision/appendRows abrem conexão própria · reversal split-aware por snapshot, full-only.
+
+**D1–D21 PROMULGADAS:**
+- **D1 natureza:** tax_reserve = segregação interna de obrigação fiscal estimada (decomposição de commission_gross); NÃO cobrança adicional/imposto pago/recolhimento/remittance/policy line/saldo livre. `commission_gross = tax_reserve + commission_distributable`.
+- **D2 conservação:** dupla — global (`Σbank_splits=amount`, garantida pelo Bank) + **por bucket** (`gross_transaction=entitlement+commission_gross+externos governados` ⋀ `commission_gross=tax_reserve+distributable` ⋀ nenhum centavo consumido por linha sobre gross E sobre distributable), validada na composição ANTES do sink + guard. Σ global NÃO substitui a por bucket.
+- **D3 conta/titularidade:** owner_type=system/actor_id=NULL/account_type=fiscal_reserve; resolver próprio `fiscal_reserve_accounts` (molde regional_fund_accounts, sem saldo); chave `(tenant_id, fiscal_identity_id, currency)` com 1 vigente; **currency no resolver** (bank_accounts sem coluna currency); jurisdição fiscal fora da unicidade (vive no snapshot); rastreável à identidade fiscal.
+- **D4 provisioning:** lookup-only; ausente → `FISCAL_RESERVE_ACCOUNT_MISSING` antes de qualquer lock/write; zero auto-provision; conta real só por one-shot governado futuro; **material 4e NÃO cria conta real** (catálogo/perfis vazios).
+- **D5 split_type:** novo `tax_reserve`; CHECK futuro = união viva `fee·regional_fund·reserve·escrow·revenue_share·referral` + `tax_reserve` (7); reconfirmar sites de INSERT; governança CHECK+manifesto+nomenclatura+guard; distinto de reserve/risk_reserve.
+- **D6 account_type:** `fiscal_reserve` = extensão consciente do CHECK de 14 valores (15º), preservando os 14 literais.
+- **D7 fiscal_provision_events:** cabeçalho estável append-only; cardinalidade 1 tx→1 event→N logs; FK **Bank→fiscal** (bank_transactions/fiscal_provision_logs → event.id); **proibido fiscal→bank_***; justificativa = ref estável + idempotência de execução + uniformidade futura (NÃO "zero logs").
+- **D8 atomicidade:** fiscal-provision + appendRows aceitam existingClient; uma conexão/uma tx; ROLLBACK integral; zero órfão; savepoint nas provas.
+- **D9 snapshot:** imutável/versionado/não-recomputável (eventId, economicPolicyId, identidade/perfil/versões fiscais, bases, amounts, contexto, fingerprint); territórios nomeados fiscalJurisdiction×buyerTerritory (4e só fiscal; buyer = B-CITY-2).
+- **D10 allowlist:** governada line_type×applies_to×fase×materializável; 4e só tax_reserve + linhas de commission_distributable; gross_transaction/commission_gross fora; executora inventaria line_type vivos, senão STOP.
+- **D11 idempotência:** reference tuple + fingerprint em coluna dedicada `fiscal_economic_context_fingerprint` (reference_id é UUID); mismatch → `IDEMPOTENCY_PAYLOAD_MISMATCH`; retry não recomputa.
+- **D12 authority:** treasury:fiscal_reserve (NÃO reusar treasury:settlement); zero admin/policy-admin/frontend/representante/job soberano/regional; DT regional não governa a reserva.
+- **D13 dormência:** 4e só substrato/vocabulário/event/contratos/guard/provas; zero conta/profile/rule/policy/firewall-ON/caller/rota/worker/write. **D14** só passada PLATFORM. **D15** adquirência/frete modelados fora do MVP. **D16** full reversal only por snapshot; parcial fora. **D17** sem lifecycle/remittance.
+- **D18 vetores Yala 24/36/38:** mutations hostis dedicadas que mordem diretamente. **D19** preservação dos selos (4c-3 hash `942142f3…`; B-CITY-1 byte-intacta; guard novo; runner 185→186). **D20** guard 4e projetado. **D21** envelope material futuro registrado, não autorizado.
+
+**Lembretes L1–L3 incorporados:** envelope 4e dormente (não cria conta/liga firewall/caller); preservação nominal dos selos; allowlist como vocabulário governado fechado/versionável.
+
+**FRONTEIRAS FECHADAS:** material 4e NÃO INICIADO (GO próprio) · Bank INTACTO · firewall OFF · policy regional/admin/PORTA não abertas · B-CITY-2 BLOQUEADA. `DT-INVOICING-HARDCODED-TAX-RATE` OPEN. `DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (não governa a reserva fiscal). Δbank=0. Públicos dirty de Clayton preservados.
+
+**STATUS: DECISION-0179 PROMULGADA DOCS-ONLY · NÃO SELADA · AGUARDA UMA ÚNICA AUDITORIA YALA. Material 4e NÃO INICIADO — exige GO próprio. NENHUM próximo material automaticamente autorizado.**
+
+---
+
 ## FISCAL 4D-2 · EXTENSÃO GOVERNADA DE APPLIES_TO E COMPOSIÇÃO FISCAL × POLICY — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO · OFICIALMENTE ENCERRADA (2026-07-15)
 **Auditoria Yala read-only concluída · Veredito A · SELO COMPLETO.** O material FISCAL 4D-2 está SELADO. Substitui a entrada pré-selo abaixo (preservada, não reescrita). **4e NÃO começou.**
 
