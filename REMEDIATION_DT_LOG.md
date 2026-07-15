@@ -1,6 +1,35 @@
 # REMEDIATION DT LOG
 
-## FISCAL 4D-1 · MOTOR READ-ONLY DE PROVISÃO FISCAL — 🟢 MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA (2026-07-14)
+## FISCAL 4D-1-R · ENFORCEMENT DB DE ROUNDING_MODE EM REGRA ATIVA — 🟢 REMEDIAÇÃO MATERIAL CONSOLIDADA EXECUTADA E PROVADA · NÃO SELADA · AGUARDA REAUDITORIA YALA FINAL (2026-07-14)
+**Remediação material consolidada única sobre FISCAL 4D-1 (auditoria Yala: Veredito C, uma família material aberta).** Base `326e71173` → commit material `9e3421315` → **apply governado da migration** → este cartório pré-reauditoria.
+
+**Achado da Yala confirmado read-only (3 lacunas, todas provadas antes de editar, ZERO DML persistente):** `GAP-1` INSERT direto `status='active' + rounding_mode=NULL` — PERMITIDO (lacuna confirmada); `GAP-2` INSERT `draft NULL` → UPDATE `status='active'` — PERMITIDO; `GAP-3` regra ativa válida → UPDATE `rounding_mode` para outro valor — PERMITIDO. As três bypassavam `activateRule`/repository via SQL direto: enforcement só existia em CÓDIGO, não no BANCO (a Lei do Contador exige o dado governado protegido no schema).
+
+**Migration única forward-only** `20260715100000_tax_rules_active_rounding_mode_enforcement.sql` (sha256 `5372836f70a54d8993902fa439b425699d4cca3ca941e61d164cb7b6053fe598`):
+1. `ADD CONSTRAINT chk_tax_rules_active_requires_rounding CHECK (status <> 'active' OR rounding_mode IS NOT NULL)` — validada IMEDIATAMENTE (zero NOT VALID; catálogo vazio, zero backfill/UPDATE/seed) — fecha GAP-1 e GAP-2.
+2. `CREATE OR REPLACE FUNCTION enforce_tax_rules_immutability()` — reforço ESTREITO da função canônica JÁ EXISTENTE (migration `20260710140000`; Lei 3 "functions são substituíveis" — não duplica trigger/lifecycle): `rounding_mode` entrou na MESMA cláusula `IF OLD.status='active'` dos demais campos materiais (`rate_bps` etc.) — fecha GAP-3. `active→deprecated` continua permitido; `deprecated` permanece terminal (comportamento pré-existente inalterado).
+
+**Coluna permanece NULLABLE** (draft incompleto continua legítimo); **zero DEFAULT** introduzido (zero default fiscal silencioso, em ambos os lados: coluna e trigger).
+
+**Defesa cumulativa preservada** (banco NÃO substitui código, código NÃO substitui banco): `activateRule` mantém `TAX_RULE_ROUNDING_MODE_REQUIRED` fail-closed (repository) + CHECK (constraint) + `enforce_tax_rules_immutability` (trigger) + `audit-fiscal-provision-engine` (guard) — 4 camadas independentes.
+
+**Guard `audit-fiscal-provision-engine` reforçado** (não apenas presença de string — semântica viva): R1/R2 condição exata da constraint · R3/R4 ausência de default + coluna não virou NOT NULL global · R5/R6/R7 `rounding_mode` na MESMA cláusula de imutabilidade que `rate_bps` (não trigger paralela) · R8 `active→deprecated` preservado · R9 zero trigger nova · R10/R11 zero backfill/NOT VALID · R12 `activateRule` preservado · R13-R15 aplicador reconhece o hash fixo da migration. Runner permaneceu **184** (guard reforçado, não novo).
+
+**Aplicador seletivo EVOLUÍDO** (mesmo mecanismo da família 4d-1, §10 do envelope): `apply-fiscal-4d1-migrations.mjs` passou a aplicar SÓ as PENDENTES da família (3 hashes fixos agora); preflight distingue já-aplicadas de pendentes; postchecks cobrem a família inteira. Rito: **dry-run ✓** (ROLLBACK, resíduo-zero) → **APPLY ÚNICO ✓** (token literal; 11 postchecks OK; só 1 migration aplicada, as 2 anteriores preservadas) → **RERUN ✓** ABORTOU `already_applied` exit 1 zero-write.
+
+**Provas:** **17/17 mutations hostis+benignas** (14 hostis: remove constraint, inverte condição, aceita active+NULL, protege só INSERT/só UPDATE, default half_up, remove de imutabilidade, permite half_up→ceil/NULL, remove proteção do activateRule, altera guard 4c-3, esconde em comentário, condição vazia, NOT VALID — todas mordem; 2 benignas em arquivos NÃO hash-verificados passam limpo — nota: `MIG` é hash-locked por R15 de propósito, comentário nele quebra o guard corretamente, não é vetor benigno válido). **Prova DB formal 14/14 sob ROLLBACK** (`test-fiscal-4d1r-rounding-enforcement-db.mjs`, casos A-I via SQL DIRETO — não apenas repository — incluindo temporalidade active→deprecated preservando o modo). Typecheck 0; runner **184 VERDE** pré e pós-apply; `git diff --check` limpo; **guard 4c-3 BYTE-INTACTO** (hash `a74ae08d…` idêntico do início ao fim).
+
+**⚠️ Incidente operacional registrado e resolvido (não afetou o produto):** a 1ª versão da prova DB formal importou dinamicamente `taxCatalogRepository` dentro do caso H — esse repository abre conexões PRÓPRIAS ao pool (fora da transação do harness), causando DEADLOCK real (4 PIDs do Postgres local travados: 1 "idle in transaction" segurando lock de INSERT não commitado + 3 bloqueados esperando). **Confirmado read-only via `pg_stat_activity` que NADA foi commitado** (todas as conexões estavam presas, não finalizadas). Autorização explícita do usuário obtida antes de `pg_terminate_backend()` nos 4 PIDs (ação fora do escopo normal, classificador de segurança pediu confirmação humana); resíduo-zero reconfirmado após término. Harness corrigido: caso H reescrito para prova 100% SQL direta (mesma cobertura semântica, sem segunda conexão).
+
+**Estado DB pós-apply:** tax_types=0 · tax_rules=0 · actor_fiscal_profiles=0 · fiscal_provision_logs=0 · constraint presente e VALIDADA · trigger reforçada confirmada (`pg_get_functiondef` contém `rounding_mode`) · Δschema_migrations família = 3 (exatas) · N1 dormente · drifts não aplicados · bank_accounts=16 · rfa=1 · tx=0 · ledger=0 · splits=0 · saldo Curitiba=0. **Δbank=0.**
+
+**Fronteiras preservadas (nenhuma família já aprovada pela Yala reaberta):** motor fiscal-provision intacto (só `activateRule` tocado, estreitamente, preservando a proteção) · `TaxableEvent`/`TaxProvisionResult`/`fiscal_provision_logs` intocados · applies_to intacto · guard 4c-3 byte-intacto · 4d-2/4e/B-CITY-2 bloqueadas · invoicing intocado (DT OPEN) · frontend/rota HTTP fora · perfil/conexões/endereço fora · bairro/N5 e nacional trancados.
+
+**STATUS: FISCAL 4D-1-R · REMEDIAÇÃO MATERIAL CONSOLIDADA EXECUTADA E PROVADA · NÃO SELADA · AGUARDA UMA ÚNICA REAUDITORIA YALA FINAL.**
+
+---
+
+## FISCAL 4D-1 · MOTOR READ-ONLY DE PROVISÃO FISCAL — 🟢 MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA (2026-07-14, SUPERADA PELA REMEDIAÇÃO ACIMA — VEREDITO C DA YALA FECHADO PELA REMEDIAÇÃO)
 **Envelope material único da fase 4d (DECISION-0167; GO material próprio D9.7 de Clayton; GATE FISCAL-4D-0 Veredito A ratificado).** Base `72ab2827c` → commit material `c218e84d5` (12 arquivos; SEM cartório) → **APPLY governado das 2 migrations** → este cartório pré-selo.
 
 **Migrations aplicadas (rito seletivo `apply-fiscal-4d1-migrations.mjs` — 2 nomes/hashes FIXOS, token literal `APPLY_FISCAL_4D1_MIGRATIONS`, advisory lock, preflight fail-closed, DDL+schema_migrations na MESMA tx; dry-run✓ → apply único✓ → rerun✓ ABORTOU `already_applied` exit 1 zero-write; N1 dormente + 2 drifts preservados):**

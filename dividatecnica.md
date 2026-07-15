@@ -269,6 +269,18 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-14 (125) — FISCAL 4D-1-R: ENFORCEMENT DB DE ROUNDING_MODE EM REGRA ATIVA · REMEDIAÇÃO EXECUTADA E PROVADA · NÃO SELADA · AGUARDA REAUDITORIA YALA FINAL
+- Remediação material consolidada única (auditoria Yala do 4d-1: **Veredito C**, uma família aberta). Base `326e71173` → material `9e3421315` → apply governado (dry-run→apply único→rerun fail-closed) → cartório pré-reauditoria.
+- **3 lacunas confirmadas read-only** (SQL direto bypassava `activateRule`): GAP-1 INSERT active+NULL · GAP-2 draft NULL→UPDATE active · GAP-3 UPDATE rounding_mode de regra ativa. Todas PERMITIDAS antes da remediação (zero DML persistente na prova).
+- **Migration única** `20260715100000_...` (sha `5372836f…`): `CHECK chk_tax_rules_active_requires_rounding` (validada imediatamente, catálogo vazio) + `CREATE OR REPLACE FUNCTION enforce_tax_rules_immutability` reforçada (rounding_mode na MESMA cláusula `OLD.status='active'` dos demais campos materiais — mesma casa canônica, sem trigger paralela). Coluna continua NULLABLE (draft); zero DEFAULT.
+- **Defesa cumulativa:** repository (`activateRule` fail-closed preservado) + constraint + trigger + guard — 4 camadas.
+- **Guard reforçado** com asserções semânticas (não string solta): 15 checagens R1-R15. Aplicador seletivo evoluído para aplicar só pendentes da família (3 hashes fixos). Runner permaneceu **184**.
+- **Provas:** 17/17 mutations (14 hostis mordem incl. remover/inverter/esconder a constraint, proteger só INSERT/só UPDATE, default silencioso, remover da imutabilidade, alterar 4c-3; 2 benignas passam) · prova DB formal **14/14** ROLLBACK (casos A-I via SQL direto) · typecheck 0 · runner 184 verde pré/pós-apply · guard 4c-3 **byte-intacto**.
+- **Incidente registrado e resolvido:** 1ª versão da prova DB causou DEADLOCK real (repository abrindo conexão própria fora da tx do harness); confirmado read-only que nada foi commitado; autorização explícita do usuário obtida para `pg_terminate_backend` nos 4 PIDs travados; resíduo-zero reconfirmado; harness corrigido (caso H virou prova 100% SQL, sem segunda conexão).
+- **DB pós-apply:** catálogo/perfis/trilha=0 · constraint validada · trigger confirmada por `pg_get_functiondef` · Δschema_migrations família=3 · bank 16/1/0/0/0 · saldo Curitiba=0. **Δbank=0.**
+- **Fronteiras:** motor/TaxableEvent/TaxProvisionResult/fiscal_provision_logs intocados (só activateRule preservado) · applies_to intacto · 4d-2/4e/B-CITY-2 bloqueadas · invoicing intocado · públicos preservados.
+- **STATUS: NÃO SELADA — aguarda uma única reauditoria Yala final.**
+
 ### 2026-07-14 (124) — FISCAL 4D-1: MOTOR READ-ONLY DE PROVISÃO FISCAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA YALA
 - Envelope material único (0167; GO D9.7; GATE FISCAL-4D-0 Veredito A). Base `72ab2827c` → material `c218e84d5` (12 arq.) → **apply governado** (dry-run→apply único→rerun fail-closed; N1/drifts preservados) → cartório pré-selo.
 - **Migrations:** `tax_rules.rounding_mode` (CHECK half_up|half_even|floor|ceil; draft NULL ok; `activateRule` fail-closed `TAX_RULE_ROUNDING_MODE_REQUIRED`; ZERO default silencioso) + `fiscal_provision_logs` (append-only; RLS FORCE; no UPDATE/DELETE; UNIQUE idempotência evento/passada/regra; missing_reason discriminado ×10; sem PII; sem FK bank_*; baseline 0). `ROUNDING_MODES` no vocabulário governado (types+CHECK+manifesto).
