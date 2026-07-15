@@ -269,6 +269,18 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-15 (139) — F-GOVERNED-VOCABULARY-DERIVED-TYPE-REFERENCE-CONTRACT + BANK-SPLIT-TYPE CANONICALIZATION: MATERIAL EXECUTADO E PROVADO · NÃO SELADO
+- **GO material recebido** → envelope único executado sobre a base selada `1d29cb748`. Commit material `68d941979` (7 arquivos do envelope; nenhum cartório/público). **Ainda NÃO selado — aguarda auditoria Yala.**
+- **Fonte/derivado:** `BANK_SPLIT_TYPES` tuple `as const` (sourceSymbol, 6 valores ordem viva) + `BankSplitType = (typeof BANK_SPLIT_TYPES)[number]` (derivedTypeSymbol). Zero segunda fonte; `platform`/`tax_reserve` fora do tuple.
+- **Consumidores:** 4 unions inline REMOVIDAS (SPE 2 + bank-integration 2) → `import type`; **residual 0**. `bank-split-engine.service.ts` **byte-intacto** (já usava o tipo; 5 escalares legítimos; lógica intocada).
+- **Manifesto:** `derivedTypeSymbol?` opcional (28 legadas inalteradas) + entrada `bank_splits.split_type` (sourceFile+sourceSymbol+derivedTypeSymbol+values).
+- **Guard endurecido estruturalmente** (parser TS, sem 2º guard, sem comando 186): declaração paralela (union/array/tuple/enum ≥ n−1 valores) MORDE mesmo com import; referência canônica ao derived type + derivação `(typeof symbol)[number]` provada; uso escalar distribuído NÃO morde; menção textual/alias/cast/import-não-usado não legitima; entradas sem derivedTypeSymbol mantêm caminho textual. Zero allowlist/redução de limiar.
+- **§4.55:** `platform` removido como split_type, `escrow` adicionado (6 valores); `targetType='platform'` preservado.
+- **Pins:** SPE `eba0e1c3…`→`bb3f3fe6…`; **repin único** no 4D-2 (`8d1e920f…`→`6087784364…`); guard manifesto `47368f51…`→`fb24b3d9…`; B-CITY byte-intacto (`d359f18d…`, sem pin SPE); 4c-3 `942142f3…` preservado; DECISION-0180/0181 byte-intactas.
+- **Provas:** typecheck 0 · runner **185** verde · manifesto 29 entradas (28 idênticas) · **mutations 10/10 mordem + benignos 3/3 passam**, resíduo 0 · **emitted-JS equivalente** (SPE/bank-integration/bank-split-engine), zero import runtime do tuple, zero caller novo · DB 16/1/0/0/0, **Δbank=0**, fiscal 4e inexistente, tax_reserve 0.
+- **Fronteiras:** FISCAL-4E SUSPENSA; GO 4e anterior suspenso/não-revogado/não-executável; firewall OFF; zero migration/DDL/DML/rota/worker/frontend; B-CITY-2 bloqueada; `DT-INVOICING-HARDCODED-TAX-RATE`/`DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN.
+- **STATUS: MATERIAL EXECUTADO E PROVADO · NÃO SELADO · aguarda uma única auditoria Yala. NENHUM material automaticamente autorizado.**
+
 ### 2026-07-15 (138) — DECISION-0181: SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · ENCERRADA
 - Auditoria Yala read-only da DECISION-0181 → **Veredito A · SELO COMPLETO**. Arco: `a399c98b3` (0180 selada + errata) → `14930081d` (promulgação) → este selo (docs-only; 2 arquivos). **Material do contrato de vocabulário NÃO iniciado.**
 - **D0–D13 seladas, nenhuma reaberta:** **R1 rejeitada** (source symbol permanece `BANK_SPLIT_TYPES`, não o tipo derivado); **R2 endurecida ratificada** (manifesto/guard distinguem `sourceFile`·`sourceSymbol`·`derivedTypeSymbol`·`values`); **R3 ratificada** (declarações paralelas **4 sites/2 arquivos** × consumidores relevantes ao guard **3 arquivos**, incluindo `bank-split-engine.service.ts` com lógica intacta). Guard futuro deve provar **referência estrutural** (menção textual não basta; `import type` não perdoa union paralela; uso escalar legítimo ≠ segunda fonte); allowlist/redução-de-limiar/import-runtime-artificial **proibidos**; evoluir o guard existente (não criar segundo); runner **185** (186 reservada 4e).

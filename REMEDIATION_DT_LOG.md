@@ -1,5 +1,37 @@
 # REMEDIATION DT LOG
 
+## F-GOVERNED-VOCABULARY-DERIVED-TYPE-REFERENCE-CONTRACT · BANK-SPLIT-TYPE CANONICALIZATION — 🟢 MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+**GO material recebido** (`GO MATERIAL GOVERNED VOCABULARY DERIVED REFERENCE CONTRACT AND RESUME BANK-SPLIT-TYPE CANONICALIZATION`). Envelope material único executado e provado sobre a base selada. **Ainda NÃO selado.**
+
+**Arco:**
+```
+BASE (0181 selada):  1d29cb748fa168604f3ad8e3c84c40ea4175a976
+COMMIT MATERIAL:     68d941979fadbcba844ac282923af03581b34719
+```
+
+**Arquivos materiais (7, todos no envelope D8/0181; nenhum cartório, nenhum público):**
+`bank-split.types.ts` · `service-payment-execution.service.ts` · `bank-integration.service.ts` · `core/governance/governed-vocabularies.manifest.ts` · `scripts/audit-governed-vocabulary-manifest.mjs` · `docs/01_normative/07_NOMENCLATURA_CANONICA.md` · `scripts/audit-fiscal-economic-policy-composition.mjs` (só repin SPE).
+
+**Contrato materializado:** `export const BANK_SPLIT_TYPES = [...] as const` (sourceSymbol, única fonte dos 6 valores, ordem viva) + `export type BankSplitType = (typeof BANK_SPLIT_TYPES)[number]` (derivedTypeSymbol). Nenhum segundo tuple/enum/array/registry/schema; `platform`/`tax_reserve` fora do tuple.
+
+**Consumidores:** 4 unions inline REMOVIDAS (SPE `ResolvedSplitDestination.splitType`+`LocalSplitRecipient.splitType`; bank-integration `splitRecipients[].splitType`+`splitLines[].splitType`) → `import type { BankSplitType }`. **Unions residuais = 0.** Terceiro consumidor `bank-split-engine.service.ts` **byte-intacto** (já referenciava `BankSplitType`; usa 5 valores escalares legítimos; lógica econômica intocada). Usos escalares legítimos preservados.
+
+**Manifesto:** interface ganhou `derivedTypeSymbol?` (opcional; 28 entradas legadas inalteradas). Registrada `bank_splits.split_type` com `sourceFile`+`sourceSymbol=BANK_SPLIT_TYPES`+`derivedTypeSymbol=BankSplitType`+`values`(6). Não importa domínio Bank; não é runtime; zero segunda autoridade. ANTI-DRIFT desta frente = `manifesto ⊆ fonte` (igualdade bidirecional reservada à 4e).
+
+**Guard endurecido ESTRUTURALMENTE** (evoluído, sem segundo guard, sem comando 186): parser TypeScript (dependência já presente). Distingue (A) declaração paralela — union/array/tuple/enum com ≥ n−1 valores num MESMO construto → MORDE mesmo com import do tipo; (B) referência canônica ao `derivedTypeSymbol` + prova de derivação `(typeof symbol)[number]` na fonte; (C) uso escalar legítimo distribuído → NÃO morde. Menção textual/comentário/string/alias/cast/`as`/import-não-usado NÃO legitima. Entradas SEM `derivedTypeSymbol` mantêm o caminho textual anterior (retrocompat total). Zero allowlist, zero redução de limiar.
+
+**Nomenclatura §4.55:** `platform` REMOVIDO como split_type; `escrow` ADICIONADO; 6 valores; nota de fonte/derivado registrada. `targetType='platform'` (transparência) preservado — não é split_type. §4.56 intocada.
+
+**Pins / proteções:** SPE `eba0e1c3…` → `bb3f3fe6b494aac69a9642881f1d929aae9e0787e4f131fb30f88c069ff21050`; **repin ÚNICO** na trava `B1` do guard 4D-2 (guard 4D-2 `8d1e920f…` → `6087784364e11ec94607e77ecd7ff7abd6151bfe319b1c1570a3f0bc3d57555c`); guard manifesto `47368f51…` → `fb24b3d9b1138334225227f2fc7c5fd3b5647b1459a4ebb435ecdc46616809e4`. **B-CITY byte-intacto** (`d359f18d…`, sem pin sha256 da SPE); **4c-3 `942142f3…` preservado**. DECISION-0180/0181 byte-intactas.
+
+**Provas:** typecheck **0**; runner **185** verde (todos os guards); guard manifesto **29** entradas (28 legadas idênticas); **mutations 10/10 mordem** (unions reintroduzidas, union+import, enum/tuple/array/Set paralelos, sourceFile/sourceSymbol/derivedTypeSymbol incorretos) + **controles benignos 3/3 passam** (6 escalares distribuídos, 5 escalares+union em comentário, import-não-usado); **resíduo pós-mutation 0**; **emitted-JS EQUIVALENTE** para SPE, bank-integration e bank-split-engine (base×material); **novo import runtime do tuple nos consumidores = ZERO**; **novo caller monetário = ZERO**.
+
+**Bank / fronteiras (read-only antes×depois):** `bank_accounts=16 · regional_fund_accounts=1 · bank_transactions=0 · bank_splits=0 · bank_ledger=0 · saldo Curitiba=0 · Δbank=0`; `fiscal_reserve_accounts`/`fiscal_provision_events` inexistentes; `account_type='fiscal_reserve'`=0; `split_type='tax_reserve'`=0. **FISCAL-4E SUSPENSA**; `GO MATERIAL FISCAL-4E` anterior **SUSPENSO · NÃO REVOGADO · NÃO EXECUTÁVEL**; firewall **OFF**; zero migration/DDL/DML/conta/transaction/split/ledger/rota/worker/frontend. `DT-INVOICING-HARDCODED-TAX-RATE`/`DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN; B-CITY-2 BLOQUEADA.
+
+**STATUS: MATERIAL EXECUTADO E PROVADO · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA. NENHUM material FISCAL-4E executado. NENHUM material automaticamente autorizado.**
+
+---
+
 ## DECISION-0181 · GOVERNED VOCABULARY SOURCE AND DERIVED REFERENCE CONTRACT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
 **Auditoria Yala read-only concluída · Veredito A · SELO COMPLETO.** A DECISION-0181 está **SELADA**. Substitui a entrada de promulgação abaixo (**preservada, não reescrita**). **O material do contrato de vocabulário NÃO foi iniciado** — este selo é exclusivamente da DECISION docs-only.
 
