@@ -269,6 +269,15 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-14 (126) — FISCAL 4D-1 + 4D-1-R: SELADAS PELA YALA · VEREDITO A · SELO COMPLETO FINAL · ENCERRADAS
+- Reauditoria Yala final READ-ONLY → **Veredito A**. Arco: `72ab2827c` → `c218e84d5` (material 4D-1) → `326e71173` (cartório pré-selo) → `9e3421315` (remediação 4D-1-R) → `129db3a19` (cartório pré-reauditoria) → este selo (docs-only; 2 arquivos). **Veredito C anterior INTEGRALMENTE FECHADO pela remediação consolidada.**
+- **Selado — motor:** commission_gross como fato; contribuinte plataforma; perfil ativo do tenant (4b); regras via resolver 4c-2; tax_reserve=Σ; commission_distributable=gross−reserve. **Rounding:** draft NULL permitido; ativação sem modo fail-closed; INSERT active+NULL / draft NULL→active / UPDATE de modo em regra ativa = IMPOSSÍVEIS no banco; zero default silencioso. Defesa cumulativa: repository + CHECK dependente de status + trigger de imutabilidade + guard. Trilha append-only/RLS FORCE/sem UPDATE·DELETE/sem PII/idempotente. Missing honesto/discriminado; obrigatório fail-closed.
+- **Mutations reconciliadas (append-only):** 17 = 14 hostis + 2 benignos + 1 baseline de produto (imprecisão anterior era só classificatória; material/provas inalterados).
+- **Incidentes ENCERRADOS sem resíduo:** (a) E2E original — vazamento de fixtures de teste não-canônicas, limpeza governada §4.8.6, baseline reprovado; (b) 4 PIDs — deadlock local do harness, nada commitado (confirmado read-only), autorização explícita do usuário p/ pg_terminate_backend nos 4 PIDs, harness convertido p/ SQL direto, idle-in-tx/locks/resíduos=0.
+- **Estado selado:** tax_types/tax_rules/actor_fiscal_profiles/fiscal_provision_logs=0 · constraint validada · guard 4c-3 byte-intacto (hash a74ae08d…) · runner 184 · bank 16/1/0/0/0 · saldo Curitiba=0 · **Δbank=0**.
+- **Fronteiras fechadas:** 4d-2 e 4e NÃO abertas (GATE+GO próprios) · applies_to permanece gross|net · tax_reserve no Bank/conta de reserva inexistentes · policy regional inativa · PORTA não aberta · B-CITY-2 bloqueada. **DT-INVOICING-HARDCODED-TAX-RATE permanece OPEN · frente própria** (não resolvida/selada). Perfil/conexões/vizinhança/endereço/bairro/nacional/frontend fora.
+- **NENHUM próximo material automaticamente autorizado.**
+
 ### 2026-07-14 (125) — FISCAL 4D-1-R: ENFORCEMENT DB DE ROUNDING_MODE EM REGRA ATIVA · REMEDIAÇÃO EXECUTADA E PROVADA · NÃO SELADA · AGUARDA REAUDITORIA YALA FINAL
 - Remediação material consolidada única (auditoria Yala do 4d-1: **Veredito C**, uma família aberta). Base `326e71173` → material `9e3421315` → apply governado (dry-run→apply único→rerun fail-closed) → cartório pré-reauditoria.
 - **3 lacunas confirmadas read-only** (SQL direto bypassava `activateRule`): GAP-1 INSERT active+NULL · GAP-2 draft NULL→UPDATE active · GAP-3 UPDATE rounding_mode de regra ativa. Todas PERMITIDAS antes da remediação (zero DML persistente na prova).

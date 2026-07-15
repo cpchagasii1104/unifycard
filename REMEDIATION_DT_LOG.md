@@ -1,6 +1,42 @@
 # REMEDIATION DT LOG
 
-## FISCAL 4D-1-R · ENFORCEMENT DB DE ROUNDING_MODE EM REGRA ATIVA — 🟢 REMEDIAÇÃO MATERIAL CONSOLIDADA EXECUTADA E PROVADA · NÃO SELADA · AGUARDA REAUDITORIA YALA FINAL (2026-07-14)
+## FISCAL 4D-1 (MOTOR READ-ONLY DE PROVISÃO FISCAL) + FISCAL 4D-1-R (ENFORCEMENT DB DE ROUNDING_MODE) — ✅ SELADAS PELA YALA · VEREDITO A · SELO COMPLETO FINAL · OFICIALMENTE ENCERRADAS (2026-07-14)
+**Reauditoria Yala final read-only concluída · Veredito A.** O motor 4D-1 e a remediação 4D-1-R estão SELADOS. O Veredito C anterior foi INTEGRALMENTE FECHADO pela remediação consolidada. Este é o selo cartorial final; substitui as entradas pré-selo abaixo (preservadas, não reescritas).
+
+**Arco completo (byte-confirmado):**
+```
+BASE:                     72ab2827c  (selo B-CITY-1)
+MATERIAL 4D-1:            c218e84d5  (motor read-only)
+CARTÓRIO PRÉ-SELO:        326e71173
+REMEDIAÇÃO MATERIAL:      9e3421315  (enforcement DB 4D-1-R)
+CARTÓRIO PRÉ-REAUDITORIA: 129db3a19
+AUDITORIA YALA FINAL:     READ-ONLY · VEREDITO A
+SELO FINAL:               este commit docs-only
+```
+
+**INVARIANTES SELADOS — Motor fiscal:** `commission_gross_cents` recebido como FATO econômico governado · contribuinte = plataforma · perfil fiscal = `actor_fiscal_profiles` ATIVO do tenant (casa 4b) · regras resolvidas EXCLUSIVAMENTE pelo catálogo/resolver 4c-2 · `tax_reserve` = Σ das provisões por regra · `commission_distributable` = `commission_gross − tax_reserve` (negativo honesto, sem clamp).
+**Rounding (fecha o Veredito C):** draft com `rounding_mode` NULL = permitido · ativação sem `rounding_mode` = fail-closed · INSERT direto `active + NULL` = IMPOSSÍVEL no banco · UPDATE `draft NULL → active` = IMPOSSÍVEL no banco · alteração do `rounding_mode` de regra ativa = IMPOSSÍVEL · zero default fiscal silencioso. **Quatro defesas cumulativas:** repository (`activateRule` fail-closed) + CHECK dependente de status (`chk_tax_rules_active_requires_rounding`) + trigger canônica de imutabilidade reforçada (`enforce_tax_rules_immutability`, `rounding_mode` entre os campos materiais) + guard dedicado.
+**Trilha fiscal:** `fiscal_provision_logs` append-only · RLS FORCE · sem UPDATE · sem DELETE · snapshot sem PII · idempotente · atômica por evento · NÃO é SSOT financeiro · NÃO é catálogo · NÃO é policy.
+**Missing:** `fiscal_config_missing` honesto · discriminado · sem fallback zero · infra-error propaga · contexto obrigatório falha fechado (D9.6.18).
+
+**CORREÇÃO DOCUMENTAL DAS MUTATIONS (reconciliação, append-only — não reescreve entrada anterior):** as **17 execuções totais** da remediação 4D-1-R são **14 mutations hostis + 2 controles benignos + 1 baseline de produto = 17**. A entrada pré-reauditoria abaixo escreveu "17/17 mutations hostis+benignas" de forma imprecisa na classificação; a imprecisão era EXCLUSIVAMENTE classificatória/cartorial e NÃO afetava o material nem as provas (as 14 hostis morderam, os 2 benignos passaram, o produto ficou verde — inalterado).
+
+**INCIDENTES ENCERRADOS (sem resíduo, sem bloqueio material):**
+- *Incidente E2E original (material 4D-1):* COMMIT interno de repo escapou do harness inicial de conexão única; somente fixtures/objetos de TESTE não-canônicos vazaram (nenhuma história canônica ou auditável apagada); limpeza governada §4.8.6 executada; triggers restaurados (provados 'O'); baseline reprovado; zero resíduo.
+- *Incidente dos 4 PIDs (remediação 4D-1-R):* o repository real abriu conexões próprias fora da tx do harness → deadlock local; NENHUMA transação commitou (confirmado read-only via `pg_stat_activity`); Clayton autorizou EXPLICITAMENTE `pg_terminate_backend` nos 4 PIDs identificados; somente esses 4 foram terminados; harness convertido para SQL direto; pós-verificação `idle in transaction=0`, locks residuais=0, sessões presas=0, dados residuais=0.
+
+**ESTADO FINAL SELADO (read-only):** tax_types=0 · tax_rules=0 · actor_fiscal_profiles=0 · fiscal_provision_logs=0 · fiscal_identities=4 · bank_accounts=16 · regional_fund_accounts=1 · bank_transactions=0 · bank_ledger=0 · bank_splits=0 · policy regional ativa=0 · saldo Curitiba=0 · neighborhoods=75 · aliases=0 · N1 dormente · drifts preservados · `chk_tax_rules_active_requires_rounding` VALIDADA · `idle in transaction=0`. **Δbank=0.**
+Guard `audit-fiscal-provision-engine` no runner **184**. Guard 4c-3 BYTE-INTACTO — hash `a74ae08d0d52031b23451e67cb1f944d276fe868f63a4b0181130e0d6a8ed277`.
+
+**FRONTEIRAS QUE PERMANECEM FECHADAS:** 4d-2 NÃO ABERTA (exige GATE+GO próprios) · 4e NÃO ABERTA (exige GATE+GO próprios) · `economic_policy_lines.applies_to` permanece `gross|net` · tax_reserve no Bank INEXISTENTE · conta de reserva fiscal INEXISTENTE · policy regional inativa/inexistente · PORTA não aberta · B-CITY-2 bloqueada.
+**`DT-INVOICING-HARDCODED-TAX-RATE` permanece OPEN · FRENTE PRÓPRIA** (NÃO resolvida, NÃO contida definitivamente, NÃO selada).
+Fora do escopo (reafirmado): perfil · conexões · vizinhança/condomínio · endereço · bairro/N5 · nacional · frontend público.
+
+**NENHUM PRÓXIMO MATERIAL AUTOMATICAMENTE AUTORIZADO.**
+
+---
+
+## FISCAL 4D-1-R · ENFORCEMENT DB DE ROUNDING_MODE EM REGRA ATIVA — 🟢 REMEDIAÇÃO MATERIAL CONSOLIDADA EXECUTADA E PROVADA · NÃO SELADA · AGUARDA REAUDITORIA YALA FINAL (2026-07-14, SELADA PELO SELO FINAL ACIMA)
 **Remediação material consolidada única sobre FISCAL 4D-1 (auditoria Yala: Veredito C, uma família material aberta).** Base `326e71173` → commit material `9e3421315` → **apply governado da migration** → este cartório pré-reauditoria.
 
 **Achado da Yala confirmado read-only (3 lacunas, todas provadas antes de editar, ZERO DML persistente):** `GAP-1` INSERT direto `status='active' + rounding_mode=NULL` — PERMITIDO (lacuna confirmada); `GAP-2` INSERT `draft NULL` → UPDATE `status='active'` — PERMITIDO; `GAP-3` regra ativa válida → UPDATE `rounding_mode` para outro valor — PERMITIDO. As três bypassavam `activateRule`/repository via SQL direto: enforcement só existia em CÓDIGO, não no BANCO (a Lei do Contador exige o dado governado protegido no schema).
