@@ -1,6 +1,40 @@
 # REMEDIATION DT LOG
 
-## DECISION FISCAL-4D-2 · DECISION-0178 · `economic_policy_lines.applies_to` E COMPOSIÇÃO FISCAL × POLICY — 🟣 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL 4D-2 NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+## DECISION-0178 · FISCAL ECONOMIC POLICY APPLIES_TO AND COMPOSITION — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
+**Auditoria Yala read-only concluída · Veredito A.** A DECISION-0178 está SELADA. O Veredito B do GATE FISCAL-4D-2-0 foi encerrado pela decisão humana promulgada (commit `b6e965b71`) e agora selado pela Yala. Substitui a entrada pré-selo abaixo (preservada, não reescrita). **Material 4d-2 NÃO foi executado** — este selo é exclusivamente da DECISION docs-only.
+
+**Arco completo (byte-confirmado):**
+```
+BASE:                     39f439489  (4d-1 + 4d-1-R seladas)
+DECISION DOCS-ONLY:       b6e965b71  (DECISION-0178 promulgada)
+AUDITORIA YALA:           READ-ONLY · VEREDITO A
+SELO FINAL:               este commit docs-only
+```
+
+**Vocabulário físico futuro selado (D1):** `gross` · `net` · `gross_transaction` · `commission_gross` · `commission_distributable` — CHECK futuro com **cinco** valores. **Graváveis canônicos:** `gross_transaction` · `commission_gross` · `commission_distributable`. **Legados read-only:** `gross` · `net`. Writer, tipos, manifesto e guard limitam os três graváveis (o CHECK sozinho não distingue histórico de gravação nova); `gross|net` não são aliases; nenhum novo writer pode gravá-los; novos valores exigem nova DECISION.
+
+**Default/fallback/histórico (D2/D3):** remoção **indivisível** e obrigatória no material futuro de `DEFAULT 'gross'` (coluna) + fallback `'gross'` (`economic-policy.repository.ts`). Histórico legítimo = somente snapshots já materializados (`resolution_logs`/`bank_splits`); zero rederivação, zero backfill matemático, zero UPDATE das 75 linhas congeladas, zero recálculo de split histórico. `gross` NÃO vira `gross_transaction`; `net` NÃO vira `commission_distributable`. `net` permanece fisicamente no CHECK por forward-only (Lei 4) apesar de 0 linhas.
+
+**Orquestrador e policy version (D6/D8):** `FiscalEconomicPolicyCompositionService` selado como interno, pré-financeiro, evaluation/read-only, não-SSOT, sem Bank, **zero caller monetário vivo em 4d-2**. Policy version canônica = **`economic_policies.id`** (`economic_policy_versions` NÃO existe). Contexto futuro (`EconomicPolicyEvaluationContext`) uniforme para todas as linhas: policy id, snapshot fiscal, jurisdição, tempos, três bases, status fiscal, moeda, calculation version.
+
+**Negativo/zero/missing/infra (D9-D11):** `commission_distributable < 0` → preview honesto + warning (sem clamp); policy monetária → fail-closed `COMMISSION_DISTRIBUTABLE_NEGATIVE` antes de qualquer alocação. `= 0` → válido, evaluation preserva zero, 4e não cria split/ledger de valor zero. `fiscal_config_missing` obrigatório → `FISCAL_CONFIG_MISSING_MANDATORY` fail-closed. Infra-error → propaga. Zero fallback para `gross`/`net`/`gross_transaction`/`commission_gross`/zero.
+
+**`tax_reserve` (D5) e fronteira 4d-2×4e (D7):** `tax_reserve` permanece **fora** de `applies_to` (é `line_type` futuro, materialização exclusiva de 4e). 4d-2 futuro: vocabulário + migration + writer + tipos + engine de avaliação + contexto imutável + orquestrador read-only + guards + mutations + E2E rollback + **zero Bank + zero caller monetário vivo**. 4e futuro: religação monetária + tax_reserve financeiro + conta/destino + transaction + splits + ledger + atomicidade + reversal. Religar execução financeira em 4d-2 permanece PROIBIDO.
+
+**Guards (D14) — reconciliação futura consciente registrada, NENHUM alterado neste selo:** `audit-fiscal-tax-catalog` (alteração delimitada do vocabulário e CHECK) · `audit-fiscal-provision-engine` (inversão limitada de B4 + atualização indivisível do hash pinado do 4c-3 na mesma fatia futura) · `audit-bank-city-curitiba-foundation` (permanece byte-intacto; token novo não pode entrar nos dois arquivos protegidos). **Hash reconciliado (pinado internamente pelo guard, sha256):** `a74ae08d0d52031b23451e67cb1f944d276fe868f63a4b0181130e0d6a8ed277`. (Nota: `7b33ff95…` era o `git hash-object` do relatório do GATE — artefato transitório de relatório, nunca persistido no repo, sem efeito material; o hash canônico vigente é o sha256 acima, confirmado idêntico pré e pós este selo.)
+
+**Manifesto/nomenclatura futuros (D15):** material 4d-2 deverá atualizar `governed-vocabularies.manifest.ts` + `07_NOMENCLATURA_CANONICA.md` distinguindo 5 físicos / 3 graváveis / 2 legados read-only. **Não alterados neste selo.**
+
+**ESTADO FINAL SELADO (docs-only, read-only):** DECISION-0178 intacta (353 linhas) · commit `b6e965b71` com exatamente 3 arquivos (DECISION + cartório + dividatecnica) · guard 4c-3 verde e byte-intacto · guard `audit-fiscal-provision-engine` verde · guard `audit-bank-city-curitiba-foundation` byte-intacto · material fiscal 4d-1/4d-1-R intocado · **Δbank=0**.
+
+**FRONTEIRAS QUE PERMANECEM FECHADAS:** 4d-2 material NÃO INICIADO (exige GO próprio, D9.7) · 4e NÃO ABERTA (exige GATE+GO próprios) · Bank INTACTO · policy regional NÃO CRIADA · policy admin NÃO ABERTA · PORTA NÃO ABERTA · B-CITY-2 BLOQUEADA. **`DT-INVOICING-HARDCODED-TAX-RATE` permanece OPEN.** **`DT-REGION-FUND-DELEGATION-MODEL-PENDING` permanece OPEN.**
+Preservados e intactos: 4d-1 · 4d-1-R · B-CITY-1 · fiscal-provision · fiscal_provision_logs · frontend · perfil · conexões · endereço · Social · bairro/N5 · nacional.
+
+**NENHUM PRÓXIMO MATERIAL AUTOMATICAMENTE AUTORIZADO.**
+
+---
+
+## DECISION FISCAL-4D-2 · DECISION-0178 · `economic_policy_lines.applies_to` E COMPOSIÇÃO FISCAL × POLICY — 🟣 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL 4D-2 NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15, SELADA PELO SELO FINAL ACIMA)
 **GATE FISCAL-4D-2-0 (read-only, 2026-07-15) → Veredito B → GO explícito de Clayton para promulgar UMA DECISION docs-only consolidada.** Base `rescue-structural @ 39f439489` (4d-1 + 4d-1-R seladas). Commit docs-only único: `docs/02_decisions/DECISION_0178_FISCAL_ECONOMIC_POLICY_APPLIES_TO_COMPOSITION.md` + este cartório + `dividatecnica.md`. **Zero material · zero migration · zero guard alterado · zero Bank · Δbank=0.**
 
 **Suficiência documental (00_AGENT_PROTOCOL §2.2.2; união cautelosa FISCAL/FINANCEIRO/POLICY/SEMÂNTICA/NOMENCLATURA/AUTHORITY/AUDITORIA/PERSISTÊNCIA):** DECISION-0166 (D1/D7/D9.5.12/D9.5.13/D9.7) · DECISION-0167 (§5/§12) · DECISION-0177 (linha regional `commission_distributable`; B-CITY-2 bloqueada) · Constituição/Leis (Lei 4 não-redução; Lei 5 SSOT financeiro; Lei 7) · SSOT_REGISTRY §5/§5.16 · LEI DE COERÊNCIA §4.6-4.7/§7 · PROHIBITED_STRUCTURES · 07_NOMENCLATURA.
