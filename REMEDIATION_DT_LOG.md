@@ -1,5 +1,35 @@
 # REMEDIATION DT LOG
 
+## DECISION-0180 · BANK SPLIT TYPE CANONICALIZATION PREREQUISITE — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · FISCAL-4E SUSPENSA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+**Origem: GATE de retomada do material FISCAL-4E → STOP CORRETO da executora (§27) → escolha humana de Clayton = opção B, como frente pré-requisito SEPARADA.** Base `rescue-structural @ fbbab7be7`. Commit docs-only único: DECISION-0180 + este cartório + `dividatecnica.md`. **Zero código · zero manifesto · zero guard · zero migration · zero DDL/DML · zero Bank write · firewall OFF · Δbank=0.**
+
+**O GATE (read-only) provou uma colisão VERDADEIRA entre três exigências seladas:**
+```
+(i)   DECISION-0179 D5/D21 : registrar bank_splits.split_type no manifesto governado
+(ii)  DECISION-0179 D19    : preservar service-payment-execution.service.ts + hashes/pins (B-CITY-1 / 4D-2)
+(iii) GO §29               : runner verde (audit-governed-vocabulary-manifest é vivo no runner)
+```
+Duas quaisquer se sustentam; as três não. **A executora PAROU antes de escrever material** — não lavou o guard, não tocou selo, não improvisou.
+
+**TRUE-POSITIVE (provado com o guard real; sonda registrada, guard rodado, sonda REVERTIDA, guard de volta a `GATE OK`/28 vocabulários, zero resíduo):** as uniões inline em `service-payment-execution.service.ts:65` e `bank-integration.service.ts:237,354` **duplicam** o vocabulário vivo de 6 valores de `BankSplitType` (`fee · regional_fund · reserve · escrow · revenue_share · referral`). Com o vocabulário registrado em 7 valores o limiar anti-paralelo vira 6 → `6/7` morde nos dois arquivos. **Não é falso-positivo: é o smell C1/R2 que o manifesto existe para eliminar.**
+
+**Wiring do guard (1ª mão):** `run-regression-guards.mjs` L149 → `audit-authority-residual-hygiene-suite.mjs` L17 → `audit-governed-vocabulary-manifest.mjs`.
+
+**Retificação factual do GATE (1ª mão) — quem realmente pina o SPE:**
+- `audit-fiscal-economic-policy-composition.mjs` (4D-2) é o **ÚNICO** que pina por sha256 (trava `B1` = `eba0e1c3fd363e5bea7091d41d7898f475c6bfb27a18b0095af6ebad976c9dd2`, **idêntico ao hash vivo**).
+- `audit-bank-city-curitiba-foundation.mjs` (B-CITY-1) **NÃO pina hash algum** — referencia o SPE por caminho (L29) e o assere por conteúdo (R1–R9). Uma troca estritamente tipológica não toca nenhuma dessas regras.
+- **Sem cascata:** nada pina o hash do próprio guard 4D-2 (`8d1e920f…`) → repinar `B1` é alteração-folha.
+
+**Decisões promulgadas (D1–D14):** **D1** opções A e C REJEITADAS (A: não se cria exceção/allowlist/DT para tolerar true-positive — repetiria o problema que o guard existe para eliminar; C: omitir o manifesto deixaria D5/D21 incompletas e impediria selo íntegro da 4e). **D2** fonte canônica única `BANK_SPLIT_TYPES` (6 valores, ordem viva) + `BankSplitType` DERIVADO, em `src/modules/bank/bank-split.types.ts`. **D3** manifesto por `sourceFile`+`symbol` sob ANTI-DRIFT (ver ressalva abaixo). **D4** consumidores por `import type`; proibido cast cego/lista copiada/fallback livre. **D5** reabertura ESTREITA e estritamente tipológica de SPE + bank-integration (byte-diferente · semanticamente equivalente · runtime-equivalente · financeiramente neutra). **D6** repin de `B1` no guard 4D-2, indivisível no mesmo commit; B-CITY-1 sem alteração esperada; proibido enfraquecer/remover pin. **D7** zero mudança financeira (Δbank=0; CHECK de 7 valores pertence à 4e). **D8** seis agora, sete na 4e. **D9** runner-neutral em **185** (a posição **186 fica RESERVADA** ao guard material da 4e por D19/0179). **D10** 15 mutations hostis + controles benignos + resíduo-zero. **D11** provas de equivalência antes×depois (call graph, emitted runtime, comportamento financeiro). **D12** escopo material futuro mínimo; outro arquivo protegido → STOP. **D13** sequência institucional de 9 passos. **D14** fronteiras.
+
+**⚠️ RESSALVA REGISTRADA PARA A YALA (D3 — desvio declarado, provado, não silencioso):** o `GO DECISION` indicava como *forma preferencial* "manifesto → **referência** a `BANK_SPLIT_TYPES`", com STOP se a arquitetura não permitisse referência **por ciclo ou violação de camadas**. A execução provou um **terceiro impedimento, não previsto no GO e literalmente fora da sua condição de STOP**: **o parser textual do próprio guard** — que extrai literais por regex (`values:\s*\[([^\]]+)\]`). Prova executada: entrada-sonda com `values: [...SYMBOL]` → `ANTI-DRIFT FAIL` (`...BANK_SPLIT_TYPES_PROBE` lido como literal); sonda revertida; guard verde. Ademais, o manifesto vive em `core/governance/` e **não importa nada** hoje — importar de `modules/bank/` inverteria a camada. Promulgou-se, portanto, a forma **materialmente possível**: `sourceFile`+`symbol` como referência declarada + `values` como **projeção verificada** pelo ANTI-DRIFT (arquitetura dos 28 vocabulários vivos). **Não é "duplicação tolerada": tolerada é a que ninguém confere — esta é conferida e fail-closed.** Submetida à Yala.
+
+**FRONTEIRAS:** **`GO MATERIAL FISCAL-4E` fica SUSPENSO · NÃO REVOGADO · NÃO EXECUTÁVEL** — retomada exige o gatilho humano literal **`GO RETOMAR MATERIAL FISCAL-4E`**, e só após o pré-requisito SELADO. Material 4e NÃO iniciado · conta fiscal NÃO criada · `tax_reserve` NÃO introduzido nesta frente · Bank INTACTO · Δbank=0 · firewall OFF · zero caller monetário · B-CITY-2 BLOQUEADA. `DT-INVOICING-HARDCODED-TAX-RATE` OPEN · `DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (**não governa a reserva fiscal**). **Nenhuma DT nova para a duplicação** — a escolha é eliminá-la, não tolerá-la.
+
+**NENHUM MATERIAL AUTOMATICAMENTE AUTORIZADO.**
+
+---
+
 ## DECISION-0179 · FISCAL TAX RESERVE BANK MATERIALIZATION FOUNDATION — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
 **Reauditoria Yala read-only concluída · Veredito A · SELO COMPLETO.** A DECISION-0179 **e sua remediação factual** estão SELADAS. O Veredito B anterior (errata `reference_id` UUID→TEXT) foi **sanado pela remediação `7faf0a280`** e agora selado pela Yala. Substitui a entrada de errata abaixo (preservada, não reescrita). **Material 4e NÃO foi iniciado** — este selo é exclusivamente da DECISION docs-only + errata.
 
