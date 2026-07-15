@@ -40,6 +40,9 @@ const F = {
   MANIFEST: 'src/core/governance/governed-vocabularies.manifest.ts',
   GUARD_4C3: 'scripts/audit-fiscal-tax-catalog.mjs',
   RUNNER: 'scripts/run-regression-guards.mjs',
+  MIG_ENFORCE: 'migrations/20260715100000_tax_rules_active_rounding_mode_enforcement.sql',
+  APPLY_R: 'scripts/apply-fiscal-4d1-migrations.mjs',
+  IMMUT_MIG: 'migrations/20260710140000_create_tax_types_and_tax_rules.sql',
 };
 const S = Object.fromEntries(Object.entries(F).map(([k, p]) => [k, { p, raw: read(p), s: p.endsWith('.sql') ? stripSql(read(p)) : strip(read(p)) }]));
 
@@ -173,7 +176,7 @@ const S = Object.fromEntries(Object.entries(F).map(([k, p]) => [k, { p, raw: rea
   if (!/sha256: '6cf941c9a68806edaa3db303023499d764168174d82042fa25d5efbf5fdcca9d'/.test(S.APPLY.raw)) note('O3: hash fixo da migration rounding_mode sumiu/divergiu');
   if (!/sha256: '76db12f904b8d0968101da395e7a0ac75df2e97c28121429e65a264a60e5723c'/.test(S.APPLY.raw)) note('O4: hash fixo da migration da trilha sumiu/divergiu');
   if (!/pg_advisory_xact_lock/.test(ap)) note('O5: advisory lock sumiu');
-  if (!/already !== 0\)[\s\S]{0,80}throw[\s\S]{0,60}already_applied/.test(ap)) note('O6: rerun fail-closed sumiu');
+  if (!/pending\.length === 0\)[\s\S]{0,80}throw[\s\S]{0,60}already_applied/.test(ap)) note('O6: rerun fail-closed (zero pendente) sumiu');
   if (/process\.argv[\s\S]{0,160}migrations\//.test(ap)) note('O7: caminho de migration por CLI (proibido — nomes fixos)');
   if (!/MUST_STAY_UNREGISTERED/.test(ap)) note('O8: preservação de N1/drift sumiu do preflight');
   // hashes reais batem com os fixos
@@ -181,6 +184,54 @@ const S = Object.fromEntries(Object.entries(F).map(([k, p]) => [k, { p, raw: rea
     const real = createHash('sha256').update(read(file)).digest('hex');
     if (real !== expected) note(`O9: ${file} divergiu do hash embutido (${real})`);
   }
+}
+
+// ── R · REMEDIAÇÃO 4D-1-R (Yala Veredito C): enforcement DB de rounding_mode em regra ativa ──
+{
+  const mig = S.MIG_ENFORCE.s;
+  // (R1) constraint exata OU semanticamente equivalente: status<>active OR rounding_mode NOT NULL
+  const hasCheck = /ADD CONSTRAINT chk_tax_rules_active_requires_rounding\s*\n?\s*CHECK\s*\(\s*status\s*<>\s*'active'\s*OR\s*rounding_mode\s+IS\s+NOT\s+NULL\s*\)/i.test(mig);
+  if (!hasCheck) note('R1: CHECK chk_tax_rules_active_requires_rounding ausente ou com condição divergente (status<>active OR rounding_mode IS NOT NULL)');
+  // (R2) dependência explícita status='active' <-> rounding_mode IS NOT NULL (não é presença solta de string)
+  if (!/status\s*<>\s*'active'\s*OR\s*rounding_mode\s+IS\s+NOT\s+NULL/i.test(mig))
+    note('R2: condição da constraint não amarra status=active a rounding_mode NOT NULL');
+  // (R3) ausência de DEFAULT na constraint/coluna (a coluna já nasceu sem default na 1ª migration;
+  // aqui garantimos que a remediação não introduziu um)
+  if (/ALTER COLUMN rounding_mode SET DEFAULT|ADD COLUMN rounding_mode[\s\S]{0,80}DEFAULT/i.test(mig))
+    note('R3: DEFAULT fiscal silencioso introduzido na remediação');
+  // (R4) draft continua nullable — a migration NÃO pode tornar a coluna NOT NULL globalmente
+  if (/ALTER COLUMN rounding_mode SET NOT NULL/i.test(mig))
+    note('R4: coluna virou NOT NULL global — draft incompleto deixaria de ser permitido');
+  // (R5) trigger de imutabilidade (mesma casa canônica, via CREATE OR REPLACE — não duplicada)
+  // inclui rounding_mode na lista de campos materiais protegidos quando OLD.status='active'
+  const funcBlock = (mig.match(/CREATE OR REPLACE FUNCTION enforce_tax_rules_immutability\(\)[\s\S]*?\$\$ LANGUAGE plpgsql;/) || [''])[0];
+  if (!funcBlock) note('R5: reforço da função enforce_tax_rules_immutability (CREATE OR REPLACE) ausente');
+  if (!/NEW\.rounding_mode IS DISTINCT FROM OLD\.rounding_mode/.test(funcBlock))
+    note('R6: rounding_mode não entrou na lista de campos imutáveis quando OLD.status=active');
+  // rounding_mode deve estar na MESMA cláusula IF OLD.status='active' que os demais campos materiais
+  // (não uma trigger paralela/isolada) — checa coexistência com um campo pré-existente conhecido
+  const activeBlock = (funcBlock.match(/IF OLD\.status = 'active' THEN[\s\S]*?END IF;\s*\n\s*END IF;/) || [funcBlock])[0];
+  if (!/NEW\.rate_bps IS DISTINCT FROM OLD\.rate_bps/.test(activeBlock) || !/NEW\.rounding_mode IS DISTINCT FROM OLD\.rounding_mode/.test(activeBlock))
+    note('R7: rounding_mode não está na MESMA checagem de imutabilidade dos demais campos materiais (rate_bps) — trigger paralela suspeita');
+  if (!/active→deprecated|active\s*→\s*deprecated|NEW\.status NOT IN \('active', 'deprecated'\)/.test(funcBlock))
+    note('R8: transição active→deprecated deixou de ser permitida na função reforçada');
+  // (R9) não duplicar lifecycle: só UMA função/trigger de imutabilidade para tax_rules na migration nova
+  if ((mig.match(/CREATE TRIGGER/gi) || []).length > 0)
+    note('R9: remediação criou TRIGGER nova/paralela em vez de reforçar a função existente via CREATE OR REPLACE');
+  // (R10) zero seed/backfill/UPDATE de dados na migration de remediação
+  if (/^\s*UPDATE\s+tax_rules/im.test(mig)) note('R10: remediação faz UPDATE de dados (backfill proibido — tax_rules=0 no baseline)');
+  if (/NOT VALID/i.test(mig)) note('R11: constraint criada NOT VALID (deve validar imediatamente — catálogo vazio)');
+
+  // (R12) activateRule PRESERVADO (defesa cumulativa: repository + constraint + trigger + guard)
+  if (!/TAX_RULE_ROUNDING_MODE_REQUIRED/.test(S.CATREPO.s) || !/t\.rounding_mode == null/.test(S.CATREPO.s))
+    note('R12: proteção fail-closed do activateRule foi removida — defesa cumulativa quebrada (banco não substitui repository)');
+
+  // (R13) aplicador seletivo reconhece o hash fixo da migration de remediação
+  if (!/name: '20260715100000_tax_rules_active_rounding_mode_enforcement\.sql', sha256: '5372836f70a54d8993902fa439b425699d4cca3ca941e61d164cb7b6053fe598'/.test(S.APPLY_R.raw))
+    note('R14: aplicador seletivo não reconhece a migration de remediação pelo hash fixo');
+  const realShaEnforce = createHash('sha256').update(read(F.MIG_ENFORCE)).digest('hex');
+  if (realShaEnforce !== '5372836f70a54d8993902fa439b425699d4cca3ca941e61d164cb7b6053fe598')
+    note(`R15: migration de remediação divergiu do hash embutido (${realShaEnforce})`);
 }
 
 // ── guard 4c-3 INTACTO (hash de referência do envelope 4d-1) ──
@@ -200,4 +251,4 @@ if (fails.length) {
   for (const f of fails) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [fiscal-provision-engine] — motor read-only 4d-1 (DECISION-0167): fontes = allowlist §3 (perfil 4b + resolver 4c-2 + TaxableEvent; company/tax-profile/invoice/template/env/Bank/residência-do-comprador PROIBIDOS); cálculo em centavos inteiros com rounding_mode GOVERNADO da regra (motor nunca escolhe; Math.* só como implementação da política selecionada); tax_reserve = Σ provisões; commission_distributable = gross − reserve (negativo HONESTO com warning, sem clamp); taxa zero explícita ≠ missing; fiscal_config_missing DISCRIMINADO e contexto obrigatório fail-closed (D9.6.18); trilha fiscal_provision_logs append-only (RLS FORCE, no UPDATE/DELETE, sem PII, rule/profile id+version, identidade do evento, idempotência sem contradição); activateRule exige rounding_mode (zero default silencioso); vocabulário ROUNDING_MODES único (types+CHECK+manifesto); fronteiras: zero bank_*, zero applies_to (4d-2), zero tax_reserve em policy (4e), passada seller não aberta, zero rota HTTP/app.builder/consumidor monetário; guard 4c-3 BYTE-INTACTO por hash; aplicador seletivo estreito (2 hashes fixos, token, lock, rerun fail-closed, N1/drift preservadas). (Comment-aware + liveness.)');
+console.log('GATE OK [fiscal-provision-engine] — motor read-only 4d-1 (DECISION-0167): fontes = allowlist §3 (perfil 4b + resolver 4c-2 + TaxableEvent; company/tax-profile/invoice/template/env/Bank/residência-do-comprador PROIBIDOS); cálculo em centavos inteiros com rounding_mode GOVERNADO da regra (motor nunca escolhe; Math.* só como implementação da política selecionada); tax_reserve = Σ provisões; commission_distributable = gross − reserve (negativo HONESTO com warning, sem clamp); taxa zero explícita ≠ missing; fiscal_config_missing DISCRIMINADO e contexto obrigatório fail-closed (D9.6.18); trilha fiscal_provision_logs append-only (RLS FORCE, no UPDATE/DELETE, sem PII, rule/profile id+version, identidade do evento, idempotência sem contradição); activateRule exige rounding_mode (zero default silencioso); vocabulário ROUNDING_MODES único (types+CHECK+manifesto); REMEDIAÇÃO 4D-1-R (Yala Veredito C): regra ativa com rounding_mode NULL é IMPOSSÍVEL no banco (CHECK chk_tax_rules_active_requires_rounding validada, sem NOT VALID, sem default, draft nullable) e o modo de regra ativa é IMUTÁVEL (função enforce_tax_rules_immutability reforçada via CREATE OR REPLACE — rounding_mode na MESMA checagem dos demais campos materiais, active→deprecated preservado, sem trigger paralela); defesa cumulativa repository+constraint+trigger+guard; fronteiras: zero bank_*, zero applies_to (4d-2), zero tax_reserve em policy (4e), passada seller não aberta, zero rota HTTP/app.builder/consumidor monetário; guard 4c-3 BYTE-INTACTO por hash; aplicador seletivo estreito (3 hashes fixos, token, lock, aplica só pendentes, rerun fail-closed, N1/drift preservadas). (Comment-aware + liveness.)');
