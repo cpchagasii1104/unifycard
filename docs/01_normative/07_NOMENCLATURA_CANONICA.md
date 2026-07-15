@@ -6307,6 +6307,27 @@ Todos os novos campos seguem rigorosamente:
 
 ---
 
+## `economic_policy_lines.applies_to` — base de cálculo (FISCAL 4D-2, DECISION-0178)
+
+**Autoridade:** DECISION-0178 (FISCAL ECONOMIC POLICY APPLIES_TO AND COMPOSITION). Materializado pela migration forward-only `20260715120000_economic_policy_applies_to_composition.sql`. **Mudança neste vocabulário = nova DECISION.** Fonte de descoberta em código: `governed-vocabularies.manifest.ts` (`ECONOMIC_POLICY_APPLIES_TO_WRITABLE`) + `economy/policy-engine/economic-policy.types.ts`.
+
+`applies_to` é a **base de cálculo** de uma linha de policy econômica. O vocabulário é de **três camadas** — o CHECK físico **não** distingue histórico de gravação nova; a trava dos graváveis é de **writer + tipos + manifesto + guard** (`assertWritableAppliesTo`).
+
+| Camada | Valores | Papel |
+|---|---|---|
+| **FÍSICOS (CHECK)** | `gross` · `net` · `gross_transaction` · `commission_gross` · `commission_distributable` | Aceitos pelo CHECK. Readers reconhecem os 5. |
+| **GRAVÁVEIS** | `gross_transaction` · `commission_gross` · `commission_distributable` | Únicos que um **novo writer** pode gravar. |
+| **LEGADOS READ-ONLY** | `gross` · `net` | Preservados no CHECK **só** para o histórico congelado (75 linhas em policies deprecated). **NUNCA** graváveis por novo writer, **NUNCA** aliases, **NUNCA** reinterpretados/rederivados. |
+
+**Semântica dos graváveis:**
+- **`gross_transaction`** — valor bruto governado da operação, antes das deduções da composição fiscal/policy; vem do envelope econômico do caller (nunca inferido pela policy).
+- **`commission_gross`** — comissão bruta da plataforma, recebida como **fato** econômico; a mesma base entregue ao `fiscal-provision` 4d-1. O policy engine **não** recalcula platform fee.
+- **`commission_distributable`** — `commission_gross − tax_reserve`, derivada **exclusivamente** do resultado fiscal 4d-1.
+
+**Proibições:** alias silencioso · fallback · reinterpretação · conversão automática (`gross`→`gross_transaction`, `net`→`commission_distributable`) · rederivação histórica (verdade histórica = snapshot já materializado, nunca reavaliação) · 6º valor sem nova DECISION. **`tax_reserve` NÃO é valor de `applies_to`** — é `line_type` da fatia 4e (materialização financeira), nunca base genérica de distribuição.
+
+---
+
 ## 🔗 Referencias
 <!-- AUTO-GENERATED-START -->
 ### Referencia

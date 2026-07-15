@@ -52,6 +52,9 @@ const TYPES = 'src/modules/fiscal/tax-catalog.types.ts';
 const REPO = 'src/modules/fiscal/tax-catalog.repository.ts';
 const MANIFEST = 'src/core/governance/governed-vocabularies.manifest.ts';
 const CARTORIO = join(ROOT, '..', 'REMEDIATION_DT_LOG.md');
+// FISCAL 4D-2 (DECISION-0178): a inversão CONSCIENTE da fronteira applies_to é autorizada
+// EXCLUSIVAMENTE por esta migration nomeada. Qualquer OUTRA migration estendendo applies_to segue mordida.
+const AUTHORIZED_4D2_MIGRATION = '20260715120000_economic_policy_applies_to_composition.sql';
 
 const mig = readSql(MIG);
 const types = readTs(TYPES);
@@ -103,9 +106,11 @@ for (const f of readdirSync(migDir).filter((f) => f.endsWith('.sql'))) {
     if (/CREATE TABLE (IF NOT EXISTS )?(tax_rates|tax_catalog|tax_tables|aliquotas|aliquots|fiscal_rules|fiscal_rates|tax_rules_v2|tax_types_v2)\b/i.test(src)) {
       failures.push(`migrations/${f}: cria CATÁLOGO FISCAL PARALELO — a casa canônica é tax_types/tax_rules (D9.4 anti-verdade-paralela).`);
     }
-    // 4d/4e invertem conscientemente estas travas quando chegarem (com GO próprio): applies_to fiscal e tax_reserve.
-    if (/applies_to[\s\S]{0,200}(commission_gross|commission_distributable|gross_transaction)/.test(src)) {
-      failures.push(`migrations/${f}: estende applies_to com base fiscal — isso é a 4d (GO próprio D9.7); guard deve ser invertido CONSCIENTEMENTE nessa fatia, não contornado.`);
+    // FISCAL 4D-2 (DECISION-0178): inversão CONSCIENTE. A extensão de applies_to com base fiscal é
+    // autorizada SÓ pela migration 4d-2 nomeada; qualquer OUTRA migration que a estenda segue mordida
+    // (contorno = REPROVA). tax_reserve em economic_policy_lines continua 4e (proibido nesta fatia).
+    if (f !== AUTHORIZED_4D2_MIGRATION && /applies_to[\s\S]{0,200}(commission_gross|commission_distributable|gross_transaction)/.test(src)) {
+      failures.push(`migrations/${f}: estende applies_to com base fiscal FORA da migration 4d-2 autorizada (${AUTHORIZED_4D2_MIGRATION}) — proibido (DECISION-0178: extensão é única e nomeada).`);
     }
     if (/line_type[\s\S]{0,200}'tax_reserve'/.test(src)) {
       failures.push(`migrations/${f}: adiciona line_type tax_reserve — isso é a 4e (após motor 4d com GO próprio).`);
@@ -163,11 +168,26 @@ need(repo, REPO, /status = 'draft'/, 'activateRule perdeu o gate "só draft ativ
 need(repo, REPO, /FISCAL_CONFIG_MISSING/, 'a leitura perdeu o contrato fiscal_config_missing (D9.2) — ausência tem que ser honesta, nunca inventada.');
 forbid(repo, REPO, /taxRegime:\s*'(MEI|SIMPLES_NACIONAL|LUCRO_PRESUMIDO|LUCRO_REAL|OTHER|SIMPLES|PRESUMIDO|REAL)'/, 'repository INVENTANDO regime literal como fallback (D9.2 proíbe).');
 
-// ── (G3) applies_to/economic_policy_lines intocados no baseline ──
+// ── (G3) baseline de economic_policy_lines PRESERVADO (forward-only; nunca retro-editado) ──
+// O arquivo baseline segue com gross|net (anti-tamper): a extensão 4d-2 NÃO edita o baseline, vive
+// numa migration forward-only própria. tax_reserve continua fora do baseline (é 4e).
 const EPL = 'migrations/20260530561000_create_economic_policy_lines.sql';
 const epl = readSql(EPL);
-need(epl, EPL, /CHECK \(applies_to IN \('gross', 'net'\)\)/, 'applies_to do baseline mudou — extensão fiscal de base é a 4d (GO próprio D9.7).');
+need(epl, EPL, /CHECK \(applies_to IN \('gross', 'net'\)\)/, 'baseline de economic_policy_lines foi RETRO-EDITADO — proibido (forward-only; a extensão 4d-2 é migration própria, não edita o baseline).');
 forbid(epl, EPL, /'tax_reserve'/, 'line_type tax_reserve entrou no baseline de economic_policy_lines — isso é a 4e.');
+
+// ── (G3) FISCAL 4D-2 (DECISION-0178): applies_to estendido CONSCIENTEMENTE pela migration 4d-2 ──
+// Reconhece o vocabulário FÍSICO(5) × GRAVÁVEL(3) × LEGADO READ-ONLY(2). A migration remove o default,
+// declara o CHECK físico de 5, preserva NOT NULL e NÃO toca linha (histórico congelado). O manifesto
+// registra o conjunto GRAVÁVEL(3) — não os 5 como iguais.
+const M4D2 = 'migrations/' + AUTHORIZED_4D2_MIGRATION;
+const m4d2 = readSql(M4D2);
+need(m4d2, M4D2, /ALTER TABLE economic_policy_lines ALTER COLUMN applies_to DROP DEFAULT/, '4d-2 não remove o DEFAULT gross (D2 — base é intenção explícita).');
+need(m4d2, M4D2, /CHECK \(applies_to IN \('gross', 'net', 'gross_transaction', 'commission_gross', 'commission_distributable'\)\)/, '4d-2 não declara o CHECK físico de 5 valores (D1).');
+forbid(m4d2, M4D2, /ALTER COLUMN applies_to (SET NOT NULL|DROP NOT NULL)|ALTER COLUMN applies_to SET DEFAULT/, '4d-2 mexeu em nullability ou reintroduziu default (proibido — D2/D12).');
+forbid(m4d2, M4D2, /(UPDATE|DELETE FROM|INSERT INTO) economic_policy_lines/, '4d-2 toca LINHAS (backfill/seed/UPDATE proibido — histórico congelado D3/D12).');
+forbid(m4d2, M4D2, /'tax_reserve'/, '4d-2 materializa tax_reserve — isso é a 4e.');
+need(manifest, MANIFEST, /symbol: 'ECONOMIC_POLICY_APPLIES_TO_WRITABLE'/, 'conjunto GRAVÁVEL(3) de applies_to fora do manifesto de vocabulários governados (D15).');
 
 // ── (G2) anti-alíquota-hardcoded (fiscal + invoicing + caminho de pagamento) ──
 // Exceção ÚNICA controlada: invoicing/invoice.service.ts (achado do GATE 4c) enquanto a

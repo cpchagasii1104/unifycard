@@ -17,6 +17,9 @@ import type {
   CreateActorAccessPassInput,
   InsertResolutionLogInput,
 } from './economic-policy.types';
+// FISCAL 4D-2 (DECISION-0178 D2/D13): a base é intenção explícita do caller governado — o writer
+// valida (não faz cast cego) e rejeita ausência e legados gross|net. Sem fallback silencioso.
+import { assertWritableAppliesTo } from './economic-policy.types';
 
 interface EconomicPolicyRow {
   id: string;
@@ -444,7 +447,7 @@ class EconomicPolicyRepository {
         input.regionalLevel ?? null,
         input.bps ?? null,
         input.fixedAmountCents ?? null,
-        input.appliesTo ?? 'gross',
+        assertWritableAppliesTo(input.appliesTo),
         input.conditionType ?? null,
         JSON.stringify(input.conditionJson ?? {}),
         input.priority ?? 0,

@@ -38,7 +38,64 @@ export type EconomicPolicyDestinationType =
   | 'escrow_payments'
   | 'custom';
 
-export type EconomicPolicyLineAppliesTo = 'gross' | 'net';
+// ── FISCAL 4D-2 (DECISION-0178) — vocabulário de applies_to: físico(5) × gravável(3) × legado(2) ──
+//
+// CHECK físico = 5 valores (migration 20260715120000). Readers reconhecem os 5.
+// Writers NOVOS gravam SÓ os 3 canônicos (writer/tipos/manifesto/guard enforçam — o CHECK não
+// distingue histórico de gravação nova). gross|net são LEGADOS READ-ONLY (histórico congelado):
+// NUNCA graváveis por novo writer, NUNCA aliases dos 3, NUNCA reinterpretados/rederivados.
+
+/** Base física aceita pelo CHECK (readers reconhecem os 5). */
+export const ECONOMIC_POLICY_APPLIES_TO_PHYSICAL = [
+  'gross',
+  'net',
+  'gross_transaction',
+  'commission_gross',
+  'commission_distributable',
+] as const;
+export type EconomicPolicyAppliesToPhysical = (typeof ECONOMIC_POLICY_APPLIES_TO_PHYSICAL)[number];
+
+/** Bases GRAVÁVEIS por novo writer (DECISION-0178 D1/D4). */
+export const ECONOMIC_POLICY_APPLIES_TO_WRITABLE = [
+  'gross_transaction',
+  'commission_gross',
+  'commission_distributable',
+] as const;
+export type EconomicPolicyAppliesToWritable = (typeof ECONOMIC_POLICY_APPLIES_TO_WRITABLE)[number];
+
+/** Legados READ-ONLY preservados no CHECK apenas para o histórico congelado (D3). */
+export const ECONOMIC_POLICY_APPLIES_TO_LEGACY_READONLY = ['gross', 'net'] as const;
+export type EconomicPolicyAppliesToLegacyReadonly = (typeof ECONOMIC_POLICY_APPLIES_TO_LEGACY_READONLY)[number];
+
+/** Tipo do reader: aceita os 5 valores físicos (o histórico pode conter gross|net). */
+export type EconomicPolicyLineAppliesTo = EconomicPolicyAppliesToPhysical;
+
+/**
+ * Narrowing GOVERNADO physical→writable (D2/D8/D13). NÃO é cast cego: valida e discrimina.
+ * Ausência → fail-closed (a base é intenção explícita do caller, sem default/fallback).
+ * Legado gross|net → fail-closed read-only (histórico deve ser lido do SNAPSHOT, não reavaliado).
+ */
+export function assertWritableAppliesTo(value: string | null | undefined): EconomicPolicyAppliesToWritable {
+  if (value === null || value === undefined) {
+    throw new Error(
+      'ECONOMIC_POLICY_APPLIES_TO_REQUIRED: applies_to é obrigatório para gravar linha de policy — ' +
+        'base é intenção explícita do caller governado (DECISION-0178 D2; sem default/fallback).'
+    );
+  }
+  if ((ECONOMIC_POLICY_APPLIES_TO_LEGACY_READONLY as readonly string[]).includes(value)) {
+    throw new Error(
+      `ECONOMIC_POLICY_APPLIES_TO_LEGACY_READONLY: '${value}' é legado read-only — nenhum novo writer ` +
+        'pode gravá-lo (DECISION-0178 D1/D3). Histórico gross|net deve ser lido do snapshot, não reavaliado/rederivado.'
+    );
+  }
+  if (!(ECONOMIC_POLICY_APPLIES_TO_WRITABLE as readonly string[]).includes(value)) {
+    throw new Error(
+      `ECONOMIC_POLICY_APPLIES_TO_INVALID: '${value}' não é base gravável — ` +
+        `use uma de ${ECONOMIC_POLICY_APPLIES_TO_WRITABLE.join('|')} (DECISION-0178 D1; sem alias, sem 6º valor).`
+    );
+  }
+  return value as EconomicPolicyAppliesToWritable;
+}
 
 /**
  * Origem regional canônica (DECISION-0049, 2026-05-26).

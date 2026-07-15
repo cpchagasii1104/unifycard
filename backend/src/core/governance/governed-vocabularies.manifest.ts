@@ -285,4 +285,18 @@ export const GOVERNED_VOCABULARIES: GovernedVocabulary[] = [
     values: ['half_up', 'half_even', 'floor', 'ceil'],
     canonRef: 'DECISION-0167 §8 (FISCAL 4D-1) + CHECK chk_tax_rules_rounding_mode. Arredondamento fiscal é CONFIGURAÇÃO governada da regra (Lei do Contador), nunca comportamento oculto de código: draft pode nascer sem; ativação exige (activateRule fail-closed, zero default silencioso). O motor 4d-1 APLICA o modo da regra e o ECOA no resultado/trilha — Math.round/floor/ceil só como implementação da política expressamente selecionada.',
   },
+  {
+    // DECISION-0178 (FISCAL 4D-2): applies_to é FÍSICO(5) × GRAVÁVEL(3) × LEGADO READ-ONLY(2). O
+    // manifesto registra o conjunto GRAVÁVEL (o que novo writer pode gravar) — NÃO os 5 como
+    // igualmente graváveis. Físico(5) = gross|net|gross_transaction|commission_gross|commission_distributable
+    // (CHECK, migration 20260715120000). Legado READ-ONLY(2) = gross|net (histórico congelado; nunca
+    // gravável, nunca alias). A trava dos 3 é writer(assertWritableAppliesTo)+tipos+manifesto+guard.
+    name: 'economic_policy_lines.applies_to (writable)',
+    pillar: 'money',
+    sourceFile: 'src/modules/economy/policy-engine/economic-policy.types.ts',
+    sourceKind: 'ts-const-array',
+    symbol: 'ECONOMIC_POLICY_APPLIES_TO_WRITABLE',
+    values: ['gross_transaction', 'commission_gross', 'commission_distributable'],
+    canonRef: 'DECISION-0178 D1/D4/D13/D15 (FISCAL 4D-2). CHECK físico = 5 (economic_policy_lines_applies_to_check). GRAVÁVEIS = estes 3 (gross_transaction=bruto da operação; commission_gross=comissão-fato da plataforma; commission_distributable=commission_gross−tax_reserve do motor 4d-1). LEGADOS READ-ONLY = gross|net (ECONOMIC_POLICY_APPLIES_TO_LEGACY_READONLY; preservados no CHECK só p/ o histórico congelado — 75 linhas em policies deprecated; NUNCA graváveis por novo writer, NUNCA aliases). tax_reserve NÃO é valor de applies_to (é line_type da 4e). Evolução só por nova DECISION.',
+  },
 ];

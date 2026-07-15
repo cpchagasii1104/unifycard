@@ -141,11 +141,14 @@ const S = Object.fromEntries(Object.entries(F).map(([k, p]) => [k, { p, raw: rea
   if (/(INSERT INTO|UPDATE|DELETE FROM)\s+bank_/i.test(all)) note('B1: escrita em bank_* no motor');
   if (/@modules\/bank|modules\/bank|bankTransactionService|bankIntegrationService|createTransactionWith/.test(all))
     note('B2: motor acoplado ao Bank (4e é fatia própria)');
-  if (/applies_to/.test(all)) note('B3: motor tocando applies_to (4d-2 é fatia própria)');
-  // fronteira dura: nada nesta fatia altera economic_policy_lines
+  if (/applies_to/.test(all)) note('B3: motor tocando applies_to (4d-2 vive em casa própria: fiscal-policy-composition)');
+  // FISCAL 4D-2 (DECISION-0178): inversão CONSCIENTE de B4 — a extensão de applies_to é autorizada
+  // EXCLUSIVAMENTE pela migration 4d-2 nomeada; qualquer OUTRA migration que toque applies_to segue
+  // mordida. O motor fiscal-provision (all = SVC+LOGREPO+TYPES) continua SEM applies_to (B3 acima).
+  const AUTHORIZED_4D2_MIGRATION = '20260715120000_economic_policy_applies_to_composition.sql';
   for (const f of readdirSync(resolve(ROOT, 'migrations')).filter((x) => x >= '20260714220000' && x.endsWith('.sql'))) {
     const src = stripSql(read('migrations/' + f));
-    if (/applies_to/.test(src)) note(`B4: migrations/${f} toca applies_to (4d-2)`);
+    if (f !== AUTHORIZED_4D2_MIGRATION && /applies_to/.test(src)) note(`B4: migrations/${f} toca applies_to FORA da migration 4d-2 autorizada (${AUTHORIZED_4D2_MIGRATION})`);
     if (/line_type[\s\S]{0,120}tax_reserve/.test(src)) note(`B4b: migrations/${f} materializa tax_reserve em policy (4e)`);
   }
   // passada seller/provider NÃO aberta silenciosamente (condição + throw adjacentes)
@@ -234,11 +237,14 @@ const S = Object.fromEntries(Object.entries(F).map(([k, p]) => [k, { p, raw: rea
     note(`R15: migration de remediação divergiu do hash embutido (${realShaEnforce})`);
 }
 
-// ── guard 4c-3 INTACTO (hash de referência do envelope 4d-1) ──
+// ── guard 4c-3 hash pinado (reconciliado na fatia 4d-2, DECISION-0178) ──
+// A inversão CONSCIENTE do 4c-3 (permitir a migration 4d-2 de applies_to) mudou seu conteúdo e, com
+// ele, seu sha256. A atualização deste pin e a edição do 4c-3 são INDIVISÍVEIS na mesma fatia (§21).
+// Anterior (envelope 4d-1): a74ae08d0d52031b23451e67cb1f944d276fe868f63a4b0181130e0d6a8ed277.
 {
   const h = createHash('sha256').update(S.GUARD_4C3.raw).digest('hex');
-  if (h !== 'a74ae08d0d52031b23451e67cb1f944d276fe868f63a4b0181130e0d6a8ed277')
-    note(`G1: guard 4c-3 foi ALTERADO (hash ${h}) — proibido nesta fatia (inversões conscientes = 4d-2/4e)`);
+  if (h !== '942142f3c49676e7ba651ee21e12516cf803a0e82b6da66526f3ace654953eaa')
+    note(`G1: guard 4c-3 divergiu do hash reconciliado 4d-2 (hash ${h}) — alteração fora da inversão consciente da DECISION-0178`);
 }
 
 // ── runner wiring ──
@@ -251,4 +257,4 @@ if (fails.length) {
   for (const f of fails) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [fiscal-provision-engine] — motor read-only 4d-1 (DECISION-0167): fontes = allowlist §3 (perfil 4b + resolver 4c-2 + TaxableEvent; company/tax-profile/invoice/template/env/Bank/residência-do-comprador PROIBIDOS); cálculo em centavos inteiros com rounding_mode GOVERNADO da regra (motor nunca escolhe; Math.* só como implementação da política selecionada); tax_reserve = Σ provisões; commission_distributable = gross − reserve (negativo HONESTO com warning, sem clamp); taxa zero explícita ≠ missing; fiscal_config_missing DISCRIMINADO e contexto obrigatório fail-closed (D9.6.18); trilha fiscal_provision_logs append-only (RLS FORCE, no UPDATE/DELETE, sem PII, rule/profile id+version, identidade do evento, idempotência sem contradição); activateRule exige rounding_mode (zero default silencioso); vocabulário ROUNDING_MODES único (types+CHECK+manifesto); REMEDIAÇÃO 4D-1-R (Yala Veredito C): regra ativa com rounding_mode NULL é IMPOSSÍVEL no banco (CHECK chk_tax_rules_active_requires_rounding validada, sem NOT VALID, sem default, draft nullable) e o modo de regra ativa é IMUTÁVEL (função enforce_tax_rules_immutability reforçada via CREATE OR REPLACE — rounding_mode na MESMA checagem dos demais campos materiais, active→deprecated preservado, sem trigger paralela); defesa cumulativa repository+constraint+trigger+guard; fronteiras: zero bank_*, zero applies_to (4d-2), zero tax_reserve em policy (4e), passada seller não aberta, zero rota HTTP/app.builder/consumidor monetário; guard 4c-3 BYTE-INTACTO por hash; aplicador seletivo estreito (3 hashes fixos, token, lock, aplica só pendentes, rerun fail-closed, N1/drift preservadas). (Comment-aware + liveness.)');
+console.log('GATE OK [fiscal-provision-engine] — motor read-only 4d-1 (DECISION-0167): fontes = allowlist §3 (perfil 4b + resolver 4c-2 + TaxableEvent; company/tax-profile/invoice/template/env/Bank/residência-do-comprador PROIBIDOS); cálculo em centavos inteiros com rounding_mode GOVERNADO da regra (motor nunca escolhe; Math.* só como implementação da política selecionada); tax_reserve = Σ provisões; commission_distributable = gross − reserve (negativo HONESTO com warning, sem clamp); taxa zero explícita ≠ missing; fiscal_config_missing DISCRIMINADO e contexto obrigatório fail-closed (D9.6.18); trilha fiscal_provision_logs append-only (RLS FORCE, no UPDATE/DELETE, sem PII, rule/profile id+version, identidade do evento, idempotência sem contradição); activateRule exige rounding_mode (zero default silencioso); vocabulário ROUNDING_MODES único (types+CHECK+manifesto); REMEDIAÇÃO 4D-1-R (Yala Veredito C): regra ativa com rounding_mode NULL é IMPOSSÍVEL no banco (CHECK chk_tax_rules_active_requires_rounding validada, sem NOT VALID, sem default, draft nullable) e o modo de regra ativa é IMUTÁVEL (função enforce_tax_rules_immutability reforçada via CREATE OR REPLACE — rounding_mode na MESMA checagem dos demais campos materiais, active→deprecated preservado, sem trigger paralela); defesa cumulativa repository+constraint+trigger+guard; fronteiras: zero bank_*, zero applies_to (4d-2), zero tax_reserve em policy (4e), passada seller não aberta, zero rota HTTP/app.builder/consumidor monetário; guard 4c-3 com hash RECONCILIADO na fatia 4d-2 (DECISION-0178, inversão consciente de B4 + pin); aplicador seletivo estreito (hashes fixos 4d-1/4d-1-R + 4d-2, token, lock, aplica só pendentes, rerun fail-closed, N1/drift preservadas). (Comment-aware + liveness.)');

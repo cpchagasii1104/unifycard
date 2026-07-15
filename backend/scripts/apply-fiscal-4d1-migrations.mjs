@@ -30,6 +30,9 @@ const MIGS = [
   { name: '20260714230000_create_fiscal_provision_logs.sql', sha256: '76db12f904b8d0968101da395e7a0ac75df2e97c28121429e65a264a60e5723c' },
   // FISCAL 4D-1-R (remediação Yala Veredito C): enforcement de banco (constraint + trigger reforçada).
   { name: '20260715100000_tax_rules_active_rounding_mode_enforcement.sql', sha256: '5372836f70a54d8993902fa439b425699d4cca3ca941e61d164cb7b6053fe598' },
+  // FISCAL 4D-2 (DECISION-0178; GO material próprio de Clayton): extensão governada de applies_to
+  // (CHECK 5 valores físicos, remoção do default 'gross'). Membership cresce só por esta edição.
+  { name: '20260715120000_economic_policy_applies_to_composition.sql', sha256: 'd52e39e13b30033b630e0fbbb619fec5d6af78872d82759bf89f9d7abaee6c97' },
 ];
 const MUST_STAY_UNREGISTERED = [
   '20260713100000_actor_territorial_assignment_foundation.sql',
@@ -102,6 +105,11 @@ async function main() {
         throw new Error('preflight: chk_tax_rules_active_requires_rounding já existe sem registro — estado inconsistente.');
       }
     }
+    if (pending.some((m) => m.name.startsWith('20260715120000'))) {
+      // 4d-2 pendente: applies_to NÃO pode já ter sido estendido sem registro (estado inconsistente).
+      const extended = await n(`SELECT count(*)::int n FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid WHERE t.relname='economic_policy_lines' AND c.conname='economic_policy_lines_applies_to_check' AND pg_get_constraintdef(c.oid) LIKE '%commission_distributable%'`);
+      if (extended !== 0) throw new Error('preflight: economic_policy_lines.applies_to já estendido (5 valores) sem registro — estado inconsistente.');
+    }
     console.log('  preflight OK (rerun fail-closed; N1/drift preservadas; objetos pendentes inexistentes)');
 
     for (const m of pending) {
@@ -124,6 +132,13 @@ async function main() {
     ok(`schema_migrations Δ família = ${MIGS.length} exatas`, (await n(`SELECT count(*)::int n FROM schema_migrations WHERE filename = ANY($1)`, [MIGS.map((m) => m.name)])) === MIGS.length);
     ok('N1 permanece dormente', (await n(`SELECT count(*)::int n FROM schema_migrations WHERE filename LIKE '20260713140000%'`)) === 0);
     ok('bank intocado (tx/ledger/splits=0)', (await n(`SELECT count(*)::int n FROM bank_transactions`)) === 0 && (await n(`SELECT count(*)::int n FROM bank_ledger`)) === 0 && (await n(`SELECT count(*)::int n FROM bank_splits`)) === 0);
+    // FISCAL 4D-2 (DECISION-0178): CHECK físico 5 valores, default removido, NOT NULL preservado, histórico intacto.
+    const eplCheckDef = (await rows(`SELECT pg_get_constraintdef(c.oid) AS d FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid WHERE t.relname='economic_policy_lines' AND c.conname='economic_policy_lines_applies_to_check'`))[0]?.d ?? '';
+    ok('applies_to CHECK físico com 5 valores', ['gross', 'net', 'gross_transaction', 'commission_gross', 'commission_distributable'].every((v) => eplCheckDef.includes(`'${v}'`)) && !/gross_v2|sixth/.test(eplCheckDef));
+    ok('applies_to sem DEFAULT (base é intenção explícita)', (await n(`SELECT count(*)::int n FROM information_schema.columns WHERE table_name='economic_policy_lines' AND column_name='applies_to' AND column_default IS NOT NULL`)) === 0);
+    ok('applies_to permanece NOT NULL', (await n(`SELECT count(*)::int n FROM information_schema.columns WHERE table_name='economic_policy_lines' AND column_name='applies_to' AND is_nullable='NO'`)) === 1);
+    ok('histórico gross intacto (75) e net=0 (zero backfill/UPDATE)', (await n(`SELECT count(*)::int n FROM economic_policy_lines WHERE applies_to='gross'`)) === 75 && (await n(`SELECT count(*)::int n FROM economic_policy_lines WHERE applies_to='net'`)) === 0);
+    ok('policies deprecated intactas (45; nenhuma reativada)', (await n(`SELECT count(*)::int n FROM economic_policies WHERE status='deprecated'`)) === 45 && (await n(`SELECT count(*)::int n FROM economic_policies WHERE status IN ('active','draft')`)) === 0);
 
     if (APPLY && CONFIRMED) { await client.query('COMMIT'); console.log(`== COMMIT — ${pending.length} migration(s) aplicada(s) e registrada(s) ==`); }
     else { await client.query('ROLLBACK'); console.log('== DRY-RUN OK — ROLLBACK executado, zero resíduo =='); }
