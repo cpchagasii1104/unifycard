@@ -1,6 +1,39 @@
 # REMEDIATION DT LOG
 
-## DECISION-0180 · BANK SPLIT TYPE CANONICALIZATION PREREQUISITE — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · FISCAL-4E SUSPENSA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+## DECISION-0180 · BANK SPLIT TYPE CANONICALIZATION PREREQUISITE — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
+**Auditoria Yala read-only concluída · Veredito A · SELO COMPLETO.** A DECISION-0180 está **SELADA**. Substitui a entrada de promulgação abaixo (**preservada, não reescrita**). **O material do pré-requisito NÃO foi iniciado** — este selo é exclusivamente da DECISION docs-only.
+
+**Arco completo (byte-confirmado):**
+```
+BASE:            fbbab7be7   (DECISION-0179 selada · Veredito A)
+PROMULGAÇÃO:     452746f5ee8d9564c33a3c18375e324dbde4bf11  (DECISION-0180 docs-only)
+AUDITORIA YALA:  READ-ONLY · VEREDITO A
+SELO FINAL:      este commit docs-only
+```
+
+**Decisões seladas (D1–D14; nenhuma reaberta):** **true-positive CONFIRMADO** (as uniões inline de `service-payment-execution.service.ts:65` e `bank-integration.service.ts:237,354` duplicam o vocabulário vivo de `BankSplitType`; guard `audit-governed-vocabulary-manifest` vivo no runner via `run-regression-guards` L149 → `audit-authority-residual-hygiene-suite` L17) · **opção A REJEITADA** (não se cria exceção/allowlist/waiver/DT para tolerar true-positive — repetiria o problema que o manifesto existe para eliminar; lição C1/R2) · **opção C REJEITADA** (manifesto adiado deixaria D5/D21 da 0179 incompletas e impediria selo íntegro da 4e) · **opção B RATIFICADA** como frente pré-requisito separada · fonte futura única **`BANK_SPLIT_TYPES`** em `src/modules/bank/bank-split.types.ts` · **`BankSplitType` DERIVADO do tuple** (`(typeof BANK_SPLIT_TYPES)[number]`) · **seis valores atuais, ordem viva preservada**: `fee · regional_fund · reserve · escrow · revenue_share · referral` · **zero `tax_reserve` nesta frente** · SPE com reabertura futura **estritamente tipológica** (byte-diferente · semanticamente equivalente · runtime-equivalente · financeiramente neutra) · `bank-integration` futura **sem uniões inline** · manifesto como **projeção governada por `sourceFile` + `symbol`** sob ANTI-DRIFT · **zero allowlist** · **zero relaxamento do guard** · **único repin real no guard 4D-2** (trava `B1`) · **guard B-CITY-1 sem hash e sem alteração esperada** (assere SPE por conteúdo R1–R9) · **runner-neutral em 185** · **posição 186 RESERVADA à FISCAL-4E** (D19/0179) · runtime e comportamento financeiro preservados · material futuro condicionado a **GO próprio**.
+
+**📌 OBSERVAÇÃO NÃO BLOQUEANTE DA YALA — assimetria do ANTI-DRIFT (registrada, com obrigação futura vinculante):**
+```
+ANTI-DRIFT ATUAL:   manifesto ⊆ fonte
+```
+O guard atual impede que o manifesto **afirme valor inexistente na fonte**, mas **não impede automaticamente que a fonte ganhe valor ausente no manifesto**. **Classificação: NÃO BLOQUEANTE para a DECISION-0180.** **Fundamento:** o pré-requisito **congela** o vocabulário em seis valores; **não há extensão da fonte nesta frente**; o manifesto **não é usado em runtime**; **nenhuma segunda autoridade foi criada**.
+
+**OBRIGAÇÃO VINCULANTE FUTURA:**
+```
+NA RETOMADA FISCAL-4E, A EXTENSÃO 6→7 DEVE TORNAR:
+    manifesto = fonte
+COM IGUALDADE BIDIRECIONAL DE CONJUNTO E FALHA FECHADA.
+```
+**Nenhuma DT nova é criada para isto** — fica **incorporado como requisito** da futura materialização 4e e da sua auditoria Yala.
+
+**FRONTEIRAS FECHADAS:** MATERIAL DO PRÉ-REQUISITO **NÃO INICIADO** (exige GO próprio) · **FISCAL-4E SUSPENSA** · `GO MATERIAL FISCAL-4E` anterior **SUSPENSO · NÃO REVOGADO · NÃO EXECUTÁVEL** (retomada só pelo gatilho humano literal **`GO RETOMAR MATERIAL FISCAL-4E`**, e só após o pré-requisito selado) · `tax_reserve` **FORA desta frente** · runner **185** · firewall **OFF** · caller monetário **ZERO** · Bank **INTACTO** · **Δbank=0**. `DT-INVOICING-HARDCODED-TAX-RATE` OPEN · `DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (**não governa a reserva fiscal**) · B-CITY-2 **BLOQUEADA**. **Nenhum arquivo material tocado neste selo.**
+
+**NENHUM MATERIAL AUTOMATICAMENTE AUTORIZADO.**
+
+---
+
+## DECISION-0180 · BANK SPLIT TYPE CANONICALIZATION PREREQUISITE — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · FISCAL-4E SUSPENSA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15, SELADA PELO SELO FINAL ACIMA)
 **Origem: GATE de retomada do material FISCAL-4E → STOP CORRETO da executora (§27) → escolha humana de Clayton = opção B, como frente pré-requisito SEPARADA.** Base `rescue-structural @ fbbab7be7`. Commit docs-only único: DECISION-0180 + este cartório + `dividatecnica.md`. **Zero código · zero manifesto · zero guard · zero migration · zero DDL/DML · zero Bank write · firewall OFF · Δbank=0.**
 
 **O GATE (read-only) provou uma colisão VERDADEIRA entre três exigências seladas:**
