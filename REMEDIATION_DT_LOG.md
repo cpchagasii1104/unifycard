@@ -1,5 +1,31 @@
 # REMEDIATION DT LOG
 
+## FISCAL-4E · RESERVA FISCAL NO BANK — 🟠 MATERIAL EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-16)
+**Envelope material único (PASSES 1–4) commitado.** Substrato INTERNO e DORMENTE que decompõe a comissão da plataforma `commission_gross = commission_distributable + tax_reserve`, materializado no Bank **apenas quando ativado**. **Zero caller vivo · firewall OFF por padrão · zero conta fiscal real · zero transaction/split/ledger persistente.** Governado por DECISION-0179 (D1–D21) · DECISION-0182 (continuação residual) · DECISION-0183 (zero-bucket).
+
+```text
+ARCO:
+BASE:            2ab8d6a7fc7ac34f09304451a457f3d98296696c  (selo DECISION-0183)
+COMMIT MATERIAL: 120a32580b8826bff0361583bd3ac2d0a08c675d  (feat(fiscal): add dormant bank tax reserve substrate; 26 arquivos)
+COMMIT CARTÓRIO: este commit docs-only (docs(remediation): record dormant fiscal reserve material)
+```
+
+**Arquivos materiais (26; parent `2ab8d6a7f`):** migration `20260716120000_fiscal_tax_reserve_bank_substrate.sql`; `bank-split.types.ts` (6→7); `governed-vocabularies.manifest.ts`; `07_NOMENCLATURA_CANONICA.md` §4.55; fiscal `fiscal-economic-fingerprint.ts` · `fiscal-provision-event.repository.ts` · `fiscal-provision-log.repository.ts` · `fiscal-provision.service.ts`; Bank `fiscal-reserve-account.resolver.ts` · `fiscal-reserve-bank-composition.service.ts` · `bank-split.repository.ts` (read-back) · `bank-integration.service.ts` (reversal threading); reversal `reversal.service.ts` · `reversal.repository.ts` (existingClient threading); guard `audit-fiscal-tax-reserve-bank-substrate.mjs` (posição **186** no runner) + `audit-fiscal-tax-reserve-bank-substrate-mutations.mjs`; `audit-governed-vocabulary-manifest-mutations.mjs` (vetor 42 + 33 reconciliados); `run-regression-guards.mjs` (185→186); `jest.fiscal4e-db.config.mjs`; testes (7).
+
+**Schema:** 1º CHECK físico de `bank_splits.split_type` (7 valores incl `tax_reserve`) · `account_type` +`fiscal_reserve` (14+1) · `fiscal_reserve_accounts` + `fiscal_provision_events` (RLS ENABLE+FORCE, unicidade governada `(tenant,fiscal_identity,currency)`, append-only por trigger, FK **Bank→fiscal sem inversa**). **Migration byte-intacta** (sha `50ce6cee4`); aplicada só em efêmero descartável.
+
+**Contrato provado:** fingerprint dedicado (reference tuple FORA do preimage; source/territórios/rule-versions dentro; mismatch fail-closed) · resolver lookup-only MISSING×INTEGRITY×AMBIGUOUS (**V24** propaga; condicional a `tax_reserve>0`) · source line explícita fail-closed · **allowlist distributable VAZIA** (regional_fund fora) · matriz **zero-bucket** (materializa só buckets positivos; `(0,0)`=INVARIANT VIOLATION) · conservação por bucket + split-set + `Σsplits==amount` · **existingClient** no original E no reversal · **full reversal ATÔMICA** (motor formal com existingClient; ownsTx; caminho legado preservado; reusa snapshots, sem recomputar; full-only) · read-back **target-account-first** + cross-tenant fail-closed.
+
+**Mutations/guard:** guard 186 GATE OK; harness `fiscal-4e-mutations` **12/12** (V24/V36/V38 + estruturais); **vetor 42** da DECISION-0181 reconciliado (tax_reserve PRESENTE, 7 exatos) + vetor 33 (runner **186**); guard estrutural canônico 0181 preservado. **F1/F2/F3/F4** (fault injection) provados: rollback total, zero resíduo.
+
+**Provas:** testes permanentes **58/58** · DB/E2E **23/23** (fault injection, zero-bucket, reversal A/B/C, read-back, idempotência) em **banco efêmero descartável** (criado/testado/**destruído**; gates §8 só no processo de teste). typecheck 0 · guards 4c-3/4d-1/4d-2/manifesto/B-CITY/186 OK · git diff --check limpo.
+
+**Bank / fronteiras:** `bank_accounts=16 · regional_fund_accounts=1 · bank_transactions=0 · bank_splits=0 · bank_ledger=0 · reversals=0 · saldo Curitiba=0 · Δbank=0`; `fiscal_reserve_accounts`/`fiscal_provision_events` inexistentes em `unificard_dev` (só no efêmero). **FIREWALL OFF · CALLER ZERO · ROTA/WORKER ZERO · REGIONAL FUND NÃO INTEGRADO · CONTAS DA POPULAÇÃO NÃO INTEGRADAS · FRONTEND NÃO INTEGRADO · B-CITY-2 BLOQUEADA.** DECISIONs 0179–0183 **byte-intactas**. `DT-INVOICING-HARDCODED-TAX-RATE`/`DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN.
+
+**STATUS: MATERIAL EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO — aguarda UMA única auditoria Yala. Nenhuma ativação. Zero movimentação. Zero remessa.**
+
+---
+
 ## DECISION-0183 · FISCAL-4E · ZERO-BUCKET BANK MATERIALIZATION CONTRACT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
 **Auditoria Yala read-only concluída → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0183 está **SELADA e ENCERRADA**. Fecha definitivamente a **lacuna física do bucket zero** apontada pelo STOP correto do PASSE 3. Substitui a entrada de promulgação abaixo (**preservada, não reescrita**). **O material FISCAL-4E NÃO foi retomado** — este selo é exclusivamente da DECISION docs-only.
 
