@@ -35,6 +35,16 @@ const D2_AUTHORIZED_RUNTIME_FILES = new Set([
   'src/core/authorization/permission-keys.ts', // SSOT de existencia — as 6 keys nascem aqui (D.2 §E)
   'src/modules/authority/territorial-capability-resolver.ts', // N2-D.3 nominal — guard proprio fiscaliza
 ]);
+// AJUSTE CONSCIENTE (B-CITY-2 / DECISION-0185, GO §5/§6): a fatia regional_treasury EVOLUI conscientemente
+// as CHECKs COMPARTILHADAS (scope_type/scope_shape/nonfinancial/matrix) para ADICIONAR o 3o scope financeiro,
+// PRESERVANDO o eixo territorial (ramo territory, 6 keys, FK, anti-suspended, indice territory intactos). A
+// migration RT_MIG dropa+readd chk_acg_scope_type e chk_acg_scope_shape (com o ramo territory preservado — check
+// POSITIVO abaixo) e re-declara as 6 keys territory:* nos ramos preservados; NUNCA dropa a FK territorial nem o
+// anti-suspended. Fiscalizacao FINA do substrato regional em audit-b-city-regional-treasury-grant-substrate.mjs.
+const RT_MIG = '20260716140000_regional_treasury_authority_grant_substrate.sql';
+const RT_AUTHORIZED_RUNTIME_FILES = new Set([
+  'src/scripts/validate-pipeline-e2e-regional-treasury-grant-substrate.ts', // prova DB nominal (usa territory:* como CONTROLE benigno)
+]);
 const TBL = 'actor_capability_grants';
 const FORBIDDEN_SCOPES = ['global', 'city', 'neighborhood', 'state', 'country', 'region', 'system'];
 
@@ -164,7 +174,21 @@ try {
   const after = migFiles.filter((f) => f > D1_MIG);
   for (const f of after) {
     const sql = stripSql(readFileSync(join(MIG, f), 'utf-8'));
-    if (/DROP\s+CONSTRAINT\s+(IF\s+EXISTS\s+)?(fk_acg_scope_city|chk_acg_scope_shape|chk_acg_territory_not_suspended|chk_acg_scope_type)/i.test(sql)) {
+    if (f === RT_MIG) {
+      // Fatia regional_treasury (DECISION-0185): pode DROP+READD chk_acg_scope_type e chk_acg_scope_shape para
+      // adicionar o ramo regional_treasury; NUNCA pode dropar a FK territorial nem o anti-suspended.
+      if (/DROP\s+CONSTRAINT\s+(IF\s+EXISTS\s+)?(fk_acg_scope_city|chk_acg_territory_not_suspended)/i.test(sql)) {
+        failures.push(`[pos-D1] ${f}: dropa FK territorial/anti-suspended — proibido mesmo na fatia regional_treasury.`);
+      }
+      // POSITIVO: deve RE-ADD chk_acg_scope_type com territory + regional_treasury (eixo territorial nao pode sumir).
+      if (!/ADD\s+CONSTRAINT\s+chk_acg_scope_type\s+CHECK\s*\(scope_type\s+IN\s*\([^)]*'territory'[^)]*'regional_treasury'[^)]*\)\)/i.test(sql)) {
+        failures.push(`[pos-D1] ${f}: nao RE-ADD chk_acg_scope_type com territory+regional_treasury — eixo territorial perdido.`);
+      }
+      // POSITIVO: o ramo territory do shape permanece intacto no RE-ADD.
+      if (!/scope_type\s*=\s*'territory'\s+AND\s+tenant_id\s+IS\s+NULL\s+AND\s+scope_actor_id\s+IS\s+NULL\s+AND\s+scope_city_id\s+IS\s+NOT\s+NULL/i.test(sql.replace(/\s+/g, ' '))) {
+        failures.push(`[pos-D1] ${f}: ramo territory do shape nao preservado na fatia regional_treasury.`);
+      }
+    } else if (/DROP\s+CONSTRAINT\s+(IF\s+EXISTS\s+)?(fk_acg_scope_city|chk_acg_scope_shape|chk_acg_territory_not_suspended|chk_acg_scope_type)/i.test(sql)) {
       failures.push(`[pos-D1] ${f}: dropa constraint do eixo territorial — exige fatia propria + ajuste consciente do guard.`);
     }
     if (/scope_city_id[\s\S]{0,120}ON\s+DELETE\s+(CASCADE|SET\s+NULL)/i.test(sql)) {
@@ -198,8 +222,8 @@ try {
     // (assertions fn_assert_territorial_capability + CHECK das casas de governança); fiscalizada por
     // audit-curitiba-neighborhood-alias-first.mjs. Não semeia grants — grants reais só pela PORTA one-shot.
     const N1_ALIAS_WRITER_MIG = '20260713140000_neighborhood_alias_first_governed_flow.sql';
-    if (f !== D2_MIG && f !== D3_MIG && f !== N2E_WRITER_MIG && f !== PORTA_WRITER_MIG && f !== N1_ALIAS_WRITER_MIG && /'territory:[a-z_]+'/i.test(sql)) {
-      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2/D.3/N2-E/PORTA/N1 (migrations nominais autorizadas: ${D2_MIG}, ${D3_MIG}, ${N2E_WRITER_MIG}, ${PORTA_WRITER_MIG}, ${N1_ALIAS_WRITER_MIG}).`);
+    if (f !== D2_MIG && f !== D3_MIG && f !== N2E_WRITER_MIG && f !== PORTA_WRITER_MIG && f !== N1_ALIAS_WRITER_MIG && f !== RT_MIG && /'territory:[a-z_]+'/i.test(sql)) {
+      failures.push(`[pos-D1] ${f}: key territory:* em migration — vocabulario e N2-D.2/D.3/N2-E/PORTA/N1/RT (migrations nominais autorizadas: ${D2_MIG}, ${D3_MIG}, ${N2E_WRITER_MIG}, ${PORTA_WRITER_MIG}, ${N1_ALIAS_WRITER_MIG}, ${RT_MIG}).`);
     }
     if (/ALTER\s+TABLE\s+(public\.)?actor_capability_grants\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(sql)) {
       failures.push(`[pos-D1] ${f}: liga RLS em actor_capability_grants — mudanca de acesso exige decisao propria (ADENDO D1.5-E).`);
@@ -224,7 +248,7 @@ try {
   const files = existsSync(SRC) ? walk(SRC) : [];
   if (files.length === 0) failures.push('varredura de src vazia — FAIL.');
   for (const f of files) {
-    if (D2_AUTHORIZED_RUNTIME_FILES.has(f.rel)) continue; // janela nominal D.2 — fiscalizacao fina no guard proprio
+    if (D2_AUTHORIZED_RUNTIME_FILES.has(f.rel) || RT_AUTHORIZED_RUNTIME_FILES.has(f.rel)) continue; // janela nominal D.2 / RT (DECISION-0185) — fiscalizacao fina nos guards proprios
     if (/scope_city_id/i.test(f.src)) {
       failures.push(`[runtime] ${f.rel}: referencia scope_city_id — repository/resolver territorial e N2-D.2/D.3, proibido fora da janela nominal.`);
     }

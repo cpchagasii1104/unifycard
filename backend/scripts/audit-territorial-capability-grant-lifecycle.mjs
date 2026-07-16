@@ -20,6 +20,11 @@ const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\
 const norm = (p) => p.split(sep).join('/');
 
 const D2_MIG = '20260711170000_actor_capability_grant_lifecycle.sql';
+// AJUSTE CONSCIENTE (B-CITY-2 / DECISION-0185): a fatia regional_treasury dropa+readd
+// chk_acg_scope_capability_matrix para ADICIONAR o ramo regional_treasury, PRESERVANDO os ramos actor e
+// territory (6+6 keys — check POSITIVO abaixo). NUNCA dropa chk_acg_revoke_reason_shape nem triggers/ACL.
+// Fiscalizacao FINA do substrato regional em audit-b-city-regional-treasury-grant-substrate.mjs.
+const RT_MIG = '20260716140000_regional_treasury_authority_grant_substrate.sql';
 const TERRITORY_KEYS = [
   'territory:create_neighborhood', 'territory:approve_neighborhood', 'territory:correct_neighborhood',
   'territory:deactivate_neighborhood', 'territory:manage_neighborhood_aliases', 'territory:register_neighborhood_succession',
@@ -265,7 +270,22 @@ try {
   const after = migFiles.filter((f) => f > D2_MIG);
   for (const f of after) {
     const s = stripSql(readFileSync(join(MIG, f), 'utf-8'));
-    if (/DROP\s+CONSTRAINT\s+(IF\s+EXISTS\s+)?(chk_acg_scope_capability_matrix|chk_acg_revoke_reason_shape)/i.test(s)) {
+    if (f === RT_MIG) {
+      // Fatia regional_treasury (DECISION-0185): pode DROP+READD chk_acg_scope_capability_matrix (adiciona ramo
+      // regional_treasury); NUNCA pode dropar chk_acg_revoke_reason_shape.
+      if (/DROP\s+CONSTRAINT\s+(IF\s+EXISTS\s+)?chk_acg_revoke_reason_shape/i.test(s)) {
+        failures.push(`[pos-D2] ${f}: dropa chk_acg_revoke_reason_shape — proibido mesmo na fatia regional_treasury.`);
+      }
+      // POSITIVO: o RE-ADD da matriz preserva os ramos actor e territory com as 6+6 keys.
+      const rtMatrix = (s.match(/ADD CONSTRAINT chk_acg_scope_capability_matrix CHECK \(([\s\S]*?)\n  \);/i) || [])[1] || '';
+      if (!rtMatrix) {
+        failures.push(`[pos-D2] ${f}: nao RE-ADD chk_acg_scope_capability_matrix — matriz perdida.`);
+      } else {
+        if (!/scope_type\s*=\s*'territory'/i.test(rtMatrix)) failures.push(`[pos-D2] ${f}: RE-ADD da matriz sem ramo territory.`);
+        for (const k of ACTOR_KEYS) if (!rtMatrix.includes(`'${k}'`)) failures.push(`[pos-D2] ${f}: RE-ADD da matriz sem actor key ${k}.`);
+        for (const k of TERRITORY_KEYS) if (!rtMatrix.includes(`'${k}'`)) failures.push(`[pos-D2] ${f}: RE-ADD da matriz sem territory key ${k}.`);
+      }
+    } else if (/DROP\s+CONSTRAINT\s+(IF\s+EXISTS\s+)?(chk_acg_scope_capability_matrix|chk_acg_revoke_reason_shape)/i.test(s)) {
       failures.push(`[pos-D2] ${f}: dropa constraint da matriz/revoke_reason.`);
     }
     if (/DROP\s+TRIGGER[\s\S]{0,120}(trg_acg_immutability|trg_acge_snapshot|trg_acge_no_update|trg_acge_no_delete)/i.test(s)) {

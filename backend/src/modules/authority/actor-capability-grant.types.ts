@@ -39,20 +39,38 @@ export const TERRITORIAL_CAPABILITY_KEYS = [
 ] as const;
 
 /**
+ * Conjunto REGIONAL-TREASURY exato (DECISION-0185 D5/D7) — EXATAMENTE as duas Authority Grant Keys
+ * financeiras regionais. Nenhuma outra key pode formar grant scope_type='regional_treasury'. Espelha o
+ * CHECK físico chk_acg_capability_regional_treasury (migration 20260716140000). Ambas CRITICAL_FINANCIAL,
+ * separadas e NÃO fusíveis (dois grants independentes). ESTE arquivo é o registry REAL destas grant keys —
+ * NÃO permission-keys.ts (DECISION-0185 D11/D13) e NÃO TreasuryOperationSource (registry disjunto, D12).
+ */
+export const REGIONAL_TREASURY_CAPABILITY_KEYS = [
+  'treasury:regional_policy_manage',
+  'treasury:regional_fund_activation_manage',
+] as const;
+
+/**
  * União DERIVADA — projeção de compatibilidade apenas. NÃO decide se um grant é válido; NÃO
  * substitui o discriminante scope_type; NÃO é usada em create/grant. (ADENDO D3 §D3.6.)
  */
 export const GRANT_CAPABILITY_KEYS = [
   ...ACTOR_SCOPED_CAPABILITY_KEYS,
   ...TERRITORIAL_CAPABILITY_KEYS,
+  ...REGIONAL_TREASURY_CAPABILITY_KEYS,
 ] as const;
 
 export type ActorScopedCapabilityKey = (typeof ACTOR_SCOPED_CAPABILITY_KEYS)[number];
 export type TerritorialCapabilityKey = (typeof TERRITORIAL_CAPABILITY_KEYS)[number];
+export type RegionalTreasuryCapabilityKey = (typeof REGIONAL_TREASURY_CAPABILITY_KEYS)[number];
 export type GrantableCapabilityKey = (typeof GRANT_CAPABILITY_KEYS)[number];
+
+/** Discriminante de escopo canônico (DECISION-0185 D2): actor | territory | regional_treasury. */
+export type CapabilityGrantScopeType = 'actor' | 'territory' | 'regional_treasury';
 
 const ACTOR_SCOPED_SET: ReadonlySet<string> = new Set(ACTOR_SCOPED_CAPABILITY_KEYS);
 const TERRITORIAL_SET: ReadonlySet<string> = new Set(TERRITORIAL_CAPABILITY_KEYS);
+const REGIONAL_TREASURY_SET: ReadonlySet<string> = new Set(REGIONAL_TREASURY_CAPABILITY_KEYS);
 
 export function isActorScopedCapabilityKey(key: string): key is ActorScopedCapabilityKey {
   return ACTOR_SCOPED_SET.has(key);
@@ -62,12 +80,16 @@ export function isTerritorialCapabilityKey(key: string): key is TerritorialCapab
   return TERRITORIAL_SET.has(key);
 }
 
+export function isRegionalTreasuryCapabilityKey(key: string): key is RegionalTreasuryCapabilityKey {
+  return REGIONAL_TREASURY_SET.has(key);
+}
+
 /**
- * Correspondência por CONJUNTO EXATO — nunca por prefixo/wildcard (`startsWith('territory:')` é
- * inferência de autoridade, PROIBIDA — ADENDO D3.4). Lança se a key não pertencer ao conjunto do
- * scope informado.
+ * Correspondência por CONJUNTO EXATO — nunca por prefixo/wildcard (`startsWith('territory:')` ou
+ * `startsWith('treasury:')` é inferência de autoridade, PROIBIDA — ADENDO D3.4 / DECISION-0185 D12).
+ * Lança se a key não pertencer ao conjunto EXATO do scope informado.
  */
-export function assertCapabilityCompatibleWithScope(scopeType: 'actor' | 'territory', capabilityKey: string): void {
+export function assertCapabilityCompatibleWithScope(scopeType: CapabilityGrantScopeType, capabilityKey: string): void {
   if (scopeType === 'actor' && !isActorScopedCapabilityKey(capabilityKey)) {
     throw new Error(
       `CAPABILITY_SCOPE_MISMATCH: '${capabilityKey}' não pertence ao conjunto actor-scoped — matriz scope_type x capability_key (DECISION-0173).`
@@ -76,6 +98,11 @@ export function assertCapabilityCompatibleWithScope(scopeType: 'actor' | 'territ
   if (scopeType === 'territory' && !isTerritorialCapabilityKey(capabilityKey)) {
     throw new Error(
       `CAPABILITY_SCOPE_MISMATCH: '${capabilityKey}' não pertence ao conjunto territorial — matriz scope_type x capability_key (DECISION-0173).`
+    );
+  }
+  if (scopeType === 'regional_treasury' && !isRegionalTreasuryCapabilityKey(capabilityKey)) {
+    throw new Error(
+      `CAPABILITY_SCOPE_MISMATCH: '${capabilityKey}' não pertence ao conjunto regional-treasury — matriz scope_type x capability_key (DECISION-0185).`
     );
   }
 }
@@ -88,7 +115,7 @@ export interface ActorCapabilityGrant {
   tenantId: string | null;
   granteeActorId: string;
   capabilityKey: string;
-  scopeType: 'actor' | 'territory';
+  scopeType: CapabilityGrantScopeType;
   scopeActorId: string | null;
   scopeCityId: string | null;
   grantedByUserId: string;
