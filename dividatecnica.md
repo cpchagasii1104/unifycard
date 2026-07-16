@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-16 (157) — F-ASSET-MULTI-OFFER-FOUNDATION · FATIA 4B service_use: SELADA PELA YALA · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADA (registro final docs-only)
+- **Registro final com GO explícito de Clayton, SEM nova Yala** — consolida vereditos já emitidos: Yala material (SELO COM RESSALVA, material `05649a35b` aprovado; ressalvas R1/R2/R3 só de processo/docs) + Yala limitada (`1c9910215`: R1/R2/R3 SANADAS via remediação `348204be7`). Material 4B intocado desde `05649a35b`.
+- **Arco completo:** material `05649a35b` → cartório contaminado `e1d26afae` (incidente histórico, errata append-only, não reescrito) → saneamento docs `348204be7` → Yala limitada `1c9910215` → **este registro final**.
+- **Selado:** `actor_asset_service_usages` = substrato mínimo do service_use (junção N); ativa `actor_asset_modes('service_use')` no mesmo asset; FK composta `offer_kind='service'`; operador pelo trilho existente; terceiro-operador FORA até 4C; Δbank=0; zero frontend rico/release `asset:operate`/viabilidade/localidade/Bank/split/checkout/orders/payment_intents.
+- **Estado da frente asset-first:** 4A adendo REGISTRADO · **4B SELADA** · 4C/4D/4E/4F FUTURAS — cada uma exige GO próprio. Frente PARADA aqui.
+
 ### 2026-07-16 (156) — B-CITY-2 · SUBSTRATO DORMENTE regional_treasury: SELADO PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADO
 - **Reauditoria Yala final material → Veredito A.** Substrato dormente de autoridade financeira regional (`scope_type='regional_treasury'` em `actor_capability_grants`) **SELADO e ENCERRADO**. Arco: `5e585606e`(selo 0185) → `52b0f854e`(material) → `bda93f9c1`(cartório) → `ff9b3565e`(remediação B) → `5a7af29c2`(cartório remediação) → **este selo**. Commit final docs-only (2 arquivos).
 - **Remediação Veredito B:** mutations 13→**38 hostis individualizadas** + 5 benignos (guard/harness-only); runner 187/187; typecheck 0; migration/registry/runtime/guards territoriais/DECISIONs/FISCAL-4E/Bank byte-intactos.

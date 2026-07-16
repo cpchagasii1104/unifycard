@@ -194,4 +194,9 @@ próprio, começando pela Fatia 4B, seguindo D-A..D-P, os invariantes e os guard
   `evaluateOfferingActivationEligibility` (sem trilho paralelo, invariantes 10-12) + RLS ENABLE+FORCE + guard
   `audit-asset-service-use-convergence.mjs` (152º da suíte) + prova runtime real (9 asserções, fixture+teardown,
   `src/scripts/e2e-asset-service-use-fatia-4b.ts`). Δbank=0. Zero frontend.
-- [ ] **PENDENTE:** selo Yala (não auto-selado). Próxima com GO próprio: Fatia 4C (terceiro-operador/release).
+- [x] **SELADA · OFICIALMENTE ENCERRADA (2026-07-16):** Yala material aprovou o material `05649a35b` (SELO COM
+  RESSALVA — ressalvas só de processo/docs) → remediação docs-only `348204be7` (entrada própria no cartório +
+  errata sobre `e1d26afae` + API catalogada na §5 do API_CONTRACT_GOVERNANCE) → Yala limitada confirmou
+  ressalvas sanadas (`1c9910215`) → registro final de encerramento com GO explícito de Clayton (docs-only, sem
+  nova Yala). Ver entrada da 4B em REMEDIATION_DT_LOG.md. Próxima com GO próprio: Fatia 4C
+  (terceiro-operador/release).
