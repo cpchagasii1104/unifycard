@@ -1,5 +1,31 @@
 # REMEDIATION DT LOG
 
+## B-CITY-2 · SUBSTRATO regional_treasury · REMEDIAÇÃO PÓS-YALA (VEREDITO B) — COBERTURA DE MUTATIONS COMPLETADA (38 VETORES) — 🟠 GUARD/HARNESS-ONLY · NÃO SELADO · AGUARDA UMA ÚNICA REAUDITORIA YALA FINAL (2026-07-16)
+**Yala Veredito B na frente do substrato regional_treasury.** Defeito ÚNICO: o harness provava **13** mutations hostis, abaixo do mínimo exigido de **24** vetores individualmente mutation-provados. Material (migration/schema/registry/runtime) auditado **CORRETO**. Remediação **guard/harness/provas-only** — amplia a cobertura a **38 vetores hostis isolados**. Append-only: não reescreve a entrada material abaixo.
+
+```text
+ARCO:
+BASE 0185 (selo):     5e585606e604c354a4a1d957356eee8646e96d38
+MATERIAL ORIGINAL:    52b0f854edaf113aca0fcf83f11d9f20e96781e8
+CARTÓRIO ORIGINAL:    bda93f9c1f5ae8f12d7d8958c239a94e37f5984a
+REMEDIAÇÃO (material): ff9b3565e2ffd145ffe79daaed641dfbd9e79ce9  (fix(guards): complete regional treasury mutation coverage)
+CARTÓRIO REMEDIAÇÃO:  este commit docs-only (docs(remediation): record regional treasury mutation coverage remediation)
+```
+
+**ARQUIVOS ALTERADOS (só 2; commit ff9b3565e):** `audit-b-city-regional-treasury-grant-substrate.mjs` (guard 187 endurecido) + `audit-b-city-regional-treasury-grant-substrate-mutations.mjs` (harness ampliado). Runner **byte-intacto** (mesma entrada 187; guard count inalterado). **NÃO** tocados: migration, `actor-capability-grant.types.ts`, validação DB, runner efêmero, guards territoriais, `permission-keys.ts`, `TreasuryOperationSource`, DECISIONs, FISCAL-4E, Bank (hashes provados idênticos antes/depois).
+
+**GUARD 187 endurecido** (cada trava emite marcador `[X]` próprio; comment-aware; heurística estrutural sem depender de nome de arquivo): sub-checks de shape (SHAPE-RT-TENANT/CITY/SCOPEACTOR/AND), unicidade (UNIQ-TENANT/CITY/CAPABILITY/PREDICATE), matriz cross-financeira (MATRIX-FIN-ACTOR/TERRITORY), existência regional (REGIONAL-KEY-COUNT/NONFIN/WILDCARD/CHECK-MISSING), scope_type (ALIAS/MISSING) + **varredura runtime `src/`** ancorada em regional key (nominais excluídos): R-FUSION · R-SINGLE-COVERS-BOTH · R-RESIDENCE-GRANT · R-CITY-MEMBERSHIP-GRANT · R-ROLE-GRANT · R-SELF-GRANT · R-IMPLICIT-BOOTSTRAP · R-PARALLEL-HOUSE · R-TENANT-NULL-GLOBAL · R-CAST-PERMISSION · R-CAST-TREASURY · R-DUP-REGISTRY · R-LOCAL-DECL · R-OPSOURCE-AS-CAP · R-CAP-AS-OPSOURCE · R-PERMCAP-AS-GRANTKEY · R-PERMKEYS-AS-SOURCE · R-WILDCARD · R-STARTSWITH.
+
+**HARNESS: 38 hostis isolados (M01–M38) + 5 benignos (B01–B05).** 18 via mutação byte-restore da migration; 20 via **fixture hostil temporária produção-like** (`__regional_treasury_mutation_fixture.ts`, determinística, criada+removida pelo harness, não-comentário) na superfície que o guard audita. Cada vetor: 1 execução, exit!=0, marcador específico verificado, restauração byte-exata / fixture removida. M15–M20 (residência/city/role/self/bootstrap/casa-paralela) provados por fixture, não dispensados. Controles benignos: op-source legítimo, PermissionCapability legítima, comentário (comment-aware), 12 keys antigas, uso escalar de 1 key.
+
+**PROVAS:** guard 187 standalone OK · harness **38/38 hostis mordidas com marcador + 5/5 benignas aceitas** · runner oficial **187/187 verde** · typecheck (tsconfig.build.json) **0** · `git diff --check`/`--cached --check` limpos · LF normalizado · migration/protegidos **byte-idênticos** (sha antes==depois) · fixture inexistente ao final · sem `.tmp/.bak/.mutated/.orig` · resíduo zero. Prova DB **22/22 preservada** (migration byte-idêntica; não reexecutada por desnecessária).
+
+**ESTADO (read-only):** dev SEM migration 20260716140000 · scope_type vivo `actor|territory` · keys físicas regionais em dev **0** · grants regionais reais **0** · policy regional **0** · PORTA **inexistente** · firewall **OFF** · caller **ZERO** · Bank **16/1/0/0/0** · Curitiba **0** · **Δbank=0**.
+
+**STATUS: REMEDIAÇÃO CONSOLIDADA EXECUTADA E PROVADA · MATERIAL INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA REAUDITORIA YALA FINAL.** Composição/PORTA/grants reais = atos posteriores (GO próprio).
+
+---
+
 ## B-CITY-2 · SUBSTRATO DORMENTE DE AUTORIDADE FINANCEIRA REGIONAL (regional_treasury) — 🟠 MATERIAL EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-16)
 **GO A — authority-substrate-first (DECISION-0185 SELADA).** Materializado, em UM envelope consolidado, o substrato dormente de autoridade financeira regional: a casa canônica `actor_capability_grants` passa a admitir o 3º `scope_type='regional_treasury'` (financeiro · city+tenant-scoped · fechado) com exatamente 2 Authority Grant Keys financeiras. **Nenhuma composição/policy/PORTA/Bank neste envelope.**
 
