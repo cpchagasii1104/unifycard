@@ -1,5 +1,39 @@
 # REMEDIATION DT LOG
 
+## DECISION-0184 · B-CITY-2 · CURITIBA REGIONAL MONETARY ACTIVATION CONTRACT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-16)
+**Reauditoria Yala FINAL → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0184 está **SELADA e ENCERRADA**. Torna DECIDÍVEL o futuro material B-CITY-2 (Curitiba-first, interno e dormente); **não** autoriza material nem ativação. Append-only: **não reescreve/apaga** a promulgação original, o Veredito B nem a correção das capabilities (todos preservados abaixo).
+
+```text
+ARCO COMPLETO:
+BASE:              0b513c2658483dbbfcba33e6511d58bbf22ec1c7  (selo final FISCAL-4E)
+PROMULGAÇÃO:       2267b736354c9f4310eed0139057c3db623fb698  (docs(decision): define Curitiba regional monetary activation contract)
+CORREÇÃO DOCS-ONLY:af1482b699d2dcf59f9a480565558ab4ec56ebbd  (docs(decision): name B-CITY-2 authority capabilities)
+SELO FINAL:        este commit docs-only (docs(remediation): seal B-CITY-2 activation contract after Yala)
+```
+
+**Contratos SELADOS:** allowlist estreita `regional_fund` sobre `commission_distributable` **somente B-CITY-2** (DECISION-0182 preservada) · conservação `commission_distributable = regional_fund + regional_residual` · residual = **continuação do destino original** · source line explícita · matriz zero-bucket completa · sujeito territorial = **Actor comprador (`payerActorId`)** via `ACTOR_RESIDENCE` canônica · snapshot uniforme (DECISION-0177 D8; NULL sem linha regional = 4E, uniforme com linha regional aplicado pelo orquestrador antes do sink) · `policy_version_id = economic_policies.id` · **fingerprint fiscal INTOCADO** · identidade regional própria · reversal full-only sem recomputação · conta Curitiba lookup-only (system · `actor_id=NULL` · `account_type=credit` · saldo 0) · transparência read-only ≠ movimentação · material futuro nasce dormente · Curitiba-first (bairro/nacional fora).
+
+**Capabilities SELADAS (nomeadas, sem registro físico):**
+
+```text
+treasury:regional_policy_manage           CRITICAL_FINANCIAL  — lifecycle da policy regional (draft/linhas/validar/ativar/deprecar/encerrar/substituir/consultar)
+treasury:regional_fund_activation_manage  CRITICAL_FINANCIAL  — PORTA monetária regional (abrir/fechar/vigência/encerrar antecipado/auditar/consultar)
+```
+
+**SEPARADAS e NÃO FUSÍVEIS** (dois grants independentes; possuir uma não implica a outra; **zero** alias/wildcard/`treasury:*`/role textual/`admin=true`/grant implícito). Authority shape: Actor explícito + `canRepresentActor` + tenant/escopo + capability exata + `actor_capability_grant` vigente + trilha append-only. Escopo **Curitiba v1** apenas.
+
+**AUSÊNCIA DE MATERIAL:** `permission-keys.ts` **INTACTO** · keys físicas **ZERO** · grants **ZERO** · policy regional **ZERO** · PORTA **NÃO criada** · caller **ZERO** · firewall **OFF** · movimentação **ZERO**. A DECISION apenas **nomeia** o contrato; o registro físico das keys + grants pertence ao futuro material B-CITY-2 (GO próprio).
+
+**DTs:** `DT-REGION-FUND-DELEGATION-MODEL-PENDING` **RESOLVIDA para policy admin e PORTA Curitiba v1 · AINDA ABERTA para delegação territorial futura** (não encerrada globalmente) · `DT-INVOICING-HARDCODED-TAX-RATE` **OPEN, fora da frente**.
+
+**FRONTEIRA DE ATIVAÇÃO:** `SELO DA DECISION ≠ GO MATERIAL ≠ ABERTURA DA PORTA`. O selo **não** autoriza registro físico das keys · grants · policy regional real · PORTA · caller · firewall ON · transaction/split/ledger/saldo/movimentação. Próximo ato elegível **somente por GO explícito** = **`GO MATERIAL B-CITY-2`**; mesmo após material selado, a ativação monetária **continua dependente de PORTA posterior e separada**.
+
+**Bank / fronteiras:** DECISIONs 0179/0182/0183 + FISCAL-4E **byte-intactas** · Bank **16/1/0/0/0** · Curitiba **0** · firewall **OFF** · caller **ZERO** · **Δbank=0**.
+
+**STATUS: DECISION-0184 SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA. Material B-CITY-2 NÃO iniciado (depende de GO próprio); ativação depende de PORTA posterior separada.**
+
+---
+
 ## DECISION-0184 · B-CITY-2 · CORREÇÃO DOCS-ONLY PÓS-YALA (VEREDITO B) — CAPABILITIES NOMEADAS — 🟠 CORRIGIDA · NÃO SELADA · AGUARDA UMA REAUDITORIA YALA FINAL (2026-07-16)
 **Yala Veredito B na DECISION-0184.** Único defeito: **D10/D12 não NOMEAVAM as duas capabilities** (usavam "reutilizar capability existente se adequada / o material definirá o nome"). Prova de 1ª mão: **nenhuma capability viva reutilizável existe** para este contrato (`treasury:*` vivos = distribution/governance/reversal/settlement/simulation — nenhuma governa o lifecycle de policy regional nem a PORTA; `territory:*` não é autoridade financeira). Correção docs-only: nomes exatos fixados. Base `rescue-structural @ 2267b7363`. Commit docs-only único: DECISION-0184 (D10/D12) + este cartório + `dividatecnica.md`. Append-only: **não reescreve** a promulgação anterior (preservada abaixo).
 
