@@ -1,5 +1,27 @@
 # REMEDIATION DT LOG
 
+## DECISION-0183 · FISCAL-4E · ZERO-BUCKET BANK MATERIALIZATION CONTRACT — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL FISCAL-4E NÃO RETOMADO · PASSE 3 SUSPENSO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-15)
+**Origem: STOP FÍSICO CORRETO da executora no PASSE 3 (COMPOSIÇÃO FISCAL-BANK).** Ao ler de 1ª mão o sink canônico (`bankTransactionService.createTransactionWithExplicitSplitLines`) e o schema físico vivo, a executora provou que a matriz de materialização da continuação residual (DECISION-0182 D2) **não fecha** para o estado `commission_distributable = 0`: D2 prescreve **sempre** duas linhas, mas o sink proíbe fisicamente uma linha Bank de valor zero. Nenhuma decisão anterior selava a representação física do bucket zero → **§12 do envelope: "NÃO INVENTAR SEMÂNTICA" → STOP DO PASSE.** Clayton fecha a lacuna pela regra de **materialização apenas de buckets positivos**. Base `rescue-structural @ 9798e2505`. Commit docs-only único: DECISION-0183 + este cartório + `dividatecnica.md`. **Zero código · zero migration · zero DDL · zero DML persistente · zero manifesto · zero nomenclatura · zero guard · zero teste · zero Bank · Δbank=0.**
+
+```text
+BASE:  9798e2505d6ef30a7fe927df63042dca2bbb1f56  (PASSES 1 e 2 da FISCAL-4E na working tree, NÃO commitados; preservados)
+```
+
+**FATO FÍSICO (prova de 1ª mão, `unificard_dev` read-only, `pg_constraint`):**
+```text
+bank_splits_amount_cents_check :: CHECK ((amount_cents > 0))
+bank_ledger_amount_cents_check :: CHECK ((amount_cents > 0))
+```
+Valor econômico **zero** é estado **válido** (0178/0179: `commission_gross = tax_reserve + commission_distributable`, parcelas ≥ 0); **linha física Bank de valor zero é PROIBIDA** pelo sink. **Nenhuma representação selada anterior** cobria o bucket zero (varredura de 1ª mão: DECISION-0179 D2/D5/D10, DECISION-0182 D2, envelope §12 — silêncio).
+
+**Decisões promulgadas (D0–D11):** **D1** regra canônica **simétrica** — `bucket amount > 0 → materializa UMA linha Bank`; `bucket amount = 0 → NÃO materializa linha` (zero preservado no evento e no fingerprint; ausência de linha zero = **normalização física, não desaparecimento econômico**; presença derivável determinísticamente do amount, **sem** nova coluna de flag). **D2** matriz: `reserve>0 ∧ dist>0 → 2 linhas`; `reserve>0 ∧ dist=0 → só tax_reserve`; `reserve=0 ∧ dist>0 → só continuation`; `reserve=0 ∧ dist=0 → INVARIANT VIOLATION` (incompatível com source split positiva de `commission_gross`). **D3** conservação `commission_gross = tax_reserve + commission_distributable` e `Σ(linhas positivas) = commission_gross`; exige **de uma a duas** linhas (não duas artificiais); nenhum centavo criado/descartado/deslocado/compensado. **D4** `commission_distributable = 0` → sem continuation split/ledger; preserva no evento identidade da source line + destination snapshot + split_type + titularidade + semântica. **D5** `tax_reserve = 0` → sem tax_reserve split/ledger; **não** invoca o resolver fiscal_reserve; **não** retorna `FISCAL_RESERVE_ACCOUNT_MISSING`; ausência de conta fiscal_reserve **não** bloqueia reserva zero (resolver **condicional** a `tax_reserve > 0`). **D6** source destination preservada mesmo sem materialização (sem reescolher destino/`platform_fees↔platform_revenue`/fallback/conta/sentinela). **D7** ambos os amounts sempre no evento/fingerprint (inclusive zero); raiz externa de idempotência inalterada. **D8** full reversal reverte **somente** linhas positivas materializadas (bucket zero permanece zero, sem reversal line de zero; sem recomputar imposto). **D9** proibições (zero≠negativo; não rejeitar dist=0/reserve=0; não remover CHECK; sem linha/sentinela zero; sem clamp/fallback/regional/policy line/remittance/frontend/caller/firewall ON). **D10** PASSE 3 retomável após o selo (materializa só buckets positivos; resolver condicional; guard 186 cobre a matriz completa; PASSE 4 posterior); **GO MATERIAL FISCAL-4E existente permanece suspenso durante o rito e re-executável após o selo, sem novo GO material.** **D11** dormência preservada (zero caller/conta/tx/split/ledger/saldo/integração; firewall OFF).
+
+**Bank / fronteiras (read-only):** `bank_accounts=16 · regional_fund_accounts=1 · bank_transactions=0 · bank_splits=0 · bank_ledger=0 · saldo Curitiba=0 · Δbank=0`; `fiscal_reserve_accounts`/`fiscal_provision_events` inexistentes; `account_type='fiscal_reserve'`=0; `split_type='tax_reserve'`=0. **FISCAL-4E SUSPENSA · PASSE 3 SUSPENSO** (retomável só após este selo, sem novo GO material); firewall **OFF**; caller **ZERO**; CHECK `amount_cents > 0` **preservado** (nunca removido). DECISION-0179 **byte-intacta** · DECISION-0182 **byte-intacta** · runner **185** (186 reservada à 4E). `DT-INVOICING-HARDCODED-TAX-RATE`/`DT-REGION-FUND-DELEGATION-MODEL-PENDING` OPEN (não governa a reserva fiscal); B-CITY-2 **BLOQUEADA**.
+
+**STATUS: DECISION-0183 PROMULGADA DOCS-ONLY · NÃO SELADA — aguarda uma única auditoria Yala docs-only. Material FISCAL-4E NÃO retomado. PASSE 3 SUSPENSO. NENHUM material automaticamente autorizado.**
+
+---
+
 ## DECISION-0182 · FISCAL-4E · COMMISSION DISTRIBUTABLE RESIDUAL CONTINUATION CONTRACT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-15)
 **Auditoria Yala read-only concluída → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0182 está **SELADA e ENCERRADA**. Substitui a entrada de promulgação abaixo (**preservada, não reescrita**). **O material FISCAL-4E NÃO foi retomado** — este selo é exclusivamente da DECISION docs-only.
 
