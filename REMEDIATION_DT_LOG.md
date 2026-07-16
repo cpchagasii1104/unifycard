@@ -1,5 +1,32 @@
 # REMEDIATION DT LOG
 
+## FISCAL-4E · RESERVA FISCAL NO BANK — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADA (2026-07-16)
+**Reauditoria Yala FINAL → Veredito A · SELO COMPLETO MATERIAL.** A FISCAL-4E está **SELADA e ENCERRADA**. Substrato INTERNO e DORMENTE da reserva fiscal no Bank (DECISION-0179/0182/0183). Esta entrada é append-only: **não reescreve/apaga** as entradas anteriores (material, cartório pré-auditoria, remediação, cartório da remediação — todas preservadas abaixo).
+
+```text
+ARCO COMPLETO:
+BASE DECISION-0183:      2ab8d6a7fc7ac34f09304451a457f3d98296696c
+MATERIAL ORIGINAL:       120a32580b8826bff0361583bd3ac2d0a08c675d  (feat(fiscal): add dormant bank tax reserve substrate)
+CARTÓRIO PRÉ-AUDITORIA:  1dee47bf20e14e8f256219611333a45dc5f09b6e  (docs(remediation): record dormant fiscal reserve material)
+REMEDIAÇÃO MATERIAL:     930aa4f2d009d657c6e41cb4a1038fbb128c58bf  (fix(fiscal): reconcile reversal containment and fiscal reserve docs)
+CARTÓRIO DA REMEDIAÇÃO:  ce5986052aac8fe7d8264c2964a6a9157db8dcfe  (docs(remediation): record fiscal reserve Yala remediation)
+SELO FINAL:              este commit docs-only (docs(remediation): seal dormant fiscal reserve material after Yala)
+```
+
+**Invariantes SELADOS:** `BANK_SPLIT_TYPES` 7 valores · `tax_reserve` governado (derivado+manifesto+§4.55+CHECK físico) · `account_type='fiscal_reserve'` (14+1) · migration interna e dormente · zero conta fiscal real · resolver lookup-only (MISSING×INTEGRITY×AMBIGUOUS, condicional a `tax_reserve>0`) · fingerprint separado da tuple externa · source line explícita fail-closed · destination preservada · **allowlist distributable VAZIA** · matriz **zero-bucket** completa · conservação por bucket+split-set · **PLATFORM only** · fiscal jurisdiction × buyer territory separados · **`existingClient` no original E no reversal** · **full reversal ATÔMICA** (motor formal threaded, ownsTx, legado preservado) · zero recomputação · **F1–F4** · read-back **account-first** · system target · cross-tenant fail-closed · **INV6 reconciliado** (caller fiscal por caminho exato) · anti-relaxamento ativo · **`jurisdictionSnapshot=null`** fundamentado (regional-FK-only, DECISION-0166 D5; jurisdição fiscal preservada no EVENTO) · **V24/V36/V38** · **vetor 42 reconciliado** · **runner oficial 186/186**.
+
+**Provas:** testes permanentes **58/58** · DB/E2E **23/23** · fiscal mutations **12/12** · vocab-mutations **42/42 hostis + 8/8 benignos + 7/7 complementares** · typecheck **0** · runner **186/186**.
+
+**RESSALVA DE TRANSPARÊNCIA (obrigatória):** a reauditoria FINAL da Yala **reproduziu diretamente** o runner **186/186**, os **58** testes permanentes e as **mutations fiscais**. O **DB/E2E 23/23** e **F1–F4** foram **ACEITOS com base nas provas materiais e cartoriais anteriores**, **sem nova reprovisão independente do banco efêmero pela Yala**. Esta ressalva não é omitida nem transformada em prova direta da Yala.
+
+**Dormência / baseline:** `UNIFICARD_DEV INTACTO` · Bank `16/1/0/0/0` · Curitiba **0** · firewall **OFF** · caller **ZERO** · rota **ZERO** · worker **ZERO** · conta fiscal real **ZERO** · regional fund **NÃO integrado** · contas da população **NÃO integradas** · frontend **NÃO integrado** · remessa **ZERO** · **Δbank=0**. Migration **byte-intacta** (`50ce6cee4`); DECISIONs 0179–0183 **byte-intactas**.
+
+**Dívidas / fronteiras (mantidas):** `DT-INVOICING-HARDCODED-TAX-RATE` **OPEN** · `DT-REGION-FUND-DELEGATION-MODEL-PENDING` **OPEN** · **B-CITY-2 CONTINUA BLOQUEADA até GATE próprio**. O selo da FISCAL-4E **NÃO ativa automaticamente**: policy regional · conta Curitiba · caller monetário · firewall · B-CITY-2 · frontend fiscal · remittance. Próximo ato estratégico elegível = **GATE B-CITY-2**, somente por **GO separado**.
+
+**STATUS: FISCAL-4E SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADA. Material dormente; nenhuma ativação; zero movimentação.**
+
+---
+
 ## FISCAL-4E · REMEDIAÇÃO CONSOLIDADA PÓS-YALA (VEREDITO B) — 🟠 MATERIAL REMEDIADO E PROVADO · NÃO SELADO · AGUARDA UMA REAUDITORIA YALA FINAL (2026-07-16)
 **Correção honesta de estado.** A auditoria Yala encontrou que o **runner estava RED** em `audit-reversal-containment` **INV6**: o novo caller fiscal `fiscal-reserve-bank-composition.service.ts` referenciava `reverseTransaction()` sem classificação. **A afirmação pré-auditoria "runner 186 verde" (entrada de material abaixo) ficou SUPERADA e é corrigida por esta remediação** — na verdade o PASSE 4 rodou apenas o SUBCONJUNTO fiscal de guards (`.mjs`), não o runner completo, e por isso não pegou o INV6 (nem o defeito 4 abaixo). Nada é apagado; esta entrada corrige append-only.
 
