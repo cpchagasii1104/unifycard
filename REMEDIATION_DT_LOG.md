@@ -1,5 +1,40 @@
 # REMEDIATION DT LOG
 
+## B-CITY-2 · SUBSTRATO DORMENTE DE AUTORIDADE FINANCEIRA REGIONAL (regional_treasury) — ✅ SELADO PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADO (2026-07-16)
+**Reauditoria Yala final MATERIAL → Veredito A · SELO COMPLETO MATERIAL.** O substrato dormente de autoridade financeira regional (`scope_type='regional_treasury'` na casa canônica `actor_capability_grants`) está **SELADO e ENCERRADO**. O Veredito B anterior foi sucedido por **uma única remediação consolidada guard/harness/provas-only** (mutations 13→38). Append-only: não reescreve as entradas material/remediação abaixo.
+
+```text
+ARCO COMPLETO:
+BASE DECISION-0185 (selo): 5e585606e604c354a4a1d957356eee8646e96d38
+MATERIAL ORIGINAL:         52b0f854edaf113aca0fcf83f11d9f20e96781e8  (feat(authority): add dormant regional treasury grant substrate)
+CARTÓRIO ORIGINAL:         bda93f9c1f5ae8f12d7d8958c239a94e37f5984a  (docs(remediation): record dormant regional treasury authority substrate)
+REMEDIAÇÃO (material):     ff9b3565e2ffd145ffe79daaed641dfbd9e79ce9  (fix(guards): complete regional treasury mutation coverage)
+CARTÓRIO DA REMEDIAÇÃO:    5a7af29c25117447a3292297fece4608a3549d91  (docs(remediation): record regional treasury mutation coverage remediation)
+AUDITORIA FINAL:           READ-ONLY · VEREDITO A · SELO COMPLETO MATERIAL
+SELO FINAL:                este commit docs-only (docs(remediation): seal dormant regional treasury authority substrate after Yala)
+```
+
+**Remediação do Veredito B:** defeito anterior = mutations **13 < mínimo 24**; remediação = **guard 187 + harness apenas**; resultado = **38/38 mutations hostis individualizadas + 5/5 controles benignos**; runner **187/187**; typecheck **0**; resíduo **zero**; migration/registry/runtime/guards territoriais/DECISIONs/FISCAL-4E/Bank **byte-intactos** (sha antes==depois).
+
+**INVARIANTES SELADOS:**
+- **Casa única** = `actor_capability_grants`. **Scope** = `regional_treasury`. **Shape** = `tenant_id NOT NULL · scope_actor_id NULL · scope_city_id NOT NULL`. Scopes `actor`/`territory` **preservados**.
+- **Matriz:** actor→6 Authority Grant Keys actor-scoped; territory→6 territoriais; regional_treasury→exatamente `treasury:regional_policy_manage` + `treasury:regional_fund_activation_manage`.
+- **Capabilities:** CRITICAL_FINANCIAL · separadas · não fusíveis · grants independentes · sem wildcard/alias/role/admin/residência/membership/self-grant/bootstrap.
+- **Unicidade ativa:** `tenant_id + grantee_actor_id + capability_key + scope_city_id` sob `scope_type='regional_treasury' AND status` ativo canônico.
+- **Três registries disjuntos:** Authority Grant Keys · Permission Capabilities · TreasuryOperationSource. **Prefixo textual `treasury:` NÃO constitui prova de autoridade.**
+
+**PROVAS YALA (reproduzidas diretamente):** guard 187 standalone · harness **38/38 hostis** · **5/5 benignos** · runner **187/187** · typecheck **0** · restauração byte-exata · resíduo zero · estado read-only de dev e Bank. **Ressalva DB:** o DB/E2E **22/22 NÃO foi reprovisionado** pela Yala final — aceito por **preservação byte-exata** de migration/registry/validação DB/runner efêmero (não convertido em nova reprodução direta).
+
+**OBSERVAÇÕES NÃO BLOQUEANTES (registro; não reabrem a frente, não autorizam nova remediação):**
+- **OBS-1:** teste exploratório de casa paralela com **nome arbitrário + uma única key + INSERT runtime** não foi capturado pela varredura do guard. **Não bloqueante:** a autoridade canônica permanece `actor_capability_grants`; uma segunda casa persistente exigiria migration governada; os padrões materiais exigidos e as duplicações idiomáticas de registry/casa estão cobertos; não existe segunda casa viva no material. Defesa em profundidade futura, apenas.
+- **OBS-2:** teste exploratório de índice aplicado em superfície inadequada pela própria auditoria — **não constitui defeito material**.
+
+**FRONTEIRAS PRESERVADAS:** migration `20260716140000` **não aplicada** em `unificard_dev` · scope_type vivo em dev **actor|territory** · keys regionais físicas em dev **0** · grants regionais reais **0** · policy regional **0** · PORTA **inexistente** · firewall **OFF** · caller **zero** · Bank **16/1/0/0/0** · Curitiba **0** · **Δbank=0** · nenhuma movimentação/ativação. **SELO DO AUTHORITY SUBSTRATE ≠ GRANT REAL ≠ POLICY REGIONAL ≠ COMPOSIÇÃO MONETÁRIA ≠ PORTA ≠ FIREWALL ON ≠ CALLER ≠ MOVIMENTAÇÃO.**
+
+**STATUS: B-CITY-2 AUTHORITY-SUBSTRATE-FIRST SELADO PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADO. Composição regional NÃO iniciada; grants reais ZERO; policy regional ZERO; PORTA NÃO criada; ativação monetária NÃO autorizada. Qualquer envelope posterior exige novo GO humano explícito e separado — o selo não consome/reativa/presume GO para composição/PORTA.**
+
+---
+
 ## B-CITY-2 · SUBSTRATO regional_treasury · REMEDIAÇÃO PÓS-YALA (VEREDITO B) — COBERTURA DE MUTATIONS COMPLETADA (38 VETORES) — 🟠 GUARD/HARNESS-ONLY · NÃO SELADO · AGUARDA UMA ÚNICA REAUDITORIA YALA FINAL (2026-07-16)
 **Yala Veredito B na frente do substrato regional_treasury.** Defeito ÚNICO: o harness provava **13** mutations hostis, abaixo do mínimo exigido de **24** vetores individualmente mutation-provados. Material (migration/schema/registry/runtime) auditado **CORRETO**. Remediação **guard/harness/provas-only** — amplia a cobertura a **38 vetores hostis isolados**. Append-only: não reescreve a entrada material abaixo.
 
