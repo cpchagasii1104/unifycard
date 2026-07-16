@@ -1,5 +1,38 @@
 # REMEDIATION DT LOG
 
+## B-CITY-2 · SUBSTRATO DORMENTE DE AUTORIDADE FINANCEIRA REGIONAL (regional_treasury) — 🟠 MATERIAL EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-16)
+**GO A — authority-substrate-first (DECISION-0185 SELADA).** Materializado, em UM envelope consolidado, o substrato dormente de autoridade financeira regional: a casa canônica `actor_capability_grants` passa a admitir o 3º `scope_type='regional_treasury'` (financeiro · city+tenant-scoped · fechado) com exatamente 2 Authority Grant Keys financeiras. **Nenhuma composição/policy/PORTA/Bank neste envelope.**
+
+```text
+ARCO:
+BASE (selo 0185):  5e585606e604c354a4a1d957356eee8646e96d38
+COMMIT MATERIAL:   52b0f854edaf113aca0fcf83f11d9f20e96781e8  (feat(authority): add dormant regional treasury grant substrate)
+COMMIT CARTORIAL:  este commit docs-only (docs(remediation): record dormant regional treasury authority substrate)
+```
+
+**MIGRATION** `20260716140000_regional_treasury_authority_grant_substrate.sql` (forward-only, transacional, fail-closed PRE+POST com auto-prova de tabela-verdade 3-way):
+- `chk_acg_scope_type` → `actor | territory | regional_treasury` (3º valor; sem 4º/alias/wildcard).
+- `chk_acg_scope_shape` → +ramo `regional_treasury` = `tenant_id NOT NULL · scope_actor_id NULL · scope_city_id NOT NULL` (actor/territory preservados).
+- `chk_acg_capability_nonfinancial` → deixa de ser incondicional; vira **implicação** `scope_type IN ('actor','territory') ⇒ as 12 keys` (12 byte-intactas; sem treasury:).
+- **NOVO** `chk_acg_capability_regional_treasury` (fechado) → `regional_treasury ⇒ {treasury:regional_policy_manage, treasury:regional_fund_activation_manage}` (2 exatas; sem wildcard/LIKE).
+- `chk_acg_scope_capability_matrix` → +ramo fechado `regional_treasury ⇒ 2 keys` (actor→6, territory→6 preservados).
+- `uidx_actor_capability_grants_regional_treasury_active` → `(tenant_id, grantee_actor_id, capability_key, scope_city_id) WHERE regional_treasury AND active` (**COM tenant_id** — financeiro tenant-scoped; sem now()/vigência).
+- FK `scope_city_id → cities(city_id)` reutilizada; anti-suspended/lifecycle/eventos/triggers/ACL da D.1/D.2 **intactos**; **sem writer** (substrato nasce sem porta de escrita — dormente por construção).
+
+**REGISTRY** as 2 keys registradas **SOMENTE** em `actor-capability-grant.types.ts` (`REGIONAL_TREASURY_CAPABILITY_KEYS` + `CapabilityGrantScopeType` + `assertCapabilityCompatibleWithScope` ramo regional por conjunto exato). `permission-keys.ts` **INTOCADO** (0 treasury:); `TreasuryOperationSource` **INTOCADO** — três registries disjuntos.
+
+**GUARD 187** `audit-b-city-regional-treasury-grant-substrate.mjs` (comment-aware, fail-closed) + **MUTATIONS** `...-mutations.mjs` (13 vetores hostis mordidos + 2 controles benignos; restauração byte-a-byte, resíduo zero). **Ajuste consciente** dos guards territoriais `audit-territorial-capability-grant-foundation.mjs` (+RT_MIG na janela nominal, checks POSITIVOS de preservação do eixo territorial) e `...-lifecycle.mjs` (+RT_MIG p/ DROP+READD da matriz, POSITIVO de preservação actor+territory).
+
+**PROVAS:** typecheck (tsconfig.build.json) **0**; runner completo **187/187 verde** (guard 187 + territoriais ajustados + zero regressão); guard 187 standalone OK; mutations 13+2 OK; **e2e DB em CLONE EFÊMERO de unificard_dev** (pg_dump plain + fix search_path; migration nova aplicada via psql; **22/22 verdes** — 3 shapes, matriz, unicidade, cross-tenant tenant-scoped, dormência, CHECK-bite; **resíduo zero**, DB destruído com FORCE). **unificard_dev INTOCADO** (só leitura no clone; migration NUNCA aplicada em dev — scope_type vivo segue `actor|territory`, `chk_acg_capability_regional_treasury` inexistente, 3 grants territoriais preservados). `git diff --check` limpo; LF normalizado.
+
+**FRONTEIRAS:** `permission-keys.ts` byte-intacto; DECISIONs 0136/0173/0184/0185 e FISCAL-4E byte-intactas; Bank material/semanticamente intocado; zero reachability monetária nova; zero caller novo.
+
+**ESTADO:** grants regionais reais **0** · keys físicas em dev **0** (só em clone efêmero, destruído) · policy regional **0** · PORTA **inexistente** · firewall **OFF** · caller **ZERO** · Bank **16/1/0/0/0** · Curitiba **0** · **Δbank=0**.
+
+**STATUS: MATERIAL EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA.** Composição regional/PORTA/grants reais **NÃO** abertos (atos governados posteriores e separados; exigem GO próprio).
+
+---
+
 ## DECISION-0185 · B-CITY-2 · FINANCIAL AUTHORITY GRANT MODEL — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-16)
 **Reauditoria Yala read-only → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0185 está **SELADA e ENCERRADA**. Fecha o modelo institucional e físico **FUTURO** de grants para capabilities financeiras regionais; **não** materializa nada. Append-only: **não reescreve/apaga** a promulgação original (preservada abaixo).
 
