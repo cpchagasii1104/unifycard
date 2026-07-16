@@ -19,6 +19,7 @@ export const BANK_SPLIT_TYPES = [
   'escrow',         // Custódia
   'revenue_share',  // Participação na receita (organizador, worker, etc)
   'referral',       // Comissão de indicação
+  'tax_reserve',    // FISCAL-4E: reserva fiscal interna estimada sobre commission_gross (DECISION-0179 D5)
 ] as const;
 
 /**

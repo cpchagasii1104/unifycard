@@ -3,6 +3,7 @@
  * Leituras SSOT do Unify Bank apenas via módulo Bank (transações, splits, ledger).
  */
 
+import type { PoolClient } from 'pg';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { enqueueReconciliation } from '@core/events/payment-events-queue';
 import { getClientWithTenant, runQueryWithTenant } from '@core/database/pool';
@@ -155,9 +156,14 @@ function legReferenceId(reversalId: string, splitId: string): string {
 
 export async function executeReversal(
   tenantId: string,
-  reversalId: string
+  reversalId: string,
+  existingClient?: PoolClient
 ): Promise<{ reversalTransactionId: string; reversalTransactionIds: string[] }> {
-  const rev = await getReversalById(tenantId, reversalId);
+  // FISCAL-4E (PASSE 3R): `existingClient` fornecido → executa na transação DONA do chamador (sem
+  // BEGIN/COMMIT/ROLLBACK/release/markFailed/hooks internos; o chamador é dono da atomicidade e do
+  // rollback integral). Ausente → comportamento legado idêntico (transação própria + state machine).
+  const ownsTx = existingClient == null;
+  const rev = await getReversalById(tenantId, reversalId, existingClient);
   if (!rev) throw new Error('REVERSAL_NOT_FOUND');
   if (rev.status === 'executed' && rev.reversalTransactionId) {
     try {
@@ -180,16 +186,16 @@ export async function executeReversal(
     throw new Error(`REVERSAL_INVALID_STATE:${rev.status}`);
   }
 
-  const client = await getClientWithTenant(tenantId);
+  const client = existingClient ?? (await getClientWithTenant(tenantId));
   try {
-    await client.query('BEGIN');
+    if (ownsTx) await client.query('BEGIN');
 
     const revLock = await client.query<{ status: string }>(
       `SELECT status FROM reversals WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
       [tenantId, reversalId]
     );
     if (revLock.rows.length === 0 || revLock.rows[0].status !== 'processing') {
-      await client.query('ROLLBACK');
+      if (ownsTx) await client.query('ROLLBACK');
       throw new Error('REVERSAL_CONCURRENT_STATE_CHANGE');
     }
 
@@ -201,16 +207,16 @@ export async function executeReversal(
       origId
     );
     if (!locked) {
-      await client.query('ROLLBACK');
+      if (ownsTx) await client.query('ROLLBACK');
       throw new Error('ORIGINAL_TRANSACTION_NOT_FOUND');
     }
 
     if (!locked.internal_completed_at) {
-      await client.query('ROLLBACK');
+      if (ownsTx) await client.query('ROLLBACK');
       throw new Error('ORIGINAL_TRANSACTION_NOT_COMPLETED');
     }
     if (locked.reference_type === 'financial_reversal') {
-      await client.query('ROLLBACK');
+      if (ownsTx) await client.query('ROLLBACK');
       throw new Error('REVERSAL_OF_REVERSAL_NOT_SUPPORTED');
     }
 
@@ -221,7 +227,7 @@ export async function executeReversal(
 
     const totalCents = locked.amount_cents;
     if (totalCents !== rev.amountCents) {
-      await client.query('ROLLBACK');
+      if (ownsTx) await client.query('ROLLBACK');
       throw new Error('REVERSAL_AMOUNT_MISMATCH_BANK_TRANSACTION');
     }
 
@@ -231,7 +237,7 @@ export async function executeReversal(
 
     const payerAcc = await bankAccountRepository.getAccountById(tenantId, payerAccountId);
     if (!payerAcc) {
-      await client.query('ROLLBACK');
+      if (ownsTx) await client.query('ROLLBACK');
       throw new Error('PAYER_ACCOUNT_NOT_FOUND');
     }
     const currency = payerAcc.currency as BankCurrency;
@@ -239,7 +245,7 @@ export async function executeReversal(
     if (splitRows.length > 0) {
       const sumLegs = splitRows.reduce((s, x) => s + x.amount_cents, 0);
       if (sumLegs !== totalCents) {
-        await client.query('ROLLBACK');
+        if (ownsTx) await client.query('ROLLBACK');
         throw new Error('REVERSAL_SPLIT_SUM_MISMATCH');
       }
       const orderedTargets = [...new Set(splitRows.map((s) => s.target_account_id))].sort();
@@ -252,12 +258,12 @@ export async function executeReversal(
         const toAccountId = payerAccountId;
         const fromAcc = await bankAccountRepository.getAccountById(tenantId, fromAccountId);
         if (!fromAcc || fromAcc.currency !== currency) {
-          await client.query('ROLLBACK');
+          if (ownsTx) await client.query('ROLLBACK');
           throw new Error('LEG_ACCOUNT_INVALID');
         }
         const bal = await getAccountBalanceConsistent(tenantId, fromAccountId, client);
         if (bal.balanceCents < leg.amount_cents) {
-          await client.query('ROLLBACK');
+          if (ownsTx) await client.query('ROLLBACK');
           throw new Error('INSUFFICIENT_FUNDS_FOR_REVERSAL');
         }
         const treasurySource =
@@ -314,7 +320,7 @@ export async function executeReversal(
             client
           );
         } catch (e) {
-          await client.query('ROLLBACK');
+          if (ownsTx) await client.query('ROLLBACK');
           throw e;
         }
         logFinancialEvent({
@@ -331,12 +337,12 @@ export async function executeReversal(
       ]);
       const fromAccount = await bankAccountRepository.getAccountById(tenantId, fromAccountId);
       if (!fromAccount || fromAccount.currency !== currency) {
-        await client.query('ROLLBACK');
+        if (ownsTx) await client.query('ROLLBACK');
         throw new Error('ACCOUNT_NOT_FOUND');
       }
       const bal = await getAccountBalanceConsistent(tenantId, fromAccountId, client);
       if (bal.balanceCents < totalCents) {
-        await client.query('ROLLBACK');
+        if (ownsTx) await client.query('ROLLBACK');
         throw new Error('INSUFFICIENT_FUNDS_FOR_REVERSAL');
       }
       const treasurySource =
@@ -383,13 +389,7 @@ export async function executeReversal(
       );
     }
 
-    await client.query('COMMIT');
-
-    enqueueReconciliation({
-      tenant_id: tenantId,
-      reference_type: 'bank_transaction',
-      reference_id: primaryId,
-    });
+    if (ownsTx) await client.query('COMMIT');
 
     logFinancialEvent({
       financial_event: 'reversal_executed',
@@ -404,37 +404,54 @@ export async function executeReversal(
       },
     });
 
-    const { recordActorRiskEventAsync } = await import('@modules/risk-identity/risk-hooks');
-    recordActorRiskEventAsync(tenantId, rev.actorId, 'reversal_executed', reversalId, {
-      original_transaction_id: origId,
-      reversal_transaction_id: primaryId,
-    });
-
-    await recordReversalPaymentIntent(tenantId, rev, origId, currency, executedTxIds);
+    // Side-effects PÓS-COMMIT (reconciliação, risk hook, payment intent do pipeline) só no caminho DONO
+    // (legado). Com existingClient o CHAMADOR é dono do commit e de dirigir o pipeline; a materialização
+    // dormente FISCAL-4E não aciona reconciliação/intent vivos (§8 — nada vivo é ligado).
+    if (ownsTx) {
+      enqueueReconciliation({
+        tenant_id: tenantId,
+        reference_type: 'bank_transaction',
+        reference_id: primaryId,
+      });
+      const { recordActorRiskEventAsync } = await import('@modules/risk-identity/risk-hooks');
+      recordActorRiskEventAsync(tenantId, rev.actorId, 'reversal_executed', reversalId, {
+        original_transaction_id: origId,
+        reversal_transaction_id: primaryId,
+      });
+      await recordReversalPaymentIntent(tenantId, rev, origId, currency, executedTxIds);
+    }
 
     return { reversalTransactionId: primaryId, reversalTransactionIds: executedTxIds };
   } catch (e) {
-    await client.query('ROLLBACK').catch(() => {});
-    const msg = e instanceof Error ? e.message : String(e);
-    await markFailed(tenantId, reversalId, msg);
-    logFinancialEvent({
-      financial_event: 'reversal_failed',
-      tenant_id: tenantId,
-      metadata: { reversal_id: reversalId, error: msg.slice(0, 500) },
-    });
+    // Caminho DONO: ROLLBACK + markFailed (state machine legada). Caminho existingClient: apenas PROPAGA —
+    // o CHAMADOR faz o ROLLBACK integral da transação DONA (evento fiscal + reversal row + legs juntos),
+    // e a reversal row criada in-tx é desfeita (sem órfã 'failed').
+    if (ownsTx) {
+      await client.query('ROLLBACK').catch(() => {});
+      const msg = e instanceof Error ? e.message : String(e);
+      await markFailed(tenantId, reversalId, msg);
+      logFinancialEvent({
+        financial_event: 'reversal_failed',
+        tenant_id: tenantId,
+        metadata: { reversal_id: reversalId, error: msg.slice(0, 500) },
+      });
+    }
     throw e;
   } finally {
-    client.release();
+    if (ownsTx) client.release();
   }
 }
 
 export async function requestAndExecuteReversalSync(
   tenantId: string,
-  input: CreateReversalRequestInput
+  input: CreateReversalRequestInput,
+  existingClient?: PoolClient
 ): Promise<{ reversalTransactionId: string; reversalTransactionIds: string[] }> {
-  const existing = await getByOriginalTransactionId(tenantId, input.originalTransactionId);
+  // FISCAL-4E (PASSE 3R): existingClient → toda a state machine (request/processing/execução) + a reversão
+  // Bank ocorrem na MESMA transação DONA do chamador; nada é commitado internamente. Ausente → legado.
+  const existing = await getByOriginalTransactionId(tenantId, input.originalTransactionId, existingClient);
   if (existing?.status === 'executed' && existing.reversalTransactionId) {
-    return executeReversal(tenantId, existing.id);
+    return executeReversal(tenantId, existing.id, existingClient);
   }
   // Guard pós-D-money: cobre novos reversals, retentativas de 'failed' e 'pending'.
   // Idempotência de 'executed' (acima) é a única exceção — retorna sem nova execução.
@@ -447,7 +464,7 @@ export async function requestAndExecuteReversalSync(
       action: 'financial_reversal_request',
       amountCents: input.amountCents,
     });
-    const r = await createReversalRequest(tenantId, input);
+    const r = await createReversalRequest(tenantId, input, existingClient);
     reversalId = r.id;
     logFinancialEvent({
       financial_event: 'reversal_requested',
@@ -465,17 +482,16 @@ export async function requestAndExecuteReversalSync(
     reversalId = existing.id;
   }
 
-  const up = await runQueryWithTenant<{ id: string }>(
-    tenantId,
-    `UPDATE reversals SET status = 'processing' WHERE tenant_id = $1 AND id = $2 AND status = 'pending' RETURNING id`,
-    [tenantId, reversalId]
-  );
+  const upSql = `UPDATE reversals SET status = 'processing' WHERE tenant_id = $1 AND id = $2 AND status = 'pending' RETURNING id`;
+  const up = existingClient
+    ? ((await existingClient.query<{ id: string }>(upSql, [tenantId, reversalId])).rows[0] ?? undefined)
+    : await runQueryWithTenant<{ id: string }>(tenantId, upSql, [tenantId, reversalId]);
   if (!up) {
-    const ag = await getByOriginalTransactionId(tenantId, input.originalTransactionId);
+    const ag = await getByOriginalTransactionId(tenantId, input.originalTransactionId, existingClient);
     if (ag?.status === 'executed' && ag.reversalTransactionId) {
-      return executeReversal(tenantId, ag.id);
+      return executeReversal(tenantId, ag.id, existingClient);
     }
     throw new Error('REVERSAL_STATE_CONFLICT');
   }
-  return executeReversal(tenantId, reversalId);
+  return executeReversal(tenantId, reversalId, existingClient);
 }

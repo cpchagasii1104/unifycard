@@ -514,22 +514,35 @@ class BankIntegrationService {
     tenantId: string,
     transactionId: string,
     eventId?: string,
-    actorId?: string
+    actorId?: string,
+    existingClient?: PoolClient
   ): Promise<{ reversalTransactionId: string; reversalTransactionIds?: string[] }> {
-    const row = await runQueryWithTenant<{ amount_cents: string }>(
-      tenantId,
-      `SELECT amount_cents::text FROM bank_transactions WHERE tenant_id = $1 AND id = $2`,
-      [tenantId, transactionId]
-    );
+    // FISCAL-4E (PASSE 3R): existingClient repassado ao motor formal → a reversão Bank ocorre na MESMA
+    // transação DONA do chamador (atomicidade com o evento fiscal de reversão; sem commit interno).
+    const row = existingClient
+      ? ((await existingClient.query<{ amount_cents: string }>(
+          `SELECT amount_cents::text FROM bank_transactions WHERE tenant_id = $1 AND id = $2`,
+          [tenantId, transactionId]
+        )).rows[0] ?? undefined)
+      : await runQueryWithTenant<{ amount_cents: string }>(
+          tenantId,
+          `SELECT amount_cents::text FROM bank_transactions WHERE tenant_id = $1 AND id = $2`,
+          [tenantId, transactionId]
+        );
     if (!row) throw new Error(`Transaction ${transactionId} not found`);
     const amountCents = toPositiveMoneyCents(parseInt(String(row.amount_cents), 10));
     let act = actorId;
     if (!act) {
-      const a = await runQueryWithTenant<{ id: string }>(
-        tenantId,
-        `SELECT id FROM actors WHERE tenant_id = $1 ORDER BY created_at ASC LIMIT 1`,
-        [tenantId]
-      );
+      const a = existingClient
+        ? ((await existingClient.query<{ id: string }>(
+            `SELECT id FROM actors WHERE tenant_id = $1 ORDER BY created_at ASC LIMIT 1`,
+            [tenantId]
+          )).rows[0] ?? undefined)
+        : await runQueryWithTenant<{ id: string }>(
+            tenantId,
+            `SELECT id FROM actors WHERE tenant_id = $1 ORDER BY created_at ASC LIMIT 1`,
+            [tenantId]
+          );
       act = a?.id;
     }
     if (!act) throw new Error('NO_ACTOR_FOR_REVERSAL');
@@ -541,7 +554,7 @@ class BankIntegrationService {
       // DECISION-0052: bridge sistêmico — provider externo / fluxo automático.
       reversalType: 'external_reversal',
       authoritySource: 'system',
-    });
+    }, existingClient);
     return {
       reversalTransactionId: result.reversalTransactionId,
       reversalTransactionIds: result.reversalTransactionIds,

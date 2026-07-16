@@ -18,6 +18,9 @@ interface BankSplitRow {
   transaction_id: string;
   service_order_id: string | null;
   target_account_id: string | null;
+  /** FISCAL-4E (PASSE 3R-2): conta-alvo RESOLVIDA (existência + tenant) para read-back fail-closed. */
+  resolved_account_id?: string | null;
+  resolved_account_tenant?: string | null;
   amount_cents: string | number;
   percentage: string | null;
   split_type: string;
@@ -121,6 +124,22 @@ class BankSplitRepository {
       throw new Error(
         `bank_splits: split ${row.split_id} sem target_account_id resolvível (JOIN bank_accounts)`
       );
+    }
+    // FISCAL-4E (PASSE 3R-2) READ-BACK FAIL-CLOSED: quando a resolução de existência/tenant foi computada
+    // (getSplitsByTransaction), o destino persistido é AUTORITATIVO — se a conta referenciada não existir
+    // ou for de OUTRO tenant, FALHA FECHADO (nunca cai em fallback Actor, nunca troca destino, nunca omite).
+    // createSplit passa a linha SEM esses campos (destino recém-inserido) → cheque não se aplica.
+    if (row.resolved_account_id !== undefined) {
+      if (!row.resolved_account_id) {
+        throw new Error(
+          `BANK_SPLIT_TARGET_ACCOUNT_NOT_FOUND: split ${row.split_id} referencia conta ${tid} inexistente`
+        );
+      }
+      if (row.resolved_account_tenant !== row.tenant_id) {
+        throw new Error(
+          `BANK_SPLIT_TARGET_ACCOUNT_CROSS_TENANT: split ${row.split_id} conta ${tid} pertence a outro tenant`
+        );
+      }
     }
     return {
       splitId: row.split_id,
@@ -307,6 +326,12 @@ class BankSplitRepository {
     const client = await getClientWithTenant(tenantId);
 
     try {
+      // FISCAL-4E (PASSE 3R): destino reconstruído PRIORITARIAMENTE pela FK persistida
+      // bank_splits.target_account_id (identidade canônica do destino), com fallback à resolução
+      // legada por Actor (target_actor_id) só quando a FK for NULL (dado legado). Isto resolve
+      // corretamente contas system (owner_type='system', actor_id NULL) — ex.: a linha tax_reserve
+      // para a conta fiscal_reserve — que a resolução por Actor jamais resolveria. Callers Actor
+      // existentes seguem idênticos (a FK persistida aponta para a mesma conta do Actor).
       const result = await client.query<BankSplitRow>(
         `
         SELECT
@@ -314,7 +339,9 @@ class BankSplitRepository {
           bs.tenant_id,
           bs.transaction_id,
           NULL::uuid AS service_order_id,
-          ba.id AS target_account_id,
+          COALESCE(bs.target_account_id, ba_actor.id) AS target_account_id,
+          ba_target.id AS resolved_account_id,
+          ba_target.tenant_id AS resolved_account_tenant,
           bs.amount_cents,
           bs.percentage::text,
           bs.split_type,
@@ -322,9 +349,12 @@ class BankSplitRepository {
           NULL::jsonb AS metadata,
           bs.created_at
         FROM bank_splits bs
-        LEFT JOIN bank_accounts ba
-          ON ba.tenant_id = bs.tenant_id
-         AND (ba.actor_id = bs.target_actor_id OR ba.owner_id = bs.target_actor_id::text)
+        LEFT JOIN bank_accounts ba_actor
+          ON bs.target_account_id IS NULL
+         AND ba_actor.tenant_id = bs.tenant_id
+         AND (ba_actor.actor_id = bs.target_actor_id OR ba_actor.owner_id = bs.target_actor_id::text)
+        LEFT JOIN bank_accounts ba_target
+          ON ba_target.id = COALESCE(bs.target_account_id, ba_actor.id)
         WHERE bs.transaction_id = $1 AND bs.tenant_id = $2
         ORDER BY bs.created_at ASC
         `,

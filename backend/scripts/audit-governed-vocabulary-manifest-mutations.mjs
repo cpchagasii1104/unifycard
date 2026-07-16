@@ -122,7 +122,9 @@ const hostile = [
     got: () => [SPE, BINT, BENG].some((p) => /import\s*\{[^}]*BANK_SPLIT_TYPES/.test(readFileSync(p, 'utf8'))) ? 'FOUND' : 'NONE' },
   { n: 32, name: 'alterar 1 das 28 entradas antigas → morde (anti-drift)', exp: 'BITE',
     got: () => onSandbox(MAN, (c) => c.replace("values: ['gratuito', 'pago', 'contribuicao_opcional'],", "values: ['gratuito', 'pago', 'contribuicao_opcional', 'valor_fantasma'],")) },
-  { n: 33, name: 'runner sem comando 186 (=185)', exp: '185', got: () => String(runnerCmds) },
+  // FISCAL-4E (PASSE 4): a posição 186 (antes RESERVADA) agora é OCUPADA pelo guard dedicado
+  // audit-fiscal-tax-reserve-bank-substrate.mjs. Runner reconciliado 185 → 186.
+  { n: 33, name: 'runner com o guard FISCAL-4E na posição 186 (=186)', exp: '186', got: () => String(runnerCmds) },
   // 34-42: proteções materiais (estado vivo).
   { n: 34, name: 'SPE sem alteração funcional (hash == pin)', exp: spePin, got: () => speLive },
   { n: 35, name: 'Bank Integration byte-intacto vs HEAD', exp: 'INTACT', got: () => gitIntact(BINT) },
@@ -140,8 +142,22 @@ const hostile = [
     } },
   { n: 41, name: 'escrow presente (fonte + nomenclatura)', exp: 'PRESENT',
     got: () => /'escrow'/.test(typesSrc.match(/BANK_SPLIT_TYPES = \[[\s\S]*?\]/)[0]) && /'escrow'/.test(nomSrc) ? 'PRESENT' : 'ABSENT' },
-  { n: 42, name: 'tax_reserve ausente (fonte + manifesto values)', exp: 'ABSENT',
-    got: () => /'tax_reserve'/.test(typesSrc.match(/BANK_SPLIT_TYPES = \[[\s\S]*?\]/)[0]) || /values:\s*\[[^\]]*'tax_reserve'/.test(manSrc) ? 'PRESENT' : 'ABSENT' },
+  // FISCAL-4E (PASSE 4): reconciliação do vetor 42 após a extensão GOVERNADA 6→7. O contrato antigo
+  // (tax_reserve AUSENTE) tornou-se obsoleto; o vigente é BANK_SPLIT_TYPES = EXATAMENTE 7 na ordem canônica
+  // (fee·regional_fund·reserve·escrow·revenue_share·referral·tax_reserve), fonte E manifesto idênticos.
+  // MORDE (=> 'DIVERGENTE') quando: tax_reserve removido · valor extra · ordem alterada · manifesto diverge.
+  // Fonte paralela / nomenclatura / union-tuple-registry seguem cobertos pelos vetores estruturais (1-41).
+  { n: 42, name: 'BANK_SPLIT_TYPES = 7 exatos com tax_reserve na ordem canônica (fonte + manifesto)', exp: 'OK',
+    got: () => {
+      const CANON = ['fee', 'regional_fund', 'reserve', 'escrow', 'revenue_share', 'referral', 'tax_reserve'];
+      const tuple = (typesSrc.match(/BANK_SPLIT_TYPES = \[[\s\S]*?\] as const/) || [''])[0];
+      const tv = [...tuple.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+      const tupleOK = tv.length === 7 && CANON.every((v, i) => tv[i] === v);
+      const manBlock = (manSrc.match(/values:\s*\[[^\]]*'tax_reserve'[^\]]*\]/) || [''])[0];
+      const mv = [...manBlock.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+      const manOK = mv.length === 7 && CANON.every((v, i) => mv[i] === v);
+      return tupleOK && manOK ? 'OK' : 'DIVERGENTE';
+    } },
 ];
 
 // ── CONTROLES BENIGNOS (8 obrigatórios) — NÃO podem morder ──

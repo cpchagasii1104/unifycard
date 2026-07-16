@@ -2,8 +2,25 @@
  * Prompt 51 — Reversal registry (reversals table). Escreve apenas em reversals.
  */
 
+import type { PoolClient } from 'pg';
 import { pool } from '@core/database/pool';
 import { runQueryWithTenant } from '@core/database/pool';
+
+// FISCAL-4E (PASSE 3R): executa uma query de 1 linha OU na transação DONA do chamador (existingClient
+// fornecido → mesma tx, sem novo client/BEGIN/COMMIT) OU no caminho legado (runQueryWithTenant, conexão
+// própria). Preserva byte-a-byte o comportamento legado quando `client` é ausente.
+async function queryOneRow<T>(
+  tenantId: string,
+  client: PoolClient | undefined,
+  sql: string,
+  params: any[]
+): Promise<T | undefined> {
+  if (client) {
+    const r = await client.query<T>(sql, params);
+    return r.rows[0] ?? undefined;
+  }
+  return runQueryWithTenant<T>(tenantId, sql, params);
+}
 
 export type ReversalStatus = 'pending' | 'processing' | 'executed' | 'failed';
 
@@ -109,9 +126,10 @@ export interface CreateReversalRequestInput {
 
 export async function createReversalRequest(
   tenantId: string,
-  input: CreateReversalRequestInput
+  input: CreateReversalRequestInput,
+  existingClient?: PoolClient
 ): Promise<ReversalRow> {
-  const existing = await getByOriginalTransactionId(tenantId, input.originalTransactionId);
+  const existing = await getByOriginalTransactionId(tenantId, input.originalTransactionId, existingClient);
   if (existing) {
     if (existing.status === 'executed') throw new Error('REVERSAL_ALREADY_EXECUTED');
     if (existing.status === 'failed') throw new Error('REVERSAL_EXISTS_USE_RETRY');
@@ -137,8 +155,9 @@ export async function createReversalRequest(
     );
   }
 
-  const row = await runQueryWithTenant<ReversalDbRow>(
+  const row = await queryOneRow<ReversalDbRow>(
     tenantId,
+    existingClient,
     `INSERT INTO reversals (
        tenant_id, original_transaction_id, actor_id, reason, amount_cents, status,
        reversal_type, performed_by_user_id, authority_source
@@ -161,10 +180,12 @@ export async function createReversalRequest(
 
 export async function getByOriginalTransactionId(
   tenantId: string,
-  originalTransactionId: string
+  originalTransactionId: string,
+  existingClient?: PoolClient
 ): Promise<ReversalRow | null> {
-  const row = await runQueryWithTenant<ReversalDbRow>(
+  const row = await queryOneRow<ReversalDbRow>(
     tenantId,
+    existingClient,
     `SELECT ${REVERSAL_SELECT_COLUMNS}
      FROM reversals WHERE tenant_id = $1 AND original_transaction_id = $2 LIMIT 1`,
     [tenantId, originalTransactionId]
@@ -172,9 +193,14 @@ export async function getByOriginalTransactionId(
   return row ? mapRow(row) : null;
 }
 
-export async function getReversalById(tenantId: string, id: string): Promise<ReversalRow | null> {
-  const row = await runQueryWithTenant<ReversalDbRow>(
+export async function getReversalById(
+  tenantId: string,
+  id: string,
+  existingClient?: PoolClient
+): Promise<ReversalRow | null> {
+  const row = await queryOneRow<ReversalDbRow>(
     tenantId,
+    existingClient,
     `SELECT ${REVERSAL_SELECT_COLUMNS}
      FROM reversals WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
     [tenantId, id]

@@ -12,6 +12,7 @@
 // v1 NÃO move dinheiro, NÃO cria ledger, NÃO cria tax_reserve no Bank (4e), NÃO toca applies_to
 // (4d-2). Infra-error PROPAGA — nunca vira fiscal_config_missing. Missing é HONESTO e DISCRIMINADO.
 
+import type { PoolClient } from 'pg';
 import { fiscalProfileRepository } from '@modules/fiscal/fiscal-profile.repository';
 import { taxCatalogRepository } from '@modules/fiscal/tax-catalog.repository';
 import { PLATFORM_REVENUE_STREAMS, ROUNDING_MODES, FISCAL_CONFIG_MISSING } from '@modules/fiscal/tax-catalog.types';
@@ -69,7 +70,7 @@ class FiscalProvisionService {
    * READ-ONLY sobre o mundo (a única escrita é a TRILHA append-only da própria decisão).
    * `consumptionMode='mandatory'` → fiscal_config_missing FALHA FECHADO (D9.6.18).
    */
-  async provisionPlatformCommission(event: PlatformCommissionTaxableEvent): Promise<FiscalProvisionOutcome> {
+  async provisionPlatformCommission(event: PlatformCommissionTaxableEvent, existingClient?: PoolClient): Promise<FiscalProvisionOutcome> {
     this.assertEventShape(event);
     const effectiveAt = event.effectiveAt ?? event.occurredAt;
 
@@ -80,13 +81,13 @@ class FiscalProvisionService {
         'active_platform_fiscal_profile_missing',
         'Plataforma sem actor_fiscal_profile ATIVO e vigente no tenant — configure o perfil fiscal ' +
           '(casa 4b) antes de provisionar. O sistema não inventa regime (D9.2).'
-      ), null);
+      ), null, existingClient);
     }
     if (!profile.fiscalIdentityId) {
       return this.finalize(event, effectiveAt, missing(
         'fiscal_identity_missing',
         'Perfil fiscal ativo sem fiscal_identity canônica — incoerência de configuração.'
-      ), profile);
+      ), profile, existingClient);
     }
 
     // ── regras: EXCLUSIVAMENTE o resolver 4c-2 (único ponto de resolução) ──
@@ -102,7 +103,7 @@ class FiscalProvisionService {
       onDate: effectiveAt,
     });
     if (resolution.status === FISCAL_CONFIG_MISSING) {
-      return this.finalize(event, effectiveAt, missing('tax_rule_missing', resolution.reason), profile);
+      return this.finalize(event, effectiveAt, missing('tax_rule_missing', resolution.reason), profile, existingClient);
     }
 
     // ── cálculo por regra (0167 §4): centavos inteiros; rounding da CONFIGURAÇÃO da regra ──
@@ -114,7 +115,7 @@ class FiscalProvisionService {
         return this.finalize(event, effectiveAt, missing(
           'rounding_mode_missing',
           `Regra ativa ${rule.id} v${rule.version} sem rounding_mode governado — configuração incoerente (0167 §8).`
-        ), profile);
+        ), profile, existingClient);
       }
       const numerator = event.commissionGrossCents * rule.rateBps;
       const provisionCents = dividePer10000(numerator, rule.roundingMode);
@@ -191,7 +192,7 @@ class FiscalProvisionService {
       warnings,
       fiscalSnapshot,
     };
-    return this.finalize(event, effectiveAt, outcome, profile);
+    return this.finalize(event, effectiveAt, outcome, profile, existingClient);
   }
 
   /** Persiste a trilha (append-only, idempotente) e aplica o modo de consumo (0167 §7). */
@@ -199,7 +200,8 @@ class FiscalProvisionService {
     event: PlatformCommissionTaxableEvent,
     effectiveAt: Date,
     outcome: FiscalProvisionOutcome,
-    profile: { id: string; version: number; taxRegime: string; fiscalIdentityId: string | null; actorId: string | null } | null
+    profile: { id: string; version: number; taxRegime: string; fiscalIdentityId: string | null; actorId: string | null } | null,
+    existingClient?: PoolClient
   ): Promise<FiscalProvisionOutcome> {
     const base: Omit<ProvisionLogRowInput, 'baseType' | 'baseCents' | 'taxRuleId' | 'taxRuleVersion' | 'taxTypeId' | 'rateBps' | 'roundingMode' | 'provisionCents' | 'status' | 'missingReason' | 'warnings' | 'fiscalSnapshot' | 'taxReserveCents' | 'commissionDistributableCents' | 'calculationVersion'> = {
       tenantId: event.tenantId,
@@ -272,7 +274,7 @@ class FiscalProvisionService {
       }];
     }
 
-    const persisted = await fiscalProvisionLogRepository.appendRows(rows);
+    const persisted = await fiscalProvisionLogRepository.appendRows(rows, existingClient);
     // Idempotência sem contradição: retry devolve a MESMA decisão; divergência = erro estrutural.
     for (let i = 0; i < persisted.length; i++) {
       const p = persisted[i]!;

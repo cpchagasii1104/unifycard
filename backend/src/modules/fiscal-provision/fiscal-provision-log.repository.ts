@@ -6,6 +6,7 @@
 // bloqueados por trigger no banco. Idempotência: UNIQUE por (evento, passada, regra) — retry do
 // mesmo evento NÃO cria decisão divergente (ON CONFLICT + verificação de contradição no service).
 
+import type { PoolClient } from 'pg';
 import { getClientWithTenant } from '@core/database/pool';
 import type { FiscalMissingReason, FiscalSnapshot, TaxProvisionResult } from './fiscal-provision.types';
 
@@ -81,14 +82,20 @@ class FiscalProvisionLogRepository {
    * Persiste UMA linha da trilha em transação própria coerente. Idempotente: conflito na UNIQUE
    * devolve a decisão EXISTENTE (inserted=false) — o service compara e ABORTA em contradição
    * (nunca reescreve; a trilha é imutável por trigger).
+   *
+   * FISCAL-4E (DECISION-0179 D8): aceita `existingClient` OPCIONAL. Quando fornecido, os logs
+   * participam da MESMA transação Bank do chamador — este método NÃO adquire client, NÃO executa
+   * BEGIN/COMMIT/ROLLBACK e NÃO libera o client alheio (a camada dona controla a transação).
+   * Sem `existingClient`, o comportamento legítimo atual (transação própria) é preservado.
    */
-  async appendRows(rows: ProvisionLogRowInput[]): Promise<PersistedProvisionLog[]> {
+  async appendRows(rows: ProvisionLogRowInput[], existingClient?: PoolClient): Promise<PersistedProvisionLog[]> {
     if (rows.length === 0) return [];
     const tenantId = rows[0]!.tenantId;
-    const client = await getClientWithTenant(tenantId);
+    const ownsTx = existingClient == null;
+    const client = existingClient ?? (await getClientWithTenant(tenantId));
     const out: PersistedProvisionLog[] = [];
     try {
-      await client.query('BEGIN');
+      if (ownsTx) await client.query('BEGIN');
       for (const r of rows) {
         const params = [
           r.tenantId, r.sourceModule, r.sourceReferenceId, r.occurredAt, r.effectiveAt,
@@ -113,13 +120,13 @@ class FiscalProvisionLogRepository {
           out.push({ id: row.id, taxRuleId: row.tax_rule_id, provisionCents: row.provision_cents == null ? null : Number(row.provision_cents), status: row.status, inserted: false });
         }
       }
-      await client.query('COMMIT');
+      if (ownsTx) await client.query('COMMIT');
       return out;
     } catch (e) {
-      try { await client.query('ROLLBACK'); } catch { /* noop */ }
+      if (ownsTx) { try { await client.query('ROLLBACK'); } catch { /* noop */ } }
       throw e;
     } finally {
-      client.release();
+      if (ownsTx) client.release();
     }
   }
 }

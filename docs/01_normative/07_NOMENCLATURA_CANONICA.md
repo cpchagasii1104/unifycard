@@ -1946,9 +1946,10 @@ Coluna: `split_type` (tabela `bank_splits`)
 'reserve'           -- Reserva
 'escrow'            -- Custódia
 'referral'          -- Indicação
+'tax_reserve'       -- Reserva fiscal interna estimada sobre commission_gross (FISCAL-4E)
 ```
 
-**Fonte canônica (DECISION-0180/0181):** `BANK_SPLIT_TYPES` (tuple `as const`, sourceSymbol) em `backend/src/modules/bank/bank-split.types.ts`; tipo derivado `BankSplitType` (derivedTypeSymbol = `(typeof BANK_SPLIT_TYPES)[number]`). Seis valores vivos. `platform` **NÃO** é `split_type` (a ocorrência `targetType='platform'` em transparência é rótulo de destino, não valor de split). `tax_reserve` **fora** desta frente (extensão 6→7 = FISCAL-4E).
+**Fonte canônica (DECISION-0180/0181/0179):** `BANK_SPLIT_TYPES` (tuple `as const`, sourceSymbol) em `backend/src/modules/bank/bank-split.types.ts`; tipo derivado `BankSplitType` (derivedTypeSymbol = `(typeof BANK_SPLIT_TYPES)[number]`). Seis valores vivos. `platform` **NÃO** é `split_type` (a ocorrência `targetType='platform'` em transparência é rótulo de destino, não valor de split). `tax_reserve` **fora** desta frente (extensão 6→7 = FISCAL-4E).
 
 ### 4.56 System Account Names
 
