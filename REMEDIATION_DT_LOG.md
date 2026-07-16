@@ -1,5 +1,31 @@
 # REMEDIATION DT LOG
 
+## FISCAL-4E · REMEDIAÇÃO CONSOLIDADA PÓS-YALA (VEREDITO B) — 🟠 MATERIAL REMEDIADO E PROVADO · NÃO SELADO · AGUARDA UMA REAUDITORIA YALA FINAL (2026-07-16)
+**Correção honesta de estado.** A auditoria Yala encontrou que o **runner estava RED** em `audit-reversal-containment` **INV6**: o novo caller fiscal `fiscal-reserve-bank-composition.service.ts` referenciava `reverseTransaction()` sem classificação. **A afirmação pré-auditoria "runner 186 verde" (entrada de material abaixo) ficou SUPERADA e é corrigida por esta remediação** — na verdade o PASSE 4 rodou apenas o SUBCONJUNTO fiscal de guards (`.mjs`), não o runner completo, e por isso não pegou o INV6 (nem o defeito 4 abaixo). Nada é apagado; esta entrada corrige append-only.
+
+```text
+ARCO:
+BASE:            1dee47bf20e14e8f256219611333a45dc5f09b6e  (cartório do material)
+COMMIT MATERIAL: 930aa4f2d009d657c6e41cb4a1038fbb128c58bf  (fix(fiscal): reconcile reversal containment and fiscal reserve docs; 3 arquivos)
+COMMIT CARTÓRIO: este commit docs-only (docs(remediation): record fiscal reserve Yala remediation)
+```
+
+**Defeitos fechados (3 do Veredito B + 1 descoberto ao rodar o runner completo):**
+1. **INV6 (reversal-containment):** o caller fiscal foi **classificado por caminho EXATO** na baseline de `reverseTransaction` (usa o motor formal, encaminha `existingClient`, passa `actorId` explícito → **não revive o fallback "1º actor"**), sem glob de diretório. **Testes excluídos estruturalmente** do scan de callers de produção (`/__tests__/`, `*.test.ts`) — nunca entram na baseline viva. **Cheque anti-relaxamento**: caller fiscal sem `actorId` explícito → **MORDE**; caller vivo novo não classificado → **MORDE**; caller em arquivo diferente com mesmo método → **MORDE**; remover o caller da baseline → runner volta a falhar. **Sem novo guard nem novo slot: runner segue com 186 entradas.**
+2. **NOMENCLATURA §4.55:** prosa reconciliada de "**Seis** valores vivos" → "**Sete** valores vivos"; `tax_reserve` **incluído pela FISCAL-4E** (split interno de reserva fiscal; **não** remittance/`regional_fund`/imposto pago). Fence/lista de 7 preservada; igualdade tuple=manifesto=CHECK=§4.55=7 na mesma ordem.
+3. **Docstring da full reversal:** corrigido de "motor não aceita `existingClient` / **dupla idempotência**" para a realidade **atômica** (mesmo `existingClient`, mesma transação DONA, motor sem BEGIN/COMMIT/ROLLBACK/release com client externo, rollback integral, idempotência **complementar** à atomicidade). **Comment-only** (typecheck/testes/AST inalterados).
+4. **jurisdictionSnapshot (defeito REAL descoberto ao rodar o runner completo, `audit-policy-immutability-and-split-snapshot`):** a composição 4E preenchia `bank_splits.jurisdictionSnapshot` com valor fabricado (`fiscalJurisdiction`/`source.`/`l.`), mas esse campo é construído **EXCLUSIVAMENTE pelo resolver regional por FK** (DECISION-0166 D5). Corrigido para **`null` em todas as linhas 4E** — a jurisdição FISCAL vive no `fiscal_provision_event`, não no split. **Sem mudança econômica** (não toca amount/conservação).
+
+**Nota de infra (honesta):** o runner tem 184 guards `node` + **2 guards `tsx`** (`guard-financial-regression.ts` etc.). `tsx` está em `node_modules/.bin` mas **não no PATH** por padrão — rodar o runner exige `PATH` com `node_modules/.bin` (como faz `pnpm run`). Com o PATH correto, **runner completo = 186 VERDES** reproduzido.
+
+**Provas:** typecheck 0 · **runner completo 186/186 VERDES** · testes permanentes **58/58** · DB/E2E **23/23** (F1–F4, zero-bucket, reversal A/B/C, read-back) em efêmero descartável **destruído** · guard 186 GATE OK · mutations fiscal 12/12 · vocab-mutations 42/42+8/8 · reversal-containment GATE OK · split-snapshot GATE OK · git diff --check limpo.
+
+**Fronteiras:** **migration byte-intacta** (`50ce6cee4`) · DECISIONs 0179–0183 **byte-intactas** · Bank `16/1/0/0/0` · reversals **0** · Curitiba **0** · firewall **OFF** · caller **ZERO** · regional/popular/frontend **NÃO integrados** · **Δbank=0**. Nenhuma nova DECISION/GO/migration/tabela/rota/ativação. Públicos/concorrentes (frontend, PNGs, clayton.md) **fora do stage, intocados**.
+
+**STATUS: MATERIAL REMEDIADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO — aguarda uma REAUDITORIA Yala FINAL.**
+
+---
+
 ## FISCAL-4E · RESERVA FISCAL NO BANK — 🟠 MATERIAL EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-16)
 **Envelope material único (PASSES 1–4) commitado.** Substrato INTERNO e DORMENTE que decompõe a comissão da plataforma `commission_gross = commission_distributable + tax_reserve`, materializado no Bank **apenas quando ativado**. **Zero caller vivo · firewall OFF por padrão · zero conta fiscal real · zero transaction/split/ledger persistente.** Governado por DECISION-0179 (D1–D21) · DECISION-0182 (continuação residual) · DECISION-0183 (zero-bucket).
 
