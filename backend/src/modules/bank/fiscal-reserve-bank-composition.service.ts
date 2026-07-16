@@ -316,7 +316,10 @@ class FiscalReserveBankCompositionService {
         receiverActorId: l.receiverActorId,
         splitType: l.splitType,
         percentage: l.percentage ?? null,
-        jurisdictionSnapshot: l.jurisdictionSnapshot ?? null,
+        // FISCAL-4E é composição de comissão da plataforma, NÃO regional: bank_splits.jurisdictionSnapshot
+        // é construído EXCLUSIVAMENTE pelo resolver regional por FK (DECISION-0166 D5) — aqui é sempre null.
+        // A jurisdição FISCAL vive no fiscal_provision_event (fiscal_jurisdiction), não no split.
+        jurisdictionSnapshot: null,
       }));
 
     let materializedContinuation = false;
@@ -328,7 +331,7 @@ class FiscalReserveBankCompositionService {
         receiverActorId: source.receiverActorId,
         splitType: source.splitType,
         percentage: null,
-        jurisdictionSnapshot: source.jurisdictionSnapshot ?? null,
+        jurisdictionSnapshot: null, // não regional (ver acima)
       });
       materializedContinuation = true;
     }
@@ -348,7 +351,8 @@ class FiscalReserveBankCompositionService {
         receiverActorId: source.receiverActorId,
         splitType: 'tax_reserve',
         percentage: null,
-        jurisdictionSnapshot: fiscalJurisdiction,
+        // jurisdição FISCAL vai no fiscal_provision_event, NÃO no split (jurisdictionSnapshot = regional-FK-only).
+        jurisdictionSnapshot: null,
       });
       materializedTaxReserve = true;
     }
@@ -417,12 +421,13 @@ class FiscalReserveBankCompositionService {
    * append-only (event_kind='full_reversal'), preservando o original imutável. Idempotente (dupla reversão
    * integral = no-op via tuple+kind). Fail-closed sem evento original.
    *
-   * ELO DE FRONTEIRA (envelope §15): a reversão física do conjunto Bank usa o motor formal
-   * `bankIntegrationService.reverseTransaction` → `requestAndExecuteReversalSync`, que gerencia a PRÓPRIA
-   * transação (não aceita existingClient). O evento fiscal de reversão e a reversão Bank são, portanto,
-   * DUPLAMENTE IDEMPOTENTES (não uma única transação): re-execução converge sem duplicar. Tornar os dois
-   * uma única transação exigiria threading de existingClient no motor de reversão = escolha institucional
-   * nova sobre a fronteira de reversão.
+   * ATOMICIDADE (PASSE 3R): a full reversal FISCAL e a reversão Bank executam sob o MESMO `existingClient`
+   * e a MESMA transação DONA. O motor formal (`bankIntegrationService.reverseTransaction` →
+   * `requestAndExecuteReversalSync` → `executeReversal` + reversal.repository) recebe o client externo e,
+   * sob ele, NÃO executa BEGIN/COMMIT/ROLLBACK/release internos (guarda `ownsTx`; o caminho legado, sem
+   * client externo, permanece idêntico). Falha em qualquer elo (evento fiscal, reversal row, legs Bank) é
+   * PROPAGADA para o rollback integral da transação DONA — nada parcial sobrevive. A idempotência
+   * (tuple + event_kind) permanece COMPLEMENTAR à atomicidade, nunca sua substituta.
    */
   async reverseFullPlatformCommission(
     input: FiscalReserveReversalInput,

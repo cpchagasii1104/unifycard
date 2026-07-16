@@ -33,6 +33,11 @@ const BASELINE_REVERSE_TX_FILES = [
   'src/modules/bank/bank-transaction.service.ts',   // def @deprecated (tombstone)
   'src/modules/bank/bank-integration.service.ts',   // def bridge sistêmico (fallback "1º actor")
   'src/modules/rides/rides/rides.service.ts',        // único caller — DEAD (0 callers de cancelRide)
+  // FISCAL-4E (Yala B): caller LEGÍTIMO por caminho EXATO — usa o motor formal, encaminha existingClient
+  // (full reversal atômica), passa actorId EXPLÍCITO (NÃO revive o fallback "1º actor"), é interno e
+  // DORMENTE (zero caller vivo de produto; firewall OFF), não cria 2º motor. Classificação estreita: só
+  // este arquivo — sem glob por diretório (modules/bank/**, *composition*, *fiscal*).
+  'src/modules/bank/fiscal-reserve-bank-composition.service.ts',
 ];
 const BASELINE_CANCELRIDE_FILES = [
   'src/modules/rides/rides/rides.service.ts',         // definição; 0 callers externos
@@ -108,6 +113,9 @@ function runGuard() {
   for (const f of walk(SRC)) {
     const r = rel(f);
     if (r.startsWith('src/scripts/')) continue; // testes/e2e não contam como caller de runtime
+    // FISCAL-4E (Yala B): testes NÃO são caller de PRODUÇÃO — exclusão estrutural explícita (não entram na
+    // baseline de callers vivos). Ex.: fiscal-reserve-bank-composition.db.test.ts exercita o motor formal.
+    if (r.includes('/__tests__/') || /\.(test|spec)\.ts$/.test(r)) continue;
     const code = stripComments(readFileSync(f, 'utf8'));
     // INV4 — nenhuma rota HTTP nova chama o motor de reversal direto.
     if (r.endsWith('.routes.ts') && ENGINE_CALL.test(code)) {
@@ -119,6 +127,12 @@ function runGuard() {
     // INV6 — baseline de arquivos do bridge/dead-code.
     if (/\breverseTransaction\s*\(/.test(code)) reverseTxFiles.push(r);
     if (/\bcancelRide\s*\(/.test(code)) cancelRideFiles.push(r);
+    // INV6 (FISCAL-4E anti-relaxamento): o caller fiscal LEGÍTIMO deve passar actorId EXPLÍCITO ao motor
+    // formal — nunca depender do fallback "1º actor" do bridge. Largar o actorId reabre o dead-code → MORDE.
+    if (r === 'src/modules/bank/fiscal-reserve-bank-composition.service.ts') {
+      const call = code.match(/reverseTransaction\s*\(([^)]*)\)/);
+      if (!call || !/actorId/.test(call[1])) failures.push('INV6: caller fiscal chama reverseTransaction SEM actorId explícito — revive o fallback "1º actor" do bridge (dead-code).');
+    }
   }
   for (const f of reverseTxFiles) {
     if (!BASELINE_REVERSE_TX_FILES.includes(f)) failures.push(`INV6: NOVO arquivo referencia reverseTransaction(): ${f} — baseline do bridge mudou (possível novo caller do fallback "1º actor"). Classifique antes (DT-RIDES-CANCEL-REVERSAL-DEAD-BRIDGE).`);

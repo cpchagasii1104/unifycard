@@ -1949,7 +1949,7 @@ Coluna: `split_type` (tabela `bank_splits`)
 'tax_reserve'       -- Reserva fiscal interna estimada sobre commission_gross (FISCAL-4E)
 ```
 
-**Fonte canônica (DECISION-0180/0181/0179):** `BANK_SPLIT_TYPES` (tuple `as const`, sourceSymbol) em `backend/src/modules/bank/bank-split.types.ts`; tipo derivado `BankSplitType` (derivedTypeSymbol = `(typeof BANK_SPLIT_TYPES)[number]`). Seis valores vivos. `platform` **NÃO** é `split_type` (a ocorrência `targetType='platform'` em transparência é rótulo de destino, não valor de split). `tax_reserve` **fora** desta frente (extensão 6→7 = FISCAL-4E).
+**Fonte canônica (DECISION-0180/0181/0179):** `BANK_SPLIT_TYPES` (tuple `as const`, sourceSymbol) em `backend/src/modules/bank/bank-split.types.ts`; tipo derivado `BankSplitType` (derivedTypeSymbol = `(typeof BANK_SPLIT_TYPES)[number]`). **Sete valores vivos.** `platform` **NÃO** é `split_type` (a ocorrência `targetType='platform'` em transparência é rótulo de destino, não valor de split). `tax_reserve` foi **incluído pela FISCAL-4E** (DECISION-0179): é o **split interno de reserva fiscal** estimada sobre `commission_gross` — **não** é remittance, **não** é `regional_fund`, **não** é imposto pago. Igualdade obrigatória: `BANK_SPLIT_TYPES` = manifesto governado = CHECK físico de `bank_splits.split_type` = esta lista §4.55 = **7 valores na mesma ordem**.
 
 ### 4.56 System Account Names
 
