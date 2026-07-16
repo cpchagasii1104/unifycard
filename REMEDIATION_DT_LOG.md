@@ -1,5 +1,39 @@
 # REMEDIATION DT LOG
 
+## DECISION-0185 · B-CITY-2 · FINANCIAL AUTHORITY GRANT MODEL — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-16)
+**Origem:** STOP GOVERNADO do material B-CITY-2 no PASSE 1 — **anterior a qualquer write/DDL**. Prova de 1ª mão (`pg_constraint` · `unificard_dev` read-only): as constraints vivas de `actor_capability_grants` rejeitam FISICAMENTE as duas capabilities financeiras nomeadas pela DECISION-0184. A DECISION-0184 nomeou as capabilities mas não decidiu a casa física de grant, o scope financeiro, a shape, a matriz, a coerência tenant–cidade nem a partição dos registries. Clayton ratifica o STOP e concede `GO DECISION B-CITY-2 FINANCIAL AUTHORITY GRANT MODEL`. Uma única DECISION docs-only fecha o modelo institucional e físico **FUTURO**; **não materializa nada**. Complementa DECISION-0136/0173/0184 **sem reescrevê-las**.
+
+```text
+BASE:        14814ad25dd39560a88d7667b91d1ae58ecac632
+DECISION:    DECISION-0185_B_CITY_2_FINANCIAL_AUTHORITY_GRANT_MODEL.md  (próximo número livre)
+COMMIT:      este commit docs-only (docs(decision): define regional financial authority grant model)
+```
+
+**Selado (contrato FUTURO, docs-only):**
+- **Casa canônica única** = `actor_capability_grants` (evoluída, NUNCA duplicada). **Casa paralela PROIBIDA** (sem 2º lifecycle/registry/dual-write/fallback/sync eventual/evento paralelo/2ª verdade runtime).
+- **Novo `scope_type='regional_treasury'`** (exato, sem aliases) — FINANCEIRO · CITY-SCOPED · TENANT-SCOPED · FECHADO; não é subtipo de `territory`, não herda capabilities territoriais.
+- **Três shapes mutuamente exclusivos:** `actor`(tenant+scope_actor_id, city NULL) · `territory`(tenant NULL, scope_actor_id NULL, city NOT NULL) · `regional_treasury`(**tenant NOT NULL** · scope_actor_id NULL · city NOT NULL). `tenant NOT NULL` por design (policy/conta/PORTA/ledger são tenant-scoped; NULL implicaria autoridade sobre todos os tenants da cidade).
+- **Matriz fechada e particionada:** `actor|territory` → as **12** keys atuais intactas (6 actor: calendar:block/unblock·services:create/edit/disable·service_order:view; 6 territory:*_neighborhood); `regional_treasury` → EXATAMENTE `treasury:regional_policy_manage` + `treasury:regional_fund_activation_manage`. Sem 3ª key/wildcard/prefix/`treasury:*`.
+- **Contratos físicos FUTUROS dos CHECKs:** `chk_acg_scope_type`=3 valores · `chk_acg_capability_nonfinancial`→implicação guardada por scope (só actor|territory) · novo `chk_acg_capability_regional_treasury` (fechado) · `chk_acg_scope_capability_matrix`+ramo fechado · `chk_acg_scope_shape`+shape tenant+city. Proibido remover CHECK/regex aberta/`LIKE 'treasury:%'`/relaxar actor|territory/reaproveitar ramo territory p/ dinheiro.
+- **Unicidade ativa:** `tenant + grantee_actor + capability + city + scope_type='regional_treasury'`. Reutiliza status/vigência/revogação/eventos/RLS/imutabilidade — sem lifecycle paralelo.
+- **Coerência tenant–actor–cidade:** `grant.tenant_id = tenant server-side = tenant do grantee = tenant da policy/conta/PORTA`; cidade é adicional, nunca substituto. Sem cross-tenant/`tenant_id IS NULL`/fallback territorial/residência. `canRepresentActor` separado e cumulativo.
+- **Três registries disjuntos:** Authority Grant Keys (`actor-capability-grant.types.ts`+CHECK) · Permission Capabilities (`permission-keys.ts`, `can_*`) · TreasuryOperationSource (registry próprio). **Correção formal:** grant keys NÃO vêm de `permission-keys.ts` — vivem em `actor-capability-grant.types.ts`+CHECK.
+- **Colisão textual `treasury:`** particionada formalmente: prefixo pode coincidir; tipo/casa/uso/jurisdição disjuntos; guard dedicado impede cross-uso e `startsWith('treasury:')` como autoridade.
+- **Registro físico FUTURO** das 2 keys só no registry de grant keys; NÃO em `permission-keys.ts`/`TreasuryOperationSource`; sem 2º manifest.
+- **Curitiba-first:** `scope_city_id → cities.city_id`; material Curitiba-only (UUID canônico); demais cidades FAIL-CLOSED.
+
+**AUSÊNCIA DE MATERIAL:** ZERO código · ZERO migration · ZERO DDL/DML · ZERO key física · ZERO grant · ZERO policy · ZERO PORTA · ZERO caller · ZERO movimentação. `permission-keys.ts` **INTACTO**; `actor_capability_grants` **inalterada** (`scope_type` vivo = só `territory`; grants financeiros regionais **ZERO**).
+
+**DTs:** `DT-REGION-FUND-DELEGATION-MODEL-PENDING` avança para policy admin/PORTA Curitiba v1 (modelo de scope/casa FIXADO; emissão ainda pendente de ato posterior; delegação territorial futura segue aberta) · `DT-INVOICING-HARDCODED-TAX-RATE` OPEN, fora da frente.
+
+**FRONTEIRA DE ATIVAÇÃO:** `SELO DA DECISION ≠ GO MATERIAL ≠ ABERTURA DA PORTA`. Próximo ato = **auditoria Yala docs-only**; após selo, **`GO MATERIAL B-CITY-2` explícito**; ativação depende de PORTA posterior separada.
+
+**Bank / fronteiras:** DECISION-0136/0173/0184 + FISCAL-4E **byte-intactas** · Bank **16/1/0/0/0** · Curitiba **0** · firewall **OFF** · caller **ZERO** · **Δbank=0**.
+
+**STATUS: DECISION-0185 PROMULGADA DOCS-ONLY · NÃO SELADA · AGUARDA UMA ÚNICA AUDITORIA YALA. Material B-CITY-2 SUSPENSO e NÃO INICIADO (depende de selo + novo GO material explícito).**
+
+---
+
 ## DECISION-0184 · B-CITY-2 · CURITIBA REGIONAL MONETARY ACTIVATION CONTRACT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-16)
 **Reauditoria Yala FINAL → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0184 está **SELADA e ENCERRADA**. Torna DECIDÍVEL o futuro material B-CITY-2 (Curitiba-first, interno e dormente); **não** autoriza material nem ativação. Append-only: **não reescreve/apaga** a promulgação original, o Veredito B nem a correção das capabilities (todos preservados abaixo).
 
