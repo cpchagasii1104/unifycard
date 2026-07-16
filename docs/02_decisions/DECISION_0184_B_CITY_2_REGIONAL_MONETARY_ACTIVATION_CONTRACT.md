@@ -145,7 +145,22 @@ Retry **não pode** selecionar policy/cidade/conta nova, recalcular sobre outro 
 
 ## D10 — AUTHORITY DE POLICY ADMIN
 
-Policy regional **não** pode ser governada por login · role textual · `admin=true` · usuário sem Actor · profile · job · migration · frontend · fundador implícito. Ações governadas (criar draft · adicionar linhas · validar · ativar · deprecar · substituir versão · encerrar vigência) exigem **cumulativamente**: **Actor explícito · `canRepresentActor(...)` · tenant explícito · capability EXATA · `actor_capability_grant` vigente · trilha append-only**. Reutilizar capability canônica existente se semanticamente adequada; senão, o material definirá nomes exatos (alinhados à nomenclatura viva) para **(a) lifecycle da policy regional** e **(b) ativação/desativação da PORTA monetária** — **as duas autoridades NÃO podem ser fundidas por conveniência**.
+Policy regional **não** pode ser governada por login · role textual · `admin=true` · usuário sem Actor · profile · job · migration · frontend · fundador implícito. Ações governadas (criar draft · adicionar/alterar linhas enquanto draft · validar · ativar uma versão · deprecar · encerrar vigência · substituir por nova versão · consultar o lifecycle administrativo) exigem **cumulativamente**: **Actor explícito · `canRepresentActor(...)` · tenant/escopo explícito · capability EXATA · `actor_capability_grant` vigente · trilha append-only**.
+
+**Capability EXATA de policy admin regional (nomeada, sem alias/alternativa/deferimento ao material):**
+
+```text
+treasury:regional_policy_manage          (gramática domain:action · lowercase snake_case · object_verb)
+CLASSIFICAÇÃO: CRITICAL_FINANCIAL        (não move dinheiro isoladamente, mas altera o contrato econômico consumível quando a PORTA abrir)
+```
+
+`treasury:regional_policy_manage` **NÃO autoriza**: abrir a PORTA · ligar firewall · movimentar dinheiro · executar split · alterar ledger · transferir saldo · remittance · conceder grants · provisionar conta/cidade.
+
+**Não-reutilização de keys existentes** (nenhuma é semanticamente equivalente; proibido tratar como alias): `treasury:governance` (ampla; não nomeia o lifecycle regional) · `treasury:distribution` (não governa criação/ativação de policy nem a PORTA) · `treasury:reversal` (operacional de reversão) · `treasury:settlement` (liquidação) · `treasury:simulation` (simulação) · `territory:*` (operações territoriais, não autoridade financeira). Ao GATE/DECISION, **nenhuma capability viva reutilizável existe** para este contrato.
+
+As **duas autoridades** — policy admin (`treasury:regional_policy_manage`) e PORTA monetária (`treasury:regional_fund_activation_manage`, D12) — **NÃO são fusíveis**: um mesmo Actor só as possui por **dois grants explícitos e independentes**; possuir uma **não** implica a outra; **sem** composição implícita · wildcard · `treasury:*` · role textual · `admin=true`. Ambas são válidas **somente no escopo governado da Curitiba v1** — **não** concedem autoridade nacional/estadual/de bairro/de outra cidade/popular/por residência/a Social/municipal externa.
+
+**Escopo desta correção (Yala B):** esta DECISION **nomeia** o contrato de autoridade; o **registro físico** das keys em `permission-keys.ts` e a **concessão de grants** pertencem ao futuro envelope material B-CITY-2 — **nenhuma key física ou grant é criada por esta DECISION**.
 
 ---
 
@@ -163,7 +178,16 @@ DT-REGION-FUND-DELEGATION-MODEL-PENDING: RESOLVIDA PARA POLICY ADMIN E PORTA CUR
 
 ## D12 — PORTA FINANCEIRA B-CITY-2 (separada de policy e de firewall técnico)
 
-Movimentação regional só ocorre quando **TODAS** verdadeiras (simultâneas): material B-CITY-2 selado · policy regional ativa e vigente · policy version resolvida · Actor autorizador válido · capability de PORTA válida · grant vigente · Curitiba canônica resolvida · conta Curitiba lookup-only válida · **sink firewall explicitamente habilitado** · registro auditável de abertura vigente. **Nenhuma condição isolada abre dinheiro.** Proibido PORTA como simples env flag. O registro futuro de abertura conterá: tenant · city · policy version · Actor autorizador · capability/grant · `effective_from` · `effective_until` opcional · motivo · idempotency key · `created_at` · encerramento/depreciação auditável. Firewall segue **default OFF**.
+Movimentação regional só ocorre quando **TODAS** verdadeiras (simultâneas): material B-CITY-2 selado · policy regional ativa e vigente · policy version resolvida · Actor autorizador válido · **capability EXATA de PORTA `treasury:regional_fund_activation_manage` válida** · grant vigente · Curitiba canônica resolvida · conta Curitiba lookup-only válida · **sink firewall explicitamente habilitado** · registro auditável de abertura vigente. **Nenhuma condição isolada abre dinheiro.** Proibido PORTA como simples env flag. O registro futuro de abertura conterá: tenant · city · policy version · Actor autorizador · capability/grant · `effective_from` · `effective_until` opcional · motivo · idempotency key · `created_at` · encerramento/depreciação auditável. Firewall segue **default OFF**.
+
+**Capability EXATA da PORTA monetária (nomeada, sem alias/alternativa/deferimento ao material):**
+
+```text
+treasury:regional_fund_activation_manage   (gramática domain:action · lowercase snake_case · object_verb)
+CLASSIFICAÇÃO: CRITICAL_FINANCIAL
+```
+
+`treasury:regional_fund_activation_manage` **autoriza** (quando as demais condições da DECISION-0184 estão satisfeitas): abrir a PORTA monetária B-CITY-2 · fechar a PORTA · programar vigência futura (se o contrato material permitir) · encerrar antecipadamente · registrar motivo/autoridade · consultar o estado administrativo da PORTA. **NÃO autoriza**: criar/editar policy · escolher percentual · criar conta regional · resolver território por atalho · movimentar saldo manualmente · transferir fundos · executar payout · alterar splits históricos · bloquear reversal · ligar firewall isoladamente. **Distinta e não-fusível** com `treasury:regional_policy_manage` (D10); possuir uma não implica a outra (dois grants independentes; sem wildcard/`treasury:*`/role/`admin=true`).
 
 ```text
 policy ativa SEM PORTA   →  ZERO MOVIMENTAÇÃO

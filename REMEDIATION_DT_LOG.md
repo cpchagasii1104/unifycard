@@ -1,5 +1,22 @@
 # REMEDIATION DT LOG
 
+## DECISION-0184 · B-CITY-2 · CORREÇÃO DOCS-ONLY PÓS-YALA (VEREDITO B) — CAPABILITIES NOMEADAS — 🟠 CORRIGIDA · NÃO SELADA · AGUARDA UMA REAUDITORIA YALA FINAL (2026-07-16)
+**Yala Veredito B na DECISION-0184.** Único defeito: **D10/D12 não NOMEAVAM as duas capabilities** (usavam "reutilizar capability existente se adequada / o material definirá o nome"). Prova de 1ª mão: **nenhuma capability viva reutilizável existe** para este contrato (`treasury:*` vivos = distribution/governance/reversal/settlement/simulation — nenhuma governa o lifecycle de policy regional nem a PORTA; `territory:*` não é autoridade financeira). Correção docs-only: nomes exatos fixados. Base `rescue-structural @ 2267b7363`. Commit docs-only único: DECISION-0184 (D10/D12) + este cartório + `dividatecnica.md`. Append-only: **não reescreve** a promulgação anterior (preservada abaixo).
+
+```text
+CAPABILITY POLICY ADMIN:  treasury:regional_policy_manage           (CRITICAL_FINANCIAL)
+CAPABILITY PORTA:         treasury:regional_fund_activation_manage  (CRITICAL_FINANCIAL)
+GRAMÁTICA:                domain:action · lowercase snake_case · object_verb
+```
+
+**Selado na correção:** as duas autoridades são **SEPARADAS e NÃO FUSÍVEIS** (dois grants explícitos independentes; possuir uma não implica a outra; **sem** wildcard/`treasury:*`/role textual/`admin=true`); **sem alias/alternativa/deferimento ao material**; **nenhuma key existente reutilizada** (não-equivalência de treasury:governance/distribution/reversal/settlement/simulation e territory:* registrada); shape de authority preservado (Actor + `canRepresentActor` + tenant/escopo + capability exata + grant vigente + trilha append-only); escopo **Curitiba v1** apenas (não concede autoridade nacional/estadual/bairro/outra-cidade/popular/por-residência/Social/municipal-externa). `treasury:regional_policy_manage` governa **policy admin** (lifecycle: draft/linhas/validar/ativar/deprecar/encerrar/substituir/consultar; **não** abre PORTA/firewall/dinheiro/split/ledger/grant/conta); `treasury:regional_fund_activation_manage` governa a **PORTA** (abrir/fechar/vigência/encerrar/registrar/consultar; **não** cria/edita policy/percentual/conta, não movimenta/transfere/payout, não altera split histórico, **não bloqueia reversal**, não liga firewall isolado).
+
+**Fronteiras:** `permission-keys.ts` **INTACTO** (não tocado) · **ZERO key física** · **ZERO grant** · D1–D9/D11–D19 inalterados exceto referências aos nomes · DECISIONs 0179/0182/0183 byte-intactas · **material B-CITY-2 NÃO iniciado** (registro físico das keys + grants pertence ao futuro envelope material) · Bank **16/1/0/0/0** · Curitiba **0** · firewall **OFF** · caller **ZERO** · PORTA **FECHADA/não criada** · **Δbank=0**. `DT-REGION-FUND-DELEGATION-MODEL-PENDING` parcial (Curitiba v1)/aberta futuro; `DT-INVOICING-HARDCODED-TAX-RATE` OPEN/fora.
+
+**STATUS: DECISION-0184 CORRIGIDA DOCS-ONLY · NÃO SELADA — aguarda uma REAUDITORIA Yala FINAL. Material NÃO iniciado. Ativação bloqueada.**
+
+---
+
 ## DECISION-0184 · B-CITY-2 · CURITIBA REGIONAL MONETARY ACTIVATION CONTRACT — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · ATIVAÇÃO BLOQUEADA (PORTA SEPARADA) · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-16)
 **Origem: GATE B-CITY-2 → Veredito B.** O substrato técnico está SUFICIENTE, mas a materialização exige uma única DECISION institucional: a DECISION-0182 selou a allowlist sobre `commission_distributable` **VAZIA** e determinou que ampliação (inclusive `regional_fund`) **exige nova DECISION**. Base `rescue-structural @ 0b513c265`. Commit docs-only único: DECISION-0184 + este cartório + `dividatecnica.md`. **Zero código · zero migration · zero DDL/DML · zero policy real · zero seed · zero grant · zero conta · zero PORTA · zero split/ledger · zero caller · firewall OFF · Δbank=0.**
 
