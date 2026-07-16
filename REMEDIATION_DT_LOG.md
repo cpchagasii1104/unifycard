@@ -1,5 +1,39 @@
 # REMEDIATION DT LOG
 
+## DECISION-0185 · B-CITY-2 · FINANCIAL AUTHORITY GRANT MODEL — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-16)
+**Reauditoria Yala read-only → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0185 está **SELADA e ENCERRADA**. Fecha o modelo institucional e físico **FUTURO** de grants para capabilities financeiras regionais; **não** materializa nada. Append-only: **não reescreve/apaga** a promulgação original (preservada abaixo).
+
+```text
+ARCO COMPLETO:
+BASE:          14814ad25dd39560a88d7667b91d1ae58ecac632  (selo DECISION-0184)
+PROMULGAÇÃO:   e2ca3bf04fcf4e5d88f3f92eb7940113cdee1ab1  (docs(decision): define regional financial authority grant model)
+AUDITORIA YALA:READ-ONLY · VEREDITO A · SELO COMPLETO DOCS-ONLY
+SELO FINAL:    este commit docs-only (docs(remediation): seal regional financial authority grant model after Yala)
+```
+
+**Invariantes SELADOS:**
+- **Casa canônica única** = `actor_capability_grants`. **Casa paralela PROIBIDA.**
+- **Novo scope canônico** = `regional_treasury` (exato, sem aliases).
+- **`regional_treasury`:** `tenant_id NOT NULL` · `scope_actor_id NULL` · `scope_city_id NOT NULL`.
+- **`actor` e `territory`:** shapes preservados.
+- **Matriz:** FECHADA e PARTICIONADA. `actor|territory` preservam exatamente as **12 Authority Grant Keys não financeiras atuais** (6 actor: calendar:block/unblock · services:create/edit/disable · service_order:view; 6 territory:*_neighborhood). `regional_treasury` admite exatamente `treasury:regional_policy_manage` + `treasury:regional_fund_activation_manage`.
+- **Ambas as capabilities:** CRITICAL_FINANCIAL · separadas · não fusíveis · dependentes de grants independentes · sem aliases/wildcard/`treasury:*`/role textual/`admin=true`.
+- **Unicidade ativa regional:** `tenant_id + grantee_actor_id + capability_key + scope_city_id + scope_type='regional_treasury'`.
+- **Authority Grant Keys:** registry real em `actor-capability-grant.types.ts` + enforcement físico FUTURO em `actor_capability_grants`.
+- **Permission Capabilities:** registry separado em `permission-keys.ts`; **não** são fonte de grant keys.
+- **TreasuryOperationSource:** registry próprio e separado; tags operacionais **não** são capabilities.
+- **Prefixo textual `treasury:`** não autoriza união/cast/prefix match/`startsWith` como prova de autoridade.
+- **`scope_city_id` → `cities.city_id`.** Primeiro material **Curitiba-only fail-closed**.
+- **Residência e pertencimento territorial** não concedem grant financeiro. **Self-grant PROIBIDO.** **Bootstrap implícito PROIBIDO.**
+- **Grants reais ZERO · policy regional ZERO · PORTA NÃO criada.**
+- **Material B-CITY-2 NÃO iniciado.** GO material anterior **suspenso e NÃO consumado** — **não** reativado pelo selo. Ativação monetária depende de ato **posterior e separado**.
+
+**PROVA YALA:** commit e parent corretos (promulgação `e2ca3bf04` · parent `14814ad25`) · exatamente **três** arquivos na promulgação (DECISION-0185 + `REMEDIATION_DT_LOG.md` + `dividatecnica.md`) · DECISIONs 0136/0173/0184 **byte-intactas** · **36/36 vetores adversariais bloqueados** · zero material · Bank **16/1/0/0/0** · Curitiba **0** · firewall **OFF** · caller **ZERO** · **Δbank=0**.
+
+**STATUS: DECISION-0185 SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA. Material B-CITY-2 SUSPENSO e NÃO INICIADO. Próximo ato somente mediante novo GO humano explícito para material B-CITY-2.**
+
+---
+
 ## DECISION-0185 · B-CITY-2 · FINANCIAL AUTHORITY GRANT MODEL — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-16)
 **Origem:** STOP GOVERNADO do material B-CITY-2 no PASSE 1 — **anterior a qualquer write/DDL**. Prova de 1ª mão (`pg_constraint` · `unificard_dev` read-only): as constraints vivas de `actor_capability_grants` rejeitam FISICAMENTE as duas capabilities financeiras nomeadas pela DECISION-0184. A DECISION-0184 nomeou as capabilities mas não decidiu a casa física de grant, o scope financeiro, a shape, a matriz, a coerência tenant–cidade nem a partição dos registries. Clayton ratifica o STOP e concede `GO DECISION B-CITY-2 FINANCIAL AUTHORITY GRANT MODEL`. Uma única DECISION docs-only fecha o modelo institucional e físico **FUTURO**; **não materializa nada**. Complementa DECISION-0136/0173/0184 **sem reescrevê-las**.
 
