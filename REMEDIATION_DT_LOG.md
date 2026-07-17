@@ -1,5 +1,36 @@
 # REMEDIATION DT LOG
 
+## DECISION-0186 · ORGANIZATIONAL ACTOR COMPOSITION CONTRACT — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-17)
+**Promulgação docs-only sob GO explícito de Clayton** (`GO DECISION-0186 · ORGANIZATIONAL ACTOR COMPOSITION CONTRACT · DOCS-ONLY`), a partir do GATE READ-ONLY "modelagem de condomínios, igrejas e organizações comunitárias" (Veredito B — modelo existente suficiente com decisão de integração), com as **duas correções obrigatórias** de Clayton incorporadas: (1) NÃO pré-decidir `ownerType='group'` no Bank — D8 registra as DTs financeiras congeladas e remete a forma física a GATE Bank próprio, com hipótese preferencial não-vinculante "Group é Actor → a conta tende a pertencer ao Actor"; (2) separação expressa entre "Actor organizacional institucional" (esta DECISION) e o "Actor institucional sistêmico do tenant" de `DT-C1-INSTITUTIONAL-SYSTEM-ACTOR-PENDING` (D7 — aquela frente permanece intocada).
+
+**Decisões:** D1 composição canônica Actor institucional + Groups internos (sem herança de autoridade/conta/endereço) · D2 PROIBIDO novo `actor_type` por segmento (condominium/church/association/community/ngo/…; DECISION-0157 permanece o freio; proibido reviver `actor_organizational` como writer) · D3 reconciliação categoria constitucional × forma operacional (`actor_organizational` → materializa-se como `page`·`group`; hierarquia 07 §3.1 vigente; valores físicos legados seguem congelados) · D4 bifurcação formal (CNPJ → Company/PJ → page-actor; natureza via concept/template) / informal (group-actor com âncora civil 3C §5); formalização futura = transição governada, nunca instituição duplicada (02 §3) · D5 membership ≠ autoridade (papel descreve, grant concede; LEI §4.9.5; capabilities organizacionais NÃO criadas aqui) · D6 `organization_*` REJEITADO como casa canônica — descontinuação arquitetural ≠ remoção física (código segue contido 501; tabelas ausentes; `organization_members` tombstone; limpeza física = frente posterior; critério de descongelamento da `DT-ORGANIZATION-SPRINT78-FROZEN` SUPERADO) · D7 separação do actor_system · D8 duas DTs financeiras congeladas SEM solução física · D9 ordem vinculante de 8 integrações futuras, TODAS atrás de GATE+GO próprios (vínculo grupo→actor institucional; membership actor-first+roles governados+fim do cap-3 institucional; capabilities nomeadas; audiência "somente membros" derivada de membership; endereço canônico+blocos da página universal; governança formal; projetos/procurement; financeiro POR ÚLTIMO).
+
+**Arquivo:** `docs/02_decisions/DECISION_0186_ORGANIZATIONAL_ACTOR_COMPOSITION_CONTRACT.md` · **Base:** `rescue-structural @ 904e4ca7c`. **Zero código · zero migration · zero schema/dados · zero Bank · Δbank=0.** Próximo ato: **STOP — arco segue para UMA única auditoria Yala.**
+
+---
+
+## DT-GROUP-ACCOUNT-OWNERTYPE-COMPANY-MASQUERADE — OPEN · CONGELADA (2026-07-17)
+
+- **Status:** **OPEN · CONGELADA (2026-07-17)** — registrada pela DECISION-0186 D8. Solução física **NÃO decidida** (correção soberana de Clayton: não pré-decidir `ownerType='group'`).
+- **Fato (1ª mão):** `backend/src/modules/bank/bank-integration.service.ts:55-67` — `resolveGroupAccount` resolve/cria conta de grupo declarando `ownerType: 'company'` com TODO explícito ("Adicionar 'group' como ownerType se necessário"); fallback de resolução por `group_id` em `bank-account.repository.ts:296-304`.
+- **Fato agravante (proíbe solução mecânica):** o repositório traduz `user` E `company` para o MESMO físico `owner_type='actor'` (`bank-account.repository.ts:33`; físico Genesis = `actor|system|escrow`). "Adicionar `group`" na API poderia ser só mais uma classificação paralela sobre o mesmo físico — quando Group JÁ É Actor (uq_actors_group).
+- **Resolução prevista:** GATE Bank próprio (DECISION-0186 D9.8, ÚLTIMO da ordem) — definir a resolução canônica da conta do group-actor, eliminar a falsa representação como company e decidir se a conta é resolvida diretamente pelo Actor, **sem criar novo owner_type físico**. Hipótese preferencial registrada (não vinculante): "Group é Actor; a conta tende a pertencer ao Actor, não a uma nova classe financeira chamada group."
+- **Congelamento:** até o GATE, nenhum caller novo pode ampliar o uso da máscara `'company'`.
+- **Vinculada a:** `DECISION-0186` (D8/D9.8), `DT-GROUP-ACCOUNTS-BALANCE-CENTS-PARALLEL-TRUTH` (irmã), `uq_actors_group` (migration `20260530576000`).
+
+---
+
+## DT-GROUP-ACCOUNTS-BALANCE-CENTS-PARALLEL-TRUTH — OPEN · CONGELADA (2026-07-17)
+
+- **Status:** **OPEN · CONGELADA (2026-07-17)** — registrada pela DECISION-0186 D8.
+- **Fato (1ª mão):** `group_accounts.balance_cents BIGINT NOT NULL DEFAULT 0` (migration `20260530430000_groups_missing_tables.sql`) coexiste com `bank_account_id` na mesma tabela.
+- **Risco:** se lido como saldo próprio, constitui **segunda verdade financeira** paralela ao `bank_ledger` — violação do SSOT financeiro (cópia derivada decidindo estado).
+- **Resolução prevista:** no MESMO GATE Bank da DT irmã (DECISION-0186 D9.8): ou o campo vira read model explicitamente descartável/reconciliado, ou é removido. Saldo real vem EXCLUSIVAMENTE do `bank_ledger`/UnifyBank.
+- **Congelamento:** até o GATE, nenhum leitor novo pode tratar `balance_cents` como verdade.
+- **Vinculada a:** `DECISION-0186` (D8/D9.8), `DT-GROUP-ACCOUNT-OWNERTYPE-COMPANY-MASQUERADE` (irmã), `LEDGER_SOVEREIGNTY`.
+
+---
+
 ## B-CITY-2 · SUBSTRATO DORMENTE DE AUTORIDADE FINANCEIRA REGIONAL (regional_treasury) — ✅ SELADO PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADO (2026-07-16)
 **Reauditoria Yala final MATERIAL → Veredito A · SELO COMPLETO MATERIAL.** O substrato dormente de autoridade financeira regional (`scope_type='regional_treasury'` na casa canônica `actor_capability_grants`) está **SELADO e ENCERRADO**. O Veredito B anterior foi sucedido por **uma única remediação consolidada guard/harness/provas-only** (mutations 13→38). Append-only: não reescreve as entradas material/remediação abaixo.
 
@@ -7855,6 +7886,8 @@ Esconder ou desabilitar os 4 botões em `CompanyTeamTab.tsx` enquanto Sprint 78 
 ### Padrão institucional
 
 Sprint 78 é exemplo de **convergência interrompida** (memória `project_lei_historica_sistema.md`): código completo, migrations no archive, intenção arquitetural viva, mas pausada por falta de demanda. NÃO apagar — preservar até momento humano de retomada.
+
+**[ATUALIZAÇÃO 2026-07-17 · DECISION-0186 D6 — append-only]** O critério de descongelamento acima (a)/(b)/(c) foi **SUPERADO**: a DECISION-0186 REJEITA `organization_*` como casa canônica da composição organizacional (a casa é `actors` + `groups` + memberships canônicos + `actor_capability_grants`). É PROIBIDO religar o módulo, materializar as tabelas ou reaproveitá-lo em frentes da composição. Descontinuação arquitetural ≠ remoção física: o código permanece contido 501 (blanket fail-closed em `organization.routes.ts`), tabelas ausentes, `organization_members` tombstone; a **limpeza física é frente posterior própria**, ainda não autorizada. Esta DT permanece OPEN até a limpeza física.
 
 ---
 
