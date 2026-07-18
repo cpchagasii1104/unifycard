@@ -1,5 +1,49 @@
 # REMEDIATION DT LOG
 
+## DECISION-0186 · ORGANIZATIONAL ACTOR COMPOSITION CONTRACT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-17)
+**Auditoria Yala READ-ONLY do arco docs-only → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0186 (F-ORGANIZATIONAL-ACTOR-COMPOSITION) está **SELADA e OFICIALMENTE ENCERRADA**. Append-only: não reescreve nem apaga a entrada de promulgação abaixo.
+
+```text
+FRENTE:                  F-ORGANIZATIONAL-ACTOR-COMPOSITION
+BASE:                    904e4ca7cf543416e952fd9fd09e9e8f580f61aa
+COMMIT DE PROMULGAÇÃO:   3c6427a7d  (docs(decisions): promulgate DECISION-0186 organizational actor composition contract)
+AUDITORIA:               READ-ONLY · VEREDITO A · SELO COMPLETO DOCS-ONLY
+SELO FINAL:              este commit docs-only (docs(remediation): seal organizational actor composition decision after Yala)
+```
+
+**Confirmação da promulgação:** exatamente **1 commit · 3 arquivos · 260 inserções · 0 deleções**. DECISION-0186 permanece **byte-intacta** (`git hash-object` antes==depois = `0bcf19e319a96eb4894fb45c78e5259800461c7f`).
+
+**Ausência material confirmada:** `migration=0 · DDL/DML=0 · dados=0 · runtime intocado · Bank intocado · Δbank=0`. Zero código/schema/contrato/frontend no diff.
+
+**Intactos (verificados):** DECISION-0157 (freeze) · módulo `organization` (13 rotas contidas) · blanket 501 (`organization.routes.ts`) · tabelas tombstone (`organization_members`/`_invites`/`_roles`/`_units` ausentes) · Actor sistêmico do tenant (`DT-C1-INSTITUTIONAL-SYSTEM-ACTOR-PENDING` não decidido/criado) · Bank (`owner_type` físico `actor|system|escrow` inalterado).
+
+**Estado das dívidas correlatas:**
+- `DT-GROUP-ACCOUNT-OWNERTYPE-COMPANY-MASQUERADE` — **OPEN · CONGELADA** (não fechada).
+- `DT-GROUP-ACCOUNTS-BALANCE-CENTS-PARALLEL-TRUTH` — **OPEN · CONGELADA** (não fechada).
+- `DT-ORGANIZATION-SPRINT78-FROZEN` — permanece **OPEN**; apenas a lacuna decisória foi resolvida (rejeição de `organization_*` como casa canônica pela D6); limpeza física segue frente posterior própria.
+
+**INVARIANTES SELADOS:**
+1. Organização humana = **Actor organizacional institucional + Groups internos**.
+2. Group interno **não herda** authority, capability, conta, endereço ou representação.
+3. Novos `actor_type` segmentais permanecem **PROIBIDOS**.
+4. `actor_organizational` **não** pode ser revivido como valor físico, writer, fallback ou fluxo.
+5. `page` e `group` são **formas operacionais**, não SSOTs paralelos de Actor.
+6. Organização formal: **CNPJ → PJ/Company → page-actor**.
+7. Organização informal: **group-actor com âncora civil humana**.
+8. Formalização futura exige **transição governada**, nunca Actor duplicado.
+9. Membership, role, residência, pertencimento e voto **não concedem** authority.
+10. `organization_*` está **rejeitado como casa canônica**.
+11. Descontinuação arquitetural **não** autoriza remoção física, retirada do 501 ou criação de tabela.
+12. Actor organizacional humano permanece **distinto** do Actor sistêmico do tenant.
+13. **Nenhum** `owner_type='group'` foi decidido.
+14. `group_accounts.balance_cents` **não** pode tornar-se verdade financeira.
+15. As integrações futuras (D9) permanecem atrás de **GATE + GO próprios**.
+16. O **financeiro** permanece como **última** etapa.
+
+**D9 é somente ordem de dependência — NÃO autorização automática.** Nenhuma de suas 8 etapas está iniciada ou autorizada. **STATUS: DECISION-0186 OFICIALMENTE ENCERRADA.** O próximo ato possível, somente após novo GO humano explícito e separado, é um GATE read-only para investigar a forma física do vínculo Group → Actor organizacional institucional (D9.1). O selo não consome/presume esse GO.
+
+---
+
 ## DECISION-0186 · ORGANIZATIONAL ACTOR COMPOSITION CONTRACT — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-17)
 **Promulgação docs-only sob GO explícito de Clayton** (`GO DECISION-0186 · ORGANIZATIONAL ACTOR COMPOSITION CONTRACT · DOCS-ONLY`), a partir do GATE READ-ONLY "modelagem de condomínios, igrejas e organizações comunitárias" (Veredito B — modelo existente suficiente com decisão de integração), com as **duas correções obrigatórias** de Clayton incorporadas: (1) NÃO pré-decidir `ownerType='group'` no Bank — D8 registra as DTs financeiras congeladas e remete a forma física a GATE Bank próprio, com hipótese preferencial não-vinculante "Group é Actor → a conta tende a pertencer ao Actor"; (2) separação expressa entre "Actor organizacional institucional" (esta DECISION) e o "Actor institucional sistêmico do tenant" de `DT-C1-INSTITUTIONAL-SYSTEM-ACTOR-PENDING` (D7 — aquela frente permanece intocada).
 
