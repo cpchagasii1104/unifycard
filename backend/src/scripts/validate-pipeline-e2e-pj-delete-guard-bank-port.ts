@@ -71,6 +71,9 @@ const stubReadPort: BankTransactionReadPort = {
     }
     return [];
   },
+  async getMetadataByTransactionIds(): Promise<Map<string, Record<string, unknown>>> {
+    return new Map();
+  },
 };
 
 async function bootstrap(): Promise<void> {

@@ -31,6 +31,19 @@ export interface BankAccountBalance {
   currency: BankCurrency;
 }
 
+/** Movimento do ledger projetado pela porta pública (extrato por conta) — R-8. */
+export interface BankLedgerEntryView {
+  transactionId: string;
+  entryType: 'credit' | 'debit';
+  amountCents: number;
+  createdAt: string;
+}
+
+export interface BankLedgerEntriesQuery {
+  limit?: number;
+  offset?: number;
+}
+
 export interface CreateBankAccountInput {
   ownerId: string;
   ownerType: BankAccountOwnerType;
@@ -55,7 +68,14 @@ export interface BankAccountPort {
     tenantId: string,
     accountId: string
   ): Promise<BankAccountBalance>;
-  
+
+  /** Extrato (movimentações) de uma conta, via domínio Bank — R-8 (sem SQL direto fora do Bank). */
+  getLedgerEntriesByAccount(
+    tenantId: string,
+    accountId: string,
+    query?: BankLedgerEntriesQuery
+  ): Promise<BankLedgerEntryView[]>;
+
   getSystemAccount(
     tenantId: string,
     accountName: SystemAccountName,

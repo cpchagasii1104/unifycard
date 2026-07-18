@@ -54,6 +54,13 @@ export class BankTransactionReadAdapter implements BankTransactionReadPort {
       createdAt: e.createdAt,
     }));
   }
+
+  async getMetadataByTransactionIds(
+    tenantId: string,
+    transactionIds: string[]
+  ): Promise<Map<string, Record<string, unknown>>> {
+    return bankTransactionReadRepository.getMetadataByTransactionIds(tenantId, transactionIds);
+  }
 }
 
 export const bankTransactionReadAdapter = new BankTransactionReadAdapter();

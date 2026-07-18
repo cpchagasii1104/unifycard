@@ -37,4 +37,10 @@ export interface BankTransactionReadPort {
     actorId: string,
     opts?: { limit?: number }
   ): Promise<RecentTransaction[]>;
+
+  /** Metadados de transação por id (batch), via domínio Bank — R-8. */
+  getMetadataByTransactionIds(
+    tenantId: string,
+    transactionIds: string[]
+  ): Promise<Map<string, Record<string, unknown>>>;
 }

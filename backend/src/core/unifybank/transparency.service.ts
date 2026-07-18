@@ -6,10 +6,9 @@
 import { getClientWithTenant } from '@core/database/pool';
 import { integerCentsFromDbWire } from '@modules/bank/integer-cents-from-db';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
-// R-8 (fronteira Bank): core/unifybank consome os READERS PÚBLICOS do domínio Bank em vez de SQL
-// direto a bank_* (BANK_DOMAIN_RULES §3 / LEI §4.6 / SSOT_REGISTRY §5.2 — SQL sobre bank_* só em modules/bank).
-import { bankLedgerRepository } from '@modules/bank/bank-ledger.repository';
-import { bankTransactionReadRepository } from '@modules/bank/bank-transaction-read.repository';
+// R-8 (fronteira Bank): core/unifybank consome as PORTAS PÚBLICAS do domínio Bank (bankPortsRegistry)
+// em vez de SQL direto a bank_* (BANK_DOMAIN_RULES §3 / LEI §4.6 / SSOT_REGISTRY §5.2 — a implementação
+// vive em modules/bank; aqui só se consome a interface pública, sem importar repositório nem tocar tabelas).
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { resolveActorTerritory } from '@core/location/actor-territorial-resolver';
 import { getFullAddress } from '@core/location/address-helpers';
@@ -670,15 +669,15 @@ class TransparencyService {
     // 4. Obter saldo atual do Unify Bank (bank_ledger é a verdade; zero aqui é zero comprovado).
     const balance = await bankAccount.getBalance(tenantId, regionAccountId);
 
-    // 5. Movimentações do fundo — via READERS CANÔNICOS do Bank (R-8: sem SQL direto a bank_*).
-    //    `getEntriesByAccount` mantém a MESMA ordenação/paginação (created_at DESC, LIMIT/OFFSET) e o
-    //    mesmo isolamento por tenant+account; o metadata da transação vem do reader público do Bank.
-    const ledgerEntriesCanonical = await bankLedgerRepository.getEntriesByAccount(tenantId, regionAccountId, {
+    // 5. Movimentações do fundo — via PORTAS CANÔNICAS do Bank (R-8: sem SQL direto a bank_*).
+    //    `getLedgerEntriesByAccount` mantém a MESMA ordenação/paginação (created_at DESC, LIMIT/OFFSET) e
+    //    o mesmo isolamento por tenant+account; o metadata da transação vem da porta pública do Bank.
+    const ledgerEntriesCanonical = await bankAccount.getLedgerEntriesByAccount(tenantId, regionAccountId, {
       limit,
       offset,
     });
     const transactionIds = ledgerEntriesCanonical.map((e) => e.transactionId).filter((id): id is string => !!id);
-    const metaByTx = await bankTransactionReadRepository.getMetadataByTransactionIds(tenantId, transactionIds);
+    const metaByTx = await bankPortsRegistry.getBankTransactionRead().getMetadataByTransactionIds(tenantId, transactionIds);
 
     const entries: RegionalFundEntry[] = ledgerEntriesCanonical.map((e) => {
       const metadata = (metaByTx.get(e.transactionId) ?? {}) as Record<string, any>;

@@ -60,22 +60,26 @@ if (!body) {
   if (/\bclient\.query\s*\(/.test(code)) {
     fails.push('getUserRegionalFund usa client.query cru — SQL direto proibido nesse caminho (use o reader do Bank)');
   }
-  // 3. USA os readers canônicos do Bank (prova positiva do reuso).
-  if (!/bankLedgerRepository\.getEntriesByAccount\s*\(/.test(code)) {
-    fails.push('getUserRegionalFund não usa bankLedgerRepository.getEntriesByAccount (reader canônico do extrato)');
+  // 3. USA as PORTAS canônicas do Bank (prova positiva do reuso via interface pública, não repositório).
+  if (!/getLedgerEntriesByAccount\s*\(/.test(code)) {
+    fails.push('getUserRegionalFund não usa a porta getLedgerEntriesByAccount (extrato via interface pública do Bank)');
   }
-  if (!/bankTransactionReadRepository\.getMetadataByTransactionIds\s*\(/.test(code)) {
-    fails.push('getUserRegionalFund não usa bankTransactionReadRepository.getMetadataByTransactionIds (metadado via Bank)');
+  if (!/getMetadataByTransactionIds\s*\(/.test(code)) {
+    fails.push('getUserRegionalFund não usa a porta getMetadataByTransactionIds (metadado via interface pública do Bank)');
   }
   // 4. Saldo permanece via port canônico (não reintroduzir SQL de saldo).
   if (!/getBalance\s*\(/.test(code)) {
     fails.push('getUserRegionalFund não usa o port getBalance para o saldo (regressão de fronteira Bank)');
   }
+  // 5. Consumo via bankPortsRegistry (interface pública), não import de repositório do Bank.
+  if (!/bankPortsRegistry\./.test(code)) {
+    fails.push('getUserRegionalFund não consome via bankPortsRegistry (a fronteira correta é a PORTA pública do Bank)');
+  }
 }
 
-// 5. Import da implementação Bank aponta para modules/bank (interfaces públicas), não SQL local.
-if (!/from '@modules\/bank\/bank-ledger\.repository'/.test(raw) || !/from '@modules\/bank\/bank-transaction-read\.repository'/.test(raw)) {
-  fails.push('transparency.service não importa os readers públicos do Bank (@modules/bank/*) — implementação deve viver em modules/bank');
+// 6. O arquivo NÃO deve importar repositórios do Bank diretamente (consumo é via porta pública).
+if (/from '@modules\/bank\/bank-ledger\.repository'/.test(raw) || /from '@modules\/bank\/bank-transaction-read\.repository'/.test(raw)) {
+  fails.push('transparency.service importa repositório do Bank diretamente — deve consumir a PORTA pública (bankPortsRegistry), não o repositório');
 }
 
 if (fails.length) {

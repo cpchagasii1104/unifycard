@@ -5,7 +5,7 @@
  * Implementa interface do core usando service real do module.
  */
 
-import type { BankAccountPort, BankAccount, BankAccountBalance } from '@core/bank/ports';
+import type { BankAccountPort, BankAccount, BankAccountBalance, BankLedgerEntryView, BankLedgerEntriesQuery } from '@core/bank/ports';
 import { bankAccountService as realService } from '../bank-account.service';
 
 export class BankAccountAdapter implements BankAccountPort {
@@ -34,6 +34,14 @@ export class BankAccountAdapter implements BankAccountPort {
       balanceCents: balance.balanceCents,
       currency: account?.currency || 'BRL',
     };
+  }
+
+  async getLedgerEntriesByAccount(
+    tenantId: string,
+    accountId: string,
+    query: BankLedgerEntriesQuery = {}
+  ): Promise<BankLedgerEntryView[]> {
+    return realService.getLedgerEntriesByAccount(tenantId, accountId, query);
   }
 
   async getSystemAccount(tenantId: string, accountName: any, currency?: any): Promise<BankAccount> {

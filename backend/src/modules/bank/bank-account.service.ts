@@ -17,8 +17,30 @@ import type {
   SystemAccountName,
 } from './bank-account.types';
 import type { BankAccountBalance } from './bank-ledger.types';
+import type { BankLedgerEntryView, BankLedgerEntriesQuery } from '@core/bank/ports';
 
 class BankAccountService {
+  /**
+   * Extrato (movimentações) de uma conta — R-8: fonte canônica do Bank para readers externos que
+   * antes usavam SQL direto. Mesma ordenação/paginação do repositório (created_at DESC, LIMIT/OFFSET).
+   */
+  async getLedgerEntriesByAccount(
+    tenantId: string,
+    accountId: string,
+    query: BankLedgerEntriesQuery = {}
+  ): Promise<BankLedgerEntryView[]> {
+    const entries = await bankLedgerRepository.getEntriesByAccount(tenantId, accountId, {
+      limit: query.limit,
+      offset: query.offset,
+    });
+    return entries.map((e) => ({
+      transactionId: e.transactionId,
+      entryType: e.entryType,
+      amountCents: Number(e.amountCents),
+      createdAt: e.createdAt,
+    }));
+  }
+
   /**
    * Busca conta por ID
    * Saldo retornado e calculado do ledger (fonte da verdade)
