@@ -1,5 +1,25 @@
 # REMEDIATION DT LOG
 
+## DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT (D9.1) — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-17)
+**Promulgação docs-only sob GO explícito de Clayton** (`GO DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT · DOCS-ONLY`), consequência direta do GATE READ-ONLY D9.1 (executado nesta mesma data sobre `4e688db7e`, ZERO alteração, **Veredito B** — decisão institucional intermediária necessária). Fecha o contrato futuro do vínculo **Group interno → Actor organizacional institucional**.
+
+**Decisões:** D1 casa canônica única e futura = **`group_institutional_bindings`** (tabela dedicada, estreita, tenant-scoped, append-only civil; NÃO é membership/relação social/GRAPH/authority/delegação/endereço/conta/Bank; NÃO ressuscita `organization_*`; rejeitadas formalmente: coluna em `groups`, `actor_relationships` — par único colide com CRM —, `group_members`, `owner_actor_id`, `responsible_actor_id`, metadata/category/purpose/role/slug, grants/delegations, hierarquia Group→Group, Bank) · D2 ancoragem `group_id→groups.id` × `institution_actor_id→actors.id` (NÃO aresta genérica Actor↔Actor; group-actor resolvido pelo 1:1 vivo; proibida segunda referência concorrente) · D3 cardinalidade: instituição 0..N groups · group pode existir sem instituição · **máx 1 vínculo ATIVO por group** (unicidade ativa `tenant_id+group_id` sob estado ativo) · históricos plurais · zero inferência · D4 parent SÓ `page` (formal/PJ) ou `group` RAIZ (informal); PROIBIDOS user/channel/system/legados/futuros não autorizados/cross-tenant; natureza (condomínio/igreja/…) via CONCEPT/template, nunca actor_type · D5 modos mutuamente exclusivos raiz×interno; anti-self-link; **cadeia Group→Group→Group PROIBIDA no MVP**; anti-ciclo; sem hierarquia recursiva; multinível exigiria DECISION própria · D6 lifecycle `active→retired` append-only (sem DELETE; reparent = retire+nova linha, atômico, idempotente, nunca 2 parents ativos) + colunas mínimas exigidas · D7 autoridade v1 SEM capability nova: `canRepresentActor(instituição)` ∧ `canRepresentActor(grupo)`, provadas separadamente, server-side, revalidação em transação, fail-closed; membership/role/residência/metadata NÃO substituem · D8 escopo fechado do futuro material D9.1 (pode/não-pode; criação atômica "novo Group interno + vínculo" FORA até D9.3) · D9 invariantes de não-herança ratificados (20 itens) · D10 RLS FORÇADA de nascença + coerência composta de tenant + **DT-GROUPS-TABLE-NO-RLS registrada abaixo** (achado do GATE; não amplia o D9.1) · D11 guard dedicado obrigatório (26 vetores) · D12 fronteiras: D9.2+ trancadas; Bank byte-intacto; Δbank=0.
+
+**Arquivo:** `docs/02_decisions/DECISION_0187_GROUP_INSTITUTIONAL_BINDING_CONTRACT.md` · **Base:** `rescue-structural @ 4e688db7e`. **Zero código · zero migration · zero DDL/DML · zero dado · zero Bank.** DECISIONs 0186 (`0bcf19e3…`) e 0157 (`a6fe3734…`) byte-intactas. **Selo desta DECISION NÃO abre o material D9.1** — material exige auditoria Yala + selo + novo GO humano explícito. Próximo ato: **STOP — arco (GATE D9.1 + DECISION-0187 + cartório) aguarda UMA única auditoria Yala.**
+
+---
+
+## DT-GROUPS-TABLE-NO-RLS — OPEN (2026-07-17)
+
+- **Status:** **OPEN (2026-07-17)** — registrada pela DECISION-0187 D10 a partir de achado do GATE READ-ONLY D9.1 (leitura `pg_class`, `unificard_dev`).
+- **Fato (1ª mão):** a tabela `groups` vive **sem RLS** (`relrowsecurity=f`, `relforcerowsecurity=f`) — diferentemente de `actor_relationships` (RLS FORCE desde a migration `20260704120000`) e das casas recentes. A migration de origem (`20260530180000_groups.sql`) nunca habilitou RLS; nenhuma migration posterior corrigiu.
+- **Risco:** isolamento de tenant de `groups` depende exclusivamente da disciplina de `runQueryWithTenant`/WHERE em código — sem a segunda linha de defesa física padrão do repo (RLS-runtime-live, frente #-2 do índice).
+- **Contenção atual:** queries do módulo groups são tenant-scoped em código; runtime `unificard_app` com RLS vivo nas demais tabelas críticas.
+- **Resolução prevista:** frente separada de remediação RLS de `groups` (e irmãs do módulo: `group_members`/`group_invites`/`group_votes*`/`group_accounts` — auditar juntas). **NÃO** faz parte do material D9.1 (DECISION-0187 D10 proíbe expandir o envelope); a casa nova `group_institutional_bindings` nasce com RLS FORÇADA e não herda a lacuna.
+- **Vinculada a:** `DECISION-0187` (D10), GATE D9.1 (achado §5), frente RLS-runtime-live (padrão), `20260530180000_groups.sql`.
+
+---
+
 ## DECISION-0186 · ORGANIZATIONAL ACTOR COMPOSITION CONTRACT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-17)
 **Auditoria Yala READ-ONLY do arco docs-only → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0186 (F-ORGANIZATIONAL-ACTOR-COMPOSITION) está **SELADA e OFICIALMENTE ENCERRADA**. Append-only: não reescreve nem apaga a entrada de promulgação abaixo.
 

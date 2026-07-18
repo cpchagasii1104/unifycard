@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-17 (160) — DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT (D9.1): PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA
+- **Sequência da sessão:** GATE READ-ONLY D9.1 executado sobre `4e688db7e` (zero alteração; Veredito B — decisão institucional necessária entre coluna vs tabela + cardinalidade/lifecycle/autoridade) → GO explícito de Clayton → promulgação docs-only desta DECISION.
+- **Fechado:** casa única futura = `group_institutional_bindings` (tabela dedicada estreita; TODAS as alternativas rejeitadas com prova — coluna em groups, actor_relationships, group_members, owner/responsible_actor_id, metadata, grants/delegations, Group→Group, Bank) · ancoragem `groups.id`×`actors.id` · máx 1 parent ATIVO por group (históricos plurais; sem inferência) · parent SÓ page ou group-raiz · modos raiz×interno anti-ciclo v1 (multinível PROIBIDO no MVP) · lifecycle active→retired append-only (reparent = retire+nova linha) · autoridade v1 dual `canRepresentActor` dos DOIS lados sem capability nova (capabilities = D9.3) · escopo pode/não-pode do futuro material · não-herança (20 invariantes) · RLS forçada de nascença · guard de 26 vetores · fronteiras D9.2+ trancadas.
+- **Nova DT:** `DT-GROUPS-TABLE-NO-RLS` (OPEN — achado do GATE: `groups` sem RLS física; remediação = frente separada; a casa nova não herda a lacuna).
+- **Zero código · zero migration · zero DDL/DML · zero dado · Bank byte-intacto · Δbank=0.** 0186/0157 byte-intactas. Selo NÃO abre material D9.1 (exige Yala + selo + novo GO). **Próximo ato: STOP — arco aguarda UMA única auditoria Yala.**
+
 ### 2026-07-17 (159) — DECISION-0186 · ORGANIZATIONAL ACTOR COMPOSITION CONTRACT: SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA
 - **Auditoria Yala READ-ONLY do arco docs-only → Veredito A · SELO COMPLETO DOCS-ONLY.** DECISION-0186 (F-ORGANIZATIONAL-ACTOR-COMPOSITION) SELADA e ENCERRADA.
 - **Promulgação:** commit `3c6427a7d` (base `904e4ca7c`), exatamente 1 commit · 3 arquivos · 260 inserções · 0 deleções. DECISION-0186 **byte-intacta** (hash `0bcf19e3` antes==depois).
