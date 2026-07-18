@@ -1,5 +1,17 @@
 # REMEDIATION DT LOG
 
+## B-CITY-2 · COMPOSIÇÃO REGIONAL (Fatia E da campanha) — ⛔ STOP MATERIAL REGISTRADO · NÃO INICIADA (2026-07-18)
+**Decisão de fronteira, docs-only. A campanha contínua (Fatia E) parou a materialização da composição regional B-CITY-2 conforme §9/§13 do próprio prompt.** Nenhum código de composição escrito; nenhuma migration; Bank/Δbank intocados.
+
+**MOTIVO (registro do conflito exigido pelo §9 do prompt):**
+1. O cartório do HEAD sela **apenas o AUTHORITY SUBSTRATE** `regional_treasury` (bloco acima, 2026-07-16) e declara textualmente: *"Composição regional NÃO iniciada; ... Qualquer envelope posterior exige novo GO humano explícito e separado — o selo não consome/reativa/presume GO para composição/PORTA."*
+2. O **GATE B-CITY-2 com Veredito A + envelope corrigido (C1 dev read-only / C2 sem grant writer)** para a COMPOSIÇÃO **não está registrado no cartório do HEAD** (existe apenas em memória conversacional da guardiã). Pela precedência do próprio prompt (§2: prevalece o documento canônico do HEAD sobre o resumo do prompt), a condição "Gate com Veredito A; envelope corrigido vigente" **não é verificável no HEAD** → §13 "divergência do envelope B-CITY-2" ⇒ **interromper apenas a materialização de B-CITY-2** (as demais frentes read-only seguem).
+3. A composição é o envelope money-path mais sensível do sistema (orquestrador pós-4E sobre `commission_distributable` → `regional_fund` + `regional_residual`, matriz zero-bucket, fingerprint FISCAL-4E byte-intacto, reversal full-only, máquina PORTA fechada, ≥24 vetores de mutation + E2E efêmero). Materializá-lo sem o gate canônico no HEAD e sem poder concluir/provar o envelope completo com segurança nesta sessão configuraria **risco material não autorizado**.
+
+**PRÉ-CONDIÇÕES VERIFICADAS NO HEAD (read-only):** substrato `regional_treasury` **SELADO** (Veredito A) · FISCAL-4E **SELADO** · PORTA 01 **fechada/inexistente** · migration `20260716140000` **não aplicada em dev** · grants regionais reais **0** · policy regional **0** · firewall **OFF** · Bank **16/1/0/0/0** · **Δbank=0**. As pré-condições materiais existem; falta o **registro do GATE de composição no cartório do HEAD** + um envelope executável com prova completa.
+
+**PARA DESTRAVAR (frente própria, novo GO):** (a) promulgar/registrar no cartório do HEAD o GATE B-CITY-2 de COMPOSIÇÃO com Veredito A e as travas C1/C2 (hoje só em memória); (b) emitir o `GO MATERIAL B-CITY-2 · COMPOSIÇÃO REGIONAL DORMENTE` com envelope único (1 commit material + 1 cartório + 1 Yala) e prova completa (guards+≥24 mutations+E2E efêmero); (c) manter dev read-only e sem grant writer. **Nada disso foi feito nesta sessão.** D9.3/D9.4 e a PORTA 01 permanecem fora.
+
 ## F-REGIONAL-FUND-RESIDENCE-RESOLUTION · CONVERGÊNCIA TERRITORIAL — ✅ MATERIAL EXECUTADO E PROVADO (Fatia D da campanha, 2026-07-18)
 **Liga pessoa → residência canônica → cidade → fundo regional correto; fim do fallback mono-fundo. GO MATERIAL da campanha (Fatia D).** Contrato-first: shared shape → backend → frontend → E2E. Sem migration · sem Bank write · Δbank=0 · N0/N1/N2 intactos · PORTA 01 fechada.
 
