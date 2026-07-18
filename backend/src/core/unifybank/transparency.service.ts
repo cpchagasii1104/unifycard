@@ -6,6 +6,10 @@
 import { getClientWithTenant } from '@core/database/pool';
 import { integerCentsFromDbWire } from '@modules/bank/integer-cents-from-db';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
+// R-8 (fronteira Bank): core/unifybank consome os READERS PÚBLICOS do domínio Bank em vez de SQL
+// direto a bank_* (BANK_DOMAIN_RULES §3 / LEI §4.6 / SSOT_REGISTRY §5.2 — SQL sobre bank_* só em modules/bank).
+import { bankLedgerRepository } from '@modules/bank/bank-ledger.repository';
+import { bankTransactionReadRepository } from '@modules/bank/bank-transaction-read.repository';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { resolveActorTerritory } from '@core/location/actor-territorial-resolver';
 import { getFullAddress } from '@core/location/address-helpers';
@@ -666,84 +670,52 @@ class TransparencyService {
     // 4. Obter saldo atual do Unify Bank (bank_ledger é a verdade; zero aqui é zero comprovado).
     const balance = await bankAccount.getBalance(tenantId, regionAccountId);
 
-    // 5. Buscar movimentações do bank_ledger
-    const client = await getClientWithTenant(tenantId);
+    // 5. Movimentações do fundo — via READERS CANÔNICOS do Bank (R-8: sem SQL direto a bank_*).
+    //    `getEntriesByAccount` mantém a MESMA ordenação/paginação (created_at DESC, LIMIT/OFFSET) e o
+    //    mesmo isolamento por tenant+account; o metadata da transação vem do reader público do Bank.
+    const ledgerEntriesCanonical = await bankLedgerRepository.getEntriesByAccount(tenantId, regionAccountId, {
+      limit,
+      offset,
+    });
+    const transactionIds = ledgerEntriesCanonical.map((e) => e.transactionId).filter((id): id is string => !!id);
+    const metaByTx = await bankTransactionReadRepository.getMetadataByTransactionIds(tenantId, transactionIds);
 
-    try {
-      // Etapa 1.5 — schema vigente: bank_ledger.direction (não entry_type), amount_cents (não amount)
-      const ledgerEntries = await client.query<{
-        transaction_id: string;
-        entry_type: string;
-        amountCents: string;
-        created_at: Date;
-      }>(
-        `
-        SELECT l.transaction_id, l.direction AS entry_type, l.amount_cents AS "amountCents", l.created_at
-        FROM bank_ledger l
-        WHERE l.account_id = $1 AND l.tenant_id = $2
-        ORDER BY l.created_at DESC
-        LIMIT $3 OFFSET $4
-        `,
-        [regionAccountId, tenantId, limit, offset]
-      );
-
-      // 5. Buscar metadados das transações do Unify Bank (Etapa 1.5 — bank_transactions.id é UUID)
-      const transactionIds = ledgerEntries.rows.map((r) => r.transaction_id);
-      const transactions = transactionIds.length > 0
-        ? await client.query<{
-            transaction_id: string;
-            metadata: any;
-          }>(
-            `
-            SELECT id AS transaction_id, metadata
-            FROM bank_transactions
-            WHERE id = ANY($1::uuid[]) AND tenant_id = $2
-            `,
-            [transactionIds, tenantId]
-          )
-        : { rows: [] };
-
-      interface TransactionMetadata {
-        type?: string;
-        context?: string;
-        originTransactionId?: string;
-        targetId?: string;
-      }
-
-      const txMap = new Map<string, TransactionMetadata>();
-      transactions.rows.forEach((tx) => {
-        txMap.set(tx.transaction_id, (tx.metadata || {}) as TransactionMetadata);
-      });
-
-      const entries: RegionalFundEntry[] = ledgerEntries.rows.map((row) => {
-        const metadata = (txMap.get(row.transaction_id) || {}) as TransactionMetadata;
-        return this.mapRegionalFundEntry(row, metadata as Record<string, any>);
-      });
-
-      const totalInCents = entries
-        .filter((e) => e.type === 'credit')
-        .reduce((sum, e) => sum + e.amountCents, 0);
-      const totalOutCents = entries
-        .filter((e) => e.type === 'debit')
-        .reduce((sum, e) => sum + e.amountCents, 0);
-
-      return {
-        resourceState: 'fund_available',
-        territorialBasis: 'ACTOR_RESIDENCE',
-        cityId,
-        cityName,
-        accountId: regionAccountId,
-        currentBalanceCents: balance.balanceCents,
-        entries,
-        summary: {
-          totalInCents,
-          totalOutCents,
-          netAmountCents: totalInCents - totalOutCents,
+    const entries: RegionalFundEntry[] = ledgerEntriesCanonical.map((e) => {
+      const metadata = (metaByTx.get(e.transactionId) ?? {}) as Record<string, any>;
+      // Adapta a entrada canônica do Bank ao formato esperado por mapRegionalFundEntry (contrato
+      // RegionalFundView preservado byte-a-byte: transactionId/type/amountCents/origin/.../createdAt).
+      return this.mapRegionalFundEntry(
+        {
+          transaction_id: e.transactionId,
+          entry_type: e.entryType,
+          amountCents: String(e.amountCents),
+          created_at: new Date(e.createdAt),
         },
-      };
-    } finally {
-      client.release();
-    }
+        metadata
+      );
+    });
+
+    const totalInCents = entries
+      .filter((e) => e.type === 'credit')
+      .reduce((sum, e) => sum + e.amountCents, 0);
+    const totalOutCents = entries
+      .filter((e) => e.type === 'debit')
+      .reduce((sum, e) => sum + e.amountCents, 0);
+
+    return {
+      resourceState: 'fund_available',
+      territorialBasis: 'ACTOR_RESIDENCE',
+      cityId,
+      cityName,
+      accountId: regionAccountId,
+      currentBalanceCents: balance.balanceCents,
+      entries,
+      summary: {
+        totalInCents,
+        totalOutCents,
+        netAmountCents: totalInCents - totalOutCents,
+      },
+    };
   }
 
   /** Nome da cidade canônica (Location Core) para exibição honesta; null se não resolver. */

@@ -164,6 +164,27 @@ async function main(): Promise<void> {
   await setActorResidence(TENANT, uNoCity.userId, uNoCity.actorId, country.id, null, null);
   await setLegacyProfileResidence(TENANT, uLegacy.actorId, country.id, cwb.stateId, cwb.cityId);
 
+  // Cidade com MOVIMENTAÇÃO real no fundo (prova o histórico via reader canônico do Bank, R-8):
+  // fundo provisionado + 1 crédito no bank_ledger da conta do fundo (fixture; a conta é SYSTEM).
+  const funded = await ensureCity(country.id, 'PR', 'Cidade Com Movimento RFRR');
+  const fundedAcc = await bankAccountService.provisionRegionalFundAccountForBootstrap(TENANT, { level: 'city', countryId: country.id, stateId: funded.stateId, cityId: funded.cityId });
+  const uFunded = await mkUserActor(TENANT, 'Morador Cidade Com Movimento');
+  await setActorResidence(TENANT, uFunded.userId, uFunded.actorId, country.id, funded.stateId, funded.cityId);
+  const FUND_CREDIT_CENTS = 4200;
+  const conceptId = (await pool.query<{ id: string }>(`SELECT concept_id::text AS id FROM concepts LIMIT 1`)).rows[0]?.id;
+  if (!conceptId) throw new Error('ABORT: nenhum concept seedado na DB efêmera');
+  const fundTxId = randomUUID();
+  await pool.query(
+    `INSERT INTO bank_transactions (id, tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, concept_id, internal_completed_at, metadata)
+     VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,'execution','E2E fund credit','rfrr_e2e_fund',$6,$7::uuid,NOW(),$8::jsonb)`,
+    [fundTxId, TENANT, uFunded.actorId, fundedAcc.accountId, FUND_CREDIT_CENTS, randomUUID(), conceptId, JSON.stringify({ context: 'donation', originTransactionId: fundTxId })]
+  );
+  await pool.query(
+    `INSERT INTO bank_ledger (id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification)
+     VALUES (gen_random_uuid(),$1::uuid,$2::uuid,$3::uuid,'credit',$4,'execution','E2E fund credit')`,
+    [TENANT, fundedAcc.accountId, fundTxId, FUND_CREDIT_CENTS]
+  );
+
   const bankBefore = await bankSnapshot();
 
   console.log('\n— regional fund residence reader END-TO-END (Fatia D · D3) —');
@@ -213,6 +234,16 @@ async function main(): Promise<void> {
   record('E só residência legado (owner_type=profile) → residence_missing (reader não usa profile/CEP)',
     rE.resourceState === 'residence_missing' && rE.cityId === null && rE.currentBalanceCents === null,
     JSON.stringify({ state: rE.resourceState, cityId: rE.cityId, bal: rE.currentBalanceCents }));
+
+  // H · MOVIMENTAÇÕES via reader canônico do Bank (R-8): saldo REAL do ledger + histórico com o
+  //     crédito semeado (type/amount/metadata enriquecido por getMetadataByTransactionIds), sem SQL direto.
+  const rH = await transparencyService.getUserRegionalFund(TENANT, uFunded.userId, { limit: 5 });
+  const h0 = rH.entries[0];
+  record('H fundo com movimento → currentBalanceCents=4200 real + 1 movimento (credit) via reader Bank canônico',
+    rH.resourceState === 'fund_available' && rH.currentBalanceCents === FUND_CREDIT_CENTS &&
+    rH.entries.length === 1 && h0?.type === 'credit' && h0?.amountCents === FUND_CREDIT_CENTS &&
+    rH.summary.totalInCents === FUND_CREDIT_CENTS && h0?.context === 'donation',
+    JSON.stringify({ state: rH.resourceState, bal: rH.currentBalanceCents, n: rH.entries.length, e0: h0 }));
 
   // F · Δbank=0 (reader puro; nenhuma conta/residência/mapping criada no GET)
   const bankAfter = await bankSnapshot();

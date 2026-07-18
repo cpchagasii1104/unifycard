@@ -27,6 +27,32 @@ class BankTransactionReadRepository {
   }
 
   /**
+   * Metadados de transação por id (batch), tenant-scoped. Leitura pura — usada por readers de
+   * extrato/fundo que precisam enriquecer entradas do ledger com o metadata da transação, sem SQL
+   * direto a bank_* fora do domínio Bank (R-8: fronteira BANK_DOMAIN_RULES §3 / LEI §4.6).
+   */
+  async getMetadataByTransactionIds(
+    tenantId: string,
+    transactionIds: string[]
+  ): Promise<Map<string, Record<string, unknown>>> {
+    const out = new Map<string, Record<string, unknown>>();
+    if (transactionIds.length === 0) return out;
+    const rows = await runQueriesWithTenant<{ id: string; metadata: Record<string, unknown> | null }>(
+      tenantId,
+      `
+      SELECT id::text, metadata
+      FROM bank_transactions
+      WHERE tenant_id = $1 AND id = ANY($2::uuid[])
+      `,
+      [tenantId, transactionIds]
+    );
+    for (const r of rows) {
+      out.set(r.id, (r.metadata ?? {}) as Record<string, unknown>);
+    }
+    return out;
+  }
+
+  /**
    * Primeira transação por reference (backfill / reconciliação).
    */
   async findIdByReferenceTypeAndReferenceId(
