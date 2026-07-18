@@ -627,6 +627,21 @@
   color: var(--dh-text-faint);
 }
 
+/* CTA de confirmação de residência (fundo regional sem residência/cidade canônica). */
+.dh-card-cta {
+  font-size: 0.72rem;
+  color: var(--dh-accent, #2563eb);
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.dh-card-cta:hover {
+  opacity: 0.85;
+}
+
 /* ============ MINI-GRÁFICO ============ */
 .dh-trend {
   width: 80px;

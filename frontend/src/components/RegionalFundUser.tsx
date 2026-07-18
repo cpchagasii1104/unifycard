@@ -87,6 +87,28 @@ export default function RegionalFundUser() {
     );
   }
 
+  // Estados territoriais honestos (backend é a autoridade): só projetamos saldo quando a conta
+  // existe (fund_available). Ausência de residência/cidade/fundo NUNCA vira R$ 0,00.
+  if (fund.resourceState !== 'fund_available') {
+    const cityLabel = fund.cityName ?? 'sua cidade';
+    const message =
+      fund.resourceState === 'residence_missing'
+        ? 'Informe sua cidade para encontrar seu fundo regional.'
+        : fund.resourceState === 'canonical_city_missing'
+        ? 'Confirme sua cidade para encontrar seu fundo regional.'
+        : `Fundo regional ainda não ativado em ${cityLabel}.`;
+    const showCta = fund.resourceState === 'residence_missing' || fund.resourceState === 'canonical_city_missing';
+    return (
+      <div className="regional-fund-user-container">
+        <div className="regional-fund-not-available">
+          <h2>Fundo Regional</h2>
+          <p>{message}</p>
+          {showCta && <a href="/perfil" className="regional-fund-cta">Confirmar minha residência</a>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="regional-fund-user-container">
       <div className="regional-fund-header">
@@ -96,7 +118,7 @@ export default function RegionalFundUser() {
       <div className="regional-fund-summary">
         <div className="summary-card balance">
           <div className="card-label">Saldo Atual</div>
-          <div className="card-value">{formatCurrency(centsToReais(fund.currentBalanceCents))}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.currentBalanceCents ?? 0))}</div>
         </div>
         <div className="summary-card total-in">
           <div className="card-label">Total Recebido</div>

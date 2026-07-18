@@ -1,5 +1,28 @@
 # REMEDIATION DT LOG
 
+## F-REGIONAL-FUND-RESIDENCE-RESOLUTION · CONVERGÊNCIA TERRITORIAL — ✅ MATERIAL EXECUTADO E PROVADO (Fatia D da campanha, 2026-07-18)
+**Liga pessoa → residência canônica → cidade → fundo regional correto; fim do fallback mono-fundo. GO MATERIAL da campanha (Fatia D).** Contrato-first: shared shape → backend → frontend → E2E. Sem migration · sem Bank write · Δbank=0 · N0/N1/N2 intactos · PORTA 01 fechada.
+
+```text
+ARCO:   1b64fa8ba (Fatia C)
+          → (este commit)  feat(regional-fund): resolve regional fund by canonical residence; honest territorial states
+GOVERNA: DECISION-0177 (B-CITY-1) + DECISION-0020 (localização soberana) + resolveActorTerritory (ACTOR_RESIDENCE)
+```
+
+**RAIZ CORRIGIDA (D3):** `getUserRegionalFund` chamava `resolveRegionalFundAccountIdViaMapping(tenantId)` **sem cityId** → modo mono-fundo: devolvia o ÚNICO mapping municipal do tenant (Curitiba) para QUALQUER usuário, independente de onde mora (valor contabilmente real, territorialmente da pessoa errada). Além disso colapsava ausência em `currentBalanceCents ?? 0` no front (R$ 0,00 por ausência).
+
+**O QUE MUDOU:**
+- **Backend (`transparency.service.ts` + `transparency.routes.ts`):** o reader agora resolve `req.user → actor humano canônico (findByUserId, read-only) → resolveActorTerritory(ACTOR_RESIDENCE) → city_id → regional_fund_accounts(city) → bank_ledger`. Passa o `cityId` da residência ao mapping (mapping EXATO da cidade; **sem** fallback mono-fundo). Assinatura passou a receber `userId` (residência é actor-based, não bank-identity — removido o gate por globalUserId nesse endpoint). NUNCA cria actor/conta/residência/mapping no GET.
+- **Contrato (`RegionalFundView`):** discriminado por `resourceState` + `territorialBasis:'ACTOR_RESIDENCE'` + `cityId`/`cityName` + `currentBalanceCents: number|null`. Estados honestos (reusa a semântica de `ActorTerritorialState`): `fund_available` (saldo do ledger; 0 só quando prova zero) · `residence_missing` · `canonical_city_missing` · `regional_fund_not_provisioned`. Ausência JAMAIS aparece como R$ 0,00.
+- **Frontend (`DashboardHome.tsx` card + `RegionalFundUser.tsx` página + `transparency.ts` type + `RegionalFundCard.tsx`):** o card "Fundo Regional" projeta os estados reais do backend — saldo+cidade quando `fund_available`; CTA "Informe/Confirme sua cidade" (→ `/perfil`, onde vive o fluxo canônico `ResidenceAddressCanonical`) quando `residence_missing`/`canonical_city_missing`; "Fundo regional ainda não ativado em {cidade}" quando `regional_fund_not_provisioned`. Frontend não calcula região, não converte ausência em zero, não decide qual fundo mostrar.
+
+**D1 (onboarding wiring):** o fluxo canônico de residência (`POST/GET /actors/:actorId/territorial-address`, A1-D já selado) já é consumido pelo card `ResidenceAddressCanonical` dentro de `/perfil` via o client `actorTerritorialAddress.ts`; o card do fundo e a página `/fundo-regional` agora dão CTA para essa superfície. Cadeia pessoa→residência→cidade→fundo ligada ponta a ponta para residências novas.
+**D2 (legado profile/CEP):** o resolver é actor-scoped POR DESIGN (`owner_type='actor'`, role RESIDENCE) — usuários presos ao legado `owner_type='profile'` recebem `residence_missing` (pendência HONESTA → CTA de confirmação), **sem city_id fabricado** e **sem backfill cego** (profile→actor não é determinístico sem re-resolução/confirmação do usuário). Provado pelo caso E do E2E.
+
+**PROVAS:** E2E `validate-pipeline-e2e-regional-fund-residence-reader.ts` **6/6** em DB efêmera (criada/testada/DESTRUÍDA): A `fund_available` (Curitiba, saldo 0 real, cityName) · **B ISOLAMENTO** (São Paulo resolve a conta PRÓPRIA de SP, distinta da de Curitiba — prova o fim do mono-fundo) · C `regional_fund_not_provisioned` · D `canonical_city_missing` · E `residence_missing` (só residência legado profile → reader não a usa) · **F Δbank=0**. Backend typecheck 0 · frontend typecheck 0 · **frontend vite build OK** · `git diff --check` limpo (LF normalizado).
+
+**NÃO FAZ / FRONTEIRAS:** não movimenta dinheiro · não abre PORTA · não provisiona fundo/conta/mapping · não faz backfill de residência · B-CITY-1 (conta Curitiba) e o money-path intactos · nenhuma migration · Δbank=0.
+
 ## F-INVOICING-FISCAL-FAILCLOSED · DT-INVOICING-HARDCODED-TAX-RATE — ✅ RESOLVIDA · MATERIAL EXECUTADO E PROVADO (Fatia C da campanha, 2026-07-18)
 **Contenção fiscal do invoicing no backend alcançável. GO MATERIAL da campanha contínua (Fatia C).** Elimina a alíquota de 5% hardcoded (`invoice.service.ts:74`) e torna a emissão FAIL-CLOSED. Monotemático: só o service de invoicing + guard standalone. Sem migration · sem Bank · sem frontend · FISCAL-4c/4d/4e byte-intactas.
 

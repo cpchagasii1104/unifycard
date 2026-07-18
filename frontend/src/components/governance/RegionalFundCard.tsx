@@ -90,7 +90,7 @@ export default function RegionalFundCard() {
         <div className="fund-balance">
           <div className="fund-balance-label">Total Acumulado</div>
           <div className="fund-balance-value">
-            {formatCurrency(centsToReais(regionalFund.currentBalanceCents))}
+            {formatCurrency(centsToReais(regionalFund.currentBalanceCents ?? 0))}
           </div>
         </div>
 

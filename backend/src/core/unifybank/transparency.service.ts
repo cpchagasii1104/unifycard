@@ -7,6 +7,8 @@ import { getClientWithTenant } from '@core/database/pool';
 import { integerCentsFromDbWire } from '@modules/bank/integer-cents-from-db';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
+import { resolveActorTerritory } from '@core/location/actor-territorial-resolver';
+import { getFullAddress } from '@core/location/address-helpers';
 
 export interface StatementEntry {
   transactionId: string;
@@ -68,10 +70,28 @@ export interface RegionalFundEntry {
   metadata: Record<string, any>;
 }
 
+/**
+ * Estado honesto do recurso "fundo regional de onde a pessoa mora" (B-CITY-1 / DECISION-0177 +
+ * DECISION-0020). A base territorial é SEMPRE a residência actor-scoped canônica (ACTOR_RESIDENCE);
+ * NUNCA texto, CEP, navegador, tenant genérico ou fundo mono-tenant. Zero saldo só quando a conta
+ * existe e o ledger prova zero — ausência de configuração jamais aparece como R$ 0,00.
+ * Reusa a semântica de `ActorTerritorialState` (canonical_city_missing/residence_missing) do resolver
+ * territorial; acrescenta o estado de provisionamento do fundo (regional_fund_not_provisioned).
+ */
+export type RegionalFundResourceState =
+  | 'fund_available' // conta territorial existe; currentBalanceCents vem do bank_ledger (pode ser 0 real)
+  | 'residence_missing' // sem ACTOR_RESIDENCE vigente (ou actor não resolvido) — pedir confirmação de residência
+  | 'canonical_city_missing' // residência existe mas a cidade canônica ainda não foi resolvida
+  | 'regional_fund_not_provisioned'; // cidade resolvida, mas nenhum mapping em regional_fund_accounts (cidade não ativada)
+
 export interface RegionalFundView {
-  accountId: string;
-  regionId?: string;
-  currentBalanceCents: number;
+  resourceState: RegionalFundResourceState;
+  territorialBasis: 'ACTOR_RESIDENCE';
+  cityId: string | null;
+  cityName: string | null;
+  accountId: string | null;
+  /** Saldo real do bank_ledger; null quando a conta territorial não existe (nunca 0 por ausência). */
+  currentBalanceCents: number | null;
   entries: RegionalFundEntry[];
   summary: {
     totalInCents: number;
@@ -573,35 +593,93 @@ class TransparencyService {
   }
 
   /**
-   * Obtém visão do fundo regional para o usuário
+   * Resolve o actor humano canônico do usuário autenticado (read-only; NUNCA cria).
+   * Retorna null se o usuário ainda não tem actor — o reader trata como residência ausente.
+   */
+  private async resolveUserActorId(tenantId: string, userId: string): Promise<string | null> {
+    const client = await getClientWithTenant(tenantId);
+    try {
+      const r = await client.query<{ id: string }>(
+        `SELECT id::text AS id FROM actors
+          WHERE user_id = $1 AND actor_type IN ('user', 'actor_human', 'person')
+          ORDER BY created_at ASC LIMIT 1`,
+        [userId]
+      );
+      return r.rows[0]?.id ?? null;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Estado vazio (sem conta) com a base territorial declarada explicitamente. */
+  private emptyRegionalFund(
+    resourceState: RegionalFundResourceState,
+    cityId: string | null,
+    cityName: string | null
+  ): RegionalFundView {
+    return {
+      resourceState,
+      territorialBasis: 'ACTOR_RESIDENCE',
+      cityId,
+      cityName,
+      accountId: null,
+      currentBalanceCents: null,
+      entries: [],
+      summary: { totalInCents: 0, totalOutCents: 0, netAmountCents: 0 },
+    };
+  }
+
+  /**
+   * Obtém a visão do fundo regional "de onde a pessoa mora" para o usuário autenticado.
+   *
+   * DECISION-0177 (B-CITY-1) + DECISION-0020 + convergência territorial (Fatia D): a base territorial
+   * é SEMPRE a residência actor-scoped canônica — `req.user → actor humano → resolveActorTerritory
+   * (ACTOR_RESIDENCE) → city_id → regional_fund_accounts(city) → bank_ledger`. É PROIBIDO: fallback
+   * mono-fundo do tenant, cityId vindo do cliente, resolução por texto/CEP/nome, ou criar
+   * residência/conta/mapping no GET. Retorna estados territoriais honestos (nunca R$ 0,00 por ausência).
    */
   async getUserRegionalFund(
     tenantId: string,
-    globalUserId: string,
+    userId: string,
     options: { limit?: number; offset?: number } = {}
-  ): Promise<RegionalFundView | null> {
+  ): Promise<RegionalFundView> {
     const { limit = 50, offset = 0 } = options;
 
-    // 1. Resolver userId do globalUserId
-    const userId = await this.getUserIdFromGlobalId(tenantId, globalUserId);
-    if (!userId) {
-      throw new Error('User not found');
+    // 1. Actor humano canônico do principal (read-only). Sem actor = residência não resolvível.
+    const actorId = await this.resolveUserActorId(tenantId, userId);
+    if (!actorId) {
+      return this.emptyRegionalFund('residence_missing', null, null);
     }
 
-    // 2. B-CITY-1 (DECISION-0177 D10): resolução CONVERGIDA para a casa canônica cidade→conta
-    // `regional_fund_accounts` (FK) — o reader NÃO usa mais a conta system tenant-level por
-    // string (getSystemAccount('regional_fund') saiu da jurisdição territorial). MVP: um único
-    // fundo municipal (Curitiba); ausência de mapping = ausência honesta → null.
+    // 2. Residência actor-scoped canônica (fail-closed, sem fallback). Mapeia os estados do resolver
+    // territorial para os estados do recurso "fundo regional".
+    const territory = await resolveActorTerritory(tenantId, actorId, 'ACTOR_RESIDENCE');
+    if (territory.state === 'territorial_address_missing' || territory.state === 'actor_not_found') {
+      return this.emptyRegionalFund('residence_missing', null, null);
+    }
+    if (
+      territory.state === 'canonical_city_missing' ||
+      territory.state === 'ambiguous_active_assignment' ||
+      !territory.cityId
+    ) {
+      return this.emptyRegionalFund('canonical_city_missing', null, null);
+    }
+
+    const cityId = territory.cityId;
+    const cityName = await this.resolveCityName(cityId);
+
+    // 3. Mapping territorial EXATO da cidade da residência (regional_fund_accounts) — SEM mono-fundo.
     const bankAccount = bankPortsRegistry.getBankAccount();
-    const regionAccountId = await this.resolveRegionalFundAccountIdViaMapping(tenantId);
+    const regionAccountId = await this.resolveRegionalFundAccountIdViaMapping(tenantId, cityId);
     if (!regionAccountId) {
-      return null; // Não há fundo regional provisionado neste tenant (ausência honesta)
+      // Cidade resolvida, porém sem fundo provisionado (cidade não ativada). Ausência honesta ≠ zero.
+      return this.emptyRegionalFund('regional_fund_not_provisioned', cityId, cityName);
     }
 
-    // 3. Obter saldo atual do Unify Bank
+    // 4. Obter saldo atual do Unify Bank (bank_ledger é a verdade; zero aqui é zero comprovado).
     const balance = await bankAccount.getBalance(tenantId, regionAccountId);
 
-    // 4. Buscar movimentações do bank_ledger
+    // 5. Buscar movimentações do bank_ledger
     const client = await getClientWithTenant(tenantId);
 
     try {
@@ -663,6 +741,10 @@ class TransparencyService {
         .reduce((sum, e) => sum + e.amountCents, 0);
 
       return {
+        resourceState: 'fund_available',
+        territorialBasis: 'ACTOR_RESIDENCE',
+        cityId,
+        cityName,
         accountId: regionAccountId,
         currentBalanceCents: balance.balanceCents,
         entries,
@@ -675,6 +757,12 @@ class TransparencyService {
     } finally {
       client.release();
     }
+  }
+
+  /** Nome da cidade canônica (Location Core) para exibição honesta; null se não resolver. */
+  private async resolveCityName(cityId: string): Promise<string | null> {
+    const full = await getFullAddress({ city_id: cityId });
+    return full?.city?.name ?? null;
   }
 
   /**

@@ -18,7 +18,7 @@ import { useSession } from '../../contexts/SessionProvider';
 import { getBankBalance, getBankStatement, type BankStatementEntry } from '../../api/bank';
 import { getMyGroups, getGroupBalance } from '../../api/groups';
 import { getReferralEarnings } from '../../api/auth';
-import { getUserRegionalFund } from '../../api/transparency';
+import { getUserRegionalFund, type RegionalFundView } from '../../api/transparency';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
 import { useActorMode } from '../../hooks/useActorMode';
@@ -134,7 +134,9 @@ export default function DashboardHome() {
   })();
 
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
-  const [regionalFundCents, setRegionalFundCents] = useState<number | null>(null);
+  // Projeção territorial honesta: guardamos a VIEW inteira (estado + cidade + saldo), nunca só cents
+  // (colapsar em número reintroduziria "R$ 0,00 por ausência"). null = indisponível/erro técnico.
+  const [regionalFund, setRegionalFund] = useState<RegionalFundView | null>(null);
   const [referralEarningsCents, setReferralEarningsCents] = useState(0);
   const [referralCount, setReferralCount] = useState(0);
   const [groups, setGroups] = useState<GroupRow[]>([]);
@@ -164,10 +166,8 @@ export default function DashboardHome() {
         ? (balanceR.value.balanceCents ?? balanceR.value.balance ?? null)
         : null
     );
-    setRegionalFundCents(
-      regionalR.status === 'fulfilled' && regionalR.value
-        ? regionalR.value.currentBalanceCents ?? 0
-        : null
+    setRegionalFund(
+      regionalR.status === 'fulfilled' && regionalR.value ? regionalR.value : null
     );
     if (referralR.status === 'fulfilled' && referralR.value) {
       setReferralEarningsCents(referralR.value.totalCents);
@@ -232,19 +232,48 @@ export default function DashboardHome() {
       <section className="dh-overview-cards">
         {actorProfile.dashboardCards.map((cardId) => {
           switch (cardId) {
-            case 'fundo-regional':
+            case 'fundo-regional': {
+              // Projeção HONESTA dos estados territoriais do backend (autoridade = backend).
+              // Nunca converte ausência em R$ 0,00: zero só aparece quando o fundo existe (fund_available).
+              const rf = regionalFund;
+              const state = rf?.resourceState ?? null;
+              const cityLabel = rf?.cityName ?? 'sua cidade';
+              let value = '—';
+              let hint = 'onde você mora';
+              let needsResidenceCta = false;
+              if (rf == null) {
+                hint = 'Indisponível no momento';
+              } else if (state === 'fund_available') {
+                value = formatBRL(rf.currentBalanceCents ?? 0);
+                hint = rf.cityName ?? 'onde você mora';
+              } else if (state === 'residence_missing') {
+                hint = 'Informe sua cidade para encontrar seu fundo regional';
+                needsResidenceCta = true;
+              } else if (state === 'canonical_city_missing') {
+                hint = 'Confirme sua cidade para encontrar seu fundo regional';
+                needsResidenceCta = true;
+              } else if (state === 'regional_fund_not_provisioned') {
+                hint = `Fundo regional ainda não ativado em ${cityLabel}`;
+              }
               return (
                 <div key={cardId} className="dh-card dh-card-1">
                   <div className="dh-card-head">
                     <div className="dh-card-icon-circle">🌍</div>
                     <div className="dh-card-label">Fundo Regional</div>
                   </div>
-                  <div className="dh-card-value">{regionalFundCents === null ? '—' : formatBRL(regionalFundCents)}</div>
+                  <div className="dh-card-value">{value}</div>
                   <div className="dh-card-foot">
-                    <span className="dh-card-hint">onde você mora</span>
+                    {needsResidenceCta ? (
+                      <button type="button" className="dh-card-cta" onClick={() => navigate('/perfil')}>
+                        {hint}
+                      </button>
+                    ) : (
+                      <span className="dh-card-hint">{hint}</span>
+                    )}
                   </div>
                 </div>
               );
+            }
             case 'meu-saldo':
               return (
                 <div key={cardId} className="dh-card dh-card-2">

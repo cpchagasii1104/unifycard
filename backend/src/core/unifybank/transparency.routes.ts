@@ -222,16 +222,10 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant.id;
     const userId = req.user.id;
 
-    // Sem identidade bancária (global_user) = AUSÊNCIA honesta (regionalFund:null no SUCESSO),
-    // distinta de ERRO estrutural (500 no catch).
-    const globalUserId = await resolveGlobalUserId(userId, tenantId);
-    if (!globalUserId) {
-      fastify.log.debug({ userId, tenantId }, 'globalUserId não encontrado - fundo nulo (ausência honesta)');
-      return reply.status(200).send({
-        success: true,
-        regionalFund: null,
-      });
-    }
+    // Convergência territorial (Fatia D): o fundo regional é resolvido pela RESIDÊNCIA actor-scoped
+    // do principal (DECISION-0177/0020), NÃO pela identidade bancária. Por isso não há mais gate por
+    // globalUserId aqui — o serviço devolve estados territoriais honestos (residence_missing etc.),
+    // nunca R$ 0,00 por ausência nem fundo mono-tenant.
 
     // 3. Validar query params
     const parsed = regionalFundQuerySchema.safeParse(req.query);
@@ -243,20 +237,20 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const result = await transparencyService.getUserRegionalFund(tenantId, globalUserId, {
+      const result = await transparencyService.getUserRegionalFund(tenantId, userId, {
         limit: parsed.data.limit,
         offset: parsed.data.offset,
       });
 
-      // ✅ Sempre retornar 200, mesmo se fundo não estiver configurado
+      // ✅ Sempre 200 com o estado territorial explícito (o front projeta; nunca inventa verdade).
       return reply.status(200).send({
         success: true,
-        regionalFund: result || null,
+        regionalFund: result,
       });
     } catch (error) {
-      // F-C1-HOME-READ-SEAL (CP7): ERRO ESTRUTURAL nunca vira fundo "null" falso em 200 — o null
-      // de sucesso significa "fundo não configurado"; erro é erro (500 observável).
-      fastify.log.error({ err: error, userId, tenantId, globalUserId }, 'Error fetching regional fund');
+      // F-C1-HOME-READ-SEAL (CP7): ERRO ESTRUTURAL nunca vira fundo "null" falso em 200 — erro é erro
+      // (500 observável). O estado de sucesso carrega o resourceState territorial.
+      fastify.log.error({ err: error, userId, tenantId }, 'Error fetching regional fund');
       return reply.status(500).send({
         success: false,
         code: 'REGIONAL_FUND_UNAVAILABLE',

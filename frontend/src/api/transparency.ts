@@ -69,10 +69,24 @@ export interface RegionalFundEntry {
   metadata: Record<string, any>;
 }
 
+/**
+ * Estado territorial honesto do fundo regional "de onde a pessoa mora" (backend é a autoridade;
+ * o front apenas PROJETA — nunca calcula região, nunca converte ausência em zero).
+ */
+export type RegionalFundResourceState =
+  | 'fund_available'
+  | 'residence_missing'
+  | 'canonical_city_missing'
+  | 'regional_fund_not_provisioned';
+
 export interface RegionalFundView {
-  accountId: string;
-  regionId?: string;
-  currentBalanceCents: number;
+  resourceState: RegionalFundResourceState;
+  territorialBasis: 'ACTOR_RESIDENCE';
+  cityId: string | null;
+  cityName: string | null;
+  accountId: string | null;
+  /** Saldo real do bank_ledger; null quando a conta territorial não existe (nunca 0 por ausência). */
+  currentBalanceCents: number | null;
   entries: RegionalFundEntry[];
   summary: {
     totalInCents: number;
