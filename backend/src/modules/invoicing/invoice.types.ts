@@ -22,8 +22,12 @@ export interface InvoiceItem {
   quantity: number;
   unitPriceCents: number;
   totalCents: number;
-  taxRate?: number; // Percentual de imposto (opcional)
-  taxAmountCents?: number; // Valor do imposto (opcional)
+  /** @deprecated RESÍDUO (DT-INVOICING-HARDCODED-TAX-RATE): imposto por item NÃO é populado por nenhum
+   * caminho vivo (a fabricação do 5% foi removida; motor fiscal canônico não integrado ao invoicing).
+   * Mantido sem apagar (contract-first: não há contrato vigente que autorize remoção). */
+  taxRate?: number;
+  /** @deprecated RESÍDUO — ver taxRate acima. */
+  taxAmountCents?: number;
 }
 
 /**
@@ -47,6 +51,9 @@ export interface Invoice {
   evidencePackId: string; // Obrigatório
   items: InvoiceItem[];
   subtotalCents: number;
+  /** @deprecated RESÍDUO (DT-INVOICING-HARDCODED-TAX-RATE): o imposto NÃO é derivado por nenhum caminho
+   * vivo (5% removido; sem motor fiscal integrado). A emissão é fail-closed enquanto o schema/config não
+   * existir. Campo preservado sem apagar (contract-first). */
   taxesCents: number;
   totalCents: number;
   currency: string;

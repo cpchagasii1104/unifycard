@@ -14,8 +14,32 @@ import type {
 import { NotFoundError, BadRequestError, ConflictError } from '@core/errors';
 import { HttpError } from '@core/errors/http-error';
 import { recordBusinessAuditSafely } from '../business-audit/business-audit.helpers';
+import { pool } from '@core/database/pool';
 
 class InvoiceService {
+  /**
+   * FAIL-CLOSED DE DISPONIBILIDADE (R-6 pós-YALA). O módulo invoicing é schema-ghost em runtime:
+   * a tabela `invoices` só existe em `migrations_archive/0212_invoices.sql`, que o runner oficial NÃO
+   * aplica (AGENT_PROTOCOL §17). Antes de QUALQUER consulta ao schema, provamos a existência da tabela
+   * por `to_regclass` (probe de catálogo — NÃO toca/consulta a tabela-fantasma) e, se ausente, recusamos
+   * FECHADO com `INVOICE_MODULE_UNAVAILABLE` (503) — estado HONESTO de indisponibilidade do módulo, NUNCA
+   * um 500 técnico acidental (YALA C-1) nem uma alegação fiscal falsa. Distinto de configuração fiscal
+   * ausente (`INVOICE_FISCAL_CONFIG_MISSING`, 422 — schema presente mas sem motor fiscal integrado).
+   * Enquanto o schema não existir, TODAS as superfícies alcançáveis do módulo respondem 503 fail-closed.
+   */
+  private async assertInvoicingSchemaAvailable(): Promise<void> {
+    const r = await pool.query<{ t: string | null }>(`SELECT to_regclass('public.invoices')::text AS t`);
+    if (!r.rows[0]?.t) {
+      throw new HttpError(
+        'INVOICE_MODULE_UNAVAILABLE: o módulo de invoicing está indisponível (schema `invoices` não existe ' +
+          'no runtime — schema-ghost, migrations_archive/0212 não aplicada, AGENT_PROTOCOL §17). Nenhuma ' +
+          'invoice pode ser criada/lida até a materialização governada do schema (frente própria com GO). ' +
+          'Ver DT-INVOICING-HARDCODED-TAX-RATE / DT-MODULE-INVOICING-SCHEMA-GHOST.',
+        503
+      );
+    }
+  }
+
   /**
    * Cria invoice a partir de payout EXECUTED
    * 🔴 BLINDAGEM: Regras não negociáveis
@@ -25,6 +49,9 @@ class InvoiceService {
     payoutOrderId: string,
     input: CreateInvoiceFromPayoutInput
   ): Promise<Invoice> {
+    // 0. FAIL-CLOSED de disponibilidade ANTES de tocar qualquer tabela (YALA C-1).
+    await this.assertInvoicingSchemaAvailable();
+
     // 1. Validar que payout existe e está EXECUTED
     const { payoutService } = await import('../payout/payout.service');
     const payoutOrder = await payoutService.getOrderById(tenantId, payoutOrderId);
@@ -72,6 +99,7 @@ class InvoiceService {
     invoiceId: string,
     input: IssueInvoiceInput
   ): Promise<Invoice> {
+    await this.assertInvoicingSchemaAvailable();
     const invoice = await invoiceRepository.findById(tenantId, invoiceId);
     if (!invoice) {
       throw new NotFoundError('Invoice não encontrado');
@@ -127,6 +155,7 @@ class InvoiceService {
     invoiceId: string,
     input: CancelInvoiceInput
   ): Promise<Invoice> {
+    await this.assertInvoicingSchemaAvailable();
     const invoice = await invoiceRepository.findById(tenantId, invoiceId);
     if (!invoice) {
       throw new NotFoundError('Invoice não encontrado');
@@ -181,6 +210,7 @@ class InvoiceService {
    * Lista invoices
    */
   async listInvoices(tenantId: string, filters: InvoiceFilters = {}): Promise<Invoice[]> {
+    await this.assertInvoicingSchemaAvailable();
     return invoiceRepository.list(tenantId, filters);
   }
 
@@ -188,6 +218,7 @@ class InvoiceService {
    * Busca invoice por ID
    */
   async getInvoiceById(tenantId: string, invoiceId: string): Promise<Invoice> {
+    await this.assertInvoicingSchemaAvailable();
     const invoice = await invoiceRepository.findById(tenantId, invoiceId);
     if (!invoice) {
       throw new NotFoundError('Invoice não encontrado');
@@ -199,6 +230,7 @@ class InvoiceService {
    * Busca invoice por payoutOrderId
    */
   async getInvoiceByPayoutOrderId(tenantId: string, payoutOrderId: string): Promise<Invoice | null> {
+    await this.assertInvoicingSchemaAvailable();
     return invoiceRepository.findByPayoutOrderId(tenantId, payoutOrderId);
   }
 }

@@ -46,6 +46,29 @@ if (/taxesCents\s*[:=]\s*(Math\.|[0-9])/.test(code)) {
   fails.push('taxesCents recebe valor fabricado no código — o sistema não pode inventar imposto');
 }
 
+// 5. FAIL-CLOSED de disponibilidade ALCANÇÁVEL (R-6/YALA C-1): o módulo é schema-ghost, então a recusa
+//    deve acontecer ANTES de qualquer consulta à tabela-fantasma. Exige o probe de catálogo + o erro
+//    canônico de indisponibilidade, e que createInvoiceFromPayout chame o assert ANTES do repository.
+if (!/INVOICE_MODULE_UNAVAILABLE/.test(code)) {
+  fails.push('erro canônico de indisponibilidade INVOICE_MODULE_UNAVAILABLE ausente (fail-closed inalcançável)');
+}
+if (!/to_regclass\('public\.invoices'\)/.test(code)) {
+  fails.push('probe de schema `to_regclass(public.invoices)` ausente — sem prova de disponibilidade antes da consulta');
+}
+if (!/assertInvoicingSchemaAvailable/.test(code)) {
+  fails.push('assertInvoicingSchemaAvailable ausente');
+} else {
+  // createInvoiceFromPayout deve chamar o assert ANTES de qualquer invoiceRepository.*
+  const createBody = code.match(/async createInvoiceFromPayout[\s\S]*?\n  \}/);
+  if (createBody) {
+    const idxAssert = createBody[0].indexOf('assertInvoicingSchemaAvailable');
+    const idxRepo = createBody[0].search(/invoiceRepository\.|payoutService\./);
+    if (idxAssert === -1 || (idxRepo !== -1 && idxAssert > idxRepo)) {
+      fails.push('createInvoiceFromPayout consulta schema/payout ANTES do assert de disponibilidade (fail-closed tardio)');
+    }
+  }
+}
+
 if (fails.length) {
   console.error(`❌ ${MARK} FAIL — ${fails.length} problema(s):`);
   for (const f of fails) console.error(`   - ${f}`);
