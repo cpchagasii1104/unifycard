@@ -80,16 +80,44 @@ export default function RegionalFundCard() {
     );
   }
 
+  // Projeção HONESTA dos estados territoriais do backend (R-4 pós-YALA). Saldo só em
+  // fund_available; ausência de residência/cidade/fundo NUNCA vira "Total Acumulado R$ 0,00".
+  if (regionalFund.resourceState !== 'fund_available') {
+    const cityLabel = regionalFund.cityName ?? 'sua cidade';
+    const message =
+      regionalFund.resourceState === 'residence_missing'
+        ? 'Informe sua cidade para encontrar seu fundo regional.'
+        : regionalFund.resourceState === 'canonical_city_missing'
+        ? 'Confirme sua cidade para encontrar seu fundo regional.'
+        : `Fundo regional ainda não ativado em ${cityLabel}.`;
+    return (
+      <div className="regional-fund-card">
+        <div className="fund-header">
+          <h3>Fundo Regional</h3>
+        </div>
+        <div className="fund-content">
+          <div className="fund-empty">
+            <p>{message}</p>
+            <p className="fund-empty-hint">
+              Este valor é gerado automaticamente a partir de uma porcentagem das transações quando o fundo for ativado.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="regional-fund-card">
       <div className="fund-header">
-        <h3>Fundo Regional</h3>
+        <h3>Fundo Regional{regionalFund.cityName ? ` · ${regionalFund.cityName}` : ''}</h3>
       </div>
 
       <div className="fund-content">
         <div className="fund-balance">
           <div className="fund-balance-label">Total Acumulado</div>
           <div className="fund-balance-value">
+            {/* fund_available: currentBalanceCents é saldo REAL do bank_ledger (0 = zero comprovado) */}
             {formatCurrency(centsToReais(regionalFund.currentBalanceCents ?? 0))}
           </div>
         </div>

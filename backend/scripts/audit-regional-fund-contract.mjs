@@ -39,13 +39,27 @@ if (beStates && feStates && JSON.stringify(beStates) !== JSON.stringify(feStates
   fails.push(`união de estados divergente backend(${beStates})≠frontend(${feStates})`);
 }
 
-// (3) o check "nenhum consumidor colapsa currentBalanceCents ausente em 0" é adicionado em R-4,
-//     no MESMO commit do fix de RegionalFundCard/RegionalFundUser que o satisfaz (mantém cada
-//     commit verde). Ver audit-regional-fund-contract §(3) após R-4.
+// (3) anti-colapso (R-4): qualquer consumidor que LÊ currentBalanceCents DEVE projetar resourceState
+//     (garante que o saldo só é exibido com o estado territorial em mãos — ausência nunca vira R$ 0,00
+//     "cego"). Falha se uma superfície voltar a ler o saldo sem ramificar por resourceState.
+const CONSUMERS = [
+  'frontend/src/components/home/DashboardHome.tsx',
+  'frontend/src/components/RegionalFundUser.tsx',
+  'frontend/src/components/governance/RegionalFundCard.tsx',
+];
+for (const rel of CONSUMERS) {
+  let src;
+  try { src = readFileSync(resolve(REPO, rel), 'utf8'); } catch { continue; }
+  const readsBalance = /currentBalanceCents/.test(src);
+  const projectsState = /resourceState/.test(src);
+  if (readsBalance && !projectsState) {
+    fails.push(`${rel}: lê currentBalanceCents SEM projetar resourceState — risco de colapsar ausência em R$ 0,00 (projete o estado territorial)`);
+  }
+}
 
 if (fails.length) {
   console.error(`❌ ${MARK} FAIL — ${fails.length} problema(s):`);
   for (const f of fails) console.error(`   - ${f}`);
   process.exit(1);
 }
-console.log(`✅ GATE OK ${MARK} — contrato catalogado (§5); resourceState idêntico backend↔frontend (4 estados). [check (3) anti-colapso de consumidor é adicionado em R-4.]`);
+console.log(`✅ GATE OK ${MARK} — contrato catalogado (§5); resourceState idêntico backend↔frontend (4 estados); todo consumidor que lê currentBalanceCents projeta resourceState (ausência nunca colapsa em R$ 0,00).`);
