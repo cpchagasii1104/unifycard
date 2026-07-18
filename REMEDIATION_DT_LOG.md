@@ -1,5 +1,17 @@
 # REMEDIATION DT LOG
 
+## SELO D · FATIA D · FRONTEIRA BANK DO ENDPOINT DO FUNDO REGIONAL — ✅ SELADA PELA YALA (RESTRITO) (2026-07-18)
+**Registro append-only do selo autorizado pela auditoria independente `docs/04_audit/YALA_FINAL_FATIAS_D_A_R8_R7_2026-07-18.md` §6 (redação exata abaixo). HEAD material auditado `04f4584be`; commits materiais `9e620a696`+`2bea83770`; execution log `docs/03_execution_log/EXECUTION_LOG_R8_R7_DESTRAVAMENTO_2026-07-18.md`; runner 192/192 · exit 0. Escopo RESTRITO ao endpoint, conforme a YALA. Não reescreve entradas anteriores.**
+
+> **SELO D — FATIA D · FRONTEIRA BANK DO ENDPOINT DO FUNDO REGIONAL — ✅ SELADA PELA YALA (RESTRITO)**
+> Autorizado pela auditoria independente `docs/04_audit/YALA_FINAL_FATIAS_D_A_R8_R7_2026-07-18.md` (§1 = PASS). O caminho vivo de `GET /bank/regional-fund` (`transparency.service.getUserRegionalFund`) **não faz mais SQL direto a `bank_*`**: saldo via `bankPortsRegistry.getBankAccount().getBalance`; extrato via `getLedgerEntriesByAccount` (reuso de `bankLedgerRepository.getEntriesByAccount`); metadados via `getMetadataByTransactionIds` (tenant-scoped) — implementações em `modules/bank`. Contrato `RegionalFundView` preservado; guard `audit-unifybank-no-direct-ledger-sql` no runner (192/192); E2E territorial verde; Δbank=0; ratchet financial-ssot 592→591 legítimo. **RESTRIÇÕES:** NÃO declara `core/unifybank` soberano; NÃO declara a fronteira Bank saneada; a **DT-UNIFYBANK segue OPEN** (dívida-irmã statement/admin/donation/governance). Commits `9e620a696`+`2bea83770`; runner verde no HEAD `04f4584be`.
+
+## SELO A · FATIA A · PERFIL FULL EFÊMERO GOVERNADO + VIEWER ACTOR PAGE — ✅ SELADA PELA YALA (RESTRITO) (2026-07-18)
+**Registro append-only do selo autorizado pela auditoria independente `docs/04_audit/YALA_FINAL_FATIAS_D_A_R8_R7_2026-07-18.md` §6 (redação exata abaixo). HEAD material auditado `04f4584be`; commit material `7e744f4e7`; execution log `docs/03_execution_log/EXECUTION_LOG_R8_R7_DESTRAVAMENTO_2026-07-18.md`; runner 192/192 · exit 0. Escopo RESTRITO à Fatia A + parte (a) da DT, conforme a YALA. Não reescreve entradas anteriores.**
+
+> **SELO A — FATIA A · PERFIL FULL EFÊMERO GOVERNADO + VIEWER ACTOR PAGE — ✅ SELADA PELA YALA (RESTRITO)**
+> Autorizado por esta auditoria (§2 = PASS). A prova FULL da Actor Page é agora **reproduzível do repositório sem pré-marcação falsa**: N1 dormente `20260713140000` em `IGNORED_MIGRATIONS` (SKIPPED ≠ APPLIED; N1 byte-intacta; nada inserido em `schema_migrations`); `migrate FULL` efêmero completa sem abortar; **actor-page 19/19** (spoof L/M/N/O, fallback P, Δbank=0); DB efêmera destruída; `unificard_dev` intocado. **RESTRIÇÕES:** NÃO fecha a DT-EPHEMERAL (partes (b) registry persistente do dev e (c) registry-por-filename seguem OPEN); NÃO reconcilia o registry do dev; NÃO altera a N1. Commit `7e744f4e7`; runner verde no HEAD `04f4584be`.
+
 ## R-8 · FRONTEIRA BANK DO ENDPOINT DO FUNDO REGIONAL — 🟠 MATERIAL IMPLEMENTADO · AGUARDA YALA (2026-07-18)
 **GO MATERIAL do Gate `docs/04_audit/GATE_READONLY_R8_R7_DESTRAVAMENTO_D_A_2026-07-18.md` (R-8 = VEREDITO A, reuso). NÃO É SELO.** O caminho vivo de `GET /bank/regional-fund` (`transparency.service.getUserRegionalFund`) deixou de fazer **SQL direto** a `bank_ledger`/`bank_transactions` e passou a consumir as **PORTAS PÚBLICAS do Bank** (BANK_DOMAIN_RULES §3 / LEI §4.6 / SSOT_REGISTRY §5.2).
 - **SQL removido:** o bloco de movimentações (`SELECT ... FROM bank_ledger` + `SELECT ... FROM bank_transactions`) em `getUserRegionalFund`.
