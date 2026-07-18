@@ -21,6 +21,10 @@ import { tenantService } from '../core/tenants/tenant.service';
 import { bankAccountService } from '../modules/bank/bank-account.service';
 import { locationRepository } from '../core/location/location.repository';
 import { transparencyService } from '../core/unifybank/transparency.service';
+import {
+  setActorTerritorialAddress,
+  type ActorTerritorialWriteResult,
+} from '../core/location/actor-territorial-address-writer.service';
 import { randomUUID } from 'crypto';
 
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
@@ -71,16 +75,32 @@ async function ensureCity(countryId: string, stateAbbr: string, cityName: string
   return { cityId, stateId };
 }
 
-/** Residência ACTOR-scoped canônica (owner_type='actor'). cityId null = endereço sem cidade. */
-async function setActorResidence(tenantId: string, actorId: string, countryId: string, stateId: string | null, cityId: string | null): Promise<void> {
-  const addr = await locationRepository.createAddress(
-    { countryId, stateId, cityId, neighborhoodId: null, postalCode: '80000-000', street: 'Rua Reader E2E', number: '1', complement: null, reference: null, source: 'UX_INPUT', lat: null, lng: null },
-    tenantId
-  );
-  await pool.query(
-    `INSERT INTO address_assignments (owner_type, owner_id, actor_id, address_id, role, is_primary, valid_from_at)
-     VALUES ('actor',$1::uuid,$1::uuid,$2::uuid,'RESIDENCE',true, now())`,
-    [actorId, addr.id]
+/**
+ * Residência ACTOR-scoped canônica criada EXCLUSIVAMENTE pelo writer SELADO da Fase C
+ * (`setActorTerritorialAddress`) — o MESMO entrypoint governado que a rota POST
+ * /actors/:actorId/territorial-address usa (API_CONTRACT_GOVERNANCE). Sem INSERT direto em
+ * address_assignments, sem pré-inserção, sem simular sucesso, sem desabilitar trigger/RLS/guard.
+ * Authority provada por `canRepresentActor` (ownership do user-actor: operatorUserId=userId,
+ * actorId=actor do próprio user). cityId null = endereço canônico sem cidade (canonical_city_missing).
+ * O writer cria o endereço, encerra o primary anterior, insere o assignment RESIDENCE e emite o
+ * evento `actor_territorial_address_set` — retornado no WriteResult para asserção do caminho canônico.
+ */
+async function setActorResidence(
+  tenantId: string,
+  userId: string,
+  actorId: string,
+  countryId: string,
+  stateId: string | null,
+  cityId: string | null,
+): Promise<ActorTerritorialWriteResult> {
+  return setActorTerritorialAddress(
+    { tenantId, operatorUserId: userId },
+    {
+      actorId,
+      purpose: 'ACTOR_RESIDENCE',
+      address: { countryId, stateId, cityId, postalCode: '80000-000', street: 'Rua Reader E2E', number: '1' },
+      idempotencyKey: `rfrr-${actorId}`,
+    },
   );
 }
 
@@ -138,15 +158,28 @@ async function main(): Promise<void> {
   const uNoCity = await mkUserActor(TENANT, 'Residência sem cidade');
   const uLegacy = await mkUserActor(TENANT, 'Somente residência legada profile');
 
-  await setActorResidence(TENANT, uCwb.actorId, country.id, cwb.stateId, cwb.cityId);
-  await setActorResidence(TENANT, uSp.actorId, country.id, sp.stateId, sp.cityId);
-  await setActorResidence(TENANT, uNoFund.actorId, country.id, noFundCity.stateId, noFundCity.cityId);
-  await setActorResidence(TENANT, uNoCity.actorId, country.id, null, null);
+  const cwbWrite = await setActorResidence(TENANT, uCwb.userId, uCwb.actorId, country.id, cwb.stateId, cwb.cityId);
+  await setActorResidence(TENANT, uSp.userId, uSp.actorId, country.id, sp.stateId, sp.cityId);
+  await setActorResidence(TENANT, uNoFund.userId, uNoFund.actorId, country.id, noFundCity.stateId, noFundCity.cityId);
+  await setActorResidence(TENANT, uNoCity.userId, uNoCity.actorId, country.id, null, null);
   await setLegacyProfileResidence(TENANT, uLegacy.actorId, country.id, cwb.stateId, cwb.cityId);
 
   const bankBefore = await bankSnapshot();
 
   console.log('\n— regional fund residence reader END-TO-END (Fatia D · D3) —');
+
+  // G · CAMINHO CANÔNICO: a residência de Curitiba foi produzida pelo writer SELADO da Fase C
+  //     (não por INSERT direto). Evidência suportada pelo contrato: o WriteResult (operation='set',
+  //     role='RESIDENCE', assignmentId uuid) + o evento `actor_territorial_address_set` que SÓ o
+  //     writer canônico emite (um INSERT direto não emitiria) — sem criar campo de auditoria novo.
+  const evt = await pool.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM actor_events
+      WHERE tenant_id = $1::uuid AND actor_id = $2::uuid AND event_type = 'actor_territorial_address_set'`,
+    [TENANT, uCwb.actorId]
+  );
+  record('G residência produzida pelo writer canônico da Fase C (WriteResult set + evento actor_territorial_address_set)',
+    cwbWrite.operation === 'set' && cwbWrite.role === 'RESIDENCE' && !!cwbWrite.assignmentId && Number(evt.rows[0].n) === 1,
+    JSON.stringify({ op: cwbWrite.operation, role: cwbWrite.role, assignmentId: cwbWrite.assignmentId, events: evt.rows[0].n }));
 
   // A · Curitiba: fund_available, saldo 0 real, cityName presente
   const rA = await transparencyService.getUserRegionalFund(TENANT, uCwb.userId, { limit: 5 });
