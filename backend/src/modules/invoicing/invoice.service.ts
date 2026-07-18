@@ -11,7 +11,8 @@ import type {
   CancelInvoiceInput,
   InvoiceFilters,
 } from './invoice.types';
-import { NotFoundError, BadRequestError, ConflictError, HttpError } from '@core/errors';
+import { NotFoundError, BadRequestError, ConflictError } from '@core/errors';
+import { HttpError } from '@core/errors/http-error';
 import { recordBusinessAuditSafely } from '../business-audit/business-audit.helpers';
 
 class InvoiceService {

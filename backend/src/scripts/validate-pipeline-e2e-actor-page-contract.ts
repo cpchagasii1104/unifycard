@@ -379,6 +379,15 @@ async function main(): Promise<void> {
       connectN?.data?.connectionStatus !== 'pending_sent' && connectN?.data?.connectionStatus !== 'pending_received',
       `status=${rN.statusCode} connect=${JSON.stringify(connectN)}`);
 
+    // P · FALLBACK CANÔNICO: Ana autentica SEM actionContext (sem x-test-actor-id) → o viewer é
+    // resolvido server-side pelo actor canônico do principal (findByUserId → actor_id) e Ana vê a
+    // conexão real com Carlos. Prova que o fallback resolve o actor_id correto (não undefined).
+    const rP = await call(`/actor-page/${carlos.actorId}`, { userId: ana.userId });
+    const connectP = ((rP.json() as any)?.data?.actions ?? []).find((a: any) => a.key === 'connect');
+    record('P fallback canônico (sem actionContext): Ana vê a conexão real via findByUserId (accepted)',
+      rP.statusCode === 200 && connectP?.data?.connectionStatus === 'accepted',
+      `status=${rP.statusCode} connect=${JSON.stringify(connectP)}`);
+
     // Ataque 3 — atacante SEM actor canônico não deve nem enumerar: usuário fantasma declara actor de
     // Ana. Sem req.user→actor, viewer=null → o bloco Conectar (par) simplesmente não computa relação.
     const ghostUserId = randomUUID();

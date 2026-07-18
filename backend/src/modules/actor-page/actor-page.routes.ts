@@ -58,7 +58,7 @@ const actorPageRoutes = async (fastify: FastifyInstance) => {
         }
         if (!viewerActorId) {
           const canonicalActor = await socialPortsRegistry.getActorRepository().findByUserId(tenantId, userId);
-          viewerActorId = canonicalActor?.id ?? null;
+          viewerActorId = canonicalActor?.actor_id ?? null;
         }
 
         const contract = await actorPageService.getContract(tenantId, req.params.actorId, mode, viewerActorId);
