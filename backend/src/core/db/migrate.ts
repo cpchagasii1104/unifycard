@@ -321,9 +321,9 @@ async function main() {
       }
 
       if (ignoredMigrations.length > 0) {
-        console.log(`⚠️  MIGRATIONS IGNORADAS (inconsistências históricas): ${ignoredMigrations.length}`);
+        console.log(`⏭️  MIGRATIONS SKIPPED (skip governado via IGNORED_MIGRATIONS — NÃO executadas, NÃO marcadas como aplicadas): ${ignoredMigrations.length}`);
         ignoredMigrations.forEach((m) => {
-          console.log(`   ⚠️  ${m.filename} (marcada como executada pelo baseline, mas tabelas dependentes não existem)`);
+          console.log(`   ⏭️  SKIPPED: ${m.filename}`);
         });
         console.log('');
       }

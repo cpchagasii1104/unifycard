@@ -47,11 +47,19 @@ export const LATENT_MODULE_MIGRATIONS = [
 ];
 
 /**
- * Migrations IGNORADAS permanentemente por inconsistência histórica do
- * baseline automático (registro institucional — ver migrate.ts).
+ * Migrations com SKIP GOVERNADO e versionado: `shouldExecuteMigration=false` → NUNCA executadas
+ * e NUNCA marcadas em `schema_migrations` (SKIPPED ≠ APPLIED). Duas naturezas distintas:
+ *  - `046_company_status_and_documents.sql`: inconsistência histórica do baseline automático.
+ *  - `20260713140000_neighborhood_alias_first_governed_flow.sql` (R-7): migration N1 **DORMENTE por
+ *    desenho** (AUTO-PROVA self-aborting; só aplicável sob GATE/GO territorial real; ausente de dev por
+ *    decisão). Sob FULL, o runner tentava executá-la e ABORTAVA — por isso os E2E FULL antes dependiam de
+ *    pré-marcação manual não versionada (o bypass condenado). Com o skip governado, o FULL efêmero é
+ *    reprodutível a partir do repo, sem pré-marca. Arquivo da migration INTOCADO; nada inserido em
+ *    schema_migrations. Ver DT-EPHEMERAL-MIGRATION-PROFILE-UNGOVERNED.
  */
 export const IGNORED_MIGRATIONS = [
   '046_company_status_and_documents.sql',
+  '20260713140000_neighborhood_alias_first_governed_flow.sql',
 ];
 
 /** Profile a partir do ambiente (padrão CORE_ONLY — seleção de módulo, não corte). */
