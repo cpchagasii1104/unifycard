@@ -12,6 +12,12 @@
 
 Detalhe das ações R-1..R-10 e execution logs: `docs/03_execution_log/` (R-2). Esta entrada é append-only e não reescreve as entradas materiais abaixo.
 
+## GATE READ-ONLY D9.2-B (CUTOVER GROUPS MEMBERSHIP) — 🟠 BLOQUEADO/CONDICIONAL · NÃO É GO MATERIAL (espelhado no cartório em R-9, 2026-07-18)
+**Espelhamento docs-only do veredito read-only** `docs/04_audit/GATE_READONLY_D9_2_B_VEREDITO_2026-07-18.md` (exigido pela YALA §9/§10 R-9). Nenhum cutover executado; nenhuma migration aplicada; D9.2-B permanece **FECHADA**.
+- **Estado:** desenho MADURO, sem impedimento estrutural (backfill 100% determinístico = 1 owner; casa nova aditiva/forward-safe). **ELEGÍVEL** para que o titular emita um GO D9.2-B material específico — **NÃO** iniciado.
+- **Bloqueadores (B1–B4):** **B1** exige novo Gate + novo GO humano explícito e separado (DECISION-0188 D16); **B2** em `unificard_dev` nem D9.1 nem D9.2-A estão aplicadas (candidate keys ausentes) → cutover não executável em dev sem antes aplicá-las (ambiente-alvo a autorizar); **B3** `uq_group_invite` legado (sem tenant, cobre históricos) deve ser substituído DENTRO do envelope; **B4** DELETE físico de membership, role-como-authority, 6 superfícies de namespace, events-B3 e feed convergem TODOS no mesmo flip (critérios STOP).
+- **Envelope material mínimo + STOP/SEAL:** no arquivo do veredito. **Este espelho não autoriza execução.**
+
 ## DT-UNIFYBANK-CORE-DIRECT-BANK-LEDGER-SQL — 🔴 OPEN / FRONTEIRA FINANCEIRA / MÉDIA · PRÉ-EXISTENTE (registrada em R-8, 2026-07-18)
 **Achado da YALA §6 (D-4), registrado como dívida — remediação em FRENTE PRÓPRIA, não nesta regularização (STOP material honesto: exige decisão arquitetural não promulgada).**
 - **Achado:** serviços em `backend/src/core/unifybank/` acessam **diretamente por SQL** as tabelas SSOT financeiras de runtime (`bank_ledger`, `bank_transactions`, `bank_accounts`) **fora** de `backend/src/modules/bank/`. Confirmado **sistêmico** (não é defeito da campanha): `transparency.service.ts` (ex.: `FROM bank_ledger l`, leitura de movimentações do fundo regional), `donation.service.ts`, `regional-fund-governance.service.ts`. A letra de `LEI_DE_COERENCIA_SISTEMICA §4.6` / `BANK_DOMAIN_RULES §3` e o GATE §2.3.2 mandam ABORTAR diffs **fora** do Bank que acessem essas tabelas.

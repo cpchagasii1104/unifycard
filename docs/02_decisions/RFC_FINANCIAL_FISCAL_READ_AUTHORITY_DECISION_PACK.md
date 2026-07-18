@@ -1,7 +1,11 @@
 # RFC / DECISION PACK (CANDIDATO — NÃO PROMULGADO) — Autoridade de LEITURA financeira, contábil, fiscal e regional
 
+> **⚠️ NÃO É UMA DECISION PROMULGADA.** Este arquivo é um **RFC/CANDIDATO** e reside em `docs/02_decisions/` apenas por proximidade temática — **não** ocupa número `DECISION-NNNN`, **não** tem força normativa e **não** deve ser citado como decisão vigente. Só vira DECISION após ratificação soberana e promulgação formal (número + selo).
+> **Verificação §4.3 (00_AGENT_PROTOCOL):** não há artefato ABERTO anterior sobre **autoridade de LEITURA financeira/fiscal** (as DECISIONs 0113/0114/0166 governam primitivos adjacentes — binding de representação, titularidade do fundo, doutrina fiscal — mas nenhuma enumera as decisões de read-model D-1..D-11 deste pack). Este é o primeiro artefato do tema.
+> **Referência de auditoria:** ajustes de rótulo/localização feitos em R-9 da regularização pós-YALA `docs/04_audit/YALA_RELATORIO_INDEPENDENTE_CAMPANHA_ACD_2026-07-18.md` §9 (que aceitou o pack como "candidato válido com ressalvas": rótulo de não-promulgação + checagem §4.3 — ambos atendidos aqui).
+
 **Status:** 📋 CANDIDATO · **docs-only** · **NÃO PROMULGADO** · aguarda decisão soberana do titular (Clayton).
-**Origem:** Fatia G / §11 da campanha de contenção+convergência (2026-07-18). Preparado pela guardiã como INSUMO.
+**Origem:** §11 da campanha de contenção+convergência (2026-07-18), preparado como INSUMO em execução separada. **Nota de modo (YALA P-1):** a campanha que originou este pack incorreu em violação de duplo-modo (material + guardiã na mesma execução); este rótulo registra o fato — o conteúdo do pack permanece docs-only e não-promulgado, sem efeito normativo.
 **Natureza:** este documento **não** promulga decisão, **não** cria endpoint protegido, **não** monta rota. Ele enumera as decisões de autoridade de LEITURA que precisam ser tomadas ANTES do frontend contábil/fiscal, com uma recomendação por decisão para o titular ratificar, ajustar ou rejeitar.
 **Subordinado a:** `AUTHORITY_LAW.md`, `AUTHORITY_ENFORCEMENT_MODEL.md`, `LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md` §4.6–4.9, `SSOT_EXCLUSIVE_BANK_RULE.md`, `DECISION-0113` (actionContext.actorId = hint; autoridade = binding com o principal), `DECISION-0114` (Fundo Regional é da plataforma), `DECISION-0166` (Lei do Contador — fiscal é provisão, não apuração oficial), `DECISION-0177/0020` (localização soberana).
 
