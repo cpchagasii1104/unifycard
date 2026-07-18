@@ -1,5 +1,33 @@
 # REMEDIATION DT LOG
 
+## SELO A · REGULARIZAÇÃO PROCESSUAL (campanha A/C/D) — ✅ SELADA PELA YALA (2026-07-18)
+**Selo expressamente autorizado pela auditoria independente `docs/04_audit/YALA_FINAL_REGULARIZACAO_R1_R10_2026-07-18.md` (§2 = PASS · §10 "APTA PARA REGISTRO DE SELO"), condicionado ao runner canônico verde — agora satisfeito.** A irregularidade processual da campanha (duplo-modo, ausência de execution logs, autosselo da DT) foi **corretamente regularizada, sem retroatividade fingida**: R-1 (cartório retificado + DT-INVOICING reaberta), R-2 (execution logs tardios declarados), R-9 (espelho D9.2-B + RFC não-promulgado + §4.3), R-3/R-4/R-5 (contract-first + frontend honesto + resolver canônico), R-6 (invoicing fail-closed alcançável + guards no runner), R-7/R-8 (DTs pré-existentes registradas), R-10 (typecheck HEAD=0).
+
+```text
+RUNNER CANÔNICO VERDE (condição do selo):
+  comando:  node scripts/run-regression-guards.mjs
+  dir:      C:\unificard\backend · node v22.16.0
+  commit:   dac87f91e · duração ~97s · CMDS=191
+  RESULTADO: 191/191 · exit 0 · 0 GATE FAIL
+             (1 warning honesto de fiscal-tax-catalog: DT-INVOICING OPEN + hardcode ausente — esperado)
+ARCO DE COMMITS:
+  regularização R-1..R-10:  c550b3522 · 7ba6661f1 · 3112639a5 · 30ab8fc5f · d1e869575 · 69008d43c · a2ea692ac · dcbcb03bb
+  F-1 (guard C1):           edbfef3d3
+  F-3 (guard regional):     65b07da73
+  O-1 (relatórios YALA):    146cf6f6c
+  fixture pelo writer Fase C: dac87f91e  (commit em que o runner ficou 191/191)
+```
+**Escopo do selo:** SOMENTE a regularização PROCESSUAL. NÃO sela Fatia A nem Fatia D (seguem CONDICIONAIS/AGUARDANDO YALA); NÃO fecha DT-INVOICING; NÃO toca R-7/R-8/D9.2-B/B-CITY-2. Append-only; não reescreve entradas históricas.
+
+## SELO B · FATIA C — CONTENÇÃO FAIL-CLOSED DO INVOICING — ✅ SELADA PELA YALA (2026-07-18)
+**Selo expressamente autorizado pela YALA FINAL (§4.1 "PASS · CONTENÇÃO FAIL-CLOSED APTA PARA SELO", registro condicionado ao runner verde — agora satisfeito). O selo é RESTRITO à contenção fail-closed** e declara expressamente:
+- **O módulo de Invoicing NÃO está materializado.** `invoices` e `invoice_items` **continuam AUSENTES** no runtime (`to_regclass('public.invoices')=NULL`, `invoice_items=NULL`, reverificado em `unificard_dev` após o runner) — schema-ghost (só `migrations_archive/0212`, não aplicada; AGENT_PROTOCOL §17).
+- **A contenção retorna 503 (`INVOICE_MODULE_UNAVAILABLE`) ANTES de qualquer consulta ao schema-ghost** (`assertInvoicingSchemaAvailable` como passo 0 das 6 superfícies alcançáveis; probe `to_regclass` de catálogo, não toca a tabela). Distinto de `INVOICE_FISCAL_CONFIG_MISSING` (422, schema presente sem motor fiscal). Provado por `validate-pipeline-e2e-invoicing-failclosed` (6/6, DB efêmera) + guard `audit-invoicing-no-hardcoded-tax` (no runner canônico).
+- **A DT-INVOICING-HARDCODED-TAX-RATE permanece 🔴 OPEN · PARCIALMENTE REMEDIADA.** Este selo **NÃO fecha a DT** (o hardcode 5% foi eliminado, mas o motor fiscal não está integrado e o resíduo de types persiste deprecado).
+- **NENHUM documento fiscal oficial** é emitido/alegado (NF-e/NFS-e); **NENHUM default fiscal**; nenhuma taxa/alíquota fabricada; nenhuma emissão real; nenhuma PORTA.
+- **Escopo:** SOMENTE a contenção fail-closed. NÃO sela o módulo Invoicing completo, NÃO sela a DT-INVOICING, NÃO autoriza materialização de schema, motor fiscal, taxa, emissão, PORTA 01.
+- **Referências:** YALA FINAL §4.1; commit da contenção `1b64fa8ba` + reforço R-6 `d1e869575`; runner verde no commit `dac87f91e` (191/191, exit 0). Δbank=0; migrations=0.
+
 ## R-1 · RETIFICAÇÃO DOCUMENTAL PÓS-YALA DA CAMPANHA A/C/D — 🟠 REGULARIZAÇÃO EM CURSO (2026-07-18)
 **MODO: EXECUTOR.** Regularização determinada pelo relatório independente da YALA `docs/04_audit/YALA_RELATORIO_INDEPENDENTE_CAMPANHA_ACD_2026-07-18.md` (HEAD auditado `693b3d63b`). A campanha A/C/D foi julgada **FORMALMENTE INVÁLIDA COMO EXECUTADA — regularizável** (duplo-modo, zero execution logs, autosselo da DT de Invoicing). Esta nota **supersede** os status dos headers abaixo **sem apagar** nenhum texto histórico.
 
