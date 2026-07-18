@@ -269,6 +269,14 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-17 (161) — DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT (D9.1): SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA
+- **Auditoria Yala READ-ONLY do arco (GATE D9.1 + DECISION-0187 + cartório) → Veredito A · SELO COMPLETO DOCS-ONLY.** DECISION-0187 SELADA e ENCERRADA.
+- **Promulgação:** commit `7678ee400` (base `4e688db7e`), exatamente 1 commit · 3 arquivos · 237 inserções · 0 deleções. DECISION-0187 **byte-intacta** (hash `383752957` antes==depois).
+- **Casa futura selada:** `group_institutional_bindings` (tabela dedicada; ancoragem `groups.id`×`actors.id`; 1 parent ativo/group; parent só page|group-raiz; anti-ciclo v1; active→retired append-only; autoridade dual `canRepresentActor` sem capability nova; RLS forçada de nascença; guard 26 vetores).
+- **Ausência material:** migration=0 · código=0 · DDL/DML=0 · dados=0 · Bank intocado · Δbank=0. `group_institutional_bindings` ainda inexistente (to_regclass NULL). DECISIONs 0187/0186/0157 byte-intactas.
+- **2 observações Yala não bloqueantes** (OBS-1 "retired terminal" implícito por lifecycle unidirecional; OBS-2 contagem 26 vs 25 vetores — nenhum ausente) — não reabrem, orientam provas do futuro material.
+- **DTs preservadas:** DT-GROUPS-TABLE-NO-RLS OPEN · 2 DTs Bank OPEN-CONGELADAS · SPRINT78 OPEN. **Nenhum material D9.1 aberto; selo NÃO consome GO material** (material exige novo GO explícito). **STOP obrigatório após o commit.**
+
 ### 2026-07-17 (160) — DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT (D9.1): PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA
 - **Sequência da sessão:** GATE READ-ONLY D9.1 executado sobre `4e688db7e` (zero alteração; Veredito B — decisão institucional necessária entre coluna vs tabela + cardinalidade/lifecycle/autoridade) → GO explícito de Clayton → promulgação docs-only desta DECISION.
 - **Fechado:** casa única futura = `group_institutional_bindings` (tabela dedicada estreita; TODAS as alternativas rejeitadas com prova — coluna em groups, actor_relationships, group_members, owner/responsible_actor_id, metadata, grants/delegations, Group→Group, Bank) · ancoragem `groups.id`×`actors.id` · máx 1 parent ATIVO por group (históricos plurais; sem inferência) · parent SÓ page ou group-raiz · modos raiz×interno anti-ciclo v1 (multinível PROIBIDO no MVP) · lifecycle active→retired append-only (reparent = retire+nova linha) · autoridade v1 dual `canRepresentActor` dos DOIS lados sem capability nova (capabilities = D9.3) · escopo pode/não-pode do futuro material · não-herança (20 invariantes) · RLS forçada de nascença · guard de 26 vetores · fronteiras D9.2+ trancadas.

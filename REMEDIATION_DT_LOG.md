@@ -1,5 +1,48 @@
 # REMEDIATION DT LOG
 
+## DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT (D9.1) — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-17)
+**Auditoria Yala READ-ONLY do arco docs-only (GATE D9.1 + DECISION-0187 + cartório) → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0187 (F-ORGANIZATIONAL-ACTOR-COMPOSITION · D9.1) está **SELADA e OFICIALMENTE ENCERRADA**. Append-only: não reescreve nem apaga a entrada de promulgação abaixo.
+
+```text
+FRENTE:                  F-ORGANIZATIONAL-ACTOR-COMPOSITION · D9.1
+BASE:                    4e688db7ecd513df18aa7979b84eb4a3e887abaa
+COMMIT DE PROMULGAÇÃO:   7678ee400  (docs(decision): define group institutional binding contract)
+AUDITORIA:               READ-ONLY · VEREDITO A · SELO COMPLETO DOCS-ONLY
+SELO FINAL:              este commit docs-only (docs(remediation): seal group institutional binding decision after Yala)
+```
+
+**Confirmação do envelope:** exatamente **1 commit · 3 arquivos · 237 inserções · 0 deleções**. DECISION-0187 permanece **byte-intacta** (`git hash-object` antes==depois = `383752957ebc2e24a7891951cdf85b10ff768431`).
+
+**Ausência material confirmada:** `migration=0 · código=0 · DDL/DML=0 · dados=0 · runtime intocado · Bank intocado · Δbank=0`. `group_institutional_bindings` **ainda inexistente** (verificado read-only em `unificard_dev`: `to_regclass` → NULL). Nenhum vínculo, writer, guard, teste, capability ou grant foi criado.
+
+**Intactas (verificadas):** DECISION-0186 (`0bcf19e319a96eb4894fb45c78e5259800461c7f`) · DECISION-0157 (`a6fe37342fab91a02715f9c02340896f8cf0f2e3`) — hashes antes==depois. D9.2–D9.8 continuam **trancadas**. **O selo NÃO consome/presume GO material.**
+
+**INVARIANTES SELADOS:**
+1. **Casa futura única:** `group_institutional_bindings`.
+2. **Ancoragem:** `group_id → groups.id` · `institution_actor_id → actors.id`.
+3. **O vínculo NÃO é:** membership · relação social · GRAPH · authority · delegação · endereço · conta · estrutura financeira · revival de `organization_*`.
+4. **Cardinalidade:** instituição pode possuir N Groups · Group pode existir sem parent · Group possui no máximo **1 parent ativo** · históricos retirados podem coexistir.
+5. **Parent permitido:** page-actor formal · group-actor informal **raiz**.
+6. **Parent proibido:** `user` · `channel` · `system` · legado · `actor_organizational` físico · cross-tenant · novo actor_type segmental.
+7. **Modos mutuamente exclusivos:** instituição informal raiz · Group interno.
+8. **Anti-ciclo MVP:** self-link proibido · Group interno não possui filhos · instituição-group com filhos não recebe parent · cadeia multinível proibida · ciclo direto/indireto proibido.
+9. **Lifecycle:** `active → retired`.
+10. **Reparenting:** nunca por UPDATE do parent · retire do vínculo anterior · nova linha · histórico preservado · operação futura atômica e idempotente.
+11. **Autoridade v1:** `canRepresentActor(institution_actor_id)` ∧ `canRepresentActor(group_actor_id)` · predicados separados e cumulativos · **nenhuma capability nova criada**.
+12. **Não-herança:** sem authority · sem capability · sem membership · sem role · sem conta · sem saldo · sem endereço · sem audience · sem substituição da âncora civil · sem representação automática.
+13. **Integridade futura:** tenant coherence · RLS **ENABLE + FORCE** desde a criação · writer único · autoria server-side · nenhuma autoridade vinda do payload.
+14. **Fronteiras:** criação de Group fora · criação atômica Group+binding fora · caps 1/3 intactos · membership fora · capabilities fora · audience fora · página/endereço fora · organization/501 fora · Bank fora.
+
+**OBSERVAÇÕES YALA NÃO BLOQUEANTES (registro; não reabrem a DECISION, não autorizam remediação, não alteram o Veredito A):**
+- **OBS-1:** D6 não usa literalmente "retired é terminal", mas o contrato já bloqueia reativação por lifecycle unidirecional, reparenting sempre em nova linha, enumeração exaustiva dos writers permitidos e veto a segundo writer. Pode orientar comentários/provas do futuro material.
+- **OBS-2:** D11 declara 26 vetores enquanto a enumeração sintática pode ser contada como 25 (`category/purpose/role` agrupado em um único item). Nenhum vetor estrutural ausente. Pode orientar a suíte de mutations do futuro material.
+
+**Estado das DTs (nenhuma fechada/remediada):** `DT-GROUPS-TABLE-NO-RLS` → **OPEN** · `DT-GROUP-ACCOUNT-OWNERTYPE-COMPANY-MASQUERADE` → **OPEN · CONGELADA** · `DT-GROUP-ACCOUNTS-BALANCE-CENTS-PARALLEL-TRUTH` → **OPEN · CONGELADA** · `DT-ORGANIZATION-SPRINT78-FROZEN` → **OPEN**.
+
+**STATUS: DECISION-0187 OFICIALMENTE ENCERRADA.** Nenhuma etapa D9.2–D9.8 aberta. O material D9.1 (casa `group_institutional_bindings` + writers + guard + provas) somente poderá começar após **novo GO humano explícito e separado** — o selo não o consome nem presume.
+
+---
+
 ## DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT (D9.1) — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-17)
 **Promulgação docs-only sob GO explícito de Clayton** (`GO DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT · DOCS-ONLY`), consequência direta do GATE READ-ONLY D9.1 (executado nesta mesma data sobre `4e688db7e`, ZERO alteração, **Veredito B** — decisão institucional intermediária necessária). Fecha o contrato futuro do vínculo **Group interno → Actor organizacional institucional**.
 
