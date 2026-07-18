@@ -131,11 +131,23 @@ for (const [name, file] of [
 }
 {
   const src = FE('components/home/DashboardHome.tsx');
-  const ok = /balanceToShow === null \? '—'/.test(src)
-    && /regionalFundCents === null \? '—'/.test(src)
-    && /Extrato indisponível/.test(src);
-  check('home:fe-null-honesto', ok,
-    'DashboardHome deve exibir "—"/indisponível para null (erro), nunca R$ 0,00/lista vazia falsos.');
+  // Cards "Meu saldo" e "Extrato" (inalterados): null → '—'/indisponível, NUNCA R$ 0,00/lista vazia falsos.
+  const balanceHonest = /balanceToShow === null \? '—'/.test(src) && /Extrato indisponível/.test(src);
+  // Card "Fundo Regional" — F-1 (reconciliado ao contrato DISCRIMINADO resourceState pós-convergência
+  // territorial). NÃO afrouxa o marcador antigo `regionalFundCents === null ? '—'`: PROVA semanticamente
+  // (padrão novo, mais forte) que o comportamento honesto continua garantido:
+  const projectsState = /rf\?\.resourceState/.test(src);                  // projeta o estado do backend
+  const defaultDash = /let value = '—'/.test(src);                        // ausência de saldo → '—', nunca 0
+  const balanceOnlyInFund = /state === 'fund_available'\)\s*\{[^}]*value = formatBRL\(rf\.currentBalanceCents/.test(src); // saldo só em fund_available
+  const techErrorOwn = /if \(rf == null\)\s*\{[^}]*hint =/.test(src);     // erro técnico/ausência → estado próprio (hint), nunca value=0
+  const residenceOwn = /=== 'residence_missing'/.test(src);              // residência ausente = estado próprio
+  const cityOwn = /=== 'canonical_city_missing'/.test(src);              // cidade ausente = estado próprio
+  const notProvOwn = /=== 'regional_fund_not_provisioned'/.test(src);    // fundo não provisionado = estado próprio
+  const feNoRegionDecision = !/getUserRegionalFund\([^)]*(city|region)/i.test(src); // front NÃO decide/envia região
+  const regionalHonest = projectsState && defaultDash && balanceOnlyInFund && techErrorOwn
+    && residenceOwn && cityOwn && notProvOwn && feNoRegionDecision;
+  check('home:fe-null-honesto', balanceHonest && regionalHonest,
+    'DashboardHome: saldo/extrato null → "—"/indisponível (nunca R$ 0,00); Fundo Regional deve PROJETAR resourceState — currentBalanceCents null/undefined nunca vira 0, saldo só em fund_available, erro técnico/residência/cidade/fundo-não-provisionado com estado PRÓPRIO, e o frontend não decide região.');
 }
 
 // ── 11. Frontend: trilhos C1 sem blob/legado ──
