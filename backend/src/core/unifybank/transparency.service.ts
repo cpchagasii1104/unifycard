@@ -9,6 +9,7 @@ import { bankPortsRegistry } from '@core/bank/ports-registry';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { resolveActorTerritory } from '@core/location/actor-territorial-resolver';
 import { getFullAddress } from '@core/location/address-helpers';
+import { socialPortsRegistry } from '@core/social/ports-registry';
 
 export interface StatementEntry {
   transactionId: string;
@@ -592,25 +593,6 @@ class TransparencyService {
     }
   }
 
-  /**
-   * Resolve o actor humano canônico do usuário autenticado (read-only; NUNCA cria).
-   * Retorna null se o usuário ainda não tem actor — o reader trata como residência ausente.
-   */
-  private async resolveUserActorId(tenantId: string, userId: string): Promise<string | null> {
-    const client = await getClientWithTenant(tenantId);
-    try {
-      const r = await client.query<{ id: string }>(
-        `SELECT id::text AS id FROM actors
-          WHERE user_id = $1 AND actor_type IN ('user', 'actor_human', 'person')
-          ORDER BY created_at ASC LIMIT 1`,
-        [userId]
-      );
-      return r.rows[0]?.id ?? null;
-    } finally {
-      client.release();
-    }
-  }
-
   /** Estado vazio (sem conta) com a base territorial declarada explicitamente. */
   private emptyRegionalFund(
     resourceState: RegionalFundResourceState,
@@ -645,8 +627,13 @@ class TransparencyService {
   ): Promise<RegionalFundView> {
     const { limit = 50, offset = 0 } = options;
 
-    // 1. Actor humano canônico do principal (read-only). Sem actor = residência não resolvível.
-    const actorId = await this.resolveUserActorId(tenantId, userId);
+    // 1. Actor humano canônico do principal via RESOLVER CANÔNICO (R-5): `findByUserId` — tenant-scoped
+    // (RLS + tenant explícito), `actor_type='user'` SEM enumerar vocabulário legado, `LIMIT 2` =
+    // ambiguidade FAIL-CLOSED (lança `ACTOR_USER_ANCHOR_AMBIGUOUS`), ZERO criação no GET. A ambiguidade
+    // PROPAGA como erro estrutural (500 observável na rota), nunca vira residence_missing silencioso.
+    // Sem actor = residência não resolvível.
+    const canonicalActor = await socialPortsRegistry.getActorRepository().findByUserId(tenantId, userId);
+    const actorId = canonicalActor?.actor_id ?? null;
     if (!actorId) {
       return this.emptyRegionalFund('residence_missing', null, null);
     }

@@ -103,7 +103,7 @@ async function bankSnapshot(): Promise<string> {
 async function main(): Promise<void> {
   await assertEphemeralDb();
 
-  // Injeta os ports do Bank (bootstrap faz isso no app.builder; aqui é E2E fora do server).
+  // Injeta os ports do Bank + Social (bootstrap faz isso no app.builder; aqui é E2E fora do server).
   const { bankPortsRegistry } = await import('../core/bank/ports-registry');
   const ba = await import('../modules/bank/adapters');
   bankPortsRegistry.setBankAccount(ba.bankAccountAdapter);
@@ -111,6 +111,10 @@ async function main(): Promise<void> {
   bankPortsRegistry.setBankTransactionRead(ba.bankTransactionReadAdapter);
   bankPortsRegistry.setBankIntegration(ba.bankIntegrationAdapter);
   bankPortsRegistry.setBankLimit(ba.bankLimitAdapter);
+  // R-5: o reader passou a usar o resolver canônico socialPortsRegistry.getActorRepository().findByUserId
+  const { socialPortsRegistry } = await import('../core/social/ports-registry');
+  const sa = await import('../modules/social/adapters');
+  socialPortsRegistry.setActorRepository(sa.actorRepositoryAdapter);
 
   const TENANT = randomUUID();
   await tenantService.createTenant({ id: TENANT, name: 'Regional Fund Residence Reader Tenant', slug: `rfrr-${Date.now()}` });
