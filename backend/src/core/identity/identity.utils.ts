@@ -29,7 +29,8 @@ import { runQueryWithTenant } from '@core/database/pool';
  */
 export async function resolveGlobalUserId(
   userId: string,
-  tenantId?: string
+  tenantId?: string,
+  existingClient?: { query(text: string, params?: unknown[]): Promise<{ rows: unknown[] }> }
 ): Promise<string> {
   if (!userId) {
     throw new Error('userId é obrigatório para resolveGlobalUserId');
@@ -37,6 +38,19 @@ export async function resolveGlobalUserId(
 
   let resolvedGlobalUserId: string | null = null;
 
+  // 🔒 TRANSACTION-AWARE (remediação D9.1): com `existingClient`, a MESMA consulta canônica roda no
+  // client do caller com a linha de users lida FOR SHARE (evidência de identidade do principal
+  // serializada contra mutação concorrente). Sem client, caminhos pool byte-idênticos.
+  if (existingClient) {
+    const res = await existingClient.query(
+      `SELECT global_user_id FROM users WHERE id = $1 LIMIT 1 FOR SHARE`,
+      [userId]
+    );
+    const gu = (res.rows[0] as { global_user_id: string | null } | undefined)?.global_user_id;
+    if (gu) {
+      resolvedGlobalUserId = gu;
+    }
+  } else
   // 🔴 GARANTIA CANÔNICA: users.global_user_id é a fonte única de verdade
   // Se tenantId fornecido, usar RLS
   if (tenantId) {

@@ -132,9 +132,10 @@ class ActorRegistryService {
    */
   async findByActorId(
     tenantId: string,
-    actorId: string
+    actorId: string,
+    existingClient?: { query(text: string, params?: unknown[]): Promise<{ rows: unknown[] }> }
   ): Promise<ActorRegistryEntry | null> {
-    const row = await runQueryWithTenant<{
+    type RegistryRow = {
       registry_id: string;
       tenant_id: string;
       actor_id: string;
@@ -144,16 +145,28 @@ class ActorRegistryService {
       capabilities_json: any;
       created_at: Date;
       updated_at: Date;
-    }>(
-      tenantId,
-      `
+    };
+    // 🔒 TRANSACTION-AWARE (remediação D9.1): com `existingClient`, a MESMA consulta roda no client
+    // do caller com a linha FOR SHARE (evidência do ramo registry serializada). Sem client, pool intacto.
+    let row: RegistryRow | undefined;
+    if (existingClient) {
+      const res = await existingClient.query(
+        `SELECT * FROM actor_registry WHERE tenant_id = $1 AND actor_id = $2 LIMIT 1 FOR SHARE`,
+        [tenantId, actorId]
+      );
+      row = res.rows[0] as RegistryRow | undefined;
+    } else {
+      row = await runQueryWithTenant<RegistryRow>(
+        tenantId,
+        `
         SELECT *
         FROM actor_registry
         WHERE tenant_id = $1 AND actor_id = $2
         LIMIT 1
       `,
-      [tenantId, actorId]
-    );
+        [tenantId, actorId]
+      );
+    }
 
     if (!row) {
       return null;

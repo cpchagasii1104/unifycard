@@ -349,6 +349,116 @@ if (!/uq_gib_retire_idempotency[\s\S]{0,200}?WHERE retire_idempotency_key IS NOT
   note('IDEMPOTENCY-WEAK', 'unicidade parcial da chave de retirada ausente');
 }
 
+// ══ 53+ · REMEDIAÇÃO AUTHORITY DUAL TRANSACTION BOUNDARY (Veredito B da Yala) ══
+const AUTHZ = mustRead('src/core/authorization/authorization.service.ts', 'EVIDENCE-LOCK-MISSING');
+const COMPANIES = mustRead('src/core/companies/companies.service.ts', 'EVIDENCE-LOCK-MISSING');
+
+// TX-OWNER: service é o ÚNICO transaction owner (helper com connect/BEGIN/COMMIT/ROLLBACK/release em finally)
+{
+  const helper = svcS.match(/withAuthorityTransaction[\s\S]*?\n  }/);
+  if (!helper) {
+    note('TX-OWNER', 'withAuthorityTransaction ausente do service');
+  } else {
+    const h = helper[0];
+    for (const [tok, msg] of [["pool.connect", 'connect'], ["'BEGIN'", 'BEGIN'], ["'COMMIT'", 'COMMIT'], ["'ROLLBACK'", 'ROLLBACK'], ['finally', 'finally'], ['client.release()', 'release']]) {
+      if (!h.includes(tok)) note('TX-OWNER', `transaction owner sem ${msg}`);
+    }
+    // TX-ORDER: BEGIN → tenant → advisory → fn(client) → COMMIT
+    const iBegin = h.indexOf("'BEGIN'");
+    const iTenant = h.indexOf('set_config');
+    const iAdv = h.indexOf('pg_advisory_xact_lock');
+    const iFn = h.indexOf('fn(client)');
+    const iCommit = h.indexOf("'COMMIT'");
+    if (!(iBegin >= 0 && iTenant > iBegin && iAdv > iTenant && iFn > iAdv && iCommit > iFn)) {
+      note('TX-ORDER', 'ordem BEGIN→tenant→advisory→fn(client)→COMMIT violada no transaction owner');
+    }
+    // PREMATURE-RELEASE: release exatamente 1×, dentro do finally
+    const releases = (svcS.match(/client\.release\(\)/g) || []).length;
+    if (releases !== 1) note('PREMATURE-RELEASE', `client.release() aparece ${releases}× no service (esperado 1, no finally)`);
+    if (!/finally\s*\{\s*client\.release\(\)/.test(h)) note('PREMATURE-RELEASE', 'release fora do finally do transaction owner');
+  }
+}
+
+// AUTHORITY-OUT-OF-TX: TODA chamada canRepresentActor do service leva o client transacional como 4º arg
+{
+  const total = (svcS.match(/canRepresentActor\(/g) || []).length;
+  const withClient = (svcS.match(/canRepresentActor\(\s*\n?\s*tenantId,\s*\n?\s*actingUserId,\s*\n?\s*[A-Za-z_.]+,\s*\n?\s*client\s*\n?\s*\)/g) || []).length;
+  if (total === 0) note('AUTHORITY-OUT-OF-TX', 'service sem chamadas canRepresentActor');
+  if (withClient !== total) note('AUTHORITY-OUT-OF-TX', `${total - withClient} chamada(s) canRepresentActor SEM o client transacional`);
+  if (total < 3) note('SINGLE-SIDED-AUTHORITY', `service tem ${total} chamada(s) canRepresentActor (mínimo 3 — dual + terceiro do reparent)`);
+}
+
+// AUTOCOMMIT-AUTHORITY: regiões bind/retire/reparent não podem usar runQueryWithTenant (autocommit)
+{
+  const region = (name) => {
+    const m = svcS.match(new RegExp(`async ${name}[\\s\\S]*?\\n  \\}`));
+    return m ? m[0] : '';
+  };
+  for (const op of ['bindGroupToInstitution', 'retireBinding', 'reparentGroupInstitution']) {
+    const r = region(op);
+    if (!r) { note('AUTOCOMMIT-AUTHORITY', `região ${op} não localizada`); continue; }
+    if (/runQueryWithTenant|runQueriesWithTenant/.test(r)) {
+      note('AUTOCOMMIT-AUTHORITY', `${op} usa query autocommit dentro da operação transacional`);
+    }
+    if (!/withAuthorityTransaction/.test(r)) note('AUTHORITY-OUT-OF-TX', `${op} não roda sob withAuthorityTransaction`);
+  }
+}
+
+// HELPER-OWN-CLIENT: nenhum helper/repository abre client próprio (pool.connect só no transaction owner)
+{
+  const connects = (svcS.match(/pool\.connect/g) || []).length;
+  if (connects !== 1) note('HELPER-OWN-CLIENT', `pool.connect aparece ${connects}× no service (esperado 1, no transaction owner)`);
+  if (/pool\.connect/.test(REPO.s)) note('HELPER-OWN-CLIENT', 'repository abre client próprio');
+}
+
+// WRITER-CLIENT-MISMATCH: writers do repository rodam as fns canônicas NO client do caller
+{
+  for (const fn of ['fn_bind_group_to_institution', 'fn_retire_group_institutional_binding', 'fn_reparent_group_institution']) {
+    const call = REPO.s.match(new RegExp(`([A-Za-z_.]+)\\.query\\(\\s*\\n?\\s*\`SELECT ${fn}`));
+    if (!call) note('WRITER-CLIENT-MISMATCH', `${fn} não é invocada via client.query no repository`);
+    else if (call[1] !== 'client') note('WRITER-CLIENT-MISMATCH', `${fn} invocada via '${call[1]}.query' — deve ser o client transacional do caller`);
+  }
+  if (!/bind\(\s*\n?\s*client: PoolClient/.test(REPO.s)) note('WRITER-CLIENT-MISMATCH', 'assinatura de bind não OBRIGA o client transacional');
+}
+
+// EVIDENCE-LOCK-MISSING: caminho transacional do SSOT de authority lê evidência FOR SHARE
+{
+  const onClient = AUTHZ.s.match(/private async canRepresentActorOnClient[\s\S]*?\n  \}/);
+  if (!onClient) {
+    note('EVIDENCE-LOCK-MISSING', 'canRepresentActorOnClient ausente do SSOT de authority');
+  } else {
+    const shares = (onClient[0].match(/FOR SHARE/g) || []).length;
+    if (shares < 4) note('EVIDENCE-LOCK-MISSING', `caminho transacional com ${shares} FOR SHARE (mínimo 4 — actor/groups/owner/delegação)`);
+  }
+  if (!/existingClient\?/.test(AUTHZ.s)) note('EVIDENCE-LOCK-MISSING', 'canRepresentActor sem parâmetro opcional existingClient');
+  const cmc = COMPANIES.s.match(/async canManageCompany[\s\S]*?\n  \}/);
+  if (!cmc || !/existingClient/.test(cmc[0]) || !/FOR SHARE/.test(cmc[0])) {
+    note('EVIDENCE-LOCK-MISSING', 'canManageCompany sem caminho transacional FOR SHARE (evidência revogável company_users)');
+  }
+}
+
+// AUTH-SQL-DUP: a migration NÃO replica evidência de authority (company_users/actor_delegations/actor_registry)
+if (/company_users|actor_delegations|actor_registry/i.test(M)) {
+  note('AUTH-SQL-DUP', 'migration referencia casas de evidência de authority — lógica de canRepresentActor não pode ser duplicada em SQL');
+}
+
+// TOCTOU-COMMENT: proibido declarar a janela como "aceitável/permitida" em vez de eliminá-la (scan RAW, comment-aware às avessas)
+for (const f of [{ p: SVC_P, raw: SVC.raw }, { p: REPO_P, raw: REPO.raw }, { p: 'authorization.service.ts', raw: AUTHZ.raw }]) {
+  if (/contratualmente permitid|TOCTOU aceit|janela aceit/i.test(f.raw)) {
+    note('TOCTOU-COMMENT', `${f.p} declara a janela TOCTOU como permitida em vez de eliminá-la`);
+  }
+}
+
+// SECOND-GUARD: exatamente UM guard D9.1 no runner e nos scripts
+{
+  const inRunner = (RUNNER.s.match(/audit-group-institutional-binding\.mjs/g) || []).length;
+  if (inRunner !== 1) note('SECOND-GUARD', `guard D9.1 aparece ${inRunner}× no runner (esperado 1)`);
+  const guardFiles = readdirSync(resolve(ROOT, 'scripts')).filter((f) => /group-institutional-binding.*\.mjs$/.test(f));
+  const expected = ['audit-group-institutional-binding-mutations.mjs', 'audit-group-institutional-binding.mjs'];
+  const extra = guardFiles.filter((f) => !expected.includes(f));
+  if (extra.length) note('SECOND-GUARD', `arquivo(s) de guard paralelo: ${extra.join(', ')}`);
+}
+
 // ══ RUNNER-WIRING ══
 if (!/audit-group-institutional-binding\.mjs/.test(RUNNER.s)) {
   note('RUNNER-WIRING', 'guard não conectado ao runner oficial');

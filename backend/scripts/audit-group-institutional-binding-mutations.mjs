@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // audit-group-institutional-binding-mutations.mjs — HARNESS de mutações do guard 188 (D9.1,
-// DECISION-0186/0187). 40 vetores HOSTIS isolados (M01–M40) + 6 controles BENIGNOS (B01–B06).
+// DECISION-0186/0187 + remediação AUTHORITY DUAL TRANSACTION BOUNDARY). 53 vetores HOSTIS isolados
+// (M01–M40 originais + N01–N13 transacionais) + 6 controles BENIGNOS (B01–B06).
 // Cada vetor: execução própria, alteração física própria (mutação de arquivo real OU fixture
 // hostil temporária dentro da superfície auditada), exige exit!=0 do guard COM o marcador
 // específico, e restauração byte-exata (hash) / remoção da fixture. Falha se: guard passar num
@@ -18,10 +19,13 @@ const GUARD = 'scripts/audit-group-institutional-binding.mjs';
 const FILES = {
   MIG: resolve(ROOT, 'migrations/20260717120000_group_institutional_bindings.sql'),
   SVC: resolve(ROOT, 'src/modules/groups/group-institutional-binding.service.ts'),
+  REPO: resolve(ROOT, 'src/modules/groups/group-institutional-binding.repository.ts'),
+  AUTHZ: resolve(ROOT, 'src/core/authorization/authorization.service.ts'),
   POLICY: resolve(ROOT, 'src/modules/groups/policies/group-creation-policy.ts'),
   GSVC: resolve(ROOT, 'src/modules/groups/groups.service.ts'),
   RUNNER: resolve(ROOT, 'scripts/run-regression-guards.mjs'),
 };
+const FIX_SECOND_GUARD = resolve(ROOT, 'scripts/audit-group-institutional-binding-shadow.mjs');
 const FIX_GENERIC = resolve(ROOT, 'src/modules/groups/__gib_mutation_fixture.ts');
 const FIX_BINDING = resolve(ROOT, 'src/modules/groups/group-institutional-binding.fixture-hostil.ts');
 
@@ -36,7 +40,7 @@ function runGuard() {
 }
 function restoreAll() {
   for (const [k, p] of Object.entries(FILES)) writeFileSync(p, ORIG[k]);
-  for (const f of [FIX_GENERIC, FIX_BINDING]) if (existsSync(f)) rmSync(f);
+  for (const f of [FIX_GENERIC, FIX_BINDING, FIX_SECOND_GUARD]) if (existsSync(f)) rmSync(f);
 }
 function mutateFile(fileKey, from, to, { all = false } = {}) {
   const cur = readFileSync(FILES[fileKey], 'utf8');
@@ -107,17 +111,50 @@ const HOSTILE = [
     "'GIB_GROUP_NOT_REPRESENTED: principal nao representa o group-actor (canRepresentActor lado group).'",
     "'GIB_X: lado group dispensado.'")],
   ['M34', 'INFRA-ERROR-MASKED', () => mutateFile('SVC',
-    'const representsInstitution = await authorizationService.canRepresentActor(\n      tenantId,\n      actingUserId,\n      institutionActorId\n    );',
-    'const representsInstitution = await authorizationService.canRepresentActor(\n      tenantId,\n      actingUserId,\n      institutionActorId\n    ).catch(() => false);')],
+    'const representsInstitution = await authorizationService.canRepresentActor(\n      tenantId,\n      actingUserId,\n      institutionActorId,\n      client\n    );',
+    'const representsInstitution = await authorizationService.canRepresentActor(\n      tenantId,\n      actingUserId,\n      institutionActorId,\n      client\n    ).catch(() => false);')],
   ['M35', 'PAYLOAD-AUTHORITY', () => mutateFile('SVC',
-    '    // principal autenticado -> actor atuante, resolvido server-side pelo writer unico (§4.8.1)\n    const actingActor = await ensureUserActor(tenantId, actingUserId);',
-    '    // principal autenticado -> actor atuante, resolvido server-side pelo writer unico (§4.8.1)\n    const actingActor = await ensureUserActor(tenantId, actingUserId);\n    const actorFromClient = (input as { actionContext?: { actorId?: string } }).actionContext?.actorId;\n    void actorFromClient;')],
+    '      // principal autenticado -> actor atuante, resolvido server-side pelo writer único NA transação\n      const actingActor = await ensureUserActorTx(client, tenantId, actingUserId);',
+    '      // principal autenticado -> actor atuante, resolvido server-side pelo writer único NA transação\n      const actingActor = await ensureUserActorTx(client, tenantId, actingUserId);\n      const actorFromClient = (input as { actionContext?: { actorId?: string } }).actionContext?.actorId;\n      void actorFromClient;')],
   // ── fixtures hostis (superfície auditada) ──
   ['M36', 'SECOND-WRITER', () => writeFileSync(FIX_GENERIC, 'export const q = "SELECT fn_bind_group_to_institution($1,$2,$3,$4,$5)";\n')],
   ['M37', 'DIRECT-INSERT', () => writeFileSync(FIX_GENERIC, 'export const q = `INSERT INTO group_institutional_bindings (id) VALUES (uuid_generate_v4())`;\n')],
   ['M38', 'METADATA-PARENT', () => writeFileSync(FIX_GENERIC, 'export function parentOf(g: { metadata: Record<string, unknown> }) { return (g.metadata as { organizationId?: string }).organizationId; }\n')],
   ['M39', 'RELATIONSHIPS-COMPOSITION', () => writeFileSync(FIX_BINDING, 'export const q = "SELECT 1 FROM actor_relationships WHERE requester_label = $1";\n')],
   ['M40', 'CAPS-TAMPERED', () => mutateFile('GSVC', 'if (currentCount >= 3) {', 'if (currentCount >= 30) {', { all: true })],
+  // ── REMEDIAÇÃO AUTHORITY DUAL TRANSACTION BOUNDARY (Veredito B) ──
+  ['N01', 'AUTHORITY-OUT-OF-TX', () => mutateFile('SVC',
+    'canRepresentActor(\n      tenantId,\n      actingUserId,\n      institutionActorId,\n      client\n    );',
+    'canRepresentActor(\n      tenantId,\n      actingUserId,\n      institutionActorId\n    );')],
+  ['N02', 'AUTHORITY-OUT-OF-TX', () => mutateFile('SVC',
+    'canRepresentActor(\n      tenantId,\n      actingUserId,\n      groupActorId,\n      client\n    );',
+    'canRepresentActor(\n      tenantId,\n      actingUserId,\n      groupActorId\n    );')],
+  ['N03', 'AUTHORITY-OUT-OF-TX', () => mutateFile('SVC',
+    'canRepresentActor(\n        tenantId,\n        actingUserId,\n        newInstitutionActorId,\n        client\n      );',
+    'canRepresentActor(\n        tenantId,\n        actingUserId,\n        newInstitutionActorId\n      );')],
+  ['N04', 'TX-OWNER', () => mutateFile('SVC',
+    "      await client.query('BEGIN');\n", '')],
+  ['N05', 'WRITER-CLIENT-MISMATCH', () => mutateFile('REPO',
+    'const res = await client.query(\n      `SELECT fn_bind_group_to_institution',
+    'const res = await poolX.query(\n      `SELECT fn_bind_group_to_institution')],
+  ['N06', 'HELPER-OWN-CLIENT', () => mutateFile('SVC',
+    '    const representsInstitution = await authorizationService.canRepresentActor(',
+    '    const own = await pool.connect();\n    void own;\n    const representsInstitution = await authorizationService.canRepresentActor(')],
+  ['N07', 'EVIDENCE-LOCK-MISSING', () => mutateFile('AUTHZ', ' FOR SHARE', '', { all: true })],
+  ['N08', 'TX-ORDER', () => mutateFile('SVC',
+    "      const out = await fn(client);\n      await client.query('COMMIT');",
+    "      await client.query('COMMIT');\n      const out = await fn(client);")],
+  ['N09', 'AUTOCOMMIT-AUTHORITY', () => mutateFile('SVC',
+    '      const groupActorId = await this.resolveGroupActorIdOnClient(client, tenantId, groupId);\n\n      await this.assertDualAuthority(client, tenantId, actingUserId, institutionActorId, groupActorId);',
+    '      const groupActorId = await this.resolveGroupActorIdOnClient(client, tenantId, groupId);\n      await runQueryWithTenant(tenantId, \'SELECT 1\', []);\n\n      await this.assertDualAuthority(client, tenantId, actingUserId, institutionActorId, groupActorId);')],
+  ['N10', 'AUTH-SQL-DUP', () => mutateFile('MIG', '\nCOMMIT;\n', "\nSELECT count(*) FROM company_users;\nCOMMIT;\n")],
+  ['N11', 'TOCTOU-COMMENT', () => mutateFile('SVC',
+    'class GroupInstitutionalBindingService {',
+    '// janela contratualmente permitida entre authority e writer\nclass GroupInstitutionalBindingService {')],
+  ['N12', 'PREMATURE-RELEASE', () => mutateFile('SVC',
+    "      const out = await fn(client);\n      await client.query('COMMIT');",
+    "      const out = await fn(client);\n      client.release();\n      await client.query('COMMIT');")],
+  ['N13', 'SECOND-GUARD', () => writeFileSync(FIX_SECOND_GUARD, '#!/usr/bin/env node\n// guard paralelo hostil\nprocess.exit(0);\n')],
 ];
 
 const BENIGN = [

@@ -54,7 +54,7 @@ async function mkTenant(name: string): Promise<string> {
   await pool.query(`INSERT INTO tenants (id, name, slug, created_at, updated_at) VALUES ($1,$2,$3,NOW(),NOW())`, [id, name, `${name}-${seq}-${id.slice(0, 8)}`]);
   return id;
 }
-async function mkUserActor(tenantId: string, name: string): Promise<{ userId: string; actorId: string }> {
+async function mkUserActor(tenantId: string, name: string): Promise<{ userId: string; actorId: string; globalUserId: string }> {
   seq += 1;
   const gu = randomUUID(); const userId = randomUUID();
   const tax = String(Date.now() + seq).padStart(11, '0').slice(-11);
@@ -62,7 +62,7 @@ async function mkUserActor(tenantId: string, name: string): Promise<{ userId: st
   await pool.query(`INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level) VALUES ($1::uuid,$2,'cpf','approved','basic')`, [gu, tax]);
   await pool.query(`INSERT INTO users (id, user_id, tenant_id, email, password_hash, token_version, is_test, global_user_id, created_at, updated_at) VALUES ($1::uuid,$1::uuid,$2::uuid,$3,'x',0,true,$4::uuid,NOW(),NOW())`, [userId, tenantId, `${name}-${seq}@gib-e2e.test`, gu]);
   const actorId = (await one<{ id: string }>(`INSERT INTO actors (tenant_id, actor_type, display_name, user_id, global_user_id) VALUES ($1::uuid,'user',$2,$3::uuid,$4::uuid) RETURNING id::text AS id`, [tenantId, name, userId, gu])).id;
-  return { userId, actorId };
+  return { userId, actorId, globalUserId: gu };
 }
 /** Group completo (momento 2): groups + group-actor + link 1:1. Direto por SQL (script E2E; §4.8.6). */
 async function mkGroup(tenantId: string, ownerActorId: string, name: string, withActor = true): Promise<{ groupId: string; groupActorId: string | null }> {
@@ -315,6 +315,214 @@ async function main(): Promise<void> {
          FROM groups g JOIN actors o ON o.id=g.owner_actor_id JOIN actors ga ON ga.id=g.actor_id JOIN actors r ON r.id=ga.responsible_actor_id
         WHERE g.id=$1::uuid`, [child1.groupId]);
     record('G6 âncoras civis intactas (owner e responsible humanos)', anchors.owner_t === 'user' && anchors.resp_t === 'user');
+  }
+
+  // ══ H · FRONTEIRA TRANSACIONAL + REVOGAÇÃO CONCORRENTE (remediação Veredito B) ══
+  {
+    const { authorizationService } = await import('../core/authorization/authorization.service');
+    const { groupInstitutionalBindingService } = await import('../modules/groups/group-institutional-binding.service');
+
+    // H0 — caminho POOL (3 args, sem client) permanece vivo para callers antigos (prova 15 do envelope)
+    const poolPath = await authorizationService.canRepresentActor(T1, owner.userId, root.groupActorId as string);
+    record('H0 canRepresentActor SEM client (callers antigos) segue funcionando (pool path)', poolPath === true);
+
+    // Setup de AUTHORITY REVOGÁVEL REAL: mgr é owner do group filho (lado group) e gestor da
+    // company do page-parent VIA company_users (lado instituição — evidência revogável is_active).
+    const mgr = await mkUserActor(T1, 'mgr-revocavel');
+    const hGroup = await mkGroup(T1, mgr.actorId, 'h-child');
+    const companyId = randomUUID();
+    await pool.query(`INSERT INTO companies (company_id, tenant_id, company_name, status, company_status, created_at, updated_at) VALUES ($1::uuid,$2::uuid,'h-cond','active','DRAFT',NOW(),NOW())`, [companyId, T1]);
+    const hPage = (await one<{ id: string }>(`INSERT INTO actors (tenant_id, actor_type, display_name, company_id, responsible_actor_id) VALUES ($1::uuid,'page','h-cond-page',$2::uuid,$3::uuid) RETURNING id::text AS id`, [T1, companyId, owner.actorId])).id;
+    const cu = await one<{ id: string }>(`INSERT INTO company_users (tenant_id, company_id, global_user_id, role, can_manage_company) VALUES ($1::uuid,$2::uuid,$3::uuid,'owner',true) RETURNING id::text AS id`, [T1, companyId, mgr.globalUserId]);
+    const revoke = (client?: { query: (s: string, p?: unknown[]) => Promise<unknown> }) =>
+      (client ?? pool).query(`UPDATE company_users SET is_active = false, updated_at = NOW() WHERE id = '${cu.id}'::uuid`);
+    const regrant = () => pool.query(`UPDATE company_users SET is_active = true, updated_at = NOW() WHERE id = $1::uuid`, [cu.id]);
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    // T1 — D9.1 adquire a proteção PRIMEIRO: revogação concorrente BLOQUEIA até o COMMIT
+    {
+      const A = await pool.connect();
+      await A.query('BEGIN');
+      await A.query(`SELECT set_config('app.current_tenant', $1, true)`, [T1]);
+      await A.query(`SELECT pg_advisory_xact_lock(hashtextextended('group_institutional_bindings:' || $1::text, 0))`, [T1]);
+      const okInst = await authorizationService.canRepresentActor(T1, mgr.userId, hPage, A);
+      const okGrp = await authorizationService.canRepresentActor(T1, mgr.userId, hGroup.groupActorId as string, A);
+      // revogador em paralelo — deve FICAR BLOQUEADO pela evidência FOR SHARE de A
+      let revokeSettled = false;
+      const B = pool.connect().then(async (c) => {
+        try { await revoke(c); } finally { revokeSettled = true; c.release(); }
+      });
+      await sleep(500);
+      const blockedWhileAHeld = revokeSettled === false;
+      await A.query(`SELECT fn_bind_group_to_institution($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5)`, [T1, hGroup.groupId, hPage, mgr.actorId, 'k-t1']);
+      await A.query('COMMIT');
+      A.release();
+      await B; // revogação só completa DEPOIS do commit de A
+      const t1Bound = await q(`SELECT 1 FROM group_institutional_bindings WHERE tenant_id=$1::uuid AND group_id=$2::uuid AND status='active'`, [T1, hGroup.groupId]);
+      const t1Revoked = await one<{ a: boolean }>(`SELECT is_active AS a FROM company_users WHERE id=$1::uuid`, [cu.id]);
+      record('T1 proteção primeiro: authority provada, revogador BLOQUEADO até o COMMIT, binding criado, revogação serializa DEPOIS',
+        okInst && okGrp && blockedWhileAHeld && revokeSettled && t1Bound.length === 1 && t1Revoked.a === false);
+      // limpeza p/ próximos T: retire + re-grant
+      await retire(T1, (await one<{ id: string }>(`SELECT id::text FROM group_institutional_bindings WHERE tenant_id=$1::uuid AND group_id=$2::uuid AND status='active'`, [T1, hGroup.groupId])).id, mgr.actorId, 'k-t1-ret');
+      await regrant();
+    }
+
+    // T2 — revogação VENCE primeiro: service revalida na transação e falha; zero binding; chave NÃO consumida
+    {
+      await revoke();
+      await expectFail('T2 revogação venceu antes: bind via service falha fail-closed', () =>
+        groupInstitutionalBindingService.bindGroupToInstitution({
+          tenantId: T1, actingUserId: mgr.userId, groupId: hGroup.groupId,
+          institutionActorId: hPage, idempotencyKey: 'k-t2',
+        }), 'GIB_INSTITUTION_NOT_REPRESENTED');
+      const noRow = await q(`SELECT 1 FROM group_institutional_bindings WHERE tenant_id=$1::uuid AND create_idempotency_key='k-t2'`, [T1]);
+      record('T2 zero binding e chave NÃO consumida', noRow.length === 0);
+      await regrant();
+      const reuse = await groupInstitutionalBindingService.bindGroupToInstitution({
+        tenantId: T1, actingUserId: mgr.userId, groupId: hGroup.groupId,
+        institutionActorId: hPage, idempotencyKey: 'k-t2',
+      });
+      record('T2b após re-grant a MESMA chave funciona (não foi consumida na falha)', reuse.status === 'active');
+      await groupInstitutionalBindingService.retireBinding({ tenantId: T1, actingUserId: mgr.userId, bindingId: reuse.id, idempotencyKey: 'k-t2-ret' });
+    }
+
+    // T3 — revogação DURANTE o bind (revogador chega primeiro mas NÃO commitou): o service espera e lê o estado FINAL
+    {
+      const B = await pool.connect();
+      await B.query('BEGIN');
+      await revoke(B); // row lock exclusivo; ainda não commitado
+      let svcSettled = false;
+      const A = groupInstitutionalBindingService.bindGroupToInstitution({
+        tenantId: T1, actingUserId: mgr.userId, groupId: hGroup.groupId,
+        institutionActorId: hPage, idempotencyKey: 'k-t3',
+      }).then(() => ({ ok: true as const })).catch((e: Error) => ({ ok: false as const, msg: e.message })).finally(() => { svcSettled = true; });
+      await sleep(500);
+      const blockedOnRevoker = svcSettled === false; // FOR SHARE do service espera o revogador
+      await B.query('COMMIT');
+      B.release();
+      const aOut = await A;
+      const t3Rows = await q(`SELECT 1 FROM group_institutional_bindings WHERE tenant_id=$1::uuid AND create_idempotency_key='k-t3'`, [T1]);
+      record('T3 revogação durante o bind: NUNCA commit com authority obsoleta (service esperou, leu revogado, falhou; zero binding)',
+        blockedOnRevoker && aOut.ok === false && /GIB_INSTITUTION_NOT_REPRESENTED/.test(aOut.msg ?? '') && t3Rows.length === 0);
+      await regrant();
+    }
+
+    // T4 — revogação durante o RETIRE: mesmo requisito
+    {
+      const b = await groupInstitutionalBindingService.bindGroupToInstitution({
+        tenantId: T1, actingUserId: mgr.userId, groupId: hGroup.groupId,
+        institutionActorId: hPage, idempotencyKey: 'k-t4-setup',
+      });
+      const B = await pool.connect();
+      await B.query('BEGIN');
+      await revoke(B);
+      let settled = false;
+      const A = groupInstitutionalBindingService.retireBinding({
+        tenantId: T1, actingUserId: mgr.userId, bindingId: b.id, idempotencyKey: 'k-t4',
+      }).then(() => ({ ok: true as const })).catch((e: Error) => ({ ok: false as const, msg: e.message })).finally(() => { settled = true; });
+      await sleep(500);
+      const blocked = settled === false;
+      await B.query('COMMIT');
+      B.release();
+      const out = await A;
+      const still = await one<{ status: string }>(`SELECT status FROM group_institutional_bindings WHERE id=$1::uuid`, [b.id]);
+      record('T4 revogação durante o retire: retire falha fail-closed; vínculo permanece ATIVO',
+        blocked && out.ok === false && /GIB_INSTITUTION_NOT_REPRESENTED/.test(out.msg ?? '') && still.status === 'active');
+      await regrant();
+      await groupInstitutionalBindingService.retireBinding({ tenantId: T1, actingUserId: mgr.userId, bindingId: b.id, idempotencyKey: 'k-t4-ret' });
+    }
+
+    // T5 — revogação do TERCEIRO lado durante o REPARENT: rollback integral
+    {
+      // grupo vinculado ao root (grupo-raiz do mgr? root pertence a owner) — usar hPage como atual e page2 como novo
+      const company2 = randomUUID();
+      await pool.query(`INSERT INTO companies (company_id, tenant_id, company_name, status, company_status, created_at, updated_at) VALUES ($1::uuid,$2::uuid,'h-cond2','active','DRAFT',NOW(),NOW())`, [company2, T1]);
+      const hPage2 = (await one<{ id: string }>(`INSERT INTO actors (tenant_id, actor_type, display_name, company_id, responsible_actor_id) VALUES ($1::uuid,'page','h-cond2-page',$2::uuid,$3::uuid) RETURNING id::text AS id`, [T1, company2, owner.actorId])).id;
+      const cu2 = await one<{ id: string }>(`INSERT INTO company_users (tenant_id, company_id, global_user_id, role, can_manage_company) VALUES ($1::uuid,$2::uuid,$3::uuid,'owner',true) RETURNING id::text AS id`, [T1, company2, mgr.globalUserId]);
+      const cur = await groupInstitutionalBindingService.bindGroupToInstitution({
+        tenantId: T1, actingUserId: mgr.userId, groupId: hGroup.groupId,
+        institutionActorId: hPage, idempotencyKey: 'k-t5-setup',
+      });
+      const B = await pool.connect();
+      await B.query('BEGIN');
+      await B.query(`UPDATE company_users SET is_active=false WHERE id=$1::uuid`, [cu2.id]); // revoga o NOVO lado, uncommitted
+      let settled = false;
+      const A = groupInstitutionalBindingService.reparentGroupInstitution({
+        tenantId: T1, actingUserId: mgr.userId, groupId: hGroup.groupId,
+        newInstitutionActorId: hPage2, idempotencyKey: 'k-t5',
+      }).then(() => ({ ok: true as const })).catch((e: Error) => ({ ok: false as const, msg: e.message })).finally(() => { settled = true; });
+      await sleep(500);
+      const blocked = settled === false;
+      await B.query('COMMIT');
+      B.release();
+      const out = await A;
+      const hist = await q<{ status: string; institution_actor_id: string }>(`SELECT status, institution_actor_id::text FROM group_institutional_bindings WHERE tenant_id=$1::uuid AND group_id=$2::uuid AND create_idempotency_key IN ('k-t5-setup','k-t5') ORDER BY created_at`, [T1, hGroup.groupId]);
+      const oldStillActive = hist.some(h => h.status === 'active' && h.institution_actor_id === hPage);
+      const noNew = !hist.some(h => h.institution_actor_id === hPage2);
+      record('T5 revogação do 3º lado durante reparent: ROLLBACK integral (vínculo anterior ativo; zero novo; zero parent duplo)',
+        blocked && out.ok === false && /GIB_INSTITUTION_NOT_REPRESENTED/.test(out.msg ?? '') && oldStillActive && noNew);
+      await groupInstitutionalBindingService.retireBinding({ tenantId: T1, actingUserId: mgr.userId, bindingId: cur.id, idempotencyKey: 'k-t5-ret' });
+    }
+
+    // ══ I · FAULT INJECTIONS TRANSACIONAIS (sequência real do mecanismo em cada ponto) ══
+    {
+      const points = ['after-begin', 'after-principal', 'after-auth-1', 'after-auth-2', 'after-auth-3', 'after-protection', 'before-fn', 'after-fn', 'before-commit'] as const;
+      let allClean = true;
+      for (const p of points) {
+        const A = await pool.connect();
+        try {
+          await A.query('BEGIN');
+          if (p === 'after-begin') throw new Error('INJ');
+          await A.query(`SELECT set_config('app.current_tenant', $1, true)`, [T1]);
+          await A.query(`SELECT pg_advisory_xact_lock(hashtextextended('group_institutional_bindings:' || $1::text, 0))`, [T1]);
+          if (p === 'after-protection') throw new Error('INJ');
+          const { ensureUserActorTx } = await import('../modules/identity/actor-writer.service');
+          await ensureUserActorTx(A, T1, mgr.userId);
+          if (p === 'after-principal') throw new Error('INJ');
+          const a1 = await authorizationService.canRepresentActor(T1, mgr.userId, hPage, A);
+          if (p === 'after-auth-1') throw new Error('INJ');
+          const a2 = await authorizationService.canRepresentActor(T1, mgr.userId, hGroup.groupActorId as string, A);
+          if (p === 'after-auth-2') throw new Error('INJ');
+          const a3 = await authorizationService.canRepresentActor(T1, mgr.userId, hPage, A);
+          if (p === 'after-auth-3') throw new Error('INJ');
+          if (!a1 || !a2 || !a3) throw new Error('AUTH_UNEXPECTED_FALSE');
+          if (p === 'before-fn') throw new Error('INJ');
+          await A.query(`SELECT fn_bind_group_to_institution($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5)`, [T1, hGroup.groupId, hPage, mgr.actorId, `k-inj-${p}`]);
+          if (p === 'after-fn') throw new Error('INJ');
+          if (p === 'before-commit') throw new Error('INJ');
+          await A.query('COMMIT');
+        } catch {
+          await A.query('ROLLBACK').catch(() => undefined);
+        } finally {
+          A.release();
+        }
+        const leaked = await q(`SELECT 1 FROM group_institutional_bindings WHERE tenant_id=$1::uuid AND create_idempotency_key=$2`, [T1, `k-inj-${p}`]);
+        if (leaked.length !== 0) { allClean = false; record(`I fault ${p}: resíduo detectado`, false); }
+      }
+      record('I fault injections (9 pontos da sequência transacional): zero binding parcial, zero chave consumida, rollback íntegro', allClean);
+      // I2 — "durante COMMIT": backend terminado entre fn e COMMIT → sem estado parcial
+      {
+        const A = await pool.connect();
+        // o backend será terminado: engolir o evento 'error' assíncrono do client (esperado)
+        (A as unknown as { on: (ev: string, fn: () => void) => void }).on('error', () => undefined);
+        let killed = false;
+        try {
+          await A.query('BEGIN');
+          await A.query(`SELECT set_config('app.current_tenant', $1, true)`, [T1]);
+          await A.query(`SELECT pg_advisory_xact_lock(hashtextextended('group_institutional_bindings:' || $1::text, 0))`, [T1]);
+          const pidRow = await A.query(`SELECT pg_backend_pid() AS pid`);
+          await A.query(`SELECT fn_bind_group_to_institution($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5)`, [T1, hGroup.groupId, hPage, mgr.actorId, 'k-inj-commit']);
+          await pool.query(`SELECT pg_terminate_backend($1)`, [pidRow.rows[0].pid]);
+          killed = true;
+          await A.query('COMMIT');
+        } catch { /* esperado: conexão terminada antes/no COMMIT */ } finally {
+          // client com backend terminado: release DESTRUTIVO (não devolve conexão morta ao pool)
+          A.release(true as unknown as Error);
+        }
+        const leaked = await q(`SELECT 1 FROM group_institutional_bindings WHERE tenant_id=$1::uuid AND create_idempotency_key='k-inj-commit'`, [T1]);
+        record('I2 falha DURANTE o COMMIT (backend terminado): zero estado parcial, chave não consumida', killed && leaked.length === 0);
+      }
+    }
   }
 
   // ── veredito ──

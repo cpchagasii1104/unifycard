@@ -3,6 +3,7 @@
 // Centraliza lógica de permissões sem espalhar ifs
 
 import { socialPortsRegistry } from '@core/social/ports-registry';
+import type { TxQueryClient } from '@core/social/ports';
 import { actorRegistryService, type ActorRegistryEntry } from '../actor-registry/actor-registry.service';
 import { actorDelegationRepository } from '../actor-delegation/actor-delegation.repository';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
@@ -331,11 +332,30 @@ class AuthorizationService {
    *  5. delegação ativa — `actor_delegations` (via `findActiveDelegation`, já valida ativa/expira/revoga).
    *
    * NÃO decide role/permission/capability. NÃO infere actorId. Retorna apenas true/false.
+   *
+   * 🔒 TRANSACTION-AWARE (remediação D9.1 · AUTHORITY DUAL TRANSACTION BOUNDARY): quando o caller
+   * fornece `existingClient` (client transacional JÁ aberto, com tenant context estabelecido), TODA
+   * a cadeia de evidência roda NESSE client e as linhas DECISIVAS são lidas `FOR SHARE` — o que
+   * serializa esta prova contra os writers canônicos de revogação (UPDATE em company_users /
+   * actor_delegations / groups / users bloqueia até o COMMIT do caller; se a revogação commitou
+   * antes, esta leitura JÁ enxerga o estado revogado → deny). Sem `existingClient`, o caminho
+   * pool/autocommit permanece BYTE-IDÊNTICO em semântica (callers atuais inalterados).
+   * No caminho transacional, erros de infraestrutura PROPAGAM (dentro de transação, engolir erro
+   * mascararia uma tx abortada como negação — o fail-closed real é abortar a transação inteira).
    */
-  async canRepresentActor(tenantId: string, userId: string, actorId: string): Promise<boolean> {
+  async canRepresentActor(
+    tenantId: string,
+    userId: string,
+    actorId: string,
+    existingClient?: TxQueryClient
+  ): Promise<boolean> {
     // Inputs inválidos → fail-closed (deny).
     if (!tenantId?.trim() || !userId?.trim() || !actorId?.trim()) {
       return false;
+    }
+
+    if (existingClient) {
+      return this.canRepresentActorOnClient(tenantId, userId, actorId, existingClient);
     }
 
     const actorRepository = socialPortsRegistry.getActorRepository();
@@ -400,6 +420,172 @@ class AuthorizationService {
       return true;
     }
 
+    return false;
+  }
+
+  /**
+   * Caminho TRANSACIONAL de canRepresentActor (remediação D9.1). MESMAS 5 fontes, MESMA ordem e
+   * MESMOS predicados do caminho pool — executados no client do caller, com a evidência decisiva
+   * lida FOR SHARE. Nenhuma fonte nova; nenhuma lógica movida para SQL de migration; a fachada de
+   * authority (SSOT §5.16) continua a ÚNICA dona da pergunta. Erros PROPAGAM (tx do caller aborta).
+   */
+  private async canRepresentActorOnClient(
+    tenantId: string,
+    userId: string,
+    actorId: string,
+    client: TxQueryClient
+  ): Promise<boolean> {
+    // Actor alvo (evidência raiz) — FOR SHARE: revogar/mutar o actor concorre com esta prova.
+    const aRes = await client.query(
+      `SELECT id::text AS id, actor_type, user_id::text AS user_id,
+              company_id::text AS company_id, group_id::text AS group_id
+         FROM actors WHERE tenant_id = $1 AND id = $2 FOR SHARE`,
+      [tenantId, actorId]
+    );
+    const actor = aRes.rows[0] as
+      | { id: string; actor_type: string; user_id: string | null; company_id: string | null; group_id: string | null }
+      | undefined;
+    if (!actor) {
+      return false;
+    }
+
+    // 1. Ownership direto (mesmo predicado do caminho pool).
+    if (
+      actor.user_id === userId &&
+      (actor.actor_type === 'user' || actor.actor_type === 'actor_human' || actor.actor_type === 'person')
+    ) {
+      return true;
+    }
+
+    // 2. Empresa/page — canManageCompany CANÔNICO no MESMO client (evidência company_users FOR SHARE).
+    if (actor.company_id) {
+      const globalUserId = await resolveGlobalUserId(userId, tenantId, client).catch((e) => {
+        // 'não encontrado' é negação legítima (paridade com safeResolveGlobalUserId);
+        // erro de tx abortada/infra NÃO pode virar deny — propaga.
+        if (e instanceof Error && /resolveGlobalUserId/.test(e.message)) return null;
+        throw e;
+      });
+      if (globalUserId) {
+        const { companiesService } = await import('@core/companies/companies.service');
+        if (await companiesService.canManageCompany(tenantId, actor.company_id, globalUserId, client)) {
+          return true;
+        }
+      }
+    }
+
+    // 3. Grupo — owner civil no MESMO client (groups + owner actor FOR SHARE).
+    if (actor.group_id) {
+      const gRes = await client.query(
+        `SELECT owner_actor_id::text AS owner_actor_id FROM groups
+          WHERE tenant_id = $1 AND id = $2 FOR SHARE`,
+        [tenantId, actor.group_id]
+      );
+      const ownerActorId = (gRes.rows[0] as { owner_actor_id: string } | undefined)?.owner_actor_id;
+      if (ownerActorId) {
+        const oRes = await client.query(
+          `SELECT user_id::text AS user_id FROM actors WHERE tenant_id = $1 AND id = $2 FOR SHARE`,
+          [tenantId, ownerActorId]
+        );
+        if ((oRes.rows[0] as { user_id: string | null } | undefined)?.user_id === userId) {
+          return true;
+        }
+      }
+    }
+
+    // 4. Registry-bônus no MESMO client (mesma consulta do actorRegistryService).
+    const registry = await actorRegistryService.findByActorId(tenantId, actorId, client);
+    if (registry?.entityTable && registry?.entityId) {
+      if (await this.checkOwnershipOnClient(tenantId, userId, registry.entityTable, registry.entityId, client)) {
+        return true;
+      }
+    }
+
+    // 5. Delegação FULL no MESMO client — a linha da delegação é a evidência REVOGÁVEL: FOR SHARE
+    //    serializa contra o writer de revogação (mesmo predicado ativo/expira do repositório canônico).
+    const uaRes = await client.query(
+      `SELECT id::text AS id FROM actors
+        WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user' LIMIT 1`,
+      [tenantId, userId]
+    );
+    const userActorId = (uaRes.rows[0] as { id: string } | undefined)?.id;
+    if (userActorId) {
+      const dRes = await client.query(
+        `SELECT scopes_json FROM actor_delegations
+          WHERE tenant_id = $1 AND user_actor_id = $2 AND institutional_actor_id = $3
+            AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())
+          ORDER BY created_at DESC LIMIT 1 FOR SHARE`,
+        [tenantId, userActorId, actorId]
+      );
+      const scopes = (dRes.rows[0] as { scopes_json: unknown } | undefined)?.scopes_json;
+      if (Array.isArray(scopes) && scopes.includes('*')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Variante transacional de checkOwnership (mesmos ramos companies/groups/events do caminho pool),
+   * evidência FOR SHARE, erros propagam (usada só pelo ramo registry do caminho transacional).
+   */
+  private async checkOwnershipOnClient(
+    tenantId: string,
+    userId: string,
+    entityTable: string,
+    entityId: string,
+    client: TxQueryClient
+  ): Promise<boolean> {
+    if (entityTable === 'companies') {
+      const globalUserId = await resolveGlobalUserId(userId, tenantId, client).catch((e) => {
+        if (e instanceof Error && /resolveGlobalUserId/.test(e.message)) return null;
+        throw e;
+      });
+      if (!globalUserId) return false;
+      const { companiesService } = await import('@core/companies/companies.service');
+      if (await companiesService.canManageCompany(tenantId, entityId, globalUserId, client)) {
+        return true;
+      }
+      const legacyPrimary = await client.query(
+        `SELECT global_user_id FROM company_users
+          WHERE company_id = $1 AND global_user_id = $2 AND is_primary = true LIMIT 1 FOR SHARE`,
+        [entityId, globalUserId]
+      );
+      if (legacyPrimary.rows[0]) return true;
+      const legacyAdmin = await client.query(
+        `SELECT global_user_id FROM company_users
+          WHERE company_id = $1 AND global_user_id = $2 AND role = 'admin' AND member_status = 'active'
+          LIMIT 1 FOR SHARE`,
+        [entityId, globalUserId]
+      );
+      return !!legacyAdmin.rows[0];
+    }
+    if (entityTable === 'groups') {
+      const g = await client.query(
+        `SELECT owner_actor_id::text AS owner_actor_id FROM groups WHERE tenant_id = $1 AND id = $2 FOR SHARE`,
+        [tenantId, entityId]
+      );
+      const ownerActorId = (g.rows[0] as { owner_actor_id: string } | undefined)?.owner_actor_id;
+      if (!ownerActorId) return false;
+      const o = await client.query(
+        `SELECT user_id::text AS user_id FROM actors WHERE tenant_id = $1 AND id = $2 FOR SHARE`,
+        [tenantId, ownerActorId]
+      );
+      return (o.rows[0] as { user_id: string | null } | undefined)?.user_id === userId;
+    }
+    if (entityTable === 'events') {
+      const ev = await client.query(
+        `SELECT actor_id::text AS actor_id FROM events WHERE tenant_id = $1 AND id = $2 FOR SHARE`,
+        [tenantId, entityId]
+      );
+      const evActorId = (ev.rows[0] as { actor_id: string } | undefined)?.actor_id;
+      if (!evActorId) return false;
+      const ea = await client.query(
+        `SELECT user_id::text AS user_id FROM actors WHERE tenant_id = $1 AND id = $2 FOR SHARE`,
+        [tenantId, evActorId]
+      );
+      return (ea.rows[0] as { user_id: string | null } | undefined)?.user_id === userId;
+    }
     return false;
   }
 

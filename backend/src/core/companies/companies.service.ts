@@ -1018,16 +1018,26 @@ class CompaniesService {
    * (cf. companies.routes §submit-validation). Retorna true se o usuário é membro ativo
    * com can_manage_company OU role='owner'. Fail-closed: ausência de vínculo → false.
    */
-  async canManageCompany(tenantId: string, companyId: string, globalUserId: string): Promise<boolean> {
-    const row = await runQueryWithTenant<{ can_manage: boolean }>(
-      tenantId,
-      `SELECT (cu.can_manage_company OR cu.role = 'owner') AS can_manage
+  async canManageCompany(
+    tenantId: string,
+    companyId: string,
+    globalUserId: string,
+    existingClient?: { query(text: string, params?: unknown[]): Promise<{ rows: unknown[] }> }
+  ): Promise<boolean> {
+    // 🔒 TRANSACTION-AWARE (remediação D9.1): com `existingClient`, a MESMA pergunta roda no client
+    // do caller e a linha de company_users (evidência REVOGÁVEL — is_active/member_status) é lida
+    // FOR SHARE: revogação concorrente serializa contra a transação do caller. Sem client, caminho
+    // pool byte-idêntico (callers atuais inalterados).
+    const sql = `SELECT (cu.can_manage_company OR cu.role = 'owner') AS can_manage
          FROM company_users cu
         WHERE cu.tenant_id = $1 AND cu.company_id = $2 AND cu.global_user_id = $3::uuid
           AND cu.is_active = true AND cu.member_status = 'active'
-        LIMIT 1`,
-      [tenantId, companyId, globalUserId]
-    );
+        LIMIT 1`;
+    if (existingClient) {
+      const res = await existingClient.query(`${sql} FOR SHARE`, [tenantId, companyId, globalUserId]);
+      return (res.rows[0] as { can_manage: boolean } | undefined)?.can_manage === true;
+    }
+    const row = await runQueryWithTenant<{ can_manage: boolean }>(tenantId, sql, [tenantId, companyId, globalUserId]);
     return row?.can_manage === true;
   }
 
