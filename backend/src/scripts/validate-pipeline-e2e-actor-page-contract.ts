@@ -81,6 +81,9 @@ async function main(): Promise<void> {
   const ana = await mkUserActor(TENANT, 'Ana Page E2E');
   const bia = await mkUserActor(TENANT, 'Bia Vazia E2E');
   const carlos = await mkUserActor(TENANT, 'Carlos Dono E2E');
+  // Mallory = atacante DECISION-0113: autentica como si mesma, mas declara o actorId de outro
+  // (Ana) no actionContext para tentar ler o status privado do par (Ana, alvo).
+  const mallory = await mkUserActor(TENANT, 'Mallory Spoof E2E');
 
   // padaria: page-actor + company_users owner (canRepresentActor via canManageCompany)
   const companyId = (await pool.query<{ id: string }>(`INSERT INTO companies (tenant_id, company_name) VALUES ($1::uuid,$2) RETURNING company_id::text AS id`, [TENANT, 'Padaria Page E2E'])).rows[0].id;
@@ -92,6 +95,16 @@ async function main(): Promise<void> {
 
   // substrato: ana publica 1 post; padaria publica 1 serviço ativo (concept→canonical→service)
   await pool.query(`INSERT INTO posts (tenant_id, actor_id, content, is_published, is_deleted) VALUES ($1::uuid,$2::uuid,'olá página',true,false)`, [TENANT, ana.actorId]);
+
+  // aresta de relação PRIVADA aceita entre Ana e Carlos (dado do PAR que só Ana ou Carlos podem
+  // ver). Serve de alvo da prova adversarial: Mallory NÃO pode revelar este 'accepted' declarando o
+  // actorId de Ana. (Par ana↔carlos, DELIBERADAMENTE fora do par ana↔bia usado por B2, que exige
+  // aresta ausente para projetar os allowedLabels do seed. Vocabulário de label governado.)
+  await pool.query(
+    `INSERT INTO actor_relationships (tenant_id, from_actor_id, to_actor_id, status, requester_label, target_label, responded_at, created_by_user_id, responded_by_user_id)
+     VALUES ($1::uuid,$2::uuid,$3::uuid,'accepted','amigo','amigo', now(), $4::uuid, $5::uuid)`,
+    [TENANT, ana.actorId, carlos.actorId, ana.userId, carlos.userId]
+  );
   // concepts é GOVERNADO (0075_concept_governance_trigger): INSERT exige app.concept_governance
   // dentro de transação autorizada — mesmo padrão dos e2es de catálogo.
   const gc = await pool.connect();
@@ -339,6 +352,42 @@ async function main(): Promise<void> {
     const raw = JSON.stringify(cB) + JSON.stringify(cD) + JSON.stringify(cE2);
     const leak = /cpf|tax_id|kyc|global_user_id|user_id|birthdate/i.test(raw);
     record('F contrato sem PII (cpf/tax_id/kyc/global_user_id/user_id)', !leak, raw.slice(0, 200));
+
+    // ── DECISION-0113 · PROVAS ADVERSARIAIS DE VIEWER (P0 actor-page) ────────────────────────
+    // Baseline honesto: Ana, com o PRÓPRIO actor, vê Carlos e enxerga a conexão real 'accepted'.
+    const rL = await call(`/actor-page/${carlos.actorId}`, { userId: ana.userId, actorId: ana.actorId });
+    const connectL = ((rL.json() as any)?.data?.actions ?? []).find((a: any) => a.key === 'connect');
+    record('L baseline: Ana (actor próprio) vê a conexão real com Carlos (connectionStatus=accepted)',
+      rL.statusCode === 200 && connectL?.data?.connectionStatus === 'accepted',
+      `status=${rL.statusCode} connect=${JSON.stringify(connectL)}`);
+
+    // Ataque 1 — Mallory autentica como si mesma mas DECLARA o actorId de Ana (spoof) para ler o
+    // status privado do par (Ana, Carlos). O viewer efetivo DEVE cair no actor canônico de Mallory
+    // (canRepresentActor(mallory, ana)=false), jamais revelar 'accepted'. status 200 (não vaza erro).
+    const rM = await call(`/actor-page/${carlos.actorId}`, { userId: mallory.userId, actorId: ana.actorId });
+    const connectM = ((rM.json() as any)?.data?.actions ?? []).find((a: any) => a.key === 'connect');
+    record('M spoof: Mallory declarando actor de Ana NÃO revela a conexão privada (não vem accepted)',
+      rM.statusCode === 200 && connectM?.data?.connectionStatus !== 'accepted' &&
+      connectM?.data?.connectionStatus !== 'pending_sent' && connectM?.data?.connectionStatus !== 'pending_received',
+      `status=${rM.statusCode} connect=${JSON.stringify(connectM)}`);
+
+    // Ataque 2 — Mallory declara actor de Carlos enquanto olha a página de Ana: mesma regra, sem vazar.
+    const rN = await call(`/actor-page/${ana.actorId}`, { userId: mallory.userId, actorId: carlos.actorId });
+    const connectN = ((rN.json() as any)?.data?.actions ?? []).find((a: any) => a.key === 'connect');
+    record('N spoof reverso: Mallory declarando actor de Carlos contra a página de Ana não vaza status',
+      rN.statusCode === 200 && connectN?.data?.connectionStatus !== 'accepted' &&
+      connectN?.data?.connectionStatus !== 'pending_sent' && connectN?.data?.connectionStatus !== 'pending_received',
+      `status=${rN.statusCode} connect=${JSON.stringify(connectN)}`);
+
+    // Ataque 3 — atacante SEM actor canônico não deve nem enumerar: usuário fantasma declara actor de
+    // Ana. Sem req.user→actor, viewer=null → o bloco Conectar (par) simplesmente não computa relação.
+    const ghostUserId = randomUUID();
+    const rO = await call(`/actor-page/${carlos.actorId}`, { userId: ghostUserId, actorId: ana.actorId });
+    const connectO = ((rO.json() as any)?.data?.actions ?? []).find((a: any) => a.key === 'connect');
+    record('O spoof sem actor próprio: viewer=null, nenhuma relação de Ana é enumerada',
+      rO.statusCode === 200 && (!connectO || connectO?.data?.connectionStatus === undefined ||
+        (connectO?.data?.connectionStatus !== 'accepted' && connectO?.data?.connectionStatus !== 'pending_sent' && connectO?.data?.connectionStatus !== 'pending_received')),
+      `status=${rO.statusCode} connect=${JSON.stringify(connectO)}`);
 
     // G · Δbank = 0
     const bankAfter = await pool.query<{ n: string }>(

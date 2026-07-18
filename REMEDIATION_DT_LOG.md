@@ -1,5 +1,34 @@
 # REMEDIATION DT LOG
 
+## F-ACTOR-PAGE-CONSUMING-VIEWER-BINDING · P0 — ✅ MATERIAL EXECUTADO E PROVADO (Fatia A da campanha, 2026-07-18)
+**Contenção do P0 da Actor Page no envelope da DECISION-0113 (D1/D4/D5/D8/D9). GO MATERIAL da campanha contínua (Fatia A).** Corrige o vazamento cross-actor via `actionContext.actorId` não-provado no modo `consuming` de `GET /actor-page/:actorId`. Monotemático: só a rota + seu E2E. Sem migration · sem Bank · sem frontend · sem toque em Groups/fiscal.
+
+```text
+ARCO:   c06b6f32e (HEAD inicial da campanha)
+          → (este commit)  fix(actor-page): bind consuming viewer to authenticated principal (DECISION-0113 P0)
+GOVERNA: DECISION-0113 (actionContext.actorId = HINT não-soberano; autoridade = actorId ∈ canActAs/canRepresentActor(req.user))
+DT:      DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED (segue OPEN — remediação por fatias §5 da 0113; esta fecha o sink actor-page consuming, não o DT-mãe)
+```
+
+**Raiz corrigida (achado de 1ª mão no HEAD):** `modules/actor-page/actor-page.routes.ts:42` usava `viewerActorId = req.actionContext?.actorId` cru no modo `consuming`. Como o `action-context.middleware` popula esse campo de header/body/query sem SELECT em `actors` (client-declared/spoofável), qualquer autenticado podia declarar o `actorId` de um terceiro X e enumerar, para pares (X, alvo) arbitrários: **status de conexão** (`actor-page.service.ts:379`, `findByPair`) e **existência de fato de negócio** (`actor-page.service.ts:430`, `hasAnyBusinessFact`) — IDOR / vazamento de informação privada do par.
+
+**O QUE MUDOU (só `actor-page.routes.ts`):**
+1. **Viewer efetivo derivado server-side.** `actionContext.actorId` só é honrado como viewer se `authorizationService.canRepresentActor(tenantId, req.user, declaredActorId)` provar representação (ownership OU delegação — DECISION-0113 D9, sem regressão de multi-actor legítimo). Hint não-provado é **ignorado**, nunca usado.
+2. **Fallback canônico read-only.** Sem hint provado → actor humano canônico do principal via `actorRepository.findByUserId` (leitura pura, **sem ensure/create no read path**). Sem actor → `viewerActorId = null` (o bloco Conectar/fato-de-negócio simplesmente não computa o par).
+3. **Fim do `catch → false`.** O `try/catch` que transformava falha de `canRepresentActor` (infra) em `ok=false`→403 no modo `operating` foi removido; agora só o `false` legítimo (deny) vira 403 e o **throw (infra) propaga como 5xx** (invariante "falha deve falhar"; DECISION-0113 D5). Deny legítimo de actor inexistente/não-representável continua 403/serviço.
+
+**PROVAS (E2E adversarial, DB efêmera `unificard_actor_page_e2e`, criada/testada/DESTRUÍDA):** `validate-pipeline-e2e-actor-page-contract.ts` **18/18** incluindo 4 novos vetores DECISION-0113:
+- **L** baseline honesto: viewer com o próprio actor vê a conexão real (`accepted`) — não há regressão de leitura legítima;
+- **M** spoof: caller declara o `actorId` de outrem → viewer cai no canônico do caller → **não revela** `accepted`/`pending`;
+- **N** spoof reverso (par invertido) → idem;
+- **O** atacante sem actor canônico (user fantasma) declarando actor alheio → `viewer=null`, **nenhuma relação enumerada**.
+- Preservados: A(401)/B/B2/C/D/D2/H/I/J/K/K2/E(operating 403 estranha, 200 dono)/F(anti-PII)/**G Δbank=0**.
+
+**GUARDS:** `audit-actor-authority-boundary.mjs` **GATE OK** (flagged=0, new=0 — a rota referencia `canRepresentActor` no próprio arquivo) · `audit-actor-page-contract.mjs` **OK** · typecheck 0 nos arquivos tocados.
+
+**NÃO FAZ:** não fecha `DT-ACTIONCONTEXT-ACTORID-OWNERSHIP-UNVALIDATED` (segue OPEN; as demais fatias §5 da 0113 — rbac.plugin, money, etc. — permanecem) · não faz sweep de outros readers · não toca middleware/rbac-plugin · Δbank=0 · N0/N1/N2 intactos · PORTA 01 fechada.
+**NOTA DE AMBIENTE (E2E):** a DB efêmera FULL espelha `unificard_dev` pré-marcando a migration N1 DORMENTE `20260713140000` (auto-prova self-aborting, ausente em dev por desenho) como aplicada — nenhuma alteração em arquivo selado; `unificard_dev` intocado.
+
 ## D9.2-A · FUNDAÇÃO ACTOR-FIRST DORMENTE DA MEMBERSHIP — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADA (2026-07-18)
 **Auditoria Yala MATERIAL read-only do arco → Veredito A · SELO COMPLETO MATERIAL D9.2-A.** A fundação Actor-first DORMENTE da membership (F-ORGANIZATIONAL-ACTOR-COMPOSITION · D9.2-A) está **SELADA e OFICIALMENTE ENCERRADA**. Auditoria única · **sem divergências materiais** · nenhuma alteração material neste selo. Append-only: não reescreve a entrada material abaixo.
 
