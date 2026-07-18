@@ -1,5 +1,50 @@
 # REMEDIATION DT LOG
 
+## D9.2-A · FUNDAÇÃO ACTOR-FIRST DORMENTE DA MEMBERSHIP — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADA (2026-07-18)
+**Auditoria Yala MATERIAL read-only do arco → Veredito A · SELO COMPLETO MATERIAL D9.2-A.** A fundação Actor-first DORMENTE da membership (F-ORGANIZATIONAL-ACTOR-COMPOSITION · D9.2-A) está **SELADA e OFICIALMENTE ENCERRADA**. Auditoria única · **sem divergências materiais** · nenhuma alteração material neste selo. Append-only: não reescreve a entrada material abaixo.
+
+```text
+ARCO:              bea280276 (selo da DECISION-0188)
+                     → 2ef62dd2c  feat(groups): add dormant actor-first membership foundation
+                     → 73f2cb0bb  docs(remediation): record dormant actor-first membership foundation
+                     → este selo   docs(remediation): seal dormant actor-first membership foundation after Yala
+AUDITORIA:         READ-ONLY · VEREDITO A · SELO COMPLETO MATERIAL
+```
+
+**Material byte-intacto (hash antes==depois do selo):** migration `20260718120000` (`e32fe560…`) · service D9.2-A (`5bcecaa5…`) · guard 189 (`aa76abff…`) · runner (`3fbe67f3…`) · DECISION-0188 (`ed52391d…`) · migration D9.1 `20260717120000` (`dfcfec9c…`) · DECISIONs 0187 (`383752957…`)/0186 (`0bcf19e3…`). O commit material `2ef62dd2c` inteiro permanece intocado.
+
+**INVARIANTES SELADOS:**
+1. Casa canônica futura: **`group_actor_memberships`**.
+2. Identidade única da membership: **`member_actor_id`**.
+3. Três namespaces PRESERVADOS (nunca fundidos — 0131 B3): `global_user_id` = identidade humana global · `user_id` = conta contextual tenant-scoped · `actor_id` = sujeito operacional.
+4. Lifecycle **`active → left | removed`**.
+5. Estados terminais e imutáveis · 6. **DELETE proibido** · 7. reentrada por nova linha · 8. **1 membership ativa** por `tenant + group + member_actor`.
+9. FKs COMPOSTAS tenant-scoped · 10. **RLS ENABLE + FORCE** · 11. aplicação SEM DML direto · 12. writers internos governados · 13. transaction owner único · 14. `canRepresentActor(…, existingClient)` no MESMO client.
+15. **Zero role como authority** · 16. zero capability/grant novo · 17. **owner não sai nem é removido** enquanto owner.
+18. Invites/requests = **intenções explícitas** no caminho novo · 19. aceite de intent + membership **na mesma transação** · 20. shadow validation **puramente read-only**.
+21. **Zero caller de produto** · 22. zero dual-write · 23. zero dual-read de produto · 24. **zero fallback entre namespaces** · 25. **zero alteração das 6 superfícies vivas** · 26. events-B3 intacto · 27. cap 1/3 intacto · 28. N0/N1/N2/categories intactos · 29. Bank intacto · 30. **Δbank=0**.
+
+**PROVAS SELADAS:** typecheck **0** · runner **189/189** · guard D9.2-A verde · mutations **38/38 hostis + 6/6 benignos** · unit D9.2-A **15/15** · conjunto D9.1+D9.2-A **27/27** · E2E **55/55** · clone efêmero criado/testado/DESTRUÍDO/inexistente ao final · migrations D9.1 e D9.2-A aplicadas SOMENTE no clone · concorrência real provada · **revogação concorrente serializada** · falha DURANTE o COMMIT = zero estado parcial · `unificard_dev` somente leitura e intocado.
+
+**OBSERVAÇÕES NÃO BLOQUEANTES (registro; não exigem remediação, não alteram o Veredito A, não autorizam nova frente):**
+- **OBS-1 (residual do UNIQUE legado):** o UNIQUE legado de `group_invites` ainda pode impedir nova intenção após uma linha histórica. No D9.2-A o residual **não foi mascarado** — é detectado, **falha fechado** com marcador `GAM_INTENT_LEGACY_UNIQUE_RESIDUAL`, sem linha parcial, sem fallback, e **não** foi declarado resolvido. A substituição governada do UNIQUE fica **reservada ao D9.2-B**; este selo não a autoriza.
+- **OBS-2:** flip acidental de EOL em dois arquivos vivos foi revertido antes do commit, com hash final idêntico (zero mudança de conteúdo).
+- **OBS-3:** erro benigno de restore em `user_profiles` (dado legado do clone) não afeta as dependências materiais da D9.2-A.
+- **OBS-4:** testes unitários seguem o padrão ESM oficial do repositório.
+- **OBS-5:** a divergência textual "quatro vs. três DTs" não existe no cartório committado; a fonte de verdade lista **quatro** DTs abertas (abaixo).
+
+**DTs preservadas (nenhuma fechada pelo selo):** `DT-GROUPS-TABLE-NO-RLS` OPEN · `DT-GROUP-ACCOUNT-OWNERTYPE-COMPANY-MASQUERADE` OPEN·CONGELADA · `DT-GROUP-ACCOUNTS-BALANCE-CENTS-PARALLEL-TRUTH` OPEN·CONGELADA · `DT-ORGANIZATION-SPRINT78-FROZEN` OPEN.
+
+**BANCO VIVO (`unificard_dev`, read-only pós-selo):** `group_institutional_bindings` **INEXISTENTE** · `group_actor_memberships` **INEXISTENTE** · funções D9.1 e D9.2-A **ausentes** · colunas de intent **ausentes** em `group_invites` · `group_members=1` · `group_invites=0` · zero vínculo institucional · zero membership nova · zero capability/grant · zero relationship nova · zero audience nova · **Bank 16/0/0 · Δbank=0** · clone **inexistente**.
+
+**MATERIAL ESTAGIADO:** D9.2-A está SELADA como fundação dormente. **D9.2-B permanece FECHADA.** O selo do D9.2-A **NÃO autoriza**: aplicação da migration · backfill · flip · correção dos namespaces · migração de events-B3 · congelamento de `group_members` · retirada de role como authority · ativação da regra do cap · uso real da nova casa. O cutover D9.2-B exigirá OBRIGATORIAMENTE: (1) novo Gate read-only · (2) novo GO humano explícito · (3) envelope material próprio · (4) auditoria Yala própria.
+
+**FRONTEIRAS NEGATIVAS (fechadas; nenhuma aberta pelo selo):** D9.2-B · D9.3 · D9.4 · audience · endereço · frontend · organization/501 · N0 · N1 · N2 · categories · Bank.
+
+**STATUS: D9.2-A · FUNDAÇÃO ACTOR-FIRST DORMENTE · SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADA.** Qualquer próximo passo exige novo GO humano explícito e separado.
+
+---
+
 ## D9.2-A · FUNDAÇÃO ACTOR-FIRST DORMENTE DA MEMBERSHIP · MATERIAL — 🟠 EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-18)
 **Material único consolidado do D9.2-A** (F-ORGANIZATIONAL-ACTOR-COMPOSITION), sob `GO MATERIAL D9.2-A · FUNDAÇÃO ACTOR-FIRST DORMENTE`, executando EXATAMENTE a DECISION-0188 selada (fase A da estratégia estagiada D16). **DORMENTE e SEM CUTOVER: zero caller de produto · zero rota · zero flip · zero backfill · zero dual-write · as 6 superfícies de namespace INTOCADAS · events-B3 INTOCADO · role-authority e caps 1/3 INTOCADOS · `group_members`/`group_invites` legados vivos INTOCADOS · migrations NÃO aplicadas em `unificard_dev` (D9.1 e D9.2-A aplicadas SOMENTE no clone efêmero).**
 
