@@ -1,5 +1,64 @@
 # REMEDIATION DT LOG
 
+## D9.1 · GROUP INSTITUTIONAL BINDING — ✅ SELADO PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL FINAL · OFICIALMENTE ENCERRADO (2026-07-18)
+**Reauditoria Yala FINAL do arco de remediação → Veredito A · SELO COMPLETO MATERIAL FINAL.** O material D9.1 (F-ORGANIZATIONAL-ACTOR-COMPOSITION · GROUP INSTITUTIONAL BINDING) está **SELADO e OFICIALMENTE ENCERRADO**. Append-only: não reescreve as entradas material/remediação abaixo.
+
+```text
+ARCO OFICIAL COMPLETO:
+BASE SELADA (DECISION-0187):  953a4d8d4
+MATERIAL ORIGINAL:            b6743b55e  feat(groups): add governed institutional binding substrate
+CARTÓRIO PRÉ-AUDITORIA:       29497c1f8  docs(remediation): record governed group institutional binding material
+REMEDIAÇÃO TRANSACIONAL:      380f68282  fix(groups): make institutional binding authority transaction-safe
+CARTÓRIO DA REMEDIAÇÃO:       a8260d9ed  docs(remediation): record institutional binding authority remediation
+REAUDITORIA YALA FINAL:       READ-ONLY · VEREDITO A · SELO COMPLETO MATERIAL FINAL
+SELO FINAL:                   este commit docs-only (docs(remediation): seal group institutional binding material after Yala)
+```
+
+**Trajetória:** material original `b6743b55e` (casa + 3 fns governadas + guard 188 + mutations + testes + E2E) → **Veredito B diretivo** anterior (defeito ÚNICO: `canRepresentActor` dos dois lados — e o terceiro do reparent — rodava em consultas autocommit ANTES da transação do writer; janela real de revogação/TOCTOU; o relatório do material reclassificou indevidamente a prova como "observação") → **remediação consolidada da fronteira transacional** `380f68282` → **reauditoria Yala final = Veredito A**. **Sem divergência material** na reauditoria.
+
+**INVARIANTES MATERIAIS SELADOS:**
+1. Casa canônica: **`group_institutional_bindings`**.
+2. Ancoragem: `group_id → groups.id` · `institution_actor_id → actors.id`.
+3. Um Group possui no máximo **1 parent institucional ativo**.
+4. Uma instituição possui **N** Groups.
+5. Parent válido: **page-actor formal** · **group-actor informal raiz**.
+6. Parent proibido: user · channel · system · legado · cross-tenant · novo actor_type · `actor_organizational` físico.
+7. Lifecycle: `active → retired`.
+8. `retired` é **terminal**.
+9. **DELETE proibido**.
+10. Parent, Group, tenant, autoria e identidade de criação **imutáveis**.
+11. Reparenting **exclusivamente** por: retire do vínculo anterior + nova linha + MESMA transação + histórico preservado.
+12. Self-link, cadeia multinível, ciclo e modo raiz/interno simultâneo **proibidos**.
+13. **RLS ENABLE + FORCE** na casa nova.
+14. **DML direto da aplicação proibido**.
+15. **Writer canônico único**.
+16. Idempotência tenant-scoped + mismatch **fail-closed**.
+17. Binding **NÃO concede**: authority · capability · membership · role · voto · conta · saldo · endereço · localização · audience · representação automática.
+18. Binding **NÃO altera**: `owner_actor_id` · `responsible_actor_id` · âncora civil · Actor type · group-actor · Bank.
+
+**REMEDIAÇÃO TRANSACIONAL SELADA (bloqueante eliminado):**
+- **ANTES:** `canRepresentActor` em consultas autocommit; writer em transação separada; janela real de revogação/TOCTOU.
+- **DEPOIS:** service é o **único transaction owner** — `pool.connect` → `BEGIN` → tenant context LOCAL → advisory lock por tenant → `ensureUserActorTx` no mesmo client → resolução de Group e group-actor no mesmo client → `canRepresentActor` no mesmo client → writer no mesmo client → readback no mesmo client → `COMMIT`; falha → `ROLLBACK`; **release único**.
+- **Bind e retire:** authority sobre instituição + authority sobre group-actor. **Reparent:** authority sobre instituição atual + group-actor + nova instituição.
+- **SSOT de authority NÃO duplicado em SQL** — `canRepresentActor` recebeu `existingClient` opcional; **callers antigos preservados** (caminho pool byte-idêntico); **linhas concretas de evidência protegidas com `FOR SHARE`**; writers de revogação **conflitam** com essas linhas; **revogação concorrente serializada**.
+
+**PROVAS SELADAS:** typecheck **0** · runner **188** · guard D9.1 **verde** · mutations **53 hostis + 6 benignas** · unit **12/12** · E2E **59/59** · concorrência real **T1–T5** · fault injections (sequência transacional + falha antes/durante o COMMIT) · clone efêmero criado/testado/destruído **sem resíduo** · migration aplicada **somente no clone** · `unificard_dev` somente leitura e **intocado** (tabela e funções D9.1 **inexistentes**) · vínculos reais **zero** · Bank **16/0/0** · **Δbank=0**.
+
+**OBSERVAÇÕES NÃO BLOQUEANTES (registro; não reabrem o material, não exigem remediação, não alteram o Veredito A, não autorizam nova frente):**
+- **OBS-1:** T1 usa bloqueio observado por ordenação causal + estado final, sem depender de `pg_locks`; T3 prova empiricamente a espera e reavaliação.
+- **OBS-2:** a revogação concorrente usa `UPDATE company_users` sobre a MESMA linha/coluna que fundamentam `canManageCompany` — reproduz o conflito físico relevante.
+- **OBS-3:** delegações com expiração temporal permanecem dormentes; `FOR SHARE` cobre revogações por mutação, e o snapshot transacional curto preserva o contrato atual.
+- **OBS-4:** `ensureUserActorTx` pode materializar apenas o user-actor canônico do principal autenticado (comportamento preexistente e transacional); nunca cria Group ou instituição.
+- **OBS-5:** o erro legado de restore em `user_profiles` não atinge nenhuma fonte usada por `canRepresentActor`; os testes unitários ESM seguem o runner oficial do repositório.
+
+**ARTEFATOS BYTE-INTACTOS (hash antes==depois do selo):** migration `20260717120000` (`dfcfec9c…`) · DECISION-0187 (`383752957…`) · DECISION-0186 (`0bcf19e3…`) · DECISION-0157 (`a6fe3734…`) · guard D9.1 (`ffc5dd2e…`) · harness de mutations (`9203d98d…`) · service (`fffbc35a…`) · authorization.service (`489efb01…`) · runner 188 (`6e4b5ba2…`) · material `b6743b55e` e remediação `380f68282` inteiros · Groups · group-actor 1:1 · caps 1/3 · organization blanket 501 · Bank.
+
+**DTs preservadas (nenhuma fechada pelo selo):** `DT-GROUPS-TABLE-NO-RLS` OPEN · `DT-GROUP-ACCOUNT-OWNERTYPE-COMPANY-MASQUERADE` OPEN·CONGELADA · `DT-GROUP-ACCOUNTS-BALANCE-CENTS-PARALLEL-TRUTH` OPEN·CONGELADA · `DT-ORGANIZATION-SPRINT78-FROZEN` OPEN.
+
+**STATUS: D9.1 GROUP INSTITUTIONAL BINDING · SELADO PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL FINAL · OFICIALMENTE ENCERRADO.** O selo **NÃO aplica a migration · NÃO ativa o binding · NÃO cria vínculo real · NÃO abre D9.2**. D9.2–D9.8 permanecem trancadas; qualquer ativação, uso de produto ou etapa posterior exige **novo GO humano explícito e separado**.
+
+---
+
 ## D9.1 · GROUP INSTITUTIONAL BINDING · REMEDIAÇÃO CONSOLIDADA PÓS-YALA (VEREDITO B) — AUTHORITY DUAL TRANSACTION BOUNDARY — 🟠 EXECUTADA E PROVADA · MATERIAL AINDA NÃO SELADO · AGUARDA UMA ÚNICA REAUDITORIA YALA FINAL (2026-07-17)
 **Yala Veredito diretivo B no material D9.1.** Fato encontrado pela auditoria (e ratificado pela diretora): os dois `canRepresentActor` (e o terceiro do reparent) rodavam em **consultas autocommit separadas, ANTES da transação do writer** — janela real de revogação de authority entre a checagem e a escrita (TOCTOU). O relatório do material havia reclassificado a própria prova como "observação/contratualmente permitida" — **incorreto**: o GO material exigia revalidação DOS DOIS predicados na mesma unidade transacional. Restante do material aceito (migration/lifecycle/cardinalidade/anti-ciclo/RLS/ACL/idempotência/não-herança/guard/mutations/testes/clone/dormência/Δbank=0). Append-only: não reescreve a entrada material abaixo.
 
