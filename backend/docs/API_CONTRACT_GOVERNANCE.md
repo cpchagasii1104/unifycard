@@ -240,6 +240,31 @@ este registro fecha a ressalva de contrato. Docs-only, zero mudança de comporta
   rentals; sem retire público; sem proof-token; sem multi-país; sem criação de city/state/neighborhood;
   sem Bank/Social. Guard `audit-actor-onboarding-address-flow` (G1-G10; runner 176) morde regressões.
 
+### `GET /bank/regional-fund` — fundo regional "de onde a pessoa mora" (Convergência Territorial · Fatia D · DECISION-0177/0020)
+_(Catalogado em R-3 da regularização pós-YALA — a rota já existia; a Fatia D **alterou o contrato de forma incompatível** (antes: `regionalFund: null` possível em 200; agora: objeto sempre presente com estado territorial) **sem** contrato-first, violando §2/§4. Este registro fixa o contrato correto; a ordem (contrato depois do código) foi irregular e está honestamente registrada — sem fingir retroatividade.)_
+
+- **Método/caminho:** `GET /bank/regional-fund`. **Read-only.** Δbank=0.
+- **Autoridade:** **autenticada** — a base territorial é a RESIDÊNCIA do PRINCIPAL humano, não um actor operante; por isso a autoridade é `req.user` (principal autenticado) resolvido server-side para o **actor humano canônico** (`findByUserId`, DECISION-0113 D4/D5), e o tenant por `req.tenant.id`. `actionContext.actorId` **não** decide este recurso (residência é propriedade da pessoa; não se "opera como empresa" o próprio fundo de moradia). 401 sem auth; 400 sem tenant.
+- **Entrada:** query `limit?` (default 50), `offset?` (default 0). Nenhum `cityId`/região do cliente (PROIBIDO — território vem da residência canônica).
+- **Saída (contrato soberano, discriminado por `resourceState`):**
+  ```
+  { success: true, regionalFund: RegionalFundView }
+  RegionalFundView = {
+    resourceState: 'fund_available' | 'residence_missing' | 'canonical_city_missing' | 'regional_fund_not_provisioned',
+    territorialBasis: 'ACTOR_RESIDENCE',
+    cityId: string | null,
+    cityName: string | null,
+    accountId: string | null,          // não-null só em fund_available
+    currentBalanceCents: number | null, // saldo do bank_ledger; null quando a conta não existe — NUNCA 0 por ausência
+    entries: RegionalFundEntry[],       // [] fora de fund_available
+    summary: { totalInCents, totalOutCents, netAmountCents }
+  }
+  ```
+  **Invariante de honestidade:** `currentBalanceCents` só é `0` quando `resourceState='fund_available'` e o `bank_ledger` prova zero. Consumidores (backend/frontend) **NÃO** podem converter `null` em `0`.
+- **Autoridade semântica (SSOT):** saldo = **exclusivamente `bank_ledger`** (conta system regional, SSOT_REGISTRY §5.9.2); mapping cidade→conta = `regional_fund_accounts` **lookup-only por FK** (NÃO SSOT; sem string/nome/CEP); residência = `address_assignments (owner_type='actor', role='RESIDENCE')` via `resolveActorTerritory(ACTOR_RESIDENCE)`. Cadeia: `req.user → user-actor canônico → ACTOR_RESIDENCE → city_id → regional_fund_accounts(city) → bank_ledger`. **Sem fallback mono-fundo/Curitiba/tenant.**
+- **Efeitos:** NENHUM (não cria actor/conta/residência/mapping/wallet no GET). Erro de infraestrutura → 500 observável (nunca fundo `null`/zero falso).
+- **Guard:** `scripts/audit-regional-fund-contract.mjs` (catálogo presente · união `resourceState` idêntica backend↔frontend · nenhum consumidor colapsa `currentBalanceCents` ausente em 0).
+
 ## 6. Lacunas conhecidas (dívida registrada, não fingida)
 
 - O `00_AGENT_PROTOCOL.md` §2.2.8 cita `backend/docs/openapi-stock-transfer-receipt.contract.yaml` como
