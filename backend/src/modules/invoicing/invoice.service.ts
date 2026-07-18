@@ -10,9 +10,8 @@ import type {
   IssueInvoiceInput,
   CancelInvoiceInput,
   InvoiceFilters,
-  InvoiceItem,
 } from './invoice.types';
-import { NotFoundError, BadRequestError, ConflictError } from '@core/errors';
+import { NotFoundError, BadRequestError, ConflictError, HttpError } from '@core/errors';
 import { recordBusinessAuditSafely } from '../business-audit/business-audit.helpers';
 
 class InvoiceService {
@@ -39,154 +38,33 @@ class InvoiceService {
       throw new ConflictError('Já existe invoice para este payout');
     }
 
-    // 3. Buscar entradas no bank_ledger (SSOT) para calcular valores
-    const { bankLedgerRepository } = await import('../bank/bank-ledger.repository');
-    const ledgerEntries = await Promise.all(
-      payoutOrder.ledgerEntryIds.map((entryId) => bankLedgerRepository.getEntryById(tenantId, entryId))
+    // 3. FAIL-CLOSED FISCAL — DT-INVOICING-HARDCODED-TAX-RATE.
+    // O caminho antigo calculava `taxesCents = Math.round(subtotalCents * 0.05)` — um "imposto" de 5%
+    // fabricado, que não é imposto operacional nem tributo oficial e jamais poderia figurar como
+    // "total tributário"/"nota fiscal". A ÚNICA autoridade fiscal do sistema é o motor fiscal canônico
+    // (`tax_rules` / `actor_fiscal_profiles` via fiscal-policy-composition — FISCAL 4c/4d/4e,
+    // DECISION-0166 "Lei do Contador"): o sistema NÃO inventa regime nem alíquota; ausência de
+    // configuração canônica = `fiscal_config_missing`. Esse motor NÃO está integrado ao invoicing e a
+    // tabela `invoices` NÃO existe no runtime (schema-ghost — `migrations_archive/0212_invoices.sql`
+    // não é aplicada pelo runner oficial, AGENT_PROTOCOL §17). Portanto não há como derivar imposto
+    // honesto aqui: a emissão é recusada FECHADA, nunca fabricando valor nem simulando documento fiscal.
+    // Reabilitar exige: (a) integrar o motor fiscal canônico como fonte do imposto e (b) materializar o
+    // schema de invoices por migration governada — ambos frentes próprias com GO/decisão soberana.
+    throw new HttpError(
+      'INVOICE_FISCAL_CONFIG_MISSING: emissão de invoice bloqueada (fail-closed). O motor fiscal ' +
+        'canônico (tax_rules/actor_fiscal_profiles) não está integrado ao invoicing e o sistema não ' +
+        'inventa alíquota nem regime. Nenhum imposto pode ser derivado; a emissão de documento fiscal ' +
+        'oficial exige configuração fiscal válida e integração ainda inexistentes. Ver ' +
+        'DT-INVOICING-HARDCODED-TAX-RATE / DECISION-0166.',
+      422
     );
-
-    const validEntries = ledgerEntries.filter((e) => e !== null) as any[];
-    if (validEntries.length === 0) {
-      throw new BadRequestError('Nenhuma ledger entry válida encontrada');
-    }
-
-    // 4. Calcular valores a partir do ledger
-    let subtotalCents = 0;
-    const items: InvoiceItem[] = [];
-
-    for (const entry of validEntries) {
-      if (!entry) continue;
-
-      subtotalCents += entry.amountCents;
-
-      // Criar item do invoice
-      const itemId = entry.entryId.substring(0, 8);
-      items.push({
-        itemId,
-        description: `Serviço - ${entry.entryType} (bank_ledger)`,
-        quantity: 1,
-        unitPriceCents: entry.amountCents,
-        totalCents: entry.amountCents,
-      });
-    }
-
-    // 5. Calcular impostos (simplificado - pode ser expandido no futuro)
-    const taxesCents = Math.round(subtotalCents * 0.05); // 5% simplificado (exemplo)
-    const totalCents = subtotalCents + taxesCents;
-
-    // 6. Buscar ou criar evidence pack
-    const { evidenceService } = await import('../evidence/evidence.service');
-    let evidencePack;
-    try {
-      // Tentar buscar pelo escrow primeiro
-      if (payoutOrder.escrowId) {
-        evidencePack = await evidenceService.getPackByContext(tenantId, 'escrow', payoutOrder.escrowId);
-      }
-      // Se não encontrou, tentar pelo serviceOrderId
-      if (!evidencePack && payoutOrder.metadata?.serviceOrderId) {
-        evidencePack = await evidenceService.getPackByContext(tenantId, 'service_order', payoutOrder.metadata.serviceOrderId);
-      }
-      // Se ainda não encontrou, criar novo
-      if (!evidencePack) {
-        evidencePack = await evidenceService.getOrCreatePack(tenantId, {
-          contextType: 'service_order',
-          contextId: payoutOrder.metadata?.serviceOrderId || payoutOrderId,
-        });
-      }
-    } catch (err) {
-      // Criar novo evidence pack se não existir
-      evidencePack = await evidenceService.getOrCreatePack(tenantId, {
-        contextType: 'service_order',
-        contextId: payoutOrder.metadata?.serviceOrderId || payoutOrderId,
-      });
-    }
-
-    // 7. Determinar actorId e recipientActorId
-    // Para SERVICE_PROVIDER: actorId = provider, recipientActorId = platform
-    // Para PLATFORM_FEE: actorId = platform, recipientActorId = provider
-    let actorId: string;
-    let recipientActorId: string;
-
-    if (input.invoiceType === 'service_provider') {
-      actorId = payoutOrder.actorId; // Provider
-      recipientActorId = 'system:platform'; // Plataforma
-    } else {
-      actorId = 'system:platform'; // Plataforma
-      recipientActorId = payoutOrder.actorId; // Provider
-    }
-
-    // 8. Buscar serviceOrderId se disponível (pode estar no metadata do payout)
-    let serviceOrderId: string | null = null;
-    if (payoutOrder.metadata?.serviceOrderId) {
-      serviceOrderId = payoutOrder.metadata.serviceOrderId;
-    } else if (payoutOrder.agreementId) {
-      // Tentar buscar serviceOrderId do agreement
-      try {
-        const { agreementRepository } = await import('../agreements/agreement.repository');
-        const agreement = await agreementRepository.findById(tenantId, payoutOrder.agreementId);
-        // ServiceOrderId pode estar no metadata do agreement
-        serviceOrderId = agreement?.metadata?.serviceOrderId || null;
-      } catch (err) {
-        // Ignorar erro
-      }
-    }
-
-    // 9. Criar invoice
-    const invoice = await invoiceRepository.create(tenantId, {
-      actorId,
-      recipientActorId,
-      invoiceType: input.invoiceType,
-      serviceOrderId,
-      payoutOrderId,
-      ledgerEntryIds: payoutOrder.ledgerEntryIds,
-      evidencePackId: evidencePack.packId,
-      items: input.items && input.items.length > 0 ? input.items : items,
-      subtotalCents,
-      taxesCents,
-      totalCents,
-      currency: payoutOrder.currency,
-      fiscalMetadata: input.fiscalMetadata || null,
-      metadata: {
-        createdFrom: 'payout',
-        payoutOrderId,
-      },
-    });
-
-    // 10. Registrar no Evidence Pack
-    await evidenceService.addEvent(tenantId, evidencePack.packId, {
-      eventId: invoice.invoiceId,
-      eventType: 'invoice_created' as any,
-      timestamp: new Date(),
-      actorId: 'system',
-      userId: null,
-      data: {
-        invoiceId: invoice.invoiceId,
-        invoiceType: input.invoiceType,
-        totalCents: invoice.totalCents,
-      },
-      source: 'system',
-      sourceId: invoice.invoiceId,
-    });
-
-    // 11. Registrar audit log
-    await recordBusinessAuditSafely(tenantId, {
-      action: 'invoice_created',
-      actorId: 'system',
-      userId: null,
-      contextType: 'service_order' as any,
-      contextId: invoice.invoiceId,
-      metadata: {
-        invoiceId: invoice.invoiceId,
-        payoutOrderId,
-        invoiceType: input.invoiceType,
-      },
-    });
-
-    return invoice;
   }
 
   /**
-   * Emite invoice (muda status para ISSUED)
+   * Emite invoice (muda status para ISSUED).
+   * ⚠️ `issued` aqui é um estado OPERACIONAL interno do documento — NÃO é emissão fiscal oficial
+   * (NF-e/NFS-e). Emissão fiscal real exige integração com o motor fiscal canônico e autoridade
+   * emissora correspondente (inexistentes hoje; ver createInvoiceFromPayout / DT-INVOICING-HARDCODED-TAX-RATE).
    */
   async issueInvoice(
     tenantId: string,
