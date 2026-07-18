@@ -269,6 +269,11 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-17 (162) — D9.1 · GROUP INSTITUTIONAL BINDING · MATERIAL: EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA MATERIAL
+- **Material único consolidado** sob GO explícito, executando a DECISION-0187 selada. Commit material `b6743b55e` (base `953a4d8d4`; 10 arquivos · 2124 inserções): migration `20260717120000` (casa `group_institutional_bindings` + candidate keys de suporte + FKs compostas + unicidade ativa + imutabilidade física + RLS FORCE + fronteira de escrita) · 3 fns SECURITY DEFINER governadas (bind/retire/reparent atômico reutilizando primitivas; advisory lock por tenant; fingerprint fail-closed) · service interno com autoridade DUAL (tripla no reparent) sem capability nova · repository privado · read-model mínimo · guard 188 (~52 classes marcadas) · mutations 40 hostis+6 benignos (restauração byte-exata) · unit 14/14 · E2E efêmero 49/49 (matriz A–G + fault-injections + concorrência + RLS/ACL probes).
+- **Dormência total:** migration NÃO aplicada em dev (`to_regclass` NULL; 0 fns; 0 candidate keys); zero vínculo real; zero rota/frontend; clone efêmero destruído com prova de inexistência; **Bank 16/0/0 · Δbank=0**; caps 1/3, 1:1 group-actor, organization/501, actor_relationships, membership — todos intactos; typecheck 0; runner **188/188**.
+- **DTs preservadas:** GROUPS-TABLE-NO-RLS OPEN (casa nova não herda a lacuna) · 2 DTs Bank OPEN-CONGELADAS · SPRINT78 OPEN. **D9.2–D9.8 trancadas.** Próximo ato: **STOP — arco material aguarda UMA única auditoria Yala.**
+
 ### 2026-07-17 (161) — DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT (D9.1): SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA
 - **Auditoria Yala READ-ONLY do arco (GATE D9.1 + DECISION-0187 + cartório) → Veredito A · SELO COMPLETO DOCS-ONLY.** DECISION-0187 SELADA e ENCERRADA.
 - **Promulgação:** commit `7678ee400` (base `4e688db7e`), exatamente 1 commit · 3 arquivos · 237 inserções · 0 deleções. DECISION-0187 **byte-intacta** (hash `383752957` antes==depois).

@@ -1,5 +1,46 @@
 # REMEDIATION DT LOG
 
+## D9.1 · GROUP INSTITUTIONAL BINDING · MATERIAL — 🟠 EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA MATERIAL (2026-07-17)
+**Material único consolidado do D9.1** (F-ORGANIZATIONAL-ACTOR-COMPOSITION), sob `GO MATERIAL D9.1 · GROUP INSTITUTIONAL BINDING`, executando EXATAMENTE o contrato selado da DECISION-0187 (e a DECISION-0186). Interno e dormente: **sem frontend · sem rota HTTP · sem membership · sem capability nova · sem Bank · sem criação de Group · sem vínculo real · migration NÃO aplicada em `unificard_dev`**.
+
+```text
+BASE:              953a4d8d4458739fb006f87a5dbeeac14bbfcc19  (selo da DECISION-0187)
+COMMIT MATERIAL:   b6743b55e  feat(groups): add governed institutional binding substrate
+                   (10 arquivos · 2124 inserções · 1 deleção — linha do runner)
+CARTÓRIO:          este commit docs-only (docs(remediation): record governed group institutional binding material)
+```
+
+**SCHEMA CRIADO (migration `20260717120000_group_institutional_bindings.sql` — forward-only, transacional, hard-fail, preflight+pós-verificação, SEM seed/backfill):**
+- **`group_institutional_bindings`**: `id · tenant_id · group_id · institution_actor_id · status CHECK(active|retired) · create_idempotency_key · create_fingerprint · created_by_actor_id · created_at · retire_idempotency_key · retired_by_actor_id · retired_at` + `chk_gib_lifecycle_shape` (shape físico ativo×retirado).
+- **Coerência tenant COMPOSTA**: candidate keys de suporte `uq_groups_tenant_id_id`/`uq_actors_tenant_id_id` (REGISTRADAS; (id) já é PK — zero mudança de semântica/lifecycle/RLS de groups/actors) + 4 FKs compostas `(tenant_id, X) → (tenant_id, id)` ON DELETE RESTRICT + reuso da helper selada `fn_assert_actors_in_tenant`.
+- **Unicidade ativa** `uq_gib_active_parent (tenant_id, group_id) WHERE status='active'` (1 parent ativo; históricos plurais; instituição NÃO limitada a 1 group) · idempotência tenant-scoped `uq_gib_create_idempotency` + `uq_gib_retire_idempotency` (parcial).
+- **Imutabilidade física** `trg_gib_immutability` (BEFORE UPDATE OR DELETE): DELETE proibido (`GIB_DELETE_FORBIDDEN`) · retired TERMINAL (`GIB_IMMUTABLE_RETIRED`) · campos decisórios/autoria imutáveis (`GIB_IMMUTABLE_FIELD`) · única transição active→retired com trilha completa.
+- **RLS ENABLE+FORCE** + policy tenant-scoped · **fronteira de escrita**: `REVOKE INSERT/UPDATE/DELETE FROM unificard_app` + `REVOKE ALL FROM PUBLIC` + `GRANT SELECT`.
+
+**WRITERS (3 fns SECURITY DEFINER, search_path pinado, EXECUTE revogado de PUBLIC e concedido só a `unificard_app`):** `fn_bind_group_to_institution` · `fn_retire_group_institutional_binding` · `fn_reparent_group_institution` (retire+bind ATOMICO reutilizando as DUAS primitivas — não é 3º caminho). Serialização por **advisory lock transacional por tenant** (determinístico, sem deadlock) + row locks FOR UPDATE; revalidação estrutural COMPLETA in-tx: group ativo com group-actor 1:1 coerente · parent SÓ `page`(com company) | `group`-RAIZ (com 1:1 coerente e sem parent ativo) · `GIB_SELF_LINK`/`GIB_PARENT_IS_INTERNAL`/`GIB_GROUP_HAS_CHILDREN` (anti-cadeia/anti-ciclo v1) · `GIB_ACTIVE_BINDING_EXISTS` · idempotência por chave+fingerprint md5 dos campos decisórios com `GIB_IDEMPOTENCY_MISMATCH` fail-closed · replay exato retorna o mesmo id · rollback externo não consome chave.
+
+**SERVICE INTERNO (`group-institutional-binding.service.ts` + repository privado + types):** autoridade **DUAL** v1 — `canRepresentActor(instituição)` ∧ `canRepresentActor(group-actor)` provados SEPARADAMENTE server-side (reparent = TRIPLA: parent atual + group + parent novo); principal resolvido por `ensureUserActor` (writer único §4.8.1); infra-error PROPAGA (zero catch→false); `actionContext`/payload NUNCA são autoridade; group-actor resolvido EXCLUSIVAMENTE pelo 1:1 vivo (nenhuma 2ª referência persistida); read-model interno mínimo (modo standalone|root|internal DERIVADO; zero herança). Zero rota; zero registro em app.builder.
+
+**GUARD 188 (`audit-group-institutional-binding.mjs`, runner 187→188):** estrutural, comment-aware, fail-closed, localiza a migration por CONTEÚDO; ~52 classes de violação com MARCADOR próprio (segunda tabela/coluna/writer · DML direto · imutabilidade/reativação/DELETE · unicidade ativa c/ tenant · parents proibidos (user/channel/system/legados) · novo actor_type/revival actor_organizational · cross-tenant · self-link/interno-como-parent/filho-com-filhos/cadeia/ciclo · metadata/category/purpose/role como parent · membership/relationships/grants/delegations como composição · heranças (authority/conta/endereço) · criação de Group no writer · caps 1/3 · atômico Group+binding · organization_*/501 · RLS de groups (scope-creep) · Bank · superfície pública · autoridade single-sided/payload · writer sem tx/lock · infra-error mascarado · RLS sem FORCE · DEFINER sem governança · autoria · idempotência fraca · wiring do runner).
+
+**MUTATIONS (`audit-group-institutional-binding-mutations.mjs`):** **40 vetores hostis individualizados** (M01–M40; migration from→to + mutações do service/policy/groups.service + fixtures hostis na superfície auditada) — cada um mordido pelo guard COM o marcador esperado — **+ 6 controles benignos** (B01–B06) passando; **restauração byte-exata (sha1) · resíduo zero · contagem exata**.
+
+**TESTES:** unit jest **14/14** (`__tests__/group-institutional-binding.service.test.ts` — autoridade dual/tripla, um-lado-nunca-basta, infra-error propaga, inputs fail-closed, read-model puro) · **E2E DB 49/49** (`validate-pipeline-e2e-group-institutional-binding.ts` via `run-group-institutional-binding-ephemeral.ps1`): matriz A criação (page/group-raiz/idempotência/mismatch/cross-tenant não-vazante/tipos proibidos/autoridade dual REAL via service) · B cardinalidade (+concorrência: chaves distintas = 1 vencedor; mesma chave = efeito único) · C anti-ciclo (self/interno/filhos/cadeia/ciclo/incoerência) · D terminalidade FÍSICA (replay/mismatch/reativação/DELETE/UPDATE-destrutivo bloqueados NO BANCO) · E reparent (retire+nova linha atômico; **fault-injections com ROLLBACK total, chave não consumida**) · F RLS FORCE + fronteira (app sem DML; EXECUTE governado; PUBLIC sem EXECUTE; search_path pinado) · G **não-herança por contagem** (members/grants/relationships/bank×3/address_assignments TODOS Δ=0; âncoras civis intactas).
+
+**CLONE EFÊMERO:** `unificard_gib_binding_e2e` criado por pg_dump de dev (LEITURA) → gate de fidelidade → migration nova aplicada SÓ no clone → 49/49 → **DROP + prova de inexistência (0 resíduo)**. `unificard_dev` verificado APÓS tudo: `group_institutional_bindings` INEXISTENTE · 0 fns · 0 candidate keys de suporte · actors=6/groups=1/members=1/tenants=2 inalterados · **Bank 16/0/0 · Δbank=0**.
+
+**PROVAS DE REGRESSÃO:** typecheck **0** · runner oficial **188/188** (todos os guards anteriores + 0157 + actor_relationships + authority + Bank preservados) · unit 14/14 · E2E 49/49 · mutations 40/40+6/6 · `git diff --check` limpo · zero fixture/resíduo temporário.
+
+**PRESERVADOS (byte-intactos ou fisicamente inalterados):** DECISION-0187 (`383752957`) · DECISION-0186 (`0bcf19e3`) · DECISION-0157 (`a6fe3734`) · 1:1 Group↔group-actor · owner/responsible humanos · caps 1 (criação) e 3 (participação) · módulo organization contido (blanket 501) · `actor_relationships` · membership atual · Bank · D9.2–D9.8 TRANCADAS.
+
+**DTs (nenhuma fechada):** `DT-GROUPS-TABLE-NO-RLS` OPEN (a casa nova nasce com RLS FORCE e NÃO herda a lacuna; `groups` segue sem RLS — frente própria) · `DT-GROUP-ACCOUNT-OWNERTYPE-COMPANY-MASQUERADE` OPEN·CONGELADA · `DT-GROUP-ACCOUNTS-BALANCE-CENTS-PARALLEL-TRUTH` OPEN·CONGELADA · `DT-ORGANIZATION-SPRINT78-FROZEN` OPEN.
+
+**Nota de desenho (transparência p/ Yala):** a autoridade dual roda no service imediatamente ANTES da chamada atômica (padrão selado das casas de grants — `canRepresentActor` é camada TS); a função canônica revalida sob lock TODOS os fatos ESTRUTURAIS que fundamentam essa autoridade (tenant, 1:1, âncoras, modos). Observações OBS-1/OBS-2 do selo da 0187 foram incorporadas (terminalidade física de retired provada em D5; mutations cobrem os vetores estruturais).
+
+**STATUS: MATERIAL D9.1 EXECUTADO E PROVADO · INTERNO E DORMENTE · NÃO SELADO · AGUARDA UMA ÚNICA AUDITORIA YALA MATERIAL.** Nenhuma etapa D9.2–D9.8 aberta; ativação/uso real do binding exige selo + GO futuro próprio.
+
+---
+
 ## DECISION-0187 · GROUP INSTITUTIONAL BINDING CONTRACT (D9.1) — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-17)
 **Auditoria Yala READ-ONLY do arco docs-only (GATE D9.1 + DECISION-0187 + cartório) → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0187 (F-ORGANIZATIONAL-ACTOR-COMPOSITION · D9.1) está **SELADA e OFICIALMENTE ENCERRADA**. Append-only: não reescreve nem apaga a entrada de promulgação abaixo.
 
