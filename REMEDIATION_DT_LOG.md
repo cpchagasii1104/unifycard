@@ -1,5 +1,38 @@
 # REMEDIATION DT LOG
 
+## DECISION-0188 · MEMBERSHIP ACTOR-FIRST CONTRACT (D9.2) — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA (2026-07-18)
+**Auditoria Yala READ-ONLY do arco docs-only (GATE D9.2 + DECISION-0188 + cartório) → Veredito A · SELO COMPLETO DOCS-ONLY.** A DECISION-0188 (F-ORGANIZATIONAL-ACTOR-COMPOSITION · D9.2 · MEMBERSHIP ACTOR-FIRST) está **SELADA e OFICIALMENTE ENCERRADA**. Append-only: não reescreve a entrada de promulgação abaixo.
+
+```text
+ARCO:                    2ff31d6e3 (selo material D9.1) → e2087d905 (promulgação 0188) → este selo
+COMMIT DE PROMULGAÇÃO:   e2087d905  docs(decision): define actor-first group membership contract
+AUDITORIA:               READ-ONLY · VEREDITO A · SELO COMPLETO DOCS-ONLY
+SELO FINAL:              este commit docs-only (docs(remediation): seal actor-first membership contract after Yala)
+```
+
+**Confirmação da promulgação:** exatamente **1 commit · 3 arquivos · 260 inserções · 0 deleções**. Auditoria Yala read-only ÚNICA · **sem divergências materiais** · nenhuma alteração material. DECISION-0188 permanece **byte-intacta** (`ed52391d1834b1b84ce2a91ed3bb4a2f099a24f9`).
+
+**CONTRATO SELADO (resumo):** membership = pertencimento histórico de Actor a Group · classes v1 = `user` · `page` formal · `group`-raiz (channel/system/legados/Actors incoerentes PROIBIDOS) · casa canônica futura **`group_actor_memberships`** · identidade única `member_actor_id` · `group_members` = legado até o cutover (sem dual-write, sem fallback) · lifecycle **`active → left | removed`** terminal, reentrada por nova linha, **DELETE proibido** · owner deve possuir membership ativa (ownership continua em `groups.owner_actor_id`) · invites/requests = **intenções explícitas** (`intent_kind`), aceite e criação de membership **na mesma transação** · role **sem authority** (`admin` legado perde poder no cutover) · cap 3 **civil humano** (page/group institucionais NÃO consomem cap do representante) · **6 superfícies de namespace** convergem no cutover + reader **events-B3** migra junto · membership não altera D9.1 · membership não cria capability/grant/delegation/audience/Bank.
+
+**MATERIAL ESTAGIADO (ambos NÃO abertos):**
+- **D9.2-A · FUNDAÇÃO ACTOR-FIRST DORMENTE** — permanece NÃO aberta; só futuro GO separado poderá autorizar: nova casa · lifecycle · RLS/ACL · writers sem caller vivo · intents · guards · mutations · testes · medição e shadow validation internas.
+- **D9.2-B · CUTOVER ACTOR-FIRST** — permanece NÃO aberta; só futuro Gate + GO separados poderão autorizar: aplicação de migrations · backfill · validação · flip de writers/readers · correção dos namespaces · migração events-B3 · retirada de role como authority · regra do cap humano · congelamento do legado.
+- **Fixado:** o selo da DECISION NÃO abre D9.2-A; o selo de D9.2-A NÃO abre D9.2-B; fundação e cutover exigem **GOs materiais soberanos separados**.
+
+**OBSERVAÇÕES NÃO BLOQUEANTES (registro; não exigem remediação, não alteram o Veredito A, não autorizam material):**
+- **OBS-1:** a DECISION documenta honestamente defeitos VIVOS que só convergirão no cutover — role usada como authority (`isUserAdminOrOwner`) · `actionContext.actorId` persistido como `user_id` (`/join`,`/leave`) · DELETE físico em membership · UNIQUE de invites sem tenant (rejeição bloqueia re-convite) · `acceptInvite` não transacional. **Não corrigidos neste ato.**
+- **OBS-2:** D9.2-A pode executar medição e shadow validation internas, mas **não** pode realizar backfill em dev, flip, alteração de rotas ou ativação.
+
+**ARTEFATOS BYTE-INTACTOS (hash antes==depois do selo):** DECISION-0188 (`ed52391d…`) · DECISION-0187 (`383752957…`) · DECISION-0186 (`0bcf19e3…`) · DECISION-0157 (`a6fe3734…`) · migration D9.1 `20260717120000` (`dfcfec9c…`) · service D9.1 (`fffbc35a…`) · material `b6743b55e` · remediação `380f68282` · selo `2ff31d6e3` inteiros · caps 1/3 · blanket 501 · Bank.
+
+**BANCO VIVO INTOCADO (read-only pós-selo):** `group_institutional_bindings` **INEXISTENTE** (D9.1 dormente) · `group_actor_memberships` **INEXISTENTE** · membership real = 1 (owner, inalterada) · 0 invites · zero vínculo real · zero membership nova · zero capability/grant · Bank **16/0/0** · **Δbank=0**.
+
+**DTs preservadas (nenhuma fechada pelo selo):** `DT-GROUPS-TABLE-NO-RLS` OPEN · `DT-GROUP-ACCOUNT-OWNERTYPE-COMPANY-MASQUERADE` OPEN·CONGELADA · `DT-GROUP-ACCOUNTS-BALANCE-CENTS-PARALLEL-TRUTH` OPEN·CONGELADA · `DT-ORGANIZATION-SPRINT78-FROZEN` OPEN.
+
+**STATUS: DECISION-0188 · MEMBERSHIP ACTOR-FIRST CONTRACT · SELADA PELA YALA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA.** O selo **não cria material · não aplica migration · não executa backfill · não corrige rotas · não abre D9.2-A nem D9.2-B**. D9.3/D9.4/audience/Bank permanecem fora; qualquer próximo passo exige **novo GO humano explícito e separado**.
+
+---
+
 ## DECISION-0188 · MEMBERSHIP ACTOR-FIRST CONTRACT (D9.2) — 🟠 PROMULGADA DOCS-ONLY · NÃO SELADA · MATERIAL NÃO INICIADO · AGUARDA UMA ÚNICA AUDITORIA YALA (2026-07-18)
 **Promulgação docs-only sob GO explícito de Clayton** (`GO DECISION-0188 · MEMBERSHIP ACTOR-FIRST CONTRACT · DOCS-ONLY`), consequência do **GATE READ-ONLY D9.2** (executado nesta data sobre `2ff31d6e3`, ZERO alteração, **Veredito B**). Fecha o contrato institucional da convergência da membership de Groups de user-first para **Actor-first**.
 
