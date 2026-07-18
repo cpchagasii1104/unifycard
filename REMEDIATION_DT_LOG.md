@@ -1,5 +1,17 @@
 # REMEDIATION DT LOG
 
+## R-1 · RETIFICAÇÃO DOCUMENTAL PÓS-YALA DA CAMPANHA A/C/D — 🟠 REGULARIZAÇÃO EM CURSO (2026-07-18)
+**MODO: EXECUTOR.** Regularização determinada pelo relatório independente da YALA `docs/04_audit/YALA_RELATORIO_INDEPENDENTE_CAMPANHA_ACD_2026-07-18.md` (HEAD auditado `693b3d63b`). A campanha A/C/D foi julgada **FORMALMENTE INVÁLIDA COMO EXECUTADA — regularizável** (duplo-modo, zero execution logs, autosselo da DT de Invoicing). Esta nota **supersede** os status dos headers abaixo **sem apagar** nenhum texto histórico.
+
+**ESTADO CANÔNICO CORRIGIDO (vale sobre qualquer ✅ nos headers originais):**
+- **Fatia A (Actor Page)** → **MATERIAL IMPLEMENTADO · AGUARDANDO AUDITORIA YALA** (YALA: CONDICIONAL — material correto; prova E2E condicionada ao perfil efêmero não versionado, ver [[DT-EPHEMERAL-MIGRATION-PROFILE-UNGOVERNED]] / R-7).
+- **Fatia C (Invoicing)** → **MATERIAL PARCIAL IMPLEMENTADO · AGUARDANDO AUDITORIA YALA** (YALA: FAIL — fail-closed 422 era inalcançável em runtime; guard órfão; autosselo). Remediado por R-6.
+- **Fatia D (Fundo Regional)** → **MATERIAL IMPLEMENTADO · AGUARDANDO AUDITORIA YALA** (YALA: FAIL — contract-first violado; `RegionalFundCard` re-colapsava ausência em R$ 0,00; resolver paralelo). Remediado por R-3/R-4/R-5.
+- **DT-INVOICING-HARDCODED-TAX-RATE** → **REABERTA · PARCIALMENTE REMEDIADA · AGUARDA YALA** (a transição OPEN→RESOLVIDA feita pelo próprio executor foi **revertida por supersessão**; o autosselo não vale).
+- **Nenhum ✅/RESOLVIDA/SELADA/PASS/CLOSED é válido** para A/C/D até auditoria YALA independente. Fatia E (STOP B-CITY-2) e o GATE D9.2-B permanecem corretos.
+
+Detalhe das ações R-1..R-10 e execution logs: `docs/03_execution_log/` (R-2). Esta entrada é append-only e não reescreve as entradas materiais abaixo.
+
 ## B-CITY-2 · COMPOSIÇÃO REGIONAL (Fatia E da campanha) — ⛔ STOP MATERIAL REGISTRADO · NÃO INICIADA (2026-07-18)
 **Decisão de fronteira, docs-only. A campanha contínua (Fatia E) parou a materialização da composição regional B-CITY-2 conforme §9/§13 do próprio prompt.** Nenhum código de composição escrito; nenhuma migration; Bank/Δbank intocados.
 
@@ -12,7 +24,8 @@
 
 **PARA DESTRAVAR (frente própria, novo GO):** (a) promulgar/registrar no cartório do HEAD o GATE B-CITY-2 de COMPOSIÇÃO com Veredito A e as travas C1/C2 (hoje só em memória); (b) emitir o `GO MATERIAL B-CITY-2 · COMPOSIÇÃO REGIONAL DORMENTE` com envelope único (1 commit material + 1 cartório + 1 Yala) e prova completa (guards+≥24 mutations+E2E efêmero); (c) manter dev read-only e sem grant writer. **Nada disso foi feito nesta sessão.** D9.3/D9.4 e a PORTA 01 permanecem fora.
 
-## F-REGIONAL-FUND-RESIDENCE-RESOLUTION · CONVERGÊNCIA TERRITORIAL — ✅ MATERIAL EXECUTADO E PROVADO (Fatia D da campanha, 2026-07-18)
+## F-REGIONAL-FUND-RESIDENCE-RESOLUTION · CONVERGÊNCIA TERRITORIAL — 🟠 MATERIAL IMPLEMENTADO · AGUARDANDO AUDITORIA YALA (Fatia D da campanha, 2026-07-18)
+> **SUPERSEDIDO POR R-1 (2026-07-18):** o `✅ MATERIAL EXECUTADO E PROVADO` original foi rebaixado — YALA §6 = **FAIL** (contract-first violado; `RegionalFundCard` re-colapsava ausência em R$ 0,00; resolver paralelo `resolveUserActorId`). Remediações R-3/R-4/R-5 aplicadas em commits próprios. NÃO SELADA. Texto original preservado abaixo.
 **Liga pessoa → residência canônica → cidade → fundo regional correto; fim do fallback mono-fundo. GO MATERIAL da campanha (Fatia D).** Contrato-first: shared shape → backend → frontend → E2E. Sem migration · sem Bank write · Δbank=0 · N0/N1/N2 intactos · PORTA 01 fechada.
 
 ```text
@@ -35,7 +48,8 @@ GOVERNA: DECISION-0177 (B-CITY-1) + DECISION-0020 (localização soberana) + res
 
 **NÃO FAZ / FRONTEIRAS:** não movimenta dinheiro · não abre PORTA · não provisiona fundo/conta/mapping · não faz backfill de residência · B-CITY-1 (conta Curitiba) e o money-path intactos · nenhuma migration · Δbank=0.
 
-## F-INVOICING-FISCAL-FAILCLOSED · DT-INVOICING-HARDCODED-TAX-RATE — ✅ RESOLVIDA · MATERIAL EXECUTADO E PROVADO (Fatia C da campanha, 2026-07-18)
+## F-INVOICING-FISCAL-FAILCLOSED · DT-INVOICING-HARDCODED-TAX-RATE — 🟠 MATERIAL PARCIAL IMPLEMENTADO · AGUARDANDO AUDITORIA YALA (Fatia C da campanha, 2026-07-18)
+> **SUPERSEDIDO POR R-1 (2026-07-18):** o `✅ RESOLVIDA · MATERIAL EXECUTADO E PROVADO` original foi rebaixado — YALA §5 = **FAIL** (o 5% foi removido, mas o fail-closed 422 era **inalcançável em runtime**: vinha depois de consultar a tabela-fantasma `invoices`, morrendo em 500; guard standalone órfão do runner; autosselo da DT). A DT-INVOICING está **REABERTA**. Remediação R-6 aplicada em commit próprio. NÃO SELADA. Texto original preservado abaixo.
 **Contenção fiscal do invoicing no backend alcançável. GO MATERIAL da campanha contínua (Fatia C).** Elimina a alíquota de 5% hardcoded (`invoice.service.ts:74`) e torna a emissão FAIL-CLOSED. Monotemático: só o service de invoicing + guard standalone. Sem migration · sem Bank · sem frontend · FISCAL-4c/4d/4e byte-intactas.
 
 ```text
@@ -53,7 +67,8 @@ DT:      DT-INVOICING-HARDCODED-TAX-RATE — transicionada 🔴 OPEN → ✅ RES
 
 **NÃO FAZ / FRONTEIRAS:** não cria tabela/módulo fiscal novo para "manter a rota" (proibido) · não integra motor fiscal (frente própria) · não materializa schema de invoices · FISCAL-4c/4d/4e e o money-path **byte-intactos** · Bank intocado · Δbank=0 · N0/N1/N2 intactos · PORTA 01 fechada. O guard novo é **standalone** (fora de `run-regression-guards.mjs`) para preservar o fingerprint do runner que outras frentes verificam.
 
-## F-ACTOR-PAGE-CONSUMING-VIEWER-BINDING · P0 — ✅ MATERIAL EXECUTADO E PROVADO (Fatia A da campanha, 2026-07-18)
+## F-ACTOR-PAGE-CONSUMING-VIEWER-BINDING · P0 — 🟠 MATERIAL IMPLEMENTADO · AGUARDANDO AUDITORIA YALA (Fatia A da campanha, 2026-07-18)
+> **SUPERSEDIDO POR R-1 (2026-07-18):** o `✅ MATERIAL EXECUTADO E PROVADO` original foi rebaixado — YALA §4 = **CONDICIONAL**: material CORRETO (viewer server-side, fallback read-only, `catch→false` removido, fix `actor_id`, caso E2E P), mas a prova E2E 19/19 depende do perfil efêmero **não versionado** (pré-marcação manual da migration N1) — ver R-7 / [[DT-EPHEMERAL-MIGRATION-PROFILE-UNGOVERNED]]. NÃO SELADA. Texto original preservado abaixo.
 **Contenção do P0 da Actor Page no envelope da DECISION-0113 (D1/D4/D5/D8/D9). GO MATERIAL da campanha contínua (Fatia A).** Corrige o vazamento cross-actor via `actionContext.actorId` não-provado no modo `consuming` de `GET /actor-page/:actorId`. Monotemático: só a rota + seu E2E. Sem migration · sem Bank · sem frontend · sem toque em Groups/fiscal.
 
 ```text
@@ -3105,8 +3120,9 @@ GO de Clayton pós-GATE 4c (decisões cravadas: catálogo TENANT-SCOPED; achado 
 **Provas 26/26 em BEGIN..ROLLBACK resíduo 0** (fixtures efêmeras; catálogo 0 rows antes E depois): válido grava+ativa; platform+stream grava; source NULL(23502)/vazio(23514); vigência invertida; regime SIMPLES (grafia curta); rate negativo; forma territorial incompleta E excedente; **city de outro estado (FK composta 23503)**; tax_type inexistente; **regra country para tributo municipal (FK composta — trava nível-da-regra=nível-do-tributo)**; stream em regra de actor (D9.3); duplicata idêntica (23505); ativa imutável+active→draft+DELETE ativa; active→deprecated OK; deprecated congelada/ressurreição/DELETE; draft deletável; tipo: identidade congelada/FK RESTRICT/retired terminal+DELETE; RLS ENABLE+FORCE+1 policy nas 2.
 **Escopo negativo cumprido:** zero cálculo/motor/tax_reserve/applies_to/economic_policy_lines/seed/policy fiscal ativa/admin/rota HTTP/invoicing/NF-e/Bank/ledger/split/orders/checkout/payment_intents; Δbank=0; 4d NÃO aberta. Typecheck 0; suíte 151 GATE OK na MESMA cadeia `&&` do commit; `git diff --check` limpo. Guard completo do catálogo = 4c-3 (constraints nomeadas nasceram guard-friendly: chk_tax_rules_regime/source_nonempty/vigencia/territory_shape/rate_bps, fk_tax_rules_tax_type_scope/state/city). Achado do GATE registrado: [[DT-INVOICING-HARDCODED-TAX-RATE]] (abaixo). Próxima com GO: 4c-2 (vocabulário PLATFORM_REVENUE_STREAMS const+manifest + repository draft→activate + leitura ausente→fiscal_config_missing). **STATUS: ✅ SELADA PELA YALA · SELO COMPLETO (registro pré-selo — SUPERADO pela entrada selada acima).**
 
-## DT-INVOICING-HARDCODED-TAX-RATE — ✅ RESOLVIDA (Fatia C da campanha, 2026-07-18; ver selo no topo do cartório) / FISCAL / MEDIUM — achado do GATE 4c (2026-07-10)
-> **STATUS TRANSICIONADO 🔴 OPEN → ✅ RESOLVIDA em 2026-07-18.** O cálculo `Math.round(subtotalCents * 0.05)` foi ELIMINADO; `createInvoiceFromPayout` é fail-closed com `INVOICE_FISCAL_CONFIG_MISSING` (422), sem fabricar imposto nem simular documento fiscal. Guard standalone `audit-invoicing-no-hardcoded-tax.mjs` prova ausência de alíquota + fail-closed; `audit-fiscal-tax-catalog.mjs` verde (hardcode conhecido ausente + DT não mais OPEN = reconciliado). Detalhe e provas no bloco de selo no TOPO deste cartório (`F-INVOICING-FISCAL-FAILCLOSED`). O texto histórico abaixo permanece como registro do achado original.
+## DT-INVOICING-HARDCODED-TAX-RATE — 🔴 OPEN · PARCIALMENTE REMEDIADA · AGUARDA YALA / FISCAL / MEDIUM — achado do GATE 4c (2026-07-10)
+> **REABERTA POR R-1 (2026-07-18) — a transição para ✅ RESOLVIDA foi REVERTIDA por supersessão.** A YALA §5 (C-3) classificou o fechamento como **autosselo indevido + circular** (o executor mudou o status E o guard `audit-fiscal-tax-catalog.mjs` lê o status da DT — self-pass). Estado real: o literal 5% FOI eliminado, mas (a) o fail-closed 422 era **inalcançável em runtime** (throw depois de consultar a tabela-fantasma `invoices` → 500) — corrigido por R-6; (b) o guard standalone estava **órfão** do runner — tratado por R-6; (c) resíduo `invoice.types.ts` (`taxRate`/`taxesCents`/`taxRegime`) — registrado abaixo. **A DT segue OPEN** até auditoria YALA independente confirmar as três condições. Ver `docs/03_execution_log/` (R-2) e o bloco `F-INVOICING-FISCAL-FAILCLOSED` no topo.
+> **HISTÓRICO (revertido):** ~~STATUS TRANSICIONADO 🔴 OPEN → ✅ RESOLVIDA em 2026-07-18~~ — anulado por R-1; texto do achado original preservado abaixo.
 - **Achado (original, 2026-07-10):** `backend/src/modules/invoicing/invoice.service.ts:74` calculava imposto com ALÍQUOTA HARDCODED — `const taxesCents = Math.round(subtotalCents * 0.05); // 5% simplificado (exemplo)` — e o módulo invoicing ESTÁ MONTADO (`app.builder.ts:592`, protectedScope). Também `invoice.types.ts` carrega `taxRate`/`taxRegime?: string` fora do vocabulário canônico D9.5. Viola D9.6.16 (alíquota nunca hardcoded) e D9.2 (sistema não inventa cálculo — 5% "exemplo" é invenção).
 - **Decisão de Clayton (GO da 4c-1):** NÃO corrigir agora; NÃO tocar invoicing/NF-e nesta fase; registrar como DT/risco. Invoicing é domínio de nota/fiscal-document → **frente/fatia própria** antes de qualquer produção fiscal/nota. O guard da 4c-3 deve ao menos ENXERGAR este risco (anti-alíquota-hardcoded), sem expandir a 4c para consertar invoicing sem GO.
 - **Contenção presente:** sistema virgem (zero invoice real emitida); nenhum caminho de DINHEIRO depende do valor (invoice ≠ ledger; Bank intocado). Risco é de VERDADE FISCAL FALSA se uma invoice for emitida antes da frente própria.
