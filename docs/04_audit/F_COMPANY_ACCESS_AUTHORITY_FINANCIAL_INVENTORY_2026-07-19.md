@@ -43,3 +43,45 @@ As chaves de MOVIMENTO/CAPTURA/PAGAMENTO/LIQUIDAÇÃO/SPLIT vivas são exatament
 `marketplace_execute_payouts`, `marketplace_manage_splits` (+ leitura consolidada
 `financial:view_all_ledger`). Todas sob HOLD terminal após 0189B. Nenhuma operação financeira viva
 conhecida fica fora da matriz.
+
+---
+
+# RATCHET 0189C — INVENTÁRIO CORRIGIDO (writers financeiros + projeções)
+
+HEAD `b05a1bd49`. Correção do overclaim: `financial_terms:confirm` CRIA splits; reporting/risk
+projetam agregados; publication-engine é writer-irmão de reactions; o runner 197 NÃO incluía
+`red-gates-baseline` (financial-ssot 592>591 por script infrator em backend/src).
+
+## Matriz: writers de escrita financeira
+
+| Caller | Rota/job | Chave | Tabela escrita | Recurso | HOLD | Resposta sob PORTA 01 (após 0189C) |
+|---|---|---|---|---|---|---|
+| `bank-transaction.service` | núcleo Bank | — | bank_splits/bank_transactions/bank_ledger | — | núcleo | pipeline canônico (fora do escopo do HOLD de membros) |
+| `confirmFinancialTerms` (`service-order.service:1884/1903`) | services (financial_terms:confirm) | `financial_terms:confirm` | bank_splits | service order | **HOLD (D1)+barreira service (D2)** | `PORTA_01_CLOSED`; 0 split; sem parcial |
+| `payment-split.service:87` (`paymentSplitRepository.createSplit`) | marketplace | — | payment_splits (GHOST/to_regclass NULL) | — | Proxy MORTO ('migrated to Bank') | rejeita — contido, sem caller de rota vivo |
+| `settlement.routes` settle/credit/debit | marketplace | — | — | — | 403 hard (sink morto) | inalterado |
+| `payout.routes` batches/exec/fail | payout | financial:execute_payout (HOLD) | — | — | HOLD + 403/503 | GET /payouts/orders 503 PORTA_01_CLOSED |
+
+## Matriz: writers da tabela `reactions`
+
+| Caller | Rota | Governança | Estado (após 0189C) |
+|---|---|---|---|
+| `social-2.0.routes` toggleReaction/createComment | POST /social/posts/:id/reactions|comments | `canActAs('interact_feed')` + post server-side | CANÔNICO (mantido) |
+| `publication-engine.routes` upsertReaction/removeReaction | POST\|DELETE /publication/:entityType/:entityId/reactions | POLIMÓRFICA sem autoridade | **410 GENERIC_REACTIONS_NOT_GOVERNED (D4)** antes de qualquer efeito |
+
+## Matriz: projeções financeiras (readers de agregados)
+
+| Reader | Chama | Projeta | Estado (após 0189C) |
+|---|---|---|---|
+| `reporting.service` | `payoutService.listOrders` + `invoiceService.listInvoices` | valor pago, invoices count/total | **redação/503 (D5)** — sem valores; `financialDataStatus:'PORTA_01_CLOSED'` |
+| `risk-dashboard.service` | `payoutService.listOrders` (×N) | payouts bloqueados/falhos, indicadores | **redação/503 (D5)** — sem agregados financeiros |
+| `payout.routes` | (era listOrders) | — | 503 PORTA_01_CLOSED (0189B) |
+| `invoice.routes` | listInvoices por-parte | por parte autorizada | porta de ativação fechada (0189B) |
+
+## receive_funds
+Sem caller runtime (grep vazio fora de registry/tests). D8: guard impede novo caller sem decisão.
+
+## financial-ssot
+Baseline 591 (DECISION-0158). O script `validate-yala-final-overview-data.ts` em `backend/src/scripts`
+subiu para 592 (INSERT cru em bank_*). Etapa B move a fixture para suporte de teste fora de
+`backend/src`/build → volta a 591. Baseline NUNCA sobe; sem allowlist.
