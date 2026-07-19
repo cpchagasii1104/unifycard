@@ -3,12 +3,23 @@
 // 🔴 BLINDAGEM: Base estrutural, NÃO CRM/ERP completo
 // 🔴 BLINDAGEM: Empresa NÃO pode editar agenda pessoal do funcionário
 // 🔴 BLINDAGEM: Empresa apenas associa, agenda e alerta
+//
+// 🔒 DECISION-0189 (F2 — DUAL-WRITE TRANSITÓRIA): enquanto o cutover F4 não encerra as
+// delegações de membership, TODO grant/re-grant/revoke de delegação empresarial escreve
+// TAMBÉM a casa jurídica canônica (company_member_relationships) + evento append-only
+// (company_member_events) NA MESMA TRANSAÇÃO (client único — repositories recebem o client
+// do caller; nenhuma transação interna independente). Falha em qualquer lado → ROLLBACK.
+// A AUTHORITY continua lendo a fonte ANTIGA (actor_delegations) até F3/F4.
+// DELETE físico de membership MORREU nesta fatia (removeMember = revogação LÓGICA,
+// member_status='revoked' + grants zerados + snapshot preservado no evento).
 
 import { companyMembersRepository } from './company-members.repository';
+import { companyMemberRelationshipsRepository } from './company-member-relationships.repository';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { actorRegistryService } from '../actor-registry/actor-registry.service';
 import { actorDelegationRepository, type DelegationRelationshipType } from '../actor-delegation/actor-delegation.repository';
 import { pilotEventsService } from '../pilot/pilot-events.service';
+import { getClientWithTenant, runQueryWithTenant } from '@core/database/pool';
 import { BadRequestError, NotFoundError } from '@core/errors';
 import type {
   CompanyMember,
@@ -69,10 +80,13 @@ class CompanyMembersService {
   }
 
   /**
-   * Cria delegação para membro ativo.
+   * Cria delegação para membro ativo + DUAL-WRITE da casa jurídica (DECISION-0189 F2).
    * R2.2 + FIX RN2/R2.2: grava relationship_type + granted_by_actor_id (o concedente). O vínculo jurídico
    * vem de `explicitRelationshipType` quando o gestor o DECLARA (fonte governada — alcança os 7 valores,
    * inclui owner); só cai na derivação do role como FALLBACK de compat (que só alcançava 3 valores).
+   *
+   * ATÔMICO: delegação (fonte antiga) + vínculo jurídico + evento nascem na MESMA transação
+   * (client único deste método; repositórios NÃO abrem transação própria neste caminho).
    */
   private async createDelegationForMember(
     tenantId: string,
@@ -107,15 +121,55 @@ class CompanyMembersService {
         ? explicitRelationshipType
         : this.getRelationshipTypeForRole(member.role);
 
-    // Criar delegação governada (R2.2): vínculo jurídico + autoria do concedente.
-    const delegation = await actorDelegationRepository.create(tenantId, {
-      userActorId: member.actorId,
-      institutionalActorId: companyActor.actor_id,
-      scopes,
-      isTransitive: false,
-      relationshipType,
-      grantedByActorId: grantedByActorId ?? null,
-    });
+    // 🔒 DUAL-WRITE ATÔMICA (DECISION-0189 F2): delegação governada (R2.2) + casa jurídica +
+    // evento na MESMA transação. Falha em qualquer um → ROLLBACK de tudo.
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+
+      await actorDelegationRepository.create(
+        tenantId,
+        {
+          userActorId: member.actorId,
+          institutionalActorId: companyActor.actor_id,
+          scopes,
+          isTransitive: false,
+          relationshipType,
+          grantedByActorId: grantedByActorId ?? null,
+        },
+        client
+      );
+
+      const rel = await companyMemberRelationshipsRepository.openRelationshipOnClient(client, {
+        tenantId,
+        companyId: member.companyId,
+        companyUserId: member.memberId,
+        relationshipType,
+        source: 'declared',
+        declaredByActorId: grantedByActorId ?? null,
+      });
+
+      await companyMemberRelationshipsRepository.appendMemberEventOnClient(client, {
+        tenantId,
+        companyId: member.companyId,
+        companyUserId: member.memberId,
+        eventType: 'relationship_declared',
+        details: {
+          relationship_id: rel.relationshipId,
+          relationship_type: relationshipType,
+          replaced_relationship_id: rel.replacedId,
+          via: 'company-members.createDelegationForMember (dual-write F2; fonte de authority ainda = actor_delegations)',
+        },
+        actedByActorId: grantedByActorId ?? null,
+      });
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => { /* noop */ });
+      throw err;
+    } finally {
+      client.release();
+    }
 
     // SPRINT 13: Observar primeira delegação (assíncrono, não bloqueia)
     pilotEventsService.recordEvent(tenantId, {
@@ -134,6 +188,9 @@ class CompanyMembersService {
 
   /**
    * Obtém scopes baseado no role
+   * ⚠️ CONDENADO (DECISION-0189 §12): wildcard '*' e permissões funcionais em scopes morrem
+   * no cutover F4 (destino explícito = subject grants can_publish_feed/can_create_events).
+   * Mantido inalterado nesta fatia (authority ainda lê a fonte antiga).
    */
   private getScopesForRole(role: string): string[] {
     switch (role) {
@@ -221,8 +278,10 @@ class CompanyMembersService {
   }
 
   /**
-   * Remove membro (revoga delegação)
-   * CONTINUOUS PRODUCTION: Revoga delegação imediatamente, mas mantém histórico
+   * Revoga membro (DECISION-0189: revogação LÓGICA — DELETE físico MORREU).
+   * ATÔMICO: revoga delegações da relação + member_status='revoked' + grants ZERADOS
+   * (snapshot anterior preservado no evento 'revoked') + vínculo jurídico encerrado —
+   * tudo na MESMA transação.
    */
   async removeMember(
     tenantId: string,
@@ -235,25 +294,75 @@ class CompanyMembersService {
       throw new NotFoundError('Membro não encontrado');
     }
 
-    // CONTINUOUS PRODUCTION: Revogar delegações relacionadas
     const actorRepository = socialPortsRegistry.getActorRepository();
     const companyActor = await actorRepository.findByCompanyId(tenantId, existing.companyId);
-    if (companyActor) {
-      const delegations = await actorDelegationRepository.findActiveByUserActor(
-        tenantId,
-        existing.actorId
-      );
-      
-      for (const delegation of delegations) {
-        if (delegation.institutionalActorId === companyActor.actor_id) {
-          // R2.2: `userId` = actor que executa a remoção (o revogador — autoria da revogação, §4.9.9).
-          await actorDelegationRepository.revoke(tenantId, delegation.delegationId, userId);
+
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+
+      // 1. Revogar delegações vivas da relação (fonte antiga — dual-write transitória)
+      if (companyActor) {
+        const delegations = await actorDelegationRepository.findActiveByUserActor(
+          tenantId,
+          existing.actorId
+        );
+        for (const delegation of delegations) {
+          if (delegation.institutionalActorId === companyActor.actor_id) {
+            // R2.2: `userId` = actor que executa a remoção (o revogador — autoria da revogação, §4.9.9).
+            await actorDelegationRepository.revoke(tenantId, delegation.delegationId, userId, client);
+          }
         }
       }
-    }
 
-    // 🔴 BLINDAGEM: Remover membro (mantém histórico)
-    await companyMembersRepository.delete(tenantId, memberId);
+      // 2. Snapshot dos grants ANTES de zerar (preservação de histórico — R17)
+      const snapRes = await client.query(
+        `SELECT role, member_status, can_manage_company, can_manage_financial, can_manage_employees,
+                can_view_reports, can_manage_services, can_view_financial, can_manage_members,
+                can_publish_feed, can_create_events
+           FROM company_users WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
+        [tenantId, memberId]
+      );
+      const snapshot = snapRes.rows[0] ?? null;
+
+      // 3. Revogação lógica: status terminal + grants ZERADOS (is_active sincronizado até F4)
+      await client.query(
+        `UPDATE company_users
+            SET member_status = 'revoked', is_active = false,
+                can_manage_company = false, can_manage_financial = false, can_manage_employees = false,
+                can_view_reports = false, can_manage_services = false,
+                can_view_financial = false, can_manage_members = false,
+                can_publish_feed = false, can_create_events = false,
+                updated_at = now()
+          WHERE tenant_id = $1 AND id = $2`,
+        [tenantId, memberId]
+      );
+
+      // 4. Encerrar vínculo jurídico vigente (histórico preservado — nunca DELETE)
+      await client.query(
+        `UPDATE company_member_relationships SET valid_to = now()
+          WHERE tenant_id = $1 AND company_user_id = $2 AND valid_to IS NULL`,
+        [tenantId, memberId]
+      );
+
+      // 5. Evento append-only com snapshot anterior
+      await companyMemberRelationshipsRepository.appendMemberEventOnClient(client, {
+        tenantId,
+        companyId: existing.companyId,
+        companyUserId: memberId,
+        eventType: 'revoked',
+        snapshot: snapshot ? { before: snapshot } : null,
+        details: { via: 'company-members.removeMember (revogação lógica DECISION-0189; DELETE físico condenado)' },
+        actedByActorId: userId,
+      });
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => { /* noop */ });
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /**
@@ -281,17 +390,52 @@ class CompanyMembersService {
   /**
    * Suspende membro (muda status para 'suspended')
    * 🔴 BLINDAGEM: Suspensão é apenas mudança de status, não edita agenda
+   * DECISION-0189 R17: suspensão CONGELA grants (colunas intactas); status nega autoridade.
    */
   async suspendMember(
     tenantId: string,
     memberId: string,
     userId: string
   ): Promise<CompanyMember> {
-    return await this.updateMember(tenantId, memberId, userId, {
+    const member = await this.updateMember(tenantId, memberId, userId, {
       status: CompanyMemberStatus.SUSPENDED,
     });
+    // Evento append-only (fora de tx crítica — status já persistido pelo update acima;
+    // trilha completa vira comando governado único na F4)
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      await companyMemberRelationshipsRepository.appendMemberEventOnClient(client, {
+        tenantId,
+        companyId: member.companyId,
+        companyUserId: memberId,
+        eventType: 'suspended',
+        details: { via: 'company-members.suspendMember' },
+        actedByActorId: userId,
+      });
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => { /* noop */ });
+      throw err;
+    } finally {
+      client.release();
+    }
+    return member;
+  }
+
+  /**
+   * Leitura pura: membro existe e está ativo? (usado por superfícies de projeção)
+   */
+  async isActiveMember(tenantId: string, companyId: string, globalUserId: string): Promise<boolean> {
+    const row = await runQueryWithTenant<{ ok: boolean }>(
+      tenantId,
+      `SELECT true AS ok FROM company_users
+        WHERE tenant_id = $1 AND company_id = $2 AND global_user_id = $3::uuid
+          AND member_status = 'active' LIMIT 1`,
+      [tenantId, companyId, globalUserId]
+    );
+    return row?.ok === true;
   }
 }
 
 export const companyMembersService = new CompanyMembersService();
-

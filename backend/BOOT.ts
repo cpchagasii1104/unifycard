@@ -2,10 +2,14 @@
 import { loadBackendEnv } from './src/core/db/load-backend-env';
 import { isFinancialWorkerEnabled } from './src/workers/financial-worker-gate';
 import { assertSensitivePermissionsHaveCapabilityMapping } from './src/core/authorization/permission-keys';
+import { assertCompanyPolicyRegistryExhaustive } from './src/core/authorization/company-policy-registry';
 import { validateEnv } from './src/core/config/env-validation';
 
 loadBackendEnv();
 assertSensitivePermissionsHaveCapabilityMapping();
+// DECISION-0189 R3 (boot fail-closed): toda PermissionKey precisa de classificação explícita
+// no COMPANY_POLICY_REGISTRY — chave sem handler/classificação NÃO cai em ownership: derruba o boot.
+assertCompanyPolicyRegistryExhaustive();
 
 // ─────────────────────────────────────────────────────────────
 // VALIDAÇÃO DE VARIÁVEIS DE AMBIENTE (ANTES DE QUALQUER COISA)
@@ -105,6 +109,19 @@ export async function startServer(): Promise<void> {
     await runDbRoleRlsPreflight();
   } catch (err) {
     console.error('❌ [BOOT] ERRO FATAL: DB role/RLS pre-flight fail-closed (money runtime inseguro):', err);
+    throw err;
+  }
+
+  // ── CATÁLOGO DE PERMISSÕES EMPRESARIAIS (DECISION-0189 R16) — FAIL-CLOSED ───
+  // O código (company-policy-registry) é soberano; o banco é materialização versionada.
+  // Digest divergente/ausente = chave mudando de significado silenciosamente → boot FALHA.
+  try {
+    const { pool } = await import('./src/core/database/pool');
+    const { assertCompanyPermissionCatalogInSync } = await import('./src/core/authorization/company-policy-registry');
+    await assertCompanyPermissionCatalogInSync(pool);
+    console.log('✅ [BOOT] Catálogo de permissões empresariais em sincronia (digest OK)');
+  } catch (err) {
+    console.error('❌ [BOOT] ERRO FATAL: catálogo de permissões empresariais divergente do código (DECISION-0189 R16):', err);
     throw err;
   }
 

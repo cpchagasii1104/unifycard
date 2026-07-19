@@ -275,21 +275,9 @@ class CompanyMembersRepository {
     return updated;
   }
 
-  async delete(tenantId: string, memberId: string): Promise<void> {
-    const result = await runQueryWithTenant<{ id: string }>(
-      tenantId,
-      `
-        DELETE FROM company_users
-        WHERE tenant_id = $1 AND id = $2
-        RETURNING id
-      `,
-      [tenantId, memberId]
-    );
-
-    if (!result) {
-      throw new NotFoundError('Company member not found');
-    }
-  }
+  // DECISION-0189 (§12 condenações): DELETE físico de membership MORREU. Revogação é LÓGICA
+  // (member_status='revoked' + grants zerados + evento com snapshot) — ver
+  // companyMembersService.removeMember. Método delete() removido nesta fatia (zero callers).
 }
 
 export const companyMembersRepository = new CompanyMembersRepository();

@@ -22,8 +22,9 @@ export enum CompanyMemberRole {
  */
 export enum CompanyMemberStatus {
   ACTIVE = 'active',      // Ativo
-  INVITED = 'invited',    // Convidado (aguardando aceite)
-  SUSPENDED = 'suspended', // Suspenso
+  INVITED = 'invited',    // Convidado (LEGADO — DECISION-0189 R17: convite passa a viver em company_access_invitations; estado morre na F4)
+  SUSPENDED = 'suspended', // Suspenso (congela grants; status nega autoridade)
+  REVOKED = 'revoked',    // Revogado (DECISION-0189: revogação LÓGICA — DELETE físico condenado; grants zerados; histórico preservado em company_member_events)
 }
 
 /**

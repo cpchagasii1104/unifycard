@@ -4,9 +4,9 @@
 // ⚠️ DOCUMENTO CONSTITUCIONAL - NÃO MODIFICAR SEM ATUALIZAR O MAPA
 //
 // Fonte de verdade: MAPA_CANONICO_PERMISSIONS_v1.md
-// Versão do mapa: v1.6
+// Versão do mapa: v1.7
 // Data do mapa: 12 de Janeiro de 2026 (v1.0), XX de Janeiro de 2026 (v1.1), XX de Janeiro de 2026 (v1.2), XX de Janeiro de 2026 (v1.3), XX de Janeiro de 2026 (v1.4), XX de Janeiro de 2026 (v1.5)
-// Status: v1.6 (canonical_products:create)
+// Status: v1.7 (DECISION-0189 — vocabulário de governança empresarial + errata create_events)
 //
 // REGRA ABSOLUTA:
 // - Este enum DEVE conter EXATAMENTE as permissions do mapa
@@ -15,11 +15,11 @@
 // - Qualquer divergência é erro arquitetural estrutural
 
 /**
- * Permission Keys v1.6
- * 
- * Derivado de MAPA_CANONICO_PERMISSIONS_v1.md
- * Total: 62 permissions
- * 
+ * Permission Keys v1.7
+ *
+ * Derivado de MAPA_CANONICO_PERMISSIONS_v1.md + DECISION-0189 (governança empresarial)
+ * Total: 66 permissions
+ *
  * Distribuição por domínio:
  * - feed: 2 permissions
  * - bank: 13 permissions (3 originais + 10 novas: financial_terms, split, financial, calendar)
@@ -27,7 +27,7 @@
  * - groups: 3 permissions
  * - services: 17 permissions (2 originais + 15 novas: service_order, rfq, quote, bundle)
  * - rides: 3 permissions
- * - companies: 2 permissions
+ * - companies: 5 permissions (delegate + 4 novas DECISION-0189: company:manage_governance, company:manage_employees, company:manage_services, company:view_reports)
  * - votes: 2 permissions
  * - institutional: 5 permissions (1 original + 4 novas: admin:view_regional_fund, admin:view_consolidated_balance, admin:view_fund_reports, admin:view_audit_logs)
  * - marketplace: 14 permissions (10 originais + 4 novas: MARKETPLACE_STORE_CREATE, MARKETPLACE_STORE_VIEW, MY_ORDERS_VIEW, canonical_products:create)
@@ -95,7 +95,14 @@ export type PermissionKey =
   
   // COMPANIES (Companies)
   | 'delegate'
-  
+  // DECISION-0189 v1.7 — vocabulário de governança empresarial. Tríade completa (chave ×
+  // actor capability × subject grant em company_users) vive no COMPANY_POLICY_REGISTRY
+  // (company-policy-registry.ts); aqui só o vocabulário. Nenhuma delas cai em ownership.
+  | 'company:manage_governance'
+  | 'company:manage_employees'
+  | 'company:manage_services'
+  | 'company:view_reports'
+
   // VOTES (Votes)
   | 'create_vote'
   | 'cast_vote'
@@ -168,7 +175,10 @@ export const PERMISSION_CAPABILITIES: Record<PermissionKey, string | null> = {
   'calendar:unblock': null, // ownership suficiente
   
   // EVENTS
-  create_events: 'can_publish_feed',
+  // DECISION-0189 (errata R10): create_events exige a capability PRÓPRIA can_create_events
+  // (antes: can_publish_feed — aliasing). Todos os registry-rows de company em dev carregam
+  // can_create_events=true (default de tipo desde sempre) — errata sem regressão material.
+  create_events: 'can_create_events',
   manage_events: null, // ownership suficiente
   manage_attendees: null, // ownership suficiente
   
@@ -207,6 +217,12 @@ export const PERMISSION_CAPABILITIES: Record<PermissionKey, string | null> = {
   
   // COMPANIES
   delegate: 'can_delegate',
+  // DECISION-0189 — governança empresarial: a autoridade vem do SUBJECT GRANT em company_users
+  // (resolvido pelo COMPANY_POLICY_REGISTRY), não de capability de registry (null aqui).
+  'company:manage_governance': null,
+  'company:manage_employees': null,
+  'company:manage_services': null,
+  'company:view_reports': null,
   
   // VOTES
   create_vote: null, // ownership de grupo/evento

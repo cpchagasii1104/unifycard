@@ -530,12 +530,14 @@ class CompaniesService {
     };
 
     const { softBlockService } = await import('@core/authorization/soft-block.service');
+    // DECISION-0189 §2.4: o INSERT materializa o SET_V1 (conjunto fechado, todas true) —
+    // validateFlags valida os valores REAIS gravados, não os defaults derivados de role.
     softBlockService.validateFlags(
       {
-        can_manage_company: defaultPermissions.canManageCompany,
-        can_manage_financial: defaultPermissions.canManageFinancial,
-        can_manage_employees: defaultPermissions.canManageEmployees,
-        can_manage_services: defaultPermissions.canManageServices,
+        can_manage_company: true,
+        can_manage_financial: true,
+        can_manage_employees: true,
+        can_manage_services: true,
       },
       {
         tenantId: finalTenantId,
@@ -599,15 +601,24 @@ class CompaniesService {
       );
       const newCompanyId = companyRes.rows[0].company_id as string;
 
+      // 🔒 DECISION-0189 §2.4 — GESTOR_INICIAL_PERMISSION_SET_V1: o criador nasce com o
+      // CONJUNTO FECHADO materializado SERVER-SIDE em chaves canônicas (nunca do body):
+      // company:manage_governance→can_manage_company · manage_members→can_manage_members ·
+      // manage_financial→can_manage_financial · view_financial→can_view_financial ·
+      // publish_feed→can_publish_feed · create_events→can_create_events ·
+      // company:manage_employees/services/view_reports→can_manage_employees/services/can_view_reports.
+      // can_view_consolidated_inventory permanece FALSE (DECISION-0116 adendo preservado).
+      // Versão do conjunto gravada no evento 'bootstrap' abaixo (mesma transação).
       const userRes = await client.query(
         `
         INSERT INTO company_users (
           tenant_id, company_id, global_user_id, role, role_description,
           can_manage_company, can_manage_financial, can_manage_employees,
           can_view_reports, can_manage_services, can_view_consolidated_inventory,
+          can_view_financial, can_manage_members, can_publish_feed, can_create_events,
           is_active, is_primary, metadata
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING id AS company_user_id
         `,
         [
@@ -616,17 +627,51 @@ class CompaniesService {
           globalUserId,
           input.role,
           input.roleDescription || null,
-          defaultPermissions.canManageCompany,
-          defaultPermissions.canManageFinancial,
-          defaultPermissions.canManageEmployees,
-          defaultPermissions.canViewReports,
-          defaultPermissions.canManageServices,
+          true, // SET_V1: company:manage_governance (era defaultPermissions.canManageCompany — já sempre true server-side)
+          true, // SET_V1: manage_financial
+          true, // SET_V1: company:manage_employees
+          true, // SET_V1: company:view_reports
+          true, // SET_V1: company:manage_services
           defaultPermissions.canViewConsolidatedInventory,
+          true, // SET_V1: view_financial
+          true, // SET_V1: manage_members
+          true, // SET_V1: publish_feed (R9-B: publicar NÃO é automático de membro — gestor recebe grant)
+          true, // SET_V1: create_events
           true,
           input.isPrimary ?? false,
           JSON.stringify({}),
         ]
       );
+      const newCompanyUserId = userRes.rows[0].company_user_id as string;
+
+      // Casa jurídica + evento 'bootstrap' na MESMA transação do nascimento (DECISION-0189 §3).
+      // Vínculo do criador: NÃO inventado do role (owner não mapeia no vocabulário) — nasce NULL
+      // (não classificado) e o gestor declara depois via comando governado.
+      const { companyMemberRelationshipsRepository } = await import('./company-member-relationships.repository');
+      await companyMemberRelationshipsRepository.openRelationshipOnClient(client, {
+        tenantId: finalTenantId,
+        companyId: newCompanyId,
+        companyUserId: newCompanyUserId,
+        relationshipType: null,
+        source: 'bootstrap',
+        declaredByActorId: creatorActor.actor_id,
+      });
+      await companyMemberRelationshipsRepository.appendMemberEventOnClient(client, {
+        tenantId: finalTenantId,
+        companyId: newCompanyId,
+        companyUserId: newCompanyUserId,
+        eventType: 'bootstrap',
+        details: {
+          permission_set_version: 'V1',
+          set: [
+            'company:manage_governance', 'manage_members', 'manage_financial', 'view_financial',
+            'publish_feed', 'create_events', 'company:manage_employees', 'company:manage_services',
+            'company:view_reports',
+          ],
+          role_label: input.role,
+        },
+        actedByActorId: creatorActor.actor_id,
+      });
 
       // Page-actor OBRIGATÓRIO (empresa não existe sem actor §4.8.2), na MESMA transação, via
       // writer soberano. Nasce pending/não-operacional (DECISION-0075 §9 / Opção B): o page-actor

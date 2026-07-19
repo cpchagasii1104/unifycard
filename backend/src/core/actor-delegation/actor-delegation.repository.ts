@@ -12,6 +12,7 @@
 // repositório é a camada de PERSISTÊNCIA governada, não de autorização. Escopo financeiro FORA (D4).
 
 import { runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
+import type { TxQueryClient } from '@core/social/ports';
 
 /** Vocabulário governado de vínculo jurídico (espelha o CHECK da migration 20260706120000). */
 export const DELEGATION_RELATIONSHIP_TYPES = [
@@ -99,7 +100,8 @@ class ActorDelegationRepository {
    */
   async create(
     tenantId: string,
-    input: CreateActorDelegationInput
+    input: CreateActorDelegationInput,
+    existingClient?: TxQueryClient
   ): Promise<ActorDelegation> {
     // 🔀 SOFT-BLOCK (Fase 3): validar delegação antes de qualquer escrita.
     const { softBlockService } = await import('@core/authorization/soft-block.service');
@@ -113,19 +115,44 @@ class ActorDelegationRepository {
       throw Object.assign(new Error(`relationship_type inválido: ${relationshipType}`), { statusCode: 400 });
     }
 
+    // 🔒 DECISION-0189 (F2, remediação B5): com `existingClient`, TODA a escrita roda na
+    // transação do CALLER (dono único da tx — dual-write membership+delegação+casa jurídica
+    // atômica). Sem client, caminho legado byte-idêntico (BEGIN/COMMIT próprios).
+    if (existingClient) {
+      return this.createOnClient(tenantId, input, relationshipType, existingClient);
+    }
+
     const client = await getClientWithTenant(tenantId);
     try {
       await client.query('BEGIN');
+      const row = await this.createOnClient(tenantId, input, relationshipType, client);
+      await client.query('COMMIT');
+      return row;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => { /* noop */ });
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 
+  /** Corpo transacional de create — SEM BEGIN/COMMIT (o caller é o dono da transação). */
+  private async createOnClient(
+    tenantId: string,
+    input: CreateActorDelegationInput,
+    relationshipType: DelegationRelationshipType | null,
+    client: TxQueryClient
+  ): Promise<ActorDelegation> {
+    {
       // 1. Revogar ativas anteriores do mesmo par — emitindo evento 'revoked' de cada (trilha completa).
-      const revoked = await client.query<{ delegation_id: string; relationship_type: string | null; scopes_json: any }>(
+      const revoked = await client.query(
         `UPDATE actor_delegations
            SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
          WHERE tenant_id = $1 AND user_actor_id = $2 AND institutional_actor_id = $3 AND status = 'active'
          RETURNING delegation_id, relationship_type, scopes_json`,
         [tenantId, input.userActorId, input.institutionalActorId]
       );
-      for (const r of revoked.rows) {
+      for (const r of revoked.rows as Array<{ delegation_id: string; relationship_type: string | null; scopes_json: any }>) {
         await client.query(
           `INSERT INTO actor_delegation_events (tenant_id, delegation_id, event_type, actor_id, relationship_type, scopes_json, reason)
            VALUES ($1, $2, 'revoked', $3, $4, $5, 'superseded_by_new_grant')`,
@@ -134,7 +161,7 @@ class ActorDelegationRepository {
       }
 
       // 2. INSERT da nova delegação com campos governados.
-      const inserted = await client.query<DelegationRow>(
+      const inserted = await client.query(
         `INSERT INTO actor_delegations (
            tenant_id, user_actor_id, institutional_actor_id,
            scopes_json, is_transitive, expires_at, status,
@@ -154,7 +181,7 @@ class ActorDelegationRepository {
           input.previousLinkId ?? null,
         ]
       );
-      const row = inserted.rows[0];
+      const row = inserted.rows[0] as DelegationRow;
 
       // 3. INSERT do evento 'granted' (snapshot no momento do grant).
       await client.query(
@@ -163,13 +190,7 @@ class ActorDelegationRepository {
         [tenantId, row.delegation_id, input.grantedByActorId ?? null, relationshipType, JSON.stringify(input.scopes)]
       );
 
-      await client.query('COMMIT');
       return mapRow(row);
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => { /* noop */ });
-      throw err;
-    } finally {
-      client.release();
     }
   }
 
@@ -199,28 +220,21 @@ class ActorDelegationRepository {
   async revoke(
     tenantId: string,
     delegationId: string,
-    revokedByActorId?: string | null
+    revokedByActorId?: string | null,
+    existingClient?: TxQueryClient
   ): Promise<boolean> {
+    // 🔒 DECISION-0189 (F2, remediação B5): com `existingClient`, roda na tx do caller.
+    if (existingClient) {
+      return this.revokeOnClient(tenantId, delegationId, revokedByActorId ?? null, existingClient);
+    }
     const client = await getClientWithTenant(tenantId);
     try {
       await client.query('BEGIN');
-      const result = await client.query<{ delegation_id: string; relationship_type: string | null; scopes_json: any }>(
-        `UPDATE actor_delegations
-           SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
-         WHERE tenant_id = $1 AND delegation_id = $2 AND status = 'active'
-         RETURNING delegation_id, relationship_type, scopes_json`,
-        [tenantId, delegationId]
-      );
-      if (result.rows.length === 0) {
+      const ok = await this.revokeOnClient(tenantId, delegationId, revokedByActorId ?? null, client);
+      if (!ok) {
         await client.query('ROLLBACK');
         return false;
       }
-      const r = result.rows[0];
-      await client.query(
-        `INSERT INTO actor_delegation_events (tenant_id, delegation_id, event_type, actor_id, relationship_type, scopes_json)
-         VALUES ($1, $2, 'revoked', $3, $4, $5)`,
-        [tenantId, delegationId, revokedByActorId ?? null, r.relationship_type, JSON.stringify(r.scopes_json ?? [])]
-      );
       await client.query('COMMIT');
       return true;
     } catch (err) {
@@ -229,6 +243,32 @@ class ActorDelegationRepository {
     } finally {
       client.release();
     }
+  }
+
+  /** Corpo transacional de revoke — SEM BEGIN/COMMIT (caller dono da transação). */
+  private async revokeOnClient(
+    tenantId: string,
+    delegationId: string,
+    revokedByActorId: string | null,
+    client: TxQueryClient
+  ): Promise<boolean> {
+    const result = await client.query(
+      `UPDATE actor_delegations
+         SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+       WHERE tenant_id = $1 AND delegation_id = $2 AND status = 'active'
+       RETURNING delegation_id, relationship_type, scopes_json`,
+      [tenantId, delegationId]
+    );
+    if (result.rows.length === 0) {
+      return false;
+    }
+    const r = result.rows[0] as { delegation_id: string; relationship_type: string | null; scopes_json: any };
+    await client.query(
+      `INSERT INTO actor_delegation_events (tenant_id, delegation_id, event_type, actor_id, relationship_type, scopes_json)
+       VALUES ($1, $2, 'revoked', $3, $4, $5)`,
+      [tenantId, delegationId, revokedByActorId ?? null, r.relationship_type, JSON.stringify(r.scopes_json ?? [])]
+    );
+    return true;
   }
 
   /**
