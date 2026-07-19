@@ -18,7 +18,7 @@
  * Permission Keys v1.7
  *
  * Derivado de MAPA_CANONICO_PERMISSIONS_v1.md + DECISION-0189 (governança empresarial)
- * Total: 66 permissions
+ * Total: 80 permissions (contagem REAL do union — o '62' histórico estava stale; auditado na F6 da DECISION-0189)
  *
  * Distribuição por domínio:
  * - feed: 2 permissions

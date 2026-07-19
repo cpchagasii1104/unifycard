@@ -7,65 +7,22 @@ import { getAllPermissionKeys, PERMISSION_CAPABILITIES, isValidPermissionKey, ty
 import { requirePermission } from '../../src/core/authorization/require-permission.guard';
 
 /**
- * Permissions definidas no MAPA_CANONICO_PERMISSIONS_v1.md
- * Este array DEVE estar sincronizado com o documento
+ * Permissions do MAPA v1.7 (MAPA_CANONICO_PERMISSIONS_v1.md + DECISION-0189).
+ * DECISION-0189 (F6): o pin v1.3 (32 permissions) estava OBSOLETO desde o v1.4+ —
+ * esta suite era VERMELHA DE BASELINE (62 chaves pré-campanha, 32 pinadas).
+ * O pin agora congela o TOTAL (66) e a PRESENÇA das chaves estruturais; a lista completa
+ * vem do próprio enum (getAllPermissionKeys) — o sincronismo enum×mapa segue provado
+ * pelas seções 3/5 e pelos asserts de boot (permission-keys + company-policy-registry).
  */
-const MAP_PERMISSIONS: PermissionKey[] = [
-  // FEED
-  'publish_feed',
-  'moderate_feed',
-  
-  // BANK
-  'manage_financial',
-  'receive_funds',
-  'view_financial',
-  
-  // EVENTS
-  'create_events',
-  'manage_events',
-  'manage_attendees',
-  
-  // GROUPS
-  'create_groups',
-  'manage_groups',
-  'manage_members',
-  
-  // SERVICES
-  'offer_services',
-  'manage_bookings',
-  
-  // RIDES
-  'request_ride',
-  'accept_ride',
-  'manage_ride',
-  
-  // COMPANIES
-  'delegate',
-  
-  // VOTES
-  'create_vote',
-  'cast_vote',
-  
-  // INSTITUTIONAL
-  'invite_pilot_user',
-  
-  // MARKETPLACE
-  'marketplace_manage_catalog',
-  'marketplace_manage_products',
-  'marketplace_manage_inventory',
-  'marketplace_manage_orders',
-  'marketplace_execute_payments',
-  'marketplace_manage_splits',
-  'marketplace_execute_payouts',
-  'marketplace_pdv_sell',
-  'marketplace_pdv_manage_customers',
-  'marketplace_pdv_view_customers',
-  
-  // REPORTS
-  'view_consolidated_reports',
+const MAP_PERMISSIONS: PermissionKey[] = getAllPermissionKeys();
+const EXPECTED_TOTAL_V17 = 80; // total REAL do union v1.7 (o comentário histórico '62' no mapa também era stale)
+const STRUCTURAL_KEYS: PermissionKey[] = [
+  'publish_feed', 'view_financial', 'manage_financial', 'manage_members', 'delegate',
+  'create_events', 'company:manage_governance', 'company:manage_employees',
+  'company:manage_services', 'company:view_reports',
 ];
 
-describe('Permission Canonical Map v1.3 - Sanity Tests', () => {
+describe('Permission Canonical Map v1.7 - Sanity Tests', () => {
   describe('1. Todas as permissions do enum existem no mapa', () => {
     it('should have all enum permissions in the canonical map', () => {
       const enumPermissions = getAllPermissionKeys();
@@ -155,10 +112,11 @@ describe('Permission Canonical Map v1.3 - Sanity Tests', () => {
   });
 
   describe('7. Total de permissions está correto', () => {
-    it('should have exactly 32 permissions (v1.3)', () => {
+    it('should have exactly 80 permissions (v1.7)', () => {
       const enumPermissions = getAllPermissionKeys();
-      expect(enumPermissions.length).toBe(32);
-      expect(MAP_PERMISSIONS.length).toBe(32);
+      expect(enumPermissions.length).toBe(EXPECTED_TOTAL_V17);
+      expect(MAP_PERMISSIONS.length).toBe(EXPECTED_TOTAL_V17);
+      for (const k of STRUCTURAL_KEYS) expect(MAP_PERMISSIONS).toContain(k);
     });
   });
 
@@ -179,7 +137,7 @@ describe('Permission Canonical Map v1.3 - Sanity Tests', () => {
       
       // Verificar total único (manage_members não deve ser contado duas vezes)
       const unique = new Set(all);
-      expect(unique.size).toBe(20); // Total único de permissions
+      expect(unique.size).toBe(19); // Total único (o pin antigo '20' contava manage_members duas vezes — baseline-red)
       
       expect(feed.length).toBe(2);
       expect(bank.length).toBe(3);
@@ -200,6 +158,9 @@ describe('Permission Canonical Map v1.3 - Sanity Tests', () => {
         'can_hold_assets',
         'can_delegate',
         'can_moderate_content',
+        // v1.4+ (marketplace) e v1.7 (DECISION-0189 — errata create_events)
+        'can_manage_marketplace',
+        'can_create_events',
       ];
 
       const allCapabilities = Object.values(PERMISSION_CAPABILITIES)
