@@ -234,3 +234,55 @@ create_events e exclusividade estavam ERRADAS/OBSOLETAS; errata formal em DECISI
   efêmero por file-set BASE(526)→FINAL(530)→no-op; perna de dados materiais de
   invoices/payment_executions/payment_splits não reproduzível (to_regclass NULL — schema
   ghost; NÃO usado como argumento de segurança, fechamento é estrutural).
+
+## DECISION-0189B — CONDIÇÕES FINAIS DE SELO (C1–C4 + ISOLAMENTO) — ✅ EXECUTADA
+HEAD inicial `6f9e4d969` → HEAD final da campanha 0189B (7 commits novos). Sem push/merge; os 13
+commits anteriores INTOCADOS.
+
+- **Etapa A — norma+inventário (`8c3a101cc`):** DECISION-0189B (D1–D8) docs-only + inventário
+  financeiro `F_COMPANY_ACCESS_AUTHORITY_FINANCIAL_INVENTORY_2026-07-19.md` (matriz PermissionKey×
+  rota×R/W×recurso×handler×estado PORTA 01).
+- **Etapa B — fechamento financeiro (`982471f38`) [C1/D1–D3]:** PORTA_HOLD ampliado
+  EXAUSTIVAMENTE (+financial:execute_payout, +marketplace_execute_payments, +split:create sobre os
+  já-held view_all_ledger/execute_payouts/manage_splits); GET /payouts/orders → 503 PORTA_01_CLOSED
+  uniforme (listOrders fora do caminho vivo; sem reuso de execute_payout como leitura); contenção
+  settlement/region/payout-exec preservada estrutural. Guard `audit-porta01-financial-hold`. Prova
+  `validate-yala-final-porta01` 10/10 (deny p/ owner/gestor/can_manage_financial/can_hold_assets; 503
+  com e sem actorId; Δbank=0).
+- **Etapa C — erros/indisponibilidade (`d899e0404`) [C2/D6–D7]:** economic-overview verifica
+  dependências antes da consulta, 503 SANITIZADO (sem error.message/SQLSTATE/SQL/nome de tabela; log
+  interno com req.id), no-store, audit ANTES do disclosure com falha-de-audit bloqueando a resposta;
+  invoices com PORTA DE ATIVAÇÃO separada (`INVOICES_ACTIVATED=false`, nunca derivada de schema) →
+  503 INVOICES_NOT_ACTIVATED. **Bug pré-existente corrigido (read-only):** projetor usava
+  `bs.amount`/`bs.split_id` (colunas inexistentes) → corrigido p/ `amount_cents`/`id`. Prova
+  `validate-yala-final-availability` 9/9.
+- **Etapa D — feed interaction exato (`3e062bfcb`) [C3/D4–D5]:** PermissionKey `interact_feed` +
+  capability `can_interact_feed` + grant `company_users.can_interact_feed` (default false p/
+  memberships existentes; true no GESTOR SET; convidável/delegável/não-protegido; grupos fail-closed).
+  Catálogo v2 (digest `b8b592a4…`, migration `20260719200000`, backfill de capability de tipo no
+  registry). Reactions/comments: `canActAs('interact_feed')` sobre o AUTOR + post carregado
+  server-side; canRepresentActor removido. Guards atualizados (event-feed, actor-impersonation-writes,
+  foundation-digest-por-versão). Prova `validate-yala-final-interact-feed` 11/11.
+- **Etapa E — isolamento fail-closed (`68c9074f5`) [C4/D8]:** migration `20260719220000` — ambos os
+  triggers de exclusividade checam `current_setting('transaction_isolation')` ANTES do lock:
+  READ COMMITTED prossegue; SERIALIZABLE prossegue (SSI aborta uma); REPEATABLE READ e desconhecido
+  → RAISE fail-closed. Guard `audit-exclusivity-isolation-guard`. Prova `validate-yala-final-isolation`
+  7/7 (RC uma sobrevive; RR rejeitado; SERIALIZABLE uma aborta; sem deadlock; nunca coexistem).
+- **Etapa F — provas para o selo (`6d164d5bb`):** fresh canônico 532; upgrade file-set BASE(530)→
+  aplica exatamente as 2 →532→no-op; BASE×FINAL no mesmo ambiente por assinatura de suíte = **0
+  regressão nova** (39 suítes/85 testes falham IDÊNTICOS em BASE e FINAL — baseline DB-integration);
+  cross-tenant 9/9; runner 197; typecheck BE+FE 0; build FE OK; permission/auth/rbac/canonical 32/32
+  (permission-canonical sincronizado v1.7→v1.8, +interact_feed, 81 chaves); F2–F5+0189A reexecutadas
+  (F2 3/3 com precondição de membro-base não-ativo — o EXCLUSIVITY_VIOLATION com membro ativo é
+  comportamento BASE da F4, não regressão; F3 17/17; F4 16/16; F5 23/23; closeout feed-events 15/15,
+  exclusivity 6/6, r19 7/7, cross-tenant 9/9); overview COM DADOS `validate-yala-final-overview-data`
+  8/8 (403 sem grant; 200 e valores corretos totalPaid=5000/totalReceived=3000; no-store; audit antes;
+  não-membro nega; pós-revogação 403). Invoices: porta fechada provada (Etapa C); 200-com-dados =
+  condição da futura campanha de ativação. Δbank dev = 0/0/0, contas=16 (baseline).
+- **Ritos de aplicação ao dev (seletiva governada):** `apply-company-interact-feed-migration`
+  (token …INTERACT_FEED_20260719200000) e `apply-company-isolation-guard-migration`
+  (token …ISOLATION_GUARD_20260719220000) — dry-run + apply commitados; dev com as 2 migrations
+  registradas, catálogo v2, Δbank=0.
+- **Fechamento C1–C4:** C1 (PORTA 01 sem fresta) ✅; C2 (erros/indisponibilidade sem vazamento +
+  invoices sem auto-abertura) ✅; C3 (feed interaction exato sem sombra) ✅; C4 (isolamento sem
+  dependência silenciosa de RR) ✅. NÃO É SELO — reauditoria YALA independente.
