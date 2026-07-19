@@ -104,6 +104,13 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     }
   );
 
+  // 🔒 DECISION-0189B D2 — GET /payouts/orders DESATIVADO enquanto a PORTA 01 estiver fechada.
+  // Resposta UNIFORME 503 `{ code: 'PORTA_01_CLOSED' }`, idêntica com e sem `actorId`. NÃO lista
+  // orders do tenant, NÃO trata ausência de `actorId` como "listar tudo", NÃO reutiliza
+  // `financial:execute_payout` como permissão de LEITURA (a chave está em PORTA_HOLD — o gate de
+  // leitura correto é frente própria da abertura da PORTA 01: PermissionKey de leitura própria +
+  // filtro obrigatório por actor/empresa + recurso server-side + view_financial + audit + no-store).
+  // `payoutService.listOrders` está FORA do caminho vivo desta rota (guard trava reintrodução).
   fastify.get<{
     Querystring: {
       batchId?: string;
@@ -115,34 +122,8 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
       limit?: number;
       offset?: number;
     };
-  }>('/payouts/orders', { preHandler: requirePayoutPermission }, async (req, reply) => {
-    if (!req.tenant) {
-      throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
-    }
-    const tenantId = req.tenant.id;
-
-    // 🔵 DECISION-0113 canal 3 — CORREÇÃO DE OVER-GATE (2026-06-08): a rota é gateada (preHandler) por
-    // `financial:execute_payout` (operador financeiro: papel OWNER/ADMIN/FINANCE + capability `can_hold_assets`).
-    // PROVA ESTRUTURAL do over-gate: `GET /payouts/orders` SEM `actorId` já chama `listOrders(tenantId, {})` e
-    // retorna TODAS as orders do tenant ao operador autorizado; o `?actorId` é só um SUBCONJUNTO. Exigir
-    // `canRepresentActor` apenas no subconjunto bloqueava o operador legítimo de filtrar dado que ele já vê sem
-    // filtro — incoerente (filtro mais restritivo que a rota sem filtro). `actorId` aqui é FILTRO de leitura, não
-    // vetor de spoof. NOTA: isolamento multi-empresa (operador da empresa A não ver payouts da empresa B) NÃO se
-    // resolve aqui — seria a rota unfiltered, frente própria `F-PAYOUT-COMPANY-SCOPING` (fora desta fatia).
-    const filters = {
-      batchId: req.query.batchId,
-      actorId: req.query.actorId,
-      status: req.query.status as any,
-      payoutMethod: req.query.payoutMethod as any,
-      startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
-      endDate: req.query.endDate ? new Date(req.query.endDate) : undefined,
-      limit: req.query.limit,
-      offset: req.query.offset,
-    };
-
-    const orders = await payoutService.listOrders(tenantId, filters);
-
-    return reply.send({ orders, totalCents: orders.length });
+  }>('/payouts/orders', async (_req, reply) => {
+    return reply.status(503).send({ code: 'PORTA_01_CLOSED' });
   });
 
   fastify.get<{ Params: { orderId: string } }>(

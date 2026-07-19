@@ -220,6 +220,13 @@ export const PORTA_HOLD_KEYS: readonly PermissionKey[] = [
   'financial:view_all_ledger',
   'marketplace_execute_payouts',
   'marketplace_manage_splits',
+  // 0189B D3: HOLD terminal EXAUSTIVO das chaves que movimentam/capturam/pagam/liquidam/dividem
+  // dinheiro (inventário `F_COMPANY_ACCESS_AUTHORITY_FINANCIAL_INVENTORY_2026-07-19.md`). O deny
+  // precede self/ownership/role/capability/delegation/grants/canRepresentActor enquanto a PORTA 01
+  // estiver fechada. Religar = campanha própria da PORTA 01 (nunca afrouxar aqui).
+  'financial:execute_payout',
+  'marketplace_execute_payments',
+  'split:create',
 ];
 
 /** Chaves com dispatch TERMINAL para actor de EMPRESA (curto-circuito antes de ownership). */
