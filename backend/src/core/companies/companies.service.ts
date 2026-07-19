@@ -616,9 +616,9 @@ class CompaniesService {
           can_manage_company, can_manage_financial, can_manage_employees,
           can_view_reports, can_manage_services, can_view_consolidated_inventory,
           can_view_financial, can_manage_members, can_publish_feed, can_create_events,
-          is_primary, metadata
+          can_interact_feed, is_primary, metadata
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING id AS company_user_id
         `,
         [
@@ -637,6 +637,7 @@ class CompaniesService {
           true, // SET_V1: manage_members
           true, // SET_V1: publish_feed (R9-B: publicar NÃO é automático de membro — gestor recebe grant)
           true, // SET_V1: create_events
+          true, // SET_V1: interact_feed (DECISION-0189B D4 — gestor nasce podendo interagir)
           input.isPrimary ?? false,
           JSON.stringify({}),
         ]

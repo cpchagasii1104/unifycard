@@ -26,6 +26,7 @@ export const COMPANY_GRANT_COLUMNS = [
   'can_manage_members',
   'can_manage_company',
   'can_publish_feed',
+  'can_interact_feed',
   'can_create_events',
   'can_manage_employees',
   'can_manage_services',
@@ -100,6 +101,10 @@ const selfOnly = (): CompanyPolicyEntry => ({ classification: 'self_only' });
 export const COMPANY_POLICY_REGISTRY: Record<PermissionKey, CompanyPolicyEntry> = {
   // FEED
   publish_feed: g('can_publish_feed', { invitable: true, delegable: true }),
+  // DECISION-0189B D4: interagir (reactions/comments) = grant fino próprio can_interact_feed,
+  // convidável e delegável, NÃO protegido; nunca por role/can_manage_company/canRepresentActor.
+  // grupos/canais SEM substrato promulgado → fail-closed (nega no dispatch antes de ownership).
+  interact_feed: g('can_interact_feed', { invitable: true, delegable: true, groupBehavior: 'fail_closed' }),
   moderate_feed: legacy(),
 
   // BANK — leituras financeiras privadas são TERMINAIS via can_view_financial;
@@ -290,7 +295,9 @@ export function assertCompanyPolicyRegistryExhaustive(): void {
 // CATÁLOGO MATERIALIZADO (R16) — código soberano; banco = materialização versionada
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const COMPANY_PERMISSION_CATALOG_VERSION = 1;
+// v2 (DECISION-0189B D4): + interact_feed (reactions/comments). Materializado por
+// migration 20260719200000 (novo digest); boot compara e falha em divergência (R16).
+export const COMPANY_PERMISSION_CATALOG_VERSION = 2;
 
 export interface CompanyCatalogRow {
   permissionKey: PermissionKey;
@@ -305,6 +312,7 @@ export interface CompanyCatalogRow {
 /** Linhas do catálogo V1 = exatamente as chaves da tabela normativa DECISION-0189 §2.3. */
 export const COMPANY_CATALOG_KEYS: readonly PermissionKey[] = [
   'publish_feed',
+  'interact_feed',
   'create_events',
   'view_financial',
   'manage_financial',

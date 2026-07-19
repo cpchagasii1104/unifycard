@@ -10,6 +10,8 @@ export type ActorRegistryType = 'company' | 'event' | 'group' | 'service' | 'pro
 export interface ActorCapabilities {
   can_receive_funds?: boolean;
   can_publish_feed?: boolean;
+  /** DECISION-0189B D4: capacidade de TIPO de interagir no feed (reactions/comments). */
+  can_interact_feed?: boolean;
   can_delegate?: boolean;
   can_hold_assets?: boolean;
   can_create_events?: boolean;
@@ -240,6 +242,7 @@ class ActorRegistryService {
         return {
           can_receive_funds: true,
           can_publish_feed: true,
+          can_interact_feed: true,
           can_delegate: true,
           can_hold_assets: true,
           can_create_events: true,
@@ -250,6 +253,7 @@ class ActorRegistryService {
         return {
           can_receive_funds: true,
           can_publish_feed: true,
+          can_interact_feed: true,
           can_delegate: false,
           can_hold_assets: false,
           can_create_events: false,
@@ -258,6 +262,7 @@ class ActorRegistryService {
         return {
           can_receive_funds: true,
           can_publish_feed: true,
+          can_interact_feed: true,
           can_delegate: false,
           can_hold_assets: true,
           can_manage_members: true,
@@ -266,6 +271,7 @@ class ActorRegistryService {
         return {
           can_receive_funds: true,
           can_publish_feed: true,
+          can_interact_feed: true,
           can_delegate: false,
           can_hold_assets: false,
         };
@@ -273,6 +279,7 @@ class ActorRegistryService {
         return {
           can_receive_funds: true,
           can_publish_feed: true,
+          can_interact_feed: true,
           can_delegate: false,
           can_hold_assets: false,
         };

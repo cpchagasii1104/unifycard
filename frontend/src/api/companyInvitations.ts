@@ -7,9 +7,10 @@
 
 import { apiFetchJson } from './client';
 
-/** Chaves CONVIDÁVEIS do catálogo V1 (espelho do backend; o servidor é a autoridade). */
+/** Chaves CONVIDÁVEIS do catálogo v2 (espelho do backend; o servidor é a autoridade). */
 export const INVITABLE_PERMISSION_KEYS = [
   { key: 'publish_feed', label: 'Publicar no feed da empresa' },
+  { key: 'interact_feed', label: 'Reagir e comentar no feed da empresa' },
   { key: 'create_events', label: 'Criar eventos da empresa' },
   { key: 'view_financial', label: 'Ver saldo/extrato da empresa' },
   { key: 'company:manage_employees', label: 'Administrar operação de empregados' },

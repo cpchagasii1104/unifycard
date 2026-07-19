@@ -30,11 +30,19 @@ const idC = strip(identity), soC = strip(social), fdC = strip(feed);
 check('identity /update prova canRepresentActor sobre o actorId declarado (BOLA civil fechado)',
   /canRepresentActor\(\s*req\.tenant\.id,\s*req\.user\.userId,\s*actorId\s*\)/.test(idC));
 
-// social reactions/comments: cada gate ancorado na sua mensagem única (lock preciso por handler)
-check('social /reactions prova canRepresentActor (gate anti-impersonação presente)',
-  /canRepresentActor\([^)]*req\.actionContext\.actorId[^)]*\)/.test(soC) && soC.includes('reagir como o actor declarado'));
-check('social /comments prova canRepresentActor (gate anti-impersonação presente)',
-  soC.includes('comentar como o actor declarado'));
+// social reactions/comments: DECISION-0189B D4/D5 SUBSTITUIU o gate de representação (que
+// SOMBREAVA o grant fino — gestor impersonava, membro fino era barrado) pela CHAVE EXATA
+// interact_feed sobre o actor que realmente age + post-alvo carregado server-side. Reintroduzir
+// canRepresentActor como decisor MORDE em audit-event-feed-exact-permission. Aqui o lock é o
+// padrão NOVO (mais forte): a volta do gate fraco quebra este guard.
+{
+  const interactGates = (soC.match(/canActAs\([^)]*'interact_feed'\)/g) || []).length;
+  const serverSidePost = (soC.match(/getPostById\(req\.tenant\.id, req\.params\.id, null\)/g) || []).length;
+  check('social /reactions+/comments provam canActAs(interact_feed) sobre o actor real (>=2)', interactGates >= 2);
+  check('social /reactions+/comments carregam o post-alvo server-side (anti cross-tenant/spoof, >=2)', serverSidePost >= 2);
+  check('social reactions/comments NÃO voltam ao gate fraco de representação (mensagens antigas ausentes)',
+    !soC.includes('reagir como o actor declarado') && !soC.includes('comentar como o actor declarado'));
+}
 
 // feed POST /action: canRepresentActor antes do recordContentAction
 check('feed /action prova canRepresentActor sobre o actor declarado',

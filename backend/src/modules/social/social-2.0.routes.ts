@@ -365,18 +365,28 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     try {
       const validated = reactionSchema.parse(req.body);
 
-      // 🔴 IMPERSONATION FIX (triagem de autoridade 2026-07-04): o actionContext.actorId é
-      // client-declared; o service assume actorId "JÁ RESOLVIDO server-side". Sem prova, qualquer
-      // autenticado reagiria COMO outro actor. Provar representação (DECISION-0113), fail-closed —
-      // idêntico ao gate de createPost neste arquivo.
+      // 🔒 DECISION-0189B D4/D5: reagir é INTERAÇÃO NO FEED com autoridade EXATA `interact_feed`
+      // sobre o actor que REALMENTE age (actionContext.actorId, resolvido server-side). O antigo
+      // `canRepresentActor` (representação/gestão) SOMBREAVA o grant fino — membro com
+      // can_interact_feed=true e sem can_manage_company tomava 403; gestor SEM o grant reagia
+      // indevidamente. Agora: PF=self; empresa=membership ativa + can_interact_feed + capability;
+      // representante externo só com delegação cobrindo interact_feed; role/owner/is_primary/
+      // can_manage_company/canRepresentActor NÃO autorizam. Post-alvo carregado SERVER-SIDE
+      // (tenant-scoped) — body/query nunca troca actor/empresa/tenant/recurso.
+      const actingActorId = req.actionContext.actorId;
+      const targetPost = await social2Service.getPostById(req.tenant.id, req.params.id, null);
+      if (!targetPost) {
+        return reply.status(404).send({ error: 'Post não encontrado' });
+      }
       const { authorizationService: authzReact } = await import('@core/authorization/authorization.service');
-      if (!(await authzReact.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId))) {
-        return reply.status(403).send({ error: 'Sem autoridade para reagir como o actor declarado' });
+      const reactDecision = await authzReact.canActAs(req.tenant.id, req.user.userId, actingActorId, 'interact_feed');
+      if (!reactDecision.allowed) {
+        return reply.status(403).send({ error: 'Sem a permissão exata interact_feed sobre o actor declarado (DECISION-0189B)', code: 'FEED_INTERACT_DENIED' });
       }
       const reaction = await social2Service.toggleReaction(
         req.tenant.id,
         req.params.id,
-        req.actionContext.actorId,
+        actingActorId,
         validated.reaction_type
       );
 
@@ -454,16 +464,24 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const validated = commentSchema.parse(req.body);
-      // 🔴 IMPERSONATION FIX (triagem 2026-07-04): provar representação do actor declarado antes de
-      // comentar COMO ele (o service assume actorId já resolvido server-side). Fail-closed.
+      // 🔒 DECISION-0189B D4/D5: comentar é INTERAÇÃO NO FEED com autoridade EXATA `interact_feed`
+      // sobre o actor que REALMENTE age (server-side). Sem sombra de canRepresentActor: PF=self;
+      // empresa=membership ativa + can_interact_feed + capability; externo só com delegação de
+      // interact_feed; role/owner/can_manage_company não autorizam. Post-alvo carregado server-side.
+      const actingActorId = req.actionContext.actorId;
+      const targetPost = await social2Service.getPostById(req.tenant.id, req.params.id, null);
+      if (!targetPost) {
+        return reply.status(404).send({ error: 'Post não encontrado' });
+      }
       const { authorizationService: authzComment } = await import('@core/authorization/authorization.service');
-      if (!(await authzComment.canRepresentActor(req.tenant.id, req.user.userId, req.actionContext.actorId))) {
-        return reply.status(403).send({ error: 'Sem autoridade para comentar como o actor declarado' });
+      const commentDecision = await authzComment.canActAs(req.tenant.id, req.user.userId, actingActorId, 'interact_feed');
+      if (!commentDecision.allowed) {
+        return reply.status(403).send({ error: 'Sem a permissão exata interact_feed sobre o actor declarado (DECISION-0189B)', code: 'FEED_INTERACT_DENIED' });
       }
       const comment = await social2Service.createComment(
         req.tenant.id,
         req.params.id,
-        req.actionContext.actorId,
+        actingActorId,
         validated.content,
         validated.parent_comment_id
       );

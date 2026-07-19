@@ -36,6 +36,7 @@
 export type PermissionKey =
   // FEED (Social)
   | 'publish_feed'
+  | 'interact_feed'
   | 'moderate_feed'
   
   // BANK (Financial)
@@ -157,6 +158,9 @@ export type PermissionKey =
 export const PERMISSION_CAPABILITIES: Record<PermissionKey, string | null> = {
   // FEED
   publish_feed: 'can_publish_feed',
+  // DECISION-0189B D4: interagir no feed (reactions/comments) exige a capability PRÓPRIA
+  // can_interact_feed (nunca derivada de role/can_manage_company/can_publish_feed).
+  interact_feed: 'can_interact_feed',
   moderate_feed: 'can_moderate_content',
   
   // BANK

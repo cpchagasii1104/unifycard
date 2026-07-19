@@ -60,9 +60,22 @@ if (/CREATE TRIGGER\s+\S*exclusivity/i.test(mig)) {
   fail('trigger de exclusividade NÃO pode ser ativado na F2 (dual-write transitória) — ativação é F4');
 }
 
-// 4. Digest código == digest migration (R16)
-const migDigest = mig.match(/VALUES \(1, '([0-9a-f]{64})'\)/)?.[1];
-if (!migDigest) fail('digest do catálogo ausente na migration');
+// 4. Digest código == digest migration da VERSÃO CORRENTE (R16).
+// DECISION-0189B D4: o catálogo evoluiu para v2 (+ interact_feed), materializado em
+// 20260719200000. O digest do código (version-agnóstico nas linhas) é comparado com o da
+// migration que materializa a VERSÃO CORRENTE do catálogo — nunca com uma versão antiga.
+const catalogVersion = Number(registrySrc.match(/COMPANY_PERMISSION_CATALOG_VERSION\s*=\s*(\d+)/)?.[1] ?? '1');
+const CATALOG_MIGRATIONS = [
+  MIG,
+  'migrations/20260719200000_company_interact_feed_authority.sql',
+];
+let migDigest;
+for (const m of CATALOG_MIGRATIONS) {
+  if (!existsSync(join(ROOT, m))) continue;
+  const d = read(m).match(new RegExp(`VALUES \\(${catalogVersion}, '([0-9a-f]{64})'\\)`))?.[1];
+  if (d) { migDigest = d; break; }
+}
+if (!migDigest) fail(`digest do catálogo v${catalogVersion} não materializado em nenhuma migration de catálogo`);
 const tsx = spawnSync(
   'tsx',
   ['scripts/print-company-catalog-digest.ts'],

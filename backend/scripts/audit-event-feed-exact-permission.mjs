@@ -33,6 +33,35 @@ if (/requirePermission\('publish_feed'\)/.test(social)) {
   fail("requirePermission('publish_feed') sobre actionContext reintroduzido no create-post (actor errado — Finding B)");
 }
 
+// ── 1b. DECISION-0189B D4/D5: reactions/comments por CHAVE EXATA interact_feed ──
+{
+  const interactGates = (social.match(/canActAs\([^)]*'interact_feed'\)/g) || []).length;
+  if (interactGates < 2) {
+    fail(`reactions/comments sem gate exato canActAs('interact_feed') (${interactGates} < 2) — DECISION-0189B D4`);
+  }
+  // o gate antigo de representação (que sombreava o grant fino) NÃO pode decidir reação/comentário
+  if (/Sem autoridade para (reagir|comentar) como o actor declarado/.test(social)) {
+    fail('reactions/comments ainda decidem por canRepresentActor (sombra do grant fino) — DECISION-0189B D4');
+  }
+  // post-alvo carregado server-side em ambas as interações (anti cross-tenant/spoof de recurso)
+  const serverSidePost = (social.match(/getPostById\(req\.tenant\.id, req\.params\.id, null\)/g) || []).length;
+  if (serverSidePost < 2) {
+    fail(`reactions/comments sem carregamento server-side do post-alvo (${serverSidePost} < 2) — DECISION-0189B D5`);
+  }
+  // interact_feed nasce com capability própria (nunca aliasada a can_publish_feed/role)
+  const pkEarly = read('src/core/authorization/permission-keys.ts');
+  if (!/interact_feed:\s*'can_interact_feed'/.test(pkEarly)) {
+    fail('interact_feed não mapeia a capability própria can_interact_feed (DECISION-0189B D4)');
+  }
+  const registryEarly = read('src/core/authorization/company-policy-registry.ts');
+  if (!/interact_feed:\s*g\('can_interact_feed'/.test(registryEarly)) {
+    fail('interact_feed não é grant fino can_interact_feed no registry (DECISION-0189B D4)');
+  }
+  if (!/COMPANY_PERMISSION_CATALOG_VERSION\s*=\s*2/.test(registryEarly)) {
+    fail('catálogo não materializado em v2 com interact_feed (DECISION-0189B D4)');
+  }
+}
+
 // ── 2. event.routes gates exatos ──
 const ev = read('src/core/events/event.routes.ts');
 const count = (re) => (ev.match(re) || []).length;
