@@ -57,6 +57,14 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
     }
     const tenantId = req.tenant.id;
 
+    // 🔒 DECISION-0189C D5: KPIs projetam payouts/invoices — 503 para a superfície inteira
+    // enquanto a PORTA 01 estiver fechada (tenant-operator NÃO supera o HOLD).
+    const { isPorta01Closed, FINANCIAL_PROJECTION_HELD_BODY } = await import('@core/authorization/financial-projection-hold');
+    if (isPorta01Closed()) {
+      reply.header('Cache-Control', 'no-store');
+      return reply.status(503).send(FINANCIAL_PROJECTION_HELD_BODY);
+    }
+
     // `actorId` REMOVIDO (F-R2-FINE-GRANTS-ANCHOR-AND-SCOPE-CLOSURE): o service NÃO honra filtro por actor
     // (agrega tenant-wide); o filtro era morto e mascarava a natureza tenant-wide. A rota é fail-closed no
     // preHandler até existir grant platform-admin (DECISION_REQUIRED).
@@ -219,6 +227,16 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
         status: req.body.filters?.status,
         currency: req.body.filters?.currency,
       };
+
+      // 🔒 DECISION-0189C D5: exports financeiros (repasses/faturas) → 503 sob PORTA 01
+      // (exports não-financeiros como trust seguem normalmente).
+      {
+        const { isPorta01Closed, FINANCIAL_PROJECTION_HELD_BODY } = await import('@core/authorization/financial-projection-hold');
+        if (isPorta01Closed() && (req.body.exportType === 'payouts' || req.body.exportType === 'invoices')) {
+          reply.header('Cache-Control', 'no-store');
+          return reply.status(503).send(FINANCIAL_PROJECTION_HELD_BODY);
+        }
+      }
 
       const exportData = await reportingService.exportData(
         tenantId,

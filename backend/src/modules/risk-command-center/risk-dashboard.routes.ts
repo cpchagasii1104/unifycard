@@ -117,6 +117,9 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
       // Registrar auditoria
       await recordAccessAudit(tenantId, actorId, 'overview');
 
+      // 🔒 DECISION-0189C D5: overview projeta payouts — 503 superfície inteira sob PORTA 01.
+      const { isPorta01Closed, FINANCIAL_PROJECTION_HELD_BODY } = await import('@core/authorization/financial-projection-hold');
+      if (isPorta01Closed()) { reply.header('Cache-Control','no-store'); return reply.status(503).send(FINANCIAL_PROJECTION_HELD_BODY); }
       const overview = await riskDashboardService.getOverview(tenantId);
 
       return reply.send({ overview });
@@ -163,6 +166,8 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
       offset: req.query.offset,
     };
 
+    const { isPorta01Closed, FINANCIAL_PROJECTION_HELD_BODY } = await import('@core/authorization/financial-projection-hold');
+    if (isPorta01Closed()) { reply.header('Cache-Control','no-store'); return reply.status(503).send(FINANCIAL_PROJECTION_HELD_BODY); }
     const profiles = await riskDashboardService.listActorRiskProfiles(tenantId, filters);
 
     return reply.send({ profiles, totalCents: profiles.length });
@@ -189,6 +194,8 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
       // Registrar auditoria
       await recordAccessAudit(tenantId, actorId, `view_actor:${req.params.actorId}`);
 
+      const { isPorta01Closed, FINANCIAL_PROJECTION_HELD_BODY } = await import('@core/authorization/financial-projection-hold');
+      if (isPorta01Closed()) { reply.header('Cache-Control','no-store'); return reply.status(503).send(FINANCIAL_PROJECTION_HELD_BODY); }
       const profile = await riskDashboardService.getActorRiskProfile(tenantId, req.params.actorId);
 
       return reply.send({ profile });
@@ -216,6 +223,8 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
       // Registrar auditoria
       await recordAccessAudit(tenantId, actorId, `view_timeline:${req.params.actorId}`);
 
+      const { isPorta01Closed, FINANCIAL_PROJECTION_HELD_BODY } = await import('@core/authorization/financial-projection-hold');
+      if (isPorta01Closed()) { reply.header('Cache-Control','no-store'); return reply.status(503).send(FINANCIAL_PROJECTION_HELD_BODY); }
       const timeline = await riskDashboardService.getActorRiskTimeline(tenantId, req.params.actorId);
 
       return reply.send({ timeline });

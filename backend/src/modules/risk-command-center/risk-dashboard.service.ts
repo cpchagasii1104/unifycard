@@ -17,6 +17,10 @@ class RiskDashboardService {
    * 🔴 BLINDAGEM: Todos os dados vêm de fontes canônicas
    */
   async getOverview(tenantId: string): Promise<RiskDashboardOverview> {
+    // 🔒 DECISION-0189C D5: o overview projeta payouts bloqueados/falhos (indicador DERIVADO do
+    // substrato financeiro em HOLD). Superfície inteira fail-closed enquanto a PORTA 01 fechada.
+    const { assertFinancialProjectionAllowed } = await import('@core/authorization/financial-projection-hold');
+    assertFinancialProjectionAllowed();
     // 1. Buscar todos os trust profiles
     const { trustRepository } = await import('../trust/trust.repository');
     const profiles = await trustRepository.listProfiles(tenantId, { limit: 10000 });
@@ -123,6 +127,10 @@ class RiskDashboardService {
     tenantId: string,
     filters: ActorRiskFilters = {}
   ): Promise<ActorRiskProfile[]> {
+    // 🔒 DECISION-0189C D5: os perfis projetam payouts por actor — fail-closed sob PORTA 01
+    // (cobre getActorRiskProfile, que delega aqui).
+    const { assertFinancialProjectionAllowed } = await import('@core/authorization/financial-projection-hold');
+    assertFinancialProjectionAllowed();
     // 1. Buscar trust profiles
     const { trustRepository } = await import('../trust/trust.repository');
     let profiles = await trustRepository.listProfiles(tenantId, {
@@ -312,6 +320,10 @@ class RiskDashboardService {
    * 🔴 BLINDAGEM: Consolida dados de múltiplas fontes canônicas
    */
   async getActorRiskTimeline(tenantId: string, actorId: string): Promise<RiskTimelineEvent[]> {
+    // 🔒 DECISION-0189C D5: a timeline projeta eventos de repasse bloqueado/falho (valores de
+    // repasse) — fail-closed sob PORTA 01.
+    const { assertFinancialProjectionAllowed } = await import('@core/authorization/financial-projection-hold');
+    assertFinancialProjectionAllowed();
     const timeline: RiskTimelineEvent[] = [];
 
     // 1. Trust Events

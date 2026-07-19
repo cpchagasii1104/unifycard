@@ -25,6 +25,11 @@ class ReportingService {
     tenantId: string,
     filters: ReportingFilters = {}
   ): Promise<FinancialKPIs> {
+    // 🔒 DECISION-0189C D5: KPIs projetam payouts/invoices (totalPaid, invoices count/total) —
+    // superfície INSEPARÁVEL do dado financeiro. Barreira ANTES de listOrders/listInvoices;
+    // rota traduz para 503 PORTA_01_CLOSED. tenant-operator NÃO supera o HOLD.
+    const { assertFinancialProjectionAllowed } = await import('@core/authorization/financial-projection-hold');
+    assertFinancialProjectionAllowed();
     const { payoutService } = await import('../payout/payout.service');
     const { invoiceService } = await import('../invoicing/invoice.service');
     const { escrowService } = await import('../escrow/escrow.service');
@@ -286,6 +291,8 @@ class ReportingService {
         break;
       }
       case 'payouts': {
+        // 🔒 DECISION-0189C D5: export de payouts projeta o substrato em HOLD.
+        (await import('@core/authorization/financial-projection-hold')).assertFinancialProjectionAllowed();
         const { payoutService } = await import('../payout/payout.service');
         const orders = await payoutService.listOrders(tenantId, {
           status: filters.status as any,
@@ -298,6 +305,8 @@ class ReportingService {
         break;
       }
       case 'invoices': {
+        // 🔒 DECISION-0189C D5: export de invoices projeta o substrato em HOLD.
+        (await import('@core/authorization/financial-projection-hold')).assertFinancialProjectionAllowed();
         const { invoiceService } = await import('../invoicing/invoice.service');
         const invoices = await invoiceService.listInvoices(tenantId, {
           status: filters.status as any,
