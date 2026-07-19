@@ -136,53 +136,27 @@ const publicationEngineRoutes: FastifyPluginAsync = async (fastify) => {
    * POST /publication/:entityType/:entityId/reactions
    * Cria ou atualiza reação
    */
+  // 🔒 DECISION-0189C D4: rota GENÉRICA polimórfica de reação SEM autoridade promulgada —
+  // DESATIVADA com 410 ANTES de ler actor_id, resolver entidade, chamar upsertReaction ou
+  // escrever em `reactions`. Caminho canônico de posts = social-2.0.routes (interact_feed).
+  // Não se implementa autoridade genérica improvisada; reabrir = decisão própria por entityType.
   fastify.post<{
     Params: { entityType: string; entityId: string };
     Body: { reaction_type: string; actor_id?: string };
-  }>('/:entityType/:entityId/reactions', async (request, reply) => {
-    const { entityType, entityId } = request.params;
-    const { reaction_type, actor_id } = request.body;
-    const tenantId = (request as any).tenant_id;
-    const userId = (request as any).user_id; // Ajustar conforme auth
-
-    if (!tenantId || !userId) {
-      return reply.code(401).send({ error: 'Unauthorized' });
-    }
-
-    await publicationEngineService.upsertReaction(tenantId, userId, {
-      entity_type: entityType as any,
-      entity_id: entityId,
-      reaction_type: reaction_type as any,
-      user_id: userId,
-      actor_id: actor_id || undefined,
-    });
-
-    return { success: true };
+  }>('/:entityType/:entityId/reactions', async (_request, reply) => {
+    return reply.code(410).send({ code: 'GENERIC_REACTIONS_NOT_GOVERNED' });
   });
 
   /**
    * DELETE /publication/:entityType/:entityId/reactions
    * Remove reação
    */
+  // 🔒 DECISION-0189C D4: writer-irmão de remoção de reação genérica — mesma contenção 410
+  // ANTES de qualquer efeito (removeReaction nunca é chamado; `reactions` intocada).
   fastify.delete<{
     Params: { entityType: string; entityId: string };
-  }>('/:entityType/:entityId/reactions', async (request, reply) => {
-    const { entityType, entityId } = request.params;
-    const tenantId = (request as any).tenant_id;
-    const userId = (request as any).user_id;
-
-    if (!tenantId || !userId) {
-      return reply.code(401).send({ error: 'Unauthorized' });
-    }
-
-    await publicationEngineService.removeReaction(
-      tenantId,
-      userId,
-      entityType as any,
-      entityId
-    );
-
-    return { success: true };
+  }>('/:entityType/:entityId/reactions', async (_request, reply) => {
+    return reply.code(410).send({ code: 'GENERIC_REACTIONS_NOT_GOVERNED' });
   });
 
   /**
