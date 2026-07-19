@@ -15,7 +15,7 @@ import { requirePermission } from '../../src/core/authorization/require-permissi
  * pelas seções 3/5 e pelos asserts de boot (permission-keys + company-policy-registry).
  */
 const MAP_PERMISSIONS: PermissionKey[] = getAllPermissionKeys();
-const EXPECTED_TOTAL_V17 = 80; // total REAL do union v1.7 (o comentário histórico '62' no mapa também era stale)
+const EXPECTED_TOTAL_V17 = 81; // v1.8 (DECISION-0189B D4): +interact_feed (reactions/comments) sobre os 80 do v1.7
 const STRUCTURAL_KEYS: PermissionKey[] = [
   'publish_feed', 'view_financial', 'manage_financial', 'manage_members', 'delegate',
   'create_events', 'company:manage_governance', 'company:manage_employees',
@@ -112,7 +112,7 @@ describe('Permission Canonical Map v1.7 - Sanity Tests', () => {
   });
 
   describe('7. Total de permissions está correto', () => {
-    it('should have exactly 80 permissions (v1.7)', () => {
+    it('should have exactly 81 permissions (v1.8 — +interact_feed)', () => {
       const enumPermissions = getAllPermissionKeys();
       expect(enumPermissions.length).toBe(EXPECTED_TOTAL_V17);
       expect(MAP_PERMISSIONS.length).toBe(EXPECTED_TOTAL_V17);
@@ -122,7 +122,7 @@ describe('Permission Canonical Map v1.7 - Sanity Tests', () => {
 
   describe('8. Distribuição por domínio está correta', () => {
     it('should have correct distribution', () => {
-      const feed = ['publish_feed', 'moderate_feed'];
+      const feed = ['publish_feed', 'interact_feed', 'moderate_feed'];
       const bank = ['manage_financial', 'receive_funds', 'view_financial'];
       const events = ['create_events', 'manage_events', 'manage_attendees'];
       const groups = ['create_groups', 'manage_groups', 'manage_members'];
@@ -137,9 +137,9 @@ describe('Permission Canonical Map v1.7 - Sanity Tests', () => {
       
       // Verificar total único (manage_members não deve ser contado duas vezes)
       const unique = new Set(all);
-      expect(unique.size).toBe(19); // Total único (o pin antigo '20' contava manage_members duas vezes — baseline-red)
-      
-      expect(feed.length).toBe(2);
+      expect(unique.size).toBe(20); // v1.8: +interact_feed (o pin antigo '20' contava manage_members duas vezes; v1.7=19)
+
+      expect(feed.length).toBe(3);
       expect(bank.length).toBe(3);
       expect(events.length).toBe(3);
       expect(groups.length).toBe(3);
@@ -154,6 +154,7 @@ describe('Permission Canonical Map v1.7 - Sanity Tests', () => {
     it('should only use capabilities from canonical map', () => {
       const validCapabilities = [
         'can_publish_feed',
+        'can_interact_feed', // v1.8 (DECISION-0189B D4 — reactions/comments)
         'can_receive_funds',
         'can_hold_assets',
         'can_delegate',
