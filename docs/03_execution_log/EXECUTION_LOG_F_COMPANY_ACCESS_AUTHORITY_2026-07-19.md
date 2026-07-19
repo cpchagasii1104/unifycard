@@ -193,3 +193,44 @@ create_events e exclusividade estavam ERRADAS/OBSOLETAS; errata formal em DECISI
   fallback de ownership aposentado → gestor sem grant DENY) — atualizações justificadas
   in-file.
 - Commit: `test(governance): add YALA closeout behavioral evidence`.
+
+## ETAPA F — FECHAMENTO DA CAMPANHA CORRETIVA — ✅ EXECUTADA
+- **Gates finais no HEAD corretivo:** runner **195/195 exit 0** · typecheck backend **0 erros** ·
+  typecheck frontend **0 erros** · suítes permission/auth/rbac + permission-canonical
+  **4/4 suítes · 32/32 testes** · fresh efêmero final **530/530** · **Δbank=0 no dev**
+  (bank_ledger=0 · bank_transactions=0 · bank_splits=0 · bank_accounts=16 — idêntico ao
+  baseline da campanha original; PORTA 01 permanece FECHADA) · 4 migrations `20260719*`
+  registradas no dev via rito seletivo governado.
+- **Reauditoria dos denominadores (todos VERIFICADOS no código do HEAD):**
+  1. POST /events (×3 rotas de criação) decide por `create_events` exato sobre o organizador
+     declarado (`userCanActOnActor`, event.routes); writers ×12 = `manage_events`;
+     participantes ×4 = `manage_attendees`.
+  2. Create-post decide por `canActAs(publish_feed)` no AUTOR; **zero** `canRepresentActor`
+     residual na rota; membro fino publica SEM `can_manage_company`; gestor sem o grant é
+     NEGADO (prova 15/15 da Etapa B).
+  3. Nenhum money-path decide por ownership/role/is_primary: `dispatchCompanyPolicy` é
+     TERMINAL e curto-circuita ANTES dos ramos de ownership; `PORTA_HOLD_KEYS`
+     (view_all_ledger/payouts/splits) negam no TOPO de `canActAs` E em
+     businessAuthorizationService (estrutural, não ghost-dependente).
+  4. Overview/invoices exigem recurso+`can_view_financial` via fachada
+     `financial-read-authority` (FOR SHARE + audit ANTES do disclosure + no-store);
+     listagem de invoices exige filtro explícito de parte.
+  5. Ambos os triggers de exclusividade adquirem `fn_company_relation_advisory_lock`
+     (pg_advisory_xact_lock, chave única tenant×company×identity) ANTES do check
+     cross-table (migration `20260719180000` linhas 98/129); write-skew provado morto (6/6).
+  6. Nenhum guard afrouxado: todos os guards atualizados exigem o padrão NOVO mais forte
+     (runner 195, +2 sobre o fechamento F6); nenhum token de convite em log (guard ativo).
+- **Cartório:** entrada de fechamento no REMEDIATION_DT_LOG (Findings A/B/C FECHADOS;
+  errata §13.4 vigente via DECISION-0189A §6; DT-CANREPRESENTACTOR reclassificada — feed e
+  eventos migrados REMOVIDOS do denominador; decisão R19 registrada como RESOLVIDA por D7).
+  **DT global de canRepresentActor NÃO fechada** (rotas legitimamente contidas permanecem).
+  **NENHUM selo declarado** — executora não se autossela.
+- **Commits da corretiva:** `498607b0d` (A) → `e0c77a5b9` (B) → `f73062d85` (C) →
+  `21b5d9eda` (D) → `576137b56` (E) → fechamento de cartório (F). Os 7 commits da campanha
+  original permanecem INTOCADOS (sem amend/squash/rebase).
+- **Limitações NÃO REPRODUZIDAS (sem invenção de resultado):** upgrade do DEV pelo runner
+  canônico segue bloqueado pelo drift parte-(b) pré-existente (migration bloqueadora:
+  `20260713100000`; objetos presentes sem registro) — upgrade canônico foi provado em
+  efêmero por file-set BASE(526)→FINAL(530)→no-op; perna de dados materiais de
+  invoices/payment_executions/payment_splits não reproduzível (to_regclass NULL — schema
+  ghost; NÃO usado como argumento de segurança, fechamento é estrutural).
