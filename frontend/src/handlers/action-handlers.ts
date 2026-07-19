@@ -5,7 +5,7 @@
 import { observePilotEvent } from '../services/pilot-observer.service';
 
 import { createCompany, type CreateCompanyInput } from '../api/companies';
-import { createCompanyMember, type CreateCompanyMemberInput } from '../api/companyMembers';
+// DECISION-0189 (F5): createCompanyMember morreu (410) — convite canônico em ../api/companyInvitations
 import { setUserGroupAllocations, type GroupAllocation } from '../api/group-allocation';
 import { getGroup } from '../api/groups';
 
@@ -46,31 +46,32 @@ export async function executeCreateCompany(
 }
 
 /**
- * Convida um membro para a empresa
+ * Convida um membro para a empresa via CONVITE CANÔNICO (DECISION-0189 F5).
+ * A criação direta de membro morreu (backend 410) — este handler agora emite convite
+ * (permissões vêm do catálogo convidável; o servidor aplica os dois tetos).
  */
 export async function executeInviteCompanyMember(
   companyId: string,
-  input: CreateCompanyMemberInput
+  input: { inviteeGlobalUserId: string; permissionKeys: string[] }
 ): Promise<ActionResult> {
   try {
-    const member = await createCompanyMember(companyId, input);
-    
-    // Observar primeiro evento de convite de membro
-    // Nota: actorId precisa ser obtido do contexto (useSession)
+    const { createCompanyInvitation } = await import('../api/companyInvitations');
+    const invitation = await createCompanyInvitation(companyId, input);
+
     observePilotEvent('first_member_invited', companyId, 'page', {
       companyId,
     });
-    
+
     return {
       success: true,
-      data: member,
-      message: 'Colaborador convidado com sucesso',
+      data: invitation,
+      message: 'Convite criado — envie o código de aceite ao colaborador',
     };
   } catch (error: any) {
     return {
       success: false,
       error: error.message || 'Erro ao convidar colaborador',
-      message: error.message || 'Não foi possível convidar o colaborador. Verifique se você tem permissão.',
+      message: error.message || 'Não foi possível criar o convite. Verifique se você tem permissão.',
     };
   }
 }

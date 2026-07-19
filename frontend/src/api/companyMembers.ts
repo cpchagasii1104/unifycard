@@ -18,8 +18,10 @@ export enum CompanyMemberRole {
  */
 export enum CompanyMemberStatus {
   ACTIVE = 'active',
-  INVITED = 'invited',
   SUSPENDED = 'suspended',
+  // DECISION-0189 (F4/F5): 'invited' morreu (convite vive em company_access_invitations);
+  // 'revoked' = revogação lógica (histórico preservado)
+  REVOKED = 'revoked',
 }
 
 /**
@@ -35,15 +37,8 @@ export interface CompanyMember {
   updatedAt: string;
 }
 
-/**
- * Input para criar membro
- */
-export interface CreateCompanyMemberInput {
-  actorId: string;
-  role?: CompanyMemberRole;
-  status?: CompanyMemberStatus;
-  metadata?: Record<string, any>;
-}
+// DECISION-0189 (F5): CreateCompanyMemberInput morreu — membership nasce pelo convite
+// canônico (companyInvitations.ts). POST /members responde 410 no backend.
 
 /**
  * Input para atualizar membro
@@ -80,23 +75,6 @@ export async function getCompanyMember(
 ): Promise<CompanyMember> {
   const result = await apiFetchJson<{ ok: boolean; data: CompanyMember }>(
     `/companies/${companyId}/members/${memberId}`
-  );
-  return result.data;
-}
-
-/**
- * Cria um novo membro
- */
-export async function createCompanyMember(
-  companyId: string,
-  input: CreateCompanyMemberInput
-): Promise<CompanyMember> {
-  const result = await apiFetchJson<{ ok: boolean; data: CompanyMember }>(
-    `/companies/${companyId}/members`,
-    {
-      method: 'POST',
-      body: JSON.stringify(input),
-    }
   );
   return result.data;
 }

@@ -41,8 +41,8 @@ export default function CompanyMembersList({ companyId }: CompanyMembersListProp
     switch (status) {
       case CompanyMemberStatus.ACTIVE:
         return 'Ativo';
-      case CompanyMemberStatus.INVITED:
-        return 'Convidado';
+      case CompanyMemberStatus.REVOKED:
+        return 'Revogado';
       case CompanyMemberStatus.SUSPENDED:
         return 'Suspenso';
       default:
@@ -67,8 +67,8 @@ export default function CompanyMembersList({ companyId }: CompanyMembersListProp
     switch (status) {
       case CompanyMemberStatus.ACTIVE:
         return 'status-active';
-      case CompanyMemberStatus.INVITED:
-        return 'status-invited';
+      case CompanyMemberStatus.REVOKED:
+        return 'status-revoked';
       case CompanyMemberStatus.SUSPENDED:
         return 'status-suspended';
       default:

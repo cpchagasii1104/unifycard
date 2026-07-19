@@ -37,6 +37,7 @@ import HomePage from './pages/HomePage';
 import WelcomePage from './pages/WelcomePage';
 // Site público pré-login (multi-página, antes do login/cadastro)
 import PropostaPage from './pages/public/PropostaPage';
+import InvitationAcceptPage from './pages/InvitationAcceptPage';
 import SistemaPage from './pages/public/SistemaPage';
 import ParaVocePage from './pages/public/ParaVocePage';
 import AutogestaoPage from './pages/public/AutogestaoPage';
@@ -332,6 +333,8 @@ function AppContent() {
           <Route path="eventos" element={<EventosPage />} />
           <Route path="perfil" element={<PerfilPage />} />
           <Route path="empresas" element={<EmpresasPage />} />
+          {/* DECISION-0189 (F5): aceite/recusa de convite de acesso a empresa (token pessoal) */}
+          <Route path="convites" element={<InvitationAcceptPage />} />
           {/* β.1 (2026-06-05): criação `company-canonical` APOSENTADA — nascimento PJ é fiscal-first
               (CNPJ + KYB) na tela de Empresas. Rotas legadas redirecionam para o fluxo vivo. */}
           <Route path="companies/new" element={<Navigate to="/empresas" replace />} />
