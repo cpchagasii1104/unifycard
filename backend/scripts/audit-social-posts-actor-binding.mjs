@@ -37,28 +37,37 @@ const ROUTES = 'src/modules/social/social-2.0.routes.ts';
 const SERVICES_ROUTES = 'src/modules/services/services.routes.ts';
 
 // ── social-2.0.routes.ts (gate de POST /social/posts) ──────────────────────────────────────
+// 🔒 DECISION-0189A §2 (YALA CLOSEOUT, Finding B): o gate canônico EVOLUIU de canRepresentActor
+// (representação — para empresa era GESTÃO, sombreando o grant fino can_publish_feed) para a
+// DECISÃO EXATA canActAs(publish_feed) sobre o AUTOR declarado. Isto é FORTALECIMENTO, não
+// afrouxamento: a chave exata subsume a representação (self · membership grant · delegação
+// exata) e mata a sombra. Este guard agora MORDE se o pre-gate de representação VOLTAR.
 const rc = readStripped(ROUTES);
 if (rc !== null) {
-  // REQUIRE: gate canônico com subject server-side e target = actor autor declarado.
-  if (!/canRepresentActor\(\s*req\.tenant\.id\s*,\s*req\.user\.userId\s*,\s*validated\.actor_id\s*\)/.test(rc)) {
-    failures.push(`${ROUTES}: POST /social/posts DEVE chamar canRepresentActor(req.tenant.id, req.user.userId, validated.actor_id).`);
+  // REQUIRE: decisão exata com subject server-side e target = actor AUTOR declarado.
+  if (!/canActAs\(\s*req\.tenant\.id\s*,\s*req\.user\.userId\s*,\s*validated\.actor_id\s*,\s*'publish_feed'/.test(rc)) {
+    failures.push(`${ROUTES}: POST /social/posts DEVE decidir por canActAs(req.tenant.id, req.user.userId, validated.actor_id, 'publish_feed') (DECISION-0189A).`);
   }
-  // REQUIRE: 403 fail-closed com code canônico.
-  if (!/status\(\s*403\s*\)[\s\S]{0,200}SOCIAL_POST_ACTOR_NOT_REPRESENTABLE/.test(rc)) {
-    failures.push(`${ROUTES}: DEVE retornar 403 com code SOCIAL_POST_ACTOR_NOT_REPRESENTABLE quando não representável.`);
+  // REQUIRE: 403 fail-closed com code canônico novo.
+  if (!/status\(\s*403\s*\)[\s\S]{0,300}SOCIAL_POST_PUBLISH_FEED_DENIED/.test(rc)) {
+    failures.push(`${ROUTES}: DEVE retornar 403 com code SOCIAL_POST_PUBLISH_FEED_DENIED quando a chave exata negar.`);
   }
   // POSICIONAL: gate ANTES do sink createPost.
-  const idxGate = rc.search(/canRepresentActor\(\s*req\.tenant\.id\s*,\s*req\.user\.userId\s*,\s*validated\.actor_id\s*\)/);
+  const idxGate = rc.search(/canActAs\(\s*req\.tenant\.id\s*,\s*req\.user\.userId\s*,\s*validated\.actor_id\s*,\s*'publish_feed'/);
   const idxSink = rc.search(/social2Service\.createPost\s*\(/);
   if (idxSink !== -1 && (idxGate === -1 || idxGate > idxSink)) {
-    failures.push(`${ROUTES}: o gate canRepresentActor DEVE ocorrer ANTES de social2Service.createPost.`);
+    failures.push(`${ROUTES}: o gate canActAs(publish_feed) DEVE ocorrer ANTES de social2Service.createPost.`);
   }
-  // FORBID: actor declarado / actionContext.actorId como SUBJECT (2º arg) do gate.
-  if (/canRepresentActor\(\s*[^,)]*,\s*validated\.actor_id\s*,/.test(rc)) {
-    failures.push(`${ROUTES}: PROIBIDO — canRepresentActor com validated.actor_id como SUBJECT (2º arg). Subject = req.user.userId.`);
+  // FORBID: a SOMBRA de representação sobre o autor NÃO pode voltar (Finding B).
+  if (/canRepresentActor\(\s*req\.tenant\.id\s*,\s*req\.user\.userId\s*,\s*validated\.actor_id\s*\)/.test(rc)) {
+    failures.push(`${ROUTES}: PROIBIDO — pre-gate canRepresentActor sobre o autor voltou (sombra do grant fino — Finding B da YALA).`);
   }
-  if (/canRepresentActor\(\s*[^,)]*,\s*req\.actionContext/.test(rc)) {
-    failures.push(`${ROUTES}: PROIBIDO — canRepresentActor com req.actionContext.actorId (client-declared) como SUBJECT.`);
+  // FORBID: actor declarado / actionContext.actorId como SUBJECT do gate.
+  if (/canActAs\(\s*[^,)]*,\s*validated\.actor_id\s*,\s*validated\.actor_id/.test(rc)) {
+    failures.push(`${ROUTES}: PROIBIDO — validated.actor_id como SUBJECT do gate. Subject = req.user.userId.`);
+  }
+  if (/canActAs\(\s*[^,)]*,\s*req\.actionContext[^,)]*,\s*validated\.actor_id/.test(rc)) {
+    failures.push(`${ROUTES}: PROIBIDO — req.actionContext como SUBJECT do gate (client-declared).`);
   }
 }
 
@@ -73,4 +82,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [social-posts-actor-binding] — POST /social/posts vincula o actor autor declarado via canRepresentActor (req.user.userId, fail-closed 403) antes do write.');
+console.log('GATE OK [social-posts-actor-binding] — POST /social/posts vincula o actor autor declarado via canActAs(publish_feed) exato no AUTOR (DECISION-0189A; sombra de representação morta) antes do write.');

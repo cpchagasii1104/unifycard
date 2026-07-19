@@ -374,12 +374,28 @@ class AuthorizationService {
     }
     const terminal = entry.classification === 'company_grant_terminal';
 
+    // 🔒 DECISION-0189A §2 (lazy-heal da perna capability): o registry de empresa era populado
+    // apenas pelo writer legado de membros (morto na F4) — membro aceito por CONVITE numa empresa
+    // sem linha de registry seria negado pela perna capability mesmo com o grant exato. Ao
+    // encontrar empresa SEM registry, materializamos os DEFAULTS DE TIPO (getDefaultCapabilities
+    // 'company' — fato de TIPO, não concessão; upsert idempotente) antes de decidir.
+    let effectiveRegistry = registry;
+    if (!effectiveRegistry) {
+      try {
+        effectiveRegistry = await actorRegistryService.register(
+          tenantId, actorId, 'company', 'companies', actor.company_id
+        );
+      } catch {
+        effectiveRegistry = null; // fail-closed: perna capability decide abaixo
+      }
+    }
+
     // Perna capability (tríade): o TIPO do actor suporta a ação?
     const requiredCapability = entry.companyActorCapability ?? PERMISSION_CAPABILITIES[permissionKey];
     const capabilityOk =
       requiredCapability === null ||
       requiredCapability === undefined ||
-      registry?.capabilities?.[requiredCapability] === true;
+      effectiveRegistry?.capabilities?.[requiredCapability] === true;
 
     // Perna subject grant: ESTE usuário pode NESTE actor? (membership ativa + coluna true)
     let granted = false;

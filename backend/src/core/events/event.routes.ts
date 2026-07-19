@@ -252,7 +252,8 @@ async function userRepresentsActor(
 async function assertRepresentsEventOwner(
   tenantId: string,
   userId: string | undefined,
-  eventId: string
+  eventId: string,
+  exactKey?: 'manage_events' | 'manage_attendees'
 ): Promise<void> {
   if (!userId) {
     throw new ForbiddenError('Autenticação obrigatória para agir sobre o evento');
@@ -263,6 +264,66 @@ async function assertRepresentsEventOwner(
   }
   if (!(await userRepresentsActor(tenantId, userId, event.actorId))) {
     throw new ForbiddenError('Usuário não representa o dono do evento');
+  }
+  // 🔒 DECISION-0189A §3 (D4): representação NÃO é a decisão final — writers exigem a CHAVE
+  // EXATA sobre o actor DONO do evento (canActAs: self · governança/delegação exata p/ empresa).
+  if (exactKey && !(await userCanActOnActor(tenantId, userId, event.actorId, exactKey))) {
+    throw new ForbiddenError(`Sem a permissão exata ${exactKey} sobre o dono do evento (DECISION-0189A)`);
+  }
+}
+
+/**
+ * 🔒 DECISION-0189A §2/§3 — DECISÃO FINAL por CHAVE EXATA (D3): canActAs(permissionKey) sobre o
+ * actor-alvo resolvido server-side. Representação isolada NUNCA autoriza (D2). Fail-closed.
+ */
+async function userCanActOnActor(
+  tenantId: string,
+  userId: string | undefined,
+  actorId: string | undefined,
+  permissionKey: 'create_events' | 'manage_events' | 'manage_attendees' | 'publish_feed'
+): Promise<boolean> {
+  if (!userId || !actorId) return false;
+  const { authorizationService } = await import('@core/authorization/authorization.service');
+  try {
+    if ((await authorizationService.canActAs(tenantId, userId, actorId, permissionKey)).allowed) {
+      return true;
+    }
+    // CONTENÇÃO DE GRUPO (DECISION-0189A §3 — grupos FORA do escopo da campanha; DT-GROUP-*):
+    // eventos de GRUPO nunca tiveram gate por chave (só representação do dono) e o registry de
+    // grupos não carrega can_create_events — sem este desvio o gate NOVO regrediria o fluxo
+    // legado de grupo. Para actor de GRUPO, mantém-se o comportamento anterior (dono representa).
+    // Empresas e PF ficam SÓ com a chave exata acima.
+    const { socialPortsRegistry } = await import('@core/social/ports-registry');
+    const actor = await socialPortsRegistry.getActorRepository().findById(tenantId, actorId);
+    if (actor && (actor as { group_id?: string | null }).group_id) {
+      return await userRepresentsActor(tenantId, userId, actorId);
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 🔒 DECISION-0189A §3 — gate exato de WRITER sobre evento EXISTENTE: carrega o evento
+ * server-side, resolve o actor DONO e exige a chave exata. Uniforme: inexistente → NotFound;
+ * sem chave → Forbidden (nunca aceita actorId do cliente como prova).
+ */
+async function assertEventExactAuthority(
+  tenantId: string,
+  userId: string | undefined,
+  eventId: string,
+  permissionKey: 'manage_events' | 'manage_attendees'
+): Promise<void> {
+  if (!userId) {
+    throw new ForbiddenError('Autenticação obrigatória para agir sobre o evento');
+  }
+  const event = await eventService.getEvent(tenantId, eventId);
+  if (!event) {
+    throw new NotFoundError('Evento não encontrado');
+  }
+  if (!(await userCanActOnActor(tenantId, userId, event.actorId, permissionKey))) {
+    throw new ForbiddenError(`Sem a permissão exata ${permissionKey} sobre o dono do evento (DECISION-0189A)`);
   }
 }
 
@@ -360,7 +421,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: { id: string }; Body: { needConceptId?: string } }>('/:id/operational-needs', async (req, reply) => {
     if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
     const tenantId = req.tenant.id;
-    await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id);
+    await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id, 'manage_events');
     const needConceptId = req.body?.needConceptId;
     if (!needConceptId || typeof needConceptId !== 'string') {
       return reply.status(400).send({ ok: false, code: 'NEED_CONCEPT_ID_REQUIRED' });
@@ -375,7 +436,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{ Params: { id: string; needConceptId: string } }>('/:id/operational-needs/:needConceptId', async (req, reply) => {
     if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
     const tenantId = req.tenant.id;
-    await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id);
+    await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id, 'manage_events');
     const { eventOperationalNeedsService } = await import('./event-operational-needs.service');
     await eventOperationalNeedsService.remove(tenantId, req.params.id, req.params.needConceptId);
     return reply.status(200).send({ ok: true });
@@ -409,6 +470,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
       if (evRows.actor_id !== actorId) {
         return reply.status(403).send({ ok: false, code: 'NOT_EVENT_ORGANIZER' });
+      }
+      // 🔒 DECISION-0189A §3 (D4): plateia é WRITE de evento — exige manage_events exato.
+      if (!(await userCanActOnActor(tenantId, req.user?.userId, evRows.actor_id, 'manage_events'))) {
+        return reply.status(403).send({ ok: false, code: 'MANAGE_EVENTS_REQUIRED' });
       }
       const vis = req.body?.visibility;
       const aud = req.body?.audienceRelationshipTypes ?? null;
@@ -511,16 +576,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           );
         }
 
-        // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: actor_id/actor_type são HINT. O utilizador autenticado
-        // DEVE representar o actor declarado (user=ownership, page=gestão da empresa), resolvido
-        // server-side via canRepresentActor — fail-closed. Substitui o match contra actionContext.
-        if (!(await userRepresentsActor(req.tenant.id, req.user.userId, req.body.actor_id))) {
+        // 🔒 DECISION-0189A §2/§3 (Finding A): a DECISÃO da criação é a CHAVE EXATA create_events
+        // sobre o actor ORGANIZADOR declarado (canActAs: membro com can_create_events · governança ·
+        // delegação exata · PF=self). Representação isolada NÃO autoriza (D2/D3).
+        if (!(await userCanActOnActor(req.tenant.id, req.user.userId, req.body.actor_id, 'create_events'))) {
           return sendEventHttpError(
             reply,
             req,
             403,
             ErrorCode.FORBIDDEN,
-            'Sem autoridade para representar o actor declarado'
+            'Sem a permissão exata create_events sobre o actor organizador (DECISION-0189A)'
           );
         }
 
@@ -693,6 +758,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.user?.userId,
           req.actionContext.actorId
         );
+        // 🔒 DECISION-0189A §3 (D4): writer sobre evento EXISTENTE — a decisão é a chave exata
+        // manage_events sobre o dono do evento carregado server-side (representação não basta).
+        await assertEventExactAuthority(req.tenant.id, req.user?.userId, req.params.id, 'manage_events');
         
         // Body é snake_case no contrato HTTP; updateEvent usa camelCase. De-para explícito (mesmo
         // motivo do /v2/declare) — sem isto, ticket_price_cents/max_attendees/etc. chegavam undefined.
@@ -819,6 +887,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.user?.userId,
           req.actionContext.actorId
         );
+        // 🔒 DECISION-0189A §3 (D4): writer sobre evento EXISTENTE — a decisão é a chave exata
+        // manage_events sobre o dono do evento carregado server-side (representação não basta).
+        await assertEventExactAuthority(req.tenant.id, req.user?.userId, req.params.id, 'manage_events');
 
         // Buscar evento para obter actor efetivo (pode ser user ou page)
         // CORREÇÃO: Verificar débitos do actor do evento, não sempre do user
@@ -966,6 +1037,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.user?.userId,
           req.actionContext.actorId
         );
+        // 🔒 DECISION-0189A §3 (D4): writer sobre evento EXISTENTE — a decisão é a chave exata
+        // manage_events sobre o dono do evento carregado server-side (representação não basta).
+        await assertEventExactAuthority(req.tenant.id, req.user?.userId, req.params.id, 'manage_events');
         
         const event = await eventService.cancelEvent(
           req.tenant.id,
@@ -1326,9 +1400,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
-        // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: actor_id é HINT — o utilizador autenticado DEVE representar
-        // o actor declarado server-side (canRepresentActor), fail-closed. Substitui o match contra actionContext.
-        if (!(await userRepresentsActor(req.tenant.id, req.user.userId, req.body.actor_id))) {
+        // 🔒 DECISION-0189A §2/§3 (Finding A): draft é CRIAÇÃO — chave exata create_events sobre o
+        // actor organizador declarado (representação isolada não autoriza).
+        if (!(await userCanActOnActor(req.tenant.id, req.user.userId, req.body.actor_id, 'create_events'))) {
           return sendEventHttpError(
             reply,
             req,
@@ -1413,6 +1487,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.user?.userId,
           req.actionContext.actorId
         );
+        // 🔒 DECISION-0189A §3 (D4): writer sobre evento EXISTENTE — a decisão é a chave exata
+        // manage_events sobre o dono do evento carregado server-side (representação não basta).
+        await assertEventExactAuthority(req.tenant.id, req.user?.userId, req.params.id, 'manage_events');
 
         // O contrato HTTP é snake_case (event_aspects/intent_flags/...); o service usa camelCase
         // (DeclareEventInput). Mapeia aqui — sem esse de-para, eventAspects chegava undefined e o
@@ -1498,6 +1575,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.user?.userId,
           req.actionContext.actorId
         );
+        // 🔒 DECISION-0189A §3 (D4): writer sobre evento EXISTENTE — a decisão é a chave exata
+        // manage_events sobre o dono do evento carregado server-side (representação não basta).
+        await assertEventExactAuthority(req.tenant.id, req.user?.userId, req.params.id, 'manage_events');
 
         const event = await eventService.publishEvent(
           req.tenant.id,
@@ -1568,6 +1648,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.user?.userId,
           req.actionContext.actorId
         );
+        // 🔒 DECISION-0189A §3 (D4): writer sobre evento EXISTENTE — a decisão é a chave exata
+        // manage_events sobre o dono do evento carregado server-side (representação não basta).
+        await assertEventExactAuthority(req.tenant.id, req.user?.userId, req.params.id, 'manage_events');
 
         const event = await eventService.activateEvent(
           req.tenant.id,
@@ -1638,6 +1721,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.user?.userId,
           req.actionContext.actorId
         );
+        // 🔒 DECISION-0189A §3 (D4): writer sobre evento EXISTENTE — a decisão é a chave exata
+        // manage_events sobre o dono do evento carregado server-side (representação não basta).
+        await assertEventExactAuthority(req.tenant.id, req.user?.userId, req.params.id, 'manage_events');
 
         const event = await eventService.endEvent(
           req.tenant.id,
@@ -1840,6 +1926,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         if (!(await userRepresentsActor(req.tenant.id, req.user.userId, req.body.responsible_actor_id))) {
           return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, 'Sem autoridade para representar o responsible_actor declarado');
         }
+        // 🔒 DECISION-0189A §3 (D4): atribuir commitment é ADMINISTRAR participantes/staff do
+        // evento — exige manage_attendees exato sobre o dono do evento (carregado server-side).
+        await assertEventExactAuthority(req.tenant.id, req.user.userId, req.params.id, 'manage_attendees');
         const commitment = await operationalCommitmentsService.createCommitment(
           req.tenant.id,
           toCreateOperationalCommitmentInput(req.params.id, req.body)
@@ -1949,7 +2038,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         if (!commitment0) {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Commitment não encontrado');
         }
-        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, commitment0.eventId);
+        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, commitment0.eventId, 'manage_attendees');
 
         // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: se observed_by_actor_id for declarado no body (schema
         // runtime snake_case), o utilizador autenticado DEVE representá-lo (fail-closed).
@@ -2023,7 +2112,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         if (!commitment0) {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Commitment não encontrado');
         }
-        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, commitment0.eventId);
+        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, commitment0.eventId, 'manage_attendees');
 
         // 🔴 F-0113-EVENT-ACTOR-BODY-BINDING: se observed_by_actor_id for declarado no body (schema
         // runtime snake_case), o utilizador autenticado DEVE representá-lo (fail-closed).
@@ -2098,7 +2187,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         if (!commitment0) {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Commitment não encontrado');
         }
-        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, commitment0.eventId);
+        await assertRepresentsEventOwner(req.tenant.id, req.user?.userId, commitment0.eventId, 'manage_attendees');
 
         const commitment = await operationalCommitmentsService.markFailed(
           req.tenant.id,
@@ -2163,6 +2252,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.user?.userId,
           req.actionContext.actorId
         );
+        // 🔒 DECISION-0189A §3 (D4): writer sobre evento EXISTENTE — a decisão é a chave exata
+        // manage_events sobre o dono do evento carregado server-side (representação não basta).
+        await assertEventExactAuthority(req.tenant.id, req.user?.userId, req.params.id, 'manage_events');
 
         const event = await eventService.cancelEvent(
           req.tenant.id,
@@ -2259,11 +2351,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         // declarado no body (event.actor_id, se presente) são HINT — o utilizador autenticado DEVE
         // representá-los server-side (canRepresentActor), fail-closed.
         const declaredOwnerId = (req.body as { event?: { actor_id?: string } })?.event?.actor_id;
-        if (
-          !(await userRepresentsActor(req.tenant.id, req.user.userId, userActor.actor_id)) ||
-          (declaredOwnerId ? !(await userRepresentsActor(req.tenant.id, req.user.userId, declaredOwnerId)) : false)
-        ) {
-          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, 'Sem autoridade para representar o actor do evento');
+        // 🔒 DECISION-0189A §2/§3 (Finding A): criação v2 — chave exata create_events sobre o actor
+        // ORGANIZADOR efetivo (declarado no body, senão o do contexto), resolvido server-side.
+        if (!(await userCanActOnActor(req.tenant.id, req.user.userId, declaredOwnerId ?? userActor.actor_id, 'create_events'))) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, 'Sem a permissão exata create_events sobre o actor do evento (DECISION-0189A)');
         }
 
         // 🔴 FIX (achado de Clayton no navegador, 2026-07-06): o WIRE fala snake_case (schema desta rota:
@@ -2378,6 +2469,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.user?.userId,
           req.actionContext.actorId
         );
+        // 🔒 DECISION-0189A §3 (D4): writer sobre evento EXISTENTE — a decisão é a chave exata
+        // manage_events sobre o dono do evento carregado server-side (representação não basta).
+        await assertEventExactAuthority(req.tenant.id, req.user?.userId, req.params.id, 'manage_events');
 
         const event = await eventCreationOrchestrator.setTimeWindows(
           req.tenant.id,

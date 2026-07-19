@@ -65,11 +65,13 @@ if (cc !== null) {
   if (!/social2Service\.createPost\s*\(/.test(cc)) {
     failures.push(`${CANONICAL}: canônica POST /social/posts perdeu o sink social2Service.createPost — a contenção do legado NÃO pode degradar a rota viva.`);
   }
-  if (!/canRepresentActor\(\s*req\.tenant\.id\s*,\s*req\.user\.userId\s*,\s*validated\.actor_id\s*\)/.test(cc)) {
-    failures.push(`${CANONICAL}: canônica POST /social/posts perdeu o gate canRepresentActor(req.tenant.id, req.user.userId, validated.actor_id) (R6.2).`);
+  // DECISION-0189A (Finding B): gate da canônica EVOLUIU para canActAs('publish_feed') EXATO
+  // sobre o AUTOR (fortalecimento; sombra de representação morta). Cross-check espelha o novo.
+  if (!/canActAs\(\s*req\.tenant\.id\s*,\s*req\.user\.userId\s*,\s*validated\.actor_id\s*,\s*'publish_feed'/.test(cc)) {
+    failures.push(`${CANONICAL}: canônica POST /social/posts perdeu o gate exato canActAs(publish_feed) no AUTOR (DECISION-0189A).`);
   }
-  if (!/SOCIAL_POST_ACTOR_NOT_REPRESENTABLE/.test(cc)) {
-    failures.push(`${CANONICAL}: canônica POST /social/posts perdeu o 403 SOCIAL_POST_ACTOR_NOT_REPRESENTABLE (R6.2).`);
+  if (!/SOCIAL_POST_PUBLISH_FEED_DENIED/.test(cc)) {
+    failures.push(`${CANONICAL}: canônica POST /social/posts perdeu o 403 SOCIAL_POST_PUBLISH_FEED_DENIED (DECISION-0189A).`);
   }
 }
 

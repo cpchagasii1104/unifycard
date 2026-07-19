@@ -90,10 +90,14 @@ for (const rel of [REFERRAL_SVC, 'src/core/auth/auth.routes.ts', 'src/core/auth/
 }
 
 // ── 5) R6.2 social-posts NÃO alterada por acidente (cross-check do gate selado) ───────────────
+// DECISION-0189A (YALA CLOSEOUT, Finding B): o gate de social-posts EVOLUIU deliberadamente de
+// canRepresentActor (sombra de gestão sobre o grant fino) para canActAs('publish_feed') EXATO
+// sobre o AUTOR — fortalecimento, não acidente. Cross-check atualizado para o gate novo; a
+// fiscalização fina vive em audit-social-posts-actor-binding.mjs.
 checkFile('src/modules/social/social-2.0.routes.ts', {
   requires: [
-    { re: /canRepresentActor\(req\.tenant\.id,\s*req\.user\.userId,\s*validated\.actor_id\)/, msg: 'gate R6.2 social-posts (canRepresentActor subject=req.user.userId) sumiu — esta frente NÃO deve tocar social-posts.' },
-    { re: /SOCIAL_POST_ACTOR_NOT_REPRESENTABLE/, msg: 'código 403 R6.2 social-posts sumiu — esta frente NÃO deve tocar social-posts.' },
+    { re: /canActAs\(\s*req\.tenant\.id,\s*req\.user\.userId,\s*validated\.actor_id,\s*'publish_feed'/, msg: 'gate exato de social-posts (canActAs publish_feed no AUTOR, DECISION-0189A) sumiu — esta frente NÃO deve tocar social-posts.' },
+    { re: /SOCIAL_POST_PUBLISH_FEED_DENIED/, msg: 'código 403 do gate exato de social-posts sumiu — esta frente NÃO deve tocar social-posts.' },
   ],
 });
 

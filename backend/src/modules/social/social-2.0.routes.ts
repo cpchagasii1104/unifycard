@@ -277,36 +277,33 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
 
       const createdAsActorId = req.actionContext.actorId;
 
-      // 🔴 DECISION-0113 / DECISION-0131 §B7 / Z2-R6.2 — o autor declarado do post (`validated.actor_id`) é
-      // o actor que assina/publica. actorId declarado pelo cliente é HINT, nunca autoridade: o principal
-      // autenticado (`req.user.userId`, server-side) DEVE provar representação desse actor via
-      // canRepresentActor (fail-closed → 403) ANTES de criar o post. `requirePermission('publish_feed')`
-      // (abaixo) é permissão de MÓDULO/capability, não autoridade sobre o actor autor — preservada como
-      // gate adicional, NUNCA substituto. Sem actor_id → autoria do próprio actor do usuário (representável
-      // por construção via ensureUserActor no service).
+      // 🔒 DECISION-0189A §2 (Finding B — YALA CLOSEOUT): a DECISÃO sobre o autor declarado é a
+      // CHAVE EXATA `canActAs(publish_feed)` sobre o PRÓPRIO actor autor (validated.actor_id) —
+      // membro ativo com can_publish_feed publica SEM can_manage_company; gestor SEM o grant é
+      // NEGADO; representante externo só com delegação cobrindo publish_feed; PF = self.
+      // O pre-gate legado `canRepresentActor` (gestão) SOMBREAVA o grant fino (membro comum com
+      // can_publish_feed=true tomava 403 aqui) e o requirePermission antigo checava o actor do
+      // actionContext — o AUTOR nunca era o sujeito do gate. Ambos substituídos pela decisão
+      // exata abaixo. KYB-gate de page (DECISION-0094) permanece no service, intocado.
       if (validated.actor_id) {
-        let canRepresentAuthor = false;
+        let decision: { allowed: boolean; reason?: string } = { allowed: false };
         try {
           const { authorizationService } = await import('@core/authorization/authorization.service');
-          canRepresentAuthor = await authorizationService.canRepresentActor(req.tenant.id, req.user.userId, validated.actor_id);
+          decision = await authorizationService.canActAs(
+            req.tenant.id,
+            req.user.userId,
+            validated.actor_id,
+            'publish_feed'
+          );
         } catch {
-          canRepresentAuthor = false;
+          decision = { allowed: false };
         }
-        if (!canRepresentAuthor) {
-          return reply.status(403).send({ ok: false, code: 'SOCIAL_POST_ACTOR_NOT_REPRESENTABLE', error: 'Sem autoridade para publicar como o actor declarado (canRepresentActor)' });
-        }
-      }
-
-      // CONTINUOUS PRODUCTION: Verificar permissão específica para publicar feed
-      // Action context já foi resolvido pelo middleware
-      if (req.actionContext && validated.actor_id) {
-        const { requirePermission } = await import('@core/authorization/require-permission.guard');
-        const guard = requirePermission('publish_feed');
-        await guard(req, reply);
-        
-        // Se guard retornou resposta, parar execução
-        if (reply.sent) {
-          return;
+        if (!decision.allowed) {
+          return reply.status(403).send({
+            ok: false,
+            code: 'SOCIAL_POST_PUBLISH_FEED_DENIED',
+            error: 'Sem a permissão exata publish_feed sobre o actor autor declarado (DECISION-0189A)',
+          });
         }
       }
       

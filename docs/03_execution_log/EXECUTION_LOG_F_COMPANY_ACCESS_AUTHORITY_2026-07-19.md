@@ -93,3 +93,30 @@ create_events e exclusividade estavam ERRADAS/OBSOLETAS; errata formal em DECISI
 - Commit: `docs(authority): record YALA closeout requirements`.
 
 *(Etapas B–F apensadas abaixo)*
+
+## ETAPA B — GATES EXATOS DE FEED E EVENTOS — ✅ EXECUTADA (Findings A e B FECHADOS)
+- **publish_feed dessombreada (Finding B):** POST /social/posts decide por `canActAs(publish_feed)`
+  sobre o AUTOR declarado (subject=req.user.userId); pre-gate `canRepresentActor` REMOVIDO
+  (403 novo `SOCIAL_POST_PUBLISH_FEED_DENIED`); `requirePermission` no actor do actionContext
+  REMOVIDO (checava o actor errado). KYB-gate 0094 intocado no service.
+- **Eventos (Finding A):** helpers novos `userCanActOnActor` (canActAs exato; D3) e
+  `assertEventExactAuthority` (evento carregado server-side → dono → chave exata). Criações ×3
+  (POST / · /v2/create · /v2/draft) → `create_events` no ORGANIZADOR declarado; writers ×12
+  (PATCH /:id · publish · cancel · declare · v2 publish/activate/end/cancel · time-windows ·
+  audience · needs POST/DELETE) → `manage_events`; administração de participantes ×4
+  (commitments create · check-in · check-out · fail) → `manage_attendees`; leituras
+  administrativas do organizador (2 GETs) e caminho econômico selado inalterados.
+  CONTENÇÃO DE GRUPO: actor de grupo mantém o comportamento legado (representação do dono) —
+  grupos fora do escopo; sem regressão.
+- **Lazy-heal da perna capability (0189A §2):** dispatch empresarial materializa os defaults de
+  TIPO no registry quando ausente (membro por convite não é mais negado pela perna capability).
+- **Guards:** NOVO `audit-event-feed-exact-permission` (runner 194→195: cria×3, manage_events×12,
+  manage_attendees×4, sombra proibida, company.post fora de Authority, errata preservada);
+  3 guards legados ATUALIZADOS para exigir o gate NOVO (social-posts-actor-binding ·
+  referral-register cross-check · social-legacy-containment — FORTALECIMENTO: chave exata
+  subsume representação; a volta da sombra MORDE); binding lists de measure-handler-gap e
+  event-lifecycle-authority reconhecem os helpers exatos.
+- **Prova adversarial 15/15 VERDES** em clone efêmero (B1..B12: membro fino publica/cria SEM
+  manage_company; gestor sem grant NEGADO; rep externo só com scope exato; alheio uniforme;
+  manage_events/attendees governança-sim membro-não; suspenso/revogado negados; PF self).
+- typecheck 0 · runner 195/195. Commit: `fix(authority): enforce exact feed and event permissions`.

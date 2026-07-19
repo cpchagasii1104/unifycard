@@ -51,7 +51,9 @@ check('event.routes: nenhum service de mutação recebe req.actionContext.actorI
 // falso-negativo estrutural do guard antigo, que só olhava `eventService.` e era cego a
 // eventPaymentPreparedService.revokeAuthorization / operationalCommitmentsService.markFailed/checkIn
 // (F1/F2/F3 passavam VERDES). Não há service-name na allowlist: a prova é o binding, não o nome.
-const BINDING_HELPERS = /resolveRepresentedActor|userRepresentsActor|assertRepresentsEventOwner|requirePermission|requireRole|canRepresentActor/;
+// DECISION-0189A: userCanActOnActor/assertEventExactAuthority = helpers de CHAVE EXATA
+// (canActAs) — binding MAIS FORTE que representação (Findings A/B da YALA fechados).
+const BINDING_HELPERS = /resolveRepresentedActor|userRepresentsActor|assertRepresentsEventOwner|requirePermission|requireRole|canRepresentActor|userCanActOnActor|assertEventExactAuthority/;
 // Allowlist de handlers de mutação legitimamente SEM autoridade de ator (justificativa obrigatória).
 // Vazia hoje — todo mutation handler de evento prova representação. Adicionar exige DT + razão.
 const ALLOWLIST_NON_AUTHORITY = new Set([]);
