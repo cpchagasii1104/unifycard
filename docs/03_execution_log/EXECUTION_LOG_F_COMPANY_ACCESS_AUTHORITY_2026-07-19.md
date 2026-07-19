@@ -286,3 +286,45 @@ commits anteriores INTOCADOS.
 - **Fechamento C1–C4:** C1 (PORTA 01 sem fresta) ✅; C2 (erros/indisponibilidade sem vazamento +
   invoices sem auto-abertura) ✅; C3 (feed interaction exato sem sombra) ✅; C4 (isolamento sem
   dependência silenciosa de RR) ✅. NÃO É SELO — reauditoria YALA independente.
+
+## DECISION-0189C — FECHAMENTO C1–C5 (RATCHET + PROJEÇÕES) — ✅ EXECUTADA
+HEAD inicial `b05a1bd49` → 8 commits novos; 20 anteriores INTOCADOS. Sem push/merge.
+
+- **CORREÇÃO DE OVERCLAIM (C1):** o "runner 197/197 verde" declarado no fechamento de 0189B era
+  PARCIAL — `run-regression-guards` NÃO incluía o gate `red-gates-baseline` (financial-ssot). O
+  script de prova `validate-yala-final-overview-data.ts` (então em `backend/src/scripts`) fazia
+  `INSERT` cru em `bank_*`, elevando **financial-ssot 591→592** sem o runner acusar. Corrigido na
+  Etapa B (fixture movida para fora de `src`; red-gates integrado ao runner).
+- **Etapa A — norma+inventário (`01141d2b4`):** DECISION-0189C (D1–D8) + inventário corrigido
+  (financial_terms:confirm CRIA splits; reporting/risk projetam agregados; publication-engine =
+  writer-irmão de reactions; matriz de writers/readers financeiros).
+- **Etapa B — runner+fixture (`3216e5585`+`7582838d7`) [C1/D7]:** fixture financeira em
+  `backend/tests/support/fixtures/` (fora de src/build; scanner não conta); prova
+  overview-data importa via alias; **financial-ssot de volta a 591**; `red-gates-baseline`
+  INTEGRADO ao runner (deixa de "mentir verde"). Runner 198.
+- **Etapa C — financial_terms em HOLD (`af1129fec`) [C2/D1–D3]:** `financial_terms:confirm` no
+  PORTA_HOLD; `isPorta01Closed()` estrutural; barreira no `confirmFinancialTerms` ANTES de
+  createSplit (mesmo direto e com `FEATURE_FINANCIAL_ENABLED=true` — flag não é autoridade);
+  guard estende (HOLD+barreira+sem novo caller createSplit+receive_funds sem caller). Prova
+  terms-hold 5/5 (0 split, sem estado parcial).
+- **Etapa D — publication-engine contido (`de3107e97`) [C3/D4]:** POST|DELETE
+  `/:entityType/:entityId/reactions` → 410 `GENERIC_REACTIONS_NOT_GOVERNED` ANTES de qualquer
+  efeito; guard varre TODOS os writers de reactions (não só social); social-2.0 interact_feed
+  preservado. Prova 5/5 (reactions intocada; social governado).
+- **Etapa E — reporting/risk sob HOLD (`877513f24`) [C4/D5]:** `financial-projection-hold`
+  (barreira de service `assertFinancialProjectionAllowed` + 503 de rota); getFinancialKPIs,
+  exportData(payouts/invoices), risk getOverview/listActorRiskProfiles/getActorRiskProfile/
+  getActorRiskTimeline fail-closed; tenant-operator NÃO supera HOLD; guard varre listOrders/
+  listInvoices/SQL de contorno. Prova reporting-hold 7/7. (Vocabulário financeiro mantido em 3889
+  rephraseando comentários — sem gaming do scanner.)
+- **Etapa F — provas (`este commit -1`):** runner **200**; financial-ssot **591**;
+  financial-vocabulary **3889**; typecheck BE+FE 0; build FE OK; fresh **532**+no-op; upgrade
+  b05a1bd49→final = **0 migrations novas** (0189C é code-only); **BASE×FINAL por suíte/teste/
+  assinatura = 0 regressão nova** (39 suítes/85 testes falham IDÊNTICOS — baseline DB-integration);
+  permission/auth/rbac/canonical 32/32; F2 3/3 · F3 17/17 · F4 16/16 · F5 23/23 · closeout
+  15/6/7/9 · 0189B porta01 10/10 · interact-feed 11/11 · isolation 7/7 · overview-com-dados 8/8;
+  provas NOVAS: terms-hold 5/5 · publication-410 5/5 · reporting-hold 7/7 · receive_funds sem
+  caller runtime (guard); **Δbank dev = 0/0/0, contas=16**.
+- **Fechamento C1–C5:** C1 (runner verde de verdade) ✅ · C2 (financial_terms fechado) ✅ ·
+  C3 (bypass publication contido) ✅ · C4 (reporting/risk sob HOLD) ✅ · C5 (evidências
+  reproduzidas) ✅. NÃO É SELO — reauditoria YALA independente.
