@@ -4,7 +4,6 @@
 // 🔴 BLINDAGEM: Funcionários são actors CPF independentes
 // 🔴 BLINDAGEM: Empresa NÃO pode editar agenda pessoal do funcionário
 
-import type { DelegationRelationshipType } from '@core/actor-delegation/actor-delegation.repository';
 
 /**
  * Role do Membro da Empresa
@@ -22,9 +21,10 @@ export enum CompanyMemberRole {
  */
 export enum CompanyMemberStatus {
   ACTIVE = 'active',      // Ativo
-  INVITED = 'invited',    // Convidado (LEGADO — DECISION-0189 R17: convite passa a viver em company_access_invitations; estado morre na F4)
   SUSPENDED = 'suspended', // Suspenso (congela grants; status nega autoridade)
   REVOKED = 'revoked',    // Revogado (DECISION-0189: revogação LÓGICA — DELETE físico condenado; grants zerados; histórico preservado em company_member_events)
+  // DECISION-0189 (F4/R17): 'invited' MORREU como estado de membership — convite vive
+  // exclusivamente em company_access_invitations (F5).
 }
 
 /**
@@ -59,24 +59,9 @@ export interface CompanyMemberRow {
   updated_at: string;
 }
 
-/**
- * Input para criar membro
- * 🔴 BLINDAGEM: companyId e actorId são OBRIGATÓRIOS
- */
-export interface CreateCompanyMemberInput {
-  companyId: string; // OBRIGATÓRIO
-  actorId: string; // OBRIGATÓRIO: Actor CPF
-  role?: CompanyMemberRole; // Default: 'staff'
-  status?: CompanyMemberStatus; // Default: 'invited'
-  metadata?: Record<string, any>;
-  // R2 FIX (RN2/R2.2, auditoria normativa Yala): VÍNCULO JURÍDICO explícito (eixo D2 separado do `role`
-  // operacional). Quando o gestor declara o vínculo real (sócio/diretor/procurador/representante legal),
-  // ele vem GOVERNADO por aqui e é escrito na delegação — em vez de ser ADIVINHADO 1:1 do role (que só
-  // alcançava administrator/employee/contractor e deixava owner→null + 4 valores mortos). É DADO (o gestor
-  // declara o fato), não autoridade — a autoridade segue canManageCompany + canRepresentActor. Opcional:
-  // se ausente, cai no fallback derivado do role (compat). Valor validado pelo CHECK do banco.
-  relationshipType?: DelegationRelationshipType | null;
-}
+// DECISION-0189 (F4): CreateCompanyMemberInput MORREU junto com a criação direta de membro
+// (R17 — só bootstrap e aceite canônico criam 'active'). O vínculo jurídico é declarado via
+// comando governado declareRelationship (casa company_member_relationships), não na criação.
 
 /**
  * Input para atualizar membro

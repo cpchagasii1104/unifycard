@@ -59,17 +59,22 @@ if (!existsSync(MEMBERS)) {
   failures.push(`arquivo ausente: ${MEMBERS}`);
 } else {
   const code = stripTs(readFileSync(MEMBERS, 'utf8'));
-  // 8. company-members passa grantedByActorId + relationshipType ao criar delegação (autoria + vínculo).
-  if (!/grantedByActorId/.test(code)) {
-    failures.push('company-members.service: não passa grantedByActorId ao criar delegação — autoria da concessão perdida (§4.9.9).');
+  // 8. 🔒 DECISION-0189 (F4 — CUTOVER R8/R11): membership empresarial NÃO escreve mais
+  // actor_delegations (autoridade = company_users.can_*; vínculo jurídico = casa canônica
+  // company_member_relationships com declared_by_user_id/declared_by_actor_id — a autoria
+  // §4.9.9 MIGROU de granted_by_actor_id da delegação para a autoria dupla da casa/eventos).
+  // Reintroduzir writer de delegação de membership aqui MORDE.
+  if (/actorDelegationRepository\.create|createDelegationForMember|getScopesForRole/.test(code)) {
+    failures.push('company-members.service: REINTRODUZIU escrita de delegação de membership (cutover DECISION-0189 R8 violado — autoridade vive em company_users.can_* + casa jurídica).');
   }
-  if (!/getRelationshipTypeForRole/.test(code)) {
-    failures.push('company-members.service: perdeu getRelationshipTypeForRole — vínculo jurídico (fallback do role) removido.');
+  // O vínculo jurídico explícito (7 valores, incl. os 4 que o role não alcançava) vive no comando
+  // governado declareRelationship (relationshipType explícito + autoria dupla) — provado abaixo.
+  const commands = stripTs(readFileSync(join(ROOT, 'src/core/companies/company-membership-commands.service.ts'), 'utf8'));
+  if (!/declareRelationship/.test(commands) || !/relationshipType/.test(commands)) {
+    failures.push('company-membership-commands.service: perdeu declareRelationship(relationshipType explícito) — vínculo jurídico governado sem writer (RN2/R2.2 herdada pela casa canônica).');
   }
-  // R2 FIX RN2/R2.2: o vínculo jurídico deve poder vir EXPLÍCITO (fonte governada), não só derivado 1:1
-  // do role (que deixava 4/7 valores mortos + owner→null). explicitRelationshipType tem precedência.
-  if (!/explicitRelationshipType/.test(code)) {
-    failures.push('company-members.service: perdeu explicitRelationshipType — o vínculo jurídico voltou a ser SÓ derivado do role (4/7 valores mortos, owner→null; ressalva RN2/R2.2 da auditoria normativa).');
+  if (!/declaredByUserId|actedByUserId/.test(commands) || !/declaredByActorId|actedByActorId/.test(commands)) {
+    failures.push('company-membership-commands.service: autoria dupla (user+actor) ausente nos comandos — §4.9.9 na casa canônica.');
   }
 }
 
@@ -79,8 +84,10 @@ if (!existsSync(MEMBERS)) {
 // Cada rota que grava autoria precisa INVOCAR o gate (não só defini-lo). `minCalls` = nº de writes
 // de autoria naquele arquivo (members: POST grant + DELETE revoke = 2; bridge: 1 grant).
 const AUTHORSHIP_ROUTES = [
-  { rel: 'src/core/companies/company-members.routes.ts', callRe: /requireRepresentsActingActor\s*\(\s*req\s*,\s*reply\s*\)/g, minCalls: 3 },
-  { rel: 'src/modules/relationships/actor-relationship-membership-bridge.routes.ts', callRe: /canRepresentActor\s*\(\s*tenantId\s*,\s*callerUserId\s*,\s*actionContext\.actorId/g, minCalls: 1 },
+  // DECISION-0189 (F4): os writes de autoria são os COMANDOS governados (suspend/resume/revoke
+  // via loop + DELETE + grants + transfer + relationship = 5 invocações estáticas no arquivo).
+  // A bridge saiu da lista: está CONTIDA FAIL-CLOSED (410, zero write — guard actor-relationship-boundary).
+  { rel: 'src/core/companies/company-members.routes.ts', callRe: /requireRepresentsActingActor\s*\(\s*req\s*,\s*reply\s*\)/g, minCalls: 5 },
 ];
 for (const { rel, callRe, minCalls } of AUTHORSHIP_ROUTES) {
   const p = join(ROOT, rel);

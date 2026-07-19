@@ -34,6 +34,11 @@ const D2_AUTHORIZED_RUNTIME_FILES = new Set([
   'src/modules/authority/actor-capability-grant.routes.ts',
   'src/core/authorization/permission-keys.ts', // SSOT de existencia — as 6 keys nascem aqui (D.2 §E)
   'src/modules/authority/territorial-capability-resolver.ts', // N2-D.3 nominal — guard proprio fiscaliza
+  // DECISION-0189: registry EXAUSTIVO de classificacao de policies (R3 — toda PermissionKey precisa
+  // de classificacao ou o boot falha). As 6 keys territory:* aparecem SOMENTE como classification
+  // 'territory' (espelho 1:1 do SSOT permission-keys; ZERO enforcement/grant/lifecycle/resolver aqui —
+  // o dispatch empresarial retorna null para territory e a casa de grants segue soberana).
+  'src/core/authorization/company-policy-registry.ts',
 ]);
 // AJUSTE CONSCIENTE (B-CITY-2 / DECISION-0185, GO §5/§6): a fatia regional_treasury EVOLUI conscientemente
 // as CHECKs COMPARTILHADAS (scope_type/scope_shape/nonfinancial/matrix) para ADICIONAR o 3o scope financeiro,

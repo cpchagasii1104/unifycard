@@ -29,7 +29,8 @@ import { authorizeActorFinancialRead, hasActorFinancialReadAuthority } from '@co
 import { authorizationService } from '@core/authorization/authorization.service';
 import { actorDelegationRepository } from '@core/actor-delegation/actor-delegation.repository';
 import { recordFinancialAudit } from '@core/observability/financial-audit';
-import { bankTransactionReadRepository } from '@modules/bank/bank-transaction-read.repository';
+import { bankPortsRegistry } from '@core/bank/ports-registry';
+import { bankTransactionReadAdapter } from '@modules/bank/adapters/bank-transaction-read.adapter';
 
 let passed = 0;
 let failed = 0;
@@ -178,8 +179,11 @@ async function main() {
   const d15b = await authorizationService.canActAs(T, fx.user_id, fx.page_actor_id, 'publish_feed');
   check('15. publish_feed: grant → membership_grant; gestor sem grant → ownership legado (transitório F4)',
     d15a.allowed && d15a.authoritySource === 'membership_grant' && d15b.allowed && d15b.authoritySource === 'ownership');
-  // 16 — splits origem inexistente
-  const origin = await bankTransactionReadRepository.getOriginAccountByTransactionId(T, '00000000-0000-4000-8000-000000000001');
+  // 16 — splits origem inexistente (via PORTA do Bank — mesma superfície que a rota usa)
+  bankPortsRegistry.setBankTransactionRead(bankTransactionReadAdapter);
+  const origin = await bankPortsRegistry
+    .getBankTransactionRead()
+    .getOriginAccountByTransactionId(T, '00000000-0000-4000-8000-000000000001');
   check('16. origem de transação inexistente → null (rota 404 uniforme)', origin === null);
   // 17 — audit trail persiste
   const before17 = Number((await pool.query(`SELECT count(*)::int n FROM financial_audit_trail WHERE tenant_id=$1`, [T])).rows[0].n);
@@ -187,10 +191,8 @@ async function main() {
   const after17 = Number((await pool.query(`SELECT count(*)::int n FROM financial_audit_trail WHERE tenant_id=$1`, [T])).rows[0].n);
   check('17. audit trail persistido (fail-closed estrutural: await antes da resposta)', after17 === before17 + 1);
 
-  // Δbank
-  const bank = await pool.query(`SELECT (SELECT count(*) FROM bank_ledger)::int AS l, (SELECT count(*) FROM bank_transactions)::int AS t, (SELECT count(*) FROM bank_splits)::int AS s`);
-  const b = bank.rows[0] as { l: number; t: number; s: number };
-  check('Δbank=0 (ledger/tx/splits inalterados)', b.l === 0 && b.t === 0 && b.s === 0);
+  // Δbank=0 é provado FORA deste script (passo psql do rito efêmero — ledger/tx/splits = 0
+  // pré e pós), preservando a Lei 5/ratchet financial-ssot: nenhum SQL bank_* fora do Bank.
 
   console.log(`\n${failed === 0 ? '✅✅' : '❌'} PROVA F3: ${passed} verdes, ${failed} vermelhos`);
   await pool.end();

@@ -74,11 +74,17 @@ if (codeDigest !== migDigest) {
   fail(`digest divergente (código=${codeDigest} migration=${migDigest}) — catálogo mudou sem nova versão materializada (R16)`);
 }
 
-// 5. Dormência de can_view_financial como coluna decisória (até F3)
+// 5. can_view_financial é decidida SÓ pelas fachadas canônicas (pós-cutover F3/F4).
+//    Qualquer módulo NOVO consultando a coluna por conta própria = decisor paralelo → MORDE.
 const ALLOW = new Set([
   'src/core/authorization/company-policy-registry.ts',
-  'src/core/companies/companies.service.ts',
-  'src/core/companies/company-members.service.ts',
+  'src/core/authorization/financial-read-authority.ts', // fachada TERMINAL (F3)
+  'src/core/authorization/authorization.service.ts', // dispatch do policy registry (F3)
+  'src/core/companies/companies.service.ts', // bootstrap SET_V1
+  'src/core/companies/company-members.service.ts', // snapshot/zeragem na revogação
+  'src/core/companies/company-membership-commands.service.ts', // comandos governados (F4)
+  'src/core/companies/company-members.routes.ts', // allowlist tipada do PATCH grants (F4)
+  'src/core/actor-capabilities/actor-capabilities.service.ts', // PROJEÇÃO (nunca decide — guard próprio)
 ]);
 const walk = (dir, acc = []) => {
   for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
@@ -88,11 +94,55 @@ const walk = (dir, acc = []) => {
   }
   return acc;
 };
+const walkEarly = walk;
+const stripLineComments = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
 for (const f of walk('src')) {
   if (ALLOW.has(f) || f.startsWith('src/scripts/')) continue;
-  const src = read(f);
-  if (src.includes('can_view_financial')) {
-    fail(`DORMÊNCIA violada: ${f} referencia can_view_financial antes do cutover F3`);
+  if (stripLineComments(read(f)).includes('can_view_financial')) {
+    fail(`decisor paralelo: ${f} consulta can_view_financial fora das fachadas canônicas (DECISION-0189)`);
+  }
+}
+
+// 5b. F4 — LIFECYCLE CUTOVER: migration presente com DROP is_active + CHECK sem 'invited' +
+//     triggers de exclusividade ATIVADOS; runtime SEM is_active de company_users; role/is_primary
+//     mortos como autoridade; wildcard de scopes morto.
+const MIG_F4 = 'migrations/20260719140000_company_membership_lifecycle_cutover.sql';
+if (!existsSync(join(ROOT, MIG_F4))) fail(`migration F4 ausente: ${MIG_F4}`);
+const migF4 = read(MIG_F4);
+for (const needle of [
+  'DROP COLUMN is_active',
+  "CHECK (member_status IN ('active', 'suspended', 'revoked'))",
+  'trg_actor_delegations_company_exclusivity',
+  'trg_company_users_delegation_exclusivity',
+  'membership_cutover_0189',
+]) {
+  if (!migF4.includes(needle)) fail(`migration F4 sem artefato obrigatório: ${needle}`);
+}
+{
+  // is_active de company_users MORTO no runtime (src/ exceto scripts; heurística: arquivo que
+  // menciona company_users não pode conter cu.is_active / "is_active = true" acoplado a company_users)
+  for (const f of walkEarly('src')) {
+    if (f.startsWith('src/scripts/')) continue;
+    const src = read(f);
+    if (!src.includes('company_users')) continue;
+    if (/cu\.is_active|company_users[\s\S]{0,200}?\bis_active\b\s*=/.test(src)) {
+      fail(`no-is_active violado: ${f} ainda decide/escreve company_users.is_active (F4 DROP)`);
+    }
+  }
+  // role/is_primary como autoridade de empresa: padrões condenados não podem voltar (código, não comentário)
+  const stripC = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  const authz = stripC(read('src/core/authorization/authorization.service.ts'));
+  if (/is_primary\s*=\s*true|role\s*=\s*'admin'/.test(authz)) {
+    fail("authorization.service reintroduziu is_primary/role='admin' como autoridade (§5)");
+  }
+  const compSvc = stripC(read('src/core/companies/companies.service.ts'));
+  if (/can_manage_company\s+OR\s+cu\.role\s*=\s*'owner'|cu\.role\s*=\s*'owner'\)?\s*AS\s+can_manage/i.test(compSvc)) {
+    fail("companies.service reintroduziu OR role='owner' na gestão (§5)");
+  }
+  // wildcard de scopes por role morto
+  const membersSvc = stripC(read('src/core/companies/company-members.service.ts'));
+  if (/getScopesForRole|\['\*'\]/.test(membersSvc)) {
+    fail('company-members.service reintroduziu scopes por role / wildcard (§12)');
   }
 }
 
@@ -112,4 +162,4 @@ if (!/existingClient\?\:\s*TxQueryClient/.test(del)) {
   fail('actor-delegation.repository sem suporte a client externo (dual-write atômica impossível — B5)');
 }
 
-console.log('✅ audit-company-access-authority-foundation: fundação DECISION-0189 íntegra (vocabulário v1.7, registry exaustivo, migration+digest em sincronia, dormência preservada, DELETE físico morto, dual-write transaction-aware).');
+console.log('✅ audit-company-access-authority-foundation: DECISION-0189 íntegra (vocabulário v1.7, registry exaustivo, migrations F2+F4 com digest em sincronia, can_view_financial só nas fachadas, no-is_active, role/is_primary/wildcard mortos, DELETE físico morto, exclusividade ativada na F4, repositórios transaction-aware).');

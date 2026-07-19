@@ -457,7 +457,7 @@ class CompaniesService {
         SELECT c.company_id
         FROM companies c
         INNER JOIN company_users cu ON c.company_id = cu.company_id
-        WHERE c.tenant_id = $1 AND cu.global_user_id = $2::uuid AND cu.is_active = true
+        WHERE c.tenant_id = $1 AND cu.global_user_id = $2::uuid AND cu.member_status = 'active'
         `,
         [finalTenantId, globalUserId]
       );
@@ -616,9 +616,9 @@ class CompaniesService {
           can_manage_company, can_manage_financial, can_manage_employees,
           can_view_reports, can_manage_services, can_view_consolidated_inventory,
           can_view_financial, can_manage_members, can_publish_feed, can_create_events,
-          is_active, is_primary, metadata
+          is_primary, metadata
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING id AS company_user_id
         `,
         [
@@ -637,7 +637,6 @@ class CompaniesService {
           true, // SET_V1: manage_members
           true, // SET_V1: publish_feed (R9-B: publicar NÃO é automático de membro — gestor recebe grant)
           true, // SET_V1: create_events
-          true,
           input.isPrimary ?? false,
           JSON.stringify({}),
         ]
@@ -1061,7 +1060,9 @@ class CompaniesService {
    * O writer activateCompanyOperationally NÃO verifica se o chamador pode gerir ESTA
    * empresa — autoridade contextual vive em company_users, NÃO em roles sistêmicos
    * (cf. companies.routes §submit-validation). Retorna true se o usuário é membro ativo
-   * com can_manage_company OU role='owner'. Fail-closed: ausência de vínculo → false.
+   * com can_manage_company. Fail-closed: ausência de vínculo → false.
+   * 🔒 DECISION-0189 (F4): "OR role='owner'" MORREU — role é rótulo de UI, nunca authority (§5).
+   * is_active também morreu — member_status='active' é o único estado decisório.
    */
   async canManageCompany(
     tenantId: string,
@@ -1073,10 +1074,10 @@ class CompaniesService {
     // do caller e a linha de company_users (evidência REVOGÁVEL — is_active/member_status) é lida
     // FOR SHARE: revogação concorrente serializa contra a transação do caller. Sem client, caminho
     // pool byte-idêntico (callers atuais inalterados).
-    const sql = `SELECT (cu.can_manage_company OR cu.role = 'owner') AS can_manage
+    const sql = `SELECT cu.can_manage_company AS can_manage
          FROM company_users cu
         WHERE cu.tenant_id = $1 AND cu.company_id = $2 AND cu.global_user_id = $3::uuid
-          AND cu.is_active = true AND cu.member_status = 'active'
+          AND cu.member_status = 'active'
         LIMIT 1`;
     if (existingClient) {
       const res = await existingClient.query(`${sql} FOR SHARE`, [tenantId, companyId, globalUserId]);
@@ -1110,10 +1111,10 @@ class CompaniesService {
   async canViewConsolidatedInventory(tenantId: string, companyId: string, globalUserId: string): Promise<boolean> {
     const row = await runQueryWithTenant<{ can_view: boolean }>(
       tenantId,
-      `SELECT (cu.can_manage_company OR cu.role = 'owner' OR cu.can_view_consolidated_inventory) AS can_view
+      `SELECT (cu.can_manage_company OR cu.can_view_consolidated_inventory) AS can_view
          FROM company_users cu
         WHERE cu.tenant_id = $1 AND cu.company_id = $2 AND cu.global_user_id = $3::uuid
-          AND cu.is_active = true AND cu.member_status = 'active'
+          AND cu.member_status = 'active'
         LIMIT 1`,
       [tenantId, companyId, globalUserId]
     );
@@ -1157,12 +1158,12 @@ class CompaniesService {
     }
     const row = await runQueryWithTenant<{ allowed: boolean }>(
       tenantId,
-      `SELECT (cu.can_manage_company OR cu.role = 'owner' OR cu.${column}) AS allowed
+      `SELECT (cu.can_manage_company OR cu.${column}) AS allowed
          FROM company_users cu
          JOIN users u ON u.global_user_id = cu.global_user_id
         WHERE cu.tenant_id = $1 AND u.id = $2::uuid AND cu.company_id = $3::uuid
-          AND cu.is_active = true AND cu.member_status = 'active'
-          AND (cu.can_manage_company OR cu.role = 'owner' OR cu.${column})
+          AND cu.member_status = 'active'
+          AND (cu.can_manage_company OR cu.${column})
         LIMIT 1`,
       [tenantId, userId, opts.companyId]
     );
@@ -1672,7 +1673,7 @@ class CompaniesService {
           SELECT 1 FROM company_users cu
            WHERE cu.tenant_id = c.tenant_id AND cu.company_id = c.company_id
              AND cu.global_user_id = $3::uuid
-             AND cu.is_active = true AND cu.member_status = 'active'
+             AND cu.member_status = 'active'
         )
       LIMIT 1
       `,
@@ -1732,14 +1733,14 @@ class CompaniesService {
         cu.can_view_reports,
         cu.can_manage_services,
         cu.can_view_consolidated_inventory,
-        cu.is_active,
+        (cu.member_status = 'active') AS is_active,
         cu.is_primary,
         cu.metadata AS cu_metadata,
         cu.created_at AS cu_created_at,
         cu.updated_at AS cu_updated_at
       FROM company_users cu
       WHERE cu.tenant_id = $1 AND cu.company_id = $2::uuid AND cu.global_user_id = $3::uuid
-        AND cu.is_active = true
+        AND cu.member_status = 'active'
       LIMIT 1
       `,
       [tenantId, companyId, globalUserId]
@@ -1868,13 +1869,13 @@ class CompaniesService {
         cu.can_view_reports,
         cu.can_manage_services,
         cu.can_view_consolidated_inventory,
-        cu.is_active,
+        (cu.member_status = 'active') AS is_active,
         cu.is_primary,
         cu.metadata as cu_metadata,
         cu.created_at as cu_created_at,
         cu.updated_at as cu_updated_at
       FROM companies c
-      LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
+      LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.member_status = 'active'
       LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
       WHERE c.tenant_id = $1
       ORDER BY c.created_at DESC
@@ -1996,7 +1997,7 @@ class CompaniesService {
         cu.can_view_reports,
         cu.can_manage_services,
         cu.can_view_consolidated_inventory,
-        cu.is_active,
+        (cu.member_status = 'active') AS is_active,
         cu.is_primary,
         cu.metadata as cu_metadata,
         cu.created_at as cu_created_at,
@@ -2006,7 +2007,7 @@ class CompaniesService {
               ON cu.company_id = c.company_id
              AND cu.tenant_id = c.tenant_id
              AND cu.global_user_id = $2::uuid
-             AND cu.is_active = true
+             AND cu.member_status = 'active'
              AND cu.member_status = 'active'
       LEFT JOIN fiscal_identities fi ON fi.fiscal_identity_id = c.fiscal_identity_id
       WHERE c.tenant_id = $1
@@ -2256,7 +2257,7 @@ class CompaniesService {
         cu.can_view_reports,
         cu.can_manage_services,
         cu.can_view_consolidated_inventory,
-        cu.is_active,
+        (cu.member_status = 'active') AS is_active,
         cu.is_primary,
         cu.metadata,
         cu.created_at,

@@ -105,6 +105,13 @@ const stripComments = (s) => s
   // Arquivo NOVO nos diretórios da jornada sem classificação → NEW_UNCLASSIFIED (falha).
   const CLASSIFIED_NON_RESOLVING = new Set([
     'companies.module.ts', 'companies.types.ts', 'company-members.types.ts', 'kyb-document-validation.ts',
+    // DECISION-0189 (F2/F4): casa jurídica + trilha append-only — escrevem company_member_relationships/
+    // company_member_events NA TX DO CALLER; NÃO resolvem/criam/curam actor (identidade via
+    // company_users.global_user_id; autoria dupla vem da rota já validada por canRepresentActor).
+    'company-member-relationships.repository.ts',
+    // DECISION-0189 (F4): comandos governados de lifecycle/grants — autoridade TERMINAL via subject
+    // grants de company_users (locks empresa→alvo→caller); NÃO resolve/cria/cura actor.
+    'company-membership-commands.service.ts',
     // F-COMPANY-READINESS-PROJECTION: projeção READ-ONLY; NÃO resolve/escreve actor (autoridade via
     // canRepresentActor na rota; regra de elegibilidade no predicado único do P3 gate).
     'company-readiness.service.ts',

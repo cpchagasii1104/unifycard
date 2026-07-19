@@ -140,7 +140,7 @@ export async function getCompanyKybStatus(input: {
         AND EXISTS (
           SELECT 1 FROM company_users cu
            WHERE cu.tenant_id = c.tenant_id AND cu.company_id = c.company_id
-             AND cu.global_user_id = $3::uuid AND cu.is_active = true AND cu.member_status = 'active')
+             AND cu.global_user_id = $3::uuid AND cu.member_status = 'active')
       LIMIT 1`,
     [companyId, tenantId, globalUserId],
   );

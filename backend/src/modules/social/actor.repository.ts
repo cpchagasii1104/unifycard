@@ -808,7 +808,7 @@ export class ActorRepository {
         AND a.responsible_actor_id IS NOT NULL
         AND u.user_id = $2
         AND u.tenant_id = $1
-        AND cu.is_active = true
+        AND cu.member_status = 'active'
         AND c.status != 'suspended'
         AND c.primary_company_type_id IS NOT NULL
         AND c.primary_concept_id IS NOT NULL

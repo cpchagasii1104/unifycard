@@ -149,6 +149,15 @@ const BASELINE_UNCOVERED = new Set([
   'core/companies/company-members.routes.ts::DELETE /:companyId/members/:memberId',
   'core/companies/company-members.routes.ts::POST /:companyId/members',
   'core/companies/company-members.routes.ts::PUT /:companyId/members/:memberId',
+  // DECISION-0189 (F4) — comandos governados: falso-positivo verificado da heurística de
+  // segmento. Binding no segmento = requireRepresentsActingActor (helper local → canRepresentActor
+  // sobre actionContext.actorId, autoria não-forjável); a AUTORIDADE da operação é TERMINAL
+  // DENTRO do comando (company-membership-commands.service: grants de company_users sob lock
+  // empresa→alvo→caller + dois tetos + último gestor). actorId do cliente NUNCA decide.
+  'core/companies/company-members.routes.ts::PATCH /:companyId/members/:memberId/grants',
+  'core/companies/company-members.routes.ts::POST /:companyId/governance/transfer',
+  'core/companies/company-members.routes.ts::POST /:companyId/members/:memberId/commands/${cmd}',
+  'core/companies/company-members.routes.ts::POST /:companyId/members/:memberId/relationship',
   'core/identity/identity.routes.ts::PATCH /pj/kyb/admin/requests/:requestId/review',
   'core/identity/identity.routes.ts::PATCH /pj/kyb/documents/:documentId/review',
   'core/identity/identity.routes.ts::POST /confirm-civil-data',

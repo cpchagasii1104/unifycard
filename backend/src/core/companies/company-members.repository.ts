@@ -17,7 +17,6 @@ import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { NotFoundError, BadRequestError } from '@core/errors';
 import type {
   CompanyMember,
-  CreateCompanyMemberInput,
   UpdateCompanyMemberInput,
   CompanyMemberFilters,
 } from './company-members.types';
@@ -105,61 +104,9 @@ class CompanyMembersRepository {
     return row.global_user_id;
   }
 
-  async create(
-    tenantId: string,
-    input: CreateCompanyMemberInput
-  ): Promise<CompanyMember> {
-    const {
-      companyId,
-      actorId,
-      role = CompanyMemberRole.STAFF,
-      status = CompanyMemberStatus.INVITED,
-      metadata = {},
-    } = input;
-
-    const globalUserId = await this.resolveGlobalUserIdFromActor(tenantId, actorId);
-
-    await runQueryWithTenant(
-      tenantId,
-      `
-        INSERT INTO company_users (
-          tenant_id, company_id, global_user_id, role, member_status, metadata, is_active
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (company_id, global_user_id) DO UPDATE
-        SET role = EXCLUDED.role,
-            member_status = EXCLUDED.member_status,
-            metadata = EXCLUDED.metadata,
-            updated_at = now()
-      `,
-      [
-        tenantId,
-        companyId,
-        globalUserId,
-        role,
-        status,
-        JSON.stringify(metadata),
-        status === CompanyMemberStatus.ACTIVE,
-      ]
-    );
-
-    const row = await runQueryWithTenant<CompanyUserAdapterRow>(
-      tenantId,
-      `${SELECT_WITH_ACTOR}
-        WHERE cu.tenant_id = $1
-          AND cu.company_id = $2
-          AND cu.global_user_id = $3
-        LIMIT 1
-      `,
-      [tenantId, companyId, globalUserId]
-    );
-
-    if (!row) {
-      throw new NotFoundError('Falha ao criar membro (upsert sem retorno)');
-    }
-
-    return this.toCompanyMember(row);
-  }
+  // DECISION-0189 (F4): create() MORREU - so bootstrap (createCompany) e o aceite
+  // canonico de convite (F5) criam membership active (R17). Reentrada pos-revoked e
+  // substituicao integral no writer do aceite, nunca upsert generico.
 
   async findById(tenantId: string, memberId: string): Promise<CompanyMember | null> {
     const row = await runQueryWithTenant<CompanyUserAdapterRow>(
@@ -229,10 +176,7 @@ class CompanyMembersRepository {
       fields.push(`member_status = $${paramIndex}`);
       params.push(input.status);
       paramIndex++;
-      // Manter is_active sincronizado com member_status para callers legados que ainda leem is_active.
-      fields.push(`is_active = $${paramIndex}`);
-      params.push(input.status === CompanyMemberStatus.ACTIVE);
-      paramIndex++;
+      // DECISION-0189 (F4): is_active morreu — nenhum sincronismo; member_status é o estado único.
     }
 
     if (input.metadata !== undefined) {

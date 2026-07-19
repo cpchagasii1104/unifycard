@@ -53,7 +53,10 @@ const STRICT_CHANNELS = new Set(['body.actor-object', 'body.actorId', 'authority
 const REQUIRE_PERMISSION_PREHANDLER = /\brequirePermission\(\s*\[/;
 
 // Helpers de binding server-side (a presença NO ARQUIVO satisfaz a heurística file-level).
-const BINDING_HELPERS = /\bcanActAs\b|\bcanRepresentActor\b|\bcanPerformAction\b|\brequireRepresentable\b|\brequireRepresentableActor\b|\bauthorityActorOf\b|\brepresentsAvailabilityOwner\b|\bcanManageCompany\b/;
+// DECISION-0189 (F3): authorizeActorFinancialRead/hasActorFinancialReadAuthority são a fachada
+// TERMINAL de leitura financeira por actor (self OU company_users.can_view_financial, lock FOR
+// SHARE) — binding server-side MAIS forte que canRepresentActor para reads financeiros.
+const BINDING_HELPERS = /\bcanActAs\b|\bcanRepresentActor\b|\bcanPerformAction\b|\brequireRepresentable\b|\brequireRepresentableActor\b|\bauthorityActorOf\b|\brepresentsAvailabilityOwner\b|\bcanManageCompany\b|\bauthorizeActorFinancialRead\b|\bhasActorFinancialReadAuthority\b/;
 
 const stripComments = (s) => s
   .replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1')

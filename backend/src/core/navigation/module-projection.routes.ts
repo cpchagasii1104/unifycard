@@ -50,7 +50,7 @@ const moduleProjectionRoutes: FastifyPluginAsync = async (fastify) => {
     const member = await pool.query<{ n: string }>(
       `SELECT count(*)::text n FROM company_users
         WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
-          AND is_active = true AND member_status = 'active'`,
+          AND member_status = 'active'`,
       [req.tenant!.id, companyId, globalUserId]
     );
     if (member.rows[0].n === '0') {

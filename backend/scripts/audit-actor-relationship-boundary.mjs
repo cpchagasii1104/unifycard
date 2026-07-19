@@ -90,28 +90,20 @@ check('migration: NÃO dropa/renomeia nada de suppliers (só ADD COLUMN)',
 //     O grant é ato do DONO (canManageCompany revalidado), roteado pro fluxo VIVO de membros
 //     (companyMembersService → company_users SSOT DECISION-0042) — nunca INSERT paralelo,
 //     nunca can_manage_company, alvo/empresa derivados DA ARESTA (body sem actorId/companyId).
+// 🔒 DECISION-0189 (F4/R17): a bridge NÃO pode mais materializar membership 'active' —
+// só bootstrap e o aceite canônico de convite criam active. A rota está CONTIDA FAIL-CLOSED
+// (410 MEMBERSHIP_VIA_INVITATION_REQUIRED, zero service/DB). Os checks antigos (gate
+// canManageCompany → createMember) descreviam o fluxo APOSENTADO; agora o guard prova a
+// CONTENÇÃO — reintroduzir materialização direta aqui MORDE.
 const bridge = read('src/modules/relationships/actor-relationship-membership-bridge.routes.ts');
 const bridgeCode = stripComments(bridge);
-check('bridge: gate canManageCompany fail-closed ANTES do grant (o funcionário não se auto-concede)',
-  /companiesService\.canManageCompany\(tenantId, companyId, callerGlobalUserId\)/.test(bridgeCode) &&
-  /if \(!callerCanManage\)/.test(bridgeCode) &&
-  bridgeCode.indexOf('canManageCompany(tenantId, companyId') < bridgeCode.indexOf('companyMembersService.createMember'));
-check('bridge: autoridade deriva de req.user (principal), nunca de actionContext como autoridade',
-  /user\?\.userId \?\? \(req as any\)\.user\?\.id/.test(bridgeCode) && /resolveGlobalUserId\(callerUserId, tenantId\)/.test(bridgeCode) &&
-  !/canManageCompany\([^)]*actionContext/.test(bridgeCode));
-check('bridge: roteia pro fluxo VIVO (companyMembersService.createMember) — zero INSERT/UPDATE paralelo em company_users',
-  /companyMembersService\.createMember/.test(bridgeCode) &&
+check('bridge: CONTIDA fail-closed (410 MEMBERSHIP_VIA_INVITATION_REQUIRED antes de qualquer efeito)',
+  /status\(410\)/.test(bridgeCode) && /MEMBERSHIP_VIA_INVITATION_REQUIRED/.test(bridgeCode));
+check('bridge: ZERO materialização de membership (sem createMember, sem INSERT/UPDATE em company_users)',
+  !/companyMembersService\.createMember/.test(bridgeCode) &&
   !/INSERT INTO company_users|UPDATE company_users/i.test(bridgeCode));
 check('bridge: NUNCA escreve can_manage_company (dono só nasce com a empresa)',
   !/can_manage_company|canManageCompany:\s*true/.test(bridgeCode.replace(/canManageCompany\(/g, '')));
-check('bridge: exige aresta accepted + ótica da empresa = colaborador (bidirecional converge)',
-  /status !== 'accepted'/.test(bridgeCode) && /companyLabelForPerson !== 'colaborador'/.test(bridgeCode) &&
-  /fromIsCompany \? edge\.requesterLabel : edge\.targetLabel/.test(bridgeCode));
-check('bridge: alvo e empresa derivados DA ARESTA server-side (body não carrega actorId/companyId)',
-  !/\bbody\??\.actorId\b|\bbody\??\.companyId\b|req\.body\.actorId|req\.body\.companyId/.test(bridgeCode) &&
-  /grantSchema = z\.object\(\{\s*role:.*\s*status:.*\s*\}\)/m.test(bridge));
-check('bridge: role/status do vocabulário GOVERNADO (z.nativeEnum do fluxo vivo, sem texto livre)',
-  /z\.nativeEnum\(CompanyMemberRole\)/.test(bridge) && /z\.nativeEnum\(CompanyMemberStatus\)/.test(bridge));
 check('bridge: zero dinheiro (bank_/ledger/payment)',
   !/bank_|ledger|payment|payout/i.test(bridgeCode));
 

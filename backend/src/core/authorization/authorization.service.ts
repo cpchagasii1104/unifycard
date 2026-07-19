@@ -399,15 +399,26 @@ class AuthorizationService {
     if (granted && capabilityOk) {
       return { allowed: true, authoritySource: 'membership_grant' };
     }
-    if (terminal) {
-      return {
-        allowed: false,
-        reason: granted
-          ? 'Missing required capability (terminal company policy)'
-          : 'Missing required subject grant (terminal company policy — no ownership/role fallback)',
-      };
+
+    // 🔒 CUTOVER F4 (DECISION-0189 R8): para actor de EMPRESA, TODA chave company_grant*
+    // é decidida AQUI — ownership/role/is_primary NUNCA mais autorizam chave empresarial.
+    // Representante EXTERNO (não-membership) segue válido para chaves DELEGÁVEIS, via
+    // actor_delegations (exclusividade §6.3 garante que membership e delegação não coexistem
+    // na mesma relação — trigger ativo desde a migration F4).
+    if (entry.delegable === true) {
+      const delegation = await this.findActiveDelegation(tenantId, userId, actorId);
+      if (delegation && this.checkDelegationPermission(delegation.scopes, permissionKey) && capabilityOk) {
+        return { allowed: true, authoritySource: 'delegation' };
+      }
     }
-    return null; // não-terminal sem grant → trilha legada (até o cutover F4)
+    return {
+      allowed: false,
+      reason: granted
+        ? 'Missing required capability (company policy)'
+        : terminal
+          ? 'Missing required subject grant (terminal company policy — no ownership/role fallback)'
+          : 'Missing required subject grant (company policy — ownership fallback retired in F4 cutover)',
+    };
   }
 
   /**
@@ -638,23 +649,10 @@ class AuthorizationService {
         throw e;
       });
       if (!globalUserId) return false;
+      // 🔒 DECISION-0189 (F4): 'is_primary'/'role=admin' MORRERAM como autoridade (§5 — rótulos
+      // de UI). Gestão de empresa = EXCLUSIVAMENTE can_manage_company (canManageCompany canônico).
       const { companiesService } = await import('@core/companies/companies.service');
-      if (await companiesService.canManageCompany(tenantId, entityId, globalUserId, client)) {
-        return true;
-      }
-      const legacyPrimary = await client.query(
-        `SELECT global_user_id FROM company_users
-          WHERE company_id = $1 AND global_user_id = $2 AND is_primary = true LIMIT 1 FOR SHARE`,
-        [entityId, globalUserId]
-      );
-      if (legacyPrimary.rows[0]) return true;
-      const legacyAdmin = await client.query(
-        `SELECT global_user_id FROM company_users
-          WHERE company_id = $1 AND global_user_id = $2 AND role = 'admin' AND member_status = 'active'
-          LIMIT 1 FOR SHARE`,
-        [entityId, globalUserId]
-      );
-      return !!legacyAdmin.rows[0];
+      return companiesService.canManageCompany(tenantId, entityId, globalUserId, client);
     }
     if (entityTable === 'groups') {
       const g = await client.query(
@@ -745,49 +743,11 @@ class AuthorizationService {
         return false;
       }
 
-      // PJ-B4 (vocabulário alinhado): autoridade CANÔNICA de gestão primeiro —
-      // can_manage_company OR role='owner', vínculo ativo (mesma semântica de
-      // companiesService.canManageCompany). O helper legado abaixo (is_primary /
-      // role='admin') é preservado de forma ADITIVA para não regredir grants existentes.
+      // 🔒 DECISION-0189 (F4): autoridade de gestão = EXCLUSIVAMENTE can_manage_company
+      // (canManageCompany canônico). Os ramos legados 'is_primary=true' e "role='admin'"
+      // MORRERAM (§5/§12 — role/is_primary são rótulos de UI, nunca authority).
       const { companiesService } = await import('@core/companies/companies.service');
       if (await companiesService.canManageCompany(tenantId, entityId, globalUserId)) {
-        return true;
-      }
-
-      // Verificar company_users (legacy) - is_primary = true indica owner
-      const companyUser = await runQueryWithTenant<{ global_user_id: string }>(
-        tenantId,
-        `
-          SELECT global_user_id
-          FROM company_users
-          WHERE company_id = $1 AND global_user_id = $2 AND is_primary = true
-          LIMIT 1
-        `,
-        [entityId, globalUserId]
-      );
-
-      if (companyUser) {
-        return true;
-      }
-
-      // DECISION-0042: company_users absorve role-based membership.
-      // Verificar admin via company_users.role='admin' + member_status='active'.
-      // Substitui consulta antiga a company_members (tabela inexistente em runtime).
-      const adminMatch = await runQueryWithTenant<{ global_user_id: string }>(
-        tenantId,
-        `
-          SELECT global_user_id
-          FROM company_users
-          WHERE company_id = $1
-            AND global_user_id = $2
-            AND role = 'admin'
-            AND member_status = 'active'
-          LIMIT 1
-        `,
-        [entityId, globalUserId]
-      );
-
-      if (adminMatch) {
         return true;
       }
     }

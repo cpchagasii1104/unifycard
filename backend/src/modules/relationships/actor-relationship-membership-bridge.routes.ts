@@ -19,10 +19,6 @@
 
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { actorRelationshipRepository } from './actor-relationship.repository';
-import { companyMembersService } from '@core/companies/company-members.service';
-import { companiesService } from '@core/companies/companies.service';
-import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { CompanyMemberRole, CompanyMemberStatus } from '@core/companies/company-members.types';
 
 const grantSchema = z.object({
@@ -45,122 +41,16 @@ const actorRelationshipMembershipBridgeRoutes = async (fastify: FastifyInstance)
   fastify.post<{ Params: { id: string }; Body: z.infer<typeof grantSchema> }>(
     '/relationships/:id/grant-membership',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
-      const actionContext = (req as any).actionContext;
-      if (!actionContext || !actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
-      }
-
-      const parsed = grantSchema.safeParse(req.body ?? {});
-      if (!parsed.success) {
-        return reply.status(400).send({ error: 'Body inválido (role/status fora do vocabulário governado)', details: parsed.error.errors });
-      }
-
-      // 1 · a aresta (Fatia 1) — servidor resolve tudo a partir dela
-      const edge = await actorRelationshipRepository.findById(tenantId, req.params.id);
-      if (!edge) return reply.status(404).send({ error: 'Relação não encontrada' });
-      if (edge.status !== 'accepted') {
-        return reply.status(409).send({ error: `Relação não está aceita (status=${edge.status}) — o grant só existe após o aceite` });
-      }
-
-      // 2 · identifica os lados: empresa (page com company_id) × pessoa (PF)
-      const [fromRow, toRow] = await Promise.all([
-        actorRelationshipRepository.findActorKindRow(tenantId, edge.fromActorId),
-        actorRelationshipRepository.findActorKindRow(tenantId, edge.toActorId),
-      ]);
-      if (!fromRow || !toRow) return reply.status(404).send({ error: 'Actors da relação não encontrados' });
-
-      const fromIsCompany = !!fromRow.company_id;
-      const toIsCompany = !!toRow.company_id;
-      if (fromIsCompany === toIsCompany) {
-        return reply.status(422).send({ error: 'A ponte de membership exige exatamente um lado empresa (page) e um lado pessoa (PF)' });
-      }
-      const companyRow = fromIsCompany ? fromRow : toRow;
-      const personRow = fromIsCompany ? toRow : fromRow;
-      if (personRow.actor_type !== 'user') {
-        return reply.status(422).send({ error: 'O lado pessoa da relação precisa ser actor PF (actor_type=user)' });
-      }
-
-      // 3 · a ótica da EMPRESA sobre a PF precisa ser 'colaborador' (bidirecional converge aqui)
-      const companyLabelForPerson = fromIsCompany ? edge.requesterLabel : edge.targetLabel;
-      if (companyLabelForPerson !== 'colaborador') {
-        return reply.status(422).send({
-          error: `A relação não classifica a pessoa como 'colaborador' pela ótica da empresa (label=${companyLabelForPerson ?? 'null'})`,
-        });
-      }
-
-      // 4 · 🔴 A CATRACA (inline no handler — o gate baseline-ratchet exige o binding NO segmento):
-      //     o PRINCIPAL autenticado (req.user, nunca actionContext) precisa gerenciar a empresa REAL
-      //     da aresta via canManageCompany, fail-closed. Funcionário que enviou/aceitou NÃO passa
-      //     aqui — não existe auto-grant (DECISION-0125: aceite social não concede poder).
-      const companyId = companyRow.company_id as string;
-      const callerUserId = (req as any).user?.userId ?? (req as any).user?.id;
-      if (!callerUserId) {
-        return reply.status(401).send({ error: 'Autenticação obrigatória para conceder acesso' });
-      }
-      let callerGlobalUserId: string | null = null;
-      try {
-        callerGlobalUserId = await resolveGlobalUserId(callerUserId, tenantId);
-      } catch {
-        callerGlobalUserId = null;
-      }
-      let callerCanManage = false;
-      if (callerGlobalUserId) {
-        try {
-          callerCanManage = await companiesService.canManageCompany(tenantId, companyId, callerGlobalUserId);
-        } catch {
-          callerCanManage = false;
-        }
-      }
-      if (!callerCanManage) {
-        return reply.status(403).send({
-          error: 'Apenas quem gerencia a empresa concede acesso — aceite social não concede poder (DECISION-0125)',
-          code: 'RELATIONSHIP_GRANT_FORBIDDEN',
-        });
-      }
-
-      // 4b · 🔴 R2.2 FIX-Q3 (auditoria Yala 2026-07-06 — autoria não-repúdio): `actionContext.actorId` vira
-      //      `granted_by_actor_id` na delegação + trilha append-only. Sem esta checagem, o gestor poderia FORJAR
-      //      a autoria declarando o actorId de um terceiro. O principal (callerUserId, req.user) precisa
-      //      REPRESENTAR o actor concedente declarado — fail-closed (DECISION-0113). granted_by não-spoofável.
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      let callerRepresents = false;
-      try {
-        callerRepresents = await authorizationService.canRepresentActor(tenantId, callerUserId, actionContext.actorId);
-      } catch {
-        callerRepresents = false;
-      }
-      if (!callerRepresents) {
-        return reply.status(403).send({
-          error: 'O actor concedente declarado (actionContext.actorId) não é representado pelo principal — autoria de delegação não pode ser forjada (DECISION-0113 / R2 §4.9.9)',
-          code: 'DELEGATION_AUTHORSHIP_NOT_REPRESENTABLE',
-        });
-      }
-
-      // 5 · roteia pro fluxo VIVO (SSOT company_users; delegação escopada por role se ACTIVE)
-      try {
-        const member = await companyMembersService.createMember(tenantId, actionContext.actorId, {
-          companyId,
-          actorId: personRow.id,
-          role: parsed.data.role,
-          status: parsed.data.status,
-          metadata: { grantedViaRelationshipId: edge.id },
-        });
-        return reply.status(201).send({
-          ok: true,
-          data: {
-            memberId: member.memberId,
-            companyId: member.companyId,
-            actorId: member.actorId,
-            role: member.role,
-            status: member.status,
-            relationshipId: edge.id,
-          },
-        });
-      } catch (err: any) {
-        const status = err?.statusCode ?? 500;
-        return reply.status(status).send({ ok: false, error: err?.message ?? 'Erro ao conceder membership' });
-      }
+      // 🔒 DECISION-0189 (F4/R17 — FAIL-CLOSED): a bridge social NÃO pode materializar
+      // membership 'active' — só bootstrap e o aceite canônico de convite criam active.
+      // Quando o fluxo de convite (F5) existir, esta rota poderá, no máximo, CRIAR CONVITE.
+      // Até lá: 410 fail-closed (aceite social não concede poder — DECISION-0125 preservada).
+      return reply.status(410).send({
+        error:
+          'Materialização de membership pela bridge social morreu (DECISION-0189 R17): membership nasce pelo aceite canônico de convite (company_access_invitations).',
+        code: 'MEMBERSHIP_VIA_INVITATION_REQUIRED',
+      });
+      // Corpo legado removido (referenciava createMember, morto na F4). Historia no git.
     }
   );
 };

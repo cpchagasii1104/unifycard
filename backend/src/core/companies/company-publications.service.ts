@@ -350,7 +350,7 @@ export const companyPublicationsService = {
       tenantId,
       `SELECT 1 AS ok FROM company_users cu
         WHERE cu.tenant_id = $1 AND cu.company_id = $2
-          AND cu.global_user_id = $3::uuid AND cu.is_active = true AND cu.member_status = 'active'
+          AND cu.global_user_id = $3::uuid AND cu.member_status = 'active'
         LIMIT 1`,
       [tenantId, companyId, globalUserId]
     );
