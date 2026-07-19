@@ -120,3 +120,19 @@ create_events e exclusividade estavam ERRADAS/OBSOLETAS; errata formal em DECISI
   manage_company; gestor sem grant NEGADO; rep externo só com scope exato; alheio uniforme;
   manage_events/attendees governança-sim membro-não; suspenso/revogado negados; PF self).
 - typecheck 0 · runner 195/195. Commit: `fix(authority): enforce exact feed and event permissions`.
+
+## ETAPA C — EXCLUSIVIDADE SOB CONCORRÊNCIA REAL — ✅ EXECUTADA (Finding C FECHADO)
+- **Migration `20260719180000_company_exclusivity_advisory_lock.sql`:** função auxiliar ÚNICA
+  `fn_company_relation_advisory_lock(tenant,company,identity)` (representação canônica não-ambígua
+  → `hashtextextended`; `pg_advisory_xact_lock` — NUNCA session); AMBAS as trigger functions
+  recriadas adquirindo a MESMA chave ANTES do SELECT cross-table e reexecutando o check DEPOIS
+  do lock; escopo estritamente empresarial (grupo/canal retornam sem lock); relação empresarial
+  sem identity resolvível → FAIL-CLOSED; triggers preservados (binding verificado no postcheck).
+- **PROVA CONCORRENTE 6/6 VERDES** (clone efêmero, duas conexões, janela crítica ABERTA):
+  C1 T1 membership segura a tx → T2 delegação BLOQUEIA no lock → T1 commita → T2 vê e falha
+  (EXCLUSIVITY_VIOLATION; estado m=1,d=0) · C2 ordem invertida (m=0,d=1) · C3 duas relações da
+  mesma empresa em paralelo SEM deadlock · C4 chave isola tenant · C5 representante externo
+  intocado · C∞ ZERO violações no estado final.
+- Guard: seção 5d no foundation-guard (lock comum ANTES do check nos DOIS lados; xact-level;
+  session-lock proibido; check-sem-lock MORDE). Dev: dry-run → APPLY via rito seletivo.
+- Commit: `fix(authority): serialize company membership delegation exclusivity`.

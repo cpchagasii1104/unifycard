@@ -171,6 +171,28 @@ for (const needle of [
   }
 }
 
+// 5d. ETAPA C (DECISION-0189A §4 — Finding C): exclusividade concorrente. As DUAS trigger
+//     functions adquirem a MESMA advisory lock (função auxiliar única, xact-level) ANTES do
+//     check cross-table. Reintroduzir check sem lock (write-skew) MORDE.
+const MIG_C = 'migrations/20260719180000_company_exclusivity_advisory_lock.sql';
+if (!existsSync(join(ROOT, MIG_C))) fail(`migration Etapa C ausente: ${MIG_C}`);
+const migC = read(MIG_C);
+if (!/pg_advisory_xact_lock/.test(migC)) fail('lock de exclusividade não é xact-level');
+if (/pg_advisory_lock\(/.test(migC)) fail('session-level advisory lock PROIBIDO na exclusividade (D6)');
+for (const fn of ['fn_company_membership_delegation_exclusivity', 'fn_company_users_delegation_exclusivity']) {
+  const start = migC.indexOf(fn);
+  if (start < 0) fail(`migration Etapa C sem ${fn}`);
+  const body = migC.slice(start, migC.indexOf('$$;', start));
+  const lockIdx = body.indexOf('fn_company_relation_advisory_lock(');
+  const checkIdx = body.indexOf('COUNT(*)');
+  if (lockIdx < 0 || checkIdx < 0 || lockIdx > checkIdx) {
+    fail(`${fn}: lock COMUM ausente ou DEPOIS do check cross-table (write-skew — Finding C)`);
+  }
+}
+if ((migC.match(/fn_company_relation_advisory_lock\(/g) || []).length < 3) {
+  fail('função de chave comum não usada pelos DOIS lados (algoritmos divergentes proibidos — D6)');
+}
+
 // 6. DELETE físico de membership morto
 const repo = read('src/core/companies/company-members.repository.ts');
 if (/DELETE\s+FROM\s+company_users/i.test(repo)) {
