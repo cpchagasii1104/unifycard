@@ -12,7 +12,9 @@
 
 import { pool } from '@core/database/pool';
 import Fastify from 'fastify';
-import economicOverviewRoutes from '../modules/economy/economic-overview.routes';
+import economicOverviewRoutes from '@modules/economy/economic-overview.routes';
+// DECISION-0189C D7: a fixture financeira vive FORA de backend/src (não conta para financial-ssot).
+import { seedOverviewFinancialFixture } from './fixtures/financial-overview-fixture';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean, extra?: string) => {
@@ -45,8 +47,8 @@ async function main() {
     console.error(`recusado: DATABASE_URL não parece efêmero (${dbUrl.split('/').pop()})`);
     process.exit(1);
   }
-  const { socialPortsRegistry } = await import('../core/social/ports-registry');
-  const a = await import('../modules/social/adapters');
+  const { socialPortsRegistry } = await import('@core/social/ports-registry');
+  const a = await import('@modules/social/adapters');
   socialPortsRegistry.setActorRepository(a.actorRepositoryAdapter);
   socialPortsRegistry.setActorUtils(a.actorUtilsAdapter);
 
@@ -59,17 +61,8 @@ async function main() {
   const T = fx.tenant_id;
   const concept = (await pool.query(`SELECT concept_id FROM concepts LIMIT 1`)).rows[0] as { concept_id: string };
 
-  // ── fixtures financeiras (SOMENTE no efêmero) ────────────────────────────────
-  const existingAcct = (await pool.query(`SELECT id FROM bank_accounts WHERE tenant_id=$1 AND actor_id=$2 LIMIT 1`, [T, fx.page_actor_id])).rows[0] as { id: string } | undefined;
-  const acct = existingAcct ?? (await pool.query(
-    `INSERT INTO bank_accounts (tenant_id, actor_id, owner_type, owner_id, account_type) VALUES ($1::uuid,$2::uuid,'actor',$2::text,'credit') RETURNING id`,
-    [T, fx.page_actor_id])).rows[0] as { id: string };
-  const tx = (await pool.query(
-    `INSERT INTO bank_transactions (tenant_id, actor_id, account_id, amount_cents, purpose, concept_id) VALUES ($1,$2,$3,5000,'settlement',$4) RETURNING id`,
-    [T, fx.page_actor_id, acct.id, concept.concept_id])).rows[0] as { id: string };
-  await pool.query(
-    `INSERT INTO bank_splits (tenant_id, transaction_id, source_actor_id, target_actor_id, amount_cents, split_type, target_account_id) VALUES ($1,$2,$3,$3,3000,'fixed',$4)`,
-    [T, tx.id, fx.page_actor_id, acct.id]);
+  // ── fixtures financeiras (SOMENTE no efêmero, via suporte de teste fora de src) ──
+  const seeded = await seedOverviewFinancialFixture(pool, { tenantId: T, pageActorId: fx.page_actor_id, conceptId: concept.concept_id });
 
   const url = `/economy/actors/${fx.page_actor_id}/overview`;
 
@@ -95,7 +88,7 @@ async function main() {
   await app.close();
   const body = r3.json() as { ok?: boolean; data?: { totalPaid?: number; totalReceived?: number } };
   check('F3 com view_financial → 200', r3.statusCode === 200 && body.ok === true, `${r3.statusCode}`);
-  check('F3 VALORES CORRETOS: totalPaid=5000 e totalReceived=3000', body.data?.totalPaid === 5000 && body.data?.totalReceived === 3000, JSON.stringify(body.data));
+  check(`F3 VALORES CORRETOS: totalPaid=${seeded.totalPaidCents} e totalReceived=${seeded.totalReceivedCents}`, body.data?.totalPaid === seeded.totalPaidCents && body.data?.totalReceived === seeded.totalReceivedCents, JSON.stringify(body.data));
   check('F4 200 traz Cache-Control: no-store', (r3.headers['cache-control'] ?? '') === 'no-store');
   const auditAfter = Number((await pool.query(`SELECT count(*)::int n FROM financial_audit_trail WHERE tenant_id=$1 AND event_type='financial_read_economic_overview'`, [T])).rows[0].n);
   check('F5 audit persistido antes do disclosure (+1 financial_read_economic_overview)', auditAfter === auditBefore + 1, `${auditBefore}→${auditAfter}`);

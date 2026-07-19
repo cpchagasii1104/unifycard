@@ -200,7 +200,11 @@ const CMDS = [
   "node scripts/audit-actor-capabilities-not-decisor.mjs",
   "node scripts/audit-event-feed-exact-permission.mjs",
   "node scripts/audit-porta01-financial-hold.mjs",
-  "node scripts/audit-exclusivity-isolation-guard.mjs"
+  "node scripts/audit-exclusivity-isolation-guard.mjs",
+  // DECISION-0189C C1: o runner passa a INCLUIR o gate financeiro (financial-ssot/vocabulary +
+  // typecheck do gate) — o "verde" do runner deixa de mentir (o script infrator elevava 591→592
+  // sem o runner acusar). Baseline só-desce (DECISION-0158); nunca sobe para 592.
+  "node scripts/audit-red-gates-baseline.mjs"
 ];
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);
