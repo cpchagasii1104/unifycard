@@ -69,6 +69,44 @@ for (const f of ['src/core/authorization/authorization.service.ts', 'src/core/au
   }
 }
 
+// ── 3b. ETAPA D (R19 — DECISION-0189A §5) ──
+{
+  const registry = read('src/core/authorization/company-policy-registry.ts');
+  for (const k of ['financial:view_all_ledger', 'marketplace_execute_payouts', 'marketplace_manage_splits']) {
+    if (!new RegExp(`PORTA_HOLD_KEYS[\\s\\S]{0,400}'${k.replace(/[:]/g, '[:]')}'`).test(registry)) {
+      fail(`${k} fora de PORTA_HOLD_KEYS (D7 — money-path sensível sem fail-closed estrutural)`);
+    }
+  }
+  if (/marketplace_execute_payouts:\s*legacy\(\)|marketplace_manage_splits:\s*legacy\(\)/.test(registry)) {
+    fail('payouts/splits voltaram a legacy_ownership_contained (D7 proíbe)');
+  }
+  const authz = read('src/core/authorization/authorization.service.ts');
+  if (!/PORTA_HOLD_KEYS\.includes\(permissionKey\)/.test(authz)) {
+    fail('canActAs sem curto-circuito PORTA_HOLD (deny estrutural sumiu)');
+  }
+  const biz = read('src/core/authorization/business-authorization.service.ts');
+  if (!/PORTA_HOLD_KEYS/.test(biz)) {
+    fail('caminho legado (businessAuthorization) sem deny estrutural PORTA_HOLD — voltou a depender de tabela fantasma');
+  }
+  const overview = read('src/modules/economy/economic-overview.routes.ts');
+  if (!/authorizeActorFinancialRead/.test(overview) || !/hasActorFinancialReadAuthority/.test(overview)) {
+    fail('economic-overview sem a fachada financeira terminal (D7.A)');
+  }
+  if (!/no-store/.test(overview) || !/recordFinancialAudit/.test(overview)) {
+    fail('economic-overview sem no-store/audit antes do disclosure (R18)');
+  }
+  const inv = read('src/modules/invoicing/invoice.routes.ts');
+  if (!/hasActorFinancialReadAuthority/.test(inv)) {
+    fail('invoices sem a fachada financeira por PARTE (D7.B — canRepresentActor não autoriza)');
+  }
+  if (!/EXPLICIT_PARTY_FILTER_REQUIRED/.test(inv)) {
+    fail('listagem de invoices sem escopo-antes-da-query (D7.B.7 — tenant-wide proibido)');
+  }
+  if (!/recordFinancialAudit/.test(inv)) {
+    fail('invoices sem audit antes do disclosure (R18)');
+  }
+}
+
 // ── 4. errata preservada ──
 const pk = read('src/core/authorization/permission-keys.ts');
 if (!/create_events:\s*'can_create_events'/.test(pk)) {

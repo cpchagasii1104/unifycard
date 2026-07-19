@@ -136,3 +136,30 @@ create_events e exclusividade estavam ERRADAS/OBSOLETAS; errata formal em DECISI
 - Guard: seção 5d no foundation-guard (lock comum ANTES do check nos DOIS lados; xact-level;
   session-lock proibido; check-sem-lock MORDE). Dev: dry-run → APPLY via rito seletivo.
 - Commit: `fix(authority): serialize company membership delegation exclusivity`.
+
+## ETAPA D — FECHAMENTO R19 — ✅ EXECUTADA (D7 promulgada e materializada)
+- **PORTA_HOLD estrutural:** `financial:view_all_ledger` + `marketplace_execute_payouts` +
+  `marketplace_manage_splits` = DENY TERMINAL para QUALQUER actor (self incluído — ownership
+  genérico nunca as concede) no decisor canônico E no caminho legado (businessAuthorization —
+  que antes "negava" só porque organization_members é tabela fantasma; "zero linhas" deixou de
+  ser a segurança). payouts/splits reclassificados (fora de legacy_ownership_contained).
+- **economic-overview (D7.A):** payload classificado campo a campo (totalReceived/totalPaid/
+  fluxo/lastTransactions.amountCents = agregado econômico privado) → rota de ACTOR sob a
+  fachada TERMINAL (self | can_view_financial; leitura sob lock; no-store; audit ANTES do
+  disclosure; gestor sem view → deny) · rota de GRUPO estava ABERTA a qualquer autenticado →
+  FAIL-CLOSED (fachada nega grupos; substrato próprio = frente futura).
+- **invoices (D7.B):** autorização POR PARTE via fachada financeira (PF=self; parte
+  EMPRESARIAL exige view_financial — representação/can_manage_company NÃO leem);
+  **listagem ESCOPADA ANTES da query** (sem filtro de parte → 400 EXPLICIT_PARTY_FILTER_REQUIRED;
+  tenant-wide morto); no-store + audit; escape view_all_ledger agora deny estrutural.
+- **Prova 7/7 VERDES** (clone): PORTA_HOLD ×3 (self e gestor pleno negados com razão
+  PORTA_01_HOLD) · caminho legado deny explícito · gestor/finance sem view→deny, membro com
+  view→allow · grupo deny · estranho deny. Fachada: principal desconhecido = deny fail-closed
+  (infra segue propagando). Guard: seção R19 no audit-event-feed-exact-permission (PORTA_HOLD
+  no registry+decisor+legado; fachada/no-store/audit/escopo-antes-da-query — regressão MORDE).
+- **NÃO REPRODUZIDA (honesto):** a perna "fixtures materiais" de invoices/overview — as FONTES
+  (`invoices`, `payment_executions`, `payment_splits`) são SCHEMA-GHOST (to_regclass=NULL);
+  criar linhas exigiria inventar schema (proibido). A AUTORIZAÇÃO (objeto de R19) está provada;
+  o 500 pré-existente das superfícies ghost permanece coberto por DT-INVOICING (OPEN).
+- runner 195/195 · typecheck 0 · Δbank=0 (clone e dev). Sem migration nesta etapa.
+- Commit: `fix(finance): close residual company financial read authority`.

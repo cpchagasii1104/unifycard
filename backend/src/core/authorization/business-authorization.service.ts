@@ -44,6 +44,19 @@ class BusinessAuthorizationService {
     action: BusinessAction,
     contextId?: string
   ): Promise<AuthorizationCheckResult> {
+    // 🔒 DECISION-0189A §5 (D7 — PORTA_HOLD): deny ESTRUTURAL também neste caminho legado.
+    // Antes, view_all_ledger "negava" apenas porque organization_members é tabela fantasma
+    // (42P01 engolido) — "zero linhas" NUNCA é segurança. Agora o deny é explícito.
+    {
+      const { PORTA_HOLD_KEYS } = await import('./company-policy-registry');
+      if ((PORTA_HOLD_KEYS as readonly string[]).includes(action as string)) {
+        return {
+          allowed: false,
+          reason: `PORTA_01_HOLD: "${action}" exige atribuição explícita inexistente — fail-closed (DECISION-0189A §5)`,
+        };
+      }
+    }
+
     // Verificar se ação requer permissão
     if (!requiresPermission(action)) {
       return { allowed: true, reason: 'Ação não requer permissão' };

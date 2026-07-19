@@ -73,7 +73,7 @@ export async function authorizeActorFinancialRead<T>(
     } else if (actor.company_id) {
       // TERMINAL: membership ativa + can_view_financial. Nada de role/is_primary/manage_*.
       const globalUserId = await resolveGlobalUserId(userId, tenantId, client).catch((e) => {
-        if (e instanceof Error && /resolveGlobalUserId/.test(e.message)) return null;
+        if (e instanceof Error && /resolveGlobalUserId|não encontrado|not found/i.test(e.message)) return null; // principal desconhecido = negação legítima (fail-closed); infra propaga
         throw e;
       });
       if (globalUserId) {
@@ -121,7 +121,7 @@ export async function hasCompanyViewFinancialGrant(
   const client = await getClientWithTenant(tenantId);
   try {
     const globalUserId = await resolveGlobalUserId(userId, tenantId, client).catch((e) => {
-      if (e instanceof Error && /resolveGlobalUserId/.test(e.message)) return null;
+      if (e instanceof Error && /resolveGlobalUserId|não encontrado|not found/i.test(e.message)) return null; // principal desconhecido = negação legítima (fail-closed); infra propaga
       throw e;
     });
     if (!globalUserId) return false;

@@ -11,7 +11,7 @@ import { runQueryWithTenant } from '@core/database/pool';
 import { canonicalLogger } from '@core/logging/canonical-logger';
 import type { PermissionKey } from './permission-keys';
 import { PERMISSION_CAPABILITIES, isValidPermissionKey } from './permission-keys';
-import { COMPANY_POLICY_REGISTRY } from './company-policy-registry';
+import { COMPANY_POLICY_REGISTRY, PORTA_HOLD_KEYS } from './company-policy-registry';
 import { shadowAuthorizationService } from './shadow-authorization.service';
 import type { ShadowAuthDivergenceLog } from './shadow-auth.types';
 
@@ -86,6 +86,20 @@ class AuthorizationService {
   ): Promise<AuthorizationResult> {
     // 🔴 GUARD CANÔNICO: Validar inputs críticos antes de qualquer resolução
     this.validateInputs(tenantId, userId, actorId, permissionKey);
+
+    // 🔒 DECISION-0189A §5 (D7 — PORTA_HOLD): chaves de dinheiro sensível sem atribuição
+    // explícita viva = DENY TERMINAL para QUALQUER actor (nem self/ownership as concede).
+    // Estrutural — nunca dependente de tabela fantasma. Religar = decisão da PORTA 01.
+    if (PORTA_HOLD_KEYS.includes(permissionKey)) {
+      const held: AuthorizationResult = {
+        allowed: false,
+        reason: `PORTA_01_HOLD: "${permissionKey}" exige atribuição explícita inexistente — fail-closed enquanto a PORTA 01 estiver fechada (DECISION-0189A §5)`,
+      };
+      canonicalLogger.authzDeny(null, 'Permissão negada: PORTA_HOLD (DECISION-0189A)', {
+        tenantId, userId, actorId, permissionKey, reason: held.reason,
+      });
+      return held;
+    }
 
     // 🔴 LOG CANÔNICO: Início da resolução (para observabilidade)
     canonicalLogger.debug(null, 'Iniciando resolução de permissão', {

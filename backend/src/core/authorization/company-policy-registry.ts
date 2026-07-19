@@ -113,7 +113,7 @@ export const COMPANY_POLICY_REGISTRY: Record<PermissionKey, CompanyPolicyEntry> 
   'split:create': g('can_manage_financial', { terminal: true, protected: true }),
   'financial:execute_payout': g('can_manage_financial', { terminal: true, protected: true }),
   'financial:view_ledger': g('can_view_financial', { terminal: true }),
-  'financial:view_all_ledger': manual(),
+  'financial:view_all_ledger': manual(), // + PORTA_HOLD (0189A D7: sem assignment explícito → deny SEMPRE)
   'calendar:view': legacy(),
   'calendar:block': legacy(),
   'calendar:unblock': legacy(),
@@ -184,8 +184,10 @@ export const COMPANY_POLICY_REGISTRY: Record<PermissionKey, CompanyPolicyEntry> 
   marketplace_manage_inventory: legacy(),
   marketplace_manage_orders: legacy(),
   marketplace_execute_payments: legacy(),
-  marketplace_manage_splits: legacy(),
-  marketplace_execute_payouts: legacy(),
+  // 0189A D7: payouts/splits SAEM de legacy_ownership_contained → manual + PORTA_HOLD
+  // (terminais fail-closed enquanto PORTA 01 fechada; religar = decisão da PORTA 01).
+  marketplace_manage_splits: manual(),
+  marketplace_execute_payouts: manual(),
   marketplace_pdv_sell: legacy(),
   marketplace_pdv_manage_customers: legacy(),
   marketplace_pdv_view_customers: legacy(),
@@ -207,6 +209,18 @@ export const COMPANY_POLICY_REGISTRY: Record<PermissionKey, CompanyPolicyEntry> 
   'territory:manage_neighborhood_aliases': territory(),
   'territory:register_neighborhood_succession': territory(),
 };
+
+/**
+ * 🔒 DECISION-0189A §5 (D7) — PORTA_HOLD: chaves de dinheiro SENSÍVEL sem mecanismo de
+ * atribuição explícita vivo. DENY TERMINAL para QUALQUER actor/principal (inclusive self —
+ * "ownership genérico" nunca as concede) enquanto a PORTA 01 estiver fechada. O deny é
+ * ESTRUTURAL no decisor — não depende de tabela fantasma ("zero linhas" não é segurança).
+ */
+export const PORTA_HOLD_KEYS: readonly PermissionKey[] = [
+  'financial:view_all_ledger',
+  'marketplace_execute_payouts',
+  'marketplace_manage_splits',
+];
 
 /** Chaves com dispatch TERMINAL para actor de EMPRESA (curto-circuito antes de ownership). */
 export function isCompanyTerminalKey(key: PermissionKey): boolean {

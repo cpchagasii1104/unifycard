@@ -91,12 +91,17 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
       // read-only: findById = SELECT; 404 se inexistente (comportamento atual, sem leak adicional).
       const invoice = await invoiceService.getInvoiceById(tenantId, req.params.invoiceId);
 
-      const { authorizationService } = await import('@core/authorization/authorization.service');
+      // 🔒 DECISION-0189A §5 (D7.B — R19): invoice é documento FINANCEIRO com partes reais.
+      // A autoridade por parte é a FACHADA TERMINAL de leitura financeira: PF vê se o SEU
+      // actor canônico é parte (self); parte EMPRESARIAL exige membership ativa +
+      // can_view_financial sobre AQUELE actor — representação/can_manage_company isolado
+      // NÃO autoriza. actorId do cliente nunca prova participação (partes vêm do recurso).
+      const { hasActorFinancialReadAuthority } = await import('@core/authorization/financial-read-authority');
       let canAccess = false;
       for (const partyId of [invoice.actorId, invoice.recipientActorId]) {
         if (!partyId) continue;
         try {
-          if (await authorizationService.canRepresentActor(tenantId, callerUserId, partyId)) {
+          if ((await hasActorFinancialReadAuthority(tenantId, callerUserId, partyId)).allowed) {
             canAccess = true;
             break;
           }
@@ -141,6 +146,14 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
         });
       }
 
+      // R18: audit ANTES do disclosure (falha = 500, sem disclosure sem rastro) + no-store.
+      const { recordFinancialAudit } = await import('@core/observability/financial-audit');
+      await recordFinancialAudit({
+        tenant_id: tenantId,
+        event_type: 'financial_read_invoice',
+        metadata: { readBy: callerUserId, invoiceId: req.params.invoiceId, route: 'GET /invoices/:invoiceId' },
+      });
+      reply.header('Cache-Control', 'no-store');
       return reply.send({ invoice });
     }
   );
@@ -168,20 +181,25 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
     }
     const tenantId = req.tenant.id;
 
-    // 🔴 DECISION-0113 canal 3 (money): o `requireInvoicePermission` gateia a permissão do CALLER (sobre o
-    // próprio actor), NÃO autoridade sobre o `actorId`/`recipientActorId` declarado no filtro. Filtrar por
-    // actor alheio é cross-user → exige `canRepresentActor` sobre cada actor de parte declarado na query.
+    // 🔒 DECISION-0189A §5 (D7.B.7 — R19): listagem ESCOPADA ANTES da query — NUNCA
+    // tenant-wide filtrada depois. Sem filtro de parte declarado, a rota NÃO lista (400
+    // explícito): a consulta só roda sobre partes AUTORIZADAS pela fachada financeira
+    // terminal (PF self · empresa com can_view_financial). Representação/gestão não lê.
     {
       const callerUserId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!callerUserId) return reply.status(401).send({ error: 'Não autenticado' });
       const declaredParties = [req.query.actorId, req.query.recipientActorId].filter(Boolean) as string[];
-      if (declaredParties.length > 0) {
-        if (!callerUserId) return reply.status(401).send({ error: 'Não autenticado' });
-        const { authorizationService } = await import('@core/authorization/authorization.service');
-        for (const partyId of declaredParties) {
-          let canRepresent = false;
-          try { canRepresent = await authorizationService.canRepresentActor(tenantId, callerUserId, partyId); } catch { canRepresent = false; }
-          if (!canRepresent) return reply.status(403).send({ error: 'Sem autoridade sobre o actor filtrado' });
-        }
+      if (declaredParties.length === 0) {
+        return reply.status(400).send({
+          error: 'Listagem de invoices exige filtro explícito de parte (actorId/recipientActorId) autorizada — escopo antes da consulta (DECISION-0189A §5)',
+          code: 'EXPLICIT_PARTY_FILTER_REQUIRED',
+        });
+      }
+      const { hasActorFinancialReadAuthority } = await import('@core/authorization/financial-read-authority');
+      for (const partyId of declaredParties) {
+        let ok = false;
+        try { ok = (await hasActorFinancialReadAuthority(tenantId, callerUserId, partyId)).allowed; } catch { ok = false; }
+        if (!ok) return reply.status(403).send({ error: 'Sem autoridade financeira exata sobre a parte filtrada (view_financial)', code: 'VIEW_FINANCIAL_REQUIRED' });
       }
     }
 
@@ -200,6 +218,18 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
 
     const invoices = await invoiceService.listInvoices(tenantId, filters);
 
+    // R18: audit + no-store (listagem já ESCOPADA por partes autorizadas antes da query).
+    const { recordFinancialAudit } = await import('@core/observability/financial-audit');
+    await recordFinancialAudit({
+      tenant_id: tenantId,
+      event_type: 'financial_read_invoice_list',
+      metadata: {
+        readBy: (req as { user?: { userId?: string } }).user?.userId,
+        parties: [req.query.actorId, req.query.recipientActorId].filter(Boolean),
+        route: 'GET /invoices',
+      },
+    });
+    reply.header('Cache-Control', 'no-store');
     return reply.send({ invoices, totalCents: invoices.length });
   });
 
