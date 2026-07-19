@@ -232,7 +232,20 @@ export const PORTA_HOLD_KEYS: readonly PermissionKey[] = [
   'financial:execute_payout',
   'marketplace_execute_payments',
   'split:create',
+  // 0189C D1: financial_terms:confirm materializa bank_splits (confirmFinancialTerms) — é WRITER
+  // financeiro; entra no HOLD terminal enquanto a PORTA 01 estiver fechada.
+  'financial_terms:confirm',
 ];
+
+/**
+ * 🔒 DECISION-0189C D2: estado ESTRUTURAL da PORTA 01. Enquanto as chaves de movimento de
+ * dinheiro estiverem em HOLD, a PORTA 01 está FECHADA. Barreiras de service (ex.:
+ * confirmFinancialTerms → createSplit) consultam ISTO — NÃO uma feature flag (que não é
+ * autoridade). Abrir a PORTA 01 = retirar as chaves do HOLD por decisão própria.
+ */
+export function isPorta01Closed(): boolean {
+  return (PORTA_HOLD_KEYS as readonly string[]).includes('financial:execute_payout');
+}
 
 /** Chaves com dispatch TERMINAL para actor de EMPRESA (curto-circuito antes de ownership). */
 export function isCompanyTerminalKey(key: PermissionKey): boolean {

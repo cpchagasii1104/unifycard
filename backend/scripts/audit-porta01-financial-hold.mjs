@@ -20,6 +20,14 @@ const ROOT = join(__dirname, '..');
 const fail = (msg) => { console.error(`❌ [audit-porta01-financial-hold] ${msg}`); process.exit(1); };
 
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
+const walkTs = (dir, acc = []) => {
+  for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+    const rel = `${dir}/${e.name}`;
+    if (e.isDirectory()) walkTs(rel, acc);
+    else if (e.name.endsWith('.ts') && !e.name.endsWith('.test.ts')) acc.push(rel);
+  }
+  return acc;
+};
 
 // ── Invariante 1: HOLD exaustivo ──────────────────────────────────────────────
 const registry = read('src/core/authorization/company-policy-registry.ts');
@@ -32,6 +40,7 @@ const REQUIRED_HOLD = [
   'financial:execute_payout',
   'marketplace_execute_payments',
   'split:create',
+  'financial_terms:confirm', // 0189C D1 — writer de bank_splits
 ];
 for (const k of REQUIRED_HOLD) {
   if (!new RegExp(`['"]${k.replace(/[:]/g, '\\$&')}['"]`).test(holdBlock[1])) {
@@ -92,4 +101,45 @@ if (!/OVERVIEW_UNAVAILABLE_BODY/.test(overviewRoutes) || !/overviewDependenciesA
   fail('economic-overview não usa preflight de dependências + corpo sanitizado (DECISION-0189B D6).');
 }
 
-console.log('✅ audit-porta01-financial-hold: HOLD monetário exaustivo; /payouts/orders 503; invoices porta fechada; overview 503 sanitizado; contenção estrutural viva.');
+// ── Invariante 7 (0189C D2): barreira de service em confirmFinancialTerms ────
+const svcOrder = read('src/modules/services/service-order.service.ts');
+const confirmIdx = svcOrder.indexOf('async confirmFinancialTerms');
+if (confirmIdx < 0) fail('confirmFinancialTerms não encontrado (writer de split).');
+const firstSplit = svcOrder.indexOf('createSplit', confirmIdx);
+const barrier = svcOrder.indexOf('isPorta01Closed', confirmIdx);
+if (barrier < 0) fail('confirmFinancialTerms sem barreira isPorta01Closed (DECISION-0189C D2).');
+if (firstSplit >= 0 && barrier > firstSplit) fail('barreira isPorta01Closed DEPOIS do createSplit (deve preceder — D2).');
+// a barreira NÃO pode depender de feature flag como autoridade (ignora menção em comentário)
+const barrierWindow = svcOrder.slice(confirmIdx, barrier + 200)
+  .split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n');
+if (/FEATURE_FINANCIAL_ENABLED/.test(barrierWindow)) {
+  fail('barreira de confirmFinancialTerms consulta FEATURE_FINANCIAL_ENABLED — flag não é autoridade (D2).');
+}
+if (!(new RegExp("isPorta01Closed").test(read('src/core/authorization/company-policy-registry.ts')))) {
+  fail('isPorta01Closed removido do registry (estado estrutural da PORTA 01).');
+}
+
+// ── Invariante 8 (0189C D3): nenhum caller NOVO de createSplit fora do Bank/HOLD ─
+// callers vivos permitidos de bankSplitRepository.createSplit: bank core + confirmFinancialTerms
+// (agora barrado). paymentSplitRepository é Proxy morto (ghost). Novo caller MORDE.
+const CREATE_SPLIT_ALLOW = new Set([
+  'src/modules/bank/bank-transaction.service.ts',
+  'src/modules/services/service-order.service.ts',
+]);
+for (const f of walkTs('src')) {
+  const src = read(f);
+  if (/bankSplitRepository\.createSplit\(/.test(src) && !CREATE_SPLIT_ALLOW.has(f)) {
+    fail(`${f}: novo caller de bankSplitRepository.createSplit fora do núcleo Bank/HOLD (DECISION-0189C D3)`);
+  }
+}
+
+// ── Invariante 9 (0189C D8): receive_funds sem caller runtime ────────────────
+for (const f of walkTs('src')) {
+  if (/company-policy-registry|permission-keys|business-permissions/.test(f)) continue;
+  const src = read(f);
+  if (/requirePermission\(\s*['"]receive_funds['"]|canActAs\([^)]*['"]receive_funds['"]|canPerformAction\([^)]*['"]receive_funds['"]/.test(src)) {
+    fail(`${f}: caller runtime de receive_funds sem decisão normativa (DECISION-0189C D8)`);
+  }
+}
+
+console.log('✅ audit-porta01-financial-hold: HOLD monetário exaustivo (+financial_terms:confirm); /payouts/orders 503; invoices porta fechada; overview 503 sanitizado; barreira de split em confirmFinancialTerms; sem novo caller createSplit/receive_funds.');

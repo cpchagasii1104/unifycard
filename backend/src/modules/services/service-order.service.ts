@@ -1792,6 +1792,16 @@ class ServiceOrderService {
     orderId: string,
     input: ConfirmFinancialTermsInput
   ): Promise<{ splits: any[] }> {
+    // 🔒 DECISION-0189C D2 — BARREIRA DE SERVICE (antes de QUALQUER efeito, inclusive do gate de
+    // rota que só roda com confirmedByUserId): enquanto a PORTA 01 estiver fechada,
+    // confirmFinancialTerms NÃO materializa bank_splits, mesmo invocado DIRETAMENTE e mesmo com
+    // FEATURE_FINANCIAL_ENABLED=true (a flag NÃO é autoridade). Fail-closed determinístico:
+    // nenhum split, nenhum estado parcial, nenhuma confirmação antes do bloqueio.
+    const { isPorta01Closed } = await import('@core/authorization/company-policy-registry');
+    if (isPorta01Closed()) {
+      throw HttpError.forbidden('PORTA_01_CLOSED: materialização de split financeiro bloqueada enquanto a PORTA 01 estiver fechada (DECISION-0189C D2)');
+    }
+
     // 0. Validar permissão via authority.service (§4.9)
     if (input.confirmedByUserId) {
       const { authorityService } = await import('@modules/authority/authority.service');
