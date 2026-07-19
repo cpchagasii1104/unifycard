@@ -74,3 +74,22 @@
 - **Status:** SUCESSO. Commit final: `chore(governance): close company access authority campaign`.
 
 **IMPLEMENTAÇÃO CONCLUÍDA — CANDIDATA A AUDITORIA YALA INDEPENDENTE** (instruções de auditoria no relatório da executora e no cartório; a executora NÃO declara selo).
+
+---
+
+# CAMPANHA CORRETIVA — F-COMPANY-ACCESS-AUTHORITY-YALA-CLOSEOUT (2026-07-19)
+
+**A YALA independente REPROVOU a DECISION-0189** (Findings A/B/C + R19). Reprovação aceita (D1).
+Trilha histórica acima PRESERVADA — as afirmações do §13.4 e do fecho da F6 sobre publish_feed/
+create_events e exclusividade estavam ERRADAS/OBSOLETAS; errata formal em DECISION-0189A §6.
+
+## ETAPA A — ADENDO NORMATIVO — ✅ EXECUTADA
+- `docs/02_decisions/DECISION_0189A_YALA_CLOSEOUT.md`: registra a reprovação; corrige §13.4
+  (publish_feed sombreada + guard no actor errado; create_events sem gate); promulga D4 (chaves
+  de eventos), D6 (advisory xact lock comum, transaction-level, antes do check, escopado a
+  empresa), D7 (R19: overview/invoices/view_all_ledger/payouts/splits), D2/D3 (gate fino não
+  sombreável; DT não absorve call-site coberto), lazy-heal da perna capability.
+- Cartório atualizado (entrada ETAPA A) sem apagar histórico.
+- Commit: `docs(authority): record YALA closeout requirements`.
+
+*(Etapas B–F apensadas abaixo)*
