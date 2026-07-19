@@ -11,8 +11,12 @@ import type {
   EconomicTransaction,
 } from './economic-overview.types';
 
-/** Valor do split em centavos (SSOT bank_splits.amount). */
-const BS_AMOUNT = 'bs.amount::numeric';
+// 🔧 DECISION-0189B (Etapa C): a coluna canônica de valor do split é `bank_splits.amount_cents`
+// (bigint NOT NULL, CHECK amount_cents > 0). A referência anterior `bs.amount` NÃO existe no
+// schema — o overview 500-ava (agora 503 sanitizado) em QUALQUER caminho com split. Correção de
+// LEITURA (sem writer, sem PORTA 01) — pré-condição da prova "valores corretos".
+/** Valor do split em centavos (SSOT bank_splits.amount_cents). */
+const BS_AMOUNT = 'bs.amount_cents::numeric';
 
 /** Splits onde o actor/grupo é receptor: bank_accounts.target_account_id → actor_id (sem metadata). */
 const BS_RECEIVER_JOIN = `
@@ -89,7 +93,7 @@ class EconomicOverviewProjector {
     }>(
       tenantId,
       `
-      SELECT bs.split_id::text,
+      SELECT bs.id::text AS split_id,
              ${BS_AMOUNT}::text AS amt,
              bt.created_at AS executed_at,
              bs.transaction_id::text AS tx_id
@@ -181,7 +185,7 @@ class EconomicOverviewProjector {
     }>(
       tenantId,
       `
-      SELECT bs.split_id::text,
+      SELECT bs.id::text AS split_id,
              ${BS_AMOUNT}::text AS amt,
              bt.created_at AS executed_at,
              bs.transaction_id::text AS tx_id

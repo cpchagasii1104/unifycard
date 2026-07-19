@@ -5,8 +5,12 @@
 import type { FastifyInstance } from 'fastify';
 import { invoiceService } from './invoice.service';
 import type { CreateInvoiceFromPayoutInput, IssueInvoiceInput, CancelInvoiceInput } from './invoice.types';
+import { invoiceActivationGate } from './invoice-activation';
 
 const invoiceRoutes = async (fastify: FastifyInstance) => {
+  // 🔒 DECISION-0189B D7: porta de ativação (fechada por default) ANTES de qualquer gate/consulta.
+  // Enquanto o substrato de invoices não for ativado por campanha própria, TODA rota → 503.
+  const gate = invoiceActivationGate();
   /**
    * Middleware: Verificar permissão para acessar invoices
    */
@@ -49,7 +53,7 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.post<{ Params: { payoutOrderId: string }; Body: CreateInvoiceFromPayoutInput }>(
     '/invoices/from-payout/:payoutOrderId',
-    { preHandler: requireInvoicePermission },
+    { preHandler: [gate, requireInvoicePermission] },
     async (req, reply) => {
       if (!req.tenant) {
         return reply.status(400).send({ error: 'tenant required' });
@@ -71,7 +75,7 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.get<{ Params: { invoiceId: string } }>(
     '/invoices/:invoiceId',
-    { preHandler: requireInvoicePermission },
+    { preHandler: [gate, requireInvoicePermission] },
     async (req, reply) => {
       if (!req.tenant) {
         return reply.status(400).send({ error: 'tenant required' });
@@ -175,7 +179,7 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
       limit?: number;
       offset?: number;
     };
-  }>('/invoices', { preHandler: requireInvoicePermission }, async (req, reply) => {
+  }>('/invoices', { preHandler: [gate, requireInvoicePermission] }, async (req, reply) => {
     if (!req.tenant) {
       return reply.status(400).send({ error: 'tenant required' });
     }
@@ -239,7 +243,7 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.post<{ Params: { invoiceId: string }; Body: IssueInvoiceInput }>(
     '/invoices/:invoiceId/issue',
-    { preHandler: requireInvoicePermission },
+    { preHandler: [gate, requireInvoicePermission] },
     async (req, reply) => {
       if (!req.tenant) {
         return reply.status(400).send({ error: 'tenant required' });
@@ -262,7 +266,7 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
    */
   fastify.post<{ Params: { invoiceId: string }; Body: CancelInvoiceInput }>(
     '/invoices/:invoiceId/cancel',
-    { preHandler: requireInvoicePermission },
+    { preHandler: [gate, requireInvoicePermission] },
     async (req, reply) => {
       if (!req.tenant) {
         return reply.status(400).send({ error: 'tenant required' });

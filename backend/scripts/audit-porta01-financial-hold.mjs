@@ -65,4 +65,31 @@ for (const [file, re] of structuralContained) {
   }
 }
 
-console.log('✅ audit-porta01-financial-hold: HOLD monetário exaustivo; /payouts/orders 503; contenção estrutural viva.');
+// ── Invariante 5 (D7): invoices porta de ativação fechada por default ────────
+const invoiceActivation = read('src/modules/invoicing/invoice-activation.ts');
+if (!/export const INVOICES_ACTIVATED\s*=\s*false\b/.test(invoiceActivation)) {
+  fail('INVOICES_ACTIVATED não é `false` literal (DECISION-0189B D7) — porta de invoices abriria.');
+}
+if (/to_regclass\s*\(|information_schema\.|pg_tables\b/.test(invoiceActivation)) {
+  fail('invoice-activation deriva ativação de existência de schema (DECISION-0189B D7 proíbe) — porta deve ser explícita.');
+}
+const invoiceRoutes = read('src/modules/invoicing/invoice.routes.ts');
+const preHandlers = invoiceRoutes.match(/preHandler:\s*\[[^\]]*\]/g) || [];
+if (preHandlers.length === 0) fail('invoice.routes sem preHandler com gate de ativação.');
+for (const ph of preHandlers) {
+  if (!/\bgate\b/.test(ph)) fail(`invoice.routes: rota sem gate de ativação no preHandler (${ph}) — DECISION-0189B D7.`);
+}
+
+// ── Invariante 6 (D6): economic-overview não vaza e responde 503 sanitizado ──
+const overviewRoutes = read('src/modules/economy/economic-overview.routes.ts');
+if (/message:\s*error instanceof Error/.test(overviewRoutes)) {
+  fail('economic-overview vaza error.message no corpo (DECISION-0189B D6) — usar OVERVIEW_UNAVAILABLE_BODY.');
+}
+if (/\.status\(500\)/.test(overviewRoutes)) {
+  fail('economic-overview ainda responde 500 (DECISION-0189B D6 exige 503 sanitizado).');
+}
+if (!/OVERVIEW_UNAVAILABLE_BODY/.test(overviewRoutes) || !/overviewDependenciesAvailable/.test(overviewRoutes)) {
+  fail('economic-overview não usa preflight de dependências + corpo sanitizado (DECISION-0189B D6).');
+}
+
+console.log('✅ audit-porta01-financial-hold: HOLD monetário exaustivo; /payouts/orders 503; invoices porta fechada; overview 503 sanitizado; contenção estrutural viva.');
