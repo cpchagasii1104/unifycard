@@ -112,6 +112,11 @@ const stripComments = (s) => s
     // DECISION-0189 (F4): comandos governados de lifecycle/grants — autoridade TERMINAL via subject
     // grants de company_users (locks empresa→alvo→caller); NÃO resolve/cria/cura actor.
     'company-membership-commands.service.ts',
+    // DECISION-0189 (F5): convite/aceite canônico — Identity (global_user_id) como sujeito;
+    // NÃO resolve/cria/cura actor (autoria via canRepresentActor na rota; membership nasce no
+    // writer transacional do aceite com grants das linhas do catálogo).
+    'company-access-invitations.service.ts',
+    'company-access-invitations.routes.ts',
     // F-COMPANY-READINESS-PROJECTION: projeção READ-ONLY; NÃO resolve/escreve actor (autoridade via
     // canRepresentActor na rota; regra de elegibilidade no predicado único do P3 gate).
     'company-readiness.service.ts',

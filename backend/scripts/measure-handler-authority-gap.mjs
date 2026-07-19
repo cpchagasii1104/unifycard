@@ -154,6 +154,10 @@ const BASELINE_UNCOVERED = new Set([
   // sobre actionContext.actorId, autoria não-forjável); a AUTORIDADE da operação é TERMINAL
   // DENTRO do comando (company-membership-commands.service: grants de company_users sob lock
   // empresa→alvo→caller + dois tetos + último gestor). actorId do cliente NUNCA decide.
+  // DECISION-0189 (F5): criação de convite — binding no segmento = requireRepresentsActingActor
+  // (autoria); a AUTORIDADE (manage_members + dois tetos) é TERMINAL dentro do service
+  // (locks empresa→caller na tx). actionContext NUNCA decide.
+  'core/companies/company-access-invitations.routes.ts::POST /:companyId/invitations',
   'core/companies/company-members.routes.ts::PATCH /:companyId/members/:memberId/grants',
   'core/companies/company-members.routes.ts::POST /:companyId/governance/transfer',
   'core/companies/company-members.routes.ts::POST /:companyId/members/:memberId/commands/${cmd}',

@@ -85,6 +85,7 @@ const ALLOW = new Set([
   'src/core/companies/company-membership-commands.service.ts', // comandos governados (F4)
   'src/core/companies/company-members.routes.ts', // allowlist tipada do PATCH grants (F4)
   'src/core/actor-capabilities/actor-capabilities.service.ts', // PROJEÇÃO (nunca decide — guard próprio)
+  'src/core/companies/company-access-invitations.service.ts', // writer canônico do aceite (F5 — grants pelas linhas do catálogo)
 ]);
 const walk = (dir, acc = []) => {
   for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
@@ -143,6 +144,30 @@ for (const needle of [
   const membersSvc = stripC(read('src/core/companies/company-members.service.ts'));
   if (/getScopesForRole|\['\*'\]/.test(membersSvc)) {
     fail('company-members.service reintroduziu scopes por role / wildcard (§12)');
+  }
+}
+
+// 5c. F5 — CONVITE/ACEITE: migration + invariantes de token/idempotência/imutabilidade.
+const MIG_F5 = 'migrations/20260719160000_company_access_invitations.sql';
+if (!existsSync(join(ROOT, MIG_F5))) fail(`migration F5 ausente: ${MIG_F5}`);
+const migF5 = read(MIG_F5);
+for (const needle of [
+  'company_access_invitations', 'company_access_invitation_permissions',
+  'chk_cai_token_hash', 'uq_cai_idempotency', 'uq_cai_pending_per_target',
+  'chk_cai_no_self_invite', 'fn_company_invitation_permissions_immutable',
+]) {
+  if (!migF5.includes(needle)) fail(`migration F5 sem artefato obrigatório: ${needle}`);
+}
+{
+  const inviteSvc = read('src/core/companies/company-access-invitations.service.ts');
+  if (!/randomBytes\(32\)/.test(inviteSvc)) fail('token de convite deixou de ser 256-bit (randomBytes(32)) — R15');
+  if (/console\.(log|info|warn|error)\([^)]*token/i.test(inviteSvc)) {
+    fail('token de convite LOGADO no service (R15 — token nunca em log)');
+  }
+  if (!/timingSafeEqual/.test(inviteSvc)) fail('comparação de request_hash sem timingSafeEqual (R14)');
+  // aceite: reentrada só de revoked
+  if (!/member_status = 'revoked'\s*\n?\s*RETURNING/.test(inviteSvc) && !/AND member_status = 'revoked'/.test(inviteSvc)) {
+    fail('aceite sem cláusula de reentrada EXCLUSIVA de revoked (R17)');
   }
 }
 

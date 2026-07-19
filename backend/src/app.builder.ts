@@ -433,6 +433,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     await protectedScope.register(intentExecuteRoutes, { prefix: '/intent' });
     await protectedScope.register(profileModule, { prefix: '/profile' });
     await protectedScope.register(companiesModule, { prefix: '/companies' });
+    // DECISION-0189 (F5): aceite/recusa de convite pelo CONVIDADO (token é o endereço; Identity
+    // do caller é a autoridade — writer canônico único de membership 'active' fora do bootstrap).
+    {
+      const { invitationAcceptanceRoutes } = await import('./core/companies/company-access-invitations.routes');
+      await protectedScope.register(invitationAcceptanceRoutes);
+    }
     await protectedScope.register(publicationEngineModule);
     await protectedScope.register(referralModule, { prefix: '/referral' });
     await protectedScope.register(planModule, { prefix: '/plan' });
