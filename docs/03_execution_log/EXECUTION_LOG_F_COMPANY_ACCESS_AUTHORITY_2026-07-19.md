@@ -163,3 +163,33 @@ create_events e exclusividade estavam ERRADAS/OBSOLETAS; errata formal em DECISI
   o 500 pré-existente das superfícies ghost permanece coberto por DT-INVOICING (OPEN).
 - runner 195/195 · typecheck 0 · Δbank=0 (clone e dev). Sem migration nesta etapa.
 - Commit: `fix(finance): close residual company financial read authority`.
+
+## ETAPA E — PROVAS COMPORTAMENTAIS PENDENTES — ✅ EXECUTADA
+- **E.A Cross-tenant F5 (9/9 VERDES):** tenant B COMPLETO construído em clone efêmero ao lado
+  do A (tenant+Identity+users+actors+company+membership SET_V1+registry). E1 token A no tenant
+  B → uniforme · E2 Identity B não aceita convite A · E3 list/revoke tenant-scoped · E4 lookup
+  não cruza · **E5 RLS com o ROLE REAL (SET ROLE unificard_app + GUC): dados do outro tenant
+  INVISÍVEIS, próprios visíveis** · E6 FK composta explode convite-B→empresa-A no SCHEMA.
+- **E.B Upgrade canônico (PROVADO):** BASE materializada em DB efêmero pelo RUNNER CANÔNICO
+  (526 migrations — as 4 da campanha retiradas temporariamente do diretório e restauradas
+  byte-idênticas via git; ZERO seletivo) → `migrate.ts` FINAL aplicou EXATAMENTE as 4
+  (526→530, cada uma registrada 1×) → 2ª execução NO-OP (530 inalterado). **Honesto:** no DEV
+  o runner canônico segue IMPOSSÍVEL — migration bloqueadora identificada:
+  `20260713100000_actor_territorial_assignment_foundation.sql` (objetos presentes sem registro
+  — drift parte-(b) pré-existente, DT-EPHEMERAL OPEN); o dev usa o rito seletivo governado e
+  isso NÃO é vendido como upgrade-canônico-de-dev.
+- **E.C Suite BASE×FINAL (ZERO regressão):** as MESMAS 12 suítes rodadas em BASE `8397b41cb`
+  (checkout temporário de backend/src+tests, mesmo node/deps/env/DB; tree restaurada e
+  verificada limpa) → **12/12 FALHAM EM BASE** (79 failed/91). FINAL: 11 falham
+  (permission-canonical CONSERTADA → 15/15). Nenhuma regressão nova; 1 suíte melhorada.
+- **E.D Fixtures financeiras:** matriz de AUTORIZAÇÃO R19 provada (Etapa D 7/7 + PORTA_HOLD);
+  perna "dados materiais" de invoices/overview **NÃO REPRODUZIDA** — fontes schema-ghost
+  (to_regclass NULL); inventar schema para prova é proibido; sem selo pleno nessa perna.
+- **E.E Concorrência re-executada no estado FINAL:** membership×delegação 6/6 (Etapa C, janela
+  crítica real) · aceite×aceite E7 (1 materialização) · **aceite×revogação E8 (1 vencedor;
+  estado consistente accepted+membro XOR revoked+sem-membro)** · dupla revogação de gestor
+  F4 16/16 · leitura×revogação F3 17/17. Provas F3/F4 ATUALIZADAS à semântica promulgada
+  (caso 6: rep externo — delegação p/ membro ativo agora é PROIBIDA pelo trigger; caso 15:
+  fallback de ownership aposentado → gestor sem grant DENY) — atualizações justificadas
+  in-file.
+- Commit: `test(governance): add YALA closeout behavioral evidence`.

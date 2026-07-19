@@ -100,16 +100,20 @@ async function main() {
   await setMember(fx.cu_id, { can_manage_financial: true });
   check('5. can_manage_financial sem view → deny', !(await gate()).allowed);
   // 6 — delegação publish_feed não abre financeiro
+  // (DECISION-0189A §4: exclusividade ATIVA — delegação p/ membro ATIVO é PROIBIDA por trigger;
+  //  o cenário promulgado é o REPRESENTANTE EXTERNO: membership revogada + delegação exata)
   await setMember(fx.cu_id, {});
+  await pool.query(`UPDATE company_users SET member_status='revoked' WHERE id=$1`, [fx.cu_id]);
   const deleg = await actorDelegationRepository.create(T, {
     userActorId: fx.user_actor_id,
     institutionalActorId: fx.page_actor_id,
     scopes: ['publish_feed'],
-    relationshipType: 'employee',
+    relationshipType: 'attorney',
   });
   const viaCanActAs = await authorizationService.canActAs(T, fx.user_id, fx.page_actor_id, 'view_financial');
-  check('6. delegação publish_feed → view_financial TERMINAL deny', !viaCanActAs.allowed && !(await gate()).allowed);
+  check('6. rep externo com delegação publish_feed → view_financial TERMINAL deny', !viaCanActAs.allowed && !(await gate()).allowed);
   await actorDelegationRepository.revoke(T, deleg.delegationId);
+  await pool.query(`UPDATE company_users SET member_status='active' WHERE id=$1`, [fx.cu_id]);
   // 7
   await setMember(fx.cu_id, { can_view_financial: true });
   const ok7 = await gate();
@@ -177,8 +181,10 @@ async function main() {
   const d15a = await authorizationService.canActAs(T, fx.user_id, fx.page_actor_id, 'publish_feed');
   await setMember(fx.cu_id, { can_manage_company: true });
   const d15b = await authorizationService.canActAs(T, fx.user_id, fx.page_actor_id, 'publish_feed');
-  check('15. publish_feed: grant → membership_grant; gestor sem grant → ownership legado (transitório F4)',
-    d15a.allowed && d15a.authoritySource === 'membership_grant' && d15b.allowed && d15b.authoritySource === 'ownership');
+  // Semântica FINAL (F4 cutover + DECISION-0189A Finding B): o fallback de ownership foi
+  // APOSENTADO — gestor SEM o grant fino é NEGADO.
+  check('15. publish_feed: grant → membership_grant; gestor SEM grant → DENY (fallback aposentado)',
+    d15a.allowed && d15a.authoritySource === 'membership_grant' && !d15b.allowed);
   // 16 — splits origem inexistente (via PORTA do Bank — mesma superfície que a rota usa)
   bankPortsRegistry.setBankTransactionRead(bankTransactionReadAdapter);
   const origin = await bankPortsRegistry
