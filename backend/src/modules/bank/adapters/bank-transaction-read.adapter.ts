@@ -61,6 +61,14 @@ export class BankTransactionReadAdapter implements BankTransactionReadPort {
   ): Promise<Map<string, Record<string, unknown>>> {
     return bankTransactionReadRepository.getMetadataByTransactionIds(tenantId, transactionIds);
   }
+
+  /** DECISION-0189 (F3): origem da transação + dono (autorização por recurso dos splits). */
+  async getOriginAccountByTransactionId(
+    tenantId: string,
+    transactionId: string
+  ): Promise<{ accountId: string; ownerType: string; ownerId: string } | null> {
+    return bankTransactionReadRepository.getOriginAccountByTransactionId(tenantId, transactionId);
+  }
 }
 
 export const bankTransactionReadAdapter = new BankTransactionReadAdapter();

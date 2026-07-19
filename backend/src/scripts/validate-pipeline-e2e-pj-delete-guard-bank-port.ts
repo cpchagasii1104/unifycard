@@ -74,6 +74,10 @@ const stubReadPort: BankTransactionReadPort = {
   async getMetadataByTransactionIds(): Promise<Map<string, Record<string, unknown>>> {
     return new Map();
   },
+  // DECISION-0189 (F3): método novo do port — stub inerte (esta prova não lê splits).
+  async getOriginAccountByTransactionId(): Promise<{ accountId: string; ownerType: string; ownerId: string } | null> {
+    return null;
+  },
 };
 
 async function bootstrap(): Promise<void> {

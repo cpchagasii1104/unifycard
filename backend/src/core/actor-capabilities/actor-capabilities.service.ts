@@ -38,7 +38,9 @@ const BASE_CAPABILITIES_BY_TYPE: Record<string, CapabilityKey[]> = {
   page: [
     'actor.read',
     'actor.post',
-    'bank.view_balance',
+    // DECISION-0189 (F3): 'bank.view_balance' REMOVIDA da base de page — leitura financeira
+    // da empresa é decidida EXCLUSIVAMENTE pelo grant terminal company_users.can_view_financial
+    // (financial-read-authority). Projeção nunca foi/volta a ser authority.
     'event.create',
     'marketplace.sell',
     'marketplace.buy',
@@ -76,6 +78,11 @@ const COMPANY_PERMISSION_TO_CAPABILITY: Array<{ column: string; capability: Capa
   { column: 'can_manage_employees', capability: 'company.manage_employees' },
   { column: 'can_view_reports', capability: 'company.view_reports' },
   { column: 'can_manage_services', capability: 'company.manage_services' },
+  // DECISION-0189 (F3): projeção dos subject grants novos (§2.3). PROJEÇÃO, nunca decisão.
+  { column: 'can_view_financial', capability: 'company.view_financial' },
+  { column: 'can_manage_members', capability: 'company.manage_members' },
+  { column: 'can_publish_feed', capability: 'company.publish_feed' },
+  { column: 'can_create_events', capability: 'company.create_events' },
 ];
 
 interface ActorRow {
@@ -143,8 +150,11 @@ class ActorCapabilitiesService {
       );
       if (membership) {
         roleOnActor = membership.role;
-        // company.post é direito base de qualquer vínculo ativo
-        if (!baseCapabilities.includes('company.post')) {
+        // DECISION-0189 R9 (opção B — ratificada): publicar em nome da empresa NÃO é direito
+        // automático de vínculo ativo. company.post é DERIVADA do subject grant
+        // can_publish_feed — e permanece PROJEÇÃO (nunca é authority; o decisor real é
+        // canActAs('publish_feed') via COMPANY_POLICY_REGISTRY).
+        if ((membership as any).can_publish_feed === true && !baseCapabilities.includes('company.post')) {
           baseCapabilities.push('company.post');
         }
         // Lê SSOT can_* fields, não infere via role
@@ -161,8 +171,24 @@ class ActorCapabilitiesService {
     // 5. Buscar delegações ativas
     // Para 'user': delegações em que este actor é user_actor_id (delega para institucionais)
     // Para 'page'/'group'/'channel': delegações em que este actor é institutional_actor_id
+    //
+    // 🔒 DECISION-0189 (F3) — REDAÇÃO DO ROSTER: membro comum vê SÓ as PRÓPRIAS capabilities
+    // efetivas. O inventário de delegações/delegadores de um actor INSTITUCIONAL (quem tem
+    // poder sobre a empresa) exige o grant de administração de membros (can_manage_members).
+    // Para o próprio user actor (self), as delegações que ELE concedeu/recebeu seguem visíveis.
+    let rosterAllowed = actor.actor_type === 'user';
+    if (!rosterAllowed && actor.actor_type === 'page' && actor.company_id) {
+      const membership = await this.resolveCompanyMembershipForUser(
+        tenantId,
+        actor.company_id,
+        authenticatedUserId
+      );
+      rosterAllowed = (membership as any)?.can_manage_members === true;
+    }
     let delegations: ActorCapabilitiesDelegation[] = [];
-    if (actor.actor_type === 'user') {
+    if (!rosterAllowed) {
+      delegations = []; // redigido — sem inventário de terceiros
+    } else if (actor.actor_type === 'user') {
       const dels = await actorDelegationRepository.findActiveByUserActor(
         tenantId,
         actorId
@@ -293,6 +319,10 @@ class ActorCapabilitiesService {
     can_manage_employees: boolean;
     can_view_reports: boolean;
     can_manage_services: boolean;
+    can_view_financial: boolean;
+    can_manage_members: boolean;
+    can_publish_feed: boolean;
+    can_create_events: boolean;
   } | null> {
     const row = await runQueryWithTenant<{
       role: string;
@@ -301,6 +331,10 @@ class ActorCapabilitiesService {
       can_manage_employees: boolean;
       can_view_reports: boolean;
       can_manage_services: boolean;
+      can_view_financial: boolean;
+      can_manage_members: boolean;
+      can_publish_feed: boolean;
+      can_create_events: boolean;
     }>(
       tenantId,
       `
@@ -310,13 +344,17 @@ class ActorCapabilitiesService {
         cu.can_manage_financial,
         cu.can_manage_employees,
         cu.can_view_reports,
-        cu.can_manage_services
+        cu.can_manage_services,
+        cu.can_view_financial,
+        cu.can_manage_members,
+        cu.can_publish_feed,
+        cu.can_create_events
       FROM company_users cu
       INNER JOIN users u ON cu.global_user_id = u.global_user_id
       WHERE cu.company_id = $1
         AND u.user_id = $2
         AND u.tenant_id = $3
-        AND cu.is_active = true
+        AND cu.member_status = 'active'
       LIMIT 1
       `,
       [companyId, authenticatedUserId, tenantId]

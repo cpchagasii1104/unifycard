@@ -13,7 +13,7 @@
 // tipo Y → afinidade Y). Sem ML, sem opaco, sem caching de verdade.
 
 import { runQueriesWithTenant, runQueryWithTenant } from '@core/database/pool';
-import { actorCapabilitiesService } from '@core/actor-capabilities/actor-capabilities.service';
+// DECISION-0189 (F3): actorCapabilitiesService removido — não é decisor (gate = authority canônica)
 import type {
   EventTypeAffinity,
   CommunityMembership,
@@ -51,9 +51,11 @@ class ProfileInferenceService {
     const limitAffinities = Math.max(1, Math.min(50, options.limitAffinities ?? 15));
     const limitCommunities = Math.max(1, Math.min(50, options.limitCommunities ?? 20));
 
-    // Authority guard via capability resolver — mesma cadeia SSOT
-    const caps = await actorCapabilitiesService.resolveForUser(tenantId, actorId, authenticatedUserId);
-    if (!caps) return null;
+    // 🔒 DECISION-0189 (F3): gate = REPRESENTAÇÃO de contexto (canRepresentActor) — projeção
+    // não-financeira; actorCapabilitiesService deixa de ser decisor de acesso (§10).
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    const represents = await authorizationService.canRepresentActor(tenantId, authenticatedUserId, actorId);
+    if (!represents) return null;
 
     // ===== AFINIDADE POR TIPO DE EVENTO =====
     // SSOT: event_attendees JOIN events

@@ -158,14 +158,17 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
     const account = await bankAccountService.getAccountById(tenantId, accountId);
     if (!account) return { ok: false, status: 404 };
     if (account.actorId) {
-      let canRep = false;
+      // 🔒 DECISION-0189 (F3): leitura de conta/saldo por id exige autoridade FINANCEIRA EXATA
+      // e TERMINAL (self OU can_view_financial de membership ativa) — representação/gestão
+      // (canRepresentActor/can_manage_company) NÃO implica ler dinheiro (§1.2).
+      let canRead = false;
       try {
-        const { authorizationService } = await import('@core/authorization/authorization.service');
-        canRep = await authorizationService.canRepresentActor(tenantId, callerUserId, account.actorId);
+        const { hasActorFinancialReadAuthority } = await import('@core/authorization/financial-read-authority');
+        canRead = (await hasActorFinancialReadAuthority(tenantId, callerUserId, account.actorId)).allowed;
       } catch {
-        canRep = false;
+        canRead = false;
       }
-      return canRep ? { ok: true } : { ok: false, status: 403 };
+      return canRead ? { ok: true } : { ok: false, status: 403 };
     }
     // system/escrow (sem actor): cofre da plataforma → exige permissão financeira admin existente; senão fail-closed.
     let adminOk = false;

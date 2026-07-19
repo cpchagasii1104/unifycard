@@ -168,9 +168,10 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const bankIntegration = bankPortsRegistry.getBankIntegration();
 
-      // Caminho legado: sem actorId → saldo do user
+      // Caminho legado: sem actorId → saldo do user (self — o recurso é do próprio principal)
       if (!actorIdParam) {
         const balanceCents = await bankIntegration.getUserBalance(tenantId, userId, 'BRL');
+        reply.header('Cache-Control', 'no-store'); // DECISION-0189 §10: leitura financeira privada
         return reply.status(200).send({
           success: true,
           balanceCents,
@@ -180,24 +181,16 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Caminho novo: valida authority via capability resolver e resolve por actor.
-      // actorCapabilitiesService retorna null se user sem authority sobre actor.
-      const { actorCapabilitiesService } = await import('@core/actor-capabilities/actor-capabilities.service');
-      const caps = await actorCapabilitiesService.resolveForUser(tenantId, actorIdParam, userId);
-      if (!caps) {
-        return sendBankError(reply, req, 403, 'FORBIDDEN', 'User has no authority over this actor');
-      }
-      // Verifica capability mínima (bank.view_balance — base de user; company.view_reports — page com permissão; sempre presente para owner/director)
-      const allowed = caps.capabilities.includes('bank.view_balance') || caps.capabilities.includes('company.view_reports') || caps.capabilities.includes('company.manage_financial') || caps.capabilities.includes('company.manage_company');
-      if (!allowed) {
-        return sendBankError(reply, req, 403, 'FORBIDDEN', 'Authority over actor present but no capability to view balance');
-      }
-      // hasAccount reflete realidade material: getActorBalance resolve actor → conta;
-      // se conta não existe, retorna 0 e hasAccount=false. Quando conta existe mas
-      // saldo é zero, hasAccount=true. Sem fake success.
-      const balanceCents = await bankIntegration.getActorBalance(tenantId, actorIdParam, 'BRL');
-      const accountResolved = await (async () => {
-        // Re-resolve para distinguir "actor sem conta" de "conta com saldo zero"
+      // 🔒 DECISION-0189 (F3): autoridade EXATA e TERMINAL — self (recurso prova o dono) OU
+      // company_users.can_view_financial de membership ATIVA. actorCapabilitiesService NÃO é
+      // mais decisor (era a sopa bank.view_balance/company.* que dava saldo a QUALQUER membro).
+      // A leitura roda SOB o lock FOR SHARE da membership (R13): revogação concorrente espera
+      // ou precede linearmente — nunca leitura autorizada por estado velho.
+      const { authorizeActorFinancialRead } = await import('@core/authorization/financial-read-authority');
+      const outcome = await authorizeActorFinancialRead(tenantId, userId, actorIdParam, async () => {
+        // hasAccount reflete realidade material: getActorBalance resolve actor → conta;
+        // se conta não existe, retorna 0 e hasAccount=false. Sem fake success.
+        const balanceCents = await bankIntegration.getActorBalance(tenantId, actorIdParam, 'BRL');
         const { bankAccountService } = await import('@modules/bank/bank-account.service');
         const { runQueryWithTenant } = await import('@core/database/pool');
         const actorRow = await runQueryWithTenant<{ actor_type: string; user_id: string | null; company_id: string | null; group_id: string | null }>(
@@ -205,24 +198,37 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
           `SELECT actor_type, user_id, company_id, group_id FROM actors WHERE tenant_id = $1 AND actor_id = $2 LIMIT 1`,
           [tenantId, actorIdParam]
         );
-        if (!actorRow) return false;
-        if (actorRow.actor_type === 'user' && actorRow.user_id) {
-          return !!(await bankAccountService.getAccountByOwner(tenantId, actorRow.user_id, 'user', 'BRL'));
+        let accountResolved = false;
+        if (actorRow) {
+          if (actorRow.actor_type === 'user' && actorRow.user_id) {
+            accountResolved = !!(await bankAccountService.getAccountByOwner(tenantId, actorRow.user_id, 'user', 'BRL'));
+          } else if (actorRow.actor_type === 'page' && actorRow.company_id) {
+            accountResolved = !!(await bankAccountService.getAccountByOwner(tenantId, actorRow.company_id, 'company', 'BRL'));
+          } else if (actorRow.actor_type === 'group' && actorRow.group_id) {
+            accountResolved = !!(await bankAccountService.getAccountByOwner(tenantId, actorRow.group_id, 'company', 'BRL'));
+          }
         }
-        if (actorRow.actor_type === 'page' && actorRow.company_id) {
-          return !!(await bankAccountService.getAccountByOwner(tenantId, actorRow.company_id, 'company', 'BRL'));
-        }
-        if (actorRow.actor_type === 'group' && actorRow.group_id) {
-          return !!(await bankAccountService.getAccountByOwner(tenantId, actorRow.group_id, 'company', 'BRL'));
-        }
-        return false;
-      })();
+        return { balanceCents, accountResolved };
+      });
+      if (!outcome.allowed) {
+        // resposta uniforme (não distingue actor inexistente de sem-grant — anti-enumeração)
+        return sendBankError(reply, req, 403, 'FORBIDDEN', 'No exact financial read authority over this actor');
+      }
+      // R18: audit ANTES da resposta — falha de auditoria = 500 (nunca disclosure sem rastro).
+      const { recordFinancialAudit } = await import('@core/observability/financial-audit');
+      await recordFinancialAudit({
+        tenant_id: tenantId,
+        event_type: 'financial_read_balance',
+        actor_id: actorIdParam,
+        metadata: { readBy: userId, role: outcome.role, route: 'GET /bank/balance' },
+      });
+      reply.header('Cache-Control', 'no-store');
       return reply.status(200).send({
         success: true,
-        balanceCents,
-        balance: balanceCents,
+        balanceCents: outcome.result.balanceCents,
+        balance: outcome.result.balanceCents,
         currency: 'BRL',
-        hasAccount: accountResolved,
+        hasAccount: outcome.result.accountResolved,
       });
     } catch (err) {
       // F-C1-HOME-READ-SEAL (CP7): ERRO ESTRUTURAL nunca vira saldo falso (200 + 0). O frontend

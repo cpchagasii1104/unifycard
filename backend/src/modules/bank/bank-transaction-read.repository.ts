@@ -225,6 +225,26 @@ class BankTransactionReadRepository {
    * Timestamp de liquidação interna por id de transação.
    * Retorna null se transação não existe ou ainda não foi liquidada.
    */
+  /**
+   * DECISION-0189 (F3): conta de ORIGEM (bank_transactions.account_id) + dono — insumo da
+   * autorização por recurso das leituras de split. Leitura pura, tenant-scoped, no domínio Bank.
+   */
+  async getOriginAccountByTransactionId(
+    tenantId: string,
+    transactionId: string
+  ): Promise<{ accountId: string; ownerType: string; ownerId: string } | null> {
+    const row = await runQueryWithTenant<{ account_id: string; owner_type: string; owner_id: string }>(
+      tenantId,
+      `SELECT t.account_id, a.owner_type, a.owner_id
+         FROM bank_transactions t
+         JOIN bank_accounts a ON a.id = t.account_id AND a.tenant_id = t.tenant_id
+        WHERE t.tenant_id = $1 AND t.id = $2
+        LIMIT 1`,
+      [tenantId, transactionId]
+    );
+    return row ? { accountId: row.account_id, ownerType: row.owner_type, ownerId: row.owner_id } : null;
+  }
+
   async getInternalCompletedAtById(
     tenantId: string,
     transactionId: string

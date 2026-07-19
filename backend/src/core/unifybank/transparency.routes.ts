@@ -95,25 +95,30 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       let result;
       if (parsed.data.actorId) {
-        // 2026-05-18 P1 — actor-context. Valida authority via capability resolver.
-        const { actorCapabilitiesService } = await import('@core/actor-capabilities/actor-capabilities.service');
-        const caps = await actorCapabilitiesService.resolveForUser(tenantId, parsed.data.actorId, userId);
-        if (!caps) {
-          return reply.status(403).send({ error: 'User has no authority over this actor' });
+        // 🔒 DECISION-0189 (F3): extrato por actor = autoridade EXATA e TERMINAL
+        // (self OU company_users.can_view_financial de membership ativa), leitura sob o
+        // lock FOR SHARE da membership (R13). Capability de projeção NÃO decide mais.
+        const { authorizeActorFinancialRead } = await import('@core/authorization/financial-read-authority');
+        const outcome = await authorizeActorFinancialRead(tenantId, userId, parsed.data.actorId, () =>
+          transparencyService.getActorStatement(tenantId, parsed.data.actorId!, {
+            limit: parsed.data.limit,
+            offset: parsed.data.offset,
+            startDate: parsed.data.startDate,
+            endDate: parsed.data.endDate,
+          })
+        );
+        if (!outcome.allowed) {
+          return reply.status(403).send({ error: 'No exact financial read authority over this actor' });
         }
-        const allowed = caps.capabilities.includes('bank.view_balance')
-          || caps.capabilities.includes('company.view_reports')
-          || caps.capabilities.includes('company.manage_financial')
-          || caps.capabilities.includes('company.manage_company');
-        if (!allowed) {
-          return reply.status(403).send({ error: 'Authority over actor present but no capability to view statement' });
-        }
-        result = await transparencyService.getActorStatement(tenantId, parsed.data.actorId, {
-          limit: parsed.data.limit,
-          offset: parsed.data.offset,
-          startDate: parsed.data.startDate,
-          endDate: parsed.data.endDate,
+        // R18: audit ANTES da resposta (falha de auditoria = 500, sem disclosure sem rastro)
+        const { recordFinancialAudit } = await import('@core/observability/financial-audit');
+        await recordFinancialAudit({
+          tenant_id: tenantId,
+          event_type: 'financial_read_statement',
+          actor_id: parsed.data.actorId,
+          metadata: { readBy: userId, role: outcome.role, route: 'GET /bank/statement' },
         });
+        result = outcome.result;
       } else {
         result = await transparencyService.getUserStatement(tenantId, globalUserId, {
           limit: parsed.data.limit,
@@ -124,6 +129,7 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // ✅ Sempre retornar 200, mesmo se não houver conta (resultado vazio)
+      reply.header('Cache-Control', 'no-store'); // DECISION-0189 §10: leitura financeira privada
       return reply.status(200).send({
         success: true,
         statement: result,
@@ -170,12 +176,95 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const result = await transparencyService.getTransactionSplits(tenantId, transactionId);
+      // 🔒 DECISION-0189 (F3, §10 — política de splits): AUTORIZAÇÃO PELO RECURSO.
+      // Transação e conta de ORIGEM carregadas SERVER-SIDE (porta do Bank); nada do cliente
+      // define o objeto. RESPOSTA POR PAPEL:
+      //   • dono humano da origem (self) OU view_financial terminal na empresa dona da origem
+      //     → visão INTEGRAL;
+      //   • participante destinatário → SÓ as próprias pernas + resumo SANITIZADO
+      //     (sem pernas de terceiros, sem metadata bruta, sem topologia);
+      //   • sem papel OU UUID inexistente → 404 UNIFORME (mesmo status/corpo — anti-enumeração).
+      const { bankPortsRegistry } = await import('@core/bank/ports-registry');
+      const origin = await bankPortsRegistry
+        .getBankTransactionRead()
+        .getOriginAccountByTransactionId(tenantId, transactionId);
 
-      if (!result) {
-        return reply.status(404).send({ error: 'Transaction not found' });
+      const NOT_FOUND_BODY = { error: 'Transaction not found' } as const;
+      if (!origin) {
+        return reply.status(404).send(NOT_FOUND_BODY);
       }
 
+      const userId = req.user.id;
+      const { hasCompanyViewFinancialGrant } = await import('@core/authorization/financial-read-authority');
+
+      let role: 'integral' | 'participant' | null = null;
+      if (origin.ownerType === 'user' && origin.ownerId === userId) {
+        role = 'integral';
+      } else if (origin.ownerType === 'company' && (await hasCompanyViewFinancialGrant(tenantId, userId, origin.ownerId))) {
+        role = 'integral';
+      }
+
+      const result = await transparencyService.getTransactionSplits(tenantId, transactionId);
+      if (!result) {
+        return reply.status(404).send(NOT_FOUND_BODY);
+      }
+
+      if (role !== 'integral') {
+        // papel de participante: pernas cujo dono é o caller (user) ou empresa com grant
+        const ownLegs = [] as typeof result.splits;
+        const companyGrantCache = new Map<string, boolean>();
+        for (const leg of result.splits) {
+          if (!leg.targetId) continue;
+          if (leg.targetType === 'user' && leg.targetId === userId) {
+            ownLegs.push(leg);
+            continue;
+          }
+          if (leg.targetType !== 'user') {
+            let ok = companyGrantCache.get(leg.targetId);
+            if (ok === undefined) {
+              ok = await hasCompanyViewFinancialGrant(tenantId, userId, leg.targetId).catch(() => false);
+              companyGrantCache.set(leg.targetId, ok);
+            }
+            if (ok) ownLegs.push(leg);
+          }
+        }
+        if (ownLegs.length === 0) {
+          // resposta UNIFORME com inexistente (não revela existência/topologia)
+          return reply.status(404).send(NOT_FOUND_BODY);
+        }
+        role = 'participant';
+        const { recordFinancialAudit } = await import('@core/observability/financial-audit');
+        await recordFinancialAudit({
+          tenant_id: tenantId,
+          event_type: 'financial_read_splits',
+          transaction_id: transactionId,
+          metadata: { readBy: userId, role, legs: ownLegs.length, route: 'GET /bank/transaction/:id/splits' },
+        });
+        reply.header('Cache-Control', 'no-store');
+        return reply.status(200).send({
+          success: true,
+          splitDetail: {
+            baseTransaction: {
+              transactionId: result.baseTransaction.transactionId,
+              createdAt: result.baseTransaction.createdAt,
+              // SEM amount total, SEM metadata bruta, SEM type — resumo sanitizado
+            },
+            splits: ownLegs,
+            redacted: true,
+          },
+        });
+      }
+
+      // papel integral
+      const { recordFinancialAudit } = await import('@core/observability/financial-audit');
+      await recordFinancialAudit({
+        tenant_id: tenantId,
+        event_type: 'financial_read_splits',
+        transaction_id: transactionId,
+        account_id: origin.accountId,
+        metadata: { readBy: userId, role, route: 'GET /bank/transaction/:id/splits' },
+      });
+      reply.header('Cache-Control', 'no-store');
       return reply.status(200).send({
         success: true,
         splitDetail: result,

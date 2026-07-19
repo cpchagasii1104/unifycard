@@ -13,7 +13,7 @@
 // v2 conforme uso real puxar.
 
 import { runQueriesWithTenant } from '@core/database/pool';
-import { actorCapabilitiesService } from '@core/actor-capabilities/actor-capabilities.service';
+// DECISION-0189 (F3): actorCapabilitiesService removido — não é decisor (gate = authority canônica)
 import type {
   RecentCounterpart,
   RecentCounterpartsResponse,
@@ -51,9 +51,12 @@ class RecentCounterpartsService {
     const windowDays = Math.max(1, Math.min(365, options.windowDays ?? 90));
     const limit = Math.max(1, Math.min(50, options.limit ?? 10));
 
-    // 1. Validar authority via capability resolver (mesma cadeia SSOT)
-    const caps = await actorCapabilitiesService.resolveForUser(tenantId, actorId, authenticatedUserId);
-    if (!caps) return null;
+    // 1. 🔒 DECISION-0189 (F3): contrapartes recentes DERIVAM de bank_splits (dado financeiro)
+    // → autoridade EXATA e TERMINAL (self OU can_view_financial de membership ativa), não
+    // projeção de capabilities (que dava a qualquer membro o grafo econômico da empresa).
+    const { hasActorFinancialReadAuthority } = await import('@core/authorization/financial-read-authority');
+    const gate = await hasActorFinancialReadAuthority(tenantId, authenticatedUserId, actorId);
+    if (!gate.allowed) return null;
 
     // 2. Agregar contrapartes via bank_splits — pares econômicos diretos.
     // bank_splits tem (source_actor_id, target_actor_id, amount_cents).

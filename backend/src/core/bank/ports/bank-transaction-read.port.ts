@@ -43,4 +43,14 @@ export interface BankTransactionReadPort {
     tenantId: string,
     transactionIds: string[]
   ): Promise<Map<string, Record<string, unknown>>>;
+
+  /**
+   * DECISION-0189 (F3): conta de ORIGEM da transação + dono, resolvidos server-side pelo Bank —
+   * insumo da autorização por recurso de GET /bank/transaction/:id/splits (nada do cliente
+   * define o objeto). Leitura pura; null quando a transação não existe no tenant.
+   */
+  getOriginAccountByTransactionId(
+    tenantId: string,
+    transactionId: string
+  ): Promise<{ accountId: string; ownerType: string; ownerId: string } | null>;
 }

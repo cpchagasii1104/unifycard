@@ -11,10 +11,11 @@ import { runQueryWithTenant } from '@core/database/pool';
 import { canonicalLogger } from '@core/logging/canonical-logger';
 import type { PermissionKey } from './permission-keys';
 import { PERMISSION_CAPABILITIES, isValidPermissionKey } from './permission-keys';
+import { COMPANY_POLICY_REGISTRY } from './company-policy-registry';
 import { shadowAuthorizationService } from './shadow-authorization.service';
 import type { ShadowAuthDivergenceLog } from './shadow-auth.types';
 
-export type AuthoritySource = 'ownership' | 'delegation' | 'system';
+export type AuthoritySource = 'ownership' | 'delegation' | 'system' | 'membership_grant';
 
 export interface AuthorizationResult {
   allowed: boolean;
@@ -121,6 +122,31 @@ class AuthorizationService {
     }
 
     const registry = await actorRegistryService.findByActorId(tenantId, actorId);
+
+    // 🔒 DECISION-0189 (F3) — DISPATCH DO REGISTRY DE POLICIES EMPRESARIAIS.
+    // Chaves company_grant_terminal CURTO-CIRCUITAM AQUI (allow por subject grant OU deny
+    // terminal) — NUNCA caem nos ramos de ownership/role/is_primary/delegation abaixo.
+    // Chaves company_grant (não-terminais) ganham o ramo de grant ADITIVO (fallback legado
+    // permanece até o cutover F4). manage_members com actor de GRUPO = FAIL-CLOSED (R6).
+    const dispatched = await this.dispatchCompanyPolicy(
+      tenantId, userId, actorId,
+      { company_id: (actor as { company_id?: string | null }).company_id ?? null,
+        group_id: (actor as { group_id?: string | null }).group_id ?? null },
+      registry,
+      permissionKey
+    );
+    if (dispatched) {
+      if (dispatched.allowed) {
+        canonicalLogger.authzAllow(null, 'Permissão concedida: subject grant de membership (DECISION-0189)', {
+          tenantId, userId, actorId, permissionKey, authoritySource: dispatched.authoritySource,
+        });
+      } else {
+        canonicalLogger.authzDeny(null, 'Permissão negada: policy empresarial terminal (DECISION-0189)', {
+          tenantId, userId, actorId, permissionKey, reason: dispatched.reason,
+        });
+      }
+      return dispatched;
+    }
 
     // 2. Verificar ownership (user é o próprio actor)
     // Inclui actor_human / person (schema 0064) além do canónico 'user' (LEI §4.8.7).
@@ -312,6 +338,76 @@ class AuthorizationService {
       .catch(() => {}); // Engolir erros silenciosamente
     
     return result;
+  }
+
+  /**
+   * DECISION-0189 (F3) — resolve a TRÍADE empresarial para a PermissionKey:
+   * classificação do COMPANY_POLICY_REGISTRY × capability do actor (registry) × subject grant
+   * (coluna allowlisted de company_users, membership ATIVA). Retorna:
+   *   AuthorizationResult → decisão FINAL (allow por grant; deny TERMINAL; deny grupo fail-closed);
+   *   null → chave/actor fora do domínio empresarial OU chave não-terminal sem grant (fallback legado até F4).
+   * NUNCA monta SQL a partir de texto do cliente: coluna vem da allowlist tipada do registry.
+   */
+  private async dispatchCompanyPolicy(
+    tenantId: string,
+    userId: string,
+    actorId: string,
+    actor: { company_id: string | null; group_id: string | null },
+    registry: ActorRegistryEntry | null,
+    permissionKey: PermissionKey
+  ): Promise<AuthorizationResult | null> {
+    const entry = COMPANY_POLICY_REGISTRY[permissionKey];
+    if (!entry) {
+      // impossível com boot fail-closed (assertCompanyPolicyRegistryExhaustive) — defesa em profundidade
+      return { allowed: false, reason: `PermissionKey sem classificação no policy registry: ${permissionKey}` };
+    }
+
+    // R6: contexto GRUPO com substrato dormente → fail-closed (nunca cai no fallback antigo).
+    if (actor.group_id && entry.groupBehavior === 'fail_closed') {
+      return { allowed: false, reason: 'Group substrate dormant: permission fail-closed for group actors (DECISION-0189 R6)' };
+    }
+
+    const isCompanyGrant =
+      entry.classification === 'company_grant' || entry.classification === 'company_grant_terminal';
+    if (!actor.company_id || !isCompanyGrant || !entry.grantColumn) {
+      return null;
+    }
+    const terminal = entry.classification === 'company_grant_terminal';
+
+    // Perna capability (tríade): o TIPO do actor suporta a ação?
+    const requiredCapability = entry.companyActorCapability ?? PERMISSION_CAPABILITIES[permissionKey];
+    const capabilityOk =
+      requiredCapability === null ||
+      requiredCapability === undefined ||
+      registry?.capabilities?.[requiredCapability] === true;
+
+    // Perna subject grant: ESTE usuário pode NESTE actor? (membership ativa + coluna true)
+    let granted = false;
+    const globalUserId = await this.safeResolveGlobalUserId(userId, tenantId);
+    if (globalUserId) {
+      const row = await runQueryWithTenant<{ granted: boolean }>(
+        tenantId,
+        `SELECT ${entry.grantColumn} AS granted FROM company_users
+          WHERE tenant_id = $1 AND company_id = $2 AND global_user_id = $3::uuid
+            AND member_status = 'active'
+          LIMIT 1`,
+        [tenantId, actor.company_id, globalUserId]
+      );
+      granted = row?.granted === true;
+    }
+
+    if (granted && capabilityOk) {
+      return { allowed: true, authoritySource: 'membership_grant' };
+    }
+    if (terminal) {
+      return {
+        allowed: false,
+        reason: granted
+          ? 'Missing required capability (terminal company policy)'
+          : 'Missing required subject grant (terminal company policy — no ownership/role fallback)',
+      };
+    }
+    return null; // não-terminal sem grant → trilha legada (até o cutover F4)
   }
 
   /**

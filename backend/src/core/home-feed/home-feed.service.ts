@@ -16,7 +16,7 @@
 // ANTES de qualquer agregação (sem authority → null → 403).
 
 import { runQueriesWithTenant } from '@core/database/pool';
-import { actorCapabilitiesService } from '@core/actor-capabilities/actor-capabilities.service';
+// DECISION-0189 (F3): actorCapabilitiesService removido — não é decisor (gate = authority canônica)
 import type {
   HomeItem,
   HomeFeedResponse,
@@ -101,9 +101,11 @@ class HomeFeedService {
       Math.min(180, options.compromissoWindowDays ?? COMPROMISSO_WINDOW_DAYS_DEFAULT)
     );
 
-    // Authority guard — mesma cadeia SSOT do capability resolver
-    const caps = await actorCapabilitiesService.resolveForUser(tenantId, actorId, authenticatedUserId);
-    if (!caps) return null;
+    // 🔒 DECISION-0189 (F3): gate = REPRESENTAÇÃO de contexto (canRepresentActor) — projeção
+    // não-financeira; actorCapabilitiesService deixa de ser decisor de acesso (§10).
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    const represents = await authorizationService.canRepresentActor(tenantId, authenticatedUserId, actorId);
+    if (!represents) return null;
 
     // ===== VETOR COMPROMISSO =====
     // SSOT: event_reservations JOIN events
