@@ -20243,3 +20243,16 @@ Marco: locação e venda compartilham a MESMA identidade real do item (actor_ass
   - 18 invariantes + 18 guards futuros registrados. Δbank=0.
 - **Slicing 4B..4F registrado; 1ª codificação = SÓ Fatia 4B (substrato mínimo do link N).**
 - **Docs-only:** zero código/migration/frontend/contrato/banco. Implementação AGUARDA GO próprio.
+
+---
+
+## 2026-07-20 · DECISION-0190 — EVENT ECONOMIC/V2 · HONEST SANDBOX & CONTAINMENT (docs-only, REDIGIDA/não-selada)
+
+- **Base:** HEAD `368eb72cd` (rescue-structural). Modo docs-only · ZERO código/rota/Bank/firewall/runner/migration · PORTA-1 fechada · execução material NÃO autorizada · SELF-SEAL NÃO permitido.
+- **Origem probatória:** AUDIT-001 (`PLANO_RECUPERACAO.md` §C.11) + falsificação independente (§C.13) + GO de decisão (§C.14). Veredito auditado e falsificado: **VIVO COM DEFEITO, MAS CONTIDO**.
+- **Causa-raiz canônica:** `SANDBOX FINANCIAL SUBSTRATE ASSUMED BUT NOT MATERIALIZED` — a `FASE_6_2_PAGAMENTO_SANDBOX.md` (PASSO 4) pressupôs contas/provedor/isolamento sandbox que nunca foram materializados; sem eles, "o mesmo fluxo da produção" alcança o `bank_ledger` real, hoje contido só pelo `BANK_TRANSACTION_SINK_FIREWALL` (default-off) com PORTA-1 fechada.
+- **Supersessão ESTREITA (PROPOSTA · PENDENTE DE SELO):** PASSO 4 SUPERSESSION PROPOSED · PENDING INDEPENDENT AUDIT AND SEAL — só o PASSO 4 da FASE_6_2 é proposto para deixar de ser método operacional vigente (não-automático: env var / flag / remoção do 501 / remoção do firewall NÃO reativam, mesmo após eventual selo). Princípio de sandbox sem dinheiro real PRESERVADO. Errata append-only em `docs/03_technical/FASE_6_2_PAGAMENTO_SANDBOX.ERRATA.md` (+ ponteiro/resumo em 06_technical, ambos NÃO-SELADOS). Histórico intocado.
+- **Estado institucional:** família HTTP `economic/v2` (custody/split/authorize/execute/revoke/refund/chargeback/resolve) = **não implementada e contida**. Código de borda canônico: `501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED`. Estados existentes: preservados, nunca executados.
+- **Defesa em profundidade:** firewall permanece default-off/fail-closed/obrigatório; 501 (borda) NÃO substitui o 403 (firewall/sink).
+- **Frente material futura única (NÃO iniciada):** `F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT` (contenção 501 na borda + preservar estado + firewall + guard anti-revival + reconciliar `audit-bank-transaction-sink-firewall.mjs` ao runner condicionado ao AUDIT-002).
+- **Encaminhamento:** decisão segue para **auditoria independente (Opus 4.8)** antes de qualquer selo. Δbank=0.

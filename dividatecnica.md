@@ -2359,3 +2359,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 *Atualizar este arquivo é obrigatório ao fim de cada sessão que toque dívida técnica —
 protocolo §4.3, disciplina §6 acima.*
+
+---
+
+## DT-EVENT-ECONOMIC-V2-SANDBOX-SUBSTRATE-MISSING (2026-07-20 · DECISION-0190, docs-only)
+
+- **Estado:** RECONHECIDA + CONTIDA institucionalmente (docs-only; frente material `F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT` AGUARDA GO próprio + selo).
+- **Fato:** rota `economic/v2/payment/execute` promete "No real money" mas o service intenta o `bank_ledger` real; `sandbox_mode` é cosmético. Causa-raiz: substrato sandbox pressuposto por FASE_6_2 §PASSO 4 nunca materializado. Hoje contido pelo `BANK_TRANSACTION_SINK_FIREWALL` (default-off, PORTA-1 fechada) — **sem emergência viva**.
+- **Decisão:** DECISION-0190 (REDIGIDA/não-selada) — sandbox reservado a zero-efeito-financeiro; PASSO 4 SUPERSESSION PROPOSED (estreito e não-automático) · PENDING INDEPENDENT AUDIT AND SEAL; família contida com `501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED`; firewall preservado; PORTA-1 fechada.
+- **Latentes que permanecem BLOQUEADOS pelo firewall (não abrir sem prova em efêmero):** autoridade econômica = representação≠propriedade; lifecycle authorized→executed não-atômico; TOCTOU vs. dedup+lock do Bank; overdraft/escrow negativo (sink não rejeita); guard do firewall fora do runner.
