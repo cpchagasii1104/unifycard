@@ -269,6 +269,11 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-19 (170) — DECISION-0189D MATERIAL · PARTIÇÃO EXATA MEMBERSHIP EXECUTADA E PROVADA · NÃO SELADA
+- **Material** (`db96098a4`, parent `c7cc43c91`). Eliminados os 4 fallbacks de `can_manage_company`: `inviteMember`/`acceptInvitation`(revalidação)/`revokeInvitation` → gate exato `can_manage_members`; `assertAdministrationCeiling` → alvo comum exige `manage_members`, protegido segue governança (sem conjunção). §1.3: rota de convite passa a aceitar **membership ativa** como autoria (autoria≠autoridade), sem alargar `canRepresentActor`.
+- **Guard 5e estendido** (âncora+condição, não linha/mensagem); **7 mutations MORDEM**. Provas: 0189D 14/14 · F4 16/16 · F5 23/23 · runner 200 · red-gates OK (ssot 591 · vocab 3889 · typecheck 0) · BE+FE ts 0. Sem migration/catálogo/Bank; is_active inexistente; manage_access/view_fiscal ausentes; PORTA 01 fechada; Δbank=0.
+- **Estado:** MATERIAL EXECUTADO E PROVADO · NÃO SELADO · CANDIDATO À YALA FINAL INDEPENDENTE (novo HEAD, arco 0189→0189D). Commit cartorial docs-only: DT_LOG + este arquivo + execution log.
+
 ### 2026-07-19 (169) — DECISION-0189D · PARTIÇÃO EXATA DA AUTORIDADE DE MEMBERSHIP · PROMULGADA DOCS-ONLY · MATERIAL NÃO AUTORIZADO
 - **Docs-only** (base `dd0e67805`). Fixa a partição JÁ promulgada pela DECISION-0189 (§13.3 + terminalidade de `manage_members`), resolvendo a colisão com fallbacks de `can_manage_company` no runtime. Não cria vocabulário/catálogo/migration/código/Bank/Fiscal/PORTA 01/selo.
 - **4 COLISÕES RUNTIME registradas p/ correção pós-GO-material:** `inviteMember`, `acceptInvitation` (revalidação do convidador), `revokeInvitation` (OR `can_manage_company`) + `assertAdministrationCeiling` (`if (caller.can_manage_company) return;` p/ alvo comum). "governança administra membros comuns" = comentário de código, não norma.

@@ -328,3 +328,36 @@ HEAD inicial `b05a1bd49` → 8 commits novos; 20 anteriores INTOCADOS. Sem push/
 - **Fechamento C1–C5:** C1 (runner verde de verdade) ✅ · C2 (financial_terms fechado) ✅ ·
   C3 (bypass publication contido) ✅ · C4 (reporting/risk sob HOLD) ✅ · C5 (evidências
   reproduzidas) ✅. NÃO É SELO — reauditoria YALA independente.
+
+## DECISION-0189D MATERIAL — PARTIÇÃO EXATA DE AUTORIDADE DE MEMBERSHIP — ✅ EXECUTADA (NÃO SELADA)
+Base `c7cc43c91` (promulgação docs-only 0189D) → material `db96098a4` (1 commit) → cartório
+(este commit docs-only). Escopo code-only (sem migration/schema/catálogo/frontend/Bank).
+
+- **4 fallbacks não-autorizados de `can_manage_company` ELIMINADOS:**
+  1. `company-access-invitations.service.ts` · `inviteMember` → gate exato `!caller.can_manage_members`.
+  2. `acceptInvitation` (revalidação do convidador) → `inviter.can_manage_members !== true`.
+  3. `revokeInvitation` → gate exato `!caller.can_manage_members`.
+  4. `company-membership-commands.service.ts` · `assertAdministrationCeiling` → removido
+     `if (caller.can_manage_company) return;` do alvo COMUM; alvo comum exige `manage_members`,
+     alvo PROTEGIDO segue `can_manage_company` (partição §13.3; sem conjunção artificial).
+- **§1.3 (correção mínima revelada pela prova HTTP):** o pre-gate de autoria da rota de convite
+  (`requireRepresentsActingActor` → `canRepresentActor` sobre a page, que exige `can_manage_company`)
+  SOMBREAVA o membro fino. Corrigido SÓ no helper LOCAL do ciclo de convite: autoria = membership
+  ATIVA da empresa (query escopada), autoridade exata segue no service via `invokerUserId`.
+  `canRepresentActor` GLOBAL intocado; `company-members.routes` não tocado.
+- **Guard `audit-company-access-authority-foundation` §5e (estrutural — âncora+condição isolada,
+  não nº de linha nem texto de mensagem):** morde OR nos 3 gates de convite, return de governança
+  p/ alvo comum, role/is_primary/is_active como autoridade, e a remoção da autoria-por-membership.
+  **7 mutations hostis provadas mordendo**; estado legítimo verde. Sem guard/slot novo.
+- **Provas:** `validate-yala-0189d-membership-partition.ts` (tests/support, fora de src) **14/14**
+  (governance-only nega convite/revogação/ceiling comum; manage_members permite; convidador que
+  perde só manage_members → aceite falha; manage_members não administra protegido; governança
+  administra protegido; membro fino passa autoria+autoridade; governance-only passa autoria mas
+  nega autoridade; is_active inexistente; Δbank=0; sem manage_access/view_fiscal). F4 **16/16** ·
+  F5 **23/23** preservadas.
+- **Gates:** runner **200** · red-gates OK (financial-ssot **591/591** · financial-vocabulary
+  **3889/3889** · typecheck-gate **0**) · typecheck BE **0** · typecheck FE **0** · git diff --check
+  limpo · **PORTA 01 fechada · Δbank dev = 0/0/0, contas=16.** Sem migration → fresh/upgrade **N/A
+  (code-only)**.
+- **Estado final:** `MATERIAL 0189D EXECUTADO E PROVADO · NÃO SELADO · CANDIDATO À AUDITORIA YALA
+  FINAL INDEPENDENTE`. O próximo ato é UMA auditoria YALA independente sobre o novo arco completo.
