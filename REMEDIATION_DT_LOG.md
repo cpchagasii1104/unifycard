@@ -20256,3 +20256,32 @@ Marco: locação e venda compartilham a MESMA identidade real do item (actor_ass
 - **Defesa em profundidade:** firewall permanece default-off/fail-closed/obrigatório; 501 (borda) NÃO substitui o 403 (firewall/sink).
 - **Frente material futura única (NÃO iniciada):** `F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT` (contenção 501 na borda + preservar estado + firewall + guard anti-revival + reconciliar `audit-bank-transaction-sink-firewall.mjs` ao runner condicionado ao AUDIT-002).
 - **Encaminhamento:** decisão segue para **auditoria independente (Opus 4.8)** antes de qualquer selo. Δbank=0.
+
+---
+
+## 2026-07-20 · DECISION-0190 · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE SELADA
+
+- **Registro cartorial final.** A reauditoria independente final (Opus 4.8) concedeu **VEREDITO A — SELO COMPLETO DOCS-ONLY RECOMENDADO**; Clayton autorizou o registro do selo. DECISION-0190, a errata canônica (`docs/03_technical/`) e o ponteiro (`docs/06_technical/`) já estão versionados desde o commit neutro que incorporou o envelope auditado (COMMIT 1 desta mesma rodada). Este é o COMMIT 2, exclusivamente cartorial — a DECISION-0190 e as erratas **não foram reeditadas**.
+1. A **supersessão estreita do PASSO 4** tornou-se **oficialmente vigente** após este selo: `PASSO 4 NARROW SUPERSESSION OFFICIALLY EFFECTIVE AFTER DECISION-0190 SEAL`.
+2. O restante da FASE_6_2 (princípio, PASSOS 1-3, pré-requisitos, UX) **permanece vigente**.
+3. O princípio histórico de sandbox com **zero dinheiro real** permanece preservado.
+4. Causa-raiz oficial: `SANDBOX FINANCIAL SUBSTRATE ASSUMED BUT NOT MATERIALIZED`.
+5. Toda a família `economic/v2` permanece destinada à futura contenção honesta com `501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED`.
+6. O `BANK_TRANSACTION_SINK_FIREWALL` permanece default-off e fail-closed.
+7. **PORTA-1 permanece fechada.**
+8. Nenhuma execução financeira foi autorizada.
+9. Nenhum sandbox financeiro real foi implementado ou autorizado.
+10. Nenhum caller de produto foi autorizado.
+11. A frente material `F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT` permanece **FECHADA** — exige novo GO material explícito.
+12. A integração do guard do firewall ao runner canônico continua **condicionada** ao fechamento do AUDIT-002.
+
+```
+DECISION-0190 OFFICIALLY SEALED
+VERDICT A
+COMPLETE DOCS-ONLY SEAL
+PASSO 4 NARROW SUPERSESSION OFFICIALLY EFFECTIVE
+FASE_6_2 PRINCIPLE PRESERVED
+PORTA-1 CLOSED
+MATERIAL EXECUTION NOT AUTHORIZED
+F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT CLOSED
+```

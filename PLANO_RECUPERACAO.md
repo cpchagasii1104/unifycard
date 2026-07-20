@@ -2491,3 +2491,38 @@ ZERO CODE CHANGE · ZERO MIGRATION · ZERO BANK WRITE · ZERO RUNNER CHANGE
 PORTA-1 CLOSED · PASSO 4 SUPERSESSION PROPOSED (PENDING INDEPENDENT AUDIT AND SEAL) · FASE_6_2 PRINCIPLE PRESERVED
 MATERIAL EXECUTION NOT AUTHORIZED · SELF-SEAL NOT PERMITTED
 ```
+
+---
+
+### C.16 — SELO FINAL · DECISION-0190 · VEREDITO A · OFICIALMENTE SELADA (2026-07-20)
+
+Reauditoria independente final (Opus 4.8, instância separada da redatora e da remediação) confirmou R1 e R2 integralmente aplicadas, zero linguagem de supersessão consumada pré-selo, FASE_6_2 histórica byte-intacta, substância preservada, zero autorização material — **VEREDITO A · SELO COMPLETO DOCS-ONLY RECOMENDADO**. Clayton autorizou o registro cartorial em dois commits sequenciais: COMMIT 1 (neutro) versionou o envelope de 6 documentos ainda no estado REDIGIDA/NÃO-SELADA/PASSO 4 PROPOSED; COMMIT 2 (este) registra somente a mudança cartorial de estado nos 3 documentos permitidos (`REMEDIATION_DT_LOG.md`, `dividatecnica.md`, este bloco). **A DECISION-0190 e as duas erratas NÃO foram reeditadas neste ato.**
+
+1. Supersessão estreita do PASSO 4: **oficialmente vigente** — `PASSO 4 NARROW SUPERSESSION OFFICIALLY EFFECTIVE AFTER DECISION-0190 SEAL`.
+2. Restante da FASE_6_2 permanece vigente.
+3. Princípio histórico de sandbox com zero dinheiro real preservado.
+4. Causa-raiz oficial: `SANDBOX FINANCIAL SUBSTRATE ASSUMED BUT NOT MATERIALIZED`.
+5. Família `economic/v2` permanece destinada à futura contenção honesta 501.
+6. Firewall do Bank permanece default-off/fail-closed.
+7. PORTA-1 permanece fechada.
+8. Nenhuma execução financeira autorizada.
+9. Nenhum sandbox financeiro implementado ou autorizado.
+10. Nenhum caller de produto autorizado.
+11. Frente `F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT` permanece FECHADA — exige novo GO material explícito.
+12. Integração do guard do firewall ao runner segue condicionada ao fechamento do AUDIT-002.
+
+```
+DECISION-0190 OFFICIALLY SEALED
+VERDICT A
+COMPLETE DOCS-ONLY SEAL
+PASSO 4 NARROW SUPERSESSION OFFICIALLY EFFECTIVE
+FASE_6_2 PRINCIPLE PRESERVED
+DECISION AND ERRATAS VERSIONED
+ZERO CODE CHANGE
+ZERO MIGRATION
+ZERO BANK ACCESS
+ZERO RUNNER CHANGE
+PORTA-1 CLOSED
+MATERIAL EXECUTION NOT AUTHORIZED
+F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT CLOSED
+```
