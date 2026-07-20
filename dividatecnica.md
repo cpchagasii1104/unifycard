@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-19 (169) — DECISION-0189D · PARTIÇÃO EXATA DA AUTORIDADE DE MEMBERSHIP · PROMULGADA DOCS-ONLY · MATERIAL NÃO AUTORIZADO
+- **Docs-only** (base `dd0e67805`). Fixa a partição JÁ promulgada pela DECISION-0189 (§13.3 + terminalidade de `manage_members`), resolvendo a colisão com fallbacks de `can_manage_company` no runtime. Não cria vocabulário/catálogo/migration/código/Bank/Fiscal/PORTA 01/selo.
+- **4 COLISÕES RUNTIME registradas p/ correção pós-GO-material:** `inviteMember`, `acceptInvitation` (revalidação do convidador), `revokeInvitation` (OR `can_manage_company`) + `assertAdministrationCeiling` (`if (caller.can_manage_company) return;` p/ alvo comum). "governança administra membros comuns" = comentário de código, não norma.
+- **Fora:** `manage_access`/`can_view_fiscal` (não promulgados) · `is_active` (já DROPado, guard protege).
+- **Estado:** material 0189D = NÃO AUTORIZADO (aguarda GO material próprio + provas + guard + cartório + YALA do novo HEAD). Selo do arco 0189→0189C segue pendente de parecer independente literal. Δbank=0. Commit docs-only único: `DECISION_0189D_...md` + `REMEDIATION_DT_LOG.md` + este arquivo.
+
 ### 2026-07-18 (168) — D9.2-A · FUNDAÇÃO ACTOR-FIRST DORMENTE DA MEMBERSHIP: SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL · OFICIALMENTE ENCERRADA
 - **Auditoria Yala MATERIAL read-only → Veredito A.** Fundação D9.2-A SELADA e ENCERRADA. Arco: `bea280276`(selo 0188) → `2ef62dd2c`(material) → `73f2cb0bb`(cartório) → **este selo** (commit docs-only, 2 arquivos). Material byte-intacto (migration `e32fe560`, DECISION-0188 `ed52391d`, D9.1 `dfcfec9c`).
 - **Casa `group_actor_memberships` DORMENTE** (member_actor_id identidade única; lifecycle active→left|removed sem DELETE; RLS FORCE; app sem DML; owner-bloqueado; intents explícitas com aceite atômico). **Três namespaces PRESERVADOS** (global_user_id/user_id/actor_id — 0131 B3; nunca fundidos).
