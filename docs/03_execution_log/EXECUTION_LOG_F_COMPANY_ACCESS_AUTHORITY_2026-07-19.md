@@ -361,3 +361,24 @@ Base `c7cc43c91` (promulgação docs-only 0189D) → material `db96098a4` (1 com
   (code-only)**.
 - **Estado final:** `MATERIAL 0189D EXECUTADO E PROVADO · NÃO SELADO · CANDIDATO À AUDITORIA YALA
   FINAL INDEPENDENTE`. O próximo ato é UMA auditoria YALA independente sobre o novo arco completo.
+
+## SELO YALA FINAL — DECISION-0189D · ARCO F-COMPANY-ACCESS-AUTHORITY — ✅ SELADO · VEREDITO A · ENCERRADO (2026-07-20)
+Auditoria YALA independente read-only emitiu **`VEREDITO A · SELO COMPLETO MATERIAL DECISION-0189D E
+ARCO FINAL F-COMPANY-ACCESS-AUTHORITY`**. Registro cartorial docs-only; a executora ARQUIVA o parecer
+(sem autosselo). O estado anterior "MATERIAL 0189D EXECUTADO E PROVADO · NÃO SELADO" fica SUCEDIDO.
+
+- **Arco selado:** `dd0e6780…` (base) → `c7cc43c91` (decisão docs-only) → `db96098a4` (material,
+  byte-intacto) → `95f87075b` (cartório pré-Yala) → `docs/04_audit/YALA_FINAL_F_COMPANY_ACCESS_
+  AUTHORITY_DECISION_0189D_2026-07-20.md` (parecer arquivado, transcrição literal) → selo = commit
+  docs-only deste ato. Integrado `8397b41cb..` = 27 commits; 20 anteriores intactos.
+- **Provas reproduzidas pela YALA de 1ª mão (clone efêmero destruído; dev intocado):** 0189D **14/14**
+  · F4 **16/16** · F5 **23/23** · runner **200/200** · mutations **7/7** · backend typecheck **0** ·
+  financial-ssot **591/591** · financial-vocabulary **3889/3889** · git diff --check **limpo** ·
+  Δbank **0** · bank accounts **16** · **PORTA 01 fechada**. Frontend typecheck/build e fresh/upgrade
+  NÃO reproduzidos (frontend intocado; 0189D é code-only sem migration) — registrado pela YALA como
+  não bloqueante.
+- **P1/P2/P3 (robustez do guard):** OBSERVAÇÕES NÃO BLOQUEANTES · FORA DO SELO MATERIAL · NÃO
+  CORRIGIDAS NESTE ATO (hardening + promoção do validador 0189d ao CI = frente futura própria).
+- **Nenhuma alteração material neste ato** (docs-only): material `db96098a4` byte-intacto; sem
+  migration/schema/catálogo/PermissionKey/Bank/Fiscal; 3 untracked preexistentes preservados; sem
+  push/merge. **F-COMPANY-ACCESS-AUTHORITY OFICIALMENTE ENCERRADA.**

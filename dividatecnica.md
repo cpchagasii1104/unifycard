@@ -269,6 +269,12 @@ Racional (não é "cheapness" — é alavancagem de dependência, ver `PLANO_ZER
 
 ## 📝 CHANGELOG (mais recente no topo — append-only, nunca reescrever)
 
+### 2026-07-20 (171) — DECISION-0189D · SELADA PELA YALA · VEREDITO A · SELO COMPLETO MATERIAL E DO ARCO FINAL · F-COMPANY-ACCESS-AUTHORITY OFICIALMENTE ENCERRADA
+- **Auditoria YALA independente read-only → `VEREDITO A · SELO COMPLETO MATERIAL DECISION-0189D E ARCO FINAL`.** O estado (170) "NÃO SELADA" fica SUCEDIDO. Registro cartorial docs-only; executora arquiva o parecer (sem autosselo).
+- **Arco:** `dd0e67805` → `c7cc43c91` (docs) → `db96098a4` (material, byte-intacto) → `95f87075b` (cartório) → auditoria `docs/04_audit/YALA_FINAL_F_COMPANY_ACCESS_AUTHORITY_DECISION_0189D_2026-07-20.md` → selo = este commit docs-only.
+- **Provas reproduzidas pela YALA:** 0189D 14/14 · F4 16/16 · F5 23/23 · runner 200 · mutations 7/7 · BE typecheck 0 · financial-ssot 591/591 · financial-vocabulary 3889/3889 · diff-check limpo · Δbank=0 · contas 16 · PORTA 01 fechada. (frontend typecheck/build não reproduzidos — não bloqueante.)
+- **P1/P2/P3 do guard = observações de robustez NÃO bloqueantes, fora do selo, não corrigidas neste ato** (frente futura própria). Sem migration/schema/catálogo/PermissionKey/Bank/Fiscal; manage_access/view_fiscal ausentes; is_active inexistente. Nenhuma DT nova; nenhuma fechada de quebra.
+
 ### 2026-07-19 (170) — DECISION-0189D MATERIAL · PARTIÇÃO EXATA MEMBERSHIP EXECUTADA E PROVADA · NÃO SELADA
 - **Material** (`db96098a4`, parent `c7cc43c91`). Eliminados os 4 fallbacks de `can_manage_company`: `inviteMember`/`acceptInvitation`(revalidação)/`revokeInvitation` → gate exato `can_manage_members`; `assertAdministrationCeiling` → alvo comum exige `manage_members`, protegido segue governança (sem conjunção). §1.3: rota de convite passa a aceitar **membership ativa** como autoria (autoria≠autoridade), sem alargar `canRepresentActor`.
 - **Guard 5e estendido** (âncora+condição, não linha/mensagem); **7 mutations MORDEM**. Provas: 0189D 14/14 · F4 16/16 · F5 23/23 · runner 200 · red-gates OK (ssot 591 · vocab 3889 · typecheck 0) · BE+FE ts 0. Sem migration/catálogo/Bank; is_active inexistente; manage_access/view_fiscal ausentes; PORTA 01 fechada; Δbank=0.
