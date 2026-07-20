@@ -173,8 +173,10 @@ class CompanyAccessInvitationsService {
       const { globalUserId: inviterGlobal, membership: caller } = await lockCallerMembership(
         client, input.tenantId, input.companyId, input.invokerUserId
       );
-      if (!caller.can_manage_members && !caller.can_manage_company) {
-        throw err(403, 'MANAGE_MEMBERS_REQUIRED', 'Convidar exige manage_members (terminal)');
+      // 🔒 DECISION-0189D: gate EXATO manage_members (terminal) — SEM fallback de
+      // can_manage_company/role/is_primary/representação. Convite = lifecycle de membership comum.
+      if (!caller.can_manage_members) {
+        throw err(403, 'MANAGE_MEMBERS_REQUIRED', 'Convidar exige manage_members (terminal — sem fallback de governança)');
       }
       // autoelevação: Identity, nunca actor (CHECK físico também protege)
       if (inviterGlobal === input.inviteeGlobalUserId) {
@@ -353,7 +355,8 @@ class CompanyAccessInvitationsService {
       if (!inviter || inviter.member_status !== 'active') {
         throw err(409, 'INVITER_NO_LONGER_ACTIVE', 'Convidador não é mais membro ativo — aceite falha (§4.1)');
       }
-      if (inviter.can_manage_members !== true && inviter.can_manage_company !== true) {
+      // 🔒 DECISION-0189D: revalidação EXATA por manage_members — sem fallback de can_manage_company.
+      if (inviter.can_manage_members !== true) {
         throw err(409, 'INVITER_LOST_AUTHORITY', 'Convidador perdeu manage_members — aceite falha (§4.1)');
       }
 
@@ -524,8 +527,9 @@ class CompanyAccessInvitationsService {
       await client.query('BEGIN');
       await lockCompany(client, input.tenantId, input.companyId);
       const { membership: caller } = await lockCallerMembership(client, input.tenantId, input.companyId, input.invokerUserId);
-      if (!caller.can_manage_members && !caller.can_manage_company) {
-        throw err(403, 'MANAGE_MEMBERS_REQUIRED', 'Revogar convite exige manage_members');
+      // 🔒 DECISION-0189D: gate EXATO manage_members — sem fallback de can_manage_company.
+      if (!caller.can_manage_members) {
+        throw err(403, 'MANAGE_MEMBERS_REQUIRED', 'Revogar convite exige manage_members (terminal — sem fallback de governança)');
       }
       const res = await client.query(
         `UPDATE company_access_invitations SET status='revoked', revoked_at=now(), updated_at=now()

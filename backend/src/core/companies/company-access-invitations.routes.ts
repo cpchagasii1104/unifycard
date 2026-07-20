@@ -42,6 +42,32 @@ const companyAccessInvitationsRoutes: FastifyPluginAsync = async (fastify) => {
     } catch {
       represents = false;
     }
+    // 🔒 DECISION-0189D §1.3 — AUTORIA ≠ AUTORIDADE: no ciclo de convite, ser MEMBRO ATIVO da
+    // empresa do actor declarado JÁ é autoria válida. A AUTORIDADE exata (`manage_members`) é
+    // decidida no SERVICE por `invokerUserId` (server-side). `canRepresentActor` sobre a page
+    // exige governança (`can_manage_company`) e sombrearia o membro fino com `can_manage_members`;
+    // aceitamos membership ativa como autoria SÓ aqui (ciclo de convite), SEM alargar
+    // `canRepresentActor` nem tocar seus demais callers.
+    if (!represents) {
+      try {
+        const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
+        const { runQueryWithTenant } = await import('@core/database/pool');
+        const globalUserId = await resolveGlobalUserId(userId, tenantId).catch(() => null);
+        if (globalUserId) {
+          const row = await runQueryWithTenant<{ ok: boolean }>(
+            tenantId,
+            `SELECT true AS ok FROM company_users cu
+               JOIN actors a ON a.tenant_id = cu.tenant_id AND a.company_id = cu.company_id
+              WHERE cu.tenant_id = $1 AND a.id = $2 AND cu.global_user_id = $3::uuid
+                AND cu.member_status = 'active' LIMIT 1`,
+            [tenantId, actingActorId, globalUserId]
+          );
+          represents = row?.ok === true;
+        }
+      } catch {
+        // fail-closed: mantém represents=false
+      }
+    }
     if (!represents) {
       reply.status(403).send({ error: 'Actor declarado não representado pelo principal', code: 'DELEGATION_AUTHORSHIP_NOT_REPRESENTABLE' });
       return false;

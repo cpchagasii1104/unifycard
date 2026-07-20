@@ -155,9 +155,11 @@ class CompanyMembershipCommandsService {
       }
       return;
     }
-    if (caller.can_manage_company) return; // governança administra membros comuns
+    // 🔒 DECISION-0189D: alvo COMUM exige manage_members EXATO. governança (can_manage_company)
+    // NÃO é superset implícito — não administra membro comum sem carregar manage_members. Alvo
+    // PROTEGIDO já foi resolvido acima (governança, sem conjunção artificial com manage_members).
     if (!caller.can_manage_members) {
-      throw err(403, 'MANAGE_MEMBERS_REQUIRED', 'Comando exige manage_members (terminal — sem fallback de role/ownership)');
+      throw err(403, 'MANAGE_MEMBERS_REQUIRED', 'Comando exige manage_members (terminal — sem fallback de governança/role/ownership)');
     }
     // manage_members: alvo precisa caber no conjunto administrável do caller
     if (!isSubset(grantSet(target), grantSet(caller))) {

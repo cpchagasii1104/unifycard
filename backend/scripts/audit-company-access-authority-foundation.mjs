@@ -206,6 +206,46 @@ if ((migC.match(/fn_company_relation_advisory_lock\(/g) || []).length < 3) {
   fail('função de chave comum não usada pelos DOIS lados (algoritmos divergentes proibidos — D6)');
 }
 
+// 5e. DECISION-0189D — partição EXATA: manage_members (membro comum) × manage_governance
+// (alvo/grant protegido). Sem fallback de can_manage_company/role/is_primary nos gates marcados.
+// Estrutural (âncora + condição isolada), não dependente de nº de linha nem texto de mensagem.
+{
+  const inviteSvc2 = read('src/core/companies/company-access-invitations.service.ts');
+  const cmdSvc = read('src/core/companies/company-membership-commands.service.ts');
+
+  // condição de cada gate 0189D (isolada dentro dos parênteses do if imediatamente após a âncora)
+  const gateConds = (src) => [...src.matchAll(/DECISION-0189D[\s\S]{0,320}?\n\s*if\s*\(([^)]*)\)/g)].map((m) => m[1]);
+  const inviteGates = gateConds(inviteSvc2);
+  if (inviteGates.length < 3) fail(`DECISION-0189D: <3 gates ancorados no ciclo de convite (${inviteGates.length}/3 — emissão/aceite/revogação)`);
+  for (const cond of inviteGates) {
+    if (/can_manage_company/.test(cond)) fail('DECISION-0189D: gate de convite reintroduziu fallback can_manage_company (OR)');
+    if (/\brole\b|is_primary|is_active/.test(cond)) fail('DECISION-0189D: gate de convite infere autoridade por role/is_primary/is_active');
+    if (!/can_manage_members/.test(cond)) fail('DECISION-0189D: gate de convite não decide por can_manage_members exato');
+  }
+
+  // ceiling: alvo COMUM não pode retornar por governança; âncora presente; protegido preservado.
+  if (/caller\.can_manage_company\s*\)\s*return/.test(cmdSvc)) {
+    fail('DECISION-0189D: assertAdministrationCeiling reintroduziu return de governança p/ alvo COMUM');
+  }
+  const cmdGates = gateConds(cmdSvc);
+  if (cmdGates.length < 1) fail('DECISION-0189D: gate 0189D ausente em company-membership-commands (ceiling do alvo comum)');
+  for (const cond of cmdGates) {
+    if (/can_manage_company|\brole\b|is_primary|is_active/.test(cond)) fail('DECISION-0189D: ceiling do alvo comum infere autoridade indevida');
+    if (!/can_manage_members/.test(cond)) fail('DECISION-0189D: ceiling do alvo comum não exige can_manage_members exato');
+  }
+  // partição do alvo PROTEGIDO preservada (governança, sem conjunção artificial com manage_members)
+  if (!/hasProtected\(target\)[\s\S]{0,200}?!caller\.can_manage_company/.test(cmdSvc)) {
+    fail('DECISION-0189D: partição do alvo protegido (governança exata) foi perdida');
+  }
+  // §1.3 AUTORIA ≠ AUTORIDADE: a rota de convite aceita MEMBERSHIP ATIVA como autoria (senão o
+  // pre-gate canRepresentActor — que exige governança — sombrearia o membro fino). NÃO alargar
+  // canRepresentActor globalmente; a separação vive SÓ no helper local do ciclo de convite.
+  const inviteRoutes = read('src/core/companies/company-access-invitations.routes.ts');
+  if (!/DECISION-0189D[\s\S]{0,1600}?member_status\s*=\s*'active'/.test(inviteRoutes)) {
+    fail("DECISION-0189D §1.3: rota de convite não aceita membership ativa como autoria — membro fino (manage_members) fica sombreado por canRepresentActor");
+  }
+}
+
 // 6. DELETE físico de membership morto
 const repo = read('src/core/companies/company-members.repository.ts');
 if (/DELETE\s+FROM\s+company_users/i.test(repo)) {
