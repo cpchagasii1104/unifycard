@@ -2408,3 +2408,14 @@ protocolo §4.3, disciplina §6 acima.*
 - **Provas:** meta-guard PASS; harness 21/21 (M1-M15 + Y1-Y3 + controles); runner completo 201 → exit 0. Agregadores/workflows/package.json/guards byte-idênticos. Zero produto/migration/Bank/Authority/frontend.
 - **Limite honesto (R3):** a precondição fecha remoção acidental/isolada do wiring; remoção coordenada da entrada + precondição é alteração deliberada, visível em code review — não é autoproteção absoluta.
 - **Resíduo não-bloqueante:** 4 duplo-runs (direto+agregado) reportados, não de-duplicados. Fotografia material 283/198/77/1/7.
+
+## DT-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT — ✅ SELADA PELA YALA · VEREDITO A · SELO COMPLETO (2026-07-21)
+
+- **Estado final:** reauditoria Yala independente sobre HEAD `bc32d176d` retornou **Veredito A — remediação correta e apta a selo**. R1–R4 encerrados; nenhum novo patch necessário. `F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT · SELADA PELA YALA · VEREDITO A · SELO COMPLETO`.
+- **ROOT-003:** histórico `R2 — COBERTURA EXISTE, MAS É OPACA` preservado; estado atual `MATERIALMENTE REMEDIADO E SELADO`.
+- **Números finais:** alcance CI_DIRECT=198 · CI_AGGREGATED=77 · CI_OTHER_COMMAND=1 · NOT_CI_REQUIRED=7 (=283); papel CONTINUOUS_GUARD=274 · AGGREGATOR=2 · ONE_SHOT_HARNESS=6 · NON_GUARD_TOOL=1 (=283); `AUDIT FILES CONTINUOUSLY REACHED: 276` = `CONTINUOUS GUARDS: 274` + `AGGREGATORS: 2`. Runner 201 comandos, exit 0, drift 0.
+- **Nuance do harness:** 21 registros reportados = 20 cenários semanticamente únicos (M12 ≡ Y1, duplicata editorial); não bloqueante, não impede o selo.
+- **Preservado byte-intacto:** 2 agregadores, 3 workflows, package.json, guards anteriores, produto, frontend, Bank, Authority, migrations. AUDIT-002 permanece fechado e selado.
+- **Backlog confirmado fora desta frente, sem GO automático:** hardening dos 25 ACTIVE_BUT_INCOMPLETE; workers DECISION-0191; economic/v2; ledger-snapshot; revisão do default público de audiência (DECISION-0115 D1).
+- **Commit do selo:** docs-only, `docs(remediation): seal guard coverage visibility after Yala` — `RECOVERY_STATUS.md` + `REMEDIATION_DT_LOG.md` + `dividatecnica.md`.
+- **Frente encerrada.** Nenhuma outra frente material iniciada por este ato.

@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-21 · **HEAD verificado:** `dc2dc0557` · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-21 · **HEAD verificado:** `bc32d176d` · **Branch:** `rescue-structural`
 
 ---
 
@@ -19,7 +19,21 @@ Recuperar a **confiabilidade arquitetural** do sistema — saber o que está viv
 - **✅ AUDIT-002 · CONCLUÍDO E SELADO** — **84/84 guards sem entrada nominal direta auditados individualmente** (F-1 Bank 19 · F-2 Authority 19 · F-3 RLS/Workers 6 · F-4 Schema 12 · F-5 Legacy/Produto 20 · F-6 Frontend 8; F-7 vazio). Veredito A, auditoria consolidada independente (Opus 4.8). **O selo significa "auditoria concluída", NÃO "dívida material resolvida".**
 - **ROOT-004** (impersonação histórica): reconstruído — 5 grupos / 8 handlers, **todos corrigidos**.
 - **ROOT-001** (workers cross-tenant sob RLS): reconstruído — 25 workers inventariados; 3 workers globais achados.
-- **ROOT-003** reclassificado: **R2 — cobertura existe, mas é opaca** (`PARTIALLY_RESOLVED_AND_CONTAINED`). **Remediação material EXECUTADA, remediada pós-Yala (Veredito B: R1+R2+R3+R4), NOVAMENTE PROVADA, AINDA NÃO SELADA** (2026-07-21): meta-guard `audit-guard-coverage-manifest.mjs` torna a cobertura visível com **rótulos honestos** — `AUDIT FILES CONTINUOUSLY REACHED: 276` ≠ `CONTINUOUS GUARDS: 274` + `AGGREGATORS: 2` (274+2=276); `CI_OTHER_COMMAND` do actor-writer exige os **3 workflows** (`ALL_THREE_REQUIRED`, parser YAML estreito); runner tem **precondição de self-wiring** (meta-guard 1× no CMDS); localizador de array **endurecido contra decoys**. Falha fechado em drift. **Aguarda nova auditoria Yala independente antes do selo.**
+- **ROOT-003** reclassificado (histórico preservado): **R2 — cobertura existe, mas é opaca** (`PARTIALLY_RESOLVED_AND_CONTAINED`) → estado atual: **`MATERIALMENTE REMEDIADO E SELADO`** (2026-07-21). Arco: material inicial `bb90b4edb` → primeira Yala independente **Veredito B — remediação técnica estreita necessária** → remediação R1+R2+R3+R4 (`dc2dc0557`) → **reauditoria Yala independente Veredito A — remediação correta e apta a selo** → selo final. O meta-guard `audit-guard-coverage-manifest.mjs` torna a cobertura visível com **rótulos honestos**: `AUDIT FILES CONTINUOUSLY REACHED: 276` ≠ `CONTINUOUS GUARDS: 274` + `AGGREGATORS: 2` (274+2=276); `CI_OTHER_COMMAND` do actor-writer exige os **3 workflows** (`ALL_THREE_REQUIRED`, parser YAML estreito); runner tem **precondição de self-wiring** (meta-guard 1× no CMDS); localizador de array **endurecido contra decoys**. Falha fechado em drift = 0. Fecha: (1) contagem opaca, (2) adição invisível de guard contínuo, (3) contrato de comando externo nos workflows, (4) remoção isolada do wiring do meta-guard, (5) decoys no localizador estrutural. **Não** se declara autoproteção absoluta contra alteração coordenada e deliberada do runner (limite honesto preservado).
+
+## F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT — SELO FINAL
+```
+F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT
+SELADA
+VEREDITO A
+ROOT-003 MATERIALMENTE REMEDIADO
+RUNNER: 201 COMMANDS
+AUDIT FILES CONTINUOUSLY REACHED: 276
+CONTINUOUS GUARDS: 274
+AGGREGATORS: 2
+DRIFT: 0
+```
+> Este painel é **executivo**, não é norma, e ler/atualizar este painel **não concede execução** de nenhuma frente.
 
 ## O que foi decidido (institucional, selado)
 - **DECISION-0190** — economic/v2 honest sandbox & contenção. **SELADA · Veredito A** (`9a65f0291` + `33027ee60`).
@@ -84,7 +98,7 @@ ledger-snapshot:
 ## Materiais pendentes (nenhum autorizado)
 1. economic/v2 → contenção `501` (`F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT`).
 2. Workers → tenant-loop por tranche (governance, risk, ledger-snapshot).
-3. Runner → **não** "integrar dezenas de guards" — dar visibilidade aos 81 sub-guards já executados via agregador, criar anti-drift, e endurecer os `ACTIVE_BUT_INCOMPLETE` já identificados.
+3. Runner → visibilidade dos sub-guards via agregador e anti-drift **FEITO E SELADO** (F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT). Resta endurecer os `ACTIVE_BUT_INCOMPLETE` já identificados (hardening P1/P2, sem GO).
 
 ## Auditorias pendentes (read-only)
 - **AUDIT-002 F-6** — 8 guards restantes (frontend/seams) · **F-7 vazio** na partição atual.
@@ -107,9 +121,8 @@ F-7 (residual) ........................... VAZIO na partição
 ```
 
 ## Única próxima frente: AINDA NÃO ESCOLHIDA
-O selo do AUDIT-002 encerra a **auditoria**, não a **dívida material**. Backlog aberto, sem frente escolhida:
+O selo do AUDIT-002 encerra a **auditoria**, não a **dívida material**. A frente de visibilidade+anti-drift do runner (ROOT-003 R2) está **selada** (Veredito A) — sai do backlog. Backlog aberto, sem frente escolhida:
 - Hardening P1/P2 dos 25 `ACTIVE_BUT_INCOMPLETE`.
-- Visibilidade + anti-drift do runner (ROOT-003 R2).
 - Contenção `501` do economic/v2 (DECISION-0190).
 - Tenant-loop dos 3 workers (DECISION-0191).
 - Destino do `ledger-snapshot`.
