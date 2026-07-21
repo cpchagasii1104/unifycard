@@ -2440,3 +2440,12 @@ protocolo §4.3, disciplina §6 acima.*
 - **Limites honestos:** nome de coluna alternativo arbitrário fora do Guard 1 (OUT_OF_SCOPE, anti-over-broadening); SQL dinâmico irresolvível; CTE/comma-join heurístico.
 - **Zero produto/DB/migration/workflow/package/runner-command/agregador.** ROOT-003 e AUDIT-002 intactos.
 - **NÃO SELADA — aguarda Yala independente** do HEAD `68e080c64`. Os outros 27 `ACTIVE_BUT_INCOMPLETE` permanecem abertos.
+
+## DT-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION — ✅ 1ª TRANCHE SELADA PELA YALA · VEREDITO A · SELO COMPLETO (2026-07-21)
+
+- **Estado final:** Yala independente (Opus 4.8) sobre o material `68e080c64` retornou **Veredito A — MATERIAL CORRETO E APTO A SELO, nenhuma remediação necessária**. `F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION · 1ª TRANCHE · SELADA · VEREDITO A · SELO COMPLETO`. Material byte-intacto; selo docs-only.
+- **Ratificado pela Yala (reproduzido do zero):** 6 arquivos materiais; runner 201; universo 284 (198/77/1/8); ONE_SHOT 7; drift 0; ACTIVE_NOT_ENFORCED 0; harness 37/37 idempotente; Δenforcement 0; helper `lib/sql-shape.mjs` neutro e reutilizável; nenhum falso-positivo construível; limites honestos aceitáveis.
+- **Progresso:** 3 dos 30 `ACTIVE_BUT_INCOMPLETE` endurecidos e selados (event-reservations-mislabeled-fk, event-settlement-ghost, fiscal-canonical-house). **27 permanecem abertos.**
+- **ROOT-003 e AUDIT-002 permanecem selados e intocados; PORTA-1 fechada; Δbank=0.**
+- **Backlog sem GO:** próximas tranches de hardening (family-A restantes + B/C/D) com GATE+material+Yala próprios, reusando o helper selado; GATE de workers globais da DECISION-0191 (`actor-wallet-payout-worker.ts`).
+- **Commit do selo:** docs-only, `docs(remediation): seal migration DDL guard hardening after Yala`. **Frente da 1ª tranche encerrada.**

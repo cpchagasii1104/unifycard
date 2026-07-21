@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-21 · **HEAD verificado:** `68e080c64` (1ª tranche de hardening — material executado, aguarda Yala) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-21 · **HEAD verificado:** `eb12f53ec` (1ª tranche de hardening — SELADA pela Yala, Veredito A) · **Branch:** `rescue-structural`
 
 ---
 
@@ -96,15 +96,15 @@ MATERIAL NOT STARTED
 ```
 Rederivação fresca (read-only, HEAD `467099be7`) da qualidade dos mesmos 84 arquivos do AUDIT-002 — **não substitui** os números históricos do selo (`ACTIVE_VALID=53 · ACTIVE_BUT_INCOMPLETE=25 · ONE_SHOT=5 · STALE=1`, acima), que permanecem como registro do selo original. A matriz fresca completa (84 linhas nominais + roster dos 30 incompletos + 2 transições nominadas e provadas) está em `docs/04_audit/F_GUARD_QUALITY_HARDENING_FRESH_MATRIX_2026-07-21.md`.
 
-## F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION — 1ª TRANCHE MATERIAL EXECUTADA (aguarda Yala, 2026-07-21)
+## F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION — 1ª TRANCHE ✅ SELADA PELA YALA · VEREDITO A (2026-07-21)
 ```
 F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION
-MATERIAL EXECUTED · AWAITING INDEPENDENT YALA · NOT SEALED
-MATERIAL FILES 6 · commit 68e080c64
+SEALED BY YALA · VERDICT A · FIRST TRANCHE COMPLETE
+MATERIAL FILES 6 · commit 68e080c64 (byte-intacto) · selo eb12f53ec+
 RUNNER COMMANDS 201 · AUDIT UNIVERSE 284 · NOT_CI_REQUIRED 8 · ONE_SHOT 7 · DRIFT 0
-ACTIVE_NOT_ENFORCED 0
+ACTIVE_NOT_ENFORCED 0 · harness 37/37 · Δenforcement 0
 ```
-Guard-only: helper léxico neutro `backend/scripts/lib/sql-shape.mjs` + 3 guards endurecidos (event-reservations-mislabeled-fk, event-settlement-ghost, fiscal-canonical-house) reconhecendo estruturalmente CREATE/CTAS/SELECT-INTO/RENAME/ADD-CONSTRAINT/schema-qual/quoted/JOIN/comma-join/CTE + EXECUTE resolvível + harness one-shot (37/37) + 1 linha no `guard-coverage-declarations.json`. Zero produto/DB/migration/workflow/runner. **Não selado — aguarda Yala independente.** Limites honestos: nome alternativo arbitrário fora do Guard 1; SQL dinâmico irresolvível aceito com diagnóstico; reconhecimento heurístico de CTE/comma-join. Backlog restante: 27 dos 30 `ACTIVE_BUT_INCOMPLETE` (esta tranche endereça 3, ainda não selados); `actor-wallet-payout-worker.ts` (CONTIDO/não-STOP) → GATE de workers globais da DECISION-0191.
+Guard-only, auditado por Yala independente (Opus 4.8, **Veredito A — nenhuma remediação necessária**): helper léxico neutro `backend/scripts/lib/sql-shape.mjs` (**selado e reutilizável** por tranches futuras) + 3 guards endurecidos (event-reservations-mislabeled-fk, event-settlement-ghost, fiscal-canonical-house) reconhecendo estruturalmente CREATE/CTAS/SELECT-INTO/RENAME/ADD-CONSTRAINT/schema-qual/quoted/JOIN/comma-join/CTE + EXECUTE resolvível + harness one-shot (37/37) + 1 linha no `guard-coverage-declarations.json`. Zero produto/DB/migration/workflow/runner. Limites honestos preservados: nome de coluna alternativo arbitrário OUT_OF_SCOPE no Guard 1; SQL dinâmico irresolvível aceito com diagnóstico; CTE/comma-join heurístico best-effort. **3 dos 30 `ACTIVE_BUT_INCOMPLETE` endurecidos e selados; 27 permanecem abertos.** Backlog sem GO: próxima tranche family-A (ghost-containment restantes) com GATE+material+Yala próprios (reusando o helper selado); `actor-wallet-payout-worker.ts` (CONTIDO/não-STOP) → GATE de workers globais da DECISION-0191.
 
 ### Workers globais (DECISION-0191 selada; material pendente)
 ```
