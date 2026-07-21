@@ -2393,3 +2393,11 @@ protocolo §4.3, disciplina §6 acima.*
 - **ROOT-003:** reclassificado (não apagado) para `R2 — COBERTURA EXISTE, MAS É OPACA` / `PARTIALLY_RESOLVED_AND_CONTAINED` — não integralmente resolvido; resíduo de visibilidade+anti-drift permanece.
 - **Backlog material preservado, sem frente escolhida:** 25 ACTIVE_BUT_INCOMPLETE (hardening P1/P2); visibilidade+anti-drift do runner; contenção 501 economic/v2 (DECISION-0190); tenant-loop dos workers (DECISION-0191); destino do ledger-snapshot; revisão institucional futura do default público de audiência (DECISION-0115 D1, `INSTITUTIONALLY_GOVERNED_DEFAULT`, não-bloqueante).
 - **Nenhuma DECISION nova criada. Nenhum hardening iniciado. Nenhuma frente material escolhida neste ato.**
+
+## DT-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT — 🟡 MATERIAL EXECUTADO E PROVADO · NÃO SELADO (2026-07-21)
+
+- **Estado:** remediação material do resíduo do ROOT-003 R2 executada e provada, **não selada** (aguarda Yala independente). Commit material `bb90b4edb` (4 arquivos: meta-guard + declarações JSON + harness one-shot + edição do runner). Primeira mudança material da campanha de recuperação.
+- **Fecha:** (a) contagem opaca — o meta-guard reporta comandos (201) vs guards efetivos (276) vs sub-guards por agregador vs duplo-runs; (b) adição invisível de guard contínuo — falha fechado se um audit-* novo nascer sem wiring e sem declaração legítima (provado M1/M7).
+- **Como (sem 2º SSOT):** deriva o alcance das 3 fontes de wiring existentes (CMDS[], arrays dos agregadores, actor-writer via package.json+workflow); só declara papéis não-deriváveis (2 agregadores, 6 harness, 1 ferramenta) num JSON. Dois eixos independentes (alcance × papel), disjuntos da qualidade (AUDIT-002).
+- **Preservado:** agregadores/workflows/guards existentes byte-idênticos; ordem dos 200 comandos anteriores; fail-closed; +1 entrada só. Runner completo 201 → exit 0.
+- **Resíduo não-bloqueante:** 4 duplo-runs (direto+agregado) reportados, não de-duplicados (decisão futura). Números da fotografia material 283/198/77/1/7 (o selo histórico do AUDIT-002 segue 281/197/84).

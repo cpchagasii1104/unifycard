@@ -20382,3 +20382,20 @@ MATERIAL BACKLOG PRESERVED
 PORTA-1 CLOSED
 DECISION-0191 D15 PRESERVED
 ```
+
+---
+
+## 2026-07-21 · F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT · MATERIAL EXECUTADO E PROVADO · NÃO SELADO
+
+- **Base:** HEAD material `bb90b4edb0b9792c1865885449ab3c3d8e05bce8` (rescue-structural, pai `d5dbe833d`). Primeira mudança MATERIAL da campanha de recuperação (até aqui tudo era docs-only/read-only). PORTA-1 fechada. AUDIT-002 permanece SELADO. DECISION-0191 D15 preservada.
+- **Origem:** GATE read-only F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (Opus 4.8, Veredito A, Opção E), remediação material do resíduo do ROOT-003 R2 ("cobertura existe, mas é opaca").
+- **Commit material (`bb90b4edb`):** 4 arquivos, `feat(guards): make effective coverage visible and fail on drift`.
+  - NOVO `backend/scripts/audit-guard-coverage-manifest.mjs` — meta-guard: **deriva** o alcance efetivo das 3 fontes de wiring reais (CMDS[] do runner · arrays dos 2 agregadores · actor-writer via package.json+workflow); **não executa guards, não é 2º runner, não é fonte de qualidade**; extração ESTRUTURAL (quote-aware + bracket-balanced, sem janela fixa); lê tudo como dado (nunca importa runner/agregador).
+  - NOVO `backend/scripts/guard-coverage-declarations.json` — declara SÓ papéis não-deriváveis: 2 agregadores, 6 harness one-shot, 1 ferramenta não-guard. **Não duplica** nenhuma lista de guards contínuos.
+  - NOVO `backend/scripts/audit-guard-coverage-manifest-mutations.mjs` — harness ONE_SHOT (fora do runner, declarado); prova M1-M7 em scaffold temp descartável; **não altera working tree real**.
+  - EDIT `backend/scripts/run-regression-guards.mjs` — **+1 entrada** (meta-guard, última posição) + comentário; mensagem final passa de "todos os guards passaram (CMDS.length)" para "N COMMANDS OK · GUARD COVERAGE: ver inventário". Ordem dos 200 comandos anteriores, exit-code, spawnSync, fail-closed: **inalterados** (diff append-only + mensagem).
+- **Modelo de dois eixos:** alcance {CI_DIRECT, CI_AGGREGATED, CI_OTHER_COMMAND, NOT_CI_REQUIRED} × papel {CONTINUOUS_GUARD, AGGREGATOR, ONE_SHOT_HARNESS, NON_GUARD_TOOL}. Estados de qualidade (ACTIVE_VALID/ACTIVE_BUT_INCOMPLETE/STALE/SUPERSEDED) permanecem no AUDIT-002, não no meta-guard.
+- **Números dinâmicos obtidos (calculados, não hardcoded):** universo 283 · comandos do runner 201 · CI_DIRECT 198 · CI_AGGREGATED exclusivos 77 · CI_OTHER_COMMAND 1 · NOT_CI_REQUIRED 7 · guards contínuos efetivos 276 · SEM alcance 0 · fechamento 198+77+1+7=283. 4 duplo-runs (bank-split-pipeline-consolidation, policy-immutability-and-split-snapshot, red-gates-baseline, regional-fund-fk-canonical) **detectados e reportados, não-falha** (preservados). *(O selo histórico do AUDIT-002 permanece 281/197/84; a nova fotografia material é 283/198/77/1/7 por causa dos 2 arquivos audit-* novos.)*
+- **Provas:** meta-guard PASS no HEAD material (exit 0); harness M1-M7 = **7/7 como esperado** (M1 guard invisível→FAIL, M2 declaração fantasma→FAIL, M3 one-shot no runner→FAIL, M4 sub-guard removido→FAIL, M5 tool na CI→FAIL, M6 agregador sem alcance→FAIL, M7 controle benigno→PASS); **runner completo 201 comandos → exit 0** (meta-guard executou como comando #201, GATE OK). Agregadores/workflows/guards existentes byte-idênticos (não aparecem no diff). Zero Bank/Authority/frontend/migration/DB/package.json.
+- **Limites de SSOT (registrados no código e aqui):** o meta-guard não executa guards; não é segundo runner; não é fonte de qualidade; não substitui runner/agregadores/package/workflows; deriva alcance dessas fontes; o JSON declara só papéis não-deriváveis; não existe lista duplicada dos contínuos.
+- **Status:** `MATERIAL EXECUTADO E PROVADO · NÃO SELADO`. Backlog remanescente do ROOT-003 R2 (relatório comandos×guards já resolvido pela visibilidade; anti-drift resolvido) — resíduo residual mínimo: duplo-runs não de-duplicados (decisão futura, não-bloqueante). **Próximo ato: auditoria Yala independente read-only do novo HEAD antes do selo.** Δbank=0.
