@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-21 · **HEAD verificado:** `bc32d176d` · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-21 · **HEAD verificado:** `f13a93e12` (selo final docs-only) · **Branch:** `rescue-structural`
 
 ---
 
@@ -46,14 +46,14 @@ DRIFT: 0
 ## O que está apenas documentado (decidido, não executado)
 - Contenção `501` de economic/v2 (DECISION-0190 §9) → aguarda GO material.
 - Conversão tenant-loop dos 3 workers (DECISION-0191) → aguarda GATEs + GO por tranche.
-- Integração dos 44 guards válidos ao runner → aguarda fechar os 84 + envelope único.
+- Cobertura efetiva e anti-drift do runner (ROOT-003) → **implementados e selados** (F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT). Resta aberto: hardening dos 25 `ACTIVE_BUT_INCOMPLETE` (nenhum guard ativo permanece sem enforcement).
 
 ## Riscos — estado real (honesto; "contido" ≠ "resolvido")
 | Risco | Estado | Contenção atual |
 |---|---|---|
 | `economic/v2` alcança ledger real | **CONTIDO** | firewall do Bank default-off, fail-closed 403; PORTA-1 fechada |
 | Impersonação (ROOT-004) | **CORRIGIDO** | 8 handlers com canRepresentActor/canActAs; guard fino coberto via agregador CI (sentinel amplo, baseline 0) |
-| ROOT-003: cobertura opaca (R2) | **CONTIDO, NÃO RESOLVIDO** | 77/84 rodam via 2 agregadores fail-closed; 1 via comando próprio; 6 one-shot; **0 ativos sem enforcement**. Resíduo real = visibilidade + anti-drift das listas estáticas dos agregadores, não ausência de execução |
+| ROOT-003: cobertura opaca (classificação original R2 — cobertura existe, mas é opaca) | **MATERIALMENTE REMEDIADO E SELADO** | F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT selada (Veredito A): meta-guard torna a cobertura visível (rótulos honestos) e falha fechado em drift; 77/84 via 2 agregadores fail-closed; 1 via comando próprio; 6 one-shot; **0 ativos sem enforcement** |
 
 ## Cobertura CI (reconciliada 2026-07-21 · SELADA)
 ```
@@ -69,6 +69,10 @@ DRIFT: 0
 281 = total
   0 = ACTIVE_NOT_ENFORCED (guards ativos e válidos SEM qualquer enforcement)
 ```
+
+> **Nota de denominador (duas fotografias distintas, ambas corretas em seu momento):**
+> Fotografia do **selo do AUDIT-002** (2026-07-21, acima): **281/197/77/1/6**.
+> Fotografia **pós-material de ROOT-003** (F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT, mesmo dia): universo **283** arquivos audit-* · `CI_DIRECT` **198** · `CI_AGGREGATED` **77** · `CI_OTHER_COMMAND` **1** · `NOT_CI_REQUIRED` **7** · **276** arquivos audit continuamente alcançados = **274** `CONTINUOUS GUARDS` + **2** `AGGREGATORS` · drift **0**. A diferença vem dos 2 arquivos audit-* novos que a própria frente introduziu (o meta-guard e seu harness). **276 não é sinônimo de "guards contínuos"** — é a soma de guards contínuos (274) com agregadores (2).
 
 ## Matriz final de dois eixos (84 guards sem entrada direta)
 ```
@@ -101,7 +105,7 @@ ledger-snapshot:
 3. Runner → visibilidade dos sub-guards via agregador e anti-drift **FEITO E SELADO** (F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT). Resta endurecer os `ACTIVE_BUT_INCOMPLETE` já identificados (hardening P1/P2, sem GO).
 
 ## Auditorias pendentes (read-only)
-- **AUDIT-002 F-6** — 8 guards restantes (frontend/seams) · **F-7 vazio** na partição atual.
+- AUDIT-002: **CONCLUÍDO E SELADO · VEREDITO A** (F-1 a F-6 concluídos; F-7 vazio pela partição encerrada). Nenhuma auditoria pendente neste pacote.
 - GATE consumers de `ledger_snapshots` (decide RETIRE vs tenant-loop).
 - GATE completo de `evaluateActorRisk`.
 - Demais workers globais (`saga-timeout`, `reconciliation-scheduled`, `payment-worker`).
