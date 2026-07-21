@@ -81,6 +81,21 @@ Eixo B (enforcement):  CI_AGGREGATED=77 · CI_OTHER_COMMAND=1 · NOT_CI_REQUIRED
 ```
 25 `ACTIVE_BUT_INCOMPLETE` permanecem como **backlog de hardening**, não resolvidos por este selo.
 
+## F-GUARD-QUALITY-HARDENING — MATRIZ FRESCA PERSISTIDA (docs-only, 2026-07-21)
+```
+F-GUARD-QUALITY-HARDENING
+FRESH MATRIX PERSISTED
+HEAD 467099be7
+47 ACTIVE_VALID
+30 ACTIVE_BUT_INCOMPLETE
+5 ONE_SHOT
+1 STALE
+1 SUPERSEDED
+ACTIVE_NOT_ENFORCED 0
+MATERIAL NOT STARTED
+```
+Rederivação fresca (read-only, HEAD `467099be7`) da qualidade dos mesmos 84 arquivos do AUDIT-002 — **não substitui** os números históricos do selo (`ACTIVE_VALID=53 · ACTIVE_BUT_INCOMPLETE=25 · ONE_SHOT=5 · STALE=1`, acima), que permanecem como registro do selo original. A matriz fresca completa (84 linhas nominais + roster dos 30 incompletos + 2 transições nominadas e provadas) está em `docs/04_audit/F_GUARD_QUALITY_HARDENING_FRESH_MATRIX_2026-07-21.md`. Backlog: (1) primeira tranche DDL candidata `F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION` (3 guards), **sem GO**; (2) `actor-wallet-payout-worker.ts` (achado residual read-only, CONTIDO/não-STOP) a inventariar no futuro GATE dos demais workers globais da DECISION-0191; nenhum material iniciado.
+
 ### Workers globais (DECISION-0191 selada; material pendente)
 ```
 governance-execution:

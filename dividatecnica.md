@@ -2419,3 +2419,14 @@ protocolo §4.3, disciplina §6 acima.*
 - **Backlog confirmado fora desta frente, sem GO automático:** hardening dos 25 ACTIVE_BUT_INCOMPLETE; workers DECISION-0191; economic/v2; ledger-snapshot; revisão do default público de audiência (DECISION-0115 D1).
 - **Commit do selo:** docs-only, `docs(remediation): seal guard coverage visibility after Yala` — `RECOVERY_STATUS.md` + `REMEDIATION_DT_LOG.md` + `dividatecnica.md`.
 - **Frente encerrada.** Nenhuma outra frente material iniciada por este ato.
+
+## DT-GUARD-QUALITY-HARDENING — 🟡 MATRIZ NOMINAL FRESCA PERSISTIDA · READ-ONLY · MATERIAL NÃO INICIADO (2026-07-21)
+
+- **Estado:** rederivação fresca (HEAD `467099be7`) da qualidade dos mesmos 84 arquivos do AUDIT-002, por leitura de código real + execução read-only + falsificação de evasões concretas. **Não** reconstrói o roster histórico dos 25 `ACTIVE_BUT_INCOMPLETE` selados (nunca persistido nominalmente) — comparação com 53/25/5/1 é só agregada.
+- **Totais frescos:** `ACTIVE_VALID=47` · `ACTIVE_BUT_INCOMPLETE=30` (A=9/B=7/C=11/D=3) · `ONE_SHOT=5` · `STALE=1` · `SUPERSEDED=1` (=84). `ACTIVE_NOT_ENFORCED=0` confirmado; enforcement (77/1/6) inalterado; runner 201 comandos, drift 0.
+- **2 transições provadas:** `audit-actor-writer-boundaries.mjs` e `audit-rls-policy-guc-canonical.mjs`, ambos `ACTIVE_VALID→ACTIVE_BUT_INCOMPLETE` (evasões reproduzidas/estruturais, detalhe no artefato e no cartório). `audit-group-a-financial-tables-rls.mjs` NÃO é transição (já era ABI).
+- **Casos especiais:** `regional-fund-legacy-credit-antirevival-guard`=SUPERSEDED (sink retired+tabelas dropadas); `ownership-financial-phase1.ts`=STALE (inalterado); `unread-counts-feed-visibility-fix`=ABI (invariante vivo, premissa stale); `crm-myorders-route-prefix-contract`=ACTIVE_VALID (vivo, não drift).
+- **Achado residual B2:** `actor-wallet-payout-worker.ts` = DORMANT/CONTAINED/NOT STOP (default-off + firewall Bank + PORTA-1 + executor selado); roteado ao futuro GATE de workers globais da DECISION-0191 (D2); ponto cego real do guard group-b. Não autoriza correção de worker.
+- **Tranche candidata (sem GO):** `F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION` (3 guards de reconhecimento de DDL) — `TRANCHE_COHERENT · NOT AUTHORIZED`.
+- **Artefato completo:** `docs/04_audit/F_GUARD_QUALITY_HARDENING_FRESH_MATRIX_2026-07-21.md` (84 linhas nominais + roster dos 30).
+- **AUDIT-002 e ROOT-003 permanecem intactos e selados.** Os 30 `ACTIVE_BUT_INCOMPLETE` permanecem abertos, sem hardening iniciado.
