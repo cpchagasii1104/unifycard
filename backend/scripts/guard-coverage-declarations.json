@@ -1,0 +1,22 @@
+{
+  "_note": "F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2). Declara SOMENTE papeis que NAO podem ser derivados com seguranca das fontes de wiring. NAO duplica listas: os guards continuos diretos vem do CMDS[] do runner; os agregados vem dos arrays dos 2 agregadores; o CI_OTHER_COMMAND vem de package.json+workflow. Este JSON e a unica declaracao NOVA de alcance, e so para papeis nao-continuos (agregador/harness/ferramenta). O meta-guard NAO e fonte de qualidade dos guards (isso vive no AUDIT-002).",
+  "_axes": {
+    "reach": ["CI_DIRECT", "CI_AGGREGATED", "CI_OTHER_COMMAND", "NOT_CI_REQUIRED"],
+    "role": ["CONTINUOUS_GUARD", "AGGREGATOR", "ONE_SHOT_HARNESS", "NON_GUARD_TOOL"]
+  },
+  "aggregators": [
+    "audit-legacy-service-availability-containment-suite.mjs",
+    "audit-authority-residual-hygiene-suite.mjs"
+  ],
+  "one_shot_harness": [
+    "audit-b-city-regional-treasury-grant-substrate-mutations.mjs",
+    "audit-fiscal-tax-reserve-bank-substrate-mutations.mjs",
+    "audit-governed-vocabulary-manifest-mutations.mjs",
+    "audit-group-actor-membership-foundation-mutations.mjs",
+    "audit-group-institutional-binding-mutations.mjs",
+    "audit-guard-coverage-manifest-mutations.mjs"
+  ],
+  "non_guard_tool": [
+    "audit-ownership-financial-phase1.ts"
+  ]
+}

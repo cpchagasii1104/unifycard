@@ -206,11 +206,17 @@ const CMDS = [
   // DECISION-0189C C1: o runner passa a INCLUIR o gate financeiro (financial-ssot/vocabulary +
   // typecheck do gate) — o "verde" do runner deixa de mentir (o script infrator elevava 591→592
   // sem o runner acusar). Baseline só-desce (DECISION-0158); nunca sobe para 592.
-  "node scripts/audit-red-gates-baseline.mjs"
+  "node scripts/audit-red-gates-baseline.mjs",
+  // F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2): meta-guard que torna a cobertura efetiva
+  // VISIVEL e FALHA em drift (guard novo sem wiring). Nao executa guards; deriva o alcance das fontes
+  // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).
+  "node scripts/audit-guard-coverage-manifest.mjs"
 ];
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);
   const r = spawnSync(bin, args, { stdio: 'inherit', shell: true });
   if (r.status !== 0) { console.error('\nGATE FAIL — parou em: ' + c); process.exit(r.status || 1); }
 }
-console.log('\n✅ validate:regression-guards — todos os guards passaram (' + CMDS.length + ').');
+// CMDS.length e a contagem de COMANDOS (inclui nao-audit e agregadores), NAO de guards efetivos.
+// A cobertura de guards efetiva e reportada pelo meta-guard audit-guard-coverage-manifest acima.
+console.log('\n✅ validate:regression-guards — ' + CMDS.length + ' COMMANDS OK · GUARD COVERAGE: ver inventario do guard-coverage-manifest acima.');
