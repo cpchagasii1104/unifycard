@@ -2385,3 +2385,11 @@ protocolo §4.3, disciplina §6 acima.*
 - **Método oficial adotado:** matriz de dois eixos independentes por guard — Qualidade × Enforcement (`CI_DIRECT`/`CI_AGGREGATED`/`CI_OTHER_COMMAND`/`NOT_CI_REQUIRED`/`ACTIVE_NOT_ENFORCED`).
 - **Resíduo real (não fechado, não bloqueante):** listas estáticas dos 2 agregadores criam risco de drift (guard novo no disco pode nascer sem wiring a nenhuma das 3 categorias de enforcement, sem que o total de 200 comandos o revele); 10 dos 20 guards do F-5 (e outros de F-1-F-4) permanecem `ACTIVE_BUT_INCOMPLETE` (hardening pendente, não bloqueante); status histórico de `audit-ownership-financial-phase1.ts` não decidido.
 - **F-5 fechado administrativamente** nesta mesma rodada (ver REMEDIATION_DT_LOG.md 2026-07-21). F-6 (frontend/seams, 8 guards) e F-7 (vazio) seguem para auditoria futura.
+
+## DT-AUDIT-002-CAMPAIGN — ✅ SELADA · VEREDITO A · ENCERRAMENTO ADMINISTRATIVO (2026-07-21)
+
+- **Estado:** `AUDIT-002 · SELADO · VEREDITO A · AUDITORIA CONCLUÍDA` — 84/84 guards sem entrada nominal direta auditados individualmente (F-1 19 · F-2 19 · F-3 6 · F-4 12 · F-5 20 · F-6 8; F-7 vazio). Auditoria consolidada independente (Opus 4.8), read-only, zero alteração. **Selo = auditoria concluída, NÃO dívida material resolvida.**
+- **Matriz final:** Qualidade ACTIVE_VALID=53 · ACTIVE_BUT_INCOMPLETE=25 · ONE_SHOT=5 · STALE=1. Enforcement CI_AGGREGATED=77 · CI_OTHER_COMMAND=1 · NOT_CI_REQUIRED=6 · **ACTIVE_NOT_ENFORCED=0**.
+- **ROOT-003:** reclassificado (não apagado) para `R2 — COBERTURA EXISTE, MAS É OPACA` / `PARTIALLY_RESOLVED_AND_CONTAINED` — não integralmente resolvido; resíduo de visibilidade+anti-drift permanece.
+- **Backlog material preservado, sem frente escolhida:** 25 ACTIVE_BUT_INCOMPLETE (hardening P1/P2); visibilidade+anti-drift do runner; contenção 501 economic/v2 (DECISION-0190); tenant-loop dos workers (DECISION-0191); destino do ledger-snapshot; revisão institucional futura do default público de audiência (DECISION-0115 D1, `INSTITUTIONALLY_GOVERNED_DEFAULT`, não-bloqueante).
+- **Nenhuma DECISION nova criada. Nenhum hardening iniciado. Nenhuma frente material escolhida neste ato.**

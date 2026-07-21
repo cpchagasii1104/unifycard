@@ -20350,3 +20350,35 @@ PORTA-1 CLOSED
 DECISION-0191 D15 PRESERVED
 F-6 NOT STARTED
 ```
+
+---
+
+## 2026-07-21 · AUDIT-002 · SELO DOCS-ONLY · VEREDITO A · ENCERRAMENTO ADMINISTRATIVO
+
+- **Status oficial:** `AUDIT-002 · SELADO · VEREDITO A · AUDITORIA CONCLUÍDA · FECHAMENTO DOCS-ONLY`. Base auditada: HEAD `229f86f872dd7e0a9db6647e3f08fefb7c368a2c` (rescue-structural). Modo docs-only · ZERO código/migration/runner/guard/banco. PORTA-1 fechada. DECISION-0191 D15 preservada.
+- **Fonte soberana do selo:** auditoria consolidada final independente (Opus 4.8), read-only, zero alteração — **Veredito A: AUDIT-002 CONCLUÍDO E APTO A FECHAMENTO DOCS-ONLY.**
+- **O selo significa "auditoria concluída". O selo NÃO significa "dívida material resolvida".**
+- **Denominador final:** 281 arquivos · 197 entrada direta · 84 sem entrada nominal direta. `CI_AGGREGATED=77` · `CI_OTHER_COMMAND=1` · `NOT_CI_REQUIRED=6` · `ACTIVE_NOT_ENFORCED=0` · `REACHABILITY_UNRESOLVED=0`. `77+1+6=84`; `197+77+1+6=281`. Runner conta comandos, não guards efetivamente executados.
+- **Partição final:** F-1=19 · F-2=19 · F-3=6 · F-4=12 · F-5=20 · F-6=8 · F-7=0. `19+19+6+12+20+8=84`. **84/84 ARQUIVOS SEM ENTRADA NOMINAL DIRETA AUDITADOS** (correção definitiva do erro "64" da saída original do F-6).
+- **Matriz final de dois eixos:** Qualidade — `ACTIVE_VALID=53` · `ACTIVE_BUT_INCOMPLETE=25` · `ONE_SHOT=5` · `STALE=1` (=84). Enforcement — `CI_AGGREGATED=77` · `CI_OTHER_COMMAND=1` · `NOT_CI_REQUIRED=6` · `ACTIVE_NOT_ENFORCED=0`. `audit-ownership-financial-phase1.ts` = qualidade `STALE` + enforcement `NOT_CI_REQUIRED` (não é gap de enforcement; não é one-shot vigente). **Gap de qualidade ≠ gap de enforcement.**
+- **ROOT-003:** `R2 — COBERTURA EXISTE, MAS É OPACA` · `PARTIALLY_RESOLVED_AND_CONTAINED`. **Não declarado integralmente resolvido.** Resíduo: runner conta comandos não guards; 81 sub-guards atrás de 2 entradas; listas estáticas; risco de drift é principalmente por adição invisível (remoção já falha fechado).
+- **Retificações oficiais registradas (rótulos históricos preservados, não apagados):** (1) F-4 `event-reservations-mislabeled-fk-containment`=`ACTIVE_BUT_INCOMPLETE`; (2) visibilidade social×territorial não fundidas automaticamente; (3) `actor-writer-boundaries.mjs`=`CI_OTHER_COMMAND`; (4) 5 harnesses=`NOT_CI_REQUIRED·ONE_SHOT`; (5) `ownership-financial-phase1.ts`=`NOT_CI_REQUIRED·STALE`; (6) total auditado=84, não 64.
+- **Audiência pública:** `DEFAULT PUBLIC = INSTITUTIONALLY_GOVERNED_DEFAULT`, fundamento `DECISION-0115 D1`. Observação institucional não-bloqueante (default antecede a existência da escolha consciente; sem exposição acidental comprovada; privado exige seleção explícita); revisão futura em aberto, nenhuma DECISION criada aqui.
+- **Backlog preservado (o selo NÃO fecha):** 25 `ACTIVE_BUT_INCOMPLETE`; visibilidade real da cobertura no runner; meta-guard anti-drift; manifesto de alcance; contenção `501` economic/v2 (DECISION-0190); tenant-loop dos workers (DECISION-0191); destino do `ledger-snapshot`; revisão do default público. Nenhum item autoriza execução automática.
+- **Escopo material futuro (frentes separadas, nenhuma escolhida):** A) visibilidade+anti-drift do runner; B) hardening P1; C) hardening P2; D) workers tenant-loop (DECISION-0191); E) economic/v2 (DECISION-0190). Não constitui mega-envelope.
+
+```
+AUDIT-002 · FINAL DOCS-ONLY SEAL
+VERDICT A
+84/84 INDIRECT-ENTRY FILES AUDITED
+ACTIVE_NOT_ENFORCED 0
+ROOT-003 R2
+ZERO CODE CHANGE
+ZERO MIGRATION CHANGE
+ZERO RUNNER CHANGE
+ZERO GUARD CHANGE
+ZERO DATABASE ACCESS
+MATERIAL BACKLOG PRESERVED
+PORTA-1 CLOSED
+DECISION-0191 D15 PRESERVED
+```

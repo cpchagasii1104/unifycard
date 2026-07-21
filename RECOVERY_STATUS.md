@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-21 · **HEAD verificado:** `fe13af59f` · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-21 · **HEAD verificado:** `229f86f87` · **Branch:** `rescue-structural`
 
 ---
 
@@ -16,10 +16,10 @@ Recuperar a **confiabilidade arquitetural** do sistema — saber o que está viv
 ## O que foi auditado (read-only, concluído)
 - **Mapeamento geral** (Rodadas 0–10) + consolidação (Anexo C: FIND-*, ROOT-*, ranking, 6 pacotes AUDIT-001..006).
 - **AUDIT-001** `economic/v2`: cadeia de pagamento embutida em Eventos; rótulo "sandbox" enganoso.
-- **AUDIT-002** guards — **F-1/F-2/F-3/F-4/F-5 concluídos** (64 guards auditados: F-1 Bank 19 · F-2 Authority 19 · F-3 RLS/workers 6 · F-4 Schema 12 · F-5 Legacy/Produto 20). **F-6 (8) e F-7 (0) restantes.** Denominador de enforcement **reconciliado** (ver seção "Cobertura CI" abaixo) — a formulação anterior "84 órfãos = 84 sem execução" estava incorreta.
+- **✅ AUDIT-002 · CONCLUÍDO E SELADO** — **84/84 guards sem entrada nominal direta auditados individualmente** (F-1 Bank 19 · F-2 Authority 19 · F-3 RLS/Workers 6 · F-4 Schema 12 · F-5 Legacy/Produto 20 · F-6 Frontend 8; F-7 vazio). Veredito A, auditoria consolidada independente (Opus 4.8). **O selo significa "auditoria concluída", NÃO "dívida material resolvida".**
 - **ROOT-004** (impersonação histórica): reconstruído — 5 grupos / 8 handlers, **todos corrigidos**.
 - **ROOT-001** (workers cross-tenant sob RLS): reconstruído — 25 workers inventariados; 3 workers globais achados.
-- **ROOT-003** reclassificado: **R2 — cobertura existe, mas é opaca** (`PARTIALLY_RESOLVED_AND_CONTAINED`) — não é mais "guards sem enforcement".
+- **ROOT-003** reclassificado: **R2 — cobertura existe, mas é opaca** (`PARTIALLY_RESOLVED_AND_CONTAINED`) — **não integralmente resolvido**; não é mais "guards sem enforcement".
 
 ## O que foi decidido (institucional, selado)
 - **DECISION-0190** — economic/v2 honest sandbox & contenção. **SELADA · Veredito A** (`9a65f0291` + `33027ee60`).
@@ -41,19 +41,27 @@ Recuperar a **confiabilidade arquitetural** do sistema — saber o que está viv
 | Impersonação (ROOT-004) | **CORRIGIDO** | 8 handlers com canRepresentActor/canActAs; guard fino coberto via agregador CI (sentinel amplo, baseline 0) |
 | ROOT-003: cobertura opaca (R2) | **CONTIDO, NÃO RESOLVIDO** | 77/84 rodam via 2 agregadores fail-closed; 1 via comando próprio; 6 one-shot; **0 ativos sem enforcement**. Resíduo real = visibilidade + anti-drift das listas estáticas dos agregadores, não ausência de execução |
 
-## Cobertura CI (reconciliada 2026-07-21)
+## Cobertura CI (reconciliada 2026-07-21 · SELADA)
 ```
 281 arquivos audit-* da campanha
 197 entradas diretas no runner
- 77 executados via 2 agregadores fail-closed (execFileSync)
-  1 executado via comando próprio de CI (validate:actor-writer-boundaries)
-  6 one-shot intencionais (harnesses de mutação + 1 ferramenta de preparação)
+ 84 sem entrada nominal direta -> 84/84 AUDITADOS INDIVIDUALMENTE
+ 77 executados via 2 agregadores fail-closed (execFileSync)      [CI_AGGREGATED]
+  1 executado via comando próprio de CI (validate:actor-writer-boundaries) [CI_OTHER_COMMAND]
+  6 one-shot intencionais (harnesses de mutação + 1 ferramenta)  [NOT_CI_REQUIRED]
 ——
 275 = cobertura contínua real (197+77+1)
   6 = one-shot, não exigíveis como contínuos
-281 = total ✔
-  0 = guards ativos e válidos SEM qualquer enforcement
+281 = total
+  0 = ACTIVE_NOT_ENFORCED (guards ativos e válidos SEM qualquer enforcement)
 ```
+
+## Matriz final de dois eixos (84 guards sem entrada direta)
+```
+Eixo A (qualidade):    ACTIVE_VALID=53 · ACTIVE_BUT_INCOMPLETE=25 · ONE_SHOT=5 · STALE=1  (=84)
+Eixo B (enforcement):  CI_AGGREGATED=77 · CI_OTHER_COMMAND=1 · NOT_CI_REQUIRED=6 · ACTIVE_NOT_ENFORCED=0
+```
+25 `ACTIVE_BUT_INCOMPLETE` permanecem como **backlog de hardening**, não resolvidos por este selo.
 
 ### Workers globais (DECISION-0191 selada; material pendente)
 ```
@@ -85,30 +93,37 @@ ledger-snapshot:
 - Demais workers globais (`saga-timeout`, `reconciliation-scheduled`, `payment-worker`).
 - AUDIT-003 (build de produção) · AUDIT-004 (denominador personificação) · AUDIT-005 (tenant-loop) · **AUDIT-006 (banco efêmero) = BLOQUEADO PELO AMBIENTE** (sem container runtime).
 
-## AUDIT-002 · progresso por lote
+## AUDIT-002 · progresso por lote — CONCLUÍDO E SELADO
 ```
-F-1 (Bank/Ledger/Firewall, 19) ........ CONCLUÍDO
-F-2 (Authority/Actor, 19) .............. CONCLUÍDO
-F-3 (RLS/Tenant/Workers, 6) ............ CONCLUÍDO
-F-4 (Schema/Migrations, 12) ............ CONCLUÍDO
-F-5 (Legacy/Runtime/Produto, 20) ....... CONCLUÍDO (denominador reconciliado)
-F-6 (Frontend/Seams, 8) ................ NÃO INICIADO
-F-7 (residual) .......................... VAZIO na partição atual
+F-1 (Bank/Ledger/Firewall, 19) ......... CONCLUÍDO
+F-2 (Authority/Actor, 19) ............... CONCLUÍDO
+F-3 (RLS/Tenant/Workers, 6) ............. CONCLUÍDO
+F-4 (Schema/Migrations, 12) ............. CONCLUÍDO
+F-5 (Legacy/Runtime/Produto, 20) ........ CONCLUÍDO
+F-6 (Frontend/Seams, 8) ................. CONCLUÍDO
+F-7 (residual) ........................... VAZIO na partição
+——
+84/84 auditados · SELADO (Veredito A, Opus 4.8 consolidada)
 ```
 
-## Única próxima frente recomendada
-**AUDIT-002 F-6** (frontend/seams, 8 guards, rito leve) — fecha o denominador completo da campanha. Só depois: consolidar hardening dos `ACTIVE_BUT_INCOMPLETE` → escolher UMA frente material → voltar a produto.
+## Única próxima frente: AINDA NÃO ESCOLHIDA
+O selo do AUDIT-002 encerra a **auditoria**, não a **dívida material**. Backlog aberto, sem frente escolhida:
+- Hardening P1/P2 dos 25 `ACTIVE_BUT_INCOMPLETE`.
+- Visibilidade + anti-drift do runner (ROOT-003 R2).
+- Contenção `501` do economic/v2 (DECISION-0190).
+- Tenant-loop dos 3 workers (DECISION-0191).
+- Destino do `ledger-snapshot`.
+- Revisão institucional futura do default público de audiência (DECISION-0115 D1).
 
 ## Ordem executiva
 ```
-1. Painel executivo (este arquivo) ......... FEITO
-2. AUDIT-002 F-1 a F-5 ....................... FEITO
-3. Reconciliação do denominador (ROOT-003 R2)  FEITO
-4. AUDIT-002 F-6 ............................ PRÓXIMO
-5. Consolidar hardening dos ACTIVE_BUT_INCOMPLETE
-6. UMA frente material (economic/v2 501  OU  1ª tranche de workers)
-7. Voltar ao desenvolvimento de produto
+1. Painel executivo (este arquivo) .......... FEITO
+2. AUDIT-002 F-1 a F-6 ........................ FEITO
+3. Reconciliação do denominador (ROOT-003 R2) . FEITO
+4. Selo docs-only do AUDIT-002 ................ FEITO
+5. Escolher UMA frente material (backlog acima) PRÓXIMO — não escolhido
+6. Voltar ao desenvolvimento de produto
 ```
 
 ---
-*PORTA-1 fechada · F-6 não iniciado · nenhuma alteração material autorizada. Este painel é atualizado a cada marco; não substitui o cartório.*
+*PORTA-1 fechada · nenhuma frente material escolhida · nenhuma alteração material autorizada. Este painel é atualizado a cada marco; não substitui o cartório.*

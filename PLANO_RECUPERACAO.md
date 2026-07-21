@@ -2621,3 +2621,94 @@ PORTA-1 CLOSED
 DECISION-0191 D15 PRESERVED
 F-6 NOT STARTED
 ```
+
+## C.17 — AUDIT-002 · SELO DOCS-ONLY · VEREDITO A · ENCERRAMENTO ADMINISTRATIVO · 2026-07-21
+
+`HEAD auditado: 229f86f872dd7e0a9db6647e3f08fefb7c368a2c` (branch `rescue-structural`). Fonte soberana do selo: auditoria consolidada final independente executada por **Opus 4.8**, read-only, zero alteração — **Veredito A: AUDIT-002 CONCLUÍDO E APTO A FECHAMENTO DOCS-ONLY**.
+
+```
+AUDIT-002 · SELADO · VEREDITO A · AUDITORIA CONCLUÍDA · FECHAMENTO DOCS-ONLY
+```
+
+**O selo significa "auditoria concluída". O selo NÃO significa "dívida material resolvida".**
+
+### Denominador final
+
+281 arquivos da campanha · 197 entrada direta no runner · 84 sem entrada nominal direta. Destes 84: `CI_AGGREGATED=77` · `CI_OTHER_COMMAND=1` · `NOT_CI_REQUIRED=6` · `ACTIVE_NOT_ENFORCED=0` · `REACHABILITY_UNRESOLVED=0`. Fecha: `77+1+6=84`; `197+77+1+6=281`. **O runner conta comandos, não guards efetivamente executados.**
+
+### Partição final
+
+F-1=19 · F-2=19 · F-3=6 · F-4=12 · F-5=20 · F-6=8 · F-7=0. Soma `19+19+6+12+20+8=84`. **84/84 ARQUIVOS SEM ENTRADA NOMINAL DIRETA AUDITADOS.** (Correção definitiva: o total consolidado é 84, não 64 — erro que apareceu na saída original do F-6 e foi corrigido antes deste selo.)
+
+### Matriz final de dois eixos
+
+**Eixo A (qualidade):** `ACTIVE_VALID=53` · `ACTIVE_BUT_INCOMPLETE=25` · `ONE_SHOT=5` · `STALE=1`. Soma `53+25+5+1=84`.
+**Eixo B (enforcement):** `CI_AGGREGATED=77` · `CI_OTHER_COMMAND=1` · `NOT_CI_REQUIRED=6` · `ACTIVE_NOT_ENFORCED=0`.
+
+`audit-ownership-financial-phase1.ts`: qualidade=`STALE`, enforcement=`NOT_CI_REQUIRED` — não é gap de enforcement; não é one-shot vigente no eixo de qualidade (o schema-alvo nunca existiu). **Gap de qualidade ≠ gap de enforcement.**
+
+### ROOT-003
+
+```
+ROOT-003 · R2 — COBERTURA EXISTE, MAS É OPACA
+Status: PARTIALLY_RESOLVED_AND_CONTAINED
+```
+
+Resíduo (não integralmente resolvido): runner conta comandos, não guards; 81 sub-guards atrás de 2 entradas; listas dos agregadores são estáticas; adição de guard novo pode ficar sem wiring (risco de drift é principalmente por **adição** invisível — a **remoção** de um sub-guard já falha fechado, confirmado na auditoria consolidada).
+
+### Retificações oficiais (registradas, rótulos históricos preservados)
+
+1. F-4 `event-reservations-mislabeled-fk-containment` = `ACTIVE_BUT_INCOMPLETE`.
+2. Visibilidade social e audiência territorial são invariantes distintas — não fundidas automaticamente.
+3. `audit-actor-writer-boundaries.mjs` = `CI_OTHER_COMMAND`.
+4. Cinco harnesses de mutação = `NOT_CI_REQUIRED · ONE_SHOT`.
+5. `audit-ownership-financial-phase1.ts` = `NOT_CI_REQUIRED · STALE`.
+6. Total auditado = **84**, não 64.
+
+### Audiência pública
+
+```
+DEFAULT PUBLIC = INSTITUTIONALLY_GOVERNED_DEFAULT
+Fundamento: DECISION-0115 D1
+```
+
+Observação institucional não bloqueante: o default público antecede a existência da escolha consciente de audiência; não há exposição acidental comprovada; privado exige seleção explícita; Clayton poderá futuramente decidir se ausência de seleção deve continuar significando público ou se a escolha deve ser obrigatória. **Nenhuma DECISION aberta neste ato.**
+
+### Backlog preservado (o selo NÃO fecha)
+
+1. Os 25 `ACTIVE_BUT_INCOMPLETE`.
+2. Visibilidade real da cobertura no runner.
+3. Meta-guard anti-drift.
+4. Eventual manifesto de alcance.
+5. Contenção material `501` do economic/v2 (DECISION-0190).
+6. Tenant-loop dos workers (DECISION-0191).
+7. Destino do `ledger-snapshot`.
+8. Revisão institucional futura do default público.
+
+Nenhum destes itens autoriza execução automática.
+
+### Escopo material futuro (frentes separadas, nenhuma escolhida aqui)
+
+A. Visibilidade e anti-drift do runner.
+B. Hardening P1 (migrations posteriores invisíveis; semântica stale de unread-counts).
+C. Hardening P2 (regex/janelas fixas/aliases/paths/cobertura parcial).
+D. Workers tenant-loop, sob DECISION-0191.
+E. economic/v2, sob DECISION-0190.
+
+**Não constitui mega-envelope. Nenhuma frente material escolhida neste selo.**
+
+```
+AUDIT-002 · FINAL DOCS-ONLY SEAL
+VERDICT A
+84/84 INDIRECT-ENTRY FILES AUDITED
+ACTIVE_NOT_ENFORCED 0
+ROOT-003 R2
+ZERO CODE CHANGE
+ZERO MIGRATION CHANGE
+ZERO RUNNER CHANGE
+ZERO GUARD CHANGE
+ZERO DATABASE ACCESS
+MATERIAL BACKLOG PRESERVED
+PORTA-1 CLOSED
+DECISION-0191 D15 PRESERVED
+```
