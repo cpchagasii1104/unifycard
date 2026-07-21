@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-21 · **HEAD verificado:** `bb90b4edb` · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-21 · **HEAD verificado:** `dc2dc0557` · **Branch:** `rescue-structural`
 
 ---
 
@@ -19,7 +19,7 @@ Recuperar a **confiabilidade arquitetural** do sistema — saber o que está viv
 - **✅ AUDIT-002 · CONCLUÍDO E SELADO** — **84/84 guards sem entrada nominal direta auditados individualmente** (F-1 Bank 19 · F-2 Authority 19 · F-3 RLS/Workers 6 · F-4 Schema 12 · F-5 Legacy/Produto 20 · F-6 Frontend 8; F-7 vazio). Veredito A, auditoria consolidada independente (Opus 4.8). **O selo significa "auditoria concluída", NÃO "dívida material resolvida".**
 - **ROOT-004** (impersonação histórica): reconstruído — 5 grupos / 8 handlers, **todos corrigidos**.
 - **ROOT-001** (workers cross-tenant sob RLS): reconstruído — 25 workers inventariados; 3 workers globais achados.
-- **ROOT-003** reclassificado: **R2 — cobertura existe, mas é opaca** (`PARTIALLY_RESOLVED_AND_CONTAINED`). **Remediação material EXECUTADA E PROVADA, NÃO SELADA** (2026-07-21, commit `bb90b4edb`): meta-guard `audit-guard-coverage-manifest.mjs` torna a cobertura visível (universo 283 · CI_DIRECT 198 · CI_AGGREGATED 77 · CI_OTHER_COMMAND 1 · NOT_CI_REQUIRED 7) e **falha fechado em drift** (guard novo sem wiring). Aguarda auditoria Yala independente antes do selo.
+- **ROOT-003** reclassificado: **R2 — cobertura existe, mas é opaca** (`PARTIALLY_RESOLVED_AND_CONTAINED`). **Remediação material EXECUTADA, remediada pós-Yala (Veredito B: R1+R2+R3+R4), NOVAMENTE PROVADA, AINDA NÃO SELADA** (2026-07-21): meta-guard `audit-guard-coverage-manifest.mjs` torna a cobertura visível com **rótulos honestos** — `AUDIT FILES CONTINUOUSLY REACHED: 276` ≠ `CONTINUOUS GUARDS: 274` + `AGGREGATORS: 2` (274+2=276); `CI_OTHER_COMMAND` do actor-writer exige os **3 workflows** (`ALL_THREE_REQUIRED`, parser YAML estreito); runner tem **precondição de self-wiring** (meta-guard 1× no CMDS); localizador de array **endurecido contra decoys**. Falha fechado em drift. **Aguarda nova auditoria Yala independente antes do selo.**
 
 ## O que foi decidido (institucional, selado)
 - **DECISION-0190** — economic/v2 honest sandbox & contenção. **SELADA · Veredito A** (`9a65f0291` + `33027ee60`).

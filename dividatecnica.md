@@ -2401,3 +2401,10 @@ protocolo §4.3, disciplina §6 acima.*
 - **Como (sem 2º SSOT):** deriva o alcance das 3 fontes de wiring existentes (CMDS[], arrays dos agregadores, actor-writer via package.json+workflow); só declara papéis não-deriváveis (2 agregadores, 6 harness, 1 ferramenta) num JSON. Dois eixos independentes (alcance × papel), disjuntos da qualidade (AUDIT-002).
 - **Preservado:** agregadores/workflows/guards existentes byte-idênticos; ordem dos 200 comandos anteriores; fail-closed; +1 entrada só. Runner completo 201 → exit 0.
 - **Resíduo não-bloqueante:** 4 duplo-runs (direto+agregado) reportados, não de-duplicados (decisão futura). Números da fotografia material 283/198/77/1/7 (o selo histórico do AUDIT-002 segue 281/197/84).
+
+## DT-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT — 🟡 REMEDIADO PÓS-YALA (Veredito B) · REPROVADO · NÃO SELADO (2026-07-21)
+
+- **Estado:** remediação técnica estreita pós-Yala (Veredito B: R1 rótulos honestos · R2 contrato ALL_THREE_REQUIRED do CI_OTHER_COMMAND com parser YAML estreito · R3 self-wiring no runner · R4 localizador de array endurecido contra decoys). Novamente provada; **não selada** (aguarda nova Yala). Substitui/corrige por supersessão a afirmação anterior que chamava 276 de "guards contínuos" — correto: 276 reached = 274 continuous guards + 2 aggregators.
+- **Provas:** meta-guard PASS; harness 21/21 (M1-M15 + Y1-Y3 + controles); runner completo 201 → exit 0. Agregadores/workflows/package.json/guards byte-idênticos. Zero produto/migration/Bank/Authority/frontend.
+- **Limite honesto (R3):** a precondição fecha remoção acidental/isolada do wiring; remoção coordenada da entrada + precondição é alteração deliberada, visível em code review — não é autoproteção absoluta.
+- **Resíduo não-bloqueante:** 4 duplo-runs (direto+agregado) reportados, não de-duplicados. Fotografia material 283/198/77/1/7.
