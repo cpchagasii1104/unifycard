@@ -18,6 +18,7 @@
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { stripSqlComments, maskStringLiterals, createsTarget, referencesTarget, extractExecuteLiterals, tokenPresent } from './lib/sql-shape.mjs';
 
 const ROOT = process.cwd();
 const stripTs = (s) => s
@@ -59,19 +60,45 @@ const repo = readTs(REPO);
 need(repo, REPO, /FROM actor_fiscal_profiles/, 'repository canônico não lê actor_fiscal_profiles.');
 forbid(repo, REPO, /company_profiles|tax_profiles\b/, 'repository canônico consultando tabela fantasma como fallback.');
 
-// ── (1/2/6/7/8) NENHUM SQL vivo contra as tabelas fantasmas em TODO o src ──
+// ── (1/2/6/7/8) NENHUM SQL vivo LÊ/escreve as tabelas fantasmas em TODO o src ──
+// ENDURECIDO (F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION): reconhecimento estrutural de LEITURA via
+// sql-shape — além de FROM/INTO/UPDATE (já cobertos), agora pega todos os JOIN, comma-join, CTE (via o
+// FROM/JOIN interno), alias, schema-qualification e quoted identifiers. Em .ts, comentários são removidos
+// (stripTs) mas o corpo das strings/templates é preservado (o SQL executado vive lá — é referência real).
+const GHOSTS = ['company_profiles', 'tax_profiles'];
 for (const f of walkTs(join(ROOT, 'src'))) {
   const src = stripTs(readFileSync(f, 'utf-8'));
-  if (/(FROM|INTO|UPDATE)\s+company_profiles\b/.test(src)) failures.push(`${f.replace(ROOT, '.')}: SQL vivo contra company_profiles (tabela fantasma aposentada — D9.4).`);
-  if (/(FROM|INTO|UPDATE)\s+tax_profiles\b/.test(src)) failures.push(`${f.replace(ROOT, '.')}: SQL vivo contra tax_profiles (tabela fantasma aposentada — D9.4).`);
+  for (const g of GHOSTS) {
+    if (!tokenPresent(src, g)) continue;
+    const r = referencesTarget(src, g, { mode: 'read' });
+    if (r.hit) failures.push(`${f.replace(ROOT, '.')}: SQL vivo contra ${g} (forma ${r.form}: FROM/JOIN/comma-join/CTE/alias/schema-qual) — tabela fantasma aposentada (D9.4).`);
+  }
 }
 // migrations futuras não materializam os fantasmas como fonte fiscal
+// ENDURECIDO: createsTarget (CREATE TABLE schema-qual/quoted/IF NOT EXISTS + CTAS + SELECT INTO + RENAME
+// + DDL estático em DO $$ / EXECUTE literal / EXECUTE format com target literal). Dinâmico irresolvível
+// = diagnóstico determinístico (não-falha isolada).
 const migDir = join(ROOT, 'migrations');
+const dynNotes = [];
 for (const f of readdirSync(migDir).filter((f) => f.endsWith('.sql') && f > '20260710130000_z')) {
-  const src = stripSql(readFileSync(join(migDir, f), 'utf-8'));
-  if (/CREATE TABLE (IF NOT EXISTS )?(company_profiles|tax_profiles)\b/.test(src)) {
-    failures.push(`migrations/${f}: materializa tabela fantasma (company_profiles/tax_profiles) — segunda casa fiscal (D9.4 REPROVA).`);
+  const raw = readFileSync(join(migDir, f), 'utf-8');
+  const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+  for (const g of GHOSTS) {
+    if (!tokenPresent(stripSqlComments(raw), g)) continue;
+    const st = createsTarget(clean, g);
+    if (st.hit) { failures.push(`migrations/${f}: materializa tabela fantasma ${g} (forma ${st.form}) — segunda casa fiscal (D9.4 REPROVA).`); continue; }
+    for (const u of extractExecuteLiterals(raw)) {
+      const body = u.resolvableText;
+      if (!body) continue;
+      if (createsTarget(body, g).hit) { failures.push(`migrations/${f}: EXECUTE materializa ${g} em DDL dinâmico resolvível (D9.4).`); break; }
+      const verb = /\bCREATE\s+TABLE|\bRENAME\s+TO|\bSELECT\b[\s\S]*\bINTO\b/i.test(body);
+      if (verb && tokenPresent(body, g)) { failures.push(`migrations/${f}: EXECUTE format materializa ${g} (target literal presente) — D9.4.`); break; }
+      if (verb && u.hasDynamicArg) dynNotes.push(`migrations/${f}`);
+    }
   }
+}
+if (dynNotes.length) {
+  console.log(`[fiscal-canonical-house] DYNAMIC_UNRESOLVED (revisão manual, não-falha): DDL dinâmico com nome de tabela por variável em ${[...new Set(dynNotes)].sort().join(', ')}.`);
 }
 
 // ── (3/4/5) vocabulário único: sem redeclaração paralela nem grafias curtas ──

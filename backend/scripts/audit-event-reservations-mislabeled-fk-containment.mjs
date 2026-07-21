@@ -14,6 +14,7 @@
 
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { stripSqlComments, maskStringLiterals, splitStatements, referencesTarget, tokenPresent, extractExecuteLiterals } from './lib/sql-shape.mjs';
 
 const ROOT = process.cwd();
 const failures = [];
@@ -63,6 +64,14 @@ function stripComments(s) {
 }
 
 // ── CHECK 4: nenhuma migration NOVA (> drop) re-adiciona a coluna mentirosa ──
+// ENDURECIDO (F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION): reconhecimento estrutural via sql-shape.
+// Fecha as evasoes do reconhecedor de forma unica — pega REFERENCES actors em FK inline E em
+// ADD CONSTRAINT ... FOREIGN KEY (global_user_id) ... separado, com schema-qualification (public.actors),
+// identifiers quoted ("actors"), multiline, ALTER TABLE ONLY, e coluna criada em statement anterior.
+// PRECISAO (nao over-broaden): so morde o statement que toca event_reservations E menciona a COLUNA
+// global_user_id E referencia actors. actor_id -> actors (canonico) e global_user_id -> global_users
+// (irmaos honestos) permanecem legitimos; nome alternativo arbitrario (ex. actor_ref_id -> actors) e
+// OUT_OF_SCOPE declarado desta tranche (o vicio documentado e o nome global_user_id).
 {
   const HIST_ADD = '20260530470000_fix_occupancy_schema.sql';        // ADD original (historia imutavel, superada pelo DROP)
   const DROP_MIG = '20260703120000_drop_event_reservations_mislabeled_global_user_id.sql';
@@ -70,12 +79,27 @@ function stripComments(s) {
   try { files = readdirSync(join(ROOT, 'migrations')).filter((f) => f.endsWith('.sql')); } catch {}
   for (const f of files) {
     if (f === HIST_ADD || f === DROP_MIG) continue; // allowlist: historia + a propria migration de drop
-    const body = read(join('migrations', f));
-    // padrao da mentira: adiciona global_user_id a event_reservations referenciando actors
-    const mentions = /event_reservations/i.test(body) && /global_user_id/i.test(body);
-    const reintroduces = /ADD\s+COLUMN[^;]*global_user_id[^;]*REFERENCES\s+actors/is.test(body);
-    if (mentions && reintroduces) {
-      failures.push(`migration ${f} RE-INTRODUZ event_reservations.global_user_id REFERENCES actors — a FK que mente foi dropada de proposito (B7). Use actor_id.`);
+    const raw = read(join('migrations', f));
+    if (!/event_reservations/i.test(raw) || !/global_user_id/i.test(raw)) continue; // fora do escopo
+    // codigo sem comentarios, com strings de dado mascaradas (dollar-quote preservado = codigo executavel)
+    const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+    for (const stmt of splitStatements(clean)) {
+      // o statement deve alterar event_reservations, nomear a COLUNA global_user_id e referenciar actors
+      const touchesTable = /\bALTER\s+TABLE\s+(?:ONLY\s+)?(?:"?[a-zA-Z_][\w$]*"?\.)?"?event_reservations"?\b/i.test(stmt);
+      const namesColumn = tokenPresent(stmt, 'global_user_id');
+      const refsActors = referencesTarget(stmt, 'actors', { mode: 'fk' }).hit;
+      if (touchesTable && namesColumn && refsActors) {
+        failures.push(`migration ${f} RE-INTRODUZ event_reservations.global_user_id REFERENCES actors (forma: FK inline ou ADD CONSTRAINT separado, incl. schema-qualified/quoted) — a FK que mente foi dropada de proposito (B7). Use actor_id.`);
+        break;
+      }
+    }
+    // corpos EXECUTE estaticos que reintroduzem o vinculo (DDL em string literal resolvivel)
+    for (const u of extractExecuteLiterals(raw)) {
+      const body = u.resolvableText;
+      if (body && tokenPresent(body, 'global_user_id') && referencesTarget(body, 'actors', { mode: 'fk' }).hit) {
+        failures.push(`migration ${f}: EXECUTE reintroduz global_user_id REFERENCES actors em DDL dinamico resolvivel (B7). Use actor_id.`);
+        break;
+      }
     }
   }
 }

@@ -17,6 +17,7 @@
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { stripSqlComments, maskStringLiterals, createsTarget, extractExecuteLiterals, tokenPresent } from './lib/sql-shape.mjs';
 
 const ROOT = process.cwd();
 const stripTs = (s) => s
@@ -45,18 +46,43 @@ if (!existsSync(SERVICE)) {
   }
 }
 
-// (B) nenhuma migration VIVA cria event_settlements (materializar = decisão de PORTA-1).
+// (B) nenhuma migration VIVA materializa event_settlements (materializar = decisão de PORTA-1).
+// ENDURECIDO (F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION): reconhecimento estrutural via sql-shape.
+// Além de CREATE TABLE (schema-qualified/quoted/IF NOT EXISTS — já cobertos), agora pega CREATE TABLE AS,
+// SELECT ... INTO, ALTER TABLE ... RENAME TO, DDL estático dentro de DO $$, e EXECUTE literal /
+// EXECUTE format(...) com o target literal presente. SQL dinâmico irresolvível (só variável) é ACEITO
+// com diagnóstico determinístico (não falha isoladamente).
+const TARGET = 'event_settlements';
 const MIG_DIR = join(ROOT, 'migrations');
+const dynNotes = [];
 if (existsSync(MIG_DIR)) {
   for (const f of readdirSync(MIG_DIR)) {
     if (!f.endsWith('.sql')) continue;
-    const sql = readFileSync(join(MIG_DIR, f), 'utf-8');
-    // Achado N3 da re-auditoria rodada 2: pega também schema-qualified (public.event_settlements) e
-    // aspas — antes a regex cega para `CREATE TABLE public.event_settlements` deixava um contorno trivial.
-    if (/CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(?:"?[a-zA-Z_][\w$]*"?\.)?"?event_settlements"?\b/i.test(sql)) {
-      failures.push(`migrations/${f}: CREATE TABLE event_settlements numa migration VIVA — materializar a tabela-fantasma é decisão soberana de PORTA-1/IA-DINHEIRO, não pode entrar sozinha. Se foi decidido materializar, atualize este guard junto com a DECISION.`);
+    const raw = readFileSync(join(MIG_DIR, f), 'utf-8');
+    if (!tokenPresent(stripSqlComments(raw), TARGET)) continue; // fora do escopo (nem em código)
+    // texto estático: comentários fora, strings de dado mascaradas, dollar-quote preservado (é código).
+    const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+    const st = createsTarget(clean, TARGET);
+    if (st.hit) {
+      failures.push(`migrations/${f}: materializa event_settlements (forma ${st.form}) numa migration VIVA — a tabela-fantasma é decisão soberana de PORTA-1/IA-DINHEIRO, não pode entrar sozinha. Se foi decidido materializar, atualize este guard junto com a DECISION.`);
+      continue;
     }
+    // DDL dinâmico via EXECUTE
+    let flaggedDyn = false;
+    for (const u of extractExecuteLiterals(raw)) {
+      const body = u.resolvableText;
+      if (!body) { if (u.hasDynamicArg && /\bCREATE\s+TABLE|\bRENAME\s+TO|\bSELECT\b[\s\S]*\bINTO\b/i.test(clean)) dynNotes.push(`migrations/${f}`); continue; }
+      if (createsTarget(body, TARGET).hit) { failures.push(`migrations/${f}: EXECUTE materializa event_settlements em DDL dinâmico resolvível (PORTA-1).`); flaggedDyn = true; break; }
+      const verb = /\bCREATE\s+TABLE|\bRENAME\s+TO|\bSELECT\b[\s\S]*\bINTO\b/i.test(body);
+      if (verb && tokenPresent(body, TARGET)) { failures.push(`migrations/${f}: EXECUTE format materializa event_settlements (target literal presente) — DDL dinâmico com token do alvo (PORTA-1).`); flaggedDyn = true; break; }
+      if (verb && u.hasDynamicArg) dynNotes.push(`migrations/${f}`);
+    }
+    if (flaggedDyn) continue;
   }
+}
+if (dynNotes.length) {
+  // diagnóstico informativo determinístico — NÃO altera exit code isoladamente.
+  console.log(`[event-settlement-ghost-containment] DYNAMIC_UNRESOLVED (revisão manual, não-falha): DDL dinâmico com nome de tabela por variável em ${[...new Set(dynNotes)].sort().join(', ')}.`);
 }
 
 // (C) repository tenant-scoped (sem pool cru).

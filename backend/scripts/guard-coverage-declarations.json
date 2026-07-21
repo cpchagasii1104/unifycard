@@ -14,7 +14,8 @@
     "audit-governed-vocabulary-manifest-mutations.mjs",
     "audit-group-actor-membership-foundation-mutations.mjs",
     "audit-group-institutional-binding-mutations.mjs",
-    "audit-guard-coverage-manifest-mutations.mjs"
+    "audit-guard-coverage-manifest-mutations.mjs",
+    "audit-migration-ddl-recognition-mutations.mjs"
   ],
   "non_guard_tool": [
     "audit-ownership-financial-phase1.ts"
