@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-21 · **HEAD verificado:** `0baf21efc` · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-21 · **HEAD verificado:** `fe13af59f` · **Branch:** `rescue-structural`
 
 ---
 
@@ -16,9 +16,10 @@ Recuperar a **confiabilidade arquitetural** do sistema — saber o que está viv
 ## O que foi auditado (read-only, concluído)
 - **Mapeamento geral** (Rodadas 0–10) + consolidação (Anexo C: FIND-*, ROOT-*, ranking, 6 pacotes AUDIT-001..006).
 - **AUDIT-001** `economic/v2`: cadeia de pagamento embutida em Eventos; rótulo "sandbox" enganoso.
-- **AUDIT-002** guards: **44 de 84** órfãos classificados (F-1 Bank 19 · F-2 Authority 19 · F-3 RLS/workers 6).
+- **AUDIT-002** guards — **F-1/F-2/F-3/F-4/F-5 concluídos** (64 guards auditados: F-1 Bank 19 · F-2 Authority 19 · F-3 RLS/workers 6 · F-4 Schema 12 · F-5 Legacy/Produto 20). **F-6 (8) e F-7 (0) restantes.** Denominador de enforcement **reconciliado** (ver seção "Cobertura CI" abaixo) — a formulação anterior "84 órfãos = 84 sem execução" estava incorreta.
 - **ROOT-004** (impersonação histórica): reconstruído — 5 grupos / 8 handlers, **todos corrigidos**.
 - **ROOT-001** (workers cross-tenant sob RLS): reconstruído — 25 workers inventariados; 3 workers globais achados.
+- **ROOT-003** reclassificado: **R2 — cobertura existe, mas é opaca** (`PARTIALLY_RESOLVED_AND_CONTAINED`) — não é mais "guards sem enforcement".
 
 ## O que foi decidido (institucional, selado)
 - **DECISION-0190** — economic/v2 honest sandbox & contenção. **SELADA · Veredito A** (`9a65f0291` + `33027ee60`).
@@ -37,8 +38,22 @@ Recuperar a **confiabilidade arquitetural** do sistema — saber o que está viv
 | Risco | Estado | Contenção atual |
 |---|---|---|
 | `economic/v2` alcança ledger real | **CONTIDO** | firewall do Bank default-off, fail-closed 403; PORTA-1 fechada |
-| Impersonação (ROOT-004) | **CORRIGIDO** | 8 handlers com canRepresentActor/canActAs; guard fino fora do runner (sentinel amplo cobre, baseline 0) |
-| ROOT-003: 84 guards fora do runner | **PARCIAL** | 44 classificados; runner "verde" ainda não prova cobertura total |
+| Impersonação (ROOT-004) | **CORRIGIDO** | 8 handlers com canRepresentActor/canActAs; guard fino coberto via agregador CI (sentinel amplo, baseline 0) |
+| ROOT-003: cobertura opaca (R2) | **CONTIDO, NÃO RESOLVIDO** | 77/84 rodam via 2 agregadores fail-closed; 1 via comando próprio; 6 one-shot; **0 ativos sem enforcement**. Resíduo real = visibilidade + anti-drift das listas estáticas dos agregadores, não ausência de execução |
+
+## Cobertura CI (reconciliada 2026-07-21)
+```
+281 arquivos audit-* da campanha
+197 entradas diretas no runner
+ 77 executados via 2 agregadores fail-closed (execFileSync)
+  1 executado via comando próprio de CI (validate:actor-writer-boundaries)
+  6 one-shot intencionais (harnesses de mutação + 1 ferramenta de preparação)
+——
+275 = cobertura contínua real (197+77+1)
+  6 = one-shot, não exigíveis como contínuos
+281 = total ✔
+  0 = guards ativos e válidos SEM qualquer enforcement
+```
 
 ### Workers globais (DECISION-0191 selada; material pendente)
 ```
@@ -61,27 +76,39 @@ ledger-snapshot:
 ## Materiais pendentes (nenhum autorizado)
 1. economic/v2 → contenção `501` (`F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT`).
 2. Workers → tenant-loop por tranche (governance, risk, ledger-snapshot).
-3. Runner → integrar os guards válidos em **um envelope único**.
+3. Runner → **não** "integrar dezenas de guards" — dar visibilidade aos 81 sub-guards já executados via agregador, criar anti-drift, e endurecer os `ACTIVE_BUT_INCOMPLETE` já identificados.
 
 ## Auditorias pendentes (read-only)
-- **AUDIT-002 F-4 a F-7** — 40 guards restantes (schema/legacy/produto/frontend; mais leves que F-1/F-2).
+- **AUDIT-002 F-6** — 8 guards restantes (frontend/seams) · **F-7 vazio** na partição atual.
 - GATE consumers de `ledger_snapshots` (decide RETIRE vs tenant-loop).
 - GATE completo de `evaluateActorRisk`.
 - Demais workers globais (`saga-timeout`, `reconciliation-scheduled`, `payment-worker`).
 - AUDIT-003 (build de produção) · AUDIT-004 (denominador personificação) · AUDIT-005 (tenant-loop) · **AUDIT-006 (banco efêmero) = BLOQUEADO PELO AMBIENTE** (sem container runtime).
 
+## AUDIT-002 · progresso por lote
+```
+F-1 (Bank/Ledger/Firewall, 19) ........ CONCLUÍDO
+F-2 (Authority/Actor, 19) .............. CONCLUÍDO
+F-3 (RLS/Tenant/Workers, 6) ............ CONCLUÍDO
+F-4 (Schema/Migrations, 12) ............ CONCLUÍDO
+F-5 (Legacy/Runtime/Produto, 20) ....... CONCLUÍDO (denominador reconciliado)
+F-6 (Frontend/Seams, 8) ................ NÃO INICIADO
+F-7 (residual) .......................... VAZIO na partição atual
+```
+
 ## Única próxima frente recomendada
-**Concluir AUDIT-002 F-4 a F-7** (fechar os 84 guards) — read-only, mais rápido que os lotes anteriores, e pré-requisito do envelope único do runner. Só depois: decidir destino dos 84 → corrigir runner → escolher UMA frente material → voltar a produto.
+**AUDIT-002 F-6** (frontend/seams, 8 guards, rito leve) — fecha o denominador completo da campanha. Só depois: consolidar hardening dos `ACTIVE_BUT_INCOMPLETE` → escolher UMA frente material → voltar a produto.
 
 ## Ordem executiva
 ```
 1. Painel executivo (este arquivo) ......... FEITO
-2. AUDIT-002 F-4 a F-7 ...................... PRÓXIMO
-3. Decidir destino final dos 84 guards
-4. Corrigir o runner (envelope único)
-5. UMA frente material (economic/v2 501  OU  1ª tranche de workers)
-6. Voltar ao desenvolvimento de produto
+2. AUDIT-002 F-1 a F-5 ....................... FEITO
+3. Reconciliação do denominador (ROOT-003 R2)  FEITO
+4. AUDIT-002 F-6 ............................ PRÓXIMO
+5. Consolidar hardening dos ACTIVE_BUT_INCOMPLETE
+6. UMA frente material (economic/v2 501  OU  1ª tranche de workers)
+7. Voltar ao desenvolvimento de produto
 ```
 
 ---
-*PORTA-1 fechada · F-4 não iniciado · nenhuma alteração material autorizada. Este painel é atualizado a cada marco; não substitui o cartório.*
+*PORTA-1 fechada · F-6 não iniciado · nenhuma alteração material autorizada. Este painel é atualizado a cada marco; não substitui o cartório.*

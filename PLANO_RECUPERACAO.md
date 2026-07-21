@@ -2526,3 +2526,98 @@ PORTA-1 CLOSED
 MATERIAL EXECUTION NOT AUTHORIZED
 F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT CLOSED
 ```
+
+## C.16 — AUDIT-002 · Reconciliação do denominador e alcançabilidade real dos guards na CI (ROOT-003 · R2) · 2026-07-20/21
+
+`HEAD auditado: fe13af59f` (branch `rescue-structural`). Auditoria independente **Opus 4.8** — "AUDIT-002 · Reconciliação do denominador e alcançabilidade real dos guards na CI". **Veredito A — DENOMINADOR RECONCILIADO.** Zero alteração de código/migration/runner/guard durante a auditoria. Este registro é **docs-only** e **não substitui, apaga nem invalida** os achados de qualidade de F-1 a F-5 — corrige exclusivamente o **eixo de enforcement** que os acompanhava.
+
+### O que estava descrito incorretamente
+
+Os Passes F-1 a F-4 (e o início do F-5) descreveram "84 guards fora do runner" como **84 guards sem execução em CI**. A auditoria independente provou que isso confunde dois fatos distintos:
+
+```
+84 sem entrada nominal direta no runner
+!= 84 sem execução em CI
+```
+
+O runner (`run-regression-guards.mjs`) contém **2 comandos-agregadores** (`audit-legacy-service-availability-containment-suite.mjs` e `audit-authority-residual-hygiene-suite.mjs`) que invocam, via `execFileSync` **fail-closed** (loop com `catch`->`process.exit(1)` em qualquer sub-guard que falhe), **81 sub-guards únicos** — a maioria dos quais nunca tinha entrada nominal própria no runner.
+
+### Os quatro denominadores oficiais
+
+| Denominador | Valor |
+|---|---|
+| Arquivos `audit-*` da campanha (`.mjs`/`.ts`) | **281** |
+| Entradas `audit-*` diretas no runner | **197** |
+| Sem entrada nominal direta | **84** |
+| - dos quais, **executados por agregador fail-closed** | **77** |
+| - dos quais, **executados por comando próprio de CI** (`validate:actor-writer-boundaries`) | **1** |
+| - dos quais, **one-shot intencional** (harnesses de mutação + 1 ferramenta de preparação) | **6** |
+| - dos quais, **ativos e válidos sem QUALQUER enforcement** | **0** |
+
+Fecha: `77 + 1 + 6 = 84`. Cobertura contínua real: `197 diretos + 77 agregados exclusivos + 1 comando próprio = 275` de 281; `275 + 6 (one-shot, não exigíveis como contínuos) = 281`.
+
+**Não se declara que os 281 são todos guards contínuos** — os 6 one-shot permanecem, por desenho, fora de execução recorrente. **Não se declara ROOT-003 resolvido** — ver reclassificação abaixo.
+
+### ROOT-003 — reclassificado, não apagado
+
+Estado anterior (Rodada 0, ainda válido como registro histórico do achado original): *"runner 200/200 verde ignora 84 de 281 guards"* — **descrição correta do sintoma, causa mal-atribuída** (lida como "84 sem enforcement").
+
+**Estado oficial corrigido:**
+
+```
+ROOT-003 · R2 — COBERTURA EXISTE, MAS É OPACA
+Classificação: PARTIALLY_RESOLVED_AND_CONTAINED
+```
+
+Justificativa: todos os guards ativos de enforcement identificados possuem cadeia fail-closed até a CI; o runner **conta comandos, não guards efetivamente executados** (200 comandos != 200 guards - são >=278 guards efetivos via 2 agregadores); **81 sub-guards ficam escondidos atrás de 2 entradas**; as listas dos agregadores são **estáticas** - um guard novo pode nascer no disco sem wiring automático a nenhuma das duas listas, sem que o total numérico (200 comandos) o revele. **Não é R4 (falso positivo integral)** — a cobertura é real, não é ilusória; o problema é de **visibilidade e anti-drift**, não de ausência.
+
+### Matriz de dois eixos (método oficial daqui em diante)
+
+Cada guard passa a receber **dois** rótulos independentes:
+
+**Eixo A - Qualidade:** `ACTIVE_VALID` · `ACTIVE_BUT_INCOMPLETE` · `ONE_SHOT` · `STALE` · `SUPERSEDED`.
+**Eixo B - Enforcement:** `CI_DIRECT` · `CI_AGGREGATED` · `CI_OTHER_COMMAND` · `NOT_CI_REQUIRED` · `ACTIVE_NOT_ENFORCED`.
+
+Exemplo válido e esperado: um guard pode ser simultaneamente `ACTIVE_BUT_INCOMPLETE + CI_AGGREGATED` — roda em CI hoje, mas tem ponto cego que merece hardening. **Gap de qualidade != gap de enforcement.**
+
+**Correção retroativa de rótulo:** onde os relatórios de F-1 a F-4 usaram `RUNNER_REQUIRED_ACTIVE`/`RUNNER_REQUIRED_P0` para um guard que se descobre `CI_AGGREGATED`/`CI_OTHER_COMMAND`, o rótulo **não é apagado** — passa a ser lido como **prioridade/visibilidade histórica** (o guard merece uma entrada própria e legível), não como ausência atual de execução.
+
+### Os 7 residuais nomeados
+
+| Guard | Enforcement real |
+|---|---|
+| `audit-actor-writer-boundaries.mjs` | `CI_OTHER_COMMAND` (npm-script próprio `validate:actor-writer-boundaries`) |
+| `audit-b-city-regional-treasury-grant-substrate-mutations.mjs` | `ONE_SHOT_INTENTIONAL` (harness do guard #187, já no runner) |
+| `audit-fiscal-tax-reserve-bank-substrate-mutations.mjs` | `ONE_SHOT_INTENTIONAL` (harness do guard #186, já no runner) |
+| `audit-governed-vocabulary-manifest-mutations.mjs` | `ONE_SHOT_INTENTIONAL` (autodeclarado - "NÃO entra no runner") |
+| `audit-group-actor-membership-foundation-mutations.mjs` | `ONE_SHOT_INTENTIONAL` (harness) |
+| `audit-group-institutional-binding-mutations.mjs` | `ONE_SHOT_INTENTIONAL` (harness) |
+| `audit-ownership-financial-phase1.ts` | ferramenta one-shot de auditoria/preparação — **status histórico/material não fixado aqui como fato consumado**; verificável futuramente, sem constituir gap de enforcement hoje |
+
+### F-5 — fechamento administrativo
+
+**`F-5: CONCLUÍDO · SUBSTANTIVAMENTE AUDITADO · DENOMINADOR RECONCILIADO`.**
+
+20/20 guards auditados. 9 `ACTIVE_VALID`/equivalente vigente · 10 `ACTIVE_BUT_INCOMPLETE` · 1 `ONE_SHOT_PROOF`. Enforcement: 19 via `CI_AGGREGATED`; 1 (`governed-vocabulary-manifest-mutations`) `ONE_SHOT_INTENTIONAL` por desenho. Zero defeito produtivo crítico; zero guard ativo sem enforcement; nenhuma DECISION nova necessária; nenhum material executado. Achados individuais e pontos cegos de regex do relatório original do F-5 **preservados integralmente** — nenhum invalidado por esta reconciliação.
+
+### Escopo material real futuro (substitui a formulação anterior)
+
+"Adicionar dezenas de guards ao runner" (formulação anterior, superada) -> substituído por:
+1. dar visibilidade aos sub-guards efetivamente executados (81 hoje escondidos atrás de 2 agregadores);
+2. reportar **comandos** e **guards** como denominadores separados no output do runner;
+3. criar proteção anti-drift para o universo de guards (novo guard no disco deve ser detectado se não estiver em nenhuma das 3 categorias de enforcement);
+4. exigir que todo guard contínuo esteja declarado como direto, agregado ou comando próprio;
+5. endurecer os guards `ACTIVE_BUT_INCOMPLETE` (F-1 a F-5, lista consolidada nos relatórios individuais);
+6. decidir futuramente o status histórico do script `audit-ownership-financial-phase1.ts` (não decidido aqui).
+
+**Nenhum destes 6 itens é executado neste registro.** Ficam para o envelope material futuro, sob GO próprio, após F-6/F-7.
+
+```
+ROOT-003 RECLASSIFIED - R2 - PARTIALLY_RESOLVED_AND_CONTAINED
+F-5 CLOSED ADMINISTRATIVELY
+DENOMINATOR: 197+77+1=275 CONTINUOUS - 6 ONE-SHOT - 281 TOTAL
+ZERO CODE CHANGE - ZERO MIGRATION - ZERO RUNNER CHANGE - ZERO GUARD CHANGE
+PORTA-1 CLOSED
+DECISION-0191 D15 PRESERVED
+F-6 NOT STARTED
+```

@@ -20322,3 +20322,31 @@ TENANT-LOOP REAFFIRMED AS SOLE CANONICAL CROSS-TENANT MODEL
 GLOBAL_READ_TENANT_SCOPED_WRITE REJECTED AS AUTHORIZATIVE CATEGORY
 PORTA-1 CLOSED · MATERIAL EXECUTION NOT AUTHORIZED · F-4 NOT STARTED
 ```
+
+---
+
+## 2026-07-21 · AUDIT-002 · Reconciliação do denominador (ROOT-003 · R2) · F-5 fechado administrativamente
+
+- **Base:** HEAD auditado `fe13af59ff750c26f9052fd96db068415d000c7c` (rescue-structural). Modo docs-only · ZERO código/migration/runner/guard/banco alterado. PORTA-1 fechada. DECISION-0191 D15 preservada.
+- **Origem:** auditoria independente Opus 4.8 — "AUDIT-002 · Reconciliação do denominador e alcançabilidade real dos guards na CI". **Veredito A — DENOMINADOR RECONCILIADO.**
+- **Correção administrativa (não apaga o diagnóstico anterior):** "84 sem entrada nominal direta no runner" ≠ "84 sem execução em CI". O runner tem 2 comandos-agregadores (`audit-legacy-service-availability-containment-suite.mjs`, `audit-authority-residual-hygiene-suite.mjs`) que executam, via `execFileSync` fail-closed, 81 sub-guards únicos.
+- **Quatro denominadores:** `SEM_ENTRADA_DIRETA_NO_RUNNER=84` · `CI_AGGREGATED=77` · `CI_OTHER_COMMAND=1` · `ACTIVE_NOT_ENFORCED=0`. Mais: `ONE_SHOT_INTENTIONAL=6`. Fecha `77+1+6=84`. Cobertura contínua real `197+77+1=275`; `275+6=281`.
+- **ROOT-003 reclassificado:** de "guards ativos sem enforcement" para **`R2 — COBERTURA EXISTE, MAS É OPACA`**, classificação `PARTIALLY_RESOLVED_AND_CONTAINED`. Resíduo real = visibilidade (200 comandos ≠ guards efetivos) + anti-drift (listas estáticas dos agregadores podem ficar defasadas de guard novo no disco). **Não é R4/falso positivo integral** — a cobertura é genuína.
+- **Matriz de dois eixos, método oficial daqui em diante:** Qualidade (`ACTIVE_VALID`/`ACTIVE_BUT_INCOMPLETE`/`ONE_SHOT`/`STALE`/`SUPERSEDED`) × Enforcement (`CI_DIRECT`/`CI_AGGREGATED`/`CI_OTHER_COMMAND`/`NOT_CI_REQUIRED`/`ACTIVE_NOT_ENFORCED`). Um guard pode ser `ACTIVE_BUT_INCOMPLETE + CI_AGGREGATED` — roda em CI, precisa de hardening. Rótulos históricos `RUNNER_REQUIRED_ACTIVE`/`RUNNER_REQUIRED_P0` de F-1 a F-4 **não são apagados** — onde o guard se prova `CI_AGGREGATED`/`CI_OTHER_COMMAND`, o rótulo passa a significar prioridade/visibilidade histórica, não ausência atual de execução.
+- **7 residuais nomeados:** `audit-actor-writer-boundaries.mjs`→`CI_OTHER_COMMAND` (npm-script `validate:actor-writer-boundaries`); 5 `*-mutations.mjs`→`ONE_SHOT_INTENTIONAL`; `audit-ownership-financial-phase1.ts`→ferramenta one-shot, status histórico não fixado como fato consumado aqui.
+- **F-5 FECHADO ADMINISTRATIVAMENTE:** `CONCLUÍDO · SUBSTANTIVAMENTE AUDITADO · DENOMINADOR RECONCILIADO`. 20/20 guards auditados; 9 ACTIVE_VALID/equivalente · 10 ACTIVE_BUT_INCOMPLETE · 1 ONE_SHOT_PROOF; 19 via CI_AGGREGATED + 1 ONE_SHOT_INTENTIONAL por desenho; zero defeito produtivo crítico; zero guard ativo sem enforcement; nenhuma DECISION nova necessária. Achados de qualidade e pontos cegos do relatório original preservados integralmente.
+- **Escopo material futuro corrigido:** NÃO "adicionar dezenas de guards ao runner" — SIM (1) visibilidade dos 81 sub-guards; (2) comandos×guards como denominadores separados; (3) anti-drift do universo de guards; (4) toda guard contínuo declarado direto/agregado/comando-próprio; (5) hardening dos ACTIVE_BUT_INCOMPLETE já identificados (F-1 a F-5); (6) decisão futura sobre `ownership-financial-phase1.ts`. Nenhum destes 6 executado aqui.
+- **F-6 (frontend/seams, 8 guards) permanece NÃO iniciado.** Nenhuma DECISION nova. Nenhum material. Δbank=0.
+
+```
+ROOT-003 RECLASSIFIED · R2 · PARTIALLY_RESOLVED_AND_CONTAINED
+F-5 CLOSED ADMINISTRATIVELY
+ZERO CODE CHANGE
+ZERO MIGRATION CHANGE
+ZERO RUNNER CHANGE
+ZERO GUARD CHANGE
+ZERO DATABASE ACCESS
+PORTA-1 CLOSED
+DECISION-0191 D15 PRESERVED
+F-6 NOT STARTED
+```
