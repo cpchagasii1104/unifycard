@@ -20285,3 +20285,19 @@ PORTA-1 CLOSED
 MATERIAL EXECUTION NOT AUTHORIZED
 F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT CLOSED
 ```
+
+---
+
+## 2026-07-20 · DECISION-0191 — WORKER TENANT EXECUTION CONTRACT (docs-only, REDIGIDA/não-selada)
+
+- **Base:** HEAD `33027ee609221aca19cc8c944540a625c879fb1d` (rescue-structural). Modo docs-only · ZERO código/worker/migration/RLS/guard/runner/Bank · PORTA-1 fechada · execução material NÃO autorizada · SELF-SEAL NÃO permitido.
+- **Origem probatória:** AUDIT-002 Passe 2 · Lote F-3 (`PLANO_RECUPERACAO.md`) + auditoria institucional independente do F-3 (Opus 4.8, **Veredito B — decisão docs-only necessária**). Fecha nominalmente o resíduo #34 para os 3 workers da primeira tranche.
+- **Núcleo (D0):** reafirma [[DECISION-0149]] — TENANT-LOOP é o **único** modelo canônico de processamento cross-tenant no runtime normal (descobrir tenants por fonte não-RLS → unidade de trabalho por tenant → `app.current_tenant` → processar → encerrar contexto). Nenhum comportamento de código atual é exceção implícita.
+- **Rejeição explícita (D1):** `GLOBAL_READ_TENANT_SCOPED_WRITE` NÃO é categoria autorizativa — só descrição forense. Nenhuma categoria genérica de leitura global criada.
+- **Primeira tranche classificada (D2):** `governance-execution-worker.ts` = **TENANT_LOOP_REQUIRED** (D3; proibido usar `governance_proposals` como fonte global de descoberta; fato: sem try/catch por item); `risk-identity-reconcile.worker.ts` = **TENANT_LOOP_REQUIRED** + GATE prévio de `evaluateActorRisk` (D4; sem autorização global permanente de `actor_events`); `ledger-snapshot-worker.ts` = **TENANT_LOOP_REQUIRED OR RETIRE** · `FUNCTIONALLY_INERT/SAFE_NOOP_BY_RLS/HOLD` · `REVIVAL PROHIBITED WITHOUT MATERIAL GO` (D5). Pendentes de auditoria própria (SEM presunção de conformidade): `saga-timeout.worker.ts`, `reconciliation-scheduled.worker.ts`, `payment-worker.ts` + qualquer outro global. `reconciliation-engine-worker.ts` = conformidade parcial (tenant-loop com fonte própria, não o helper canônico).
+- **Tabelas (D6):** `governance_proposals`+`actor_events` = tenant-scoped com `RLS_GAP`; `bank_ledger` já RLS+FORCE. Ausência de RLS ≠ autorização global.
+- **Envelope material (D7):** conversão de worker + RLS+FORCE + policies + guards + provas no MESMO envelope; ordem load-bearing (RLS antes da conversão silenciaria os readers — defeito do ledger-snapshot).
+- **Causa-raiz do ponto cego (D8):** `audit-rls-tenant-context.mjs` exclui `src/workers/` da varredura — por isso os workers nunca foram classificados apesar da 0149. Guard futuro deve remover a exclusão (NÃO alterado aqui).
+- **Sequência governada (D15):** auditoria independente → selo → GATE ledger_snapshots consumers → GATE evaluateActorRisk → auditoria dos demais workers → envelopes materiais separados → GO material por tranche → código/migration/guards só depois. **F-4 fechado até decisão de Clayton.**
+- **Fora de escopo:** worker/tenant-loop material/queue/scheduler/Redis/migration/RLS/FORCE/policy/FK/guard/runner/banco/ledger/snapshot/risco/governança/PORTA-1/busca/frontend/Social/Bank/commit material.
+- **Encaminhamento:** decisão segue para auditoria independente docs-only antes de qualquer selo. Δbank=0.
