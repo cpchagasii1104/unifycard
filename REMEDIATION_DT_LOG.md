@@ -20301,3 +20301,24 @@ F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT CLOSED
 - **Sequência governada (D15):** auditoria independente → selo → GATE ledger_snapshots consumers → GATE evaluateActorRisk → auditoria dos demais workers → envelopes materiais separados → GO material por tranche → código/migration/guards só depois. **F-4 fechado até decisão de Clayton.**
 - **Fora de escopo:** worker/tenant-loop material/queue/scheduler/Redis/migration/RLS/FORCE/policy/FK/guard/runner/banco/ledger/snapshot/risco/governança/PORTA-1/busca/frontend/Social/Bank/commit material.
 - **Encaminhamento:** decisão segue para auditoria independente docs-only antes de qualquer selo. Δbank=0.
+
+---
+
+## 2026-07-20 · DECISION-0191 · WORKER TENANT EXECUTION CONTRACT · SELADA · VEREDITO A
+
+- **Status oficial:** `SELADA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA`.
+- **Commit de promulgação (byte-intacto):** `4223d3651c24793a4ff5577d97a8b804f21d4198` ("docs(decision): define canonical tenant execution for workers"). Este é o COMMIT 2 (selo cartorial) — a DECISION-0191 e seu corpo D0-D15 **não foram reeditados** neste ato.
+- **Auditoria independente docs-only (Opus 4.8, instância separada) concluída:** **Veredito A — selo completo recomendado**; **zero correção bloqueante**; os 4 fatos load-bearing re-verificados no código (exclusão `src/workers/` no guard; `governance_proposals`/`actor_events` sem RLS; `bank_ledger` RLS+FORCE). Observações **O1/O2 NÃO-BLOQUEANTES** (O1: o guard cobre parcialmente 3 outros workers observability via flag-list separada — D8 permanece preciso; O2: cartório cita base HEAD, não o commit de promulgação, correto e inevitável) — **não incorporadas como correção**, per o próprio veredito.
+- **Substância selada:** DECISION-0149 preservada (`0149_REAFFIRMED_EXACTLY`); TENANT-LOOP reafirmado como **único** modelo canônico cross-tenant no runtime normal; `GLOBAL_READ_TENANT_SCOPED_WRITE` **rejeitado** como categoria autorizativa (só descrição forense).
+- **Classificação nominal (primeira tranche):** `governance-execution-worker` = TENANT_LOOP_REQUIRED; `risk-identity-reconcile.worker` = TENANT_LOOP_REQUIRED + GATE prévio de `evaluateActorRisk`; `ledger-snapshot-worker` = TENANT_LOOP_REQUIRED OR RETIRE · HOLD · REVIVAL PROHIBITED WITHOUT MATERIAL GO. Pendentes sem presunção de conformidade: `saga-timeout`/`reconciliation-scheduled`/`payment-worker` + catch-all.
+- **Tabelas:** `governance_proposals`+`actor_events` = tenant-scoped com RLS_GAP; `bank_ledger` já RLS+FORCE. Ausência de RLS ≠ autorização global.
+- **Fronteiras preservadas:** Busca Omni/discovery público/localização (contratos próprios); Bank (nenhum bypass de `bank_ledger`); Actor/authority (nenhum actor_system/service role/BYPASSRLS/infra no runtime normal).
+- **Zero material autorizado. PORTA-1 fechada. F-4 fechado.**
+- **Próximos atos permanecem CONDICIONADOS (nenhum iniciado por este selo):** (1) GATE read-only de consumers de `ledger_snapshots`; (2) GATE read-only completo de `evaluateActorRisk`; (3) auditoria dos demais workers globais; (4) GO material próprio por tranche. Δbank=0.
+
+```
+DECISION-0191 · SELADA · VEREDITO A · SELO COMPLETO DOCS-ONLY · OFICIALMENTE ENCERRADA
+TENANT-LOOP REAFFIRMED AS SOLE CANONICAL CROSS-TENANT MODEL
+GLOBAL_READ_TENANT_SCOPED_WRITE REJECTED AS AUTHORIZATIVE CATEGORY
+PORTA-1 CLOSED · MATERIAL EXECUTION NOT AUTHORIZED · F-4 NOT STARTED
+```
