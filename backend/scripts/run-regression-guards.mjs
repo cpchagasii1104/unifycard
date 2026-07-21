@@ -212,6 +212,18 @@ const CMDS = [
   // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).
   "node scripts/audit-guard-coverage-manifest.mjs"
 ];
+// R3 self-wiring (F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT): garante que o meta-guard esteja EXATAMENTE
+// uma vez em CMDS[], com o path esperado, ANTES do loop. Nao executa o meta-guard; nao altera ordem;
+// nao cria segunda lista. A constante e o path esperado: se a entrada acima divergir dela (path
+// diferente, ausente, ou duplicada), a contagem != 1 e o runner falha fechado. Limite honesto: fecha
+// remocao acidental/isolada do wiring; remocao coordenada da entrada E desta precondicao e alteracao
+// deliberada do mecanismo e permanece visivel em code review.
+const COVERAGE_GUARD_CMD = 'scripts/audit-guard-coverage-manifest.mjs';
+const coverageWiring = CMDS.filter((c) => c.includes(COVERAGE_GUARD_CMD)).length;
+if (coverageWiring !== 1) {
+  console.error('\nGATE FAIL — self-wiring: ' + COVERAGE_GUARD_CMD + ' deve estar EXATAMENTE 1x em CMDS[] (encontrado: ' + coverageWiring + ').');
+  process.exit(1);
+}
 for (const c of CMDS) {
   const [bin, ...args] = c.split(/\s+/);
   const r = spawnSync(bin, args, { stdio: 'inherit', shell: true });

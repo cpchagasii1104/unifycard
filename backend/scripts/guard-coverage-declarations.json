@@ -1,5 +1,5 @@
 {
-  "_note": "F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2). Declara SOMENTE papeis que NAO podem ser derivados com seguranca das fontes de wiring. NAO duplica listas: os guards continuos diretos vem do CMDS[] do runner; os agregados vem dos arrays dos 2 agregadores; o CI_OTHER_COMMAND vem de package.json+workflow. Este JSON e a unica declaracao NOVA de alcance, e so para papeis nao-continuos (agregador/harness/ferramenta). O meta-guard NAO e fonte de qualidade dos guards (isso vive no AUDIT-002).",
+  "_note": "F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2). Declara SOMENTE papeis que NAO podem ser derivados com seguranca das fontes de wiring. NAO duplica listas: os guards continuos diretos vem do CMDS[] do runner; os agregados vem dos arrays dos 2 agregadores; o CI_OTHER_COMMAND vem do contrato external_commands abaixo (package.json + workflows obrigatorios). Este JSON e a unica declaracao NOVA de alcance, so para papeis nao-continuos e para o contrato do comando externo. O meta-guard NAO e fonte de qualidade dos guards (isso vive no AUDIT-002).",
   "_axes": {
     "reach": ["CI_DIRECT", "CI_AGGREGATED", "CI_OTHER_COMMAND", "NOT_CI_REQUIRED"],
     "role": ["CONTINUOUS_GUARD", "AGGREGATOR", "ONE_SHOT_HARNESS", "NON_GUARD_TOOL"]
@@ -18,5 +18,14 @@
   ],
   "non_guard_tool": [
     "audit-ownership-financial-phase1.ts"
+  ],
+  "external_commands": [
+    {
+      "audit_file": "audit-actor-writer-boundaries.mjs",
+      "npm_script": "validate:actor-writer-boundaries",
+      "required_workflows": ["backend-ci.yml", "ci.yml", "system-gates.yml"],
+      "contract": "ALL_THREE_REQUIRED",
+      "reason": "CI_OTHER_COMMAND: guard continuo rodado como step proprio de CI (nao no runner). Conta como coberto SOMENTE se o npm-script existir E os 3 workflows tiverem step ATIVO que o executa; remover a chamada de qualquer um dos tres, ou o npm-script, falha fechado."
+    }
   ]
 }
