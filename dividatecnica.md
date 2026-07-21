@@ -2430,3 +2430,13 @@ protocolo §4.3, disciplina §6 acima.*
 - **Tranche candidata (sem GO):** `F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION` (3 guards de reconhecimento de DDL) — `TRANCHE_COHERENT · NOT AUTHORIZED`.
 - **Artefato completo:** `docs/04_audit/F_GUARD_QUALITY_HARDENING_FRESH_MATRIX_2026-07-21.md` (84 linhas nominais + roster dos 30).
 - **AUDIT-002 e ROOT-003 permanecem intactos e selados.** Os 30 `ACTIVE_BUT_INCOMPLETE` permanecem abertos, sem hardening iniciado.
+
+## DT-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION — 🟡 1ª TRANCHE MATERIAL EXECUTADA · GUARD-ONLY · AGUARDA YALA (2026-07-21)
+
+- **Estado:** primeira tranche MATERIAL do backlog de hardening. Commit material `68e080c64` (6 arquivos, +495/-19, `test(guards): harden migration DDL recognition`). Guard-only: helper léxico neutro `backend/scripts/lib/sql-shape.mjs` + 3 guards endurecidos (event-reservations-mislabeled-fk, event-settlement-ghost, fiscal-canonical-house) + harness one-shot `audit-migration-ddl-recognition-mutations.mjs` + 1 linha no `guard-coverage-declarations.json`.
+- **Fecha:** reconhecimento de forma ÚNICA de DDL/DML nos 3 guards — agora estrutural: CREATE/CTAS/SELECT-INTO/RENAME/ADD-CONSTRAINT/schema-qual/quoted/JOIN/comma-join/CTE + EXECUTE resolvível. Invariantes permanecem separados (sem mega-guard); helper 100% léxico (sem nome de negócio, sem I/O, sem estado).
+- **Política SQL dinâmico:** escopada ao token-alvo (não fail-closed universal); irresolvível aceito com diagnóstico determinístico.
+- **Provas:** harness 37/37; 3 guards + agregador + meta-guard + runner (201) verdes; repeated-run OK; `git diff --check` limpo. Meta-guard: universo 284 · NOT_CI_REQUIRED 8 · ONE_SHOT 7 · drift 0 · ACTIVE_NOT_ENFORCED 0; runner 201 inalterado.
+- **Limites honestos:** nome de coluna alternativo arbitrário fora do Guard 1 (OUT_OF_SCOPE, anti-over-broadening); SQL dinâmico irresolvível; CTE/comma-join heurístico.
+- **Zero produto/DB/migration/workflow/package/runner-command/agregador.** ROOT-003 e AUDIT-002 intactos.
+- **NÃO SELADA — aguarda Yala independente** do HEAD `68e080c64`. Os outros 27 `ACTIVE_BUT_INCOMPLETE` permanecem abertos.
