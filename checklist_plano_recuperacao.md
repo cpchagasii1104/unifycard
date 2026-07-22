@@ -84,14 +84,22 @@ product-neutral) → F1 taxonomia ingresso+capacidade → F2 event_actors (line-
 declarativo) → F3 RFQ+descoberta acopladas → F4 vaquinha estado (ratif.) → F5 comissão/split→fundo
 (ratif.) → F6 dinheiro PORTA-01. F0-F3 não dependem de ratificação.
 
-## Frente material ativa: FATIA 0 — MOTOR ÚNICO (writer único de evento)
-- Instância: executora, Opus, alto. GO material emitido, base `5acf0dae5`. Aguardando parecer.
-- Escopo: `core/events/event.service` = writer único; conter/rotear o writer legado (modules/events);
-  guard anti-revival do INSERT paralelo. É §2/§4.8 em ato. Bank-free, product-neutral.
-- TRAVA: etapa 1 = mapear TODOS os writers/callers/frontends de criação de evento e PARAR se a
-  convergência não for limpa/product-neutral ou quebrar criação viva.
-- §4.9.8: converge autoridade tocada para a fachada authority.service (não novo uso direto).
-- Próxima ação: parecer volta → direção verifica → Yala → selo → F1 (taxonomia ingresso+capacidade).
+## Estratégia-mãe (Clayton autorizou proceder, respeitando o que existe + leis/normas)
+O guided flow (8 passos em /events/new) JÁ É o motor único (concept-first→descrição→tempo→local→
+operação/contratação→economia→publicação). Caminho: fazer o guided flow ser o ÚNICO caminho e ACENDER
+cada passo por trás reusando os ~70% prontos, Bank-free, coherence-bound; dinheiro (porta-01) por último.
+Mapa: EVENT_ENGINE_COUPLING_MAP.md. Norma já decidiu: writer canônico = format-first (event_type
+depreciado, migration 20260708310000); localização = Location Core (0020).
+
+## Frente material ativa: FATIA 0 — WRITER ÚNICO + guided flow como caminho único
+- DECISÃO EMBUTIDA (Clayton): aposentar telas legadas de criação → rotear ao guided flow, PRESERVANDO
+  a função (inclusive criar evento em grupo). Não converger formulário legado no lugar.
+- Escopo: format-first (core/events createDraft) = writer único; conter órfãos W1(eventType POST /)+
+  W3(sprint76 POST /events); rotear W2 legado (/api/events/create, GrupoDetailPage) ao guided flow
+  preservando contexto de grupo; guard anti-revival; converger autoridade tocada p/ fachada §4.9.8.
+- TRAVA mantida: mapa-first; PARA se rotear ao guided flow quebrar criação de grupo (aí F0 inclui o
+  ajuste mínimo do contexto de grupo, ou reporta). Bank-free.
+- Próxima ação: parecer → direção verifica → Yala → selo → acender Step3(tempo)/Step4(local) etc.
 
 ## Decisões §6 (trago quando a fatia chegar; não bloqueiam F0-F3)
 emissão agregado×QR-individual · vaquinha (limiar/prazo/devolução) · comissão%→fundo regional/indicação/
