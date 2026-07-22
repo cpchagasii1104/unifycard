@@ -5,6 +5,25 @@
 > Tese de produto em memória: [motor único Actor-projetado] + [economia margem→fundo regional].
 > **Lei deste trabalho: ACOPLAR pela arquitetura promulgada, nunca greenfield.** Guia: `GUIA_MESTRE_ACOPLAMENTO_CRM_ERP_PDV.md` §8.
 
+## LEI DE COERÊNCIA SISTÊMICA — VINCULAÇÃO OBRIGATÓRIA (transversal a TODAS as fatias)
+`docs/01_normative/LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md` governa todo este trabalho.
+- **§2 (fundamental):** o sistema é único; nenhuma camada cria realidade paralela. → converger writers/
+  materializar slots existentes; NUNCA duplicar tabela/enum/verdade. A Fatia 0 (writer único) É este princípio.
+- **§3.2 (pilar→SSOT):** os 6 pilares que o motor cruza ancoram cada um na SUA fonte, sem paralelo:
+  identity→`actors` (SÓ via `actor-writer.service`, §4.8.1 — nunca INSERT paralelo, inclusive ao materializar
+  `event_actors`) · time→`availability`/`bookings` (0156) · authority→`authority.service`+SSOT §5.16 ·
+  state→ciclo de vida do evento · money→`bank_ledger` (só porta-01) · semântica→`concepts`.
+- **§3.1.2:** não confundir o PILAR `event` (dimensão universal) com o DOMÍNIO de produto "evento"
+  (bilheteria/agenda) — nomear entidade/módulo explicitamente.
+- **§4.8 (writer único/âncora):** actors só pelo writer; âncora civil `responsible_actor_id` onde exigida.
+- **§4.9 (authority):** validação obrigatória ANTES de mutação sensível (§4.9.5); quarentena checada primeiro
+  (§4.8.4); PROIBIDO enum/tabela de permissão paralela (§4.9.7) → tipo de ingresso = CHECK, não enum novo.
+- **§4.9.8 (fachada) — TRILHO TRANSVERSAL:** autoridade de eventos DEVE convergir para a fachada
+  `authority.service` (aplica quarentena + delega ao `authorization.service` core). HOJE vários pontos usam
+  `authorizationService` DIRETO (event.routes, events-sprint76.routes, event-rfq.routes, event-visibility) —
+  estado de transição a convergir; NÃO introduzir novos usos diretos. Cada fatia que tocar autoridade de
+  evento converge o ponto que tocar para a fachada.
+
 ## TESE
 O motor de eventos é UM SÓ; o que diverge é QUEM cria (Actor) e a escala/modo (context-projection). Ele
 **orquestra tudo** — descoberta → agenda (tempo SSOT) → contratação → local/setores → ingresso — muito maior
