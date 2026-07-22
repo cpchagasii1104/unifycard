@@ -106,7 +106,18 @@ Vínculo governado evento↔grupo no writer format-first (autoridade antes da es
 3 Vereditos B precederam (fachada não-transacional, group-actor lazy) — cada um substrato real corrigido.
 DTs registradas: group_events-drift (W2, OPEN até writer-único), facade-no-transacional-represent, group-actor-not-eager.
 
-## Próxima frente: F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
+## Executando o PLANO: EVENT_ENGINE_COMPLETION_PLAN.md (A1..G, coherence-bound)
+Clayton autorizou executar o plano completo. Direção gerencia executora+Yala, backend-truth, SSOT, §coerência.
+
+## Frente material ativa: A1 — WRITER ÚNICO DE EVENTO
+- Instância: executora, Opus, alto. GO MATERIAL emitido, base `3495e81f0`. Aguardando parecer.
+- Backend: conter W1(rota '/'), W2(/api/events/create), W3(sprint76 /events) → 501 ANTES do INSERT legado +
+  neutralizar os métodos legados; NÃO tocar core/events createEvent (motor canônico). Frontend: rotear
+  EventDeclarationForm/Wizard/GrupoDetailPage ao guided flow (com contexto de grupo — F0-grupo). Guard "no
+  INSERT fora de core/events". Prova por API DIRETA. Fecha DT-GROUP-EVENTS-BINDING-DRIFT. Bank-free.
+- Próxima ação: parecer → direção verifica → Yala → selo → C1/C2/C3 (performers+line-up+contratação).
+
+## (histórico) F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
 Agora que o backend governado cobre criação de grupo, dá para aposentar o W2: conter no BACKEND os 3
 caminhos legados de INSERT INTO events — W1 rota '/' (eventType, órfã), W2 (/api/events/create, GrupoDetailPage)
 e W3 (sprint76 /events, órfã) — 501/redirect ANTES do INSERT, provado por API DIRETA (não "frontend não chama");
