@@ -5,11 +5,46 @@ import type { FastifyInstance } from 'fastify';
 import { eventRepository } from './event.repository';
 import { ticketService } from './ticket.service';
 import { checkInService } from './checkin.service';
+import { eventTicketRepository } from './event-ticket.repository';
 import type {
   CreateEventInput,
   CreateEventTicketInput,
   ReserveTicketInput,
 } from './event.types';
+import type { UpdateEventTicketInput } from './event-ticket.repository';
+
+/**
+ * 🔒 F-EVENT-TICKETING-CONVERGENCE (Fatia 1) — autoridade de CATÁLOGO de ingresso: o actor DONO
+ * do evento (event.organizerActorId, server-resolved) precisa da CHAVE EXATA (create_events para
+ * criar tipo novo; manage_events para editar tipo existente) — nunca representação isolada
+ * (DECISION-0189A §3) nem o hint client-declarado (DECISION-0113). Espelha `userCanActOnActor` de
+ * core/events/event.routes.ts (mesmo predicado; duplicado localmente porque aquele helper é
+ * privado ao módulo core/events e este arquivo vive em modules/events).
+ */
+async function userCanActOnEventOwner(
+  tenantId: string,
+  userId: string | undefined,
+  eventOwnerActorId: string | undefined,
+  permissionKey: 'create_events' | 'manage_events'
+): Promise<boolean> {
+  if (!userId || !eventOwnerActorId) return false;
+  const { authorizationService } = await import('@core/authorization/authorization.service');
+  try {
+    if ((await authorizationService.canActAs(tenantId, userId, eventOwnerActorId, permissionKey)).allowed) {
+      return true;
+    }
+    // Evento de GRUPO: sem chave de governança de grupo (fora do escopo desta campanha) — mantém
+    // o comportamento anterior (dono representa), mesma exceção do precedente em core/events.
+    const { socialPortsRegistry } = await import('@core/social/ports-registry');
+    const actor = await socialPortsRegistry.getActorRepository().findById(tenantId, eventOwnerActorId);
+    if (actor && (actor as { group_id?: string | null }).group_id) {
+      return await authorizationService.canRepresentActor(tenantId, userId, eventOwnerActorId);
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 /** Mesma auditoria que o wrapper sprint76 removido (create + audit). */
 async function recordSprint76EventAudit(
@@ -256,31 +291,75 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'Tenant é obrigatório' });
     }
     const tenantId = req.tenant.id;
-    const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
-    }
-
-    // 🔴 F-CAMADA-1-GATE-ACTIONCTX (DECISION-0113): actionContext.actorId é HINT, NÃO autoridade.
+    // 🔴 F-EVENT-TICKETING-CONVERGENCE (Fatia 1): autoridade é sobre o DONO DO EVENTO
+    // (event.organizerActorId, server-resolved), NÃO sobre actionContext.actorId (HINT, DECISION-0113).
+    // create_events = chave exata para criar tipo novo (DECISION-0189A §3).
     const userId = req.user?.userId;
     if (!userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+      return reply.status(401).send({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
     }
-    const { authorizationService } = await import('@core/authorization/authorization.service');
-    if (!(await authorizationService.canRepresentActor(tenantId, userId, actionContext.actorId))) {
-      return reply.status(403).send({ error: 'ACTOR_REPRESENTATION_DENIED', code: 'ACTOR_REPRESENTATION_DENIED' });
+    const event = await eventRepository.getEventById(tenantId, req.params.id);
+    if (!event) {
+      return reply.status(404).send({ error: 'Evento não encontrado' });
+    }
+    if (!(await userCanActOnEventOwner(tenantId, userId, event.organizerActorId, 'create_events'))) {
+      return reply.status(403).send({ error: 'EVENT_TICKET_TYPE_ACTOR_NOT_AUTHORIZED', code: 'EVENT_TICKET_TYPE_ACTOR_NOT_AUTHORIZED' });
     }
 
     const ticket = await ticketService.createTicketType(
       tenantId,
       req.params.id,
       req.body,
-      actionContext.actorId,
+      event.organizerActorId,
       userId
     );
 
     return reply.status(201).send(ticket);
+  });
+
+  /**
+   * PATCH /events/:id/tickets/:ticketId
+   * Edita tipo de ingresso (preço/quantidade/moeda/metadata) — catálogo (Fatia 1). Bank-free
+   * (price_cents = valor ANUNCIADO, nunca cobrança). manage_events = chave exata para editar tipo
+   * já existente (DECISION-0189A §3), espelhando PATCH /events/:id em core/events/event.routes.ts.
+   */
+  fastify.patch<{
+    Params: { id: string; ticketId: string };
+    Body: UpdateEventTicketInput;
+  }>('/events/:id/tickets/:ticketId', async (req, reply) => {
+    if (!req.tenant?.id) {
+      return reply.status(400).send({ error: 'Tenant é obrigatório' });
+    }
+    const tenantId = req.tenant.id;
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
+    const event = await eventRepository.getEventById(tenantId, req.params.id);
+    if (!event) {
+      return reply.status(404).send({ error: 'Evento não encontrado' });
+    }
+    if (!(await userCanActOnEventOwner(tenantId, userId, event.organizerActorId, 'manage_events'))) {
+      return reply.status(403).send({ error: 'EVENT_TICKET_TYPE_ACTOR_NOT_AUTHORIZED', code: 'EVENT_TICKET_TYPE_ACTOR_NOT_AUTHORIZED' });
+    }
+
+    // Anti-IDOR: o tipo de ingresso deve pertencer ao evento declarado no path.
+    const existingTicket = await eventTicketRepository.getTicketById(tenantId, req.params.ticketId);
+    if (!existingTicket || existingTicket.eventId !== req.params.id) {
+      return reply.status(404).send({ error: 'Tipo de ingresso não encontrado neste evento' });
+    }
+
+    try {
+      const updated = await ticketService.updateTicketType(tenantId, req.params.ticketId, req.body);
+      return reply.send(updated);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Erro ao atualizar tipo de ingresso',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   });
 
   /**

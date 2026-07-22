@@ -21,11 +21,15 @@ const feed = read('src/core/feed/feed.routes.ts');
 const loc = read('src/core/location/me-active-location.routes.ts');
 const inbox = read('src/modules/inbox/social-inbox.routes.ts');
 const services = read('src/modules/services/services.routes.ts');
+const eventsSprint76 = read('src/modules/events/events-sprint76.routes.ts');
+const eventTicketRepo = read('src/modules/events/event-ticket.repository.ts');
 
 // código sem comentários (o gate é código, não menção em comentário)
 const strip = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
 const idC = strip(identity), soC = strip(social), fdC = strip(feed);
 const svcC = strip(services);
+const es76C = strip(eventsSprint76);
+const etrC = strip(eventTicketRepo);
 
 // A prova é a PRESENÇA do call de representação sobre o actor declarado, no arquivo (lock de
 // regressão: remover o gate faz o guard morder). Cada um provado adversarial/estruturalmente.
@@ -70,6 +74,28 @@ check('services availability POST/PUT provam canRepresentActor(req.user.userId, 
   (svcC.match(/canRepresentActor\(\s*req\.tenant\.id,\s*userId,\s*current\.actorId\s*\)/g) || []).length >= 3 &&
   /createServiceAvailability\(\s*req\.tenant\.id,\s*current\.actorId/.test(svcC) &&
   /updateServiceAvailability\(\s*req\.tenant\.id,\s*current\.actorId/.test(svcC));
+
+// F-EVENT-TICKETING-CONVERGENCE (Fatia 1) — criar/editar TIPO de ingresso é ato do DONO DO EVENTO
+// (event.organizerActorId, server-resolved), não do actionContext.actorId (hint client-declared,
+// DECISION-0113). Regressão = voltar a carimbar o hint cru como autoridade OU perder a chave exata
+// (create_events/manage_events) sobre o dono do evento (DECISION-0189A §3).
+// Escopado ao SINK (não ao arquivo inteiro — POST /events e /tickets/:id/reserve legitimamente
+// seguem usando canRepresentActor(tenantId, userId, actionContext.actorId) para SEU PRÓPRIO
+// escopo, fora desta fatia). O lock é: o sink de criar/editar TIPO recebe o dono do evento
+// (event.organizerActorId), nunca o hint cru.
+check('events-sprint76 createTicketType/updateTicketType NÃO recebem actionContext.actorId cru',
+  !/createTicketType\(\s*tenantId,\s*req\.params\.id,\s*req\.body,\s*actionContext\.actorId/.test(es76C) &&
+  /createTicketType\(\s*tenantId,\s*req\.params\.id,\s*req\.body,\s*event\.organizerActorId/.test(es76C));
+check('events-sprint76 tipo de ingresso prova chave exata sobre o dono do evento (create_events + manage_events)',
+  /userCanActOnEventOwner\(\s*tenantId,\s*userId,\s*event\.organizerActorId,\s*'create_events'\s*\)/.test(es76C) &&
+  /userCanActOnEventOwner\(\s*tenantId,\s*userId,\s*event\.organizerActorId,\s*'manage_events'\s*\)/.test(es76C));
+
+// event-ticket.repository.ts convergido ao schema vivo — nunca mais coluna-fantasma quantity_sold
+// (a migration real tem quantity_available; toda query com quantity_sold estoura em runtime).
+check('event-ticket.repository.ts NÃO referencia a coluna-fantasma quantity_sold em código (fora de comentário)',
+  !/quantity_sold/.test(etrC));
+check('event-ticket.repository.ts usa quantity_available (coluna real) no CREATE/SELECT/UPDATE',
+  (etrC.match(/quantity_available/g) || []).length >= 4);
 
 if (fails.length) {
   console.error(`\nACTOR-IMPERSONATION-WRITES: ${fails.length} FAIL`);

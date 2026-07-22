@@ -1,7 +1,7 @@
 // backend/src/modules/events/ticket.service.ts
 // SPRINT 76: EVENTS + TICKETING + CHECK-IN (CANÔNICO)
 
-import { eventTicketRepository } from './event-ticket.repository';
+import { eventTicketRepository, type UpdateEventTicketInput } from './event-ticket.repository';
 import { ticketSaleRepository } from './ticket-sale.repository';
 import { eventRepository } from './event.repository';
 import type { PaymentCurrency } from '../marketplace/payment-intent.types';
@@ -76,6 +76,26 @@ class TicketService {
     });
 
     return ticket;
+  }
+
+  /**
+   * Edita tipo de ingresso (catálogo — Fatia 1 de F-EVENT-TICKETING-CONVERGENCE). Bank-free
+   * (price_cents = valor ANUNCIADO, nunca cobrança). Autoridade já provada na rota (manage_events
+   * sobre o dono do evento); este método não re-verifica ownership, só delega ao repositório.
+   */
+  async updateTicketType(
+    tenantId: string,
+    ticketId: string,
+    input: UpdateEventTicketInput
+  ): Promise<EventTicket> {
+    const updated = await eventTicketRepository.updateTicket(tenantId, ticketId, input);
+
+    await this.recordAudit(tenantId, {
+      eventType: 'EVENT_TICKET_UPDATED',
+      ticketId: updated.id,
+    });
+
+    return updated;
   }
 
   /**
