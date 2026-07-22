@@ -136,12 +136,20 @@ Arco Fase A: F1 → contenção bilheteria → F0-grupo → A1b → A1c. (map-fi
 - Decisão da direção (reversível): MVP começa por apresentação musical (caso central: bar contrata banda);
   lutador/esportista/DJ/teatro = verticais incrementais.
 
-## Frente material ativa: C1a — performer publica oferta contratável (musical)
-- Instância: executora, Opus, alto. GO MATERIAL emitido, base `63a10a67f`. Aguardando parecer.
-- Escopo: semear o concept-oferta governado `apresentacao-musical` (domain='servicos', offer_kind='service')
-  espelhando o seed selado 20260708350000/gate 20260708330000. O performer reusa a cadeia SELADA
-  service→service_offering→availability; descoberta concept-keyed acha. Bank-free. NÃO reviver cultural PAC.
-- Próxima ação: parecer → verifico → Yala → selo → C1b (facet de gênero + descoberta por gênero) → C2 event_actors.
+## ✅ C1a SELADA (Yala Veredito A, `66c5a6dc6`) — performer publica oferta musical (sem código de app)
+Concept governado apresentacao-musical; banda reusa o trilho selado service_offering (descoberta+agenda).
+
+## Frente material ativa: C1b — facet multi-gênero + descoberta por gênero e data (backend do catálogo Netflix)
+- Instância: executora, Opus, alto. GO a emitir. Base = HEAD do selo C1a.
+- Desenho (direção): elo MUITOS-PARA-MUITOS oferta↔subject-concept de gênero (espelhar event_theme_links);
+  reusar os gêneros JÁ semeados em shared_subject_concepts (rock/samba/funk/…); writer p/ a banda taguear
+  seus gêneros (autoridade canRepresentActor do provider); estender discoverServices com filtro por gênero.
+  DATA já vem selada (0156 D2/D3 — descoberta filtra por disponibilidade futura). Multi-gênero por banda.
+  Bank-free. NÃO seed de gênero novo (reusa os existentes).
+- Próxima: C1-atributos (raio-x: equipamento/capacidade/seguidores/configs voz-e-violão×banda×produção/
+  tamanho de equipe — ver memória) → C2 event_actors → C3 contratação. Frontend catálogo Netflix = E1.
+- Decisões soberanas guardadas p/ Fase G (dinheiro): comissão→fundo regional/indicação (código de indicação
+  residual 1-2 anos), vaquinha, multi-vendedor. Ver memória project_visao_bilheteria + motor_eventos.
 
 ## (histórico) F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
 Agora que o backend governado cobre criação de grupo, dá para aposentar o W2: conter no BACKEND os 3
