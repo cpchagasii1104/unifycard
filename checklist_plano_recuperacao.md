@@ -72,11 +72,23 @@ orquestra descoberta→agenda→contratação→local→ingresso; economia→fun
 não tijolos. Espinha reusável: oferta contratável (artista/banda/local) = service_offering c/ agenda.
 Visões em memória: project_visao_motor_eventos_unico_ator_projetado + project_visao_bilheteria_grandes_promotores.
 
-## Próxima ação: validar o roadmap de acoplamento com Clayton
-Roadmap Bank-free proposto (S0 motor único → S1 oferta contratável → S2 contratação orquestrada →
-S3 agenda coordenada → S4 local/setores/ingresso → S5 vaquinha → S6 frontend → PORTA-01 dinheiro).
-S0 é pré-requisito. HOLDs deliberados a levantar: acceptQuote (R7b), booking evento→fornecedor (0156),
-evento→locação (RFC). Decisões soberanas isoladas no mapa. Aguarda Clayton validar/sequenciar antes de GATE de S0.
+## GATE de acoplamento EXECUTADO · Veredito A (cross-validado com o mapa da direção)
+Fatos decisivos verificados pela direção: UMA tabela `events` (20260525100000) com DOIS writers
+(core/events governado × modules/events legado) — F0 = convergir o WRITER, não juntar stacks
+(mais barato, product-neutral). "Estabelecimento" = tríade page+company VERIFIED+capability (0189),
+não actor_type novo. `event_actors` só existe como TIPO (materializar o slot). Cultural PAC ghost =
+CONVERGIR p/ C1+services+page/company, não reviver.
+
+Roadmap refinado (todas Bank-free até PORTA-01): F0 motor único (writer convergence, GO-READY,
+product-neutral) → F1 taxonomia ingresso+capacidade → F2 event_actors (line-up/elenco/equipe/local
+declarativo) → F3 RFQ+descoberta acopladas → F4 vaquinha estado (ratif.) → F5 comissão/split→fundo
+(ratif.) → F6 dinheiro PORTA-01. F0-F3 não dependem de ratificação.
+
+## Próxima ação
+F0 GO-READY. Aguarda Clayton: (a) disparar GO material F0 (Opus, alto — writer convergence, mapear
+callers/stop-if-surprised) e/ou (b) ratificar decisões soberanas §6 em paralelo (emissão agregado vs
+QR-individual · vaquinha · comissão%→fundo · multi-vendedor · capability estabelecimento · venue/setores
+MVP · abertura firewall). F0 não espera as ratificações.
 
 ## Parado / bloqueado (nada a retomar agora)
 - (nenhum — 2A é a única frente material aberta no momento)
