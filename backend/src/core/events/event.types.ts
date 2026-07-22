@@ -193,6 +193,12 @@ export interface CreateEventInput {
   ticketPriceCents?: number | null;
   maxAttendees?: number | null;
   metadata?: Record<string, any>;
+  // F0-grupo (F-EVENT-ENGINE-COUPLING): vínculo GOVERNADO evento↔grupo. Ambos SERVER-SIDE (nunca
+  // client-declared como identidade): group_id = grupo alvo; actingUserId = principal autenticado
+  // (req.user.userId), threaded da rota, para provar canRepresentActor sobre o group-actor NO MESMO
+  // client transacional. Presentes juntos ou ausentes juntos (group_id sem actingUserId → 403).
+  group_id?: string;
+  actingUserId?: string;
 }
 
 /**

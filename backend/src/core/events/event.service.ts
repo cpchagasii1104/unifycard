@@ -2,7 +2,10 @@
 // Service de eventos conforme CONTRATO DE EVENTOS v1
 // FASE 4: BACKEND DOMAIN (EVENTS CORE)
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, pool } from '@core/database/pool';
+import type { PoolClient } from 'pg';
+import { authorizationService } from '@core/authorization/authorization.service';
+import { socialPortsRegistry } from '@core/social/ports-registry';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
 import { assertNeighborhoodRequiresCity, mapAddressTerritorialConstraintError } from '@core/location/address-territorial-errors';
 import { eventModeratorService } from './event-moderator.service';
@@ -242,9 +245,7 @@ class EventService {
     const datetimeStart = input.datetimeStart || null;
     const datetimeEnd = input.datetimeEnd || null;
     
-    const row = await runQueryWithTenant<EventRow>(
-      tenantId,
-      `
+    const insertEventSql = `
       INSERT INTO events (
         tenant_id,
         actor_id,
@@ -263,24 +264,30 @@ class EventService {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
-      `,
-      [
-        tenantId,
-        input.actorId,
-        input.actorType,
-        input.eventType,
-        input.eventSubtype || null,
-        input.title,
-        input.description || null,
-        datetimeStart,
-        datetimeEnd,
-        'draft', // Sempre começa como draft
-        visibility,
-        input.ticketPriceCents || null,
-        input.maxAttendees || null,
-        JSON.stringify(input.metadata || {}),
-      ]
-    );
+    `;
+    const insertEventParams = [
+      tenantId,
+      input.actorId,
+      input.actorType,
+      input.eventType,
+      input.eventSubtype || null,
+      input.title,
+      input.description || null,
+      datetimeStart,
+      datetimeEnd,
+      'draft', // Sempre começa como draft
+      visibility,
+      input.ticketPriceCents || null,
+      input.maxAttendees || null,
+      JSON.stringify(input.metadata || {}),
+    ];
+
+    // F0-grupo (F-EVENT-ENGINE-COUPLING): com group_id, a criação do evento E o vínculo group_events
+    // rodam na MESMA transação, governados e ATÔMICOS (§4.8). Sem group_id, mantém o caminho avulso
+    // (autocommit) INALTERADO.
+    const row = input.group_id
+      ? await this.createEventBoundToGroup(tenantId, input, insertEventSql, insertEventParams)
+      : await runQueryWithTenant<EventRow>(tenantId, insertEventSql, insertEventParams);
 
     if (!row) {
       throw new Error('Falha ao criar evento');
@@ -297,6 +304,98 @@ class EventService {
     // Nota: Log em routes.ts já cobre isso, mas mantemos aqui para consistência
 
     return event;
+  }
+
+  /**
+   * F0-grupo (F-EVENT-ENGINE-COUPLING): cria o evento E o vínculo governado evento↔grupo numa ÚNICA
+   * transação atômica (§4.8) — ou ambos, ou nenhum. Autoridade = REPRESENTAR o group-actor, provada
+   * ANTES de qualquer escrita de evento (§4.9.5), fail-closed 403 → ROLLBACK, NADA de evento criado.
+   *
+   * §4.8.1 (side-effect governado e RATIFICADO): o group-actor é LAZY (createGroup não o cria; groups.
+   * actor_id é NULL até o heal). Antes da prova, `findOrCreateGroupActor` (port → social/actor.repository,
+   * exceção canônica §4.8.1; valida âncora civil §4.8.2; idempotente) MATERIALIZA o group-actor via a
+   * PRÓPRIA transação e back-linka groups.actor_id — CURA em direção ao 1:1 canônico que a migration
+   * 20260530576000 exige, não realidade paralela. Hardening futuro = createGroup eager:
+   * DT-GROUP-ACTOR-NOT-EAGERLY-CREATED. Se findOrCreateGroupActor lançar (ex.: grupo sem owner_actor_id
+   * §4.8.2), a criação inteira falha ANTES de qualquer escrita de evento (fail-closed) — erro propaga.
+   *
+   * §4.9.8 (TRANSIÇÃO DOCUMENTADA): usa `authorizationService.canRepresentActor(..., client)` DIRETO no
+   * core, TRANSACTION-AWARE (mesmo client), espelhando o precedente SELADO `group-actor-membership.service`
+   * (remediação D9.1, aprovado pela Yala). A fachada `authority.service` é NÃO-transacional e NÃO expõe
+   * representação — não pode prover a atomicidade §4.8. Convergência = DT-AUTHORITY-FACADE-NO-TRANSACTIONAL-
+   * REPRESENT (fatia futura). NÃO introduzir canActAs solto fora deste padrão.
+   */
+  private async createEventBoundToGroup(
+    tenantId: string,
+    input: CreateEventInput,
+    insertEventSql: string,
+    insertEventParams: unknown[]
+  ): Promise<EventRow> {
+    if (!input.group_id) {
+      throw new BadRequestError('createEventBoundToGroup exige group_id');
+    }
+    if (!input.actingUserId) {
+      // actingUserId é server-side (req.user.userId), threaded pela rota. Sem ele não há como provar
+      // representação do group-actor — fail-closed (nunca vincular sob incerteza de autoria).
+      throw new ForbiddenError('EVENT_GROUP_BINDING_NO_PRINCIPAL: principal autenticado (server-side) obrigatório para vincular evento a grupo');
+    }
+    const groupId = input.group_id;
+    const actingUserId = input.actingUserId;
+
+    // Lazy-heal do group-actor ANTES da transação de bind (transação própria, idempotente, §4.8.1/§4.8.2).
+    // Falha aqui aborta TUDO antes de qualquer escrita de evento (fail-closed).
+    await socialPortsRegistry.getActorRepository().findOrCreateGroupActor(tenantId, groupId);
+
+    const client: PoolClient = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantId]);
+      // Advisory xact lock por tenant+group (serializa a evidência de autoridade antes da escrita).
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('event_group_binding:' || $1::text || ':' || $2::text, 0))`,
+        [tenantId, groupId]
+      );
+
+      // Resolve o group-actor (agora materializado) via groups.actor_id FOR SHARE — a evidência de
+      // autoridade não pode mudar sob nós.
+      const groupRes = await client.query<{ actor_id: string | null }>(
+        `SELECT actor_id::text AS actor_id FROM groups WHERE tenant_id = $1 AND id = $2 FOR SHARE`,
+        [tenantId, groupId]
+      );
+      const groupActorId = groupRes.rows[0]?.actor_id;
+      if (!groupActorId) {
+        // Não deveria ocorrer após o heal; fail-closed defensivo.
+        throw new NotFoundError('EVENT_GROUP_ACTOR_UNRESOLVED: group-actor não resolvido após materialização');
+      }
+
+      // AUTORIDADE fail-closed ANTES do write (§4.9.5): o principal representa o group-actor, no MESMO
+      // client (transaction-aware; infra-error PROPAGA — nunca vira false silencioso).
+      const represents = await authorizationService.canRepresentActor(tenantId, actingUserId, groupActorId, client);
+      if (!represents) {
+        throw new ForbiddenError('EVENT_GROUP_BINDING_NOT_REPRESENTED: principal não representa o group-actor');
+      }
+
+      // INSERT do evento no MESMO client.
+      const evRes = await client.query<EventRow>(insertEventSql, insertEventParams);
+      const row = evRes.rows[0];
+      if (!row) {
+        throw new Error('Falha ao criar evento');
+      }
+
+      // Vínculo group_events — SÓ as colunas reais do schema vivo (id/created_at por default).
+      await client.query(
+        `INSERT INTO group_events (tenant_id, group_id, event_id) VALUES ($1, $2, $3)`,
+        [tenantId, groupId, row.id]
+      );
+
+      await client.query('COMMIT');
+      return row;
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch { /* conexão possivelmente inutilizada */ }
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   /**

@@ -2318,9 +2318,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
                 datetime_end: { type: ['string', 'null'], format: 'date-time' },
                 visibility: { type: 'string', enum: ['public', 'connections', 'only_me'] },
                 max_attendees: { type: ['number', 'null'] },
+                group_id: { type: ['string', 'null'], format: 'uuid' },
               },
             },
             event_id: { type: ['string', 'null'], format: 'uuid' },
+            group_id: { type: ['string', 'null'], format: 'uuid' },
           },
         },
       },
@@ -2378,6 +2380,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
                 datetimeEnd: rawEvent.datetime_end ?? rawEvent.datetimeEnd ?? undefined,
                 visibility: rawEvent.visibility ?? undefined,
                 maxAttendees: rawEvent.max_attendees ?? rawEvent.maxAttendees ?? null,
+                // F0-grupo: vínculo governado evento↔grupo. group_id vem do wire (event.group_id ou
+                // top-level); actingUserId é SERVER-SIDE (req.user.userId), nunca do cliente — a
+                // autoridade (representar o group-actor) é provada no writer transacional.
+                group_id: rawEvent.group_id ?? rawEvent.groupId ?? rawBody?.group_id ?? undefined,
+                actingUserId: req.user.userId,
               }
             : undefined,
         } as CreateDraftInput;

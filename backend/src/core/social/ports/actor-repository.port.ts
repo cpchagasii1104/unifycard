@@ -46,6 +46,13 @@ export interface ActorRepositoryPort {
   findByCompanyId(tenantId: string, companyId: string): Promise<ActorRow | null>;
   findOrCreateUserActor(tenantId: string, userId: string): Promise<ActorRow>;
   /**
+   * Resolve-ou-cria o group-actor (actor_type='group') do grupo, materializando o 1:1 canônico
+   * (INSERT actors §4.8.1 + back-link groups.actor_id) que a migration 20260530576000 exige. Gere a
+   * PRÓPRIA transação (lazy-heal durável, idempotente); valida âncora civil §4.8.2. Já implementado no
+   * adapter; exposto no port p/ callers governados (F0-grupo). Fail-closed (grupo sem owner_actor_id → throw).
+   */
+  findOrCreateGroupActor(tenantId: string, groupId: string): Promise<ActorRow>;
+  /**
    * Variante client-aware/transacional de `findOrCreateUserActor` (F-C1-BIRTH-MINIMUM-ATOMIC-ORGANIC):
    * cria o user-actor humano na transação do caller (nascimento atômico global_user→user→identity→actor).
    * NÃO abre/commita transação; assume tenant context ativo no `client` (RLS). Fail-closed.
