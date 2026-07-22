@@ -321,10 +321,26 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) {
         return reply.status(400).send({ error: 'Invalid request body', details: parsed.error.errors });
       }
+      // 🔴 AUDIT-004 — autoridade da agenda vem da REPRESENTAÇÃO do actor DONO (server-resolved a
+      // partir do serviço atual), não de actionContext.actorId declarado pelo cliente. req.user.userId
+      // DEVE representar current.actorId via canRepresentActor (fail-closed → 403) ANTES de escrever.
+      // Espelha POST / (L84) e PUT /:id (L230); alinhado ao core availability (unified-*.routes L254).
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ ok: false, code: 'AUTH_REQUIRED', error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+      const current = await servicesService.getService(req.tenant.id, req.params.serviceId);
+      if (!current) {
+        return reply.status(404).send({ ok: false, error: 'Serviço não encontrado' });
+      }
+      const canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, current.actorId);
+      if (!canRep) {
+        return reply.status(403).send({ ok: false, code: 'SERVICE_ACTOR_NOT_REPRESENTABLE', error: 'Sem autoridade sobre o actor dono do serviço (canRepresentActor)' });
+      }
       try {
         const availability = await servicesService.createServiceAvailability(
           req.tenant.id,
-          req.actionContext.actorId,
+          current.actorId,
           req.params.serviceId,
           {
             availabilityType: parsed.data.availabilityType as any,
@@ -402,10 +418,26 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) {
         return reply.status(400).send({ error: 'Invalid request body', details: parsed.error.errors });
       }
+      // 🔴 AUDIT-004 — autoridade da agenda vem da REPRESENTAÇÃO do actor DONO (server-resolved a
+      // partir do serviço atual), não de actionContext.actorId declarado pelo cliente. req.user.userId
+      // DEVE representar current.actorId via canRepresentActor (fail-closed → 403) ANTES de escrever.
+      // Espelha POST / (L84) e PUT /:id (L230); alinhado ao core availability (unified-*.routes L254).
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) {
+        return reply.status(401).send({ ok: false, code: 'AUTH_REQUIRED', error: 'Autenticação obrigatória (req.user.userId)' });
+      }
+      const current = await servicesService.getService(req.tenant.id, req.params.serviceId);
+      if (!current) {
+        return reply.status(404).send({ ok: false, error: 'Serviço não encontrado' });
+      }
+      const canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, current.actorId);
+      if (!canRep) {
+        return reply.status(403).send({ ok: false, code: 'SERVICE_ACTOR_NOT_REPRESENTABLE', error: 'Sem autoridade sobre o actor dono do serviço (canRepresentActor)' });
+      }
       try {
         const availability = await servicesService.updateServiceAvailability(
           req.tenant.id,
-          req.actionContext.actorId,
+          current.actorId,
           req.params.serviceId,
           req.params.availabilityId,
           {

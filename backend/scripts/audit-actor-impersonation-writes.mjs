@@ -20,10 +20,12 @@ const social = read('src/modules/social/social-2.0.routes.ts');
 const feed = read('src/core/feed/feed.routes.ts');
 const loc = read('src/core/location/me-active-location.routes.ts');
 const inbox = read('src/modules/inbox/social-inbox.routes.ts');
+const services = read('src/modules/services/services.routes.ts');
 
 // código sem comentários (o gate é código, não menção em comentário)
 const strip = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
 const idC = strip(identity), soC = strip(social), fdC = strip(feed);
+const svcC = strip(services);
 
 // A prova é a PRESENÇA do call de representação sobre o actor declarado, no arquivo (lock de
 // regressão: remover o gate faz o guard morder). Cada um provado adversarial/estruturalmente.
@@ -57,6 +59,17 @@ check('me-active-location setActive/clearActive provam canRepresentActor (2 gate
 check('social-inbox markAsRead/archive provam canRepresentActor (2 gates)',
   (inbox.match(/canRepresentActor\([^)]*req\.actionContext\.actorId\)/g) || []).length >= 2 &&
   inbox.includes('markAsRead') && inbox.includes('archive'));
+
+// AUDIT-004 (C1/C2) — services availability POST/PUT NÃO podem repassar o hint client-declared
+// cru ao writer; a autoridade é a REPRESENTAÇÃO do actor dono resolvido server-side (current.actorId).
+// Regressão = voltar a passar req.actionContext.actorId aos writers OU perder o canRepresentActor.
+check('services availability writers NÃO recebem req.actionContext.actorId cru (anti-personificação)',
+  !/createServiceAvailability\(\s*req\.tenant\.id,\s*req\.actionContext\.actorId/.test(svcC) &&
+  !/updateServiceAvailability\(\s*req\.tenant\.id,\s*req\.actionContext\.actorId/.test(svcC));
+check('services availability POST/PUT provam canRepresentActor(req.user.userId, dono) e escrevem sob current.actorId',
+  (svcC.match(/canRepresentActor\(\s*req\.tenant\.id,\s*userId,\s*current\.actorId\s*\)/g) || []).length >= 3 &&
+  /createServiceAvailability\(\s*req\.tenant\.id,\s*current\.actorId/.test(svcC) &&
+  /updateServiceAvailability\(\s*req\.tenant\.id,\s*current\.actorId/.test(svcC));
 
 if (fails.length) {
   console.error(`\nACTOR-IMPERSONATION-WRITES: ${fails.length} FAIL`);
