@@ -130,8 +130,18 @@ Arco Fase A: F1 → contenção bilheteria → F0-grupo → A1b → A1c. (map-fi
   via fachada); corrigir assignStaff só-usuário → actor-first. Decisão soberana: multi-vendedor.
 - **C3 · Contratação orquestrada:** needs→descoberta(canônico+gênero)→RFQ→bind event_actors; persistir RFQ/split.
   HOLD acceptQuote (R7b) — levantar = decisão soberana.
-- Próxima ação da direção: emitir GATE/GO da C1 (começa por mapear o substrato de performer já existente).
-- Ver EVENT_ENGINE_COMPLETION_PLAN.md (fases B-G, decisões soberanas, HOLDs).
+- Mapa C1 (direção, via descoberta): alicerce = service_offering (CONCEPT→services→service_offerings→
+  Unified Availability, descoberta+agenda+booking de graça). Cultural PAC = GHOST, não reviver. Falta NOVO:
+  concept-oferta de performance (offer_kind='service') + facet de gênero + filtro-por-gênero na descoberta.
+- Decisão da direção (reversível): MVP começa por apresentação musical (caso central: bar contrata banda);
+  lutador/esportista/DJ/teatro = verticais incrementais.
+
+## Frente material ativa: C1a — performer publica oferta contratável (musical)
+- Instância: executora, Opus, alto. GO MATERIAL emitido, base `63a10a67f`. Aguardando parecer.
+- Escopo: semear o concept-oferta governado `apresentacao-musical` (domain='servicos', offer_kind='service')
+  espelhando o seed selado 20260708350000/gate 20260708330000. O performer reusa a cadeia SELADA
+  service→service_offering→availability; descoberta concept-keyed acha. Bank-free. NÃO reviver cultural PAC.
+- Próxima ação: parecer → verifico → Yala → selo → C1b (facet de gênero + descoberta por gênero) → C2 event_actors.
 
 ## (histórico) F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
 Agora que o backend governado cobre criação de grupo, dá para aposentar o W2: conter no BACKEND os 3
