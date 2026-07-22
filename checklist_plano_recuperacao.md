@@ -10,14 +10,21 @@ Fase 2 (eixos soberanos) — Fase 1 auditabilidade com remediação crítica fec
 (AUDIT-004 C1/C2 selado em `285b30f10`).
 
 ## Frente ativa agora
-**(nenhuma frente material aberta — aguardando decisão de próxima frente)**
-Última selada: F-GUARD-HARDENING 2A → ✅ Yala Veredito A → selo docs-only. HEAD `5637c38e2`.
-
-## Próxima decisão da direção (escolher uma)
-- (a) Retomar backlog AUDIT-004 — `events-sprint76` (forja de autoria, o mais concreto),
-  ou `identity-kyb` / `service-order-financial-terms`. Todos sem GO.
-- (b) Avançar Fase 2 (eixos soberanos) / abrir AUDIT-003 ou AUDIT-005.
-- (c) Continuar campanha de hardening de guards (famílias B/C/D da matriz fresca).
+**F-EVENTS-SPRINT76-ACTOR-AUTHORSHIP-CONTAINMENT** (backlog AUDIT-004, item events-sprint76)
+- Instância: executora, Opus, esforço alto — modo GATE READ-ONLY
+- Estado: GO GATE emitido, aguardando parecer de desenho
+- HEAD base: `3afc258de`
+- Alvo: `events-sprint76.routes.ts` handlers cancel (~L348) / checkin (~L378) / checkout (~L403)
+  carimbam `actionContext.actorId` cru sem `canRepresentActor`; siblings create/publish (L79/271/311)
+  já guardados. Natureza: forja de AUTORIA (a esclarecer no GATE) ≠ alavanca de acesso.
+- ⚠️ Ponto crítico do GATE: RE-VERIFICAR do zero se `cancelTicket` (venda de ingresso) toca
+  dinheiro/reembolso — se tocar e for alcançável com actor forjado → Trava B.8 (STOP, vira crítico).
+- GATE retornou Veredito B → direção resolveu em A pela norma (checkin/checkout = modelo
+  promulgado cultural-checkin-target-authority; cancel = representa buyerActorId). Bank-free
+  confirmado. Aditivo (organizador/staff) deferido.
+- Achado adjacente registrado: `DT-EVENTS-SPRINT76-TICKET-PAY-UNAUTHENTICATED-AUTHORITY`
+  (money-write sem autoridade em /tickets/:id/pay) — GATE próprio futuro, sem GO.
+- Próxima ação: emitir GO material (Opus, alto) da contenção normativa → material → Yala → selo.
 
 ## Parado / bloqueado (nada a retomar agora)
 - (nenhum — 2A é a única frente material aberta no momento)
