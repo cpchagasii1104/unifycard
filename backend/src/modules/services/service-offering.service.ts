@@ -8,7 +8,7 @@
 // NENHUM calendário paralelo. Booking transacional/pagamento FORA (0109/0117).
 // Autoridade: canRepresentActor(provider) server-side. Zero Bank writer.
 
-import { pool, runQueryWithTenant } from '@core/database/pool';
+import { pool, runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { authorizationService } from '@core/authorization/authorization.service';
 import { canonicalServiceService } from '@core/catalog/canonical/canonical-service.service';
 import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
@@ -263,5 +263,77 @@ export const serviceOfferingService = {
       [tenantId, canonicalServiceId]
     );
     return r.rows.map(toOffering);
+  },
+
+  // ── C1b — FACET MULTI-GÊNERO (achar banda POR GÊNERO). Elo oferta↔subject-concept governado
+  // (service_offering_genre_facets, espelho de event_theme_links). Autoridade = canRepresentActor(provider)
+  // fail-closed (padrão selado do offering). Gênero DEVE ser subject-concept GOVERNADO e habilitado
+  // (shared_subject_concepts.enabled) — a FK física já impede gênero solto; aqui damos rejeição controlada.
+  // Bank-free.
+
+  /** Provider TAGUEIA gêneros na PRÓPRIA oferta (multi, idempotente). Rejeita gênero não-governado. */
+  async tagOfferingGenres(input: {
+    tenantId: string;
+    userId: string;
+    offeringId: string;
+    subjectConceptIds: string[];
+  }): Promise<void> {
+    const offering = await this.findById(input.tenantId, input.offeringId);
+    if (!offering) throw new ServiceOfferingError(404, 'SERVICE_OFFERING_NOT_FOUND', 'Oferta inexistente.');
+    const canRep = await authorizationService.canRepresentActor(input.tenantId, input.userId, offering.providerActorId);
+    if (!canRep) {
+      throw new ServiceOfferingError(403, 'SERVICE_OFFERING_NOT_REPRESENTABLE',
+        'Só o prestador (ou quem o representa) tagueia os gêneros da própria oferta.');
+    }
+    const ids = Array.from(new Set((input.subjectConceptIds || []).filter((s) => typeof s === 'string' && s.trim())));
+    if (ids.length === 0) {
+      throw new ServiceOfferingError(400, 'SERVICE_OFFERING_GENRE_EMPTY', 'Nenhum gênero informado.');
+    }
+    // Governança: cada gênero é subject-concept do pool NEUTRO e habilitado. Fail-closed.
+    const governed = await runQueriesWithTenant<{ concept_id: string }>(
+      input.tenantId,
+      `SELECT concept_id::text AS concept_id FROM shared_subject_concepts
+        WHERE enabled = true AND concept_id = ANY($1::uuid[])`,
+      [ids]
+    );
+    if (governed.length !== ids.length) {
+      throw new ServiceOfferingError(422, 'SERVICE_OFFERING_GENRE_NOT_GOVERNED',
+        'Gênero deve ser um subject-concept governado e habilitado (shared_subject_concepts).');
+    }
+    for (const conceptId of ids) {
+      await runQueryWithTenant(
+        input.tenantId,
+        `INSERT INTO service_offering_genre_facets (tenant_id, service_offering_id, subject_concept_id)
+         VALUES ($1::uuid, $2::uuid, $3::uuid)
+         ON CONFLICT (service_offering_id, subject_concept_id) DO NOTHING`,
+        [input.tenantId, input.offeringId, conceptId]
+      );
+    }
+  },
+
+  /** Provider REMOVE um gênero da PRÓPRIA oferta. */
+  async untagOfferingGenre(input: { tenantId: string; userId: string; offeringId: string; subjectConceptId: string }): Promise<void> {
+    const offering = await this.findById(input.tenantId, input.offeringId);
+    if (!offering) throw new ServiceOfferingError(404, 'SERVICE_OFFERING_NOT_FOUND', 'Oferta inexistente.');
+    const canRep = await authorizationService.canRepresentActor(input.tenantId, input.userId, offering.providerActorId);
+    if (!canRep) {
+      throw new ServiceOfferingError(403, 'SERVICE_OFFERING_NOT_REPRESENTABLE', 'Só o prestador altera os gêneros da própria oferta.');
+    }
+    await runQueryWithTenant(
+      input.tenantId,
+      `DELETE FROM service_offering_genre_facets WHERE service_offering_id = $1::uuid AND subject_concept_id = $2::uuid`,
+      [input.offeringId, input.subjectConceptId]
+    );
+  },
+
+  /** Gêneros (subject_concept_id) de uma oferta. Read-only. */
+  async listOfferingGenres(tenantId: string, offeringId: string): Promise<string[]> {
+    const r = await runQueriesWithTenant<{ subject_concept_id: string }>(
+      tenantId,
+      `SELECT subject_concept_id::text AS subject_concept_id FROM service_offering_genre_facets
+        WHERE service_offering_id = $1::uuid ORDER BY created_at ASC`,
+      [offeringId]
+    );
+    return r.map((x) => x.subject_concept_id);
   },
 };

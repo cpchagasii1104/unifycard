@@ -188,6 +188,7 @@ class ServicesRepository {
     filters: {
       categoryId?: string;
       conceptId?: string;
+      subjectConceptId?: string; // C1b: gênero (subject-concept governado) — filtra via facet da oferta ativa
       cityId?: string;
       stateId?: string;
       countryId?: string;
@@ -217,6 +218,24 @@ class ServicesRepository {
       joinClause += ' INNER JOIN canonical_services cs ON cs.id = s.canonical_service_id';
       conditions.push(`cs.concept_id = $${paramIndex++}`);
       params.push(filters.conceptId);
+    }
+
+    // 🔴 C1b (EVENT-ENGINE-COMPLETION): filtro por GÊNERO (subject-concept governado). Casa o serviço se
+    // existe ≥1 service_offering ATIVA do MESMO provider (por service_id OU canonical_service_id) taggeada
+    // com o gênero pedido em service_offering_genre_facets — espelho do predicado de disponibilidade
+    // (hasCanonicalOfferingFutureAvailability). A DATA continua sendo o predicado 0156 (camada de serviço),
+    // NÃO reimplementado aqui. Sem subjectConceptId = comportamento atual.
+    if (filters.subjectConceptId) {
+      conditions.push(`EXISTS (
+        SELECT 1
+          FROM service_offerings so_g
+          JOIN service_offering_genre_facets gf ON gf.service_offering_id = so_g.id
+         WHERE so_g.tenant_id = s.tenant_id
+           AND so_g.status = 'active'
+           AND so_g.provider_actor_id = s.actor_id
+           AND (so_g.service_id = s.service_id OR so_g.canonical_service_id = s.canonical_service_id)
+           AND gf.subject_concept_id = $${paramIndex++})`);
+      params.push(filters.subjectConceptId);
     }
 
     // Filtros de localização. (category_id mantido p/ callers de navegação por árvore — ex.: marketplace-search,

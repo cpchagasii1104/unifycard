@@ -86,6 +86,7 @@ const CMDS = [
   "node scripts/audit-service-concept-mandatory-fk-restrict.mjs",
   "node scripts/audit-createservice-eligibility.mjs",
   "node scripts/audit-musical-performance-concept-governed.mjs",
+  "node scripts/audit-offering-genre-facet-governed.mjs",
   "node scripts/audit-service-offering-binding.mjs",
   "node scripts/audit-discovery-concept-rekey.mjs",
   "node scripts/audit-booking-provider-conflict.mjs",
