@@ -20,11 +20,20 @@ Fase 2 (eixos soberanos) — Fase 1 auditabilidade com remediação crítica fec
   `DT-EVENTS-SPRINT76-TICKET-PAY-UNAUTHENTICATED-AUTHORITY` (money-adjacent, GATE próprio).
 - Sem risco vivo (nada alcançável). HEAD `6f89a016d`, working tree limpo (material revertido).
 
-## Próxima decisão da direção (fate de sprint76 ticketing — money-adjacent, soberana)
-- (I) GATE de fate → quarentenar/remover o módulo morto (padrão da quarentena de frontend).
-- (II) GATE de fate → reconciliar+reviver (decisão de produto+dinheiro: bilheteria paga é feature?).
-- (III) Shelve como DT registrada (sem risco vivo) e seguir p/ próximo backlog AUDIT-004
-  (`identity-kyb`) ou Fase 2 / abrir AUDIT-003/005. RECOMENDADO (não há fogo).
+## Descoberta que reframa a frente (2026-07-22)
+Bilheteria de eventos NÃO existe funcional em lugar nenhum: schema real (event_tickets tipo +
+ticket_sales compra bank-wired) + UI viva (EventCheckoutModal) + 3 backends TODOS mortos
+(sprint76 repo drifted; checkout-ticket.service purchaseTicket/checkIn desativados com throw
+pela remediação 2026-07-05; event-ticket.repository a classificar). Feature intencional nunca
+construída ponta-a-ponta; remediação anterior "varreu p/ debaixo do tapete" desativando.
+Registrado: `DT-EVENT-TICKETING-UNBUILT-FEATURE-FACADE` (🔴 estrutural, money).
+Clayton NÃO quer varrer de novo → resolver.
+
+## Próxima ação recomendada
+GATE de CONVERGÊNCIA read-only (Opus, alto) — mapear ciclo intencional completo (catálogo→
+compra+firewall→ticket_sales bank-wired→check-in modelo cultural→cancel/refund), verdade de
+schema, as 3 camadas mortas, a UI viva, o financial-firewall — e devolver PLANO EM FATIAS.
+Sem material até o plano. A contenção de autoria sprint76 vira uma fatia deste plano.
 
 ## Parado / bloqueado (nada a retomar agora)
 - (nenhum — 2A é a única frente material aberta no momento)
