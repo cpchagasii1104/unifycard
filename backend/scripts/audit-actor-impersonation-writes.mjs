@@ -103,15 +103,21 @@ check('event-ticket.repository.ts usa quantity_available (coluna real) no CREATE
 // TICKET_PURCHASE_DEFERRED_FATIA2 DEVE preceder textualmente o sink correspondente — nenhuma
 // escrita (orders/paymentIntents/ticket_sales) pode ocorrer enquanto a contenção estiver ativa.
 // Regressão = a contenção sumir OU o sink passar a rodar antes dela.
+// ANCORADO À REGIÃO do próprio handler (não a "1ª/2ª ocorrência global" — o /reserve sozinho já
+// tem 2 ocorrências do token, error+code, o que fazia a "2ª ocorrência global" cair AINDA dentro
+// do /reserve e nunca checar o /pay de verdade: remover só a contenção do /pay passava verde,
+// falso-lock). Cada check exige o token dentro de [handlerStart, handlerSinkIdx) do PRÓPRIO handler.
 {
-  const firstContainment = es76C.indexOf('TICKET_PURCHASE_DEFERRED_FATIA2');
-  const secondContainment = firstContainment >= 0 ? es76C.indexOf('TICKET_PURCHASE_DEFERRED_FATIA2', firstContainment + 1) : -1;
+  const reserveStart = es76C.indexOf("'/tickets/:id/reserve'");
+  const payStart = es76C.indexOf("'/tickets/:id/pay'");
   const reserveSinkIdx = es76C.indexOf('ticketService.reserveTicket(');
   const paySinkIdx = es76C.indexOf('ticketService.confirmTicketPayment(');
-  check('events-sprint76 /reserve: contenção 501 TICKET_PURCHASE_DEFERRED_FATIA2 precede o sink reserveTicket',
-    firstContainment >= 0 && reserveSinkIdx >= 0 && firstContainment < reserveSinkIdx);
-  check('events-sprint76 /pay: contenção 501 TICKET_PURCHASE_DEFERRED_FATIA2 precede o sink confirmTicketPayment',
-    secondContainment >= 0 && paySinkIdx >= 0 && secondContainment < paySinkIdx);
+  const reserveContainmentIdx = reserveStart >= 0 ? es76C.indexOf('TICKET_PURCHASE_DEFERRED_FATIA2', reserveStart) : -1;
+  const payContainmentIdx = payStart >= 0 ? es76C.indexOf('TICKET_PURCHASE_DEFERRED_FATIA2', payStart) : -1;
+  check('events-sprint76 /reserve: contenção 501 TICKET_PURCHASE_DEFERRED_FATIA2 precede o sink reserveTicket (ancorado ao handler)',
+    reserveStart >= 0 && reserveContainmentIdx >= 0 && reserveSinkIdx >= 0 && reserveContainmentIdx < reserveSinkIdx);
+  check('events-sprint76 /pay: contenção 501 TICKET_PURCHASE_DEFERRED_FATIA2 precede o sink confirmTicketPayment (ancorado ao handler)',
+    payStart >= 0 && payContainmentIdx >= 0 && paySinkIdx >= 0 && payContainmentIdx < paySinkIdx);
 }
 
 if (fails.length) {
