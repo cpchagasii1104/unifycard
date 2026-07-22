@@ -5,10 +5,16 @@
 // Papel: ONE_SHOT_HARNESS / NOT_CI_REQUIRED (declarado em guard-coverage-declarations.json).
 //
 // Prova que o reconhecimento estrutural de DDL/DML (via backend/scripts/lib/sql-shape.mjs), na
-// composição EXATA usada pelos 3 guards endurecidos, MORDE cada evasão fechada e NÃO reprova as
+// composição EXATA usada pelos guards endurecidos, MORDE cada evasão fechada e NÃO reprova as
 // formas legítimas (anti-over-broadening). Usa SOMENTE diretório/arquivos temporários; restaura/limpa
 // em finally; falha se deixar resíduo. Determinístico: exit 0 só quando TODAS as mutações se comportam
 // como esperado.
+//
+// 1ª TRANCHE (guards 1-3, selados): event-reservations-mislabeled-fk-containment, event-settlement-
+// ghost-containment, fiscal-canonical-house.
+// 2ª TRANCHE 2A (guards 4-6, extensão deste ato): category-input-audit-schema-ghost-fix (FK/colunas
+// mortas), location-authority-classification (tabela nova com coluna de localidade-texto),
+// vehicle-fields-governed (localização da migration de preço por CONTEÚDO + drift de tipo).
 
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
@@ -55,6 +61,88 @@ function ghostReadBites(tsSrc, target) {
   const src = stripTs(tsSrc);
   if (!tokenPresent(src, target)) return false;
   return referencesTarget(src, target, { mode: 'read' }).hit;
+}
+
+// ── predicados que ESPELHAM a composição dos 3 guards ENDURECIDOS na 2ª TRANCHE (2A) ──
+function touchesTableGeneric(stmt, name) {
+  const t = `(?:"?[A-Za-z_][\\w$]*"?\\s*\\.\\s*)?"?${name}"?`;
+  return new RegExp(`\\bALTER\\s+TABLE\\s+(?:ONLY\\s+)?${t}\\b`, 'i').test(stmt);
+}
+function touchesTargetDDL(stmt, target) {
+  return createsTarget(stmt, target).hit || touchesTableGeneric(stmt, target);
+}
+function columnDefinedReal(text, col) {
+  return new RegExp(`(?<![\\w$])"?${col}"?\\s+(?:UUID|VARCHAR|CHARACTER\\s+VARYING|NUMERIC|DECIMAL|TEXT|INTEGER|BIGINT|BOOLEAN)\\b`, 'i').test(text);
+}
+
+// GUARD 4 — audit-category-input-audit-schema-ghost-fix.mjs (FK fantasma + colunas mortas)
+function guard4Bites(raw) {
+  const TARGET = 'category_input_audit', GHOST_FK = 'occupations_reference';
+  const DEAD_COLS = ['canonical_id', 'cbo_match_code', 'embedding_similarity'];
+  if (!tokenPresent(stripSqlComments(raw), TARGET)) return false;
+  const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+  for (const stmt of splitStatements(clean)) {
+    if (!touchesTargetDDL(stmt, TARGET)) continue;
+    if (referencesTarget(stmt, GHOST_FK, { mode: 'fk' }).hit) return true;
+    for (const col of DEAD_COLS) { if (columnDefinedReal(stmt, col)) return true; }
+  }
+  for (const u of extractExecuteLiterals(raw)) {
+    const body = u.resolvableText;
+    if (!body || !tokenPresent(body, TARGET)) continue;
+    for (const bstmt of splitStatements(body)) {
+      if (!touchesTargetDDL(bstmt, TARGET)) continue;
+      if (referencesTarget(bstmt, GHOST_FK, { mode: 'fk' }).hit) return true;
+      for (const col of DEAD_COLS) { if (columnDefinedReal(bstmt, col)) return true; }
+    }
+  }
+  return false;
+}
+
+// GUARD 5 — audit-location-authority-classification.mjs (tabela nova com coluna de localidade-texto)
+function guard5Bites(raw, allowKeys) {
+  const colAlt = ['city', 'country', 'city_name', 'state_name', 'country_name', 'location_text', 'address_text'].join('|');
+  const colDefRe = new RegExp(
+    `(?:(^|[,(])\\s*["']?(${colAlt})["']?\\s+(?:text|varchar|character varying|citext)\\b)` +
+    `|(?:\\bADD\\s+COLUMN\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["']?(${colAlt})["']?\\s+(?:text|varchar|character varying|citext)\\b)`,
+    'i'
+  );
+  function stmtBites(stmt) {
+    const isCreate = /\bCREATE\s+TABLE\b/i.test(stmt);
+    const isAlterAdd = /\bALTER\s+TABLE\b/i.test(stmt) && /\bADD\s+COLUMN\b/i.test(stmt);
+    if (!isCreate && !isAlterAdd) return false;
+    for (const key of allowKeys) { if (createsTarget(stmt, key).hit || touchesTableGeneric(stmt, key)) return false; }
+    return colDefRe.test(stmt);
+  }
+  const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+  for (const stmt of splitStatements(clean)) { if (stmtBites(stmt)) return true; }
+  for (const u of extractExecuteLiterals(raw)) {
+    const body = u.resolvableText; if (!body) continue;
+    for (const bstmt of splitStatements(body)) { if (stmtBites(bstmt)) return true; }
+  }
+  return false;
+}
+
+// GUARD 6 — audit-vehicle-fields-governed.mjs (localização por CONTEÚDO + drift de tipo em price_cents)
+function pricingDriftBites(files, targetTable) {
+  let creatorFile = null, creatorSql = '';
+  for (const f of files) {
+    const clean = maskStringLiterals(stripSqlComments(f.content), { maskDollarQuotes: false });
+    if (createsTarget(clean, targetTable).hit) { creatorFile = f.name; creatorSql = f.content; break; }
+  }
+  if (!creatorFile) return { located: false, bigintOk: false, drift: false };
+  const bigintOk = /price_cents\s+BIGINT/i.test(creatorSql) && !/price[_a-z]*\s+(NUMERIC|DECIMAL|FLOAT|REAL|DOUBLE)/i.test(creatorSql);
+  let drift = false;
+  for (const f of files) {
+    if (f.name === creatorFile) continue;
+    if (!tokenPresent(stripSqlComments(f.content), targetTable)) continue;
+    const clean = maskStringLiterals(stripSqlComments(f.content), { maskDollarQuotes: false });
+    for (const stmt of splitStatements(clean)) {
+      if (!touchesTableGeneric(stmt, targetTable)) continue;
+      if (/\bALTER\s+COLUMN\s+"?price_cents"?\s+TYPE\s+(?!BIGINT\b)/i.test(stmt)) { drift = true; break; }
+    }
+    if (drift) break;
+  }
+  return { located: true, creatorFile, bigintOk, drift };
 }
 
 // ── cenários (temp file + predicado + esperado) ──
@@ -139,6 +227,87 @@ const scen = (id, expected, actual) => results.push({ id, expected, actual, ok: 
     ghostCreateBites("DO $$ BEGIN EXECUTE 'CREATE TABLE foo_x (x int)'; END $$;", 'foo_x').bite === true);
   scen('lex-9 target em string documental (SQL) nao morde', true,
     ghostCreateBites("SELECT 'CREATE TABLE foo_x doc' AS note;", 'foo_x').bite === false);
+}
+
+// GUARD 4 — category_input_audit / occupations_reference + campos mortos (10)
+{
+  const T = (name, sql) => { const p = writeTmp(name, sql); return guard4Bites(readTmp(p)); };
+  scen('g4-m1 ADD COLUMN + REFERENCES occupations_reference', true, T('g4m1.sql',
+    'ALTER TABLE category_input_audit ADD COLUMN canonical_id UUID REFERENCES occupations_reference(id);'));
+  scen('g4-m2 lowercase references', true, T('g4m2.sql',
+    'ALTER TABLE category_input_audit ADD COLUMN canonical_id UUID references occupations_reference(id);'));
+  scen('g4-m3 schema-qualified public.occupations_reference', true, T('g4m3.sql',
+    'ALTER TABLE category_input_audit ADD COLUMN canonical_id UUID REFERENCES public.occupations_reference(id);'));
+  scen('g4-m4 quoted "occupations_reference" + ALTER TABLE ONLY', true, T('g4m4.sql',
+    'ALTER TABLE ONLY category_input_audit ADD COLUMN canonical_id UUID REFERENCES "occupations_reference"("id");'));
+  scen('g4-m5 coluna morta sem FK (cbo_match_code)', true, T('g4m5.sql',
+    'ALTER TABLE category_input_audit ADD COLUMN cbo_match_code VARCHAR(50);'));
+  scen('g4-m6 EXECUTE literal reintroduz FK', true, T('g4m6.sql',
+    "DO $$ BEGIN EXECUTE 'ALTER TABLE category_input_audit ADD COLUMN canonical_id UUID REFERENCES occupations_reference(id)'; END $$;"));
+  scen('g4-m7 (LEGIT) coluna com nome parecido, nao-alvo', false, T('g4m7.sql',
+    'ALTER TABLE category_input_audit ADD COLUMN canonical_reference_note TEXT;'));
+  scen('g4-m8 (LEGIT) comentario mencionando o achado', false, T('g4m8.sql',
+    '-- category_input_audit nao deve referenciar occupations_reference (Opcao A)\nSELECT 1;'));
+  scen('g4-m9 (LEGIT) tabela com nome parecido por substring', false, T('g4m9.sql',
+    'ALTER TABLE category_input_audit_log ADD COLUMN canonical_id UUID REFERENCES occupations_reference(id);'));
+  scen('g4-m10 (LEGIT) outra tabela referencia category_input_audit + tem coluna canonical_id propria', false, T('g4m10.sql',
+    'CREATE TABLE some_other_log (id uuid, ref_id uuid REFERENCES category_input_audit(id), canonical_id UUID);'));
+}
+
+// GUARD 5 — location-authority-classification: tabela nova com coluna de localidade-texto (9)
+{
+  const ALLOW = ['cep_resolution_cache', 'rides_cities', 'economic_policies', 'access_pass_products', 'regional_activation_events', 'regional_activation_rules', 'regional_funds', 'regional_impact_snapshots', 'suppliers'];
+  const T = (name, sql) => { const p = writeTmp(name, sql); return guard5Bites(readTmp(p), ALLOW); };
+  scen('g5-m1 CREATE TABLE schema-qualificada com city text', true, T('g5m1.sql',
+    'CREATE TABLE public.evil_new_table (id uuid, city text);'));
+  scen('g5-m2 ALTER TABLE ONLY novo com ADD COLUMN city_name text', true, T('g5m2.sql',
+    'ALTER TABLE ONLY novo_leak ADD COLUMN city_name text;'));
+  scen('g5-m3 EXECUTE literal cria tabela com city text', true, T('g5m3.sql',
+    "DO $$ BEGIN EXECUTE 'CREATE TABLE leaky_new (id uuid, city text)'; END $$;"));
+  scen('g5-m4 tipo citext', true, T('g5m4.sql',
+    'CREATE TABLE another_new (id uuid, city citext);'));
+  scen('g5-m5 (LEGIT) comentario mencionando CREATE TABLE ... city text', false, T('g5m5.sql',
+    '-- CREATE TABLE staging_x (id uuid, city text);\nSELECT 1;'));
+  scen('g5-m6 (LEGIT) tabela ja carimbada (regional_funds) com city text', false, T('g5m6.sql',
+    'CREATE TABLE regional_funds (id uuid, city text);'));
+  scen('g5-m7 (LEGIT) coluna canonica city_id, sem coluna textual', false, T('g5m7.sql',
+    'CREATE TABLE new_table_ok (id uuid, city_id uuid REFERENCES cities(id));'));
+  scen('g5-m8 (LEGIT) coluna fora do vocabulario LOC_COLS', false, T('g5m8.sql',
+    'CREATE TABLE another_ok (id uuid, status text);'));
+  scen('g5-m9 (LEGIT) ALTER TABLE ONLY em tabela ja carimbada (schema-qual)', false, T('g5m9.sql',
+    'ALTER TABLE ONLY public.suppliers ADD COLUMN city_name text;'));
+}
+
+// GUARD 6 — vehicle-fields-governed: localizacao da migration por CONTEUDO + drift de tipo (7)
+{
+  const TABLE = 'actor_asset_rental_pricing_tiers';
+  // decoy: nome de arquivo IDENTICO ao bug historico, mas cria a tabela ORFA (nao a viva).
+  const decoy = { name: '20260708150000_rental_resource_pricing_tiers.sql', content: 'CREATE TABLE rental_resource_pricing (id uuid, price_cents BIGINT NOT NULL);' };
+  const creator = {
+    name: '20260708400000_asset_rental_terms_substrate.sql',
+    content: `CREATE TABLE ${TABLE} (id uuid, unit TEXT NOT NULL, price_cents BIGINT NOT NULL, CONSTRAINT chk_u CHECK (unit IN ('por_hora')));`,
+  };
+
+  const r1 = pricingDriftBites([decoy, creator], TABLE);
+  scen('g6-m1 localiza a tabela VIVA por conteudo (nao pelo nome do arquivo decoy)', true, r1.located && r1.creatorFile === creator.name);
+  scen('g6-m2 BIGINT reconhecido na tabela viva (via conteudo, nao via decoy)', true, r1.bigintOk);
+  scen('g6-m3 (LEGIT) sem drift quando nao ha ALTER posterior', false, r1.drift);
+
+  const alterDrift = { name: '20260710000000_drift_price_cents.sql', content: `ALTER TABLE ${TABLE} ALTER COLUMN price_cents TYPE NUMERIC(12,2);` };
+  const r2 = pricingDriftBites([decoy, creator, alterDrift], TABLE);
+  scen('g6-m4 (HOSTIL) ALTER COLUMN price_cents TYPE NUMERIC morde (drift)', true, r2.drift);
+
+  const alterBigintNoop = { name: '20260710000001_reassert_bigint.sql', content: `ALTER TABLE ${TABLE} ALTER COLUMN price_cents TYPE BIGINT;` };
+  const r3 = pricingDriftBites([decoy, creator, alterBigintNoop], TABLE);
+  scen('g6-m5 (LEGIT) ALTER COLUMN price_cents TYPE BIGINT (reassert) nao morde', false, r3.drift);
+
+  const alterUnrelated = { name: '20260710000002_other_table_price_drift.sql', content: 'ALTER TABLE some_other_money_table ALTER COLUMN price_cents TYPE NUMERIC(12,2);' };
+  const r4 = pricingDriftBites([decoy, creator, alterUnrelated], TABLE);
+  scen('g6-m6 (LEGIT) drift em tabela NAO-alvo nao morde', false, r4.drift);
+
+  const commentOnly = { name: '20260710000003_comment_only.sql', content: '-- considerar ALTER COLUMN price_cents TYPE NUMERIC algum dia\nSELECT 1;' };
+  const r5 = pricingDriftBites([decoy, creator, commentOnly], TABLE);
+  scen('g6-m7 (LEGIT) comentario nao morde', false, r5.drift);
 }
 
 // ── limpeza + verificação de resíduo ──

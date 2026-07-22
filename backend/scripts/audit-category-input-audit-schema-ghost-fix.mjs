@@ -7,44 +7,108 @@
 // jamais os passava).
 //
 // MORDE:
-//   (A) a migration de fix sumir;
-//   (B) a migration reintroduzir a FK para occupations_reference (reativação da tabela que a Opção A
-//       decidiu não reviver);
+//   (A) a migration de fix sumir ou deixar de criar a tabela;
+//   (B) QUALQUER migration (a original ou uma NOVA) reintroduzir a FK para occupations_reference
+//       (reativação da tabela que a Opção A decidiu não reviver);
+//   (B2) QUALQUER migration (a original ou uma NOVA) reintroduzir canonical_id/cbo_match_code/
+//        embedding_similarity como coluna REAL (CREATE TABLE ou ALTER TABLE ADD COLUMN);
 //   (C) category-input-audit.service.ts voltar a referenciar canonicalId/cboMatchCode/
 //       embeddingSimilarity (campos mortos reintroduzidos sem escritor real).
-// Heurística textual comment-stripped. Em validate:regression-guards. NÃO altera runtime.
+//
+// ENDURECIDO (F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION, 2ª TRANCHE 2A): reconhecimento
+// estrutural via sql-shape — antes o guard só lia o ÚNICO arquivo hardcoded da migration original
+// (uma migration NOVA reintroduzindo a FK/colunas era 100% invisível) e usava regex sem flag
+// case-insensitive nem schema-qualification/quoting (case/schema/aspas evadiam silenciosamente).
+// Agora varre TODAS as migrations, reconhece CREATE/ALTER schema-qualified/quoted/case-insensitive
+// via createsTarget/referencesTarget/tokenPresent, e cobre DDL dinâmico via extractExecuteLiterals.
+// PRECISÃO (anti over-broadening): FK/coluna só mordem dentro de statements que CRIAM/ALTERAM a
+// PRÓPRIA category_input_audit (createsTarget ou ALTER TABLE [ONLY] category_input_audit) — uma
+// tabela DIFERENTE que apenas REFERENCIA category_input_audit (FK de saída) não dispara.
+// Heurística textual comment-stripped/string-masked. Em validate:regression-guards. NÃO altera runtime.
 
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { stripSqlComments, maskStringLiterals, splitStatements, createsTarget, referencesTarget, extractExecuteLiterals, tokenPresent } from './lib/sql-shape.mjs';
 
 const ROOT = process.cwd();
 const stripTs = (s) => s
   .replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1')
   .replace(/\/\*[\s\S]*?\*\//g, '');
-const stripSql = (s) => s.split('\n').map((l) => l.replace(/--.*$/, '')).join('\n');
 
 const failures = [];
 
-// (A) migration existe.
-const MIGRATION = join(ROOT, 'migrations', '20260702110000_apply_category_input_audit.sql');
+const TARGET = 'category_input_audit';
+const GHOST_FK = 'occupations_reference';
+const DEAD_COLS = ['canonical_id', 'cbo_match_code', 'embedding_similarity'];
+
+// estatuto "esta statement CRIA/ALTERA a própria TARGET" (não apenas a menciona/referencia).
+function touchesTargetDDL(stmt, target) {
+  if (createsTarget(stmt, target).hit) return true;
+  const t = `(?:"?[A-Za-z_][\\w$]*"?\\s*\\.\\s*)?"?${target}"?`;
+  return new RegExp(`\\bALTER\\s+TABLE\\s+(?:ONLY\\s+)?${t}\\b`, 'i').test(stmt);
+}
+
+// coluna definida como campo REAL (tipo SQL após o nome), quote-opcional, case-insensitive.
+function columnDefined(text, col) {
+  return new RegExp(`(?<![\\w$])"?${col}"?\\s+(?:UUID|VARCHAR|CHARACTER\\s+VARYING|NUMERIC|DECIMAL|TEXT|INTEGER|BIGINT|BOOLEAN)\\b`, 'i').test(text);
+}
+
+// varre statements (estáticos + EXECUTE resolvível) em busca de FK fantasma ou coluna morta.
+function scanMigrationText(raw, fileLabel) {
+  const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+  for (const stmt of splitStatements(clean)) {
+    if (!touchesTargetDDL(stmt, TARGET)) continue;
+    if (referencesTarget(stmt, GHOST_FK, { mode: 'fk' }).hit) {
+      failures.push(`${fileLabel}: RE-INTRODUZ FK ${TARGET} → ${GHOST_FK} (forma: FK inline/ADD CONSTRAINT, case/schema-qual/quoted) — DT-CBO-MATCHER-DORMANT-LANDMINE Opção A decidiu NÃO reviver.`);
+    }
+    for (const col of DEAD_COLS) {
+      if (columnDefined(stmt, col)) {
+        failures.push(`${fileLabel}: RE-INTRODUZ coluna morta ${col} em ${TARGET} (CREATE ou ALTER ADD COLUMN) — campo sem escritor real.`);
+      }
+    }
+  }
+  for (const u of extractExecuteLiterals(raw)) {
+    const body = u.resolvableText;
+    if (!body || !tokenPresent(body, TARGET)) continue;
+    for (const bstmt of splitStatements(body)) {
+      if (!touchesTargetDDL(bstmt, TARGET)) continue;
+      if (referencesTarget(bstmt, GHOST_FK, { mode: 'fk' }).hit) {
+        failures.push(`${fileLabel}: EXECUTE reintroduz FK ${TARGET} → ${GHOST_FK} em DDL dinâmico resolvível.`);
+      }
+      for (const col of DEAD_COLS) {
+        if (columnDefined(bstmt, col)) {
+          failures.push(`${fileLabel}: EXECUTE reintroduz coluna morta ${col} em ${TARGET} (DDL dinâmico resolvível).`);
+        }
+      }
+    }
+  }
+}
+
+// (A) migration original existe e cria a tabela — reconhecimento estrutural (case-insensitive,
+// IF NOT EXISTS opcional, schema-qual/quoted) via createsTarget.
+const MIGRATION_REL = join('migrations', '20260702110000_apply_category_input_audit.sql');
+const MIGRATION = join(ROOT, MIGRATION_REL);
 if (!existsSync(MIGRATION)) {
   failures.push(`migration ausente: ${MIGRATION} — DT-CATEGORY-INPUT-AUDIT-SCHEMA-GHOST reaberta.`);
 } else {
-  const sql = stripSql(readFileSync(MIGRATION, 'utf-8'));
-  if (!/CREATE TABLE IF NOT EXISTS category_input_audit/.test(sql)) {
-    failures.push(`${MIGRATION}: CREATE TABLE category_input_audit não encontrado.`);
+  const raw = readFileSync(MIGRATION, 'utf-8');
+  const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+  if (!createsTarget(clean, TARGET).hit) {
+    failures.push(`${MIGRATION_REL}: CREATE TABLE ${TARGET} não reconhecido (forma esperada: CREATE TABLE [IF NOT EXISTS] ${TARGET}).`);
   }
-  // (B) sem FK para occupations_reference.
-  if (/REFERENCES\s+occupations_reference/.test(sql)) {
-    failures.push(`${MIGRATION}: reintroduziu FK para occupations_reference — reativaria a tabela que a Opção A (DT-CBO-MATCHER-DORMANT-LANDMINE) decidiu NÃO reviver.`);
-  }
-  // Checa só dentro do bloco CREATE TABLE (não no COMMENT ON TABLE, que MENCIONA os nomes em prosa
-  // explicando por que foram excluídos — string literal real, não definição de coluna).
-  const createIdx = sql.indexOf('CREATE TABLE IF NOT EXISTS category_input_audit');
-  const closeParenIdx = sql.indexOf(');', createIdx);
-  const createBlock = createIdx >= 0 && closeParenIdx > createIdx ? sql.slice(createIdx, closeParenIdx) : '';
-  if (/canonical_id\s+UUID/.test(createBlock) || /cbo_match_code\s+VARCHAR/.test(createBlock) || /embedding_similarity\s+NUMERIC/.test(createBlock)) {
-    failures.push(`${MIGRATION}: CREATE TABLE reintroduziu canonical_id/cbo_match_code/embedding_similarity como coluna real — campos mortos sem escritor.`);
+  scanMigrationText(raw, MIGRATION_REL);
+}
+
+// (B/B2) NENHUMA migration NOVA (qualquer outro arquivo) reintroduz a FK ou os campos mortos.
+// ENDURECIDO: antes o guard NUNCA lia outro arquivo (blind spot total); agora varre migrations/.
+const MIG_DIR = join(ROOT, 'migrations');
+if (existsSync(MIG_DIR)) {
+  for (const f of readdirSync(MIG_DIR).filter((e) => e.endsWith('.sql'))) {
+    const rel = join('migrations', f);
+    if (rel === MIGRATION_REL) continue; // já escaneada acima (histórico + original)
+    const raw = readFileSync(join(MIG_DIR, f), 'utf-8');
+    if (!tokenPresent(stripSqlComments(raw), TARGET)) continue; // fora do escopo (nem menciona a tabela)
+    scanMigrationText(raw, rel);
   }
 }
 
@@ -64,4 +128,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [category-input-audit-schema-ghost-fix] — category_input_audit aplicada sem reviver occupations_reference; campos mortos não reintroduzidos. DT-CATEGORY-INPUT-AUDIT-SCHEMA-GHOST blindada.');
+console.log('GATE OK [category-input-audit-schema-ghost-fix] — category_input_audit aplicada sem reviver occupations_reference; campos mortos não reintroduzidos em NENHUMA migration (original ou nova, incl. DDL dinâmico); service sem os campos mortos. DT-CATEGORY-INPUT-AUDIT-SCHEMA-GHOST blindada.');

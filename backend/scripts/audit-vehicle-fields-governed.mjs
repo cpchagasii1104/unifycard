@@ -2,8 +2,22 @@
 // livre para marca/modelo/ano — só a cascata governada <VehicleFields> (combobox reabrível + ano via
 // endpoint). Guard leve, protege a MATRIZ UI ATUAL; evoluir exige prova e atualizar este guard, nunca
 // desligar. NÃO valida verdade (isso é do backend) — só impede reintrodução de campo livre no cliente.
-import { readFileSync } from 'fs';
+//
+// ENDURECIDO (F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION, 2ª TRANCHE 2A) — achado de PRECISÃO no
+// check 9 (money-adjacent): a busca da migration de preço usava `readdirSync(migDir).find(f =>
+// f.includes('rental_resource_pricing_tiers'))` — SUBSTRING DE NOME DE ARQUIVO, não nome de tabela.
+// Isso casava `20260708150000_rental_resource_pricing_tiers.sql`, cujo CREATE TABLE real é
+// `rental_resource_pricing` (singular, SEM "_tiers" — tabela ÓRFÃ, zero referência em backend/src).
+// A tabela de dinheiro VIVA `actor_asset_rental_pricing_tiers` — criada em
+// `20260708400000_asset_rental_terms_substrate.sql`, nome de arquivo que NUNCA casa a substring — era
+// 100% invisível ao check de tipo BIGINT: qualquer CREATE/ALTER errado na tabela real passava batido.
+// Agora a migration-alvo é localizada por CONTEÚDO (createsTarget varrendo migrations/, não nome de
+// arquivo). ADICIONALMENTE (mesma classe de precisão, mesmo alvo, mesmo arquivo): varre as DEMAIS
+// migrations por `ALTER COLUMN price_cents TYPE <não-BIGINT>` na tabela viva — fecha o gap de drift
+// pós-criação (achado já registrado no cartório como parte do MESMO achado de precisão).
+import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { stripSqlComments, maskStringLiterals, splitStatements, createsTarget, tokenPresent } from './lib/sql-shape.mjs';
 
 const FE = join(process.cwd(), '..', 'frontend', 'src');
 const strip = (s) => s.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -58,13 +72,51 @@ check('recurso vincula localização via address_assignments (padrão canônico,
 check('backend valida cidade na SSOT (cityExists sobre cities)', /cityExists/.test(rentalRepo) && /FROM cities/.test(rentalRepo));
 
 // 9) F-RENTAL-PRICING-QUANTITY-GEO-MVP: dinheiro SEMPRE cents/BIGINT; faixas na SSOT; front envia cents.
-import { readdirSync } from 'fs';
+// ENDURECIDO: localiza a migration que CRIA a tabela viva por CONTEÚDO (createsTarget), não por nome
+// de arquivo — fecha o achado de precisão acima (arquivo errado era lido).
+const PRICING_TABLE = 'actor_asset_rental_pricing_tiers';
 const migDir = join(process.cwd(), 'migrations');
-const pricingMig = readdirSync(migDir).find((f) => f.includes('rental_resource_pricing_tiers'));
-const pricingSql = pricingMig ? read(join(migDir, pricingMig)) : '';
+let pricingMigFile = null;
+let pricingSql = '';
+for (const f of readdirSync(migDir).filter((e) => e.endsWith('.sql'))) {
+  const raw = read(join(migDir, f));
+  if (!raw) continue;
+  const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+  if (createsTarget(clean, PRICING_TABLE).hit) { pricingMigFile = f; pricingSql = raw; break; }
+}
+check(`migration que CRIA ${PRICING_TABLE} localizada por conteúdo (não nome de arquivo): ${pricingMigFile || 'NÃO ENCONTRADA'}`, !!pricingMigFile);
 check('faixa de preço usa price_cents BIGINT (nunca NUMERIC/DECIMAL/FLOAT)',
   /price_cents\s+BIGINT/i.test(pricingSql) && !/price[_a-z]*\s+(NUMERIC|DECIMAL|FLOAT|REAL|DOUBLE)/i.test(pricingSql));
-check('unidade de preço é vocabulário governado (CHECK), não string solta', /unit\s+TEXT\s+NOT NULL\s+CHECK/i.test(pricingSql));
+// CHECK pode ser inline (`unit TEXT NOT NULL CHECK (...)`) OU table-level named (`CONSTRAINT x CHECK
+// (unit IN (...))` separado) — a tabela viva usa a forma named; reconhecer as duas (nenhuma mais fraca).
+{
+  const unitTextNotNull = /\bunit\s+TEXT\s+NOT\s+NULL\b/i.test(pricingSql);
+  const unitCheckInline = /\bunit\s+TEXT\s+NOT\s+NULL\s+CHECK\s*\(/i.test(pricingSql);
+  const unitCheckNamed = /CONSTRAINT\s+\w+\s+CHECK\s*\(\s*unit\b/i.test(pricingSql);
+  check('unidade de preço é vocabulário governado (CHECK inline ou named), não string solta',
+    unitTextNotNull && (unitCheckInline || unitCheckNamed));
+}
+
+// drift pós-criação: nenhuma OUTRA migration altera price_cents para tipo não-BIGINT na tabela viva.
+// Antes do endurecimento este gap era ainda mais amplo (a tabela real nem era lida); agora, mesmo já
+// lendo a tabela certa, uma ALTER COLUMN TYPE futura continuaria invisível sem este scan dedicado.
+let priceDrift = null;
+for (const f of readdirSync(migDir).filter((e) => e.endsWith('.sql'))) {
+  if (f === pricingMigFile) continue;
+  const raw = read(join(migDir, f));
+  if (!raw || !tokenPresent(stripSqlComments(raw), PRICING_TABLE)) continue;
+  const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+  for (const stmt of splitStatements(clean)) {
+    const t = `(?:"?[A-Za-z_][\\w$]*"?\\s*\\.\\s*)?"?${PRICING_TABLE}"?`;
+    const touches = new RegExp(`\\bALTER\\s+TABLE\\s+(?:ONLY\\s+)?${t}\\b`, 'i').test(stmt);
+    if (!touches) continue;
+    const m = /\bALTER\s+COLUMN\s+"?price_cents"?\s+TYPE\s+(?!BIGINT\b)([A-Za-z_][\w\s(),]*)/i.exec(stmt);
+    if (m) { priceDrift = `migrations/${f}: ALTER COLUMN price_cents TYPE ${m[1].trim()} (não-BIGINT) na tabela viva ${PRICING_TABLE}.`; break; }
+  }
+  if (priceDrift) break;
+}
+check('nenhuma migration posterior altera price_cents para tipo não-BIGINT na tabela viva', !priceDrift, priceDrift || undefined);
+
 const rentalRepo2 = strip(read(join(process.cwd(), 'src', 'modules', 'rentals', 'rentable-resource.repository.ts')));
 // F-ASSET-MULTI-OFFER-FOUNDATION 2b-3: tiers convergiram para actor_asset_rental_pricing_tiers (por asset_id).
 check('faixas gravam em actor_asset_rental_pricing_tiers (SSOT convergido), price_cents::bigint', /actor_asset_rental_pricing_tiers/.test(rentalRepo2) && /price_cents.*bigint|::bigint/.test(rentalRepo2));

@@ -16,9 +16,23 @@
 //      tabela NÃO carimbada aqui (= nova verdade paralela de localidade);
 //   2. módulo de LOCAÇÃO/DESCOBERTA/ENTREGA filtra por cidade TEXTUAL onde deve usar city_id/address_id;
 //   3. surge writer novo para tabela carimbada 'legacy_dead' (fora da allowlist).
+//
+// ENDURECIDO (F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION, 2ª TRANCHE 2A): CHECK 1 usava regex bruta
+// sobre o arquivo INTEIRO sem comment-stripping/string-masking (comentário mencionando o achado
+// disparava FALSO-POSITIVO) e capturava o nome da tabela com `["']?(\w+)["']?` — que NÃO CASA de
+// jeito nenhum quando o CREATE/ALTER é schema-qualificado (`public.tabela`) ou usa `ALTER TABLE ONLY`
+// (blind spot TOTAL confirmado, não mera má-rotulagem), e a alternação de tipo não incluía `citext`.
+// DDL dentro de EXECUTE nunca era visto. Agora: stripSqlComments+maskStringLiterals antes de tudo
+// (fecha o falso-positivo de comentário), reconhecimento por STATEMENT (splitStatements), extração de
+// nome robusta a schema-qual/ONLY/quoted, alvo comparado contra o allowlist via createsTarget/ALTER-
+// touches (não string-equality frágil), tipo `citext` incluído, e EXECUTE via extractExecuteLiterals.
+// PRECISÃO (anti over-broadening): CREATE/ALTER de uma tabela JÁ carimbada (mesmo schema-qualificada)
+// continua permitido; coluna fora do vocabulário LOC_COLS continua fora de escopo (vocabulário
+// incompleto — ex. bairro/neighborhood — é limite conhecido, OUT_OF_SCOPE desta tranche).
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, sep } from 'path';
+import { stripSqlComments, maskStringLiterals, splitStatements, createsTarget, extractExecuteLiterals } from './lib/sql-shape.mjs';
 
 const ROOT = process.cwd();
 const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -43,6 +57,46 @@ const LOCATION_TEXT_ALLOW = {
 // "geográfica" se tem ao menos uma destas — aí seu carimbo é exigido (incluindo eventuais colunas state).
 const LOC_COLS = ['city', 'country', 'city_name', 'state_name', 'country_name', 'location_text', 'address_text'];
 const colAlt = LOC_COLS.join('|');
+// tipo textual: adicionado `citext` (extensão real do Postgres, texto case-insensitive) — evasão fechada.
+// coluna definida como campo real em DUAS formas: (a) corpo de CREATE TABLE (precedida por "," ou "(");
+// (b) ALTER TABLE ... ADD COLUMN [IF NOT EXISTS] (precedida pela keyword ADD COLUMN, não vírgula/parêntese).
+const colDefRe = new RegExp(
+  `(?:(^|[,(])\\s*["']?(${colAlt})["']?\\s+(?:text|varchar|character varying|citext)\\b)` +
+  `|(?:\\bADD\\s+COLUMN\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["']?(${colAlt})["']?\\s+(?:text|varchar|character varying|citext)\\b)`,
+  'i'
+);
+
+// "esta statement ALTERA a própria `name`" (schema-qual/ONLY/quoted-safe) — usado no loop de allowlist.
+function altersTable(stmt, name) {
+  const t = `(?:"?[A-Za-z_][\\w$]*"?\\s*\\.\\s*)?"?${name}"?`;
+  return new RegExp(`\\bALTER\\s+TABLE\\s+(?:ONLY\\s+)?${t}\\b`, 'i').test(stmt);
+}
+// extração best-effort do nome de tabela p/ MENSAGEM (não decide o gate) — robusta a schema-qual/ONLY.
+function extractTableName(stmt) {
+  let m = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?[A-Za-z_][\w$]*"?\s*\.\s*)?"?([A-Za-z_][\w$]*)"?/i.exec(stmt);
+  if (m) return m[1];
+  m = /ALTER\s+TABLE\s+(?:ONLY\s+)?(?:"?[A-Za-z_][\w$]*"?\s*\.\s*)?"?([A-Za-z_][\w$]*)"?/i.exec(stmt);
+  return m ? m[1] : '(nome não determinado)';
+}
+// statement é candidata a CRIAR/ALTERAR-ADD-COLUMN (só essas duas formas interessam ao CHECK 1).
+function isCreateOrAddColumn(stmt) {
+  const isCreate = /\bCREATE\s+TABLE\b/i.test(stmt);
+  const isAlterAdd = /\bALTER\s+TABLE\b/i.test(stmt) && /\bADD\s+COLUMN\b/i.test(stmt);
+  return isCreate || isAlterAdd;
+}
+// a statement toca alguma tabela JÁ carimbada? (CREATE ou ALTER, robusto a schema-qual/ONLY/quoted).
+function touchesAllowlisted(stmt) {
+  for (const key of Object.keys(LOCATION_TEXT_ALLOW)) {
+    if (createsTarget(stmt, key).hit || altersTable(stmt, key)) return true;
+  }
+  return false;
+}
+// núcleo do CHECK 1 aplicado a UMA statement já stripada/mascarada.
+function statementCreatesUnstampedLocText(stmt) {
+  if (!isCreateOrAddColumn(stmt)) return false;
+  if (touchesAllowlisted(stmt)) return false;
+  return colDefRe.test(stmt);
+}
 
 const failures = [];
 
@@ -50,23 +104,23 @@ const failures = [];
 const MIG = join(ROOT, 'migrations');
 if (existsSync(MIG)) {
   for (const f of readdirSync(MIG).filter((e) => e.endsWith('.sql'))) {
-    const sql = readFileSync(join(MIG, f), 'utf-8');
-    // CREATE TABLE [IF NOT EXISTS] <table> ( ... )
-    const createRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)["']?\s*\(([\s\S]*?)\);/gi;
-    let m;
-    while ((m = createRe.exec(sql))) {
-      const table = m[1], body = m[2];
-      const colRe = new RegExp(`(^|,)\\s*["']?(${colAlt})["']?\\s+(text|varchar|character varying)`, 'gi');
-      if (colRe.test(body) && !LOCATION_TEXT_ALLOW[table]) {
-        failures.push(`[new-location-text] ${f}: CREATE TABLE ${table} com coluna de localidade-texto NÃO carimbada — localidade operacional usa city_id/address_id (Location Core). Se for cache/snapshot/audit, carimbe em LOCATION_TEXT_ALLOW.`);
+    const raw = readFileSync(join(MIG, f), 'utf-8');
+    const clean = maskStringLiterals(stripSqlComments(raw), { maskDollarQuotes: false });
+    for (const stmt of splitStatements(clean)) {
+      if (statementCreatesUnstampedLocText(stmt)) {
+        const table = extractTableName(stmt);
+        failures.push(`[new-location-text] ${f}: statement cria/altera tabela ${table} com coluna de localidade-texto NÃO carimbada — localidade operacional usa city_id/address_id (Location Core). Se for cache/snapshot/audit, carimbe em LOCATION_TEXT_ALLOW.`);
       }
     }
-    // ALTER TABLE <table> ADD COLUMN [IF NOT EXISTS] <loc_col> text
-    const alterRe = new RegExp(`ALTER\\s+TABLE\\s+["']?(\\w+)["']?[\\s\\S]{0,120}?ADD\\s+COLUMN\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["']?(${colAlt})["']?\\s+(text|varchar|character varying)`, 'gi');
-    while ((m = alterRe.exec(sql))) {
-      const table = m[1];
-      if (!LOCATION_TEXT_ALLOW[table]) {
-        failures.push(`[new-location-text] ${f}: ALTER TABLE ${table} ADD COLUMN ${m[2]} (localidade-texto) em tabela NÃO carimbada — use city_id/address_id ou carimbe.`);
+    // DDL dentro de EXECUTE (estático ou literal resolvível) — antes 100% invisível.
+    for (const u of extractExecuteLiterals(raw)) {
+      const body = u.resolvableText;
+      if (!body) continue;
+      for (const bstmt of splitStatements(body)) {
+        if (statementCreatesUnstampedLocText(bstmt)) {
+          const table = extractTableName(bstmt);
+          failures.push(`[new-location-text] ${f}: EXECUTE cria/altera tabela ${table} com coluna de localidade-texto NÃO carimbada (DDL dinâmico resolvível).`);
+        }
       }
     }
   }
@@ -103,4 +157,4 @@ if (failures.length) {
   console.log('\n→ Verdade paralela de localidade. Localidade operacional = Location Core (city_id/address_id). Se legado explícito, carimbe em LOCATION_TEXT_ALLOW com justificativa + DT.');
   process.exit(1);
 }
-console.log(`GATE OK [location-authority-classification] — ${Object.keys(LOCATION_TEXT_ALLOW).length} tabelas com localidade-texto carimbadas (cache/snapshot/audit/legacy_contained, todas vazias/contidas); nenhuma migration nova cria localidade-texto operacional; descoberta/entrega usa city_id.`);
+console.log(`GATE OK [location-authority-classification] — ${Object.keys(LOCATION_TEXT_ALLOW).length} tabelas com localidade-texto carimbadas (cache/snapshot/audit/legacy_contained, todas vazias/contidas); nenhuma migration nova (incl. schema-qualificada/ONLY/EXECUTE/citext) cria localidade-texto operacional; descoberta/entrega usa city_id.`);
