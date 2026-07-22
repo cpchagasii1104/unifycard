@@ -174,6 +174,31 @@ async function main(): Promise<void> {
       Number(row2.price_cents) === 7500 && row2.quantity_total === 120 && row2.quantity_available === 120,
       `status=${rEdit.statusCode} row=${JSON.stringify(row2)}`);
 
+    // (contenção ADDENDUM) /reserve e /pay são DEFERIDOS (ticket_sales não convergido) — devem
+    // devolver 501 honesto ANTES de qualquer escrita (reproduzido: /reserve criava `orders` órfão;
+    // /pay estourava 500 na 1ª leitura). Zero linhas novas em orders/payment_intents/ticket_sales.
+    const count = async (t: string) => Number((await pool.query<{ n: string }>(`SELECT COUNT(*)::int AS n FROM ${t}`)).rows[0].n);
+    const ordersBefore = await count('orders');
+    const paymentIntentsBefore = await count('payment_intents');
+    const ticketSalesBefore = await count('ticket_sales');
+
+    const rReserve = await call('POST', `/tickets/${ticketId}/reserve`, {
+      userId: organizer.userId, actorId: organizer.actorId,
+      body: { buyerActorId: organizer.actorId, quantity: 1 },
+    });
+    const reserveBody = JSON.parse(rReserve.body || '{}');
+    record('(contenção) POST /tickets/:id/reserve → 501 TICKET_PURCHASE_DEFERRED_FATIA2, ZERO escrita',
+      rReserve.statusCode === 501 && reserveBody?.code === 'TICKET_PURCHASE_DEFERRED_FATIA2' &&
+      (await count('orders')) === ordersBefore && (await count('payment_intents')) === paymentIntentsBefore && (await count('ticket_sales')) === ticketSalesBefore,
+      `status=${rReserve.statusCode} code=${reserveBody?.code}`);
+
+    const rPay = await call('POST', `/tickets/${ticketId}/pay`, { userId: organizer.userId, actorId: organizer.actorId, body: {} });
+    const payBody = JSON.parse(rPay.body || '{}');
+    record('(contenção) POST /tickets/:id/pay → 501 TICKET_PURCHASE_DEFERRED_FATIA2, ZERO escrita',
+      rPay.statusCode === 501 && payBody?.code === 'TICKET_PURCHASE_DEFERRED_FATIA2' &&
+      (await count('orders')) === ordersBefore && (await count('payment_intents')) === paymentIntentsBefore && (await count('ticket_sales')) === ticketSalesBefore,
+      `status=${rPay.statusCode} code=${payBody?.code}`);
+
     // (d) Δbank = 0
     const bankAfter = (await pool.query<{ n: string }>(
       `SELECT (SELECT COUNT(*) FROM bank_ledger) || ':' || (SELECT COUNT(*) FROM bank_transactions) AS n`

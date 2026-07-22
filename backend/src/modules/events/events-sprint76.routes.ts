@@ -370,6 +370,21 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     Params: { id: string };
     Body: ReserveTicketInput;
   }>('/tickets/:id/reserve', async (req, reply) => {
+    // 🔴 F-EVENT-TICKETING-CONVERGENCE (Fatia 1, ADDENDUM) — CONTENÇÃO HONESTA. reserveTicket cria
+    // ORDER (orderService.createOrder/submitOrder) e ENTÃO chama ticketSaleRepository.createSale,
+    // que mira colunas de ticket_sales que NUNCA existiram no schema vivo (event_ticket_id/
+    // payment_intent_id/...) — reproduzido: a chamada REAL cria um `orders` órfão e só então
+    // estoura 500 em submitOrder/createSale. ticket_sales é convergido em fatia PRÓPRIA (Fatia 2,
+    // dinheiro/ratificação-gated). Espelha a forma de checkout-ticket.service.purchaseTicket: erro
+    // HONESTO ANTES de qualquer escrita — nenhum order/paymentIntent/ticket_sales é tocado enquanto
+    // esta contenção estiver ativa. Corpo original preservado ABAIXO, intocado, para a Fatia 2.
+    return reply.status(501).send({
+      error: 'TICKET_PURCHASE_DEFERRED_FATIA2',
+      code: 'TICKET_PURCHASE_DEFERRED_FATIA2',
+      message: 'Compra de ingresso será habilitada na Fatia 2 (F-EVENT-TICKETING-CONVERGENCE) — ' +
+        'ticket_sales ainda não convergido ao schema vivo. Nenhuma escrita (order/paymentIntent/ticket_sales) foi realizada.',
+    });
+
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant é obrigatório' });
     }
@@ -407,6 +422,20 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
    * Confirma pagamento de ingresso
    */
   fastify.post<{ Params: { id: string } }>('/tickets/:id/pay', async (req, reply) => {
+    // 🔴 F-EVENT-TICKETING-CONVERGENCE (Fatia 1, ADDENDUM) — CONTENÇÃO HONESTA. confirmTicketPayment
+    // chama ticketSaleRepository.getSaleById primeiro, que mira colunas de ticket_sales inexistentes
+    // no schema vivo — reproduzido: estoura 500 (`coluna "event_ticket_id" não existe`) antes de
+    // qualquer escrita (falha de LEITURA, sem órfãos aqui). ticket_sales é convergido em fatia
+    // PRÓPRIA (Fatia 2, dinheiro/ratificação-gated). Espelha checkout-ticket.service.purchaseTicket:
+    // erro HONESTO em vez do 500 cru de coluna inexistente. Corpo original preservado ABAIXO,
+    // intocado, para a Fatia 2.
+    return reply.status(501).send({
+      error: 'TICKET_PURCHASE_DEFERRED_FATIA2',
+      code: 'TICKET_PURCHASE_DEFERRED_FATIA2',
+      message: 'Confirmação de pagamento de ingresso será habilitada na Fatia 2 (F-EVENT-TICKETING-CONVERGENCE) — ' +
+        'ticket_sales ainda não convergido ao schema vivo. Nenhuma escrita foi realizada.',
+    });
+
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant é obrigatório' });
     }

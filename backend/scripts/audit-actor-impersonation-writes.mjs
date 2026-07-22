@@ -97,6 +97,23 @@ check('event-ticket.repository.ts NÃO referencia a coluna-fantasma quantity_sol
 check('event-ticket.repository.ts usa quantity_available (coluna real) no CREATE/SELECT/UPDATE',
   (etrC.match(/quantity_available/g) || []).length >= 4);
 
+// F-EVENT-TICKETING-CONVERGENCE (Fatia 1, ADDENDUM) — /reserve e /pay são DEFERIDOS (ticket_sales
+// ainda não convergido ao schema vivo). Reproduzido: /reserve cria um `orders` ÓRFÃO antes de
+// estourar; /pay estoura na PRIMEIRA leitura (coluna fantasma). A contenção honesta 501
+// TICKET_PURCHASE_DEFERRED_FATIA2 DEVE preceder textualmente o sink correspondente — nenhuma
+// escrita (orders/paymentIntents/ticket_sales) pode ocorrer enquanto a contenção estiver ativa.
+// Regressão = a contenção sumir OU o sink passar a rodar antes dela.
+{
+  const firstContainment = es76C.indexOf('TICKET_PURCHASE_DEFERRED_FATIA2');
+  const secondContainment = firstContainment >= 0 ? es76C.indexOf('TICKET_PURCHASE_DEFERRED_FATIA2', firstContainment + 1) : -1;
+  const reserveSinkIdx = es76C.indexOf('ticketService.reserveTicket(');
+  const paySinkIdx = es76C.indexOf('ticketService.confirmTicketPayment(');
+  check('events-sprint76 /reserve: contenção 501 TICKET_PURCHASE_DEFERRED_FATIA2 precede o sink reserveTicket',
+    firstContainment >= 0 && reserveSinkIdx >= 0 && firstContainment < reserveSinkIdx);
+  check('events-sprint76 /pay: contenção 501 TICKET_PURCHASE_DEFERRED_FATIA2 precede o sink confirmTicketPayment',
+    secondContainment >= 0 && paySinkIdx >= 0 && secondContainment < paySinkIdx);
+}
+
 if (fails.length) {
   console.error(`\nACTOR-IMPERSONATION-WRITES: ${fails.length} FAIL`);
   process.exit(1);
