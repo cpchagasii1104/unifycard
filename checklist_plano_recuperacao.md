@@ -55,18 +55,21 @@ não decide §6.6 cedo) + converge código→schema produtivamente. F1 = backend
 Composição: núcleo `4a6b50c6e` (catálogo governado) + addendum-1 `a5e5a06f8` (contenção 501 reserve/pay)
 + addendum-2 `02e6cbe1c` (fix falso-lock guard). Selo docs-only aplicado.
 
-## Próxima frente: FATIA 4 (check-in convergido ao modelo cultural)
-- Bank-free, GO-ready pelo plano do GATE de convergência. ABSORVE e fecha
-  `DT-EVENTS-SPRINT76-ACTOR-HINT-AUTHORSHIP-FORGERY` (a contenção de autoria que travou por drift lá atrás).
-- Modelo: `cultural-checkin-target-authority` (self OR canRepresentActor sobre o portador/target +
-  validador no service); target = ticket_sales.buyer_actor_id (mas ticket_sales está drifted — verificar
-  no GATE/GO da F4 como resolver o portador sem depender do repo drifted de ticket_sales; pode precisar
-  conter honesto checkin/checkout como reserve/pay se o substrato não estiver pronto).
-- ⚠️ Aprendizado da F1 a aplicar na F4: a convergência de um repo compartilhado pode reanimar rotas
-  vizinhas mortas (efeito órfão) — mapear TODOS os callers/rotas afetados antes do material.
-- Ratificações soberanas pendentes (só F2/F3/F5): economia de ingresso, firewall PORTA, modelo emissão,
-  reembolso, unificação cultural×events-v2. Visão de produto p/ F2 na memória
-  (project_visao_bilheteria_grandes_promotores: split→fundo regional/indicação/grupo; artista adere).
+## Achado de dependência (direção, pós-F1): F4-real depende de F2
+Check-in real = check-in de ingresso COMPRADO (alvo = portador de ticket_sales). Como ticket_sales
+está drifted (motivo de reserve/pay contidos), NÃO dá para convergir check-in de verdade antes de F2
+(compra → ticket_sales). Logo F4-real é POST-F2, não GO-ready independente (GATE foi otimista).
+
+## ✅ Contenção cancel/checkin/checkout SELADA (Yala Veredito A, `86d675b83`) — HEAD atual
+`DT-EVENTS-SPRINT76-ACTOR-HINT-AUTHORSHIP-FORGERY` FECHADA por contenção. Ciclo de ingresso sprint76
+todo honesto: criar/editar tipo VIVO governado (F1); reserve/pay/cancel/checkin/checkout = 501 deferido.
+Espinha Bank-free da bilheteria concluída.
+
+## Depois: FATIA 2 (compra) — precisa ratificações soberanas de Clayton
+economia de ingresso (split→fundo regional/indicação/grupo, visão em memória
+project_visao_bilheteria_grandes_promotores; artista adere voluntário) · firewall PORTA · modelo de
+emissão (agregado vs individual+QR; DB virgem) · depois F3 (emissão) · F5 (reembolso) · unificação
+cultural×events-v2. F4-real (check-in) entra após F2.
 
 ## Parado / bloqueado (nada a retomar agora)
 - (nenhum — 2A é a única frente material aberta no momento)

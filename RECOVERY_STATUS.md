@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-22 · **HEAD verificado:** `02e6cbe1c` (F-EVENT-TICKETING-CONVERGENCE Fatia 1 SELADA pela Yala · Veredito A — catálogo de tipo governado + contenção honesta reserve/pay; núcleo `4a6b50c6e` + addenda `a5e5a06f8`/`02e6cbe1c`. Antes: tranche 2A `5637c38e2`; AUDIT-004 `39a51267c` — ver cartório) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-22 · **HEAD verificado:** `86d675b83` (F-EVENT-TICKETING-CONVERGENCE: rotas mortas sprint76 cancel/checkin/checkout contidas honesto → `DT-EVENTS-SPRINT76-ACTOR-HINT-AUTHORSHIP-FORGERY` FECHADA por contenção · Yala Veredito A. Antes: F1 catálogo `02e6cbe1c`; tranche 2A `5637c38e2`; AUDIT-004 `39a51267c` — ver cartório) · **Branch:** `rescue-structural`
 
 ---
 
