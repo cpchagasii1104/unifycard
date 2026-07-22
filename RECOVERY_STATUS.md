@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-21 · **HEAD verificado:** `eb12f53ec` (1ª tranche de hardening — SELADA pela Yala, Veredito A) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-21 · **HEAD verificado:** `eb12f53ec` (1ª tranche de hardening SELADA; AUDIT-004 achou risco crítico vivo, aguarda GATE de contenção — ver seção própria) · **Branch:** `rescue-structural`
 
 ---
 
@@ -17,7 +17,7 @@ Recuperar a **confiabilidade arquitetural** do sistema — saber o que está viv
 - **Mapeamento geral** (Rodadas 0–10) + consolidação (Anexo C: FIND-*, ROOT-*, ranking, 6 pacotes AUDIT-001..006).
 - **AUDIT-001** `economic/v2`: cadeia de pagamento embutida em Eventos; rótulo "sandbox" enganoso.
 - **✅ AUDIT-002 · CONCLUÍDO E SELADO** — **84/84 guards sem entrada nominal direta auditados individualmente** (F-1 Bank 19 · F-2 Authority 19 · F-3 RLS/Workers 6 · F-4 Schema 12 · F-5 Legacy/Produto 20 · F-6 Frontend 8; F-7 vazio). Veredito A, auditoria consolidada independente (Opus 4.8). **O selo significa "auditoria concluída", NÃO "dívida material resolvida".**
-- **ROOT-004** (impersonação histórica): reconstruído — 5 grupos / 8 handlers, **todos corrigidos**.
+- **ROOT-004** (impersonação histórica): reconstruído — 5 grupos / 8 handlers, **todos corrigidos** (reconfirmados PROVEN_SAFE pelo AUDIT-004, abaixo). **AUDIT-004 (2026-07-21) achou casos NOVOS e ADICIONAIS fora desse conjunto histórico** — ver seção própria.
 - **ROOT-001** (workers cross-tenant sob RLS): reconstruído — 25 workers inventariados; 3 workers globais achados.
 - **ROOT-003** reclassificado (histórico preservado): **R2 — cobertura existe, mas é opaca** (`PARTIALLY_RESOLVED_AND_CONTAINED`) → estado atual: **`MATERIALMENTE REMEDIADO E SELADO`** (2026-07-21). Arco: material inicial `bb90b4edb` → primeira Yala independente **Veredito B — remediação técnica estreita necessária** → remediação R1+R2+R3+R4 (`dc2dc0557`) → **reauditoria Yala independente Veredito A — remediação correta e apta a selo** → selo final. O meta-guard `audit-guard-coverage-manifest.mjs` torna a cobertura visível com **rótulos honestos**: `AUDIT FILES CONTINUOUSLY REACHED: 276` ≠ `CONTINUOUS GUARDS: 274` + `AGGREGATORS: 2` (274+2=276); `CI_OTHER_COMMAND` do actor-writer exige os **3 workflows** (`ALL_THREE_REQUIRED`, parser YAML estreito); runner tem **precondição de self-wiring** (meta-guard 1× no CMDS); localizador de array **endurecido contra decoys**. Falha fechado em drift = 0. Fecha: (1) contagem opaca, (2) adição invisível de guard contínuo, (3) contrato de comando externo nos workflows, (4) remoção isolada do wiring do meta-guard, (5) decoys no localizador estrutural. **Não** se declara autoproteção absoluta contra alteração coordenada e deliberada do runner (limite honesto preservado).
 
@@ -34,6 +34,28 @@ AGGREGATORS: 2
 DRIFT: 0
 ```
 > Este painel é **executivo**, não é norma, e ler/atualizar este painel **não concede execução** de nenhuma frente.
+
+## 🔴 AUDIT-004 · RISCO CRÍTICO VIVO · AGUARDA GATE DE CONTENÇÃO (2026-07-21)
+```
+AUDIT-004
+DENOMINADOR: 126 arquivos / 570 ocorrências (rederivado; "152" histórico refutado)
+VEREDITO: C — RISCO CRÍTICO VIVO
+ACHADO: services.routes.ts POST/PUT .../availability — hint do cliente = alavanca de
+        autoridade (sem canRepresentActor); requireServiceOwnedByActor só compara
+        igualdade contra o valor declarado
+ALCANÇÁVEL: SIM · BANK-FREE: SIM (Δbank=0) · VIOLAÇÃO: Art. I Constituição + LEI §4.9.2/4.9.5
+STATUS: NÃO CORRIGIDO · aguarda GATE material de contenção (Opus, esforço máximo)
+```
+Verificado independentemente (não só pela executora que o achou): rota não chama
+`canRepresentActor`; sink compara só `service.actorId !== callerActorId` (igualdade contra o
+próprio hint). O padrão CORRETO já existe no código-base (`rentable-resource.service` faz
+`canRepresentActor(userId, owner)` na mesma classe de operação) — só não foi aplicado aqui.
+Backlog adicional do mesmo AUDIT-004 (não-crítico, sem GO): `events-sprint76` cancel/checkin/
+checkout (forja de autoria, money-free) · 6 rotas KYB de `identity.routes` (admin-gated, só
+proveniência) · `service-order confirm-financial-terms` (contido por flag, vigilância).
+**Regra "uma frente material por vez" aplicada:** a 2ª tranche de hardening de guards (2A,
+Veredito A, desenhada) foi **parada** — a contenção deste achado tem prioridade. Detalhe
+completo no cartório `REMEDIATION_DT_LOG.md` (entrada AUDIT-004, 2026-07-21).
 
 ## O que foi decidido (institucional, selado)
 - **DECISION-0190** — economic/v2 honest sandbox & contenção. **SELADA · Veredito A** (`9a65f0291` + `33027ee60`).

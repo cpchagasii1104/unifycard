@@ -2449,3 +2449,27 @@ protocolo §4.3, disciplina §6 acima.*
 - **ROOT-003 e AUDIT-002 permanecem selados e intocados; PORTA-1 fechada; Δbank=0.**
 - **Backlog sem GO:** próximas tranches de hardening (family-A restantes + B/C/D) com GATE+material+Yala próprios, reusando o helper selado; GATE de workers globais da DECISION-0191 (`actor-wallet-payout-worker.ts`).
 - **Commit do selo:** docs-only, `docs(remediation): seal migration DDL guard hardening after Yala`. **Frente da 1ª tranche encerrada.**
+
+## DT-SERVICES-AVAILABILITY-ACTOR-HINT-IMPERSONATION — 🔴 CRÍTICO VIVO · AUDIT-004 · AGUARDA GATE DE CONTENÇÃO (2026-07-21)
+
+- **Achado:** `backend/src/modules/services/services.routes.ts` `POST`/`PUT` `.../availability` repassam `req.actionContext.actorId` cru como `callerActorId` sem `canRepresentActor`; `services.service.ts::requireServiceOwnedByActor` (L554) só compara `service.actorId !== callerActorId` — igualdade contra valor declarado pelo cliente, não prova de representação.
+- **Vetor:** qualquer autenticado do tenant declara o `actorId` da vítima dona do serviço → cria/edita a agenda do serviço alheio. Reachable hoje. Bank-free (Δbank=0) — viola Art. I da Constituição + §4.9.2/§4.9.5 da Lei de Coerência, não é desvio de dinheiro.
+- **Contraste:** `rentable-resource.service` faz `canRepresentActor(userId, owner)` corretamente na mesma classe de operação — padrão certo já existe no código, só não foi aplicado aqui.
+- **Status:** achado por AUDIT-004 (GATE read-only, Veredito C), verificado independentemente pelo diretor. **Aguarda GATE material de contenção** (modelo Opus, esforço máximo) → material → Yala. Nenhuma correção feita ainda.
+
+## DT-EVENTS-SPRINT76-ACTOR-HINT-AUTHORSHIP-FORGERY — 🟠 backlog vivo, não-crítico (AUDIT-004)
+
+- `events-sprint76.routes.ts` cancel/checkin/checkout (tickets) carimbam `actorId` arbitrário sem gate; hint não é alavanca de acesso (write ocorre independente do valor), é forja de autoria. Money-free. Backlog de correção pontual, sem urgência.
+
+## DT-IDENTITY-KYB-ACTOR-HINT-PROVENANCE — 🟡 backlog, admin-gated (AUDIT-004)
+
+- 6 rotas KYB PJ em `identity.routes.ts` gravam `actionContext.actorId` sem `canRepresentActor`, mas atrás de `requireRole(['admin'])` — só forja de proveniência de auditoria, sem escalonamento. Backlog de correção pontual.
+
+## DT-SERVICE-ORDER-CONFIRM-FINANCIAL-TERMS-UNBOUND-ACTOR — ⚪ vigilância, contido (AUDIT-004)
+
+- `service-order.routes.ts::confirm-financial-terms` grava `confirmedByActorId` sem binding, mas atrás de `isFinancialEnabled()` → 503 fail-closed. Vira crítico se o flag for religado sem correção prévia. Não abrir agora — só vigiar.
+
+## F-GUARD-HARDENING-MIGRATION-DDL-RECOGNITION — 2ª TRANCHE (2A) — 🟡 DESENHADA (Veredito A) · EXECUÇÃO PARADA POR PRIORIDADE (2026-07-21)
+
+- 3 guards (category-input-audit, location-authority, vehicle-fields-governed) endureceríveis com o helper já selado, sem função nova. Achado extra: vehicle-fields-governed lê a migration ERRADA (tabela órfã `rental_resource_pricing`, não a viva `actor_asset_rental_pricing_tiers`) — mais severo que o registrado antes.
+- **Parada por prioridade:** regra "uma frente material por vez" + risco crítico vivo do AUDIT-004 acima. Nenhum material aberto. Retomar após a contenção selar. Modelo recomendado quando retomar: Sonnet.
