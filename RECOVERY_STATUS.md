@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-22 · **HEAD verificado:** `39a51267c` (AUDIT-004 C1/C2 CONTIDO E SELADO PELA YALA · Veredito A — ver seção própria) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-22 · **HEAD verificado:** `5637c38e2` (tranche 2A de hardening de guards SELADA pela Yala · Veredito A; AUDIT-004 C1/C2 selado em `39a51267c` — ver cartório) · **Branch:** `rescue-structural`
 
 ---
 
