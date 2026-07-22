@@ -10,21 +10,21 @@ Fase 2 (eixos soberanos) — Fase 1 auditabilidade com remediação crítica fec
 (AUDIT-004 C1/C2 selado em `285b30f10`).
 
 ## Frente ativa agora
-**F-EVENTS-SPRINT76-ACTOR-AUTHORSHIP-CONTAINMENT** (backlog AUDIT-004, item events-sprint76)
-- Instância: executora, Opus, esforço alto — modo GATE READ-ONLY
-- Estado: GO GATE emitido, aguardando parecer de desenho
-- HEAD base: `3afc258de`
-- Alvo: `events-sprint76.routes.ts` handlers cancel (~L348) / checkin (~L378) / checkout (~L403)
-  carimbam `actionContext.actorId` cru sem `canRepresentActor`; siblings create/publish (L79/271/311)
-  já guardados. Natureza: forja de AUTORIA (a esclarecer no GATE) ≠ alavanca de acesso.
-- ⚠️ Ponto crítico do GATE: RE-VERIFICAR do zero se `cancelTicket` (venda de ingresso) toca
-  dinheiro/reembolso — se tocar e for alcançável com actor forjado → Trava B.8 (STOP, vira crítico).
-- GATE retornou Veredito B → direção resolveu em A pela norma (checkin/checkout = modelo
-  promulgado cultural-checkin-target-authority; cancel = representa buyerActorId). Bank-free
-  confirmado. Aditivo (organizador/staff) deferido.
-- Achado adjacente registrado: `DT-EVENTS-SPRINT76-TICKET-PAY-UNAUTHENTICATED-AUTHORITY`
-  (money-write sem autoridade em /tickets/:id/pay) — GATE próprio futuro, sem GO.
-- Próxima ação: emitir GO material (Opus, alto) da contenção normativa → material → Yala → selo.
+**(nenhuma frente material aberta — F-EVENTS-SPRINT76 parada por blocker de drift; aguarda decisão de fate)**
+- O GO material de contenção de autoria foi emitido; a executora aplicou o fix na forma
+  (typecheck 0) mas PAROU e reverteu ao descobrir DRIFT DE SCHEMA: `ticket_sales` tem dois
+  designs irreconciliáveis (schema vivo=compra paga vs repositório=reserva→pagamento).
+  Runtime sprint76 ticketing MORTO (getSaleById estoura coluna-inexistente); forja NUNCA foi viva.
+- Achados registrados em dividatecnica: `DT-EVENTS-SPRINT76-TICKET-SALE-REPOSITORY-SCHEMA-DRIFT`
+  (🟠 estrutural, money-adjacent, módulo morto), forja reclassificada 🟠→⚪ (não-explorável),
+  `DT-EVENTS-SPRINT76-TICKET-PAY-UNAUTHENTICATED-AUTHORITY` (money-adjacent, GATE próprio).
+- Sem risco vivo (nada alcançável). HEAD `6f89a016d`, working tree limpo (material revertido).
+
+## Próxima decisão da direção (fate de sprint76 ticketing — money-adjacent, soberana)
+- (I) GATE de fate → quarentenar/remover o módulo morto (padrão da quarentena de frontend).
+- (II) GATE de fate → reconciliar+reviver (decisão de produto+dinheiro: bilheteria paga é feature?).
+- (III) Shelve como DT registrada (sem risco vivo) e seguir p/ próximo backlog AUDIT-004
+  (`identity-kyb`) ou Fase 2 / abrir AUDIT-003/005. RECOMENDADO (não há fogo).
 
 ## Parado / bloqueado (nada a retomar agora)
 - (nenhum — 2A é a única frente material aberta no momento)
