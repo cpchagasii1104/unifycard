@@ -47,6 +47,12 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      // 🔴 A1c (EVENT-ENGINE-COMPLETION, §2/§4.8): WRITER ÚNICO. Rota legada W2 (POST /api/events/create →
+      // eventsService.createEvent, INSERT INTO events paralelo) CONTIDA: 501 honesto como PRIMEIRA instrução,
+      // ANTES de qualquer chamada ao writer legado. Criação canônica = POST /api/events/v2/create (guided
+      // flow). FE já roteado (A1b/A1c). Corpo original abaixo (dead-code documentado).
+      return reply.status(501).send({ error: 'EVENT_LEGACY_WRITER_CONVERGED', code: 'EVENT_LEGACY_WRITER_CONVERGED', message: 'Rota legada de criação de evento contida — use POST /api/events/v2/create (guided flow format-first).' });
+
       if (!req.user) {
         return reply.status(401).send({ error: 'Não autenticado' });
       }

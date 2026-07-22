@@ -44,12 +44,6 @@ export default function GrupoDetailPage() {
   const { activeActor } = useActiveActor();
   const [newPostContent, setNewPostContent] = useState('');
   const [creatingPost, setCreatingPost] = useState(false);
-  const [showCreateEvent, setShowCreateEvent] = useState(false);
-  const [eventTitle, setEventTitle] = useState('');
-  const [eventDescription, setEventDescription] = useState('');
-  const [eventStartTime, setEventStartTime] = useState('');
-  const [eventEndTime, setEventEndTime] = useState('');
-  const [creatingEvent, setCreatingEvent] = useState(false);
   const [dashboard, setDashboard] = useState<{
     membersCount: number;
     eventsCount: number;
@@ -480,13 +474,6 @@ export default function GrupoDetailPage() {
     }
   };
 
-  // A1b (F-EVENT-ENGINE-COUPLING): a criação de evento de grupo passou a rotear ao GUIDED FLOW governado
-  // (/events/new?group_id=<id> → POST /api/events/v2/create → vínculo evento↔grupo com autoridade no
-  // backend, F0-grupo). O caminho legado createEventCanonical→/api/events/create (W2) NÃO é mais chamado.
-  const handleCreateEvent = () => {
-    if (!id) return;
-    navigate(`/events/new?group_id=${id}`);
-  };
 
   if (loading) {
     return (
@@ -678,67 +665,7 @@ export default function GrupoDetailPage() {
                   + Criar Evento
                 </button>
               </div>
-              
-              {/* Formulário de criação de evento */}
-              {showCreateEvent && (
-                <div className="group-create-event-form">
-                  <h3>Criar Evento</h3>
-                  <div className="group-event-form-field">
-                    <label>Título do Evento *</label>
-                    <input
-                      type="text"
-                      value={eventTitle}
-                      onChange={(e) => setEventTitle(e.target.value)}
-                      placeholder="Ex: Encontro de Membros"
-                      className="group-event-input"
-                      disabled={creatingEvent}
-                    />
-                  </div>
-                  <div className="group-event-form-field">
-                    <label>Descrição</label>
-                    <textarea
-                      value={eventDescription}
-                      onChange={(e) => setEventDescription(e.target.value)}
-                      placeholder="Descreva o evento..."
-                      className="group-event-textarea"
-                      rows={4}
-                      disabled={creatingEvent}
-                    />
-                  </div>
-                  <div className="group-event-form-row">
-                    <div className="group-event-form-field">
-                      <label>Data/Hora de Início *</label>
-                      <input
-                        type="datetime-local"
-                        value={eventStartTime}
-                        onChange={(e) => setEventStartTime(e.target.value)}
-                        className="group-event-input"
-                        disabled={creatingEvent}
-                      />
-                    </div>
-                    <div className="group-event-form-field">
-                      <label>Data/Hora de Fim *</label>
-                      <input
-                        type="datetime-local"
-                        value={eventEndTime}
-                        onChange={(e) => setEventEndTime(e.target.value)}
-                        className="group-event-input"
-                        disabled={creatingEvent}
-                      />
-                    </div>
-                  </div>
-                  <div className="group-event-form-actions">
-                    <button
-                      onClick={handleCreateEvent}
-                      disabled={creatingEvent || !eventTitle.trim() || !eventStartTime || !eventEndTime}
-                      className="group-event-submit-button"
-                    >
-                      {creatingEvent ? 'Criando...' : 'Criar Evento'}
-                    </button>
-                  </div>
-                </div>
-              )}
-              
+
               {/* Campo de criação de post */}
               <div className="group-feed-create-post">
                 <textarea

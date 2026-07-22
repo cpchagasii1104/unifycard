@@ -99,6 +99,12 @@ class EventRepository {
       timezone?: string;
     }
   ): Promise<Event> {
+    // 🔴 A1c (EVENT-ENGINE-COMPLETION, §2/§4.8): WRITER ÚNICO. Este writer LEGADO (sprint76, INSERT INTO
+    // events paralelo) foi CONTIDO. Criação canônica = core/events/event.service.ts createEvent (via
+    // /api/events/v2/create). Throw HONESTO como PRIMEIRA instrução — nenhum INSERT paralelo executável,
+    // nem por curl. Corpo original preservado ABAIXO (dead-code documentado).
+    throw new Error('EVENT_LEGACY_WRITER_CONVERGED: writer legado de evento (sprint76 repository) contido — use POST /api/events/v2/create (guided flow format-first).');
+
     const actorType = input.organizerActorType || 'user';
     const eventType = (input.eventType && String(input.eventType).trim()) || 'general';
     const visibility = input.visibility || 'public';

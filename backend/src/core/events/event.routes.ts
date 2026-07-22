@@ -609,6 +609,12 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           );
         }
         
+        // 🔴 A1c (EVENT-ENGINE-COMPLETION, §2/§4.8): WRITER ÚNICO. Esta ROTA legada eventType-based
+        // (POST /api/events/, órfã — sem FE) fica CONTIDA: entrada única de criação = guided flow governado
+        // (POST /api/events/v2/create). Contém a ROTA, NÃO o método core createEvent (canônico via /v2/create
+        // + createEventBoundToGroup). 501 honesto ANTES da chamada ao writer. Corpo original abaixo (dead-code).
+        return sendEventHttpError(reply, req, 501, 'EVENT_LEGACY_WRITER_CONVERGED', 'Rota legada de criação de evento contida — use POST /api/events/v2/create (guided flow format-first).');
+
         const event = await eventService.createEvent(req.tenant.id, toCreateEventInput(req.body));
 
         // Enfileirar evento na outbox para criar post no feed (worker → bus canónico)

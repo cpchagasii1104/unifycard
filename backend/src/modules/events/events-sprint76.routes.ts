@@ -94,6 +94,12 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
    * Cria novo evento
    */
   fastify.post<{ Body: CreateEventInput }>('/events', async (req, reply) => {
+    // 🔴 A1c (EVENT-ENGINE-COMPLETION, §2/§4.8): WRITER ÚNICO. Rota legada W3 (sprint76 POST /api/events/
+    // events → eventRepository.createEvent, INSERT INTO events paralelo; órfã sem FE) CONTIDA: 501 honesto
+    // como PRIMEIRA instrução, ANTES do writer. Criação canônica = POST /api/events/v2/create (guided flow).
+    // Corpo original abaixo (dead-code documentado).
+    return reply.status(501).send({ error: 'EVENT_LEGACY_WRITER_CONVERGED', code: 'EVENT_LEGACY_WRITER_CONVERGED', message: 'Rota legada de criação de evento contida — use POST /api/events/v2/create (guided flow format-first).' });
+
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant é obrigatório' });
     }

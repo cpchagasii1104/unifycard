@@ -167,6 +167,14 @@ class EventsService {
     input: CreateEventInput,
     createdByGlobalUserId: string
   ): Promise<Event> {
+    // 🔴 A1c (EVENT-ENGINE-COMPLETION, §2/§4.8): WRITER ÚNICO. Este writer LEGADO (INSERT INTO events
+    // paralelo + event_type/localização-texto, ignora formato-first) foi CONTIDO. A criação canônica é
+    // core/events/event.service.ts createEvent (via /api/events/v2/create, guided flow). Throw HONESTO
+    // como PRIMEIRA instrução — nenhum INSERT paralelo é executável, nem por curl direto. Corpo original
+    // preservado ABAIXO (dead-code documentado). FECHA DT-GROUP-EVENTS-BINDING-DRIFT (o vínculo governado
+    // evento↔grupo vive no core/createEventBoundToGroup, F0-grupo).
+    throw new Error('EVENT_LEGACY_WRITER_CONVERGED: writer legado de evento (modules/events) contido — use o caminho governado POST /api/events/v2/create (guided flow format-first).');
+
     // Obter região do tenant como fallback
     const tenant = await tenantService.getTenantById(tenantId);
     
