@@ -65,11 +65,18 @@ está drifted (motivo de reserve/pay contidos), NÃO dá para convergir check-in
 todo honesto: criar/editar tipo VIVO governado (F1); reserve/pay/cancel/checkin/checkout = 501 deferido.
 Espinha Bank-free da bilheteria concluída.
 
-## Depois: FATIA 2 (compra) — precisa ratificações soberanas de Clayton
-economia de ingresso (split→fundo regional/indicação/grupo, visão em memória
-project_visao_bilheteria_grandes_promotores; artista adere voluntário) · firewall PORTA · modelo de
-emissão (agregado vs individual+QR; DB virgem) · depois F3 (emissão) · F5 (reembolso) · unificação
-cultural×events-v2. F4-real (check-in) entra após F2.
+## REFRAME (Clayton, 2026-07-22): motor de eventos único que ORQUESTRA tudo
+A convergência de bilheteria virou o buildout do MOTOR DE EVENTOS (maior que Eventim; Actor-projetado;
+orquestra descoberta→agenda→contratação→local→ingresso; economia→fundo regional). Mapa completo em
+`EVENT_ENGINE_COUPLING_MAP.md` (6 descobertas read-only). ~70% do substrato JÁ existe — trabalho é ELOS,
+não tijolos. Espinha reusável: oferta contratável (artista/banda/local) = service_offering c/ agenda.
+Visões em memória: project_visao_motor_eventos_unico_ator_projetado + project_visao_bilheteria_grandes_promotores.
+
+## Próxima ação: validar o roadmap de acoplamento com Clayton
+Roadmap Bank-free proposto (S0 motor único → S1 oferta contratável → S2 contratação orquestrada →
+S3 agenda coordenada → S4 local/setores/ingresso → S5 vaquinha → S6 frontend → PORTA-01 dinheiro).
+S0 é pré-requisito. HOLDs deliberados a levantar: acceptQuote (R7b), booking evento→fornecedor (0156),
+evento→locação (RFC). Decisões soberanas isoladas no mapa. Aguarda Clayton validar/sequenciar antes de GATE de S0.
 
 ## Parado / bloqueado (nada a retomar agora)
 - (nenhum — 2A é a única frente material aberta no momento)
