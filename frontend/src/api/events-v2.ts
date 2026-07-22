@@ -21,6 +21,9 @@ export interface CreateDraftInput {
     datetime_end?: string;
     visibility?: 'public' | 'connections' | 'only_me';
     max_attendees?: number | null;
+    // A1b: contexto de grupo. O cliente só PROJETA o alvo; a AUTORIDADE (representar o group-actor) e o
+    // vínculo governado vivem no backend (/v2/create → createEventBoundToGroup, F0-grupo). 403 se sem autoridade.
+    group_id?: string;
   };
   event_id?: string;
 }

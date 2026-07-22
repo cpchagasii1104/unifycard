@@ -17,6 +17,9 @@ import EventDeclarationForm from '../components/events/EventDeclarationForm';
 export default function EventCreationPage() {
   const [searchParams] = useSearchParams();
   const eventId = searchParams.get('id');
+  // A1b: contexto de grupo (/events/new?group_id=X). Só PROJETA o alvo ao guided flow governado; a
+  // autoridade (representar o group-actor) e o vínculo evento↔grupo vivem no backend (F0-grupo).
+  const groupId = searchParams.get('group_id') || undefined;
 
   // 🔴 P0-1: Rota única - /events/new SEMPRE inicia pelo EventCreationGuidedFlow
   // Formulário antigo (EventDeclarationForm) só é acessível via query param explícito
@@ -27,7 +30,7 @@ export default function EventCreationPage() {
   }
 
   // Padrão: sempre usar fluxo guiado FASE 5.0
-  return <EventCreationGuidedFlow />;
+  return <EventCreationGuidedFlow groupId={groupId} />;
 }
 
 

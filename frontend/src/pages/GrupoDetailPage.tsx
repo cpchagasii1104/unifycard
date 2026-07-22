@@ -9,7 +9,6 @@ import { getCoreProfile } from '../api/core';
 import { ImageUpload } from '../components/groups/ImageUpload';
 import { getFeed, createPost, type Post } from '../api/social-2.0';
 import { useActiveActor } from '../contexts/ActiveActorContext';
-import { createEventCanonical, type CreateEventInputCanonical } from '../api/events';
 import './GrupoDetailPage.css';
 
 type TabType = 'overview' | 'feed' | 'members' | 'settings';
@@ -481,39 +480,12 @@ export default function GrupoDetailPage() {
     }
   };
 
-  const handleCreateEvent = async () => {
-    if (!id || !activeActor || !eventTitle.trim() || !eventStartTime || !eventEndTime) return;
-
-    setCreatingEvent(true);
-    try {
-      const eventInput: CreateEventInputCanonical = {
-        title: eventTitle.trim(),
-        description: eventDescription.trim() || null,
-        startTime: new Date(eventStartTime).toISOString(),
-        endTime: new Date(eventEndTime).toISOString(),
-        group_id: id, // Vincular evento ao grupo
-      };
-
-      await createEventCanonical(eventInput);
-
-      // Limpar formulário
-      setEventTitle('');
-      setEventDescription('');
-      setEventStartTime('');
-      setEventEndTime('');
-      setShowCreateEvent(false);
-
-      // Recarregar feed para mostrar o evento
-      setFeedCursor(null);
-      await loadGroupFeed();
-
-      alert('Evento criado com sucesso!');
-    } catch (err) {
-      console.error('Erro ao criar evento:', err);
-      alert(err instanceof Error ? err.message : 'Erro ao criar evento');
-    } finally {
-      setCreatingEvent(false);
-    }
+  // A1b (F-EVENT-ENGINE-COUPLING): a criação de evento de grupo passou a rotear ao GUIDED FLOW governado
+  // (/events/new?group_id=<id> → POST /api/events/v2/create → vínculo evento↔grupo com autoridade no
+  // backend, F0-grupo). O caminho legado createEventCanonical→/api/events/create (W2) NÃO é mais chamado.
+  const handleCreateEvent = () => {
+    if (!id) return;
+    navigate(`/events/new?group_id=${id}`);
   };
 
   if (loading) {
@@ -699,11 +671,11 @@ export default function GrupoDetailPage() {
               <div className="group-feed-header">
                 <h2>Feed do Grupo</h2>
                 <button
-                  onClick={() => setShowCreateEvent(!showCreateEvent)}
+                  onClick={() => id && navigate(`/events/new?group_id=${id}`)}
                   className="group-create-event-button"
-                  disabled={!activeActor}
+                  disabled={!activeActor || !id}
                 >
-                  {showCreateEvent ? '✕ Cancelar' : '+ Criar Evento'}
+                  + Criar Evento
                 </button>
               </div>
               

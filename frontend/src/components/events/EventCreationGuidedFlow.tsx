@@ -130,7 +130,7 @@ const INITIAL_DATA: GuidedFlowData = {
 // initialAudienceKeys: CARRY-OVER da plateia escolhida no composer inicial (IntentComposer). O Step0
 // abre com ela já selecionada no AudiencePicker — o usuário não escolhe do zero (fluxo/rascunho; a
 // AUTORIDADE segue no backend no submit). Aberto direto (/events/new) = sem prop = escolhe normalmente.
-export default function EventCreationGuidedFlow({ initialAudienceKeys }: { initialAudienceKeys?: string[] } = {}) {
+export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }: { initialAudienceKeys?: string[]; groupId?: string } = {}) {
   const navigate = useNavigate();
   const { activeActor, isLoading } = useActiveActor();
   const { sessionReady } = useSession();
@@ -189,6 +189,9 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys }: { initi
           actor_type: activeActor.actor_type as 'user' | 'page',
           visibility: visibility,
           title: 'Rascunho de evento',
+          // A1b: quando aberto com contexto de grupo (/events/new?group_id=X), PROJETA o alvo ao writer
+          // governado; o backend prova a autoridade (representar o group-actor) e cria o vínculo (F0-grupo).
+          ...(groupId ? { group_id: groupId } : {}),
         },
       });
       const eventId = response.event.id;
