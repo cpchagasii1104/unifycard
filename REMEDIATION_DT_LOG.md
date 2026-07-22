@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## EVENT-ENGINE-COMPLETION · C1b (facet multi-gênero + descoberta por gênero e data) — ✅ SELADA PELA YALA · VEREDITO A (2026-07-22)
+**O backend do catálogo de contratação "tipo Netflix": achar banda POR GÊNERO (multi-gênero) e livre no DIA X. Reusa event_theme_links + gêneros já semeados + a regra de data JÁ SELADA (0156). Bank-free. Selo docs-only.**
+- **Material:** `be256c2fb` (pai `2ca8c4552`). 7 arquivos, +362/−1: migration facet m2m, writer (service-offering.service), discovery (services.repository + services.service), +1 no runner, guard, E2E.
+- **O que faz:** elo MUITOS-PARA-MUITOS `service_offering_genre_facets` (FK service_offerings + FK shared_subject_concepts + PK(offering,concept)) — a FK ao pool de gêneros governado torna "gênero solto" FISICAMENTE impossível (mais forte que event_theme_links). Writer `tagOfferingGenres` fail-closed (`canRepresentActor` do provider 403 + governança shared_subject_concepts.enabled 422), idempotente. Discovery `discoverServices` aceita `subjectConceptId` opcional (EXISTS no facet) → COMPÕE com o predicado de data 0156 (`hasCanonicalOfferingFutureAvailability`, na camada de serviço, NÃO reimplementado). Reusa os gêneros já semeados; zero seed novo.
+- **Provas reproduzidas pela YALA (service-direct):** E2E 8/8 (gêneros governados; oferta tagueada [rock,funk] multi=2; rock ENCONTRA + funk ENCONTRA a MESMA banda + samba NÃO; data 0156 dentro/fora; 403 sem representar; 422 gênero não-governado; retag idempotente; Δbank=0); migration idempotente; guard morde a perda da FK (gênero solto) E da autoridade; typecheck 0. Zero frontend/dinheiro/ingresso/seed de gênero.
+- **Catálogo:** "escolho o dia 15, gênero reggae, cidade X → só quem está livre" já é backend real (falta seed de gêneros extras como reggae/MPB — trivial — e a vitrine frontend E1). Próximo: raio-x do performer (equipamento/capacidade/seguidores/configs — ver memória) OU C2 event_actors (binding). Ver `EVENT_ENGINE_COMPLETION_PLAN.md`.
+
 ## EVENT-ENGINE-COMPLETION · C1a (performer publica oferta contratável — apresentação musical) — ✅ SELADA PELA YALA · VEREDITO A (2026-07-22)
 **Primeira fatia da Fase C (contratação/performers): uma banda/artista passa a existir como OFERTA CONTRATÁVEL descoberta, com agenda, reusando o trilho SELADO `service_offering` — SEM uma linha de código de aplicação. Puro acoplamento. Bank-free. Selo docs-only.**
 - **Material:** `66c5a6dc6` (pai `500c90bbf`). 4 arquivos, +272/−0: migration seed (concept `apresentacao-musical`), guard, +1 linha no runner, E2E.

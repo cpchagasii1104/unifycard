@@ -139,17 +139,20 @@ Arco Fase A: F1 → contenção bilheteria → F0-grupo → A1b → A1c. (map-fi
 ## ✅ C1a SELADA (Yala Veredito A, `66c5a6dc6`) — performer publica oferta musical (sem código de app)
 Concept governado apresentacao-musical; banda reusa o trilho selado service_offering (descoberta+agenda).
 
-## Frente material ativa: C1b — facet multi-gênero + descoberta por gênero e data (backend do catálogo Netflix)
-- Instância: executora, Opus, alto. GO a emitir. Base = HEAD do selo C1a.
-- Desenho (direção): elo MUITOS-PARA-MUITOS oferta↔subject-concept de gênero (espelhar event_theme_links);
-  reusar os gêneros JÁ semeados em shared_subject_concepts (rock/samba/funk/…); writer p/ a banda taguear
-  seus gêneros (autoridade canRepresentActor do provider); estender discoverServices com filtro por gênero.
-  DATA já vem selada (0156 D2/D3 — descoberta filtra por disponibilidade futura). Multi-gênero por banda.
-  Bank-free. NÃO seed de gênero novo (reusa os existentes).
-- Próxima: C1-atributos (raio-x: equipamento/capacidade/seguidores/configs voz-e-violão×banda×produção/
-  tamanho de equipe — ver memória) → C2 event_actors → C3 contratação. Frontend catálogo Netflix = E1.
-- Decisões soberanas guardadas p/ Fase G (dinheiro): comissão→fundo regional/indicação (código de indicação
-  residual 1-2 anos), vaquinha, multi-vendedor. Ver memória project_visao_bilheteria + motor_eventos.
+## ✅ C1b SELADA (Yala Veredito A, `be256c2fb`) — catálogo por gênero+data (backend)
+Facet multi-gênero governado + descoberta por gênero e data selada 0156. "Achar banda de reggae livre no dia X"
+já é backend real. Falta seed de gêneros extras (reggae/MPB, trivial) + vitrine frontend (E1).
+
+## Próxima frente (a decidir/emitir): raio-x do performer OU C2 event_actors
+Estado: C1a+C1b feitos → o performer é uma oferta descoberta por gênero+data. Opções coerentes:
+- **C1c raio-x** (o que Clayton vem enfatizando): equipamento (facet governado espelhando C1b) + capacidade
+  (número, cruza c/ local Fase B) + seguidores (DERIVADO do grafo social, não digitado) + CONFIGS
+  (voz-e-violão×banda×produção — precisa DESENHO: múltiplas offerings vs dimensão de config) + tamanho de
+  equipe/precisa-montagem (puxa contratação de equipe). Ver memória motor_eventos (raio-x).
+- **C2 event_actors** (estrutural): materializar o binding performer→evento (line-up/elenco/equipe), o TIPO
+  existe sem tabela; corrigir assignStaff só-usuário. É "contratar a banda PARA o evento".
+Direção recomenda: C1c-equipamento+capacidade primeiro (baixo risco, reusa padrão C1b, enriquece o catálogo
+que Clayton quer), depois C2. Configs = sub-fatia com desenho próprio. Guardado p/ Fase G: indicação residual.
 
 ## (histórico) F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
 Agora que o backend governado cobre criação de grupo, dá para aposentar o W2: conter no BACKEND os 3

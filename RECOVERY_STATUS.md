@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-22 · **HEAD verificado:** `66c5a6dc6` (EVENT-ENGINE FASE C · **C1a SELADA** pela Yala · Veredito A — concept governado `apresentacao-musical`; performer publica oferta contratável descoberta+agenda reusando o trilho selado service_offering, SEM código de app. Antes: 🏁 FASE A writer único `6258309ce`; A1b `0711dbe7c`; F0-grupo `ce98ce41a`; F1 `02e6cbe1c`; AUDIT-004 `39a51267c`) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-22 · **HEAD verificado:** `be256c2fb` (EVENT-ENGINE FASE C · **C1b SELADA** pela Yala · Veredito A — facet MULTI-GÊNERO (m2m governado, FK impede gênero solto) + descoberta por gênero E por data selada 0156 = backend do catálogo "tipo Netflix". Antes: C1a `66c5a6dc6`; 🏁 FASE A writer único `6258309ce`; F0-grupo `ce98ce41a`; F1 `02e6cbe1c`; AUDIT-004 `39a51267c`) · **Branch:** `rescue-structural`
 
 ---
 
