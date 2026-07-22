@@ -114,11 +114,18 @@ Meu GO A1 assumiu "guided flow aceita group_id" — verdade só no backend. Fron
 group_id; GrupoDetailPage cria grupo por createEventCanonical→/api/events/create (W2). Conter W2 sem o FE
 quebraria criação viva de grupo. Sequência: **A1b (frontend group) → A1c (backend contém W1+W2+W3 = writer único)**.
 
-## Frente material ativa: A1b — guided flow (frontend) aceita contexto de grupo
-- Instância: executora, Sonnet, alto. GO MATERIAL emitido, base `1916e27aa`. Aguardando parecer.
-- Frontend PROJETA a verdade do backend (F0-grupo): CreateDraftInput+group_id; EventCreationPage lê group_id
-  de useSearchParams; GrupoDetailPage navega /events/new?group_id=X (não chama mais W2). NÃO cria verdade no cliente.
-- Próxima ação: parecer → verifico → Yala → selo → A1c (backend contém W1+W2+W3, writer único, prova por API direta).
+## ✅ A1b SELADA (Yala Veredito A, `0711dbe7c`) — guided flow FE projeta contexto de grupo
+Par frontend da F0-grupo. Cliente projeta, não cria verdade. Backend intocado. Habilita A1c.
+
+## Frente material ativa: A1c — WRITER ÚNICO (contém os 3 writers legados no backend)
+- Instância: executora, Opus, alto. GO MATERIAL emitido, base `0711dbe7c`. Aguardando parecer.
+- Mapa (direção verificou): ainda chamam W2 no FE = EventDeclarationForm(:201) + EventCreationWizard (avulsos);
+  backend = W1 rota '/', W2 /create, W3 sprint76 /events. GrupoDetailPage já saiu (A1b).
+- Escopo: (FE) rotear EventDeclarationForm+Wizard ao guided flow (avulso, /events/new) + limpar o form morto
+  de GrupoDetailPage (obs Yala); (BE) conter W1/W2/W3 → 501 ANTES do INSERT + neutralizar métodos legados +
+  guard "no INSERT INTO events fora de core/events". NÃO tocar core/events createEvent. Prova por API DIRETA.
+  Fecha DT-GROUP-EVENTS-BINDING-DRIFT. Bank-free. 🏁 Completa a Fase A (writer único / fundação).
+- Próxima ação: parecer → verifico → Yala → selo → marco fundação → C1/C2/C3 (performers+line-up+contratação).
 
 ## (histórico) F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
 Agora que o backend governado cobre criação de grupo, dá para aposentar o W2: conter no BACKEND os 3

@@ -1,5 +1,12 @@
 # REMEDIATION DT LOG
 
+## EVENT-ENGINE-COMPLETION · A1b (guided flow FE aceita contexto de grupo) — ✅ SELADA PELA YALA · VEREDITO A (2026-07-22)
+**Par FRONTEND da F0-grupo: o guided flow passa a projetar o contexto de grupo ao writer governado. O cliente PROJETA a verdade (autoridade/binding vivem no backend F0-grupo), não a cria. Bank-free. Selo docs-only.**
+- **Material:** `0711dbe7cbb452c17692139b35fbbaeb83b2ccd0` (pai `49db8b77f`). 4 arquivos FE, +20/−39: events-v2.ts (`CreateDraftInput.event.group_id?`), EventCreationGuidedFlow (prop `groupId`→`group_id` no createOrAdvanceDraft), EventCreationPage (lê `group_id` de useSearchParams), GrupoDetailPage (botão → `navigate('/events/new?group_id=X')`; `createEventCanonical`→W2 REMOVIDO da criação).
+- **Cadeia (Yala verificou ponta a ponta):** GrupoDetailPage → /events/new?group_id=X → EventCreationPage → guided flow → createOrAdvanceDraft(event.group_id) → POST /v2/create (governado). Sem group_id = avulso inalterado. Cliente não decide autoridade (backend 403 fail-closed).
+- **Provas (Yala):** typecheck FE 0, build OK, git diff --check 0, backend INTOCADO (0 arquivos), W2 não mais chamado pela UI (W2 backend segue vivo — é A1c). **Observação não-bloqueante:** form inline antigo de criar-evento em GrupoDetailPage ficou código morto inalcançável (`showCreateEvent` preso false) — limpeza dobrada no A1c.
+- **Habilita A1c:** criação de evento de grupo agora coberta pelo caminho governado → destrava conter os 3 writers legados no backend (writer único).
+
 ## F-EVENT-ENGINE-COUPLING · F0-GRUPO (vínculo governado evento↔grupo) — ✅ SELADA PELA YALA · VEREDITO A · SELO DOCS-ONLY DA DIREÇÃO (2026-07-22)
 **Primeiro elo do motor de eventos único: o writer format-first governado passa a vincular evento a grupo com autoridade real, na verdade do backend — pré-requisito para aposentar o writer legado W2. Três Vereditos B (map-first trava) precederam: fachada não-transacional, group-actor lazy — cada um substrato real corrigido antes de virar código errado. Bank-free. Registro cartorial docs-only.**
 - **Material:** `ce98ce41accc8dd9e5309755283e179fe8ebb9fa` (pai `25979f908`). 6 arquivos, +370/−22: event.types.ts (group_id/actingUserId server-side), actor-repository.port.ts (expõe findOrCreateGroupActor), event.service.ts (createEventBoundToGroup atômico), event.routes.ts (/v2/create threading), + guard novo + E2E novo.

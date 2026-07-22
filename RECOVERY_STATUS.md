@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-22 · **HEAD verificado:** `ce98ce41a` (F-EVENT-ENGINE-COUPLING F0-GRUPO SELADA pela Yala · Veredito A — vínculo GOVERNADO evento↔grupo no writer format-first, autoridade antes da escrita, atômico, lazy-heal §4.8.1. Antes: bilheteria sprint76 contida `86d675b83`; F1 catálogo `02e6cbe1c`; tranche 2A `5637c38e2`; AUDIT-004 `39a51267c` — ver cartório) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-22 · **HEAD verificado:** `0711dbe7c` (EVENT-ENGINE A1b SELADA pela Yala · Veredito A — guided flow FE projeta contexto de grupo ao writer governado; par frontend da F0-grupo. Executando EVENT_ENGINE_COMPLETION_PLAN. Antes: F0-grupo `ce98ce41a`; bilheteria sprint76 `86d675b83`; F1 catálogo `02e6cbe1c`; AUDIT-004 `39a51267c` — ver cartório) · **Branch:** `rescue-structural`
 
 ---
 
