@@ -84,11 +84,19 @@ product-neutral) → F1 taxonomia ingresso+capacidade → F2 event_actors (line-
 declarativo) → F3 RFQ+descoberta acopladas → F4 vaquinha estado (ratif.) → F5 comissão/split→fundo
 (ratif.) → F6 dinheiro PORTA-01. F0-F3 não dependem de ratificação.
 
-## Próxima ação
-F0 GO-READY. Aguarda Clayton: (a) disparar GO material F0 (Opus, alto — writer convergence, mapear
-callers/stop-if-surprised) e/ou (b) ratificar decisões soberanas §6 em paralelo (emissão agregado vs
-QR-individual · vaquinha · comissão%→fundo · multi-vendedor · capability estabelecimento · venue/setores
-MVP · abertura firewall). F0 não espera as ratificações.
+## Frente material ativa: FATIA 0 — MOTOR ÚNICO (writer único de evento)
+- Instância: executora, Opus, alto. GO material emitido, base `5acf0dae5`. Aguardando parecer.
+- Escopo: `core/events/event.service` = writer único; conter/rotear o writer legado (modules/events);
+  guard anti-revival do INSERT paralelo. É §2/§4.8 em ato. Bank-free, product-neutral.
+- TRAVA: etapa 1 = mapear TODOS os writers/callers/frontends de criação de evento e PARAR se a
+  convergência não for limpa/product-neutral ou quebrar criação viva.
+- §4.9.8: converge autoridade tocada para a fachada authority.service (não novo uso direto).
+- Próxima ação: parecer volta → direção verifica → Yala → selo → F1 (taxonomia ingresso+capacidade).
+
+## Decisões §6 (trago quando a fatia chegar; não bloqueiam F0-F3)
+emissão agregado×QR-individual · vaquinha (limiar/prazo/devolução) · comissão%→fundo regional/indicação/
+grupo · multi-vendedor (artista vende na própria página) · capability estabelecimento (não actor_type) ·
+venue/setores MVP-pula×materializa · abertura firewall/PORTA. Cultural PAC ghost = convergir p/ C1, não reviver.
 
 ## Parado / bloqueado (nada a retomar agora)
 - (nenhum — 2A é a única frente material aberta no momento)
