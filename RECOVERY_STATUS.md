@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-22 · **HEAD verificado:** `0711dbe7c` (EVENT-ENGINE A1b SELADA pela Yala · Veredito A — guided flow FE projeta contexto de grupo ao writer governado; par frontend da F0-grupo. Executando EVENT_ENGINE_COMPLETION_PLAN. Antes: F0-grupo `ce98ce41a`; bilheteria sprint76 `86d675b83`; F1 catálogo `02e6cbe1c`; AUDIT-004 `39a51267c` — ver cartório) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-22 · **HEAD verificado:** `6258309ce` (🏁 EVENT-ENGINE **FASE A COMPLETA — WRITER ÚNICO** · A1c SELADA pela Yala · Veredito A — uma tabela `events`, um só writer governado (core/events createEvent); 3 writers legados contidos no backend (501/throw), provado por API direta; `DT-GROUP-EVENTS-BINDING-DRIFT` FECHADA. Antes: A1b `0711dbe7c`; F0-grupo `ce98ce41a`; bilheteria `86d675b83`; F1 `02e6cbe1c`; AUDIT-004 `39a51267c`) · **Branch:** `rescue-structural`
 
 ---
 

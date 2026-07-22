@@ -117,15 +117,21 @@ quebraria criação viva de grupo. Sequência: **A1b (frontend group) → A1c (b
 ## ✅ A1b SELADA (Yala Veredito A, `0711dbe7c`) — guided flow FE projeta contexto de grupo
 Par frontend da F0-grupo. Cliente projeta, não cria verdade. Backend intocado. Habilita A1c.
 
-## Frente material ativa: A1c — WRITER ÚNICO (contém os 3 writers legados no backend)
-- Instância: executora, Opus, alto. GO MATERIAL emitido, base `0711dbe7c`. Aguardando parecer.
-- Mapa (direção verificou): ainda chamam W2 no FE = EventDeclarationForm(:201) + EventCreationWizard (avulsos);
-  backend = W1 rota '/', W2 /create, W3 sprint76 /events. GrupoDetailPage já saiu (A1b).
-- Escopo: (FE) rotear EventDeclarationForm+Wizard ao guided flow (avulso, /events/new) + limpar o form morto
-  de GrupoDetailPage (obs Yala); (BE) conter W1/W2/W3 → 501 ANTES do INSERT + neutralizar métodos legados +
-  guard "no INSERT INTO events fora de core/events". NÃO tocar core/events createEvent. Prova por API DIRETA.
-  Fecha DT-GROUP-EVENTS-BINDING-DRIFT. Bank-free. 🏁 Completa a Fase A (writer único / fundação).
-- Próxima ação: parecer → verifico → Yala → selo → marco fundação → C1/C2/C3 (performers+line-up+contratação).
+## 🏁 FASE A COMPLETA — WRITER ÚNICO (A1c SELADA, Yala Veredito A, `6258309ce`) — HEAD atual
+Uma tabela `events`, um só writer governado, verdade única. 3 writers legados contidos no backend (501/throw),
+provado por API direta. DT-GROUP-EVENTS-BINDING-DRIFT FECHADA. EventDeclarationForm confirmado edit-only.
+Arco Fase A: F1 → contenção bilheteria → F0-grupo → A1b → A1c. (map-first pegou substrato real em cada B.)
+
+## Próxima: FASE C (o coração da visão) — performers + line-up + contratação
+- **C1 · Performers:** qualificar Actor como artista/banda/lutador/esportista/DJ (atributos gênero/modalidade);
+  oferta contratável = service_offering (ganha discovery+agenda+booking). Converger cultural PAC ghost → C1
+  (NÃO reviver cultural_profiles). Bank-free. Decisão soberana: verticais no MVP.
+- **C2 · event_actors:** materializar line-up/elenco/equipe/local (o TIPO existe, falta tabela+writer+autoridade
+  via fachada); corrigir assignStaff só-usuário → actor-first. Decisão soberana: multi-vendedor.
+- **C3 · Contratação orquestrada:** needs→descoberta(canônico+gênero)→RFQ→bind event_actors; persistir RFQ/split.
+  HOLD acceptQuote (R7b) — levantar = decisão soberana.
+- Próxima ação da direção: emitir GATE/GO da C1 (começa por mapear o substrato de performer já existente).
+- Ver EVENT_ENGINE_COMPLETION_PLAN.md (fases B-G, decisões soberanas, HOLDs).
 
 ## (histórico) F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
 Agora que o backend governado cobre criação de grupo, dá para aposentar o W2: conter no BACKEND os 3

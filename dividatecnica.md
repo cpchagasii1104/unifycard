@@ -2475,7 +2475,10 @@ protocolo §4.3, disciplina §6 acima.*
 - **Consequência:** operações que exigem `canRepresentActor` no MESMO client, atômicas (ex.: F0-grupo — INSERT events+group_events; e o precedente SELADO `group-actor-membership.service`), NÃO podem usar a fachada — usam `authorizationService.canRepresentActor(...,client)` direto-core (transição §4.9.8 documentada, como a group-membership faz e a Yala selou).
 - **Convergência §4.9.8 (fatia futura própria):** estender a fachada `authority.service` para expor um `canRepresentActor` transaction-aware (com `client`), e então convergir os usos diretos-core (group-membership, F0-grupo, event routes) para a fachada. Toca camada de autoridade SELADA → GATE/GO próprios. Não bloqueia F0-grupo (que espelha o precedente selado por ora).
 
-## DT-GROUP-EVENTS-BINDING-DRIFT-SILENT-FAILURE — 🟠 estrutural (verificado pela direção, 2026-07-22)
+## DT-GROUP-EVENTS-BINDING-DRIFT-SILENT-FAILURE — ✅ FECHADA (A1c, 2026-07-22)
+> **FECHADA:** o writer legado W2 (que gravava colunas-fantasma em group_events e engolia o erro no catch) está CONTIDO no backend (A1c, `6258309ce`: rota `/create` 501 + método `events.service.createEvent` throw ANTES do INSERT). O vínculo evento↔grupo agora nasce SÓ pelo writer governado (F0-grupo, 3 colunas reais, atômico). Nenhum caminho grava mais colunas-fantasma. Selada com a Fase A (writer único).
+
+
 
 - **Vínculo evento↔grupo QUEBRADO silenciosamente.** Schema vivo `group_events` (migration `20260530420000`) = 5 colunas: `id, tenant_id, group_id, event_id, created_at` (nenhum ALTER posterior). Mas o writer legado W2 `modules/events/events.service.ts:355` faz `INSERT INTO group_events (event_id, group_id, tenant_id, title, description, starts_at, ends_at, created_by)` — 5 colunas INEXISTENTES (`title/description/starts_at/ends_at/created_by`). O INSERT estoura ("column does not exist") e é ENGOLIDO por `catch (err) { console.error('Erro ao vincular evento ao grupo:', err); }`.
 - **Consequência:** criar evento pelo `GrupoDetailPage` (via W2) CRIA o evento mas NÃO grava `group_events` — o evento nasce órfão do grupo; a tabela `group_events` fica vazia. O único "vínculo" é o post no feed (com groupId). Corrige a premissa do Veredito B da executora ("aposentar W2 quebra criação viva de grupo"): o vínculo JÁ está quebrado — não há fluxo estrutural funcionando a preservar.
