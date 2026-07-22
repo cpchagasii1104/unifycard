@@ -91,7 +91,23 @@ cada passo por trás reusando os ~70% prontos, Bank-free, coherence-bound; dinhe
 Mapa: EVENT_ENGINE_COUPLING_MAP.md. Norma já decidiu: writer canônico = format-first (event_type
 depreciado, migration 20260708310000); localização = Location Core (0020).
 
-## Frente material ativa: FATIA 0 — WRITER ÚNICO + guided flow como caminho único
+## RE-ESCOPO F0 (executora pegou erro no GO + achado backend-truth, 2026-07-22)
+- Meu GO §4 ERROU: rotulou `createEvent` como órfão; na verdade `createDraftEvent` DELEGA a `createEvent`
+  (é o motor do writer canônico). Corrigido.
+- Achado backend-truth: só o W2 legado escreve `group_events` (único INSERT runtime, events.service:355);
+  `CreateEventInput` governado não tem `group_id`. A verdade "evento↔grupo" vive só no backend legado.
+  → NÃO dá p/ aposentar W2 sem o backend governado cobrir criação de grupo primeiro (a lei de Clayton).
+- Sequência: **F0-grupo (governar vínculo evento↔grupo no backend)** → depois F0-writer-único (aposentar
+  W2 + conter órfãos '/' e sprint76 /events + guard). Órfãos folded no writer-único (sem urgência).
+
+## Frente ativa: F0-GRUPO — GATE de vínculo governado evento↔grupo (pré-requisito do writer único)
+- Instância: executora, Opus — GATE read-only. Desenhar: group_id no input governado + INSERT governado
+  em group_events no writer format-first + autoridade (quem cria evento no grupo) pela fachada §4.9.8 +
+  guided flow com contexto de grupo. Reusar substrato de composição de grupo (0186/0187/0188,
+  group_actor_memberships) — não greenfield. Backend-truth provável por API direta.
+- Próxima ação: parecer do GATE → direção verifica → GO material → Yala → selo → então F0-writer-único.
+
+## (histórico) Frente material: FATIA 0 — WRITER ÚNICO + guided flow como caminho único
 - DECISÃO EMBUTIDA (Clayton): aposentar telas legadas de criação → rotear ao guided flow, PRESERVANDO
   a função (inclusive criar evento em grupo). Não converger formulário legado no lugar.
 - Escopo: format-first (core/events createDraft) = writer único; conter órfãos W1(eventType POST /)+
@@ -99,6 +115,12 @@ depreciado, migration 20260708310000); localização = Location Core (0020).
   preservando contexto de grupo; guard anti-revival; converger autoridade tocada p/ fachada §4.9.8.
 - TRAVA mantida: mapa-first; PARA se rotear ao guided flow quebrar criação de grupo (aí F0 inclui o
   ajuste mínimo do contexto de grupo, ou reporta). Bank-free.
+- ⚠️ ADDENDUM (lei, Clayton): a VERDADE vive no BACKEND. Writer único = garantia de BACKEND contra
+  TODOS os callers (incl. API direta); os 3 writers legados (W1/W2/W3) contidos/convergidos no backend
+  (501 ANTES do INSERT + guard anti-revival). Rotear o frontend ao guided flow = SÓ UX, não é a
+  convergência. E2E prova por ROTA DIRETA (curl), nunca por "o frontend não chama mais". Se o backend
+  governado ainda não cobre criação de grupo, PARAR — a verdade tem de existir no backend antes de
+  aposentar o legado. Vale p/ TODA fatia da campanha.
 - Próxima ação: parecer → direção verifica → Yala → selo → acender Step3(tempo)/Step4(local) etc.
 
 ## Decisões §6 (trago quando a fatia chegar; não bloqueiam F0-F3)
