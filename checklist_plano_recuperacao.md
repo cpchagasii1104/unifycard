@@ -29,11 +29,24 @@ construída ponta-a-ponta; remediação anterior "varreu p/ debaixo do tapete" d
 Registrado: `DT-EVENT-TICKETING-UNBUILT-FEATURE-FACADE` (🔴 estrutural, money).
 Clayton NÃO quer varrer de novo → resolver.
 
+## Frente ativa agora
+**F-EVENT-TICKETING-CONVERGENCE** — feature multi-fatia · GATE Veredito A · plano em fatias fechado
+- HEAD base: `37820871d`. GATE de convergência executado (Opus) e verificado pela direção.
+- Verdade = schema migrado (event_tickets tipo + ticket_sales compra bank-wired + event_checkins);
+  código drifted mira migrations_archive nunca aplicado. Dinheiro TODO fail-closed hoje.
+- Correção da direção: "fachada desonesta" superdimensionada — EventCheckoutModal trata erro (403→
+  "erro ao comprar", não sucesso falso). Fluxo exposto que sempre falha, não fake-success.
+- PLANO: **espinha Bank-free F0→F1→F4 GO-ready** (F0 contenção honesta · F1 catálogo tipo governado ·
+  F4 check-in modelo cultural, absorve a contenção de autoria sprint76). F2/F5 dinheiro e F3 modelo =
+  RATIFICAÇÃO-GATED.
+- Ratificações soberanas pendentes (só travam F2/F3/F5): 6.1 economia de ingresso (split? sem DECISION)
+  · 6.2 firewall por PORTA · 6.3 modelo de ingresso emitido (agregado vs individual+QR; DB virgem) ·
+  6.4 reembolso · 6.5 destino camadas mortas · 6.6 dois sistemas paralelos (cultural vs events-v2) unificar?
+
 ## Próxima ação recomendada
-GATE de CONVERGÊNCIA read-only (Opus, alto) — mapear ciclo intencional completo (catálogo→
-compra+firewall→ticket_sales bank-wired→check-in modelo cultural→cancel/refund), verdade de
-schema, as 3 camadas mortas, a UI viva, o financial-firewall — e devolver PLANO EM FATIAS.
-Sem material até o plano. A contenção de autoria sprint76 vira uma fatia deste plano.
+GO material da **Fatia 0** (contenção honesta, Bank-free, Sonnet/alto): sprint76 ticket/checkin routes
+→ 501 honesto ANTES dos repos mortos (espelha o disable selado do checkout-ticket.service); conter a
+porta de entrada da UI de compra até F2. Depois F1 (catálogo) e F4 (check-in). F2/F3/F5 após ratificação.
 
 ## Parado / bloqueado (nada a retomar agora)
 - (nenhum — 2A é a única frente material aberta no momento)
