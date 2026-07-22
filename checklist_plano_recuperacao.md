@@ -109,13 +109,16 @@ DTs registradas: group_events-drift (W2, OPEN até writer-único), facade-no-tra
 ## Executando o PLANO: EVENT_ENGINE_COMPLETION_PLAN.md (A1..G, coherence-bound)
 Clayton autorizou executar o plano completo. Direção gerencia executora+Yala, backend-truth, SSOT, §coerência.
 
-## Frente material ativa: A1 — WRITER ÚNICO DE EVENTO
-- Instância: executora, Opus, alto. GO MATERIAL emitido, base `3495e81f0`. Aguardando parecer.
-- Backend: conter W1(rota '/'), W2(/api/events/create), W3(sprint76 /events) → 501 ANTES do INSERT legado +
-  neutralizar os métodos legados; NÃO tocar core/events createEvent (motor canônico). Frontend: rotear
-  EventDeclarationForm/Wizard/GrupoDetailPage ao guided flow (com contexto de grupo — F0-grupo). Guard "no
-  INSERT fora de core/events". Prova por API DIRETA. Fecha DT-GROUP-EVENTS-BINDING-DRIFT. Bank-free.
-- Próxima ação: parecer → direção verifica → Yala → selo → C1/C2/C3 (performers+line-up+contratação).
+## A1 re-escopada (map-first pegou: F0-grupo wireu SÓ o backend; guided flow FE não threada group_id)
+Meu GO A1 assumiu "guided flow aceita group_id" — verdade só no backend. Frontend: CreateDraftInput sem
+group_id; GrupoDetailPage cria grupo por createEventCanonical→/api/events/create (W2). Conter W2 sem o FE
+quebraria criação viva de grupo. Sequência: **A1b (frontend group) → A1c (backend contém W1+W2+W3 = writer único)**.
+
+## Frente material ativa: A1b — guided flow (frontend) aceita contexto de grupo
+- Instância: executora, Sonnet, alto. GO MATERIAL emitido, base `1916e27aa`. Aguardando parecer.
+- Frontend PROJETA a verdade do backend (F0-grupo): CreateDraftInput+group_id; EventCreationPage lê group_id
+  de useSearchParams; GrupoDetailPage navega /events/new?group_id=X (não chama mais W2). NÃO cria verdade no cliente.
+- Próxima ação: parecer → verifico → Yala → selo → A1c (backend contém W1+W2+W3, writer único, prova por API direta).
 
 ## (histórico) F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
 Agora que o backend governado cobre criação de grupo, dá para aposentar o W2: conter no BACKEND os 3
