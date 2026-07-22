@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-22 · **HEAD verificado:** `5637c38e2` (tranche 2A de hardening de guards SELADA pela Yala · Veredito A; AUDIT-004 C1/C2 selado em `39a51267c` — ver cartório) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-22 · **HEAD verificado:** `02e6cbe1c` (F-EVENT-TICKETING-CONVERGENCE Fatia 1 SELADA pela Yala · Veredito A — catálogo de tipo governado + contenção honesta reserve/pay; núcleo `4a6b50c6e` + addenda `a5e5a06f8`/`02e6cbe1c`. Antes: tranche 2A `5637c38e2`; AUDIT-004 `39a51267c` — ver cartório) · **Branch:** `rescue-structural`
 
 ---
 

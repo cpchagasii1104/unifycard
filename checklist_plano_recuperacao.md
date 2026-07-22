@@ -43,10 +43,30 @@ Clayton NÃO quer varrer de novo → resolver.
   · 6.2 firewall por PORTA · 6.3 modelo de ingresso emitido (agregado vs individual+QR; DB virgem) ·
   6.4 reembolso · 6.5 destino camadas mortas · 6.6 dois sistemas paralelos (cultural vs events-v2) unificar?
 
-## Próxima ação recomendada
-GO material da **Fatia 0** (contenção honesta, Bank-free, Sonnet/alto): sprint76 ticket/checkin routes
-→ 501 honesto ANTES dos repos mortos (espelha o disable selado do checkout-ticket.service); conter a
-porta de entrada da UI de compra até F2. Depois F1 (catálogo) e F4 (check-in). F2/F3/F5 após ratificação.
+## Sequência decidida pela direção (Clayton delegou; respeitar SSOTs/tempo/dinheiro/autoridade)
+**F1 (catálogo) → F4 (check-in, sela autoridade sprint76) → ratificar → F2/F3/F5.**
+F0 (contenção) DOBRADA em cada fatia que reescreve a rota (sem conter-para-substituir redundante).
+F1 começa por ser fundação real + paradigma-neutra (schema event_tickets serve cultural e events-v2,
+não decide §6.6 cedo) + converge código→schema produtivamente. F1 = backend-only (UI do organizador
+= fatia frontend futura).
+
+## Frente ativa agora
+**F-EVENT-TICKETING-CONVERGENCE · FATIA 1 ✅ SELADA (Yala Veredito A) — HEAD `02e6cbe1c`**
+Composição: núcleo `4a6b50c6e` (catálogo governado) + addendum-1 `a5e5a06f8` (contenção 501 reserve/pay)
++ addendum-2 `02e6cbe1c` (fix falso-lock guard). Selo docs-only aplicado.
+
+## Próxima frente: FATIA 4 (check-in convergido ao modelo cultural)
+- Bank-free, GO-ready pelo plano do GATE de convergência. ABSORVE e fecha
+  `DT-EVENTS-SPRINT76-ACTOR-HINT-AUTHORSHIP-FORGERY` (a contenção de autoria que travou por drift lá atrás).
+- Modelo: `cultural-checkin-target-authority` (self OR canRepresentActor sobre o portador/target +
+  validador no service); target = ticket_sales.buyer_actor_id (mas ticket_sales está drifted — verificar
+  no GATE/GO da F4 como resolver o portador sem depender do repo drifted de ticket_sales; pode precisar
+  conter honesto checkin/checkout como reserve/pay se o substrato não estiver pronto).
+- ⚠️ Aprendizado da F1 a aplicar na F4: a convergência de um repo compartilhado pode reanimar rotas
+  vizinhas mortas (efeito órfão) — mapear TODOS os callers/rotas afetados antes do material.
+- Ratificações soberanas pendentes (só F2/F3/F5): economia de ingresso, firewall PORTA, modelo emissão,
+  reembolso, unificação cultural×events-v2. Visão de produto p/ F2 na memória
+  (project_visao_bilheteria_grandes_promotores: split→fundo regional/indicação/grupo; artista adere).
 
 ## Parado / bloqueado (nada a retomar agora)
 - (nenhum — 2A é a única frente material aberta no momento)
