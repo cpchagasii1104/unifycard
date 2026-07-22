@@ -100,12 +100,14 @@ depreciado, migration 20260708310000); localização = Location Core (0020).
 - Sequência: **F0-grupo (governar vínculo evento↔grupo no backend)** → depois F0-writer-único (aposentar
   W2 + conter órfãos '/' e sprint76 /events + guard). Órfãos folded no writer-único (sem urgência).
 
-## Frente ativa: F0-GRUPO — GATE de vínculo governado evento↔grupo (pré-requisito do writer único)
-- Instância: executora, Opus — GATE read-only. Desenhar: group_id no input governado + INSERT governado
-  em group_events no writer format-first + autoridade (quem cria evento no grupo) pela fachada §4.9.8 +
-  guided flow com contexto de grupo. Reusar substrato de composição de grupo (0186/0187/0188,
-  group_actor_memberships) — não greenfield. Backend-truth provável por API direta.
-- Próxima ação: parecer do GATE → direção verifica → GO material → Yala → selo → então F0-writer-único.
+## Frente material ativa: F0-GRUPO — vínculo governado evento↔grupo (pré-requisito do writer único)
+- Desenho feito PELA DIREÇÃO (verifique-você-mesma): schema group_events real = 5 col; W2 drift silencioso
+  (DT-GROUP-EVENTS-BINDING-DRIFT registrada); autoridade = canRepresentActor sobre o actor do grupo via
+  fachada §4.9.8; INSERT atômico (events+group_events) no writer format-first.
+- Instância: executora, Opus, alto. GO MATERIAL emitido, base `13d452820`. Aguardando parecer.
+- Escopo: group_id no CreateEventInput + writer transacional governado + autoridade pela fachada +
+  threading de contexto no guided flow. NÃO aposentar W2 (é F0-writer-único). Backend-truth por API direta.
+- Próxima ação: parecer → direção verifica → Yala → selo → F0-writer-único (aposentar W2 já contido).
 
 ## (histórico) Frente material: FATIA 0 — WRITER ÚNICO + guided flow como caminho único
 - DECISÃO EMBUTIDA (Clayton): aposentar telas legadas de criação → rotear ao guided flow, PRESERVANDO
