@@ -100,14 +100,19 @@ depreciado, migration 20260708310000); localização = Location Core (0020).
 - Sequência: **F0-grupo (governar vínculo evento↔grupo no backend)** → depois F0-writer-único (aposentar
   W2 + conter órfãos '/' e sprint76 /events + guard). Órfãos folded no writer-único (sem urgência).
 
-## Frente material ativa: F0-GRUPO — vínculo governado evento↔grupo (pré-requisito do writer único)
-- Desenho feito PELA DIREÇÃO (verifique-você-mesma): schema group_events real = 5 col; W2 drift silencioso
-  (DT-GROUP-EVENTS-BINDING-DRIFT registrada); autoridade = canRepresentActor sobre o actor do grupo via
-  fachada §4.9.8; INSERT atômico (events+group_events) no writer format-first.
-- Instância: executora, Opus, alto. GO MATERIAL emitido, base `13d452820`. Aguardando parecer.
-- Escopo: group_id no CreateEventInput + writer transacional governado + autoridade pela fachada +
-  threading de contexto no guided flow. NÃO aposentar W2 (é F0-writer-único). Backend-truth por API direta.
-- Próxima ação: parecer → direção verifica → Yala → selo → F0-writer-único (aposentar W2 já contido).
+## ✅ F0-GRUPO SELADA (Yala Veredito A, `ce98ce41a`) — HEAD atual
+Vínculo governado evento↔grupo no writer format-first (autoridade antes da escrita, atômico, lazy-heal
+§4.8.1, canRepresentActor transaction-aware §4.9.8-transição). Backend cobre criação de evento de grupo.
+3 Vereditos B precederam (fachada não-transacional, group-actor lazy) — cada um substrato real corrigido.
+DTs registradas: group_events-drift (W2, OPEN até writer-único), facade-no-transacional-represent, group-actor-not-eager.
+
+## Próxima frente: F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
+Agora que o backend governado cobre criação de grupo, dá para aposentar o W2: conter no BACKEND os 3
+caminhos legados de INSERT INTO events — W1 rota '/' (eventType, órfã), W2 (/api/events/create, GrupoDetailPage)
+e W3 (sprint76 /events, órfã) — 501/redirect ANTES do INSERT, provado por API DIRETA (não "frontend não chama");
+guard "no INSERT INTO events fora de core/events/event.service". Rotear a UI legada ao guided flow (com
+contexto de grupo, que agora funciona). Fecha DT-GROUP-EVENTS-BINDING-DRIFT (W2 morto contido). Bank-free.
+Depois: acender Step3(tempo)/Step4(local)/Step5(contratação)/ingresso. Dinheiro/modelo = porta-01.
 
 ## (histórico) Frente material: FATIA 0 — WRITER ÚNICO + guided flow como caminho único
 - DECISÃO EMBUTIDA (Clayton): aposentar telas legadas de criação → rotear ao guided flow, PRESERVANDO
