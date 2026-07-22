@@ -120,6 +120,28 @@ check('event-ticket.repository.ts usa quantity_available (coluna real) no CREATE
     payStart >= 0 && payContainmentIdx >= 0 && paySinkIdx >= 0 && payContainmentIdx < paySinkIdx);
 }
 
+// F-EVENT-TICKETING-CONVERGENCE (CONTENÇÃO das rotas mortas restantes) — cancel/checkin/checkout
+// morrem no 1º read (ticket_sales/event_checkins drifted) ANTES de escrever; contidos com 501 honesto
+// como PRIMEIRA instrução. Fecha DT-EVENTS-SPRINT76-ACTOR-HINT-AUTHORSHIP-FORGERY por contenção.
+// ANCORADO POR REGIÃO do próprio handler (addendum-2): a contenção precede o sink DENTRO do handler;
+// remover a contenção de UM handler falha SÓ o check daquele handler. (checkin/checkout compartilham o
+// token TICKET_CHECKIN_DEFERRED_FATIA4 — por isso a ancoragem por região é obrigatória.)
+{
+  const containedBeforeSink = (handlerAnchor, token, sinkNeedle) => {
+    const hStart = es76C.indexOf(handlerAnchor);
+    if (hStart < 0) return false;
+    const tokIdx = es76C.indexOf(token, hStart);
+    const sinkIdx = es76C.indexOf(sinkNeedle, hStart);
+    return tokIdx >= 0 && sinkIdx >= 0 && tokIdx < sinkIdx;
+  };
+  check('events-sprint76 /cancel: contenção 501 TICKET_CANCEL_DEFERRED precede o sink cancelTicket (ancorado ao handler)',
+    containedBeforeSink("'/tickets/:id/cancel'", 'TICKET_CANCEL_DEFERRED', 'ticketService.cancelTicket('));
+  check('events-sprint76 /checkin: contenção 501 TICKET_CHECKIN_DEFERRED_FATIA4 precede o sink checkIn (ancorado ao handler)',
+    containedBeforeSink("'/checkin/:ticketSaleId'", 'TICKET_CHECKIN_DEFERRED_FATIA4', 'checkInService.checkIn('));
+  check('events-sprint76 /checkout: contenção 501 TICKET_CHECKIN_DEFERRED_FATIA4 precede o sink checkOut (ancorado ao handler)',
+    containedBeforeSink("'/checkout/:ticketSaleId'", 'TICKET_CHECKIN_DEFERRED_FATIA4', 'checkInService.checkOut('));
+}
+
 if (fails.length) {
   console.error(`\nACTOR-IMPERSONATION-WRITES: ${fails.length} FAIL`);
   process.exit(1);

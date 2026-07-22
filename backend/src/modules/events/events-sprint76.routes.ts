@@ -454,6 +454,20 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     Params: { id: string };
     Body: { cancellationReason?: string };
   }>('/tickets/:id/cancel', async (req, reply) => {
+    // 🔴 F-EVENT-TICKETING-CONVERGENCE (CONTENÇÃO das rotas mortas) — cancelTicket chama
+    // ticketSaleRepository.getSaleById primeiro, que mira colunas de ticket_sales inexistentes no
+    // schema vivo — reproduzido: 500 (`coluna "event_ticket_id" não existe`) na PRIMEIRA leitura,
+    // ZERO escrita. O ciclo de venda de ingresso (ticket_sales) é convergido em fatia PRÓPRIA.
+    // Fecha DT-EVENTS-SPRINT76-ACTOR-HINT-AUTHORSHIP-FORGERY por CONTENÇÃO: rota deferida não escreve
+    // → não forja autoria. Espelha o addendum-1 (/reserve, /pay) e checkout-ticket.service. Corpo
+    // original preservado ABAIXO, intocado, para a fatia própria.
+    return reply.status(501).send({
+      error: 'TICKET_CANCEL_DEFERRED',
+      code: 'TICKET_CANCEL_DEFERRED',
+      message: 'Cancelamento de ingresso será habilitado quando o ciclo de venda (ticket_sales) for ' +
+        'convergido ao schema vivo em fatia própria. Nenhuma escrita foi realizada.',
+    });
+
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant é obrigatório' });
     }
@@ -484,6 +498,18 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
    * Realiza check-in
    */
   fastify.post<{ Params: { ticketSaleId: string } }>('/checkin/:ticketSaleId', async (req, reply) => {
+    // 🔴 F-EVENT-TICKETING-CONVERGENCE (CONTENÇÃO das rotas mortas) — checkInService.checkIn chama
+    // ticketSaleRepository.getSaleById primeiro (coluna-fantasma) — reproduzido: 500 na PRIMEIRA
+    // leitura, ZERO escrita. Check-in converge na Fatia 4, DEPOIS da compra (Fatia 2) — ticket_sales
+    // ainda não convergido. Fecha DT-...-AUTHORSHIP-FORGERY por contenção (rota deferida não escreve).
+    // Corpo original preservado ABAIXO, intocado, para a Fatia 4.
+    return reply.status(501).send({
+      error: 'TICKET_CHECKIN_DEFERRED_FATIA4',
+      code: 'TICKET_CHECKIN_DEFERRED_FATIA4',
+      message: 'Check-in de ingresso será habilitado na Fatia 4 (após a compra/Fatia 2) — ticket_sales ' +
+        'ainda não convergido ao schema vivo. Nenhuma escrita foi realizada.',
+    });
+
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant é obrigatório' });
     }
@@ -509,6 +535,18 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
    * Realiza check-out
    */
   fastify.post<{ Params: { ticketSaleId: string } }>('/checkout/:ticketSaleId', async (req, reply) => {
+    // 🔴 F-EVENT-TICKETING-CONVERGENCE (CONTENÇÃO das rotas mortas) — checkInService.checkOut chama
+    // eventCheckInRepository.getCheckInByTicketSale primeiro (coluna-fantasma ticket_sale_id em
+    // event_checkins) — reproduzido: 500 na PRIMEIRA leitura, ZERO escrita. Mesmo modelo do check-in:
+    // converge na Fatia 4. Fecha DT-...-AUTHORSHIP-FORGERY por contenção. Corpo original preservado
+    // ABAIXO, intocado, para a Fatia 4.
+    return reply.status(501).send({
+      error: 'TICKET_CHECKIN_DEFERRED_FATIA4',
+      code: 'TICKET_CHECKIN_DEFERRED_FATIA4',
+      message: 'Check-out de ingresso será habilitado na Fatia 4 (após a compra/Fatia 2) — ticket_sales/' +
+        'event_checkins ainda não convergidos ao schema vivo. Nenhuma escrita foi realizada.',
+    });
+
     if (!req.tenant?.id) {
       return reply.status(400).send({ error: 'Tenant é obrigatório' });
     }

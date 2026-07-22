@@ -199,6 +199,22 @@ async function main(): Promise<void> {
       (await count('orders')) === ordersBefore && (await count('payment_intents')) === paymentIntentsBefore && (await count('ticket_sales')) === ticketSalesBefore,
       `status=${rPay.statusCode} code=${payBody?.code}`);
 
+    // (contenção rotas mortas) cancel/checkin/checkout — 501 honesto, ZERO escrita em ticket_sales/
+    // event_checkins/orders (reproduzido: hoje estouram 500 no 1º read, sem órfão).
+    const eventCheckinsBefore = await count('event_checkins');
+    const anyId = ticketId; // id qualquer — os handlers contidos nem chegam a ler/validar
+    const containCheck = async (label: string, method: 'POST', url: string, code: string) => {
+      const r = await call(method, url, { userId: organizer.userId, actorId: organizer.actorId, body: {} });
+      const b = JSON.parse(r.body || '{}');
+      record(label,
+        r.statusCode === 501 && b?.code === code &&
+        (await count('orders')) === ordersBefore && (await count('ticket_sales')) === ticketSalesBefore && (await count('event_checkins')) === eventCheckinsBefore,
+        `status=${r.statusCode} code=${b?.code}`);
+    };
+    await containCheck('(contenção) POST /tickets/:id/cancel → 501 TICKET_CANCEL_DEFERRED, ZERO escrita', 'POST', `/tickets/${anyId}/cancel`, 'TICKET_CANCEL_DEFERRED');
+    await containCheck('(contenção) POST /checkin/:ticketSaleId → 501 TICKET_CHECKIN_DEFERRED_FATIA4, ZERO escrita', 'POST', `/checkin/${anyId}`, 'TICKET_CHECKIN_DEFERRED_FATIA4');
+    await containCheck('(contenção) POST /checkout/:ticketSaleId → 501 TICKET_CHECKIN_DEFERRED_FATIA4, ZERO escrita', 'POST', `/checkout/${anyId}`, 'TICKET_CHECKIN_DEFERRED_FATIA4');
+
     // (d) Δbank = 0
     const bankAfter = (await pool.query<{ n: string }>(
       `SELECT (SELECT COUNT(*) FROM bank_ledger) || ':' || (SELECT COUNT(*) FROM bank_transactions) AS n`
