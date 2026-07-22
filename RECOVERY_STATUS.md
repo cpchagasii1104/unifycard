@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-21 · **HEAD verificado:** `eb12f53ec` (1ª tranche de hardening SELADA; AUDIT-004 achou risco crítico vivo, aguarda GATE de contenção — ver seção própria) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-22 · **HEAD verificado:** `39a51267c` (AUDIT-004 C1/C2 CONTIDO E SELADO PELA YALA · Veredito A — ver seção própria) · **Branch:** `rescue-structural`
 
 ---
 
@@ -35,27 +35,31 @@ DRIFT: 0
 ```
 > Este painel é **executivo**, não é norma, e ler/atualizar este painel **não concede execução** de nenhuma frente.
 
-## 🔴 AUDIT-004 · RISCO CRÍTICO VIVO · AGUARDA GATE DE CONTENÇÃO (2026-07-21)
+## ✅ AUDIT-004 · C1/C2 CONTIDO E SELADO PELA YALA · VEREDITO A (2026-07-22)
 ```
-AUDIT-004
+AUDIT-004 · C1/C2
 DENOMINADOR: 126 arquivos / 570 ocorrências (rederivado; "152" histórico refutado)
-VEREDITO: C — RISCO CRÍTICO VIVO
+GATE read-only VEREDITO C (risco crítico vivo) → contenção material → YALA VEREDITO A
 ACHADO: services.routes.ts POST/PUT .../availability — hint do cliente = alavanca de
         autoridade (sem canRepresentActor); requireServiceOwnedByActor só compara
         igualdade contra o valor declarado
-ALCANÇÁVEL: SIM · BANK-FREE: SIM (Δbank=0) · VIOLAÇÃO: Art. I Constituição + LEI §4.9.2/4.9.5
-STATUS: NÃO CORRIGIDO · aguarda GATE material de contenção (Opus, esforço máximo)
+FIX (Opção B): rota resolve o serviço server-side e prova canRepresentActor(req.user.userId,
+     current.actorId) fail-closed (403) ANTES de escrever, sob current.actorId; hint descartado
+STATUS: SELADO · material `39a51267c` · services.service.ts intacto · sem migration/schema
+PROVAS (reproduzidas pela YALA): E2E 6/6 (atacante→403 + zero escrita POST e PUT; dono→201/200;
+     delegado distinto→201; Δbank=0) · guard morde a regressão (mutação hostil provada) ·
+     typecheck 0 · git diff --check 0 · escopo exato 3 arquivos
 ```
-Verificado independentemente (não só pela executora que o achou): rota não chama
-`canRepresentActor`; sink compara só `service.actorId !== callerActorId` (igualdade contra o
-próprio hint). O padrão CORRETO já existe no código-base (`rentable-resource.service` faz
-`canRepresentActor(userId, owner)` na mesma classe de operação) — só não foi aplicado aqui.
-Backlog adicional do mesmo AUDIT-004 (não-crítico, sem GO): `events-sprint76` cancel/checkin/
-checkout (forja de autoria, money-free) · 6 rotas KYB de `identity.routes` (admin-gated, só
-proveniência) · `service-order confirm-financial-terms` (contido por flag, vigilância).
-**Regra "uma frente material por vez" aplicada:** a 2ª tranche de hardening de guards (2A,
-Veredito A, desenhada) foi **parada** — a contenção deste achado tem prioridade. Detalhe
-completo no cartório `REMEDIATION_DT_LOG.md` (entrada AUDIT-004, 2026-07-21).
+Arco: GATE read-only (Veredito C) → GO material Opus/máximo → material `39a51267c` (executora
+Opus) → auditoria YALA independente (Opus, provas reproduzidas com os próprios olhos) → Veredito A
+→ este selo docs-only da direção. Padrão CORRETO (`canRepresentActor(userId, owner)`) já existia
+no código-base (rotas-irmãs `POST /services` L84, `PUT /services/:id` L230; core availability L254)
+— agora aplicado às 2 rotas de availability.
+**Backlog do mesmo AUDIT-004 (não-crítico, sem GO):** `DT-EVENTS-SPRINT76-ACTOR-HINT-AUTHORSHIP-FORGERY`
+(forja de autoria, money-free) · `DT-IDENTITY-KYB-ACTOR-HINT-PROVENANCE` (admin-gated, só proveniência)
+· `DT-SERVICE-ORDER-CONFIRM-FINANCIAL-TERMS-UNBOUND-ACTOR` (contido por flag, vigilância).
+**Destravado:** a 2ª tranche de hardening de guards (2A, Veredito A, desenhada) pode retomar
+(Sonnet). Detalhe completo no cartório `REMEDIATION_DT_LOG.md` (entrada AUDIT-004 · selo 2026-07-22).
 
 ## O que foi decidido (institucional, selado)
 - **DECISION-0190** — economic/v2 honest sandbox & contenção. **SELADA · Veredito A** (`9a65f0291` + `33027ee60`).

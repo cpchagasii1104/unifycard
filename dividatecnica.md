@@ -2450,12 +2450,12 @@ protocolo §4.3, disciplina §6 acima.*
 - **Backlog sem GO:** próximas tranches de hardening (family-A restantes + B/C/D) com GATE+material+Yala próprios, reusando o helper selado; GATE de workers globais da DECISION-0191 (`actor-wallet-payout-worker.ts`).
 - **Commit do selo:** docs-only, `docs(remediation): seal migration DDL guard hardening after Yala`. **Frente da 1ª tranche encerrada.**
 
-## DT-SERVICES-AVAILABILITY-ACTOR-HINT-IMPERSONATION — 🔴 CRÍTICO VIVO · AUDIT-004 · AGUARDA GATE DE CONTENÇÃO (2026-07-21)
+## DT-SERVICES-AVAILABILITY-ACTOR-HINT-IMPERSONATION — ✅ FECHADA · SELADA PELA YALA · VEREDITO A (2026-07-22)
 
-- **Achado:** `backend/src/modules/services/services.routes.ts` `POST`/`PUT` `.../availability` repassam `req.actionContext.actorId` cru como `callerActorId` sem `canRepresentActor`; `services.service.ts::requireServiceOwnedByActor` (L554) só compara `service.actorId !== callerActorId` — igualdade contra valor declarado pelo cliente, não prova de representação.
-- **Vetor:** qualquer autenticado do tenant declara o `actorId` da vítima dona do serviço → cria/edita a agenda do serviço alheio. Reachable hoje. Bank-free (Δbank=0) — viola Art. I da Constituição + §4.9.2/§4.9.5 da Lei de Coerência, não é desvio de dinheiro.
-- **Contraste:** `rentable-resource.service` faz `canRepresentActor(userId, owner)` corretamente na mesma classe de operação — padrão certo já existe no código, só não foi aplicado aqui.
-- **Status:** achado por AUDIT-004 (GATE read-only, Veredito C), verificado independentemente pelo diretor. **Aguarda GATE material de contenção** (modelo Opus, esforço máximo) → material → Yala. Nenhuma correção feita ainda.
+- **Achado (era):** `backend/src/modules/services/services.routes.ts` `POST`/`PUT` `.../availability` repassavam `req.actionContext.actorId` cru como `callerActorId` sem `canRepresentActor`; `services.service.ts::requireServiceOwnedByActor` (L554) só comparava `service.actorId !== callerActorId` — igualdade contra valor declarado pelo cliente, não prova de representação.
+- **Vetor (era):** qualquer autenticado do tenant declarava o `actorId` da vítima dona do serviço → criava/editava a agenda alheia. Reachable, Bank-free (Δbank=0) — violava Art. I da Constituição + §4.9.2/§4.9.5 da Lei de Coerência.
+- **Correção (Opção B):** a rota resolve o serviço server-side (`getService`) e prova `canRepresentActor(req.tenant.id, req.user.userId, current.actorId)` fail-closed (401 sem userId, 404 sem serviço, 403 `SERVICE_ACTOR_NOT_REPRESENTABLE`) ANTES de escrever, passando `current.actorId` (dono real) ao writer — o hint é descartado. `services.service.ts` intacto (defesa em profundidade). Sem migration/schema; contrato de sucesso inalterado (201/200 + mesmo payload; dono e delegado preservados).
+- **Selo:** GATE read-only (Veredito C) → GO material Opus/máximo → material `39a51267c` → YALA independente (Opus) Veredito A com provas reproduzidas: E2E 6/6 (atacante→403 + zero escrita POST e PUT; dono→201/200; delegado distinto→201; Δbank=0), guard `audit-actor-impersonation-writes.mjs` morde a regressão (mutação hostil provada), typecheck 0, git diff --check 0, escopo exato 3 arquivos. Selo docs-only da direção 2026-07-22.
 
 ## DT-EVENTS-SPRINT76-ACTOR-HINT-AUTHORSHIP-FORGERY — 🟠 backlog vivo, não-crítico (AUDIT-004)
 
