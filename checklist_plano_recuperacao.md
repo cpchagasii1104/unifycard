@@ -160,15 +160,16 @@ O performer já tem: oferta descoberta (C1a) + multi-gênero (C1b) + equipamento
 Uma BANDA (page/group) já pode ser contratada para um evento via createCommitment, gate dual de autoridade.
 DT-EVENT-STAFF-...-SCHEMA-DRIFT FECHADA. Sem event_actors paralelo, sem campo financeiro (contrato §3/§11).
 
-## Próxima frente: C2b — papel governado no vínculo + deprecar assignStaff user-only
-- Governar o vocabulário de papel do vínculo (event_staff.role TEXT livre → governado: artist/venue/sponsor/
-  tech/organizer/... compondo do vocabulário, não enumerar por conta); deprecar/rotear o assignStaff só-usuário
-  para o caminho actor-first createCommitment (que já aceita page/group e tem gate dual + autoridade sobre o evento).
-- Depois: C2c (share/cachê DECLARADO Bank-free em substrato PRÓPRIO event_participation_terms — decisão soberana
-  de modelo) → C3 contratação orquestrada (needs→descoberta→RFQ→bind).
-- Decisões soberanas guardadas: convite bilateral (dono convida→banda aceita, pending→accepted); modelo de share;
-  configs (voz-violão×banda). Visão memória: catálogo Netflix (gênero/data/equipamento/capacidade/seguidores),
-  locação de equipamento→orquestração, código de indicação residual.
+## Frente material ativa: C2b — writer único do vínculo (deprecar assignStaff)
+- Instância: executora, Opus, alto. GO MATERIAL emitido, base `d87ce2e8e`. Aguardando parecer.
+- Mapa (direção): assignStaff = writer legado user-only, SEM gate de autoridade sobre o evento, callers só
+  backend (sem frontend). createCommitment (canônico, contrato §10, actor-first, gate dual) = o único. C2b
+  contém assignStaff (rota→501 + método throw ANTES do INSERT) + guard writer-único. Prova por API DIRETA. Bank-free.
+- 🔴 Papel (role) = DECISÃO NORMATIVA de Clayton: o contrato NÃO governa o vocabulário (role é TEXT livre; a
+  lista artist/venue/sponsor/... é só enum de código, não promulgada). NÃO enumerar por conta → trago a decisão
+  na fatia de papel (C2-role). NÃO bloqueia C2b.
+- Próxima: C2b → C2-role (decisão de vocabulário de papel) → C2c (share Bank-free em substrato próprio, decisão
+  soberana) → C3 contratação orquestrada. Decisões guardadas: convite bilateral, share, configs. Ver memória.
 - Mapa (descoberta): equipamento tem pool de concepts governado (locação, PA/microfone/iluminação) — falta
   gear musical (guitarra/baixo/bateria/mesa) → semear no MESMO pool; facet espelha C1b (service_offering_
   equipment_facets); capacidade vive em conditions jsonb (≠ capacity de slot); seguidores já derivam de
