@@ -239,6 +239,14 @@ export interface UpdateEventInput {
   venueNeighborhoodId?: string | null;
   venueNeighborhoodDisplay?: string | null;
   venuePostalCode?: string | null;
+  // SLICE S2 (VENUE ENRICHMENT): logradouro do local REUTILIZA as colunas EXISTENTES addresses.street/number/
+  // complement (nasceram em 20260530518000 e estavam mortas no caminho de evento). ZERO coluna/tabela nova.
+  venueStreet?: string | null;
+  venueNumber?: string | null;
+  venueComplement?: string | null;
+  // Nome do Local (place-name) REUTILIZA a chave canônica events.metadata.location_name (mesma que o legacy
+  // events.service lê/escreve e o frontend "Nome do Local" liga). NÃO é coluna — é a MESMA chave JSONB. §2: SEM sinônimo.
+  locationName?: string | null;
   metadata?: Record<string, any>;
 }
 

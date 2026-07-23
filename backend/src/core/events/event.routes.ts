@@ -802,6 +802,12 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         if (has('venue_neighborhood_id') || has('venueNeighborhoodId')) updateInput.venueNeighborhoodId = ub.venue_neighborhood_id ?? ub.venueNeighborhoodId;
         if (has('venue_neighborhood_display') || has('venueNeighborhoodDisplay')) updateInput.venueNeighborhoodDisplay = ub.venue_neighborhood_display ?? ub.venueNeighborhoodDisplay;
         if (has('venue_postal_code') || has('venuePostalCode')) updateInput.venuePostalCode = ub.venue_postal_code ?? ub.venuePostalCode;
+        // SLICE S2 (VENUE ENRICHMENT): logradouro do local REUSA addresses.street/number/complement (colunas
+        // existentes); Nome do Local REUSA a chave canônica events.metadata.location_name (input key = locationName).
+        if (has('venue_street') || has('venueStreet')) updateInput.venueStreet = ub.venue_street ?? ub.venueStreet;
+        if (has('venue_number') || has('venueNumber')) updateInput.venueNumber = ub.venue_number ?? ub.venueNumber;
+        if (has('venue_complement') || has('venueComplement')) updateInput.venueComplement = ub.venue_complement ?? ub.venueComplement;
+        if (has('location_name') || has('locationName')) updateInput.locationName = ub.location_name ?? ub.locationName;
         if (has('metadata')) updateInput.metadata = ub.metadata;
         const event = await eventService.updateEvent(
           req.tenant.id,

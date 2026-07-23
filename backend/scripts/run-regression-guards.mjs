@@ -242,6 +242,11 @@ const CMDS = [
   // "exige META" / "prazo <= início" / acoplamento a contribuicao_opcional + espelhos 400 no writer.
   // Movimentação de dinheiro (promessa/estorno) = PORTA-01, FORA.
   "node scripts/audit-vaquinha-funding-rules.mjs",
+  // SLICE S2 (VENUE ENRICHMENT) do arco "evento em si" — trava de NOMEAÇÃO (§2): o local do evento REUTILIZA
+  // o vocabulário canônico (events.metadata.location_name + addresses.street/number/complement + role
+  // 'OPERATIONAL' + events.max_attendees), NUNCA cunha sinônimo. Morde se nascer coluna venue_name/place_name
+  // OU coluna events.location_name OU capacidade nova em events/addresses OU role 'VENUE'. Bank-free (Δbank=0).
+  "node scripts/audit-venue-location-name-ssot.mjs",
   // DECISION-0189C C1: o runner passa a INCLUIR o gate financeiro (financial-ssot/vocabulary +
   // typecheck do gate) — o "verde" do runner deixa de mentir (o script infrator elevava 591→592
   // sem o runner acusar). Baseline só-desce (DECISION-0158); nunca sobe para 592.

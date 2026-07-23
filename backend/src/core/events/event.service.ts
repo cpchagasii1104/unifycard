@@ -648,11 +648,17 @@ class EventService {
       values.push(input.locationMode);
     }
 
-    if (input.metadata !== undefined) {
+    // SLICE S2 (VENUE ENRICHMENT): Nome do Local REUTILIZA a chave canônica events.metadata.location_name —
+    // a MESMA que o legacy events.service lê (meta.location_name) e escreve, e que o frontend "Nome do Local"
+    // liga. NÃO é coluna nova (§2: sinônimo proibido) — é a mesma chave JSONB, persistida pelo MESMO merge
+    // `metadata ||` (preserva metadata.declaration e as demais chaves; não faz replace).
+    if (input.metadata !== undefined || input.locationName !== undefined) {
       // MERGE (não replace): PATCH parcial não pode apagar metadata.declaration (gravado no declare) nem
       // outras chaves. jsonb || preserva o existente e sobrescreve só as chaves enviadas.
+      const metaMerge: Record<string, any> = { ...(input.metadata ?? {}) };
+      if (input.locationName !== undefined) metaMerge.location_name = input.locationName;
       updates.push(`metadata = COALESCE(metadata, '{}'::jsonb) || $${paramIndex++}::jsonb`);
-      values.push(JSON.stringify(input.metadata));
+      values.push(JSON.stringify(metaMerge));
     }
 
     // TEMAS e FACETS vivem em tabelas de aplicabilidade (não na linha events) — persistidos SEMPRE
@@ -689,16 +695,20 @@ class EventService {
                FROM cities c JOIN states s ON s.state_id = c.state_id WHERE c.city_id = $2::uuid
            ),
            new_addr AS (
+             -- S2 VENUE ENRICHMENT: street/number/complement REUTILIZAM as colunas EXISTENTES de addresses
+             -- (20260530518000) — ZERO coluna/migration nova. role continua 'OPERATIONAL' (§2: sem role VENUE).
              INSERT INTO addresses (country_id, state_id, city_id, neighborhood_id, postal_code,
+                                    street, number, complement,
                                     neighborhood_display_text, lat, lng, is_geocoded, source, created_by_tenant_id)
-             SELECT geo.country_id, geo.state_id, $2::uuid, $4::uuid, $3, $5, geo.city_lat, geo.city_lng,
-                    false, 'UX_INPUT', $6::uuid FROM geo
+             SELECT geo.country_id, geo.state_id, $2::uuid, $4::uuid, $3, $7, $8, $9, $5,
+                    geo.city_lat, geo.city_lng, false, 'UX_INPUT', $6::uuid FROM geo
              RETURNING address_id
            )
            INSERT INTO address_assignments (owner_type, owner_id, address_id, role, is_primary)
            SELECT 'event', $1::uuid, address_id, 'OPERATIONAL', true FROM new_addr`,
           [eventId, input.venueCityId, input.venuePostalCode ?? null, input.venueNeighborhoodId ?? null,
-           input.venueNeighborhoodDisplay ?? null, tenantId]);
+           input.venueNeighborhoodDisplay ?? null, tenantId,
+           input.venueStreet ?? null, input.venueNumber ?? null, input.venueComplement ?? null]);
       } catch (error) {
         // N2-F: traduz SÓ as constraints territoriais conhecidas; qualquer outra FK/infra PROPAGA intacta.
         mapAddressTerritorialConstraintError(error);
