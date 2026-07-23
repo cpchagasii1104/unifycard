@@ -29,6 +29,11 @@ const ALLOW = {
   // (DECISION-0113), NUNCA do body; o core createBooking revalida canRepresentActor (0148). A auto-
   // confirmação (approval_mode=automatic) é pré-autorização do DONO aplicada server-side, não do consumidor.
   'src/modules/rentals/rentable-resource.service.ts': { cls: 'BOUND', evFile: 'src/modules/rentals/rentable-resource.routes.ts', ev: /actionContext\?\.actorId/ },
+  // Reserva de oferta de serviço (requestBooking, F-PERFORMER-CONTRACTING-POLICY). requesterActorId vem do body
+  // mas a ROTA revalida canRepresentActor(userId, requesterActorId)→403 SERVICE_OFFERING_BOOK_NOT_REPRESENTABLE
+  // ANTES de chamar; subjectUserId=userId (req.user, server-side); core createBooking revalida (0148). aceita-direto
+  // (approval_mode=automatic) = pré-autorização do DONO aplicada server-side no chokepoint, não do consumidor.
+  'src/modules/services/service-offering.service.ts': { cls: 'BOUND', evFile: 'src/modules/services/service-offerings.routes.ts', ev: /canRepresentActor/ },
   'src/modules/services/service-hire.routes.ts': { cls: 'FIREWALL_CONTAINED', ev: /isServiceFinancialRuntimeEnabled/ },
   'src/modules/events/checkout-ticket.service.ts': { cls: 'SELF_BOOKING_ALLOWLIST', ev: /user_id/ },
   'src/modules/events/event-rfq.service.ts': { cls: 'SELF_BOOKING_ALLOWLIST', ev: /organizer/i },
