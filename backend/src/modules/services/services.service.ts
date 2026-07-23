@@ -52,8 +52,9 @@ class ServicesService {
    * gate de autoridade já provado (canRepresentActor) — declaração é INSUMO, NÃO substitui autoridade.
    * PF (actor humano, actor_type='user'): exige `actor_professional_concepts.is_active=true` (tenant, actor, concept).
    * PJ (page-actor de company, company_id setado): exige `company_concept_publications.status='active'` (tenant, company, concept).
+   * COLETIVO (grupo-actor, actor_type='group'): MESMO check da PF sobre a PRÓPRIA linha do grupo-actor.
    * G1: usa o campo ACTIVE vivo (is_active / status='active'). G2/G6: subject = actor já provado server-side
-   * (sem actionContext.actorId). G3: PF×PJ indistinguível → erro controlado (não heurística). G5: concept EXATO.
+   * (sem actionContext.actorId). G3: tipo não coberto → erro controlado (não heurística). G5: concept EXATO.
    */
   private async assertDeclarationEligibility(
     tenantId: string,
@@ -94,9 +95,30 @@ class ServicesService {
       return;
     }
 
-    // G3: PF×PJ indistinguível com segurança → não inventar heurística.
+    // COLETIVO: classe COLETIVO (banda=grupo-actor) — extensão de DECISION-0144 ratificada no arco fundação
+    // eventos (GO Clayton 2026-07-23); declaração vive no grupo-actor, autoridade = canRepresentActor
+    // (owner→group-actor) F0-grupo. A declaração é a linha PRÓPRIA do grupo-actor em
+    // actor_professional_concepts (declarada pelo dono via declareConcept, caminho selado que já aceita
+    // grupo-actors sob canRepresentActor) — NUNCA herdada implicitamente da declaração pessoal do dono
+    // (DECISION-0145: providers distintos, atos distintos). Mesmo predicado ACTIVE da PF (G1/G5).
+    if (actor.actor_type === 'group') {
+      const decl = await runQueryWithTenant<{ ok: number }>(
+        tenantId,
+        `SELECT 1 AS ok FROM actor_professional_concepts
+          WHERE tenant_id = $1 AND actor_id = $2 AND concept_id = $3 AND is_active = true LIMIT 1`,
+        [tenantId, actor.actor_id, conceptId]
+      );
+      if (!decl) {
+        throw new ForbiddenError(
+          'SERVICE_ELIGIBILITY_DECLARATION_REQUIRED: o grupo-actor não declarou capacidade ATIVA neste concept (DECISION-0144 estendida a COLETIVO); o dono declara no grupo-actor antes de criar o serviço.'
+        );
+      }
+      return;
+    }
+
+    // G3: tipo não coberto com segurança → não inventar heurística (fail-closed).
     throw new ForbiddenError(
-      'SERVICE_ELIGIBILITY_SUBJECT_UNSUPPORTED: tipo de actor não suportado para criar serviço (esperado PF actor_type=user ou page-actor de company).'
+      'SERVICE_ELIGIBILITY_SUBJECT_UNSUPPORTED: tipo de actor não suportado para criar serviço (esperado PF actor_type=user, COLETIVO actor_type=group, ou page-actor de company).'
     );
   }
 
