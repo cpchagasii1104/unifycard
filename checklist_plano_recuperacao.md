@@ -143,16 +143,21 @@ Concept governado apresentacao-musical; banda reusa o trilho selado service_offe
 Facet multi-gênero governado + descoberta por gênero e data selada 0156. "Achar banda de reggae livre no dia X"
 já é backend real. Falta seed de gêneros extras (reggae/MPB, trivial) + vitrine frontend (E1).
 
-## Frente material ativa: C1c-a — raio-x: equipamento (facet) + capacidade [+ ADDENDUM tightening]
-- Núcleo `313245335` — Yala Veredito B: correto/provado, MAS ressalva (a Yala julgou por conta própria,
-  recusando a racionalização da direção): o critério de governança `produtos-e-comercio ∧ rentable` é LARGO
-  DEMAIS (aceita motosserra/lavadora/bem-imóvel como "equipamento do performer").
-- Direção NÃO sela com nota → ADDENDUM (Opus, base `313245335`): estreitar para o marcador JÁ GOVERNADO
-  rental_equipment_use_area_concepts com use-area ∈ {audio_video_lighting, events_parties}; mapear o gear
-  musical semeado nessas áreas; guard ancora no predicado estreito; E2E prova que motosserra agora → 422.
-- Próxima ação: addendum volta → verifico → Yala confirma delta → selo C1c-a completa → (config: decisão
-  soberana) → C2 event_actors.
-- Instância núcleo: executora, Opus. GO addendum emitido. Aguardando parecer.
+## ✅ C1c-a SELADA (Yala Veredito A, `8bc7358f2`) — raio-x: equipamento (governança estreitada) + capacidade
+Núcleo `313245335` + addendum `8bc7358f2` (a Yala pegou o critério largo, corrigido antes de selar).
+O performer já tem: oferta descoberta (C1a) + multi-gênero (C1b) + equipamento+capacidade (C1c-a).
+
+## Raio-x restante + próxima frente
+- **Seguidores** ("traz público") = reuso puro de follows+getActorCounts — fica na descoberta/frontend (trivial).
+- **Configs** (voz-violão×banda×produção) = 🔴 DECISÃO SOBERANA de Clayton (substrato MISSING): (b) canonical_
+  services distintos [documentado, sem substrato novo] vs (a) tabela offering_packages [substrato novo, mais
+  rico]. NÃO decidir sozinho. Trago com recomendação.
+- **C2 event_actors** (estrutural): binding performer→evento (line-up/elenco/equipe); o TIPO existe sem tabela;
+  corrigir assignStaff só-usuário. É "contratar a banda PARA o evento".
+- VISÃO (Clayton "sim"): conectar lojas de locação de equipamento → disponibilizar ao músico = orquestração
+  (C3). O músico sem gear puxa locação pelo mesmo motor. Guardado em memória.
+- Próxima ação da direção: C2 (estrutural, avança p/ contratar) — mapear substrato event_actors/event_staff.
+  Configs: trago a decisão quando a fatia de config chegar (ou se Clayton pedir antes).
 - Mapa (descoberta): equipamento tem pool de concepts governado (locação, PA/microfone/iluminação) — falta
   gear musical (guitarra/baixo/bateria/mesa) → semear no MESMO pool; facet espelha C1b (service_offering_
   equipment_facets); capacidade vive em conditions jsonb (≠ capacity de slot); seguidores já derivam de
