@@ -738,6 +738,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             },
             ticket_price_cents: { type: ['integer', 'null'], minimum: 0 },
             max_attendees: { type: ['integer', 'null'], minimum: 1 },
+            // Acesso/custo + capacidade mínima (anúncio, Δbank=0).
+            event_access_type: { type: ['string', 'null'], enum: ['gratuito', 'pago', 'contribuicao_opcional', null] },
+            min_attendees: { type: ['integer', 'null'], minimum: 1 },
+            // VAQUINHA (all-or-nothing) — regras DECLARADAS (SLICE S1). Δbank=0: META = min_attendees (pessoas),
+            // dinheiro real = PORTA-01, FORA. funding_deadline_at = PRAZO da vaquinha (≠ datetime_end = fim do evento).
+            funding_deadline_at: { type: ['string', 'null'], format: 'date-time' },
+            is_all_or_nothing: { type: 'boolean' },
             metadata: { type: ['object', 'null'] },
           },
         },
@@ -783,6 +790,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         if (has('max_attendees') || has('maxAttendees')) updateInput.maxAttendees = ub.max_attendees ?? ub.maxAttendees;
         if (has('event_access_type') || has('eventAccessType')) updateInput.eventAccessType = ub.event_access_type ?? ub.eventAccessType;
         if (has('min_attendees') || has('minAttendees')) updateInput.minAttendees = ub.min_attendees ?? ub.minAttendees;
+        // VAQUINHA (all-or-nothing) — regras DECLARADAS (SLICE S1). Δbank=0 (META = min_attendees/pessoas;
+        // dinheiro = PORTA-01, FORA). funding_deadline_at = PRAZO da vaquinha, NUNCA datetime_end (fim do evento).
+        if (has('funding_deadline_at') || has('fundingDeadlineAt')) updateInput.fundingDeadlineAt = ub.funding_deadline_at ?? ub.fundingDeadlineAt;
+        if (has('is_all_or_nothing') || has('isAllOrNothing')) updateInput.isAllOrNothing = ub.is_all_or_nothing ?? ub.isAllOrNothing;
         if (has('event_format_concept_id') || has('eventFormatConceptId')) updateInput.eventFormatConceptId = ub.event_format_concept_id ?? ub.eventFormatConceptId;
         if (has('location_mode') || has('locationMode')) updateInput.locationMode = ub.location_mode ?? ub.locationMode;
         if (has('theme_concept_ids') || has('themeConceptIds')) updateInput.themeConceptIds = ub.theme_concept_ids ?? ub.themeConceptIds;

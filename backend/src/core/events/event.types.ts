@@ -160,6 +160,14 @@ export interface Event {
   visibility: EventVisibility;
   ticketPriceCents?: number | null;
   maxAttendees?: number | null;
+  // Acesso/custo + capacidade mínima (anúncio, Δbank=0) — antes escritos mas NÃO relidos no agregado.
+  eventAccessType?: EventAccessType | null;
+  minAttendees?: number | null;
+  // VAQUINHA (all-or-nothing crowdfunding) — REGRAS DECLARADAS (SLICE S1). Δbank=0: a META é PESSOAS
+  // (minAttendees), NUNCA cents; a movimentação de dinheiro (promessa/estorno) é PORTA-01, FORA.
+  // fundingDeadlineAt = PRAZO da vaquinha (fecha o "prometer"), DISTINTO de datetimeEnd (fim do evento).
+  fundingDeadlineAt?: string | null; // ISO 8601 (timestamptz)
+  isAllOrNothing?: boolean; // prefixo booleano canônico is_
   completedAt?: string | null; // ISO 8601
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
@@ -216,6 +224,11 @@ export interface UpdateEventInput {
   // Acesso/custo (anúncio, Δbank=0) + capacidade mínima. Vocabulário GOVERNADO pt-BR (EVENT_ACCESS_TYPES).
   eventAccessType?: EventAccessType | null;
   minAttendees?: number | null;
+  // VAQUINHA (all-or-nothing) — regras DECLARADAS (SLICE S1). Δbank=0 (META = minAttendees/pessoas, NUNCA
+  // cents; dinheiro real = PORTA-01, FORA). fundingDeadlineAt = PRAZO da vaquinha (≠ datetimeEnd = fim do
+  // evento). validate-before-mutate no writer: all-or-nothing exige META + contribuicao_opcional; prazo <= início.
+  fundingDeadlineAt?: string | null; // ISO 8601 (timestamptz)
+  isAllOrNothing?: boolean; // prefixo booleano canônico is_
   // F-EVENT-CONCEPT-FIRST-MODEL: identidade = formato (concept) + temas (concepts) + facets; location governado.
   eventFormatConceptId?: string | null;
   locationMode?: EventLocationMode | null;

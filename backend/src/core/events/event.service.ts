@@ -43,6 +43,10 @@ interface EventRow {
   visibility: string;
   ticket_price_cents: number | null;
   max_attendees: number | null;
+  event_access_type: string | null;
+  min_attendees: number | null;
+  funding_deadline_at: string | null;
+  is_all_or_nothing: boolean | null;
   createdAt: string;
   updatedAt: string;
   metadata: Record<string, any> | null;
@@ -68,6 +72,12 @@ class EventService {
       visibility: row.visibility as EventVisibility,
       ticketPriceCents: row.ticket_price_cents,
       maxAttendees: row.max_attendees,
+      eventAccessType: (row.event_access_type ?? null) as Event['eventAccessType'],
+      minAttendees: row.min_attendees,
+      // VAQUINHA (SLICE S1): regras declaradas relidas no agregado. is_all_or_nothing tem DEFAULT false no
+      // banco; ?? false blinda linhas antigas lidas antes do backfill físico (defensivo, coincide com o default).
+      fundingDeadlineAt: row.funding_deadline_at ?? null,
+      isAllOrNothing: row.is_all_or_nothing ?? false,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       metadata: row.metadata || {},
@@ -573,6 +583,51 @@ class EventService {
       }
       updates.push(`min_attendees = $${paramIndex++}`);
       values.push(input.minAttendees);
+    }
+
+    // VAQUINHA (all-or-nothing crowdfunding) — REGRAS DECLARADAS (SLICE S1). validate-before-mutate (§4.9.5),
+    // ESPELHO do backstop físico (chk_events_all_or_nothing_requires_goal / _funding_deadline_before_start /
+    // _all_or_nothing_access_type). Bank-free: a META é PESSOAS (min_attendees), NUNCA cents; a movimentação de
+    // dinheiro (promessa/estorno) é PORTA-01, FORA. fundingDeadlineAt = PRAZO da vaquinha, DISTINTO de
+    // datetimeEnd (fim do evento). Valores EFETIVOS = o que vem no PATCH ?? o que já está na linha (um PATCH
+    // pode setar só um flag sobre um estado prévio coerente).
+    const willTouchVaquinha = input.isAllOrNothing !== undefined || input.fundingDeadlineAt !== undefined;
+    if (willTouchVaquinha) {
+      const effIsAllOrNothing = input.isAllOrNothing !== undefined ? input.isAllOrNothing : (event.isAllOrNothing ?? false);
+      const effMinAttendees = input.minAttendees !== undefined ? input.minAttendees : (event.minAttendees ?? null);
+      const effAccessType = input.eventAccessType !== undefined ? input.eventAccessType : (event.eventAccessType ?? null);
+      const effDeadline = input.fundingDeadlineAt !== undefined ? input.fundingDeadlineAt : (event.fundingDeadlineAt ?? null);
+      const effStart = input.datetimeStart !== undefined ? input.datetimeStart : (event.datetimeStart ?? null);
+
+      if (effIsAllOrNothing) {
+        // (a) all-or-nothing EXIGE a meta — não há vaquinha tudo-ou-nada sem META de pessoas.
+        if (effMinAttendees == null) {
+          throw new BadRequestError('VAQUINHA_ALL_OR_NOTHING_REQUIRES_GOAL: vaquinha tudo-ou-nada exige uma meta de participantes (min_attendees).');
+        }
+        // (c) vaquinha SÓ em contribuição opcional — evento gratuito/pago não é vaquinha.
+        if (effAccessType !== 'contribuicao_opcional') {
+          throw new BadRequestError('VAQUINHA_ACCESS_TYPE_MISMATCH: vaquinha tudo-ou-nada só é válida em evento de contribuição opcional (event_access_type=contribuicao_opcional).');
+        }
+      }
+      // (b) o PRAZO de financiamento fecha AT/ANTES de o evento começar (tolerante a NULL nos dois lados).
+      if (effDeadline != null && effStart != null) {
+        const dl = new Date(effDeadline);
+        const st = new Date(effStart);
+        if (isNaN(dl.getTime())) {
+          throw new BadRequestError('VAQUINHA_DEADLINE_INVALID: funding_deadline_at inválido (não é uma data/hora válida).');
+        }
+        if (dl.getTime() > st.getTime()) {
+          throw new BadRequestError('VAQUINHA_DEADLINE_AFTER_START: o prazo da vaquinha (funding_deadline_at) deve ser at/antes do início do evento (datetime_start), nunca depois — e nunca é o FIM do evento (datetime_end).');
+        }
+      }
+    }
+    if (input.fundingDeadlineAt !== undefined) {
+      updates.push(`funding_deadline_at = $${paramIndex++}`);
+      values.push(input.fundingDeadlineAt);
+    }
+    if (input.isAllOrNothing !== undefined) {
+      updates.push(`is_all_or_nothing = $${paramIndex++}`);
+      values.push(input.isAllOrNothing);
     }
 
     // F-EVENT-CONCEPT-FIRST: formato (concept) — valida que É formato de evento habilitado (não texto).
@@ -1410,6 +1465,10 @@ class EventService {
         visibility,
         ticket_price_cents,
         max_attendees,
+        event_access_type,
+        min_attendees,
+        funding_deadline_at,
+        is_all_or_nothing,
         created_at AS "createdAt",
         updated_at AS "updatedAt",
         metadata

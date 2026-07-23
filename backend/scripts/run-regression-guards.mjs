@@ -236,6 +236,12 @@ const CMDS = [
   // Preço = catálogo DECLARADO (price_cents/priceCents, Δbank=0, porta-01 FORA); dia 1-7 + período por CHECK;
   // config precificada em soft-retire (FK RESTRICT); sem 4ª verdade de preço; fronteira Bank-free.
   "node scripts/audit-offering-config-price-grid.mjs",
+  // SLICE S1 (VAQUINHA RULES) do arco "evento em si" — regras DECLARADAS da vaquinha (all-or-nothing) na
+  // linha events: META = min_attendees (PESSOAS, Δbank=0, NUNCA cents/funding_goal_cents) + PRAZO
+  // funding_deadline_at (≠ datetime_end) + is_all_or_nothing (prefixo canônico is_). CHECKs físicos
+  // "exige META" / "prazo <= início" / acoplamento a contribuicao_opcional + espelhos 400 no writer.
+  // Movimentação de dinheiro (promessa/estorno) = PORTA-01, FORA.
+  "node scripts/audit-vaquinha-funding-rules.mjs",
   // DECISION-0189C C1: o runner passa a INCLUIR o gate financeiro (financial-ssot/vocabulary +
   // typecheck do gate) — o "verde" do runner deixa de mentir (o script infrator elevava 591→592
   // sem o runner acusar). Baseline só-desce (DECISION-0158); nunca sobe para 592.
