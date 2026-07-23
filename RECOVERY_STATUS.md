@@ -6,7 +6,7 @@
 >
 > **NÃO AUTORIZA:** nenhum GO, código, migration, guard, runner, Bank ou worker. Ler este painel nunca autoriza ato material — cada frente exige seu próprio GO.
 >
-> **Atualizado:** 2026-07-22 · **HEAD verificado:** `8bc7358f2` (EVENT-ENGINE FASE C · **C1c-a SELADA** pela Yala · Veredito A — raio-x do performer: facet de EQUIPAMENTO governado (estreitado a use-area de palco/evento) + CAPACIDADE em conditions. Antes: C1b catálogo por gênero `be256c2fb`; C1a `66c5a6dc6`; 🏁 FASE A `6258309ce`; F0-grupo `ce98ce41a`; F1 `02e6cbe1c`; AUDIT-004 `39a51267c`) · **Branch:** `rescue-structural`
+> **Atualizado:** 2026-07-22 · **HEAD verificado:** `6e9dc4706` (EVENT-ENGINE FASE C · **C2a SELADA** pela Yala · Veredito A — event_staff/OperationalCommitment reconciliado à norma; o vínculo actor-first (createCommitment) funciona → uma BANDA (page/group) pode ser contratada para um evento com autoridade dual. `DT-EVENT-STAFF-...-SCHEMA-DRIFT` FECHADA. Antes: C1c-a `8bc7358f2`; C1b `be256c2fb`; C1a `66c5a6dc6`; 🏁 FASE A `6258309ce`; F0-grupo `ce98ce41a`; AUDIT-004 `39a51267c`) · **Branch:** `rescue-structural`
 
 ---
 

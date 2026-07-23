@@ -156,19 +156,19 @@ O performer já tem: oferta descoberta (C1a) + multi-gênero (C1b) + equipamento
   corrigir assignStaff só-usuário. É "contratar a banda PARA o evento".
 - VISÃO (Clayton "sim"): conectar lojas de locação de equipamento → disponibilizar ao músico = orquestração
   (C3). O músico sem gear puxa locação pelo mesmo motor. Guardado em memória.
-## Frente material ativa: C2a — reconciliar event_staff ao contrato (pré-requisito do binding)
-- Instância: executora, Opus, alto. GO MATERIAL emitido, base `36eaf6b44`. Aguardando parecer.
-- Mapa (descoberta): a NORMA (operational_commitment_minimum_contract.md) elege event_staff/OperationalCommitment
-  como O vínculo actor↔evento — materializar event_actors = realidade paralela PROIBIDA (§2). O writer actor-first
-  createCommitment (aceita banda/page/group + gate dual) está DRIFTED (status 'expected' vs CHECK active/inactive/
-  cancelled; colunas checked_in_at/... só na arquivada). DT-EVENT-STAFF-OPERATIONAL-COMMITMENT-SCHEMA-DRIFT registrada.
-- Escopo C2a: migration reconciliando event_staff ao contrato §3/§4 (colunas de lifecycle + CHECK de status);
-  NÃO materializar event_actors; NÃO campo financeiro (contrato §3/§11 proíbe); NÃO deprecar assignStaff (C2b).
-  Prova: banda (page/group) vinculada via createCommitment funciona; autoridade dual. Bank-free.
-- Próxima: C2a → C2b (papel governado + deprecar assignStaff user-only → createCommitment) → C2c (share
-  declarado Bank-free em substrato PRÓPRIO, decisão soberana) → C3 contratação orquestrada.
-- Decisões soberanas guardadas: fluxo bilateral de convite (dono convida→banda aceita, pending→accepted);
-  modelo de share (event_participation_terms). Configs (voz-violão×banda): decisão pendente. Ver memória.
+## ✅ C2a SELADA (Yala Veredito A, `6e9dc4706`) — event_staff reconciliado à norma; binding actor-first funciona
+Uma BANDA (page/group) já pode ser contratada para um evento via createCommitment, gate dual de autoridade.
+DT-EVENT-STAFF-...-SCHEMA-DRIFT FECHADA. Sem event_actors paralelo, sem campo financeiro (contrato §3/§11).
+
+## Próxima frente: C2b — papel governado no vínculo + deprecar assignStaff user-only
+- Governar o vocabulário de papel do vínculo (event_staff.role TEXT livre → governado: artist/venue/sponsor/
+  tech/organizer/... compondo do vocabulário, não enumerar por conta); deprecar/rotear o assignStaff só-usuário
+  para o caminho actor-first createCommitment (que já aceita page/group e tem gate dual + autoridade sobre o evento).
+- Depois: C2c (share/cachê DECLARADO Bank-free em substrato PRÓPRIO event_participation_terms — decisão soberana
+  de modelo) → C3 contratação orquestrada (needs→descoberta→RFQ→bind).
+- Decisões soberanas guardadas: convite bilateral (dono convida→banda aceita, pending→accepted); modelo de share;
+  configs (voz-violão×banda). Visão memória: catálogo Netflix (gênero/data/equipamento/capacidade/seguidores),
+  locação de equipamento→orquestração, código de indicação residual.
 - Mapa (descoberta): equipamento tem pool de concepts governado (locação, PA/microfone/iluminação) — falta
   gear musical (guitarra/baixo/bateria/mesa) → semear no MESMO pool; facet espelha C1b (service_offering_
   equipment_facets); capacidade vive em conditions jsonb (≠ capacity de slot); seguidores já derivam de
