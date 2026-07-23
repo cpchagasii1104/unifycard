@@ -82,7 +82,7 @@ async function main(): Promise<void> {
   const eq = Object.fromEntries((await pool.query<{ slug: string; concept_id: string }>(
     `SELECT c.slug, c.concept_id::text AS concept_id
        FROM concepts c JOIN concept_offer_kinds k ON k.concept_id=c.concept_id AND k.offer_kind='rentable'
-      WHERE c.domain='produtos-e-comercio' AND c.slug IN ('caixa-de-som','microfone','guitarra','bateria')`
+      WHERE c.domain='produtos-e-comercio' AND c.slug IN ('caixa-de-som','microfone','guitarra','bateria','motosserra')`
   )).rows.map((r) => [r.slug, r.concept_id])) as Record<string, string>;
 
   const publishOffering = async (name: string, conditions?: Record<string, unknown>) => {
@@ -159,6 +159,25 @@ async function main(): Promise<void> {
   await serviceOfferingService.tagOfferingEquipment({ tenantId: TENANT, userId: b1.band.userId, offeringId: b1.offering.id, equipmentConceptIds: [eq['guitarra']] });
   const list2 = await serviceOfferingService.listOfferingEquipment(TENANT, b1.offering.id);
   record('(g) retaguear guitarra é idempotente (segue 2)', list2.length === 2, `list=${list2.length}`);
+
+  // (i) ADDENDUM — ESTREITAMENTO: bem alugável de OUTRA área (motosserra) é REJEITADO agora (antes passava).
+  // Prova que o critério ANTIGO (produtos-e-comercio ∧ rentable) o ACEITARIA e que NÃO está em use-area de palco/evento.
+  const oldWouldAccept = (await pool.query(
+    `SELECT 1 FROM concepts c JOIN concept_offer_kinds k ON k.concept_id=c.concept_id AND k.offer_kind='rentable'
+      WHERE c.domain='produtos-e-comercio' AND c.slug='motosserra'`
+  )).rows.length === 1;
+  const notStageArea = (await pool.query(
+    `SELECT 1 FROM concepts c
+       JOIN rental_equipment_use_area_concepts r ON r.concept_id=c.concept_id
+       JOIN rental_equipment_use_areas a ON a.id=r.use_area_id
+      WHERE c.slug='motosserra' AND a.code IN ('audio_video_lighting','events_parties')`
+  )).rows.length === 0;
+  let newRejects = 'NO_THROW';
+  try { await serviceOfferingService.tagOfferingEquipment({ tenantId: TENANT, userId: b1.band.userId, offeringId: b1.offering.id, equipmentConceptIds: [eq['motosserra']] }); }
+  catch (e: any) { newRejects = e?.code || 'THROW'; }
+  record('(i) estreitamento: motosserra (rentable, outra área) — critério ANTIGO aceitaria, NOVO rejeita 422',
+    oldWouldAccept && notStageArea && newRejects === 'SERVICE_OFFERING_EQUIPMENT_NOT_GOVERNED',
+    `oldAccept=${oldWouldAccept} notStage=${notStageArea} newCode=${newRejects}`);
 
   // (h) Δbank=0.
   const bankAfter = await bankSnap();

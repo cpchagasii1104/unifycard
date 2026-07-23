@@ -353,11 +353,12 @@ export const serviceOfferingService = {
     return r.map((x) => x.subject_concept_id);
   },
 
-  // ── C1c-a — FACET de EQUIPAMENTO próprio (raio-x: checklist do que a banda leva). Elo oferta↔equipamento
-  // GOVERNADO (service_offering_equipment_facets, espelho de service_offering_genre_facets/C1b). Autoridade =
-  // canRepresentActor(provider) fail-closed. Equipamento governado = concept do pool de equipamento
-  // (domain='produtos-e-comercio' ∧ offer_kind='rentable') — a FK física (→concepts) impede free-text; a
-  // pertinência ao pool é validada aqui (422). Bank-free.
+  // ── C1c-a (+ ADDENDUM) — FACET de EQUIPAMENTO próprio (raio-x: checklist do que a banda leva). Elo
+  // oferta↔equipamento GOVERNADO (service_offering_equipment_facets, espelho de C1b). Autoridade =
+  // canRepresentActor(provider) fail-closed. Equipamento do PERFORMER = concept EM use-area governada de
+  // palco/evento (rental_equipment_use_area_concepts com code ∈ {audio_video_lighting, events_parties}) —
+  // ESTREITADO do critério largo produtos-e-comercio∧rentable (que aceitava motosserra/lavadora). A FK física
+  // (→concepts) impede free-text; a pertinência à use-area de palco/evento é validada aqui (422). Bank-free.
 
   /** Provider TAGUEIA equipamentos na PRÓPRIA oferta (multi, idempotente). Rejeita equipamento não-governado. */
   async tagOfferingEquipment(input: {
@@ -377,18 +378,22 @@ export const serviceOfferingService = {
     if (ids.length === 0) {
       throw new ServiceOfferingError(400, 'SERVICE_OFFERING_EQUIPMENT_EMPTY', 'Nenhum equipamento informado.');
     }
-    // Governança: cada concept pertence ao POOL de equipamento (produtos-e-comercio + offer_kind='rentable').
+    // Governança (ESTREITADA, addendum): cada concept é equipamento de PALCO/EVENTO — pertence à use-area
+    // governada rental_equipment_use_area_concepts com code ∈ {audio_video_lighting, events_parties}. NÃO
+    // basta ser bem alugável (produtos-e-comercio∧rentable) — motosserra/lavadora ficam de fora. DISTINCT
+    // porque um concept pode estar em várias áreas.
     const governed = await runQueriesWithTenant<{ concept_id: string }>(
       input.tenantId,
-      `SELECT c.concept_id::text AS concept_id
+      `SELECT DISTINCT c.concept_id::text AS concept_id
          FROM concepts c
-         JOIN concept_offer_kinds k ON k.concept_id = c.concept_id AND k.offer_kind = 'rentable'
-        WHERE c.domain = 'produtos-e-comercio' AND c.concept_id = ANY($1::uuid[])`,
+         JOIN rental_equipment_use_area_concepts ruac ON ruac.concept_id = c.concept_id
+         JOIN rental_equipment_use_areas ua ON ua.id = ruac.use_area_id
+        WHERE ua.code IN ('audio_video_lighting', 'events_parties') AND c.concept_id = ANY($1::uuid[])`,
       [ids]
     );
     if (governed.length !== ids.length) {
       throw new ServiceOfferingError(422, 'SERVICE_OFFERING_EQUIPMENT_NOT_GOVERNED',
-        'Equipamento deve ser um concept governado do pool de equipamento (produtos-e-comercio + rentable).');
+        'Equipamento deve ser um concept de palco/evento (use-area governada audio_video_lighting/events_parties).');
     }
     for (const conceptId of ids) {
       await runQueryWithTenant(

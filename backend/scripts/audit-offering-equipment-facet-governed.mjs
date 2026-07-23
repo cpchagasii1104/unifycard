@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Guard estrutural — EVENT-ENGINE-COMPLETION · C1c-a: o facet de EQUIPAMENTO da oferta só liga
-// service_offering ↔ concept de equipamento GOVERNADO (pool produtos-e-comercio + offer_kind='rentable').
+// service_offering ↔ concept de equipamento GOVERNADO de PALCO/EVENTO (use-area audio_video_lighting/events_parties).
 // Espelha o guard selado de C1b (genre facet). Equipamento = concept do catálogo governado (seed C1a-style);
 // "equipamento solto" (free-text) impedido pela FK→concepts; a pertinência ao pool é validada no writer.
 //
@@ -9,8 +9,10 @@
 //   (B) o facet não referenciar service_offerings (FK da oferta — elo sem dono);
 //   (C) o facet não referenciar concepts (FK — equipamento solto/free-text liberado);
 //   (D) o facet perder a PK/UNIQUE (offering, concept) — idempotência quebrada;
-//   (E) o writer tagOfferingEquipment perder canRepresentActor (autoridade), a checagem do pool
-//       (produtos-e-comercio + offer_kind 'rentable'), ou o código 422 SERVICE_OFFERING_EQUIPMENT_NOT_GOVERNED;
+//   (E) o writer tagOfferingEquipment perder canRepresentActor (autoridade), a checagem ESTREITA de use-area
+//       de palco/evento (rental_equipment_use_area_concepts com code ∈ {audio_video_lighting, events_parties}),
+//       ou o código 422 SERVICE_OFFERING_EQUIPMENT_NOT_GOVERNED. Também morde se VOLTAR ao critério LARGO
+//       (domain='produtos-e-comercio' ∧ offer_kind='rentable') no predicado de governança;
 //   (F) a validação de capacidade de público (assertAudienceCapacity / SERVICE_OFFERING_CAPACITY_INVALID) sumir.
 // Estático (varre a migration + o writer, comment-stripped). NÃO altera runtime. Em regression-guards.
 
@@ -57,9 +59,14 @@ if (!existsSync(wp)) {
   else {
     if (!/canRepresentActor\s*\(/.test(body))
       failures.push('(E) tagOfferingEquipment sem canRepresentActor — autoridade do provider não fail-closed.');
-    // Anchor no PREDICADO SQL (não em palavra solta / mensagem de erro): a query precisa filtrar o pool.
-    if (!/domain\s*=\s*'produtos-e-comercio'/.test(body) || !/offer_kind\s*=\s*'rentable'/.test(body))
-      failures.push("(E) tagOfferingEquipment não valida o pool no SQL (domain='produtos-e-comercio' + offer_kind='rentable').");
+    // Anchor no PREDICADO SQL ESTREITO (não palavra solta / msg de erro): a query precisa filtrar por
+    // use-area de palco/evento (audio_video_lighting/events_parties) em rental_equipment_use_area_concepts.
+    if (!/rental_equipment_use_area_concepts/.test(body) ||
+        !/'audio_video_lighting'/.test(body) || !/'events_parties'/.test(body))
+      failures.push("(E) tagOfferingEquipment não valida a use-area de palco/evento no SQL (rental_equipment_use_area_concepts code ∈ {audio_video_lighting, events_parties}).");
+    // Regressão ao critério LARGO: o predicado de governança NÃO pode voltar a filtrar por domain do pool amplo.
+    if (/domain\s*=\s*'produtos-e-comercio'/.test(body))
+      failures.push("(E) tagOfferingEquipment voltou ao critério LARGO (domain='produtos-e-comercio') — governança de equipamento não estreitada.");
     if (!/SERVICE_OFFERING_EQUIPMENT_NOT_GOVERNED/.test(body))
       failures.push('(E) falta rejeição controlada SERVICE_OFFERING_EQUIPMENT_NOT_GOVERNED.');
   }
@@ -74,4 +81,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log(`GATE OK [offering-equipment-facet-governed] — ${TABLE} liga oferta↔equipamento governado (FK service_offerings + concepts, PK/UNIQUE idempotente); writer tagOfferingEquipment fail-closed (canRepresentActor + pool produtos-e-comercio/rentable + 422); capacidade de público validada em conditions (assertAudienceCapacity). Sem equipamento solto nem vocabulário paralelo (C1c-a).`);
+console.log(`GATE OK [offering-equipment-facet-governed] — ${TABLE} liga oferta↔equipamento governado (FK service_offerings + concepts, PK/UNIQUE idempotente); writer tagOfferingEquipment fail-closed (canRepresentActor + use-area ESTREITA audio_video_lighting/events_parties + 422); capacidade de público validada em conditions (assertAudienceCapacity). Sem equipamento largo (motosserra/lavadora) nem vocabulário paralelo (C1c-a addendum).`);
