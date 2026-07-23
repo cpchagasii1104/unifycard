@@ -143,8 +143,16 @@ Concept governado apresentacao-musical; banda reusa o trilho selado service_offe
 Facet multi-gênero governado + descoberta por gênero e data selada 0156. "Achar banda de reggae livre no dia X"
 já é backend real. Falta seed de gêneros extras (reggae/MPB, trivial) + vitrine frontend (E1).
 
-## Frente material ativa: C1c-a — raio-x: equipamento (facet) + capacidade
-- Instância: executora, Opus, alto. GO MATERIAL emitido, base `30e55546e`. Aguardando parecer.
+## Frente material ativa: C1c-a — raio-x: equipamento (facet) + capacidade [+ ADDENDUM tightening]
+- Núcleo `313245335` — Yala Veredito B: correto/provado, MAS ressalva (a Yala julgou por conta própria,
+  recusando a racionalização da direção): o critério de governança `produtos-e-comercio ∧ rentable` é LARGO
+  DEMAIS (aceita motosserra/lavadora/bem-imóvel como "equipamento do performer").
+- Direção NÃO sela com nota → ADDENDUM (Opus, base `313245335`): estreitar para o marcador JÁ GOVERNADO
+  rental_equipment_use_area_concepts com use-area ∈ {audio_video_lighting, events_parties}; mapear o gear
+  musical semeado nessas áreas; guard ancora no predicado estreito; E2E prova que motosserra agora → 422.
+- Próxima ação: addendum volta → verifico → Yala confirma delta → selo C1c-a completa → (config: decisão
+  soberana) → C2 event_actors.
+- Instância núcleo: executora, Opus. GO addendum emitido. Aguardando parecer.
 - Mapa (descoberta): equipamento tem pool de concepts governado (locação, PA/microfone/iluminação) — falta
   gear musical (guitarra/baixo/bateria/mesa) → semear no MESMO pool; facet espelha C1b (service_offering_
   equipment_facets); capacidade vive em conditions jsonb (≠ capacity de slot); seguidores já derivam de
