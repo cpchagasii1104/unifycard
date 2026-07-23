@@ -93,11 +93,13 @@ if (SVC_RAW) {
   // deixou de ser "preço PROIBIDO nesta fatia" e passou a ser GOVERNADA pelo guard dedicado
   // audit-offering-config-price-grid.mjs. Este guard aqui NÃO enfraquece: continua mordendo contaminação
   // BANCÁRIA real em tabela de config (bank_/currency/fee/tax) — apenas DELEGA a nomenclatura de PREÇO ao guard
-  // dedicado, SEM dupla verdade sobre a mesma fronteira. Delegação PRECISA (não é só _cents): o guard dedicado
-  // PERMITE apenas os nomes canônicos price_cents/default_price_cents em DDL de service_offering_config* e MORDE
-  // qualquer outro nome com-cara-de-dinheiro — price (float/não-_cents), amount, valor_..., preco... — escaneando
-  // SÓ linhas de definição de coluna/ADD COLUMN (comment- e literal-stripped). Assim price|_cents|valor_|preco/
-  // amount saem daqui SEM buraco de cobertura (o validate-financial-vocabulary.js ignora migrations).
+  // dedicado, SEM dupla verdade sobre a mesma fronteira. Delegação PRECISA e cobertura UNIVERSAL: o guard
+  // dedicado PERMITE apenas os nomes canônicos price_cents/default_price_cents e MORDE qualquer outro nome
+  // com-cara-de-dinheiro — price (float/não-_cents), amount, valor_..., preco... — em QUALQUER DDL de
+  // service_offering_config* (CREATE da grade OU ALTER de configs/prices, inclusive migration futura
+  // standalone que só faça ADD COLUMN), escaneando SÓ linhas de definição de coluna/ADD COLUMN (comment- e
+  // literal-stripped). Assim price|_cents|valor_|preco/amount saem daqui e ficam vigiados lá — o
+  // validate-financial-vocabulary.js ignora migrations, então esta é a única vigilância desse nome em DDL.
   const FIN_TOKENS = /\bfee\b|fee_bps|\btax\b|tax_|bank_|currency/i;
   if (!existsSync(MIG_DIR)) {
     note('MIGRATIONS', 'diretorio migrations ausente');

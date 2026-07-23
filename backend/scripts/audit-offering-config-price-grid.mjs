@@ -6,7 +6,11 @@
 // (Δbank=0; porta-01 FORA; BRL implícito, sem coluna de moeda).
 // MORDE se:
 //  (a) dinheiro nomeado como QUALQUER coisa que não price_cents/priceCents no caminho de preço
-//      (fronteira de vocabulário: amount/value_cents/total_cents/split/paid/payout/... proibidos);
+//      (fronteira de vocabulário: amount/value_cents/total_cents/split/paid/payout/... proibidos). Cobertura
+//      UNIVERSAL na migration: nome com-cara-de-dinheiro (price-float/amount/valor_/preco) NÃO-canônico é
+//      mordido em QUALQUER DDL de service_offering_config* — CREATE da grade OU ALTER de configs/prices,
+//      inclusive migration futura standalone que só faça ADD COLUMN (o validate-financial-vocabulary.js
+//      ignora migrations, logo esta é a única vigilância desse nome em DDL);
 //  (b) day_of_week perde o CHECK 1-7 OU period perde o CHECK governado ('manha','tarde','noite');
 //  (c) uma config PRECIFICADA pode ser DELETADA fisicamente (FK config_id perde ON DELETE RESTRICT
 //      OU deleteConfig deixa de fazer soft-retire/retired_at para config referenciada);
@@ -134,7 +138,9 @@ if (SVC_RAW) {
   }
 }
 
-// ══ (b)+(c)+(d) migration da grade: CHECK dia/periodo, FK RESTRICT, sem 4a verdade *_cents, Bank-free ══
+// ══ migration: cobertura UNIVERSAL de nome-com-cara-de-dinheiro + bank-frontier em QUALQUER DDL de
+//    service_offering_config* (CREATE da grade OU ALTER de configs/prices, mesmo arquivo standalone);
+//    (b) DAY/PERIOD-CHECK + (c) RESTRICT + (d) 4a-verdade + foundGrid ficam GATEADOS no arquivo que CRIA a grade ══
 {
   const MIG_DIR = join(ROOT, 'migrations');
   if (!existsSync(MIG_DIR)) {
@@ -144,8 +150,26 @@ if (SVC_RAW) {
     for (const f of readdirSync(MIG_DIR)) {
       if (!f.endsWith('.sql')) continue;
       const raw = readFileSync(join(MIG_DIR, f), 'utf8');
-      if (!/service_offering_config_prices/i.test(raw)) continue;
       const sql = stripSql(raw);
+      const sqlNoLit = stripSqlLiterals(sql);
+      // Statements de DDL (CREATE TABLE / ALTER TABLE) que tocam service_offering_config* — configs OU prices.
+      const ddlStmts = sqlNoLit.split(';').filter((s) =>
+        /service_offering_config/i.test(s) && /\b(CREATE\s+TABLE|ALTER\s+TABLE)\b/i.test(s));
+      if (ddlStmts.length === 0) continue; // arquivo sem DDL de config: nada a vigiar aqui.
+
+      // (a-migration) NOME com-cara-de-dinheiro NAO-canonico em QUALQUER DDL de config — CREATE ou ALTER, ainda
+      // que em arquivo STANDALONE que NAO cria a grade (herda a vigilancia que saiu do guard F3: valor_/preco/
+      // price-float/amount que o validate-financial-vocabulary.js NAO ve em migrations). Escopo: SO linhas de
+      // definicao de coluna / ADD COLUMN, sobre SQL comment-stripped E literal-stripped (sem morder prosa).
+      for (const st of ddlStmts) scanMoneyLookingColumns(st, f);
+      // (e) sem contaminacao bancaria na DDL de config (statement literal-stripped, sem morder prosa/COMMENT).
+      for (const s of ddlStmts) {
+        if (/\b(bank_|currency|moeda|fee_bps|\bfee\b|\btax\b|ledger|payout|split)\b/i.test(s)) {
+          note('BANK-FRONTIER', `migration ${f}: DDL de service_offering_config* com token bancario/moeda — preco = catalogo DECLARADO (Δbank=0).`);
+        }
+      }
+
+      // ── daqui pra baixo: SO no arquivo que CRIA a grade (nao dispara em ALTER-only). ──
       if (!/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?service_offering_config_prices/i.test(sql)) continue;
       foundGrid = true;
 
@@ -165,19 +189,6 @@ if (SVC_RAW) {
         const col = m[1].toLowerCase();
         if (col !== 'price_cents' && col !== 'default_price_cents') {
           note('4TH-TRUTH', `migration ${f}: coluna de dinheiro '${col}' fora de {price_cents, default_price_cents} — sem 4a verdade de preco (§2).`);
-        }
-      }
-      // (a-migration) NOME com-cara-de-dinheiro NAO-canonico em DDL de config (herda a vigilancia que saiu do
-      // guard F3: valor_/preco/price-float/amount que o validate-financial-vocabulary.js NAO ve em migrations).
-      // Escopo: SO linhas de definicao de coluna / ADD COLUMN, sobre SQL comment-stripped E literal-stripped.
-      const sqlNoLit = stripSqlLiterals(sql);
-      const ddlStmts = sqlNoLit.split(';').filter((s) => /service_offering_config/i.test(s) && /\b(CREATE\s+TABLE|ALTER\s+TABLE)\b/i.test(s));
-      for (const st of ddlStmts) scanMoneyLookingColumns(st, f);
-      // (e) sem contaminacao bancaria na DDL da grade (sobre statement literal-stripped, sem morder prosa).
-      const stmts = sqlNoLit.split(';').filter((s) => /service_offering_config/i.test(s));
-      for (const s of stmts) {
-        if (/\b(bank_|currency|moeda|fee_bps|\bfee\b|\btax\b|ledger|payout|split)\b/i.test(s)) {
-          note('BANK-FRONTIER', `migration ${f}: DDL de service_offering_config* com token bancario/moeda — preco = catalogo DECLARADO (Δbank=0).`);
         }
       }
     }
