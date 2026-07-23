@@ -7,6 +7,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { serviceOfferingService, ServiceOfferingError } from './service-offering.service';
+import { serviceOfferingConfigService } from './service-offering-config.service';
 import { authorizationService } from '@core/authorization/authorization.service';
 
 // 🔴 F-PERFORMER-CONTRACTING-POLICY — política de contratação (aceita-direto × negocia + gate de distância).
@@ -51,6 +52,27 @@ const updateSchema = z.object({
 const bookingSchema = z.object({
   availabilityId: z.string().uuid(),
   requesterActorId: z.string().uuid(),
+});
+
+// 🔴 FATIA 3 — CARDÁPIO DE CONFIGS com line-up opcional. Rótulo AUTORAL livre (não-governado);
+// team_size DECLARADO (piso = count(line-up), validado no service §4.9.5); situação pt-BR por CHECK
+// ('disponivel'|'sob_consulta' — 'sob_consulta' TAMBÉM aparece na listagem). PREÇO FORA desta fatia.
+const configCreateSchema = z.object({
+  label: z.string().min(1),
+  teamSize: z.number().int().positive(),
+  requiresSetupCrew: z.boolean().optional().nullable(),
+  status: z.enum(['disponivel', 'sob_consulta']).optional().nullable(),
+});
+
+const configUpdateSchema = z.object({
+  label: z.string().min(1).optional(),
+  teamSize: z.number().int().positive().optional(),
+  requiresSetupCrew: z.boolean().optional(),
+  status: z.enum(['disponivel', 'sob_consulta']).optional(),
+});
+
+const configMemberSchema = z.object({
+  memberActorId: z.string().uuid(),
 });
 
 const availabilitySchema = z.object({
@@ -183,6 +205,129 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(err?.statusCode ?? 500).send({ ok: false, code: err?.code ?? 'SERVICE_OFFERING_BOOK_ERROR', message: err?.message ?? 'Erro ao reservar.' });
     }
   });
+
+  // ── FATIA 3 — CARDÁPIO DE CONFIGS (CRUD owner-gated) + LINE-UP opcional (só provider grupo-actor).
+  // Autoridade: canRepresentActor(provider) fail-closed NO SERVICE (molde das demais superfícies de offering).
+  // Read model devolve TODAS as configs ('sob_consulta' inclusa) com isActiveMember/lineupComplete DERIVADOS.
+
+  fastify.get<{ Params: { offeringId: string } }>('/offerings/:offeringId/configs', async (req, reply) => {
+    try {
+      const data = await serviceOfferingConfigService.listConfigs(req.tenant!.id, req.params.offeringId);
+      return reply.send({ ok: true, data });
+    } catch (err) {
+      if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+      throw err;
+    }
+  });
+
+  fastify.post<{ Params: { offeringId: string } }>('/offerings/:offeringId/configs', async (req, reply) => {
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+    const parsed = configCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, code: 'SERVICE_OFFERING_BAD_REQUEST', issues: parsed.error.issues });
+    }
+    try {
+      const config = await serviceOfferingConfigService.createConfig({
+        tenantId: req.tenant!.id,
+        userId,
+        offeringId: req.params.offeringId,
+        label: parsed.data.label as string,
+        teamSize: parsed.data.teamSize as number,
+        requiresSetupCrew: (parsed.data.requiresSetupCrew as boolean | null | undefined) ?? null,
+        status: (parsed.data.status as 'disponivel' | 'sob_consulta' | null | undefined) ?? null,
+      });
+      return reply.status(201).send({ ok: true, data: config });
+    } catch (err) {
+      if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+      throw err;
+    }
+  });
+
+  fastify.put<{ Params: { offeringId: string; configId: string } }>('/offerings/:offeringId/configs/:configId', async (req, reply) => {
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+    const parsed = configUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, code: 'SERVICE_OFFERING_BAD_REQUEST', issues: parsed.error.issues });
+    }
+    try {
+      await serviceOfferingConfigService.updateConfig({
+        tenantId: req.tenant!.id,
+        userId,
+        offeringId: req.params.offeringId,
+        configId: req.params.configId,
+        label: parsed.data.label as string | undefined,
+        teamSize: parsed.data.teamSize as number | undefined,
+        requiresSetupCrew: parsed.data.requiresSetupCrew as boolean | undefined,
+        status: parsed.data.status as 'disponivel' | 'sob_consulta' | undefined,
+      });
+      return reply.send({ ok: true });
+    } catch (err) {
+      if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+      throw err;
+    }
+  });
+
+  fastify.delete<{ Params: { offeringId: string; configId: string } }>('/offerings/:offeringId/configs/:configId', async (req, reply) => {
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+    try {
+      await serviceOfferingConfigService.deleteConfig({
+        tenantId: req.tenant!.id, userId, offeringId: req.params.offeringId, configId: req.params.configId,
+      });
+      return reply.send({ ok: true });
+    } catch (err) {
+      if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+      throw err;
+    }
+  });
+
+  fastify.post<{ Params: { offeringId: string; configId: string } }>(
+    '/offerings/:offeringId/configs/:configId/members',
+    async (req, reply) => {
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+      const parsed = configMemberSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ ok: false, code: 'SERVICE_OFFERING_BAD_REQUEST', issues: parsed.error.issues });
+      }
+      try {
+        await serviceOfferingConfigService.addConfigMember({
+          tenantId: req.tenant!.id,
+          userId,
+          offeringId: req.params.offeringId,
+          configId: req.params.configId,
+          memberActorId: parsed.data.memberActorId as string,
+        });
+        return reply.status(201).send({ ok: true });
+      } catch (err) {
+        if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+        throw err;
+      }
+    }
+  );
+
+  fastify.delete<{ Params: { offeringId: string; configId: string; memberActorId: string } }>(
+    '/offerings/:offeringId/configs/:configId/members/:memberActorId',
+    async (req, reply) => {
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+      try {
+        await serviceOfferingConfigService.removeConfigMember({
+          tenantId: req.tenant!.id,
+          userId,
+          offeringId: req.params.offeringId,
+          configId: req.params.configId,
+          memberActorId: req.params.memberActorId,
+        });
+        return reply.send({ ok: true });
+      } catch (err) {
+        if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+        throw err;
+      }
+    }
+  );
 
   /** Ofertas ativas agrupadas pela identidade canônica (discovery de serviço). */
   fastify.get<{ Params: { canonicalServiceId: string } }>(

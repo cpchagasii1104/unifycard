@@ -216,6 +216,10 @@ const CMDS = [
   // FATIA 1 arco fundação eventos — banda como grupo-actor provider (COLETIVO): ramo de elegibilidade
   // + âncora civil no gate de ativação + comentários de base decisória (DECISION-0144/0147 estendidas).
   "node scripts/audit-band-group-actor-eligibility.mjs",
+  // FATIA 3 arco fundação eventos — cardápio de CONFIGS com line-up opcional: line-up governado
+  // (grupo-provider + membership ATIVA + identidade=PESSOA/member_actor_id), piso team_size nos 2 lados,
+  // fronteira Bank-free das tabelas de config, zero acoplamento nos writers selados de membership.
+  "node scripts/audit-offering-config-lineup.mjs",
   // DECISION-0189C C1: o runner passa a INCLUIR o gate financeiro (financial-ssot/vocabulary +
   // typecheck do gate) — o "verde" do runner deixa de mentir (o script infrator elevava 591→592
   // sem o runner acusar). Baseline só-desce (DECISION-0158); nunca sobe para 592.

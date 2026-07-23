@@ -151,6 +151,11 @@ const FN_GI_IMMUT = fnBody('fn_gi_intent_enforce_immutability');
     'src/modules/groups/groups.routes.ts',
     'src/core/feed/feed.routes.ts',
     'src/modules/social/social.routes.ts',
+    // FATIA 3 arco fundação eventos (cardápio de configs c/ line-up): consumidor READ-ONLY governado —
+    // valida membership ATIVA via leitor selado findActiveByGroupAndMember e DERIVA isActiveMember na
+    // leitura (DERIVED-INCOMPLETE; DECISION-0188 intacta: zero fn_*, zero DML na casa, zero auto-drop —
+    // vigiado pelo par audit-offering-config-lineup.mjs).
+    'src/modules/services/service-offering-config.service.ts',
   ];
   const allSrc = walk(resolve(ROOT, 'src')).map((p) => norm(p).replace(norm(ROOT) + '/', ''));
   for (const p of allSrc) {
@@ -158,6 +163,7 @@ const FN_GI_IMMUT = fnBody('fn_gi_intent_enforce_immutability');
     if (/\.test\.|\.spec\.|__tests__/.test(p)) continue;
     if (/^src\/scripts\/validate-pipeline-e2e-group-actor-membership/.test(p)) continue; // harness E2E D9.2-A
     if (/^src\/scripts\/validate-pipeline-e2e-group-membership-cutover/.test(p)) continue; // harness E2E D9.2-B
+    if (/^src\/scripts\/validate-pipeline-e2e-offering-config-lineup/.test(p)) continue; // harness E2E FATIA 3 (config line-up)
     const s = stripTs(read(resolve(ROOT, p)));
     if (/group-actor-membership|group_actor_memberships|fn_enter_group_actor_membership|fn_accept_group_membership_intent|group-membership-shadow/.test(s)) {
       note('DORMANCY', `caller fora do allowlist governado do cutover: ${p}`);
