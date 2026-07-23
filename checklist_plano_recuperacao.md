@@ -143,16 +143,18 @@ Concept governado apresentacao-musical; banda reusa o trilho selado service_offe
 Facet multi-gênero governado + descoberta por gênero e data selada 0156. "Achar banda de reggae livre no dia X"
 já é backend real. Falta seed de gêneros extras (reggae/MPB, trivial) + vitrine frontend (E1).
 
-## Próxima frente (a decidir/emitir): raio-x do performer OU C2 event_actors
-Estado: C1a+C1b feitos → o performer é uma oferta descoberta por gênero+data. Opções coerentes:
-- **C1c raio-x** (o que Clayton vem enfatizando): equipamento (facet governado espelhando C1b) + capacidade
-  (número, cruza c/ local Fase B) + seguidores (DERIVADO do grafo social, não digitado) + CONFIGS
-  (voz-e-violão×banda×produção — precisa DESENHO: múltiplas offerings vs dimensão de config) + tamanho de
-  equipe/precisa-montagem (puxa contratação de equipe). Ver memória motor_eventos (raio-x).
-- **C2 event_actors** (estrutural): materializar o binding performer→evento (line-up/elenco/equipe), o TIPO
-  existe sem tabela; corrigir assignStaff só-usuário. É "contratar a banda PARA o evento".
-Direção recomenda: C1c-equipamento+capacidade primeiro (baixo risco, reusa padrão C1b, enriquece o catálogo
-que Clayton quer), depois C2. Configs = sub-fatia com desenho próprio. Guardado p/ Fase G: indicação residual.
+## Frente material ativa: C1c-a — raio-x: equipamento (facet) + capacidade
+- Instância: executora, Opus, alto. GO MATERIAL emitido, base `30e55546e`. Aguardando parecer.
+- Mapa (descoberta): equipamento tem pool de concepts governado (locação, PA/microfone/iluminação) — falta
+  gear musical (guitarra/baixo/bateria/mesa) → semear no MESMO pool; facet espelha C1b (service_offering_
+  equipment_facets); capacidade vive em conditions jsonb (≠ capacity de slot); seguidores já derivam de
+  follows+getActorCounts (reuso na descoberta); configs = substrato MISSING.
+- Escopo C1c-a: seed gear musical faltante + facet de equipamento + writer fail-closed + validação de
+  audience_capacity em conditions. Bank-free. NÃO configs/seguidores/frontend/dinheiro.
+- **Decisão soberana guardada (configs voz-violão×banda×produção):** (b) canonical_services distintos
+  (documentado, sem substrato novo) vs (a) tabela offering_packages (substrato novo, mais rico). Trago quando
+  a fatia de config chegar.
+- Próxima: C1c-a → (config: decisão de Clayton) → C2 event_actors (binding) → C3 contratação. Frontend catálogo = E1.
 
 ## (histórico) F0-WRITER-ÚNICO (aposentar/conter o W2 no backend)
 Agora que o backend governado cobre criação de grupo, dá para aposentar o W2: conter no BACKEND os 3
