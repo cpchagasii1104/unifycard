@@ -320,7 +320,7 @@ class EventService {
    * §4.8.2), a criação inteira falha ANTES de qualquer escrita de evento (fail-closed) — erro propaga.
    *
    * §4.9.8 (TRANSIÇÃO DOCUMENTADA): usa `authorizationService.canRepresentActor(..., client)` DIRETO no
-   * core, TRANSACTION-AWARE (mesmo client), espelhando o precedente SELADO `group-actor-membership.service`
+   * core, TX-AWARE (mesmo client), espelhando o precedente SELADO `group-actor-membership.service`
    * (remediação D9.1, aprovado pela Yala). A fachada `authority.service` é NÃO-transacional e NÃO expõe
    * representação — não pode prover a atomicidade §4.8. Convergência = DT-AUTHORITY-FACADE-NO-TRANSACTIONAL-
    * REPRESENT (fatia futura). NÃO introduzir canActAs solto fora deste padrão.
@@ -369,7 +369,7 @@ class EventService {
       }
 
       // AUTORIDADE fail-closed ANTES do write (§4.9.5): o principal representa o group-actor, no MESMO
-      // client (transaction-aware; infra-error PROPAGA — nunca vira false silencioso).
+      // client (tx-aware; infra-error PROPAGA — nunca vira false silencioso).
       const represents = await authorizationService.canRepresentActor(tenantId, actingUserId, groupActorId, client);
       if (!represents) {
         throw new ForbiddenError('EVENT_GROUP_BINDING_NOT_REPRESENTED: principal não representa o group-actor');

@@ -161,7 +161,7 @@ async function main(): Promise<void> {
       afterHackEdit.price_cents === beforeEdit.price_cents && afterHackEdit.quantity_total === beforeEdit.quantity_total,
       `status=${rHackEdit.statusCode} antes=${JSON.stringify(beforeEdit)} depois=${JSON.stringify(afterHackEdit)}`);
 
-    // (pos2) organizador edita preço + aumenta quantidade em 20 → 200, delta preservado (available sobe 20)
+    // (pos2) organizador edita preço + aumenta quantidade em 20 → 200, delta preservado (disponível sobe 20)
     const rEdit = await call('PATCH', `/events/${eventId}/tickets/${ticketId}`, {
       userId: organizer.userId,
       body: { priceCents: 7500, quantityTotal: 120 },
