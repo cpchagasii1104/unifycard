@@ -27,13 +27,13 @@ import { groupActorMembershipRepository } from '../groups/group-actor-membership
 export type OfferingConfigStatus = 'disponivel' | 'sob_consulta';
 
 // FATIA PREÇO — período do dia (pt-BR sem acento, CHECK-not-enum §4.9.7; espelha o CHECK físico da migration).
-export type OfferingConfigPeriod = 'manha' | 'tarde' | 'noite';
-const CONFIG_PERIODS: readonly OfferingConfigPeriod[] = ['manha', 'tarde', 'noite'];
+export type OfferingConfigPeriodOfDay = 'manha' | 'tarde' | 'noite';
+const CONFIG_PERIODS: readonly OfferingConfigPeriodOfDay[] = ['manha', 'tarde', 'noite'];
 
-/** Célula da grade de preço declarada: (dia-da-semana ISO 1-7, período) → price_cents. */
+/** Célula da grade de preço declarada: (dia-da-semana canônico §4.25 0=Dom..6=Sáb, período do dia) → price_cents. */
 export interface OfferingConfigPriceCell {
   dayOfWeek: number;
-  period: OfferingConfigPeriod;
+  periodOfDay: OfferingConfigPeriodOfDay;
   priceCents: number;
 }
 
@@ -98,18 +98,18 @@ function assertStatus(status: string): void {
   }
 }
 
-// FATIA PREÇO — validate-before-mutate (§4.9.5). Dia ISO 1-7, período governado, cents inteiro >= 0.
+// FATIA PREÇO — validate-before-mutate (§4.9.5). Dia canônico §4.25 (0=Dom..6=Sáb), período governado, cents inteiro >= 0.
 function assertDayOfWeek(dayOfWeek: number): void {
-  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) {
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
     throw new ServiceOfferingError(400, 'CONFIG_PRICE_DAY_INVALID',
-      'day_of_week deve ser inteiro 1-7 (ISO-8601: Segunda=1 .. Domingo=7).');
+      'day_of_week deve ser inteiro 0-6 (canônico §4.25: 0=Dom .. 6=Sáb, alinha com PG EXTRACT(DOW)).');
   }
 }
 
-function assertPeriod(period: string): asserts period is OfferingConfigPeriod {
-  if (!CONFIG_PERIODS.includes(period as OfferingConfigPeriod)) {
+function assertPeriodOfDay(periodOfDay: string): asserts periodOfDay is OfferingConfigPeriodOfDay {
+  if (!CONFIG_PERIODS.includes(periodOfDay as OfferingConfigPeriodOfDay)) {
     throw new ServiceOfferingError(400, 'CONFIG_PRICE_PERIOD_INVALID',
-      "period deve ser 'manha', 'tarde' ou 'noite' (vocabulário pt-BR governado por CHECK).");
+      "period_of_day deve ser 'manha', 'tarde' ou 'noite' (vocabulário pt-BR governado por CHECK).");
   }
 }
 
@@ -449,21 +449,21 @@ export const serviceOfferingConfigService = {
     offeringId: string;
     configId: string;
     dayOfWeek: number;
-    period: OfferingConfigPeriod;
+    periodOfDay: OfferingConfigPeriodOfDay;
     priceCents: number;
   }): Promise<void> {
     await requireOwnedOffering(input.tenantId, input.userId, input.offeringId);
     await requireConfig(input.tenantId, input.offeringId, input.configId);
     assertDayOfWeek(input.dayOfWeek);
-    assertPeriod(input.period);
+    assertPeriodOfDay(input.periodOfDay);
     assertPriceCents(input.priceCents);
     await runQueryWithTenant(
       input.tenantId,
-      `INSERT INTO service_offering_config_prices (tenant_id, config_id, day_of_week, period, price_cents)
+      `INSERT INTO service_offering_config_prices (tenant_id, config_id, day_of_week, period_of_day, price_cents)
        VALUES ($1::uuid, $2::uuid, $3, $4, $5)
-       ON CONFLICT (config_id, day_of_week, period)
+       ON CONFLICT (config_id, day_of_week, period_of_day)
          DO UPDATE SET price_cents = EXCLUDED.price_cents, updated_at = NOW()`,
-      [input.tenantId, input.configId, input.dayOfWeek, input.period, input.priceCents]
+      [input.tenantId, input.configId, input.dayOfWeek, input.periodOfDay, input.priceCents]
     );
   },
 
@@ -474,17 +474,17 @@ export const serviceOfferingConfigService = {
     offeringId: string;
     configId: string;
     dayOfWeek: number;
-    period: OfferingConfigPeriod;
+    periodOfDay: OfferingConfigPeriodOfDay;
   }): Promise<void> {
     await requireOwnedOffering(input.tenantId, input.userId, input.offeringId);
     await requireConfig(input.tenantId, input.offeringId, input.configId);
     assertDayOfWeek(input.dayOfWeek);
-    assertPeriod(input.period);
+    assertPeriodOfDay(input.periodOfDay);
     await runQueryWithTenant(
       input.tenantId,
       `DELETE FROM service_offering_config_prices
-        WHERE config_id = $1::uuid AND day_of_week = $2 AND period = $3 AND tenant_id = $4::uuid`,
-      [input.configId, input.dayOfWeek, input.period, input.tenantId]
+        WHERE config_id = $1::uuid AND day_of_week = $2 AND period_of_day = $3 AND tenant_id = $4::uuid`,
+      [input.configId, input.dayOfWeek, input.periodOfDay, input.tenantId]
     );
   },
 
@@ -497,12 +497,12 @@ export const serviceOfferingConfigService = {
   }): Promise<{ defaultPriceCents: number | null; cells: OfferingConfigPriceCell[] }> {
     await requireOwnedOffering(input.tenantId, input.userId, input.offeringId);
     const config = await requireConfig(input.tenantId, input.offeringId, input.configId);
-    const cells = await runQueriesWithTenant<{ day_of_week: number; period: string; price_cents: string }>(
+    const cells = await runQueriesWithTenant<{ day_of_week: number; period_of_day: string; price_cents: string }>(
       input.tenantId,
-      `SELECT day_of_week, period, price_cents::text AS price_cents
+      `SELECT day_of_week, period_of_day, price_cents::text AS price_cents
          FROM service_offering_config_prices
         WHERE config_id = $1::uuid AND tenant_id = $2::uuid
-        ORDER BY day_of_week ASC, period ASC`,
+        ORDER BY day_of_week ASC, period_of_day ASC`,
       [input.configId, input.tenantId]
     );
     return {
@@ -510,7 +510,7 @@ export const serviceOfferingConfigService = {
         ? null : Number(config.default_price_cents),
       cells: cells.map((c) => ({
         dayOfWeek: Number(c.day_of_week),
-        period: (c.period === 'tarde' ? 'tarde' : c.period === 'noite' ? 'noite' : 'manha'),
+        periodOfDay: (c.period_of_day === 'tarde' ? 'tarde' : c.period_of_day === 'noite' ? 'noite' : 'manha'),
         priceCents: Number(c.price_cents),
       })),
     };
@@ -527,17 +527,17 @@ export const serviceOfferingConfigService = {
     offeringId: string,
     configId: string,
     dayOfWeek: number,
-    period: OfferingConfigPeriod
+    periodOfDay: OfferingConfigPeriodOfDay
   ): Promise<OfferingConfigResolvedPrice> {
     assertDayOfWeek(dayOfWeek);
-    assertPeriod(period);
+    assertPeriodOfDay(periodOfDay);
     const config = await requireConfig(tenantId, offeringId, configId);
     // nível 1 — célula da grade (mais específica).
     const cell = await runQueryWithTenant<{ price_cents: string }>(
       tenantId,
       `SELECT price_cents::text AS price_cents FROM service_offering_config_prices
-        WHERE config_id = $1::uuid AND day_of_week = $2 AND period = $3 AND tenant_id = $4::uuid`,
-      [configId, dayOfWeek, period, tenantId]
+        WHERE config_id = $1::uuid AND day_of_week = $2 AND period_of_day = $3 AND tenant_id = $4::uuid`,
+      [configId, dayOfWeek, periodOfDay, tenantId]
     );
     if (cell) return { priceCents: Number(cell.price_cents), source: 'cell' };
     // nível 2 — base "a partir de" POR CONFIG.

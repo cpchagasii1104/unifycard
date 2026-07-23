@@ -81,17 +81,18 @@ const configMemberSchema = z.object({
   memberActorId: z.string().uuid(),
 });
 
-// 🔴 FATIA PREÇO — grade de preço por CONFIG (dia-da-semana ISO 1-7 × período pt-BR governado). Preço = valor
-// DECLARADO de catálogo ("a partir de"), NUNCA cobrança/movimento de dinheiro (Δbank=0; porta-01 FORA; BRL implícito).
+// 🔴 FATIA PREÇO — grade de preço por CONFIG (dia-da-semana canônico §4.25 0=Dom..6=Sáb × período do dia pt-BR
+// governado). Preço = valor DECLARADO de catálogo ("a partir de"), NUNCA cobrança/movimento de dinheiro
+// (Δbank=0; porta-01 FORA; BRL implícito).
 const configPriceSetSchema = z.object({
-  dayOfWeek: z.number().int().min(1).max(7),
-  period: z.enum(['manha', 'tarde', 'noite']),
+  dayOfWeek: z.number().int().min(0).max(6),
+  periodOfDay: z.enum(['manha', 'tarde', 'noite']),
   priceCents: z.number().int().min(0),
 });
 
 const configPriceRemoveSchema = z.object({
-  dayOfWeek: z.number().int().min(1).max(7),
-  period: z.enum(['manha', 'tarde', 'noite']),
+  dayOfWeek: z.number().int().min(0).max(6),
+  periodOfDay: z.enum(['manha', 'tarde', 'noite']),
 });
 
 const availabilitySchema = z.object({
@@ -387,7 +388,7 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
         await serviceOfferingConfigService.setConfigPrice({
           tenantId: req.tenant!.id, userId, offeringId: req.params.offeringId, configId: req.params.configId,
           dayOfWeek: parsed.data.dayOfWeek as number,
-          period: parsed.data.period as 'manha' | 'tarde' | 'noite',
+          periodOfDay: parsed.data.periodOfDay as 'manha' | 'tarde' | 'noite',
           priceCents: parsed.data.priceCents as number,
         });
         return reply.send({ ok: true });
@@ -411,7 +412,7 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
         await serviceOfferingConfigService.removeConfigPrice({
           tenantId: req.tenant!.id, userId, offeringId: req.params.offeringId, configId: req.params.configId,
           dayOfWeek: parsed.data.dayOfWeek as number,
-          period: parsed.data.period as 'manha' | 'tarde' | 'noite',
+          periodOfDay: parsed.data.periodOfDay as 'manha' | 'tarde' | 'noite',
         });
         return reply.send({ ok: true });
       } catch (err) {

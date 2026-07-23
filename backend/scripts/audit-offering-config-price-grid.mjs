@@ -11,7 +11,7 @@
 //      mordido em QUALQUER DDL de service_offering_config* — CREATE da grade OU ALTER de configs/prices,
 //      inclusive migration futura standalone que só faça ADD COLUMN (o validate-financial-vocabulary.js
 //      ignora migrations, logo esta é a única vigilância desse nome em DDL);
-//  (b) day_of_week perde o CHECK 1-7 OU period perde o CHECK governado ('manha','tarde','noite');
+//  (b) day_of_week perde o CHECK 0-6 (canonico §4.25) OU period_of_day perde o CHECK governado ('manha','tarde','noite');
 //  (c) uma config PRECIFICADA pode ser DELETADA fisicamente (FK config_id perde ON DELETE RESTRICT
 //      OU deleteConfig deixa de fazer soft-retire/retired_at para config referenciada);
 //  (d) a cascata de resolução COLAPSA (resolver perde um dos 3 níveis) OU surge uma 4ª verdade de preço
@@ -119,11 +119,11 @@ if (SVC_RAW) {
     if (!/canRepresentActor|requireOwnedOffering/.test(regSet.code)) {
       note('AUTH', 'setConfigPrice sem prova de autoridade do provider (canRepresentActor/requireOwnedOffering fail-closed).');
     }
-    if (!/ON CONFLICT\s*\(\s*config_id\s*,\s*day_of_week\s*,\s*period\s*\)/i.test(regSet.raw)) {
-      note('ONE-TRUTH', 'setConfigPrice sem UPSERT em uq_socp_cell (ON CONFLICT config_id,day_of_week,period) — risco de dois valores para a mesma celula (§2).');
+    if (!/ON CONFLICT\s*\(\s*config_id\s*,\s*day_of_week\s*,\s*period_of_day\s*\)/i.test(regSet.raw)) {
+      note('ONE-TRUTH', 'setConfigPrice sem UPSERT em uq_socp_cell (ON CONFLICT config_id,day_of_week,period_of_day) — risco de dois valores para a mesma celula (§2).');
     }
-    if (!/assertDayOfWeek/.test(regSet.code) || !/assertPeriod/.test(regSet.code) || !/assertPriceCents/.test(regSet.code)) {
-      note('VALIDATE', 'setConfigPrice sem validate-before-mutate (dia 1-7 / periodo governado / price_cents>=0).');
+    if (!/assertDayOfWeek/.test(regSet.code) || !/assertPeriodOfDay/.test(regSet.code) || !/assertPriceCents/.test(regSet.code)) {
+      note('VALIDATE', 'setConfigPrice sem validate-before-mutate (dia 0-6 §4.25 / periodo governado / price_cents>=0).');
     }
   }
   // (c) deleteConfig = soft-retire para config referenciada (nunca DELETE fisico de config precificada).
@@ -173,12 +173,12 @@ if (SVC_RAW) {
       if (!/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?service_offering_config_prices/i.test(sql)) continue;
       foundGrid = true;
 
-      // (b) CHECK do dia (1-7) e do periodo (vocabulario governado).
-      if (!/day_of_week[\s\S]*?CHECK\s*\(\s*day_of_week\s+BETWEEN\s+1\s+AND\s+7\s*\)/i.test(sql)) {
-        note('DAY-CHECK', `migration ${f}: day_of_week sem CHECK (day_of_week BETWEEN 1 AND 7).`);
+      // (b) CHECK do dia (canonico §4.25: 0=Dom..6=Sab) e do periodo (vocabulario governado).
+      if (!/day_of_week[\s\S]*?CHECK\s*\(\s*day_of_week\s+BETWEEN\s+0\s+AND\s+6\s*\)/i.test(sql)) {
+        note('DAY-CHECK', `migration ${f}: day_of_week sem CHECK (day_of_week BETWEEN 0 AND 6) — canonico §4.25 (0=Dom..6=Sab, alinha PG EXTRACT(DOW)).`);
       }
-      if (!/period[\s\S]*?CHECK\s*\(\s*period\s+IN\s*\(\s*'manha'\s*,\s*'tarde'\s*,\s*'noite'\s*\)\s*\)/i.test(sql)) {
-        note('PERIOD-CHECK', `migration ${f}: period sem CHECK IN ('manha','tarde','noite') (CHECK-not-enum §4.9.7).`);
+      if (!/period_of_day[\s\S]*?CHECK\s*\(\s*period_of_day\s+IN\s*\(\s*'manha'\s*,\s*'tarde'\s*,\s*'noite'\s*\)\s*\)/i.test(sql)) {
+        note('PERIOD-CHECK', `migration ${f}: period_of_day sem CHECK IN ('manha','tarde','noite') (CHECK-not-enum §4.9.7).`);
       }
       // (c) FK config_id com ON DELETE RESTRICT (backstop do soft-retire).
       if (!/config_id[\s\S]*?REFERENCES\s+service_offering_configs\s*\(\s*id\s*\)\s+ON\s+DELETE\s+RESTRICT/i.test(sql)) {
@@ -201,4 +201,4 @@ if (fails.length) {
   for (const f of fails) console.error('  - ' + f);
   process.exit(1);
 }
-console.log('✅ audit-offering-config-price-grid OK — preco = catalogo DECLARADO (price_cents/priceCents, Δbank=0, porta-01 FORA) · cascata "a partir de" de 3 niveis (celula → default_price_cents → offering.price_cents, sem 4a verdade) · dia 1-7 + periodo governados por CHECK · config precificada em soft-retire (FK RESTRICT) · fronteira Bank-free.');
+console.log('✅ audit-offering-config-price-grid OK — preco = catalogo DECLARADO (price_cents/priceCents, Δbank=0, porta-01 FORA) · cascata "a partir de" de 3 niveis (celula → default_price_cents → offering.price_cents, sem 4a verdade) · dia 0-6 (canonico §4.25) + period_of_day governados por CHECK · config precificada em soft-retire (FK RESTRICT) · fronteira Bank-free.');

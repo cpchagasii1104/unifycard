@@ -7,14 +7,15 @@
  * Preço = valor DECLARADO de catálogo, NUNCA cobrança/movimento de dinheiro (Δbank=0; porta-01 FORA). DB efêmera.
  *
  * PROVAS:
- *  (1) config 'banda-completa': grade (6=Sáb, noite)=R$X e (3=Qua, manha)=R$Y, X≠Y → ambas legíveis DISTINTAS.
+ *  (1) config 'banda-completa': grade (6=Sáb, noite)=R$X e (0=Dom, manha)=R$Y, X≠Y → ambas legíveis DISTINTAS.
+ *      Dia canônico §4.25 (0=Dom..6=Sáb): a célula Domingo=0 prova a encodação canônica (não ISO 1-7).
  *  (2) cascata de 3 níveis: célula presente → devolve célula; sem célula mas default_price_cents → devolve default;
  *      nem célula nem default → devolve offerings.price_cents (base SELADA). UM valor por nível.
  *  (3) dualidade SOLO (user-actor): oferta solo também recebe grade (grade independe do line-up).
  *  (4) config PRECIFICADA → deleteConfig SOFT-RETIRE (retired_at setado, preços SOBREVIVEM, sai do listConfigs
  *      ATIVO, segue RESOLVÍVEL); config SEM preço → delete físico normal.
  *  (5) autoridade: não-dono edita grade → 403.
- *  (6) validação fail-closed: dia=0/8 → 400; período='madrugada' → 400; price_cents negativo → 400.
+ *  (6) validação fail-closed: dia=7/8 → 400 (7 era Domingo em ISO, agora fora do 0-6 canônico); período='madrugada' → 400; price_cents negativo → 400.
  *  (7) Δbank=0.
  */
 
@@ -150,27 +151,28 @@ async function main(): Promise<void> {
   await groupsService.acceptInvite(TENANT, inv2.inviteId, gui.userId);
   const bandPub = await publishProvider(TENANT, ana.userId, groupActorId, 'Show — Banda Preço', musical, CITY);
 
-  console.log('\n— (1) grade da config banda-completa: (6=Sáb,noite)=X e (3=Qua,manha)=Y, X≠Y —');
+  console.log('\n— (1) grade da config banda-completa: (6=Sáb,noite)=X e (0=Dom,manha)=Y, X≠Y — dia canônico §4.25 —');
   const X: number = 400000, Y: number = 180000;
   const cfgFull = await serviceOfferingConfigService.createConfig({
     tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, label: 'banda-completa', teamSize: 5,
   });
   await serviceOfferingConfigService.setConfigPrice({
     tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgFull.id,
-    dayOfWeek: 6, period: 'noite', priceCents: X,
+    dayOfWeek: 6, periodOfDay: 'noite', priceCents: X,
   });
+  // Domingo=0 (canônico §4.25) — prova que a encodação é 0=Dom (não ISO Domingo=7).
   await serviceOfferingConfigService.setConfigPrice({
     tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgFull.id,
-    dayOfWeek: 3, period: 'manha', priceCents: Y,
+    dayOfWeek: 0, periodOfDay: 'manha', priceCents: Y,
   });
   const grid1 = await serviceOfferingConfigService.listConfigPrices({
     tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgFull.id,
   });
-  const satNoite = grid1.cells.find((c) => c.dayOfWeek === 6 && c.period === 'noite');
-  const wedManha = grid1.cells.find((c) => c.dayOfWeek === 3 && c.period === 'manha');
-  record('(1) duas células distintas persistidas e legíveis (esparsa)',
-    grid1.cells.length === 2 && satNoite?.priceCents === X && wedManha?.priceCents === Y && X !== Y,
-    `cells=${grid1.cells.length} sat=${satNoite?.priceCents} wed=${wedManha?.priceCents}`);
+  const satNoite = grid1.cells.find((c) => c.dayOfWeek === 6 && c.periodOfDay === 'noite');
+  const sunManha = grid1.cells.find((c) => c.dayOfWeek === 0 && c.periodOfDay === 'manha');
+  record('(1) duas células distintas persistidas e legíveis (esparsa; inclui Domingo=0 canônico)',
+    grid1.cells.length === 2 && satNoite?.priceCents === X && sunManha?.priceCents === Y && X !== Y,
+    `cells=${grid1.cells.length} sat=${satNoite?.priceCents} sun0=${sunManha?.priceCents}`);
 
   console.log('\n— (2) cascata "a partir de" de 3 níveis —');
   // define base POR CONFIG (nível 2) via config PUT (updateConfig defaultPriceCents)
@@ -200,7 +202,7 @@ async function main(): Promise<void> {
   });
   await serviceOfferingConfigService.setConfigPrice({
     tenantId: TENANT, userId: ana.userId, offeringId: soloPub.offeringId, configId: soloCfg.id,
-    dayOfWeek: 5, period: 'noite', priceCents: 90000,
+    dayOfWeek: 5, periodOfDay: 'noite', priceCents: 90000,
   });
   const soloResolve = await serviceOfferingConfigService.resolveConfigPrice(TENANT, soloPub.offeringId, soloCfg.id, 5, 'noite');
   record('(3) solo: grade independente do line-up, célula resolvível',
@@ -239,29 +241,30 @@ async function main(): Promise<void> {
   try {
     await serviceOfferingConfigService.setConfigPrice({
       tenantId: TENANT, userId: intruso.userId, offeringId: bandPub.offeringId, configId: cfgBase.id,
-      dayOfWeek: 1, period: 'manha', priceCents: 1000,
+      dayOfWeek: 1, periodOfDay: 'manha', priceCents: 1000,
     });
   } catch (e: any) { n5 = codeOf(e); }
   record('(5) não-dono: setConfigPrice → 403 SERVICE_OFFERING_NOT_REPRESENTABLE',
     n5 === '403:SERVICE_OFFERING_NOT_REPRESENTABLE', n5);
 
   console.log('\n— (6) validação fail-closed —');
-  const badDay0 = await tryCode(() => serviceOfferingConfigService.setConfigPrice({
-    tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgBase.id, dayOfWeek: 0, period: 'manha', priceCents: 1000,
+  // Dia canônico §4.25 (0-6): 7 (ex-Domingo ISO) e 8 estão fora da faixa → fail-closed.
+  const badDay7 = await tryCode(() => serviceOfferingConfigService.setConfigPrice({
+    tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgBase.id, dayOfWeek: 7, periodOfDay: 'manha', priceCents: 1000,
   }));
   const badDay8 = await tryCode(() => serviceOfferingConfigService.setConfigPrice({
-    tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgBase.id, dayOfWeek: 8, period: 'manha', priceCents: 1000,
+    tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgBase.id, dayOfWeek: 8, periodOfDay: 'manha', priceCents: 1000,
   }));
   const badPeriod = await tryCode(() => serviceOfferingConfigService.setConfigPrice({
-    tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgBase.id, dayOfWeek: 3, period: 'madrugada' as any, priceCents: 1000,
+    tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgBase.id, dayOfWeek: 3, periodOfDay: 'madrugada' as any, priceCents: 1000,
   }));
   const badPrice = await tryCode(() => serviceOfferingConfigService.setConfigPrice({
-    tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgBase.id, dayOfWeek: 3, period: 'noite', priceCents: -1,
+    tenantId: TENANT, userId: ana.userId, offeringId: bandPub.offeringId, configId: cfgBase.id, dayOfWeek: 3, periodOfDay: 'noite', priceCents: -1,
   }));
-  record('(6) dia 0/8 → 400 CONFIG_PRICE_DAY_INVALID; período inválido → 400 CONFIG_PRICE_PERIOD_INVALID; negativo → 400 CONFIG_PRICE_INVALID',
-    badDay0 === '400:CONFIG_PRICE_DAY_INVALID' && badDay8 === '400:CONFIG_PRICE_DAY_INVALID'
+  record('(6) dia 7/8 → 400 CONFIG_PRICE_DAY_INVALID; período inválido → 400 CONFIG_PRICE_PERIOD_INVALID; negativo → 400 CONFIG_PRICE_INVALID',
+    badDay7 === '400:CONFIG_PRICE_DAY_INVALID' && badDay8 === '400:CONFIG_PRICE_DAY_INVALID'
       && badPeriod === '400:CONFIG_PRICE_PERIOD_INVALID' && badPrice === '400:CONFIG_PRICE_INVALID',
-    `${badDay0} · ${badDay8} · ${badPeriod} · ${badPrice}`);
+    `${badDay7} · ${badDay8} · ${badPeriod} · ${badPrice}`);
 
   console.log('\n— (7) Δbank —');
   const bankAfter = await bankSnap();
