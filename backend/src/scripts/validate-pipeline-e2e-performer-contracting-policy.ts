@@ -103,6 +103,54 @@ async function publishPerformer(
 const setLoc = (tenantId: string, actorId: string, lat: number, lng: number): Promise<unknown> =>
   actorActiveLocationRepository.setActive(tenantId, actorId, { lat, lng, source: 'USER_INPUT_CITY' } as any);
 
+/** localização ATIVA ancorada num ENDEREÇO governado (address_id → addresses.city_id): é o que o gate SAME-CITY
+ *  consome de verdade (getActiveHydrated resolve cityId pelo JOIN em addresses). Sem lat/lng → força o ramo cidade. */
+const setLocAddr = (tenantId: string, actorId: string, addressId: string): Promise<unknown> =>
+  actorActiveLocationRepository.setActive(tenantId, actorId, { addressId, source: 'USER_INPUT_CITY' } as any);
+
+/** Cria a hierarquia territorial governada mínima (country→state) uma vez. Retorna o state_id. */
+async function mkGovernedState(): Promise<string> {
+  const suffix = randomUUID().slice(0, 6);
+  // iso_alpha2 governado: ^[A-Z]{2}$ e UNIQUE — sorteia 2 letras livres (retry defensivo contra seeds reais).
+  const rl = (): string => String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  let country: string | null = null;
+  for (let attempt = 0; attempt < 40 && !country; attempt += 1) {
+    try {
+      country = (await pool.query<{ id: string }>(
+        `INSERT INTO countries (iso_alpha2, name) VALUES ($1, $2) RETURNING country_id::text AS id`,
+        [rl() + rl(), `País ${suffix}`]
+      )).rows[0].id;
+    } catch (e: any) {
+      if (!/unique|duplicad/i.test(String(e?.message ?? e))) throw e; // só re-sorteia em colisão de código
+    }
+  }
+  if (!country) throw new Error('mkGovernedState: não achou iso_alpha2 livre.');
+  return (await pool.query<{ id: string }>(
+    `INSERT INTO states (country_id, name) VALUES ($1::uuid, $2) RETURNING state_id::text AS id`,
+    [country, `Estado ${suffix}`]
+  )).rows[0].id;
+}
+
+/** Cidade GOVERNADA (cities.city_id) sob um state. É o city_id que o gate compara por igualdade. */
+async function mkGovernedCity(stateId: string, name: string): Promise<string> {
+  return (await pool.query<{ id: string }>(
+    `INSERT INTO cities (state_id, name) VALUES ($1::uuid, $2) RETURNING city_id::text AS id`,
+    [stateId, name]
+  )).rows[0].id;
+}
+
+/** Endereço governado numa cidade (para ancorar actor_active_location.address_id → city_id). */
+async function mkAddress(cityId: string, stateId: string): Promise<string> {
+  const country = (await pool.query<{ id: string }>(
+    `SELECT c.country_id::text AS id FROM cities ci JOIN states s ON s.state_id = ci.state_id JOIN countries c ON c.country_id = s.country_id WHERE ci.city_id = $1::uuid`,
+    [cityId]
+  )).rows[0].id;
+  return (await pool.query<{ id: string }>(
+    `INSERT INTO addresses (country_id, state_id, city_id, source) VALUES ($1::uuid, $2::uuid, $3::uuid, 'UX_INPUT') RETURNING address_id::text AS id`,
+    [country, stateId, cityId]
+  )).rows[0].id;
+}
+
 async function main(): Promise<void> {
   await assertEphemeralDb();
 
@@ -147,9 +195,26 @@ async function main(): Promise<void> {
   await setLoc(TENANT, barNear2.actorId, NEAR.lat, NEAR.lng);
   await setLoc(TENANT, barNego.actorId, NEAR.lat, NEAR.lng);
 
-  // Ofertas: bandAuto = automatic + raio 50km; bandNego = manual.
+  // ── SAME-CITY: cidades GOVERNADAS (city_id) + endereços; provider e contratantes ancorados por address_id.
+  //    O gate resolve por IGUALDADE DE CIDADE (radius=NULL nesta oferta) — NÃO por raio. ──
+  const STATE = await mkGovernedState();
+  const CITY_A = await mkGovernedCity(STATE, `Cidade A ${randomUUID().slice(0, 5)}`);
+  const CITY_B = await mkGovernedCity(STATE, `Cidade B ${randomUUID().slice(0, 5)}`);
+  const addrProviderCityA = await mkAddress(CITY_A, STATE);
+  const addrContratanteCityA = await mkAddress(CITY_A, STATE);
+  const addrContratanteCityB = await mkAddress(CITY_B, STATE);
+
+  const bandCity = await mkUserActor(TENANT, 'Banda Minha-Cidade');   // automatic + same_city (raio NULL)
+  const barSameCity = await mkUserActor(TENANT, 'Bar Mesma Cidade');  // CITY_A (match)
+  const barOtherCity = await mkUserActor(TENANT, 'Bar Outra Cidade'); // CITY_B (mismatch, e radius=NULL)
+  await setLocAddr(TENANT, bandCity.actorId, addrProviderCityA);
+  await setLocAddr(TENANT, barSameCity.actorId, addrContratanteCityA);
+  await setLocAddr(TENANT, barOtherCity.actorId, addrContratanteCityB);
+
+  // Ofertas: bandAuto = automatic + raio 50km; bandNego = manual; bandCity = automatic + same_city (raio NULL).
   const autoOff = await publishPerformer(TENANT, bandAuto, 'Show ao vivo — Aceita Direto', musical, CITY, { bookingApprovalMode: 'automatic', acceptDirectRadiusKm: 50 });
   const negoOff = await publishPerformer(TENANT, bandNego, 'Show ao vivo — Negocia', musical, CITY, { bookingApprovalMode: 'manual' });
+  const cityOff = await publishPerformer(TENANT, bandCity, 'Show ao vivo — Só Minha Cidade', musical, CITY_A, { bookingApprovalMode: 'automatic', acceptDirectSameCity: true, acceptDirectRadiusKm: null });
 
   const H = 3600e3;
   const base = Date.now() + 10 * 24 * H;
@@ -170,6 +235,22 @@ async function main(): Promise<void> {
   const r2 = await serviceOfferingService.requestBooking(TENANT, autoOff.offeringId, s2, { subjectUserId: barFar.userId, requesterActorId: barFar.actorId });
   record('(2) outside-distance + aceita-direto → requested (roteado p/ negocia), NÃO confirmado',
     r2.status === 'requested' && r2.autoConfirmed === false, `status=${r2.status} auto=${r2.autoConfirmed} gate=${r2.gateReason}`);
+
+  // ════════ (1b) SAME-CITY match + aceita-direto (raio NULL) → confirmed via IGUALDADE DE CIDADE ════════
+  const s1b = await declare(bandCity.userId, cityOff.offeringId, 6);
+  const r1b = await serviceOfferingService.requestBooking(TENANT, cityOff.offeringId, s1b, { subjectUserId: barSameCity.userId, requesterActorId: barSameCity.actorId });
+  // gate REAL retorna reason='same_city' (não 'radius_*') — prova que resolveu por cidade, com radius=NULL.
+  record('(1b) same-city (mesma cidade governada) + aceita-direto [radius=NULL] → confirmed (gate por CIDADE, não raio)',
+    r1b.status === 'confirmed' && r1b.autoConfirmed === true && r1b.gateReason === 'same_city',
+    `status=${r1b.status} auto=${r1b.autoConfirmed} gate=same_city_ok(raw=${r1b.gateReason})`);
+
+  // ════════ (1c) SAME-CITY mismatch (cidade diferente, radius NULL) → requested (negocia) ════════
+  const s1c = await declare(bandCity.userId, cityOff.offeringId, 7);
+  const r1c = await serviceOfferingService.requestBooking(TENANT, cityOff.offeringId, s1c, { subjectUserId: barOtherCity.userId, requesterActorId: barOtherCity.actorId });
+  // cidade diferente + radius=NULL ⇒ sem alcance por cidade e sem raio → fica requested. NÃO é rejeição por raio.
+  record('(1c) different-city + aceita-direto [radius=NULL] → requested (roteado p/ negocia; sem alcance por CIDADE)',
+    r1c.status === 'requested' && r1c.autoConfirmed === false && !/radius/.test(r1c.gateReason),
+    `status=${r1c.status} auto=${r1c.autoConfirmed} gate=same_city_mismatch(raw=${r1c.gateReason})`);
 
   // ════════ (3) negocia → requested; banda confirma → confirmed; banda recusa → cancelled ════════
   const s3a = await declare(bandNego.userId, negoOff.offeringId, 2);
