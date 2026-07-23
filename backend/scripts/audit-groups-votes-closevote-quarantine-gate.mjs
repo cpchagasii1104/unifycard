@@ -81,7 +81,10 @@ if (!raw) {
     if (!/votesService\.closeVote\s*\([^)]*\buserId\b[^)]*\)/.test(code)) {
       failures.push('CLOSEVOTE_QUARANTINE_REGRESSION: rota /close NÃO passa userId ao votesService.closeVote.');
     }
-    if (!/isUserAdminOrOwner\s*\(/.test(code)) failures.push('CLOSEVOTE_QUARANTINE_REGRESSION: rota /close perdeu o check admin/owner (isUserAdminOrOwner).');
+    // D9.2-B (DECISION-0188 D11/D16): autoridade por role RETIRADA — o gate da rota /close
+    // agora é canRepresentActor via groupsService.userCanGovernGroup (nunca group_members.role).
+    if (!/userCanGovernGroup\s*\(/.test(code)) failures.push('CLOSEVOTE_QUARANTINE_REGRESSION: rota /close perdeu o check de gestão do grupo (userCanGovernGroup/canRepresentActor).');
+    if (/isUserAdminOrOwner\s*\(/.test(code)) failures.push('CLOSEVOTE_QUARANTINE_REGRESSION: rota /close voltou à autoridade por role (isUserAdminOrOwner) — retirada no cutover D9.2-B.');
   }
 }
 

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { votesService } from './votes.service';
 import { votesRepository } from './votes.repository';
 import { groupsRepository } from './groups.repository';
+import { groupsService } from './groups.service';
 import type { CreateVoteInput } from './votes.types';
 
 const createVoteSchema = z.object({
@@ -49,8 +50,8 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
       const { groupId } = req.params;
       const userId = req.user.id;
 
-      // Validar: usuário é admin/owner do grupo
-      const isAdminOrOwner = await groupsRepository.isUserAdminOrOwner(
+      // D9.2-B (DECISION-0188 D11/D16): gestao do grupo = canRepresentActor (nunca role)
+      const isAdminOrOwner = await groupsService.userCanGovernGroup(
         req.tenant.id,
         groupId,
         userId
@@ -58,7 +59,7 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!isAdminOrOwner) {
         return reply.status(403).send({
-          error: 'Apenas administradores ou donos do grupo podem criar votações',
+          error: 'Apenas representantes do grupo (canRepresentActor) podem criar votações',
         });
       }
 
@@ -190,7 +191,7 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Verificar se é admin/owner
-      const isAdminOrOwner = await groupsRepository.isUserAdminOrOwner(
+      const isAdminOrOwner = await groupsService.userCanGovernGroup(
         req.tenant.id,
         groupId,
         userId
@@ -262,7 +263,7 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       // Retornar votação atualizada
-      const isAdminOrOwner = await groupsRepository.isUserAdminOrOwner(
+      const isAdminOrOwner = await groupsService.userCanGovernGroup(
         req.tenant.id,
         groupId,
         userId
@@ -308,8 +309,8 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
       const { groupId, voteId } = req.params;
       const userId = req.user.id;
 
-      // Validar: usuário é admin/owner do grupo
-      const isAdminOrOwner = await groupsRepository.isUserAdminOrOwner(
+      // D9.2-B (DECISION-0188 D11/D16): gestao do grupo = canRepresentActor (nunca role)
+      const isAdminOrOwner = await groupsService.userCanGovernGroup(
         req.tenant.id,
         groupId,
         userId
@@ -317,7 +318,7 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!isAdminOrOwner) {
         return reply.status(403).send({
-          error: 'Apenas administradores ou donos do grupo podem fechar votações',
+          error: 'Apenas representantes do grupo (canRepresentActor) podem fechar votações',
         });
       }
 

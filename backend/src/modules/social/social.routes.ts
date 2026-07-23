@@ -167,7 +167,7 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
    *
    * 🔴 F-G10-C1-PRECONDITION (DECISION-0115 D1): no tenant inicial COMPARTILHADO, RLS é por tenant,
    * não por actor/user — leituras tenant-wide vazam. Decisão de produto (GO IA Diretora/Clayton):
-   * `groups` é MEMBER-SCOPED via group_members (sujeito = req.user server-side; DECISION-0113);
+   * `groups` é MEMBER-SCOPED via group_actor_memberships (sujeito = req.user server-side; DECISION-0113/0188);
    * `services` conta apenas conteúdo público; `feed`/`events` continuam tenant-wide públicos por enquanto.
    */
   fastify.get('/unread-counts', async (req, reply) => {
@@ -221,8 +221,10 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
       [tenantId, oneDayAgo]
     );
 
-    // Grupos: MEMBER-SCOPED via group_members — atividade de grupo só conta para quem é membro;
-    // não vaza existência/atividade de grupos alheios no tenant compartilhado
+    // Grupos: MEMBER-SCOPED — atividade de grupo só conta para quem é membro; não vaza
+    // existência/atividade de grupos alheios no tenant compartilhado.
+    // D9.2-B (DECISION-0188): membership lida da casa canônica group_actor_memberships
+    // (ativa; user resolvido a user-actor — namespace único, sem group_members legado).
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -231,15 +233,20 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
       `
       SELECT COUNT(DISTINCT p.metadata->>'groupId')::int as count
       FROM posts p
-      INNER JOIN group_members gm
-        ON gm.tenant_id = p.tenant_id
-       AND gm.group_id::text = p.metadata->>'groupId'
+      INNER JOIN group_actor_memberships gam
+        ON gam.tenant_id = p.tenant_id
+       AND gam.group_id::text = p.metadata->>'groupId'
+       AND gam.status = 'active'
+      INNER JOIN actors ma
+        ON ma.tenant_id = gam.tenant_id
+       AND ma.id = gam.member_actor_id
+       AND ma.actor_type = 'user'
       WHERE p.tenant_id = $1
         AND p.metadata->>'groupId' IS NOT NULL
         AND p.created_at >= $2
         AND p.is_published = true
         AND p.is_deleted = false
-        AND gm.user_id = $3
+        AND ma.user_id = $3
       `,
       [tenantId, sevenDaysAgo, userId]
     );

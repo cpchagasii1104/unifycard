@@ -1,8 +1,13 @@
 // src/modules/groups/groups.repository.ts
+// D9.2-B (DECISION-0188): membership Actor-first — a VERDADE de pertencimento vive em
+// group_actor_memberships (escrita SOMENTE pelas fns governadas via service canonico).
+// Este repository NAO escreve nem le group_members (casa legada CONGELADA no cutover).
+// Leitores aqui PROJETAM a casa nova no shape legado (userId resolvido do user-actor).
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { tenantService } from '@core/tenants/tenant.service';
 import { worldService } from '@core/world/services/world.service';
+import { groupActorMembershipRepository } from './group-actor-membership.repository';
 import type { Group, GroupMember, GroupAccount, CreateGroupInput, UpdateGroupInput, GroupVisibility, GroupInvite, GroupInviteStatus } from './groups.types';
 
 interface GroupRow {
@@ -19,8 +24,10 @@ interface GroupRow {
 }
 
 interface GroupMemberRow {
+  membership_id: string;
   group_id: string;
-  user_id: string;
+  member_actor_id: string;
+  user_id: string | null;
   role: string;
   joinedAt: Date;
 }
@@ -79,6 +86,8 @@ class GroupsRepository {
     return {
       groupId: row.group_id,
       userId: row.user_id,
+      memberActorId: row.member_actor_id,
+      membershipId: row.membership_id,
       role: row.role as GroupMember['role'],
       joinedAt: row.joinedAt,
     };
@@ -174,26 +183,9 @@ class GroupsRepository {
       throw new Error('Failed to create group');
     }
 
-    // Resolver user_id do actor para inserção em group_members (FK → users.user_id)
-    const actorRow = await runQueryWithTenant<{ user_id: string | null }>(
-      tenantId,
-      `SELECT user_id FROM actors WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
-      [ownerActorId, tenantId]
-    );
-    if (!actorRow || !actorRow.user_id) {
-      throw new Error(`Actor ${ownerActorId} não possui user_id associado`);
-    }
-    const ownerUserIdForMembership = actorRow.user_id;
-
-    // Adicionar owner como membro com role 'owner'
-    await this.addMember(tenantId, row.id, ownerUserIdForMembership, 'owner');
-
-    // DT-GROUP-OWNER-DOUBLE-ADD (3C.3): owner já foi adicionado como 'owner' acima; este
-    // addMember('admin') agora é NO-OP de efeito (o guard no ON CONFLICT não rebaixa owner →
-    // role permanece 'owner'). Mantido porque decidir se owner⊇admin é authority, fora do
-    // escopo da 3C.3. Remover o duplo-add quando authority/capability entrar em escopo.
-    await this.addMember(tenantId, row.id, ownerUserIdForMembership, 'admin');
-
+    // D9.2-B (DECISION-0188 D8/D16): a membership do owner NAO nasce mais aqui por INSERT
+    // legado — nasce no service (createGroup) via writer governado da casa nova, apos o
+    // group-actor. Este repository nao escreve pertencimento.
     return this.toGroup(row);
   }
 
@@ -389,53 +381,53 @@ class GroupsRepository {
   }
 
   // =========================================================
-  // MEMBERS
+  // MEMBERS — D9.2-B: leitura EXCLUSIVA da casa nova group_actor_memberships.
+  // Escrita de membership NAO existe aqui (somente fns governadas via service canonico).
   // =========================================================
 
-  async addMember(tenantId: string, groupId: string, userId: string, role: GroupMember['role'] = 'member'): Promise<GroupMember> {
-    // 🔴 CORREÇÃO: tenant_id é obrigatório em group_members (NOT NULL)
-    const row = await runQueryWithTenant<GroupMemberRow>(
+  /** Resolve o user-actor canonico de um user (lookup PURO; sem escrita; namespace unico). */
+  async findUserActorId(tenantId: string, userId: string): Promise<string | null> {
+    const row = await runQueryWithTenant<{ id: string }>(
       tenantId,
-      `
-      INSERT INTO group_members (tenant_id, group_id, user_id, role)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (tenant_id, group_id, user_id) DO UPDATE
-        SET role = CASE WHEN group_members.role = 'owner' THEN group_members.role ELSE EXCLUDED.role END
-      RETURNING group_id, user_id, role, created_at AS "joinedAt"
-      `,
-      [tenantId, groupId, userId, role]
+      `SELECT a.id::text AS id
+         FROM actors a
+        WHERE a.tenant_id = $1 AND a.user_id = $2 AND a.actor_type = 'user'
+        ORDER BY a.created_at ASC
+        LIMIT 1`,
+      [tenantId, userId]
     );
-
-    if (!row) {
-      throw new Error('Failed to add member');
-    }
-
-    return this.toGroupMember(row);
+    return row ? row.id : null;
   }
 
-  async removeMember(tenantId: string, groupId: string, userId: string): Promise<boolean> {
-    const result = await runQueryWithTenant<{ group_id: string }>(
+  /** group-actor do Group (autoridade de gestao = canRepresentActor(group_actor) — D10). */
+  async getGroupActorId(tenantId: string, groupId: string): Promise<string | null> {
+    const row = await runQueryWithTenant<{ actor_id: string | null }>(
       tenantId,
-      `
-      DELETE FROM group_members
-      WHERE group_id = $1 AND user_id = $2
-      RETURNING group_id
-      `,
-      [groupId, userId]
+      `SELECT actor_id::text AS actor_id FROM groups WHERE tenant_id = $1 AND id = $2`,
+      [tenantId, groupId]
     );
-
-    return !!result;
+    return row?.actor_id ?? null;
   }
 
+  /**
+   * Membros ATIVOS do grupo — projecao legada da casa nova (listByGroup + resolucao).
+   * role e DERIVADA (owner = groups.owner_actor_id; demais = member) — D11: role sem poder.
+   */
   async getMembers(tenantId: string, groupId: string): Promise<GroupMember[]> {
     const rows = await runQueriesWithTenant<GroupMemberRow>(
       tenantId,
       `
-      SELECT gm.group_id, gm.user_id, gm.role, gm.created_at AS "joinedAt"
-      FROM group_members gm
-      INNER JOIN groups g ON g.id = gm.group_id
-      WHERE gm.group_id = $1 AND g.tenant_id = $2
-      ORDER BY gm.created_at ASC
+      SELECT gam.id::text AS membership_id,
+             gam.group_id::text AS group_id,
+             gam.member_actor_id::text AS member_actor_id,
+             a.user_id::text AS user_id,
+             CASE WHEN g.owner_actor_id = gam.member_actor_id THEN 'owner' ELSE 'member' END AS role,
+             gam.created_at AS "joinedAt"
+      FROM group_actor_memberships gam
+      INNER JOIN groups g ON g.id = gam.group_id AND g.tenant_id = gam.tenant_id
+      LEFT JOIN actors a ON a.id = gam.member_actor_id AND a.tenant_id = gam.tenant_id
+      WHERE gam.group_id = $1 AND gam.tenant_id = $2 AND gam.status = 'active'
+      ORDER BY gam.created_at ASC
       `,
       [groupId, tenantId]
     );
@@ -444,57 +436,63 @@ class GroupsRepository {
   }
 
   /**
-   * Verifica se o usuário tem role de admin ou owner no grupo
+   * Grupos ATIVOS onde o user (resolvido a user-actor) tem membership ATIVA.
+   * D9.2-B: user_id apenas RESOLVE o user-actor (D5); a seleção usa listByMember (idx_gam_member).
    */
-  async isUserAdminOrOwner(tenantId: string, groupId: string, userId: string): Promise<boolean> {
-    const row = await runQueryWithTenant<{ role: string }>(
-      tenantId,
-      `
-      SELECT gm.role
-      FROM group_members gm
-      INNER JOIN groups g ON g.id = gm.group_id
-      WHERE gm.group_id = $1 AND g.tenant_id = $2 AND gm.user_id = $3
-      `,
-      [groupId, tenantId, userId]
-    );
-
-    if (!row) {
-      return false;
-    }
-
-    return row.role === 'admin' || row.role === 'owner';
-  }
-
   async getUserGroups(tenantId: string, userId: string): Promise<Group[]> {
-    // 🔴 CORREÇÃO: Remover colunas que não existem
+    const memberActorId = await this.findUserActorId(tenantId, userId);
+    if (!memberActorId) {
+      return [];
+    }
+    const memberships = (await groupActorMembershipRepository.listByMember(tenantId, memberActorId))
+      .filter((m) => m.status === 'active');
+    if (memberships.length === 0) {
+      return [];
+    }
     const rows = await runQueriesWithTenant<GroupRow>(
       tenantId,
       `
       SELECT g.id, g.tenant_id, g.name, g.slug, g.description, g.owner_actor_id, g.status, g.metadata, g.created_at, g.updated_at
       FROM groups g
-      INNER JOIN group_members gm ON g.id = gm.group_id
-      WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.status = 'active'
-      ORDER BY gm.created_at DESC
+      WHERE g.tenant_id = $1 AND g.id = ANY($2::uuid[]) AND g.status = 'active'
       `,
-      [tenantId, userId]
+      [tenantId, memberships.map((m) => m.groupId)]
     );
-
-    return rows.map((r) => this.toGroup(r));
+    // ordem legada preservada: membership mais recente primeiro
+    const order = new Map(memberships.map((m, i) => [m.groupId, i]));
+    return rows
+      .map((r) => this.toGroup(r))
+      .sort((a, b) => (order.get(b.groupId) ?? -1) - (order.get(a.groupId) ?? -1));
   }
 
+  /** Cap civil (D12): conta SOMENTE memberships ativas do user-actor em grupos ativos. */
   async getUserGroupCount(tenantId: string, userId: string): Promise<number> {
-    const row = await runQueryWithTenant<{ count: string }>(
+    return (await this.getUserGroups(tenantId, userId)).length;
+  }
+
+  /**
+   * Cap por ACTOR candidato (D12): retorna a contagem ativa se o actor for user-actor;
+   * null para actors institucionais (page/group — sem cap pessoal nesta DECISION).
+   */
+  async countActiveUserActorMemberships(tenantId: string, memberActorId: string): Promise<number | null> {
+    const row = await runQueryWithTenant<{ actor_type: string; n: string }>(
       tenantId,
       `
-      SELECT COUNT(*) as count
-      FROM group_members gm
-      INNER JOIN groups g ON g.id = gm.group_id
-      WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.status = 'active'
+      SELECT a.actor_type,
+             count(gam.id) FILTER (WHERE gam.status = 'active' AND g.status = 'active') AS n
+      FROM actors a
+      LEFT JOIN group_actor_memberships gam
+        ON gam.tenant_id = a.tenant_id AND gam.member_actor_id = a.id
+      LEFT JOIN groups g ON g.id = gam.group_id AND g.tenant_id = gam.tenant_id
+      WHERE a.tenant_id = $1 AND a.id = $2
+      GROUP BY a.actor_type
       `,
-      [tenantId, userId]
+      [tenantId, memberActorId]
     );
-
-    return row ? Number(row.count) : 0;
+    if (!row) {
+      return null;
+    }
+    return row.actor_type === 'user' ? Number(row.n) : null;
   }
 
   /**
@@ -603,37 +601,9 @@ class GroupsRepository {
     };
   }
 
-  async createInvite(
-    tenantId: string,
-    groupId: string,
-    invitedUserId: string,
-    invitedByUserId: string,
-    expiresAt?: Date | null
-  ): Promise<GroupInvite> {
-    const row = await runQueryWithTenant<GroupInviteRow>(
-      tenantId,
-      `
-      INSERT INTO group_invites (
-        tenant_id, group_id, invited_actor_id, invited_by_actor_id, status, expires_at
-      )
-      VALUES ($1, $2, $3, $4, 'pending', $5)
-      RETURNING id AS invite_id, tenant_id, group_id,
-        invited_actor_id AS invited_user_id,
-        invited_by_actor_id AS invited_by_user_id,
-        status,
-        expires_at AS "expiresAt",
-        created_at AS "createdAt",
-        COALESCE(responded_at, created_at) AS "updatedAt"
-      `,
-      [tenantId, groupId, invitedUserId, invitedByUserId, expiresAt || null]
-    );
-
-    if (!row) {
-      throw new Error('Failed to create invite');
-    }
-
-    return this.toGroupInvite(row);
-  }
+  // D9.2-B: o INSERT legado de convite (sem intent_kind — convenção implícita) foi APOSENTADO.
+  // Toda intenção nasce EXPLÍCITA (invite|request) via fn_create_group_membership_intent,
+  // invocada pelo service canônico de membership (DECISION-0188 D9).
 
   async getInviteById(tenantId: string, inviteId: string): Promise<GroupInvite | null> {
     // Verificar se convite está expirado e atualizar status se necessário
@@ -746,7 +716,7 @@ class GroupsRepository {
 
     if (status) {
       query += ` AND status = $3`;
-      params.push(status);
+      params.push(status === 'declined' ? 'rejected' : status);
     } else {
       // Se não especificou status, excluir expirados por padrão (considerar como inativos)
       query += ` AND status != 'expired'`;
@@ -795,7 +765,7 @@ class GroupsRepository {
 
     if (status) {
       query += ` AND status = $3`;
-      params.push(status);
+      params.push(status === 'declined' ? 'rejected' : status);
     } else {
       // Se não especificou status, excluir expirados por padrão (considerar como inativos)
       query += ` AND status != 'expired'`;
@@ -812,6 +782,8 @@ class GroupsRepository {
     inviteId: string,
     status: GroupInviteStatus
   ): Promise<boolean> {
+    // D9.2-B: 'declined' era alias de aplicacao sem lastro fisico (CHECK vivo usa 'rejected').
+    const physicalStatus = status === 'declined' ? 'rejected' : status;
     const result = await runQueryWithTenant<GroupInviteRow>(
       tenantId,
       `
@@ -820,7 +792,7 @@ class GroupsRepository {
       WHERE tenant_id = $2 AND id = $3
       RETURNING id AS invite_id
       `,
-      [status, tenantId, inviteId]
+      [physicalStatus, tenantId, inviteId]
     );
 
     return !!result;

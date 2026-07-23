@@ -39,8 +39,13 @@ export interface GroupsRepositoryPort {
     tenantId: string,
     groupId: string
   ): Promise<Group | null>;
-  
-  isUserAdminOrOwner(
+
+  /**
+   * D9.2-B (DECISION-0188 D10/D11/D16): autoridade de gestao do grupo =
+   * canRepresentActor(group-actor | owner-actor). Substitui o antigo check por
+   * role em group_members (role NUNCA e autoridade — retirado no cutover).
+   */
+  userCanGovernGroup(
     tenantId: string,
     groupId: string,
     userId: string

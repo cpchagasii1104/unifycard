@@ -167,6 +167,35 @@ class GroupActorMembershipRepository {
     );
     return rows.map(toMembership);
   }
+
+  /**
+   * Leitor ADITIVO do cutover D9.2-B: memberships de UM actor (idx_gam_member).
+   * Canonico para "meus grupos"/cap civil (DECISION-0188 D12) — identidade = member_actor_id.
+   */
+  async listByMember(tenantId: string, memberActorId: string): Promise<GroupActorMembership[]> {
+    const rows = await runQueriesWithTenant<MembershipRow>(
+      tenantId,
+      `SELECT ${SELECT_COLS} FROM group_actor_memberships
+        WHERE tenant_id = $1 AND member_actor_id = $2 ORDER BY created_at ASC, id ASC`,
+      [tenantId, memberActorId]
+    );
+    return rows.map(toMembership);
+  }
+
+  /** Leitor ADITIVO do cutover D9.2-B: membership ATIVA de um par group+actor (uq_gam_active_membership). */
+  async findActiveByGroupAndMember(
+    tenantId: string,
+    groupId: string,
+    memberActorId: string
+  ): Promise<GroupActorMembership | null> {
+    const row = await runQueryWithTenant<MembershipRow>(
+      tenantId,
+      `SELECT ${SELECT_COLS} FROM group_actor_memberships
+        WHERE tenant_id = $1 AND group_id = $2 AND member_actor_id = $3 AND status = 'active'`,
+      [tenantId, groupId, memberActorId]
+    );
+    return row ? toMembership(row) : null;
+  }
 }
 
 export const groupActorMembershipRepository = new GroupActorMembershipRepository();

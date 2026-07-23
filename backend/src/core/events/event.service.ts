@@ -431,7 +431,8 @@ class EventService {
         if (actor?.user_id) {
           const { groupsPortsRegistry } = await import('@core/groups/ports-registry');
           const groupsRepository = groupsPortsRegistry.getGroupsRepository();
-          const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupEvent.group_id, actor.user_id);
+          // D9.2-B (DECISION-0188 D16): gestao do grupo = canRepresentActor, nunca role legada
+          const isAdmin = await groupsRepository.userCanGovernGroup(tenantId, groupEvent.group_id, actor.user_id);
           if (!isAdmin) {
             throw new ForbiddenError('Apenas o criador do evento ou owner/admin do grupo podem atualizá-lo');
           }
@@ -1070,7 +1071,8 @@ class EventService {
         if (actor?.user_id) {
           const { groupsPortsRegistry } = await import('@core/groups/ports-registry');
           const groupsRepository = groupsPortsRegistry.getGroupsRepository();
-          const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupEvent.group_id, actor.user_id);
+          // D9.2-B (DECISION-0188 D16): gestao do grupo = canRepresentActor, nunca role legada
+          const isAdmin = await groupsRepository.userCanGovernGroup(tenantId, groupEvent.group_id, actor.user_id);
           if (!isAdmin) {
             throw new ForbiddenError('Apenas o criador do evento ou owner/admin do grupo podem cancelá-lo');
           }

@@ -1,7 +1,15 @@
 // src/modules/groups/groups.service.ts
 // CONTINUOUS PRODUCTION: MIGRATED TO UNIFY BANK
+// D9.2-B (DECISION-0188): CUTOVER Actor-first da membership — verdade unica =
+// group_actor_memberships via groupActorMembershipService (5 fns governadas). group_members
+// esta CONGELADA (projecao read-only). role NAO e autoridade (D11/D16): gestao do grupo =
+// canRepresentActor(group_actor|owner_actor), nunca group_members.role.
 
+import { randomUUID } from 'crypto';
 import { groupsRepository } from './groups.repository';
+import { groupActorMembershipService } from './group-actor-membership.service';
+import { groupActorMembershipRepository } from './group-actor-membership.repository';
+import type { GroupActorMembership } from './group-actor-membership.types';
 import { bankIntegrationService } from '../bank/bank-integration.service';
 import { eventBus } from '@core/events/event-bus';
 import { devLog } from '@utils/devLog';
@@ -169,17 +177,53 @@ class GroupsService {
     return false;
   }
 
-  private async memberUserIdIsGroupOwnerActor(
-    tenantId: string,
-    ownerActorId: string,
-    memberUserId: string
-  ): Promise<boolean> {
-    try {
-      const actor = await ensureUserActor(tenantId, memberUserId);
-      return actor.actor_id === ownerActorId;
-    } catch {
+  /**
+   * D9.2-B/D10: autoridade de GESTAO do grupo = canRepresentActor(group-actor do Group)
+   * (fallback: owner-actor civil quando o group-actor nao existe em grupo legado).
+   * Substitui a antiga autoridade por role legada — retirada no cutover (D16).
+   */
+  async userCanGovernGroup(tenantId: string, groupId: string, actingUserId: string): Promise<boolean> {
+    if (!tenantId?.trim() || !groupId?.trim() || !actingUserId?.trim()) {
       return false;
     }
+    const group = await groupsRepository.findById(tenantId, groupId);
+    if (!group) {
+      return false;
+    }
+    const { authorizationService } = await import('@core/authorization/authorization.service');
+    const groupActorId = await groupsRepository.getGroupActorId(tenantId, groupId);
+    if (groupActorId && (await authorizationService.canRepresentActor(tenantId, actingUserId, groupActorId))) {
+      return true;
+    }
+    return authorizationService.canRepresentActor(tenantId, actingUserId, group.ownerActorId);
+  }
+
+  /** Cap civil-humano de participacao (D12) para o PRINCIPAL autenticado. */
+  private async assertParticipationCapacity(tenantId: string, actingUserId: string): Promise<void> {
+    const currentCount = await groupsRepository.getUserGroupCount(tenantId, actingUserId);
+    if (currentCount >= 3) {
+      throw new Error('User cannot be in more than 3 groups');
+    }
+  }
+
+  /** Cap civil-humano (D12) para um ACTOR candidato: so user-actor conta; institucional passa. */
+  private async assertCandidateCapacity(tenantId: string, candidateActorId: string): Promise<void> {
+    const activeCount = await groupsRepository.countActiveUserActorMemberships(tenantId, candidateActorId);
+    if (activeCount !== null && activeCount >= 3) {
+      throw new Error('User cannot be in more than 3 groups');
+    }
+  }
+
+  /** Projeta a membership Actor-first no shape legado de member (role DERIVADA — D11). */
+  private toLegacyMember(membership: GroupActorMembership, ownerActorId: string, userId: string | null): GroupMember {
+    return {
+      groupId: membership.groupId,
+      userId,
+      memberActorId: membership.memberActorId,
+      membershipId: membership.id,
+      role: membership.memberActorId === ownerActorId ? 'owner' : 'member',
+      joinedAt: new Date(membership.createdAt),
+    };
   }
 
   async createGroup(
@@ -231,6 +275,16 @@ class GroupsService {
     // ensureGroupActor: transacional, idempotente, fail-closed.
     // NÃO chamar dentro de transação ativa (tem TX interna própria).
     await ensureGroupActor(tenantId, group.groupId);
+
+    // D9.2-B (DECISION-0188 D8): a membership ATIVA do owner nasce com o grupo, na casa
+    // canonica group_actor_memberships, pelo writer governado (§4.8 — unico caminho de escrita).
+    // Chave deterministica: replay do createGroup nao duplica.
+    await groupActorMembershipService.enterMembershipSelf({
+      tenantId,
+      actingUserId: ownerUserId,
+      groupId: group.groupId,
+      idempotencyKey: `owner-genesis:${group.groupId}`,
+    });
 
     // 🔴 INTENÇÃO FINANCEIRA: Criar conta econômica apenas se houver intenção financeira
     // Reutilizar variável hasFinancialIntent já declarada acima
@@ -350,16 +404,10 @@ class GroupsService {
     );
     
     if (!isOwner) {
-      // Verificar se é admin (também considerar globalUserId se disponível)
-      let isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, userId);
-      
-      // Se não encontrou como admin com userId, tentar com globalUserId
-      if (!isAdmin && userContext?.globalUserId && userContext.globalUserId !== userId) {
-        isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, userContext.globalUserId);
-      }
-      
-      if (!isAdmin) {
-        throw new Error('Only the owner or admin can update the group');
+      // D9.2-B/D11: role legada perdeu efeito autorizativo — gestao = canRepresentActor
+      const canGovern = await this.userCanGovernGroup(tenantId, groupId, userId);
+      if (!canGovern) {
+        throw new Error('Only the owner or a group representative can update the group');
       }
     }
 
@@ -426,13 +474,17 @@ class GroupsService {
     return groupsRepository.delete(tenantId, groupId);
   }
 
+  /**
+   * D9.2-B (D13 superficie 1): entrada SELF — o membro E o user-actor canonico do PRINCIPAL
+   * autenticado (resolvido server-side no service governado). actionContext NUNCA e identidade.
+   */
   async joinGroup(
     tenantId: string,
     groupId: string,
-    userId: string
+    actingUserId: string
   ): Promise<GroupMember> {
-    // Verificar limite de grupos
-    const currentCount = await groupsRepository.getUserGroupCount(tenantId, userId);
+    // Cap civil de participacao (D12): so memberships ATIVAS de user-actor em grupos ativos
+    const currentCount = await groupsRepository.getUserGroupCount(tenantId, actingUserId);
     if (currentCount >= 3) {
       throw new Error('User cannot be in more than 3 groups');
     }
@@ -453,20 +505,26 @@ class GroupsService {
       // Grupo privado: requer request-to-join
       throw new Error('Private groups require a join request. Use requestJoinGroup instead.');
     } else if (group.visibility === 'secret') {
-      // Grupo secreto: somente convite
-      throw new Error('Secret groups require an invitation from an admin or owner');
+      throw new Error('Secret groups require an invitation from a group representative');
     }
 
-    // Adicionar membro
-    const member = await groupsRepository.addMember(tenantId, groupId, userId, 'member');
+    // Escrita UNICA: writer governado da casa nova (reentrada = nova linha; ativa duplicada falha)
+    const membership = await groupActorMembershipService.enterMembershipSelf({
+      tenantId,
+      actingUserId,
+      groupId,
+      idempotencyKey: `join:${randomUUID()}`,
+    });
 
-    // Emitir evento
+    const member = this.toLegacyMember(membership, group.ownerActorId, actingUserId);
+
     await eventBus.publish({
       tenantId,
       type: 'group.member.joined',
       payload: {
         groupId,
-        userId,
+        userId: actingUserId,
+        memberActorId: membership.memberActorId,
         role: member.role,
       },
     });
@@ -474,36 +532,43 @@ class GroupsService {
     return member;
   }
 
+  /**
+   * D9.2-B (D13 superficie 2): saida SELF — resolve o user-actor do PRINCIPAL, encerra a
+   * membership ATIVA (terminal 'left'; historia preservada). Owner bloqueado pela fn (D8).
+   */
   async leaveGroup(
     tenantId: string,
     groupId: string,
-    userId: string
+    actingUserId: string
   ): Promise<boolean> {
-    // Verificar se é owner
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
       throw new Error('Group not found');
     }
 
-    if (await this.requesterMatchesOwnerActor(tenantId, group.ownerActorId, userId)) {
-      throw new Error('Owner cannot leave without transferring ownership');
+    const memberActorId = await groupsRepository.findUserActorId(tenantId, actingUserId);
+    if (!memberActorId) {
+      return false;
+    }
+    const membership = await groupActorMembershipRepository.findActiveByGroupAndMember(tenantId, groupId, memberActorId);
+    if (!membership) {
+      return false;
     }
 
-    const removed = await groupsRepository.removeMember(tenantId, groupId, userId);
+    // GAM_OWNER_CANNOT_LEAVE propaga da fn canonica (D8)
+    await groupActorMembershipService.leaveMembership({ tenantId, actingUserId, membershipId: membership.id });
 
-    if (removed) {
-      // Emitir evento
-      await eventBus.publish({
-        tenantId,
-        type: 'group.member.left',
-        payload: {
-          groupId,
-          userId,
-        },
-      });
-    }
+    await eventBus.publish({
+      tenantId,
+      type: 'group.member.left',
+      payload: {
+        groupId,
+        userId: actingUserId,
+        memberActorId,
+      },
+    });
 
-    return removed;
+    return true;
   }
 
   async getGroupMembers(tenantId: string, groupId: string): Promise<GroupMember[]> {
@@ -529,114 +594,65 @@ class GroupsService {
     return groupsRepository.getUserGroups(tenantId, userId);
   }
 
-  /**
-   * Atualizar role de um membro do grupo
-   * Apenas owner/admin podem alterar roles
-   * Owner não pode ter role alterada
-   */
-  async updateMemberRole(
-    tenantId: string,
-    groupId: string,
-    memberUserId: string,
-    newRole: GroupMember['role'],
-    requesterUserId: string,
-    userContext?: { globalUserId?: string; id?: string }
-  ): Promise<GroupMember> {
-    // Verificar se grupo existe
-    const group = await groupsRepository.findById(tenantId, groupId);
-    if (!group) {
-      throw new Error('Group not found');
-    }
-
-    // Verificar se requester é owner ou admin
-    const isOwner = await this.requesterMatchesOwnerActor(
-      tenantId,
-      group.ownerActorId,
-      requesterUserId,
-      userContext
-    );
-    
-    if (!isOwner) {
-      const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, requesterUserId);
-      if (!isAdmin) {
-        throw new Error('Only the owner or admin can update member roles');
-      }
-    }
-
-    // Verificar se membro existe
-    const members = await groupsRepository.getMembers(tenantId, groupId);
-    const member = members.find(m => m.userId === memberUserId);
-    if (!member) {
-      throw new Error('Member not found');
-    }
-
-    // 🔴 PROTEÇÃO: Owner não pode ter role alterada
-    if (await this.memberUserIdIsGroupOwnerActor(tenantId, group.ownerActorId, memberUserId)) {
-      throw new Error('Cannot change role of the group owner');
-    }
-
-    // 🔴 PROTEÇÃO: Não permitir alterar para 'owner' (apenas um owner por grupo)
-    if (newRole === 'owner') {
-      throw new Error('Cannot set role to owner. Only one owner per group.');
-    }
-
-    // Atualizar role
-    return groupsRepository.addMember(tenantId, groupId, memberUserId, newRole);
-  }
+  // D9.2-B (DECISION-0188 D11): updateMemberRole foi APOSENTADO no cutover — role legada
+  // nao tem poder, a casa nova nao persiste role e o endpoint responde 410 na rota.
 
   /**
-   * Remover membro do grupo
-   * Apenas owner/admin podem remover membros
-   * Owner não pode ser removido
+   * Remover membro do grupo (terminal 'removed'; historia preservada).
+   * D10: autoridade = canRepresentActor(group-actor do Group), provada NO service governado.
+   * `memberUserId` e contrato legado da rota: resolve server-side ao user-actor membro.
    */
   async removeMember(
     tenantId: string,
     groupId: string,
     memberUserId: string,
-    requesterUserId: string,
-    userContext?: { globalUserId?: string; id?: string }
+    requesterUserId: string
   ): Promise<boolean> {
-    // Verificar se grupo existe
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
       throw new Error('Group not found');
     }
 
-    // Verificar se requester é owner ou admin
-    const isOwner = await this.requesterMatchesOwnerActor(
+    const memberActorId = await groupsRepository.findUserActorId(tenantId, memberUserId);
+    if (!memberActorId) {
+      return false;
+    }
+    const membership = await groupActorMembershipRepository.findActiveByGroupAndMember(tenantId, groupId, memberActorId);
+    if (!membership) {
+      return false;
+    }
+
+    // GAM_OWNER_CANNOT_BE_REMOVED propaga da fn (D8); GAM_GROUP_NOT_REPRESENTED = 403 do service
+    await groupActorMembershipService.removeMembership({
       tenantId,
-      group.ownerActorId,
-      requesterUserId,
-      userContext
-    );
-    
-    if (!isOwner) {
-      const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, requesterUserId);
-      if (!isAdmin) {
-        throw new Error('Only the owner or admin can remove members');
-      }
-    }
+      actingUserId: requesterUserId,
+      membershipId: membership.id,
+    });
 
-    // 🔴 PROTEÇÃO: Owner não pode ser removido
-    if (await this.memberUserIdIsGroupOwnerActor(tenantId, group.ownerActorId, memberUserId)) {
-      throw new Error('Cannot remove the group owner');
-    }
+    await eventBus.publish({
+      tenantId,
+      type: 'group.member.left',
+      payload: {
+        groupId,
+        userId: memberUserId,
+        memberActorId,
+        removed: true,
+      },
+    });
 
-    // Remover membro
-    return groupsRepository.removeMember(tenantId, groupId, memberUserId);
+    return true;
   }
 
   /**
-   * Criar convite para grupo
-   * Apenas owner/admin podem convidar
-   * Não pode convidar quem já é membro
+   * D9.2-B (D13 superficie 6): convite = INTENCAO EXPLICITA kind='invite' na casa de intencoes.
+   * Candidato = ACTOR canonico (namespace unico — nunca comparado com user_id).
+   * Autoridade (lado grupo) = canRepresentActor(group-actor), provada no service governado.
    */
   async createInvite(
     tenantId: string,
     groupId: string,
-    invitedUserId: string,
-    requesterUserId: string,
-    userContext?: { globalUserId?: string; id?: string }
+    invitedActorId: string,
+    requesterUserId: string
   ): Promise<GroupInvite> {
     // Verificar se grupo existe e está ativo
     const group = await groupsRepository.findById(tenantId, groupId);
@@ -647,39 +663,27 @@ class GroupsService {
       throw new Error('Group is not active');
     }
 
-    // Verificar se requester é owner ou admin
-    const isOwner = await this.requesterMatchesOwnerActor(
-      tenantId,
-      group.ownerActorId,
-      requesterUserId,
-      userContext
-    );
-    
-    if (!isOwner) {
-      const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, requesterUserId);
-      if (!isAdmin) {
-        throw new Error('Only the owner or admin can invite members');
-      }
-    }
-
-    // 🔴 VALIDAÇÃO: Não convidar quem já é membro
-    const members = await groupsRepository.getMembers(tenantId, groupId);
-    const isAlreadyMember = members.some(m => m.userId === invitedUserId);
-    if (isAlreadyMember) {
+    // 🔴 VALIDAÇÃO: nao convidar actor com membership JA ATIVA (casa nova, namespace ACTOR)
+    const active = await groupActorMembershipRepository.findActiveByGroupAndMember(tenantId, groupId, invitedActorId);
+    if (active) {
       throw new Error('User is already a member of this group');
     }
 
-    // 🔴 VALIDAÇÃO: Não criar convite duplicado pendente
-    const pendingInvites = await groupsRepository.getInvitesByGroup(tenantId, groupId, 'pending');
-    const hasPendingInvite = pendingInvites.some(inv => inv.invitedUserId === invitedUserId);
-    if (hasPendingInvite) {
-      throw new Error('User already has a pending invite for this group');
-    }
+    // Intencao explicita governada (1 pendente por par; GAM_INTENT_PENDING_EXISTS fail-closed)
+    const intentId = await groupActorMembershipService.createMembershipIntent({
+      tenantId,
+      actingUserId: requesterUserId,
+      groupId,
+      candidateActorId: invitedActorId,
+      intentKind: 'invite',
+      idempotencyKey: `invite:${randomUUID()}`,
+    });
 
-    // Criar convite (default 7 dias de expiração)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    return groupsRepository.createInvite(tenantId, groupId, invitedUserId, requesterUserId, expiresAt);
+    const invite = await groupsRepository.getInviteById(tenantId, intentId);
+    if (!invite) {
+      throw new Error('Failed to create invite');
+    }
+    return invite;
   }
 
   /**
@@ -699,100 +703,64 @@ class GroupsService {
       throw new Error('Group not found');
     }
 
-    // Verificar se requester é owner ou admin
+    // D9.2-B/D10: gestao do grupo = canRepresentActor (owner civil ou group-actor)
     const isOwner = await this.requesterMatchesOwnerActor(
       tenantId,
       group.ownerActorId,
       requesterUserId,
       userContext
     );
-    
-    if (!isOwner) {
-      const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, requesterUserId);
-      if (!isAdmin) {
-        throw new Error('Only the owner or admin can view invites');
-      }
+
+    if (!isOwner && !(await this.userCanGovernGroup(tenantId, groupId, requesterUserId))) {
+      throw new Error('Only the owner or a group representative can view invites');
     }
 
     return groupsRepository.getInvitesByGroup(tenantId, groupId, status);
   }
 
   /**
-   * Aceitar convite
-   * Apenas o usuário convidado pode aceitar
+   * D9.2-B (D13 superficie 5): aceite ATOMICO da intencao 'invite' — intent accepted +
+   * membership nascem na MESMA transacao (fn canonica). Autoridade do lado candidato
+   * (self do user-actor resolvido server-side, ou representante) provada no service
+   * governado. SEM fallback triplo userId‖globalUserId‖id.
    */
   async acceptInvite(
     tenantId: string,
     inviteId: string,
-    userId: string,
-    userContext?: { globalUserId?: string; id?: string }
+    actingUserId: string
   ): Promise<GroupMember> {
-    // Buscar convite
-    const invite = await groupsRepository.getInviteById(tenantId, inviteId);
-    if (!invite) {
+    const intent = await groupActorMembershipRepository.findIntent(tenantId, inviteId);
+    if (!intent) {
       throw new Error('Invite not found');
     }
-
-    // 🔴 VALIDAÇÃO: Apenas o usuário convidado pode aceitar
-    const isInvitedUser = invite.invitedUserId === userId ||
-                         (userContext?.globalUserId && invite.invitedUserId === userContext.globalUserId) ||
-                         (userContext?.id && invite.invitedUserId === userContext.id);
-    
-    if (!isInvitedUser) {
-      throw new Error('Only the invited user can accept the invite');
+    if (intent.intentKind !== 'invite') {
+      throw new Error('This is not an invite. Use approveJoinRequest for join requests.');
     }
 
-    // 🔴 VALIDAÇÃO: Convite deve estar pendente e não expirado
-    if (invite.status !== 'pending') {
-      if (invite.status === 'expired') {
-        throw new Error('Invite has expired');
-      }
-      throw new Error('Invite is not pending');
-    }
-
-    // Verificar se está expirado (dupla verificação)
-    if (invite.expiresAt && invite.expiresAt <= new Date()) {
-      throw new Error('Invite has expired');
-    }
-
-    // 🔴 VALIDAÇÃO: Verificar se grupo está ativo
-    const group = await groupsRepository.findById(tenantId, invite.groupId);
+    const group = await groupsRepository.findById(tenantId, intent.groupId);
     if (!group || !group.isActive) {
       throw new Error('Group is not active');
     }
 
-    const invitedActorUserRow = await runQueryWithTenant<{ user_id: string | null }>(
+    // Cap civil do CANDIDATO (D12) — antes de materializar a membership
+    await this.assertCandidateCapacity(tenantId, intent.candidateActorId);
+
+    const membership = await groupActorMembershipService.acceptMembershipIntent({
       tenantId,
-      `SELECT user_id FROM actors WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
-      [invite.invitedUserId, tenantId]
-    );
-    if (!invitedActorUserRow || !invitedActorUserRow.user_id) {
-      throw new Error(`Actor ${invite.invitedUserId} não possui user_id associado para aceitar convite`);
-    }
-    const invitedUserIdForMembership = invitedActorUserRow.user_id;
+      actingUserId,
+      intentId: inviteId,
+    });
 
-    // 🔴 VALIDAÇÃO: Não aceitar se já é membro
-    const members = await groupsRepository.getMembers(tenantId, invite.groupId);
-    const isAlreadyMember = members.some(m => m.userId === invitedUserIdForMembership);
-    if (isAlreadyMember) {
-      // Marcar convite como aceito mesmo assim (já é membro)
-      await groupsRepository.updateInviteStatus(tenantId, inviteId, 'accepted');
-      throw new Error('User is already a member of this group');
-    }
+    const memberUserId = await this.resolveActorUserId(tenantId, membership.memberActorId);
+    const member = this.toLegacyMember(membership, group.ownerActorId, memberUserId);
 
-    // Atualizar status do convite
-    await groupsRepository.updateInviteStatus(tenantId, inviteId, 'accepted');
-
-    // Adicionar como membro
-    const member = await groupsRepository.addMember(tenantId, invite.groupId, invitedUserIdForMembership, 'member');
-
-    // Emitir evento
     await eventBus.publish({
       tenantId,
       type: 'group.member.joined',
       payload: {
-        groupId: invite.groupId,
-        userId: invitedUserIdForMembership,
+        groupId: intent.groupId,
+        userId: memberUserId,
+        memberActorId: membership.memberActorId,
         role: member.role,
         viaInvite: true,
       },
@@ -801,75 +769,80 @@ class GroupsService {
     return member;
   }
 
+  /** user_id tecnico de um actor (null p/ membro institucional) — resolucao, nao identidade. */
+  private async resolveActorUserId(tenantId: string, actorId: string): Promise<string | null> {
+    const row = await runQueryWithTenant<{ user_id: string | null }>(
+      tenantId,
+      `SELECT user_id FROM actors WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [actorId, tenantId]
+    );
+    return row?.user_id ?? null;
+  }
+
   /**
-   * Recusar convite
-   * Apenas o usuário convidado pode recusar
+   * Recusar convite (intencao 'invite' pendente -> 'rejected').
+   * Lado candidato: self do user-actor resolvido server-side OU canRepresentActor(candidato).
+   * D9: rejeicao NAO bloqueia novo convite (unicidade agora e pending-only).
    */
   async declineInvite(
     tenantId: string,
     inviteId: string,
-    userId: string,
-    userContext?: { globalUserId?: string; id?: string }
+    actingUserId: string
   ): Promise<boolean> {
-    // Buscar convite
-    const invite = await groupsRepository.getInviteById(tenantId, inviteId);
-    if (!invite) {
+    const intent = await groupActorMembershipRepository.findIntent(tenantId, inviteId);
+    if (!intent) {
       throw new Error('Invite not found');
     }
-
-    // 🔴 VALIDAÇÃO: Apenas o usuário convidado pode recusar
-    const isInvitedUser = invite.invitedUserId === userId ||
-                         (userContext?.globalUserId && invite.invitedUserId === userContext.globalUserId) ||
-                         (userContext?.id && invite.invitedUserId === userContext.id);
-    
-    if (!isInvitedUser) {
-      throw new Error('Only the invited user can decline the invite');
+    if (intent.intentKind !== 'invite') {
+      throw new Error('This is not an invite. Use rejectJoinRequest for join requests.');
     }
-
-    // 🔴 VALIDAÇÃO: Convite deve estar pendente e não expirado
-    if (invite.status !== 'pending') {
-      if (invite.status === 'expired') {
+    if (intent.status !== 'pending') {
+      if (intent.status === 'expired') {
         throw new Error('Invite has expired');
       }
       throw new Error('Invite is not pending');
     }
 
-    // Verificar se está expirado (dupla verificação)
-    if (invite.expiresAt && invite.expiresAt <= new Date()) {
-      throw new Error('Invite has expired');
+    // namespace UNICO: principal -> user-actor canonico; representante institucional via authority
+    const actingActor = await ensureUserActor(tenantId, actingUserId);
+    if (actingActor.actor_id !== intent.candidateActorId) {
+      const { authorizationService } = await import('@core/authorization/authorization.service');
+      const represents = await authorizationService.canRepresentActor(tenantId, actingUserId, intent.candidateActorId);
+      if (!represents) {
+        throw new Error('Only the invited actor (or its representative) can decline the invite');
+      }
     }
 
-    // Atualizar status do convite
-    await groupsRepository.updateInviteStatus(tenantId, inviteId, 'declined');
-
+    await groupsRepository.updateInviteStatus(tenantId, inviteId, 'rejected');
     return true;
   }
 
   /**
-   * Listar convites do usuário
+   * D9.2-B (D13 superficie 3): convites do PRINCIPAL — resolve o user-actor canonico
+   * server-side e consulta a coluna de ACTOR (nunca globalUserId‖id contra coluna de actor).
    */
   async getUserInvites(
     tenantId: string,
-    userId: string,
+    actingUserId: string,
     status?: GroupInviteStatus
   ): Promise<GroupInvite[]> {
-    return groupsRepository.getInvitesByUser(tenantId, userId, status);
+    const actingActor = await ensureUserActor(tenantId, actingUserId);
+    return groupsRepository.getInvitesByUser(tenantId, actingActor.actor_id, status);
   }
 
   /**
-   * Solicitar entrada em grupo privado
-   * Cria um "request-to-join" usando a tabela group_invites
-   * Para grupos privados: usuário solicita entrada
-   * Para grupos secretos: não permitido (somente convite)
+   * D9.2-B (D13 superficie 4): request = INTENCAO EXPLICITA kind='request' (direcao declarada,
+   * nunca a convencao implicita "invited_by = candidato"). Candidato = user-actor canonico do
+   * PRINCIPAL, resolvido server-side. Rejeicao anterior NAO bloqueia novo request (D9).
    */
   async requestJoinGroup(
     tenantId: string,
     groupId: string,
-    userId: string,
-    input?: { expires_in_days?: number }
+    actingUserId: string,
+    _input?: { expires_in_days?: number }
   ): Promise<GroupInvite> {
-    // Verificar limite de grupos
-    const currentCount = await groupsRepository.getUserGroupCount(tenantId, userId);
+    // Cap civil (D12): pendencias nao contam; ativas contam
+    const currentCount = await groupsRepository.getUserGroupCount(tenantId, actingUserId);
     if (currentCount >= 3) {
       throw new Error('User cannot be in more than 3 groups');
     }
@@ -888,62 +861,54 @@ class GroupsService {
       throw new Error('Public groups allow direct join. Use joinGroup instead.');
     }
     if (group.visibility === 'secret') {
-      throw new Error('Secret groups require an invitation from an admin or owner');
+      throw new Error('Secret groups require an invitation from a group representative');
     }
 
-    // 🔴 VALIDAÇÃO: Não solicitar se já é membro
-    const members = await groupsRepository.getMembers(tenantId, groupId);
-    const isAlreadyMember = members.some(m => m.userId === userId);
-    if (isAlreadyMember) {
+    const actingActor = await ensureUserActor(tenantId, actingUserId);
+
+    // 🔴 VALIDAÇÃO: nao solicitar com membership JA ATIVA (namespace ACTOR)
+    const active = await groupActorMembershipRepository.findActiveByGroupAndMember(tenantId, groupId, actingActor.actor_id);
+    if (active) {
       throw new Error('User is already a member of this group');
     }
 
-    // 🔴 VALIDAÇÃO: Não criar request duplicado pendente
-    const pendingInvites = await groupsRepository.getInvitesByGroup(tenantId, groupId, 'pending');
-    const hasPendingRequest = pendingInvites.some(inv => inv.invitedUserId === userId && inv.invitedByUserId === userId);
-    if (hasPendingRequest) {
-      throw new Error('User already has a pending join request for this group');
+    // NOTA (residual documentado): expires_in_days do contrato legado nao e persistido pelo
+    // writer selado de intents (fn sem parametro de expiracao); expiracao de intents novas
+    // fica para decisao/frente propria. Duplicidade pendente = GAM_INTENT_PENDING_EXISTS.
+    const intentId = await groupActorMembershipService.createMembershipIntent({
+      tenantId,
+      actingUserId,
+      groupId,
+      candidateActorId: actingActor.actor_id,
+      intentKind: 'request',
+      idempotencyKey: `request:${randomUUID()}`,
+    });
+
+    const invite = await groupsRepository.getInviteById(tenantId, intentId);
+    if (!invite) {
+      throw new Error('Failed to create join request');
     }
-
-    // 🔴 VALIDAÇÃO: Não reutilizar request rejeitado
-    const rejectedInvites = await groupsRepository.getInvitesByGroup(tenantId, groupId, 'declined');
-    const hasRejectedRequest = rejectedInvites.some(inv => inv.invitedUserId === userId && inv.invitedByUserId === userId);
-    if (hasRejectedRequest) {
-      throw new Error('Join request was previously rejected. Cannot create a new request.');
-    }
-
-    // Calcular expiração (default 7 dias)
-    const expiresInDays = input?.expires_in_days || 7;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + expiresInDays);
-
-    // Criar request-to-join (usando group_invites com invited_by_user_id = userId)
-    return groupsRepository.createInvite(tenantId, groupId, userId, userId, expiresAt);
+    return invite;
   }
 
   /**
-   * Aprovar solicitação de entrada em grupo
-   * Apenas admin/owner podem aprovar
+   * Aprovar request de entrada (aceite ATOMICO da intencao 'request').
+   * Autoridade (lado grupo) = canRepresentActor(group-actor), provada no service governado.
    */
   async approveJoinRequest(
     tenantId: string,
     inviteId: string,
-    requesterUserId: string,
-    userContext?: { globalUserId?: string; id?: string }
+    requesterUserId: string
   ): Promise<GroupMember> {
-    // Buscar request
-    const invite = await groupsRepository.getInviteById(tenantId, inviteId);
-    if (!invite) {
+    const intent = await groupActorMembershipRepository.findIntent(tenantId, inviteId);
+    if (!intent) {
       throw new Error('Join request not found');
     }
-
-    // 🔴 VALIDAÇÃO: Verificar se é um request-to-join (invited_by_user_id === invited_user_id)
-    if (invite.invitedByUserId !== invite.invitedUserId) {
+    if (intent.intentKind !== 'request') {
       throw new Error('This is not a join request. Use acceptInvite for regular invites.');
     }
 
-    // Verificar se grupo existe e está ativo
-    const group = await groupsRepository.findById(tenantId, invite.groupId);
+    const group = await groupsRepository.findById(tenantId, intent.groupId);
     if (!group) {
       throw new Error('Group not found');
     }
@@ -951,66 +916,25 @@ class GroupsService {
       throw new Error('Group is not active');
     }
 
-    // 🔴 VALIDAÇÃO: Apenas admin/owner podem aprovar
-    const isOwner = await this.requesterMatchesOwnerActor(
+    // Cap civil do CANDIDATO (D12)
+    await this.assertCandidateCapacity(tenantId, intent.candidateActorId);
+
+    const membership = await groupActorMembershipService.acceptMembershipIntent({
       tenantId,
-      group.ownerActorId,
-      requesterUserId,
-      userContext
-    );
-    
-    if (!isOwner) {
-      const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, invite.groupId, requesterUserId);
-      if (!isAdmin) {
-        throw new Error('Only the owner or admin can approve join requests');
-      }
-    }
+      actingUserId: requesterUserId,
+      intentId: inviteId,
+    });
 
-    // 🔴 VALIDAÇÃO: Request deve estar pendente e não expirado
-    if (invite.status !== 'pending') {
-      if (invite.status === 'expired') {
-        throw new Error('Join request has expired');
-      }
-      throw new Error('Join request is not pending');
-    }
+    const memberUserId = await this.resolveActorUserId(tenantId, membership.memberActorId);
+    const member = this.toLegacyMember(membership, group.ownerActorId, memberUserId);
 
-    // Verificar se está expirado (dupla verificação)
-    if (invite.expiresAt && invite.expiresAt <= new Date()) {
-      throw new Error('Join request has expired');
-    }
-
-    const invitedActorUserRow = await runQueryWithTenant<{ user_id: string | null }>(
-      tenantId,
-      `SELECT user_id FROM actors WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
-      [invite.invitedUserId, tenantId]
-    );
-    if (!invitedActorUserRow || !invitedActorUserRow.user_id) {
-      throw new Error(`Actor ${invite.invitedUserId} não possui user_id associado para aprovar request de entrada`);
-    }
-    const invitedUserIdForMembership = invitedActorUserRow.user_id;
-
-    // 🔴 VALIDAÇÃO: Não aprovar se já é membro
-    const members = await groupsRepository.getMembers(tenantId, invite.groupId);
-    const isAlreadyMember = members.some(m => m.userId === invitedUserIdForMembership);
-    if (isAlreadyMember) {
-      // Marcar request como aceito mesmo assim (já é membro)
-      await groupsRepository.updateInviteStatus(tenantId, inviteId, 'accepted');
-      throw new Error('User is already a member of this group');
-    }
-
-    // Atualizar status do request
-    await groupsRepository.updateInviteStatus(tenantId, inviteId, 'accepted');
-
-    // Adicionar como membro
-    const member = await groupsRepository.addMember(tenantId, invite.groupId, invitedUserIdForMembership, 'member');
-
-    // Emitir evento
     await eventBus.publish({
       tenantId,
       type: 'group.member.joined',
       payload: {
-        groupId: invite.groupId,
-        userId: invitedUserIdForMembership,
+        groupId: intent.groupId,
+        userId: memberUserId,
+        memberActorId: membership.memberActorId,
         role: member.role,
         viaRequest: true,
       },
@@ -1020,58 +944,33 @@ class GroupsService {
   }
 
   /**
-   * Rejeitar solicitação de entrada em grupo
-   * Apenas admin/owner podem rejeitar
+   * Rejeitar request de entrada (intencao 'request' pendente -> 'rejected').
+   * Autoridade (lado grupo) = canRepresentActor (owner civil ou group-actor) — nunca role.
    */
   async rejectJoinRequest(
     tenantId: string,
     inviteId: string,
-    requesterUserId: string,
-    userContext?: { globalUserId?: string; id?: string }
+    requesterUserId: string
   ): Promise<boolean> {
-    // Buscar request
-    const invite = await groupsRepository.getInviteById(tenantId, inviteId);
-    if (!invite) {
+    const intent = await groupActorMembershipRepository.findIntent(tenantId, inviteId);
+    if (!intent) {
       throw new Error('Join request not found');
     }
-
-    // 🔴 VALIDAÇÃO: Verificar se é um request-to-join (invited_by_user_id === invited_user_id)
-    if (invite.invitedByUserId !== invite.invitedUserId) {
+    if (intent.intentKind !== 'request') {
       throw new Error('This is not a join request. Use declineInvite for regular invites.');
     }
-
-    // Verificar se grupo existe
-    const group = await groupsRepository.findById(tenantId, invite.groupId);
-    if (!group) {
-      throw new Error('Group not found');
-    }
-
-    // 🔴 VALIDAÇÃO: Apenas admin/owner podem rejeitar
-    const isOwner = await this.requesterMatchesOwnerActor(
-      tenantId,
-      group.ownerActorId,
-      requesterUserId,
-      userContext
-    );
-    
-    if (!isOwner) {
-      const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, invite.groupId, requesterUserId);
-      if (!isAdmin) {
-        throw new Error('Only the owner or admin can reject join requests');
-      }
-    }
-
-    // 🔴 VALIDAÇÃO: Request deve estar pendente
-    if (invite.status !== 'pending') {
-      if (invite.status === 'expired') {
+    if (intent.status !== 'pending') {
+      if (intent.status === 'expired') {
         throw new Error('Join request has expired');
       }
       throw new Error('Join request is not pending');
     }
 
-    // Atualizar status do request para declined
-    await groupsRepository.updateInviteStatus(tenantId, inviteId, 'declined');
+    if (!(await this.userCanGovernGroup(tenantId, intent.groupId, requesterUserId))) {
+      throw new Error('Only the owner or a group representative can reject join requests');
+    }
 
+    await groupsRepository.updateInviteStatus(tenantId, inviteId, 'rejected');
     return true;
   }
 }

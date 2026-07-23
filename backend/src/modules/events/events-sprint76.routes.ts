@@ -208,7 +208,7 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     //  · organizerActorId + caller representável         → organizer_dashboard (vê os próprios não-públicos).
     // O cliente estreita; o servidor define o piso. group/followers/unlisted globais e canal-5 = B3/B4/canal-5.
     // userId do caller (derivado de req.user — NUNCA de actorId declarado). Usado p/ decidir representação
-    // (organizer dashboard) E p/ abrir 'group' na discovery (B3, membership por group_members.user_id).
+    // (organizer dashboard) E p/ abrir 'group' na discovery (B3; membership Actor-first em group_actor_memberships — cutover D9.2-B/DECISION-0188).
     const userId = (req.user as { userId?: string } | undefined)?.userId;
     const filters: any = {
       visibilityMode: 'public_discovery' as 'public_discovery' | 'organizer_dashboard',

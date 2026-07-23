@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-// audit-group-actor-membership-foundation.mjs — Guard dedicado D9.2-A (posição 189 do runner).
-// DECISION-0188 (Membership Actor-first Contract) + DECISION-0186. Congela a FUNDAÇÃO DORMENTE:
+// audit-group-actor-membership-foundation.mjs — Guard dedicado D9.2-A/D9.2-B (runner).
+// DECISION-0188 (Membership Actor-first Contract) + DECISION-0186. Congela a FUNDAÇÃO:
 // casa única group_actor_memberships (member_actor_id como identidade; SEM user/global/member_type/
 // role/category/N0/N1/N2/financeiro), lifecycle active→left|removed terminal sem DELETE, unicidade
 // ativa tenant-scoped, coerência composta, RLS FORCE, app sem DML, writers governados com authority
 // no service (mesmo client — padrão selado D9.1), intents explícitas (invite|request; NULL≠invite;
-// aceite ATÔMICO), DORMÊNCIA total (zero caller de produto; zero flip; 6 superfícies e events-B3
-// INTOCADOS; group_members INTOCADA; role-authority e caps INTOCADOS até D9.2-B), fronteiras
-// (Bank/D9.3/D9.4/N0-N1-N2/organization fora).
+// aceite ATÔMICO). PÓS-CUTOVER D9.2-B (GO 2026-07-23): a seção D deixou de ser ANTI-CUTOVER e
+// virou CUTOVER-REGRESSION — o legado group_members está CONGELADO (nenhuma escrita/leitura no
+// módulo groups; role-authority retirada; superfícies convergidas); callers de produto agora são
+// GOVERNADOS por allowlist (seção C). Fronteiras (Bank/D9.3/D9.4/N0-N1-N2/organization fora).
 // Prova de CONTRATO. Marcador [X] por trava. Fail-closed. Comment-aware. Localiza a migration por CONTEÚDO.
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, join, sep } from 'node:path';
@@ -137,25 +138,42 @@ const FN_GI_IMMUT = fnBody('fn_gi_intent_enforce_immutability');
   if (/\brole\b/i.test(stripTs(SVC.raw))) note('ROLE-AS-MEMBERSHIP', 'service D9.2-A referencia role');
 }
 
-// ══ C · DORMÊNCIA (zero caller de produto; zero registro; zero seed/backfill) ══
+// ══ C · CALLERS GOVERNADOS (pós-cutover D9.2-B: superfícies enumeradas; fn_* SÓ no repository) ══
 {
   const ALLOW = [
     'src/modules/groups/group-actor-membership.service.ts',
     'src/modules/groups/group-actor-membership.repository.ts',
     'src/modules/groups/group-actor-membership.types.ts',
     'src/modules/groups/group-membership-shadow.readmodel.ts',
+    // superfícies do CUTOVER D9.2-B (flip atômico writers+readers — DECISION-0188 D16):
+    'src/modules/groups/groups.service.ts',
+    'src/modules/groups/groups.repository.ts',
+    'src/modules/groups/groups.routes.ts',
+    'src/core/feed/feed.routes.ts',
+    'src/modules/social/social.routes.ts',
   ];
   const allSrc = walk(resolve(ROOT, 'src')).map((p) => norm(p).replace(norm(ROOT) + '/', ''));
   for (const p of allSrc) {
     if (ALLOW.includes(p)) continue;
     if (/\.test\.|\.spec\.|__tests__/.test(p)) continue;
-    if (/^src\/scripts\/validate-pipeline-e2e-group-actor-membership/.test(p)) continue; // harness E2E
+    if (/^src\/scripts\/validate-pipeline-e2e-group-actor-membership/.test(p)) continue; // harness E2E D9.2-A
+    if (/^src\/scripts\/validate-pipeline-e2e-group-membership-cutover/.test(p)) continue; // harness E2E D9.2-B
     const s = stripTs(read(resolve(ROOT, p)));
     if (/group-actor-membership|group_actor_memberships|fn_enter_group_actor_membership|fn_accept_group_membership_intent|group-membership-shadow/.test(s)) {
-      note('DORMANCY', `caller vivo fora do allowlist: ${p}`);
+      note('DORMANCY', `caller fora do allowlist governado do cutover: ${p}`);
     }
   }
-  if (/group-actor-membership|group_actor_memberships/.test(APP_BUILDER.s)) note('DORMANCY', 'app.builder referencia a fundação D9.2-A');
+  // as fns canônicas SÓ são invocadas pelo repository privado (writer único TS)
+  for (const p of allSrc) {
+    if (p === 'src/modules/groups/group-actor-membership.repository.ts') continue;
+    if (/\.test\.|\.spec\.|__tests__/.test(p)) continue;
+    if (/^src\/scripts\/validate-pipeline-e2e-group/.test(p)) continue;
+    const s = stripTs(read(resolve(ROOT, p)));
+    if (/fn_(enter|leave|remove)_group_actor_membership|fn_(create|accept)_group_membership_intent/.test(s)) {
+      note('DIRECT-DML', `invocação direta de fn canônica fora do repository privado: ${p}`);
+    }
+  }
+  if (/group-actor-membership|group_actor_memberships/.test(APP_BUILDER.s)) note('DORMANCY', 'app.builder referencia a fundação diretamente');
   const feDir = resolve(ROOT, '../frontend/src');
   if (existsSync(feDir)) {
     const feApi = resolve(feDir, 'api');
@@ -174,34 +192,60 @@ const FN_GI_IMMUT = fnBody('fn_gi_intent_enforce_immutability');
   }
 }
 
-// ══ D · ANTI-CUTOVER (comportamento vivo INTOCADO até D9.2-B) ══
+// ══ D · CUTOVER D9.2-B CONSUMADO (legado congelado; regressão MORDE) ══
 {
-  // as 6 superfícies preservam seus marcadores atuais (defeitos DOCUMENTADOS convergem só no cutover)
-  if (!/const userId = req\.actionContext\.actorId;/.test(GROUPS_ROUTES.s)) {
-    note('ANTI-CUTOVER', '/join|/leave mudaram (actionContext.actorId não é mais o marcador vivo) — flip fora do D9.2-A');
+  // /join e /leave: sujeito = PRINCIPAL AUTENTICADO server-side; actionContext NUNCA é identidade
+  const sliceBetween = (code, a, b) => {
+    const i = code.indexOf(a);
+    if (i < 0) return '';
+    const j = b ? code.indexOf(b, i + a.length) : -1;
+    return j > i ? code.slice(i, j) : code.slice(i);
+  };
+  const joinLeave = sliceBetween(GROUPS_ROUTES.s, "'/:id/join'", "'/:id/members'");
+  if (!joinLeave) note('CUTOVER-REGRESSION', 'rotas /join|/leave não localizadas em groups.routes.ts');
+  else {
+    if (!/req\.user\.userId|req\.user\?\.userId/.test(joinLeave)) {
+      note('CUTOVER-REGRESSION', '/join|/leave perderam o sujeito autenticado server-side (req.user.userId)');
+    }
+    if (/const \w+ = req\.actionContext(!)?\.actorId/.test(joinLeave)) {
+      note('CUTOVER-REGRESSION', '/join|/leave voltaram a usar actionContext.actorId como identidade');
+    }
   }
-  if (!/isUserAdminOrOwner/.test(GROUPS_SVC.s) || !/isUserAdminOrOwner/.test(GROUPS_REPO.s)) {
-    note('ANTI-CUTOVER', 'role-authority (isUserAdminOrOwner) alterada — retirada é ato do cutover');
+  // role-authority RETIRADA (D11/D16): nenhum resquício em código vivo do módulo/eventos
+  if (/isUserAdminOrOwner/.test(GROUPS_SVC.s + GROUPS_REPO.s + GROUPS_ROUTES.s + EVENTS_B3.s)) {
+    note('CUTOVER-REGRESSION', 'role-como-autoridade (isUserAdminOrOwner) voltou — retirada no cutover D9.2-B');
   }
-  if (!/INSERT INTO group_members\b/.test(GROUPS_REPO.s) || /INSERT INTO group_members_/.test(GROUPS_REPO.s)) note('ANTI-CUTOVER', 'writer legado de group_members alterado');
-  if (!/DELETE FROM group_members\b/.test(GROUPS_REPO.s)) note('ANTI-CUTOVER', 'removeMember legado alterado');
-  // B3: o marcador vivo (comentário-âncora da discovery por group_members.user_id) permanece no RAW,
-  // e o módulo de events NÃO pode referenciar a casa nova (flip do reader = ato do cutover).
-  if (!/group_members/.test(EVENTS_B3.raw)) {
-    note('ANTI-CUTOVER', 'reader events-B3 alterado — migração desse reader é ato do cutover');
+  // legado CONGELADO: nenhuma escrita e nenhuma leitura de group_members no módulo groups
+  if (/INSERT INTO group_members|UPDATE group_members\b|DELETE FROM group_members/.test(GROUPS_REPO.s + GROUPS_SVC.s + GROUPS_ROUTES.s)) {
+    note('CUTOVER-REGRESSION', 'escrita legada em group_members voltou ao módulo groups (casa congelada — D4)');
+  }
+  if (/\bgroup_members\b/.test(GROUPS_REPO.s) || /\bgroup_members\b/.test(GROUPS_SVC.s) || /\bgroup_members\b/.test(GROUPS_ROUTES.s)) {
+    note('CUTOVER-REGRESSION', 'reader legado de group_members voltou ao módulo groups (verdade única = casa nova)');
+  }
+  // events-B3: reader convergido — código do módulo events NÃO referencia group_members
+  if (/\bgroup_members\b/.test(EVENTS_B3.s)) {
+    note('CUTOVER-REGRESSION', 'events-sprint76 voltou a ler group_members (reader migrado no cutover)');
   }
   for (const f of walk(resolve(ROOT, 'src/modules/events'))) {
     if (/\.test\.|\.spec\./.test(f)) continue;
-    if (/group_actor_memberships/.test(stripTs(read(f)))) note('ANTI-CUTOVER', `${norm(f)} referencia a casa nova (flip B3 proibido no D9.2-A)`);
+    if (/\bgroup_members\b/.test(stripTs(read(f)))) note('CUTOVER-REGRESSION', `${norm(f)} referencia group_members (legado congelado)`);
   }
-  if (!/INITIAL_LIMIT = 1\b/.test(POLICY.s)) note('ANTI-CUTOVER', 'cap de criação alterado');
-  if (!/currentCount >= 3\)/.test(GROUPS_SVC.s) || /currentCount >= 3\d/.test(GROUPS_SVC.s)) note('ANTI-CUTOVER', 'cap de participação alterado');
-  // dual-write: legado não escreve na casa nova; fundação não escreve no legado
-  if (/group_actor_memberships/.test(GROUPS_REPO.s) || /group_actor_memberships/.test(GROUPS_SVC.s)) {
-    note('DUAL-WRITE', 'módulo legado escreve/lê a casa nova (dual-path proibido até o flip)');
+  // writers do flip presentes: módulo groups usa o service governado da casa nova
+  if (!/groupActorMembershipService\./.test(GROUPS_SVC.s)) {
+    note('CUTOVER-REGRESSION', 'groups.service não usa mais o service governado da membership (flip revertido?)');
   }
-  if (/\bgroup_members\b/.test(SVC.s) || /\bgroup_members\b/.test(REPO.s)) note('DUAL-WRITE', 'fundação D9.2-A toca group_members');
-  if (/user_id OR actor_id|actor_id OR user_id/i.test(SVC.s + REPO.s + SHADOW.s)) note('NAMESPACE-FALLBACK', 'fallback user OR actor detectado');
+  // caps preservados (criação 1; participação 3 — agora contada na casa nova, D12)
+  if (!/INITIAL_LIMIT = 1\b/.test(POLICY.s)) note('CUTOVER-REGRESSION', 'cap de criação alterado');
+  if (!/currentCount >= 3\)/.test(GROUPS_SVC.s) || /currentCount >= 3\d/.test(GROUPS_SVC.s)) note('CUTOVER-REGRESSION', 'cap de participação alterado');
+  // fundação não toca o legado; sem predicados mistos de namespace em toda a família
+  if (/\bgroup_members\b/.test(SVC.s) || /\bgroup_members\b/.test(REPO.s)) note('DUAL-WRITE', 'fundação Actor-first toca group_members');
+  if (/user_id OR actor_id|actor_id OR user_id/i.test(SVC.s + REPO.s + SHADOW.s + GROUPS_SVC.s + GROUPS_REPO.s + GROUPS_ROUTES.s)) {
+    note('NAMESPACE-FALLBACK', 'fallback/predicado misto user OR actor detectado');
+  }
+  // fallback triplo do acceptInvite (superfície 5) não pode renascer
+  if (/invitedUserId === userContext/.test(GROUPS_SVC.s)) {
+    note('NAMESPACE-FALLBACK', 'fallback triplo userId‖globalUserId‖id voltou ao aceite de convite');
+  }
 }
 
 // ══ E · LIFECYCLE ══
@@ -369,4 +413,4 @@ if (fails.length) {
   for (const f of fails) console.error('   ' + f);
   process.exit(1);
 }
-console.log('✅ audit-group-actor-membership-foundation — fundação D9.2-A (DECISION-0188) íntegra e DORMENTE.');
+console.log('✅ audit-group-actor-membership-foundation — fundação Actor-first íntegra; cutover D9.2-B (DECISION-0188) consumado e travado.');

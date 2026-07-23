@@ -11,7 +11,8 @@
 //       ensureUserActor/getActiveActor (re-acoplar autoridade de cliente);
 //   (d) o bypass do action-context.plugin deixar de ser EXATO (`method==='GET' && rawPath==='/groups/mine'`)
 //       ou passar a usar endsWith/includes (alargaria o bypass para outras rotas);
-//   (e) o repository getUserGroups deixar de filtrar por `gm.user_id = $2`.
+//   (e) o repository getUserGroups perder a resolução Actor-first do cutover D9.2-B
+//       (findUserActorId + listByMember de group_actor_memberships) ou voltar a group_members.
 // Integrado em validate:regression-guards. NÃO altera runtime.
 
 import { readFileSync, existsSync } from 'fs';
@@ -73,9 +74,14 @@ function runGuard() {
     failures.push('action-context.plugin usa endsWith/includes para groups/mine — bypass deve ser path EXATO (não alargar para outras rotas).');
   }
 
-  // (e) repository filtra por gm.user_id = $2 (namespace do membership por user_id).
-  if (!/gm\.user_id = \$2/.test(repo)) {
-    failures.push('groups.repository getUserGroups não filtra mais `gm.user_id = $2` — namespace de membership alterado silenciosamente.');
+  // (e) D9.2-B (DECISION-0188): membership Actor-first — o repository resolve o user ao
+  //     user-actor canônico e lê a casa nova via listByMember; group_members (legado
+  //     congelado) NÃO pode reaparecer como fonte.
+  if (!/findUserActorId/.test(repo) || !/listByMember/.test(repo)) {
+    failures.push('groups.repository getUserGroups perdeu a resolução Actor-first (findUserActorId + listByMember da casa group_actor_memberships) — namespace de membership alterado silenciosamente.');
+  }
+  if (/\bgroup_members\b/.test(repo)) {
+    failures.push('groups.repository voltou a referenciar group_members — casa legada CONGELADA no cutover D9.2-B (DECISION-0188 D4).');
   }
 
   if (failures.length > 0) {
@@ -83,7 +89,7 @@ function runGuard() {
     failures.forEach((x) => console.error(`  ❌ ${x}`));
     process.exit(1);
   }
-  console.log('[groups-mine-auth-derived] GET /groups/mine self-scoped por req.user?.userId; 401 fail-closed; read-only; sem actionContext/actorId; bypass EXATO no plugin; repo filtra gm.user_id=$2.');
+  console.log('[groups-mine-auth-derived] GET /groups/mine self-scoped por req.user?.userId; 401 fail-closed; read-only; sem actionContext/actorId; bypass EXATO no plugin; repo resolve Actor-first (findUserActorId+listByMember; sem group_members).');
   console.log('GATE OK [groups-mine-auth-derived] — comportamento auth-derived TRAVADO (DECISION-0113); regressão p/ actorId/actionContext, perda de 401, write, ou bypass alargado mordem.');
 }
 

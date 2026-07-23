@@ -38,9 +38,15 @@ export interface Group {
   updatedAt: string;
 }
 
+// D9.2-B (DECISION-0188): projecao legada da membership Actor-first.
+// Verdade = group_actor_memberships (member_actor_id). userId aqui e RESOLVIDO do user-actor
+// (null p/ membros institucionais page/group). role e DERIVADA (owner = groups.owner_actor_id;
+// demais = member) — nunca persistida como fonte (D11).
 export interface GroupMember {
   groupId: string;
-  userId: string; // global_user_id
+  userId: string | null; // users.user_id do user-actor membro (resolucao, nao identidade da casa)
+  memberActorId: string; // identidade canonica da membership (actors.id)
+  membershipId: string; // linha em group_actor_memberships
   role: GroupMemberRole;
   joinedAt: Date;
 }
@@ -108,13 +114,16 @@ export interface GroupWithMembers extends Group {
   memberCount: number;
 }
 
-export type GroupInviteStatus = 'pending' | 'accepted' | 'declined' | 'expired';
+// D9.2-B: vocabulario FISICO de group_invites (CHECK vivo) inclui 'rejected'/'cancelled';
+// 'declined' permanece apenas como alias legado de entrada (normalizado para 'rejected').
+export type GroupInviteStatus = 'pending' | 'accepted' | 'rejected' | 'declined' | 'expired' | 'cancelled';
 
 export interface GroupInvite {
   inviteId: string;
   groupId: string;
-  invitedUserId: string;
-  invitedByUserId: string;
+  // D9.2-B: colunas fisicas sao invited_actor_id/invited_by_actor_id — namespace ACTOR (D13).
+  invitedUserId: string; // = invited_actor_id (actor canonico convidado)
+  invitedByUserId: string; // = invited_by_actor_id (actor iniciador)
   status: GroupInviteStatus;
   expiresAt: Date | null;
   createdAt: string;

@@ -163,7 +163,7 @@ export interface EventFilters {
   // narrowing opcional do cliente por visibility (só estreita; no piso público o servidor já força 'public').
   visibility?: string;
   // 🔵 F6.5.6b-B3: userId do CALLER (derivado de req.user, NUNCA actorId declarado) — usado só no
-  // public_discovery para abrir 'group' aos eventos de grupos onde o caller é membro (group_members por user_id).
+  // public_discovery para abrir 'group' aos eventos de grupos onde o caller é membro (membership Actor-first em group_actor_memberships — cutover D9.2-B/DECISION-0188).
   discoveryUserId?: string;
 }
 

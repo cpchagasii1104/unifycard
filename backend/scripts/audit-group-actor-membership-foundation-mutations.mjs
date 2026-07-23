@@ -89,18 +89,28 @@ const HOSTILE = [
   ['M19', 'GRANT-FROM-MEMBERSHIP', () => mutateFile('MIG',
     'INSERT INTO public.group_actor_memberships\n    (tenant_id, group_id, member_actor_id, status, entry_idempotency_key, entry_fingerprint,\n     created_by_actor_id, source_intent_id)',
     "INSERT INTO public.actor_capability_grants (tenant_id) VALUES (p_tenant_id);\n  INSERT INTO public.group_actor_memberships\n    (tenant_id, group_id, member_actor_id, status, entry_idempotency_key, entry_fingerprint,\n     created_by_actor_id, source_intent_id)")],
-  // ── dormência/anti-cutover ──
+  // ── governança de callers / regressão do cutover D9.2-B ──
   ['M20', 'DORMANCY', () => writeFileSync(FIX_CALLER,
     "import { groupActorMembershipService } from './group-actor-membership.service';\nexport function registerGamRoutes(app: { post: (p: string, h: () => void) => void }) { app.post('/groups/:id/actor-join', () => { void groupActorMembershipService; }); }\n")],
-  ['M21', 'ANTI-CUTOVER', () => mutateFile('GROUTES', 'const userId = req.actionContext.actorId;', 'const userId = req.user!.userId;', { all: true })],
-  ['M22', 'ANTI-CUTOVER', () => mutateFile('GREPO', 'INSERT INTO group_members', 'INSERT INTO group_members_legacy_off')],
-  ['M23', 'ANTI-CUTOVER', () => mutateFile('EVENTS', 'group_members', 'legacy_members', { all: true })],
+  // M21: /join volta a usar actionContext.actorId como identidade (superfície 1 regride)
+  ['M21', 'CUTOVER-REGRESSION', () => mutateFile('GROUTES',
+    'const actingUserId = req.user.userId;',
+    'const actingUserId = req.actionContext.actorId;')],
+  // M22: escrita legada em group_members renasce no módulo groups (casa congelada — D4)
+  ['M22', 'CUTOVER-REGRESSION', () => mutateFile('GREPO',
+    'class GroupsRepository {',
+    "const LEGACY_MEMBER_WRITE_SQL = 'INSERT INTO group_members (tenant_id) VALUES ($1)';\nvoid LEGACY_MEMBER_WRITE_SQL;\nclass GroupsRepository {")],
+  // M23: events volta a ler group_members (reader B3 regride ao user-first)
+  ['M23', 'CUTOVER-REGRESSION', () => mutateFile('EVENTS',
+    "const userId = (req.user as { userId?: string } | undefined)?.userId;",
+    "const userId = (req.user as { userId?: string } | undefined)?.userId;\n    const LEGACY_MEMBERS_PROBE = 'SELECT 1 FROM group_members';\n    void LEGACY_MEMBERS_PROBE;")],
   ['M24', 'DUAL-WRITE', () => mutateFile('REPO',
     'export const groupActorMembershipRepository = new GroupActorMembershipRepository();',
     "export const LEGACY_SYNC_SQL = 'INSERT INTO group_members (tenant_id) VALUES ($1)';\nexport const groupActorMembershipRepository = new GroupActorMembershipRepository();")],
-  ['M25', 'DUAL-WRITE', () => mutateFile('GREPO',
-    'async addMember(tenantId: string, groupId: string, userId: string,',
-    "NEW_HOUSE_SQL = 'SELECT id FROM group_actor_memberships LIMIT 1';\n  async addMember(tenantId: string, groupId: string, userId: string,")],
+  // M25: reader do módulo groups cai de volta para group_members (fallback de casa)
+  ['M25', 'CUTOVER-REGRESSION', () => mutateFile('GREPO',
+    'async getMembers(tenantId: string, groupId: string): Promise<GroupMember[]> {',
+    "async getMembers(tenantId: string, groupId: string): Promise<GroupMember[]> {\n    const LEGACY_FALLBACK_SQL = 'SELECT 1 FROM group_members LIMIT 1';\n    void LEGACY_FALLBACK_SQL;")],
   ['M26', 'SEED-BACKFILL', () => mutateFile('MIG', '\nCOMMIT;\n',
     "\nINSERT INTO public.group_actor_memberships (tenant_id, group_id, member_actor_id, status, entry_idempotency_key, entry_fingerprint, created_by_actor_id)\nSELECT gm.tenant_id, gm.group_id, a.id, 'active', 'bf:'||gm.id::text, 'bf', a.id FROM group_members gm JOIN actors a ON a.user_id = gm.user_id;\nCOMMIT;\n")],
   ['M27', 'SEED-BACKFILL', () => mutateFile('MIG', '\nCOMMIT;\n',

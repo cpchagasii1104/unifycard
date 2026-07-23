@@ -150,23 +150,17 @@ async function requireGroupOwnerOrPermission(
         return;
       }
 
-      // 🔴 CORREÇÃO UX: Verificar se usuário é admin do grupo
-      const { groupsRepository } = await import('./groups.repository');
-      const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, userIdForCheck);
-      if (isAdmin) {
-        /**
-         * EXCEÇÃO INSTITUCIONAL (SPRINT 30)
-         * Motivo: Admin de grupo tem permissão implícita que bypassa RBAC (exceção ao modelo padrão)
-         * Contexto: Regra de negócio específica para grupos - admin tem acesso total
-         * Tipo: estrutural
-         */
+      // 🔒 D9.2-B (DECISION-0188 D11/D16): a via "admin por role" foi RETIRADA no cutover.
+      // Gestao do grupo = canRepresentActor(group-actor|owner-actor) — nunca group_members.role.
+      const canGovern = await groupsService.userCanGovernGroup(tenantId, groupId, userIdForCheck);
+      if (canGovern) {
         req.log.info({
           tenantId,
           userId: userIdForCheck,
           groupId,
           permission,
-          action: 'group_admin_bypass',
-        }, 'Group admin access granted (bypass RBAC)');
+          action: 'group_representative_bypass',
+        }, 'Group representative access granted (canRepresentActor)');
         return;
       }
     }
@@ -751,22 +745,28 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: groupsAuthGate('groups:join'),
     },
     async (req, reply) => {
+      // presença do actionContext segue exigida pelo contrato V2 (hint/telemetria) — NUNCA identidade
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
+      // 🔒 D9.2-B (DECISION-0188 D13 superficie 1): o sujeito da entrada é o PRINCIPAL
+      // AUTENTICADO (req.user.userId, server-side) resolvido a user-actor no service governado.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.actionContext.actorId;
+      const actingUserId = req.user.userId;
       const { id } = req.params;
       const requestId = (req as any).requestId || req.id;
 
       try {
-        const member = await groupsService.joinGroup(tenantId, id, userId);
+        const member = await groupsService.joinGroup(tenantId, id, actingUserId);
 
         req.log.info({
           requestId,
           tenantId,
-          userId,
+          userId: actingUserId,
           groupId: id,
           action: 'join',
           source: 'groups',
@@ -777,7 +777,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         req.log.error({
           requestId,
           tenantId,
-          userId,
+          userId: actingUserId,
           groupId: id,
           err: error,
           action: 'join',
@@ -800,17 +800,22 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: groupsAuthGate('groups:leave'),
     },
     async (req, reply) => {
+      // presença do actionContext segue exigida pelo contrato V2 (hint/telemetria) — NUNCA identidade
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
+      // 🔒 D9.2-B (DECISION-0188 D13 superficie 2): sujeito = PRINCIPAL AUTENTICADO server-side.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.actionContext.actorId;
+      const actingUserId = req.user.userId;
       const { id } = req.params;
       const requestId = (req as any).requestId || req.id;
 
       try {
-        const left = await groupsService.leaveGroup(tenantId, id, userId);
+        const left = await groupsService.leaveGroup(tenantId, id, actingUserId);
 
         if (!left) {
           return reply.status(404).send({ error: 'Member not found' });
@@ -819,7 +824,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         req.log.info({
           requestId,
           tenantId,
-          userId,
+          userId: actingUserId,
           groupId: id,
           action: 'leave',
           source: 'groups',
@@ -830,7 +835,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         req.log.error({
           requestId,
           tenantId,
-          userId,
+          userId: actingUserId,
           groupId: id,
           err: error,
           action: 'leave',
@@ -877,44 +882,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
-      if (!req.actionContext || !req.actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext obrigatório' });
-      }
-
-      const tenantId = req.tenant!.id;
-      const userId = req.actionContext.actorId;
-      const { id, userId: memberUserId } = req.params;
-      const { role } = req.body;
-
-      if (!role || !['member', 'admin', 'moderator', 'collaborator'].includes(role)) {
-        return reply.status(400).send({
-          error: 'Invalid role. Must be one of: member, admin, moderator, collaborator',
-        });
-      }
-
-      try {
-        const userContext = {
-          globalUserId: req.user!.globalUserId,
-          id: req.user!.id,
-          userId: req.user!.userId,
-        };
-
-        const member = await groupsService.updateMemberRole(
-          tenantId,
-          id,
-          memberUserId,
-          role,
-          userId,
-          userContext
-        );
-
-        return reply.status(200).send({ member });
-      } catch (error) {
-        const err = error as Error & { statusCode?: number };
-        return reply.status(err.statusCode ?? 400).send({
-          error: err.message || 'Error updating member role',
-        });
-      }
+      // 🔒 D9.2-B (DECISION-0188 D11): role de membro foi APOSENTADA no cutover Actor-first —
+      // a casa canonica group_actor_memberships nao persiste role e role NAO concede autoridade.
+      // Endpoint fail-closed explicito (sem escrita na casa legada congelada).
+      return reply.status(410).send({
+        error: 'GAM_ROLE_RETIRED: role de membro nao existe mais (DECISION-0188 D11) — role nunca e autoridade; roles organizacionais governadas = frente futura (D9.3).',
+      });
     }
   );
 
@@ -933,24 +906,22 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
+      // 🔒 D9.2-B: remocao administrativa exige o PRINCIPAL AUTENTICADO (server-side);
+      // a autoridade real (canRepresentActor do group-actor) e provada no service governado.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
 
       const tenantId = req.tenant!.id;
-      const userId = req.actionContext.actorId;
+      const requesterUserId = req.user.userId;
       const { id, userId: memberUserId } = req.params;
 
       try {
-        const userContext = {
-          globalUserId: req.user!.globalUserId,
-          id: req.user!.id,
-          userId: req.user!.userId,
-        };
-
         const removed = await groupsService.removeMember(
           tenantId,
           id,
           memberUserId,
-          userId,
-          userContext
+          requesterUserId
         );
 
         if (!removed) {
@@ -981,34 +952,39 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
+      // 🔒 D9.2-B (D13): membership do CALLER verificada pelo PRINCIPAL server-side na casa
+      // nova (nunca actionContext.actorId comparado com user — comparacao cross-namespace).
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.actionContext.actorId;
+      const userId = req.user.userId;
       const { id: groupId } = req.params;
 
       try {
         // Verificar se usuário é membro do grupo
         const members = await groupsService.getGroupMembers(tenantId, groupId);
-        const isMember = members.some(m => m.userId === userId);
-        
+        const isMember = members.some(m => m.userId !== null && m.userId === userId);
+
         if (!isMember) {
-          return reply.status(403).send({ 
-            ok: false, 
-            message: 'Você não é membro deste grupo' 
+          return reply.status(403).send({
+            ok: false,
+            message: 'Você não é membro deste grupo'
           });
         }
 
         // Buscar conta do grupo
         const { groupsRepository } = await import('./groups.repository');
         const groupAccount = await groupsRepository.getGroupAccount(tenantId, groupId);
-        
+
         if (!groupAccount) {
-          return reply.send({ 
-            ok: true, 
-            data: { 
-              balance: 0, 
+          return reply.send({
+            ok: true,
+            data: {
+              balance: 0,
               currency: 'BRL',
               hasAccount: false,
-            } 
+            }
           });
         }
 
@@ -1106,13 +1082,13 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(404).send({ error: 'Grupo não encontrado' });
         }
 
-        // Contar membros
+        // Contar membros ATIVOS (D9.2-B: verdade = group_actor_memberships)
         const membersCountRow = await runQueryWithTenant<{ count: string }>(
           req.tenant.id,
           `
           SELECT COUNT(*) as count
-          FROM group_members
-          WHERE group_id = $1 AND tenant_id = $2
+          FROM group_actor_memberships
+          WHERE group_id = $1 AND tenant_id = $2 AND status = 'active'
           `,
           [groupId, req.tenant.id]
         );
@@ -1172,20 +1148,24 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
+      // 🔒 D9.2-B (D13): membership do CALLER pelo PRINCIPAL server-side, casa nova.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.actionContext.actorId;
+      const userId = req.user.userId;
       const { id: groupId } = req.params;
       const { limit = 20, offset = 0 } = req.query as { limit?: number; offset?: number };
 
       try {
         // Verificar se usuário é membro do grupo
         const members = await groupsService.getGroupMembers(tenantId, groupId);
-        const isMember = members.some(m => m.userId === userId);
-        
+        const isMember = members.some(m => m.userId !== null && m.userId === userId);
+
         if (!isMember) {
-          return reply.status(403).send({ 
-            ok: false, 
-            message: 'Você não é membro deste grupo' 
+          return reply.status(403).send({
+            ok: false,
+            message: 'Você não é membro deste grupo'
           });
         }
 
@@ -1229,7 +1209,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.post<{
     Params: { id: string };
-    Body: { invited_user_id: string };
+    Body: { invited_actor_id?: string; invited_user_id?: string };
   }>(
     '/:id/invites',
     {
@@ -1238,30 +1218,29 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      // 🔒 D9.2-B (D13 superficie 6): iniciador = PRINCIPAL AUTENTICADO server-side;
+      // candidato = ACTOR canonico (campo legado invited_user_id JA carregava actor id —
+      // aceito como alias do campo canonico invited_actor_id, mesmo namespace).
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const requesterUserId = req.user.userId;
       const { id } = req.params;
-      const { invited_user_id } = req.body;
+      const invitedActorId = req.body?.invited_actor_id || req.body?.invited_user_id;
 
-      if (!invited_user_id) {
+      if (!invitedActorId) {
         return reply.status(400).send({
-          error: 'invited_user_id is required',
+          error: 'invited_actor_id is required',
         });
       }
 
       try {
-        const userContext = {
-          globalUserId: req.user!.globalUserId,
-          id: req.user!.id,
-          userId: req.user!.userId,
-        };
-
         const invite = await groupsService.createInvite(
           tenantId,
           id,
-          invited_user_id,
-          userId,
-          userContext
+          invitedActorId,
+          requesterUserId
         );
 
         return reply.status(201).send({ invite });
@@ -1289,8 +1268,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      // 🔒 D9.2-B: requester = PRINCIPAL AUTENTICADO server-side (autoridade via canRepresentActor)
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const requesterUserId = req.user.userId;
       const { id } = req.params;
       const { status } = req.query as { status?: 'pending' | 'accepted' | 'declined' | 'expired' };
 
@@ -1304,7 +1287,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         const invites = await groupsService.getGroupInvites(
           tenantId,
           id,
-          userId,
+          requesterUserId,
           userContext,
           status
         );
@@ -1332,22 +1315,20 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       // A validação de que o usuário é o convidado é feita no service
     },
     async (req, reply) => {
+      // 🔒 D9.2-B (D13 superficie 5): quem aceita = PRINCIPAL AUTENTICADO server-side,
+      // resolvido a user-actor no service governado — SEM fallback userId‖globalUserId‖id.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const actingUserId = req.user.userId;
       const { inviteId } = req.params;
 
       try {
-        const userContext = {
-          globalUserId: req.user!.globalUserId,
-          id: req.user!.id,
-          userId: req.user!.userId,
-        };
-
         const member = await groupsService.acceptInvite(
           tenantId,
           inviteId,
-          userId,
-          userContext
+          actingUserId
         );
 
         return reply.status(200).send({ member });
@@ -1375,22 +1356,19 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       // A validação de que o usuário é o convidado é feita no service
     },
     async (req, reply) => {
+      // 🔒 D9.2-B: quem recusa = PRINCIPAL AUTENTICADO server-side (self ou representante).
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const actingUserId = req.user.userId;
       const { inviteId } = req.params;
 
       try {
-        const userContext = {
-          globalUserId: req.user!.globalUserId,
-          id: req.user!.id,
-          userId: req.user!.userId,
-        };
-
         await groupsService.declineInvite(
           tenantId,
           inviteId,
-          userId,
-          userContext
+          actingUserId
         );
 
         return reply.status(200).send({ success: true });
@@ -1416,12 +1394,17 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       // O tenant plugin já garante que req.tenant e req.user estão disponíveis
     },
     async (req, reply) => {
+      // 🔒 D9.2-B (D13 superficie 3): "meus convites" = PRINCIPAL AUTENTICADO server-side,
+      // resolvido a user-actor no service — NUNCA globalUserId‖id contra coluna de ACTOR.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const actingUserId = req.user.userId;
       const { status } = req.query as { status?: 'pending' | 'accepted' | 'declined' | 'expired' };
 
       try {
-        const invites = await groupsService.getUserInvites(tenantId, userId, status);
+        const invites = await groupsService.getUserInvites(tenantId, actingUserId, status);
 
         return reply.status(200).send({ invites });
       } catch (error) {
@@ -1446,8 +1429,13 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: groupsAuthGate('groups:join'),
     },
     async (req, reply) => {
+      // 🔒 D9.2-B (D13 superficie 4): candidato = user-actor canonico do PRINCIPAL
+      // AUTENTICADO (server-side) — NUNCA globalUserId injetado em FK de actors.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const actingUserId = req.user.userId;
       const { id } = req.params;
       const { expires_in_days } = req.body || {};
 
@@ -1455,7 +1443,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         const invite = await groupsService.requestJoinGroup(
           tenantId,
           id,
-          userId,
+          actingUserId,
           { expires_in_days }
         );
 
@@ -1483,22 +1471,20 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      // 🔒 D9.2-B: quem aprova = PRINCIPAL AUTENTICADO server-side; autoridade =
+      // canRepresentActor(group-actor), provada no service governado (D10).
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const requesterUserId = req.user.userId;
       const { inviteId } = req.params;
 
       try {
-        const userContext = {
-          globalUserId: req.user!.globalUserId,
-          id: req.user!.id,
-          userId: req.user!.userId,
-        };
-
         const member = await groupsService.approveJoinRequest(
           tenantId,
           inviteId,
-          userId,
-          userContext
+          requesterUserId
         );
 
         return reply.status(200).send({ member });
@@ -1525,22 +1511,20 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      // 🔒 D9.2-B: quem rejeita = PRINCIPAL AUTENTICADO server-side; autoridade =
+      // canRepresentActor (owner civil ou group-actor) — nunca role.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const requesterUserId = req.user.userId;
       const { inviteId } = req.params;
 
       try {
-        const userContext = {
-          globalUserId: req.user!.globalUserId,
-          id: req.user!.id,
-          userId: req.user!.userId,
-        };
-
         await groupsService.rejectJoinRequest(
           tenantId,
           inviteId,
-          userId,
-          userContext
+          requesterUserId
         );
 
         return reply.status(200).send({ success: true });
