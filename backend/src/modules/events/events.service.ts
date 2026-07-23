@@ -509,6 +509,13 @@ class EventsService {
     input: AssignStaffInput,
     assignedByGlobalUserId: string
   ): Promise<EventStaff> {
+    // 🔴 C2b (EVENT-ENGINE-COMPLETION, §2/§4.8): WRITER ÚNICO do vínculo actor↔evento. Este writer LEGADO
+    // (user-only, SEM gate de autoridade sobre o evento — INSERT INTO event_staff paralelo) foi CONTIDO. O
+    // vínculo canônico é core/events/operational-commitments.service.ts createCommitment (actor-first, aceita
+    // banda page/group, gate DUAL) via POST /events/:id/v2/commitments. Throw HONESTO como PRIMEIRA instrução —
+    // nenhum INSERT paralelo em event_staff executável, nem por curl. Corpo original preservado ABAIXO (dead-code).
+    throw new Error('EVENT_ASSIGN_STAFF_CONVERGED: writer legado de vínculo (assignStaff, user-only) contido — use POST /events/:id/v2/commitments (createCommitment, actor-first, gate dual).');
+
     // Verificar se evento existe
     const event = await this.getEvent(tenantId, eventId);
     if (!event) {

@@ -205,6 +205,16 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      // 🔴 C2b (EVENT-ENGINE-COMPLETION, §2/§4.8): WRITER ÚNICO do vínculo. Esta ROTA legada user-only
+      // (assign-staff, SEM gate de autoridade sobre o dono do evento) fica CONTIDA: entrada única de vínculo
+      // = POST /events/:id/v2/commitments (createCommitment, actor-first, gate DUAL). 501 honesto ANTES do
+      // sink (eventsService.assignStaff). Corpo original abaixo (dead-code). Não toca createCommitment.
+      return reply.status(501).send({
+        error: 'EVENT_ASSIGN_STAFF_CONVERGED',
+        code: 'EVENT_ASSIGN_STAFF_CONVERGED',
+        message: 'Rota legada de designação de staff contida — use POST /events/:id/v2/commitments (createCommitment, actor-first, gate dual).',
+      });
+
       if (!req.user) {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
