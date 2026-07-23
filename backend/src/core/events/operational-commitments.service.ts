@@ -144,6 +144,7 @@ class OperationalCommitmentsService {
       tenantId,
       `
       INSERT INTO event_staff (
+        tenant_id,
         event_id,
         responsible_actor_id,
         responsible_actor_type,
@@ -154,10 +155,14 @@ class OperationalCommitmentsService {
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
       RETURNING *
       `,
       [
+        // 🔴 C2a: event_staff.tenant_id é NOT NULL (sem default/trigger) — o INSERT PRECISA fornecê-lo.
+        // Alinhamento MÍNIMO do writer (GO §5b): sem isto o vínculo actor-first estoura por tenant_id nulo,
+        // independentemente do reconcile de status/colunas. Actor-keyed permanece (responsible_actor_id).
+        tenantId,
         input.eventId,
         input.responsibleActorId,
         input.responsibleActorType,

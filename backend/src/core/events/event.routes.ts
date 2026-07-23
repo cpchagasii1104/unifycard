@@ -1948,6 +1948,12 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         if (error instanceof NotFoundError) {
           return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
+        // 🔴 C2a: assertEventExactAuthority (2ª cancela da autoridade DUAL) lança ForbiddenError — mapear p/
+        // 403, coerente com os handlers irmãos (check-in/out/fail) e com a intenção documentada (§ helper).
+        // Sem isto, negar manage_attendees virava 500 (gap deste handler), quebrando o contrato de autoridade.
+        if (error instanceof ForbiddenError) {
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
+        }
         fastify.log.error({ err: error }, 'Erro ao criar commitment');
         return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while creating commitment');
       }
