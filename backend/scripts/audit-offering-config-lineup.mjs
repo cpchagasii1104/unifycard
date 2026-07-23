@@ -91,10 +91,13 @@ if (SVC_RAW) {
   const MIG_DIR = join(ROOT, 'migrations');
   // GOVERNED EVOLUTION (FATIA PREÇO, migration 20260723180000): a fronteira de PREÇO das tabelas de config
   // deixou de ser "preço PROIBIDO nesta fatia" e passou a ser GOVERNADA pelo guard dedicado
-  // audit-offering-config-price-grid.mjs (price_cents/default_price_cents + cascata "a partir de" de 3 níveis,
-  // Δbank=0, porta-01 FORA). Este guard NÃO enfraquece: continua mordendo contaminação BANCÁRIA real em tabela
-  // de config (bank_/currency/fee/tax) — apenas DELEGA a nomenclatura de PREÇO ao guard dedicado, sem dupla
-  // verdade sobre a mesma fronteira. price|_cents|valor_|preco saem daqui e passam a ser vigiados lá.
+  // audit-offering-config-price-grid.mjs. Este guard aqui NÃO enfraquece: continua mordendo contaminação
+  // BANCÁRIA real em tabela de config (bank_/currency/fee/tax) — apenas DELEGA a nomenclatura de PREÇO ao guard
+  // dedicado, SEM dupla verdade sobre a mesma fronteira. Delegação PRECISA (não é só _cents): o guard dedicado
+  // PERMITE apenas os nomes canônicos price_cents/default_price_cents em DDL de service_offering_config* e MORDE
+  // qualquer outro nome com-cara-de-dinheiro — price (float/não-_cents), amount, valor_..., preco... — escaneando
+  // SÓ linhas de definição de coluna/ADD COLUMN (comment- e literal-stripped). Assim price|_cents|valor_|preco/
+  // amount saem daqui SEM buraco de cobertura (o validate-financial-vocabulary.js ignora migrations).
   const FIN_TOKENS = /\bfee\b|fee_bps|\btax\b|tax_|bank_|currency/i;
   if (!existsSync(MIG_DIR)) {
     note('MIGRATIONS', 'diretorio migrations ausente');

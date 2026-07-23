@@ -21,8 +21,39 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\s\S]*?\*\//g, '');
 const stripSql = (s) => s.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+// anti-falso-positivo: neutraliza LITERAIS DE STRING SQL ('...', com '' escapado) — para o scan de NOMES de
+// coluna nunca morder prosa/COMMENT ON ... IS 'preço...' nem CHECK IN ('manha',...). Preserva as aspas vazias.
+const stripSqlLiterals = (s) => s.replace(/'(?:''|[^'])*'/g, "''");
 const fails = [];
 const note = (marker, m) => fails.push(`[${marker}] ${m}`);
+
+// Nome com-cara-de-dinheiro NÃO-canônico (canônicos price_cents/default_price_cents são PERMITIDOS). \bprice\b
+// não casa dentro de price_cents (o '_' é word-char, sem boundary) — por isso testamos o NOME inteiro da coluna.
+const MONEY_LOOKING = /amount|valor|preco|price/i;
+const CANON_MONEY = new Set(['price_cents', 'default_price_cents']);
+const SQL_TYPE = /^(uuid|bigint|bigserial|smallint|smallserial|serial|integer|int|int2|int4|int8|text|varchar|char|character|numeric|decimal|float|float4|float8|real|double|money|boolean|bool|timestamptz|timestamp|date|time|interval|jsonb|json|bytea|inet|cidr|uuid)\b/i;
+const NON_COLUMN_KW = /^(constraint|primary|unique|foreign|check|references|on|add|drop|alter|create|table|column|comment|begin|commit|if|not|exists|index)$/i;
+
+// Escaneia SÓ linhas de DEFINIÇÃO DE COLUMNA (CREATE TABLE) e ADD COLUMN de UM statement DDL já
+// comment-stripped E literal-stripped; morde nome com-cara-de-dinheiro fora do par canônico _cents.
+function scanMoneyLookingColumns(ddlStmt, fileLabel) {
+  for (const line of ddlStmt.split('\n')) {
+    let col = null;
+    const addm = line.match(/\bADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?"?([a-z_][a-z0-9_]*)"?\s+[a-z]/i);
+    if (addm) {
+      col = addm[1];
+    } else {
+      const dm = line.match(/^\s*"?([a-z_][a-z0-9_]*)"?\s+([a-z][a-z0-9_]*)/i);
+      if (dm && SQL_TYPE.test(dm[2]) && !NON_COLUMN_KW.test(dm[1])) col = dm[1];
+    }
+    if (!col) continue;
+    const lc = col.toLowerCase();
+    if (CANON_MONEY.has(lc)) continue;
+    if (MONEY_LOOKING.test(lc)) {
+      note('MONEY-NAME', `migration ${fileLabel}: coluna com-cara-de-dinheiro NAO-canonica '${col}' em DDL de service_offering_config* — dinheiro SO como price_cents/default_price_cents (nomenclatura canonica _cents; sem float/valor_/preco/amount).`);
+    }
+  }
+}
 
 const readOrFail = (rel, marker) => {
   const abs = resolve(ROOT, rel);
@@ -136,8 +167,14 @@ if (SVC_RAW) {
           note('4TH-TRUTH', `migration ${f}: coluna de dinheiro '${col}' fora de {price_cents, default_price_cents} — sem 4a verdade de preco (§2).`);
         }
       }
-      // (e) sem contaminacao bancaria na DDL da grade.
-      const stmts = sql.split(';').filter((s) => /service_offering_config/i.test(s));
+      // (a-migration) NOME com-cara-de-dinheiro NAO-canonico em DDL de config (herda a vigilancia que saiu do
+      // guard F3: valor_/preco/price-float/amount que o validate-financial-vocabulary.js NAO ve em migrations).
+      // Escopo: SO linhas de definicao de coluna / ADD COLUMN, sobre SQL comment-stripped E literal-stripped.
+      const sqlNoLit = stripSqlLiterals(sql);
+      const ddlStmts = sqlNoLit.split(';').filter((s) => /service_offering_config/i.test(s) && /\b(CREATE\s+TABLE|ALTER\s+TABLE)\b/i.test(s));
+      for (const st of ddlStmts) scanMoneyLookingColumns(st, f);
+      // (e) sem contaminacao bancaria na DDL da grade (sobre statement literal-stripped, sem morder prosa).
+      const stmts = sqlNoLit.split(';').filter((s) => /service_offering_config/i.test(s));
       for (const s of stmts) {
         if (/\b(bank_|currency|moeda|fee_bps|\bfee\b|\btax\b|ledger|payout|split)\b/i.test(s)) {
           note('BANK-FRONTIER', `migration ${f}: DDL de service_offering_config* com token bancario/moeda — preco = catalogo DECLARADO (Δbank=0).`);
