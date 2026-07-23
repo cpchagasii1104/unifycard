@@ -364,6 +364,7 @@ class ServicesService {
       categoryId?: string;
       subjectConceptId?: string; // C1b: gênero (subject-concept governado) — filtra via facet da oferta
       equipmentConceptId?: string; // C1c-a: equipamento (concept governado) — filtra via facet da oferta
+      audienceSize?: number; // F-PERFORMER-AUDIENCE-RANGE: N pessoas — casa se a faixa da oferta CONTÉM N
       cityId?: string;
       stateId?: string;
       countryId?: string;
@@ -407,6 +408,7 @@ class ServicesService {
       conceptId,
       subjectConceptId: filters.subjectConceptId,
       equipmentConceptId: filters.equipmentConceptId,
+      audienceSize: filters.audienceSize,
       cityId: filters.cityId,
       stateId: filters.stateId,
       countryId: filters.countryId,

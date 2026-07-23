@@ -27,9 +27,12 @@ export class ServiceOfferingError extends Error {
   }
 }
 
-// 🔴 C1c-a — valida a CAPACIDADE DE PÚBLICO (conditions.audience_capacity): se presente, inteiro > 0.
-// Capacidade-de-público ("atende até N pessoas") ≠ capacity de SLOT da Unified Availability (vagas de agenda).
-// Ausente = ok (atributo opcional). Só shape; sem coluna nova.
+// 🔴 C1c-a — valida a CAPACIDADE DO EQUIPAMENTO/som próprio (conditions.audience_capacity): se presente, inteiro > 0.
+// SEMÂNTICA: alcance do EQUIPAMENTO/PA ("meu som atende até N pessoas") — insumo LOGÍSTICO da orquestração de
+// locação de equipamento. ≠ FAIXA DE PÚBLICO PREFERIDA (audience_min/audience_max, colunas REAIS): esta é
+// PREFERÊNCIA/CONFORTO da banda que alimenta os FILTROS de descoberta. Dois eixos DISTINTOS (§2 sem verdade
+// duplicada), mantidos separados. ≠ capacity de SLOT da Unified Availability (vagas de agenda). Ausente = ok
+// (atributo opcional). Só shape; sem coluna nova. COMMENT-ONLY: validação/comportamento INTOCADOS.
 function assertAudienceCapacity(conditions?: Record<string, unknown> | null): void {
   if (!conditions || conditions.audience_capacity === undefined || conditions.audience_capacity === null) return;
   const cap = conditions.audience_capacity;
@@ -56,6 +59,11 @@ export interface ServiceOffering {
   bookingApprovalMode: 'manual' | 'automatic';
   acceptDirectSameCity: boolean;
   acceptDirectRadiusKm: number | null;
+  // 🔴 F-PERFORMER-AUDIENCE-RANGE — FAIXA DE PÚBLICO preferida/aceita (colunas REAIS, both-or-neither, min<=max).
+  // PREFERÊNCIA/CONFORTO que alimenta a descoberta. DISTINTA de conditions.audience_capacity (alcance do
+  // EQUIPAMENTO). NULL/NULL = não declarada. Bank-free (contagem de pessoas). PREÇO/cardápio fora.
+  audienceMin: number | null;
+  audienceMax: number | null;
 }
 
 interface SoRow {
@@ -72,12 +80,15 @@ interface SoRow {
   booking_approval_mode: string;
   accept_direct_same_city: boolean;
   accept_direct_radius_km: string | number | null;
+  audience_min: number | null;
+  audience_max: number | null;
 }
 
 const SO_SELECT =
   'id, tenant_id, canonical_service_id, provider_actor_id, company_id, price_cents, ' +
   'duration_minutes, professional_actor_id, modality, status, ' +
-  'booking_approval_mode, accept_direct_same_city, accept_direct_radius_km';
+  'booking_approval_mode, accept_direct_same_city, accept_direct_radius_km, ' +
+  'audience_min, audience_max';
 
 function toOffering(row: SoRow): ServiceOffering {
   return {
@@ -94,6 +105,8 @@ function toOffering(row: SoRow): ServiceOffering {
     bookingApprovalMode: (row.booking_approval_mode === 'automatic' ? 'automatic' : 'manual'),
     acceptDirectSameCity: row.accept_direct_same_city === true,
     acceptDirectRadiusKm: row.accept_direct_radius_km === null ? null : Number(row.accept_direct_radius_km),
+    audienceMin: row.audience_min === null ? null : Number(row.audience_min),
+    audienceMax: row.audience_max === null ? null : Number(row.audience_max),
   };
 }
 
@@ -118,6 +131,39 @@ function assertContractingPolicy(p: ContractingPolicyInput): void {
   if (p.bookingApprovalMode === 'automatic' && p.acceptDirectSameCity !== true && p.acceptDirectRadiusKm == null) {
     throw new ServiceOfferingError(400, 'SERVICE_OFFERING_AUTOMATIC_REQUIRES_DISTANCE',
       "aceita-direto ('automatic') exige condição de distância: same_city=true OU radius_km definido (sem prova de alcance não há auto-confirmação).");
+  }
+}
+
+// 🔴 F-PERFORMER-AUDIENCE-RANGE — validação-antes-de-escrever (§4.9.5) da FAIXA DE PÚBLICO preferida
+// (audience_min/audience_max). Espelha os CHECKs físicos (>0 + min<=max) e a regra both-or-neither (uma faixa
+// precisa dos DOIS extremos) na fronteira do writer, para rejeição controlada (400) em vez de erro cru de
+// constraint. Colunas REAIS GOVERNADAS por CHECK — NÃO enum type. DISTINTA de audience_capacity (equipamento):
+// esta é PREFERÊNCIA que alimenta a descoberta. Reusável por create/update (valores EFETIVOS no update).
+interface AudienceRangeInput {
+  audienceMin?: number | null;
+  audienceMax?: number | null;
+}
+function assertAudienceRange(p: AudienceRangeInput): void {
+  const hasMin = p.audienceMin != null;
+  const hasMax = p.audienceMax != null;
+  // both-or-neither: declarar um extremo exige o outro (uma faixa precisa dos dois lados).
+  if (hasMin !== hasMax) {
+    throw new ServiceOfferingError(400, 'SERVICE_OFFERING_AUDIENCE_RANGE_INCOMPLETE',
+      'faixa de público exige AMBOS audience_min e audience_max (both-or-neither): uma faixa precisa dos dois extremos.');
+  }
+  if (!hasMin && !hasMax) return; // ausente = ok (atributo opcional)
+  if (!Number.isInteger(p.audienceMin) || (p.audienceMin as number) <= 0) {
+    throw new ServiceOfferingError(400, 'SERVICE_OFFERING_AUDIENCE_MIN_INVALID',
+      'audience_min deve ser inteiro > 0 (contagem de pessoas).');
+  }
+  if (!Number.isInteger(p.audienceMax) || (p.audienceMax as number) <= 0) {
+    throw new ServiceOfferingError(400, 'SERVICE_OFFERING_AUDIENCE_MAX_INVALID',
+      'audience_max deve ser inteiro > 0 (contagem de pessoas).');
+  }
+  // faixa bem-formada: espelho do CHECK físico chk_service_offering_audience_range.
+  if ((p.audienceMin as number) > (p.audienceMax as number)) {
+    throw new ServiceOfferingError(400, 'SERVICE_OFFERING_AUDIENCE_RANGE_INVALID',
+      'audience_min não pode ser maior que audience_max (faixa mal-formada).');
   }
 }
 
@@ -151,6 +197,8 @@ export const serviceOfferingService = {
     bookingApprovalMode?: 'manual' | 'automatic' | null;
     acceptDirectSameCity?: boolean | null;
     acceptDirectRadiusKm?: number | null;
+    audienceMin?: number | null;
+    audienceMax?: number | null;
   }): Promise<{ offering: ServiceOffering; created: boolean }> {
     const canRep = await authorizationService.canRepresentActor(input.tenantId, input.userId, input.providerActorId);
     if (!canRep) {
@@ -165,6 +213,9 @@ export const serviceOfferingService = {
     }
     // 🔴 F-PERFORMER-CONTRACTING-POLICY — valida o trio de política ANTES de escrever (§4.9.5).
     assertContractingPolicy(input);
+    // 🔴 F-PERFORMER-AUDIENCE-RANGE — valida a FAIXA DE PÚBLICO preferida ANTES de escrever (§4.9.5): both-or-neither,
+    // int>0, min<=max. DISTINTA de audience_capacity (equipamento). Ausente = ok.
+    assertAudienceRange(input);
     // 🔴 C1c-a — CAPACIDADE DE PÚBLICO: atributo OPCIONAL em conditions.audience_capacity (int > 0). É
     // "atende até N pessoas" (público do show) — SEMÂNTICA DISTINTA do `capacity` de SLOT da Unified
     // Availability (vagas de agenda). Só validação de shape; sem coluna nova. Fail-closed no writer de conditions.
@@ -213,9 +264,10 @@ export const serviceOfferingService = {
          tenant_id, canonical_service_id, service_id, provider_actor_id, company_id,
          price_cents, duration_minutes, professional_actor_id, modality,
          location, service_area, conditions, status,
-         booking_approval_mode, accept_direct_same_city, accept_direct_radius_km
+         booking_approval_mode, accept_direct_same_city, accept_direct_radius_km,
+         audience_min, audience_max
        ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, 'draft',
-                 $13, $14, $15)
+                 $13, $14, $15, $16, $17)
        RETURNING ${SO_SELECT}`,
       [
         input.tenantId, canonical.id, serviceId, input.providerActorId, derivedCompanyId,
@@ -226,6 +278,8 @@ export const serviceOfferingService = {
         input.bookingApprovalMode ?? 'manual',
         input.acceptDirectSameCity ?? false,
         input.acceptDirectRadiusKm ?? null,
+        input.audienceMin ?? null,
+        input.audienceMax ?? null,
       ]
     );
     return { offering: toOffering(ins.rows[0]), created: true };
@@ -242,6 +296,8 @@ export const serviceOfferingService = {
     bookingApprovalMode?: 'manual' | 'automatic' | null;
     acceptDirectSameCity?: boolean | null;
     acceptDirectRadiusKm?: number | null;
+    audienceMin?: number | null;
+    audienceMax?: number | null;
   }): Promise<void> {
     const offering = await this.findById(input.tenantId, input.offeringId);
     if (!offering) throw new ServiceOfferingError(404, 'SERVICE_OFFERING_NOT_FOUND', 'Oferta inexistente.');
@@ -261,6 +317,16 @@ export const serviceOfferingService = {
       const effSameCity = input.acceptDirectSameCity != null ? input.acceptDirectSameCity : offering.acceptDirectSameCity;
       const effRadius = input.acceptDirectRadiusKm !== undefined ? input.acceptDirectRadiusKm : offering.acceptDirectRadiusKm;
       assertContractingPolicy({ bookingApprovalMode: effMode, acceptDirectSameCity: effSameCity, acceptDirectRadiusKm: effRadius });
+    }
+
+    // 🔴 F-PERFORMER-AUDIENCE-RANGE — faixa de público: valida os valores EFETIVOS (merge do input com o estado
+    // atual) ANTES de escrever (§4.9.5), espelhando o both-or-neither + CHECK físico min<=max. Um update parcial
+    // (só um extremo) não pode deixar a linha resultante com faixa incompleta/mal-formada.
+    const touchesAudience = input.audienceMin !== undefined || input.audienceMax !== undefined;
+    if (touchesAudience) {
+      const effMin = input.audienceMin !== undefined ? input.audienceMin : offering.audienceMin;
+      const effMax = input.audienceMax !== undefined ? input.audienceMax : offering.audienceMax;
+      assertAudienceRange({ audienceMin: effMin, audienceMax: effMax });
     }
 
     // 🔴 P3 / DECISION-0147 — STATE-MACHINE fail-closed (Q4: status NUNCA free-form do body) +
@@ -303,6 +369,8 @@ export const serviceOfferingService = {
          booking_approval_mode = COALESCE($6, booking_approval_mode),
          accept_direct_same_city = COALESCE($7, accept_direct_same_city),
          accept_direct_radius_km = CASE WHEN $8::boolean THEN $9::numeric ELSE accept_direct_radius_km END,
+         audience_min = CASE WHEN $10::boolean THEN $11::integer ELSE audience_min END,
+         audience_max = CASE WHEN $12::boolean THEN $13::integer ELSE audience_max END,
          updated_at = NOW()
        WHERE id = $1::uuid AND tenant_id = $2::uuid`,
       [
@@ -311,6 +379,9 @@ export const serviceOfferingService = {
         input.acceptDirectSameCity ?? null,
         // radius é nullable-com-significado: só grava quando explicitamente presente no input (undefined = não mexe).
         input.acceptDirectRadiusKm !== undefined, input.acceptDirectRadiusKm ?? null,
+        // audience_min/max nullable-com-significado: só grava quando explicitamente presente no input.
+        input.audienceMin !== undefined, input.audienceMin ?? null,
+        input.audienceMax !== undefined, input.audienceMax ?? null,
       ]
     );
   },

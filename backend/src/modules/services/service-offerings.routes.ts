@@ -17,6 +17,14 @@ const contractingPolicyShape = {
   acceptDirectRadiusKm: z.number().positive().optional().nullable(),
 };
 
+// 🔴 F-PERFORMER-AUDIENCE-RANGE — FAIXA DE PÚBLICO preferida (colunas REAIS, both-or-neither validado no service).
+// PREFERÊNCIA que alimenta a descoberta; DISTINTA de conditions.audience_capacity (equipamento). Só shape aqui;
+// a regra both-or-neither/min<=max é enforçada em assertAudienceRange (service). /discover querystring INALTERADO.
+const audienceRangeShape = {
+  audienceMin: z.number().int().positive().optional().nullable(),
+  audienceMax: z.number().int().positive().optional().nullable(),
+};
+
 const createSchema = z.object({
   providerActorId: z.string().uuid(),
   canonicalServiceId: z.string().uuid(),
@@ -29,6 +37,7 @@ const createSchema = z.object({
   serviceArea: z.record(z.unknown()).optional().nullable(),
   conditions: z.record(z.unknown()).optional().nullable(),
   ...contractingPolicyShape,
+  ...audienceRangeShape,
 });
 
 const updateSchema = z.object({
@@ -36,6 +45,7 @@ const updateSchema = z.object({
   durationMinutes: z.number().int().positive().optional().nullable(),
   status: z.enum(['draft', 'active', 'suspended']).optional().nullable(),
   ...contractingPolicyShape,
+  ...audienceRangeShape,
 });
 
 const bookingSchema = z.object({
@@ -77,6 +87,8 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
         bookingApprovalMode: (b.bookingApprovalMode as 'manual' | 'automatic' | null | undefined) ?? null,
         acceptDirectSameCity: (b.acceptDirectSameCity as boolean | null | undefined) ?? null,
         acceptDirectRadiusKm: (b.acceptDirectRadiusKm as number | null | undefined) ?? null,
+        audienceMin: (b.audienceMin as number | null | undefined) ?? null,
+        audienceMax: (b.audienceMax as number | null | undefined) ?? null,
       });
       return reply.status(created ? 201 : 200).send({ ok: true, data: offering, created });
     } catch (err) {
@@ -104,6 +116,9 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
         bookingApprovalMode: ('bookingApprovalMode' in (req.body as object ?? {})) ? ((parsed.data.bookingApprovalMode as 'manual' | 'automatic' | null | undefined) ?? null) : undefined,
         acceptDirectSameCity: ('acceptDirectSameCity' in (req.body as object ?? {})) ? ((parsed.data.acceptDirectSameCity as boolean | null | undefined) ?? null) : undefined,
         acceptDirectRadiusKm: ('acceptDirectRadiusKm' in (req.body as object ?? {})) ? ((parsed.data.acceptDirectRadiusKm as number | null | undefined) ?? null) : undefined,
+        // undefined = campo AUSENTE do body (não mexe); null = presente-e-nulo (limpa). Preserva both-or-neither no service.
+        audienceMin: ('audienceMin' in (req.body as object ?? {})) ? ((parsed.data.audienceMin as number | null | undefined) ?? null) : undefined,
+        audienceMax: ('audienceMax' in (req.body as object ?? {})) ? ((parsed.data.audienceMax as number | null | undefined) ?? null) : undefined,
       });
       return reply.send({ ok: true });
     } catch (err) {

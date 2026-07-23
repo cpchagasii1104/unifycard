@@ -190,6 +190,7 @@ class ServicesRepository {
       conceptId?: string;
       subjectConceptId?: string; // C1b: gênero (subject-concept governado) — filtra via facet da oferta ativa
       equipmentConceptId?: string; // C1c-a: equipamento (concept governado) — filtra via facet da oferta ativa
+      audienceSize?: number; // F-PERFORMER-AUDIENCE-RANGE: N pessoas — casa se a faixa da oferta CONTÉM N (min<=N<=max)
       cityId?: string;
       stateId?: string;
       countryId?: string;
@@ -253,6 +254,24 @@ class ServicesRepository {
            AND (so_e.service_id = s.service_id OR so_e.canonical_service_id = s.canonical_service_id)
            AND ef.equipment_concept_id = $${paramIndex++})`);
       params.push(filters.equipmentConceptId);
+    }
+
+    // 🔴 F-PERFORMER-AUDIENCE-RANGE: filtro por TAMANHO DE PÚBLICO (N pessoas). Mesma forma dos filtros de
+    // gênero/equipamento: casa se existe oferta ATIVA do MESMO provider cuja FAIXA de público preferida CONTÉM N
+    // (audience_min <= N AND audience_max >= N — colunas REAIS, não facet). É PREFERÊNCIA (descoberta), DISTINTA
+    // de conditions.audience_capacity (alcance do equipamento). Sem audienceSize = comportamento atual.
+    if (filters.audienceSize != null) {
+      conditions.push(`EXISTS (
+        SELECT 1
+          FROM service_offerings so_a
+         WHERE so_a.tenant_id = s.tenant_id
+           AND so_a.status = 'active'
+           AND so_a.provider_actor_id = s.actor_id
+           AND (so_a.service_id = s.service_id OR so_a.canonical_service_id = s.canonical_service_id)
+           AND so_a.audience_min IS NOT NULL AND so_a.audience_max IS NOT NULL
+           AND so_a.audience_min <= $${paramIndex} AND so_a.audience_max >= $${paramIndex})`);
+      paramIndex++;
+      params.push(filters.audienceSize);
     }
 
     // Filtros de localização. (category_id mantido p/ callers de navegação por árvore — ex.: marketplace-search,
